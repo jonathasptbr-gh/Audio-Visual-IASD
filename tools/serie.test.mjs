@@ -369,6 +369,25 @@ checar(S.nomeDoItem(semNada[0]) === 'Informativo Mundial das Missões',
   'e o nome cai na SÉRIE — nunca numa linha vazia, que seria intocável na lista',
   S.nomeDoItem(semNada[0]));
 
+// ── 7c-1. O ITEM SEM NOME NENHUM: entra, e a linha NÃO fica em branco ──────
+// `name` vazio vindo do extrator. A regra de ouro decide o que fazer com ele: o
+// vídeo é PROJETÁVEL (id, url, duração e miniatura vieram inteiros), então
+// recusá-lo seria trocar uma linha feia pelo sábado sem o vídeo do culto. O que
+// não pode existir é a linha VAZIA — intocável e inexplicável na lista.
+const semNome = S.itensDaPlaylist([
+  { id: 'v0', url: 'y/v0', name: '', seconds: 300 },
+  { id: 'v1', url: 'y/v1', name: '   ', seconds: 300 },
+], 8, SERIE);
+checar(semNome.length === 2, 'REGRA DE OURO: sem nome nenhum, os vídeos ENTRAM assim mesmo', semNome.length);
+checar(S.nomeDoItem(semNome[0]) === 'vídeo v0',
+  'e o rótulo cai no ID do vídeo, que é o último identificador que sempre existe',
+  S.nomeDoItem(semNome[0]));
+checar(S.nomeDoItem(semNome[1]) === 'vídeo v1',
+  'nome só de espaços é a mesma linha em branco, e cai no mesmo lugar',
+  S.nomeDoItem(semNome[1]));
+checar(S.avaliarVideo({ id: '', url: 'y/x', name: '' }, SERIE).motivo === S.MOTIVO_SEM_ID,
+  'e sem ID ele nem chega ao rótulo: a recusa é a que já existia');
+
 // ── 7d. O IDIOMA DO VÍDEO — a recusa que o prefixo NÃO faz ──────────────────
 // Em espanhol o vídeo começa com a MESMA palavra ("Informativo Mundial de las
 // Misiones"), então dentro da playlist de português ele seria indistinguível.
@@ -427,6 +446,34 @@ checar(!S.ehOutroIdioma('Ação, coração e São Paulo 🙏'),
   'acentos e emoji não são "outro idioma" (as faixas param antes dos emoji)');
 checar(videosAgosto.every((v) => !S.ehOutroIdioma(v.name)) && doCanal.every((p) => !S.ehOutroIdioma(p.name)),
   'e NENHUM nome do @provaievedeoficial é recusado pela regra nova — ela não pode cobrar da primeira série');
+
+// ── 7d-2. LARGURA FIXA: pontuação NÃO é escrita — EM PAR com a que é ───────
+// A faixa das formas de largura fixa (U+FF00-FFEF) tem duas metades opostas, e
+// a régua tem de separá-las: no começo mora o ASCII de largura fixa (｜！＠…),
+// que é PONTUAÇÃO e aparece em título português copiado de qualquer lugar; a
+// partir de FF61 moram o katakana e o hangul de meia-largura, que são ESCRITA.
+// Recusar a metade de baixo é o defeito da v5.252 ("Mission Refocus") outra
+// vez: o episódio some do sábado por causa de um caractere de enfeite.
+//
+// Os dois lados JUNTOS, sempre: afrouxar a faixa até engolir o katakana devolve
+// o erro oposto — o vídeo em japonês no telão do culto.
+const PIPE_LARGO = 'A missão de Enoc ｜ Provai e Vede 2026 (15/Ago)';
+checar(!S.ehOutroIdioma(PIPE_LARGO),
+  'o "｜" de largura fixa é PONTUAÇÃO: o episódio em português não pode ser recusado');
+const pipe = S.itensDaPlaylist([{ id: 'w1', url: 'y/w1', name: PIPE_LARGO, seconds: 300 }], 8, SERIE);
+// Ele ENTRA, com a data — que é o que a correção compra. O `tituloDoEpisodio`
+// continua cortando só na barra ASCII, então o rótulo sai comprido; é o
+// desfecho que o KDoc dele já declara ("um rótulo comprido é melhor que um
+// rótulo vazio"), e comprido o operador lê, ausente ele não.
+checar(pipe.length === 1 && pipe[0].dia === 15 && pipe[0].mes === 8,
+  'e ele ENTRA, com a data de 15 de agosto', JSON.stringify(pipe[0] || null));
+checar(pipe.length === 1 && S.nomeDoItem(pipe[0]).startsWith('15/Ago · A missão de Enoc'),
+  'e o rótulo começa pela data, que é por onde o operador procura o sábado',
+  pipe.length && S.nomeDoItem(pipe[0]));
+checar(S.ehOutroIdioma('ﾐｯｼｮﾝ ﾆｭｰｽ 2026'),
+  'e o katakana de MEIA-LARGURA (ff61-ff9f) continua recusado — é escrita, não pontuação');
+checar(S.ehOutroIdioma('ﾡﾢﾣ 2026'),
+  'o mesmo para o hangul de meia-largura (ffa0-ffdc)');
 
 // ── 7f. A ABA REAL DOS DOIS CANAIS, verbatim do registro do aparelho ────────
 // A primeira varredura de verdade devolveu **94 playlists** no

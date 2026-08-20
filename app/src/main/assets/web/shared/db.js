@@ -13,8 +13,9 @@
 //     [{id,name}] e um array de ids por atalho em "folder_<id>". São detentores
 //     de referência como as listas.
 //   - um blob de "media" só é apagado quando NADA mais aponta para ele — nem
-//     lista, nem Favorito (ver `isReferenced`); registros de "files"
-//     pertencem à sua pasta OPFS e não passam pelo gc.
+//     lista, nem Favorito, nem a CENA (`state.current.mediaId`; ver
+//     `lerDetentores`); registros de "files" pertencem à sua pasta OPFS e não
+//     passam pelo gc.
 //
 // Exposto como window.AVDB.
 
@@ -656,6 +657,22 @@
         for (const id of await readListIn(stateStore, 'folder_' + f.id)) donos.add(id);
       }
     }
+    // A CENA TAMBÉM É DETENTORA. `state.current.mediaId` é o `currentId` do
+    // Controle, gravado por `persistCurrent` ANTES de o `load` sair — logo a
+    // mídia projetada já está aqui quando qualquer coletor pergunta.
+    //
+    // Sem isto, um item com UM ÚNICO detentor (o vídeo baixado direto para a
+    // playlist) era destruído ENQUANTO TOCAVA: o ✕ da linha → `listRemove` →
+    // ninguém mais aponta → `delete(id)` na mesma transação. A projeção segue
+    // (o telão já tem os bytes) e nada avisa; a queda do dongle ou um OTA faz o
+    // `resendSceneToDisplay` pedir um `getMedia` que não existe mais.
+    //
+    // NÃO é lista, e é isso que faz a regra valer: `exceptList` nunca a exclui,
+    // então sair da ÚLTIMA lista continua segurando o blob. O item fica órfão
+    // ATÉ A CENA MUDAR — daí é órfão comum, e o `gcOrfaos` da abertura seguinte
+    // o recolhe (`clearCurrentSelection` zera esta chave ANTES de `varrerRestos`).
+    const cena = await asPromise(stateStore.get('current'));
+    if (cena && cena.mediaId) donos.add(cena.mediaId);
     return donos;
   }
 

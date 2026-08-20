@@ -447,6 +447,28 @@ object WebUpdater {
     private const val MIN_ENTRE_CHECKS_MS = 5_000
 
     /**
+     * O piso do CUTUCÃO DE ROTINA DA TELA (`otaCheck(false)`) — o da ronda.
+     *
+     * A enquete do lado web bate a cada 10 s (`OTA_POLL_MS`), então
+     * [MIN_ENTRE_CHECKS_MS] **nunca a reprova**: a rotina que se anunciava como
+     * "lê o disco" virava uma consulta à rede a cada dez segundos, para sempre,
+     * por cima das quatro por minuto que a [RONDA_MS] orça.
+     *
+     * E não dá para consertar subindo aquele piso, que é o reflexo: um valor
+     * acima de 10 s deixaria a enquete ROUBAR o passo da ronda — ela passaria
+     * primeiro, e a batida seguinte cairia dentro do piso e seria descartada.
+     * É o defeito que o KDoc de [MIN_ENTRE_CHECKS_MS] descreve pelo outro lado,
+     * e o custo é a detecção ficar mais LENTA (~20 s) do que sem a enquete.
+     *
+     * Com o piso da própria ronda, o cutucão só vira requisição quando a ronda
+     * não entregou uma passada inteira — que é exatamente o papel dele: rede de
+     * segurança, não segunda ronda. É a ronda de PRIMEIRO PLANO, e não a
+     * [RONDA_FUNDO_MS], porque é só na frente que a enquete existe: minimizado,
+     * quem estrangula os `setTimeout` do Controle é o próprio Chromium.
+     */
+    private const val MIN_CUTUCAO_TELA_MS = RONDA_MS
+
+    /**
      * Espera crescente depois de uma falha: 5 s, 10 s, 20 s, 30 s.
      *
      * O teto era de 90 s, e ele era o pior lugar para ser generoso: a falha
@@ -612,6 +634,9 @@ object WebUpdater {
      * operador (o botão "Procurar atualização"), e fazer um botão não fazer
      * nada porque um relógio interno acha que é cedo demais é pior que a
      * requisição extra.
+     *
+     * Este piso é o MÍNIMO de todos; quem bate mais rápido que ele traz o seu
+     * por cima — ver [cutucaoDaTela].
      */
     fun checkAsync(ctx: Context, motivo: String = "abertura", forcar: Boolean = false) {
         val app = ctx.applicationContext
@@ -671,6 +696,21 @@ object WebUpdater {
                 checking.set(false)
             }
         }
+    }
+
+    /**
+     * O cutucão de ROTINA vindo da tela — a enquete de 10 s do `controle.js`,
+     * pelo `otaCheck(false)`.
+     *
+     * Existe como porta própria só para carregar o [MIN_CUTUCAO_TELA_MS]: ele é
+     * o único chamador cujo ritmo é mais rápido que o piso comum, e sem porta a
+     * escolha do piso teria de morar no `NativeBridge` — política de OTA escrita
+     * do lado errado.
+     */
+    fun cutucaoDaTela(ctx: Context) {
+        val agora = SystemClock.elapsedRealtime()
+        if (ultimoOk > 0 && agora - ultimoOk < MIN_CUTUCAO_TELA_MS) return
+        checkAsync(ctx, "cutucão da tela")
     }
 
     /**

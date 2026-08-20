@@ -158,12 +158,13 @@ class EspelhoMidiaCache(
      *  como o 404 idêntico de sempre. */
     fun servir(token: String): Item? = porToken[token]?.tocar()
 
-    /** O item de um ID do acervo — é o que torna a enriquecida idempotente. */
-    fun porId(id: String): Item? = porId[id]
-
     fun bytesNoCache(): Long = porToken.values.sumOf { it.recebido }
 
     fun itens(): Int = porToken.size
+
+    /** O teto desta instância — o Registro o publica ao lado do uso, senão
+     *  "1,2 GB no cache" não diz se falta pouco ou muito para o despejo. */
+    fun teto(): Long = tetoBytes
 
     /** Zera tudo — o desligar da transmissão. Tokens morrem com a sessão. */
     @Synchronized
@@ -207,9 +208,15 @@ class EspelhoMidiaCache(
 
         fun tokenValido(t: String): Boolean = FORMA_TOKEN.matches(t)
 
-        /** Cunhagem de reserva (quando o lado web não mandar token — não é o
-         *  caminho normal, mas a rota existe para nunca depender do chamador
-         *  acertar): 128 bits de SecureRandom em base64url, o SafRegistry. */
+        /** A forma de um token deste cache, escrita como código: 128 bits de
+         *  SecureRandom em base64url, o SafRegistry.
+         *
+         *  **NÃO HÁ CAMINHO DE RESERVA, e não pode haver**: quem cunha é o
+         *  Controle, de forma síncrona na emissão do `load` (ver o KDoc do
+         *  topo), e um token cunhado AQUI não teria como chegar ao `__rec` que
+         *  já viajou. Sem chamador em produção de propósito — quem a exercita é
+         *  o `EspelhoMidiaCacheTest`, que prende a forma que o [tokenValido]
+         *  aceita. */
         fun novoToken(): String {
             val b = ByteArray(16)
             SecureRandom().nextBytes(b)

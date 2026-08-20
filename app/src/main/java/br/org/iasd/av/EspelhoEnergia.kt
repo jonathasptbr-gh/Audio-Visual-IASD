@@ -61,7 +61,18 @@ object EspelhoEnergia {
 
     private val relogio = Handler(Looper.getMainLooper())
 
+    /**
+     * Os dois locks são escritos no [ligar]/[desligar] (main) e LIDOS das
+     * threads de escrita do [EspelhoServidor], por [progresso] — daí o
+     * `@Volatile`, como nos sete irmãos abaixo. Sem ele a renovação pode ler
+     * uma referência JÁ SOLTA e reacender um lock que ninguém mais tem como
+     * devolver (só o timeout de 2 h o faz), ou um `null` obsoleto e pular a
+     * renovação de uma transmissão viva.
+     */
+    @Volatile
     private var wakeLock: PowerManager.WakeLock? = null
+
+    @Volatile
     private var wifiLock: WifiManager.WifiLock? = null
 
     /** O contexto de APLICAÇÃO, guardado no [ligar]. Nunca uma Activity: este

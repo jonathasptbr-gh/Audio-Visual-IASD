@@ -103,6 +103,32 @@ checar((await existe(c)) && (await existe(d)), 'e a playlist continua inteira');
 const segunda = await pg.evaluate(() => window.AVDB.gcOrfaos());
 checar(segunda === 0, 'e a segunda passagem não acha mais nada', 'removidos: ' + segunda);
 
+// --- a CENA É DETENTORA (v5.315) -------------------------------------------
+// O caso que chegou do aparelho: um vídeo baixado direto para a playlist tem UM
+// único detentor. Tirar da fila enquanto ele TOCA destruía o registro debaixo
+// da projeção — o telão seguia com os bytes e nada avisava; o estrago aparecia
+// só na reconexão do dongle (ou depois de um OTA), quando o reenvio de cena
+// pede um `getMedia` que não existe mais. Longe da causa e no meio do culto.
+const emCena = await semear('playlist');
+await pg.evaluate((id) => window.AVDB.setState('current', { mediaId: id }), emCena);
+await pg.evaluate((id) => window.AVDB.listRemove('playlist', id), emCena);
+checar(await existe(emCena), 'tirar da ÚNICA lista NÃO apaga o que está em cena');
+checar(!(await pg.evaluate((id) => window.AVDB.listHas('playlist', id), emCena)),
+  'e a remoção acontece de verdade — o que fica é só o blob');
+checar((await pg.evaluate(() => window.AVDB.gcOrfaos())) === 0,
+  'a faxina também o preserva enquanto ele estiver no ar');
+checar(await existe(emCena), 'e ele continua no banco depois dela');
+
+// A OUTRA METADE, sem a qual a de cima seria vazamento: trocada a cena, ele
+// vira órfão comum e a faxina o recolhe. No app quem zera a chave é o
+// `clearCurrentSelection`, ANTES do `varrerRestos` da mesma abertura.
+const cenaNova = await semear('playlist');
+await pg.evaluate((id) => window.AVDB.setState('current', { mediaId: id }), cenaNova);
+checar((await pg.evaluate(() => window.AVDB.gcOrfaos())) === 1,
+  'trocada a cena, a faxina seguinte o recolhe');
+checar(!(await existe(emCena)), 'e o registro que ficou para trás some');
+checar(await existe(cenaNova), 'enquanto a cena nova continua inteira');
+
 await navegador.close();
 console.log(falhas.length ? '\n' + falhas.length + ' FALHA(S)' : '\nTodos passaram.');
 process.exit(falhas.length ? 1 : 0);

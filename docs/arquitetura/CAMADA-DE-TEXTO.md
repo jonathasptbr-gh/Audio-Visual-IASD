@@ -123,7 +123,7 @@ cortina e o rodízio de provedor.
 | Onde | O quê |
 |---|---|
 | `send(id, daFila)` | **a decisão**: `!daFila && alvo.kind === 'image' && audioNoAr()` → `projetarImagemSobre`, senão o caminho de sempre |
-| `projetarImagemSobre` / `hideImagemSobre` | a sessão `imgSession = { id, nome, projecting }` — a mesma forma das outras cinco, e é isso que a põe de graça no `cenaDeRoteiroNoAr`, no `soUmProvedorDeTexto` e no reenvio |
+| `projetarImagemSobre` / `hideImagemSobre` | a sessão `imgSession = { id, nome, rec, projecting }` — a mesma forma das outras cinco, e é isso que a põe de graça no `cenaDeRoteiroNoAr`, no `soUmProvedorDeTexto` e no reenvio |
 | `display.js` → `pintarTextImg` | resolve `cmd.__rec || AVDB.getMedia(mediaId)` → blob/OPFS/url → `objectURL` em `#textImg`, com `textImgSeq` contra corrida e `soltarTextImg` revogando |
 | `telaEnriquecer` | anexa o `__rec` saneado (`/m/<token>`) — é o **único** comando de texto que precisa, porque é o único que leva um `mediaId` |
 
@@ -134,7 +134,14 @@ cortina e o rodízio de provedor.
   régua do reenvio (`midiaNoAr`).
 - **O avanço automático da fila NÃO sobrepõe** (`daFila`): ali a imagem é o
   PRÓXIMO item da sequência. Sobrepor faria a fila parar de andar sozinha, com
-  o áudio anterior tocando para sempre sob a imagem nova.
+  o áudio anterior tocando para sempre sob a imagem nova. **⏮/⏭ passam `daFila`
+  pelo mesmo motivo** (`step`): o eixo deles é "trocar de MÍDIA". Sem isso o
+  `currentId` ficava no áudio, o índice da fila não andava, e o botão "Próxima
+  mídia" — aqui, na notificação e na tela de bloqueio — parava de andar.
+- **O `rec` viaja DENTRO da sessão**, e é o que `await0Rec` consulta antes das
+  listas: a imagem sobreposta quase sempre vem de `libItems`, que a troca de
+  aba zera, e um reenvio de cena horas depois (uma tela da rede que deu F5)
+  mandaria o comando sem `__rec` — cartão PRETO sobre a projeção.
 - **Sem áudio no ar a imagem projeta NORMAL** (substitui). A sobreposição é a
   exceção; aplicada sempre, uma imagem sozinha entraria como cartão de texto
   sobre nada — sem barra, sem cortina, sem transporte.

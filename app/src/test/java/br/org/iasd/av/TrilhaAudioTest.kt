@@ -136,4 +136,43 @@ class TrilhaAudioTest {
     fun `lista vazia não explode`() {
         assertEquals(0, escolher().size)
     }
+
+    // ---- a exclusividade × o CONTÊINER ----
+    //
+    // A regra é pura e não sabe o que é um contêiner, mas quem a chama sabe:
+    // `YoutubeGrab.candidatosAudio` corta por m4a/webm porque o muxer exige o
+    // par do mesmo lado. A ORDEM dos dois cortes é o que estes dois casos
+    // travam — e é a única metade da regra que se pode perder sem tocar no
+    // `TrilhaAudio`.
+
+    /** A faixa com CONTÊINER: o que `YoutubeGrab.candidatosAudio` tem na mão. */
+    private data class Trilha(val idioma: String, val tipo: String, val ext: String)
+
+    /** A ordem do pipeline: o IDIOMA na lista inteira, o contêiner DEPOIS. */
+    private fun noConteiner(ext: String, vararg faixas: Trilha): List<Trilha> =
+        TrilhaAudio.soPortugues(faixas.toList(), { it.idioma }, { it.tipo })
+            .filter { it.ext == ext }
+
+    @Test
+    fun `o corte por contêiner não apaga a exclusividade do português`() {
+        val en = Trilha("en", TrilhaAudio.ORIGINAL, "m4a")
+        val pt = Trilha("pt-BR", TrilhaAudio.DUBLADA, "webm")
+        // Cortado o contêiner PRIMEIRO, o m4a devolveria a original em inglês —
+        // ela baixa, monta e vai ao telão com sucesso e sem sinal. Perguntado
+        // o idioma primeiro, o m4a fica SEM ÁUDIO UTILIZÁVEL, que é a verdade.
+        assertEquals(0, noConteiner("m4a", en, pt).size)
+        // E o par que de fato serve continua inteiro do outro lado.
+        assertEquals(listOf(pt), noConteiner("webm", en, pt))
+    }
+
+    @Test
+    fun `mas NÃO havendo português, cada contêiner devolve o que tem`() {
+        // O irmão do caso acima: sem trilha nossa a exclusividade não dispara,
+        // e o corte não pode virar "só baixa se for português" — seria a
+        // biblioteca inteira de vídeo estrangeiro sumindo sem explicação.
+        val en = Trilha("en", TrilhaAudio.ORIGINAL, "m4a")
+        val es = Trilha("es", TrilhaAudio.DUBLADA, "webm")
+        assertEquals(listOf(en), noConteiner("m4a", en, es))
+        assertEquals(listOf(es), noConteiner("webm", en, es))
+    }
 }

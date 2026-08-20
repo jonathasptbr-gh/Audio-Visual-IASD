@@ -453,12 +453,13 @@ prazo (um timeout ali resolveria null com o operador ainda escolhendo a pasta).
 
 ### `SHELL_VERSION` — subir SEMPRE que a superfície mudar
 
-Hoje vale **44**. "Superfície" inclui **forma de retorno** e **comportamento**,
+Hoje vale **45**. "Superfície" inclui **forma de retorno** e **comportamento**,
 não só assinatura: um campo que some, um contrato de URL que muda ou um método
 que passa a fazer outra coisa exigem o degrau do mesmo jeito.
 
 | shell | o que mudou |
 |---|---|
+| **45** | `espelhoDiag` ganha `midia { itens, bytes, teto }` — o cache da rota `/m/` no Registro. Não muda poder nenhum; o degrau existe porque **forma de retorno é superfície**, e o Registro é lido A DISTÂNCIA |
 | **44** | `espelhoEstado` ENCOLHE: cada tela perdeu os seis campos de capacidade (`seguro`, `mse`, `mms`, `fetchStream`, `videoDecoder`, `wakeLock`) — sem produtor desde a v5.187, e `optBoolean` os publicava como `false`, que é valor legítimo |
 | 43 | `+ atualizacaoEstado` — os dois canais numa leitura só. Não acrescenta poder, acrescenta **coerência de instante** (três promessas independentes desenhavam o diálogo pela metade) |
 | 42 | `+ actions` no `nowPlaying` — os botões do cartão, escolhidos pelo web (invariante 5) |
@@ -489,17 +490,20 @@ de renderer e a cada ciclo do dongle). Todos daemon.
 
 | fila | o que roda nela | por quê |
 |---|---|---|
-| **`io`** | só o que responde em MILISSEGUNDOS: `version.json`, estado do OTA, `listFolder` pelo `ContentResolver` | é a fila de que tudo mais depende |
+| **`io`** | só o que responde em MILISSEGUNDOS: `version.json`, estado do OTA, `listFolder` pelo `ContentResolver`. **Nada de rede** | é a fila de que tudo mais depende |
 | **`transferencia`** | as transferências de MINUTOS: o download do YouTube, o do APK, e o `ytDiscard` | ver abaixo |
-| **`extracao`** | o que vai à rede ler METADADOS (busca, playlists de canal, o manifesto do `ytStream`) e a rasterização de PDF — coisas de SEGUNDOS | ver abaixo |
+| **`extracao`** | o que vai à rede ler METADADOS (busca, playlists de canal, o manifesto do `ytStream`, o `apkProcurar`) e a rasterização de PDF — coisas de SEGUNDOS | ver abaixo |
 
-- **Enfileirar rede longa em `io` é o defeito que a separação corrigiu.** `io` é
-  de uma thread só; do lado web `CALL_TIMEOUT_MS` são 60 s e o `call()` resolve
-  `null` ao vencer. Com um vídeo de 300 MB baixando, `listFolder` devolvia lista
-  vazia, `otaPending` dizia que não há atualização e `atualizacaoEstado` não
-  respondia nada. **Nenhum deles erra: os três mentem baixinho** — e o pior é o
-  `listFolder`, cuja lista vazia o `controle.js` lê como "a pasta sumiu do
-  aparelho".
+- **Enfileirar rede em `io` é o defeito que a separação corrigiu — e "curta"
+  não salva.** `io` é de uma thread só; do lado web `CALL_TIMEOUT_MS` são 60 s e
+  o `call()` resolve `null` ao vencer. Com um vídeo de 300 MB baixando,
+  `listFolder` devolvia lista vazia, `otaPending` dizia que não há atualização e
+  `atualizacaoEstado` não respondia nada. **Nenhum deles erra: os três mentem
+  baixinho** — e o pior é o `listFolder`, cuja lista vazia o `controle.js` lê
+  como "a pasta sumiu do aparelho". O `apkProcurar` repetiu isso em escala
+  menor: um GET à API do GitHub com 20 s de connect + 20 s de read trava a mesma
+  fila por até 40 s. Ele mora na `extracao` — não toca no NewPipe, mas é rede
+  lendo metadados, e o pior caso dele lá é um "Tocar agora" esperando.
 - **`extracao` é separada de `transferencia` porque segundos não esperam
   minutos.** Atrás de um download, o "Tocar agora" de um vídeo esperaria o
   hinário terminar — e, vencido o prazo, cairia no download sem que nada
@@ -1065,6 +1069,14 @@ intenção atravessando um `reload()` de verdade.
   iguais, uma batida um milissegundo cedo era descartada e a seguinte só viria
   15 s depois — a ronda valendo 15 s ou 30 s conforme o jitter do agendador. É a
   receita exata da "detecção inconstante e quase aleatória".
+- **E por isso o piso é POR CHAMADOR.** A enquete do lado web bate a cada 10 s e
+  passava livre pelos 5 s: a rotina que se anuncia como "lê o disco" virava uma
+  consulta à rede a cada dez segundos, para sempre. Subir o piso comum acima de
+  10 s é o reflexo errado — aí a enquete ROUBA o passo da ronda, e a detecção
+  fica mais lenta do que sem ela. O cutucão da tela leva o piso da PRÓPRIA ronda
+  (`WebUpdater.cutucaoDaTela`): ele só vira requisição quando a ronda não
+  entregou uma passada inteira, que é o papel dele — rede de segurança, não
+  segunda ronda.
 - **A ronda é blindada contra exceção.** `scheduleWithFixedDelay` CANCELA todas
   as execuções seguintes quando o `Runnable` lança — sem log e sem `Future` que
   alguém consulte. Errar aqui é a detecção parar para sempre naquele aparelho.
@@ -1081,9 +1093,9 @@ intenção atravessando um `reload()` de verdade.
   `currentVersion` continua sendo o da sessão — comparar por ele rebaixaria o
   mesmo zip a cada ronda, apagando com `deleteRecursively` um diretório que o
   operador pode ter acabado de mandar aplicar ao vivo.
-- **`#otaRow` tem dois estados**: "Procurar atualização" (pula o piso do shell —
-  é o único chamador que o faz) e "Atualizar: …". Os dois desfazem a recusa da
-  sessão. `otaDiag` alimenta a linha **"Procura:"** do Registro: "não apareceu
+- **`#otaRow` tem dois estados**: "Procurar atualização" (pula o piso do shell,
+  ao lado do `onResume` — são os dois que o fazem) e "Atualizar: …". Os dois
+  desfazem a recusa da sessão. `otaDiag` alimenta a linha **"Procura:"** do Registro: "não apareceu
   aviso nenhum" tem quatro causas indistinguíveis da tela.
 - **Sem `WorkManager` nem alarme**, de propósito: atualizar a base de um app
   FECHADO não serve para nada (ela entra ao abrir, e ao abrir a procura acontece).

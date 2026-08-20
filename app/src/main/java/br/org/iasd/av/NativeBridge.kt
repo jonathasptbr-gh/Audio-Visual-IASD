@@ -165,7 +165,7 @@ class NativeBridge(
          *
          * O degrau a degrau está na tabela da seção "A ponte" do `CLAUDE.md`.
          */
-        const val SHELL_VERSION = 44
+        const val SHELL_VERSION = 45
 
         /**
          * O CONSUMIDOR DA LAN para o barramento (telão por comandos, E2 —
@@ -238,6 +238,15 @@ class NativeBridge(
          * trabalho LONGO mora em [transferencia] e [extracao] — ver o porquê
          * lá.
          *
+         * **NADA DE REDE AQUI, nem uma consulta "rápida".** O `apkProcurar`
+         * morou nesta fila e é a lição: uma pergunta à API do GitHub com 20 s
+         * de connect mais 20 s de read trava, no pior caso, por 40 s a fila de
+         * que `otaPending`, `atualizacaoEstado` e `listFolder` dependem — e os
+         * três não erram, mentem baixinho (o `call()` do lado web resolve
+         * `null` aos 60 s, e a lista vazia do `listFolder` o `controle.js` lê
+         * como "a pasta sumiu do aparelho"). Rede lendo metadados é a
+         * definição da [extracao].
+         *
          * Um executor por instância vazava: `newSingleThreadExecutor` cria uma
          * thread de core sem timeout e não-daemon, viva até um `shutdown` que
          * nunca acontecia — e a ponte é reconstruída a cada morte de renderer e
@@ -274,8 +283,8 @@ class NativeBridge(
 
         /**
          * A fila das EXTRAÇÕES — o que vai à rede ler metadados (busca do
-         * YouTube, playlists de um canal, o manifesto da transmissão direta) e a
-         * rasterização de um PDF.
+         * YouTube, playlists de um canal, o manifesto da transmissão direta, a
+         * procura por APK novo na API do GitHub) e a rasterização de um PDF.
          *
          * Separada da [transferencia] porque estas são de SEGUNDOS e aquela é de
          * minutos: enfileirá-las atrás de um download deixaria o "Tocar agora"
@@ -284,7 +293,11 @@ class NativeBridge(
          *
          * Também de uma thread só: as extrações compartilham a inicialização
          * global do NewPipe, e serializá-las é mais barato que auditar a
-         * biblioteca inteira. Os DIAGNÓSTICOS não colidem — `diagnostico` é
+         * biblioteca inteira. O `apkProcurar` não toca no NewPipe (é um
+         * `HttpURLConnection` avulso) e entra aqui pela outra metade da regra —
+         * é rede lendo metadados —, aceitando o preço declarado desta fila: o
+         * pior caso dele é um "Tocar agora" esperando, que é o desfecho que
+         * esta fila já sabe ter. Os DIAGNÓSTICOS não colidem — `diagnostico` é
          * escrito só pelo caminho do download e `diagnosticoStream` só pelo do
          * manifesto, que é justamente por que eles são dois campos.
          */
@@ -372,8 +385,10 @@ class NativeBridge(
      * PROCURAR. Com `forcar`, pula o piso entre consultas — é o operador
      * tocando um botão, e um botão que não faz nada porque um relógio interno
      * acha que é cedo demais é pior que a requisição extra. Sem ele, é o
-     * cutucão de rotina da enquete do lado web, e aí o piso é justamente o que
-     * impede uma consulta à rede por minuto, para sempre.
+     * cutucão de rotina da enquete do lado web, e aí quem decide é o piso
+     * PRÓPRIO dela (`WebUpdater.cutucaoDaTela`): a enquete bate a cada 10 s, e
+     * o piso comum de 5 s não reprovava nenhuma delas — o que se anunciava como
+     * "lê o disco" era uma consulta à rede a cada dez segundos, para sempre.
      *
      * NÃO espera a resposta da rede: quem entrega o desfecho é o `otaPending`
      * seguinte (a enquete do lado web) ou o empurrão do shell quando o bundle
@@ -385,7 +400,8 @@ class NativeBridge(
     @JavascriptInterface
     fun otaCheck(forcar: Boolean) {
         if (host == null) return
-        WebUpdater.checkAsync(ctx, if (forcar) "pedido do operador" else "cutucão da tela", forcar)
+        if (forcar) WebUpdater.checkAsync(ctx, "pedido do operador", true)
+        else WebUpdater.cutucaoDaTela(ctx)
     }
 
     /**
@@ -433,12 +449,17 @@ class NativeBridge(
      * **Privilégio do Controle** (invariante 9). O telão hospeda código de
      * terceiro por design, e um método que baixa e instala um pacote é o mais
      * poderoso da ponte inteira — ele não pode existir naquele documento.
+     *
+     * Roda na fila de EXTRAÇÃO, nunca na de [io]: é uma consulta à API do
+     * GitHub com 20 s de connect mais 20 s de read, e na [io] ela travava por
+     * até 40 s a fila de `otaPending`, `atualizacaoEstado` e `listFolder` —
+     * ver o KDoc de [io].
      */
     @JavascriptInterface
     fun apkProcurar(callId: String) {
         val h = host
         if (h == null) { resolve(callId, "null"); return }
-        io.execute { resolve(callId, ShellUpdater.procurar(ctx).toString()) }
+        extracao.execute { resolve(callId, ShellUpdater.procurar(ctx).toString()) }
     }
 
     /**

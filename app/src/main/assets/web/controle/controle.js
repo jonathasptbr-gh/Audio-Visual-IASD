@@ -2875,8 +2875,15 @@ function renderPlaylist() {
     // O QUE NÃO MUDA É A SEMÂNTICA, e por isso ele não é um
     // `botaoExcluirDaLinha`: sair da FILA não é sair de uma lista de acervo.
     // Sem `retirarDoAr` (o item pode estar no Cronograma e seguir projetando, e
-    // a linha de lá o explica) e sem `soltarAvulso` — a fila não é detentora de
-    // bytes, e tratá-la como tal apagaria mídia por um gesto de reordenação.
+    // a linha de lá o explica) e sem `soltarAvulso` — a prateleira `avulsos` é
+    // detentora à parte, e soltá-la aqui apagaria a mídia que o "Tocar agora"
+    // segurava.
+    //
+    // A FILA, ESSA, É DETENTORA como qualquer outra lista (ver LISTS em
+    // `db.js`, e o KDoc de `togglePlaylist`): o `listRemove` roda o coletor na
+    // MESMA transação, e sair da ÚLTIMA lista apaga os bytes. É a cláusula que
+    // a dica diz por extenso — um gesto que parece reversível e não é custa,
+    // num episódio de série, ~300 MB baixados em rede de celular.
     const rm = document.createElement('button');
     rm.className = 'row-btn row-excluir';
     rm.title = 'Tirar da playlist';
@@ -2886,7 +2893,8 @@ function renderPlaylist() {
       e.stopPropagation();
       pedirConfirmacaoNaLinha(rm, {
         ok: 'Tirar',
-        dica: 'Tirar da fila. O item continua onde estiver guardado.',
+        dica: 'Tirar da fila. O arquivo só é apagado se ele não estiver '
+          + 'guardado em mais nenhuma lista.',
         aoConfirmar: async () => { await AVDB.listRemove('playlist', item.id); await load(); },
       });
     });
@@ -4340,7 +4348,12 @@ function lyricStep(delta) {
 // A sessão tem a mesma forma das outras cinco (`{ id, projecting }`), e por isso
 // entra de graça em `cenaDeRoteiroNoAr`, no rodízio do `soUmProvedorDeTexto` e
 // na escada do botão voltar.
-let imgSession = null;   // { id, nome, projecting } | null
+// O `rec` viaja DENTRO da sessão porque ele é o único lugar que sobrevive à
+// troca de aba: a imagem sobreposta costuma vir de `libItems`, e essa lista é
+// zerada a cada troca. Sem ele, um reenvio de cena (uma tela da rede que deu F5)
+// mandava `{type:'text',mode:'image'}` sem `__rec` e a tela pintava um cartão
+// PRETO sobre a projeção. Ver `await0Rec`.
+let imgSession = null;   // { id, nome, rec, projecting } | null
 function imgSobreProjetando() { return !!(imgSession && imgSession.projecting); }
 
 // ESTA LINHA DA LISTA É A IMAGEM QUE ESTÁ POR CIMA? A pergunta existe porque a
@@ -4387,6 +4400,20 @@ function audioNoAr() {
  * esquecida. Aqui é um: quem entra diz QUEM É, e o resto sai.
  */
 function soUmProvedorDeTexto(quem) {
+  // UM PROVEDOR DIFERENTE ASSUMINDO O CARTÃO TIRA A CENA DE ROTEIRO DO AR — e o
+  // selo "● No ar" da linha do roteiro tem de sair junto. Sem esta linha o selo
+  // ficava na linha ANTIGA e o toque seguinte lia `noArAgora = true`: o operador
+  // tocava no versículo esperando reprojetá-lo e o que saía do telão era a cena
+  // NOVA (o cronômetro), com o versículo sem entrar. Só a TROCA zera: navegar
+  // entre versículos ou mensagens reprojeta pelo MESMO provedor, e a cena de
+  // roteiro continua sendo a mesma.
+  //
+  // A pergunta é `provedorDoCartao()` — quem é DONO da sessão —, e nunca
+  // `provedorDeTextoNoAr()`, que pergunta quem está PROJETANDO. Os `hide*`
+  // deixam a sessão de pé com `projecting:false` (é o que permite reexibir pela
+  // lista), então com o cartão escondido o segundo devolveria `''`, a troca
+  // seria falsa, e reexibir O PRÓPRIO cue apagaria o selo dele.
+  if (cueNoArId && provedorDoCartao() !== quem) cueNoArId = '';
   if (quem !== 'imagem') clearImgSession();
   if (quem !== 'bible') clearBibleSession();
   if (quem !== 'message') clearMsgSession();
@@ -4407,6 +4434,37 @@ function clearManualText() {
   // A Camada de Texto saiu: nenhuma cena de roteiro está mais no ar, venha ela
   // de onde vier. Ver `cueNoArId`.
   cueNoArId = '';
+}
+
+// QUEM É DONO DO CARTÃO ('' se ninguém) — pela EXISTÊNCIA da sessão, não pela
+// projeção. É o par de `provedorDeTextoNoAr` logo abaixo, e a diferença entre os
+// dois é o que separa "escondi e vou reexibir" de "outro provedor assumiu": os
+// `hide*` zeram `projecting` e deixam a sessão viva, de propósito, para o
+// operador reexibir pela lista.
+//
+// A ordem não importa: `soUmProvedorDeTexto` garante uma sessão por vez.
+function provedorDoCartao() {
+  if (bibleSession) return 'bible';
+  if (msgSession) return 'message';
+  if (lyricSession) return 'songlyrics';
+  if (chronoSession) return 'chrono';
+  if (drawSession) return 'draw';
+  if (imgSession) return 'imagem';
+  if (textoAvulsoNoAr) return 'avulso';
+  return '';
+}
+
+// QUAL provedor ocupa o cartão de texto AGORA ('' se nenhum). A ordem é a de
+// `cenaDeRoteiroNoAr` e não importa: `soUmProvedorDeTexto` garante um por vez.
+function provedorDeTextoNoAr() {
+  if (bibleSession && bibleSession.projecting) return 'bible';
+  if (msgProjecting()) return 'message';
+  if (lyricProjecting()) return 'songlyrics';
+  if (chronoProjecting()) return 'chrono';
+  if (drawProjecting()) return 'draw';
+  if (imgSobreProjetando()) return 'imagem';
+  if (textoAvulsoNoAr) return 'avulso';
+  return '';
 }
 
 /**
@@ -4451,7 +4509,7 @@ function projectMessage(idx) {
 function projetarImagemSobre(rec) {
   if (!rec) return;
   soUmProvedorDeTexto('imagem');
-  imgSession = { id: rec.id, nome: rec.name || '', projecting: true };
+  imgSession = { id: rec.id, nome: rec.name || '', rec, projecting: true };
   // `view` volta a 'visual' porque a cortina esconderia o cartão que acabou de
   // ser pedido — a mesma linha que `projectMessage` tem, pela mesma razão.
   view = 'visual';
@@ -8593,11 +8651,17 @@ async function send(id, daFila) {
   }
 }
 
+// ⏮/⏭ TROCAM DE MÍDIA — é a mesma intenção do avanço automático, e por isso
+// passam `daFila`. Sem ele a imagem seguinte era SOBREPOSTA ao áudio no ar:
+// `currentId` continuava no áudio, o `idx` daqui não andava, e o botão "Próxima
+// mídia" (aqui, na notificação e na tela de bloqueio) parava de andar na fila.
+// A sobreposição continua valendo para o toque na LINHA, que é onde o operador
+// escolhe o cartão — ver a guarda de imagem sobre áudio em `send`.
 function step(delta) {
   if (plItems.length === 0) return;
   const idx = plItems.findIndex((m) => m.id === currentId);
   const target = idx === -1 ? 0 : (idx + delta + plItems.length) % plItems.length;
-  send(plItems[target].id);
+  send(plItems[target].id, true);
 }
 
 // Navegação manual de estrofe (independente da posição do áudio): pula pro
@@ -13925,15 +13989,34 @@ function frasesDaContaSorteio(pool) {
   return [forte, 'A playlist leva ' + leva + ' · ' + custo];
 }
 
+// O motivo que mais recusou COLEÇÕES ('' se nenhuma foi recusada). Empate fica
+// com o primeiro visto — a ordem do acervo, que é a que o Registro imprime.
+function motivoDominanteDasColecoes(pool) {
+  const conta = Object.create(null);
+  for (const c of (pool && pool.colecoesRecusadas) || []) {
+    conta[c.motivo] = (conta[c.motivo] || 0) + 1;
+  }
+  let dom = '';
+  for (const k in conta) if (!dom || conta[k] > conta[dom]) dom = k;
+  return dom;
+}
+
 // VAZIO, ELA DIZ O MOTIVO DOMINANTE. Sem ele, "nada encontrado" tem cinco causas
 // que pedem ações OPOSTAS — trocar a palavra, desligar um filtro, trocar a
 // variante, ou abrir a Biblioteca com internet. A ordem é a do que o operador
 // consegue consertar mais depressa.
 function fraseDoVazioSorteio(pool) {
   if (!pool.colecoesUsadas) {
-    return sorteioPrefs.semHinario
-      ? 'Só há hinário neste aparelho, e o filtro pediu sem ele.'
-      : 'A biblioteca ainda não foi carregada. Abra-a uma vez com internet.';
+    // PELO MOTIVO DOMINANTE, e não pelo filtro que estava ligado: com
+    // "sem hinário" marcado E as coleções recusadas por falta de índice, a
+    // pergunta do filtro respondia "só há hinário aqui" — o operador desligava
+    // o filtro, continuava vazio, e nada dizia que faltava carregar a
+    // biblioteca. Quem sabe por que cada coleção ficou de fora é a própria
+    // regra (`avaliarColecao`), e é dela que a frase sai.
+    const dom = motivoDominanteDasColecoes(pool);
+    if (dom === AVSorteio.MOTIVO_HINARIO) return 'Só há hinário neste aparelho, e o filtro pediu sem ele.';
+    if (dom === AVSorteio.MOTIVO_SEM_MUSICA) return 'Nenhuma coleção de música neste aparelho.';
+    return 'A biblioteca ainda não foi carregada. Abra-a uma vez com internet.';
   }
   const r = pool.recusas;
   if (sorteioPrefs.soNoAparelho && r[AVSorteio.MOTIVO_FORA]) {
@@ -14686,6 +14769,17 @@ function blocoEspelho(d) {
       + ' · ' + (srv.conexoesTotais | 0) + ' conexão(ões) desde que ligou'
       + (sess >= (srv.teto || 3) && telas.length < sess
         ? '  ← LOTADO por vaga(s) de tela que caiu; ela abre sozinha' : ''));
+    // O CACHE DA ROTA /m/ — o que o celular tem para SERVIR às telas. Sem esta
+    // linha, "a tela não toca o vídeo" não separa o empurrão que nunca chegou do
+    // item que o LRU já despejou, e as duas pedem ações opostas. A chave só
+    // existe quando há cache (ver `EspelhoServidor.estado`), então a linha some
+    // sozinha em vez de anunciar um zero que não é medição — a armadilha do
+    // `ritmo` da v5.206. Exige shell 45.
+    const mid = srv.midia;
+    if (mid && typeof mid === 'object') {
+      l.push('cache de mídia: ' + (mid.itens | 0) + ' item(ns) · '
+        + fmtBytes(mid.bytes || 0) + ' de ' + fmtBytes(mid.teto || 0));
+    }
     // (O FREIO DE IDR saiu na v5.206, com o resto: pedir quadro-chave é
     //  vocabulário de encoder, e não há encoder desde a v5.187.)
     // QUEM BATEU NA PORTA E FOI RECUSADO. Todas respondem o mesmo 404 no fio
@@ -18190,7 +18284,8 @@ plClearEl.addEventListener('click', (e) => {
   e.stopPropagation();
   pedirConfirmacaoNaLinha(plClearEl, {
     ok: 'Limpar',
-    dica: 'Esvaziar a fila. Os itens continuam onde estiverem guardados, e o que está no ar segue no ar.',
+    dica: 'Esvaziar a fila. O que está no ar segue no ar, e os arquivos só são '
+      + 'apagados se não estiverem guardados em mais nenhuma lista.',
     aoConfirmar: limparPlaylist,
   });
 });
@@ -19720,6 +19815,17 @@ async function retomarAtualizacao() {
   // derruba o app inteiro. A intenção não se perde — ela vive no banco, e esta
   // função é chamada de novo pela enquete.
   if (horaRuimParaAtualizar()) return;
+  // O SHELL PRECISA SABER DE QUE APK SE FALA. A intenção sobrevive ao processo;
+  // o achado do `ShellUpdater` é estado de PROCESSO e nasce vazio a cada
+  // abertura — numa abertura sem rede o `apkInstalar` responderia "nao ha
+  // versao nova para baixar", e o `instalarApk` apagaria a intenção e abriria
+  // um modal de falha por uma pergunta que ninguém ainda pôde responder.
+  // A pergunta é ESTRUTURAL (`apkNovo`, o mesmo campo `shell` do
+  // `atualizacaoEstado`) e não casada por texto de erro: a frase do shell não é
+  // contrato. Sem achado, a intenção fica onde está e a enquete volta aqui
+  // assim que o manifesto chegar.
+  if (!apkNovo) await lerAtualizacao();   // na abertura ninguém leu o estado ainda
+  if (!apkNovo) return;
   await instalarApk(String(i.shell));
 }
 
@@ -19779,8 +19885,8 @@ const telaTokens = new Map();      // id do acervo → token de serviço (/m/<t>
 // verdade sobre estado que mora do outro lado da ponte, e o cache do shell é DA
 // SESSÃO.
 const telaFila = [];               // empurrões esperando (um por vez)
-let telaEmpurrando = null;
-let telaResposta = null;
+let telaEmpurrando = null;         // o ITEM em curso (carrega o token carimbado)
+let telaResposta = null;           // { tipo, resolve } do pedido pendente
 
 function telaCanal() { return (window.__NATIVE__ && window.__avTelaMidia) || null; }
 function telaAtiva() { return !!telaCanal() && espelhoLigado(); }
@@ -19891,19 +19997,44 @@ function telaOuvirCanal(c) {
   c.onmessage = (ev) => {
     let r = null;
     try { r = JSON.parse(String((ev && ev.data) || '')); } catch (_) { return; }
-    const fn = telaResposta;
+    const p = telaResposta;
+    if (!p) return;
+    if (!telaRespostaCombina(p.tipo, r)) return;   // é do pedido que venceu
     telaResposta = null;
-    if (fn) fn(r);
+    p.resolve(r);
   };
 }
-function telaPedir(c, msg) {
+// A RESPOSTA ATRASADA DE UM PEDIDO VENCIDO NÃO PODE RESOLVER O SEGUINTE. O
+// prazo de 15 s solta a promessa, mas não cancela a resposta: ela chega depois,
+// encontra o pedido SEGUINTE pendente e o resolve com dados que não são dele —
+// o item é abandonado calado. Sem número de série vindo do shell
+// (`EspelhoMidiaCanal.responder` não ecoa nada do pedido), o que dá para
+// conferir daqui é a FORMA: cada tipo de pedido tem uma resposta reconhecível,
+// e uma que não combine com o pendente só pode ser do vencido. Descartá-la
+// deixa a verdadeira — que vem logo atrás — resolver o pedido certo.
+//
+// COBERTURA PARCIAL, e é preciso dizer: dois pedidos do MESMO tipo em sequência
+// (um `abrir` vencido seguido de outro `abrir`) têm respostas indistinguíveis.
+// Fechar isso é o `seq` do lado Kotlin — ver o achado 9.
+function telaRespostaCombina(tipo, r) {
+  if (!r || typeof r !== 'object') return false;
+  if (typeof r.r === 'number') return tipo === 'bloco';
+  if ('recebido' in r || 'completo' in r) return tipo === 'abrir';
+  if (r.erro === 'fila cheia') return tipo === 'bloco';
+  if (r.erro === 'abrir recusado') return tipo === 'abrir';
+  // `{ok:true}` puro (fim/cancelar) e "transmissao desligada" servem a
+  // qualquer pedido: não há o que conferir, e recusá-los travaria o empurrão.
+  return true;
+}
+function telaPedir(c, msg, tipo) {
   return new Promise((resolve) => {
-    telaResposta = resolve;
+    const p = { tipo, resolve };
+    telaResposta = p;
     setTimeout(() => {
-      if (telaResposta === resolve) { telaResposta = null; resolve(null); }
+      if (telaResposta === p) { telaResposta = null; resolve(null); }
     }, 15000);
     try { c.postMessage(msg); } catch (_) {
-      if (telaResposta === resolve) { telaResposta = null; resolve(null); }
+      if (telaResposta === p) { telaResposta = null; resolve(null); }
     }
   });
 }
@@ -19912,7 +20043,10 @@ async function telaEmpurrarAgora(it) {
   const c = telaCanal();
   if (!c) return;
   telaOuvirCanal(c);
-  const token = telaTokenDe(it.id);
+  // O TOKEN VEM DO ITEM ENFILEIRADO, nunca relido agora: entre a fila e este
+  // ponto o `__wp` pode ter sido recunhado (ver `telaGarantirEnvio`), e reler
+  // mandaria os bytes do wallpaper ANTIGO sob o token do NOVO.
+  const token = it.token || telaTokenDe(it.id);
   if (!token) return;
   let arquivo = it.blob || null;
   if (!arquivo && it.opfsPath) {
@@ -19921,7 +20055,7 @@ async function telaEmpurrarAgora(it) {
   if (!arquivo) return;
   const abriu = await telaPedir(c, JSON.stringify({
     abrir: { token, id: it.id, nome: it.name || '', tipo: arquivo.type || it.type || '', tamanho: arquivo.size },
-  }));
+  }), 'abrir');
   if (!abriu || abriu.ok !== true) return;
   // O SHELL É QUEM SABE: `completo` é a resposta a "já tenho isto?", e ela vale
   // para esta sessão de transmissão — que é o escopo do cache lá.
@@ -19931,9 +20065,9 @@ async function telaEmpurrarAgora(it) {
   let pos = abriu.recebido || 0;
   const PASSO = 512 * 1024;
   while (pos < arquivo.size) {
-    if (!telaAtiva()) { await telaPedir(c, JSON.stringify({ cancelar: true })); return; }
+    if (!telaAtiva()) { await telaPedir(c, JSON.stringify({ cancelar: true }), 'cancelar'); return; }
     const fatia = await arquivo.slice(pos, Math.min(pos + PASSO, arquivo.size)).arrayBuffer();
-    const r = await telaPedir(c, fatia);
+    const r = await telaPedir(c, fatia, 'bloco');
     if (!r) return;                                   // prazo: o próximo load retoma
     if (r.erro === 'fila cheia') {                    // o disco engasgou: mesmo bloco de novo
       await new Promise((x) => setTimeout(x, 200));
@@ -19942,23 +20076,32 @@ async function telaEmpurrarAgora(it) {
     if (typeof r.r !== 'number' || r.r < 0) return;
     pos = r.r;
   }
-  await telaPedir(c, JSON.stringify({ fim: true }));
+  await telaPedir(c, JSON.stringify({ fim: true }), 'fim');
 }
 
 function telaGarantirEnvio(it) {
   if (!it || !it.id) return;
+  // O TOKEN É CARIMBADO AGORA, no item que entra na fila. O `__wp` é o único id
+  // MUTÁVEL do acervo — cada troca de wallpaper descarta o token e cunha outro.
+  const token = telaTokenDe(it.id);
+  const mesmo = (x) => x.id === it.id && x.token === token;
   // A DEDUPLICAÇÃO QUE FICA é só a da fila em curso — dois `load` do mesmo item
   // em sequência não podem virar dois empurrões concorrentes. "Já está no cache
   // do shell" não é pergunta desta função: quem a responde é o `abrir`.
-  if (telaEmpurrando === it.id || telaFila.some((x) => x.id === it.id)) return;
-  telaFila.push(it);
+  //
+  // POR id + TOKEN, e não só por id: trocar o wallpaper duas vezes seguidas
+  // enfileirava um empurrão que a deduplicação por id descartava, e o comando
+  // saía anunciando um `/m/<token>` que nunca receberia bytes — o wallpaper
+  // sumia da tela e a rota respondia 404, para sempre.
+  if ((telaEmpurrando && mesmo(telaEmpurrando)) || telaFila.some(mesmo)) return;
+  telaFila.push(Object.assign({}, it, { token }));
   telaEscoar();
 }
 async function telaEscoar() {
   if (telaEmpurrando) return;
   const it = telaFila.shift();
   if (!it) return;
-  telaEmpurrando = it.id;
+  telaEmpurrando = it;
   try { await telaEmpurrarAgora(it); } catch (e) { console.warn('[tela] empurrão falhou:', e); }
   telaEmpurrando = null;
   telaEscoar();
@@ -19972,6 +20115,10 @@ async function telaEscoar() {
 function await0Rec(id) {
   if (!id) return null;
   if (currentItem && currentItem.id === id) return currentItem;
+  // A SESSÃO ANTES DAS LISTAS: a imagem sobreposta quase sempre vem de
+  // `libItems`, que a troca de aba zera — e é justamente numa reconexão (a tela
+  // que deu F5) que este registro é pedido de novo, horas depois do toque.
+  if (imgSession && imgSession.id === id && imgSession.rec) return imgSession.rec;
   return [...plItems, ...libItems, ...favItems].find((m) => m.id === id) || null;
 }
 

@@ -1481,6 +1481,13 @@ toque (tocar de novo no que está no ar = tirar do ar) exige responder antes de
 ser tocado. Quem responde são `linhaAtiva` e `linhaNoAr`, e esta lê `midiaNoArId`
 **e** `cueNoArId` — as duas camadas, separadas.
 
+**E `cueNoArId` cai quando OUTRO provedor assume o cartão de texto**
+(`soUmProvedorDeTexto`, que já é o lugar único do rodízio). Sem isso o selo
+ficava na linha do versículo enquanto o cronômetro projetava, e o toque seguinte
+lia `noArAgora = true`: o operador pedia o versículo de volta e o que saía do
+telão era o cronômetro. Só a TROCA zera — navegar entre versículos ou mensagens
+reprojeta pelo MESMO provedor, e a cena de roteiro continua sendo a mesma.
+
 O desenho de `.no-ar` é o mesmo "no ar" do resto do app (`--live-strong` sobre
 `--live-soft`) e vem com **texto**: o selo `● No ar` prefixado ao subtítulo. Uma
 cor a mais numa tela que já tem várias não ensina o que o segundo toque faz; a
@@ -2040,8 +2047,16 @@ nasce com a confirmação certa.
 - **A SEMÂNTICA de cada lista continua a dela.** Na fila da playlist o botão
   **não** é um `botaoExcluirDaLinha`: sair da FILA não é sair de uma lista de
   acervo, então nada de `retirarDoAr` (o item pode estar no Cronograma e seguir
-  projetando, e a linha de lá o explica) e nada de `soltarAvulso` — a fila não é
-  detentora de bytes.
+  projetando, e a linha de lá o explica) e nada de `soltarAvulso` — a prateleira
+  `avulsos` é detentora à parte, e soltá-la aqui apagaria a mídia que o "Tocar
+  agora" segurava.
+- **MAS A FILA É DETENTORA** como qualquer outra lista (`LISTS` em `db.js`, e o
+  KDoc de `togglePlaylist`): o `listRemove` roda o coletor na MESMA transação, e
+  sair da ÚLTIMA lista apaga os bytes. A dica diz a cláusula destrutiva por
+  extenso — a mesma dos outros dois excluir ("o arquivo só é apagado se ele não
+  estiver guardado em mais nenhuma lista"), no botão da linha e no "Limpar" da
+  fila inteira. Um gesto que PARECE reversível e não é custa, num episódio de
+  série, ~300 MB baixados em rede de celular.
 | `⋮` → 🗑 | **Excluir da lista.** É o PRIMEIRO botão da faixa desde a v5.289 — o mais longe do `⋮`, que fica colado na ponta direita e é o alvo tocado repetidamente (abre e fecha): errá-lo por alguns pixels caía no destrutivo. Do outro lado o vizinho é o VAZIO da caixa, que também fecha, mas é uma área larga em que ninguém mira a borda. Desde a v5.301 ele **pergunta na própria faixa**, e por isso não a fecha |
 | `⋮` → ✏️ | **Renomear** o item, um toque (v5.288). Ele existia só para UM item de cada vez e atrás de quatro gestos (toque longo → seleção → botão do rodapé → diálogo). **Não entra na pasta do aparelho**, com a mesma guarda do excluir: ali o nome vem do arquivo, e um nome só no registro seria desfeito na varredura seguinte. O lápis é SVG inline — `edit` não está no subset da fonte, e codepoint ausente desenha um retângulo vazio |
 | `⋮` → ♫+ | **A fila, com ESTADO** (v5.301, alternador desde a v5.302). Ele diz se o item **está** na playlist — `+` apagado em `--line`, `✓` aceso em `--accent` —, e o segundo toque TIRA. ACRESCENTA, nunca substitui: quem substitui é o toque no corpo da linha (`onTap` → `replacePlaylistWith`), e são ações opostas. **Não aparece numa cena de roteiro** — o `onTap` já desvia um cue para longe da fila (*"um versículo não é uma fila de reprodução"*), e o Cronograma é justamente a lista cheia de cues. **Não fecha a caixa**, como a estrela: o desfecho dele é o próprio botão mudando sob o dedo |
@@ -3381,6 +3396,13 @@ mesmo peso.
 Vazia, ela diz o **motivo dominante** — sem ele, "nada encontrado" tem cinco
 causas que pedem ações opostas (trocar a palavra, desligar um filtro, trocar a
 variante, abrir a Biblioteca com internet).
+
+**E o dominante vale para as COLEÇÕES também** (`motivoDominanteDasColecoes`,
+sobre `pool.colecoesRecusadas`), não para o filtro que por acaso estava ligado:
+com "Sem hinário" marcado E as coleções recusadas por falta de índice, a frase
+dizia "só há hinário neste aparelho" — o operador desligava o filtro, continuava
+vazio, e nada dizia que faltava carregar a biblioteca. Quem sabe por que cada
+coleção ficou de fora é `AVSorteio.avaliarColecao`, e é dela que a frase sai.
 
 **A frase de resposta do "Ao Cronograma" mora em ESTADO, não no nó.** O
 `executarSorteio` redesenha a folha no `finally`, e um texto escrito direto no

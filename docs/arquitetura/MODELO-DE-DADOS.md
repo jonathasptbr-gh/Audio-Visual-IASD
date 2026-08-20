@@ -122,6 +122,11 @@ projeção em andamento — o vídeo seguiria tocando (o Display já tem os byte
 mas uma queda do dongle o traria de volta e o `getMedia` não acharia nada.
 Quando essa mídia sair de cena, o rodízio de `fixarAvulso` a solta sozinho.
 
+> Desde a v5.315 essa exceção existe **também dentro do coletor**
+> (`lerDetentores` conta `state['current'].mediaId`), e as duas não brigam: a
+> guarda aqui evita mexer na prateleira à toa, a do coletor protege o caso que
+> ela não cobre — o item que tem UM detentor e nem passa por `avulsos`.
+
 `soltarAvulso` nunca apaga nada por conta própria: ela chama `listRemove`, que
 decide na mesma transação — se o Cronograma, a playlist ou um Favorito ainda
 tiverem o id, o blob fica inteiro. Ela só deixa de esconder um detentor.
@@ -169,7 +174,7 @@ O campo `kind` é derivado do `type` (ou definido pelo chamador para itens de UR
 | Chave | Conteúdo |
 |---|---|
 | `imports` / `playlist` | arrays de IDs de mídia |
-| `current` | `{ mediaId, view, muted, volume, at }` — estado de exibição atual. O `mediaId` é **limpo na abertura** (`clearCurrentSelection`): sessão nova começa com o player vazio; volume/mudo/cortina ficam, que são o ajuste da mesa e não uma seleção |
+| `current` | `{ mediaId, view, muted, volume, at }` — estado de exibição atual. O `mediaId` é **limpo na abertura** (`clearCurrentSelection`): sessão nova começa com o player vazio; volume/mudo/cortina ficam, que são o ajuste da mesa e não uma seleção. **`mediaId` é DETENTOR DE REFERÊNCIA** (v5.315): `lerDetentores` o conta, e é o que impede o coletor de apagar a mídia em cena — a limpeza da abertura é o que solta o órfão para o `gcOrfaos` da mesma abertura |
 | `repeat` | `'off'` \| `'all'` \| `'one'` \| `'shuffle'` |
 | `fade` | legado — as transições visuais (fade in/out) viraram **inerentes ao sistema** (`createStage.FADE`, fixo em `{in:true, out:true, time:0.6}` e compartilhado pelos dois apps, não configurável); esta chave **não é mais lida nem gravada** (fica ignorada se existir de versões antigas). Fade em toda troca visual: mídia, cortina do wallpaper (view toggle), letra e texto bíblico |
 | `fit` | `'contain'` \| `'cover'` \| `'fill'` — preenchimento da mídia (ajustar/preencher/esticar) no Display e na preview |
@@ -240,12 +245,29 @@ um registro usa `addMedia`/`addUrlMedia`, que já entram numa lista.
 #### Garbage collection de blobs
 
 Um registro só é excluído quando **nada mais aponta para ele** — nem lista, nem
-pasta dos Favoritos:
+pasta dos Favoritos, nem a CENA:
 
 ```
 listRemove(listName, id)
   → isReferenced(id, exceto listName)?  → não; delete no store media (gc)
 ```
+
+**A CENA É DETENTORA (v5.315), e ela não é lista.** `lerDetentores` lê
+`state['current'].mediaId` — o `currentId` do Controle, que `persistCurrent`
+grava ANTES de o `load` sair, logo a mídia projetada já está lá quando qualquer
+coletor pergunta. Sem isso, um item com UM ÚNICO detentor (o vídeo baixado
+direto para a playlist) era destruído **enquanto tocava**: o ✕ da linha da fila
+→ `listRemove` → ninguém mais aponta → `delete(id)` na mesma transação. A
+projeção seguia (o telão já tem os bytes) e nada avisava; o estrago aparecia
+longe da causa, na queda do dongle ou depois de um OTA, quando
+`resendSceneToDisplay` pede um `getMedia` que não existe mais.
+
+Por não ser lista, `exceptList` nunca a exclui — é isso que faz sair da ÚLTIMA
+lista continuar segurando o blob. **O preço é um órfão temporário, e ele é
+recolhido:** trocada a cena, o id perde o último detentor e vira órfão comum;
+na abertura seguinte `clearCurrentSelection()` zera a chave **antes** de
+`varrerRestos()`, e o `gcOrfaos` o apaga. Inverter essa ordem no `init()`
+transforma a proteção em vazamento permanente.
 
 **`isReferenced` é o ponto único da pergunta "posso destruir este blob?"**, e ela
 cobre mais que as duas listas fixas: cada pasta guarda ids em

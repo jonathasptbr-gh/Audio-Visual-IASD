@@ -26,7 +26,7 @@ na versão de anteontem. Todo mecanismo aqui existe para tornar uma falha
  ┌─────────────┐ shellTag ┌──────────────────┐         ┌──────────────────┐
  │ version.json│ ───────► │ audio-visual….apk│ ──────► │ ronda de 15 s    │
  │ "shellTag": │  SEGURA  └──────────────────┘ gatilho │ lê o MANIFESTO   │
- │   "v2.0"    │  o OTA     release:published          │ web + shell      │
+ │   "v2.0"    │  o OTA     push da tag v*            │ web + shell      │
  └─────────────┘                                       │ → UMA pergunta   │
                                                        └──────────────────┘
 ```
@@ -35,6 +35,14 @@ na versão de anteontem. Todo mecanismo aqui existe para tornar uma falha
   **segura a publicação do bundle** até a Release existir. Sem `shellTag`, o
   manifesto anuncia a Release mais recente que existir. A pergunta que ele
   responde é: *"este lote PRECISA de uma Release?"*
+- **Quem SOLTA o HOLD é o push da tag, não o gatilho `release`.** O `web-ota`
+  roda também em `refs/tags/v*`, atrás do job `apk` (`needs:`) — ou seja,
+  consulta uma Release que já existe, no MESMO run. O `on: release: [published]`
+  fica no workflow, mas não é o mecanismo: a Release nasce do `GITHUB_TOKEN`
+  padrão e evento originado nesse token **não cria execução de workflow**. Ele
+  só dispara quando a Release vem de outra mão (a interface do GitHub, ou um
+  PAT). O mesmo `needs: apk` fecha a corrida do disparo MANUAL, em que os dois
+  jobs corriam em paralelo e o manifesto podia sair antes da Release.
 - **É o manifesto que permite a detecção ser rápida.** A API do GitHub não
   autenticada dá **60 req/hora por IP**; a ronda de 15 s são 240. Perguntar o
   APK à API esgotaria o limite em quinze minutos e passaria a falhar com 403
@@ -50,17 +58,6 @@ na versão de anteontem. Todo mecanismo aqui existe para tornar uma falha
 - **`sha256` reprovado é FALHA, não desfecho.** Devolver `null` carimbava a
   tentativa como bem-sucedida (`ultimoOk` renovado, `falhasSeguidas` zerado, sem
   espera crescente), e a ronda seguinte rebaixava o mesmo zip, para sempre.
-
-> ⚠️ **ACHADO EM ABERTO — o `HOLD` do `shellTag` pode não soltar sozinho.**
-> A Release é criada por `softprops/action-gh-release` com o `GITHUB_TOKEN`
-> padrão, e o GitHub **não dispara novas execuções de workflow** para eventos
-> originados nesse token. Se isso valer aqui, o `on: release: [published]`
-> nunca roda pelo fluxo documentado, o bundle fica segurado até o próximo push
-> em `main`, e o sintoma é o de sempre: "a atualização não chega".
-> **Enquanto não for confirmado em execução real, trate como suspeita:** depois
-> de publicar uma Release para um lote com `shellTag`, **confira** se o
-> `web-ota` rodou. Saídas possíveis: publicar com um PAT, ou fazer o próprio job
-> chamar o `web-ota`. Ver "Achados em aberto", no fim.
 
 ---
 
@@ -92,13 +89,19 @@ na versão de anteontem. Todo mecanismo aqui existe para tornar uma falha
   operador pode ter acabado de mandar aplicar ao vivo.
 - **`compareVersions` é NUMÉRICA por componente**, não lexical: `4.9` < `4.82`
   como string.
-
-> ⚠️ **ACHADO EM ABERTO — o piso de 5 s não segura ninguém.**
-> `MIN_ENTRE_CHECKS_MS` = 5 s, mas os dois chamadores para os quais ele foi
-> escrito passam por cima: `onResume` manda `forcar = true`, e a enquete do lado
-> web é de **10 s** (`OTA_POLL_MS`), maior que o piso. O comentário do `#otaRow`
-> afirma ser "o ÚNICO chamador que pula o piso" — não é. Ver "Achados em
-> aberto".
+- **O piso é POR CHAMADOR, e são dois.** `MIN_ENTRE_CHECKS_MS` (5 s) segura as
+  rajadas de evento (retomada, rede) e precisa ficar ABAIXO da ronda, senão uma
+  batida que chegue um milissegundo cedo é descartada e a seguinte só vem 15 s
+  depois. Só que a enquete do lado web bate a cada **10 s** (`OTA_POLL_MS`) e
+  passava livre por ele: a rotina anunciada como "lê o disco" virava uma
+  consulta à rede a cada dez segundos, para sempre. Subir aquele piso não
+  resolve — acima de 10 s a enquete passa a ROUBAR o passo da ronda. Daí
+  `MIN_CUTUCAO_TELA_MS` = `RONDA_MS`, no `WebUpdater.cutucaoDaTela`: o cutucão
+  só vira requisição quando a ronda não entregou uma passada inteira, que é o
+  papel dele — rede de segurança, não segunda ronda.
+- **O `forcar` do `onResume` fica.** É deliberado e está declarado no
+  `CLAUDE.md`: a retomada é o instante em que a resposta pode virar uma pergunta
+  na tela. Ele é o segundo chamador que pula o piso, ao lado do `#otaRow`.
 
 ---
 
@@ -219,18 +222,28 @@ cobre a `Presentation`.
 ## Achados em aberto (auditoria de 2026-08)
 
 > A lista completa, de todos os subsistemas, está em
-> [`../ACHADOS-EM-ABERTO.md`](../ACHADOS-EM-ABERTO.md). Os quatro abaixo são os
-> deste capítulo.
+> [`../ACHADOS-EM-ABERTO.md`](../ACHADOS-EM-ABERTO.md). O abaixo é o deste
+> capítulo que continua de pé.
 
-Todos verificados no código; **nenhum foi corrigido**, porque os quatro mudam
-comportamento. As correções propostas estão aqui para não se perderem.
+Verificado no código; **não foi corrigido**, porque muda comportamento. A
+correção proposta está aqui para não se perder. (O piso que não segurava a
+enquete web foi corrigido: ver "A detecção", acima; o `HOLD` que dependia do
+gatilho `release` foi corrigido no workflow, e quem o solta é o push da tag; e a
+retomada da atualização passou a EXIGIR o achado — abaixo.)
 
 | # | onde | o quê | correção proposta |
 |---|---|---|---|
-| 1 | `.github/workflows/apk.yml:19` | o gatilho `release: [published]` pode nunca disparar para a Release que o próprio workflow publica (`GITHUB_TOKEN` não gera eventos de workflow) — o `HOLD` do `shellTag` ficaria preso até o próximo push em `main` | publicar a Release com um PAT, **ou** o job `apk` chamar o `web-ota` depois de publicar. Enquanto isso, o resumo do HOLD deve dizer a verdade |
-| 2 | `controle.js` (`retomarAtualizacao`) | a intenção sobrevive ao processo, mas o `achado` do `ShellUpdater` (estado `@Volatile` de processo) não. Numa abertura sem rede, a retomada chama `apkInstalar` com `achado == null`, abre um modal "A atualização do app falhou" **e apaga a intenção antes de testar o erro** | exigir `apkNovo` antes de retomar (rodar `lerAtualizacao()` primeiro), **ou** tratar "não há versão nova para baixar" como "ainda não sei": não apagar a intenção, não abrir modal |
-| 3 | `WebUpdater.kt` (`MIN_ENTRE_CHECKS_MS`) | o piso de 5 s não reprova nem a enquete web (10 s) nem o `onResume` (`forcar = true`). O comentário do `#otaRow` diz ser o único a pular o piso, e não é | escolher a regra e fazê-la valer: subir o piso acima do maior intervalo de rotina, ou afrouxar a enquete web; e tirar `forcar` do `onResume` |
-| 4 | `native.js` (`otaAppIsUp`) | `louvorja.js`, `bible.js`, `serie.js` e `sorteio.js` sem condição — um erro de topo neles é carimbado como bundle bom | exigir o global publicado no fim de cada arquivo, na mesma forma da condição 2 |
+| 1 | `native.js` (`otaAppIsUp`) | `louvorja.js`, `bible.js`, `serie.js` e `sorteio.js` sem condição — um erro de topo neles é carimbado como bundle bom | exigir o global publicado no fim de cada arquivo, na mesma forma da condição 2 |
+
+**A RETOMADA EXIGE O ACHADO.** A intenção sobrevive ao processo; o `achado` do
+`ShellUpdater` é `@Volatile` de processo e nasce vazio a cada abertura. Sem a
+guarda, uma abertura sem rede chamava `apkInstalar` com `achado == null`,
+recebia *"nao ha versao nova para baixar"*, **apagava a intenção antes de testar
+o erro** e abria um modal "A atualização do app falhou". Hoje
+`retomarAtualizacao` só chama `instalarApk` com `apkNovo` na mão (rodando
+`lerAtualizacao()` quando ninguém leu o estado ainda — o caso da abertura). A
+pergunta é ESTRUTURAL, e não casada por substring da frase do shell: o texto do
+erro não é contrato.
 
 > O que já foi **corrigido** nesta auditoria (só texto): a lista de scripts
 > (faltavam `serie.js` e `sorteio.js`), o KDoc do `RONDA_MS` ("um minuto" para

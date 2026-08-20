@@ -240,8 +240,10 @@
    *
    * Um caractere basta, e é por isso que o teste é pelo alfabeto e não por
    * palavra: "【聖工消息】2026 第三季" não tem uma sílaba que dê para procurar.
-   * As faixas cobrem cirílico, hebraico, árabe, tailandês, a pontuação e os
-   * silabários japoneses, os ideogramas CJK e o hangul.
+   * As faixas cobrem cirílico, hebraico, árabe, tailandês, a pontuação CJK e
+   * os silabários japoneses, os ideogramas e o hangul — e param aí: só a
+   * ESCRITA diz o idioma de um título. Um sinal de pontuação, não (ver a faixa
+   * de meia-largura, abaixo).
    *
    * Emoji ficam de FORA da lista de propósito (eles vivem acima de U+1F000, e
    * as faixas param antes): um título em português com um emoji é comum, e
@@ -260,7 +262,14 @@
     + '\\u3400-\\u4dbf'   // ideogramas, extensão A
     + '\\u4e00-\\u9fff'   // ideogramas
     + '\\uac00-\\ud7af'   // hangul
-    + '\\uff00-\\uffef]', // formas de largura fixa
+    // MEIA-LARGURA, e só ela: katakana (ff61-ff9f) e hangul (ffa0-ffdc) são
+    // ESCRITA. O bloco começa antes disso, em ff00-ff60, com o ASCII de largura
+    // fixa (｜！＃＠：…), que é PONTUAÇÃO — um "｜" no lugar do "|" num
+    // título português fazia o episódio ser recusado como "está em outro
+    // idioma": o defeito da v5.252 ("Mission Refocus") por outra régua. O que
+    // vem depois (ffe0-ffee) são símbolos e moedas, e pela mesma razão fica de
+    // fora: nenhum deles diz o idioma de coisa nenhuma.
+    + '\\uff61-\\uffdc]', // katakana e hangul de MEIA-LARGURA
   );
 
   /**
@@ -709,12 +718,30 @@
    *  - **nem um nem outro**: sobra o título CRU do YouTube. É feio e é longo,
    *    e é infinitamente melhor que uma linha em branco no meio da lista do
    *    culto — que seria intocável e inexplicável.
+   *  - **nem isso**: o extrator devolveu `name` vazio (ou só espaço), e sobra
+   *    o ID do vídeo — "vídeo dQw4w9WgXcQ".
+   *
+   * **Por que o último caso ENTRA, em vez de virar recusa em [avaliarVideo].**
+   * Um item sem nome continua PROJETÁVEL: o id, a URL, a duração e a MINIATURA
+   * chegaram inteiros, e é a miniatura que a gaveta desenha — o operador
+   * reconhece o episódio sem ler rótulo nenhum. Recusar trocaria uma linha feia
+   * (que ele resolve à mão) pelo sábado sem o vídeo do culto, que é o erro caro
+   * da regra de ouro; e o Registro já mostra o caso, porque um item sem data
+   * entra na conta do "entrou SEM data".
+   *
+   * O id é o último identificador que SEMPRE existe: [avaliarVideo] recusa
+   * quem chega sem ele (`MOTIVO_SEM_ID`), e é isso que faz "nunca devolve
+   * vazio" ser verdade por construção. O `?` cobre só quem chame esta função
+   * de fora do caminho da regra.
    */
   function nomeDoItem(item) {
     const d = rotuloData(item.dia ? { dia: item.dia, mes: item.mes } : null);
     const t = item.titulo || '';
     if (d && t) return d + ' · ' + t;
-    return d || t || String(item.nomeOriginal || '');
+    // `trim()` no título cru: um nome só de espaços passava no `||` e desenhava
+    // a mesma linha em branco que o resto desta função existe para impedir.
+    return d || t || String(item.nomeOriginal || '').trim()
+      || ('vídeo ' + (String(item.id || '').trim() || '?'));
   }
 
   /**

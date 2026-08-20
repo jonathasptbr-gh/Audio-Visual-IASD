@@ -6,15 +6,24 @@ on:
     tags: ['v*']
   pull_request:
     branches: [main]
-  # A RELEASE SAINDO É UM GATILHO DO CANAL OTA (v5.234).
+  # A RELEASE SAINDO É UM GATILHO DO CANAL OTA (v5.234) — MAS ELE NÃO CHEGA
+  # SOZINHO NO FLUXO POR TAG.
   #
   # Quando o lote declara `shellTag` em `version.json`, o `web-ota` do push em
   # main SEGURA a publicação: um bundle que pressupõe um shell que ainda não
-  # existe é exatamente a janela que este lote fecha. Quem a reabre é a Release
-  # — e ela chega minutos depois, por um disparo manual, num evento que este
-  # workflow não escutava. Sem esta linha o operador teria de lembrar de
-  # re-executar o job à mão, que é a mesma classe de "atualização que depende de
-  # alguém lembrar" que o recurso inteiro existe para acabar.
+  # existe é exatamente a janela que este lote fecha. Quem a reabre é a Release.
+  #
+  # Só que a Release deste workflow é criada pelo `action-gh-release` com o
+  # GITHUB_TOKEN padrão, e evento originado nesse token NÃO cria execução nova
+  # de workflow. No fluxo documentado (`git tag v2.3 && git push --tags`) este
+  # gatilho portanto NUNCA vem, e o HOLD ficaria preso esperando um evento que
+  # não existe — "a atualização não chega", outra vez.
+  #
+  # QUEM SOLTA O HOLD É O PRÓPRIO PUSH DA TAG: o `web-ota` roda também em
+  # `refs/tags/v*` e espera o job `apk` (ver o `needs` dele), ou seja, consulta a
+  # Release já publicada, no MESMO run. Esta linha fica para o caso em que a
+  # Release nasce de outra mão — a interface do GitHub, ou um PAT —, e aí ela
+  # dispara de verdade.
   release:
     types: [published]
   workflow_dispatch:
@@ -37,35 +46,31 @@ env:
   PUBLISH: ${{ startsWith(github.ref, 'refs/tags/v') || github.event.inputs.release_tag != '' }}
 
 jobs:
-  # Publica a base web como bundle OTA: um push em `main` chega sozinho aos
-  # aparelhos, sem APK novo (ver WebUpdater.kt). O APK continua trazendo a
-  # mesma base embutida, que é o fallback offline e o piso de versão.
-  web-ota:
-    # Push/dispatch em main, OU uma Release recém-publicada — e nunca a própria
-    # `web-latest`, senão a publicação deste job dispararia este job (a action
-    # emite `edited` ao atualizar uma release existente, mas na PRIMEIRA vez ela
-    # a cria, e aí o evento é `published`). O guarda é explícito porque um laço
-    # de CI que se auto-alimenta não é o tipo de coisa que se descobre lendo.
+  # O PORTÃO, E ELE É UM JOB À PARTE (v5.314).
+  #
+  # A suíte inteira morava dentro do `web-ota`, cujo `if` exige
+  # `refs/heads/main`: a PRIMEIRA vez que um oráculo via o commit era DEPOIS do
+  # merge, já na linha que alimenta a frota. Um `tokens.test.mjs` que reprovasse
+  # ali não publicava o bundle — mas `main` já continha o commit, e a saída era
+  # um segundo lote. Aqui não há `if` de branch: roda em push de `claude/**`, em
+  # PR, em tag e no `release`, ANTES de existir qualquer publicação.
+  #
+  # `needs:` NÃO compartilha o diretório de trabalho, por isso o checkout
+  # próprio — e ele repete o `ref` do `web-ota` de propósito: verificar uma
+  # árvore diferente da que vai ser empacotada não verifica nada.
+  verificar:
+    # SEM DUPLICAR O PUSH DE BRANCH COM PR ABERTO. `on.push` já cobre
+    # `claude/**`, então um PR desta mesma origem dispararia a suíte duas vezes
+    # sobre o mesmo commit. Fica de fora só o `pull_request` cuja cabeça é ESTE
+    # repositório; o PR vindo de um fork (que não gera `push` aqui) continua
+    # sendo verificado, que é justamente o caso em que ninguém mais olharia.
     if: >-
-      github.ref == 'refs/heads/main' ||
-      (github.event_name == 'release' && github.event.release.tag_name != 'web-latest')
+      github.event_name != 'pull_request' ||
+      github.event.pull_request.head.repo.full_name != github.repository
     runs-on: ubuntu-latest
-    # Um grupo só, SEM cancelamento: os dois assets da release `web-latest`
-    # (o zip e o version.json que carrega o sha256 dele) são substituídos um a
-    # um, sem transação. Duas execuções em paralelo — o merge da branch seguido
-    # de um push de correção é o caso normal — podem intercalar e deixar lá o
-    # zip de uma com o sha256 da outra; a partir daí todo aparelho baixa,
-    # confere o hash, e o OTA fica INERTE até o próximo push em main, sem
-    # nenhum sinal (o checkAsync engole tudo em Log.i). Cancelar no meio do
-    # upload produziria exatamente o mesmo estado, por isso a fila espera.
-    concurrency:
-      group: web-ota
-      cancel-in-progress: false
     steps:
       # No evento `release` o `github.ref` é a TAG, e o que precisa ser
-      # empacotado é a base web de `main` — a mesma de onde a Release nasceu
-      # (`target_commitish: main`). Sem isto o republicar do OTA sairia do
-      # commit da tag, que é o mesmo conteúdo por sorte e não por construção.
+      # verificado é a base web de `main` — a mesma que o `web-ota` empacota.
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.event_name == 'release' && 'main' || '' }}
@@ -422,6 +427,63 @@ jobs:
           echo "::warning::Oráculos em Chromium PULADOS — 'Preparar o Chromium' terminou como '${{ steps.chromium.outcome }}'"
           echo "Oráculos em Chromium: 0/15 — **PULADOS** (infraestrutura: \`Preparar o Chromium\` terminou como \`${{ steps.chromium.outcome }}\`). O bundle publica assim mesmo; nenhum oráculo de navegador foi consultado neste run." >> "$GITHUB_STEP_SUMMARY"
 
+
+  # Publica a base web como bundle OTA: um push em `main` chega sozinho aos
+  # aparelhos, sem APK novo (ver WebUpdater.kt). O APK continua trazendo a
+  # mesma base embutida, que é o fallback offline e o piso de versão.
+  #
+  # DAQUI PARA BAIXO SÓ SE EMPACOTA E PUBLICA: quem verifica é o `verificar`,
+  # e o `needs` é o que impede um bundle reprovado de chegar à frota (job
+  # reprovado ⇒ este é pulado ⇒ nada sobe).
+  web-ota:
+    # `apk` entra no `needs` pela ORDEM, não pelo resultado: é ele que publica a
+    # Release, e o passo "A Release que este lote exige" precisa consultá-la
+    # DEPOIS. Sem isso, no disparo manual os dois jobs corriam em paralelo e o
+    # manifesto podia sair antes de a Release existir — o HOLD disparava por
+    # corrida. O resultado do `apk` é deliberadamente ignorado (`!cancelled()`
+    # sem checar `needs.apk.result`): uma falha de build Kotlin não pode
+    # bloquear o canal da base web, e quando ela impede a Release quem segura é
+    # o HOLD, com mensagem própria. Já o `verificar` é exigido em SUCESSO — é o
+    # portão.
+    #
+    # `refs/tags/v*` está no `if` porque é o push da tag, e não o gatilho
+    # `release`, que de fato chega (ver o comentário do `on:`). É por ele que o
+    # HOLD do `shellTag` solta, e é por ele que uma Release só-Kotlin passa a ser
+    # anunciada no manifesto — o ramo "sem shellTag" abaixo, que até aqui era
+    # inalcançável porque dependia de um evento que nunca vinha.
+    if: >-
+      !cancelled()
+      && needs.verificar.result == 'success'
+      && (
+        github.ref == 'refs/heads/main'
+        || startsWith(github.ref, 'refs/tags/v')
+        || (github.event_name == 'release' && github.event.release.tag_name != 'web-latest')
+      )
+    needs: [verificar, apk]
+    runs-on: ubuntu-latest
+    # Um grupo só, SEM cancelamento: os dois assets da release `web-latest`
+    # (o zip e o version.json que carrega o sha256 dele) são substituídos um a
+    # um, sem transação. Duas execuções em paralelo — o merge da branch seguido
+    # de um push de correção é o caso normal — podem intercalar e deixar lá o
+    # zip de uma com o sha256 da outra; a partir daí todo aparelho baixa,
+    # confere o hash, e o OTA fica INERTE até o próximo push em main, sem
+    # nenhum sinal (o checkAsync engole tudo em Log.i). Cancelar no meio do
+    # upload produziria exatamente o mesmo estado, por isso a fila espera.
+    concurrency:
+      group: web-ota
+      cancel-in-progress: false
+    steps:
+      # No evento `release` o `github.ref` é a TAG, e o que precisa ser
+      # empacotado é a base web de `main` — a mesma de onde a Release nasceu
+      # (`target_commitish: main`). Sem isto o republicar do OTA sairia do
+      # commit da tag, que é o mesmo conteúdo por sorte e não por construção.
+      # No PUSH da tag o vazio é o certo, e não por descuido: ali o ref É o
+      # commit de que o APK acabou de ser compilado, que é mais forte que `main`
+      # (que pode ter andado entre o `git tag` e o `git push --tags`).
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'release' && 'main' || '' }}
+
       # ────────────────────────────────────────────────────────────────────
       # A RELEASE QUE ESTE LOTE EXIGE (v5.234)
       #
@@ -460,7 +522,9 @@ jobs:
             if [ -z "$REL" ]; then
               echo "SEGURANDO O OTA: a Release $TAG ainda não existe." \
                 | tee -a "$GITHUB_STEP_SUMMARY"
-              echo "O bundle sairá sozinho quando ela for publicada (gatilho \`release\`)." \
+              echo "O bundle sai no push da tag \`$TAG\` (este mesmo job roda de novo, atrás do \`apk\`)." \
+                >> "$GITHUB_STEP_SUMMARY"
+              echo "Se a Release for criada por fora do workflow e nada publicar, reexecute este run." \
                 >> "$GITHUB_STEP_SUMMARY"
               echo "HOLD=true" >> "$GITHUB_ENV"
               exit 0
@@ -525,6 +589,61 @@ jobs:
           fi
           echo "Release $TAG encontrada: $SHELL_JSON"
           echo "SHELL_JSON=$SHELL_JSON" >> "$GITHUB_ENV"
+
+      # O MANIFESTO NUNCA REGRIDE. Esta guarda existe porque o `web-ota` deixou
+      # de ser o primeiro job do run: ele espera `verificar` e `apk` (o `needs`),
+      # e também roda no push da tag. As duas coisas soltam a ordem de chegada na
+      # fila `concurrency: web-ota` da ordem dos PUSHES — quem chega primeiro
+      # passa a ser quem compila mais rápido (cache quente × frio varia minutos),
+      # e o run de uma tag empacota o commit DA TAG, que pode ser anterior ao que
+      # o push de `main` já publicou.
+      #
+      # Publicar uma versão MENOR por cima de uma maior é o pior modo de falhar
+      # deste projeto: `compareVersions` no aparelho descarta em silêncio, o lote
+      # novo fica inalcançável até o próximo push, e não há vermelho em lugar
+      # nenhum. A guarda compara com o manifesto que JÁ está no ar, pela mesma
+      # regra numérica por componente do `WebUpdater.compareVersions` — nunca
+      # lexical, senão `4.9` > `4.82`.
+      #
+      # Ela protege também o que já existia antes desta reestruturação: um
+      # `retag`, ou dois runs que furem a fila por qualquer motivo.
+      - name: O manifesto publicado é mais novo? (guarda anti-regressão)
+        if: env.HOLD != 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -uo pipefail
+          NOVA=$(python3 -c "import json;print(json.load(open('app/src/main/assets/web/version.json'))['version'])")
+          # `gh release download`, e não a URL crua: o asset vem com a
+          # credencial do run, sem depender de qual dos dois endereços o
+          # `--json assets` chama de `url`. Sem `-e` aqui de propósito —
+          # `web-latest` pode não existir (repositório novo, ou o primeiro
+          # lançamento do canal), e isso não é falha.
+          TMP=$(mktemp -d)
+          gh release download web-latest -p version.json -D "$TMP" >/dev/null 2>&1 || true
+          NO_AR=""
+          if [ -f "$TMP/version.json" ]; then
+            NO_AR=$(python3 -c "import json;print(json.load(open('$TMP/version.json')).get('version',''))" 2>/dev/null || true)
+          fi
+          if [ -z "$NO_AR" ]; then
+            echo "nada publicado ainda (ou manifesto ilegível) — segue."
+            exit 0
+          fi
+          MAIOR=$(python3 - "$NO_AR" "$NOVA" <<'PY2'
+          import sys
+          def v(s): return [int(x) for x in s.split('.') if x.isdigit()] or [0]
+          a, b = v(sys.argv[1]), v(sys.argv[2])
+          n = max(len(a), len(b)); a += [0]*(n-len(a)); b += [0]*(n-len(b))
+          print("sim" if a > b else "nao")
+          PY2
+          )
+          if [ "$MAIOR" = "sim" ]; then
+            echo "::warning::web-latest já tem a v$NO_AR e este run traria a v$NOVA — publicação PULADA para o manifesto não regredir"
+            echo "Canal OTA: **não publicado**. O \`web-latest\` já está na v$NO_AR e este run traz a v$NOVA — publicar rebaixaria o manifesto, e o aparelho descartaria em silêncio." >> "$GITHUB_STEP_SUMMARY"
+            echo "HOLD=true" >> "$GITHUB_ENV"
+          else
+            echo "no ar: v$NO_AR · este run: v$NOVA — segue."
+          fi
 
       - name: Empacotar a base web
         if: env.HOLD != 'true'

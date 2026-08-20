@@ -9,8 +9,9 @@
 //  - o botão da barra abre a folha, e a folha DESENHA (um id trocado no HTML dá
 //    `null` num `getElementById` e o toque vira silêncio);
 //  - as capacidades injetadas (`sorteioCap`) apontam para as funções certas do
-//    `controle.js` — `ehMusica`/`ehHinario`/`faixas`/`noAparelho` são quatro
-//    ponteiros, e um errado devolve um pool plausível e errado;
+//    `controle.js` — `norm`/`nomeNorm`/`ehMusica`/`ehHinario`/`faixas`/
+//    `letraCasa`/`noAparelho` são SETE ponteiros, e um errado devolve um pool
+//    plausível e errado;
 //  - o CONTADOR responde a cada controle, porque ele é a única coisa que o
 //    operador lê antes de o botão disparar sem mais nenhuma tela;
 //  - o sorteio CHEGA à fila do player e ao telão, nos dois modos.
@@ -92,15 +93,22 @@ try {
   // estão no aparelho (registro real no store `files`, com `lyrics` definido);
   // a segunda do álbum não tem arquivo nenhum, para provar a partição.
   await pg.evaluate(async () => {
-    const arquivo = async (id, nome) => AVDB.fileAdd({
+    const arquivo = async (id, nome, letra) => AVDB.fileAdd({
       id, folder: 'x', name: nome, srcName: nome, type: 'audio/mpeg', kind: 'audio',
-      size: 8, lyrics: [], blob: new Blob([new Uint8Array(8)], { type: 'audio/mpeg' }),
+      size: 8, lyrics: letra || [], blob: new Blob([new Uint8Array(8)], { type: 'audio/mpeg' }),
     });
     await arquivo('f-h1', 'Noite de Paz (Natal)');
     // O PLAYBACK de h1 também está no aparelho: é ele que torna o percurso do
     // "som de fundo" exercível sem rede.
     await arquivo('p-h1', 'Noite de Paz (Natal) (Playback)');
-    await arquivo('f-h2', 'Firme nas Promessas');
+    // A FAIXA QUE SÓ CASA NA LETRA. "peregrino" não aparece em título nenhum
+    // nem no nome de álbum nenhum deste acervo: o único caminho até ela é o
+    // índice de letras, e é isso que faz `casou: 'letra'` provar o ponteiro
+    // `letraCasa` em vez de provar um casamento por nome que passaria igual.
+    // Os slides são a segunda fonte do índice (`stanzasFromSlides`), a que
+    // cobre o que está baixado no aparelho.
+    await arquivo('f-h2', 'Firme nas Promessas',
+      [{ text: 'Sou peregrino nesta terra\nRumo à pátria celestial', auxText: 'Estrofe 1' }]);
     await arquivo('f-a1', 'A Estrela do Oriente');
     collState['hymnal-2022'] = { songs: [
       { id_music: 'h1', track: 1, name: 'Noite de Paz (Natal)', duration: '3:00',
@@ -117,10 +125,15 @@ try {
     // `allCollections()` monta os cards de álbum a partir DAQUI — sem esta
     // linha o `album-9` existe no índice e não existe na varredura.
     albumCatalog = { categories: [], albums: [{ id_album: 9, name: 'Natal — Coral', color: null }] };
+    // O ÍNDICE DE LETRAS FAZ PARTE DO ACERVO PLANTADO. Ele é montado sob
+    // demanda (a folha o pede em `abrirSorteio`) e `lyricMatch` devolve `null`
+    // enquanto ele não existe — conferir `letraCasa` antes disso aprovaria o
+    // ponteiro por VÁCUO.
+    await ensureLyricIndex();
   });
 
   // ---- AS CAPACIDADES APONTAM PARA AS FUNÇÕES CERTAS -----------------------
-  // Quatro ponteiros, e um errado devolve um pool plausível e errado. Este é o
+  // SETE ponteiros, e um errado devolve um pool plausível e errado. Este é o
   // único lugar em que eles podem ser conferidos: a regra pura recebe os de
   // mentira do outro oráculo.
   const cap = await pg.evaluate(() => {
@@ -141,6 +154,13 @@ try {
       // fundo.)
       pbNaoBaixado: !c.noAparelho(alb, collState['album-9'].songs[0], 'playback')
         && !!c.noAparelho(alb, collState['album-9'].songs[0], 'full'),
+      // `letraCasa` é o `lyricMatch`, e é o ponteiro que erra mais calado:
+      // trocada a ordem dos argumentos ele devolve `null` para tudo, o sorteio
+      // para de achar o que casa SÓ na letra e o pool continua plausível. As
+      // duas metades são necessárias — a positiva prende o ponteiro, a negativa
+      // prova que não é um `true` solto.
+      letraCasaNaLetra: !!c.letraCasa(hin, collState['hymnal-2022'].songs[1], 'peregrino'),
+      letraCasaSoNela: !c.letraCasa(hin, collState['hymnal-2022'].songs[0], 'peregrino'),
     };
   });
   checar(cap.achouAsDuas, 'o acervo plantado aparece em allCollections()');
@@ -152,6 +172,29 @@ try {
     'o normalizador injetado é o da Biblioteca (sem acento, minúsculas)');
   checar(cap.baixada && cap.pbNaoBaixado,
     '`noAparelho` responde POR VARIANTE — a cantada baixada não vale pelo playback', cap);
+  checar(cap.letraCasaNaLetra && cap.letraCasaSoNela,
+    '`letraCasa` é o `lyricMatch` — acha a faixa cujo tema só existe na LETRA, e só ela',
+    cap);
+
+  // ---- E O CAMINHO SÓ-PELA-LETRA CHEGA AO POOL -----------------------------
+  // O ponteiro conferido acima prova a LIGAÇÃO; esta linha prova o DESFECHO.
+  // `ondeCasa` tenta nome, álbum e letra nessa ordem, e o `casou` que sai dali é
+  // o que a folha e o Registro mostram ao operador ("casou na letra"). Sem ela,
+  // um `letraCasa` certo e um `ondeCasa` que nunca o consultasse passariam
+  // iguais.
+  const soLetra = await pg.evaluate(() => {
+    const pool = AVSorteio.montarPool(allCollections(), { tema: 'peregrino' }, sorteioCap());
+    return {
+      nomes: pool.itens.map((i) => i.s.name),
+      casou: pool.itens.map((i) => i.casou),
+      contagem: pool.casaram[AVSorteio.CASOU_LETRA] || 0,
+      esperado: AVSorteio.CASOU_LETRA,
+    };
+  });
+  checar(soLetra.nomes.length === 1 && soLetra.nomes[0] === 'Firme nas Promessas'
+    && soLetra.casou[0] === soLetra.esperado && soLetra.contagem === 1,
+    'a faixa cujo tema só aparece na LETRA entra no pool, e entra como `casou: "letra"`',
+    soLetra);
 
   // ---- O BOTÃO ABRE A FOLHA, E ELA DESENHA ---------------------------------
   // ESPERA A CONDIÇÃO, NÃO UM PRAZO: o `.popup-backdrop` só recebe o toque
