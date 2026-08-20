@@ -150,6 +150,15 @@ jobs:
           # como "travando e dessincronizando", nunca como uma exceção.
           # Determinístico, sem navegador: entra aqui, sem `continue-on-error`.
           node tools/sombra.test.mjs
+
+          # AS DUAS METADES DO DRENO DA TELA DA REDE. A lista de permissão do
+          # que uma tela pode injetar no barramento existe no `tela.js` (evita o
+          # tráfego) e no `EspelhoServidor.kt` (é a que VALE) — e duas listas
+          # sem oráculo divergem no primeiro esquecimento, mudas nos dois
+          # sentidos. O KDoc do `TIPOS_QUE_SOBEM` afirmava que o
+          # `tela-rede.test.mjs` cobrava o par; ele não cobrava — aquele oráculo
+          # sobe um servidor de MENTIRA e nunca lê o Kotlin.
+          node tools/tipos-que-sobem.test.mjs
           # A REGRA DA SÉRIE: quais playlists do canal formam o álbum "Provai e
           # Vede 2026" e quais vídeos entram nele. Os dois modos de errar são
           # silenciosos e caros — aceitar demais põe a versão em LIBRAS em par
@@ -395,6 +404,23 @@ jobs:
             printf 'REPROVOU: %s\n' "${falhas[@]}" | tee -a "$GITHUB_STEP_SUMMARY"
             exit 1
           fi
+
+      # O PULO TAMBÉM VAI PARA O RESUMO. Sem este passo, um `Preparar o
+      # Chromium` que falhe ou estoure o prazo deixava os quinze oráculos de
+      # fora SEM UMA LINHA em lugar nenhum: o resumo do run ficava idêntico ao
+      # de uma execução em que tudo passou, e o bundle publicava do mesmo jeito.
+      # É a mesma classe do incidente da v5.302, e a metade dele que o prazo não
+      # cobriu — o prazo impede TRAVAR, não impede o SILÊNCIO.
+      #
+      # Não reprova o job de propósito: a política de `continue-on-error` deste
+      # passo é deliberada (barrar o canal OTA por um teste de navegador é
+      # trocar um risco raro por um bloqueio frequente). O que muda é que a
+      # ausência do placar deixa de ser indistinguível de "15/15".
+      - name: Oráculos em Chromium — PULADOS (aviso)
+        if: steps.chromium.outcome != 'success'
+        run: |
+          echo "::warning::Oráculos em Chromium PULADOS — 'Preparar o Chromium' terminou como '${{ steps.chromium.outcome }}'"
+          echo "Oráculos em Chromium: 0/15 — **PULADOS** (infraestrutura: \`Preparar o Chromium\` terminou como \`${{ steps.chromium.outcome }}\`). O bundle publica assim mesmo; nenhum oráculo de navegador foi consultado neste run." >> "$GITHUB_STEP_SUMMARY"
 
       # ────────────────────────────────────────────────────────────────────
       # A RELEASE QUE ESTE LOTE EXIGE (v5.234)

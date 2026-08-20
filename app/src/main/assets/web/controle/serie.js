@@ -773,6 +773,13 @@
       // guardado sobreviveria à correção, que é o defeito da v5.233 por
       // inteiro.
       String(ehOutroIdioma), String(ESCRITAS_DE_FORA), String(IDIOMAS_DE_FORA),
+      // E PELO MESMO ARGUMENTO, os NOMES DOS MESES e a antecedência: eles
+      // decidem o que a regra produz tanto quanto uma função. `dataDoVideo`
+      // casa o mês pelo nome (`MESES`), `rotuloData` o escreve (`MES_CURTO`), e
+      // `aindaNaoSaiu` corta pela `DIAS_DE_ANTECEDENCIA` — mudar qualquer um
+      // muda a lista, e sem eles aqui o índice guardado sobreviveria à
+      // correção. (`MESES_ABREV` é derivado de `MESES` e vem de graça.)
+      JSON.stringify(MESES), JSON.stringify(MES_CURTO), String(DIAS_DE_ANTECEDENCIA),
       extra == null ? '' : String(extra),
     ].join('\u0000');
     let h = 0x811c9dc5;

@@ -59,10 +59,12 @@ object WebViewFactory {
      *   dele: os dois consumidores de arquivo do dispositivo são `importShare`
      *   e `syncDeviceFolder`, e os dois copiam os bytes para o OPFS antes de
      *   qualquer coisa chegar ao telão — o Display nunca busca um `/saf/`.
-     *   Deixá-lo fora do loader da `Presentation` é higiene: aquele WebView
-     *   carrega script de terceiro por design (a IFrame Player API), e não há
-     *   motivo para dar a ele um servidor de bytes de todas as pastas que o
-     *   operador já concedeu.
+     *   Deixá-lo fora do loader da `Presentation` é a INVARIANTE 9, não
+     *   higiene: com o handler registrado, qualquer script que rodasse naquele
+     *   documento ganharia um servidor de bytes de todas as pastas que o
+     *   operador já concedeu. (O embed do YouTube — que carregava script de
+     *   terceiro ali por design — saiu na v5.212; a guarda não depende dele,
+     *   e é `tools/ponte.test.mjs` que a trava.)
      */
     fun assetLoader(ctx: Context, withSaf: Boolean = true): WebViewAssetLoader =
         WebViewAssetLoader.Builder()
@@ -77,13 +79,14 @@ object WebViewFactory {
      *
      * O Chromium marca a página como `hidden` quando a janela da View some — e
      * é isso que acontece com o telão no instante em que o operador minimiza o
-     * app. Um `<video>` local não liga para isso e continua tocando, mas o
-     * **embed do YouTube pausa sozinho** ao ver `document.hidden`: é regra do
-     * player deles, roda dentro de um iframe de outra origem e nenhum código
-     * nosso alcança. O louvor parava no meio do culto.
+     * app. Uma página oculta é rebaixada pelo Chromium: temporizadores
+     * estrangulados, renderer desacelerado.
      *
-     * Reportar sempre `VISIBLE` tira o gatilho: a página do telão nunca fica
-     * oculta, então nada tem por que se pausar. Vale SÓ para o WebView da
+     * Reportar sempre `VISIBLE` tira o gatilho. **O telão É a projeção**, segue
+     * no ar com o app minimizado de propósito, e não há razão para desacelerar
+     * o renderer dele. (O motivo ORIGINAL era outro — o embed do YouTube
+     * pausava sozinho ao ver `document.hidden` —, e saiu com ele na v5.212; o
+     * que sustenta a subclasse hoje é a frase acima.) Vale SÓ para o WebView da
      * [StagePresentation] — ele é a projeção, e a projeção continua no ar com o
      * app minimizado de propósito (é para isso que existe o [SessionService]).
      * O WebView do Controle segue o ciclo normal: ali ser estrangulado em
@@ -95,11 +98,12 @@ object WebViewFactory {
      */
     class KeepVisibleWebView(ctx: Context) : WebView(ctx) {
         /**
-         * LIGÁVEL EM TEMPO DE EXECUÇÃO, e não fixo na criação (v1.29): o telão
-         * precisa disto sempre, mas o **Controle** precisa só enquanto a *mesa
-         * de som* estiver ligada — é o momento em que o celular deixa de ser a
-         * mesa de comando e vira a caixa de som. Fora disso, ser estrangulado
-         * em segundo plano é o comportamento correto para ele.
+         * Ligado SÓ para o WebView da [StagePresentation], pelo parâmetro
+         * `keepVisible` de [create] — que é o único ponto do repositório que
+         * escreve este campo. Com `false` a subclasse é indistinguível de um
+         * WebView comum, e é assim que o Controle nasce: ali ser estrangulado
+         * em segundo plano é o comportamento CERTO. (O comentário de [create]
+         * carrega o porquê de a alternância em tempo de execução ter saído.)
          */
         var manterVisivel = false
 
@@ -182,9 +186,13 @@ object WebViewFactory {
             mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW
             cacheMode = WebSettings.LOAD_DEFAULT
 
-            // O embed do YouTube trata "; wv" (marca de WebView) de forma
-            // mais restritiva que um Chrome comum. Remover o marcador mantém
-            // o mesmo motor, mas evita degradações do player.
+            // Sem o marcador "; wv", os serviços que a base web consulta
+            // (LouvorJA, miniaturas) veem um Chrome comum em vez de um WebView,
+            // que alguns tratam de forma mais restritiva. Mesmo motor, sem a
+            // degradação. (Nasceu para o embed do YouTube, que saiu na v5.212 —
+            // a linha ficou porque o UA vale para TODA requisição do WebView,
+            // não só para aquele player. O UA que o googlevideo enxerga é outro:
+            // quem o escolhe é `YoutubeGrab.uaPara`/`StreamProxy`.)
             userAgentString = userAgentString.replace("; wv", "")
         }
 

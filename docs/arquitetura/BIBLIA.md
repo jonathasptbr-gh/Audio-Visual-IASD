@@ -354,10 +354,8 @@ com `load` visual/`stop`/`clear` explícitos).
 ### No Display
 
 Layer `#text` (`.text-layer`), **`z-index:2` — acima de toda a mídia**
-(`z-index:1`), inclusive do iframe do YouTube, que vem depois no DOM e com
-z-index igual pintaria por cima do cartão. A cortina do wallpaper sobe para
-`z-index:3` (nada é colocado sobre o wallpaper) e o escudo do YouTube para
-`4`. Como `.layer` já traz `background: var(--stage-bg)`, o cartão é **opaco**: o texto
+(`z-index:1`). A cortina do wallpaper sobe para `z-index:3`: nada é colocado
+sobre o wallpaper. Como `.layer` já traz `background: var(--stage-bg)`, o cartão é **opaco**: o texto
 manual cobre a cena inteira, que é o que se espera de uma interferência
 direta do operador.
 

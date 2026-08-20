@@ -284,8 +284,8 @@ class MainActivity : ComponentActivity(), BridgeHost {
         WebUpdater.checkAsync(this, "abertura")
         WebUpdater.iniciarVigilancia(this)
 
-        // E O AVISO APARECE NA HORA. O lado web enquete de minuto em minuto,
-        // mas esperar até um minuto por algo que o shell JÁ SABE é atraso à
+        // E O AVISO APARECE NA HORA. O lado web enquete de dez em dez segundos
+        // (`OTA_POLL_MS`), mas esperar por algo que o shell JÁ SABE é atraso à
         // toa: quando o bundle fica pronto, o shell empurra. Um bundle antigo
         // (sem `__avOta`) simplesmente não tem a função e o empurrão vira
         // no-op — a enquete continua sendo o piso.
@@ -1415,13 +1415,6 @@ class MainActivity : ComponentActivity(), BridgeHost {
     }
 
     /**
-     * O operador decidindo sobre uma tela pendente — ou, com `id` vazio/`"*"`,
-     * ligando a aprovação automática desta sessão.
-     *
-     * Aprovar aqui não "abre" nada: o cliente está enquetando `POST /par` e a
-     * sessão que nasce da aprovação é o que a próxima enquete dele encontra.
-     */
-    /**
      * DERRUBAR UMA TELA — a única coisa que este método faz.
      *
      * O `id` é o RÓTULO da tela ("tela B"), que é o único identificador que a
@@ -1446,9 +1439,10 @@ class MainActivity : ComponentActivity(), BridgeHost {
     // ---------- certificado do espelho (o degrau de TLS) ----------
     //
     // Os três saem da main thread — ler um `.p12` do SAF, abrir um PKCS12 e
-    // reescrevê-lo é disco e cripto —, e saem numa THREAD PRÓPRIA e não na fila
-    // de IO da ponte. A fila é de uma thread só e é onde roda o download do
-    // YouTube: importar um certificado no meio de um download ficaria preso por
+    // reescrevê-lo é disco e cripto —, e saem numa THREAD PRÓPRIA e não numa
+    // fila da ponte. A `transferencia` é de uma thread só e é onde roda o
+    // download do YouTube: importar um certificado no meio de um download
+    // ficaria preso por
     // minutos e a Promise venceria pelo prazo de 60 s do `native.js`,
     // resolvendo `null` — um "erro" sem causa. É a mesma razão pela qual os
     // cinco métodos do espelho ficam fora dela.

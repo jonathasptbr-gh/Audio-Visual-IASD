@@ -27,13 +27,14 @@ import android.webkit.WebChromeClient
  *   processo não tem — a captura falharia de qualquer forma, e mais adiante,
  *   sem sinal claro. Negar aqui devolve o erro na hora, e o lado web sabe
  *   pedir a permissão antes (`AVNative.requestMic()`).
- * - **Só da própria origem.** Defesa em profundidade: este client é do WebView
- *   do TELÃO, que carrega conteúdo de terceiro por design (o embed do
- *   YouTube), e o `grant()` é silencioso — não há prompt, não há sinal na tela.
- *   Hoje nenhum caminho conhecido exercita isso (o iframe do YouTube é barrado
- *   pela Permissions Policy, e um script no documento de topo passaria por esta
- *   checagem de qualquer jeito), mas a permissão que o operador concedeu para
- *   falar no telão não pode valer para qualquer página que aquele WebView
+ * - **Só da própria origem.** Defesa em profundidade, e ela NÃO depende de o
+ *   telão carregar conteúdo de terceiro (o embed do YouTube saiu na v5.212;
+ *   hoje o vídeo entra por `shared/mse.js` num `<video>` comum). O que a
+ *   sustenta é outra coisa: `grant()` é silencioso — não há prompt, não há
+ *   sinal na tela —, e permissão de mídia é POR WEBVIEW, não por origem. Hoje
+ *   nenhum caminho conhecido exercita isso, mas a permissão que o operador
+ *   concedeu para falar no telão não pode valer para qualquer página que aquele
+ *   WebView
  *   venha a renderizar. Uma origem AUSENTE não é negada: nunca foi observada
  *   aqui, e recusar por causa de um campo vazio tiraria o push-to-talk sem
  *   nenhum ganho conhecido.
@@ -61,8 +62,8 @@ class MicChromeClient(private val ctx: Context) : WebChromeClient() {
      * `ControleChromeClient`, para um único filtro pegar os dois WebViews.
      *
      * O telão era o WebView com MENOS diagnóstico do app, e é o pior para isso:
-     * roda na frente da congregação, carrega script de terceiro por design e é
-     * o único que o watchdog de boot do OTA não valida. Um erro de JS ali
+     * roda na frente da congregação e é o único que o watchdog de boot do OTA
+     * não valida. Um erro de JS ali
      * sumia sem rastro nenhum — só visível ligando remote debugging.
      */
     override fun onConsoleMessage(msg: ConsoleMessage): Boolean {

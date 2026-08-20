@@ -32,7 +32,12 @@ espelhar o celular.
 | 13 | [Build e distribuição](#build-e-distribuição) | CI, oráculos, assinatura, backup |
 | 14 | [Regras de desenvolvimento](#regras-de-desenvolvimento) | **antes de commitar** |
 
-**Fora daqui:** `docs/ARQUITETURA-WEB.md` (o HUB da base web: regras gerais e o
+**Fora daqui:** `docs/ACHADOS-EM-ABERTO.md` (os defeitos CONFIRMADOS e ainda não
+corrigidos, com cenário e correção proposta — **leia antes de mexer no que ele
+nomeia**; é arquivo para ESVAZIAR, não para crescer), `docs/shell/README.md`
+(o HUB do **Kotlin**: um capítulo por
+subsistema do shell, mais a tabela que diz onde cada um dos 26 arquivos é
+explicado), `docs/ARQUITETURA-WEB.md` (o HUB da base web: regras gerais e o
 mapa dos capítulos em `docs/arquitetura/`), `docs/TELAO-POR-COMANDOS.md`
 (o contrato das telas da rede), `docs/FONTE-DE-DADOS-LOUVORJA.md` (hinos/Bíblia)
 e `docs/HISTORICO.md` (**apêndice**: a nota de cada versão, para consultar por
@@ -105,7 +110,7 @@ app/src/main/
 │   ├── SafPathHandler.kt        # serve arquivos do dispositivo em /saf/<token>
 │   ├── ShareIntake.kt           # intent ACTION_SEND → formato do share web
 │   ├── SyncService.kt           # foreground service: downloads com o app minimizado
-│   ├── SessionService.kt        # O ÚNICO foreground service: MediaSession + transmissão
+│   ├── SessionService.kt        # o único FGS DO CULTO (o Sync só sobe em download)
 │   ├── WebUpdater.kt            # OTA da base web (watchdog, minShell, sha256)
 │   ├── ShellUpdater.kt          # OTA do APK: a Release nova, instalada de dentro do app
 │   ├── WebPathHandler.kt        # serve o bundle OTA, com fallback pro APK
@@ -134,6 +139,12 @@ app/src/main/
     ├── values/themes.xml        # tema sem action bar; tema preto da Presentation
     └── xml/                     # backup_rules + data_extraction_rules (ver "Build")
 docs/
+├── ACHADOS-EM-ABERTO.md         # os defeitos confirmados que MUDAM comportamento
+│                                #   (a auditoria de 2026-08). Para ESVAZIAR.
+├── shell/                       # HUB do KOTLIN + um capítulo por subsistema
+│   ├── README.md                #   o mapa: qual capítulo abrir, e onde cada .kt mora
+│   ├── PONTE.md                 #   AVNative campo a campo, SHELL_VERSION, as 3 filas
+│   └── OTA.md                   #   watchdog de boot, detecção, shellTag, achados abertos
 ├── ARQUITETURA-WEB.md           # HUB da base web: regras gerais + mapa dos capítulos
 ├── arquitetura/                 # um capítulo por arquivo — abrir SÓ o que a pergunta pede
 │   ├── CONTROLE.md              #   layout, transporte, mixer, Biblioteca, coleções, YouTube
@@ -229,7 +240,13 @@ silêncio**:
    comprometimento do aparelho: com `host != null`, qualquer script de terceiro
    ali ganharia `pickFolder`, `listFolder`, `pickDoc`, `openExternal` e
    `espelhoLigar` — este último abre um servidor na rede da igreja.
-   `tools/ponte.test.mjs` a trava.
+
+   **NÃO HÁ ORÁCULO PARA ELA.** O `ponte.test.mjs` afirma o dreno e a remontagem
+   de campos, não a superfície privilegiada no papel `display`; a invariante mora
+   só no `StagePresentation.kt` (`host = null` e `assetLoader(…, withSaf = false)`)
+   mais as guardas `host == null` de cada método. Escrevê-la é carregar o
+   `native.js` com um `__AVBridge` cujo `role()` devolva `'display'` e afirmar
+   que os cinco métodos privilegiados resolvem o desfecho inofensivo.
 
 **No `AndroidManifest.xml`:** `hardwareAccelerated` e `largeHeap` — os dois
 WebViews e um vídeo grande dividem o mesmo processo.
@@ -325,7 +342,10 @@ window.AVNative = {
                        //   OS DOIS CANAIS numa leitura só — shell 43. Ele não
                        //   acrescenta poder: acrescenta COERÊNCIA DE INSTANTE
                        //   (ver a seção do OTA)
-  apkProcurar(),       // → { versao, url, notas } da Release nova, ou null — shell 35
+  apkProcurar(),       // → {} · { versao, bytes, notas } · { erro } — shell 35
+                       //   `bytes` é o TAMANHO do .apk; NÃO há campo `url` (quem
+                       //   guarda a URL é o `ShellUpdater`) e o vazio é `{}`,
+                       //   nunca `null`
   apkInstalar(),       // baixa e abre o diálogo de instalação do sistema — shell 35
                        //   (sem URL: quem a escolhe é o `ShellUpdater`, do
                        //    achado da última `apkProcurar`)
@@ -460,17 +480,50 @@ que passa a fazer outra coisa exigem o degrau do mesmo jeito.
 | 26 | `+ ytStream` · 25 `+ ytFetchAte` e `bytes` no `bgProgress` · 23 `+ ytFetchAudio` |
 | ≤ 22 | `ytDiag`, `ytSearch`, os três de deck, `pickDoc`, `openExternal`, `ytFetch`/`ytDiscard` |
 
-Duas regras de thread que vieram com o espelho e continuam valendo:
+### As TRÊS filas da ponte — escolher a errada é uma regressão muda
 
-- **Os cinco métodos do espelho ficam FORA da fila de IO** e rodam na main
-  thread. A fila é de uma thread só e é onde roda o download do YouTube: "ligar a
-  transmissão" no meio de um download venceria pelo prazo de 60 s do `native.js`
-  e resolveria `null` — um erro sem causa. (A razão ORIGINAL morreu com a
-  `MirrorPresentation`; o que sustenta hoje é isto mais a serialização de
-  `espelhoSrv`/`espelhoMidia`. Ver o KDoc de `MainActivity.startMirror`.)
-- **`ytCancel` não vai para fila nenhuma**, e não poderia: a fila está ocupada
-  justamente pelo download que se quer parar. Ele escreve um `@Volatile` e volta;
-  quem responde é o laço de cópia do `YoutubeGrab`, a cada bloco de 64 kB.
+São três executores de **uma thread cada**, no `companion` do `NativeBridge`
+(portanto **compartilhados por todas as instâncias**: um por instância vazava a
+`NativeBridge` inteira, e com ela a Activity/Presentation antigas, a cada morte
+de renderer e a cada ciclo do dongle). Todos daemon.
+
+| fila | o que roda nela | por quê |
+|---|---|---|
+| **`io`** | só o que responde em MILISSEGUNDOS: `version.json`, estado do OTA, `listFolder` pelo `ContentResolver` | é a fila de que tudo mais depende |
+| **`transferencia`** | as transferências de MINUTOS: o download do YouTube, o do APK, e o `ytDiscard` | ver abaixo |
+| **`extracao`** | o que vai à rede ler METADADOS (busca, playlists de canal, o manifesto do `ytStream`) e a rasterização de PDF — coisas de SEGUNDOS | ver abaixo |
+
+- **Enfileirar rede longa em `io` é o defeito que a separação corrigiu.** `io` é
+  de uma thread só; do lado web `CALL_TIMEOUT_MS` são 60 s e o `call()` resolve
+  `null` ao vencer. Com um vídeo de 300 MB baixando, `listFolder` devolvia lista
+  vazia, `otaPending` dizia que não há atualização e `atualizacaoEstado` não
+  respondia nada. **Nenhum deles erra: os três mentem baixinho** — e o pior é o
+  `listFolder`, cuja lista vazia o `controle.js` lê como "a pasta sumiu do
+  aparelho".
+- **`extracao` é separada de `transferencia` porque segundos não esperam
+  minutos.** Atrás de um download, o "Tocar agora" de um vídeo esperaria o
+  hinário terminar — e, vencido o prazo, cairia no download sem que nada
+  explicasse por quê.
+- **UMA thread em `transferencia` é invariante, não economia:** o resgate de
+  download do `YoutubeGrab` é um slot único e o mapa de parciais supõe **um
+  download por vez**. `ytDiscard` mora aqui pelo mesmo motivo — fora desta fila
+  ele poderia apagar o parcial de um download em curso.
+- **`extracao` também é de uma thread só**, porque as extrações compartilham a
+  inicialização global do NewPipe. Os diagnósticos não colidem: `diagnostico` é
+  escrito só pelo caminho do download e `diagnosticoStream` só pelo do
+  manifesto — que é justamente por que eles são dois campos.
+
+E duas regras que ficam de fora das três filas:
+
+- **Os cinco métodos do espelho rodam na MAIN THREAD**, fora de qualquer fila.
+  "Ligar a transmissão" enfileirado atrás de um download venceria o prazo de
+  60 s e resolveria `null` — um erro sem causa. O que sustenta isso hoje é a
+  serialização de `espelhoSrv`/`espelhoMidia` (a razão ORIGINAL morreu com o
+  espelho de pixels). Ver o KDoc de `MainActivity.startMirror`.
+- **`ytCancel` não vai para fila nenhuma**, e não poderia: `transferencia` está
+  ocupada justamente pelo download que se quer parar. Ele escreve um `@Volatile`
+  e volta; quem responde é o laço de cópia do `YoutubeGrab`, a cada bloco de
+  64 kB.
 
 **Um método novo NÃO chega por OTA.** O bundle segue com `minShell: 2` de
 propósito — subi-lo recusaria a atualização inteira num shell antigo, o que é
@@ -601,7 +654,12 @@ errada e depois perdido.
   perdido em silêncio), então o `startAt` entra num `loadedmetadata` com
   `{ once: true }`, protegido pelo `loadSeq`. `autoplay === false` é a cena que
   voltou pausada; `undefined` mantém o comportamento de sempre.
-- `display.js` → `loadYoutube(rec, …)` passa o `startAt` como `playerVars.start`.
+- **Não há segundo caminho.** O vídeo do YouTube entra pelo `shared/mse.js`
+  como `<video>` comum, então o `startAt` dele segue a MESMA regra acima. Um
+  `kind: 'youtube'` (link sem bytes) nem chega a ser cena no telão: quem o
+  resolve é o Controle, antes do `load` (`resolverLinkYoutube`), e o Display
+  esvazia o palco se um chegar. (`loadYoutube`/`playerVars` saíram com a IFrame
+  Player API na v5.212.)
 
 O comando mais frequente do barramento é o `display-status`, emitido pelo telão a
 cada `timeupdate` (mais `play`, `pause`, `loadedmetadata`, `ended`,
@@ -1088,10 +1146,10 @@ sintoma é "a atualização não chega".
 
 `window.AVDB` no `load` não bastava: a ordem dos scripts do Controle é
 `native.js` → `db.js` → `mse.js` → `stage.js` → `louvorja.js` → `bible.js` →
-`controle.js`, e um erro em qualquer um dos cinco últimos aborta só AQUELE
-script — o `load` dispara, `AVDB` continua lá, e o bundle quebrado era carimbado
-como bom **para sempre**. As quatro condições, cada uma cobrindo o que a
-anterior não cobre:
+`serie.js` → `sorteio.js` → `controle.js`, e um erro em qualquer um dos **oito**
+últimos aborta só AQUELE script — o `load` dispara, `AVDB` continua lá, e o
+bundle quebrado era carimbado como bom **para sempre**. As quatro condições,
+cada uma cobrindo o que a anterior não cobre:
 
 1. **papel `controle`** — o Display não carrega `controle.js` nem `louvorja.js`,
    e é o caso NORMAL de culto: confirmaria quase sempre no lugar do outro. Regra
@@ -1105,6 +1163,17 @@ anterior não cobre:
 4. **um `<li>` dentro de `#playlist`** — o HTML entrega o `<ul>` VAZIO; quem o
    preenche é `renderPlaylist()`, dentro do `init()` assíncrono, que começa por
    `loadCollections()`. Prova que a inicialização terminou.
+
+> **O QUE ESTAS QUATRO NÃO COBREM** — e é buraco conhecido, não descuido de
+> leitura: `louvorja.js`, `bible.js`, `serie.js` e `sorteio.js` não têm condição
+> nenhuma. Todo uso de `AVSerie`/`AVSorteio` no `controle.js` está DENTRO de
+> função, então um erro de topo num deles **não** aborta o `controle.js`:
+> `__avBack` existe, a playlist renderiza, `otaConfirm()` desarma o watchdog — e
+> o bundle fica adotado para sempre com a Playlist automática (ou a Biblioteca
+> de séries, ou a Bíblia, ou o hinário) morta, sem erro na tela e sem recuo no
+> lançamento seguinte. `sorteio.js` mudou em v5.302, v5.306, v5.308 e v5.311.
+> **O conserto é barato** (exigir o global publicado no fim de cada um, na mesma
+> forma da condição 2) e está proposto em `docs/shell/OTA.md`.
 
 **Por polling** (250 ms, desistindo em 30 s, em silêncio), e não checagem única
 no `load`: o `init()` é assíncrono e termina DEPOIS do `load` — uma checagem
@@ -1388,11 +1457,16 @@ ser diagnosticável.
   Provai e Vede libera o mês inteiro de uma vez (medido: em 15/ago já tinha até
   26/set, e aqueles tocam). O DIA entra também na ASSINATURA das playlists,
   senão a economia devolveria a lista de ontem no sábado de manhã.
-- **O NOME DO ITEM pode ser SÓ A DATA** (`titulo: 'nenhum'`): no Informativo o
-  título é a série mais a data, e "o nome é o que vem antes da barra" daria 52
-  linhas idênticas. Numa lista anual a data é única. **`nomeDoItem` nunca devolve
-  vazio** — sem data e sem título ele cai no título CRU, que é feio e longo, e é
-  infinitamente melhor que uma linha em branco na lista do culto.
+- **O NOME DO ITEM pode não sair do título do vídeo.** No Informativo o título é
+  a série mais a data, e "o nome é o que vem antes da barra" daria 52 linhas
+  idênticas. São TRÊS modos, no campo `titulo` do catálogo:
+  `TITULO_ESQUERDA` (o padrão — o nome à esquerda da barra), `TITULO_SERIE` (o
+  rótulo da série mais a data) e `TITULO_NENHUM` (só a data). **O Informativo é
+  `TITULO_SERIE` desde a v5.271** — `TITULO_NENHUM` ficou sem consumidor, porque
+  o item SAI do álbum (vai para o Cronograma, para a fila) e uma data sozinha
+  não o identifica lá fora. **`nomeDoItem` nunca devolve vazio** — sem data e sem
+  título ele cai no título CRU, que é feio e longo, e é infinitamente melhor que
+  uma linha em branco na lista do culto.
 - **A assinatura das playlists evita doze extrações por retomada** (a aba do canal
   já diz quantos vídeos cada uma tem). Um episódio novo muda a contagem e a
   assinatura inteira é refeita — "tudo ou nada" de propósito.
@@ -1450,7 +1524,7 @@ ordem em que a lista mostra.
 
 ```
 · Informativo Mundial das Missões 2026 — https://www.youtube.com/@daniellocutor
-  prefixo "Informativo" · 2026 · playlists por trimestre · rótulo pela data
+  prefixo "Informativo" · 2026 · playlists por trimestre · rótulo pela data e pelo nome da série
   aba do canal (há 2 min): 5 playlist(s), 2 aceita(s)
     - "Misiones | 3º Trimestre 2026" → não começa com "Informativo"
     + "Informativo | 3º Trimestre 2026" → mês 7 · 13 vídeo(s) no canal
@@ -1858,6 +1932,8 @@ Antes de publicar: `node --check` em todo `.js` de `assets/web`, validação do
 | `sorteio.test.mjs` | quais faixas a **playlist automática** pode mandar ao telão. O operador toca UM botão e a faixa entra em cena, sem tela intermediária: os quatro modos de errar (série no lugar do louvor · faixa que casa e não aparece · PLAYBACK onde se esperava a voz · fila cheia do que falta baixar) são todos silenciosos |
 | `glifos.test.mjs` | **todo ícone de fonte existe na fonte.** O `.woff2` é um SUBSET de 31 codepoints, e um `.msym` fora dele não desenha NADA — sem erro, sem requisição falhando, só um vão: o botão existe, é tocável, faz o que promete e é invisível. Lê o `cmap` do próprio arquivo (`zlib.brotliDecompressSync`, zero dependência) |
 | `sidx.test.mjs` | o parser `sidx` |
+| `tipos-que-sobem.test.mjs` | **as DUAS metades do dreno da tela da rede**: a lista de permissão do `drenar()` (`espelho/tela.js`) e a do `TIPOS_QUE_SOBEM` (`EspelhoServidor.kt`). Duas listas sem oráculo divergem no primeiro esquecimento, e a divergência é MUDA nos dois sentidos |
+| `contexto-seguro.test.mjs` | `VideoDecoder`, `wakeLock`, `audioWorklet`, `randomUUID`, `crypto.subtle` **fora de guarda** em `espelho/`, `display/` **e `shared/`** — o `/display/` das telas da rede roda em `http://`, e ele carrega quatro arquivos de `shared/`: lá essas APIs vêm `undefined`. Guarda vale `isSecureContext` **ou** detecção de presença na mesma linha |
 
 **Chromium de verdade, em DOIS PASSOS:** `Preparar o Chromium` (o `npm i` e o
 `playwright install`, **com** `continue-on-error` — infraestrutura) e `Oráculos
@@ -1887,7 +1963,6 @@ primeiro oráculo novo, e envelheceria mentindo.
 | `sorteio-tela.test.mjs` | a **playlist automática** da folha até a fila. O `sorteio.test.mjs` trava a REGRA; este trava a LIGAÇÃO, que falha de outro jeito — a regra continua certa e o recurso não faz nada. As quatro capacidades injetadas são ponteiros, e um errado devolve um pool plausível e ERRADO |
 | `db-gc.test.mjs` | o coletor de lixo — o único código do app que APAGA mídia do operador |
 | `acervo.test.mjs` | as contas da Biblioteca ("completa?" e "quanto ocupa?"), que já foram respondidas por fórmulas diferentes na mesma tela |
-| `contexto-seguro.test.mjs` | `VideoDecoder`, `wakeLock`, `audioWorklet`, `randomUUID`, `crypto.subtle` fora de guarda `isSecureContext` em `espelho/` **e `display/`** — o display INTEIRO roda em `http://` nas telas da rede, e lá essas APIs vêm `undefined` |
 | `mse.test.mjs` · `stage-fade.test.mjs` | mensagens de falha da transmissão direta · a transição de entrada do palco |
 
 > **A REDE EXTERNA NÃO ENTRA NUM ORÁCULO** (`tools/sem-rede.mjs`,
@@ -1973,7 +2048,7 @@ apaga junto com o app.
 ### Backup com regras
 
 `res/xml/backup_rules.xml` e `res/xml/data_extraction_rules.xml` —
-`allowBackup="true"` sozinho leva tudo, e duas coisas não podem ir:
+`allowBackup="true"` sozinho leva tudo, e **três** coisas não podem ir:
 
 - **`files/web-ota/` e `shared_prefs/web-ota.xml`** — o bundle extraído e o
   ponteiro para ele, isto é, **CÓDIGO** que roda no origin privilegiado com
@@ -1981,6 +2056,13 @@ apaga junto com o app.
   por nenhuma das três garantias (não há download, nem `sha256`, e `minShell` só
   existe no caminho do download). Nada ali precisa sobreviver à troca de
   aparelho.
+- **`files/espelho-tls/` e `shared_prefs/espelho-tls.xml`** — a **chave privada**
+  do certificado do telão na rede e a senha com que ela foi reescrita
+  (`EspelhoCert.kt`). Uma chave restaurada de um backup adulterado é um servidor
+  falando com a identidade da igreja — e, ao contrário do bundle OTA, ela não se
+  reconstrói sozinha. **É a única exclusão que sai também da transferência
+  direta:** perdê-la ao trocar de aparelho custa reemitir e reimportar, que é o
+  preço certo.
 - **`app_webview/`** — IndexedDB/OPFS, que passa de gigabytes.
 
 A diferença entre os destinos é deliberada: o backup em **nuvem** tem cota de
@@ -2046,7 +2128,7 @@ Rodar local: `./gradlew assembleDebug` (exige Android SDK).
 - **Cor nova entra em `shared/tokens.css`**, nunca literal na folha do app — e
   nunca branco pleno fora do palco.
 - **Sem dependências externas** — Kotlin puro + AndroidX no shell, JavaScript
-  puro no web. **Quatro exceções, todas declaradas:**
+  puro no web. **Três exceções, todas declaradas:**
 
   | dependência | por que é inevitável |
   |---|---|
@@ -2054,7 +2136,7 @@ Rodar local: `./gradlew assembleDebug` (exige Android SDK).
   | **`NewPipeExtractor`** | extrair a URL de um vídeo do YouTube é acompanhar as defesas deles (PO Tokens por vídeo, assinados por BotGuard/DroidGuard). A alternativa sem dependência — servidor público — FALHOU em aparelho: eles rodam em IP de datacenter, exatamente o que o YouTube bloqueia. E a conta é paga por quem publica: o SABR que derrubou o 1080p foi resolvido lá (cliente visionOS) e chegou aqui como **um bump de versão**. Manter o pin explícito e ler o CHANGELOG antes de reescrever extração à mão |
   | **JUnit** (`testImplementation`) | **não põe um byte no APK**. Existe porque o servidor das telas é **a primeira fronteira de rede do projeto** — um parser HTTP com controle de acesso, onde um erro não vira pixel errado, vira controle de acesso quebrado. Escrevê-lo sem oráculo, num repositório que recusa o RFC 6455 **por falta de oráculo**, seria o argumento aplicado contra ele mesmo |
 
-  Uma quinta exceção precisa da mesma justificativa: um problema que não se
+  Uma quarta exceção precisa da mesma justificativa: um problema que não se
   resolve de outro jeito, e a manutenção paga por quem publica a biblioteca.
 
 ### Diagnóstico
@@ -2123,12 +2205,28 @@ mais uma linha na tabela — nunca uma seção a mais no hub, que é o formato d
 ele acabou de sair (um arquivo de 490 KB em que uma pergunta sobre a Bíblia
 custava carregar o Controle inteiro).
 
-**Poda de comentário se PROVA, não se confere de olho.** Uma edição que só mexe
-em comentário tem de deixar o código idêntico byte a byte: remova os comentários
-dos dois lados, normalize o espaço em branco e compare com `git show
-<ref>:<arquivo>`. É a única defesa contra apagar uma linha de código junto com o
-parágrafo que a explicava — e ela também prova, no fim do lote, que um lote de
-documentação é **só web** e não precisa de Release.
+**Poda de comentário se PROVA, não se confere de olho — e são DUAS provas.**
+
+1. **O código não mudou.** Remova os comentários dos dois lados, normalize o
+   espaço em branco e compare com `git show <ref>:<arquivo>`. É a defesa contra
+   apagar uma linha de código junto com o parágrafo que a explicava — e ela
+   também prova, no fim do lote, que um lote de documentação é **só web** e não
+   precisa de Release.
+2. **Cada comentário continua sobre o que ele explica.**
+   `node tools/pares-de-comentario.mjs <arquivo> <ref>` casa os blocos pelo
+   cabeçalho e reprova quando um deles passou a encabeçar outro símbolo.
+
+**A prova 1 é CEGA à troca de lugar, e por isso a 2 existe.** Remover os
+comentários dos dois lados e comparar aprova uma **rotação completa** dos
+blocos: foi o que a v5.300 fez com o `display.js` (commits `4ed5061` e
+`da615b8`), onde oito blocos andaram uma casa e cada um passou a explicar a
+função errada — o bloco do relógio da origem foi parar dentro do
+`telaAplicarWallpaper`, e o da pré-carga do wallpaper, sobre o `agoraDaOrigem`.
+As duas mensagens de commit afirmavam "código inalterado (verificado por remoção
+de comentários contra HEAD)", e estavam certas: o método é que não via.
+
+**Um comentário no lugar errado é pior que um comentário removido: ele responde,
+e responde errado.**
 
 ### A versão mora em TRÊS lugares, e os três precisam andar juntos
 

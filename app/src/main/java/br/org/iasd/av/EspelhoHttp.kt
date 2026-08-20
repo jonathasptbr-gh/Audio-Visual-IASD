@@ -71,7 +71,7 @@ import java.io.InputStream
  */
 object EspelhoHttp {
 
-    /** Linha de requisição (`GET /v HTTP/1.1`), sem o CRLF. */
+    /** Linha de requisição (`GET /e HTTP/1.1`), sem o CRLF. */
     const val TETO_LINHA = 2 * 1024
 
     /** Cada linha de cabeçalho, sem o CRLF. */
@@ -562,7 +562,7 @@ object EspelhoHttp {
     // O fluxo de comandos do telão por comandos é `text/event-stream` SOBRE o
     // chunked que este arquivo já emite — três linhas de framing, nenhum
     // protocolo novo. O cliente é `fetch`+`ReadableStream` (o mesmo transporte
-    // do GET /v de sempre, com `Authorization` no header — `EventSource` não
+    // do GET /e de sempre, com `Authorization` no header — `EventSource` não
     // manda header, e o token nunca viaja numa URL).
 
     /** O cabeçalho do fluxo de eventos. */
@@ -587,7 +587,7 @@ object EspelhoHttp {
      *
      * Ele paga três contas de uma vez (spec §3.8): o vigia de fio do cliente,
      * a detecção de TCP meio-aberto do lado do servidor (a escrita falha) e a
-     * renovação do wake lock do EspelhoService, que é por progresso real de
+     * renovação do wake lock do EspelhoEnergia, que é por progresso real de
      * escrita. O epoch é a referência da correção de relógio das telas — o
      * cronômetro e o sorteio viajam por descritor ancorado em `Date.now()` do
      * celular, e uma Smart TV com o relógio minutos fora contaria errado.

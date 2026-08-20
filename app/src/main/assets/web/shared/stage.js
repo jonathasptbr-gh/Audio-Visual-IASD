@@ -17,8 +17,9 @@
 (function (global) {
   'use strict';
 
-  // Rampa curta ao mutar/desmutar (evita corte abrupto de áudio). Fonte única
-  // compartilhada com display.js e controle.js (via createStage.MUTE_RAMP_TIME).
+  // Rampa curta ao mutar/desmutar (evita corte abrupto de áudio). INTERNA: as
+  // duas outras rampas (`ytRampVolume` no Display, `ytPreviewRampVolume` no
+  // Controle) saíram na v5.212 com o embed, e hoje há um `<video>` só.
   const MUTE_RAMP_TIME = 0.25;
   // Transições são INERENTES ao sistema: sempre ligadas, duração fixa, sem UI
   // nem state. Fonte ÚNICA (via createStage.FADE) — antes o mesmo objeto estava
@@ -882,11 +883,15 @@
       // para ele mostraria o preto do palco. Ver `computeCover`.
       if (view === 'visual' && coveredNow && !semVisual()) {
         if (fadeIn && alvo) {
-          // A cortina segura o wallpaper enquanto o stream não tem quadro — o
-          // telão não fica preto aqui. Mesmo assim o giro entra: o wallpaper é
-          // o repouso do telão, então sem ele o operador vê exatamente a mesma
-          // tela de quando nada foi pedido, por vários segundos, depois de ter
-          // pedido um vídeo.
+          // ESTE RAMO NÃO É O DO "Tocar agora". Num load com autoplay o
+          // `play()` acima já chamou `instantCover(computeCover())` e zerou o
+          // `coveredNow`, então quem transiciona ali é o fade de CONTEÚDO. Aqui
+          // se chega com `autoplay === false` (cena restaurada PAUSADA) ou com
+          // imagem — casos em que a cortina de fato ainda está no ar.
+          //
+          // O giro entra mesmo assim: o wallpaper é o repouso do telão, então
+          // sem ele o operador vê exatamente a mesma tela de quando nada foi
+          // pedido, por vários segundos, depois de ter pedido um vídeo.
           if (ehStream) mostrarEspera(true);
           await mediaReady(alvo, ehStream ? PRONTO_STREAM_MS : 0);
           if (seq !== loadSeq) return;
@@ -1126,8 +1131,10 @@
   }
 
   global.createStage = createStage;
-  // Utilidades de áudio expostas para reuso (Display e Controle carregam este
-  // arquivo antes dos seus): fonte única da rampa de volume e da sua duração.
+  // SEM CONSUMIDOR EXTERNO desde a v5.212 — não leia isto como contrato. Eles
+  // existiam para as rampas do embed do YouTube (`ytRampVolume` no Display,
+  // `ytPreviewRampVolume` no Controle), removidas junto com ele; hoje há um
+  // `<video>` só e a rampa é uma só. Ficam expostos como ponto de extensão.
   createStage.rampSteps = rampSteps;
   createStage.MUTE_RAMP_TIME = MUTE_RAMP_TIME;
   // Transições: config fixa do sistema + os fades de camada paralela, idênticos

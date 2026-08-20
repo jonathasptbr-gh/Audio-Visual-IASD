@@ -111,7 +111,13 @@ interface BridgeHost {
     /** Importa o `.p12` do espelho. `onResult("")` = deu certo; senão, a frase. */
     fun mirrorCertImport(origem: String, senha: String, onResult: (String) -> Unit)
 
-    /** `{ temCert, host, ate, nome }` — o que a folha do espelho desenha. */
+    /**
+     * `{ temCert, host, ate, nome, noAr, servindoTls }` — o que a folha do
+     * espelho desenha. Os dois últimos NÃO são supérfluos: o estado GUARDADO e
+     * o estado NO AR divergem (importar um certificado com o espelho já ligado
+     * não promove o socket a TLS), e sem eles a folha anuncia "certificado
+     * válido" sobre um endereço `http://`.
+     */
     fun mirrorCertState(onResult: (JSONObject) -> Unit)
 
     /** Apaga o certificado: o espelho volta a HTTP claro no próximo ligar. */
@@ -515,7 +521,12 @@ class NativeBridge(
      * ela é a única janela para o que está acontecendo.
      *
      * O JSON vem do lado web (`AVNative.bgProgress`), que sabe o que está
-     * baixando e a que ritmo: `{ label, done, total, etaMs, items, idleMs }`.
+     * baixando e a que ritmo:
+     * `{ label, done, total, etaMs, items, idleMs, bytes }`. CAMPO NOVO AQUI É
+     * CAMPO NOVO NO `native.js`, sempre: ele REMONTA o objeto campo a campo, e
+     * `optBoolean`/`optLong` leem ausente como `false`/`0` — valores legítimos,
+     * sem exceção e sem log. Foi assim que `bytes` passou dezenove versões sem
+     * viajar, e a notificação mostrou BYTES como se fossem ITENS.
      *
      * `items` traz UM nome em destaque. São 6 downloads simultâneos, mas o lado
      * web manda um de cada vez, tirado de uma FILA (FIFO) dos itens que já
@@ -599,7 +610,7 @@ class NativeBridge(
                 positionMs = o.optLong("positionMs"),
                 durationMs = o.optLong("durationMs"),
                 // OS BOTÕES DA NOTIFICAÇÃO, escolhidos pelo lado web (v5.231 /
-                // shell 41) — ver [SessionService.Companion.Scene.actions].
+                // shell 42) — ver [SessionService.Companion.Scene.actions].
                 // Ausente ou vazio = o conjunto clássico de cinco, que é o que
                 // um bundle antigo neste shell tem de continuar produzindo.
                 actions = o.optJSONArray("actions")?.let { arr ->
@@ -653,12 +664,13 @@ class NativeBridge(
 
     // ---------- telão nas telas da rede local ----------
     //
-    // Os cinco métodos deste bloco NÃO vão para a fila `io`, e essa é a decisão
-    // que os separa do resto da ponte. A `io` é uma thread ÚNICA compartilhada
-    // por todas as instâncias, e é nela que roda o download do YouTube: um vídeo
-    // de 380 MB a segura por minutos. Enfileirado, "ligar a transmissão" no meio
-    // de um download não aconteceria — a Promise venceria pelo prazo de 60 s do
-    // `native.js` e resolveria `null`, um "erro" sem causa no toque de um botão.
+    // Os cinco métodos deste bloco NÃO vão para fila nenhuma, e essa é a decisão
+    // que os separa do resto da ponte. Cada fila é de uma thread ÚNICA
+    // compartilhada por todas as instâncias, e é na [transferencia] que roda o
+    // download do YouTube: um vídeo de 380 MB a segura por minutos. Enfileirado,
+    // "ligar a transmissão" no meio de um download não aconteceria — a Promise
+    // venceria pelo prazo de 60 s do `native.js` e resolveria `null`, um "erro"
+    // sem causa no toque de um botão.
     // Mesmo raciocínio já publicado para o `ytCancel`.
     //
     // Quem faz o trabalho é a MAIN THREAD (ver os métodos do [BridgeHost]). A
@@ -678,8 +690,8 @@ class NativeBridge(
      * LIGA o espelho e resolve o estado resultante (o MESMO objeto do
      * [espelhoEstado], com `erro` não-vazio quando não deu).
      *
-     * `modo` é `"imagem"` ou `"video"` — ver [BridgeHost.startMirror] para por
-     * que ele é escolhido aqui e não trocado ao vivo.
+     * `modo` é IGNORADO desde a v5.156: ficou na assinatura para não custar um
+     * degrau de `SHELL_VERSION`. Ver [BridgeHost.startMirror].
      *
      * O espelho é AUXILIAR por contrato: ele liga por ação do operador e
      * desliga por ação do operador, pelo fechamento do app, ou por uma falha que
@@ -698,9 +710,9 @@ class NativeBridge(
      *
      * Sem `callId` e sem espera, como o [ytCancel]: do outro lado isto escreve
      * um campo `@Volatile` e volta — quem responde são os laços que o consultam
-     * (a drenagem do encoder, as threads de cliente). Segurar a Promise pelo
-     * tempo de soltar encoder, tela virtual, janela e sockets daria um botão
-     * travado justamente no caminho de desistir. O desfecho aparece no
+     * (as threads de cliente). Segurar a Promise pelo tempo de soltar os
+     * sockets e o fan-out daria um botão travado justamente no caminho de
+     * desistir. O desfecho aparece no
      * [espelhoEstado] seguinte.
      */
     @JavascriptInterface
@@ -709,8 +721,13 @@ class NativeBridge(
     }
 
     /**
-     * O estado do espelho para a folha do Controle: se está ligado, o endereço
-     * servido, o PIN da vez, as telas conectadas e as que esperam aprovação.
+     * O estado do espelho para a folha do Controle. O produtor é
+     * [MainActivity.mirrorJson], e ele põe exatamente
+     * `{ ligado, endereco, erro, telas[] }` — sem `codigo` desde o shell 38 (a
+     * porta é o ENDEREÇO) e sem pendentes desde o shell 36 (não há fila de
+     * aprovação). Cada tela: `{ rotulo, comando, conectadaMs, telaAcesaMin,
+     * aviso, eventos, pronta, fila }` — os seis campos de capacidade saíram no
+     * shell 44, por terem ficado sem produtor.
      *
      * DADO, não frase — a mesma regra do [otaDiag] e do [ytDiag] levada ao
      * limite: aqui o Kotlin devolve JSON e quem escreve o texto é o
@@ -725,8 +742,8 @@ class NativeBridge(
     }
 
     /**
-     * O anel de diagnóstico do espelho (servidor, tela virtual, readback,
-     * encoder, ritmo, térmica, clientes) — em JSON, pelo mesmo motivo do
+     * O anel de diagnóstico do espelho — o diário mais `ligado`, `servidor` e
+     * `servico` ([MainActivity.mirrorDiag]) —, em JSON, pelo mesmo motivo do
      * [espelhoEstado]. Vira um BLOCO do Registro, nunca uma caixa nova.
      */
     @JavascriptInterface
@@ -737,17 +754,17 @@ class NativeBridge(
     }
 
     /**
-     * O OPERADOR NO LAÇO. Uma tela que acertou o PIN entra como **pendente** e
-     * só vira sessão quando alguém aqui aprova: um PIN de seis dígitos visível
-     * na tela do celular durante todo o culto é fraco demais para ser o único
-     * controle.
+     * DERRUBAR UMA TELA — a única coisa que este método faz (shell 36).
      *
-     * `id` é o da pendente; `id` vazio ou `"*"` é a chave da APROVAÇÃO
-     * AUTOMÁTICA desta sessão (nasce desligada), para quando o operador estiver
-     * ocupado. Um valor reservado, e não um sexto método, porque `"*"` não é um
-     * id possível — eles são base64url de 128 bits, como os tokens do
-     * `SafRegistry` — e porque a superfície da ponte é contrato: cada método a
-     * mais é uma linha a mais que um shell antigo não tem.
+     * `id` é o RÓTULO da tela ("tela B"), o único identificador que a lista do
+     * operador tem; rótulo em branco é RECUSADO, e não vale "todas".
+     *
+     * A ASSINATURA FICA com o `aprovar` ignorado, e isso é deliberado: mudá-la
+     * custaria um degrau de `SHELL_VERSION` sem ganhar nada, e o lado web já
+     * manda `false` no único ponto que chama (`espelhoDerrubar`, em
+     * `native.js`). NÃO HÁ PIN NEM FILA DE PENDENTES: a porta é o ENDEREÇO na
+     * rede, e o controle real é o teto de 3 sessões mais este derrubar, com
+     * castigo de 2 min (ver [EspelhoPares]). Ver [MainActivity.approveMirrorScreen].
      */
     @JavascriptInterface
     fun espelhoAprovar(callId: String, id: String, aprovar: Boolean) {
@@ -801,7 +818,9 @@ class NativeBridge(
      * pastas do dispositivo. O lado web faz `fetch` + `Blob` sem saber de onde
      * veio; ver [YoutubeGrab] para o porquê de a extração ser NATIVA.
      *
-     * Roda na fila de IO: é rede e parsing, e um vídeo leva minutos. O
+     * Roda na fila de TRANSFERÊNCIA, nunca na de [io]: é rede e parsing, e um
+     * vídeo leva minutos — ver o KDoc de [transferencia] para o que a mistura
+     * quebrava (`listFolder` vencendo o prazo de 60 s do `native.js`). O
      * andamento vai por `window.__avYtProgress(id, lidos, total)` — sem isso o
      * operador ficaria olhando um cartão parado durante todo o download.
      */
@@ -811,8 +830,8 @@ class NativeBridge(
     /**
      * PARA o download deste link, se ele for o que está em curso.
      *
-     * **NÃO vai para a fila de IO** — e não poderia: a fila é de uma thread só e
-     * está ocupada justamente pelo download que se quer parar. Enfileirar o
+     * **NÃO vai para fila nenhuma** — e não poderia: a [transferencia] é de uma
+     * thread só e está ocupada justamente pelo download que se quer parar. Enfileirar o
      * cancelamento o faria rodar depois de o download terminar, que é o oposto
      * de cancelar. Escrever um campo `@Volatile` da thread do WebView é seguro e
      * imediato; quem responde é o laço de cópia, que o consulta a cada bloco.
@@ -1039,7 +1058,8 @@ class NativeBridge(
      * exportação de uma apresentação do Google (que o próprio Kotlin baixa: o
      * `fetch` do WebView esbarraria no CORS do Google).
      *
-     * Roda na fila de IO — é disco, rede e rasterização —, e o andamento vai
+     * Roda na fila de EXTRAÇÃO, nunca na de [io] — é disco, rede e
+     * rasterização —, e o andamento vai
      * por `window.__avDeckProgress(id, feitas, total)`: uma apresentação de
      * dezenas de páginas leva segundos, e um cartão parado não diz se está
      * andando.

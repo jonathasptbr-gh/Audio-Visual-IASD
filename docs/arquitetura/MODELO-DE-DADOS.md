@@ -72,10 +72,10 @@ e buscar centenas de arquivos é instantâneo (nunca toca o disco); o arquivo s�
 - `renameMedia` cobre os dois stores (no catálogo, renomeia só a exibição;
   o `opfsPath` não muda).
 
-**Três listas nomeadas** (arrays de IDs guardados em `state`): `imports`,
-`playlist` e `avulsos`. Migração: `imports` herda o antigo state `order` se
-`imports` ainda não existir. (A antiga lista `favorites` foi removida — ver
-legado nas chaves de `state`.)
+**QUATRO listas nomeadas** (arrays de IDs guardados em `state`): `imports`,
+`playlist`, `avulsos` e `favs`. Migração: `imports` herda o antigo state `order`
+se `imports` ainda não existir. (A chave ANTIGA `favorites` é outra coisa e
+continua morta — ver o legado nas chaves de `state`.)
 
 **`avulsos` (v5.87) é a única que o operador não vê.** Ela existe porque
 "Tocar agora" num resultado do YouTube não tem nada a ver com o Cronograma —
@@ -194,7 +194,7 @@ O campo `kind` é derivado do `type` (ou definido pelo chamador para itens de UR
 | `hymnal2022` | legado — migrado para `coll:hymnal-2022` no `loadCollections()` (a chave antiga permanece, ignorada) |
 | `pending-share` | legado — era o share que o service worker gravava aguardando processamento. O SW saiu e o share chega pela ponte nativa; a leitura remanescente da chave (que ninguém escrevia desde a v5.48) saiu na limpeza da auditoria de agosto/2026 — hoje ela é ignorada |
 | `order` | legado — lido apenas como fallback de `imports` |
-| `favorites` | legado (recurso de favoritos removido) — array de IDs; não é mais lido nem gravado, ignorado |
+| `favorites` | legado — a chave ANTIGA dos favoritos. O recurso existe: hoje ele é a lista `favs` (ver a tabela das listas, acima). Esta chave não é mais lida nem gravada, e é ignorada |
 | `linked-folders` | legado (pastas vinculadas por handle) — substituído por `opfs-folders`; ignorado |
 | `louvorja-token` / `louvorja-hymnal` | legado (hinário online removido na v2.5); ignorados |
 
@@ -483,7 +483,9 @@ contêiner" pode pegar justamente a envenenada. As regras de `tentarJuntar`:
   download inteiro do vídeo (teto de dois). Isto roda na rede do chip do
   operador, possivelmente minutos antes do culto.
 - **O UA acompanha a URL:** `baixarTentando` lê o `c=` da própria URL e tenta
-  primeiro o perfil que combina com ela (visionOS, iOS ou Chrome/Android). A
+  primeiro o perfil que combina com ela. São **DOIS**: visionOS
+  (`UA_VISIONOS`) ou Chrome/Android (`UA`) — o perfil iOS saiu junto com o
+  `setFetchIosClient(false)`. A
   constante `UA_VISIONOS` é copiada caractere a caractere do que a biblioteca
   monta — **ao trocar a versão do extrator, conferir `ClientsConstants` e trazer
   os números novos junto**.

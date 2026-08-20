@@ -31,6 +31,7 @@ import { chromium } from 'playwright';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { semRedeExterna } from './sem-rede.mjs';
 
 const RAIZ = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'app', 'src', 'main', 'assets', 'web');
 const NATIVE = fs.readFileSync(path.join(RAIZ, 'shared', 'native.js'), 'utf8');
@@ -44,7 +45,18 @@ function checar(cond, msg, obtido) {
 const navegador = await chromium.launch(
   process.env.PW_CHROMIUM ? { executablePath: process.env.PW_CHROMIUM } : {},
 );
-const pg = await navegador.newPage();
+
+// CONTEXTO PRÓPRIO, e não `navegador.newPage()`: a regra do projeto é
+// `semRedeExterna(ctx)` logo depois de CADA `newContext()`, e uma página criada
+// no contexto padrão não tem rota de bloqueio nenhuma registrada. Hoje as
+// páginas daqui vão para `about:blank`, então não há exposição — mas quem
+// ampliar este oráculo para carregar o Controle de verdade herdaria o modo de
+// falhar que o `sem-rede.mjs` existe para fechar: na máquina de quem escreve as
+// chamadas à LouvorJA morrem e o teste é determinístico POR ACIDENTE; no runner
+// elas respondem e o catálogo real desaba sobre a fixture.
+const ctx = await navegador.newContext();
+await semRedeExterna(ctx);
+const pg = await ctx.newPage();
 
 try {
   // O `__AVBridge` DE MENTIRA precisa existir ANTES do script: a IIFE do
@@ -175,7 +187,9 @@ try {
   // qualquer papel — e o dreno da era nova mora no tela.js da tela da REDE
   // (outro aparelho, outra origem), provado pelo tools/tela-rede.test.mjs.
   async function paginaComPapel(papel) {
-    const p = await navegador.newPage();
+    const c = await navegador.newContext();
+    await semRedeExterna(c);
+    const p = await c.newPage();
     await p.addInitScript((role) => {
       window.__CanalReal = window.BroadcastChannel;
       window.__busPost = [];

@@ -47,7 +47,7 @@ html, body {
   overflow: hidden;
 }
 
-/* Mídia (imagem / vídeo / iframe do YouTube) toca por baixo, sempre — quem
+/* Mídia (imagem / vídeo) toca por baixo, sempre — quem
    decide se aparece é só o wallpaper por cima (z-index maior). */
 .layer {
   position: fixed;
@@ -60,8 +60,7 @@ html, body {
 }
 
 /* Camada de TEXTO manual (Bíblia/Mensagem): fica ACIMA de toda a mídia
-   (z-index 2), inclusive do iframe do YouTube — que vem depois no DOM e, com
-   o mesmo z-index das demais camadas, pintaria por cima do cartão.
+   (z-index 2).
    O `background: var(--stage-bg)` herdado de `.layer` a torna opaca, então o texto manual
    cobre a cena inteira: é uma interferência direta do operador e tem
    precedência visual sobre qualquer mídia.
@@ -436,9 +435,9 @@ html, body {
    baixado. Não há UI alheia a esconder.) */
 
 /* Toque único ao abrir o Display: cobre a tela inteira, acima de tudo
-   (inclusive do wallpaper e do escudo) — é o gesto real que o navegador
-   exige para liberar autoplay com som em conteúdo de terceiros (iframe do
-   YouTube). Qualquer toque na tela serve (área de toque = tela inteira);
+   (inclusive do wallpaper) — é o gesto real que o navegador exige para liberar
+   autoplay COM SOM, inclusive da mídia da própria origem (o embed de terceiros
+   saiu na v5.212). Qualquer toque na tela serve (área de toque = tela inteira);
    o pill central é só a pista visual de "isto é clicável". Some para
    sempre no primeiro toque (display.js). */
 .start-overlay {

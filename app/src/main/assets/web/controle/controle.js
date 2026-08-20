@@ -168,12 +168,14 @@ const appVersionEl = document.getElementById('appVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '5.313';
+const WEB_VERSION = '5.314';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
-// de cena.** Estes quatro são lidos por `renderVersionLabel()`, que roda na
-// CARGA do módulo, dez mil linhas acima de onde o bloco de atualização mora —
+// de cena.** Estes quatro são lidos por `renderOtaRow()` (via
+// `loteDaAtualizacao()`), chamado na CARGA do módulo — não por
+// `renderVersionLabel()`, que só lê `WEB_VERSION` e `__SHELL_NAME__` —, dez mil
+// linhas acima de onde o bloco de atualização mora:
 // declará-los lá embaixo dá `ReferenceError` por zona morta temporal, isto é,
 // tela preta e o watchdog do OTA descartando o bundle no lançamento seguinte.
 // (Foi o que derrubou o app três vezes: v5.184, v5.193, v5.195.)
@@ -1766,8 +1768,8 @@ function aplicarNaPreview(obj, item) {
 function previewTick() {
   // Texto manual em cena sem áudio de fundo: nada de mídia/tempo a sincronizar.
   // (Com áudio de fundo, o texto é overlay e a preview segue o áudio normalmente.)
-  // O conjunto é o MESMO de `clearManualText` — as cinco sessões, incluindo
-  // cronômetro e sorteio; listar só três deixava o tick rodando sobre uma
+  // O conjunto é o MESMO de `clearManualText` — as SEIS sessões, incluindo
+  // cronômetro, sorteio e a imagem sobre o áudio; listar só três deixava o tick rodando sobre uma
   // preview sem mídia durante uma contagem regressiva.
   if (cenaDeRoteiroNoAr() && !preview.getCurrent()) return;
   // Itens YouTube tocam só no Display (player real): a UI de transporte é
@@ -4317,24 +4319,6 @@ function lyricStep(delta) {
   projectLyricStanza(t);
 }
 
-// Encerra QUALQUER texto manual em cena (Bíblia, Mensagem, letra avulsa,
-// cronômetro ou sorteio) — só um por vez.
-/**
- * UM PROVEDOR DE TEXTO POR VEZ — e a lista mora aqui, não em cada projetor.
- *
- * O cartão de texto é UM, e cada `project*` limpava as outras camadas à mão.
- * A conta não fechava, e nenhum caminho errava alto: `projectBibleVerse`
- * limpava só cronômetro e sorteio, `projectMessage`/`projectChrono`/
- * `projectDraw` esqueciam a LETRA AVULSA nos três, e ninguém zerava o
- * `textoAvulsoNoAr`. Como `lyricProjecting()` tem PRECEDÊNCIA sobre mensagem e
- * Bíblia no `slideTarget` e no `renderNowPlaying`, uma `lyricSession` órfã com
- * `projecting: true` sequestrava ⏮/⏭ e o título publicado na notificação de
- * mídia: o telão mostrava o aviso e o transporte continuava dizendo "147. Ó
- * Adorai o Senhor · 1/5", passando estrofes de um hino que não estava em cena.
- *
- * Cinco listas mantidas à mão são cinco lugares para a próxima camada ser
- * esquecida. Aqui é um: quem entra diz QUEM É, e o resto sai.
- */
 // ===== A IMAGEM SOBRE O ÁUDIO (v5.312) =====
 //
 // Pedido do operador: *"preciso que imagens, ou arquivos unicamente visuais,
@@ -4384,6 +4368,24 @@ function audioNoAr() {
   return !!(midiaNoAr && currentItem && currentItem.kind === 'audio');
 }
 
+// Encerra QUALQUER texto manual em cena (Bíblia, Mensagem, letra avulsa,
+// cronômetro ou sorteio) — só um por vez.
+/**
+ * UM PROVEDOR DE TEXTO POR VEZ — e a lista mora aqui, não em cada projetor.
+ *
+ * O cartão de texto é UM, e cada `project*` limpava as outras camadas à mão.
+ * A conta não fechava, e nenhum caminho errava alto: `projectBibleVerse`
+ * limpava só cronômetro e sorteio, `projectMessage`/`projectChrono`/
+ * `projectDraw` esqueciam a LETRA AVULSA nos três, e ninguém zerava o
+ * `textoAvulsoNoAr`. Como `lyricProjecting()` tem PRECEDÊNCIA sobre mensagem e
+ * Bíblia no `slideTarget` e no `renderNowPlaying`, uma `lyricSession` órfã com
+ * `projecting: true` sequestrava ⏮/⏭ e o título publicado na notificação de
+ * mídia: o telão mostrava o aviso e o transporte continuava dizendo "147. Ó
+ * Adorai o Senhor · 1/5", passando estrofes de um hino que não estava em cena.
+ *
+ * SEIS listas mantidas à mão seriam seis lugares para a próxima camada ser
+ * esquecida. Aqui é um: quem entra diz QUEM É, e o resto sai.
+ */
 function soUmProvedorDeTexto(quem) {
   if (quem !== 'imagem') clearImgSession();
   if (quem !== 'bible') clearBibleSession();
@@ -4444,9 +4446,6 @@ function projectMessage(idx) {
   refreshDiversos();
 }
 
-// Tira a mensagem do telão mantendo a sessão viva (o operador pode reexibir
-// pela lista). Espelha hideBibleVerse: `text-hide` encerra só a Camada de
-// Texto — um áudio de fundo, se houver, segue tocando.
 // PROJETAR UMA IMAGEM POR CIMA. Nenhum `load` sai daqui — é essa a diferença
 // inteira, e é o que preserva o áudio por baixo.
 function projetarImagemSobre(rec) {
@@ -4473,6 +4472,9 @@ function hideImagemSobre() {
   marcarNoAr();
 }
 
+// Tira a mensagem do telão mantendo a sessão viva (o operador pode reexibir
+// pela lista). Espelha hideBibleVerse: `text-hide` encerra só a Camada de
+// Texto — um áudio de fundo, se houver, segue tocando.
 function hideMessage() {
   if (!msgProjecting()) return;
   msgSession.projecting = false;
@@ -7614,9 +7616,9 @@ function renderFoldersSeVisivel() {
 // Pedido do operador: *"coloque os favoritos dentro da biblioteca… Pode deixar
 // a seção de favoritos no topo da listagem."*
 //
-// A lista continua sendo montada por `renderFolderList`; o que muda é ONDE ela
-// é desenhada — a gaveta de tela cheia (`#favList`) ou o grupo do topo da
-// Biblioteca. É o mesmo padrão do `favHost` logo acima, e a razão
+// A lista continua sendo montada por `renderFolderList`, e desde a v5.294 há
+// UM host só: o corpo `data-fav-corpo` da seção de Favoritos da Biblioteca (a
+// gaveta de tela cheia saiu). É o mesmo padrão do `favHost` logo acima, e a razão
 // é a de sempre: duas marcações para a mesma
 // lista divergem no primeiro ajuste, e aqui divergiriam em gestos (o toque
 // longo que entra na seleção múltipla), na alça de arrastar e na estrela.
@@ -7638,8 +7640,9 @@ function favAlvo() { return favHost; }
  *
  * `thumbEl` cria as URLs das miniaturas e as empurra em `thumbUrlsAtual` — o
  * balde do render EM CURSO. Quem troca esse balde e revoga o anterior é só o
- * `renderLibrary`, e ele o faz por HOST (`libraryEl` × `favListEl`). A seção de
- * Favoritos DENTRO da Biblioteca é uma terceira casa, desenhada pelo mesmo
+ * `renderLibrary`, e ele o faz por CHAVE — o host único `libraryEl` e a string
+ * `'fav-biblioteca'`. A seção de Favoritos DENTRO da Biblioteca é o segundo
+ * balde, desenhada pelo mesmo
  * `renderFolderList` por outro caminho: as URLs que ela criava caíam no balde
  * de OUTRO host, e o `renderLibrary` seguinte — que roda a cada 400 ms enquanto
  * um download corre — as revogava COM ELAS EM CENA. As miniaturas da Biblioteca
@@ -9252,7 +9255,7 @@ async function retirarDoAr(item) {
   if (isCue(item)) {
     // O `text-hide` É O QUE TIRA DA TELA — e ele faltava.
     //
-    // `clearManualText()` é BOOKKEEPING: as cinco `clear*Session` zeram o
+    // `clearManualText()` é BOOKKEEPING: as SEIS `clear*Session` zeram o
     // estado do Controle, re-renderizam a navegação e não mandam um único
     // comando ao telão. Nos outros chamadores isso está certo, porque logo
     // atrás vem um `load` (que esconde o texto no Display) ou um `clear`. Aqui
@@ -12256,11 +12259,11 @@ async function ytAcao(r, destinos, btn, somenteAudio, altura) {
     // segurar o que não tem outro dono. A ordem importa: primeiro entra nas
     // listas novas, senão o `listRemove` coletaria o blob.
     await AVDB.listRemove('avulsos', rec.id);
-    // SEM FAIXA DE AVISO NO FIM DO DOWNLOAD (v5.119). `responder` cai no
-    // `avisar` quando o botão não está visível — e no caminho do YouTube ele
-    // NUNCA está: a folha de destinos fecha antes da ação rodar. Ou seja, todo
-    // download terminava numa faixa flutuante, que é exatamente o que este app
-    // tirou de cena na v5.106.
+    // SEM AVISO NO FIM DO DOWNLOAD (v5.119). No caminho do YouTube o botão
+    // tocado NUNCA está visível quando a ação termina: a folha de destinos
+    // fecha antes. O MOTIVO de uma falha vai para o cartão sobre a preview
+    // (`previewBusy(…).falhar`) ou para a folha de origem (`#castMsg`) — a
+    // faixa flutuante (`avisar()`) saiu na v5.207.
     //
     // E ela não fazia falta: quem já responde é a MINIATURA do resultado, que
     // troca o anel de download pelo ✓ (`setYtEstado('pronto')`), e a linha que
@@ -14919,7 +14922,13 @@ async function blocoSeries() {
     linhas.push('· ' + s.name + ' — ' + s.canal);
     linhas.push('  prefixo "' + s.prefixo + '" · ' + s.ano + ' · playlists por '
       + (s.periodo === AVSerie.PERIODO_TRIMESTRE ? 'trimestre' : 'mês')
-      + ' · rótulo ' + (s.titulo === AVSerie.TITULO_NENHUM ? 'pela data' : 'pelo título'));
+      // OS TRÊS MODOS, e não um ternário: o Informativo é `TITULO_SERIE` desde
+      // a v5.271, e o ternário o classificava como "pelo título" — justamente a
+      // série que IGNORA o título do vídeo. Um log que discorda do aparelho é o
+      // pior artefato que este projeto sabe produzir, e este é lido A DISTÂNCIA.
+      + ' · rótulo ' + (s.titulo === AVSerie.TITULO_NENHUM ? 'pela data'
+        : s.titulo === AVSerie.TITULO_SERIE ? 'pela data e pelo nome da série'
+        : 'pelo título'));
     if (!d) {
       // O caso mais fácil de ler errado: card na tela, nada no Registro. Ele é
       // normal (a lista só é buscada no primeiro toque ou na retomada) e
@@ -16327,10 +16336,10 @@ function registrarShareNativo() {
 // Ferramentas têm "Cronograma" e "Favoritos") uma mensagem genérica não diria
 // em qual dos dois se tocou.
 //
-// A faixa (`avisar`) ficou para o que o botão não consegue dizer: o MOTIVO de
-// uma falha ("sem este capítulo no aparelho e sem internet para baixar") e os
-// caminhos em que o botão tocado desaparece antes da resposta — a folha do
-// acervo, por exemplo, que fecha porque o download pode levar minutos.
+// Quando o botão tocado já saiu de cena — a folha do acervo, por exemplo, que
+// fecha porque o download pode levar minutos —, `responder` devolve `false` e
+// QUEM CHAMOU decide onde a frase aparece: o cartão sobre a preview ou a folha
+// de origem. (A faixa flutuante `avisar()` saiu na v5.207.)
 const PULSO_MS = 1100;
 
 // "Está na tela?" não é `isConnected`: as folhas deste app fecham por
@@ -18521,8 +18530,8 @@ function acertarEnqueteDeFundo() {
 
 // LIGAR COM A TV NO AR não pede confirmação: a transmissão por comandos custa
 // JSON e rajadas de arquivo — não há segunda projeção sendo desenhada e
-// codificada no aparelho. A função abaixo fica (dois chamadores) como registro
-// da decisão de não perguntar.
+// codificada no aparelho. A função abaixo fica (UM chamador, `ligarEspelho`)
+// como registro da decisão de não perguntar.
 async function confirmarEspelhoComTv() {
   return true;
 }
@@ -18873,8 +18882,8 @@ if (castMirrorBtnEl) {
       // com o que ela sempre soube dizer melhor: a FALHA, que é uma frase
       // inteira vinda do shell e não caberia num botão.)
       const ok = await ligarEspelho();
-      // A frase da falha já saiu pelo `avisar` (ela vem pronta do Kotlin).
-      // Aqui fica a saída — e ela aponta para onde o operador pode agir.
+      // A frase da falha já saiu por `texto2(castMsgEl, …)` (ela vem pronta do
+      // Kotlin). Aqui fica a saída — e ela aponta para onde o operador pode agir.
       // O SUCESSO NÃO PRECISA DE FRASE (v5.194): o endereço aparecendo logo
       // abaixo, com o rótulo que diz o que fazer com ele, É o "deu certo". A
       // falha continua falando, porque ali não há nada que apareça sozinho.
@@ -18913,13 +18922,8 @@ const POPUPS = [
   // vem antes das duas que nascem dela — o voltar percorre esta tabela de trás
   // para a frente.
   [castPopupEl, castCloseEl, fecharCast],
-  // A folha do espelho abre DE DENTRO da folha de conexão, então vem depois:
-  // o voltar percorre esta tabela de trás para a frente e precisa fechar a de
-  // cima primeiro. Uma linha aqui já a liga aos três caminhos de fechamento
-  // (✕, toque no fundo, botão do aparelho) — é para isso que a tabela existe.
-  // E o leitor de QR abre de dentro da folha do espelho, então vem DEPOIS dela.
-  // Aqui a linha vale mais que nos outros: fechar este popup é DESLIGAR A
-  // CÂMERA, e é esta tabela que garante que os três caminhos façam isso.
+  // (A folha de "Ajustes avançados" do espelho e o leitor de QR tinham linha
+  // aqui; saíram na v5.196 e na v5.185.)
   [lyricsPopupEl, lyricsPopupCloseEl, closeLyricsPopup],
   // A folha da música abre DE DENTRO do acervo: o voltar percorre esta tabela
   // de trás para a frente, então a ordem aqui é a ordem em que as camadas se
