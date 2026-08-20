@@ -70,6 +70,16 @@ html, body {
    estava quando o texto sai — antes o YouTube precisava ser derrubado para o
    cartão aparecer, e não havia como voltar. */
 .text-layer { z-index: 2; }
+/* ---------- A IMAGEM SOBRE O ÁUDIO (v5.312) ----------
+   `contain` e não `cover`: um aviso ou um versículo ilustrado é conteúdo
+   COMPOSTO, e recortá-lo para preencher corta justamente a borda em que o
+   desenhista pôs a margem. É a mesma escolha do `#img` do stage.
+   A camada já é opaca (`.layer` pinta `--stage-bg`), então o que sobra em volta
+   é o preto do palco — nada da mídia por baixo vaza. */
+.text-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
+/* No modo imagem a caixa de texto SAI, em vez de ficar vazia por cima: um
+   `.text-box` sem conteúdo ainda desenha o respiro dela sobre a imagem. */
+.text-layer.mode-img .text-content { display: none; }
 
 /* Wallpaper: cortina que cobre TODA a mídia quando visível — liga/desliga
    (com fade, se configurado) independente do que estiver tocando por baixo.

@@ -603,6 +603,11 @@ body {
    declarado por último vence. Antes esta regra estava ANTES e o z-index:1 de
    .pv-layer a anulava — o cartão só ficava acima do iframe do YouTube por
    acaso, pela ordem no DOM. */
+/* A IMAGEM SOBRE O ÁUDIO, na preview (v5.312). `contain` e a camada opaca por
+   trás — as duas escolhas do `.text-img` do telão, pela mesma razão: a preview
+   ILUSTRA o telão, e uma moldura diferente a faria mentir. */
+.pv-text-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
+.pv-text.mode-img .pv-text-content { display: none; }
 .pv-text { z-index: 2; }
 /* Letra sincronizada na preview: o mesmo desenho do Display em miniatura — a
    preview espelha o telão.

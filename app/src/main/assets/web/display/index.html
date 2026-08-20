@@ -77,6 +77,13 @@
        z-index dos layers de mídia); a cortina do wallpaper (z-index maior) a
        cobre/revela de graça. Independente do áudio: um som pode tocar por baixo. -->
   <div id="text" class="layer text-layer" hidden>
+    <!-- A IMAGEM SOBRE O ÁUDIO (v5.312) é um MODO desta camada, não uma camada
+         nova: ela já é o cartão OPACO acima de toda a mídia, já declara
+         `stage.setOverlay`, já é reenviada na reconexão e já sai pelo
+         `text-hide`. O que muda é o que ela desenha. Irmã do `.text-content`,
+         e não filha da `.text-box`, porque o pedido é a TELA TODA — dentro da
+         caixa ela herdaria o respiro do texto. -->
+    <img id="textImg" class="text-img" hidden alt="">
     <div class="text-content" id="textContent">
       <div class="text-box">
         <div class="text-main" id="textMain"></div>

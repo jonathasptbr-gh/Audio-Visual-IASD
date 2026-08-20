@@ -11,6 +11,7 @@ const textEl = document.getElementById('text');
 const textContentEl = document.getElementById('textContent');
 const textMainEl = document.getElementById('textMain');
 const textSubEl = document.getElementById('textSub');
+const textImgEl = document.getElementById('textImg');
 
 // IDENTIDADE DESTA INSTÂNCIA, por CARREGAMENTO da página. Existe para o
 // Controle poder ENDEREÇAR o reenvio de cena a quem acabou de se anunciar, em
@@ -559,14 +560,65 @@ function clearLive() {
   textContentEl.classList.remove('chrono-over', 'draw-rolling');
 }
 
+// ===== A IMAGEM SOBRE O ÁUDIO (v5.312) =====
+//
+// Ela é um MODO desta camada, e não uma camada nova, porque a camada já resolve
+// o problema inteiro: é um cartão OPACO acima de toda a mídia (`.text-layer`,
+// z-index 2), declara `stage.setOverlay` e **não emite `load` nenhum** — por
+// isso a mídia por baixo segue tocando, com a posição intacta. Era isso que
+// faltava à imagem: projetá-la pelo caminho normal passa pelo `loadInner`, que
+// desmonta o `<video>` incondicionalmente (medido: o áudio parava e voltava ao
+// segundo zero).
+//
+// A URL é revogada em UM lugar (aqui e no `hideText`, pelo mesmo helper): um
+// objectURL por imagem projetada, num app que fica aberto o culto inteiro, é
+// vazamento de memória no processo que também segura os dois WebViews.
+let textImgUrl = null;
+function soltarTextImg() {
+  if (textImgUrl) { URL.revokeObjectURL(textImgUrl); textImgUrl = null; }
+  textImgEl.hidden = true;
+  textImgEl.removeAttribute('src');
+}
+// Sequencial pelo mesmo motivo do `lyricLoadSeq`: a resolução é assíncrona
+// (IDB/OPFS) e um segundo comando pode chegar antes de o primeiro terminar —
+// sem a guarda, a imagem ANTERIOR pintaria por cima da atual.
+let textImgSeq = 0;
+async function pintarTextImg(cmd) {
+  const seq = ++textImgSeq;
+  soltarTextImg();
+  let rec = cmd.__rec || null;
+  if (!rec && cmd.mediaId) { try { rec = await AVDB.getMedia(cmd.mediaId); } catch (_) { rec = null; } }
+  if (seq !== textImgSeq) return;
+  if (!rec) return;
+  let src = '';
+  if (rec.blob) { textImgUrl = URL.createObjectURL(rec.blob); src = textImgUrl; }
+  else if (rec.opfsPath) {
+    let f = null;
+    try { f = await AVDB.opfsGetFile(rec.opfsPath); } catch (_) {}
+    if (seq !== textImgSeq) return;
+    if (f) { textImgUrl = URL.createObjectURL(f); src = textImgUrl; }
+  } else if (rec.url) src = rec.url;
+  if (!src) return;
+  textImgEl.src = src;
+  textImgEl.hidden = false;
+}
+
 function showText(cmd) {
   const wallpaper = cmd.view === 'wallpaper';
   textMode = cmd.mode === 'message' ? 'message'
-    : (cmd.mode === 'chrono' || cmd.mode === 'draw') ? cmd.mode : 'verse';
+    : (cmd.mode === 'chrono' || cmd.mode === 'draw' || cmd.mode === 'image') ? cmd.mode : 'verse';
   textContentEl.classList.toggle('mode-message', textMode === 'message');
   textContentEl.classList.toggle('mode-chrono', textMode === 'chrono');
   textContentEl.classList.toggle('mode-draw', textMode === 'draw');
-  if (textMode === 'chrono') {
+  textEl.classList.toggle('mode-img', textMode === 'image');
+  if (textMode === 'image') {
+    // A resolução é assíncrona e a camada entra JÁ: o cartão preto aparece no
+    // mesmo quadro e a imagem pinta nele. O contrário — esperar para só então
+    // mostrar — deixaria a mídia por baixo à vista durante a leitura do IDB.
+    clearLive();
+    textMainEl.textContent = '';
+    pintarTextImg(cmd);
+  } else if (textMode === 'chrono') {
     startLive('chrono', cmd.chrono || {});
   } else if (textMode === 'draw') {
     startLive('draw', cmd.draw || {});
@@ -574,6 +626,7 @@ function showText(cmd) {
     clearLive();
     textMainEl.textContent = cmd.main || '';
   }
+  if (textMode !== 'image') soltarTextImg();
   textSubEl.textContent = cmd.sub || '';
   textSubEl.hidden = !cmd.sub;
   textView = wallpaper ? 'wallpaper' : 'visual';
@@ -609,6 +662,8 @@ function showText(cmd) {
 function hideText(restore = true) {
   if (!textActive) return;
   textActive = false;
+  soltarTextImg();
+  textEl.classList.remove('mode-img');
   // ANTES do `restoreSceneAfterText`: ele decide a cortina por `shouldCover()`,
   // que é o mesmo `computeCover` — deixá-lo com o overlay ainda declarado faria
   // a cena voltar sem a cortina que a mídia pede.

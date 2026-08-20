@@ -133,6 +133,7 @@ const pvTextEl = document.getElementById('pvText');
 const pvTextContentEl = document.getElementById('pvTextContent');
 const pvTextMainEl = document.getElementById('pvTextMain');
 const pvTextSubEl = document.getElementById('pvTextSub');
+const pvTextImgEl = document.getElementById('pvTextImg');
 
 const plBtnEl = document.getElementById('plBtn');
 const plCountEl = document.getElementById('plCount');
@@ -167,7 +168,7 @@ const appVersionEl = document.getElementById('appVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '5.311';
+const WEB_VERSION = '5.312';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -1982,6 +1983,8 @@ let pvTextActive = false;
 function hidePvText(restore = true) {
   if (!pvTextActive && pvTextEl.hidden) return;
   pvTextActive = false;
+  soltarPvTextImg();
+  pvTextEl.classList.remove('mode-img');
   stopPvLiveTimer();   // espelha hideText no Display
   // Sai esmaecendo — e o texto NÃO é limpo aqui: apagá-lo agora deixaria o
   // cartão vazio visível durante todo o fade. O próximo showPvText sobrescreve.
@@ -2055,15 +2058,55 @@ function clearPvLive() {
   pvTextContentEl.classList.remove('chrono-over', 'draw-rolling');
 }
 
+// A metade da preview do modo IMAGEM. Mesma anatomia do lado do telão, e mesma
+// razão para a URL ser revogada num lugar só: os dois WebViews dividem o
+// processo, e um objectURL por imagem projetada num app que fica aberto o culto
+// inteiro é vazamento no lugar mais caro.
+let pvTextImgUrl = null;
+let pvTextImgSeq = 0;
+function soltarPvTextImg() {
+  if (pvTextImgUrl) { URL.revokeObjectURL(pvTextImgUrl); pvTextImgUrl = null; }
+  pvTextImgEl.hidden = true;
+  pvTextImgEl.removeAttribute('src');
+}
+async function pintarPvTextImg(obj) {
+  const seq = ++pvTextImgSeq;
+  soltarPvTextImg();
+  let rec = null;
+  if (obj.mediaId) { try { rec = await AVDB.getMedia(obj.mediaId); } catch (_) { rec = null; } }
+  if (seq !== pvTextImgSeq || !rec) return;
+  let src = '';
+  if (rec.blob) { pvTextImgUrl = URL.createObjectURL(rec.blob); src = pvTextImgUrl; }
+  else if (rec.opfsPath) {
+    let f = null;
+    try { f = await AVDB.opfsGetFile(rec.opfsPath); } catch (_) {}
+    if (seq !== pvTextImgSeq) return;
+    if (f) { pvTextImgUrl = URL.createObjectURL(f); src = pvTextImgUrl; }
+  } else if (rec.url) src = rec.url;
+  if (!src) return;
+  pvTextImgEl.src = src;
+  pvTextImgEl.hidden = false;
+}
+
 function showPvText(obj) {
   const wallpaper = obj.view === 'wallpaper';
   const isMsg = obj.mode === 'message';
   const isChrono = obj.mode === 'chrono';
   const isDraw = obj.mode === 'draw';
+  const isImg = obj.mode === 'image';
   pvTextContentEl.classList.toggle('mode-message', isMsg);
   pvTextContentEl.classList.toggle('mode-chrono', isChrono);
   pvTextContentEl.classList.toggle('mode-draw', isDraw);
-  if (isChrono) {
+  pvTextEl.classList.toggle('mode-img', isImg);
+  if (!isImg) soltarPvTextImg();
+  if (isImg) {
+    // A PREVIEW É A ILUSTRAÇÃO DO TELÃO, e um cartão preto onde o telão mostra
+    // uma imagem é a ilustração errada — o operador confere pela preview o que
+    // a congregação vê.
+    clearPvLive();
+    pvTextMainEl.textContent = '';
+    pintarPvTextImg(obj);
+  } else if (isChrono) {
     startPvLive('chrono', obj.chrono || {});
   } else if (isDraw) {
     startPvLive('draw', obj.draw || {});
@@ -2596,7 +2639,11 @@ function pushNowPlaying() {
     || lyricProjecting()
     || chronoProjecting()
     || drawProjecting();
-  const subtitle = who === 'bible' ? 'Bíblia'
+  // A IMAGEM não vira `who` (ela não tem eixo de ⏮/⏭ — ver `slideTarget`),
+  // mas o cartão que ela põe na tela é a informação que falta no título: ali
+  // continua o nome do ÁUDIO, que é o que o ▶ e a barra de fato controlam.
+  const subtitle = imgSobreProjetando() ? 'Imagem em cena'
+    : who === 'bible' ? 'Bíblia'
     : who === 'songlyrics' ? 'Letra (sem música)'
     : who === 'message' ? 'Mensagem'
     : who === 'lyrics' ? 'Letra sincronizada'
@@ -4282,7 +4329,57 @@ function lyricStep(delta) {
  * Cinco listas mantidas à mão são cinco lugares para a próxima camada ser
  * esquecida. Aqui é um: quem entra diz QUEM É, e o resto sai.
  */
+// ===== A IMAGEM SOBRE O ÁUDIO (v5.312) =====
+//
+// Pedido do operador: *"preciso que imagens, ou arquivos unicamente visuais,
+// possam ser apresentados sobre uma mídia de áudio, sem interromper o áudio,
+// semelhante ao que já temos com elementos de texto sobre áudio"*.
+//
+// **Não era um defeito: era uma capacidade que nunca existiu.** Medido num
+// navegador de verdade — com um áudio tocando, projetar uma imagem deixava o
+// `<video>` em `paused: true` e `currentTime: 0`. A causa é o slot ÚNICO do
+// `stage.js`: `loadInner` faz `video.pause()` + `removeAttribute('src')` em TODO
+// load, qualquer que seja o *kind*. O texto escapa porque não passa por ali.
+//
+// Por isso a imagem passou a ser um MODO da Camada de Texto, e não um segundo
+// slot no motor: a camada já é um cartão opaco acima da mídia, já declara
+// `stage.setOverlay`, já é reenviada na reconexão e já sai pelo `text-hide`. O
+// motor de projeção — o código que roda na frente da congregação — não muda uma
+// linha, que é o que torna esta mudança segura.
+//
+// A sessão tem a mesma forma das outras cinco (`{ id, projecting }`), e por isso
+// entra de graça em `cenaDeRoteiroNoAr`, no rodízio do `soUmProvedorDeTexto` e
+// na escada do botão voltar.
+let imgSession = null;   // { id, nome, projecting } | null
+function imgSobreProjetando() { return !!(imgSession && imgSession.projecting); }
+
+// ESTA LINHA DA LISTA É A IMAGEM QUE ESTÁ POR CIMA? A pergunta existe porque a
+// sobreposição rompe a premissa das quatro funções de realce: elas dividem o
+// mundo em CUE (texto de roteiro, marcado por `cueNoArId`) e MÍDIA (marcada por
+// `midiaNoArId`), e a imagem sobreposta não é nenhuma das duas — é um item de
+// mídia projetando pela porta da Camada de Texto. Sem ela a linha não ganhava
+// selo, não ficava ativa, e o segundo toque caía no `pararMidia` do ramo de
+// mídia: o operador tocava na IMAGEM para tirá-la e o que saía era o ÁUDIO,
+// com a imagem seguindo na tela.
+function imagemSobreNaLinha(id) {
+  return !!(id && imgSobreProjetando() && imgSession.id === id);
+}
+function clearImgSession() {
+  if (!imgSession) return;
+  imgSession = null;
+  renderSlideNav();
+  renderNowPlaying();
+}
+
+// HÁ UM ÁUDIO NO AR? A pergunta é "no ar", e não "tocando": um louvor PAUSADO
+// para a oração continua sendo a cena, e cobrir a imagem por cima dele é o
+// mesmo gesto. É a mesma régua que o reenvio de cena usa (`midiaNoAr`).
+function audioNoAr() {
+  return !!(midiaNoAr && currentItem && currentItem.kind === 'audio');
+}
+
 function soUmProvedorDeTexto(quem) {
+  if (quem !== 'imagem') clearImgSession();
   if (quem !== 'bible') clearBibleSession();
   if (quem !== 'message') clearMsgSession();
   if (quem !== 'songlyrics') clearLyricSession();
@@ -4297,7 +4394,7 @@ function soUmProvedorDeTexto(quem) {
 
 function clearManualText() {
   clearBibleSession(); clearMsgSession(); clearLyricSession();
-  clearChronoSession(); clearDrawSession();
+  clearChronoSession(); clearDrawSession(); clearImgSession();
   textoAvulsoNoAr = false;
   // A Camada de Texto saiu: nenhuma cena de roteiro está mais no ar, venha ela
   // de onde vier. Ver `cueNoArId`.
@@ -4323,7 +4420,7 @@ function clearManualText() {
 function cenaDeRoteiroNoAr() {
   return !!((bibleSession && bibleSession.projecting) || msgProjecting()
     || lyricProjecting() || chronoProjecting() || drawProjecting()
-    || textoAvulsoNoAr);
+    || imgSobreProjetando() || textoAvulsoNoAr);
 }
 
 // Projeta a mensagem de índice `idx` (Display + preview). Encerra a Bíblia (só
@@ -4344,6 +4441,32 @@ function projectMessage(idx) {
 // Tira a mensagem do telão mantendo a sessão viva (o operador pode reexibir
 // pela lista). Espelha hideBibleVerse: `text-hide` encerra só a Camada de
 // Texto — um áudio de fundo, se houver, segue tocando.
+// PROJETAR UMA IMAGEM POR CIMA. Nenhum `load` sai daqui — é essa a diferença
+// inteira, e é o que preserva o áudio por baixo.
+function projetarImagemSobre(rec) {
+  if (!rec) return;
+  soUmProvedorDeTexto('imagem');
+  imgSession = { id: rec.id, nome: rec.name || '', projecting: true };
+  // `view` volta a 'visual' porque a cortina esconderia o cartão que acabou de
+  // ser pedido — a mesma linha que `projectMessage` tem, pela mesma razão.
+  view = 'visual';
+  persistCurrent();
+  cmd({ type: 'text', mode: 'image', mediaId: rec.id, sub: '', view: 'visual' });
+  renderControls();
+  renderNowPlaying();
+  renderSlideNav();
+  marcarNoAr();
+}
+function hideImagemSobre() {
+  if (!imgSobreProjetando()) return;
+  imgSession.projecting = false;
+  cmd({ type: 'text-hide' });
+  renderControls();
+  renderNowPlaying();
+  renderSlideNav();
+  marcarNoAr();
+}
+
 function hideMessage() {
   if (!msgProjecting()) return;
   msgSession.projecting = false;
@@ -8358,7 +8481,9 @@ function favBtn(id, nome) {
 }
 
 // ===== ações de reprodução / sequência =====
-async function send(id) {
+// `daFila` = o avanço automático da playlist chamou. Ver a guarda de imagem
+// sobre áudio, lá dentro: é a única coisa que a distingue de um toque.
+async function send(id, daFila) {
   // UMA CENA DE ROTEIRO NÃO É MÍDIA: ela não pode virar um comando `load` (o
   // telão apagaria, porque um registro sem blob/url/pages cai no `clear` do
   // stage). A guarda fica AQUI, e não só no toque da lista, porque `send` é o
@@ -8387,6 +8512,26 @@ async function send(id) {
   // automático da playlist, o ⏮/⏭ do transporte, a notificação nativa).
   if (alvo && alvo.kind === 'youtube') {
     await resolverLinkYoutube(alvo);
+    return;
+  }
+  // ===== IMAGEM SOBRE ÁUDIO (v5.312) =====
+  //
+  // Com um áudio no ar, tocar numa IMAGEM sobrepõe em vez de substituir: o
+  // louvor de fundo continua e o aviso entra por cima. É a regra que o
+  // versículo já segue, aplicada ao outro tipo de conteúdo que só ocupa a
+  // tela — e foi a escolha do operador entre as três (*"automático: o toque já
+  // sobrepõe"*).
+  //
+  // A guarda mora AQUI pelo mesmo motivo das duas acima: `send` é o ponto por
+  // onde TODOS os caminhos passam. E ela é a ÚLTIMA das três porque as outras
+  // recusam o que nem é mídia; esta escolhe entre dois jeitos de projetar.
+  //
+  // **Não vale para o avanço automático da fila** (`autoAdvance`): ali a
+  // imagem é o PRÓXIMO item da sequência, não um cartão que alguém pediu por
+  // cima do atual — sobrepor faria a fila parar de andar sozinha, com o áudio
+  // anterior tocando para sempre sob a imagem nova.
+  if (!daFila && alvo && alvo.kind === 'image' && audioNoAr()) {
+    projetarImagemSobre(alvo);
     return;
   }
   currentId = id;
@@ -8464,7 +8609,10 @@ function slideTarget() {
   // O cronômetro não tem slides. Sem esta guarda, os botões de estrofe cairiam
   // na letra do áudio de fundo — que está ESCONDIDO atrás do cartão: o operador
   // apertaria "próxima estrofe" e a música saltaria, sem nada mudar na tela.
-  if (chronoProjecting() || drawProjecting()) return null;
+  // A IMAGEM SOBREPOSTA entra nesta guarda pela razão que o parágrafo acima
+  // descreve, ao pé da letra: ela é um cartão opaco, e a letra do áudio de
+  // fundo está atrás dele.
+  if (chronoProjecting() || drawProjecting() || imgSobreProjetando()) return null;
   if (lyricProjecting()) return 'songlyrics';
   if (msgSession && msgSession.projecting) return 'message';
   if (bibleSession && bibleSession.projecting) return 'bible';
@@ -8883,20 +9031,24 @@ function resetAfterEnd() {
   marcarNoAr();
 }
 
+// TODO `send` DAQUI PASSA `daFila` (v5.312): a imagem que chega pelo avanço
+// automático é o PRÓXIMO item da sequência, não um cartão que alguém pediu por
+// cima do atual. Sem a marca, a fila pararia de andar sozinha na primeira
+// imagem — com o áudio anterior tocando para sempre por baixo dela.
 function autoAdvance() {
   if (repeat === 'off') { resetAfterEnd(); return; }
-  if (repeat === 'one') { if (currentId) send(currentId); return; }
+  if (repeat === 'one') { if (currentId) send(currentId, true); return; }
   if (plItems.length === 0) return;
   if (repeat === 'shuffle') {
-    if (plItems.length === 1) { send(plItems[0].id); return; }
+    if (plItems.length === 1) { send(plItems[0].id, true); return; }
     let i; do { i = Math.floor(Math.random() * plItems.length); } while (plItems[i].id === currentId);
-    send(plItems[i].id);
+    send(plItems[i].id, true);
     return;
   }
   // all
   const idx = plItems.findIndex((m) => m.id === currentId);
   const target = idx === -1 ? 0 : (idx + 1) % plItems.length;
-  send(plItems[target].id);
+  send(plItems[target].id, true);
 }
 
 async function cycleRepeat() {
@@ -9085,6 +9237,12 @@ async function replacePlaylistWith(rec) {
  * responde "há algo no telão?" é `midiaNoAr`, e é ele que o `stopClear` baixa.
  */
 async function retirarDoAr(item) {
+  // A IMAGEM SOBREPOSTA sai pela porta da CAMADA, não pela da mídia — e por
+  // isso ela vem antes das duas. O ramo de baixo chamaria `pararMidia`, que
+  // encerra o ÁUDIO: o operador toca na imagem para tirá-la e o louvor é que
+  // some, com a imagem de pé. É o simétrico exato do `text-hide` do ramo de
+  // cue, aplicado ao único item de mídia que projeta por aquela porta.
+  if (item && imagemSobreNaLinha(item.id)) { hideImagemSobre(); return; }
   if (isCue(item)) {
     // O `text-hide` É O QUE TIRA DA TELA — e ele faltava.
     //
@@ -9157,6 +9315,7 @@ function marcarNoAr() {
  */
 function linhaNoAr(id) {
   if (!id) return false;
+  if (imagemSobreNaLinha(id)) return true;
   if (midiaNoAr && (id === midiaNoArId || id === midiaNoArOrigem)) return true;
   return !!cueNoArId && id === cueNoArId && cenaDeRoteiroNoAr();
 }
@@ -9251,6 +9410,7 @@ function pintarSubNoAr(sub, noAr) {
  */
 function linhaAtiva(id) {
   if (!id) return false;
+  if (imagemSobreNaLinha(id)) return true;
   if (id === currentId) return true;
   // A linha que RESOLVEU um link é a atual enquanto a mídia dela estiver no ar
   // (ver `midiaNoArOrigem`). Sem isto ela alternaria entre "no ar" e nada,
@@ -9270,6 +9430,7 @@ function linhaAtiva(id) {
  */
 function noArAgora(item) {
   if (!item) return false;
+  if (imagemSobreNaLinha(item.id)) return true;
   if (isCue(item)) return !!cueNoArId && item.id === cueNoArId && cenaDeRoteiroNoAr();
   // A ORIGEM entra aqui pelo mesmo motivo que entra no `linhaNoAr`: sem ela a
   // linha do link ganhava o selo "● No ar" e o segundo toque continuava
@@ -18853,6 +19014,14 @@ function resendSceneToDisplay(para) {
     if (m) enviar({ type: 'text', mode: 'message', main: m.text, sub: '', view });
   } else if (lyricProjecting()) {
     enviar({ type: 'text', mode: 'message', main: lyricSession.stanzas[lyricSession.idx], sub: '', view });
+  } else if (imgSobreProjetando()) {
+    // A IMAGEM SOBRE O ÁUDIO volta como as outras cinco, e precisa: ela é
+    // justamente o caso que este reenvio existe para cobrir — um cartão de
+    // aviso ESTÁTICO, sem `playing`, que sumia para sempre depois de um blip do
+    // dongle enquanto o Controle seguia dizendo "● No ar". Ela vai por
+    // `mediaId`, e não pelos bytes: o telão resolve pelo mesmo IndexedDB
+    // compartilhado, e a tela da rede pelo `__rec` que o `telaEnriquecer` põe.
+    enviar({ type: 'text', mode: 'image', mediaId: imgSession.id, sub: '', view });
   }
 }
 
@@ -19728,6 +19897,16 @@ async function telaEscoar() {
 }
 
 // ---- o enriquecimento, no funil que vê TODO envio deste documento ----
+// O REGISTRO PELAS LISTAS JÁ CARREGADAS, e nunca pelo IDB: o `telaEnriquecer`
+// roda DENTRO do caminho síncrono do `cmd()`, e um `await` aqui deixaria o
+// comando sair sem `__rec` — a tela receberia um cartão sem imagem e o
+// enriquecimento chegaria tarde, para um comando que já partiu.
+function await0Rec(id) {
+  if (!id) return null;
+  if (currentItem && currentItem.id === id) return currentItem;
+  return [...plItems, ...libItems, ...favItems].find((m) => m.id === id) || null;
+}
+
 function telaEnriquecer(cmd) {
   if (!cmd || !telaAtiva()) return;
   if (cmd.type === 'load') {
@@ -19766,6 +19945,19 @@ function telaEnriquecer(cmd) {
     cmd.__rec = telaSanearRec(it, token);
     telaGarantirEnvio(it);
     telaEmpurrarImagensLetra(it);
+  } else if (cmd.type === 'text' && cmd.mode === 'image') {
+    // A IMAGEM SOBRE O ÁUDIO (v5.312) precisa do MESMO enriquecimento do
+    // `load`, e é o único comando de TEXTO que precisa: os outros quatro modos
+    // levam o conteúdo dentro do próprio comando, e este leva um `mediaId` —
+    // que na tela da rede não resolve nada (ela não tem o acervo no IndexedDB).
+    // Sem isto, o cartão entraria PRETO nas telas, escondendo a cena por baixo
+    // sem pôr nada no lugar, e o `display.js` de lá não teria como saber.
+    const it = await0Rec(cmd.mediaId);
+    if (!it) return;
+    const token = telaTokenDe(it.id);
+    if (!token) return;
+    cmd.__rec = telaSanearRec(it, token);
+    telaGarantirEnvio(it);
   } else if (cmd.type === 'wallpaper') {
     // Um comando que JÁ CHEGA com `__wp` é a segunda etapa (abaixo) ou o
     // reenvio de conexão (`telaReenviarPreferencias`): o token dele já está
