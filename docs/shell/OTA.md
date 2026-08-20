@@ -55,6 +55,12 @@ na versão de anteontem. Todo mecanismo aqui existe para tornar uma falha
   manifesto, escrito por último. O job recolhe os antigos deixando os **três
   mais novos** (apagar o que alguém está baixando devolveria 404 no meio do
   download).
+- **O manifesto nunca REGRIDE.** O `web-ota` compara com o `version.json` que já
+  está no ar (mesma regra numérica por componente do `compareVersions`) e um run
+  que traria versão MENOR **pula a publicação**, com `::warning::` e uma linha no
+  resumo. Sem a guarda, o run de uma tag — que empacota o commit DA TAG — podia
+  rebaixar o que o push de `main` já publicou, e o aparelho descartaria em
+  silêncio: nenhum vermelho, e o lote novo inalcançável até o próximo push.
 - **`sha256` reprovado é FALHA, não desfecho.** Devolver `null` carimbava a
   tentativa como bem-sucedida (`ultimoOk` renovado, `falhasSeguidas` zerado, sem
   espera crescente), e a ronda seguinte rebaixava o mesmo zip, para sempre.
@@ -141,21 +147,24 @@ não confirme é descartado no lançamento seguinte e o app volta ao embutido.
   e **SERVE** o bundle; só o lançamento seguinte descarta. Um lançamento
   quebrado por aparelho, garantido.
 
-#### O sinal de boot (`otaAppIsUp`) e o que ele NÃO cobre
+#### O sinal de boot (`otaAppIsUp`)
 
 Ordem dos scripts do Controle: `native.js` → `db.js` → `mse.js` → `stage.js` →
 `louvorja.js` → `bible.js` → `serie.js` → `sorteio.js` → `controle.js`.
 
-As quatro condições: papel `controle` · `AVDB`/`AVStream`/`createStage` ·
-`__avBack` · um `<li>` em `#playlist`. Por **polling** (250 ms, desistindo em
-30 s), porque o `init()` é assíncrono e termina DEPOIS do `load`.
+As CINCO condições: papel `controle` · `AVDB`/`AVStream`/`createStage` ·
+`__avBack` · um `<li>` em `#playlist` · `Louvorja`/`Bible`/`AVSerie`/`AVSorteio`.
+Por **polling** (250 ms, desistindo em 30 s), porque o `init()` é assíncrono e
+termina DEPOIS do `load`.
 
-> ⚠️ **ACHADO EM ABERTO — quatro arquivos sem cobertura.** `louvorja.js`,
-> `bible.js`, `serie.js` e `sorteio.js` não têm condição nenhuma. Todo uso de
-> `AVSerie`/`AVSorteio` no `controle.js` está DENTRO de função, então um erro de
-> topo num deles **não** aborta o `controle.js`: o app sobe, o watchdog
-> confirma, e o recurso fica morto para sempre. `sorteio.js` mudou em v5.302,
-> v5.306, v5.308 e v5.311. Ver "Achados em aberto".
+> **A quinta fechou o buraco (v5.315).** Os quatro scripts do Controle não
+> tinham condição nenhuma, e todo uso de `AVSerie`/`AVSorteio` no `controle.js`
+> está DENTRO de função: um erro de topo num deles **não** aborta o
+> `controle.js`, então o app subia, o watchdog confirmava, e o recurso ficava
+> morto PARA SEMPRE — sem erro na tela e sem recuo no lançamento seguinte.
+> `sorteio.js` mudou em v5.302, v5.306, v5.308 e v5.311. Cada um publica o
+> próprio global na ÚLTIMA linha do arquivo, então exigi-lo é exigir que o
+> arquivo tenha sido parseado inteiro.
 
 ### E trocar a base servida OBRIGA a limpar o cache do WebView
 
@@ -225,15 +234,17 @@ cobre a `Presentation`.
 > [`../ACHADOS-EM-ABERTO.md`](../ACHADOS-EM-ABERTO.md). O abaixo é o deste
 > capítulo que continua de pé.
 
-Verificado no código; **não foi corrigido**, porque muda comportamento. A
-correção proposta está aqui para não se perder. (O piso que não segurava a
-enquete web foi corrigido: ver "A detecção", acima; o `HOLD` que dependia do
-gatilho `release` foi corrigido no workflow, e quem o solta é o push da tag; e a
-retomada da atualização passou a EXIGIR o achado — abaixo.)
+(O piso que não segurava a enquete web foi corrigido: ver "A detecção", acima; o
+`HOLD` que dependia do gatilho `release` foi corrigido no workflow, e quem o
+solta é o push da tag; e a retomada da atualização passou a EXIGIR o achado —
+abaixo.)
 
-| # | onde | o quê | correção proposta |
-|---|---|---|---|
-| 1 | `native.js` (`otaAppIsUp`) | `louvorja.js`, `bible.js`, `serie.js` e `sorteio.js` sem condição — um erro de topo neles é carimbado como bundle bom | exigir o global publicado no fim de cada arquivo, na mesma forma da condição 2 |
+**Nenhum.** O último — `otaAppIsUp` sem condição para `louvorja.js`,
+`bible.js`, `serie.js` e `sorteio.js` — foi corrigido na v5.315: a função exige
+agora `Louvorja`, `Bible`, `AVSerie` e `AVSorteio`, cada um publicado na última
+linha do próprio arquivo. Provado que morde: um erro de topo injetado no
+`sorteio.js` faz o `boot-nativo.test.mjs` reprovar exatamente a asserção do
+critério do watchdog.
 
 **A RETOMADA EXIGE O ACHADO.** A intenção sobrevive ao processo; o `achado` do
 `ShellUpdater` é `@Volatile` de processo e nasce vazio a cada abertura. Sem a

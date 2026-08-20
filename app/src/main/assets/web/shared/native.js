@@ -77,6 +77,18 @@
   function otaAppIsUp() {
     if (global.__AV_ROLE__ !== 'controle') return false;
     if (!global.AVDB || !global.AVStream || !global.createStage) return false;
+    // OS QUATRO DO CONTROLE, e eles eram o buraco declarado deste watchdog.
+    // Um erro de topo em `louvorja.js`/`bible.js`/`serie.js`/`sorteio.js` aborta
+    // só AQUELE script: o `controle.js` continua inteiro (todo uso de
+    // `AVSerie`/`AVSorteio` lá está DENTRO de função), `__avBack` existe, a
+    // playlist renderiza — e o bundle era carimbado como bom PARA SEMPRE, com a
+    // Playlist automática (ou a Biblioteca de séries, ou a Bíblia, ou o hinário)
+    // morta, sem erro na tela e sem recuo no lançamento seguinte.
+    //
+    // Cada um publica o próprio global na ÚLTIMA linha do arquivo, então exigi-lo
+    // é exigir que o arquivo tenha sido parseado inteiro — a mesma forma da
+    // condição acima, e o mesmo motivo.
+    if (!global.Louvorja || !global.Bible || !global.AVSerie || !global.AVSorteio) return false;
     if (typeof global.__avBack !== 'function') return false;
     return !!document.querySelector('#playlist > li');
   }

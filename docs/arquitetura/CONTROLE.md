@@ -3397,11 +3397,19 @@ Vazia, ela diz o **motivo dominante** — sem ele, "nada encontrado" tem cinco
 causas que pedem ações opostas (trocar a palavra, desligar um filtro, trocar a
 variante, abrir a Biblioteca com internet).
 
-**E o dominante vale para as COLEÇÕES também** (`motivoDominanteDasColecoes`,
-sobre `pool.colecoesRecusadas`), não para o filtro que por acaso estava ligado:
-com "Sem hinário" marcado E as coleções recusadas por falta de índice, a frase
-dizia "só há hinário neste aparelho" — o operador desligava o filtro, continuava
-vazio, e nada dizia que faltava carregar a biblioteca. Quem sabe por que cada
+**Nas COLEÇÕES a régua é OUTRA: acionabilidade, nunca contagem**
+(`motivoAcionavelDasColecoes`, sobre `pool.colecoesRecusadas`). A ordem é fixa —
+`sem-indice` vence sempre, depois `hinario`, e `sem-musica` por último —, e ela
+não é gosto: `ehMusica` é o `temLetra`, então TODA série do YouTube é recusada
+por `sem-musica`. Num aparelho com duas séries e um hinário ainda sem índice, o
+motivo mais NUMEROSO é `sem-musica`, e a tela afirmaria "nenhuma coleção de
+música neste aparelho" com o hinário inteiro instalado — falso, e sem ação
+possível. `sem-indice` é a única frase que diz ao operador o que fazer.
+
+Antes disso a frase saía do filtro que por acaso estava ligado: com "Sem
+hinário" marcado E as coleções recusadas por falta de índice, ela dizia "só há
+hinário neste aparelho" — o operador desligava o filtro, continuava vazio, e
+nada dizia que faltava carregar a biblioteca. Quem sabe por que cada
 coleção ficou de fora é `AVSorteio.avaliarColecao`, e é dela que a frase sai.
 
 **A frase de resposta do "Ao Cronograma" mora em ESTADO, não no nó.** O

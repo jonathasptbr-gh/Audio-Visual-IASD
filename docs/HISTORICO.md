@@ -24,6 +24,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
+- **v5.315** — OS 21 ACHADOS CONFIRMADOS, CORRIGIDOS — e os dois que a revisão adversarial pegou em cima da correção (superfície da ponte sem degrau; o manifesto do OTA podendo regredir). `SHELL_VERSION` 45. EXIGE RELEASE
 - **v5.314** — A AUDITORIA PROFUNDA: as lápides que a faxina deixou, a ROTAÇÃO de comentários que a prova antiga não via, e os dois oráculos que mediam a si mesmos. Nasce `docs/shell/`. OTA PURO
 - **v5.313** — "PLAYBACK" VIRA "FUNDO MUSICAL", e o Cronograma passa a receber UM PACOTE no lugar de N linhas. OTA PURO
 - **v5.312** — A IMAGEM ENTRA POR CIMA DO LOUVOR SEM CALÁ-LO: o motor tem UM slot, e quem sobrevive a ele é a Camada de Texto. OTA PURO
@@ -185,6 +186,63 @@ na nota que a revoga, não apagada da que a criou.
 - **v5.156** — é METADE OTA e METADE APK, de novo.
 
 ---
+
+## v5.315 — os 21 achados confirmados, corrigidos; e os dois que a revisão adversarial pegou em cima da correção
+
+A auditoria da v5.314 deixou 21 defeitos que MUDAM comportamento em
+`docs/ACHADOS-EM-ABERTO.md`. Este lote os fecha, e o arquivo volta a ficar
+VAZIO — que é o que ele promete ser.
+
+**O método importa tanto quanto o resultado.** Cada grupo de arquivos foi
+corrigido por um agente e depois LIDO por um revisor cético sobre o diff real,
+não sobre o relatório. Os revisores acharam duas coisas que teriam ido para a
+frota:
+
+- **superfície da ponte sem degrau.** O achado 12 fez `espelhoDiag` publicar
+  `midia { itens, bytes, teto }` — e "superfície inclui forma de retorno".
+  `SHELL_VERSION` foi a **45**, e o Registro ganhou o CONSUMIDOR que faltava:
+  sem ele o campo era produtor sem leitor, e o achado (o operador não saber por
+  que uma tela não toca) continuava aberto.
+- **o manifesto do OTA podia REGREDIR.** A reestruturação do CI tirou o
+  `web-ota` da posição de primeiro job, e ele passou a rodar também no push da
+  tag: a ordem de chegada na fila `concurrency` deixou de seguir a ordem dos
+  pushes, e o run de uma tag empacota o commit DA TAG. Publicar versão menor por
+  cima de maior é o pior modo de falhar deste projeto — o aparelho descarta em
+  silêncio. Fecha com uma guarda que lê o manifesto já publicado e pula a
+  publicação quando ela rebaixaria, com aviso no resumo do run.
+
+**E uma REGRESSÃO, dentro de uma correção.** O achado 3 usava
+`provedorDeTextoNoAr()`, que pergunta quem está PROJETANDO — mas os `hide*`
+deixam a sessão de pé com `projecting:false`, de propósito, para o operador
+reexibir pela lista. Com o cartão escondido a função devolvia `''`, a troca era
+falsa, e reexibir O PRÓPRIO cue apagava o selo dele. Passou a ser
+`provedorDoCartao()`, que pergunta quem é DONO da sessão.
+
+**Três correções que estavam pela metade, e as três eram a metade que solta:**
+
+- o coletor (achado 2) prendia a cena e nunca a soltava: `pararMidia` mantém
+  `currentId` de propósito, então excluir o que acabou de tocar deixava os bytes
+  no aparelho sem lugar visível onde removê-los — o fantasma da v5.87. Agora
+  `persistCurrent` grava `noAr` e o coletor só conta a cena que está NO TELÃO.
+- a ordem dos cortes do áudio (achado 14) estava certa em produção, mas os
+  testes novos a RECOMPUNHAM por fora: invertê-la em produção os deixava verdes.
+  A composição virou `TrilhaAudio.noConteiner`, no arquivo puro que tem JUnit.
+- a frase do sorteio vazio (achado 18) trocou o motivo por CONTAGEM, e
+  `ehMusica` é `temLetra`: toda série do YouTube conta como "sem música". Num
+  aparelho com duas séries e um hinário sem índice a tela afirmaria "nenhuma
+  coleção de música" com o hinário instalado. A régua virou ACIONABILIDADE.
+
+**O watchdog do OTA fechou o buraco que ele mesmo declarava.** `otaAppIsUp`
+ganhou a quinta condição (`Louvorja`/`Bible`/`AVSerie`/`AVSorteio`): um erro de
+topo em qualquer um dos quatro não aborta o `controle.js`, então o bundle era
+carimbado como bom PARA SEMPRE com o recurso morto. `sorteio.js` mudou em quatro
+versões recentes.
+
+**Nada aqui entrou sem prova de MORDIDA.** Cada oráculo novo foi validado
+quebrando o código de propósito e vendo reprovar: a ordem invertida no
+`TrilhaAudio` (2 falhas), o `noAr` removido do coletor (3 falhas), o
+`sorteio.js` com erro de topo (o critério do watchdog reprova), o `step()` sem
+`daFila` e o `imgSession.rec` fora do `await0Rec`.
 
 ## v5.314 — a auditoria profunda: as lápides que a faxina deixou, a ROTAÇÃO que a prova antiga não via, e os dois oráculos que mediam a si mesmos
 

@@ -233,15 +233,15 @@ jobs:
       # ────────────────────────────────────────────────────────────────────
       # ---------- E ELE TEM PRAZO ----------
       # `continue-on-error` protege contra FALHAR, não contra TRAVAR — e os dois
-      # não são o mesmo evento neste job. Medido: na v5.302 este passo ficou
-      # **43 minutos** pendurado num `npm i`/`playwright install` que não voltava,
-      # foi cancelado à mão, e com ele os passos de baixo — "Empacotar a base
-      # web" e o upload da Release — foram PULADOS. O bundle daquele lote nunca
-      # chegou ao canal.
+      # não são o mesmo evento. Medido: na v5.302 este passo ficou **43 minutos**
+      # pendurado num `npm i`/`playwright install` que não voltava, e foi
+      # cancelado à mão. O bundle daquele lote nunca chegou ao canal.
       #
-      # E o estrago não parou nele: o `concurrency: web-ota` com
-      # `cancel-in-progress: false` (que é a decisão certa, ver o comentário do
-      # topo do job) segurou o lote SEGUINTE na fila os mesmos 43 minutos.
+      # O mecanismo mudou com o portão virar job à parte; o efeito no aparelho é
+      # o mesmo. Um travamento aqui não pula passo nenhum DESTE job — ele impede
+      # o `web-ota` de COMEÇAR, porque o `verificar` é `needs` dele e exigido em
+      # SUCESSO. E a fila `concurrency: web-ota` nem chega a ser tomada: o lote
+      # SEGUINTE não espera atrás deste, mas o bundle DESTE não sai.
       #
       # O modo de falhar é MUDO nas duas pontas: o run não fica vermelho (o
       # `continue-on-error` o absorve) e o aparelho não tem o que mostrar — do
@@ -570,10 +570,15 @@ jobs:
           PY
           )
           if [ "$SHELL_JSON" = "SEM_APK" ]; then
-            # A ASSIMETRIA É A DECISÃO. Uma Release EXIGIDA que ainda não tem
-            # `.apk` é a corrida normal entre a criação da Release e o upload do
-            # binário — segurar é o certo, e o gatilho `release` (que dispara
-            # com o arquivo já anexado) resolve sozinho. Já uma Release
+            # A ASSIMETRIA É A DECISÃO. Com o `needs: apk`, uma Release EXIGIDA
+            # sem `.apk` já NÃO é a corrida entre criar a Release e anexar o
+            # binário: este job só começa depois do `apk`, que publica os dois de
+            # uma vez. Sobram a Release nascida por fora (a interface do GitHub,
+            # um PAT) e o build Kotlin que falhou — e nos dois a saída é anexar o
+            # `.apk` e REEXECUTAR o run, nunca esperar o gatilho `release`, que
+            # no fluxo por tag não chega (ver o comentário do `on:`). Segurar
+            # continua certo: apontar o manifesto para um shell que ninguém
+            # consegue instalar é pior que não anunciá-lo. Já uma Release
             # qualquer sem `.apk` não tem nada a ver com este bundle: bloquear o
             # canal OTA inteiro por causa dela seria deixar a base web presa por
             # um evento que não é dela.

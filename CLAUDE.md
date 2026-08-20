@@ -34,7 +34,8 @@ espelhar o celular.
 
 **Fora daqui:** `docs/ACHADOS-EM-ABERTO.md` (os defeitos CONFIRMADOS e ainda não
 corrigidos, com cenário e correção proposta — **leia antes de mexer no que ele
-nomeia**; é arquivo para ESVAZIAR, não para crescer), `docs/shell/README.md`
+nomeia**; hoje está VAZIO, e é arquivo para esvaziar, não para crescer),
+`docs/shell/README.md`
 (o HUB do **Kotlin**: um capítulo por
 subsistema do shell, mais a tabela que diz onde cada um dos 26 arquivos é
 explicado), `docs/ARQUITETURA-WEB.md` (o HUB da base web: regras gerais e o
@@ -1160,7 +1161,7 @@ sintoma é "a atualização não chega".
 `native.js` → `db.js` → `mse.js` → `stage.js` → `louvorja.js` → `bible.js` →
 `serie.js` → `sorteio.js` → `controle.js`, e um erro em qualquer um dos **oito**
 últimos aborta só AQUELE script — o `load` dispara, `AVDB` continua lá, e o
-bundle quebrado era carimbado como bom **para sempre**. As quatro condições,
+bundle quebrado era carimbado como bom **para sempre**. As cinco condições,
 cada uma cobrindo o que a anterior não cobre:
 
 1. **papel `controle`** — o Display não carrega `controle.js` nem `louvorja.js`,
@@ -1176,16 +1177,14 @@ cada uma cobrindo o que a anterior não cobre:
    preenche é `renderPlaylist()`, dentro do `init()` assíncrono, que começa por
    `loadCollections()`. Prova que a inicialização terminou.
 
-> **O QUE ESTAS QUATRO NÃO COBREM** — e é buraco conhecido, não descuido de
-> leitura: `louvorja.js`, `bible.js`, `serie.js` e `sorteio.js` não têm condição
-> nenhuma. Todo uso de `AVSerie`/`AVSorteio` no `controle.js` está DENTRO de
-> função, então um erro de topo num deles **não** aborta o `controle.js`:
-> `__avBack` existe, a playlist renderiza, `otaConfirm()` desarma o watchdog — e
-> o bundle fica adotado para sempre com a Playlist automática (ou a Biblioteca
-> de séries, ou a Bíblia, ou o hinário) morta, sem erro na tela e sem recuo no
-> lançamento seguinte. `sorteio.js` mudou em v5.302, v5.306, v5.308 e v5.311.
-> **O conserto é barato** (exigir o global publicado no fim de cada um, na mesma
-> forma da condição 2) e está proposto em `docs/shell/OTA.md`.
+5. **`Louvorja` · `Bible` · `AVSerie` · `AVSorteio`** — os quatro scripts do
+   Controle, cada um publicando seu global na ÚLTIMA linha do arquivo. Eram o
+   buraco declarado deste watchdog até a v5.315: todo uso de `AVSerie`/`AVSorteio`
+   no `controle.js` está DENTRO de função, então um erro de topo num deles **não**
+   aborta o `controle.js` — `__avBack` existe, a playlist renderiza, `otaConfirm()`
+   desarma o watchdog, e o bundle ficava adotado PARA SEMPRE com a Playlist
+   automática (ou a Biblioteca de séries, ou a Bíblia, ou o hinário) morta, sem
+   erro na tela e sem recuo no lançamento seguinte.
 
 **Por polling** (250 ms, desistindo em 30 s, em silêncio), e não checagem única
 no `load`: o `init()` é assíncrono e termina DEPOIS do `load` — uma checagem
@@ -2253,7 +2252,7 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: v5.313** (base web) · `SHELL_VERSION` **44** · bundle com
+**Versão atual: v5.315** (base web) · `SHELL_VERSION` **45** · bundle com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos nativos
 por construção (escada do voltar, botões de volume, notificação de controles),
 que **só chegam instalando o APK**.

@@ -449,9 +449,12 @@ checar(videosAgosto.every((v) => !S.ehOutroIdioma(v.name)) && doCanal.every((p) 
 
 // ── 7d-2. LARGURA FIXA: pontuação NÃO é escrita — EM PAR com a que é ───────
 // A faixa das formas de largura fixa (U+FF00-FFEF) tem duas metades opostas, e
-// a régua tem de separá-las: no começo mora o ASCII de largura fixa (｜！＠…),
-// que é PONTUAÇÃO e aparece em título português copiado de qualquer lugar; a
-// partir de FF61 moram o katakana e o hangul de meia-largura, que são ESCRITA.
+// a régua tem de separá-las. E a régua NÃO é "escrita sim, pontuação não" — a
+// pontuação CJK (【】。「」、・) fica na lista de recusa de propósito, porque ela
+// só existe em título CJK. É outra coisa: no começo da faixa mora o ASCII de
+// largura fixa (｜！＠…), que UM TECLADO PORTUGUÊS PRODUZ e aparece em título
+// copiado de qualquer lugar; a partir de FF61 moram o katakana e o hangul de
+// meia-largura, que não aparecem em português nunca.
 // Recusar a metade de baixo é o defeito da v5.252 ("Mission Refocus") outra
 // vez: o episódio some do sábado por causa de um caractere de enfeite.
 //
@@ -459,7 +462,7 @@ checar(videosAgosto.every((v) => !S.ehOutroIdioma(v.name)) && doCanal.every((p) 
 // o erro oposto — o vídeo em japonês no telão do culto.
 const PIPE_LARGO = 'A missão de Enoc ｜ Provai e Vede 2026 (15/Ago)';
 checar(!S.ehOutroIdioma(PIPE_LARGO),
-  'o "｜" de largura fixa é PONTUAÇÃO: o episódio em português não pode ser recusado');
+  'o "｜" de largura fixa um teclado português digita: o episódio não pode ser recusado');
 const pipe = S.itensDaPlaylist([{ id: 'w1', url: 'y/w1', name: PIPE_LARGO, seconds: 300 }], 8, SERIE);
 // Ele ENTRA, com a data — que é o que a correção compra. O `tituloDoEpisodio`
 // continua cortando só na barra ASCII, então o rótulo sai comprido; é o
@@ -471,7 +474,7 @@ checar(pipe.length === 1 && S.nomeDoItem(pipe[0]).startsWith('15/Ago · A missã
   'e o rótulo começa pela data, que é por onde o operador procura o sábado',
   pipe.length && S.nomeDoItem(pipe[0]));
 checar(S.ehOutroIdioma('ﾐｯｼｮﾝ ﾆｭｰｽ 2026'),
-  'e o katakana de MEIA-LARGURA (ff61-ff9f) continua recusado — é escrita, não pontuação');
+  'e o katakana de MEIA-LARGURA (ff61-ff9f) continua recusado — ele não aparece em português');
 checar(S.ehOutroIdioma('ﾡﾢﾣ 2026'),
   'o mesmo para o hangul de meia-largura (ffa0-ffdc)');
 
