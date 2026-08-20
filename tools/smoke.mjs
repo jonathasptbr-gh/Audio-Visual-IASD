@@ -1623,13 +1623,26 @@ try {
       if (!linha.contains(e)) return 'fora';
       return e.closest('button') ? 'BOTÃO' : 'linha';
     };
+    // O CANTO É MEDIDO POR DENTRO DO RAIO, e isto não é afrouxar a asserção.
+    // A linha tem `border-radius: var(--radius-btn)` (8px), e um canto
+    // arredondado NÃO é da linha: `elementFromPoint` ali devolve o pai, que é o
+    // comportamento CERTO do CSS. Cravar 2px no canto geométrico afirmava algo
+    // FALSO sobre um retângulo redondo — e a asserção só passava por acidente de
+    // layout: no runner do CI ela reprovava desde a v5.314 (medido: mesma caixa
+    // 355×48, mesmo `cantoDir: "UL.coll-songs"`), verde na máquina de quem a
+    // escreveu. Com `continue-on-error` no passo, o run ficava VERDE com 14/15.
+    //
+    // O que a asserção quer dizer continua inteiro: a REGIÃO do canto leva à
+    // linha, e não a um alvo concorrente. O ponto medido é o mais próximo do
+    // canto que a linha de fato PINTA.
+    const raio = parseFloat(getComputedStyle(linha).borderTopRightRadius) || 0;
     const pontos = {
       meio: quem(lb.left + lb.width / 2, lb.top + lb.height / 2),
       esquerda: quem(lb.left + 4, lb.top + lb.height / 2),
       direita: quem(lb.right - 2, lb.top + lb.height / 2),
       topo: quem(lb.left + lb.width / 2, lb.top + 2),
       base: quem(lb.left + lb.width / 2, lb.bottom - 2),
-      cantoDir: quem(lb.right - 2, lb.top + 2),
+      cantoDir: quem(lb.right - raio - 1, lb.top + raio + 1),
       // O quadrado da esquerda é onde o ▶ vivia: é o ponto que mais precisa
       // levar à linha agora, porque é onde o dedo aprendeu a mirar.
       quadrado: quem(lb.left + 20, lb.top + lb.height / 2),
@@ -1641,6 +1654,7 @@ try {
       // Sem a caixa e sem o elemento que cada ponto de fato encontrou, o único
       // caminho é adivinhar — ou publicar um lote só para instrumentar.
       caixa: [Math.round(lb.left), Math.round(lb.top), Math.round(lb.width), Math.round(lb.height)],
+      raio,
       janela: [window.innerWidth, window.innerHeight],
       achou: Object.fromEntries(Object.entries({
         meio: [lb.left + lb.width / 2, lb.top + lb.height / 2],
@@ -1648,7 +1662,7 @@ try {
         direita: [lb.right - 2, lb.top + lb.height / 2],
         topo: [lb.left + lb.width / 2, lb.top + 2],
         base: [lb.left + lb.width / 2, lb.bottom - 2],
-        cantoDir: [lb.right - 2, lb.top + 2],
+        cantoDir: [lb.right - raio - 1, lb.top + raio + 1],
         quadrado: [lb.left + 20, lb.top + lb.height / 2],
       }).map(([k, [x, y]]) => {
         const e = document.elementFromPoint(x, y);
