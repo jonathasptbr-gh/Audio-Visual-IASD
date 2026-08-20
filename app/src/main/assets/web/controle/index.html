@@ -521,6 +521,9 @@
                mode-chrono · mode-draw. Não existe `mode-verse`: o versículo é o
                estado sem classe, e uma regra escrita para ela nunca casaria. -->
           <div id="pvText" class="pv-layer pv-text" hidden>
+            <!-- A IMAGEM SOBRE O ÁUDIO na preview (v5.312) — irmã do conteúdo,
+                 pelo mesmo motivo do `#textImg` do telão: a tela toda. -->
+            <img id="pvTextImg" class="pv-text-img" hidden alt="">
             <div class="pv-text-content" id="pvTextContent">
               <div class="pv-text-box">
                 <div class="pv-text-main" id="pvTextMain"></div>
@@ -908,7 +911,7 @@
              METADADO de diagnóstico e o lugar onde se procura diagnóstico é
              junto do estado do telão e do alvo de espelhamento, não numa faixa
              de navegação. Preenchido por `renderVersionLabel`. -->
-        <span id="appVersion" class="app-version">Controle v5.311</span>
+        <span id="appVersion" class="app-version">Controle v5.312</span>
         <!-- A ATUALIZAÇÃO (v5.245). Ele mora ao lado do rótulo de versão
              porque é a MESMA conversa ("que versão eu tenho?" / "tem uma mais
              nova?"), e porque é ali que o operador já procura isso.

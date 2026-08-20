@@ -24,6 +24,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
+- **v5.312** — A IMAGEM ENTRA POR CIMA DO LOUVOR SEM CALÁ-LO: o motor tem UM slot, e quem sobrevive a ele é a Camada de Texto. OTA PURO
 - **v5.311** — PLAYBACK SORTEADO É SOM DE FUNDO: toca sem nada no telão, pela cortina que já existia. OTA PURO
 - **v5.310** — O TÍTULO PAROU DE ANDAR PARA O LADO E CONTINUOU DESCENDO: a v5.309 reservou as colunas da faixa e não a linha, e o oráculo mediu só o eixo que ela corrigiu. OTA PURO
 - **v5.309** — QUATRO AJUSTES PEDIDOS: o título parava de pular, a versão foi para o fim da referência, o par de confirmar divide a faixa ao meio e a fila ganhou um LIMPAR. OTA PURO
@@ -182,6 +183,79 @@ na nota que a revoga, não apagada da que a criou.
 - **v5.156** — é METADE OTA e METADE APK, de novo.
 
 ---
+
+## v5.312
+
+**A v5.312: A IMAGEM ENTRA POR CIMA DO LOUVOR SEM CALÁ-LO — o motor tem UM
+slot, e quem sobrevive a ele é a Camada de Texto. OTA PURO** (base web, oráculo
+novo e docs; sem Release, `SHELL_VERSION` continua **44**).
+
+Pedido do operador: *"preciso que imagens, ou arquivos unicamente 'visuais',
+possam ser apresentados sobre uma mídia de áudio, sem interromper o áudio,
+semelhante ao que já temos com elementos de texto sobre áudio"*. Três escolhas
+dele fecharam o desenho: **automático** (o toque na imagem já sobrepõe, sem
+pergunta), **tela cheia**, e **agora, neste lote**.
+
+**O DEFEITO, MEDIDO.** Com um louvor tocando, tocar numa imagem parava o som.
+Sonda em Chromium, antes: áudio em `paused:true, currentTime:0`. A causa é o
+slot único do motor — `stage.js` → `loadInner` faz, sem condição,
+`video.pause()` → `removeAttribute('src')` → `video.load()`. **Todo caminho que
+emita um `load` mata o que estava tocando**, e é por isso que a independência
+áudio × texto sempre funcionou para o versículo: a Camada de Texto **não emite
+`load` nenhum**.
+
+**A DECISÃO: a imagem é um MODO da camada, não um segundo slot.** Um segundo
+slot no `stage.js` mexeria no código que roda na frente da congregação, para
+ganhar o que a camada já tem de graça: cartão opaco acima da mídia
+(`.text-layer`, z-index 2), `stage.setOverlay`, saída pelo `text-hide`, reenvio
+na reconexão e rodízio de provedor pelo `soUmProvedorDeTexto`. O motor não muda
+uma linha. Depois: `paused:false`, `currentTime` andando de 2,11 a 3,02 com o
+cartão em cena.
+
+A sessão nasce com a mesma forma das outras cinco (`{ id, nome, projecting }`),
+e é isso que a põe de graça em `cenaDeRoteiroNoAr`, no `clearManualText` e no
+`resendSceneToDisplay`.
+
+**A METADE QUE FALTAVA ERA A DE VOLTA.** A sobreposição rompe a premissa das
+três funções de realce — elas dividem o mundo em CUE (`cueNoArId`) e MÍDIA
+(`midiaNoArId`), e a imagem sobreposta não é nenhuma das duas: é um item de
+mídia projetando pela porta da Camada de Texto. Sem `imagemSobreNaLinha` a
+linha não ganhava selo, não ficava ativa, e o segundo toque caía no
+`pararMidia` do ramo de mídia — **o operador tocava na IMAGEM para tirá-la e o
+que saía era o ÁUDIO**, com a imagem seguindo na tela. Mesma classe de erro no
+`slideTarget()`: sem a guarda, o ⏮/⏭ caía na letra do áudio de fundo, que está
+ESCONDIDA atrás do cartão (a música saltaria sem nada mudar na tela) — é a
+armadilha que o comentário do cronômetro já descrevia, ao pé da letra.
+
+**O que NÃO sobrepõe, e por quê:**
+
+- **o avanço automático da fila** (`send(id, daFila)`): ali a imagem é o
+  PRÓXIMO item da sequência, e sobrepor faria a fila parar de andar sozinha,
+  com o áudio anterior tocando para sempre sob a imagem nova;
+- **imagem sem áudio no ar**: projeta NORMAL, como sempre. A sobreposição é a
+  exceção — aplicada sempre, uma imagem sozinha entraria como cartão de texto
+  sobre nada, sem barra, sem cortina e sem transporte;
+- **`audioNoAr()` pergunta "no ar", não "tocando"**: um louvor PAUSADO para a
+  oração continua sendo a cena. Mesma régua do reenvio.
+
+**A TELA DA REDE precisou do `__rec`.** É o único comando de texto que leva um
+`mediaId` — os outros quatro modos carregam o conteúdo dentro do próprio
+comando. Sem o enriquecimento, o cartão entraria PRETO nas telas da igreja,
+escondendo a cena por baixo sem pôr nada no lugar. O `await0Rec` lê das listas
+já carregadas e **nunca do IDB**, porque `telaEnriquecer` roda dentro do
+caminho síncrono do `cmd()`: um `await` ali deixaria o comando sair sem
+registro e o enriquecimento chegaria tarde, para um comando que já partiu.
+
+**`tools/imagem-sobre-audio.test.mjs`** (20 asserções, Chromium, registrado no
+workflow). Ele existe porque **a regra é uma AUSÊNCIA** — nenhum `load` sai
+deste caminho —, e ausência não tem sintoma de tela nem erro de console. Daí
+medir o `currentTime` do `<video>` em DOIS instantes: *"não pausou"* é fraco
+(um `<video>` sem `src` também responde `paused:false` por um átimo), *"andou"*
+é o que prova que o áudio é o MESMO e continua correndo por baixo do cartão. E
+nas duas metades, porque cada uma falha calada de um jeito diferente: o
+Controle que decide sobrepor, e o telão que pinta. Uma asserção é só para o
+`mode` desconhecido: o `display.js` cairia no ramo `verse` e desenharia um
+cartão VAZIO — preto na tela, sem erro em lugar nenhum.
 
 ## v5.311
 

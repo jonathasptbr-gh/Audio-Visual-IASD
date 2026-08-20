@@ -1,12 +1,12 @@
 <!-- Capítulo de docs/ARQUITETURA-WEB.md. O índice e as regras
      de desenvolvimento ficam lá; este arquivo é só este capítulo. -->
 
-## Camada de Texto (Bíblia · Mensagens · Letra)
+## Camada de Texto (Bíblia · Mensagens · Letra · Imagem)
 
-O sistema serve **texto no telão** por seis provedores que compartilham um
-**modelo padronizado** de camada paralela (mesmo padrão do YouTube: um layer
-que a **cortina do wallpaper** — sempre por cima de tudo — cobre/revela "de
-graça", sem tocar em `stage.js`). São eles:
+O sistema serve **conteúdo de tela no telão** por sete provedores que
+compartilham um **modelo padronizado** de camada paralela (mesmo padrão do
+YouTube: um layer que a **cortina do wallpaper** — sempre por cima de tudo —
+cobre/revela "de graça", sem tocar em `stage.js`). São eles:
 
 | Provedor | Driver | Origem do texto | Camada física |
 |---|---|---|---|
@@ -16,6 +16,7 @@ graça", sem tocar em `stage.js`). São eles:
 | **Cronômetro/relógio/timer** | **derivado do relógio** (sem avanço) | o próprio tempo (`chronoReading`) | `#text` / `#pvText` |
 | **Sorteio** | **derivado** (rolo até assentar) | faixa numérica ou lista de opções (`drawReading`) | `#text` / `#pvText` |
 | **Letra sincronizada** | **temporizado** (segue o `currentTime` do áudio) | música do LouvorJA | `#lyrics` / `#pvLyrics` |
+| **Imagem sobre o áudio** | manual (o toque na imagem) | um registro de mídia `kind:'image'` | `#text` / `#pvText` (modo `mode-img`) |
 
 > **Mensagens vive na aba Ferramentas** (v5.31), como uma das ferramentas do
 > seletor: lista de avisos salvos, "+ Nova mensagem" e — quando há uma
@@ -98,6 +99,66 @@ Texto é **desacoplada do ciclo de vida da mídia do stage** — `showText`/
   a fonte disso é o **stage** (`preview.getCurrent()`), não `currentItem`: este
   último é o item SELECIONADO e continua apontando para a música terminada — era
   exatamente ele que fazia a preview achar que ainda havia algo em cena.
+
+### Imagem SOBRE o áudio (v5.312)
+
+Um aviso, um versículo diagramado, o cartaz da campanha — conteúdo **só
+visual** — precisa entrar na tela **sem calar o louvor de fundo**, que é
+exatamente o que o versículo já fazia. Até a v5.311 não fazia: tocar numa
+imagem com um áudio no ar trocava a cena e o som parava.
+
+**A causa é o slot único do motor.** `stage.js` → `loadInner` faz, sem
+condição, `video.pause()` → `removeAttribute('src')` → `video.load()`. Logo,
+**todo caminho que emita um `load` mata o que estava tocando** — e não há
+"segundo slot" a acrescentar sem mexer no código que roda na frente da
+congregação.
+
+**O que sobrevive ao slot único é a Camada de Texto**, e por uma propriedade
+que ela já tinha: ela é um cartão opaco ACIMA da mídia (`.text-layer`,
+z-index 2) e **não emite `load` nenhum**. Daí a decisão: a imagem é um **MODO**
+dela (`{ type:'text', mode:'image', mediaId }`), não um slot novo. O motor não
+muda uma linha, e o recurso ganha de graça o `text-hide`, o reenvio de cena, a
+cortina e o rodízio de provedor.
+
+| Onde | O quê |
+|---|---|
+| `send(id, daFila)` | **a decisão**: `!daFila && alvo.kind === 'image' && audioNoAr()` → `projetarImagemSobre`, senão o caminho de sempre |
+| `projetarImagemSobre` / `hideImagemSobre` | a sessão `imgSession = { id, nome, projecting }` — a mesma forma das outras cinco, e é isso que a põe de graça no `cenaDeRoteiroNoAr`, no `soUmProvedorDeTexto` e no reenvio |
+| `display.js` → `pintarTextImg` | resolve `cmd.__rec || AVDB.getMedia(mediaId)` → blob/OPFS/url → `objectURL` em `#textImg`, com `textImgSeq` contra corrida e `soltarTextImg` revogando |
+| `telaEnriquecer` | anexa o `__rec` saneado (`/m/<token>`) — é o **único** comando de texto que precisa, porque é o único que leva um `mediaId` |
+
+**As decisões que precisam estar ditas:**
+
+- **É `audioNoAr()`, não "está tocando".** Um louvor PAUSADO para a oração
+  continua sendo a cena, e pôr o aviso por cima dele é o mesmo gesto. Mesma
+  régua do reenvio (`midiaNoAr`).
+- **O avanço automático da fila NÃO sobrepõe** (`daFila`): ali a imagem é o
+  PRÓXIMO item da sequência. Sobrepor faria a fila parar de andar sozinha, com
+  o áudio anterior tocando para sempre sob a imagem nova.
+- **Sem áudio no ar a imagem projeta NORMAL** (substitui). A sobreposição é a
+  exceção; aplicada sempre, uma imagem sozinha entraria como cartão de texto
+  sobre nada — sem barra, sem cortina, sem transporte.
+- **A linha da lista responde pela IMAGEM** (`imagemSobreNaLinha`, consultada
+  por `noArAgora`, `linhaNoAr` e `linhaAtiva`). A sobreposição rompe a premissa
+  daquelas três funções, que dividem o mundo em CUE e MÍDIA: a imagem
+  sobreposta é um item de mídia projetando pela porta da Camada de Texto. Sem
+  a guarda o segundo toque caía no `pararMidia` do ramo de mídia — o operador
+  tocava na IMAGEM para tirá-la e o que saía era o ÁUDIO.
+- **`slideTarget()` devolve `null`** com a imagem em cena, pelo mesmo motivo do
+  cronômetro: o ⏮/⏭ cairia na letra do áudio de fundo, que está ESCONDIDA
+  atrás do cartão — o operador apertaria "próxima estrofe" e a música saltaria
+  sem nada mudar na tela.
+- **O título continua sendo o do ÁUDIO** (é o que o ▶ e a barra controlam); o
+  que a imagem acrescenta é o subtítulo `'Imagem em cena'` no `pushNowPlaying`.
+- **Trocar de modo apaga a `<img>`** (`display.js`: `if (textMode !== 'image')
+  soltarTextImg()`). O `mode-img` esconde `.text-content`, então uma `<img>`
+  esquecida de pé cobriria o texto novo — cartão mudo, sem erro.
+
+**Oráculo: `tools/imagem-sobre-audio.test.mjs`.** A regra é uma AUSÊNCIA
+(nenhum `load` sai deste caminho), e ausência não tem sintoma de tela nem erro
+de console. Ele mede o `currentTime` do `<video>` em DOIS instantes — "não
+pausou" é fraco, "andou" é o que prova que o áudio é o mesmo — nas duas
+metades: o Controle que decide sobrepor e o telão que pinta.
 
 ### Botão voltar do aparelho (`__avBack`)
 

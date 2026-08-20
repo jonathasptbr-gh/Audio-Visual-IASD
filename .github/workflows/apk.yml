@@ -259,7 +259,7 @@ jobs:
       # PRAZO AQUI TAMBÉM, e pela mesma razão: um oráculo que pendure o
       # navegador (uma Promise que nunca resolve, um `waitForFunction` sem
       # timeout) trava o job inteiro e leva o canal OTA junto. 15 min é folga
-      # sobre os ~5 que os quatorze levam somados.
+      # sobre os ~6 que os quinze levam somados.
       - name: Oráculos em Chromium
         if: steps.chromium.outcome == 'success'
         continue-on-error: true
@@ -347,6 +347,13 @@ jobs:
           # do dongle é o caminho menos testável à mão — exige TV, dongle e o
           # timing de derrubá-lo — e roda sozinho na frente da congregação.
           rodar tools/cena.test.mjs
+          # E A IMAGEM SOBRE O ÁUDIO: a regra é uma AUSÊNCIA — nenhum `load`
+          # sai daquele caminho, e é só por isso que o louvor de fundo
+          # sobrevive ao aviso projetado por cima. Ausência não tem sintoma de
+          # tela nem erro de console: quem a prova é o `currentTime` do
+          # `<video>` medido em dois instantes, nas duas metades (o Controle
+          # que decide sobrepor, e o telão que pinta na frente da congregação).
+          rodar tools/imagem-sobre-audio.test.mjs
           # E A TELA DA REDE do telão por comandos (E3 — ver
           # docs/TELAO-POR-COMANDOS.md): o /display/ servido pelo celular
           # rodando num navegador comum, com a entrada pelo código, o dreno de
