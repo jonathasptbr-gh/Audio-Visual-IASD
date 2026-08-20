@@ -23,6 +23,7 @@ import { chromium } from 'playwright';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { semRedeExterna } from './sem-rede.mjs';
 
 const AQUI = path.dirname(fileURLToPath(import.meta.url));
 const WEB = path.join(AQUI, '..', 'app', 'src', 'main', 'assets', 'web');
@@ -37,7 +38,9 @@ function checar(cond, msg, obtido) {
 const navegador = await chromium.launch(
   process.env.PW_CHROMIUM ? { executablePath: process.env.PW_CHROMIUM } : {},
 );
-const pg = await (await navegador.newContext()).newPage();
+const ctx = await navegador.newContext();
+await semRedeExterna(ctx);
+const pg = await ctx.newPage();
 
 // O palco mínimo: as três camadas que o `createStage` recebe. Nada de CSS do
 // app — o que se mede é o `style.opacity` que o próprio stage escreve.

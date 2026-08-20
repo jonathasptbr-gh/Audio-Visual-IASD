@@ -32,6 +32,7 @@ import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { semRedeExterna } from './sem-rede.mjs';
 
 const AQUI = path.dirname(fileURLToPath(import.meta.url));
 const WEB = path.join(AQUI, '..', 'app', 'src', 'main', 'assets', 'web');
@@ -187,6 +188,7 @@ const navegador = await chromium.launch(
   process.env.PW_CHROMIUM ? { executablePath: process.env.PW_CHROMIUM } : {},
 );
 const ctx = await navegador.newContext({ viewport: { width: 1280, height: 720 } });
+await semRedeExterna(ctx);
 const pg = await ctx.newPage();
 const errosConsole = [];
 // ZERO PEDIDO A TERCEIRO, e a régua ficou mais forte na v5.212.
@@ -566,6 +568,7 @@ checar(await pg.$eval('#text', (e) => e.hidden), 'text-hide tira a Camada de Tex
     viewport: { width: 1280, height: 720 },
     extraHTTPHeaders: { 'x-teste-pagina': 'recarga' },
   });
+  await semRedeExterna(ctx3);
   const pg3 = await ctx3.newPage();
   await pg3.goto(base + '/display/index.html');
   await pg3.waitForSelector('#telaEntrada', { state: 'visible' });

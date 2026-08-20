@@ -20,6 +20,7 @@ import { chromium } from 'playwright';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { semRedeExterna } from './sem-rede.mjs';
 
 const AQUI = path.dirname(fileURLToPath(import.meta.url));
 const DB = fs.readFileSync(
@@ -39,6 +40,7 @@ const navegador = await chromium.launch(
 // não é preciso — o `file:` do Playwright basta via `setContent` sobre uma
 // página http fictícia interceptada.
 const ctx = await navegador.newContext();
+await semRedeExterna(ctx);
 const pg = await ctx.newPage();
 await pg.route('http://av.local/**', (rota) => rota.fulfill({
   status: 200, contentType: 'text/html; charset=utf-8',

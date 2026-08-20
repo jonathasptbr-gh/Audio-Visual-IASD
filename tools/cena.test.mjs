@@ -25,6 +25,7 @@ import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { semRedeExterna } from './sem-rede.mjs';
 
 const RAIZ = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'app', 'src', 'main', 'assets', 'web');
 const TIPOS = {
@@ -56,6 +57,7 @@ const navegador = await chromium.launch(
   process.env.PW_CHROMIUM ? { executablePath: process.env.PW_CHROMIUM } : {},
 );
 const ctx = await navegador.newContext({ viewport: { width: 430, height: 900 } });
+await semRedeExterna(ctx);
 const pg = await ctx.newPage();
 const base = `http://localhost:${porta}`;
 

@@ -35,6 +35,7 @@ import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { semRedeExterna } from './sem-rede.mjs';
 
 const RAIZ = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'app', 'src', 'main', 'assets', 'web');
 const TIPOS = {
@@ -94,6 +95,7 @@ const navegador = await chromium.launch({
   args: ['--autoplay-policy=no-user-gesture-required'],
 });
 const ctx = await navegador.newContext({ viewport: { width: 430, height: 900 } });
+await semRedeExterna(ctx);
 
 const erros = [];
 const EXTERNO = /ERR_TUNNEL_CONNECTION_FAILED|ERR_NAME_NOT_RESOLVED|ERR_INTERNET_DISCONNECTED|ERR_CONNECTION_|ERR_PROXY/;

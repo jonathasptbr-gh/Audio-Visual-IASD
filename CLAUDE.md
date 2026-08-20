@@ -1890,6 +1890,21 @@ primeiro oráculo novo, e envelheceria mentindo.
 | `contexto-seguro.test.mjs` | `VideoDecoder`, `wakeLock`, `audioWorklet`, `randomUUID`, `crypto.subtle` fora de guarda `isSecureContext` em `espelho/` **e `display/`** — o display INTEIRO roda em `http://` nas telas da rede, e lá essas APIs vêm `undefined` |
 | `mse.test.mjs` · `stage-fade.test.mjs` | mensagens de falha da transmissão direta · a transição de entrada do palco |
 
+> **A REDE EXTERNA NÃO ENTRA NUM ORÁCULO** (`tools/sem-rede.mjs`,
+> `semRedeExterna(ctx)` logo depois de cada `newContext()`). A base web fala com
+> a LouvorJA na carga — `pt_hymnal`, `pt_categories`, `pt_bible_*`, um
+> `music_<id>` por faixa —, e **nada disso era interceptado**. Numa máquina sem
+> saída para a internet as chamadas morrem e o oráculo é determinístico POR
+> ACIDENTE; no runner elas RESPONDEM, o hinário real desaba sobre o acervo
+> plantado pela fixture, e a asserção passa a medir o catálogo da LouvorJA. Foi
+> assim que `smoke`, `boot-nativo` e `sorteio-tela` ficaram vermelhos no CI (12
+> de 15) enquanto passavam na máquina de quem os escreveu — e, com o passo em
+> `continue-on-error`, **sem ninguém notar**. Bloquear é seguro por construção:
+> os quinze já passam onde toda saída falha, logo nenhum depende de terceiro.
+> Fixture de terceiro que um oráculo queira exercitar entra por um `route()`
+> **dele**, registrado depois (o Playwright resolve da mais recente para a mais
+> antiga) e com o corpo escrito à mão.
+
 > **Um servidor de mentira que diverge do de verdade não prova nada.** O
 > `tela-rede` já entregou o HTML **sem a CSP** e com `?tela=1` na mão — provando
 > o percurso num ambiente mais permissivo e por um caminho que o aparelho pode

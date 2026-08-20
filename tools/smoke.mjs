@@ -26,6 +26,7 @@ import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { semRedeExterna } from './sem-rede.mjs';
 
 const RAIZ = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'app', 'src', 'main', 'assets', 'web');
 const TIPOS = {
@@ -67,6 +68,7 @@ const navegador = await chromium.launch(
 // este arquivo exercita) não teria como reagir, e o caso "passaria" por não
 // medir nada. É o aparelho que este teste imita; o padrão de mesa não é.
 const ctx = await navegador.newContext({ viewport: { width: 430, height: 900 }, hasTouch: true });
+await semRedeExterna(ctx);
 // ---------- O TECLADO VIRTUAL, DE MENTIRA ----------
 // Não há como abrir um teclado de sistema num Chromium headless, e o que
 // interessa medir não é o teclado: é O QUE O NAVEGADOR REPORTA quando ele está
