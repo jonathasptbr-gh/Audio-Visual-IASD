@@ -567,10 +567,36 @@ class EspelhoServidor(
      * Item EM CRESCIMENTO (o empurrão do Controle ainda anda) sai por chunked
      * progressivo — o <video> começa a tocar sem esperar o fim — e o Range só
      * vale para item completo, que é a regra simples declarada na spec §5.3.
+     *
+     * **Só a entrega que alcançou `item.esperado` escreve o terminador do
+     * chunked**; as outras saídas do laço fecham a conexão sem ele, para o
+     * cliente ver o erro de rede que de fato houve.
      */
     private fun servirMidia(token: String, r: EspelhoHttp.Req, saida: OutputStream) {
-        val item = midia?.servir(token)
-        if (item == null || item.cancelado) return responder(saida, naoAchei())
+        val cache = midia
+        val item = cache?.servir(token)
+        if (item == null || item.cancelado) {
+            // O ÚNICO 404 DO SERVIDOR QUE NÃO DEIXAVA RASTRO, e ele tem três
+            // causas com correções OPOSTAS: transmissão sem cache, token que o
+            // Controle nunca registrou (ou já substituiu — o wallpaper trocado),
+            // e empurrão cancelado no meio. Sem a linha, as três chegam ao
+            // operador como "a tela não toca o vídeo".
+            //
+            // SÓ TOKEN DE FORMA VÁLIDA VIRA LINHA: o anel tem 60 linhas e um
+            // scanner na rede da igreja apagaria o diário com rotas inventadas.
+            // E O TOKEN NÃO ENTRA NELA — ele é uma capacidade, e o Registro
+            // existe para ser copiado e repassado.
+            if (EspelhoMidiaCache.tokenValido(token)) {
+                registrar(
+                    "mídia não encontrada: " + when {
+                        cache == null -> "não há cache nesta sessão"
+                        item == null -> "token desconhecido (ou substituído)"
+                        else -> "o empurrão foi cancelado"
+                    },
+                )
+            }
+            return responder(saida, naoAchei())
+        }
         midiaEmVoo.incrementAndGet()
         try {
             if (item.completo) {
@@ -622,11 +648,39 @@ class EspelhoServidor(
                     EspelhoEnergia.progresso()
                 }
             }
-            try {
-                saida.write(EspelhoHttp.chunkFinal())
-                saida.flush()
-            } catch (e: IOException) {
-                // O cliente já foi.
+            // O TERMINADOR `0\r\n\r\n` **É** A AFIRMAÇÃO "o recurso acabou
+            // aqui": num corpo chunked não há `Content-Length` que o desminta.
+            // O laço tem QUATRO saídas e só uma delas é "acabou" — escrevê-lo
+            // nas outras três (o empurrão morreu e o [TETO_MIDIA_PARADA_MS]
+            // estourou, o item foi cancelado, o `read` não devolveu nada)
+            // entrega MEIA MÍDIA como se fosse inteira: o <video> da tela, que
+            // sem TV é a projeção, toca até onde chegou e dispara `ended` sem
+            // erro em lugar nenhum. Fechar SEM ele faz o cliente ver um erro de
+            // rede, que é a verdade; quem fecha é o `finally` do laço de aceite,
+            // e ele não escreve byte nenhum.
+            //
+            // A CONTA É SOBRE OS BYTES, NÃO SOBRE A SAÍDA DO LAÇO: quem afirma
+            // o fim é o `esperado` anunciado no `abrir` (que o Controle manda
+            // como o `size` do próprio Blob). Entregues todos, o corpo está
+            // inteiro mesmo que o `{"fim":true}` nunca tenha chegado — e faltando
+            // um byte ele não está, nem com o item marcado completo.
+            // `esperado <= 0` é tamanho desconhecido: ali o único sinal que
+            // existe é o `completo` do empurrão, com o arquivo drenado.
+            val inteiro = if (item.esperado > 0L) pos >= item.esperado
+                else item.completo && !item.cancelado && pos >= item.recebido
+            if (inteiro) {
+                try {
+                    saida.write(EspelhoHttp.chunkFinal())
+                    saida.flush()
+                } catch (e: IOException) {
+                    // O cliente já foi.
+                }
+            } else {
+                registrar(
+                    "mídia ${item.nome}: entrega TRUNCADA em $pos byte(s)"
+                        + (if (item.esperado > 0L) " de ${item.esperado}" else "")
+                        + " — conexão fechada sem terminador",
+                )
             }
         } catch (e: InterruptedException) {
             Thread.currentThread().interrupt()
@@ -1391,7 +1445,7 @@ class EspelhoServidor(
                     .put("fila", t.fila.size),
             )
         }
-        return JSONObject()
+        val est = JSONObject()
             .put("ligado", servidor != null)
             .put("url", endereco)
             .put("ip", ipServido)
@@ -1434,6 +1488,24 @@ class EspelhoServidor(
             // teto de telas derivado dele não, e por isso ele saiu do Registro
             // na v5.206.
             .put("enlace", enlaceJson())
+        // O CACHE DE MÍDIA — o que a rota `/m/` tem para servir. Sem estes três
+        // números, "a tela não toca o vídeo" não separa o empurrão que não
+        // chegou do item que o LRU despejou.
+        //
+        // A CHAVE SÓ EXISTE QUANDO HÁ CACHE: publicá-la zerada com a
+        // transmissão desligada diria "cache vazio" onde a verdade é "não há
+        // cache" — a forma de mentir que este bloco já pagou (o `ritmo` da
+        // v5.206), porque zero é valor legítimo e o consumidor o lê.
+        midia?.let { m ->
+            est.put(
+                "midia",
+                JSONObject()
+                    .put("itens", m.itens())
+                    .put("bytes", m.bytesNoCache())
+                    .put("teto", m.teto()),
+            )
+        }
+        return est
     }
 
     /**
@@ -1813,7 +1885,9 @@ class EspelhoServidor(
 
         /** Um fluxo de mídia EM CRESCIMENTO que fica este tanto sem byte novo
          *  perdeu o empurrão do outro lado (a página do Controle caiu): a
-         *  conexão fecha e o <video> da tela cai na recuperação normal dele. */
+         *  conexão fecha SEM o terminador do chunked — a entrega foi truncada,
+         *  e afirmar o contrário é o defeito — e o <video> da tela cai na
+         *  recuperação normal dele. */
         private const val TETO_MIDIA_PARADA_MS = 30_000L
 
         /**

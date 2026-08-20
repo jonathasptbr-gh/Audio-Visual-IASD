@@ -754,10 +754,15 @@ object YoutubeGrab {
             // o `firstOrNull` de fato varre: é a diferença entre elas e o que
             // sobra que diz o que faltou.
             val videos = candidatosVideo(info, 0, teto) { !it.webm }
-            val audios = candidatosAudio(info, "m4a", Int.MAX_VALUE)
+            // A nota do corte por contêiner entra DEPOIS das contas, não no
+            // meio delas: aqui `diagnosticoStream` ainda é só o prefixo, e
+            // escrever direto partiria a linha em dois pedaços fora de ordem.
+            var semPt = ""
+            val audios = candidatosAudio(info, "m4a", Int.MAX_VALUE) { semPt = it }
             val v = videos.firstOrNull { it.dash }
             val a = audios.firstOrNull { it.dash }
-            val contas = porQueNaoDash("vídeo mp4", videos) + " · " + porQueNaoDash("áudio m4a", audios)
+            val contas = porQueNaoDash("vídeo mp4", videos) + " · " +
+                porQueNaoDash("áudio m4a", audios) + semPt
             if (v == null || a == null) {
                 diagnosticoStream += contas + " → SEM PAR DASH, caindo no download"
                 return null
@@ -903,7 +908,7 @@ object YoutubeGrab {
                 if (!audioDe.containsKey(extAudio)) {
                     audioDe[extAudio] = baixarAudio(
                         ctx, id, extAudio,
-                        candidatosAudio(info, extAudio, TETO_AUDIO),
+                        candidatosAudio(info, extAudio, TETO_AUDIO) { diagnostico += it },
                         // O TAMANHO DO VÍDEO QUE VEM A SEGUIR, para a fase do
                         // áudio já contar a conta inteira — ver [baixarAudio].
                         // Pode ser -1 (o YouTube nem sempre informa), e lá isso
@@ -1294,12 +1299,37 @@ object YoutubeGrab {
      * falha o caminho adaptativo em vez de baixar em inglês — e cai no
      * progressivo, que carrega a trilha PADRÃO sob o `forceLocalization("pt")`
      * de [aportuguesar]. Degradação certa nos dois passos.
+     *
+     * ## E O IDIOMA VEM ANTES DO CONTÊINER, pelo mesmo motivo
+     *
+     * Perguntar o [ext] primeiro apaga a exclusividade do português quando a
+     * dublagem `pt` vive só no OUTRO contêiner: sobra a original em inglês, ela
+     * baixa, monta e vai ao telão — com sucesso e sem sinal. Perguntado depois,
+     * o contêiner sem `pt` fica SEM ÁUDIO UTILIZÁVEL, que é a verdade: quem
+     * chama empurra a fila para o outro par (ou cai no progressivo, que vem
+     * aportuguesado).
+     *
+     * [anotar] existe porque esse desfecho seria MUDO, e não é um campo fixo
+     * porque cada chamador escreve no SEU (`diagnostico` é do download,
+     * `diagnosticoStream` é da transmissão; trocá-los põe uma linha de download
+     * no Registro por uma extração em que download nenhum houve). Com [ext]
+     * nulo — o "só áudio" — nada disso acontece, e o padrão é o silêncio.
      */
-    private fun candidatosAudio(info: StreamInfo, ext: String?, teto: Int): List<Faixa> {
-        val todas = info.audioStreams
-            .mapNotNull { faixaDe(it) }
-            .filter { ext == null || it.ext.equals(ext, true) }
-        return TrilhaAudio.soPortugues(todas, { it.idioma }, { it.tipoTrilha })
+    private fun candidatosAudio(info: StreamInfo, ext: String?, teto: Int, anotar: (String) -> Unit = {}): List<Faixa> {
+        val todas = info.audioStreams.mapNotNull { faixaDe(it) }
+        // A ORDEM (idioma na lista inteira, contêiner depois) mora no
+        // [TrilhaAudio], que é puro e tem JUnit — aqui ela seria código sem
+        // oráculo, e é exatamente a metade que se perde em silêncio.
+        val escolha = TrilhaAudio.noConteiner(
+            todas, { it.idioma }, { it.tipoTrilha }, ext, { it.ext },
+        )
+        // O contêiner TEM áudio e mesmo assim ficou sem candidato: só a
+        // exclusividade do português pode ter feito isso, e é ela que precisa
+        // aparecer no Registro — "m4a sem áudio" se leria como falha do YouTube.
+        if (escolha.ptEm.isNotEmpty()) {
+            anotar(" · $ext sem trilha pt (ela está em " + escolha.ptEm.joinToString("/") + ")")
+        }
+        return escolha.candidatos
             .sortedWith(
                 compareBy<Faixa>(
                     { it.ordemTrilha },

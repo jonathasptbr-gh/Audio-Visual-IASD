@@ -419,6 +419,14 @@ ArrayBuffer, a rota serve o que existe em chunked sem Content-Length e Range
 só vale depois de completo (regra simples, declarada; a pré-busca torna o
 caso raro).
 
+**O terminador do chunked só sai quando os bytes anunciados no `abrir`
+chegaram todos**: ele É a afirmação "o recurso acabou aqui", e um empurrão que
+morreu no meio (o renderer do Controle caiu) fecha a conexão SEM ele — a tela
+vê o erro de rede que de fato houve, em vez de tocar meia mídia e disparar
+`ended`. O 404 desta rota vira linha no Registro, e só para token de FORMA
+válida: o anel do diário tem 60 linhas e um scanner na rede não pode apagá-lo
+com rotas inventadas.
+
 ### 5.4 Subida (`POST /r`)
 Ramos novos: `{"st": <tela-status>}` (injetado verbatim no MessageBus +
 snoop da notificação; teto 4 KiB; sem sanear no caminho do barramento) e o

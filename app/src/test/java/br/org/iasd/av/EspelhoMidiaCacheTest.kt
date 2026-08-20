@@ -150,7 +150,7 @@ class EspelhoMidiaCacheTest {
     }
 
     @Test
-    fun `a cunhagem de reserva produz tokens válidos e distintos`() {
+    fun `a forma do token é a que o tokenValido aceita, e dois nunca coincidem`() {
         val a = EspelhoMidiaCache.novoToken()
         val b = EspelhoMidiaCache.novoToken()
         assertTrue(EspelhoMidiaCache.tokenValido(a))

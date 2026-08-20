@@ -135,20 +135,22 @@ portanto **compartilhados por todas as instâncias**. Todos daemon.
 
 | fila | o que roda nela |
 |---|---|
-| **`io`** | só o que responde em MILISSEGUNDOS: `version.json`, estado do OTA, `listFolder` pelo `ContentResolver` |
+| **`io`** | só o que responde em MILISSEGUNDOS: `version.json`, estado do OTA, `listFolder` pelo `ContentResolver`. **Nada de rede** |
 | **`transferencia`** | as transferências de MINUTOS: download do YouTube, download do APK, `ytDiscard` |
-| **`extracao`** | metadados de rede (busca, playlists de canal, o manifesto do `ytStream`) e a rasterização de PDF — coisas de SEGUNDOS |
+| **`extracao`** | metadados de rede (busca, playlists de canal, o manifesto do `ytStream`, `apkProcurar`) e a rasterização de PDF — coisas de SEGUNDOS |
 
 - **Um executor por INSTÂNCIA vazava.** `newSingleThreadExecutor` cria uma
   thread de core sem timeout e não-daemon, viva até um `shutdown` que nunca
   acontecia — e a ponte é reconstruída a cada morte de renderer e a cada ciclo
   de desconexão/reconexão do dongle, cada uma retendo a `NativeBridge` inteira
   e, por ela, a Activity/Presentation antigas.
-- **Rede longa em `io` é o defeito que a separação corrigiu.** Com um vídeo de
-  300 MB baixando, `listFolder` devolvia lista vazia, `otaPending` dizia que não
-  há atualização e `atualizacaoEstado` não respondia nada. **Nenhum deles erra:
-  os três mentem baixinho** — e o pior é o `listFolder`, cuja lista vazia o
-  `controle.js` lê como "a pasta sumiu do aparelho".
+- **Rede em `io` é o defeito que a separação corrigiu — e "curta" não salva.**
+  Com um vídeo de 300 MB baixando, `listFolder` devolvia lista vazia,
+  `otaPending` dizia que não há atualização e `atualizacaoEstado` não respondia
+  nada. **Nenhum deles erra: os três mentem baixinho** — e o pior é o
+  `listFolder`, cuja lista vazia o `controle.js` lê como "a pasta sumiu do
+  aparelho". O `apkProcurar` repetiu isso em escala menor: um GET à API do
+  GitHub com 20 s de connect + 20 s de read trava a mesma fila por até 40 s.
 - **`extracao` é separada de `transferencia` porque segundos não esperam
   minutos.** Atrás de um download, o "Tocar agora" de um vídeo esperaria o
   hinário terminar — e, vencido o prazo, cairia no download sem que nada
@@ -160,7 +162,10 @@ portanto **compartilhados por todas as instâncias**. Todos daemon.
 - **`extracao` também é de uma thread só**, porque as extrações compartilham a
   inicialização global do NewPipe. Os diagnósticos não colidem: `diagnostico` é
   escrito só pelo caminho do download e `diagnosticoStream` só pelo do
-  manifesto — que é justamente por que eles são dois campos.
+  manifesto — que é justamente por que eles são dois campos. O `apkProcurar` não
+  toca no NewPipe (é `HttpURLConnection` avulso) e entra pela outra metade da
+  regra — rede lendo metadados —, pagando o preço já declarado desta fila: o
+  pior caso dele é um "Tocar agora" esperando.
 
 **Fora das três filas:**
 
@@ -349,8 +354,8 @@ de terceiro ali ganharia `pickFolder`, `listFolder`, `pickDoc`, `openExternal` e
    no `CLAUDE.md`. Forma de retorno e comportamento contam.
 2. **Campo novo num objeto composto? Remonte-o no `native.js`** e acrescente a
    asserção no `tools/ponte.test.mjs`.
-3. **Método novo? Escolha a fila** pela tabela acima — e, se for rede longa,
-   **não** é `io`.
+3. **Método novo? Escolha a fila** pela tabela acima — e, se for rede,
+   **não** é `io`, por mais curta que a consulta pareça.
 4. **Consumidor novo de método novo? Pergunte `__SHELL_VERSION__` antes** de
    desenhar o que depende dele.
 5. **Mudou o shell? A base web sozinha não chega ao aparelho.** Declare a

@@ -855,6 +855,77 @@ try {
   checar(false, 'a medição da Camada de Texto terminou sem exceção (' + (e && e.message) + ')');
 }
 
+// ===== O SELO "● No ar" DO ROTEIRO SAI COM A TROCA DE PROVEDOR, E SÓ COM ELA =====
+//
+// O DEFEITO: `soUmProvedorDeTexto` fazia o rodízio das seis sessões e NUNCA
+// zerava `cueNoArId`. Projetado o cue "João 3:16" pelo Cronograma e aberto o
+// cronômetro em seguida, a linha do versículo continuava dizendo "● No ar" — o
+// toque nela lia `noArAgora = true` e caía em `retirarDoAr`: o CRONÔMETRO saía
+// do telão na frente da congregação, e o versículo não entrava.
+//
+// E a correção tem um segundo modo de errar, simétrico: perguntar
+// `provedorDeTextoNoAr()` (quem PROJETA) em vez de `provedorDoCartao()` (quem é
+// DONO da sessão). Os `hide*` deixam a sessão de pé com `projecting:false`, de
+// propósito, para o operador reexibir pela lista — com o cartão escondido o
+// primeiro devolve '', a troca é FALSA, e reexibir o PRÓPRIO cue apaga o selo
+// dele.
+//
+// Os dois lados falham calados: nada quebra, nada vai ao console, e o que
+// aparece é uma linha da lista dizendo o contrário do que está no telão. Daí as
+// DUAS metades serem medidas — um oráculo que não morde é documentação, não
+// rede de segurança.
+//
+// `cueNoArId` é `let` de topo (não vira propriedade de `window`): quem responde
+// por ele daqui é `linhaNoAr(id)`, que é a mesma função que a lista consulta.
+try {
+  const selo = await pg.evaluate(async () => {
+    setAppMode('full');
+    const r = {};
+    const msgCue = await AVDB.addCue('message', { text: 'Desliguem o celular' },
+      { name: 'Aviso do roteiro', list: 'imports' });
+    const tempoCue = await AVDB.addCue('chrono',
+      { mode: 'countdown', durationMs: 300000, label: 'Contagem' },
+      { name: 'Contagem regressiva', list: 'imports' });
+    await load();
+
+    // (1) OUTRO provedor assumindo o cartão ZERA o selo do cue anterior.
+    await send(msgCue.id);
+    r.doCue = linhaNoAr(msgCue.id);
+    r.donoDoCue = provedorDoCartao();
+    projectChrono();
+    r.depoisDeOutroProvedor = linhaNoAr(msgCue.id);
+    clearManualText();
+
+    // (2) REEXIBIR pelo MESMO provedor NÃO zera. O cue do cronômetro entra pela
+    // porta do roteiro (`playCue` → `projetarTempoCue` → `projectChrono`), o
+    // "Tirar do telão" o esconde mantendo a sessão, e a reexibição é o toque
+    // seguinte na MESMA linha.
+    await send(tempoCue.id);
+    r.doTempo = linhaNoAr(tempoCue.id);
+    hideChrono();
+    r.donoEscondido = provedorDoCartao();     // 'chrono' — a sessão ficou de pé
+    r.noArEscondido = provedorDeTextoNoAr();  // '' — mas nada está projetando
+    projectChrono();
+    r.depoisDeReexibir = linhaNoAr(tempoCue.id);
+    clearManualText();
+    return r;
+  });
+  checar(selo.doCue === true && selo.donoDoCue === 'avulso',
+    'o cue de roteiro projetado responde "● No ar" na própria linha');
+  checar(selo.depoisDeOutroProvedor === false,
+    'e o cronômetro assumindo o cartão TIRA o selo dele — sem isso o toque '
+    + 'seguinte na linha antiga derruba a cena NOVA do telão');
+  checar(selo.doTempo === true, 'o cue do cronômetro também responde "● No ar"');
+  checar(selo.donoEscondido === 'chrono' && selo.noArEscondido === '',
+    'e "Tirar do telão" deixa a SESSÃO de pé sem nada projetando — é esta '
+    + 'diferença que separa "escondi" de "outro provedor assumiu"');
+  checar(selo.depoisDeReexibir === true,
+    'então reexibir pelo MESMO provedor NÃO zera o selo: o cue continua sendo '
+    + 'a cena de roteiro no ar');
+} catch (e) {
+  checar(false, 'a medição do selo do roteiro terminou sem exceção (' + (e && e.message) + ')');
+}
+
 checar(erros.length === 0, 'nenhum erro de console' + (erros.length ? ':\n        ' + erros.join('\n        ') : ''));
 
 await navegador.close();

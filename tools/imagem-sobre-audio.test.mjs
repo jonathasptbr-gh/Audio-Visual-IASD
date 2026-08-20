@@ -224,6 +224,66 @@ try {
   checar(daRede.temRec && daRede.id === ids.imagem && /^\/m\/[A-Za-z0-9_-]{16,64}$/.test(daRede.url) && !daRede.vazou,
     'o comando da imagem vai para as telas da rede COM o registro servível e saneado', daRede);
 
+  // ---- E O REENVIO LEVA O REGISTRO MESMO COM A ABA TROCADA ----------------
+  //
+  // O DEFEITO: `await0Rec` varria `plItems`/`libItems`/`favItems`, e a imagem
+  // sobreposta quase sempre vem de `libItems` — a lista da ABA ATIVA, refeita
+  // (e esvaziada) a cada troca de aba. Horas depois do toque, uma tela que dá
+  // F5 pede a cena de volta: o `text/mode:image` saía SEM `__rec`, e a tela
+  // pintava um cartão PRETO por cima da projeção até alguém tocar em outra
+  // coisa. O registro passou a viajar na PRÓPRIA sessão (`imgSession.rec`), o
+  // único lugar que sobrevive à troca de aba.
+  //
+  // E ele falha calado nas duas pontas: no celular nada muda (o telão de
+  // verdade resolve o `mediaId` pelo IndexedDB compartilhado) e na tela o preto
+  // é indistinguível de uma cena que alguém quis. O caso acima não o pega — lá
+  // a imagem ainda está nas listas. Um oráculo que não morde é documentação,
+  // não rede de segurança.
+  const reenvioRec = await pg.evaluate(async (o) => {
+    stopClear();
+    await send(o.audio);
+    await new Promise((r) => setTimeout(r, 400));
+    await send(o.imagem);                 // sobrepõe: o louvor segue por baixo
+    await new Promise((r) => setTimeout(r, 400));
+    const atv = window.telaAtiva, env = window.telaGarantirEnvio;
+    window.telaAtiva = () => true;
+    window.telaGarantirEnvio = () => {};
+    // O FUNIL DO ENRIQUECIMENTO só é instalado com `window.__NATIVE__` (quem
+    // injeta a ponte é o shell), e esta página roda sem ela. O embrulho abaixo
+    // é o MESMO de `controle.js` — enriquecer e seguir —, para que quem monte o
+    // comando continue sendo o `resendSceneToDisplay` de verdade.
+    const enviar0 = AVDB.sendCommand;
+    AVDB.sendCommand = function (c) { telaEnriquecer(c); return enviar0(c); };
+    // A TROCA DE ABA, ao pé da letra. As outras duas listas são esvaziadas
+    // junto para que a única origem possível do registro seja a sessão — com
+    // a imagem na playlist, o caso passaria sem exercitar nada.
+    const salvas = [plItems, libItems, favItems];
+    plItems = []; libItems = []; favItems = [];
+    const vistos = [];
+    const bc = new BroadcastChannel('av-iasd');
+    bc.addEventListener('message', (e) => vistos.push(e.data));
+    try {
+      resendSceneToDisplay('tela-que-deu-f5');
+      await new Promise((r) => setTimeout(r, 300));
+    } finally {
+      bc.close();
+      AVDB.sendCommand = enviar0;
+      plItems = salvas[0]; libItems = salvas[1]; favItems = salvas[2];
+      window.telaAtiva = atv; window.telaGarantirEnvio = env;
+    }
+    const c = vistos.find((m) => m && m.type === 'text' && m.mode === 'image');
+    return {
+      achou: !!c,
+      id: c && c.__rec && c.__rec.id,
+      url: (c && c.__rec && c.__rec.url) || '',
+      vazou: !!(c && c.__rec && (c.__rec.blob || c.__rec.opfsPath || c.__rec.youtubeId)),
+    };
+  }, ids);
+  checar(reenvioRec.achou && reenvioRec.id === ids.imagem
+    && /^\/m\/[A-Za-z0-9_-]{16,64}$/.test(reenvioRec.url) && !reenvioRec.vazou,
+    'e o REENVIO leva o registro mesmo com as listas zeradas pela troca de aba '
+    + '— sem ele a tela da rede pinta um cartão PRETO', reenvioRec);
+
   // ---- SEM ÁUDIO NO AR, A IMAGEM PROJETA NORMAL ---------------------------
   // A sobreposição é a EXCEÇÃO. Aplicada sempre, uma imagem sozinha entraria
   // como cartão de texto sobre nada — sem barra, sem cortina, sem transporte.
@@ -247,6 +307,48 @@ try {
   }, ids);
   checar(fila.kind === 'image' && !fila.sessao,
     'o avanço automático da fila SUBSTITUI, nunca sobrepõe', fila);
+
+  // ---- E O ⏭ ANDA NA FILA, COM A IMAGEM COMO PRÓXIMO ITEM -----------------
+  //
+  // O DEFEITO: `step()` chamava `send(id)` SEM `daFila`. Com a fila
+  // [louvor, aviso.jpg] e o louvor no ar, o ⏭ caía na guarda de imagem sobre
+  // áudio: o aviso entrava POR CIMA e `currentId` continuava no louvor. O ⏭
+  // seguinte recalculava o MESMO `idx` e o MESMO alvo — e não fazia nada. O
+  // botão "Próxima mídia" (aqui, na notificação e na tela de bloqueio) parava
+  // de andar na fila.
+  //
+  // Ele falha calado porque o primeiro toque PARECE certo: a imagem aparece na
+  // tela, e o que fica travado é o toque seguinte — indistinguível de "o botão
+  // morreu". O caso acima (`send(id, true)` chamado à mão) não o pega: o
+  // defeito está em QUEM chama, não no destino. Um oráculo que não morde é
+  // documentação, não rede de segurança.
+  //
+  // O eixo de ⏮/⏭ é "trocar de MÍDIA" — a mesma intenção do avanço automático.
+  // A sobreposição continua valendo para o toque na LINHA, que é onde o
+  // operador escolhe o cartão.
+  const passo = await pg.evaluate(async (o) => {
+    stopClear();
+    await AVDB.listSet('playlist', [o.audio, o.imagem]);
+    await load();
+    await send(o.audio);
+    await new Promise((r) => setTimeout(r, 400));
+    const medir = () => ({
+      id: currentId, kind: currentItem ? currentItem.kind : null, sessao: imgSobreProjetando(),
+    });
+    const partida = medir();
+    step(1);
+    await new Promise((r) => setTimeout(r, 600));
+    const um = medir();
+    step(1);
+    await new Promise((r) => setTimeout(r, 600));
+    return { fila: plItems.length, partida, um, dois: medir() };
+  }, ids);
+  checar(passo.fila === 2 && passo.partida.id === ids.audio && passo.partida.kind === 'audio',
+    'com a fila [louvor, aviso] e o louvor no ar (ponto de partida do ⏭)', passo.partida);
+  checar(passo.um.id === ids.imagem && passo.um.kind === 'image' && !passo.um.sessao,
+    'o ⏭ ANDA NA FILA: a imagem entra como cena, e não como cartão por cima', passo.um);
+  checar(passo.dois.id === ids.audio && passo.dois.kind === 'audio' && !passo.dois.sessao,
+    'e o ⏭ seguinte continua andando (dá a volta) — era ele que não fazia nada', passo.dois);
 
   await pg.close();
 
