@@ -277,20 +277,35 @@ cortava o próprio título com reticências.
 O título é `.84rem` (em .72rem o único texto que responde "onde eu estou" era
 menor que o subtítulo de qualquer linha).
 
-**A FAIXA É UMA GRADE DE TRÊS TRILHAS FIXAS** (v5.309) — `--hit`, `minmax(0,1fr)`
-e `--hit` —, com as três posições declaradas uma a uma. Como flex ela centrava o
-título no espaço que SOBRAVA, e o voltar entra e sai do fluxo conforme a tela da
-Bíblia: o nome da tela pulava ~19px para a direita toda vez que o operador
-entrava num livro. Numa grade a trilha do voltar continua reservada quando ele
+**A FAIXA É UMA GRADE DE TRILHAS FIXAS NOS DOIS EIXOS** (v5.309 · v5.310) —
+`--hit`, `minmax(0,1fr)` e `--hit` nas colunas, `--hit` na linha, com as três
+posições declaradas uma a uma. Como flex ela centrava o título no espaço que
+SOBRAVA, e o voltar entra e sai do fluxo conforme a tela da Bíblia: o nome da
+tela pulava ~19px para a direita toda vez que o operador entrava num livro.
+
+**A REGRA É UMA SÓ NOS DOIS EIXOS: a caixa da faixa não pode depender de quem
+está dentro dela.** Numa grade a trilha do voltar continua reservada quando ele
 está `hidden`, porque quem ocupa uma trilha é a POSIÇÃO EXPLÍCITA e um item
 `display: none` não desloca ninguém — então o `[hidden] { display: none
-!important }` do topo da folha segue valendo inteiro. O `.list-head-vao` é a
-trilha 3, e existe porque reservar só a do voltar deixaria o título fora do eixo
-da faixa em toda a interface: trocaria um deslocamento por um desalinhamento.
-Com auto-placement o vão cairia na coluna 1 justamente nas telas sem voltar — o
-defeito de volta, com outro nome. O `min-width: 0` do título e o `minmax(0,1fr)`
-da trilha são as duas metades da mesma defesa contra o nome comprido de uma
-pasta. Medido em `tools/smoke.mjs` ("O NOME DA TELA NÃO SE MEXE").
+!important }` do topo da folha segue valendo inteiro.
+
+- **As COLUNAS** (v5.309). O `.list-head-vao` é a trilha 3, e existe porque
+  reservar só a do voltar deixaria o título fora do eixo da faixa em toda a
+  interface: trocaria um deslocamento por um desalinhamento. Com auto-placement
+  o vão cairia na coluna 1 justamente nas telas sem voltar — o defeito de volta,
+  com outro nome.
+- **A LINHA** (v5.310). Sem `grid-template-rows` a altura é IMPLÍCITA, isto é, a
+  do item mais alto: 15px com só o texto e os 34px de `--hit` quando o voltar
+  entra. MEDIDO: o título descia 9px e **a lista inteira descia 19px**, que é o
+  pulo que se vê. Reservar `--hit` custa esses 19px de lista nas telas sem
+  voltar e é o preço certo — encolher o botão para a altura do texto devolveria
+  ao voltar o menor alvo de toque do app, que é o que o esqueleto de `--hit`
+  existe para impedir.
+
+O `min-width: 0` do título e o `minmax(0,1fr)` da trilha são as duas metades da
+mesma defesa contra o nome comprido de uma pasta. Medido em `tools/smoke.mjs`
+("O NOME DA TELA NÃO SE MEXE"), **nos dois eixos**: a v5.309 reservou só as
+colunas e afirmou só o `x`, e o defeito voltou pelo eixo que o oráculo não media.
 
 **Controles (`.bottombar`):** fixados na base, e eles **começam na faixa de
 abas** — a barra é um `flex` em coluna com dois filhos, a `.tabs` e o `.deck`.
