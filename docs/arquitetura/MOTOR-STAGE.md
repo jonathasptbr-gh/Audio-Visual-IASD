@@ -8,15 +8,17 @@
 — ver "A saída de áudio"). Suporta blobs locais,
 arquivos do OPFS (`opfsPath` — resolvidos via `AVDB.opfsGetFile`, com re-checagem
 de `loadSeq` após o await) e itens de URL direta (`blob=null, url=string`).
-Itens `kind='youtube'` **não são reproduzidos pelo stage** — ele apenas mostra
-a thumbnail no `<img>`; a reprodução real é feita externamente (iframe no
-`display.js`, que também **reaproveita a cortina do wallpaper deste mesmo
-stage** — ver "Modelo de camadas" abaixo).
+Itens `kind='youtube'` (link sem bytes) **não chegam ao stage**: quem os
+resolve é o Controle, ANTES do `load` (`resolverLinkYoutube`), e o Display
+esvazia o palco se um chegar. O vídeo do YouTube que de fato toca — baixado ou
+por transmissão direta (`shared/mse.js`) — entra como `<video>` COMUM, pelo
+mesmo caminho de toda mídia local. (Até a v5.212 havia um iframe no
+`display.js`; ele saiu com a IFrame Player API.)
 
 ### Modelo de camadas: wallpaper é uma cortina por cima de tudo
 
-O wallpaper fica **acima** (z-index maior) de toda mídia — img/video no stage,
-e o iframe do YouTube no Display. A mídia toca/troca de conteúdo **livremente
+O wallpaper fica **acima** (z-index maior) de toda mídia — o `<img>` e o
+`<video>` do stage. A mídia toca/troca de conteúdo **livremente
 por baixo**, sem nunca precisar saber se está "visível"; o wallpaper só
 liga/desliga essa cortina por cima, com fade quando configurado.
 
@@ -70,8 +72,8 @@ E como a cortina é **compartilhada** (a Camada de Texto a abre por conta
 própria para o cartão aparecer), o Display precisa da mesma regra ao devolvê-la
 depois que o texto sai: `reconcileCover` pergunta `stage.shouldCover()` — o
 `computeCover` exposto — em vez de reabrir cegamente. Só quando a cena é do
-stage: com o player do YouTube no ar, `current` pode estar nulo e a pergunta
-responderia "cobre" justamente sobre o vídeo que está tocando.
+stage: fora dele `current` pode estar nulo e a pergunta responderia "cobre"
+justamente sobre o que está em cena.
 
 **Verificado em Chromium**, com Controle e Display na mesma origem trocando
 comandos de verdade: imagem em cena → `wallpaper: none`; áudio sem letra logo em
@@ -298,13 +300,10 @@ Duas consequências que valem registrar:
 `setFit(v)` aplica `object-fit` direto via `style` no `<img>` e no `<video>`
 do stage (`'contain'` por padrão, aceita `'cover'`/`'fill'`; qualquer outro
 valor cai em `'contain'`) — sobrepõe o `object-fit: contain` fixo do CSS.
-Só afeta mídia local (imagem/vídeo do próprio stage); o iframe do YouTube não
-usa isso (é conteúdo cross-origin, fora do stage). Persistido em `state.fit`
-e propagado pelo comando `fit` — que, tanto no Display quanto no Controle, é
-despachado direto para o stage **mesmo com um vídeo do YouTube tocando no
-momento** (o roteamento normal de comandos cairia no ramo do YouTube, que
-ignora `fit`, e o stage só pegaria o valor novo na próxima mídia local, com
-atraso).
+Persistido em `state.fit` e propagado pelo comando `fit`, despachado direto
+para o stage nos dois documentos. (O desvio direto nasceu porque o roteamento
+normal cairia no ramo do embed do YouTube, que ignorava `fit`; o ramo saiu na
+v5.212 e o desvio ficou, agora sem exceção nenhuma a contornar.)
 
 ### Rampa de mudo (`setMute`)
 
@@ -326,17 +325,14 @@ Display e `ytPreviewRampVolume` no Controle, com `player.mute()`/`unMute()` nas
 pontas. As duas saíram na v5.212 com o embed: hoje há um `<video>` só, e a
 rampa é uma só.)
 
-**Fonte única da rampa de volume** (`createStage.rampSteps` /
-`createStage.MUTE_RAMP_TIME`): o passo-a-passo do fade sonoro
-(`steps = max(2, round(dur*20))`, clamp 0–1) e a duração da rampa de mudo
-(0,25 s) ficam definidos **uma vez** no `stage.js` e expostos como
-propriedades de `createStage`. Os três "sinks" de áudio do sistema — o
-`<video>` do stage (`rampVolume`), o player do YouTube no Display
-(`ytRampVolume`) e o da preview no Controle (`ytPreviewRampVolume`) — reusam
-esse mesmo `rampSteps`, cada um passando só o seu `apply(v)` (o "onde escrever
-o volume"). Antes a matemática e a constante estavam duplicadas nos três
-arquivos e podiam divergir. A *orquestração* do mudo (quando mutar de fato,
-`muteApplyTimer`) continua por player, pois depende do estado de cada um.
+**Hoje há UM sink de áudio, e a rampa é uma só**: o `<video>` do stage
+(`rampVolume`). O passo-a-passo do fade sonoro (`steps = max(2, round(dur*20))`,
+clamp 0–1) e a duração da rampa de mudo (0,25 s) vivem no `stage.js`.
+
+`createStage.rampSteps` e `createStage.MUTE_RAMP_TIME` continuam expostos, mas
+**não têm consumidor externo desde a v5.212** — não os leia como contrato. Eles
+existiam para os outros dois sinks (`ytRampVolume`, `ytPreviewRampVolume`), que
+saíram com o embed.
 
 ### Concorrência de carregamento
 

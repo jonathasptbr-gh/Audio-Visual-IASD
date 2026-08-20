@@ -3,10 +3,12 @@
 
 ## Display
 
-Interface mínima: wallpaper + layer de imagem + layer de vídeo + iframe do YouTube.
+Interface mínima: wallpaper + layer de imagem + layer de vídeo + camada de
+letra + camada de texto. **Não há iframe** — o embed do YouTube saiu na v5.212
+(ver a seção "YouTube — o EMBED SAIU", abaixo).
 
-Escuta o BroadcastChannel e repassa os comandos para `stage.handle()` (ou para
-a ponte do YouTube). Ao inicializar, **não** recarrega nem toca a última mídia
+Escuta o BroadcastChannel e repassa os comandos para `stage.handle()`. Ao
+inicializar, **não** recarrega nem toca a última mídia
 sozinho — `restore()` aplica as **preferências visuais** (fade, fundo da letra,
 preenchimento, wallpaper) e envia `display-ready`; o Display abre sempre no
 wallpaper (ponto inicial), esperando um comando explícito. A inicialização do
@@ -57,17 +59,19 @@ animação rápida (~0,3s: pill cresce levemente e esmaece, fundo vai a
 transparente) antes do elemento sumir de fato (`hidden = true` só depois do
 `setTimeout` correspondente) — sem esse feedback, o overlay sumia no mesmo
 instante do toque e a ação parecia não ter surtido efeito nenhum. Existe
-porque autoplay com som em conteúdo de
-**terceiros** (o iframe do YouTube) exige um **gesto real do usuário** na
-página — diferente da mídia local do stage (mesma origem), que autoplay com
-som é liberado automaticamente (ver abaixo). Esse gesto **não
-pode ser simulado via JS** (é assim que o navegador garante que é uma ação
-real da pessoa) — por isso o botão, em vez de tentar automatizar. O toque é um
-`pointerdown` normal, que já borbulha para o listener de recuperação de áudio
-do stage; se um YouTube já tiver sido restaurado (`restore()`) antes do
-toque, o clique reaplica mute/volume/play nele imediatamente — mesmo sem
-isso, `ytWatchStart()` e a resincronização de mudo em `ytStartTimeLoop()` (ver
-seção do YouTube) convergiriam sozinhos em poucos segundos.
+porque **autoplay COM SOM exige um gesto real do usuário** na página — é a
+política do navegador, e vale para a mídia da própria origem (o embed de
+terceiros saiu na v5.212). Esse gesto **não pode ser simulado via JS** (é assim
+que o navegador garante que é uma ação real da pessoa) — por isso o botão, em
+vez de tentar automatizar. O toque é um `pointerdown` normal, que já borbulha
+para o listener de recuperação de áudio do stage.
+
+**Ele nasce OCULTO em dois casos** (`display.js`:
+`if (window.__NATIVE__ || TELA) startBtnEl.hidden = true;`), e por razões
+OPOSTAS: no app nativo não há política de gesto
+(`mediaPlaybackRequiresUserGesture = false`) e uma TV não recebe toque; no papel
+`tela` há política, mas o gesto já foi gasto pelo "Ativar esta tela" — deixá-lo
+aparecer poria DOIS overlays de gesto na mesma página.
 
 **Áudio sem toque (recuperação automática — só mídia local do stage):** ao
 contrário do `#startBtn` acima (que existe só por causa do YouTube), mídia
@@ -259,13 +263,11 @@ As três correções anteriores protegiam o WebView errado.
 > Ele custa um degrau de `SHELL_VERSION` e uma Release.
 
 E o Controle ser estrangulado em segundo plano é, normalmente, o comportamento
-CERTO: ele é a mesa de comando, e o som está no telão. Deixa de ser certo
-exatamente quando a mesa de som está ligada, porque aí o celular é a caixa de
-som. Então a proteção virou **condicional e ligável em tempo de execução**:
-`AVNative.keepAudioAlive(on)` (chamado por `setStandalone`) → `manterVisivel`
-do `KeepVisibleWebView`, mais `onResume()`/`resumeTimers()` no `onStop()` da
-Activity e a mesma política de prioridade de renderer do telão. Desligada a
-mesa de som, tudo volta ao padrão.
+CERTO: ele é a mesa de comando, e o som está no telão — é justamente o que o
+`snoopDisplayStatus` da ponte existe para contornar. **Não há interruptor
+nenhum hoje:** `manterVisivel` tem dono único (`WebViewFactory.create`, com
+`keepVisible = true`) e é escrito **só para o telão**; `keepAudioAlive`,
+`setAudioAlive` e `setStandalone` não existem em lugar nenhum do repositório.
 
 **E, desta vez, uma CAIXA-PRETA.** `diag()` em `display.js` mantém um anel dos
 últimos 60 eventos do telão (visibilidade, `pagehide`, `freeze`/`resume`, e cada
@@ -364,8 +366,9 @@ ao lado web uma **URL servível** (`/saf/<token>`) — daí para a frente o cami
   o 1080p" acima.
 - **Sem `PoTokenProvider`, por enquanto.** O extrator faz "o melhor esforço"
   sem ele; montá-lo exige rodar o desafio do BotGuard num WebView — o app tem
-  dois, então é factível, mas é outra empreitada. Se um vídeo resistir, o app
-  cai no player embutido, que é o plano B de sempre.
+  dois, então é factível, mas é outra empreitada. Se um vídeo resistir, o item
+  fica como **LINK** e é retentado no toque seguinte (`resolverLinkYoutube`) —
+  não há player embutido para o qual cair desde a v5.212.
 - **Exige shell ≥ 16.** Num anterior a função devolve null na hora e o fluxo
   segue como antes.
 
@@ -375,7 +378,7 @@ Ele foi a tentativa das versões 5.78–5.80 e **não funcionou em aparelho**, p
 motivo que está no começo desta seção: IP de datacenter. Ficar como "segunda
 opção" seria manter uma tela de configuração que não leva a lugar nenhum e um
 caminho de código que ninguém exercita — os dois envelhecem calados. O plano B
-é o player embutido, que já existia e é honesto sobre o que faz.
+de hoje é o item virar **LINK**, retentado no toque seguinte.
 
 ### O que o watchdog do OTA exige DESTA base (`shared/native.js`)
 

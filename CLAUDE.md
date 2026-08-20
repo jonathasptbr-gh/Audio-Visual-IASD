@@ -643,7 +643,12 @@ errada e depois perdido.
   perdido em silêncio), então o `startAt` entra num `loadedmetadata` com
   `{ once: true }`, protegido pelo `loadSeq`. `autoplay === false` é a cena que
   voltou pausada; `undefined` mantém o comportamento de sempre.
-- `display.js` → `loadYoutube(rec, …)` passa o `startAt` como `playerVars.start`.
+- **Não há segundo caminho.** O vídeo do YouTube entra pelo `shared/mse.js`
+  como `<video>` comum, então o `startAt` dele segue a MESMA regra acima. Um
+  `kind: 'youtube'` (link sem bytes) nem chega a ser cena no telão: quem o
+  resolve é o Controle, antes do `load` (`resolverLinkYoutube`), e o Display
+  esvazia o palco se um chegar. (`loadYoutube`/`playerVars` saíram com a IFrame
+  Player API na v5.212.)
 
 O comando mais frequente do barramento é o `display-status`, emitido pelo telão a
 cada `timeupdate` (mais `play`, `pause`, `loadedmetadata`, `ended`,

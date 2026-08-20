@@ -595,14 +595,13 @@ body {
   z-index: 3;
 }
 .pv-layer { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; background: var(--stage-bg); z-index: 1; }
-/* Camada de TEXTO manual: acima de toda a mídia (inclusive do iframe do
-   YouTube), opaca pelo `background: var(--stage-bg)` herdado de .pv-layer. Espelha o
-   Display (.text-layer) — a mídia segue tocando intacta por baixo e reaparece
-   onde estava quando o texto sai.
+/* Camada de TEXTO manual: acima de toda a mídia, opaca pelo
+   `background: var(--stage-bg)` herdado de .pv-layer. Espelha o Display
+   (.text-layer) — a mídia segue tocando intacta por baixo e reaparece onde
+   estava quando o texto sai.
    PRECISA vir depois de `.pv-layer`: mesma especificidade, então quem é
    declarado por último vence. Antes esta regra estava ANTES e o z-index:1 de
-   .pv-layer a anulava — o cartão só ficava acima do iframe do YouTube por
-   acaso, pela ordem no DOM. */
+   .pv-layer a anulava. */
 /* A IMAGEM SOBRE O ÁUDIO, na preview (v5.312). `contain` e a camada opaca por
    trás — as duas escolhas do `.text-img` do telão, pela mesma razão: a preview
    ILUSTRA o telão, e uma moldura diferente a faria mentir. */

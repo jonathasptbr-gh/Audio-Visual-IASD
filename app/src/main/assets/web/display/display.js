@@ -1330,15 +1330,13 @@ async function restore() {
 }
 
 // Toque único ao abrir ("Ligar Sistema"): o gesto real (pointerdown, que já
-// borbulha para o listener de recuperação de áudio do stage) libera autoplay
-// com som em conteúdo de terceiros (iframe do YouTube) pelo resto da sessão.
-// Some para sempre no primeiro toque — se um YouTube já tiver sido restaurado
-// (restore() abaixo) antes do toque, o clique dá um empurrão imediato
-// (play + som); mesmo sem isso, ytWatchStart() e o resync de mudo em
-// ytStartTimeLoop() convergiriam sozinhos em até alguns segundos. Além de
-// ativar o Display, o mesmo gesto abre o Controle (mesma ressalva do botão
-// "Abrir Display" do Controle: sem API web garantida para lançar outro PWA
-// instalado, pode cair numa aba comum do Chrome como fallback).
+// borbulha para o listener de recuperação de áudio do stage) libera o autoplay
+// COM SOM da mídia da própria origem pelo resto da sessão — é a política do
+// navegador, não conteúdo de terceiro (o embed do YouTube saiu na v5.212).
+// Some para sempre no primeiro toque.
+//
+// O Display é independente: este gesto NÃO abre o Controle nem redireciona
+// para lugar nenhum.
 const startBtnEl = document.getElementById('startBtn');
 
 // No app nativo o overlay "Ligar Sistema" NÃO EXISTE
