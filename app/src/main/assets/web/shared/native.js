@@ -34,10 +34,17 @@
   // confirmar é o caminho seguro: o lançamento seguinte o descarta e volta ao
   // embutido no APK (mais velho, porém funcionando).
   //
-  // `window.AVDB` no `load` NÃO basta. A ordem dos scripts é native.js → db.js →
-  // mse.js → stage.js → louvorja.js → bible.js → controle.js, e um erro em
-  // qualquer um dos cinco últimos aborta só AQUELE script: o `load` dispara,
-  // `AVDB` continua lá, e o bundle quebrado é carimbado como bom PARA SEMPRE.
+  // `window.AVDB` no `load` NÃO basta. A ordem dos scripts do Controle é
+  // native.js → db.js → mse.js → stage.js → louvorja.js → bible.js → serie.js →
+  // sorteio.js → controle.js, e um erro em qualquer um dos OITO últimos aborta
+  // só AQUELE script: o `load` dispara, `AVDB` continua lá, e o bundle quebrado
+  // é carimbado como bom PARA SEMPRE.
+  //
+  // ATENÇÃO — as condições abaixo NÃO cobrem os quatro do meio (`louvorja.js`,
+  // `bible.js`, `serie.js`, `sorteio.js`). Todo uso de `AVSerie`/`AVSorteio` no
+  // `controle.js` está DENTRO de função, então um erro de topo num deles não
+  // aborta o `controle.js`: o app sobe, o watchdog confirma, e o recurso
+  // daquele arquivo fica morto. Ver o achado registrado em docs/shell/OTA.md.
   // Como o OTA publica a cada push e o controle.js é o que mais muda, esse é o
   // caso provável.
   //

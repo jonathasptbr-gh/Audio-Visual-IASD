@@ -172,8 +172,10 @@ const WEB_VERSION = '5.313';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
-// de cena.** Estes quatro são lidos por `renderVersionLabel()`, que roda na
-// CARGA do módulo, dez mil linhas acima de onde o bloco de atualização mora —
+// de cena.** Estes quatro são lidos por `renderOtaRow()` (via
+// `loteDaAtualizacao()`), chamado na CARGA do módulo — não por
+// `renderVersionLabel()`, que só lê `WEB_VERSION` e `__SHELL_NAME__` —, dez mil
+// linhas acima de onde o bloco de atualização mora:
 // declará-los lá embaixo dá `ReferenceError` por zona morta temporal, isto é,
 // tela preta e o watchdog do OTA descartando o bundle no lançamento seguinte.
 // (Foi o que derrubou o app três vezes: v5.184, v5.193, v5.195.)

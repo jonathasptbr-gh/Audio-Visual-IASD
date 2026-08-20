@@ -409,8 +409,7 @@ object WebUpdater {
     // ([ESPERAS_FALHA_MS]).
 
     /**
-     * Intervalo da ronda com tudo indo bem — **um minuto**, e não os cinco de
-     * antes.
+     * Intervalo da ronda com tudo indo bem — **quinze segundos**.
      *
      * A conta que justifica o número: uma ronda é um GET de ~300 bytes de JSON,
      * a frota é de poucos aparelhos, e o asset de uma release **não consome o
@@ -653,7 +652,7 @@ object WebUpdater {
                 ultimoInstante = SystemClock.elapsedRealtime()
                 ultimoResultado = "falhou (${e.message})"
                 // RETENTAR SOZINHO, com espera crescente. Sem isto, uma falha
-                // custava a sessão inteira: a ronda de 5 min ainda viria, mas
+                // custava a sessão inteira: a ronda de 15 s ainda viria, mas
                 // "sem rede agora" quase nunca significa "sem rede daqui a
                 // meio minuto", e o custo de perguntar de novo é um JSON.
                 val i = minOf(falhasSeguidas, ESPERAS_FALHA_MS.size - 1)

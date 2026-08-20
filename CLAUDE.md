@@ -32,7 +32,9 @@ espelhar o celular.
 | 13 | [Build e distribuição](#build-e-distribuição) | CI, oráculos, assinatura, backup |
 | 14 | [Regras de desenvolvimento](#regras-de-desenvolvimento) | **antes de commitar** |
 
-**Fora daqui:** `docs/ARQUITETURA-WEB.md` (o HUB da base web: regras gerais e o
+**Fora daqui:** `docs/shell/README.md` (o HUB do **Kotlin**: um capítulo por
+subsistema do shell, mais a tabela que diz onde cada um dos 26 arquivos é
+explicado), `docs/ARQUITETURA-WEB.md` (o HUB da base web: regras gerais e o
 mapa dos capítulos em `docs/arquitetura/`), `docs/TELAO-POR-COMANDOS.md`
 (o contrato das telas da rede), `docs/FONTE-DE-DADOS-LOUVORJA.md` (hinos/Bíblia)
 e `docs/HISTORICO.md` (**apêndice**: a nota de cada versão, para consultar por
@@ -134,6 +136,10 @@ app/src/main/
     ├── values/themes.xml        # tema sem action bar; tema preto da Presentation
     └── xml/                     # backup_rules + data_extraction_rules (ver "Build")
 docs/
+├── shell/                       # HUB do KOTLIN + um capítulo por subsistema
+│   ├── README.md                #   o mapa: qual capítulo abrir, e onde cada .kt mora
+│   ├── PONTE.md                 #   AVNative campo a campo, SHELL_VERSION, as 3 filas
+│   └── OTA.md                   #   watchdog de boot, detecção, shellTag, achados abertos
 ├── ARQUITETURA-WEB.md           # HUB da base web: regras gerais + mapa dos capítulos
 ├── arquitetura/                 # um capítulo por arquivo — abrir SÓ o que a pergunta pede
 │   ├── CONTROLE.md              #   layout, transporte, mixer, Biblioteca, coleções, YouTube
@@ -1124,10 +1130,10 @@ sintoma é "a atualização não chega".
 
 `window.AVDB` no `load` não bastava: a ordem dos scripts do Controle é
 `native.js` → `db.js` → `mse.js` → `stage.js` → `louvorja.js` → `bible.js` →
-`controle.js`, e um erro em qualquer um dos cinco últimos aborta só AQUELE
-script — o `load` dispara, `AVDB` continua lá, e o bundle quebrado era carimbado
-como bom **para sempre**. As quatro condições, cada uma cobrindo o que a
-anterior não cobre:
+`serie.js` → `sorteio.js` → `controle.js`, e um erro em qualquer um dos **oito**
+últimos aborta só AQUELE script — o `load` dispara, `AVDB` continua lá, e o
+bundle quebrado era carimbado como bom **para sempre**. As quatro condições,
+cada uma cobrindo o que a anterior não cobre:
 
 1. **papel `controle`** — o Display não carrega `controle.js` nem `louvorja.js`,
    e é o caso NORMAL de culto: confirmaria quase sempre no lugar do outro. Regra
@@ -1141,6 +1147,17 @@ anterior não cobre:
 4. **um `<li>` dentro de `#playlist`** — o HTML entrega o `<ul>` VAZIO; quem o
    preenche é `renderPlaylist()`, dentro do `init()` assíncrono, que começa por
    `loadCollections()`. Prova que a inicialização terminou.
+
+> **O QUE ESTAS QUATRO NÃO COBREM** — e é buraco conhecido, não descuido de
+> leitura: `louvorja.js`, `bible.js`, `serie.js` e `sorteio.js` não têm condição
+> nenhuma. Todo uso de `AVSerie`/`AVSorteio` no `controle.js` está DENTRO de
+> função, então um erro de topo num deles **não** aborta o `controle.js`:
+> `__avBack` existe, a playlist renderiza, `otaConfirm()` desarma o watchdog — e
+> o bundle fica adotado para sempre com a Playlist automática (ou a Biblioteca
+> de séries, ou a Bíblia, ou o hinário) morta, sem erro na tela e sem recuo no
+> lançamento seguinte. `sorteio.js` mudou em v5.302, v5.306, v5.308 e v5.311.
+> **O conserto é barato** (exigir o global publicado no fim de cada um, na mesma
+> forma da condição 2) e está proposto em `docs/shell/OTA.md`.
 
 **Por polling** (250 ms, desistindo em 30 s, em silêncio), e não checagem única
 no `load`: o `init()` é assíncrono e termina DEPOIS do `load` — uma checagem

@@ -284,8 +284,8 @@ class MainActivity : ComponentActivity(), BridgeHost {
         WebUpdater.checkAsync(this, "abertura")
         WebUpdater.iniciarVigilancia(this)
 
-        // E O AVISO APARECE NA HORA. O lado web enquete de minuto em minuto,
-        // mas esperar até um minuto por algo que o shell JÁ SABE é atraso à
+        // E O AVISO APARECE NA HORA. O lado web enquete de dez em dez segundos
+        // (`OTA_POLL_MS`), mas esperar por algo que o shell JÁ SABE é atraso à
         // toa: quando o bundle fica pronto, o shell empurra. Um bundle antigo
         // (sem `__avOta`) simplesmente não tem a função e o empurrão vira
         // no-op — a enquete continua sendo o piso.
