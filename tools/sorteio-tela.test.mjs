@@ -442,22 +442,102 @@ try {
       .find((b) => /Cronograma/.test(b.textContent));
     await executarSorteio(btn, 'cronograma');
     await new Promise((r) => setTimeout(r, 600));
+    const itens = await AVDB.listItems('imports');
+    const pac = itens.find((r) => r && r.kind === 'cue' && r.cue === 'group');
     return {
-      cronograma: (await AVDB.listIds('imports')).length,
+      cronograma: itens.length,
+      ehPacote: !!pac,
+      quantosNoPacote: pac && Array.isArray(pac.data.ids) ? pac.data.ids.length : 0,
+      nome: pac ? pac.name : '',
+      cortinaGuardada: pac ? pac.data.view : null,
       filaIgual: JSON.stringify(await AVDB.listIds('playlist')) === JSON.stringify(filaAntes),
       noArIgual: currentId === noArAntes,
       aberta: document.getElementById('sorteioPopup').classList.contains('open'),
       fala: (document.querySelector('#sorteioList .sorteio-conta-forte') || {}).textContent,
     };
   });
-  checar(guardou.cronograma === 3, 'as três sorteadas entram no Cronograma', guardou);
+  checar(guardou.cronograma === 1 && guardou.ehPacote && guardou.quantosNoPacote === 3,
+    'as três sorteadas entram como UM PACOTE, não como três linhas soltas', guardou);
+  checar(/playlist/i.test(guardou.nome || '') && /3 m[úu]sicas/.test(guardou.nome || ''),
+    'e a linha DIZ o que é e quantas tem — é o que o operador lê semanas depois', guardou.nome);
+  checar(!/sorteio/i.test(guardou.nome || ''),
+    'e NÃO se chama "Sorteio": esse é o nome de outra cena de roteiro (CUES.draw), '
+    + 'e duas linhas homônimas fazendo coisas diferentes só aparecem no sábado', guardou.nome);
   checar(guardou.filaIgual && guardou.noArIgual,
     'e ele NÃO mexe na fila do player nem no que está no telão — é a diferença '
     + 'que separa os dois botões', guardou);
   checar(guardou.aberta,
     'a folha FICA ABERTA: guardar não encerra a conversa, e o segundo sorteio é o uso normal');
-  checar(/adicionad/i.test(guardou.fala || ''),
-    'e a conta empresta a si mesma para dizer quantas entraram', guardou.fala);
+  checar(/pacote/i.test(guardou.fala || '') && /3 m[úu]sicas/.test(guardou.fala || ''),
+    'e a conta empresta a si mesma para dizer que foi UM pacote, e de quantas', guardou.fala);
+  checar(guardou.cortinaGuardada === 'visual',
+    'o pacote guarda a CORTINA que a escolha pedia — sem ela um "Fundo musical" '
+    + 'abriria semanas depois com a letra no telão, desmentindo o próprio nome',
+    guardou.cortinaGuardada);
+
+  // ---- E O PACOTE ABRE A FILA INTEIRA, COM A CORTINA QUE ELE PROMETE ------
+  //
+  // É o ganho do lote inteiro, e é a metade que o `criarCue` não prova: guardar
+  // um pacote que não abre é pior que dez linhas soltas, porque as dez ao menos
+  // tocam. Medido pelo MESMO caminho da lista (`playCue`).
+  //
+  // A CORTINA COMEÇA FECHADA de propósito, para o pacote ter de ABRI-LA: é o
+  // par exato do caso que importa semanas depois (um "Fundo musical" a fecha,
+  // uma "Playlist" a abre), e com três faixas em vez de uma — o pool de
+  // playback da fixture tem só uma, e uma fila de um item não prova "inteira".
+  const abriu = await pg.evaluate(async () => {
+    await AVDB.listSet('imports', []);
+    await AVDB.listSet('playlist', []);
+    await abrirSorteio();
+    sorteioPrefs.quantos = 3; sorteioPrefs.tema = '';
+    sorteioPrefs.soNoAparelho = true;
+    sorteioPrefs.variante = AVSorteio.VARIANTE_CANTADA;
+    renderSorteio();
+    const btn = [...document.querySelectorAll('#sorteioList .sorteio-acao')]
+      .find((b) => /Cronograma/.test(b.textContent));
+    await executarSorteio(btn, 'cronograma');
+    await new Promise((r) => setTimeout(r, 600));
+    const pac = (await AVDB.listItems('imports'))
+      .find((r) => r && r.kind === 'cue' && r.cue === 'group');
+    const ids = pac && Array.isArray(pac.data.ids) ? pac.data.ids.length : 0;
+    // Guardar NÃO projeta, então a cortina ainda é de quem a deixou assim.
+    await setView('wallpaper');
+    const antes = view;
+    await playCue(pac);
+    await new Promise((r) => setTimeout(r, 500));
+    return {
+      nome: pac ? pac.name : '', ids, antes, depois: view,
+      fila: plItems.length,
+      naFila: (await AVDB.listIds('playlist')).length,
+      primeira: currentId === (pac ? pac.data.ids[0] : null),
+    };
+  });
+  checar(abriu.ids === 3 && abriu.fila === 3 && abriu.naFila === 3 && abriu.primeira,
+    'tocar no pacote abre a FILA INTEIRA e manda a primeira ao telão — '
+    + 'um pacote que não abre é pior que dez linhas soltas', abriu);
+  checar(abriu.antes === 'wallpaper' && abriu.depois === 'visual',
+    'e a CORTINA do descritor é aplicada ao abrir — é o que faz um pacote '
+    + 'guardado hoje se comportar em setembro como no dia em que foi sorteado', abriu);
+
+  // O PAR DA MESMA REGRA, do outro lado: o pacote de fundo musical GUARDA a
+  // cortina fechada. Sem isto o nome dele seria uma promessa que só o dia do
+  // sorteio cumpria.
+  const fundoPac = await pg.evaluate(async () => {
+    await AVDB.listSet('imports', []);
+    await abrirSorteio();
+    sorteioPrefs.variante = AVSorteio.VARIANTE_PLAYBACK; sorteioPrefs.tema = '';
+    renderSorteio();
+    const btn = [...document.querySelectorAll('#sorteioList .sorteio-acao')]
+      .find((b) => /Cronograma/.test(b.textContent));
+    await executarSorteio(btn, 'cronograma');
+    await new Promise((r) => setTimeout(r, 600));
+    const pac = (await AVDB.listItems('imports'))
+      .find((r) => r && r.kind === 'cue' && r.cue === 'group');
+    sorteioPrefs.variante = AVSorteio.VARIANTE_CANTADA;
+    return { nome: pac ? pac.name : '', guardada: pac ? pac.data.view : null };
+  });
+  checar(/^Fundo musical /.test(fundoPac.nome) && fundoPac.guardada === 'wallpaper',
+    'o pacote de fundo musical nasce com o nome e a cortina dele', fundoPac);
 
   // REPETIR O MESMO SORTEIO tem de dizer que elas já estavam lá — senão o
   // operador repete o toque achando que não funcionou.
@@ -466,14 +546,19 @@ try {
       .find((b) => /Cronograma/.test(b.textContent));
     await executarSorteio(btn, 'cronograma');
     await new Promise((r) => setTimeout(r, 600));
+    const itens = await AVDB.listItems('imports');
     return {
-      total: (await AVDB.listIds('imports')).length,
+      total: itens.length,
+      pacotes: itens.filter((r) => r && r.kind === 'cue' && r.cue === 'group').length,
       fala: (document.querySelector('#sorteioList .sorteio-conta-forte') || {}).textContent,
     };
   });
-  checar(denovo.total === 3, 'sortear de novo não duplica o que já está no Cronograma', denovo);
-  checar(/j[áa] estav|j[áa] est[áa]/i.test(denovo.fala || ''),
-    'e a frase o DIZ, em vez de parecer que o toque não fez nada', denovo.fala);
+  // UM SORTEIO NOVO É UM PACOTE NOVO. Antes a dedução era por id e um segundo
+  // sorteio só acrescentava o que faltava; com o pacote, cada sorteio é um
+  // instantâneo do que ELE tirou — dois lotes no roteiro são dois lotes, e
+  // continuam saindo num toque cada.
+  checar(denovo.total === 2 && denovo.pacotes === 2,
+    'sortear de novo cria um SEGUNDO pacote — cada sorteio é o instantâneo do que ele tirou', denovo);
 
   // ---- FECHAR LIMPA A CAIXA DA PALAVRA (v5.307) ---------------------------
   // Medido pelos TRÊS caminhos de fechamento, porque a tabela `POPUPS` liga os
@@ -605,7 +690,13 @@ try {
   checar(guardaNaoCobre === 'wallpaper',
     '"Ao Cronograma" não mexe na cortina — ele guarda, não projeta', guardaNaoCobre);
 
-  // A NOTA aparece SÓ com o playback escolhido: é quando a pergunta existe.
+  // A NOTA aparece SÓ com o fundo musical escolhido: é quando a pergunta existe.
+  //
+  // E o RÓTULO do segmento é medido junto (v5.313). Na folha de UMA música
+  // "Playback" nomeia o ARQUIVO (a gravação sem voz, ao lado da cantada); aqui
+  // a escolha é o PROPÓSITO da fila inteira, e o operador pediu o nome que o
+  // descreve. O VALOR guardado continua `'playback'` — renomeá-lo junto com o
+  // rótulo trocaria a variante de todo mundo que já escolheu, em silêncio.
   const nota = await pg.evaluate(async () => {
     await abrirSorteio();
     sorteioPrefs.variante = AVSorteio.VARIANTE_CANTADA; renderSorteio();
@@ -613,11 +704,18 @@ try {
     sorteioPrefs.variante = AVSorteio.VARIANTE_PLAYBACK; renderSorteio();
     const el = document.querySelector('#sorteioList .sorteio-nota');
     const texto = el ? el.textContent : '';
+    const segs = [...document.querySelectorAll('#sorteioList .fit-seg button, #sorteioList .fit-seg .fit-seg-b')]
+      .map((b2) => b2.textContent.trim());
     sorteioPrefs.variante = AVSorteio.VARIANTE_CANTADA; fecharSorteio();
-    return { cantada, texto };
+    return { cantada, texto, segs, valor: AVSorteio.VARIANTE_PLAYBACK };
   });
-  checar(!nota.cantada && /fundo/i.test(nota.texto) && /telão/i.test(nota.texto),
-    'a folha ANUNCIA o som de fundo, e só com o playback escolhido', nota);
+  checar(!nota.cantada && /fundo musical/i.test(nota.texto) && /telão/i.test(nota.texto),
+    'a folha ANUNCIA o fundo musical, e só com ele escolhido', nota);
+  checar(nota.segs.some((t) => /^Fundo musical$/i.test(t)) && !nota.segs.some((t) => /playback/i.test(t)),
+    'o segmento diz "Fundo musical" — o PROPÓSITO da fila, não o nome do arquivo', nota.segs);
+  checar(nota.valor === 'playback',
+    'e o VALOR guardado continua `playback`: renomeá-lo trocaria a variante '
+    + 'de quem já escolheu, e é ele que `resolveSongMediaId` lê', nota.valor);
 
   // ---- O VOLTAR DO APARELHO FECHA A FOLHA ---------------------------------
   // Sem a linha em POPUPS o voltar MINIMIZA o app no meio do culto, e o ✕ e o

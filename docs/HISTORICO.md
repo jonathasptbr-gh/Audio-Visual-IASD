@@ -24,6 +24,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
+- **v5.313** — "PLAYBACK" VIRA "FUNDO MUSICAL", e o Cronograma passa a receber UM PACOTE no lugar de N linhas. OTA PURO
 - **v5.312** — A IMAGEM ENTRA POR CIMA DO LOUVOR SEM CALÁ-LO: o motor tem UM slot, e quem sobrevive a ele é a Camada de Texto. OTA PURO
 - **v5.311** — PLAYBACK SORTEADO É SOM DE FUNDO: toca sem nada no telão, pela cortina que já existia. OTA PURO
 - **v5.310** — O TÍTULO PAROU DE ANDAR PARA O LADO E CONTINUOU DESCENDO: a v5.309 reservou as colunas da faixa e não a linha, e o oráculo mediu só o eixo que ela corrigiu. OTA PURO
@@ -183,6 +184,77 @@ na nota que a revoga, não apagada da que a criou.
 - **v5.156** — é METADE OTA e METADE APK, de novo.
 
 ---
+
+## v5.313
+
+**A v5.313: "PLAYBACK" VIRA "FUNDO MUSICAL", e o Cronograma passa a receber UM
+PACOTE no lugar de N linhas. OTA PURO** (base web, oráculo e docs; sem Release,
+`SHELL_VERSION` continua **44**).
+
+Dois pedidos do operador, no mesmo toque.
+
+**O RÓTULO.** *"ajuste o nome de 'playback' para 'fundo musical' … pois ela
+reflete melhor o propósito do filtro"*. São duas perguntas diferentes, e é por
+isso que a folha de UMA música continua dizendo "Playback": lá o rótulo nomeia o
+**arquivo** que se vai tocar (a gravação sem voz, ao lado da cantada); na folha
+do sorteio ele nomeia o **propósito da fila inteira** — som por baixo do culto,
+telão coberto —, que é exatamente o que a cortina já faz desde a v5.311.
+
+**O VALOR guardado continua `'playback'`**, e isso não é descuido: ele é a
+preferência já gravada nos aparelhos **e** o argumento de `resolveSongMediaId`,
+onde qualquer coisa diferente de `'full'` resolve o `fileIdPlayback`. Renomear o
+valor junto com o rótulo trocaria a variante de todo mundo que já escolheu, em
+silêncio — e o oráculo passou a travar as duas metades, o rótulo que aparece e o
+valor que não muda.
+
+**O PACOTE.** *"ajuste o envio ao cronograma para que ele não envie um por um,
+mas sim um item que seja um pacote de playlist"*. Dez faixas sorteadas eram dez
+linhas avulsas no meio do roteiro do culto: para tirá-las, dez perguntas; para
+saber que eram um lote, memória.
+
+**E ele não é um tipo de item novo** — é o cue `group` que o botão "Guardar
+pacote" da fila já cria: mesmo descritor (`{ ids }`), mesmo desenho de linha,
+mesmo `abrirPacote` no toque. Invariante 5 aplicada ao lado web: ponteiro novo
+para um mecanismo que existe, nunca um segundo mecanismo.
+
+**A CORTINA PRECISOU VIAJAR NO DESCRITOR.** "Ao Cronograma" guarda e não
+projeta — então a decisão que `acertarCortinaDoSorteio` tomava no ato tinha de
+sobreviver até o dia da abertura. Sem `data.view`, um pacote chamado "Fundo
+musical" abriria em setembro com a letra no telão, desmentindo o próprio nome.
+`cortinaDoSorteio` passou a ser a metade que DECIDE (separada da que aplica) e
+`abrirPacote` a aplica; **ausente não mexe em nada**, que é o pacote montado à
+mão pela fila — ele nunca prometeu nada sobre o telão e não pode começar a
+prometer por causa deste campo.
+
+**O QUE FOI PRECISO CONFERIR ANTES DE ESCREVER UMA LINHA:** um cue **não é
+detentor** para o coletor (`lerDetentores` lê as listas fixas e os Favoritos, e
+mais nada), então guardar ids DENTRO dele normalmente os deixaria órfãos. Aqui
+não deixa, e por um motivo que só a leitura do `db.js` dá: a mídia do sorteio
+vive no store **`files`** — `resolveSongMediaId` devolve o
+`fileIdFull`/`fileIdPlayback` do hinário e `getMedia` cai no `fileGet` —, e o
+coletor apaga só do store `media`. Quem manda na vida delas é a coleção que as
+baixou, exatamente como antes.
+
+Duas mudanças de comportamento que estão ditas porque são visíveis:
+
+- **cada sorteio é um pacote NOVO.** Antes a dedução era por id e um segundo
+  sorteio só acrescentava o que faltava. Um pacote é o INSTANTÂNEO de uma
+  tirada; dois lotes no roteiro são dois lotes, e continuam saindo num toque
+  cada. `criarCue` ainda avisa quando o conteúdo é idêntico.
+- **o nome não usa a palavra "sorteio"** — ela já é o nome de outra cena de
+  roteiro (`CUES.draw`), e duas linhas homônimas do mesmo Cronograma fazendo
+  coisas diferentes é o tipo de colisão que só aparece no sábado de manhã.
+
+`f` (os filtros SANEADOS da passada que decidiu) passou a ser argumento de
+`guardarSorteadasNoCronograma`: a folha fica aberta durante o download, e mexer
+num controle ali reescreveria `sorteioPrefs` — o pacote sairia com o nome de uma
+escolha que ninguém sorteou. Foi um `ReferenceError` que o oráculo pegou antes
+do aparelho.
+
+O `sorteio-tela.test.mjs` ganhou sete asserções, e a que carrega o lote é a que
+abre o pacote pelo MESMO caminho da lista (`playCue`) e mede a fila inteira mais
+a cortina: **guardar um pacote que não abre é pior que dez linhas soltas, porque
+as dez ao menos tocam.**
 
 ## v5.312
 

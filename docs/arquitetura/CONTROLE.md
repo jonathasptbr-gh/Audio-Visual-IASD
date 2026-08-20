@@ -3170,7 +3170,7 @@ busca) e leva a uma folha com cinco decisões e um botão:
 |---|---|---|
 | segmento | quanto? | **Tocar uma só** · **Montar playlist** |
 | campo | qual tema? | palavra livre — vazio = o acervo inteiro |
-| segmento | o quê? | **Cantada** · **Playback** |
+| segmento | o quê? | **Cantada** · **Fundo musical** |
 | pílulas | filtros | **Sem hinário** · **Só no aparelho** |
 | pílulas | quantas? | 3 · 5 · 10 · 15 · 20 *(só montando fila)* |
 
@@ -3270,7 +3270,7 @@ continua exatamente como antes), `executarSorteio` a espera, e `abrirSorteio` a
 dispara ao abrir a folha — o único instante em que a espera não custa nada,
 porque o operador ainda está escolhendo o modo.
 
-#### Playback sorteado é SOM DE FUNDO (v5.311)
+#### Fundo musical sorteado é SOM DE FUNDO (v5.311, renomeado na v5.313)
 
 Pedido do operador: *"quando for apenas uma música ou playlist de playback,
 quero que trate eles como apenas áudio, sem aparecer nada na tela… essa função é
@@ -3284,16 +3284,37 @@ chega a desenhar a letra para escondê-la um quadro depois. Nada de campo novo n
 barramento, nada de `SHELL_VERSION`, e a tela da rede herda (roda o mesmo
 `display.js`).
 
-**A decisão é explícita nos DOIS sentidos** (`acertarCortinaDoSorteio`), e não só
-"ligar quando playback": quem sorteou um playback fica com a cortina posta, e o
-sorteio seguinte de uma CANTADA precisa revelá-la — senão o louvor entra sem
-imagem e sem letra por causa de uma escolha de dois minutos atrás. **O sorteio
-diz o estado do telão em vez de herdá-lo.**
+**A decisão é explícita nos DOIS sentidos** (`cortinaDoSorteio` decide,
+`acertarCortinaDoSorteio` aplica), e não só "ligar quando fundo musical": quem
+sorteou um fundo musical fica com a cortina posta, e o sorteio seguinte de uma
+CANTADA precisa revelá-la — senão o louvor entra sem imagem e sem letra por
+causa de uma escolha de dois minutos atrás. **O sorteio diz o estado do telão em
+vez de herdá-lo.**
 
-**"Ao Cronograma" não mexe na cortina**: ele guarda, não projeta.
+**"Ao Cronograma" não mexe na cortina**: ele guarda, não projeta — e por isso o
+PACOTE a carrega no descritor (ver abaixo), para aplicá-la no dia em que for
+aberto.
 
-A folha **anuncia** o que vai acontecer, e só com o playback escolhido — que é
-quando a pergunta existe: *"Som de fundo: toca sem letra e sem nada no telão."*
+A folha **anuncia** o que vai acontecer, e só com o fundo musical escolhido — que
+é quando a pergunta existe: *"Fundo musical: toca sem letra e sem nada no
+telão."*
+
+##### O rótulo é "Fundo musical", e o VALOR continua `playback` (v5.313)
+
+Pedido do operador: *"ajuste o nome de 'playback' para 'fundo musical' … pois ela
+reflete melhor o propósito do filtro"*.
+
+São duas perguntas diferentes, e é por isso que a folha de UMA música continua
+dizendo "Playback": lá o rótulo nomeia o **arquivo** que se vai tocar (a gravação
+sem voz, ao lado da cantada); aqui ele nomeia o **propósito da fila inteira** —
+som por baixo do culto, telão coberto —, que é exatamente o que a cortina faz.
+
+**O valor guardado continua sendo `'playback'`** (`AVSorteio.VARIANTE_PLAYBACK`),
+e isso não é descuido: ele é a preferência já gravada nos aparelhos **e** o
+argumento de `resolveSongMediaId`, onde qualquer coisa diferente de `'full'`
+resolve o `fileIdPlayback`. Renomear o valor junto com o rótulo trocaria a
+variante de todo mundo que já escolheu, em silêncio. `sorteio-tela.test.mjs`
+trava as duas metades: o rótulo que aparece e o valor que não muda.
 
 #### Montando a fila há DOIS desfechos (v5.306)
 
@@ -3302,7 +3323,7 @@ Eles não são duas versões da mesma ação, e é isso que justifica o segundo 
 | Botão | O que faz | O que NÃO faz |
 |---|---|---|
 | **Tocar agora** | `AVDB.listSet('playlist', ids)` + `send` do primeiro — o caminho do `abrirPacote` | — |
-| **Ao Cronograma** | acrescenta à lista `imports`, pela forma ATÔMICA do `listSet(fn)` | não substitui a fila do player, não projeta, não fecha a folha |
+| **Ao Cronograma** | acrescenta **UM PACOTE** à lista `imports` (v5.313) | não substitui a fila do player, não projeta, não fecha a folha |
 
 Pedido do operador: *"vai direto para a playlist do player, para ser tocada"*
 (v5.303) e, depois, *"coloque dois botões, um de tocar agora e outro para
@@ -3326,8 +3347,30 @@ Três decisões que precisam estar ditas:
 - **Cancelar tem sentidos OPOSTOS nos dois botões, e está certo.** No "Tocar
   agora" ele descarta: trocar a fila do culto por meia lista é uma
   SUBSTITUIÇÃO pela metade. No "Ao Cronograma" ele preserva o que já desceu:
-  três de dez acrescentadas é exatamente o que aconteceu, é reversível linha a
-  linha, e jogar fora um download que já custou rede seria desperdício.
+  três de dez é exatamente o que aconteceu, e jogar fora um download que já
+  custou rede seria desperdício.
+
+##### O Cronograma recebe UM PACOTE, não N linhas (v5.313)
+
+Pedido do operador: *"ajuste o envio ao cronograma para que ele não envie um por
+um, mas sim um item que seja um pacote de playlist"*.
+
+**E ele não é um tipo de item novo:** é o cue `group` que o botão "Guardar
+pacote" da fila já cria — mesmo descritor (`{ ids }`), mesmo desenho de linha,
+mesmo `abrirPacote` no toque. Invariante 5 aplicada ao lado web: ponteiro novo
+para um mecanismo que existe, nunca um segundo mecanismo.
+
+O que isso resolve é a ESCALA. Dez faixas sorteadas eram dez linhas avulsas no
+meio do roteiro — para tirá-las, dez perguntas; para saber que eram um lote,
+memória. Uma linha diz o que é, sai num toque, e abre a fila inteira na hora dela.
+
+| Decisão | Por quê |
+|---|---|
+| **o nome não usa a palavra "sorteio"** | ela já é o nome de outra cena de roteiro (`CUES.draw`), e duas linhas homônimas fazendo coisas diferentes só se descobrem no sábado. `nomeDoPacoteSorteado` produz *"Playlist “natal” · 5 músicas"* / *"Fundo musical da biblioteca · 3 músicas"* |
+| **a CORTINA viaja no descritor** (`data.view`) | guardar não projeta, então a decisão precisa sobreviver até o dia da abertura — sem ela um pacote chamado "Fundo musical" abriria em setembro com a letra no telão, desmentindo o próprio nome. `abrirPacote` a aplica; **ausente não mexe em nada**, que é o pacote montado à mão pela fila (ele nunca prometeu nada sobre o telão e não pode começar a prometer por causa deste campo) |
+| **os `ids` dentro do cue não viram órfãos** | a mídia do sorteio vive no store **`files`** (`resolveSongMediaId` devolve o `fileIdFull`/`fileIdPlayback` do hinário, e `getMedia` cai no `fileGet`), e o coletor lê listas + Favoritos e apaga só do store `media`. Quem manda na vida deles é a coleção que os baixou, como antes |
+| **cada sorteio é um pacote NOVO** | antes a dedução era por id e o segundo sorteio só acrescentava o que faltava. Um pacote é o INSTANTÂNEO de uma tirada; dois lotes no roteiro são dois lotes, e continuam saindo num toque cada. `criarCue` ainda avisa quando o conteúdo é idêntico |
+| **`f` é passado a `guardarSorteadasNoCronograma`** | e não `sorteioPrefs`: a folha fica aberta durante o download, e mexer num controle ali reescreveria as preferências — o pacote sairia com o nome de uma escolha que ninguém sorteou |
 
 #### O lote de download
 
