@@ -46,7 +46,7 @@ import java.util.Base64
  * 7. **A página de pareamento é ANÔNIMA** — sem versão, nome do aparelho, SSID
  *    ou nome da igreja. Este arquivo colabora não tendo isso para dar.
  * 8. **Teto de [MAX_SESSOES].** (O teto de CONEXÕES em voo e a regra de que um
- *    `GET /v` com token repetido fecha a anterior são do servidor: sockets, não
+ *    `GET /e` com token repetido fecha a anterior são do servidor: sockets, não
  *    pareamento.)
  * 9. **Todo texto vindo da rede é saneado AQUI**, não no JS: `[\x20-\x7E]`, corte
  *    duro em [TETO_TEXTO], `\n`/`\r` impossíveis, aspas trocadas. O `ua` vai para
@@ -97,7 +97,7 @@ object EspelhoPares {
      *
      * Quatro minutos porque uma tela viva é revalidada de segundo em segundo
      * (o vigia do `EspelhoServidor` confere o token de cada conexão aberta) e
-     * uma tela que tenta reconectar bate no `GET /v` a cada 8 s no pior degrau
+     * uma tela que tenta reconectar bate no `GET /e` a cada 8 s no pior degrau
      * da escada. Quatro minutos sem NENHUMA das duas coisas é uma tela que foi
      * embora.
      */
@@ -109,7 +109,9 @@ object EspelhoPares {
      *
      * 45 s, e o número é uma volta inteira de recuperação do cliente: o vigia de
      * fio dele aborta com 20 s sem bytes, mais a escada de reconexão de até 8 s,
-     * mais o csd e o quadro-chave da conexão nova. Menos que isso trocaria um
+     * mais a abertura do SSE novo e o primeiro ping. (O `csd` e o quadro-chave
+     * que este cálculo citava eram do espelho de PIXELS, que saiu na v5.187 —
+     * a folga continua valendo, agora pelo que de fato acontece.) Menos que isso trocaria um
      * fantasma por uma tela VIVA expulsa no meio da própria recuperação — que é
      * o defeito oposto, e pior, porque atinge quem estava funcionando.
      */
@@ -576,7 +578,7 @@ object EspelhoPares {
      * O SERVIDOR CONCLUIU QUE ESTA SESSÃO FICOU SEM NINGUÉM DO OUTRO LADO.
      *
      * Chamado quando a thread de escrita de uma tela termina — isto é, quando o
-     * `GET /v` daquela sessão acabou, por queda, por prazo ou por fecho. É a
+     * `GET /e` daquela sessão acabou, por queda, por prazo ou por fecho. É a
      * única informação que o pareamento não tem por conta própria: ele vê
      * tokens, não sockets.
      *
@@ -591,7 +593,7 @@ object EspelhoPares {
     }
 
     /**
-     * E O CONTRÁRIO: há conexão de novo. Chamado quando um `GET /v` assume a
+     * E O CONTRÁRIO: há conexão de novo. Chamado quando um `GET /e` assume a
      * sessão, e é ele que impede uma tela que reconectou de continuar marcada
      * como fantasma pelo resto da sessão.
      */

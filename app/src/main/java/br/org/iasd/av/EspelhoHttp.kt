@@ -71,7 +71,7 @@ import java.io.InputStream
  */
 object EspelhoHttp {
 
-    /** Linha de requisição (`GET /v HTTP/1.1`), sem o CRLF. */
+    /** Linha de requisição (`GET /e HTTP/1.1`), sem o CRLF. */
     const val TETO_LINHA = 2 * 1024
 
     /** Cada linha de cabeçalho, sem o CRLF. */
@@ -562,7 +562,7 @@ object EspelhoHttp {
     // O fluxo de comandos do telão por comandos é `text/event-stream` SOBRE o
     // chunked que este arquivo já emite — três linhas de framing, nenhum
     // protocolo novo. O cliente é `fetch`+`ReadableStream` (o mesmo transporte
-    // do GET /v de sempre, com `Authorization` no header — `EventSource` não
+    // do GET /e de sempre, com `Authorization` no header — `EventSource` não
     // manda header, e o token nunca viaja numa URL).
 
     /** O cabeçalho do fluxo de eventos. */

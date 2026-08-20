@@ -1452,11 +1452,16 @@ ser diagnosticável.
   Provai e Vede libera o mês inteiro de uma vez (medido: em 15/ago já tinha até
   26/set, e aqueles tocam). O DIA entra também na ASSINATURA das playlists,
   senão a economia devolveria a lista de ontem no sábado de manhã.
-- **O NOME DO ITEM pode ser SÓ A DATA** (`titulo: 'nenhum'`): no Informativo o
-  título é a série mais a data, e "o nome é o que vem antes da barra" daria 52
-  linhas idênticas. Numa lista anual a data é única. **`nomeDoItem` nunca devolve
-  vazio** — sem data e sem título ele cai no título CRU, que é feio e longo, e é
-  infinitamente melhor que uma linha em branco na lista do culto.
+- **O NOME DO ITEM pode não sair do título do vídeo.** No Informativo o título é
+  a série mais a data, e "o nome é o que vem antes da barra" daria 52 linhas
+  idênticas. São TRÊS modos, no campo `titulo` do catálogo:
+  `TITULO_ESQUERDA` (o padrão — o nome à esquerda da barra), `TITULO_SERIE` (o
+  rótulo da série mais a data) e `TITULO_NENHUM` (só a data). **O Informativo é
+  `TITULO_SERIE` desde a v5.271** — `TITULO_NENHUM` ficou sem consumidor, porque
+  o item SAI do álbum (vai para o Cronograma, para a fila) e uma data sozinha
+  não o identifica lá fora. **`nomeDoItem` nunca devolve vazio** — sem data e sem
+  título ele cai no título CRU, que é feio e longo, e é infinitamente melhor que
+  uma linha em branco na lista do culto.
 - **A assinatura das playlists evita doze extrações por retomada** (a aba do canal
   já diz quantos vídeos cada uma tem). Um episódio novo muda a contagem e a
   assinatura inteira é refeita — "tudo ou nada" de propósito.
@@ -1514,7 +1519,7 @@ ordem em que a lista mostra.
 
 ```
 · Informativo Mundial das Missões 2026 — https://www.youtube.com/@daniellocutor
-  prefixo "Informativo" · 2026 · playlists por trimestre · rótulo pela data
+  prefixo "Informativo" · 2026 · playlists por trimestre · rótulo pela data e pelo nome da série
   aba do canal (há 2 min): 5 playlist(s), 2 aceita(s)
     - "Misiones | 3º Trimestre 2026" → não começa com "Informativo"
     + "Informativo | 3º Trimestre 2026" → mês 7 · 13 vídeo(s) no canal

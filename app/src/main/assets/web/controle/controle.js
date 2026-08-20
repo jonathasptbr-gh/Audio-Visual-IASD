@@ -14922,7 +14922,13 @@ async function blocoSeries() {
     linhas.push('· ' + s.name + ' — ' + s.canal);
     linhas.push('  prefixo "' + s.prefixo + '" · ' + s.ano + ' · playlists por '
       + (s.periodo === AVSerie.PERIODO_TRIMESTRE ? 'trimestre' : 'mês')
-      + ' · rótulo ' + (s.titulo === AVSerie.TITULO_NENHUM ? 'pela data' : 'pelo título'));
+      // OS TRÊS MODOS, e não um ternário: o Informativo é `TITULO_SERIE` desde
+      // a v5.271, e o ternário o classificava como "pelo título" — justamente a
+      // série que IGNORA o título do vídeo. Um log que discorda do aparelho é o
+      // pior artefato que este projeto sabe produzir, e este é lido A DISTÂNCIA.
+      + ' · rótulo ' + (s.titulo === AVSerie.TITULO_NENHUM ? 'pela data'
+        : s.titulo === AVSerie.TITULO_SERIE ? 'pela data e pelo nome da série'
+        : 'pelo título'));
     if (!d) {
       // O caso mais fácil de ler errado: card na tela, nada no Registro. Ele é
       // normal (a lista só é buscada no primeiro toque ou na retomada) e

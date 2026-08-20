@@ -6,6 +6,18 @@
 > tabela de **Estado** dentro dela. Nenhum passo deste projeto vive só na
 > memória de quem o executou — se não está aqui ou num commit, não aconteceu.
 >
+> ⚠️ **DUAS COISAS DESTE DOCUMENTO VENCERAM, e o texto abaixo ainda as afirma
+> em vários pontos.** O que vale hoje:
+>
+> | o documento diz | o que vale |
+> |---|---|
+> | a entrada é um **CÓDIGO de três dígitos** (`POST /par {codigo}`) | **não há código nenhum** desde a v5.189: `POST /par` é ANÔNIMO, o corpo é o RELATO da tela, e a resposta é `200 {t}` ou `403` (castigo/lotado). A porta é o ENDEREÇO na rede; o controle real é o teto de **3 sessões** mais o `derrubar` do operador |
+> | o overlay tem **campo + botão** | tem **UM botão**, "Ativar esta tela" |
+> | `EspelhoService` | não existe: quem carrega a transmissão em primeiro plano é o `SessionService`, e o wake lock/Wi-Fi lock/térmica moram no `EspelhoEnergia` |
+> | o papel vem de **`?tela=1`** | vem da `<meta name="av-tela">` que o servidor INJETA; o `?tela=1` ficou só como caminho de desenvolvimento no navegador |
+>
+> A fonte de verdade é o `CLAUDE.md` ("Telão por comandos") mais o código.
+>
 > Os fatos de código citados vêm da varredura E0 (9 leitores paralelos, 229
 > fatos com arquivo:linha) — o bruto está em
 > `docs/anexo-varredura-command-stream.json`, que será apagado na E7. As linhas
@@ -206,9 +218,9 @@ IFrame API nem carregaria numa tela da rede.
 
 **Fica (infraestrutura de rede):** `EspelhoServidor` (sockets, bind Wi-Fi,
 allowlist de Host, religamento, tetos), `EspelhoHttp` (parser puro — GANHA
-Range e SSE), `EspelhoPares` (o CÓDIGO de três dígitos da v5.186 — o
-protocolo `/par {codigo}` → `200 {t}` | `403` é contrato com JUnit e NÃO
-muda), `EspelhoService`, `EspelhoCert`, `EspelhoDiag` (conteúdo novo), e de
+Range e SSE), `EspelhoPares` (o protocolo `/par` → `200 {t}` | `403`, com JUnit — o CÓDIGO
+de três dígitos que ele carregava na v5.186 **saiu na v5.189**: o `/par` é
+anônimo), `EspelhoEnergia`, `EspelhoCert`, `EspelhoDiag` (conteúdo novo), e de
 `cliente.js`: a escada de reconexão, o `guardado()` do sessionStorage, o
 adeus, e o botão único que gasta o gesto (entrar + som + tela cheia) — tudo
 isso MIGRA para o `tela.js` (§3.4), porque a página da tela passa a ser o
@@ -277,8 +289,8 @@ As decisões, cada uma com o porquê e com o fato que a sustenta:
    exigem ativação transitória, o gesto vale segundos e **não sobrevive a
    uma navegação** — uma página de entrada que navegasse ao display
    perderia o gesto, e a tela entraria muda e em janela. O tela.js desenha
-   o overlay de entrada (campo de três dígitos + botão) POR CIMA do display
-   ainda vazio; o toque no botão faz, na ordem: `POST /par {codigo}` →
+   o overlay de entrada (UM botão, "Ativar esta tela" — o campo de código saiu
+   na v5.189) POR CIMA do display ainda vazio; o toque faz, na ordem: `POST /par` →
    guarda o token → desmuta o `<video>` do stage → `requestFullscreen` →
    abre o SSE — tudo no mesmo gesto, na mesma página.
    O `tela.js` entra em `display/index.html` ANTES de `db.js` e é ativado
@@ -366,12 +378,12 @@ As decisões, cada uma com o porquê e com o fato que a sustenta:
 ## §4 SEQUÊNCIA DE UM CULTO
 
 1. Operador liga a transmissão. Sobe servidor+service — sem tela virtual,
-   sem codec, sem janela. A folha mostra o ENDEREÇO (IP) e o CÓDIGO de
-   três dígitos (v5.186).
+   sem codec, sem janela. A folha mostra o ENDEREÇO (IP) — e nada mais: o
+   código de três dígitos saiu na v5.189.
 2. Visitante abre `http://<ip>:8787/` → redirect para
    `/display/index.html?tela=1`, servido DO CELULAR (mesmo bundle do OTA).
-   O tela.js mostra o overlay: campo de três dígitos + botão.
-3. O toque no botão gasta o gesto: `POST /par {codigo}` → token → som +
+   O tela.js mostra o overlay: UM botão, "Ativar esta tela".
+3. O toque no botão gasta o gesto: `POST /par` (anônimo) → token → som +
    tela cheia → SSE aberto → `display-ready` sobe pelo dreno e volta como
    cena endereçada.
 4. Cada comando chega em ~10 ms. Texto renderiza vetorial. `load` traz
