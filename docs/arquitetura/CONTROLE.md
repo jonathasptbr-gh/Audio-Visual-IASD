@@ -3270,6 +3270,31 @@ continua exatamente como antes), `executarSorteio` a espera, e `abrirSorteio` a
 dispara ao abrir a folha — o único instante em que a espera não custa nada,
 porque o operador ainda está escolhendo o modo.
 
+#### Playback sorteado é SOM DE FUNDO (v5.311)
+
+Pedido do operador: *"quando for apenas uma música ou playlist de playback,
+quero que trate eles como apenas áudio, sem aparecer nada na tela… essa função é
+para som de fundo"*.
+
+**A cortina já faz exatamente isso, e é por isso que não há mecanismo novo.**
+`view: 'wallpaper'` põe o wallpaper por cima, e o `#lyrics` do Display vive no
+MESMO z-index dos layers de mídia — a cortina cobre os dois de graça. O áudio
+segue tocando: ela é visual. E **viaja dentro do `load`**, então o telão nunca
+chega a desenhar a letra para escondê-la um quadro depois. Nada de campo novo no
+barramento, nada de `SHELL_VERSION`, e a tela da rede herda (roda o mesmo
+`display.js`).
+
+**A decisão é explícita nos DOIS sentidos** (`acertarCortinaDoSorteio`), e não só
+"ligar quando playback": quem sorteou um playback fica com a cortina posta, e o
+sorteio seguinte de uma CANTADA precisa revelá-la — senão o louvor entra sem
+imagem e sem letra por causa de uma escolha de dois minutos atrás. **O sorteio
+diz o estado do telão em vez de herdá-lo.**
+
+**"Ao Cronograma" não mexe na cortina**: ele guarda, não projeta.
+
+A folha **anuncia** o que vai acontecer, e só com o playback escolhido — que é
+quando a pergunta existe: *"Som de fundo: toca sem letra e sem nada no telão."*
+
 #### Montando a fila há DOIS desfechos (v5.306)
 
 Eles não são duas versões da mesma ação, e é isso que justifica o segundo botão:

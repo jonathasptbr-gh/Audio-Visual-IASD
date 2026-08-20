@@ -24,6 +24,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
+- **v5.311** — PLAYBACK SORTEADO É SOM DE FUNDO: toca sem nada no telão, pela cortina que já existia. OTA PURO
 - **v5.310** — O TÍTULO PAROU DE ANDAR PARA O LADO E CONTINUOU DESCENDO: a v5.309 reservou as colunas da faixa e não a linha, e o oráculo mediu só o eixo que ela corrigiu. OTA PURO
 - **v5.309** — QUATRO AJUSTES PEDIDOS: o título parava de pular, a versão foi para o fim da referência, o par de confirmar divide a faixa ao meio e a fila ganhou um LIMPAR. OTA PURO
 - **v5.308** — A PALAVRA TEMA É MOMENTÂNEA, e sem ela o sorteio DIZ que pega o acervo inteiro. OTA PURO
@@ -179,6 +180,48 @@ na nota que a revoga, não apagada da que a criou.
 - **v5.154** — é METADE OTA e METADE APK, e a divisão importa para quem for testar em aparelho.
 - **v5.155** — é OTA PURO
 - **v5.156** — é METADE OTA e METADE APK, de novo.
+
+---
+
+## v5.311
+
+**A v5.311: PLAYBACK SORTEADO É SOM DE FUNDO — toca sem nada no telão, pela
+cortina que já existia. OTA PURO** (base web, oráculo e docs; sem Release,
+`SHELL_VERSION` continua **44**).
+
+Pedido do operador: *"quando for apenas uma música ou playlist de playback,
+quero que trate eles como apenas áudio, sem aparecer nada na tela… essa função é
+para som de fundo, então não deve ter propósitos de ver letra ou elementos
+visuais"*.
+
+**A CORTINA JÁ FAZIA EXATAMENTE ISSO**, e é por isso que este lote não tem
+mecanismo novo. `view: 'wallpaper'` põe o wallpaper por cima, e o `#lyrics` do
+Display vive no MESMO z-index dos layers de mídia — a cortina cobre os dois de
+graça (está escrito no `display.js` desde que a camada de letra nasceu). O áudio
+segue tocando, porque ela é visual.
+
+E ela **viaja DENTRO do `load`**, o que resolve o problema de ordem sem uma
+linha a mais: o telão nunca chega a desenhar a letra para escondê-la um quadro
+depois. Zero campo novo no barramento, zero degrau de `SHELL_VERSION`, e a tela
+da rede herda de graça — ela roda o mesmo `display.js`.
+
+**A DECISÃO É EXPLÍCITA NOS DOIS SENTIDOS**, e essa é a metade que não se
+percebe pedindo "ligue a cortina no playback": quem sorteou um playback fica com
+ela posta, e o sorteio SEGUINTE de uma cantada precisa revelá-la — senão o louvor
+entra sem imagem e sem letra por causa de uma escolha de dois minutos atrás. O
+sorteio passa a DIZER o estado do telão em vez de herdá-lo.
+
+**"Ao Cronograma" não toca na cortina.** Ele guarda; mexer no telão ali seria o
+oposto do que aquele botão promete.
+
+**A FOLHA ANUNCIA**, e só com o playback escolhido — que é quando a pergunta
+existe: *"Som de fundo: toca sem letra e sem nada no telão."* Sem ela, a cortina
+posta pelo sorteio seria uma mudança de estado do telão que ninguém anunciou. O
+Registro também passou a guardá-la (`playback (som de fundo, telão coberto)`).
+
+O oráculo mede o EFEITO em dois lugares que não podem discordar — o estado `view`
+do Controle e o `view` que viaja dentro do comando `load` —, e nos quatro
+cruzamentos de modo × variante. Provado mordendo.
 
 ---
 
