@@ -168,7 +168,7 @@ const appVersionEl = document.getElementById('appVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '5.312';
+const WEB_VERSION = '5.313';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -4235,6 +4235,12 @@ async function abrirPacote(d, cueId) {
   const ids = Array.isArray(d.ids) ? d.ids : [];
   const recs = (await Promise.all(ids.map((id) => AVDB.getMedia(id)))).filter(Boolean);
   if (!recs.length) { falharNoItem(cueId, 'as mídias saíram do aparelho'); return; }
+  // A CORTINA VIAJA NO DESCRITOR, e só o pacote da playlist automática a
+  // grava: um "Fundo musical" abre com o telão coberto, uma "Playlist" o
+  // revela. AUSENTE NÃO MEXE EM NADA — é o caso do pacote montado à mão pelo
+  // botão da fila, que nunca prometeu nada sobre o telão e não pode começar a
+  // prometer por causa deste campo.
+  if (d.view && view !== d.view) await setView(d.view);
   await AVDB.listSet('playlist', recs.map((r) => r.id));
   plItems = recs;
   renderPlaylist();
@@ -13935,7 +13941,7 @@ function fraseDoVazioSorteio(pool) {
       : 'Nada baixado ainda. Desligue “Só no aparelho” para baixar na hora.';
   }
   if (sorteioPrefs.variante === AVSorteio.VARIANTE_PLAYBACK && r[AVSorteio.MOTIVO_VARIANTE]) {
-    return 'Nenhuma delas tem playback. Troque para Cantada.';
+    return 'Nenhuma delas tem fundo musical. Troque para Cantada.';
   }
   const palavra = sorteioPrefs.tema.trim();
   return palavra ? 'Nada combina com “' + palavra + '” na biblioteca.'
@@ -14018,26 +14024,39 @@ function renderSorteio() {
   alvo.appendChild(liCampo);
 
   // ---- A VARIANTE: o quê? ----
-  // "Músicas cantadas" e "apenas áudio instrumental (playbacks)" são os DOIS
-  // valores da mesma pergunta, não dois filtros: marcar os dois não significa
-  // nada e não marcar nenhum tem de significar alguma coisa. Como segmento a
-  // escolha é sempre uma, e é o mesmo par (com os mesmos rótulos) que a folha
-  // de uma música do acervo já oferece.
+  // "Músicas cantadas" e "apenas o instrumental" são os DOIS valores da mesma
+  // pergunta, não dois filtros: marcar os dois não significa nada e não marcar
+  // nenhum tem de significar alguma coisa. Como segmento a escolha é sempre
+  // uma, e é o mesmo desenho que a folha de uma música do acervo usa.
+  //
+  // O RÓTULO AQUI É "FUNDO MUSICAL", E NÃO "PLAYBACK" — a pedido do operador,
+  // *"pois ela reflete melhor o propósito do filtro"*. Na folha de UMA música
+  // "Playback" nomeia o ARQUIVO que se vai tocar (a gravação sem voz, ao lado
+  // da cantada); aqui a escolha é o PROPÓSITO da fila inteira, e o propósito é
+  // som por baixo do culto com o telão coberto — que é o que a nota abaixo
+  // afirma e o que a cortina de fato faz. Duas perguntas diferentes, dois
+  // rótulos diferentes.
+  //
+  // **O VALOR guardado continua sendo `'playback'`** (`VARIANTE_PLAYBACK`), e
+  // isso não é descuido: ele é a preferência já gravada nos aparelhos E o
+  // argumento de `resolveSongMediaId`, onde qualquer coisa != `'full'` resolve
+  // o `fileIdPlayback`. Renomear o valor junto com o rótulo trocaria a variante
+  // de todo mundo que já escolheu, em silêncio.
   alvo.appendChild(ytSegRow(
-    [[AVSorteio.VARIANTE_CANTADA, 'Cantada'], [AVSorteio.VARIANTE_PLAYBACK, 'Playback']],
+    [[AVSorteio.VARIANTE_CANTADA, 'Cantada'], [AVSorteio.VARIANTE_PLAYBACK, 'Fundo musical']],
     sorteioPrefs.variante,
     (v) => { sorteioPrefs.variante = v; saveSorteioPrefs(); renderSorteio(); },
   ));
 
-  // A NOTA DO SOM DE FUNDO. Ela aparece SÓ com o playback escolhido, que é
-  // exatamente quando a pergunta existe — "isto vai aparecer no telão?" —, e é
-  // uma AFIRMAÇÃO e não um controle: o que o operador decide já está decidido no
+  // A NOTA DO FUNDO MUSICAL. Ela aparece SÓ com ele escolhido, que é exatamente
+  // quando a pergunta existe — "isto vai aparecer no telão?" —, e é uma
+  // AFIRMAÇÃO e não um controle: o que o operador decide já está decidido no
   // segmento acima. Sem ela, a cortina posta pelo sorteio seria uma mudança de
   // estado do telão que ninguém anunciou.
   if (sorteioPrefs.variante === AVSorteio.VARIANTE_PLAYBACK) {
     const nota = document.createElement('li');
     nota.className = 'sorteio-nota';
-    nota.textContent = 'Som de fundo: toca sem letra e sem nada no telão.';
+    nota.textContent = 'Fundo musical: toca sem letra e sem nada no telão.';
     alvo.appendChild(nota);
   }
 
@@ -14144,8 +14163,16 @@ function renderSorteio() {
 // Ela é chamada ANTES do `load` de propósito (ver acima), e usa o `setView` de
 // sempre: ele persiste, redesenha o botão da cortina — que é onde o operador vê
 // que o telão está coberto — e trata a Camada de Texto em cena.
+// QUAL CORTINA ESTA ESCOLHA PEDE. Separada de quem AGE porque há dois
+// momentos: quem PROJETA aplica agora, e o pacote guardado no Cronograma
+// carrega a decisão para aplicá-la quando for aberto, semanas depois — sem ela
+// um pacote chamado "Fundo musical" abriria com a letra no telão, desmentindo o
+// próprio nome.
+function cortinaDoSorteio(f) {
+  return f.variante === AVSorteio.VARIANTE_PLAYBACK ? 'wallpaper' : 'visual';
+}
 async function acertarCortinaDoSorteio(f) {
-  const alvo = f.variante === AVSorteio.VARIANTE_PLAYBACK ? 'wallpaper' : 'visual';
+  const alvo = cortinaDoSorteio(f);
   if (view !== alvo) await setView(alvo);
 }
 
@@ -14187,7 +14214,7 @@ async function executarSorteio(btn, desfecho) {
       await acertarCortinaDoSorteio(f);
       await tocarSorteada(escolhidos[0]);
     } else if (desfecho === 'cronograma') {
-      await guardarSorteadasNoCronograma(escolhidos, btn);
+      await guardarSorteadasNoCronograma(escolhidos, btn, f);
     } else {
       await acertarCortinaDoSorteio(f);
       await montarFilaSorteada(escolhidos);
@@ -14225,7 +14252,12 @@ async function tocarSorteada(escolha) {
 // projeto para feedback, e a frase separa o que ENTROU do que JÁ ESTAVA — sem
 // isso, sortear duas vezes seguidas com o mesmo tema pareceria não ter feito
 // nada na segunda.
-async function guardarSorteadasNoCronograma(escolhidos, btn) {
+// `f` são os FILTROS SANEADOS da passada que decidiu, e não `sorteioPrefs`:
+// o nome do pacote e a cortina que ele guarda têm de descrever o sorteio que
+// de fato aconteceu. A folha continua aberta depois de guardar, então mexer
+// num controle enquanto o download corre reescreveria as preferências — e o
+// pacote sairia com o nome de uma escolha que ninguém sorteou.
+async function guardarSorteadasNoCronograma(escolhidos, btn, f) {
   const faltam = escolhidos.filter((i) => !i.noAparelho).length;
   if (faltam && !(await ensureDownloadConsent())) return;
 
@@ -14264,20 +14296,52 @@ async function guardarSorteadasNoCronograma(escolhidos, btn) {
     bg.falhar(sorteioCancelado ? 'sorteio cancelado' : 'não foi possível baixar nenhuma faixa');
     return;
   }
-  let novos = 0;
-  await AVDB.listSet('imports', (atual) => {
-    for (const id of ids) {
-      if (atual.includes(id)) continue;
-      atual.push(id); novos++;
-    }
-    return atual;
-  });
   bg.soltar();
-  // A lista de trás só é remontada quando ELA é a que está em cena — a mesma
-  // guarda do `adicionarNasListas`.
-  if (activeTab === 'imports') await load();
-  responder(btn, tipoLote(novos, ids.length));
-  falarNoSorteio(textoLote(novos, ids.length, LISTA_ROTULO.imports));
+  // UM PACOTE, NÃO N LINHAS (v5.313), a pedido do operador: *"ajuste o envio ao
+  // cronograma para que ele não envie um por um, mas sim um item que seja um
+  // pacote de playlist"*.
+  //
+  // E ele não é um tipo de item novo: é o cue `group` que o botão "Guardar
+  // pacote" da fila já cria — mesmo descritor (`{ ids }`), mesmo desenho de
+  // linha, mesmo `abrirPacote` no toque. Invariante 5 aplicada ao lado web:
+  // ponteiro novo para um mecanismo que existe, nunca um segundo mecanismo.
+  //
+  // O que isto resolve é a escala. Dez faixas sorteadas eram dez linhas
+  // avulsas no meio do roteiro do culto — para tirá-las, dez perguntas; para
+  // saber que eram um lote, memória. Uma linha diz o que é, sai num toque, e
+  // abre a fila inteira quando chega a hora dela.
+  //
+  // **A MÍDIA AQUI VIVE NO STORE `files`**, não no `media` — `resolveSongMediaId`
+  // devolve o `fileIdFull`/`fileIdPlayback` do hinário, e `getMedia` cai no
+  // `fileGet`. É por isso que guardar os ids DENTRO do cue (que o coletor não
+  // conta como detentor: `lerDetentores` lê listas e Favoritos, e apaga só do
+  // store `media`) não os deixa órfãos. Quem manda na vida deles é a coleção
+  // que os baixou, como antes.
+  const rec = await criarCue('group', { ids, view: cortinaDoSorteio(f) },
+    nomeDoPacoteSorteado(f, ids.length), 'imports', btn);
+  if (!rec) { responder(btn, 'erro', 'Não foi possível guardar o pacote'); return; }
+  falarNoSorteio(ids.length + (ids.length === 1 ? ' música' : ' músicas')
+    + ' num pacote ' + LISTA_ROTULO.imports.em);
+}
+
+/**
+ * O NOME DA LINHA no Cronograma. Ele é a única coisa que o operador vê semanas
+ * depois, e tem de responder às três perguntas que ele vai fazer: o que é isto,
+ * de que tema, e quantas.
+ *
+ * Não usa a palavra "sorteio": ela já é o nome de OUTRA cena de roteiro
+ * (`CUES.draw`), e duas linhas do mesmo Cronograma chamadas "Sorteio" fazendo
+ * coisas diferentes é o tipo de colisão que só aparece no sábado de manhã.
+ * "Playlist" é como o recurso se chama para quem o usa.
+ */
+function nomeDoPacoteSorteado(f, quantas) {
+  const fundo = f.variante === AVSorteio.VARIANTE_PLAYBACK;
+  // `palavra`, e não `tema`: `tema` é o nome de MÓDULO do tema claro/escuro, e
+  // sombreá-lo aqui é a zona morta temporal que o `sombra.test.mjs` barra.
+  const palavra = (f.tema || '').trim();
+  return (fundo ? 'Fundo musical ' : 'Playlist ')
+    + (palavra ? '“' + palavra + '”' : 'da biblioteca')
+    + ' · ' + quantas + (quantas === 1 ? ' música' : ' músicas');
 }
 
 // A CONTA EMPRESTA A SI MESMA POR TRÊS SEGUNDOS — o mesmo mecanismo do `#otaRow`
@@ -14805,7 +14869,7 @@ function blocoSorteio() {
   linhas.push('· ' + serieHa(d.quando) + ' · ' + (f.modo === AVSorteio.MODO_PLAYLIST
     ? 'fila de até ' + f.quantos : 'uma só')
     + ' · ' + (f.variante === AVSorteio.VARIANTE_PLAYBACK
-      ? 'playback (som de fundo, telão coberto)' : 'cantada')
+      ? 'fundo musical (telão coberto)' : 'cantada')
     + (f.semHinario ? ' · sem hinário' : '')
     + (f.soNoAparelho ? ' · só no aparelho' : ''));
   // A palavra CRUA e a normalizada, porque a diferença entre as duas já
