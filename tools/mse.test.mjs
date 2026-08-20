@@ -20,6 +20,7 @@ import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { semRedeExterna } from './sem-rede.mjs';
 
 const AQUI = path.dirname(fileURLToPath(import.meta.url));
 const MSE = fs.readFileSync(path.join(AQUI, '..', 'app', 'src', 'main', 'assets', 'web', 'shared', 'mse.js'), 'utf8');
@@ -60,7 +61,9 @@ const base = `http://localhost:${servidor.address().port}`;
 const navegador = await chromium.launch(
   process.env.PW_CHROMIUM ? { executablePath: process.env.PW_CHROMIUM } : {},
 );
-const pg = await (await navegador.newContext()).newPage();
+const ctx = await navegador.newContext();
+await semRedeExterna(ctx);
+const pg = await ctx.newPage();
 await pg.goto(base + '/', { waitUntil: 'domcontentloaded' });
 
 // VP9 + Opus, e NÃO o avc1 + aac que o aparelho usa. O Chromium do Playwright é

@@ -60,6 +60,7 @@ import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { semRedeExterna } from './sem-rede.mjs';
 
 const RAIZ = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'app', 'src', 'main', 'assets', 'web');
 const TIPOS = {
@@ -128,6 +129,7 @@ const navegador = await chromium.launch(
 // 1280×720 do Playwright, que é o valor que a decisão de densidade do espelho
 // existe para EVITAR.
 const ctx = await navegador.newContext({ viewport: VP_ESPELHO });
+await semRedeExterna(ctx);
 
 const erros = [];
 const telao = await ctx.newPage();
@@ -474,6 +476,7 @@ checar(fonteEspelho >= PISO_FONTE_PX,
 //    perfil próprio ainda isola o BroadcastChannel desta página do espião lá
 //    de cima (ela manda o comando para si mesma).
 const ctxTv = await navegador.newContext({ viewport: VP_TELAO });
+await semRedeExterna(ctxTv);
 const tv = await ctxTv.newPage();
 await tv.goto(base + '/display/');
 await tv.waitForFunction(() => !!window.AVDB, null, { timeout: 15000 }).catch(() => {});

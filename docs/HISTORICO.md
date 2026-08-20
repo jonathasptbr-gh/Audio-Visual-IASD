@@ -257,6 +257,35 @@ Controle que decide sobrepor, e o telão que pinta. Uma asserção é só para o
 `mode` desconhecido: o `display.js` cairia no ramo `verse` e desenharia um
 cartão VAZIO — preto na tela, sem erro em lugar nenhum.
 
+**E A VERIFICAÇÃO DO PUBLICADO ACHOU OUTRA COISA.** Conferido o canal
+(manifesto, `sha256` do zip, conteúdo idêntico ao `main`), o log do run mostrava
+**"Oráculos em Chromium: 12/15 passaram"** — `smoke`, `boot-nativo` e
+`sorteio-tela` vermelhos, com o passo em `continue-on-error` e o job verde por
+cima. O run da v5.311 tinha exatamente os mesmos três: condição pré-existente,
+não regressão deste lote (o oráculo novo passou 20/20 no runner).
+
+A causa é uma só, e vale para a suíte inteira: **nenhum oráculo interceptava a
+rede externa**. A base web fala com a LouvorJA na carga — `pt_hymnal`,
+`pt_hymnal_1996`, `pt_categories`, `pt_bible_version`, `pt_bible_book` e um
+`music_<id>` por faixa (medido: seis URLs distintas só no `sorteio-tela`). Numa
+máquina sem saída para a internet elas morrem e o oráculo é determinístico **por
+acidente**; no runner elas respondem, o hinário real desaba sobre o acervo
+plantado pela fixture, e a asserção passa a medir o catálogo da LouvorJA — daí
+"1 música relacionada" onde a fixture planta 3 (o casamento por NOME sobrevive,
+o por ÁLBUM não).
+
+`tools/sem-rede.mjs` corta a saída de cada `BrowserContext`, chamado nos catorze
+oráculos que criam um. **Bloquear é seguro por construção:** os quinze já
+passavam onde toda saída externa falha, logo nenhum depende de resposta de
+terceiro — o que muda é que agora isso é IGUAL em toda máquina, em vez de
+depender de haver internet. As rotas próprias do `boot-nativo` continuam
+valendo (o Playwright resolve as de página antes das de contexto). Suíte local:
+**15/15**, com o `boot-nativo` passando três vezes seguidas.
+
+O modo de falhar que isto fecha é o pior de todos para uma rede de segurança:
+ela não some, ela **grita sem razão** — e uma suíte que grita sem razão é uma
+suíte que se aprende a ignorar, que é como um defeito de verdade passa.
+
 ## v5.311
 
 **A v5.311: PLAYBACK SORTEADO É SOM DE FUNDO — toca sem nada no telão, pela

@@ -35,6 +35,7 @@ import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { semRedeExterna } from './sem-rede.mjs';
 
 const RAIZ = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'app', 'src', 'main', 'assets', 'web');
 const TIPOS = {
@@ -133,6 +134,7 @@ const navegador = await chromium.launch(
 // que ainda está montando, e o resultado dependeria da velocidade do runner.
 async function abrir(cfg) {
   const ctx = await navegador.newContext({ viewport: { width: 430, height: 900 }, hasTouch: true });
+  await semRedeExterna(ctx);
   const pg = await ctx.newPage();
   await pg.addInitScript(ponte(cfg));
   await pg.goto(base + '/controle/', { waitUntil: 'domcontentloaded' });
