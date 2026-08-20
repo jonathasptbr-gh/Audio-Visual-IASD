@@ -1317,19 +1317,19 @@ object YoutubeGrab {
      */
     private fun candidatosAudio(info: StreamInfo, ext: String?, teto: Int, anotar: (String) -> Unit = {}): List<Faixa> {
         val todas = info.audioStreams.mapNotNull { faixaDe(it) }
-        val doContainer = { fs: List<Faixa> -> fs.filter { ext == null || it.ext.equals(ext, true) } }
-        val comPt = TrilhaAudio.soPortugues(todas, { it.idioma }, { it.tipoTrilha })
-        val candidatos = doContainer(comPt)
+        // A ORDEM (idioma na lista inteira, contêiner depois) mora no
+        // [TrilhaAudio], que é puro e tem JUnit — aqui ela seria código sem
+        // oráculo, e é exatamente a metade que se perde em silêncio.
+        val escolha = TrilhaAudio.noConteiner(
+            todas, { it.idioma }, { it.tipoTrilha }, ext, { it.ext },
+        )
         // O contêiner TEM áudio e mesmo assim ficou sem candidato: só a
         // exclusividade do português pode ter feito isso, e é ela que precisa
         // aparecer no Registro — "m4a sem áudio" se leria como falha do YouTube.
-        if (candidatos.isEmpty() && doContainer(todas).isNotEmpty()) {
-            anotar(
-                " · $ext sem trilha pt (ela está em " +
-                    comPt.map { it.ext }.distinct().joinToString("/") + ")",
-            )
+        if (escolha.ptEm.isNotEmpty()) {
+            anotar(" · $ext sem trilha pt (ela está em " + escolha.ptEm.joinToString("/") + ")")
         }
-        return candidatos
+        return escolha.candidatos
             .sortedWith(
                 compareBy<Faixa>(
                     { it.ordemTrilha },

@@ -13989,31 +13989,39 @@ function frasesDaContaSorteio(pool) {
   return [forte, 'A playlist leva ' + leva + ' · ' + custo];
 }
 
-// O motivo que mais recusou COLEÇÕES ('' se nenhuma foi recusada). Empate fica
-// com o primeiro visto — a ordem do acervo, que é a que o Registro imprime.
-function motivoDominanteDasColecoes(pool) {
-  const conta = Object.create(null);
-  for (const c of (pool && pool.colecoesRecusadas) || []) {
-    conta[c.motivo] = (conta[c.motivo] || 0) + 1;
-  }
-  let dom = '';
-  for (const k in conta) if (!dom || conta[k] > conta[dom]) dom = k;
-  return dom;
+// O motivo das COLEÇÕES que a frase do vazio deve nomear ('' se nenhuma foi
+// recusada). A régua é ACIONABILIDADE, e não contagem — fica escrito porque
+// "o mais numeroso" é o reflexo de quem vier depois, e ele PRODUZ FRASE FALSA:
+// `cap.ehMusica` é o `temLetra`, então toda série do YouTube é recusada por
+// `sem-musica`. Num aparelho com duas séries e um hinário ainda sem índice o
+// mais numeroso é `sem-musica`, e a tela diria "nenhuma coleção de música neste
+// aparelho" com o hinário inteiro instalado — além de falsa, sem ação nenhuma.
+// A ordem é a do conserto possível: `sem-indice` vence sempre (abrir o card e
+// carregar a lista), depois `hinario` (desligar o filtro), e `sem-musica` por
+// último — só sobra quando é de fato o caso.
+function motivoAcionavelDasColecoes(pool) {
+  const vistos = Object.create(null);
+  for (const c of (pool && pool.colecoesRecusadas) || []) vistos[c.motivo] = true;
+  if (vistos[AVSorteio.MOTIVO_SEM_INDICE]) return AVSorteio.MOTIVO_SEM_INDICE;
+  if (vistos[AVSorteio.MOTIVO_HINARIO]) return AVSorteio.MOTIVO_HINARIO;
+  if (vistos[AVSorteio.MOTIVO_SEM_MUSICA]) return AVSorteio.MOTIVO_SEM_MUSICA;
+  return '';
 }
 
-// VAZIO, ELA DIZ O MOTIVO DOMINANTE. Sem ele, "nada encontrado" tem cinco causas
-// que pedem ações OPOSTAS — trocar a palavra, desligar um filtro, trocar a
-// variante, ou abrir a Biblioteca com internet. A ordem é a do que o operador
-// consegue consertar mais depressa.
+// VAZIO, ELA DIZ O MOTIVO. Sem ele, "nada encontrado" tem cinco causas que pedem
+// ações OPOSTAS — trocar a palavra, desligar um filtro, trocar a variante, ou
+// abrir a Biblioteca com internet. A ordem é a do que o operador consegue
+// consertar mais depressa, nunca a do motivo mais numeroso.
 function fraseDoVazioSorteio(pool) {
   if (!pool.colecoesUsadas) {
-    // PELO MOTIVO DOMINANTE, e não pelo filtro que estava ligado: com
+    // PELO MOTIVO QUE TEM CONSERTO, e não pelo filtro que estava ligado: com
     // "sem hinário" marcado E as coleções recusadas por falta de índice, a
     // pergunta do filtro respondia "só há hinário aqui" — o operador desligava
     // o filtro, continuava vazio, e nada dizia que faltava carregar a
     // biblioteca. Quem sabe por que cada coleção ficou de fora é a própria
-    // regra (`avaliarColecao`), e é dela que a frase sai.
-    const dom = motivoDominanteDasColecoes(pool);
+    // regra (`avaliarColecao`), e é dela que a frase sai. `sem-indice` e "nenhuma
+    // recusa" caem na última frase, que é a que manda carregar a biblioteca.
+    const dom = motivoAcionavelDasColecoes(pool);
     if (dom === AVSorteio.MOTIVO_HINARIO) return 'Só há hinário neste aparelho, e o filtro pediu sem ele.';
     if (dom === AVSorteio.MOTIVO_SEM_MUSICA) return 'Nenhuma coleção de música neste aparelho.';
     return 'A biblioteca ainda não foi carregada. Abra-a uma vez com internet.';

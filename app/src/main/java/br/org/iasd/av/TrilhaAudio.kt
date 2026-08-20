@@ -92,4 +92,47 @@ object TrilhaAudio {
         val boas = { f: T -> ehPortugues(idioma(f)) && tipo(f) != DESCRITIVA }
         return if (faixas.any(boas)) faixas.filter(boas) else faixas
     }
+
+    /**
+     * O que sobra de um CONTÊINER depois da regra — e a ORDEM dos dois cortes.
+     *
+     * ## Por que a ordem mora aqui, e não no chamador
+     *
+     * `YoutubeGrab` corta por `m4a`/`webm` porque o `MediaMuxer` exige o par do
+     * mesmo lado. Cortar o contêiner PRIMEIRO e só então perguntar o idioma é a
+     * regressão silenciosa desta regra inteira: se a trilha pt-BR existe só em
+     * WEBMA e a original `en` em m4a, o corte apaga a exclusividade do português
+     * e o m4a devolve o inglês — que **baixa, monta e vai ao telão com sucesso**.
+     * Um resultado errado entregue com sucesso é pior que uma tentativa perdida.
+     *
+     * Enquanto a composição vivia no chamador, ela era código sem oráculo:
+     * `candidatosAudio` é privada e recebe um `StreamInfo` do NewPipe, então
+     * nenhum JUnit a alcança, e um teste que recompusesse os dois passos por
+     * fora provaria só que o TESTE concorda consigo mesmo — inverter a ordem em
+     * produção o deixaria verde. Aqui ela é PURA e coberta.
+     *
+     * [ptEm] responde a pergunta que o Registro faz quando o contêiner pedido
+     * fica sem nada: "e onde o português está, então?". Vazio = não foi a
+     * exclusividade que esvaziou (o contêiner simplesmente não tinha áudio).
+     */
+    class Escolha<T>(val candidatos: List<T>, val ptEm: List<String>)
+
+    fun <T> noConteiner(
+        faixas: List<T>,
+        idioma: (T) -> String,
+        tipo: (T) -> String,
+        ext: String?,
+        extDe: (T) -> String,
+    ): Escolha<T> {
+        val doContainer = { fs: List<T> -> fs.filter { ext == null || extDe(it).equals(ext, true) } }
+        val comPt = soPortugues(faixas, idioma, tipo)
+        val candidatos = doContainer(comPt)
+        val ptEm =
+            if (candidatos.isEmpty() && doContainer(faixas).isNotEmpty()) {
+                comPt.map(extDe).distinct()
+            } else {
+                emptyList()
+            }
+        return Escolha(candidatos, ptEm)
+    }
 }

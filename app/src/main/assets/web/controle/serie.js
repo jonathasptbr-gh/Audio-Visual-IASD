@@ -240,10 +240,13 @@
    *
    * Um caractere basta, e é por isso que o teste é pelo alfabeto e não por
    * palavra: "【聖工消息】2026 第三季" não tem uma sílaba que dê para procurar.
-   * As faixas cobrem cirílico, hebraico, árabe, tailandês, a pontuação CJK e
-   * os silabários japoneses, os ideogramas e o hangul — e param aí: só a
-   * ESCRITA diz o idioma de um título. Um sinal de pontuação, não (ver a faixa
-   * de meia-largura, abaixo).
+   * As faixas cobrem as ESCRITAS (cirílico, hebraico, árabe, tailandês, os
+   * silabários japoneses, os ideogramas, o hangul) e mais a pontuação CJK
+   * (【】。「」、・), que vale por escrita porque só aparece em título CJK. O
+   * que fica de FORA é a pontuação de LARGURA FIXA (ver a faixa de
+   * meia-largura, abaixo), que um título em português produz. A régua não é
+   * "pontuação nunca diz idioma": é que ESTA pontuação não existe fora do CJK
+   * e AQUELA um teclado brasileiro digita.
    *
    * Emoji ficam de FORA da lista de propósito (eles vivem acima de U+1F000, e
    * as faixas param antes): um título em português com um emoji é comum, e
@@ -264,11 +267,12 @@
     + '\\uac00-\\ud7af'   // hangul
     // MEIA-LARGURA, e só ela: katakana (ff61-ff9f) e hangul (ffa0-ffdc) são
     // ESCRITA. O bloco começa antes disso, em ff00-ff60, com o ASCII de largura
-    // fixa (｜！＃＠：…), que é PONTUAÇÃO — um "｜" no lugar do "|" num
-    // título português fazia o episódio ser recusado como "está em outro
-    // idioma": o defeito da v5.252 ("Mission Refocus") por outra régua. O que
-    // vem depois (ffe0-ffee) são símbolos e moedas, e pela mesma razão fica de
-    // fora: nenhum deles diz o idioma de coisa nenhuma.
+    // fixa (｜｀！＂＃…) — e ele fica de fora porque um título em português o
+    // PRODUZ: um "｜" no lugar do "|" fazia o episódio ser recusado como "está
+    // em outro idioma", o defeito da v5.252 ("Mission Refocus") por outra
+    // régua. É a diferença para a pontuação CJK lá de cima (【】。「」、・), que
+    // fica DENTRO por não aparecer fora de um título CJK. Os símbolos e moedas
+    // de ffe0-ffee saem pelo mesmo lado da régua: nada garante que sejam de lá.
     + '\\uff61-\\uffdc]', // katakana e hangul de MEIA-LARGURA
   );
 

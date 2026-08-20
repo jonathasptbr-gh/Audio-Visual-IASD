@@ -139,19 +139,26 @@ class TrilhaAudioTest {
 
     // ---- a exclusividade × o CONTÊINER ----
     //
-    // A regra é pura e não sabe o que é um contêiner, mas quem a chama sabe:
-    // `YoutubeGrab.candidatosAudio` corta por m4a/webm porque o muxer exige o
-    // par do mesmo lado. A ORDEM dos dois cortes é o que estes dois casos
-    // travam — e é a única metade da regra que se pode perder sem tocar no
-    // `TrilhaAudio`.
+    // `YoutubeGrab` corta por m4a/webm porque o muxer exige o par do mesmo lado.
+    // A ORDEM dos dois cortes é o que estes casos travam, e ela mora em
+    // `TrilhaAudio.noConteiner` — não neste arquivo. A distinção é o ponto:
+    // enquanto o teste RECOMPUNHA os dois passos por fora, inverter a ordem em
+    // produção o deixava VERDE, porque ele provava só que o teste concorda
+    // consigo mesmo. Chamando a função de verdade, a regressão exige mexer no
+    // que está sendo medido.
 
     /** A faixa com CONTÊINER: o que `YoutubeGrab.candidatosAudio` tem na mão. */
     private data class Trilha(val idioma: String, val tipo: String, val ext: String)
 
-    /** A ordem do pipeline: o IDIOMA na lista inteira, o contêiner DEPOIS. */
     private fun noConteiner(ext: String, vararg faixas: Trilha): List<Trilha> =
-        TrilhaAudio.soPortugues(faixas.toList(), { it.idioma }, { it.tipo })
-            .filter { it.ext == ext }
+        TrilhaAudio.noConteiner(
+            faixas.toList(), { it.idioma }, { it.tipo }, ext, { it.ext },
+        ).candidatos
+
+    private fun ptEm(ext: String, vararg faixas: Trilha): List<String> =
+        TrilhaAudio.noConteiner(
+            faixas.toList(), { it.idioma }, { it.tipo }, ext, { it.ext },
+        ).ptEm
 
     @Test
     fun `o corte por contêiner não apaga a exclusividade do português`() {
@@ -163,6 +170,19 @@ class TrilhaAudioTest {
         assertEquals(0, noConteiner("m4a", en, pt).size)
         // E o par que de fato serve continua inteiro do outro lado.
         assertEquals(listOf(pt), noConteiner("webm", en, pt))
+    }
+
+    @Test
+    fun `o contêiner esvaziado pela regra DIZ onde o português está`() {
+        // `ptEm` é o que vira a linha do Registro. Sem ela, "m4a sem áudio" se
+        // leria como falha do YouTube, e o operador iria procurar rede.
+        val en = Trilha("en", TrilhaAudio.ORIGINAL, "m4a")
+        val pt = Trilha("pt-BR", TrilhaAudio.DUBLADA, "webm")
+        assertEquals(listOf("webm"), ptEm("m4a", en, pt))
+        // E ela fica VAZIA quando não foi a exclusividade que esvaziou: o
+        // contêiner pedido simplesmente não existe naquele vídeo.
+        assertEquals(0, ptEm("webm", en).size)
+        assertTrue(ptEm("webm", en).isEmpty())
     }
 
     @Test
