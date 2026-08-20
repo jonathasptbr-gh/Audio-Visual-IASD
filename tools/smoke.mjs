@@ -48,9 +48,22 @@ const servidor = http.createServer((req, res) => {
 });
 
 const falhas = [];
-function checar(cond, msg) {
+// O TERCEIRO ARGUMENTO É IMPRESSO, como nos outros treze oráculos.
+//
+// Ele era DESCARTADO aqui: as chamadas já passavam o que viram (qual ponto do
+// hit-test caiu fora, quantos botões sobraram na linha), a medição custava a
+// mesma corrida, e a assinatura de dois parâmetros jogava tudo fora. O efeito
+// aparece no lugar onde mais dói: no CI, onde ninguém pode abrir o navegador —
+// a reprovação chegava como uma frase e nada mais, e diagnosticá-la exigia
+// adivinhar ou publicar um lote só para instrumentar.
+function checar(cond, msg, obtido) {
   if (cond) console.log('ok      ' + msg);
-  else { console.log('FALHOU  ' + msg); falhas.push(msg); }
+  else {
+    console.log('FALHOU  ' + msg
+      + (obtido !== undefined ? '\n        obtido: '
+        + (typeof obtido === 'string' ? obtido : JSON.stringify(obtido)) : ''));
+    falhas.push(msg);
+  }
 }
 
 await new Promise((r) => servidor.listen(0, r));
@@ -1623,6 +1636,24 @@ try {
     };
     const r = {
       pontos,
+      // A GEOMETRIA VIAJA JUNTO, e não por zelo: esta asserção reprovou no CI e
+      // passou em toda máquina de desenvolvimento, e o log dizia só a frase.
+      // Sem a caixa e sem o elemento que cada ponto de fato encontrou, o único
+      // caminho é adivinhar — ou publicar um lote só para instrumentar.
+      caixa: [Math.round(lb.left), Math.round(lb.top), Math.round(lb.width), Math.round(lb.height)],
+      janela: [window.innerWidth, window.innerHeight],
+      achou: Object.fromEntries(Object.entries({
+        meio: [lb.left + lb.width / 2, lb.top + lb.height / 2],
+        esquerda: [lb.left + 4, lb.top + lb.height / 2],
+        direita: [lb.right - 2, lb.top + lb.height / 2],
+        topo: [lb.left + lb.width / 2, lb.top + 2],
+        base: [lb.left + lb.width / 2, lb.bottom - 2],
+        cantoDir: [lb.right - 2, lb.top + 2],
+        quadrado: [lb.left + 20, lb.top + lb.height / 2],
+      }).map(([k, [x, y]]) => {
+        const e = document.elementFromPoint(x, y);
+        return [k, e ? e.tagName + '.' + String(e.className || '').split(' ')[0] : 'nada'];
+      })),
       botoesNaLinha: linha.querySelectorAll('.row button').length,
       // E a LARGURA do nome, que é o que a remoção devolve: ela não vira número
       // fixo aqui (depende da fonte), mas a fração da linha é a afirmação.
@@ -1640,7 +1671,10 @@ try {
   checar(errados.length === 0,
     'e TODO ponto dela leva ao mesmo lugar — cantos, bordas e meio, inclusive o '
     + 'quadrado onde o ▶ vivia: não há dois desfechos a confundir',
-    errados.length ? JSON.stringify(Object.fromEntries(errados)) : todos.length + ' pontos');
+    errados.length
+      ? JSON.stringify({ errados: Object.fromEntries(errados), achou: alvo.achou,
+        caixa: alvo.caixa, janela: alvo.janela })
+      : todos.length + ' pontos');
   checar(alvo.fracaoDoNome > 0.6,
     'e o NOME recebeu a largura que os dois botões ocupavam ('
     + Math.round(alvo.fracaoDoNome * 100) + '% da linha)');
