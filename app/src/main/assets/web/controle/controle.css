@@ -980,10 +980,24 @@ main {
    vão da direita cairia na coluna 1 justamente nas telas em que o voltar não
    está lá — o defeito de volta, com outro nome. E o vão existe porque reservar
    só a esquerda deixaria o título 19px fora do eixo da faixa em toda a
-   interface: trocaria um deslocamento por um desalinhamento. */
+   interface: trocaria um deslocamento por um desalinhamento.
+
+   E A LINHA É DECLARADA PELA MESMA RAZÃO QUE AS COLUNAS (v5.310) — a v5.309
+   reservou o eixo horizontal e deixou o vertical de fora, então o título parou
+   de andar para o lado e continuou descendo. Sem `grid-template-rows` a altura
+   da faixa é IMPLÍCITA, isto é, a do item mais alto: 15px com só o texto e os
+   34px de `--hit` quando o voltar entra. MEDIDO: o título descia 9px e a LISTA
+   INTEIRA descia 19px, o que é o pulo que se vê. Reservar `--hit` custa esses
+   19px de lista nas telas sem voltar e é o preço certo — encolher o botão para
+   a altura do texto devolveria ao voltar o menor alvo de toque do app, que é
+   justamente o que o esqueleto de `--hit` existe para impedir.
+
+   A REGRA, então, é uma só nos dois eixos: **a caixa da faixa não pode depender
+   de quem está dentro dela.** */
 .list-header {
   flex-shrink: 0; display: grid; align-items: center; gap: .3rem;
   grid-template-columns: var(--hit) minmax(0, 1fr) var(--hit);
+  grid-template-rows: var(--hit);
 }
 .list-header > .back-btn { grid-column: 1; }
 .list-header > .list-title { grid-column: 2; }

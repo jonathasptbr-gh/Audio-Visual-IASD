@@ -24,6 +24,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
+- **v5.310** — O TÍTULO PAROU DE ANDAR PARA O LADO E CONTINUOU DESCENDO: a v5.309 reservou as colunas da faixa e não a linha, e o oráculo mediu só o eixo que ela corrigiu. OTA PURO
 - **v5.309** — QUATRO AJUSTES PEDIDOS: o título parava de pular, a versão foi para o fim da referência, o par de confirmar divide a faixa ao meio e a fila ganhou um LIMPAR. OTA PURO
 - **v5.308** — A PALAVRA TEMA É MOMENTÂNEA, e sem ela o sorteio DIZ que pega o acervo inteiro. OTA PURO
 - **v5.307** — O CONFIRMAR DOS FAVORITOS PASSA PARA A DIREITA, e o lado do irmão vira decisão de quem o fornece. OTA PURO
@@ -178,6 +179,57 @@ na nota que a revoga, não apagada da que a criou.
 - **v5.154** — é METADE OTA e METADE APK, e a divisão importa para quem for testar em aparelho.
 - **v5.155** — é OTA PURO
 - **v5.156** — é METADE OTA e METADE APK, de novo.
+
+---
+
+## v5.310
+
+**A v5.310: O TÍTULO PAROU DE ANDAR PARA O LADO E CONTINUOU DESCENDO — a v5.309
+reservou as COLUNAS da faixa e não a LINHA, e o oráculo mediu só o eixo que ela
+corrigiu. OTA PURO** (base web, oráculo e docs; sem Release, `SHELL_VERSION`
+continua **44**).
+
+Relato do operador: *"verifique o título da aba bíblia, pois ele ainda está se
+deslocando verticalmente, novamente por causa da seta"*.
+
+**A CORREÇÃO ANTERIOR ESTAVA PELA METADE, E A METADE QUE FALTOU ERA UM EIXO
+INTEIRO.** A v5.309 trocou a faixa de flex para grade e declarou
+`grid-template-columns`, o que prendeu o eixo horizontal. A altura, porém,
+continuou IMPLÍCITA — numa grade sem `grid-template-rows` a linha mede o item
+mais alto, e o voltar é `--hit` (34px) contra os 15px do texto do título.
+
+MEDIDO nas três telas, antes:
+
+```
+                     faixa    título    lista
+Cronograma            15px      y=10     y=36
+Bíblia · livros       15px      y=10     y=36
+Bíblia · cap+vers     34px      y=19     y=55   ← o voltar entra
+```
+
+O título descia 9px **e a lista inteira descia 19px atrás dele** — o que o
+operador vê não é só o nome da tela se mexendo, é a tela toda. Com
+`grid-template-rows: var(--hit)` as três linhas ficam idênticas (faixa 34px,
+título y=19, lista y=55).
+
+**A REGRA, ESCRITA DE UMA VEZ PARA OS DOIS EIXOS:** *a caixa da faixa não pode
+depender de quem está dentro dela.* Era isso que a v5.309 já dizia sobre as
+colunas, e o que não foi generalizado.
+
+**O PREÇO ESTÁ ASSUMIDO:** reservar `--hit` custa 19px de altura de lista nas
+telas em que o voltar não aparece. A alternativa — encolher o botão até a altura
+do texto — devolveria ao voltar o **menor alvo de toque do app**, que é
+exatamente o que o esqueleto de `--hit` foi criado para impedir (ele já teve
+~20px, e a única saída da navegação da Bíblia não pode ser o alvo mais difícil
+da tela).
+
+**E O ORÁCULO ERROU JUNTO, POR CONSTRUÇÃO.** O bloco "O NOME DA TELA NÃO SE MEXE"
+media `x` e o eixo horizontal da faixa — as duas coisas que a v5.309 corrigiu.
+Um oráculo escrito a partir da correção confirma a correção; **o eixo que ele não
+mede é o eixo em que o defeito volta**, e aqui ele voltou na primeira tentativa.
+Agora ele mede `y`, a ALTURA da faixa e o topo da `#library` nas três telas, e a
+lista entra porque o pulo dela é o sintoma maior. Provado pela negativa: sem a
+linha declarada, a asserção reprova imprimindo exatamente a tabela acima.
 
 ---
 

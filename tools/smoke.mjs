@@ -2469,13 +2469,17 @@ try {
 // O título era centrado no espaço que SOBRAVA de uma faixa flex, e o voltar
 // entrava e saía do fluxo conforme a tela da Bíblia — então o único texto que
 // responde "onde eu estou" dava um pulo de ~19px toda vez que o operador
-// entrava num livro. Hoje a faixa é uma grade de três trilhas fixas.
+// entrava num livro. Hoje a faixa é uma grade de trilhas fixas nos DOIS eixos.
 //
-// São DUAS metades, e cada uma cai sozinha: a primeira prende o defeito
-// relatado (a posição não pode mudar entre telas), e a segunda prende a correção
-// que ele convida — reservar só a trilha do voltar deixaria o título parado e
-// FORA DO EIXO em toda a interface, trocando um deslocamento por um
-// desalinhamento.
+// OS DOIS EIXOS, e é por isso que este bloco mede os dois: a v5.309 reservou só
+// as COLUNAS e afirmou só o `x`, então o título parou de andar para o lado e
+// continuou descendo 9px — com a lista inteira 19px atrás dele. O eixo que o
+// oráculo não mede é o eixo em que o defeito volta, e aqui ele voltou na
+// primeira tentativa.
+//
+// A terceira asserção prende a correção que a primeira convida: reservar as
+// trilhas e não centrar deixaria o título parado e FORA DO EIXO em toda a
+// interface, trocando um deslocamento por um desalinhamento.
 try {
   const eixo = await pg.evaluate(async () => {
     // ESPERAR PELA CONDIÇÃO, NUNCA PELO RELÓGIO: um `setTimeout` calibrado
@@ -2490,10 +2494,18 @@ try {
       return false;
     };
     setAppMode('full');
+    // A LISTA entra na medição junto com o título: a altura da faixa era
+    // implícita (a do item mais alto), então o voltar não empurrava só o nome
+    // da tela — empurrava tudo que vem depois dele, que é o pulo que se vê.
     const onde = () => {
       const t = document.getElementById('listTitle').getBoundingClientRect();
       const h = document.querySelector('.list-header').getBoundingClientRect();
-      return { x: Math.round(t.x), meio: Math.round(t.x + t.width / 2), eixo: Math.round(h.x + h.width / 2) };
+      const l = document.getElementById('library').getBoundingClientRect();
+      return {
+        x: Math.round(t.x), y: Math.round(t.y),
+        meio: Math.round(t.x + t.width / 2), eixo: Math.round(h.x + h.width / 2),
+        faixaH: Math.round(h.height), listaY: Math.round(l.y),
+      };
     };
     await switchTab('imports');
     if (!await ate(() => document.getElementById('listTitle').textContent === 'Cronograma')) {
@@ -2515,12 +2527,21 @@ try {
     await ate(() => document.getElementById('listTitle').textContent === 'Cronograma');
     return { crono, livros, capitulos, voltarAparece };
   });
-  checar(!eixo.erro && eixo.voltarAparece === true
-    && eixo.livros.x === eixo.capitulos.x && eixo.crono.x === eixo.livros.x,
-    'o nome da tela fica PARADO quando o voltar aparece — a trilha dele é '
-    + 'reservada mesmo `hidden` (Cronograma ' + (eixo.crono || {}).x + 'px · livros '
-    + (eixo.livros || {}).x + 'px · capítulo+versículo ' + (eixo.capitulos || {}).x + 'px)',
+  const emX = (a) => a.map((t) => t.x);
+  const emY = (a) => a.map((t) => t.y);
+  const telas = eixo.erro ? [] : [eixo.crono, eixo.livros, eixo.capitulos];
+  const igual = (v) => v.every((n) => n === v[0]);
+  checar(!eixo.erro && eixo.voltarAparece === true && igual(emX(telas)),
+    'o nome da tela não anda PARA O LADO quando o voltar aparece — a coluna '
+    + 'dele é reservada mesmo `hidden` (x: ' + emX(telas).join(' · ') + ')',
     JSON.stringify(eixo));
+  checar(!eixo.erro && igual(emY(telas)) && igual(telas.map((t) => t.faixaH))
+    && igual(telas.map((t) => t.listaY)),
+    'e não DESCE tampouco: a linha da grade é declarada, então a altura da faixa '
+    + 'não é mais a do item mais alto — sem ela o título caía 9px e a lista '
+    + 'inteira 19px atrás dele (y: ' + emY(telas).join(' · ')
+    + ' · faixa: ' + telas.map((t) => t.faixaH).join(' · ')
+    + ' · lista: ' + telas.map((t) => t.listaY).join(' · ') + ')', JSON.stringify(eixo));
   checar(!eixo.erro && Math.abs(eixo.capitulos.meio - eixo.capitulos.eixo) <= 1,
     'e ele fica no EIXO da faixa, não deslocado para a direita dela — é o que o '
     + 'vão da trilha 3 existe para pagar', JSON.stringify(eixo));
