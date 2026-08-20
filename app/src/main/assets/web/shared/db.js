@@ -671,8 +671,18 @@
     // então sair da ÚLTIMA lista continua segurando o blob. O item fica órfão
     // ATÉ A CENA MUDAR — daí é órfão comum, e o `gcOrfaos` da abertura seguinte
     // o recolhe (`clearCurrentSelection` zera esta chave ANTES de `varrerRestos`).
+    // `noAr` e não `mediaId` sozinho: a seleção SOBREVIVE ao fim da mídia (é o
+    // que o ▶ repete), e prender por ela deixaria o último item tocado
+    // indestrutível — excluí-lo tiraria a linha da tela e deixaria os bytes,
+    // sem lugar visível onde removê-los. Quem escreve a bandeira é o
+    // `persistCurrent` do Controle, e `pararMidia`/`resetAfterEnd` a derrubam.
+    //
+    // Bundle antigo (sem o campo) cai em `undefined` e a cena não conta — o
+    // comportamento de antes deste conserto, que é o lado seguro de errar aqui:
+    // apagar cedo demais custa um download, prender para sempre custa o espaço
+    // do aparelho e não tem porta de saída.
     const cena = await asPromise(stateStore.get('current'));
-    if (cena && cena.mediaId) donos.add(cena.mediaId);
+    if (cena && cena.noAr && cena.mediaId) donos.add(cena.mediaId);
     return donos;
   }
 

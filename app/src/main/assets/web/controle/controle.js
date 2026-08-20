@@ -2147,7 +2147,15 @@ function msym(code) {
   return s;
 }
 function persistCurrent() {
-  return AVDB.setState('current', { mediaId: currentId, view, muted, volume, at: Date.now() });
+  // `noAr` É O QUE SOLTA O DETENTOR. `state.current.mediaId` sobrevive ao fim da
+  // mídia de propósito (é o que o ▶ repete), então ele sozinho não serve de
+  // detentor para o coletor: prenderia para sempre o último item tocado, e
+  // excluí-lo deixaria os bytes no aparelho sem lugar visível onde removê-los —
+  // o fantasma da v5.87. Com a bandeira, o `lerDetentores` só conta a cena
+  // enquanto ela está NO TELÃO, e `pararMidia`/`resetAfterEnd` a soltam sozinhos.
+  return AVDB.setState('current', {
+    mediaId: currentId, noAr: midiaNoAr, view, muted, volume, at: Date.now(),
+  });
 }
 
 // Sessão nova, player LIMPO. A mídia que ficou selecionada na sessão anterior
@@ -9081,6 +9089,10 @@ function resetAfterEnd() {
   midiaNoAr = false;
   midiaNoArId = '';
   midiaNoArOrigem = '';
+  // E O BANCO PRECISA SABER: é este `noAr` que solta o detentor da cena (ver
+  // `persistCurrent`). Sem ele o item que acabou de tocar ficaria protegido do
+  // coletor até o operador escolher outro.
+  persistCurrent();
   setPlaying(false);
   seekEl.value = 0;
   curTimeEl.textContent = '0:00';
@@ -9186,6 +9198,7 @@ async function pararMidia(tipo) {
   midiaNoAr = false;
   midiaNoArId = '';
   midiaNoArOrigem = '';
+  await persistCurrent();   // solta o detentor da cena — ver `persistCurrent`
   setPlaying(false);
   // Item de LINK: o `clear` derruba a cena, e o próximo ▶ precisa passar pelo
   // `send` (que hoje o RESOLVE — ver `resolverLinkYoutube`), não só reenviar

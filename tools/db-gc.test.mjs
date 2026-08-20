@@ -109,8 +109,13 @@ checar(segunda === 0, 'e a segunda passagem não acha mais nada', 'removidos: ' 
 // da projeção — o telão seguia com os bytes e nada avisava; o estrago aparecia
 // só na reconexão do dongle (ou depois de um OTA), quando o reenvio de cena
 // pede um `getMedia` que não existe mais. Longe da causa e no meio do culto.
+//
+// A bandeira é `noAr`, e não o `mediaId` sozinho: a SELEÇÃO sobrevive ao fim da
+// mídia (é ela que o ▶ repete), então prender por ela deixaria o último item
+// tocado indestrutível — o fantasma da v5.87, com os bytes no aparelho e sem
+// lugar visível onde removê-los.
 const emCena = await semear('playlist');
-await pg.evaluate((id) => window.AVDB.setState('current', { mediaId: id }), emCena);
+await pg.evaluate((id) => window.AVDB.setState('current', { mediaId: id, noAr: true }), emCena);
 await pg.evaluate((id) => window.AVDB.listRemove('playlist', id), emCena);
 checar(await existe(emCena), 'tirar da ÚNICA lista NÃO apaga o que está em cena');
 checar(!(await pg.evaluate((id) => window.AVDB.listHas('playlist', id), emCena)),
@@ -119,14 +124,29 @@ checar((await pg.evaluate(() => window.AVDB.gcOrfaos())) === 0,
   'a faxina também o preserva enquanto ele estiver no ar');
 checar(await existe(emCena), 'e ele continua no banco depois dela');
 
-// A OUTRA METADE, sem a qual a de cima seria vazamento: trocada a cena, ele
-// vira órfão comum e a faxina o recolhe. No app quem zera a chave é o
-// `clearCurrentSelection`, ANTES do `varrerRestos` da mesma abertura.
-const cenaNova = await semear('playlist');
-await pg.evaluate((id) => window.AVDB.setState('current', { mediaId: id }), cenaNova);
+// A OUTRA METADE, sem a qual a de cima seria VAZAMENTO — e ela tem dois
+// caminhos, porque no app são dois gestos diferentes.
+//
+// (1) A MÍDIA SAIU DO AR sem trocar de seleção: é o que `pararMidia` e o
+// `resetAfterEnd` fazem, e os dois chamam `persistCurrent()` logo depois de
+// zerar `midiaNoAr`. O `mediaId` continua lá (o ▶ repete), mas o detentor
+// caiu — senão excluir o que acabou de tocar não liberaria byte nenhum.
+await pg.evaluate((id) => window.AVDB.setState('current', { mediaId: id, noAr: false }), emCena);
 checar((await pg.evaluate(() => window.AVDB.gcOrfaos())) === 1,
-  'trocada a cena, a faxina seguinte o recolhe');
-checar(!(await existe(emCena)), 'e o registro que ficou para trás some');
+  'saindo do ar (mesma seleção, `noAr:false`), a faxina o recolhe');
+checar(!(await existe(emCena)), 'e o registro some — a seleção sozinha não segura nada');
+
+// (2) TROCADA A CENA: o caminho de sempre. No app quem zera a chave na abertura
+// é o `clearCurrentSelection`, ANTES do `varrerRestos` da mesma passagem.
+const outroEmCena = await semear('playlist');
+await pg.evaluate((id) => window.AVDB.setState('current', { mediaId: id, noAr: true }), outroEmCena);
+await pg.evaluate((id) => window.AVDB.listRemove('playlist', id), outroEmCena);
+checar(await existe(outroEmCena), 'um segundo item em cena também é preservado');
+const cenaNova = await semear('playlist');
+await pg.evaluate((id) => window.AVDB.setState('current', { mediaId: id, noAr: true }), cenaNova);
+checar((await pg.evaluate(() => window.AVDB.gcOrfaos())) === 1,
+  'trocada a cena, a faxina seguinte recolhe o anterior');
+checar(!(await existe(outroEmCena)), 'e o registro que ficou para trás some');
 checar(await existe(cenaNova), 'enquanto a cena nova continua inteira');
 
 await navegador.close();
