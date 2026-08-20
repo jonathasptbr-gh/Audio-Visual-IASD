@@ -2281,7 +2281,7 @@ As regras da gaveta são keyadas em `.lib-item`, não em `.hymn-result`: o mesmo
 envelope serve as duas listas, e uma segunda anatomia divergiria no próximo
 ajuste.
 
-**A listagem é densa** (`#favList`): ela NÃO herda a métrica do Cronograma, e as
+**A listagem é densa**: ela NÃO herda a métrica do Cronograma, e as
 duas não fazem a mesma coisa — lá cada linha é ALVO de toque no meio de um culto
 e o espaço em volta evita o toque errado; aqui o operador vem PROCURAR. Encolheu
 a MOLDURA (miniatura 40→32px, respiro, espaço entre linhas), nunca o TEXTO nem os
@@ -2395,46 +2395,22 @@ de referência de verdade), a **estrela em toda linha** e as **cenas de roteiro*
   deliberado: o que se espera de um favorito num domingo de manhã é que ele
   TOQUE, inclusive com a rede da igreja fora do ar. O que mudou é o destino (a
   lista `favs`, direto), não o custo.
-  direto), não o custo.
-- **Fechar a gaveta devolve à aba de onde ela foi aberta** (`favVoltarPara`).
-  Com a porta no cabeçalho fixo, ela é aberta de qualquer lugar — quem a abriu
-  no meio de uma leitura bíblica não espera cair no Cronograma ao fechá-la.
-- **Excluir na RAIZ da gaveta é desmarcar**, e isso precisa de um ramo próprio
+- **Excluir na RAIZ é desmarcar**, e isso precisa de um ramo próprio
   em `deleteSelected`: sem ele o `else` genérico caía em
   `listRemove('folders', id)` — a chave do ÍNDICE de pastas, que guarda objetos
   e não ids. Um no-op silencioso, com o operador vendo o item continuar na lista
   depois de mandar excluí-lo.
 
-**Por que saiu da lista.** Era uma tela do `#library` como as outras, e por isso
-disputava o cabeçalho com o resto do app: ela é a única que precisa de
-**voltar + título + busca + sincronizar** ao mesmo tempo, numa faixa que também
-carrega a troca de modo. Numa tela de 360px isso não cabia — o título saía com
-reticências. Como gaveta ela traz o **próprio cabeçalho** (`renderFavHeader`) e
-devolve o de baixo ao que ele é: um rótulo de aba com três elementos.
-
-**O `activeTab` continua `'folders'` enquanto a gaveta está aberta**, e essa é a
-decisão que mantém o custo baixo: abrir/fechar/navegar/selecionar/excluir
-seguem sendo o mesmo código de sempre. O que mudou foi **o container em que a
-lista é desenhada** — `listHost()` devolve `#favList` quando o `activeTab` é
-`'folders'` e `#library` no resto. Uma segunda implementação da lista de
-favoritos divergiria da primeira no primeiro ajuste.
-
-Três consequências que só aparecem em uso, e as três estão tratadas:
-
-- **A barra de seleção múltipla é MOVIDA para dentro da folha** (`hostSelbar`):
-  ela vive na caixa de controles, atrás da gaveta, e selecionar itens dentro de
-  uma pasta deixaria a barra invisível. É o mesmo padrão do
-  `<input type="file">`, que já muda de casa a cada render — um nó só, movido,
-  em vez de dois que divergem. Em casa o lugar dela é **antes do `.deck`**,
-  porque é ali que fica a faixa de abas que ela substitui: daí o `insertBefore`
-  e não um `appendChild`, que a jogaria para depois do transporte.
-- **O voltar do aparelho tem a hierarquia de DENTRO primeiro** (`__avBack`,
-  passo 1.5): seleção múltipla → pasta aberta → gaveta. A seleção vem antes da
-  pasta porque ela é do conteúdo DELA: sair da pasta com a seleção de pé
-  deixaria itens marcados numa lista que não é mais a deles.
-- **Fechar volta para a RAIZ.** Uma gaveta reabre no topo; reaparecer dentro de
-  uma pasta que o operador fechou há dois toques seria uma memória que ninguém
-  pediu. A posição de ROLAGEM, essa sim, continua guardada por `scrollPos`.
+> **A GAVETA DE TELA CHEIA SAIU (v5.294).** Os Favoritos foram para dentro da
+> Biblioteca como a **primeira seção** dela, e a pasta do aparelho passou a
+> abrir **INLINE** (v5.290) — foi isso que tirou o último caminho até a gaveta.
+> Saíram com ela `#favPopup`, `#favList`, `renderFavHeader`, `favVoltarPara`,
+> `garantirGaveta`, `openFavorites`/`closeFavorites`, o `listHost()` de dois
+> containers e o `hostSelbar` de duas casas. **Hoje há UM host**: o corpo
+> marcado com `data-fav-corpo` dentro de `#hymnResults`, desenhado pelo mesmo
+> `renderFolderList` via `favHost`/`favAlvo()`, dentro de
+> `comBaldeDeMiniaturas('fav-biblioteca', …)`. O `__avBack` perdeu o degrau da
+> gaveta junto.
 
 O mecanismo por baixo continua usando as MESMAS chaves de state (renomear a
 leitura não pode custar a biblioteca de ninguém) — o que mudou é o
@@ -2633,14 +2609,11 @@ nomeava.
   agora diz "N álbum(ns) sem rede — tente de novo". Isso só é possível porque
   `syncCollection` passou a **devolver um resultado** (abaixo).
 
-**Baixar TODO o acervo** é o mesmo mecanismo com todas as coleções: um
-cabeçalho "Todo o acervo" no topo, visível **só em "Todos"** — com um filtro
-ativo "tudo" seria ambíguo (tudo do filtro? tudo mesmo?), e o cabeçalho da
-categoria já cobre o primeiro caso. Ele confirma **sempre**, mesmo no Wi-Fi
-(`opts.confirmScale`), com a contagem de coleções, de músicas pendentes e o
-tamanho estimado: a pergunta de rede é sobre o plano de dados, esta é sobre a
-escala, e são perguntas diferentes. Com tudo já baixado ele não abre diálogo
-nenhum — só responde "Acervo já completo offline".
+> **"Baixar TODO o acervo" SAIU na v5.258**, a pedido do operador: com as
+> séries do YouTube a escala virou dezenas de GB (~15 GB só de um ano de
+> episódios), e um botão que baixa tudo deixou de ter significado. `renderAcervoTotal`
+> foi apagado junto. Ficam os dois downloads com **tamanho de decisão**: por
+> coleção (a barra do card) e por categoria (`montarResumoGrupo`).
 
 #### Concorrência de download (`NET_CONCURRENCY`)
 
@@ -2902,8 +2875,7 @@ acordeões do acervo: o **card do álbum** e a **letra** de cada linha.
 - **`prefers-reduced-motion: reduce` desliga tudo** (`semMovimento()`).
 
 > **Vocabulário: na TELA ela se chama "Biblioteca"** (v5.96). No código e neste
-> documento continua sendo o **acervo** (`hymnSearchPopup`, `renderAcervoTotal`,
-> `openHymnSearch`). Cuidado com o outro sentido de "biblioteca" que já existia
+> documento continua sendo o **acervo** (`hymnSearchPopup`, `openHymnSearch`). Cuidado com o outro sentido de "biblioteca" que já existia
 > aqui — o IndexedDB/OPFS com tudo o que o operador baixou; nos textos VISÍVEIS
 > ele é "os dados do app", para as duas coisas não dividirem a mesma palavra.
 

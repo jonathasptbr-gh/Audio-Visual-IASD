@@ -1922,6 +1922,7 @@ Antes de publicar: `node --check` em todo `.js` de `assets/web`, validação do
 | `sorteio.test.mjs` | quais faixas a **playlist automática** pode mandar ao telão. O operador toca UM botão e a faixa entra em cena, sem tela intermediária: os quatro modos de errar (série no lugar do louvor · faixa que casa e não aparece · PLAYBACK onde se esperava a voz · fila cheia do que falta baixar) são todos silenciosos |
 | `glifos.test.mjs` | **todo ícone de fonte existe na fonte.** O `.woff2` é um SUBSET de 31 codepoints, e um `.msym` fora dele não desenha NADA — sem erro, sem requisição falhando, só um vão: o botão existe, é tocável, faz o que promete e é invisível. Lê o `cmap` do próprio arquivo (`zlib.brotliDecompressSync`, zero dependência) |
 | `sidx.test.mjs` | o parser `sidx` |
+| `tipos-que-sobem.test.mjs` | **as DUAS metades do dreno da tela da rede**: a lista de permissão do `drenar()` (`espelho/tela.js`) e a do `TIPOS_QUE_SOBEM` (`EspelhoServidor.kt`). Duas listas sem oráculo divergem no primeiro esquecimento, e a divergência é MUDA nos dois sentidos |
 | `contexto-seguro.test.mjs` | `VideoDecoder`, `wakeLock`, `audioWorklet`, `randomUUID`, `crypto.subtle` **fora de guarda** em `espelho/`, `display/` **e `shared/`** — o `/display/` das telas da rede roda em `http://`, e ele carrega quatro arquivos de `shared/`: lá essas APIs vêm `undefined`. Guarda vale `isSecureContext` **ou** detecção de presença na mesma linha |
 
 **Chromium de verdade, em DOIS PASSOS:** `Preparar o Chromium` (o `npm i` e o

@@ -7616,9 +7616,9 @@ function renderFoldersSeVisivel() {
 // Pedido do operador: *"coloque os favoritos dentro da biblioteca… Pode deixar
 // a seção de favoritos no topo da listagem."*
 //
-// A lista continua sendo montada por `renderFolderList`; o que muda é ONDE ela
-// é desenhada — a gaveta de tela cheia (`#favList`) ou o grupo do topo da
-// Biblioteca. É o mesmo padrão do `favHost` logo acima, e a razão
+// A lista continua sendo montada por `renderFolderList`, e desde a v5.294 há
+// UM host só: o corpo `data-fav-corpo` da seção de Favoritos da Biblioteca (a
+// gaveta de tela cheia saiu). É o mesmo padrão do `favHost` logo acima, e a razão
 // é a de sempre: duas marcações para a mesma
 // lista divergem no primeiro ajuste, e aqui divergiriam em gestos (o toque
 // longo que entra na seleção múltipla), na alça de arrastar e na estrela.
@@ -7640,8 +7640,9 @@ function favAlvo() { return favHost; }
  *
  * `thumbEl` cria as URLs das miniaturas e as empurra em `thumbUrlsAtual` — o
  * balde do render EM CURSO. Quem troca esse balde e revoga o anterior é só o
- * `renderLibrary`, e ele o faz por HOST (`libraryEl` × `favListEl`). A seção de
- * Favoritos DENTRO da Biblioteca é uma terceira casa, desenhada pelo mesmo
+ * `renderLibrary`, e ele o faz por CHAVE — o host único `libraryEl` e a string
+ * `'fav-biblioteca'`. A seção de Favoritos DENTRO da Biblioteca é o segundo
+ * balde, desenhada pelo mesmo
  * `renderFolderList` por outro caminho: as URLs que ela criava caíam no balde
  * de OUTRO host, e o `renderLibrary` seguinte — que roda a cada 400 ms enquanto
  * um download corre — as revogava COM ELAS EM CENA. As miniaturas da Biblioteca
@@ -12258,11 +12259,11 @@ async function ytAcao(r, destinos, btn, somenteAudio, altura) {
     // segurar o que não tem outro dono. A ordem importa: primeiro entra nas
     // listas novas, senão o `listRemove` coletaria o blob.
     await AVDB.listRemove('avulsos', rec.id);
-    // SEM FAIXA DE AVISO NO FIM DO DOWNLOAD (v5.119). `responder` cai no
-    // `avisar` quando o botão não está visível — e no caminho do YouTube ele
-    // NUNCA está: a folha de destinos fecha antes da ação rodar. Ou seja, todo
-    // download terminava numa faixa flutuante, que é exatamente o que este app
-    // tirou de cena na v5.106.
+    // SEM AVISO NO FIM DO DOWNLOAD (v5.119). No caminho do YouTube o botão
+    // tocado NUNCA está visível quando a ação termina: a folha de destinos
+    // fecha antes. O MOTIVO de uma falha vai para o cartão sobre a preview
+    // (`previewBusy(…).falhar`) ou para a folha de origem (`#castMsg`) — a
+    // faixa flutuante (`avisar()`) saiu na v5.207.
     //
     // E ela não fazia falta: quem já responde é a MINIATURA do resultado, que
     // troca o anel de download pelo ✓ (`setYtEstado('pronto')`), e a linha que
@@ -16329,10 +16330,10 @@ function registrarShareNativo() {
 // Ferramentas têm "Cronograma" e "Favoritos") uma mensagem genérica não diria
 // em qual dos dois se tocou.
 //
-// A faixa (`avisar`) ficou para o que o botão não consegue dizer: o MOTIVO de
-// uma falha ("sem este capítulo no aparelho e sem internet para baixar") e os
-// caminhos em que o botão tocado desaparece antes da resposta — a folha do
-// acervo, por exemplo, que fecha porque o download pode levar minutos.
+// Quando o botão tocado já saiu de cena — a folha do acervo, por exemplo, que
+// fecha porque o download pode levar minutos —, `responder` devolve `false` e
+// QUEM CHAMOU decide onde a frase aparece: o cartão sobre a preview ou a folha
+// de origem. (A faixa flutuante `avisar()` saiu na v5.207.)
 const PULSO_MS = 1100;
 
 // "Está na tela?" não é `isConnected`: as folhas deste app fecham por
@@ -18875,8 +18876,8 @@ if (castMirrorBtnEl) {
       // com o que ela sempre soube dizer melhor: a FALHA, que é uma frase
       // inteira vinda do shell e não caberia num botão.)
       const ok = await ligarEspelho();
-      // A frase da falha já saiu pelo `avisar` (ela vem pronta do Kotlin).
-      // Aqui fica a saída — e ela aponta para onde o operador pode agir.
+      // A frase da falha já saiu por `texto2(castMsgEl, …)` (ela vem pronta do
+      // Kotlin). Aqui fica a saída — e ela aponta para onde o operador pode agir.
       // O SUCESSO NÃO PRECISA DE FRASE (v5.194): o endereço aparecendo logo
       // abaixo, com o rótulo que diz o que fazer com ele, É o "deu certo". A
       // falha continua falando, porque ali não há nada que apareça sozinho.
@@ -18915,13 +18916,8 @@ const POPUPS = [
   // vem antes das duas que nascem dela — o voltar percorre esta tabela de trás
   // para a frente.
   [castPopupEl, castCloseEl, fecharCast],
-  // A folha do espelho abre DE DENTRO da folha de conexão, então vem depois:
-  // o voltar percorre esta tabela de trás para a frente e precisa fechar a de
-  // cima primeiro. Uma linha aqui já a liga aos três caminhos de fechamento
-  // (✕, toque no fundo, botão do aparelho) — é para isso que a tabela existe.
-  // E o leitor de QR abre de dentro da folha do espelho, então vem DEPOIS dela.
-  // Aqui a linha vale mais que nos outros: fechar este popup é DESLIGAR A
-  // CÂMERA, e é esta tabela que garante que os três caminhos façam isso.
+  // (A folha de "Ajustes avançados" do espelho e o leitor de QR tinham linha
+  // aqui; saíram na v5.196 e na v5.185.)
   [lyricsPopupEl, lyricsPopupCloseEl, closeLyricsPopup],
   // A folha da música abre DE DENTRO do acervo: o voltar percorre esta tabela
   // de trás para a frente, então a ordem aqui é a ordem em que as camadas se

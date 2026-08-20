@@ -587,7 +587,7 @@ object EspelhoHttp {
      *
      * Ele paga três contas de uma vez (spec §3.8): o vigia de fio do cliente,
      * a detecção de TCP meio-aberto do lado do servidor (a escrita falha) e a
-     * renovação do wake lock do EspelhoService, que é por progresso real de
+     * renovação do wake lock do EspelhoEnergia, que é por progresso real de
      * escrita. O epoch é a referência da correção de relógio das telas — o
      * cronômetro e o sorteio viajam por descritor ancorado em `Date.now()` do
      * celular, e uma Smart TV com o relógio minutos fora contaria errado.

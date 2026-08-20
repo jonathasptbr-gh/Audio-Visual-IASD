@@ -77,10 +77,12 @@ import kotlin.concurrent.thread
  * `espelho/tela.js`; validação que mora só no cliente não é validação.)
  *
  * Os estáticos saem do [WebPathHandler] (mesma resolução OTA→APK e mesma tabela
- * MIME dos WebViews) por um **mapa fixo** rota → caminho, nunca por
- * concatenação: `handle("espelho/" + nome)` com `nome` da URL serviria
- * `/controle/controle.js` e `/shared/native.js` para a rede. A contenção por
- * `canonicalPath` daquele arquivo passa a ser load-bearing por causa deste.
+ * MIME dos WebViews) por uma **allowlist de PREFIXO** ([PREFIXOS_BUNDLE]) com
+ * concatenação — a tela roda o próprio `/display/`, que carrega `/shared/`, e
+ * um mapa fixo rota→caminho não daria conta. É por isso que ela depende de DUAS
+ * guardas, e as duas são load-bearing: o parser recusa `..` no caminho, e o
+ * `canonicalPath` do [WebPathHandler] contém o que sobrar. `/controle/` NUNCA
+ * está entre os prefixos.
  *
  * ## A invariante 8 do `CLAUDE.md` se INVERTE aqui
  *
@@ -1745,7 +1747,7 @@ class EspelhoServidor(
          * o vigia de fio do cliente (que no fluxo de pixels vivia dos bytes
          * contínuos do vídeo), a detecção de TCP meio-aberto deste lado (a
          * escrita do ping falha), e a renovação do wake lock do
-         * [EspelhoService], que é por progresso real de escrita — um SSE pode
+         * [EspelhoEnergia], que é por progresso real de escrita — um SSE pode
          * ficar minutos sem comando numa cena parada, e sem o ping o teto de
          * 2 h venceria no meio do culto. O ping carrega o epoch que ancora a
          * correção de relógio das telas (cronômetro e sorteio viajam por
@@ -1768,8 +1770,11 @@ class EspelhoServidor(
          *
          * É a metade servidora do dreno de subida do `espelho/tela.js`, e as
          * duas precisam existir: a do cliente evita o tráfego, esta é a que
-         * **vale**. Mantê-las iguais é obrigação de quem acrescentar um tipo;
-         * o `tools/tela-rede.test.mjs` cobra o par.
+         * **vale**. Mantê-las iguais é obrigação de quem acrescentar um tipo, e
+         * quem cobra o par é o `tools/tipos-que-sobem.test.mjs` — Node puro, no
+         * passo que BARRA o build. (Ele lê ESTE `setOf` e o `drenar()` do
+         * `tela.js` como texto, e sabe que `display-status` sobe renomeado para
+         * `tela-status`.)
          */
         private val TIPOS_QUE_SOBEM = setOf("display-ready", "tela-status")
 

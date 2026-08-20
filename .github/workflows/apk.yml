@@ -150,6 +150,15 @@ jobs:
           # como "travando e dessincronizando", nunca como uma exceção.
           # Determinístico, sem navegador: entra aqui, sem `continue-on-error`.
           node tools/sombra.test.mjs
+
+          # AS DUAS METADES DO DRENO DA TELA DA REDE. A lista de permissão do
+          # que uma tela pode injetar no barramento existe no `tela.js` (evita o
+          # tráfego) e no `EspelhoServidor.kt` (é a que VALE) — e duas listas
+          # sem oráculo divergem no primeiro esquecimento, mudas nos dois
+          # sentidos. O KDoc do `TIPOS_QUE_SOBEM` afirmava que o
+          # `tela-rede.test.mjs` cobrava o par; ele não cobrava — aquele oráculo
+          # sobe um servidor de MENTIRA e nunca lê o Kotlin.
+          node tools/tipos-que-sobem.test.mjs
           # A REGRA DA SÉRIE: quais playlists do canal formam o álbum "Provai e
           # Vede 2026" e quais vídeos entram nele. Os dois modos de errar são
           # silenciosos e caros — aceitar demais põe a versão em LIBRAS em par
