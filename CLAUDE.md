@@ -2183,12 +2183,28 @@ mais uma linha na tabela — nunca uma seção a mais no hub, que é o formato d
 ele acabou de sair (um arquivo de 490 KB em que uma pergunta sobre a Bíblia
 custava carregar o Controle inteiro).
 
-**Poda de comentário se PROVA, não se confere de olho.** Uma edição que só mexe
-em comentário tem de deixar o código idêntico byte a byte: remova os comentários
-dos dois lados, normalize o espaço em branco e compare com `git show
-<ref>:<arquivo>`. É a única defesa contra apagar uma linha de código junto com o
-parágrafo que a explicava — e ela também prova, no fim do lote, que um lote de
-documentação é **só web** e não precisa de Release.
+**Poda de comentário se PROVA, não se confere de olho — e são DUAS provas.**
+
+1. **O código não mudou.** Remova os comentários dos dois lados, normalize o
+   espaço em branco e compare com `git show <ref>:<arquivo>`. É a defesa contra
+   apagar uma linha de código junto com o parágrafo que a explicava — e ela
+   também prova, no fim do lote, que um lote de documentação é **só web** e não
+   precisa de Release.
+2. **Cada comentário continua sobre o que ele explica.**
+   `node tools/pares-de-comentario.mjs <arquivo> <ref>` casa os blocos pelo
+   cabeçalho e reprova quando um deles passou a encabeçar outro símbolo.
+
+**A prova 1 é CEGA à troca de lugar, e por isso a 2 existe.** Remover os
+comentários dos dois lados e comparar aprova uma **rotação completa** dos
+blocos: foi o que a v5.300 fez com o `display.js` (commits `4ed5061` e
+`da615b8`), onde oito blocos andaram uma casa e cada um passou a explicar a
+função errada — o bloco do relógio da origem foi parar dentro do
+`telaAplicarWallpaper`, e o da pré-carga do wallpaper, sobre o `agoraDaOrigem`.
+As duas mensagens de commit afirmavam "código inalterado (verificado por remoção
+de comentários contra HEAD)", e estavam certas: o método é que não via.
+
+**Um comentário no lugar errado é pior que um comentário removido: ele responde,
+e responde errado.**
 
 ### A versão mora em TRÊS lugares, e os três precisam andar juntos
 

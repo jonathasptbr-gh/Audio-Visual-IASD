@@ -50,30 +50,58 @@
 // Node puro, determinístico, sem rede e sem navegador: entra no `apk.yml` sem
 // `continue-on-error`.
 // ============================================================================
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { dirname, join, relative } from 'node:path';
+import { dirname, join, relative, sep } from 'node:path';
 
 const raiz = join(dirname(fileURLToPath(import.meta.url)), '..');
 const WEB = join(raiz, 'app/src/main/assets/web');
 
-// Cada arquivo com a indentação em que vive o corpo do módulo. Os dois valores
-// não são estilo: `0` é um script de topo (`display.js`, `controle.js`), `2` é
-// o corpo de uma IIFE. `vendor/` fica de fora — é código buildado de terceiro,
-// e a regra é nossa.
-const ARQUIVOS = [
-  ['espelho/cliente.js', 2],
-  ['espelho/fmp4.js', 2],
-  ['display/display.js', 0],
-  ['controle/controle.js', 0],
-  ['controle/louvorja.js', 2],
-  ['controle/serie.js', 2],
-  ['controle/bible.js', 2],
-  ['shared/stage.js', 2],
-  ['shared/native.js', 2],
-  ['shared/db.js', 2],
-  ['shared/mse.js', 2],
-];
+// A LISTA É VARRIDA, NÃO DIGITADA. Ela já foi escrita à mão, e envelheceu do
+// jeito mudo: nomeava `espelho/cliente.js` e `espelho/fmp4.js` (apagados com o
+// espelho de pixels, v5.187) e NÃO nomeava `espelho/tela.js` nem
+// `controle/sorteio.js`. Um alvo ausente era um `continue`, então o alcance
+// encolhia para 9 de 11 e o teste saía verde — **o oráculo media a lista, não a
+// base**. E o buraco era o pior possível: `espelho/tela.js` roda no papel
+// `tela`, num navegador da LAN onde não há console para ninguém olhar, e o
+// watchdog do OTA não cobre as telas da rede (quem confirma o boot é o
+// Controle). A ironia é exata — o defeito que este oráculo existe para pegar
+// (v5.152) morava no cliente do espelho, a mesma família do arquivo que passou
+// a escapar.
+//
+// A INDENTAÇÃO do corpo do módulo é DEDUZIDA: `0` é um script de topo
+// (`display.js`, `controle.js`), `2` é o corpo de uma IIFE. `vendor/` fica de
+// fora — é código buildado de terceiro, e a regra é nossa.
+function varrer(dir, base = dir) {
+  const achados = [];
+  for (const e of readdirSync(dir, { withFileTypes: true })) {
+    const p = join(dir, e.name);
+    if (e.isDirectory()) {
+      if (e.name === 'vendor') continue;
+      achados.push(...varrer(p, base));
+    } else if (e.name.endsWith('.js')) {
+      achados.push(relative(base, p).split(sep).join('/'));
+    }
+  }
+  return achados.sort();
+}
+
+// A PRIMEIRA linha com código decide, e só ela: um arquivo que ABRE com
+// `(function (global) {` (ou `!function`, ou `(() => {`) tem o corpo do módulo
+// indentado em 2; o resto vive na coluna 0. Olhar o arquivo inteiro não serve —
+// qualquer IIFE interna casaria, e `display.js`/`controle.js`, que são scripts
+// de topo, seriam lidos como IIFE (o corpo inteiro deles vira "dentro de
+// função" e o oráculo passa a acusar redeclaração em toda variável local).
+function indentacaoDe(fonte) {
+  const linhas = fonte
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .split('\n')
+    .map((l) => l.replace(/^\s*\/\/.*$/, ''));
+  const primeira = linhas.find((l) => l.trim());
+  return primeira && /^\s*[!(]\s*(?:async\s+)?(?:function\b|\()/.test(primeira) ? 2 : 0;
+}
+
+const ARQUIVOS = varrer(WEB).map((rel) => [rel, indentacaoDe(readFileSync(join(WEB, rel), 'utf8'))]);
 
 let falhas = 0;
 let arquivos = 0;
@@ -92,9 +120,11 @@ for (const [rel, indent] of ARQUIVOS) {
   try {
     fonte = readFileSync(caminho, 'utf8');
   } catch (_) {
-    // Um arquivo que sumiu numa refatoração não pode reprovar o build inteiro,
-    // mas também não pode passar batido: ele vira uma linha e segue.
-    console.log('--\t' + rel + ': não existe mais (tire-o da lista)');
+    // Não acontece mais: a lista é varrida da árvore, então todo alvo existe.
+    // Se acontecer, é uma corrida com o sistema de arquivos, e ela REPROVA —
+    // um alvo que some calado é exatamente como este oráculo perdeu dois
+    // arquivos de vista.
+    falhou(rel + ': sumiu entre a varredura e a leitura');
     continue;
   }
   arquivos++;
