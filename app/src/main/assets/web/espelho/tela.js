@@ -461,7 +461,11 @@
         cache: 'no-store',
         signal: ac.signal,
       });
-      if (r.status === 404) cairToken('A sessão venceu — digite o código de novo.');
+      // MUDO de propósito: não há código a digitar desde a v5.189 (a porta é o
+      // ENDEREÇO), a reentrada é sozinha, e o KDoc do `cairToken` diz que isto
+      // NÃO desenha nada por cima da mídia. Uma frase aqui vira um balão sobre
+      // a projeção pedindo uma ação que não existe.
+      if (r.status === 404) cairToken('');
     } catch (e) {
       // Relato perdido não é evento: o próximo compasso tenta de novo.
     } finally {

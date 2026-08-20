@@ -1439,9 +1439,10 @@ class MainActivity : ComponentActivity(), BridgeHost {
     // ---------- certificado do espelho (o degrau de TLS) ----------
     //
     // Os três saem da main thread — ler um `.p12` do SAF, abrir um PKCS12 e
-    // reescrevê-lo é disco e cripto —, e saem numa THREAD PRÓPRIA e não na fila
-    // de IO da ponte. A fila é de uma thread só e é onde roda o download do
-    // YouTube: importar um certificado no meio de um download ficaria preso por
+    // reescrevê-lo é disco e cripto —, e saem numa THREAD PRÓPRIA e não numa
+    // fila da ponte. A `transferencia` é de uma thread só e é onde roda o
+    // download do YouTube: importar um certificado no meio de um download
+    // ficaria preso por
     // minutos e a Promise venceria pelo prazo de 60 s do `native.js`,
     // resolvendo `null` — um "erro" sem causa. É a mesma razão pela qual os
     // cinco métodos do espelho ficam fora dela.

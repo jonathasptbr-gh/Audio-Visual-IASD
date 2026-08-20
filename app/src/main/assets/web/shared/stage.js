@@ -883,11 +883,15 @@
       // para ele mostraria o preto do palco. Ver `computeCover`.
       if (view === 'visual' && coveredNow && !semVisual()) {
         if (fadeIn && alvo) {
-          // A cortina segura o wallpaper enquanto o stream não tem quadro — o
-          // telão não fica preto aqui. Mesmo assim o giro entra: o wallpaper é
-          // o repouso do telão, então sem ele o operador vê exatamente a mesma
-          // tela de quando nada foi pedido, por vários segundos, depois de ter
-          // pedido um vídeo.
+          // ESTE RAMO NÃO É O DO "Tocar agora". Num load com autoplay o
+          // `play()` acima já chamou `instantCover(computeCover())` e zerou o
+          // `coveredNow`, então quem transiciona ali é o fade de CONTEÚDO. Aqui
+          // se chega com `autoplay === false` (cena restaurada PAUSADA) ou com
+          // imagem — casos em que a cortina de fato ainda está no ar.
+          //
+          // O giro entra mesmo assim: o wallpaper é o repouso do telão, então
+          // sem ele o operador vê exatamente a mesma tela de quando nada foi
+          // pedido, por vários segundos, depois de ter pedido um vídeo.
           if (ehStream) mostrarEspera(true);
           await mediaReady(alvo, ehStream ? PRONTO_STREAM_MS : 0);
           if (seq !== loadSeq) return;

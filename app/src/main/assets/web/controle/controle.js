@@ -1768,8 +1768,8 @@ function aplicarNaPreview(obj, item) {
 function previewTick() {
   // Texto manual em cena sem áudio de fundo: nada de mídia/tempo a sincronizar.
   // (Com áudio de fundo, o texto é overlay e a preview segue o áudio normalmente.)
-  // O conjunto é o MESMO de `clearManualText` — as cinco sessões, incluindo
-  // cronômetro e sorteio; listar só três deixava o tick rodando sobre uma
+  // O conjunto é o MESMO de `clearManualText` — as SEIS sessões, incluindo
+  // cronômetro, sorteio e a imagem sobre o áudio; listar só três deixava o tick rodando sobre uma
   // preview sem mídia durante uma contagem regressiva.
   if (cenaDeRoteiroNoAr() && !preview.getCurrent()) return;
   // Itens YouTube tocam só no Display (player real): a UI de transporte é
@@ -4319,24 +4319,6 @@ function lyricStep(delta) {
   projectLyricStanza(t);
 }
 
-// Encerra QUALQUER texto manual em cena (Bíblia, Mensagem, letra avulsa,
-// cronômetro ou sorteio) — só um por vez.
-/**
- * UM PROVEDOR DE TEXTO POR VEZ — e a lista mora aqui, não em cada projetor.
- *
- * O cartão de texto é UM, e cada `project*` limpava as outras camadas à mão.
- * A conta não fechava, e nenhum caminho errava alto: `projectBibleVerse`
- * limpava só cronômetro e sorteio, `projectMessage`/`projectChrono`/
- * `projectDraw` esqueciam a LETRA AVULSA nos três, e ninguém zerava o
- * `textoAvulsoNoAr`. Como `lyricProjecting()` tem PRECEDÊNCIA sobre mensagem e
- * Bíblia no `slideTarget` e no `renderNowPlaying`, uma `lyricSession` órfã com
- * `projecting: true` sequestrava ⏮/⏭ e o título publicado na notificação de
- * mídia: o telão mostrava o aviso e o transporte continuava dizendo "147. Ó
- * Adorai o Senhor · 1/5", passando estrofes de um hino que não estava em cena.
- *
- * Cinco listas mantidas à mão são cinco lugares para a próxima camada ser
- * esquecida. Aqui é um: quem entra diz QUEM É, e o resto sai.
- */
 // ===== A IMAGEM SOBRE O ÁUDIO (v5.312) =====
 //
 // Pedido do operador: *"preciso que imagens, ou arquivos unicamente visuais,
@@ -4386,6 +4368,24 @@ function audioNoAr() {
   return !!(midiaNoAr && currentItem && currentItem.kind === 'audio');
 }
 
+// Encerra QUALQUER texto manual em cena (Bíblia, Mensagem, letra avulsa,
+// cronômetro ou sorteio) — só um por vez.
+/**
+ * UM PROVEDOR DE TEXTO POR VEZ — e a lista mora aqui, não em cada projetor.
+ *
+ * O cartão de texto é UM, e cada `project*` limpava as outras camadas à mão.
+ * A conta não fechava, e nenhum caminho errava alto: `projectBibleVerse`
+ * limpava só cronômetro e sorteio, `projectMessage`/`projectChrono`/
+ * `projectDraw` esqueciam a LETRA AVULSA nos três, e ninguém zerava o
+ * `textoAvulsoNoAr`. Como `lyricProjecting()` tem PRECEDÊNCIA sobre mensagem e
+ * Bíblia no `slideTarget` e no `renderNowPlaying`, uma `lyricSession` órfã com
+ * `projecting: true` sequestrava ⏮/⏭ e o título publicado na notificação de
+ * mídia: o telão mostrava o aviso e o transporte continuava dizendo "147. Ó
+ * Adorai o Senhor · 1/5", passando estrofes de um hino que não estava em cena.
+ *
+ * SEIS listas mantidas à mão seriam seis lugares para a próxima camada ser
+ * esquecida. Aqui é um: quem entra diz QUEM É, e o resto sai.
+ */
 function soUmProvedorDeTexto(quem) {
   if (quem !== 'imagem') clearImgSession();
   if (quem !== 'bible') clearBibleSession();
@@ -4446,9 +4446,6 @@ function projectMessage(idx) {
   refreshDiversos();
 }
 
-// Tira a mensagem do telão mantendo a sessão viva (o operador pode reexibir
-// pela lista). Espelha hideBibleVerse: `text-hide` encerra só a Camada de
-// Texto — um áudio de fundo, se houver, segue tocando.
 // PROJETAR UMA IMAGEM POR CIMA. Nenhum `load` sai daqui — é essa a diferença
 // inteira, e é o que preserva o áudio por baixo.
 function projetarImagemSobre(rec) {
@@ -4475,6 +4472,9 @@ function hideImagemSobre() {
   marcarNoAr();
 }
 
+// Tira a mensagem do telão mantendo a sessão viva (o operador pode reexibir
+// pela lista). Espelha hideBibleVerse: `text-hide` encerra só a Camada de
+// Texto — um áudio de fundo, se houver, segue tocando.
 function hideMessage() {
   if (!msgProjecting()) return;
   msgSession.projecting = false;
@@ -9254,7 +9254,7 @@ async function retirarDoAr(item) {
   if (isCue(item)) {
     // O `text-hide` É O QUE TIRA DA TELA — e ele faltava.
     //
-    // `clearManualText()` é BOOKKEEPING: as cinco `clear*Session` zeram o
+    // `clearManualText()` é BOOKKEEPING: as SEIS `clear*Session` zeram o
     // estado do Controle, re-renderizam a navegação e não mandam um único
     // comando ao telão. Nos outros chamadores isso está certo, porque logo
     // atrás vem um `load` (que esconde o texto no Display) ou um `clear`. Aqui
@@ -18523,8 +18523,8 @@ function acertarEnqueteDeFundo() {
 
 // LIGAR COM A TV NO AR não pede confirmação: a transmissão por comandos custa
 // JSON e rajadas de arquivo — não há segunda projeção sendo desenhada e
-// codificada no aparelho. A função abaixo fica (dois chamadores) como registro
-// da decisão de não perguntar.
+// codificada no aparelho. A função abaixo fica (UM chamador, `ligarEspelho`)
+// como registro da decisão de não perguntar.
 async function confirmarEspelhoComTv() {
   return true;
 }

@@ -107,7 +107,7 @@ app/src/main/
 │   ├── SafPathHandler.kt        # serve arquivos do dispositivo em /saf/<token>
 │   ├── ShareIntake.kt           # intent ACTION_SEND → formato do share web
 │   ├── SyncService.kt           # foreground service: downloads com o app minimizado
-│   ├── SessionService.kt        # O ÚNICO foreground service: MediaSession + transmissão
+│   ├── SessionService.kt        # o único FGS DO CULTO (o Sync só sobe em download)
 │   ├── WebUpdater.kt            # OTA da base web (watchdog, minShell, sha256)
 │   ├── ShellUpdater.kt          # OTA do APK: a Release nova, instalada de dentro do app
 │   ├── WebPathHandler.kt        # serve o bundle OTA, com fallback pro APK
@@ -235,7 +235,13 @@ silêncio**:
    comprometimento do aparelho: com `host != null`, qualquer script de terceiro
    ali ganharia `pickFolder`, `listFolder`, `pickDoc`, `openExternal` e
    `espelhoLigar` — este último abre um servidor na rede da igreja.
-   `tools/ponte.test.mjs` a trava.
+
+   **NÃO HÁ ORÁCULO PARA ELA.** O `ponte.test.mjs` afirma o dreno e a remontagem
+   de campos, não a superfície privilegiada no papel `display`; a invariante mora
+   só no `StagePresentation.kt` (`host = null` e `assetLoader(…, withSaf = false)`)
+   mais as guardas `host == null` de cada método. Escrevê-la é carregar o
+   `native.js` com um `__AVBridge` cujo `role()` devolva `'display'` e afirmar
+   que os cinco métodos privilegiados resolvem o desfecho inofensivo.
 
 **No `AndroidManifest.xml`:** `hardwareAccelerated` e `largeHeap` — os dois
 WebViews e um vídeo grande dividem o mesmo processo.
@@ -2111,7 +2117,7 @@ Rodar local: `./gradlew assembleDebug` (exige Android SDK).
 - **Cor nova entra em `shared/tokens.css`**, nunca literal na folha do app — e
   nunca branco pleno fora do palco.
 - **Sem dependências externas** — Kotlin puro + AndroidX no shell, JavaScript
-  puro no web. **Quatro exceções, todas declaradas:**
+  puro no web. **Três exceções, todas declaradas:**
 
   | dependência | por que é inevitável |
   |---|---|
@@ -2119,7 +2125,7 @@ Rodar local: `./gradlew assembleDebug` (exige Android SDK).
   | **`NewPipeExtractor`** | extrair a URL de um vídeo do YouTube é acompanhar as defesas deles (PO Tokens por vídeo, assinados por BotGuard/DroidGuard). A alternativa sem dependência — servidor público — FALHOU em aparelho: eles rodam em IP de datacenter, exatamente o que o YouTube bloqueia. E a conta é paga por quem publica: o SABR que derrubou o 1080p foi resolvido lá (cliente visionOS) e chegou aqui como **um bump de versão**. Manter o pin explícito e ler o CHANGELOG antes de reescrever extração à mão |
   | **JUnit** (`testImplementation`) | **não põe um byte no APK**. Existe porque o servidor das telas é **a primeira fronteira de rede do projeto** — um parser HTTP com controle de acesso, onde um erro não vira pixel errado, vira controle de acesso quebrado. Escrevê-lo sem oráculo, num repositório que recusa o RFC 6455 **por falta de oráculo**, seria o argumento aplicado contra ele mesmo |
 
-  Uma quinta exceção precisa da mesma justificativa: um problema que não se
+  Uma quarta exceção precisa da mesma justificativa: um problema que não se
   resolve de outro jeito, e a manutenção paga por quem publica a biblioteca.
 
 ### Diagnóstico

@@ -664,12 +664,13 @@ class NativeBridge(
 
     // ---------- telão nas telas da rede local ----------
     //
-    // Os cinco métodos deste bloco NÃO vão para a fila `io`, e essa é a decisão
-    // que os separa do resto da ponte. A `io` é uma thread ÚNICA compartilhada
-    // por todas as instâncias, e é nela que roda o download do YouTube: um vídeo
-    // de 380 MB a segura por minutos. Enfileirado, "ligar a transmissão" no meio
-    // de um download não aconteceria — a Promise venceria pelo prazo de 60 s do
-    // `native.js` e resolveria `null`, um "erro" sem causa no toque de um botão.
+    // Os cinco métodos deste bloco NÃO vão para fila nenhuma, e essa é a decisão
+    // que os separa do resto da ponte. Cada fila é de uma thread ÚNICA
+    // compartilhada por todas as instâncias, e é na [transferencia] que roda o
+    // download do YouTube: um vídeo de 380 MB a segura por minutos. Enfileirado,
+    // "ligar a transmissão" no meio de um download não aconteceria — a Promise
+    // venceria pelo prazo de 60 s do `native.js` e resolveria `null`, um "erro"
+    // sem causa no toque de um botão.
     // Mesmo raciocínio já publicado para o `ytCancel`.
     //
     // Quem faz o trabalho é a MAIN THREAD (ver os métodos do [BridgeHost]). A
@@ -829,8 +830,8 @@ class NativeBridge(
     /**
      * PARA o download deste link, se ele for o que está em curso.
      *
-     * **NÃO vai para a fila de IO** — e não poderia: a fila é de uma thread só e
-     * está ocupada justamente pelo download que se quer parar. Enfileirar o
+     * **NÃO vai para fila nenhuma** — e não poderia: a [transferencia] é de uma
+     * thread só e está ocupada justamente pelo download que se quer parar. Enfileirar o
      * cancelamento o faria rodar depois de o download terminar, que é o oposto
      * de cancelar. Escrever um campo `@Volatile` da thread do WebView é seguro e
      * imediato; quem responde é o laço de cópia, que o consulta a cada bloco.
