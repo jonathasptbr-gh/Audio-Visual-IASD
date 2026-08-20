@@ -257,7 +257,11 @@ jobs:
         timeout-minutes: 10
         run: |
           set -euo pipefail
-          npm i --no-audit --no-fund --silent playwright
+          # `npm ci`, e não `npm i playwright`: ele obedece ao
+          # `package-lock.json` versionado e falha se o lock divergir do
+          # `package.json`. Com `npm i` a versão era a `latest` do dia — o
+          # veredito do CI não era função só do nosso código.
+          npm ci --no-audit --no-fund --silent
           npx playwright install --with-deps chromium
 
       # FUMAÇA DO CONTROLE e os demais oráculos, num Chromium de verdade. Os

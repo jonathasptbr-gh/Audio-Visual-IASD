@@ -1,0 +1,11 @@
+{
+  "name": "audio-visual-iasd-oraculos",
+  "private": true,
+  "description": "Só o arnês dos oráculos de Chromium. NÃO é o app: a base web é JavaScript puro, sem build, e nada daqui entra no APK.",
+  "scripts": {
+    "oraculos": "for f in tools/*.test.mjs tools/smoke.mjs tools/display-smoke.mjs; do node \"$f\" || exit 1; done"
+  },
+  "devDependencies": {
+    "playwright": "1.62.1"
+  }
+}

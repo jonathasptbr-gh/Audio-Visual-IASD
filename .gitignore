@@ -13,7 +13,10 @@ dist/
 *.jks
 release.jks
 
-# Playwright para o teste de fumaça (tools/smoke.mjs) — nunca versionado.
+# O ARNÊS DOS ORÁCULOS. `node_modules/` fica de fora (é peso, e o
+# `npm ci` o reconstrói); o `package.json` e o `package-lock.json`
+# ENTRAM, e isso é o que torna o CI reprodutível: sem o lock, o passo
+# instalava `playwright@latest` do dia, e uma release deles deixava o
+# CI vermelho sem um byte do app mudar. Sob um passo que BARRA o
+# build, isso pararia a frota por um motivo que não é nosso.
 node_modules/
-package-lock.json
-package.json
