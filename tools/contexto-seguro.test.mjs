@@ -41,13 +41,19 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const AQUI = path.dirname(fileURLToPath(import.meta.url));
-// DOIS alvos desde a E7 do telão por comandos: a tela da rede roda o PRÓPRIO
-// /display/ em http://, então a disciplina de contexto seguro passou a valer
-// lá também — e o bloco do espelho de pixels (AudioWorklet etc.) que a
-// varredura teria pego já saiu junto com o pipeline.
+// TRÊS alvos, e o terceiro é o que faltava. A tela da rede roda o PRÓPRIO
+// /display/ em http://, então a disciplina de contexto seguro vale lá — mas o
+// `display/index.html` carrega `../shared/native.js`, `../shared/db.js`,
+// `../shared/mse.js` e `../shared/stage.js`, e o `EspelhoServidor` serve
+// `/shared/` às telas (`PREFIXOS_BUNDLE`). Varrer só `display/` e `espelho/`
+// deixava metade do que roda em `http://` fora do alcance: o próximo
+// `crypto.subtle` dentro de `shared/mse.js` passaria batido, e o `TypeError`
+// mataria o script inteiro numa tela da LAN — wallpaper na parede, culto
+// rodando, nada no console de ninguém.
 const ALVOS = [
   path.join(AQUI, '..', 'app', 'src', 'main', 'assets', 'web', 'espelho'),
   path.join(AQUI, '..', 'app', 'src', 'main', 'assets', 'web', 'display'),
+  path.join(AQUI, '..', 'app', 'src', 'main', 'assets', 'web', 'shared'),
 ];
 const ALVO = ALVOS[0];
 
@@ -181,6 +187,32 @@ function limpar(src) {
   return fora;
 }
 
+// A DETECÇÃO DE PRESENÇA TAMBÉM É GUARDA, e é a melhor delas: `isSecureContext`
+// responde "o contexto é seguro?", que é uma PROXY da pergunta real — "esta API
+// existe aqui?". Um navegador antigo em contexto seguro reprova a proxy e passa
+// no teste direto. `shared/db.js` já usa a forma direta
+// (`crypto.randomUUID ? crypto.randomUUID() : …`), e sem esta função acrescentar
+// `shared/` aos alvos faria o oráculo nascer VERMELHO por um caminho correto.
+//
+// Vale só na MESMA LINHA, e de propósito: é o idioma do ternário e do curto-
+// -circuito, onde o teste e o uso são inseparáveis. Um `if` de presença que
+// abre bloco é outro caso, e para ele a regra continua sendo `isSecureContext`
+// — reconhecer as duas formas ao longo de um bloco exigiria saber qual API cada
+// guarda cobre, e um falso NEGATIVO aqui é o defeito que o oráculo existe para
+// impedir.
+function presencaTestada(linha, proibido) {
+  const alvo = proibido.achar.source.replace(/\\b/g, '').replace(/\\s\*/g, '\\s*');
+  return [
+    // `crypto.randomUUID ? …` / `x && crypto.subtle` / `!crypto.randomUUID`
+    new RegExp('(?:\\?|&&|\\|\\||!)\\s*(?:[\\w.]*\\.)?' + alvo),
+    new RegExp('(?:[\\w.]*\\.)?' + alvo + '\\s*(?:\\?|&&|\\|\\|)'),
+    // `'randomUUID' in crypto`
+    new RegExp("['\"]" + alvo + "['\"]\\s*in\\s"),
+    // `typeof crypto.randomUUID`
+    new RegExp('typeof\\s+(?:[\\w.]*\\.)?' + alvo),
+  ].some((re) => re.test(linha));
+}
+
 // A guarda vale para O BLOCO QUE ELA ABRE, e a conta é de chaves.
 //
 // Duas consequências que precisam estar escritas, porque as duas são
@@ -203,7 +235,9 @@ function varrer(src) {
     const protegida = guardaAqui || guardas.length > 0;
     if (!protegida) {
       for (const p of PROIBIDOS) {
-        if (p.achar.test(linha)) achados.push({ linha: n + 1, nome: p.nome, texto: linha.trim() });
+        if (p.achar.test(linha) && !presencaTestada(linha, p)) {
+          achados.push({ linha: n + 1, nome: p.nome, texto: linha.trim() });
+        }
       }
     }
     const antes = profundidade;
@@ -240,6 +274,21 @@ const AMOSTRAS = [
     nome: 'ternário na mesma linha (idioma legítimo)',
     fonte: "const id = isSecureContext ? crypto.randomUUID() : hex(crypto.getRandomValues(new Uint8Array(16)));",
     esperado: [],
+  },
+  {
+    nome: 'DETECÇÃO DE PRESENÇA na mesma linha é guarda (o idioma do db.js)',
+    fonte: "return crypto.randomUUID ? crypto.randomUUID() : String(Date.now() + Math.random());",
+    esperado: [],
+  },
+  {
+    nome: "e a forma `'x' in y` também",
+    fonte: "const id = 'randomUUID' in crypto ? crypto.randomUUID() : hex();",
+    esperado: [],
+  },
+  {
+    nome: 'mas a chamada NUA continua reprovando',
+    fonte: 'const id = crypto.randomUUID();',
+    esperado: ['randomUUID'],
   },
   {
     nome: 'comentário, string e regex NOMEANDO a API não são chamadas a ela',
