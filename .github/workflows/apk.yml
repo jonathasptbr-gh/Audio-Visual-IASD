@@ -54,6 +54,22 @@ on:
         type: boolean
         required: false
         default: false
+      # A VÁLVULA DA RENUMERAÇÃO, e ela existe por um caso só.
+      #
+      # A guarda anti-regressão recusa publicar um manifesto com versão MENOR
+      # que a no ar, porque o aparelho descartaria em silêncio e o canal ficaria
+      # inerte — o pior modo de falhar deste projeto. Só que uma renumeração
+      # DELIBERADA (a v1.0, que reinicia a linha da base web) é indistinguível
+      # do acidente que a guarda previne: as duas são "a nova é menor".
+      #
+      # Sem esta válvula o reset é impossível de concluir; com ela ligada por
+      # engano, o canal regride. Por isso é só no disparo MANUAL, e por isso ela
+      # grava no resumo o que fez — nenhum push a alcança.
+      permitir_regressao:
+        description: 'PUBLICAR UM MANIFESTO COM VERSÃO MENOR que a no ar (renumeração deliberada)'
+        type: boolean
+        required: false
+        default: false
 
 permissions:
   contents: write
@@ -720,6 +736,7 @@ jobs:
         if: env.HOLD != 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PERMITIR_REGRESSAO: ${{ github.event.inputs.permitir_regressao || 'false' }}
         run: |
           set -uo pipefail
           NOVA=$(python3 -c "import json;print(json.load(open('app/src/main/assets/web/version.json'))['version'])")
@@ -746,7 +763,10 @@ jobs:
           print("sim" if a > b else "nao")
           PY2
           )
-          if [ "$MAIOR" = "sim" ]; then
+          if [ "$MAIOR" = "sim" ] && [ "$PERMITIR_REGRESSAO" = "true" ]; then
+            echo "::warning::REGRESSÃO AUTORIZADA À MÃO: web-latest está na v$NO_AR e este run publica a v$NOVA"
+            echo "Canal OTA: **regressão autorizada à mão**. O \`web-latest\` estava na v$NO_AR e este run publica a v$NOVA. Todo aparelho que já tenha a v$NO_AR vai RECUSAR este bundle em silêncio — só uma reinstalação o alcança." >> "$GITHUB_STEP_SUMMARY"
+          elif [ "$MAIOR" = "sim" ]; then
             echo "::warning::web-latest já tem a v$NO_AR e este run traria a v$NOVA — publicação PULADA para o manifesto não regredir"
             echo "Canal OTA: **não publicado**. O \`web-latest\` já está na v$NO_AR e este run traz a v$NOVA — publicar rebaixaria o manifesto, e o aparelho descartaria em silêncio." >> "$GITHUB_STEP_SUMMARY"
             echo "HOLD=true" >> "$GITHUB_ENV"
