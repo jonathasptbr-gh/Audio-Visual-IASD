@@ -24,6 +24,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
+- **v1.0.5** — O MODO FÁCIL DEIXA DE EXIGIR UMA TELA: o bloqueio supunha que quem abre aquele modo sempre quer projetar, e ensaiar o louvor ou ouvir o playback a caminho da igreja não quer. O "Tocar neste celular" da folha de conexão desbloqueia o modo e liga o som daqui — e a escolha SE DESFAZ SOZINHA quando uma tela entra, senão o ensaio de quarta-feira chegaria ao culto de sábado. OTA PURO
 - **v1.0.4** — O SELO DE CAMADAS VOLTA A SER UM ÍCONE SOLTO, como os dois vizinhos da preview: o que o separa deles é a COR, e ela vira `--stage-alert` (a paleta recusa o scarlett oficial como traço). O desenho ganha o ✕ — a pilha diz o estado, o ✕ diz o que o toque faz. Conferido nos DOIS modos. OTA PURO
 - **v1.0.3** — O SELO DE CAMADAS: com um louvor tocando e um texto por cima, a camada de cima não tinha saída fora da linha que a pôs lá — o Parar levava o louvor junto. Mais o endereço da transmissão que se COPIA, o fundo dos slides que não chegava à tela da rede sem o canal de mídia (guarda larga demais), e o download de um episódio de série que não acendia NADA na lista. OTA PURO
 - **v1.0.2** — O BOTÃO DEIXA DE DIZER "ESPELHAR": o que vai para a TV é o telão, não a tela do celular, e o rótulo anunciava o oposto do que o app entrega. A página vira CLARA e só clara, ganha um card de Slides e um de "recebe de tudo", e o guia cai para três passos com o Play Protect como VERIFICAÇÃO, não como susto. O respiro entre a faixa da marca e o primeiro título media ZERO — `.env` vencia o `main` por especificidade. OTA PURO
@@ -191,6 +192,92 @@ na nota que a revoga, não apagada da que a criou.
 - **v5.154** — é METADE OTA e METADE APK, e a divisão importa para quem for testar em aparelho.
 - **v5.155** — é OTA PURO
 - **v5.156** — é METADE OTA e METADE APK, de novo.
+
+---
+
+## v1.0.5 — o Modo Fácil deixa de exigir uma tela
+
+Pedido do operador: *"adicione no modo fácil, no popup de seletor das opções de
+tela uma opção de 'tocar no celular sem conectar uma tela' que desbloqueia a tela
+do modo fácil e libera o som no smartphone"*.
+
+### O BLOQUEIO ESTAVA CERTO SOBRE O MECANISMO E ERRADO SOBRE A PESSOA
+
+Sem tela, o Modo Fácil cobre tudo com a cortina embaçada, e o argumento era bom:
+ali a projeção É o telão, não há preview, e a saída de áudio deste aparelho valia
+**só no avançado** — um ▶ não produzia absolutamente nada, nem imagem nem som.
+
+O que ele supunha é que quem abre aquele modo sempre quer projetar. Ensaiar o
+louvor, conferir a letra ou ouvir o playback a caminho da igreja são usos
+legítimos, e para todos eles a resposta certa já existia no app inteiro: o som
+saindo deste aparelho, que é o que o modo avançado faz sozinho sem tela nenhuma.
+O bloqueio não estava protegendo de nada nesses casos — estava mandando o
+operador trocar de modo para ouvir uma faixa.
+
+### A CONDIÇÃO ÚNICA, E POR QUE ELA NÃO VIROU DUAS
+
+`somLocalDeveEstar()` passou de `appMode === 'full' && !algumaTelaConectada()`
+para `!algumaTelaConectada() && (appMode === 'full' || tocarNoCelular)`. Os dois
+modos entram pela **mesma porta** — o avançado por DERIVAÇÃO, o Modo Fácil por
+ESCOLHA — porque a pergunta de baixo é uma só: *há para onde mandar o som?* Um
+segundo caminho para o mesmo mudo é o que divergiria no primeiro caso de borda,
+e o mudo da preview tem UM ponto de escrita de propósito (`acertarSaidaDeAudio`).
+
+### A ESCOLHA É PERSISTIDA, E POR ISSO PRECISA MORRER SOZINHA
+
+`tocarNoCelular` mora no `state` do banco — sem isso ela não sobreviveria a um
+lançamento, e o operador que ensaia toda quarta a refaria toda quarta.
+
+Mas persistir sem desfazer é o defeito: a escolha de um ensaio de quarta-feira
+chegaria ao **culto de sábado**, e o culto começaria com o telão no ar e o áudio
+no bolso de quem opera. **Ninguém procuraria a causa num botão tocado três dias
+antes.** Por isso o próprio `renderSimpleGate` a apaga quando uma tela entra —
+escrito direto, e não por `setTocarNoCelular`, porque estamos DENTRO do render e
+a chamada de volta seria recursão.
+
+### DUAS ARMADILHAS DE ENCANAMENTO, as duas MEDIDAS
+
+O botão nasceu desenhado pelo `renderCast`, e as duas apareceram na primeira
+sondagem:
+
+- **Ele sobrevivia visível no modo avançado.** Trocar de modo não passa por
+  `renderCast` — em avançado o `hostCastConn` não o chama.
+- **O rótulo não trocava depois do toque.** `renderCast` abre com
+  `if (!castConnVisivel()) return`, e LIGADO a escolha desbloqueia o Modo Fácil:
+  o bloco de conexão volta para a folha (fechada), a guarda fecha, e o botão
+  parava de ser repintado **justamente quando é a única forma de desfazer o que
+  acabou de fazer**.
+
+Os dois somem com o mesmo movimento: quem o desenha é `renderCastLocal`, chamado
+do `renderSimpleGate` — a função que responde às três coisas de que ele depende
+(o modo, as telas e a própria escolha) e que é chamada por todas as três.
+
+### O TERCEIRO ESTADO DE COR, porque os dois de cima já estão falados
+
+A folha já tem `.connected` (verde, "conectado") e `.ligado` (vermelho, "a
+transmissão está no ar, e o toque desliga"). Nenhum serve: **verde diria
+"conectado" no único botão que significa NÃO conectei nada**, e uma segunda linha
+vermelha na mesma folha faria o operador não saber qual delas está servindo a
+rede da igreja.
+
+`--sel-fill` é o fundo de estado do SELECIONADO, que é exatamente o que isto é —
+o operador escolheu um destino para o som. Medido nos dois temas: 7,64:1 com
+`--text` e 4,92:1 com `--accent` no escuro; 6,76:1 e 5,87:1 no claro.
+
+### O que ficou medido
+
+Os cinco estados, com o mudo lido no `<video>` da preview (`applyMedia` faz
+`video.muted = forceMuted ? true : muted`, então ele é o observável honesto):
+
+| estado | palco | som | botão |
+|---|---|---|---|
+| avançado, sem tela | livre | sai daqui | oculto |
+| Modo Fácil, sem tela | BLOQUEADO | mudo | "Tocar neste celular" |
+| depois do toque | livre | **sai daqui** | "Voltar a exigir uma tela" |
+| uma TV entra | livre | mudo (vai para ela) | oculto, escolha desfeita |
+| a TV sai | BLOQUEADO | mudo | volta a oferecer |
+
+Suíte inteira verde: 25/25.
 
 ---
 

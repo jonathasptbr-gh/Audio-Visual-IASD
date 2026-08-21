@@ -4884,6 +4884,18 @@ body.mode-simple .bottombar { display: none; }
   background: var(--live-fill); color: var(--text);
 }
 .cast-acao.ligado .cast-acao-ico { color: var(--danger-text); }
+/* ESCOLHIDO — o "tocar neste celular" resolvido. É um TERCEIRO estado porque os
+   dois de cima já estão falados nesta mesma folha e nenhum descreve este: verde
+   é "conectado", e este botão é justamente o que diz NÃO conectei nada;
+   vermelho é a transmissão no ar, e duas linhas vermelhas na mesma folha
+   deixariam de dizer qual delas está servindo a rede da igreja.
+   `--sel-fill` é o fundo de estado do SELECIONADO, que é o que isto é — o
+   operador escolheu um destino para o som. Medido: 7,64:1 com `--text` e 4,92:1
+   com `--accent` no escuro; 6,76:1 e 5,87:1 no claro. */
+.cast-acao.escolhido {
+  background: var(--sel-fill); color: var(--text);
+}
+.cast-acao.escolhido .cast-acao-ico { color: var(--accent); }
 /* Enquanto o shell responde (ligar leva um instante, pode pedir confirmação e
    pode ser recusado) o botão apaga e para de aceitar toque. Um segundo toque no
    meio do caminho é como se sobem dois servidores.

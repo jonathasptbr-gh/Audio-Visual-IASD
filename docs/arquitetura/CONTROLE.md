@@ -156,9 +156,22 @@ teclas de volume já estão na tela, com o número ao lado.
 #### Sem tela conectada, o modo inteiro fica bloqueado
 
 Neste modo **a projeção É o telão** — não existe preview aqui. Sem tela, buscar
-uma música e dar play não produz nada: nem imagem nem som (a preview toca o som
-deste aparelho só no modo AVANÇADO — ver "A saída de áudio"; aqui ela segue muda,
-e é este bloqueio a razão).
+uma música e dar play não produz nada: nem imagem nem som.
+
+**Mas o bloqueio deixou de ser incondicional** (v1.0.5). Ele supunha que quem
+abre este modo sempre quer projetar, e não quer: ensaiar o louvor, conferir a
+letra ou ouvir o playback a caminho da igreja são usos legítimos, e para todos
+eles a resposta certa é o som saindo deste aparelho — o que o modo avançado já
+faz sozinho sem tela. O **"Tocar neste celular"** da folha de conexão
+(`castLocalBtn` → `setTocarNoCelular`) é a escolha explícita disso: ele
+desbloqueia o modo e liga o som daqui.
+
+`tocarNoCelular` é PERSISTIDO, e por isso **se desfaz sozinho quando uma tela
+entra** (dentro do próprio `renderSimpleGate`, escrito direto para não recorrer
+ao render). Sem essa segunda metade, a escolha de um ensaio de quarta-feira
+sobreviveria ao sábado e o culto começaria com o telão no ar e o áudio no bolso
+de quem opera — o pior dos dois desfechos, porque ninguém procuraria a causa num
+botão tocado três dias antes.
 
 `renderSimpleGate()` cobre a tela com a cortina `#simpleVeil` (`backdrop-filter:
 blur(7px)` mais um véu em `--veil`), que **intercepta os toques** do que ficou
@@ -936,12 +949,16 @@ alguma tela conectada?  ── sim ──▶  preview MUDA (o som é da TV / das
   de divergirem no primeiro caso de borda. `telaoConectado()` continua
   respondendo só pela TV, que é a pergunta certa para o atraso da preview e para
   o botão de espelhar.
-- **Só no modo avançado.** No Modo Fácil sem tela a cortina cobre tudo (ver o
-  bloqueio daquele modo) e não há o que projetar; som saindo de um app bloqueado
-  seria a única coisa acontecendo atrás de uma tela que diz "conecte uma tela".
-  Trocar de modo é, por isso, um dos gatilhos de `acertarSaidaDeAudio()` — os
-  outros são as telas (`renderDisplayStatus`), a transmissão (`lerEspelho`) e a
-  janela do Display no navegador (`openWebDisplay`).
+- **No avançado por DERIVAÇÃO, no Modo Fácil por ESCOLHA** — e os dois pela mesma
+  porta, porque a pergunta de baixo é uma só: há para onde mandar o som?
+  (`somLocalDeveEstar`: `!algumaTelaConectada() && (appMode === 'full' ||
+  tocarNoCelular)`.) Enquanto o Modo Fácil está BLOQUEADO ele segue mudo — som
+  saindo de um app bloqueado seria a única coisa acontecendo atrás de uma tela
+  que diz "conecte uma tela"; o que o "Tocar neste celular" faz é tirar o
+  bloqueio e o mudo na mesma decisão. Trocar de modo é, por isso, um dos
+  gatilhos de `acertarSaidaDeAudio()` — os outros são as telas
+  (`renderDisplayStatus`), a transmissão (`lerEspelho`), a janela do Display no
+  navegador (`openWebDisplay`) e a própria escolha (`setTocarNoCelular`).
 - **A troca é automática nos dois sentidos e não corta o áudio**: a rampa curta
   do `setForceMuted` (a mesma `MUTE_RAMP_TIME` do mudo) desce até 0 e só então
   muta ao emudecer, e sobe de 0 ao alvo ao dar som, respeitando o mudo e o fader

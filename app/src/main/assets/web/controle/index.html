@@ -109,6 +109,15 @@
       <path d="M12 14.2V7.6"/>
       <path d="m9.2 10.4 2.8-2.8 2.8 2.8"/>
     </symbol>
+    <!-- TOCAR NESTE CELULAR: o aparelho com a onda saindo dele. O que separa
+         este dos outros dois da folha é o DESTINO do som — os dois de cima
+         mandam o telão para fora, este assume que ele fica aqui. -->
+    <symbol id="icoCelular" viewBox="0 0 24 24">
+      <rect x="4.5" y="2.5" width="10" height="19" rx="2.2"/>
+      <path d="M8.2 18.6h2.6"/>
+      <path d="M17.8 9.6a4 4 0 0 1 0 4.8"/>
+      <path d="M20.4 7a7.6 7.6 0 0 1 0 10"/>
+    </symbol>
     <!-- COPIAR. Ele nasceu solto no botão do Registro; virou símbolo quando o
          endereço da transmissão passou a precisar do mesmo botão. Duas cópias
          do mesmo desenho divergiriam no primeiro ajuste — é a razão deste
@@ -956,7 +965,7 @@
              METADADO de diagnóstico e o lugar onde se procura diagnóstico é
              junto do estado do telão e do alvo de espelhamento, não numa faixa
              de navegação. Preenchido por `renderVersionLabel`. -->
-        <span id="appVersion" class="app-version">Controle v1.0.4</span>
+        <span id="appVersion" class="app-version">Controle v1.0.5</span>
         <!-- A ATUALIZAÇÃO (v5.245). Ele mora ao lado do rótulo de versão
              porque é a MESMA conversa ("que versão eu tenho?" / "tem uma mais
              nova?"), e porque é ali que o operador já procura isso.
@@ -1054,6 +1063,28 @@
         <button type="button" id="castNetBtn" class="cast-acao" hidden>
           <svg class="cast-acao-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoNavegador"/></svg>
           <span class="cast-acao-txt"><b id="castNetLabel">Transmitir para navegador</b></span>
+        </button>
+
+        <!-- ===== A TERCEIRA PORTA, E ELA É A DE NÃO CONECTAR NADA =====
+             Sem tela, o Modo Fácil BLOQUEIA (ver `renderSimpleGate`), e o
+             argumento era bom: ali a projeção não existe e a preview nem som
+             tem, então um ▶ não produzia absolutamente nada. Mas ele supunha
+             que quem abre o Modo Fácil sempre quer projetar — e não quer:
+             ensaiar o louvor, conferir a letra ou ouvir o playback no caminho
+             para a igreja são usos legítimos, e para todos eles a resposta
+             certa é o som saindo DESTE aparelho, que é o que o modo avançado já
+             faz sozinho sem tela nenhuma.
+
+             Este botão é a escolha explícita disso. Ele NÃO existe no modo
+             avançado (lá o som já sai daqui por derivação) nem com uma tela
+             conectada (aí há para onde mandar) — ver `renderCastLocal`.
+
+             E ELE SE DESFAZ SOZINHO quando uma tela entra: o operador conectou
+             a TV, e o som vai para ela. Deixar a escolha de pé faria o próximo
+             culto começar com o telão no ar e o áudio no bolso de quem opera. -->
+        <button type="button" id="castLocalBtn" class="cast-acao" hidden>
+          <svg class="cast-acao-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoCelular"/></svg>
+          <span class="cast-acao-txt"><b id="castLocalLabel">Tocar neste celular</b></span>
         </button>
 
         <p class="mirror-lead" id="castMsg" role="status" aria-live="polite"></p>
