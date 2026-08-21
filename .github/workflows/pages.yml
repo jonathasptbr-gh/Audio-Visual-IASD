@@ -113,10 +113,42 @@ jobs:
           n = apk['size']
           # MB com uma casa: "4,4 MB" é o que a pessoa precisa saber antes de
           # baixar num plano de dados. Vírgula, que é o separador decimal daqui.
-          print(f"AV_VERSAO={tag.lstrip('vV')}")
+          print(f"AV_TAG={tag.lstrip('vV')}")
           print(f"AV_TAMANHO={n/1048576:.1f}".replace('.', ',') + " MB")
           print(f"AV_URL={apk['url']}")
           PY
+
+      # ===== A VERSÃO É A QUE O APARELHO VAI RODAR, NÃO A DO INSTALADOR =====
+      #
+      # A tag da Release é a versão do APK, e ela FICA PARADA: um lote só de base
+      # web sai por OTA e não gera Release nenhuma. Foi o que aconteceu entre a
+      # v1.0.1 e a v1.0.2 — o app no aparelho mostrava 1.0.2 e a página anunciava
+      # 1.0.1, com todo o mecanismo funcionando. Para quem lê, o número do site
+      # tinha simplesmente parado.
+      #
+      # Quem responde "quão novo é este app?" é o MANIFESTO DO CANAL OTA: a base
+      # web que todo aparelho recebe minutos depois de abrir. Ele é asset de
+      # release (não consome limite de API) e é o que de fato está PUBLICADO —
+      # ler o `version.json` do repositório anunciaria uma versão que o
+      # `shellTag` ainda pode estar segurando.
+      #
+      # O TAMANHO E A URL CONTINUAM VINDO DO APK, porque é ele que se baixa.
+      - name: A versão que o aparelho vai rodar
+        run: |
+          set -euo pipefail
+          URL="https://github.com/$GITHUB_REPOSITORY/releases/download/web-latest/version.json"
+          BASE=$(curl -fsSL -H 'Cache-Control: no-cache' "$URL?t=$(date +%s)" \
+                   | python3 -c 'import json,sys; print(json.load(sys.stdin)["version"])' || true)
+          if [ -n "$BASE" ]; then
+            echo "AV_VERSAO=$BASE" >> "$GITHUB_ENV"
+            echo "Base web publicada: $BASE (APK: $AV_TAG)"
+          else
+            # NUNCA EM SILÊNCIO: sem o manifesto a página volta a mostrar a
+            # versão do APK, que é correta e velha — e é justamente o estado que
+            # não se distingue de "está tudo certo".
+            echo "::warning::Manifesto do canal OTA ilegível — a página vai com a versão do APK ($AV_TAG)."
+            echo "AV_VERSAO=$AV_TAG" >> "$GITHUB_ENV"
+          fi
 
       # A substituição é por PLACEHOLDER, não por regex sobre o HTML: um
       # `sed` que procurasse "versão X" casaria com qualquer texto parecido que
