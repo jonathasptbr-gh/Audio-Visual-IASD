@@ -856,6 +856,19 @@ jobs:
       # instante da publicação — apagar o que alguém está baixando devolveria um
       # 404 no meio do download, que é justamente o tipo de falha intermitente
       # que este lote existe para acabar.
+      # A ORDEM É POR DATA DE UPLOAD, E O ATUAL É INTOCÁVEL.
+      #
+      # Este passo ordenava por VERSÃO (`sort -V -r`) e guardava os três
+      # primeiros — o que supõe que o bundle mais NOVO é também o de maior
+      # NÚMERO. Uma renumeração quebra a suposição: na v1.0 o `web-1.0.zip`
+      # ordenou abaixo de `web-5.316`/`web-5.317` e foi recolhido no mesmo run
+      # que acabara de subi-lo. O manifesto ficou apontando para um 404, que é o
+      # estado "OTA inerte" descrito no `concurrency` deste job — e ele não erra
+      # alto: o aparelho baixa, falha e retenta, para sempre.
+      #
+      # Duas correções, e a primeira sozinha não basta: a data é a chave certa,
+      # mas o que garante a correção é o ATUAL sair da lista de candidatos antes
+      # de qualquer corte. O zip que o manifesto anuncia nunca é recolhível.
       - name: Recolher bundles antigos
         if: env.HOLD != 'true'
         continue-on-error: true
@@ -863,9 +876,11 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
+          ATUAL="web-$(python3 -c "import json;print(json.load(open('app/src/main/assets/web/version.json'))['version'])").zip"
+          echo "protegido (o que o manifesto anuncia): $ATUAL"
           gh release view web-latest --repo "$GITHUB_REPOSITORY" --json assets \
-            --jq '.assets[] | select(.name | test("^web-.*\\.zip$")) | .name' \
-            | sort -V -r | tail -n +4 | while read -r velho; do
+            --jq '.assets[] | select(.name | test("^web-.*\\.zip$")) | [.createdAt, .name] | @tsv' \
+            | sort -r | cut -f2 | grep -vxF "$ATUAL" | tail -n +3 | while read -r velho; do
               echo "recolhendo $velho"
               gh release delete-asset web-latest "$velho" \
                 --repo "$GITHUB_REPOSITORY" --yes || true
