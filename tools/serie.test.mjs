@@ -237,7 +237,7 @@ checar(INFO && /@daniellocutor/.test(INFO.canal),
   'o canal é o @daniellocutor', INFO && INFO.canal);
 checar(INFO && INFO.periodo === S.PERIODO_TRIMESTRE,
   'as playlists dela são TRIMESTRAIS', INFO && INFO.periodo);
-// v5.271: o modo era `TITULO_NENHUM` (só a data). O relato do operador é que o
+// v5.271: o item saía com SÓ A DATA. O relato do operador é que o
 // item SAI do álbum — mandado ao Cronograma ou aos Favoritos, ele perde o
 // cabeçalho que dizia qual é a série e vira "15/Ago · YouTube", sem nada em
 // lugar nenhum que o identifique. `TITULO_SERIE` põe o nome da série no lugar

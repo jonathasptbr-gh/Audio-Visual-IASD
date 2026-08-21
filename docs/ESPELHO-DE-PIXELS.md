@@ -19,6 +19,15 @@ O resto — resumo executivo, arquivo-por-arquivo, protocolo do fio, ordem de
 implementação, riscos e a lista "o que não fazer" — descrevia arquivos apagados
 e saiu na limpeza de documentação. Está no histórico do git.
 
+**A "frase para o operador" (§11) saiu na v5.317**, e não por tamanho: ela
+prometia o **código de três dígitos** (que saiu na v5.189 — o `/par` é anônimo) e
+avisava que **o som não vai completo** por causa do player embutido do YouTube
+(que saiu na v5.212 — hoje a tela toca o arquivo inteiro, local). Ela não estava
+velha: estava AFIRMANDO o contrário do aparelho, que é o defeito que este arquivo
+existe para não cometer. O que nela continua valendo — o espelho é auxiliar, a
+primeira ligada é numa terça-feira — vive no `CLAUDE.md` e em
+`TELAO-POR-COMANDOS.md`.
+
 ---
 
 ### 2.3 A rede: onde o socket liga, e por que isso é a linha mais importante da seção
@@ -879,30 +888,6 @@ só aceita `{"codigo": …}` e o cliente só manda isso. Um bundle novo num shel
 antigo cai no `else -> 403`; um bundle antigo num shell novo também. É por isso
 que `SHELL_VERSION` sobe a **36** — o primeiro degrau deste contrato que
 ENCOLHE.
-
----
-
-## 11. A FRASE PARA O OPERADOR
-
-> Dá para pôr o telão inteiro — inclusive vídeo, fades e cortina — em até três navegadores da rede da
-> igreja, sem instalar nada nas telas e sem depender de internet. O celular vira o servidor; quem
-> quiser assistir digita o endereço, digita o **código de três dígitos** que aparece na sua tela, e
-> toca em Conectar — e esse toque já entra com som e em tela cheia. Você vê quem entrou e pode
-> derrubar qualquer uma.
->
-> Quatro coisas precisam ser ditas antes: **o roteador da igreja pode bloquear isso sozinho**
-> (isolamento de clientes) e não há conserto do lado do app — o próprio recurso vai dizer, em texto,
-> quando for esse o caso; **o celular precisa ficar no carregador**; **o som não vai completo** (o
-> vídeo do YouTube tocado pelo player embutido vai mudo, e o microfone ao vivo nunca sai na rede, de
-> propósito); e **você liga isso pela primeira vez numa terça-feira, não no domingo**.
->
-> O espelho é auxiliar: ele **não desliga a TV, não muda a projeção e não se desliga sozinho quando a
-> TV conecta**. Se ele falhar, quem perde a imagem são as telas da rede — nunca o salão.
->
-> O seu site HTTPS entra como **a placa de rua** — `igreja.org.br/telao` mostrando o endereço do dia
-> e um QR —, e pode virar cadeado verde de verdade se você puser um nome do seu domínio apontando
-> para o celular. Isso é um degrau: com internet fica melhor, sem internet volta a ser o que seria de
-> qualquer forma — **e nunca menos que isso**.
 
 ---
 

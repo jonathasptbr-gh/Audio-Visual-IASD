@@ -536,6 +536,16 @@ pior que um recurso a menos. Quem depende de método novo **pergunta antes**
 (`__SHELL_VERSION__ < N`): um botão que não faz nada no meio de um culto é pior
 que botão nenhum. Ele aparece sozinho quando o APK novo for instalado.
 
+**E MUDAR A FORMA de um método que já existe é PIOR que acrescentar um** — é a
+mesma assimetria vista do outro lado, e é o que impede de tratar como limpeza os
+dois argumentos ignorados da ponte (`espelhoLigar(modo)`, e o `sim` do
+`espelhoAprovar`). O web chega por OTA em minutos; o shell só chega instalando o
+APK. Uma assinatura encolhida publica um bundle que chama a forma NOVA para uma
+frota que ainda tem a VELHA — e a transmissão para de ligar até o operador
+instalar, sem nada na tela que explique. Encolher exige a mesma pergunta de
+sempre (`__SHELL_VERSION__`), o que ACRESCENTA código em vez de tirar: por isso
+os dois só saem quando a frota já estiver no degrau, nunca junto com ele.
+
 ---
 
 ## Barramento de comandos e o plano B do BroadcastChannel
@@ -1485,12 +1495,11 @@ ser diagnosticável.
   senão a economia devolveria a lista de ontem no sábado de manhã.
 - **O NOME DO ITEM pode não sair do título do vídeo.** No Informativo o título é
   a série mais a data, e "o nome é o que vem antes da barra" daria 52 linhas
-  idênticas. São TRÊS modos, no campo `titulo` do catálogo:
-  `TITULO_ESQUERDA` (o padrão — o nome à esquerda da barra), `TITULO_SERIE` (o
-  rótulo da série mais a data) e `TITULO_NENHUM` (só a data). **O Informativo é
-  `TITULO_SERIE` desde a v5.271** — `TITULO_NENHUM` ficou sem consumidor, porque
-  o item SAI do álbum (vai para o Cronograma, para a fila) e uma data sozinha
-  não o identifica lá fora. **`nomeDoItem` nunca devolve vazio** — sem data e sem
+  idênticas. São DOIS modos, no campo `titulo` do catálogo:
+  `TITULO_ESQUERDA` (o padrão — o nome à esquerda da barra) e `TITULO_SERIE` (o
+  rótulo da série mais a data). **O Informativo é `TITULO_SERIE` desde a
+  v5.271**, porque o item SAI do álbum (vai para o Cronograma, para a fila) e
+  uma data sozinha não o identifica lá fora. **`nomeDoItem` nunca devolve vazio** — sem data e sem
   título ele cai no título CRU, que é feio e longo, e é infinitamente melhor que
   uma linha em branco na lista do culto.
 - **A assinatura das playlists evita doze extrações por retomada** (a aba do canal
@@ -2346,7 +2355,7 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: v5.316** (base web) · `SHELL_VERSION` **45** · bundle com
+**Versão atual: v5.317** (base web) · `SHELL_VERSION` **45** · bundle com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos nativos
 por construção (escada do voltar, botões de volume, notificação de controles),
 que **só chegam instalando o APK**.

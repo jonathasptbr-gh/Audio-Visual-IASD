@@ -168,7 +168,7 @@ const appVersionEl = document.getElementById('appVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '5.316';
+const WEB_VERSION = '5.317';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -15046,12 +15046,13 @@ async function blocoSeries() {
     linhas.push('· ' + s.name + ' — ' + s.canal);
     linhas.push('  prefixo "' + s.prefixo + '" · ' + s.ano + ' · playlists por '
       + (s.periodo === AVSerie.PERIODO_TRIMESTRE ? 'trimestre' : 'mês')
-      // OS TRÊS MODOS, e não um ternário: o Informativo é `TITULO_SERIE` desde
-      // a v5.271, e o ternário o classificava como "pelo título" — justamente a
-      // série que IGNORA o título do vídeo. Um log que discorda do aparelho é o
-      // pior artefato que este projeto sabe produzir, e este é lido A DISTÂNCIA.
-      + ' · rótulo ' + (s.titulo === AVSerie.TITULO_NENHUM ? 'pela data'
-        : s.titulo === AVSerie.TITULO_SERIE ? 'pela data e pelo nome da série'
+      // CADA MODO COM A SUA FRASE: o Informativo é `TITULO_SERIE` desde a
+      // v5.271, e uma frase única o classificaria como "pelo título" —
+      // justamente a série que IGNORA o título do vídeo. Um log que discorda do
+      // aparelho é o pior artefato que este projeto sabe produzir, e este é
+      // lido A DISTÂNCIA.
+      + ' · rótulo ' + (s.titulo === AVSerie.TITULO_SERIE
+        ? 'pela data e pelo nome da série'
         : 'pelo título'));
     if (!d) {
       // O caso mais fácil de ler errado: card na tela, nada no Registro. Ele é
