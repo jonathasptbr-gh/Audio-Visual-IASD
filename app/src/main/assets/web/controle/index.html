@@ -889,9 +889,9 @@
              (v5.66) — escolher aqui é dizer como o app deve ABRIR, e os botões
              valiam só para a sessão. É a primeira linha da folha porque é a
              decisão mais larga que ela contém: ela troca a tela inteira. -->
-        <div class="fade-row fade-row--fit">
+        <div class="fade-row fade-row--fit fade-row--destaque">
           <span>Modo do app</span>
-          <div class="fit-seg" id="appModeSeg">
+          <div class="fit-seg fit-seg--grande" id="appModeSeg">
             <button type="button" class="fit-opt" data-mode="simple">Fácil</button>
             <button type="button" class="fit-opt" data-mode="full">Avançado</button>
           </div>
@@ -994,12 +994,6 @@
              O texto continua sendo montado por `renderDiag()` a cada abertura
              desta folha — quem o guarda é a variável `diagTexto`, e não mais um
              nó do DOM. -->
-        <div class="fade-row">
-          <span>Registro</span>
-          <button id="diagCopy" class="log-copy" title="Copiar o registro" aria-label="Copiar o registro">
-            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoCopiar"/></svg>
-          </button>
-        </div>
       </div>
       <!-- QUEM ESTÁ CONECTADO NÃO MORA MAIS AQUI (v5.193). O rodapé desta
            folha dizia "Telão conectado: X" e "Espelhar abre: Y" — as duas
@@ -1024,7 +1018,19 @@
              METADADO de diagnóstico e o lugar onde se procura diagnóstico é
              junto do estado do telão e do alvo de espelhamento, não numa faixa
              de navegação. Preenchido por `renderVersionLabel`. -->
-        <span id="appVersion" class="app-version">Controle v1.0.7</span>
+        <!-- ===== A VERSÃO E O REGISTRO DIVIDEM A LINHA =====
+             O Registro tinha uma `.fade-row` inteira para um rótulo e um botão
+             de 16px, com o meio vazio — e a versão tinha outra linha só para
+             si, centrada. As duas dizem a MESMA coisa ("o que eu preciso para
+             pedir ajuda"), e agora ocupam a mesma faixa: a versão à esquerda, o
+             Registro à direita, no espaço que já estava sobrando. -->
+        <div class="footer-diag">
+          <span id="appVersion" class="app-version">Controle v1.0.8</span>
+          <span class="footer-diag-rot">Registro</span>
+          <button id="diagCopy" class="log-copy" title="Copiar o registro" aria-label="Copiar o registro">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoCopiar"/></svg>
+          </button>
+        </div>
         <!-- A ATUALIZAÇÃO (v5.245). Ele mora ao lado do rótulo de versão
              porque é a MESMA conversa ("que versão eu tenho?" / "tem uma mais
              nova?"), e porque é ali que o operador já procura isso.

@@ -1,5 +1,13 @@
 [
   {
+    "versao": "1.0.8",
+    "itens": [
+      "O aviso da atualização passa a dizer \"Ao atualizar\", separando o que muda do que acontece ao tocar.",
+      "Configurações: o botão de atualizar só aparece quando você adiou uma atualização que ainda espera.",
+      "Configurações: \"Modo do app\" ganhou destaque, e a linha do Registro foi para junto da versão."
+    ]
+  },
+  {
     "versao": "1.0.7",
     "itens": [
       "Playlist automática: novo filtro \"Sem infantis\", ligado por padrão — não sorteia os hinos 508 a 557 do Hinário 2022.",

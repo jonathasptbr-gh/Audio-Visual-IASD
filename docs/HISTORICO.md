@@ -24,6 +24,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
+- **v1.0.8** — QUATRO AJUSTES DE CONFIGURAÇÕES E DA PERGUNTA: a consequência passa a começar com "Ao atualizar" (sem o marco de tempo ela se lia como mais um item da lista de mudanças logo acima), o botão de atualizar só existe depois do "deixar para depois" (e o "Procurar atualização" sai, com o caminho de busca inteiro), o "Modo do app" ganha o peso da decisão que ele é, e o Registro vai para a linha da versão — o espaço que sobrava. OTA PURO
 - **v1.0.7** — O BOTÃO DE BAIXAR DO ÁLBUM ACERTAVA 6 DE 11 TOQUES: `--press` é uma ESCALA, e escalar um contêiner arrasta o botão colado na borda dele para fora do dedo. Mais a tela cheia trocando os gestos invisíveis por uma COLUNA que o toque acende e 4s apagam, o Modo Fácil perdendo os Favoritos e o "Ao Cronograma" (destinos que ele não tem como mostrar), e o filtro "Sem infantis" — o único que nasce LIGADO. OTA PURO
 - **v1.0.6** — A ATUALIZAÇÃO DIZ O QUE VEM NELA: uma linha do tempo das mudanças entre a versão e a consequência, lida do `notas.json` do PRÓPRIO bundle baixado — não do manifesto, que é buscado 240 vezes por hora para carregar texto que importa uma vez por semana. Mais o "Tocar neste celular" virando caminho SÓ DE IDA (a v1.0.5 persistia a escolha, e persistir era o defeito que o botão de volta vinha remendar) e a cadeia de conectar TV ganhando a candidata que faltava em quem não é Samsung. `SHELL_VERSION` 47. EXIGE RELEASE
 - **v1.0.5** — O MODO FÁCIL DEIXA DE EXIGIR UMA TELA: o bloqueio supunha que quem abre aquele modo sempre quer projetar, e ensaiar o louvor ou ouvir o playback a caminho da igreja não quer. O "Tocar neste celular" da folha de conexão desbloqueia o modo e liga o som daqui — e a escolha SE DESFAZ SOZINHA quando uma tela entra, senão o ensaio de quarta-feira chegaria ao culto de sábado. OTA PURO
@@ -194,6 +195,102 @@ na nota que a revoga, não apagada da que a criou.
 - **v5.154** — é METADE OTA e METADE APK, e a divisão importa para quem for testar em aparelho.
 - **v5.155** — é OTA PURO
 - **v5.156** — é METADE OTA e METADE APK, de novo.
+
+---
+
+## v1.0.8 — a pergunta nomeia o momento, e Configurações se arruma
+
+Quatro pedidos do operador, e um deles não custou código.
+
+### "AO ATUALIZAR", porque a lista mudou o que estava em volta dela
+
+*"Ajuste o aviso na atualização sobre piscar a tela, para que avise que 'Ao
+atualizar', pois não está claro se está se referindo às mudanças na atualização
+ou sobre o processo de atualizar."*
+
+O rodapé é anterior à v1.0.6 e estava certo sozinho. O que mudou foi a vizinhança:
+a v1.0.6 pôs uma LISTA DE MUDANÇAS logo acima dele, e "a projeção pisca por um
+instante" passou a se ler como mais um item dela — uma mudança que a versão nova
+traria. Nomear o momento é o que separa as duas leituras, e as três frases
+passaram a abrir por ele.
+
+**É o custo de um recurso cobrado noutro lugar**: a lista não mexeu no rodapé,
+mas mudou o que ele parecia dizer.
+
+### O BOTÃO DE ATUALIZAR SÓ EXISTE DEPOIS DO "DEPOIS"
+
+*"Verifique o botão dentro das configurações que permite atualizar manualmente,
+para que ele exista apenas em casos de 'deixar para depois' e que o app realmente
+não esteja na última versão."*
+
+Ele tinha dois estados e o primeiro era "Procurar atualização", visível SEMPRE.
+Um botão de procurar numa tela onde não há o que procurar não é neutro: sugere
+que o app pode estar atrasado e que cabe ao operador conferir. Não cabe — a ronda
+do shell bate a cada 15 s, mais a retomada e a volta da rede.
+
+Agora `otaRowDisponivel()` pede um lote ADIADO (ou um APK baixando, onde o botão
+é o progresso). Com a pergunta ainda na tela ele também não existe: ali quem
+oferece é o diálogo.
+
+**E isso matou o caminho de busca inteiro** — o ramo `!lote` do render, o ramo de
+procura do toque, `atualizarProcura` e `otaProcurando`. Removidos no mesmo lote,
+com o comentário que os descrevia: um ramo inalcançável que sobrevive é a
+armadilha que o próprio `CLAUDE.md` cataloga.
+
+**`otaAdiadas` subiu de linha.** Ele morava a dezenove mil linhas do topo, e o
+`otaRowDisponivel` passou a consultá-lo na CARGA do módulo — declarado lá
+embaixo, seria `ReferenceError` por zona morta temporal (o defeito que já
+derrubou o app três vezes: v5.184, v5.193, v5.195).
+
+### A METADE QUE JÁ ESTAVA CERTA
+
+*"A mensagem de atualização também deve aparecer novamente se o app for encerrado
+e aberto novamente."*
+
+**Já era o comportamento**, e foi medido em vez de suposto: `otaAdiadas` é um
+`Set` em memória, e o `onCreate` do `MainActivity` chama `buildControleWebView()`
+sem condição — reabrir o app constrói um WebView novo e a página nasce limpa.
+Minimizar mantém o adiamento (é a mesma sessão); fechar e reabrir o desfaz.
+
+```
+1. primeira abertura              diálogo: sim · adiadas: 0 · botão: oculto
+2. "Deixar para depois"           diálogo: não · adiadas: 1 · botão: "Atualizar…"
+3. fecha e reabre                 diálogo: sim · adiadas: 0 · botão: oculto
+```
+
+Não mexi nisso — mexer no que já funciona é como se quebra o que funciona. O que
+o lote acrescentou foi a REGRA escrita no `CLAUDE.md`, que não existia.
+
+### O MODO DO APP TEM O PESO DA DECISÃO QUE ELE É
+
+Ele troca a TELA INTEIRA e estava desenhado igual ao seletor de preenchimento
+logo abaixo. Ganhou tom próprio (`--camada`, um degrau acima das irmãs), rótulo
+em peso 700 e alvo maior: **185×43 contra os 151×31** das outras linhas. Por TOM
+e TAMANHO, nunca por contorno — a paleta não desenha nenhum.
+
+### O REGISTRO VAI PARA A LINHA DA VERSÃO
+
+*"Aproveite para colocar a linha do registro e seu botão de copiar lado a lado
+com as tags de versão dentro das configurações, pois há esse espaço sobrando."*
+
+O Registro tinha uma `.fade-row` inteira para um rótulo e um botão de 16px, com o
+meio vazio; a versão tinha outra linha só para si, centrada. As duas respondem à
+MESMA pergunta — *o que eu mando para quem vai me ajudar?* — e agora dividem uma
+faixa de 34px: versão à esquerda, "Registro" e o copiar à direita. A folha
+encurtou 20px de rodapé.
+
+### O oráculo trocou de afirmação, não de rigor
+
+O bloco 4d do `ota.test.mjs` media a busca que saiu. No lugar dele entrou o PAR
+do que já existia: os blocos 4b/4c provam que o botão aparece, diz a versão e
+aplica DEPOIS do adiamento; o 4d passou a provar a AUSÊNCIA nos dois casos em que
+ele não tem papel (sem atualização nenhuma; com a pergunta ainda na tela). Sem
+essa metade, "o botão aparece quando há o que fazer" é uma frase que um botão
+sempre visível também satisfaz.
+
+Mais uma asserção nova: a consequência COMEÇA com "Ao atualizar".
+
+Suíte inteira verde: 25/25.
 
 ---
 

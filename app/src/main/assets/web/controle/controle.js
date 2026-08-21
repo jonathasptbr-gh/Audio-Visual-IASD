@@ -170,7 +170,7 @@ const appVersionEl = document.getElementById('appVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.0.7';
+const WEB_VERSION = '1.0.8';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -187,6 +187,19 @@ let otaPendenteVersao = '';
 let otaDiagTexto = '';
 let apkNovo = null;
 let apkBaixando = false;
+// O que o operador mandou deixar para depois, POR LOTE (`web|shell`): recusar
+// uma base web não pode calar o APK que chegar amanhã junto com outra.
+//
+// AQUI EM CIMA PELA MESMA RAZÃO DOS QUATRO ACIMA: desde a v1.0.8 o
+// `otaRowDisponivel()` o consulta, e ele roda na CARGA do módulo. Declarado lá
+// embaixo, junto do resto do bloco de atualização, seria `ReferenceError` por
+// zona morta temporal — tela preta e o watchdog descartando o bundle.
+//
+// ELE MORRE COM A PÁGINA, de propósito: minimizar o app mantém o adiamento (é a
+// mesma sessão), e FECHAR e reabrir o desfaz — o `onCreate` reconstrói o WebView
+// e a página nasce limpa. É por isso que "Deixar para depois" não impede a
+// pergunta de voltar na abertura seguinte, que é o comportamento pedido.
+const otaAdiadas = new Set();
 
 // Escrita UMA vez, na carga. `__SHELL_NAME__` é publicada por `native.js`, que
 // roda antes deste arquivo.
@@ -210,26 +223,37 @@ renderVersionLabel();
 
 // ===== O BOTÃO DE ATUALIZAÇÃO, no rodapé de Configurações =====
 //
-// Um botão, sempre visível, com dois estados e nada mais:
-//   sem nada esperando  →  "Procurar atualização"   (contornado: é consulta)
-//   com algo esperando  →  "Atualizar: base v… e app v…"  (preenchido: é ação)
-//
-// Ele é o caminho de volta para quem recusou a pergunta de propósito, ou para
-// quando ela está esperando a cena sair do ar — e mora onde a pergunta "que
-// versão eu tenho?" já era respondida.
+// Ele é o caminho de volta para quem RECUSOU a pergunta de propósito — e só
+// existe nesse caso (ver `otaRowDisponivel`). Mora onde a pergunta "que versão
+// eu tenho?" já era respondida.
 //
 // A HORA RUIM DESABILITA, com o motivo escrito, e são DUAS réguas: instalar o
 // APK derruba o app inteiro (e o servidor das telas junto), então vale o
 // `horaRuimParaAtualizar()` POR INTEIRO — cena, download e transmissão; um lote
 // só de base web custa um piscar e vale a régua curta
 // (`horaRuimParaPerguntar()`: cena e download).
-//
-// Abaixo do shell 31 ele não é desenhado: `otaCheck` não existe lá, e um botão
-// de procurar que não procura é pior que botão nenhum.
 const otaRowEl = document.getElementById('otaRow');
 
+// ===== O BOTÃO SÓ EXISTE QUANDO HÁ O QUE FAZER NELE =====
+//
+// Ele tinha dois estados, e o primeiro era "Procurar atualização" — visível
+// SEMPRE, mesmo com o app na versão mais nova. Um botão de procurar numa tela
+// onde não há nada a procurar não é neutro: ele sugere que o app pode estar
+// atrasado e que cabe ao operador conferir. Não cabe — a ronda do shell bate a
+// cada 15 s, mais a retomada e a volta da rede, e a pergunta aparece sozinha.
+//
+// Agora ele aparece nos dois casos em que tem trabalho:
+//
+// - o operador DEIXOU PARA DEPOIS e a atualização continua esperando — é o
+//   caminho de volta para uma pergunta que ele mesmo silenciou;
+// - o APK está BAIXANDO — ali o botão é o progresso.
+//
+// Fora disso não há botão, e a ausência é a resposta certa: não há atualização.
 function otaRowDisponivel() {
-  return !!window.__NATIVE__;
+  if (!window.__NATIVE__) return false;
+  if (apkBaixando) return true;
+  const lote = loteDaAtualizacao();
+  return !!lote && otaAdiadas.has(lote.chave);
 }
 
 // O BOTÃO RESPONDE A SI MESMO (a regra da v5.207, herdada do rótulo de versão):
@@ -237,7 +261,6 @@ function otaRowDisponivel() {
 // rotina — que roda a cada dez segundos — de apagar a frase no meio dela.
 let otaFalaTimer = null;
 let otaFalando = false;
-let otaProcurando = false;
 function falarNoOta(texto, ms) {
   if (!otaRowEl) return;
   clearTimeout(otaFalaTimer);
@@ -273,13 +296,12 @@ function renderOtaRow() {
   // estado que nasce muito abaixo daqui. Ele só é alcançado quando HÁ lote, e na
   // carga não há (`otaPendenteVersao`/`apkNovo` nascem vazios). Não é sorte —
   // é uma garantia que precisa continuar valendo.
+  // SEMPRE HÁ LOTE AQUI: `otaRowDisponivel()` já devolveu `false` sem ele, e o
+  // `hidden` de cima é o `return`. A guarda que existia neste ponto era o ramo
+  // "Procurar atualização", que saiu com ele.
   const lote = loteDaAtualizacao();
-  otaRowEl.classList.toggle('ota-row--agora', !!lote);
-  if (!lote) {
-    otaRowEl.disabled = otaProcurando;
-    otaRowEl.textContent = otaProcurando ? 'Procurando atualização…' : 'Procurar atualização';
-    return;
-  }
+  if (!lote) { otaRowEl.hidden = true; return; }
+  otaRowEl.classList.add('ota-row--agora');
   const ruim = lote.shell ? horaRuimParaAtualizar() : horaRuimParaPerguntar();
   otaRowEl.disabled = ruim;
   otaRowEl.textContent = ruim
@@ -289,56 +311,25 @@ function renderOtaRow() {
 
 if (otaRowEl) {
   otaRowEl.addEventListener('click', () => {
-    if (apkBaixando || otaProcurando) return;
+    if (apkBaixando) return;
     // O TOQUE DESFAZ O ADIAMENTO: "Deixar para depois" silencia o diálogo
     // AUTOMÁTICO, não o operador que veio pedir a atualização de propósito.
     // `otaRecusadas` (o que o SHELL não conseguiu aplicar) também é limpo: pode
-    // ter sido um bundle pela metade que a procura de agora substituiu.
+    // ter sido um bundle pela metade que a base baixada desde então substituiu.
+    const lote = loteDaAtualizacao();
     otaAdiadas.clear();
     otaRecusadas.clear();
-    const lote = loteDaAtualizacao();
-    if (lote) {
-      // O MESMO caminho da pergunta, não uma cópia: quem grava a intenção,
-      // aplica a base, baixa o APK e fala do erro é o `aplicarAtualizacao`.
-      calarOta();
-      aplicarAtualizacao(lote);
-      return;
-    }
-    // Sem nada esperando, ele é a PROCURA. `forcar` pula o piso entre consultas
-    // do shell — este é o ÚNICO chamador que o pula.
-    otaProcurando = true;
-    try { AVNative.otaCheck(true); } catch (_) { /* rede/ponte */ }
-    falarNoOta('Procurando atualização…', 0);
-    // A busca é rede: o desfecho chega pelo empurrão do shell ou pela enquete.
-    // Estas duas consultas cobrem o caso em que não HÁ nada novo — aí não há
-    // empurrão, e o toque ficaria sem resposta até a enquete seguinte.
-    setTimeout(() => atualizarProcura(false), 4000);
-    setTimeout(() => atualizarProcura(true), 12000);
+    if (!lote) { renderOtaRow(); return; }
+    // O MESMO caminho da pergunta, não uma cópia: quem grava a intenção, aplica
+    // a base, baixa o APK e fala do erro é o `aplicarAtualizacao`.
+    calarOta();
+    aplicarAtualizacao(lote);
   });
 }
 
 // Na carga, para o botão já existir quando o operador abrir Configurações — a
 // primeira enquete só acontece seis segundos depois da abertura do app.
 renderOtaRow();
-
-// Relê o estado da procura e, se houver algo, oferece. `anunciar` só na ÚLTIMA
-// das duas consultas: as duas dizendo "já está na mais recente" seriam dois
-// avisos para uma pergunta. (O parâmetro NÃO pode se chamar `avisar` — ele
-// sombrearia a função global de aviso, que é quem fala aqui.)
-async function atualizarProcura(anunciar) {
-  // NÃO limpar `otaAdiadas` aqui: quem desfaz o adiamento é o TOQUE, e esta
-  // função é o desfecho AGENDADO dele (4 s e 12 s). Entre as duas o operador
-  // pode ter respondido "Deixar para depois", e a batida de 12 s apagaria essa
-  // resposta reabrindo o diálogo modal sozinho.
-  await ofertarAtualizacao();
-  // O desfecho volta para o MESMO botão, e depois ele volta ao que era.
-  const lote = loteDaAtualizacao();
-  if (lote || anunciar) otaProcurando = false;
-  if (anunciar && !lote) falarNoOta('Você já está na versão mais recente.', 3200);
-  // Havendo algo novo quem fala é o diálogo, mas o botão não pode ficar preso
-  // em "Procurando…" enquanto ele decide: já vira "Atualizar…".
-  else if (lote) { calarOta(); renderOtaRow(); }
-}
 
 
 const selbarEl = document.getElementById('selbar');
@@ -19777,9 +19768,6 @@ document.addEventListener('visibilitychange', () => {
 // `otaCheck` que dispara respeita o piso do shell.
 const OTA_POLL_MS = 10000;
 
-// O que o operador mandou deixar para depois, POR LOTE (`web|shell`): recusar
-// uma base web não pode calar o APK que chegar amanhã junto com outra.
-const otaAdiadas = new Set();
 // O que o SHELL recusou aplicar (um bundle sem o index do Controle, por
 // exemplo). Sem esta guarda a enquete pediria a aplicação a cada dez segundos,
 // para sempre — e o operador veria a pergunta reaparecer sozinha depois de ter
@@ -19952,17 +19940,23 @@ function consequenciaDaAtualizacao(lote, sobram) {
   return resto + consequenciaCrua(lote);
 }
 
+// TODAS COMEÇAM COM "AO ATUALIZAR", e isto é o recado inteiro deste bloco:
+// logo acima está a LISTA de mudanças, e sem o marco de tempo "a projeção pisca
+// por um instante" se lia como mais um item dela — uma mudança que a versão nova
+// traria. Ela não é: é o que acontece no TOQUE, e nomear o momento é o que
+// separa as duas leituras.
 function consequenciaCrua(lote) {
   if (lote.web && lote.shell) {
-    return 'A base entra primeiro e a projeção pisca por um instante. '
-      + 'Em seguida o Android vai pedir para confirmar a instalação do app.';
+    return 'Ao atualizar, a base entra primeiro e a projeção pisca por um '
+      + 'instante. Em seguida o Android vai pedir para confirmar a instalação '
+      + 'do app.';
   }
   if (lote.shell) {
-    return 'Depois de baixar, o Android vai pedir para confirmar a instalação — '
-      + 'o app fecha durante ela.';
+    return 'Ao atualizar, o app é baixado e o Android vai pedir para confirmar '
+      + 'a instalação — o app fecha durante ela.';
   }
-  return 'As duas telas recarregam e a projeção pisca por um instante. '
-    + 'Uma mídia tocando volta no ponto em que estava.';
+  return 'Ao atualizar, as duas telas recarregam e a projeção pisca por um '
+    + 'instante. Uma mídia tocando volta no ponto em que estava.';
 }
 
 // ===== A LINHA DO TEMPO, achatada para a lista do diálogo =====
