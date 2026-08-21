@@ -48,7 +48,7 @@
   }
   .tese {
     font-size: clamp(1.05rem,4vw,1.35rem); line-height:1.4; font-weight:400;
-    margin:0 auto 2rem; max-width:30ch; opacity:.95;
+    margin:0 auto 1rem; max-width:30ch; opacity:.95;
   }
   .baixar {
     display:inline-block; background:#fff; color:#2f557f; text-decoration:none;
@@ -90,10 +90,20 @@
      página para baixar. Herda tudo do `.baixar`, só troca a escala e o par de
      cores — aqui ele vive sobre o painel, não sobre a faixa da marca. */
   .baixar--linha {
-    margin-top:.6rem; padding:.55rem 1.2rem; font-size:.92rem;
+    padding:.55rem 1.2rem; font-size:.92rem; white-space:nowrap;
     background:var(--accent); color:var(--panel); box-shadow:none;
   }
   .baixar--linha:hover, .baixar--linha:focus-visible { box-shadow:none; }
+  /* O PASSO 1 É UMA LINHA, não duas: o título à esquerda e o botão à direita,
+     dividindo a largura que já estava reservada. Empilhados, o botão ficava
+     sozinho numa segunda linha com o resto do passo vazio ao lado. */
+  .passo-baixar {
+    display:flex; align-items:center; justify-content:space-between; gap:.8rem;
+  }
+  /* O TAMANHO SAIU DO BOTÃO e ficou só na linha do topo: com os dois nowrap,
+     "Baixe o app" + "Baixar · 4,2 MB" pediam 272px numa faixa de 241 a 360px de
+     tela, e o título quebrava em duas linhas. Ele já está dito duas telas
+     acima, na mesma descida do olho. */
 
   /* ── passos: a ordem é informação ── */
   .passos { list-style:none; padding:0; margin:0; counter-reset:p; display:grid; gap:.6rem; }
@@ -180,7 +190,10 @@
     <h1>Áudio Visual IASD</h1>
     <p class="tese">A tela da sua igreja 100% controlada por você. Sem anúncios,
       janelas e distrações para o público.</p>
-    <a class="baixar" href="{{URL_APK}}">Baixar</a>
+    <!-- O BOTÃO DE BAIXAR SAIU DAQUI: ele e o passo 1 do guia logo
+         abaixo eram a MESMA ação escrita duas vezes, e o guia já é o fluxo de
+         baixar do começo ao fim. Fica a identidade — o que é, para quem, e o
+         que se vai baixar. -->
     <p class="meta">Android 8+ &nbsp;·&nbsp; versão {{VERSAO}} &nbsp;·&nbsp; {{TAMANHO}}</p>
   </div>
 </header>
@@ -190,8 +203,8 @@
   <section class="reveal">
     <h2>Guia de instalação</h2>
     <ol class="passos">
-      <li><div><b>Baixe o app</b>
-        <a class="baixar baixar--linha" href="{{URL_APK}}">Baixar &middot; {{TAMANHO}}</a></div></li>
+      <li><div class="passo-baixar"><b>Baixe o app</b>
+        <a class="baixar baixar--linha" href="{{URL_APK}}">Baixar</a></div></li>
       <li><div><b>Permita a instalação</b><span>O Android pergunta se
         <strong>este navegador</strong> pode instalar aplicativos. Toque em
         <strong>Permitir</strong> e volte.</span></div></li>
