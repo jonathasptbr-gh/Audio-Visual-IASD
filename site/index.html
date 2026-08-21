@@ -3,447 +3,224 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Áudio Visual IASD — projeção de mídia para o culto</title>
-<meta name="description" content="App Android de projeção para o culto: a TV recebe só a projeção, não o espelho do celular. Cronograma, hinário, Bíblia, letra sincronizada e slides.">
+<title>Áudio Visual IASD — projeção para o culto</title>
+<meta name="description" content="A TV recebe só a projeção, não o espelho do celular. Hinário, Bíblia, letra automática e slides. Grátis, para Android.">
 <meta name="theme-color" content="#2f557f">
 <link rel="icon" href="icone.svg" type="image/svg+xml">
-
 <meta property="og:type" content="website">
 <meta property="og:title" content="Áudio Visual IASD">
 <meta property="og:description" content="A TV recebe só a projeção, não o espelho do celular.">
 <meta property="og:locale" content="pt_BR">
 
 <style>
-  /* ───────────────────────────────────────────────────────────────
-     A PALETA É A DO APP (app/src/main/assets/web/shared/tokens.css):
-     identidade oficial IASD, denim PMS 302 no núcleo. Site e app têm
-     de parecer a mesma coisa — quem baixa aqui abre aquilo lá.
-     ─────────────────────────────────────────────────────────────── */
+  /* A paleta é a do app (shared/tokens.css) — site e app são a mesma coisa. */
   :root {
-    --bg:        #dfe3e7;
-    --panel:     #ffffff;
-    --panel-2:   #d4dae2;
-    --text:      #4a4a4a;
-    --muted:     #565d66;
-    --accent:    #2f557f;
-    --accent-2:  #1d3a5c;
-    --on-accent: #ffffff;
-    --ok:        #2b6a12;
-    --ok-fill:   #d2e9cc;
-    --warn:      #9c4405;
-    --warn-fill: #f6e2d2;
-    --rule:      #c3cbd4;
+    --bg:#dfe3e7; --panel:#fff; --panel-2:#d4dae2;
+    --text:#4a4a4a; --muted:#565d66; --accent:#2f557f; --rule:#c3cbd4;
   }
   @media (prefers-color-scheme: dark) {
     :root {
-      --bg:        #0e1215;
-      --panel:     #2c343c;
-      --panel-2:   #3c4753;
-      --text:      #dce0e5;
-      --muted:     #b6bdc6;
-      --accent:    #95b5f4;
-      --accent-2:  #b9cefa;
-      --on-accent: #12181f;
-      --ok:        #80bd64;
-      --ok-fill:   #2a4630;
-      --warn:      #e5a86c;
-      --warn-fill: #45301f;
-      --rule:      #414c58;
+      --bg:#0e1215; --panel:#2c343c; --panel-2:#3c4753;
+      --text:#dce0e5; --muted:#b6bdc6; --accent:#95b5f4; --rule:#414c58;
     }
   }
-
   * { box-sizing: border-box; }
-
   body {
-    margin: 0;
-    background: var(--bg);
-    color: var(--text);
+    margin:0; background:var(--bg); color:var(--text);
     font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-    font-size: 17px;
-    line-height: 1.65;
-    -webkit-font-smoothing: antialiased;
+    font-size:17px; line-height:1.55; -webkit-font-smoothing:antialiased;
   }
+  .env { max-width:44rem; margin:0 auto; padding:0 1.15rem; }
 
-  .env { max-width: 46rem; margin: 0 auto; padding: 0 1.15rem; }
-
-  /* ── topo ──
-     A FAIXA DA MARCA NÃO TEM TEMA, e a regra vale para ela INTEIRA — não só
-     para o botão dentro dela. É a mesma separação que no app mantém os tokens
-     do palco fora do bloco de tema: uma superfície que não muda com o tema não
-     pode hospedar cor que muda.
-     Com `var(--accent)` a faixa virava AZUL-CLARO no tema escuro (o accent de
-     lá é o denim clareado, desenhado para texto sobre o quase-preto) — deixava
-     de ser a marca, e o branco do botão perdia separação contra ela. Denim e
-     branco literais, nos dois temas. */
+  /* A FAIXA DA MARCA NÃO TEM TEMA: ela é sempre o denim, nos dois modos — e o
+     que vive dentro dela também não pode ter (é a regra do palco, no app). */
   header {
-    background: #2f557f;
-    color: #ffffff;
-    padding: clamp(2.5rem, 9vw, 4.5rem) 0 clamp(2rem, 7vw, 3.5rem);
+    background:#2f557f; color:#fff; text-align:center;
+    padding: clamp(3rem,11vw,5rem) 0 clamp(2.5rem,8vw,4rem);
   }
-  .marca {
-    font-size: .78rem;
-    text-transform: uppercase;
-    letter-spacing: .16em;
-    opacity: .85;
-    margin: 0 0 .9rem;
-  }
+  .logo { width:64px; height:64px; margin:0 auto 1.1rem; display:block; border-radius:16px; }
   h1 {
-    font-size: clamp(2rem, 7.5vw, 3.1rem);
-    line-height: 1.08;
-    letter-spacing: -.02em;
-    margin: 0 0 .9rem;
-    font-weight: 600;
-    text-wrap: balance;
+    font-size: clamp(2.1rem,8vw,3.2rem); line-height:1.05; letter-spacing:-.025em;
+    margin:0 0 .7rem; font-weight:700;
   }
   .tese {
-    font-size: clamp(1.05rem, 3.6vw, 1.3rem);
-    line-height: 1.5;
-    margin: 0 0 2rem;
-    opacity: .95;
-    max-width: 32ch;
+    font-size: clamp(1.05rem,4vw,1.35rem); line-height:1.4; font-weight:400;
+    margin:0 auto 2rem; max-width:22ch; opacity:.95;
   }
-  .tese b { font-weight: 700; }
-
-  /* ── o botão ──
-     A FAIXA DO CABEÇALHO NÃO TEM TEMA: ela é sempre o denim da marca. Então o
-     que vive dentro dela também não pode ter — é a mesma regra que no app
-     separa os tokens do palco dos tokens da UI. Com `--panel`/`--accent` o
-     botão virava um cinza-escuro sobre o denim no tema escuro, e o elemento
-     mais importante da página era o que mais perdia destaque. Branco e denim
-     literais, nos dois temas, de propósito. */
   .baixar {
-    display: inline-flex;
-    flex-direction: column;
-    align-items: center;
-    gap: .15rem;
-    background: #ffffff;
-    color: #2f557f;
-    text-decoration: none;
-    font-weight: 600;
-    font-size: 1.15rem;
-    padding: .95rem 2.1rem;
-    border-radius: 12px;
-    transition: transform .12s ease, box-shadow .12s ease;
-    box-shadow: 0 2px 0 rgba(0,0,0,.18);
+    display:inline-block; background:#fff; color:#2f557f; text-decoration:none;
+    font-weight:700; font-size:1.1rem; padding:1rem 2.4rem; border-radius:100px;
+    box-shadow:0 3px 0 rgba(0,0,0,.2); transition:transform .12s, box-shadow .12s;
   }
-  .baixar:hover, .baixar:focus-visible { transform: translateY(-1px); box-shadow: 0 4px 0 rgba(0,0,0,.18); }
-  .baixar:active { transform: translateY(1px); box-shadow: 0 1px 0 rgba(0,0,0,.18); }
-  .baixar small {
-    font-weight: 400;
-    font-size: .78rem;
-    color: #4a6f9c;
-    letter-spacing: .01em;
-  }
-  .req {
-    margin: .95rem 0 0;
-    font-size: .86rem;
-    opacity: .85;
-  }
+  .baixar:hover, .baixar:focus-visible { transform:translateY(-2px); box-shadow:0 5px 0 rgba(0,0,0,.2); }
+  .baixar:active { transform:translateY(1px); box-shadow:0 1px 0 rgba(0,0,0,.2); }
+  .meta { margin:.9rem 0 0; font-size:.85rem; opacity:.8; }
 
-  /* ── corpo ── */
-  main { padding: clamp(2.5rem, 8vw, 4rem) 0 1rem; }
-  section + section { margin-top: clamp(2.75rem, 8vw, 4rem); }
-
+  main { padding: clamp(2.5rem,8vw,4rem) 0 0; }
+  section + section { margin-top: clamp(2.5rem,8vw,3.5rem); }
   h2 {
-    font-size: clamp(1.4rem, 4.5vw, 1.8rem);
-    line-height: 1.2;
-    letter-spacing: -.012em;
-    margin: 0 0 .5rem;
-    font-weight: 600;
-    text-wrap: balance;
-  }
-  .sub { color: var(--muted); margin: 0 0 1.6rem; font-size: .97rem; }
-  h3 { font-size: 1.06rem; margin: 0 0 .35rem; font-weight: 600; }
-  p { margin: 0 0 1rem; }
-  p:last-child { margin-bottom: 0; }
-  a { color: var(--accent); }
-  strong { font-weight: 600; }
-
-  code {
-    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
-    font-size: .88em;
-    background: var(--panel-2);
-    padding: .1em .4em;
-    border-radius: 4px;
+    font-size:1.35rem; font-weight:700; letter-spacing:-.01em;
+    margin:0 0 1.1rem; text-align:center;
   }
 
-  .cartao {
-    background: var(--panel);
-    border-radius: 12px;
-    padding: 1.2rem 1.3rem;
+  /* ── funções: ícone + rótulo, e nada mais ── */
+  .grade { display:grid; grid-template-columns:repeat(2,1fr); gap:.6rem; grid-auto-rows:1fr; }
+  @media (min-width:34rem) { .grade { grid-template-columns:repeat(4,1fr); } }
+  .item {
+    background:var(--panel); border-radius:14px; padding:1.1rem .7rem;
+    text-align:center; font-size:.88rem; font-weight:600; line-height:1.3;
+    transition:transform .15s;
   }
-  .cartao > * + * { margin-top: .9rem; }
+  .item:hover { transform:translateY(-2px); }
+  /* `display:block` + margem automática: sem isso o SVG é inline e o rótulo
+     flui AO LADO dele em vez de abaixo, desalinhando cada cartão. */
+  .item svg { width:26px; height:26px; display:block; margin:0 auto .5rem; stroke:var(--accent); }
 
-  /* ── funções ── */
-  .funcoes { display: grid; gap: .75rem; }
-  @media (min-width: 34rem) { .funcoes { grid-template-columns: 1fr 1fr; } }
-  .funcao { background: var(--panel); border-radius: 12px; padding: 1.05rem 1.15rem; }
-  .funcao h3 { margin-bottom: .2rem; }
-  .funcao p { font-size: .92rem; color: var(--muted); margin: 0; }
-
-  /* ── passos numerados: aqui a ordem é informação, não enfeite ── */
-  ol.passos { list-style: none; padding: 0; margin: 0; counter-reset: p; }
-  ol.passos > li {
-    counter-increment: p;
-    display: grid;
-    grid-template-columns: 2rem 1fr;
-    gap: .95rem;
-    padding: 1.05rem 0;
-    border-top: 1px solid var(--rule);
+  /* ── passos: a ordem é informação ── */
+  .passos { list-style:none; padding:0; margin:0; counter-reset:p; display:grid; gap:.6rem; }
+  .passos li {
+    counter-increment:p; background:var(--panel); border-radius:14px;
+    padding:1rem 1.15rem; display:grid; grid-template-columns:1.9rem 1fr;
+    gap:.9rem; align-items:baseline;
   }
-  ol.passos > li:first-child { border-top: 0; padding-top: .2rem; }
-  ol.passos > li::before {
-    content: counter(p);
-    background: var(--accent);
-    color: var(--on-accent);
-    font-size: .85rem;
-    font-weight: 600;
-    width: 1.75rem; height: 1.75rem;
-    border-radius: 50%;
-    display: grid; place-items: center;
-    margin-top: .1rem;
+  .passos li::before {
+    content:counter(p); background:var(--accent); color:var(--bg);
+    width:1.7rem; height:1.7rem; border-radius:50%; font-size:.85rem;
+    font-weight:700; display:grid; place-items:center; align-self:start;
   }
-  ol.passos p { font-size: .95rem; color: var(--muted); margin: .2rem 0 0; }
+  .passos b { display:block; font-size:1rem; }
+  .passos span { color:var(--muted); font-size:.9rem; }
 
-  /* ── avisos ── */
-  .nota {
-    border-radius: 10px;
-    padding: 1rem 1.15rem;
-    font-size: .93rem;
+  /* ── uso: quatro chips ── */
+  .fluxo { display:flex; flex-wrap:wrap; gap:.5rem; justify-content:center; }
+  .chip {
+    background:var(--panel); border-radius:100px; padding:.55rem 1.1rem;
+    font-size:.9rem; font-weight:600;
   }
-  .nota--calma { background: var(--warn-fill); color: var(--warn); }
-  .nota--ok    { background: var(--ok-fill);   color: var(--ok); }
-  .nota strong { color: inherit; }
-  .nota p:last-child { margin-bottom: 0; }
+  .chip s { text-decoration:none; color:var(--muted); font-weight:400; }
 
-  /* ── rodapé ── */
+  .calma {
+    margin-top:.9rem; text-align:center; font-size:.86rem; color:var(--muted);
+    max-width:34ch; margin-left:auto; margin-right:auto;
+  }
+
   footer {
-    margin-top: clamp(3rem, 9vw, 4.5rem);
-    padding: 2rem 0 3rem;
-    border-top: 1px solid var(--rule);
-    color: var(--muted);
-    font-size: .87rem;
+    margin-top: clamp(3rem,9vw,4rem); padding:1.8rem 0 2.5rem;
+    border-top:1px solid var(--rule); text-align:center;
+    color:var(--muted); font-size:.83rem;
   }
-  footer p { margin-bottom: .7rem; }
+  footer a { color:var(--accent); }
+  footer p { margin:.4rem 0; }
 
-  a:focus-visible, .baixar:focus-visible {
-    outline: 3px solid var(--accent);
-    outline-offset: 3px;
+  a:focus-visible, .baixar:focus-visible { outline:3px solid var(--accent); outline-offset:3px; }
+
+  /* ── o movimento, e ele é discreto ── */
+  .reveal { opacity:0; transform:translateY(14px); transition:opacity .5s ease, transform .5s ease; }
+  .reveal.on { opacity:1; transform:none; }
+  @media (prefers-reduced-motion: reduce) {
+    * { transition:none !important; }
+    .reveal { opacity:1; transform:none; }
   }
-  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 </style>
 </head>
 <body>
 
 <header>
   <div class="env">
-    <p class="marca">Igreja Adventista do Sétimo Dia</p>
+    <img class="logo" src="icone.svg" alt="" width="64" height="64">
     <h1>Áudio Visual IASD</h1>
-    <p class="tese">A TV recebe <b>só a projeção</b> — não o espelho do seu
-      celular. Você opera à vontade, e a congregação vê só o que deve ver.</p>
-
-    <a class="baixar" href="{{URL_APK}}">
-      Baixar para Android
-      <small>versão {{VERSAO}} · {{TAMANHO}}</small>
-    </a>
-    <p class="req">Android 8.0 ou mais novo · instalação direta, sem loja</p>
+    <p class="tese">A TV recebe só a projeção. Não o espelho do seu celular.</p>
+    <a class="baixar" href="{{URL_APK}}">Baixar grátis</a>
+    <p class="meta">Android 8+ &nbsp;·&nbsp; versão {{VERSAO}} &nbsp;·&nbsp; {{TAMANHO}}</p>
   </div>
 </header>
 
 <main class="env">
 
-  <section>
-    <h2>O que ele faz</h2>
-    <p class="sub">Um sistema de projeção inteiro, no celular que você já tem.</p>
-    <div class="funcoes">
-      <div class="funcao">
-        <h3>Só o telão vai para a TV</h3>
-        <p>Notificações, buscas e a lista do culto ficam no seu celular. Na TV
-          entra apenas a projeção, na resolução nativa dela.</p>
+  <section class="reveal">
+    <h2>Tudo o que o culto precisa</h2>
+    <div class="grade">
+      <div class="item">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="13" rx="2"/><path d="M8 21h8"/></svg>
+        Só o telão na TV
       </div>
-      <div class="funcao">
-        <h3>Hinário e Bíblia, offline</h3>
-        <p>Hinos, cânticos e o texto bíblico baixados no aparelho — funcionam
-          com a internet da igreja caindo.</p>
+      <div class="item">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V6l10-2v12"/><circle cx="6" cy="18" r="3"/><circle cx="16" cy="16" r="3"/></svg>
+        Hinário completo
       </div>
-      <div class="funcao">
-        <h3>Letra que acompanha sozinha</h3>
-        <p>A estrofe troca no tempo da música. Você acompanha na tela do
-          celular sem precisar olhar para a TV.</p>
+      <div class="item">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h7a2 2 0 0 1 2 2v14a2 2 0 0 0-2-2H4z"/><path d="M20 4h-7a2 2 0 0 0-2 2v14a2 2 0 0 1 2-2h7z"/></svg>
+        Bíblia offline
       </div>
-      <div class="funcao">
-        <h3>Cronograma do culto</h3>
-        <p>Monte a ordem antes: louvores, vídeos, versículos e avisos. No
-          sábado é só ir tocando.</p>
+      <div class="item">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M4 12h10M4 17h13"/></svg>
+        Letra automática
       </div>
-      <div class="funcao">
-        <h3>PDF e PowerPoint viram slides</h3>
-        <p>O sermão do pastor entra pelo compartilhamento e vira uma imagem por
-          página, com avanço pelos mesmos botões.</p>
+      <div class="item">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="17" rx="2"/><path d="M9 2v4M15 2v4M8 12h8M8 16h5"/></svg>
+        Cronograma
       </div>
-      <div class="funcao">
-        <h3>Vídeos do YouTube</h3>
-        <p>Busque, toque na hora ou baixe antes para não depender da rede no
-          momento do culto.</p>
+      <div class="item">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/></svg>
+        PDF e slides
       </div>
-      <div class="funcao">
-        <h3>Sem TV? Use qualquer navegador</h3>
-        <p>O telão aparece em até três computadores ou TVs da rede da igreja,
-          sem instalar nada neles.</p>
+      <div class="item">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="4"/><path d="M10 9l5 3-5 3z"/></svg>
+        YouTube
       </div>
-      <div class="funcao">
-        <h3>Modo Fácil</h3>
-        <p>Teclas grandes e o essencial à mão, para quem só vai conectar a tela
-          e tocar um louvor.</p>
+      <div class="item">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M2 20h20"/></svg>
+        Funciona sem TV
       </div>
     </div>
   </section>
 
-  <section>
-    <h2>Como instalar</h2>
-    <p class="sub">O app não está na Play Store, então o Android vai fazer duas
-      perguntas. As duas são normais — e abaixo está o que responder.</p>
-
+  <section class="reveal">
+    <h2>Instalar em 3 passos</h2>
     <ol class="passos">
-      <li>
-        <div>
-          <h3>Baixe o arquivo</h3>
-          <p>Toque no botão lá em cima. O Chrome pode avisar que "este tipo de
-            arquivo pode prejudicar seu dispositivo" — é o aviso padrão para
-            qualquer <code>.apk</code>. Escolha <strong>Baixar mesmo assim</strong>.</p>
-        </div>
-      </li>
-      <li>
-        <div>
-          <h3>Autorize o navegador a instalar</h3>
-          <p>Ao abrir o arquivo, o Android pergunta se aquele aplicativo pode
-            instalar outros. Toque em <strong>Configurações</strong> e ligue
-            <strong>Permitir desta fonte</strong>.</p>
-          <p>A autorização é <strong>só para o navegador</strong>, não para o
-            sistema inteiro — e você pode desligá-la depois.</p>
-        </div>
-      </li>
-      <li>
-        <div>
-          <h3>Passe pelo Play Protect</h3>
-          <p>Pode aparecer um aviso de "app não reconhecido". Toque em
-            <strong>Instalar assim mesmo</strong>; se ele oferecer
-            <strong>Enviar para análise</strong>, aceite — leva segundos e
-            ajuda o app a ficar conhecido.</p>
-        </div>
-      </li>
-      <li>
-        <div>
-          <h3>Conecte a tela</h3>
-          <p>Abra o app e ligue a TV por <strong>Smart View</strong>,
-            <strong>MiraScreen</strong> ou um cabo <strong>USB-C&nbsp;→&nbsp;HDMI</strong>.
-            O telão é detectado sozinho.</p>
-          <p>Sem TV? Use a opção de transmitir para o navegador de outro
-            aparelho da mesma rede.</p>
-        </div>
-      </li>
+      <li><div><b>Baixe</b><span>Toque no botão lá em cima.</span></div></li>
+      <li><div><b>Permita a instalação</b><span>O Android vai perguntar. Toque em <strong>Permitir</strong> e depois em <strong>Instalar</strong>.</span></div></li>
+      <li><div><b>Conecte a TV</b><span>Smart View, MiraScreen ou cabo HDMI. O app acha sozinho.</span></div></li>
     </ol>
-
-    <div class="nota nota--calma" style="margin-top:1.5rem">
-      <p><strong>O aviso do Play Protect não está dizendo que há vírus.</strong>
-        Ele avisa que não <em>reconhece</em> quem publicou o app — é falta de
-        histórico, não presença de ameaça. Todo aplicativo instalado fora da
-        Play Store recebe o mesmo aviso no primeiro dia.</p>
-    </div>
-
-    <div class="nota nota--ok" style="margin-top:.75rem">
-      <p><strong>Atualizar é só instalar por cima.</strong> Não desinstale: o
-        Cronograma, as pastas sincronizadas e os hinos e a Bíblia já baixados
-        são preservados. O próprio app avisa quando há versão nova.</p>
-    </div>
+    <p class="calma">O Android avisa que não conhece o app. É normal fora da
+      Play Store — toque em <strong>Instalar assim mesmo</strong>.</p>
   </section>
 
-  <section>
-    <h2>Usando pela primeira vez</h2>
-    <p class="sub">O app abre no <strong>Modo Fácil</strong>. São quatro
-      movimentos, e o terceiro já é o louvor tocando.</p>
-
-    <ol class="passos">
-      <li>
-        <div>
-          <h3>Conectar</h3>
-          <p>Sem tela ligada, a conexão é a única coisa na frente — o app
-            conduz. São duas opções: espelhar para a TV, ou transmitir para o
-            navegador de um aparelho da rede (esta não precisa de TV nenhuma).</p>
-        </div>
-      </li>
-      <li>
-        <div>
-          <h3>Buscar a música</h3>
-          <p>Toque em <strong>Buscar música</strong> e digite o número ou o
-            nome. <strong>Um toque na linha já toca</strong> — não há segundo
-            passo de confirmação.</p>
-        </div>
-      </li>
-      <li>
-        <div>
-          <h3>Tocar</h3>
-          <p>As teclas grandes são tocar/pausar, parar e mudo. A letra inteira
-            fica no alto, acompanhando sozinha. Na barra do tempo, toque para
-            saltar e arraste para procurar — é assim que se volta o refrão.</p>
-        </div>
-      </li>
-      <li>
-        <div>
-          <h3>Controlar sem olhar</h3>
-          <p>O volume tem as teclas <strong>−</strong> e <strong>+</strong>, e
-            os botões físicos do celular também funcionam. Com o app
-            minimizado ou o celular bloqueado, a notificação de mídia continua
-            controlando tudo.</p>
-        </div>
-      </li>
-    </ol>
-
-    <div class="cartao" style="margin-top:1.5rem">
-      <h3>Precisa de mais que isso?</h3>
-      <p style="margin:0;color:var(--muted);font-size:.95rem">A engrenagem no
-        alto abre as Configurações, e lá dentro fica o <strong>modo
-        avançado</strong>: Cronograma do culto, Bíblia, playlists, mensagens,
-        cronômetro, microfone ao vivo e a mesa de volume por faixa.</p>
+  <section class="reveal">
+    <h2>Simples de usar</h2>
+    <div class="fluxo">
+      <span class="chip">1 <s>Conecte a tela</s></span>
+      <span class="chip">2 <s>Busque o hino</s></span>
+      <span class="chip">3 <s>Toque para tocar</s></span>
     </div>
-  </section>
-
-  <section>
-    <h2>Se algo der errado</h2>
-    <div class="cartao">
-      <p>O app guarda um diário do que aconteceu. Antes de relatar um problema:</p>
-      <p style="margin:0"><strong>Configurações → Registro → botão de copiar</strong>
-        — e cole o texto junto com o relato. É o que permite entender o que
-        houve sem estar do seu lado.</p>
-    </div>
-  </section>
-
-  <section>
-    <h2>Privacidade</h2>
-    <div class="cartao">
-      <p><strong>Nada do que você projeta sai do seu aparelho.</strong> Não há
-        servidor nosso, não há conta para criar e não há nenhum tipo de
-        rastreamento.</p>
-      <p>O app acessa a internet só para o que você pede na hora: buscar hinos
-        e o texto bíblico no banco público da LouvorJA, procurar vídeos no
-        YouTube e verificar se há versão nova. As pastas do aparelho e o
-        microfone só são usados quando você concede a permissão, e a
-        transmissão para outras telas acontece dentro da rede local.</p>
-    </div>
+    <p class="calma">A letra acompanha sozinha. O celular pode ficar bloqueado
+      no suporte — os controles continuam na tela de bloqueio.</p>
   </section>
 
 </main>
 
 <footer class="env">
-  <p><strong>Áudio Visual IASD</strong> — software livre sob licença
-    <a href="https://github.com/jonathasptbr-gh/Audio-Visual-IASD/blob/main/LICENSE">GPLv3</a>.
-    O código está em
-    <a href="https://github.com/jonathasptbr-gh/Audio-Visual-IASD">github.com/jonathasptbr-gh/Audio-Visual-IASD</a>.</p>
-  <p>O símbolo e o nome da Igreja Adventista do Sétimo Dia pertencem à
-    denominação; este é um projeto independente, feito para uso nas igrejas.</p>
-  <p style="margin-bottom:0">Versão publicada: <strong>{{VERSAO}}</strong> ·
-    <a href="https://github.com/jonathasptbr-gh/Audio-Visual-IASD/releases">todas as versões</a></p>
+  <p><strong>Áudio Visual IASD</strong> — grátis e sem anúncios. Nada do que você
+    projeta sai do seu aparelho.</p>
+  <p>
+    <a href="https://github.com/jonathasptbr-gh/Audio-Visual-IASD">Código aberto</a> ·
+    <a href="https://github.com/jonathasptbr-gh/Audio-Visual-IASD/blob/main/LICENSE">GPLv3</a> ·
+    <a href="https://github.com/jonathasptbr-gh/Audio-Visual-IASD/releases">Versões</a>
+  </p>
 </footer>
+
+<script>
+  // Aparecer ao rolar. Se o IntersectionObserver não existir, o `catch` mostra
+  // tudo de uma vez — uma página que some é pior que uma página sem animação.
+  try {
+    var obs = new IntersectionObserver(function (es) {
+      es.forEach(function (e) { if (e.isIntersecting) { e.target.classList.add('on'); obs.unobserve(e.target); } });
+    }, { rootMargin: '0px 0px -8% 0px' });
+    document.querySelectorAll('.reveal').forEach(function (el) { obs.observe(el); });
+  } catch (_) {
+    document.querySelectorAll('.reveal').forEach(function (el) { el.classList.add('on'); });
+  }
+</script>
 
 </body>
 </html>
