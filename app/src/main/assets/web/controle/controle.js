@@ -169,7 +169,7 @@ const appVersionEl = document.getElementById('appVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.0.5';
+const WEB_VERSION = '1.0.6';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -370,7 +370,6 @@ const castMirrorBtnEl = document.getElementById('castMirrorBtn');
 const castNetBtnEl = document.getElementById('castNetBtn');
 const castNetLabelEl = document.getElementById('castNetLabel');
 const castLocalBtnEl = document.getElementById('castLocalBtn');
-const castLocalLabelEl = document.getElementById('castLocalLabel');
 const castMsgEl = document.getElementById('castMsg');
 const castMirrorLabelEl = document.getElementById('castMirrorLabel');
 const castLiveEl = document.getElementById('castLive');
@@ -1597,18 +1596,28 @@ function algumaTelaConectada() { return !!simpleDisplay(); }
  * antes do culto são usos legítimos, e para todos eles a resposta certa é o som
  * saindo daqui: exatamente o que o modo avançado já faz sozinho sem tela.
  *
- * PERSISTIDO, e por isso ele se desfaz sozinho quando uma tela entra (ver
- * `renderSimpleGate`): sem essa segunda metade, a escolha de um ensaio de
- * quarta-feira sobreviveria até o sábado, e o culto começaria com o telão no ar
- * e o áudio no bolso de quem opera — o pior dos dois desfechos, porque ninguém
- * procuraria a causa num botão tocado três dias antes.
+ * ## CAMINHO SÓ DE IDA, e valendo só o USO ATUAL
+ *
+ * Não há botão de volta, e a escolha **não é guardada em lugar nenhum** — este
+ * `let` é a memória inteira dela. O bloqueio se rearma sozinho por três
+ * caminhos, e são eles que substituem o botão de desfazer:
+ *
+ * - **o app fecha** — nada foi gravado, então a abertura seguinte nasce
+ *   bloqueada;
+ * - **ida e volta pelo modo avançado** (`setAppMode`, que a zera em toda troca);
+ * - **uma tela entra** (`renderSimpleGate`) — aí há para onde mandar o som, e é
+ *   para lá que ele vai.
+ *
+ * A versão anterior (v1.0.5) persistia a escolha e oferecia "Voltar a exigir uma
+ * tela". Persistir era o defeito que o botão vinha remendar: guardada, a decisão
+ * de um ensaio de quarta-feira chegava ao culto de sábado, e alguém tinha de
+ * lembrar de desfazê-la. Sem gravar, não há o que desfazer.
  */
 let tocarNoCelular = false;
-async function setTocarNoCelular(on) {
+function setTocarNoCelular(on) {
   const alvo = !!on;
   if (alvo === tocarNoCelular) return;
   tocarNoCelular = alvo;
-  try { await AVDB.setState('tocarNoCelular', tocarNoCelular); } catch (_) { /* a escolha vale a sessão */ }
   renderSimpleGate();
   acertarSaidaDeAudio();
   renderCast();
@@ -2359,7 +2368,6 @@ async function load(opts) {
   const storedRot = await AVDB.getState('rotate');
   const lyricsBgV = (await AVDB.getState('lyricsBg')) === 'image' ? 'image' : 'black';
   const downloadOkV = !!(await AVDB.getState('downloadOk'));
-  const tocarLocalV = !!(await AVDB.getState('tocarNoCelular'));
   let libItemsV;
   if (activeTab === 'imports') {
     // Só a aba que é de fato lista de IDs de mídia. 'bible' e 'messages'
@@ -2400,17 +2408,10 @@ async function load(opts) {
   mediaRot = ROTACOES.includes(storedRot | 0) ? (storedRot | 0) : 0;
   lyricsBg = lyricsBgV;
   downloadConsent = downloadOkV;
-  tocarNoCelular = tocarLocalV;
   libItems = libItemsV;
   currentItem = currentItemV;
 
   renderLyricsBgSeg();
-  // A ESCOLHA LIDA DO BANCO PRECISA SER APLICADA AQUI. O bloqueio do Modo Fácil
-  // e a saída de áudio são DERIVADOS de `tocarNoCelular`, e nenhum dos dois se
-  // recalcula sozinho — sem estas duas linhas a preferência sobreviveria ao
-  // lançamento e não faria nada até alguém tocar noutro botão qualquer.
-  renderSimpleGate();
-  acertarSaidaDeAudio();
   renderControls();
   renderNowPlaying();
   renderRepeat();
@@ -17101,6 +17102,8 @@ function bgTaskSend(force) {
 const appDialogEl = document.getElementById('appDialog');
 const appDialogTitleEl = document.getElementById('appDialogTitle');
 const appDialogMsgEl = document.getElementById('appDialogMsg');
+const appDialogItensEl = document.getElementById('appDialogItens');
+const appDialogRodapeEl = document.getElementById('appDialogRodape');
 const appDialogInputEl = document.getElementById('appDialogInput');
 const appDialogOkEl = document.getElementById('appDialogOk');
 const appDialogCancelEl = document.getElementById('appDialogCancel');
@@ -17137,7 +17140,7 @@ function onAppDialogKey(e) {
   closeAppDialog(appDialogInputEl.hidden ? false : null);
 }
 function openAppDialog(opts) {
-  const { title, message, okText, cancelText, input, value, placeholder, fixo } = opts || {};
+  const { title, message, okText, cancelText, input, value, placeholder, fixo, itens, rodape } = opts || {};
   return new Promise((resolve) => {
     // Se já houver um diálogo aberto, resolve o anterior como cancelado.
     if (appDialogResolve) closeAppDialog(input ? null : false);
@@ -17147,6 +17150,20 @@ function openAppDialog(opts) {
     appDialogTitleEl.hidden = !title;
     appDialogMsgEl.textContent = message || '';
     appDialogMsgEl.hidden = !message;
+    // A LINHA DO TEMPO, quando o chamador tem uma. `textContent` por item, e
+    // não uma string com `innerHTML`: hoje o único chamador é a atualização, e
+    // o texto dela sai de um arquivo que veio da REDE dentro de um zip. O
+    // caminho seguro custa uma linha e não precisa ser reconsiderado nunca.
+    appDialogItensEl.replaceChildren();
+    const lista = Array.isArray(itens) ? itens.filter((t) => t && String(t).trim()) : [];
+    for (const t of lista) {
+      const li = document.createElement('li');
+      li.textContent = String(t);
+      appDialogItensEl.appendChild(li);
+    }
+    appDialogItensEl.hidden = lista.length === 0;
+    appDialogRodapeEl.textContent = rodape || '';
+    appDialogRodapeEl.hidden = !rodape;
     appDialogOkEl.textContent = okText || 'OK';
     // `cancelText: null` é o diálogo de AVISO: ele não pergunta nada, só conta
     // o que aconteceu, e um "Cancelar" ao lado do "Entendi" ofereceria uma
@@ -17569,6 +17586,11 @@ volSliderEl.addEventListener('change', () => { volSeekingEl = null; persistCurre
 
 function setAppMode(mode) {
   appMode = mode === 'simple' ? 'simple' : 'full';
+  // O "tocar neste celular" VALE O USO ATUAL, e uma ida ao avançado encerra
+  // esse uso: voltar ao Modo Fácil devolve a tela de bloqueio. É por isto que
+  // não há botão de desfazer — este é um dos três caminhos de volta, e o único
+  // que o operador percorre de propósito.
+  tocarNoCelular = false;
   // A escolha é do operador, e ele não deveria refazê-la a cada abertura.
   try { localStorage.setItem(APP_MODE_KEY, appMode); } catch (_) { /* storage bloqueado */ }
   document.body.classList.toggle('mode-simple', appMode === 'simple');
@@ -17904,7 +17926,6 @@ function renderSimpleGate() {
   // aplica o estado novo na mesma passada.
   if (temTela && tocarNoCelular) {
     tocarNoCelular = false;
-    try { AVDB.setState('tocarNoCelular', false); } catch (_) { /* já vale em memória */ }
     acertarSaidaDeAudio();
   }
   const semTela = appMode === 'simple' && !temTela && !tocarNoCelular;
@@ -17956,29 +17977,23 @@ function renderSimpleGate() {
 }
 
 /**
- * O BOTÃO DE TOCAR AQUI SÓ EXISTE ONDE A ESCOLHA FAZ SENTIDO: Modo Fácil e
- * nenhuma tela conectada.
+ * O BOTÃO DE TOCAR AQUI SÓ EXISTE ONDE A ESCOLHA AINDA PODE SER FEITA: Modo
+ * Fácil, nenhuma tela conectada, e ela ainda não feita.
  *
- * As duas metades da condição têm razões diferentes. **No avançado ele não
- * aparece** porque lá o som já sai daqui por derivação — um botão para ligar o
- * que já está ligado. **Com tela conectada** ele não aparece porque há para onde
- * mandar, e é para lá que o som vai.
+ * As três metades têm razões diferentes. **No avançado ele não aparece** porque
+ * lá o som já sai daqui por derivação — um botão para ligar o que já está
+ * ligado. **Com tela conectada**, porque há para onde mandar e é para lá que o
+ * som vai. **Já escolhido**, porque isto é caminho só de ida: quem desfaz é
+ * fechar o app ou passar pelo modo avançado (ver `setTocarNoCelular`), não um
+ * segundo botão.
  *
- * E ele NÃO pergunta "o bloco está na tela?": ligado, a escolha DESBLOQUEIA o
- * Modo Fácil, e aí o bloco volta para a folha do botão de conectar — se a
- * condição fosse a hospedagem, o botão sumiria no instante em que passa a ser a
- * única forma de desfazer o que ele acabou de fazer.
+ * Daí ele não ter estado LIGADO nenhum — nem rótulo que troca, nem cor de
+ * escolhido. Um botão que some depois do toque não precisa dizer que foi tocado:
+ * a tela desbloqueada e o som saindo já dizem.
  */
 function renderCastLocal() {
   if (!castLocalBtnEl) return;
-  castLocalBtnEl.hidden = !(appMode === 'simple' && !algumaTelaConectada());
-  castLocalBtnEl.classList.toggle('escolhido', tocarNoCelular);
-  if (castLocalLabelEl) {
-    // Ligado, o rótulo nomeia a AÇÃO — a gramática do irmão de cima
-    // (`castNetBtn`), e pela mesma razão: é o que o toque faz.
-    castLocalLabelEl.textContent = tocarNoCelular
-      ? 'Voltar a exigir uma tela' : 'Tocar neste celular';
-  }
+  castLocalBtnEl.hidden = !(appMode === 'simple' && !algumaTelaConectada() && !tocarNoCelular);
 }
 
 // O BLOCO DE CONEXÃO TEM DUAS CASAS, e é o MESMO nó — o padrão do `hostPreview`
@@ -19705,6 +19720,9 @@ const otaAdiadas = new Set();
 // para sempre — e o operador veria a pergunta reaparecer sozinha depois de ter
 // dito sim.
 const otaRecusadas = new Set();
+// A LINHA DO TEMPO do que a atualização traz: `[{versao, itens:[…]}]`, mais
+// nova primeiro, já filtrada pelo shell para o que este aparelho ainda não tem.
+let otaNotas = [];
 let otaPerguntando = false;
 // (`otaDiagTexto`, `otaPendenteVersao`, `apkNovo` e `apkBaixando` nascem no
 // TOPO do arquivo, junto do `WEB_VERSION` — `renderVersionLabel()` os lê na
@@ -19776,10 +19794,26 @@ async function lerAtualizacao() {
   if (!window.__NATIVE__) return;
   let e = null;
   try { e = await AVNative.atualizacaoEstado(); } catch (_) { return; }
-  if (!e) return;
+  ingerirAtualizacao(e);
+}
+
+// ===== A INGESTÃO, NUM PONTO SÓ =====
+//
+// Os dois caminhos (a enquete e o empurrão) leem a MESMA fotografia, e por três
+// versões cada um a desempacotou por conta própria — duas listas de campos, que
+// divergem no primeiro esquecimento. E a divergência aqui é MUDA nos dois
+// sentidos: um campo lido só na enquete chega dez segundos atrasado; um campo
+// lido só no empurrão nunca chega em quem abriu o app com a atualização pronta.
+function ingerirAtualizacao(e) {
+  if (!e) return false;
   otaPendenteVersao = e.web || '';
   otaDiagTexto = e.diag || '';
   apkNovo = e.shell ? { versao: e.shell, bytes: e.shellBytes | 0 } : null;
+  // A LINHA DO TEMPO do que vem (shell 47). Vazia é o normal: bundle anterior a
+  // este lote, lote só de APK, ou `notas.json` que o shell não conseguiu ler.
+  // Em todos, a pergunta continua a mesma — só não se descreve.
+  otaNotas = Array.isArray(e.webNotas) ? e.webNotas : [];
+  return true;
 }
 
 // ===== O EMPURRÃO DO SHELL =====
@@ -19789,10 +19823,7 @@ async function lerAtualizacao() {
 // ida à ponte — o que importa é que o desenho aconteça no mesmo quadro em que
 // o dado chegou.
 window.__avAtualizacao = function (e) {
-  if (!e) return;
-  otaPendenteVersao = e.web || '';
-  otaDiagTexto = e.diag || '';
-  apkNovo = e.shell ? { versao: e.shell, bytes: e.shellBytes | 0 } : null;
+  if (!ingerirAtualizacao(e)) return;
   decidirAtualizacao();
 };
 
@@ -19829,33 +19860,92 @@ function mb(bytes) {
   return bytes ? Math.round(bytes / 104857.6) / 10 + ' MB' : '';
 }
 
-// A FRASE muda com o lote, e cada uma diz a CONSEQUÊNCIA que o rótulo não diz.
-// Quem só vê "atualizar?" não sabe se vai perder a projeção por um instante ou
-// se o Android vai abrir um instalador em cima do culto.
+// ===== DUAS FRASES, e a linha do tempo entre elas =====
+//
+// Eram uma só, com a consequência colada na identidade por duas quebras de
+// linha. Com a lista no meio essa junção deixou de servir: um parágrafo sobre
+// telas recarregando separaria a versão das mudanças DELA.
+//
+// `textoDaAtualizacao` responde O QUE É (e é o único que muda de forma com o
+// lote); `consequenciaDaAtualizacao` responde O QUE ACONTECE AO TOCAR — que é a
+// pergunta que a lista nunca responde, e a razão de este diálogo existir em vez
+// de a atualização entrar sozinha.
 function textoDaAtualizacao(lote) {
   const tamanho = lote.bytes ? ' (' + mb(lote.bytes) + ')' : '';
+  if (lote.web && lote.shell) return 'Base v' + lote.web + ' e app v' + lote.shell + tamanho + '.';
+  if (lote.shell) return 'App v' + lote.shell + tamanho + '.';
+  return 'Base v' + lote.web + '.';
+}
+
+function consequenciaDaAtualizacao(lote, sobram) {
+  // O QUE NÃO COUBE VEM PRIMEIRO, e vem aqui porque este bloco não rola: a
+  // lista acima pode ter sido cortada pelo teto, e quem a lê precisa saber
+  // disso sem depender de rolar até o fim dela.
+  const resto = sobram
+    ? 'E mais ' + sobram + (sobram === 1 ? ' mudança.' : ' mudanças.') + '\n'
+    : '';
+  return resto + consequenciaCrua(lote);
+}
+
+function consequenciaCrua(lote) {
   if (lote.web && lote.shell) {
-    return 'Base v' + lote.web + ' e app v' + lote.shell + tamanho + '.\n\n'
-      + 'A base entra primeiro e a projeção pisca por um instante. '
+    return 'A base entra primeiro e a projeção pisca por um instante. '
       + 'Em seguida o Android vai pedir para confirmar a instalação do app.';
   }
   if (lote.shell) {
-    return 'App v' + lote.shell + tamanho + '.\n\n'
-      + 'Depois de baixar, o Android vai pedir para confirmar a instalação — '
+    return 'Depois de baixar, o Android vai pedir para confirmar a instalação — '
       + 'o app fecha durante ela.';
   }
-  return 'Base v' + lote.web + '.\n\n'
-    + 'As duas telas recarregam e a projeção pisca por um instante. '
+  return 'As duas telas recarregam e a projeção pisca por um instante. '
     + 'Uma mídia tocando volta no ponto em que estava.';
 }
 
+// ===== A LINHA DO TEMPO, achatada para a lista do diálogo =====
+//
+// O shell entrega `[{versao, itens}]` porque quem passou três versões sem abrir
+// o app tem três blocos a ver; a tela mostra UMA lista. O prefixo de versão só
+// aparece quando há mais de um bloco — com um só ele repetiria, em cada linha, o
+// número que o texto acima do diálogo acabou de dizer.
+//
+// TETO DE LINHAS, e ele é a decisão que faz isto continuar sendo uma linha do
+// tempo: um diálogo que rola é um texto, e "não se torne um texto" é o pedido.
+//
+// **O AVISO DO QUE SOBROU NÃO PODE MORAR NA LISTA.** Ele morou, e o desenho o
+// desmentiu na primeira medição: a lista tem teto de altura com rolagem (a rede
+// para uma fonte de sistema grande, sem a qual os botões saem da tela), e o
+// último item é justamente o primeiro a ser cortado — o "e mais 5 mudanças"
+// ficava escondido atrás da rolagem, e o que sobrava era uma lista truncada
+// afirmando ser tudo. Ele sai daqui e vai para o RODAPÉ, que não rola.
+//
+// Seis e não oito pela mesma medição: no cartão de 360px cada item ocupa duas
+// ou três linhas, e oito deles já batiam no teto de altura num aparelho comum.
+// O teto do CSS passa a ser o que ele diz ser — uma rede que quase nunca toca.
+const OTA_MAX_LINHAS = 6;
+function linhaDoTempoDaAtualizacao() {
+  if (!Array.isArray(otaNotas) || !otaNotas.length) return { linhas: [], sobram: 0 };
+  const varias = otaNotas.length > 1;
+  const linhas = [];
+  for (const bloco of otaNotas) {
+    const itens = bloco && Array.isArray(bloco.itens) ? bloco.itens : [];
+    for (const t of itens) {
+      if (!t || !String(t).trim()) continue;
+      linhas.push(varias && bloco.versao ? 'v' + bloco.versao + ' · ' + t : String(t));
+    }
+  }
+  const sobram = Math.max(0, linhas.length - OTA_MAX_LINHAS);
+  return { linhas: linhas.slice(0, OTA_MAX_LINHAS), sobram };
+}
+
 async function perguntarAtualizacao(lote) {
+  const tempo = linhaDoTempoDaAtualizacao();
   otaPerguntando = true;
   let sim = false;
   try {
     sim = await openAppDialog({
       title: 'Atualização disponível',
       message: textoDaAtualizacao(lote),
+      itens: tempo.linhas,
+      rodape: consequenciaDaAtualizacao(lote, tempo.sobram),
       okText: 'Atualizar agora',
       cancelText: 'Deixar para depois',
       input: false,

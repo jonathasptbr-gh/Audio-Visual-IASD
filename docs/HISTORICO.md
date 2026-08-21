@@ -24,6 +24,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
+- **v1.0.6** — A ATUALIZAÇÃO DIZ O QUE VEM NELA: uma linha do tempo das mudanças entre a versão e a consequência, lida do `notas.json` do PRÓPRIO bundle baixado — não do manifesto, que é buscado 240 vezes por hora para carregar texto que importa uma vez por semana. Mais o "Tocar neste celular" virando caminho SÓ DE IDA (a v1.0.5 persistia a escolha, e persistir era o defeito que o botão de volta vinha remendar) e a cadeia de conectar TV ganhando a candidata que faltava em quem não é Samsung. `SHELL_VERSION` 47. EXIGE RELEASE
 - **v1.0.5** — O MODO FÁCIL DEIXA DE EXIGIR UMA TELA: o bloqueio supunha que quem abre aquele modo sempre quer projetar, e ensaiar o louvor ou ouvir o playback a caminho da igreja não quer. O "Tocar neste celular" da folha de conexão desbloqueia o modo e liga o som daqui — e a escolha SE DESFAZ SOZINHA quando uma tela entra, senão o ensaio de quarta-feira chegaria ao culto de sábado. OTA PURO
 - **v1.0.4** — O SELO DE CAMADAS VOLTA A SER UM ÍCONE SOLTO, como os dois vizinhos da preview: o que o separa deles é a COR, e ela vira `--stage-alert` (a paleta recusa o scarlett oficial como traço). O desenho ganha o ✕ — a pilha diz o estado, o ✕ diz o que o toque faz. Conferido nos DOIS modos. OTA PURO
 - **v1.0.3** — O SELO DE CAMADAS: com um louvor tocando e um texto por cima, a camada de cima não tinha saída fora da linha que a pôs lá — o Parar levava o louvor junto. Mais o endereço da transmissão que se COPIA, o fundo dos slides que não chegava à tela da rede sem o canal de mídia (guarda larga demais), e o download de um episódio de série que não acendia NADA na lista. OTA PURO
@@ -192,6 +193,127 @@ na nota que a revoga, não apagada da que a criou.
 - **v5.154** — é METADE OTA e METADE APK, e a divisão importa para quem for testar em aparelho.
 - **v5.155** — é OTA PURO
 - **v5.156** — é METADE OTA e METADE APK, de novo.
+
+---
+
+## v1.0.6 — a atualização diz o que vem nela
+
+Pedido do operador, em duas partes: *"organize o sistema de update dentro do
+app, para mostrar os dados do que está disponível na atualização … apenas uma
+timeline descritiva das mudanças"*, com *"correções de bugs … sempre como
+'Corrigido um bug na seção de …'"*; e *"verifique se o sistema de conexão para
+TV está funcionando corretamente em aparelhos que não sejam Samsung"*.
+
+### A LINHA DO TEMPO, e onde ela NÃO mora
+
+A pergunta da atualização sabia dizer a versão e a consequência, e nunca o que
+mudava. Agora são TRÊS blocos, nesta ordem porque é a ordem da leitura:
+
+| bloco | responde |
+|---|---|
+| mensagem | o que É — `Base v1.0.6.` · `Base v1.0.6 e app v1.0.2 (4,2 MB).` |
+| lista | o que MUDA |
+| rodapé | o que ACONTECE ao tocar — a única que a lista nunca responde, e a razão de haver pergunta |
+
+**As notas viajam DENTRO do bundle** (`assets/web/notas.json`), lidas pelo shell
+do diretório do bundle BAIXADO (`WebUpdater.notasPendentes`) e entregues já
+filtradas para o que aquele aparelho ainda não tem. **Não pelo manifesto**, e as
+três razões são independentes:
+
+- **Custo zero na ronda.** O manifesto é buscado a cada 15 s enquanto o processo
+  viver — 240 vezes por hora. Pendurar nele alguns kB que importam uma vez por
+  semana é pagá-los 240 vezes por hora.
+- **Elas não PODEM divergir do que descrevem.** O arquivo entra no zip com o
+  código, e é lido do diretório daquele bundle. Não existe o estado "o manifesto
+  anuncia mudanças que o bundle baixado não tem".
+- **Nada de novo no caminho de rede** — logo, nada de novo que possa falhar
+  nele.
+
+O preço está dito no KDoc: **um lote SÓ de APK não tem linha do tempo**, porque
+não há bundle novo de onde lê-la. Os lotes deste projeto são quase todos "só
+web" ou "web + APK juntos" (é para isso que o `shellTag` existe), e o desfecho do
+caso raro é a pergunta de sempre, sem a lista — nunca uma lista errada.
+
+### O AVISO DO QUE SOBROU NÃO PODE MORAR NA LISTA
+
+O teto de linhas é o que mantém isto uma linha do tempo em vez de um texto: seis
+(`OTA_MAX_LINHAS`), e o que sobra vira "E mais N mudanças."
+
+Ele morou DENTRO da lista, e o desenho o desmentiu na primeira medição: a lista
+tem rolagem, e o último item é o primeiro a ser cortado — o aviso ficava
+escondido atrás da rolagem, e o que sobrava era **uma lista truncada afirmando
+ser tudo**. Foi para o rodapé, que não rola.
+
+E o teto de ALTURA mudou de dono junto. Com `max-height: 40vh` na lista, um
+aparelho de 360×640 a cortava enquanto o cartão ocupava 477px de 640: havia
+espaço de sobra e ela se cortava mesmo assim, porque `40vh` não sabe quanto os
+irmãos dela estão gastando. O teto foi para o `.dialog-card` (`88vh`) e a lista
+ficou com o que sobra — ela só rola quando de fato não há para onde crescer.
+
+Os dois têm oráculo, e os dois foram provados por NEGATIVO: com o teto desligado
+e com o aviso de volta na lista, as asserções reprovam.
+
+### CONECTAR UMA TV FORA DA SAMSUNG: uma assimetria de contrato
+
+A cadeia é honesta e degrada bem — `<queries>` completo, filtro de GMS que
+impede terminar no Google Cast, e `describeCastTarget()` dizendo o componente
+real para diagnóstico a distância. O que a leitura achou foi outra coisa:
+
+**`CAST_SETTINGS` e `DISPLAY_SETTINGS` são constantes PÚBLICAS do `Settings`;
+`WIFI_DISPLAY_SETTINGS` é um literal** — ação interna do AOSP, que contrato
+nenhum obriga o fabricante a declarar. E num aparelho que não fosse Samsung ela
+era a **única** candidata da cadeia filtrada: faltando, `pickCastIntent` devolvia
+null e o toque caía no laço CEGO, cuja primeira parada é `DISPLAY_SETTINGS` —
+brilho e tempo de tela, que não é seletor de nada.
+
+Aquela ordem foi escolhida contra uma medição EM SAMSUNG, onde o Google Cast
+reivindica `CAST_SETTINGS`. Noutras marcas quem a reivindica costuma ser o
+próprio app de Configurações, e ali ela É o seletor de tela sem fio. Ela entrou
+no FIM da cadeia filtrada, onde o filtro de GMS que já existe responde a pergunta
+com o aparelho em vez de com um palpite: dono é o Play Services, o filtro pula e
+nada muda (o caso Samsung, medido); dono é o fabricante, abre a tela certa. No
+fim da lista de propósito — na Samsung o Smart View continua vindo antes.
+
+**E a KDoc de `openCastPicker` estava PENDURADA:** ela morava entre
+`listDisplays` e a KDoc de `openExternalUrl`, sem função nenhuma abaixo. A
+explicação da cadeia inteira — o que é espelhamento, por que o Cast é o último
+recurso, por que o `<queries>` existe — estava a 47 linhas da função que
+descreve. É o defeito de rotação que a v5.300 catalogou, achado dentro do
+arquivo que o `pares-de-comentario.mjs` não cobre.
+
+### E O "TOCAR NESTE CELULAR" VIRA CAMINHO SÓ DE IDA
+
+A v1.0.5 (um dia de vida) persistia a escolha e oferecia "Voltar a exigir uma
+tela". O operador pediu o contrário: *"não precisa ter um botão de voltar … a
+tela de bloqueio é reativada caso o app feche ou caso vá para o modo avançado e
+volte … um caminho só de ida, mas apenas para o uso atual"*.
+
+**E persistir era o defeito que o botão de volta vinha remendar.** Guardada, a
+decisão de um ensaio de quarta-feira chegava ao culto de sábado, e alguém tinha
+de lembrar de desfazê-la — a nota da v1.0.5 escreveu esse risco e respondeu a ele
+com um botão. Sem gravar, não há o que desfazer: `tocarNoCelular` é um `let` e
+mais nada, e o bloqueio se rearma por três caminhos (o app fecha · ida e volta
+pelo avançado, em `setAppMode` · uma tela entra, em `renderSimpleGate`).
+
+Daí o botão SUMIR depois do toque em vez de trocar de rótulo — e daí o estado de
+cor `.escolhido` da v1.0.5 sair junto com ele. Um botão que some não precisa
+dizer que foi tocado: a tela desbloqueada e o som saindo já dizem.
+
+Medido nos nove passos, incluindo os três rearmes:
+
+```
+1. Modo Fácil, sem tela            | oferece | BLOQUEADO | mudo
+2. toca em "Tocar neste celular"   | oculto  | livre     | SOM
+3. vai ao avançado                 | oculto  | livre     | SOM
+4. VOLTA ao Modo Fácil             | oferece | BLOQUEADO | mudo
+5. escolhe de novo                 | oculto  | livre     | SOM
+6. uma TV entra                    | oculto  | livre     | mudo
+7. a TV sai                        | oferece | BLOQUEADO | mudo
+8. escolhe outra vez               | oculto  | livre     | SOM
+9. o app FECHA e reabre            | oferece | BLOQUEADO | mudo
+```
+
+Suíte inteira verde: 25/25.
 
 ---
 
@@ -715,6 +837,8 @@ história do contrato, não regra viva.
 
 | shell | o que mudou |
 |---|---|
+| **47** | `atualizacaoEstado` ganha `webNotas` — a LINHA DO TEMPO da atualização, lida do `notas.json` do bundle baixado. Não acrescenta poder: acrescenta um campo, e **forma de retorno é superfície** |
+| **46** | `espelhoLigar` perde o `modo`; `espelhoAprovar(id, sim)` vira `espelhoDerrubar(rotulo)`. O primeiro degrau em que ENCOLHER foi o objetivo do lote |
 | **45** | `espelhoDiag` ganha `midia { itens, bytes, teto }` — o cache da rota `/m/` no Registro. Não muda poder nenhum; o degrau existe porque **forma de retorno é superfície**, e o Registro é lido A DISTÂNCIA |
 | **44** | `espelhoEstado` ENCOLHE: cada tela perdeu os seis campos de capacidade (`seguro`, `mse`, `mms`, `fetchStream`, `videoDecoder`, `wakeLock`) — sem produtor desde a v5.187, e `optBoolean` os publicava como `false`, que é valor legítimo |
 | 43 | `+ atualizacaoEstado` — os dois canais numa leitura só. Não acrescenta poder, acrescenta **coerência de instante** (três promessas independentes desenhavam o diálogo pela metade) |
@@ -736,7 +860,6 @@ história do contrato, não regra viva.
 | 27 | **contrato**: a faixa de bytes do `ytStream` viaja na QUERY, nunca em `Range` (invariante 8) |
 | 26 | `+ ytStream` · 25 `+ ytFetchAte` e `bytes` no `bgProgress` · 23 `+ ytFetchAudio` |
 | ≤ 22 | `ytDiag`, `ytSearch`, os três de deck, `pickDoc`, `openExternal`, `ytFetch`/`ytDiscard` |
-| 46 | `espelhoLigar` perde o `modo`; `espelhoAprovar(id, sim)` vira `espelhoDerrubar(rotulo)`. O primeiro degrau em que ENCOLHER foi o objetivo do lote |
 
 ---
 

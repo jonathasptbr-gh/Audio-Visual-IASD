@@ -3,6 +3,7 @@ package br.org.iasd.av
 import android.content.Context
 import android.os.SystemClock
 import android.util.Log
+import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
 import java.io.FileOutputStream
@@ -84,6 +85,12 @@ object WebUpdater {
      * que deixaria o app sem abrir depois de atualizar o APK.
      */
     private const val KEY_PENDING = "pending-bundle"
+
+    /** Teto de leitura do `notas.json` do bundle — ver [notasPendentes]. */
+    private const val TETO_NOTAS = 128L * 1024
+
+    /** Quantas versões a linha do tempo mostra, no máximo. */
+    private const val TETO_ENTRADAS = 12
 
     /**
      * O que a sessão ANTERIOR de fato serviu — o nome do subdiretório, ou `""`
@@ -323,6 +330,73 @@ object WebUpdater {
         val dir = File(baseDir(ctx), active)
         val v = versionOf(File(dir, "web/version.json").takeIf { it.isFile }) ?: return null
         return if (compareVersions(v, currentVersion(ctx)) > 0) v else null
+    }
+
+    /**
+     * O QUE VEM NA ATUALIZAÇÃO — a linha do tempo das mudanças, das versões que
+     * o aparelho ainda não tem.
+     *
+     * ## As notas viajam DENTRO do bundle, e não no manifesto
+     *
+     * Foi a escolha do lote, e as três razões são independentes:
+     *
+     * - **Custo zero na ronda.** O manifesto é buscado a cada 15 s enquanto o
+     *   processo viver (240 vezes por hora). Pendurar nele alguns kB de texto
+     *   que só importam no instante raro de uma atualização é pagar esse texto
+     *   240 vezes por hora para usá-lo uma vez por semana.
+     * - **Elas NÃO PODEM divergir do que descrevem.** O arquivo é versionado
+     *   junto do código, entra no zip com ele e é lido do diretório DAQUELE
+     *   bundle. Não existe o estado "o manifesto anuncia mudanças que o bundle
+     *   baixado não tem".
+     * - **Nada a acrescentar no caminho de rede.** Sem campo novo no manifesto,
+     *   sem asset novo, sem requisição nova — logo, sem modo de falhar novo.
+     *
+     * O preço, dito: **um lote SÓ de APK não tem linha do tempo**, porque não há
+     * bundle novo de onde lê-la. Os lotes deste projeto são quase todos "só
+     * web" ou "web + APK juntos" (o `shellTag` do `version.json` existe para
+     * mantê-los juntos), então o caso descoberto é o raro — e o desfecho dele é
+     * a pergunta de sempre, sem a lista, nunca uma lista errada.
+     *
+     * Devolve as entradas **mais novas que a versão em uso**, na ordem do
+     * arquivo (mais nova primeiro): quem passou três versões sem abrir o app vê
+     * as três. Arquivo ausente (bundle anterior a este lote), ilegível ou
+     * malformado devolve lista vazia — a atualização continua acontecendo, só
+     * não se descreve.
+     */
+    fun notasPendentes(ctx: Context): JSONArray {
+        val vazio = JSONArray()
+        val p = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val active = p.getString(KEY_ACTIVE, null) ?: return vazio
+        if (active == sessionRoot?.name) return vazio
+        val f = File(File(baseDir(ctx), active), "web/notas.json")
+        if (!f.isFile) return vazio
+        // TETO DE LEITURA: este arquivo vem de um zip baixado da rede, e ler um
+        // arquivo sem teto para dentro da memória do processo que segura os dois
+        // WebViews e um vídeo é o mesmo erro que a extração já não comete.
+        if (f.length() > TETO_NOTAS) {
+            Log.w(TAG, "notas.json grande demais (${f.length()} B) — ignorado")
+            return vazio
+        }
+        val atual = currentVersion(ctx)
+        return try {
+            val lidas = JSONArray(f.readText())
+            val out = JSONArray()
+            for (i in 0 until minOf(lidas.length(), TETO_ENTRADAS)) {
+                val entrada = lidas.optJSONObject(i) ?: continue
+                val v = entrada.optString("versao")
+                // Só o que o aparelho ainda NÃO tem. Sem esta linha o operador
+                // que atualiza de 1.0.5 para 1.0.6 leria a história inteira do
+                // app como se fosse novidade daquele toque.
+                if (v.isEmpty() || compareVersions(v, atual) <= 0) continue
+                val itens = entrada.optJSONArray("itens") ?: continue
+                if (itens.length() == 0) continue
+                out.put(JSONObject().put("versao", v).put("itens", itens))
+            }
+            out
+        } catch (e: Exception) {
+            Log.w(TAG, "notas.json ilegível", e)
+            vazio
+        }
     }
 
     /**
@@ -740,7 +814,9 @@ object WebUpdater {
      *
      * Campos: `web` (versão baixada e esperando, `""` = nada), `webAtual`,
      * `shell` (versão publicada e mais nova que a instalada, `""` = nada),
-     * `shellBytes`, `shellAtual` e `diag`.
+     * `shellBytes`, `shellAtual`, `webNotas` (a LINHA DO TEMPO do que vem —
+     * `[{versao, itens:[…]}]`, mais nova primeiro, `[]` = não há o que
+     * descrever; ver [notasPendentes]) e `diag`.
      */
     fun estado(ctx: Context): JSONObject {
         val o = JSONObject()
@@ -750,6 +826,7 @@ object WebUpdater {
         o.put("shell", achado?.versao ?: "")
         o.put("shellBytes", achado?.bytes ?: 0L)
         o.put("shellAtual", ShellUpdater.versaoInstalada(ctx))
+        o.put("webNotas", notasPendentes(ctx))
         o.put("diag", diag(ctx))
         return o
     }

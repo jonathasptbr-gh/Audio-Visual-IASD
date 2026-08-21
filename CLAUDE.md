@@ -85,6 +85,8 @@ app/src/main/
 ├── AndroidManifest.xml          # intent-filter de share, portrait, <queries>, regras de backup
 ├── assets/web/                  # ← a base web (cópia própria, versionada aqui)
 │   ├── version.json             #   identidade do bundle (version + minShell)
+│   ├── notas.json               #   A LINHA DO TEMPO: o que cada versão mudou.
+│                                #   Viaja NO bundle de propósito (ver o OTA)
 │   ├── shared/tokens.css        #   PALETA — fonte única, carregada pelos dois apps
 │   ├── shared/wallpaper-padrao.svg  # o WALLPAPER padrão: símbolo oficial IASD
 │   ├── shared/native.js         #   ponte AVNative + watchdog do OTA (NÃO existe no PWA)
@@ -342,10 +344,15 @@ window.AVNative = {
   otaApply(),          // APLICA-a agora: as duas páginas recarregam
   otaCheck(forcar),    // PROCURA agora; `forcar` pula o piso do shell
   otaDiag(),           // → string: quando foi a última busca e o que ela deu
-  atualizacaoEstado(), // → { web, webAtual, shell, shellBytes, shellAtual, diag }
+  atualizacaoEstado(), // → { web, webAtual, shell, shellBytes, shellAtual,
+                       //     webNotas, diag }
                        //   OS DOIS CANAIS numa leitura só — ele não
                        //   acrescenta poder: acrescenta COERÊNCIA DE INSTANTE
-                       //   (ver a seção do OTA)
+                       //   (ver a seção do OTA). `webNotas` é a LINHA DO TEMPO
+                       //   do que vem: `[{versao, itens:[…]}]`, mais nova
+                       //   primeiro, JÁ FILTRADA pelo shell para o que este
+                       //   aparelho não tem. Lida do `notas.json` do PRÓPRIO
+                       //   bundle baixado, nunca do manifesto
   apkProcurar(),       // → {} · { versao, bytes, notas } · { erro }
                        //   `bytes` é o TAMANHO do .apk; NÃO há campo `url` (quem
                        //   guarda a URL é o `ShellUpdater`) e o vazio é `{}`,
@@ -453,7 +460,7 @@ prazo (um timeout ali resolveria null com o operador ainda escolhendo a pasta).
 
 ### `SHELL_VERSION` — subir SEMPRE que a superfície mudar
 
-Hoje vale **46**, e ele é o **PISO**: o bundle declara `minShell: 46`, então
+Hoje vale **47**, e ele é o **PISO**: o bundle declara `minShell: 47`, então
 todo método da ponte existe sempre e **não há guarda de versão no lado web**.
 "Superfície" inclui **forma de retorno** e **comportamento**, não só assinatura:
 um campo que some, um contrato de URL que muda ou um método que passa a fazer
@@ -466,7 +473,7 @@ escondia. Sem guardas, o web chama um método que o APK instalado não tem: o
 existe, é tocável e não faz nada. Por isso mudança de ponte é um lote
 **APK + web publicado JUNTO**, com `shellTag` no `version.json`.
 
-> A tabela dos 46 degraus está em `docs/HISTORICO.md` — ela é história do
+> A tabela dos 47 degraus está em `docs/HISTORICO.md` — ela é história do
 > contrato, e história mora lá.
 
 ### As TRÊS filas da ponte — escolher a errada é uma regressão muda
@@ -517,7 +524,7 @@ E duas regras que ficam de fora das três filas:
   e volta; quem responde é o laço de cópia do `YoutubeGrab`, a cada bloco de
   64 kB.
 
-**O bundle declara `minShell: 46`, e é a VÁLVULA que resolve.** Um bundle que
+**O bundle declara `minShell: 47`, e é a VÁLVULA que resolve.** Um bundle que
 exija ponte mais nova que o `SHELL_VERSION` instalado é recusado inteiro
 (`WebUpdater.kt`), e o app segue no que tinha — a recusa acontece no shell, e
 não em runtime no meio de um culto. **Guarda de versão no lado web é proibida:**
@@ -1046,10 +1053,28 @@ O job `web-ota` (todo push em `main`) empacota `assets/web/` num
 
 ### A atualização PERGUNTA
 
-- **Uma pergunta, sobre o lote.** Sem Release: *"Base v5.234 — as duas telas
-  recarregam e a projeção pisca."* Com Release: *"Base v5.234 e app v2.0 (30 MB)
-  — a base entra primeiro…"*. Desfechos: **Atualizar agora** · **Deixar para
-  depois**.
+- **Uma pergunta, sobre o lote — e ela DIZ O QUE VEM.** Três blocos, nesta
+  ordem, porque é a ordem da leitura: a IDENTIDADE (*"Base v1.0.6."* · *"Base
+  v1.0.6 e app v1.0.2 (4,2 MB)."*), a LINHA DO TEMPO das mudanças, e a
+  CONSEQUÊNCIA do toque (*"as duas telas recarregam…"* · *"o Android vai pedir
+  para confirmar a instalação"*) — que é a única das três que a lista nunca
+  responde, e a razão de haver pergunta em vez de a atualização entrar sozinha.
+  Desfechos: **Atualizar agora** · **Deixar para depois**.
+- **As notas viajam DENTRO do bundle** (`assets/web/notas.json`, uma entrada por
+  versão), lidas pelo shell do diretório do bundle BAIXADO
+  (`WebUpdater.notasPendentes`) e entregues já filtradas para o que o aparelho
+  ainda não tem. **Não no manifesto**, por três razões independentes: ele é
+  buscado 240 vezes por hora e essas linhas importam uma vez por semana; dentro
+  do zip elas não têm como divergir do que descrevem; e nada de novo entra no
+  caminho de rede, logo nada de novo pode falhar nele. **O preço, dito: um lote
+  SÓ de APK não tem linha do tempo** — não há bundle novo de onde lê-la, e o
+  desfecho é a pergunta sem a lista, nunca uma lista errada.
+- **O teto de linhas é o que a mantém uma linha do tempo.** Seis
+  (`OTA_MAX_LINHAS`); o que sobra vira *"E mais N mudanças."* **no rodapé, que
+  não rola** — na lista, que rola, esse aviso era o primeiro item a ser cortado,
+  e o que sobrava era uma lista truncada afirmando ser tudo. O teto de ALTURA
+  mora no `.dialog-card`, não na lista: `40vh` na lista a cortava com o cartão
+  ocupando 477px de 640 — ela não sabe quanto os irmãos estão gastando.
 - **Ordem base → APK.** A base é rápida e não depende de confirmação; o APK exige
   um diálogo do sistema que pode ser recusado. Invertido, uma recusa ali deixaria
   o lote inteiro por aplicar.
@@ -1800,7 +1825,7 @@ que ela é desenvolvida e testada fora do aparelho.
 | Botão de cast da preview | oculto | `AVNative.openCast()` → seletor de espelhamento (ver abaixo) |
 | Retomada do telão ao reconectar | idem (`resendSceneToDisplay`) | **só reenvia o que ESTAVA no ar** — a pergunta é `midiaNoAr`, nunca `currentId` (que sobrevive ao stop de propósito, para o ▶ repetir a faixa). Telão vazio também é estado: restaurá-lo é não mandar nada |
 | Girar a mídia | idem (comando `rotate`) | botão em Configurações, 90° por toque. O motor TROCA O EIXO da caixa antes de girar, para o `object-fit` medir o retângulo em que a mídia vai de fato aparecer |
-| Som da preview | com a janela do Display aberta é muda; sem ela toca (sujeito a autoplay) | **sem tela nenhuma conectada, o som sai DESTE aparelho** (`acertarSaidaDeAudio`). No avançado é DERIVADO da conexão (`simpleDisplay` = TV **ou** tela da rede); no Modo Fácil é ESCOLHA (`tocarNoCelular`, o "Tocar neste celular" da folha de conexão), porque lá o padrão é bloquear. Com qualquer tela conectada este aparelho fica mudo nos dois modos — os WebViews dividem o processo e a saída de áudio, e a preview roubava o foco do player do telão |
+| Som da preview | com a janela do Display aberta é muda; sem ela toca (sujeito a autoplay) | **sem tela nenhuma conectada, o som sai DESTE aparelho** (`acertarSaidaDeAudio`). No avançado é DERIVADO da conexão (`simpleDisplay` = TV **ou** tela da rede); no Modo Fácil é ESCOLHA (`tocarNoCelular`, o "Tocar neste celular" da folha de conexão), porque lá o padrão é bloquear — escolha de IDA, sem persistência, que se rearma ao fechar o app, ao passar pelo avançado ou quando uma tela entra. Com qualquer tela conectada este aparelho fica mudo nos dois modos — os WebViews dividem o processo e a saída de áudio, e a preview roubava o foco do player do telão |
 | PDF · `.pptx` · Google Apresentações | **PDF não existe**; `.pptx` funciona pelo mesmo caminho do app | **uma IMAGEM POR PÁGINA**. PDF pelo `PdfRenderer` da plataforma (`SlideDeck.kt` + `deckPages`); `.pptx` pelo renderizador de `assets/web/vendor/` (`pptxParaPaginas`, `import()` dinâmico + `<foreignObject>`/canvas). Daí é mídia comum, com ⏮/⏭ passando página. **Não há botão de "apresentação"** — entra por "Importar arquivos" (`pickDoc`: o PDF precisa que o shell abra o ARQUIVO, e `<input type=file>` só devolve bytes) ou pelo share. `.ppt` legado e `.odp` ficam de fora: ninguém sabe desenhá-los |
 | **Tocar agora** de vídeo do YouTube | **não toca**, e a linha do item diz isso | **TRANSMISSÃO DIRETA** (shell 26; só funciona do 27 em diante): `ytStream` monta o manifesto das duas adaptativas, `StreamProxy` as serve pelo NOSSO origin com o UA que combina, e `shared/mse.js` as vira um `<video>` comum — fade, cortina, `MediaSession` e barra de graça, zero pixel de YouTube no telão. Faixa de bytes na QUERY (`?r=ini-fim`), **nunca** em `Range` (invariante 8). Só em "Tocar agora": as outras ações GUARDAM, e manifesto expira em horas. Falhando qualquer coisa, cai no download, calado |
 | Vídeo do YouTube | **não toca** | **baixado PELO APARELHO** (`YoutubeGrab.kt` + `ytFetch`) — a extração sai do IP do chip, que é o que o YouTube não bloqueia. Falhando, vira item de LINK, retentado no toque seguinte |
@@ -1811,7 +1836,7 @@ que ela é desenvolvida e testada fora do aparelho.
 | **Séries do YouTube** | **não existe** | **um álbum por SÉRIE** (shell 41) — ver a seção do recurso. O ITEM é um vídeo do YouTube, não faixa de hinário: mesma folha (sem "Só áudio"), "Tocar agora" transmite, download só nos destinos que guardam. Não há "baixar o álbum" (~300 MB/episódio) |
 | Buscar no YouTube | não existe: abre o YouTube numa aba | **busca dentro da Biblioteca** (`ytSearch` → `YoutubeGrab.pesquisar`), resultados na mesma lista e mesma folha de destinos. Em **português**: passar localização ao `NewPipe.init` NÃO resolve (o serviço filtra por uma lista que só tem `en-GB`) — quem resolve é o `forceLocalization` do próprio `Extractor`. Iframe é recusado pelo `X-Frame-Options`; a API oficial exigiria chave com cota |
 | Link para fora do app | `window.open` | **`openExternal(url)`** → `ACTION_VIEW` em tarefa própria. O WebView RECUSA navegar para outro origin (invariante 2): sem esse método um link externo não faz nada, nem erro no console |
-| Sem tela conectada (simplificado) | mesmo bloqueio, com a janela do Display no lugar da `Presentation` | **modo bloqueado**: cortina embaçada, seção de conexão no centro, saída para o avançado na frente. **Não é incondicional**: o "Tocar neste celular" da folha (`tocarNoCelular`) desbloqueia e manda o som para este aparelho — e a escolha se desfaz sozinha quando uma tela entra |
+| Sem tela conectada (simplificado) | mesmo bloqueio, com a janela do Display no lugar da `Presentation` | **modo bloqueado**: cortina embaçada, seção de conexão no centro, saída para o avançado na frente. **Não é incondicional**: o "Tocar neste celular" da folha (`tocarNoCelular`) desbloqueia e manda o som para este aparelho. **Caminho só de IDA e sem persistência**: o bloqueio se rearma ao fechar o app, ao passar pelo modo avançado (`setAppMode`) ou quando uma tela entra — e por isso o botão SOME depois do toque, em vez de oferecer o desfazer |
 | Fullscreen da preview | `requestFullscreen` + Screen Orientation | idem, com trava de paisagem **nativa** (`onShowCustomView`) |
 | Botões físicos de volume | o navegador não os recebe | **interceptados**, ligados ao fader (ver abaixo) |
 | Microfone | o navegador pergunta | `MicChromeClient` + `RECORD_AUDIO` (ver abaixo) |
@@ -2401,8 +2426,8 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: v1.0.5** (base web) · **v1.0.1** (APK) · `SHELL_VERSION` **46** · bundle com
-`minShell: 46` — o shell 46 é o **PISO**: todo método da ponte existe, e não há
+**Versão atual: v1.0.6** (base web) · **v1.0.6** (APK) · `SHELL_VERSION` **47** · bundle com
+`minShell: 47` — o shell 47 é o **PISO**: todo método da ponte existe, e não há
 guarda de versão no lado web. O que continua valendo é que `java/`, `res/`, o
 manifest e os workflows **só chegam instalando o APK**.
 

@@ -411,7 +411,14 @@
     otaCheck(forcar) { try { B.otaCheck(!!forcar); } catch (_) { /* ponte indisponível */ } },
 
     // OS DOIS CANAIS NUMA LEITURA SÓ:
-    // `{ web, webAtual, shell, shellBytes, shellAtual, diag }`.
+    // `{ web, webAtual, shell, shellBytes, shellAtual, webNotas, diag }`.
+    //
+    // PASSA-VOO, e não remontagem campo a campo como o `nowPlaying`/`bgProgress`
+    // do outro sentido: aqui quem monta o objeto é o Kotlin e quem o consome é o
+    // `controle.js`, então um campo novo do shell chega sozinho. É por isso que
+    // `webNotas` (shell 47) não aparece em lugar nenhum deste arquivo — e é a
+    // razão de a linha acima existir: ela é a única descrição da forma que este
+    // lado tem.
     //
     // Ele existe pela COERÊNCIA DE INSTANTE, não por economia de chamadas: com
     // `otaPending`, `apkProcurar` e `otaDiag` separados, as três respostas

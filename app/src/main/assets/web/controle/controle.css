@@ -4439,12 +4439,57 @@ main {
   padding: 1rem 1rem .8rem;
   display: flex; flex-direction: column; gap: .7rem;
   transform: translateY(8px) scale(.98); transition: transform .2s ease;
+  /* QUEM TEM TETO É O CARTÃO, não a lista dentro dele — e a diferença foi
+     MEDIDA. Com o teto na lista (`40vh`), num aparelho de 360×640 ela rolava
+     enquanto o cartão ocupava 477px de 640: havia espaço de sobra na tela e a
+     lista se cortava mesmo assim, porque `40vh` não sabe quanto os irmãos dela
+     estão gastando. Aqui o cartão cresce até quase a tela e a lista fica com o
+     que sobrar — ela só rola quando de fato não há mais para onde crescer. */
+  max-height: 88vh;
 }
+/* Só a LISTA encolhe; o resto do cartão tem tamanho próprio. Sem isto o
+   `flex-shrink: 1` que todo item de flex traz de fábrica espremeria o título, a
+   mensagem e — o que importa — a FAIXA DE BOTÕES, que é a saída do diálogo. */
+.dialog-card > * { flex: 0 0 auto; }
+.dialog-card > .dialog-linha { flex: 0 1 auto; min-height: 0; }
 .dialog-backdrop.open .dialog-card { transform: none; }
 .dialog-title { font-size: 1rem; font-weight: 700; color: var(--text); }
 /* `pre-line`: as mensagens usam parágrafos (ex.: o aviso de dados móveis),
    e sem isto as quebras viravam um bloco único. */
 .dialog-msg { font-size: .88rem; color: var(--muted); line-height: 1.45; white-space: pre-line; }
+/* ===== A LINHA DO TEMPO da atualização =====
+   Ela é um `<ul>` de verdade, então o que aqui se faz é tirar o marcador do
+   navegador e pôr o nosso — um ponto em `--accent` desenhado por
+   `::before`, e NÃO um `list-style` nem um contorno (a paleta não desenha
+   contorno em lugar nenhum, e o oráculo `tokens.test.mjs` reprova).
+
+   O texto é `--text` e não `--muted` como a mensagem em volta: aqui está o que
+   o operador abriu o diálogo para ler, e a mensagem é a moldura. O
+   `white-space` volta ao normal — cada item é uma frase, e `pre-line` faria
+   um item longo quebrar onde o arquivo quebrou em vez de onde a caixa pede.
+
+   A ROLAGEM é a REDE, e o teto que a arma mora no `.dialog-card` (ver lá). Quem
+   corta a lista antes disso é o `OTA_MAX_LINHAS` do JS, que ainda diz quantas
+   ficaram de fora — e diz no RODAPÉ, que não rola. Esta rolagem cobre o que
+   sobra: uma fonte de sistema grande o bastante para seis linhas não caberem
+   numa tela pequena. Sem ela os botões sairiam da tela, e um diálogo sem saída
+   no meio de um culto é o pior desfecho possível. */
+.dialog-linha {
+  margin: 0; padding: 0; list-style: none;
+  display: flex; flex-direction: column; gap: .38rem;
+  font-size: .88rem; line-height: 1.4; color: var(--text);
+  overflow-y: auto;
+}
+.dialog-linha li { position: relative; padding-left: .95rem; }
+.dialog-linha li::before {
+  content: ''; position: absolute; left: 0; top: .52em;
+  width: 5px; height: 5px; border-radius: 50%;
+  background: var(--accent);
+}
+/* O rodapé é a MESMA `.dialog-msg` com um degrau a menos de peso: ele responde
+   "o que acontece se eu tocar", que é contexto, e não pode competir com a lista
+   logo acima — que é o conteúdo. */
+.dialog-rodape { font-size: .82rem; }
 .dialog-input { width: 100%; padding: 10px 12px; font-size: .95rem; }
 .dialog-actions { display: flex; gap: .5rem; justify-content: flex-end; margin-top: .1rem; }
 .dialog-btn {
@@ -4884,18 +4929,6 @@ body.mode-simple .bottombar { display: none; }
   background: var(--live-fill); color: var(--text);
 }
 .cast-acao.ligado .cast-acao-ico { color: var(--danger-text); }
-/* ESCOLHIDO — o "tocar neste celular" resolvido. É um TERCEIRO estado porque os
-   dois de cima já estão falados nesta mesma folha e nenhum descreve este: verde
-   é "conectado", e este botão é justamente o que diz NÃO conectei nada;
-   vermelho é a transmissão no ar, e duas linhas vermelhas na mesma folha
-   deixariam de dizer qual delas está servindo a rede da igreja.
-   `--sel-fill` é o fundo de estado do SELECIONADO, que é o que isto é — o
-   operador escolheu um destino para o som. Medido: 7,64:1 com `--text` e 4,92:1
-   com `--accent` no escuro; 6,76:1 e 5,87:1 no claro. */
-.cast-acao.escolhido {
-  background: var(--sel-fill); color: var(--text);
-}
-.cast-acao.escolhido .cast-acao-ico { color: var(--accent); }
 /* Enquanto o shell responde (ligar leva um instante, pode pedir confirmação e
    pode ser recusado) o botão apaga e para de aceitar toque. Um segundo toque no
    meio do caminho é como se sobem dois servidores.

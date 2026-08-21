@@ -864,24 +864,6 @@ class MainActivity : ComponentActivity(), BridgeHost {
     }
 
     /**
-     * Seletor de ESPELHAMENTO DE TELA (Smart View / Wireless display) — NÃO o
-     * Google Cast. Os dois convivem no Android e são coisas diferentes: o Cast
-     * envia uma URL para o dispositivo tocar sozinho; o espelhamento manda a
-     * imagem da tela, que é o que este app precisa sem Presentation.
-     *
-     * `Settings.ACTION_CAST_SETTINGS` cai no GOOGLE CAST em vários aparelhos —
-     * daí ser o último recurso. Não existe API pública para o popup das
-     * configurações rápidas (`Settings.Panel` só cobre internet, wifi, nfc e
-     * volume), então a cadeia procura o primeiro alvo que EXISTE neste aparelho
-     * e NÃO resolve para o Play Services. As entradas da Samsung não são API
-     * documentada e só são tentadas num aparelho Samsung (ver
-     * `castCandidates`/`isSamsung`); não existindo, `resolveActivity` devolve
-     * null e a cadeia segue.
-     *
-     * `resolveActivity` só enxerga esses alvos por causa do bloco `<queries>` no
-     * AndroidManifest (visibilidade de pacotes do Android 11+).
-     */
-    /**
      * Abre uma URL fora do app. Hoje o único chamador é o "Pesquisar … no
      * YouTube" do fim da busca do acervo: o acervo é o LouvorJA e não tem
      * tudo, e o caminho de volta para uma música que falta já existe (o
@@ -910,6 +892,24 @@ class MainActivity : ComponentActivity(), BridgeHost {
         }
     }
 
+    /**
+     * Seletor de ESPELHAMENTO DE TELA (Smart View / Wireless display) — NÃO o
+     * Google Cast. Os dois convivem no Android e são coisas diferentes: o Cast
+     * envia uma URL para o dispositivo tocar sozinho; o espelhamento manda a
+     * imagem da tela, que é o que este app precisa sem Presentation.
+     *
+     * `Settings.ACTION_CAST_SETTINGS` cai no GOOGLE CAST em vários aparelhos —
+     * daí ser o último recurso. Não existe API pública para o popup das
+     * configurações rápidas (`Settings.Panel` só cobre internet, wifi, nfc e
+     * volume), então a cadeia procura o primeiro alvo que EXISTE neste aparelho
+     * e NÃO resolve para o Play Services. As entradas da Samsung não são API
+     * documentada e só são tentadas num aparelho Samsung (ver
+     * `castCandidates`/`isSamsung`); não existindo, `resolveActivity` devolve
+     * null e a cadeia segue.
+     *
+     * `resolveActivity` só enxerga esses alvos por causa do bloco `<queries>` no
+     * AndroidManifest (visibilidade de pacotes do Android 11+).
+     */
     override fun openCastPicker() {
         runOnUiThread {
             val chosen = pickCastIntent()
@@ -1026,12 +1026,35 @@ class MainActivity : ComponentActivity(), BridgeHost {
             }
             out.add(Intent("com.samsung.wfd.LAUNCH_WFD_PICKER"))
         }
-        // O caminho UNIVERSAL, e o único em qualquer aparelho que não seja
+        // O caminho UNIVERSAL, e o primeiro em qualquer aparelho que não seja
         // Samsung. AOSP: a tela de "Wireless display / Transmitir tela". Ação
         // legada, ainda declarada pelo app de Configurações em muitos aparelhos
         // — e a que NÃO é reivindicada pelo Play Services (ao contrário de
         // CAST_SETTINGS, que na Samsung testada abre o Google Cast).
         out.add(Intent("android.settings.WIFI_DISPLAY_SETTINGS"))
+        // ===== E O ÚLTIMO DA CADEIA FILTRADA, que é uma REDE PARA QUEM NÃO É
+        // SAMSUNG =====
+        //
+        // A assimetria que isto corrige: `CAST_SETTINGS` e `DISPLAY_SETTINGS`
+        // são constantes PÚBLICAS do `Settings`; `WIFI_DISPLAY_SETTINGS` é um
+        // literal — ação interna do AOSP, que nenhum contrato obriga o
+        // fabricante a declarar. Num aparelho que não seja Samsung ela era a
+        // ÚNICA candidata desta cadeia: faltando, `pickCastIntent` devolvia
+        // null e o toque caía no laço CEGO lá de baixo, cuja primeira parada é
+        // `DISPLAY_SETTINGS` — brilho e tempo de tela, que não é seletor de
+        // coisa nenhuma.
+        //
+        // Aquela ordem foi escolhida contra uma medição EM SAMSUNG, onde o
+        // Google Cast reivindica `CAST_SETTINGS`; noutras marcas quem a
+        // reivindica costuma ser o próprio app de Configurações, e ali ela É o
+        // seletor de tela sem fio. Entrando AQUI, ela passa pelo filtro de GMS
+        // que já existe e a pergunta é respondida pelo aparelho em vez de por
+        // um palpite: dono é o Play Services, o filtro pula e nada muda (o caso
+        // Samsung, medido); dono é o fabricante, ela abre a tela certa.
+        //
+        // No FIM da lista de propósito — na Samsung o Smart View continua vindo
+        // antes, e este acréscimo não tem como reordenar nada lá.
+        out.add(Intent(Settings.ACTION_CAST_SETTINGS))
         castCandidatesCache = out
         return out
     }

@@ -127,10 +127,11 @@ const porque = (r) => (r === true ? undefined : r);
 // desenha: gravar a intenção antes de aplicar o OTA, e chamar `apkInstalar`
 // na abertura seguinte, são exatamente os dois pontos em que o fluxo já
 // falhou calado.
-const ponte = ({ web = '', shell = '', bytes = 0, espelho = false, shellName = '1.98' }) => `(() => {
+const ponte = ({ web = '', shell = '', bytes = 0, espelho = false, shellName = '1.98', notas = [] }) => `(() => {
   window.__chamadas = [];
   const estado = { web: ${JSON.stringify(web)}, webAtual: '5.230',
     shell: ${JSON.stringify(shell)}, shellBytes: ${bytes}, shellAtual: ${JSON.stringify(shellName)},
+    webNotas: ${JSON.stringify(notas)},
     diag: 'web v5.230 · shell v${shellName} · última busca há 2s: nada novo' };
   const vazio = { displays: [], listFolder: [], pickDoc: [], ytSearch: [],
     espelhoEstado: { ligado: ${espelho}, endereco: '192.168.0.5:8787', telas: [] },
@@ -151,7 +152,7 @@ const ponte = ({ web = '', shell = '', bytes = 0, espelho = false, shellName = '
     'apkProcurar','apkInstalar','otaPending','otaApply','otaDiag','ytDiag','atualizacaoEstado',
     'ytCanalPlaylists','ytPlaylist']);
   const B = {
-    shellVersion: () => 46,
+    shellVersion: () => 47,
     role: () => 'controle',
     appVersion: () => ${JSON.stringify(shellName)},
     takeShare: () => '',
@@ -312,7 +313,7 @@ const empurrar = (pg, e) => pg.evaluate((estado) => {
   if (typeof window.__avAtualizacao !== 'function') return false;
   window.__avAtualizacao(estado);
   return true;
-}, { webAtual: '5.230', shellBytes: 0, shellAtual: '1.98', diag: 'x', shell: '', ...e });
+}, { webAtual: '5.230', shellBytes: 0, shellAtual: '1.98', diag: 'x', shell: '', webNotas: [], ...e });
 
 // O TOQUE, com a mesma disciplina do empurrão: um clique de verdade (é assim
 // que o operador fecha este diálogo), mas só depois de confirmar que há diálogo
@@ -344,12 +345,22 @@ async function abrirConfig(pg) {
   await pg.waitForTimeout(200);
 }
 
+// O DIÁLOGO TEM TRÊS BLOCOS DESDE A v1.0.6, e lê-los separados é o ponto: a
+// ordem deles é a leitura (o que É · o que MUDA · o que ACONTECE ao tocar), e
+// um oráculo que concatenasse tudo aprovaria a ordem errada.
 const dialogo = (pg) => pg.evaluate(() => {
   const d = document.getElementById('appDialog');
   if (!d || !d.classList.contains('open')) return null;
+  const itens = document.getElementById('appDialogItens');
+  const rodape = document.getElementById('appDialogRodape');
   return {
     titulo: document.getElementById('appDialogTitle').textContent,
     msg: document.getElementById('appDialogMsg').textContent,
+    // A LINHA DO TEMPO. `null` (e não `[]`) quando o bundle nem tem o elemento
+    // — é a diferença entre "não veio nota nenhuma" e "esta versão não sabe
+    // desenhar notas", e as duas pedem correções opostas.
+    linhas: itens ? (itens.hidden ? [] : [...itens.querySelectorAll('li')].map((li) => li.textContent)) : null,
+    rodape: rodape ? (rodape.hidden ? '' : rodape.textContent) : null,
     ok: document.getElementById('appDialogOk').textContent,
     cancelar: document.getElementById('appDialogCancel').textContent,
     temCancelar: !document.getElementById('appDialogCancel').hidden,
@@ -391,7 +402,10 @@ try {
       'e ela fala do LOTE INTEIRO — base E app na mesma frase, uma decisão só');
     checar(!!d && /30 MB/.test(d.msg),
       'com o PESO do app: é a diferença entre esperar meio minuto e esperar o Wi-Fi da igreja');
-    checar(!!d && /confirmar a instalação/i.test(d.msg),
+    // NO RODAPÉ desde a v1.0.6, e não mais na mensagem: com a linha do tempo no
+    // meio, um parágrafo sobre instaladores separaria a versão das mudanças
+    // DELA. A afirmação é a mesma — o custo continua dito antes do toque.
+    checar(!!d && /confirmar a instalação/i.test(d.rodape || ''),
       'e ela AVISA que o Android vai pedir confirmação (o custo que o rótulo não diz)');
 
     await tocar(pg, 'appDialogOk');
@@ -622,6 +636,77 @@ try {
       'e as duas perguntas são distintas: perguntar pode, INSTALAR o APK não');
     await ctx.close();
   }
+
+  // ── 6. A LINHA DO TEMPO: a pergunta DIZ O QUE VEM ────────────────────────
+  //
+  // O pedido do operador foi "mostrar os dados do que está disponível na
+  // atualização … apenas uma timeline descritiva". O que este bloco trava é o
+  // que falha CALADO nos dois sentidos: uma nota que não chega deixa a pergunta
+  // exatamente como era (e ninguém nota que o recurso morreu), e um corte na
+  // lista sem aviso faz a lista AFIRMAR que aquilo é tudo.
+  {
+    const UM = [{ versao: '5.999', itens: ['Coisa nova.', 'Corrigido um bug na seção de Biblioteca.'] }];
+    const { ctx, pg } = await abrir({ web: '5.999', notas: UM });
+    await empurrar(pg, { web: '5.999', webNotas: UM });
+    const d = await dialogo(pg);
+    checar(d && d.linhas !== null, 'este bundle sabe desenhar a linha do tempo (o elemento existe)');
+    checar(!!d && Array.isArray(d.linhas) && d.linhas.length === 2,
+      'as duas notas viram DOIS itens de lista — não um parágrafo', d && JSON.stringify(d.linhas));
+    checar(!!d && (d.linhas || []).join(' ') === 'Coisa nova. Corrigido um bug na seção de Biblioteca.',
+      'e chegam VERBATIM, na ordem do arquivo');
+    // COM UMA VERSÃO SÓ, o prefixo não aparece: ele repetiria em cada linha o
+    // número que a mensagem logo acima acabou de dizer.
+    checar(!!d && !(d.linhas || []).some((l) => /^v5\.999 ·/.test(l)),
+      'com UM bloco a lista não repete a versão em cada linha');
+    checar(!!d && /5\.999/.test(d.msg) && !/recarregam/.test(d.msg),
+      'a MENSAGEM ficou só com a identidade — a consequência desceu para o rodapé');
+    checar(!!d && /recarregam/.test(d.rodape || ''),
+      'e o rodapé é quem diz o que acontece ao tocar');
+    await ctx.close();
+  }
+
+  // ── 7. TRÊS VERSÕES ATRASADAS, e o TETO que não corta calado ─────────────
+  {
+    // Quem passou versões sem abrir o app recebe todas de uma vez — e aí o
+    // prefixo passa a ser a única coisa que separa uma versão da outra.
+    const MUITAS = [];
+    for (let v = 9; v >= 1; v--) {
+      MUITAS.push({ versao: '5.9' + v, itens: ['Mudança A da 5.9' + v, 'Mudança B da 5.9' + v] });
+    }
+    const { ctx, pg } = await abrir({ web: '5.999', notas: MUITAS });
+    await empurrar(pg, { web: '5.999', webNotas: MUITAS });
+    const d = await dialogo(pg);
+    checar(!!d && (d.linhas || []).every((l) => /^v5\.9\d · /.test(l)),
+      'com VÁRIOS blocos cada linha diz de que versão é', d && JSON.stringify((d.linhas || [])[0]));
+    checar(!!d && (d.linhas || []).length === 6,
+      'e a lista para no teto de seis — um diálogo que rola é um texto',
+      d && String((d.linhas || []).length));
+    // ESTE É O PONTO DO BLOCO. O aviso do que sobrou morou DENTRO da lista, e
+    // a lista tem rolagem: o último item era o primeiro a sumir, e o que
+    // sobrava era uma lista truncada afirmando ser tudo.
+    checar(!!d && /E mais 12 mudanças\./.test(d.rodape || ''),
+      'e o que NÃO coube é dito no RODAPÉ, que não rola', d && JSON.stringify(d.rodape));
+    checar(!!d && !(d.linhas || []).some((l) => /E mais/.test(l)),
+      'nunca dentro da lista — ali ele seria a primeira linha a ser cortada');
+    await ctx.close();
+  }
+
+  // ── 8. SEM NOTAS a pergunta continua inteira ─────────────────────────────
+  {
+    // Bundle anterior a este lote, lote só de APK, ou `notas.json` ilegível: os
+    // três chegam aqui como lista vazia, e o desfecho tem de ser a pergunta de
+    // sempre — nunca uma lista vazia desenhada, e nunca deixar de perguntar.
+    const { ctx, pg } = await abrir({ web: '5.999' });
+    await empurrar(pg, { web: '5.999' });
+    const d = await dialogo(pg);
+    checar(!!d, 'sem notas a pergunta continua aparecendo');
+    checar(!!d && (d.linhas || []).length === 0,
+      'e a lista não é desenhada vazia', d && JSON.stringify(d.linhas));
+    checar(!!d && /recarregam/.test(d.rodape || ''),
+      'o rodapé continua dizendo o que vai acontecer');
+    await ctx.close();
+  }
+
 } finally {
   await navegador.close();
   servidor.close();
