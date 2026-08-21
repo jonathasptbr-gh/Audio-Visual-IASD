@@ -1103,9 +1103,16 @@ O job `web-ota` (todo push em `main`) empacota `assets/web/` num
   supressão permanente (foi por isso que a v5.151 desistiu de perguntar).
   **Instalar o APK espera os três** (`horaRuimParaAtualizar`), porque derruba o
   app e leva o servidor da rede junto.
-- **"Depois" cala o diálogo, não o FATO.** O botão `#otaRow` de Configurações
-  passa a dizer por extenso o que espera ("Atualizar: base v5.245 e app v2.2") e
-  aplica no toque.
+- **"Depois" cala o diálogo, não o FATO** — e cala só ESTA sessão. `otaAdiadas`
+  é um `Set` em memória que morre com a página: minimizar mantém o adiamento (é
+  a mesma sessão), FECHAR e reabrir o desfaz, porque o `onCreate` reconstrói o
+  WebView e a página nasce limpa. A pergunta volta na abertura seguinte.
+- **O botão `#otaRow` de Configurações SÓ EXISTE depois do "depois"** — ele diz
+  por extenso o que espera ("Atualizar: base v5.245 e app v2.2") e aplica no
+  toque. Antes ele era visível sempre e, sem nada esperando, dizia "Procurar
+  atualização": um botão de procurar numa tela onde não há o que procurar sugere
+  que cabe ao operador conferir, e não cabe — a ronda bate a cada 15 s. Com a
+  pergunta AINDA na tela ele também não existe: ali quem oferece é o diálogo.
 - **Toque fora do diálogo NÃO responde por ele** (`appDialogFixo`). Esta pergunta
   aparece sozinha, no meio de outra coisa, e um toque em qualquer lugar a
   resolvia como "depois", silenciando-a pela sessão. "Deixar para depois" e
@@ -2469,7 +2476,7 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: v1.0.7** (base web) · **v1.0.6** (APK) · `SHELL_VERSION` **47** · bundle com
+**Versão atual: v1.0.8** (base web) · **v1.0.6** (APK) · `SHELL_VERSION` **47** · bundle com
 `minShell: 47` — o shell 47 é o **PISO**: todo método da ponte existe, e não há
 guarda de versão no lado web. O que continua valendo é que `java/`, `res/`, o
 manifest e os workflows **só chegam instalando o APK**.

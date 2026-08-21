@@ -3634,7 +3634,24 @@ main {
 /* A versão desceu do cabeçalho da lista para cá (ver o comentário no HTML): no
    rodapé ela fica na mesma coluna do estado do telão e do alvo de
    espelhamento — as três coisas que se olha quando algo não está certo. */
-.popup-footer .app-version { display: block; width: fit-content; margin: .45rem auto 0; }
+/* ===== A FAIXA DE DIAGNÓSTICO DO RODAPÉ =====
+   Versão à esquerda, "Registro" e o botão de copiar à direita. As duas metades
+   respondem à mesma pergunta — "o que eu mando para quem vai me ajudar?" —, e
+   antes ocupavam duas linhas: a versão centrada numa e o Registro numa
+   `.fade-row` inteira, com o meio vazio.
+   O `margin: auto` da versão SAIU junto: aqui ela não está mais sozinha na
+   linha, e centralizá-la empurraria o par da direita para fora do lugar. */
+.footer-diag {
+  display: flex; align-items: center; gap: .5rem;
+  margin-top: .45rem;
+}
+.popup-footer .app-version { flex: 0 0 auto; }
+/* `margin-left: auto` no RÓTULO, e não no botão: os dois são um par, e empurrar
+   só o botão deixaria a palavra "Registro" colada na versão. */
+.footer-diag-rot {
+  margin-left: auto;
+  font-size: .8rem; color: var(--muted);
+}
 
 /* (`.folder-pick-btn` saiu na v5.254, com o popup de seleção de pasta: os
    atalhos de pasta deixaram de existir, e uma pasta do APARELHO não recebe
@@ -4393,6 +4410,26 @@ main {
    par cujo irmão, `--fit`, é o único que o `index.html` usa. Uma classe que só
    existe na folha é uma regra que ninguém revisa contra o que a tela mostra.) */
 .fade-row--fit { flex-direction: column; align-items: stretch; gap: .5rem; cursor: default; }
+/* ===== A LINHA DO MODO DO APP TEM PESO PRÓPRIO =====
+   Ela troca a TELA INTEIRA — é a decisão mais larga desta folha, e estava
+   desenhada igual ao seletor de preenchimento logo abaixo. O destaque é por
+   TOM e por TAMANHO, nunca por contorno (a paleta não desenha nenhum):
+   `--camada` a levanta um degrau acima das irmãs, e o rótulo ganha o peso que
+   as outras não têm. */
+.fade-row--destaque {
+  background: var(--camada);
+  padding: .85rem .8rem;
+}
+.fade-row--destaque > span:first-child {
+  font-weight: 700; color: var(--text);
+}
+/* E OS BOTÕES CRESCEM. `--hit` é o piso de toque do app; aqui o alvo passa dele
+   de propósito — é o único controle desta folha que o operador procura para
+   mudar o app de cara, e ele é tocado com o polegar, não com a ponta do dedo. */
+.fit-seg--grande .fit-opt {
+  padding: .8rem .4rem;
+  font-size: .95rem;
+}
 /* (A linha de diagnóstico `.fade-hint` saiu: o que ela dizia — o desfecho da
    última tentativa de download — consolidou-se no Registro (`#diagBox`) na
    v5.121, e nenhum JS a desenhava mais.) */

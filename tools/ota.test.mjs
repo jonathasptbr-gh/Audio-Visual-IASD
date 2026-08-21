@@ -590,31 +590,48 @@ try {
     await ctx.close();
   }
 
-  // ── 4d. SEM NADA ESPERANDO, O BOTÃO É A PROCURA ──────────────────────────
+  // ── 4d. SEM NADA A FAZER, O BOTÃO NÃO EXISTE (v1.0.8) ────────────────────
+  //
+  // Ele era visível SEMPRE, e sem nada esperando dizia "Procurar atualização".
+  // Um botão de procurar numa tela onde não há o que procurar não é neutro: ele
+  // sugere que o app pode estar atrasado e que cabe ao operador conferir. Não
+  // cabe — a ronda do shell bate a cada 15 s, mais a retomada e a volta da rede.
+  //
+  // DOIS CASOS DE AUSÊNCIA, e são diferentes: sem atualização nenhuma (não há o
+  // que oferecer) e COM uma ainda por responder (quem oferece é o diálogo, que
+  // está na tela). O botão é o caminho de VOLTA para quem recusou — e os blocos
+  // 4b/4c acima já provam que nesse caso ele aparece, diz qual é a versão e
+  // aplica. Este aqui é o par deles: sem a ausência, "o botão aparece quando há
+  // o que fazer" seria uma frase que um botão sempre visível também satisfaz.
   {
     const { ctx, pg } = await abrir({ web: '' });
-    const inicial = await pg.evaluate(() => {
+    const semNada = await pg.evaluate(() => {
       const e = document.getElementById('otaRow');
-      return e ? { txt: e.textContent, oculto: e.hidden } : null;
+      return e ? { oculto: e.hidden, txt: e.textContent } : null;
     });
-    checar(!!inicial && !inicial.oculto && /Procurar atualiza/i.test(inicial.txt),
-      'sem nada esperando, o botão é "Procurar atualização"');
-    await abrirConfig(pg);
-    // CONTA-SE A PARTIR DE AGORA. A enquete de dez segundos também chama
-    // `otaCheck`, então "existe um otaCheck na lista" não é resposta sobre o
-    // TOQUE — o que se espera é uma chamada A MAIS que as de antes dele.
-    const antes = await pg.evaluate(() => window.__chamadas.filter((c) => c === 'otaCheck').length);
-    await tocarBotao(pg);
-    // O manipulador do botão chama `otaCheck` e escreve o rótulo no MESMO
-    // quadro (`falarNoOta`, logo abaixo dele): observada a chamada, o texto já
-    // está na tela — não há segundo prazo a esperar.
-    const procurou = await esperar(pg,
-      (n) => window.__chamadas.filter((c) => c === 'otaCheck').length > n, antes, PRAZO_CURTO_MS);
-    checar(procurou === true,
-      'e o toque PROCURA de verdade (otaCheck no shell), pulando o piso entre consultas',
-      porque(procurou));
-    checar(await pg.evaluate(() => /Procurando/i.test(document.getElementById('otaRow').textContent)),
-      'e o próprio botão responde — a resposta nasce onde o toque nasceu');
+    checar(!!semNada && semNada.oculto,
+      'SEM ATUALIZAÇÃO NENHUMA o botão não é desenhado — nem como "procurar"',
+      JSON.stringify(semNada));
+    checar(!!semNada && !/Procurar/i.test(semNada.txt),
+      'e a palavra "Procurar" não sobrou em lugar nenhum dele',
+      JSON.stringify(semNada && semNada.txt));
+    await ctx.close();
+  }
+  {
+    // COM ALGO ESPERANDO E A PERGUNTA NA TELA: o botão ainda não tem papel —
+    // quem oferece é o diálogo. Ele só nasce se o operador o dispensar.
+    const { ctx, pg } = await abrir({ web: '5.999' });
+    await empurrar(pg, { web: '5.999' });
+    checar(!!(await dialogo(pg)), 'a pergunta apareceu');
+    checar(await pg.evaluate(() => document.getElementById('otaRow').hidden),
+      'com a pergunta AINDA NA TELA o botão não existe: quem oferece é o diálogo');
+    await tocar(pg, 'appDialogCancel');
+    await pg.waitForTimeout(200);
+    checar(await pg.evaluate(() => {
+      renderOtaRow();
+      const e = document.getElementById('otaRow');
+      return !e.hidden && /Atualizar/.test(e.textContent);
+    }), 'e é o "Deixar para depois" que o faz nascer — o caminho de volta');
     await ctx.close();
   }
 
@@ -662,6 +679,14 @@ try {
       'a MENSAGEM ficou só com a identidade — a consequência desceu para o rodapé');
     checar(!!d && /recarregam/.test(d.rodape || ''),
       'e o rodapé é quem diz o que acontece ao tocar');
+    // ELE NOMEIA O MOMENTO (v1.0.8). Logo acima está a LISTA de mudanças, e sem
+    // "Ao atualizar" a frase "a projeção pisca por um instante" se lia como
+    // mais um item dela — uma mudança que a versão nova traria. Foi o que o
+    // operador relatou: não dava para saber se aquilo falava das mudanças ou do
+    // processo de atualizar.
+    checar(!!d && /^Ao atualizar,/.test((d.rodape || '').trim()),
+      'e ele COMEÇA nomeando o momento — senão a consequência se lê como mais '
+      + 'uma das mudanças listadas acima', JSON.stringify((d.rodape || '').slice(0, 40)));
     await ctx.close();
   }
 
