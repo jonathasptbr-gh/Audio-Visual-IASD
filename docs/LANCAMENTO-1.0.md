@@ -1,9 +1,9 @@
 # Lançamento da 1.0 — o que falta
 
-Levantado em 21/08/2026, sobre `3cec98e`. **É arquivo para ESVAZIAR**, como o
-`ACHADOS-EM-ABERTO.md`: cada item sai daqui no lote que o resolve, e o arquivo
-inteiro sai quando a 1.0 sair. O que sobreviver como REGRA vai para o capítulo
-que a governa — nunca fica aqui.
+Levantado em 21/08/2026, sobre `959142b` (v5.317). **É arquivo para ESVAZIAR**,
+como o `ACHADOS-EM-ABERTO.md`: cada item sai daqui no lote que o resolve, e o
+arquivo inteiro sai quando a 1.0 sair. O que sobreviver como REGRA vai para o
+capítulo que a governa — nunca fica aqui.
 
 Os blocos marcados **MEDIDO** foram verificados no código e contra a API do
 GitHub na data acima. O resto é leitura de documentação e decisão de produto.
@@ -27,10 +27,10 @@ GitHub na data acima. O resto é leitura de documentação e decisão de produto
 | medida | valor |
 |---|---|
 | shell publicado | **v2.4** (20/08/2026) · `SHELL_VERSION` 45 |
-| base web no ar | **5.316**, em `web-latest` |
+| base web no ar | **5.317**, em `web-latest` |
 | APK | **4,4 MB** (4.416.079 bytes) · **1 download** |
 | tags no remoto | **104**: `v1.0`→`v1.99`, `v2.0`→`v2.4`, mais `web-latest` |
-| commits | 227 → `versionCode` 100227 |
+| commits | `versionCode` = `100000 + a contagem` — sobe sozinho, sem tag |
 | achados em aberto | **0** · 27 oráculos · portão do CI fechado desde a v5.316 |
 | repositório | **público** (o Pages sai no plano gratuito) |
 
@@ -185,15 +185,16 @@ aparelhos de quem publica.
 - **`web-latest` nunca é apagada.** É o canal OTA de todo aparelho instalado, e a
   URL está compilada no shell. Apagá-la mata a atualização da base web para
   sempre.
-- **`versionCode` não se mexe.** Vem de `100000 + contagem de commits` (hoje
-  100227) e continua subindo sozinho. Instalar por cima segue funcionando
-  **porque a keystore é a mesma** — é ela que manda, não o nome da versão.
-- **O histórico não mora nas tags.** Está em `HISTORICO.md` e nos 227 commits.
+- **`versionCode` não se mexe.** Vem de `100000 + contagem de commits` e sobe
+  sozinho a cada commit, sem depender de tag nenhuma. Instalar por cima segue
+  funcionando **porque a keystore é a mesma** — é ela que manda, não o nome da
+  versão.
+- **O histórico não mora nas tags.** Está em `HISTORICO.md` e nos commits.
   Apagar Release não apaga nada que alguém vá procurar.
 
 ### A segunda linha de versão — e por que ela deve FICAR QUIETA
 
-A base web tem número próprio (`version.json`, hoje 5.316) e ele governa o OTA
+A base web tem número próprio (`version.json`, hoje 5.317) e ele governa o OTA
 pela **mesma regra de "estritamente maior"**. Rebaixá-lo para 1.0 faria todo
 aparelho instalado **recusar o bundle em silêncio** — o mesmo defeito de cima, no
 outro canal, e este atinge até quem instalar a 1.0 depois.
