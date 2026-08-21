@@ -24,6 +24,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
+- **v1.0.4** — O SELO DE CAMADAS VOLTA A SER UM ÍCONE SOLTO, como os dois vizinhos da preview: o que o separa deles é a COR, e ela vira `--stage-alert` (a paleta recusa o scarlett oficial como traço). O desenho ganha o ✕ — a pilha diz o estado, o ✕ diz o que o toque faz. Conferido nos DOIS modos. OTA PURO
 - **v1.0.3** — O SELO DE CAMADAS: com um louvor tocando e um texto por cima, a camada de cima não tinha saída fora da linha que a pôs lá — o Parar levava o louvor junto. Mais o endereço da transmissão que se COPIA, o fundo dos slides que não chegava à tela da rede sem o canal de mídia (guarda larga demais), e o download de um episódio de série que não acendia NADA na lista. OTA PURO
 - **v1.0.2** — O BOTÃO DEIXA DE DIZER "ESPELHAR": o que vai para a TV é o telão, não a tela do celular, e o rótulo anunciava o oposto do que o app entrega. A página vira CLARA e só clara, ganha um card de Slides e um de "recebe de tudo", e o guia cai para três passos com o Play Protect como VERIFICAÇÃO, não como susto. O respiro entre a faixa da marca e o primeiro título media ZERO — `.env` vencia o `main` por especificidade. OTA PURO
 - **v1.0.1** — O ÍCONE FICA DE PÉ e as COLEÇÕES FIXAS SOBEM PARA A RAIZ (um toque a menos até a lista de faixas). Sai o agrupamento "Arquivos oficiais"/"Hinários"; o card ganha tom PRÓPRIO, porque ler o pai o deixava a 1,26:1 da gaveta na raiz. O vão dos Favoritos passa a contar TODO vizinho. A página de acesso é reescrita para quem não é técnico. E a página servia a Release ANTERIOR: `release: published` nunca dispara para Release criada pelo GITHUB_TOKEN — o `pages.yml` passa a encadear por `workflow_run`. EXIGE RELEASE
@@ -190,6 +191,55 @@ na nota que a revoga, não apagada da que a criou.
 - **v5.154** — é METADE OTA e METADE APK, e a divisão importa para quem for testar em aparelho.
 - **v5.155** — é OTA PURO
 - **v5.156** — é METADE OTA e METADE APK, de novo.
+
+---
+
+## v1.0.4 — o selo de camadas veste o desenho da preview
+
+Pedido do operador sobre o selo que a v1.0.3 criou: *"que ele tenha o mesmo
+design apenas ícone igual aos outros ícones na própria preview"*, e que o desenho
+tenha *"um ✕ para representar que vai fechar a camada"*.
+
+### A PASTILHA SAI — e a v1.0.3 escolheu errado por um bom motivo
+
+Ela era preenchida porque a paleta marca `--live` como **só preenchimento**:
+saturado, ele é o par `--live`/`--on-live` de "está no ar agora". O raciocínio
+estava certo sobre o token e errado sobre o LUGAR — os três ícones daquela
+miniatura são um conjunto, e um deles com pastilha vira o único botão "de
+verdade" ali. O desenho da preview é o traço com as três sombras; o que
+diferencia este dos outros é a cor, não a forma.
+
+E a paleta já tinha a resposta para vermelho de TRAÇO: o clareado. No PALCO —
+que é o território desta miniatura, e é por isso que a `.pv-fab` veste
+`--stage-text` e não `--text` — esse valor tem nome próprio: **`--stage-alert`**,
+5,8:1 sobre o preto do palco. Mesma família, mesma leitura, e o uso que o token
+do preenchimento recusava deixa de acontecer.
+
+### O ✕ ENTRA NO DESENHO
+
+A pilha diz o ESTADO (há algo por cima de algo) e o ✕ diz o que o toque FAZ — a
+mesma divisão dos botões da notificação de mídia. Sem ele o selo era um aviso, e
+um aviso que responde ao toque é o pior dos dois mundos.
+
+**São DUAS folhas, e não as três do desenho canônico:** a terceira ocuparia o
+canto onde o ✕ mora, e a 24px o que sai de um traço em cima do outro não se lê
+como nenhum dos dois. Duas já dizem "empilhado". A folha de baixo é truncada à
+direita pela mesma razão — ela passaria por baixo do ✕ e voltaria como borrão.
+
+### E ELE APARECE NO MODO FÁCIL
+
+Medido nos dois: em avançado o alvo é 34×34 numa preview de 314×150; no Modo
+Fácil, os mesmos 34×34 numa de 199×95. Ele já aparecia — o Modo Fácil não tem
+preview própria, ele MOVE a mesma `.preview` para dentro do `#simpleStage`, e o
+selo viaja junto.
+
+A primeira medição disse o contrário (preview de 0×0), e não era o selo: sem tela
+conectada o Modo Fácil entra no estado BLOQUEADO (`renderSimpleGate`, a cortina
+embaçada) e o palco é escondido por CSS. Era o app fazendo o certo e o oráculo
+perguntando na condição errada — a mesma classe de erro que o `CLAUDE.md`
+cataloga em "um oráculo não pode medir o runner".
+
+Suíte inteira verde: 25/25.
 
 ---
 
