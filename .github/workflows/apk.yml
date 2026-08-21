@@ -149,10 +149,27 @@ jobs:
           # sempre, e o sintoma no aparelho seria "a atualização não chega", que
           # é o modo de falhar mais mudo que este canal tem. Por isso a forma é
           # exigida aqui, onde a mensagem ainda pode nomeá-la.
+          # A FORMA DO NÚMERO — `MAIOR.INCREMENTAL[.CORREÇÃO]`, e nada mais.
+          # Ela é conferida aqui porque `compareVersions` NÃO reclama de lixo:
+          # ele lê o prefixo numérico de cada componente e ignora o resto, então
+          # um "1.0.1-rc" compara igual a "1.0.1" e um "v1.0.1" vira "0.0.1" —
+          # os dois publicam, e o aparelho decide errado em silêncio. O sufixo
+          # opcional aceita a `1.0` histórica; daqui para a frente todo lote tem
+          # os três degraus (ver "O NÚMERO" no CLAUDE.md).
+          assert re.fullmatch(r'[0-9]+\.[0-9]+(\.[0-9]+)?', m['version']), (
+              f"version malformada: {m['version']!r} — use MAIOR.INCREMENTAL.CORREÇÃO, ex. \"1.0.1\"")
           tag = m.get('shellTag', '')
           assert isinstance(tag, str), m
           assert not tag or re.fullmatch(r'v[0-9]+(\.[0-9]+)*', tag), (
-              f'shellTag malformado: {tag!r} — use o formato da tag, ex. "v2.0"')
+              f'shellTag malformado: {tag!r} — use o formato da tag, ex. "v1.0.1"')
+          # E ELA TEM DE SER A MESMA VERSÃO. `shellTag` declara "este bundle
+          # PRECISA desta Release"; apontar para outro número publica um
+          # manifesto em que a base diz uma coisa e o APK anunciado diz outra —
+          # e o operador recebe as duas metades de lotes diferentes, sem nada
+          # que explique. Um dígito trocado é tudo o que custa.
+          assert not tag or tag == 'v' + m['version'], (
+              f"shellTag {tag!r} não bate com a version {m['version']!r} — "
+              f"o esperado é 'v{m['version']}'")
           print('version.json OK:', m)
           PY
           # A versão mora em TRÊS lugares (ver CLAUDE.md), e os três precisam
