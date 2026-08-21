@@ -601,10 +601,22 @@
           <div class="pv-fabs pv-fabs--esq">
             <button id="pvCamadaBtn" class="pv-fab pv-fab--camada" type="button"
                     title="Encerrar a camada de cima" aria-label="Encerrar a camada de cima" hidden>
+              <!-- CAMADAS + ✕, e são as duas metades da mensagem: a pilha diz o
+                   ESTADO (há algo por cima de algo) e o ✕ diz o que o toque
+                   FAZ. Sem o ✕ o selo era só um aviso, e um aviso que responde
+                   ao toque é o pior dos dois mundos.
+
+                   SÃO DUAS FOLHAS, e não as três do desenho canônico: a
+                   terceira ocuparia o canto onde o ✕ mora, e a 24px o que sai
+                   de um traço em cima do outro não se lê como nenhum dos dois.
+                   Duas já dizem "empilhado" — é o mínimo que a palavra exige.
+                   A folha de baixo é TRUNCADA à direita pela mesma razão: ela
+                   passa por baixo do ✕ e volta como um borrão. -->
               <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <path d="M12 3 3 7.5l9 4.5 9-4.5z"/>
-                <path d="m4.2 12.2 7.8 3.9 7.8-3.9"/>
-                <path d="m4.2 16.7 7.8 3.9 7.8-3.9"/>
+                <path d="M10 2.5 2.5 6.3 10 10.1l7.5-3.8z"/>
+                <path d="m2.5 10.9 7.5 3.8 3.4-1.7"/>
+                <path d="m16.4 16.4 5.1 5.1"/>
+                <path d="m21.5 16.4-5.1 5.1"/>
               </svg>
             </button>
           </div>
@@ -944,7 +956,7 @@
              METADADO de diagnóstico e o lugar onde se procura diagnóstico é
              junto do estado do telão e do alvo de espelhamento, não numa faixa
              de navegação. Preenchido por `renderVersionLabel`. -->
-        <span id="appVersion" class="app-version">Controle v1.0.3</span>
+        <span id="appVersion" class="app-version">Controle v1.0.4</span>
         <!-- A ATUALIZAÇÃO (v5.245). Ele mora ao lado do rótulo de versão
              porque é a MESMA conversa ("que versão eu tenho?" / "tem uma mais
              nova?"), e porque é ali que o operador já procura isso.

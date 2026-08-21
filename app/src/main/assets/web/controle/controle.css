@@ -452,31 +452,25 @@ body {
     drop-shadow(0 0 2px var(--shadow-ink))
     drop-shadow(0 1px 5px rgba(0, 0, 0, .65));
 }
-/* ---------- O SELO DE CAMADAS É PREENCHIDO, e é a regra da paleta ----------
-   `--live` é o scarlett OFICIAL e a paleta o marca como **só preenchimento**:
-   saturado, ele é o par `--live`/`--on-live` de "está no ar agora" — o mesmo do
-   microfone aberto. Como TRAÇO ele seria o uso que aquele token recusa, e a
-   resposta da paleta para traço vermelho é outro valor (o clareado), que já não
-   diz "no ar".
+/* ---------- O SELO DE CAMADAS: MESMO DESENHO DOS VIZINHOS, OUTRA COR --------
+   Ícone solto e sem moldura, como o de conectar e o de tela cheia: os três
+   moram na mesma miniatura e um deles com pastilha viraria o único botão
+   "de verdade" ali — o desenho da preview é o traço branco com as três sombras,
+   e o que separa este dos outros é a COR, não a forma.
 
-   Preenchido, ele ainda ganha o que o desenho pedia: os dois vizinhos são
-   controles de PLAYER (ícone branco sem moldura, por convenção da `.pv-fab`), e
-   este é um ESTADO. A moldura é o que separa as duas coisas à primeira vista.
+   E A COR É `--stage-alert`, não `--live`. A paleta marca o scarlett oficial
+   como **só preenchimento** — como traço ele é o uso que aquele token recusa —,
+   e a resposta dela para vermelho de TRAÇO é o clareado. `--stage-alert` é
+   justamente esse valor no PALCO, que é o território desta miniatura: a
+   `.pv-fab` já veste `--stage-text` e não `--text`, porque o palco não tem tema
+   (a preview espelha o telão, e o telão não segue o claro/escuro do app).
+   Medido na fonte: 5,8:1 sobre o preto do palco.
 
    E VEM DEPOIS DA `.pv-fab`, o que não é arrumação: as duas medem 0,1,0 e quem
    vence é a última no arquivo. Escrita antes, ela perdia para o
    `color: var(--stage-text)` e o selo saía BRANCO, igual aos botões de player
-   ao lado — isto é, sem dizer nada. Medido.
-
-   A sombra vira UMA, difusa: as três da `.pv-fab` empilham um contorno escuro
-   em volta de um traço solto, e aqui não há traço solto — há uma pastilha
-   opaca, que só precisa descolar da textura de trás. */
-.pv-fab--camada { color: var(--on-live); }
-.pv-fab--camada svg {
-  width: 30px; height: 30px; box-sizing: border-box; padding: 5px;
-  background: var(--live); border-radius: 50%;
-  filter: drop-shadow(0 1px 4px rgba(0, 0, 0, .45));
-}
+   ao lado — isto é, sem dizer nada. Medido. */
+.pv-fab--camada { color: var(--stage-alert); }
 /* Em tela cheia a preview É a projeção (quando não há TV conectada): nada de
    UI por cima, ou o botão iria junto para o telão. */
 .preview:fullscreen .pv-fabs,
