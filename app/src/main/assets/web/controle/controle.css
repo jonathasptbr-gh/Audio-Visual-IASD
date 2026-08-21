@@ -163,7 +163,12 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
    próprio elemento vence na hora de ELE resolver `var(--camada)`, então um
    bloco que reservasse o tom dos filhos em si mesmo passaria a vestir aquele
    tom. Daí a seção da Biblioteca LER `--camada`, a `.coll-group-corpo` reservar
-   o degrau seguinte, o `.hymnal-card` LER de novo e a `.coll-songs` zerar. */
+   o degrau seguinte e a `.coll-songs` zerar.
+
+   A EXCEÇÃO é o `.hymnal-card`, e ela está escrita na regra dele: um álbum quer
+   o MESMO degrau para si e para os filhos, em qualquer lugar em que esteja
+   filado — ler o pai fazia o mesmo card trocar de cor entre a raiz e uma seção,
+   e levava a escada de dentro dele junto. */
 :root { --camada: var(--panel); }
 .popup-sheet, .dialog-card, .simple-conn { --camada: var(--panel-2); }
 .coll-group-corpo { --camada: var(--panel-2); }
@@ -1862,13 +1867,36 @@ main {
 .hymnal-card {
   flex-shrink: 0;
   border-radius: var(--radius-card);
-  /* O CARD NÃO ESCOLHE O PRÓPRIO TOM (v5.267): ele lê o degrau que o pai lhe
-     reservou (ver "A CAMADA", no topo desta folha). Dentro de uma seção da
-     Biblioteca isso dá `--panel-2`, um degrau acima do tom da seção; e é o
-     mecanismo, não o valor, que garante que ele nunca coincida com o que está
-     atrás dele — que era o defeito da v5.241, em que a barra da seção e o card
-     dividiam o mesmo `--panel-2` porque os dois eram chamados de "contêiner".
-     São contêineres, e não são o MESMO contêiner: um está dentro do outro. */
+  /* ---------- UM CARD TEM TOM PRÓPRIO, E É A EXCEÇÃO DECLARADA ----------
+     Ele lia o degrau que o pai lhe reservava (v5.267) — dentro de uma seção da
+     Biblioteca, `--panel-2`. Com as coleções fixas na RAIZ (v1.0.1) o mesmo
+     card passou a nascer nos dois lugares, e ler o pai o deixava a `--panel`
+     ali: o MESMO álbum trocava de cor conforme alguém o tivesse agrupado ou
+     não, e a escada inteira de dentro dele descia um degrau junto.
+
+     MEDIDO no escuro, com o card em `--panel`: a faixa (`--item-fill`, um
+     recesso de 24% sobre a base do card) compunha rgb(33,40,46) e a gaveta
+     aberta — que já está no CHÃO da paleta (`--gaveta-bg` = `--bg`, e no escuro
+     não há para onde descer) — ficava a **1,26:1** dela, abaixo do piso de
+     1,28. Era a volta da queixa que a v5.287 fechou: "a seção das opções se
+     mesclando com a lista dos outros itens abaixo".
+
+     Daí a regra passar a ser do CARD: um álbum é uma PLACA de nível 2 onde quer
+     que esteja filado. Dentro de uma seção o valor é o mesmo de antes (a regra
+     é no-op ali); na raiz ele sobe, e a faixa volta a rgb(46,54,63), a 1,54:1
+     da gaveta.
+
+     ELA NÃO REVOGA "quem declara o tom é o CONTÊINER" (ver "A CAMADA", no topo
+     desta folha): é a exceção de um bloco que quer o MESMO degrau para si e
+     para os filhos. Quem lê `--camada` aqui dentro é a tampa do card aberto
+     (`.hymnal-card.expanded .coll-bar`), que é o próprio card; a `.coll-songs`
+     zera o degrau seguinte. Nenhum filho veste por engano o que este reservou.
+
+     E ele continua sem coincidir com o que está atrás: a barra de uma seção
+     (`.coll-group--drop`) lê `--camada` e fica em `--panel` — o defeito da
+     v5.241, em que os dois dividiam `--panel-2` por ambos serem chamados de
+     "contêiner", não volta. São contêineres, e não são o MESMO contêiner. */
+  --camada: var(--panel-2);
   background: var(--camada);
   /* ---------- O CARD NÃO TEM PADDING PRÓPRIO ----------
      Com `padding` no card, a `.coll-bar` começava 11,2px depois da borda dele —

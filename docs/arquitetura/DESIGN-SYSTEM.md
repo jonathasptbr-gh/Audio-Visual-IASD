@@ -480,6 +480,7 @@ DESTE contêiner deve vestir.**
 .popup-sheet, .dialog-card, .simple-conn { --camada: var(--panel-2); }
 .popup-sheet--full { --camada: var(--panel); }       /* é uma TELA, não um cartão */
 .coll-group-corpo { --camada: var(--panel-2); }
+.hymnal-card { --camada: var(--panel-2); }           /* a EXCEÇÃO — ver abaixo */
 .coll-songs { --camada: transparent; }               /* não há nível 3 */
 ```
 
@@ -491,13 +492,31 @@ passaria a vestir aquele tom. A primeira versão desta regra pôs
 defeito da v5.241 de volta, e foi o oráculo da escada que o pegou, nos dois
 temas.
 
+**A EXCEÇÃO É O `.hymnal-card`** (v1.0.1), e ela é o caso de um bloco que quer o
+MESMO degrau para si e para os filhos. Com as coleções fixas na RAIZ, o card
+nasce em dois lugares — solto na folha e dentro de uma seção — e ler o pai o
+deixava em `--panel` num e `--panel-2` no outro: o mesmo álbum trocando de cor
+conforme alguém o tivesse agrupado, com a escada inteira de dentro dele descendo
+um degrau junto. Medido no escuro com o card em `--panel`: a faixa (`--item-fill`,
+recesso de 24% sobre a base do card) compunha rgb(33,40,46) e a gaveta aberta —
+que já está no CHÃO da paleta (`--gaveta-bg` = `--bg`) — ficava a **1,26:1**
+dela, abaixo do piso de 1,28.
+
+Ela não revoga a regra: nenhum filho veste por engano o que o card reservou —
+quem lê `--camada` ali dentro é a tampa do card aberto
+(`.hymnal-card.expanded .coll-bar`), que é o próprio card, e a `.coll-songs` zera
+o degrau seguinte. E o card continua sem coincidir com o que está atrás: a barra
+de uma seção lê `--camada` e fica em `--panel`.
+
 A árvore da Biblioteca fica assim, e é a mesma da tela principal um nível acima:
 
 ```
 folha de tela cheia   --bg          nível 0   (era --panel até a v5.267)
-  └ seção             --panel       nível 1   (barra + corpo, UM bloco sólido)
-      └ card do álbum --panel-2     nível 2
-          └ faixa     (sem fundo)   separada da vizinha pelo ESPAÇO
+  ├ seção             --panel       nível 1   (barra + corpo, UM bloco sólido)
+  │   └ card do álbum --panel-2     nível 2
+  │       └ faixa     (sem fundo)   separada da vizinha pelo ESPAÇO
+  └ coleção fixa      --panel-2     nível 2   NA RAIZ, e com o MESMO tom (v1.0.1)
+      └ faixa         (sem fundo)
 ```
 
 **O preço, medido e assumido:** o degrau recuado contra o cartão cai para
