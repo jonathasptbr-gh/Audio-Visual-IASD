@@ -190,6 +190,38 @@ jobs:
               f'controle.js WEB_VERSION={vjs} index.html #appVersion={vhtml}')
           print('três lugares de versão OK:', vjson)
           PY
+          # A LINHA DO TEMPO DA ATUALIZAÇÃO (`notas.json`, v1.0.6). Ela falha
+          # CALADA nas duas pontas: o `notasPendentes` do shell devolve lista
+          # vazia diante de qualquer coisa que não consiga ler, e o diálogo
+          # simplesmente não desenha lista nenhuma — a atualização acontece do
+          # mesmo jeito, e ninguém descobre que o recurso morreu. Um JSON
+          # malformado, uma entrada sem `versao` ou a versão deste lote AUSENTE
+          # do arquivo dão todos o mesmo desfecho mudo. Aqui eles são erro.
+          python3 - <<'PY'
+          import json, re
+          raiz = 'app/src/main/assets/web'
+          versao = json.load(open(f'{raiz}/version.json'))['version']
+          notas = json.load(open(f'{raiz}/notas.json', encoding='utf-8'))
+          assert isinstance(notas, list) and notas, 'notas.json vazio ou não é lista'
+          vistas = set()
+          for e in notas:
+              assert isinstance(e, dict), f'entrada não é objeto: {e!r}'
+              v = e.get('versao', '')
+              assert re.fullmatch(r'[0-9]+\.[0-9]+(\.[0-9]+)?', v), f'versao malformada: {v!r}'
+              assert v not in vistas, f'versao repetida em notas.json: {v}'
+              vistas.add(v)
+              itens = e.get('itens')
+              assert isinstance(itens, list) and itens, f'v{v} sem itens'
+              for t in itens:
+                  assert isinstance(t, str) and t.strip(), f'v{v} tem item vazio'
+          # ESTE LOTE PRECISA ESTAR DESCRITO. É o esquecimento provável — se
+          # publica-se uma versão e não se escreve o que ela mudou, o operador
+          # recebe a pergunta sem a lista e nada avisa ninguém.
+          assert notas[0]['versao'] == versao, (
+              f"notas.json começa em v{notas[0]['versao']} e este lote é v{versao} — "
+              'a entrada mais nova tem de ser a deste lote')
+          print(f'notas.json OK: {len(notas)} versão(ões), a mais nova v{versao}')
+          PY
           # O parser do índice DASH (`sidx`) da transmissão direta. Ele entra
           # aqui, e não num framework de teste, porque é a ÚNICA peça daquele
           # caminho que se verifica sem aparelho — e porque um erro de
