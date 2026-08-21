@@ -218,7 +218,7 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
   .ctl-btn, .t-btn, .pv-fab, .settings-btn,
   .tab, .tab-add, .import-btn, .back-btn, .sel-btn,
   .row-btn, .popup-close, .new-folder-btn,
-  .coll-bar, .coll-bar-dl, .coll-group-btn, .coll-more-btn,
+  .coll-bar-dl, .coll-group-btn, .coll-more-btn,
   .bible-cell, .bible-ref-part, .bible-vsec, .bible-ver-row,
   .hymn-row, .hymn-play-thumb, .song-menu-btn, .msg-add-btn, .msg-item,
   .misc-tab, .misc-seg, .misc-chip, .chrono-btn, .misc-project, .draw-go,
@@ -471,10 +471,40 @@ body {
    `color: var(--stage-text)` e o selo saía BRANCO, igual aos botões de player
    ao lado — isto é, sem dizer nada. Medido. */
 .pv-fab--camada { color: var(--stage-alert); }
-/* Em tela cheia a preview É a projeção (quando não há TV conectada): nada de
-   UI por cima, ou o botão iria junto para o telão. */
+/* Em tela cheia a preview É a projeção (quando não há TV conectada): os botões
+   PERMANENTES saem de cena, ou iriam junto para o telão. Quem os substitui lá é
+   a coluna abaixo, que é passageira por construção. */
 .preview:fullscreen .pv-fabs,
 .preview:-webkit-full-screen .pv-fabs { display: none !important; }
+
+/* ===== A COLUNA DA TELA CHEIA =====
+   Ela existe SÓ em tela cheia e SÓ enquanto `.visivel` — o toque a acende e
+   `FSCTL_MS` (4s sem toque) a apaga. Fora daí, `opacity: 0` E
+   `pointer-events: none`: sem o segundo, uma coluna invisível continuaria
+   comendo os toques da metade direita da projeção.
+
+   TRANSLÚCIDA no ar (`.72`), a pedido do operador: sem TV a projeção É esta
+   tela, e o que se pinta aqui a congregação vê. A opacidade parcial baixa o
+   destaque sem custar a legibilidade — os três `drop-shadow` do `.pv-fab`
+   continuam valendo por baixo dela.
+
+   Centrada na vertical porque em paisagem é onde o polegar direito alcança sem
+   reposicionar o aparelho. */
+.pv-fsctl {
+  position: absolute; right: 2px; top: 50%; transform: translateY(-50%);
+  z-index: 6; display: none; flex-direction: column; gap: 2px;
+  opacity: 0; pointer-events: none; transition: opacity .22s ease;
+}
+.preview:fullscreen .pv-fsctl,
+.preview:-webkit-full-screen .pv-fsctl { display: flex; }
+.pv-fsctl.visivel { opacity: .72; pointer-events: auto; }
+/* Os dois botões de ESTADO (cortina, play/pause) carregam os dois desenhos e a
+   classe escolhe — trocar `innerHTML` a cada quadro reconstruiria o SVG por
+   baixo do dedo, e o `.msym` dos irmãos da barra não serve aqui (ver o
+   comentário do bloco no HTML). */
+.pv-fsctl .ico-alt { display: none; }
+.pv-fsctl .alternado .ico-base { display: none; }
+.pv-fsctl .alternado .ico-alt { display: block; }
 
 /* "Baixando…" NA LINHA: o cartão da preview diz "isto vai entrar em cena", que
    é a mensagem errada quando o toque foi só ADICIONAR. Aqui o aviso mora onde o
@@ -2298,6 +2328,35 @@ main {
 .coll-bar {
   display: flex; align-items: center; gap: .55rem; cursor: pointer;
   padding: .55rem .7rem;
+}
+/* ===== A BARRA NÃO ESCALA, E ESTA É A REGRA GERAL =====
+   `--press` é `scale(.96)`, e uma escala num CONTÊINER arrasta tudo o que vive
+   dentro dele. A barra tem 408px: 4% recuam a borda direita ~8px, e o botão de
+   baixar está colado nessa borda — um dedo pousado na metade DIREITA dele fica
+   sobre a barra no instante do `pointerup`, e o click vai para o acordeão.
+
+   MEDIDO: com a escala, 6 de 11 toques no botão de fato baixavam; os 5 que
+   erravam eram todos à direita. Sem ela, 11 de 11.
+
+   Daí a regra: **`--press` é para CONTROLE FOLHA.** Um contêiner que hospeda um
+   controle nunca escala — ele responde por PREENCHIMENTO, que não move nada. É a
+   mesma escolha do `.cast-acao:active` (que escurece em vez de encolher), e o
+   mesmo motivo pelo qual o ouvinte deste card mora no `li` e não aqui (ver
+   `renderCollectionCard`): aquela correção salvou o alvo da BARRA e deixou de
+   pé o do botão que mora dentro dela. */
+/* DUAS SELETORAS E UM `background-image`, e as duas razões são de CASCATA:
+   a barra do card ABERTO é a tampa dele e pinta `background: var(--camada)` numa
+   regra de especificidade maior (`.hymnal-card.expanded .coll-bar`). O atalho
+   `background` ZERA o `background-image`, então um `:active` de especificidade
+   menor não pintaria nada ali — e o card aberto é justamente onde se toca para
+   FECHAR. Daí a segunda seletora, que vence aquela.
+   E é `background-image` (não `background-color`) porque ele COMPÕE por cima do
+   que já houver: fechado, sobre o transparente; aberto, sobre a tampa — sem
+   nunca trocar a cor da tampa por um véu translúcido, que deixaria as faixas
+   aparecerem através dela no instante do toque. */
+.coll-bar:active,
+.hymnal-card.expanded .coll-bar:active {
+  background-image: linear-gradient(var(--surface), var(--surface));
 }
 /* Coluna nome + subtítulo das linhas de lista (coleção, versão da Bíblia,
    resultado de busca): a mesma receita, num lugar só. */

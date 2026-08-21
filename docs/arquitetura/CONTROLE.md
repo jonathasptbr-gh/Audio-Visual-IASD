@@ -596,29 +596,47 @@ versões): renomeá-lo tocaria dezenas de referências sem mudar nada visível. 
 transições (fade) **não têm controle ali** — são inerentes ao sistema (ver o
 state `fade`).
 
-**Controle por gestos invisíveis DENTRO do fullscreen:** a tela inteira vira uma
-superfície de controle **sem desenhar nada no telão** (o operador espelha a tela
-cheia). O reconhecedor distingue cada gesto por **posição (terço esq/central/
-dir) + tipo de movimento** e aciona os **botões já existentes** (`.click()`, que
-reaproveita os handlers e respeita `disabled` — ex.: estrofe ± vira no-op sem
-letra):
+#### Os controles DENTRO do fullscreen: uma coluna, não gestos (v1.0.7)
 
-| Gesto | Ação | Botão/rota |
+**Uma coluna de ícones na lateral direita** (`#pvFsCtl`), que o toque acende e
+**4 s sem toque apagam** (`FSCTL_MS`), translúcida enquanto está no ar.
+
+Ela substituiu um mapa de **gestos invisíveis** — toque por terço, deslizes nos
+quatro sentidos, arrasto de volume no terço direito. O motivo daquele desenho era
+bom e continua valendo: sem TV conectada, **a preview em tela cheia É a
+projeção**, e tudo o que se pinta aqui a congregação vê. O que ele não tinha era
+como se anunciar: quem não decorasse o mapa não tinha como descobri-lo, e um
+toque no lugar errado fazia outra coisa em cima do culto.
+
+A coluna preserva a razão e paga o preço de outro jeito: **passageira** (só ao
+toque, some sozinha) e **translúcida** (`.72`).
+
+| Botão | Ação | Como |
 |---|---|---|
-| Toque terço **central** | Play/Pause | `playPauseEl` |
-| Toque terço **esquerdo** | Estrofe anterior | `slidePrevBtnEl` |
-| Toque terço **direito** | Próxima estrofe | `slideNextBtnEl` |
-| Deslize **←** (horizontal) | Próxima mídia | `nextEl` |
-| Deslize **→** (horizontal) | Mídia anterior | `prevEl` |
-| Deslize **↑** (esq/central) | Wallpaper on/off | `viewToggleEl` |
-| Deslize **↓** (esq/central) | Sair da tela cheia | `document.exitFullscreen()` |
-| **Arrastar na vertical** no terço **direito** | Volume (cima=+, baixo=−) | `applyVolume` (a MESMA função do fader `#volSlider` e dos botões físicos) |
+| Sair | fecha a tela cheia | `exitFullscreen()` |
+| Cortina | wallpaper on/off | `viewToggleEl.click()` |
+| ⏮ | estrofe anterior · **segurar**: mídia anterior | `attachTransportStep(btn, -1)` |
+| ▶/⏸ | play/pause | `playPauseEl.click()` |
+| ⏭ | próxima estrofe · **segurar**: próxima mídia | `attachTransportStep(btn, 1)` |
+| Vol + / − | volume, **segurar repete** | `holdRepeat(btn, () => simpleVolStep(±1))` |
 
-Limiares: toque `<14px`, deslize `>45px`, volume vertical `>12px` (relativo,
-`-dy/(altura*0.6)`). `setPointerCapture` no `pointerdown` garante o rastreio do
-arrasto. O terço direito faz **tap = próxima estrofe**, **arrasto vertical =
-volume** e **deslize horizontal = mídia** (distintos por eixo/movimento); deslize
-vertical no terço direito nunca vira sair/wallpaper (é sempre volume). A config de
+**Nada é reimplementado** (invariante 5). O ⏮/⏭ recebe o MESMO
+`attachTransportStep` da barra de transporte, então herda os dois eixos de graça;
+o volume reusa `simpleVolStep`/`holdRepeat`, os mesmos do Modo Fácil.
+
+**Os dois botões de ESTADO espelham os controles de verdade** (`renderFsCtl`,
+chamado de `renderControls` e `setPlaying` — os dois únicos pontos que escrevem
+esse estado). Eles LEEM os botões de lá em vez de reler o estado por conta
+própria: uma segunda leitura divergiria no primeiro caso de borda.
+
+**Apagada, ela é `pointer-events: none`** — sem isso, uma coluna invisível
+continuaria comendo os toques da metade direita da projeção.
+
+**SVG e não `.msym`:** a fonte é um subset de 31 codepoints, e o `.pv-fab`
+pendura três `drop-shadow` no TRAÇO do SVG — é o que mantém o ícone legível
+sobre um slide branco. Um glifo perderia a sombra e o contraste junto.
+
+A config de
 preenchimento é persistida em `state.fit`, aplicada ao vivo via comando (`fit`,
 Display + preview) e recarregada do state ao inicializar. A de fade **não
 existe mais**: é fixa e compartilhada (`createStage.FADE`), sem state nem

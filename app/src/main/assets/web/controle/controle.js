@@ -32,6 +32,7 @@ const simpleStageEl = document.getElementById('simpleStage');
 const previewEl = document.getElementById('preview');
 const previewRowEl = document.querySelector('.preview-row');
 const pvCastBtnEl = document.getElementById('pvCastBtn');
+const fsCtlEl = document.getElementById('pvFsCtl');
 const simpleNpNameEl = document.getElementById('simpleNpName');
 const simplePlayEl = document.getElementById('simplePlay');
 const simpleStopEl = document.getElementById('simpleStop');
@@ -169,7 +170,7 @@ const appVersionEl = document.getElementById('appVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.0.6';
+const WEB_VERSION = '1.0.7';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -2487,6 +2488,9 @@ function renderControls() {
   const volPct = Math.round(volume * 100);
   syncFader(volSliderEl, faderWrapEl, volValueEl, volPct);
   renderSimple();
+  // A coluna da tela cheia espelha a cortina daqui: este é o único ponto que a
+  // escreve, então é o único que precisa avisar.
+  renderFsCtl();
   // A cortina (view) muda por aqui, não por renderNowPlaying — e o rótulo do
   // botão da notificação depende dela. A deduplicação segura o excesso.
   pushNowPlaying();
@@ -2764,6 +2768,7 @@ function pushNowPlaying() {
 function setPlaying(v) {
   playing = !!v;
   playPauseEl.querySelector('.msym').textContent = playing ? ICON.pause : ICON.play;
+  renderFsCtl();   // e a coluna da tela cheia, pelo mesmo motivo
   renderSimple();   // o botão do modo simplificado espelha este
   pushNowPlaying();
 }
@@ -7012,7 +7017,18 @@ function renderCollectionsListMiolo(alvo, redesenhar, opts) {
   // número a dois centímetros dela é a mesma medida dita duas vezes. Fechada
   // ela não diz quantos são, e isso é aceito: fechar é o gesto de quem não está
   // procurando ali agora.
-  const favCorpo = grupo(GRUPO_FAVORITOS, null, {
+  // ===== A SEÇÃO DE FAVORITOS NÃO EXISTE NO MODO FÁCIL =====
+  //
+  // Pedido do operador. E a razão é a mesma do "Ao Cronograma" do sorteio (ver
+  // `renderSorteioAcoes`): o Modo Fácil não tem abas nem listas — o que se
+  // GUARDA ali não tem onde ser visto depois. Uma seção que mostra o acervo
+  // marcado, com um botão de trazer pastas do aparelho, é a gaveta inteira do
+  // modo avançado aparecendo dentro do modo que existe para não ter gaveta.
+  //
+  // Só a SEÇÃO sai. Os favoritos continuam existindo, continuam sincronizando e
+  // voltam inteiros ao trocar de modo — o que muda é a Biblioteca aberta DAQUI
+  // mostrar as coleções e mais nada.
+  const favCorpo = appMode === 'simple' ? null : grupo(GRUPO_FAVORITOS, null, {
     // UMA AÇÃO, E ELA FAZ A COISA (v5.254): trazer uma pasta do aparelho.
     //
     // PASTA + (v5.258, pedido do operador). A v5.254 pôs aqui as setas
@@ -7285,11 +7301,16 @@ function renderCollectionCard(coll, ctx) {
   };
   // ===== O ALVO É O CARD, E NÃO A BARRA =====
   //
-  // ARMADILHA: o feedback de toque tira o alvo de baixo do dedo. `.coll-bar`
-  // está no `:active` do app (`--press: scale(.96)`) — numa barra de 395px isso
-  // a encolhe ~8px de cada lado, e no `pointerup` o navegador entrega o `click`
-  // ao ANCESTRAL. Daí o ouvinte morar no CARD, que não se mexe: fecha a classe
-  // inteira em vez de caçar pixels.
+  // ARMADILHA: o feedback de toque tira o alvo de baixo do dedo. O ouvinte mora
+  // no CARD, que não se mexe — fecha a classe inteira em vez de caçar pixels.
+  //
+  // A barra ESCALAVA (`--press`), e escalar um contêiner arrasta o que vive
+  // dentro dele: o botão de baixar está colado na borda direita, e um dedo na
+  // metade direita DELE caía sobre a barra no `pointerup` — o toque abria o
+  // acordeão em vez de baixar (MEDIDO: 6 de 11 acertavam). Hoje a barra responde
+  // por PREENCHIMENTO (`.coll-bar:active`, em `controle.css`, onde a regra geral
+  // está escrita), e este ouvinte no card continua valendo pelo mesmo motivo de
+  // sempre.
   //
   // A GUARDA é o corpo aberto (`.coll-open`, o invólucro de tudo que não é a
   // barra — nunca uma lista de filhos, para o próximo bloco lá dentro já nascer
@@ -13924,6 +13945,7 @@ function saveSorteioPrefs() {
   return AVDB.setState('sorteioPrefs', {
     modo: sorteioPrefs.modo, variante: sorteioPrefs.variante,
     semHinario: sorteioPrefs.semHinario, soNoAparelho: sorteioPrefs.soNoAparelho,
+    semInfantis: sorteioPrefs.semInfantis,
     quantos: sorteioPrefs.quantos,
   });
 }
@@ -13948,6 +13970,10 @@ function sorteioCap() {
     nomeNorm: (s) => s._norm || (s._norm = normalizeForSearch(s.name)),
     ehMusica: temLetra,
     ehHinario: collNumbersSongs,
+    // O HINÁRIO NOVO, e só ele: a faixa 508–557 dos infantis é a numeração DELE
+    // (ver `AVSorteio.INFANTIL_DE`). O de 1996 numera outra coisa, e emprestar
+    // estes números para lá recusaria cinquenta hinos escolhidos ao acaso.
+    ehHinarioNovo: (coll) => !!coll && coll.id === HYMNAL_2022_ID,
     faixas: (coll) => collSongs(coll.id),
     letraCasa: (coll, s, q) => !!lyricMatch(coll, s, q),
     noAparelho: (coll, s, variante) => !!(variante === AVSorteio.VARIANTE_PLAYBACK
@@ -14068,7 +14094,8 @@ function escopoSemPalavra(n) {
   const base = sorteioPrefs.soNoAparelho
     ? 'Só o que já está no aparelho'
     : 'Toda a biblioteca';
-  const menos = sorteioPrefs.semHinario ? ', sem o hinário' : '';
+  const menos = (sorteioPrefs.semHinario ? ', sem o hinário' : '')
+    + (sorteioPrefs.semInfantis ? ', sem os infantis' : '');
   return base + menos + ' — ' + numeroPt(n) + (n === 1 ? ' música' : ' músicas');
 }
 
@@ -14164,6 +14191,15 @@ function fraseDoVazioSorteio(pool) {
   }
   if (sorteioPrefs.variante === AVSorteio.VARIANTE_PLAYBACK && r[AVSorteio.MOTIVO_VARIANTE]) {
     return 'Nenhuma delas tem fundo musical. Troque para Cantada.';
+  }
+  // O FILTRO QUE NINGUÉM LIGOU. Ele nasce aceso, então é o único capaz de
+  // esvaziar a lista sem que o operador tenha tocado em nada — e sem esta frase
+  // o desfecho seria "nada combina com a palavra", mandando reescrever um tema
+  // que não é o problema. Ela vem DEPOIS das duas acima porque aquelas falam de
+  // escolhas explícitas: quem ligou "Só no aparelho" quer ouvir sobre ele
+  // primeiro.
+  if (sorteioPrefs.semInfantis && r[AVSorteio.MOTIVO_INFANTIL]) {
+    return 'Só sobraram hinos infantis. Desligue “Sem infantis” para incluí-los.';
   }
   const palavra = sorteioPrefs.tema.trim();
   return palavra ? 'Nada combina com “' + palavra + '” na biblioteca.'
@@ -14290,6 +14326,16 @@ function renderSorteio() {
       aoTocar: () => { sorteioPrefs.semHinario = !sorteioPrefs.semHinario; saveSorteioPrefs(); renderSorteio(); },
     },
     {
+      // NASCE LIGADO (ver `sanear`). É o único chip desta linha que já está
+      // aceso quando a folha abre, e é por isso que ele existe como CHIP e não
+      // como regra fixa: um filtro que decide sozinho precisa estar à vista, e
+      // ser desligável por quem quiser sortear um infantil de propósito.
+      nome: 'Sem infantis', ativo: sorteioPrefs.semInfantis,
+      titulo: 'Não sortear os hinos infantis do Hinário 2022 ('
+        + AVSorteio.INFANTIL_DE + ' a ' + AVSorteio.INFANTIL_ATE + ')',
+      aoTocar: () => { sorteioPrefs.semInfantis = !sorteioPrefs.semInfantis; saveSorteioPrefs(); renderSorteio(); },
+    },
+    {
       nome: 'Só no aparelho', ativo: sorteioPrefs.soNoAparelho,
       titulo: 'Sortear só o que já está baixado — nenhum download',
       aoTocar: () => { sorteioPrefs.soNoAparelho = !sorteioPrefs.soNoAparelho; saveSorteioPrefs(); renderSorteio(); },
@@ -14354,7 +14400,12 @@ function renderSorteio() {
   // principal desta folha". O de guardar veste o recesso do irmão secundário.
   liGo.appendChild(botao(fila ? 'Tocar agora' : 'Sortear e tocar', 'song-menu-go',
     (b) => executarSorteio(b, 'tocar')));
-  if (fila) {
+  // O SEGUNDO DESFECHO NÃO EXISTE NO MODO FÁCIL. Ele guarda a fila sorteada no
+  // Cronograma — e o Modo Fácil não tem Cronograma: não há aba, não há lista, e
+  // o que fosse guardado ali só reapareceria para quem trocasse de modo. Um
+  // botão que promete um destino invisível é pior que um botão a menos.
+  // (Mesma razão da seção de Favoritos — ver `renderCollectionsList`.)
+  if (fila && appMode !== 'simple') {
     liGo.appendChild(botao('Ao Cronograma', 'song-menu-letra',
       (b) => executarSorteio(b, 'cronograma')));
   }
@@ -15101,6 +15152,7 @@ function blocoSorteio() {
     + ' · ' + (f.variante === AVSorteio.VARIANTE_PLAYBACK
       ? 'fundo musical (telão coberto)' : 'cantada')
     + (f.semHinario ? ' · sem hinário' : '')
+    + (f.semInfantis ? ' · sem infantis' : '')
     + (f.soNoAparelho ? ' · só no aparelho' : ''));
   // A palavra CRUA e a normalizada, porque a diferença entre as duas já
   // explicou uma busca que "não achava nada" (espaço à direita, acento).
@@ -18524,16 +18576,17 @@ hymnSearchInputEl.addEventListener('input', debounce(() => renderSearchResults(h
 // Exibição (fade/fit). A preview em tela cheia é a projeção direta pelo Controle
 // (espelha a tela cheia do celular, sem depender do Miracast de app isolado).
 //
-// DENTRO do fullscreen — a tela inteira vira uma superfície de CONTROLE POR
-// GESTOS INVISÍVEIS (nada é desenhado no telão), mapeados para as ações que já
-// existem. Mapa (posição + tipo de movimento distinguem cada gesto):
-//   • Volume        → ARRASTAR na vertical no terço DIREITO (cima = +, baixo = −)
-//   • Play/Pause    → TOQUE no terço central
-//   • Estrofe ± 1   → TOQUE no terço esquerdo (anterior) / direito (próxima)
-//   • Mídia ± 1     → DESLIZE horizontal: ← próxima, → anterior
-//   • Wallpaper on/off → DESLIZE para CIMA (terço esq/central)
-//   • Sair da tela cheia → DESLIZE para BAIXO (terço esq/central) — ou o gesto
-//                          de voltar do Android
+// DENTRO do fullscreen — uma COLUNA DE ÍCONES na lateral direita (`#pvFsCtl`),
+// que o toque acende e 4s sem toque apagam. Ela substituiu um mapa de GESTOS
+// INVISÍVEIS (toque por terço, deslizes nos quatro sentidos, arrasto de volume)
+// que não tinha como se anunciar: quem não o decorasse não tinha como
+// descobri-lo, e um toque no lugar errado fazia outra coisa em cima da
+// projeção.
+//
+// O que a coluna preserva do desenho antigo é a razão dele: sem TV conectada a
+// preview em tela cheia É a projeção, e tudo o que se pinta aqui a congregação
+// vê. Daí ela ser PASSAGEIRA (só ao toque, some sozinha) e TRANSLÚCIDA.
+//
 // A trava de paisagem (Screen Orientation API) só é permitida COM o elemento já
 // em fullscreen (padrão de player de vídeo); é destravada ao sair.
 (function setupPreviewGestures() {
@@ -18592,60 +18645,72 @@ hymnSearchInputEl.addEventListener('input', debounce(() => renderSearchResults(h
     if (!document.fullscreenElement) { try { screen.orientation && screen.orientation.unlock && screen.orientation.unlock(); } catch (_) {} }
   });
 
-  // ---- reconhecedor de gestos (só em fullscreen) ----
-  const TAP_MOVE = 14, SWIPE_MIN = 45, VOL_MIN = 12;
-  let sx = 0, sy = 0, third = 'center', volActive = false, volStart = 1;
-  function zoneOf(clientX) {
-    const r = previewEl.getBoundingClientRect();
-    const x = clientX - r.left, w = r.width || 1;
-    if (x < w / 3) return 'left';
-    if (x > 2 * w / 3) return 'right';
-    return 'center';
+  // ---- a coluna de controles (só em fullscreen) ----
+  //
+  // ELA SÓ VIVE 4 SEGUNDOS POR TOQUE. O relógio é reiniciado por QUALQUER toque
+  // na projeção — inclusive num botão dela —, senão a coluna se apagaria no meio
+  // de uma sequência de toques (passar três estrofes, subir o volume).
+  const FSCTL_MS = 4000;
+  let fsTimer = null;
+
+  function esconderFsCtl() {
+    clearTimeout(fsTimer); fsTimer = null;
+    if (fsCtlEl) fsCtlEl.classList.remove('visivel');
+  }
+  function acenderFsCtl() {
+    if (!fsCtlEl || !isFs()) return;
+    fsCtlEl.classList.add('visivel');
+    renderFsCtl();
+    clearTimeout(fsTimer);
+    fsTimer = setTimeout(esconderFsCtl, FSCTL_MS);
   }
 
-  previewEl.addEventListener('pointerdown', (e) => {
-    sx = e.clientX; sy = e.clientY;
-    if (!isFs()) return; // fora do fullscreen basta a origem (toque × arrasto)
-    third = zoneOf(e.clientX);
-    volActive = false; volStart = volume;
-    try { previewEl.setPointerCapture(e.pointerId); } catch (_) {}
-  });
+  // O TOQUE QUE ACENDE NÃO PODE SER O MESMO QUE ACIONA. Com a coluna apagada ela
+  // é `pointer-events: none`, então o primeiro toque atravessa até aqui e só
+  // acende; com ela no ar, o toque num botão chega ao botão e este `pointerdown`
+  // (que borbulha) apenas RENOVA o relógio. É o comportamento de todo player: o
+  // primeiro toque traz os controles, o segundo comanda.
+  previewEl.addEventListener('pointerdown', () => { if (isFs()) acenderFsCtl(); });
 
-  previewEl.addEventListener('pointermove', (e) => {
-    if (!isFs()) return;
-    const dx = e.clientX - sx, dy = e.clientY - sy;
-    // volume: arrasto vertical no terço direito
-    if (third === 'right' && Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > VOL_MIN) {
-      volActive = true;
-      const h = previewEl.getBoundingClientRect().height || 1;
-      applyVolume(volStart + (-dy / (h * 0.6))); // arrastar pra cima aumenta
-    }
-  });
+  // ===== CADA BOTÃO ACIONA O CONTROLE DE VERDADE (invariante 5) =====
+  if (fsCtlEl) {
+    document.getElementById('fsExit').addEventListener('click', exitFullscreen);
+    document.getElementById('fsView').addEventListener('click', () => {
+      viewToggleEl.click(); renderFsCtl();
+    });
+    document.getElementById('fsPlay').addEventListener('click', () => {
+      playPauseEl.click(); renderFsCtl();
+    });
+    // OS DOIS EIXOS DE GRAÇA: o mesmo `attachTransportStep` da barra de
+    // transporte — toque curto passa estrofe, toque longo passa mídia. Escrever
+    // aqui um segundo par de botões "estrofe" e "mídia" seria a mesma decisão
+    // reimplementada, e ela envelheceria à parte.
+    attachTransportStep(document.getElementById('fsPrev'), -1);
+    attachTransportStep(document.getElementById('fsNext'), 1);
+    // Segurar repete, como no Modo Fácil — mesma função, mesmo passo.
+    holdRepeat(document.getElementById('fsVolUp'), () => simpleVolStep(1));
+    holdRepeat(document.getElementById('fsVolDown'), () => simpleVolStep(-1));
+  }
 
-  previewEl.addEventListener('pointerup', (e) => {
-    if (isFs()) {
-      if (volActive) { persistCurrent(); return; }
-      const dx = e.clientX - sx, dy = e.clientY - sy;
-      const adx = Math.abs(dx), ady = Math.abs(dy);
-      // Ações acionam os BOTÕES existentes (.click()): reaproveitam os handlers
-      // e respeitam o `disabled` (ex.: estrofe ± vira no-op quando não há letra).
-      if (Math.max(adx, ady) < TAP_MOVE) {                        // TOQUE
-        if (third === 'left') slidePrevBtnEl.click();             // estrofe anterior
-        else if (third === 'right') slideNextBtnEl.click();       // próxima estrofe
-        else playPauseEl.click();                                 // centro → play/pause
-      } else if (adx > ady && adx > SWIPE_MIN) {                  // DESLIZE horizontal → mídia
-        if (dx < 0) nextEl.click(); else prevEl.click();          // ← próxima, → anterior
-      } else if (ady > adx && ady > SWIPE_MIN && third !== 'right') { // DESLIZE vertical (esq/centro)
-        if (dy < 0) viewToggleEl.click(); else exitFullscreen();  // ↑ wallpaper · ↓ sair
-      }
-    }
-    // Fora do fullscreen a preview NÃO tem ação própria. Tinha: o toque
-    // escondia/mostrava os botões dos cantos, e isso saiu na v5.67 (eles são
-    // permanentes — ver acima). Quem age é quem tocar num botão.
-  });
-
-  previewEl.addEventListener('pointercancel', () => { volActive = false; });
+  // Sair da tela cheia apaga a coluna: reentrar tem de começar do estado limpo,
+  // senão ela reapareceria acesa com um relógio de outra sessão correndo.
+  document.addEventListener('fullscreenchange', () => { if (!isFs()) esconderFsCtl(); });
 })();
+
+// O ESPELHO DOS DOIS BOTÕES DE ESTADO. Ele LÊ os controles de verdade em vez de
+// reler o estado por conta própria: `playing` e `view` já têm um dono cada, e
+// uma segunda leitura divergiria deles no primeiro caso de borda — que é a
+// mesma razão pela qual os botões daqui acionam os de lá.
+function renderFsCtl() {
+  if (!fsCtlEl) return;
+  const play = document.getElementById('fsPlay');
+  const vis = document.getElementById('fsView');
+  if (play) play.classList.toggle('alternado', playing);
+  if (vis) {
+    vis.classList.toggle('alternado', view === 'wallpaper');
+    vis.title = viewToggleEl.title;
+  }
+}
 fitSegEl.addEventListener('click', (e) => {
   const btn = e.target.closest('.fit-opt');
   if (btn) applyFit(btn.dataset.fit);

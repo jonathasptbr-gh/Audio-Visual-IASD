@@ -74,7 +74,7 @@ protocolo de comandos seguem praticamente inalterados.
 
 **Sem TV conectada o app continua útil:** nenhuma Presentation é criada e a
 projeção volta a ser a preview do Controle em tela cheia (o mesmo fallback do
-PWA, incluindo os gestos invisíveis).
+PWA, hoje com a COLUNA de controles no lugar dos gestos invisíveis).
 
 ---
 
@@ -105,7 +105,9 @@ app/src/main/
 │   │                            #   que entra num álbum (PURA, com oráculo Node)
 │   ├── controle/sorteio.js      #   a PLAYLIST AUTOMÁTICA: a REGRA que decide o
 │   │                            #   que pode ser sorteado (PURA, capacidades
-│   │                            #   injetadas, com oráculo Node)
+│   │                            #   injetadas, com oráculo Node). "Sem infantis"
+│   │                            #   (508–557 do Hinário 2022) é o ÚNICO filtro
+│   │                            #   que nasce LIGADO — daí o `!== false`
 │   ├── controle/                #   (sem sw.js / manifest / icons — ver abaixo)
 │   └── display/                 #   (idem)
 ├── java/br/org/iasd/av/
@@ -1706,6 +1708,23 @@ resto desta seção.
   identidade tem sete famílias de matiz e a tela precisa de DEZ grupos separáveis
   por ≥20°: cinco são oficiais, cinco preenchem os vãos.
 
+### `--press` é para CONTROLE FOLHA, nunca para um contêiner
+
+`--press` é `scale(.96)`, e **uma escala num contêiner arrasta tudo o que vive
+dentro dele**. A `.coll-bar` do card de álbum tem 408px: 4% recuam a borda
+direita ~8px, e o botão de baixar está colado nessa borda — um dedo pousado na
+metade DIREITA dele ficava sobre a barra no instante do `pointerup`, e o toque
+abria o acordeão em vez de baixar.
+
+**MEDIDO: 6 de 11 toques no botão de fato baixavam**, e os 5 que erravam eram
+todos à direita. Sem a escala, 11 de 11.
+
+Um contêiner que hospeda um controle responde por **PREENCHIMENTO**
+(`.coll-bar:active`), que não move nada — ou por `filter`, como o
+`.cast-acao:active`. É a mesma família de armadilha que já tinha feito o ouvinte
+do card morar no `<li>` em vez de na barra: aquela correção salvou o alvo da
+BARRA e deixou de pé o do botão que mora dentro dela.
+
 ### A escada de camadas
 
 - **A superfície AFUNDA dentro de um cartão** (regra no topo de `controle.css`).
@@ -1837,7 +1856,7 @@ que ela é desenvolvida e testada fora do aparelho.
 | Buscar no YouTube | não existe: abre o YouTube numa aba | **busca dentro da Biblioteca** (`ytSearch` → `YoutubeGrab.pesquisar`), resultados na mesma lista e mesma folha de destinos. Em **português**: passar localização ao `NewPipe.init` NÃO resolve (o serviço filtra por uma lista que só tem `en-GB`) — quem resolve é o `forceLocalization` do próprio `Extractor`. Iframe é recusado pelo `X-Frame-Options`; a API oficial exigiria chave com cota |
 | Link para fora do app | `window.open` | **`openExternal(url)`** → `ACTION_VIEW` em tarefa própria. O WebView RECUSA navegar para outro origin (invariante 2): sem esse método um link externo não faz nada, nem erro no console |
 | Sem tela conectada (simplificado) | mesmo bloqueio, com a janela do Display no lugar da `Presentation` | **modo bloqueado**: cortina embaçada, seção de conexão no centro, saída para o avançado na frente. **Não é incondicional**: o "Tocar neste celular" da folha (`tocarNoCelular`) desbloqueia e manda o som para este aparelho. **Caminho só de IDA e sem persistência**: o bloqueio se rearma ao fechar o app, ao passar pelo modo avançado (`setAppMode`) ou quando uma tela entra — e por isso o botão SOME depois do toque, em vez de oferecer o desfazer |
-| Fullscreen da preview | `requestFullscreen` + Screen Orientation | idem, com trava de paisagem **nativa** (`onShowCustomView`) |
+| Fullscreen da preview | `requestFullscreen` + Screen Orientation | idem, com trava de paisagem **nativa** (`onShowCustomView`). Os controles são uma COLUNA na lateral direita que o toque acende e 4 s apagam — não gestos (v1.0.7, ver `docs/arquitetura/CONTROLE.md`) |
 | Botões físicos de volume | o navegador não os recebe | **interceptados**, ligados ao fader (ver abaixo) |
 | Microfone | o navegador pergunta | `MicChromeClient` + `RECORD_AUDIO` (ver abaixo) |
 | Câmera | o navegador pergunta | **negada, sempre**. O `onPermissionRequest` do `ControleChromeClient` FICOU, negando **com log**: um WebView sem ele nega em silêncio, e o próximo que precisar de mídia aqui descobriria a armadilha do zero |
@@ -2450,7 +2469,7 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: v1.0.6** (base web) · **v1.0.6** (APK) · `SHELL_VERSION` **47** · bundle com
+**Versão atual: v1.0.7** (base web) · **v1.0.6** (APK) · `SHELL_VERSION` **47** · bundle com
 `minShell: 47` — o shell 47 é o **PISO**: todo método da ponte existe, e não há
 guarda de versão no lado web. O que continua valendo é que `java/`, `res/`, o
 manifest e os workflows **só chegam instalando o APK**.
