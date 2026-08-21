@@ -412,6 +412,12 @@ body {
   z-index: 5; pointer-events: none;
   display: flex; flex-direction: column;
 }
+/* A COLUNA DA ESQUERDA tem um item só: o selo de camadas. Ela é outra coluna, e
+   não um terceiro botão na de cima, porque aqueles dois são o PLAYER (para onde
+   mando, e quero em tela cheia) e este é um ESTADO da cena. No meio da coluna
+   direita ele leria como mais um controle de player — e um vermelho ali
+   disputaria a leitura com os dois brancos vizinhos. */
+.pv-fabs--esq { right: auto; left: 2px; }
 /* A tela cheia é a ÚLTIMA da coluna e vai para o rodapé por `margin-top: auto`,
    não por `justify-content: space-between`: no navegador o cast nem existe
    (`[hidden]`), e com um item só o `space-between` o jogaria de volta para o
@@ -445,6 +451,31 @@ body {
     drop-shadow(0 0 1px rgba(0, 0, 0, .95))
     drop-shadow(0 0 2px var(--shadow-ink))
     drop-shadow(0 1px 5px rgba(0, 0, 0, .65));
+}
+/* ---------- O SELO DE CAMADAS É PREENCHIDO, e é a regra da paleta ----------
+   `--live` é o scarlett OFICIAL e a paleta o marca como **só preenchimento**:
+   saturado, ele é o par `--live`/`--on-live` de "está no ar agora" — o mesmo do
+   microfone aberto. Como TRAÇO ele seria o uso que aquele token recusa, e a
+   resposta da paleta para traço vermelho é outro valor (o clareado), que já não
+   diz "no ar".
+
+   Preenchido, ele ainda ganha o que o desenho pedia: os dois vizinhos são
+   controles de PLAYER (ícone branco sem moldura, por convenção da `.pv-fab`), e
+   este é um ESTADO. A moldura é o que separa as duas coisas à primeira vista.
+
+   E VEM DEPOIS DA `.pv-fab`, o que não é arrumação: as duas medem 0,1,0 e quem
+   vence é a última no arquivo. Escrita antes, ela perdia para o
+   `color: var(--stage-text)` e o selo saía BRANCO, igual aos botões de player
+   ao lado — isto é, sem dizer nada. Medido.
+
+   A sombra vira UMA, difusa: as três da `.pv-fab` empilham um contorno escuro
+   em volta de um traço solto, e aqui não há traço solto — há uma pastilha
+   opaca, que só precisa descolar da textura de trás. */
+.pv-fab--camada { color: var(--on-live); }
+.pv-fab--camada svg {
+  width: 30px; height: 30px; box-sizing: border-box; padding: 5px;
+  background: var(--live); border-radius: 50%;
+  filter: drop-shadow(0 1px 4px rgba(0, 0, 0, .45));
 }
 /* Em tela cheia a preview É a projeção (quando não há TV conectada): nada de
    UI por cima, ou o botão iria junto para o telão. */
@@ -5001,6 +5032,13 @@ body.mode-simple .bottombar { display: none; }
   font-size: .7rem; font-weight: 600; letter-spacing: .06em;
   text-transform: uppercase; color: var(--muted);
 }
+/* O ENDEREÇO E O BOTÃO DE COPIAR DIVIDEM UMA LINHA. `min-width: 0` no texto
+   porque ele é `overflow-wrap: anywhere` dentro de um flex, e sem isso o item
+   não encolhe abaixo do conteúdo — o botão sairia da caixa num IP longo. */
+.cast-url-linha {
+  display: flex; align-items: center; gap: .35rem; max-width: 100%;
+}
+.cast-url-linha > .cast-url { min-width: 0; }
 .cast-url {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 1.05rem; font-weight: 700; color: var(--text);

@@ -130,6 +130,7 @@ const pvLyricsLineEl = document.getElementById('pvLyricsLine');
 const pvLyricsAuxEl = document.getElementById('pvLyricsAux');
 const pvLyricsNumEl = document.getElementById('pvLyricsNum');
 const pvTextEl = document.getElementById('pvText');
+const pvCamadaBtnEl = document.getElementById('pvCamadaBtn');
 const pvTextContentEl = document.getElementById('pvTextContent');
 const pvTextMainEl = document.getElementById('pvTextMain');
 const pvTextSubEl = document.getElementById('pvTextSub');
@@ -168,7 +169,7 @@ const appVersionEl = document.getElementById('appVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.0.2';
+const WEB_VERSION = '1.0.3';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -372,6 +373,7 @@ const castMsgEl = document.getElementById('castMsg');
 const castMirrorLabelEl = document.getElementById('castMirrorLabel');
 const castLiveEl = document.getElementById('castLive');
 const castUrlEl = document.getElementById('castUrl');
+const castUrlCopyEl = document.getElementById('castUrlCopy');
 const castTelasEl = document.getElementById('castTelas');
 const songMenuPopupEl = document.getElementById('songMenuPopup');
 const songMenuTitleEl = document.getElementById('songMenuTitle');
@@ -2481,6 +2483,10 @@ function renderRepeat() {
 }
 
 function renderNowPlaying() {
+  // O SELO DE CAMADAS PRIMEIRO, e é por isso que ele está no TOPO: esta função
+  // tem um `return` por ramo de cena, e qualquer linha no fim dela só rodaria
+  // para o último caso.
+  renderCamadaBtn();
   // Sorteio EM EXIBIÇÃO.
   if (drawProjecting()) {
     npNameInnerEl.textContent = 'Sorteio';
@@ -4464,6 +4470,51 @@ function provedorDeTextoNoAr() {
   if (imgSobreProjetando()) return 'imagem';
   if (textoAvulsoNoAr) return 'avulso';
   return '';
+}
+
+/**
+ * ===== O SELO DE CAMADAS APARECE SÓ COM DUAS COISAS NO AR =====
+ *
+ * As DUAS condições, e nenhuma basta: uma Camada de Texto projetando E mídia no
+ * ar por baixo dela. Sem a segunda ele apareceria sobre um versículo sozinho —
+ * e ali não há camada de cima nenhuma a encerrar, o Parar já é a resposta certa
+ * e o selo estaria oferecendo um caminho a mais para o mesmo desfecho.
+ *
+ * `midiaNoAr` e não `playing`: um louvor PAUSADO para a oração continua sendo a
+ * cena por baixo, e é exatamente o caso em que perder o áudio junto com o texto
+ * mais dói. É a mesma régua de `audioNoAr` e do reenvio de cena.
+ */
+function renderCamadaBtn() {
+  if (!pvCamadaBtnEl) return;
+  pvCamadaBtnEl.hidden = !(cenaDeRoteiroNoAr() && midiaNoAr);
+}
+
+/**
+ * ENCERRA SÓ A CAMADA DE CIMA — a de baixo (o áudio) segue tocando.
+ *
+ * Cada provedor sai pela PRÓPRIA porta, e é isso que preserva a sessão dele: os
+ * `hide*` escrevem `projecting = false` e deixam a navegação de pé, então o
+ * operador reexibe pela lista sem remontar nada. A ordem é a de
+ * `provedorDeTextoNoAr`, que já é a precedência do resto do app.
+ *
+ * `songlyrics` e `avulso` caem no caminho GENÉRICO porque não têm `hide*`
+ * próprio: a letra avulsa só sai por `clearLyricSession`, e o avulso não tem
+ * sessão nenhuma (é a mensagem de roteiro cuja original foi apagada). É o mesmo
+ * par `text-hide` + `clearManualText` que o ramo de cue do `retirarDoAr` usa —
+ * o `text-hide` é o que TIRA DA TELA, e o `clear` é só a escrituração.
+ */
+function encerrarCamadaDeCima() {
+  const quem = provedorDeTextoNoAr();
+  if (!quem) return;
+  if (quem === 'imagem') return hideImagemSobre();
+  if (quem === 'bible') return hideBibleVerse();
+  if (quem === 'message') return hideMessage();
+  if (quem === 'chrono') return hideChrono();
+  if (quem === 'draw') return hideDraw();
+  cmd({ type: 'text-hide' });
+  clearManualText();
+  marcarNoAr();
+  renderNowPlaying();
 }
 
 /**
@@ -9365,6 +9416,10 @@ async function retirarDoAr(item) {
  * realces — é o mesmo modelo que a independência áudio × texto já descreve.
  */
 function marcarNoAr() {
+  // O SELO DE CAMADAS responde a DUAS coisas, e esta função é a que sabe da
+  // segunda: a mídia entrando ou saindo do ar muda a resposta dele tanto quanto
+  // a camada de texto muda. `renderNowPlaying` cobre o outro lado.
+  renderCamadaBtn();
   document.querySelectorAll('.lib-item,.row-item').forEach((el) => {
     const id = el.dataset.id;
     el.classList.toggle('active', linhaAtiva(id));
@@ -11704,6 +11759,11 @@ function ytLinhaVisivel(id) {
   return [...document.querySelectorAll('.yt-result')].some((li) => li.dataset.yt === id);
 }
 
+// De qual LINHA DE COLEÇÃO cada vídeo do YouTube veio (id → chave de
+// `songRowKey`). Só episódios de série entram aqui; um resultado da busca não
+// tem linha de coleção nenhuma. Vive tanto quanto a página, como o `ytEstado`
+// ao lado: são poucas entradas, e esquecê-las custaria o sinal no redesenho.
+const ytLinhas = new Map();
 function setYtEstado(id, estado, pct) {
   if (estado) ytEstado.set(id, { estado, pct: typeof pct === 'number' ? pct : -1 });
   else ytEstado.delete(id);
@@ -11711,6 +11771,18 @@ function setYtEstado(id, estado, pct) {
     if (li.dataset.yt !== id) return;
     pintarYtLinha(li, ytEstado.get(id));
   });
+  // E A LINHA DA COLEÇÃO, quando o vídeo veio de uma (ver `serieComoYoutube`).
+  // O anel dela é montado DENTRO da linha, então a marca sobrevive ao redesenho
+  // do acervo — que roda a cada 400 ms durante uma sincronização.
+  const chave = ytLinhas.get(id);
+  if (chave) {
+    const reg = ytEstado.get(id);
+    const ocupada = !!reg && reg.estado === 'baixando';
+    // Espelhar em vez de somar: este ponto é chamado várias vezes com o MESMO
+    // estado (o `onPct` bate a cada fatia), e um contador incrementado a cada
+    // batida nunca voltaria a zero — o anel ficaria girando para sempre.
+    if (ocupada !== songRowBusy.has(chave)) setSongRowBusyKey(chave, ocupada);
+  }
 }
 // Quanto tempo a linha fica marcada como falha antes de voltar ao normal. Curto
 // o bastante para não parecer permanente (o vídeo continua lá, e tentar de novo
@@ -12149,6 +12221,10 @@ async function ytAcao(r, destinos, btn, somenteAudio, altura) {
   // telão, e o telão não é uma lista.
   const guardar = escolhas.filter((d) => d !== 'tocar');
   if (tocar) closeHymnSearch();
+  // De onde este vídeo veio, para o `setYtEstado` saber que linha acender. É
+  // registrado ANTES do primeiro estado, senão o 'baixando' de baixo passa sem
+  // encontrar a chave — e o sinal só apareceria na segunda batida do progresso.
+  if (r.__linha) ytLinhas.set(r.id, r.__linha);
   setYtEstado(r.id, 'baixando');
   // O DOWNLOAD NASCE NA PRIMEIRA lista escolhida e é ESPALHADO para as demais
   // depois — o arquivo é um só, e o que muda entre os destinos é apenas em
@@ -12883,6 +12959,16 @@ function destUniao(chave) {
  */
 function serieComoYoutube(coll, s) {
   const r = { id: s.id_music, url: s.ytUrl, name: s.name, semSoAudio: true };
+  // A LINHA DE ONDE ELE VEIO. Um episódio é um vídeo do YouTube, mas ele não é
+  // desenhado por `ytResultRow` — a lista dele é a da COLEÇÃO (`hymnResultRow`,
+  // com `data-song`), e o indicador de download de lá é o anel do quadrado à
+  // esquerda. `setYtEstado` pintava só `.yt-result`, então mandar um episódio
+  // para o Cronograma não acendia NADA: nem ao confirmar, nem durante os ~300
+  // MB de download. O único sinal era a notificação do sistema — fora do app.
+  //
+  // O carimbo é aqui e não nos dois chamadores porque é aqui que `coll` e `s`
+  // existem juntos: um chamador novo herda o comportamento sem saber dele.
+  r.__linha = songRowKey(coll, s);
   // O AVISO DA JANELA DE ANTECEDÊNCIA (v5.256).
   //
   // A lista mostra o episódio três dias antes do sábado dele — o pedido do
@@ -13315,7 +13401,12 @@ function songRowKey(coll, s) { return coll.id + ':' + s.id_music; }
 // voltava a mostrar ▶ com o download ainda correndo. `hymnResultRow` relê o
 // Map ao montar; esta função cuida das linhas que já estão na tela.
 function setSongRowBusy(coll, s, on) {
-  const key = songRowKey(coll, s);
+  setSongRowBusyKey(songRowKey(coll, s), on);
+}
+// A MESMA marca, pela CHAVE. Quem vem do YouTube (um episódio de série) tem a
+// chave e não tem o par `coll`/`s` na mão — e duplicar o contador daria dois
+// donos para a mesma classe no DOM, que é a forma de eles discordarem.
+function setSongRowBusyKey(key, on) {
   const n = (songRowBusy.get(key) || 0) + (on ? 1 : -1);
   if (n > 0) songRowBusy.set(key, n); else songRowBusy.delete(key);
   const ligado = songRowBusy.has(key);
@@ -15261,6 +15352,17 @@ async function copiarTexto(texto, btn) {
 // atrás desta leitura, e ele existia porque a caixa ROLAVA: copiar o que estava
 // à vista entregaria um pedaço do meio. Sem o visor, a variável é a única fonte
 // — e é a completa.
+// O ENDEREÇO DA TRANSMISSÃO se copia pelo mesmo caminho do Registro. Ele é
+// lido do NÓ e não de uma variável à parte: quem o escreve é `mirrorEstado`, a
+// cada volta da enquete, e uma segunda cópia guardada aqui ficaria para trás
+// no dia em que o IP mudasse (o Wi-Fi caindo e voltando é o caso normal).
+if (castUrlCopyEl) {
+  castUrlCopyEl.addEventListener('click', () => {
+    const url = (castUrlEl && castUrlEl.textContent || '').trim();
+    if (url) copiarTexto(url, castUrlCopyEl);
+  });
+}
+
 if (diagCopyEl) {
   diagCopyEl.addEventListener('click', () => copiarTexto(diagTexto, diagCopyEl));
 }
@@ -18363,6 +18465,17 @@ hymnSearchInputEl.addEventListener('input', debounce(() => renderSearchResults(h
   // v5.199 com ela.)
   pvCastBtnEl.addEventListener('click', () => abrirCast());
 
+  // O SELO DE CAMADAS. Ele vive na mesma pilha dos outros dois botões da
+  // preview, então herda o `pointer-events: auto` da `.pv-fab` — sem isso o
+  // toque atravessaria para o reconhecedor de gestos da preview, que dentro da
+  // tela cheia é o transporte inteiro.
+  if (pvCamadaBtnEl) {
+    pvCamadaBtnEl.addEventListener('click', (e) => {
+      e.stopPropagation();
+      encerrarCamadaDeCima();
+    });
+  }
+
   async function enterFullscreen() {
     try {
       if (previewEl.requestFullscreen) await previewEl.requestFullscreen();
@@ -20224,14 +20337,27 @@ function telaReenviarPreferencias(para) {
   // é a tela ficar para sempre sem wallpaper, sem fundo de letra e sem
   // preenchimento, sem nada que o explique.
   //
-  // O que fica é a única condição de que este corpo depende de verdade: o
-  // canal de mídia, porque é ele que empurra os bytes do wallpaper.
-  if (!telaCanal()) return;
   const mandar = (c) => { if (para) c.__para = para; AVDB.sendCommand(c); };
-  // Só o que DIVERGE do padrão viaja: a tela recém-carregada já está no
-  // padrão, e mandar o default de volta seria ruído no caminho da conexão.
+  // ===== DUAS DAS TRÊS PREFERÊNCIAS NÃO DEPENDEM DO CANAL DE MÍDIA =====
+  //
+  // `lyricsbg` e `fit` são JSON puro: viajam pelo MESMO SSE de todo comando do
+  // culto e não movem um byte. Só o WALLPAPER precisa do canal, porque só ele
+  // empurra uma imagem. A guarda `if (!telaCanal()) return` estava no TOPO da
+  // função e derrubava as três — e o preço é o defeito que este reenvio existe
+  // para fechar: a tela nasce com `lyricsBgMode = 'black'` (ela não tem o
+  // IndexedDB do app para consultar, ao contrário do telão de verdade), e sem o
+  // comando ela fica com o FUNDO DOS SLIDES PRETO com a opção ligada, para
+  // sempre — nada reexamina uma estrofe já renderizada.
+  //
+  // Calado nos dois sentidos: sem o canal não há erro, não há linha no Registro,
+  // e o padrão do `fit` e do wallpaper é aceitável o bastante para ninguém
+  // reparar. Só o fundo da letra aparece — e aparece como "o app perdeu a
+  // configuração".
+  //
+  // A guarda desceu para o único bloco que de fato depende dela.
   if (lyricsBg === 'image') mandar({ type: 'lyricsbg', mode: lyricsBg });
   if (mediaFit !== 'contain') mandar({ type: 'fit', fit: mediaFit });
+  if (!telaCanal()) return;
   (async () => {
     let blob = null;
     try { blob = await AVDB.getState('wallpaper'); } catch (_) { /* padrão */ }

@@ -109,6 +109,14 @@
       <path d="M12 14.2V7.6"/>
       <path d="m9.2 10.4 2.8-2.8 2.8 2.8"/>
     </symbol>
+    <!-- COPIAR. Ele nasceu solto no botão do Registro; virou símbolo quando o
+         endereço da transmissão passou a precisar do mesmo botão. Duas cópias
+         do mesmo desenho divergiriam no primeiro ajuste — é a razão deste
+         sprite, e vale aqui como valeu para a lupa. -->
+    <symbol id="icoCopiar" viewBox="0 0 24 24">
+      <rect x="9" y="9" width="11" height="11" rx="2"/>
+      <path d="M5 15V5a2 2 0 0 1 2-2h10"/>
+    </symbol>
     <!-- LUPA. Ela já existia desenhada em JS (`searchIconSvg`, o botão de
          pesquisar no YouTube); virou símbolo na v5.264, quando a barra de busca
          da Biblioteca passou a precisar dela também. UM desenho e duas
@@ -572,6 +580,34 @@
                mais — ver setupPreviewGestures), com uma exceção: ficam ocultos
                em TELA CHEIA, que é o que vai ao telão quando não há TV
                conectada — um botão sobreposto seria projetado junto. -->
+          <!-- ===== O SELO DE CAMADAS, e ele é a ÚNICA saída de uma delas =====
+               Com um louvor tocando e um texto, aviso ou imagem projetado POR
+               CIMA, a camada de cima só saía pela linha que a pôs lá — a do
+               Cronograma, a da aba de Mensagens. Fora dessas duas portas não
+               havia nenhuma: o Parar do transporte encerra a CENA INTEIRA, e o
+               operador que só queria tirar o versículo perdia o louvor junto,
+               na frente da congregação.
+
+               Ele aparece SÓ com as duas coisas no ar ao mesmo tempo (ver
+               `renderCamadaBtn`) — é o que o faz um SELO e não mais um botão
+               permanente: enquanto ele está lá, há duas camadas; sumindo, há
+               uma só, e o Parar volta a ser a resposta certa.
+
+               O ÍCONE MOSTRA O ESTADO; O RÓTULO, A AÇÃO — a mesma regra dos
+               botões da notificação de mídia. O desenho é a pilha de camadas
+               (o que está acontecendo) e o `title` diz o que o toque faz.
+               Vermelho `--live` porque é o vermelho de "está no ar agora"
+               deste app, e a camada de cima é justamente isso. -->
+          <div class="pv-fabs pv-fabs--esq">
+            <button id="pvCamadaBtn" class="pv-fab pv-fab--camada" type="button"
+                    title="Encerrar a camada de cima" aria-label="Encerrar a camada de cima" hidden>
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M12 3 3 7.5l9 4.5 9-4.5z"/>
+                <path d="m4.2 12.2 7.8 3.9 7.8-3.9"/>
+                <path d="m4.2 16.7 7.8 3.9 7.8-3.9"/>
+              </svg>
+            </button>
+          </div>
           <div class="pv-fabs">
             <button id="pvCastBtn" class="pv-fab" title="Conectar uma TV" hidden>
               <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -881,10 +917,7 @@
         <div class="fade-row">
           <span>Registro</span>
           <button id="diagCopy" class="log-copy" title="Copiar o registro" aria-label="Copiar o registro">
-            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <rect x="9" y="9" width="11" height="11" rx="2"/>
-              <path d="M5 15V5a2 2 0 0 1 2-2h10"/>
-            </svg>
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoCopiar"/></svg>
           </button>
         </div>
       </div>
@@ -911,7 +944,7 @@
              METADADO de diagnóstico e o lugar onde se procura diagnóstico é
              junto do estado do telão e do alvo de espelhamento, não numa faixa
              de navegação. Preenchido por `renderVersionLabel`. -->
-        <span id="appVersion" class="app-version">Controle v1.0.2</span>
+        <span id="appVersion" class="app-version">Controle v1.0.3</span>
         <!-- A ATUALIZAÇÃO (v5.245). Ele mora ao lado do rótulo de versão
              porque é a MESMA conversa ("que versão eu tenho?" / "tem uma mais
              nova?"), e porque é ali que o operador já procura isso.
@@ -1050,9 +1083,19 @@
                  abaixo uma frase mandava abrir esse endereço no navegador da TV —
                  duas linhas para um dado só. Dito no próprio rótulo, o bloco
                  inteiro se lê de uma vez: o que fazer, e com quê. -->
+            <!-- O ENDEREÇO SE COPIA. Ele é digitado num OUTRO aparelho, e quem
+                 o passa adiante manda por mensagem — transcrever
+                 `http://192.168.x.y:8080` à mão erra um dígito, e o erro só
+                 aparece no navegador do outro lado, como "site não encontrado".
+                 O botão é o mesmo do Registro (`.log-copy`), pela razão de lá. -->
             <div class="cast-addr">
               <span class="cast-rot">Acesse este endereço no navegador</span>
-              <span class="cast-url" id="castUrl"></span>
+              <div class="cast-url-linha">
+                <span class="cast-url" id="castUrl"></span>
+                <button id="castUrlCopy" class="log-copy" title="Copiar o endereço" aria-label="Copiar o endereço">
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoCopiar"/></svg>
+                </button>
+              </div>
             </div>
             <ul class="cast-telas" id="castTelas"></ul>
           </div>
