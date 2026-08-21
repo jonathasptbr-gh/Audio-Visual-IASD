@@ -166,7 +166,7 @@ class NativeBridge(
          *
          * O degrau a degrau está na tabela da seção "A ponte" do `CLAUDE.md`.
          */
-        const val SHELL_VERSION = 46
+        const val SHELL_VERSION = 47
 
         /**
          * O CONSUMIDOR DA LAN para o barramento (telão por comandos, E2 —
@@ -421,12 +421,17 @@ class NativeBridge(
     /**
      * OS DOIS CANAIS DE ATUALIZAÇÃO, numa fotografia só (shell 43).
      *
-     * `{ web, webAtual, shell, shellBytes, shellAtual, diag }` — ver
+     * `{ web, webAtual, shell, shellBytes, shellAtual, webNotas, diag }` — ver
      * [WebUpdater.estado] para o que cada campo responde e para por que eles
      * precisam ser lidos no mesmo instante.
      *
-     * Na fila de IO porque lê o `version.json` do bundle staged. Só o Controle,
-     * como os irmãos: o telão não pergunta por atualização.
+     * `webNotas` (shell 47) é a LINHA DO TEMPO do que vem na atualização, lida
+     * do `notas.json` do PRÓPRIO bundle baixado — ver [WebUpdater.notasPendentes]
+     * para por que ela não viaja no manifesto.
+     *
+     * Na fila de IO porque lê o `version.json` do bundle staged — e agora o
+     * `notas.json` ao lado dele, do mesmo diretório e com teto de tamanho. Só o
+     * Controle, como os irmãos: o telão não pergunta por atualização.
      */
     @JavascriptInterface
     fun atualizacaoEstado(callId: String) {

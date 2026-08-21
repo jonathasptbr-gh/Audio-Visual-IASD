@@ -1,0 +1,46 @@
+[
+  {
+    "versao": "1.0.6",
+    "itens": [
+      "A atualização passa a dizer O QUE vem nela, em vez de só a versão.",
+      "Modo Fácil: \"Tocar neste celular\" deixou de ter botão de volta — a tela de bloqueio volta ao fechar o app ou ao passar pelo modo avançado.",
+      "Conectar uma TV: a busca por aparelhos foi ampliada para marcas que não são Samsung.",
+      "Corrigido um bug na seção de conexão."
+    ]
+  },
+  {
+    "versao": "1.0.5",
+    "itens": [
+      "Modo Fácil: dá para tocar no próprio celular sem conectar tela nenhuma.",
+      "O som volta para a tela sozinho assim que uma é conectada."
+    ]
+  },
+  {
+    "versao": "1.0.4",
+    "itens": [
+      "O aviso de camada na preview ganhou o desenho dos vizinhos e um ✕."
+    ]
+  },
+  {
+    "versao": "1.0.3",
+    "itens": [
+      "Um aviso na preview encerra a camada de cima sem parar o louvor.",
+      "O endereço da transmissão tem botão de copiar.",
+      "Corrigido um bug na seção de transmissão para navegador.",
+      "Corrigido um bug na seção de Biblioteca."
+    ]
+  },
+  {
+    "versao": "1.0.2",
+    "itens": [
+      "\"Espelhar para TV\" virou \"Conectar uma TV\": o que vai para a tela é o telão, não o celular."
+    ]
+  },
+  {
+    "versao": "1.0.1",
+    "itens": [
+      "Hinários e séries subiram para a raiz da Biblioteca — um toque a menos até as faixas.",
+      "Corrigido um bug na seção de Biblioteca."
+    ]
+  }
+]

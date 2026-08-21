@@ -166,12 +166,24 @@ faz sozinho sem tela. O **"Tocar neste celular"** da folha de conexão
 (`castLocalBtn` → `setTocarNoCelular`) é a escolha explícita disso: ele
 desbloqueia o modo e liga o som daqui.
 
-`tocarNoCelular` é PERSISTIDO, e por isso **se desfaz sozinho quando uma tela
-entra** (dentro do próprio `renderSimpleGate`, escrito direto para não recorrer
-ao render). Sem essa segunda metade, a escolha de um ensaio de quarta-feira
-sobreviveria ao sábado e o culto começaria com o telão no ar e o áudio no bolso
-de quem opera — o pior dos dois desfechos, porque ninguém procuraria a causa num
-botão tocado três dias antes.
+**É CAMINHO SÓ DE IDA, e vale só o uso atual** (v1.0.6). Não há botão de volta, e
+`tocarNoCelular` não é guardado em lugar nenhum — o `let` é a memória inteira da
+escolha. O bloqueio se rearma sozinho por três caminhos, e são eles que
+substituem o botão de desfazer:
+
+| o que acontece | onde |
+|---|---|
+| o app fecha | nada foi gravado — a abertura seguinte nasce bloqueada |
+| ida e volta pelo modo avançado | `setAppMode`, que zera em toda troca |
+| uma tela entra | `renderSimpleGate` — há para onde mandar o som, e é para lá que ele vai |
+
+Daí o botão SUMIR depois do toque, em vez de trocar de rótulo: a tela
+desbloqueada e o som saindo já dizem que ele foi tocado.
+
+> A v1.0.5 PERSISTIA a escolha e oferecia "Voltar a exigir uma tela". Persistir
+> era o defeito que o botão vinha remendar — guardada, a decisão de um ensaio de
+> quarta-feira chegava ao culto de sábado, e alguém tinha de lembrar de
+> desfazê-la. Sem gravar, não há o que desfazer.
 
 `renderSimpleGate()` cobre a tela com a cortina `#simpleVeil` (`backdrop-filter:
 blur(7px)` mais um véu em `--veil`), que **intercepta os toques** do que ficou
