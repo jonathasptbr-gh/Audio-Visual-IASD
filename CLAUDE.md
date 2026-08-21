@@ -42,7 +42,7 @@ explicado), `docs/ARQUITETURA-WEB.md` (o HUB da base web: regras gerais e o
 mapa dos capítulos em `docs/arquitetura/`), `docs/TELAO-POR-COMANDOS.md`
 (o contrato das telas da rede), `docs/FONTE-DE-DADOS-LOUVORJA.md` (hinos/Bíblia),
 `docs/LANCAMENTO-1.0.md` (**o que falta para a 1.0 pública** — página de acesso,
-a tag `v1.0` que não está livre, o tutorial do Modo Fácil e a licença ausente;
+a página de acesso, o tutorial do Modo Fácil e as capturas de tela;
 arquivo para ESVAZIAR, sai quando a 1.0 sair) e `docs/HISTORICO.md`
 (**apêndice**: a nota de cada versão, para consultar por `grep`, nunca por
 leitura integral).
