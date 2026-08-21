@@ -112,6 +112,33 @@
      os dois inline, e o botão vinha colado no fim da frase. */
   .passos span { display:block; color:var(--muted); font-size:.9rem; }
 
+  /* ── as telas do app: uma FAIXA QUE ROLA DE LADO ──
+     Rola nos dois tamanhos de propósito: a largura fixa da célula deixa sempre
+     um pedaço da próxima aparecendo, e é essa sobra que diz que há mais — uma
+     grade que coubesse inteira na tela do celular teria de encolher cada print
+     até o ponto em que não se lê o que está nele. */
+  .telas {
+    display:flex; gap:.7rem; overflow-x:auto; padding-bottom:.5rem;
+    scroll-snap-type:x mandatory;
+  }
+  .telas figure { margin:0; flex:0 0 clamp(13rem,66vw,14.5rem); scroll-snap-align:start; }
+  /* NO CELULAR ELA SANGRA ATÉ A BORDA: o print começa alinhado com o texto e a
+     rolagem some pelo lado, que é o gesto que se reconhece. O `padding` devolve
+     por dentro o que a margem negativa tirou, então o primeiro card não encosta
+     na borda — e a faixa continua se recortando sozinha (`overflow-x`), sem
+     empurrar a página para o lado. */
+  @media (max-width:34rem) {
+    .telas { margin-inline:-1.15rem; padding-inline:1.15rem; }
+  }
+  /* O `background` é o `--bg` do tema ESCURO do app: é a cor que o print tem nas
+     bordas, e ela cobre o instante entre o espaço reservado e a imagem chegar. */
+  .telas img {
+    width:100%; height:auto; display:block; border-radius:12px;
+    background:#0e1215; box-shadow:0 2px 10px rgba(0,0,0,.18);
+  }
+  .telas figcaption { margin-top:.5rem; font-size:.79rem; line-height:1.35; color:var(--muted); }
+  .telas figcaption b { display:block; color:var(--text); font-size:.85rem; margin-bottom:.1rem; }
+
   .calma {
     margin-top:.9rem; text-align:center; font-size:.86rem; color:var(--muted);
     max-width:34ch; margin-left:auto; margin-right:auto;
@@ -204,6 +231,56 @@
     <p class="calma"><strong>Funciona sem internet:</strong> a projeção chega
       direto na TV conectada — ou, pelo navegador, a qualquer tela na mesma rede:
       o Wi-Fi da igreja ou o roteador do seu celular, mesmo sem internet.</p>
+  </section>
+
+  <section class="reveal">
+    <h2>Como é na prática</h2>
+    <!-- AS TELAS DO APP DE VERDADE, na ordem em que um culto acontece: achar,
+         escolher o destino, projetar. `width`/`height` estão declarados para o
+         texto não pular enquanto as imagens chegam, e `loading="lazy"` porque
+         esta faixa nasce abaixo da dobra em qualquer tela. -->
+    <div class="telas">
+      <figure>
+        <img src="telas/biblioteca.webp" width="480" height="979" loading="lazy" decoding="async"
+             alt="A Biblioteca do app, com as coleções empilhadas e o peso de cada uma.">
+        <figcaption><b>A Biblioteca</b>Hinários, Provai e Vede, Informativo Mundial e os álbuns oficiais.</figcaption>
+      </figure>
+      <figure>
+        <img src="telas/busca.webp" width="480" height="979" loading="lazy" decoding="async"
+             alt="Busca por &quot;Santo&quot;, com os hinos do Hinário Adventista 2022 listados.">
+        <figcaption><b>Ache o hino</b>Pelo nome, pelo número ou por um trecho da letra.</figcaption>
+      </figure>
+      <figure>
+        <img src="telas/destinos.webp" width="480" height="979" loading="lazy" decoding="async"
+             alt="A folha de opções de um hino: cantada ou playback, tocar agora, playlist, Cronograma e favoritar.">
+        <figcaption><b>Escolha o destino</b>Tocar agora, playlist, Cronograma ou favoritos — de uma vez.</figcaption>
+      </figure>
+      <figure>
+        <img src="telas/no-ar.webp" width="480" height="979" loading="lazy" decoding="async"
+             alt="O Cronograma com um hino marcado como no ar e a letra aparecendo na prévia do telão.">
+        <figcaption><b>No ar</b>A faixa toca e a letra acompanha sozinha no telão.</figcaption>
+      </figure>
+      <figure>
+        <img src="telas/biblia.webp" width="480" height="979" loading="lazy" decoding="async"
+             alt="A Bíblia aberta em Gênesis 1:1, com o versículo marcado como no ar.">
+        <figcaption><b>A Bíblia</b>O versículo vai para a tela num toque, sem internet.</figcaption>
+      </figure>
+      <figure>
+        <img src="telas/youtube.webp" width="480" height="979" loading="lazy" decoding="async"
+             alt="Busca do YouTube dentro do app, com os resultados listados.">
+        <figcaption><b>YouTube por dentro</b>Busque, exiba ou baixe — sem sair do app e sem anúncio.</figcaption>
+      </figure>
+      <figure>
+        <img src="telas/playlist.webp" width="480" height="979" loading="lazy" decoding="async"
+             alt="A folha da playlist automática, com palavra tema, filtros e o botão de sortear e tocar.">
+        <figcaption><b>Playlist automática</b>Sorteia da biblioteca inteira, por tema, num botão.</figcaption>
+      </figure>
+      <figure>
+        <img src="telas/modo-facil.webp" width="480" height="979" loading="lazy" decoding="async"
+             alt="O Modo Fácil: a letra grande, teclas grandes de tocar, parar e volume.">
+        <figcaption><b>Modo Fácil</b>Teclas grandes e só o essencial, para quem está começando.</figcaption>
+      </figure>
+    </div>
   </section>
 
   <section class="reveal">
