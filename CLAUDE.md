@@ -995,7 +995,7 @@ O job `web-ota` (todo push em `main`) empacota `assets/web/` num
  ┌─────────────┐ shellTag ┌──────────────────┐         ┌──────────────────┐
  │ version.json│ ───────► │ audio-visual….apk│ ──────► │ ronda de 15 s    │
  │ "shellTag": │  SEGURA  └──────────────────┘ gatilho │ lê o MANIFESTO   │
- │   "v2.0"    │  o OTA     release:published          │ web + shell      │
+ │   "v2.0"    │  o OTA     o MESMO run                │ web + shell      │
  └─────────────┘                                       │ → UMA pergunta   │
                                                        └──────────────────┘
 ```
@@ -1003,10 +1003,24 @@ O job `web-ota` (todo push em `main`) empacota `assets/web/` num
 - **`shellTag` no `version.json` é o acoplamento.** Declarado, o `web-ota`
   **segura a publicação do bundle** até a Release existir (o job termina verde e
   diz no resumo que está segurando — é o estado normal entre o merge e a
-  Release). Quando ela sai, o gatilho `release: [published]` republica o bundle
-  com o bloco **`shell`** (versão, URL do `.apk`, tamanho) dentro do manifesto.
-  Sem `shellTag` o manifesto anuncia a Release mais recente que existir —
-  `shellTag` responde *"este lote PRECISA de uma Release?"*.
+  Release). Quando ela sai, o bundle é republicado com o bloco **`shell`**
+  (versão, URL do `.apk`, tamanho) dentro do manifesto. Sem `shellTag` o
+  manifesto anuncia a Release mais recente que existir — `shellTag` responde
+  *"este lote PRECISA de uma Release?"*.
+
+  **QUEM SOLTA O HOLD É O PRÓPRIO RUN QUE PUBLICA, não o gatilho `release`.** A
+  Release nasce do `action-gh-release` com o GITHUB_TOKEN padrão, e evento
+  originado nesse token **não cria execução nova de workflow** — medido: em 136
+  execuções do `apk.yml`, `release` disparou **zero** vezes. O que funciona é
+  ORDEM DE JOB: o `web-ota` tem o `apk` no `needs` e consulta a Release já
+  publicada, no mesmo run. O `on: release: [published]` fica para a Release que
+  nasce de outra mão (a interface do GitHub, ou um PAT).
+
+  **E a PÁGINA sofre do mesmo mal, por outro caminho** (v1.0.1): ela é outro
+  workflow, e `needs` não atravessa arquivo. O `pages.yml` passou a encadear por
+  `workflow_run` no "Build APK" — o mecanismo do próprio GitHub para isto, e o
+  único que o guarda de recursão não suprime. Sem ele, o botão "Baixar grátis"
+  serve o `.apk` da Release ANTERIOR até alguém reconstruir à mão.
 - **É o manifesto que permite a detecção ser rápida.** A API do GitHub não
   autenticada dá **60 req/hora por IP**; a ronda de 15 s são 240. Perguntar o APK
   à API esgotaria o limite em quinze minutos e passaria a falhar com 403 pelo
