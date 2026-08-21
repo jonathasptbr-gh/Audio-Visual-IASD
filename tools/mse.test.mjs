@@ -168,19 +168,23 @@ checar(pedidosAudio.length > 0 && pedidosAudio.every(([u]) => u.startsWith('/str
 // propósito: elas quebram no segundo em que alguém reintroduzir o cabeçalho.
 // ---------------------------------------------------------------------------
 const marcaNativo = vistos.length;
-await pg.evaluate(() => { window.__NATIVE__ = true; window.__SHELL_VERSION__ = 27; });
+await pg.evaluate(() => { window.__NATIVE__ = true; });
 await motivo('404');
 const noApp = vistos.slice(marcaNativo);
 checar(noApp.length > 0 && noApp[0][0] === '/stream/v?r=0-739' && noApp[0][1] === undefined,
-  'no app (shell 27) a faixa vai na URL e NENHUM cabeçalho Range é enviado',
+  'no app a faixa vai na URL e NENHUM cabeçalho Range é enviado',
   noApp.length ? noApp[0][0] + ' · Range: ' + noApp[0][1] : '(nenhum pedido)');
 
-const marcaAntigo = vistos.length;
-await pg.evaluate(() => { window.__SHELL_VERSION__ = 26; });
-const recusa = await motivo('404');
-checar(/exige o shell 27/.test(recusa) && vistos.length === marcaAntigo,
-  'num shell antigo ele desiste na hora, sem uma única requisição (o dono cai no download)',
-  recusa + ' · pedidos: ' + (vistos.length - marcaAntigo));
+// E A VOLTA: sem `__NATIVE__` o cabeçalho é o caminho CERTO. Esta metade é o
+// que impede a poda de `faixaNaUrl()` — o papel `tela` (o mesmo /display/ num
+// navegador da rede) depende dela, e lá não existe ponte.
+const marcaWeb = vistos.length;
+await pg.evaluate(() => { delete window.__NATIVE__; });
+await motivo('404');
+const noWeb = vistos.slice(marcaWeb);
+checar(noWeb.length > 0 && noWeb[0][0] === '/stream/v' && /bytes=0-739/.test(noWeb[0][1] || ''),
+  'no navegador a faixa volta ao cabeçalho Range, sem `?r=` na URL',
+  noWeb.length ? noWeb[0][0] + ' · Range: ' + noWeb[0][1] : '(nenhum pedido)');
 
 await navegador.close();
 servidor.close();

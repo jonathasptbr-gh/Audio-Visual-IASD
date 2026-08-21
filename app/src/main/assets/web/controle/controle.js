@@ -168,7 +168,7 @@ const appVersionEl = document.getElementById('appVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '5.317';
+const WEB_VERSION = '1.0';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -227,7 +227,7 @@ renderVersionLabel();
 const otaRowEl = document.getElementById('otaRow');
 
 function otaRowDisponivel() {
-  return !!window.__NATIVE__ && (window.__SHELL_VERSION__ | 0) >= 31;
+  return !!window.__NATIVE__;
 }
 
 // O BOTÃO RESPONDE A SI MESMO (a regra da v5.207, herdada do rótulo de versão):
@@ -557,13 +557,13 @@ let albumCatalog = { categories: [], albums: [] };
 // AS SÉRIES DO YOUTUBE — um card por série do catálogo de `serie.js`, onde mora
 // a regra que decide o que entra em cada uma; aqui chega só o card.
 //
-// **Guardadas por SHELL 41**, pela regra de sempre: `ytCanalPlaylists`/
-// `ytPlaylist` não chegam por OTA, e num shell antigo o card existiria sem ter
-// como carregar item nenhum — pior que card nenhum. No navegador
-// `__SHELL_VERSION__` é `undefined`, o `| 0` o zera, e a série não existe.
-const SERIE_SHELL = 41;
+// **Só no app:** `ytCanalPlaylists`/`ytPlaylist` são da ponte, e no navegador
+// não há de onde carregar item nenhum — card sem conteúdo é pior que card
+// nenhum. O `!!window.AVSerie` NÃO é a mesma pergunta: `serie.js` é um dos
+// scripts que podem abortar de topo, e é essa condição que o watchdog de boot
+// do OTA passou a exigir.
 function serieDisponivel() {
-  return !!window.__NATIVE__ && (window.__SHELL_VERSION__ | 0) >= SERIE_SHELL
+  return !!window.__NATIVE__
     && !!window.AVSerie;
 }
 function serieCollections() {
@@ -1217,9 +1217,6 @@ let mirrorOcupado = false;
 // passava e o aparelho abria em PRETO. Ver `tools/boot-nativo.test.mjs`, que
 // nasceu desta.
 const MIRROR_POLL_MS = 2500;
-// O piso de shell do espelho. Sobe junto pelo mesmo motivo: quem o lê é o
-// `espelhoDisponivel()`, e ele é chamado na carga do módulo.
-const MIRROR_SHELL = 32;
 // E AS TELAS CONECTADAS SOBEM JUNTO (v5.199), pela mesma regra — nenhuma
 // explosão desta vez, e é justamente esse o ponto. `lastDisplays` era declarado
 // na linha ~14050 e já é lido por TRÊS caminhos de render (`telaoConectado`
@@ -5742,7 +5739,7 @@ function renderLibrary() {
     // subtítulo; aqui ficou só a ação de tirar essa dependência.
     let ytDl = null;
     if (item.kind === 'youtube') {
-      const podeBaixar = window.__NATIVE__ && (window.__SHELL_VERSION__ | 0) >= 16;
+      const podeBaixar = !!window.__NATIVE__;
       if (podeBaixar && item.url && activeTab === 'imports') {
         ytDl = document.createElement('button');
         ytDl.className = 'row-btn';
@@ -5951,7 +5948,7 @@ function renderListFoot() {
   //
   // O rótulo é o mesmo nos dois casos: o operador escolhe o ARQUIVO, não a
   // porta por onde ele entra.
-  const usaSeletorNativo = window.__NATIVE__ && (window.__SHELL_VERSION__ | 0) >= 21;
+  const usaSeletorNativo = !!window.__NATIVE__;
   const label = document.createElement(usaSeletorNativo ? 'button' : 'label');
   if (usaSeletorNativo) label.type = 'button';
   label.className = 'import-btn';
@@ -11528,12 +11525,9 @@ let ytBuscando = false;
 function appendYoutubeSearch(texto) {
   const termo = (texto || '').trim();
   if (!termo) return;
-  // Num shell antigo `AVNative.openExternal` não existe: a navegação para fora
-  // do origin é BLOQUEADA no WebView (WebViewFactory.shouldOverrideUrlLoading)
-  // e nada aconteceria ao tocar. Um botão morto no meio de um culto é pior que
-  // botão nenhum, então ele só aparece onde de fato funciona — e volta sozinho
-  // quando o APK novo for instalado. No navegador é sempre `window.open`.
-  if (window.__NATIVE__ && (window.__SHELL_VERSION__ | 0) < 15) return;
+  // No navegador é sempre `window.open`; no app, `AVNative.openExternal` — a
+  // navegação para fora do origin é BLOQUEADA no WebView
+  // (WebViewFactory.shouldOverrideUrlLoading).
 
   // Onde o shell sabe pesquisar, o BOTÃO SAIU (v5.91). Ele existia para quem
   // decidisse antes de rolar — mas chegar no fim da lista já dispara a busca
@@ -11544,7 +11538,7 @@ function appendYoutubeSearch(texto) {
   // está em curso e, depois, o rótulo que separa o acervo dos resultados do
   // YouTube. O botão continua onde ele é a ÚNICA saída: navegador e shell < 18,
   // que não sabem pesquisar de dentro do app e abrem o YouTube por fora.
-  const aquiDentro = window.__NATIVE__ && (window.__SHELL_VERSION__ | 0) >= 18;
+  const aquiDentro = !!window.__NATIVE__;
   const li = document.createElement('li');
   if (aquiDentro) {
     const buscou = ytBuscaItens && ytBuscaTermo === termo;
@@ -11645,7 +11639,7 @@ function podeCancelarDownload() {
   // Sem o método na ponte não há o que oferecer: um "cancelar" que só some com
   // a marca da tela enquanto o aparelho continua baixando centenas de MB é
   // pior que não ter botão, porque o operador acredita que parou.
-  return !!window.__NATIVE__ && (window.__SHELL_VERSION__ | 0) >= 28;
+  return !!window.__NATIVE__;
 }
 
 /**
@@ -11830,7 +11824,7 @@ function openYtMenu(r, alvoDado) {
   // **E ele some com "Online" escolhido**: ali nada é baixado, e a forma da
   // faixa é decidida na hora de tocar, pelo `resolverLinkYoutube` — oferecer a
   // escolha aqui seria oferecer uma que não muda nada.
-  if (window.__NATIVE__ && (window.__SHELL_VERSION__ | 0) >= 23 && !r.semSoAudio
+  if (window.__NATIVE__ && !r.semSoAudio
       && (songMenuFor.alt | 0) !== YT_ONLINE) {
     alvo.appendChild(ytSegRow(
       [[false, 'Vídeo'], [true, 'Só áudio']],
@@ -11850,7 +11844,7 @@ function openYtMenu(r, alvoDado) {
   // shell 25 (não há teto a pedir — o item guardado é o link), mas a linha
   // inteira só existe a partir dele; num shell anterior o operador continua com
   // o download de sempre, que é o que este app fazia até agora.
-  if (window.__NATIVE__ && (window.__SHELL_VERSION__ | 0) >= 25 && !songMenuFor.audio) {
+  if (window.__NATIVE__ && !songMenuFor.audio) {
     alvo.appendChild(ytSegRow(
       [[YT_ONLINE, 'Online']].concat(YT_ALTURAS.map((h) => [h, h + 'p'])),
       songMenuFor.alt | 0,
@@ -11952,17 +11946,6 @@ async function tentarTransmitir(r, altura, somenteAudio) {
   motivoStream = '';
   if (window.AVStream) window.AVStream.ultimoErro = '';
   if (!window.__NATIVE__) { motivoStream = 'navegador (sem ponte)'; return false; }
-  const shell = window.__SHELL_VERSION__ | 0;
-  // PISO 27, e não 26. Do shell 26 a transmissão está quebrada por construção —
-  // a faixa ia no cabeçalho `Range` e o WebView aplicava o deslocamento uma
-  // segunda vez sobre a fatia (ver o cabeçalho de `shared/mse.js`). Tentar ali
-  // não é "tentar de graça": projeta uma cena que morre, abre a cortina sobre o
-  // preto e ainda paga uma re-extração antes de finalmente baixar. Com o piso,
-  // o download começa no primeiro toque.
-  if (shell < 27) {
-    motivoStream = 'shell ' + shell + ' — a transmissão exige 27 (instale o APK novo)';
-    return false;
-  }
   if (!window.AVStream) { motivoStream = 'shared/mse.js não carregou'; return false; }
   if (!r || !r.url) { motivoStream = 'resultado sem URL'; return false; }
   let man = null;
@@ -12476,7 +12459,7 @@ function armarAutoBuscaYt(sentinela, termo) {
   // não sabe pesquisar (ali o botão abre o YouTube por fora — disparar isso
   // sozinho seria tirar o operador do app sem ele ter pedido).
   if (ytBuscando || (ytBuscaItens && ytBuscaTermo === termo)) return;
-  if (!window.__NATIVE__ || (window.__SHELL_VERSION__ | 0) < 18) return;
+  if (!window.__NATIVE__) return;
   ytAutoObs = new IntersectionObserver((entradas) => {
     if (!entradas.some((e) => e.isIntersecting)) { clearTimeout(ytAutoTimer); return; }
     clearTimeout(ytAutoTimer);
@@ -12495,7 +12478,7 @@ function armarAutoBuscaYt(sentinela, termo) {
 // num shell antigo) não há como pesquisar de dentro do app: ali o toque volta a
 // ser o que sempre foi — abrir o YouTube por fora.
 async function buscarNoYoutube(termo) {
-  if (!window.__NATIVE__ || (window.__SHELL_VERSION__ | 0) < 18) {
+  if (!window.__NATIVE__) {
     openYoutubeSearch(termo);
     return;
   }
@@ -14703,14 +14686,11 @@ function diagMse() {
     .filter(([, t]) => { try { return !MediaSource.isTypeSupported(t); } catch (_) { return true; } })
     .map(([n]) => n);
   const codecs = faltam.length ? 'MediaSource sem ' + faltam.join('+') : 'MediaSource ok (avc1+aac)';
-  // POR ONDE A FAIXA VIAJA. É a diferença entre transmitir e não transmitir
-  // (ver o cabeçalho de `shared/mse.js`), e é decidida pelo shell instalado —
-  // ou seja, não dá para inferir da versão web que o rodapé já mostra.
+  // POR ONDE A FAIXA VIAJA. É a diferença entre o navegador e o WebView (ver o
+  // cabeçalho de `shared/mse.js`), e não se infere da versão que o rodapé
+  // mostra — quem decide é o contexto em que a página está rodando.
   if (!window.__NATIVE__) return codecs + ' · navegador (faixa no cabeçalho)';
-  const podeStream = !!(window.AVStream && window.AVStream.disponivel && AVStream.disponivel());
-  return codecs + ' · ' + (podeStream
-    ? 'faixa na URL'
-    : 'DESLIGADA: shell ' + (window.__SHELL_VERSION__ | 0) + ' < 27 (instale o APK novo)');
+  return codecs + ' · faixa na URL';
 }
 
 // ===== O bloco do ESPELHO DE PIXELS no Registro =====
@@ -15175,7 +15155,7 @@ async function renderDiag() {
   const meu = ++diagSeq;
   // O ESTADO DA PROCURA antes de montar o cabeçalho, que o lê (shell 31+). É a
   // única linha do bloco que precisa ir à ponte, e ela é barata: uma string.
-  if (window.__NATIVE__ && (window.__SHELL_VERSION__ | 0) >= 31) {
+  if (window.__NATIVE__) {
     try { otaDiagTexto = await AVNative.otaDiag(); } catch (_) { otaDiagTexto = ''; }
     if (meu !== diagSeq) return;
   }
@@ -15183,7 +15163,7 @@ async function renderDiag() {
   // A ÚLTIMA EXTRAÇÃO DO YOUTUBE vinha numa faixa do rodapé, em espaço fixo:
   // uma extração com várias tentativas transbordava e a parte de baixo ficava
   // inalcançável. Aqui ela é só mais um bloco de uma caixa que rola.
-  if (window.__NATIVE__ && (window.__SHELL_VERSION__ | 0) >= 24) {
+  if (window.__NATIVE__) {
     let yt = '';
     try { yt = await AVNative.ytDiag(); } catch (_) {}
     if (yt) blocos.push('Última extração do YouTube\n' + yt);
@@ -15400,13 +15380,13 @@ function detectUrlKind(url) {
 // preview. Só entrar na lista: não, o aviso vai na linha do Cronograma, que é
 // onde o resultado vai aparecer. Ver `libBusy`.
 async function ytBaixarNativo(link, nome, opts) {
-  if (!window.__NATIVE__ || (window.__SHELL_VERSION__ | 0) < 16) return null;
+  if (!window.__NATIVE__) return null;
   // SÓ O ÁUDIO exige shell ≥ 23 (o método `ytFetchAudio` da ponte). Num
   // anterior, pedir áudio devolveria null e o operador ficaria sem nada — e ele
   // pediu o louvor, não o formato: cai no vídeo, que toca igual. Quem desenha a
   // escolha na tela já a esconde nesse shell (ver `openYtMenu`); esta guarda é
   // para o caminho que não passa pela tela.
-  const soAudio = !!(opts && opts.somenteAudio) && (window.__SHELL_VERSION__ | 0) >= 23;
+  const soAudio = !!(opts && opts.somenteAudio);
   // O TETO DE RESOLUÇÃO escolhido pelo operador (v5.118). Ausente = o padrão do
   // shell (1080p), que é o caminho que funciona em qualquer versão: o `ytFetch`
   // do `native.js` só usa o método novo da ponte quando o teto pedido é MENOR
@@ -15648,7 +15628,7 @@ async function desistirDaIntencao(p, porque) {
 // Chamado uma vez por abertura. Silencioso quando não há nada — que é o caso
 // normal.
 async function resgatarDownloads() {
-  if (!window.__NATIVE__ || (window.__SHELL_VERSION__ | 0) < 30) return;
+  if (!window.__NATIVE__) return;
   let pendentes = [];
   try { pendentes = (await AVDB.getState(YT_INTENCOES)) || []; } catch (_) { return; }
   if (!pendentes.length) return;
@@ -15896,7 +15876,7 @@ async function deckImportar(origem, nome, opts) {
   // Quantas páginas o shell entregou quando ele CORTOU o deck (0 = não cortou).
   // Ver o ponto em que ela é lida, logo abaixo: a nota pertence à linha do item.
   let truncadaEm = 0;
-  if (!window.__NATIVE__ || (window.__SHELL_VERSION__ | 0) < 19) return null;
+  if (!window.__NATIVE__) return null;
   const rotulo = nome || 'Apresentação';
   const naPreview = !!(opts && opts.naPreview);
   const bg = naPreview
@@ -16107,7 +16087,7 @@ async function handleSharedUrl(url, title) {
   // que sabe o que consegue abrir. Precisa estar compartilhada por link, que é
   // como um roteiro de culto circula; sem permissão a exportação falha e o link
   // cai no caminho de sempre (item de URL).
-  if (window.__NATIVE__ && (window.__SHELL_VERSION__ | 0) >= 19) {
+  if (window.__NATIVE__) {
     const exportacao = AVNative.deckExportUrl(url);
     if (exportacao) {
       const rec = await deckImportar(exportacao, title || 'Apresentação', {
@@ -18574,13 +18554,12 @@ if (window.__NATIVE__) {
 // O piso de shell. Um método novo NÃO chega por OTA: num shell antigo a linha
 // simplesmente não é desenhada, e volta sozinha quando o APK novo for
 // instalado. É a mesma regra (e o mesmo motivo) do `appendYoutubeSearch`.
-// (`MIRROR_SHELL` subiu junto com o `MIRROR_POLL_MS` — ver o topo.)
 // (`MIRROR_POLL_MS` subiu para o topo na v5.195, junto do resto do estado de
 // cena — ver o comentário de lá. Ele é lido na CARGA do módulo, e ficar aqui o
 // deixava em zona morta temporal no aparelho.)
 
 function espelhoDisponivel() {
-  return !!window.__NATIVE__ && (window.__SHELL_VERSION__ | 0) >= MIRROR_SHELL;
+  return !!window.__NATIVE__;
 }
 
 // (`mirrorEstado`, `mirrorTimer` e `mirrorOcupado` são declarados lá em cima,
@@ -18683,7 +18662,7 @@ async function ligarEspelho() {
   // depois do toque não é resposta.
   renderCast();
   let r = null;
-  try { r = await AVNative.espelhoLigar('video'); } catch (_) { r = null; }
+  try { r = await AVNative.espelhoLigar(); } catch (_) { r = null; }
   mirrorOcupado = false;
   mirrorEstado = r || null;
   acertarEnqueteDeFundo();
@@ -19583,44 +19562,26 @@ function loteDaAtualizacao() {
 
 // ===== A LEITURA DO ESTADO =====
 //
-// Uma chamada no shell 43, três no shell 42. A degradação mora aqui, e não nos
-// chamadores, porque só este ponto sabe remontar a fotografia a partir do que
-// sobrou — e nenhum dos dois caminhos pode lançar: quem chama é uma enquete que
-// roda de dez em dez segundos e um `throw` a mataria em silêncio.
+// UMA chamada, e é dela que vem a COERÊNCIA DE INSTANTE: os dois canais (base
+// web e APK) chegam na mesma fotografia, e não em três respostas que podem
+// discordar entre si. Ela não pode lançar — quem chama é uma enquete que roda
+// de dez em dez segundos, e um `throw` a mataria em silêncio.
 async function lerAtualizacao() {
   if (!window.__NATIVE__) return;
-  if ((window.__SHELL_VERSION__ | 0) >= 43) {
-    let e = null;
-    try { e = await AVNative.atualizacaoEstado(); } catch (_) { return; }
-    if (!e) return;
-    otaPendenteVersao = e.web || '';
-    otaDiagTexto = e.diag || '';
-    apkNovo = e.shell ? { versao: e.shell, bytes: e.shellBytes | 0 } : null;
-    return;
-  }
-  // Shell 41 e anteriores: os dois canais continuam existindo, só não chegam
-  // no mesmo instante. A pergunta é a mesma; o que se perde é a garantia de
-  // que ela nasce completa.
-  if ((window.__SHELL_VERSION__ | 0) >= 29) {
-    try { otaPendenteVersao = (await AVNative.otaPending()) || ''; } catch (_) { /* rede */ }
-  }
-  if ((window.__SHELL_VERSION__ | 0) >= 31) {
-    try { otaDiagTexto = await AVNative.otaDiag(); } catch (_) { /* shell antigo */ }
-  }
-  if ((window.__SHELL_VERSION__ | 0) >= 35) {
-    try {
-      const r = await AVNative.apkProcurar();
-      apkNovo = (r && r.versao) ? { versao: r.versao, bytes: r.bytes | 0 } : null;
-    } catch (_) { /* rede */ }
-  }
+  let e = null;
+  try { e = await AVNative.atualizacaoEstado(); } catch (_) { return; }
+  if (!e) return;
+  otaPendenteVersao = e.web || '';
+  otaDiagTexto = e.diag || '';
+  apkNovo = e.shell ? { versao: e.shell, bytes: e.shellBytes | 0 } : null;
 }
 
 // ===== O EMPURRÃO DO SHELL =====
 //
 // Ele é o caminho PRINCIPAL: a pergunta aparece no segundo em que a resposta
-// existe, sem esperar enquete nenhuma. O objeto chega pronto (shell 43), então
-// aqui não há ida à ponte — o que importa é que o desenho aconteça no mesmo
-// quadro em que o dado chegou.
+// existe, sem esperar enquete nenhuma. O objeto chega pronto, então aqui não há
+// ida à ponte — o que importa é que o desenho aconteça no mesmo quadro em que
+// o dado chegou.
 window.__avAtualizacao = function (e) {
   if (!e) return;
   otaPendenteVersao = e.web || '';
@@ -19629,24 +19590,15 @@ window.__avAtualizacao = function (e) {
   decidirAtualizacao();
 };
 
-// O empurrão do shell 31-42, que só sabe falar da base web. Ele fica porque a
-// janela em que um shell antigo roda um bundle novo é real: ela é exatamente o
-// intervalo entre a Release sair e o operador instalá-la.
-window.__avOta = function (versao) {
-  if (versao) otaPendenteVersao = String(versao);
-  ofertarAtualizacao();
-};
 
 // A enquete: relê e decide. Separada do `decidirAtualizacao` porque o empurrão
 // já vem com o estado na mão e reler seria uma ida à ponte por nada.
 async function ofertarAtualizacao() {
-  if (!window.__NATIVE__ || (window.__SHELL_VERSION__ | 0) < 29) return;
+  if (!window.__NATIVE__) return;
   // CUTUCAR O SHELL, e não só perguntar o que ele já tem: sem `forcar`, porque
   // o piso dele é que decide se vale uma requisição — senão uma enquete de dez
   // segundos viraria seis consultas à rede por minuto, para sempre.
-  if ((window.__SHELL_VERSION__ | 0) >= 31) {
-    try { AVNative.otaCheck(false); } catch (_) { /* rede/ponte */ }
-  }
+  try { AVNative.otaCheck(false); } catch (_) { /* rede/ponte */ }
   await lerAtualizacao();
   decidirAtualizacao();
 }
@@ -19784,7 +19736,7 @@ async function aplicarAtualizacao(lote) {
 // não ter botão.
 async function instalarApk(versao) {
   if (!versao || apkBaixando) return;
-  if ((window.__SHELL_VERSION__ | 0) < 35) return;
+  if (!window.__NATIVE__) return;
   apkBaixando = true;
   renderOtaRow();
   openAppDialog({
@@ -19844,7 +19796,7 @@ window.__avApk = (pct) => {
 // nunca mencionar a segunda metade — o pior desfecho possível, porque tudo
 // PARECE ter funcionado.
 async function retomarAtualizacao() {
-  if (!window.__NATIVE__ || (window.__SHELL_VERSION__ | 0) < 35) return;
+  if (!window.__NATIVE__) return;
   let i = null;
   try { i = await AVDB.getState(OTA_INTENCAO); } catch (_) { return; }
   if (!i || !i.shell) return;

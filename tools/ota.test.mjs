@@ -151,7 +151,7 @@ const ponte = ({ web = '', shell = '', bytes = 0, espelho = false, shellName = '
     'apkProcurar','apkInstalar','otaPending','otaApply','otaDiag','ytDiag','atualizacaoEstado',
     'ytCanalPlaylists','ytPlaylist']);
   const B = {
-    shellVersion: () => 43,
+    shellVersion: () => 46,
     role: () => 'controle',
     appVersion: () => ${JSON.stringify(shellName)},
     takeShare: () => '',
@@ -159,7 +159,7 @@ const ponte = ({ web = '', shell = '', bytes = 0, espelho = false, shellName = '
     otaConfirm: () => {},
   };
   const nomes = ['apkInstalar','apkProcurar','atualizacaoEstado','bgProgress','captureVolumeKeys',
-    'castTarget','deckDiscard','deckExportUrl','deckPages','displays','espelhoAprovar',
+    'castTarget','deckDiscard','deckExportUrl','deckPages','displays',
     'espelhoCertApagar','espelhoCertEstado','espelhoCertImportar','espelhoDesligar','espelhoDiag',
     'espelhoEstado','espelhoLigar','keepAlive','listFolder','nowPlaying','openCast','openExternal',
     'otaApply','otaCheck','otaDiag','otaPending','pickDoc','pickFolder','requestMic','systemVolume',

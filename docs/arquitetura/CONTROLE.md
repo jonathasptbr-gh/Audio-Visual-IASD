@@ -1098,7 +1098,7 @@ propósito, porque é lá que mora o roteamento por tipo.
 | Origem | Caminho | Destino |
 |---|---|---|
 | "Importar arquivos" (seletor do sistema, shell ≥ 21) | `importarPeloSistema` → `importShare` → `escolherDestinos` | **os marcados** (simplificado: `avulsos`) |
-| `<input type="file">` (navegador / shell antigo) | handler do `fileEl` | idem |
+| `<input type="file">` (navegador) | handler do `fileEl` | idem |
 | Compartilhamento de outro app | `checkPendingShare` → `importShare` | idem |
 | Música do acervo | folha de destinos → `addSongToDestinos` | **os marcados** |
 | Resultado do YouTube | folha de destinos → `ytAcao` | `avulsos` \| **os marcados** |

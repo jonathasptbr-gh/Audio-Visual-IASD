@@ -182,22 +182,25 @@ portanto **compartilhados por todas as instâncias**. Todos daemon.
 
 ## `SHELL_VERSION` — a regra, e por que ela protege a válvula
 
-Hoje vale **44**. **"Superfície" inclui forma de retorno e comportamento**, não
-só assinatura: um campo que some, um contrato de URL que muda ou um método que
-passa a fazer outra coisa exigem o degrau do mesmo jeito.
+O número vive em **`NativeBridge.SHELL_VERSION`**, e essa é a única cópia — um
+número repetido aqui seria a próxima a desatualizar. **"Superfície" inclui forma
+de retorno e comportamento**, não só assinatura: um campo que some, um contrato
+de URL que muda ou um método que passa a fazer outra coisa exigem o degrau do
+mesmo jeito.
 
 **É disso que a válvula `minShell` do OTA depende.** Um bundle que exija ponte
 mais nova que `NativeBridge.SHELL_VERSION` é recusado, e o app segue no que
 tinha. Sem o degrau, a válvula não protege nada.
 
-**Um método novo NÃO chega por OTA.** O bundle segue com `minShell: 2` de
-propósito — subi-lo recusaria a atualização inteira num shell antigo, o que é
-pior que um recurso a menos. Quem depende de método novo **pergunta antes**
-(`__SHELL_VERSION__ < N`): um botão que não faz nada no meio de um culto é pior
-que botão nenhum. Ele aparece sozinho quando o APK novo for instalado.
+**O bundle declara `minShell` IGUAL ao `SHELL_VERSION`**: o shell atual é o
+PISO, todo método existe sempre, e **guarda de versão no lado web é proibida** —
+o que separa navegador de app é `if (!window.__NATIVE__)`, e nada mais. Em
+troca, mudar a ponte deixou de ser higiene e virou pré-requisito: sem a Release
+no mesmo lote, o web chama um método que o APK não tem e o botão existe, é
+tocável e não faz nada.
 
-A tabela de degraus está em [`../../CLAUDE.md`](../../CLAUDE.md), seção
-"SHELL_VERSION".
+A tabela de degraus está em [`../HISTORICO.md`](../HISTORICO.md) — com o piso,
+ela é história do contrato, não regra viva.
 
 ---
 
@@ -286,16 +289,15 @@ endereço `http://`.
 > "Ajustes avançados" era a única porta deles e saiu. Ficam na ponte de
 > propósito: voltar atrás é desenhar uma folha, não publicar uma Release.
 
-### `espelhoDerrubar(rotulo)` — o nome do método mente de propósito
+### `espelhoDerrubar(rotulo)` — e o nome diz o que ele faz
 
-No Kotlin ele ainda é **`espelhoAprovar(id, sim)`**, e o `sim` é **ignorado**. A
-assinatura ficou para não custar um degrau de `SHELL_VERSION`. O `id` é o
-**RÓTULO** da tela ("tela B"), único identificador que a lista do operador tem;
-rótulo em branco é **recusado**, e não vale "todas".
+`rotulo` é o da tela ("tela B"), único identificador que a lista do operador
+tem; rótulo em branco é **recusado**, e não vale "todas".
 
-### `espelhoLigar(modo)` — o argumento é ignorado
-
-**Desde a v5.156.** Ficou na assinatura pelo mesmo motivo do `espelhoAprovar`.
+> Ele se chamou `espelhoAprovar(id, sim)` até a v1.0, com o `sim` ignorado desde
+> o shell 36 — um nome que prometia uma decisão que já não existia. O mesmo lote
+> tirou o `modo` do `espelhoLigar`, ignorado desde a v5.156. Os dois esperaram o
+> lote que sobe o degrau, que é a regra: encolher a ponte é APK + web juntos.
 
 ---
 
@@ -350,14 +352,13 @@ de terceiro ali ganharia `pickFolder`, `listFolder`, `pickDoc`, `openExternal` e
 
 ## Ao mexer nesta ponte
 
-1. **Mudou a superfície? Suba `SHELL_VERSION`** e atualize a tabela de degraus
-   no `CLAUDE.md`. Forma de retorno e comportamento contam.
+1. **Mudou a superfície? Suba `SHELL_VERSION`** em `NativeBridge.kt` **e o
+   `minShell` do `version.json` para o mesmo número.** Forma de retorno e
+   comportamento contam.
 2. **Campo novo num objeto composto? Remonte-o no `native.js`** e acrescente a
    asserção no `tools/ponte.test.mjs`.
 3. **Método novo? Escolha a fila** pela tabela acima — e, se for rede,
    **não** é `io`, por mais curta que a consulta pareça.
-4. **Consumidor novo de método novo? Pergunte `__SHELL_VERSION__` antes** de
-   desenhar o que depende dele.
-5. **Mudou o shell? A base web sozinha não chega ao aparelho.** Declare a
+4. **Mudou o shell? A base web sozinha não chega ao aparelho.** Declare a
    `shellTag` no `version.json` **antes** do merge e publique a Release — ver
    `CLAUDE.md`, "Regras de desenvolvimento".

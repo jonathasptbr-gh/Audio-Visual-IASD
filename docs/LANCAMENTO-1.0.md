@@ -8,6 +8,38 @@ capítulo que a governa — nunca fica aqui.
 Os blocos marcados **MEDIDO** foram verificados no código e contra a API do
 GitHub na data acima. O resto é leitura de documentação e decisão de produto.
 
+---
+
+## Estado: o que já foi feito
+
+O lote de código da 1.0 **já entrou** (auditoria de 42 agentes, 118 pontos
+mapeados, 25 oráculos verdes):
+
+| feito | o quê |
+|---|---|
+| ✅ | `version.json` 5.317 → **1.0**, `minShell` 2 → **46**, `shellTag: "v1.0"` |
+| ✅ | `WEB_VERSION` e o span do rodapé, junto |
+| ✅ | `SHELL_VERSION` → **46** (a ponte ENCOLHE: saem os dois argumentos ignorados) |
+| ✅ | as **37 guardas** de `__SHELL_VERSION__` do lado web |
+| ✅ | a compatibilidade com bundle antigo no Kotlin (`__avOta`, `KEY_PENDING_LEGACY`, `espelho-status`) |
+| ✅ | CI: guarda do `retag` contra `web-latest`, teto do `minShell`, asset de nome fixo, corpo da Release |
+| ✅ | `limpar-versoes.yml` — o ritual que apaga as 103 tags/Releases antigas |
+| ✅ | documentação: `CLAUDE.md`, `docs/shell/PONTE.md`, `docs/shell/OTA.md`, os capítulos |
+
+**A decisão do §2 foi o caminho B, sem migrador.** Preço aceito e registrado:
+uma **desinstalação manual, uma vez** — `beginSession` só descarta o bundle OTA
+guardado quando a base do APK é MAIOR, e `1.0 < 5.317`.
+
+### O que AINDA falta
+
+| falta | por quê |
+|---|---|
+| ⬜ | **rodar o `limpar-versoes.yml`** — não há token com escrita nesta sessão; o job roda com o `GITHUB_TOKEN` do Actions |
+| ⬜ | **publicar a Release `v1.0`** — depois da limpeza, nunca antes (ver §2) |
+| ⬜ | **desinstalar e reinstalar** no aparelho |
+| ⬜ | `LICENSE` (GPLv3) — [§4](#4--o-que-mais-o-lançamento-pede), continua BLOQUEADOR |
+| ⬜ | a página, o guia do Modo Fácil e as capturas — [§1](#1--o-ponto-de-acesso) e [§3](#3--o-tutorial-do-modo-fácil) |
+
 ## Índice
 
 | # | seção | o que decide |

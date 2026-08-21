@@ -59,7 +59,7 @@ O palco de renderização fica `position:fixed; left:-99999px`, e não
   de 2 GB passar pela memória do WebView. O seletor do sistema entrega
   `content://` para TUDO — a mesma porta por onde as pastas do dispositivo já
   entram —, então a importação inteira passou a ser uma coisa só. No navegador
-  (e num shell antigo) continua o `<input type="file">` de sempre, com o `.pptx`
+  continua o `<input type="file">` de sempre, com o `.pptx`
   no `accept`; ali o PDF é o único que não tem como funcionar.
 - **Compartilhar** um PDF, um `.pptx` ou o link do Google com o app.
 - **Um arquivo ilegível avisa** (PDF com senha, `.pptx` corrompido): diálogo, e
