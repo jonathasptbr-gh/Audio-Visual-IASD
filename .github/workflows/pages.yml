@@ -1,0 +1,127 @@
+# A PÁGINA DE ACESSO — o endereço que se dá a alguém.
+#
+# Ela mora em `site/` e NÃO em `docs/`: aquele nome já é a árvore de
+# arquitetura, e a opção "publicar da pasta /docs" do GitHub poria o
+# `CONTROLE.md` e o `HISTORICO.md` no ar como site.
+#
+# O QUE ESTE WORKFLOW FAZ ALÉM DE PUBLICAR: ele ESCREVE a versão, o tamanho e a
+# URL do `.apk` dentro do HTML, lidos da Release mais recente. A página não pode
+# descobrir isso sozinha em tempo de execução — MEDIDO: o asset de release
+# responde SEM `Access-Control-Allow-Origin`, então um `fetch()` do navegador é
+# bloqueado pelo CORS, e perguntar à API custaria o limite de 60 requisições por
+# hora por IP. Escrever no deploy é determinístico e não depende de nada em
+# runtime.
+#
+# E É POR ISSO QUE ELE DISPARA EM `release: published`, não só quando `site/`
+# muda. Sem esse gatilho o link da página apontaria para a Release ANTERIOR até
+# alguém lembrar de reconstruir — e o modo de falhar é mudo: a pessoa baixa uma
+# versão velha achando que é a nova. Foi essa obrigação que substituiu o asset
+# de nome fixo que existiu na v1.0.
+name: Publicar a página
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'site/**'
+      - '.github/workflows/pages.yml'
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# UMA publicação por vez, e SEM cancelar a que está correndo: o deploy do Pages
+# troca o site inteiro, e abortar no meio deixa a versão antiga no ar sem que
+# nada diga isso.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  publicar:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      # A Release mais recente que NÃO é o canal OTA. `web-latest` é
+      # infraestrutura (o bundle da base web) e nunca deve ser oferecida para
+      # download — ela é `prerelease`, então `--exclude-pre-releases` já a tira,
+      # mas o filtro por tag fica explícito porque uma release marcada errado
+      # colocaria um zip de assets no botão "Baixar para Android".
+      - name: Ler a Release publicada
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          REL=$(gh release list --repo "$GITHUB_REPOSITORY" --limit 20 \
+                  --exclude-pre-releases --json tagName \
+                  --jq '[.[] | select(.tagName != "web-latest")][0].tagName')
+          if [ -z "$REL" ] || [ "$REL" = "null" ]; then
+            echo "::error::Nenhuma Release publicada — a página não tem o que oferecer."
+            exit 1
+          fi
+          echo "Release: $REL"
+          gh release view "$REL" --repo "$GITHUB_REPOSITORY" --json assets > rel.json
+          python3 - "$REL" <<'PY' >> "$GITHUB_ENV"
+          import json, sys
+          tag = sys.argv[1]
+          apk = next((a for a in json.load(open('rel.json'))['assets']
+                      if a['name'].lower().endswith('.apk')), None)
+          if not apk:
+              # Uma página que oferece um download inexistente é pior que uma
+              # página sem botão: a pessoa toca, recebe 404 e conclui que o app
+              # não existe.
+              print('::error::A Release não tem .apk — nada a publicar.', file=sys.stderr)
+              raise SystemExit(1)
+          n = apk['size']
+          # MB com uma casa: "4,4 MB" é o que a pessoa precisa saber antes de
+          # baixar num plano de dados. Vírgula, que é o separador decimal daqui.
+          print(f"AV_VERSAO={tag.lstrip('vV')}")
+          print(f"AV_TAMANHO={n/1048576:.1f}".replace('.', ',') + " MB")
+          print(f"AV_URL={apk['url']}")
+          PY
+
+      # A substituição é por PLACEHOLDER, não por regex sobre o HTML: um
+      # `sed` que procurasse "versão X" casaria com qualquer texto parecido que
+      # a página ganhasse depois.
+      - name: Escrever a versão na página
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import os, pathlib
+          p = pathlib.Path('site/index.html')
+          t = p.read_text(encoding='utf-8')
+          troca = {
+              '{{VERSAO}}':  os.environ['AV_VERSAO'],
+              '{{TAMANHO}}': os.environ['AV_TAMANHO'],
+              '{{URL_APK}}': os.environ['AV_URL'],
+          }
+          for k, v in troca.items():
+              t = t.replace(k, v)
+          # NENHUM placeholder pode sobrar. Um `{{VERSAO}}` literal na página
+          # publicada é o tipo de defeito que ninguém relata: parece detalhe, e
+          # quem vê conclui que o site está quebrado.
+          assert '{{' not in t, 'sobrou placeholder no HTML: ' + t[t.index('{{'):t.index('{{')+40]
+          p.write_text(t, encoding='utf-8')
+          print('escrito:', troca)
+          PY
+
+      # O Jekyll é o processador padrão do Pages e come qualquer caminho
+      # começado por `_`. Nada aqui começa assim hoje — o arquivo é seguro
+      # barato contra o dia em que alguém acrescentar um `_partial`.
+      - name: Desligar o Jekyll
+        run: touch site/.nojekyll
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+      - id: deploy
+        uses: actions/deploy-pages@v4

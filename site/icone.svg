@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 108 108" role="img" aria-label="Áudio Visual IASD">
+  <!-- O MESMO DESENHO DO ÍCONE DO APP (res/drawable/ic_launcher_foreground.xml
+       sobre o `ic_launcher_background` de values/colors.xml): o mixer de três
+       faixas, trilhas no `text` e botões no `accent` do tema escuro, sobre o
+       quase-preto com a matiz do denim oficial da IASD.
+
+       Ele NÃO segue o tema claro, pelo mesmo motivo de lá: um favicon vive na
+       aba do navegador, fora do documento, e o par escuro é o padrão do app.
+       Quem chega aqui pela aba e depois instala tem de reconhecer o mesmo
+       símbolo na gaveta do sistema — é essa continuidade que ele existe para
+       dar, e é por isso que os valores são literais e greppáveis nos dois
+       arquivos. Se a paleta mudar, mudam junto. -->
+  <rect width="108" height="108" rx="24" fill="#0e1215"/>
+  <!-- As três trilhas -->
+  <path fill="#dce0e5" d="M32.5,35.5 L75.5,35.5 A2.5,2.5 0 0 1 75.5,40.5 L32.5,40.5 A2.5,2.5 0 0 1 32.5,35.5 Z M32.5,51.5 L75.5,51.5 A2.5,2.5 0 0 1 75.5,56.5 L32.5,56.5 A2.5,2.5 0 0 1 32.5,51.5 Z M32.5,67.5 L75.5,67.5 A2.5,2.5 0 0 1 75.5,72.5 L32.5,72.5 A2.5,2.5 0 0 1 32.5,67.5 Z"/>
+  <!-- Os três botões do fader -->
+  <path fill="#8fb1f3" d="M38,38 a8,8 0 1,0 16,0 a8,8 0 1,0 -16,0 Z M58,54 a8,8 0 1,0 16,0 a8,8 0 1,0 -16,0 Z M34,70 a8,8 0 1,0 16,0 a8,8 0 1,0 -16,0 Z"/>
+</svg>

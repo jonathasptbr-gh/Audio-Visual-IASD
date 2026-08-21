@@ -1036,18 +1036,6 @@ jobs:
             echo "SIGNED=false" >> "$GITHUB_ENV"
           fi
           cp "$SRC" "dist/audio-visual-iasd-${APK_NAME}.apk"
-          # E UMA CÓPIA DE NOME FIXO, que é o que dá um LINK PERMANENTE:
-          # `…/releases/latest/download/audio-visual-iasd.apk`. Sem ela não há
-          # endereço estável para imprimir num aviso ou colar num grupo — o
-          # nome versionado muda a cada Release e todo link publicado apodrece.
-          #
-          # FORA de `dist/` de propósito: a conferência de assinatura faz
-          # `APK=$(ls dist/*.apk)` e um segundo arquivo ali passaria a conferir
-          # um dos dois, enfraquecendo a guarda em silêncio.
-          if [ "$PUBLISH" = "true" ]; then
-            mkdir -p fixo
-            cp "$SRC" "fixo/audio-visual-iasd.apk"
-          fi
           echo "APK publicado a partir de: $SRC"
 
       # Checagem POSITIVA: pergunta ao apksigner QUEM assinou o APK que vai ser
@@ -1147,9 +1135,13 @@ jobs:
           # disparo manual é o `checkout` com `ref: main` lá em cima — assim o
           # APK publicado vem do MESMO commit que a tag passa a apontar.
           target_commitish: main
-          files: |
-            dist/*.apk
-            fixo/audio-visual-iasd.apk
+          # UM ARQUIVO SÓ, e com a versão no nome. A cópia de nome fixo que
+          # existiu na v1.0 saiu: ela dava um link permanente, mas quem entrega
+          # o download é a PÁGINA (`site/`), que o workflow de Pages reconstrói
+          # a cada Release — então o link versionado nunca envelhece lá. O que
+          # sobrava era um segundo `.apk` na página da Release, e duas linhas de
+          # ação para uma decisão só é o que este projeto recusa em toda parte.
+          files: dist/*.apk
           generate_release_notes: true
           body: |
             Baixe o `.apk` abaixo e instale pelo Chrome do celular

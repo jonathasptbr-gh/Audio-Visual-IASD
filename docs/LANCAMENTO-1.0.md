@@ -64,7 +64,11 @@ link permanente `…/releases/latest/download/audio-visual-iasd.apk` serve os
 4.415.055 bytes da v1.0. Restam **duas** tags no repositório: `v1.0` e
 `web-latest`.
 | ✅ | `LICENSE` (GPLv3) na raiz, mais o `AVISOS-DE-TERCEIROS.md` e a seção do README |
-| ⬜ | a página, o guia do Modo Fácil e as capturas — [§1](#1--o-ponto-de-acesso) e [§3](#3--o-tutorial-do-modo-fácil) |
+| ✅ | a **página** (`site/`) com funções, guia de instalação, guia do Modo Fácil e download |
+| ✅ | `pages.yml` — publica e ESCREVE versão/tamanho/URL, disparando também em `release: published` |
+| ⬜ | **ligar o GitHub Pages** nas configurações do repositório (origem: GitHub Actions) |
+| ⬜ | as **capturas de tela** — só saem de um aparelho de verdade ([§3](#3--o-tutorial-do-modo-fácil)) |
+| ⬜ | a **política de privacidade** como página própria, se houver listagem em loja |
 
 ## Índice
 
