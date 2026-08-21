@@ -24,6 +24,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
+- **v1.0.1** — O ÍCONE FICA DE PÉ e as COLEÇÕES FIXAS SOBEM PARA A RAIZ (um toque a menos até a lista de faixas). Sai o agrupamento "Arquivos oficiais"/"Hinários"; o card ganha tom PRÓPRIO, porque ler o pai o deixava a 1,26:1 da gaveta na raiz. O vão dos Favoritos passa a contar TODO vizinho. A página de acesso é reescrita para quem não é técnico. EXIGE RELEASE
 - **v1.0** — O SHELL ATUAL VIRA O PISO: `minShell` 2 → 46, saem as 37 guardas de `__SHELL_VERSION__` do lado web e a compatibilidade com bundle antigo do Kotlin. A ponte ENCOLHE (`espelhoLigar()` perde o `modo`, `espelhoAprovar` vira `espelhoDerrubar`). A versão reinicia em **1.0** nos dois canais. EXIGE RELEASE
 - **v5.317** — A LIMPEZA QUE O LEVANTAMENTO DE REGRAS AUTORIZOU: sai o `TITULO_NENHUM` (um ramo que nada alcança, no arquivo que recusa ramos que nada alcançam) e a §11 do arquivo do espelho, que prometia um código de três dígitos removido há 128 versões. O que mexe na PONTE fica — e agora está escrito por quê. OTA PURO
 - **v5.316** — O PORTÃO FECHA: `continue-on-error` sai dos oráculos de Chromium, e as CINCO classes de oráculo-que-media-o-runner vão à raiz — inclusive DOIS defeitos do app que apareciam como teste instável, um deles na gravação da intenção do OTA. Nasce `AVDB.updateState`. OTA PURO
@@ -187,6 +188,112 @@ na nota que a revoga, não apagada da que a criou.
 - **v5.154** — é METADE OTA e METADE APK, e a divisão importa para quem for testar em aparelho.
 - **v5.155** — é OTA PURO
 - **v5.156** — é METADE OTA e METADE APK, de novo.
+
+---
+
+## v1.0.1 — o ícone de pé, e a Biblioteca com um toque a menos
+
+Primeiro lote depois da 1.0, e o primeiro a exercitar o degrau de CORREÇÃO do
+número (`MAIOR.INCREMENTAL.CORREÇÃO`): nada de conceito novo, nada de seção
+nova. **Exige Release** — o ícone mora em `res/`.
+
+### O ícone é uma mesa de som DE PÉ
+
+As três trilhas eram horizontais e os cabos de fader eram círculos. Numa mesa de
+verdade os faders são VERTICAIS e o cabo é um retângulo baixo e largo — é o que a
+mão empurra. O desenho é o mesmo girado 90° em torno do centro, com os círculos
+virando retângulos arredondados de área equivalente (198 contra os 201 do círculo
+de raio 8): mesma presença visual, forma certa. Nada sai da zona segura de
+18..90 em nenhum dos dois eixos.
+
+Os valores vivem em DOIS arquivos com o mesmo `pathData` —
+`res/drawable/ic_launcher_foreground.xml` (o APK) e `site/icone.svg` (o favicon
+da página). Quem chega pela aba e depois instala tem de reconhecer o mesmo
+símbolo na gaveta do sistema; é essa continuidade que justifica a duplicação, e
+por isso os dois são greppáveis pelo mesmo texto.
+
+### As coleções fixas saem dos grupos e viram cards da RAIZ
+
+Os dois hinários moravam em "Hinários" e as duas séries em "Arquivos oficiais"
+(v5.260). O agrupamento cobrava um toque que não pagava por si: **quem abre o
+Hinário 2022 quase nunca quer o de 1996 na mesma sessão**, e quem vai ao Provai e
+Vede não vai ao Informativo. Na raiz, o toque que abria o grupo abre a LISTA DE
+FAIXAS — o card já é o acordeão.
+
+O que o grupo separava continua separado: ele existia para distinguir dois
+MODELOS de item (áudio com letra × vídeo do sábado), e essa distinção é do CARD
+(`tipoDaColecao`), não do cabeçalho que ficava por cima dele. A ORDEM é a mesma
+de antes — séries primeiro (material DATADO do sábado que vem), hinários depois
+(acervo PERMANENTE, alcançado pela busca).
+
+Com os grupos, saiu também o `semBotao` de `grupo()` e o ramo de contagem que só
+ele alcançava: eram os dois únicos consumidores.
+
+### O card do álbum ganha TOM PRÓPRIO, e isso é uma exceção declarada
+
+`.hymnal-card` lia `--camada` (o degrau que o pai lhe reserva). Na raiz o pai é a
+folha, que reserva `--panel`; dentro de uma seção, `--panel-2`. Resultado: **o
+mesmo álbum trocava de cor conforme alguém o tivesse agrupado**, e a escada
+inteira de dentro dele descia um degrau junto.
+
+MEDIDO no escuro com o card em `--panel`: a faixa (`--item-fill`, recesso de 24%
+sobre a base do card) compunha rgb(33,40,46), e a gaveta aberta — que já está no
+CHÃO da paleta (`--gaveta-bg` = `--bg`, e no escuro não há para onde descer) —
+ficava a **1,26:1** dela, abaixo do piso de 1,28. Era a volta literal da queixa
+que a v5.287 fechou: *"a seção das opções se mesclando com a lista dos outros
+itens abaixo"*.
+
+A regra passou a ser do CARD (`--camada: var(--panel-2)` na regra dele): um álbum
+é uma PLACA de nível 2 onde quer que esteja filado. Dentro de uma seção o valor é
+o mesmo de antes — a regra é no-op ali. Ela **não revoga** "quem declara o tom é
+o CONTÊINER": é a exceção de um bloco que quer o MESMO degrau para si e para os
+filhos, e nenhum filho veste por engano o que ele reservou (quem lê `--camada` ali
+dentro é a tampa do card aberto, que é o próprio card; a `.coll-songs` zera o
+degrau seguinte).
+
+### O vão dos Favoritos contava só as SEÇÕES
+
+`medirVaoDosFavoritos` somava a barra de cada `.coll-group--drop` para saber o
+que sobra da tela. Com quatro cards fixos na mesma `<ul>`, ele passou a devolver
+um vão MAIOR que a tela — pela altura dos cards e pelos vãos entre eles —, e o
+efeito era o oposto do que o vão existe para produzir: os Favoritos ficavam
+grandes demais e empurravam as seções fechadas para FORA da primeira tela.
+
+A conta passa a ser sobre TODO filho da lista, com a barra procurada pelos dois
+nomes (`.coll-group-bar, .coll-bar`) e a altura do próprio bloco como resposta
+para quem não tiver nenhuma. Um vizinho novo ali entra sozinho.
+
+### A página de acesso, reescrita para quem não é técnico
+
+Pedido do operador: *"está uma página muito técnica, muito texto e subtexto…
+quero uma página leiga, poucos textos, mais prática"*. O que mudou:
+
+- **A tese** diz o ganho pelo que a TV NÃO mostra: sem notificação, sem barra,
+  sem anúncio.
+- **Oito cartões com subtítulo de uma linha** — e o conteúdo passou a nomear o
+  que existe: hinários offline, Provai e Vede e Informativo Mundial, YouTube sem
+  anúncio (recebido pelo compartilhar, baixável para uso offline), Cronograma,
+  fotos/PDF/slides direto do WhatsApp.
+- **"Funciona sem internet"** deixou de ser "funciona sem TV": a projeção chega
+  a qualquer tela na mesma rede, pelo Wi-Fi da igreja ou pelo roteador do
+  celular.
+- **O guia virou QUATRO passos**, com o Play Protect como passo próprio (era um
+  parágrafo depois da lista) e o **botão de baixar DENTRO do passo 1** — quem
+  chegou até ali não deve ter de subir a página.
+- **O tutorial do Modo Fácil saiu.** Ficou a menção de que o app abre nele e de
+  que o modo avançado mora em Configurações.
+
+### Os oráculos
+
+Três reprovações do `smoke.mjs` e duas do `boot-nativo.test.mjs` vieram deste
+lote, e **duas eram defeito do app** (o vão dos Favoritos e o tom do card). As
+outras eram fixture: casos que abriam o grupo "Hinários" para ter uma seção,
+casos que comparavam a largura de um card da raiz com a de um card de dentro de
+uma seção, e um `renderCollectionsList` sem zerar a lista antes — este último um
+defeito de fixture que existia desde antes e que só apareceu quando a conta do
+vão passou a somar os filhos duplicados.
+
+Suíte inteira verde: 25/25.
 
 ---
 

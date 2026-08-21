@@ -1731,8 +1731,9 @@ resto desta seção.
 - **O `theme-color` do `<meta>` NÃO é um segundo lugar:** `pintarTema()` o LÊ do
   `--bg` já resolvido (a folha entra no `<head>` e o script no fim do `<body>`),
   e o literal do HTML cobre só o instante anterior a esse script.
-- **O ÍCONE DO APP é a paleta** — o mixer de três faixas em `--text` (trilha) e
-  `--accent` (botão) sobre `--bg`. Ele **não segue o tema claro**, e não tem
+- **O ÍCONE DO APP é a paleta** — a mesa de som DE PÉ: três trilhas verticais em
+  `--text` e três cabos de fader em `--accent` (retângulos arredondados, a forma
+  do cabo real) sobre `--bg`. Ele **não segue o tema claro**, e não tem
   como: é desenhado pela gaveta do sistema com o app fechado. É **VETOR**
   (`res/drawable/ic_launcher_foreground.xml`) porque com `minSdk` 26 o adaptativo
   é o único ícone que chega a ser desenhado — PNGs por densidade eram peso morto
@@ -2379,7 +2380,7 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: v1.0** (base web e APK) · `SHELL_VERSION` **46** · bundle com
+**Versão atual: v1.0.1** (base web e APK) · `SHELL_VERSION` **46** · bundle com
 `minShell: 46` — o shell 46 é o **PISO**: todo método da ponte existe, e não há
 guarda de versão no lado web. O que continua valendo é que `java/`, `res/`, o
 manifest e os workflows **só chegam instalando o APK**.

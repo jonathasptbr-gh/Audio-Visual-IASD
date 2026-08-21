@@ -4,12 +4,12 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Áudio Visual IASD — projeção para o culto</title>
-<meta name="description" content="A TV recebe só a projeção, não o espelho do celular. Hinário, Bíblia, letra automática e slides. Grátis, para Android.">
+<meta name="description" content="A TV mostra só a projeção — sem notificações, barras ou anúncios. Hinários, Bíblia, letra, YouTube sem propaganda e slides. Grátis, para Android.">
 <meta name="theme-color" content="#2f557f">
 <link rel="icon" href="icone.svg" type="image/svg+xml">
 <meta property="og:type" content="website">
 <meta property="og:title" content="Áudio Visual IASD">
-<meta property="og:description" content="A TV recebe só a projeção, não o espelho do celular.">
+<meta property="og:description" content="A TV mostra só a projeção. Sem notificações, sem barras, sem anúncios.">
 <meta property="og:locale" content="pt_BR">
 
 <style>
@@ -75,6 +75,16 @@
   /* `display:block` + margem automática: sem isso o SVG é inline e o rótulo
      flui AO LADO dele em vez de abaixo, desalinhando cada cartão. */
   .item svg { width:26px; height:26px; display:block; margin:0 auto .5rem; stroke:var(--accent); }
+  .item small { display:block; font-weight:400; font-size:.78rem; color:var(--muted); margin-top:.2rem; }
+
+  /* O botão DENTRO do passo 1: quem chegou até aqui não deve ter de subir a
+     página para baixar. Herda tudo do `.baixar`, só troca a escala e o par de
+     cores — aqui ele vive sobre o painel, não sobre a faixa da marca. */
+  .baixar--linha {
+    margin-top:.6rem; padding:.55rem 1.2rem; font-size:.92rem;
+    background:var(--accent); color:var(--bg); box-shadow:none;
+  }
+  .baixar--linha:hover, .baixar--linha:focus-visible { box-shadow:none; }
 
   /* ── passos: a ordem é informação ── */
   .passos { list-style:none; padding:0; margin:0; counter-reset:p; display:grid; gap:.6rem; }
@@ -90,14 +100,6 @@
   }
   .passos b { display:block; font-size:1rem; }
   .passos span { color:var(--muted); font-size:.9rem; }
-
-  /* ── uso: quatro chips ── */
-  .fluxo { display:flex; flex-wrap:wrap; gap:.5rem; justify-content:center; }
-  .chip {
-    background:var(--panel); border-radius:100px; padding:.55rem 1.1rem;
-    font-size:.9rem; font-weight:600;
-  }
-  .chip s { text-decoration:none; color:var(--muted); font-weight:400; }
 
   .calma {
     margin-top:.9rem; text-align:center; font-size:.86rem; color:var(--muted);
@@ -129,7 +131,7 @@
   <div class="env">
     <img class="logo" src="icone.svg" alt="" width="64" height="64">
     <h1>Áudio Visual IASD</h1>
-    <p class="tese">A TV recebe só a projeção. Não o espelho do seu celular.</p>
+    <p class="tese">A TV mostra só a projeção. Sem notificações, sem barras, sem anúncios.</p>
     <a class="baixar" href="{{URL_APK}}">Baixar grátis</a>
     <p class="meta">Android 8+ &nbsp;·&nbsp; versão {{VERSAO}} &nbsp;·&nbsp; {{TAMANHO}}</p>
   </div>
@@ -142,59 +144,62 @@
     <div class="grade">
       <div class="item">
         <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="13" rx="2"/><path d="M8 21h8"/></svg>
-        Só o telão na TV
+        Só a projeção na TV<small>sem notificação nem anúncio</small>
       </div>
       <div class="item">
         <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V6l10-2v12"/><circle cx="6" cy="18" r="3"/><circle cx="16" cy="16" r="3"/></svg>
-        Hinário completo
+        Hinários offline<small>2022 e 1996, separados</small>
       </div>
       <div class="item">
         <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h7a2 2 0 0 1 2 2v14a2 2 0 0 0-2-2H4z"/><path d="M20 4h-7a2 2 0 0 0-2 2v14a2 2 0 0 1 2-2h7z"/></svg>
-        Bíblia offline
+        Bíblia completa<small>sem depender da internet</small>
       </div>
       <div class="item">
         <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M4 12h10M4 17h13"/></svg>
-        Letra automática
+        Letra na tela<small>ler, cantar ou pesquisar</small>
       </div>
       <div class="item">
         <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="17" rx="2"/><path d="M9 2v4M15 2v4M8 12h8M8 16h5"/></svg>
-        Cronograma
-      </div>
-      <div class="item">
-        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/></svg>
-        PDF e slides
+        Cronograma<small>tudo na ordem, pronto</small>
       </div>
       <div class="item">
         <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="4"/><path d="M10 9l5 3-5 3z"/></svg>
-        YouTube
+        YouTube sem anúncio<small>baixe e use offline</small>
       </div>
       <div class="item">
-        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M2 20h20"/></svg>
-        Funciona sem TV
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l2.6 5.6 6 .8-4.4 4.2 1.1 6-5.3-2.9-5.3 2.9 1.1-6L3.4 9.4l6-.8z"/></svg>
+        Provai e Vede<small>e o Informativo Mundial</small>
+      </div>
+      <div class="item">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="19" r="2.5"/><path d="M8.2 10.8l7.6-4.4M8.2 13.2l7.6 4.4"/></svg>
+        Fotos, PDF e slides<small>direto do WhatsApp</small>
       </div>
     </div>
+    <p class="calma"><strong>Funciona sem internet:</strong> a projeção chega a
+      qualquer tela na mesma rede — pelo Wi-Fi da igreja ou pelo roteador do seu
+      celular. E a busca acha por nome, trecho ou tema.</p>
   </section>
 
   <section class="reveal">
-    <h2>Instalar em 3 passos</h2>
+    <h2>Instalar em 4 passos</h2>
     <ol class="passos">
-      <li><div><b>Baixe</b><span>Toque no botão lá em cima.</span></div></li>
-      <li><div><b>Permita a instalação</b><span>O Android vai perguntar. Toque em <strong>Permitir</strong> e depois em <strong>Instalar</strong>.</span></div></li>
-      <li><div><b>Conecte a TV</b><span>Smart View, MiraScreen ou cabo HDMI. O app acha sozinho.</span></div></li>
+      <li><div><b>Baixe o app</b><span>É um arquivo só.</span>
+        <a class="baixar baixar--linha" href="{{URL_APK}}">Baixar &middot; {{TAMANHO}}</a></div></li>
+      <li><div><b>Permita a instalação</b><span>O Android pergunta se aquele
+        aplicativo pode instalar outros. Toque em <strong>Permitir</strong>.</span></div></li>
+      <li><div><b>Se aparecer o Play Protect</b><span>Toque em
+        <strong>Instalar assim mesmo</strong>. É o aviso normal para todo app
+        fora da Play Store — não significa que há algo errado.</span></div></li>
+      <li><div><b>Conecte a TV</b><span>Smart View, MiraScreen ou cabo HDMI.
+        O app encontra sozinho.</span></div></li>
     </ol>
-    <p class="calma">O Android avisa que não conhece o app. É normal fora da
-      Play Store — toque em <strong>Instalar assim mesmo</strong>.</p>
   </section>
 
   <section class="reveal">
     <h2>Simples de usar</h2>
-    <div class="fluxo">
-      <span class="chip">1 <s>Conecte a tela</s></span>
-      <span class="chip">2 <s>Busque o hino</s></span>
-      <span class="chip">3 <s>Toque para tocar</s></span>
-    </div>
-    <p class="calma">A letra acompanha sozinha. O celular pode ficar bloqueado
-      no suporte — os controles continuam na tela de bloqueio.</p>
+    <p class="calma">O app abre no <strong>Modo Fácil</strong>: teclas grandes e
+      só o essencial, para quem vai conectar a tela e tocar um louvor. Todas as
+      demais funções ficam no <strong>modo avançado</strong>, em Configurações.</p>
   </section>
 
 </main>

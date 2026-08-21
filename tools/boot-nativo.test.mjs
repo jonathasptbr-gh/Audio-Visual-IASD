@@ -643,60 +643,70 @@ try {
     // UMA PASSADA POR GRUPO desde a v5.273: só uma seção fica aberta por vez,
     // e este caso precisa dos cards de DUAS. Os NOMES dos grupos (e a ordem
     // deles) valem em qualquer passada — a barra é desenhada aberta ou fechada.
-    const grupoDoCard = (re) => {
+    //
+    // A PERGUNTA MUDOU NA v1.0.1: antes era "em que GRUPO este card vive?", e
+    // hoje é "ele vive FORA de qualquer grupo?". Os dois cabeçalhos fixos
+    // ("Arquivos oficiais" e "Hinários") saíram, e as quatro coleções subiram
+    // para a raiz — o toque que abria o grupo agora abre a LISTA de faixas.
+    const naRaiz = (re) => {
       const card = [...lista.querySelectorAll('.hymnal-card')]
         .find((el) => re.test(el.textContent));
-      const g = card && card.closest('.coll-group');
-      return g ? (g.querySelector('.coll-group-name') || {}).textContent.trim() : '';
+      if (!card) return 'AUSENTE';
+      return card.closest('.coll-group') ? 'DENTRO DE UM GRUPO' : 'na raiz';
     };
     const guardado = grupoAberto;
     // `renderCollectionsList` ACRESCENTA à lista (a lição da v5.232): sem
     // limpar entre as passadas, a segunda mediria os cards da primeira.
-    grupoAberto = 'Arquivos oficiais';
+    grupoAberto = '';
     lista.innerHTML = '';
     renderCollectionsList(lista, () => {}, { semTotal: true });
     const grupos = [...lista.querySelectorAll('.coll-group-name')].map((e) => e.textContent.trim());
+    // A ORDEM DAS LINHAS DA RAIZ, com o tipo de cada uma: é aqui que se vê se
+    // um card é filho do `<ul>` ou de um grupo.
     const linhas = [...lista.children].map((li) => (li.className.includes('coll-group')
       ? 'GRUPO: ' + li.textContent.trim().split('\n')[0]
       : 'card: ' + li.textContent.trim().split('\n')[0]));
     const texto = lista.textContent;
-    // O grupo em que cada card de fato vive. É a pergunta inteira da v5.260: a
-    // separação não é um cabeçalho a mais, é o card mudar de casa.
-    const grupoDaSerie = grupoDoCard(/Provai e Vede 2026/);
-    const grupoDoInformativo = grupoDoCard(/Informativo Mundial das Missões 2026/);
-    grupoAberto = 'Hinários';
-    lista.innerHTML = '';
-    renderCollectionsList(lista, () => {}, { semTotal: true });
-    const grupoDoHinario = grupoDoCard(/Hinário/);
+    const serie = naRaiz(/Provai e Vede 2026/);
+    const informativo = naRaiz(/Informativo Mundial das Missões 2026/);
+    const hinario2022 = naRaiz(/Hinário Adventista 2022/);
+    const hinario1996 = naRaiz(/Hinário Adventista 1996/);
     grupoAberto = guardado;
     return {
-      texto, grupos, grupoDaSerie, grupoDoInformativo, grupoDoHinario,
+      texto, grupos, linhas, serie, informativo, hinario2022, hinario1996,
       posSerie: linhas.findIndex((l) => l.includes('Provai e Vede 2026')),
     };
   });
   checar(/Provai e Vede 2026/.test(naTela.texto),
     'O CARD DA SÉRIE APARECE NA BIBLIOTECA — era este o "não estou achando nada"');
-  // ── A SEPARAÇÃO DOS DOIS GRUPOS FIXOS (v5.260) ─────────────────────────
-  // Pedido do operador: "faça uma separação de coletânea entre os hinários e os
-  // Arquivos oficiais (que incluem o provai e vede e informativo mundial das
-  // missões)". As três asserções são a mesma pergunta por três lados, e nenhuma
-  // basta sozinha: um cabeçalho novo com os cards no lugar antigo passaria na
-  // primeira, e mover os cards sem separar os hinários passaria na segunda.
-  checar(naTela.grupoDaSerie === 'Arquivos oficiais'
-    && naTela.grupoDoInformativo === 'Arquivos oficiais',
-    'AS DUAS SÉRIES vivem no grupo "Arquivos oficiais"',
-    naTela.grupoDaSerie + ' / ' + naTela.grupoDoInformativo);
-  checar(naTela.grupoDoHinario === 'Hinários',
-    'e o hinário fica no grupo "Hinários", sozinho', naTela.grupoDoHinario);
-  // A ORDEM INVERTEU na v5.262 (pedido do operador: "os arquivos oficiais ficam
-  // antes dos hinários"). Ela é medida, e não só o pertencimento: os dois grupos
-  // são construídos por chamadas separadas — a dos oficiais pode nem acontecer
-  // (shell < 41) —, então "quem vem primeiro" é uma decisão que só existe na
-  // ordem das duas linhas e some se alguém as reordenar sem querer.
-  checar(naTela.grupos[0] === 'Favoritos' && naTela.grupos[1] === 'Arquivos oficiais'
-    && naTela.grupos[2] === 'Hinários',
-    'nesta ordem — Favoritos, os OFICIAIS e depois os hinários —, antes de qualquer álbum',
+
+  // ── AS QUATRO COLEÇÕES FIXAS FICAM NA RAIZ (v1.0.1) ────────────────────
+  // Pedido do operador: *"ou usa um ou usa o outro... o que obriga a abrir a
+  // coleção apenas para o hinário novo. Portanto separe os dois e torne eles
+  // diretamente cada qual uma coleção individual, abrindo diretamente sua lista
+  // de itens, reduzindo um passo nos toques"*.
+  //
+  // TRÊS asserções, e nenhuma basta sozinha: tirar os cabeçalhos sem soltar os
+  // cards passaria na terceira; soltar um par e esquecer o outro passaria na
+  // primeira; e soltá-los na ordem errada passaria nas duas primeiras.
+  checar(naTela.serie === 'na raiz' && naTela.informativo === 'na raiz'
+    && naTela.hinario2022 === 'na raiz' && naTela.hinario1996 === 'na raiz',
+    'as DUAS séries e os DOIS hinários são cards da RAIZ, sem grupo por cima',
+    [naTela.serie, naTela.informativo, naTela.hinario2022, naTela.hinario1996].join(' / '));
+  checar(!naTela.grupos.includes('Arquivos oficiais') && !naTela.grupos.includes('Hinários'),
+    'e os dois cabeçalhos que os agrupavam deixaram de existir',
     JSON.stringify(naTela.grupos));
+  // A ORDEM é a do uso: as séries são o material DATADO do sábado que vem; o
+  // hinário é o acervo permanente. Medida, e não deduzida — ela só existe na
+  // ordem de uma linha do `renderCollectionsListMiolo` e some se alguém a
+  // reordenar sem querer.
+  checar(/Favoritos/.test(naTela.linhas[0] || '')
+    && /Provai e Vede 2026/.test(naTela.linhas[1] || '')
+    && /Informativo Mundial/.test(naTela.linhas[2] || '')
+    && /Hinário Adventista 2022/.test(naTela.linhas[3] || '')
+    && /Hinário Adventista 1996/.test(naTela.linhas[4] || ''),
+    'nesta ordem: Favoritos, as duas séries e os dois hinários, antes de qualquer álbum',
+    JSON.stringify(naTela.linhas.slice(0, 6)));
 
   // ── O ÍNDICE NÃO PODE FICAR PRESO NUMA REGRA VELHA (v5.233) ────────────
   // Relato do operador, depois da v5.230: *"tentei limpar o cache e recarregar,
@@ -803,7 +813,7 @@ try {
   const semLote = await pg.evaluate(() => {
     const lista = document.getElementById('hymnResults');
     const guardado = grupoAberto;
-    grupoAberto = 'Arquivos oficiais';  // fechado desde a v5.237, e um por vez desde a v5.273
+    grupoAberto = '';  // as fixas ficam na RAIZ desde a v1.0.1 — não há grupo a abrir
     renderCollectionsList(lista, () => {}, { semTotal: true });
     const cards = [...lista.querySelectorAll('.hymnal-card')];
     const card = cards.find((el) => /Provai e Vede 2026/.test(el.textContent));
@@ -942,6 +952,17 @@ try {
     // decisão do app; e esta leitura ainda serve de guarda de que os casos
     // acima devolveram o que tomaram emprestado.
     const padrao = { fav: favAberto, colecao: grupoAberto };
+    // DUAS SEÇÕES DE ÁLBUM, semeadas aqui (v1.0.1). Este caso fala do RODÍZIO
+    // — abrir uma fecha a outra —, e ele precisa de duas seções para existir.
+    // Até aqui elas vinham de graça dos dois grupos fixos ("Arquivos oficiais"
+    // e "Hinários"); com as coleções fixas na RAIZ sobrava só "Favoritos", e o
+    // caso passava a medir o vazio. Restauradas no fim.
+    const catAntes = albumCatalog.categories;
+    const albAntes = albumCatalog.albums;
+    albumCatalog.categories = ['Adoradores', 'Diversas'].map((nome, i) => ({
+      name: nome, albums: [{ id_album: 700 + i, name: 'Álbum ' + nome }],
+    }));
+    albumCatalog.albums = albumCatalog.categories.map((c) => c.albums[0]);
     const lista = document.createElement('ul');
     lista.className = 'hymnal-list';
     lista.style.width = '390px';
@@ -986,25 +1007,38 @@ try {
     desenhar();
     const fechado = {
       grupos,
-      cards: lista.querySelectorAll('.hymnal-card').length,
+      // SÓ os cards de GRUPO (v1.0.1): as quatro coleções fixas vivem na raiz
+      // e são desenhadas sempre — é o que as tirou de trás de um cabeçalho.
+      // A regra que este número guarda continua sendo a mesma: uma SEÇÃO
+      // fechada não constrói o conteúdo dela.
+      cards: lista.querySelectorAll('.coll-group .hymnal-card').length,
       // A altura do índice inteiro contra a de um grupo aberto: é ela que o
       // pedido chama de "listagem mais curta", e medir o número de nós não
       // diria a mesma coisa.
       altura: lista.getBoundingClientRect().height,
     };
-    // O TOQUE no cabeçalho dos Arquivos oficiais. Ele responde a pergunta da
-    // v5.237 ("fechado não constrói card, o toque constrói") e, desde a v5.276,
-    // a que a substituiu: abrir uma coleção **não** mexe nos Favoritos.
-    const tocar = async (re) => {
+    // O TOQUE num cabeçalho de seção. Ele responde a pergunta da v5.237
+    // ("fechado não constrói card, o toque constrói") e, desde a v5.276, a que
+    // a substituiu: abrir uma coleção **não** mexe nos Favoritos.
+    //
+    // OS DOIS ALVOS SÃO DESCOBERTOS, não digitados (v1.0.1): este caso fala do
+    // RODÍZIO, não de quais seções existem. Ele mirava "Arquivos oficiais" e
+    // "Hinários", que deixaram de ser grupos — e um nome fixo aqui prenderia a
+    // regra do acordeão ao catálogo da fixture.
+    const tocar = async (nome) => {
       const barra = [...lista.querySelectorAll('.coll-group-bar')]
-        .find((b) => re.test(b.textContent.trim()));
+        .find((b) => b.textContent.trim().startsWith(nome));
       if (barra) barra.click();
       await new Promise((r) => setTimeout(r, 400));
     };
-    await tocar(/^Arquivos oficiais/);
+    const doisGrupos = grupos.filter((n) => n !== 'Favoritos').slice(0, 2);
+    await tocar(doisGrupos[0]);
     const aberto = {
-      cards: lista.querySelectorAll('.hymnal-card').length,
-      temSerie: /Provai e Vede 2026/.test(lista.textContent),
+      // A MESMA MEDIDA do `fechado`, e ela tem de ser a mesma: contar todos os
+      // `.hymnal-card` somaria os quatro da raiz, que existem abertos ou
+      // fechados, e o par de números deixaria de falar da seção.
+      cards: lista.querySelectorAll('.coll-group .hymnal-card').length,
+      construiu: lista.querySelectorAll('.coll-group-corpo .hymnal-card').length > 0,
       altura: lista.getBoundingClientRect().height,
       // O card vive DENTRO do corpo do grupo, não solto na lista: é isso que
       // faz a árvore ser uma árvore.
@@ -1013,9 +1047,9 @@ try {
       favSegue: !!(acharFav() && acharFav().classList.contains('aberto')),
       abertas: lista.querySelectorAll('.coll-group--drop.aberto').length,
     };
-    // E O RODÍZIO VALE ENTRE AS COLEÇÕES: abrir os Hinários fecha os Oficiais,
+    // E O RODÍZIO VALE ENTRE AS COLEÇÕES: abrir a segunda fecha a primeira,
     // sem tocar nos Favoritos.
-    await tocar(/^Hinários/);
+    await tocar(doisGrupos[1]);
     const trocou = {
       abertas: lista.querySelectorAll('.coll-group--drop.aberto').length,
       colecao: grupoAberto,
@@ -1023,19 +1057,20 @@ try {
     };
     // E FECHAR A COLEÇÃO ABERTA deixa a tela sem nenhuma — que deixou de ser um
     // estado a evitar: quem fechou o hinário está olhando os favoritos.
-    await tocar(/^Hinários/);
+    await tocar(doisGrupos[1]);
     fav.semColecao = grupoAberto === '' && !!acharFav()
       && acharFav().classList.contains('aberto');
     lista.remove();
+    albumCatalog.categories = catAntes; albumCatalog.albums = albAntes;
     // Devolve o estado PADRÃO do app: os casos abaixo desenham a Biblioteca de
     // verdade, e deixá-la noutra seção seria emprestar a este arquivo um
     // comportamento que o app não tem.
     grupoAberto = ''; favAberto = true;
-    return { fechado, aberto, trocou, fav };
+    return { fechado, aberto, trocou, fav, doisGrupos };
   });
   checar(indice.fechado.grupos.length >= 2 && indice.fechado.cards === 0,
-    'A BIBLIOTECA ABRE COMO ÍNDICE: só os cabeçalhos de seção, nenhum card '
-    + 'construído', JSON.stringify(indice.fechado.grupos));
+    'A BIBLIOTECA ABRE COMO ÍNDICE: seção fechada não constrói card nenhum',
+    JSON.stringify(indice.fechado.grupos) + ' · ' + indice.fechado.cards + ' card(s) de grupo');
   checar(indice.fechado.grupos[0] === 'Favoritos',
     'e o primeiro deles é FAVORITOS, no topo da listagem',
     JSON.stringify(indice.fechado.grupos));
@@ -1062,13 +1097,13 @@ try {
   checar(indice.aberto.favSegue && indice.aberto.abertas === 2,
     'abrir uma COLEÇÃO não a fecha: as duas ficam abertas, porque elas não '
     + 'disputam o mesmo interruptor', indice.aberto.abertas + ' aberta(s)');
-  checar(indice.trocou.abertas === 2 && indice.trocou.colecao === 'Hinários'
+  checar(indice.trocou.abertas === 2 && indice.trocou.colecao === indice.doisGrupos[1]
     && indice.trocou.favSegue,
-    'e o rodízio vale ENTRE as coleções: abrir os Hinários fecha os Oficiais e '
+    'e o rodízio vale ENTRE as coleções: abrir a segunda fecha a primeira e '
     + 'não toca nos Favoritos', JSON.stringify(indice.trocou));
   checar(indice.fav.semColecao,
     'fechar a coleção aberta deixa a tela sem nenhuma — e os favoritos seguem lá');
-  checar(indice.aberto.cards > 0 && indice.aberto.temSerie,
+  checar(indice.aberto.cards > 0 && indice.aberto.construiu,
     'o toque no cabeçalho abre a seção e os cards aparecem',
     indice.aberto.cards + ' card(s)');
   checar(indice.aberto.dentroDoCorpo,
@@ -1825,13 +1860,21 @@ try {
       // O BOTÃO não pode existir em estado nenhum (v5.282).
       temBotao: !!document.querySelector('#hymnResults .coll-group-mais'),
     });
+    // A LISTA É ZERADA ANTES (v5.232: `renderCollectionsList` ACRESCENTA). O
+    // `openHymnSearch()` acima já desenhou uma vez, com o catálogo VAZIO —
+    // sem zerar, a Biblioteca ficava com Favoritos e as coleções fixas em
+    // DUPLICATA, e o vão media uma tela que não existe.
+    hymnResultsEl.innerHTML = '';
     renderCollectionsList(hymnResultsEl, () => {}, { semTotal: true });
     await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
     const vazio = {
       ...ler(),
-      // Quantas seções a tela tem: é isto que prova que a medição aconteceu na
-      // condição do relato, com o vão pequeno.
-      secoes: document.querySelectorAll('#hymnResults .coll-group--drop').length,
+      // QUANTOS BLOCOS a tela tem, e não quantas seções (v1.0.1): é isto que
+      // prova que a medição aconteceu na condição do relato, com o vão pequeno.
+      // As coleções fixas subiram para a RAIZ e ocupam a lista lado a lado com
+      // as seções — contar só `.coll-group--drop` deixaria de fora quatro
+      // blocos que apertam o vão exatamente como uma seção fechada aperta.
+      blocos: hymnResultsEl.children.length,
     };
     // Favoritos que passam de qualquer tela de celular.
     const ids = [];
@@ -1864,10 +1907,10 @@ try {
     setAppMode(modoAntes);
     return { vazio, muitos };
   });
-  checar(vao.vazio.secoes >= 8,
-    'a Biblioteca do caso tem as OITO seções do relato — é o que torna o vão '
+  checar(vao.vazio.blocos >= 8,
+    'a Biblioteca do caso tem os OITO blocos do relato — é o que torna o vão '
     + 'pequeno e a lista de favoritos capaz de passar dele',
-    vao.vazio.secoes + ' seção(ões)');
+    vao.vazio.blocos + ' bloco(s)');
   // A PRIMEIRA METADE: vazia, ela RESERVA o vão. É o desenho de abertura da
   // Biblioteca — coleções empilhadas na base, o que sobra em cima é dos
   // favoritos — e é o que o operador mandou manter.
@@ -1918,7 +1961,20 @@ try {
     // E uma COLEÇÃO ABERTA: com tudo colapsado a lista nunca transborda (o vão
     // dos favoritos é justamente o que sobra), então não haveria rolagem a
     // afirmar — é uma propriedade do desenho, não um detalhe do fixture.
-    grupoAberto = 'Hinários';
+    //
+    // QUEM ABRE É UM CARD DA RAIZ (v1.0.1): o grupo "Hinários" não existe mais
+    // — as coleções fixas são cards da lista —, e `grupoAberto` com o nome de
+    // uma seção que ninguém desenha não abre coisa nenhuma. Sem isso a lista
+    // cabia inteira, `scrollTop` ficava em 0 dos dois lados e o caso passava a
+    // comparar dois zeros, isto é, deixava de medir o reset.
+    const hin = allCollections().find((x) => x.kind === 'hymnal');
+    const songs = [];
+    for (let i = 1; i <= 40; i++) {
+      songs.push({ id_music: 't' + i, name: 'Hino de rolagem ' + i, track: i,
+        has_instrumental_music: false, duration: '3:47' });
+    }
+    collState[hin.id] = { indexSyncedAt: Date.now(), songs, isHymnal: true };
+    ui(hin.id).expanded = true; ui(hin.id).shown = 100;
     renderSearchResults('');
     await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
     hymnResultsEl.scrollTop = hymnResultsEl.scrollHeight;
@@ -1928,6 +1984,7 @@ try {
     await new Promise((r) => setTimeout(r, 250));
     const aoReabrir = hymnResultsEl.scrollTop;
     albumCatalog.categories = []; albumCatalog.albums = [];
+    delete collState[hin.id]; ui(hin.id).expanded = false;
     grupoAberto = ''; favAberto = true;
     closeHymnSearch();
     setAppMode(modoAntes);
@@ -2174,7 +2231,7 @@ try {
     lista.className = 'hymnal-list';
     lista.style.width = '390px';
     document.body.appendChild(lista);
-    grupoAberto = 'Arquivos oficiais';  // fechado desde a v5.237, e um por vez desde a v5.273
+    grupoAberto = '';  // as fixas ficam na RAIZ desde a v1.0.1 — não há grupo a abrir
     renderCollectionsList(lista, () => {}, { semTotal: true });
     const card = [...lista.querySelectorAll('.hymnal-card')]
       .find((el) => /Provai e Vede 2026/.test(el.textContent));

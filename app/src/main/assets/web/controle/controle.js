@@ -168,7 +168,7 @@ const appVersionEl = document.getElementById('appVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.0';
+const WEB_VERSION = '1.0.1';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -488,12 +488,6 @@ const gruposAnimar = new Set();
 // construtor e um chamador divergiria calado — o grupo abriria e o estado
 // ficaria noutro nome, isto é, o toque deixaria de alternar.
 const GRUPO_FAVORITOS = 'Favoritos';
-const GRUPO_HINARIOS = 'Hinários';
-// "ARQUIVOS OFICIAIS" são as SÉRIES (v5.260): o Provai e Vede e o Informativo
-// Mundial das Missões, que a igreja recebe prontos da denominação. O nome é o
-// do operador, e ele nomeia a ORIGEM — que é o que separa este grupo do de
-// cima muito melhor que "séries", uma palavra de implementação.
-const GRUPO_OFICIAIS = 'Arquivos oficiais';
 // O TECLADO DA BIBLIOTECA SOBE UM TEMPO DEPOIS DA TELA (a decisão está
 // argumentada em `openHymnSearch`). 260 ms = o fade do `.popup-backdrop` mais um
 // quadro: pedido antes disso, o teclado sobe por cima de uma folha ainda
@@ -6824,13 +6818,8 @@ function renderCollectionsListMiolo(alvo, redesenhar, opts) {
         b.addEventListener('click', (e) => { e.stopPropagation(); a.aoTocar(b); });
         bar.appendChild(b);
       });
-    } else if (colls && colls.length && !(gOpts && gOpts.semBotao)) {
-      montarResumoGrupo(bar, 'grp:' + text, text, colls, gOpts);
     } else if (colls && colls.length) {
-      const info = document.createElement('span');
-      info.className = 'coll-group-count';   // sem o verde (v5.263)
-      info.textContent = fracaoPeso(colls.map((c) => c.id)) || '—';
-      bar.appendChild(info);
+      montarResumoGrupo(bar, 'grp:' + text, text, colls, gOpts);
     }
     li.appendChild(bar);
 
@@ -6965,44 +6954,34 @@ function renderCollectionsListMiolo(alvo, redesenhar, opts) {
     acertarVaoDosFavoritos(favCorpo);
   }
 
-  // OS DOIS GRUPOS FIXOS DO TOPO: os HINÁRIOS e os ARQUIVOS OFICIAIS.
+  // AS COLEÇÕES FIXAS FICAM NA RAIZ, uma a uma (v1.0.1).
   //
-  // São dois modelos de item que divergem em tudo o que decide um toque (ver
-  // `tipoDaColecao`): um hino é ÁUDIO com letra, que se baixa para ficar
-  // offline; um episódio é um VÍDEO de ~300 MB que se transmite e se vê uma
-  // vez. Um índice de duas linhas separa "que hino é?" de "qual é o material do
-  // sábado?" antes de custar um toque.
+  // Elas moravam em dois grupos — "Arquivos oficiais" (as séries) e "Hinários"
+  // —, e o agrupamento cobrava um toque que não pagava por si: quem abre o
+  // Hinário 2022 quase nunca quer o de 1996 na mesma sessão, e quem vai ao
+  // Provai e Vede não vai ao Informativo. O grupo existia para separar dois
+  // MODELOS de item (áudio com letra × vídeo do sábado), e essa distinção
+  // continua inteira — ela é do CARD (`tipoDaColecao`), não do cabeçalho que
+  // ficava por cima dele.
   //
-  // O construtor é UM só, chamado duas vezes: mesma anatomia (seta, contagem,
-  // corpo montado só quando abre) e mesma regra — nem hinário nem série baixam
-  // em LOTE (`semBotao`), porque são as maiores coleções do acervo e um botão
-  // só dispararia um download que ninguém dimensiona antes de tocar.
+  // Na raiz, o toque que antes abria o grupo agora abre a LISTA: o card já é um
+  // acordeão que expande nas próprias faixas (ver `alternarAcordeao`). Um toque
+  // a menos para o destino mais frequente da Biblioteca.
+  //
+  // A ORDEM é a do uso: as séries são o material DATADO do sábado que vem, e é
+  // a elas que se volta toda semana; o hinário é o acervo PERMANENTE, a que se
+  // chega pela busca, pelo número ou pelo nome.
   //
   // ARMADILHA: `allCollections()` alimenta as CONTAS (peso, "toda a
-  // biblioteca", busca), NÃO o desenho. Uma coleção fixa nova tem de entrar num
-  // destes dois grupos, ou ela é construída, conta no peso e não aparece em
-  // lugar nenhum — sem erro. Acrescentar ao lugar em que o dado NASCE não o
-  // entrega a quem o MOSTRA.
-  const grupoFixo = (nome, colecoes) => {
-    const lista = colecoes.filter((c) => byId.has(c.id));
-    if (!lista.length) return;
-    const corpo = grupo(nome, lista, { semBotao: true });
-    if (corpo) lista.forEach((coll) => corpo.appendChild(renderCollectionCard(coll)));
-  };
-  // OS OFICIAIS VÊM PRIMEIRO (v5.262, pedido do operador). A ordem anterior era
-  // a da idade dos dois grupos, não a do uso: o hinário é o acervo PERMANENTE —
-  // ele não muda de conteúdo de um mês para o outro e se chega a ele pela busca,
-  // pelo número ou pelo nome —, enquanto os Arquivos oficiais são o material
-  // DATADO do sábado que vem, e é a eles que se volta toda semana. O que se
-  // procura com mais frequência fica mais perto do topo.
-  //
-  // O grupo dos oficiais só existe quando há série: num shell < 41 ele seria um
-  // cabeçalho vazio — e `grupoFixo` já devolve cedo, mas dizê-lo aqui é o que
-  // impede a próxima leitura de "consertar" a ausência. É também por isso que a
-  // ordem é escrita como DUAS chamadas, e não como uma lista ordenada: a
-  // primeira pode simplesmente não existir.
-  grupoFixo(GRUPO_OFICIAIS, serieCollections());
-  grupoFixo(GRUPO_HINARIOS, FIXED_COLLECTIONS);
+  // biblioteca", busca), NÃO o desenho. Uma coleção fixa nova tem de ser
+  // acrescentada AQUI também, ou ela é construída, conta no peso e não aparece
+  // em lugar nenhum — sem erro.
+  const fixasNaRaiz = [...serieCollections(), ...FIXED_COLLECTIONS]
+    .filter((c) => byId.has(c.id));
+  if (fixasNaRaiz.length) {
+    any = true;
+    fixasNaRaiz.forEach((coll) => alvo.appendChild(renderCollectionCard(coll)));
+  }
 
   for (const cat of albumCatalog.categories) {
     const cards = categoryCards(cat);
@@ -8348,31 +8327,44 @@ function alinharGrupoNoTopo(lista, nome) {
 
 // ===== O VÃO DOS FAVORITOS É UMA MEDIDA DE TELA =====
 //
-// Ele é o que sobra da TELA depois das outras seções COLAPSADAS: uma altura em
+// Ele é o que sobra da TELA depois de tudo o mais COLAPSADO: uma altura em
 // pixels, escrita numa custom property da lista. A conta usa a altura da BARRA
-// de cada seção (que é a altura dela fechada, já que o corpo é `display: none`
-// nesse estado), então ela NÃO depende de qual coleção está aberta — que é a
-// propriedade inteira. Por `flex-grow` o vão era REPARTIDO com a coleção
-// aberta, e os favoritos encolhiam conforme o operador abrisse outra coisa.
+// de cada vizinho (que é a altura dele fechado, já que o resto é `display:
+// none` ou nem é montado nesse estado), então ela NÃO depende de qual coleção
+// está aberta — que é a propriedade inteira. Por `flex-grow` o vão era
+// REPARTIDO com a coleção aberta, e os favoritos encolhiam conforme o operador
+// abrisse outra coisa.
+//
+// OS VIZINHOS NÃO SÃO SÓ SEÇÕES (v1.0.1). Com as coleções fixas na RAIZ, a
+// lista passou a ter `.hymnal-card` como filho direto, lado a lado com as
+// seções — e a conta que só somava `.coll-group--drop` devolvia um vão maior
+// que a tela pela altura dos quatro cards mais os vãos entre eles. O efeito é o
+// oposto do que o vão existe para produzir: os favoritos ficavam grandes demais
+// e empurravam as seções fechadas para FORA da primeira tela, isto é, elas
+// deixavam de estar "empilhadas na base".
+//
+// Daí a conta ser sobre TODO filho da lista, e a barra ser procurada pelos dois
+// nomes: um vizinho novo aqui entra sozinho, e o que não tiver barra responde
+// com a própria altura.
 //
 // No CSS ele é `min-height`, não `height`: o vão é o piso, e a seção cresce
 // quando a lista pede mais. Esta função não muda por causa disso — a MEDIDA é a
 // mesma pergunta ("o que sobra da tela?").
 function medirVaoDosFavoritos(lista) {
   if (!lista || !lista.isConnected) return;
-  const secoes = [...lista.children].filter((n) => n.classList
-    && n.classList.contains('coll-group--drop'));
-  const fav = secoes.find((n) => n.classList.contains('coll-group--fav'));
+  const vizinhos = [...lista.children].filter((n) => n.nodeType === 1);
+  const fav = vizinhos.find((n) => n.classList
+    && n.classList.contains('coll-group--fav'));
   if (!fav) return;
   const cs = getComputedStyle(lista);
   const gap = parseFloat(cs.rowGap) || 0;
   const util = lista.clientHeight - (parseFloat(cs.paddingTop) || 0)
-    - (parseFloat(cs.paddingBottom) || 0) - gap * Math.max(0, secoes.length - 1);
+    - (parseFloat(cs.paddingBottom) || 0) - gap * Math.max(0, vizinhos.length - 1);
   let fechadas = 0;
-  for (const s of secoes) {
+  for (const s of vizinhos) {
     if (s === fav) continue;
-    const barra = s.querySelector('.coll-group-bar');
-    fechadas += barra ? barra.getBoundingClientRect().height : 0;
+    const barra = s.querySelector('.coll-group-bar, .coll-bar');
+    fechadas += (barra || s).getBoundingClientRect().height;
   }
   const vao = Math.max(0, Math.round(util - fechadas));
   // Escrito na LISTA e não no `li`: o `li` é refeito a cada redesenho, e a

@@ -35,9 +35,10 @@ guardado quando a base do APK é MAIOR, e `1.0 < 5.317`.
 | falta | por quê |
 |---|---|
 | ✅ | as 103 Releases e tags apagadas (`web-latest` preservada) |
-| ✅ | a Release **`v1.0`** publicada, assinada, com o asset de nome fixo junto |
+| ✅ | a Release **`v1.0`** publicada e assinada |
 | ✅ | a base web **1.0** publicada no canal OTA (manifesto, bundle e sha256 conferidos) |
 | ⬜ | **desinstalar e reinstalar** no aparelho |
+| ⬜ | a Release **`v1.0.1`** (o ícone mora em `res/` — ver `docs/HISTORICO.md`) |
 
 > **A guarda anti-regressão trava o reset, e é por isso que existe a válvula.**
 > O `web-latest` está na 5.317 e a base nova é a 1.0: para a guarda, "a nova é
@@ -59,16 +60,33 @@ guardado quando a base do APK é MAIOR, e `1.0 < 5.317`.
 > lista de candidatos antes de qualquer corte.
 
 **Estado do canal, conferido:** `version.json` → `1.0` / `minShell 46` /
-`shell 1.0`; o `web-1.0.zip` responde 200 e o sha256 bate com o anunciado; o
-link permanente `…/releases/latest/download/audio-visual-iasd.apk` serve os
-4.415.055 bytes da v1.0. Restam **duas** tags no repositório: `v1.0` e
-`web-latest`.
+`shell 1.0`; o `web-1.0.zip` responde 200 e o sha256 bate com o anunciado.
+Restam **duas** tags no repositório: `v1.0` e `web-latest`.
+
+> **O asset de NOME FIXO saiu.** Ele existia para dar um
+> `…/releases/latest/download/audio-visual-iasd.apk` que nunca muda — e o
+> operador apontou que não há quem precise dele: quem baixa pelo GitHub procura
+> a Release mais recente, e quem baixa pela página recebe a URL da vez, porque
+> o `pages.yml` a REESCREVE em `release: published`. Um segundo `.apk` na mesma
+> Release só levantava a pergunta "qual dos dois?".
+
+### O ponto de acesso
+
+| falta | por quê |
+|---|---|
 | ✅ | `LICENSE` (GPLv3) na raiz, mais o `AVISOS-DE-TERCEIROS.md` e a seção do README |
-| ✅ | a **página** (`site/`) com funções, guia de instalação, guia do Modo Fácil e download |
+| ✅ | a **página** (`site/`) com funções, guia de instalação em 4 passos e download |
 | ✅ | `pages.yml` — publica e ESCREVE versão/tamanho/URL, disparando também em `release: published` |
-| ⬜ | **ligar o GitHub Pages** nas configurações do repositório (origem: GitHub Actions) |
-| ⬜ | as **capturas de tela** — só saem de um aparelho de verdade ([§3](#3--o-tutorial-do-modo-fácil)) |
+| ✅ | **GitHub Pages ligado** (origem: GitHub Actions) e a página no ar |
+| ⬜ | as **capturas de tela** — só saem de um aparelho de verdade |
 | ⬜ | a **política de privacidade** como página própria, se houver listagem em loja |
+| ⬜ | o **domínio próprio**, quando houver — ver [§1](#1--o-ponto-de-acesso) |
+
+> **O tutorial do Modo Fácil NÃO entrou na página** (v1.0.1), e a decisão é do
+> operador: um passo a passo do modo desenhado para não precisar de um é peso
+> morto. Ficou a MENÇÃO — o app abre no Modo Fácil, e o modo avançado mora em
+> Configurações. O que a §3 deste arquivo levantou continua valendo para o dia
+> em que houver capturas de tela de um aparelho de verdade.
 
 ## Índice
 

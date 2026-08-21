@@ -1,8 +1,8 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 108 108" role="img" aria-label="Áudio Visual IASD">
   <!-- O MESMO DESENHO DO ÍCONE DO APP (res/drawable/ic_launcher_foreground.xml
-       sobre o `ic_launcher_background` de values/colors.xml): o mixer de três
-       faixas, trilhas no `text` e botões no `accent` do tema escuro, sobre o
-       quase-preto com a matiz do denim oficial da IASD.
+       sobre o `ic_launcher_background` de values/colors.xml): a mesa de som de
+       pé — trilhas verticais no `text` e cabos de fader no `accent` do tema
+       escuro, sobre o quase-preto com a matiz do denim oficial da IASD.
 
        Ele NÃO segue o tema claro, pelo mesmo motivo de lá: um favicon vive na
        aba do navegador, fora do documento, e o par escuro é o padrão do app.
@@ -11,8 +11,6 @@
        dar, e é por isso que os valores são literais e greppáveis nos dois
        arquivos. Se a paleta mudar, mudam junto. -->
   <rect width="108" height="108" rx="24" fill="#0e1215"/>
-  <!-- As três trilhas -->
-  <path fill="#dce0e5" d="M32.5,35.5 L75.5,35.5 A2.5,2.5 0 0 1 75.5,40.5 L32.5,40.5 A2.5,2.5 0 0 1 32.5,35.5 Z M32.5,51.5 L75.5,51.5 A2.5,2.5 0 0 1 75.5,56.5 L32.5,56.5 A2.5,2.5 0 0 1 32.5,51.5 Z M32.5,67.5 L75.5,67.5 A2.5,2.5 0 0 1 75.5,72.5 L32.5,72.5 A2.5,2.5 0 0 1 32.5,67.5 Z"/>
-  <!-- Os três botões do fader -->
-  <path fill="#8fb1f3" d="M38,38 a8,8 0 1,0 16,0 a8,8 0 1,0 -16,0 Z M58,54 a8,8 0 1,0 16,0 a8,8 0 1,0 -16,0 Z M34,70 a8,8 0 1,0 16,0 a8,8 0 1,0 -16,0 Z"/>
+  <path fill="#dce0e5" d="M72.5,32.5 L72.5,75.5 A2.5,2.5 0 0 1 67.5,75.5 L67.5,32.5 A2.5,2.5 0 0 1 72.5,32.5 Z M56.5,32.5 L56.5,75.5 A2.5,2.5 0 0 1 51.5,75.5 L51.5,32.5 A2.5,2.5 0 0 1 56.5,32.5 Z M40.5,32.5 L40.5,75.5 A2.5,2.5 0 0 1 35.5,75.5 L35.5,32.5 A2.5,2.5 0 0 1 40.5,32.5 Z"/>
+  <path fill="#8fb1f3" d="M64.5,40.5 H75.5 A3.5,3.5 0 0 1 79,44 V48 A3.5,3.5 0 0 1 75.5,51.5 H64.5 A3.5,3.5 0 0 1 61,48 V44 A3.5,3.5 0 0 1 64.5,40.5 Z M48.5,60.5 H59.5 A3.5,3.5 0 0 1 63,64 V68 A3.5,3.5 0 0 1 59.5,71.5 H48.5 A3.5,3.5 0 0 1 45,68 V64 A3.5,3.5 0 0 1 48.5,60.5 Z M32.5,36.5 H43.5 A3.5,3.5 0 0 1 47,40 V44 A3.5,3.5 0 0 1 43.5,47.5 H32.5 A3.5,3.5 0 0 1 29,44 V40 A3.5,3.5 0 0 1 32.5,36.5 Z"/>
 </svg>

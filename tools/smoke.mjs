@@ -836,6 +836,36 @@ try {
 // — foi sobre a linha ser maior que o título. E a outra metade é o piso de
 // toque: encolher até o texto trocaria densidade por erro de mira no meio de um
 // culto, então o alvo do ▶ não pode cair abaixo de `--hit`.
+// ===== UMA SEÇÃO DE COLEÇÃO, para os casos que medem SEÇÃO =====
+//
+// Até a v1.0 estes casos abriam o grupo "Hinários", que vinha de graça: os dois
+// hinários moravam dentro dele. Na v1.0.1 as quatro coleções fixas subiram para
+// a RAIZ (um toque a menos até a lista de faixas) e os dois cabeçalhos fixos
+// deixaram de existir — sobrou só "Favoritos", que está SEMPRE aberta e que
+// todo `:not(.coll-group--fav)` daqui exclui de propósito.
+//
+// O que estes casos afirmam é COMO UMA SEÇÃO SE DESENHA (um bloco só, a escada
+// de tons, o rótulo em caixa alta), não QUAL seção existe. Então a seção passa a
+// ser semeada: uma categoria de álbum, criada uma vez e mantida pelo resto do
+// arquivo. Ela não é apagada em lugar nenhum — quem a apagasse devolveria as 26
+// reprovações que ela existe para evitar.
+const SECAO = 'Álbuns de exemplo';
+await pg.evaluate((nome) => {
+  albumCatalog.categories = [{ name: nome,
+    albums: [{ id_album: 77, name: 'Álbum de exemplo' }] }];
+  albumCatalog.albums = [{ id_album: 77, name: 'Álbum de exemplo' }];
+  // COM ESTADO E ABERTO: a escada de tons tem TRÊS degraus (folha → seção →
+  // card) e o terceiro só existe se houver um card DENTRO da seção. Um álbum
+  // vazio desenharia a seção e mais nada.
+  const songs = [];
+  for (let i = 1; i <= 4; i++) {
+    songs.push({ id_music: 's' + i, name: 'Faixa de exemplo ' + i, track: i,
+      has_instrumental_music: false, duration: '3:20' });
+  }
+  collState['album-77'] = { indexSyncedAt: Date.now(), songs };
+  ui('album-77').expanded = true; ui('album-77').shown = 100;
+}, SECAO);
+
 try {
   const linha = await pg.evaluate(() => {
     setAppMode('full');
@@ -846,7 +876,7 @@ try {
         has_instrumental_music: false, duration: '3:47' });
     }
     collState[c.id] = { indexSyncedAt: Date.now(), songs, isHymnal: true };
-    grupoAberto = 'Hinários';
+    grupoAberto = 'Álbuns de exemplo';
     ui(c.id).expanded = true; ui(c.id).shown = 100;
     // Uma lista PRÓPRIA e VISÍVEL, com a largura de um celular: dentro do popup
     // fechado toda medida é zero, e zeros comparados com zeros passam sem medir
@@ -977,7 +1007,7 @@ for (const tema of ['escuro', 'claro']) {
           has_instrumental_music: false, duration: '3:47' });
       }
       collState[c.id] = { indexSyncedAt: Date.now(), songs, isHymnal: true };
-      grupoAberto = 'Hinários';
+      grupoAberto = 'Álbuns de exemplo';
       ui(c.id).expanded = true; ui(c.id).shown = 100;
       // A LISTA PRECISA MORAR NA FOLHA DE VERDADE (v5.267): o tom de cada nível
       // é herdado do contêiner (`--camada`), então medir a árvore num `<ul>`
@@ -1002,7 +1032,9 @@ for (const tema of ['escuro', 'claro']) {
         const g = [...lista.querySelectorAll('.coll-group--drop:not(.aberto):not(.coll-group--fav)')];
         return g.length ? getComputedStyle(g[0]).backgroundColor : null;
       })();
-      const faixa = lista.querySelector('.coll-songs > .hymn-result');
+      const dentro = (sel) => lista.querySelector(
+        '.coll-group--drop.aberto:not(.coll-group--fav) ' + sel);
+      const faixa = dentro('.coll-songs > .hymn-result');
       const r = {
         folha: getComputedStyle(folha).backgroundColor,
         // A seção de COLEÇÃO aberta. A dos Favoritos está sempre aberta (ela é
@@ -1014,7 +1046,7 @@ for (const tema of ['escuro', 'claro']) {
         // A barra e o corpo são faixas do bloco da seção, sem fundo próprio.
         barra: bg('.coll-group--drop.aberto:not(.coll-group--fav) > .coll-group-bar'),
         corpo: bg('.coll-group--drop.aberto:not(.coll-group--fav) > .coll-group-corpo'),
-        card: bg('.hymnal-card'),
+        card: bg('.coll-group--drop.aberto:not(.coll-group--fav) .hymnal-card'),
         faixa: faixa ? getComputedStyle(faixa).backgroundColor : 'AUSENTE',
         faixaFilete: faixa ? getComputedStyle(faixa).borderTopWidth : 'AUSENTE',
         // O NOME DA FAIXA e o fundo EFETIVO sob ele (v5.296). A cor da faixa é
@@ -1249,6 +1281,12 @@ for (const tema of ['escuro', 'claro']) {
       setAppMode('full');
       openHymnSearch();
       grupoAberto = ''; favAberto = true;
+      // TUDO FECHADO É A PRECONDIÇÃO, e desde a v1.0.1 `grupoAberto = ''` não
+      // basta para dizê-la: as coleções fixas moram na RAIZ, então um card que
+      // um caso anterior deixou expandido não está mais dentro de uma seção
+      // fechada (`display: none`) — ele fica no ar, com a lista de faixas
+      // inteira, e a tela deixa de ter o vão que este caso mede.
+      allCollections().forEach((c) => { ui(c.id).expanded = false; });
       hymnResultsEl.innerHTML = '';   // `renderCollectionsList` ACRESCENTA (v5.232)
       renderCollectionsList(hymnResultsEl, () => {}, { semTotal: true });
       await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
@@ -1323,7 +1361,7 @@ for (const tema of ['escuro', 'claro']) {
       // precisaria em relação à quantidade e altura necessária para os itens"*.
       // O vão é dos Favoritos; uma coleção que o tomasse ficaria com meia tela
       // de fundo vazio embaixo de dois cards.
-      grupoAberto = 'Hinários';
+      grupoAberto = 'Álbuns de exemplo';
       hymnResultsEl.innerHTML = '';   // `renderCollectionsList` ACRESCENTA (v5.232)
       renderCollectionsList(hymnResultsEl, () => {}, { semTotal: true });
       await new Promise((f) => requestAnimationFrame(() => requestAnimationFrame(f)));
@@ -1373,19 +1411,17 @@ for (const tema of ['escuro', 'claro']) {
         }
         return c.map(Math.round).join(', ');
       };
-      // Uma FAIXA de álbum de verdade, no MESMO documento — o hinário do
-      // fixture não traz faixas, e a comparação inteira é entre dois pontos da
-      // árvore real. Montar a marcação à mão mediria a minha marcação; o que se
-      // monta aqui é o ESTADO (`collState` + `expanded`) de que o app precisa
-      // para desenhar as faixas ele mesmo.
-      const hin = allCollections().find((x) => x.kind === 'hymnal');
-      const songsAntes = hin ? collState[hin.id] : null;
-      if (hin) {
-        collState[hin.id] = { indexSyncedAt: Date.now(), isHymnal: true,
-          songs: [{ id_music: 'f1', name: 'Hino 1', track: 1,
-            has_instrumental_music: false, duration: '3:47' }] };
-        ui(hin.id).expanded = true; ui(hin.id).shown = 100;
-      }
+      // Uma FAIXA de álbum de verdade, no MESMO documento: a comparação inteira
+      // é entre dois pontos da árvore real. Montar a marcação à mão mediria a
+      // minha marcação; o que se monta aqui é o ESTADO (`expanded`) de que o
+      // app precisa para desenhar as faixas ele mesmo.
+      //
+      // É O ÁLBUM SEMEADO (`album-77`), e não um hinário (v1.0.1): as coleções
+      // fixas subiram para a RAIZ, e o par medido aqui — favorito × faixa de
+      // álbum — só significa alguma coisa DENTRO da seção aberta, que é onde o
+      // operador vê os dois lado a lado. Um hinário expandido desenharia as
+      // faixas dele na raiz, fora do escopo que as sondas abaixo pedem.
+      ui('album-77').expanded = true; ui('album-77').shown = 100;
       const favRec = await AVDB.addMedia(new Blob(['f'], { type: 'audio/mpeg' }),
         { name: 'Louvor favorito', list: 'favs' });
       // E UMA PASTA SINCRONIZADA na mesma lista (v5.284): ela é o outro lado do
@@ -1404,8 +1440,15 @@ for (const tema of ['escuro', 'claro']) {
         // — ela diria a mesma coisa se o item estivesse com a cor certa. Pelo
         // que ele NÃO é (uma pasta), ela mede em qualquer arranjo.
         favLinha: efetiva(favCorpo && favCorpo.querySelector('.lib-item:not(.folder-opfs)')),
-        faixa: efetiva(hymnResultsEl.querySelector('.coll-songs > .hymn-result')),
-        cardAlbum: efetiva(hymnResultsEl.querySelector('.hymnal-card')),
+        // DENTRO DA SEÇÃO ABERTA, e o escopo é o caso (v1.0.1): as quatro
+        // coleções fixas passaram a ser cards da RAIZ, então um seletor solto
+        // pega o primeiro delas — que se apoia na FOLHA, não numa seção. As
+        // duas cores comparadas aqui só significam alguma coisa no mesmo
+        // aninhamento em que o operador as vê.
+        faixa: efetiva(hymnResultsEl.querySelector(
+          '.coll-group--drop.aberto:not(.coll-group--fav) .coll-songs > .hymn-result')),
+        cardAlbum: efetiva(hymnResultsEl.querySelector(
+          '.coll-group--drop.aberto:not(.coll-group--fav) .hymnal-card')),
         pasta: efetiva(favCorpo && favCorpo.querySelector('.folder-opfs')),
         // E A ESTRUTURA, dos DOIS lados: o item DENTRO da placa, a pasta IRMÃ
         // dela. É o que dá a cada um a base que o faz aparecer, e sem os dois
@@ -1417,10 +1460,8 @@ for (const tema of ['escuro', 'claro']) {
       opfsFolders.length = 0;
       await AVDB.listRemove('favs', favRec.id);
       await recarregarFavoritos();
-      if (hin) {
-        if (songsAntes) collState[hin.id] = songsAntes; else delete collState[hin.id];
-        ui(hin.id).expanded = false;
-      }
+      // `album-77` fica ABERTO: é o estado declarado do fixture da seção (ver
+      // `SECAO`, no topo), e os casos seguintes contam com ele.
     // ===== A BARRA É O TOPO DA FOLHA (v5.280/v5.281) =====
     // MEDIDA DEPOIS do bloco acima, e de propósito: a rolagem só existe com
     // uma COLEÇÃO ABERTA — com tudo colapsado o vão dos favoritos é
@@ -1609,7 +1650,7 @@ try {
     lista.className = 'hymnal-list';
     lista.style.width = '390px';
     document.body.appendChild(lista);
-    grupoAberto = 'Hinários';
+    grupoAberto = 'Álbuns de exemplo';
     renderCollectionsList(lista, () => {}, { semTotal: true });
     const linha = lista.querySelector('.coll-songs > .hymn-result');
     const lb = linha.getBoundingClientRect();
@@ -1719,8 +1760,13 @@ try {
     const lista = document.createElement('ul');
     lista.className = 'hymnal-list'; lista.style.width = '390px';
     document.body.appendChild(lista);
-    grupoAberto = 'Hinários';
+    grupoAberto = 'Álbuns de exemplo';
     renderCollectionsList(lista, () => {}, { semTotal: true });
+    // DENTRO DA SEÇÃO ABERTA (v1.0.1): a gaveta é comparada com a FAIXA VIZINHA
+    // e com o CARD que a contém, e as três cores só se comparam no mesmo
+    // aninhamento. Solto, o seletor passou a pegar as faixas de uma coleção da
+    // RAIZ, que se apoia na folha — outro fundo, outra conta.
+    const naSecao = '.coll-group--drop.aberto:not(.coll-group--fav) ';
     const linhas = [...lista.querySelectorAll('.coll-songs > .hymn-result')];
     const li = linhas[0];
     li.querySelector('.row').click();
@@ -1932,7 +1978,7 @@ try {
     checar(par(t.gaveta, t.vizinha) >= 1.28,
       '[' + tema + '] e a GAVETA se separa da faixa das linhas vizinhas — era o '
       + '"se mesclando com a lista dos outros itens abaixo" ('
-      + par(t.gaveta, t.vizinha).toFixed(2) + ':1)');
+      + par(t.gaveta, t.vizinha).toFixed(2) + ':1)', JSON.stringify(t));
     checar(par(t.gaveta, t.card) >= 1.28,
       '[' + tema + '] e do CARD do álbum, que é a cor que aparece nos vãos entre '
       + 'as linhas (' + par(t.gaveta, t.card).toFixed(2) + ':1)');
@@ -1975,7 +2021,7 @@ try {
     collState[c.id] = { indexSyncedAt: Date.now(), isHymnal: true,
       songs: [1, 2, 3].map((i) => ({ id_music: 'a' + i, name: 'Hino ' + i, track: i,
         has_instrumental_music: false, duration: '3:47' })) };
-    grupoAberto = 'Hinários'; favAberto = false;
+    grupoAberto = 'Álbuns de exemplo'; favAberto = false;
     ui(c.id).expanded = !!ab; ui(c.id).shown = 100;
     redesenharAcervo();
     await new Promise((r) => setTimeout(r, 500));
@@ -2101,7 +2147,7 @@ try {
           fileIdFull: (completo || i < 3) ? 'f' + i : null });
       }
       collState[c.id] = { indexSyncedAt: Date.now(), songs, isHymnal: true };
-      grupoAberto = 'Hinários';
+      grupoAberto = 'Álbuns de exemplo';
       ui(c.id).expanded = aberto; ui(c.id).shown = 100;
       const lista = document.createElement('ul');
       lista.className = 'hymnal-list';
@@ -2216,16 +2262,19 @@ try {
 try {
   const peso = await pg.evaluate(() => {
     setAppMode('full');
-    albumCatalog.categories = [{ name: 'CDs do ano',
-      albums: [{ id_album: 91, name: 'CD Jovem — Ao Vivo', subtitle: 'Coral e orquestra' }] }];
-    albumCatalog.albums = [{ id_album: 91, name: 'CD Jovem — Ao Vivo' }];
-    const c = allCollections().find((x) => x.kind === 'hymnal');
-    const songs = [];
-    for (let i = 1; i <= 4; i++) {
-      songs.push({ id_music: 'w' + i, name: 'Hino ' + i, track: i,
-        has_instrumental_music: false, duration: '3:47', fileIdFull: i < 3 ? 'f' + i : null });
-    }
-    collState[c.id] = { indexSyncedAt: Date.now(), songs, isHymnal: true };
+    // OS DOIS CARDS NA MESMA SEÇÃO (v1.0.1): um COM subtítulo e um SEM. Eles
+    // eram um álbum e um hinário, em duas passadas — e o hinário subiu para a
+    // RAIZ, que é outro contêiner e outra largura útil (a seção recua .4rem de
+    // cada lado). A comparação de largura só significa alguma coisa entre
+    // irmãos, e "com e sem subtítulo" nunca precisou de dois TIPOS de coleção.
+    // O sem-subtítulo ainda diz o peso: um álbum sem índice desenha
+    // "não sincron." na mesma coluna (ver `renderCollectionCard`).
+    albumCatalog.categories = [{ name: 'CDs do ano', albums: [
+      { id_album: 91, name: 'CD Jovem — Ao Vivo', subtitle: 'Coral e orquestra' },
+      { id_album: 92, name: 'CD Louvor da Manhã' },
+    ] }];
+    albumCatalog.albums = [{ id_album: 91, name: 'CD Jovem — Ao Vivo' },
+      { id_album: 92, name: 'CD Louvor da Manhã' }];
     const lista = document.createElement('ul');
     lista.className = 'hymnal-list';
     lista.style.width = '390px';
@@ -2248,22 +2297,20 @@ try {
         temSub: !!card.querySelector('.coll-bar-sub'),
       };
     };
-    // DUAS PASSADAS, uma por seção (v5.273): o caso precisa de um card COM
-    // subtítulo (o álbum de "CDs do ano") e de um SEM (o hinário), e desde
-    // aquele lote só uma seção fica aberta por vez — abrir as duas de uma vez
-    // deixou de ser representável, que é justamente o ponto dele. E a LEITURA
-    // acontece dentro de cada passada: um card medido depois de a lista ser
-    // refeita está fora do documento, e ali toda medida é zero.
-    const r = [];
-    for (const secao of ['Hinários', 'CDs do ano']) {
-      grupoAberto = secao;
-      lista.innerHTML = '';
-      renderCollectionsList(lista, () => {}, { semTotal: true });
-      r.push(...[...lista.querySelectorAll('.hymnal-card')].map(ler));
-    }
+    // UMA PASSADA, e o escopo é a SEÇÃO ABERTA (v1.0.1): as coleções fixas
+    // desenham na raiz em qualquer passada, e um seletor solto entregaria o
+    // primeiro card DELAS — que se apoia na folha, não na seção.
+    grupoAberto = 'CDs do ano';
+    lista.innerHTML = '';
+    renderCollectionsList(lista, () => {}, { semTotal: true });
+    const r = [...lista.querySelectorAll(
+      '.coll-group--drop.aberto:not(.coll-group--fav) .hymnal-card')].map(ler);
     lista.remove();
-    delete collState[c.id];
-    albumCatalog.categories = []; albumCatalog.albums = [];
+    // DEVOLVE A SEMENTE, não o vazio: os casos abaixo ainda precisam de uma
+    // seção de coleção para medir (ver o bloco `SECAO`, no topo).
+    albumCatalog.categories = [{ name: 'Álbuns de exemplo',
+      albums: [{ id_album: 77, name: 'Álbum de exemplo' }] }];
+    albumCatalog.albums = [{ id_album: 77, name: 'Álbum de exemplo' }];
     grupoAberto = ''; favAberto = true;
     return r;
   });

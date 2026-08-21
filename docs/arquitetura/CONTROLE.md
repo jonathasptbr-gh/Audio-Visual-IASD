@@ -1700,13 +1700,23 @@ anterior e a Biblioteca reabria no meio de um hinário.
  │        (o vão)            │   │      passando do vão)     │
  │                           │   │   …                       │
  ├───────────────────────────┤   ├───────────────────────────┤
- │ Arquivos oficiais    ▼    │   │ Arquivos oficiais    ▼    │
- │ Hinários             ▼    │   │ Hinários             ▼    │
+ │ ▸ Provai e Vede 2026      │   │ ▸ Provai e Vede 2026      │
+ │ ▸ Informativo Mundial     │   │ ▸ Informativo Mundial     │
+ │ ▸ Hinário Adventista 2022 │   │ ▸ Hinário Adventista 2022 │
+ │ ▸ Hinário 1996            │   │ ▸ Hinário 1996            │
+ │ CDs oficiais/ano     ▼    │   │ CDs oficiais/ano     ▼    │
  └───────────────────────────┘   └───────────────────────────┘
    a tela como ela ABRE: o vão      passando do piso, a seção CRESCE
    é o PISO da seção, mesmo         e empurra as fechadas para baixo,
    com a lista vazia                com a Biblioteca rolando
 ```
+
+**O vão conta TODO vizinho, não só as seções** (`medirVaoDosFavoritos`). Desde a
+v1.0.1 as coleções fixas são cards da RAIZ, irmãos das seções na mesma `<ul>`:
+somar só `.coll-group--drop` devolvia um vão maior que a tela e empurrava as
+fechadas para FORA dela — o oposto do que o vão existe para produzir. A conta
+procura a barra pelos dois nomes (`.coll-group-bar, .coll-bar`) e cai na altura
+do próprio bloco quando não há nenhuma.
 
 **São DOIS estados, e não um.** `grupoAberto` é o rodízio das COLEÇÕES (uma
 aberta por vez) e `favAberto` é a seção dos Favoritos, que responde só a si
@@ -2540,8 +2550,8 @@ continuam válidos). UI transitória (sync em andamento, status, peso) fica em
 
 **O navegador do acervo** (`renderCollectionsList(alvo, redesenhar, opts)`)
 renderiza um card por coleção (`renderCollectionCard`), **agrupados por
-categoria** — os dois hinários num grupo fixo no topo, depois cada categoria do
-banco. Ele **não tem aba própria**: desde a v5.43 é o estado padrão do popup da
+categoria** — as quatro coleções fixas soltas no topo (as duas séries, depois os
+dois hinários), depois cada categoria do banco. Ele **não tem aba própria**: desde a v5.43 é o estado padrão do popup da
 lupa, e desde a v5.44 é o único (ver "O acervo É o estado padrão da busca"). A
 função recebe o elemento-alvo e o callback de redesenho justamente por isso —
 duas cópias divergiriam no primeiro ajuste de categoria.
@@ -3077,11 +3087,38 @@ name, color }] }`. `albums` é o índice deduplicado que dá identidade a cada c
 (vira `coll.id`); `categories` preserva a classificação.
 
 `renderCollectionsList()` renderiza **cabeçalhos de categoria** (`.coll-group`)
-na ordem do banco, com os álbuns de cada uma também na ordem do banco, e os
-**hinários num grupo fixo no topo**. Como a relação é N:N, **o mesmo álbum
+na ordem do banco, com os álbuns de cada uma também na ordem do banco, e as
+**quatro coleções fixas como cards da RAIZ, no topo** (v1.0.1 — ver "As coleções
+fixas ficam na raiz", abaixo). Como a relação é N:N, **o mesmo álbum
 aparece em mais de uma categoria** — de propósito, é assim no banco e no app
 original, e o subtítulo muda junto. Álbuns que nenhuma categoria reivindica caem
 num grupo "Outros álbuns" em vez de sumirem.
+
+##### As coleções fixas ficam na RAIZ (v1.0.1)
+
+Elas moravam em dois cabeçalhos — **"Arquivos oficiais"** (as séries, v5.260) e
+**"Hinários"** —, e o agrupamento cobrava um toque que não pagava por si: quem
+abre o Hinário 2022 quase nunca quer o de 1996 na mesma sessão, e quem vai ao
+Provai e Vede não vai ao Informativo. Na raiz, o toque que abria o grupo abre a
+**lista de faixas** — o card já é o acordeão (`alternarAcordeao`).
+
+- **O que o grupo separava continua separado.** Ele existia para distinguir dois
+  MODELOS de item (áudio com letra × vídeo do sábado), e essa distinção é do
+  CARD (`tipoDaColecao`), não do cabeçalho que ficava por cima dele.
+- **A ORDEM é a do uso**, e é a mesma de antes: as séries primeiro (material
+  DATADO do sábado que vem), os hinários depois (acervo PERMANENTE, alcançado
+  pela busca, pelo número ou pelo nome).
+- **ARMADILHA:** `allCollections()` alimenta as CONTAS (peso, "toda a
+  biblioteca", busca), **não** o desenho. Uma coleção fixa nova tem de entrar
+  também na lista de `renderCollectionsListMiolo`, ou ela é construída, conta no
+  peso e não aparece em lugar nenhum — sem erro.
+- **O CARD PASSOU A TER TOM PRÓPRIO** (`--camada: var(--panel-2)` na regra de
+  `.hymnal-card`). Lendo o pai ele ficava em `--panel` na raiz e em `--panel-2`
+  dentro de uma seção: o MESMO álbum trocando de cor conforme alguém o tivesse
+  agrupado, e a escada de dentro dele descendo um degrau junto — medido no
+  escuro, a gaveta aberta caía a **1,26:1** da faixa vizinha (piso 1,28), que é
+  a queixa que a v5.287 fechou. É a exceção declarada à regra "quem declara o
+  tom é o CONTÊINER" — ver `docs/arquitetura/DESIGN-SYSTEM.md`.
 
 **Álbum que é hinário disfarçado** (`isHymnalAlbum`): se `album_{id}.categories`
 contém uma string começando com `hymnal.`, aquele "álbum" é na verdade um
@@ -3180,7 +3217,7 @@ intermediária e sem ninguém conferir a lista antes.
 
 | Fica de fora | Como |
 |---|---|
-| **as séries** (grupo "Arquivos oficiais") | `temLetra(coll)` — a pergunta é pela CAPACIDADE, nunca por `kind === 'serie'`. Um episódio são ~300 MB no lugar do louvor |
+| **as séries** | `temLetra(coll)` — a pergunta é pela CAPACIDADE, nunca por `kind === 'serie'`. Um episódio são ~300 MB no lugar do louvor |
 | **pastas do aparelho e Favoritos** | eles não são coleções, são LISTAS: `allCollections()` não os conhece |
 | **faixa sem a variante pedida** | `semAudio` / `has_instrumental_music && !semPlayback` — sem essa guarda a faixa entra, o download não acha URL, e o cartão responde *"sem internet para baixar"*, que é a frase errada |
 | **o hinário**, se o operador pedir | `collNumbersSongs(coll)`. É OPÇÃO, não regra — foi assim que ele pediu |
@@ -4222,7 +4259,7 @@ sábado é visto uma vez. Então:
 | "Tocar agora" | `ytAcao(…, ['tocar'])` | **TRANSMISSÃO DIRETA** — `ytStream` → `shared/mse.js`, sem baixar |
 | Modo Fácil | `simplePlaySong` desvia para o mesmo `ytAcao` | aquele modo não pergunta nada, e esperar 300 MB com o culto rodando não é opção |
 | guardar offline | os destinos da folha (playlist · Cronograma · Favoritos) | um episódio por vez, pelo caminho de download do YouTube |
-| card | `renderCollectionCard` / `buildCollectionOptions` | no grupo **"Arquivos oficiais"** do índice (v5.260), separado dos hinários; **sem botão de baixar em lote** com índice na mão; o de opções é "Atualizar a lista" (`syncCollection(coll, { soIndice: true })`), e a série sai de "Baixar toda a biblioteca" |
+| card | `renderCollectionCard` / `buildCollectionOptions` | **card da RAIZ** do índice (v1.0.1), acima dos hinários; **sem botão de baixar em lote** com índice na mão; o de opções é "Atualizar a lista" (`syncCollection(coll, { soIndice: true })`), e a série sai de "Baixar toda a biblioteca" |
 
 `downloadSerieItem` e o laço de `syncCollection` continuam existindo e corretos
 — o que mudou é que nenhum toque de UI os alcança hoje. O que muda em relação a
