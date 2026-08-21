@@ -1936,7 +1936,7 @@ nenhuma infraestrutura externa.
 | Rota | Como | Observação |
 |---|---|---|
 | Artifact | Actions → run → *Artifacts* | vem como **.zip**; precisa descompactar no celular |
-| **Release** ⭐ | `git tag v1.0 && git push --tags` | **link direto para o .apk** |
+| **Release** ⭐ | `git tag v1.0.1 && git push --tags` | **link direto para o .apk** |
 | Release manual | Actions → *Build APK* → *Run workflow*, com `release_tag` | a tag é criada pelo próprio workflow |
 
 **O `web-ota` roda com fila, sem cancelamento** (`concurrency: web-ota`,
@@ -2185,7 +2185,7 @@ Rodar local: `./gradlew assembleDebug` (exige Android SDK).
   'refs/heads/main'`) e as Releases nascem de `main`.
 
   ```bash
-  git add <arquivos> && git commit -m "vX.YZ: <descrição>"
+  git add <arquivos> && git commit -m "vX.Y.Z: <descrição>"
   git push -u origin <branch>
   git checkout main && git merge <branch> --no-ff -m "Merge: <resumo>"
   git push origin main          # ← sem isto, nada chega aos aparelhos
@@ -2200,7 +2200,7 @@ Rodar local: `./gradlew assembleDebug` (exige Android SDK).
   **A primeira linha vem ANTES do merge:** declarar a tag em `version.json`.
 
   ```jsonc
-  { "version": "1.1", "minShell": 46, "shellTag": "v1.1" }
+  { "version": "1.0.1", "minShell": 46, "shellTag": "v1.0.1" }
   ```
 
   Com ela o `web-ota` SEGURA o bundle até a Release existir e, quando ela sai,
@@ -2336,6 +2336,36 @@ de comentários contra HEAD)", e estavam certas: o método é que não via.
 **Um comentário no lugar errado é pior que um comentário removido: ele responde,
 e responde errado.**
 
+### O NÚMERO: `MAIOR.INCREMENTAL.CORREÇÃO`
+
+Três componentes, e cada um responde a uma pergunta diferente. **Nunca se sobe
+um degrau "porque já mudou bastante": sobe-se o degrau que o LOTE justifica.**
+
+| degrau | quando sobe | exemplo |
+|---|---|---|
+| **MAIOR** (`1`.x.y) | **só sob mudança fundamental de CONCEITO**, e por decisão explícita de quem publica. Não é acúmulo de recursos — é o app deixar de ser o que era | `1.x.y` → `2.0.0` |
+| **INCREMENTAL** (x.`2`.y) | uma **seção inteiramente nova** do app: um lugar que não existia, com tela e fluxo próprios | `1.0.7` → `1.1.0` |
+| **CORREÇÃO** (x.y.`3`) | correções e ajustes menores — o caso NORMAL, e o que a maioria dos lotes é | `1.0` → `1.0.1` |
+
+**Ao subir um degrau, os de baixo ZERAM:** depois de `1.4.9`, uma seção nova é
+`1.5.0`, nunca `1.5.9`. Um número que não zera passa a contar duas coisas ao
+mesmo tempo e deixa de responder qualquer uma delas.
+
+**ARMADILHA MEDIDA: `1.0` e `1.0.0` são a MESMA versão** para o OTA. O
+`compareVersions` completa com zero o componente que falta, então republicar a
+`1.0` como `1.0.0` não é atualização nenhuma — o aparelho ignora, em silêncio.
+O primeiro degrau depois da `1.0` é **`1.0.1`**.
+
+> A comparação é **numérica por componente**, nunca lexical: `1.0.10` é MAIOR que
+> `1.0.9`. É o mesmo motivo pelo qual `4.9 < 4.82` como string seria errado — a
+> regra vale para os três degraus.
+
+**As DUAS LINHAS usam o mesmo número, e podem ficar em degraus diferentes.** A
+base web sobe a cada lote (chega por OTA em minutos); o APK só sobe quando um
+lote exige Release. Um `Web v1.0.7 · Shell v1.0.3` no rodapé não é divergência —
+é a resposta exata a *"o OTA chegou e o APK ainda não?"*, que é para isso que o
+rodapé mostra os dois.
+
 ### A versão mora em TRÊS lugares, e os três precisam andar juntos
 
 | Onde | O quê | Para quê |
@@ -2349,7 +2379,7 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: v1.0** (base web) · `SHELL_VERSION` **46** · bundle com
+**Versão atual: v1.0** (base web e APK) · `SHELL_VERSION` **46** · bundle com
 `minShell: 46` — o shell 46 é o **PISO**: todo método da ponte existe, e não há
 guarda de versão no lado web. O que continua valendo é que `java/`, `res/`, o
 manifest e os workflows **só chegam instalando o APK**.
