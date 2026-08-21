@@ -24,6 +24,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
+- **v1.0.3** — O SELO DE CAMADAS: com um louvor tocando e um texto por cima, a camada de cima não tinha saída fora da linha que a pôs lá — o Parar levava o louvor junto. Mais o endereço da transmissão que se COPIA, o fundo dos slides que não chegava à tela da rede sem o canal de mídia (guarda larga demais), e o download de um episódio de série que não acendia NADA na lista. OTA PURO
 - **v1.0.2** — O BOTÃO DEIXA DE DIZER "ESPELHAR": o que vai para a TV é o telão, não a tela do celular, e o rótulo anunciava o oposto do que o app entrega. A página vira CLARA e só clara, ganha um card de Slides e um de "recebe de tudo", e o guia cai para três passos com o Play Protect como VERIFICAÇÃO, não como susto. O respiro entre a faixa da marca e o primeiro título media ZERO — `.env` vencia o `main` por especificidade. OTA PURO
 - **v1.0.1** — O ÍCONE FICA DE PÉ e as COLEÇÕES FIXAS SOBEM PARA A RAIZ (um toque a menos até a lista de faixas). Sai o agrupamento "Arquivos oficiais"/"Hinários"; o card ganha tom PRÓPRIO, porque ler o pai o deixava a 1,26:1 da gaveta na raiz. O vão dos Favoritos passa a contar TODO vizinho. A página de acesso é reescrita para quem não é técnico. E a página servia a Release ANTERIOR: `release: published` nunca dispara para Release criada pelo GITHUB_TOKEN — o `pages.yml` passa a encadear por `workflow_run`. EXIGE RELEASE
 - **v1.0** — O SHELL ATUAL VIRA O PISO: `minShell` 2 → 46, saem as 37 guardas de `__SHELL_VERSION__` do lado web e a compatibilidade com bundle antigo do Kotlin. A ponte ENCOLHE (`espelhoLigar()` perde o `modo`, `espelhoAprovar` vira `espelhoDerrubar`). A versão reinicia em **1.0** nos dois canais. EXIGE RELEASE
@@ -189,6 +190,99 @@ na nota que a revoga, não apagada da que a criou.
 - **v5.154** — é METADE OTA e METADE APK, e a divisão importa para quem for testar em aparelho.
 - **v5.155** — é OTA PURO
 - **v5.156** — é METADE OTA e METADE APK, de novo.
+
+---
+
+## v1.0.3 — o selo de camadas, e três sinais que não chegavam
+
+Quatro pedidos do operador, e três deles eram a mesma família: **algo acontecia e
+a tela não dizia**.
+
+### O SELO DE CAMADAS, e ele é a única saída de uma delas
+
+Relato: *"ao tocar um áudio e depois tocar um texto, aviso ou imagem por cima,
+não conseguimos remover ela se não tivermos ela no cronograma ou na aba de
+mensagens… o botão de stop corta toda a apresentação."*
+
+Ele está descrevendo um buraco real. A Camada de Texto sai por `text-hide`, que
+preserva o áudio por baixo — mas o único gesto que a manda é o da LINHA que a pôs
+lá (`retirarDoAr`). Projetada de qualquer outra porta, a camada ficava sem saída
+própria, e o Parar do transporte encerra a CENA INTEIRA: o operador que só queria
+tirar o versículo perdia o louvor junto, na frente da congregação.
+
+Agora um selo aparece sobre a preview, e ele **só existe com as duas coisas no ar
+ao mesmo tempo** — camada projetando E mídia por baixo. É o que o faz um SELO e
+não mais um botão permanente: enquanto ele está lá, há duas camadas; sumindo, há
+uma só e o Parar volta a ser a resposta certa. `midiaNoAr` e não `playing`, pela
+régua de sempre: um louvor PAUSADO para a oração é a cena por baixo, e é o caso
+em que perder o áudio junto mais dói.
+
+Cada provedor sai pela PRÓPRIA porta (`hideBibleVerse`, `hideMessage`,
+`hideChrono`, `hideDraw`, `hideImagemSobre`), o que preserva a sessão dele para
+reexibir pela lista; `songlyrics` e `avulso`, que não têm `hide*` próprio, caem
+no par `text-hide` + `clearManualText` do ramo de cue.
+
+**PREENCHIDO, e é a regra da paleta.** `--live` é o scarlett oficial marcado como
+*só preenchimento*: saturado, ele é o par `--live`/`--on-live` de "está no ar
+agora" — o mesmo do microfone aberto. Como TRAÇO seria o uso que aquele token
+recusa. Preenchido, ele ainda ganha o que o desenho pedia: os dois vizinhos na
+preview são controles de PLAYER (ícone branco sem moldura) e este é um ESTADO.
+
+MEDIDO no caminho: escrita ANTES da `.pv-fab`, a regra de cor perdia por ordem —
+as duas medem 0,1,0 — e o selo saía BRANCO, igual aos botões ao lado, isto é, sem
+dizer nada.
+
+### O endereço da transmissão se COPIA
+
+Ele é digitado num OUTRO aparelho, e quem o passa adiante manda por mensagem.
+Transcrever `http://192.168.x.y:8080` à mão erra um dígito, e o erro só aparece
+no navegador do outro lado, como "site não encontrado". O botão é o mesmo do
+Registro (`.log-copy`), e o ícone virou símbolo do sprite — duas cópias do mesmo
+desenho divergiriam no primeiro ajuste, que é a razão daquele sprite existir.
+
+### O fundo dos slides não chegava à tela da rede sem o canal de mídia
+
+`telaReenviarPreferencias` abria com `if (!telaCanal()) return`, e a guarda
+derrubava as TRÊS preferências. Só o WALLPAPER depende do canal — ele empurra uma
+imagem; `lyricsbg` e `fit` são JSON puro no mesmo SSE de todo comando do culto e
+não movem um byte.
+
+O preço da guarda larga é o defeito que aquele reenvio existe para fechar: a tela
+nasce em `lyricsBgMode = 'black'` (ela não tem o IndexedDB do celular para
+consultar, ao contrário do telão de verdade) e ficava com o **fundo dos slides
+preto com a opção ligada**, para sempre — nada reexamina uma estrofe já
+renderizada. E calado: sem canal não há erro, não há linha no Registro, e o
+padrão do `fit` e do wallpaper é aceitável o bastante para ninguém reparar.
+
+A guarda desceu para o único bloco que depende dela. O oráculo do `boot-nativo`
+ganhou as duas metades — o `lyricsbg` TEM de sair sem canal, e o `wallpaper` NÃO
+pode (a URL `/m/` apontaria para bytes que nunca chegam) —, e foi conferido que
+ele reprova com a guarda antiga de volta.
+
+> Este é o TERCEIRO defeito desta família (v5.188, o `__tela` que nunca era
+> mandado; v5.221, as imagens que chegavam depois da desistência). Os dois
+> anteriores continuam travados por oráculo e passam. **Não reproduzi o caso que
+> o operador viu**; o que está corrigido aqui é um caminho a menos para o mesmo
+> sintoma, achado lendo o código.
+
+### O download de um episódio de série não acendia NADA
+
+Relato: mandar um episódio do Provai e Vede ou do Informativo para o Cronograma
+não sinaliza que há download preparado, nem enquanto ele corre.
+
+Um episódio é um vídeo do YouTube, mas ele **não é desenhado por
+`ytResultRow`** — a lista dele é a da COLEÇÃO (`hymnResultRow`, com `data-song`),
+e o indicador de download de lá é o anel do quadrado à esquerda. `setYtEstado`
+pintava só `.yt-result`: nenhum elemento casava, e o único sinal de ~300 MB
+baixando era a notificação do sistema, fora do app.
+
+`serieComoYoutube` passa a carimbar a linha de origem — num lugar só, porque é
+ali que `coll` e `s` existem juntos —, e `setYtEstado` acende o anel dela pelo
+contador que já existe (`setSongRowBusyKey`, extraído de `setSongRowBusy`). Ele
+ESPELHA em vez de somar: o `onPct` bate a cada fatia, e um contador incrementado
+a cada batida nunca voltaria a zero — o anel giraria para sempre.
+
+Suíte inteira verde: 25/25.
 
 ---
 

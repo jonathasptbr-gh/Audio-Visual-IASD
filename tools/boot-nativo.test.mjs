@@ -2670,6 +2670,40 @@ try {
   checar(!semTela.includes('lyricsbg'),
     'e o display-ready SEM __tela (o telão de verdade) não dispara o reenvio',
     'emitiu: ' + JSON.stringify(semTela));
+
+  // ===== SEM O CANAL DE MÍDIA, AS DUAS PREFERÊNCIAS DE JSON AINDA VIAJAM =====
+  //
+  // `telaReenviarPreferencias` abria com `if (!telaCanal()) return`, e aquela
+  // guarda derrubava as TRÊS. Só o wallpaper depende do canal — ele empurra uma
+  // imagem; `lyricsbg` e `fit` são JSON puro no mesmo SSE de todo comando do
+  // culto e não movem um byte.
+  //
+  // O preço da guarda larga era o defeito que este reenvio existe para fechar: a
+  // tela nasce em `lyricsBgMode = 'black'` (ela não tem o IndexedDB do celular
+  // para consultar) e ficava com o FUNDO DOS SLIDES PRETO com a opção ligada,
+  // para sempre — nada reexamina uma estrofe já renderizada.
+  //
+  // E ele era CALADO: sem canal não há erro, não há linha no Registro, e o
+  // padrão do `fit` e do wallpaper é aceitável o bastante para ninguém reparar.
+  // Só o fundo da letra aparece, e aparece como "o app perdeu a configuração".
+  //
+  // Os dois lados da asserção, porque nenhum basta: o `lyricsbg` TEM de sair, e
+  // o `wallpaper` NÃO pode — mandar a URL `/m/` de bytes que nunca serão
+  // empurrados dá à tela um endereço que responde 404.
+  await pg3.evaluate(() => {
+    delete window.__avTelaMidia;
+    window.__enviados = [];
+    new BroadcastChannel('av-iasd').postMessage(
+      { type: 'display-ready', __de: 'tela-2', __tela: 'tela-2', __mid: 'bn:3' });
+  });
+  await pg3.waitForTimeout(1200);
+  const semCanal = await pg3.evaluate(() => (window.__enviados || []).map((m) => m.type));
+  checar(semCanal.includes('lyricsbg'),
+    'e SEM o canal de mídia o fundo da letra ainda viaja — ele é JSON, não bytes',
+    'emitiu: ' + JSON.stringify(semCanal));
+  checar(!semCanal.includes('wallpaper'),
+    'mas o WALLPAPER não: sem canal, a URL /m/ apontaria para bytes que nunca chegam',
+    'emitiu: ' + JSON.stringify(semCanal));
   await pg3.close();
 } catch (e) {
   checar(false, 'o percurso do __tela terminou sem exceção (' + (e && e.message) + ')');
