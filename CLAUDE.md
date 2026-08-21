@@ -1992,9 +1992,10 @@ de uma árvore com oráculo vermelho embute a mesma base web.
 
 É a regra que o fechamento do portão comprou, e ela vale antes dele: enquanto o
 passo era `continue-on-error`, um oráculo que reprovasse por carga da máquina
-não custava nada — e por isso cinco classes inteiras se acumularam. **MEDIDO**:
-21 dos 23 runs anteriores terminaram verdes com oráculo reprovado dentro, 40
-reprovações somadas, **uma** delas um defeito de verdade.
+não custava nada — e por isso elas se acumularam. **MEDIDO**: 21 dos 23 runs
+anteriores terminaram verdes com oráculo reprovado dentro, 40 reprovações
+somadas, **uma** delas um defeito de verdade. As cinco classes abaixo são as que
+a v5.316 leu e reproduziu; a lista é o que se sabe, não um inventário fechado.
 
 | classe | como aparece | a forma certa |
 |---|---|---|

@@ -208,8 +208,10 @@ verdade. O run mais recente (#1012) fechou em 14/15, e a API do GitHub reporta
 aquele passo como `conclusion: success` — `continue-on-error` reescreve o
 desfecho antes de ele chegar a qualquer painel.
 
-**As outras 39 eram cinco classes, e nenhuma se conserta convivendo com ela** —
-`continue-on-error` as PRESERVA, porque tira o custo de tê-las:
+**As outras 39 eram o oráculo medindo o RUNNER.** As cinco classes abaixo são as
+que apareceram nas reprovações que este lote conseguiu ler e reproduzir — não um
+inventário fechado das 39 —, e nenhuma delas se conserta convivendo com o
+`continue-on-error`: ele as PRESERVA, porque tira o custo de tê-las.
 
 | classe | o que estava sendo medido | à raiz |
 |---|---|---|

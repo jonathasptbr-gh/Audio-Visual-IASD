@@ -256,9 +256,10 @@ jobs:
       #
       # MEDIDO antes de mexer: 21 dos 23 runs anteriores terminaram VERDES com
       # oráculo reprovado dentro, 40 reprovações somadas, UMA delas um defeito
-      # de verdade. As outras 39 eram o oráculo medindo o RUNNER, em cinco
-      # classes: prazo de parede lido como veredito; altura em pixel que depende
-      # da FONTE instalada; estado que a enquete ainda não tinha lido; a
+      # de verdade. As outras 39 eram o oráculo medindo o RUNNER. As cinco
+      # classes que este lote leu e reproduziu — não um inventário fechado das
+      # 39 — foram: prazo de parede lido como veredito; altura em pixel que
+      # depende da FONTE instalada; estado que a enquete ainda não tinha lido; a
       # montagem do cenário correndo contra o que o app faz na abertura; e prazo
       # menor que a CADÊNCIA do app. Nenhuma delas se conserta com
       # `continue-on-error`: ela as PRESERVA, porque tira o custo de conviver
