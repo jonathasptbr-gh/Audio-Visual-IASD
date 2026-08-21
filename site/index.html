@@ -99,7 +99,9 @@
     font-weight:700; display:grid; place-items:center; align-self:start;
   }
   .passos b { display:block; font-size:1rem; }
-  .passos span { color:var(--muted); font-size:.9rem; }
+  /* `block` para o botão do passo 1 cair na LINHA DE BAIXO: `span` e `a` são
+     os dois inline, e o botão vinha colado no fim da frase. */
+  .passos span { display:block; color:var(--muted); font-size:.9rem; }
 
   .calma {
     margin-top:.9rem; text-align:center; font-size:.86rem; color:var(--muted);
