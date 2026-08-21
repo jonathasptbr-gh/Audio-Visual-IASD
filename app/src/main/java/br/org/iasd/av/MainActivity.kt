@@ -286,21 +286,15 @@ class MainActivity : ComponentActivity(), BridgeHost {
 
         // E O AVISO APARECE NA HORA. O lado web enquete de dez em dez segundos
         // (`OTA_POLL_MS`), mas esperar por algo que o shell JÁ SABE é atraso à
-        // toa: quando o bundle fica pronto, o shell empurra. Um bundle antigo
-        // (sem `__avOta`) simplesmente não tem a função e o empurrão vira
-        // no-op — a enquete continua sendo o piso.
-        // O EMPURRÃO LEVA O ESTADO INTEIRO desde a v5.234, e não só a versão da
-        // base web: quem pergunta "tem atualização?" precisa saber, no mesmo
-        // instante, se ela vem com APK — senão a tela desenha a pergunta com
-        // metade do que ela tem a dizer e se corrige meio segundo depois.
-        //
-        // `__avOta` continua sendo chamado ao lado, e não é redundância: ele é o
-        // contrato de um bundle mais antigo que este shell, que existe de
-        // verdade na janela entre a Release e o OTA daquele lote.
-        WebUpdater.aoChegar = { versao ->
+        // toa: quando o bundle fica pronto, o shell empurra — a enquete
+        // continua sendo o piso.
+        // O EMPURRÃO LEVA O ESTADO INTEIRO, e não só a versão da base web: quem
+        // pergunta "tem atualização?" precisa saber, no mesmo instante, se ela
+        // vem com APK — senão a tela desenha a pergunta com metade do que ela
+        // tem a dizer e se corrige meio segundo depois.
+        WebUpdater.aoChegar = {
             val estado = WebUpdater.estado(this).toString()
-            val js = "window.__avAtualizacao && window.__avAtualizacao($estado);" +
-                "window.__avOta && window.__avOta(${JSONObject.quote(versao)});"
+            val js = "window.__avAtualizacao && window.__avAtualizacao($estado);"
             runOnUiThread { web?.evaluateJavascript(js, null) }
         }
 
@@ -1244,7 +1238,7 @@ class MainActivity : ComponentActivity(), BridgeHost {
      * o mesmo código, e a FRASE da falha vem pronta de quem sabe o motivo. A
      * especificação proíbe degradar calado em todos os pontos deste caminho.
      */
-    override fun startMirror(modo: String, onResult: (JSONObject) -> Unit) {
+    override fun startMirror(onResult: (JSONObject) -> Unit) {
         runOnUiThread {
             if (espelhoSrv?.ligado == true) { onResult(mirrorJson()); return@runOnUiThread }
 
@@ -1419,20 +1413,14 @@ class MainActivity : ComponentActivity(), BridgeHost {
      *
      * O `id` é o RÓTULO da tela ("tela B"), que é o único identificador que a
      * lista do operador tem.
-     *
-     * A ASSINATURA FICA com o `aprovar` ignorado, e isso é deliberado: mudá-la
-     * obrigaria a subir o `SHELL_VERSION` sem ganhar nada, e o lado web já manda
-     * `false` no único ponto que chama. (Ele já significou "aprovar uma tela
-     * pendente", "recusá-la" e "ligar a aprovação automática"; os três morreram
-     * com a fila de aprovação — quem entra pela porta entra na hora.)
      */
-    override fun approveMirrorScreen(id: String, approve: Boolean, onResult: (Boolean) -> Unit) {
+    override fun derrubarTela(rotulo: String, onResult: (Boolean) -> Unit) {
         runOnUiThread {
             // Um rótulo VAZIO derrubaria a primeira tela que casasse com nada —
             // ou, pior, cairia num caminho de "todas". Recusar cedo é a única
             // resposta possível.
-            if (id.isBlank()) { onResult(false); return@runOnUiThread }
-            onResult(espelhoSrv?.derrubarTela(id) == true)
+            if (rotulo.isBlank()) { onResult(false); return@runOnUiThread }
+            onResult(espelhoSrv?.derrubarTela(rotulo) == true)
         }
     }
 

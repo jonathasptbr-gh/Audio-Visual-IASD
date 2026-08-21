@@ -88,7 +88,7 @@ interface BridgeHost {
      * Devolve o MESMO objeto de [mirrorState] — com `erro` não-vazio quando não
      * deu —, para o lado web ter um formato só e um desenho só.
      */
-    fun startMirror(modo: String, onResult: (JSONObject) -> Unit)
+    fun startMirror(onResult: (JSONObject) -> Unit)
 
     /**
      * DESLIGA o espelho. Síncrono e sem resposta: quem chama já sabe o que
@@ -103,10 +103,11 @@ interface BridgeHost {
     fun mirrorDiag(onResult: (JSONObject) -> Unit)
 
     /**
-     * O operador decide sobre uma tela que digitou o PIN e está PENDENTE.
-     * `id` vazio ou `"*"` é a chave da aprovação automática desta sessão.
+     * DERRUBA UMA tela da rede, pelo RÓTULO ("tela B") — o único identificador
+     * que a folha do operador tem. Rótulo em branco é recusado, e não vale
+     * "todas".
      */
-    fun approveMirrorScreen(id: String, approve: Boolean, onResult: (Boolean) -> Unit)
+    fun derrubarTela(rotulo: String, onResult: (Boolean) -> Unit)
 
     /** Importa o `.p12` do espelho. `onResult("")` = deu certo; senão, a frase. */
     fun mirrorCertImport(origem: String, senha: String, onResult: (String) -> Unit)
@@ -165,7 +166,7 @@ class NativeBridge(
          *
          * O degrau a degrau está na tabela da seção "A ponte" do `CLAUDE.md`.
          */
-        const val SHELL_VERSION = 45
+        const val SHELL_VERSION = 46
 
         /**
          * O CONSUMIDOR DA LAN para o barramento (telão por comandos, E2 —
@@ -180,9 +181,9 @@ class NativeBridge(
         var tapLan: ((String) -> Unit)? = null
 
         /**
-         * Por quanto tempo um `display-status` do TELÃO cala o `espelho-status`
+         * Por quanto tempo um `display-status` do TELÃO cala o `tela-status`
          * — ver [snoopDisplayStatus]. Folga sobre o compasso do status (~4 Hz)
-         * para uma batida perdida não devolver a palavra ao espelho.
+         * para uma batida perdida não devolver a palavra às telas da rede.
          */
         private const val PRECEDENCIA_TELAO_MS = 3_000L
 
@@ -190,11 +191,11 @@ class NativeBridge(
          * Quando o TELÃO de verdade falou pela última vez. NO COMPANION, e a
          * mudança é correção além de conveniência: cada papel tem a PRÓPRIA
          * instância de ponte, então um campo de instância nunca cruzava o
-         * display-status (que chega pela ponte do telão) com o espelho-status
-         * (que chega pela do espelho) — a precedência era comparada contra um
-         * relógio que o outro lado nunca escrevia. Compartilhado, ela passa a
-         * valer entre papéis — e para o `tela-status` do telão por comandos,
-         * que nem ponte tem (chega pelo `POST /r` do servidor da LAN).
+         * display-status (que chega pela ponte do telão) com o `tela-status`
+         * — a precedência era comparada contra um relógio que o outro lado
+         * nunca escrevia. Compartilhado, ela passa a valer entre papéis — e
+         * para o `tela-status` do telão por comandos, que nem ponte tem (chega
+         * pelo `POST /r` do servidor da LAN).
          */
         @Volatile
         private var ultimoStatusDoTelaoMs = 0L
@@ -207,12 +208,10 @@ class NativeBridge(
          * web já calculou — a exceção documentada do snoop desde sempre.
          */
         fun snoopStatusDeFora(ctx: Context, json: String) {
-            if (!json.contains("display-status") && !json.contains("espelho-status") &&
-                !json.contains("tela-status")
-            ) return
+            if (!json.contains("display-status") && !json.contains("tela-status")) return
             val o = try { JSONObject(json) } catch (e: Exception) { return }
             val tipo = o.optString("type")
-            if (tipo != "display-status" && tipo != "espelho-status" && tipo != "tela-status") return
+            if (tipo != "display-status" && tipo != "tela-status") return
             // A PRECEDÊNCIA é a mesma do `controle.js`: com um telão de verdade
             // emitindo, espelho e telas da rede são ruído — duas fontes
             // alternadas dão uma barra que anda para a frente e para trás.
@@ -390,10 +389,10 @@ class NativeBridge(
      * o piso comum de 5 s não reprovava nenhuma delas — o que se anunciava como
      * "lê o disco" era uma consulta à rede a cada dez segundos, para sempre.
      *
-     * NÃO espera a resposta da rede: quem entrega o desfecho é o `otaPending`
-     * seguinte (a enquete do lado web) ou o empurrão do shell quando o bundle
-     * fica pronto (`window.__avOta`). Segurar a promise pelo tempo de um
-     * download de megabytes só daria um botão travado.
+     * NÃO espera a resposta da rede: quem entrega o desfecho é a enquete do
+     * lado web ou o empurrão do shell quando o bundle fica pronto
+     * (`window.__avAtualizacao`). Segurar a promise pelo tempo de um download
+     * de megabytes só daria um botão travado.
      *
      * Só o Controle — o telão não pede atualização.
      */
@@ -711,8 +710,8 @@ class NativeBridge(
      * LIGA o espelho e resolve o estado resultante (o MESMO objeto do
      * [espelhoEstado], com `erro` não-vazio quando não deu).
      *
-     * `modo` é IGNORADO desde a v5.156: ficou na assinatura para não custar um
-     * degrau de `SHELL_VERSION`. Ver [BridgeHost.startMirror].
+     * Sem argumentos: só existe um modo de transmitir (o telão por comandos).
+     * Ver [BridgeHost.startMirror].
      *
      * O espelho é AUXILIAR por contrato: ele liga por ação do operador e
      * desliga por ação do operador, pelo fechamento do app, ou por uma falha que
@@ -720,10 +719,10 @@ class NativeBridge(
      * já conectada é uma pergunta que o lado web faz antes de chegar aqui.
      */
     @JavascriptInterface
-    fun espelhoLigar(callId: String, modo: String) {
+    fun espelhoLigar(callId: String) {
         val h = host
         if (h == null) { resolve(callId, "null"); return }
-        h.startMirror(modo) { estado -> resolve(callId, estado.toString()) }
+        h.startMirror { estado -> resolve(callId, estado.toString()) }
     }
 
     /**
@@ -775,23 +774,21 @@ class NativeBridge(
     }
 
     /**
-     * DERRUBAR UMA TELA — a única coisa que este método faz (shell 36).
+     * DERRUBAR UMA TELA — a única coisa que este método faz, e agora o nome
+     * diz isso.
      *
-     * `id` é o RÓTULO da tela ("tela B"), o único identificador que a lista do
+     * `rotulo` é o da tela ("tela B"), o único identificador que a lista do
      * operador tem; rótulo em branco é RECUSADO, e não vale "todas".
      *
-     * A ASSINATURA FICA com o `aprovar` ignorado, e isso é deliberado: mudá-la
-     * custaria um degrau de `SHELL_VERSION` sem ganhar nada, e o lado web já
-     * manda `false` no único ponto que chama (`espelhoDerrubar`, em
-     * `native.js`). NÃO HÁ PIN NEM FILA DE PENDENTES: a porta é o ENDEREÇO na
-     * rede, e o controle real é o teto de 3 sessões mais este derrubar, com
-     * castigo de 2 min (ver [EspelhoPares]). Ver [MainActivity.approveMirrorScreen].
+     * NÃO HÁ PIN NEM FILA DE PENDENTES: a porta é o ENDEREÇO na rede, e o
+     * controle real é o teto de 3 sessões mais este derrubar, com castigo de
+     * 2 min (ver [EspelhoPares]). Ver [MainActivity.derrubarTela].
      */
     @JavascriptInterface
-    fun espelhoAprovar(callId: String, id: String, aprovar: Boolean) {
+    fun espelhoDerrubar(callId: String, rotulo: String) {
         val h = host
         if (h == null) { resolve(callId, "false"); return }
-        h.approveMirrorScreen(id, aprovar) { ok -> resolve(callId, if (ok) "true" else "false") }
+        h.derrubarTela(rotulo) { ok -> resolve(callId, if (ok) "true" else "false") }
     }
 
     /**
@@ -800,8 +797,8 @@ class NativeBridge(
      * Três métodos e não um: importar precisa de dois argumentos e devolve uma
      * FRASE de erro, consultar é chamado a cada abertura da folha, e apagar é
      * destrutivo. Espremê-los num só com um verbo em string produziria
-     * exatamente o tipo de API que o próprio `espelhoAprovar` evita ter — lá o
-     * `"*"` cabe porque é o MESMO ato do operador; aqui são três atos.
+     * exatamente o tipo de API que o próprio `espelhoDerrubar` evita ter: ele
+     * faz UMA coisa, e o nome diz qual. Aqui são três atos.
      *
      * **Privilégio do Controle** (`host != null`), como os cinco irmãos: o
      * telão e o espelho carregam código de terceiro por design, e importar uma

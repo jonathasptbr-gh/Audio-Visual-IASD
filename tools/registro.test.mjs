@@ -119,7 +119,7 @@ const PONTE = `(() => {
     'espelhoEstado','espelhoDiag','espelhoCertEstado','espelhoCertImportar','espelhoCertApagar',
     'apkProcurar','apkInstalar','otaPending','otaApply','otaCheck','otaDiag','ytDiag']);
   const B = {
-    shellVersion: () => 40,
+    shellVersion: () => 46,
     role: () => 'controle',
     appVersion: () => '1.93-teste',
     takeShare: () => '',
@@ -127,7 +127,7 @@ const PONTE = `(() => {
     otaConfirm: () => {},
   };
   const nomes = ['apkInstalar','apkProcurar','bgProgress','captureVolumeKeys','castTarget',
-    'deckDiscard','deckExportUrl','deckPages','displays','espelhoAprovar','espelhoCertApagar',
+    'deckDiscard','deckExportUrl','deckPages','displays','espelhoCertApagar',
     'espelhoCertEstado','espelhoCertImportar','espelhoDesligar','espelhoDiag','espelhoEstado',
     'espelhoLigar','keepAlive','listFolder','nowPlaying','openCast','openExternal','otaApply',
     'otaCheck','otaDiag','otaPending','pickDoc','pickFolder','requestMic','systemVolume',

@@ -99,7 +99,7 @@
     const started = Date.now();
     (function poll() {
       if (otaAppIsUp()) {
-        try { B.otaConfirm(); } catch (_) { /* shell antigo, sem OTA */ }
+        try { B.otaConfirm(); } catch (_) { /* ponte indisponível */ }
         return;
       }
       // Desistir em silêncio é o comportamento correto: sem confirmação, o
@@ -304,9 +304,8 @@
 
     // Botão de cast da preview: abre o seletor de ESPELHAMENTO DE TELA do
     // Android (Smart View / Wireless display) — não o Google Cast, que é
-    // outra coisa (ver NativeBridge.openCastPicker). Num shell antigo, sem o
-    // método, não faz nada em vez de quebrar.
-    openCast() { try { B.openCast(); } catch (_) { /* shell antigo */ } },
+    // outra coisa (ver NativeBridge.openCastPicker).
+    openCast() { try { B.openCast(); } catch (_) { /* ponte indisponível */ } },
 
     // Vídeo do YouTube como ARQUIVO, extraído e baixado pelo PRÓPRIO APARELHO
     // (ver YoutubeGrab.kt). Resolve `{ url, name, size, type }` com uma URL
@@ -317,10 +316,8 @@
     // `__avYtProgress` a cada megabyte, com o id desta chamada.
     // `somenteAudio` baixa a FAIXA DE ÁUDIO (m4a), e cai num MÉTODO PRÓPRIO da
     // ponte (`ytFetchAudio`) em vez de num parâmetro a mais: a ponte casa o
-    // método por nome + aridade, e mudar a assinatura do `ytFetch` quebraria o
-    // download inteiro num shell antigo que recebesse este bundle por OTA. A
-    // degradação é a certa: sem `ytFetchAudio` a promise resolve null e quem
-    // pediu ÁUDIO recebe "não deu", sem afetar quem pediu vídeo.
+    // método por NOME E ARIDADE, então cada destino é um método — e é essa
+    // regra, não uma escolha de estilo, que mantém os três separados.
     // `altura` (v5.118) é o TETO de resolução — TERCEIRO destino (`ytFetchAte`)
     // pela mesma razão, e com um cuidado a mais: só é usado quando o teto é
     // MENOR que o padrão do shell. Pedir 1080p continua saindo pelo `ytFetch`,
@@ -339,9 +336,9 @@
     },
     // O MANIFESTO DA TRANSMISSÃO DIRETA de um vídeo do YouTube: as duas faixas
     // adaptativas com os byte-ranges do DASH e URLs servíveis pelo próprio
-    // origin (ver StreamProxy.kt). `null` num shell antigo, quando não há par
-    // transmissível, ou quando o vídeo é restrito — e aí quem chamou cai no
-    // download, que continua inteiro.
+    // origin (ver StreamProxy.kt). `null` quando não há par transmissível ou
+    // quando o vídeo é restrito — e aí quem chamou cai no download, que
+    // continua inteiro.
     //
     // COM prazo, como o gêmeo `ytSearch` — e ao contrário do `ytFetch`: aqui
     // há uma EXTRAÇÃO no meio (segundos), não um download de minutos. Sem o
@@ -361,14 +358,14 @@
     ytSearch: (termo) => call((id) => B.ytSearch(id, String(termo)), CALL_TIMEOUT_MS)
       .then((r) => r || []),
 
-    // ---- SÉRIES (shell 41) — ver `controle/serie.js` ----
+    // ---- SÉRIES — ver `controle/serie.js` ----
     // Os dois são TRANSPORTE: entregam o que o canal publica, verbatim. Quem
     // decide o que é da série, o que é Libras e como o item se chama é o
     // `serie.js`, do lado web (invariante 5).
     //
     // COM prazo, como o `ytSearch` e o `ytStream`: há rede no meio (segundos),
-    // não um download de minutos. Num shell antigo o `call` resolve null e a
-    // lista vazia faz o card da série não ser desenhado — a degradação certa.
+    // não um download de minutos. Vencido o prazo, a lista vazia faz o card da
+    // série não ser desenhado — a degradação certa.
 
     // As playlists da ABA do canal: `[{ name, url, count }]`.
     ytCanalPlaylists: (canalUrl) => call(
@@ -383,22 +380,20 @@
 
     // Apaga o arquivo intermediário depois que os bytes já foram para a
     // biblioteca — senão o vídeo fica DUAS vezes no aparelho.
-    ytDiscard(url) { try { B.ytDiscard(String(url)); } catch (_) { /* shell antigo */ } },
+    ytDiscard(url) { try { B.ytDiscard(String(url)); } catch (_) { /* ponte indisponível */ } },
 
-    // PARA o download deste link (shell 28+). Não devolve nada e não espera: o
+    // PARA o download deste link. Não devolve nada e não espera: o
     // desfecho chega pelo caminho de sempre — a promise do `ytFetch` resolve
     // `null`, como em qualquer falha —, e quem sabe que a causa foi um
     // cancelamento é quem o pediu.
     //
     // Síncrono de propósito, sem `call`: do outro lado ele só escreve um campo,
     // e enfileirá-lo na fila de IO o faria rodar DEPOIS do download que se quer
-    // parar. Num shell antigo o `try` engole e nada acontece — por isso quem
-    // desenha o botão pergunta o `__SHELL_VERSION__` antes.
-    ytCancel(url) { try { B.ytCancel(String(url)); } catch (_) { /* shell antigo */ } },
+    // parar.
+    ytCancel(url) { try { B.ytCancel(String(url)); } catch (_) { /* ponte indisponível */ } },
 
     // A ATUALIZAÇÃO DA BASE WEB que já está baixada e espera o próximo
-    // lançamento (shell 29+). String vazia quando não há nada novo — e num
-    // shell antigo o `call` resolve null, que o chamador lê como "nada".
+    // lançamento. String vazia quando não há nada novo.
     otaPending: () => call((id) => B.otaPending(id), CALL_TIMEOUT_MS),
 
     // APLICA essa atualização AGORA: as duas páginas recarregam. Devolve a
@@ -409,14 +404,13 @@
     // houve o que aplicar, o único desfecho em que a página continua viva.
     otaApply: () => call((id) => B.otaApply(id), CALL_TIMEOUT_MS),
 
-    // PROCURAR AGORA (shell 31+). Síncrono e sem resposta de propósito: quem
+    // PROCURAR AGORA. Síncrono e sem resposta de propósito: quem
     // entrega o desfecho é o `otaPending` seguinte ou o empurrão do shell
-    // (`window.__avOta`) — segurar uma promise pelo tempo de um download de
-    // megabytes daria um botão travado. Num shell antigo o `try` engole e a
-    // procura segue sendo a da abertura.
-    otaCheck(forcar) { try { B.otaCheck(!!forcar); } catch (_) { /* shell antigo */ } },
+    // (`window.__avAtualizacao`) — segurar uma promise pelo tempo de um download de
+    // megabytes daria um botão travado.
+    otaCheck(forcar) { try { B.otaCheck(!!forcar); } catch (_) { /* ponte indisponível */ } },
 
-    // OS DOIS CANAIS NUMA LEITURA SÓ (shell 43):
+    // OS DOIS CANAIS NUMA LEITURA SÓ:
     // `{ web, webAtual, shell, shellBytes, shellAtual, diag }`.
     //
     // Ele existe pela COERÊNCIA DE INSTANTE, não por economia de chamadas: com
@@ -425,21 +419,20 @@
     // desenhada — "há uma base nova" virando "…e um APK junto" meio segundo
     // depois, num diálogo que o operador já estava lendo.
     //
-    // Resolve `null` num shell antigo, e é o chamador que cai nas três antigas
-    // — a degradação é dele porque só ele sabe montar a pergunta com o que
-    // sobrou.
+    // Resolve `null` se a ponte não responder no prazo, e aí o chamador não
+    // desenha pergunta nenhuma — meia pergunta é pior que nenhuma.
     atualizacaoEstado: () => call((id) => B.atualizacaoEstado(id), CALL_TIMEOUT_MS)
       .catch(() => null),
 
-    // ---- O APK SE ATUALIZA SOZINHO (shell 35) ----
+    // ---- O APK SE ATUALIZA SOZINHO ----
     //
     // `apkProcurar` devolve `{}` quando não há nada, `{versao, bytes, notas}`
     // quando há, e `{erro}` quando a pergunta falhou — os três são leituras
     // diferentes, e por isso o vazio não carrega mensagem.
     //
-    // Num shell antigo os dois resolvem o desfecho INOFENSIVO em vez de lançar:
-    // quem chama é uma linha de Configurações, e um `throw` ali deixaria a tela
-    // sem a versão web também.
+    // Os dois resolvem o desfecho INOFENSIVO em vez de lançar: quem chama é uma
+    // linha de Configurações, e um `throw` ali deixaria a tela sem a versão web
+    // também.
     apkProcurar: () => call((id) => B.apkProcurar(id), CALL_TIMEOUT_MS).catch(() => ({})),
 
     // BAIXA e abre o instalador do sistema. `''` = deu certo; qualquer outra
@@ -458,7 +451,7 @@
 
 
     // O ESTADO DA PROCURA, em uma linha, para o Registro: quando foi a última,
-    // o que ela deu e quantas falhas seguidas. Vazio num shell antigo.
+    // o que ela deu e quantas falhas seguidas.
     otaDiag: () => call((id) => B.otaDiag(id), CALL_TIMEOUT_MS).then((r) => r || ''),
 
     // DIAGNÓSTICO da última extração do YouTube: uma linha dizendo quantas
@@ -503,7 +496,7 @@
       try { return B.deckExportUrl(String(link)) || ''; } catch (_) { return ''; }
     },
     // Apaga as páginas intermediárias depois da cópia para a biblioteca.
-    deckDiscard(url) { try { B.deckDiscard(String(url)); } catch (_) { /* shell antigo */ } },
+    deckDiscard(url) { try { B.deckDiscard(String(url)); } catch (_) { /* ponte indisponível */ } },
 
     // Abre uma URL FORA do app (navegador ou o app que a reivindicar). O
     // WebView do Controle recusa navegar para qualquer coisa que não seja o
@@ -511,14 +504,14 @@
     // num WebView que injeta `__AVBridge` em toda página —, então sem este
     // método um link externo simplesmente não faz nada. Só `https`, e a
     // validação é repetida no Kotlin: aqui ela é conveniência, lá é a guarda.
-    // Num shell antigo o método não existe e o `try` engole; quem chama já não
-    // oferece o botão nesse caso (ver appendYoutubeSearch).
+    // No navegador quem abre um link externo é o `window.open` de sempre (ver
+    // appendYoutubeSearch).
     openExternal(url) {
       try {
         const u = String(url || '');
         if (!/^https:\/\//i.test(u)) return;
         B.openExternal(u);
-      } catch (_) { /* shell antigo */ }
+      } catch (_) { /* ponte indisponível */ }
     },
 
     // Para onde o botão vai abrir, em texto — os alvos variam por fabricante
@@ -526,13 +519,10 @@
     // (num shell sem o método, `call` já resolve null — isto vira string vazia)
     castTarget: () => call((id) => B.castTarget(id), CALL_TIMEOUT_MS).then((r) => (r && r.label) || ''),
 
-    // ---------- ESPELHO DE PIXELS (shell 32+) ----------
+    // ---------- O TELÃO POR COMANDOS ----------
     //
-    // O telão numa tela virtual privada, servido a navegadores da rede local
-    // (ver docs/ESPELHO-DE-PIXELS.md). Num shell antigo o `call` resolve null e
-    // o `try` engole — mas quem desenha a linha já pergunta o
-    // `__SHELL_VERSION__` antes, porque botão que não faz nada no meio de um
-    // culto é pior que botão nenhum.
+    // O `/web/display/` de verdade rodando em navegadores da rede local, movido
+    // pelos comandos do barramento (ver docs/TELAO-POR-COMANDOS.md).
     //
     // ESTES QUATRO NÃO REMONTAM CAMPO A CAMPO, e isso é deliberado: eles só
     // repassam o `callId` e devolvem o JSON que o KOTLIN montou. A forma de
@@ -540,37 +530,29 @@
     // como `false`/`0` do outro lado (`slideLabel` v5.97→v5.102, `bytes`
     // v5.118→v5.137) — não tem por onde acontecer aqui, porque não há
     // remontagem. O que sobra de cuidado é a coerção dos ARGUMENTOS, abaixo.
-    espelhoLigar: (modo) => call(
-      (id) => B.espelhoLigar(id, String(modo || 'imagem')), CALL_TIMEOUT_MS,
-    ),
+    espelhoLigar: () => call((id) => B.espelhoLigar(id), CALL_TIMEOUT_MS),
     // Síncrono e SEM `callId`, no molde do `ytCancel`: desligar não pode
     // esperar a fila de nada. Quem responde é o próprio estado, na consulta
     // seguinte.
-    espelhoDesligar() { try { B.espelhoDesligar(); } catch (_) { /* shell antigo */ } },
+    espelhoDesligar() { try { B.espelhoDesligar(); } catch (_) { /* ponte indisponível */ } },
     espelhoEstado: () => call((id) => B.espelhoEstado(id), CALL_TIMEOUT_MS),
     espelhoDiag: () => call((id) => B.espelhoDiag(id), CALL_TIMEOUT_MS),
-    // DERRUBAR UMA TELA — e desde o shell 36 é a única coisa que este método
-    // faz. Ele nasceu como "o operador decide sobre uma tela pendente" e teve
-    // três significados empilhados (aprovar, recusar, e o `'*'` da aprovação
-    // automática); os três morreram com a fila, porque quem digita o código
-    // certo entra na hora e não há o que aprovar.
+    // DERRUBAR UMA TELA — a única coisa que este método faz.
     //
     // `rotulo` é o da tela ("tela B"), que é o único identificador que a folha
-    // do operador tem. O segundo argumento fica na assinatura e é IGNORADO pelo
-    // shell: mudá-la custaria outro degrau de `SHELL_VERSION` sem ganhar nada.
+    // do operador tem.
     espelhoDerrubar: (rotulo) => call(
-      (id) => B.espelhoAprovar(id, String(rotulo || ''), false), CALL_TIMEOUT_MS,
+      (id) => B.espelhoDerrubar(id, String(rotulo || '')), CALL_TIMEOUT_MS,
     ).then((r) => r === true),
 
-    // O CERTIFICADO do espelho (shell 34) — o degrau opcional de TLS. Ver
+    // O CERTIFICADO do espelho — o degrau opcional de TLS. Ver
     // `docs/ESPELHO-DE-PIXELS.md` §2.4 para por que autoassinado está
     // descartado e por que o caminho é um NOME que o operador controla.
     //
     // `espelhoCertImportar` devolve a FRASE do erro, e `''` quando deu certo —
     // não um booleano: as causas são todas acionáveis e diferentes ("a senha
     // não abriu o arquivo" manda tentar de novo, "já venceu" manda renovar), e
-    // um `false` as igualaria. Num shell antigo o `call` resolve null e o
-    // `.then` vira a frase de shell velho, em vez de um sucesso silencioso.
+    // um `false` as igualaria.
     espelhoCertImportar: (origem, senha) => call(
       (id) => B.espelhoCertImportar(id, String(origem || ''), String(senha || '')),
       CALL_TIMEOUT_MS,
@@ -582,9 +564,9 @@
     // Botões físicos de volume: pede que a Activity os intercepte e os entregue
     // em `window.__avVolumeKey(±1)` — sem isso eles mexem na saída do sistema
     // (e, com espelhamento ativo, no volume da TV) em vez do fader do app.
-    captureVolumeKeys(on) { try { B.captureVolumeKeys(!!on); } catch (_) { /* shell antigo */ } },
+    captureVolumeKeys(on) { try { B.captureVolumeKeys(!!on); } catch (_) { /* ponte indisponível */ } },
     // Fader já no limite: devolve o passo ao volume do sistema.
-    systemVolume(step) { try { B.systemVolume(step | 0); } catch (_) { /* shell antigo */ } },
+    systemVolume(step) { try { B.systemVolume(step | 0); } catch (_) { /* ponte indisponível */ } },
 
     // TEMA (v5.192): o shell precisa saber qual dos dois está no ar, por duas
     // razões que o CSS não alcança.
@@ -599,15 +581,13 @@
     //    recurso do APK, resolvido antes de existir JavaScript: o shell guarda a
     //    escolha e a aplica no lançamento seguinte. Trocar de tema tem, por
     //    isso, um lançamento de atraso NESSE detalhe — e só nele.
-    //
-    // Num shell antigo (< 39) o método não existe, o `try` engole, e o app fica
-    // com as barras do tema escuro: o que ele sempre foi.
-    temaClaro(on) { try { B.temaClaro(!!on); } catch (_) { /* shell antigo */ } },
+
+    temaClaro(on) { try { B.temaClaro(!!on); } catch (_) { /* ponte indisponível */ } },
 
     // Microfone (push-to-talk): garante a permissão RECORD_AUDIO do Android
     // ANTES do getUserMedia. Sem ela o WebView nega a captura de propósito
-    // (ver MicChromeClient). Num shell antigo resolve false — e o lado web
-    // tenta o getUserMedia mesmo assim, que é o caminho do navegador.
+    // (ver MicChromeClient). Resolvendo false, o lado web tenta o getUserMedia
+    // mesmo assim, que é o caminho do navegador.
     requestMic: () => call((id) => B.requestMic(id)).then((r) => r === true),
 
 
@@ -619,9 +599,7 @@
 
     // Progresso do download em curso, para a notificação do serviço em
     // primeiro plano — com o app minimizado ela é a única janela para o que
-    // está acontecendo. `{ label, done, total, etaMs }`. Num shell antigo o
-    // método não existe: o `try` engole e a notificação segue estática, que é
-    // exatamente o comportamento anterior.
+    // está acontecendo. `{ label, done, total, etaMs }`.
     bgProgress(p) {
       try {
         B.bgProgress(JSON.stringify({
@@ -642,15 +620,15 @@
           // CAMPO NOVO AQUI = CAMPO NOVO NO OBJETO ACIMA, sempre.
           bytes: !!(p && p.bytes),
           // O item em destaque agora (nome de música/capítulo/arquivo). Vem
-          // como lista por compatibilidade com shells anteriores, mas hoje o
-          // lado web manda UM de cada vez, consumindo uma FILA — ver
+          // como LISTA, mas o lado web manda UM de cada vez, consumindo uma
+          // FILA — ver
           // bgItemStart/bgPacerTick em controle.js. Não é rodízio entre os
           // itens em voo: o rodízio trazia o mesmo nome de volta várias vezes
           // e a lista não ia a lugar nenhum; a fila consome cada nome UMA
           // vez, em ordem.
           items: (p && Array.isArray(p.items) ? p.items : []).map(String).slice(0, 6),
-          // Há quanto tempo nada acontece. Um shell anterior ignora o campo e
-          // a notificação simplesmente não distingue travado de lento.
+          // Há quanto tempo nada acontece: é o que faz a notificação
+          // distinguir TRAVADO de lento.
           idleMs: inteiro(p && p.idleMs),
         }));
       } catch (_) { /* ignorado */ }
@@ -658,8 +636,8 @@
 
     // O que está no ar, para a notificação de controles e a sessão de mídia
     // (SessionService.kt). `active:false` = nada em cena: a notificação some.
-    // Num shell anterior o método não existe e o `try` engole — o app segue
-    // sem notificação de controles, como antes.
+    // O `try` engole: uma falha ao publicar o cartão não pode derrubar a cena
+    // que ele descreve.
     nowPlaying(s) {
       try {
         B.nowPlaying(JSON.stringify({
@@ -675,8 +653,7 @@
           // ele NUNCA chegava lá: este objeto é montado campo a campo, e quem
           // esquece de um aqui o descarta em silêncio, sem erro em lugar
           // nenhum. Resultado: a notificação escrevia "(estrofe)" também
-          // durante uma APRESENTAÇÃO, onde o que passa é página. Num shell
-          // antigo o campo é ignorado e o rótulo volta ao de sempre.
+          // durante uma APRESENTAÇÃO, onde o que passa é página.
           slideLabel: String((s && s.slideLabel) || ''),
           wallpaper: !!(s && s.wallpaper),
           // `inteiro()` e NÃO `| 0`, como no bgProgress acima — o defeito

@@ -80,7 +80,7 @@
   }
 
   // --------------------------------------------------------------------------
-  // A FAIXA VIAJA NA URL, NÃO NO CABEÇALHO (v5.127, shell 27)
+  // A FAIXA VIAJA NA URL, NÃO NO CABEÇALHO — NO APP
   //
   // Num WebView, o `InputStream` devolvido por `shouldInterceptRequest` é lido
   // pelo Chromium como o recurso INTEIRO a partir do byte 0: é ELE quem aplica
@@ -95,19 +95,14 @@
   // há seek: a fatia chega inteira. No navegador nada disso existe (não há
   // interceptador), então lá o `Range` continua sendo o jeito certo — e é o
   // caminho padrão, como manda a regra do projeto.
+  //
+  // É POR ISSO QUE ESTA PERGUNTA NÃO PODE VIRAR UMA CONSTANTE: ela separa o
+  // navegador do WebView, não uma versão de shell de outra. O papel `tela` —
+  // o mesmo `/display/` num navegador da rede — depende dela para pedir
+  // `Range`, e lá não existe `__NATIVE__`.
   // --------------------------------------------------------------------------
-  const FAIXA_NA_URL_DESDE = 27;
-
   function faixaNaUrl() {
-    return !!(global.__NATIVE__ && (global.__SHELL_VERSION__ | 0) >= FAIXA_NA_URL_DESDE);
-  }
-
-  // Este aparelho consegue transmitir? No navegador, sempre. No app, só com o
-  // shell que entende a faixa na URL — num shell antigo a transmissão está
-  // quebrada por construção (ver acima), e tentar assim mesmo projeta uma cena
-  // morta em vez de cair no download.
-  function disponivel() {
-    return !global.__NATIVE__ || faixaNaUrl();
+    return !!global.__NATIVE__;
   }
 
   // Devolve [url, opções] do `fetch`. Guarda na ordem da regra: o navegador é o
@@ -189,17 +184,6 @@
 
   function criar(video, man, opts) {
     const onErro = (opts && opts.onErro) || function () {};
-    // SHELL ANTIGO: desistir AQUI, e nunca calado. O chamador já entrou no ramo
-    // de stream, e um registro de stream não tem blob, opfsPath nem url — sair
-    // em silêncio deixaria o telão preto sem fallback nenhum. O erro sai
-    // assíncrono de propósito: quem chamou ainda não recebeu o retorno.
-    if (!disponivel()) {
-      const porque = 'a transmissão exige o shell 27 (instale o APK novo) — este é o '
-        + (global.__SHELL_VERSION__ | 0);
-      global.AVStream.ultimoErro = porque;
-      setTimeout(() => { try { onErro(porque); } catch (_) {} }, 0);
-      return { destruir() {} };
-    }
     let morto = false;
     let tick = null;
     let objUrl = null;
@@ -533,5 +517,5 @@
   // O ÚLTIMO erro de transmissão, para o Registro de Configurações. Um
   // `console.warn` não chega a quem opera o culto — e é justamente quem opera
   // que vê a falha acontecer.
-  global.AVStream = { suportado, disponivel, criar, lerSidx, ultimoErro: '' };
+  global.AVStream = { suportado, criar, lerSidx, ultimoErro: '' };
 })(window);

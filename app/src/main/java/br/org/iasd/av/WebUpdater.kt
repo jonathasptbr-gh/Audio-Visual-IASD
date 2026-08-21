@@ -78,13 +78,12 @@ object WebUpdater {
      * relação com quem confirmou. Guardando o nome, o watchdog só dispara
      * quando o pendente é EXATAMENTE o que está sendo servido.
      *
-     * Chave nova de propósito: a antiga guardava um `Boolean`, e ler um
-     * booleano como String em `SharedPreferences` lança `ClassCastException` —
-     * dentro do `onCreate`, o que deixaria o app sem abrir depois de atualizar
-     * o APK. A antiga é apenas removida.
+     * O NOME DA CHAVE NÃO VOLTA A SER `"pending"`, nunca: a versão antiga
+     * guardava ali um `Boolean`, e ler um booleano como String em
+     * `SharedPreferences` lança `ClassCastException` — dentro do `onCreate`, o
+     * que deixaria o app sem abrir depois de atualizar o APK.
      */
     private const val KEY_PENDING = "pending-bundle"
-    private const val KEY_PENDING_LEGACY = "pending"
 
     /**
      * O que a sessão ANTERIOR de fato serviu — o nome do subdiretório, ou `""`
@@ -211,15 +210,11 @@ object WebUpdater {
         // O boot anterior serviu ESTE bundle (a comparação é por nome — ver
         // [KEY_PENDING]) e nunca confirmou que carregou: trata-se como quebrado
         // e volta ao embutido.
-        val pendente = try {
-            p.getString(KEY_PENDING, null)
-        } catch (_: ClassCastException) {
-            null
-        }
+        val pendente = p.getString(KEY_PENDING, null)
         if (pendente == active) {
             Log.w(TAG, "bundle $active não confirmou o boot anterior — descartando")
             dir.deleteRecursively()
-            p.edit().remove(KEY_ACTIVE).remove(KEY_PENDING).remove(KEY_PENDING_LEGACY).apply()
+            p.edit().remove(KEY_ACTIVE).remove(KEY_PENDING).apply()
             cleanup(ctx, keep = emptySet())
             return fixarBase(p, null)
         }
@@ -230,14 +225,13 @@ object WebUpdater {
         val installed = versionOf(File(dir, "web/version.json").takeIf { it.isFile })
         if (!dir.isDirectory || installed == null || compareVersions(embedded, installed) >= 0) {
             dir.deleteRecursively()
-            p.edit().remove(KEY_ACTIVE).remove(KEY_PENDING).remove(KEY_PENDING_LEGACY).apply()
+            p.edit().remove(KEY_ACTIVE).remove(KEY_PENDING).apply()
             cleanup(ctx, keep = emptySet())
             return fixarBase(p, null)
         }
 
-        // Arma o watchdog PARA ESTE bundle, e aproveita para varrer a chave
-        // booleana antiga (ver [KEY_PENDING_LEGACY]).
-        p.edit().putString(KEY_PENDING, active).remove(KEY_PENDING_LEGACY).apply()
+        // Arma o watchdog PARA ESTE bundle.
+        p.edit().putString(KEY_PENDING, active).apply()
         // Ponto único e seguro para recolher bundles antigos: nenhum WebView
         // existe ainda, então nada está sendo servido. É aqui que sai o diretório
         // que o `check()` da sessão anterior preservou de propósito.
@@ -259,11 +253,7 @@ object WebUpdater {
     private fun fixarBase(p: android.content.SharedPreferences, dir: File?): File? {
         sessionRoot = dir
         val agora = dir?.name ?: ""
-        val antes = try {
-            p.getString(KEY_SERVIDO, null)
-        } catch (_: ClassCastException) {
-            null
-        }
+        val antes = p.getString(KEY_SERVIDO, null)
         // AUSENTE NÃO É TROCA. Numa primeira execução (ou logo depois de o app
         // ser instalado por cima de uma versão que não gravava esta chave) não
         // há cache anterior para conflitar, e limpar por precaução só custaria
@@ -292,11 +282,7 @@ object WebUpdater {
         // novo, por exemplo), não há nada a desarmar aqui.
         val servido = sessionRoot?.name ?: return
         val p = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-        val pendente = try {
-            p.getString(KEY_PENDING, null)
-        } catch (_: ClassCastException) {
-            null
-        }
+        val pendente = p.getString(KEY_PENDING, null)
         if (pendente == servido) {
             p.edit().remove(KEY_PENDING).apply()
             Log.i(TAG, "bundle $servido confirmado")
@@ -380,7 +366,6 @@ object WebUpdater {
         // resolvida — um `clearCache` inútil por atualização aplicada ao vivo.
         p.edit()
             .putString(KEY_PENDING, active)
-            .remove(KEY_PENDING_LEGACY)
             .putString(KEY_SERVIDO, active)
             .apply()
         sessionRoot = dir

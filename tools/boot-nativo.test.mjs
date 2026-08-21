@@ -121,7 +121,7 @@ const ponteCom = (espelho, telas) => `(() => {
     'espelhoEstado','espelhoDiag','espelhoCertEstado','espelhoCertImportar','espelhoCertApagar',
     'apkProcurar','apkInstalar','otaPending','otaApply','otaCheck','otaDiag','ytDiag']);
   const B = {
-    shellVersion: () => 41,
+    shellVersion: () => 46,
     role: () => 'controle',
     appVersion: () => '1.98-teste',
     takeShare: () => '',
@@ -213,7 +213,7 @@ const ponteCom = (espelho, telas) => `(() => {
     },
   };
   const nomes = ['apkInstalar','apkProcurar','bgProgress','captureVolumeKeys','castTarget',
-    'deckDiscard','deckExportUrl','deckPages','displays','espelhoAprovar','espelhoCertApagar',
+    'deckDiscard','deckExportUrl','deckPages','displays','espelhoCertApagar',
     'espelhoCertEstado','espelhoCertImportar','espelhoDesligar','espelhoDiag','espelhoEstado',
     'espelhoLigar','keepAlive','listFolder','nowPlaying','openCast','openExternal','otaApply',
     'otaCheck','otaDiag','otaPending','pickDoc','pickFolder','requestMic','systemVolume',
@@ -267,8 +267,8 @@ try {
 
   checar(await pg.evaluate(() => window.__NATIVE__ === true),
     'a base entra em MODO APP (a ponte foi vista)');
-  checar(await pg.evaluate(() => (window.__SHELL_VERSION__ | 0) >= 32),
-    'e enxerga um shell que tem o espelho — é este ramo que o navegador nunca executa');
+  checar(await pg.evaluate(() => (window.__SHELL_VERSION__ | 0) >= 46),
+    'e enxerga o shell MÍNIMO — é este ramo que o navegador nunca executa');
 
   // A MESMA PERGUNTA DO WATCHDOG. `otaAppIsUp` é o que decide, no aparelho, se
   // um bundle baixado é carimbado como bom ou descartado no lançamento
