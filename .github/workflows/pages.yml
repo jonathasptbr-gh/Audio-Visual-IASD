@@ -12,11 +12,28 @@
 # hora por IP. Escrever no deploy é determinístico e não depende de nada em
 # runtime.
 #
-# E É POR ISSO QUE ELE DISPARA EM `release: published`, não só quando `site/`
-# muda. Sem esse gatilho o link da página apontaria para a Release ANTERIOR até
+# E É POR ISSO QUE ELE PRECISA DISPARAR QUANDO UMA RELEASE SAI, não só quando
+# `site/` muda. Sem isso o link da página aponta para a Release ANTERIOR até
 # alguém lembrar de reconstruir — e o modo de falhar é mudo: a pessoa baixa uma
 # versão velha achando que é a nova. Foi essa obrigação que substituiu o asset
 # de nome fixo que existiu na v1.0.
+#
+# `release: published` NÃO BASTA, E ISSO FOI MEDIDO (v1.0.1). A Release deste
+# repositório nasce do `action-gh-release` com o GITHUB_TOKEN padrão, e evento
+# originado nesse token não cria execução nova de workflow — a mesma armadilha
+# que o `apk.yml` documenta no `on:` dele. Contado na API: `release` disparou
+# **zero** vezes em 136 execuções. A v1.0.1 saiu às 17:40 e a última publicação
+# da página era das 17:33: por sete minutos o botão "Baixar grátis" serviu o
+# `.apk` da v1.0, sem nada na tela dizendo isso.
+#
+# O `apk.yml` contorna com ORDEM DE JOB (o `web-ota` espera o `apk` no mesmo
+# run). Aqui não dá: é outro workflow, e `needs` não atravessa arquivo. Quem
+# atravessa é `workflow_run` — o mecanismo de encadeamento do próprio GitHub,
+# que existe justamente para isto e NÃO é suprimido pelo guarda de recursão.
+#
+# A linha `release` fica pelo mesmo motivo que fica no `apk.yml`: quando a
+# Release nasce de outra mão (a interface do GitHub, ou um PAT), ela dispara de
+# verdade — e aí é o caminho mais direto.
 name: Publicar a página
 
 on:
@@ -25,6 +42,9 @@ on:
     paths:
       - 'site/**'
       - '.github/workflows/pages.yml'
+  workflow_run:
+    workflows: ['Build APK']
+    types: [completed]
   release:
     types: [published]
   workflow_dispatch:
@@ -43,6 +63,16 @@ concurrency:
 
 jobs:
   publicar:
+    # O `workflow_run` chega de TODA execução do "Build APK" — inclusive das
+    # branches de trabalho e das que falharam. Publicar a partir de uma delas
+    # poria no ar a página de um commit que não é o de `main`, e publicar de uma
+    # falha poria no ar uma página cuja Release pode nem existir. Os outros três
+    # gatilhos passam direto: `push` já é filtrado por branch, e `release` e
+    # `workflow_dispatch` são decisões explícitas.
+    if: >-
+      github.event_name != 'workflow_run'
+      || (github.event.workflow_run.conclusion == 'success'
+          && github.event.workflow_run.head_branch == 'main')
     runs-on: ubuntu-latest
     environment:
       name: github-pages

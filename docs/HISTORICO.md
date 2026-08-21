@@ -24,7 +24,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
-- **v1.0.1** — O ÍCONE FICA DE PÉ e as COLEÇÕES FIXAS SOBEM PARA A RAIZ (um toque a menos até a lista de faixas). Sai o agrupamento "Arquivos oficiais"/"Hinários"; o card ganha tom PRÓPRIO, porque ler o pai o deixava a 1,26:1 da gaveta na raiz. O vão dos Favoritos passa a contar TODO vizinho. A página de acesso é reescrita para quem não é técnico. EXIGE RELEASE
+- **v1.0.1** — O ÍCONE FICA DE PÉ e as COLEÇÕES FIXAS SOBEM PARA A RAIZ (um toque a menos até a lista de faixas). Sai o agrupamento "Arquivos oficiais"/"Hinários"; o card ganha tom PRÓPRIO, porque ler o pai o deixava a 1,26:1 da gaveta na raiz. O vão dos Favoritos passa a contar TODO vizinho. A página de acesso é reescrita para quem não é técnico. E a página servia a Release ANTERIOR: `release: published` nunca dispara para Release criada pelo GITHUB_TOKEN — o `pages.yml` passa a encadear por `workflow_run`. EXIGE RELEASE
 - **v1.0** — O SHELL ATUAL VIRA O PISO: `minShell` 2 → 46, saem as 37 guardas de `__SHELL_VERSION__` do lado web e a compatibilidade com bundle antigo do Kotlin. A ponte ENCOLHE (`espelhoLigar()` perde o `modo`, `espelhoAprovar` vira `espelhoDerrubar`). A versão reinicia em **1.0** nos dois canais. EXIGE RELEASE
 - **v5.317** — A LIMPEZA QUE O LEVANTAMENTO DE REGRAS AUTORIZOU: sai o `TITULO_NENHUM` (um ramo que nada alcança, no arquivo que recusa ramos que nada alcançam) e a §11 do arquivo do espelho, que prometia um código de três dígitos removido há 128 versões. O que mexe na PONTE fica — e agora está escrito por quê. OTA PURO
 - **v5.316** — O PORTÃO FECHA: `continue-on-error` sai dos oráculos de Chromium, e as CINCO classes de oráculo-que-media-o-runner vão à raiz — inclusive DOIS defeitos do app que apareciam como teste instável, um deles na gravação da intenção do OTA. Nasce `AVDB.updateState`. OTA PURO
@@ -282,6 +282,34 @@ quero uma página leiga, poucos textos, mais prática"*. O que mudou:
   chegou até ali não deve ter de subir a página.
 - **O tutorial do Modo Fácil saiu.** Ficou a menção de que o app abre nele e de
   que o modo avançado mora em Configurações.
+
+### A PÁGINA SERVIA A RELEASE ANTERIOR, e o gatilho que devia impedir isso nunca disparou
+
+Achado ao publicar este lote. A v1.0.1 saiu às 17:40; a última publicação da
+página era das 17:33. Por sete minutos o botão "Baixar grátis" serviu o `.apk`
+da v1.0 — sem nada na tela dizendo isso, que é exatamente o modo de falhar que o
+`pages.yml` foi escrito para fechar.
+
+**A causa é o guarda de recursão do GitHub.** A Release nasce do
+`action-gh-release` com o GITHUB_TOKEN padrão, e evento originado nesse token
+não cria execução nova de workflow. Contado na API: `release` disparou **zero**
+vezes em 136 execuções do `apk.yml`. O `apk.yml` já sabia disso e contorna com
+ORDEM DE JOB — o `web-ota` tem o `apk` no `needs` e consulta a Release já
+publicada, no mesmo run; foi por isso que o manifesto do OTA saiu certo. O
+`pages.yml` não sabia, e não podia usar o mesmo truque: é outro workflow, e
+`needs` não atravessa arquivo.
+
+Quem atravessa é **`workflow_run`** — o mecanismo de encadeamento do próprio
+GitHub, e o único que aquele guarda não suprime. O `pages.yml` passou a
+disparar no "Build APK" completado, com guarda de `conclusion == 'success'` e
+`head_branch == 'main'` (senão uma execução de branch de trabalho poria no ar a
+página de um commit que não é o de `main`). A linha `release` fica pelo mesmo
+motivo que fica no `apk.yml`: quando a Release nasce de outra mão, ela dispara
+de verdade.
+
+**O comentário do `pages.yml` e o do `CLAUDE.md` afirmavam o mecanismo errado** —
+os dois foram corrigidos no mesmo lote. Um comentário que descreve um gatilho
+que nunca chega é o convite exato para o próximo leitor confiar nele.
 
 ### Os oráculos
 
