@@ -213,15 +213,22 @@ stateKeys(prefix)             // chaves de `state` com esse prefixo, numa transa
                               // só e SEM ler valor nenhum — presença em massa
 addMedia(blob, meta)          // cria registro + adiciona a meta.list (padrão 'imports')
 addUrlMedia(url, meta)        // item de URL externa (blob=null), idem
+addStreamMedia(stream, meta)  // TRANSMISSÃO DIRETA: registro sem bytes, com o
+                              // manifesto DASH dentro
+setMediaStream(id, stream)    // troca o manifesto de um registro já existente —
+                              // as URLs do googlevideo expiram em horas
 addDeck(pages, meta)          // apresentação: uma imagem por página
 addCue(cue, data, meta)       // CENA DE ROTEIRO: item sem bytes (ver abaixo)
 getMedia(id), renameMedia(id, name)
 mediaByYoutube(youtubeId, kind)  // o registro desse vídeo na FORMA pedida, ou null
 listIds, listSet, listItems, listHas, listAdd, listRemove, gc
+gcOrfaos()                    // a FAXINA: recolhe registro que nenhuma lista
+                              // aponta (o `listSet` os criava a cada troca)
 folderDrop(folderId)          // apaga um ATALHO inteiro, coletando o que ficar sem dono
 fileAdd, fileGet, fileDelete, filesByFolder, filesAll   // catálogo OPFS
 opfsSupported, opfsGetFile, opfsWriteFile,              // Origin Private
-opfsDeleteFile, opfsDeleteDir                           // File System
+opfsDeleteFile, opfsDeleteDir,                          // File System
+opfsFolderSize(path)                                    // quanto uma pasta ocupa
 kindFromType, sendCommand, onCommand
 ```
 

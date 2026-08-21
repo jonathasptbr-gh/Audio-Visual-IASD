@@ -193,14 +193,23 @@ na nota que a revoga, não apagada da que a criou.
 O passo "Oráculos em Chromium" era `continue-on-error: true`. Este lote ataca o
 MOTIVO de ele existir, e só então o remove.
 
-**A premissa tinha morrido em duas etapas.** A justificativa escrita sempre foi
-INFRAESTRUTURA — "barrar o canal OTA por um download de navegador é trocar um
-risco raro por um bloqueio frequente". Na v5.213 infraestrutura mudou de
-endereço: virou o passo `Preparar o Chromium`, que ficou com o
-`continue-on-error` dela, com o `if` que pula os oráculos e com o aviso que
-registra o pulo. O passo dos testes ficou com uma causa só de reprovar — defeito
-de verdade — e a política passou a proteger exatamente o oposto do que o texto
-dizia.
+**A premissa tinha morrido em duas etapas, e o texto antigo carregava as duas.**
+A RAZÃO declarada era INFRAESTRUTURA — *"a justificativa dele sempre foi
+INFRAESTRUTURA (download do Chromium, runner sem rede)"* —, mas a frase que a
+resumia já concedia o outro lado: *"barrar o canal OTA por um **teste** de
+navegador é trocar um risco raro por um bloqueio frequente"*. Ou seja: ela
+contemplava um oráculo reprovando de verdade e escolhia absorvê-lo. Na v5.213 a
+metade da INFRAESTRUTURA mudou de endereço — virou o passo `Preparar o
+Chromium`, que ficou com o `continue-on-error` dela, com o `if` que pula os
+oráculos e com o aviso que registra o pulo —, e o passo dos testes ficou com uma
+causa só de reprovar. A metade que sobrou nunca foi reexaminada.
+
+**Quem a derruba é a medição, não o argumento.** A troca prometida era "um risco
+raro por um bloqueio frequente"; o que se mediu é o inverso em ambos os termos —
+o vermelho não era raro (21 dos 23 runs) e quase nada dele era risco (39 de 40
+reprovações eram o oráculo medindo o runner, não o app). O que a política
+preservava não era um bloqueio evitado: era o RUÍDO que tornava aquelas 39
+gratuitas.
 
 **MEDIDO antes de mexer:** 21 dos 23 runs anteriores terminaram VERDES com
 oráculo reprovado dentro; 40 reprovações somadas; **uma** delas um defeito de

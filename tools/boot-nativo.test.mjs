@@ -556,9 +556,12 @@ try {
   // E O RELÓGIO É FIXADO, como no bloco do corte acima. `serieComoYoutube`
   // chama `AVSerie.diasAte` SEM o terceiro argumento (o `hoje`), e o ano da
   // série é 2026 no catálogo: contra o relógio do runner, o "futuro" de 31/Dez
-  // vale ZERO em 31/12/2026 e é PASSADO de 2027 em diante — as duas asserções
-  // abaixo passariam a reprovar sozinhas, sem ninguém ter mexido em nada, e
-  // sob portão isso fecharia o canal OTA no meio das festas.
+  // vale ZERO em 31/12/2026 e é PASSADO de 2027 em diante. Sem `dias > 0`,
+  // `serieComoYoutube` não anexa nem `avisoSeFalhar` nem `avisoOnde`, então
+  // as TRÊS asserções que leem `comFuturo` passariam a reprovar sozinhas, sem
+  // ninguém ter mexido em nada — e sob portão isso fecharia o canal OTA no meio
+  // das festas. (A quarta cobra a AUSÊNCIA da frase e continuaria passando, que
+  // é justamente o que tornaria o diagnóstico confuso.)
   const aviso = await pg.evaluate(() => {
     const c = allCollections().find((x) => x.id === 'serie-informativo-missoes-2026');
     const songs = collSongs(c.id);
