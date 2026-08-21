@@ -128,7 +128,16 @@
      na borda — e a faixa continua se recortando sozinha (`overflow-x`), sem
      empurrar a página para o lado. */
   @media (max-width:34rem) {
-    .telas { margin-inline:-1.15rem; padding-inline:1.15rem; }
+    .telas {
+      margin-inline:-1.15rem; padding-inline:1.15rem;
+      /* `scroll-padding` E NÃO SÓ `padding`, e isto foi MEDIDO: com
+         `scroll-snap-align: start`, o encaixe encosta o item na borda do PADDING
+         BOX e COME o recuo — o primeiro card ficava colado na borda da tela
+         enquanto o último respeitava os 18px, um vão em cada ponta e nenhum dos
+         dois igual ao outro. `scroll-padding-inline` move a linha de encaixe
+         para dentro, e aí as duas pontas medem o mesmo. */
+      scroll-padding-inline:1.15rem;
+    }
   }
   /* O `background` é o `--bg` do tema ESCURO do app: é a cor que o print tem nas
      bordas, e ela cobre o instante entre o espaço reservado e a imagem chegar. */
@@ -257,8 +266,8 @@
       </figure>
       <figure>
         <img src="telas/no-ar.webp" width="480" height="979" loading="lazy" decoding="async"
-             alt="O Cronograma com um hino marcado como no ar e a letra aparecendo na prévia do telão.">
-        <figcaption><b>No ar</b>A faixa toca e a letra acompanha sozinha no telão.</figcaption>
+             alt="O Cronograma com cinco itens em ordem e o terceiro marcado como no ar, em vermelho.">
+        <figcaption><b>No ar</b>O culto na ordem, e a faixa que está tocando marcada na lista.</figcaption>
       </figure>
       <figure>
         <img src="telas/biblia.webp" width="480" height="979" loading="lazy" decoding="async"
