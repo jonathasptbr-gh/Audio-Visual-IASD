@@ -169,7 +169,7 @@ const appVersionEl = document.getElementById('appVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.0.4';
+const WEB_VERSION = '1.0.5';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -369,6 +369,8 @@ const castMirrorBtnEl = document.getElementById('castMirrorBtn');
 // rótulo nomeia o DESTINO ("Transmitir para navegador"), não o meio.
 const castNetBtnEl = document.getElementById('castNetBtn');
 const castNetLabelEl = document.getElementById('castNetLabel');
+const castLocalBtnEl = document.getElementById('castLocalBtn');
+const castLocalLabelEl = document.getElementById('castLocalLabel');
 const castMsgEl = document.getElementById('castMsg');
 const castMirrorLabelEl = document.getElementById('castMirrorLabel');
 const castLiveEl = document.getElementById('castLive');
@@ -1586,9 +1588,38 @@ let somLocalBloqueado = false; // o navegador recusou o som (ver `onBlocked`)
 // duas de divergirem no primeiro caso de borda.
 function algumaTelaConectada() { return !!simpleDisplay(); }
 
+/**
+ * ===== "TOCAR NESTE CELULAR": A ESCOLHA DE NÃO CONECTAR NADA =====
+ *
+ * Sem tela, o Modo Fácil bloqueia. O argumento era bom — ali a projeção não
+ * existe e a preview nem som tem —, mas ele supunha que quem abre aquele modo
+ * sempre quer projetar. Ensaiar o louvor, conferir a letra ou ouvir o playback
+ * antes do culto são usos legítimos, e para todos eles a resposta certa é o som
+ * saindo daqui: exatamente o que o modo avançado já faz sozinho sem tela.
+ *
+ * PERSISTIDO, e por isso ele se desfaz sozinho quando uma tela entra (ver
+ * `renderSimpleGate`): sem essa segunda metade, a escolha de um ensaio de
+ * quarta-feira sobreviveria até o sábado, e o culto começaria com o telão no ar
+ * e o áudio no bolso de quem opera — o pior dos dois desfechos, porque ninguém
+ * procuraria a causa num botão tocado três dias antes.
+ */
+let tocarNoCelular = false;
+async function setTocarNoCelular(on) {
+  const alvo = !!on;
+  if (alvo === tocarNoCelular) return;
+  tocarNoCelular = alvo;
+  try { await AVDB.setState('tocarNoCelular', tocarNoCelular); } catch (_) { /* a escolha vale a sessão */ }
+  renderSimpleGate();
+  acertarSaidaDeAudio();
+  renderCast();
+  diagC(tocarNoCelular ? 'modo fácil: tocando neste celular' : 'modo fácil: exigindo uma tela');
+}
+
 function somLocalDeveEstar() {
   if (somLocalBloqueado) return false;
-  return appMode === 'full' && !algumaTelaConectada();
+  // O MODO FÁCIL entra por ESCOLHA, o avançado por DERIVAÇÃO — e os dois pela
+  // mesma porta, porque a pergunta de baixo é uma só: há para onde mandar o som?
+  return !algumaTelaConectada() && (appMode === 'full' || tocarNoCelular);
 }
 
 // O ÚNICO ponto que mexe no mudo da preview. Chamado de onde o estado muda —
@@ -2328,6 +2359,7 @@ async function load(opts) {
   const storedRot = await AVDB.getState('rotate');
   const lyricsBgV = (await AVDB.getState('lyricsBg')) === 'image' ? 'image' : 'black';
   const downloadOkV = !!(await AVDB.getState('downloadOk'));
+  const tocarLocalV = !!(await AVDB.getState('tocarNoCelular'));
   let libItemsV;
   if (activeTab === 'imports') {
     // Só a aba que é de fato lista de IDs de mídia. 'bible' e 'messages'
@@ -2368,10 +2400,17 @@ async function load(opts) {
   mediaRot = ROTACOES.includes(storedRot | 0) ? (storedRot | 0) : 0;
   lyricsBg = lyricsBgV;
   downloadConsent = downloadOkV;
+  tocarNoCelular = tocarLocalV;
   libItems = libItemsV;
   currentItem = currentItemV;
 
   renderLyricsBgSeg();
+  // A ESCOLHA LIDA DO BANCO PRECISA SER APLICADA AQUI. O bloqueio do Modo Fácil
+  // e a saída de áudio são DERIVADOS de `tocarNoCelular`, e nenhum dos dois se
+  // recalcula sozinho — sem estas duas linhas a preferência sobreviveria ao
+  // lançamento e não faria nada até alguém tocar noutro botão qualquer.
+  renderSimpleGate();
+  acertarSaidaDeAudio();
   renderControls();
   renderNowPlaying();
   renderRepeat();
@@ -17859,7 +17898,29 @@ function telasDaRede() {
 // este MODO, não o app.
 function renderSimpleGate() {
   const temTela = !!simpleDisplay();
-  const semTela = appMode === 'simple' && !temTela;
+  // UMA TELA ENTROU: a escolha de tocar aqui morre com ela. Escrito direto (e
+  // não por `setTocarNoCelular`, que re-renderiza) porque estamos DENTRO do
+  // render — a chamada de volta seria recursão, e o resto desta função já
+  // aplica o estado novo na mesma passada.
+  if (temTela && tocarNoCelular) {
+    tocarNoCelular = false;
+    try { AVDB.setState('tocarNoCelular', false); } catch (_) { /* já vale em memória */ }
+    acertarSaidaDeAudio();
+  }
+  const semTela = appMode === 'simple' && !temTela && !tocarNoCelular;
+  // ===== O BOTÃO DE TOCAR AQUI SE DESENHA DAQUI, e não do `renderCast` =====
+  //
+  // MEDIDO nas duas pontas. `renderCast` abre com `if (!castConnVisivel())
+  // return`, e o botão precisa continuar desenhado exatamente quando aquela
+  // guarda fecha: LIGADO, ele desbloqueia o Modo Fácil, o bloco de conexão
+  // volta para a folha (fechada) e o botão some — justamente quando ele é a
+  // única forma de desfazer o que acabou de fazer. E ele também não era
+  // repintado ao TROCAR DE MODO, porque em avançado o `hostCastConn` não chama
+  // `renderCast`: o botão sobrevivia visível fora do Modo Fácil.
+  //
+  // Esta função responde às três coisas de que ele depende — o modo, as telas e
+  // a própria escolha —, e é chamada por todas as três.
+  renderCastLocal();
   simpleModeEl.classList.toggle('sem-tela', semTela);
   // A CORTINA VOLTOU na v5.203 (ver o comentário do `.simple-veil`): sem tela
   // este modo não projeta nada — nem imagem nem som, desde que a mesa saiu na
@@ -17891,6 +17952,32 @@ function renderSimpleGate() {
   gateTinhaTela = temTela;
   if (entrou && !semTela && castPopupEl && castPopupEl.classList.contains('open')) {
     fecharCast();
+  }
+}
+
+/**
+ * O BOTÃO DE TOCAR AQUI SÓ EXISTE ONDE A ESCOLHA FAZ SENTIDO: Modo Fácil e
+ * nenhuma tela conectada.
+ *
+ * As duas metades da condição têm razões diferentes. **No avançado ele não
+ * aparece** porque lá o som já sai daqui por derivação — um botão para ligar o
+ * que já está ligado. **Com tela conectada** ele não aparece porque há para onde
+ * mandar, e é para lá que o som vai.
+ *
+ * E ele NÃO pergunta "o bloco está na tela?": ligado, a escolha DESBLOQUEIA o
+ * Modo Fácil, e aí o bloco volta para a folha do botão de conectar — se a
+ * condição fosse a hospedagem, o botão sumiria no instante em que passa a ser a
+ * única forma de desfazer o que ele acabou de fazer.
+ */
+function renderCastLocal() {
+  if (!castLocalBtnEl) return;
+  castLocalBtnEl.hidden = !(appMode === 'simple' && !algumaTelaConectada());
+  castLocalBtnEl.classList.toggle('escolhido', tocarNoCelular);
+  if (castLocalLabelEl) {
+    // Ligado, o rótulo nomeia a AÇÃO — a gramática do irmão de cima
+    // (`castNetBtn`), e pela mesma razão: é o que o toque faz.
+    castLocalLabelEl.textContent = tocarNoCelular
+      ? 'Voltar a exigir uma tela' : 'Tocar neste celular';
   }
 }
 
@@ -19122,6 +19209,13 @@ if (castMirrorBtnEl) {
     }
     renderCast();
   });
+  // TOCAR NESTE CELULAR: a terceira porta da folha, e a única que não conecta
+  // nada. O que o operador pediu é DERIVADO do estado atual, como no irmão de
+  // cima — um clique não vem com a posição nova, e ler `tocarNoCelular` aqui é
+  // ler a mesma fonte que `renderCastLocal` acabou de pintar.
+  if (castLocalBtnEl) {
+    castLocalBtnEl.addEventListener('click', () => setTocarNoCelular(!tocarNoCelular));
+  }
   acertarEnqueteDeFundo();
 }
 
