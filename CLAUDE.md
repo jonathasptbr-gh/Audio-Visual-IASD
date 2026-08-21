@@ -334,31 +334,31 @@ window.AVNative = {
   castTarget(),        // → string: rótulo do alvo de espelhamento deste aparelho
   openExternal(url),   // abre uma URL https FORA do app (só o Controle)
   ytFetch(url, onProg, soAudio, altura), // → { url, name, size, type, height, seconds }
-                       //   `soAudio` traz só a faixa de áudio (m4a) — exige shell 23
-                       //   `altura` é o TETO de resolução — exige shell 25 abaixo de 1080
+                       //   `soAudio` traz só a faixa de áudio (m4a)
+                       //   `altura` é o TETO de resolução
   ytDiscard(url),      //   e apaga o arquivo depois que os bytes foram copiados
-  ytCancel(url),       // PARA o download em curso deste link — exige shell 28
+  ytCancel(url),       // PARA o download em curso deste link
   otaPending(),        // → versão da base web já baixada que espera (ou '')
-  otaApply(),          // APLICA-a agora: as duas páginas recarregam — shell 29
-  otaCheck(forcar),    // PROCURA agora; `forcar` pula o piso do shell — shell 31
+  otaApply(),          // APLICA-a agora: as duas páginas recarregam
+  otaCheck(forcar),    // PROCURA agora; `forcar` pula o piso do shell
   otaDiag(),           // → string: quando foi a última busca e o que ela deu
   atualizacaoEstado(), // → { web, webAtual, shell, shellBytes, shellAtual, diag }
-                       //   OS DOIS CANAIS numa leitura só — shell 43. Ele não
+                       //   OS DOIS CANAIS numa leitura só — ele não
                        //   acrescenta poder: acrescenta COERÊNCIA DE INSTANTE
                        //   (ver a seção do OTA)
-  apkProcurar(),       // → {} · { versao, bytes, notas } · { erro } — shell 35
+  apkProcurar(),       // → {} · { versao, bytes, notas } · { erro }
                        //   `bytes` é o TAMANHO do .apk; NÃO há campo `url` (quem
                        //   guarda a URL é o `ShellUpdater`) e o vazio é `{}`,
                        //   nunca `null`
-  apkInstalar(),       // baixa e abre o diálogo de instalação do sistema — shell 35
+  apkInstalar(),       // baixa e abre o diálogo de instalação do sistema
                        //   (sem URL: quem a escolhe é o `ShellUpdater`, do
                        //    achado da última `apkProcurar`)
   ytDiag(),            // → string: o que o extrator recebeu na última extração
                        //   (diagnóstico do rodapé de Configurações)
   ytStream(url, altura), // → manifesto DASH { video, audio, seconds, height } ou null
-                       //   TRANSMITIR sem baixar — exige shell 26
+                       //   TRANSMITIR sem baixar
   ytSearch(termo),     // → [{ id, url, name, author, seconds, thumb }] do YouTube
-  ytCanalPlaylists(canalUrl), // → [{ name, url, count }] da ABA do canal — shell 41
+  ytCanalPlaylists(canalUrl), // → [{ name, url, count }] da ABA do canal
   ytPlaylist(url),     // → { name, author, items:[{id,url,name,seconds,thumb}] }
                        //   os dois são as SÉRIES da Biblioteca. TRANSPORTE puro:
                        //   o `name` do item é o título CRU (sem `tituloLimpo`),
@@ -374,11 +374,10 @@ window.AVNative = {
   bgProgress({label, done, total, etaMs, items, idleMs, bytes}), // progresso na notificação
   nowPlaying({active, title, subtitle, playing, slideMode, slideLabel, wallpaper, positionMs, durationMs, actions}),
                        //   `actions`: os BOTÕES do cartão, na ordem, escolhidos
-                       //   pelo lado web — shell 42. Vazio = os cinco de sempre
+                       //   pelo lado web. Vazio = os cinco de sempre
   onRemote(cb),        // cb('play'|'pause'|'playpause'|'prev'|'next'|'stop'|'view')
-  // ---- TELÃO POR COMANDOS (shell 32; forma atual = 37) — ver a seção ----
-  espelhoLigar(modo),  // liga a transmissão (o argumento é IGNORADO desde a
-                       //   v5.156 — ficou para não custar um degrau de shell)
+  // ---- TELÃO POR COMANDOS — ver a seção ----
+  espelhoLigar(),      // liga a transmissão
   espelhoDesligar(),   // síncrono e sem resposta, como o `ytCancel`
   espelhoEstado(),     // → { ligado, endereco, erro, telas:[…] }
                        //   (sem `codigo` desde a v5.189: a porta é o ENDEREÇO)
@@ -386,10 +385,7 @@ window.AVNative = {
                        //   telaAcesaMin, aviso, eventos, pronta, fila }
   espelhoDiag(),       // → JSON do Registro (servidor, sessões, cache de
                        //   mídia, telas por comando)
-  espelhoDerrubar(rotulo), // tira ESTA tela do ar (o "Desconectar" da folha).
-                       //   No Kotlin ele ainda é `espelhoAprovar(id, sim)` —
-                       //   a assinatura ficou para não custar outro degrau de
-                       //   SHELL_VERSION, e o `sim` é ignorado
+  espelhoDerrubar(rotulo), // tira ESTA tela do ar (o "Desconectar" da folha)
   espelhoCertImportar(url, senha), // → '' ou a FRASE do erro: o .p12 do TLS
   espelhoCertEstado(), // → { temCert, host, ate, nome, noAr, servindoTls }
   espelhoCertApagar(), // a chave privada sai do aparelho
@@ -457,33 +453,21 @@ prazo (um timeout ali resolveria null com o operador ainda escolhendo a pasta).
 
 ### `SHELL_VERSION` — subir SEMPRE que a superfície mudar
 
-Hoje vale **45**. "Superfície" inclui **forma de retorno** e **comportamento**,
-não só assinatura: um campo que some, um contrato de URL que muda ou um método
-que passa a fazer outra coisa exigem o degrau do mesmo jeito.
+Hoje vale **46**, e ele é o **PISO**: o bundle declara `minShell: 46`, então
+todo método da ponte existe sempre e **não há guarda de versão no lado web**.
+"Superfície" inclui **forma de retorno** e **comportamento**, não só assinatura:
+um campo que some, um contrato de URL que muda ou um método que passa a fazer
+outra coisa exigem o degrau do mesmo jeito.
 
-| shell | o que mudou |
-|---|---|
-| **45** | `espelhoDiag` ganha `midia { itens, bytes, teto }` — o cache da rota `/m/` no Registro. Não muda poder nenhum; o degrau existe porque **forma de retorno é superfície**, e o Registro é lido A DISTÂNCIA |
-| **44** | `espelhoEstado` ENCOLHE: cada tela perdeu os seis campos de capacidade (`seguro`, `mse`, `mms`, `fetchStream`, `videoDecoder`, `wakeLock`) — sem produtor desde a v5.187, e `optBoolean` os publicava como `false`, que é valor legítimo |
-| 43 | `+ atualizacaoEstado` — os dois canais numa leitura só. Não acrescenta poder, acrescenta **coerência de instante** (três promessas independentes desenhavam o diálogo pela metade) |
-| 42 | `+ actions` no `nowPlaying` — os botões do cartão, escolhidos pelo web (invariante 5) |
-| 41 | `+ ytCanalPlaylists`, `+ ytPlaylist` — TRANSPORTE puro; quem decide é `controle/serie.js` |
-| 40 | ENCOLHE: `espelhoDiag` perde `ritmo`, `espelhoEstado` perde `modo` — restos do espelho de pixels que saíam ZERADOS e eram lidos como medição |
-| 39 | `+ temaClaro` — ícones das barras e `windowBackground`, o que o CSS não alcança |
-| 38 | ENCOLHE: `espelhoEstado` perde `codigo` (a porta é o endereço); sai `keepAudioAlive` |
-| 37 | forma do `espelhoEstado`/`espelhoDiag` vira a do telão por comandos. Nasce o canal `__avTelaMidia`, detectado por **presença**, não por versão |
-| 36 | primeiro degrau que ENCOLHE: sai `requestCam`; `espelhoAprovar` passa a só derrubar |
-| 35 | `+ apkProcurar`, `+ apkInstalar` |
-| 34 | `+` os três métodos do certificado TLS |
-| 33 | `+ requestCam` (saiu no 36) |
-| 32 | `+` os cinco métodos do espelho |
-| 31 | `+ otaCheck`, `+ otaDiag` |
-| 30 | **comportamento**: `ytFetch` repetido RECLAMA o desfecho guardado (`YoutubeGrab.resgatar`) |
-| 29 | `+ otaPending`, `+ otaApply` |
-| 28 | `+ ytCancel` |
-| 27 | **contrato**: a faixa de bytes do `ytStream` viaja na QUERY, nunca em `Range` (invariante 8) |
-| 26 | `+ ytStream` · 25 `+ ytFetchAte` e `bytes` no `bgProgress` · 23 `+ ytFetchAudio` |
-| ≤ 22 | `ytDiag`, `ytSearch`, os três de deck, `pickDoc`, `openExternal`, `ytFetch`/`ytDiscard` |
+**Com o piso, subir o degrau deixou de ser higiene e virou PRÉ-REQUISITO.**
+Antes, esquecer a Release fazia o recurso não aparecer — a guarda `< N` o
+escondia. Sem guardas, o web chama um método que o APK instalado não tem: o
+`native.js` cai no `catch`, ou o `call` vence os 60 s e resolve `null`. O botão
+existe, é tocável e não faz nada. Por isso mudança de ponte é um lote
+**APK + web publicado JUNTO**, com `shellTag` no `version.json`.
+
+> A tabela dos 46 degraus está em `docs/HISTORICO.md` — ela é história do
+> contrato, e história mora lá.
 
 ### As TRÊS filas da ponte — escolher a errada é uma regressão muda
 
@@ -533,21 +517,28 @@ E duas regras que ficam de fora das três filas:
   e volta; quem responde é o laço de cópia do `YoutubeGrab`, a cada bloco de
   64 kB.
 
-**Um método novo NÃO chega por OTA.** O bundle segue com `minShell: 2` de
-propósito — subi-lo recusaria a atualização inteira num shell antigo, o que é
-pior que um recurso a menos. Quem depende de método novo **pergunta antes**
-(`__SHELL_VERSION__ < N`): um botão que não faz nada no meio de um culto é pior
-que botão nenhum. Ele aparece sozinho quando o APK novo for instalado.
+**O bundle declara `minShell: 46`, e é a VÁLVULA que resolve.** Um bundle que
+exija ponte mais nova que o `SHELL_VERSION` instalado é recusado inteiro
+(`WebUpdater.kt`), e o app segue no que tinha — a recusa acontece no shell, e
+não em runtime no meio de um culto. **Guarda de versão no lado web é proibida:**
+o que separa navegador de app é `if (!window.__NATIVE__)`, e nada mais.
 
-**E MUDAR A FORMA de um método que já existe é PIOR que acrescentar um** — é a
-mesma assimetria vista do outro lado, e é o que impede de tratar como limpeza os
-dois argumentos ignorados da ponte (`espelhoLigar(modo)`, e o `sim` do
-`espelhoAprovar`). O web chega por OTA em minutos; o shell só chega instalando o
-APK. Uma assinatura encolhida publica um bundle que chama a forma NOVA para uma
-frota que ainda tem a VELHA — e a transmissão para de ligar até o operador
-instalar, sem nada na tela que explique. Encolher exige a mesma pergunta de
-sempre (`__SHELL_VERSION__`), o que ACRESCENTA código em vez de tirar: por isso
-os dois só saem quando a frota já estiver no degrau, nunca junto com ele.
+> **O modo de falhar desta escolha:** `minShell` acima do `SHELL_VERSION` do APK
+> instalado faz o aparelho recusar **todo** bundle, para sempre, e a única pista
+> é a linha "Procura:" do Registro. O CI confere o teto lendo o
+> `SHELL_VERSION` do próprio Kotlin.
+
+**E MUDAR A FORMA de um método que já existe é PIOR que acrescentar um.** A
+assimetria é real: o web chega por OTA em minutos, o shell só chega instalando o
+APK. Uma assinatura encolhida publicada sozinha faz o bundle chamar a forma NOVA
+contra um APK que ainda tem a VELHA — e o recurso para de funcionar sem nada na
+tela que explique. **A resposta é a regra de entrega, não uma guarda:** encolher
+a ponte é um lote APK + web publicado JUNTO, com `shellTag` no `version.json`
+segurando o bundle até a Release existir.
+
+Foi assim que os dois argumentos ignorados saíram (`espelhoLigar(modo)` e o
+`sim` do `espelhoAprovar`, que virou `espelhoDerrubar(rotulo)`): eles esperaram
+o lote que sobe o degrau, e não uma versão em que "já dava".
 
 ---
 
@@ -1113,10 +1104,10 @@ e o oráculo medindo a si mesmo.
   (mesma URL, conteúdo novo), que é exatamente quando um cache devolve o de
   ontem com toda a razão — e isso não atrasa a atualização, torna-a INVISÍVEL.
   Daí `no-cache` **e** `?t=` na URL (caches que ignoram o cabeçalho existem).
-- **O shell EMPURRA** (`window.__avAtualizacao`; `window.__avOta` ao lado, para
-  bundles anteriores ao shell 43) quando o estado muda — inclusive **quando só o
-  APK mudou**, senão uma Release sem base web nova ficaria muda. Bundle antigo:
-  no-op, e a enquete de 10 s é o piso.
+- **O shell EMPURRA** (`window.__avAtualizacao`) quando o estado muda —
+  inclusive **quando só o APK mudou**, senão uma Release sem base web nova
+  ficaria muda. A enquete de 10 s é o piso, para o caso de o empurrão se
+  perder.
 - **A comparação é contra o que o aparelho JÁ TEM** (`versaoJaTemos`), não contra
   o que ele SERVE: um bundle baixado espera o próximo lançamento e
   `currentVersion` continua sendo o da sessão — comparar por ele rebaixaria o
@@ -1164,8 +1155,8 @@ sintoma é "a atualização não chega".
    - **Dois caminhos de aplicação, independentes de propósito** (um chega por
      APK, o outro por OTA): no shell, `check()` → `aplicarSozinho` →
      `applyWebUpdate` (robusto: não depende de o WebView do Controle estar vivo);
-     no web, a enquete + o gatilho de retomada, para shell antigo (≥ 29) e para
-     o caso de o empurrão se perder.
+     no web, a enquete + o gatilho de retomada, para o caso de o empurrão se
+     perder.
    - **`otaRecusadas` mudou de significado**: era "o operador disse depois", hoje
      é "**já tentamos e o shell não aceitou**" — sem ela, um bundle reprovado
      faria a enquete pedir aplicação a cada 20 s, para sempre.
@@ -2209,7 +2200,7 @@ Rodar local: `./gradlew assembleDebug` (exige Android SDK).
   **A primeira linha vem ANTES do merge:** declarar a tag em `version.json`.
 
   ```jsonc
-  { "version": "5.298", "minShell": 2, "shellTag": "v2.3" }
+  { "version": "1.1", "minShell": 46, "shellTag": "v1.1" }
   ```
 
   Com ela o `web-ota` SEGURA o bundle até a Release existir e, quando ela sai,
@@ -2358,10 +2349,10 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: v5.317** (base web) · `SHELL_VERSION` **45** · bundle com
-`minShell: 2` — ele funciona igual num shell antigo, só sem os recursos nativos
-por construção (escada do voltar, botões de volume, notificação de controles),
-que **só chegam instalando o APK**.
+**Versão atual: v1.0** (base web) · `SHELL_VERSION` **46** · bundle com
+`minShell: 46` — o shell 46 é o **PISO**: todo método da ponte existe, e não há
+guarda de versão no lado web. O que continua valendo é que `java/`, `res/`, o
+manifest e os workflows **só chegam instalando o APK**.
 
 ### Onde procurar
 

@@ -394,7 +394,7 @@ as quatro ações em vez de dobrar a folha para oito linhas.
   pode receber o vídeo de 80 MB que já estava aqui.
 - **Ponte:** método PRÓPRIO (`ytFetchAudio`), nunca um parâmetro a mais no
   `ytFetch`. A ponte casa o método por nome + aridade, e mudar a assinatura do
-  `ytFetch` quebraria o download inteiro num shell antigo que recebesse este
+  `ytFetch` quebraria o download inteiro num APK que recebesse este
   bundle por OTA. O seletor só é desenhado com `__SHELL_VERSION__ >= 23`.
 - **A escolha viaja no FECHO de cada ação**, nunca em `songMenuFor`: o
   `songMenuItem` chama `closeSongMenu()` ANTES da ação, e ele zera aquele objeto
@@ -477,7 +477,7 @@ independentes para a mesma cena brigariam entre si.
 ###### Só em "Tocar agora"
 
 As outras três ações GUARDAM o item, e um manifesto que expira em horas seria
-algo que não abre no domingo. Falhando qualquer coisa (shell antigo, vídeo sem
+algo que não abre no domingo. Falhando qualquer coisa (vídeo sem
 par adaptativo, WebView sem o codec), o caminho segue para o download **sem
 avisar nada ao operador**: ele pediu o louvor, não o método.
 

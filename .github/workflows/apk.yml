@@ -113,7 +113,19 @@ jobs:
           python3 - <<'PY'
           import json, re
           m = json.load(open('app/src/main/assets/web/version.json'))
-          assert m['version'] and int(m['minShell']) > 0, m
+          assert m['version'], m
+          # O TETO VEM DO PRÓPRIO KOTLIN, nunca digitado aqui. Um `minShell`
+          # maior que o `SHELL_VERSION` do shell que está sendo compilado é um
+          # bundle que NENHUM aparelho aceita — a válvula do OTA o recusa, o
+          # canal fica inerte e o sintoma é "a atualização não chega", que é o
+          # modo de falhar mais mudo deste projeto. Um dígito a mais num campo
+          # que ninguém relê é tudo o que custa.
+          kt = open('app/src/main/java/br/org/iasd/av/NativeBridge.kt').read()
+          mshell = re.search(r'const val SHELL_VERSION\s*=\s*(\d+)', kt)
+          assert mshell, 'SHELL_VERSION não encontrado em NativeBridge.kt'
+          teto = int(mshell.group(1))
+          assert 1 <= int(m['minShell']) <= teto, (
+              f"minShell={m['minShell']} fora de 1..{teto} (o SHELL_VERSION deste shell)")
           # `shellTag` é o ACOPLAMENTO com a Release (v5.234): declarado, ele
           # segura a publicação do bundle até a Release existir. Um valor
           # malformado ("1.99" sem o v, um espaço solto) não seria erro em lugar
@@ -972,6 +984,18 @@ jobs:
             echo "SIGNED=false" >> "$GITHUB_ENV"
           fi
           cp "$SRC" "dist/audio-visual-iasd-${APK_NAME}.apk"
+          # E UMA CÓPIA DE NOME FIXO, que é o que dá um LINK PERMANENTE:
+          # `…/releases/latest/download/audio-visual-iasd.apk`. Sem ela não há
+          # endereço estável para imprimir num aviso ou colar num grupo — o
+          # nome versionado muda a cada Release e todo link publicado apodrece.
+          #
+          # FORA de `dist/` de propósito: a conferência de assinatura faz
+          # `APK=$(ls dist/*.apk)` e um segundo arquivo ali passaria a conferir
+          # um dos dois, enfraquecendo a guarda em silêncio.
+          if [ "$PUBLISH" = "true" ]; then
+            mkdir -p fixo
+            cp "$SRC" "fixo/audio-visual-iasd.apk"
+          fi
           echo "APK publicado a partir de: $SRC"
 
       # Checagem POSITIVA: pergunta ao apksigner QUEM assinou o APK que vai ser
@@ -1041,6 +1065,16 @@ jobs:
           TAG: ${{ github.event.inputs.release_tag }}
         run: |
           set -euo pipefail
+          # `web-latest` NÃO É UMA RELEASE COMO AS OUTRAS: é o canal OTA, e a
+          # URL dela está COMPILADA no shell (`WebUpdater.REPO`). Apagá-la mata
+          # a atualização da base web de todo aparelho instalado, para sempre e
+          # sem sinal — e não há como republicá-la a não ser rodando o
+          # `web-ota` de novo. Nada impedia `release_tag: web-latest` com
+          # `retag` ligado, e o custo de um dedo errado era o canal inteiro.
+          if [ "$TAG" = "web-latest" ]; then
+            echo "::error::web-latest é o canal OTA (a URL está compilada no shell) e nunca pode ser apagada por retag."
+            exit 1
+          fi
           if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             echo "Apagando a Release e a tag $TAG para recriá-las em main…"
             gh release delete "$TAG" --repo "$GITHUB_REPOSITORY" --yes --cleanup-tag
@@ -1061,7 +1095,9 @@ jobs:
           # disparo manual é o `checkout` com `ref: main` lá em cima — assim o
           # APK publicado vem do MESMO commit que a tag passa a apontar.
           target_commitish: main
-          files: dist/*.apk
+          files: |
+            dist/*.apk
+            fixo/audio-visual-iasd.apk
           generate_release_notes: true
           body: |
             Baixe o `.apk` abaixo e instale pelo Chrome do celular
@@ -1072,10 +1108,7 @@ jobs:
             espelhar a tela do celular. Sem TV conectada, a projeção continua
             sendo a preview do Controle em tela cheia.
 
-            > **Atualiza por cima.** A partir da v1.1 o APK é assinado com
-            > keystore fixa: instale sobre a versão anterior sem desinstalar —
-            > os dados do app (Cronograma, pastas sincronizadas, hinos e
-            > Bíblia baixados) são preservados.
-            >
-            > Vindo da **v1.0**, que saiu com assinatura de debug, esta única
-            > troca ainda exige desinstalar antes.
+            > **Atualiza por cima.** O APK é assinado com keystore fixa:
+            > instale sobre a versão anterior sem desinstalar — os dados do app
+            > (Cronograma, pastas sincronizadas, hinos e Bíblia baixados) são
+            > preservados.

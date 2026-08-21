@@ -133,6 +133,18 @@ Bundle que exija ponte mais nova que `NativeBridge.SHELL_VERSION` é recusado; o
 app segue no que tinha. **É por isso que `SHELL_VERSION` sobe a cada mudança de
 superfície da ponte** — sem isso a válvula não protege nada.
 
+**O bundle declara `minShell` IGUAL ao `SHELL_VERSION`** desde a v1.0: o shell
+atual é o piso, e não há guarda de versão no lado web. Com isso a válvula deixa
+de ser a rede de um caso raro e passa a ser o único ponto em que a incompatibi-
+lidade é notada.
+
+> **O modo de falhar que isso cria, e ele é mudo:** `minShell` acima do
+> `SHELL_VERSION` do APK instalado faz o aparelho recusar **TODO** bundle, para
+> sempre. Nada quebra, nada aparece na tela — a única pista é o `ultimoResultado`
+> que o `otaDiag` imprime na linha "Procura:" do Registro. Por isso o CI confere
+> o teto lendo o `SHELL_VERSION` do próprio Kotlin, e por isso um lote que sobe
+> o degrau **exige** `shellTag` e Release.
+
 ### 3. O watchdog de boot
 
 Servir um bundle arma um `pending`; o web o desarma (`otaConfirm`). Bundle que

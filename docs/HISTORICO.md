@@ -24,6 +24,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
+- **v1.0** — O SHELL ATUAL VIRA O PISO: `minShell` 2 → 46, saem as 37 guardas de `__SHELL_VERSION__` do lado web e a compatibilidade com bundle antigo do Kotlin. A ponte ENCOLHE (`espelhoLigar()` perde o `modo`, `espelhoAprovar` vira `espelhoDerrubar`). A versão reinicia em **1.0** nos dois canais. EXIGE RELEASE
 - **v5.317** — A LIMPEZA QUE O LEVANTAMENTO DE REGRAS AUTORIZOU: sai o `TITULO_NENHUM` (um ramo que nada alcança, no arquivo que recusa ramos que nada alcançam) e a §11 do arquivo do espelho, que prometia um código de três dígitos removido há 128 versões. O que mexe na PONTE fica — e agora está escrito por quê. OTA PURO
 - **v5.316** — O PORTÃO FECHA: `continue-on-error` sai dos oráculos de Chromium, e as CINCO classes de oráculo-que-media-o-runner vão à raiz — inclusive DOIS defeitos do app que apareciam como teste instável, um deles na gravação da intenção do OTA. Nasce `AVDB.updateState`. OTA PURO
 - **v5.315** — OS 21 ACHADOS CONFIRMADOS, CORRIGIDOS — e os dois que a revisão adversarial pegou em cima da correção (superfície da ponte sem degrau; o manifesto do OTA podendo regredir). `SHELL_VERSION` 45. EXIGE RELEASE
@@ -186,6 +187,123 @@ na nota que a revoga, não apagada da que a criou.
 - **v5.154** — é METADE OTA e METADE APK, e a divisão importa para quem for testar em aparelho.
 - **v5.155** — é OTA PURO
 - **v5.156** — é METADE OTA e METADE APK, de novo.
+
+---
+
+## v1.0 — a primeira versão pública, e o piso que ela estabelece
+
+O app tem um operador só, e o estado atual passa a ser a base. Este lote é o
+corte: a numeração recomeça, e com ela morre toda a tolerância a um shell que
+já não existe.
+
+### A versão reinicia nos DOIS canais
+
+`version.json` 5.317 → **1.0**, `WEB_VERSION` e o span do rodapé junto, e o APK
+sai como **v1.0**. As 103 tags do esquema anterior (`v1.0`→`v1.99`,
+`v2.0`→`v2.4`) são apagadas pelo `limpar-versoes.yml`, um workflow de disparo
+manual escrito para este ritual e para ser removido depois dele.
+
+**O preço está dito, e é uma reinstalação manual.** `beginSession` só descarta o
+bundle OTA guardado quando a base do APK é MAIOR (`compareVersions(embedded,
+installed) >= 0`), e `1.0 < 5.317`: um aparelho que já baixou o bundle 5.317
+serviria ele para sempre e recusaria todo 1.x seguinte, em silêncio. A saída
+escolhida foi desinstalar e reinstalar uma vez, em vez de um migrador — código
+de compatibilidade seria exatamente o que este lote existe para tirar.
+
+**`SHELL_VERSION` NÃO reinicia**, e essa assimetria é deliberada: ele é o
+contrato da ponte, não uma versão que alguém lê (o operador vê o `versionName`),
+e reiniciar um contador monotônico é como se produz o degrau silencioso. Ele vai
+a **46** porque a ponte encolhe aqui.
+
+### A ponte encolhe — os dois argumentos ignorados saem
+
+- `espelhoLigar(modo)` → `espelhoLigar()`. O `modo` era ignorado desde a v5.156.
+- `espelhoAprovar(id, sim)` → `espelhoDerrubar(rotulo)`. O `sim` era ignorado
+  desde o shell 36, e o NOME mentia: o método só derruba uma tela.
+
+Os dois estavam documentados como "ficam para não custar um degrau". O degrau
+chegou, e eles foram junto — atravessando ponte, `BridgeHost` e `MainActivity`.
+
+### As 37 guardas: some a VERSÃO, fica o CONTEXTO
+
+Quase toda guarda tinha a forma `__NATIVE__ && (__SHELL_VERSION__|0) >= N`.
+**Apagar a condição inteira em vez de só a metade da versão quebra o navegador**
+— onde a base tem de continuar rodando — e o papel `tela`, que é o mesmo
+`/display/` num navegador da rede local. A distinção é o lote inteiro.
+
+Três pontos em que a guarda de VERSÃO era, por acidente, a ÚNICA guarda de
+contexto — e onde a linha foi TROCADA, nunca apagada: `instalarApk` (que não
+tinha `__NATIVE__` nenhum), o `soAudio` e os três `if` do fallback de
+`lerAtualizacao`.
+
+Duas condições que moram na mesma linha e NÃO são de shell ficaram: o
+`&& !!window.AVSerie` (guarda de MÓDULO CARREGADO, que o watchdog de boot passou
+a exigir na v5.315) e o `!r.semSoAudio`.
+
+**A cascata do `mse.js`** é onde a poda ingênua fazia estrago: `faixaNaUrl()`
+tem dois consumidores, e é ela que manda o navegador e a tela da rede para o
+cabeçalho `Range`. Ela virou `!!__NATIVE__` e CONTINUA existindo. `disponivel()`
+colapsava para `true` e saiu, junto do ramo de desistência de `criar()` e da
+linha do Registro que mandava "instale o APK novo" — uma frase que, com um shell
+só, não descreve ação possível.
+
+### O que ficou de propósito
+
+| o quê | por quê |
+|---|---|
+| a válvula `minShell` | ela protege o shell atual de um bundle **futuro** — não é tolerância a shell antigo |
+| o `try` do `__avBack` | cobre um `controle.js` que abortou no parse, que é o cenário do watchdog de boot |
+| `ACOES_PADRAO` | risco assimétrico: o modo de falhar é um cartão de mídia sem transporte no meio do culto |
+| a linha "ponte N" do Registro | é ela que denuncia um aparelho rodando um APK que não é o esperado |
+| o `?tela=1` do `EspelhoServidor` | é redundância numa rota VIVA (a entrada da tela da rede), não compatibilidade com shell — o ganho seria cosmético e a falha, muda |
+
+### No CI
+
+- **`retag` não podia apagar `web-latest`, e podia.** Nada impedia
+  `release_tag: web-latest` com `retag` ligado — e aquela release é o canal OTA,
+  com a URL COMPILADA no shell. O dedo errado matava a atualização da base web
+  de todo aparelho instalado, para sempre. Agora há guarda explícita, em dois
+  pontos do ritual de limpeza e um no `retag`.
+- **O teto do `minShell` passa a ser conferido**, lido do `SHELL_VERSION` do
+  próprio Kotlin em vez de digitado: um `minShell` acima do teto é um bundle que
+  nenhum aparelho aceita, e o sintoma é "a atualização não chega".
+- **Um asset de NOME FIXO** (`audio-visual-iasd.apk`) passa a sair ao lado do
+  versionado, o que dá um link permanente
+  (`…/releases/latest/download/audio-visual-iasd.apk`). Ele fica FORA de `dist/`
+  de propósito: a conferência de assinatura faz `ls dist/*.apk`, e um segundo
+  arquivo ali passaria a conferir um dos dois.
+- O corpo da Release perdeu as duas frases sobre a v1.0 de assinatura de debug
+  e a v1.1 — no renumeramento elas ficam falsas e contraditórias.
+
+### A tabela dos degraus da ponte, até aqui
+
+Ela morava no `CLAUDE.md` e passa a morar aqui: com o piso, a lista de degraus é
+história do contrato, não regra viva.
+
+| shell | o que mudou |
+|---|---|
+| **45** | `espelhoDiag` ganha `midia { itens, bytes, teto }` — o cache da rota `/m/` no Registro. Não muda poder nenhum; o degrau existe porque **forma de retorno é superfície**, e o Registro é lido A DISTÂNCIA |
+| **44** | `espelhoEstado` ENCOLHE: cada tela perdeu os seis campos de capacidade (`seguro`, `mse`, `mms`, `fetchStream`, `videoDecoder`, `wakeLock`) — sem produtor desde a v5.187, e `optBoolean` os publicava como `false`, que é valor legítimo |
+| 43 | `+ atualizacaoEstado` — os dois canais numa leitura só. Não acrescenta poder, acrescenta **coerência de instante** (três promessas independentes desenhavam o diálogo pela metade) |
+| 42 | `+ actions` no `nowPlaying` — os botões do cartão, escolhidos pelo web (invariante 5) |
+| 41 | `+ ytCanalPlaylists`, `+ ytPlaylist` — TRANSPORTE puro; quem decide é `controle/serie.js` |
+| 40 | ENCOLHE: `espelhoDiag` perde `ritmo`, `espelhoEstado` perde `modo` — restos do espelho de pixels que saíam ZERADOS e eram lidos como medição |
+| 39 | `+ temaClaro` — ícones das barras e `windowBackground`, o que o CSS não alcança |
+| 38 | ENCOLHE: `espelhoEstado` perde `codigo` (a porta é o endereço); sai `keepAudioAlive` |
+| 37 | forma do `espelhoEstado`/`espelhoDiag` vira a do telão por comandos. Nasce o canal `__avTelaMidia`, detectado por **presença**, não por versão |
+| 36 | primeiro degrau que ENCOLHE: sai `requestCam`; `espelhoAprovar` passa a só derrubar |
+| 35 | `+ apkProcurar`, `+ apkInstalar` |
+| 34 | `+` os três métodos do certificado TLS |
+| 33 | `+ requestCam` (saiu no 36) |
+| 32 | `+` os cinco métodos do espelho |
+| 31 | `+ otaCheck`, `+ otaDiag` |
+| 30 | **comportamento**: `ytFetch` repetido RECLAMA o desfecho guardado (`YoutubeGrab.resgatar`) |
+| 29 | `+ otaPending`, `+ otaApply` |
+| 28 | `+ ytCancel` |
+| 27 | **contrato**: a faixa de bytes do `ytStream` viaja na QUERY, nunca em `Range` (invariante 8) |
+| 26 | `+ ytStream` · 25 `+ ytFetchAte` e `bytes` no `bgProgress` · 23 `+ ytFetchAudio` |
+| ≤ 22 | `ytDiag`, `ytSearch`, os três de deck, `pickDoc`, `openExternal`, `ytFetch`/`ytDiscard` |
+| 46 | `espelhoLigar` perde o `modo`; `espelhoAprovar(id, sim)` vira `espelhoDerrubar(rotulo)`. O primeiro degrau em que ENCOLHER foi o objetivo do lote |
 
 ---
 
