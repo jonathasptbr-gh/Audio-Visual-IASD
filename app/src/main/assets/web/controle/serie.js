@@ -94,7 +94,6 @@
   // Onde mora o NOME do episódio dentro do título do vídeo. Ver a suposição 2
   // no topo e o KDoc de [tituloDoEpisodio].
   const TITULO_ESQUERDA = 'esquerda';     // "Match point | Provai e Vede 2026 (01/Ago)"
-  const TITULO_NENHUM = 'nenhum';         // (sem consumidor desde a v5.271 — ver TITULO_SERIE)
   // A SÉRIE É O NOME DO EPISÓDIO (v5.271). Vale quando o canal não põe nome de
   // episódio nenhum no título ("Informativo Mundial das Missões | 15 AGOSTO
   // 2026"): em vez de deixar a linha só com a data, ela leva o nome da série.
@@ -171,11 +170,11 @@
       // com a data, mas sem a identificação de 'Informativo Mundial das
       // Missões' em cada item"*.
       //
-      // A v5.244 escolheu `TITULO_NENHUM` com um argumento que era verdadeiro
-      // DENTRO do álbum: ali o cabeçalho já diz qual é a série, e repetir o
-      // nome em 52 linhas seria a metade constante ocupando a lista inteira —
-      // "exatamente o defeito que aquela regra existe para corrigir, ao
-      // contrário".
+      // A v5.244 deixou o item só com a DATA, por um argumento que era
+      // verdadeiro DENTRO do álbum: ali o cabeçalho já diz qual é a série, e
+      // repetir o nome em 52 linhas seria a metade constante ocupando a lista
+      // inteira — "exatamente o defeito que aquela regra existe para corrigir,
+      // ao contrário".
       //
       // **O que ele não viu é que o item SAI do álbum.** Mandado ao Cronograma
       // ou aos Favoritos, ele perde o cabeçalho que o explicava e vira uma
@@ -614,14 +613,15 @@
    * frente do título. Sem a barra, devolve o título inteiro: um rótulo
    * comprido é melhor que um rótulo vazio.
    *
-   * **`TITULO_NENHUM`: a série não põe nome de episódio no título.** No
+   * **`TITULO_SERIE`: a série não põe nome de episódio no título.** No
    * Informativo o título é a série mais a data ("Informativo Mundial das
    * Missões | 15 AGOSTO 2026") e o nome da história vive na MINIATURA, que o
    * índice guarda e a gaveta do item desenha (v5.236). Aplicar o padrão aqui
    * daria 52 linhas idênticas — a metade constante ocupando a lista inteira,
-   * exatamente o defeito que o padrão existe para corrigir, ao contrário.
-   * Devolvendo '', quem rotula é [nomeDoItem] com a DATA, que é por onde o
-   * operador procura o sábado.
+   * exatamente o defeito que o padrão existe para corrigir, ao contrário. No
+   * lugar entra o RÓTULO da série, porque o item SAI do álbum: no Cronograma
+   * ele perde o cabeçalho que dizia de que série ele é, e a data sozinha não
+   * o identifica lá fora (v5.271).
    *
    * Um terceiro caso — o nome à DIREITA da barra — não existe em canal nenhum
    * lido até aqui, e por isso não está escrito: seria um ramo que nada alcança.
@@ -629,7 +629,6 @@
   function tituloDoEpisodio(titulo, serie) {
     const t = String(titulo == null ? '' : titulo).replace(/\s+/g, ' ').trim();
     if (!t) return '';
-    if (serie && serie.titulo === TITULO_NENHUM) return '';
     // A SÉRIE COMO NOME: o título do vídeo é ignorado (ele é a série mais a
     // data, e a data já vem do `nomeDoItem`), e o que fica é o rótulo da série.
     // Ele NÃO sai do `name` por padrão porque aquele carrega o ano.
@@ -713,10 +712,6 @@
    *
    * Os três casos degenerados, e nenhum deles pode devolver linha vazia:
    *
-   *  - **só a data** (`TITULO_NENHUM`): "15/Ago". Nenhuma série usa este modo
-   *    desde a v5.271 — o Informativo passou a `TITULO_SERIE`, porque o item
-   *    SAI do álbum e lá fora a data sozinha não diz de que série ele é. O modo
-   *    fica porque a próxima série pode ser um caso em que ele esteja certo.
    *  - **só o título**: o vídeo não declarou data nenhuma (a regra de ouro
    *    mandou ele entrar assim mesmo).
    *  - **nem um nem outro**: sobra o título CRU do YouTube. É feio e é longo,
@@ -823,7 +818,7 @@
 
   global.AVSerie = {
     SERIES,
-    PERIODO_MES, PERIODO_TRIMESTRE, TITULO_ESQUERDA, TITULO_NENHUM, TITULO_SERIE,
+    PERIODO_MES, PERIODO_TRIMESTRE, TITULO_ESQUERDA, TITULO_SERIE,
     FUTUROS_MOSTRAR, FUTUROS_ESCONDER, DIAS_DE_ANTECEDENCIA,
     MOTIVO_VAZIO, MOTIVO_PREFIXO, MOTIVO_LIBRAS, MOTIVO_IDIOMA,
     MOTIVO_ANO, MOTIVO_PERIODO, MOTIVO_SEM_ID, MOTIVO_FUTURO,

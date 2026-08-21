@@ -24,6 +24,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
+- **v5.317** — A LIMPEZA QUE O LEVANTAMENTO DE REGRAS AUTORIZOU: sai o `TITULO_NENHUM` (um ramo que nada alcança, no arquivo que recusa ramos que nada alcançam) e a §11 do arquivo do espelho, que prometia um código de três dígitos removido há 128 versões. O que mexe na PONTE fica — e agora está escrito por quê. OTA PURO
 - **v5.316** — O PORTÃO FECHA: `continue-on-error` sai dos oráculos de Chromium, e as CINCO classes de oráculo-que-media-o-runner vão à raiz — inclusive DOIS defeitos do app que apareciam como teste instável, um deles na gravação da intenção do OTA. Nasce `AVDB.updateState`. OTA PURO
 - **v5.315** — OS 21 ACHADOS CONFIRMADOS, CORRIGIDOS — e os dois que a revisão adversarial pegou em cima da correção (superfície da ponte sem degrau; o manifesto do OTA podendo regredir). `SHELL_VERSION` 45. EXIGE RELEASE
 - **v5.314** — A AUDITORIA PROFUNDA: as lápides que a faxina deixou, a ROTAÇÃO de comentários que a prova antiga não via, e os dois oráculos que mediam a si mesmos. Nasce `docs/shell/`. OTA PURO
@@ -187,6 +188,65 @@ na nota que a revoga, não apagada da que a criou.
 - **v5.156** — é METADE OTA e METADE APK, de novo.
 
 ---
+
+## v5.317 — a limpeza que o levantamento de regras autorizou
+
+Um levantamento das regras explícitas do projeto — as do `CLAUDE.md`, as dos
+capítulos de `docs/`, as do KDoc e as do workflow — separou o que ainda governa
+alguma coisa do que ficou de pé sem consumidor. Este lote executa **só a parte
+que não muda comportamento nenhum**, e o que ficou de fora ficou por um motivo
+que passou a estar escrito.
+
+**`TITULO_NENHUM` sai (`controle/serie.js`).** Dos três modos do campo `titulo`
+do catálogo, duas séries usam dois: o Provai e Vede é `TITULO_ESQUERDA`, e o
+Informativo virou `TITULO_SERIE` na v5.271. O terceiro não era alcançado por
+série nenhuma — e o KDoc do MESMO arquivo já recusava um quarto modo (o nome à
+DIREITA da barra) com o argumento exato que este contradizia: *"seria um ramo
+que nada alcança"*. Saem a constante, o ramo, a exportação, os dois blocos de
+KDoc que o descreviam e um braço do ternário do Registro. O parágrafo do KDoc
+não foi apagado: passou a documentar o `TITULO_SERIE`, que é o modo que de fato
+decide ali e não tinha KDoc nenhum.
+
+**O que ele CUSTA — e é o único efeito visível.** `tituloDoEpisodio` entra na
+`AVSerie.impressao()`, que é hash do PRÓPRIO CÓDIGO das funções que decidem:
+mexer numa delas invalida o índice guardado, e cada aparelho re-varre as duas
+séries uma vez na primeira abertura depois do OTA. Não é dano — é o mecanismo
+funcionando, e a razão de a impressão existir (v5.233: mudar a regra não pode
+deixar o índice antigo de pé, e limpar o cache não resolveria porque ele mora no
+IndexedDB).
+
+**A §11 do `ESPELHO-DE-PIXELS.md` sai, e não por tamanho.** "A frase para o
+operador" prometia o **código de três dígitos** — que saiu na v5.189, quando o
+`/par` virou anônimo — e avisava que **o som não vai completo** por causa do
+player embutido do YouTube, que saiu na v5.212 (hoje a tela toca o arquivo
+inteiro, local, e a inversão está escrita no `CLAUDE.md`). Ela não estava velha:
+estava AFIRMANDO o contrário do aparelho, dentro do arquivo cujo cabeçalho
+promete que "nada aqui descreve código que existe" e que lista as três seções
+que sobraram — sem ela entre elas. O que nela continuava valendo (o espelho é
+auxiliar; a primeira ligada é numa terça-feira) já vive no `CLAUDE.md` e no
+`TELAO-POR-COMANDOS.md`. As citações vivas não foram atingidas: `§2.4` responde
+ao `EspelhoCert.kt` e ao `native.js`, e a frase que o `previewAtrasoMs()` cita
+está no `§10-A.8`, não na `§11`.
+
+**O QUE NÃO FOI FEITO, E É A PARTE QUE PRECISA FICAR ESCRITA.** O terceiro
+candidato do levantamento era a ponte: `espelhoLigar(modo)` ignora o argumento
+desde a v5.156, e `espelhoDerrubar` ainda se chama `espelhoAprovar(id, sim)` com
+o `sim` ignorado — verificado, nenhum dos dois é lido no corpo do
+`MainActivity`. Parece limpeza de graça e **não é**: o web chega por OTA em
+minutos e o shell só chega instalando o APK, então uma assinatura encolhida
+publica um bundle que chama a forma NOVA para uma frota que ainda tem a VELHA —
+e a transmissão para de ligar até o operador instalar, sem nada na tela que
+explique. É a assimetria de "um método novo não chega por OTA" vista do outro
+lado, e agora está no `CLAUDE.md` ao lado dela: encolher a ponte exige a mesma
+pergunta `__SHELL_VERSION__` de sempre, o que ACRESCENTA código em vez de tirar.
+Os dois saem quando a frota já estiver no degrau — nunca junto com ele.
+
+Também ficou de fora, e por outro motivo, o TLS do espelho: os três métodos não
+têm chamador no web desde que a folha saiu (v5.196), mas `EspelhoCert.material()`
+é lido a CADA `espelhoLigar`, e um aparelho que importou um `.p12` enquanto a
+folha existia ainda sobe em TLS hoje. Ali "remover" tem desfecho observável — e
+muda o endereço que o operador digita, porque com certificado o endereço é o
+NOME e não o IP.
 
 ## v5.316 — o portão fecha: sai o `continue-on-error` dos oráculos de Chromium
 
