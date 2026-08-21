@@ -647,6 +647,65 @@
               </svg>
             </button>
           </div>
+        <!-- ===== OS CONTROLES DA TELA CHEIA =====
+             Até aqui a tela cheia era uma superfície de GESTOS INVISÍVEIS: nada
+             era desenhado, porque sem TV conectada a preview em tela cheia É a
+             projeção, e tudo o que se pinta aqui a congregação vê. O preço era
+             uma interface que não se anuncia — quem não decorou o mapa não tem
+             como descobri-lo.
+
+             A coluna resolve os dois lados: ela só aparece ao TOQUE e se apaga
+             sozinha em 4s (`FSCTL_MS`), e é translúcida enquanto está no ar. O
+             que fica sobre a projeção é passageiro e discreto, por construção.
+
+             CADA BOTÃO ACIONA O CONTROLE DE VERDADE — não há segunda
+             implementação de nada (invariante 5). O ⏮/⏭ recebe o MESMO
+             `attachTransportStep` da barra de transporte, então herda os dois
+             eixos de graça: toque curto passa estrofe, toque longo passa mídia.
+             O volume reusa `simpleVolStep` + `holdRepeat`, os mesmos do Modo
+             Fácil (segurar repete).
+
+             SVG e não `.msym`: a fonte é um subset de 31 codepoints, e o
+             `.pv-fab` pendura três `drop-shadow` no TRAÇO do SVG — é o que
+             mantém o ícone legível sobre um slide branco. Um glifo aqui perderia
+             a sombra e o contraste junto. -->
+        <div class="pv-fsctl" id="pvFsCtl">
+          <button type="button" id="fsExit" class="pv-fab" title="Sair da tela cheia" aria-label="Sair da tela cheia">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M9 4v3.5A1.5 1.5 0 0 1 7.5 9H4"/><path d="M20 9h-3.5A1.5 1.5 0 0 1 15 7.5V4"/>
+              <path d="M15 20v-3.5a1.5 1.5 0 0 1 1.5-1.5H20"/><path d="M4 15h3.5A1.5 1.5 0 0 1 9 16.5V20"/>
+            </svg>
+          </button>
+          <!-- A CORTINA. Dois desenhos no mesmo botão, trocados por classe (ver
+               `renderFsCtl`): o ícone diz o ESTADO (imagem inteira = mídia no
+               ar; riscada = telão coberto) e o `title` diz a AÇÃO — a mesma
+               divisão da notificação de mídia. -->
+          <button type="button" id="fsView" class="pv-fab" title="Cobrir o telão">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><g class="ico-base">
+              <rect x="3.5" y="5" width="17" height="14" rx="2"/>
+              <circle cx="8.5" cy="10" r="1.4"/><path d="m4.5 17.5 5-5 4 4 3-2.5 3.5 3.5"/>
+            </g><g class="ico-alt">
+              <rect x="3.5" y="5" width="17" height="14" rx="2"/>
+              <path d="m4.5 17.5 5-5 3 3"/><path d="M3 3.5 21 20.5"/>
+            </g></svg>
+          </button>
+          <button type="button" id="fsPrev" class="pv-fab" title="Estrofe anterior (segurar: mídia anterior)">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6v12"/><path d="M19 6.6 9.6 12 19 17.4z"/></svg>
+          </button>
+          <button type="button" id="fsPlay" class="pv-fab" title="Play/Pause">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path class="ico-base" d="M7.5 5.6 19 12 7.5 18.4z"/>
+            <g class="ico-alt"><path d="M9 5.6v12.8"/><path d="M15 5.6v12.8"/></g></svg>
+          </button>
+          <button type="button" id="fsNext" class="pv-fab" title="Próxima estrofe (segurar: próxima mídia)">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6v12"/><path d="M5 6.6 14.4 12 5 17.4z"/></svg>
+          </button>
+          <button type="button" id="fsVolUp" class="pv-fab" title="Aumentar o volume" aria-label="Aumentar o volume">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9.5h2.8L11 5.8v12.4L6.8 14.5H4z"/><path d="M16.5 9.2v5.6"/><path d="M13.7 12h5.6"/></svg>
+          </button>
+          <button type="button" id="fsVolDown" class="pv-fab" title="Abaixar o volume" aria-label="Abaixar o volume">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9.5h2.8L11 5.8v12.4L6.8 14.5H4z"/><path d="M13.7 12h5.6"/></svg>
+          </button>
+        </div>
         </div>
         <button id="slidePrevBtn" class="slide-anchor" title="Estrofe anterior" disabled hidden></button>
         <button id="slideNextBtn" class="slide-anchor" title="Próxima estrofe" disabled hidden></button>
@@ -965,7 +1024,7 @@
              METADADO de diagnóstico e o lugar onde se procura diagnóstico é
              junto do estado do telão e do alvo de espelhamento, não numa faixa
              de navegação. Preenchido por `renderVersionLabel`. -->
-        <span id="appVersion" class="app-version">Controle v1.0.6</span>
+        <span id="appVersion" class="app-version">Controle v1.0.7</span>
         <!-- A ATUALIZAÇÃO (v5.245). Ele mora ao lado do rótulo de versão
              porque é a MESMA conversa ("que versão eu tenho?" / "tem uma mais
              nova?"), e porque é ali que o operador já procura isso.

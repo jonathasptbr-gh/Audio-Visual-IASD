@@ -305,11 +305,17 @@ try {
   }));
   const conta0 = await lerConta();
   checar(folha.aberta, 'o toque no botão ABRE a folha');
-  checar(folha.segmentos === 2 && folha.campo && folha.chips === 2 && folha.go,
-    'e ela desenha os dois segmentos, o campo, os dois filtros e o confirmar', folha);
-  checar(/^Toda a biblioteca — 4 músicas$/.test(conta0.forte) && /3 já baixadas/.test(conta0.fraca),
-    'sem palavra, a conta LIDERA COM O ESCOPO: o acervo inteiro entra no sorteio',
-    conta0);
+  checar(folha.segmentos === 2 && folha.campo && folha.chips === 3 && folha.go,
+    'e ela desenha os dois segmentos, o campo, os TRÊS filtros e o confirmar', folha);
+  // A RESSALVA DOS INFANTIS APARECE DE SAÍDA (v1.0.7), e é o preço declarado de
+  // o filtro nascer ligado: ele recusa sem que ninguém o tenha tocado, então a
+  // conta tem de dizer isso na primeira frase que o operador lê — pela mesma
+  // régua do "sem o hinário" logo abaixo, onde "toda a biblioteca" com o
+  // hinário fora seria uma frase ERRADA.
+  checar(/^Toda a biblioteca, sem os infantis — 4 músicas$/.test(conta0.forte)
+    && /3 já baixadas/.test(conta0.fraca),
+    'sem palavra, a conta LIDERA COM O ESCOPO — e já ressalva o filtro que nasce '
+    + 'ligado', conta0);
 
   // ---- A PALAVRA TEMA FILTRA, SEM REMONTAR A FOLHA -------------------------
   // O campo é o único controle que pode estar EM FOCO enquanto a conta muda:
@@ -370,14 +376,24 @@ try {
     const antes = { ...sorteioPrefs };
     sorteioPrefs.tema = '';
     const fora = {};
+    // "SEM FILTRO NENHUM" PASSOU A EXIGIR DESLIGAR TRÊS (v1.0.7): `semInfantis`
+    // nasce LIGADO, então o estado sem ressalva nenhuma deixou de ser o padrão
+    // do app — e é justamente por isso que ele continua sendo medido aqui, como
+    // a linha de base contra a qual cada ressalva se lê.
     sorteioPrefs.semHinario = false; sorteioPrefs.soNoAparelho = false;
+    sorteioPrefs.semInfantis = false;
     renderSorteio(); fora.tudo = ler();
+    sorteioPrefs.semInfantis = true;
+    renderSorteio(); fora.semInfantis = ler();
+    sorteioPrefs.semInfantis = false;
     sorteioPrefs.semHinario = true;
     renderSorteio(); fora.semHinario = ler();
     sorteioPrefs.semHinario = false; sorteioPrefs.soNoAparelho = true;
     renderSorteio(); fora.soLocal = ler();
     sorteioPrefs.semHinario = true;
     renderSorteio(); fora.ambos = ler();
+    sorteioPrefs.semInfantis = true;
+    renderSorteio(); fora.tres = ler();
     Object.assign(sorteioPrefs, antes); renderSorteio();
     return fora;
   });
@@ -389,6 +405,11 @@ try {
     'com "Só no aparelho" o escopo deixa de ser a biblioteca e ela o diz', escopos.soLocal);
   checar(/^Só o que já está no aparelho, sem o hinário — /.test(escopos.ambos),
     'e os dois filtros juntos aparecem juntos', escopos.ambos);
+  checar(/^Toda a biblioteca, sem os infantis — /.test(escopos.semInfantis),
+    'o filtro que nasce ligado RESSALVA como os irmãos — sem isso ele seria a '
+    + 'única recusa que a tela não anuncia', escopos.semInfantis);
+  checar(/sem o hinário, sem os infantis/.test(escopos.tres),
+    'e os TRÊS juntos aparecem juntos, nesta ordem', escopos.tres);
   const dica = await pg.evaluate(() => document.querySelector('#sorteioList .lib-search').placeholder);
   checar(/vazio/i.test(dica) && /biblioteca/i.test(dica),
     'e o próprio campo diz o que o vazio significa — a pergunta nasce ali', dica);

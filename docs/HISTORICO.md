@@ -24,6 +24,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
+- **v1.0.7** — O BOTÃO DE BAIXAR DO ÁLBUM ACERTAVA 6 DE 11 TOQUES: `--press` é uma ESCALA, e escalar um contêiner arrasta o botão colado na borda dele para fora do dedo. Mais a tela cheia trocando os gestos invisíveis por uma COLUNA que o toque acende e 4s apagam, o Modo Fácil perdendo os Favoritos e o "Ao Cronograma" (destinos que ele não tem como mostrar), e o filtro "Sem infantis" — o único que nasce LIGADO. OTA PURO
 - **v1.0.6** — A ATUALIZAÇÃO DIZ O QUE VEM NELA: uma linha do tempo das mudanças entre a versão e a consequência, lida do `notas.json` do PRÓPRIO bundle baixado — não do manifesto, que é buscado 240 vezes por hora para carregar texto que importa uma vez por semana. Mais o "Tocar neste celular" virando caminho SÓ DE IDA (a v1.0.5 persistia a escolha, e persistir era o defeito que o botão de volta vinha remendar) e a cadeia de conectar TV ganhando a candidata que faltava em quem não é Samsung. `SHELL_VERSION` 47. EXIGE RELEASE
 - **v1.0.5** — O MODO FÁCIL DEIXA DE EXIGIR UMA TELA: o bloqueio supunha que quem abre aquele modo sempre quer projetar, e ensaiar o louvor ou ouvir o playback a caminho da igreja não quer. O "Tocar neste celular" da folha de conexão desbloqueia o modo e liga o som daqui — e a escolha SE DESFAZ SOZINHA quando uma tela entra, senão o ensaio de quarta-feira chegaria ao culto de sábado. OTA PURO
 - **v1.0.4** — O SELO DE CAMADAS VOLTA A SER UM ÍCONE SOLTO, como os dois vizinhos da preview: o que o separa deles é a COR, e ela vira `--stage-alert` (a paleta recusa o scarlett oficial como traço). O desenho ganha o ✕ — a pilha diz o estado, o ✕ diz o que o toque faz. Conferido nos DOIS modos. OTA PURO
@@ -193,6 +194,107 @@ na nota que a revoga, não apagada da que a criou.
 - **v5.154** — é METADE OTA e METADE APK, e a divisão importa para quem for testar em aparelho.
 - **v5.155** — é OTA PURO
 - **v5.156** — é METADE OTA e METADE APK, de novo.
+
+---
+
+## v1.0.7 — o alvo do botão de baixar, e a tela cheia que se anuncia
+
+Quatro pedidos do operador, mais um chegado no meio do lote.
+
+### O BOTÃO DE BAIXAR ACERTAVA 6 DE 11 TOQUES
+
+*"Está acontecendo de tocar nele e abrir o acordeão ao invés de acertar esse
+botão de download que fica a direita no card."*
+
+Reproduzido e medido: dos 11 pontos varridos sobre o botão, **6 baixavam** — e
+os 5 que erravam eram **todos do lado direito**. O `elementFromPoint` dizia
+BOTÃO; o `e.target` do click dizia `coll-bar`.
+
+A causa é `--press`, que é `scale(.96)`. **A `.coll-bar` estava na lista do
+`:active`**, e escalar um contêiner arrasta o que vive dentro dele: a barra tem
+408px, 4% recuam a borda direita ~8px, e o botão é o último item, colado nela. Um
+dedo na metade direita do botão ficava sobre a barra no instante do `pointerup`.
+
+Provado por INTERVENÇÃO, que é mais forte que medir o transform: tirando o
+`:active` da barra, 11/11; tirando também o do botão, 11/11 de novo — o botão
+nunca foi o problema.
+
+**A regra que fica: `--press` é para CONTROLE FOLHA.** Um contêiner que hospeda
+um controle responde por PREENCHIMENTO, que não move nada. É a mesma família de
+armadilha que já tinha feito o ouvinte do card morar no `<li>`: aquela correção
+salvou o alvo da BARRA e deixou de pé o do botão dentro dela.
+
+A barra do card ABERTO precisou de uma segunda seletora e de `background-image`
+em vez de `background-color`: ela é a tampa do cartão e pinta `--camada` numa
+regra de especificidade maior, e o atalho `background` zera o `background-image`.
+Compondo por cima, o véu do toque não troca a cor da tampa por um translúcido
+que deixaria as faixas aparecerem através dela.
+
+### A TELA CHEIA TROCA GESTOS POR UMA COLUNA
+
+*"Ao invés de gestos em toda a tela, vamos uma coluna de ícones na lateral
+direita onde todos controles ficarão e desaparecerão em 4s se não houver toques
+na tela. Faça os botões ligeiramente translúcidos."*
+
+O desenho antigo tinha uma razão boa: sem TV conectada, **a preview em tela cheia
+É a projeção**, e tudo o que se pinta ali a congregação vê — daí não desenhar
+nada. O que faltava era como se anunciar: quem não decorasse o mapa (toque por
+terço, deslizes nos quatro sentidos, arrasto de volume) não tinha como
+descobri-lo.
+
+A coluna preserva a razão e paga o preço de outro jeito: **passageira** (só ao
+toque, some em 4 s) e **translúcida** (`.72`). Sete botões, e **nenhum
+reimplementa nada** — o ⏮/⏭ recebe o MESMO `attachTransportStep` da barra de
+transporte e herda os dois eixos de graça (curto = estrofe, longo = mídia); o
+volume reusa `simpleVolStep`/`holdRepeat` do Modo Fácil.
+
+Apagada ela é `pointer-events: none`: sem isso, uma coluna invisível continuaria
+comendo os toques da metade direita da projeção.
+
+### O MODO FÁCIL PERDE DOIS DESTINOS QUE ELE NÃO TEM
+
+*"Remover a visualização dos favoritos no modo simples. E o mesmo vale para o
+botão de 'ao cronograma' que temos no modo aleatório de playlist."*
+
+A razão é a mesma nos dois, e é o que os une: **o Modo Fácil não tem aba nem
+lista.** O que se GUARDA ali não tem onde ser visto depois, e um destino
+invisível é pior que um botão a menos. A Biblioteca abre igual (o sorteio mora na
+barra dela), então os dois eram alcançáveis de lá.
+
+Só a SEÇÃO e o BOTÃO saem: os favoritos continuam existindo, continuam
+sincronizando e voltam inteiros ao trocar de modo.
+
+### "SEM INFANTIS", O ÚNICO FILTRO QUE NASCE LIGADO
+
+*"Ela restringe a inclusão das músicas 508 a 557 do novo hinário adventista. Ela
+vem ativa por padrão para não incluir as infantis."*
+
+O Hinário 2022 agrupa os infantis num bloco contíguo. Não há campo no banco que
+os marque — o que os identifica é a POSIÇÃO, e por isso a regra é uma faixa de
+números e não uma propriedade da faixa. Inclusiva nas duas pontas, e **só do
+hinário novo**: o de 1996 numera outra coisa, e emprestar estes números para lá
+recusaria cinquenta hinos ao acaso.
+
+**O `sanear` usa `!== false`, e não o `=== true` dos irmãos.** A inversão é o
+ponto: com `=== true`, um `sorteioPrefs` gravado por uma versão anterior — que
+não tem o campo — voltaria com o filtro DESLIGADO, e o operador receberia
+infantis sem ter mexido em nada.
+
+E ele **ressalva na conta** ("Toda a biblioteca, sem os infantis"), pela mesma
+régua do "sem o hinário": é o único filtro capaz de recusar sem que ninguém o
+tenha tocado, então é o que mais precisa ser dito.
+
+### O oráculo que estava medindo o modo errado
+
+O `boot-nativo` reprovou nos Favoritos, e não por defeito do app: **o padrão do
+app é o Modo Fácil** (`storedAppMode`), e três blocos dele mediam a Biblioteca
+sem declarar o modo. Eles passaram a declará-lo — FORA do `evaluate`, porque
+dois deles leem o estado padrão verbatim e injetar uma troca no meio é mexer no
+cenário que eles existem para medir. E ganharam par: um caso novo mede a
+AUSÊNCIA no Modo Fácil, senão a remoção ficaria sem oráculo e voltaria no
+primeiro esquecimento.
+
+Suíte inteira verde: 25/25.
 
 ---
 

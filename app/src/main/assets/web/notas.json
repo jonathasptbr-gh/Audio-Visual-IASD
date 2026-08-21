@@ -1,5 +1,14 @@
 [
   {
+    "versao": "1.0.7",
+    "itens": [
+      "Playlist automática: novo filtro \"Sem infantis\", ligado por padrão — não sorteia os hinos 508 a 557 do Hinário 2022.",
+      "Tela cheia: os controles viraram uma coluna de ícones na lateral, no lugar dos gestos. Ela aparece ao toque e some sozinha.",
+      "Modo Fácil: a Biblioteca não mostra mais os Favoritos, e a playlist automática não oferece \"Ao Cronograma\".",
+      "Corrigido um bug na seção de Biblioteca."
+    ]
+  },
+  {
     "versao": "1.0.6",
     "itens": [
       "A atualização passa a dizer O QUE vem nela, em vez de só a versão.",

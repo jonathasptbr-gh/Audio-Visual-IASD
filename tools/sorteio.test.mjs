@@ -275,5 +275,88 @@ checar(poolTudo.faixasVistas === 7,
 checar(poolTudo.itens.length > 0 && poolNatal.itens.length > 0 && poolGrat.itens.length > 0,
   'os três pools do teste têm conteúdo');
 
+// ── N. "SEM INFANTIS": a faixa 508–557 do hinário NOVO ─────────────────────
+//
+// Pedido do operador: *"ela restringe a inclusão das músicas 508 a 557 do novo
+// hinário adventista. Ela vem ativa por padrão para não incluir as infantis"*.
+//
+// TRÊS modos de errar, e os três são silenciosos:
+//   - **a ponta** — um intervalo exclusivo deixa 508 ou 557 passar, e o
+//     operador recebe um infantil no meio do louvor sem nada que explique;
+//   - **o hinário errado** — aplicar 508–557 ao Hinário 1996 recusa cinquenta
+//     hinos escolhidos ao acaso, e a lista só fica "menor" sem dizer por quê;
+//   - **o padrão** — o filtro nasce LIGADO, e um `sorteioPrefs` gravado por uma
+//     versão anterior (que não tem o campo) não pode ressuscitá-lo desligado.
+//
+// FIXTURE PRÓPRIO: o acervo lá de cima é contado por asserção ("as 7 faixas"),
+// e acrescentar faixas nele faria este bloco reprovar um caso que não é dele.
+{
+  const H2022 = { id: 'hymnal-2022', name: 'Hinário Adventista 2022', kind: 'hymnal' };
+  const H1996 = { id: 'hymnal-1996', name: 'Hinário Adventista 1996', kind: 'hymnal' };
+  const hino = (id, track, nome) => ({ id_music: id, track, name: nome,
+    has_instrumental_music: false, semPlayback: true, fileIdFull: 'f-' + id });
+  const ACERVO_I = {
+    'hymnal-2022': [
+      hino('n507', 507, 'O último antes da faixa'),
+      hino('n508', 508, 'O primeiro infantil'),
+      hino('n530', 530, 'Um infantil do meio'),
+      hino('n557', 557, 'O último infantil'),
+      hino('n558', 558, 'O primeiro depois da faixa'),
+    ],
+    // MESMO NÚMERO, hinário de 1996: ele numera outra coisa, e a faixa não vale
+    // para ele. Sem este par, um filtro que ignorasse a coleção passaria.
+    'hymnal-1996': [hino('v530', 530, 'Hino 530 do hinário de 1996')],
+  };
+  const capI = {
+    ...cap,
+    faixas: (coll) => ACERVO_I[coll.id] || [],
+    ehHinarioNovo: (coll) => coll.id === 'hymnal-2022',
+    noAparelho: () => true,
+  };
+  const TODAS_I = [H2022, H1996];
+  const nums = (r) => r.itens.map((i) => i.s.track).sort((a, b) => a - b);
+
+  // O PADRÃO — ninguém tocou em nada.
+  checar(S.sanear(null).semInfantis === true,
+    'SEM INFANTIS NASCE LIGADO: o padrão do app não sorteia hino infantil');
+  checar(S.sanear({}).semInfantis === true,
+    'e um objeto vazio também cai no ligado');
+  // A ARMADILHA DO PADRÃO INVERTIDO: todo irmão deste filtro usa `=== true`, que
+  // devolve `false` para um campo AUSENTE. Aqui isso ressuscitaria o filtro
+  // desligado em todo aparelho que já tinha prefs gravadas — o operador
+  // receberia infantis sem ter mexido em nada, e nada na tela diria por quê.
+  checar(S.sanear({ semHinario: true, soNoAparelho: false }).semInfantis === true,
+    'e prefs GRAVADAS POR UMA VERSÃO ANTERIOR (sem o campo) voltam com ele LIGADO',
+    JSON.stringify(S.sanear({ semHinario: true })));
+  checar(S.sanear({ semInfantis: false }).semInfantis === false,
+    'quem o desligou de propósito continua com ele desligado');
+
+  const ligado = S.montarPool(TODAS_I, { semInfantis: true }, capI);
+  checar(JSON.stringify(nums(ligado)) === JSON.stringify([507, 530, 558]),
+    'LIGADO, saem os três infantis do hinário novo — e as duas pontas (508 e 557) '
+    + 'saem junto, porque o intervalo é INCLUSIVO', JSON.stringify(nums(ligado)));
+  checar(ligado.itens.some((i) => i.coll.id === 'hymnal-1996' && i.s.track === 530),
+    'e o 530 DO HINÁRIO DE 1996 continua entrando: a faixa é a numeração do NOVO',
+    JSON.stringify(ligado.itens.map((i) => i.coll.id + ':' + i.s.track)));
+  checar(ligado.recusas[S.MOTIVO_INFANTIL] === 3,
+    'a recusa é CONTADA e NOMEADA — uma lista menor sem motivo é indistinguível '
+    + 'de um defeito', JSON.stringify(ligado.recusas));
+
+  const desligado = S.montarPool(TODAS_I, { semInfantis: false }, capI);
+  checar(JSON.stringify(nums(desligado)) === JSON.stringify([507, 508, 530, 530, 557, 558]),
+    'DESLIGADO, os infantis voltam inteiros — o filtro é uma escolha, não uma '
+    + 'remoção do acervo', JSON.stringify(nums(desligado)));
+  checar(!desligado.recusas[S.MOTIVO_INFANTIL],
+    'e ninguém é recusado por ele');
+
+  // A CAPACIDADE AUSENTE não pode quebrar a regra: um `cap` sem
+  // `ehHinarioNovo` (um chamador antigo) desliga o filtro em vez de lançar.
+  const semCap = S.montarPool(TODAS_I, { semInfantis: true },
+    { ...capI, ehHinarioNovo: undefined });
+  checar(semCap.itens.length === 6,
+    'sem a capacidade `ehHinarioNovo` o filtro não age — e não lança',
+    semCap.itens.length + ' item(ns)');
+}
+
 console.log('\n' + (falhas.length ? falhas.length + ' FALHA(S)' : 'tudo certo'));
 process.exit(falhas.length ? 1 : 0);

@@ -99,6 +99,27 @@
   const MOTIVO_VARIANTE = 'variante';       // faixa: a origem não tem esta variante
   const MOTIVO_TEMA = 'tema';               // faixa: não casa a palavra tema
   const MOTIVO_FORA = 'fora-do-aparelho';   // faixa: o filtro pediu só o baixado
+  const MOTIVO_INFANTIL = 'infantil';       // faixa: hino infantil, e o filtro os recusa
+
+  // ---- A FAIXA INFANTIL DO HINÁRIO NOVO ----
+  //
+  // O Hinário Adventista 2022 agrupa os hinos INFANTIS num bloco contíguo, do
+  // 508 ao 557. Não há campo no banco que os marque — o que os identifica é a
+  // POSIÇÃO no hinário, e é por isso que a regra é uma faixa de números e não
+  // uma propriedade da faixa.
+  //
+  // O intervalo é INCLUSIVO nas duas pontas, e vale SÓ para o hinário novo: o
+  // de 1996 tem outra numeração, e aplicar estes números lá recusaria cinquenta
+  // hinos escolhidos ao acaso. Quem responde "é o hinário novo?" é uma
+  // capacidade injetada (`cap.ehHinarioNovo`), como todo o resto deste módulo —
+  // a identidade da coleção é assunto do `controle.js`.
+  const INFANTIL_DE = 508;
+  const INFANTIL_ATE = 557;
+  function ehInfantil(coll, s, cap) {
+    if (!cap.ehHinarioNovo || !cap.ehHinarioNovo(coll)) return false;
+    const n = s ? (s.track | 0) : 0;
+    return n >= INFANTIL_DE && n <= INFANTIL_ATE;
+  }
 
   // ---- ONDE O TEMA CASOU ----
   // Vira o subtítulo da linha ("casou na letra") e a contagem do Registro. É a
@@ -128,6 +149,14 @@
       tema: typeof p.tema === 'string' ? p.tema : '',
       variante: p.variante === VARIANTE_PLAYBACK ? VARIANTE_PLAYBACK : VARIANTE_CANTADA,
       semHinario: p.semHinario === true,
+      // ===== O ÚNICO FILTRO QUE NASCE LIGADO =====
+      // `!== false`, e não `=== true` como os irmãos: o padrão dele é LIGADO
+      // (pedido do operador — a playlist automática de um culto não deve trazer
+      // hino infantil sem que ninguém tenha pedido). A inversão é o ponto: com
+      // `=== true`, um `sorteioPrefs` gravado por uma versão anterior — que não
+      // tem o campo — voltaria com o filtro DESLIGADO, e o operador receberia
+      // infantis na fila sem ter mexido em nada.
+      semInfantis: p.semInfantis !== false,
       soNoAparelho: p.soNoAparelho === true,
       quantos: QUANTIDADES.includes(p.quantos | 0) ? (p.quantos | 0) : QUANTIDADE_PADRAO,
     };
@@ -203,6 +232,14 @@
   // permite ao contador dizer "12 casam · 3 já no aparelho" e ao operador
   // entender o que o filtro está custando.
   function avaliarFaixa(coll, s, filtros, cap, q, temaNoAlbum) {
+    // O INFANTIL VEM PRIMEIRO, e a ordem é a mesma decisão de sempre: o motivo
+    // que sai é o que o operador pode AGIR sobre. Este filtro nasce ligado, ou
+    // seja, é o único que pode estar recusando sem que ninguém o tenha tocado —
+    // dizer "não casa o tema" para um hino que o filtro escondeu mandaria
+    // reescrever a palavra à toa.
+    if (filtros.semInfantis && ehInfantil(coll, s, cap)) {
+      return { entra: false, motivo: MOTIVO_INFANTIL, casou: '', noAparelho: false };
+    }
     if (!temVariante(s, filtros.variante)) {
       return { entra: false, motivo: MOTIVO_VARIANTE, casou: '', noAparelho: false };
     }
@@ -312,7 +349,8 @@
     MODO_UMA, MODO_PLAYLIST,
     VARIANTE_CANTADA, VARIANTE_PLAYBACK,
     MOTIVO_SEM_MUSICA, MOTIVO_HINARIO, MOTIVO_SEM_INDICE,
-    MOTIVO_VARIANTE, MOTIVO_TEMA, MOTIVO_FORA,
+    MOTIVO_VARIANTE, MOTIVO_TEMA, MOTIVO_FORA, MOTIVO_INFANTIL,
+    INFANTIL_DE, INFANTIL_ATE,
     CASOU_NOME, CASOU_ALBUM, CASOU_LETRA, CASOU_SEM_TEMA,
     QUANTIDADES, QUANTIDADE_PADRAO,
     sanear, temVariante, avaliarColecao, ondeCasa, avaliarFaixa,

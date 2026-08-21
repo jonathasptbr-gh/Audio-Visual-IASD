@@ -633,6 +633,18 @@ try {
   // Todas as asserções acima passavam com esse defeito no lugar: elas mediam o
   // ÍNDICE, e o que faltava era o DESENHO. É por isso que este bloco pergunta
   // ao DOM, e não a uma função.
+  // ===== OS DOIS BLOCOS ABAIXO MEDEM O MODO AVANÇADO (v1.0.7) =====
+  // O padrão do app é o MODO FÁCIL (`storedAppMode`), e a seção de Favoritos
+  // deixou de existir lá — a pedido do operador, porque aquele modo não tem aba
+  // nem lista onde o que se GUARDA possa ser visto depois. Sem esta troca, tudo
+  // o que estes blocos afirmam sobre os Favoritos passaria a medir o modo em que
+  // eles não existem. A AUSÊNCIA tem caso próprio, logo adiante.
+  //
+  // FORA do `evaluate`, e não dentro: aqueles blocos leem o estado PADRÃO
+  // verbatim (`favAberto`, `grupoAberto`) e montam árvores próprias — injetar
+  // uma troca de modo no meio deles é mexer no cenário que eles existem para
+  // medir.
+  await pg.evaluate(() => { window.__modoBiblioteca = appMode; setAppMode('full'); });
   const naTela = await pg.evaluate(() => {
     const lista = document.getElementById('hymnResults');
     // OS GRUPOS NASCEM FECHADOS (v5.237): o índice é a primeira tela, e o card
@@ -677,6 +689,10 @@ try {
       posSerie: linhas.findIndex((l) => l.includes('Provai e Vede 2026')),
     };
   });
+  // E DEVOLVE O MODO. O modo é global: os casos abaixo medem o Modo Fácil
+  // BLOQUEADO, e deixá-lo em avançado faria os dois falharem falando de outra
+  // coisa. (Medido: foi exatamente isto que aconteceu na primeira tentativa.)
+  await pg.evaluate(() => setAppMode(window.__modoBiblioteca || 'simple'));
   checar(/Provai e Vede 2026/.test(naTela.texto),
     'O CARD DA SÉRIE APARECE NA BIBLIOTECA — era este o "não estou achando nada"');
 
@@ -945,6 +961,18 @@ try {
   // As DUAS metades, e são inseparáveis: fechado NÃO CONSTRÓI card nenhum (senão
   // "colapsado" seria só um `display: none`, e a tela continuaria pagando o DOM
   // de dezenas de álbuns a cada redesenho) **e** o toque no cabeçalho abre.
+  // ===== OS DOIS BLOCOS ABAIXO MEDEM O MODO AVANÇADO (v1.0.7) =====
+  // O padrão do app é o MODO FÁCIL (`storedAppMode`), e a seção de Favoritos
+  // deixou de existir lá — a pedido do operador, porque aquele modo não tem aba
+  // nem lista onde o que se GUARDA possa ser visto depois. Sem esta troca, tudo
+  // o que estes blocos afirmam sobre os Favoritos passaria a medir o modo em que
+  // eles não existem. A AUSÊNCIA tem caso próprio, logo adiante.
+  //
+  // FORA do `evaluate`, e não dentro: aqueles blocos leem o estado PADRÃO
+  // verbatim (`favAberto`, `grupoAberto`) e montam árvores próprias — injetar
+  // uma troca de modo no meio deles é mexer no cenário que eles existem para
+  // medir.
+  await pg.evaluate(() => { window.__modoBiblioteca = appMode; setAppMode('full'); });
   const indice = await pg.evaluate(async () => {
     // O ESTADO PADRÃO, VERBATIM. Ele não é montado aqui de propósito: o que se
     // afirma é o que o app trouxe da carga do módulo — os Favoritos abertos e
@@ -1068,6 +1096,10 @@ try {
     grupoAberto = ''; favAberto = true;
     return { fechado, aberto, trocou, fav, doisGrupos };
   });
+  // E DEVOLVE O MODO. O modo é global: os casos abaixo medem o Modo Fácil
+  // BLOQUEADO, e deixá-lo em avançado faria os dois falharem falando de outra
+  // coisa. (Medido: foi exatamente isto que aconteceu na primeira tentativa.)
+  await pg.evaluate(() => setAppMode(window.__modoBiblioteca || 'simple'));
   checar(indice.fechado.grupos.length >= 2 && indice.fechado.cards === 0,
     'A BIBLIOTECA ABRE COMO ÍNDICE: seção fechada não constrói card nenhum',
     JSON.stringify(indice.fechado.grupos) + ' · ' + indice.fechado.cards + ' card(s) de grupo');
@@ -1117,6 +1149,9 @@ try {
   // `renderFolderList` da gaveta. O que se afirma é que ele desenha as linhas
   // de verdade — e que a gaveta continua desenhando as dela, senão apontar o
   // host para o lugar novo teria quebrado o antigo em silêncio.
+  // MODO AVANÇADO: este bloco INTEIRO é sobre a seção de Favoritos, que não
+  // existe no Modo Fácil (v1.0.7) — ver a nota dos blocos acima.
+  await pg.evaluate(() => { window.__modoBiblioteca = appMode; setAppMode('full'); });
   const favs = await pg.evaluate(async () => {
     // Um favorito de verdade, para a seção ter o que mostrar.
     const rec = await AVDB.addMedia(new Blob(['x'], { type: 'audio/mpeg' }),
@@ -1349,6 +1384,57 @@ try {
     await recarregarFavoritos();
     return r;
   });
+  await pg.evaluate(() => setAppMode(window.__modoBiblioteca || 'simple'));
+
+  // ── O MODO FÁCIL NÃO MOSTRA FAVORITOS NEM "AO CRONOGRAMA" (v1.0.7) ───────
+  //
+  // Pedido do operador. A razão é a mesma nos dois: o Modo Fácil não tem aba nem
+  // lista — o que se GUARDA ali não tem onde ser visto depois, e um destino
+  // invisível é pior que um botão a menos.
+  //
+  // ESTE CASO EXISTE PORQUE A REMOÇÃO NÃO ERRA ALTO. Tudo continua funcionando
+  // sem ela; o que volta, se alguém desfizer a guarda, é uma seção a mais numa
+  // tela que existe para não ter seções — e nada na tela diria que voltou. Os
+  // três blocos acima medem a PRESENÇA no avançado; este mede a AUSÊNCIA no
+  // Modo Fácil, e é o par deles: um sozinho aprova a metade errada.
+  const facil = await pg.evaluate(async () => {
+    const antes = appMode;
+    setAppMode('simple');
+    const lista = document.createElement('ul');
+    lista.className = 'hymnal-list';
+    lista.style.width = '390px';
+    document.body.appendChild(lista);
+    renderCollectionsList(lista, () => {}, { semTotal: true });
+    const nomes = [...lista.querySelectorAll('.coll-group-name')].map((e) => e.textContent.trim());
+    const out = {
+      secoes: nomes,
+      temFavoritos: nomes.some((n) => /Favoritos/i.test(n)),
+      // E O RESTO DA BIBLIOTECA CONTINUA INTEIRO: a guarda tira UMA seção, não
+      // a lista. Sem esta metade, apagar a Biblioteca inteira passaria aqui.
+      cards: lista.querySelectorAll('.hymnal-card').length,
+    };
+    lista.remove();
+    // A folha do sorteio, em modo PLAYLIST — é só nele que o segundo desfecho
+    // existe. `abrirSorteio` reescreve as prefs, então o modo é posto DEPOIS
+    // dele e a folha é redesenhada.
+    await abrirSorteio();
+    sorteioPrefs.modo = AVSorteio.MODO_PLAYLIST;
+    renderSorteio();
+    out.acoes = [...document.querySelectorAll('#sorteioPopup .sorteio-acao')]
+      .map((b) => b.textContent.trim());
+    fecharSorteio();
+    setAppMode(antes);
+    return out;
+  });
+  checar(!facil.temFavoritos,
+    'NO MODO FÁCIL a Biblioteca não desenha a seção de Favoritos',
+    JSON.stringify(facil.secoes));
+  checar(facil.cards > 0,
+    'e o resto dela continua inteiro — a guarda tira UMA seção, não a lista',
+    facil.cards + ' card(s)');
+  checar(facil.acoes.length === 1 && !facil.acoes.some((t) => /cronograma/i.test(t)),
+    'e a playlist automática perde o "Ao Cronograma": ali não há Cronograma para ver',
+    JSON.stringify(facil.acoes));
   checar(favs.temItem,
     'OS FAVORITOS SÃO DESENHADOS DENTRO DA BIBLIOTECA, pelo mesmo '
     + '`renderFolderList` da gaveta');
