@@ -2262,6 +2262,30 @@ Rodar local: `./gradlew assembleDebug` (exige Android SDK).
   pior:** o canal fica segurando para sempre, em silêncio, e a única pista é a
   linha no resumo do run.
 
+- **SEMPRE deixar a PÁGINA anunciando a versão que acabou de sair.** Ela é a
+  única coisa deste projeto que fala com quem **ainda não instalou** — e o modo
+  de errar dela não é ficar fora do ar: é continuar linda, continuar respondendo
+  e anunciar um número que não é o que está publicado. Quem lê não tem como
+  conferir, e conclui que o app parou de ser mantido.
+
+  **Isto é automático, e o trabalho é NÃO QUEBRAR o automático:** o `pages.yml`
+  se encadeia por `workflow_run` no *Build APK* e publica sozinho a cada lote
+  que chega em `main`. Cada peça vem de onde ela é verdade:
+
+  | o que a página mostra | de onde sai | por quê |
+  |---|---|---|
+  | a VERSÃO | `version` do **manifesto do canal OTA** | é o que o aparelho vai rodar. A tag da Release fica parada em todo lote só de web, e o `version.json` do repositório pode estar segurado pelo `shellTag` |
+  | o TAMANHO e a URL | o `.apk` da **Release** | é o que se baixa |
+
+  **Não trocar `workflow_run` por `on: release`** — evento criado com o
+  `GITHUB_TOKEN` padrão não dispara workflow (o guarda de recursão do GitHub; ver
+  a seção do OTA). Foi assim que a página serviu o APK da Release ANTERIOR.
+
+  **Conferir depois de publicar**, porque o run verde não prova o número: o passo
+  *"A versão que o aparelho vai rodar"* imprime `Base web publicada: X (APK: Y)`,
+  e um `::warning::` no resumo significa que o manifesto não foi lido e a página
+  saiu com a versão do APK — correta, velha, e indistinguível de estar tudo bem.
+
 ### Código
 
 - **Nunca perder funcionalidades ao refatorar.** A base web tem o sistema de
