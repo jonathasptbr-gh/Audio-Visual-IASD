@@ -50,9 +50,14 @@ const servidor = http.createServer((req, res) => {
 });
 
 const falhas = [];
-function checar(cond, msg) {
+function checar(cond, msg, obtido) {
   if (cond) console.log('ok      ' + msg);
-  else { console.log('FALHOU  ' + msg); falhas.push(msg); }
+  else {
+    console.log('FALHOU  ' + msg
+      + (obtido !== undefined ? '\n        obtido: '
+        + (typeof obtido === 'string' ? obtido : JSON.stringify(obtido)) : ''));
+    falhas.push(msg);
+  }
 }
 
 await new Promise((r) => servidor.listen(0, r));
@@ -223,20 +228,53 @@ try {
   // que reserva `--hit`. O confirmar não tem check nem ícone, então sobrava só
   // a linha de texto — ~19px contra os 34px dos vizinhos.
   //
-  // Medido no RENDERIZADO e como IGUALDADE, nunca contra um número escrito
-  // aqui: um piso em pixel aprovaria os dois errados juntos no dia em que
-  // `--hit` mudar.
+  // Medido no RENDERIZADO e contra o que o DESENHO RESERVA (`--hit`), nunca
+  // contra um número escrito aqui — um piso em pixel aprovaria os dois errados
+  // juntos no dia em que `--hit` mudar.
+  //
+  // E NUNCA COMO IGUALDADE DE ALTURA RENDERIZADA, que era a forma anterior: uma
+  // linha de opção mede o padding mais o MAIOR entre o `--hit` do check e o
+  // texto dela, e a opção "Tocar agora" tem DUAS linhas de texto. O app pede
+  // `system-ui, -apple-system, sans-serif`, então quem responde é a fonte que a
+  // máquina tem. MEDIDO aqui, com a MESMA página e o MESMO CSS: as quatro
+  // opções dão 53px sob DejaVu/FreeSans e a de duas linhas dá 55px quando
+  // `system-ui` resolve para WenQuanYi Zen Hei, enquanto o confirmar fica em 53
+  // nos dois casos. A igualdade media a FONTE DO RUNNER, não o app.
+  //
+  // O piso, esse, é font-free, e são as duas metades que o compõem — cada
+  // `checar` abaixo trava uma:
+  //
+  //   altura da linha = padding + conteúdo,  conteúdo ≥ `--hit`
+  //
+  // Iguais as duas parcelas, o piso renderizado é o mesmo e o texto só pode
+  // fazer a linha CRESCER. Os ~19px do defeito original reprovam a primeira.
   const alturas = await pg.evaluate(() => {
-    const alt = (el) => Math.round(el.getBoundingClientRect().height);
+    const px = (v) => Math.round(parseFloat(v) * 100) / 100;
+    const respiro = (el) => {
+      const cs = getComputedStyle(el);
+      return px(cs.paddingTop) + px(cs.paddingBottom);
+    };
+    const conteudo = (el) => Math.round(el.getBoundingClientRect().height - respiro(el));
     const go = document.querySelector('#songMenuList .song-menu-go');
     const opcoes = [...document.querySelectorAll('#songMenuList .song-menu-btn')]
       .filter((b) => b.querySelector('.song-menu-check'));
-    return { go: alt(go), opcoes: opcoes.map(alt) };
+    return {
+      hit: Math.round(parseFloat(getComputedStyle(document.documentElement)
+        .getPropertyValue('--hit'))),
+      go: Math.round(go.getBoundingClientRect().height),
+      goConteudo: conteudo(go), goRespiro: respiro(go),
+      opcoes: opcoes.map((el) => Math.round(el.getBoundingClientRect().height)),
+      opcoesRespiro: opcoes.map(respiro),
+    };
   });
-  checar(alturas.opcoes.length > 0 && alturas.go === alturas.opcoes[0]
-      && alturas.opcoes.every((h) => h === alturas.opcoes[0]),
-    'e ele tem a MESMA altura das opções que fecha (' + alturas.go + 'px) — sem '
-    + 'check nem ícone, ele nascia mais baixo que todos os vizinhos',
+  checar(alturas.hit > 0 && alturas.goConteudo >= alturas.hit,
+    'e ele RESERVA `--hit` de conteúdo, como o check reserva nas opções ('
+    + alturas.goConteudo + 'px ≥ ' + alturas.hit + 'px) — era esta a omissão: '
+    + 'sem check nem ícone sobrava só a linha de texto', JSON.stringify(alturas));
+  checar(alturas.opcoesRespiro.length > 0
+      && alturas.opcoesRespiro.every((r) => r === alturas.goRespiro),
+    'e o MESMO respiro das opções que fecha (' + alturas.goRespiro + 'px de padding) '
+    + '— com o conteúdo no mesmo piso, é o padding que decide se ele nasce mais baixo',
     JSON.stringify(alturas));
   // ── O "TOCAR AGORA" SOZINHO (v5.254) ─────────────────────────────────────
   // Relato do operador: *"o seletivo de tocar agora… se eu toco apenas nele, ele
