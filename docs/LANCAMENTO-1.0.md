@@ -34,9 +34,21 @@ guardado quando a base do APK é MAIOR, e `1.0 < 5.317`.
 
 | falta | por quê |
 |---|---|
-| ⬜ | **rodar o `limpar-versoes.yml`** — não há token com escrita nesta sessão; o job roda com o `GITHUB_TOKEN` do Actions |
-| ⬜ | **publicar a Release `v1.0`** — depois da limpeza, nunca antes (ver §2) |
+| ✅ | as 103 Releases e tags apagadas (`web-latest` preservada) |
+| ✅ | a Release **`v1.0`** publicada, assinada, com o asset de nome fixo junto |
+| ⬜ | **publicar a base web 1.0 no canal OTA** — exige `permitir_regressao=true` (ver abaixo) |
 | ⬜ | **desinstalar e reinstalar** no aparelho |
+
+> **A guarda anti-regressão trava o reset, e é por isso que existe a válvula.**
+> O `web-latest` está na 5.317 e a base nova é a 1.0: para a guarda, "a nova é
+> menor" — e ela não sabe distinguir a renumeração DELIBERADA do acidente que
+> ela previne (publicar versão menor faz o aparelho descartar em silêncio e o
+> canal ficar inerte). Sem publicar, um aparelho reinstalado com a base 1.0
+> embutida iria ao canal, veria a 5.317 e **baixaria a base velha de volta**,
+> desfazendo a limpeza do lado web.
+>
+> A saída é o input `permitir_regressao`, no molde do `retag`: manual, e grava
+> no resumo o que fez. **Ele é para esta vez e nenhuma outra.**
 | ⬜ | `LICENSE` (GPLv3) — [§4](#4--o-que-mais-o-lançamento-pede), continua BLOQUEADOR |
 | ⬜ | a página, o guia do Modo Fácil e as capturas — [§1](#1--o-ponto-de-acesso) e [§3](#3--o-tutorial-do-modo-fácil) |
 
