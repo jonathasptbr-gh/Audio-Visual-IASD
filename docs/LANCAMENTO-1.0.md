@@ -36,7 +36,7 @@ guardado quando a base do APK é MAIOR, e `1.0 < 5.317`.
 |---|---|
 | ✅ | as 103 Releases e tags apagadas (`web-latest` preservada) |
 | ✅ | a Release **`v1.0`** publicada, assinada, com o asset de nome fixo junto |
-| ⬜ | **publicar a base web 1.0 no canal OTA** — exige `permitir_regressao=true` (ver abaixo) |
+| ✅ | a base web **1.0** publicada no canal OTA (manifesto, bundle e sha256 conferidos) |
 | ⬜ | **desinstalar e reinstalar** no aparelho |
 
 > **A guarda anti-regressão trava o reset, e é por isso que existe a válvula.**
@@ -49,6 +49,20 @@ guardado quando a base do APK é MAIOR, e `1.0 < 5.317`.
 >
 > A saída é o input `permitir_regressao`, no molde do `retag`: manual, e grava
 > no resumo o que fez. **Ele é para esta vez e nenhuma outra.**
+
+> **E a renumeração desenterrou um segundo defeito, este latente há muito.** A
+> faxina de bundles antigos ordenava por VERSÃO e guardava os três primeiros —
+> tratando "mais novo" e "maior número" como a mesma coisa. Com a base em 1.0, o
+> `web-1.0.zip` ordenou abaixo dos `web-5.31x` e foi apagado **no mesmo run que
+> o subiu**, deixando o manifesto de pé apontando para um 404. Corrigido: a
+> chave passou a ser a data de upload, e o zip que o manifesto anuncia sai da
+> lista de candidatos antes de qualquer corte.
+
+**Estado do canal, conferido:** `version.json` → `1.0` / `minShell 46` /
+`shell 1.0`; o `web-1.0.zip` responde 200 e o sha256 bate com o anunciado; o
+link permanente `…/releases/latest/download/audio-visual-iasd.apk` serve os
+4.415.055 bytes da v1.0. Restam **duas** tags no repositório: `v1.0` e
+`web-latest`.
 | ⬜ | `LICENSE` (GPLv3) — [§4](#4--o-que-mais-o-lançamento-pede), continua BLOQUEADOR |
 | ⬜ | a página, o guia do Modo Fácil e as capturas — [§1](#1--o-ponto-de-acesso) e [§3](#3--o-tutorial-do-modo-fácil) |
 
