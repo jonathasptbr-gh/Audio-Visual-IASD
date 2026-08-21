@@ -1,8 +1,11 @@
 # Achados em aberto
 
-**Nenhum.** Os 21 da auditoria de 2026-08-20 foram corrigidos na v5.315 — a nota
-do lote está em [`HISTORICO.md`](HISTORICO.md), e cada regra que sobreviveu a
-eles foi para o capítulo que a governa, nunca para cá.
+**Nenhum.** Os 21 da auditoria de 2026-08-20 foram corrigidos na v5.315, e os
+dois que a campanha de determinismo da v5.316 desenterrou (o read-modify-write
+do diário das séries e o `setState` que resolve antes do commit no caminho da
+intenção do OTA) saíram no mesmo lote em que foram achados. A nota de cada um
+está em [`HISTORICO.md`](HISTORICO.md), e cada regra que sobreviveu a eles foi
+para o capítulo que a governa, nunca para cá.
 
 ---
 

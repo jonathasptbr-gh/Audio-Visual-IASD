@@ -182,18 +182,23 @@ const ponte = ({ web = '', shell = '', bytes = 0, espelho = false, shellName = '
 
   // A SONDA DA INTENÇÃO — o sinal DETERMINÍSTICO que precede a instalação.
   //
-  // \`retomarAtualizacao()\` COMEÇA lendo \`ota-intencao\`; do que vem depois
-  // (comparar versões, ler o estado, chamar \`apkInstalar\`, apagar a chave)
-  // nada espera relógio — é uma corrente de microtarefas. O que varia com a
-  // carga da máquina é só QUANDO a inicialização chega a essa leitura, e é por
-  // isso que esperar por ELA, e não por um prazo, é o que separa medir o app de
-  // medir o runner.
+  // \`retomarAtualizacao()\` COMEÇA lendo \`ota-intencao\`, e é por isso que a
+  // leitura serve de sinal: esperar por ELA, e não por um prazo, tira a carga do
+  // runner da conta na única parte do caminho que ela de fato governa — QUANDO a
+  // inicialização chega até ali.
+  //
+  // O QUE VEM DEPOIS NÃO É UMA CORRENTE DE MICROTAREFAS, e supor que fosse já
+  // custou uma reprovação: entre a leitura e o \`apkInstalar\` há uma ida à ponte
+  // (\`lerAtualizacao()\`) e, sem o achado do manifesto, \`retomarAtualizacao\`
+  // DESISTE de propósito — quem tenta de novo é a enquete, dez segundos depois
+  // (\`OTA_POLL_MS\`). Daí o bloco 3 esperar por CADA degrau do caminho, e o
+  // último não levar o prazo curto: ele tem de caber uma volta da enquete.
   //
   // Ela não muda o app: embrulha o \`AVDB\` no instante em que \`db.js\` o
   // publica (\`global.AVDB = {…}\`), contando as leituras e guardando o que foi
   // escrito. Os contadores nascem zerados a cada carga — inclusive na abertura
-  // que sucede a morte do documento, que é o que este arquivo mede —, então uma leitura vista aqui é uma leitura
-  // DO APP.
+  // que sucede a morte do documento, que é o que este arquivo mede —, então uma
+  // leitura vista aqui é uma leitura DO APP.
   // \`boas\` conta só as leituras que vão DECIDIR: \`retomarAtualizacao\` desiste
   // sem fazer nada quando a hora é ruim (cena, download, transmissão) e volta
   // dez segundos depois pela enquete. Sem essa separação, "o app releu" podia

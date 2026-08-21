@@ -246,13 +246,17 @@ jobs:
       # E ELE JÁ NÃO TEM `continue-on-error` (v5.316). A política durou enquanto
       # a premissa dela era verdadeira, e ela deixou de ser em duas etapas.
       #
-      # A justificativa escrita sempre foi INFRAESTRUTURA — "barrar o canal OTA
-      # por um download de navegador é trocar um risco raro por um bloqueio
-      # frequente". Infraestrutura mudou de endereço na v5.213 (é o passo de
-      # cima, e ele guarda o `continue-on-error` dela junto com o `if` que pula
-      # estes oráculos e o aviso que registra o pulo). O que sobrou aqui foi uma
-      # causa só de reprovar — e AÍ a política passou a proteger o oposto do que
-      # o texto dizia: reprovação de verdade absorvida em silêncio.
+      # O TEXTO ANTIGO CARREGAVA DUAS METADES. A razão declarada era
+      # INFRAESTRUTURA ("download do Chromium, runner sem rede"), mas a frase
+      # que a resumia já concedia o outro lado: "barrar o canal OTA por um
+      # TESTE de navegador é trocar um risco raro por um bloqueio frequente" —
+      # isto é, contemplava um oráculo reprovando de verdade e escolhia
+      # absorvê-lo. A v5.213 mudou de endereço só a primeira metade (virou o
+      # passo de cima, que ficou com o `continue-on-error` dela, e de quem
+      # passaram a depender o `if` que pula estes oráculos e o aviso do pulo).
+      # A segunda nunca foi reexaminada — e é a MEDIÇÃO abaixo que a derruba: a
+      # troca prometida era "um risco raro por um bloqueio frequente", e o que
+      # se mediu é o inverso nos dois termos.
       #
       # MEDIDO antes de mexer: 21 dos 23 runs anteriores terminaram VERDES com
       # oráculo reprovado dentro, 40 reprovações somadas, UMA delas um defeito
