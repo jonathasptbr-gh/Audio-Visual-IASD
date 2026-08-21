@@ -24,6 +24,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
+- **v1.0.2** — O BOTÃO DEIXA DE DIZER "ESPELHAR": o que vai para a TV é o telão, não a tela do celular, e o rótulo anunciava o oposto do que o app entrega. A página vira CLARA e só clara, ganha um card de Slides e um de "recebe de tudo", e o guia cai para três passos com o Play Protect como VERIFICAÇÃO, não como susto. O respiro entre a faixa da marca e o primeiro título media ZERO — `.env` vencia o `main` por especificidade. OTA PURO
 - **v1.0.1** — O ÍCONE FICA DE PÉ e as COLEÇÕES FIXAS SOBEM PARA A RAIZ (um toque a menos até a lista de faixas). Sai o agrupamento "Arquivos oficiais"/"Hinários"; o card ganha tom PRÓPRIO, porque ler o pai o deixava a 1,26:1 da gaveta na raiz. O vão dos Favoritos passa a contar TODO vizinho. A página de acesso é reescrita para quem não é técnico. E a página servia a Release ANTERIOR: `release: published` nunca dispara para Release criada pelo GITHUB_TOKEN — o `pages.yml` passa a encadear por `workflow_run`. EXIGE RELEASE
 - **v1.0** — O SHELL ATUAL VIRA O PISO: `minShell` 2 → 46, saem as 37 guardas de `__SHELL_VERSION__` do lado web e a compatibilidade com bundle antigo do Kotlin. A ponte ENCOLHE (`espelhoLigar()` perde o `modo`, `espelhoAprovar` vira `espelhoDerrubar`). A versão reinicia em **1.0** nos dois canais. EXIGE RELEASE
 - **v5.317** — A LIMPEZA QUE O LEVANTAMENTO DE REGRAS AUTORIZOU: sai o `TITULO_NENHUM` (um ramo que nada alcança, no arquivo que recusa ramos que nada alcançam) e a §11 do arquivo do espelho, que prometia um código de três dígitos removido há 128 versões. O que mexe na PONTE fica — e agora está escrito por quê. OTA PURO
@@ -188,6 +189,72 @@ na nota que a revoga, não apagada da que a criou.
 - **v5.154** — é METADE OTA e METADE APK, e a divisão importa para quem for testar em aparelho.
 - **v5.155** — é OTA PURO
 - **v5.156** — é METADE OTA e METADE APK, de novo.
+
+---
+
+## v1.0.2 — o botão deixa de dizer "espelhar", e a página fala com quem ainda não instalou
+
+Lote de AJUSTE, e é OTA puro: nada em `java/`, `res/`, no manifest ou nos
+workflows. Sem `shellTag` — não há Release a esperar.
+
+### "Espelhar para TV" vira "Conectar uma TV"
+
+Pedido do operador: *"para não ter a ideia de espelhar"*. E ele está certo pelo
+motivo mais forte que existe neste projeto: **o que vai para a TV é o telão, não
+a tela do celular** — é a distinção que a `Presentation` existe para fazer e que
+sustenta a arquitetura inteira. O rótulo anunciava ao operador exatamente o
+oposto do que ele recebe.
+
+O botão abre o seletor de espelhamento do fabricante, e isso não muda: não há
+API pública para conectar sozinho. O que muda é que aqui se diz o DESFECHO, e o
+nome do mecanismo fica para a tela do Android, que é de quem ele é. O estado
+conectado acompanha — "Espelhando em X" vira "Conectado: X" —, e o `title` do
+botão de cast da preview vai junto, porque é o mesmo botão noutro lugar.
+
+Fica de fora a linha **"Espelhar abre: …"** do Registro: ela nomeia qual
+candidato da cadeia do `pickCastIntent` o aparelho resolveu, isto é, fala do
+seletor do Android e não do nosso botão. Renomeá-la tiraria a única pista que
+responde "por que o botão abriu a tela errada?".
+
+### A página: um tema só, oito cards e três passos
+
+- **CLARO E SÓ CLARO.** O par escuro seguia o sistema, e com ele a mesma página
+  chegava em dois desenhos — só um deles olhado. O app tem dois temas porque é
+  operado num salão escuro durante o culto; esta página é lida de dia, por quem
+  ainda não instalou nada. `<meta name="color-scheme" content="light">` entra
+  junto, senão o navegador desenha campo, barra de rolagem e menu de contexto em
+  escuro por cima de um documento claro.
+- **O RESPIRO ENTRE A FAIXA E O PRIMEIRO TÍTULO MEDIA ZERO**, e era um defeito de
+  especificidade: `main { padding: … }` era engolido inteiro pelo
+  `padding: 0 1.15rem` do `.env`, porque uma CLASSE vence um seletor de TIPO
+  qualquer que seja a ordem no arquivo. O título nascia colado no denim — mais
+  perto dele do que dos próprios cards que ele nomeia. Com `main.env`, 40px
+  contra os 18px que o ligam ao conteúdo dele.
+- **Os cards passam a nomear o que existe**, com o subtítulo carregando a frase
+  inteira em vez de um rótulo: Coletâneas offline (hinários, músicas JA, Provai e
+  Vede, Informativo Mundial), Textos bíblicos, Letras das músicas, Cronograma,
+  YouTube, **Slides** (card novo — apresentação e passagem de página) e **Recebe
+  de tudo** (compartilhar do WhatsApp, do YouTube, da galeria). O card exclusivo
+  do Provai e Vede sai: ele era um item das Coletâneas ocupando a mesma escada
+  que uma função.
+- **O guia cai para TRÊS passos.** "Conecte a TV" não é instalação. A permissão
+  passa a falar de **"este navegador"** (é ele que o Android pergunta se pode
+  instalar, e "aquele aplicativo" não diz a ninguém qual), e o Play Protect deixa
+  de ser um susto condicional — vira **"Verifique com o Play Protect"**, com a
+  verificação a aceitar e o Instalar depois dela. O subtítulo "É um arquivo só"
+  sai: o botão logo abaixo já diz o tamanho.
+- **A tese do topo é a frase do rodapé**, e o rodapé perde a dele. *"Nada do que
+  você projeta sai do seu aparelho"* dava a entender que o aparelho não controla
+  nem é fonte de nada — quando ele é as duas coisas. No lugar: *"A tela da sua
+  igreja 100% controlada por você. Sem anúncios, janelas e distrações para o
+  público."*
+- **"Grátis" sai do botão** (é subentendido) e **"aplicativo Android" entra no
+  `<title>`**, que é onde a busca e a aba leem — a página não dizia em lugar
+  nenhum que o download é um app de celular.
+- Sai a frase sobre a busca achar por nome, trecho ou tema: é autoexplicativo
+  dentro do app.
+
+Suíte inteira verde: 25/25.
 
 ---
 

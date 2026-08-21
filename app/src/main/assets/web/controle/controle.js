@@ -168,7 +168,7 @@ const appVersionEl = document.getElementById('appVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.0.1';
+const WEB_VERSION = '1.0.2';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -17669,7 +17669,7 @@ function renderCastBtn() {
         + ' — toque para trocar ou desconectar'
       : naRede
         ? naRedeTxt + ' recebendo — toque para ver quem está conectado'
-        : 'Espelhar na TV';
+        : 'Conectar uma TV';
 }
 
 // O QUE SOBROU DE "renderizar a conexão no Modo Fácil" (v5.197): o ícone de
@@ -18825,11 +18825,18 @@ function renderCast() {
   // abre o MESMO seletor do Android nos dois estados. É lá que se desconecta.
   // Um botão escrito "Desconectar" que abre uma lista seria uma promessa que a
   // tela seguinte não cumpre.
+  //
+  // E O VERBO É "CONECTAR", NÃO "ESPELHAR" (v1.0.2). O botão abre o seletor de
+  // espelhamento do Android — mas é o telão que vai para a TV, não a tela do
+  // celular, e é justamente essa a diferença que o app inteiro existe para
+  // fazer. Chamar a ação de "espelhar" anunciava ao operador o oposto do que
+  // ele recebe. O que se lê no seletor do fabricante continua sendo o nome
+  // dele; aqui se diz o DESFECHO.
   const tv = window.__NATIVE__ ? (lastDisplays[0] || null) : null;
   if (castMirrorLabelEl) {
     castMirrorLabelEl.textContent = tv
-      ? 'Espelhando em ' + (tv.name || 'TV')
-      : 'Espelhar para TV';
+      ? 'Conectado: ' + (tv.name || 'TV')
+      : 'Conectar uma TV';
   }
   if (castMirrorBtnEl) castMirrorBtnEl.classList.toggle('connected', !!tv);
   // (O subtítulo do interruptor saiu na v5.194: desligado ele descrevia o

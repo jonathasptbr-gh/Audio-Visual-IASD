@@ -3,26 +3,29 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Áudio Visual IASD — projeção para o culto</title>
-<meta name="description" content="A TV mostra só a projeção — sem notificações, barras ou anúncios. Hinários, Bíblia, letra, YouTube sem propaganda e slides. Grátis, para Android.">
+<title>Áudio Visual IASD — aplicativo Android de projeção para o culto</title>
+<meta name="description" content="Aplicativo Android que leva a projeção do culto para a TV: hinários e coletâneas offline, Bíblia, letras, YouTube sem anúncios e slides. A tela da igreja controlada por você.">
 <meta name="theme-color" content="#2f557f">
+<!-- CLARO E SÓ CLARO (v1.0.2). O par escuro existia e seguia o sistema; o site
+     passou a ter UM padrão, e declará-lo aqui é o que impede o navegador de
+     desenhar campo, barra de rolagem e menu de contexto em escuro por cima. -->
+<meta name="color-scheme" content="light">
 <link rel="icon" href="icone.svg" type="image/svg+xml">
 <meta property="og:type" content="website">
-<meta property="og:title" content="Áudio Visual IASD">
-<meta property="og:description" content="A TV mostra só a projeção. Sem notificações, sem barras, sem anúncios.">
+<meta property="og:title" content="Áudio Visual IASD — aplicativo de projeção para o culto">
+<meta property="og:description" content="A tela da sua igreja 100% controlada por você. Sem anúncios, janelas e distrações para o público.">
 <meta property="og:locale" content="pt_BR">
 
 <style>
-  /* A paleta é a do app (shared/tokens.css) — site e app são a mesma coisa. */
+  /* A paleta é a do app (shared/tokens.css) — site e app são a mesma coisa.
+
+     UM PADRÃO SÓ, o CLARO (v1.0.2). O app tem dois temas porque ele é operado
+     num salão escuro, durante o culto; esta página é lida de dia, por quem
+     ainda não instalou nada. Seguir o sistema fazia a mesma página chegar em
+     dois desenhos, e só um deles tinha sido olhado. */
   :root {
     --bg:#dfe3e7; --panel:#fff; --panel-2:#d4dae2;
     --text:#4a4a4a; --muted:#565d66; --accent:#2f557f; --rule:#c3cbd4;
-  }
-  @media (prefers-color-scheme: dark) {
-    :root {
-      --bg:#0e1215; --panel:#2c343c; --panel-2:#3c4753;
-      --text:#dce0e5; --muted:#b6bdc6; --accent:#95b5f4; --rule:#414c58;
-    }
   }
   * { box-sizing: border-box; }
   body {
@@ -45,7 +48,7 @@
   }
   .tese {
     font-size: clamp(1.05rem,4vw,1.35rem); line-height:1.4; font-weight:400;
-    margin:0 auto 2rem; max-width:22ch; opacity:.95;
+    margin:0 auto 2rem; max-width:30ch; opacity:.95;
   }
   .baixar {
     display:inline-block; background:#fff; color:#2f557f; text-decoration:none;
@@ -56,7 +59,13 @@
   .baixar:active { transform:translateY(1px); box-shadow:0 1px 0 rgba(0,0,0,.2); }
   .meta { margin:.9rem 0 0; font-size:.85rem; opacity:.8; }
 
-  main { padding: clamp(2.5rem,8vw,4rem) 0 0; }
+  /* `main.env` E NÃO `main`, e isso era um defeito (v1.0.2): `.env` é uma
+     CLASSE e vence um seletor de tipo por especificidade, qualquer que seja a
+     ordem no arquivo. O `padding` do `main` era engolido inteiro pelo
+     `padding: 0 1.15rem` do `.env`, e o respiro entre a faixa da marca e o
+     primeiro título media ZERO — o título nascia colado no denim, mais perto
+     dele do que dos próprios cards que ele nomeia. */
+  main.env { padding-top: clamp(2.5rem,8vw,4rem); }
   section + section { margin-top: clamp(2.5rem,8vw,3.5rem); }
   h2 {
     font-size:1.35rem; font-weight:700; letter-spacing:-.01em;
@@ -82,7 +91,7 @@
      cores — aqui ele vive sobre o painel, não sobre a faixa da marca. */
   .baixar--linha {
     margin-top:.6rem; padding:.55rem 1.2rem; font-size:.92rem;
-    background:var(--accent); color:var(--bg); box-shadow:none;
+    background:var(--accent); color:var(--panel); box-shadow:none;
   }
   .baixar--linha:hover, .baixar--linha:focus-visible { box-shadow:none; }
 
@@ -133,8 +142,9 @@
   <div class="env">
     <img class="logo" src="icone.svg" alt="" width="64" height="64">
     <h1>Áudio Visual IASD</h1>
-    <p class="tese">A TV mostra só a projeção. Sem notificações, sem barras, sem anúncios.</p>
-    <a class="baixar" href="{{URL_APK}}">Baixar grátis</a>
+    <p class="tese">A tela da sua igreja 100% controlada por você. Sem anúncios,
+      janelas e distrações para o público.</p>
+    <a class="baixar" href="{{URL_APK}}">Baixar</a>
     <p class="meta">Android 8+ &nbsp;·&nbsp; versão {{VERSAO}} &nbsp;·&nbsp; {{TAMANHO}}</p>
   </div>
 </header>
@@ -146,54 +156,53 @@
     <div class="grade">
       <div class="item">
         <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="13" rx="2"/><path d="M8 21h8"/></svg>
-        Só a projeção na TV<small>sem notificação nem anúncio</small>
+        Só a projeção na TV<small>Sem notificações, anúncios ou janelas para distrair o público.</small>
       </div>
       <div class="item">
         <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V6l10-2v12"/><circle cx="6" cy="18" r="3"/><circle cx="16" cy="16" r="3"/></svg>
-        Hinários offline<small>2022 e 1996, separados</small>
+        Coletâneas offline<small>Hinários, músicas JA, Provai e Vede, Informativo Mundial e muito mais.</small>
       </div>
       <div class="item">
         <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h7a2 2 0 0 1 2 2v14a2 2 0 0 0-2-2H4z"/><path d="M20 4h-7a2 2 0 0 0-2 2v14a2 2 0 0 1 2-2h7z"/></svg>
-        Bíblia completa<small>sem depender da internet</small>
+        Textos bíblicos<small>Totalmente offline, de acesso rápido e em várias versões.</small>
       </div>
       <div class="item">
         <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M4 12h10M4 17h13"/></svg>
-        Letra na tela<small>ler, cantar ou pesquisar</small>
+        Letras das músicas<small>Sempre à mão para cantar, pesquisar um trecho ou exibir no telão para os músicos.</small>
       </div>
       <div class="item">
         <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="17" rx="2"/><path d="M9 2v4M15 2v4M8 12h8M8 16h5"/></svg>
-        Cronograma<small>tudo na ordem, pronto</small>
+        Cronograma<small>Organize as mídias em ordem e exiba na tela quando quiser.</small>
       </div>
       <div class="item">
         <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="4"/><path d="M10 9l5 3-5 3z"/></svg>
-        YouTube sem anúncio<small>baixe e use offline</small>
+        YouTube<small>Sem anúncios nem barras na tela. Exiba direto da internet ou baixe e garanta o vídeo offline.</small>
       </div>
       <div class="item">
-        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l2.6 5.6 6 .8-4.4 4.2 1.1 6-5.3-2.9-5.3 2.9 1.1-6L3.4 9.4l6-.8z"/></svg>
-        Provai e Vede<small>e o Informativo Mundial</small>
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="13" rx="2"/><path d="M7 7h6M7 11h9"/><path d="M12 16v5M9 21h6"/></svg>
+        Slides<small>Apresente o PDF ou o PowerPoint com a passagem de página na sua mão.</small>
       </div>
       <div class="item">
         <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="19" r="2.5"/><path d="M8.2 10.8l7.6-4.4M8.2 13.2l7.6 4.4"/></svg>
-        Fotos, PDF e slides<small>direto do WhatsApp</small>
+        Recebe de tudo<small>Fotos, vídeos, links e apresentações pelo compartilhar — do WhatsApp, do YouTube, da galeria.</small>
       </div>
     </div>
     <p class="calma"><strong>Funciona sem internet:</strong> a projeção chega a
       qualquer tela na mesma rede — pelo Wi-Fi da igreja ou pelo roteador do seu
-      celular. E a busca acha por nome, trecho ou tema.</p>
+      celular.</p>
   </section>
 
   <section class="reveal">
-    <h2>Instalar em 4 passos</h2>
+    <h2>Instalar em 3 passos</h2>
     <ol class="passos">
-      <li><div><b>Baixe o app</b><span>É um arquivo só.</span>
+      <li><div><b>Baixe o app</b>
         <a class="baixar baixar--linha" href="{{URL_APK}}">Baixar &middot; {{TAMANHO}}</a></div></li>
-      <li><div><b>Permita a instalação</b><span>O Android pergunta se aquele
-        aplicativo pode instalar outros. Toque em <strong>Permitir</strong>.</span></div></li>
-      <li><div><b>Se aparecer o Play Protect</b><span>Toque em
-        <strong>Instalar assim mesmo</strong>. É o aviso normal para todo app
-        fora da Play Store — não significa que há algo errado.</span></div></li>
-      <li><div><b>Conecte a TV</b><span>Smart View, MiraScreen ou cabo HDMI.
-        O app encontra sozinho.</span></div></li>
+      <li><div><b>Permita a instalação</b><span>O Android pergunta se
+        <strong>este navegador</strong> pode instalar aplicativos. Toque em
+        <strong>Permitir</strong> e volte.</span></div></li>
+      <li><div><b>Verifique com o Play Protect</b><span>Aceite a verificação —
+        ela é o próprio Google conferindo o arquivo. Terminada, toque em
+        <strong>Instalar</strong> para concluir.</span></div></li>
     </ol>
   </section>
 
@@ -207,8 +216,7 @@
 </main>
 
 <footer class="env">
-  <p><strong>Áudio Visual IASD</strong> — grátis e sem anúncios. Nada do que você
-    projeta sai do seu aparelho.</p>
+  <p><strong>Áudio Visual IASD</strong></p>
   <p>
     <a href="https://github.com/jonathasptbr-gh/Audio-Visual-IASD">Código aberto</a> ·
     <a href="https://github.com/jonathasptbr-gh/Audio-Visual-IASD/blob/main/LICENSE">GPLv3</a> ·
