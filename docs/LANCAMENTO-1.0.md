@@ -38,7 +38,7 @@ guardado quando a base do APK é MAIOR, e `1.0 < 5.317`.
 | ✅ | a Release **`v1.0`** publicada e assinada |
 | ✅ | a base web **1.0** publicada no canal OTA (manifesto, bundle e sha256 conferidos) |
 | ⬜ | **desinstalar e reinstalar** no aparelho |
-| ⬜ | a Release **`v1.0.1`** (o ícone mora em `res/` — ver `docs/HISTORICO.md`) |
+| ✅ | a Release **`v1.0.1`** — APK, manifesto do OTA (`shell` 1.0.1) e página, os três conferidos |
 
 > **A guarda anti-regressão trava o reset, e é por isso que existe a válvula.**
 > O `web-latest` está na 5.317 e a base nova é a 1.0: para a guarda, "a nova é
