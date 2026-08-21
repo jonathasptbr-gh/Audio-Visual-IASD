@@ -37,6 +37,23 @@ on:
         type: boolean
         required: false
         default: false
+      # A VÁLVULA DO PORTÃO — ver "Oráculos em Chromium".
+      #
+      # Ela existe para o caso em que o canal precisa sair com um oráculo de
+      # navegador reprovado e uma PESSOA assume isso: uma reprovação que o lote
+      # não causou, um oráculo que envelheceu, uma urgência de sábado de manhã.
+      # É só no disparo MANUAL de propósito — nenhum push a alcança, e portanto
+      # não há como acioná-la por esquecimento.
+      #
+      # E ela NÃO silencia: o placar continua no resumo, o `::error::` de cada
+      # reprovado continua no log, e o resumo ganha uma linha dizendo que o
+      # portão foi aberto à mão. Uma válvula que não deixa rastro é o
+      # `continue-on-error` de volta, com outro nome.
+      ignorar_oraculos:
+        description: 'PUBLICAR MESMO COM ORÁCULO DE CHROMIUM REPROVADO (registrado no resumo)'
+        type: boolean
+        required: false
+        default: false
 
 permissions:
   contents: write
@@ -217,19 +234,50 @@ jobs:
       # ele parou. Um teste que não é lido não é rede de segurança; um teste
       # cujo RESULTADO não é lido também não.
       #
-      # A separação não é organização: ela é o que dá sentido ao
-      # `continue-on-error`. A justificativa dele sempre foi INFRAESTRUTURA
+      # A separação não é organização: ela é o que deu sentido ao
+      # `continue-on-error` enquanto ele viveu aqui. A justificativa dele era
+      # INFRAESTRUTURA
       # (download do Chromium, runner sem rede), e infraestrutura agora é o
       # passo de baixo, sozinho. O passo dos testes ficou com uma causa só de
       # falhar — defeito de verdade —, roda todos eles SEMPRE (nenhum aborta o
       # próximo), emite `::error::` por reprovado e escreve o placar no resumo
       # do run, onde se lê sem abrir log nenhum.
       #
-      # Ele SEGUE com `continue-on-error`, e isso é a política do projeto
-      # intacta, não esquecimento: barrar o canal OTA por um teste de navegador
-      # continua sendo trocar um risco raro por um bloqueio frequente. O que
-      # mudou é que agora essa escolha é uma linha só — e a razão que a
-      # sustentava mudou de endereço.
+      # E ELE JÁ NÃO TEM `continue-on-error` (v5.316). A política durou enquanto
+      # a premissa dela era verdadeira, e ela deixou de ser em duas etapas.
+      #
+      # A justificativa escrita sempre foi INFRAESTRUTURA — "barrar o canal OTA
+      # por um download de navegador é trocar um risco raro por um bloqueio
+      # frequente". Infraestrutura mudou de endereço na v5.213 (é o passo de
+      # cima, e ele guarda o `continue-on-error` dela junto com o `if` que pula
+      # estes oráculos e o aviso que registra o pulo). O que sobrou aqui foi uma
+      # causa só de reprovar — e AÍ a política passou a proteger o oposto do que
+      # o texto dizia: reprovação de verdade absorvida em silêncio.
+      #
+      # MEDIDO antes de mexer: 21 dos 23 runs anteriores terminaram VERDES com
+      # oráculo reprovado dentro, 40 reprovações somadas, UMA delas um defeito
+      # de verdade. As outras 39 eram o oráculo medindo o RUNNER, em cinco
+      # classes: prazo de parede lido como veredito; altura em pixel que depende
+      # da FONTE instalada; estado que a enquete ainda não tinha lido; a
+      # montagem do cenário correndo contra o que o app faz na abertura; e prazo
+      # menor que a CADÊNCIA do app. Nenhuma delas se conserta com
+      # `continue-on-error`: ela as PRESERVA, porque tira o custo de conviver
+      # com elas. As cinco foram à raiz neste lote (ver os comentários de
+      # `ota.test.mjs`, `destinos.test.mjs` e `boot-nativo.test.mjs`) — e DUAS
+      # delas eram defeito do APP, não do teste: o read-modify-write do diário
+      # das séries e, pior, `setState` resolvendo ANTES do commit no caminho que
+      # grava a intenção do OTA e recarrega o documento na linha seguinte.
+      #
+      # A prova de que dá para fechar o portão é uma CAMPANHA, não uma execução:
+      # os dezesseis oráculos, 4 rodadas, com a máquina a 2× de carga (4 vCPU, 4
+      # processos ocupando os núcleos) — o mesmo formato do runner —, mais 20
+      # execuções do `ota.test.mjs` a 4×, que é onde moravam quatro das cinco
+      # classes. 64/64 e 20/20. A nota da versão tem o detalhe.
+      #
+      # O que fica de escapatória é a válvula MANUAL (`ignorar_oraculos`, acima)
+      # e ela deixa rastro no resumo. A diferença entre as duas não é de grau: o
+      # `continue-on-error` decidia por todo mundo, para sempre e sem registro;
+      # a válvula é uma pessoa decidindo uma vez, e assinando.
       # ────────────────────────────────────────────────────────────────────
       # ---------- E ELE TEM PRAZO ----------
       # `continue-on-error` protege contra FALHAR, não contra TRAVAR — e os dois
@@ -261,6 +309,17 @@ jobs:
           # `package-lock.json` versionado e falha se o lock divergir do
           # `package.json`. Com `npm i` a versão era a `latest` do dia — o
           # veredito do CI não era função só do nosso código.
+          #
+          # E DESDE QUE O PORTÃO FECHOU (v5.316) O NÚMERO DO PIN TAMBÉM É
+          # CONTRATO. Uma reprovação no passo de baixo — o dos ORÁCULOS, que já
+          # não tem `continue-on-error` — deixou de ser aviso e passou a segurar
+          # o canal. Reproduzi-la fora do runner deixou de ser conveniência e
+          # virou requisito — um portão que só fecha e não se abre por inspeção é um
+          # portão que se abre com a válvula, sempre. Daí a regra: **subir o pin
+          # obriga a repetir a campanha de determinismo na versão nova**, porque
+          # é o navegador que decide altura de linha, ordem de evento e quanto
+          # tempo uma página leva para assentar. O placar da campanha vale para
+          # a versão em que foi medido, e para nenhuma outra.
           npm ci --no-audit --no-fund --silent
           npx playwright install --with-deps chromium
 
@@ -277,11 +336,12 @@ jobs:
       # PRAZO AQUI TAMBÉM, e pela mesma razão: um oráculo que pendure o
       # navegador (uma Promise que nunca resolve, um `waitForFunction` sem
       # timeout) trava o job inteiro e leva o canal OTA junto. 15 min é folga
-      # sobre os ~6 que os quinze levam somados.
+      # sobre os ~6 minutos que eles levam somados.
       - name: Oráculos em Chromium
         if: steps.chromium.outcome == 'success'
-        continue-on-error: true
         timeout-minutes: 15
+        env:
+          IGNORAR: ${{ github.event.inputs.ignorar_oraculos }}
         run: |
           # SEM `-e`, e é o ponto do passo: um reprovado não pode calar os que
           # vêm depois. Quem guarda o desfecho é o `rodar`.
@@ -325,6 +385,16 @@ jobs:
           # mídia do operador. Um erro ali não dá tela branca: some com o vídeo
           # do domingo, em silêncio e sem desfazer.
           rodar tools/db-gc.test.mjs
+          # E A ATOMICIDADE DE UMA CHAVE DE `state` (`AVDB.updateState`). O
+          # defeito que ele trava — `getState` + calcular + `setState`, duas
+          # transações com um vão entre elas — não erra alto em lugar nenhum: o
+          # que se perde é a metade que o outro escritor acabou de gravar, e o
+          # sintoma aparece longe dali (um bloco do Registro que some, um
+          # download que não é reclamado). Ele tem as DUAS metades: escreve o
+          # hazard à mão e prova que ele PERDE, e só então prova que a função
+          # não perde. Sem a primeira, a segunda provaria que uma função
+          # concorda consigo mesma.
+          rodar tools/db-estado.test.mjs
           # E as CONTAS DA BIBLIOTECA — "esta coleção está completa?" e "quanto
           # ela ocupa?". As duas eram respondidas por fórmulas diferentes em
           # lugares diferentes da mesma tela, e o resultado era um card com o
@@ -409,27 +479,40 @@ jobs:
           # envelheceria no primeiro oráculo novo, e envelheceria mentindo.
           passaram=$((rodados - ${#falhas[@]}))
           echo "Oráculos em Chromium: $passaram/$rodados passaram." | tee -a "$GITHUB_STEP_SUMMARY"
-          if [ ${#falhas[@]} -gt 0 ]; then
-            printf 'REPROVOU: %s\n' "${falhas[@]}" | tee -a "$GITHUB_STEP_SUMMARY"
-            exit 1
+          if [ ${#falhas[@]} -eq 0 ]; then exit 0; fi
+          printf 'REPROVOU: %s\n' "${falhas[@]}" | tee -a "$GITHUB_STEP_SUMMARY"
+          # A VÁLVULA, e ela ASSINA. O placar e os `::error::` acima já saíram —
+          # o que esta linha muda é só quem carrega a decisão, e ela fica
+          # escrita no resumo do run, ao lado do que foi ignorado.
+          if [ "${IGNORAR:-false}" = "true" ]; then
+            echo "::warning::PORTÃO ABERTO À MÃO — ${#falhas[@]} oráculo(s) reprovado(s), e o disparo pediu 'ignorar_oraculos'"
+            echo "> ⚠️ **Portão aberto à mão**: o disparo manual marcou \`ignorar_oraculos\`, então o bundle publica com ${#falhas[@]} oráculo(s) reprovado(s) acima." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
           fi
+          exit 1
 
       # O PULO TAMBÉM VAI PARA O RESUMO. Sem este passo, um `Preparar o
-      # Chromium` que falhe ou estoure o prazo deixava os quinze oráculos de
+      # Chromium` que falhe ou estoure o prazo deixava TODOS os oráculos de
       # fora SEM UMA LINHA em lugar nenhum: o resumo do run ficava idêntico ao
       # de uma execução em que tudo passou, e o bundle publicava do mesmo jeito.
       # É a mesma classe do incidente da v5.302, e a metade dele que o prazo não
       # cobriu — o prazo impede TRAVAR, não impede o SILÊNCIO.
       #
-      # Não reprova o job de propósito: a política de `continue-on-error` deste
-      # passo é deliberada (barrar o canal OTA por um teste de navegador é
-      # trocar um risco raro por um bloqueio frequente). O que muda é que a
-      # ausência do placar deixa de ser indistinguível de "15/15".
+      # Não reprova o job de propósito, e desde a v5.316 é ele o ÚNICO caminho
+      # em que um bundle chega à frota sem oráculo de navegador nenhum. A
+      # assimetria é a política inteira, dita em duas linhas: oráculo REPROVADO
+      # segura o canal (é o nosso código); infraestrutura AUSENTE não segura (é
+      # o CDN de outra pessoa, e um download quebrado lá fora não pode calar a
+      # atualização de uma igreja). Justamente por isso o aviso aqui é o que
+      # impede a segunda metade de virar a primeira sem ninguém notar: sem esta
+      # linha, um `Preparar o Chromium` que passasse a falhar SEMPRE devolveria
+      # o mundo anterior — publicação sem verificação, e um resumo idêntico ao
+      # de um run em que tudo passou.
       - name: Oráculos em Chromium — PULADOS (aviso)
         if: steps.chromium.outcome != 'success'
         run: |
           echo "::warning::Oráculos em Chromium PULADOS — 'Preparar o Chromium' terminou como '${{ steps.chromium.outcome }}'"
-          echo "Oráculos em Chromium: 0/15 — **PULADOS** (infraestrutura: \`Preparar o Chromium\` terminou como \`${{ steps.chromium.outcome }}\`). O bundle publica assim mesmo; nenhum oráculo de navegador foi consultado neste run." >> "$GITHUB_STEP_SUMMARY"
+          echo "Oráculos em Chromium: NENHUM RODOU — **PULADOS** (infraestrutura: \`Preparar o Chromium\` terminou como \`${{ steps.chromium.outcome }}\`). O bundle publica assim mesmo; nenhum oráculo de navegador foi consultado neste run." >> "$GITHUB_STEP_SUMMARY"
 
 
   # Publica a base web como bundle OTA: um push em `main` chega sozinho aos
@@ -787,8 +870,8 @@ jobs:
       # OS TESTES UNITÁRIOS EM JVM, E SEM `continue-on-error`.
       #
       # Este passo existe por um arquivo e meio: o `EspelhoHttp.kt` e o
-      # `EspelhoPares.kt` (espelho de pixels — ver docs/ESPELHO-DE-PIXELS.md) são
-      # o ÚNICO código do projeto que encara a rede. Tudo o mais que entra no app
+      # `EspelhoPares.kt` (o telão por comandos — ver docs/TELAO-POR-COMANDOS.md)
+      # são o ÚNICO código do projeto que encara a rede. Tudo o mais que entra no app
       # vem do operador (SAF, compartilhamento) ou de uma URL que o próprio app
       # cunhou; ali entra o que um desconhecido na rede da igreja mandar. E é o
       # único código em que um erro não vira pixel errado: vira controle de acesso
@@ -800,14 +883,14 @@ jobs:
       # de seis horas e bloqueio de um minuto se verificam em milissegundos. O
       # documento que desenhou o espelho recusou o RFC 6455 por ser "protocolo sem
       # oráculo" — escrever um parser HTTP com autenticação sem teste seria o mesmo
-      # argumento aplicado contra ele mesmo (a justificativa inteira, como QUARTA
-      # EXCEÇÃO à regra de zero dependência, está no `dependencies` do
+      # argumento aplicado contra ele mesmo (a justificativa inteira, como
+      # TERCEIRA EXCEÇÃO à regra de zero dependência, está no `dependencies` do
       # app/build.gradle.kts).
       #
-      # Sem `continue-on-error`, ao contrário dos testes de Chromium: aqui não há
-      # download de navegador nem rede para falhar por infraestrutura — é Kotlin
-      # puro no JDK que o runner já tem. Uma falha aqui é defeito, e um defeito
-      # nesta camada não pode virar APK.
+      # Sem `continue-on-error`, e desde a v5.316 nenhum passo de TESTE tem: aqui
+      # não há download de navegador nem rede para falhar por infraestrutura — é
+      # Kotlin puro no JDK que o runner já tem. Uma falha aqui é defeito, e um
+      # defeito nesta camada não pode virar APK.
       - name: Testes unitários (JVM)
         run: ./gradlew --no-daemon testDebugUnitTest
 

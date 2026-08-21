@@ -24,6 +24,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
+- **v5.316** — O PORTÃO FECHA: `continue-on-error` sai dos oráculos de Chromium, e as CINCO classes de oráculo-que-media-o-runner vão à raiz — inclusive DOIS defeitos do app que apareciam como teste instável, um deles na gravação da intenção do OTA. Nasce `AVDB.updateState`. OTA PURO
 - **v5.315** — OS 21 ACHADOS CONFIRMADOS, CORRIGIDOS — e os dois que a revisão adversarial pegou em cima da correção (superfície da ponte sem degrau; o manifesto do OTA podendo regredir). `SHELL_VERSION` 45. EXIGE RELEASE
 - **v5.314** — A AUDITORIA PROFUNDA: as lápides que a faxina deixou, a ROTAÇÃO de comentários que a prova antiga não via, e os dois oráculos que mediam a si mesmos. Nasce `docs/shell/`. OTA PURO
 - **v5.313** — "PLAYBACK" VIRA "FUNDO MUSICAL", e o Cronograma passa a receber UM PACOTE no lugar de N linhas. OTA PURO
@@ -184,6 +185,113 @@ na nota que a revoga, não apagada da que a criou.
 - **v5.154** — é METADE OTA e METADE APK, e a divisão importa para quem for testar em aparelho.
 - **v5.155** — é OTA PURO
 - **v5.156** — é METADE OTA e METADE APK, de novo.
+
+---
+
+## v5.316 — o portão fecha: sai o `continue-on-error` dos oráculos de Chromium
+
+O passo "Oráculos em Chromium" era `continue-on-error: true`. Este lote ataca o
+MOTIVO de ele existir, e só então o remove.
+
+**A premissa tinha morrido em duas etapas.** A justificativa escrita sempre foi
+INFRAESTRUTURA — "barrar o canal OTA por um download de navegador é trocar um
+risco raro por um bloqueio frequente". Na v5.213 infraestrutura mudou de
+endereço: virou o passo `Preparar o Chromium`, que ficou com o
+`continue-on-error` dela, com o `if` que pula os oráculos e com o aviso que
+registra o pulo. O passo dos testes ficou com uma causa só de reprovar — defeito
+de verdade — e a política passou a proteger exatamente o oposto do que o texto
+dizia.
+
+**MEDIDO antes de mexer:** 21 dos 23 runs anteriores terminaram VERDES com
+oráculo reprovado dentro; 40 reprovações somadas; **uma** delas um defeito de
+verdade. O run mais recente (#1012) fechou em 14/15, e a API do GitHub reporta
+aquele passo como `conclusion: success` — `continue-on-error` reescreve o
+desfecho antes de ele chegar a qualquer painel.
+
+**As outras 39 eram cinco classes, e nenhuma se conserta convivendo com ela** —
+`continue-on-error` as PRESERVA, porque tira o custo de tê-las:
+
+| classe | o que estava sendo medido | à raiz |
+|---|---|---|
+| **prazo lido como veredito** | `waitForFunction(…).catch(() => { ok = false; })`: a asserção seguinte falava do APP quando o que estourou foi o relógio de parede | `ota.test.mjs` ganha `esperar()`, que devolve a FRASE do estouro no terceiro argumento do `checar`, e uma SONDA da intenção — o sinal determinístico que precede a instalação. Era esta a reprovação do run #1012 |
+| **medida que depende da MÁQUINA** | igualdade exata de altura: a base pede `system-ui, -apple-system, sans-serif`, e a opção de duas linhas vai de 53px a 55px quando isso resolve para WenQuanYi Zen Hei | `destinos.test.mjs` afirma o que o DESENHO reserva — `conteúdo ≥ --hit` e o mesmo `padding` das opções —, as duas parcelas do piso, nenhuma delas função da fonte |
+| **estado que ainda não foi lido** | `mirrorEstado` antes da primeira volta da enquete: o app certo, o oráculo perguntando cedo | `boot-nativo.test.mjs` espera pela INGESTÃO (a tela entrando em `mirrorEstado`), nunca pela resposta derivada — esperar pelo que se vai afirmar é escrever uma tautologia |
+| **o oráculo correndo contra o app** | `ota.test.mjs` semeava `ota-intencao` numa página do CONTROLE e navegava. `retomarAtualizacao()` roda na ABERTURA: ela achava a semente e a consumia antes da navegação, e o bloco seguinte reprovava falando de uma regra que nunca chegou a ser exercida (5 reprovações em 8 execuções com a máquina OCIOSA) | a semente vai para uma rota `/semente` que carrega `shared/db.js` **e mais nada** — mesmo origin, banco de verdade, e nenhum app para consumi-la. A navegação seguinte mata aquele documento, que é exatamente o que a asserção afirma que a intenção sobrevive |
+| **prazo menor que a CADÊNCIA do app** | quem chama `retomarAtualizacao` é a enquete de dez em dez segundos, e ela desiste de propósito enquanto o manifesto não respondeu — um prazo de 10 s media o compasso, não a regra | o prazo tem de caber o PIOR caminho que o app pode legitimamente tomar; onde há enquete no meio, o prazo é o longo, e o comentário diz por quê |
+
+**E DUAS das instabilidades eram DEFEITO DO APP**, não do teste — as duas na
+mesma linha do `db.js`, e nenhuma delas com sintoma no lugar onde acontece:
+
+1. **read-modify-write com duas transações.** `serieDiarioGravar` lia com
+   `getState` e gravava com `setState`, e duas varreduras da mesma série (a
+   abertura dispara `autoRefreshCollections()` sem `await`; "Atualizar a lista"
+   é um toque por cima disso) apagavam uma à outra. O que sumia era a metade dos
+   vídeos do diário — e com ela as linhas do Registro que explicam por que um
+   episódio não entrou. As INTENÇÕES de download tinham o mesmo par
+   (`lembrarIntencao` de um download correndo contra o `esquecerIntencao` do
+   `finally` de outro), e ali o item perdido é justamente o que faria o download
+   ser reclamado depois de o renderer morrer.
+2. **`setState` resolve ANTES do commit** — e este é o mais grave, porque mora
+   no caminho do OTA. Ele devolve a promise do REQUEST: quando ela resolve, a
+   transação ainda está em voo. `aplicarAtualizacao` gravava `ota-intencao` e
+   chamava `otaApply()` na linha seguinte, que RECARREGA as duas páginas — e
+   conexão derrubada aborta transação em voo. A intenção sumia, a abertura
+   seguinte não achava nada, e a metade nativa do lote desaparecia **com tudo
+   parecendo ter funcionado**, que é o desfecho exato que a intenção existe para
+   impedir. O espelho disso é a limpeza de `instalarApk`: o diálogo do Android
+   pode derrubar o app no instante seguinte, e uma limpeza não commitada reabre
+   o instalador na abertura seguinte.
+
+Nasce **`AVDB.updateState(chave, fn)`** — ler, calcular e gravar numa transação
+só, com `fn` SÍNCRONA (um `await` lá dentro deixa a transação fechar sozinha), e
+**confirmando o commit** (`txDone`). Os dois defeitos acima são as duas razões
+dela, e cada uma vale sozinha. Os quatro pontos que mexem em `ota-intencao`, o
+diário e as intenções de download passam por ela.
+
+E ele nasce com oráculo próprio, **`tools/db-estado.test.mjs`**, no workflow no
+MESMO commit (a lição da v5.145). Ele tem as duas metades: escreve o hazard à
+mão — ler, ler, gravar, gravar — e prova que ele PERDE, e só então prova que
+`updateState` não perde com a concorrência de verdade. Sem a primeira metade, a
+segunda provaria apenas que uma função concorda consigo mesma.
+
+**A prova de que dá para fechar o portão é uma CAMPANHA, não uma execução.** Os
+dezesseis oráculos, 4 rodadas, com a máquina a 2× de carga (4 vCPU e 4 processos
+ocupando os núcleos — o mesmo formato do runner do GitHub): **64 de 64**. Mais
+20 execuções do `ota.test.mjs` a 4× de carga, que é o arquivo onde moravam
+quatro das cinco classes: **20 de 20**, e agora todas em 7–9 s (as reprovações
+antigas levavam 18–26 s, porque o que elas mediam era o prazo vencendo).
+
+A campanha ANTERIOR, na árvore ainda por corrigir, fechou em 59 de 60 — e a
+única reprovação foi o que levou ao terceiro conserto. **É o padrão que a regra
+nova descreve:** cada rodada vermelha apontou uma coisa de verdade, e nenhuma
+delas era "o teste precisa de mais tempo".
+
+**O que fica no lugar** é uma válvula MANUAL: `ignorar_oraculos`, campo do
+disparo de `Build APK`, publica com oráculo reprovado e **grava isso no resumo
+do run**, ao lado do placar e dos `::error::`. Nenhum push a alcança. A
+diferença para o `continue-on-error` não é de grau: ele decidia por todo mundo,
+para sempre e sem registro.
+
+**A assimetria entre os dois passos é a política, e está escrita nos dois
+lados:** oráculo REPROVADO segura o canal (é o nosso código); infraestrutura
+AUSENTE não segura (é o CDN de outra pessoa). Por isso o passo de aviso do pulo
+ganhou peso — sem ele, um `Preparar o Chromium` que passasse a falhar SEMPRE
+devolveria o mundo anterior, com um resumo idêntico ao de um run em que tudo
+passou.
+
+**O PIN DO ARNÊS VIROU CONTRATO junto com o portão.** Enquanto uma reprovação
+era um aviso, reproduzi-la fora do runner era conveniência; com o canal preso
+nela, virou requisito — um portão que só fecha e não se abre por inspeção é um
+portão que se abre com a válvula, sempre. Daí a regra nova: **subir o pin do
+Playwright obriga a repetir a campanha**, porque é o navegador que decide altura
+de linha, ordem de evento e quanto tempo uma página leva para assentar. O pin
+passa a **1.56.0**, a versão em que a campanha deste lote foi medida.
+
+**O `apk` continua sem `needs: verificar`**, e isso está dito por extenso no
+`CLAUDE.md`: o portão fecha o canal OTA (automático, a cada push em `main`, sem
+ninguém olhando) e não o APK (manual, com uma pessoa escolhendo a tag). Uma
+Release tirada de uma árvore com oráculo vermelho embute a mesma base web — o
+preço está declarado, não escondido.
 
 ---
 

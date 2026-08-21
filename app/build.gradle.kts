@@ -189,10 +189,11 @@ dependencies {
     implementation("com.github.TeamNewPipe:NewPipeExtractor:v0.26.4")
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs_nio:2.1.2")
 
-    // A TERCEIRA EXCEÇÃO à regra de zero dependência — e a única que **não põe
-    // um byte no APK**. Ainda assim é uma declaração nova, e por isso merece o
-    // mesmo tratamento por escrito das outras duas (o pptx-renderer e o
-    // NewPipe; a IFrame API do YouTube era a terceira e saiu na v5.212).
+    // A TERCEIRA EXCEÇÃO à regra de zero dependência, e a primeira que **não põe
+    // um byte no APK** (a quarta, o Playwright do `package.json`, também não).
+    // Ainda assim é uma declaração nova, e por isso merece o mesmo tratamento
+    // por escrito das outras (o pptx-renderer e o NewPipe; a IFrame API do
+    // YouTube era a terceira e saiu na v5.212).
     //
     // Ela existe por causa do TELÃO POR COMANDOS (ver docs/TELAO-POR-COMANDOS.md).
     // O `EspelhoHttp.kt` e o `EspelhoPares.kt` são o PRIMEIRO código deste

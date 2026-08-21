@@ -57,10 +57,54 @@ const servidor = http.createServer((req, res) => {
 });
 
 const falhas = [];
-function checar(cond, msg) {
+// O TERCEIRO PARÂMETRO É O VALOR OBTIDO, como no `smoke.mjs`, no
+// `sorteio-tela.test.mjs` e no `acervo.test.mjs`. Os sítios de chamada aqui já
+// o passavam e a assinatura de dois parâmetros o jogava fora — no CI, onde
+// ninguém pode abrir o navegador, a reprovação chegava como uma frase e nada
+// mais, e diagnosticá-la exigia adivinhar ou publicar um lote só para
+// instrumentar.
+function checar(cond, msg, obtido) {
   if (cond) console.log('ok      ' + msg);
-  else { console.log('FALHOU  ' + msg); falhas.push(msg); }
+  else {
+    console.log('FALHOU  ' + msg
+      + (obtido !== undefined ? '\n        obtido: '
+        + (typeof obtido === 'string' ? obtido : JSON.stringify(obtido)) : ''));
+    falhas.push(msg);
+  }
 }
+
+// A VARREDURA DA ABERTURA, ESPERADA — e não um prazo de parede.
+//
+// `init()` dispara `autoRefreshCollections()` SEM `await`, e a fase 2 dele varre
+// as duas séries. Todo bloco daqui para baixo que chama `fetchCollectionIndex`
+// da mesma coleção corria em PARALELO com essa varredura — e o que se perde na
+// colisão é o DIÁRIO: `serieDiarioGravar` é um read-modify-write, então a
+// metade do canal de uma execução, lida antes e gravada depois da metade dos
+// vídeos da outra, apaga a segunda. Quem chegasse depois cairia no caminho da
+// economia (a assinatura já bate) e não a reescreveria — o diário fica sem
+// `quandoVideos` até o dia virar, e as linhas derivadas dele (`nomes (N)`, o
+// que o canal anuncia e não veio, os futuros) somem do Registro.
+//
+// Medido: 5 reprovações em 20 execuções, sempre nesses contadores e nunca nas
+// asserções da regra pura. A espera é sobre o FATO — a varredura acabou e não
+// sobrou nada para ela fazer nas duas séries —, nunca sobre um `waitForTimeout`
+// que "costuma dar".
+//
+// **Quem responde "sobrou algo?" é `indiceVencido`, a MESMA função do
+// `autoRefreshCollections`.** Uma segunda escrita da regra aqui só provaria que
+// o oráculo concorda consigo mesmo — e teria a resposta errada na página do
+// CORTE, que nasce com o índice que a página principal já gravou no IndexedDB
+// (o contexto é o mesmo): ali "as duas séries têm índice" já é verdade antes de
+// a varredura começar, e a espera voltava na hora, para dentro da corrida.
+const SERIES = ['serie-provai-vede-2026', 'serie-informativo-missoes-2026'];
+const esperarVarredura = (pagina) => pagina.waitForFunction((ids) => (
+  collectionsRefreshing === false
+    && ids.every((id) => {
+      const st = collState[id];
+      if (!st || !st.serieDiarioEm || !(st.songs || []).length) return false;
+      return !indiceVencido(allCollections().find((c) => c.id === id), Date.now());
+    })
+), SERIES, { timeout: 30000 });
 
 // A PONTE DE MENTIRA. A lista de métodos sai de um `grep` em `shared/native.js`
 // (todo `B.<nome>(`) — um método novo lá que este arquivo não conheça responde
@@ -243,6 +287,10 @@ try {
     deuPe = true;
   } catch (_) { deuPe = false; }
   checar(deuPe, 'O APP FICOU DE PÉ com a ponte presente (o critério do watchdog do OTA)');
+
+  // A VARREDURA DA ABERTURA ASSENTA ANTES DO PRIMEIRO BLOCO DAS SÉRIES: daqui
+  // para baixo nada mais compete com ela pelo diário. Ver `esperarVarredura`.
+  await esperarVarredura(pg);
 
   // ── A SÉRIE (v5.228) ───────────────────────────────────────────────────
   // O card só existe com a ponte E com shell >= 41, então este é o ÚNICO teste
@@ -443,6 +491,10 @@ try {
       await pgC.addInitScript(PONTE);
       await pgC.goto(base + '/controle/', { waitUntil: 'domcontentloaded' });
       await pgC.waitForFunction(() => !!window.__avBack, null, { timeout: 25000 });
+      // A MESMA espera da página principal, e pelo mesmo motivo: o `ler(true)`
+      // abaixo refaz o índice, e a varredura da abertura desta página estaria
+      // gravando o diário da mesma série ao lado dele.
+      await esperarVarredura(pgC);
       // `limpar` só na PRIMEIRA leitura. A segunda roda com o índice de ontem
       // guardado, que é o caminho da ECONOMIA (a assinatura das playlists) — e é
       // ali que o defeito moraria: o canal não muda de um dia para o outro,
@@ -500,19 +552,39 @@ try {
   // público, e o download não vem. Sem uma frase, essa falha é indistinguível
   // de uma queda de rede — o operador tenta de novo, falha de novo, e conclui
   // que o app quebrou justamente no item que ele acabou de ver aparecer.
+  //
+  // E O RELÓGIO É FIXADO, como no bloco do corte acima. `serieComoYoutube`
+  // chama `AVSerie.diasAte` SEM o terceiro argumento (o `hoje`), e o ano da
+  // série é 2026 no catálogo: contra o relógio do runner, o "futuro" de 31/Dez
+  // vale ZERO em 31/12/2026 e é PASSADO de 2027 em diante — as duas asserções
+  // abaixo passariam a reprovar sozinhas, sem ninguém ter mexido em nada, e
+  // sob portão isso fecharia o canal OTA no meio das festas.
   const aviso = await pg.evaluate(() => {
     const c = allCollections().find((x) => x.id === 'serie-informativo-missoes-2026');
     const songs = collSongs(c.id);
-    // O de HOJE (uma data que já passou no relógio real deste runner) e um
-    // FUTURO montado à mão: é o par que prova que a frase é da janela, e não
-    // um recado grudado em toda falha de série.
-    const passado = Object.assign({}, songs[0], { serieData: { dia: 1, mes: 1 } });
-    const futuro = Object.assign({}, songs[0], { serieData: { dia: 31, mes: 12 } });
-    return {
-      comFuturo: serieComoYoutube(c, futuro),
-      comPassado: serieComoYoutube(c, passado),
-      semData: serieComoYoutube(c, Object.assign({}, songs[0], { serieData: null })),
-    };
+    // Fixado DENTRO da chamada, e não pela `clock` da página: aqui o percurso
+    // já foi medido em volta, e congelar a página inteira mexeria nele. A troca
+    // é síncrona do começo ao fim — nada roda entre ela e o `finally` —, então
+    // nenhum outro caminho chega a ver o relógio de mentira.
+    const Real = Date;
+    const FIXO = Real.UTC(2026, 6, 10, 12);   // 10/Jul/2026, o mesmo dia do corte
+    class Congelado extends Real {
+      constructor(...a) { super(...(a.length ? a : [FIXO])); }
+      static now() { return FIXO; }
+    }
+    window.Date = Congelado;
+    try {
+      // O que JÁ SAIU e um FUTURO, os dois contra o dia fixado acima: é o par
+      // que prova que a frase é da janela, e não um recado grudado em toda
+      // falha de série.
+      const passado = Object.assign({}, songs[0], { serieData: { dia: 1, mes: 1 } });
+      const futuro = Object.assign({}, songs[0], { serieData: { dia: 31, mes: 12 } });
+      return {
+        comFuturo: serieComoYoutube(c, futuro),
+        comPassado: serieComoYoutube(c, passado),
+        semData: serieComoYoutube(c, Object.assign({}, songs[0], { serieData: null })),
+      };
+    } finally { window.Date = Real; }
   });
   checar(/ainda não liberado pelo canal/.test(aviso.comFuturo.avisoSeFalhar || ''),
     'um episódio da JANELA carrega a frase que explica a falha', aviso.comFuturo.avisoSeFalhar);
@@ -2322,6 +2394,26 @@ try {
     deuPe2 = true;
   } catch (_) { deuPe2 = false; }
   checar(deuPe2, 'O APP FICA DE PÉ com a transmissão JÁ LIGADA e telas na rede');
+
+  // E A LEITURA DA TRANSMISSÃO É ESPERADA, não presumida. `espelhoEstado()` é
+  // uma Promise da ponte, lida pela ENQUETE (`lerEspelho`): até ela responder,
+  // `mirrorEstado` é nulo, `telasDaRede()` devolve vazio e o app está — com toda
+  // a razão — no estado SEM TELA. Tudo o que esta página afirma daqui para
+  // baixo lê o que essa leitura produz, e sem esperá-la o oráculo media quem
+  // chegou primeiro.
+  // MEDIDO: as duas reprovaram juntas na 1ª rodada de uma campanha com a máquina
+  // a 2× de carga, e nas duas o app estava certo — o oráculo é que perguntou
+  // cedo demais.
+  //
+  // Espera-se pela INGESTÃO (`mirrorEstado` com a tela dentro), nunca pela
+  // resposta derivada (`algumaTelaConectada()`): esperar pelo que se vai afirmar
+  // é escrever uma tautologia. O que vem depois de `mirrorEstado = e` em
+  // `lerEspelho` — `acertarSaidaDeAudio`, `renderSimpleGate` e os demais — é
+  // síncrono, então observá-lo já garante que a tela e o som decidiram.
+  await pg2.waitForFunction(
+    () => !!mirrorEstado && Array.isArray(mirrorEstado.telas) && mirrorEstado.telas.length > 0,
+    null, { timeout: 25000 },
+  );
 
   // E a célula da preview tem de ser a PREVIEW, não a conexão: sem TV, as telas
   // da rede são a projeção (v5.193), então há tela e não há o que conectar.

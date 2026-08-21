@@ -207,6 +207,8 @@ O campo `kind` é derivado do `type` (ou definido pelo chamador para itens de UR
 
 ```js
 setState, getState
+updateState(key, fn)          // ler + calcular + gravar numa transação SÓ. `fn` é
+                              // SÍNCRONA (ver a regra abaixo)
 stateKeys(prefix)             // chaves de `state` com esse prefixo, numa transação
                               // só e SEM ler valor nenhum — presença em massa
 addMedia(blob, meta)          // cria registro + adiciona a meta.list (padrão 'imports')
@@ -291,6 +293,30 @@ sobrescreve a primeira) e *registro órfão* (o `add` em `media` completa, o
 roda na mesma transação da remoção, fechando o TOCTOU em que um `listAdd`
 concorrente re-referenciaria o id no intervalo. (`readListIn` lê a lista de um
 objectStore já aberto; `txDone(tx)` confirma o commit.)
+
+**REGRA:** chave de `state` que NÃO guarda ids de mídia, mas cujo valor é
+lido para ser recalculado, se escreve por **`updateState(key, fn)`** — as duas
+metades numa transação só. O par `getState` + calcular + `setState` são duas
+transações com um vão entre elas, e duas `readwrite` de mesmo escopo é
+justamente o que o IDB serializa quando é UMA transação e não serializa quando
+são duas: quem lê primeiro grava por último e apaga o que o outro escreveu. Sem
+erro, sem log, e com o sintoma longe dali. Já mordeu em dois lugares — o diário
+da varredura das séries (`serieDiag:<id>`, gravado em duas metades por
+varreduras que correm juntas) e `ytIntencoes` (um `lembrarIntencao` contra o
+`esquecerIntencao` do `finally` de outro download).
+
+**`fn` é SÍNCRONA, e não por gosto:** uma transação do IDB fecha sozinha quando
+um turno de microtarefas passa sem requisição pendente, então um `await` lá
+dentro devolve o vão que a função existe para fechar — e o devolve em silêncio.
+
+**E ela CONFIRMA O COMMIT (`txDone`), que é a segunda razão de existir e vale
+sozinha.** `setState` devolve a promise do REQUEST: resolve quando o IDB aceita
+a escrita, com a transação ainda em voo. **Quem grava e em seguida mata o
+documento perde a transação junto com a conexão** — `aplicarAtualizacao` grava
+`ota-intencao` e chama `otaApply()`, que recarrega as duas páginas, e o que se
+perdia era exatamente a metade do lote que a intenção existia para salvar.
+Escrita que precisa sobreviver ao instante seguinte (recarga, instalação do
+APK, fechamento) vem por `updateState`.
 
 **REGRA:** chave de `state` que guarda ids de mídia se escreve por
 `listAdd`/`listRemove`/`listSet(name, fn)`. `setState` cru numa dessas chaves é

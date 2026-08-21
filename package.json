@@ -6,6 +6,6 @@
     "oraculos": "for f in tools/*.test.mjs tools/smoke.mjs tools/display-smoke.mjs; do node \"$f\" || exit 1; done"
   },
   "devDependencies": {
-    "playwright": "1.62.1"
+    "playwright": "1.56.0"
   }
 }

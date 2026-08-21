@@ -1034,6 +1034,18 @@ O job `web-ota` (todo push em `main`) empacota `assets/web/` num
   abertura seguinte. Descartada quando o `versionName` instalado alcança a versão
   pedida — sem isso o instalador reabriria oferecendo o que já está rodando — e
   depois de 6 h.
+
+  **E ela é gravada por `AVDB.updateState`, nunca por `setState` — este é o
+  ponto do recurso, não um detalhe.** `setState` resolve na aceitação do
+  REQUEST, com a transação ainda em voo; a linha seguinte é o `otaApply()` que
+  recarrega as duas páginas, e conexão derrubada ABORTA transação em voo. A
+  intenção some, a abertura seguinte não acha nada, e a metade nativa do lote
+  desaparece **com tudo parecendo ter funcionado** — o desfecho exato que a
+  intenção existe para impedir. `updateState` espera o commit (`txDone`). Os
+  quatro pontos que mexem em `ota-intencao` seguem a mesma regra, e o
+  `apagar` de `instalarApk` pelo motivo espelhado: o diálogo do Android pode
+  derrubar o app no instante seguinte, e uma limpeza não commitada reabre o
+  instalador na abertura seguinte.
 - **A pergunta espera só o que ACABA: cena projetando e download em curso.** O
   **espelho não segura**: ele fica ligado o culto inteiro, e incluí-lo tornava a
   supressão permanente (foi por isso que a v5.151 desistiu de perguntar).
@@ -1051,7 +1063,10 @@ O job `web-ota` (todo push em `main`) empacota `assets/web/` num
   opostas.
 
 Oráculo: **`tools/ota.test.mjs`** (Chromium + ponte de mentira), incluindo a
-intenção atravessando um `reload()` de verdade.
+intenção atravessando a MORTE DO DOCUMENTO — semeada numa página que só carrega
+`shared/db.js`, e não no Controle: ali `retomarAtualizacao()` roda na abertura e
+CONSOME a semente antes de a navegação acontecer, o que é o app fazendo o certo
+e o oráculo medindo a si mesmo.
 
 ### A detecção: quatro gatilhos
 
@@ -1946,25 +1961,93 @@ Antes de publicar: `node --check` em todo `.js` de `assets/web`, validação do
 | `tipos-que-sobem.test.mjs` | **as DUAS metades do dreno da tela da rede**: a lista de permissão do `drenar()` (`espelho/tela.js`) e a do `TIPOS_QUE_SOBEM` (`EspelhoServidor.kt`). Duas listas sem oráculo divergem no primeiro esquecimento, e a divergência é MUDA nos dois sentidos |
 | `contexto-seguro.test.mjs` | `VideoDecoder`, `wakeLock`, `audioWorklet`, `randomUUID`, `crypto.subtle` **fora de guarda** em `espelho/`, `display/` **e `shared/`** — o `/display/` das telas da rede roda em `http://`, e ele carrega quatro arquivos de `shared/`: lá essas APIs vêm `undefined`. Guarda vale `isSecureContext` **ou** detecção de presença na mesma linha |
 
-**Chromium de verdade, em DOIS PASSOS:** `Preparar o Chromium` (o `npm i` e o
-`playwright install`, **com** `continue-on-error` — infraestrutura) e `Oráculos
-em Chromium`, que depende do primeiro. O segundo **segue** com
-`continue-on-error` (barrar o canal OTA por um teste de navegador é trocar um
-risco raro por um bloqueio frequente), mas roda **todos SEMPRE** — nenhum aborta
-o próximo —, emite `::error::` por reprovado e escreve o placar `N/M` no **resumo
-do run**. `N` e `M` são CONTADOS, nunca digitados: um número fixo envelheceria no
-primeiro oráculo novo, e envelheceria mentindo.
+**Chromium de verdade, em DOIS PASSOS, e a ASSIMETRIA entre eles é a política:**
+
+| passo | `continue-on-error` | porque |
+|---|---|---|
+| `Preparar o Chromium` | **sim** | é o CDN de outra pessoa. Um download quebrado lá fora não pode calar a atualização de uma igreja — os oráculos são pulados (`if: steps.chromium.outcome == 'success'`) e um passo de AVISO escreve o pulo no resumo, senão ele fica indistinguível de "15/15" |
+| `Oráculos em Chromium` | **não**, desde a v5.316 | é o NOSSO código. Reprovar aqui derruba o job `verificar`, que é `needs` do `web-ota`: o bundle não chega à frota |
+
+Ele roda **todos SEMPRE** — nenhum aborta o próximo —, emite `::error::` por
+reprovado e escreve o placar `N/M` no **resumo do run**. `N` e `M` são CONTADOS,
+nunca digitados: um número fixo envelheceria no primeiro oráculo novo, e
+envelheceria mentindo.
 
 > Eles rodavam num passo só com `set -euo pipefail`: o PRIMEIRO reprovado
 > abortava os outros, e como o passo era `continue-on-error` o run ficava
 > **verde**. Descobrir isso exigia abrir o log e reparar onde ele parou.
+
+**A escapatória é MANUAL e ASSINA**: o disparo de `Build APK` tem o campo
+`ignorar_oraculos`, que publica com oráculo reprovado e grava isso no resumo, ao
+lado do placar e dos `::error::`. Nenhum push a alcança. A diferença para o
+`continue-on-error` não é de grau — ele decidia por todo mundo, para sempre e
+sem registro.
+
+**O `apk` NÃO depende do `verificar`**, e isso é escolha: o portão fecha o canal
+OTA (automático, a cada push em `main`, sem ninguém olhando) e não o APK
+(manual, com uma pessoa escolhendo a tag). O preço está dito: uma Release tirada
+de uma árvore com oráculo vermelho embute a mesma base web.
+
+### UM ORÁCULO NÃO PODE MEDIR O RUNNER
+
+É a regra que o fechamento do portão comprou, e ela vale antes dele: enquanto o
+passo era `continue-on-error`, um oráculo que reprovasse por carga da máquina
+não custava nada — e por isso cinco classes inteiras se acumularam. **MEDIDO**:
+21 dos 23 runs anteriores terminaram verdes com oráculo reprovado dentro, 40
+reprovações somadas, **uma** delas um defeito de verdade.
+
+| classe | como aparece | a forma certa |
+|---|---|---|
+| **prazo lido como veredito** | `waitForFunction(…).catch(() => { ok = false; })`, e a asserção seguinte fala do APP quando o que estourou foi o relógio | esperar pelo FATO, e o estouro devolve a FRASE ("PRAZO, não veredito") no terceiro argumento do `checar` — ver o `esperar()` de `ota.test.mjs` |
+| **medida que depende da MÁQUINA** | igualdade de altura em pixel: a base pede `system-ui, -apple-system, sans-serif`, então quem responde é a fonte instalada (MEDIDO: uma linha de duas linhas de texto vai de 53px a 55px sob WenQuanYi Zen Hei) | afirmar o que o DESENHO reserva (`--hit`, o `padding`), nunca a soma renderizada — ver `destinos.test.mjs` |
+| **estado que ainda não foi lido** | o app está certo e o oráculo perguntou cedo: `mirrorEstado` antes da primeira volta da enquete, o índice antes de a varredura da abertura assentar | esperar pela INGESTÃO (o dado entrando), nunca pela resposta DERIVADA — esperar pelo que se vai afirmar é escrever uma tautologia |
+| **o oráculo correndo contra o app** | a montagem do cenário compete com o que o app faz na abertura: semear `ota-intencao` no Controle e navegar perdia a semente para o `retomarAtualizacao()` da própria abertura, que a CONSOME com toda a razão | montar o cenário onde o app não alcança — uma página do mesmo origin que carrega só `shared/db.js` — e só então entrar na tela que se quer medir |
+| **prazo menor que a CADÊNCIA do app** | há uma ENQUETE no meio do caminho: `retomarAtualizacao` roda de dez em dez segundos e desiste de propósito enquanto falta a resposta do manifesto | **o prazo tem de caber o pior caminho que o app pode legitimamente tomar.** Se não couber, o oráculo reprova o certo — e quem lê o log conclui que o app quebrou |
+
+Três regras que caem daí:
+
+- **Prazo não é asserção.** Um `waitForTimeout` no meio de um oráculo é uma
+  aposta na máquina; se há um sinal determinístico, é por ele que se espera.
+- **Quem responde "já pode?" é a função do APP**, não uma segunda escrita da
+  regra dentro do oráculo (`indiceVencido`, `mirrorEstado`) — é o mesmo
+  princípio do Registro: uma segunda opinião envelhece à parte.
+- **Oráculo instável é suspeito de DEFEITO DO APP.** Das instabilidades deste
+  lote, **duas** eram o app, e as duas na mesma linha do `db.js`:
+  `serieDiarioGravar` fazia read-modify-write com `getState` + `setState` e duas
+  varreduras da mesma série apagavam uma à outra; e `setState` resolve ANTES do
+  commit, então a intenção do OTA — gravada e seguida de um `otaApply()` que
+  recarrega o documento — podia ser abortada junto com a conexão, levando a
+  metade nativa do lote embora em silêncio. Nos dois casos o oráculo não estava
+  errado: estava chegando na hora exata. **A pergunta a fazer diante de um
+  vermelho intermitente é "o que este teste pegou?", não "quanto tempo a mais
+  ele precisa?"**
+
+**A prova de que um oráculo é determinístico é uma CAMPANHA, não uma execução:**
+todos eles, N rodadas, com a máquina a 2× de carga (o runner do GitHub é 4 vCPU),
+e o suspeito sozinho a 4×. Reprovação nenhuma é o único resultado que autoriza o
+portão. O que autorizou a v5.316: **64/64** (16 oráculos × 4 rodadas a 2×) e
+**20/20** do `ota.test.mjs` a 4×.
+
+**E uma reprovação a cada N execuções não é ruído, é o achado.** Nas cinco
+classes acima, cada rodada vermelha apontou uma coisa de verdade — duas delas
+defeitos do app. Um oráculo que só reprova sob carga está dizendo que existe uma
+ordem de eventos em que o app erra, ou uma em que a pergunta do oráculo não faz
+sentido; as duas merecem resposta, e nenhuma das duas é "mais prazo".
+
+**E a campanha vale para a versão do Playwright em que foi medida.** O
+`package.json`/`package-lock.json` pinam o arnês (`npm ci` no CI, nunca
+`npm i`), e **subir o pin obriga a repetir a campanha**: quem decide altura de
+linha, ordem de evento e quanto tempo uma página leva para assentar é o
+navegador. Com o portão fechado, uma reprovação que não se reproduz fora do
+runner não tem conserto por inspeção — só pela válvula, o que devolveria o
+mundo anterior por outro caminho.
 
 | oráculo | o que cobre, e por que existe |
 |---|---|
 | `smoke.mjs` | sobe a base e usa a tela; mede o RENDERIZADO nos dois temas (palco sem tema, escada de camadas, contorno) |
 | `boot-nativo.test.mjs` | **o boot COM a ponte presente** — o `smoke` sobe SEM `__AVBridge`, então todo caminho `window.__NATIVE__` (justamente os que só rodam no aparelho) nunca era executado. Injeta uma ponte de mentira e pergunta o que o watchdog pergunta: o app ficou de pé? |
 | `display-smoke.mjs` | **o TELÃO** — a metade que roda na frente da congregação, e a que menos rede de segurança tem (o watchdog do OTA não a valida). Viewport fixo em 961×540, explicitamente. Trava o endereçamento do reenvio de cena |
-| `ota.test.mjs` | **o fluxo de atualização** — o único caminho cujo defeito NÃO TEM SINTOMA: nada quebra, o operador só continua na versão de anteontem. Afirma a pergunta com e sem Release, o "depois", e a INTENÇÃO atravessando um `reload()` de verdade |
+| `ota.test.mjs` | **o fluxo de atualização** — o único caminho cujo defeito NÃO TEM SINTOMA: nada quebra, o operador só continua na versão de anteontem. Afirma a pergunta com e sem Release, o "depois", e a INTENÇÃO atravessando a MORTE DO DOCUMENTO (semeada numa página que só tem o banco, porque semeá-la no Controle é uma corrida contra o `retomarAtualizacao` da abertura — e uma que o app ganha com razão) |
 | `registro.test.mjs` | **o Registro** — o único artefato cujo consumidor é um HUMANO A DISTÂNCIA: ele não falha calado, falha CONTINUANDO A RESPONDER com frase errada. Cobra as duas metades: nenhuma palavra de recurso aposentado **e** o que o operador foi buscar presente |
 | `tela-rede.test.mjs` | **a tela da rede de ponta a ponta**, contra um servidor de mentira que fala o protocolo do `EspelhoServidor` |
 | `ponte.test.mjs` | **o que a ponte de fato ENTREGA** — `native.js` REMONTA campo a campo, e um campo esquecido some em silêncio. Afirma também que ele não drena papel nenhum e que o display emite as quatro mensagens (`display-ready`, `display-status`, `media-ended`, `mic-status`) — quem filtra é o `tela.js`, nunca a fonte |
@@ -1973,6 +2056,7 @@ primeiro oráculo novo, e envelheceria mentindo.
 | `destinos.test.mjs` | o que está marcado atravessa o fechamento da folha — a ação roda depois de `closeSongMenu()`, que zera o conjunto |
 | `sorteio-tela.test.mjs` | a **playlist automática** da folha até a fila. O `sorteio.test.mjs` trava a REGRA; este trava a LIGAÇÃO, que falha de outro jeito — a regra continua certa e o recurso não faz nada. As quatro capacidades injetadas são ponteiros, e um errado devolve um pool plausível e ERRADO |
 | `db-gc.test.mjs` | o coletor de lixo — o único código do app que APAGA mídia do operador |
+| `db-estado.test.mjs` | **a atomicidade de uma chave de `state`** (`AVDB.updateState`). O defeito que ele trava não erra alto em lugar nenhum: `getState` + calcular + `setState` são duas transações com um vão entre elas, e o que se perde é a metade que o outro escritor acabou de gravar. Tem as DUAS metades — escreve o hazard à mão e prova que ele PERDE, e só então prova que a função não perde; sem a primeira, a segunda provaria que uma função concorda consigo mesma |
 | `acervo.test.mjs` | as contas da Biblioteca ("completa?" e "quanto ocupa?"), que já foram respondidas por fórmulas diferentes na mesma tela |
 | `mse.test.mjs` · `stage-fade.test.mjs` | mensagens de falha da transmissão direta · a transição de entrada do palco |
 
@@ -1986,7 +2070,7 @@ primeiro oráculo novo, e envelheceria mentindo.
 > assim que `smoke`, `boot-nativo` e `sorteio-tela` ficaram vermelhos no CI (12
 > de 15) enquanto passavam na máquina de quem os escreveu — e, com o passo em
 > `continue-on-error`, **sem ninguém notar**. Bloquear é seguro por construção:
-> os quinze já passam onde toda saída falha, logo nenhum depende de terceiro.
+> todos eles já passam onde toda saída falha, logo nenhum depende de terceiro.
 > Fixture de terceiro que um oráculo queira exercitar entra por um `route()`
 > **dele**, registrado depois (o Playwright resolve da mais recente para a mais
 > antiga) e com o corpo escrito à mão.
@@ -2134,6 +2218,14 @@ Rodar local: `./gradlew assembleDebug` (exige Android SDK).
 - **Todo código novo em `assets/web/` continua rodando no navegador**: caminhos
   nativos entram como `if (!window.__NATIVE__) { …web… }`.
 - **Toda operação IDB multi-passo que precise de atomicidade usa `storeTx()`.**
+  Para uma chave de `state`, o pronto é **`AVDB.updateState(chave, fn)`** — ler,
+  calcular e gravar numa transação só, com `fn` **síncrona** (um `await` lá
+  dentro deixa a transação fechar sozinha e a atomicidade some em silêncio). O
+  par `getState` + calcular + `setState` é o defeito, não o atalho: duas
+  transações com um vão entre elas, e quem lê primeiro grava por último. Já
+  mordeu duas vezes — o diário da varredura das séries (metade do bloco do
+  Registro sumia) e as intenções de download (o vídeo não era reclamado depois
+  de o renderer morrer). O sintoma dos dois é a AUSÊNCIA de sintoma.
 - **Ao mudar a superfície da ponte, subir `SHELL_VERSION` e atualizar a seção "A
   ponte".**
 - **Cor nova entra em `shared/tokens.css`**, nunca literal na folha do app — e
@@ -2146,7 +2238,7 @@ Rodar local: `./gradlew assembleDebug` (exige Android SDK).
   | **`@aiden0z/pptx-renderer`** (`assets/web/vendor/`, Apache-2.0, `import()` dinâmico) | o Android **não desenha PowerPoint**: a plataforma só traz o `PdfRenderer`, as libs nativas são comerciais ou limitadas a 3 páginas, converter num servidor mandaria o material do culto para fora do aparelho, e escrever DrawingML à mão daria um slide PARECIDO com o que o pastor montou — pior que slide nenhum. Levantamento completo no `LEIA-ME.md` da pasta |
   | **`NewPipeExtractor`** | extrair a URL de um vídeo do YouTube é acompanhar as defesas deles (PO Tokens por vídeo, assinados por BotGuard/DroidGuard). A alternativa sem dependência — servidor público — FALHOU em aparelho: eles rodam em IP de datacenter, exatamente o que o YouTube bloqueia. E a conta é paga por quem publica: o SABR que derrubou o 1080p foi resolvido lá (cliente visionOS) e chegou aqui como **um bump de versão**. Manter o pin explícito e ler o CHANGELOG antes de reescrever extração à mão |
   | **JUnit** (`testImplementation`) | **não põe um byte no APK**. Existe porque o servidor das telas é **a primeira fronteira de rede do projeto** — um parser HTTP com controle de acesso, onde um erro não vira pixel errado, vira controle de acesso quebrado. Escrevê-lo sem oráculo, num repositório que recusa o RFC 6455 **por falta de oráculo**, seria o argumento aplicado contra ele mesmo |
-| **Playwright** (`package.json`, `devDependencies`) | **também não põe um byte no APK** — é o arnês dos oráculos de Chromium, e a única forma de exercitar o que só existe RENDERIZADO (contraste, escada de camadas, hit-test, o telão de verdade). Ele já era usado; o que mudou é que passou a ser **declarado e PINADO**: o `package.json` e o `package-lock.json` são versionados e o CI usa `npm ci`. Sem o pin, o passo instalava a `latest` do dia e o veredito do CI não era função só do nosso código — o que torna impossível o passo BARRAR o build |
+| **Playwright** (`package.json`, `devDependencies`) | **também não põe um byte no APK** — é o arnês dos oráculos de Chromium, e a única forma de exercitar o que só existe RENDERIZADO (contraste, escada de camadas, hit-test, o telão de verdade). Ele já era usado; o que mudou é que passou a ser **declarado e PINADO**: o `package.json` e o `package-lock.json` são versionados e o CI usa `npm ci`. Sem o pin, o passo instalava a `latest` do dia e o veredito do CI não era função só do nosso código — o que tornava impossível o passo BARRAR o build, e desde a v5.316 ele barra. **Subir o pin obriga a repetir a campanha de determinismo** (ver "Um oráculo não pode medir o runner") |
 
   Uma quinta exceção precisa da mesma justificativa: um problema que não se
   resolve de outro jeito, e a manutenção paga por quem publica a biblioteca.
@@ -2253,7 +2345,7 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: v5.315** (base web) · `SHELL_VERSION` **45** · bundle com
+**Versão atual: v5.316** (base web) · `SHELL_VERSION` **45** · bundle com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos nativos
 por construção (escada do voltar, botões de volume, notificação de controles),
 que **só chegam instalando o APK**.

@@ -228,6 +228,47 @@
     const s = await store(STORE_STATE, 'readonly');
     return asPromise(s.get(key));
   }
+  // LEITURA E ESCRITA DE UMA CHAVE DE `state` NUMA TRANSAÇÃO SÓ.
+  //
+  // O par `getState` + calcular + `setState` é um read-modify-write com DUAS
+  // transações e um vão entre elas, e a regra deste projeto é que toda operação
+  // IDB multi-passo que precise de atomicidade use uma transação única. O vão
+  // não é teórico em nenhum dos consumidores:
+  //
+  //  - o DIÁRIO da varredura das séries grava em duas metades (canal, vídeos) e
+  //    duas varreduras da mesma série correm juntas com facilidade — a abertura
+  //    dispara `autoRefreshCollections()` sem `await` e "Atualizar a lista" é um
+  //    toque por cima disso;
+  //  - as INTENÇÕES de download são uma lista que ganha item no começo de cada
+  //    download e perde item no `finally` de cada um.
+  //
+  // Nos dois casos quem leu primeiro grava por último e apaga o que o outro
+  // acabou de escrever — sem erro, sem log, e com o sintoma aparecendo longe
+  // dali (um bloco do Registro que some, um download que não é reclamado).
+  //
+  // Duas transações `readwrite` de mesmo escopo NÃO se intercalam no IDB, e é
+  // isso que faz este `get` seguido de `put` ser seguro onde o par não era.
+  //
+  // E ELA CONFIRMA O COMMIT (`await txDone(tx)`), que é a SEGUNDA razão de
+  // existir e vale sozinha. `setState` devolve a promise do REQUEST: ela
+  // resolve quando o IDB aceita a escrita, com a transação ainda em voo. Quem
+  // grava e em seguida MATA O DOCUMENTO — `aplicarAtualizacao` grava a intenção
+  // e chama `otaApply()`, que recarrega as duas páginas — perde a transação
+  // junto com a conexão, e o que se perde é exatamente a metade do lote que a
+  // intenção existia para salvar. Escrita que precisa sobreviver ao próximo
+  // instante vem por aqui.
+  //
+  // `fn` É SÍNCRONA, e não por gosto: uma transação do IDB fecha sozinha quando
+  // um turno de microtarefas passa sem requisição pendente, então um `await`
+  // aqui dentro perderia a atomicidade que a função existe para dar — e a
+  // perderia em silêncio, que é o modo de falhar deste arquivo inteiro.
+  async function updateState(key, fn) {
+    const [s, tx] = await storeTx(STORE_STATE, 'readwrite');
+    const novo = fn(await asPromise(s.get(key)));
+    await asPromise(s.put(novo, key));
+    await txDone(tx);
+    return novo;
+  }
   // Chaves de `state` que começam com `prefix`, numa transação só e sem
   // desserializar valor nenhum. Existe para testar PRESENÇA em massa: a Bíblia
   // precisa saber quais dos 1189 capítulos já estão em cache, e fazer isso com
@@ -900,7 +941,7 @@
   // daqui, e expor a conexão crua convida a montar transações por fora dos
   // helpers — que é exatamente onde mora a atomicidade deste arquivo.
   global.AVDB = {
-    setState, getState, stateKeys,
+    setState, getState, updateState, stateKeys,
     addMedia, addUrlMedia, addStreamMedia, setMediaStream, addDeck, addCue,
     getMedia, mediaByYoutube, renameMedia,
     listIds, listSet, listItems, listHas, listAdd, listRemove, gc, gcOrfaos, folderDrop,

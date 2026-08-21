@@ -46,9 +46,18 @@ const servidor = http.createServer((req, res) => {
 });
 
 const falhas = [];
-function checar(cond, msg) {
+// A MESMA FORMA DO `smoke.mjs`, e o terceiro argumento não é enfeite: metade
+// dos sítios de chamada daqui já passava o valor obtido, e ele era DESCARTADO
+// — a reprovação dizia o que se esperava e calava o que aconteceu, que é a
+// diferença entre um oráculo que aponta o defeito e um que manda procurá-lo.
+function checar(cond, msg, obtido) {
   if (cond) console.log('ok      ' + msg);
-  else { console.log('FALHOU  ' + msg); falhas.push(msg); }
+  else {
+    console.log('FALHOU  ' + msg
+      + (obtido !== undefined ? '\n        obtido: '
+        + (typeof obtido === 'string' ? obtido : JSON.stringify(obtido)) : ''));
+    falhas.push(msg);
+  }
 }
 
 await new Promise((r) => servidor.listen(0, r));

@@ -168,7 +168,7 @@ const appVersionEl = document.getElementById('appVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '5.315';
+const WEB_VERSION = '5.316';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -10239,10 +10239,19 @@ async function serieDiarioLer(id) {
 // Grava por MESCLA: escrever só a metade do canal preserva a metade dos vídeos
 // da última varredura completa, que é exatamente o que o bloco precisa dizer
 // quando a assinatura pulou a extração.
+//
+// E A MESCLA É UMA TRANSAÇÃO SÓ (`AVDB.updateState`), nunca `getState` +
+// `setState`. DUAS varreduras da mesma série correm juntas com facilidade — a
+// abertura dispara `autoRefreshCollections()` sem `await`, e "Atualizar a
+// lista" é um toque por cima disso —, e com duas transações a que leu primeiro
+// grava por último e apaga a metade da outra. O que some é a metade dos
+// vídeos: sem `quandoVideos` o bloco perde as linhas derivadas dela (os nomes
+// na ordem, o que o canal anuncia e não veio, os futuros), e o Registro passa a
+// responder como se a varredura nunca tivesse acontecido. Um diário que
+// discorda do aparelho é o pior artefato que este projeto sabe produzir.
 async function serieDiarioGravar(id, campos) {
   try {
-    const atual = (await serieDiarioLer(id)) || {};
-    await AVDB.setState(SERIE_DIARIO_KEY + id, Object.assign(atual, campos));
+    await AVDB.updateState(SERIE_DIARIO_KEY + id, (atual) => Object.assign(atual || {}, campos));
   } catch (_) { /* diagnóstico não pode derrubar a sincronização */ }
 }
 
@@ -15579,19 +15588,26 @@ function mesmaIntencao(a, link, soAudio) {
   return a && a.link === link && !!a.soAudio === !!soAudio;
 }
 
+// AS DUAS MEXEM NA LISTA DENTRO DE UMA TRANSAÇÃO SÓ (`AVDB.updateState`).
+// Com `getState` + `setState` havia um vão entre ler e gravar, e ele é
+// alcançável: um item pode ir para VÁRIOS destinos de uma vez, a fila do shell
+// serializa os downloads mas o lado web não, e o `lembrarIntencao` de um corre
+// contra o `esquecerIntencao` do `finally` do outro. Quem lê primeiro grava por
+// último e leva junto o item que o outro acabou de pôr — a intenção some, e com
+// ela a única coisa que faria o download ser reclamado se o renderer morresse.
+// O sintoma é a ausência de um sintoma: o vídeo simplesmente não volta.
 async function lembrarIntencao(intencao) {
   try {
-    const atuais = (await AVDB.getState(YT_INTENCOES)) || [];
-    const outras = atuais.filter((i) => !mesmaIntencao(i, intencao.link, intencao.soAudio));
-    await AVDB.setState(YT_INTENCOES, outras.concat([intencao]));
+    await AVDB.updateState(YT_INTENCOES, (atuais) => (atuais || [])
+      .filter((i) => !mesmaIntencao(i, intencao.link, intencao.soAudio))
+      .concat([intencao]));
   } catch (e) { console.warn('[yt] não deu para registrar a intenção:', e); }
 }
 
 async function esquecerIntencao(link, soAudio) {
   try {
-    const atuais = (await AVDB.getState(YT_INTENCOES)) || [];
-    const restam = atuais.filter((i) => !mesmaIntencao(i, link, soAudio));
-    if (restam.length !== atuais.length) await AVDB.setState(YT_INTENCOES, restam);
+    await AVDB.updateState(YT_INTENCOES, (atuais) => (atuais || [])
+      .filter((i) => !mesmaIntencao(i, link, soAudio)));
   } catch (e) { console.warn('[yt] não deu para limpar a intenção:', e); }
 }
 
@@ -19721,7 +19737,15 @@ async function perguntarAtualizacao(lote) {
 async function aplicarAtualizacao(lote) {
   if (lote.shell) {
     try {
-      await AVDB.setState(OTA_INTENCAO, { shell: lote.shell, em: Date.now() });
+      // `updateState` E NÃO `setState`, e a diferença aqui é o recurso inteiro:
+      // `setState` resolve na aceitação do REQUEST, com a transação ainda em
+      // voo, e a linha seguinte deste caminho é um `otaApply()` que RECARREGA
+      // as duas páginas. Conexão derrubada aborta transação em voo — a intenção
+      // some, a abertura seguinte não acha nada, e a metade nativa do lote
+      // desaparece sem deixar rastro, com tudo PARECENDO ter funcionado (que é
+      // o desfecho que o parágrafo acima existe para impedir). `updateState`
+      // espera o commit.
+      await AVDB.updateState(OTA_INTENCAO, () => ({ shell: lote.shell, em: Date.now() }));
     } catch (_) {
       // Sem intenção gravada, o APK não é retomado depois da recarga — então é
       // melhor não recarregar: instala-se o APK agora e a base web entra na
@@ -19777,7 +19801,11 @@ async function instalarApk(versao) {
   // operador (e o que acontece dali em diante é dele), ou falhou e insistir
   // sozinho a cada abertura seria um instalador aparecendo do nada. A procura
   // continua, e a pergunta volta pelo caminho normal.
-  try { await AVDB.setState(OTA_INTENCAO, null); } catch (_) { /* banco */ }
+  // Pelo commit, como a gravação (ver `aplicarAtualizacao`): o diálogo de
+  // instalação do Android pode derrubar o app no instante seguinte, e uma
+  // limpeza que não commitou deixa a intenção viva — o instalador reabrindo na
+  // próxima abertura é o desfecho que estas linhas existem para impedir.
+  try { await AVDB.updateState(OTA_INTENCAO, () => null); } catch (_) { /* banco */ }
   if (erro) {
     falarNoOta('Não deu para atualizar: ' + erro, 6000);
     if (appDialogResolve) closeAppDialog(true);
@@ -19820,7 +19848,7 @@ async function retomarAtualizacao() {
   try { i = await AVDB.getState(OTA_INTENCAO); } catch (_) { return; }
   if (!i || !i.shell) return;
   if (!i.em || Date.now() - i.em > OTA_INTENCAO_MAX_MS) {
-    try { await AVDB.setState(OTA_INTENCAO, null); } catch (_) { /* banco */ }
+    try { await AVDB.updateState(OTA_INTENCAO, () => null); } catch (_) { /* banco */ }
     return;
   }
   // O APK JÁ PODE TER SIDO INSTALADO. `__SHELL_NAME__` é o `versionName` do
@@ -19829,7 +19857,7 @@ async function retomarAtualizacao() {
   // abertura oferecendo a versão que já está rodando.
   const atual = String(window.__SHELL_NAME__ || '0');
   if (compararVersoes(atual, String(i.shell)) >= 0) {
-    try { await AVDB.setState(OTA_INTENCAO, null); } catch (_) { /* banco */ }
+    try { await AVDB.updateState(OTA_INTENCAO, () => null); } catch (_) { /* banco */ }
     return;
   }
   // Esperar a hora boa vale aqui também, e mais que na pergunta: instalar

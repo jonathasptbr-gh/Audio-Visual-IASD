@@ -46,6 +46,26 @@ const TIPOS = {
 
 const servidor = http.createServer((req, res) => {
   let p = decodeURIComponent(new URL(req.url, 'http://x').pathname);
+  // A PÁGINA DE SEMENTE: `shared/db.js` e MAIS NADA, no MESMO origin.
+  //
+  // Ela existe porque semear `ota-intencao` numa página do CONTROLE é uma
+  // corrida contra o próprio app, e uma que o app ganha com razão:
+  // `retomarAtualizacao()` roda na abertura e de dez em dez segundos, e a
+  // primeira coisa que ela faz com uma intenção JÁ CUMPRIDA (ou pronta para
+  // instalar) é consumi-la. Semeada ali, a intenção some ANTES da abertura que
+  // o teste queria medir — e o que reprova é a asserção seguinte, falando de
+  // uma regra que nunca chegou a ser exercida. MEDIDO: 5 reprovações em 8
+  // execuções com a máquina OCIOSA, dependendo apenas de o `evaluate` da
+  // semente chegar antes ou depois da leitura da abertura.
+  //
+  // Aqui não há app nenhum para consumir: só o banco, no mesmo origin. A
+  // navegação seguinte para `/controle/` mata este documento, que é exatamente
+  // o que a asserção afirma que a intenção sobrevive.
+  if (p === '/semente') {
+    res.writeHead(200, { 'Content-Type': TIPOS['.html'] });
+    res.end('<!doctype html><meta charset="utf-8"><script src="/shared/db.js"></script>');
+    return;
+  }
   if (p.endsWith('/')) p += 'index.html';
   const arquivo = path.join(RAIZ, p);
   if (!arquivo.startsWith(RAIZ) || !fs.existsSync(arquivo) || fs.statSync(arquivo).isDirectory()) {
@@ -56,18 +76,57 @@ const servidor = http.createServer((req, res) => {
 });
 
 const falhas = [];
-function checar(cond, msg) {
+function checar(cond, msg, obtido) {
   if (cond) console.log('ok      ' + msg);
-  else { console.log('FALHOU  ' + msg); falhas.push(msg); }
+  else {
+    console.log('FALHOU  ' + msg
+      + (obtido !== undefined ? '\n        obtido: '
+        + (typeof obtido === 'string' ? obtido : JSON.stringify(obtido)) : ''));
+    falhas.push(msg);
+  }
 }
+
+// ESPERAR PELO FATO, E DIZER QUANDO FOI PRAZO.
+//
+// A forma `waitForFunction(…).catch(() => { ok = false; })` transforma o
+// estouro do prazo em RESULTADO: a asserção seguinte reprova falando do app
+// enquanto o que aconteceu foi o relógio de parede — e num runner de VM
+// compartilhada (o do GitHub) é o relógio que perde. Medido neste arquivo: 0
+// falhas em 10 execuções com a máquina ociosa, 2 em 40 sob carga, sempre na
+// mesma asserção e sempre por tempo.
+//
+// Aqui o estouro tem NOME: devolve a frase em vez de `false`, e ela viaja no
+// terceiro argumento do `checar`. Quem lê o log distingue "o app não fez" de
+// "ninguém esperou o bastante" sem abrir o arquivo.
+const PRAZO_MS = 30000;
+// O prazo CURTO vale onde entre o gatilho e o fato há UMA ida à ponte ou UMA
+// escrita no banco — o toque num botão, a limpeza que segue uma chamada já
+// observada. Ali demora vira defeito.
+//
+// E NÃO VALE onde há uma ENQUETE no meio: `retomarAtualizacao` é chamada de dez
+// em dez segundos e desiste de propósito quando o manifesto ainda não
+// respondeu, então qualquer prazo menor que uma volta dela mede a cadência do
+// app em vez da regra. Esse sítio usa o prazo longo, e o comentário de lá
+// explica por quê. A regra geral: **o prazo tem de caber o pior caminho que o
+// app pode legitimamente tomar** — se não couber, o oráculo reprova o certo.
+const PRAZO_CURTO_MS = 10000;
+async function esperar(pg, fn, arg = null, prazo = PRAZO_MS) {
+  try {
+    await pg.waitForFunction(fn, arg, { timeout: prazo });
+    return true;
+  } catch (_) {
+    return 'o fato não foi observado em ' + Math.round(prazo / 1000) + 's (PRAZO, não veredito)';
+  }
+}
+const porque = (r) => (r === true ? undefined : r);
 
 // A PONTE DE MENTIRA — shell 43, com o estado de atualização parametrizado.
 //
 // Ela REGISTRA as chamadas (`window.__chamadas`) porque metade do que este
 // arquivo afirma é sobre o que o app PEDE ao shell, e não sobre o que a tela
 // desenha: gravar a intenção antes de aplicar o OTA, e chamar `apkInstalar`
-// depois da recarga, são exatamente os dois pontos em que o fluxo já falhou
-// calado.
+// na abertura seguinte, são exatamente os dois pontos em que o fluxo já
+// falhou calado.
 const ponte = ({ web = '', shell = '', bytes = 0, espelho = false, shellName = '1.98' }) => `(() => {
   window.__chamadas = [];
   const estado = { web: ${JSON.stringify(web)}, webAtual: '5.230',
@@ -120,6 +179,88 @@ const ponte = ({ web = '', shell = '', bytes = 0, espelho = false, shellName = '
     };
   }
   window.__AVBridge = B;
+
+  // A SONDA DA INTENÇÃO — o sinal DETERMINÍSTICO que precede a instalação.
+  //
+  // \`retomarAtualizacao()\` COMEÇA lendo \`ota-intencao\`; do que vem depois
+  // (comparar versões, ler o estado, chamar \`apkInstalar\`, apagar a chave)
+  // nada espera relógio — é uma corrente de microtarefas. O que varia com a
+  // carga da máquina é só QUANDO a inicialização chega a essa leitura, e é por
+  // isso que esperar por ELA, e não por um prazo, é o que separa medir o app de
+  // medir o runner.
+  //
+  // Ela não muda o app: embrulha o \`AVDB\` no instante em que \`db.js\` o
+  // publica (\`global.AVDB = {…}\`), contando as leituras e guardando o que foi
+  // escrito. Os contadores nascem zerados a cada carga — inclusive na abertura
+  // que sucede a morte do documento, que é o que este arquivo mede —, então uma leitura vista aqui é uma leitura
+  // DO APP.
+  // \`boas\` conta só as leituras que vão DECIDIR: \`retomarAtualizacao\` desiste
+  // sem fazer nada quando a hora é ruim (cena, download, transmissão) e volta
+  // dez segundos depois pela enquete. Sem essa separação, "o app releu" podia
+  // ser uma leitura que só ia desistir — e o prazo seguinte estaria esperando
+  // por algo que aquela passada nunca faria.
+  window.__intencao = { leituras: 0, boas: 0, escritas: 0, ultima: undefined };
+  let db = null;
+  Object.defineProperty(window, 'AVDB', {
+    configurable: true,
+    get: () => db,
+    set: (v) => {
+      db = v;
+      if (!v || v.__sondado) return;
+      const lerState = v.getState;
+      const gravarState = v.setState;
+      // OS DOIS CONTAM NO DESFECHO, NUNCA NA CHAMADA — e isto não é preciosismo.
+      // \`setState\` é \`await store(…)\` e só então o \`put\`: marcar na entrada
+      // anunciava a escrita ANTES de a transação existir, e a leitura que vinha
+      // atrás abria a dela primeiro e via o valor VELHO. Medido: 3 reprovações
+      // em 30 execuções, todas na asserção que lê o banco logo depois. Contado
+      // no desfecho, a transação de leitura nasce depois da de escrita, e o IDB
+      // ordena as duas.
+      v.getState = function (k) {
+        const p = lerState.apply(this, arguments);
+        if (k !== 'ota-intencao') return p;
+        Promise.resolve(p).then(() => {
+          window.__intencao.leituras++;
+          // A MESMA HORA QUE O APP VAI VER. Esta continuação foi registrada
+          // antes da dele (o embrulho chama o original e só então devolve a
+          // promise), então as duas rodam no mesmo ponto de microtarefas, sem
+          // nada entre elas que mude \`bgWorkCount\` ou a cena.
+          try {
+            if (typeof horaRuimParaAtualizar === 'function' && !horaRuimParaAtualizar()) {
+              window.__intencao.boas++;
+            }
+          } catch (_) { /* bundle antigo: sem a função, só a contagem crua */ }
+        }, () => {});
+        return p;
+      };
+      // OS DOIS ESCRITORES, e não só o que o app usa hoje. A asserção é sobre
+      // a INTENÇÃO ser gravada e apagada, não sobre qual auxiliar faz isso — e
+      // o app usa \`updateState\` justamente nesta chave (ela espera o COMMIT,
+      // e aqui o documento morre logo em seguida). Sondar um só deixaria o
+      // contador mudo no dia em que a escolha mudasse, e o oráculo reprovaria
+      // com "PRAZO" falando de um app que fez tudo certo.
+      const anotar = (valor) => {
+        window.__intencao.escritas++;
+        window.__intencao.ultima = valor;
+      };
+      v.setState = function (k, valor) {
+        const p = gravarState.apply(this, arguments);
+        if (k !== 'ota-intencao') return p;
+        Promise.resolve(p).then(() => anotar(valor), () => {});
+        return p;
+      };
+      const mudarState = v.updateState;
+      v.updateState = function (k) {
+        const p = mudarState.apply(this, arguments);
+        if (k !== 'ota-intencao') return p;
+        // O RETORNO de \`updateState\` é o valor que FICOU — melhor sinal que o
+        // argumento, porque já passou pela \`fn\` e pelo commit.
+        Promise.resolve(p).then((r) => anotar(r), () => {});
+        return p;
+      };
+      v.__sondado = true;
+    },
+  });
 })();`;
 
 await new Promise((r) => servidor.listen(0, r));
@@ -132,11 +273,20 @@ const navegador = await chromium.launch(
 // Sobe a base com a ponte dada e espera o app ficar DE PÉ — o mesmo critério do
 // watchdog do OTA. Sem essa espera, tudo o que vier depois mediria uma página
 // que ainda está montando, e o resultado dependeria da velocidade do runner.
-async function abrir(cfg) {
+async function abrir(cfg, intencao) {
   const ctx = await navegador.newContext({ viewport: { width: 430, height: 900 }, hasTouch: true });
   await semRedeExterna(ctx);
   const pg = await ctx.newPage();
   await pg.addInitScript(ponte(cfg));
+  // A INTENÇÃO, quando o bloco pede uma, é semeada na página de semente e o
+  // Controle ENTRA achando-a no banco — ver a rota `/semente`. `updateState` e
+  // não `setState`: aquele resolve na aceitação do REQUEST, com a transação
+  // ainda em voo, e a navegação seguinte a abortaria junto com a conexão.
+  if (intencao) {
+    await pg.goto(base + '/semente', { waitUntil: 'domcontentloaded' });
+    await pg.waitForFunction(() => !!window.AVDB, null, { timeout: 25000 });
+    await pg.evaluate((v) => window.AVDB.updateState('ota-intencao', () => v), intencao);
+  }
   await pg.goto(base + '/controle/', { waitUntil: 'domcontentloaded' });
   await pg.waitForFunction(
     () => window.AVDB && typeof window.__avBack === 'function',
@@ -218,10 +368,9 @@ try {
     // sem APK no lote, gravar uma intenção faria a abertura seguinte tentar
     // instalar uma versão que ninguém publicou.
     await tocar(pg, 'appDialogOk');
-    await pg.waitForFunction(() => window.__chamadas.includes('otaApply'), null, { timeout: 5000 })
-      .catch(() => {});
-    checar(await pg.evaluate(() => window.__chamadas.includes('otaApply')),
-      'e "Atualizar agora" APLICA a base (otaApply)');
+    const aplicou = await esperar(pg, () => window.__chamadas.includes('otaApply'),
+      null, PRAZO_CURTO_MS);
+    checar(aplicou === true, 'e "Atualizar agora" APLICA a base (otaApply)', porque(aplicou));
     checar(await pg.evaluate(async () => !(await window.AVDB.getState('ota-intencao'))),
       'sem APK no lote, nenhuma intenção é gravada');
     await ctx.close();
@@ -241,8 +390,8 @@ try {
       'e ela AVISA que o Android vai pedir confirmação (o custo que o rótulo não diz)');
 
     await tocar(pg, 'appDialogOk');
-    await pg.waitForFunction(() => window.__chamadas.includes('otaApply'), null, { timeout: 5000 })
-      .catch(() => {});
+    const aplicou = await esperar(pg, () => window.__chamadas.includes('otaApply'),
+      null, PRAZO_CURTO_MS);
     const i = await pg.evaluate(async () => await window.AVDB.getState('ota-intencao'));
     checar(!!i && i.shell === '1.99',
       'a INTENÇÃO é gravada no banco — é o único lugar que sobrevive à recarga do OTA');
@@ -250,30 +399,65 @@ try {
     // o `otaApply` matar o documento. Se ela fosse gravada depois, a recarga
     // chegaria primeiro no aparelho e a metade nativa do lote sumiria sem
     // deixar rastro — com tudo PARECENDO ter funcionado.
-    checar(await pg.evaluate(() => window.__chamadas.includes('otaApply')),
-      'e só então a base é aplicada');
+    checar(aplicou === true, 'e só então a base é aplicada', porque(aplicou));
     await ctx.close();
   }
 
-  // ── 3. A INTENÇÃO ATRAVESSA A RECARGA e vira a instalação ────────────────
+  // ── 3. A INTENÇÃO ATRAVESSA A MORTE DO DOCUMENTO e vira a instalação ────
   {
-    const { ctx, pg } = await abrir({ web: '', shell: '1.99', bytes: 31457280 });
-    await pg.evaluate(() => window.AVDB.setState('ota-intencao', { shell: '1.99', em: Date.now() }));
-    await pg.reload({ waitUntil: 'domcontentloaded' });
-    await pg.waitForFunction(() => window.AVDB && typeof window.__avBack === 'function',
-      null, { timeout: 25000 });
-    let retomou = true;
-    // 25 s, o mesmo da espera acima: a asserção é sobre a retomada ACONTECER, e
-    // não sobre a velocidade dela — a recarga é de verdade e reexecuta a
-    // inicialização inteira. Com 15 s ele reprovava uma vez a cada cinco
-    // execuções numa máquina ocupada, e teste que reprova por carga ensina a
-    // ignorar vermelho (a lição da v5.204).
-    await pg.waitForFunction(() => window.__chamadas.includes('apkInstalar'),
-      null, { timeout: 25000 }).catch(() => { retomou = false; });
-    checar(retomou,
-      'depois da recarga o app RETOMA sozinho e baixa o APK (a segunda metade do lote)');
-    checar(await pg.evaluate(async () => !(await window.AVDB.getState('ota-intencao'))),
-      'e apaga a intenção — insistir a cada abertura seria um instalador aparecendo do nada');
+    // A intenção já está no banco quando o Controle ABRE — semeada na página de
+    // semente, num documento que morreu na navegação. Ver `abrir`.
+    const { ctx, pg } = await abrir({ web: '', shell: '1.99', bytes: 31457280 },
+      { shell: '1.99', em: Date.now() });
+    // O QUE SE ESPERA É O SINAL, NÃO O RELÓGIO — e são TRÊS sinais, porque o
+    // caminho tem três degraus e cada um pode faltar por motivo próprio. A
+    // primeira versão deste bloco esperava só o primeiro e dava ao resto a
+    // corrente curta, supondo microtarefas; entre eles há na verdade DUAS idas
+    // à ponte, e, se o manifesto ainda não respondeu, `retomarAtualizacao`
+    // DESISTE de propósito e volta dez segundos depois pela enquete. MEDIDO:
+    // uma reprovação em 4 rodadas sob carga, e a frase do estouro ("PRAZO, não
+    // veredito") foi o que mostrou que o modelo estava errado, não o app.
+    //
+    //   1. relê a intenção numa hora boa   → `AVDB.getState` + `horaRuimParaAtualizar`
+    //   2. e SABE de que APK se fala       → `lerAtualizacao()` → `atualizacaoEstado`
+    //   3. e só então instala              → `instalarApk` → `apkInstalar`
+    //
+    // E O TERCEIRO DEGRAU NÃO GANHA O PRAZO CURTO, ao contrário do que a
+    // primeira versão supôs. Quem chama `retomarAtualizacao` é a ENQUETE, de
+    // dez em dez segundos (`OTA_POLL_MS`): se o manifesto ainda não tinha
+    // respondido na passada em que ela leu a intenção, ela DESISTE de propósito
+    // e a instalação sai só na passada seguinte. Um prazo menor que uma volta
+    // da enquete mede a cadência do app, não a regra dele — MEDIDO: 1
+    // reprovação em 20 execuções a 4× de carga, com os dois degraus anteriores
+    // verdes na mesma execução.
+    const releu = await esperar(pg, () => window.__intencao.boas > 0);
+    checar(releu === true,
+      'na abertura seguinte o app RELÊ a intenção gravada numa hora boa (o passo que precede tudo)',
+      porque(releu));
+    const soube = await esperar(pg, () => !!apkNovo);
+    checar(soube === true,
+      'e SABE de que APK se fala — sem o achado do manifesto ele espera, em vez de chutar',
+      porque(soube));
+    const retomou = await esperar(pg, () => window.__chamadas.includes('apkInstalar'));
+    checar(retomou === true,
+      'e RETOMA sozinho, baixando o APK — a segunda metade do lote',
+      porque(retomou));
+    // A ASSERÇÃO POSITIVA TEM SINAL PRÓPRIO: apagar a intenção acontece DEPOIS
+    // de o `apkInstalar` responder, e ler o banco no quadro seguinte à chamada
+    // media a corrida, não a regra.
+    const apagou = await esperar(pg,
+      () => window.__intencao.escritas > 0 && !window.__intencao.ultima, null, PRAZO_CURTO_MS);
+    // O BANCO É LIDO DE QUALQUER JEITO, e a sonda vai junto. Com o `&&`
+    // curto-circuitando, um estouro de prazo escondia se a intenção continuava
+    // no banco ou se só o CONTADOR não tinha visto a escrita — duas causas
+    // opostas, uma frase só.
+    const banco = await pg.evaluate(async () => ({
+      valor: (await window.AVDB.getState('ota-intencao')) || null,
+      sonda: window.__intencao,
+    }));
+    checar(apagou === true && !banco.valor,
+      'e apaga a intenção — insistir a cada abertura seria um instalador aparecendo do nada',
+      { prazo: porque(apagou), ...banco });
     await ctx.close();
   }
 
@@ -282,16 +466,30 @@ try {
     // O aparelho já está na 1.99: a intenção descreve um passado. Sem esta
     // comparação o instalador reabriria a cada abertura oferecendo a versão que
     // está rodando — e o operador não teria como sair do laço.
-    const { ctx, pg } = await abrir({ web: '', shell: '', shellName: '1.99' });
-    await pg.evaluate(() => window.AVDB.setState('ota-intencao', { shell: '1.99', em: Date.now() }));
-    await pg.reload({ waitUntil: 'domcontentloaded' });
-    await pg.waitForFunction(() => window.AVDB && typeof window.__avBack === 'function',
-      null, { timeout: 25000 });
-    await pg.waitForTimeout(2500);
+    const { ctx, pg } = await abrir({ web: '', shell: '', shellName: '1.99' },
+      { shell: '1.99', em: Date.now() });
+    // AQUI A ORDEM DAS DUAS ASSERÇÕES É O CONSERTO. A negativa ("não instalou")
+    // não tem sinal próprio — nenhum prazo prova uma ausência —, mas a POSITIVA
+    // tem: apagar a intenção é a última coisa que este caminho faz, e quando ela
+    // acontece a decisão já foi tomada. Esperar por ela e só então perguntar
+    // pelo `apkInstalar` troca 2,5 s de relógio por um fato observado.
+    const releu = await esperar(pg, () => window.__intencao.leituras > 0);
+    checar(releu === true, 'o app relê a intenção na abertura seguinte', porque(releu));
+    const apagou = await esperar(pg,
+      () => window.__intencao.escritas > 0 && !window.__intencao.ultima, null, PRAZO_CURTO_MS);
+    // O BANCO É LIDO DE QUALQUER JEITO, e a sonda vai junto. Com o `&&`
+    // curto-circuitando, um estouro de prazo escondia se a intenção continuava
+    // no banco ou se só o CONTADOR não tinha visto a escrita — duas causas
+    // opostas, uma frase só.
+    const banco = await pg.evaluate(async () => ({
+      valor: (await window.AVDB.getState('ota-intencao')) || null,
+      sonda: window.__intencao,
+    }));
+    checar(apagou === true && !banco.valor,
+      'e ela é apagada, em vez de ficar sendo reavaliada para sempre',
+      { prazo: porque(apagou), ...banco });
     checar(!(await pg.evaluate(() => window.__chamadas.includes('apkInstalar'))),
       'com o APK já instalado, a intenção NÃO reabre o instalador');
-    checar(await pg.evaluate(async () => !(await window.AVDB.getState('ota-intencao'))),
-      'e ela é apagada, em vez de ficar sendo reavaliada para sempre');
     await ctx.close();
   }
 
@@ -340,10 +538,10 @@ try {
     await tocar(pg, 'appDialogCancel');
     await abrirConfig(pg);
     await tocarBotao(pg);
-    await pg.waitForFunction(() => window.__chamadas.includes('otaApply'), null, { timeout: 5000 })
-      .catch(() => {});
-    checar(await pg.evaluate(() => window.__chamadas.includes('otaApply')),
-      'e o BOTÃO aplica a atualização adiada — "depois" não é "nunca"');
+    const aplicou = await esperar(pg, () => window.__chamadas.includes('otaApply'),
+      null, PRAZO_CURTO_MS);
+    checar(aplicou === true,
+      'e o BOTÃO aplica a atualização adiada — "depois" não é "nunca"', porque(aplicou));
     await ctx.close();
   }
 
@@ -383,10 +581,19 @@ try {
     checar(!!inicial && !inicial.oculto && /Procurar atualiza/i.test(inicial.txt),
       'sem nada esperando, o botão é "Procurar atualização"');
     await abrirConfig(pg);
+    // CONTA-SE A PARTIR DE AGORA. A enquete de dez segundos também chama
+    // `otaCheck`, então "existe um otaCheck na lista" não é resposta sobre o
+    // TOQUE — o que se espera é uma chamada A MAIS que as de antes dele.
+    const antes = await pg.evaluate(() => window.__chamadas.filter((c) => c === 'otaCheck').length);
     await tocarBotao(pg);
-    await pg.waitForTimeout(200);
-    checar(await pg.evaluate(() => window.__chamadas.includes('otaCheck')),
-      'e o toque PROCURA de verdade (otaCheck no shell), pulando o piso entre consultas');
+    // O manipulador do botão chama `otaCheck` e escreve o rótulo no MESMO
+    // quadro (`falarNoOta`, logo abaixo dele): observada a chamada, o texto já
+    // está na tela — não há segundo prazo a esperar.
+    const procurou = await esperar(pg,
+      (n) => window.__chamadas.filter((c) => c === 'otaCheck').length > n, antes, PRAZO_CURTO_MS);
+    checar(procurou === true,
+      'e o toque PROCURA de verdade (otaCheck no shell), pulando o piso entre consultas',
+      porque(procurou));
     checar(await pg.evaluate(() => /Procurando/i.test(document.getElementById('otaRow').textContent)),
       'e o próprio botão responde — a resposta nasce onde o toque nasceu');
     await ctx.close();
