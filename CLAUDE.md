@@ -1021,6 +1021,13 @@ O job `web-ota` (todo push em `main`) empacota `assets/web/` num
   `workflow_run` no "Build APK" — o mecanismo do próprio GitHub para isto, e o
   único que o guarda de recursão não suprime. Sem ele, o botão "Baixar grátis"
   serve o `.apk` da Release ANTERIOR até alguém reconstruir à mão.
+
+  **E a VERSÃO que a página anuncia sai do MANIFESTO, não da tag da Release.** A
+  tag é a versão do APK, e ela fica parada em todo lote que sai só por OTA — o
+  aparelho mostrava 1.0.2 e a página dizia 1.0.1, com o mecanismo inteiro
+  funcionando. O manifesto responde *"quão novo é este app?"* e é o que está de
+  fato PUBLICADO (o `version.json` do repositório pode estar segurado pelo
+  `shellTag`). Tamanho e URL continuam vindo do APK, que é o que se baixa.
 - **É o manifesto que permite a detecção ser rápida.** A API do GitHub não
   autenticada dá **60 req/hora por IP**; a ronda de 15 s são 240. Perguntar o APK
   à API esgotaria o limite em quinze minutos e passaria a falhar com 403 pelo
