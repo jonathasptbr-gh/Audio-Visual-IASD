@@ -63,7 +63,7 @@ guardado quando a base do APK é MAIOR, e `1.0 < 5.317`.
 link permanente `…/releases/latest/download/audio-visual-iasd.apk` serve os
 4.415.055 bytes da v1.0. Restam **duas** tags no repositório: `v1.0` e
 `web-latest`.
-| ⬜ | `LICENSE` (GPLv3) — [§4](#4--o-que-mais-o-lançamento-pede), continua BLOQUEADOR |
+| ✅ | `LICENSE` (GPLv3) na raiz, mais o `AVISOS-DE-TERCEIROS.md` e a seção do README |
 | ⬜ | a página, o guia do Modo Fácil e as capturas — [§1](#1--o-ponto-de-acesso) e [§3](#3--o-tutorial-do-modo-fácil) |
 
 ## Índice
@@ -75,7 +75,7 @@ link permanente `…/releases/latest/download/audio-visual-iasd.apk` serve os
 | 1 | [O ponto de acesso](#1--o-ponto-de-acesso) | a página, o link de download, o Play Protect |
 | 2 | [O versionamento](#2--o-versionamento) | a tag `v1.0`, que **não está livre** |
 | 3 | [O tutorial do Modo Fácil](#3--o-tutorial-do-modo-fácil) | o roteiro e o bloqueio das capturas |
-| 4 | [O que mais o lançamento pede](#4--o-que-mais-o-lançamento-pede) | licença (BLOQUEADOR), privacidade, suporte |
+| 4 | [O que mais o lançamento pede](#4--o-que-mais-o-lançamento-pede) | privacidade, suporte, README |
 | — | [A ordem importa](#a-ordem-importa) | a sequência, e por que cada passo espera o anterior |
 
 ---
@@ -330,26 +330,6 @@ só aparecem numa instalação de verdade.
 ---
 
 ## 4 · O que mais o lançamento pede
-
-### A licença — ausente, e é OBRIGAÇÃO, não formalidade
-
-> **MEDIDO.** O `NewPipeExtractor` — a dependência pinada em
-> `app/build.gradle.kts` — é **GPLv3**. Não há arquivo `LICENSE` na raiz.
-
-Distribuir publicamente um binário com GPLv3 dentro obriga a licenciar o
-conjunto sob GPLv3 e a oferecer o código correspondente a quem recebe. O
-repositório é público, então a fonte já está disponível — mas **sem `LICENSE` o
-padrão legal é "todos os direitos reservados"**, que é exatamente o incompatível
-com a obrigação que a dependência cria.
-
-Enquanto os APKs eram builds internos, ninguém "recebia" nada. Uma **versão
-pública definitiva** muda essa frase, e é por isso que o item aparece agora e não
-antes.
-
-O `pptx-renderer` é Apache-2.0, que **é** compatível com GPLv3 numa via só (pode
-entrar num trabalho GPLv3) — não há conflito ali. A correção é um `LICENSE` com o
-texto da GPLv3 mais uma nota de terceiros; o `vendor/LICENSE-pptx-renderer.txt`
-já existe. **Um commit.**
 
 ### Política de privacidade
 

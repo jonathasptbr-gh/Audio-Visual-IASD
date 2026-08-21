@@ -36,6 +36,22 @@ cheia vira a projeção.
 
 No CI, cada push gera um APK automaticamente; uma tag `v*` publica uma Release.
 
+## Licença
+
+**GPLv3** — ver [`LICENSE`](LICENSE).
+
+Não é escolha de estilo: o `NewPipeExtractor`, que extrai a URL do vídeo do
+YouTube no próprio aparelho, é GPL-3.0 e viaja dentro do APK. A GPLv3 exige que
+o conjunto seja licenciado sob ela e que o código correspondente seja oferecido
+a quem recebe o binário — este repositório é público, e cada Release aponta para
+o commit de que foi compilada.
+
+O software de terceiros que vai no APK está listado em
+[`AVISOS-DE-TERCEIROS.md`](AVISOS-DE-TERCEIROS.md).
+
+> A licença cobre o **código**. O símbolo e o nome **IASD** são da Igreja
+> Adventista do Sétimo Dia, e nada aqui concede direito sobre eles.
+
 ## Documentação
 
 - [`CLAUDE.md`](CLAUDE.md) — arquitetura do shell nativo, a ponte `AVNative`,
