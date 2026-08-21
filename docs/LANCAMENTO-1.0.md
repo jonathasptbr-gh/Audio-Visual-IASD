@@ -78,7 +78,7 @@ Restam **duas** tags no repositório: `v1.0` e `web-latest`.
 | ✅ | a **página** (`site/`) com funções, guia de instalação em 4 passos e download |
 | ✅ | `pages.yml` — publica e ESCREVE versão/tamanho/URL, disparando também em `release: published` |
 | ✅ | **GitHub Pages ligado** (origem: GitHub Actions) e a página no ar |
-| ⬜ | as **capturas de tela** — só saem de um aparelho de verdade |
+| ✅ | as **capturas de tela** — oito, do aparelho, na ordem do fluxo de um culto (`site/telas/`, 196 kB no total) |
 | ⬜ | a **política de privacidade** como página própria, se houver listagem em loja |
 | ⬜ | o **domínio próprio**, quando houver — ver [§1](#1--o-ponto-de-acesso) |
 
