@@ -232,7 +232,7 @@ const appVersionEl = document.getElementById('appVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.1.13';
+const WEB_VERSION = '1.1.14';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -15545,7 +15545,18 @@ window.addEventListener('resume', () => diagC('descongelou'));
 (function vigiarPreview() {
   const v = document.getElementById('pvVideo') || document.querySelector('#preview video');
   if (!v) return;
-  v.addEventListener('pause', () => diagC(pausaPedida() ? 'pausa (comando)' : 'PAUSA ESPONTÂNEA',
+  // A PÁGINA OCULTA PAUSA A PREVIEW, e isso é o Chromium fazendo o certo — não
+  // um roubo de foco. MEDIDO no Registro de um aparelho: minimizar o app
+  // produzia "PAUSA ESPONTÂNEA [oculto]", e três das cinco linhas de pausa da
+  // linha do tempo eram esse falso positivo. É o mesmo defeito do fim natural
+  // (v1.1.9) noutro arquivo: a linha reservada ao caso grave gasta no banal, e
+  // quem lê a distância conclui que o telão vive caindo.
+  //
+  // A preview escondida NEM DEVE ser tocada — é a regra do `preverPodeMexer`,
+  // que existe justamente porque o navegador a pausa de volta.
+  v.addEventListener('pause', () => diagC(
+    pausaPedida() ? 'pausa (comando)'
+      : (document.visibilityState !== 'visible' ? 'pausa (página oculta)' : 'PAUSA ESPONTÂNEA'),
     { t2: Math.round(v.currentTime || 0) }));
   v.addEventListener('play', () => diagC('play', { t2: Math.round(v.currentTime || 0) }));
 })();
@@ -16268,6 +16279,13 @@ function juntarDiag(doTelao, retomada) {
   renderDiag();
 }
 function pedirDiag() {
+  // OS CONTADORES MORREM COM O TELÃO, como as linhas dele. Sem esta linha, o
+  // bloco "Áudio do aparelho" seguia imprimindo o placar de uma Presentation
+  // que já caiu — e o `diag-ask` nem chega a sair sem telão ativo, então o
+  // número velho ficava para sempre, ao lado de uma linha do tempo sem um
+  // único 📺. Um diagnóstico que responde errado é pior que um que não
+  // responde.
+  diagRetomada = null;
   juntarDiag([]);
   if (displayActive()) AVDB.sendCommand({ type: 'diag-ask' });
 }

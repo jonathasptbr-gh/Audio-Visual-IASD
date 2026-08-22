@@ -39,7 +39,7 @@ operador.
 
 ## 2. A retomada não sabe distinguir uma CHAMADA telefônica (SEM VETO)
 
-**Cenário.** A retomada por roubo de foco entrou na v1.1.11 e cobre o caso
+**Cenário.** A retomada por roubo de foco entrou na v1.1.11 (revisada na v1.1.14) e cobre o caso
 medido: outro app de mídia toma o foco, o telão para, e ele volta sozinho. Mas
 **uma chamada telefônica também tira o foco** — e ali a retomada não deveria
 disparar: a perda é TRANSITÓRIA, o Chromium já retoma sozinho no fim da ligação,

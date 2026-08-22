@@ -24,6 +24,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
+- **v1.1.14** — O CONTADOR DA RETOMADA MENTIA, E ELE ERA A ÚNICA COISA QUE A v1.1.11 ENTREGOU PARA SER LIDA A DISTÂNCIA: cada `play()` nosso que fosse negado produzia outra pausa espontânea, e um único roubo era anunciado como quatro. Mais o crédito que confundia SUCESSO com FALHA (três socorros certos esgotavam o teto), o `t2` que carregava a espera onde todo o resto carrega a posição, e o carimbo da preview que chamava de espontânea a pausa do próprio navegador ao minimizar o app — este último achado veio de um Registro REAL colado pelo operador. OTA PURO
 - **v1.1.13** — O SELO DE CAMADAS DEIXA DE PERGUNTAR SE HÁ MÚSICA POR BAIXO: ele exigia `midiaNoAr` e por isso sumia justamente onde é mais procurado — Bíblia, mensagem e cronômetro, que são projetados sem música o tempo todo. Um controle que aparece e some conforme o contexto é um controle que ninguém aprende (revoga a segunda metade da regra da v1.0.3). Mais: a Bíblia NO AR vira fonte exclusiva da folha de leitura (com música, só Letra e Cifra), o corpo da folha vira CAIXA com barra de rolagem — "acabou" era indistinguível de "está cortado" —, a cifra QUEBRA em vez de rolar de lado (com o preço escrito) e o "Ver no Cifra Club" vira link de rodapé. OTA PURO
 - **v1.1.12** — O HINÁRIO GANHA AS SEÇÕES TEMÁTICAS QUE O BANCO NÃO TEM: `pt_hymnal` traz número, nome, duração e playback, e mais nada — o que identifica a seção de um hino é a POSIÇÃO dele, então a resposta é uma TABELA DE FAIXAS pura (35 seções, 8 blocos, transcritas do índice da CPB) com oráculo que trava a cobertura CONTÍGUA de 1 a 600. Índice fechado por padrão no topo do card, títulos intercalados na listagem, e o salto que estica a lista antes de rolar. A paginação conta `.hymn-result` e não os filhos — contar os filhos pularia um hino por cabeçalho. OTA PURO
 - **v1.1.11** — O TELÃO SE DEFENDE DE QUEM ROUBA O FOCO DE ÁUDIO: medido em aparelho, tocar qualquer outra mídia no celular PAUSA a projeção — e na perda PERMANENTE o Chromium abandona o foco e não volta nunca. A pausa espontânea passa a disparar um `stage.play()`, que é o próprio Chromium re-pedindo foco. Três tentativas com espera crescente e desistência até comando humano: sem teto, dois apps que retomam sozinhos gaguejam para sempre, e gagueira é pior que pausa. As guardas são a entrega, não o `play()`. OTA PURO
@@ -209,6 +210,75 @@ na nota que a revoga, não apagada da que a criou.
 - **v5.154** — é METADE OTA e METADE APK, e a divisão importa para quem for testar em aparelho.
 - **v5.155** — é OTA PURO
 - **v5.156** — é METADE OTA e METADE APK, de novo.
+
+---
+
+## v1.1.14 — o contador da retomada mentia, e ele era o que ia ser lido a distância
+
+**A v1.1.14: SETE CONSERTOS NA RETOMADA, SEIS DE UMA REVISÃO ADVERSARIAL E UM DE
+UM REGISTRO REAL. OTA PURO** (nenhuma linha de Kotlin, `SHELL_VERSION` intacto em
+49; sem Release).
+
+A v1.1.11 entregou a retomada. Uma revisão em três lentes (corridas de estado ·
+o que a congregação vê · os oráculos mentem?), cada achado passado por um
+cético, não derrubou nenhuma guarda — mas achou **seis** defeitos, todos
+sobreviventes à verificação. E o operador colou o Registro de um aparelho, que
+trouxe o sétimo.
+
+### O que a v1.1.11 errou
+
+- **O CENSO CONTAVA EVENTOS, NÃO EPISÓDIOS**, e este é o defeito que importa:
+  `retom.espontaneas++` ficava no ouvinte de `pause`, ANTES de qualquer guarda.
+  Cada `stage.play()` nosso cujo pedido de foco fosse negado produzia outra
+  pausa espontânea, que contava de novo — **um único roubo era anunciado como
+  quatro**. E a linha do Registro afirma uma CAUSA ("outro app pausou o telão"),
+  o que obriga a contar só o que o app julgou ser essa causa. É o mesmo defeito
+  da v1.1.9, reintroduzido noutro lugar no mesmo dia: *um diagnóstico que
+  responde errado é pior que um que não responde*, e este era o único artefato
+  que a v1.1.11 produziu para ser lido A DISTÂNCIA.
+- **O CRÉDITO CONFUNDIA SUCESSO COM FALHA.** Um orçamento só, medido entre
+  PAUSAS: três socorros que DERAM CERTO, espaçados menos de 30 s, esgotavam o
+  teto e o quarto roubo era abandonado — silêncio definitivo justamente quando o
+  mecanismo estava funcionando 3/3. Agora são **dois orçamentos**:
+  `retomTentativa` conta FALHAS CONSECUTIVAS (zera a cada socorro confirmado) e
+  `retomSucessos` é o freio de GAGUEIRA — vencer a disputa a cada poucos
+  segundos não é serviço, é som picotado, e passando de três socorros na janela
+  o telão desiste em favor de uma parada limpa.
+- **O `t2` CARREGAVA A ESPERA.** Os outros cinco produtores de `t2` do projeto
+  carregam a POSIÇÃO da mídia, e o Registro imprime os dois com o mesmo sufixo
+  "s": quem lia a distância via o louvor saltar de `184s` para `1.5s` e voltar
+  para `186s`. A espera foi para o TEXTO do evento.
+- **ONZE LINHAS POR EPISÓDIO** numa linha do tempo de 16 vagas — o episódio
+  expulsava o contexto que ela existe para dar. Agora é uma linha no
+  agendamento e uma no desfecho, e o `play` que fomos NÓS que causamos não vira
+  linha.
+- **"retomada cancelada (a cena mudou)" MENTIA** no único caso que acontece sem
+  troca de cena nenhuma — o Chromium recuperando o foco sozinho. O motivo passou
+  a sair de quem DECIDE (`motivoNaoRetomar` devolve a frase, não um booleano), e
+  nesse caso **o crédito volta**: não houve disputa, e gastar a tentativa faria
+  um roubo real nos segundos seguintes começar com 4 s em vez de 1,5 s.
+- **`diagRetomada` NUNCA MORRIA.** Sem telão o `diag-ask` nem sai, então o placar
+  de uma Presentation já caída seguia impresso ao lado de uma linha do tempo sem
+  um único 📺. Zerado no `pedirDiag()`, como as linhas já eram.
+
+### O sétimo veio de um aparelho, não de uma leitura
+
+O operador colou o Registro. Três das cinco linhas de pausa eram
+`PAUSA ESPONTÂNEA [oculto]`: **a preview pausada porque a página ficou oculta** —
+o Chromium fazendo o certo, e a razão de o `preverPodeMexer` existir. O carimbo
+do `vigiarPreview` chamava isso de espontâneo. Mesmo defeito do fim natural, no
+outro arquivo, e só um Registro de verdade o mostraria: nenhuma das três lentes
+da revisão olhou para o `controle.js` por esse ângulo.
+
+### O oráculo do ⏸ também mentia
+
+O caso (c) do `display-smoke` passava por causa do `pausaComandada`, que já
+existia antes do lote: mandava `pause` e forjava a pausa 120 ms depois, dentro
+da janela de 1000 ms, então `agendarRetomada` nem era chamado. **Segunda
+tautologia da sessão**, desta vez escrita por quem revisava. O cenário de risco
+é o inverso — a retomada JÁ AGENDADA e o operador mandando parar —, e é esse que
+o caso mede agora, com uma asserção de CONTROLE ao lado (havia mesmo um timer
+para cancelar) sem a qual o zero seria vazio. Verificado por reversão.
 
 ---
 

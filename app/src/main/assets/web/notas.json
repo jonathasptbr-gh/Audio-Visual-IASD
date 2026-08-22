@@ -1,5 +1,14 @@
 [
   {
+    "versao": "1.1.14",
+    "itens": [
+      "O Registro contava errado: um único roubo de som por outro app aparecia como três ou quatro. Agora conta episódios, não tentativas.",
+      "E ele deixa de marcar “pausa espontânea” quando você apenas minimiza o app — o navegador pausa a prévia de propósito, e isso não é defeito.",
+      "A retomada do telão não desiste mais depois de três socorros que DERAM CERTO: agora só a sequência de falhas conta para desistir.",
+      "Os números do telão somem do Registro quando a TV se desconecta, em vez de continuarem na tela como se ainda valessem."
+    ]
+  },
+  {
     "versao": "1.1.13",
     "itens": [
       "O botão de encerrar a camada de texto agora aparece SEMPRE que há texto sobreposto — Bíblia, mensagem ou cronômetro, com ou sem música por baixo. Antes ele só existia com música tocando.",
