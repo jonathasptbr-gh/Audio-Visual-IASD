@@ -166,7 +166,7 @@ html, body {
 /* Moldura no padrão "vídeo de louvor" (cantos retos, sem sombra) —
    retângulo, não cartão arredondado. Um fundo semitransparente só faz
    sentido cobrindo uma imagem de fundo de verdade (é dela que vem o
-   contraste); no modo preto puro (padrão) seria uma zona escura flutuando
+   contraste); no modo preto puro seria uma zona escura flutuando
    sobre uma tela já preta, sem função nenhuma — por isso fica condicionado
    a `.imgbg` (ligado só quando `lyricsBgMode==='image'`, ver
    `applyLyricsBgClass()`). Sem essa classe o fundo é `transparent`, e é
@@ -192,7 +192,7 @@ html, body {
 /* Trecho da música sem letra a cantar (solo, introdução, instrumental): a
    moldura inteira esmaece e some, deixando a imagem de fundo limpa. Uma caixa
    escura vazia parada no meio do telão durante um solo não comunica nada — e
-   com fundo preto (modo padrão) ainda por cima nem se justifica como
+   com fundo preto ainda por cima nem se justifica como
    contraste. Volta esmaecendo quando houver o que cantar de novo (a transição
    está em .lyrics-box, acima). */
 .lyrics-content.nolyric .lyrics-box { opacity: 0; }

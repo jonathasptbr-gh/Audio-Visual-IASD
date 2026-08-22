@@ -178,7 +178,7 @@ O campo `kind` é derivado do `type` (ou definido pelo chamador para itens de UR
 | `repeat` | `'off'` \| `'all'` \| `'one'` \| `'shuffle'` |
 | `fade` | legado — as transições visuais (fade in/out) viraram **inerentes ao sistema** (`createStage.FADE`, fixo em `{in:true, out:true, time:0.6}` e compartilhado pelos dois apps, não configurável); esta chave **não é mais lida nem gravada** (fica ignorada se existir de versões antigas). Fade em toda troca visual: mídia, cortina do wallpaper (view toggle), letra e texto bíblico |
 | `fit` | `'contain'` \| `'cover'` \| `'fill'` — preenchimento da mídia (ajustar/preencher/esticar) no Display e na preview |
-| `lyricsBg` | `'black'` (padrão) \| `'image'` — fundo atrás da letra sincronizada: preto ou as imagens dos slides |
+| `lyricsBg` | `'image'` (padrão) \| `'black'` — fundo atrás da letra sincronizada: as imagens dos slides ou preto. Ausente conta como `'image'` (só quem ESCOLHEU "Remover" grava `'black'`) |
 | `wallpaper` | `Blob` da imagem escolhida para a cortina do telão, ou ausente/`null` = gradiente padrão (ver "Wallpaper personalizado") |
 | `favs` | array de IDs — **os FAVORITOS** (v5.103): a marcação de um toque, sem grupo nenhum. É uma das `LISTS` de `db.js`, e é isso que a torna um detentor de referência de verdade (favoritar segura o blob; desfavoritar deixa o gc decidir) |
 | `folders` / `folder_<id>` | **LEGADO** (as pastas virtuais saíram na v5.254). `folder_<id>` era um detentor de referência como as listas, escrito só por `listAdd`/`listRemove`/`folderDrop` — a regra fica porque `isReferenced` ainda varre essas chaves, e é ela que vale para QUALQUER chave de `state` que passe a guardar ids de mídia |

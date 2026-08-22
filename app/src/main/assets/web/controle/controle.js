@@ -170,7 +170,7 @@ const appVersionEl = document.getElementById('appVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.1';
+const WEB_VERSION = '1.1.1';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -1636,17 +1636,25 @@ function acertarSaidaDeAudio() {
   diagC(somLocal ? 'som: neste aparelho' : 'som: nos displays');
 }
 
-// Fundo da letra sincronizada (Hinário 2022): 'black' (padrão) ignora as
-// imagens dos slides e mantém o fundo preto atrás do texto; 'image' usa as
-// imagens de verdade. Persistido em state.lyricsBg, aplicado ao vivo (igual
-// fade/fit) via comando — tanto no Display quanto na própria preview, que
-// segue o mesmo conceito universal de espelhar o telão.
+// Fundo da letra sincronizada (Hinário 2022): 'image' (PADRÃO) usa as imagens
+// dos slides atrás do texto; 'black' as ignora e mantém o fundo preto.
+// Persistido em state.lyricsBg, aplicado ao vivo (igual fade/fit) via comando —
+// tanto no Display quanto na própria preview, que segue o mesmo conceito
+// universal de espelhar o telão.
 //
 // Mora no popup de EXIBIÇÃO (segmento "Imagens dos slides"), junto do
 // preenchimento e do wallpaper: é uma preferência de como o telão se parece,
 // escolhida uma vez, não um controle que se opera durante o culto. O botão que
 // tinha no mixer virou a leitura da letra completa (ver openLyricsPopup).
-let lyricsBg = 'black';
+//
+// AS IMAGENS SÃO O PADRÃO, e daí a leitura do banco perguntar `=== 'black'` em
+// vez de `=== 'image'`: valor AUSENTE é quem nunca escolheu, e tem de cair no
+// padrão — quem escolheu "Remover" gravou 'black' e continua nele. Elas já vêm
+// baixadas com a música (`resolveImage` não consulta preferência nenhuma), então
+// o padrão anterior escondia material que o aparelho já tinha, e escondia
+// CALADO: nada erra, o hino sai em texto sobre preto, e quem acabou de instalar
+// não tem como saber que a opção existe.
+let lyricsBg = 'image';
 async function setLyricsBg(mode) {
   mode = mode === 'image' ? 'image' : 'black';
   if (lyricsBg === mode) return;
@@ -2358,7 +2366,7 @@ async function load(opts) {
   const drawPrefsV = (await AVDB.getState('drawPrefs')) || null;
   const storedFit = await AVDB.getState('fit');
   const storedRot = await AVDB.getState('rotate');
-  const lyricsBgV = (await AVDB.getState('lyricsBg')) === 'image' ? 'image' : 'black';
+  const lyricsBgV = (await AVDB.getState('lyricsBg')) === 'black' ? 'black' : 'image';
   const downloadOkV = !!(await AVDB.getState('downloadOk'));
   let libItemsV;
   if (activeTab === 'imports') {
@@ -20587,10 +20595,9 @@ function telaReenviarPreferencias(para) {
   // culto e não movem um byte. Só o WALLPAPER precisa do canal, porque só ele
   // empurra uma imagem. A guarda `if (!telaCanal()) return` estava no TOPO da
   // função e derrubava as três — e o preço é o defeito que este reenvio existe
-  // para fechar: a tela nasce com `lyricsBgMode = 'black'` (ela não tem o
-  // IndexedDB do app para consultar, ao contrário do telão de verdade), e sem o
-  // comando ela fica com o FUNDO DOS SLIDES PRETO com a opção ligada, para
-  // sempre — nada reexamina uma estrofe já renderizada.
+  // para fechar: a tela não tem o IndexedDB do app para consultar, ao contrário
+  // do telão de verdade, então sem o comando ela fica no valor com que NASCEU,
+  // para sempre — nada reexamina uma estrofe já renderizada.
   //
   // Calado nos dois sentidos: sem o canal não há erro, não há linha no Registro,
   // e o padrão do `fit` e do wallpaper é aceitável o bastante para ninguém
@@ -20598,7 +20605,14 @@ function telaReenviarPreferencias(para) {
   // configuração".
   //
   // A guarda desceu para o único bloco que de fato depende dela.
-  if (lyricsBg === 'image') mandar({ type: 'lyricsbg', mode: lyricsBg });
+  //
+  // E o `lyricsbg` vai SEM CONDIÇÃO. Enquanto o padrão era 'black' um
+  // `if (=== 'image')` acertava por coincidência — o caso omitido era igual ao
+  // nascimento da tela. Com as imagens como padrão a coincidência se inverte, e
+  // a condição passaria a calar justamente o "Remover": a tela com imagens e o
+  // telão sem, na mesma cena. Mandar sempre custa um objeto JSON e não depende
+  // do valor com que a tela nasce.
+  mandar({ type: 'lyricsbg', mode: lyricsBg });
   if (mediaFit !== 'contain') mandar({ type: 'fit', fit: mediaFit });
   if (!telaCanal()) return;
   (async () => {

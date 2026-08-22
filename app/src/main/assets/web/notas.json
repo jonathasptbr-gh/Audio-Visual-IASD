@@ -1,5 +1,12 @@
 [
   {
+    "versao": "1.1.1",
+    "itens": [
+      "As imagens dos slides das músicas passam a aparecer por padrão — elas já vinham baixadas junto com o hino.",
+      "Quem escolheu \"Remover\" em Exibição continua sem elas; a opção não mudou de lugar."
+    ]
+  },
+  {
     "versao": "1.1",
     "itens": [
       "O aplicativo foi republicado: quem instalar agora já recebe tudo que chegou pelas atualizações desde a 1.0.6.",

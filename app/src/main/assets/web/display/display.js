@@ -209,10 +209,11 @@ let lyricLoadSeq = 0;     // descarta resoluções de imagem obsoletas (mesmo pa
 let lyricImgKey = null;   // imageOpfsPath já renderizado agora (evita recriar a object URL à toa)
 let lyricImgUrl = null;   // object URL em uso, para revogar quando trocar de fato
 let lyricTeardownTimer = null; // desmontagem atrasada da camada (ver hideLyrics/showLyrics)
-// 'black' (padrão) ignora as imagens dos slides e mantém o fundo preto atrás
-// do texto; 'image' usa as imagens de verdade. Persistido em state.lyricsBg
-// pelo Controle, aplicado ao vivo via comando (ver setLyricsBgMode).
-let lyricsBgMode = 'black';
+// 'image' (PADRÃO) usa as imagens dos slides atrás do texto; 'black' as ignora
+// e mantém o fundo preto. Persistido em state.lyricsBg pelo Controle, aplicado
+// ao vivo via comando (ver setLyricsBgMode). No papel `tela` não há IndexedDB do
+// app para ler: este valor É o que ela mostra até o `lyricsbg` do reenvio chegar.
+let lyricsBgMode = 'image';
 
 // ===== Fades de camada paralela (letra, texto) =====
 // A cortina do wallpaper e a mídia do stage já têm as próprias transições; as
@@ -1297,7 +1298,9 @@ async function restore() {
     // Fundo da letra sincronizada (preto/imagens dos slides) — preferência
     // visual, igual ao fade/fit.
     const lyricsBg = await AVDB.getState('lyricsBg');
-    lyricsBgMode = lyricsBg === 'image' ? 'image' : 'black';
+    // `=== 'black'`, e não `=== 'image'`: ausente é quem nunca escolheu, e cai no
+    // padrão (imagens). Mesmo raciocínio do `lyricsBg` no controle.js.
+    lyricsBgMode = lyricsBg === 'black' ? 'black' : 'image';
     applyLyricsBgClass();
     // Preenchimento da mídia (ajustar/preencher/esticar) — preferência visual,
     // igual ao fade acima.
