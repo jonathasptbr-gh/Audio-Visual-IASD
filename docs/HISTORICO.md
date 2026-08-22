@@ -24,6 +24,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
+- **v1.1.3** — A COLUNA DA TELA CHEIA GANHA FOLGA DAS BORDAS: os 10px que a v1.1.2 não deu. Ela herdou os 2px dos `.pv-fabs` dos cantos, e o território é outro — aqueles moram numa miniatura onde 2px custam mídia visível; em tela cheia o que sobra é espaço, e encostado na borda o alvo divide lugar com a moldura arredondada e com o recorte da câmera. OTA PURO
 - **v1.1.2** — QUATRO AJUSTES PEDIDOS: a coluna da tela cheia ocupa a lateral inteira (centrada, ela era um bloco de 250px numa tela em paisagem), ganha botão de 40px e PERDE o par de volume — os botões físicos já entregam ao mesmo fader, se acham no escuro e não esperam os 4s da coluna acender (vão de 2px → ~46px); o ✕ de PARAR da notificação vira o quadrado que a ação é — `android.R.drawable` não tem um ícone de parar, e o ✕ se lia como "dispensar"; e o redesenho do progresso de um download deixa de remontar a Biblioteca por baixo da gaveta que o operador acabou de abrir — o caso do relato acontecia DENTRO do `await` da montagem, e o toque simplesmente não fazia nada. EXIGE RELEASE
 - **v1.1.1** — AS IMAGENS DOS SLIDES PASSAM A SER O PADRÃO: o app nascia em "Remover" e o hino saía em texto sobre preto — escondendo imagens que já vinham baixadas com a música. O padrão morava em QUATRO lugares, e dois deles eram leituras que normalizavam tudo que não fosse `'image'` para preto: virar só a inicialização se desfaria no primeiro `load()`. Mais o reenvio à tela da rede, que só acertava por coincidência enquanto o padrão era preto. OTA PURO
 - **v1.1** — AS DUAS LINHAS CONVERGEM: base e APK no mesmo número, com `shellTag` acoplando o lote numa pergunta só. Nada mudou em `java/`, `res/` nem no manifest desde a v1.0.6 — o que a Release entrega é a base embutida já na 1.1 (instalação nova não precisa de uma rodada de OTA) e o `versionName` de volta em sincronia. `SHELL_VERSION` segue 47. EXIGE RELEASE
@@ -200,6 +201,32 @@ na nota que a revoga, não apagada da que a criou.
 - **v5.156** — é METADE OTA e METADE APK, de novo.
 
 ---
+
+## v1.1.3 — a coluna da tela cheia ganha a folga das bordas
+
+*"Para os botões da tela cheia do preview, adicione uma pequena margem no topo,
+na base e na lateral direita da coluna. Pois os botões ficaram muito colados à
+borda da tela."*
+
+A v1.1.2 tirou a coluna do centro e a esticou de ponta a ponta, e nisso ela
+**herdou os 2px** dos `.pv-fabs` dos cantos sem que ninguém repensasse o número.
+Herdar ali foi o erro: aqueles dois botões moram numa MINIATURA de poucos
+centímetros, onde cada pixel de recuo é mídia que deixa de aparecer; em tela
+cheia a projeção é a tela inteira e o que sobra é espaço.
+
+E a borda de um celular deitado num suporte não é uma linha: há a moldura
+arredondada, e em paisagem o recorte da câmera fica numa das laterais. Um alvo
+de 40px encostado a 2px divide lugar com tudo isso — e este é o único conjunto
+de botões do app que se opera **sem olhar para o dedo**.
+
+**10px nas três bordas.** Medido em 800×390 (paisagem de celular): a coluna
+passa de 386px para 370px de altura, o vão entre vizinhos de ~46px para ~42px —
+que continua sendo maior que o próprio botão, que era o ponto da v1.1.2. Com os
+~6px de folga interna do `.pv-fab`, o traço do ícone fica a ~16px da borda.
+
+Lote **só de web**: nada em `java/`, `res/` ou no manifest, e o `version.json`
+sai **sem `shellTag`** — o APK continua na v1.1.2, e o manifesto anuncia a
+Release mais recente que existir.
 
 ## v1.1.2 — quatro ajustes pedidos: a coluna da tela cheia, o volume que sai dela, o ✕ que era um parar, e o download que fechava a gaveta
 

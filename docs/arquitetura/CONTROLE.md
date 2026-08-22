@@ -641,16 +641,22 @@ própria: uma segunda leitura divergiria no primeiro caso de borda.
 **Apagada, ela é `pointer-events: none`** — sem isso, uma coluna invisível
 continuaria comendo os toques da metade direita da projeção.
 
-**Ela OCUPA A ALTURA INTEIRA** (v1.1.2), com 2px de folga em cima e embaixo — as
-mesmas dos `.pv-fabs` dos cantos —, e os cinco botões distribuídos por
+**Ela OCUPA A ALTURA INTEIRA** (v1.1.2), com os cinco botões distribuídos por
 `space-between`. Centrada, eram um bloco denso no meio de uma tela em PAISAGEM:
 os ícones a 2px um do outro e metade da lateral sem uso. Com a altura toda,
 **o vão entre dois vizinhos passa a ser MAIOR que o próprio botão** (medido em
-800×390: alvo de 40px, vão de ~46px), e num alvo que se opera sem olhar (quem
+800×390: alvo de 40px, vão de ~42px), e num alvo que se opera sem olhar (quem
 está em tela cheia olha a projeção) esse vão é a única coisa que separa um
 controle do seguinte. O alvo sobe de `--hit` (34px) para **40px** e o ícone de
 24px para **28px**: aqui o aparelho está no suporte e o toque é de raspão, ao
 contrário dos `.pv-fab` dos cantos.
+
+**A folga das três bordas é de 10px** (v1.1.3), e ela **não** acompanha os 2px
+dos `.pv-fabs` dos cantos: aqueles moram numa miniatura de poucos centímetros,
+onde 2px a mais custam mídia visível; aqui a tela inteira é a projeção e o que
+sobra é espaço. Encostado na borda, o alvo divide lugar com a moldura
+arredondada do aparelho e — em paisagem — com o recorte da câmera numa das
+laterais.
 
 **Errar o alvo custa um toque, nunca uma ação errada:** acesa, a coluna é
 `pointer-events: auto` inteira, então o dedo que cai num vão morre nela em vez de

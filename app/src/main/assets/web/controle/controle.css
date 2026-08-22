@@ -490,13 +490,22 @@ body {
    destaque sem custar a legibilidade — os três `drop-shadow` do `.pv-fab`
    continuam valendo por baixo dela.
 
-   ELA OCUPA A ALTURA INTEIRA (v1.1.2), com os mesmos 2px de folga que os
-   `.pv-fabs` dos cantos guardam. Centrada, os botões eram um bloco denso no
-   meio de uma tela em PAISAGEM: ficavam colados uns nos outros (2px) e sobrava
-   metade da lateral sem uso nenhum. Distribuídos, o vão entre dois vizinhos
-   passa a ser MAIOR que o próprio botão — e num alvo que se opera sem olhar
-   (quem está em tela cheia olha a projeção, não o dedo) esse vão é a única
-   coisa que separa um controle do seguinte.
+   ELA OCUPA A ALTURA INTEIRA (v1.1.2). Centrada, os botões eram um bloco denso
+   no meio de uma tela em PAISAGEM: ficavam colados uns nos outros (2px) e
+   sobrava metade da lateral sem uso nenhum. Distribuídos, o vão entre dois
+   vizinhos passa a ser MAIOR que o próprio botão — e num alvo que se opera sem
+   olhar (quem está em tela cheia olha a projeção, não o dedo) esse vão é a
+   única coisa que separa um controle do seguinte.
+
+   A FOLGA DAS TRÊS BORDAS É DE 10px (v1.1.3, pedido do operador: *"adicione uma
+   pequena margem no topo, na base e na lateral direita da coluna, pois os
+   botões ficaram muito colados à borda da tela"*). Ela NÃO acompanha os 2px dos
+   `.pv-fabs` dos cantos, e a diferença é o território: aqueles moram numa
+   miniatura de poucos centímetros, onde 2px a mais custam mídia visível; aqui a
+   tela INTEIRA é a projeção e o que sobra é espaço. Some-se que em tela cheia o
+   aparelho está deitado num suporte, com a moldura arredondada e — em paisagem
+   — o recorte da câmera numa das laterais: encostado na borda, o alvo divide
+   espaço com tudo isso.
 
    São CINCO: o par de volume saiu no mesmo lote, para os botões FÍSICOS do
    aparelho (ver o comentário do bloco no HTML).
@@ -510,7 +519,7 @@ body {
    vez de atravessar para a projeção — e o `pointerdown` que borbulha até a
    `.preview` ainda RENOVA os 4s (ver `acenderFsCtl`). */
 .pv-fsctl {
-  position: absolute; right: 2px; top: 2px; bottom: 2px;
+  position: absolute; right: 10px; top: 10px; bottom: 10px;
   z-index: 6; display: none; flex-direction: column;
   justify-content: space-between; gap: 2px;
   opacity: 0; pointer-events: none; transition: opacity .22s ease;
