@@ -166,7 +166,7 @@ class NativeBridge(
          *
          * O degrau a degrau está na tabela da seção "A ponte" do `CLAUDE.md`.
          */
-        const val SHELL_VERSION = 47
+        const val SHELL_VERSION = 48
 
         /**
          * O CONSUMIDOR DA LAN para o barramento (telão por comandos, E2 —
@@ -1057,6 +1057,61 @@ class NativeBridge(
                 append("download: ").append(it)
             }
         }
+        resolve(callId, JSONObject.quote(texto))
+    }
+
+    /**
+     * A PÁGINA DE CIFRA, CRUA — `{ status, html }` (shell 48).
+     *
+     * O transporte da aba de cifra do visualizador de letras, e **só o
+     * transporte**: quem sabe ler o HTML é `controle/cifra.js`. A razão de a
+     * busca sair do Kotlin em vez de um `fetch()` da página é CORS — ver o
+     * KDoc de [CifraFonte], que também guarda as guardas (host travado,
+     * `https`, teto de bytes, prazos).
+     *
+     * **Os dois campos do retorno respondem perguntas diferentes**, e é por
+     * isso que não é uma string: `status 0` é "não houve resposta" (sem rede,
+     * prazo vencido) e `status 404` é "o site respondeu que não tem". A aba
+     * diz coisas opostas nos dois casos — e um retorno único as tornaria
+     * indistinguíveis, que é o modo de falhar que este projeto chama de mentir
+     * baixinho.
+     *
+     * Na fila [extracao]: é rede lendo metadados, na casa dos segundos. Em `io`
+     * ela travaria a fila de que `listFolder`, `otaPending` e
+     * `atualizacaoEstado` dependem; em `transferencia` ela esperaria um
+     * download de minutos para responder a um toque numa aba.
+     *
+     * **Privilégio do Controle** (`host == null` no telão): sem a guarda,
+     * qualquer script no documento do Display ganharia um cliente HTTP de
+     * saída rodando com o IP do aparelho.
+     */
+    @JavascriptInterface
+    fun cifraHtml(callId: String, url: String) {
+        if (host == null) { resolve(callId, "null"); return }
+        extracao.execute {
+            val (status, html) = try {
+                CifraFonte.buscar(url)
+            } catch (_: Exception) {
+                0 to ""
+            }
+            resolve(
+                callId,
+                JSONObject().put("status", status).put("html", html).toString(),
+            )
+        }
+    }
+
+    /**
+     * O que a última busca de cifra recebeu — a linha "Cifra:" do Registro.
+     *
+     * Vazio antes da primeira busca e num papel sem host. Como todo diagnóstico
+     * deste app, ele guarda o VEREDITO de quem decidiu ([CifraFonte.buscar]) e
+     * não uma segunda opinião montada aqui: quem escreve a frase é o
+     * `controle.js`.
+     */
+    @JavascriptInterface
+    fun cifraDiag(callId: String) {
+        val texto = if (host == null) "" else CifraFonte.ultimaTentativa
         resolve(callId, JSONObject.quote(texto))
     }
 

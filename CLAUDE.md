@@ -27,17 +27,18 @@ espelhar o celular.
 | 8 | [OTA da base web](#ota-da-base-web-atualização-sem-apk) | publicar, watchdog de boot, detecção |
 | 9 | [Telão por comandos](#telão-por-comandos-o-telão-nas-telas-da-rede-local) | as telas da rede local |
 | 10 | [Séries do YouTube](#séries-do-youtube-o-álbum-provai-e-vede-2026) | os álbuns oficiais da Biblioteca |
-| 11 | [A paleta](#a-paleta) | **antes de escrever qualquer cor** |
-| 12 | [Divergências web × nativo](#divergências-entre-o-caminho-web-e-o-nativo) | o que muda entre navegador e app |
-| 13 | [Build e distribuição](#build-e-distribuição) | CI, oráculos, assinatura, backup |
-| 14 | [Regras de desenvolvimento](#regras-de-desenvolvimento) | **antes de commitar** |
+| 11 | [A aba de cifra](#a-aba-de-cifra-acordes-ao-lado-da-letra) | acordes sobre a letra, sob demanda |
+| 12 | [A paleta](#a-paleta) | **antes de escrever qualquer cor** |
+| 13 | [Divergências web × nativo](#divergências-entre-o-caminho-web-e-o-nativo) | o que muda entre navegador e app |
+| 14 | [Build e distribuição](#build-e-distribuição) | CI, oráculos, assinatura, backup |
+| 15 | [Regras de desenvolvimento](#regras-de-desenvolvimento) | **antes de commitar** |
 
 **Fora daqui:** `docs/ACHADOS-EM-ABERTO.md` (os defeitos CONFIRMADOS e ainda não
 corrigidos, com cenário e correção proposta — **leia antes de mexer no que ele
 nomeia**; hoje está VAZIO, e é arquivo para esvaziar, não para crescer),
 `docs/shell/README.md`
 (o HUB do **Kotlin**: um capítulo por
-subsistema do shell, mais a tabela que diz onde cada um dos 26 arquivos é
+subsistema do shell, mais a tabela que diz onde cada um dos 27 arquivos é
 explicado), `docs/ARQUITETURA-WEB.md` (o HUB da base web: regras gerais e o
 mapa dos capítulos em `docs/arquitetura/`), `docs/TELAO-POR-COMANDOS.md`
 (o contrato das telas da rede), `docs/FONTE-DE-DADOS-LOUVORJA.md` (hinos/Bíblia)
@@ -101,6 +102,9 @@ app/src/main/
 │   │                            #   `tela` sobre o próprio /display/ (SSE)
 │   ├── controle/serie.js        #   as SÉRIES do YouTube: a REGRA que decide o
 │   │                            #   que entra num álbum (PURA, com oráculo Node)
+│   ├── controle/cifra.js        #   a CIFRA: a REGRA que lê uma página de cifra
+│   │                            #   (slug, folha, transposição). PURA, com
+│   │                            #   oráculo Node. Sob demanda: NADA é guardado
 │   ├── controle/sorteio.js      #   a PLAYLIST AUTOMÁTICA: a REGRA que decide o
 │   │                            #   que pode ser sorteado (PURA, capacidades
 │   │                            #   injetadas, com oráculo Node). "Sem infantis"
@@ -120,6 +124,8 @@ app/src/main/
 │   ├── WebUpdater.kt            # OTA da base web (watchdog, minShell, sha256)
 │   ├── ShellUpdater.kt          # OTA do APK: a Release nova, instalada de dentro do app
 │   ├── WebPathHandler.kt        # serve o bundle OTA, com fallback pro APK
+│   ├── CifraFonte.kt            # o GET da página de cifra — host travado,
+│   │                            #   sem parse, sem gravar nada em disco
 │   ├── YoutubeGrab.kt           # extrai e baixa o vídeo do YouTube NO APARELHO
 │   ├── TrilhaAudio.kt           # QUAL trilha de áudio vai ao telão (a dublagem
 │   │                            #   automática do YouTube) — PURO, com JUnit
@@ -168,7 +174,7 @@ docs/
 └── ESPELHO-DE-PIXELS.md         # ARQUIVO: recurso removido (v5.187); só §2.3, §2.4 e §10-A
 ```
 
-**26 arquivos Kotlin, uma dependência de terceiros no shell** — o resto é
+**27 arquivos Kotlin, uma dependência de terceiros no shell** — o resto é
 AndroidX oficial (`core-ktx`, `activity-ktx`, `webkit`). O que sustenta essa
 proporção Kotlin × JavaScript é a invariante 5; ela é o argumento contra
 Capacitor/Cordova, que arrastariam npm e um build system inteiro e ainda assim
@@ -401,9 +407,16 @@ window.AVNative = {
                        //   "Ajustes avançados" era a única porta deles e saiu.
                        //   Ficam na ponte de propósito — voltar atrás é
                        //   desenhar uma folha, não publicar uma Release.
+  // ---- CIFRA — ver a seção do recurso ----
+  cifraHtml(url),      // → { status, html }: o corpo CRU de uma página de
+                       //   cifra, host TRAVADO (`CifraFonte.kt`). TRANSPORTE:
+                       //   quem lê o HTML é `controle/cifra.js`. Os dois campos
+                       //   respondem perguntas diferentes — `status 0` é "não
+                       //   houve resposta", `404` é "o site não tem"
+  cifraDiag(),         // → string: o que a última busca de cifra recebeu
 }
 ```
-São **43 métodos**, e essa é a superfície inteira que o resto do lado web tem
+São **45 métodos**, e essa é a superfície inteira que o resto do lado web tem
 direito de usar — fora do `native.js`, tocar em `__AVBridge` direto é
 acoplamento indevido. O próprio `native.js` chama mais oito coisas lá, e nenhuma
 é API para o app: `ytFetchAudio` e `ytFetchAte` (não são métodos a mais, são os
@@ -461,7 +474,7 @@ prazo (um timeout ali resolveria null com o operador ainda escolhendo a pasta).
 
 ### `SHELL_VERSION` — subir SEMPRE que a superfície mudar
 
-Hoje vale **47**, e ele é o **PISO**: o bundle declara `minShell: 47`, então
+Hoje vale **48**, e ele é o **PISO**: o bundle declara `minShell: 48`, então
 todo método da ponte existe sempre e **não há guarda de versão no lado web**.
 "Superfície" inclui **forma de retorno** e **comportamento**, não só assinatura:
 um campo que some, um contrato de URL que muda ou um método que passa a fazer
@@ -474,7 +487,7 @@ escondia. Sem guardas, o web chama um método que o APK instalado não tem: o
 existe, é tocável e não faz nada. Por isso mudança de ponte é um lote
 **APK + web publicado JUNTO**, com `shellTag` no `version.json`.
 
-> A tabela dos 47 degraus está em `docs/HISTORICO.md` — ela é história do
+> A tabela dos 48 degraus está em `docs/HISTORICO.md` — ela é história do
 > contrato, e história mora lá.
 
 ### As TRÊS filas da ponte — escolher a errada é uma regressão muda
@@ -525,7 +538,7 @@ E duas regras que ficam de fora das três filas:
   e volta; quem responde é o laço de cópia do `YoutubeGrab`, a cada bloco de
   64 kB.
 
-**O bundle declara `minShell: 47`, e é a VÁLVULA que resolve.** Um bundle que
+**O bundle declara `minShell: 48`, e é a VÁLVULA que resolve.** Um bundle que
 exija ponte mais nova que o `SHELL_VERSION` instalado é recusado inteiro
 (`WebUpdater.kt`), e o app segue no que tinha — a recusa acontece no shell, e
 não em runtime no meio de um culto. **Guarda de versão no lado web é proibida:**
@@ -1658,6 +1671,91 @@ Favoritos pela folha, um a um.
 
 ---
 
+## A aba de cifra (acordes ao lado da letra)
+
+A folha de letra do Controle ganhou uma **terceira fonte**, ao lado de *Letra* e
+*Bíblia*: a **cifra** do hino em cena — acordes sobre a letra, com transposição
+por meio tom. Ela é para quem **toca**, e por isso **nunca vai ao telão**: o que
+a congregação vê continua sendo a letra, pelo caminho de sempre.
+
+```
+ folha de letra              AVNative.cifraHtml         www.cifraclub.com.br
+  [Letra][Bíblia][Cifra] ──► CifraFonte (host travado) ──► GET da página
+                              devolve o HTML CRU              │
+        ◄── controle/cifra.js: slug · folha · transposição ◄──┘
+             (PURO, com oráculo Node — nada em Kotlin lê HTML)
+```
+
+### As decisões que precisam estar ditas
+
+- **SOB DEMANDA é o contrato, não uma otimização.** Nada é baixado em lote,
+  **nada entra no bundle do OTA e nada é gravado em disco**. O cache é um `Map`
+  em memória, morto ao fechar o app. Trocá-lo por IndexedDB mudaria o recurso de
+  natureza: o app deixaria de LER conteúdo de terceiro no aparelho do operador e
+  passaria a DISTRIBUIR uma cópia dele. As duas coisas não são degraus da mesma
+  escada.
+- **A busca sai do Kotlin porque não há alternativa, e só o TRANSPORTE sai.** Os
+  WebViews rodam em `appassets.androidplatform.net` e um site de terceiro não
+  manda `Access-Control-Allow-Origin` — o `fetch()` da página morre antes de
+  sair, e o `<iframe>` cai no `X-Frame-Options` (o mesmo muro que já recusou
+  embutir a busca do YouTube). O `CifraFonte.kt` faz **um `GET` e mais nada**;
+  quem lê o HTML é `controle/cifra.js`. É a divisão das SÉRIES aplicada de novo,
+  e pelo motivo mais forte que existe aqui: a marcação de um site muda quando o
+  dono dele quiser, e nesse dia o conserto tem de chegar **por OTA em minutos** —
+  em Kotlin custaria um degrau de `SHELL_VERSION` e uma Release por vírgula.
+- **DUAS tentativas, nessa ordem.** Para uma coleção do catálogo
+  (`AVCifra.CATALOGO`: os dois hinários) a URL é DEDUZÍVEL do nome do hino — uma
+  requisição, sem ranking de ninguém escolhendo por nós. Só falhando ela entra a
+  **busca genérica**, que é o "qualquer música" e também cobre o hino cujo nome
+  no acervo não bate com o do site.
+- **`ilegivel` NÃO cai na busca.** Ali a página existe e o parser é que não a
+  entendeu; repetir a leitura por outro caminho troca o motivo certo por um
+  errado, e apaga a única pista de que o site mudou.
+- **Falhar VAZIO é proibido.** `lerPagina` devolve `null` para *"respondeu e eu
+  não entendi"*, e isso é diferente de *"não tem"*. Achatar os dois numa frase só
+  faz uma mudança de marcação do site ficar indistinguível de uma música ausente
+  — e ninguém investigaria. São **quatro motivos** (`sem-rede`, `nao-tem`,
+  `recusou`, `ilegivel`) e quatro frases, porque cada um pede uma ação diferente.
+- **A TRANSPOSIÇÃO PRESERVA A COLUNA.** Um acorde vale por estar sobre a sílaba
+  em que a harmonia troca. Um `replace` ingênuo empurra todos os acordes
+  seguintes quando um deles cresce (`C` → `C#`), e depois de três trocas a folha
+  está fora de sincronia com a letra logo abaixo — **parecendo certa**, que é o
+  pior desfecho possível. O passo é guardado na entrada do cache: voltar a um
+  hino devolve o tom em que o operador o deixou, e trocar de hino não arrasta o
+  passo do anterior.
+- **A GRAFIA SEGUE A ORIGEM.** Folha escrita em bemóis continua em bemóis. É
+  musicalmente correto (transpor não muda a armadura) e é o que faz a folha
+  continuar parecendo a mesma para quem já a conhece.
+- **A gramática do acorde é ESTREITA de propósito.** A tentação é aceitar
+  "maiúscula seguida de qualquer coisa" — e aí uma linha de letra inteira é
+  classificada como acordes e **some da aba, sem erro nenhum**. Por isso o sufixo
+  é uma LISTA, não um curinga, e o oráculo cobra os dois lados: o que ela tem de
+  aceitar e o que ela não pode aceitar junto.
+- **A marcação é a fonte; o formato é a rede.** Quem diz "esta linha é de
+  acordes" é o `<b>` da página. `pareceAcorde` só entra quando não há marcação
+  nenhuma, e o preço está declarado no código: a palavra portuguesa "A" é também
+  um acorde.
+- **A aba é a ÚLTIMA da lista de fontes**, e isso é a precedência inteira: sem
+  escolha do operador, `lvActiveSource` abre a primeira — e a que abre sozinha
+  tem de ser a letra, que é o que quem opera o culto está lendo.
+- **Ela não existe no navegador.** Sem ponte não há como buscar a página, e uma
+  aba que só sabe explicar por que não funciona é pior que aba nenhuma — o
+  seletor do topo só aparece com duas fontes, e esta apareceria em toda música.
+- **O Registro tem as DUAS metades** (`Cifra (última busca)`): os ENDEREÇOS que
+  o web tentou e o que o parser entendeu de cada um, mais o status que o shell
+  recebeu. O caso que só as duas juntas resolvem é `HTTP 200` + `ilegivel` — a
+  página está lá, a rede está boa, e o `cifra.js` é que precisa de um lote novo.
+
+> **O que o oráculo NÃO cobre, dito:** as fixtures do `cifra.test.mjs` são
+> SINTÉTICAS (nenhum conteúdo de terceiro entra neste repositório), então elas
+> provam a **gramática** do parser, não que ela case com o HTML de hoje do site.
+> Essa segunda metade só se prova contra uma página real — e é exatamente a
+> metade que, quando quebrar, se conserta por OTA. **A âncora que existe** é o
+> slug: `urlDoHino('hymnal-2022', '001. Santo, Santo, Santo')` tem de produzir a
+> URL real conferida à mão, e sem ele nada mais é exercitado.
+
+---
+
 ## A paleta
 
 Mora em **`assets/web/shared/tokens.css`**, fonte única carregada pelos dois
@@ -1863,6 +1961,7 @@ que ela é desenvolvida e testada fora do aparelho.
 | Som da preview | com a janela do Display aberta é muda; sem ela toca (sujeito a autoplay) | **sem tela nenhuma conectada, o som sai DESTE aparelho** (`acertarSaidaDeAudio`). No avançado é DERIVADO da conexão (`simpleDisplay` = TV **ou** tela da rede); no Modo Fácil é ESCOLHA (`tocarNoCelular`, o "Tocar neste celular" da folha de conexão), porque lá o padrão é bloquear — escolha de IDA, sem persistência, que se rearma ao fechar o app, ao passar pelo avançado ou quando uma tela entra. Com qualquer tela conectada este aparelho fica mudo nos dois modos — os WebViews dividem o processo e a saída de áudio, e a preview roubava o foco do player do telão |
 | PDF · `.pptx` · Google Apresentações | **PDF não existe**; `.pptx` funciona pelo mesmo caminho do app | **uma IMAGEM POR PÁGINA**. PDF pelo `PdfRenderer` da plataforma (`SlideDeck.kt` + `deckPages`); `.pptx` pelo renderizador de `assets/web/vendor/` (`pptxParaPaginas`, `import()` dinâmico + `<foreignObject>`/canvas). Daí é mídia comum, com ⏮/⏭ passando página. **Não há botão de "apresentação"** — entra por "Importar arquivos" (`pickDoc`: o PDF precisa que o shell abra o ARQUIVO, e `<input type=file>` só devolve bytes) ou pelo share. `.ppt` legado e `.odp` ficam de fora: ninguém sabe desenhá-los |
 | **Tocar agora** de vídeo do YouTube | **não toca**, e a linha do item diz isso | **TRANSMISSÃO DIRETA** (shell 26; só funciona do 27 em diante): `ytStream` monta o manifesto das duas adaptativas, `StreamProxy` as serve pelo NOSSO origin com o UA que combina, e `shared/mse.js` as vira um `<video>` comum — fade, cortina, `MediaSession` e barra de graça, zero pixel de YouTube no telão. Faixa de bytes na QUERY (`?r=ini-fim`), **nunca** em `Range` (invariante 8). Só em "Tocar agora": as outras ações GUARDAM, e manifesto expira em horas. Falhando qualquer coisa, cai no download, calado |
+| **Cifra do hino** | **não existe** — sem ponte não há como buscar a página (CORS), e a aba nem é oferecida | **aba CIFRA no visualizador de letras** (shell 48): `cifraHtml` traz o HTML cru, `controle/cifra.js` o lê, e a folha aparece com transposição por meio tom. **SOB DEMANDA:** nada é baixado em lote, nada entra no bundle, nada é gravado em disco — o cache é um `Map` que morre com o app |
 | Vídeo do YouTube | **não toca** | **baixado PELO APARELHO** (`YoutubeGrab.kt` + `ytFetch`) — a extração sai do IP do chip, que é o que o YouTube não bloqueia. Falhando, vira item de LINK, retentado no toque seguinte |
 | Qualidade do download | — | teto escolhido pelo operador: **Online · 1080p · 720p · 480p**, no mesmo seletor de Vídeo/Só áudio. Nasce no padrão A CADA ITEM (um teto que grudasse daria 480p no vídeo do domingo sem aviso). 1080p usa o `ytFetch` de sempre; só teto MENOR usa `ytFetchAte`. "Online" (`-1`, e não `0`, que já significa "sem teto") guarda **só o link** |
 | Resolução do download | — | **até 1080p, montando as duas faixas** — acima de 720p o YouTube entrega vídeo sem som. `MuxMp4.kt` junta com `MediaMuxer` (cópia de amostras, sem recodificar). Pares do MESMO contêiner (mp4+m4a, webm+webm na API 29+): "a melhor de cada lado" daria VP9 em MP4, que o muxer recusa **depois de tudo baixado**. Falhando, o progressivo é o piso. Requer o extrator ≥ v0.26.4 (cliente **visionOS**, que entrega adaptativas sem PO Token); as listas chegam misturadas, daí a **fila de candidatos** — ver `docs/ARQUITETURA-WEB.md` |
@@ -2049,6 +2148,7 @@ Antes de publicar: `node --check` em todo `.js` de `assets/web`, validação do
 | `sombra.test.mjs` | nenhuma função da base pode redeclarar um nome de módulo — `node --check` APROVA um `const ms` que sombreia a `ms` do módulo, e o que sai é `ReferenceError` por zona morta temporal |
 | `tokens.test.mjs` | nenhum `var(--x)` **sem fallback** aponta para token inexistente (um `var()` inválido computa para o valor INICIAL, sem aviso); nenhum token só no tema claro; **nenhuma regra desenha contorno**. `var(--x, fallback)` é legítimo (valores que o JS entrega em runtime) |
 | `serie.test.mjs` | quais playlists e vídeos entram no álbum. **Entradas VERBATIM do canal** — nomenclatura imaginada prova só que o código concorda com quem o escreveu |
+| `cifra.test.mjs` | o que o app entende de uma página de cifra: slug, gramática do acorde, e a transposição PRESERVANDO A COLUNA. É a peça mais frágil do projeto — lê a marcação de um servidor que não é nosso. Fixtures **SINTÉTICAS** de propósito: nenhum conteúdo de terceiro entra neste repositório. Elas provam a GRAMÁTICA, não que ela case com o HTML de hoje — essa metade se conserta por OTA, e o Registro diz quando quebrou |
 | `sorteio.test.mjs` | quais faixas a **playlist automática** pode mandar ao telão. O operador toca UM botão e a faixa entra em cena, sem tela intermediária: os quatro modos de errar (série no lugar do louvor · faixa que casa e não aparece · PLAYBACK onde se esperava a voz · fila cheia do que falta baixar) são todos silenciosos |
 | `glifos.test.mjs` | **todo ícone de fonte existe na fonte.** O `.woff2` é um SUBSET de 31 codepoints, e um `.msym` fora dele não desenha NADA — sem erro, sem requisição falhando, só um vão: o botão existe, é tocável, faz o que promete e é invisível. Lê o `cmap` do próprio arquivo (`zlib.brotliDecompressSync`, zero dependência) |
 | `sidx.test.mjs` | o parser `sidx` |
@@ -2505,8 +2605,8 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: v1.1.6** (base web) · **v1.1.2** (APK) · `SHELL_VERSION` **47** · bundle com
-`minShell: 47` — o shell 47 é o **PISO**: todo método da ponte existe, e não há
+**Versão atual: v1.1.7** (base web) · **v1.1.3** (APK) · `SHELL_VERSION` **48** · bundle com
+`minShell: 48` — o shell 48 é o **PISO**: todo método da ponte existe, e não há
 guarda de versão no lado web. O que continua valendo é que `java/`, `res/`, o
 manifest e os workflows **só chegam instalando o APK**.
 

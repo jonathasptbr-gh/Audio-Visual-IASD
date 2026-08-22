@@ -288,6 +288,20 @@ jobs:
           # zero dependência) e barra o build, porque um ícone invisível chega à
           # frota pelo OTA e só é descoberto por quem opera.
           node tools/glifos.test.mjs
+          # A REGRA DA CIFRA: o que o app entende de uma página de cifra. É a
+          # peça mais frágil do projeto por construção — ela lê a marcação de um
+          # servidor que não é nosso e não nos deve compatibilidade —, e todos os
+          # modos de errar dela são silenciosos: slug errado faz a coleção
+          # INTEIRA dizer "não achei"; uma gramática de acorde larga demais
+          # classifica a letra como acordes e a apaga da aba; transpor sem
+          # preservar COLUNA desliza o acorde para outra sílaba e a folha sai
+          # parecendo certa. As fixtures são SINTÉTICAS de propósito (nenhum
+          # conteúdo de terceiro entra neste repositório — o app lê sob demanda,
+          # no aparelho, e não guarda nada), então elas provam a gramática do
+          # parser, não que ela case com o HTML de hoje do site: essa segunda
+          # metade se conserta por OTA, e o Registro diz quando ela quebrou.
+          # Node puro, sem rede: sem `continue-on-error`.
+          node tools/cifra.test.mjs
 
       - name: Tokens de CSS que não existem (Node puro)
         run: |

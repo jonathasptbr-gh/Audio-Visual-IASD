@@ -1,5 +1,14 @@
 [
   {
+    "versao": "1.1.7",
+    "itens": [
+      "A folha de letra ganhou uma aba CIFRA: acordes sobre a letra, buscados na hora pela internet.",
+      "Dá para subir e descer meio tom — o alinhamento do acorde com a sílaba é preservado.",
+      "Nada é baixado nem ocupa espaço: a cifra é lida no momento em que você abre a aba.",
+      "Não achou? O botão leva a busca pronta para o site, sem você digitar de novo."
+    ]
+  },
+  {
     "versao": "1.1.6",
     "itens": [
       "A letra agora tem A+ e A− para você escolher o tamanho — no alto da folha de letra e, no Modo Fácil, ao lado do nome da música.",

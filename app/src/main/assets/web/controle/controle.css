@@ -4623,6 +4623,63 @@ main {
 }
 .lv-row.current .lv-aux { color: var(--accent); }
 
+/* ---------- A ABA DE CIFRA (v1.1.7) ---------- */
+/* A folha é MONOESPAÇADA e `pre`, e as duas coisas são estruturais, não
+   estilo: um acorde vale pela COLUNA em que está — é ela que diz em que sílaba
+   a harmonia troca. Fonte proporcional ou espaço colapsado desalinham a folha
+   inteira, e ela passa a ensinar a coisa errada sem parecer quebrada. */
+.lv-cifra-folha {
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  /* Um degrau abaixo da letra: o monoespaçado ocupa mais largura por caractere,
+     e no MESMO corpo a folha começaria a rolar de lado em tela de celular. O
+     A+/A− continua governando os dois — é o mesmo token. */
+  font-size: calc(var(--lv-fonte) * .74);
+  line-height: 1.45;
+  /* A folha rola de lado DENTRO DA PRÓPRIA CAIXA. Sem isto quem rola é o corpo
+     do popup, e a letra e o cabeçalho saem da tela junto com ela. */
+  overflow-x: auto;
+  padding-bottom: .4rem;
+}
+.lv-cifra-linha { white-space: pre; min-height: 1px; }
+/* O acorde em acento e o texto no tom normal: a mesma distinção que a folha
+   impressa faz com negrito, feita com a cor que este app já usa para "isto é
+   navegação". */
+.lv-cifra-acordes { color: var(--accent); font-weight: 700; }
+.lv-cifra-letra { color: var(--text); }
+/* A linha vazia é RESPIRO entre estrofes e tem de ocupar altura — `pre` com
+   string vazia colapsa, e as estrofes encostam umas nas outras. */
+.lv-cifra-vazio { height: .7em; }
+
+/* Tom à esquerda, transposição à direita — o mesmo par de botões do A+/A−,
+   reusando `.lv-fonte-btn` porque é o mesmo gesto (um passo por toque numa
+   escada) e duas aparências para o mesmo gesto seria ruído. */
+.lv-cifra-topo {
+  display: flex; align-items: center; justify-content: space-between; gap: .6rem;
+  padding-bottom: .5rem;
+}
+.lv-cifra-tom {
+  font-size: .92rem; font-weight: 700; color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.lv-cifra-ctl { display: flex; gap: .3rem; flex: none; }
+
+.lv-cifra-estado {
+  display: flex; align-items: center; gap: .55rem;
+  color: var(--muted); font-size: .95rem; padding: .8rem 0;
+}
+.lv-cifra-erro { display: block; }
+
+/* A saída manual, e a origem. Preenchimento em vez de contorno — este app não
+   desenha borda em lugar nenhum (ver `tokens.test.mjs`). */
+.lv-cifra-abrir {
+  margin-top: .9rem; align-self: flex-start;
+  min-height: var(--hit); padding: 0 .9rem;
+  border: none; border-radius: var(--radius-btn);
+  background: var(--surface); color: var(--accent);
+  font-size: .9rem; font-weight: 600; cursor: pointer;
+}
+.lv-cifra-abrir:active { transform: var(--press); }
+
 /* Nota: o antigo "toast" flutuante foi removido — as informações agora são
    transmitidas pela própria interface (ver flash() em controle.js, hoje um
    no-op, e o indicador de sincronização no texto da linha do Hinário 2022). */

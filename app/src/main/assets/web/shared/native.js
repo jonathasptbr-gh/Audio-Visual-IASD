@@ -77,7 +77,7 @@
   function otaAppIsUp() {
     if (global.__AV_ROLE__ !== 'controle') return false;
     if (!global.AVDB || !global.AVStream || !global.createStage) return false;
-    // OS QUATRO DO CONTROLE, e eles eram o buraco declarado deste watchdog.
+    // OS CINCO DO CONTROLE, e eles eram o buraco declarado deste watchdog.
     // Um erro de topo em `louvorja.js`/`bible.js`/`serie.js`/`sorteio.js` aborta
     // só AQUELE script: o `controle.js` continua inteiro (todo uso de
     // `AVSerie`/`AVSorteio` lá está DENTRO de função), `__avBack` existe, a
@@ -89,6 +89,13 @@
     // é exigir que o arquivo tenha sido parseado inteiro — a mesma forma da
     // condição acima, e o mesmo motivo.
     if (!global.Louvorja || !global.Bible || !global.AVSerie || !global.AVSorteio) return false;
+    // `AVCifra` entrou aqui NO MESMO LOTE em que o arquivo nasceu, e não numa
+    // faxina depois: a aba de cifra é lida DENTRO de função no `controle.js`,
+    // então um erro de topo em `cifra.js` não aborta nada visível — a playlist
+    // renderiza, `__avBack` existe, o watchdog carimbaria o bundle como bom
+    // para sempre e a aba ficaria muda sem erro na tela. É a armadilha exata
+    // que custou `AVSerie`/`AVSorteio` versões de atraso.
+    if (!global.AVCifra) return false;
     if (typeof global.__avBack !== 'function') return false;
     return !!document.querySelector('#playlist > li');
   }
@@ -377,6 +384,35 @@
     // O `name` de cada item é o título CRU (com "| Provai e Vede 2026 (15/Ago)"
     // inteiro): é dele que o `serie.js` tira data e marca de Libras.
     ytPlaylist: (url) => call((id) => B.ytPlaylist(id, String(url)), CALL_TIMEOUT_MS),
+
+    // ---- CIFRA — ver `controle/cifra.js` ----
+    // TRANSPORTE, e só. Devolve `{ status, html }` com o corpo CRU da página:
+    // quem sabe ler aquele HTML é o `cifra.js`, do lado web (invariante 5), e
+    // a razão é a mesma das séries — a marcação de um site muda sem avisar, e
+    // no web o conserto chega por OTA em minutos, enquanto em Kotlin custaria
+    // um degrau de `SHELL_VERSION` e uma Release por vírgula.
+    //
+    // A busca sai do Kotlin porque não há alternativa: o WebView roda em
+    // `appassets.androidplatform.net` e um site de terceiro não manda
+    // `Access-Control-Allow-Origin` para esse origin — um `fetch()` daqui
+    // morre antes de sair, e o `<iframe>` cai no `X-Frame-Options`.
+    //
+    // OS DOIS CAMPOS RESPONDEM PERGUNTAS DIFERENTES, e é por isso que o
+    // retorno não é uma string: `status 0` é "não houve resposta" (sem rede,
+    // prazo vencido) e `status 404` é "o site respondeu que não tem". A aba
+    // diz coisas opostas nos dois casos.
+    //
+    // COM prazo, como o `ytSearch`: há rede no meio (segundos). Vencido, o
+    // `call` resolve null e a REMONTAGEM abaixo o traduz para o mesmo
+    // `{ status: 0, html: '' }` de uma falha de rede — sem isso, cada chamador
+    // teria de lembrar de conferir null antes de ler `.status`, e o que falha
+    // quando alguém esquecer é a aba inteira, com um TypeError no console.
+    cifraHtml: (url) => call((id) => B.cifraHtml(id, String(url)), CALL_TIMEOUT_MS)
+      .then((r) => ({ status: (r && r.status) | 0, html: (r && r.html) || '' })),
+
+    // O que a última busca de cifra recebeu — a linha "Cifra:" do Registro.
+    // Vazio antes da primeira busca, como o `ytDiag`.
+    cifraDiag: () => call((id) => B.cifraDiag(id), CALL_TIMEOUT_MS).then((r) => r || ''),
 
     // Apaga o arquivo intermediário depois que os bytes já foram para a
     // biblioteca — senão o vídeo fica DUAS vezes no aparelho.

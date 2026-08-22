@@ -231,7 +231,7 @@ const appVersionEl = document.getElementById('appVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.1.6';
+const WEB_VERSION = '1.1.7';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -9077,6 +9077,17 @@ function lyricsViewSources() {
   // A sessão de leitura basta (mesmo fora do ar): o capítulo está em cena para
   // o operador, que é justamente quem lê aqui.
   if (bibleSession && bibleSession.verses && bibleSession.verses.length) list.push('bible');
+  // A CIFRA vem por ÚLTIMA, e isso é a precedência inteira: `lvActiveSource`
+  // devolve a primeira da lista quando o operador não escolheu, e a aba que
+  // abre sozinha tem de ser a letra — quem opera o culto está lendo a letra, e
+  // quem toca escolhe a cifra uma vez.
+  //
+  // SÓ NO APP. No navegador não há ponte, e sem ela não há como buscar a página
+  // (CORS — ver `AVNative.cifraHtml`). Oferecer uma aba que só sabe explicar por
+  // que não funciona é pior que não oferecê-la: o seletor do topo só aparece com
+  // duas fontes, e esta apareceria sempre, empurrando um botão morto para a
+  // frente do operador em toda música.
+  if (window.__NATIVE__ && cifraNomeDoItem(currentItem)) list.push('cifra');
   return list;
 }
 
@@ -9092,6 +9103,11 @@ function lvActiveSource() {
 function lvCurrentIndex(src) {
   if (src === 'lyrics') return findSlideIndex(currentItem.lyrics, authoritativeTime());
   if (src === 'bible') return bibleSession.idx;
+  // A CIFRA NÃO TEM POSIÇÃO. Ela é uma folha para ler, não uma sequência de
+  // slides — não há "estrofe no ar" a destacar, e o `-1` faz o `lvScroll` sair
+  // sem achar `.lv-row.current`, que é o comportamento certo: rolar sozinho
+  // uma folha que o operador está lendo com a mão seria disputar o scroll com
+  // ele a cada `timeupdate`.
   return -1;
 }
 
@@ -9108,6 +9124,15 @@ function lvSignature(src) {
   if (src === 'bible') {
     const s = bibleSession;
     return avail + '|bible|' + s.versionId + '|' + s.bookIdx + '|' + s.chapter + '|' + s.verses.length;
+  }
+  // A CIFRA muda de conteúdo por CHEGADA e por TRANSPOSIÇÃO, e as duas precisam
+  // entrar aqui: a primeira porque a resposta da rede vem depois do desenho, a
+  // segunda porque transpor não muda música nenhuma — sem o passo na assinatura,
+  // o `refreshLyricsView` do pulso seguinte reverteria a folha ao tom original.
+  if (src === 'cifra') {
+    const e = cifraEstado(currentItem);
+    return avail + '|cifra|' + cifraChave(currentItem)
+      + '|' + (e ? e.estado + '|' + e.motivo + '|' + e.semitons : 'novo');
   }
   return avail + '|none';
 }
@@ -9150,6 +9175,9 @@ function renderLyricsView() {
     const track = currentItem.hymnTrack ? currentItem.hymnTrack + '. ' : '';
     lyricsPopupTitleEl.textContent = track + (currentItem.hymnName || currentItem.name || 'Letra');
     lvBuildSong(lyricsViewBodyEl, lvCurIdx);
+  } else if (src === 'cifra') {
+    lyricsPopupTitleEl.textContent = cifraNomeDoItem(currentItem) || 'Cifra';
+    lvBuildCifra(lyricsViewBodyEl);
   } else {
     const b = bibleSession;
     // A sigla da versão só entra quando a lista de versões já foi baixada — sem
@@ -9159,6 +9187,270 @@ function renderLyricsView() {
     lyricsPopupTitleEl.textContent = b.bookName + ' ' + b.chapter + abbr;
     lvBuildBible(lyricsViewBodyEl, lvCurIdx);
   }
+}
+
+// ===== A ABA DE CIFRA (v1.1.7) =====
+//
+// A terceira fonte do visualizador. Ela responde a uma pergunta que as outras
+// duas não respondem: *"em que acorde eu entro?"* — e responde para quem TOCA,
+// não para quem assiste. Por isso ela vive aqui, ao lado da letra, e **nunca
+// vai ao telão**: o que a congregação vê continua sendo a letra, pelo caminho
+// de sempre.
+//
+// ## SOB DEMANDA, e isso é o contrato
+//
+// Nada é baixado em lote, nada entra no bundle do OTA, **nada é gravado em
+// disco**. O cache é o `Map` abaixo — memória, morto ao fechar o app. Um
+// operador que abre a aba de três hinos num culto fez três requisições e não
+// deixou rastro no aparelho. Trocar isto por um cache em IndexedDB seria mudar
+// o recurso de natureza, não otimizá-lo.
+//
+// ## As DUAS metades, e por que a segunda existe
+//
+//  1. **O ATALHO DO HINÁRIO.** Para uma coleção do catálogo (`AVCifra.CATALOGO`)
+//     a URL é DEDUZÍVEL do nome do hino: uma requisição, direta, sem ranking de
+//     ninguém escolhendo por nós. É o caminho de quase todo culto.
+//  2. **A BUSCA GENÉRICA**, para qualquer outra música — e para o hino cujo
+//     nome no acervo não bate com o nome no site (acontece: "Ó Vem" × "Oh, Vem").
+//     Custa uma requisição a mais e por isso é a SEGUNDA tentativa, nunca a
+//     primeira.
+//
+// ## Estados, e por que são quatro e não dois
+//
+// `buscando` · `ok` · `falha` · (ausente = nem pediram). E a `falha` carrega um
+// MOTIVO, porque "não achei" e "não entendi a página" pedem ações opostas do
+// operador — a primeira se resolve procurando outro nome, a segunda é o site
+// ter mudado a marcação e só se resolve com um lote novo. Achatar as duas numa
+// frase só é o defeito que o `cifra.js` chama de falhar vazio.
+let lvCifraSeq = 0;
+const cifraCache = new Map();   // chave → { estado, url, pagina, motivo, semitons }
+let cifraUltimoDiag = '';       // a linha "Cifra:" do Registro (lado web)
+
+// A coleção a que o item em cena pertence, ou null. O registro de mídia guarda
+// o NOME do álbum (`hymnAlbum`), não o id — e quem sabe traduzir um no outro é
+// o catálogo de coleções, não este código.
+function cifraColecaoDoItem(item) {
+  const nome = item && item.hymnAlbum;
+  if (!nome) return null;
+  return allCollections().find((c) => c.name === nome) || null;
+}
+
+// O nome pelo qual esta música é procurada. `hymnName` primeiro (é o nome
+// LIMPO do hino, sem "(Cantado)" nem variante), `name` como reserva.
+function cifraNomeDoItem(item) {
+  return (item && (item.hymnName || item.name)) || '';
+}
+
+// A chave do cache. Coleção + nome, e não o `mediaId`: a MESMA música baixada
+// como Cantada e como Playback são dois registros com a mesma cifra, e chavear
+// por id faria a segunda variante buscar de novo o que já está na memória.
+function cifraChave(item) {
+  const coll = cifraColecaoDoItem(item);
+  return (coll ? coll.id : '') + '|' + AVCifra.normalizar(cifraNomeDoItem(item)).toLowerCase();
+}
+
+// UMA requisição, já interpretada — `{ ok, pagina, motivo }`.
+//
+// Os quatro desfechos do shell viram os quatro motivos do `cifra.js`, e a
+// tradução acontece AQUI, num ponto só: `status 0` é "não houve resposta",
+// `404` é "o site respondeu que não tem", outro status é "respondeu outra
+// coisa", e 200 com HTML que o parser não entende é `ilegivel`. Espalhar esta
+// tradução pelos chamadores é como duas listas divergem.
+async function cifraPedir(url) {
+  const r = await AVNative.cifraHtml(url);
+  if (!r.status) return { ok: false, motivo: AVCifra.MOTIVO_SEM_REDE };
+  if (r.status === 404) return { ok: false, motivo: AVCifra.MOTIVO_NAO_TEM };
+  if (r.status < 200 || r.status > 299) return { ok: false, motivo: AVCifra.MOTIVO_RECUSOU };
+  const pagina = AVCifra.lerPagina(r.html);
+  if (!pagina) return { ok: false, motivo: AVCifra.MOTIVO_ILEGIVEL };
+  return { ok: true, pagina, motivo: AVCifra.OK };
+}
+
+// Garante que a cifra do item em cena está a caminho (ou já chegou). Idempotente
+// de propósito: `renderLyricsView` pode chamá-la a cada pulso, e o estado
+// `buscando` é o que impede uma segunda requisição para a mesma chave.
+function cifraGarantir(item) {
+  const chave = cifraChave(item);
+  if (!chave || cifraCache.has(chave)) return cifraCache.get(chave) || null;
+
+  const nome = cifraNomeDoItem(item);
+  const coll = cifraColecaoDoItem(item);
+  const entrada = { estado: 'buscando', url: '', pagina: null, motivo: '', semitons: 0 };
+  cifraCache.set(chave, entrada);
+
+  const seq = ++lvCifraSeq;
+  (async () => {
+    const tentativas = [];
+    let desfecho = { ok: false, motivo: AVCifra.MOTIVO_NAO_TEM };
+    let url = '';
+
+    // 1ª TENTATIVA: o atalho do catálogo.
+    const direta = coll ? AVCifra.urlDoHino(coll.id, nome) : '';
+    if (direta) {
+      url = direta;
+      desfecho = await cifraPedir(direta);
+      tentativas.push('direta ' + direta + ' → ' + desfecho.motivo);
+    }
+
+    // 2ª TENTATIVA: a busca do site. Ela cobre o "qualquer música" E o hino cujo
+    // nome no acervo não bate com o do site — mas NÃO cobre o `ilegivel`: ali a
+    // página existe e o parser é que não a entendeu, e repetir a mesma leitura
+    // por outro caminho só troca o motivo certo por um errado.
+    if (!desfecho.ok && desfecho.motivo !== AVCifra.MOTIVO_ILEGIVEL) {
+      const busca = AVCifra.urlDeBusca(nome);
+      if (busca) {
+        const rb = await AVNative.cifraHtml(busca);
+        const achados = rb.status >= 200 && rb.status <= 299 ? AVCifra.lerBusca(rb.html) : [];
+        tentativas.push('busca ' + busca + ' → ' + achados.length + ' resultado(s)');
+        if (achados.length) {
+          url = achados[0].url;
+          desfecho = await cifraPedir(url);
+          tentativas.push('escolhida ' + url + ' → ' + desfecho.motivo);
+        }
+      }
+    }
+
+    // Uma busca antiga não pode sobrescrever uma mais nova: o operador pode ter
+    // trocado de música enquanto a rede respondia.
+    if (seq !== lvCifraSeq && cifraCache.get(chave) !== entrada) return;
+    entrada.estado = desfecho.ok ? 'ok' : 'falha';
+    entrada.pagina = desfecho.pagina || null;
+    entrada.motivo = desfecho.motivo;
+    entrada.url = url;
+    cifraUltimoDiag = tentativas.join('\n');
+    // O desfecho REDESENHA — sem isto a aba fica em "Procurando…" até o próximo
+    // pulso do `refreshLyricsView`, que num áudio pausado nunca vem.
+    if (lyricsPopupEl.classList.contains('open')) renderLyricsView();
+  })().catch(() => {
+    entrada.estado = 'falha';
+    entrada.motivo = AVCifra.MOTIVO_SEM_REDE;
+    if (lyricsPopupEl.classList.contains('open')) renderLyricsView();
+  });
+
+  return entrada;
+}
+
+// O estado atual da cifra do item em cena, SEM disparar busca — para a
+// assinatura (`lvSignature`), que roda a cada pulso e não pode ter efeito.
+function cifraEstado(item) {
+  const chave = cifraChave(item);
+  return (chave && cifraCache.get(chave)) || null;
+}
+
+// Transpõe a folha em cena. O passo é guardado NA ENTRADA do cache, e não numa
+// variável solta: voltar a um hino já transposto nesta sessão devolve o tom em
+// que o operador o deixou, e trocar de hino não arrasta o passo do anterior.
+function cifraTranspor(passo) {
+  const e = cifraEstado(currentItem);
+  if (!e || e.estado !== 'ok') return;
+  // Doze semitons é a volta inteira: passar disso é o mesmo tom com outro nome.
+  e.semitons = ((e.semitons + passo) % 12 + 12) % 12;
+  renderLyricsView();
+}
+
+// Desenha a folha dentro de `el`.
+function lvBuildCifra(el) {
+  const item = currentItem;
+  const entrada = cifraGarantir(item);
+  const nome = cifraNomeDoItem(item);
+
+  if (!entrada || entrada.estado === 'buscando') {
+    const espera = document.createElement('div');
+    espera.className = 'lv-cifra-estado';
+    const anel = document.createElement('span');
+    anel.className = 'dl-ring';
+    const txt = document.createElement('span');
+    txt.textContent = 'Procurando a cifra…';
+    espera.append(anel, txt);
+    el.appendChild(espera);
+    return;
+  }
+
+  if (entrada.estado !== 'ok') {
+    // CADA MOTIVO PEDE UMA AÇÃO DIFERENTE, e por isso são frases diferentes.
+    // Um "não foi possível carregar" genérico é o que faz o operador tentar de
+    // novo quando o certo era desistir, e desistir quando o certo era tentar.
+    const frases = {
+      [AVCifra.MOTIVO_SEM_REDE]: 'Sem resposta da internet. A cifra é lida na hora — sem rede, não há como buscá-la.',
+      [AVCifra.MOTIVO_NAO_TEM]: 'Não encontrei a cifra de “' + nome + '”.',
+      [AVCifra.MOTIVO_RECUSOU]: 'O site respondeu, mas recusou a página. Tente de novo daqui a pouco.',
+      [AVCifra.MOTIVO_ILEGIVEL]: 'Achei a página e não consegui lê-la — o site mudou de formato. '
+        + 'Isso se corrige numa atualização da base; o Registro em Configurações tem o detalhe.',
+    };
+    const box = document.createElement('div');
+    box.className = 'lv-cifra-estado lv-cifra-erro';
+    box.textContent = frases[entrada.motivo] || 'Não foi possível carregar a cifra.';
+    el.appendChild(box);
+
+    // A SAÍDA MANUAL. Quando a busca automática não acha, o operador acha em
+    // dois toques — e o site é justamente o lugar onde essa procura é boa.
+    const abrir = document.createElement('button');
+    abrir.type = 'button';
+    abrir.className = 'lv-cifra-abrir';
+    abrir.textContent = 'Procurar no Cifra Club';
+    abrir.addEventListener('click', () => {
+      const u = AVCifra.urlDeBusca(nome);
+      if (u) AVNative.openExternal(u);
+    });
+    el.appendChild(abrir);
+    return;
+  }
+
+  const p = entrada.pagina;
+  const n = entrada.semitons;
+
+  // O CABEÇALHO: tom e transposição. O tom mostrado é o TRANSPOSTO — mostrar o
+  // original ao lado de uma folha já transposta é a folha e o rótulo dizendo
+  // coisas diferentes sobre a mesma tela.
+  const topo = document.createElement('div');
+  topo.className = 'lv-cifra-topo';
+  const tom = document.createElement('span');
+  tom.className = 'lv-cifra-tom';
+  const tomAtual = AVCifra.transporTom(p.tom, n);
+  tom.textContent = tomAtual ? 'Tom: ' + tomAtual : '';
+  const ctl = document.createElement('div');
+  ctl.className = 'lv-cifra-ctl';
+  const menos = document.createElement('button');
+  menos.type = 'button';
+  menos.className = 'lv-fonte-btn';
+  menos.textContent = '−½';
+  menos.title = 'Descer meio tom';
+  menos.setAttribute('aria-label', 'Descer meio tom');
+  menos.addEventListener('click', () => cifraTranspor(-1));
+  const mais = document.createElement('button');
+  mais.type = 'button';
+  mais.className = 'lv-fonte-btn';
+  mais.textContent = '+½';
+  mais.title = 'Subir meio tom';
+  mais.setAttribute('aria-label', 'Subir meio tom');
+  mais.addEventListener('click', () => cifraTranspor(1));
+  ctl.append(menos, mais);
+  topo.append(tom, ctl);
+  el.appendChild(topo);
+
+  // A FOLHA. Um nó por linha, com a classe dizendo o que ela é — é o que deixa
+  // o acorde ganhar cor sem o CSS ter de adivinhar nada do conteúdo.
+  const folha = document.createElement('div');
+  folha.className = 'lv-cifra-folha';
+  p.linhas.forEach((linha) => {
+    const div = document.createElement('div');
+    div.className = 'lv-cifra-linha lv-cifra-' + linha.tipo;
+    // Só a linha de ACORDES é transposta. Passar a de letra pela mesma função
+    // reescreveria palavras que casam com a gramática de acorde.
+    div.textContent = linha.tipo === 'acordes' ? AVCifra.transporLinha(linha.texto, n) : linha.texto;
+    folha.appendChild(div);
+  });
+  el.appendChild(folha);
+
+  // A ORIGEM, dita e clicável. Ela responde "de onde veio isto?" — e o toque
+  // leva à página inteira, que tem o que a aba não traz (vídeo-aula, outras
+  // versões). `openExternal` porque o WebView recusa navegar para outro origin.
+  const fonte = document.createElement('button');
+  fonte.type = 'button';
+  fonte.className = 'lv-cifra-abrir';
+  fonte.textContent = 'Ver no Cifra Club';
+  fonte.addEventListener('click', () => { if (entrada.url) AVNative.openExternal(entrada.url); });
+  el.appendChild(fonte);
 }
 
 // Desenha as estrofes da música em cena dentro de `el`, destacando `cur`.
@@ -15533,6 +15825,28 @@ async function renderDiag() {
     let yt = '';
     try { yt = await AVNative.ytDiag(); } catch (_) {}
     if (yt) blocos.push('Última extração do YouTube\n' + yt);
+  }
+  // A CIFRA — as DUAS metades, porque elas falham em lugares diferentes e uma
+  // sozinha não diz nada.
+  //
+  //  - a metade do SHELL (`cifraDiag`) responde "a requisição saiu e o que
+  //    voltou?" — status, tamanho, host recusado;
+  //  - a metade do WEB (`cifraUltimoDiag`) responde "que ENDEREÇOS eu tentei, e
+  //    o que o parser entendeu de cada um?".
+  //
+  // O caso que só as duas juntas resolvem é o pior deles: `HTTP 200` na
+  // primeira linha e `ilegivel` na segunda significa que o site mudou de
+  // marcação — a página está lá, a rede está boa, e o `cifra.js` é que precisa
+  // de um lote novo. Sem a segunda metade isso é indistinguível de "a música
+  // não existe no site", e ninguém investigaria.
+  if (window.__NATIVE__) {
+    let cd = '';
+    try { cd = await AVNative.cifraDiag(); } catch (_) { cd = ''; }
+    if (meu !== diagSeq) return;
+    const linhas = [];
+    if (cifraUltimoDiag) linhas.push(cifraUltimoDiag);
+    if (cd) linhas.push('shell: ' + cd);
+    if (linhas.length) blocos.push('Cifra (última busca)\n' + linhas.join('\n'));
   }
   // O lado WEB da última tentativa de transmitir. Ele vem à parte do
   // diagnóstico do shell porque três dos cinco pontos de desistência acontecem

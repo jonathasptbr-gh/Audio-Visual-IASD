@@ -1037,7 +1037,7 @@
              pedir ajuda"), e agora ocupam a mesma faixa: a versão à esquerda, o
              Registro à direita, no espaço que já estava sobrando. -->
         <div class="footer-diag">
-          <span id="appVersion" class="app-version">Controle v1.1.6</span>
+          <span id="appVersion" class="app-version">Controle v1.1.7</span>
           <span class="footer-diag-rot">Registro</span>
           <button id="diagCopy" class="log-copy" title="Copiar o registro" aria-label="Copiar o registro">
             <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoCopiar"/></svg>
@@ -1271,11 +1271,15 @@
         </div>
         <button id="lyricsPopupClose" class="popup-close" title="Fechar"><span class="msym" aria-hidden="true">&#xe14c;</span></button>
       </div>
-      <!-- Só aparece quando há letra E texto bíblico em cena ao mesmo tempo. -->
+      <!-- Só aparece quando há mais de uma fonte em cena — ver
+           `lyricsViewSources`. A CIFRA é a última da lista de propósito: a aba
+           que abre sozinha tem de ser a letra, que é o que quem opera o culto
+           está lendo. Ela também só existe no app (a busca precisa da ponte). -->
       <div class="lyricsview-seg" id="lyricsViewSeg" hidden>
         <div class="fit-seg">
           <button type="button" class="fit-opt" data-lvsrc="lyrics">Letra</button>
           <button type="button" class="fit-opt" data-lvsrc="bible">Bíblia</button>
+          <button type="button" class="fit-opt" data-lvsrc="cifra">Cifra</button>
         </div>
       </div>
       <div class="lyricsview-body" id="lyricsViewBody"></div>
@@ -1475,6 +1479,7 @@
   <!-- ANTES do controle.js: `allCollections()` é alcançado durante a carga do
        módulo (pelo `setAppMode` do fim do arquivo) e pergunta por `AVSerie`. -->
   <script src="serie.js"></script>
+  <script src="cifra.js"></script>
   <!-- A outra REGRA pura do Controle, ao lado da das séries e pela mesma razão:
        ela decide o que vai ao telão e tem oráculo em Node (`tools/sorteio.test.mjs`).
        ANTES do controle.js — que a consulta ao montar a folha. -->
