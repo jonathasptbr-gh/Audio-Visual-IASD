@@ -232,7 +232,7 @@ const appVersionEl = document.getElementById('appVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.1.19';
+const WEB_VERSION = '1.1.20';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -4849,6 +4849,25 @@ function sendMic(on) {
   renderMicUI();
 }
 
+// HÁ ONDE A VOZ SAIR?
+//
+// Quem abre o microfone é o `/display/`, e ele só existe DENTRO da
+// `Presentation` — sem TV conectada o `syncPresentation` não cria nenhuma, e
+// ninguém consome o comando `mic`. Como ninguém o consome, ninguém responde
+// `mic-status`: `micError` ficava vazio, a nota não aparecia, e o único sinal na
+// tela era o botão vermelho escrito "No ar" — que é o `micPressed`, nunca uma
+// confirmação. O operador segurava o botão achando que falava para a igreja.
+//
+// AS TELAS DA REDE NÃO CONTAM, e é o erro que uma pergunta por `simpleDisplay()`
+// cometeria: elas rodam em `http://`, onde `getUserMedia` não existe, e o
+// `setMic` delas sai na guarda de papel. A pergunta é pela TV, e só por ela.
+//
+// No NAVEGADOR o Display é outra janela, aberta à mão, e o app não tem como
+// saber se ela está lá — ali a resposta otimista continua sendo a certa.
+function haOndeReproduzirMic() {
+  return !window.__NATIVE__ || lastDisplays.length > 0;
+}
+
 function renderMicUI() {
   const btn = document.getElementById('micBtn');
   if (!btn) return;
@@ -4866,6 +4885,12 @@ function renderMicUI() {
 }
 
 function micErrorText(err) {
+  // NÃO É UM ERRO DO MICROFONE, e é por isso que a frase não fala dele: o
+  // aparelho está bem, o que falta é para ONDE mandar a voz.
+  if (err === 'sem-telao') {
+    return 'Sem TV conectada: a voz não tem onde sair. O microfone vai para o '
+      + 'telão, e sem TV não há telão — as telas da rede não captam som.';
+  }
   if (err === 'NotAllowedError' || err === 'SecurityError') {
     return 'Permissão de microfone negada. Autorize o app nas configurações do Android.';
   }
@@ -4910,6 +4935,12 @@ function renderMic() {
     e.preventDefault();
     try { btn.setPointerCapture(e.pointerId); } catch (_) {}
     micError = '';
+    // ANTES DA PERMISSÃO, e essa ordem é o ponto: sem telão a voz não tem onde
+    // sair, e pedir o microfone do Android para uma ação que não pode funcionar
+    // é gastar — talvez queimar — a única permissão sensível deste app. É a
+    // mesma razão pela qual o pedido não mora na abertura, dois comentários
+    // abaixo: um pedido sem contexto é negado por reflexo.
+    if (!haOndeReproduzirMic()) { micError = 'sem-telao'; renderMicUI(); return; }
     // A permissão do Android é pedida AQUI, no primeiro uso — não na abertura
     // do app, onde um pedido de gravar áudio sem contexto seria negado por
     // reflexo. No navegador não existe ponte: o getUserMedia do Display pede.
@@ -16357,6 +16388,18 @@ function blocoAudio() {
       '  Presentation isola a janela, nunca o som. Não é ajuste que falta.',
       'sem vazamento: "Transmitir para navegador" (a tela toca o arquivo dela),',
       '  com o espelhamento DESLIGADO — os dois juntos mantêm a mistura no ar.');
+  }
+  // O MICROFONE, e ONDE ELE SAI. É a pergunta que o operador faz depois de
+  // segurar o botão e não ouvir nada, e ela tem duas respostas opostas conforme
+  // a TV — sem ela não há telão, e sem telão não há captura em lugar nenhum.
+  // As telas da rede NÃO substituem o telão nisto: elas rodam em `http://`, onde
+  // `getUserMedia` não existe, e o `setMic` delas sai na guarda de papel.
+  if (tv) {
+    linhas.push('microfone: capta no telão e sai junto com a mídia, nas caixas da TV.');
+  } else {
+    linhas.push('microfone: INDISPONÍVEL sem TV — quem capta é o telão, e sem TV',
+      '  não há telão. As telas da rede não captam som (o navegador delas não',
+      '  entrega microfone em http://).');
   }
   // O PLACAR DA RETOMADA entra AQUI, e não num bloco próprio: ele responde à
   // mesma pergunta deste — o que outro app fez com o som deste aparelho. As

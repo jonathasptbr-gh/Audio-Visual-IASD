@@ -1459,11 +1459,33 @@ derruba a transmissão — sem TV, as telas da rede SÃO o que a congregação v
 
 ### As inversões que precisam estar ditas
 
-1. **O áudio é INTEIRO e local.** A tela toca o arquivo (`/m/`) no próprio
-   `<video>`/`<audio>` — acabaram o AAC parcial, a deriva de eixo e o
-   `AudioWorklet`. O som é **opt-in por tela** (o `forceMuted` só sai com o gesto
-   do visitante). **O microfone ao vivo continua fora da rede:** o comando `mic`
-   não é drenado — a captura e a reprodução são do telão de verdade.
+1. **O áudio é INTEIRO e local.** A tela toca o arquivo (`/m/`) no **`<video>`**
+   dela (não há `<audio>` em lugar nenhum do display: é o *kind*, não o elemento,
+   que faz o telão manter o wallpaper) — acabaram o AAC parcial, a deriva de eixo
+   e o `AudioWorklet`. O som é **opt-in por tela** (o `forceMuted` só sai com o
+   gesto do visitante).
+
+   **O microfone ao vivo continua fora da rede — por uma GUARDA, e não pelo
+   dreno.** O dreno é o filtro de SUBIDA; `mic` é um comando de DESCIDA e desce
+   verbatim para toda tela (o `difundirJson` não lê tipo, o `entregar()` do
+   `tela.js` também não). Quem o barra é `if (TELA) return` no topo do `setMic`
+   (`display.js`), e ele existe porque a alternativa era uma proteção
+   **EMPRESTADA DO NAVEGADOR**: uma tela roda em `http://`, e `getUserMedia` é
+   `[SecureContext]`, logo `navigator.mediaDevices` nem existe ali. Essa proteção
+   se desfaz sozinha no dia em que a transmissão subir em `https://` — e nesse
+   dia, sem a guarda, o primeiro push-to-talk pediria o microfone **de cada
+   aparelho da rede**, devolvendo-o às caixas daquele mesmo aparelho. Nenhum
+   áudio atravessa a rede aqui: o estrago não é a tela falando com a voz do
+   púlpito, é realimentação local num aparelho que ninguém está olhando.
+   Oráculo: `tela-rede.test.mjs`.
+
+   **E o microfone é DO TELÃO no sentido forte: sem TV ele não existe.** Quem o
+   abre é o `/display/`, que só roda dentro da `Presentation` — sem TV o
+   `syncPresentation` não cria nenhuma. O botão do Controle recusa o toque
+   (`haOndeReproduzirMic`) **antes de pedir a permissão do Android**, porque
+   gastar a única permissão sensível do app numa ação que não pode funcionar é
+   como se queima uma permissão. Antes disso ele acendia "No ar" com o
+   `micPressed` local e nada capturava.
 2. **O que vaza numa rede aberta mudou de natureza:** antes, a imagem contínua de
    tudo que a igreja projeta; agora, os comandos (títulos, referências, letras) e
    as mídias carregadas durante a transmissão, por tokens opacos por sessão. A

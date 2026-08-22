@@ -4197,6 +4197,99 @@ try {
   checar(false, 'o percurso da área de transferência terminou sem exceção (' + (e && e.message) + ')');
 }
 
+// ===== O MICROFONE SEM TELÃO: O BOTÃO PARAVA DE MENTIR (v1.1.20) =====
+//
+// Quem abre o microfone é o `/display/`, e ele só existe DENTRO da
+// `Presentation` — sem TV conectada o `syncPresentation` não cria nenhuma, e
+// ninguém consome o comando `mic`. Como ninguém o consome, ninguém responde
+// `mic-status`: `micError` ficava vazio, a nota de diagnóstico não aparecia, e o
+// único sinal na tela era o botão vermelho escrito "No ar" — que é o
+// `micPressed` local, nunca uma confirmação.
+//
+// É a classe de defeito mais cara deste app: nada erra, nada quebra, e o
+// operador segura o botão achando que está falando para a igreja.
+//
+// A PONTE PADRÃO DESTE ARQUIVO JÁ TEM ZERO TELAS (`ponteCom(…, [])`), então esta
+// é a condição normal aqui — e é por isso que o bloco não monta cenário nenhum.
+//
+// AS DUAS METADES: que a recusa ACONTECE (o botão não acende) e que ela é DITA
+// (a nota aparece, com a razão). A primeira sozinha seria um botão que não faz
+// nada — exatamente o defeito, com outra aparência.
+try {
+  const pgM = await ctx.newPage();
+  await pgM.addInitScript(PONTE);
+  // A PERMISSÃO DO ANDROID É CONCEDIDA NESTA PÁGINA, e sem isso este bloco não
+  // mede o que promete: a ponte padrão resolve `requestMic` como `null` → falso,
+  // o handler sai em `NotAllowedError` ANTES da guarda de telão, e as asserções
+  // passariam por um motivo que não é o delas. MEDIDO por reversão: com a ponte
+  // padrão, retirar a guarda deixava duas das três asserções verdes.
+  //
+  // Concedida a permissão, o caminho chega à guarda — e é aí que "sem TV" é a
+  // única coisa que decide.
+  await pgM.addInitScript(`(() => {
+    const arm = () => {
+      const B = window.__AVBridge;
+      if (!B) { setTimeout(arm, 0); return; }
+      B.requestMic = (id) => {
+        setTimeout(() => { try { window.__avResolve(id, true); } catch (_) {} }, 0);
+      };
+    };
+    arm();
+  })();`);
+  await pgM.goto(`http://127.0.0.1:${porta}/controle/`, { waitUntil: 'load' });
+  await pgM.waitForFunction(() => window.AVDB && typeof window.__avBack === 'function'
+    && !!document.querySelector('#playlist li'), null, { timeout: 25000 });
+
+  const mic = await pgM.evaluate(async () => {
+    const ir = (t) => {
+      const b = document.querySelector('[data-tab="' + t + '"]');
+      if (b) b.click();
+    };
+    ir('mic');
+    await new Promise((f) => setTimeout(f, 300));
+    const btn = document.getElementById('micBtn');
+    if (!btn) return { semBotao: true };
+    // O PUSH-TO-TALK É `pointerdown`/`pointerup`, não `click` — e o que se quer
+    // medir é o estado DURANTE o aperto, que é quando o rótulo mentia.
+    //
+    // A CAPTURA DE PONTEIRO PRECISA VALER, e isto não é detalhe de arnês: o
+    // handler tem uma segunda saída, `if (!micPressed && !hasPointerCapture)
+    // return` — o "já soltou" —, e com um PointerEvent sintético o
+    // `setPointerCapture` lança e o `hasPointerCapture` responde falso. O
+    // caminho saía ALI, antes da guarda de telão, e a asserção do rótulo passava
+    // por não ter chegado a lugar nenhum. MEDIDO por reversão: sem estas duas
+    // linhas, retirar a guarda deixava a asserção do "No ar" verde.
+    btn.setPointerCapture = () => {};
+    btn.hasPointerCapture = () => true;
+    btn.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerId: 1 }));
+    await new Promise((f) => setTimeout(f, 120));
+    const rotulo = (btn.querySelector('.mic-btn-label') || {}).textContent || '';
+    const aceso = btn.classList.contains('live');
+    const nota = document.getElementById('micNote');
+    const notaTexto = nota && !nota.hidden ? (nota.textContent || '') : '';
+    btn.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, pointerId: 1 }));
+    await new Promise((f) => setTimeout(f, 120));
+    // A NOTA SOBREVIVE À SOLTURA: a soltura de um toque recusado não tem nada a
+    // desfazer, e limpá-la a tiraria da tela antes de alguém lê-la.
+    const notaDepois = nota && !nota.hidden ? (nota.textContent || '') : '';
+    return { rotulo, aceso, notaTexto, notaDepois };
+  });
+
+  checar(!mic.semBotao, 'a aba Ferramentas traz o botão de microfone', JSON.stringify(mic));
+  checar(mic.aceso === false && !/no ar/i.test(mic.rotulo),
+    'SEM TV o botão NÃO acende nem diz "No ar" — não há telão para captar, e dizer '
+    + 'que há é a única coisa que este botão não pode fazer', JSON.stringify(mic));
+  checar(/sem tv|não tem onde|telão/i.test(mic.notaTexto),
+    'e a recusa é DITA, com a razão — um botão que não faz nada e não explica é o '
+    + 'mesmo defeito com outra aparência', JSON.stringify(mic.notaTexto));
+  checar(mic.notaDepois === mic.notaTexto && mic.notaDepois !== '',
+    'e a nota sobrevive à soltura do botão — senão ela sairia da tela antes de ser lida',
+    JSON.stringify([mic.notaTexto, mic.notaDepois]));
+  await pgM.close();
+} catch (e) {
+  checar(false, 'o percurso do microfone sem telão terminou sem exceção (' + (e && e.message) + ')');
+}
+
 checar(erros.length === 0, 'nenhum erro de console' + (erros.length ? ':\n        ' + erros.join('\n        ') : ''));
 
 await navegador.close();

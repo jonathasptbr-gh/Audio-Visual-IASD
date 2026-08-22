@@ -24,6 +24,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
+- **v1.1.20** — O MICROFONE, VERIFICADO NOS QUATRO MODELOS DE PROJEÇÃO: ele funciona com TV espelhando e em mais nenhum — e sem TV o botão acendia "No ar" sem nada estar captando, porque `micPressed` é escrito no `pointerdown` e sem `Presentation` ninguém responde `mic-status`. A recusa entra ANTES do pedido de permissão do Android: pedir o microfone para uma ação que não pode funcionar é queimar a única permissão sensível do app. Mais a guarda que um comentário prometia desde a v5.187 e que nunca existiu — o comando `mic` DESCE para toda tela da rede sem filtro, e o que impedia o desfecho era o ambiente (`getUserMedia` é `[SecureContext]`), não o app; proteção emprestada do navegador é proteção com prazo, e o `EspelhoCert` continua inteiro no shell. O oráculo FORJA `navigator.mediaDevices` para medir o dia em que houver TLS. OTA PURO
 - **v1.1.19** — O REGISTRO CONTA O CULTO, NÃO O CATÁLOGO: de ~170 linhas de uma cópia real, ~140 eram o bloco das Séries — a mesma frase de recusa sessenta vezes, mais 52 nomes de episódio em ordem —, enterrando a linha do tempo, que saía com DEZESSEIS linhas no fim de tudo. As recusas viram contagem por motivo com os primeiros nomes CRUS (a renomeação de um canal se descobre lendo UM nome, não sessenta); a lista de 52 vira as duas BORDAS, que é onde a ordem se confere. E o `.slice(-16)` sai: até 100 linhas já estavam na mão, incluindo as 60 que o `diag-ask` acabara de buscar pela rede, e o teto existia para um visor removido na v5.207 — o Registro só existe para ser COPIADO. O que encurta sem apagar é o colapso de repetição (`×7`). E ela era o ÚLTIMO dos oito blocos — começando na linha ~150 de um Registro real —, e passa a vir logo depois do cabeçalho: bloco novo entra DEPOIS dela. No lugar entram os eventos de CULTO (o que entrou em cena, a TV oscilando, a projeção se reapresentando, a rede caindo) e o erro de mídia do telão, que morria num console dentro de uma Presentation. OTA PURO
 - **v1.1.18** — A ABA DA BÍBLIA APARECIA MESMO COM A REGRA RECUSANDO-A: a v1.1.11 acertou a lista de fontes e esqueceu de aplicá-la na tela. Os três botões são HTML ESTÁTICO, e `renderLyricsView` só escondia o CONTAINER (com menos de duas fontes) e marcava o ativo — nunca um botão individual. Com música em cena há duas fontes, o container aparecia e a Bíblia vinha junto, fora de `avail`. Calcular a coisa certa e não aplicá-la é mudo por natureza: a função que decide passa em qualquer leitura, e só a tela denuncia. OTA PURO
 - **v1.1.17** — A CIFRA PASSA A SER BUSCADA QUANDO A MÚSICA ENTRA EM CENA, e não ao abrir a aba: quem a abre está com o instrumento na mão e a música tocando, o pior instante para esperar a rede. O gatilho mora no `send` — o ponto por onde TODOS os caminhos passam —, senão a playlist automática ficaria de fora e ninguém notaria. Nasce `cifraCabe`, UMA pergunta para os dois consumidores (a aba que se oferece e o `send` que busca), cortando por conteúdo musical: um episódio de série é testemunho em vídeo, e ali a busca é requisição perdida. O contrato não mudou — uma música por vez, sem lote e sem disco —, mudou o QUANDO. OTA PURO
@@ -215,6 +216,95 @@ na nota que a revoga, não apagada da que a criou.
 - **v5.154** — é METADE OTA e METADE APK, e a divisão importa para quem for testar em aparelho.
 - **v5.155** — é OTA PURO
 - **v5.156** — é METADE OTA e METADE APK, de novo.
+
+---
+
+## v1.1.20 — o microfone, verificado nos quatro modelos de projeção
+
+Pedido: *"verifique a função do microfone, que deveria enviar o áudio para
+qualquer que seja o modelo de transmissão"*. A verificação achou três coisas, e
+duas delas eram silenciosas por construção.
+
+### O QUE O MICROFONE FAZ HOJE, POR MODELO
+
+| modelo | funciona? | por quê |
+|---|---|---|
+| TV por espelhamento | **sim** | capta na `Presentation`, sai na mistura de mídia do celular, e o espelhamento a leva à PA |
+| sem tela nenhuma | **não — e o botão dizia que sim** | sem TV o `syncPresentation` não cria `Presentation`; ninguém executa `display.js`, ninguém consome o comando |
+| só telas da rede | **não** | elas rodam em `http://`, e `getUserMedia` é `[SecureContext]` |
+| TV + telas | pela TV | as telas tentavam e falhavam mudas |
+
+### O BOTÃO MENTIA, E ERA A CLASSE MAIS CARA DE DEFEITO
+
+`renderMicUI` acende com `micOn || micPressed`, e `micPressed` é escrito no
+`pointerdown`, **antes de qualquer confirmação**. Sem TV ninguém responde
+`mic-status`, então `micError` fica vazio e a nota de diagnóstico não aparece: o
+operador segura o botão, lê **"No ar"** em vermelho, e nada está captando. Nada
+erra, nada quebra, ninguém descobre.
+
+A recusa entra **antes do pedido de permissão do Android**, e a ordem é o ponto:
+pedir o microfone para uma ação que não pode funcionar é gastar — talvez queimar
+— a única permissão sensível deste app. É a mesma razão pela qual o pedido já não
+morava na abertura.
+
+A pergunta é `haOndeReproduzirMic()`, e ela pergunta pela **TV**, nunca por
+`simpleDisplay()`: as telas da rede contam como projeção para todo o resto e
+**não contam para isto**. No navegador o Display é outra janela, aberta à mão, e
+ali a resposta otimista continua sendo a certa.
+
+### A GUARDA QUE UM COMENTÁRIO PROMETIA HÁ 33 VERSÕES
+
+Dentro de `startMic` havia nove linhas explicando que uma segunda instância de
+`/display/` sai antes de emitir status, "o que mantém o telão dono dessa
+informação". **Não havia saída nenhuma** — depois do comentário vinha
+`const seq = ++micSeq;`. Ele descrevia o papel `espelho`, removido na v5.187
+junto com a constante que o comentário testava.
+
+E o comando `mic` **desce para toda tela da rede**, verbatim: o `difundirJson`
+não lê tipo (só o `__para` do reenvio endereçado) e o `entregar()` do `tela.js`
+também não. O que impedia o desfecho era o ambiente, não o app: `getUserMedia`
+não existe em `http://`.
+
+**Proteção emprestada do navegador é proteção com prazo.** Ela se desfaz sozinha
+no dia em que a transmissão subir em `https://` — o `EspelhoCert` continua
+inteiro no shell, e o que saiu na v5.196 foi só a folha que o alimentava. Nesse
+dia, o primeiro push-to-talk pediria o microfone **de cada aparelho da rede**.
+
+O estrago não seria o que parece, e vale dizer para ninguém dimensioná-lo errado:
+**nenhum áudio atravessa a rede aqui**. O comando é `{type:'mic', on}` e mais
+nada; uma tela abriria o microfone *dela* e o devolveria às caixas *dela*. Não é
+"a tela do saguão fala com a voz do púlpito" — é realimentação local num aparelho
+que ninguém está olhando.
+
+Hoje é `if (TELA) return` no topo do `setMic`, com oráculo que **forja**
+`navigator.mediaDevices` — medindo a tela como se já estivesse em contexto
+seguro, que é exatamente o cenário que a guarda existe para cobrir.
+
+### E DUAS COISAS SOBRE O PRÓPRIO MÉTODO
+
+O bloco de cabeçalho do `display.js` descrevia, no presente, uma constante
+`ESPELHO` que não existe em lugar nenhum — e o comentário do `TELA` logo abaixo
+se apoiava nele ("a mesma regra de escrita do ESPELHO acima"). Os dois foram
+reescritos como um só.
+
+E o oráculo do botão precisou de duas correções para medir o que promete: a ponte
+de mentira **negava** `requestMic`, e um `PointerEvent` sintético **não
+estabelece captura de ponteiro** — o handler saía na guarda de "já soltou",
+antes da guarda de telão. Com os dois consertados, as três asserções reprovam na
+reversão; sem eles, duas passavam por um motivo que não era o delas.
+
+### O QUE ESTE LOTE NÃO FAZ
+
+Não faz o microfone chegar às telas da rede. Isso não é um ajuste: `getUserMedia`
+e `AudioWorklet` são os dois `[SecureContext]`, então a captura teria de ser no
+celular e o áudio teria de ser TRANSPORTADO — e o projeto já construiu
+exatamente isso (AAC no mesmo fluxo chunked, `AudioWorklet` → `EspelhoAudio.kt` →
+fMP4 → MSE) e **removeu na v5.187**, depois de uma auditoria em que o áudio era o
+defeito dominante e permanente. Também não grava mensagem de voz: o
+`ControleChromeClient` nega TODA permissão de mídia (`request.deny()`
+incondicional), então gravar no Controle custa uma Release.
+
+OTA PURO — `minShell` 49, sem `shellTag`.
 
 ---
 
