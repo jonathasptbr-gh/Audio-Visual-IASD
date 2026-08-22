@@ -1,5 +1,11 @@
 [
   {
+    "versao": "1.1.9",
+    "itens": [
+      "O Registro do telão parava de ser confiável no ponto que mais importa: ele marcava “pausa espontânea” no fim de TODA música. Agora o fim natural é dito por extenso, e o aviso volta a significar só o que promete — alguém tirou a projeção do ar sem pedir."
+    ]
+  },
+  {
     "versao": "1.1.8",
     "itens": [
       "A letra no telão nunca mais é cortada com \"...\": se a estrofe é longa, ela diminui de tamanho até caber inteira.",

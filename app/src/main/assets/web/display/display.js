@@ -1146,8 +1146,30 @@ let pausaComandada = 0;
     // elemento. Com 400 ms fixos contra um fade de 600 ms, TODA parada pedida
     // pelo operador era carimbada "PAUSA ESPONTÂNEA" no Registro, que é o
     // artefato lido a distância justamente para separar as duas coisas.
+    // O FIM NATURAL NÃO É UMA PAUSA ESPONTÂNEA, e antes desta linha ele era
+    // carimbado como uma — em TODA faixa que terminasse.
+    //
+    // A ordem é da especificação de HTML: ao chegar ao fim, o elemento levanta
+    // a bandeira de `ended`, põe `paused` em true e SÓ ENTÃO dispara `pause` e,
+    // depois dele, `ended`. Ou seja, este handler roda com `v.ended` já
+    // verdadeiro — e `pausaComandada` não é armado por fim natural, porque não
+    // houve comando nenhum. As duas coisas juntas faziam o desfecho mais banal
+    // do app produzir a linha reservada ao mais grave.
+    //
+    // O PREÇO ERA O ARTEFATO INTEIRO. "PAUSA ESPONTÂNEA" existe para responder
+    // UMA pergunta — "alguém tirou o telão do ar sem pedir?" — e é lida A
+    // DISTÂNCIA, por quem não tem como conferir. Com uma linha dessas por
+    // louvor, o Registro respondia "sim" em todo culto normal: quem fosse
+    // investigar uma pausa de verdade encontraria o sinal afogado no ruído, e
+    // quem procurasse ruído concluiria que o telão vive caindo. Um diagnóstico
+    // que responde errado é pior que um que não responde.
+    //
+    // O teto por `duration` é cinto sobre suspensório: cobre o quadro em que a
+    // bandeira ainda não subiu e o aparelho que entrega `duration` com folga.
+    const fim = v.ended || (v.duration > 0 && v.currentTime >= v.duration - 0.25);
     const meu = Date.now() - pausaComandada < (fadeCfg.time * 1000 + 400);
-    diag(meu ? 'pausa (comando)' : 'PAUSA ESPONTÂNEA', { t2: Math.round(v.currentTime) });
+    diag(fim ? 'fim natural' : (meu ? 'pausa (comando)' : 'PAUSA ESPONTÂNEA'),
+      { t2: Math.round(v.currentTime) });
   });
   v.addEventListener('play', () => diag('play', { t2: Math.round(v.currentTime) }));
   v.addEventListener('stalled', () => diag('travou'));
