@@ -24,6 +24,8 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
+- **v1.1.1** — AS IMAGENS DOS SLIDES PASSAM A SER O PADRÃO: o app nascia em "Remover" e o hino saía em texto sobre preto — escondendo imagens que já vinham baixadas com a música. O padrão morava em QUATRO lugares, e dois deles eram leituras que normalizavam tudo que não fosse `'image'` para preto: virar só a inicialização se desfaria no primeiro `load()`. Mais o reenvio à tela da rede, que só acertava por coincidência enquanto o padrão era preto. OTA PURO
+- **v1.1** — AS DUAS LINHAS CONVERGEM: base e APK no mesmo número, com `shellTag` acoplando o lote numa pergunta só. Nada mudou em `java/`, `res/` nem no manifest desde a v1.0.6 — o que a Release entrega é a base embutida já na 1.1 (instalação nova não precisa de uma rodada de OTA) e o `versionName` de volta em sincronia. `SHELL_VERSION` segue 47. EXIGE RELEASE
 - **v1.0.8** — QUATRO AJUSTES DE CONFIGURAÇÕES E DA PERGUNTA: a consequência passa a começar com "Ao atualizar" (sem o marco de tempo ela se lia como mais um item da lista de mudanças logo acima), o botão de atualizar só existe depois do "deixar para depois" (e o "Procurar atualização" sai, com o caminho de busca inteiro), o "Modo do app" ganha o peso da decisão que ele é, e o Registro vai para a linha da versão — o espaço que sobrava. OTA PURO
 - **v1.0.7** — O BOTÃO DE BAIXAR DO ÁLBUM ACERTAVA 6 DE 11 TOQUES: `--press` é uma ESCALA, e escalar um contêiner arrasta o botão colado na borda dele para fora do dedo. Mais a tela cheia trocando os gestos invisíveis por uma COLUNA que o toque acende e 4s apagam, o Modo Fácil perdendo os Favoritos e o "Ao Cronograma" (destinos que ele não tem como mostrar), e o filtro "Sem infantis" — o único que nasce LIGADO. OTA PURO
 - **v1.0.6** — A ATUALIZAÇÃO DIZ O QUE VEM NELA: uma linha do tempo das mudanças entre a versão e a consequência, lida do `notas.json` do PRÓPRIO bundle baixado — não do manifesto, que é buscado 240 vezes por hora para carregar texto que importa uma vez por semana. Mais o "Tocar neste celular" virando caminho SÓ DE IDA (a v1.0.5 persistia a escolha, e persistir era o defeito que o botão de volta vinha remendar) e a cadeia de conectar TV ganhando a candidata que faltava em quem não é Samsung. `SHELL_VERSION` 47. EXIGE RELEASE
@@ -195,6 +197,101 @@ na nota que a revoga, não apagada da que a criou.
 - **v5.154** — é METADE OTA e METADE APK, e a divisão importa para quem for testar em aparelho.
 - **v5.155** — é OTA PURO
 - **v5.156** — é METADE OTA e METADE APK, de novo.
+
+---
+
+## v1.1.1 — as imagens dos slides passam a ser o padrão
+
+*"Verifique uma coisa: o aplicativo, por padrão, após instalar, tem nas
+configurações iniciais padrões não aparecer as imagens dos slides. Verifique
+isso e corrija."*
+
+O segmento **Imagens dos slides (músicas)**, em Exibição, nascia em **Remover**.
+O que torna isso mais que uma escolha de gosto: **as imagens já vêm baixadas com
+a música** — `resolveImage` roda dentro do `downloadCollectionSong` e não
+consulta preferência nenhuma. O padrão escondia material que o aparelho já
+tinha, gastou banda para buscar e guardou em disco.
+
+E escondia **calado**: nada erra, não há linha no Registro, o hino sai em texto
+sobre preto, e quem acabou de instalar não tem como suspeitar que existe uma
+opção com esse nome.
+
+### O PADRÃO MORAVA EM QUATRO LUGARES, e dois deles o desfariam sozinhos
+
+As duas leituras do banco eram `=== 'image' ? 'image' : 'black'` — elas
+**normalizavam para preto tudo que não fosse `'image'`**, inclusive o ausente.
+Virar só a inicialização teria funcionado no primeiro instante e se desfeito no
+primeiro `load()`, sem erro nenhum.
+
+A leitura passou a perguntar **`=== 'black'`, nunca `=== 'image'`**: valor
+ausente é quem nunca escolheu e cai no padrão; só o "Remover" grava um valor, e
+esse aparelho continua onde estava. É a mesma forma do `semInfantis !== false`
+do sorteio, e pelo mesmo motivo.
+
+### O REENVIO À TELA DA REDE SÓ ACERTAVA POR COINCIDÊNCIA
+
+`telaReenviarPreferencias` mandava o `lyricsbg` sob `if (lyricsBg === 'image')`,
+e isso estava certo **por acidente**: o caso que ele omitia era exatamente o
+valor com que a tela nasce (ela não tem o IndexedDB do app). Virando o padrão a
+coincidência se inverte, e a condição passaria a calar justamente o "Remover" —
+tela com imagens e telão sem, na mesma cena. Vai sem condição; é um objeto JSON
+e não depende mais do nascimento da tela.
+
+### DUAS HIPÓTESES DESCARTADAS MEDINDO
+
+- **Música sem imagem.** A classe `.imgbg` é ligada pelo MODO, não pela
+  existência da imagem — parecia que uma faixa sem foto ganharia uma caixa cinza.
+  Ela só acrescenta `--lyrics-frame-bg`, que é `rgba(0, 0, 0, .62)`: sobre o
+  palco preto compõe preto. Idêntico ao que era.
+- **Telas da rede.** Os bytes das imagens já viajavam sem depender do modo
+  (`telaEmpurrarImagensLetra`), então o padrão novo não cria um caso de "tela sem
+  nada".
+
+### O ORÁCULO, E O QUE ELE ENSINOU NA PRIMEIRA REPROVAÇÃO
+
+Bloco novo no `boot-nativo.test.mjs`, em **contexto próprio** — o `ctx`
+compartilhado grava `lyricsBg` no bloco do `__tela`, e medir o padrão depois
+dele seria ler a escrita alheia, aprovando com a leitura invertida. Duas
+metades: o aparelho recém-instalado nasce em Mostrar, **e** o "Remover" do
+operador sobrevive à reabertura.
+
+Ele reprovou na primeira execução com `marcado: null`, e a resposta não era mais
+prazo: `__avBack` existe assim que o `controle.js` é parseado, mas quem marca o
+segmento é o `load()`, que é assíncrono. Passou a esperar pelo critério do
+watchdog (`#playlist li`) — e não é tautologia, porque dentro do `load()` o
+`renderLyricsBgSeg()` roda ANTES do `renderPlaylist()`.
+
+---
+
+## v1.1 — as duas linhas convergem, e o lote pede Release
+
+*"Gere a release com o APK também, atualizando todas as versões para a 1.1."*
+
+Base e APK no mesmo número. `version.json` declara `shellTag: "v1.1"` — o
+acoplamento que SEGURA o bundle até a Release existir, para o aparelho receber
+as duas metades como um lote só, numa pergunta só.
+
+**Nada mudou em `java/`, `res/` nem no `AndroidManifest.xml` desde a v1.0.6**
+(medido: o diff daquela tag até aqui só toca `.github/workflows` e `tools/`,
+nenhum dos dois no APK). O APK da 1.1 é o mesmo shell, com `SHELL_VERSION` 47
+intacto. O que ele entrega é a base embutida já na 1.1 — quem instalar de novo
+não precisa de uma rodada de OTA em seguida — e o `versionName` de volta em
+sincronia com a base.
+
+**O hold soltou como está escrito:** o push em `main` segurou o bundle (a
+Release ainda não existia), e o disparo manual com `release_tag=v1.1` criou a
+tag e a Release; o `web-ota`, que tem o `apk` no `needs`, consultou a Release já
+publicada NO MESMO RUN. É por isso que não se espera o gatilho `release` — ele
+nunca chega, porque a Release nasce do `GITHUB_TOKEN` padrão.
+
+### A ARMADILHA DO NÚMERO, generalizada
+
+`1.1` e `1.1.0` são a MESMA versão para o `compareVersions`, que completa com
+zero o componente que falta — e isso vale para todo número de dois componentes,
+não só para a `1.0` de que a regra nasceu. O primeiro degrau depois de um número
+de dois componentes é o **`.1`**: depois da `1.0` veio a `1.0.1`, e depois da
+`1.1` veio a `1.1.1`. Publicar a `1.1.0` seria uma atualização que aparelho
+nenhum pega, em silêncio.
 
 ---
 
