@@ -1636,12 +1636,24 @@ ser diagnosticável.
   LouvorJA com um id do YouTube; como falha de rede não grava `LYRIC_NONE` de
   propósito, eram ~52 requisições perdidas **por abertura, para sempre**,
   infladas no total da notificação.
-- **O card não baixa em lote, e o botão muda de verbo.** "Baixar" ali seria o
-  download direto que o operador pediu para não existir, na maior escala do app
-  (~15 GB). O botão da barra some assim que HÁ índice (sem índice ele fica —
-  ali ele busca a lista, não baixa), o item de opções vira **"Atualizar a
-  lista"** (`syncCollection(coll, { soIndice: true })`) e a série sai de "Baixar
-  toda a biblioteca", peso incluído.
+- **O CARD DA SÉRIE TEM UM BOTÃO SÓ** (v1.1.21), e é o de **atualizar a lista**
+  (`syncCollection(coll, { soIndice: true })`) — puro, sem texto, na direita da
+  barra. Os outros dois saíram porque **o álbum de série não retém arquivo**: um
+  episódio só existe no aparelho enquanto está no Cronograma, nos Favoritos ou na
+  playlist, e o coletor o recolhe quando sai de lá. Logo não há o que baixar em
+  lote (~15 GB) nem o que remover — "Remover do dispositivo" ali apagaria o que
+  está em OUTRA lista, ou nada. A série também sai de "Baixar toda a biblioteca",
+  peso incluído, e a barra dela **não anuncia peso**: diz quantos episódios a
+  lista tem, porque o peso ali era o custo de um download que não existe.
+- **O EPISÓDIO DESTE SÁBADO fica DESTACADO no topo da lista** (v1.1.21,
+  `blocoDestaque`), e SAI dela — duas linhas que fazem a mesma coisa, a dois
+  centímetros uma da outra, é a de baixo que o operador toca por engano. Quem
+  responde "qual é o desta semana?" é `AVSerie.ehDoSabadoAtual` (puro, com
+  oráculo): a janela é a **semana adventista**, de domingo a sábado, e não o dia
+  exato — a régua deste módulo é a data do TÍTULO, e exigir o dia faria um
+  episódio datado de sexta sumir do destaque. Sem ele, o bloco diz **"Aguardando
+  lançamento"** com a data do sábado ao lado: sem o bloco, um card sem o vídeo da
+  semana fica indistinguível de um que não carregou.
 - **O card não é desenhado abaixo do shell 41** — um card que não carrega nada é
   pior que card nenhum.
 
@@ -2808,7 +2820,7 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: v1.1.20** (base web) · **v1.1.10** (APK) · `SHELL_VERSION` **49** · bundle com
+**Versão atual: v1.1.21** (base web) · **v1.1.10** (APK) · `SHELL_VERSION` **49** · bundle com
 `minShell: 49` — o shell 49 é o **PISO**: todo método da ponte existe, e não há
 guarda de versão no lado web. O que continua valendo é que `java/`, `res/`, o
 manifest e os workflows **só chegam instalando o APK**.
