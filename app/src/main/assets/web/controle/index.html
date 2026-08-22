@@ -662,8 +662,15 @@
              implementação de nada (invariante 5). O ⏮/⏭ recebe o MESMO
              `attachTransportStep` da barra de transporte, então herda os dois
              eixos de graça: toque curto passa estrofe, toque longo passa mídia.
-             O volume reusa `simpleVolStep` + `holdRepeat`, os mesmos do Modo
-             Fácil (segurar repete).
+
+             O VOLUME NÃO ESTÁ AQUI (v1.1.2), e é o único controle da tela cheia
+             que tem um alvo MELHOR fora da tela: os botões FÍSICOS do aparelho,
+             que o `captureVolumeKeys` já entrega ao mesmo fader
+             (`__avVolumeKey` → `applyVolume`). Eles se acham no escuro, sem
+             tirar o olho da projeção, e não custam os 4s de espera para a coluna
+             acender. Dois botões a menos também é o vão entre os que ficaram —
+             e num alvo que se opera sem olhar, o vão é o que separa um controle
+             do seguinte.
 
              SVG e não `.msym`: a fonte é um subset de 31 codepoints, e o
              `.pv-fab` pendura três `drop-shadow` no TRAÇO do SVG — é o que
@@ -698,12 +705,6 @@
           </button>
           <button type="button" id="fsNext" class="pv-fab" title="Próxima estrofe (segurar: próxima mídia)">
             <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6v12"/><path d="M5 6.6 14.4 12 5 17.4z"/></svg>
-          </button>
-          <button type="button" id="fsVolUp" class="pv-fab" title="Aumentar o volume" aria-label="Aumentar o volume">
-            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9.5h2.8L11 5.8v12.4L6.8 14.5H4z"/><path d="M16.5 9.2v5.6"/><path d="M13.7 12h5.6"/></svg>
-          </button>
-          <button type="button" id="fsVolDown" class="pv-fab" title="Abaixar o volume" aria-label="Abaixar o volume">
-            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9.5h2.8L11 5.8v12.4L6.8 14.5H4z"/><path d="M13.7 12h5.6"/></svg>
           </button>
         </div>
         </div>
@@ -1025,7 +1026,7 @@
              pedir ajuda"), e agora ocupam a mesma faixa: a versão à esquerda, o
              Registro à direita, no espaço que já estava sobrando. -->
         <div class="footer-diag">
-          <span id="appVersion" class="app-version">Controle v1.1.1</span>
+          <span id="appVersion" class="app-version">Controle v1.1.2</span>
           <span class="footer-diag-rot">Registro</span>
           <button id="diagCopy" class="log-copy" title="Copiar o registro" aria-label="Copiar o registro">
             <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoCopiar"/></svg>

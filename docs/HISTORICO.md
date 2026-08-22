@@ -24,6 +24,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
+- **v1.1.2** — QUATRO AJUSTES PEDIDOS: a coluna da tela cheia ocupa a lateral inteira (centrada, ela era um bloco de 250px numa tela em paisagem), ganha botão de 40px e PERDE o par de volume — os botões físicos já entregam ao mesmo fader, se acham no escuro e não esperam os 4s da coluna acender (vão de 2px → ~46px); o ✕ de PARAR da notificação vira o quadrado que a ação é — `android.R.drawable` não tem um ícone de parar, e o ✕ se lia como "dispensar"; e o redesenho do progresso de um download deixa de remontar a Biblioteca por baixo da gaveta que o operador acabou de abrir — o caso do relato acontecia DENTRO do `await` da montagem, e o toque simplesmente não fazia nada. EXIGE RELEASE
 - **v1.1.1** — AS IMAGENS DOS SLIDES PASSAM A SER O PADRÃO: o app nascia em "Remover" e o hino saía em texto sobre preto — escondendo imagens que já vinham baixadas com a música. O padrão morava em QUATRO lugares, e dois deles eram leituras que normalizavam tudo que não fosse `'image'` para preto: virar só a inicialização se desfaria no primeiro `load()`. Mais o reenvio à tela da rede, que só acertava por coincidência enquanto o padrão era preto. OTA PURO
 - **v1.1** — AS DUAS LINHAS CONVERGEM: base e APK no mesmo número, com `shellTag` acoplando o lote numa pergunta só. Nada mudou em `java/`, `res/` nem no manifest desde a v1.0.6 — o que a Release entrega é a base embutida já na 1.1 (instalação nova não precisa de uma rodada de OTA) e o `versionName` de volta em sincronia. `SHELL_VERSION` segue 47. EXIGE RELEASE
 - **v1.0.8** — QUATRO AJUSTES DE CONFIGURAÇÕES E DA PERGUNTA: a consequência passa a começar com "Ao atualizar" (sem o marco de tempo ela se lia como mais um item da lista de mudanças logo acima), o botão de atualizar só existe depois do "deixar para depois" (e o "Procurar atualização" sai, com o caminho de busca inteiro), o "Modo do app" ganha o peso da decisão que ele é, e o Registro vai para a linha da versão — o espaço que sobrava. OTA PURO
@@ -199,6 +200,153 @@ na nota que a revoga, não apagada da que a criou.
 - **v5.156** — é METADE OTA e METADE APK, de novo.
 
 ---
+
+## v1.1.2 — quatro ajustes pedidos: a coluna da tela cheia, o volume que sai dela, o ✕ que era um parar, e o download que fechava a gaveta
+
+Quatro relatos do operador, independentes entre si:
+
+1. *"Ajuste a coluna de botões da tela cheia do preview para que ela aproveite a
+   altura total disponível, é claro com margens mínimas no topo e base. E
+   aproveite para aumentar ligeiramente o tamanho dos ícones/botões dessa
+   coluna."*
+2. *"Ajuste o x do controle de player que fica na notificação, para que ele seja
+   um ícone de stop, pois essa é a função dele, ele está com o ícone difere de
+   sua função."*
+3. *"Enquanto está baixando as coletâneas, eu não consigo abrir os itens nos
+   álbuns para ver e interagir com o que já está baixado, como se a atualização
+   da tela por causa dos downloads estivesse fechando a seção de opções de
+   play."*
+4. *"Pode remover os botões de volume na tela cheia do preview, para volume
+   usamos apenas os botões físicos do smartphone. (isso vai melhorar o
+   espaçamento vertical dessa coluna)"*
+
+### 1 e 4. A COLUNA OCUPA A LATERAL INTEIRA, E O VOLUME SAI DELA
+
+Ela nasceu na v1.0.7 `top: 50%` + `translateY(-50%)`, com o comentário
+"centrada na vertical porque em paisagem é onde o polegar direito alcança sem
+reposicionar o aparelho". O argumento estava certo sobre o ALCANCE e errado
+sobre a consequência: em paisagem os sete botões de 34px somavam ~250px de um
+lado de ~390px, e o resultado era um bloco denso no meio com metade da lateral
+vazia. O polegar alcança a lateral inteira; o que ele não faz é distinguir dois
+ícones separados por 2px sem olhar — e quem está em tela cheia está olhando a
+projeção.
+
+`top: 2px; bottom: 2px` (a mesma folga dos `.pv-fabs` dos cantos) mais
+`justify-content: space-between`. O alvo sobe de `--hit` (34px) para 40px e o
+ícone de 24px para 28px — a folga liberada paga os dois.
+
+**`space-between` e não `space-evenly`:** com `top`/`bottom` fixos, são os dois
+extremos que ficam parados quando o número de botões muda.
+
+**E o par de VOLUME saiu**, no mesmo lote e pelo pedido 4. Ele é o único controle
+daquela coluna com um alvo **melhor fora da tela**: os botões FÍSICOS do
+aparelho, que `captureVolumeKeys` já entrega ao MESMO fader (`__avVolumeKey` →
+`applyVolume`, desde a v5.x). Eles se acham no escuro, sem tirar o olho da
+projeção, e não custam os 4 s de espera até a coluna acender — o par na tela era
+a alternativa pior das duas, ocupando duas das sete vagas. `simpleVolStep` e
+`holdRepeat` FICAM: são os mesmos do Modo Fácil, e é lá que continuam sendo
+usados.
+
+**MEDIDO em 800×390** (paisagem de celular): coluna de 386px, cinco alvos de
+40px, **vão de ~46px** entre vizinhos — maior que o próprio botão, contra os 2px
+de antes. O que separa um controle do seguinte deixou de ser um fio.
+
+**Errar o alvo continua custando um toque, nunca uma ação errada.** Acesa, a
+coluna é `pointer-events: auto` inteira: o dedo que cai num vão morre nela em vez
+de atravessar para a projeção, e o `pointerdown` que borbulha até a `.preview`
+ainda renova os 4 s do `acenderFsCtl`.
+
+**O preço, dito:** o `peekVolume` que a tecla física dispara mora no mixer, FORA
+do elemento em tela cheia — ali a tecla muda o volume sem mostrar o fader. Não é
+regressão deste lote (era assim antes dele, e os botões removidos também não
+mostravam número nenhum).
+
+### 2. O ✕ DE "PARAR" ERA O ÍCONE DE OUTRA COISA
+
+`android.R.drawable` tem `ic_media_play`, `ic_media_pause`, `ic_media_previous` e
+`ic_media_next` — e **não tem parar**. O que ocupava o lugar era o
+`ic_menu_close_clear_cancel`, um ✕: ao lado de um ▶ e de um ⏭, ele não se lê como
+"parar", se lê como "dispensar a notificação" — a única coisa que aquele botão
+não faz. Ele encerra a CENA.
+
+`res/drawable/ic_stop.xml`, quadrado cheio, nos DOIS lugares que o Android lê (a
+`PlaybackState.CustomAction`, que desenha do 13 em diante, e a
+`Notification.Action` abaixo dele). É o mesmo símbolo do `#stop` da barra de
+transporte do app — a mesma regra que a cortina (`ic_image`/`ic_image_off`) já
+seguia, e a razão de a exceção "um conjunto próprio no `res/` não se paga" existir
+com nome e motivo em vez de valer para tudo.
+
+**O ✕ fica onde ele é verdade:** o "Desligar transmissão" do cartão da
+transmissão, que de fato encerra e dispensa.
+
+### 3. O PROGRESSO DO DOWNLOAD REMONTAVA A BIBLIOTECA POR BAIXO DA GAVETA
+
+Enquanto um download corre, `setCollStatus`/`setGroupStatus` chamam
+`refreshCollectionsIfVisible` a cada arquivo, e o tique coalescido de 400 ms fazia
+`renderSearchResults` em modo folhear — que é `hymnResultsEl.innerHTML = ''`
+seguido da remontagem de todos os cards.
+
+**O que abre uma linha vive no `li` que ele acabava de jogar fora:** a classe
+`expanded`, a closure `gavetaMontada`, os destinos marcados (`destLimpar()` na
+remontagem) e a letra já lida.
+
+E o caso do relato é o mais estreito dos dois: **ele acontecia DENTRO do
+`await`**. Entre o toque e o `li.classList.add('expanded')` o handler espera o
+IndexedDB (a letra, ou o `mediaByYoutube` de um vídeo); o tique caía ali, o `li`
+do toque virava órfão e as últimas linhas do handler escreviam num nó fora do
+documento. **O toque não fazia nada, e nada explicava por quê** — indistinguível
+de "o app travou".
+
+**A resposta é ESPERAR, não restaurar depois.** Remontar a gaveta a cada 400 ms
+apagaria os destinos marcados, recarregaria a letra e mexeria no scroll debaixo
+do dedo — as três coisas que o operador está usando justamente enquanto ela está
+aberta. O tique passa a consultar `interacaoAbertaNoAcervo()` e a **se rearmar**
+em vez de redesenhar: a espera dura exatamente o tempo em que há gaveta aberta, e
+o redesenho com o estado final sai sozinho no primeiro tique depois que ela
+fecha — sem depender de alguém lembrar de chamá-lo de dentro de cada caminho que
+fecha uma gaveta.
+
+- **`abrindo`, marca SÍNCRONA**, escrita antes do primeiro `await` e removida num
+  `finally`: é ela que cobre a janela do relato. Sem CSS próprio de propósito —
+  é estado, como `expanded` e `vendo-letra`.
+- **`.acoes-abertas` entra no mesmo guarda:** a seção de Favoritos da Biblioteca é
+  montada dentro do MESMO host, e o `⋮` de uma linha dela morria no mesmo
+  `innerHTML = ''`.
+- **`acervoAVista()` nasce como função** — a pergunta "o acervo está à vista?"
+  passou a ter dois consumidores (o redesenho e a espera), e duas escritas dela
+  divergiriam no primeiro ajuste.
+- **O preço, dito:** com a gaveta aberta, o número do progresso no card fica
+  parado. Ele volta em dia no primeiro tique depois que ela fecha, e a linha da
+  faixa continua com o anel de download ao vivo (`setSongRowBusy` escreve no DOM
+  direto, sem passar por render).
+
+### O ORÁCULO
+
+`tools/gaveta-no-download.test.mjs`, no workflow no MESMO commit em que nasce.
+Ele cobra QUATRO metades, e nenhuma sozinha prova o recurso: o **hazard** (um
+redesenho não guardado fecha a gaveta — sem ela o resto provaria que uma função
+concorda consigo mesma), a **marca síncrona** (medida no turno do clique, com o
+`expanded` ainda por escrever), o **caminho de verdade** (`setCollStatus`, e o
+carimbo no nó prova que é o MESMO `li`, não um remontado e reaberto) e o fato de
+a espera **terminar** — sem esta, "nunca redesenhar" passaria.
+
+A espera do caso 3 é pelo FATO, não por relógio: um espião conta as consultas do
+tique ao guarda e o oráculo espera três delas. Um `waitForTimeout` ali seria uma
+aposta na máquina.
+
+**E ele nasceu com a quarta classe de "oráculo que mede o runner" dentro** — o
+oráculo correndo contra o app —, reproduzida na campanha e não por inspeção:
+ligar o modo avançado por `evaluate` depois da carga é uma corrida contra o
+`setAppMode(appMode)` que o `init()` faz depois do `load()`, e `setAppMode`, em
+avançado, chama `closeHymnSearch()`. Vencendo a corrida, a Biblioteca que o
+oráculo tinha aberto fechava sozinha e o log mostrava quatro asserções falhando
+sobre uma tela que não estava mais lá. A correção é a da tabela: montar o cenário
+onde o app não alcança — o modo é SEMEADO em `localStorage` por `addInitScript`,
+antes da primeira linha do app — e esperar pelo app estar DE PÉ com a mesma
+pergunta do watchdog de boot, mais o `--tab-w` que só aquele `setAppMode` escreve.
+
+**A campanha:** 8/8 do oráculo novo a 4× de carga e **52/52** (26 oráculos × 2
+rodadas) a 2×.
 
 ## v1.1.1 — as imagens dos slides passam a ser o padrão
 

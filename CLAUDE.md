@@ -139,6 +139,7 @@ app/src/main/
 │   └── EspelhoDiag.kt           # o DIÁRIO da transmissão — devolve JSON, não frase
 └── res/
     ├── drawable/                # ic_image{,_off} — a cortina, na notificação
+    │                            #  + ic_stop — PARAR (o sistema não tem um)
     │                            #  + ic_launcher_{foreground,mono} — o ÍCONE, em vetor
     ├── mipmap-anydpi-v26/       # ic_launcher{,_round}: o adaptativo (o único, minSdk 26)
     ├── values/colors.xml        # app_bg e ic_launcher_background: ESPELHAM tokens da base web
@@ -955,13 +956,23 @@ menos óbvio:
 
 ### Ícones
 
-Os do sistema (`android.R.drawable.*`: `ic_media_previous`,
-`ic_media_play`/`ic_media_pause`, `ic_media_next`, e `ic_menu_close_clear_cancel`
-para Parar) — um conjunto próprio no `res/` só para cinco botões não se paga, e o
-`MediaStyle` os tinge conforme o tema. **Exceção: a cortina** (`ic_image` /
-`ic_image_off`, vetores próprios): o sistema não tem imagem riscada, e o
-`ic_menu_view` é um OLHO, que sugere "esconder a vista" quando o que sai do telão
-é a MÍDIA.
+Os do sistema onde eles existem (`android.R.drawable.*`: `ic_media_previous`,
+`ic_media_play`/`ic_media_pause`, `ic_media_next`) — um conjunto próprio no
+`res/` só para cinco botões não se paga, e o `MediaStyle` os tinge conforme o
+tema. **Duas exceções, e as duas pelo mesmo motivo: o símbolo certo não está
+lá.**
+
+- **A cortina** (`ic_image` / `ic_image_off`): o sistema não tem imagem riscada,
+  e o `ic_menu_view` é um OLHO, que sugere "esconder a vista" quando o que sai
+  do telão é a MÍDIA.
+- **Parar** (`ic_stop`, v1.1.2): `android.R.drawable` tem play, pause, ⏮ e ⏭ e
+  **não tem parar**. O que ocupava o lugar era o `ic_menu_close_clear_cancel` —
+  um ✕, que num player não diz "parar", diz "fechar": ao lado do play e do ⏭ ele
+  se lia como "dispensar a notificação", a única coisa que aquele botão não faz.
+  O quadrado cheio é o MESMO símbolo do `#stop` da barra de transporte do app,
+  que é a regra que a cortina já seguia. (O ✕ fica onde ele é verdade: o
+  "Desligar transmissão" do cartão da transmissão, que de fato encerra e
+  dispensa.)
 
 **O ícone mostra o ESTADO; o rótulo, a AÇÃO.** Telão coberto = imagem riscada;
 mídia no ar = imagem inteira. O rótulo ("Cobrir telão"/"Mostrar mídia") nomeia o
@@ -2137,6 +2148,7 @@ mundo anterior por outro caminho.
 | `ponte.test.mjs` | **o que a ponte de fato ENTREGA** — `native.js` REMONTA campo a campo, e um campo esquecido some em silêncio. Afirma também que ele não drena papel nenhum e que o display emite as quatro mensagens (`display-ready`, `display-status`, `media-ended`, `mic-status`) — quem filtra é o `tela.js`, nunca a fonte |
 | `cena.test.mjs` | o que o telão mostra ao RECONECTAR (o caminho menos testável à mão: exige TV, dongle e o timing de derrubá-lo) |
 | `imagem-sobre-audio.test.mjs` | a IMAGEM projetada por cima do áudio. A regra é uma AUSÊNCIA — nenhum `load` sai daquele caminho —, e ausência não tem sintoma de tela nem erro de console: quem a prova é o `currentTime` do `<video>` medido em DOIS instantes ("não pausou" é fraco; "andou" prova que é o mesmo áudio). Nas duas metades: o Controle que decide sobrepor e o telão que pinta |
+| `gaveta-no-download.test.mjs` | a GAVETA DA LINHA contra o redesenho do progresso — o único lugar do acervo em que o operador DECIDE, e o redesenho remontava a lista por baixo dela a cada 400 ms. MUDO nos dois tempos: aberta, ela some sem erro nenhum; ABRINDO (há um `await` do IndexedDB entre o toque e o `expanded`), o `li` vira órfão e o toque não faz nada. Quatro metades, e a primeira é o HAZARD — sem ela as outras provariam que uma função concorda consigo mesma |
 | `destinos.test.mjs` | o que está marcado atravessa o fechamento da folha — a ação roda depois de `closeSongMenu()`, que zera o conjunto |
 | `sorteio-tela.test.mjs` | a **playlist automática** da folha até a fila. O `sorteio.test.mjs` trava a REGRA; este trava a LIGAÇÃO, que falha de outro jeito — a regra continua certa e o recurso não faz nada. As quatro capacidades injetadas são ponteiros, e um errado devolve um pool plausível e ERRADO |
 | `db-gc.test.mjs` | o coletor de lixo — o único código do app que APAGA mídia do operador |
@@ -2493,7 +2505,7 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: v1.1.1** (base web) · **v1.1** (APK) · `SHELL_VERSION` **47** · bundle com
+**Versão atual: v1.1.2** (base web) · **v1.1.2** (APK) · `SHELL_VERSION` **47** · bundle com
 `minShell: 47` — o shell 47 é o **PISO**: todo método da ponte existe, e não há
 guarda de versão no lado web. O que continua valendo é que `java/`, `res/`, o
 manifest e os workflows **só chegam instalando o APK**.

@@ -170,7 +170,7 @@ const appVersionEl = document.getElementById('appVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.1.1';
+const WEB_VERSION = '1.1.2';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -7690,21 +7690,70 @@ function buildCollectionOptions(coll, collOptsEl) {
 // (fim do download, status limpo) chega pelo mesmo caminho e fecha o estado.
 const COLL_REFRESH_MS = 400;
 let collRefreshTimer = null;
+// O acervo não tem mais aba própria (v5.44): quem o mostra é o estado padrão da
+// busca. UMA definição de "ele está de fato à vista", usada pelo redesenho e
+// pela espera abaixo — duas escritas da mesma pergunta divergiriam no primeiro
+// ajuste, e a de baixo passaria a segurar (ou a soltar) o redesenho errado.
+function acervoAVista() {
+  return hymnSearchPopupEl.classList.contains('open')
+    && searchIsBrowsing(normalizeForSearch(hymnSearchInputEl.value).trim());
+}
+/**
+ * ===== O PROGRESSO ESPERA A GAVETA FECHAR (v1.1.2) =====
+ *
+ * Relato do operador: *"enquanto está baixando as coletâneas, eu não consigo
+ * abrir os itens nos álbuns para ver e interagir com o que já está baixado,
+ * como se a atualização da tela por causa dos downloads estivesse fechando a
+ * seção de opções de play"*.
+ *
+ * Era isso mesmo. `renderSearchResults` em modo folhear faz
+ * `hymnResultsEl.innerHTML = ''` e remonta os cards inteiros — e o que ABRE uma
+ * linha vive no `li` que ele acabou de jogar fora: a classe `expanded`, a
+ * closure `gavetaMontada`, os destinos marcados (`destMarcados`, zerados por
+ * `destLimpar()` na remontagem) e a letra já lida. A cada 400 ms de download a
+ * gaveta voltava fechada e vazia.
+ *
+ * **A espera é a resposta certa, e não restaurar o estado depois.** Remontar a
+ * gaveta a cada 400 ms apagaria os destinos marcados, recarregaria a letra e
+ * mexeria no scroll debaixo do dedo — três coisas que o operador está usando
+ * justamente enquanto ela está aberta. O que se perde esperando é o número do
+ * progresso ficar parado no card por alguns segundos, e ele volta em dia no
+ * primeiro tique depois que a gaveta fecha.
+ *
+ * O tique se REARMA em vez de marcar um pendente: a espera dura exatamente o
+ * tempo em que há gaveta aberta, e o desfecho (um redesenho com o estado final)
+ * acontece sozinho, sem depender de alguém lembrar de chamar isto de dentro de
+ * cada caminho que fecha uma gaveta.
+ */
+function interacaoAbertaNoAcervo() {
+  // `abrindo` conta como aberta, e é ela que fecha o caso do RELATO: entre o
+  // toque e o `expanded` há um `await` (a letra sai do IndexedDB, o estado de um
+  // vídeo sai de `mediaByYoutube`), e era ali que o redesenho alcançava a linha
+  // — o `li` do toque virava órfão e a classe caía num nó fora do documento. O
+  // toque não fazia nada, e nada explicava por quê.
+  //
+  // `.acoes-abertas` é a MESMA armadilha na outra lista deste host: a seção de
+  // Favoritos da Biblioteca é montada aqui dentro, e o `⋮` de uma linha dela
+  // morre no mesmo `innerHTML = ''`.
+  return !!hymnResultsEl.querySelector(
+    '.hymn-result.expanded, .hymn-result.abrindo, .acoes-abertas',
+  );
+}
 function refreshCollectionsIfVisible() {
   if (collRefreshTimer) return;
   collRefreshTimer = setTimeout(() => {
     collRefreshTimer = null;
+    if (acervoAVista() && interacaoAbertaNoAcervo()) {
+      refreshCollectionsIfVisible();   // rearma: o redesenho sai quando fechar
+      return;
+    }
     renderCollectionsNow();
   }, COLL_REFRESH_MS);
 }
 function renderCollectionsNow() {
-  // O acervo não tem mais aba própria (v5.44): quem o mostra é o estado padrão
-  // da busca. Só redesenha se ele estiver de fato à vista — redesenhar por
-  // baixo de uma lista de músicas tiraria do lugar o que o operador mira.
-  if (hymnSearchPopupEl.classList.contains('open')
-      && searchIsBrowsing(normalizeForSearch(hymnSearchInputEl.value).trim())) {
-    renderSearchResults(hymnSearchInputEl.value);
-  }
+  // Só redesenha com o acervo à vista — redesenhar por baixo de uma lista de
+  // músicas tiraria do lugar o que o operador mira.
+  if (acervoAVista()) renderSearchResults(hymnSearchInputEl.value);
   // (O painel de opções vive DENTRO do card desde a v5.72, então ele é
   // redesenhado junto com o acervo — não há mais um popup a sincronizar à
   // parte.)
@@ -12919,18 +12968,32 @@ function hymnResultRow(coll, s, lyricHit, semColecao) {
       });
     }
     if (aberta) { collapseAccordion(gaveta, () => li.classList.remove('expanded')); return; }
-    // A gaveta é montada ANTES de abrir: a animação mede a altura do que vai
-    // ficar em cena, e uma caixa ainda vazia mediria zero. Uma vez só — a
-    // guarda vive AQUI, e não dentro de cada montador, para os dois não terem
-    // de repeti-la (e para o próximo tipo não poder esquecê-la).
-    if (!gavetaMontada) {
-      gavetaMontada = true;
-      montarOpcoes();
-      await (temLetra(coll) ? montarLetra() : montarDetalhe());
+    // ===== A MARCA DE "ABRINDO" É SÍNCRONA (v1.1.2) =====
+    // Ela existe para o `interacaoAbertaNoAcervo` enxergar esta linha ANTES do
+    // primeiro `await` abaixo: com um download correndo, o redesenho do
+    // progresso (a cada 400 ms) alcançava a lista no meio da montagem, o `li`
+    // deste toque virava órfão e o `expanded` das últimas linhas caía num nó
+    // fora do documento — o toque não abria nada e nada explicava por quê.
+    // Sem CSS próprio de propósito: é estado, como `expanded` e `vendo-letra`.
+    li.classList.add('abrindo');
+    try {
+      // A gaveta é montada ANTES de abrir: a animação mede a altura do que vai
+      // ficar em cena, e uma caixa ainda vazia mediria zero. Uma vez só — a
+      // guarda vive AQUI, e não dentro de cada montador, para os dois não terem
+      // de repeti-la (e para o próximo tipo não poder esquecê-la).
+      if (!gavetaMontada) {
+        gavetaMontada = true;
+        montarOpcoes();
+        await (temLetra(coll) ? montarLetra() : montarDetalhe());
+      }
+      li.classList.add('expanded');
+      expandAccordion(gaveta);
+      if (letraAlvo) letraAlvo.scrollIntoView({ block: 'center' });
+    } finally {
+      // No `finally` porque um montador que lance não pode deixar a marca
+      // presa: ela seguraria o redesenho do acervo até a linha sair da tela.
+      li.classList.remove('abrindo');
     }
-    li.classList.add('expanded');
-    expandAccordion(gaveta);
-    if (letraAlvo) letraAlvo.scrollIntoView({ block: 'center' });
   });
 
   li.append(row, gaveta);
@@ -18686,9 +18749,11 @@ hymnSearchInputEl.addEventListener('input', debounce(() => renderSearchResults(h
     // reimplementada, e ela envelheceria à parte.
     attachTransportStep(document.getElementById('fsPrev'), -1);
     attachTransportStep(document.getElementById('fsNext'), 1);
-    // Segurar repete, como no Modo Fácil — mesma função, mesmo passo.
-    holdRepeat(document.getElementById('fsVolUp'), () => simpleVolStep(1));
-    holdRepeat(document.getElementById('fsVolDown'), () => simpleVolStep(-1));
+    // (O par de VOLUME saiu daqui na v1.1.2. Ele é o único controle desta
+    // coluna com um alvo melhor FORA da tela: os botões físicos do aparelho,
+    // que `captureVolumeKeys` já entrega ao mesmo fader — se acham no escuro,
+    // não gastam os 4s de espera da coluna acender, e as duas vagas viraram vão
+    // entre os cinco que ficaram.)
   }
 
   // Sair da tela cheia apaga a coluna: reentrar tem de começar do estado limpo,

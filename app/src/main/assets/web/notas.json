@@ -1,5 +1,14 @@
 [
   {
+    "versao": "1.1.2",
+    "itens": [
+      "Tela cheia: a coluna de controles passa a ocupar a lateral inteira, com os botões maiores e bem mais separados.",
+      "Tela cheia: os botões de volume saíram da coluna — o volume continua nos botões físicos do aparelho, que funcionam sem precisar acender nada na tela.",
+      "Notificação: o botão de parar deixa de ser um ✕ e vira o quadrado de parar, que é o que ele faz.",
+      "Biblioteca: baixar uma coleção não fecha mais as opções de uma faixa aberta — e o toque para abri-la volta a funcionar durante o download."
+    ]
+  },
+  {
     "versao": "1.1.1",
     "itens": [
       "As imagens dos slides das músicas passam a aparecer por padrão — elas já vinham baixadas junto com o hino.",

@@ -554,6 +554,15 @@ jobs:
           # não o fluxo. Ele entra no workflow no MESMO commit em que nasce —
           # a lição da v5.145.
           rodar tools/ota.test.mjs
+          # E A GAVETA DA LINHA CONTRA O REDESENHO DO PROGRESSO. Ela é o único
+          # lugar do app em que o operador DECIDE (destinos marcados, letra
+          # lida, "Tocar agora"), e o redesenho do download remontava a lista
+          # por baixo dela a cada 400 ms. O defeito é mudo nos dois tempos: com
+          # a gaveta aberta ela some sem erro nenhum, e no meio da abertura —
+          # entre o toque e o `expanded` há um `await` do IndexedDB — o `li`
+          # vira órfão e o toque simplesmente não faz nada. Ele entra no
+          # workflow no MESMO commit em que nasce (a lição da v5.145).
+          rodar tools/gaveta-no-download.test.mjs
 
           # O PLACAR VAI PARA O RESUMO DO RUN, não só para o log — a queixa que
           # originou este lote foi precisamente que o desfecho só existia lá
