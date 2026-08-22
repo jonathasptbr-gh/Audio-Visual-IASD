@@ -24,6 +24,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
+- **v1.1.18** — A ABA DA BÍBLIA APARECIA MESMO COM A REGRA RECUSANDO-A: a v1.1.11 acertou a lista de fontes e esqueceu de aplicá-la na tela. Os três botões são HTML ESTÁTICO, e `renderLyricsView` só escondia o CONTAINER (com menos de duas fontes) e marcava o ativo — nunca um botão individual. Com música em cena há duas fontes, o container aparecia e a Bíblia vinha junto, fora de `avail`. Calcular a coisa certa e não aplicá-la é mudo por natureza: a função que decide passa em qualquer leitura, e só a tela denuncia. OTA PURO
 - **v1.1.17** — A CIFRA PASSA A SER BUSCADA QUANDO A MÚSICA ENTRA EM CENA, e não ao abrir a aba: quem a abre está com o instrumento na mão e a música tocando, o pior instante para esperar a rede. O gatilho mora no `send` — o ponto por onde TODOS os caminhos passam —, senão a playlist automática ficaria de fora e ninguém notaria. Nasce `cifraCabe`, UMA pergunta para os dois consumidores (a aba que se oferece e o `send` que busca), cortando por conteúdo musical: um episódio de série é testemunho em vídeo, e ali a busca é requisição perdida. O contrato não mudou — uma música por vez, sem lote e sem disco —, mudou o QUANDO. OTA PURO
 - **v1.1.16** — O BOTÃO DE VERIFICAR SAI, E A VERIFICAÇÃO FICA: ele só aparecia num álbum COMPLETO, e o que fazia — pular o TTL de 12 h para reler o índice — passou a acontecer sozinho na abertura, só para os álbuns que o operador TEM no aparelho e UMA VEZ POR SESSÃO (esta função roda a cada retomada, e o operador troca de app dezenas de vezes num culto). A lixeira sobe para a barra do card, revelada pelo mesmo gesto que revela o que ela apaga; o botão de BAIXAR deixa de se esconder com o card aberto, porque o painel que o repetia saiu. OTA PURO
 - **v1.1.15** — A TRANSPOSIÇÃO DEIXAVA OS ACORDES DE SÉTIMA MAIOR PARADOS: o sufixo da gramática era uma lista de palavras minúsculas EXIGINDO dígitos depois, e `7M` (dígito + M maiúsculo, a notação brasileira mais comum num hinário) não casava. Como `transporAcorde` devolvia intacto o que não casasse, `D7M/A` e `G7M` ficavam no tom original com a folha andando à volta deles — dissonância na frente de quem toca, sem sinal em lugar nenhum. Slash chords NUNCA estiveram quebrados. A correção por conjunto de caracteres foi reprovada pelo oráculo (`Cada` virava acorde); ficou uma sequência de PEÇAS inteiras, nenhuma exigindo dígito. A transposição passou a andar só na raiz e no baixo. OTA PURO
@@ -215,6 +216,34 @@ na nota que a revoga, não apagada da que a criou.
 - **v5.156** — é METADE OTA e METADE APK, de novo.
 
 ---
+
+## v1.1.18 — a aba da Bíblia aparecia mesmo com a regra recusando-a
+
+Relatado do aparelho, com captura: uma música em cena, a Bíblia fora do ar, e o
+seletor mostrando **Letra · Bíblia · Cifra**.
+
+### CALCULAR A COISA CERTA E NÃO APLICÁ-LA
+
+A v1.1.11 acertou a REGRA: `lyricsViewSources` já devolvia só o que cabe (com
+música, `lyrics` + `cifra`; a Bíblia só no ar, ou como reserva sem música). O
+que faltou foi usar a lista na tela.
+
+Os três botões são **HTML estático** — existem no documento desde a carga —, e
+`renderLyricsView` fazia duas coisas com eles: escondia o CONTAINER com menos de
+duas fontes, e marcava o ativo. Nenhuma delas escondia um botão individual. Com
+música em cena há duas fontes, então o container aparecia — e a Bíblia vinha
+junto, sem estar em `avail`.
+
+**É um defeito mudo por natureza:** a função que decide continua passando em
+qualquer leitura do código, e só a tela denuncia. A correção faz a visibilidade
+de cada botão sair da MESMA lista que já governa a precedência, para uma fonte
+nova nascer visível e uma fonte que saia sumir pelo mesmo caminho — em vez de
+dois lugares que precisam concordar.
+
+O container continua sumindo inteiro com menos de duas fontes: um seletor de uma
+opção não é um seletor.
+
+OTA PURO — `minShell` segue 49, sem `shellTag`.
 
 ## v1.1.17 — a cifra passa a ser buscada quando a música entra em cena
 

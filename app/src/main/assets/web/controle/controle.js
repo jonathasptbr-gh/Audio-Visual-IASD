@@ -232,7 +232,7 @@ const appVersionEl = document.getElementById('appVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.1.17';
+const WEB_VERSION = '1.1.18';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -9399,9 +9399,26 @@ function renderLyricsView() {
   lvSig = lvSignature(src);
   lvCurIdx = src ? lvCurrentIndex(src) : -1;
 
-  // Seletor só quando há de fato o que alternar.
+  // ===== O SELETOR MOSTRA SÓ AS FONTES QUE EXISTEM AGORA (v1.1.18) =====
+  //
+  // Os três botões são HTML ESTÁTICO — eles existem no documento desde a carga.
+  // A v1.1.11 acertou a LISTA (`lyricsViewSources` já devolvia só o que cabe) e
+  // esqueceu de usá-la aqui: o laço marcava o ativo e mais nada. Com uma música
+  // em cena há duas fontes (Letra + Cifra), o seletor aparece — e a Bíblia
+  // aparecia junto, sem estar em `avail`, oferecendo uma aba que a regra tinha
+  // acabado de recusar.
+  //
+  // **Calcular a coisa certa e não aplicá-la é um defeito mudo:** a função que
+  // decide continua passando em qualquer leitura, e só a tela denuncia. Por isso
+  // a visibilidade de cada botão passa a sair da MESMA lista que governa a
+  // precedência — uma fonte nova nasce visível pelo mesmo caminho, e uma que
+  // saia some pelo mesmo caminho.
+  //
+  // O container ainda some inteiro com menos de duas: um seletor de uma opção
+  // não é um seletor.
   lyricsViewSegEl.hidden = avail.length < 2;
   lyricsViewSegEl.querySelectorAll('.fit-opt').forEach((btn) => {
+    btn.hidden = !avail.includes(btn.dataset.lvsrc);
     btn.classList.toggle('active', btn.dataset.lvsrc === src);
   });
 

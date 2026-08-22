@@ -1094,7 +1094,10 @@ mixer (`#lyricsViewBtn`, folha com linhas) abre um bottom-sheet **com scroll**
   cifra do louvor de fundo no mesmo minuto. A folha responde *"o que está em cena
   AGORA?"*, e com a Bíblia projetando a resposta é uma só.
 - **O seletor do topo (`#lyricsViewSeg`) só aparece quando há mais de uma** fonte
-  — com uma só, ela abre direto, sem um seletor de uma opção. Os botões dividem a
+  — com uma só, ela abre direto, sem um seletor de uma opção. **E a visibilidade
+  de CADA botão sai da mesma lista** (v1.1.18): os três são HTML estático, então
+  calcular a lista certa e não aplicá-la deixava a Bíblia à vista com uma música
+  em cena — a regra recusava a fonte e a tela a oferecia. Os botões dividem a
   largura (`.fit-seg` é `flex`, `.fit-opt` é `flex: 1`), então menos abas já
   significa mais espaço para cada uma. A escolha manual (`lvSource`) vale
   enquanto aquela fonte existir; sumindo, cai na disponível.
