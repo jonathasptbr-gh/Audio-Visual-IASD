@@ -1,5 +1,12 @@
 [
   {
+    "versao": "1.1",
+    "itens": [
+      "O aplicativo foi republicado: quem instalar agora já recebe tudo que chegou pelas atualizações desde a 1.0.6.",
+      "As duas versões voltam a andar juntas — base e aplicativo na 1.1."
+    ]
+  },
+  {
     "versao": "1.0.8",
     "itens": [
       "O aviso da atualização passa a dizer \"Ao atualizar\", separando o que muda do que acontece ao tocar.",

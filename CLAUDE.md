@@ -2448,10 +2448,12 @@ um degrau "porque já mudou bastante": sobe-se o degrau que o LOTE justifica.**
 `1.5.0`, nunca `1.5.9`. Um número que não zera passa a contar duas coisas ao
 mesmo tempo e deixa de responder qualquer uma delas.
 
-**ARMADILHA MEDIDA: `1.0` e `1.0.0` são a MESMA versão** para o OTA. O
-`compareVersions` completa com zero o componente que falta, então republicar a
-`1.0` como `1.0.0` não é atualização nenhuma — o aparelho ignora, em silêncio.
-O primeiro degrau depois da `1.0` é **`1.0.1`**.
+**ARMADILHA MEDIDA: `1.1` e `1.1.0` são a MESMA versão** para o OTA, e vale para
+todo número de DOIS componentes. O `compareVersions` completa com zero o que
+falta, então republicar a `1.1` como `1.1.0` não é atualização nenhuma — o
+aparelho ignora, em silêncio. **O primeiro degrau depois de um número de dois
+componentes é o `.1`**: depois da `1.0` veio a `1.0.1`, e depois da `1.1` vem a
+`1.1.1`.
 
 > A comparação é **numérica por componente**, nunca lexical: `1.0.10` é MAIOR que
 > `1.0.9`. É o mesmo motivo pelo qual `4.9 < 4.82` como string seria errado — a
@@ -2476,7 +2478,7 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: v1.0.8** (base web) · **v1.0.6** (APK) · `SHELL_VERSION` **47** · bundle com
+**Versão atual: v1.1** (base web) · **v1.1** (APK) · `SHELL_VERSION` **47** · bundle com
 `minShell: 47` — o shell 47 é o **PISO**: todo método da ponte existe, e não há
 guarda de versão no lado web. O que continua valendo é que `java/`, `res/`, o
 manifest e os workflows **só chegam instalando o APK**.
