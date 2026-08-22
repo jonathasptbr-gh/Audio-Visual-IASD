@@ -24,6 +24,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
+- **v1.1.8** — A LETRA DO TELÃO NUNCA MAIS É CORTADA COM RETICÊNCIAS: o `-webkit-line-clamp: 2` era a garantia de encaixe, e é a única resposta que um telão não pode dar — o verso que some é o que a congregação ia cantar. Quem garante agora é uma ESCALA medida por busca binária, com piso, `ResizeObserver` e as MESMAS proporções calibradas. Mais a SEGUNDA PORTA do redesenho que fecha a gaveta (a busca no YouTube, irmã do progresso de download da v1.1.2), o "Tocar agora" nascendo MARCADO onde a mídia é local, a caixa crescendo de 76×32 para 84×40cq, os botões do aviso dividindo a largura toda e o LINK COPIADO virando uma pergunta na abertura (`areaTransferencia`). `SHELL_VERSION` 48. EXIGE RELEASE
 - **v1.1.7** — O ESPELHAMENTO LEVA O SOM DO APARELHO INTEIRO, e não há API pública que isole: o `Presentation` isola a JANELA, e o áudio do Wi-Fi Display nasce de um `REMOTE_SUBMIX` sem parâmetro de display. O que resolve é o som não NASCER no celular — e por isso a APRESENTAÇÃO passa a chegar às telas da rede (uma `/m/` por página), fechando a dívida que impedia o telão por comandos de substituir o espelhamento num culto com sermão. Mais o `AbortController` sem guarda, que derrubava toda TV de 2018 na entrada. OTA PURO
 - **v1.1.6** — O TAMANHO DA LETRA PASSA A SER DO OPERADOR: um par A+/A− nas DUAS casas de leitura (a folha do avançado e a linha do nome do Modo Fácil), escada DISCRETA e o valor salvo no banco. E o respiro entre estrofes volta a ser DERIVADO — com a fonte ajustável, um respiro fixo valeria só no degrau em que foi escolhido. A metade que falharia calada é a memória, e ela tem oráculo com PÁGINA NOVA. OTA PURO
 - **v1.1.5** — A LETRA RECUA PARA 1.4rem E O RESPIRO ENCOLHE: no dobro, TODA linha de hino quebrava em duas. E o respiro entre estrofes deixa de ser DERIVADO da fonte — "uma linha em branco" custava 2,1rem, e o custo virou rolagem em vez de tipografia. O piso que sobrevive (e que o oráculo passa a travar) é a ENTRELINHA da própria estrofe. OTA PURO
@@ -204,6 +205,277 @@ na nota que a revoga, não apagada da que a criou.
 - **v5.155** — é OTA PURO
 - **v5.156** — é METADE OTA e METADE APK, de novo.
 
+---
+
+## v1.1.8 — A letra não se corta; ela encolhe
+
+**Cinco pedidos do operador, quatro entregues aqui.** O quinto — o índice
+temático do hinário — está bloqueado por FALTA DE FONTE, não por trabalho: ver
+o fim do bloco.
+
+### A caixa escura NUNCA corta a letra com reticências
+
+Pedido verbatim: *"verifique as margens e tamanho total da zona escura que fica
+a letra na apresentação dos slides… ela não pode de forma alguma cortar a letra
+com reticências independente do tamanho da tela"*.
+
+**Eram DUAS causas somadas, e só a segunda é a que aparece na tela.**
+
+1. A caixa era `76cqw × 32cqh` — calibrada em cima de um vídeo de louvor de
+   referência, com a estrofe de DUAS linhas em mente. Hino de quatro linhas por
+   estrofe é comum, de oito não é raro.
+2. **O que garantia o encaixe era um `-webkit-line-clamp: 2`** na `.lyrics-line`
+   (e o irmão dele na `.pv-lyrics-line` da preview). Ele cumpria o contrato de
+   "não estoura a moldura" cortando o texto — e essa é a única resposta que um
+   telão não pode dar: **o verso que some é o que a congregação ia cantar, e
+   ninguém no salão tem como saber que faltou.** Não há erro, não há log, não há
+   sintoma: a projeção continua bonita e incompleta.
+
+**O clamp saiu.** Quem garante o encaixe é `ajustarLetra()` (`display.js`) e o
+espelho dele `pvAjustarLetra()` (`controle.js`): medem a altura das peças
+visíveis contra a altura útil da caixa e ENCOLHEM o conjunto até caber.
+
+- **Busca binária, sete passadas.** Um laço decrescente de 0,02 em 0,02 custaria
+  de 1 a 30 releituras forçadas de layout, e o pior caso cairia justamente na
+  estrofe mais longa — que é o caso que este lote existe para atender.
+- **O caso comum sai sem NENHUMA passada**: a estrofe de duas linhas cabe em
+  escala 1 e a função retorna na primeira medição. O custo do recurso é zero
+  onde ele não é preciso.
+- **O que encolhe é a ESCALA DO CONJUNTO** (`--lyrics-escala`, multiplicando
+  todas as fontes da caixa), não o corpo de uma peça. Encolher só a estrofe
+  faria o rótulo "Refrão" ficar MAIOR que ela — e as proporções calibradas
+  (linha 8cqmin, rótulo 4,2, número 5,8, capa 8,4) são o desenho: elas ficam, o
+  que varia é o multiplicador.
+- **Há um PISO** (`ESCALA_MIN`, 0,34): abaixo dele não se lê do fundo do salão,
+  e cortar passa a ser menos ruim que projetar o ilegível. Ali o
+  `overflow: hidden` da caixa contém o resto — é a única saída em que ainda se
+  corta, e ela é ordens de grandeza mais rara que o clamp de duas linhas.
+- **`ResizeObserver` na caixa.** A tela muda de tamanho sem o slide mudar: o
+  dongle entra, a TV troca de resolução, a preview vai para tela cheia. Sem ele
+  a escala medida para a caixa anterior ficaria de pé, e o defeito voltaria pela
+  porta dos fundos.
+- **A caixa também cresceu**: `84cqw × 40cqh`. Mais área para o mesmo corpo de
+  letra é menos ocasião de precisar encolher — a escala é a garantia, não o
+  primeiro recurso.
+
+**A PREVIEW ESPELHA A REGRA, e isso não é simetria estética.** A preview existe
+para mostrar o que o telão vai mostrar; uma que corta o que o telão não corta
+mente ao operador — e mente exatamente no ensaio, quando ele ainda podia
+escolher outra coisa.
+
+**MEDIDO** em 1280×720, 1920×1080, 960×540 e 800×1280 (retrato), com estrofes de
+2, 4 e 8 linhas — doze pares, nenhum corte. A escala depende do TEXTO e não da
+tela (é o que as unidades `cq*` garantem): 1 para duas linhas, 0,69 para quatro
+e 0,41 para oito, iguais nas quatro resoluções.
+
+**O único `-webkit-line-clamp` que sobrou na letra é o de TRÊS linhas do título
+na CAPA**, e ele é outro problema: lá o texto é um nome próprio que ninguém canta
+junto, e a caixa da capa CRESCE com o conteúdo em vez de ter altura fixa.
+
+### Os botões do aviso de atualização dividem a largura toda
+
+*"eles estão meio puxados para direita"*. Estavam: `.dialog-actions` era
+`justify-content: flex-end` e cada `.dialog-btn` media o próprio texto, então
+"Atualizar agora" e "Deixar para depois" ficavam encostados na borda direita com
+um vão morto à esquerda. Hoje é `display: flex` sem alinhamento e
+`.dialog-btn { flex: 1; min-width: 0 }` — os dois repartem a linha em partes
+iguais, e um diálogo de botão único (`cancelText: null`) fica com um botão de
+largura inteira, que é a forma certa dele.
+
+### A SEGUNDA PORTA do redesenho que fecha a gaveta
+
+Relato do operador: *"se pesquiso na biblioteca e vou tocar uma música que já
+está na biblioteca, ele fecha as opções de play quando mostra as opções do
+YouTube, como um refresh da tela, semelhante ao que já acontecia durante o
+download das coletâneas"*. **Ele nomeou a família certa.**
+
+A v1.1.2 fechou a porta do PROGRESSO DE DOWNLOAD, e a análise de lá vale inteira
+aqui: `renderSearchResults` faz `hymnResultsEl.innerHTML = ''` e remonta a lista,
+e o que ABRE uma linha vive no `li` que ele acabou de jogar fora. O que mudou é
+QUEM chama — e esta chamada é pior que a outra em dois pontos:
+
+- **O gesto de olhar era o gesto que agendava a interrupção.** A auto-busca do
+  YouTube dispara quando a sentinela do rodapé entra em cena (`armarAutoBuscaYt`,
+  `IntersectionObserver` + 500 ms), e **abrir a gaveta é justamente o que empurra
+  a sentinela para dentro do campo de visão** — a linha cresce e o rodapé sobe.
+  Quem abria as opções de uma música do acervo estava, sem saber, marcando o
+  próprio fechamento delas para dali a alguns segundos.
+- **A pergunta era LATERAL.** No caso do download há um trabalho em curso que o
+  operador conhece; aqui ele nem pediu a busca — e a música que ele quer JÁ ESTÁ
+  no acervo, ou seja, o resultado do YouTube não interessava a ninguém naquele
+  instante.
+
+**Quem espera é o REDESENHO, não a busca.** `renderBuscaQuandoPuder` REARMA a
+cada 400 ms enquanto `interacaoAbertaNoAcervo()` responder sim — a mesma escolha
+do tique do progresso, e pelo mesmo motivo: a espera dura exatamente o tempo em
+que há gaveta aberta, e o desfecho sai sozinho sem depender de alguém lembrar de
+chamar isto de dentro de cada caminho que fecha uma gaveta. Os bytes chegam no
+tempo deles.
+
+**O toque EXPLÍCITO no botão de buscar não espera** (`imediato`). Ali quem
+redesenha é o operador, e a regra deste app é que a ação dele sempre vence — é o
+mesmo motivo pelo qual uma tecla nova redesenha a lista sem perguntar por gaveta
+nenhuma. O preço está dito no código: uma gaveta aberta DURANTE a busca que ele
+mesmo pediu se fecha. O contrário seria um toque que não faz nada, que é pior.
+
+O oráculo é o `gaveta-no-download.test.mjs`, que passa a cobrir **as duas
+portas** — com hazard próprio para a segunda (em modo BUSCA o redesenho cru joga
+o `li` fora igual) e com a resposta do `ytSearch` sob controle do arquivo, para
+não medir o relógio da rede. **Separá-las em dois arquivos convidaria a corrigir
+uma e deixar a outra**, que é literalmente o que aconteceu entre a v1.1.2 e este
+lote.
+
+### "Tocar agora" nasce MARCADO — onde a mídia é local
+
+Pedido do operador: *"nas opções de play, deixe que venha por padrão o check de
+tocar agora, pois é a opção que normalmente já se tem mais urgência"*.
+
+O que a marca compra são duas coisas, e a segunda é a que quase não aparece:
+
+1. **O caso de DOIS destinos vira UM toque.** Com o telão já marcado, tocar em
+   "Adicionar ao Cronograma" projeta E guarda — antes era marcar a caixa do
+   "Tocar agora", depois tocar na linha do Cronograma.
+2. **O CONFIRMAR nasce ativo.** A linha de confirmação aparece com pelo menos um
+   marcado; com nada marcado ela era um botão morto dizendo "Escolha uma opção".
+   A gaveta passa a abrir já respondível.
+
+**SÓ ONDE A MÍDIA É LOCAL** — `renderSongMenu` (a faixa do acervo) e
+`renderItemMenu` (favoritos e pastas). **A folha do YouTube (`openYtMenu`) fica
+de fora de propósito:** ali "Tocar agora" TRANSMITE — abre rede, monta MSE e põe
+algo no telão — e as três linhas de lista significam "espere o download".
+Marcado por padrão, um toque em "Favoritar" começaria uma transmissão na frente
+da congregação por um destino que não pedia projeção nenhuma. Onde os bytes já
+estão no aparelho o pior caso é uma faixa entrando em cena, que é o que o
+operador está fazendo de qualquer jeito.
+
+**A marca nasce no ponto de ABERTURA, nunca no de render.** `renderSongMenu` é
+também o `destRemontar` (o seletor Cantada/Playback e cada marca de destino a
+chamam de volta): remarcar lá dentro tornaria o "Tocar agora" **impossível de
+desmarcar** — o toque tiraria a marca e o redesenho a devolveria, no mesmo
+quadro. Daí `destPadraoTocar()` ser chamado por `montarOpcoes` e por
+`renderItemMenu`, e não pelas funções que desenham.
+
+Os dois oráculos que mediam o padrão ANTIGO foram corrigidos para medir o novo, e
+não afrouxados: o `smoke.mjs` passou a tocar na SEGUNDA opção (a primeira agora
+desmarcaria, e o caso mediria a ida ao contrário do que a asserção diz) e os dois
+ganharam a afirmação da regra — uma marca, no "Tocar agora", e o confirmar ativo.
+
+### O LINK COPIADO vira uma pergunta (shell 48)
+
+Pedido do operador: *"adicione uma função de ao entrar no app com um link do
+YouTube copiado, ele ofereça a mesma opção de quando se compartilha um link via
+share normal"*.
+
+**COPIAR NÃO É UM PEDIDO, e é dessa distinção que sai o desenho.** Um share é um
+ato dirigido a ESTE app; um link na área de transferência pode estar ali por
+qualquer razão, inclusive nenhuma. Por isso o caminho não é o do share: há uma
+PERGUNTA antes, e só o "sim" entrega o link ao `importShare` — que dali em diante
+é literalmente o mesmo código, com as mesmas quatro escolhas.
+
+A pergunta também é o que torna o recurso seguro no **Modo Fácil**: ali um link
+compartilhado vira transmissão direta SEM perguntar nada, e um vídeo projetado na
+frente da congregação porque estava copiado seria o pior desfecho possível deste
+recurso.
+
+#### O aviso do sistema é o custo, e ele é pago UMA VEZ POR LINK
+
+Do Android 12 em diante, LER a área de transferência que outro app preencheu
+mostra um aviso na tela. Ler a cada vinda ao app daria esse aviso em toda
+retomada — **o recurso seria pior que a ausência dele**, e é essa a razão de ele
+não ter sido escrito como "leia e classifique".
+
+Quem evita isso é o **CARIMBO** (`ClipDescription.getTimestamp`). A ordem das
+perguntas em `MainActivity.lerLinkCopiado` é o recurso inteiro:
+
+```
+descrição  →  carimbo  →  conteúdo
+(sem aviso)  (sem aviso)  (AQUI aparece o aviso)
+```
+
+Invertida, o aviso volta a ser por retomada. E `desde` — o carimbo do último
+conteúdo já examinado — é comparado **antes** da terceira etapa, no Kotlin: o
+gate não pode morar no lado web, porque quando o texto chega lá o aviso já
+apareceu.
+
+- **Carimbo `0` DESISTE.** `getTimestamp` devolve 0 quando o sistema não sabe
+  dizer quando aquilo foi copiado, e sem carimbo não há como evitar a releitura.
+  O desfecho é o recurso não acontecer naquele aparelho, calado — e não um aviso
+  em toda retomada. É a escolha conservadora, dita.
+- **A MEMÓRIA do carimbo é do lado WEB** (`clip-carimbo`, no banco), e isso não é
+  arbitrário: só o web sabe se conseguiu OFERECER o link. Com um diálogo já na
+  tela ele não pergunta e **não avança o carimbo** — `openAppDialog` resolve o
+  anterior como cancelado ao abrir o próximo, e o que estaria ali é a pergunta da
+  atualização, recusada por baixo sem ninguém ter tocado em nada. A retomada
+  seguinte ainda tem o que perguntar.
+- **No banco e não em memória**: o processo morre, o app reabre, e um carimbo
+  perdido faria a mesma pergunta de novo — com o aviso do sistema junto.
+- **Texto que NÃO é do YouTube avança o carimbo do mesmo jeito.** Sem isso, um
+  texto qualquer copiado seria relido a cada retomada, e cada releitura é um
+  aviso na tela por um link que nunca vai ser oferecido.
+
+#### O filtro no Kotlin é PRIVACIDADE, não classificação
+
+O shell só devolve texto simples que COMEÇA com `http(s)` e cabe em 2 kB. Quem
+decide se o endereço é do YouTube continua sendo o `controle.js` (invariante 5 —
+o `extractYouTubeId` já existe lá, com as cinco formas de URL). O que as duas
+linhas de filtro fazem é impedir que uma senha copiada entre no heap do
+JavaScript para ser descartada um passo depois: mesma família da regra do
+`ShareIntake`, que só aceita `content://`.
+
+`areaTransferencia` fica **fora das três filas**, com o `ytCancel` e os métodos do
+telão: o `ClipboardManager` exige uma thread com `Looper` (as filas são `Thread`
+daemon sem um) e é trabalho de microssegundos que, atrás de um download, venceria
+os 60 s e resolveria `null` — indistinguível de "não havia link copiado". E
+`host == null` (o WebView do telão) resolve `null`: invariante 9, sem a qual um
+script de terceiro naquele documento leria a área de transferência do aparelho.
+
+O oráculo é o `boot-nativo.test.mjs` — o único que tem ponte —, com o **gate
+reproduzido no stub**: ele só devolve conteúdo com carimbo maior que o `desde`
+recebido. Um stub que devolvesse sempre o mesmo objeto provaria o percurso e
+deixaria passar justamente a metade que custa caro no aparelho.
+
+### Documentação: o comentário que passou a mentir
+
+A remoção do clamp deixou de pé quatro comentários que o descreviam como "a
+garantia final" — em `display.css`, `controle.css` e `docs/arquitetura/CONTROLE.md`
+—, mais seis citações do tamanho antigo da caixa. **Um comentário errado não
+custa só leitura: ele produz a decisão errada** — quem lesse "o line-clamp é a
+garantia contra vazamento" e não achasse o clamp no código tenderia a
+reintroduzi-lo. Corrigidos no mesmo lote, que é a regra de `CLAUDE.md`.
+
+### O que NÃO entrou: o índice temático do hinário
+
+Pedido do operador: *"o novo hinário tem agrupamentos internos como músicas
+infantis, a criação, crescimento em Cristo… gostaria de fazer um pequeno índice
+no início da lista do álbum do hinário e pequenos títulos no meio da listagem"*.
+
+**Bloqueado por FALTA DE FONTE, não por trabalho** — e a distinção importa,
+porque o mecanismo (índice no topo do card + cabeçalhos intercalados) é
+pequeno e a TABELA é o recurso inteiro.
+
+O que o banco entrega hoje, verificado contra
+`docs/FONTE-DE-DADOS-LOUVORJA.md`:
+
+| fonte | o que traz | serve? |
+|---|---|---|
+| `pt_hymnal` | `id_music`, `track`, `name`, `duration`, `has_instrumental_music` | **não** — não há campo de tema |
+| `pt_categories` | categoria → álbum (a hierarquia é de DOIS níveis e só isso: não há subcategoria nem `id_parent`) | **não** — é coletânea, não seção de hinário |
+| `music_{id}.albums[]` | os álbuns a que a MÚSICA pertence, com `type` e `pivot.track` | **talvez** — é a única pista |
+
+A terceira é a pista que sobra, e ela é barata: `downloadCollectionSong` já
+busca `music_{id}` por faixa e hoje **descarta** o `albums[]`. Se a LouvorJA
+publicar as seções como álbuns, a tabela vem de dado que o aparelho já baixa —
+sem chute e sem requisição nova.
+
+**Nada disso foi confirmado**, porque `api.louvorja.com.br` é negado pela
+política de rede do ambiente em que este lote foi escrito (`403` no CONNECT do
+proxy, não uma falha transitória).
+
+**E a tabela não pode ser escrita de memória.** Uma fronteira errada põe
+"Músicas infantis" sobre o hino errado, e erra do jeito que este projeto mais
+teme: **calada** — a lista continua completa, na ordem certa, com um cabeçalho
+mentindo no meio. Fica esperando UMA das duas: a confirmação das faixas contra
+o hinário impresso, ou a leitura do `albums[]` num aparelho com rede.
 ---
 
 ## v1.1.7 — o espelhamento leva o som do aparelho inteiro; a apresentação chega às telas da rede
@@ -1591,6 +1863,7 @@ história do contrato, não regra viva.
 
 | shell | o que mudou |
 |---|---|
+| **48** | `areaTransferencia(desde)` — o LINK COPIADO, quando ele é novo. O carimbo é a metade que importa: sem ele, LER a área de transferência daria o aviso do Android 12+ em toda retomada |
 | **47** | `atualizacaoEstado` ganha `webNotas` — a LINHA DO TEMPO da atualização, lida do `notas.json` do bundle baixado. Não acrescenta poder: acrescenta um campo, e **forma de retorno é superfície** |
 | **46** | `espelhoLigar` perde o `modo`; `espelhoAprovar(id, sim)` vira `espelhoDerrubar(rotulo)`. O primeiro degrau em que ENCOLHER foi o objetivo do lote |
 | **45** | `espelhoDiag` ganha `midia { itens, bytes, teto }` — o cache da rota `/m/` no Registro. Não muda poder nenhum; o degrau existe porque **forma de retorno é superfície**, e o Registro é lido A DISTÂNCIA |

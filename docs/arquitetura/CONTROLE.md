@@ -1263,6 +1263,22 @@ no dia em que `--hit` mudar.
 resolução nasce no padrão a cada item: uma marcação que grudasse mandaria para os
 Favoritos, sem aviso, o vídeo que se quis ver uma vez.
 
+**"TOCAR AGORA" NASCE MARCADO ONDE A MÍDIA É LOCAL** (v1.1.8, `destPadraoTocar`).
+Ela compra duas coisas: o caso de DOIS destinos vira um toque (com o telão já
+marcado, tocar em "Adicionar ao Cronograma" projeta E guarda) e o CONFIRMAR nasce
+ativo — a gaveta abre respondível em vez de com um botão morto pedindo escolha.
+
+- **Só `renderSongMenu` (a faixa do acervo) e `renderItemMenu` (favoritos e
+  pastas do aparelho).** A folha do YouTube fica de fora **de propósito**: ali
+  "Tocar agora" TRANSMITE — abre rede, monta MSE e põe algo no telão — e as três
+  linhas de lista significam "espere o download". Marcado por padrão, um toque em
+  "Favoritar" começaria uma transmissão na frente da congregação por um destino
+  que não pedia projeção nenhuma.
+- **A marca nasce no ponto de ABERTURA, jamais no de render.** `renderSongMenu` é
+  também o `destRemontar`: remarcar lá dentro tornaria o "Tocar agora"
+  **impossível de desmarcar** — o toque tiraria a marca e o redesenho a
+  devolveria, no mesmo quadro.
+
 **A união é lida NO CLIQUE**, antes de `closeSongMenu()` — como a variante
 Cantada/Playback e o teto de resolução. Uma leitura feita DENTRO da ação
 encontraria o conjunto zerado e o item iria para UM destino em vez de dois, sem
@@ -3193,6 +3209,44 @@ isso uma vez por música, e sincronizar o Hinário 2022 reconstruía a lista int
 `renderCollectionsNow()` direto ao ligar o `syncBusy`; só o progresso espera a
 janela.
 
+### O redesenho que o operador NÃO pediu espera a gaveta fechar
+
+`renderSearchResults` faz `hymnResultsEl.innerHTML = ''` e remonta a lista, e o
+que ABRE uma linha vive no `li` que ele acabou de jogar fora: a classe
+`expanded`, a closure `gavetaMontada`, os destinos marcados (zerados por
+`destLimpar()`) e a letra já lida. **São DUAS portas para esse mesmo quarto**, e
+as duas são disparadas por algo que não foi o toque do operador:
+
+| porta | quem dispara | quem segura |
+|---|---|---|
+| progresso de download (v1.1.2) | o tique de 400 ms, em modo FOLHEAR | `refreshCollectionsIfVisible` rearma enquanto `interacaoAbertaNoAcervo()` |
+| resultado da busca no YouTube (v1.1.8) | `buscarNoYoutube`, em modo BUSCA | `renderBuscaQuandoPuder` rearma pelo mesmo guarda |
+
+- **`interacaoAbertaNoAcervo()` conta `abrindo` como aberta.** Entre o toque e o
+  `expanded` há um `await` (a letra sai do IndexedDB), e era ali que o redesenho
+  alcançava a linha — o `li` do toque virava órfão e o toque não fazia nada.
+- **A segunda porta é PIOR que a primeira em dois pontos.** A auto-busca dispara
+  quando a sentinela do rodapé entra em cena, e **abrir a gaveta é justamente o
+  que empurra a sentinela para dentro do campo de visão**: o gesto de olhar um
+  item era o gesto que agendava a própria interrupção. E a pergunta é lateral —
+  a música que o operador quer já está no acervo.
+- **Espera o REDESENHO, nunca a busca.** Os bytes chegam no tempo deles.
+- **O toque EXPLÍCITO no botão de buscar não espera** (`imediato`): ali quem
+  redesenha é o operador, e a ação dele sempre vence — é o mesmo motivo pelo qual
+  uma tecla nova redesenha a lista sem perguntar por gaveta nenhuma.
+- **Os dois REARMAM** em vez de marcar um pendente: a espera dura exatamente o
+  tempo em que há gaveta aberta, e o desfecho sai sozinho, sem depender de alguém
+  lembrar de chamar isto de dentro de cada caminho que fecha uma gaveta.
+- **A espera é a resposta certa, e não restaurar o estado depois.** Remontar a
+  gaveta apagaria os destinos marcados, recarregaria a letra e mexeria no scroll
+  debaixo do dedo — três coisas que o operador está usando justamente enquanto
+  ela está aberta.
+
+Oráculo: `tools/gaveta-no-download.test.mjs`, com as duas portas e um hazard
+próprio para cada. **Ficam no mesmo arquivo de propósito** — separá-las
+convidaria a corrigir uma e deixar a outra, que é literalmente o que aconteceu
+entre a v1.1.2 e a v1.1.8.
+
 Sincronização é **aditiva e resumível**: interromper e sincronizar de novo só
 baixa o que falta (`fileGet` reconfirma que o arquivo catalogado ainda existe de
 fato antes de pular — cobre exclusões manuais feitas por dentro da pasta).
@@ -4041,7 +4095,7 @@ com pesos diferentes:
   número nem álbum, e a capa dele volta a ser o título centralizado, que é a
   capa de sempre.
 - **A caixa da capa CRESCE com o conteúdo** — a única do sistema que faz isso. A
-  altura fixa (32cqh) existe para a moldura não pular de tamanho entre estrofes;
+  altura fixa (40cqh) existe para a moldura não pular de tamanho entre estrofes;
   na capa ela produzia o defeito oposto, e ele foi fotografado antes de ser
   corrigido: com o título em duas linhas, `num + título + álbum` somavam mais
   que a caixa, o flex encolhia os itens e a linha do álbum era desenhada POR
@@ -4117,7 +4171,7 @@ borda** (v5.42 — o contorno branco desenhava um retângulo que competia com a
 letra; quem separa o texto da foto é a própria faixa escura) e sem
 `box-shadow`; o fundo é `--lyrics-frame-bg` e **só existe no modo imagem**
 (ver "Moldura só no modo imagem" abaixo), com `width`/`height` como fração do
-container (`76cqw`/`32cqh`) — a legibilidade do texto vem da própria faixa,
+container (`84cqw`/`40cqh`) — a legibilidade do texto vem da própria faixa,
 não de um gradiente cobrindo a tela inteira, então funciona igual
 independente da imagem por trás), inserido no DOM entre
 `#video` e `#youtube`, mesmo `z-index:1` dos demais layers de mídia — a
@@ -4207,12 +4261,39 @@ sincronizam a letra sozinhos ao reagir ao novo tempo.
 
 **Moldura de tamanho FIXO** (`.lyrics-box`/`.pv-lyrics-box`): a caixa não
 cresce/encolhe conforme o texto do slide muda — `width`/`height` fixos (não
-`max-width` + altura intrínseca) calculados para caber o pior caso real: as
-letras do Hinário 2022 nunca passam de **2 linhas** por estrofe
-(`-webkit-line-clamp: 2` em `.lyrics-line`/`.pv-lyrics-line`, tanto no slide
-normal quanto no de capa; `.lyrics-aux`/`.pv-lyrics-aux` — rótulo curto de
-seção, ex: "Refrão" — fica em **1 linha só**, não 2, o que também mantém a
-caixa mais enxuta).
+`max-width` + altura intrínseca), hoje **84cqw × 40cqh**, para a moldura não
+pular de tamanho entre uma estrofe e a seguinte.
+
+**E A LETRA NUNCA É CORTADA COM RETICÊNCIAS** (v1.1.8), em nenhum tamanho de
+tela. Cortar é a única resposta que um telão não pode dar: o verso que some é o
+que a congregação ia cantar, e ninguém no salão tem como saber que faltou. Eram
+duas causas somadas — a caixa fora calibrada com a estrofe de DUAS linhas em
+mente (76cqw × 32cqh), e o que garantia o encaixe era um `-webkit-line-clamp: 2`
+na `.lyrics-line`.
+
+O clamp SAIU. Quem garante que cabe é **`ajustarLetra()`** (`display.js`) e o
+espelho dele **`pvAjustarLetra()`** (`controle.js`): medem a altura das peças
+visíveis contra a altura útil da caixa e ENCOLHEM o conjunto até caber, por
+**busca binária** (sete passadas; um laço decrescente custaria de 1 a 30
+releituras de layout, e o pior caso cairia justamente na estrofe mais longa).
+
+- **O que encolhe é a ESCALA DO CONJUNTO** (`--lyrics-escala`, multiplicando
+  todas as fontes da caixa), não o corpo de uma peça: encolher só a estrofe
+  faria o "Refrão" ficar maior que ela. As proporções calibradas (linha 8cqmin,
+  rótulo 4,2, número 5,8) são o desenho e ficam.
+- **O caso comum sai sem nenhuma passada**: a estrofe de duas linhas cabe em
+  escala 1, e a função retorna na primeira medição.
+- **Há um PISO** (`ESCALA_MIN`, 0,34): abaixo dele não se lê do fundo do salão.
+  Uma estrofe absurda encosta nele e o `overflow: hidden` da caixa contém o
+  resto — é a única saída em que ainda se corta, e ela é ordens de grandeza mais
+  rara que o clamp de duas linhas.
+- **`ResizeObserver` na caixa**: a tela muda de tamanho sem o slide mudar (o
+  dongle entra, a TV troca de resolução, a preview entra em tela cheia). Sem ele
+  a escala medida para a caixa anterior ficaria de pé.
+- **MEDIDO** em 1280×720, 1920×1080, 960×540 e 800×1280 (retrato), com estrofes
+  de 2, 4 e 8 linhas: nenhum corte em nenhum par. A escala depende do TEXTO e
+  não da tela (é o que as unidades `cq*` garantem) — 0,69 para quatro linhas e
+  0,41 para oito, iguais nas quatro resoluções.
 
 **Redimensionamento por Container Queries (`cq*`), não `vh`/`vw`**:
 `.lyrics-content` (Display) e `.pv-lyrics-content` (preview) são
@@ -4230,9 +4311,11 @@ anterior (`vh`/`vw` + pisos/tetos em `rem`/`px`) tinha:
   relativo ao container), não `cqh` puro. Só `cqh` cresce com a altura
   mesmo quando a largura é o fator mais apertado (ex: janela redimensionada
   em modo retrato) — a própria linha de texto (não a quebra intencional)
-  deixava de caber, consumindo sozinha as 2 linhas do clamp e cortando fora
-  a segunda linha (autorizada) inteira. `cqmin` encolhe a fonte junto com a
-  dimensão mais apertada, sempre.
+  deixava de caber na largura, e o que era uma linha virava duas. `cqmin`
+  encolhe a fonte junto com a dimensão mais apertada, sempre — e hoje isso
+  poupa trabalho da escala (`ajustarLetra()`), em vez de evitar um corte: com
+  `cqh` puro a estrofe continuaria cabendo, só que num corpo menor do que
+  precisaria ser.
 - **Padding do container NUNCA é em `cq*`** — e o motivo é mais forte do que
   parecia. Unidades de container escritas NO PRÓPRIO container **não se
   referem a ele**: resolvem contra o ancestral mais próximo que seja container
@@ -4246,26 +4329,26 @@ anterior (`vh`/`vw` + pisos/tetos em `rem`/`px`) tinha:
   A regra era seguida por `.lyrics-content`/`.pv-lyrics-content` mas estava
   violada por `.text-content`/`.pv-text-content`; hoje as quatro seguem o
   mesmo modelo: o container não tem padding percentual, a CAIXA é fração dele
-  (`76cqw`/`32cqh` na letra, `86cqw`/`86cqh` no texto) e o que sobra vira
+  (`84cqw`/`40cqh` na letra, `86cqw`/`86cqh` no texto) e o que sobra vira
   margem sozinho via `align-items`/`justify-content: center`.
 
 **Proporções calibradas por medição em pixel** de um vídeo de louvor de
 referência (moldura ~76-80% da largura da tela / ~27-36% da altura; fonte da
 letra com cap-height ~8,3% da altura da tela). Valores atuais: `.lyrics-line`
-em `8cqmin`, `.lyrics-aux` em `4.2cqmin`, capa em `9.5cqmin`, caixa **fixa e
-compacta** em `76cqw`/`32cqh`. **A preview usa EXATAMENTE os mesmos números**
+em `8cqmin`, `.lyrics-aux` em `4.2cqmin`, capa em `8.4cqmin`, caixa **fixa**
+em `84cqw`/`40cqh` — todas multiplicadas por `--lyrics-escala`, que a
+`ajustarLetra()` escreve. **A preview usa EXATAMENTE os mesmos números**
 (ver "Proporção da preview" abaixo): `cq*` é relativo ao container, portanto
 invariante de escala — com a mesma proporção, os mesmos valores dão a mesma
 composição numa caixa de 280px e num telão de 3120px. A preview já teve
 valores próprios (`9.3cqmin`, `92cqw`/`60cqh`…), que eram compensação
-empírica para a proporção errada, não uma necessidade. `overflow:hidden`
-no `.lyrics-box`/`.pv-lyrics-box` junto do `-webkit-line-clamp` em
-`.lyrics-line`/`.lyrics-aux` (`.pv-lyrics-line`/`.pv-lyrics-aux` na preview)
-são a garantia final: qualquer letra maior que o clamp é cortada com
-reticências, nunca estoura a moldura (isso ainda pode acontecer em
-proporções extremas, tipo uma janela de teste em modo retrato — o Display é
-sempre landscape em produção e a preview segue a proporção do telão, dentro de
-um clamp, então essa situação não ocorre no uso real).
+empírica para a proporção errada, não uma necessidade. O `overflow: hidden`
+do `.lyrics-box`/`.pv-lyrics-box` FICA, mas mudou de papel: não é mais a
+garantia de encaixe (essa é a escala) e sim a contenção do caso em que a
+escala encosta no piso — ali a estrofe vaza para fora da moldura em vez de
+por cima da imagem. **O `-webkit-line-clamp` da estrofe SAIU** (v1.1.8); o
+único que sobrou é o de TRÊS linhas do título na CAPA, que é outro problema:
+lá o texto é um nome próprio que ninguém canta junto.
 
 **Fundo preto sem ícone de "imagem quebrada"**: no modo preto (padrão), a
 `<img>` de fundo (`#lyricsImg`/`#pvLyricsImg`) fica **`hidden`** de
@@ -4309,6 +4392,35 @@ aberto):
   `kind:'youtube'`, `youtubeId` e thumb `hqdefault.jpg` — cai direto no
   **Cronograma** (`imports`), pronto para tocar.
 - **Outras URLs** → `kind` detectado pela extensão (`video`/`audio`/`image`/`url`).
+
+#### O LINK COPIADO — a mesma folha, precedida de uma pergunta (v1.1.8)
+
+`conferirLinkCopiado()` roda na ABERTURA e em toda RETOMADA
+(`visibilitychange`), e no navegador é no-op — `navigator.clipboard.readText()`
+pede permissão e exige gesto, que é o oposto do que este caminho quer ser.
+
+**COPIAR NÃO É UM PEDIDO.** Um share é um ato dirigido a este app; um link na
+área de transferência pode estar ali por qualquer razão. Daí a PERGUNTA antes:
+só o "sim" entrega o link ao `importShare`, que dali em diante é literalmente o
+mesmo código desta seção. E é a pergunta que torna o recurso seguro no **Modo
+Fácil**, onde um link compartilhado vira transmissão direta sem perguntar nada.
+
+**O custo é o aviso de área de transferência do Android 12+, e ele é pago uma vez
+por link copiado — nunca por retomada.** Quem garante isso é o CARIMBO,
+comparado pelo shell ANTES de ler (ver `docs/shell/PONTE.md`,
+`areaTransferencia`). Do lado daqui restam três regras:
+
+- **O carimbo do último conteúdo examinado mora no BANCO** (`clip-carimbo`), não
+  em memória: o processo morre, o app reabre, e um carimbo perdido faria a mesma
+  pergunta com o aviso junto.
+- **Texto que não é do YouTube AVANÇA o carimbo do mesmo jeito** — senão ele
+  seria relido (e avisado) em toda retomada por um link que nunca vai ser
+  oferecido.
+- **Um diálogo já na tela ADIA a pergunta, e o carimbo NÃO avança.**
+  `openAppDialog` resolve o anterior como cancelado ao abrir o próximo, e o que
+  estaria ali é a pergunta da atualização — recusá-la por baixo, sem ninguém ter
+  tocado em nada, é o desfecho que a guarda existe para impedir. O carimbo
+  intacto é o que garante que a retomada seguinte ainda tem o que perguntar.
 
 #### O que chegou fica NA FRENTE do operador
 

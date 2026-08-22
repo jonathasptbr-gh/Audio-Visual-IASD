@@ -51,7 +51,8 @@
   <div id="lyrics" class="layer lyrics-layer" hidden>
     <div class="lyrics-bg"><img id="lyricsImg" alt="" hidden></div>
     <div class="lyrics-content" id="lyricsContent">
-      <div class="lyrics-box">
+      <!-- O `id` existe para o `ajustarLetra()` medir esta caixa (v1.1.8). -->
+      <div class="lyrics-box" id="lyricsBox">
         <!-- O NÚMERO DO HINO, só no slide de CAPA (v5.218). Ele vinha colado na
              frente do título ("147. NOME"), gastando a largura da linha que
              mais precisa dela e obrigando o olho a separar duas informações de
