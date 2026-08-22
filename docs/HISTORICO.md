@@ -1052,7 +1052,8 @@ já não existe.
 `version.json` 5.317 → **1.0**, `WEB_VERSION` e o span do rodapé junto, e o APK
 sai como **v1.0**. As 103 tags do esquema anterior (`v1.0`→`v1.99`,
 `v2.0`→`v2.4`) são apagadas pelo `limpar-versoes.yml`, um workflow de disparo
-manual escrito para este ritual e para ser removido depois dele.
+manual escrito para este ritual — e **removido do repositório na v1.1.1**, com o
+ritual cumprido (5 Releases e 5 tags no remoto, `web-latest` preservada).
 
 **O preço está dito, e é uma reinstalação manual.** `beginSession` só descarta o
 bundle OTA guardado quando a base do APK é MAIOR (`compareVersions(embedded,
