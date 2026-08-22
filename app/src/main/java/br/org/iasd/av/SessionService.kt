@@ -338,7 +338,13 @@ class SessionService : Service() {
                         PlaybackState.CustomAction.Builder(
                             SessionRemote.STOP,
                             "Parar",
-                            android.R.drawable.ic_menu_close_clear_cancel,
+                            // QUADRADO CHEIO, e vetor nosso: o sistema não tem
+                            // um ícone de parar (ver o KDoc de `ic_stop`), e o
+                            // ✕ que estava aqui dizia "fechar" ao lado de um
+                            // play e de um ⏭ — a única coisa que este botão
+                            // não faz. Mesmo símbolo do `#stop` da barra de
+                            // transporte do app.
+                            R.drawable.ic_stop,
                         ).build(),
                         )
                     }
@@ -842,8 +848,10 @@ class SessionService : Service() {
                     )
                     SessionRemote.NEXT ->
                         acao(ctx, android.R.drawable.ic_media_next, rotuloNext, SessionRemote.NEXT)
+                    // Parar: o quadrado cheio, não um ✕ (ver a custom action
+                    // do `publish` e o KDoc de `ic_stop`).
                     SessionRemote.STOP -> acao(
-                        ctx, android.R.drawable.ic_menu_close_clear_cancel, "Parar", SessionRemote.STOP,
+                        ctx, R.drawable.ic_stop, "Parar", SessionRemote.STOP,
                     )
                     // Cortina do wallpaper: a ação mais usada num culto depois
                     // do play/pause — tirar a mídia do telão sem parar o áudio.

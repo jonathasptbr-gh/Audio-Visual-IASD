@@ -1,0 +1,24 @@
+<!-- PARAR, nos controles de mídia. O sistema NÃO tem um: `android.R.drawable`
+     traz play, pause, ⏮ e ⏭, e o que sobrava para esta ação era o
+     `ic_menu_close_clear_cancel` — um ✕, que num player não diz "parar", diz
+     "fechar". O botão encerra a CENA (a mídia sai do telão e a sessão some);
+     o ✕ ao lado do play e do ⏭ lia-se como "dispensar a notificação", que é a
+     única coisa que ele não faz.
+
+     O QUADRADO CHEIO é o mesmo símbolo que o `#stop` da barra de transporte já
+     mostra no app (o glifo `stop` da fonte) — a notificação e a tela dizendo a
+     mesma coisa com o mesmo desenho, que é a regra que a cortina
+     (ic_image/ic_image_off) também segue. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24"
+    android:tint="#FFFFFFFF">
+
+    <!-- Canto de 1 (não 0): a 24dp o quadrado reto fica duro ao lado do
+         triângulo do play, que é desenhado com as pontas vivas mas estreitas. -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M7,6h10c0.55,0 1,0.45 1,1v10c0,0.55 -0.45,1 -1,1H7c-0.55,0 -1,-0.45 -1,-1V7c0,-0.55 0.45,-1 1,-1z" />
+</vector>

@@ -618,11 +618,20 @@ toque, some sozinha) e **translúcida** (`.72`).
 | ⏮ | estrofe anterior · **segurar**: mídia anterior | `attachTransportStep(btn, -1)` |
 | ▶/⏸ | play/pause | `playPauseEl.click()` |
 | ⏭ | próxima estrofe · **segurar**: próxima mídia | `attachTransportStep(btn, 1)` |
-| Vol + / − | volume, **segurar repete** | `holdRepeat(btn, () => simpleVolStep(±1))` |
 
 **Nada é reimplementado** (invariante 5). O ⏮/⏭ recebe o MESMO
-`attachTransportStep` da barra de transporte, então herda os dois eixos de graça;
-o volume reusa `simpleVolStep`/`holdRepeat`, os mesmos do Modo Fácil.
+`attachTransportStep` da barra de transporte, então herda os dois eixos de graça.
+
+**O VOLUME NÃO ESTÁ AQUI** (v1.1.2, pedido do operador: *"pode remover os botões
+de volume na tela cheia do preview, para volume usamos apenas os botões físicos
+do smartphone"*). Ele é o único controle desta coluna com um alvo **melhor fora
+da tela**: os botões FÍSICOS do aparelho, que `captureVolumeKeys` já entrega ao
+MESMO fader (`__avVolumeKey` → `applyVolume`). Eles se acham no escuro, sem tirar
+o olho da projeção, e não custam os 4 s de espera até a coluna acender — o par na
+tela era a alternativa pior das duas. As duas vagas viraram vão entre os cinco
+que ficaram. (O `peekVolume` que a tecla dispara mora no mixer, **fora** do
+elemento em tela cheia: ali a tecla muda o volume sem mostrar o fader, como já
+acontecia antes deste lote.)
 
 **Os dois botões de ESTADO espelham os controles de verdade** (`renderFsCtl`,
 chamado de `renderControls` e `setPlaying` — os dois únicos pontos que escrevem
@@ -631,6 +640,22 @@ própria: uma segunda leitura divergiria no primeiro caso de borda.
 
 **Apagada, ela é `pointer-events: none`** — sem isso, uma coluna invisível
 continuaria comendo os toques da metade direita da projeção.
+
+**Ela OCUPA A ALTURA INTEIRA** (v1.1.2), com 2px de folga em cima e embaixo — as
+mesmas dos `.pv-fabs` dos cantos —, e os cinco botões distribuídos por
+`space-between`. Centrada, eram um bloco denso no meio de uma tela em PAISAGEM:
+os ícones a 2px um do outro e metade da lateral sem uso. Com a altura toda,
+**o vão entre dois vizinhos passa a ser MAIOR que o próprio botão** (medido em
+800×390: alvo de 40px, vão de ~46px), e num alvo que se opera sem olhar (quem
+está em tela cheia olha a projeção) esse vão é a única coisa que separa um
+controle do seguinte. O alvo sobe de `--hit` (34px) para **40px** e o ícone de
+24px para **28px**: aqui o aparelho está no suporte e o toque é de raspão, ao
+contrário dos `.pv-fab` dos cantos.
+
+**Errar o alvo custa um toque, nunca uma ação errada:** acesa, a coluna é
+`pointer-events: auto` inteira, então o dedo que cai num vão morre nela em vez de
+atravessar para a projeção — e o `pointerdown` que borbulha até a `.preview`
+ainda renova os 4 s.
 
 **SVG e não `.msym`:** a fonte é um subset de 31 codepoints, e o `.pv-fab`
 pendura três `drop-shadow` no TRAÇO do SVG — é o que mantém o ícone legível

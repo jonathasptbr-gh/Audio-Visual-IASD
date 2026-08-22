@@ -99,9 +99,11 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
 
   /* Escala de ícones, três degraus. Governa os GLIFOS (`.msym`, por
      `font-size`) E os SVGs inline (ver a regra logo abaixo do feedback de
-     toque). Duas exceções, com o motivo dito onde moram: `.pv-fab` (24px — sem
-     moldura, o ícone É o botão) e o modo simplificado (28/44px, alvo de polegar
-     de quem está de pé). */
+     toque). Três exceções, com o motivo dito onde moram: `.pv-fab` (24px — sem
+     moldura, o ícone É o botão), a COLUNA da tela cheia (28px, o mesmo botão
+     num alvo de 40px: ali o aparelho está no suporte e a tela inteira é a
+     projeção) e o modo simplificado (28/44px, alvo de polegar de quem está de
+     pé). */
   --icon-sm: 20px;   /* botões de linha, cabeçalho, popups */
   --icon-md: 22px;   /* abas e transporte (alvos maiores) */
   --icon-lg: 24px;   /* miniatura-ícone e dicas de deslize */
@@ -488,16 +490,41 @@ body {
    destaque sem custar a legibilidade — os três `drop-shadow` do `.pv-fab`
    continuam valendo por baixo dela.
 
-   Centrada na vertical porque em paisagem é onde o polegar direito alcança sem
-   reposicionar o aparelho. */
+   ELA OCUPA A ALTURA INTEIRA (v1.1.2), com os mesmos 2px de folga que os
+   `.pv-fabs` dos cantos guardam. Centrada, os botões eram um bloco denso no
+   meio de uma tela em PAISAGEM: ficavam colados uns nos outros (2px) e sobrava
+   metade da lateral sem uso nenhum. Distribuídos, o vão entre dois vizinhos
+   passa a ser MAIOR que o próprio botão — e num alvo que se opera sem olhar
+   (quem está em tela cheia olha a projeção, não o dedo) esse vão é a única
+   coisa que separa um controle do seguinte.
+
+   São CINCO: o par de volume saiu no mesmo lote, para os botões FÍSICOS do
+   aparelho (ver o comentário do bloco no HTML).
+
+   `space-between`, e não `space-evenly`: com `top`/`bottom` fixos os dois
+   extremos da coluna são o alcance natural do polegar em paisagem, e são eles
+   que ficam parados enquanto o número de botões muda.
+
+   ERRAR O ALVO CUSTA UM TOQUE, NUNCA UMA AÇÃO ERRADA: acesa, a coluna é
+   `pointer-events: auto` inteira, então o dedo que cai num vão morre nela em
+   vez de atravessar para a projeção — e o `pointerdown` que borbulha até a
+   `.preview` ainda RENOVA os 4s (ver `acenderFsCtl`). */
 .pv-fsctl {
-  position: absolute; right: 2px; top: 50%; transform: translateY(-50%);
-  z-index: 6; display: none; flex-direction: column; gap: 2px;
+  position: absolute; right: 2px; top: 2px; bottom: 2px;
+  z-index: 6; display: none; flex-direction: column;
+  justify-content: space-between; gap: 2px;
   opacity: 0; pointer-events: none; transition: opacity .22s ease;
 }
 .preview:fullscreen .pv-fsctl,
 .preview:-webkit-full-screen .pv-fsctl { display: flex; }
 .pv-fsctl.visivel { opacity: .72; pointer-events: auto; }
+/* MAIORES QUE OS DOS CANTOS — 40px de alvo e 28px de ícone, contra os 34/24 do
+   `.pv-fab` comum. Lá o dedo mira com o aparelho na mão e a lista do culto à
+   vista; aqui a tela INTEIRA é a projeção, o aparelho está no suporte e o
+   toque é de raspão. A altura que a distribuição acima liberou paga isso sem
+   encostar um botão no outro. */
+.pv-fsctl .pv-fab { width: 40px; height: 40px; }
+.pv-fsctl .pv-fab svg { width: 28px; height: 28px; }
 /* Os dois botões de ESTADO (cortina, play/pause) carregam os dois desenhos e a
    classe escolhe — trocar `innerHTML` a cada quadro reconstruiria o SVG por
    baixo do dedo, e o `.msym` dos irmãos da barra não serve aqui (ver o
