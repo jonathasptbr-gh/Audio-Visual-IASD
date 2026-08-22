@@ -24,6 +24,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
+- **v1.1.23** — OS CDs OFICIAIS TÊM ENDEREÇO DEDUZÍVEL, E ELE NÃO ESTAVA SENDO USADO: os álbuns do acervo são dezenas e no Cifra Club caem todos sob a coleção **Ministério Jovem** — a mesma forma do `CATALOGO` dos hinários, sem uma coleção do acervo para mapear. Vira uma tentativa própria entre o catálogo e a busca, pela razão que ordena as três: ali a URL sai do NOME da música, e é uma requisição sem ranking de ninguém escolhendo por nós. Errar custa um 404 (a busca roda em seguida como sempre, nenhum caminho regride) e o Registro imprime a tentativa verbatim, então um slug renomeado aparece em toda música e se conserta por OTA. O mesmo artista vira DESEMPATE na busca, e esse não depende de o nome do álbum do acervo bater com nada. OTA PURO
 - **v1.1.22** — A BUSCA DE CIFRA CAÍA NO ÍNDICE ALFABÉTICO DO SITE: ela pegava o PRIMEIRO link de dois segmentos da página de resultados, e a navegação do site também é link de dois segmentos — e mora no cabeçalho, portanto vem ANTES de qualquer resultado no HTML. MEDIDO num aparelho: "Em Oração" devolveu 27 resultados e o escolhido foi `/letra/A/`, que respondeu HTTP 200 com 398 kB e virou `ilegivel` — o diagnóstico certo para a pergunta errada. A defesa NÃO é uma lista de rotas de terceiro (ela envelhece sozinha): é exigir PARENTESCO entre o texto do resultado e o nome procurado, com zero sendo RECUSA e não último lugar. O álbum entra como desempate e como segundo tento de consulta, nunca como filtro nem na primeira consulta — ele é o álbum, não o artista do site. OTA PURO No mesmo relato: os controles da folha ROLAVAM COM O TEXTO (o pausar saía de cena em segundos, e alcançá-lo exigia rolar de volta ao topo, brigando com a rolagem que se queria parar) e a rolagem TREMIA — ~0,37 px por quadro escritos como inteiro andam 1 px a cada três quadros e param nos outros dois; a posição passou a ser nossa e fracionária.
 - **v1.1.21** — A SÉRIE DEIXA DE FINGIR QUE GUARDA ARQUIVO: os episódios só existem enquanto estão no Cronograma, nos Favoritos ou na playlist, então o card perde o baixar em lote, a lixeira E o peso em gigabytes que prometia um download inexistente. Sobra UM botão puro — atualizar a lista — onde ficava o excluir. E o episódio DESTE SÁBADO sai da lista e vira um bloco destacado no topo, com "Aguardando lançamento" quando ainda não saiu; a janela é a semana adventista (domingo a sábado), não o dia exato. De quebra: o relógio congelado de um caso do `boot-nativo` VAZAVA para o contexto inteiro e prendia a página principal em 15/Ago. OTA PURO
 - **v1.1.20** — A CIFRA ROLA NO TEMPO DA MÚSICA, E A QUEBRA DE LINHA PASSA A QUEBRAR O PAR: dois defeitos do mesmo lugar. (1) A quebra era do CSS (`pre-wrap`), que quebra cada linha INDEPENDENTEMENTE — uma folha larga saía como duas linhas de acorde seguidas de duas de letra, e a segunda metade do acorde ficava a duas linhas da sílaba a que pertence: não é alinhamento imperfeito, é o par desfeito. Agora quem quebra é `AVCifra.quebrarPares`, no MESMO índice das duas linhas, com a largura em CARACTERES medida na fonte renderizada (`cifraColunas`) porque a monoespaçada do Android varia de aparelho e o corpo segue o A+/A−. (2) Nasce a ROLAGEM AUTOMÁTICA, e ela é uma FUNÇÃO da posição da música, não uma velocidade integrada: pausar PARA a folha, um seek a leva ao ponto certo, um quadro perdido não acumula erro. Com ABERTURA (o começo parado, para ver introdução e tom) e FECHO (o fim alcançado bem antes de a música acabar, para o final ser lido enquanto ainda se toca), os dois fração da música com piso e teto em segundos. OTA PURO
@@ -218,6 +219,44 @@ na nota que a revoga, não apagada da que a criou.
 - **v5.154** — é METADE OTA e METADE APK, e a divisão importa para quem for testar em aparelho.
 - **v5.155** — é OTA PURO
 - **v5.156** — é METADE OTA e METADE APK, de novo.
+
+---
+
+## v1.1.23 — os CDs oficiais têm endereço deduzível, e ele não estava sendo usado
+
+O `CATALOGO` traduz uma coleção do acervo num artista do site, e existe por uma
+razão que vale além dos hinários: **quando a URL é deduzível do nome da música, é
+uma requisição e ninguém escolhe por nós.** É por isso que ele vem antes da
+busca, e é por isso que a busca precisou, na v1.1.22, de uma regra inteira de
+parentesco para não abrir a página errada.
+
+Os álbuns do acervo — "Missão", "Salmos", "Adoradores", "Mais que Paixão",
+dezenas deles — não estavam no catálogo porque não há um artista por álbum. Mas
+há **um artista para todos**: no site os CDs oficiais e os do ano moram sob a
+coleção **Ministério Jovem**. A URL, então, é deduzível do mesmo jeito, e a
+tentativa cabe no mesmo lugar da ordem.
+
+```
+1. catálogo        /novo-hinario-adventista/<slug>/   ← os dois hinários
+2. artista padrão  /ministerio-jovem/<slug>/          ← os CDs oficiais e do ano
+3. busca genérica  ?q=<nome>                          ← o resto, com parentesco
+```
+
+**Errar aqui é barato, e isso é o desenho, não a sorte.** Um slug que o site
+renomeie devolve 404, a busca genérica roda em seguida exatamente como antes, e
+nenhum caminho regride — o custo é uma requisição. E não é silencioso: o Registro
+imprime a tentativa verbatim, então o erro aparece como
+`padrão …/ministerio-jovem/… → nao-tem` em **toda** música, que é o sinal mais
+alto que este caminho sabe emitir. Conserto por OTA, sem Release.
+
+**A âncora do oráculo é uma URL real**, conferida contra o site
+(`/ministerio-jovem/meu-farol/`), como a do hinário na primeira seção. Sem ela a
+seção provaria só que a função concorda com quem a escreveu.
+
+O mesmo artista entra também como **desempate** na busca da v1.1.22: um resultado
+sob ele é, por definição, de um CD oficial. Esse desempate é mais forte que o do
+álbum, porque não depende de o nome do álbum do acervo bater com o do site — e,
+como o outro, ele SOMA e não filtra.
 
 ---
 

@@ -1,5 +1,11 @@
 [
   {
+    "versao": "1.1.23",
+    "itens": [
+      "As cifras dos CDs oficiais e dos CDs do ano passam a ser procuradas direto na coleção “Ministério Jovem” do Cifra Club, antes de cair na busca por texto — é um endereço deduzido do nome da música, sem depender de quem o site escolhe mostrar primeiro."
+    ]
+  },
+  {
     "versao": "1.1.22",
     "itens": [
       "A busca de cifra deixa de cair no índice alfabético do site. Ela pegava o primeiro link da página de resultados — e o cabeçalho do site vem antes dos resultados, então uma busca por “Em Oração” abria a página da letra A. Agora só entra o resultado que tem PARENTESCO com o nome da música, e nenhum parente significa “não achei” em vez de abrir qualquer coisa.",

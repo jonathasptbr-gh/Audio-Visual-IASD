@@ -149,6 +149,32 @@
     return BASE + a + '/' + s + '/';
   }
 
+  /**
+   * ARTISTAS que valem uma tentativa DEDUZÍVEL, além do catálogo.
+   *
+   * Os CDs oficiais e os do ano estão no site sob a coleção **Ministério
+   * Jovem** — a mesma forma do [CATALOGO], mas sem uma coleção do acervo para
+   * mapear: os álbuns do ano são dezenas ("Missão", "Salmos", "Adoradores"…) e
+   * todos caem no mesmo artista lá.
+   *
+   * Por que uma tentativa própria, e não confiar na busca: a URL aqui é
+   * DEDUZÍVEL do nome da música, então é **uma requisição, sem ranking de
+   * ninguém escolhendo por nós** — a mesma razão pela qual o catálogo vem antes
+   * da busca. Ela entra DEPOIS do catálogo e ANTES da busca genérica.
+   *
+   * **O custo de estar errado é um 404**, e a busca genérica roda em seguida
+   * como sempre — nenhum caminho regride. Cada tentativa entra no Registro
+   * verbatim, então um slug que o site renomeie aparece como
+   * `padrao …/ministerio-jovem/… → nao-tem` em toda música, e se conserta por
+   * OTA sem Release.
+   */
+  const ARTISTAS_PADRAO = ['ministerio-jovem'];
+
+  /** As URLs dedutíveis de [ARTISTAS_PADRAO] para este nome. */
+  function urlsPadrao(nome) {
+    return ARTISTAS_PADRAO.map((a) => urlDaMusica(a, nome)).filter(Boolean);
+  }
+
   // A BUSCA GENÉRICA — o "qualquer música". Sem catálogo e sem palpite de
   // slug: quem procura é o site.
   /**
@@ -567,8 +593,17 @@
    * outra pessoa vai reordenar é apostar num detalhe.
    */
   function ordenarBusca(achados, nome, artista) {
+    // Um resultado sob um dos [ARTISTAS_PADRAO] é, por definição, de um CD
+    // oficial — o mesmo desempate do álbum, por outro caminho e sem depender de
+    // o nome do álbum do acervo bater com nada.
+    const doPadrao = (r) => (ARTISTAS_PADRAO.includes(slug(r.artista)) ? 1 : 0);
     return (Array.isArray(achados) ? achados : [])
-      .map((r, i) => ({ r, i, p: parentesco(r.nome, nome), a: artista ? parentesco(r.artista, artista) : 0 }))
+      .map((r, i) => ({
+        r,
+        i,
+        p: parentesco(r.nome, nome),
+        a: (artista ? parentesco(r.artista, artista) : 0) + doPadrao(r),
+      }))
       .filter((x) => x.p > 0)
       .sort((x, y) => (y.p - x.p) || (y.a - x.a) || (x.i - y.i))
       .map((x) => x.r);
@@ -777,6 +812,7 @@
     OK, MOTIVO_SEM_REDE, MOTIVO_NAO_TEM, MOTIVO_RECUSOU, MOTIVO_ILEGIVEL,
     normalizar, semNumero, slug, decodificar,
     urlDoHino, urlDaMusica, urlDeBusca,
+    ARTISTAS_PADRAO, urlsPadrao,
     pareceAcorde, transporAcorde, transporLinha, transporTom,
     lerFolha, lerPagina, lerBusca, somenteLetra,
     ordenarBusca, parentesco, ehCaminhoDeMusica,

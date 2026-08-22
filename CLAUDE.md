@@ -1769,6 +1769,17 @@ a congregação vê continua sendo a letra, pelo caminho de sempre.
   requisição, sem ranking de ninguém escolhendo por nós. Só falhando ela entra a
   **busca genérica**, que é o "qualquer música" e também cobre o hino cujo nome
   no acervo não bate com o do site.
+- **OS CDs OFICIAIS TÊM ENDEREÇO DEDUZÍVEL TAMBÉM** (`AVCifra.ARTISTAS_PADRAO`).
+  Os álbuns do acervo são dezenas ("Missão", "Salmos", "Adoradores"…) e no site
+  caem todos sob a coleção **Ministério Jovem** — a mesma forma do `CATALOGO`,
+  sem uma coleção do acervo para mapear. Vale uma tentativa PRÓPRIA, entre o
+  catálogo e a busca, pela razão que ordena as três: ali a URL sai do nome da
+  música, e é **uma requisição sem ranking de ninguém escolhendo por nós**.
+  Errar custa um 404 — a busca roda em seguida como sempre, nenhum caminho
+  regride —, e o Registro imprime a tentativa verbatim, então um slug que o site
+  renomeie aparece em toda música e se conserta por OTA. O mesmo artista entra
+  como **desempate** na busca: um resultado sob ele é, por definição, de um CD
+  oficial, e isso não depende de o nome do álbum do acervo bater com nada.
 - **A BUSCA ESCOLHE POR PARENTESCO, NUNCA POR POSIÇÃO** (`AVCifra.ordenarBusca`).
   Pegar o primeiro link de dois segmentos da página de resultados é errado por
   duas razões independentes: a NAVEGAÇÃO do site também é link de dois segmentos,
@@ -2864,7 +2875,7 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: v1.1.22** (base web) · **v1.1.10** (APK) · `SHELL_VERSION` **49** · bundle com
+**Versão atual: v1.1.23** (base web) · **v1.1.10** (APK) · `SHELL_VERSION` **49** · bundle com
 `minShell: 49` — o shell 49 é o **PISO**: todo método da ponte existe, e não há
 guarda de versão no lado web. O que continua valendo é que `java/`, `res/`, o
 manifest e os workflows **só chegam instalando o APK**.
