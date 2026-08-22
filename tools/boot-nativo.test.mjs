@@ -455,39 +455,51 @@ try {
   checar(/playlists por mês/.test(reg) && /playlists por trimestre/.test(reg),
     'com os PARÂMETROS de cada série (é neles que o ajuste é feito)');
 
-  // As RECUSAS, com o nome VERBATIM e o motivo. É a metade que responde "por
-  // que sumiu o mês de julho?", e sem ela a única pista seria uma lista curta.
-  checar(temLinha(/- "Provai e Vede - Agosto 2026 \(Libras\)" → é a versão em Libras/),
-    'cada playlist RECUSADA aparece com o nome verbatim e o motivo (Libras)');
-  checar(temLinha(/- "Semana de Mordomia Cristã 2026" → não começa com "Provai e Vede"/),
+  // AS RECUSAS, AGRUPADAS POR MOTIVO (v1.1.16) — e o nome cru dos primeiros de
+  // cada grupo. O contrato ANTERIOR era "cada recusa com o nome verbatim", e ele
+  // custou o Registro inteiro: num aparelho de verdade este bloco ocupou ~140 de
+  // ~170 linhas, com "não começa com Informativo" repetido sessenta vezes,
+  // enterrando a linha do tempo — o único bloco que responde "o que aconteceu no
+  // culto?".
+  //
+  // O QUE A TROCA NÃO PODE PERDER, e é o que estas asserções cobram: a CONTAGEM
+  // por motivo (para o corte não ser silencioso) e ao menos um nome CRU por
+  // grupo — é lendo o nome que se descobre uma renomeação em massa, e é para
+  // isso que o bloco existe.
+  checar(/- \d+× é a versão em Libras/.test(reg)
+    && /"Provai e Vede - Agosto 2026 \(Libras\)"/.test(reg),
+    'as recusas saem CONTADAS por motivo, com o nome cru dos primeiros de cada grupo');
+  checar(/- \d+× não começa com "Provai e Vede"/.test(reg),
     'e o motivo cita a série: "não começa com X" diz o que fazer, "prefixo" não');
-  // AS OUTRAS LÍNGUAS DO @daniellocutor saem recusadas pelo PREFIXO, e não pelo
-  // idioma — porque o prefixo é a primeira pergunta, e ela já as elimina. Isso
-  // está afirmado de propósito: a ordem das perguntas é o que o Registro
-  // mostra, e trocá-la mudaria o texto que eu leio a distância. Aqui ela está
-  // certa (o NOME verbatim ao lado já diz "Misiones"), e o motivo por idioma
-  // fica para quem passa do prefixo — o vídeo em espanhol, logo abaixo.
-  checar(temLinha(/- "Misiones \| 3º Trimestre 2026" → não começa com "Informativo"/)
-    && temLinha(/- "【聖工消息】2026 第三季 \(3 Quarter 26\)" → não começa com "Informativo"/),
-    'as playlists dos outros idiomas aparecem com o NOME verbatim e o motivo (prefixo)');
+  checar(/"Misiones \| 3º Trimestre 2026"/.test(reg)
+    && /"【聖工消息】2026 第三季 \(3 Quarter 26\)"/.test(reg),
+    'as playlists dos outros idiomas continuam NOMEADAS — é o nome que denuncia a renomeação');
   checar(temLinha(/\+ "Informativo \| 3º Trimestre 2026" → mês 7/),
-    'e as ACEITAS mostram o mês em que o período começa — é o que ordena a lista');
+    'e as ACEITAS seguem uma por linha, nominais: são poucas e são o que prova que a regra achou');
 
   // O vídeo em espanhol: a recusa que o prefixo NÃO faz, e a que só o Registro
   // torna visível (ele some da lista sem deixar rastro em lugar nenhum).
-  checar(temLinha(/- "Informativo Mundial de las Misiones \| 15 AGOSTO 2026" → está em outro idioma/),
-    'O VÍDEO EM ESPANHOL aparece nomeado no registro, com o motivo');
+  checar(/- \d+× está em outro idioma/.test(reg)
+    && /"Informativo Mundial de las Misiones \| 15 AGOSTO 2026"/.test(reg),
+    'O VÍDEO EM ESPANHOL continua nomeado no registro, com o motivo');
   checar(temLinha(/! 1 entrou\(entraram\) SEM data no título:/)
     && temLinha(/"Informativo Mundial das Missões \| especial de encerramento"/),
     'e o episódio SEM DATA é nomeado como ACHADO — ele entrou, e é dele que sai o próximo ajuste');
 
-  // Os nomes resultantes, que é a outra metade do pedido.
-  checar(/nomes \(4\), na ordem em que a lista mostra:/.test(reg)
-    && /nomes \(3\), na ordem em que a lista mostra:/.test(reg),
-    'os NOMES resultantes entram, com a contagem e na ordem da lista');
-  checar(/\n    04\/Jul · Informativo Mundial das Missões\n/.test(reg)
-    && /\n    15\/Ago · Informativo Mundial das Missões\n/.test(reg),
-    'um por linha: o rótulo tem " · " e o título cru tem " | ", então nenhum separador serviria');
+  // OS NOMES VIRARAM AS BORDAS. A lista existia para conferir a ORDEM, e ordem
+  // se confere nas pontas: cinquenta e duas linhas para conferir duas é o que
+  // enterrava o resto. O defeito do MEIO tem sinal próprio — o `! entrou SEM
+  // data`, afirmado logo acima e ainda nominal.
+  // AFIRMA A FORMA, não um nome: as DUAS séries têm de produzir a linha, com a
+  // contagem e as duas pontas entre aspas. Cravar um nome aqui mediria a
+  // fixture, e a próxima entrada verbatim do canal quebraria o oráculo sem que
+  // nada no app tivesse mudado.
+  const bordas = reg.match(/^\s*\d+ na lista, de "[^"]+" a "[^"]+"$/gm) || [];
+  checar(bordas.length === 2,
+    'os NOMES viram as BORDAS nas duas séries: a contagem e as duas pontas, que é onde a '
+    + 'ordem se confere', JSON.stringify(bordas));
+  checar(!/na ordem em que a lista mostra/.test(reg),
+    'e a listagem nominal completa NÃO volta — era ela que enterrava a linha do tempo');
   checar(/aba do canal \(há \d+ s\)/.test(reg) && /vídeos \(varredura há \d+ s\)/.test(reg),
     'as DUAS metades trazem a própria data — a assinatura pula a extração e só uma delas é de agora');
   checar(!/undefined|NaN|\[object Object\]/.test(reg),
@@ -504,8 +516,8 @@ try {
     'as playlists de OUTROS ANOS saem da lista — elas não mudam e não decidem nada');
   checar(/\(mais 2 de outros anos: /.test(reg),
     'mas são CONTADAS, por motivo: nenhum corte silencioso', (reg.match(/\(mais [^\n]*/) || [])[0]);
-  checar(temLinha(/- "Semana de Mordomia Cristã 2026" → não começa com "Provai e Vede"/),
-    'e o que é do ANO CORRENTE fica, mesmo recusado — é ali que uma renomeação apareceria');
+  checar(/"Semana de Mordomia Cristã 2026"/.test(reg),
+    'e o que é do ANO CORRENTE fica NOMEADO, mesmo recusado — é ali que uma renomeação apareceria');
 
   // ── O QUE O CANAL ANUNCIA E A EXTRAÇÃO NÃO TRAZ (v5.252) ───────────────
   // No registro real: 39 anunciados × 38 vistos numa série, 51 × 50 na outra.
