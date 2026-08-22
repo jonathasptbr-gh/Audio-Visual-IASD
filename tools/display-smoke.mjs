@@ -576,7 +576,7 @@ try {
       bc.addEventListener('message', ouvir);
       bc.postMessage({ type: 'diag-ask' });
     });
-    const quantas = (d) => (d.linhas || []).filter((l) => /^retomada \d/.test(String(l.ev || ''))).length;
+    const quantas = (d) => (d.linhas || []).filter((l) => /^retomada em /.test(String(l.ev || ''))).length;
     const v = document.querySelector('video');
     const forjar = (fim) => {
       Object.defineProperty(v, 'ended', { get: () => fim, configurable: true });
@@ -618,16 +618,30 @@ try {
     forjar(true);
     r.aposFimNatural = quantas(await pedirDiario()) - base2;
 
-    // (c) A PAUSA PEDIDA pelo operador não retoma — senão o ⏸ dele seria
-    //     desfeito por um timer.
+    // (c) O ⏸ DO OPERADOR VENCE UM TIMER JÁ AGENDADO.
+    //
+    //     A versão anterior deste caso passava por um motivo que não tinha nada
+    //     a ver com a guarda nova: ela mandava `pause` e forjava a pausa 120 ms
+    //     depois, dentro da janela de 1000 ms do `pausaComandada`, então o
+    //     carimbo saía "comando" e `agendarRetomada` nem era chamado. Provava
+    //     um mecanismo que já existia antes do lote.
+    //
+    //     O cenário de risco de VERDADE é o inverso: a retomada JÁ ESTÁ
+    //     AGENDADA e o operador manda parar. Sem `cancelarRetomada()`, o ⏸ dele
+    //     seria desfeito 1,5 s depois por um timer que ele não vê.
     bc.postMessage({ type: 'load', mediaId: m.id, view: 'visual', muted: true, volume: 0 });
     await esperar(1400);
     v.dispatchEvent(new Event('play'));
     const base3 = quantas(await pedirDiario());
-    bc.postMessage({ type: 'pause' });
-    await esperar(120);
     forjar(false);
-    r.aposComando = quantas(await pedirDiario()) - base3;
+    r.agendouAntesDoComando = quantas(await pedirDiario()) - base3;
+    window.__plays = 0;
+    const origPlay2 = v.play.bind(v);
+    v.play = function () { window.__plays++; try { return origPlay2(); } catch (e) { return undefined; } };
+    bc.postMessage({ type: 'pause' });
+    await esperar(2400);                      // além de RETOM_ESPERAS[0]
+    r.playsAposComando = window.__plays;
+    v.play = origPlay2;
 
     const fim = await pedirDiario();
     r.temContadores = !!(fim.retomada && typeof fim.retomada.espontaneas === 'number');
@@ -642,8 +656,11 @@ try {
   checar(ret.aposFimNatural === 0,
     'o FIM NATURAL não retoma — senão o telão religaria a faixa que acabou, com '
     + 'a playlist avançando por baixo', JSON.stringify(ret));
-  checar(ret.aposComando === 0,
-    'e o ⏸ do OPERADOR não é desfeito 1,5 s depois por um timer que ele não vê',
+  checar(ret.agendouAntesDoComando === 1,
+    'a montagem do caso do ⏸ funcionou: havia mesmo um timer agendado para cancelar',
+    JSON.stringify(ret));
+  checar(ret.playsAposComando === 0,
+    'e o ⏸ do OPERADOR vence um timer JÁ AGENDADO — não é desfeito 1,5 s depois',
     JSON.stringify(ret));
   checar(ret.temContadores === true,
     'os contadores viajam no `diag-dump` — o anel tem 60 linhas e um culto não cabe nele',
