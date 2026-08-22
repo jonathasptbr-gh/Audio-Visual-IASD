@@ -24,6 +24,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
+- **v1.1.14** — A TRANSPOSIÇÃO DEIXAVA OS ACORDES DE SÉTIMA MAIOR PARADOS: o sufixo da gramática era uma lista de palavras minúsculas EXIGINDO dígitos depois, e `7M` (dígito + M maiúsculo, a notação brasileira mais comum num hinário) não casava. Como `transporAcorde` devolvia intacto o que não casasse, `D7M/A` e `G7M` ficavam no tom original com a folha andando à volta deles — dissonância na frente de quem toca, sem sinal em lugar nenhum. Slash chords NUNCA estiveram quebrados. A correção por conjunto de caracteres foi reprovada pelo oráculo (`Cada` virava acorde); ficou uma sequência de PEÇAS inteiras, nenhuma exigindo dígito. A transposição passou a andar só na raiz e no baixo. OTA PURO
 - **v1.1.13** — O SELO DE CAMADAS DEIXA DE PERGUNTAR SE HÁ MÚSICA POR BAIXO: ele exigia `midiaNoAr` e por isso sumia justamente onde é mais procurado — Bíblia, mensagem e cronômetro, que são projetados sem música o tempo todo. Um controle que aparece e some conforme o contexto é um controle que ninguém aprende (revoga a segunda metade da regra da v1.0.3). Mais: a Bíblia NO AR vira fonte exclusiva da folha de leitura (com música, só Letra e Cifra), o corpo da folha vira CAIXA com barra de rolagem — "acabou" era indistinguível de "está cortado" —, a cifra QUEBRA em vez de rolar de lado (com o preço escrito) e o "Ver no Cifra Club" vira link de rodapé. OTA PURO
 - **v1.1.12** — O HINÁRIO GANHA AS SEÇÕES TEMÁTICAS QUE O BANCO NÃO TEM: `pt_hymnal` traz número, nome, duração e playback, e mais nada — o que identifica a seção de um hino é a POSIÇÃO dele, então a resposta é uma TABELA DE FAIXAS pura (35 seções, 8 blocos, transcritas do índice da CPB) com oráculo que trava a cobertura CONTÍGUA de 1 a 600. Índice fechado por padrão no topo do card, títulos intercalados na listagem, e o salto que estica a lista antes de rolar. A paginação conta `.hymn-result` e não os filhos — contar os filhos pularia um hino por cabeçalho. OTA PURO
 - **v1.1.11** — O TELÃO SE DEFENDE DE QUEM ROUBA O FOCO DE ÁUDIO: medido em aparelho, tocar qualquer outra mídia no celular PAUSA a projeção — e na perda PERMANENTE o Chromium abandona o foco e não volta nunca. A pausa espontânea passa a disparar um `stage.play()`, que é o próprio Chromium re-pedindo foco. Três tentativas com espera crescente e desistência até comando humano: sem teto, dois apps que retomam sozinhos gaguejam para sempre, e gagueira é pior que pausa. As guardas são a entrega, não o `play()`. OTA PURO
@@ -211,6 +212,93 @@ na nota que a revoga, não apagada da que a criou.
 - **v5.156** — é METADE OTA e METADE APK, de novo.
 
 ---
+
+## v1.1.14 — a transposição deixava os acordes de sétima maior parados
+
+Relatado do aparelho, com capturas do app e do site lado a lado: numa folha
+transposta, a maioria dos acordes andava e **`D7M/A` e `G7M` ficavam exatamente
+onde estavam**. O resultado é dissonância na frente de quem toca — e ela não
+aparece em log nenhum.
+
+### A CAUSA É UMA SÓ, e é da gramática do acorde
+
+O sufixo era enumerado como uma lista de palavras **minúsculas que exigiam
+dígitos depois**:
+
+```
+(?:sus|add|maj|m|b|#)\d+
+```
+
+`7M` é dígito seguido de **M maiúsculo**. Não casava com nada — e `7M` é a
+notação brasileira de sétima maior, a mais comum num hinário.
+
+O que transformou "não casa" em defeito silencioso foi a primeira linha de
+`transporAcorde`:
+
+```
+if (!pareceAcorde(token)) return token;
+```
+
+Reprovado, o acorde **volta intacto**. Não há erro, não há vazio, não há sinal:
+o token simplesmente não anda, enquanto a linha inteira anda à volta dele.
+
+Das três hipóteses do relatório que acompanhou o achado, só a primeira procede.
+**Slash chords nunca estiveram quebrados** — `G/B` → `A/C#` já era exercitado
+pelo oráculo e sempre passou; o que travava dentro de `D7M/A` era o `7M`, não a
+barra.
+
+### A LIÇÃO NÃO É "FALTAVA 7M NA LISTA"
+
+Enumerar sufixo por palavra não escala: cada notação ausente reaparece como o
+MESMO defeito mudo, e ainda faltavam `Maj7`, `M7`, `5+`, `7-`.
+
+A primeira tentativa de correção trocou a lista por um conjunto de CARACTERES
+(`[0-9mMajsudingº°+-#b()]`). Ela consertava o `7M` — e **o oráculo reprovou na
+hora**: `Cada` virava acorde (`C` + `ada`, porque `a` e `d` estavam lá para
+servir a `add` e a `dim`). Teria sido comprar a correção de um lado apagando a
+letra da aba, que é o defeito PIOR dos dois.
+
+A forma que ficou é uma sequência de **peças inteiras**:
+
+```
+(?:maj|min|dim|aug|sus|add|M|m|º|°|\+|-|#|b|\d|\([^)]{0,12}\))*
+```
+
+Duas propriedades, e as duas são o conserto: as peças da notação brasileira
+estão lá (`M` inclusive), e **nenhuma exige dígito depois de si** — era essa
+exigência que reprovava o `7M`. As longas vêm antes das curtas na alternância,
+senão `m` consumiria o começo de `maj` e sobraria `aj`.
+
+Agora `ada` não é `add` nem `a`, e reprovam junto: `Cada`, `Da`, `Ai`, `Adora`,
+`Canta`, `Face`, `Grande`.
+
+### A TRANSPOSIÇÃO PASSOU A ANDAR PELOS PEDAÇOS
+
+Antes ela fazia um `replace` global de `[A-G]` sobre o token inteiro. Agora a
+gramática já devolve raiz, extensão e baixo separados, e **só raiz e baixo
+andam** — a extensão viaja verbatim. O que era improvável (mexer numa letra
+dentro da extensão) passou a ser impossível por construção.
+
+E a **grafia segue a RAIZ**, não um `b` perdido na extensão: `C7(b9)` subindo
+meio tom dava `Db7(b9)`, porque o `b` do `(b9)` decidia a escala. O bemol de uma
+alteração não diz nada sobre como a fundamental é escrita — hoje sai `C#7(b9)`.
+
+### O ORÁCULO GANHOU A METADE QUE FALTAVA
+
+Os números esperados foram conferidos contra a página real nos três tons das
+capturas (a folha vem no tom de D):
+
+| tom | −semitons | esperado |
+|---|---|---|
+| A | 5 | `A7M/E` · `D7M` |
+| A# | 4 | `A#7M/F` · `D#7M` |
+| B | 3 | `B7M/F#` · `E7M` |
+
+Os três batem. E a lista de RECUSAS cresceu junto com a de aceitações — é ela
+que impede a próxima correção de um lado de estragar o outro, que foi
+exatamente o que quase aconteceu aqui.
+
+OTA PURO — `minShell` segue 49, sem `shellTag`.
 
 ## v1.1.13 — o selo de camadas vira padrão, e a folha de leitura vira caixa
 
