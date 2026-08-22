@@ -1131,9 +1131,16 @@ mixer (`#lyricsViewBtn`, folha com linhas) abre um bottom-sheet **com scroll**
   do maior rótulo para o ciclo não empurrar os vizinhos a cada toque — um botão
   que se desloca sob o dedo erra o alvo na segunda batida.
 
+  **A barra fica FORA da caixa que rola** (`#lyricsViewBar`, entre o seletor e o
+  corpo, com o mesmo alinhamento horizontal dele): dentro, os controles rolavam
+  com o texto e o pausar saía de cena em segundos. Ela existe só na cifra e é
+  limpa em `renderLyricsView`, num ponto só.
+
   **A rolagem anda no tempo da MÚSICA** (`Auto`, o padrão), com o começo parado
   alguns segundos e o fim alcançado bem antes de a música acabar; sem relógio
-  para seguir ela cai num ritmo fixo e diz isso no `title`. **A quebra de linha
+  para seguir ela cai num ritmo fixo e diz isso no `title`. A posição é escrita
+  em FRAÇÃO de pixel — inteira, ela anda 1 px a cada três quadros e o olho lê
+  isso como tremor sobre o texto. **A quebra de linha
   da folha é do app, não do navegador**, e por isso `cifraColunas` mede a fonte
   RENDERIZADA. Os dois mecanismos estão no `CLAUDE.md`, com o que cada um recusa
   fazer; as regras puras (a janela da rolagem, a quebra do par) estão em

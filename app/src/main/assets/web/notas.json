@@ -1,5 +1,14 @@
 [
   {
+    "versao": "1.1.22",
+    "itens": [
+      "A busca de cifra deixa de cair no índice alfabético do site. Ela pegava o primeiro link da página de resultados — e o cabeçalho do site vem antes dos resultados, então uma busca por “Em Oração” abria a página da letra A. Agora só entra o resultado que tem PARENTESCO com o nome da música, e nenhum parente significa “não achei” em vez de abrir qualquer coisa.",
+      "Não achando de primeira, ela tenta o nome da música JUNTO com o do álbum, e experimenta até três resultados antes de desistir.",
+      "Os controles da cifra (pausar a rolagem, velocidade, transposição) saíram de dentro da caixa que rola: com a rolagem ligada eles sumiam de cena em segundos, e alcançá-los exigia rolar de volta ao topo, brigando com a rolagem que se queria parar.",
+      "A rolagem deixou de tremer. Ela andava um pixel inteiro a cada três quadros e ficava parada nos outros dois; agora anda em fração de pixel, e quem suaviza é o próprio navegador."
+    ]
+  },
+  {
     "versao": "1.1.21",
     "itens": [
       "As séries (Provai e Vede, Informativo) deixaram de ter botão de baixar e de excluir: os episódios só existem enquanto estão no Cronograma, nos Favoritos ou na playlist.",

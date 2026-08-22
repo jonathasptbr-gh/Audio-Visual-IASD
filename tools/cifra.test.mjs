@@ -452,5 +452,77 @@ secao('10. janelaDeRolagem / fracaoDaRolagem');
   }
 }
 
+// ── 11. A BUSCA ESCOLHE POR PARENTESCO, NÃO POR POSIÇÃO ─────────────────────
+// O CASO MEDIDO num aparelho (Registro de 22/08): uma busca por "Em Oração"
+// devolveu 27 resultados e o escolhido foi `/letra/A/` — o ÍNDICE ALFABÉTICO do
+// site, que mora no cabeçalho e por isso aparece ANTES de qualquer resultado no
+// HTML. Ele tem dois segmentos, tem texto, e a regra antiga pegava o primeiro
+// que casasse com isso.
+//
+// A defesa não é a lista de rotas do site (ela muda quando o dono dele quiser):
+// é EXIGIR PARENTESCO com o que se procurou. As duas metades são cobradas aqui.
+secao('11. a busca escolhe por parentesco');
+{
+  // A ESTRUTURA: o índice alfabético cai antes de qualquer ranking.
+  checar(!C.ehCaminhoDeMusica(['letra', 'A']), '/letra/A/ não é caminho de música');
+  checar(!C.ehCaminhoDeMusica(['busca', 'em-oracao']), 'uma seção do site também não');
+  checar(!C.ehCaminhoDeMusica(['artista-de-marcador']), 'um segmento só não é música');
+  checar(!C.ehCaminhoDeMusica(['a', 'b', 'c']), 'três segmentos também não');
+  checar(C.ehCaminhoDeMusica(['artista-de-marcador', 'musica-de-marcador']),
+    'e o caminho de uma música de verdade passa');
+
+  // O PARENTESCO, nos quatro graus. O zero é o que importa: ele é RECUSA, não
+  // último lugar — sem ele, uma lista sem nenhum resultado bom devolve o
+  // primeiro item da navegação com toda a confiança.
+  checar(C.parentesco('Em Oração', 'Em Oração') === 3, 'o mesmo título vale 3');
+  checar(C.parentesco('Em Oração (ao vivo)', 'Em Oração') === 2, 'um contendo o outro vale 2');
+  checar(C.parentesco('Oração da Manhã', 'Em Oração') === 1, 'uma palavra forte em comum vale 1');
+  checar(C.parentesco('A', 'Em Oração') === 0, 'o índice alfabético vale 0 — e 0 é RECUSA');
+  checar(C.parentesco('Gospel', 'Em Oração') === 0, 'e uma seção de estilo também');
+  // "Em" tem 2 letras e não conta: senão TODO título com "em" seria parente.
+  checar(C.parentesco('Em Casa', 'Em Oração') === 0, 'palavra curta não cria parentesco');
+  checar(C.parentesco('001. Santo, Santo, Santo', 'Santo Santo Santo') === 3,
+    'número de faixa e pontuação não separam o que é o mesmo título');
+
+  // A METADE DE PONTA A PONTA: o HTML de uma página de resultados com a
+  // navegação do site vindo ANTES do resultado certo, que é a forma do defeito.
+  const html = [
+    '<a href="/letra/A/">A</a>',
+    '<a href="/estilos/gospel/">Gospel</a>',
+    '<a href="/outro-artista-marcador/outra-musica-marcador/">Outra Musica Marcador</a>',
+    '<a href="/artista-de-marcador/em-oracao/">Em Oração</a>',
+  ].join('');
+  const achados = C.lerBusca(html);
+  checar(!achados.some((x) => /\/letra\//.test(x.url)), 'o índice alfabético não entra na lista', achados);
+  const ordenado = C.ordenarBusca(achados, 'Em Oração', 'Missão');
+  checar(ordenado.length === 1, 'só o que tem parentesco sobrevive', ordenado);
+  checar(ordenado[0] && /em-oracao/.test(ordenado[0].url),
+    'e o escolhido é a música, não o primeiro link do documento', ordenado[0] && ordenado[0].url);
+
+  // NADA COM PARENTESCO = LISTA VAZIA, e não "o primeiro que apareceu". Uma
+  // busca que só devolve navegação tem de virar "não achei".
+  const soNav = C.ordenarBusca(C.lerBusca('<a href="/letra/A/">A</a><a href="/estilos/gospel/">Gospel</a>'),
+    'Em Oração', 'Missão');
+  checar(soNav.length === 0, 'uma página só de navegação não devolve candidato nenhum', soNav);
+
+  // O ÁLBUM DESEMPATA, e só isso. Ele não é o artista do site — filtrar por ele
+  // derrubaria a música certa toda vez que os dois não coincidissem.
+  const dois = C.lerBusca([
+    '<a href="/outro-artista-marcador/em-oracao/">Em Oração</a>',
+    '<a href="/missao-marcador/em-oracao/">Em Oração</a>',
+  ].join(''));
+  const ord2 = C.ordenarBusca(dois, 'Em Oração', 'Missão Marcador');
+  checar(ord2.length === 2, 'os dois homônimos continuam na lista', ord2.length);
+  checar(/missao-marcador/.test(ord2[0].url), 'e o do álbum que bate vem primeiro', ord2[0].url);
+
+  // A CONSULTA com o álbum é a SEGUNDA, e existe.
+  checar(C.urlDeBusca('Em Oração').endsWith('?q=Em%20Ora%C3%A7%C3%A3o'),
+    'o primeiro tento leva só o nome', C.urlDeBusca('Em Oração'));
+  checar(C.urlDeBusca('Em Oração', 'Missão').includes('Miss%C3%A3o'),
+    'o segundo leva o álbum junto', C.urlDeBusca('Em Oração', 'Missão'));
+  checar(C.urlDeBusca('Em Oração', '  ') === C.urlDeBusca('Em Oração'),
+    'álbum em branco não muda a consulta');
+}
+
 console.log('\n' + (falhas.length ? falhas.length + ' FALHA(S)' : 'tudo certo'));
 process.exit(falhas.length ? 1 : 0);
