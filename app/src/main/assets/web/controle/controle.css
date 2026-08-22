@@ -2539,10 +2539,12 @@ main {
    baixa é o botão do painel logo abaixo — que tem o estado e o progresso. O
    `visibility: hidden` tira o botão do toque, do foco e do leitor de tela e
    MANTÉM a coluna, que é o que impede o peso de saltar. */
-/* A LIXEIRA DA BARRA (v1.1.16). Mesmo alvo e mesma geometria do irmão de
-   baixar — eles dividem a coluna da direita, e centros que discordam num par
-   colado é a coisa que mais parece defeito numa linha. O que muda é só a cor:
-   destrutivo é `--danger`, como em todo o resto do app.
+/* OS TRÊS BOTÕES DA COLUNA DA DIREITA dividem a geometria de `.coll-bar-dl` —
+   centros ou tamanhos que discordem num par colado é a coisa que mais parece
+   defeito numa linha. O que os distingue é a COR e o modificador:
+   `.coll-bar-dl` puro = baixar/cancelar · `.coll-bar-at` = atualizar a lista
+   (v1.1.21, só na série) · `.coll-bar-rm` = remover.
+   O de atualizar fica no tom neutro dos irmãos; só o destrutivo muda de cor.
    (`.coll-bar-dl.vago` saiu junto: ela escondia o botão de baixar com o card
    aberto porque o painel de dentro repetia a ação. O painel saiu.) */
 .coll-bar-rm { background: var(--danger-soft); color: var(--danger-strong); }
@@ -2680,6 +2682,49 @@ main {
 .hino-indice-chip-faixa {
   font-size: .66rem; color: var(--muted);
   font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1;
+}
+
+/* ---------- O DESTAQUE DO SÁBADO, NA SÉRIE (v1.1.21) ----------
+   Um bloco acima da lista, com o episódio desta semana — ou a frase que diz que
+   ele ainda não saiu. Ver `blocoDestaque` para o porquê de o item SAIR da lista.
+
+   O que o separa da lista é o PREENCHIMENTO, não uma linha: `--sel-fill` é o
+   tom opaco de "isto está escolhido" que o app já usa em lista (ver
+   `tokens.css` — opaco de propósito, para valer o mesmo em qualquer nível da
+   escada). Ele não é `--live`: nada aqui está NO AR, e vermelho ao lado de uma
+   lista de episódios prometeria projeção. */
+.serie-destaque {
+  margin: .4rem 0 .1rem;
+  padding: .45rem .5rem .5rem;
+  border-radius: var(--radius-btn);
+  background: var(--sel-fill);
+}
+.serie-destaque-cab {
+  display: flex; align-items: baseline; gap: .5rem;
+  padding: 0 .15rem .35rem;
+}
+.serie-destaque-rot {
+  flex: 1; min-width: 0;
+  font-size: .66rem; font-weight: 700; letter-spacing: .12em;
+  text-transform: uppercase; color: var(--accent);
+}
+/* `tabular-nums` para a data não dançar de largura entre uma semana e a
+   seguinte — o bloco é redesenhado a cada abertura do card. */
+.serie-destaque-data {
+  font-size: .72rem; font-weight: 600; color: var(--text);
+  font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1;
+}
+/* A lista de UM item: o `.coll-songs` ao lado já dá corpo, raio e alvo à linha;
+   o que muda aqui é só o respiro, que o bloco em volta já paga. */
+.serie-destaque-lista { margin: 0; }
+/* A AUSÊNCIA tem a altura de uma linha da lista, e não a de um parágrafo: o
+   bloco não pode encolher e crescer de tamanho conforme a semana, senão o topo
+   do card salta toda vez que o episódio sai. */
+.serie-destaque-vazio {
+  display: flex; align-items: center;
+  min-height: var(--hit);
+  padding: 0 .15rem;
+  font-size: .82rem; color: var(--muted);
 }
 
 /* A sentinela do fim da página (ver `fillSongList`). O objetivo é que ela NÃO
@@ -4623,6 +4668,11 @@ main {
 .lyricsview-body {
   position: relative;         /* offsetParent das linhas — ver lvScrollToCurrent */
   flex: 1; overflow-y: auto;
+  /* A ROLAGEM AUTOMÁTICA escreve `scrollTop` a cada quadro, com FRAÇÃO de pixel.
+     `scroll-behavior: smooth` aqui faria o navegador animar cada uma dessas
+     escritas por cima da nossa — duas animações no mesmo eixo, que é uma das
+     formas de tremer. `auto` é o padrão e está escrito para não ser "melhorado". */
+  scroll-behavior: auto;
   margin: 0 .9rem .9rem;
   padding: .7rem .8rem;
   background: var(--surface);
@@ -4755,17 +4805,16 @@ main {
   line-height: 1.7;
   padding-bottom: .2rem;
 }
-/* QUEBRA AUTOMÁTICA em vez de rolagem lateral (v1.1.11).
-   `pre-wrap` mantém os espaços — que é o que segura o acorde na coluna da
-   sílaba — e passa a quebrar a linha que não couber, em vez de empurrar a folha
-   para fora da tela. **O preço está dito:** na linha que de fato quebrar, a
-   continuação recomeça na margem e o par acorde/letra perde o alinhamento
-   NAQUELE ponto. É a troca que o formato permite: alinhamento perfeito com
-   rolagem lateral, ou tudo à vista com a quebra ocasional. Em tela de celular a
-   maioria das linhas cabe, e rolar de lado a cada verso custava mais. */
+/* `pre` PURO: a quebra é NOSSA, não do navegador (v1.1.19).
+   O CSS quebra cada linha INDEPENDENTEMENTE — e acorde e letra são um PAR. Com
+   `pre-wrap` uma folha larga saía como duas linhas de acorde seguidas de duas
+   de letra, e a segunda metade do acorde ficava a duas linhas da sílaba a que
+   pertence: não é alinhamento imperfeito, é o par desfeito. Quem quebra agora é
+   `AVCifra.quebrarPares`, no MESMO índice das duas linhas — ver o `cifraColunas`
+   do `controle.js`, que mede quantos caracteres cabem na fonte renderizada.
+   Aqui a regra só não pode desfazer isso: espaço preservado, quebra nenhuma. */
 .lv-cifra-linha {
-  white-space: pre-wrap;
-  overflow-wrap: break-word;
+  white-space: pre;
   min-height: 1px;
 }
 /* O RESPIRO VAI ENTRE OS PARES, não dentro deles: o acorde tem de ficar COLADO
@@ -4781,18 +4830,38 @@ main {
    string vazia colapsa, e as estrofes encostam umas nas outras. */
 .lv-cifra-vazio { height: .7em; }
 
-/* Tom à esquerda, transposição à direita — o mesmo par de botões do A+/A−,
-   reusando `.lv-fonte-btn` porque é o mesmo gesto (um passo por toque numa
-   escada) e duas aparências para o mesmo gesto seria ruído. */
+/* Tom à esquerda, controles à direita — todos reusando `.lv-fonte-btn` porque é
+   o mesmo gesto (um passo por toque numa escada) e duas aparências para o mesmo
+   gesto seria ruído.
+
+   FORA DA CAIXA QUE ROLA (v1.1.22). Ela morava dentro do corpo e rolava com o
+   texto: com a rolagem automática ligada, o pausar saía de cena em segundos, e
+   alcançá-lo exigia rolar de volta ao topo — brigando com a rolagem que se
+   queria parar. O alinhamento horizontal é o MESMO da caixa (`.9rem`), senão a
+   barra e o texto passariam a ser duas colunas diferentes. */
+.lyricsview-bar { margin: 0 .9rem .5rem; }
+.lyricsview-bar[hidden] { display: none; }
 .lv-cifra-topo {
   display: flex; align-items: center; justify-content: space-between; gap: .6rem;
-  padding-bottom: .5rem;
 }
 .lv-cifra-tom {
   font-size: .92rem; font-weight: 700; color: var(--muted);
   font-variant-numeric: tabular-nums;
 }
 .lv-cifra-ctl { display: flex; gap: .3rem; flex: none; }
+/* A ROLAGEM AUTOMÁTICA (v1.1.20). Dois controles, e os dois com a aparência do
+   A+/A− pelo mesmo motivo de sempre: é um passo por toque numa escada.
+   O de velocidade CICLA (a escada volta ao começo), como o botão de girar a
+   mídia — com sete degraus, dar a volta custa menos que um segundo botão. */
+.lv-cifra-rolar.ativa { color: var(--accent); }
+/* O ÚNICO botão da família que não é quadrado: o rótulo é uma PALAVRA ("Auto"),
+   não um par de caracteres. `min-width` guarda a largura do maior rótulo para o
+   ciclo não empurrar os vizinhos a cada toque — um botão que se desloca sob o
+   dedo é um botão que erra o alvo na segunda batida. */
+.lv-cifra-vel {
+  width: auto; min-width: calc(var(--hit) + .9rem); padding: 0 .5rem;
+  font-variant-numeric: tabular-nums;
+}
 
 .lv-cifra-estado {
   display: flex; align-items: center; gap: .55rem;

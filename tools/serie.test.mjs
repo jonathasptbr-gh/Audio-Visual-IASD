@@ -629,5 +629,59 @@ checar(/^r[0-9a-z]+$/.test(S.impressao()), 'a impressão é uma string curta e e
 checar(S.impressao() !== S.impressao('outra função'),
   'e ela muda quando o montador da faixa muda (a fresta da v5.236)');
 
+// ── 8. O SÁBADO DESTA SEMANA (v1.1.21) ─────────────────────────────────────
+//
+// É a régua do destaque no topo da lista da série. **A SEMANA COMEÇA NO
+// DOMINGO** — a semana adventista, e a que o operador vive: no domingo ele já
+// monta o culto do sábado que vem. Uma semana começando na segunda faria o
+// domingo de manhã destacar o sábado que ACABOU de passar, que é o único dia em
+// que ninguém procura por ele.
+//
+// Os `hoje` são FIXOS. Uma regra de calendário que leia o relógio não tem
+// oráculo — e o que ela decide é o que aparece no topo da lista do culto.
+const SEM = { ano: 2026 };
+const DIAS = [
+  ['domingo', new Date(2026, 7, 16)], ['segunda', new Date(2026, 7, 17)],
+  ['quarta', new Date(2026, 7, 19)], ['sexta', new Date(2026, 7, 21)],
+  ['sábado', new Date(2026, 7, 22)],
+];
+const errados = DIAS.filter(([, d]) => {
+  const s = S.sabadoDaSemana(d);
+  return !(s.ano === 2026 && s.mes === 8 && s.dia === 22);
+}).map(([n]) => n);
+checar(errados.length === 0,
+  'de domingo a sábado, a semana inteira aponta para o MESMO sábado (22/Ago) — '
+  + 'inclusive o próprio sábado, que é hoje e não a semana que vem',
+  JSON.stringify(errados));
+checar(S.sabadoDaSemana(new Date(2026, 7, 23)).dia === 29,
+  'e no domingo seguinte ela vira: o destaque acompanha a semana, não o mês');
+// A VIRADA DE MÊS e a de ANO saem de graça do `new Date(y, m, d + n)`, e é por
+// isso que a conta é feita assim — e não com aritmética sobre o dia.
+checar(S.sabadoDaSemana(new Date(2026, 7, 30)).mes === 9
+  && S.sabadoDaSemana(new Date(2026, 7, 30)).dia === 5,
+  'a virada de MÊS sai certa (30/Ago → 05/Set)');
+const ano = S.sabadoDaSemana(new Date(2026, 11, 28));
+checar(ano.ano === 2027 && ano.mes === 1 && ano.dia === 2,
+  'e a de ANO também (28/Dez/2026 → 02/Jan/2027)', JSON.stringify(ano));
+
+// A JANELA É A SEMANA, e isso é defesa e não frouxidão: a régua deste módulo é
+// a data do TÍTULO, e o canal escreve a data que quiser. Exigir o dia exato
+// faria um episódio datado de sexta sumir do destaque e a tela dizer "Aguardando
+// lançamento" sobre um vídeo que está na lista logo abaixo.
+const naSemana = (dia, hoje) => S.ehDoSabadoAtual({ mes: 8, dia }, SEM, hoje);
+checar(naSemana(22, new Date(2026, 7, 19)) && naSemana(21, new Date(2026, 7, 19))
+  && naSemana(16, new Date(2026, 7, 19)),
+  'na quarta, a semana inteira casa: domingo (16), sexta (21) e o sábado (22)');
+checar(!naSemana(15, new Date(2026, 7, 19)) && !naSemana(23, new Date(2026, 7, 19)),
+  'e nada fora dela: nem o sábado passado (15), nem o domingo seguinte (23)');
+checar(naSemana(22, new Date(2026, 7, 22)) && !naSemana(23, new Date(2026, 7, 22)),
+  'NO PRÓPRIO SÁBADO o episódio de hoje casa, e o de amanhã não — a janela fecha '
+  + 'no sábado, não depois dele');
+checar(naSemana(16, new Date(2026, 7, 22)),
+  'e o domingo que ABRIU esta semana ainda casa: a janela é a semana toda');
+checar(!S.ehDoSabadoAtual(null, SEM, new Date(2026, 7, 19)),
+  'sem data no título, nunca é o destaque — a mesma regra do `aindaNaoSaiu`: '
+  + 'esconder o que não se sabe julgar seria transformar um item feio num ausente');
+
 console.log('\n' + (falhas.length ? falhas.length + ' FALHA(S)' : 'tudo certo'));
 process.exit(falhas.length ? 1 : 0);

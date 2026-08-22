@@ -151,10 +151,18 @@
 
   // A BUSCA GENÉRICA — o "qualquer música". Sem catálogo e sem palpite de
   // slug: quem procura é o site.
-  function urlDeBusca(termo) {
+  /**
+   * A busca do site. `extra` é o SEGUNDO tento (o álbum junto do nome), e ele
+   * não é o primeiro de propósito: o álbum do acervo não é o artista do site, e
+   * uma palavra a mais numa busca de texto pode ENCOLHER o resultado em vez de
+   * afiná-lo. Ele entra quando o primeiro tento não devolveu nada com
+   * parentesco — ali não há o que encolher.
+   */
+  function urlDeBusca(termo, extra) {
     const t = String(termo == null ? '' : termo).trim();
     if (!t) return '';
-    return BASE + '?q=' + encodeURIComponent(t);
+    const e = String(extra == null ? '' : extra).trim();
+    return BASE + '?q=' + encodeURIComponent(e ? t + ' ' + e : t);
   }
 
   // ===== HTML =====
@@ -466,6 +474,122 @@
    * o que separa a música da navegação do site (categorias, listas, páginas
    * institucionais) sem depender de classe CSS nenhuma.
    */
+  // ===== A BUSCA: PARENTESCO, NÃO POSIÇÃO (v1.1.21) =====
+  //
+  // A v1.1.10 pegava o PRIMEIRO link de dois segmentos da página de resultados,
+  // e isso está errado por duas razões independentes:
+  //
+  //  1. **A navegação do site também é link de dois segmentos.** MEDIDO num
+  //     aparelho: uma busca por "Em Oração" devolveu 27 resultados e o escolhido
+  //     foi `/letra/A/` — o ÍNDICE ALFABÉTICO do site, que mora no cabeçalho e
+  //     por isso aparece ANTES de qualquer resultado no HTML.
+  //  2. **A posição no documento não é a posição no ranking.** Cabeçalho,
+  //     rodapé, "mais acessadas" e blocos de sugestão vêm todos no mesmo HTML.
+  //
+  // A correção NÃO é uma lista de rotas do site, que muda quando o dono dele
+  // quiser: é **exigir parentesco com o que se procurou**. Um resultado cujo
+  // texto não tem relação nenhuma com o nome da música não é o resultado certo,
+  // e nunca vai ser — mesmo que seja o primeiro. A lista de seções existe só
+  // como primeiro corte barato; quem decide é o [parentesco].
+  //
+  // **O preço, dito:** um hino cujo nome no acervo não compartilhe NENHUMA
+  // palavra com o nome no site é recusado, e cai no "não achei". É o caso que a
+  // busca genérica existia para cobrir, e continua coberto pelo grau mais frouxo
+  // (uma palavra em comum). Abaixo disso, "achei alguma coisa" e "achei a música"
+  // são coisas diferentes, e este projeto não troca a segunda pela primeira.
+
+  /** Seções conhecidas do site: primeiro corte, barato e sem pretensão. */
+  const SECOES = new Set([
+    'letra', 'letras', 'busca', 'buscar', 'tags', 'tag', 'estilos', 'estilo',
+    'artistas', 'musicas', 'cifras', 'top', 'mais-acessadas', 'novidades',
+    'videoaulas', 'aprenda', 'academy', 'blog', 'app', 'premium', 'pro',
+    'assinatura', 'login', 'cadastro', 'favoritos', 'sobre', 'contato',
+    'termos', 'privacidade', 'n', 'pt', 'en', 'es',
+  ]);
+
+  /**
+   * Palavras que não distinguem nada. O corte de 4 caracteres já derruba quase
+   * todas as preposições do português; aqui ficam as que passam por ele.
+   */
+  const VAZIAS = new Set([
+    'para', 'como', 'sobre', 'todo', 'toda', 'todos', 'todas', 'mais', 'menos',
+    'pelo', 'pela', 'pelos', 'pelas', 'esta', 'este', 'isso', 'aquilo',
+    'nossa', 'nosso', 'nossas', 'nossos', 'seus', 'suas', 'meus', 'minha',
+    'minhas', 'quando', 'porque', 'entre', 'ainda', 'mesmo',
+  ]);
+
+  /** As palavras que de fato identificam um título. */
+  function palavrasFortes(s) {
+    return normalizar(semNumero(s)).toLowerCase()
+      .replace(/[^a-z0-9à-ÿ ]+/g, ' ')
+      .split(' ')
+      .filter((p) => p.length >= 4 && !VAZIAS.has(p));
+  }
+
+  /** O texto reduzido ao que se pode comparar: sem número, sem pontuação. */
+  function chaveDeTitulo(s) {
+    return normalizar(semNumero(s)).toLowerCase().replace(/[^a-z0-9]+/g, '');
+  }
+
+  /**
+   * O quanto um resultado se PARECE com o que se procurou: 3 = o mesmo título,
+   * 2 = um contém o outro, 1 = pelo menos uma palavra forte em comum, 0 = nada.
+   *
+   * **Zero é recusa, não último lugar.** É o zero que derruba o `/letra/A/` e
+   * todo bloco de sugestão da página; sem ele, uma lista sem nenhum resultado
+   * bom devolve o primeiro item da navegação com toda a confiança.
+   */
+  function parentesco(titulo, alvo) {
+    const a = chaveDeTitulo(titulo);
+    const b = chaveDeTitulo(alvo);
+    if (!a || !b) return 0;
+    if (a === b) return 3;
+    // A CONTENÇÃO EXIGE CORPO. Sem o piso, `'emoracao'.includes('a')` casa — e o
+    // grau 2 devolve justamente o `/letra/A/` que esta função existe para
+    // recusar. Um título de uma ou duas letras está contido em quase tudo; ele
+    // só pode ser parente por IGUALDADE, que é o grau acima.
+    if (Math.min(a.length, b.length) >= 4 && (a.includes(b) || b.includes(a))) return 2;
+    const fortes = new Set(palavrasFortes(alvo));
+    return palavrasFortes(titulo).some((p) => fortes.has(p)) ? 1 : 0;
+  }
+
+  /**
+   * Ordena os achados por parentesco com `nome`, com o `artista` (o nome do
+   * álbum, do lado de cá) como DESEMPATE — nunca como filtro.
+   *
+   * O álbum do acervo não é o artista do site: "Em Oração" está no álbum
+   * "Missão", e quem gravou pode ser qualquer um. Um sinal que só soma é
+   * seguro; um que filtra derrubaria a música certa toda vez que os dois não
+   * coincidissem, que é o caso normal.
+   *
+   * A ordem do documento decide os empates (`i`), e não há ordenação instável:
+   * `sort` do JS é estável desde o ES2019, mas depender disso num arranjo que
+   * outra pessoa vai reordenar é apostar num detalhe.
+   */
+  function ordenarBusca(achados, nome, artista) {
+    return (Array.isArray(achados) ? achados : [])
+      .map((r, i) => ({ r, i, p: parentesco(r.nome, nome), a: artista ? parentesco(r.artista, artista) : 0 }))
+      .filter((x) => x.p > 0)
+      .sort((x, y) => (y.p - x.p) || (y.a - x.a) || (x.i - y.i))
+      .map((x) => x.r);
+  }
+
+  /**
+   * O caminho `/artista/musica/` é de uma MÚSICA?
+   *
+   * Estrutura primeiro, lista de seções depois: um slug de uma letra
+   * (`/letra/A/`) ou de duas não nomeia música nenhuma, e essa regra vale para
+   * qualquer site. A [SECOES] cobre o que passa pela estrutura e ainda assim é
+   * navegação — e ela é o corte BARATO, não a defesa: quem defende é o
+   * [parentesco], porque uma lista de rotas de terceiro envelhece sozinha.
+   */
+  function ehCaminhoDeMusica(partes) {
+    if (partes.length !== 2) return false;
+    const [a, b] = partes;
+    if (SECOES.has(a.toLowerCase()) || SECOES.has(b.toLowerCase())) return false;
+    return a.length >= 2 && b.length >= 3;
+  }
+
   function lerBusca(html) {
     const vistos = new Set();
     const saida = [];
@@ -475,13 +599,177 @@
       const caminho = m[1];
       const partes = caminho.split('/').filter(Boolean);
       const nome = semTags(m[2]);
-      if (partes.length === 2 && nome && !vistos.has(caminho)) {
+      if (ehCaminhoDeMusica(partes) && nome.length >= 2 && !vistos.has(caminho)) {
         vistos.add(caminho);
         saida.push({ nome, artista: partes[0].replace(/-/g, ' '), url: BASE.replace(/\/$/, '') + caminho });
       }
       m = re.exec(String(html || ''));
     }
     return saida;
+  }
+
+  // ===== A QUEBRA DE LINHA DO PAR (v1.1.19) =====
+  //
+  // O acorde vale por estar SOBRE a sílaba em que a harmonia troca. Isso torna
+  // acorde e letra **uma unidade**, e é por isso que a quebra não pode ser
+  // delegada ao navegador.
+  //
+  // A v1.1.13 usava `white-space: pre-wrap` e o preço estava declarado — mas
+  // medido no aparelho ele é inaceitável: o CSS quebra cada linha
+  // INDEPENDENTEMENTE, então uma folha larga sai assim
+  //
+  //     acordes (1ª metade)
+  //     acordes (2ª metade)
+  //     letra   (1ª metade)
+  //     letra   (2ª metade)
+  //
+  // e a segunda metade dos acordes fica a DUAS linhas de distância da sílaba a
+  // que pertence. Não é alinhamento imperfeito: é o par desfeito.
+  //
+  // Aqui a quebra é NOSSA, e o corte é o MESMO índice nas duas linhas — o que
+  // preserva o alinhamento por construção, porque as duas fatias saem da mesma
+  // coluna. A saída intercala `acordes` e `letra`, então cada metade continua
+  // grudada na sua.
+  //
+  // `colunas` é INJETADO por quem chama (o `controle.js` mede a fonte
+  // renderizada): este módulo é PURO e não pode olhar o DOM — e é isso que
+  // torna a regra exercitável no oráculo, que é o que ela mais precisa.
+
+  // O corte parte um token? (um acorde, ou uma palavra da letra)
+  function cortaToken(s, c) {
+    return c > 0 && c < s.length && s[c] !== ' ' && s[c - 1] !== ' ';
+  }
+
+  // O maior corte até `W` que não parte um acorde NEM uma palavra.
+  //
+  // Desce a partir do limite porque o objetivo é aproveitar a largura; o piso
+  // (`MIN`) impede que uma linha sem espaço nenhum produza fatias absurdamente
+  // curtas — e, no pior caso, corta em `W` mesmo: uma quebra feia é melhor que
+  // um laço que não termina.
+  function pontoDeQuebra(A, L, W) {
+    const MIN = Math.max(4, Math.floor(W * 0.35));
+    for (let c = W; c >= MIN; c--) {
+      if (!cortaToken(A, c) && !cortaToken(L, c)) return c;
+    }
+    return W;
+  }
+
+  // O recuo de uma fatia; uma fatia em branco não tem opinião sobre margem, e
+  // por isso devolve Infinity — quem manda é a outra.
+  function recuoDe(s) {
+    return s.trim() ? s.length - s.replace(/^ +/, '').length : Infinity;
+  }
+
+  const semRabo = (s) => s.replace(/ +$/, '');
+
+  function fatiar(A, L, W, temA, temL, saida) {
+    let a = A;
+    let l = L;
+    for (;;) {
+      if (Math.max(semRabo(a).length, semRabo(l).length) <= W) {
+        if (temA) saida.push({ tipo: 'acordes', texto: semRabo(a) });
+        if (temL) saida.push({ tipo: 'letra', texto: semRabo(l) });
+        return;
+      }
+      const c = pontoDeQuebra(a, l, W);
+      if (temA) saida.push({ tipo: 'acordes', texto: semRabo(a.slice(0, c)) });
+      if (temL) saida.push({ tipo: 'letra', texto: semRabo(l.slice(0, c)) });
+      const ra = a.slice(c);
+      const rl = l.slice(c);
+      // O MESMO recuo sai das duas — tirar recuos diferentes desalinharia
+      // justamente o que este código existe para manter junto.
+      let k = Math.min(recuoDe(ra), recuoDe(rl));
+      if (!Number.isFinite(k)) k = 0;
+      a = ra.slice(k);
+      l = rl.slice(k);
+      if (!a.trim() && !l.trim()) return;
+    }
+  }
+
+  /**
+   * Reescreve a folha para caber em `colunas`, quebrando ACORDE e LETRA no
+   * mesmo ponto. Devolve a mesma forma de [lerFolha].
+   *
+   * `colunas` inútil (0, negativo, NaN) devolve a folha INTACTA: sem medida
+   * confiável, não quebrar é melhor que quebrar no lugar errado — o pior
+   * desfecho aqui é uma rolagem lateral, e o outro é a folha mentindo.
+   */
+  function quebrarPares(linhas, colunas) {
+    const W = Math.floor(Number(colunas) || 0);
+    const src = Array.isArray(linhas) ? linhas : [];
+    if (!(W >= 8)) return src.slice();
+    const saida = [];
+    for (let i = 0; i < src.length; i++) {
+      const linha = src[i];
+      if (!linha || linha.tipo === 'vazio') { saida.push({ tipo: 'vazio', texto: '' }); continue; }
+      // O PAR é uma linha de acordes seguida de uma de letra. Linha solta
+      // (acordes sem letra abaixo, ou letra sem acordes acima) quebra sozinha,
+      // pelo mesmo caminho — com a outra metade vazia.
+      const ehPar = linha.tipo === 'acordes' && src[i + 1] && src[i + 1].tipo === 'letra';
+      const A = linha.tipo === 'acordes' ? String(linha.texto || '') : '';
+      const L = ehPar ? String(src[i + 1].texto || '')
+        : (linha.tipo === 'letra' ? String(linha.texto || '') : '');
+      if (ehPar) i++;
+      fatiar(A, L, W, linha.tipo === 'acordes', ehPar || linha.tipo === 'letra', saida);
+    }
+    return saida;
+  }
+
+
+  // ===== A JANELA DA ROLAGEM AUTOMÁTICA (v1.1.20) =====
+  //
+  // A folha de cifra rola no tempo da MÚSICA, não num cronômetro nosso: a mesma
+  // folha serve a um hino de 2 min e a um de 6, e quem decide o ritmo da leitura
+  // é a gravação. O que mora aqui é a FUNÇÃO que traduz "onde a música está" em
+  // "onde a folha deve estar" — pura, injetável, exercitável.
+  //
+  // Ela não é a reta ingênua `f = t / duração`. Tem uma ABERTURA e um FECHO:
+  //
+  //  - **ABERTURA**: o começo fica parado alguns segundos. Quem chega numa
+  //    música quer VER o início — introdução, tom, primeira estrofe — antes de
+  //    a folha começar a fugir dele.
+  //  - **FECHO**: a folha chega ao fim BEM ANTES de a música acabar. O final é
+  //    a parte que mais se erra e a que mais precisa ser lida com antecedência;
+  //    uma folha que mostra o último acorde depois de ele passar não serve para
+  //    nada.
+  //
+  // Os dois são FRAÇÃO da música com piso e teto em SEGUNDOS, e é a combinação
+  // que os torna certos nos dois extremos: fração pura daria dois segundos de
+  // abertura num hino curto (não dá tempo de ler nada) e meio minuto num longo
+  // (a folha parada com a primeira estrofe já cantada).
+  const ABERTURA = { frac: 0.08, min: 4, max: 12 };
+  const FECHO = { frac: 0.12, min: 8, max: 25 };
+
+  /**
+   * `[t0, t1]` em segundos: o trecho da música em que a folha de fato desce.
+   *
+   * Música curta demais para caber abertura e fecho devolve a música INTEIRA.
+   * Uma janela invertida — ou de meio segundo — faria a folha saltar do topo ao
+   * fim num quadro só, que é pior que não ter abertura nenhuma. **O piso é um
+   * segundo, não zero:** com zero a divisão da fração é 0/0.
+   */
+  function janelaDeRolagem(dur) {
+    const d = Number(dur) || 0;
+    if (!(d > 0)) return { t0: 0, t1: 0 };
+    const trava = (r) => Math.min(r.max, Math.max(r.min, d * r.frac));
+    const t0 = trava(ABERTURA);
+    const t1 = d - trava(FECHO);
+    if (!(t1 - t0 >= 1)) return { t0: 0, t1: d };
+    return { t0, t1 };
+  }
+
+  /**
+   * Onde a folha deve estar, de 0 (topo) a 1 (fim), para a música em `t`.
+   *
+   * Sempre dentro de `[0, 1]`: `t` chega de um relógio que pode passar da
+   * duração por um quadro (ou vir negativo num seek em curso), e uma fração
+   * fora da faixa viraria um `scrollTop` fora da folha.
+   */
+  function fracaoDaRolagem(t, dur) {
+    const { t0, t1 } = janelaDeRolagem(dur);
+    if (!(t1 > t0)) return 0;
+    const x = Math.min(Number(dur) || 0, Math.max(0, Number(t) || 0));
+    return Math.min(1, Math.max(0, (x - t0) / (t1 - t0)));
   }
 
   global.AVCifra = {
@@ -491,5 +779,8 @@
     urlDoHino, urlDaMusica, urlDeBusca,
     pareceAcorde, transporAcorde, transporLinha, transporTom,
     lerFolha, lerPagina, lerBusca, somenteLetra,
+    ordenarBusca, parentesco, ehCaminhoDeMusica,
+    quebrarPares, pontoDeQuebra,
+    janelaDeRolagem, fracaoDaRolagem,
   };
 })(this);

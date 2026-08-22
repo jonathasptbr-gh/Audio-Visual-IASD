@@ -1039,7 +1039,7 @@
              pedir ajuda"), e agora ocupam a mesma faixa: a versão à esquerda, o
              Registro à direita, no espaço que já estava sobrando. -->
         <div class="footer-diag">
-          <span id="appVersion" class="app-version">Controle v1.1.20</span>
+          <span id="appVersion" class="app-version">Controle v1.1.23</span>
           <span class="footer-diag-rot">Registro</span>
           <button id="diagCopy" class="log-copy" title="Copiar o registro" aria-label="Copiar o registro">
             <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoCopiar"/></svg>
@@ -1291,6 +1291,14 @@
           <button type="button" class="fit-opt" data-lvsrc="cifra">Cifra</button>
         </div>
       </div>
+      <!-- A BARRA DE CONTROLES DA CIFRA, FORA DA CAIXA QUE ROLA (v1.1.22).
+           Ela morava dentro do corpo e ROLAVA COM O TEXTO: com a rolagem
+           automática ligada, os botões de pausar e de velocidade saíam de cena
+           em segundos, e a única forma de alcançá-los era rolar de volta ao
+           topo — brigando com a rolagem que se queria parar. Um controle que
+           some é um controle que não existe no momento em que ele importa.
+           Fica vazia (e `hidden`) em toda fonte que não seja a cifra. -->
+      <div class="lyricsview-bar" id="lyricsViewBar" hidden></div>
       <div class="lyricsview-body" id="lyricsViewBody"></div>
     </div>
   </div>

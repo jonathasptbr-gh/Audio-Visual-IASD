@@ -114,6 +114,7 @@ const lyricsPopupTitleEl = document.getElementById('lyricsPopupTitle');
 const lyricsPopupCloseEl = document.getElementById('lyricsPopupClose');
 const lyricsViewSegEl = document.getElementById('lyricsViewSeg');
 const lyricsViewBodyEl = document.getElementById('lyricsViewBody');
+const lyricsViewBarEl = document.getElementById('lyricsViewBar');
 
 /**
  * ===== O TAMANHO DA LETRA, AJUSTADO ONDE ELA É LIDA (v1.1.6) =====
@@ -164,6 +165,10 @@ async function passoTamanhoDaLetra(passo) {
   // continua onde deixou).
   lvScroll(lyricsViewBodyEl, lvFollow, false);
   lvScroll(simpleLyricsEl, lvSimpleFollow, false);
+  // A CIFRA quebra por CARACTERE, então mudar o corpo muda quantos cabem: sem
+  // esta linha a folha ficaria quebrada para o tamanho anterior — estourando a
+  // caixa ao aumentar, ou desperdiçando metade da largura ao diminuir.
+  cifraRemedir();
   try { await AVDB.setState('lyricsFont', lvTamanho); } catch (_) { /* sem banco: vale a sessão */ }
 }
 
@@ -232,7 +237,7 @@ const appVersionEl = document.getElementById('appVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.1.20';
+const WEB_VERSION = '1.1.23';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -2489,6 +2494,7 @@ async function load(opts) {
   const storedFit = await AVDB.getState('fit');
   const storedRot = await AVDB.getState('rotate');
   const lvFonteV = await AVDB.getState('lyricsFont');
+  const cifraVelV = await AVDB.getState('cifraVelocidade');
   const lyricsBgV = (await AVDB.getState('lyricsBg')) === 'black' ? 'black' : 'image';
   const downloadOkV = !!(await AVDB.getState('downloadOk'));
   let libItemsV;
@@ -2533,6 +2539,7 @@ async function load(opts) {
   // escada cai no padrão, e não numa medida que ninguém escolheu — a escada pode
   // encolher numa versão futura, e o que estava salvo continua sendo lido.
   lvTamanho = LV_TAMANHOS.includes(lvFonteV) ? lvFonteV : LV_PADRAO;
+  cifraAdotarVelocidade(cifraVelV);
   aplicarTamanhoDaLetra();
   lyricsBg = lyricsBgV;
   downloadConsent = downloadOkV;
@@ -7319,11 +7326,10 @@ function renderCollectionCard(coll, ctx) {
   // a lista. O campo continua no catálogo, de graça, se um dia a cor voltar
   // como tinta do ícone.)
 
-  // Uma linha só: ícone + nome/subtítulo + resumo + engrenagem. O card deixou
-  // de ser um acordeão de manutenção — TOCAR NELE ABRE A LISTA DE MÚSICAS, que
-  // é o que o operador quer quase sempre. Sincronizar, excluir e o estado do
-  // download moram atrás da engrenagem (openCollectionOptions), fora do
-  // caminho de uso.
+  // Uma linha só: ícone + nome/subtítulo + resumo + a coluna de ações. O card
+  // deixou de ser um acordeão de manutenção — TOCAR NELE ABRE A LISTA, que é o
+  // que o operador quer quase sempre; sincronizar e excluir são botões PRÓPRIOS
+  // na direita da barra, cada um com a sua regra de aparecer (ver abaixo).
   const bar = document.createElement('div'); bar.className = 'coll-bar';
   // A THUMB É A SETA, ABERTO OU FECHADO (v5.244 — ver "A seta é a thumbnail das
   // raízes", em `grupo()`). Ela era o ícone da coleção com o card fechado e a
@@ -7378,6 +7384,13 @@ function renderCollectionCard(coll, ctx) {
   // Resumo de sincronização: progresso ao vivo enquanto sincroniza, senão
   // baixados/total.
   //
+  // **A SÉRIE NÃO TEM PESO A ANUNCIAR** (v1.1.21). `fracaoPeso` devolve, para
+  // um acervo vazio, "o que vai custar baixar" — e num álbum de série isso era
+  // um número de gigabytes prometendo um download em lote que nunca existiu e
+  // que agora nem botão tem. O que ela tem de verdade para dizer na barra é
+  // quantos episódios a lista traz, que é o número que o painel carregava antes
+  // de sair. Sem índice, silêncio: o botão de atualizar ao lado já é a mensagem.
+  //
   // COM O ÁLBUM INTEIRO BAIXADO ELE SOME (v5.70), junto com o botão de baixar
   // que já saíra na v5.63. "24/24" não pede nada nem informa nada de novo — é
   // ruído repetido em cada linha de uma lista de dezenas de álbuns, e o estado
@@ -7387,11 +7400,13 @@ function renderCollectionCard(coll, ctx) {
   // falta algo, nada quando está completo. O detalhe (peso, "✓ Completo
   // offline") segue na engrenagem dentro do card aberto.
   const summary = document.createElement('span'); summary.className = 'coll-bar-sync';
-  const peso = fracaoPeso([coll.id]);
+  const peso = ehLink(coll) ? null : fracaoPeso([coll.id]);
   if (u.syncBusy && u.status) {
     summary.classList.add('busy'); summary.textContent = u.status;
   } else if (peso) {
     summary.textContent = peso;
+  } else if (ehLink(coll)) {
+    summary.textContent = total ? total + (total === 1 ? ' episódio' : ' episódios') : '';
   } else if (coll.kind === 'album') {
     summary.textContent = 'não sincron.';
   }
@@ -7417,7 +7432,12 @@ function renderCollectionCard(coll, ctx) {
   // canto vazio. Download EM CURSO: o cancelar fica ali mesmo com o card aberto
   // — centenas de faixas precisam poder parar num toque, de qualquer ponto da
   // rolagem.
-  if ((u.syncBusy || !complete) && !(ehLink(coll) && total > 0)) {
+  // A SÉRIE NÃO BAIXA EM LOTE, NEM COM A LISTA VAZIA (v1.1.21). Até aqui o
+  // botão ficava enquanto não houvesse índice — ali ele buscava a LISTA, não
+  // baixava —, e isso era um botão com dois significados conforme o estado. A
+  // busca da lista passou a ter botão PRÓPRIO na mesma coluna (logo abaixo), e
+  // este some da série em todos os estados.
+  if ((u.syncBusy || !complete) && !ehLink(coll)) {
     // **O QUE É LINK NÃO BAIXA EM LOTE** (v5.230). São ~52 vídeos de ~300 MB — o
     // "download direto" que o operador pediu para não existir, na maior escala
     // que este app tem. Quem quiser um episódio offline o manda ao Cronograma
@@ -7439,6 +7459,40 @@ function renderCollectionCard(coll, ctx) {
     bar.appendChild(dl);
   }
 
+  // ===== A SÉRIE TEM UM BOTÃO SÓ, E ELE É O DE ATUALIZAR A LISTA (v1.1.21) =====
+  //
+  // Pedido do operador: *"para o Provai e Vede e para o Informativo, os arquivos
+  // precisam estar ou no cronograma ou nos favoritos ou no player para o arquivo
+  // baixado existir… então não vamos precisar de um botão geral de baixar no
+  // topo desses álbuns e nem um para excluir… vamos jogar o botão de atualizar
+  // lista para o local onde está o botão excluir, no mesmo estilo, botão puro,
+  // sem texto"*.
+  //
+  // **O ÁLBUM DE SÉRIE NÃO GUARDA NADA, e é isso que tira dele os outros dois
+  // botões.** Um episódio só existe no aparelho enquanto está no Cronograma, nos
+  // Favoritos ou na playlist; saindo de lá, o coletor o recolhe. Não há acervo
+  // do álbum para baixar em lote (~15 GB/ano) nem para remover — "Remover do
+  // dispositivo" num álbum que não retém nada apagaria o que está em OUTRA
+  // lista, ou nada, e as duas leituras são erradas.
+  //
+  // Sobra UMA ação, e ela é a que a série tem de ter: refazer a lista. O índice
+  // dela custa uma extração do canal do YouTube, então o TTL de 12 h a segura —
+  // e sem este botão o operador esperaria meio dia pelo episódio do sábado sem
+  // ter o que fazer (ver `forcarIndice`, que de propósito não a força).
+  if (ehLink(coll)) {
+    const at = document.createElement('button');
+    // `coll-bar-at` além da base: os TRÊS botões desta coluna dividem a
+    // geometria (`.coll-bar-dl`) e precisam ser distinguíveis um do outro — por
+    // quem lê a folha e por quem escreve um oráculo sobre ela.
+    at.className = 'coll-bar-dl coll-bar-at' + (u.syncBusy ? ' busy' : '');
+    at.title = u.syncBusy ? 'Cancelar' : 'Atualizar a lista';
+    at.setAttribute('aria-label', at.title);
+    at.innerHTML = u.syncBusy ? closeIconSvg() : syncIconSvg();
+    // `soIndice`: numa série o toque NUNCA baixa episódio — ele refaz a lista.
+    at.addEventListener('click', (e) => { e.stopPropagation(); syncCollection(coll, { soIndice: true }); });
+    bar.appendChild(at);
+  }
+
   // ===== A LIXEIRA MORA NA BARRA, E SÓ COM O ÁLBUM ABERTO (v1.1.16) =====
   //
   // Pedido do operador: *"coloque o botão de excluir na direita no card do
@@ -7454,7 +7508,9 @@ function renderCollectionCard(coll, ctx) {
   // varre todas as faixas do álbum, e o acervo é redesenhado a cada 400 ms
   // enquanto um download corre. Há no máximo um card aberto (o acordeão), então
   // a varredura acontece uma vez por redesenho, não quarenta.
-  if (u.expanded && (total > 0 || countDownloaded(coll.id) > 0)) {
+  // A SÉRIE fica de fora (v1.1.21): ela não retém arquivo nenhum, e remover o
+  // que ela não tem apagaria o que está em outra lista — ou nada.
+  if (!ehLink(coll) && u.expanded && (total > 0 || countDownloaded(coll.id) > 0)) {
     const rm = document.createElement('button');
     // "Remover do dispositivo", e não "Excluir": o que sai é o que ocupa espaço
     // NESTE aparelho, e o álbum continua no acervo para ser baixado de novo.
@@ -7471,9 +7527,8 @@ function renderCollectionCard(coll, ctx) {
   }
 
   // Sem índice ainda não há lista para abrir — o toque abre o card assim mesmo.
-  // O que resolve a ausência é o botão da BARRA ("Sincronizar a lista"), que
-  // está ali com o card fechado ou aberto; abrir revela a lixeira e, numa
-  // série, o painel dela.
+  // O que resolve a ausência é um botão da BARRA, presente com o card fechado ou
+  // aberto: "Sincronizar a lista" num álbum, "Atualizar a lista" numa série.
   //
   // Nomeada porque tem DOIS gatilhos: o toque na barra e a seta (v5.95).
   const alternarAcordeao = () => {
@@ -7551,14 +7606,9 @@ function renderCollectionCard(coll, ctx) {
     // sincronização de um álbum que já está aberto na tela era uma camada a
     // mais sobre outra camada — o acervo já é um popup de tela cheia. Aqui elas
     // ficam onde o assunto está, e fechar é o mesmo toque que abriu.
-    // A caixa só nasce quando há o que pôr nela (v1.1.16): um `.coll-opts`
-    // vazio empurraria a lista de músicas para baixo com o respiro dele, e um
-    // vão sem causa dentro de um card lê-se como algo que não carregou.
-    if (temPainelDeColecao(coll)) {
-      const opts = document.createElement('div'); opts.className = 'coll-opts coll-opts--inline';
-      buildCollectionOptions(coll, opts);
-      aberto.appendChild(opts);
-    }
+    // O DESTAQUE DO SÁBADO, acima da lista e só na série (ver `blocoDestaque`).
+    const dest = blocoDestaque(coll);
+    if (dest) aberto.appendChild(dest);
 
     // A lista sai INTEIRA, quantos itens tenha: aqui o operador está folheando
     // um álbum, não filtrando o acervo — cortar num teto esconderia o fim de
@@ -7606,7 +7656,7 @@ const COLL_PAGE = 100;
 // no DOM, sem reconstruir as anteriores — reconstruir mexeria no scroll debaixo
 // do dedo do operador, que é o gesto que acabou de pedir a página.
 function fillSongList(lista, coll, u) {
-  const songs = collSongs(coll.id);
+  const songs = faixasDaLista(coll);
   if (!u.shown) u.shown = COLL_PAGE;
   const ate = Math.min(u.shown, songs.length);
   // A retomada conta só as FAIXAS (`.hymn-result`), nunca os filhos da lista:
@@ -7739,7 +7789,7 @@ function indiceDeSecoes(coll, u, lista) {
 // quadro — o `<li>` acabou de ser inserido e medir agora daria a posição
 // anterior.
 function irParaSecao(coll, u, lista, numero) {
-  const songs = collSongs(coll.id);
+  const songs = faixasDaLista(coll);
   const alvo = songs.findIndex((x) => (x.track | 0) === numero);
   if (alvo < 0) return;
   const preciso = Math.ceil((alvo + 1) / COLL_PAGE) * COLL_PAGE;
@@ -7883,8 +7933,9 @@ let redesenharAcervo = () => {};
 
 // ===== Abrir o card de uma coleção =====
 // Abre o card sem passar pelo alternador da barra: é o caminho do toque numa
-// coleção SEM ÍNDICE (ali não há lista para folhear, e o que resolve isso —
-// sincronizar — está nas opções, que hoje aparecem sozinhas com o card aberto).
+// coleção SEM ÍNDICE. Ali não há lista para folhear, e o que resolve isso — o
+// botão de sincronizar — mora na barra, aberto ou fechado; o que abrir
+// acrescenta é a lixeira (num álbum) e o destaque do sábado (numa série).
 function openCollectionOptions(coll) {
   const u = ui(coll.id);
   // Reconta o peso PELO DISCO (`opfsFolderSize`, v5.134 — não mais pelo
@@ -7898,76 +7949,95 @@ function openCollectionOptions(coll) {
   redesenharAcervo();
 }
 
+// (`buildCollectionOptions` e o painel `.coll-opts` saíram na v1.1.21, e as
+// três ações que ele teve terminaram na COLUNA DA DIREITA DA BARRA — ver
+// `renderCollectionCard`. A última a sair foi o "Atualizar a lista" da série,
+// que virou botão puro ao lado dos irmãos; antes dele saíram o "Verificar"
+// (v1.1.16, a verificação virou automática na abertura) e o "Baixar", que já
+// existia na barra e era só repetido ali.
+//
+// O QUE ELE ENSINOU, e vale para o que vier ocupar aquele lugar: **nada dentro
+// do card repete o que a barra dele já diz.** Ele teve três chips, uma linha de
+// status, um chip de peso e um chip de rede — e o peso está na barra ANTES de
+// abrir (é ele que faz o operador decidir abrir), e o "Baixando 2 de 4…" está na
+// barra `sticky` dois centímetros acima.)
+
 /**
- * ===== O PAINEL DO ÁLBUM PERDEU AS DUAS AÇÕES (v1.1.16) =====
+ * ===== O DESTAQUE DO SÁBADO, NO TOPO DA LISTA DA SÉRIE (v1.1.21) =====
  *
- * Pedido do operador: *"remova o botão de verificar atualizações dos álbuns…
- * agora a verificação é feita de forma automática, no segundo plano toda vez
- * que o app abre… e se tiver alguma diferença ele mostra o botão de download
- * (ali na barra do álbum)"*.
+ * Pedido do operador: *"gostaria que fizesse um sistema de destaque que
+ * colocasse separado destacado no topo da lista o item referente ao sábado
+ * atual. Caso não tenha, deixe uma mensagem de Aguardando lançamento"*.
  *
- * As duas saíram por motivos diferentes, e as duas para a BARRA:
+ * A pergunta "qual é o episódio deste sábado?" é do `AVSerie`
+ * (`ehDoSabadoAtual`, puro e com oráculo). O que mora AQUI é a decisão de
+ * DESENHAR, e ela tem três regras:
  *
- *  - **"Verificar" era um botão para fazer o que o app já fazia sozinho.** Ele
- *    só aparecia num álbum COMPLETO — ali não há o que baixar, e o toque
- *    apenas re-lia o índice para ver se o catálogo cresceu. Quem re-lê o índice
- *    é o `autoRefreshCollections`, na abertura; o que faltava era ele não pular
- *    o TTL para os álbuns que o operador de fato tem no aparelho, e é isso que
- *    o `forcarIndice` passou a fazer. O desfecho é o mesmo, sem o toque: o
- *    índice cresce, `colecaoCompleta` vira falso, e o botão de BAIXAR aparece
- *    na barra.
- *  - **"Baixar" já existia na barra** — o painel o repetia dois centímetros
- *    abaixo, e era por causa dessa repetição que o da barra se escondia com o
- *    card aberto (`vago`). Some a repetição, some o esconderijo.
- *  - **A LIXEIRA subiu para a barra**, onde ela é revelada pelo mesmo gesto que
- *    revela o que ela apaga (ver `renderCollectionCard`).
+ *  - **O item destacado SAI da lista** (`faixasDaLista`). Deixá-lo nos dois
+ *    lugares daria duas linhas que fazem exatamente a mesma coisa, a dois
+ *    centímetros uma da outra — e a de baixo, no meio de cinquenta irmãs, é a
+ *    que o operador tocaria por engano procurando outra data. "Separado" é
+ *    literal.
+ *  - **A AUSÊNCIA também é um estado, e ela é o caso comum na segunda-feira.**
+ *    Sem o bloco, um card sem o episódio da semana fica indistinguível de um
+ *    card que ainda não carregou. "Aguardando lançamento" responde a pergunta
+ *    que o operador veio fazer, e o cabeçalho ao lado diz de QUE sábado se
+ *    trata — sem a data, a frase valeria para qualquer semana.
+ *  - **A LINHA É A MESMA da lista** (`hymnResultRow`), dentro de uma `<ul>` que
+ *    também é `.coll-songs`: o toque, a gaveta de opções, o indicador de
+ *    download e o "Tocar agora" vêm todos de graça. Um cartão próprio seria uma
+ *    segunda implementação do item mais complexo desta tela.
  *
- * **A SÉRIE FICA COM O BOTÃO DELA, e a diferença não é capricho:** "Atualizar a
- * lista" não é "verificar se há o que baixar" — uma série não baixa em lote por
- * desenho (~15 GB/ano). É a única porta para refazer uma lista cujo índice custa
- * uma extração do canal do YouTube, e por isso o TTL dela é de 12 h e ela NÃO
- * entra no `forcarIndice`. Tirar este botão deixaria o operador esperando até
- * meio dia pelo episódio do sábado sem ter o que fazer.
+ * Devolve `null` fora de uma série — o destaque não é um recurso do acervo, é um
+ * recurso do CALENDÁRIO de uma série semanal.
  */
-function buildCollectionOptions(coll, collOptsEl) {
-  // Só a SÉRIE tem painel. Nos demais o `.coll-opts` nem é criado — ver o
-  // chamador, que consulta `temPainelDeColecao`.
-  if (!ehSerie(coll)) return;
-  const total = songsBaixaveis(coll.id).length;
-  const u = ui(coll.id);
-
-  const acoes = document.createElement('div');
-  acoes.className = 'coll-opts-acoes';
-
-  // O MESMO botão dispara e cancela — a varredura de um canal com doze
-  // playlists leva dezenas de segundos, e sem um jeito de parar o operador
-  // ficava refém dela.
-  const syncBtn = document.createElement('button');
-  // `cancel`, não `busy`: `busy` gira o ícone, e um ✕ girando não se lê como
-  // "toque para parar". Quem indica atividade é a barra do card.
-  syncBtn.className = 'new-folder-btn' + (u.syncBusy ? ' cancel' : '');
-  syncBtn.innerHTML = u.syncBusy ? closeIconSvg() : syncIconSvg();
-  syncBtn.appendChild(document.createTextNode(u.syncBusy ? 'Cancelar' : 'Atualizar a lista'));
-
-  // O ESTADO VIVE DENTRO DO BOTÃO (v5.233), e numa série o número que importa
-  // não é quanto foi baixado (nada é, por desenho — ver `serieComoYoutube`): é
-  // quantos episódios a lista tem. Sem a palavra ao lado — o rótulo já diz de
-  // que lista se trata. Em movimento ele é MUDO: quem escreve o andamento é a
-  // barra do card, fixa no topo do aberto e visível daqui.
-  const estado = document.createElement('small');
-  estado.className = 'coll-opt-estado';
-  estado.textContent = u.syncBusy ? '' : (total ? String(total) : '');
-  if (estado.textContent) syncBtn.appendChild(estado);
-
-  syncBtn.addEventListener('click', () => syncCollection(coll, { soIndice: true }));
-  acoes.appendChild(syncBtn);
-  collOptsEl.appendChild(acoes);
+function destaqueDaSerie(coll) {
+  if (!ehLink(coll) || !window.AVSerie || !AVSerie.ehDoSabadoAtual) return null;
+  const sab = AVSerie.sabadoDaSemana();
+  const alvo = collSongs(coll.id).find(
+    (s) => AVSerie.ehDoSabadoAtual(s.serieData, coll.serie));
+  return { sabado: sab, rotulo: AVSerie.rotuloData(sab), song: alvo || null };
 }
 
-// Há painel a desenhar para esta coleção? UMA pergunta, num lugar só: quem
-// monta o card precisa saber ANTES de criar a caixa, senão sobra um `.coll-opts`
-// vazio empurrando a lista de músicas para baixo com o respiro dele.
-function temPainelDeColecao(coll) { return ehSerie(coll); }
+// As faixas que a LISTA desenha — o destaque sai dela (ver `destaqueDaSerie`).
+// Uma função só, usada pela montagem e pela paginação: duas leituras diferentes
+// do mesmo array fariam o contador de "restantes" discordar do que há na tela.
+function faixasDaLista(coll) {
+  const todas = collSongs(coll.id);
+  const d = destaqueDaSerie(coll);
+  if (!d || !d.song) return todas;
+  return todas.filter((s) => s !== d.song);
+}
+
+function blocoDestaque(coll) {
+  const d = destaqueDaSerie(coll);
+  if (!d) return null;
+  const cx = document.createElement('div');
+  cx.className = 'serie-destaque' + (d.song ? '' : ' vazio');
+
+  const cab = document.createElement('div'); cab.className = 'serie-destaque-cab';
+  const rot = document.createElement('span'); rot.className = 'serie-destaque-rot';
+  rot.textContent = 'Este sábado';
+  const dia = document.createElement('span'); dia.className = 'serie-destaque-data';
+  dia.textContent = d.rotulo;
+  cab.appendChild(rot); cab.appendChild(dia);
+  cx.appendChild(cab);
+
+  if (d.song) {
+    // `.coll-songs` junto do modificador: a linha herda o corpo, o raio e o
+    // alvo que a lista já define, sem uma segunda folha para manter em dia.
+    const ul = document.createElement('ul');
+    ul.className = 'coll-songs serie-destaque-lista';
+    ul.appendChild(hymnResultRow(coll, d.song, null, true));
+    cx.appendChild(ul);
+  } else {
+    const vazio = document.createElement('div');
+    vazio.className = 'serie-destaque-vazio';
+    vazio.textContent = 'Aguardando lançamento';
+    cx.appendChild(vazio);
+  }
+  return cx;
+}
 
 // (`hymnalStat` — o construtor dos chips do painel — saiu na v5.232 com o
 // último chip que restava, o do peso: ele já estava na barra do card, antes
@@ -9426,12 +9496,16 @@ function openLyricsPopup() {
   renderLyricsView();
   lyricsPopupEl.classList.add('open');
   // Depois de aberto (a folha ainda está subindo): o scroll só é possível com
-  // o elemento já medido.
-  requestAnimationFrame(() => lvScrollToCurrent(false));
+  // o elemento já medido — e a MEDIDA da cifra também. No `renderLyricsView`
+  // acima o popup ainda não tinha largura, então a folha saiu sem quebrar.
+  requestAnimationFrame(() => { cifraRemedir(); lvScrollToCurrent(false); });
 }
 
 function closeLyricsPopup() {
   lyricsPopupEl.classList.remove('open');
+  // Sem folha na tela não há o que rolar, e um rAF vivo atrás de um popup
+  // fechado é trabalho por quadro para ninguém ver.
+  cifraRolarParar();
 }
 
 function renderLyricsView() {
@@ -9464,6 +9538,10 @@ function renderLyricsView() {
   });
 
   lyricsViewBodyEl.innerHTML = '';
+  // A BARRA é da cifra e de mais ninguém: limpar aqui, num ponto só, evita que
+  // trocar de fonte deixe os controles da folha anterior de pé sobre a Bíblia.
+  lyricsViewBarEl.innerHTML = '';
+  lyricsViewBarEl.hidden = true;
   if (!src) {
     lyricsPopupTitleEl.textContent = 'Letra';
     const empty = document.createElement('div');
@@ -9478,7 +9556,7 @@ function renderLyricsView() {
     lvBuildSong(lyricsViewBodyEl, lvCurIdx);
   } else if (src === 'cifra') {
     lyricsPopupTitleEl.textContent = cifraNomeDoItem(currentItem) || 'Cifra';
-    lvBuildCifra(lyricsViewBodyEl);
+    lvBuildCifra(lyricsViewBodyEl, lyricsViewBarEl);
   } else {
     const b = bibleSession;
     // A sigla da versão só entra quando a lista de versões já foi baixada — sem
@@ -9526,6 +9604,14 @@ function renderLyricsView() {
 let lvCifraSeq = 0;
 const cifraCache = new Map();   // chave → { estado, url, pagina, motivo, semitons }
 let cifraUltimoDiag = '';       // a linha "Cifra:" do Registro (lado web)
+/**
+ * Quantas páginas da busca vale tentar. Três, e não uma: o ranking do site não é
+ * o nosso — o primeiro colocado pode ser uma versão simplificada, uma playback
+ * ou um homônimo. E não é ilimitado: cada tentativa é um GET a um site de
+ * terceiro no meio do culto, e uma lista inteira de páginas ilegíveis não diz
+ * mais que três.
+ */
+const CIFRA_CANDIDATOS = 3;
 
 // A coleção a que o item em cena pertence, ou null. O registro de mídia guarda
 // o NOME do álbum (`hymnAlbum`), não o id — e quem sabe traduzir um no outro é
@@ -9619,17 +9705,34 @@ function cifraGarantir(item) {
     // nome no acervo não bate com o do site — mas NÃO cobre o `ilegivel`: ali a
     // página existe e o parser é que não a entendeu, e repetir a mesma leitura
     // por outro caminho só troca o motivo certo por um errado.
+    //
+    // DOIS TENTOS DE CONSULTA, e o álbum entra só no segundo: ele não é o
+    // artista do site, e uma palavra a mais numa busca de texto pode ENCOLHER o
+    // resultado em vez de afiná-lo. Quando o primeiro tento não devolve nada com
+    // parentesco, não há o que encolher — e aí o álbum é a única carta que sobra.
+    //
+    // ATÉ `CIFRA_CANDIDATOS` PÁGINAS, na ordem do parentesco. O ranking do site
+    // não é o nosso: o primeiro colocado pode ser uma versão simplificada, uma
+    // playback ou um homônimo. Cada tentativa entra no Registro, então três
+    // `ilegivel` seguidos continuam dizendo "o site mudou de formato" — mais
+    // alto, não mais baixo.
     if (!desfecho.ok && desfecho.motivo !== AVCifra.MOTIVO_ILEGIVEL) {
-      const busca = AVCifra.urlDeBusca(nome);
-      if (busca) {
+      const consultas = [AVCifra.urlDeBusca(nome)];
+      if (coll && coll.name) consultas.push(AVCifra.urlDeBusca(nome, coll.name));
+      let candidatos = [];
+      for (const busca of consultas) {
+        if (!busca || candidatos.length) continue;
         const rb = await AVNative.cifraHtml(busca);
         const achados = rb.status >= 200 && rb.status <= 299 ? AVCifra.lerBusca(rb.html) : [];
-        tentativas.push('busca ' + busca + ' → ' + achados.length + ' resultado(s)');
-        if (achados.length) {
-          url = achados[0].url;
-          desfecho = await cifraPedir(url);
-          tentativas.push('escolhida ' + url + ' → ' + desfecho.motivo);
-        }
+        candidatos = AVCifra.ordenarBusca(achados, nome, coll && coll.name);
+        tentativas.push('busca ' + busca + ' → ' + achados.length + ' resultado(s), '
+          + candidatos.length + ' com parentesco');
+      }
+      for (const c of candidatos.slice(0, CIFRA_CANDIDATOS)) {
+        url = c.url;
+        desfecho = await cifraPedir(url);
+        tentativas.push('tentada ' + url + ' → ' + desfecho.motivo);
+        if (desfecho.ok) break;
       }
     }
 
@@ -9671,9 +9774,371 @@ function cifraTranspor(passo) {
   renderLyricsView();
 }
 
-// Desenha a folha dentro de `el`.
-function lvBuildCifra(el) {
+/**
+ * QUANTOS CARACTERES CABEM numa linha da folha, ou 0 se não dá para medir.
+ *
+ * O `AVCifra.quebrarPares` é PURO e não olha o DOM — a medida é injetada, e
+ * quem a tira é aqui. Ela não pode ser calculada: a folha é monoespaçada, mas a
+ * fonte que o Android escolhe para `ui-monospace` varia de aparelho, e o corpo
+ * segue o A+/A− do operador. O único jeito honesto é **renderizar e medir**.
+ *
+ * Mede uma amostra longa e divide, em vez de medir UM caractere: com um só, o
+ * arredondamento subpixel vira erro de várias colunas na linha inteira.
+ *
+ * Devolve 0 quando o elemento ainda não tem largura (a folha abrindo, o popup
+ * fechado). Zero faz `quebrarPares` devolver a folha intacta — sem medida
+ * confiável, não quebrar é melhor que quebrar no lugar errado.
+ */
+const CIFRA_AMOSTRA = 40;
+function cifraColunas(folha) {
+  const largura = folha.clientWidth;
+  if (!largura) return 0;
+  const regua = document.createElement('span');
+  regua.className = 'lv-cifra-linha';
+  regua.style.position = 'absolute';
+  regua.style.visibility = 'hidden';
+  regua.style.whiteSpace = 'pre';
+  regua.textContent = '0'.repeat(CIFRA_AMOSTRA);
+  folha.appendChild(regua);
+  const porCaractere = regua.getBoundingClientRect().width / CIFRA_AMOSTRA;
+  folha.removeChild(regua);
+  if (!(porCaractere > 0)) return 0;
+  return Math.max(8, Math.floor(largura / porCaractere));
+}
+
+// Redesenha a folha quando a MEDIDA pode ter mudado — e só então.
+//
+// A assinatura de `lvSignature` fala do CONTEÚDO (música, estado, transposição)
+// e não da largura, porque medir a 4 Hz para comparar seria caro e inútil. Os
+// três casos em que a largura muda de verdade são eventos, e cada um chama
+// aqui: a folha ABRINDO (antes de `.open` ela não tem largura), o A+/A− e o
+// gerar do aparelho.
+function cifraRemedir() {
+  if (!lyricsPopupEl.classList.contains('open')) return;
+  if (lvActiveSource() !== 'cifra') return;
+  renderLyricsView();
+}
+
+// ===== A ROLAGEM AUTOMÁTICA DA FOLHA (v1.1.20) =====
+//
+// Quem lê uma cifra está com as duas mãos no instrumento — e é justamente aí
+// que a folha precisa andar sozinha.
+//
+// ## O modo AUTO: quem manda é o RELÓGIO DA MÚSICA, não um cronômetro nosso
+//
+// Uma velocidade fixa em px/s não tem como estar certa: a mesma folha serve a
+// um hino de 2 min e a um de 6, e o que decide o ritmo da leitura é a MÚSICA.
+// No modo `auto` a posição da folha é uma FUNÇÃO da posição da música — não uma
+// velocidade integrada —, e isso resolve de graça três coisas que a integração
+// exigiria tratar uma a uma: pausar a música PARA a folha, um seek a leva ao
+// ponto certo, e um quadro perdido não acumula erro nenhum.
+//
+// A função não é a reta ingênua `f = t / duração`. Ela tem uma ABERTURA e um
+// FECHO, e mora no módulo PURO (`AVCifra.fracaoDaRolagem`, com oráculo em
+// `tools/cifra.test.mjs`) — daqui sai só o que é do DOM: a duração da barra e a
+// posição no ar. Os dois extremos são o pedido do operador:
+//
+//   ┌ topo                                                    fim da folha ┐
+//   │▔▔▔▔▔▔▔▔▔╲                                                            │
+//   │ abertura  ╲___ a folha desce ___                                     │
+//   │           t0                    ╲__________________▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁ │
+//   │                                 t1                       fecho       │
+//   └ 0 ────────────────── posição da música ─────────────────────── D ────┘
+//
+//  - **A ABERTURA** segura o começo parado por alguns segundos. Quem chega numa
+//    música quer VER o início — a introdução, o tom, a primeira estrofe — antes
+//    de a folha começar a fugir dele.
+//  - **O FECHO** faz a folha chegar ao fim BEM ANTES de a música acabar. O fim é
+//    a parte que mais se erra e a que mais precisa ser lida com antecedência:
+//    uma folha que só mostra o último acorde quando ele já passou não serve para
+//    nada. `t1` é o instante em que a folha está no fim, e dali até `D` ela
+//    fica parada com o final inteiro à vista.
+//
+//
+// ## O modo LIVRE: px/s constante, para quando não há relógio
+//
+// Ensaio sem tocar a gravação, um item sem linha do tempo (imagem, mensagem),
+// um vídeo cuja duração ainda não chegou. Ali `auto` não tem o que seguir e cai
+// no ritmo fixo — o botão continua dizendo `Auto`, que é a ESCOLHA, e o `title`
+// diz o que está de fato acontecendo. Os degraus numéricos são a escolha
+// explícita do mesmo ritmo fixo.
+//
+// ## Por que `requestAnimationFrame`, e por que a posição é FRACIONÁRIA
+//
+// No ritmo de leitura são ~0,37 px por quadro. Escrevendo `scrollTop` inteiro, a
+// folha anda 1 px a cada três quadros e fica parada nos outros dois — e é esse
+// liga-desliga que se vê como TREMOR. Não é jitter de relógio: é quantização.
+// Por isso a posição é NOSSA ([cifraPos], `Number`) e é escrita com a fração;
+// quem suaviza é o compositor do navegador, que rola em subpixel. Reler o
+// `scrollTop` para acumular seria perder a fração a cada quadro, que é o mesmo
+// defeito por outro caminho.
+//
+// O delta tem TETO ([CIFRA_DT_MAX]) porque a página estrangulada em segundo
+// plano voltaria dando um salto — no modo `auto` isso não é problema (a posição
+// é função do tempo da música), mas no livre é a diferença entre continuar e
+// pular meia folha.
+//
+// ## O dedo NÃO briga com a rolagem, e não a desliga
+//
+// Voltar uma linha para reler é a coisa mais comum aqui, e um sistema que se
+// desligasse a cada toque obrigaria a religá-lo o tempo todo. No modo livre o
+// avanço é relativo, então um arrasto só muda a origem. No modo `auto` o alvo é
+// ABSOLUTO e puxaria a folha de volta — por isso o arrasto vira um DESVIO
+// (`cifraDesvio`), somado ao alvo dali em diante: o operador desloca a folha e
+// ela continua seguindo a música a partir de onde ele a deixou.
+const CIFRA_VELOCIDADES = ['auto', 0.5, 0.75, 1, 1.5, 2, 3];
+const CIFRA_VEL_PADRAO = 0; // 'auto'
+/** Pixels por segundo no 1× do modo livre. Ritmo de leitura, não de lista. */
+const CIFRA_PX_POR_S = 22;
+/** Teto do delta de um quadro: acima disso houve pausa, e pausa não é avanço. */
+const CIFRA_DT_MAX = 250;
+/** Constante de tempo com que a folha persegue o alvo do modo `auto`. */
+const CIFRA_TAU_MS = 400;
+
+let cifraVelIdx = CIFRA_VEL_PADRAO;
+let cifraRolando = false;
+let cifraSegurando = false;
+let cifraRaf = 0;
+let cifraQuadroT = 0;
+let cifraRolarBtnEl = null;
+let cifraVelBtnEl = null;
+/** De QUAL música é a rolagem em curso — ver a guarda no `lvBuildCifra`. */
+let cifraRolandoChave = '';
+/** O quanto o operador deslocou a folha à mão, no modo `auto`. */
+let cifraDesvio = 0;
+/** O último alvo TEÓRICO (sem o desvio) — é dele que sai um desvio novo. */
+let cifraAlvoTeorico = 0;
+/**
+ * A POSIÇÃO DA FOLHA EM FRAÇÃO DE PIXEL — a nossa, não a do elemento.
+ *
+ * O `scrollTop` de volta vem arredondado, e um acumulador que se relesse a cada
+ * quadro perderia a fração toda vez: no ritmo de leitura são ~0,37 px por
+ * quadro, então a folha andava 1 px a cada três quadros e ficava parada nos
+ * outros dois. É esse liga-desliga que o operador vê como TREMOR — não é
+ * jitter de relógio, é quantização.
+ *
+ * Guardando a posição aqui em `Number` e escrevendo o valor fracionário, quem
+ * suaviza é o compositor do navegador, que rola em subpixel.
+ */
+let cifraPos = 0;
+/** O que ESCREVEMOS por último — é a régua para saber se outro mexeu. */
+let cifraEscrito = -1;
+
+/**
+ * A posição que a folha DEVERIA ter agora, em pixels — ou `null` quando não há
+ * relógio para seguir (e aí quem responde é o modo livre).
+ *
+ * A duração e o "tem linha do tempo?" saem da BARRA DE PROGRESSO, não de um
+ * cálculo paralelo: ela é a única fonte que cobre todos os tipos de mídia (o
+ * `<video>` do stage não sabe nada de um vídeo do YouTube), e é a mesma escolha
+ * que o `pushNowPlaying` já faz.
+ */
+function cifraAlvoDoRelogio(rolavel) {
+  const dur = cifraDuracaoNoAr();
+  if (!(dur > 0)) return null;
+  // A REGRA é do módulo puro (abertura, fecho, os pisos e tetos): aqui só entra
+  // o que só existe no DOM — a duração da barra e a posição no ar.
+  return AVCifra.fracaoDaRolagem(authoritativeTime(), dur) * rolavel;
+}
+
+/**
+ * A duração da mídia no ar, ou 0 quando não há linha do tempo.
+ *
+ * Uma função, e não um estado guardado: o `title` do botão a consulta no
+ * instante em que é pintado, e a folha é desenhada muito antes de o laço de
+ * rolagem existir. Um valor em cache responderia pelo culto passado.
+ */
+function cifraDuracaoNoAr() {
+  return seekEl.disabled ? 0 : (parseFloat(seekEl.max) || 0);
+}
+
+/** O rótulo do degrau atual. Vírgula decimal — é o que o operador lê. */
+function cifraVelRotulo() {
+  const v = CIFRA_VELOCIDADES[cifraVelIdx];
+  if (v === 'auto') return 'Auto';
+  return (v % 1 === 0 ? String(v) : v.toFixed(2).replace(/0$/, '')).replace('.', ',') + '×';
+}
+
+/**
+ * O que o botão de velocidade PROMETE, dito por extenso.
+ *
+ * `Auto` sem relógio não é erro — é o caso normal de um ensaio sem tocar a
+ * gravação —, mas também não pode ficar mudo: o rótulo mostra a ESCOLHA e esta
+ * frase mostra o que está de fato acontecendo. Sem ela, "por que a folha não
+ * acompanha a música?" não tem resposta em lugar nenhum.
+ */
+function cifraVelTitulo() {
+  if (CIFRA_VELOCIDADES[cifraVelIdx] !== 'auto') return 'Velocidade da rolagem';
+  return cifraDuracaoNoAr() > 0
+    ? 'Rolagem no tempo da música (toque para escolher uma velocidade fixa)'
+    : 'Sem duração da música: rolagem em ritmo fixo (toque para escolher a velocidade)';
+}
+
+// Os dois botões vivem no DOM, que `renderLyricsView` refaz inteiro — então o
+// ESTADO mora aqui fora e quem acabou de nascer vem perguntar como se pintar.
+function cifraPintarRolar() {
+  if (cifraVelBtnEl) {
+    cifraVelBtnEl.textContent = cifraVelRotulo();
+    const t = cifraVelTitulo();
+    cifraVelBtnEl.title = t;
+    cifraVelBtnEl.setAttribute('aria-label', t);
+  }
+  if (!cifraRolarBtnEl) return;
+  cifraRolarBtnEl.classList.toggle('ativa', cifraRolando);
+  cifraRolarBtnEl.innerHTML = '';
+  // Pelo `ICON`, nunca por um caractere literal solto: é a tabela que o
+  // `tools/glifos.test.mjs` varre, e um glifo fora dela não desenha NADA sem
+  // erro nenhum — o botão existiria, tocável e invisível.
+  const ico = msym(cifraRolando ? ICON.pause : ICON.play);
+  ico.setAttribute('aria-hidden', 'true');
+  cifraRolarBtnEl.appendChild(ico);
+  const rotulo = cifraRolando ? 'Parar a rolagem' : 'Rolar sozinho';
+  cifraRolarBtnEl.title = rotulo;
+  cifraRolarBtnEl.setAttribute('aria-label', rotulo);
+}
+
+function cifraRolarParar() {
+  cifraRolando = false;
+  if (cifraRaf) cancelAnimationFrame(cifraRaf);
+  cifraRaf = 0;
+  cifraDesvio = 0;
+  cifraEscrito = -1;
+  cifraPintarRolar();
+}
+
+function cifraRolarQuadro(t) {
+  cifraRaf = 0;
+  if (!cifraRolando) return;
+  // As mesmas condições do `cifraRemedir`: fora daqui não há folha para rolar.
+  if (!lyricsPopupEl.classList.contains('open') || lvActiveSource() !== 'cifra') {
+    cifraRolarParar();
+    return;
+  }
+  const dt = cifraQuadroT ? Math.min(CIFRA_DT_MAX, t - cifraQuadroT) : 0;
+  cifraQuadroT = t;
+
+  const el = lyricsViewBodyEl;
+  const rolavel = el.scrollHeight - el.clientHeight;
+  const alvo = CIFRA_VELOCIDADES[cifraVelIdx] === 'auto' && rolavel > 0
+    ? cifraAlvoDoRelogio(rolavel) : null;
+
+  // OUTRO MEXEU NA FOLHA? Um arrasto, um `scrollIntoView`, o teclado do sistema
+  // — qualquer coisa que não tenha sido a linha de escrita lá embaixo. O
+  // `scrollTop` de volta vem arredondado, então a régua tem folga de um pixel:
+  // sem ela, a nossa própria escrita fracionária se leria como intervenção
+  // alheia a cada quadro, e a posição nunca sairia do lugar.
+  if (cifraEscrito < 0 || Math.abs(el.scrollTop - cifraEscrito) > 1) cifraPos = el.scrollTop;
+
+  if (cifraSegurando || dt <= 0) {
+    // O DESVIO é medido ENQUANTO o dedo está na tela, não no `pointerup`: ali o
+    // alvo já andou, e a diferença sairia com o deslocamento de um quadro
+    // dentro. Aqui ela é sempre contra o alvo do MESMO instante.
+    if (cifraSegurando && alvo !== null) cifraDesvio = el.scrollTop - cifraAlvoTeorico;
+    cifraEscrito = -1; // a folha é de quem está com o dedo nela
+    cifraRaf = requestAnimationFrame(cifraRolarQuadro);
+    return;
+  }
+
+  if (alvo !== null) {
+    cifraAlvoTeorico = alvo;
+    const destino = Math.min(rolavel, Math.max(0, alvo + cifraDesvio));
+    const d = destino - cifraPos;
+    // UM SALTO GRANDE É UM SEEK, e um seek se obedece na hora: o operador
+    // arrastou a barra, e a folha chegar lá deslizando por segundos seria a
+    // folha discordando da música. Abaixo disso, perseguição suave — ela absorve
+    // o jitter do `display-status`, que chega a ~4 Hz.
+    cifraPos = Math.abs(d) > el.clientHeight
+      ? destino
+      : cifraPos + d * (1 - Math.exp(-dt / CIFRA_TAU_MS));
+    cifraAplicarPos(el);
+    cifraRaf = requestAnimationFrame(cifraRolarQuadro);
+    return;
+  }
+
+  // ---- MODO LIVRE: px/s constante, avanço RELATIVO ----
+  const mult = CIFRA_VELOCIDADES[cifraVelIdx] === 'auto' ? 1 : CIFRA_VELOCIDADES[cifraVelIdx];
+  const antes = el.scrollTop;
+  cifraPos = Math.min(rolavel, cifraPos + (CIFRA_PX_POR_S * mult * dt) / 1000);
+  cifraAplicarPos(el);
+  // Chegou ao fim? Continuar é pedir ao aparelho um quadro por segundo para não
+  // fazer coisa nenhuma. A pergunta é pelo TETO (`rolavel`) e não por "o
+  // scrollTop não andou": com fração de pixel, um quadro sem avanço visível é
+  // normal, e mediria "está lento", não "acabou". Esta parada é SÓ do modo
+  // livre: no `auto` a folha descansa no fim com a música ainda tocando, que é
+  // exatamente o que o FECHO existe para produzir.
+  if (cifraPos >= rolavel && antes >= rolavel - 1) { cifraRolarParar(); return; }
+  cifraRaf = requestAnimationFrame(cifraRolarQuadro);
+}
+
+/**
+ * Escreve a posição no elemento, com a FRAÇÃO. O navegador rola em subpixel; o
+ * que ele devolve na leitura é arredondado, e por isso guardamos o que
+ * escrevemos ANTES de reler — é essa cópia que distingue a nossa escrita de um
+ * arrasto do operador no quadro seguinte.
+ */
+function cifraAplicarPos(el) {
+  el.scrollTop = cifraPos;
+  cifraEscrito = el.scrollTop;
+}
+
+function cifraRolarAlternar() {
+  if (cifraRolando) { cifraRolarParar(); return; }
+  cifraRolando = true;
+  cifraRolandoChave = cifraChave(currentItem);
+  cifraQuadroT = 0;
+  // Começar do zero: ligar a rolagem é pedir para seguir a MÚSICA, não para
+  // manter o deslocamento com que a folha estava parada até agora.
+  cifraDesvio = 0;
+  cifraPos = lyricsViewBodyEl.scrollTop;
+  cifraEscrito = -1;
+  cifraAlvoTeorico = cifraPos;
+  // Rolar sozinho e ACOMPANHAR a estrofe no ar são dois donos do mesmo scroll.
+  // Quem tocou no botão escolheu este.
+  lvFollow = false;
+  if (!cifraRaf) cifraRaf = requestAnimationFrame(cifraRolarQuadro);
+  cifraPintarRolar();
+}
+
+/**
+ * Adota o degrau guardado. Por FUNÇÃO (hoisted) e não por atribuição direta: o
+ * estado da rolagem mora no fim do arquivo, e o `load()` que hidrata roda muito
+ * antes na leitura — um `let` alcançado de cima é uma zona morta esperando a
+ * ordem de chamada mudar.
+ *
+ * Degrau desconhecido cai no padrão: a escada pode encolher numa versão futura,
+ * e o que estava salvo continua sendo lido sem erro.
+ */
+function cifraAdotarVelocidade(v) {
+  const i = CIFRA_VELOCIDADES.indexOf(v);
+  cifraVelIdx = i >= 0 ? i : CIFRA_VEL_PADRAO;
+}
+
+async function cifraVelPasso() {
+  cifraVelIdx = (cifraVelIdx + 1) % CIFRA_VELOCIDADES.length;
+  // Trocar de modo zera o desvio: ele foi medido contra um alvo que o modo novo
+  // não calcula do mesmo jeito.
+  cifraDesvio = 0;
+  cifraPintarRolar();
+  try { await AVDB.setState('cifraVelocidade', CIFRA_VELOCIDADES[cifraVelIdx]); }
+  catch (_) { /* sem banco: vale a sessão */ }
+}
+
+// A LARGURA MUDA SEM NINGUÉM TOCAR EM NADA: girar o aparelho, o teclado do
+// sistema subindo, a janela mudando de tamanho. A medida da folha é em
+// CARACTERES, então qualquer um deles deixa a quebra valendo para a largura
+// anterior. `cifraRemedir` já se recusa a trabalhar fora da aba de cifra.
+window.addEventListener('resize', cifraRemedir);
+window.addEventListener('orientationchange', () => { requestAnimationFrame(cifraRemedir); });
+
+// Desenha a folha dentro de `el`, e os controles dentro de `barra` — que fica
+// FORA do que rola, para o pausar continuar alcançável com a folha andando.
+function lvBuildCifra(el, barra) {
   const item = currentItem;
+  // OS BOTÕES MORREM COM O RENDER ANTERIOR. Sem soltá-los aqui, um render que
+  // caia em "procurando" ou em erro deixa `cifraPintarRolar` escrevendo num nó
+  // já desligado da árvore — sem erro, e sem efeito nenhum na tela.
+  cifraRolarBtnEl = null;
+  cifraVelBtnEl = null;
   const entrada = cifraGarantir(item);
   const nome = cifraNomeDoItem(item);
 
@@ -9725,8 +10190,9 @@ function lvBuildCifra(el) {
   // O CABEÇALHO: tom e transposição. O tom mostrado é o TRANSPOSTO — mostrar o
   // original ao lado de uma folha já transposta é a folha e o rótulo dizendo
   // coisas diferentes sobre a mesma tela.
-  const topo = document.createElement('div');
-  topo.className = 'lv-cifra-topo';
+  const topo = barra || el;
+  topo.className = 'lyricsview-bar lv-cifra-topo';
+  if (barra) barra.hidden = false;
   const tom = document.createElement('span');
   tom.className = 'lv-cifra-tom';
   const tomAtual = AVCifra.transporTom(p.tom, n);
@@ -9747,15 +10213,41 @@ function lvBuildCifra(el) {
   mais.title = 'Subir meio tom';
   mais.setAttribute('aria-label', 'Subir meio tom');
   mais.addEventListener('click', () => cifraTranspor(1));
-  ctl.append(menos, mais);
+  // MÚSICA NOVA É FOLHA NOVA, e a rolagem era da anterior. Sem esta guarda o
+  // louvor seguinte já entrava rolando, do meio de uma folha que ninguém mandou
+  // andar — e o botão diria que está tudo certo.
+  if (cifraRolando && cifraRolandoChave !== cifraChave(item)) cifraRolarParar();
+
+  // A ROLAGEM AUTOMÁTICA, à ESQUERDA da transposição: ela é a ação que se usa
+  // durante a música inteira, e a transposição é a que se usa uma vez, antes.
+  // Os dois botões nascem AQUI porque `renderLyricsView` refaz a folha inteira
+  // a cada transposição — o estado vive fora do DOM e eles vêm perguntar.
+  cifraRolarBtnEl = document.createElement('button');
+  cifraRolarBtnEl.type = 'button';
+  cifraRolarBtnEl.className = 'lv-fonte-btn lv-cifra-rolar';
+  cifraRolarBtnEl.addEventListener('click', cifraRolarAlternar);
+  cifraVelBtnEl = document.createElement('button');
+  cifraVelBtnEl.type = 'button';
+  cifraVelBtnEl.className = 'lv-fonte-btn lv-cifra-vel';
+  cifraVelBtnEl.title = 'Velocidade da rolagem';
+  cifraVelBtnEl.setAttribute('aria-label', 'Velocidade da rolagem');
+  cifraVelBtnEl.addEventListener('click', cifraVelPasso);
+  ctl.append(cifraRolarBtnEl, cifraVelBtnEl, menos, mais);
   topo.append(tom, ctl);
-  el.appendChild(topo);
+  cifraPintarRolar();
 
   // A FOLHA. Um nó por linha, com a classe dizendo o que ela é — é o que deixa
   // o acorde ganhar cor sem o CSS ter de adivinhar nada do conteúdo.
+  //
+  // VAZIA PRIMEIRO, para poder ser MEDIDA. A quebra de linha é nossa (ver
+  // `AVCifra.quebrarPares`) e precisa saber quantos caracteres cabem — o que só
+  // se sabe com o elemento no documento, na fonte em que ele vai de fato ser
+  // desenhado. Medir um elemento fora da árvore devolveria zero.
   const folha = document.createElement('div');
   folha.className = 'lv-cifra-folha';
-  p.linhas.forEach((linha) => {
+  el.appendChild(folha);
+  const linhas = AVCifra.quebrarPares(p.linhas, cifraColunas(folha));
+  linhas.forEach((linha) => {
     const div = document.createElement('div');
     div.className = 'lv-cifra-linha lv-cifra-' + linha.tipo;
     // Só a linha de ACORDES é transposta. Passar a de letra pela mesma função
@@ -9763,7 +10255,6 @@ function lvBuildCifra(el) {
     div.textContent = linha.tipo === 'acordes' ? AVCifra.transporLinha(linha.texto, n) : linha.texto;
     folha.appendChild(div);
   });
-  el.appendChild(folha);
 
   // A ORIGEM, dita e clicável — mas COMO LINK, no rodapé, à direita.
   //
@@ -18682,6 +19173,7 @@ lyricsViewSegEl.addEventListener('click', (e) => {
   if (!btn) return;
   lvSource = btn.dataset.lvsrc;
   lvFollow = true; // trocar de fonte é pedir para ver onde ela está
+  cifraRolarParar(); // e a rolagem é da FOLHA, não da aba que entrou no lugar
   renderLyricsView();
   lvScrollToCurrent(false);
 });
@@ -18691,6 +19183,16 @@ lyricsViewSegEl.addEventListener('click', (e) => {
 // leitura.
 lyricsViewBodyEl.addEventListener('pointerdown', () => { lvFollow = false; });
 lyricsViewBodyEl.addEventListener('wheel', () => { lvFollow = false; }, { passive: true });
+// A ROLAGEM AUTOMÁTICA NÃO BRIGA COM O DEDO — e também não se desliga por ele.
+// O avanço é relativo (`scrollTop += px`), então um arrasto só muda a origem e
+// a folha segue de onde o dedo a deixou; o que não pode é somar pixels ENQUANTO
+// o dedo segura. `pointercancel` entra junto porque um arrasto que vira gesto
+// do sistema não emite `pointerup`, e sem ele a folha ficaria travada para
+// sempre — com o botão dizendo que está rolando.
+lyricsViewBodyEl.addEventListener('pointerdown', () => { cifraSegurando = true; });
+for (const ev of ['pointerup', 'pointercancel', 'pointerleave']) {
+  lyricsViewBodyEl.addEventListener(ev, () => { cifraSegurando = false; });
+}
 // Imagens dos slides: segmento do popup de Exibição (Mostrar / Remover).
 lyricsBgSegEl.addEventListener('click', (e) => {
   const btn = e.target.closest('.fit-opt');

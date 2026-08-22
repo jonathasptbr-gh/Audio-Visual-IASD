@@ -24,7 +24,10 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
-- **v1.1.20** — O MICROFONE, VERIFICADO NOS QUATRO MODELOS DE PROJEÇÃO: ele funciona com TV espelhando e em mais nenhum — e sem TV o botão acendia "No ar" sem nada estar captando, porque `micPressed` é escrito no `pointerdown` e sem `Presentation` ninguém responde `mic-status`. A recusa entra ANTES do pedido de permissão do Android: pedir o microfone para uma ação que não pode funcionar é queimar a única permissão sensível do app. Mais a guarda que um comentário prometia desde a v5.187 e que nunca existiu — o comando `mic` DESCE para toda tela da rede sem filtro, e o que impedia o desfecho era o ambiente (`getUserMedia` é `[SecureContext]`), não o app; proteção emprestada do navegador é proteção com prazo, e o `EspelhoCert` continua inteiro no shell. O oráculo FORJA `navigator.mediaDevices` para medir o dia em que houver TLS. OTA PURO
+- **v1.1.23** — O MICROFONE, VERIFICADO NOS QUATRO MODELOS DE PROJEÇÃO: ele funciona com TV espelhando e em mais nenhum — e sem TV o botão acendia "No ar" sem nada estar captando, porque `micPressed` é escrito no `pointerdown` e sem `Presentation` ninguém responde `mic-status`. A recusa entra ANTES do pedido de permissão do Android: pedir o microfone para uma ação que não pode funcionar é queimar a única permissão sensível do app. Mais a guarda que um comentário prometia desde a v5.187 e que nunca existiu — o comando `mic` DESCE para toda tela da rede sem filtro, e o que impedia o desfecho era o ambiente (`getUserMedia` é `[SecureContext]`), não o app; proteção emprestada do navegador é proteção com prazo, e o `EspelhoCert` continua inteiro no shell. O oráculo FORJA `navigator.mediaDevices` para medir o dia em que houver TLS. OTA PURO
+- **v1.1.22** — A BUSCA DE CIFRA CAÍA NO ÍNDICE ALFABÉTICO DO SITE: ela pegava o PRIMEIRO link de dois segmentos da página de resultados, e a navegação do site também é link de dois segmentos — e mora no cabeçalho, portanto vem ANTES de qualquer resultado no HTML. MEDIDO num aparelho: "Em Oração" devolveu 27 resultados e o escolhido foi `/letra/A/`, que respondeu HTTP 200 com 398 kB e virou `ilegivel` — o diagnóstico certo para a pergunta errada. A defesa NÃO é uma lista de rotas de terceiro (ela envelhece sozinha): é exigir PARENTESCO entre o texto do resultado e o nome procurado, com zero sendo RECUSA e não último lugar. O álbum entra como desempate e como segundo tento de consulta, nunca como filtro nem na primeira consulta — ele é o álbum, não o artista do site. OTA PURO No mesmo relato: os controles da folha ROLAVAM COM O TEXTO (o pausar saía de cena em segundos, e alcançá-lo exigia rolar de volta ao topo, brigando com a rolagem que se queria parar) e a rolagem TREMIA — ~0,37 px por quadro escritos como inteiro andam 1 px a cada três quadros e param nos outros dois; a posição passou a ser nossa e fracionária.
+- **v1.1.21** — A SÉRIE DEIXA DE FINGIR QUE GUARDA ARQUIVO: os episódios só existem enquanto estão no Cronograma, nos Favoritos ou na playlist, então o card perde o baixar em lote, a lixeira E o peso em gigabytes que prometia um download inexistente. Sobra UM botão puro — atualizar a lista — onde ficava o excluir. E o episódio DESTE SÁBADO sai da lista e vira um bloco destacado no topo, com "Aguardando lançamento" quando ainda não saiu; a janela é a semana adventista (domingo a sábado), não o dia exato. De quebra: o relógio congelado de um caso do `boot-nativo` VAZAVA para o contexto inteiro e prendia a página principal em 15/Ago. OTA PURO
+- **v1.1.20** — A CIFRA ROLA NO TEMPO DA MÚSICA, E A QUEBRA DE LINHA PASSA A QUEBRAR O PAR: dois defeitos do mesmo lugar. (1) A quebra era do CSS (`pre-wrap`), que quebra cada linha INDEPENDENTEMENTE — uma folha larga saía como duas linhas de acorde seguidas de duas de letra, e a segunda metade do acorde ficava a duas linhas da sílaba a que pertence: não é alinhamento imperfeito, é o par desfeito. Agora quem quebra é `AVCifra.quebrarPares`, no MESMO índice das duas linhas, com a largura em CARACTERES medida na fonte renderizada (`cifraColunas`) porque a monoespaçada do Android varia de aparelho e o corpo segue o A+/A−. (2) Nasce a ROLAGEM AUTOMÁTICA, e ela é uma FUNÇÃO da posição da música, não uma velocidade integrada: pausar PARA a folha, um seek a leva ao ponto certo, um quadro perdido não acumula erro. Com ABERTURA (o começo parado, para ver introdução e tom) e FECHO (o fim alcançado bem antes de a música acabar, para o final ser lido enquanto ainda se toca), os dois fração da música com piso e teto em segundos. OTA PURO
 - **v1.1.19** — O REGISTRO CONTA O CULTO, NÃO O CATÁLOGO: de ~170 linhas de uma cópia real, ~140 eram o bloco das Séries — a mesma frase de recusa sessenta vezes, mais 52 nomes de episódio em ordem —, enterrando a linha do tempo, que saía com DEZESSEIS linhas no fim de tudo. As recusas viram contagem por motivo com os primeiros nomes CRUS (a renomeação de um canal se descobre lendo UM nome, não sessenta); a lista de 52 vira as duas BORDAS, que é onde a ordem se confere. E o `.slice(-16)` sai: até 100 linhas já estavam na mão, incluindo as 60 que o `diag-ask` acabara de buscar pela rede, e o teto existia para um visor removido na v5.207 — o Registro só existe para ser COPIADO. O que encurta sem apagar é o colapso de repetição (`×7`). E ela era o ÚLTIMO dos oito blocos — começando na linha ~150 de um Registro real —, e passa a vir logo depois do cabeçalho: bloco novo entra DEPOIS dela. No lugar entram os eventos de CULTO (o que entrou em cena, a TV oscilando, a projeção se reapresentando, a rede caindo) e o erro de mídia do telão, que morria num console dentro de uma Presentation. OTA PURO
 - **v1.1.18** — A ABA DA BÍBLIA APARECIA MESMO COM A REGRA RECUSANDO-A: a v1.1.11 acertou a lista de fontes e esqueceu de aplicá-la na tela. Os três botões são HTML ESTÁTICO, e `renderLyricsView` só escondia o CONTAINER (com menos de duas fontes) e marcava o ativo — nunca um botão individual. Com música em cena há duas fontes, o container aparecia e a Bíblia vinha junto, fora de `avail`. Calcular a coisa certa e não aplicá-la é mudo por natureza: a função que decide passa em qualquer leitura, e só a tela denuncia. OTA PURO
 - **v1.1.17** — A CIFRA PASSA A SER BUSCADA QUANDO A MÚSICA ENTRA EM CENA, e não ao abrir a aba: quem a abre está com o instrumento na mão e a música tocando, o pior instante para esperar a rede. O gatilho mora no `send` — o ponto por onde TODOS os caminhos passam —, senão a playlist automática ficaria de fora e ninguém notaria. Nasce `cifraCabe`, UMA pergunta para os dois consumidores (a aba que se oferece e o `send` que busca), cortando por conteúdo musical: um episódio de série é testemunho em vídeo, e ali a busca é requisição perdida. O contrato não mudou — uma música por vez, sem lote e sem disco —, mudou o QUANDO. OTA PURO
@@ -219,7 +222,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ---
 
-## v1.1.20 — o microfone, verificado nos quatro modelos de projeção
+## v1.1.23 — o microfone, verificado nos quatro modelos de projeção
 
 Pedido: *"verifique a função do microfone, que deveria enviar o áudio para
 qualquer que seja o modelo de transmissão"*. A verificação achou três coisas, e
@@ -305,6 +308,336 @@ defeito dominante e permanente. Também não grava mensagem de voz: o
 incondicional), então gravar no Controle custa uma Release.
 
 OTA PURO — `minShell` 49, sem `shellTag`.
+
+---
+
+## v1.1.22 — a busca de cifra caía no índice alfabético do site
+
+**O caso, verbatim do Registro de um aparelho:**
+
+```
+busca https://www.cifraclub.com.br/?q=Em%20Ora%C3%A7%C3%A3o → 27 resultado(s)
+escolhida https://www.cifraclub.com.br/letra/A/ → ilegivel
+shell: HTTP 200, 398910 caractere(s) em https://www.cifraclub.com.br/letra/A/
+```
+
+`/letra/A/` é o **índice alfabético** do site. A busca funcionou (27
+resultados), a rede funcionou (HTTP 200), o parser funcionou (`ilegivel` é a
+resposta certa para uma página que não é uma folha de cifra) — e a música não
+apareceu. Cada peça respondeu com precisão a pergunta errada, que é a forma
+deste projeto de errar mais difícil de encontrar.
+
+### Duas razões independentes, e as duas eram minhas
+
+1. **A navegação do site também é link de dois segmentos.** `lerBusca` aceitava
+   qualquer `/a/b/` com texto, e `/letra/A/` é exatamente isso.
+2. **A ordem do documento não é a ordem do ranking.** Cabeçalho, rodapé,
+   "mais acessadas" e blocos de sugestão saem no mesmo HTML — e o cabeçalho vem
+   PRIMEIRO. Pegar `achados[0]` era pegar a navegação por construção, não por
+   azar: em toda busca que já funcionou, funcionou porque o cabeçalho daquela
+   página não tinha um link de dois segmentos antes do resultado.
+
+### A defesa não é uma lista de rotas
+
+Uma lista das seções do site conserta o caso medido e envelhece sozinha — o dono
+do site acrescenta uma rota e o defeito volta, calado. Ela ficou (`SECOES`), mas
+como **corte barato**, não como defesa.
+
+Quem defende é o **parentesco** entre o texto do resultado e o que se procurou:
+3 = o mesmo título, 2 = um contendo o outro, 1 = ao menos uma palavra forte em
+comum, 0 = nada. **Zero é RECUSA, não último lugar** — é o zero que faz uma
+página só de navegação virar "não achei" em vez de abrir qualquer coisa com
+confiança. O grau 1 é frouxo de propósito: ele é o que mantém coberto o hino
+cujo nome no acervo não bate com o do site, que é o caso para o qual a busca
+genérica existe.
+
+**O oráculo pegou um defeito na própria correção**, e é o tipo de coisa que só
+uma máquina vê: `chaveDeTitulo('A')` é `'a'`, e `'emoracao'.includes('a')` é
+verdadeiro — o grau 2 devolvia justamente o `/letra/A/`. A contenção passou a
+exigir CORPO (4 caracteres); um título de uma ou duas letras só pode ser parente
+por igualdade.
+
+### Mais dois, do mesmo relato
+
+**OS CONTROLES ROLAVAM COM O TEXTO.** A barra do topo morava dentro de
+`.lyricsview-body`, que é justamente o que a rolagem automática move: com ela
+ligada, o pausar e a velocidade saíam de cena em segundos, e alcançá-los exigia
+rolar de volta ao topo — brigando com a rolagem que se queria parar. Um controle
+que some é um controle que não existe no momento em que ele importa. Ela passou
+a ser um elemento próprio (`#lyricsViewBar`) entre o seletor e a caixa, com o
+mesmo alinhamento horizontal dela (senão barra e texto seriam duas colunas
+diferentes). É da cifra e de mais ninguém, e é limpa num ponto só — trocar de
+fonte deixaria os controles da folha de pé sobre a Bíblia.
+
+**A ROLAGEM TREMIA, E NÃO ERA O RELÓGIO.** No ritmo de leitura são ~0,37 px por
+quadro. Escrevendo `scrollTop` inteiro, a folha anda 1 px a cada três quadros e
+fica parada nos outros dois — o olho lê isso como tremor, e sobre TEXTO ele
+atrapalha a leitura, que é a única coisa que a aba faz. Não é jitter: é
+quantização. A posição passou a ser nossa (`cifraPos`, `Number`) e a ser escrita
+com a fração; quem suaviza é o compositor do navegador, que rola em subpixel.
+
+Reler o `scrollTop` para acumular seria o mesmo defeito por outro caminho — ele
+volta arredondado, e a fração se perderia a cada quadro. Por isso guardamos
+`cifraEscrito`, cópia do que escrevemos: é ela que distingue, no quadro seguinte,
+a nossa escrita de um arrasto do operador, com folga de um pixel para o
+arredondamento da leitura. O acumulador de fração do modo livre saiu junto — o
+mecanismo que ele existia para compensar deixou de existir, e um comentário
+explicando um mecanismo removido é armadilha, não história.
+
+E o CSS do corpo passou a declarar `scroll-behavior: auto` **explicitamente**:
+`smooth` faria o navegador animar cada uma das nossas escritas por cima da
+nossa, duas animações no mesmo eixo — outra forma de tremer, e uma que alguém
+acrescentaria de boa-fé achando que suavizaria.
+
+### O álbum: desempate, não filtro — e não na primeira consulta
+
+O operador observou que a consulta não levava o nome do álbum. Ela não leva, e a
+razão está escrita: **o álbum do acervo não é o artista do site.** "Em Oração"
+está no álbum "Missão"; quem gravou pode ser qualquer um. Duas consequências:
+
+- **filtrar** por ele derrubaria a música certa toda vez que os dois não
+  coincidissem, que é o caso normal;
+- **pô-lo na primeira consulta** pode ENCOLHER o resultado em vez de afiná-lo,
+  porque é busca de texto e uma palavra que não casa com nada tira resultados.
+
+Então ele entra nos dois lugares em que só pode ajudar: como **bônus de
+ordenação** (dois homônimos, e o do álbum que bate vem primeiro) e como
+**segundo tento de consulta**, disparado só quando o primeiro não devolveu
+nenhum parente — ali não há o que encolher.
+
+E passam a ser tentadas até **três** páginas (`CIFRA_CANDIDATOS`), na ordem do
+parentesco: o ranking do site não é o nosso, e o primeiro colocado pode ser uma
+versão simplificada ou um homônimo. Isso **não** apaga o sinal do `ilegivel` —
+cada tentativa entra no Registro, então três `ilegivel` seguidos dizem "o site
+mudou de formato" mais alto, não mais baixo.
+
+---
+
+## v1.1.21 — a série deixa de fingir que guarda arquivo
+
+*"Para as séries precisamos criar um sistema diferente: para o Provai e Vede e
+para o Informativo Mundial das Missões, seus arquivos precisam estar ou no
+cronograma ou nos favoritos ou no player para o arquivo baixado existir — os
+arquivos não se sustentam apenas baixados nesse álbum. Então não vamos precisar
+de um botão geral de baixar no topo desses álbuns e nem um para excluir, pois no
+momento que ele não estiver sendo usado, ele é apagado. Além disso, vamos jogar o
+botão de atualizar lista para o local onde está o botão excluir, no mesmo estilo,
+botão puro, sem texto. Por fim, gostaria que fizesse um sistema de destaque que
+colocasse separado destacado no topo da lista o item referente ao sábado atual;
+caso não tenha, deixe uma mensagem de Aguardando lançamento."*
+
+**OTA PURO** (nada em `java/`, `res/` ou no manifest).
+
+### O card parou de prometer o que o modelo de dados não sustenta
+
+O operador descreveu um fato do MODELO, não da tela: um episódio de série só
+existe no aparelho enquanto está no Cronograma, nos Favoritos ou na playlist — o
+coletor o recolhe quando ele sai de lá. Três coisas na barra afirmavam o
+contrário:
+
+| o que dizia | por que era falso |
+|---|---|
+| **baixar em lote** | não há acervo do álbum para encher (~15 GB/ano), e o download direto foi recusado desde a v5.230 |
+| **remover do dispositivo** | apagaria o que está em OUTRA lista, ou nada — as duas leituras erradas |
+| **"4,3 GB"** | `fracaoPeso` devolve, com nada baixado, *o que vai custar baixar*: o custo de um download que não existe |
+
+As três saíram. A barra passa a dizer **quantos episódios a lista tem**, que é o
+número que o painel carregava antes de sair — e sobra **um botão só**, o de
+atualizar a lista, puro e sem texto, no lugar onde ficava o excluir.
+
+**Com isso o painel `.coll-opts` deixou de existir.** As três ações que ele teve
+terminaram todas na coluna da direita da barra: o "Verificar" saiu na v1.1.16 (a
+verificação virou automática na abertura), o "Baixar" já existia na barra e era
+só repetido ali, e agora o "Atualizar a lista". Os três botões daquela coluna
+dividem a geometria de `.coll-bar-dl` e se distinguem por modificador
+(`.coll-bar-at`, `.coll-bar-rm`) — sem isso, um oráculo que perguntasse por
+`.coll-bar-dl` passaria a medir o botão errado no dia em que um irmão nascesse.
+
+### O destaque do sábado, e por que a janela é a semana
+
+`AVSerie.ehDoSabadoAtual` responde "este episódio é o desta semana?". Duas
+decisões:
+
+- **A SEMANA COMEÇA NO DOMINGO** — a semana adventista, e a que o operador vive:
+  no domingo ele já monta o culto do sábado que vem. Uma semana começando na
+  segunda faria o domingo de manhã destacar o sábado que ACABOU de passar, que é
+  o único dia em que ninguém procura por ele.
+- **A pergunta é pela SEMANA, não pelo dia exato**, e isso é defesa e não
+  frouxidão: a régua deste módulo inteiro é a data do TÍTULO, e o canal escreve a
+  data que quiser — o `DIAS_DE_ANTECEDENCIA` já existe porque "publica no sábado"
+  não é promessa que se possa cobrar. Exigir o dia faria um episódio datado de
+  sexta desaparecer do destaque e a tela dizer "Aguardando lançamento" sobre um
+  vídeo que está na lista logo abaixo — a pior das duas mentiras possíveis aqui.
+
+Na tela:
+
+- **O item destacado SAI da lista.** Deixá-lo nos dois lugares daria duas linhas
+  que fazem exatamente a mesma coisa, a dois centímetros uma da outra — e a de
+  baixo, no meio de cinquenta irmãs, é a que o operador tocaria por engano
+  procurando outra data. "Separado" é literal. `faixasDaLista` é usada também
+  pela paginação, senão o contador de "restantes" discordaria da tela.
+- **A AUSÊNCIA é um estado**, e é o caso comum na segunda-feira: sem o bloco, um
+  card sem o episódio da semana fica indistinguível de um que não carregou. O
+  cabeçalho continua nomeando o sábado — sem a data, "Aguardando lançamento"
+  valeria para qualquer semana. E o bloco tem a mesma altura nos dois estados: ele
+  não pode encolher e crescer conforme a semana, senão o topo do card salta toda
+  vez que o episódio sai.
+- **A linha é a MESMA da lista** (`hymnResultRow` numa `<ul>` que também é
+  `.coll-songs`): o toque, a gaveta, o indicador de download e o "Tocar agora"
+  vêm de graça. Um cartão próprio seria uma segunda implementação do item mais
+  complexo desta tela.
+
+### O achado do lote: o relógio congelado VAZAVA
+
+O caso do corte de episódios usa `clock.setFixedTime` numa página à parte, criada
+com `ctx.newPage()` e fechada no `finally` — o comentário dizia, desde que
+nasceu, que "o clock fica preso a esta página para não contaminar nada".
+
+**Ele não ficava.** MEDIDO: o relógio congela o CONTEXTO inteiro, e a página
+principal seguia rodando com a data presa em **15/Ago/2026** dali até o fim do
+arquivo. Nada reprovava — as asserções seguintes ou não olhavam o relógio, ou
+olhavam duas vezes o mesmo relógio de mentira e concordavam consigo mesmas.
+
+Quem topou nisso foi o caso do destaque, porque ele é o primeiro que **lê a data
+e a escreve na tela**: o cabeçalho saiu "22/Ago" no navegador e "15/Ago" no
+oráculo. A correção é um CONTEXTO próprio para a página congelada.
+
+**A lição é a mesma que a tabela de "um oráculo não pode medir o runner" já
+tinha, por outro lado:** um comentário que afirma isolamento não é isolamento, e
+o que prova a diferença é uma asserção que consiga VER o vazamento. Aqui ela
+nasceu por acidente — o que não é um método, e por isso está registrado.
+
+### Os oráculos
+
+`serie.test.mjs` ganhou a REGRA (`hoje` fixos, semana inteira apontando para o
+mesmo sábado, a virada de mês e a de ano, e a janela fechando no sábado);
+`boot-nativo.test.mjs` ganhou a LIGAÇÃO — o card sem os dois botões e com o
+terceiro puro, o painel que não existe mais, a barra sem peso, e o destaque nos
+dois estados. **A série do caso do destaque é SINTÉTICA**, com o ano de HOJE e a
+data vinda de `AVSerie.sabadoDaSemana()`: o catálogo tem ano fixo (2026), e num
+runner de outro ano nenhum episódio cairia na semana corrente — o caso reprovaria
+o app por uma data de calendário.
+
+---
+
+## v1.1.20 — a cifra rola no tempo da música, e a quebra de linha passa a quebrar o par
+
+**Dois defeitos do mesmo lugar, e os dois eram silenciosos.**
+
+### A QUEBRA DE LINHA DESFAZIA O PAR
+
+A v1.1.11 entregou `white-space: pre-wrap` com o preço DECLARADO no CSS: *"na
+linha que de fato quebrar, a continuação recomeça na margem e o par acorde/letra
+perde o alinhamento NAQUELE ponto"*. Medido no aparelho, o preço é outro — e é
+inaceitável. O CSS quebra cada linha **independentemente**, então uma folha larga
+sai assim:
+
+```
+acordes (1ª metade)
+acordes (2ª metade)     ← esta pertence à 2ª metade da LETRA…
+letra   (1ª metade)
+letra   (2ª metade)     ← …que está duas linhas abaixo
+```
+
+Não é alinhamento imperfeito: é o par desfeito. E ele não erra alto — a folha
+continua bonita, com os acordes sobre a letra errada, que é a única coisa que
+uma cifra tem para ensinar.
+
+**A troca declarada estava errada por não ser uma troca.** Havia um terceiro
+caminho: quebrar NÓS, no mesmo índice das duas linhas. `AVCifra.quebrarPares`
+corta acorde e letra no mesmo ponto e tira o MESMO recuo dos dois restos — o
+alinhamento se preserva por construção, porque as duas fatias saem da mesma
+coluna. O ponto de corte recua até não partir token: uma palavra cortada fica
+feia, um acorde cortado (`Am` → `A`) vira OUTRO acorde, e um que soa.
+
+**A largura é INJETADA**, em CARACTERES. O módulo é puro e não olha o DOM; quem
+mede é `cifraColunas`, que renderiza uma amostra de 40 caracteres na fonte de
+verdade e divide — não dá para calcular, porque a monoespaçada que o Android
+escolhe para `ui-monospace` varia de aparelho e o corpo segue o A+/A− do
+operador. Mede uma amostra longa e divide em vez de medir UM caractere: com um
+só, o arredondamento subpixel vira erro de várias colunas na linha inteira.
+Medida inútil (0 — o popup ainda fechado, a folha fora da árvore) devolve a
+folha INTACTA: sem régua confiável, uma rolagem lateral é melhor que uma folha
+mentindo. Remedir é EVENTO, nunca enquete: a folha abrindo, o A+/A−, `resize` e
+`orientationchange`.
+
+### A ROLAGEM AUTOMÁTICA, E POR QUE ELA NÃO É UMA VELOCIDADE
+
+Quem lê uma cifra está com as duas mãos no instrumento. O primeiro desenho foi
+px/s constante com uma escada de velocidades — e ele não tem como estar certo: a
+mesma folha serve a um hino de 2 min e a um de 6, e quem decide o ritmo da
+leitura é a MÚSICA.
+
+No modo `auto` a posição da folha é uma **FUNÇÃO** da posição da música, não uma
+velocidade integrada. Isso resolve de graça três coisas que a integração
+trataria uma a uma: pausar a música PARA a folha, um seek a leva ao ponto certo,
+e um quadro perdido não acumula erro nenhum.
+
+**E a função não é `f = t/duração`.** Ela tem ABERTURA e FECHO:
+
+- a **ABERTURA** segura o começo parado alguns segundos — quem chega numa música
+  quer VER a introdução, o tom e a primeira estrofe antes de a folha fugir deles;
+- o **FECHO** faz a folha chegar ao fim **bem antes** de a música acabar, porque
+  o final é a parte que mais se erra e a que mais precisa ser lida com
+  antecedência. Uma folha que mostra o último acorde depois de ele passar não
+  serve para nada.
+
+Os dois são **fração da música com piso e teto em segundos**, e é a combinação
+que os torna certos nos dois extremos: fração pura daria 3 s de abertura num hino
+de 40 s (não dá tempo de ler o tom) e meio minuto num de 6 min (a folha parada
+com a primeira estrofe já cantada). A regra mora no módulo PURO
+(`janelaDeRolagem` / `fracaoDaRolagem`, com oráculo); do `controle.js` sai só o
+que é do DOM — e a duração vem da **barra de progresso**, a única fonte que cobre
+todos os tipos de mídia, pela mesma razão que o `pushNowPlaying`.
+
+**Sem relógio há o modo LIVRE** (ensaio sem tocar a gravação, item sem linha do
+tempo): px/s constante, `requestAnimationFrame` com delta REAL. No degrau mais
+lento são 11 px/s — menos de um pixel por quadro —, e um passo fixo ou arredonda
+para zero (não anda) ou para um (voa); o acumulador de fração resolve os dois. O
+delta tem TETO (250 ms) porque a página estrangulada em segundo plano voltaria
+dando um salto. **`Auto` sem relógio cai no livre e DIZ isso** no `title` do
+botão: o rótulo mostra a ESCOLHA e a frase mostra o que está acontecendo — sem
+ela, *"por que a folha não acompanha a música?"* não tem resposta em lugar nenhum.
+
+**O dedo não briga e não desliga.** Voltar uma linha para reler é a coisa mais
+comum aqui, e um sistema que se desligasse a cada toque obrigaria a religá-lo o
+tempo todo. No livre o avanço é relativo, então um arrasto só muda a origem; no
+`auto` o alvo é ABSOLUTO e puxaria a folha de volta — por isso o arrasto vira um
+**DESVIO** somado ao alvo dali em diante, medido ENQUANTO o dedo está na tela (no
+`pointerup` o alvo já andou, e a diferença sairia com um quadro de deslocamento
+dentro). `pointercancel` entra junto do `pointerup`: um arrasto que vira gesto do
+sistema não emite o segundo, e sem ele a folha travaria para sempre com o botão
+dizendo que rola. Salto maior que uma tela é um **seek** e se obedece na hora;
+abaixo disso a perseguição é suave (400 ms de constante de tempo), que é o que
+absorve o jitter do `display-status` a ~4 Hz.
+
+Ela para sozinha em quatro casos: o fim da folha (**só no livre** — no `auto` a
+folha descansa no fim com a música tocando, que é o que o FECHO existe para
+produzir), a aba deixando de ser a cifra, o popup fechando, e a MÚSICA TROCANDO
+— esta pela chave da rolagem, senão o louvor seguinte já entrava rolando do meio
+de uma folha que ninguém mandou andar.
+
+A escada tem sete degraus (`Auto` + seis ritmos fixos), CICLA — a forma do botão
+de girar a mídia: com sete valores, dar a volta custa menos que um segundo botão
+— e é PERSISTIDA, porque depende de como a igreja canta e não da sessão. O
+estado vive FORA do DOM, porque `renderLyricsView` refaz a folha inteira a cada
+transposição; os botões nascem a cada render e vêm perguntar como se pintar. E o
+degrau guardado é adotado por FUNÇÃO hoisted (`cifraAdotarVelocidade`), não por
+atribuição direta: o estado mora no fim do arquivo e o `load()` que hidrata roda
+muito antes na leitura — um `let` alcançado de cima é uma zona morta esperando a
+ordem de chamada mudar.
+
+### O oráculo
+
+`tools/cifra.test.mjs` ganha duas seções. A da **quebra** não compara texto: ela
+confere, para cada acorde de cada metade, que a COLUNA dele ainda cai sobre uma
+sílaba — comparar o texto inteiro aprovaria um corte certo com o recuo errado, e
+é o recuo que desloca a coluna. Confere também a ALTERNÂNCIA (duas linhas de
+acorde seguidas seriam exatamente o defeito), a folha que cabe saindo intacta, a
+medida inútil devolvendo a folha intacta, a linha solta, e que o laço TERMINA com
+uma linha sem espaço nenhum. A da **janela** trava os dois extremos (teto num
+hino de 4 min, piso num de 40 s), que ela nunca inverte em nenhuma duração, que a
+fração é monótona e fica em `[0,1]`, e o que acontece fora da faixa.
 
 ---
 
