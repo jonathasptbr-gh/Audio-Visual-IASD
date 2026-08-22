@@ -2684,6 +2684,57 @@ de mídia offline, sem copiar nenhum código do app-ja (Vue/Vuex) — só o
   letra). Constantes de conveniência: `Louvorja.HYMNAL_2022_FILE`,
   `HYMNAL_1996_FILE`, `CATEGORIES_FILE`.
 
+#### As SEÇÕES TEMÁTICAS do Hinário 2022 (v1.1.11)
+
+O hinário impresso tem 8 blocos e 35 seções — as 28 crenças fundamentais mais os
+infantis e os litúrgicos — e o app passa a mostrá-las em dois lugares: um
+**índice de temas** no topo do card e **títulos intercalados** na listagem.
+
+**O BANCO NÃO TEM ESSE CAMPO.** `pt_hymnal` traz `id_music`, `track`, `name`,
+`duration` e `has_instrumental_music`, e mais nada; `pt_categories` é
+coletânea→álbum, não seção de hinário. O que identifica a seção de um hino é a
+POSIÇÃO dele — exatamente como já acontecia com a faixa infantil do `sorteio.js`.
+Daí a resposta ser uma TABELA DE FAIXAS (`controle/hinario.js`, pura, com
+oráculo), transcrita do índice publicado pela CPB.
+
+| peça | onde | o quê |
+|---|---|---|
+| a tabela | `controle/hinario.js` | 35 faixas, `secaoDe`/`comecaSecao`/`indice`. PURA — não sabe nada de coleção, só traduz NÚMERO em SEÇÃO |
+| o índice | `indiceDeSecoes` | a barra no topo do card, **fechada por padrão**, e a grade de chips |
+| os títulos | `cabecalhoDeSecao` | um `<li class="hino-secao">` antes do primeiro hino de cada seção |
+| o salto | `irParaSecao` | estica a lista até o destino EXISTIR e rola até ele |
+
+**As decisões que precisam estar ditas:**
+
+- **O índice NASCE FECHADO.** São 35 seções: abertas, empurrariam os 600 hinos
+  para baixo de um paredão que o operador teria de rolar toda vez que abrisse o
+  hinário — inclusive nas nove vezes em dez em que ele já sabe o número que quer.
+  Mesma regra da v1.1.4 ("a Biblioteca abre com tudo fechado"), um nível abaixo.
+  O estado mora na `ui()` do álbum (`u.indiceAberto`), como todo estado de
+  navegação daqui: o card é REMONTADO a cada redesenho, e um estado guardado no
+  nó morreria junto com ele.
+- **SÓ O HINÁRIO NOVO** (`ehHinarioNovo`, hoje um lugar só — a capacidade do
+  `sorteioCap` aponta para a mesma função). Os números são os do 2022; o de 1996
+  tem 613 hinos e outra organização, e um "Infantis" sobre o 508 dele é um rótulo
+  MENTINDO. É o defeito que este recurso inteiro existe para não ter, e é o que
+  ninguém notaria olhando o hinário certo — daí ele ter oráculo próprio.
+- **O cabeçalho sai de `comecaSecao`, nunca de "mudou em relação à linha
+  anterior".** A lista chega de `COLL_PAGE` em `COLL_PAGE` e a linha anterior nem
+  sempre está no DOM: a comparação erraria exatamente na primeira linha de cada
+  página, desenhando um cabeçalho a mais no meio de uma seção.
+- **A retomada da paginação conta `.hymn-result`, nunca os filhos da lista.** Os
+  cabeçalhos moram na MESMA `<ul>`; contá-los faria a página seguinte começar
+  adiantada, **pulando um hino por cabeçalho já desenhado** — hinos sumindo do
+  meio da lista, sem erro nenhum.
+- **O salto GARANTE a linha antes de rolar.** Pedir "Despedida" (592) com 100
+  linhas desenhadas rolaria até o fim de uma lista que ainda não tem o destino;
+  `irParaSecao` estica o `u.shown` em páginas INTEIRAS (um valor quebrado
+  deixaria a paginação seguinte fora do passo) e só então rola.
+- **A faixa infantil está escrita nos DOIS arquivos** (`hinario.js` e
+  `sorteio.js`), e a duplicação é deliberada: fazer um módulo puro importar outro
+  para ler duas constantes trocaria uma duplicação visível por um acoplamento
+  invisível. Quem impede a divergência é o oráculo, que compara os dois.
+
 #### Sistema de coleções (genérico)
 
 O que antes era exclusivo do Hinário 2022 virou um **sistema genérico de

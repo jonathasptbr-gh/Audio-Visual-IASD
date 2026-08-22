@@ -40,8 +40,8 @@
   // só AQUELE script: o `load` dispara, `AVDB` continua lá, e o bundle quebrado
   // é carimbado como bom PARA SEMPRE.
   //
-  // ATENÇÃO — as condições abaixo NÃO cobrem os quatro do meio (`louvorja.js`,
-  // `bible.js`, `serie.js`, `sorteio.js`). Todo uso de `AVSerie`/`AVSorteio` no
+  // ATENÇÃO — as condições abaixo NÃO cobrem os cinco do meio (`louvorja.js`,
+  // `bible.js`, `serie.js`, `sorteio.js`, `hinario.js`). Todo uso de `AVSerie`/`AVSorteio` no
   // `controle.js` está DENTRO de função, então um erro de topo num deles não
   // aborta o `controle.js`: o app sobe, o watchdog confirma, e o recurso
   // daquele arquivo fica morto. Ver o achado registrado em docs/shell/OTA.md.
@@ -78,7 +78,7 @@
     if (global.__AV_ROLE__ !== 'controle') return false;
     if (!global.AVDB || !global.AVStream || !global.createStage) return false;
     // OS CINCO DO CONTROLE, e eles eram o buraco declarado deste watchdog.
-    // Um erro de topo em `louvorja.js`/`bible.js`/`serie.js`/`sorteio.js` aborta
+    // Um erro de topo em `louvorja.js`/`bible.js`/`serie.js`/`sorteio.js`/`cifra.js`/`hinario.js` aborta
     // só AQUELE script: o `controle.js` continua inteiro (todo uso de
     // `AVSerie`/`AVSorteio` lá está DENTRO de função), `__avBack` existe, a
     // playlist renderiza — e o bundle era carimbado como bom PARA SEMPRE, com a
@@ -96,6 +96,10 @@
     // para sempre e a aba ficaria muda sem erro na tela. É a armadilha exata
     // que custou `AVSerie`/`AVSorteio` versões de atraso.
     if (!global.AVCifra) return false;
+    // `AVHinario` entra na MESMA linha de raciocínio, e entra JUNTO com o
+    // arquivo: um módulo novo do Controle que não esteja aqui é um buraco novo
+    // no watchdog, aberto no mesmo lote em que o arquivo nasce.
+    if (!global.AVHinario) return false;
     if (typeof global.__avBack !== 'function') return false;
     return !!document.querySelector('#playlist > li');
   }

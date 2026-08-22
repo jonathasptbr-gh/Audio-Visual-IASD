@@ -278,6 +278,19 @@ jobs:
           # esperando a rede da igreja. Node puro, sem rede: sem
           # `continue-on-error`.
           node tools/sorteio.test.mjs
+          # AS SEÇÕES TEMÁTICAS DO HINÁRIO 2022 — a tabela que traduz o NÚMERO
+          # de um hino na seção dele. Não há campo no banco que diga isso
+          # (`pt_hymnal` traz número, nome, duração e playback, e mais nada), e
+          # o modo de errar é MUDO: um limite digitado errado não quebra coisa
+          # alguma — a lista continua completa, na ordem certa, e um cabeçalho
+          # passa a mentir sobre os hinos abaixo dele. Sem erro de console, sem
+          # requisição falhando, sem teste de comportamento que note. Quem
+          # descobre é o operador, no sábado, com a congregação na frente. O
+          # oráculo trava a única propriedade que pega isso: a cobertura é
+          # CONTÍGUA de 1 a 600, sem lacuna e sem sobreposição — e confere a
+          # faixa infantil contra o `sorteio.js`, que tem os mesmos dois
+          # números escritos nele. Node puro: sem `continue-on-error`.
+          node tools/hinario.test.mjs
           # TODO ÍCONE DE FONTE TEM DE EXISTIR NA FONTE. O woff2 é um SUBSET de
           # 31 codepoints, e um `.msym` fora dele não desenha nada: sem erro no
           # console, sem requisição falhando, só um vão do tamanho de um ícone.
@@ -577,6 +590,18 @@ jobs:
           # vira órfão e o toque simplesmente não faz nada. Ele entra no
           # workflow no MESMO commit em que nasce (a lição da v5.145).
           rodar tools/gaveta-no-download.test.mjs
+          # E AS SEÇÕES DO HINÁRIO, DA TABELA ATÉ A TELA. O `hinario.test.mjs`
+          # trava a REGRA; este trava a LIGAÇÃO, que falha de outro jeito — a
+          # tabela continua perfeita e o recurso não aparece, ou aparece no
+          # lugar errado. Dois dos cinco casos não gritam em lugar nenhum: os
+          # cabeçalhos moram na MESMA `<ul>` das faixas, e uma retomada de
+          # paginação que contasse os FILHOS da lista pularia um hino por
+          # cabeçalho já desenhado (hinos sumindo do meio da lista, sem erro);
+          # e o hinário de 1996 tem outra numeração, então um "Infantis" sobre
+          # o 508 DELE é um rótulo mentindo que ninguém nota olhando o hinário
+          # certo. Ele entra no workflow no MESMO commit em que nasce — a lição
+          # da v5.145.
+          rodar tools/hinario-tela.test.mjs
 
           # O PLACAR VAI PARA O RESUMO DO RUN, não só para o log — a queixa que
           # originou este lote foi precisamente que o desfecho só existia lá
