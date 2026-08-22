@@ -4800,17 +4800,16 @@ main {
   line-height: 1.7;
   padding-bottom: .2rem;
 }
-/* QUEBRA AUTOMÁTICA em vez de rolagem lateral (v1.1.11).
-   `pre-wrap` mantém os espaços — que é o que segura o acorde na coluna da
-   sílaba — e passa a quebrar a linha que não couber, em vez de empurrar a folha
-   para fora da tela. **O preço está dito:** na linha que de fato quebrar, a
-   continuação recomeça na margem e o par acorde/letra perde o alinhamento
-   NAQUELE ponto. É a troca que o formato permite: alinhamento perfeito com
-   rolagem lateral, ou tudo à vista com a quebra ocasional. Em tela de celular a
-   maioria das linhas cabe, e rolar de lado a cada verso custava mais. */
+/* `pre` PURO: a quebra é NOSSA, não do navegador (v1.1.19).
+   O CSS quebra cada linha INDEPENDENTEMENTE — e acorde e letra são um PAR. Com
+   `pre-wrap` uma folha larga saía como duas linhas de acorde seguidas de duas
+   de letra, e a segunda metade do acorde ficava a duas linhas da sílaba a que
+   pertence: não é alinhamento imperfeito, é o par desfeito. Quem quebra agora é
+   `AVCifra.quebrarPares`, no MESMO índice das duas linhas — ver o `cifraColunas`
+   do `controle.js`, que mede quantos caracteres cabem na fonte renderizada.
+   Aqui a regra só não pode desfazer isso: espaço preservado, quebra nenhuma. */
 .lv-cifra-linha {
-  white-space: pre-wrap;
-  overflow-wrap: break-word;
+  white-space: pre;
   min-height: 1px;
 }
 /* O RESPIRO VAI ENTRE OS PARES, não dentro deles: o acorde tem de ficar COLADO
@@ -4838,6 +4837,19 @@ main {
   font-variant-numeric: tabular-nums;
 }
 .lv-cifra-ctl { display: flex; gap: .3rem; flex: none; }
+/* A ROLAGEM AUTOMÁTICA (v1.1.20). Dois controles, e os dois com a aparência do
+   A+/A− pelo mesmo motivo de sempre: é um passo por toque numa escada.
+   O de velocidade CICLA (a escada volta ao começo), como o botão de girar a
+   mídia — com sete degraus, dar a volta custa menos que um segundo botão. */
+.lv-cifra-rolar.ativa { color: var(--accent); }
+/* O ÚNICO botão da família que não é quadrado: o rótulo é uma PALAVRA ("Auto"),
+   não um par de caracteres. `min-width` guarda a largura do maior rótulo para o
+   ciclo não empurrar os vizinhos a cada toque — um botão que se desloca sob o
+   dedo é um botão que erra o alvo na segunda batida. */
+.lv-cifra-vel {
+  width: auto; min-width: calc(var(--hit) + .9rem); padding: 0 .5rem;
+  font-variant-numeric: tabular-nums;
+}
 
 .lv-cifra-estado {
   display: flex; align-items: center; gap: .55rem;

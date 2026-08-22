@@ -164,6 +164,10 @@ async function passoTamanhoDaLetra(passo) {
   // continua onde deixou).
   lvScroll(lyricsViewBodyEl, lvFollow, false);
   lvScroll(simpleLyricsEl, lvSimpleFollow, false);
+  // A CIFRA quebra por CARACTERE, então mudar o corpo muda quantos cabem: sem
+  // esta linha a folha ficaria quebrada para o tamanho anterior — estourando a
+  // caixa ao aumentar, ou desperdiçando metade da largura ao diminuir.
+  cifraRemedir();
   try { await AVDB.setState('lyricsFont', lvTamanho); } catch (_) { /* sem banco: vale a sessão */ }
 }
 
@@ -2489,6 +2493,7 @@ async function load(opts) {
   const storedFit = await AVDB.getState('fit');
   const storedRot = await AVDB.getState('rotate');
   const lvFonteV = await AVDB.getState('lyricsFont');
+  const cifraVelV = await AVDB.getState('cifraVelocidade');
   const lyricsBgV = (await AVDB.getState('lyricsBg')) === 'black' ? 'black' : 'image';
   const downloadOkV = !!(await AVDB.getState('downloadOk'));
   let libItemsV;
@@ -2533,6 +2538,7 @@ async function load(opts) {
   // escada cai no padrão, e não numa medida que ninguém escolheu — a escada pode
   // encolher numa versão futura, e o que estava salvo continua sendo lido.
   lvTamanho = LV_TAMANHOS.includes(lvFonteV) ? lvFonteV : LV_PADRAO;
+  cifraAdotarVelocidade(cifraVelV);
   aplicarTamanhoDaLetra();
   lyricsBg = lyricsBgV;
   downloadConsent = downloadOkV;
@@ -9458,12 +9464,16 @@ function openLyricsPopup() {
   renderLyricsView();
   lyricsPopupEl.classList.add('open');
   // Depois de aberto (a folha ainda está subindo): o scroll só é possível com
-  // o elemento já medido.
-  requestAnimationFrame(() => lvScrollToCurrent(false));
+  // o elemento já medido — e a MEDIDA da cifra também. No `renderLyricsView`
+  // acima o popup ainda não tinha largura, então a folha saiu sem quebrar.
+  requestAnimationFrame(() => { cifraRemedir(); lvScrollToCurrent(false); });
 }
 
 function closeLyricsPopup() {
   lyricsPopupEl.classList.remove('open');
+  // Sem folha na tela não há o que rolar, e um rAF vivo atrás de um popup
+  // fechado é trabalho por quadro para ninguém ver.
+  cifraRolarParar();
 }
 
 function renderLyricsView() {
@@ -9703,6 +9713,329 @@ function cifraTranspor(passo) {
   renderLyricsView();
 }
 
+/**
+ * QUANTOS CARACTERES CABEM numa linha da folha, ou 0 se não dá para medir.
+ *
+ * O `AVCifra.quebrarPares` é PURO e não olha o DOM — a medida é injetada, e
+ * quem a tira é aqui. Ela não pode ser calculada: a folha é monoespaçada, mas a
+ * fonte que o Android escolhe para `ui-monospace` varia de aparelho, e o corpo
+ * segue o A+/A− do operador. O único jeito honesto é **renderizar e medir**.
+ *
+ * Mede uma amostra longa e divide, em vez de medir UM caractere: com um só, o
+ * arredondamento subpixel vira erro de várias colunas na linha inteira.
+ *
+ * Devolve 0 quando o elemento ainda não tem largura (a folha abrindo, o popup
+ * fechado). Zero faz `quebrarPares` devolver a folha intacta — sem medida
+ * confiável, não quebrar é melhor que quebrar no lugar errado.
+ */
+const CIFRA_AMOSTRA = 40;
+function cifraColunas(folha) {
+  const largura = folha.clientWidth;
+  if (!largura) return 0;
+  const regua = document.createElement('span');
+  regua.className = 'lv-cifra-linha';
+  regua.style.position = 'absolute';
+  regua.style.visibility = 'hidden';
+  regua.style.whiteSpace = 'pre';
+  regua.textContent = '0'.repeat(CIFRA_AMOSTRA);
+  folha.appendChild(regua);
+  const porCaractere = regua.getBoundingClientRect().width / CIFRA_AMOSTRA;
+  folha.removeChild(regua);
+  if (!(porCaractere > 0)) return 0;
+  return Math.max(8, Math.floor(largura / porCaractere));
+}
+
+// Redesenha a folha quando a MEDIDA pode ter mudado — e só então.
+//
+// A assinatura de `lvSignature` fala do CONTEÚDO (música, estado, transposição)
+// e não da largura, porque medir a 4 Hz para comparar seria caro e inútil. Os
+// três casos em que a largura muda de verdade são eventos, e cada um chama
+// aqui: a folha ABRINDO (antes de `.open` ela não tem largura), o A+/A− e o
+// gerar do aparelho.
+function cifraRemedir() {
+  if (!lyricsPopupEl.classList.contains('open')) return;
+  if (lvActiveSource() !== 'cifra') return;
+  renderLyricsView();
+}
+
+// ===== A ROLAGEM AUTOMÁTICA DA FOLHA (v1.1.20) =====
+//
+// Quem lê uma cifra está com as duas mãos no instrumento — e é justamente aí
+// que a folha precisa andar sozinha.
+//
+// ## O modo AUTO: quem manda é o RELÓGIO DA MÚSICA, não um cronômetro nosso
+//
+// Uma velocidade fixa em px/s não tem como estar certa: a mesma folha serve a
+// um hino de 2 min e a um de 6, e o que decide o ritmo da leitura é a MÚSICA.
+// No modo `auto` a posição da folha é uma FUNÇÃO da posição da música — não uma
+// velocidade integrada —, e isso resolve de graça três coisas que a integração
+// exigiria tratar uma a uma: pausar a música PARA a folha, um seek a leva ao
+// ponto certo, e um quadro perdido não acumula erro nenhum.
+//
+// A função não é a reta ingênua `f = t / duração`. Ela tem uma ABERTURA e um
+// FECHO, e mora no módulo PURO (`AVCifra.fracaoDaRolagem`, com oráculo em
+// `tools/cifra.test.mjs`) — daqui sai só o que é do DOM: a duração da barra e a
+// posição no ar. Os dois extremos são o pedido do operador:
+//
+//   ┌ topo                                                    fim da folha ┐
+//   │▔▔▔▔▔▔▔▔▔╲                                                            │
+//   │ abertura  ╲___ a folha desce ___                                     │
+//   │           t0                    ╲__________________▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁ │
+//   │                                 t1                       fecho       │
+//   └ 0 ────────────────── posição da música ─────────────────────── D ────┘
+//
+//  - **A ABERTURA** segura o começo parado por alguns segundos. Quem chega numa
+//    música quer VER o início — a introdução, o tom, a primeira estrofe — antes
+//    de a folha começar a fugir dele.
+//  - **O FECHO** faz a folha chegar ao fim BEM ANTES de a música acabar. O fim é
+//    a parte que mais se erra e a que mais precisa ser lida com antecedência:
+//    uma folha que só mostra o último acorde quando ele já passou não serve para
+//    nada. `t1` é o instante em que a folha está no fim, e dali até `D` ela
+//    fica parada com o final inteiro à vista.
+//
+//
+// ## O modo LIVRE: px/s constante, para quando não há relógio
+//
+// Ensaio sem tocar a gravação, um item sem linha do tempo (imagem, mensagem),
+// um vídeo cuja duração ainda não chegou. Ali `auto` não tem o que seguir e cai
+// no ritmo fixo — o botão continua dizendo `Auto`, que é a ESCOLHA, e o `title`
+// diz o que está de fato acontecendo. Os degraus numéricos são a escolha
+// explícita do mesmo ritmo fixo.
+//
+// ## Por que `requestAnimationFrame`, e não `setInterval`
+//
+// No degrau mais lento do modo livre são 11 px/s — menos de um pixel por
+// quadro. Um passo fixo ou arredonda para zero (não anda) ou para um (voa); o
+// acumulador de fração (`cifraResto`) resolve os dois. O delta tem TETO
+// ([CIFRA_DT_MAX]) porque a página estrangulada em segundo plano voltaria dando
+// um salto — no modo `auto` isso não é problema (a posição é função do tempo da
+// música), mas no livre é a diferença entre continuar e pular meia folha.
+//
+// ## O dedo NÃO briga com a rolagem, e não a desliga
+//
+// Voltar uma linha para reler é a coisa mais comum aqui, e um sistema que se
+// desligasse a cada toque obrigaria a religá-lo o tempo todo. No modo livre o
+// avanço é relativo, então um arrasto só muda a origem. No modo `auto` o alvo é
+// ABSOLUTO e puxaria a folha de volta — por isso o arrasto vira um DESVIO
+// (`cifraDesvio`), somado ao alvo dali em diante: o operador desloca a folha e
+// ela continua seguindo a música a partir de onde ele a deixou.
+const CIFRA_VELOCIDADES = ['auto', 0.5, 0.75, 1, 1.5, 2, 3];
+const CIFRA_VEL_PADRAO = 0; // 'auto'
+/** Pixels por segundo no 1× do modo livre. Ritmo de leitura, não de lista. */
+const CIFRA_PX_POR_S = 22;
+/** Teto do delta de um quadro: acima disso houve pausa, e pausa não é avanço. */
+const CIFRA_DT_MAX = 250;
+/** Constante de tempo com que a folha persegue o alvo do modo `auto`. */
+const CIFRA_TAU_MS = 400;
+
+let cifraVelIdx = CIFRA_VEL_PADRAO;
+let cifraRolando = false;
+let cifraSegurando = false;
+let cifraRaf = 0;
+let cifraQuadroT = 0;
+let cifraResto = 0;
+let cifraRolarBtnEl = null;
+let cifraVelBtnEl = null;
+/** De QUAL música é a rolagem em curso — ver a guarda no `lvBuildCifra`. */
+let cifraRolandoChave = '';
+/** O quanto o operador deslocou a folha à mão, no modo `auto`. */
+let cifraDesvio = 0;
+/** O último alvo TEÓRICO (sem o desvio) — é dele que sai um desvio novo. */
+let cifraAlvoTeorico = 0;
+
+/**
+ * A posição que a folha DEVERIA ter agora, em pixels — ou `null` quando não há
+ * relógio para seguir (e aí quem responde é o modo livre).
+ *
+ * A duração e o "tem linha do tempo?" saem da BARRA DE PROGRESSO, não de um
+ * cálculo paralelo: ela é a única fonte que cobre todos os tipos de mídia (o
+ * `<video>` do stage não sabe nada de um vídeo do YouTube), e é a mesma escolha
+ * que o `pushNowPlaying` já faz.
+ */
+function cifraAlvoDoRelogio(rolavel) {
+  const dur = cifraDuracaoNoAr();
+  if (!(dur > 0)) return null;
+  // A REGRA é do módulo puro (abertura, fecho, os pisos e tetos): aqui só entra
+  // o que só existe no DOM — a duração da barra e a posição no ar.
+  return AVCifra.fracaoDaRolagem(authoritativeTime(), dur) * rolavel;
+}
+
+/**
+ * A duração da mídia no ar, ou 0 quando não há linha do tempo.
+ *
+ * Uma função, e não um estado guardado: o `title` do botão a consulta no
+ * instante em que é pintado, e a folha é desenhada muito antes de o laço de
+ * rolagem existir. Um valor em cache responderia pelo culto passado.
+ */
+function cifraDuracaoNoAr() {
+  return seekEl.disabled ? 0 : (parseFloat(seekEl.max) || 0);
+}
+
+/** O rótulo do degrau atual. Vírgula decimal — é o que o operador lê. */
+function cifraVelRotulo() {
+  const v = CIFRA_VELOCIDADES[cifraVelIdx];
+  if (v === 'auto') return 'Auto';
+  return (v % 1 === 0 ? String(v) : v.toFixed(2).replace(/0$/, '')).replace('.', ',') + '×';
+}
+
+/**
+ * O que o botão de velocidade PROMETE, dito por extenso.
+ *
+ * `Auto` sem relógio não é erro — é o caso normal de um ensaio sem tocar a
+ * gravação —, mas também não pode ficar mudo: o rótulo mostra a ESCOLHA e esta
+ * frase mostra o que está de fato acontecendo. Sem ela, "por que a folha não
+ * acompanha a música?" não tem resposta em lugar nenhum.
+ */
+function cifraVelTitulo() {
+  if (CIFRA_VELOCIDADES[cifraVelIdx] !== 'auto') return 'Velocidade da rolagem';
+  return cifraDuracaoNoAr() > 0
+    ? 'Rolagem no tempo da música (toque para escolher uma velocidade fixa)'
+    : 'Sem duração da música: rolagem em ritmo fixo (toque para escolher a velocidade)';
+}
+
+// Os dois botões vivem no DOM, que `renderLyricsView` refaz inteiro — então o
+// ESTADO mora aqui fora e quem acabou de nascer vem perguntar como se pintar.
+function cifraPintarRolar() {
+  if (cifraVelBtnEl) {
+    cifraVelBtnEl.textContent = cifraVelRotulo();
+    const t = cifraVelTitulo();
+    cifraVelBtnEl.title = t;
+    cifraVelBtnEl.setAttribute('aria-label', t);
+  }
+  if (!cifraRolarBtnEl) return;
+  cifraRolarBtnEl.classList.toggle('ativa', cifraRolando);
+  cifraRolarBtnEl.innerHTML = '';
+  // Pelo `ICON`, nunca por um caractere literal solto: é a tabela que o
+  // `tools/glifos.test.mjs` varre, e um glifo fora dela não desenha NADA sem
+  // erro nenhum — o botão existiria, tocável e invisível.
+  const ico = msym(cifraRolando ? ICON.pause : ICON.play);
+  ico.setAttribute('aria-hidden', 'true');
+  cifraRolarBtnEl.appendChild(ico);
+  const rotulo = cifraRolando ? 'Parar a rolagem' : 'Rolar sozinho';
+  cifraRolarBtnEl.title = rotulo;
+  cifraRolarBtnEl.setAttribute('aria-label', rotulo);
+}
+
+function cifraRolarParar() {
+  cifraRolando = false;
+  if (cifraRaf) cancelAnimationFrame(cifraRaf);
+  cifraRaf = 0;
+  cifraResto = 0;
+  cifraDesvio = 0;
+  cifraPintarRolar();
+}
+
+function cifraRolarQuadro(t) {
+  cifraRaf = 0;
+  if (!cifraRolando) return;
+  // As mesmas condições do `cifraRemedir`: fora daqui não há folha para rolar.
+  if (!lyricsPopupEl.classList.contains('open') || lvActiveSource() !== 'cifra') {
+    cifraRolarParar();
+    return;
+  }
+  const dt = cifraQuadroT ? Math.min(CIFRA_DT_MAX, t - cifraQuadroT) : 0;
+  cifraQuadroT = t;
+
+  const el = lyricsViewBodyEl;
+  const rolavel = el.scrollHeight - el.clientHeight;
+  const alvo = CIFRA_VELOCIDADES[cifraVelIdx] === 'auto' && rolavel > 0
+    ? cifraAlvoDoRelogio(rolavel) : null;
+
+  if (cifraSegurando || dt <= 0) {
+    // O DESVIO é medido ENQUANTO o dedo está na tela, não no `pointerup`: ali o
+    // alvo já andou, e a diferença sairia com o deslocamento de um quadro
+    // dentro. Aqui ela é sempre contra o alvo do MESMO instante.
+    if (cifraSegurando && alvo !== null) cifraDesvio = el.scrollTop - cifraAlvoTeorico;
+    cifraRaf = requestAnimationFrame(cifraRolarQuadro);
+    return;
+  }
+
+  if (alvo !== null) {
+    cifraAlvoTeorico = alvo;
+    const destino = Math.min(rolavel, Math.max(0, alvo + cifraDesvio));
+    const d = destino - el.scrollTop;
+    // UM SALTO GRANDE É UM SEEK, e um seek se obedece na hora: o operador
+    // arrastou a barra, e a folha chegar lá deslizando por segundos seria a
+    // folha discordando da música. Abaixo disso, perseguição suave — ela absorve
+    // o jitter do `display-status`, que chega a ~4 Hz.
+    if (Math.abs(d) > el.clientHeight) {
+      el.scrollTop = destino;
+      cifraResto = 0;
+    } else {
+      cifraResto += d * (1 - Math.exp(-dt / CIFRA_TAU_MS));
+      const passo = cifraResto > 0 ? Math.floor(cifraResto) : Math.ceil(cifraResto);
+      if (passo !== 0) { cifraResto -= passo; el.scrollTop += passo; }
+    }
+    cifraRaf = requestAnimationFrame(cifraRolarQuadro);
+    return;
+  }
+
+  // ---- MODO LIVRE: px/s constante, avanço RELATIVO ----
+  const mult = CIFRA_VELOCIDADES[cifraVelIdx] === 'auto' ? 1 : CIFRA_VELOCIDADES[cifraVelIdx];
+  cifraResto += (CIFRA_PX_POR_S * mult * dt) / 1000;
+  const passo = Math.floor(cifraResto);
+  if (passo > 0) {
+    cifraResto -= passo;
+    const antes = el.scrollTop;
+    el.scrollTop = antes + passo;
+    // Não andou nada com passo pedido? Chegou ao fim — e continuar é pedir ao
+    // aparelho um quadro por segundo para não fazer coisa nenhuma. Esta parada
+    // é SÓ do modo livre: no `auto` a folha descansa no fim com a música ainda
+    // tocando, que é exatamente o que o FECHO existe para produzir.
+    if (el.scrollTop <= antes) { cifraRolarParar(); return; }
+  }
+  cifraRaf = requestAnimationFrame(cifraRolarQuadro);
+}
+
+function cifraRolarAlternar() {
+  if (cifraRolando) { cifraRolarParar(); return; }
+  cifraRolando = true;
+  cifraRolandoChave = cifraChave(currentItem);
+  cifraQuadroT = 0;
+  cifraResto = 0;
+  // Começar do zero: ligar a rolagem é pedir para seguir a MÚSICA, não para
+  // manter o deslocamento com que a folha estava parada até agora.
+  cifraDesvio = 0;
+  cifraAlvoTeorico = lyricsViewBodyEl.scrollTop;
+  // Rolar sozinho e ACOMPANHAR a estrofe no ar são dois donos do mesmo scroll.
+  // Quem tocou no botão escolheu este.
+  lvFollow = false;
+  if (!cifraRaf) cifraRaf = requestAnimationFrame(cifraRolarQuadro);
+  cifraPintarRolar();
+}
+
+/**
+ * Adota o degrau guardado. Por FUNÇÃO (hoisted) e não por atribuição direta: o
+ * estado da rolagem mora no fim do arquivo, e o `load()` que hidrata roda muito
+ * antes na leitura — um `let` alcançado de cima é uma zona morta esperando a
+ * ordem de chamada mudar.
+ *
+ * Degrau desconhecido cai no padrão: a escada pode encolher numa versão futura,
+ * e o que estava salvo continua sendo lido sem erro.
+ */
+function cifraAdotarVelocidade(v) {
+  const i = CIFRA_VELOCIDADES.indexOf(v);
+  cifraVelIdx = i >= 0 ? i : CIFRA_VEL_PADRAO;
+}
+
+async function cifraVelPasso() {
+  cifraVelIdx = (cifraVelIdx + 1) % CIFRA_VELOCIDADES.length;
+  // Trocar de modo zera o desvio: ele foi medido contra um alvo que o modo novo
+  // não calcula do mesmo jeito.
+  cifraDesvio = 0;
+  cifraResto = 0;
+  cifraPintarRolar();
+  try { await AVDB.setState('cifraVelocidade', CIFRA_VELOCIDADES[cifraVelIdx]); }
+  catch (_) { /* sem banco: vale a sessão */ }
+}
+
+// A LARGURA MUDA SEM NINGUÉM TOCAR EM NADA: girar o aparelho, o teclado do
+// sistema subindo, a janela mudando de tamanho. A medida da folha é em
+// CARACTERES, então qualquer um deles deixa a quebra valendo para a largura
+// anterior. `cifraRemedir` já se recusa a trabalhar fora da aba de cifra.
+window.addEventListener('resize', cifraRemedir);
+window.addEventListener('orientationchange', () => { requestAnimationFrame(cifraRemedir); });
+
 // Desenha a folha dentro de `el`.
 function lvBuildCifra(el) {
   const item = currentItem;
@@ -9779,15 +10112,42 @@ function lvBuildCifra(el) {
   mais.title = 'Subir meio tom';
   mais.setAttribute('aria-label', 'Subir meio tom');
   mais.addEventListener('click', () => cifraTranspor(1));
-  ctl.append(menos, mais);
+  // MÚSICA NOVA É FOLHA NOVA, e a rolagem era da anterior. Sem esta guarda o
+  // louvor seguinte já entrava rolando, do meio de uma folha que ninguém mandou
+  // andar — e o botão diria que está tudo certo.
+  if (cifraRolando && cifraRolandoChave !== cifraChave(item)) cifraRolarParar();
+
+  // A ROLAGEM AUTOMÁTICA, à ESQUERDA da transposição: ela é a ação que se usa
+  // durante a música inteira, e a transposição é a que se usa uma vez, antes.
+  // Os dois botões nascem AQUI porque `renderLyricsView` refaz a folha inteira
+  // a cada transposição — o estado vive fora do DOM e eles vêm perguntar.
+  cifraRolarBtnEl = document.createElement('button');
+  cifraRolarBtnEl.type = 'button';
+  cifraRolarBtnEl.className = 'lv-fonte-btn lv-cifra-rolar';
+  cifraRolarBtnEl.addEventListener('click', cifraRolarAlternar);
+  cifraVelBtnEl = document.createElement('button');
+  cifraVelBtnEl.type = 'button';
+  cifraVelBtnEl.className = 'lv-fonte-btn lv-cifra-vel';
+  cifraVelBtnEl.title = 'Velocidade da rolagem';
+  cifraVelBtnEl.setAttribute('aria-label', 'Velocidade da rolagem');
+  cifraVelBtnEl.addEventListener('click', cifraVelPasso);
+  ctl.append(cifraRolarBtnEl, cifraVelBtnEl, menos, mais);
   topo.append(tom, ctl);
   el.appendChild(topo);
+  cifraPintarRolar();
 
   // A FOLHA. Um nó por linha, com a classe dizendo o que ela é — é o que deixa
   // o acorde ganhar cor sem o CSS ter de adivinhar nada do conteúdo.
+  //
+  // VAZIA PRIMEIRO, para poder ser MEDIDA. A quebra de linha é nossa (ver
+  // `AVCifra.quebrarPares`) e precisa saber quantos caracteres cabem — o que só
+  // se sabe com o elemento no documento, na fonte em que ele vai de fato ser
+  // desenhado. Medir um elemento fora da árvore devolveria zero.
   const folha = document.createElement('div');
   folha.className = 'lv-cifra-folha';
-  p.linhas.forEach((linha) => {
+  el.appendChild(folha);
+  const linhas = AVCifra.quebrarPares(p.linhas, cifraColunas(folha));
+  linhas.forEach((linha) => {
     const div = document.createElement('div');
     div.className = 'lv-cifra-linha lv-cifra-' + linha.tipo;
     // Só a linha de ACORDES é transposta. Passar a de letra pela mesma função
@@ -9795,7 +10155,6 @@ function lvBuildCifra(el) {
     div.textContent = linha.tipo === 'acordes' ? AVCifra.transporLinha(linha.texto, n) : linha.texto;
     folha.appendChild(div);
   });
-  el.appendChild(folha);
 
   // A ORIGEM, dita e clicável — mas COMO LINK, no rodapé, à direita.
   //
@@ -18702,6 +19061,7 @@ lyricsViewSegEl.addEventListener('click', (e) => {
   if (!btn) return;
   lvSource = btn.dataset.lvsrc;
   lvFollow = true; // trocar de fonte é pedir para ver onde ela está
+  cifraRolarParar(); // e a rolagem é da FOLHA, não da aba que entrou no lugar
   renderLyricsView();
   lvScrollToCurrent(false);
 });
@@ -18711,6 +19071,16 @@ lyricsViewSegEl.addEventListener('click', (e) => {
 // leitura.
 lyricsViewBodyEl.addEventListener('pointerdown', () => { lvFollow = false; });
 lyricsViewBodyEl.addEventListener('wheel', () => { lvFollow = false; }, { passive: true });
+// A ROLAGEM AUTOMÁTICA NÃO BRIGA COM O DEDO — e também não se desliga por ele.
+// O avanço é relativo (`scrollTop += px`), então um arrasto só muda a origem e
+// a folha segue de onde o dedo a deixou; o que não pode é somar pixels ENQUANTO
+// o dedo segura. `pointercancel` entra junto porque um arrasto que vira gesto
+// do sistema não emite `pointerup`, e sem ele a folha ficaria travada para
+// sempre — com o botão dizendo que está rolando.
+lyricsViewBodyEl.addEventListener('pointerdown', () => { cifraSegurando = true; });
+for (const ev of ['pointerup', 'pointercancel', 'pointerleave']) {
+  lyricsViewBodyEl.addEventListener(ev, () => { cifraSegurando = false; });
+}
 // Imagens dos slides: segmento do popup de Exibição (Mostrar / Remover).
 lyricsBgSegEl.addEventListener('click', (e) => {
   const btn = e.target.closest('.fit-opt');

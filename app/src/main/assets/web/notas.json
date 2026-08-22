@@ -8,6 +8,15 @@
     ]
   },
   {
+    "versao": "1.1.20",
+    "itens": [
+      "A cifra ganhou ROLAGEM AUTOMÁTICA, e ela anda no tempo da MÚSICA: a folha fica parada no começo por alguns segundos (para você ver a introdução e o tom) e chega ao fim bem ANTES de a música acabar, para o final ficar à vista enquanto você ainda o toca.",
+      "Ao lado do botão, sete velocidades: “Auto” (o tempo da música) e seis ritmos fixos, para ensaiar sem tocar a gravação. A escolha fica guardada.",
+      "Puxar a folha com o dedo não desliga nada — ela continua seguindo a música a partir de onde você a deixou.",
+      "A quebra de linha da cifra passou a quebrar o ACORDE e a LETRA no mesmo ponto. Antes o telefone quebrava cada linha por conta própria e a segunda metade dos acordes ia parar duas linhas acima da sílaba a que pertence."
+    ]
+  },
+  {
     "versao": "1.1.19",
     "itens": [
       "O Registro passou a contar o culto: o que entrou em cena, a TV conectando e caindo, a projeção se reapresentando, a mídia parada, a rede indo embora e voltando.",

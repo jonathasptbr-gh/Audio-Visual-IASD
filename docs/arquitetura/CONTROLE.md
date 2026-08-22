@@ -1121,6 +1121,23 @@ mixer (`#lyricsViewBtn`, folha com linhas) abre um bottom-sheet **com scroll**
   transposição que preserva a COLUNA do acorde e por que o parser mora no web e
   não no Kotlin — está em **"A aba de cifra"** no `CLAUDE.md`; a regra em si, em
   `controle/cifra.js`, com oráculo em `tools/cifra.test.mjs`.
+
+  A barra do topo da folha carrega **quatro** controles, e a ordem é a de uso:
+  a rolagem automática e a velocidade (usadas durante a música inteira) antes do
+  par de transposição (usado uma vez, antes dela). Os quatro são `.lv-fonte-btn`
+  porque são o mesmo gesto — um passo por toque numa escada —, e duas aparências
+  para o mesmo gesto seria ruído. O de velocidade é o único **não quadrado** da
+  família: o rótulo dele é uma palavra (`Auto`), e o `min-width` guarda a largura
+  do maior rótulo para o ciclo não empurrar os vizinhos a cada toque — um botão
+  que se desloca sob o dedo erra o alvo na segunda batida.
+
+  **A rolagem anda no tempo da MÚSICA** (`Auto`, o padrão), com o começo parado
+  alguns segundos e o fim alcançado bem antes de a música acabar; sem relógio
+  para seguir ela cai num ritmo fixo e diz isso no `title`. **A quebra de linha
+  da folha é do app, não do navegador**, e por isso `cifraColunas` mede a fonte
+  RENDERIZADA. Os dois mecanismos estão no `CLAUDE.md`, com o que cada um recusa
+  fazer; as regras puras (a janela da rolagem, a quebra do par) estão em
+  `controle/cifra.js`, com oráculo.
 - **O TAMANHO DA LETRA É DO OPERADOR** (v1.1.6): um par **A+ / A−** no cabeçalho
   desta folha **e** na linha do nome do Modo Fácil — duas casas, um estado, o
   token `--lv-fonte`. *"Aproveite para criar dois botões de A+ e A− nestas seções

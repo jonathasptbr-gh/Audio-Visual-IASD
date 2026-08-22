@@ -484,6 +484,170 @@
     return saida;
   }
 
+  // ===== A QUEBRA DE LINHA DO PAR (v1.1.19) =====
+  //
+  // O acorde vale por estar SOBRE a sílaba em que a harmonia troca. Isso torna
+  // acorde e letra **uma unidade**, e é por isso que a quebra não pode ser
+  // delegada ao navegador.
+  //
+  // A v1.1.13 usava `white-space: pre-wrap` e o preço estava declarado — mas
+  // medido no aparelho ele é inaceitável: o CSS quebra cada linha
+  // INDEPENDENTEMENTE, então uma folha larga sai assim
+  //
+  //     acordes (1ª metade)
+  //     acordes (2ª metade)
+  //     letra   (1ª metade)
+  //     letra   (2ª metade)
+  //
+  // e a segunda metade dos acordes fica a DUAS linhas de distância da sílaba a
+  // que pertence. Não é alinhamento imperfeito: é o par desfeito.
+  //
+  // Aqui a quebra é NOSSA, e o corte é o MESMO índice nas duas linhas — o que
+  // preserva o alinhamento por construção, porque as duas fatias saem da mesma
+  // coluna. A saída intercala `acordes` e `letra`, então cada metade continua
+  // grudada na sua.
+  //
+  // `colunas` é INJETADO por quem chama (o `controle.js` mede a fonte
+  // renderizada): este módulo é PURO e não pode olhar o DOM — e é isso que
+  // torna a regra exercitável no oráculo, que é o que ela mais precisa.
+
+  // O corte parte um token? (um acorde, ou uma palavra da letra)
+  function cortaToken(s, c) {
+    return c > 0 && c < s.length && s[c] !== ' ' && s[c - 1] !== ' ';
+  }
+
+  // O maior corte até `W` que não parte um acorde NEM uma palavra.
+  //
+  // Desce a partir do limite porque o objetivo é aproveitar a largura; o piso
+  // (`MIN`) impede que uma linha sem espaço nenhum produza fatias absurdamente
+  // curtas — e, no pior caso, corta em `W` mesmo: uma quebra feia é melhor que
+  // um laço que não termina.
+  function pontoDeQuebra(A, L, W) {
+    const MIN = Math.max(4, Math.floor(W * 0.35));
+    for (let c = W; c >= MIN; c--) {
+      if (!cortaToken(A, c) && !cortaToken(L, c)) return c;
+    }
+    return W;
+  }
+
+  // O recuo de uma fatia; uma fatia em branco não tem opinião sobre margem, e
+  // por isso devolve Infinity — quem manda é a outra.
+  function recuoDe(s) {
+    return s.trim() ? s.length - s.replace(/^ +/, '').length : Infinity;
+  }
+
+  const semRabo = (s) => s.replace(/ +$/, '');
+
+  function fatiar(A, L, W, temA, temL, saida) {
+    let a = A;
+    let l = L;
+    for (;;) {
+      if (Math.max(semRabo(a).length, semRabo(l).length) <= W) {
+        if (temA) saida.push({ tipo: 'acordes', texto: semRabo(a) });
+        if (temL) saida.push({ tipo: 'letra', texto: semRabo(l) });
+        return;
+      }
+      const c = pontoDeQuebra(a, l, W);
+      if (temA) saida.push({ tipo: 'acordes', texto: semRabo(a.slice(0, c)) });
+      if (temL) saida.push({ tipo: 'letra', texto: semRabo(l.slice(0, c)) });
+      const ra = a.slice(c);
+      const rl = l.slice(c);
+      // O MESMO recuo sai das duas — tirar recuos diferentes desalinharia
+      // justamente o que este código existe para manter junto.
+      let k = Math.min(recuoDe(ra), recuoDe(rl));
+      if (!Number.isFinite(k)) k = 0;
+      a = ra.slice(k);
+      l = rl.slice(k);
+      if (!a.trim() && !l.trim()) return;
+    }
+  }
+
+  /**
+   * Reescreve a folha para caber em `colunas`, quebrando ACORDE e LETRA no
+   * mesmo ponto. Devolve a mesma forma de [lerFolha].
+   *
+   * `colunas` inútil (0, negativo, NaN) devolve a folha INTACTA: sem medida
+   * confiável, não quebrar é melhor que quebrar no lugar errado — o pior
+   * desfecho aqui é uma rolagem lateral, e o outro é a folha mentindo.
+   */
+  function quebrarPares(linhas, colunas) {
+    const W = Math.floor(Number(colunas) || 0);
+    const src = Array.isArray(linhas) ? linhas : [];
+    if (!(W >= 8)) return src.slice();
+    const saida = [];
+    for (let i = 0; i < src.length; i++) {
+      const linha = src[i];
+      if (!linha || linha.tipo === 'vazio') { saida.push({ tipo: 'vazio', texto: '' }); continue; }
+      // O PAR é uma linha de acordes seguida de uma de letra. Linha solta
+      // (acordes sem letra abaixo, ou letra sem acordes acima) quebra sozinha,
+      // pelo mesmo caminho — com a outra metade vazia.
+      const ehPar = linha.tipo === 'acordes' && src[i + 1] && src[i + 1].tipo === 'letra';
+      const A = linha.tipo === 'acordes' ? String(linha.texto || '') : '';
+      const L = ehPar ? String(src[i + 1].texto || '')
+        : (linha.tipo === 'letra' ? String(linha.texto || '') : '');
+      if (ehPar) i++;
+      fatiar(A, L, W, linha.tipo === 'acordes', ehPar || linha.tipo === 'letra', saida);
+    }
+    return saida;
+  }
+
+
+  // ===== A JANELA DA ROLAGEM AUTOMÁTICA (v1.1.20) =====
+  //
+  // A folha de cifra rola no tempo da MÚSICA, não num cronômetro nosso: a mesma
+  // folha serve a um hino de 2 min e a um de 6, e quem decide o ritmo da leitura
+  // é a gravação. O que mora aqui é a FUNÇÃO que traduz "onde a música está" em
+  // "onde a folha deve estar" — pura, injetável, exercitável.
+  //
+  // Ela não é a reta ingênua `f = t / duração`. Tem uma ABERTURA e um FECHO:
+  //
+  //  - **ABERTURA**: o começo fica parado alguns segundos. Quem chega numa
+  //    música quer VER o início — introdução, tom, primeira estrofe — antes de
+  //    a folha começar a fugir dele.
+  //  - **FECHO**: a folha chega ao fim BEM ANTES de a música acabar. O final é
+  //    a parte que mais se erra e a que mais precisa ser lida com antecedência;
+  //    uma folha que mostra o último acorde depois de ele passar não serve para
+  //    nada.
+  //
+  // Os dois são FRAÇÃO da música com piso e teto em SEGUNDOS, e é a combinação
+  // que os torna certos nos dois extremos: fração pura daria dois segundos de
+  // abertura num hino curto (não dá tempo de ler nada) e meio minuto num longo
+  // (a folha parada com a primeira estrofe já cantada).
+  const ABERTURA = { frac: 0.08, min: 4, max: 12 };
+  const FECHO = { frac: 0.12, min: 8, max: 25 };
+
+  /**
+   * `[t0, t1]` em segundos: o trecho da música em que a folha de fato desce.
+   *
+   * Música curta demais para caber abertura e fecho devolve a música INTEIRA.
+   * Uma janela invertida — ou de meio segundo — faria a folha saltar do topo ao
+   * fim num quadro só, que é pior que não ter abertura nenhuma. **O piso é um
+   * segundo, não zero:** com zero a divisão da fração é 0/0.
+   */
+  function janelaDeRolagem(dur) {
+    const d = Number(dur) || 0;
+    if (!(d > 0)) return { t0: 0, t1: 0 };
+    const trava = (r) => Math.min(r.max, Math.max(r.min, d * r.frac));
+    const t0 = trava(ABERTURA);
+    const t1 = d - trava(FECHO);
+    if (!(t1 - t0 >= 1)) return { t0: 0, t1: d };
+    return { t0, t1 };
+  }
+
+  /**
+   * Onde a folha deve estar, de 0 (topo) a 1 (fim), para a música em `t`.
+   *
+   * Sempre dentro de `[0, 1]`: `t` chega de um relógio que pode passar da
+   * duração por um quadro (ou vir negativo num seek em curso), e uma fração
+   * fora da faixa viraria um `scrollTop` fora da folha.
+   */
+  function fracaoDaRolagem(t, dur) {
+    const { t0, t1 } = janelaDeRolagem(dur);
+    if (!(t1 > t0)) return 0;
+    const x = Math.min(Number(dur) || 0, Math.max(0, Number(t) || 0));
+    return Math.min(1, Math.max(0, (x - t0) / (t1 - t0)));
+  }
+
   global.AVCifra = {
     CATALOGO, BASE,
     OK, MOTIVO_SEM_REDE, MOTIVO_NAO_TEM, MOTIVO_RECUSOU, MOTIVO_ILEGIVEL,
@@ -491,5 +655,7 @@
     urlDoHino, urlDaMusica, urlDeBusca,
     pareceAcorde, transporAcorde, transporLinha, transporTom,
     lerFolha, lerPagina, lerBusca, somenteLetra,
+    quebrarPares, pontoDeQuebra,
+    janelaDeRolagem, fracaoDaRolagem,
   };
 })(this);

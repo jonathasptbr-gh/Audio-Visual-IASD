@@ -1806,14 +1806,78 @@ a congregação vê continua sendo a letra, pelo caminho de sempre.
   tem de ser a letra, que é o que quem opera o culto está lendo. **A Bíblia NO AR
   é exclusiva** (v1.1.11): projetando, ela é a única fonte, e a cifra não é
   oferecida — ver o capítulo do Controle.
-- **A folha QUEBRA em vez de rolar de lado** (`pre-wrap`), e o preço está dito no
-  CSS: na linha que de fato quebrar, a continuação recomeça na margem e o par
-  acorde/letra perde o alinhamento NAQUELE ponto. É a troca que o formato
-  permite — alinhamento perfeito com rolagem lateral, ou tudo à vista com a
-  quebra ocasional —, e numa tela de celular rolar de lado a cada verso custava
-  mais. O respiro vai ENTRE os pares (`.lv-cifra-letra + .lv-cifra-acordes`),
-  nunca dentro deles: é a proximidade do acorde com a letra que diz a qual sílaba
-  ele pertence.
+- **A QUEBRA DE LINHA É NOSSA, e ela quebra o PAR** (`AVCifra.quebrarPares`). O
+  CSS quebra cada linha INDEPENDENTEMENTE, e acorde e letra são uma unidade: com
+  `pre-wrap` uma folha larga saía como duas linhas de acorde seguidas de duas de
+  letra, e a segunda metade do acorde ficava a duas linhas da sílaba a que
+  pertence — não é alinhamento imperfeito, é o par desfeito. Aqui o corte é o
+  MESMO ÍNDICE nas duas linhas (e o mesmo recuo sai das duas), então o
+  alinhamento se preserva por construção. O ponto de corte recua até não partir
+  token: uma palavra cortada fica feia, mas um acorde cortado (`Am` → `A`) vira
+  OUTRO acorde, e um que soa. **A largura é INJETADA** — o módulo é puro e não
+  olha o DOM; quem a mede é `cifraColunas`, que renderiza uma amostra de 40
+  caracteres na fonte de verdade e divide, porque a monoespaçada que o Android
+  escolhe varia de aparelho e o corpo segue o A+/A−. Medida inútil (0, o popup
+  ainda fechado) devolve a folha INTACTA: sem régua confiável, uma rolagem
+  lateral é melhor que uma folha mentindo. Remedir é evento, nunca enquete —
+  a folha abrindo, o A+/A−, `resize` e `orientationchange`. O respiro vai ENTRE
+  os pares (`.lv-cifra-letra + .lv-cifra-acordes`), nunca dentro deles: é a
+  proximidade do acorde com a letra que diz a qual sílaba ele pertence.
+- **A ROLAGEM AUTOMÁTICA anda no RELÓGIO DA MÚSICA, não num cronômetro nosso.**
+  Velocidade fixa em px/s não tem como estar certa: a mesma folha serve a um
+  hino de 2 min e a um de 6, e quem decide o ritmo da leitura é a gravação. No
+  modo `auto` a posição da folha é uma **FUNÇÃO** da posição da música, não uma
+  velocidade integrada — e isso resolve de graça três coisas que a integração
+  trataria uma a uma: pausar a música PARA a folha, um seek a leva ao ponto
+  certo, e um quadro perdido não acumula erro nenhum.
+
+  **A função não é `f = t/duração`: tem ABERTURA e FECHO** (`AVCifra.janelaDeRolagem`
+  / `fracaoDaRolagem`, PURAS, com oráculo). A abertura segura o começo parado
+  alguns segundos — quem chega numa música quer VER a introdução, o tom e a
+  primeira estrofe antes de a folha fugir deles; o fecho faz a folha chegar ao
+  fim **bem antes** de a música acabar, porque o final é a parte que mais se
+  erra e a que mais precisa ser lida com antecedência. Os dois são **fração da
+  música com piso e teto em segundos**, e é a combinação que os torna certos nos
+  dois extremos: fração pura daria 3 s de abertura num hino de 40 s (não dá
+  tempo de ler o tom) e meio minuto num de 6 (a folha parada com a primeira
+  estrofe já cantada). A regra é do módulo puro; do `controle.js` sai só o que é
+  do DOM — e a duração vem da **barra de progresso**, a única fonte que cobre
+  todos os tipos de mídia, pela mesma razão que o `pushNowPlaying`.
+
+  **Sem relógio há o modo LIVRE** (ensaio sem tocar a gravação, item sem linha
+  do tempo): px/s constante, `requestAnimationFrame` com delta REAL — no degrau
+  mais lento são 11 px/s, menos de um pixel por quadro, e um passo fixo ou
+  arredonda para zero (não anda) ou para um (voa); o acumulador de fração
+  resolve os dois, e o delta tem TETO (250 ms) porque a página estrangulada em
+  segundo plano voltaria dando um salto. **`Auto` sem relógio cai no livre e DIZ
+  isso** no `title` do botão: o rótulo mostra a ESCOLHA, a frase mostra o que
+  está acontecendo — sem ela, *"por que a folha não acompanha a música?"* não
+  tem resposta em lugar nenhum.
+
+  **O dedo não briga e não desliga.** No livre o avanço é relativo, então um
+  arrasto só muda a origem. No `auto` o alvo é ABSOLUTO e puxaria a folha de
+  volta — por isso o arrasto vira um **DESVIO** somado ao alvo dali em diante, e
+  ele é medido ENQUANTO o dedo está na tela (no `pointerup` o alvo já andou, e a
+  diferença sairia com um quadro de deslocamento dentro). `pointercancel` entra
+  junto do `pointerup`: um arrasto que vira gesto do sistema não emite o
+  segundo, e sem ele a folha travaria para sempre com o botão dizendo que rola.
+  Salto maior que uma tela é um **seek** e se obedece na hora; abaixo disso a
+  perseguição é suave (constante de tempo de 400 ms), que é o que absorve o
+  jitter do `display-status` a ~4 Hz.
+
+  Ela para sozinha em quatro casos: o fim da folha (**só no livre** — no `auto`
+  a folha descansa no fim com a música tocando, que é o que o FECHO existe para
+  produzir), a aba deixando de ser a cifra, o popup fechando, e a MÚSICA
+  TROCANDO — esta pela chave da rolagem, senão o louvor seguinte já entrava
+  rolando do meio de uma folha que ninguém mandou andar. A escada tem sete
+  degraus e CICLA (a forma do botão de girar a mídia) e é PERSISTIDA: depende de
+  como a igreja canta, não da sessão. **O estado vive FORA do DOM** porque
+  `renderLyricsView` refaz a folha inteira a cada transposição; os botões nascem
+  a cada render e vêm perguntar como se pintar. E o degrau guardado é adotado
+  por FUNÇÃO hoisted (`cifraAdotarVelocidade`), não por atribuição direta: o
+  estado mora no fim do arquivo e o `load()` que hidrata roda muito antes na
+  leitura — um `let` alcançado de cima é uma zona morta esperando a ordem de
+  chamada mudar.
 - **"Ver no Cifra Club" é um LINK no rodapé**, não um botão de corpo inteiro. Ele
   é a ação menos principal da aba (quem a abre quer LER a cifra) e, com peso de
   botão, cobrava altura de uma caixa cuja única função é mostrar texto.
