@@ -40,12 +40,8 @@ nomeia**; hoje está VAZIO, e é arquivo para esvaziar, não para crescer),
 subsistema do shell, mais a tabela que diz onde cada um dos 26 arquivos é
 explicado), `docs/ARQUITETURA-WEB.md` (o HUB da base web: regras gerais e o
 mapa dos capítulos em `docs/arquitetura/`), `docs/TELAO-POR-COMANDOS.md`
-(o contrato das telas da rede), `docs/FONTE-DE-DADOS-LOUVORJA.md` (hinos/Bíblia),
-`docs/LANCAMENTO-1.0.md` (**o levantamento da 1.0**, hoje com a 1.0 publicada e
-quase tudo ✅; sobram três itens que não são código — reinstalar num aparelho, a
-política de privacidade *se* houver loja e o domínio próprio *quando* houver.
-**As medidas dele são de 21/08/2026, sobre a v5.317, e NÃO valem como estado
-atual** — arquivo para ESVAZIAR) e `docs/HISTORICO.md`
+(o contrato das telas da rede), `docs/FONTE-DE-DADOS-LOUVORJA.md` (hinos/Bíblia)
+e `docs/HISTORICO.md`
 (**apêndice**: a nota de cada versão, para consultar por `grep`, nunca por
 leitura integral).
 
@@ -2014,6 +2010,15 @@ nenhuma infraestrutura externa.
 | **Release** ⭐ | `git tag v1.0.1 && git push --tags` | **link direto para o .apk** |
 | Release manual | Actions → *Build APK* → *Run workflow*, com `release_tag` | a tag é criada pelo próprio workflow |
 
+**O `web-ota` NÃO tem filtro de caminho**, e é por isso que um lote que não toca
+em `assets/web/` — documentação, o `site/`, um workflow — ainda republica o
+bundle e reescreve o `sha256` do manifesto. Não é corrupção e não quebra nada (a
+versão é igual, e o aparelho descarta o que não for MAIOR); o zip só é
+reempacotado de um checkout novo, com carimbos de tempo novos. Manifesto e zip
+saem juntos, do mesmo run, sob a mesma fila. Um `paths-ignore` pouparia runner,
+mas mexe no maquinário que alimenta a frota — e o preço de errar ali é o canal
+OTA parar.
+
 **O `web-ota` roda com fila, sem cancelamento** (`concurrency: web-ota`,
 `cancel-in-progress: false`). Os assets de `web-latest` são substituídos um a um,
 sem transação: duas execuções em paralelo (o merge seguido de um push de
@@ -2313,6 +2318,14 @@ Rodar local: `./gradlew assembleDebug` (exige Android SDK).
   *"A versão que o aparelho vai rodar"* imprime `Base web publicada: X (APK: Y)`,
   e um `::warning::` no resumo significa que o manifesto não foi lido e a página
   saiu com a versão do APK — correta, velha, e indistinguível de estar tudo bem.
+
+  **E TODO CAMINHO DENTRO DE `site/` É RELATIVO** (`telas/biblia.webp`, nunca
+  `/telas/biblia.webp`). O Pages serve de `jonathasptbr-gh.github.io/Audio-Visual-IASD/`,
+  com PREFIXO de caminho; um domínio próprio serviria da RAIZ. Todo link absoluto
+  funciona hoje e quebra no dia da troca — **e quebra calado**, porque quem
+  responde é o 404 do GitHub, não um erro nosso. Com tudo relativo, o mesmo build
+  serve os dois endereços sem uma linha alterada e a migração vira DNS mais um
+  `CNAME`. Hoje a regra está cumprida: não há um caminho absoluto no `site/`.
 
 ### Código
 
