@@ -1111,7 +1111,10 @@ mixer (`#lyricsViewBtn`, folha com linhas) abre um bottom-sheet **com scroll**
   congregação vê continua sendo a letra.
 
   Ela é lida **sob demanda** e nada é guardado (o cache é um `Map` que morre com
-  o app). O desenho completo — as duas tentativas, os quatro motivos de falha, a
+  o app), e a busca começa quando a música **entra em cena** — não quando a aba
+  abre (v1.1.16): assim a folha costuma estar pronta antes de alguém pedir por
+  ela. Quem decide se cabe cifra para um item é `cifraCabe`, a MESMA função que
+  a aba usa para se oferecer. O desenho completo — as duas tentativas, os quatro motivos de falha, a
   transposição que preserva a COLUNA do acorde e por que o parser mora no web e
   não no Kotlin — está em **"A aba de cifra"** no `CLAUDE.md`; a regra em si, em
   `controle/cifra.js`, com oráculo em `tools/cifra.test.mjs`.

@@ -232,7 +232,7 @@ const appVersionEl = document.getElementById('appVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.1.15';
+const WEB_VERSION = '1.1.16';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -9084,6 +9084,26 @@ async function send(id, daFila) {
   // está em lista nenhuma, e sem essa leitura o `|| currentItem` deixava no ar
   // o nome do item ANTERIOR, que é pior que nome nenhum.
   currentItem = alvo || currentItem;
+  // ===== A CIFRA COMEÇA A SER BUSCADA AGORA, NÃO AO ABRIR A ABA (v1.1.16) =====
+  //
+  // Pedido do operador: *"que a busca da cifra seja automaticamente ao tocar a
+  // música e não ao abrir a aba de cifras"*.
+  //
+  // A rede deixa de estar no caminho crítico. Quem abre a aba está com o
+  // instrumento na mão e a música já tocando — esperar ali um GET a um site de
+  // terceiro é esperar no pior momento possível. Disparada aqui, a folha
+  // costuma estar pronta antes de alguém pedir por ela.
+  //
+  // AQUI e não no toque da lista: `send` é o ponto por onde TODOS os caminhos
+  // passam (o avanço automático da playlist, o ⏮/⏭ do transporte, a notificação
+  // nativa, o roteiro). É o mesmo argumento das três guardas acima.
+  //
+  // `cifraGarantir` é IDEMPOTENTE — a entrada no cache nasce no estado
+  // `buscando` e é ela que impede uma segunda requisição —, então repetir a
+  // mesma música não repete a rede. E não há `await`: a cena não pode esperar
+  // pela cifra, que é auxiliar; a aba se redesenha sozinha quando a resposta
+  // chega. Falha nenhuma daqui atravessa para o `send` (o `catch` mora lá).
+  if (cifraCabe(currentItem)) cifraGarantir(currentItem);
   // Independência áudio × texto: um ÁUDIO (música de fundo) NÃO encerra o texto
   // manual em cena (Bíblia/Mensagem/cronômetro); qualquer VISUAL (vídeo/imagem/
   // YouTube) encerra. Um louvor de fundo sob a contagem regressiva de abertura
@@ -9337,7 +9357,7 @@ function lyricsViewSources() {
   // que não funciona é pior que não oferecê-la: o seletor do topo só aparece com
   // duas fontes, e esta apareceria sempre, empurrando um botão morto para a
   // frente do operador em toda música.
-  if (window.__NATIVE__ && cifraNomeDoItem(currentItem)) list.push('cifra');
+  if (cifraCabe(currentItem)) list.push('cifra');
   // A RESERVA: sem música em cena, um capítulo aberto (mesmo fora do ar) ainda
   // é o que o operador tem para ler — e é o que ele foi buscar ao abrir esta
   // folha. Só não disputa com a música, que é o ponto da regra acima.
@@ -9493,6 +9513,28 @@ function cifraColecaoDoItem(item) {
 // LIMPO do hino, sem "(Cantado)" nem variante), `name` como reserva.
 function cifraNomeDoItem(item) {
   return (item && (item.hymnName || item.name)) || '';
+}
+
+/**
+ * CABE CIFRA PARA ESTE ITEM? — e a resposta é UMA, para os dois consumidores.
+ *
+ * A mesma pergunta é feita em dois lugares (a aba, que decide se se oferece, e
+ * o pré-carregamento do `send`, que decide se busca). Duas escritas dela
+ * divergiriam no primeiro ajuste — e a divergência entre "o que conta como
+ * acorde" e "o que é transposto" foi exatamente o que produziu o defeito da
+ * v1.1.15. Uma função, dois chamadores.
+ *
+ * O corte é por CONTEÚDO MUSICAL, não por nome: um episódio de série é um
+ * testemunho em vídeo, e procurar cifra dele é uma requisição garantidamente
+ * perdida — e, pior, uma aba oferecida que só sabe dizer que não achou. Vale
+ * para `audio` (todo o hinário e os álbuns) e para o que tiver LETRA, que é o
+ * louvor gravado em vídeo.
+ *
+ * Sem ponte não cabe: no navegador não há como buscar a página (CORS).
+ */
+function cifraCabe(item) {
+  if (!window.__NATIVE__ || !item || !cifraNomeDoItem(item)) return false;
+  return item.kind === 'audio' || (Array.isArray(item.lyrics) && item.lyrics.length > 0);
 }
 
 // A chave do cache. Coleção + nome, e não o `mediaId`: a MESMA música baixada
