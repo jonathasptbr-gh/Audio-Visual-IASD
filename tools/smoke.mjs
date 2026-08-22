@@ -2228,7 +2228,7 @@ try {
           ? Math.round(card.getBoundingClientRect().right - alvo.getBoundingClientRect().right) : -1,
         naThumb: !!(card && card.querySelector('.coll-bar-icon.coll-bar-fechar')),
         naDireita: !!(card && card.querySelector('.coll-bar-dl.coll-bar-cfg')),
-        // ── A COLUNA DA DIREITA DEPOIS DA v1.1.14 ───────────────────────
+        // ── A COLUNA DA DIREITA DEPOIS DA v1.1.16 ───────────────────────
         // Dois botões, cada um respondendo a uma pergunta: BAIXAR a "há o que
         // baixar?" (independente de aberto), REMOVER a "o álbum está aberto?".
         // Medidos separadamente porque as duas regras erram de jeitos
@@ -2236,7 +2236,7 @@ try {
         // destruição a um toque de distância numa lista inteira de cards.
         temDl: !!(card && card.querySelector('.coll-bar .coll-bar-dl:not(.coll-bar-rm)')),
         temRm: !!(card && card.querySelector('.coll-bar .coll-bar-rm')),
-        // VISÍVEL de verdade, não só presente: até a v1.1.12 o botão de baixar
+        // VISÍVEL de verdade, não só presente: até a v1.1.15 o botão de baixar
         // continuava no DOM com o card aberto e era escondido por
         // `visibility` (`vago`). Uma asserção de presença aprovaria aquilo.
         dlVisivel: (() => {
@@ -2332,7 +2332,7 @@ try {
   } catch (e) {
     checar(false, 'a medição da thumb das raízes terminou sem exceção (' + (e && e.message) + ')');
   }
-  // ===== A COLUNA DA DIREITA, DEPOIS DA v1.1.14 =====
+  // ===== A COLUNA DA DIREITA, DEPOIS DA v1.1.16 =====
   //
   // Pedido do operador: *"coloque o botão de excluir na direita no card do
   // título do álbum, ali onde fica o botão de download… deixe o botão de

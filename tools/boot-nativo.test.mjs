@@ -2500,7 +2500,7 @@ try {
       rotulos: btns.map((b) => b.textContent.trim().replace(/\s+/g, ' ')),
       estado: opts ? [...opts.querySelectorAll('.coll-opt-estado')].map((e) => e.textContent) : [],
       umaLinha: topos.length >= 1 && Math.max(...topos) - Math.min(...topos) <= 2,
-      // ── A LIXEIRA SUBIU PARA A BARRA (v1.1.14) ─────────────────────────
+      // ── A LIXEIRA SUBIU PARA A BARRA (v1.1.16) ─────────────────────────
       // Ela não está mais no painel, e as duas metades importam: o painel NÃO
       // pode tê-la (senão haveria duas), e a barra TEM de tê-la com o card
       // aberto. Sem a segunda, apagá-la de vez passaria.
@@ -2558,7 +2558,7 @@ try {
   // sobrou faixa nenhuma acima dos botões) e os botões partilham o mesmo topo.
   // Sem a primeira, a asserção passaria com os chips de volta — eles nunca
   // estiveram na mesma linha dos botões, estavam ACIMA deles.
-  // ===== O PAINEL DA SÉRIE FICOU COM UM BOTÃO SÓ (v1.1.14) =====
+  // ===== O PAINEL DA SÉRIE FICOU COM UM BOTÃO SÓ (v1.1.16) =====
   // "Verificar" saiu (a verificação virou automática na abertura) e a lixeira
   // subiu para a barra. Numa SÉRIE o "Atualizar a lista" fica: ela não baixa em
   // lote por desenho, e o índice dela custa uma extração do canal do YouTube —
@@ -2580,7 +2580,7 @@ try {
   // texto, que é justamente o que condensá-lo veio tirar.
   checar(opcoes.estadoNaLinha,
     'e ele divide a linha com o rótulo, sem quebrar para uma segunda');
-  // ===== E A LIXEIRA SUBIU PARA A BARRA (v1.1.14) =====
+  // ===== E A LIXEIRA SUBIU PARA A BARRA (v1.1.16) =====
   // Pedido do operador: *"coloque o botão de excluir na direita no card do
   // título do álbum… deixe o botão de excluir apenas visível quando abrir o
   // álbum"*. As DUAS metades: o painel não pode tê-la (senão haveria duas na
@@ -2599,7 +2599,7 @@ try {
     redesenharAcervo();
   });
 
-  // ===== A VERIFICAÇÃO DE ÁLBUM VIRA AUTOMÁTICA (v1.1.14) =====
+  // ===== A VERIFICAÇÃO DE ÁLBUM VIRA AUTOMÁTICA (v1.1.16) =====
   //
   // Pedido do operador: *"agora a verificação é feita de forma automática, no
   // segundo plano toda vez que o app abre… sem efeito de peso significativo de

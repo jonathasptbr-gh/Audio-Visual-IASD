@@ -2769,7 +2769,7 @@ Dois tipos:
   concorrência limitada e um TTL (`ALBUM_INDEX_TTL`, 12 h) pra não refazer N
   requisições a cada retomada; álbuns novos/vazios são sempre buscados. **E o
   álbum COM DOWNLOAD no aparelho é relido na abertura mesmo dentro do TTL**
-  (`forcarIndice`, v1.1.14): é o que o botão "Verificar" fazia, e é o que faz o
+  (`forcarIndice`, v1.1.16): é o que o botão "Verificar" fazia, e é o que faz o
   botão de BAIXAR aparecer sozinho quando o catálogo cresce. UMA VEZ POR SESSÃO
   (`indicesForcados`) — esta função roda a cada `visibilitychange`, e forçar a
   cada volta ao app seria uma rajada de requisições na Wi-Fi da igreja. A SÉRIE
@@ -3144,7 +3144,7 @@ acordeões do acervo: o **card do álbum** e a **letra** de cada linha.
 > aqui — o IndexedDB/OPFS com tudo o que o operador baixou; nos textos VISÍVEIS
 > ele é "os dados do app", para as duas coisas não dividirem a mesma palavra.
 
-**A COLUNA DA DIREITA DA BARRA** (v1.1.14) tem até dois botões, e cada um
+**A COLUNA DA DIREITA DA BARRA** (v1.1.16) tem até dois botões, e cada um
 responde a uma pergunta diferente:
 
 | botão | responde a | quando aparece |
@@ -3173,7 +3173,7 @@ responde a uma pergunta diferente:
   diálogo que ela acabou de abrir.
 
 **Opções da coleção** (`buildCollectionOptions` → painel `.coll-opts--inline`,
-dentro do card): **só a SÉRIE tem painel** desde a v1.1.14, e ele tem um botão
+dentro do card): **só a SÉRIE tem painel** desde a v1.1.16, e ele tem um botão
 só — "Atualizar a lista" (`syncCollection(coll, { soIndice: true })`), com a
 contagem de episódios dentro dele.
 
@@ -4632,7 +4632,7 @@ sábado é visto uma vez. Então:
 | "Tocar agora" | `ytAcao(…, ['tocar'])` | **TRANSMISSÃO DIRETA** — `ytStream` → `shared/mse.js`, sem baixar |
 | Modo Fácil | `simplePlaySong` desvia para o mesmo `ytAcao` | aquele modo não pergunta nada, e esperar 300 MB com o culto rodando não é opção |
 | guardar offline | os destinos da folha (playlist · Cronograma · Favoritos) | um episódio por vez, pelo caminho de download do YouTube |
-| card | `renderCollectionCard` / `buildCollectionOptions` | **card da RAIZ** do índice (v1.0.1), acima dos hinários; **sem botão de baixar em lote** com índice na mão; o painel dela é o ÚNICO que sobrou (v1.1.14) e tem um botão só, "Atualizar a lista" (`syncCollection(coll, { soIndice: true })`), e a série sai de "Baixar toda a biblioteca" |
+| card | `renderCollectionCard` / `buildCollectionOptions` | **card da RAIZ** do índice (v1.0.1), acima dos hinários; **sem botão de baixar em lote** com índice na mão; o painel dela é o ÚNICO que sobrou (v1.1.16) e tem um botão só, "Atualizar a lista" (`syncCollection(coll, { soIndice: true })`), e a série sai de "Baixar toda a biblioteca" |
 
 `downloadSerieItem` e o laço de `syncCollection` continuam existindo e corretos
 — o que mudou é que nenhum toque de UI os alcança hoje. O que muda em relação a

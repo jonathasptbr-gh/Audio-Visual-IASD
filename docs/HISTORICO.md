@@ -24,7 +24,9 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
-- **v1.1.14** — O BOTÃO DE VERIFICAR SAI, E A VERIFICAÇÃO FICA: ele só aparecia num álbum COMPLETO, e o que fazia — pular o TTL de 12 h para reler o índice — passou a acontecer sozinho na abertura, só para os álbuns que o operador TEM no aparelho e UMA VEZ POR SESSÃO (esta função roda a cada retomada, e o operador troca de app dezenas de vezes num culto). A lixeira sobe para a barra do card, revelada pelo mesmo gesto que revela o que ela apaga; o botão de BAIXAR deixa de se esconder com o card aberto, porque o painel que o repetia saiu. OTA PURO
+- **v1.1.16** — O BOTÃO DE VERIFICAR SAI, E A VERIFICAÇÃO FICA: ele só aparecia num álbum COMPLETO, e o que fazia — pular o TTL de 12 h para reler o índice — passou a acontecer sozinho na abertura, só para os álbuns que o operador TEM no aparelho e UMA VEZ POR SESSÃO (esta função roda a cada retomada, e o operador troca de app dezenas de vezes num culto). A lixeira sobe para a barra do card, revelada pelo mesmo gesto que revela o que ela apaga; o botão de BAIXAR deixa de se esconder com o card aberto, porque o painel que o repetia saiu. OTA PURO
+- **v1.1.15** — A TRANSPOSIÇÃO DEIXAVA OS ACORDES DE SÉTIMA MAIOR PARADOS: o sufixo da gramática era uma lista de palavras minúsculas EXIGINDO dígitos depois, e `7M` (dígito + M maiúsculo, a notação brasileira mais comum num hinário) não casava. Como `transporAcorde` devolvia intacto o que não casasse, `D7M/A` e `G7M` ficavam no tom original com a folha andando à volta deles — dissonância na frente de quem toca, sem sinal em lugar nenhum. Slash chords NUNCA estiveram quebrados. A correção por conjunto de caracteres foi reprovada pelo oráculo (`Cada` virava acorde); ficou uma sequência de PEÇAS inteiras, nenhuma exigindo dígito. A transposição passou a andar só na raiz e no baixo. OTA PURO
+- **v1.1.14** — O CONTADOR DA RETOMADA MENTIA, E ELE ERA A ÚNICA COISA QUE A v1.1.11 ENTREGOU PARA SER LIDA A DISTÂNCIA: cada `play()` nosso que fosse negado produzia outra pausa espontânea, e um único roubo era anunciado como quatro. Mais o crédito que confundia SUCESSO com FALHA (três socorros certos esgotavam o teto), o `t2` que carregava a espera onde todo o resto carrega a posição, e o carimbo da preview que chamava de espontânea a pausa do próprio navegador ao minimizar o app — este último achado veio de um Registro REAL colado pelo operador. OTA PURO
 - **v1.1.13** — O SELO DE CAMADAS DEIXA DE PERGUNTAR SE HÁ MÚSICA POR BAIXO: ele exigia `midiaNoAr` e por isso sumia justamente onde é mais procurado — Bíblia, mensagem e cronômetro, que são projetados sem música o tempo todo. Um controle que aparece e some conforme o contexto é um controle que ninguém aprende (revoga a segunda metade da regra da v1.0.3). Mais: a Bíblia NO AR vira fonte exclusiva da folha de leitura (com música, só Letra e Cifra), o corpo da folha vira CAIXA com barra de rolagem — "acabou" era indistinguível de "está cortado" —, a cifra QUEBRA em vez de rolar de lado (com o preço escrito) e o "Ver no Cifra Club" vira link de rodapé. OTA PURO
 - **v1.1.12** — O HINÁRIO GANHA AS SEÇÕES TEMÁTICAS QUE O BANCO NÃO TEM: `pt_hymnal` traz número, nome, duração e playback, e mais nada — o que identifica a seção de um hino é a POSIÇÃO dele, então a resposta é uma TABELA DE FAIXAS pura (35 seções, 8 blocos, transcritas do índice da CPB) com oráculo que trava a cobertura CONTÍGUA de 1 a 600. Índice fechado por padrão no topo do card, títulos intercalados na listagem, e o salto que estica a lista antes de rolar. A paginação conta `.hymn-result` e não os filhos — contar os filhos pularia um hino por cabeçalho. OTA PURO
 - **v1.1.11** — O TELÃO SE DEFENDE DE QUEM ROUBA O FOCO DE ÁUDIO: medido em aparelho, tocar qualquer outra mídia no celular PAUSA a projeção — e na perda PERMANENTE o Chromium abandona o foco e não volta nunca. A pausa espontânea passa a disparar um `stage.play()`, que é o próprio Chromium re-pedindo foco. Três tentativas com espera crescente e desistência até comando humano: sem teto, dois apps que retomam sozinhos gaguejam para sempre, e gagueira é pior que pausa. As guardas são a entrega, não o `play()`. OTA PURO
@@ -213,7 +215,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ---
 
-## v1.1.14 — o botão de verificar sai, e a verificação fica
+## v1.1.16 — o botão de verificar sai, e a verificação fica
 
 *"Remova o botão de verificar atualizações dos álbuns, e coloque o botão de
 excluir na direita no card do título do álbum, ali onde fica o botão de
@@ -303,6 +305,200 @@ a primeira; tirar o `indicesForcados` reprova a última.
 
 ---
 
+## v1.1.15 — a transposição deixava os acordes de sétima maior parados
+
+Relatado do aparelho, com capturas do app e do site lado a lado: numa folha
+transposta, a maioria dos acordes andava e **`D7M/A` e `G7M` ficavam exatamente
+onde estavam**. O resultado é dissonância na frente de quem toca — e ela não
+aparece em log nenhum.
+
+### A CAUSA É UMA SÓ, e é da gramática do acorde
+
+O sufixo era enumerado como uma lista de palavras **minúsculas que exigiam
+dígitos depois**:
+
+```
+(?:sus|add|maj|m|b|#)\d+
+```
+
+`7M` é dígito seguido de **M maiúsculo**. Não casava com nada — e `7M` é a
+notação brasileira de sétima maior, a mais comum num hinário.
+
+O que transformou "não casa" em defeito silencioso foi a primeira linha de
+`transporAcorde`:
+
+```
+if (!pareceAcorde(token)) return token;
+```
+
+Reprovado, o acorde **volta intacto**. Não há erro, não há vazio, não há sinal:
+o token simplesmente não anda, enquanto a linha inteira anda à volta dele.
+
+Das três hipóteses do relatório que acompanhou o achado, só a primeira procede.
+**Slash chords nunca estiveram quebrados** — `G/B` → `A/C#` já era exercitado
+pelo oráculo e sempre passou; o que travava dentro de `D7M/A` era o `7M`, não a
+barra.
+
+### A LIÇÃO NÃO É "FALTAVA 7M NA LISTA"
+
+Enumerar sufixo por palavra não escala: cada notação ausente reaparece como o
+MESMO defeito mudo, e ainda faltavam `Maj7`, `M7`, `5+`, `7-`.
+
+A primeira tentativa de correção trocou a lista por um conjunto de CARACTERES
+(`[0-9mMajsudingº°+-#b()]`). Ela consertava o `7M` — e **o oráculo reprovou na
+hora**: `Cada` virava acorde (`C` + `ada`, porque `a` e `d` estavam lá para
+servir a `add` e a `dim`). Teria sido comprar a correção de um lado apagando a
+letra da aba, que é o defeito PIOR dos dois.
+
+A forma que ficou é uma sequência de **peças inteiras**:
+
+```
+(?:maj|min|dim|aug|sus|add|M|m|º|°|\+|-|#|b|\d|\([^)]{0,12}\))*
+```
+
+Duas propriedades, e as duas são o conserto: as peças da notação brasileira
+estão lá (`M` inclusive), e **nenhuma exige dígito depois de si** — era essa
+exigência que reprovava o `7M`. As longas vêm antes das curtas na alternância,
+senão `m` consumiria o começo de `maj` e sobraria `aj`.
+
+Agora `ada` não é `add` nem `a`, e reprovam junto: `Cada`, `Da`, `Ai`, `Adora`,
+`Canta`, `Face`, `Grande`.
+
+### A TRANSPOSIÇÃO PASSOU A ANDAR PELOS PEDAÇOS
+
+Antes ela fazia um `replace` global de `[A-G]` sobre o token inteiro. Agora a
+gramática já devolve raiz, extensão e baixo separados, e **só raiz e baixo
+andam** — a extensão viaja verbatim. O que era improvável (mexer numa letra
+dentro da extensão) passou a ser impossível por construção.
+
+E a **grafia segue a RAIZ**, não um `b` perdido na extensão: `C7(b9)` subindo
+meio tom dava `Db7(b9)`, porque o `b` do `(b9)` decidia a escala. O bemol de uma
+alteração não diz nada sobre como a fundamental é escrita — hoje sai `C#7(b9)`.
+
+### O ORÁCULO GANHOU A METADE QUE FALTAVA
+
+Os números esperados foram conferidos contra a página real nos três tons das
+capturas (a folha vem no tom de D):
+
+| tom | −semitons | esperado |
+|---|---|---|
+| A | 5 | `A7M/E` · `D7M` |
+| A# | 4 | `A#7M/F` · `D#7M` |
+| B | 3 | `B7M/F#` · `E7M` |
+
+Os três batem. E a lista de RECUSAS cresceu junto com a de aceitações — é ela
+que impede a próxima correção de um lado de estragar o outro, que foi
+exatamente o que quase aconteceu aqui.
+
+OTA PURO — `minShell` segue 49, sem `shellTag`.
+
+## v1.1.14 — o contador da retomada mentia, e ele era o que ia ser lido a distância
+
+**A v1.1.14: SETE CONSERTOS NA RETOMADA, SEIS DE UMA REVISÃO ADVERSARIAL E UM DE
+UM REGISTRO REAL. OTA PURO** (nenhuma linha de Kotlin, `SHELL_VERSION` intacto em
+49; sem Release).
+
+A v1.1.11 entregou a retomada. Uma revisão em três lentes (corridas de estado ·
+o que a congregação vê · os oráculos mentem?), cada achado passado por um
+cético, não derrubou nenhuma guarda — mas achou **seis** defeitos, todos
+sobreviventes à verificação. E o operador colou o Registro de um aparelho, que
+trouxe o sétimo.
+
+### O que a v1.1.11 errou
+
+- **O CENSO CONTAVA EVENTOS, NÃO EPISÓDIOS**, e este é o defeito que importa:
+  `retom.espontaneas++` ficava no ouvinte de `pause`, ANTES de qualquer guarda.
+  Cada `stage.play()` nosso cujo pedido de foco fosse negado produzia outra
+  pausa espontânea, que contava de novo — **um único roubo era anunciado como
+  quatro**. E a linha do Registro afirma uma CAUSA ("outro app pausou o telão"),
+  o que obriga a contar só o que o app julgou ser essa causa. É o mesmo defeito
+  da v1.1.9, reintroduzido noutro lugar no mesmo dia: *um diagnóstico que
+  responde errado é pior que um que não responde*, e este era o único artefato
+  que a v1.1.11 produziu para ser lido A DISTÂNCIA.
+- **O CRÉDITO CONFUNDIA SUCESSO COM FALHA.** Um orçamento só, medido entre
+  PAUSAS: três socorros que DERAM CERTO, espaçados menos de 30 s, esgotavam o
+  teto e o quarto roubo era abandonado — silêncio definitivo justamente quando o
+  mecanismo estava funcionando 3/3. Agora são **dois orçamentos**:
+  `retomTentativa` conta FALHAS CONSECUTIVAS (zera a cada socorro confirmado) e
+  `retomSucessos` é o freio de GAGUEIRA — vencer a disputa a cada poucos
+  segundos não é serviço, é som picotado, e passando de três socorros na janela
+  o telão desiste em favor de uma parada limpa.
+- **O `t2` CARREGAVA A ESPERA.** Os outros cinco produtores de `t2` do projeto
+  carregam a POSIÇÃO da mídia, e o Registro imprime os dois com o mesmo sufixo
+  "s": quem lia a distância via o louvor saltar de `184s` para `1.5s` e voltar
+  para `186s`. A espera foi para o TEXTO do evento.
+- **ONZE LINHAS POR EPISÓDIO** numa linha do tempo de 16 vagas — o episódio
+  expulsava o contexto que ela existe para dar. Agora é uma linha no
+  agendamento e uma no desfecho, e o `play` que fomos NÓS que causamos não vira
+  linha.
+- **"retomada cancelada (a cena mudou)" MENTIA** no único caso que acontece sem
+  troca de cena nenhuma — o Chromium recuperando o foco sozinho. O motivo passou
+  a sair de quem DECIDE (`motivoNaoRetomar` devolve a frase, não um booleano), e
+  nesse caso **o crédito volta**: não houve disputa, e gastar a tentativa faria
+  um roubo real nos segundos seguintes começar com 4 s em vez de 1,5 s.
+- **`diagRetomada` NUNCA MORRIA.** Sem telão o `diag-ask` nem sai, então o placar
+  de uma Presentation já caída seguia impresso ao lado de uma linha do tempo sem
+  um único 📺. Zerado no `pedirDiag()`, como as linhas já eram.
+
+### O sétimo veio de um aparelho, não de uma leitura
+
+O operador colou o Registro. Três das cinco linhas de pausa eram
+`PAUSA ESPONTÂNEA [oculto]`: **a preview pausada porque a página ficou oculta** —
+o Chromium fazendo o certo, e a razão de o `preverPodeMexer` existir. O carimbo
+do `vigiarPreview` chamava isso de espontâneo. Mesmo defeito do fim natural, no
+outro arquivo, e só um Registro de verdade o mostraria: nenhuma das três lentes
+da revisão olhou para o `controle.js` por esse ângulo.
+
+### A cobertura veio LOGO DEPOIS, e sem subir versão
+
+A revisão classificou como "derruba o culto" duas AUSÊNCIAS de oráculo, e a
+segunda é a que importa: **o teto, o freio de gagueira, a espera crescente e o
+silêncio definitivo não eram executados por máquina nenhuma** — `grep` por
+`RETOM_|DESISTI|retomDesistiu` em `tools/` devolvia um comentário. Era o recurso
+que o próprio lote chama de "O TETO É O RECURSO", e o modo de falhar dele é som
+picotado na frente da congregação.
+
+Fecharam num commit **só de `tools/`**, sem número novo: nada em `assets/web/`
+mudou, então bumpar a versão faria a frota inteira baixar ~1 MB de bundle
+IDÊNTICO. O que entrou:
+
+- **o teto medido de ponta a ponta** — três pausas espontâneas na MESMA cena (um
+  `load` no meio zeraria o crédito), exatamente três chamadas a `video.play()`, a
+  desistência contada, e uma quarta pausa que **não** produz `play()` nenhum: é
+  esta última que separa um TETO de um simples atraso;
+- **a devolução de crédito** no único ramo de recusa TARDIA (`já voltou a tocar`),
+  medida pelo TEXTO da linha seguinte — 1,5 s e não 4 s;
+- **os contadores por DELTA**, não por tipo: o `temContadores` anterior afirmava
+  que o campo existia e nunca o VALOR, então o placar podia ficar preso em zero
+  para sempre com o oráculo aprovando;
+- **a metade CONSUMIDORA** (`registro.test.mjs`): um `diag-dump` de fixture com
+  o placar, e o mesmo dump SEM o campo — o caso em que o `|| 0` é de fato
+  cobrado;
+- **a montagem do `tela-rede` num relógio só.** Ela media o prazo no NODE e o
+  `pausaComandada` no RENDERER: um engasgo de 400 ms fazia a pausa sair
+  carimbada "comando" e o zero passava por nada ter acontecido. Agora a espera
+  roda DENTRO da página, depois de esperar a cena entrar como FATO, e há um
+  controle positivo ao lado;
+- **e a limpeza do estado sujo** (`delete v.ended; delete v.play;`) — o 7-A-bis
+  deixava `ended` preso em TRUE para quem viesse depois.
+
+Cada uma verificada por REVERSÃO, e duas delas corrigiram a própria asserção no
+caminho: a do silêncio definitivo passava com o `if (retomDesistiu) return;`
+removido (quem impõe o silêncio é o teto; aquela guarda impede a desistência de
+ser contada DUAS vezes), e por isso o delta de `desistidas` passou a ser medido
+DEPOIS da pausa extra.
+
+### O oráculo do ⏸ também mentia
+
+O caso (c) do `display-smoke` passava por causa do `pausaComandada`, que já
+existia antes do lote: mandava `pause` e forjava a pausa 120 ms depois, dentro
+da janela de 1000 ms, então `agendarRetomada` nem era chamado. **Segunda
+tautologia da sessão**, desta vez escrita por quem revisava. O cenário de risco
+é o inverso — a retomada JÁ AGENDADA e o operador mandando parar —, e é esse que
+o caso mede agora, com uma asserção de CONTROLE ao lado (havia mesmo um timer
+para cancelar) sem a qual o zero seria vazio. Verificado por reversão.
+
+---
 ## v1.1.13 — o selo de camadas vira padrão, e a folha de leitura vira caixa
 
 Quatro ajustes pedidos depois da primeira ligada da aba de cifra num aparelho de

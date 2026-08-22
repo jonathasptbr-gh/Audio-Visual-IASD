@@ -1178,10 +1178,28 @@ const RETOM_CONFIRMA_MS = 1200;
 // retomada bem-sucedida seria o laço que o teto existe para fechar: um roubo
 // que se repete a cada 2 s renderia três tentativas por roubo, para sempre.
 const RETOM_CREDITO_MS = 30000;
+// DOIS ORÇAMENTOS, e confundi-los foi o defeito da v1.1.11: `retomTentativa`
+// conta FALHAS CONSECUTIVAS (é ela que faz a espera crescer e que desiste), e
+// zera a cada socorro CONFIRMADO. Medido antes do conserto: três socorros que
+// DERAM CERTO, espaçados menos de 30 s, esgotavam o teto — e o quarto roubo era
+// abandonado justamente quando o mecanismo estava funcionando 3/3.
 let retomTimer = 0;
 let retomTentativa = 0;
 let retomDesistiu = false;
-let retomUltimaPausa = 0;
+// O SEGUNDO orçamento é o freio de GAGUEIRA: vencer a disputa a cada poucos
+// segundos não é serviço, é som picotado. Passando de `RETOM_MAX_SOCORROS`
+// recuperações dentro da janela, o telão desiste — o operador prefere uma
+// parada limpa que ele conserta com um toque.
+const RETOM_MAX_SOCORROS = 3;
+let retomSucessos = [];
+// O CENSO CONTA EPISÓDIOS, NÃO EVENTOS: sem esta bandeira, cada `play()` nosso
+// que fosse negado produzia outra pausa espontânea e o contador subia de novo —
+// um único roubo era anunciado como quatro no Registro.
+let retomEpisodio = false;
+// O carimbo do NOSSO `play()`, para o diário não gravar um `play` que fomos nós
+// que causamos: um episódio escrevia 11 linhas e expulsava da linha do tempo
+// (16 vagas) justamente o contexto que ela existe para responder.
+let retomNosso = 0;
 // A INTENÇÃO é um BOOLEANO, não um carimbo de tempo: "alguém mandou pausar há
 // pouco" não é a mesma pergunta que "o app QUER isto tocando".
 let intencaoTocar = false;
@@ -1200,6 +1218,8 @@ function cancelarRetomada() {
   if (retomTimer) { clearTimeout(retomTimer); retomTimer = 0; }
   retomTentativa = 0;
   retomDesistiu = false;
+  retomEpisodio = false;
+  retomSucessos = [];
 }
 
 // Os fatos SÍNCRONOS que autorizam retomar — lidos ao agendar E ao disparar.
@@ -1228,55 +1248,86 @@ function cancelarRetomada() {
 // telão, que roda sem ponte. Num navegador comum a retomada cai na política de
 // autoplay e o `stage.play()` já trata a rejeição pelo `onBlocked` de sempre —
 // degrada no comportamento que aquele caminho já tinha.
-function podeRetomar(v, seq) {
-  if (TELA) return false;
-  if (seq !== cenaSeq) return false;
-  if (!intencaoTocar || !jaTocou) return false;
-  if (saindoDeCena) return false;
-  if (v.ended || stage.hasEnded()) return false;
-  if (v.duration > 0 && v.currentTime >= v.duration - 0.25) return false;
-  return v.paused;
+// Devolve '' quando pode retomar, ou o MOTIVO da recusa. O motivo sai de quem
+// DECIDE: a versão anterior devolvia um booleano e o chamador escrevia sempre
+// "a cena mudou" — inclusive no único caso que acontece SEM troca de cena
+// nenhuma (o Chromium recuperando o foco sozinho), onde a frase era falsa.
+function motivoNaoRetomar(v, seq) {
+  if (TELA) return 'papel tela';
+  if (seq !== cenaSeq) return 'a cena mudou';
+  if (!intencaoTocar || !jaTocou) return 'a cena não está tocando';
+  if (saindoDeCena) return 'saindo de cena';
+  if (v.ended || stage.hasEnded()) return 'a mídia terminou';
+  if (v.duration > 0 && v.currentTime >= v.duration - 0.25) return 'a mídia terminou';
+  if (!v.paused) return 'já voltou a tocar';
+  return '';
 }
+function podeRetomar(v, seq) { return !motivoNaoRetomar(v, seq); }
 
 function agendarRetomada(v) {
-  const agora = Date.now();
-  if (retomTentativa && agora - retomUltimaPausa > RETOM_CREDITO_MS) {
-    retomTentativa = 0;
-    retomDesistiu = false;
-  }
-  retomUltimaPausa = agora;
   if (retomTimer) return;
   const seq = cenaSeq;
   if (!podeRetomar(v, seq)) return;
+
+  // O CENSO, uma vez por EPISÓDIO. A linha do Registro afirma "outro app pausou
+  // o telão", e afirmar uma CAUSA obriga a contar só o que o app julgou ser
+  // essa causa — daqui, depois das guardas, e não a cada evento de pausa.
+  if (!retomEpisodio) { retomEpisodio = true; retom.espontaneas++; }
+
+  if (retomDesistiu) return;
   if (retomTentativa >= RETOM_ESPERAS.length) {
     // DESISTIR É UM DESFECHO, e ele vai ao Registro: "o telão parou e não
     // voltou" e "o telão parou, tentou três vezes e o áudio ficou com outro
     // app" pedem ações opostas de quem lê isto a distância.
-    if (!retomDesistiu) {
-      retomDesistiu = true;
-      retom.desistidas++;
-      diag('retomada: DESISTI apos ' + RETOM_ESPERAS.length);
-    }
+    retomDesistiu = true;
+    retom.desistidas++;
+    diag('retomada: DESISTI apos ' + RETOM_ESPERAS.length, { t2: Math.round(v.currentTime) });
     return;
   }
   const espera = RETOM_ESPERAS[retomTentativa];
   retomTentativa++;
-  diag('retomada ' + retomTentativa + '/' + RETOM_ESPERAS.length, { t2: espera / 1000 });
+  // UMA LINHA POR EPISÓDIO, não por tentativa. A espera vai no TEXTO: o `t2`
+  // carrega a POSIÇÃO da mídia em todos os outros produtores do projeto, e o
+  // Registro imprime os dois com o mesmo sufixo "s" — quem lê a distância via o
+  // louvor "saltar" de 184s para 1.5s e voltar para 186s.
+  if (retomTentativa === 1) {
+    diag('retomada em ' + (espera / 1000) + 's', { t2: Math.round(v.currentTime) });
+  }
   retomTimer = setTimeout(() => {
     retomTimer = 0;
-    if (!podeRetomar(v, seq)) { diag('retomada cancelada (a cena mudou)'); return; }
+    const porque = motivoNaoRetomar(v, seq);
+    if (porque) {
+      // O CRÉDITO VOLTA quando a recusa foi "já voltou a tocar": ali não houve
+      // disputa nenhuma — o Chromium recuperou o foco sozinho de uma perda
+      // transitória curta. Gastar a tentativa faria um roubo REAL nos segundos
+      // seguintes começar com a espera de 4 s em vez de 1,5 s.
+      if (porque === 'já voltou a tocar' && retomTentativa) retomTentativa--;
+      diag('retomada dispensada: ' + porque, { t2: Math.round(v.currentTime) });
+      return;
+    }
     const antes = v.currentTime;
     // `stage.play()` e nunca `v.play()`: o motor restaura o volume que o fade
     // baixou, reafirma o `applyMedia()` e recalcula a cortina.
+    retomNosso = Date.now();
     try { stage.play(); } catch (_) { /* o `pause` seguinte reagenda */ }
     // O SUCESSO É MEDIDO NO RELÓGIO DA MÍDIA, não no `paused`. Um `play()` cujo
     // pedido de foco é negado volta a pausar poucos milissegundos depois;
     // contá-lo como sucesso devolveria o crédito e abriria o laço.
     setTimeout(() => {
       if (seq !== cenaSeq) return;
-      if (!v.paused && v.currentTime > antes + 0.3) {
-        retom.recuperadas++;
-        diag('retomada OK', { t2: Math.round(v.currentTime) });
+      if (v.paused || v.currentTime <= antes + 0.3) return;   // falhou: o `pause` reagenda
+      retom.recuperadas++;
+      diag('retomada OK', { t2: Math.round(v.currentTime) });
+      retomTentativa = 0;
+      retomEpisodio = false;
+      const t = Date.now();
+      retomSucessos = retomSucessos.filter((x) => t - x < RETOM_CREDITO_MS);
+      retomSucessos.push(t);
+      if (retomSucessos.length >= RETOM_MAX_SOCORROS) {
+        retomDesistiu = true;
+        retom.desistidas++;
+        diag('retomada: DESISTI — socorrido ' + retomSucessos.length + 'x em '
+          + (RETOM_CREDITO_MS / 1000) + 's', { t2: Math.round(v.currentTime) });
       }
     }, RETOM_CONFIRMA_MS);
   }, espera);
@@ -1315,10 +1366,13 @@ function agendarRetomada(v) {
     const meu = Date.now() - pausaComandada < (fadeCfg.time * 1000 + 400);
     diag(fim ? 'fim natural' : (meu ? 'pausa (comando)' : 'PAUSA ESPONTÂNEA'),
       { t2: Math.round(v.currentTime) });
-    if (!fim && !meu) { retom.espontaneas++; agendarRetomada(v); }
+    if (!fim && !meu) agendarRetomada(v);   // o censo é contado LÁ, por episódio
   });
   v.addEventListener('play', () => {
     jaTocou = true;
+    // O `play` que fomos NÓS que causamos não vira linha: ele já está dito pela
+    // linha da retomada, e a linha do tempo tem 16 vagas.
+    if (Date.now() - retomNosso < 400) return;
     diag('play', { t2: Math.round(v.currentTime) });
   });
   v.addEventListener('stalled', () => diag('travou'));

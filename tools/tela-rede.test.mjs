@@ -452,29 +452,53 @@ checar(await pg.$eval('#text', (e) => e.hidden), 'text-hide tira a Camada de Tex
 // dão quase um segundo de folga.
 // ---------------------------------------------------------------------------
 {
-  await pg.evaluate(() => {
-    const v = document.querySelector('video');
-    window.__plays = 0;
-    const orig = v.play.bind(v);
-    v.play = function () { window.__plays++; try { return orig(); } catch (e) { return undefined; } };
-  });
   evento({
     type: 'load', mediaId: 'aud1', view: 'visual', muted: true, volume: 1,
     __rec: { id: 'aud1', kind: 'audio', name: 'Louvor', type: 'audio/mpeg', url: '/m/tokaudio111111111111' },
     __mid: 'm:6d',
   });
-  // Além da janela do `pausaComandada` (fade 600 ms + 400 ms), senão a pausa
-  // forjada sai carimbada "comando" e o teste mede a própria montagem.
-  await new Promise((f) => setTimeout(f, 1400));
-  await pg.evaluate(() => {
+  // A MONTAGEM INTEIRA RODA DENTRO DA PÁGINA, e isso não é estilo: os dois
+  // relógios estão em PROCESSOS diferentes. `pausaComandada` é carimbado quando
+  // o RENDERER processa o `load`; um `setTimeout` no Node começa quando o
+  // `evento()` escreve no socket. Um engasgo de 400 ms no renderer empurra um e
+  // não o outro, a pausa forjada sai carimbada "comando", e o zero passaria por
+  // nada ter acontecido — não pela guarda. Aqui os dois instantes são do MESMO
+  // relógio, e a entrada em cena é esperada como FATO.
+  const mont = await pg.evaluate(async () => {
     const v = document.querySelector('video');
+    const ate = async (fn, ms) => {
+      const t0 = performance.now();
+      while (performance.now() - t0 < ms) {
+        if (fn()) return true;
+        await new Promise((f) => setTimeout(f, 50));
+      }
+      return false;
+    };
+    const entrou = await ate(() => String(v.currentSrc || '').includes('tokaudio'), 6000);
+    // Além da janela do `pausaComandada` (fade de 600 ms + 400), contada a
+    // partir do processamento do `load` — não do write no socket.
+    await new Promise((f) => setTimeout(f, 1400));
+    window.__plays = 0;
+    const orig = v.play.bind(v);
+    v.play = function () { window.__plays++; try { return orig(); } catch (e) { return undefined; } };
     Object.defineProperty(v, 'ended', { get: () => false, configurable: true });
-    window.__plays = 0;                       // zera o que a entrada em cena gastou
     v.dispatchEvent(new Event('play'));
     v.dispatchEvent(new Event('pause'));
+    return { entrou, pausado: v.paused };
   });
+  // O CONTROLE POSITIVO: sem ele o zero abaixo prova só que a montagem não
+  // chegou lá. (O controle mais forte é a reversão — removida a guarda
+  // `if (TELA)`, esta asserção reprova; foi medido.)
+  checar(mont.entrou === true,
+    'a montagem chegou: a cena entrou na tela antes da pausa forjada', JSON.stringify(mont));
+  // A primeira tentativa esperaria 1,5 s (cadência do app); 2,4 s dão folga.
   await new Promise((f) => setTimeout(f, 2400));
-  const plays = await pg.evaluate(() => window.__plays);
+  const plays = await pg.evaluate(() => {
+    const v = document.querySelector('video');
+    const n = window.__plays;
+    delete v.ended; delete v.play;             // não envenena os blocos seguintes
+    return n;
+  });
   checar(plays === 0,
     'o papel `tela` NÃO retoma sozinho: uma pausa espontânea não vira `play()` nenhum',
     'plays=' + plays);

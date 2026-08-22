@@ -1753,11 +1753,16 @@ a congregação vê continua sendo a letra, pelo caminho de sempre.
 - **A GRAFIA SEGUE A ORIGEM.** Folha escrita em bemóis continua em bemóis. É
   musicalmente correto (transpor não muda a armadura) e é o que faz a folha
   continuar parecendo a mesma para quem já a conhece.
-- **A gramática do acorde é ESTREITA de propósito.** A tentação é aceitar
-  "maiúscula seguida de qualquer coisa" — e aí uma linha de letra inteira é
-  classificada como acordes e **some da aba, sem erro nenhum**. Por isso o sufixo
-  é uma LISTA, não um curinga, e o oráculo cobra os dois lados: o que ela tem de
-  aceitar e o que ela não pode aceitar junto.
+- **A gramática do acorde erra para os DOIS lados, e os dois são mudos.** Larga
+  demais ("maiúscula seguida de qualquer coisa"), ela classifica uma linha de
+  letra como acordes e a letra **some da aba**. Estreita demais, o acorde que
+  não casar volta INTACTO da transposição e fica parado no tom original com a
+  folha inteira andando à volta dele — foi o defeito da v1.1.13, em que `7M`
+  (sétima maior, a notação brasileira mais comum num hinário) não estava na
+  lista. Daí a forma atual: a extensão é uma sequência de PEÇAS conhecidas
+  (`maj min dim aug sus add M m º ° + - # b`, dígitos e parênteses), nenhuma
+  exigindo dígito depois de si. O oráculo cobra os dois lados em pares, e é a
+  metade das RECUSAS que impede a correção de um lado de estragar o outro.
 - **A marcação é a fonte; o formato é a rede.** Quem diz "esta linha é de
   acordes" é o `<b>` da página. `pareceAcorde` só entra quando não há marcação
   nenhuma, e o preço está declarado no código: a palavra portuguesa "A" é também
@@ -2702,7 +2707,7 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: v1.1.14** (base web) · **v1.1.10** (APK) · `SHELL_VERSION` **49** · bundle com
+**Versão atual: v1.1.16** (base web) · **v1.1.10** (APK) · `SHELL_VERSION` **49** · bundle com
 `minShell: 49` — o shell 49 é o **PISO**: todo método da ponte existe, e não há
 guarda de versão no lado web. O que continua valendo é que `java/`, `res/`, o
 manifest e os workflows **só chegam instalando o APK**.

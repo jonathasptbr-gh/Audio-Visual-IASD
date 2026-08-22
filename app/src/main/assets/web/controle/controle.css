@@ -2539,7 +2539,7 @@ main {
    baixa é o botão do painel logo abaixo — que tem o estado e o progresso. O
    `visibility: hidden` tira o botão do toque, do foco e do leitor de tela e
    MANTÉM a coluna, que é o que impede o peso de saltar. */
-/* A LIXEIRA DA BARRA (v1.1.14). Mesmo alvo e mesma geometria do irmão de
+/* A LIXEIRA DA BARRA (v1.1.16). Mesmo alvo e mesma geometria do irmão de
    baixar — eles dividem a coluna da direita, e centros que discordam num par
    colado é a coisa que mais parece defeito numa linha. O que muda é só a cor:
    destrutivo é `--danger`, como em todo o resto do app.

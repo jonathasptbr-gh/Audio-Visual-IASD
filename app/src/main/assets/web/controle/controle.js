@@ -232,7 +232,7 @@ const appVersionEl = document.getElementById('appVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.1.14';
+const WEB_VERSION = '1.1.16';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -7381,7 +7381,7 @@ function renderCollectionCard(coll, ctx) {
   // único elemento sem função com o álbum aberto).
   //
   // A COLUNA DA DIREITA tem até dois botões, e cada um responde a uma pergunta
-  // diferente (v1.1.14): BAIXAR a "há o que baixar?", independente de
+  // diferente (v1.1.16): BAIXAR a "há o que baixar?", independente de
   // aberto/fechado; REMOVER a "o álbum está aberto?". Álbum completo e fechado:
   // canto vazio. Download EM CURSO: o cancelar fica ali mesmo com o card aberto
   // — centenas de faixas precisam poder parar num toque, de qualquer ponto da
@@ -7399,7 +7399,7 @@ function renderCollectionCard(coll, ctx) {
       : (total > 0 ? 'Baixar esta coleção' : 'Sincronizar a lista');
     dl.innerHTML = u.syncBusy ? closeIconSvg() : downloadAllIconSvg();
     dl.addEventListener('click', (e) => { e.stopPropagation(); syncCollection(coll); });
-    // ELE NÃO SE ESCONDE MAIS COM O CARD ABERTO (v1.1.14). O `vago` existia
+    // ELE NÃO SE ESCONDE MAIS COM O CARD ABERTO (v1.1.16). O `vago` existia
     // porque o painel de dentro tinha um "Baixar" que fazia a mesma coisa dois
     // centímetros abaixo — e o painel saiu. Agora a barra é o ÚNICO lugar onde
     // se baixa, e ela é o que gruda no topo enquanto se percorre a lista: um
@@ -7408,7 +7408,7 @@ function renderCollectionCard(coll, ctx) {
     bar.appendChild(dl);
   }
 
-  // ===== A LIXEIRA MORA NA BARRA, E SÓ COM O ÁLBUM ABERTO (v1.1.14) =====
+  // ===== A LIXEIRA MORA NA BARRA, E SÓ COM O ÁLBUM ABERTO (v1.1.16) =====
   //
   // Pedido do operador: *"coloque o botão de excluir na direita no card do
   // título do álbum, ali onde fica o botão de download… deixe o botão de
@@ -7520,7 +7520,7 @@ function renderCollectionCard(coll, ctx) {
     // sincronização de um álbum que já está aberto na tela era uma camada a
     // mais sobre outra camada — o acervo já é um popup de tela cheia. Aqui elas
     // ficam onde o assunto está, e fechar é o mesmo toque que abriu.
-    // A caixa só nasce quando há o que pôr nela (v1.1.14): um `.coll-opts`
+    // A caixa só nasce quando há o que pôr nela (v1.1.16): um `.coll-opts`
     // vazio empurraria a lista de músicas para baixo com o respiro dele, e um
     // vão sem causa dentro de um card lê-se como algo que não carregou.
     if (temPainelDeColecao(coll)) {
@@ -7868,7 +7868,7 @@ function openCollectionOptions(coll) {
 }
 
 /**
- * ===== O PAINEL DO ÁLBUM PERDEU AS DUAS AÇÕES (v1.1.14) =====
+ * ===== O PAINEL DO ÁLBUM PERDEU AS DUAS AÇÕES (v1.1.16) =====
  *
  * Pedido do operador: *"remova o botão de verificar atualizações dos álbuns…
  * agora a verificação é feita de forma automática, no segundo plano toda vez
@@ -11266,7 +11266,7 @@ function indiceVencido(c, agora) {
 }
 
 /**
- * ===== A VERIFICAÇÃO DE ÁLBUM VIRA AUTOMÁTICA (v1.1.14) =====
+ * ===== A VERIFICAÇÃO DE ÁLBUM VIRA AUTOMÁTICA (v1.1.16) =====
  *
  * Pedido do operador: *"agora a verificação é feita de forma automática, no
  * segundo plano toda vez que o app abre (tente fazer de forma a ser algo
@@ -15573,7 +15573,18 @@ window.addEventListener('resume', () => diagC('descongelou'));
 (function vigiarPreview() {
   const v = document.getElementById('pvVideo') || document.querySelector('#preview video');
   if (!v) return;
-  v.addEventListener('pause', () => diagC(pausaPedida() ? 'pausa (comando)' : 'PAUSA ESPONTÂNEA',
+  // A PÁGINA OCULTA PAUSA A PREVIEW, e isso é o Chromium fazendo o certo — não
+  // um roubo de foco. MEDIDO no Registro de um aparelho: minimizar o app
+  // produzia "PAUSA ESPONTÂNEA [oculto]", e três das cinco linhas de pausa da
+  // linha do tempo eram esse falso positivo. É o mesmo defeito do fim natural
+  // (v1.1.9) noutro arquivo: a linha reservada ao caso grave gasta no banal, e
+  // quem lê a distância conclui que o telão vive caindo.
+  //
+  // A preview escondida NEM DEVE ser tocada — é a regra do `preverPodeMexer`,
+  // que existe justamente porque o navegador a pausa de volta.
+  v.addEventListener('pause', () => diagC(
+    pausaPedida() ? 'pausa (comando)'
+      : (document.visibilityState !== 'visible' ? 'pausa (página oculta)' : 'PAUSA ESPONTÂNEA'),
     { t2: Math.round(v.currentTime || 0) }));
   v.addEventListener('play', () => diagC('play', { t2: Math.round(v.currentTime || 0) }));
 })();
@@ -16296,6 +16307,13 @@ function juntarDiag(doTelao, retomada) {
   renderDiag();
 }
 function pedirDiag() {
+  // OS CONTADORES MORREM COM O TELÃO, como as linhas dele. Sem esta linha, o
+  // bloco "Áudio do aparelho" seguia imprimindo o placar de uma Presentation
+  // que já caiu — e o `diag-ask` nem chega a sair sem telão ativo, então o
+  // número velho ficava para sempre, ao lado de uma linha do tempo sem um
+  // único 📺. Um diagnóstico que responde errado é pior que um que não
+  // responde.
+  diagRetomada = null;
   juntarDiag([]);
   if (displayActive()) AVDB.sendCommand({ type: 'diag-ask' });
 }

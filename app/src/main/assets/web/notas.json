@@ -1,10 +1,24 @@
 [
   {
-    "versao": "1.1.14",
+    "versao": "1.1.16",
     "itens": [
       "O botão de verificar atualizações dos álbuns saiu: o app confere sozinho ao abrir, em segundo plano.",
       "Achou música nova? O botão de baixar aparece na própria barra do álbum — é só tocar.",
       "E a lixeira mudou de lugar: agora fica à direita na barra, e só aparece com o álbum aberto."
+    ]
+  },
+  {
+    "versao": "1.1.15",
+    "itens": [
+      "Corrigida a transposição da cifra: acordes com sétima maior (7M) ficavam parados no tom original enquanto o resto da folha mudava — o que soava desafinado para quem tocava.",
+      "Agora a folha inteira acompanha o tom escolhido, incluindo os acordes com baixo invertido (como D7M/A)."
+    ]
+  },
+  {
+    "versao": "1.1.14",
+    "itens": [
+      "Corrigida a transposição da cifra: acordes com sétima maior (7M) ficavam parados no tom original enquanto o resto da folha mudava — o que soava desafinado para quem tocava.",
+      "Agora a folha inteira acompanha o tom escolhido, incluindo os acordes com baixo invertido (como D7M/A)."
     ]
   },
   {

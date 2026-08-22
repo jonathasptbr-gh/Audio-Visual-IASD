@@ -576,61 +576,112 @@ try {
       bc.addEventListener('message', ouvir);
       bc.postMessage({ type: 'diag-ask' });
     });
-    const quantas = (d) => (d.linhas || []).filter((l) => /^retomada \d/.test(String(l.ev || ''))).length;
+    const linhasRet = (d) => (d.linhas || []).filter((l) => /^retomada em /.test(String(l.ev || '')));
+    const quantas = (d) => linhasRet(d).length;
+    const ultimaRet = (d) => { const ls = linhasRet(d); return ls.length ? String(ls[ls.length - 1].ev) : ''; };
+    const contadores = (d) => (d.retomada || { espontaneas: 0, recuperadas: 0, desistidas: 0 });
     const v = document.querySelector('video');
+    // `ended` e `paused` são getters do PROTÓTIPO; defini-los na INSTÂNCIA os
+    // sombreia, e é a única forma de forjar um fim de faixa ou um "voltou a
+    // tocar" sem áudio de verdade. As duas são `configurable`, e o bloco as
+    // devolve ao protótipo no fim — deixá-las cravadas envenena os blocos
+    // seguintes, e foi assim que o 7-A-bis deixou `ended` preso em TRUE.
     const forjar = (fim) => {
       Object.defineProperty(v, 'ended', { get: () => fim, configurable: true });
       v.dispatchEvent(new Event('pause'));
     };
     const esperar = (ms) => new Promise((f) => setTimeout(f, ms));
+    // O contador de `play()` é instalado UMA vez e medido por DELTA.
+    window.__plays = 0;
+    const origPlay = v.play.bind(v);
+    v.play = function () { window.__plays++; try { return origPlay(); } catch (e) { return undefined; } };
+    const cena = async () => {
+      bc.postMessage({ type: 'load', mediaId: m.id, view: 'visual', muted: true, volume: 0 });
+      // A ESPERA TEM DE PASSAR DA JANELA DO `pausaComandada` (fade de 600 ms +
+      // 400), senão a pausa forjada sai carimbada "comando" e o oráculo mede a
+      // própria montagem em vez do app.
+      await esperar(1400);
+      v.dispatchEvent(new Event('play'));        // marca `jaTocou`
+    };
 
     const m = await AVDB.addMedia(new Blob([new Uint8Array(64)], { type: 'audio/mpeg' }),
       { name: 'Louvor', type: 'audio/mpeg', kind: 'audio' });
     const r = {};
 
-    // (a) CENA TOCANDO + pausa que ninguém pediu => a retomada é agendada.
-    // A ESPERA TEM DE PASSAR DA JANELA DO `pausaComandada` (o fade de 600 ms
-    // mais 400 ms), senão a pausa forjada sai carimbada "comando" e o oráculo
-    // mede a própria montagem em vez do app.
-    bc.postMessage({ type: 'load', mediaId: m.id, view: 'visual', muted: true, volume: 0 });
-    await esperar(1400);
-    v.dispatchEvent(new Event('play'));          // marca `jaTocou`
-    const base = quantas(await pedirDiario());
-    // Conta as chamadas a `video.play()` — é o EFEITO, e é o par do zero que o
-    // `tela-rede.test.mjs` afirma para o papel `tela`. Sem os dois lados, um
-    // zero lá provaria só que nada aconteceu em lugar nenhum.
-    window.__plays = 0;
-    const origPlay = v.play.bind(v);
-    v.play = function () { window.__plays++; try { return origPlay(); } catch (e) { return undefined; } };
+    // (a) CENA TOCANDO + pausa que ninguém pediu => agenda, e CHEGA A TOCAR.
+    await cena();
+    const d0 = await pedirDiario();
+    const base = quantas(d0);
+    const c0 = contadores(d0);
+    const p0 = window.__plays;
     forjar(false);
     r.aposEspontanea = quantas(await pedirDiario()) - base;
-    // A primeira tentativa espera 1,5 s (cadência do app); 2,4 s dão folga.
-    await esperar(2400);
-    r.plays = window.__plays;
-    v.play = origPlay;
+    await esperar(2400);                        // além de RETOM_ESPERAS[0]
+    r.plays = window.__plays - p0;
+    // O CENSO É POR EPISÓDIO: uma pausa forjada tem de somar exatamente 1.
+    r.censoDelta = contadores(await pedirDiario()).espontaneas - c0.espontaneas;
 
     // (b) O FIM NATURAL não retoma — a guarda que impede religar a faixa que
     //     acabou com a playlist avançando por baixo.
-    bc.postMessage({ type: 'load', mediaId: m.id, view: 'visual', muted: true, volume: 0 });
-    await esperar(1400);
-    v.dispatchEvent(new Event('play'));
+    await cena();
     const base2 = quantas(await pedirDiario());
     forjar(true);
     r.aposFimNatural = quantas(await pedirDiario()) - base2;
 
-    // (c) A PAUSA PEDIDA pelo operador não retoma — senão o ⏸ dele seria
-    //     desfeito por um timer.
-    bc.postMessage({ type: 'load', mediaId: m.id, view: 'visual', muted: true, volume: 0 });
-    await esperar(1400);
-    v.dispatchEvent(new Event('play'));
+    // (c) O ⏸ DO OPERADOR VENCE UM TIMER JÁ AGENDADO.
+    await cena();
     const base3 = quantas(await pedirDiario());
-    bc.postMessage({ type: 'pause' });
-    await esperar(120);
     forjar(false);
-    r.aposComando = quantas(await pedirDiario()) - base3;
+    r.agendouAntesDoComando = quantas(await pedirDiario()) - base3;
+    const p3 = window.__plays;
+    bc.postMessage({ type: 'pause' });
+    await esperar(2400);
+    r.playsAposComando = window.__plays - p3;
 
-    const fim = await pedirDiario();
-    r.temContadores = !!(fim.retomada && typeof fim.retomada.espontaneas === 'number');
+    // (e) O CRÉDITO VOLTA quando o Chromium recupera o foco SOZINHO.
+    //
+    //     É o único ramo de recusa TARDIA (na hora do disparo, não do
+    //     agendamento) e a única linha do arquivo capaz de devolver crédito.
+    //     Sem ele, uma perda transitória curta gastava uma tentativa e o roubo
+    //     seguinte começava com 4 s de silêncio em vez de 1,5 s.
+    await cena();
+    forjar(false);                              // agenda com 1,5 s
+    Object.defineProperty(v, 'paused', { get: () => false, configurable: true });
+    await esperar(2400);                        // o timer dispara e RECUSA
+    delete v.paused;                            // devolve o getter do protótipo
+    const dq = await pedirDiario();
+    r.dispensou = (dq.linhas || []).some((l) => /^retomada dispensada: já voltou a tocar/.test(String(l.ev || '')));
+    forjar(false);                              // o roubo seguinte
+    r.esperaDepoisDoCredito = ultimaRet(await pedirDiario());
+
+    // (d) O TETO, O FREIO E O SILÊNCIO DEFINITIVO — o recurso que o lote chama
+    //     de "O TETO É O RECURSO", e que até aqui nenhuma máquina executava.
+    //     SEM `load` no meio: ele zera o crédito e o teto nunca seria alcançado.
+    await cena();
+    const cD = contadores(await pedirDiario());
+    const pD = window.__plays;
+    forjar(false); await esperar(2400);         // tentativa 1 (1,5 s)
+    forjar(false); await esperar(4900);         // tentativa 2 (4 s)
+    forjar(false); await esperar(10900);        // tentativa 3 (10 s)
+    r.playsNoTeto = window.__plays - pD;        // exatamente 3
+    forjar(false);                              // a quarta: DESISTE
+    // O SILÊNCIO É DEFINITIVO: mais uma pausa não produz `play()` nenhum. É
+    // isto que separa um TETO de um simples atraso.
+    const pFim = window.__plays;
+    forjar(false);
+    await esperar(2400);
+    r.playsDepoisDeDesistir = window.__plays - pFim;
+
+    const fimD = await pedirDiario();
+    r.contadores = contadores(fimD);
+    // MEDIDO NO FIM, depois da pausa extra: `retomDesistiu` é o que impede a
+    // desistência de ser contada DUAS vezes — o teto sozinho já barra o
+    // `play()`, então medir antes da pausa extra não exercitava aquela guarda.
+    r.desistiuDelta = contadores(fimD).desistidas - cD.desistidas;
+    // Devolve o elemento ao estado do protótipo — um bloco que envenena o
+    // seguinte é a mesma família da tautologia que este arquivo já corrigiu.
+    delete v.ended;
+    delete v.play;
     bc.close();
     return r;
   });
@@ -642,11 +693,27 @@ try {
   checar(ret.aposFimNatural === 0,
     'o FIM NATURAL não retoma — senão o telão religaria a faixa que acabou, com '
     + 'a playlist avançando por baixo', JSON.stringify(ret));
-  checar(ret.aposComando === 0,
-    'e o ⏸ do OPERADOR não é desfeito 1,5 s depois por um timer que ele não vê',
+  checar(ret.agendouAntesDoComando === 1,
+    'a montagem do caso do ⏸ funcionou: havia mesmo um timer agendado para cancelar',
     JSON.stringify(ret));
-  checar(ret.temContadores === true,
-    'os contadores viajam no `diag-dump` — o anel tem 60 linhas e um culto não cabe nele',
+  checar(ret.playsAposComando === 0,
+    'e o ⏸ do OPERADOR vence um timer JÁ AGENDADO — não é desfeito 1,5 s depois',
+    JSON.stringify(ret));
+  checar(ret.censoDelta === 1,
+    'o CENSO conta EPISÓDIOS: uma pausa forjada soma exatamente 1 (antes cada `play()` '
+    + 'negado somava outro, e um roubo virava quatro)', JSON.stringify(ret));
+  checar(ret.dispensou === true,
+    'o Chromium recuperando o foco SOZINHO é dispensa, não "a cena mudou"', JSON.stringify(ret));
+  checar(/^retomada em 1\.5s/.test(ret.esperaDepoisDoCredito || ''),
+    'e o CRÉDITO VOLTA nesse ramo: o roubo seguinte começa com 1,5 s, não com 4 s',
+    JSON.stringify(ret.esperaDepoisDoCredito));
+  checar(ret.playsNoTeto === 3,
+    'O TETO É O RECURSO: três tentativas e nem uma a mais', JSON.stringify(ret));
+  checar(ret.desistiuDelta === 1,
+    'e a desistência é um DESFECHO contado, não um silêncio sem explicação',
+    JSON.stringify(ret));
+  checar(ret.playsDepoisDeDesistir === 0,
+    'o silêncio é DEFINITIVO até um comando humano — é o que separa um teto de um atraso',
     JSON.stringify(ret));
 } catch (e) {
   checar(false, 'a retomada pôde ser medida', String(e && e.message));

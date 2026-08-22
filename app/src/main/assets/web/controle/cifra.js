@@ -232,13 +232,53 @@
   // "Deus", "Cristo" e "Amor" viram acordes, e uma linha de letra inteira é
   // classificada como linha de acordes: a letra some da aba, sem erro nenhum.
   // Por isso o sufixo é uma LISTA, não um curinga.
+  // A gramática, em TRÊS pedaços: raiz · extensão · baixo.
+  //
+  // ===== O QUE ESTAVA ERRADO, e por que era mudo (v1.1.14) =====
+  //
+  // A versão anterior enumerava o sufixo como uma LISTA de palavras minúsculas
+  // que exigiam dígitos depois (`(?:sus|add|maj|m|b|#)\d+`). `7M` — a notação
+  // brasileira de sétima maior, e a mais comum num hinário — é dígito seguido
+  // de **M maiúsculo**: não casava com nada. E como [transporAcorde] começava
+  // por `if (!pareceAcorde(token)) return token`, o acorde reprovado voltava
+  // **intacto**: numa folha transposta, `D7M/A` e `G7M` ficavam parados no tom
+  // ORIGINAL enquanto tudo em volta andava. Dissonância na frente de quem toca,
+  // sem erro no console e sem nada na tela que a explicasse.
+  //
+  // A lição não é "faltava `7M` na lista": é que **enumerar sufixo não escala**.
+  // Cada notação que faltar reaparece como o mesmo defeito mudo — e ainda
+  // faltavam `Maj7`, `5+`, `7-`, `M7`. Por isso a extensão passou a ser
+  // limitada por CARACTERES, não por palavras: vale qualquer sequência feita
+  // do alfabeto que as extensões usam.
+  //
+  // ===== E ISSO NÃO É UM CURINGA =====
+  //
+  // O perigo original continua de pé e a defesa contra ele também: aceitar
+  // "maiúscula seguida de qualquer coisa" faria uma linha de LETRA ser
+  // classificada como acordes e **sumir da aba**. As letras permitidas na
+  // extensão são exatamente as de `maj min dim aug sus add M m b #` — e nenhuma
+  // palavra portuguesa passa por elas: "Deus" tem `e`, "Amor" tem `o` e `r`,
+  // "Cristo" tem `r`, "Glória" tem `l`. O oráculo cobra os dois lados.
+  //
+  // A extensão é uma sequência de PEÇAS conhecidas, não um conjunto de
+  // caracteres soltos — e a diferença não é acadêmica. Com o alfabeto solto
+  // (`[0-9mMajsudingº°…]`), "Cada" virava acorde: `C` + `ada`, porque `a` e `d`
+  // estavam lá para servir a `add` e a `dim`. Exigindo que a extensão se
+  // decomponha em peças INTEIRAS, `ada` não é `add` nem `a`, e a palavra
+  // reprova — junto com "Da", "Ai", "Adora" e "Canta".
+  //
+  // O que o defeito da v1.1.13 ensinou não foi "não use lista": foi que a lista
+  // precisa (a) ter as peças que a notação brasileira usa, `M` inclusive, e
+  // (b) NÃO exigir dígito depois de cada uma — era essa exigência que fazia
+  // `7M` reprovar. As peças longas vêm antes das curtas na alternância, senão
+  // `m` consumiria o começo de `maj` e sobraria `aj`.
+  const RAIZ = '[A-G][#b]?';
+  const PECA = '(?:maj|min|dim|aug|sus|add|M|m|º|°|\\+|-|#|b|\\d|\\([^)]{0,12}\\))';
+  const EXTENSAO = PECA + '*';
   const ACORDE = new RegExp(
-    '^[A-G][#b]?'                       // fundamental
-    + '(?:m|maj|min|dim|aug|sus|add|º|°|\\+)?'  // qualidade
-    + '(?:\\d+)?'                       // 7, 9, 11, 13
-    + '(?:(?:sus|add|maj|m|b|#)\\d+)*'  // sus4, add9, 7M, b5, #11 encadeados
-    + '(?:\\((?:[^)]{0,12})\\))?'       // (b5), (9), (#11)
-    + '(?:\\/[A-G][#b]?)?$',            // baixo invertido
+    '^(' + RAIZ + ')'                   // fundamental
+    + '(' + EXTENSAO + ')'              // 7M, m7, sus4, add9, (b5), 5+, maj7…
+    + '(?:\\/(' + RAIZ + '))?$',        // baixo invertido
   );
 
   // "Isto parece um acorde?" — a REDE, não a fonte de verdade.
@@ -265,14 +305,24 @@
   // isso, é o que faz a folha continuar parecendo a mesma folha para quem já a
   // conhece.
   function transporAcorde(token, semitons) {
-    if (!pareceAcorde(token)) return token;
-    const bemol = token.indexOf('b') > 0;
+    const m = ACORDE.exec(token);
+    if (!m) return token;
+    const [, raiz, extensao, baixo] = m;
+    // A GRAFIA SEGUE A RAIZ, não o token inteiro. Perguntar `token.indexOf('b')`
+    // fazia o bemol de uma ALTERAÇÃO decidir a grafia da fundamental: `C7(b9)`
+    // subindo meio tom saía `Db7(b9)` em vez de `C#7(b9)` — o `b` do `(b9)` não
+    // diz nada sobre como a raiz é escrita.
+    const bemol = raiz[1] === 'b' || (baixo && baixo[1] === 'b');
     const escala = bemol ? BEMOIS : SUSTENIDOS;
-    return token.replace(/([A-G][#b]?)/g, (nota) => {
+    const mover = (nota) => {
       const i = indiceDaNota(nota);
-      if (i < 0) return nota;
-      return escala[(((i + semitons) % 12) + 12) % 12];
-    });
+      return i < 0 ? nota : escala[(((i + semitons) % 12) + 12) % 12];
+    };
+    // SÓ raiz e baixo andam. A extensão viaja verbatim — antes um `replace`
+    // global de `[A-G]` varria o token inteiro e podia mexer numa letra dentro
+    // da extensão; transpor pelos PEDAÇOS que a gramática já separou torna
+    // isso impossível por construção, em vez de improvável.
+    return mover(raiz) + extensao + (baixo ? '/' + mover(baixo) : '');
   }
 
   // Transpõe uma LINHA de acordes PRESERVANDO AS COLUNAS.
