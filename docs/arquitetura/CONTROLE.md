@@ -2684,7 +2684,7 @@ de mídia offline, sem copiar nenhum código do app-ja (Vue/Vuex) — só o
   letra). Constantes de conveniência: `Louvorja.HYMNAL_2022_FILE`,
   `HYMNAL_1996_FILE`, `CATEGORIES_FILE`.
 
-#### As SEÇÕES TEMÁTICAS do Hinário 2022 (v1.1.11)
+#### As SEÇÕES TEMÁTICAS do Hinário 2022 (v1.1.12)
 
 O hinário impresso tem 8 blocos e 35 seções — as 28 crenças fundamentais mais os
 infantis e os litúrgicos — e o app passa a mostrá-las em dois lugares: um

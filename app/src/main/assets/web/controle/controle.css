@@ -2589,7 +2589,7 @@ main {
   --linha: var(--item-fill);
 }
 
-/* ---------- OS TÍTULOS DE SEÇÃO DO HINÁRIO (v1.1.11) ----------
+/* ---------- OS TÍTULOS DE SEÇÃO DO HINÁRIO (v1.1.12) ----------
    Uma linha de TEXTO, não uma caixa: ela vive dentro da mesma `<ul>` das
    faixas, e desenhar-lhe fundo próprio criaria um quarto nível de escada
    justamente onde a escada acaba (ver `.coll-songs` acima). O que a separa das
@@ -2621,7 +2621,7 @@ main {
   font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1;
 }
 
-/* ---------- O ÍNDICE DE TEMAS, FECHADO POR PADRÃO (v1.1.11) ----------
+/* ---------- O ÍNDICE DE TEMAS, FECHADO POR PADRÃO (v1.1.12) ----------
    Ele mora acima da lista e nasce como UMA LINHA. Aberto, é uma grade de
    seções agrupadas por bloco. Ver `indiceDeSecoes` para o porquê de nascer
    fechado — em resumo: 35 seções abertas empurrariam os 600 hinos para baixo de

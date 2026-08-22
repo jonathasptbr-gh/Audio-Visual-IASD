@@ -24,7 +24,8 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
-- **v1.1.11** — O HINÁRIO GANHA AS SEÇÕES TEMÁTICAS QUE O BANCO NÃO TEM: `pt_hymnal` traz número, nome, duração e playback, e mais nada — o que identifica a seção de um hino é a POSIÇÃO dele, então a resposta é uma TABELA DE FAIXAS pura (35 seções, 8 blocos, transcritas do índice da CPB) com oráculo que trava a cobertura CONTÍGUA de 1 a 600. Índice fechado por padrão no topo do card, títulos intercalados na listagem, e o salto que estica a lista antes de rolar. A paginação conta `.hymn-result` e não os filhos — contar os filhos pularia um hino por cabeçalho. OTA PURO
+- **v1.1.12** — O HINÁRIO GANHA AS SEÇÕES TEMÁTICAS QUE O BANCO NÃO TEM: `pt_hymnal` traz número, nome, duração e playback, e mais nada — o que identifica a seção de um hino é a POSIÇÃO dele, então a resposta é uma TABELA DE FAIXAS pura (35 seções, 8 blocos, transcritas do índice da CPB) com oráculo que trava a cobertura CONTÍGUA de 1 a 600. Índice fechado por padrão no topo do card, títulos intercalados na listagem, e o salto que estica a lista antes de rolar. A paginação conta `.hymn-result` e não os filhos — contar os filhos pularia um hino por cabeçalho. OTA PURO
+- **v1.1.11** — O TELÃO SE DEFENDE DE QUEM ROUBA O FOCO DE ÁUDIO: medido em aparelho, tocar qualquer outra mídia no celular PAUSA a projeção — e na perda PERMANENTE o Chromium abandona o foco e não volta nunca. A pausa espontânea passa a disparar um `stage.play()`, que é o próprio Chromium re-pedindo foco. Três tentativas com espera crescente e desistência até comando humano: sem teto, dois apps que retomam sozinhos gaguejam para sempre, e gagueira é pior que pausa. As guardas são a entrega, não o `play()`. OTA PURO
 - **v1.1.10** — A ABA DE CIFRA, LIDA SOB DEMANDA: acordes sobre a letra na folha de leitura, buscados no momento em que a aba abre. NADA é baixado em lote, NADA entra no bundle e NADA é gravado em disco — o cache é um `Map` que morre com o app, e a distinção não é de grau: guardar mudaria o recurso de LER conteúdo de terceiro para DISTRIBUIR uma cópia dele. A busca sai do Kotlin porque CORS não deixa alternativa, e SÓ o transporte sai — quem lê o HTML é `controle/cifra.js`, para o conserto chegar por OTA no dia em que o site mudar. A transposição PRESERVA A COLUNA. `SHELL_VERSION` 49. EXIGE RELEASE
 - **v1.1.9** — O REGISTRO DO TELÃO MENTIA NO PONTO QUE MAIS IMPORTA: o fim de TODA faixa era carimbado "PAUSA ESPONTÂNEA", a linha reservada a "alguém tirou a projeção do ar sem pedir" — e ela é lida A DISTÂNCIA, por quem não tem como conferir. Um louvor por culto bastava para afogar o sinal no ruído. Sai também a decisão de NÃO retomar automaticamente a mídia roubada, com as quatro razões medidas em fonte, e os dois achados de áudio ficam registrados esperando medição. OTA PURO
 - **v1.1.8** — A LETRA DO TELÃO NUNCA MAIS É CORTADA COM RETICÊNCIAS: o `-webkit-line-clamp: 2` era a garantia de encaixe, e é a única resposta que um telão não pode dar — o verso que some é o que a congregação ia cantar. Quem garante agora é uma ESCALA medida por busca binária, com piso, `ResizeObserver` e as MESMAS proporções calibradas. Mais a SEGUNDA PORTA do redesenho que fecha a gaveta (a busca no YouTube, irmã do progresso de download da v1.1.2), o "Tocar agora" nascendo MARCADO onde a mídia é local, a caixa crescendo de 76×32 para 84×40cq, os botões do aviso dividindo a largura toda e o LINK COPIADO virando uma pergunta na abertura (`areaTransferencia`). `SHELL_VERSION` 48. EXIGE RELEASE
@@ -210,7 +211,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ---
 
-## v1.1.11 — As seções do hinário, que o banco não tem
+## v1.1.12 — As seções do hinário, que o banco não tem
 
 *"Vamos verificar se conseguimos algum registro de classificação dos hinos do
 novo hinário, pois ele tem agrupamentos internos como músicas infantis, a
@@ -299,6 +300,80 @@ do Controle que não esteja lá é um buraco novo naquele watchdog, e a v5.315
 custou uma versão inteira para fechar o buraco anterior.
 
 ---
+## v1.1.11 — o telão se defende de quem rouba o foco de áudio
+
+**A v1.1.11: A RETOMADA, COM AS GUARDAS QUE A TORNAM SEGURA. OTA PURO**
+(nenhuma linha de Kotlin, `SHELL_VERSION` intacto em 49; sem Release).
+
+**O CENSO VOLTOU POSITIVO.** A v1.1.9 tinha registrado a pausa espontânea como
+achado em aberto, esperando medição. O operador mediu — em tela secundária por
+cabo/virtual, não espelhamento — e o desfecho é o previsto: **tocar qualquer
+outra mídia no celular pausa a do telão**. Ele também observou que dar `play`
+manualmente na mídia do app **pausou a outra**, com a ressalva honesta de que
+não dava para separar "perdeu o foco" de "foi para segundo plano".
+
+Isso fecha o mecanismo: o Chromium pede foco por `<video>`, e na perda PERMANENTE
+(o que outro app de mídia pede) ele ABANDONA o foco — não volta nunca. Só a
+própria página pode tirá-lo de lá, e é o que este lote automatiza. O `play()`
+funciona porque no Chromium não existe "tocar mudo": ou re-pede foco e volta com
+som, ou `AddPlayer` devolve false e ele mesmo pausa de novo.
+
+**O QUE ELA NÃO FAZ, dito para ninguém prometer:** não garante que a outra mídia
+pare. O framework MUTA o perdedor com um `VolumeShaper` e desfaz sozinho segundos
+depois; parar é decisão do outro app — o que o operador viu funcionar é o caso
+comum (app de mídia bem-comportado), não uma garantia. Contra um ALARME
+(`USAGE_ALARM`, fora das usages esmaecíveis) não faz nada.
+
+### As guardas são a entrega, não o `play()`
+
+- **`TELA`** — as telas da rede rodam o MESMO arquivo num navegador de outra
+  pessoa, e são até três. Família da invariante 9: o que as separa do telão é
+  sempre uma linha. Oráculo no `tela-rede.test.mjs`, medindo o EFEITO (zero
+  chamadas a `video.play()`), com o par no `display-smoke.mjs` — sem os dois
+  lados, um zero provaria só que nada aconteceu em lugar nenhum.
+- **`v.ended`** — o fim natural dispara `pause` ANTES de `ended`, então sem ela o
+  fim de cada louvor religaria a própria faixa **enquanto** a playlist avança:
+  dois itens no ar. **Ela existe DUAS vezes** (aqui e no `!fim` do ouvinte), e
+  MEDIDO por reversão: removendo UMA o oráculo continua verde; só a perda das
+  DUAS o faz reprovar. Está escrito no código, porque quem tirar uma vai ver o
+  teste passar e concluir que ela não servia.
+- **`intencaoTocar`** — um BOOLEANO, não um carimbo. "Alguém mandou pausar há
+  pouco" não é "o app QUER isto tocando". `pausaComandada` não serve: a janela
+  dele é de tempo, e o `video.pause()` de um `load` mora depois de um
+  `await AVDB.getMedia(id)`, leitura de IDB sem teto.
+- **`cenaSeq` e `jaTocou`** — entre agendar e disparar cabem um `load` e um
+  `clear` inteiros; e não se retoma o que nunca chegou a tocar.
+- **Um comando humano SEMPRE vence** um timer pendente: senão o ⏸ do operador
+  seria desfeito 1,5 s depois por algo que ele não vê.
+
+**O TETO É O RECURSO.** Não há amortecimento contra ping-pong de foco nem no
+Android nem no Chromium. Três tentativas (1,5 s / 4 s / 10 s) e **silêncio
+definitivo até um comando humano** — nunca até um relógio. O crédito só volta
+depois de 30 s limpos: zerá-lo a cada sucesso renderia três tentativas por roubo,
+para sempre. E o sucesso é MEDIDO no relógio da mídia, não no `paused`: um
+`play()` negado volta a pausar em milissegundos, e contá-lo como sucesso abriria
+o laço que o teto fecha.
+
+**OS CONTADORES** (`espontaneas` · `recuperadas` · `desistidas`) viajam no
+`diag-dump` que já existia e entram no bloco "Áudio do aparelho" do Registro. O
+anel do diário tem 60 linhas e um culto não cabe nele; a pergunta que importa —
+*"quantas vezes o telão precisou ser socorrido?"* — só um número responde. Campo
+novo no `diag-dump` = campo novo no consumidor, e o `controle.js` lia só
+`linhas`.
+
+**O QUE FICOU DE FORA, e está em `ACHADOS-EM-ABERTO.md`:** o veto de chamada
+telefônica. Uma ligação é perda TRANSITÓRIA e o Chromium já retoma sozinho no
+fim dela; do lado JS não há sinal que a nomeie. O que limita o estrago é o teto
+de três. Fechá-lo é `AudioManager.getMode()` como veto de pré-voo — e custa
+`SHELL_VERSION` 50 e Release, por isso não veio junto.
+
+> **A guarda de `__NATIVE__` foi deliberadamente NÃO escrita.** A regra do
+> projeto é que o navegador é o padrão e o nativo é a exceção que se declara; o
+> inverso é o que ela proíbe. E o custo seria real: tornaria este caminho
+> intestável no oráculo do telão, que roda sem ponte.
+
+---
+
 ## v1.1.10 — a aba de CIFRA, lida sob demanda
 
 *"faça uma aba dentro do visualizador de letras, pode fazer por enquanto um

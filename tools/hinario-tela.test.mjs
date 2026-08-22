@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // ============================================================================
-// AS SEÇÕES DO HINÁRIO, DA TABELA ATÉ A TELA (v1.1.11)
+// AS SEÇÕES DO HINÁRIO, DA TABELA ATÉ A TELA (v1.1.12)
 //
 // ## Por que ele existe, ao lado do `hinario.test.mjs`
 //

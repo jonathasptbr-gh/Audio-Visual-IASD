@@ -1,5 +1,5 @@
 /**
- * ===== AS SEÇÕES TEMÁTICAS DO HINÁRIO ADVENTISTA 2022 (v1.1.11) =====
+ * ===== AS SEÇÕES TEMÁTICAS DO HINÁRIO ADVENTISTA 2022 (v1.1.12) =====
  *
  * Pedido do operador: *"o novo hinário tem agrupamentos internos como músicas
  * infantis, a criação, crescimento em Cristo… gostaria de fazer um pequeno

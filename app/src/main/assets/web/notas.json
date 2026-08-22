@@ -1,10 +1,18 @@
 [
   {
-    "versao": "1.1.11",
+    "versao": "1.1.12",
     "itens": [
       "O Hinário 2022 ganhou um Índice de temas no topo do álbum: toque numa seção e a lista pula até ela.",
       "E os títulos das seções aparecem no meio da listagem — \"O Sábado\", \"Infantis\", \"Introito\" — para você saber onde está enquanto rola.",
       "São as 35 divisões do hinário impresso, com a faixa de números de cada uma."
+    ]
+  },
+  {
+    "versao": "1.1.11",
+    "itens": [
+      "Se outro aplicativo do celular tomar o som, o telão volta a tocar sozinho — antes ele ficava parado até alguém tocar ▶.",
+      "Ele tenta três vezes, com pausas crescentes, e desiste se não conseguir: um som picotado seria pior que uma parada limpa.",
+      "O Registro passa a contar quantas vezes o telão foi interrompido por outro app e quantas ele conseguiu voltar."
     ]
   },
   {
