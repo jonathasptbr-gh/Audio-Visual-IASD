@@ -9116,6 +9116,26 @@ async function send(id, daFila) {
   // está em lista nenhuma, e sem essa leitura o `|| currentItem` deixava no ar
   // o nome do item ANTERIOR, que é pior que nome nenhum.
   currentItem = alvo || currentItem;
+  // ===== A CIFRA COMEÇA A SER BUSCADA AGORA, NÃO AO ABRIR A ABA (v1.1.16) =====
+  //
+  // Pedido do operador: *"que a busca da cifra seja automaticamente ao tocar a
+  // música e não ao abrir a aba de cifras"*.
+  //
+  // A rede deixa de estar no caminho crítico. Quem abre a aba está com o
+  // instrumento na mão e a música já tocando — esperar ali um GET a um site de
+  // terceiro é esperar no pior momento possível. Disparada aqui, a folha
+  // costuma estar pronta antes de alguém pedir por ela.
+  //
+  // AQUI e não no toque da lista: `send` é o ponto por onde TODOS os caminhos
+  // passam (o avanço automático da playlist, o ⏮/⏭ do transporte, a notificação
+  // nativa, o roteiro). É o mesmo argumento das três guardas acima.
+  //
+  // `cifraGarantir` é IDEMPOTENTE — a entrada no cache nasce no estado
+  // `buscando` e é ela que impede uma segunda requisição —, então repetir a
+  // mesma música não repete a rede. E não há `await`: a cena não pode esperar
+  // pela cifra, que é auxiliar; a aba se redesenha sozinha quando a resposta
+  // chega. Falha nenhuma daqui atravessa para o `send` (o `catch` mora lá).
+  if (cifraCabe(currentItem)) cifraGarantir(currentItem);
   // Independência áudio × texto: um ÁUDIO (música de fundo) NÃO encerra o texto
   // manual em cena (Bíblia/Mensagem/cronômetro); qualquer VISUAL (vídeo/imagem/
   // YouTube) encerra. Um louvor de fundo sob a contagem regressiva de abertura
@@ -9129,6 +9149,16 @@ async function send(id, daFila) {
   // para outra é o par de botões do transporte, e uma cena nova que começasse
   // no meio do deck anterior seria um slide aleatório no telão.
   deckPagina = 0;
+  // O ESQUELETO DA LINHA DO TEMPO. Todo caminho que projeta passa por aqui — o
+  // toque na lista, o avanço da playlist, o ⏮/⏭ do transporte, a notificação
+  // nativa —, e é a linha à qual todas as outras se penduram: "o telão parou"
+  // só é investigável ao lado de "o que estava no ar quando parou".
+  //
+  // O NOME É O QUE O OPERADOR RECONHECE, não o id. E `← fila` sai só quando o
+  // app SABE que veio do avanço automático (`daFila`); um toque não é afirmado,
+  // porque este ponto não distingue toque de reenvio programático.
+  diagC('entrou em cena: ' + ((currentItem && currentItem.name) || id)
+    + (daFila ? ' ← fila' : ''));
   cmd({ type: 'load', mediaId: id, view, muted, volume, page: 0 });
   // A partir daqui há mídia no telão — é o que a reconexão precisa reenviar e o
   // que o ▶ pode retomar em vez de recarregar (ver `midiaNoAr`).
@@ -9369,7 +9399,7 @@ function lyricsViewSources() {
   // que não funciona é pior que não oferecê-la: o seletor do topo só aparece com
   // duas fontes, e esta apareceria sempre, empurrando um botão morto para a
   // frente do operador em toda música.
-  if (window.__NATIVE__ && cifraNomeDoItem(currentItem)) list.push('cifra');
+  if (cifraCabe(currentItem)) list.push('cifra');
   // A RESERVA: sem música em cena, um capítulo aberto (mesmo fora do ar) ainda
   // é o que o operador tem para ler — e é o que ele foi buscar ao abrir esta
   // folha. Só não disputa com a música, que é o ponto da regra acima.
@@ -9442,9 +9472,26 @@ function renderLyricsView() {
   lvSig = lvSignature(src);
   lvCurIdx = src ? lvCurrentIndex(src) : -1;
 
-  // Seletor só quando há de fato o que alternar.
+  // ===== O SELETOR MOSTRA SÓ AS FONTES QUE EXISTEM AGORA (v1.1.18) =====
+  //
+  // Os três botões são HTML ESTÁTICO — eles existem no documento desde a carga.
+  // A v1.1.11 acertou a LISTA (`lyricsViewSources` já devolvia só o que cabe) e
+  // esqueceu de usá-la aqui: o laço marcava o ativo e mais nada. Com uma música
+  // em cena há duas fontes (Letra + Cifra), o seletor aparece — e a Bíblia
+  // aparecia junto, sem estar em `avail`, oferecendo uma aba que a regra tinha
+  // acabado de recusar.
+  //
+  // **Calcular a coisa certa e não aplicá-la é um defeito mudo:** a função que
+  // decide continua passando em qualquer leitura, e só a tela denuncia. Por isso
+  // a visibilidade de cada botão passa a sair da MESMA lista que governa a
+  // precedência — uma fonte nova nasce visível pelo mesmo caminho, e uma que
+  // saia some pelo mesmo caminho.
+  //
+  // O container ainda some inteiro com menos de duas: um seletor de uma opção
+  // não é um seletor.
   lyricsViewSegEl.hidden = avail.length < 2;
   lyricsViewSegEl.querySelectorAll('.fit-opt').forEach((btn) => {
+    btn.hidden = !avail.includes(btn.dataset.lvsrc);
     btn.classList.toggle('active', btn.dataset.lvsrc === src);
   });
 
@@ -9525,6 +9572,28 @@ function cifraColecaoDoItem(item) {
 // LIMPO do hino, sem "(Cantado)" nem variante), `name` como reserva.
 function cifraNomeDoItem(item) {
   return (item && (item.hymnName || item.name)) || '';
+}
+
+/**
+ * CABE CIFRA PARA ESTE ITEM? — e a resposta é UMA, para os dois consumidores.
+ *
+ * A mesma pergunta é feita em dois lugares (a aba, que decide se se oferece, e
+ * o pré-carregamento do `send`, que decide se busca). Duas escritas dela
+ * divergiriam no primeiro ajuste — e a divergência entre "o que conta como
+ * acorde" e "o que é transposto" foi exatamente o que produziu o defeito da
+ * v1.1.15. Uma função, dois chamadores.
+ *
+ * O corte é por CONTEÚDO MUSICAL, não por nome: um episódio de série é um
+ * testemunho em vídeo, e procurar cifra dele é uma requisição garantidamente
+ * perdida — e, pior, uma aba oferecida que só sabe dizer que não achou. Vale
+ * para `audio` (todo o hinário e os álbuns) e para o que tiver LETRA, que é o
+ * louvor gravado em vídeo.
+ *
+ * Sem ponte não cabe: no navegador não há como buscar a página (CORS).
+ */
+function cifraCabe(item) {
+  if (!window.__NATIVE__ || !item || !cifraNomeDoItem(item)) return false;
+  return item.kind === 'audio' || (Array.isArray(item.lyrics) && item.lyrics.length > 0);
 }
 
 // A chave do cache. Coleção + nome, e não o `mediaId`: a MESMA música baixada
@@ -10013,6 +10082,7 @@ async function pararMidia(tipo) {
   // <video> da preview entrava no diário como "PAUSA ESPONTÂNEA" — um falso
   // alarme no instrumento que existe para achar as pausas de verdade.
   pausaEm = Date.now();
+  diagC('parou a mídia (' + tipo + ')');
   cmd({ type: tipo });
   // O TELÃO ESTÁ VAZIO A PARTIR DAQUI, e isso precisa ser dito ANTES do fade
   // terminar: quem pergunta a `preview.getCurrent()` recebe "ainda tem mídia"
@@ -15622,7 +15692,14 @@ let diagLinhas = [];
 // APARELHO (v5.215, `acertarSaidaDeAudio`): ali quem toca é o `<video>` desta
 // página, não o do telão — o registro do Display não veria nada. Foi exatamente
 // essa distinção que faltou nas tentativas anteriores.
-const DIAG_MAX_C = 40;
+// O ANEL DO CELULAR: 40 cobriam minutos, e um culto dura duas horas.
+//
+// O teto existia para o texto não estourar um visor que NÃO EXISTE MAIS — o
+// `<pre>` do Registro saiu na v5.207, e desde então este texto só existe para
+// ser COPIADO e lido num computador. Guardar mais não custa tela nenhuma; custa
+// memória de um array de objetos pequenos, e 200 deles são alguns kB num
+// processo que hospeda dois WebViews e um vídeo.
+const DIAG_MAX_C = 200;
 const diarioC = [];
 function diagC(ev, extra) {
   diarioC.push(Object.assign({
@@ -15631,6 +15708,12 @@ function diagC(ev, extra) {
   if (diarioC.length > DIAG_MAX_C) diarioC.shift();
 }
 document.addEventListener('visibilitychange', () => diagC('visibilidade'));
+// A REDE DO CELULAR. Ela é a causa comum de três sintomas que parecem
+// independentes — a tela da rede que cai, o download que trava, a atualização
+// que não chega —, e sem esta linha os três chegam ao Registro sem a coisa que
+// os une.
+window.addEventListener('offline', () => diagC('rede do celular: OFFLINE'));
+window.addEventListener('online', () => diagC('rede do celular: online'));
 window.addEventListener('freeze', () => diagC('congelou'));
 window.addEventListener('resume', () => diagC('descongelou'));
 (function vigiarPreview() {
@@ -15740,12 +15823,26 @@ function cabecalhoDiag() {
   if (otaDiagTexto) l.push('Procura: ' + otaDiagTexto);
   // A FAXINA DA ABERTURA. Ela apaga mídia — sem dono, mas mídia —, e uma
   // limpeza que não deixa rastro é indistinguível de um sumiço.
-  if (restosVarridos !== null) {
-    l.push('Limpeza: ' + (restosVarridos
-      ? restosVarridos + ' resto(s) sem dono removido(s) nesta abertura'
-      : 'nenhum resto sem dono'));
+  // SÓ QUANDO ELA APAGOU ALGO. O ramo negativo saía em TODA abertura normal para
+  // dizer que nada aconteceu — e a pergunta que esta linha responde ("a mídia
+  // sumiu, o que a apagou?") só existe quando o número não é zero.
+  if (restosVarridos) {
+    l.push('Limpeza: ' + restosVarridos + ' resto(s) sem dono removido(s) nesta abertura');
   }
-  l.push('Aparelho: ' + navigator.userAgent);
+  // O UA CRU são ~130 caracteres dos quais ~110 são invariantes ("Mozilla/5.0",
+  // "AppleWebKit/537.36 (KHTML, like Gecko)", "Mobile Safari/537.36"). O que
+  // responde alguma coisa são três campos — a versão do Android, o modelo e a
+  // versão do WebView, que é a peça que muda o comportamento de mídia entre dois
+  // celulares com o MESMO APK. O cru volta quando o recorte falha, que é
+  // exatamente o caso em que ele diz o que o recorte não disse (ROM alternativa,
+  // WebView substituído).
+  const ua = navigator.userAgent || '';
+  const and = /Android (\d+)/.exec(ua);
+  const mod = /;\s*([^;)]+?)\s+Build\//.exec(ua);
+  const chr = /Chrome\/(\d+)/.exec(ua);
+  l.push(and && mod && chr
+    ? 'Aparelho: Android ' + and[1] + ' · ' + mod[1].trim() + ' · WebView ' + chr[1]
+    : 'Aparelho: ' + ua);
   return l.join('\n');
 }
 
@@ -15952,10 +16049,32 @@ function eventosDiag() {
     return 'Linha do tempo\n(sem registros — minimize o app com algo tocando e volte aqui)';
   }
   const hora = (t) => new Date(t).toLocaleTimeString('pt-BR', { hour12: false });
-  return 'Linha do tempo\n' + diagLinhas
-    .slice(-16)
-    .map((l) => hora(l.t) + '  ' + (l.onde === 'celular' ? '📱' : '📺') + ' ' + l.ev
-      + (l.oculto ? ' [oculto]' : '') + (l.t2 != null ? '  ' + l.t2 + 's' : ''))
+  const desenha = (l) => hora(l.t) + '  ' + (l.onde === 'celular' ? '📱' : '📺') + ' ' + l.ev
+    + (l.oculto ? ' [oculto]' : '') + (l.t2 != null ? '  ' + l.t2 + 's' : '');
+  // O `.slice(-16)` SAIU, e ele era o pior corte deste arquivo.
+  //
+  // `diagLinhas` é `diarioC` + o diário do TELÃO, que manda 60 linhas no
+  // `diag-dump`: até 100 linhas JÁ ESTÃO NA MÃO quando esta função roda, e ela
+  // jogava fora até 84 — incluindo as 60 que o `diag-ask` acabou de ir buscar.
+  // Descartar é irreversível, e o que se poupava era espaço numa tela que não
+  // existe (o visor saiu na v5.207; o Registro é copiado, não lido aqui).
+  // O argumento já estava escrito uma função acima, no `blocoEspelho`: "o teto
+  // é do ANEL, não desta linha — mostrar tudo o que existe é de graça".
+  //
+  // O QUE ENCURTA SEM APAGAR é colapsar a REPETIÇÃO CONSECUTIVA: sete
+  // `visibilidade` seguidas viram uma linha com `×7`. Elas são o ruído de fato
+  // (minimizar e voltar), e somadas não dizem mais do que a contagem.
+  const saida = [];
+  for (const l of diagLinhas) {
+    const ant = saida[saida.length - 1];
+    if (ant && ant.l.ev === l.ev && ant.l.onde === l.onde && l.t2 == null && ant.l.t2 == null) {
+      ant.n++;
+      continue;
+    }
+    saida.push({ l, n: 1 });
+  }
+  return 'Linha do tempo\n' + saida
+    .map((x) => desenha(x.l) + (x.n > 1 ? '  ×' + x.n : ''))
     .join('\n');
 }
 
@@ -16011,6 +16130,36 @@ function serieMotivoFrase(motivo, serie) {
 // sem data são o que este bloco existe para mostrar, e são poucos por natureza
 // — o que pode crescer é a lista de nomes, que tem 52 por ano e por série.
 const SERIE_DIARIO_TETO = 60;
+// AS RECUSAS SÃO RESUMIDAS POR MOTIVO, e é isto que devolve o Registro ao
+// operador. MEDIDO num aparelho: este bloco ocupou ~140 das ~170 linhas de uma
+// cópia, com "não começa com Informativo" repetido SESSENTA vezes — enterrando
+// a linha do tempo, que é o único bloco que responde "o que aconteceu no
+// culto?".
+//
+// O corte é do RUÍDO, não do sinal. Sessenta linhas iguais não dizem mais que a
+// contagem, mas UM nome cru diz o que a contagem não diz: no dia em que o canal
+// renomeia tudo, é lendo o nome que se descobre. Por isso cada motivo mantém os
+// primeiros nomes CRUS — e o que foi escondido continua CONTADO, que é a regra
+// que este bloco já seguia ("nenhum corte silencioso").
+const SERIE_NOMES_POR_MOTIVO = 4;
+function serieRecusasResumidas(itens, frase) {
+  const porMotivo = new Map();
+  for (const it of itens) {
+    const m = it.motivo || '?';
+    if (!porMotivo.has(m)) porMotivo.set(m, []);
+    porMotivo.get(m).push(it.nome);
+  }
+  const out = [];
+  for (const [m, nomes] of porMotivo) {
+    out.push('    - ' + nomes.length + '× ' + frase(m));
+    nomes.slice(0, SERIE_NOMES_POR_MOTIVO).forEach((n) => out.push('        "' + n + '"'));
+    if (nomes.length > SERIE_NOMES_POR_MOTIVO) {
+      out.push('        …e mais ' + (nomes.length - SERIE_NOMES_POR_MOTIVO)
+        + ' com o mesmo motivo');
+    }
+  }
+  return out;
+}
 function serieLista(itens, formatar) {
   const out = itens.slice(0, SERIE_DIARIO_TETO).map(formatar);
   if (itens.length > SERIE_DIARIO_TETO) {
@@ -16136,9 +16285,13 @@ async function blocoSeries() {
     const doAno = new RegExp('\\b' + s.ano + '\\b');
     const temAno = /\b(19|20)\d{2}\b/;
     const perto = pls.filter((p) => !p.motivo || doAno.test(p.nome) || !temAno.test(p.nome));
-    linhas.push(...serieLista(perto, (p) => (p.motivo
-      ? '    - "' + p.nome + '" → ' + serieMotivoFrase(p.motivo, s)
-      : '    + "' + p.nome + '" → mês ' + p.mes + ' · ' + p.count + ' vídeo(s) no canal')));
+    // AS ACEITAS SAEM NOMINAIS e uma por linha — são poucas por natureza (nove
+    // no Provai e Vede) e são o que prova que a regra achou o que devia.
+    linhas.push(...serieLista(perto.filter((p) => !p.motivo),
+      (p) => '    + "' + p.nome + '" → mês ' + p.mes + ' · ' + p.count + ' vídeo(s) no canal'));
+    // AS RECUSADAS saem agrupadas por motivo (ver `serieRecusasResumidas`).
+    linhas.push(...serieRecusasResumidas(perto.filter((p) => p.motivo),
+      (m) => serieMotivoFrase(m, s)));
     // O QUE FOI ESCONDIDO É CONTADO, por motivo (nenhum corte silencioso).
     const outras = pls.length - perto.length;
     if (outras) {
@@ -16172,7 +16325,7 @@ async function blocoSeries() {
     if ((d.vazias || []).length) {
       linhas.push('    ! playlist(s) que voltaram vazias: ' + d.vazias.join(' · '));
     }
-    linhas.push(...serieLista(rec, (r) => '    - "' + r.nome + '" → ' + serieMotivoFrase(r.motivo, s)));
+    linhas.push(...serieRecusasResumidas(rec, (m) => serieMotivoFrase(m, s)));
     // O QUE AINDA NÃO SAIU (v5.255): uma linha de contagem, e não dezessete de
     // recusa. Eles não são um defeito — são o estado normal de um canal que sobe
     // o trimestre inteiro e libera um sábado por vez —, e listá-los afogaria as
@@ -16204,9 +16357,15 @@ async function blocoSeries() {
     // · Match point") e o título cru — que é o que sobra quando não há data —
     // tem " | ". Qualquer separador escolhido apareceria DENTRO de um item, e
     // quem lê isto a distância não teria como saber onde um nome termina.
+    // A LISTA DE NOMES VIRA AS BORDAS. Ela existia para conferir a ORDEM, e
+    // ordem se confere nas pontas: um `TITULO_SERIE` que desmontasse ou uma data
+    // lida errada aparecem no primeiro ou no último, e o defeito do MEIO tem
+    // sinal próprio — é o `! entrou SEM data`, que continua NOMINAL e cru logo
+    // acima. Cinquenta e duas linhas para conferir duas é o que enterrava o
+    // resto do Registro.
     if (nomes.length) {
-      linhas.push('  nomes (' + nomes.length + '), na ordem em que a lista mostra:');
-      linhas.push(...serieLista(nomes, (n) => '    ' + n));
+      linhas.push('  ' + nomes.length + ' na lista, de "' + nomes[0]
+        + '" a "' + nomes[nomes.length - 1] + '"');
     }
   }
   return linhas.length ? 'Séries do YouTube (o que a regra achou)\n' + linhas.join('\n') : '';
@@ -16246,14 +16405,22 @@ function blocoAudio() {
   const linhas = [
     tv ? 'espelhando para "' + (tv.name || 'TV') + '" — o som deste aparelho vai junto'
        : 'nenhuma TV espelhando agora',
-    'o espelhamento carrega a mistura de MÍDIA do aparelho: vídeo ou áudio',
-    '  tocado em qualquer app sai nas caixas junto com a projeção.',
-    'toque de chamada e alarme ficam no celular; notificação depende do aparelho.',
-    'não há como isolar: o Android roteia áudio por APARELHO, não por tela — a',
-    '  Presentation isola a janela, nunca o som. Não é ajuste que falta.',
-    'sem vazamento: "Transmitir para navegador" (a tela toca o arquivo dela),',
-    '  com o espelhamento DESLIGADO — os dois juntos mantêm a mistura no ar.',
   ];
+  // AS SEIS LINHAS DE PROSA SÓ SAEM COM TV NO AR. Elas explicam uma
+  // consequência do espelhamento, e saíam em toda cópia — inclusive nas de um
+  // aparelho que nunca espelhou, onde não respondem pergunta nenhuma e empurram
+  // para baixo o que responde. Quem lê um Registro SEM espelhamento não está
+  // investigando vazamento de áudio; quem está, tem a TV no ar e recebe tudo.
+  if (tv) {
+    linhas.push(
+      'o espelhamento carrega a mistura de MÍDIA do aparelho: vídeo ou áudio',
+      '  tocado em qualquer app sai nas caixas junto com a projeção.',
+      'toque de chamada e alarme ficam no celular; notificação depende do aparelho.',
+      'não há como isolar: o Android roteia áudio por APARELHO, não por tela — a',
+      '  Presentation isola a janela, nunca o som. Não é ajuste que falta.',
+      'sem vazamento: "Transmitir para navegador" (a tela toca o arquivo dela),',
+      '  com o espelhamento DESLIGADO — os dois juntos mantêm a mistura no ar.');
+  }
   // O PLACAR DA RETOMADA entra AQUI, e não num bloco próprio: ele responde à
   // mesma pergunta deste — o que outro app fez com o som deste aparelho. As
   // "espontâneas" são o censo (quantas vezes o telão parou sem ninguém pedir),
@@ -16276,6 +16443,19 @@ async function renderDiag() {
     if (meu !== diagSeq) return;
   }
   const blocos = [cabecalhoDiag()];
+  // A LINHA DO TEMPO VEM EM SEGUNDO, logo depois do cabeçalho, e essa posição é
+  // o recurso (v1.1.19). Ela era o ÚLTIMO bloco — depois da extração do
+  // YouTube, da cifra, da transmissão, do espelho, do áudio, das Séries e do
+  // sorteio —, e "por último, atrás de sete blocos de verificação" é a
+  // definição operacional de ENTERRADO: num Registro real ela começava na linha
+  // ~150. É ela que responde "o que aconteceu no culto?", que é a pergunta que
+  // faz alguém copiar isto; os outros blocos respondem "por que ESTE recurso se
+  // comportou assim?", que só se pergunta depois de saber o que aconteceu.
+  //
+  // Ela é montada AQUI mas só ganha as linhas do telão quando o `diag-ask`
+  // responde — e é por isso que o `renderDiag` roda DUAS vezes ao abrir a folha
+  // (ver a guarda de sequência). A ordem dos blocos não muda entre as duas.
+  blocos.push(eventosDiag());
   // A ÚLTIMA EXTRAÇÃO DO YOUTUBE vinha numa faixa do rodapé, em espaço fixo:
   // uma extração com várias tentativas transbordava e a parte de baixo ficava
   // inalcançável. Aqui ela é só mais um bloco de uma caixa que rola.
@@ -16345,7 +16525,6 @@ async function renderDiag() {
   const bso = blocoSorteio();
   if (bso) blocos.push(bso);
   if (meu !== diagSeq) return;   // outro render assumiu durante a espera
-  blocos.push(eventosDiag());
   // O TEXTO MORA NA VARIÁVEL, e não num nó do DOM (v5.207). O visor `<pre>`
   // saiu de Configurações — ver o comentário do bloco no `index.html`: ele
   // gastava 240px de espaço sempre visível para exibir, em fonte de 0,68rem,
@@ -19813,6 +19992,16 @@ function descreverTelao() {
 if (window.__NATIVE__) {
   const renderDisplayStatus = (list) => {
     const tv = (list && list[0]) || null;
+    // A TRANSIÇÃO, antes de `lastDisplays` ser sobrescrito. O cabeçalho já diz
+    // o estado AGORA; o que faltava era QUANDO mudou — e um dongle que oscila
+    // rende uma escada de linhas que É o diagnóstico.
+    const antes = lastDisplays[0] || null;
+    const nomeDe = (d) => (d.name || 'TV') + (d.w ? ' (' + d.w + '×' + d.h + ')' : '');
+    if (!antes && tv) diagC('TV conectada: ' + nomeDe(tv));
+    else if (antes && !tv) diagC('TV DESCONECTADA (era ' + (antes.name || 'TV') + ')');
+    else if (antes && tv && (antes.id !== tv.id || antes.w !== tv.w || antes.h !== tv.h)) {
+      diagC('TV mudou: ' + nomeDe(tv));
+    }
     lastDisplays = list || [];
     // Conectar (ou perder) o telão MUDA O REGIME da preview: com TV a projeção
     // é ela, chega no ato, e a preview volta a andar junto. Ver `cmd`.
@@ -20006,8 +20195,18 @@ async function ligarEspelho() {
   // que estava aberta bem embaixo dela, com o dedo e o olho no interruptor.
   // `#castMsg` já existia para as frases desta folha; a falha do espelho é uma
   // frase desta folha.
-  if (!r) { texto2(castMsgEl, 'A transmissão não respondeu.'); return false; }
-  if (r.erro) { texto2(castMsgEl, r.erro); return false; }
+  // SÓ A RECUSA vira linha, e com a frase VERBATIM do shell. Um culto em que a
+  // transmissão sobe de primeira não produz linha nenhuma; um em que ela não
+  // sobe rende a escada que se lê — e a frase é o veredito de quem decidiu
+  // (o Kotlin), não uma segunda opinião do web.
+  if (!r) {
+    diagC('transmissão: a ponte não respondeu');
+    texto2(castMsgEl, 'A transmissão não respondeu.'); return false;
+  }
+  if (r.erro) {
+    diagC('transmissão RECUSADA: ' + r.erro);
+    texto2(castMsgEl, r.erro); return false;
+  }
   // O SUCESSO NÃO PRECISA DE FRASE (a regra da v5.194): o endereço aparecendo
   // logo abaixo, com o rótulo que diz o que fazer com ele, É o "deu certo".
   texto2(castMsgEl, '');
@@ -20584,6 +20783,11 @@ AVDB.onCommand((msg) => {
     // Uma TELA DA REDE (`__tela`) não tem o IndexedDB do celular: além da
     // cena, ela precisa receber wallpaper, fundo da letra e preenchimento —
     // o telão de verdade lê tudo isso do IDB sozinho e não entra aqui.
+    // ELE É O SINAL DE QUE A PROJEÇÃO RENASCEU: dongle que reconectou, OTA que
+    // recarregou a página, renderer que morreu e foi remontado. Num telão
+    // estável não sai nenhuma depois da abertura — a presença destas linhas já
+    // é o achado.
+    diagC('a projeção se reapresentou (' + (msg.__tela ? 'tela da rede' : 'telão') + ')');
     if (msg.__tela) telaReenviarPreferencias(msg.__de);
     resendSceneToDisplay(msg.__de);
     return;
@@ -20764,6 +20968,12 @@ document.addEventListener('visibilitychange', () => {
 });
 
 (async function init() {
+  // A PRIMEIRA LINHA DO ANEL é a abertura, e ela ancora todas as outras: sem
+  // ela não há como saber se o que se está lendo é um culto inteiro ou os dois
+  // minutos depois de uma remontagem do WebView. As versões vão junto porque a
+  // pergunta seguinte a "o que aconteceu?" é sempre "em qual versão?".
+  diagC('app aberto · web v' + WEB_VERSION
+    + (window.__SHELL_NAME__ ? ' · shell v' + window.__SHELL_NAME__ : ''));
   await loadCollections();
   await desnumerarAlbunsBaixados();
   await preencherAlbunsDosHinos();

@@ -25,6 +25,9 @@ na nota que a revoga, não apagada da que a criou.
 ## Índice
 
 - **v1.1.20** — A SÉRIE DEIXA DE FINGIR QUE GUARDA ARQUIVO: os episódios só existem enquanto estão no Cronograma, nos Favoritos ou na playlist, então o card perde o baixar em lote, a lixeira E o peso em gigabytes que prometia um download inexistente. Sobra UM botão puro — atualizar a lista — onde ficava o excluir. E o episódio DESTE SÁBADO sai da lista e vira um bloco destacado no topo, com "Aguardando lançamento" quando ainda não saiu; a janela é a semana adventista (domingo a sábado), não o dia exato. De quebra: o relógio congelado de um caso do `boot-nativo` VAZAVA para o contexto inteiro e prendia a página principal em 15/Ago. OTA PURO
+- **v1.1.19** — O REGISTRO CONTA O CULTO, NÃO O CATÁLOGO: de ~170 linhas de uma cópia real, ~140 eram o bloco das Séries — a mesma frase de recusa sessenta vezes, mais 52 nomes de episódio em ordem —, enterrando a linha do tempo, que saía com DEZESSEIS linhas no fim de tudo. As recusas viram contagem por motivo com os primeiros nomes CRUS (a renomeação de um canal se descobre lendo UM nome, não sessenta); a lista de 52 vira as duas BORDAS, que é onde a ordem se confere. E o `.slice(-16)` sai: até 100 linhas já estavam na mão, incluindo as 60 que o `diag-ask` acabara de buscar pela rede, e o teto existia para um visor removido na v5.207 — o Registro só existe para ser COPIADO. O que encurta sem apagar é o colapso de repetição (`×7`). E ela era o ÚLTIMO dos oito blocos — começando na linha ~150 de um Registro real —, e passa a vir logo depois do cabeçalho: bloco novo entra DEPOIS dela. No lugar entram os eventos de CULTO (o que entrou em cena, a TV oscilando, a projeção se reapresentando, a rede caindo) e o erro de mídia do telão, que morria num console dentro de uma Presentation. OTA PURO
+- **v1.1.18** — A ABA DA BÍBLIA APARECIA MESMO COM A REGRA RECUSANDO-A: a v1.1.11 acertou a lista de fontes e esqueceu de aplicá-la na tela. Os três botões são HTML ESTÁTICO, e `renderLyricsView` só escondia o CONTAINER (com menos de duas fontes) e marcava o ativo — nunca um botão individual. Com música em cena há duas fontes, o container aparecia e a Bíblia vinha junto, fora de `avail`. Calcular a coisa certa e não aplicá-la é mudo por natureza: a função que decide passa em qualquer leitura, e só a tela denuncia. OTA PURO
+- **v1.1.17** — A CIFRA PASSA A SER BUSCADA QUANDO A MÚSICA ENTRA EM CENA, e não ao abrir a aba: quem a abre está com o instrumento na mão e a música tocando, o pior instante para esperar a rede. O gatilho mora no `send` — o ponto por onde TODOS os caminhos passam —, senão a playlist automática ficaria de fora e ninguém notaria. Nasce `cifraCabe`, UMA pergunta para os dois consumidores (a aba que se oferece e o `send` que busca), cortando por conteúdo musical: um episódio de série é testemunho em vídeo, e ali a busca é requisição perdida. O contrato não mudou — uma música por vez, sem lote e sem disco —, mudou o QUANDO. OTA PURO
 - **v1.1.16** — O BOTÃO DE VERIFICAR SAI, E A VERIFICAÇÃO FICA: ele só aparecia num álbum COMPLETO, e o que fazia — pular o TTL de 12 h para reler o índice — passou a acontecer sozinho na abertura, só para os álbuns que o operador TEM no aparelho e UMA VEZ POR SESSÃO (esta função roda a cada retomada, e o operador troca de app dezenas de vezes num culto). A lixeira sobe para a barra do card, revelada pelo mesmo gesto que revela o que ela apaga; o botão de BAIXAR deixa de se esconder com o card aberto, porque o painel que o repetia saiu. OTA PURO
 - **v1.1.15** — A TRANSPOSIÇÃO DEIXAVA OS ACORDES DE SÉTIMA MAIOR PARADOS: o sufixo da gramática era uma lista de palavras minúsculas EXIGINDO dígitos depois, e `7M` (dígito + M maiúsculo, a notação brasileira mais comum num hinário) não casava. Como `transporAcorde` devolvia intacto o que não casasse, `D7M/A` e `G7M` ficavam no tom original com a folha andando à volta deles — dissonância na frente de quem toca, sem sinal em lugar nenhum. Slash chords NUNCA estiveram quebrados. A correção por conjunto de caracteres foi reprovada pelo oráculo (`Cada` virava acorde); ficou uma sequência de PEÇAS inteiras, nenhuma exigindo dígito. A transposição passou a andar só na raiz e no baixo. OTA PURO
 - **v1.1.14** — O CONTADOR DA RETOMADA MENTIA, E ELE ERA A ÚNICA COISA QUE A v1.1.11 ENTREGOU PARA SER LIDA A DISTÂNCIA: cada `play()` nosso que fosse negado produzia outra pausa espontânea, e um único roubo era anunciado como quatro. Mais o crédito que confundia SUCESSO com FALHA (três socorros certos esgotavam o teto), o `t2` que carregava a espera onde todo o resto carrega a posição, e o carimbo da preview que chamava de espontânea a pausa do próprio navegador ao minimizar o app — este último achado veio de um Registro REAL colado pelo operador. OTA PURO
@@ -323,6 +326,176 @@ o app por uma data de calendário.
 
 ---
 
+## v1.1.19 — o Registro conta o culto, não o catálogo
+
+Relatado do aparelho, colado inteiro: de ~170 linhas de uma cópia, **~140 eram o
+bloco das Séries** — a mesma frase ("não começa com Informativo") repetida
+sessenta vezes, seguida de 52 nomes de episódio em ordem. A linha do tempo, que
+é o único bloco que responde *"o que aconteceu no culto?"*, saía com dezesseis
+linhas no fim de tudo.
+
+### O QUE ESSE BLOCO ERA, E POR QUE ELE ENVELHECEU
+
+Ele nasceu na v5.271 para fechar o laço de manutenção das séries: a regra decide
+a partir de NOMES que um canal muda sem avisar, e os dois modos de errar são
+silenciosos. Era verificação de CATÁLOGO, e estava certa no lote que a escreveu.
+
+O que mudou não foi o valor dela — foi a proporção. Uma verificação que se lê
+uma vez por trimestre passou a ocupar quatro quintos de um artefato que se lê
+**por culto**, e o custo não é comprimento: é ENTERRAR. Quem cola o Registro
+está investigando o telão que parou, não a nomenclatura do @daniellocutor.
+
+O bloco continua respondendo à pergunta dele, resumido: contagem **por motivo**
+e os primeiros nomes CRUS de cada grupo (`SERIE_NOMES_POR_MOTIVO` = 4). Sessenta
+linhas iguais não dizem mais que a contagem; **um** nome cru diz o que a
+contagem não diz, que é como se descobre a renomeação. A lista de 52 nomes vira
+as duas BORDAS — ela existia para conferir a ORDEM, e ordem se confere nas
+pontas; o defeito do meio já tem sinal próprio (`! entrou SEM data`, que
+continua nominal e cru).
+
+### O `.slice(-16)` ERA O PIOR CORTE DO ARQUIVO
+
+`diagLinhas` é o anel do celular MAIS o diário do telão, que manda 60 linhas no
+`diag-dump`: até **100 linhas já estão na mão** quando a função roda, e ela
+jogava fora até 84 — incluindo as 60 que o `diag-ask` acabara de ir buscar pela
+rede.
+
+O teto existia para não estourar um visor **que não existe mais**: o `<pre>` do
+Registro saiu na v5.207, e desde então este texto só existe para ser COPIADO e
+lido num computador. Comprimento não custa tela nenhuma. O argumento já estava
+escrito uma função acima, no `blocoEspelho` — "o teto é do ANEL, não desta
+linha".
+
+O que encurta sem apagar é colapsar a **repetição consecutiva**: sete
+`visibilidade` seguidas viram uma linha com `×7`. E o anel do celular sobe de 40
+para **200**, porque 40 cobriam minutos e um culto dura duas horas.
+
+### E ELA ERA O ÚLTIMO BLOCO DOS OITO
+
+O corte era metade do problema; a outra metade é que, mesmo inteira, a linha do
+tempo saía **depois** da extração do YouTube, da cifra, da transmissão direta,
+do espelho, do áudio, das Séries e do sorteio. Num Registro real ela começava na
+linha ~150 — que é a definição operacional de ENTERRADA, e é o que "o bloco das
+Séries enterra a linha do tempo" queria dizer literalmente.
+
+Ela passa a vir logo depois do cabeçalho. A régua para a ordem é a pergunta que
+cada bloco responde: a linha do tempo responde *"o que aconteceu no culto?"*,
+que é a pergunta que faz alguém copiar isto; os outros respondem *"por que ESTE
+recurso se comportou assim?"*, que só se pergunta depois de saber o que
+aconteceu. **Bloco novo entra DEPOIS dela.**
+
+O oráculo mede POSIÇÃO NO TEXTO, e não índice de array: é o texto colado que o
+operador manda, e é nele que "está no fim" quer dizer alguma coisa.
+
+### O QUE ENTROU NO LUGAR
+
+Eventos de CULTO, cada um respondendo a uma pergunta que a linha do tempo já
+recebia sem ter como responder:
+
+| linha | a pergunta que ela responde |
+|---|---|
+| `entrou em cena: <nome> ← fila` | o que estava no ar quando aquilo aconteceu |
+| `TV conectada` / `TV DESCONECTADA` / `TV mudou` | quando o dongle oscilou (a escada É o diagnóstico) |
+| `a projeção se reapresentou (telão \| tela da rede)` | dongle, OTA ou renderer morto — num telão estável não sai nenhuma |
+| `parou a mídia (<tipo>)` | o telão vazio foi pedido ou não |
+| `transmissão RECUSADA: <frase do shell>` | por que a tela da rede não subiu, no veredito de quem decidiu |
+| `rede do celular: OFFLINE / online` | o que une tela que cai, download que trava e OTA que não chega |
+| `app aberto · web vX · shell vY` | se isto é um culto inteiro ou dois minutos depois de uma remontagem |
+
+E o **erro de mídia do telão** passa a ter para onde ir: a preview já mandava o
+dela ao Registro, e o do telão terminava num `console.warn` dentro de uma
+`Presentation` — uma janela sem console, num aparelho que ninguém liga no
+computador durante o culto. O sintoma na sala é o telão preto, e o Registro não
+tinha uma linha para explicá-lo.
+
+### DUAS PODAS MENORES, PELA MESMA RÉGUA
+
+- **As seis linhas de prosa sobre o vazamento de áudio só saem com TV no ar.**
+  Elas explicam uma consequência do espelhamento; num aparelho que nunca
+  espelhou, não respondem pergunta nenhuma e empurram para baixo o que responde.
+- **`Limpeza:` só sai quando ela apagou algo.** O ramo negativo saía em toda
+  abertura normal para dizer que nada aconteceu.
+- **O `Aparelho:` vira três campos** (Android, modelo, WebView) em vez dos ~130
+  caracteres do UA cru, dos quais ~110 são invariantes. O cru volta quando o
+  recorte falha — que é justamente o caso em que ele diz o que o recorte não
+  disse (ROM alternativa, WebView substituído).
+
+OTA PURO — `minShell` 49, sem `shellTag`.
+
+---
+
+## v1.1.18 — a aba da Bíblia aparecia mesmo com a regra recusando-a
+
+Relatado do aparelho, com captura: uma música em cena, a Bíblia fora do ar, e o
+seletor mostrando **Letra · Bíblia · Cifra**.
+
+### CALCULAR A COISA CERTA E NÃO APLICÁ-LA
+
+A v1.1.11 acertou a REGRA: `lyricsViewSources` já devolvia só o que cabe (com
+música, `lyrics` + `cifra`; a Bíblia só no ar, ou como reserva sem música). O
+que faltou foi usar a lista na tela.
+
+Os três botões são **HTML estático** — existem no documento desde a carga —, e
+`renderLyricsView` fazia duas coisas com eles: escondia o CONTAINER com menos de
+duas fontes, e marcava o ativo. Nenhuma delas escondia um botão individual. Com
+música em cena há duas fontes, então o container aparecia — e a Bíblia vinha
+junto, sem estar em `avail`.
+
+**É um defeito mudo por natureza:** a função que decide continua passando em
+qualquer leitura do código, e só a tela denuncia. A correção faz a visibilidade
+de cada botão sair da MESMA lista que já governa a precedência, para uma fonte
+nova nascer visível e uma fonte que saia sumir pelo mesmo caminho — em vez de
+dois lugares que precisam concordar.
+
+O container continua sumindo inteiro com menos de duas fontes: um seletor de uma
+opção não é um seletor.
+
+OTA PURO — `minShell` segue 49, sem `shellTag`.
+
+## v1.1.17 — a cifra passa a ser buscada quando a música entra em cena
+
+*"ajuste para que a busca da cifra seja automaticamente ao tocar a música e não
+ao abrir a aba de cifras."*
+
+### A REDE SAI DO CAMINHO CRÍTICO
+
+Buscar ao abrir a aba punia exatamente o momento errado. Quem abre a aba de
+cifra está com o instrumento na mão e a música já tocando — é o pior instante
+possível para esperar um `GET` a um site de terceiro. Disparada quando a música
+entra em cena, a folha costuma estar pronta antes de alguém pedir por ela.
+
+**O contrato não mudou, mudou o QUANDO.** Continua sendo uma requisição por
+música projetada: nada em lote, nada no bundle, nada em disco, cache num `Map`
+que morre com o app.
+
+### O GATILHO MORA NO `send`, E ISSO NÃO É ESCOLHA DE CONVENIÊNCIA
+
+`send` é o ponto por onde TODOS os caminhos passam — o toque na lista, o avanço
+automático da playlist, o ⏮/⏭ do transporte, a notificação nativa e o roteiro. É
+o mesmo argumento que já sustenta as três guardas logo acima dele (cena de
+roteiro, link do YouTube, imagem sobre áudio); pendurar o gatilho no toque da
+lista deixaria a playlist automática de fora, e ninguém notaria — a aba
+simplesmente voltaria a esperar a rede naquele caso.
+
+Sem `await`: a cena não pode esperar pela cifra, que é auxiliar. A aba se
+redesenha sozinha quando a resposta chega, e `cifraGarantir` é idempotente (a
+entrada nasce no estado `buscando`, e é ela que impede a segunda requisição),
+então repetir a mesma música não repete a rede.
+
+### `cifraCabe` — UMA pergunta, dois consumidores
+
+A mesma pergunta passou a existir em dois lugares: a aba decide se **se
+oferece**, o `send` decide se **busca**. Duas escritas dela divergiriam no
+primeiro ajuste — e a divergência entre "o que conta como acorde" e "o que é
+transposto" foi exatamente o que produziu o defeito da v1.1.15. Uma função,
+dois chamadores.
+
+O corte é por **conteúdo musical**, não por nome: `kind: 'audio'` (todo o
+hinário e os álbuns) ou item com letra (o louvor gravado em vídeo). Um episódio
+de série é um testemunho em vídeo — buscar cifra dele é uma requisição
+garantidamente perdida, e a aba oferecida ali só sabia dizer que não achou.
+
+OTA PURO — `minShell` segue 49, sem `shellTag`.
 ## v1.1.16 — o botão de verificar sai, e a verificação fica
 
 *"Remova o botão de verificar atualizações dos álbuns, e coloque o botão de

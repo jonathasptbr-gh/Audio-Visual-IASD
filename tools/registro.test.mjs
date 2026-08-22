@@ -233,6 +233,62 @@ try {
   checar(!/cabem ~\d+ tela/.test(texto),
     'o enlace mostra a banda crua, sem o teto de telas calculado sobre 3 Mbps de encoder');
 
+  // ---- A LINHA DO TEMPO NÃO TRUNCA MAIS (v1.1.19) ---------------------------
+  //
+  // Ela fazia `.slice(-16)` sobre `diarioC` + as 60 linhas que o telão manda no
+  // `diag-dump`: até 100 linhas JÁ NA MÃO, e até 84 jogadas fora — incluindo as
+  // que o `diag-ask` acabara de ir buscar. Descartar é irreversível, e o que se
+  // poupava era espaço numa tela que não existe (o visor saiu na v5.207; este
+  // texto só é copiado).
+  const t0 = Date.now() - 60000;
+  const muitas = await pg.evaluate(async (base) => {
+    const linhas = [];
+    for (let i = 0; i < 30; i++) linhas.push({ t: base + i * 1000, ev: 'marco-' + i });
+    // Cinco IGUAIS e CONSECUTIVAS: é o que a linha do tempo colapsa.
+    for (let i = 0; i < 5; i++) linhas.push({ t: base + 40000 + i * 100, ev: 'repetida' });
+    const bc = new BroadcastChannel('av-iasd');
+    bc.postMessage({ type: 'diag-dump', linhas, __mid: 'reg:3' });
+    await new Promise((f) => setTimeout(f, 200));
+    bc.close();
+    await window.renderDiag();
+    return typeof diagTexto === 'string' ? diagTexto : '';
+  }, t0);
+  const marcos = (muitas.match(/marco-\d+/g) || []).length;
+  checar(marcos === 30,
+    'as 30 linhas do telão CHEGAM INTEIRAS — a linha do tempo parou de descartar 84 de 100',
+    'marcos=' + marcos);
+  checar(/repetida\s+×5/.test(muitas),
+    'e a repetição CONSECUTIVA colapsa em ×5 — é o que encurta sem apagar nada',
+    (muitas.match(/repetida[^\n]*/) || [])[0]);
+
+  // A ABERTURA é a primeira linha do anel, e ancora todas as outras.
+  checar(/app aberto · web v/.test(muitas),
+    'a ABERTURA carimba a linha do tempo com a versão — "em qual versão?" é a pergunta seguinte a "o que aconteceu?"');
+
+  // A POSIÇÃO É O RECURSO. A linha do tempo era o ÚLTIMO bloco, atrás de sete
+  // blocos de verificação — num Registro real ela começava na linha ~150, que é
+  // a definição operacional de ENTERRADA. Ela responde "o que aconteceu no
+  // culto?", a pergunta que faz alguém copiar isto; os outros respondem "por que
+  // ESTE recurso se comportou assim?", que só se pergunta depois.
+  //
+  // Medida por POSIÇÃO NO TEXTO contra os blocos que de fato existem nesta
+  // fixture, e não por índice de array: é o texto colado que o operador manda, e
+  // é nele que "está no fim" ou "está no topo" quer dizer alguma coisa.
+  const posTempo = muitas.indexOf('Linha do tempo');
+  const outros = ['Áudio do aparelho', 'Séries do YouTube', 'Transmissão para navegador']
+    .map((t) => muitas.indexOf(t))
+    .filter((i) => i >= 0);
+  checar(posTempo >= 0 && outros.length > 0 && outros.every((i) => i > posTempo),
+    'e a LINHA DO TEMPO vem ANTES de todo bloco de verificação — atrás deles ela estava '
+    + 'enterrada, que era o defeito',
+    'tempo@' + posTempo + ' · outros@' + JSON.stringify(outros));
+  // E DEPOIS do cabeçalho: ele é o que responde "quem mandou isto?", e sem ele a
+  // primeira resposta a distância é sempre a mesma pergunta.
+  const posCab = muitas.indexOf('Web v');
+  checar(posCab >= 0 && posCab < posTempo,
+    'e DEPOIS do cabeçalho — sem ele a primeira resposta a distância é sempre a mesma pergunta',
+    'cabeçalho@' + posCab);
+
   // ---- O PLACAR DA RETOMADA: a metade CONSUMIDORA do contrato ---------------
   //
   // O telão manda os contadores no `diag-dump` que já existia, e o `controle.js`
