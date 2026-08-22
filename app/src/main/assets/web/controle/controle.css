@@ -247,7 +247,7 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
   .hymn-row, .hymn-play-thumb, .song-menu-btn, .msg-add-btn, .msg-item,
   .misc-tab, .misc-seg, .misc-chip, .chrono-btn, .misc-project, .draw-go,
   .fit-opt, .dialog-btn, .lib-item, .coll-group-acao,
-  .cue-save-btn, .pl-pack, .yt-search-btn, .log-copy,
+  .cue-save-btn, .pl-pack, .yt-search-btn, .log-copy, .hino-indice-chip,
   .simple-key, .simple-action, .simple-key--big, .simple-key--vol
 ):active { transform: var(--press); }
 
@@ -2587,6 +2587,93 @@ main {
      meio-tom (50% de luminância) e nenhuma cor de texto resolvia. A conta está
      em `tokens.css`. */
   --linha: var(--item-fill);
+}
+
+/* ---------- OS TÍTULOS DE SEÇÃO DO HINÁRIO (v1.1.12) ----------
+   Uma linha de TEXTO, não uma caixa: ela vive dentro da mesma `<ul>` das
+   faixas, e desenhar-lhe fundo próprio criaria um quarto nível de escada
+   justamente onde a escada acaba (ver `.coll-songs` acima). O que a separa das
+   faixas é o RESPIRO em cima e o peso da tipografia — a mesma economia que faz
+   uma faixa se separar da vizinha sem filete.
+
+   `margin-top` maior que `margin-bottom` de propósito: o título pertence ao que
+   vem DEPOIS dele, e um respiro simétrico o deixaria flutuando entre as duas
+   seções sem dizer de qual é. */
+.hino-secao {
+  display: flex; align-items: baseline; gap: .5rem; flex-wrap: wrap;
+  margin: .9rem 0 .15rem; padding: 0 .15rem;
+}
+.hino-secao:first-child { margin-top: .1rem; }
+/* O BLOCO ("A Doutrina da Vida Cristã") ocupa a linha inteira acima do nome, e
+   só aparece na PRIMEIRA seção dele — repeti-lo cinco vezes seguidas seria
+   dizer a mesma coisa cinco vezes. */
+.hino-secao-bloco {
+  flex: 1 0 100%;
+  font-size: .66rem; font-weight: 700; letter-spacing: .12em;
+  text-transform: uppercase; color: var(--accent);
+}
+.hino-secao-nome { flex: 1; min-width: 0; font-size: .82rem; font-weight: 700; color: var(--text); }
+/* A FAIXA responde "estou perto?" durante a rolagem — que é como um hinário de
+   papel é folheado. `tabular-nums` para os números não dançarem de largura
+   entre um cabeçalho e o seguinte. */
+.hino-secao-faixa {
+  font-size: .7rem; color: var(--muted);
+  font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1;
+}
+
+/* ---------- O ÍNDICE DE TEMAS, FECHADO POR PADRÃO (v1.1.12) ----------
+   Ele mora acima da lista e nasce como UMA LINHA. Aberto, é uma grade de
+   seções agrupadas por bloco. Ver `indiceDeSecoes` para o porquê de nascer
+   fechado — em resumo: 35 seções abertas empurrariam os 600 hinos para baixo de
+   um paredão, todas as vezes. */
+.hino-indice { margin: .4rem 0 0; }
+.hino-indice-bar {
+  width: 100%; display: flex; align-items: center; gap: .5rem;
+  min-height: var(--hit); padding: .35rem .55rem;
+  border-radius: var(--radius-btn);
+  background: var(--surface); color: var(--text);
+  font: inherit; font-size: .8rem; font-weight: 600; text-align: left; cursor: pointer;
+}
+/* A seta é o ÚNICO desenho da barra, e ela gira — o estado é a direção dela,
+   não uma cor. Pseudo-elemento porque a barra carrega texto e nada mais.
+   `clip-path` e NÃO o triângulo clássico de bordas: aqui não há contorno em
+   lugar nenhum, e `border: Npx solid transparent` continua sendo uma
+   declaração de borda — o `tokens.test.mjs` reprova, com toda a razão (ele
+   existe justamente para o próximo separador desenhado com linha não passar). */
+.hino-indice-bar::after {
+  content: ""; flex: 0 0 auto; width: 9px; height: 6px;
+  background: var(--muted);
+  clip-path: polygon(0 0, 100% 0, 50% 100%);
+  transition: transform .18s ease;
+}
+.hino-indice.aberto .hino-indice-bar::after { transform: rotate(180deg); }
+.hino-indice-rot { flex: 1; min-width: 0; }
+.hino-indice-cnt { font-size: .7rem; font-weight: 500; color: var(--muted); }
+.hino-indice-corpo { padding: .35rem .1rem .1rem; }
+.hino-indice-bloco {
+  font-size: .66rem; font-weight: 700; letter-spacing: .12em;
+  text-transform: uppercase; color: var(--accent);
+  margin: .5rem 0 .3rem;
+}
+.hino-indice-bloco:first-child { margin-top: .15rem; }
+/* `auto-fill` com um mínimo em `ch`: os nomes vão de "O Pai" a "O Ministério de
+   Cristo no Santuário Celestial", e uma contagem fixa de colunas ou espremeria
+   os longos ou desperdiçaria a linha dos curtos. */
+.hino-indice-grade {
+  display: grid; gap: .25rem;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 15ch), 1fr));
+}
+.hino-indice-chip {
+  display: flex; flex-direction: column; gap: 1px;
+  min-height: var(--hit); padding: .3rem .45rem;
+  border-radius: var(--radius-btn);
+  background: var(--surface-2); color: var(--text);
+  font: inherit; text-align: left; cursor: pointer;
+}
+.hino-indice-chip-nome { font-size: .74rem; font-weight: 600; line-height: 1.25; }
+.hino-indice-chip-faixa {
+  font-size: .66rem; color: var(--muted);
+  font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1;
 }
 
 /* A sentinela do fim da página (ver `fillSongList`). O objetivo é que ela NÃO

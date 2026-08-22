@@ -1136,6 +1136,151 @@ document.addEventListener('keydown', onUserGesture);
 // operador vê como "o vídeo parou". `pausaComandada` é armado por quem manda
 // pausar de verdade, e zerado logo depois.
 let pausaComandada = 0;
+
+// ===== A RETOMADA DEPOIS DE UM ROUBO DE FOCO DE ÁUDIO =====
+//
+// MEDIDO EM APARELHO: tocar qualquer outra mídia no celular PAUSA a mídia do
+// telão. É o Chromium respondendo à perda de foco de áudio — ele pede foco por
+// `<video>`, e ao perdê-lo chama `onSuspend()`. Na perda PERMANENTE (o que
+// outro app de mídia pede) ele ainda ABANDONA o foco, e aí não volta sozinho
+// nunca: o louvor fica parado na frente da congregação até alguém tocar ▶.
+//
+// O `play()` de volta funciona porque no Chromium NÃO EXISTE "tocar mudo":
+// saindo do estado suspenso ele re-pede foco ao Android. Concedido, a mídia
+// volta com som e quem tinha o foco recebe a perda — foi o que o operador
+// observou ao dar play manualmente, e é tudo o que este código automatiza.
+// Negado, `AddPlayer` devolve false e o próprio Chromium pausa de novo. Não há
+// um terceiro desfecho em que a barra ande em silêncio.
+//
+// O QUE ELA NÃO FAZ, e é preciso estar dito para ninguém prometer: ela não
+// GARANTE que a outra mídia pare. O framework MUTA o perdedor com um
+// `VolumeShaper` e desfaz sozinho alguns segundos depois; parar é decisão do
+// outro app. Contra um ALARME não faz nem isso (`USAGE_ALARM` está fora das
+// usages que o sistema esmaece), e o desfecho ali é louvor e despertador
+// juntos. Quem para de verdade é um app de mídia bem-comportado — que é
+// justamente o caso comum.
+//
+// O TETO E A ESPERA CRESCENTE SÃO O RECURSO, não uma precaução. Não há
+// amortecimento nenhum contra ping-pong de foco, nem no Android nem no
+// Chromium: sem teto, dois apps que retomam sozinhos gaguejam para sempre — e
+// gagueira é PIOR que pausa, porque uma pausa limpa o operador vê e conserta
+// com um toque, e som picotado ele lê como aparelho quebrado. A espera cresce
+// para que o pior caso audível seja uma falha no começo e depois silêncio.
+//
+// ESGOTADO O TETO, O SILÊNCIO É DEFINITIVO até um comando humano — nunca até um
+// relógio. É essa regra que limita o estrago no caso que não sabemos
+// distinguir: uma CHAMADA telefônica é perda TRANSITÓRIA e dura minutos, então
+// nenhuma espera curta a separa de um roubo permanente, e ali o Chromium já
+// retoma sozinho no fim da ligação. O custo de errar são três tentativas.
+const RETOM_ESPERAS = [1500, 4000, 10000];
+const RETOM_CONFIRMA_MS = 1200;
+// O crédito das tentativas só volta depois de um período LIMPO. Zerá-lo a cada
+// retomada bem-sucedida seria o laço que o teto existe para fechar: um roubo
+// que se repete a cada 2 s renderia três tentativas por roubo, para sempre.
+const RETOM_CREDITO_MS = 30000;
+let retomTimer = 0;
+let retomTentativa = 0;
+let retomDesistiu = false;
+let retomUltimaPausa = 0;
+// A INTENÇÃO é um BOOLEANO, não um carimbo de tempo: "alguém mandou pausar há
+// pouco" não é a mesma pergunta que "o app QUER isto tocando".
+let intencaoTocar = false;
+// `jaTocou` recusa retomar o que nunca chegou a tocar; `cenaSeq` invalida um
+// timer pendente quando a cena troca — entre agendar e disparar cabem um `load`
+// e um `clear` inteiros.
+let jaTocou = false;
+let cenaSeq = 0;
+// OS CONTADORES, porque o anel do diário tem 60 linhas e um episódio gasta
+// várias. Sem eles, o culto inteiro não cabe na caixa-preta — e a pergunta que
+// importa é "quantas vezes o telão precisou ser socorrido?", que só um número
+// responde.
+const retom = { espontaneas: 0, recuperadas: 0, desistidas: 0 };
+
+function cancelarRetomada() {
+  if (retomTimer) { clearTimeout(retomTimer); retomTimer = 0; }
+  retomTentativa = 0;
+  retomDesistiu = false;
+}
+
+// Os fatos SÍNCRONOS que autorizam retomar — lidos ao agendar E ao disparar.
+// `pausaComandada` não serve aqui: a janela dele é de TEMPO, e o `video.pause()`
+// de um `load` mora depois de um `await AVDB.getMedia(id)`, que é leitura de
+// IndexedDB sem teto num processo que divide fio com três WebViews.
+//
+// `v.ended` É A GUARDA QUE MAIS IMPORTA: o fim natural dispara `pause` antes de
+// `ended`, e sem ela o fim de cada louvor RELIGARIA a própria faixa — com a
+// playlist avançando por baixo, dois itens no ar ao mesmo tempo.
+//
+// ELA EXISTE DUAS VEZES, e isso é uma armadilha para quem editar depois: o fim
+// natural é barrado aqui E no `!fim` do ouvinte de `pause`. MEDIDO por
+// reversão: removendo UMA das duas o oráculo continua VERDE — só a perda das
+// DUAS o faz reprovar. Quem tirar uma delas vai ver o teste passar e concluir
+// que ela não servia para nada.
+//
+// E `TELA` é a primeira linha: as telas da rede rodam este MESMO arquivo num
+// navegador de outra pessoa, com política de autoplay e som liberado por gesto.
+// N telas religando mídia sozinhas é o oposto do que o operador controla.
+//
+// NÃO HÁ GUARDA DE `__NATIVE__` aqui, de propósito. A regra do projeto é que o
+// navegador é o PADRÃO e o nativo é a exceção que se declara — o inverso
+// (`if (window.__NATIVE__)` como caminho principal) é o que ela proíbe. E o
+// custo seria real: a guarda tornaria este caminho intestável no oráculo do
+// telão, que roda sem ponte. Num navegador comum a retomada cai na política de
+// autoplay e o `stage.play()` já trata a rejeição pelo `onBlocked` de sempre —
+// degrada no comportamento que aquele caminho já tinha.
+function podeRetomar(v, seq) {
+  if (TELA) return false;
+  if (seq !== cenaSeq) return false;
+  if (!intencaoTocar || !jaTocou) return false;
+  if (saindoDeCena) return false;
+  if (v.ended || stage.hasEnded()) return false;
+  if (v.duration > 0 && v.currentTime >= v.duration - 0.25) return false;
+  return v.paused;
+}
+
+function agendarRetomada(v) {
+  const agora = Date.now();
+  if (retomTentativa && agora - retomUltimaPausa > RETOM_CREDITO_MS) {
+    retomTentativa = 0;
+    retomDesistiu = false;
+  }
+  retomUltimaPausa = agora;
+  if (retomTimer) return;
+  const seq = cenaSeq;
+  if (!podeRetomar(v, seq)) return;
+  if (retomTentativa >= RETOM_ESPERAS.length) {
+    // DESISTIR É UM DESFECHO, e ele vai ao Registro: "o telão parou e não
+    // voltou" e "o telão parou, tentou três vezes e o áudio ficou com outro
+    // app" pedem ações opostas de quem lê isto a distância.
+    if (!retomDesistiu) {
+      retomDesistiu = true;
+      retom.desistidas++;
+      diag('retomada: DESISTI apos ' + RETOM_ESPERAS.length);
+    }
+    return;
+  }
+  const espera = RETOM_ESPERAS[retomTentativa];
+  retomTentativa++;
+  diag('retomada ' + retomTentativa + '/' + RETOM_ESPERAS.length, { t2: espera / 1000 });
+  retomTimer = setTimeout(() => {
+    retomTimer = 0;
+    if (!podeRetomar(v, seq)) { diag('retomada cancelada (a cena mudou)'); return; }
+    const antes = v.currentTime;
+    // `stage.play()` e nunca `v.play()`: o motor restaura o volume que o fade
+    // baixou, reafirma o `applyMedia()` e recalcula a cortina.
+    try { stage.play(); } catch (_) { /* o `pause` seguinte reagenda */ }
+    // O SUCESSO É MEDIDO NO RELÓGIO DA MÍDIA, não no `paused`. Um `play()` cujo
+    // pedido de foco é negado volta a pausar poucos milissegundos depois;
+    // contá-lo como sucesso devolveria o crédito e abriria o laço.
+    setTimeout(() => {
+      if (seq !== cenaSeq) return;
+      if (!v.paused && v.currentTime > antes + 0.3) {
+        retom.recuperadas++;
+        diag('retomada OK', { t2: Math.round(v.currentTime) });
+      }
+    }, RETOM_CONFIRMA_MS);
+  }, espera);
+}
 (function vigiarVideo() {
   const v = document.getElementById('video');
   if (!v) return;
@@ -1170,8 +1315,12 @@ let pausaComandada = 0;
     const meu = Date.now() - pausaComandada < (fadeCfg.time * 1000 + 400);
     diag(fim ? 'fim natural' : (meu ? 'pausa (comando)' : 'PAUSA ESPONTÂNEA'),
       { t2: Math.round(v.currentTime) });
+    if (!fim && !meu) { retom.espontaneas++; agendarRetomada(v); }
   });
-  v.addEventListener('play', () => diag('play', { t2: Math.round(v.currentTime) }));
+  v.addEventListener('play', () => {
+    jaTocou = true;
+    diag('play', { t2: Math.round(v.currentTime) });
+  });
   v.addEventListener('stalled', () => diag('travou'));
   v.addEventListener('emptied', () => diag('esvaziou'));
 })();
@@ -1197,9 +1346,28 @@ AVDB.onCommand(async (cmd) => {
   // espontânea.
   if (cmd.type === 'pause' || cmd.type === 'clear' || cmd.type === 'media-clear'
     || cmd.type === 'load') pausaComandada = Date.now();
+  // A INTENÇÃO E O CANCELAMENTO, no mesmo ponto que já sabe o que o operador
+  // pediu. UM COMANDO HUMANO SEMPRE VENCE uma retomada pendente: sem isto, o ⏸
+  // do operador seria desfeito 1,5 s depois por um timer que ninguém vê, e o ▶
+  // dele competiria com o nosso `play()`.
+  if (cmd.type === 'load' || cmd.type === 'clear' || cmd.type === 'media-clear') {
+    cenaSeq++;
+    jaTocou = false;
+  }
+  if (cmd.type === 'play' || cmd.type === 'load' || cmd.type === 'pause'
+    || cmd.type === 'clear' || cmd.type === 'media-clear') {
+    cancelarRetomada();
+    intencaoTocar = cmd.type === 'play'
+      || (cmd.type === 'load' && cmd.playing !== false);
+  }
   // O Controle pede a caixa-preta ao abrir Configurações.
   if (cmd.type === 'diag-ask') {
-    AVDB.sendCommand({ type: 'diag-dump', linhas: diario.slice(-DIAG_MAX) });
+    // OS CONTADORES VÃO JUNTO com as linhas: o anel tem 60 e um culto inteiro
+    // não cabe nele. Campo novo aqui = campo novo no consumidor (`controle.js`),
+    // que hoje lê só `linhas` — a mesma regra da ponte, pelo mesmo motivo.
+    AVDB.sendCommand({
+      type: 'diag-dump', linhas: diario.slice(-DIAG_MAX), retomada: Object.assign({}, retom),
+    });
     return;
   }
 
