@@ -638,6 +638,55 @@
     return esq || t;
   }
 
+  /**
+   * ===== O SÁBADO DESTA SEMANA (v1.1.20) =====
+   *
+   * Pedido do operador: *"faça um sistema de destaque que colocasse separado
+   * destacado no topo da lista o item referente ao sábado atual; caso não
+   * tenha, deixe uma mensagem de Aguardando lançamento"*.
+   *
+   * **A SEMANA COMEÇA NO DOMINGO** — é a semana adventista, e é a que o
+   * operador vive: no domingo ele já está montando o culto do sábado que vem.
+   * Daí `6 - getDay()`: domingo devolve 6, sexta devolve 1, sábado devolve 0.
+   * Uma semana começando na segunda faria o domingo de manhã destacar o sábado
+   * que ACABOU de passar, que é o único dia em que ninguém procura por ele.
+   *
+   * A data volta como `{ ano, mes, dia }` e não como `Date` porque é isso que o
+   * resto deste módulo fala (`dataDoVideo`, `rotuloData`) — e porque quem a
+   * consome quer escrevê-la, não fazer conta com ela. O `new Date(y, m, d + n)`
+   * normaliza a virada de mês e de ano sozinho.
+   */
+  function sabadoDaSemana(hoje) {
+    const d = hoje instanceof Date ? hoje : new Date();
+    const s = new Date(d.getFullYear(), d.getMonth(), d.getDate() + (6 - d.getDay()));
+    return { ano: s.getFullYear(), mes: s.getMonth() + 1, dia: s.getDate() };
+  }
+
+  /**
+   * ESTE EPISÓDIO É O DO SÁBADO DESTA SEMANA?
+   *
+   * **A pergunta é pela SEMANA, não pelo dia exato**, e isso é defesa e não
+   * frouxidão: a régua deste módulo inteiro é a data do TÍTULO, e o canal
+   * escreve a data que quiser — o `DIAS_DE_ANTECEDENCIA` já existe porque
+   * "publica no sábado" não é promessa que se possa cobrar. Exigir
+   * `diasAte === diasAteSábado` faria um episódio datado de sexta desaparecer
+   * do destaque e a tela dizer "Aguardando lançamento" sobre um vídeo que está
+   * na lista logo abaixo — a pior das duas mentiras possíveis aqui.
+   *
+   * A janela é a semana corrente inteira: de domingo (`-getDay()`) a sábado
+   * (`6 - getDay()`). Numa série SEMANAL cai no máximo um item nela.
+   *
+   * Reusa o `diasAte` de propósito: ele é o primitivo de calendário deste
+   * módulo (`Date.UTC` nas duas pontas, imune ao horário de verão), e uma
+   * segunda conta escrita à mão divergiria dele exatamente uma vez por ano.
+   */
+  function ehDoSabadoAtual(data, serie, hoje) {
+    if (!data) return false;
+    const d = hoje instanceof Date ? hoje : new Date();
+    const n = diasAte(data, serie, d);
+    return n >= -d.getDay() && n <= 6 - d.getDay();
+  }
+
   /** "15/Ago" — o prefixo pelo qual o operador procura o sábado. */
   function rotuloData(d) {
     return d ? String(d.dia).padStart(2, '0') + '/' + MES_CURTO[d.mes - 1] : '';
@@ -826,6 +875,7 @@
     avaliarPlaylist, avaliarVideo,
     mesDaPlaylist, playlistsDaSerie,
     dataDoVideo, tituloDoEpisodio, rotuloData,
+    sabadoDaSemana, ehDoSabadoAtual,
     itensDaPlaylist, ordenarItens, nomeDoItem,
     impressao,
   };

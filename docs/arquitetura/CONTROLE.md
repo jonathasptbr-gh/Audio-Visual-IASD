@@ -3172,30 +3172,71 @@ responde a uma pergunta diferente:
   o toque borbulha até o card e o FECHA — a lixeira fecharia o álbum debaixo do
   diálogo que ela acabou de abrir.
 
-**Opções da coleção** (`buildCollectionOptions` → painel `.coll-opts--inline`,
-dentro do card): **só a SÉRIE tem painel** desde a v1.1.16, e ele tem um botão
-só — "Atualizar a lista" (`syncCollection(coll, { soIndice: true })`), com a
-contagem de episódios dentro dele.
+**A COLUNA DA DIREITA tem TRÊS botões possíveis** (v1.1.20), todos com a
+geometria de `.coll-bar-dl` — centros ou tamanhos que discordem num par colado é
+a coisa que mais parece defeito numa linha:
 
-- **"Verificar" saiu, e a verificação ficou.** Ele só aparecia num álbum
-  COMPLETO — o caso em que não há o que baixar e a única pergunta é "o catálogo
-  cresceu?" —, e o que fazia era pular o TTL de 12 h para reler o índice. Quem
-  faz isso agora é o `autoRefreshCollections`, sozinho, na abertura (ver
-  `forcarIndice`). O desfecho é o mesmo: o índice cresce, `colecaoCompleta` vira
-  falso, e o botão de BAIXAR aparece na barra.
-- **"Baixar" saiu porque já existia na barra**, e era essa repetição que
-  obrigava o da barra a se esconder.
-- **A SÉRIE fica com o dela**, e a diferença não é capricho: "Atualizar a lista"
-  não é "verificar se há o que baixar" — uma série não baixa em lote por desenho
-  (~15 GB/ano), e é a única porta para refazer uma lista cujo índice custa uma
-  extração do canal do YouTube. Por isso ela mantém o TTL de 12 h e NÃO entra no
-  `forcarIndice`.
-- **O ESTADO fica DENTRO do botão** (`.coll-opt-estado`): o rótulo nomeia a
-  AÇÃO, o estado diz onde ela está. Em movimento ele é MUDO — quem escreve o
-  andamento é a barra do card, `sticky` e visível daqui.
-- **A caixa só nasce quando há painel** (`temPainelDeColecao`): um `.coll-opts`
-  vazio empurraria a lista de músicas para baixo com o respiro dele, e um vão
-  sem causa dentro de um card lê-se como algo que não carregou.
+| botão | classe | responde a | quando |
+|---|---|---|---|
+| **baixar / cancelar** | `.coll-bar-dl` | "há o que baixar?" | álbum e hinário, aberto ou fechado |
+| **atualizar a lista** | `.coll-bar-at` | — | **só na SÉRIE**, sempre |
+| **remover** | `.coll-bar-rm` | "o álbum está aberto?" | álbum e hinário, só aberto |
+
+- **A lixeira é revelada pelo mesmo gesto que revela o que ela apaga.** Fechado,
+  o card não oferece destruição nenhuma — e o acervo inteiro é uma lista de
+  cards fechados; ali ela seria destruição a um toque de distância, repetida
+  linha a linha.
+- **O botão de baixar NÃO se esconde com o card aberto** (o `vago` saiu na
+  v1.1.16 com o painel que repetia a ação). A barra é o que gruda no topo
+  (`sticky`) enquanto se percorre a lista: um álbum de centenas de faixas precisa
+  poder começar (e parar) num toque, de qualquer ponto da rolagem.
+- **A SÉRIE não tem os outros dois** (v1.1.20), e a razão é do modelo de dados,
+  não da tela: **o álbum de série não retém arquivo**. Um episódio só existe no
+  aparelho enquanto está no Cronograma, nos Favoritos ou na playlist. Não há
+  acervo do álbum para baixar em lote (~15 GB/ano) nem para remover — "Remover
+  do dispositivo" ali apagaria o que está em OUTRA lista, ou nada, e as duas
+  leituras são erradas.
+- **E a barra da série não anuncia PESO**: `fracaoPeso` devolve, para um acervo
+  vazio, "o que vai custar baixar" — gigabytes prometendo um download em lote que
+  nunca existiu. Ela diz quantos episódios a lista tem.
+- **`countDownloaded` só é chamado com o card ABERTO** — ele varre todas as
+  faixas do álbum, e o acervo é redesenhado a cada 400 ms enquanto um download
+  corre. O acordeão garante no máximo um card aberto.
+- **`stopPropagation` nos três**: sem ele o toque borbulha até o card e o FECHA
+  — a lixeira fecharia o álbum debaixo do diálogo que ela acabou de abrir.
+
+**O DESTAQUE DO SÁBADO** (v1.1.20, `blocoDestaque`/`destaqueDaSerie`): acima da
+lista, só na série, o episódio desta semana — ou a frase que diz que ele ainda
+não saiu.
+
+- **O item destacado SAI da lista** (`faixasDaLista`, usada também pela
+  paginação, senão o contador de "restantes" discordaria do que há na tela).
+  Deixá-lo nos dois lugares daria duas linhas que fazem exatamente a mesma coisa,
+  a dois centímetros uma da outra — e a de baixo, no meio de cinquenta irmãs, é a
+  que o operador tocaria por engano procurando outra data. "Separado" é literal.
+- **A AUSÊNCIA também é um estado**, e é o caso comum na segunda-feira: sem o
+  bloco, um card sem o episódio da semana fica indistinguível de um que ainda não
+  carregou. "Aguardando lançamento" responde a pergunta que o operador veio
+  fazer, e o cabeçalho ao lado diz de QUE sábado se trata — sem a data, a frase
+  valeria para qualquer semana. O bloco tem a mesma altura nos dois estados: ele
+  não pode encolher e crescer conforme a semana, senão o topo do card salta toda
+  vez que o episódio sai.
+- **A linha é a MESMA da lista** (`hymnResultRow` dentro de uma `<ul>` que também
+  é `.coll-songs`): o toque, a gaveta de opções, o indicador de download e o
+  "Tocar agora" vêm de graça. Um cartão próprio seria uma segunda implementação
+  do item mais complexo desta tela.
+- **Quem decide é `AVSerie.ehDoSabadoAtual`** (puro, com oráculo), e a janela é a
+  **semana adventista — de domingo a sábado**, não o dia exato. A régua deste
+  módulo é a data do TÍTULO, e o canal escreve a data que quiser: exigir
+  `diasAte === diasAteSábado` faria um episódio datado de sexta desaparecer do
+  destaque e a tela dizer "Aguardando lançamento" sobre um vídeo que está na
+  lista logo abaixo.
+
+> **O painel `.coll-opts` não existe mais** (v1.1.20). As três ações que ele teve
+> terminaram na coluna da direita da barra: o "Verificar" saiu na v1.1.16 (a
+> verificação virou automática na abertura — ver `forcarIndice`), o "Baixar" já
+> existia na barra e era só repetido, e o "Atualizar a lista" da série virou
+> botão puro ao lado dos irmãos.
 
 > **A REGRA QUE ESTE PAINEL ENSINOU, DUAS VEZES: nada aqui repete o que a barra
 > do card já diz.** Ele já teve três chips, uma linha de status e um chip de
@@ -4632,7 +4673,7 @@ sábado é visto uma vez. Então:
 | "Tocar agora" | `ytAcao(…, ['tocar'])` | **TRANSMISSÃO DIRETA** — `ytStream` → `shared/mse.js`, sem baixar |
 | Modo Fácil | `simplePlaySong` desvia para o mesmo `ytAcao` | aquele modo não pergunta nada, e esperar 300 MB com o culto rodando não é opção |
 | guardar offline | os destinos da folha (playlist · Cronograma · Favoritos) | um episódio por vez, pelo caminho de download do YouTube |
-| card | `renderCollectionCard` / `buildCollectionOptions` | **card da RAIZ** do índice (v1.0.1), acima dos hinários; **sem botão de baixar em lote** com índice na mão; o painel dela é o ÚNICO que sobrou (v1.1.16) e tem um botão só, "Atualizar a lista" (`syncCollection(coll, { soIndice: true })`), e a série sai de "Baixar toda a biblioteca" |
+| card | `renderCollectionCard` | **card da RAIZ** do índice (v1.0.1), acima dos hinários. **UM botão só** (v1.1.20): "Atualizar a lista" (`syncCollection(coll, { soIndice: true })`), puro e sem texto, na direita da barra — sem baixar em lote e sem lixeira, porque o álbum não retém arquivo. A barra diz quantos EPISÓDIOS a lista tem, não peso, e o do sábado desta semana fica DESTACADO no topo (`blocoDestaque`). A série sai de "Baixar toda a biblioteca" |
 
 `downloadSerieItem` e o laço de `syncCollection` continuam existindo e corretos
 — o que mudou é que nenhum toque de UI os alcança hoje. O que muda em relação a

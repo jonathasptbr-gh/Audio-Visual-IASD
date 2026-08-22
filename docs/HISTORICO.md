@@ -24,6 +24,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
+- **v1.1.20** — A SÉRIE DEIXA DE FINGIR QUE GUARDA ARQUIVO: os episódios só existem enquanto estão no Cronograma, nos Favoritos ou na playlist, então o card perde o baixar em lote, a lixeira E o peso em gigabytes que prometia um download inexistente. Sobra UM botão puro — atualizar a lista — onde ficava o excluir. E o episódio DESTE SÁBADO sai da lista e vira um bloco destacado no topo, com "Aguardando lançamento" quando ainda não saiu; a janela é a semana adventista (domingo a sábado), não o dia exato. De quebra: o relógio congelado de um caso do `boot-nativo` VAZAVA para o contexto inteiro e prendia a página principal em 15/Ago. OTA PURO
 - **v1.1.16** — O BOTÃO DE VERIFICAR SAI, E A VERIFICAÇÃO FICA: ele só aparecia num álbum COMPLETO, e o que fazia — pular o TTL de 12 h para reler o índice — passou a acontecer sozinho na abertura, só para os álbuns que o operador TEM no aparelho e UMA VEZ POR SESSÃO (esta função roda a cada retomada, e o operador troca de app dezenas de vezes num culto). A lixeira sobe para a barra do card, revelada pelo mesmo gesto que revela o que ela apaga; o botão de BAIXAR deixa de se esconder com o card aberto, porque o painel que o repetia saiu. OTA PURO
 - **v1.1.15** — A TRANSPOSIÇÃO DEIXAVA OS ACORDES DE SÉTIMA MAIOR PARADOS: o sufixo da gramática era uma lista de palavras minúsculas EXIGINDO dígitos depois, e `7M` (dígito + M maiúsculo, a notação brasileira mais comum num hinário) não casava. Como `transporAcorde` devolvia intacto o que não casasse, `D7M/A` e `G7M` ficavam no tom original com a folha andando à volta deles — dissonância na frente de quem toca, sem sinal em lugar nenhum. Slash chords NUNCA estiveram quebrados. A correção por conjunto de caracteres foi reprovada pelo oráculo (`Cada` virava acorde); ficou uma sequência de PEÇAS inteiras, nenhuma exigindo dígito. A transposição passou a andar só na raiz e no baixo. OTA PURO
 - **v1.1.14** — O CONTADOR DA RETOMADA MENTIA, E ELE ERA A ÚNICA COISA QUE A v1.1.11 ENTREGOU PARA SER LIDA A DISTÂNCIA: cada `play()` nosso que fosse negado produzia outra pausa espontânea, e um único roubo era anunciado como quatro. Mais o crédito que confundia SUCESSO com FALHA (três socorros certos esgotavam o teto), o `t2` que carregava a espera onde todo o resto carrega a posição, e o carimbo da preview que chamava de espontânea a pausa do próprio navegador ao minimizar o app — este último achado veio de um Registro REAL colado pelo operador. OTA PURO
@@ -212,6 +213,113 @@ na nota que a revoga, não apagada da que a criou.
 - **v5.154** — é METADE OTA e METADE APK, e a divisão importa para quem for testar em aparelho.
 - **v5.155** — é OTA PURO
 - **v5.156** — é METADE OTA e METADE APK, de novo.
+
+---
+
+## v1.1.20 — a série deixa de fingir que guarda arquivo
+
+*"Para as séries precisamos criar um sistema diferente: para o Provai e Vede e
+para o Informativo Mundial das Missões, seus arquivos precisam estar ou no
+cronograma ou nos favoritos ou no player para o arquivo baixado existir — os
+arquivos não se sustentam apenas baixados nesse álbum. Então não vamos precisar
+de um botão geral de baixar no topo desses álbuns e nem um para excluir, pois no
+momento que ele não estiver sendo usado, ele é apagado. Além disso, vamos jogar o
+botão de atualizar lista para o local onde está o botão excluir, no mesmo estilo,
+botão puro, sem texto. Por fim, gostaria que fizesse um sistema de destaque que
+colocasse separado destacado no topo da lista o item referente ao sábado atual;
+caso não tenha, deixe uma mensagem de Aguardando lançamento."*
+
+**OTA PURO** (nada em `java/`, `res/` ou no manifest).
+
+### O card parou de prometer o que o modelo de dados não sustenta
+
+O operador descreveu um fato do MODELO, não da tela: um episódio de série só
+existe no aparelho enquanto está no Cronograma, nos Favoritos ou na playlist — o
+coletor o recolhe quando ele sai de lá. Três coisas na barra afirmavam o
+contrário:
+
+| o que dizia | por que era falso |
+|---|---|
+| **baixar em lote** | não há acervo do álbum para encher (~15 GB/ano), e o download direto foi recusado desde a v5.230 |
+| **remover do dispositivo** | apagaria o que está em OUTRA lista, ou nada — as duas leituras erradas |
+| **"4,3 GB"** | `fracaoPeso` devolve, com nada baixado, *o que vai custar baixar*: o custo de um download que não existe |
+
+As três saíram. A barra passa a dizer **quantos episódios a lista tem**, que é o
+número que o painel carregava antes de sair — e sobra **um botão só**, o de
+atualizar a lista, puro e sem texto, no lugar onde ficava o excluir.
+
+**Com isso o painel `.coll-opts` deixou de existir.** As três ações que ele teve
+terminaram todas na coluna da direita da barra: o "Verificar" saiu na v1.1.16 (a
+verificação virou automática na abertura), o "Baixar" já existia na barra e era
+só repetido ali, e agora o "Atualizar a lista". Os três botões daquela coluna
+dividem a geometria de `.coll-bar-dl` e se distinguem por modificador
+(`.coll-bar-at`, `.coll-bar-rm`) — sem isso, um oráculo que perguntasse por
+`.coll-bar-dl` passaria a medir o botão errado no dia em que um irmão nascesse.
+
+### O destaque do sábado, e por que a janela é a semana
+
+`AVSerie.ehDoSabadoAtual` responde "este episódio é o desta semana?". Duas
+decisões:
+
+- **A SEMANA COMEÇA NO DOMINGO** — a semana adventista, e a que o operador vive:
+  no domingo ele já monta o culto do sábado que vem. Uma semana começando na
+  segunda faria o domingo de manhã destacar o sábado que ACABOU de passar, que é
+  o único dia em que ninguém procura por ele.
+- **A pergunta é pela SEMANA, não pelo dia exato**, e isso é defesa e não
+  frouxidão: a régua deste módulo inteiro é a data do TÍTULO, e o canal escreve a
+  data que quiser — o `DIAS_DE_ANTECEDENCIA` já existe porque "publica no sábado"
+  não é promessa que se possa cobrar. Exigir o dia faria um episódio datado de
+  sexta desaparecer do destaque e a tela dizer "Aguardando lançamento" sobre um
+  vídeo que está na lista logo abaixo — a pior das duas mentiras possíveis aqui.
+
+Na tela:
+
+- **O item destacado SAI da lista.** Deixá-lo nos dois lugares daria duas linhas
+  que fazem exatamente a mesma coisa, a dois centímetros uma da outra — e a de
+  baixo, no meio de cinquenta irmãs, é a que o operador tocaria por engano
+  procurando outra data. "Separado" é literal. `faixasDaLista` é usada também
+  pela paginação, senão o contador de "restantes" discordaria da tela.
+- **A AUSÊNCIA é um estado**, e é o caso comum na segunda-feira: sem o bloco, um
+  card sem o episódio da semana fica indistinguível de um que não carregou. O
+  cabeçalho continua nomeando o sábado — sem a data, "Aguardando lançamento"
+  valeria para qualquer semana. E o bloco tem a mesma altura nos dois estados: ele
+  não pode encolher e crescer conforme a semana, senão o topo do card salta toda
+  vez que o episódio sai.
+- **A linha é a MESMA da lista** (`hymnResultRow` numa `<ul>` que também é
+  `.coll-songs`): o toque, a gaveta, o indicador de download e o "Tocar agora"
+  vêm de graça. Um cartão próprio seria uma segunda implementação do item mais
+  complexo desta tela.
+
+### O achado do lote: o relógio congelado VAZAVA
+
+O caso do corte de episódios usa `clock.setFixedTime` numa página à parte, criada
+com `ctx.newPage()` e fechada no `finally` — o comentário dizia, desde que
+nasceu, que "o clock fica preso a esta página para não contaminar nada".
+
+**Ele não ficava.** MEDIDO: o relógio congela o CONTEXTO inteiro, e a página
+principal seguia rodando com a data presa em **15/Ago/2026** dali até o fim do
+arquivo. Nada reprovava — as asserções seguintes ou não olhavam o relógio, ou
+olhavam duas vezes o mesmo relógio de mentira e concordavam consigo mesmas.
+
+Quem topou nisso foi o caso do destaque, porque ele é o primeiro que **lê a data
+e a escreve na tela**: o cabeçalho saiu "22/Ago" no navegador e "15/Ago" no
+oráculo. A correção é um CONTEXTO próprio para a página congelada.
+
+**A lição é a mesma que a tabela de "um oráculo não pode medir o runner" já
+tinha, por outro lado:** um comentário que afirma isolamento não é isolamento, e
+o que prova a diferença é uma asserção que consiga VER o vazamento. Aqui ela
+nasceu por acidente — o que não é um método, e por isso está registrado.
+
+### Os oráculos
+
+`serie.test.mjs` ganhou a REGRA (`hoje` fixos, semana inteira apontando para o
+mesmo sábado, a virada de mês e a de ano, e a janela fechando no sábado);
+`boot-nativo.test.mjs` ganhou a LIGAÇÃO — o card sem os dois botões e com o
+terceiro puro, o painel que não existe mais, a barra sem peso, e o destaque nos
+dois estados. **A série do caso do destaque é SINTÉTICA**, com o ano de HOJE e a
+data vinda de `AVSerie.sabadoDaSemana()`: o catálogo tem ano fixo (2026), e num
+runner de outro ano nenhum episódio cairia na semana corrente — o caso reprovaria
+o app por uma data de calendário.
 
 ---
 

@@ -2539,10 +2539,12 @@ main {
    baixa é o botão do painel logo abaixo — que tem o estado e o progresso. O
    `visibility: hidden` tira o botão do toque, do foco e do leitor de tela e
    MANTÉM a coluna, que é o que impede o peso de saltar. */
-/* A LIXEIRA DA BARRA (v1.1.16). Mesmo alvo e mesma geometria do irmão de
-   baixar — eles dividem a coluna da direita, e centros que discordam num par
-   colado é a coisa que mais parece defeito numa linha. O que muda é só a cor:
-   destrutivo é `--danger`, como em todo o resto do app.
+/* OS TRÊS BOTÕES DA COLUNA DA DIREITA dividem a geometria de `.coll-bar-dl` —
+   centros ou tamanhos que discordem num par colado é a coisa que mais parece
+   defeito numa linha. O que os distingue é a COR e o modificador:
+   `.coll-bar-dl` puro = baixar/cancelar · `.coll-bar-at` = atualizar a lista
+   (v1.1.20, só na série) · `.coll-bar-rm` = remover.
+   O de atualizar fica no tom neutro dos irmãos; só o destrutivo muda de cor.
    (`.coll-bar-dl.vago` saiu junto: ela escondia o botão de baixar com o card
    aberto porque o painel de dentro repetia a ação. O painel saiu.) */
 .coll-bar-rm { background: var(--danger-soft); color: var(--danger-strong); }
@@ -2680,6 +2682,49 @@ main {
 .hino-indice-chip-faixa {
   font-size: .66rem; color: var(--muted);
   font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1;
+}
+
+/* ---------- O DESTAQUE DO SÁBADO, NA SÉRIE (v1.1.20) ----------
+   Um bloco acima da lista, com o episódio desta semana — ou a frase que diz que
+   ele ainda não saiu. Ver `blocoDestaque` para o porquê de o item SAIR da lista.
+
+   O que o separa da lista é o PREENCHIMENTO, não uma linha: `--sel-fill` é o
+   tom opaco de "isto está escolhido" que o app já usa em lista (ver
+   `tokens.css` — opaco de propósito, para valer o mesmo em qualquer nível da
+   escada). Ele não é `--live`: nada aqui está NO AR, e vermelho ao lado de uma
+   lista de episódios prometeria projeção. */
+.serie-destaque {
+  margin: .4rem 0 .1rem;
+  padding: .45rem .5rem .5rem;
+  border-radius: var(--radius-btn);
+  background: var(--sel-fill);
+}
+.serie-destaque-cab {
+  display: flex; align-items: baseline; gap: .5rem;
+  padding: 0 .15rem .35rem;
+}
+.serie-destaque-rot {
+  flex: 1; min-width: 0;
+  font-size: .66rem; font-weight: 700; letter-spacing: .12em;
+  text-transform: uppercase; color: var(--accent);
+}
+/* `tabular-nums` para a data não dançar de largura entre uma semana e a
+   seguinte — o bloco é redesenhado a cada abertura do card. */
+.serie-destaque-data {
+  font-size: .72rem; font-weight: 600; color: var(--text);
+  font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1;
+}
+/* A lista de UM item: o `.coll-songs` ao lado já dá corpo, raio e alvo à linha;
+   o que muda aqui é só o respiro, que o bloco em volta já paga. */
+.serie-destaque-lista { margin: 0; }
+/* A AUSÊNCIA tem a altura de uma linha da lista, e não a de um parágrafo: o
+   bloco não pode encolher e crescer de tamanho conforme a semana, senão o topo
+   do card salta toda vez que o episódio sai. */
+.serie-destaque-vazio {
+  display: flex; align-items: center;
+  min-height: var(--hit);
+  padding: 0 .15rem;
+  font-size: .82rem; color: var(--muted);
 }
 
 /* A sentinela do fim da página (ver `fillSongList`). O objetivo é que ela NÃO

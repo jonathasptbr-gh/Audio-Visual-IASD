@@ -1,5 +1,13 @@
 [
   {
+    "versao": "1.1.20",
+    "itens": [
+      "As séries (Provai e Vede, Informativo) deixaram de ter botão de baixar e de excluir: os episódios só existem enquanto estão no Cronograma, nos Favoritos ou na playlist.",
+      "No lugar deles, um botão só, à direita da barra: atualizar a lista.",
+      "E o episódio DESTE SÁBADO aparece destacado no topo do álbum — se ainda não saiu, o lugar dele diz \"Aguardando lançamento\"."
+    ]
+  },
+  {
     "versao": "1.1.16",
     "itens": [
       "O botão de verificar atualizações dos álbuns saiu: o app confere sozinho ao abrir, em segundo plano.",

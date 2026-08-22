@@ -232,7 +232,7 @@ const appVersionEl = document.getElementById('appVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.1.16';
+const WEB_VERSION = '1.1.20';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -7288,11 +7288,10 @@ function renderCollectionCard(coll, ctx) {
   // a lista. O campo continua no catálogo, de graça, se um dia a cor voltar
   // como tinta do ícone.)
 
-  // Uma linha só: ícone + nome/subtítulo + resumo + engrenagem. O card deixou
-  // de ser um acordeão de manutenção — TOCAR NELE ABRE A LISTA DE MÚSICAS, que
-  // é o que o operador quer quase sempre. Sincronizar, excluir e o estado do
-  // download moram atrás da engrenagem (openCollectionOptions), fora do
-  // caminho de uso.
+  // Uma linha só: ícone + nome/subtítulo + resumo + a coluna de ações. O card
+  // deixou de ser um acordeão de manutenção — TOCAR NELE ABRE A LISTA, que é o
+  // que o operador quer quase sempre; sincronizar e excluir são botões PRÓPRIOS
+  // na direita da barra, cada um com a sua regra de aparecer (ver abaixo).
   const bar = document.createElement('div'); bar.className = 'coll-bar';
   // A THUMB É A SETA, ABERTO OU FECHADO (v5.244 — ver "A seta é a thumbnail das
   // raízes", em `grupo()`). Ela era o ícone da coleção com o card fechado e a
@@ -7347,6 +7346,13 @@ function renderCollectionCard(coll, ctx) {
   // Resumo de sincronização: progresso ao vivo enquanto sincroniza, senão
   // baixados/total.
   //
+  // **A SÉRIE NÃO TEM PESO A ANUNCIAR** (v1.1.20). `fracaoPeso` devolve, para
+  // um acervo vazio, "o que vai custar baixar" — e num álbum de série isso era
+  // um número de gigabytes prometendo um download em lote que nunca existiu e
+  // que agora nem botão tem. O que ela tem de verdade para dizer na barra é
+  // quantos episódios a lista traz, que é o número que o painel carregava antes
+  // de sair. Sem índice, silêncio: o botão de atualizar ao lado já é a mensagem.
+  //
   // COM O ÁLBUM INTEIRO BAIXADO ELE SOME (v5.70), junto com o botão de baixar
   // que já saíra na v5.63. "24/24" não pede nada nem informa nada de novo — é
   // ruído repetido em cada linha de uma lista de dezenas de álbuns, e o estado
@@ -7356,11 +7362,13 @@ function renderCollectionCard(coll, ctx) {
   // falta algo, nada quando está completo. O detalhe (peso, "✓ Completo
   // offline") segue na engrenagem dentro do card aberto.
   const summary = document.createElement('span'); summary.className = 'coll-bar-sync';
-  const peso = fracaoPeso([coll.id]);
+  const peso = ehLink(coll) ? null : fracaoPeso([coll.id]);
   if (u.syncBusy && u.status) {
     summary.classList.add('busy'); summary.textContent = u.status;
   } else if (peso) {
     summary.textContent = peso;
+  } else if (ehLink(coll)) {
+    summary.textContent = total ? total + (total === 1 ? ' episódio' : ' episódios') : '';
   } else if (coll.kind === 'album') {
     summary.textContent = 'não sincron.';
   }
@@ -7386,7 +7394,12 @@ function renderCollectionCard(coll, ctx) {
   // canto vazio. Download EM CURSO: o cancelar fica ali mesmo com o card aberto
   // — centenas de faixas precisam poder parar num toque, de qualquer ponto da
   // rolagem.
-  if ((u.syncBusy || !complete) && !(ehLink(coll) && total > 0)) {
+  // A SÉRIE NÃO BAIXA EM LOTE, NEM COM A LISTA VAZIA (v1.1.20). Até aqui o
+  // botão ficava enquanto não houvesse índice — ali ele buscava a LISTA, não
+  // baixava —, e isso era um botão com dois significados conforme o estado. A
+  // busca da lista passou a ter botão PRÓPRIO na mesma coluna (logo abaixo), e
+  // este some da série em todos os estados.
+  if ((u.syncBusy || !complete) && !ehLink(coll)) {
     // **O QUE É LINK NÃO BAIXA EM LOTE** (v5.230). São ~52 vídeos de ~300 MB — o
     // "download direto" que o operador pediu para não existir, na maior escala
     // que este app tem. Quem quiser um episódio offline o manda ao Cronograma
@@ -7408,6 +7421,40 @@ function renderCollectionCard(coll, ctx) {
     bar.appendChild(dl);
   }
 
+  // ===== A SÉRIE TEM UM BOTÃO SÓ, E ELE É O DE ATUALIZAR A LISTA (v1.1.20) =====
+  //
+  // Pedido do operador: *"para o Provai e Vede e para o Informativo, os arquivos
+  // precisam estar ou no cronograma ou nos favoritos ou no player para o arquivo
+  // baixado existir… então não vamos precisar de um botão geral de baixar no
+  // topo desses álbuns e nem um para excluir… vamos jogar o botão de atualizar
+  // lista para o local onde está o botão excluir, no mesmo estilo, botão puro,
+  // sem texto"*.
+  //
+  // **O ÁLBUM DE SÉRIE NÃO GUARDA NADA, e é isso que tira dele os outros dois
+  // botões.** Um episódio só existe no aparelho enquanto está no Cronograma, nos
+  // Favoritos ou na playlist; saindo de lá, o coletor o recolhe. Não há acervo
+  // do álbum para baixar em lote (~15 GB/ano) nem para remover — "Remover do
+  // dispositivo" num álbum que não retém nada apagaria o que está em OUTRA
+  // lista, ou nada, e as duas leituras são erradas.
+  //
+  // Sobra UMA ação, e ela é a que a série tem de ter: refazer a lista. O índice
+  // dela custa uma extração do canal do YouTube, então o TTL de 12 h a segura —
+  // e sem este botão o operador esperaria meio dia pelo episódio do sábado sem
+  // ter o que fazer (ver `forcarIndice`, que de propósito não a força).
+  if (ehLink(coll)) {
+    const at = document.createElement('button');
+    // `coll-bar-at` além da base: os TRÊS botões desta coluna dividem a
+    // geometria (`.coll-bar-dl`) e precisam ser distinguíveis um do outro — por
+    // quem lê a folha e por quem escreve um oráculo sobre ela.
+    at.className = 'coll-bar-dl coll-bar-at' + (u.syncBusy ? ' busy' : '');
+    at.title = u.syncBusy ? 'Cancelar' : 'Atualizar a lista';
+    at.setAttribute('aria-label', at.title);
+    at.innerHTML = u.syncBusy ? closeIconSvg() : syncIconSvg();
+    // `soIndice`: numa série o toque NUNCA baixa episódio — ele refaz a lista.
+    at.addEventListener('click', (e) => { e.stopPropagation(); syncCollection(coll, { soIndice: true }); });
+    bar.appendChild(at);
+  }
+
   // ===== A LIXEIRA MORA NA BARRA, E SÓ COM O ÁLBUM ABERTO (v1.1.16) =====
   //
   // Pedido do operador: *"coloque o botão de excluir na direita no card do
@@ -7423,7 +7470,9 @@ function renderCollectionCard(coll, ctx) {
   // varre todas as faixas do álbum, e o acervo é redesenhado a cada 400 ms
   // enquanto um download corre. Há no máximo um card aberto (o acordeão), então
   // a varredura acontece uma vez por redesenho, não quarenta.
-  if (u.expanded && (total > 0 || countDownloaded(coll.id) > 0)) {
+  // A SÉRIE fica de fora (v1.1.20): ela não retém arquivo nenhum, e remover o
+  // que ela não tem apagaria o que está em outra lista — ou nada.
+  if (!ehLink(coll) && u.expanded && (total > 0 || countDownloaded(coll.id) > 0)) {
     const rm = document.createElement('button');
     // "Remover do dispositivo", e não "Excluir": o que sai é o que ocupa espaço
     // NESTE aparelho, e o álbum continua no acervo para ser baixado de novo.
@@ -7440,9 +7489,8 @@ function renderCollectionCard(coll, ctx) {
   }
 
   // Sem índice ainda não há lista para abrir — o toque abre o card assim mesmo.
-  // O que resolve a ausência é o botão da BARRA ("Sincronizar a lista"), que
-  // está ali com o card fechado ou aberto; abrir revela a lixeira e, numa
-  // série, o painel dela.
+  // O que resolve a ausência é um botão da BARRA, presente com o card fechado ou
+  // aberto: "Sincronizar a lista" num álbum, "Atualizar a lista" numa série.
   //
   // Nomeada porque tem DOIS gatilhos: o toque na barra e a seta (v5.95).
   const alternarAcordeao = () => {
@@ -7520,14 +7568,9 @@ function renderCollectionCard(coll, ctx) {
     // sincronização de um álbum que já está aberto na tela era uma camada a
     // mais sobre outra camada — o acervo já é um popup de tela cheia. Aqui elas
     // ficam onde o assunto está, e fechar é o mesmo toque que abriu.
-    // A caixa só nasce quando há o que pôr nela (v1.1.16): um `.coll-opts`
-    // vazio empurraria a lista de músicas para baixo com o respiro dele, e um
-    // vão sem causa dentro de um card lê-se como algo que não carregou.
-    if (temPainelDeColecao(coll)) {
-      const opts = document.createElement('div'); opts.className = 'coll-opts coll-opts--inline';
-      buildCollectionOptions(coll, opts);
-      aberto.appendChild(opts);
-    }
+    // O DESTAQUE DO SÁBADO, acima da lista e só na série (ver `blocoDestaque`).
+    const dest = blocoDestaque(coll);
+    if (dest) aberto.appendChild(dest);
 
     // A lista sai INTEIRA, quantos itens tenha: aqui o operador está folheando
     // um álbum, não filtrando o acervo — cortar num teto esconderia o fim de
@@ -7575,7 +7618,7 @@ const COLL_PAGE = 100;
 // no DOM, sem reconstruir as anteriores — reconstruir mexeria no scroll debaixo
 // do dedo do operador, que é o gesto que acabou de pedir a página.
 function fillSongList(lista, coll, u) {
-  const songs = collSongs(coll.id);
+  const songs = faixasDaLista(coll);
   if (!u.shown) u.shown = COLL_PAGE;
   const ate = Math.min(u.shown, songs.length);
   // A retomada conta só as FAIXAS (`.hymn-result`), nunca os filhos da lista:
@@ -7708,7 +7751,7 @@ function indiceDeSecoes(coll, u, lista) {
 // quadro — o `<li>` acabou de ser inserido e medir agora daria a posição
 // anterior.
 function irParaSecao(coll, u, lista, numero) {
-  const songs = collSongs(coll.id);
+  const songs = faixasDaLista(coll);
   const alvo = songs.findIndex((x) => (x.track | 0) === numero);
   if (alvo < 0) return;
   const preciso = Math.ceil((alvo + 1) / COLL_PAGE) * COLL_PAGE;
@@ -7852,8 +7895,9 @@ let redesenharAcervo = () => {};
 
 // ===== Abrir o card de uma coleção =====
 // Abre o card sem passar pelo alternador da barra: é o caminho do toque numa
-// coleção SEM ÍNDICE (ali não há lista para folhear, e o que resolve isso —
-// sincronizar — está nas opções, que hoje aparecem sozinhas com o card aberto).
+// coleção SEM ÍNDICE. Ali não há lista para folhear, e o que resolve isso — o
+// botão de sincronizar — mora na barra, aberto ou fechado; o que abrir
+// acrescenta é a lixeira (num álbum) e o destaque do sábado (numa série).
 function openCollectionOptions(coll) {
   const u = ui(coll.id);
   // Reconta o peso PELO DISCO (`opfsFolderSize`, v5.134 — não mais pelo
@@ -7867,76 +7911,95 @@ function openCollectionOptions(coll) {
   redesenharAcervo();
 }
 
+// (`buildCollectionOptions` e o painel `.coll-opts` saíram na v1.1.20, e as
+// três ações que ele teve terminaram na COLUNA DA DIREITA DA BARRA — ver
+// `renderCollectionCard`. A última a sair foi o "Atualizar a lista" da série,
+// que virou botão puro ao lado dos irmãos; antes dele saíram o "Verificar"
+// (v1.1.16, a verificação virou automática na abertura) e o "Baixar", que já
+// existia na barra e era só repetido ali.
+//
+// O QUE ELE ENSINOU, e vale para o que vier ocupar aquele lugar: **nada dentro
+// do card repete o que a barra dele já diz.** Ele teve três chips, uma linha de
+// status, um chip de peso e um chip de rede — e o peso está na barra ANTES de
+// abrir (é ele que faz o operador decidir abrir), e o "Baixando 2 de 4…" está na
+// barra `sticky` dois centímetros acima.)
+
 /**
- * ===== O PAINEL DO ÁLBUM PERDEU AS DUAS AÇÕES (v1.1.16) =====
+ * ===== O DESTAQUE DO SÁBADO, NO TOPO DA LISTA DA SÉRIE (v1.1.20) =====
  *
- * Pedido do operador: *"remova o botão de verificar atualizações dos álbuns…
- * agora a verificação é feita de forma automática, no segundo plano toda vez
- * que o app abre… e se tiver alguma diferença ele mostra o botão de download
- * (ali na barra do álbum)"*.
+ * Pedido do operador: *"gostaria que fizesse um sistema de destaque que
+ * colocasse separado destacado no topo da lista o item referente ao sábado
+ * atual. Caso não tenha, deixe uma mensagem de Aguardando lançamento"*.
  *
- * As duas saíram por motivos diferentes, e as duas para a BARRA:
+ * A pergunta "qual é o episódio deste sábado?" é do `AVSerie`
+ * (`ehDoSabadoAtual`, puro e com oráculo). O que mora AQUI é a decisão de
+ * DESENHAR, e ela tem três regras:
  *
- *  - **"Verificar" era um botão para fazer o que o app já fazia sozinho.** Ele
- *    só aparecia num álbum COMPLETO — ali não há o que baixar, e o toque
- *    apenas re-lia o índice para ver se o catálogo cresceu. Quem re-lê o índice
- *    é o `autoRefreshCollections`, na abertura; o que faltava era ele não pular
- *    o TTL para os álbuns que o operador de fato tem no aparelho, e é isso que
- *    o `forcarIndice` passou a fazer. O desfecho é o mesmo, sem o toque: o
- *    índice cresce, `colecaoCompleta` vira falso, e o botão de BAIXAR aparece
- *    na barra.
- *  - **"Baixar" já existia na barra** — o painel o repetia dois centímetros
- *    abaixo, e era por causa dessa repetição que o da barra se escondia com o
- *    card aberto (`vago`). Some a repetição, some o esconderijo.
- *  - **A LIXEIRA subiu para a barra**, onde ela é revelada pelo mesmo gesto que
- *    revela o que ela apaga (ver `renderCollectionCard`).
+ *  - **O item destacado SAI da lista** (`faixasDaLista`). Deixá-lo nos dois
+ *    lugares daria duas linhas que fazem exatamente a mesma coisa, a dois
+ *    centímetros uma da outra — e a de baixo, no meio de cinquenta irmãs, é a
+ *    que o operador tocaria por engano procurando outra data. "Separado" é
+ *    literal.
+ *  - **A AUSÊNCIA também é um estado, e ela é o caso comum na segunda-feira.**
+ *    Sem o bloco, um card sem o episódio da semana fica indistinguível de um
+ *    card que ainda não carregou. "Aguardando lançamento" responde a pergunta
+ *    que o operador veio fazer, e o cabeçalho ao lado diz de QUE sábado se
+ *    trata — sem a data, a frase valeria para qualquer semana.
+ *  - **A LINHA É A MESMA da lista** (`hymnResultRow`), dentro de uma `<ul>` que
+ *    também é `.coll-songs`: o toque, a gaveta de opções, o indicador de
+ *    download e o "Tocar agora" vêm todos de graça. Um cartão próprio seria uma
+ *    segunda implementação do item mais complexo desta tela.
  *
- * **A SÉRIE FICA COM O BOTÃO DELA, e a diferença não é capricho:** "Atualizar a
- * lista" não é "verificar se há o que baixar" — uma série não baixa em lote por
- * desenho (~15 GB/ano). É a única porta para refazer uma lista cujo índice custa
- * uma extração do canal do YouTube, e por isso o TTL dela é de 12 h e ela NÃO
- * entra no `forcarIndice`. Tirar este botão deixaria o operador esperando até
- * meio dia pelo episódio do sábado sem ter o que fazer.
+ * Devolve `null` fora de uma série — o destaque não é um recurso do acervo, é um
+ * recurso do CALENDÁRIO de uma série semanal.
  */
-function buildCollectionOptions(coll, collOptsEl) {
-  // Só a SÉRIE tem painel. Nos demais o `.coll-opts` nem é criado — ver o
-  // chamador, que consulta `temPainelDeColecao`.
-  if (!ehSerie(coll)) return;
-  const total = songsBaixaveis(coll.id).length;
-  const u = ui(coll.id);
-
-  const acoes = document.createElement('div');
-  acoes.className = 'coll-opts-acoes';
-
-  // O MESMO botão dispara e cancela — a varredura de um canal com doze
-  // playlists leva dezenas de segundos, e sem um jeito de parar o operador
-  // ficava refém dela.
-  const syncBtn = document.createElement('button');
-  // `cancel`, não `busy`: `busy` gira o ícone, e um ✕ girando não se lê como
-  // "toque para parar". Quem indica atividade é a barra do card.
-  syncBtn.className = 'new-folder-btn' + (u.syncBusy ? ' cancel' : '');
-  syncBtn.innerHTML = u.syncBusy ? closeIconSvg() : syncIconSvg();
-  syncBtn.appendChild(document.createTextNode(u.syncBusy ? 'Cancelar' : 'Atualizar a lista'));
-
-  // O ESTADO VIVE DENTRO DO BOTÃO (v5.233), e numa série o número que importa
-  // não é quanto foi baixado (nada é, por desenho — ver `serieComoYoutube`): é
-  // quantos episódios a lista tem. Sem a palavra ao lado — o rótulo já diz de
-  // que lista se trata. Em movimento ele é MUDO: quem escreve o andamento é a
-  // barra do card, fixa no topo do aberto e visível daqui.
-  const estado = document.createElement('small');
-  estado.className = 'coll-opt-estado';
-  estado.textContent = u.syncBusy ? '' : (total ? String(total) : '');
-  if (estado.textContent) syncBtn.appendChild(estado);
-
-  syncBtn.addEventListener('click', () => syncCollection(coll, { soIndice: true }));
-  acoes.appendChild(syncBtn);
-  collOptsEl.appendChild(acoes);
+function destaqueDaSerie(coll) {
+  if (!ehLink(coll) || !window.AVSerie || !AVSerie.ehDoSabadoAtual) return null;
+  const sab = AVSerie.sabadoDaSemana();
+  const alvo = collSongs(coll.id).find(
+    (s) => AVSerie.ehDoSabadoAtual(s.serieData, coll.serie));
+  return { sabado: sab, rotulo: AVSerie.rotuloData(sab), song: alvo || null };
 }
 
-// Há painel a desenhar para esta coleção? UMA pergunta, num lugar só: quem
-// monta o card precisa saber ANTES de criar a caixa, senão sobra um `.coll-opts`
-// vazio empurrando a lista de músicas para baixo com o respiro dele.
-function temPainelDeColecao(coll) { return ehSerie(coll); }
+// As faixas que a LISTA desenha — o destaque sai dela (ver `destaqueDaSerie`).
+// Uma função só, usada pela montagem e pela paginação: duas leituras diferentes
+// do mesmo array fariam o contador de "restantes" discordar do que há na tela.
+function faixasDaLista(coll) {
+  const todas = collSongs(coll.id);
+  const d = destaqueDaSerie(coll);
+  if (!d || !d.song) return todas;
+  return todas.filter((s) => s !== d.song);
+}
+
+function blocoDestaque(coll) {
+  const d = destaqueDaSerie(coll);
+  if (!d) return null;
+  const cx = document.createElement('div');
+  cx.className = 'serie-destaque' + (d.song ? '' : ' vazio');
+
+  const cab = document.createElement('div'); cab.className = 'serie-destaque-cab';
+  const rot = document.createElement('span'); rot.className = 'serie-destaque-rot';
+  rot.textContent = 'Este sábado';
+  const dia = document.createElement('span'); dia.className = 'serie-destaque-data';
+  dia.textContent = d.rotulo;
+  cab.appendChild(rot); cab.appendChild(dia);
+  cx.appendChild(cab);
+
+  if (d.song) {
+    // `.coll-songs` junto do modificador: a linha herda o corpo, o raio e o
+    // alvo que a lista já define, sem uma segunda folha para manter em dia.
+    const ul = document.createElement('ul');
+    ul.className = 'coll-songs serie-destaque-lista';
+    ul.appendChild(hymnResultRow(coll, d.song, null, true));
+    cx.appendChild(ul);
+  } else {
+    const vazio = document.createElement('div');
+    vazio.className = 'serie-destaque-vazio';
+    vazio.textContent = 'Aguardando lançamento';
+    cx.appendChild(vazio);
+  }
+  return cx;
+}
 
 // (`hymnalStat` — o construtor dos chips do painel — saiu na v5.232 com o
 // último chip que restava, o do peso: ele já estava na barra do card, antes
