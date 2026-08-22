@@ -27,19 +27,28 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
    medidas de layout que o JS também lê.
    NÃO usar valor literal solto na folha: sempre um token. */
 :root {
-  /* O RESPIRO ENTRE ESTROFES = UMA LINHA DA LETRA (`--lv-fonte` × 1.5), que é o
-     que a FONTE codifica (o banco separa estrofes com `<br><br>`). Token e não
-     três literais porque vale nos TRÊS lugares em que uma estrofe termina: o
-     `gap` da folha de leitura, o `gap` da zona de letra do modo simplificado e o
-     `margin-top` entre dois blocos DENTRO de um slide (a API às vezes empacota
-     duas estrofes numa entrada só). Uma fronteira de estrofe tem de parecer
-     igual nas três, senão a leitura ganha um ritmo que o texto não tem.
+  /* O RESPIRO ENTRE ESTROFES. Token e não três literais porque vale nos TRÊS
+     lugares em que uma estrofe termina: o `gap` da folha de leitura, o `gap` da
+     zona de letra do modo simplificado e o `margin-top` entre dois blocos DENTRO
+     de um slide (a API às vezes empacota duas estrofes numa entrada só). Uma
+     fronteira de estrofe tem de parecer igual nas três, senão a leitura ganha um
+     ritmo que o texto não tem. **Esta parte não mudou nunca, e é ela que o token
+     existe para garantir.**
 
-     E ELE ACOMPANHA A FONTE, obrigatoriamente: com o respiro preso ao valor
-     antigo, a fronteira de estrofe passa a medir MENOS que uma linha e deixa de
-     se ler como fronteira — duas estrofes encostam. */
-  --lv-fonte: 1.9rem;
-  --lv-estrofe-gap: 2.85rem;
+     O QUE MUDOU É DE ONDE VEM O NÚMERO (v1.1.5). Ele era "uma linha da letra"
+     (fonte × 1.5), porque é literalmente o que a fonte codifica — o banco separa
+     estrofes com `<br><br>`. O argumento valia enquanto a letra media `.95rem`,
+     onde uma linha em branco custava 1,4rem; com a fonte em `1.4rem` a mesma
+     regra pediria 2,1rem, e aí o custo deixa de ser tipográfico e passa a ser
+     ROLAGEM: numa tela de celular, três estrofes empurram a quarta para fora.
+     Decisão do operador (*"pode reduzir o espaço entre as estrofes"*).
+
+     O PISO CONTINUA SENDO O QUE ELE SEMPRE FOI: a fronteira precisa medir
+     visivelmente MAIS que o vão entre duas linhas da MESMA estrofe (a `1.4rem`
+     com `line-height: 1.5`, ~0,7rem de entrelinha), senão duas estrofes
+     encostam e o `<br><br>` some da tela. `1.2rem` é ~1,7× esse vão. */
+  --lv-fonte: 1.4rem;
+  --lv-estrofe-gap: 1.2rem;
 
   /* ---------- Raios ----------
      Dois degraus (controle × cartão) e três exceções nomeadas. Um raio literal

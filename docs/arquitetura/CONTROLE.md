@@ -1088,34 +1088,44 @@ mixer (`#lyricsViewBtn`, folha com linhas) abre um bottom-sheet **com scroll**
   acontece de verdade com um louvor de fundo durante a leitura. Com uma fonte
   só, ela abre direto, sem um seletor de uma opção. A escolha manual (`lvSource`)
   vale enquanto aquela fonte existir; sumindo, cai na disponível.
-- **A LETRA É GRANDE, e isso é `--lv-fonte`** (v1.1.4, `1.9rem` — o dobro do
-  que era). Pedido do operador: *"pode dobrar o tamanho da fonte nos campos de
+- **A LETRA É GRANDE, e isso é `--lv-fonte`** (`1.4rem`, contra `.95rem` até a
+  v1.1.3). Pedido do operador: *"pode dobrar o tamanho da fonte nos campos de
   leitura de letra das músicas que estão sendo transmitidas; atual está muito
   pequeno e só sobrando espaço lateral na linha"*. Ele descreve a MEDIDA: a
   `.95rem` uma linha de hino de 35 caracteres cabia inteira numa tela de 412px
-  com largura sobrando. **O preço, dito: a linha agora QUEBRA em duas**, e num
-  texto em que o fim da linha é parte do que se canta isso se nota — o que
-  decide a favor é para que este campo existe, ler de relance com o aparelho no
-  suporte. Os RÓTULOS (a capa, "Estrofe 2", o número do versículo) sobem menos:
-  dobrá-los junto faria um metadado ficar maior que a letra. É um token porque
-  o respiro abaixo é derivado dele e porque os dois consumidores da `.lv-row` —
-  esta folha e a zona de letra do Modo Fácil — mudam juntos.
-- **O RESPIRO ENTRE ESTROFES É UMA LINHA EM BRANCO** (`--lv-estrofe-gap`, no
-  `:root` de `controle.css` — é medida de layout, não cor). O valor não é gosto:
-  é literalmente o que a fonte codifica (`<br><br>`), **derivado de `--lv-fonte`
-  × 1,5** (preso ao valor antigo, a fronteira passaria a medir menos que uma
-  linha e duas estrofes encostariam), e vale nos TRÊS lugares em
-  que uma estrofe termina — o `gap` desta folha, o `gap` da zona de letra do
-  Modo Fácil e o `margin-top` entre dois blocos DENTRO de um slide (a API às
-  vezes empacota duas estrofes numa entrada só — v5.142). Uma fronteira de
-  estrofe é uma fronteira de estrofe: parece igual nos três, senão a leitura
-  ganha um ritmo que o texto não tem. Até a v5.225 os três divergiam e na
-  direção ERRADA — 8,8 px (avançado) e 8,0 px (simples) entre estrofes
-  diferentes contra 11,4 px entre blocos da mesma, medido: duas estrofes ficavam
-  mais juntas que o miolo de uma. A estrutura por baixo estava inteira desde a
-  v5.42; o que a desmentia era o par de medidas. `tools/smoke.mjs` trava a
-  REGRA (entre ≥ dentro, entre ≥ uma linha, igual nos dois modos), nunca o
-  pixel — escrever o número faria o oráculo reprovar numa mudança de fonte.
+  com largura sobrando. A v1.1.4 dobrou (`1.9rem`) e a v1.1.5 recuou para
+  `1.4rem` **depois de ver**: no dobro, TODA linha quebrava em duas, e num texto
+  em que o fim da linha é parte do que se canta isso se nota. A `1.4rem` a maior
+  parte ainda quebra, mas quatro estrofes cabem na folha onde antes cabiam duas.
+  Os RÓTULOS (a capa, "Estrofe 2", o número do versículo) sobem menos: acompanhar
+  a letra faria um metadado ficar maior que ela. É um token porque os dois
+  consumidores da `.lv-row` — esta folha e a zona de letra do Modo Fácil — mudam
+  juntos.
+- **O RESPIRO ENTRE ESTROFES** (`--lv-estrofe-gap`, no `:root` de
+  `controle.css` — é medida de layout, não cor) **vale nos TRÊS lugares em que
+  uma estrofe termina**: o `gap` desta folha, o `gap` da zona de letra do Modo
+  Fácil e o `margin-top` entre dois blocos DENTRO de um slide (a API às vezes
+  empacota duas estrofes numa entrada só — v5.142). Uma fronteira de estrofe é
+  uma fronteira de estrofe: parece igual nos três, senão a leitura ganha um ritmo
+  que o texto não tem. Até a v5.225 os três divergiam e na direção ERRADA —
+  8,8 px (avançado) e 8,0 px (simples) entre estrofes diferentes contra 11,4 px
+  entre blocos da mesma, medido: duas estrofes ficavam mais juntas que o miolo de
+  uma. A estrutura por baixo estava inteira desde a v5.42; o que a desmentia era
+  o par de medidas.
+
+  **De onde vem o NÚMERO mudou na v1.1.5** (*"pode reduzir o espaço entre as
+  estrofes"*). Ele era "uma linha em branco" — literalmente o que a fonte
+  codifica (`<br><br>`) —, e o argumento valia enquanto a letra media `.95rem`,
+  onde a linha custava 1,4 rem. Com `1.4rem` de letra a mesma regra pediria
+  2,1 rem e o custo deixa de ser tipográfico: numa tela de celular, três estrofes
+  empurram a quarta para fora. Hoje são **1,2 rem**, decididos.
+
+  **O piso continua sendo o que sempre importou**, e é ele que `tools/smoke.mjs`
+  trava: a fronteira acrescenta mais branco que a ENTRELINHA da própria estrofe
+  (`line-height` − corpo da letra). Abaixo disso ela fica menos visível que uma
+  quebra de linha comum, que é a v5.225 outra vez com outro número. A REGRA,
+  nunca o pixel — escrever o valor faria o oráculo reprovar numa mudança de
+  fonte.
 - **É leitura, não operação.** Nenhuma linha projeta nada ao toque: o que vai
   ao telão continua saindo dos botões de estrofe/versículo (`stepSlide`) e da
   tela da Bíblia. Um popup de consulta que também projeta seria a pior hora

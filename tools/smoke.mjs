@@ -754,10 +754,15 @@ try {
       box.appendChild(e1); box.appendChild(e2);
       document.body.appendChild(box);
       const d = e2.querySelectorAll('.lv-text');
+      const cs = getComputedStyle(e1);
       const out = {
         entre: e2.getBoundingClientRect().top - e1.getBoundingClientRect().bottom,
         dentro: d[1].getBoundingClientRect().top - d[0].getBoundingClientRect().bottom,
-        linha: parseFloat(getComputedStyle(e1).lineHeight),
+        linha: parseFloat(cs.lineHeight),
+        // A ENTRELINHA DA PRÓPRIA ESTROFE: o branco que já separa duas linhas
+        // seguidas do mesmo bloco (`line-height` menos o corpo da letra). É
+        // contra ELE que a fronteira precisa se destacar — ver a asserção.
+        entrelinha: parseFloat(cs.lineHeight) - parseFloat(cs.fontSize),
       };
       box.remove();
       return out;
@@ -766,11 +771,26 @@ try {
   });
   for (const [modo, g] of Object.entries(gaps)) {
     const detalhe = ' (entre ' + g.entre.toFixed(1) + 'px · dentro ' + g.dentro.toFixed(1)
-      + 'px · linha ' + g.linha.toFixed(1) + 'px)';
+      + 'px · entrelinha ' + g.entrelinha.toFixed(1) + 'px · linha ' + g.linha.toFixed(1) + 'px)';
     checar(g.entre >= g.dentro - 0.5,
       'no modo ' + modo + ', duas estrofes não ficam mais juntas que o miolo de uma' + detalhe);
-    checar(g.entre >= g.linha - 0.5,
-      'e a fronteira entre elas vale ao menos uma LINHA — a que a fonte codifica' + detalhe);
+    // A REGRA MUDOU DE PISO NA v1.1.5, e o defeito que ela impede é o MESMO.
+    //
+    // Era "a fronteira vale ao menos uma LINHA em branco", porque é o que a
+    // fonte codifica (`<br><br>`). Com a letra em `1.4rem` uma linha em branco
+    // custa 2,1rem, e três estrofes empurram a quarta para fora da tela — o
+    // operador pediu o respiro menor, e o que ele revoga é o TAMANHO, não a
+    // fronteira.
+    //
+    // O que sobrevive é o piso que sempre importou: a fronteira tem de
+    // acrescentar MAIS branco do que a entrelinha que já separa duas linhas
+    // seguidas da mesma estrofe. Abaixo disso, uma fronteira de estrofe fica
+    // MENOS visível que uma quebra de linha comum — que é a v5.225 outra vez,
+    // com outro número. E continua sendo a REGRA, nunca o pixel: escrever o
+    // valor aqui faria o oráculo reprovar na próxima mudança de fonte.
+    checar(g.entre >= g.entrelinha - 0.5,
+      'e ela se destaca da ENTRELINHA da própria estrofe — abaixo disso a '
+      + 'fronteira sumiria dentro do texto' + detalhe);
   }
   checar(Math.abs(gaps.avancado.entre - gaps.simples.entre) < 0.5,
     'e o respiro é o MESMO nos dois modos — a mesma letra não muda de ritmo');
