@@ -2539,7 +2539,13 @@ main {
    baixa é o botão do painel logo abaixo — que tem o estado e o progresso. O
    `visibility: hidden` tira o botão do toque, do foco e do leitor de tela e
    MANTÉM a coluna, que é o que impede o peso de saltar. */
-.coll-bar-dl.vago { visibility: hidden; pointer-events: none; }
+/* A LIXEIRA DA BARRA (v1.1.16). Mesmo alvo e mesma geometria do irmão de
+   baixar — eles dividem a coluna da direita, e centros que discordam num par
+   colado é a coisa que mais parece defeito numa linha. O que muda é só a cor:
+   destrutivo é `--danger`, como em todo o resto do app.
+   (`.coll-bar-dl.vago` saiu junto: ela escondia o botão de baixar com o card
+   aberto porque o painel de dentro repetia a ação. O painel saiu.) */
+.coll-bar-rm { background: var(--danger-soft); color: var(--danger-strong); }
 /* O invólucro do que a abertura revela (engrenagem + músicas). Existe só para a
    animação de altura ter UM nó para recortar — sem ele o `overflow:hidden`
    teria de ir no card, e o card tem a barra grudada no topo (`position:sticky`),

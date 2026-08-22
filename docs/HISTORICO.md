@@ -24,6 +24,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
+- **v1.1.16** — O BOTÃO DE VERIFICAR SAI, E A VERIFICAÇÃO FICA: ele só aparecia num álbum COMPLETO, e o que fazia — pular o TTL de 12 h para reler o índice — passou a acontecer sozinho na abertura, só para os álbuns que o operador TEM no aparelho e UMA VEZ POR SESSÃO (esta função roda a cada retomada, e o operador troca de app dezenas de vezes num culto). A lixeira sobe para a barra do card, revelada pelo mesmo gesto que revela o que ela apaga; o botão de BAIXAR deixa de se esconder com o card aberto, porque o painel que o repetia saiu. OTA PURO
 - **v1.1.15** — A TRANSPOSIÇÃO DEIXAVA OS ACORDES DE SÉTIMA MAIOR PARADOS: o sufixo da gramática era uma lista de palavras minúsculas EXIGINDO dígitos depois, e `7M` (dígito + M maiúsculo, a notação brasileira mais comum num hinário) não casava. Como `transporAcorde` devolvia intacto o que não casasse, `D7M/A` e `G7M` ficavam no tom original com a folha andando à volta deles — dissonância na frente de quem toca, sem sinal em lugar nenhum. Slash chords NUNCA estiveram quebrados. A correção por conjunto de caracteres foi reprovada pelo oráculo (`Cada` virava acorde); ficou uma sequência de PEÇAS inteiras, nenhuma exigindo dígito. A transposição passou a andar só na raiz e no baixo. OTA PURO
 - **v1.1.14** — O CONTADOR DA RETOMADA MENTIA, E ELE ERA A ÚNICA COISA QUE A v1.1.11 ENTREGOU PARA SER LIDA A DISTÂNCIA: cada `play()` nosso que fosse negado produzia outra pausa espontânea, e um único roubo era anunciado como quatro. Mais o crédito que confundia SUCESSO com FALHA (três socorros certos esgotavam o teto), o `t2` que carregava a espera onde todo o resto carrega a posição, e o carimbo da preview que chamava de espontânea a pausa do próprio navegador ao minimizar o app — este último achado veio de um Registro REAL colado pelo operador. OTA PURO
 - **v1.1.13** — O SELO DE CAMADAS DEIXA DE PERGUNTAR SE HÁ MÚSICA POR BAIXO: ele exigia `midiaNoAr` e por isso sumia justamente onde é mais procurado — Bíblia, mensagem e cronômetro, que são projetados sem música o tempo todo. Um controle que aparece e some conforme o contexto é um controle que ninguém aprende (revoga a segunda metade da regra da v1.0.3). Mais: a Bíblia NO AR vira fonte exclusiva da folha de leitura (com música, só Letra e Cifra), o corpo da folha vira CAIXA com barra de rolagem — "acabou" era indistinguível de "está cortado" —, a cifra QUEBRA em vez de rolar de lado (com o preço escrito) e o "Ver no Cifra Club" vira link de rodapé. OTA PURO
@@ -211,6 +212,96 @@ na nota que a revoga, não apagada da que a criou.
 - **v5.154** — é METADE OTA e METADE APK, e a divisão importa para quem for testar em aparelho.
 - **v5.155** — é OTA PURO
 - **v5.156** — é METADE OTA e METADE APK, de novo.
+
+---
+
+## v1.1.16 — o botão de verificar sai, e a verificação fica
+
+*"Remova o botão de verificar atualizações dos álbuns, e coloque o botão de
+excluir na direita no card do título do álbum, ali onde fica o botão de
+download. Agora a verificação é feita de forma automática, no segundo plano toda
+vez que o app abre (tente fazer de forma a ser algo invisível para o usuário e
+sem efeito de peso significativo de processamento, para não ser notado), e se
+tiver alguma diferença ele mostra o botão de download (ali na barra do álbum).
+Deixe o botão de excluir apenas visível quando abrir o álbum."*
+
+**OTA PURO** (nada em `java/`, `res/` ou no manifest).
+
+### O botão que existia para fazer o que o app já fazia
+
+"Verificar" só aparecia num álbum **COMPLETO** — o caso em que não há o que
+baixar e a única pergunta é *"o catálogo cresceu?"*. O que o toque fazia era
+reler o índice, e quem relê o índice é o `autoRefreshCollections`, na abertura.
+**O que faltava era pouco**, e é a razão de o botão ter podido sair: a fase 2
+daquela função só pegava os índices VENCIDOS pelo TTL de 12 h, e o botão existia
+exatamente para pular esse TTL.
+
+`forcarIndice` reproduz o toque sem o toque. O desfecho é o mesmo: o índice
+cresce, `colecaoCompleta` vira falso, e o botão de **BAIXAR** aparece na barra do
+card — que é onde o pedido manda mostrá-lo.
+
+### A metade difícil é ser invisível
+
+- **UMA VEZ POR SESSÃO, não por retomada** (`indicesForcados`). Esta função roda
+  também no `visibilitychange`, e o operador troca de app dezenas de vezes
+  durante um culto: forçar a cada volta seria uma rajada de requisições na Wi-Fi
+  da igreja toda vez que ele olha uma mensagem. O conjunto vive no módulo e
+  morre com a página — que é exatamente o significado de *"toda vez que o app
+  abre"*.
+- **SÓ ÁLBUM, e só o que tem download.** A conta é proporcional ao que o
+  operador guardou (tipicamente um punhado), nunca ao catálogo inteiro (~40).
+  Num aparelho sem nada baixado o custo é **ZERO** — nenhuma requisição a mais
+  que hoje.
+- **A SÉRIE FICA DE FORA**, e essa exceção precisa estar dita: o índice dela
+  custa uma **extração do canal do YouTube**, não um GET de JSON. Forçá-la aqui
+  seria justamente o "peso significativo de processamento" que o pedido exclui —
+  e é por isso que ela **mantém o botão "Atualizar a lista"**, que não é
+  "verificar se há o que baixar": uma série não baixa em lote por desenho
+  (~15 GB/ano), e aquele botão é a única porta para refazer uma lista que o TTL
+  segura por meio dia.
+- **O carimbo é posto ANTES da rede**, e para todos os escolhidos: uma falha de
+  rede não pode fazer a próxima retomada tentar de novo — aí o "uma vez por
+  sessão" viraria "a cada volta ao app" justamente no aparelho com a pior
+  conexão. Quem retenta é a abertura seguinte.
+
+### A coluna da direita passa a ter dois botões, com regras diferentes
+
+| botão | responde a | quando |
+|---|---|---|
+| **baixar / cancelar** | "há o que baixar?" | independente de aberto ou fechado |
+| **remover** | "o álbum está aberto?" | só com o card aberto |
+
+- **A lixeira ganha o lugar mais alcançável da linha, e o gesto que a revela é o
+  mesmo que revela o conteúdo que ela apaga.** Fechado, o card não oferece
+  destruição nenhuma — e o acervo inteiro é uma lista de cards fechados. É o
+  caso que erra caro, e o que o oráculo cobra primeiro.
+- **O botão de baixar deixou de se esconder com o card aberto.** O `vago`
+  existia porque o painel de dentro repetia a ação dois centímetros abaixo;
+  saindo a repetição, sai o esconderijo. E a barra é o que gruda no topo
+  enquanto se percorre a lista: um álbum de centenas de faixas precisa poder
+  começar (e parar) num toque, de qualquer ponto da rolagem.
+- **`countDownloaded` só é chamado com o card ABERTO.** Ele varre todas as
+  faixas do álbum, e o acervo é redesenhado a cada 400 ms enquanto um download
+  corre. Há no máximo um card aberto (o acordeão), então a varredura acontece
+  uma vez por redesenho, não quarenta.
+- **A caixa do painel só nasce quando há painel** (`temPainelDeColecao`): um
+  `.coll-opts` vazio empurraria a lista de músicas para baixo com o respiro
+  dele, e um vão sem causa dentro de um card lê-se como algo que não carregou.
+
+### Os oráculos passaram a medir a regra NOVA, e não foram afrouxados
+
+O `smoke.mjs` travava *"a coluna da direita não se mexe ao abrir"* — a regra que
+o `vago` sustentava, e que este lote revoga de propósito. Ela deu lugar aos
+QUATRO estados do par (completo/parcial × aberto/fechado), com o caso caro
+primeiro: **fechado, nenhum álbum mostra a lixeira**. E a visibilidade é medida
+de verdade (`getComputedStyle` + largura), não por presença no DOM: uma asserção
+de presença teria aprovado o `vago`, que deixava o botão lá e o escondia.
+
+O `boot-nativo.test.mjs` ganhou a metade que falharia CALADA — a escolha do
+`autoRefreshCollections` —, com espião sobre `fetchCollectionIndex` e as quatro
+perguntas (o álbum com download entra, o sem download não, a série não, e a
+retomada não repete). **Verificada por reversão**: tirar o `forcarIndice` reprova
+a primeira; tirar o `indicesForcados` reprova a última.
 
 ---
 

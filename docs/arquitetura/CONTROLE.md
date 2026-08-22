@@ -2767,7 +2767,13 @@ Dois tipos:
   cada álbum vem de `album_{id}.musics` e é buscado **automaticamente**
   (`autoRefreshCollections`, fase 2 — só metadados, sem áudio), com
   concorrência limitada e um TTL (`ALBUM_INDEX_TTL`, 12 h) pra não refazer N
-  requisições a cada retomada; álbuns novos/vazios são sempre buscados. Assim a
+  requisições a cada retomada; álbuns novos/vazios são sempre buscados. **E o
+  álbum COM DOWNLOAD no aparelho é relido na abertura mesmo dentro do TTL**
+  (`forcarIndice`, v1.1.16): é o que o botão "Verificar" fazia, e é o que faz o
+  botão de BAIXAR aparecer sozinho quando o catálogo cresce. UMA VEZ POR SESSÃO
+  (`indicesForcados`) — esta função roda a cada `visibilitychange`, e forçar a
+  cada volta ao app seria uma rajada de requisições na Wi-Fi da igreja. A SÉRIE
+  fica de fora: o índice dela custa uma extração do canal do YouTube. Assim a
   busca do acervo cobre **todas** as músicas de **todos** os álbuns mesmo sem
   nada baixado (tocar num resultado baixa sob demanda — igual ao hinário).
   Álbuns cujo nome parece de hinário são pulados (já têm card dedicado).
@@ -3138,25 +3144,58 @@ acordeões do acervo: o **card do álbum** e a **letra** de cada linha.
 > aqui — o IndexedDB/OPFS com tudo o que o operador baixou; nos textos VISÍVEIS
 > ele é "os dados do app", para as duas coisas não dividirem a mesma palavra.
 
-**Opções da coleção** (`buildCollectionOptions` → painel `.coll-opts--inline`,
-dentro do card): tudo que é manutenção, numa LINHA — `[⟳ Verificar · ✓ completo]
-[🗑]`. Aparecem **sempre** que o álbum está aberto; não há botão para revelá-las
-nem "Ver músicas" (a lista é o toque no card).
+**A COLUNA DA DIREITA DA BARRA** (v1.1.16) tem até dois botões, e cada um
+responde a uma pergunta diferente:
 
-- **Sincronizar** (`syncCollection`), rotulado pelo que ESTE toque vai fazer:
-  **"Verificar atualizações"** com o álbum inteiro no aparelho, **"Baixar"** em
-  qualquer outro caso, **"Cancelar"** enquanto roda.
+| botão | responde a | quando aparece |
+|---|---|---|
+| **baixar / cancelar** (`.coll-bar-dl`) | "há o que baixar?" | independente de aberto ou fechado |
+| **remover** (`.coll-bar-rm`) | "o álbum está aberto?" | só com o card aberto |
+
+- **A lixeira é revelada pelo mesmo gesto que revela o que ela apaga.** Fechado,
+  o card não oferece destruição nenhuma — e o acervo inteiro é uma lista de
+  cards fechados; ali ela seria destruição a um toque de distância, repetida
+  linha a linha.
+- **O botão de baixar NÃO se esconde com o card aberto.** O `vago` existia
+  porque o painel de dentro repetia a ação dois centímetros abaixo; saindo a
+  repetição, sai o esconderijo. E a barra é o que gruda no topo (`sticky`)
+  enquanto se percorre a lista: um álbum de centenas de faixas precisa poder
+  começar (e parar) num toque, de qualquer ponto da rolagem.
+- **`countDownloaded` só é chamado com o card ABERTO** — ele varre todas as
+  faixas do álbum, e o acervo é redesenhado a cada 400 ms enquanto um download
+  corre. O acordeão garante no máximo um card aberto, então a varredura é uma
+  por redesenho, não quarenta.
+- **A remoção é só a LIXEIRA**: um destrutivo pode ficar sem rótulo porque é
+  CONFIRMADO, e o diálogo nomeia o alcance ("o que foi baixado… e a lista
+  offline"). A frase segue no `title`/`aria-label`.
+- **`stopPropagation` nos dois**, como em toda coisa que vive na barra: sem ele
+  o toque borbulha até o card e o FECHA — a lixeira fecharia o álbum debaixo do
+  diálogo que ela acabou de abrir.
+
+**Opções da coleção** (`buildCollectionOptions` → painel `.coll-opts--inline`,
+dentro do card): **só a SÉRIE tem painel** desde a v1.1.16, e ele tem um botão
+só — "Atualizar a lista" (`syncCollection(coll, { soIndice: true })`), com a
+contagem de episódios dentro dele.
+
+- **"Verificar" saiu, e a verificação ficou.** Ele só aparecia num álbum
+  COMPLETO — o caso em que não há o que baixar e a única pergunta é "o catálogo
+  cresceu?" —, e o que fazia era pular o TTL de 12 h para reler o índice. Quem
+  faz isso agora é o `autoRefreshCollections`, sozinho, na abertura (ver
+  `forcarIndice`). O desfecho é o mesmo: o índice cresce, `colecaoCompleta` vira
+  falso, e o botão de BAIXAR aparece na barra.
+- **"Baixar" saiu porque já existia na barra**, e era essa repetição que
+  obrigava o da barra a se esconder.
+- **A SÉRIE fica com o dela**, e a diferença não é capricho: "Atualizar a lista"
+  não é "verificar se há o que baixar" — uma série não baixa em lote por desenho
+  (~15 GB/ano), e é a única porta para refazer uma lista cujo índice custa uma
+  extração do canal do YouTube. Por isso ela mantém o TTL de 12 h e NÃO entra no
+  `forcarIndice`.
 - **O ESTADO fica DENTRO do botão** (`.coll-opt-estado`): o rótulo nomeia a
-  AÇÃO, o estado diz onde ela está — "Verificar · ✓ completo", "Baixar · 12/24",
-  "Atualizar a lista · 52 episódios". Quem encolhe com reticências é o estado.
-- **O PROGRESSO é DESENHO, não texto.** O botão de cancelar se preenche até
-  `--p` (`::before` com `z-index: -1` sob `isolation: isolate` — o rótulo é um
-  nó de TEXTO e não recebe `z-index`, então quem desce é a barra). As palavras
-  são da barra do card; uma segunda cópia aqui é a classe de defeito que já
-  esvaziou este painel duas vezes. Sem índice não há fração nem barra.
-- **A remoção é só a LIXEIRA** (`deleteCollection`): 44px contra 316px. Um
-  destrutivo pode ficar sem rótulo porque é CONFIRMADO, e o diálogo nomeia o
-  alcance; a frase segue no `title`/`aria-label`.
+  AÇÃO, o estado diz onde ela está. Em movimento ele é MUDO — quem escreve o
+  andamento é a barra do card, `sticky` e visível daqui.
+- **A caixa só nasce quando há painel** (`temPainelDeColecao`): um `.coll-opts`
+  vazio empurraria a lista de músicas para baixo com o respiro dele, e um vão
+  sem causa dentro de um card lê-se como algo que não carregou.
 
 > **A REGRA QUE ESTE PAINEL ENSINOU, DUAS VEZES: nada aqui repete o que a barra
 > do card já diz.** Ele já teve três chips, uma linha de status e um chip de
@@ -4593,7 +4632,7 @@ sábado é visto uma vez. Então:
 | "Tocar agora" | `ytAcao(…, ['tocar'])` | **TRANSMISSÃO DIRETA** — `ytStream` → `shared/mse.js`, sem baixar |
 | Modo Fácil | `simplePlaySong` desvia para o mesmo `ytAcao` | aquele modo não pergunta nada, e esperar 300 MB com o culto rodando não é opção |
 | guardar offline | os destinos da folha (playlist · Cronograma · Favoritos) | um episódio por vez, pelo caminho de download do YouTube |
-| card | `renderCollectionCard` / `buildCollectionOptions` | **card da RAIZ** do índice (v1.0.1), acima dos hinários; **sem botão de baixar em lote** com índice na mão; o de opções é "Atualizar a lista" (`syncCollection(coll, { soIndice: true })`), e a série sai de "Baixar toda a biblioteca" |
+| card | `renderCollectionCard` / `buildCollectionOptions` | **card da RAIZ** do índice (v1.0.1), acima dos hinários; **sem botão de baixar em lote** com índice na mão; o painel dela é o ÚNICO que sobrou (v1.1.16) e tem um botão só, "Atualizar a lista" (`syncCollection(coll, { soIndice: true })`), e a série sai de "Baixar toda a biblioteca" |
 
 `downloadSerieItem` e o laço de `syncCollection` continuam existindo e corretos
 — o que mudou é que nenhum toque de UI os alcança hoje. O que muda em relação a
