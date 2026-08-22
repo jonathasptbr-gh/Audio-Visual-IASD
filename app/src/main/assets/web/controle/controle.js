@@ -114,6 +114,7 @@ const lyricsPopupTitleEl = document.getElementById('lyricsPopupTitle');
 const lyricsPopupCloseEl = document.getElementById('lyricsPopupClose');
 const lyricsViewSegEl = document.getElementById('lyricsViewSeg');
 const lyricsViewBodyEl = document.getElementById('lyricsViewBody');
+const lyricsViewBarEl = document.getElementById('lyricsViewBar');
 
 /**
  * ===== O TAMANHO DA LETRA, AJUSTADO ONDE ELA É LIDA (v1.1.6) =====
@@ -236,7 +237,7 @@ const appVersionEl = document.getElementById('appVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.1.21';
+const WEB_VERSION = '1.1.22';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -9506,6 +9507,10 @@ function renderLyricsView() {
   });
 
   lyricsViewBodyEl.innerHTML = '';
+  // A BARRA é da cifra e de mais ninguém: limpar aqui, num ponto só, evita que
+  // trocar de fonte deixe os controles da folha anterior de pé sobre a Bíblia.
+  lyricsViewBarEl.innerHTML = '';
+  lyricsViewBarEl.hidden = true;
   if (!src) {
     lyricsPopupTitleEl.textContent = 'Letra';
     const empty = document.createElement('div');
@@ -9520,7 +9525,7 @@ function renderLyricsView() {
     lvBuildSong(lyricsViewBodyEl, lvCurIdx);
   } else if (src === 'cifra') {
     lyricsPopupTitleEl.textContent = cifraNomeDoItem(currentItem) || 'Cifra';
-    lvBuildCifra(lyricsViewBodyEl);
+    lvBuildCifra(lyricsViewBodyEl, lyricsViewBarEl);
   } else {
     const b = bibleSession;
     // A sigla da versão só entra quando a lista de versões já foi baixada — sem
@@ -9568,6 +9573,14 @@ function renderLyricsView() {
 let lvCifraSeq = 0;
 const cifraCache = new Map();   // chave → { estado, url, pagina, motivo, semitons }
 let cifraUltimoDiag = '';       // a linha "Cifra:" do Registro (lado web)
+/**
+ * Quantas páginas da busca vale tentar. Três, e não uma: o ranking do site não é
+ * o nosso — o primeiro colocado pode ser uma versão simplificada, uma playback
+ * ou um homônimo. E não é ilimitado: cada tentativa é um GET a um site de
+ * terceiro no meio do culto, e uma lista inteira de páginas ilegíveis não diz
+ * mais que três.
+ */
+const CIFRA_CANDIDATOS = 3;
 
 // A coleção a que o item em cena pertence, ou null. O registro de mídia guarda
 // o NOME do álbum (`hymnAlbum`), não o id — e quem sabe traduzir um no outro é
@@ -9661,17 +9674,34 @@ function cifraGarantir(item) {
     // nome no acervo não bate com o do site — mas NÃO cobre o `ilegivel`: ali a
     // página existe e o parser é que não a entendeu, e repetir a mesma leitura
     // por outro caminho só troca o motivo certo por um errado.
+    //
+    // DOIS TENTOS DE CONSULTA, e o álbum entra só no segundo: ele não é o
+    // artista do site, e uma palavra a mais numa busca de texto pode ENCOLHER o
+    // resultado em vez de afiná-lo. Quando o primeiro tento não devolve nada com
+    // parentesco, não há o que encolher — e aí o álbum é a única carta que sobra.
+    //
+    // ATÉ `CIFRA_CANDIDATOS` PÁGINAS, na ordem do parentesco. O ranking do site
+    // não é o nosso: o primeiro colocado pode ser uma versão simplificada, uma
+    // playback ou um homônimo. Cada tentativa entra no Registro, então três
+    // `ilegivel` seguidos continuam dizendo "o site mudou de formato" — mais
+    // alto, não mais baixo.
     if (!desfecho.ok && desfecho.motivo !== AVCifra.MOTIVO_ILEGIVEL) {
-      const busca = AVCifra.urlDeBusca(nome);
-      if (busca) {
+      const consultas = [AVCifra.urlDeBusca(nome)];
+      if (coll && coll.name) consultas.push(AVCifra.urlDeBusca(nome, coll.name));
+      let candidatos = [];
+      for (const busca of consultas) {
+        if (!busca || candidatos.length) continue;
         const rb = await AVNative.cifraHtml(busca);
         const achados = rb.status >= 200 && rb.status <= 299 ? AVCifra.lerBusca(rb.html) : [];
-        tentativas.push('busca ' + busca + ' → ' + achados.length + ' resultado(s)');
-        if (achados.length) {
-          url = achados[0].url;
-          desfecho = await cifraPedir(url);
-          tentativas.push('escolhida ' + url + ' → ' + desfecho.motivo);
-        }
+        candidatos = AVCifra.ordenarBusca(achados, nome, coll && coll.name);
+        tentativas.push('busca ' + busca + ' → ' + achados.length + ' resultado(s), '
+          + candidatos.length + ' com parentesco');
+      }
+      for (const c of candidatos.slice(0, CIFRA_CANDIDATOS)) {
+        url = c.url;
+        desfecho = await cifraPedir(url);
+        tentativas.push('tentada ' + url + ' → ' + desfecho.motivo);
+        if (desfecho.ok) break;
       }
     }
 
@@ -9802,14 +9832,20 @@ function cifraRemedir() {
 // diz o que está de fato acontecendo. Os degraus numéricos são a escolha
 // explícita do mesmo ritmo fixo.
 //
-// ## Por que `requestAnimationFrame`, e não `setInterval`
+// ## Por que `requestAnimationFrame`, e por que a posição é FRACIONÁRIA
 //
-// No degrau mais lento do modo livre são 11 px/s — menos de um pixel por
-// quadro. Um passo fixo ou arredonda para zero (não anda) ou para um (voa); o
-// acumulador de fração (`cifraResto`) resolve os dois. O delta tem TETO
-// ([CIFRA_DT_MAX]) porque a página estrangulada em segundo plano voltaria dando
-// um salto — no modo `auto` isso não é problema (a posição é função do tempo da
-// música), mas no livre é a diferença entre continuar e pular meia folha.
+// No ritmo de leitura são ~0,37 px por quadro. Escrevendo `scrollTop` inteiro, a
+// folha anda 1 px a cada três quadros e fica parada nos outros dois — e é esse
+// liga-desliga que se vê como TREMOR. Não é jitter de relógio: é quantização.
+// Por isso a posição é NOSSA ([cifraPos], `Number`) e é escrita com a fração;
+// quem suaviza é o compositor do navegador, que rola em subpixel. Reler o
+// `scrollTop` para acumular seria perder a fração a cada quadro, que é o mesmo
+// defeito por outro caminho.
+//
+// O delta tem TETO ([CIFRA_DT_MAX]) porque a página estrangulada em segundo
+// plano voltaria dando um salto — no modo `auto` isso não é problema (a posição
+// é função do tempo da música), mas no livre é a diferença entre continuar e
+// pular meia folha.
 //
 // ## O dedo NÃO briga com a rolagem, e não a desliga
 //
@@ -9833,7 +9869,6 @@ let cifraRolando = false;
 let cifraSegurando = false;
 let cifraRaf = 0;
 let cifraQuadroT = 0;
-let cifraResto = 0;
 let cifraRolarBtnEl = null;
 let cifraVelBtnEl = null;
 /** De QUAL música é a rolagem em curso — ver a guarda no `lvBuildCifra`. */
@@ -9842,6 +9877,21 @@ let cifraRolandoChave = '';
 let cifraDesvio = 0;
 /** O último alvo TEÓRICO (sem o desvio) — é dele que sai um desvio novo. */
 let cifraAlvoTeorico = 0;
+/**
+ * A POSIÇÃO DA FOLHA EM FRAÇÃO DE PIXEL — a nossa, não a do elemento.
+ *
+ * O `scrollTop` de volta vem arredondado, e um acumulador que se relesse a cada
+ * quadro perderia a fração toda vez: no ritmo de leitura são ~0,37 px por
+ * quadro, então a folha andava 1 px a cada três quadros e ficava parada nos
+ * outros dois. É esse liga-desliga que o operador vê como TREMOR — não é
+ * jitter de relógio, é quantização.
+ *
+ * Guardando a posição aqui em `Number` e escrevendo o valor fracionário, quem
+ * suaviza é o compositor do navegador, que rola em subpixel.
+ */
+let cifraPos = 0;
+/** O que ESCREVEMOS por último — é a régua para saber se outro mexeu. */
+let cifraEscrito = -1;
 
 /**
  * A posição que a folha DEVERIA ter agora, em pixels — ou `null` quando não há
@@ -9920,8 +9970,8 @@ function cifraRolarParar() {
   cifraRolando = false;
   if (cifraRaf) cancelAnimationFrame(cifraRaf);
   cifraRaf = 0;
-  cifraResto = 0;
   cifraDesvio = 0;
+  cifraEscrito = -1;
   cifraPintarRolar();
 }
 
@@ -9941,11 +9991,19 @@ function cifraRolarQuadro(t) {
   const alvo = CIFRA_VELOCIDADES[cifraVelIdx] === 'auto' && rolavel > 0
     ? cifraAlvoDoRelogio(rolavel) : null;
 
+  // OUTRO MEXEU NA FOLHA? Um arrasto, um `scrollIntoView`, o teclado do sistema
+  // — qualquer coisa que não tenha sido a linha de escrita lá embaixo. O
+  // `scrollTop` de volta vem arredondado, então a régua tem folga de um pixel:
+  // sem ela, a nossa própria escrita fracionária se leria como intervenção
+  // alheia a cada quadro, e a posição nunca sairia do lugar.
+  if (cifraEscrito < 0 || Math.abs(el.scrollTop - cifraEscrito) > 1) cifraPos = el.scrollTop;
+
   if (cifraSegurando || dt <= 0) {
     // O DESVIO é medido ENQUANTO o dedo está na tela, não no `pointerup`: ali o
     // alvo já andou, e a diferença sairia com o deslocamento de um quadro
     // dentro. Aqui ela é sempre contra o alvo do MESMO instante.
     if (cifraSegurando && alvo !== null) cifraDesvio = el.scrollTop - cifraAlvoTeorico;
+    cifraEscrito = -1; // a folha é de quem está com o dedo nela
     cifraRaf = requestAnimationFrame(cifraRolarQuadro);
     return;
   }
@@ -9953,38 +10011,43 @@ function cifraRolarQuadro(t) {
   if (alvo !== null) {
     cifraAlvoTeorico = alvo;
     const destino = Math.min(rolavel, Math.max(0, alvo + cifraDesvio));
-    const d = destino - el.scrollTop;
+    const d = destino - cifraPos;
     // UM SALTO GRANDE É UM SEEK, e um seek se obedece na hora: o operador
     // arrastou a barra, e a folha chegar lá deslizando por segundos seria a
     // folha discordando da música. Abaixo disso, perseguição suave — ela absorve
     // o jitter do `display-status`, que chega a ~4 Hz.
-    if (Math.abs(d) > el.clientHeight) {
-      el.scrollTop = destino;
-      cifraResto = 0;
-    } else {
-      cifraResto += d * (1 - Math.exp(-dt / CIFRA_TAU_MS));
-      const passo = cifraResto > 0 ? Math.floor(cifraResto) : Math.ceil(cifraResto);
-      if (passo !== 0) { cifraResto -= passo; el.scrollTop += passo; }
-    }
+    cifraPos = Math.abs(d) > el.clientHeight
+      ? destino
+      : cifraPos + d * (1 - Math.exp(-dt / CIFRA_TAU_MS));
+    cifraAplicarPos(el);
     cifraRaf = requestAnimationFrame(cifraRolarQuadro);
     return;
   }
 
   // ---- MODO LIVRE: px/s constante, avanço RELATIVO ----
   const mult = CIFRA_VELOCIDADES[cifraVelIdx] === 'auto' ? 1 : CIFRA_VELOCIDADES[cifraVelIdx];
-  cifraResto += (CIFRA_PX_POR_S * mult * dt) / 1000;
-  const passo = Math.floor(cifraResto);
-  if (passo > 0) {
-    cifraResto -= passo;
-    const antes = el.scrollTop;
-    el.scrollTop = antes + passo;
-    // Não andou nada com passo pedido? Chegou ao fim — e continuar é pedir ao
-    // aparelho um quadro por segundo para não fazer coisa nenhuma. Esta parada
-    // é SÓ do modo livre: no `auto` a folha descansa no fim com a música ainda
-    // tocando, que é exatamente o que o FECHO existe para produzir.
-    if (el.scrollTop <= antes) { cifraRolarParar(); return; }
-  }
+  const antes = el.scrollTop;
+  cifraPos = Math.min(rolavel, cifraPos + (CIFRA_PX_POR_S * mult * dt) / 1000);
+  cifraAplicarPos(el);
+  // Chegou ao fim? Continuar é pedir ao aparelho um quadro por segundo para não
+  // fazer coisa nenhuma. A pergunta é pelo TETO (`rolavel`) e não por "o
+  // scrollTop não andou": com fração de pixel, um quadro sem avanço visível é
+  // normal, e mediria "está lento", não "acabou". Esta parada é SÓ do modo
+  // livre: no `auto` a folha descansa no fim com a música ainda tocando, que é
+  // exatamente o que o FECHO existe para produzir.
+  if (cifraPos >= rolavel && antes >= rolavel - 1) { cifraRolarParar(); return; }
   cifraRaf = requestAnimationFrame(cifraRolarQuadro);
+}
+
+/**
+ * Escreve a posição no elemento, com a FRAÇÃO. O navegador rola em subpixel; o
+ * que ele devolve na leitura é arredondado, e por isso guardamos o que
+ * escrevemos ANTES de reler — é essa cópia que distingue a nossa escrita de um
+ * arrasto do operador no quadro seguinte.
+ */
+function cifraAplicarPos(el) {
+  el.scrollTop = cifraPos;
+  cifraEscrito = el.scrollTop;
 }
 
 function cifraRolarAlternar() {
@@ -9992,11 +10055,12 @@ function cifraRolarAlternar() {
   cifraRolando = true;
   cifraRolandoChave = cifraChave(currentItem);
   cifraQuadroT = 0;
-  cifraResto = 0;
   // Começar do zero: ligar a rolagem é pedir para seguir a MÚSICA, não para
   // manter o deslocamento com que a folha estava parada até agora.
   cifraDesvio = 0;
-  cifraAlvoTeorico = lyricsViewBodyEl.scrollTop;
+  cifraPos = lyricsViewBodyEl.scrollTop;
+  cifraEscrito = -1;
+  cifraAlvoTeorico = cifraPos;
   // Rolar sozinho e ACOMPANHAR a estrofe no ar são dois donos do mesmo scroll.
   // Quem tocou no botão escolheu este.
   lvFollow = false;
@@ -10023,7 +10087,6 @@ async function cifraVelPasso() {
   // Trocar de modo zera o desvio: ele foi medido contra um alvo que o modo novo
   // não calcula do mesmo jeito.
   cifraDesvio = 0;
-  cifraResto = 0;
   cifraPintarRolar();
   try { await AVDB.setState('cifraVelocidade', CIFRA_VELOCIDADES[cifraVelIdx]); }
   catch (_) { /* sem banco: vale a sessão */ }
@@ -10036,9 +10099,15 @@ async function cifraVelPasso() {
 window.addEventListener('resize', cifraRemedir);
 window.addEventListener('orientationchange', () => { requestAnimationFrame(cifraRemedir); });
 
-// Desenha a folha dentro de `el`.
-function lvBuildCifra(el) {
+// Desenha a folha dentro de `el`, e os controles dentro de `barra` — que fica
+// FORA do que rola, para o pausar continuar alcançável com a folha andando.
+function lvBuildCifra(el, barra) {
   const item = currentItem;
+  // OS BOTÕES MORREM COM O RENDER ANTERIOR. Sem soltá-los aqui, um render que
+  // caia em "procurando" ou em erro deixa `cifraPintarRolar` escrevendo num nó
+  // já desligado da árvore — sem erro, e sem efeito nenhum na tela.
+  cifraRolarBtnEl = null;
+  cifraVelBtnEl = null;
   const entrada = cifraGarantir(item);
   const nome = cifraNomeDoItem(item);
 
@@ -10090,8 +10159,9 @@ function lvBuildCifra(el) {
   // O CABEÇALHO: tom e transposição. O tom mostrado é o TRANSPOSTO — mostrar o
   // original ao lado de uma folha já transposta é a folha e o rótulo dizendo
   // coisas diferentes sobre a mesma tela.
-  const topo = document.createElement('div');
-  topo.className = 'lv-cifra-topo';
+  const topo = barra || el;
+  topo.className = 'lyricsview-bar lv-cifra-topo';
+  if (barra) barra.hidden = false;
   const tom = document.createElement('span');
   tom.className = 'lv-cifra-tom';
   const tomAtual = AVCifra.transporTom(p.tom, n);
@@ -10133,7 +10203,6 @@ function lvBuildCifra(el) {
   cifraVelBtnEl.addEventListener('click', cifraVelPasso);
   ctl.append(cifraRolarBtnEl, cifraVelBtnEl, menos, mais);
   topo.append(tom, ctl);
-  el.appendChild(topo);
   cifraPintarRolar();
 
   // A FOLHA. Um nó por linha, com a classe dizendo o que ela é — é o que deixa

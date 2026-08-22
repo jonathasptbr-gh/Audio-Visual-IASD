@@ -24,6 +24,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
+- **v1.1.22** — A BUSCA DE CIFRA CAÍA NO ÍNDICE ALFABÉTICO DO SITE: ela pegava o PRIMEIRO link de dois segmentos da página de resultados, e a navegação do site também é link de dois segmentos — e mora no cabeçalho, portanto vem ANTES de qualquer resultado no HTML. MEDIDO num aparelho: "Em Oração" devolveu 27 resultados e o escolhido foi `/letra/A/`, que respondeu HTTP 200 com 398 kB e virou `ilegivel` — o diagnóstico certo para a pergunta errada. A defesa NÃO é uma lista de rotas de terceiro (ela envelhece sozinha): é exigir PARENTESCO entre o texto do resultado e o nome procurado, com zero sendo RECUSA e não último lugar. O álbum entra como desempate e como segundo tento de consulta, nunca como filtro nem na primeira consulta — ele é o álbum, não o artista do site. OTA PURO No mesmo relato: os controles da folha ROLAVAM COM O TEXTO (o pausar saía de cena em segundos, e alcançá-lo exigia rolar de volta ao topo, brigando com a rolagem que se queria parar) e a rolagem TREMIA — ~0,37 px por quadro escritos como inteiro andam 1 px a cada três quadros e param nos outros dois; a posição passou a ser nossa e fracionária.
 - **v1.1.21** — A SÉRIE DEIXA DE FINGIR QUE GUARDA ARQUIVO: os episódios só existem enquanto estão no Cronograma, nos Favoritos ou na playlist, então o card perde o baixar em lote, a lixeira E o peso em gigabytes que prometia um download inexistente. Sobra UM botão puro — atualizar a lista — onde ficava o excluir. E o episódio DESTE SÁBADO sai da lista e vira um bloco destacado no topo, com "Aguardando lançamento" quando ainda não saiu; a janela é a semana adventista (domingo a sábado), não o dia exato. De quebra: o relógio congelado de um caso do `boot-nativo` VAZAVA para o contexto inteiro e prendia a página principal em 15/Ago. OTA PURO
 - **v1.1.20** — A CIFRA ROLA NO TEMPO DA MÚSICA, E A QUEBRA DE LINHA PASSA A QUEBRAR O PAR: dois defeitos do mesmo lugar. (1) A quebra era do CSS (`pre-wrap`), que quebra cada linha INDEPENDENTEMENTE — uma folha larga saía como duas linhas de acorde seguidas de duas de letra, e a segunda metade do acorde ficava a duas linhas da sílaba a que pertence: não é alinhamento imperfeito, é o par desfeito. Agora quem quebra é `AVCifra.quebrarPares`, no MESMO índice das duas linhas, com a largura em CARACTERES medida na fonte renderizada (`cifraColunas`) porque a monoespaçada do Android varia de aparelho e o corpo segue o A+/A−. (2) Nasce a ROLAGEM AUTOMÁTICA, e ela é uma FUNÇÃO da posição da música, não uma velocidade integrada: pausar PARA a folha, um seek a leva ao ponto certo, um quadro perdido não acumula erro. Com ABERTURA (o começo parado, para ver introdução e tom) e FECHO (o fim alcançado bem antes de a música acabar, para o final ser lido enquanto ainda se toca), os dois fração da música com piso e teto em segundos. OTA PURO
 - **v1.1.19** — O REGISTRO CONTA O CULTO, NÃO O CATÁLOGO: de ~170 linhas de uma cópia real, ~140 eram o bloco das Séries — a mesma frase de recusa sessenta vezes, mais 52 nomes de episódio em ordem —, enterrando a linha do tempo, que saía com DEZESSEIS linhas no fim de tudo. As recusas viram contagem por motivo com os primeiros nomes CRUS (a renomeação de um canal se descobre lendo UM nome, não sessenta); a lista de 52 vira as duas BORDAS, que é onde a ordem se confere. E o `.slice(-16)` sai: até 100 linhas já estavam na mão, incluindo as 60 que o `diag-ask` acabara de buscar pela rede, e o teto existia para um visor removido na v5.207 — o Registro só existe para ser COPIADO. O que encurta sem apagar é o colapso de repetição (`×7`). E ela era o ÚLTIMO dos oito blocos — começando na linha ~150 de um Registro real —, e passa a vir logo depois do cabeçalho: bloco novo entra DEPOIS dela. No lugar entram os eventos de CULTO (o que entrou em cena, a TV oscilando, a projeção se reapresentando, a rede caindo) e o erro de mídia do telão, que morria num console dentro de uma Presentation. OTA PURO
@@ -217,6 +218,108 @@ na nota que a revoga, não apagada da que a criou.
 - **v5.154** — é METADE OTA e METADE APK, e a divisão importa para quem for testar em aparelho.
 - **v5.155** — é OTA PURO
 - **v5.156** — é METADE OTA e METADE APK, de novo.
+
+---
+
+## v1.1.22 — a busca de cifra caía no índice alfabético do site
+
+**O caso, verbatim do Registro de um aparelho:**
+
+```
+busca https://www.cifraclub.com.br/?q=Em%20Ora%C3%A7%C3%A3o → 27 resultado(s)
+escolhida https://www.cifraclub.com.br/letra/A/ → ilegivel
+shell: HTTP 200, 398910 caractere(s) em https://www.cifraclub.com.br/letra/A/
+```
+
+`/letra/A/` é o **índice alfabético** do site. A busca funcionou (27
+resultados), a rede funcionou (HTTP 200), o parser funcionou (`ilegivel` é a
+resposta certa para uma página que não é uma folha de cifra) — e a música não
+apareceu. Cada peça respondeu com precisão a pergunta errada, que é a forma
+deste projeto de errar mais difícil de encontrar.
+
+### Duas razões independentes, e as duas eram minhas
+
+1. **A navegação do site também é link de dois segmentos.** `lerBusca` aceitava
+   qualquer `/a/b/` com texto, e `/letra/A/` é exatamente isso.
+2. **A ordem do documento não é a ordem do ranking.** Cabeçalho, rodapé,
+   "mais acessadas" e blocos de sugestão saem no mesmo HTML — e o cabeçalho vem
+   PRIMEIRO. Pegar `achados[0]` era pegar a navegação por construção, não por
+   azar: em toda busca que já funcionou, funcionou porque o cabeçalho daquela
+   página não tinha um link de dois segmentos antes do resultado.
+
+### A defesa não é uma lista de rotas
+
+Uma lista das seções do site conserta o caso medido e envelhece sozinha — o dono
+do site acrescenta uma rota e o defeito volta, calado. Ela ficou (`SECOES`), mas
+como **corte barato**, não como defesa.
+
+Quem defende é o **parentesco** entre o texto do resultado e o que se procurou:
+3 = o mesmo título, 2 = um contendo o outro, 1 = ao menos uma palavra forte em
+comum, 0 = nada. **Zero é RECUSA, não último lugar** — é o zero que faz uma
+página só de navegação virar "não achei" em vez de abrir qualquer coisa com
+confiança. O grau 1 é frouxo de propósito: ele é o que mantém coberto o hino
+cujo nome no acervo não bate com o do site, que é o caso para o qual a busca
+genérica existe.
+
+**O oráculo pegou um defeito na própria correção**, e é o tipo de coisa que só
+uma máquina vê: `chaveDeTitulo('A')` é `'a'`, e `'emoracao'.includes('a')` é
+verdadeiro — o grau 2 devolvia justamente o `/letra/A/`. A contenção passou a
+exigir CORPO (4 caracteres); um título de uma ou duas letras só pode ser parente
+por igualdade.
+
+### Mais dois, do mesmo relato
+
+**OS CONTROLES ROLAVAM COM O TEXTO.** A barra do topo morava dentro de
+`.lyricsview-body`, que é justamente o que a rolagem automática move: com ela
+ligada, o pausar e a velocidade saíam de cena em segundos, e alcançá-los exigia
+rolar de volta ao topo — brigando com a rolagem que se queria parar. Um controle
+que some é um controle que não existe no momento em que ele importa. Ela passou
+a ser um elemento próprio (`#lyricsViewBar`) entre o seletor e a caixa, com o
+mesmo alinhamento horizontal dela (senão barra e texto seriam duas colunas
+diferentes). É da cifra e de mais ninguém, e é limpa num ponto só — trocar de
+fonte deixaria os controles da folha de pé sobre a Bíblia.
+
+**A ROLAGEM TREMIA, E NÃO ERA O RELÓGIO.** No ritmo de leitura são ~0,37 px por
+quadro. Escrevendo `scrollTop` inteiro, a folha anda 1 px a cada três quadros e
+fica parada nos outros dois — o olho lê isso como tremor, e sobre TEXTO ele
+atrapalha a leitura, que é a única coisa que a aba faz. Não é jitter: é
+quantização. A posição passou a ser nossa (`cifraPos`, `Number`) e a ser escrita
+com a fração; quem suaviza é o compositor do navegador, que rola em subpixel.
+
+Reler o `scrollTop` para acumular seria o mesmo defeito por outro caminho — ele
+volta arredondado, e a fração se perderia a cada quadro. Por isso guardamos
+`cifraEscrito`, cópia do que escrevemos: é ela que distingue, no quadro seguinte,
+a nossa escrita de um arrasto do operador, com folga de um pixel para o
+arredondamento da leitura. O acumulador de fração do modo livre saiu junto — o
+mecanismo que ele existia para compensar deixou de existir, e um comentário
+explicando um mecanismo removido é armadilha, não história.
+
+E o CSS do corpo passou a declarar `scroll-behavior: auto` **explicitamente**:
+`smooth` faria o navegador animar cada uma das nossas escritas por cima da
+nossa, duas animações no mesmo eixo — outra forma de tremer, e uma que alguém
+acrescentaria de boa-fé achando que suavizaria.
+
+### O álbum: desempate, não filtro — e não na primeira consulta
+
+O operador observou que a consulta não levava o nome do álbum. Ela não leva, e a
+razão está escrita: **o álbum do acervo não é o artista do site.** "Em Oração"
+está no álbum "Missão"; quem gravou pode ser qualquer um. Duas consequências:
+
+- **filtrar** por ele derrubaria a música certa toda vez que os dois não
+  coincidissem, que é o caso normal;
+- **pô-lo na primeira consulta** pode ENCOLHER o resultado em vez de afiná-lo,
+  porque é busca de texto e uma palavra que não casa com nada tira resultados.
+
+Então ele entra nos dois lugares em que só pode ajudar: como **bônus de
+ordenação** (dois homônimos, e o do álbum que bate vem primeiro) e como
+**segundo tento de consulta**, disparado só quando o primeiro não devolveu
+nenhum parente — ali não há o que encolher.
+
+E passam a ser tentadas até **três** páginas (`CIFRA_CANDIDATOS`), na ordem do
+parentesco: o ranking do site não é o nosso, e o primeiro colocado pode ser uma
+versão simplificada ou um homônimo. Isso **não** apaga o sinal do `ilegivel` —
+cada tentativa entra no Registro, então três `ilegivel` seguidos dizem "o site
+mudou de formato" mais alto, não mais baixo.
 
 ---
 

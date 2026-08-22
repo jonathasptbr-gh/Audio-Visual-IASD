@@ -151,10 +151,18 @@
 
   // A BUSCA GENÉRICA — o "qualquer música". Sem catálogo e sem palpite de
   // slug: quem procura é o site.
-  function urlDeBusca(termo) {
+  /**
+   * A busca do site. `extra` é o SEGUNDO tento (o álbum junto do nome), e ele
+   * não é o primeiro de propósito: o álbum do acervo não é o artista do site, e
+   * uma palavra a mais numa busca de texto pode ENCOLHER o resultado em vez de
+   * afiná-lo. Ele entra quando o primeiro tento não devolveu nada com
+   * parentesco — ali não há o que encolher.
+   */
+  function urlDeBusca(termo, extra) {
     const t = String(termo == null ? '' : termo).trim();
     if (!t) return '';
-    return BASE + '?q=' + encodeURIComponent(t);
+    const e = String(extra == null ? '' : extra).trim();
+    return BASE + '?q=' + encodeURIComponent(e ? t + ' ' + e : t);
   }
 
   // ===== HTML =====
@@ -466,6 +474,122 @@
    * o que separa a música da navegação do site (categorias, listas, páginas
    * institucionais) sem depender de classe CSS nenhuma.
    */
+  // ===== A BUSCA: PARENTESCO, NÃO POSIÇÃO (v1.1.21) =====
+  //
+  // A v1.1.10 pegava o PRIMEIRO link de dois segmentos da página de resultados,
+  // e isso está errado por duas razões independentes:
+  //
+  //  1. **A navegação do site também é link de dois segmentos.** MEDIDO num
+  //     aparelho: uma busca por "Em Oração" devolveu 27 resultados e o escolhido
+  //     foi `/letra/A/` — o ÍNDICE ALFABÉTICO do site, que mora no cabeçalho e
+  //     por isso aparece ANTES de qualquer resultado no HTML.
+  //  2. **A posição no documento não é a posição no ranking.** Cabeçalho,
+  //     rodapé, "mais acessadas" e blocos de sugestão vêm todos no mesmo HTML.
+  //
+  // A correção NÃO é uma lista de rotas do site, que muda quando o dono dele
+  // quiser: é **exigir parentesco com o que se procurou**. Um resultado cujo
+  // texto não tem relação nenhuma com o nome da música não é o resultado certo,
+  // e nunca vai ser — mesmo que seja o primeiro. A lista de seções existe só
+  // como primeiro corte barato; quem decide é o [parentesco].
+  //
+  // **O preço, dito:** um hino cujo nome no acervo não compartilhe NENHUMA
+  // palavra com o nome no site é recusado, e cai no "não achei". É o caso que a
+  // busca genérica existia para cobrir, e continua coberto pelo grau mais frouxo
+  // (uma palavra em comum). Abaixo disso, "achei alguma coisa" e "achei a música"
+  // são coisas diferentes, e este projeto não troca a segunda pela primeira.
+
+  /** Seções conhecidas do site: primeiro corte, barato e sem pretensão. */
+  const SECOES = new Set([
+    'letra', 'letras', 'busca', 'buscar', 'tags', 'tag', 'estilos', 'estilo',
+    'artistas', 'musicas', 'cifras', 'top', 'mais-acessadas', 'novidades',
+    'videoaulas', 'aprenda', 'academy', 'blog', 'app', 'premium', 'pro',
+    'assinatura', 'login', 'cadastro', 'favoritos', 'sobre', 'contato',
+    'termos', 'privacidade', 'n', 'pt', 'en', 'es',
+  ]);
+
+  /**
+   * Palavras que não distinguem nada. O corte de 4 caracteres já derruba quase
+   * todas as preposições do português; aqui ficam as que passam por ele.
+   */
+  const VAZIAS = new Set([
+    'para', 'como', 'sobre', 'todo', 'toda', 'todos', 'todas', 'mais', 'menos',
+    'pelo', 'pela', 'pelos', 'pelas', 'esta', 'este', 'isso', 'aquilo',
+    'nossa', 'nosso', 'nossas', 'nossos', 'seus', 'suas', 'meus', 'minha',
+    'minhas', 'quando', 'porque', 'entre', 'ainda', 'mesmo',
+  ]);
+
+  /** As palavras que de fato identificam um título. */
+  function palavrasFortes(s) {
+    return normalizar(semNumero(s)).toLowerCase()
+      .replace(/[^a-z0-9à-ÿ ]+/g, ' ')
+      .split(' ')
+      .filter((p) => p.length >= 4 && !VAZIAS.has(p));
+  }
+
+  /** O texto reduzido ao que se pode comparar: sem número, sem pontuação. */
+  function chaveDeTitulo(s) {
+    return normalizar(semNumero(s)).toLowerCase().replace(/[^a-z0-9]+/g, '');
+  }
+
+  /**
+   * O quanto um resultado se PARECE com o que se procurou: 3 = o mesmo título,
+   * 2 = um contém o outro, 1 = pelo menos uma palavra forte em comum, 0 = nada.
+   *
+   * **Zero é recusa, não último lugar.** É o zero que derruba o `/letra/A/` e
+   * todo bloco de sugestão da página; sem ele, uma lista sem nenhum resultado
+   * bom devolve o primeiro item da navegação com toda a confiança.
+   */
+  function parentesco(titulo, alvo) {
+    const a = chaveDeTitulo(titulo);
+    const b = chaveDeTitulo(alvo);
+    if (!a || !b) return 0;
+    if (a === b) return 3;
+    // A CONTENÇÃO EXIGE CORPO. Sem o piso, `'emoracao'.includes('a')` casa — e o
+    // grau 2 devolve justamente o `/letra/A/` que esta função existe para
+    // recusar. Um título de uma ou duas letras está contido em quase tudo; ele
+    // só pode ser parente por IGUALDADE, que é o grau acima.
+    if (Math.min(a.length, b.length) >= 4 && (a.includes(b) || b.includes(a))) return 2;
+    const fortes = new Set(palavrasFortes(alvo));
+    return palavrasFortes(titulo).some((p) => fortes.has(p)) ? 1 : 0;
+  }
+
+  /**
+   * Ordena os achados por parentesco com `nome`, com o `artista` (o nome do
+   * álbum, do lado de cá) como DESEMPATE — nunca como filtro.
+   *
+   * O álbum do acervo não é o artista do site: "Em Oração" está no álbum
+   * "Missão", e quem gravou pode ser qualquer um. Um sinal que só soma é
+   * seguro; um que filtra derrubaria a música certa toda vez que os dois não
+   * coincidissem, que é o caso normal.
+   *
+   * A ordem do documento decide os empates (`i`), e não há ordenação instável:
+   * `sort` do JS é estável desde o ES2019, mas depender disso num arranjo que
+   * outra pessoa vai reordenar é apostar num detalhe.
+   */
+  function ordenarBusca(achados, nome, artista) {
+    return (Array.isArray(achados) ? achados : [])
+      .map((r, i) => ({ r, i, p: parentesco(r.nome, nome), a: artista ? parentesco(r.artista, artista) : 0 }))
+      .filter((x) => x.p > 0)
+      .sort((x, y) => (y.p - x.p) || (y.a - x.a) || (x.i - y.i))
+      .map((x) => x.r);
+  }
+
+  /**
+   * O caminho `/artista/musica/` é de uma MÚSICA?
+   *
+   * Estrutura primeiro, lista de seções depois: um slug de uma letra
+   * (`/letra/A/`) ou de duas não nomeia música nenhuma, e essa regra vale para
+   * qualquer site. A [SECOES] cobre o que passa pela estrutura e ainda assim é
+   * navegação — e ela é o corte BARATO, não a defesa: quem defende é o
+   * [parentesco], porque uma lista de rotas de terceiro envelhece sozinha.
+   */
+  function ehCaminhoDeMusica(partes) {
+    if (partes.length !== 2) return false;
+    const [a, b] = partes;
+    if (SECOES.has(a.toLowerCase()) || SECOES.has(b.toLowerCase())) return false;
+    return a.length >= 2 && b.length >= 3;
+  }
+
   function lerBusca(html) {
     const vistos = new Set();
     const saida = [];
@@ -475,7 +599,7 @@
       const caminho = m[1];
       const partes = caminho.split('/').filter(Boolean);
       const nome = semTags(m[2]);
-      if (partes.length === 2 && nome && !vistos.has(caminho)) {
+      if (ehCaminhoDeMusica(partes) && nome.length >= 2 && !vistos.has(caminho)) {
         vistos.add(caminho);
         saida.push({ nome, artista: partes[0].replace(/-/g, ' '), url: BASE.replace(/\/$/, '') + caminho });
       }
@@ -655,6 +779,7 @@
     urlDoHino, urlDaMusica, urlDeBusca,
     pareceAcorde, transporAcorde, transporLinha, transporTom,
     lerFolha, lerPagina, lerBusca, somenteLetra,
+    ordenarBusca, parentesco, ehCaminhoDeMusica,
     quebrarPares, pontoDeQuebra,
     janelaDeRolagem, fracaoDaRolagem,
   };

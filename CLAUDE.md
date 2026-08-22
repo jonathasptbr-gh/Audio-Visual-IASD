@@ -1769,6 +1769,30 @@ a congregação vê continua sendo a letra, pelo caminho de sempre.
   requisição, sem ranking de ninguém escolhendo por nós. Só falhando ela entra a
   **busca genérica**, que é o "qualquer música" e também cobre o hino cujo nome
   no acervo não bate com o do site.
+- **A BUSCA ESCOLHE POR PARENTESCO, NUNCA POR POSIÇÃO** (`AVCifra.ordenarBusca`).
+  Pegar o primeiro link de dois segmentos da página de resultados é errado por
+  duas razões independentes: a NAVEGAÇÃO do site também é link de dois segmentos,
+  e ela mora no cabeçalho — portanto vem ANTES de qualquer resultado no HTML —,
+  e a ordem do documento não é a ordem do ranking (cabeçalho, rodapé e blocos de
+  sugestão saem no mesmo HTML). MEDIDO num aparelho: "Em Oração" devolveu 27
+  resultados e o escolhido foi `/letra/A/`, o índice alfabético. A defesa **não é
+  uma lista de rotas do site** (ela envelhece sozinha, e a lista `SECOES` é só o
+  corte barato): é exigir que o texto do resultado tenha relação com o que se
+  procurou — mesmo título, um contendo o outro, ou ao menos uma palavra forte em
+  comum. **Zero parentesco é RECUSA, não último lugar** — é o zero que faz uma
+  página só de navegação virar "não achei" em vez de abrir qualquer coisa. E a
+  contenção exige CORPO (4 caracteres): sem o piso, `'emoracao'.includes('a')`
+  devolve exatamente o link que a regra existe para recusar.
+- **O ÁLBUM DESEMPATA; ele não filtra, e não abre a consulta.** O álbum do acervo
+  não é o artista do site — "Em Oração" está no álbum "Missão" e quem gravou pode
+  ser qualquer um. Filtrar por ele derrubaria a música certa toda vez que os dois
+  não coincidissem; e pô-lo na PRIMEIRA consulta pode ENCOLHER o resultado em vez
+  de afiná-lo, porque é busca de texto. Ele entra como bônus de ordenação, e como
+  SEGUNDO tento de consulta — que só acontece quando o primeiro não devolveu
+  nenhum parente, ali não há o que encolher. **Até três páginas são tentadas**
+  (`CIFRA_CANDIDATOS`): o ranking do site não é o nosso, e cada tentativa entra
+  no Registro, então três `ilegivel` seguidos continuam dizendo "o site mudou de
+  formato" — mais alto, não mais baixo.
 - **`ilegivel` NÃO cai na busca.** Ali a página existe e o parser é que não a
   entendeu; repetir a leitura por outro caminho troca o motivo certo por um
   errado, e apaga a única pista de que o site mudou.
@@ -1853,6 +1877,26 @@ a congregação vê continua sendo a letra, pelo caminho de sempre.
   isso** no `title` do botão: o rótulo mostra a ESCOLHA, a frase mostra o que
   está acontecendo — sem ela, *"por que a folha não acompanha a música?"* não
   tem resposta em lugar nenhum.
+
+  **A posição é NOSSA, em fração de pixel** (`cifraPos`). No ritmo de leitura são
+  ~0,37 px por quadro: escrevendo `scrollTop` inteiro, a folha anda 1 px a cada
+  três quadros e fica parada nos outros dois — e é esse liga-desliga que se lê
+  como TREMOR. Não é jitter de relógio, é quantização. Escrita com a fração, quem
+  suaviza é o compositor do navegador, que rola em subpixel; reler o `scrollTop`
+  para acumular perderia a fração a cada quadro (ele volta arredondado), que é o
+  mesmo defeito por outro caminho — daí `cifraEscrito`, a cópia do que
+  escrevemos, ser a régua que distingue a nossa escrita de um arrasto do
+  operador. E o CSS do corpo declara `scroll-behavior: auto` **de propósito**:
+  `smooth` faria o navegador animar cada uma das nossas escritas por cima da
+  nossa, duas animações no mesmo eixo.
+
+  **OS CONTROLES FICAM FORA DA CAIXA QUE ROLA** (`#lyricsViewBar`). Dentro dela
+  eles rolavam com o texto: com a rolagem ligada, o pausar saía de cena em
+  segundos, e alcançá-lo exigia rolar de volta ao topo — brigando com a rolagem
+  que se queria parar. **Um controle que some é um controle que não existe no
+  momento em que ele importa.** A barra é da cifra e de mais ninguém, e é limpa
+  num ponto só (`renderLyricsView`), senão trocar de fonte deixaria os controles
+  da folha de pé sobre a Bíblia.
 
   **O dedo não briga e não desliga.** No livre o avanço é relativo, então um
   arrasto só muda a origem. No `auto` o alvo é ABSOLUTO e puxaria a folha de
@@ -2820,7 +2864,7 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: v1.1.21** (base web) · **v1.1.10** (APK) · `SHELL_VERSION` **49** · bundle com
+**Versão atual: v1.1.22** (base web) · **v1.1.10** (APK) · `SHELL_VERSION` **49** · bundle com
 `minShell: 49` — o shell 49 é o **PISO**: todo método da ponte existe, e não há
 guarda de versão no lado web. O que continua valendo é que `java/`, `res/`, o
 manifest e os workflows **só chegam instalando o APK**.

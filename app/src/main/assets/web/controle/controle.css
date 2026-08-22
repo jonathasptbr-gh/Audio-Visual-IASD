@@ -4668,6 +4668,11 @@ main {
 .lyricsview-body {
   position: relative;         /* offsetParent das linhas — ver lvScrollToCurrent */
   flex: 1; overflow-y: auto;
+  /* A ROLAGEM AUTOMÁTICA escreve `scrollTop` a cada quadro, com FRAÇÃO de pixel.
+     `scroll-behavior: smooth` aqui faria o navegador animar cada uma dessas
+     escritas por cima da nossa — duas animações no mesmo eixo, que é uma das
+     formas de tremer. `auto` é o padrão e está escrito para não ser "melhorado". */
+  scroll-behavior: auto;
   margin: 0 .9rem .9rem;
   padding: .7rem .8rem;
   background: var(--surface);
@@ -4825,12 +4830,19 @@ main {
    string vazia colapsa, e as estrofes encostam umas nas outras. */
 .lv-cifra-vazio { height: .7em; }
 
-/* Tom à esquerda, transposição à direita — o mesmo par de botões do A+/A−,
-   reusando `.lv-fonte-btn` porque é o mesmo gesto (um passo por toque numa
-   escada) e duas aparências para o mesmo gesto seria ruído. */
+/* Tom à esquerda, controles à direita — todos reusando `.lv-fonte-btn` porque é
+   o mesmo gesto (um passo por toque numa escada) e duas aparências para o mesmo
+   gesto seria ruído.
+
+   FORA DA CAIXA QUE ROLA (v1.1.22). Ela morava dentro do corpo e rolava com o
+   texto: com a rolagem automática ligada, o pausar saía de cena em segundos, e
+   alcançá-lo exigia rolar de volta ao topo — brigando com a rolagem que se
+   queria parar. O alinhamento horizontal é o MESMO da caixa (`.9rem`), senão a
+   barra e o texto passariam a ser duas colunas diferentes. */
+.lyricsview-bar { margin: 0 .9rem .5rem; }
+.lyricsview-bar[hidden] { display: none; }
 .lv-cifra-topo {
   display: flex; align-items: center; justify-content: space-between; gap: .6rem;
-  padding-bottom: .5rem;
 }
 .lv-cifra-tom {
   font-size: .92rem; font-weight: 700; color: var(--muted);
