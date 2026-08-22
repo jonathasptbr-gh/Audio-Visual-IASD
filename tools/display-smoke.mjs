@@ -548,6 +548,110 @@ try {
   checar(false, 'o carimbo do fim natural pôde ser medido', String(e && e.message));
 }
 
+// 7-A-ter. A RETOMADA DEPOIS DE UM ROUBO DE FOCO DE ÁUDIO.
+//
+//    MEDIDO EM APARELHO: tocar outra mídia no celular PAUSA a do telão, e na
+//    perda permanente o Chromium abandona o foco e não volta sozinho — o louvor
+//    fica parado até alguém tocar ▶. A retomada automatiza o `play()` que o
+//    operador daria à mão.
+//
+//    O QUE ESTE ORÁCULO TRAVA são as GUARDAS, não o `play()`. Elas são a
+//    entrega: uma retomada sem elas religa a faixa que acabou (o `pause` do fim
+//    natural chega antes do `ended`) ENQUANTO a playlist avança por baixo —
+//    dois itens no ar, na frente da congregação. E desfaz o ⏸ do operador 1,5 s
+//    depois, por um timer que ninguém vê.
+//
+//    A linha "retomada 1/3" é escrita no AGENDAMENTO, não no disparo: dá para
+//    afirmar o fato sem esperar a cadência de 1,5 s do app.
+try {
+  const ret = await telao.evaluate(async () => {
+    const bc = new BroadcastChannel('av-iasd');
+    const pedirDiario = () => new Promise((resolve) => {
+      const ouvir = (ev) => {
+        const m = ev && ev.data;
+        if (!m || m.type !== 'diag-dump') return;
+        bc.removeEventListener('message', ouvir);
+        resolve(m);
+      };
+      bc.addEventListener('message', ouvir);
+      bc.postMessage({ type: 'diag-ask' });
+    });
+    const quantas = (d) => (d.linhas || []).filter((l) => /^retomada \d/.test(String(l.ev || ''))).length;
+    const v = document.querySelector('video');
+    const forjar = (fim) => {
+      Object.defineProperty(v, 'ended', { get: () => fim, configurable: true });
+      v.dispatchEvent(new Event('pause'));
+    };
+    const esperar = (ms) => new Promise((f) => setTimeout(f, ms));
+
+    const m = await AVDB.addMedia(new Blob([new Uint8Array(64)], { type: 'audio/mpeg' }),
+      { name: 'Louvor', type: 'audio/mpeg', kind: 'audio' });
+    const r = {};
+
+    // (a) CENA TOCANDO + pausa que ninguém pediu => a retomada é agendada.
+    // A ESPERA TEM DE PASSAR DA JANELA DO `pausaComandada` (o fade de 600 ms
+    // mais 400 ms), senão a pausa forjada sai carimbada "comando" e o oráculo
+    // mede a própria montagem em vez do app.
+    bc.postMessage({ type: 'load', mediaId: m.id, view: 'visual', muted: true, volume: 0 });
+    await esperar(1400);
+    v.dispatchEvent(new Event('play'));          // marca `jaTocou`
+    const base = quantas(await pedirDiario());
+    // Conta as chamadas a `video.play()` — é o EFEITO, e é o par do zero que o
+    // `tela-rede.test.mjs` afirma para o papel `tela`. Sem os dois lados, um
+    // zero lá provaria só que nada aconteceu em lugar nenhum.
+    window.__plays = 0;
+    const origPlay = v.play.bind(v);
+    v.play = function () { window.__plays++; try { return origPlay(); } catch (e) { return undefined; } };
+    forjar(false);
+    r.aposEspontanea = quantas(await pedirDiario()) - base;
+    // A primeira tentativa espera 1,5 s (cadência do app); 2,4 s dão folga.
+    await esperar(2400);
+    r.plays = window.__plays;
+    v.play = origPlay;
+
+    // (b) O FIM NATURAL não retoma — a guarda que impede religar a faixa que
+    //     acabou com a playlist avançando por baixo.
+    bc.postMessage({ type: 'load', mediaId: m.id, view: 'visual', muted: true, volume: 0 });
+    await esperar(1400);
+    v.dispatchEvent(new Event('play'));
+    const base2 = quantas(await pedirDiario());
+    forjar(true);
+    r.aposFimNatural = quantas(await pedirDiario()) - base2;
+
+    // (c) A PAUSA PEDIDA pelo operador não retoma — senão o ⏸ dele seria
+    //     desfeito por um timer.
+    bc.postMessage({ type: 'load', mediaId: m.id, view: 'visual', muted: true, volume: 0 });
+    await esperar(1400);
+    v.dispatchEvent(new Event('play'));
+    const base3 = quantas(await pedirDiario());
+    bc.postMessage({ type: 'pause' });
+    await esperar(120);
+    forjar(false);
+    r.aposComando = quantas(await pedirDiario()) - base3;
+
+    const fim = await pedirDiario();
+    r.temContadores = !!(fim.retomada && typeof fim.retomada.espontaneas === 'number');
+    bc.close();
+    return r;
+  });
+  checar(ret.aposEspontanea === 1,
+    'uma pausa que ninguém pediu AGENDA a retomada', JSON.stringify(ret));
+  checar(ret.plays >= 1,
+    'e ela CHEGA A TOCAR — o par do zero que a tela da rede afirma (tela-rede.test)',
+    JSON.stringify(ret));
+  checar(ret.aposFimNatural === 0,
+    'o FIM NATURAL não retoma — senão o telão religaria a faixa que acabou, com '
+    + 'a playlist avançando por baixo', JSON.stringify(ret));
+  checar(ret.aposComando === 0,
+    'e o ⏸ do OPERADOR não é desfeito 1,5 s depois por um timer que ele não vê',
+    JSON.stringify(ret));
+  checar(ret.temContadores === true,
+    'os contadores viajam no `diag-dump` — o anel tem 60 linhas e um culto não cabe nele',
+    JSON.stringify(ret));
+} catch (e) {
+  checar(false, 'a retomada pôde ser medida', String(e && e.message));
+}
+
 // 7-B. A CORTINA NÃO ENGOLE A CAMADA DE TEXTO.
 //
 //    O stage decide a cortina sozinho em três pontos que não sabiam do cartão

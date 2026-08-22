@@ -232,7 +232,7 @@ const appVersionEl = document.getElementById('appVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.1.10';
+const WEB_VERSION = '1.1.11';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -15958,6 +15958,16 @@ function blocoAudio() {
     'sem vazamento: "Transmitir para navegador" (a tela toca o arquivo dela),',
     '  com o espelhamento DESLIGADO — os dois juntos mantêm a mistura no ar.',
   ];
+  // O PLACAR DA RETOMADA entra AQUI, e não num bloco próprio: ele responde à
+  // mesma pergunta deste — o que outro app fez com o som deste aparelho. As
+  // "espontâneas" são o censo (quantas vezes o telão parou sem ninguém pedir),
+  // e o par recuperadas/desistidas diz se o socorro funcionou.
+  const r = diagRetomada;
+  if (r) {
+    linhas.push('outro app pausou o telão: ' + (r.espontaneas || 0) + 'x'
+      + ' · retomado ' + (r.recuperadas || 0) + 'x'
+      + ' · desistido ' + (r.desistidas || 0) + 'x');
+  }
   return 'Áudio do aparelho\n' + linhas.join('\n');
 }
 
@@ -16051,8 +16061,16 @@ async function renderDiag() {
 // da mesma cena, e o que interessa é a sequência entre eles — "o celular ficou
 // oculto e ENTÃO o telão pausou" é uma história diferente de "o telão pausou
 // sozinho".
-function juntarDiag(doTelao) {
+// OS CONTADORES DA RETOMADA, vindos do telão no mesmo `diag-dump` das linhas.
+// Eles existem porque o anel do diário tem 60 linhas e um culto não cabe nele:
+// a pergunta que importa é "quantas vezes o telão precisou ser socorrido?", e só
+// um número a responde. `null` = este telão é de um bundle que ainda não os
+// manda, e aí a linha não aparece — nunca "undefined" num log que vai ser
+// repassado (regra do projeto: toda linha do bloco é opcional).
+let diagRetomada = null;
+function juntarDiag(doTelao, retomada) {
   diagLinhas = diarioC.concat(doTelao || []).sort((a, b) => a.t - b.t);
+  if (retomada && typeof retomada === 'object') diagRetomada = retomada;
   renderDiag();
 }
 function pedirDiag() {
@@ -20268,7 +20286,7 @@ AVDB.onCommand((msg) => {
     return;
   }
   if (msg.type === 'diag-dump') {
-    juntarDiag(Array.isArray(msg.linhas) ? msg.linhas : []);
+    juntarDiag(Array.isArray(msg.linhas) ? msg.linhas : [], msg.retomada);
     return;
   }
   // Áudio bloqueado no Display (política de autoplay): avisa o OPERADOR —
