@@ -1567,12 +1567,54 @@ REAL é o Registro do aparelho.
 
 #### UM registro só
 
-Quatro blocos: **identificação** (versões da base, do shell e da ponte; estado do
-telão; alvo de espelhamento; UA), **transmissão** (se este WebView tem
-`MediaSource` e aceita `avc1`+`aac` — a primeira pergunta quando um "Tocar agora"
-cai no download), **a última extração do YouTube**, e **a linha do tempo** dos
-dois processos em ordem de relógio. O cabeçalho existe por razão prática: um log
-colado sem contexto obriga a primeira resposta a ser sempre a mesma pergunta.
+Um cabeçalho de **identificação** (versões da base, do shell e da ponte; estado
+do telão; alvo de espelhamento; aparelho), **a linha do tempo** dos dois
+processos em ordem de relógio, e só então os blocos de verificação por recurso
+(extração do YouTube, cifra, transmissão direta, espelho, áudio, Séries,
+sorteio). O cabeçalho existe por razão prática: um log colado sem contexto obriga
+a primeira resposta a ser sempre a mesma pergunta.
+
+**A POSIÇÃO DA LINHA DO TEMPO É O RECURSO** (v1.1.19). Ela era o ÚLTIMO bloco,
+atrás dos sete de verificação — num Registro real começava na linha ~150, que é a
+definição operacional de ENTERRADA. Ela responde *"o que aconteceu no culto?"*,
+que é a pergunta que faz alguém copiar isto; os outros respondem *"por que ESTE
+recurso se comportou assim?"*, que só se pergunta depois de saber o que
+aconteceu. Ela é montada no primeiro `renderDiag` e só ganha as linhas do telão
+no segundo, quando o `diag-ask` responde — a ORDEM dos blocos não muda entre os
+dois. Oráculo: `registro.test.mjs`, medindo POSIÇÃO NO TEXTO (é o texto colado
+que o operador manda, e é nele que "está no fim" quer dizer alguma coisa).
+
+**O REGISTRO É SOBRE O CULTO, não sobre o catálogo** (v1.1.19). Ele responde a
+quatro perguntas, e é por elas que se decide o que entra:
+
+| pergunta | o que a responde |
+|---|---|
+| *o que eu toquei antes disso?* | `entrou em cena: <nome> ← fila`, `parou a mídia (<tipo>)` |
+| *quando a conexão mudou?* | `TV conectada` · `TV DESCONECTADA` · `TV mudou` · `a projeção se reapresentou` · `transmissão RECUSADA: <frase do shell>` · `rede do celular: OFFLINE/online` |
+| *o que quebrou?* | `ERRO DE MÍDIA` (preview **e** telão), `PAUSA ESPONTÂNEA` + o placar da retomada, `transmissão falhou no telão` |
+| *quem eu sou?* | o cabeçalho, mais `app aberto · web vX · shell vY` como primeira linha do anel |
+
+Uma varredura de catálogo (as **Séries**) responde a uma quinta pergunta, de quem
+AJUSTA A REGRA meses depois. Ela cabe — resumida —, mas não pode empurrar as
+outras quatro para baixo: medido num aparelho, o bloco nominal ocupou ~140 de
+~170 linhas de uma cópia. Ver a seção das Séries no `CLAUDE.md`.
+
+**AS TRANSIÇÕES, nunca o estado.** O cabeçalho já diz o que está conectado
+AGORA; o que a linha do tempo acrescenta é QUANDO mudou — um dongle que oscila
+rende uma escada de linhas que É o diagnóstico. Por isso `renderDisplayStatus`
+compara com `lastDisplays` **antes** de sobrescrevê-lo, e `ligarEspelho` só
+carimba a RECUSA (um culto em que a transmissão sobe de primeira não produz linha
+nenhuma).
+
+**A LINHA DO TEMPO NÃO TRUNCA.** `diagLinhas` é o anel do celular
+(`DIAG_MAX_C` = 200, porque 40 cobriam minutos e um culto dura duas horas) mais
+as 60 linhas que o telão manda no `diag-dump`: até 100 já estão na mão quando
+`eventosDiag` roda, e o `.slice(-16)` jogava fora até 84 — **incluindo as que o
+`diag-ask` acabara de ir buscar pela rede**. O teto existia para não estourar um
+visor que não existe mais (ver abaixo), e comprimento não custa tela nenhuma. O
+que encurta sem apagar é o **colapso da repetição CONSECUTIVA** (`visibilidade
+×7`): sete iguais não dizem mais que a contagem. Ele exige `t2 == null` nos dois
+lados — duas linhas com posições diferentes não são a mesma linha.
 
 - **Copia-se o registro MONTADO, nunca o visível.** `diagTexto` é a ÚNICA fonte —
   não existe mais visor (`#diagBox` saiu na v5.207: 240 px empurrando para fora

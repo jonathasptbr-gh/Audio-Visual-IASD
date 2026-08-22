@@ -1679,8 +1679,18 @@ ordem em que a lista mostra.
   como "de agora" uma lista de três dias atrás.
 - **O que ENTROU sem data é um ACHADO, não uma recusa** — é a única coisa deste
   caminho que erra em silêncio **e** continua funcionando.
-- **UM NOME POR LINHA**: os dois separadores óbvios já são parte dos dados (" · "
-  no rótulo formado, " | " no título cru).
+- **O BLOCO É RESUMO, NÃO LISTAGEM** (v1.1.19). Ele nasceu nominal — cada recusa
+  com o nome verbatim, e os nomes formados um por linha — e MEDIDO num aparelho
+  isso deu **~140 de ~170 linhas** de uma cópia, com "não começa com Informativo"
+  repetido sessenta vezes, **enterrando a linha do tempo**, que é o único bloco
+  que responde *"o que aconteceu no culto?"*. Hoje: as ACEITAS saem nominais (são
+  poucas e são o que prova que a regra achou), as RECUSADAS saem **contadas por
+  motivo** com os primeiros nomes CRUS de cada grupo (`SERIE_NOMES_POR_MOTIVO`) —
+  é lendo um nome que se descobre uma renomeação em massa, e é para isso que o
+  bloco existe —, e os nomes formados viram as **BORDAS** (`N na lista, de "…" a
+  "…"`), porque ordem se confere nas pontas e o defeito do MEIO tem sinal
+  próprio: o `! entrou SEM data`, que segue nominal. Nenhum corte é silencioso —
+  o que sai continua contado. Oráculo: `boot-nativo.test.mjs`.
 - **O diário VENCE o índice.** Índice sem o carimbo `serieDiarioEm` conta como
   vencido (`indiceVencido`) — senão um aparelho que já tinha a lista passaria as
   12 h do TTL dizendo "ainda não varrido" justamente enquanto o operador olha. O
@@ -2592,9 +2602,24 @@ Rodar local: `./gradlew assembleDebug` (exige Android SDK).
   Um arquivo Kotlin que formata parágrafos é UI escrita do lado errado.
   Corolário: **toda linha do bloco é opcional** — o que o shell não souber
   responder não aparece, nunca "undefined" num log que vai ser repassado.
-- **O diagnóstico é UM só, e mora numa caixa que ROLA** (`#diagBox`, o "Registro"
-  de Configurações). Diagnóstico novo entra como mais um BLOCO ali, nunca como
-  faixa nova em outro canto.
+- **O diagnóstico é UM só, e mora no "Registro" de Configurações.** Diagnóstico
+  novo entra como mais um BLOCO ali, nunca como faixa nova em outro canto.
+  **NÃO HÁ VISOR:** o `<pre>` saiu na v5.207, e desde então o Registro existe só
+  para ser COPIADO e lido num computador. Isso muda o que é caro: **comprimento
+  não custa tela nenhuma — o que custa é ENTERRAR**. Daí a linha do tempo ter
+  parado de truncar (ela descartava até 84 das 100 linhas que já estavam na mão,
+  incluindo as 60 que o `diag-ask` foi buscar no telão) e o que encurta ser o
+  colapso da repetição CONSECUTIVA (`visibilidade ×7`), que não apaga nada.
+  **E daí a ORDEM importar:** a linha do tempo vem logo depois do cabeçalho e
+  ANTES de todo bloco de verificação por recurso — ela era o último dos oito, e
+  num Registro real começava na linha ~150. Bloco novo entra DEPOIS dela.
+- **O REGISTRO É SOBRE O CULTO, não sobre o catálogo** (v1.1.19). Ele responde a
+  quatro perguntas, e é por elas que se decide o que entra: *o que eu toquei
+  antes disso?* (ações do operador) · *quando a conexão mudou?* (TV e telas, em
+  TRANSIÇÕES — o cabeçalho já diz o estado AGORA) · *o que quebrou?*
+  (estabilidade) · *quem eu sou?* (o cabeçalho). Uma varredura de catálogo
+  responde a uma quinta pergunta, de quem AJUSTA A REGRA meses depois — ela cabe,
+  resumida, mas não pode empurrar as outras quatro para baixo.
 - **Um bloco guarda o VEREDITO, nunca uma segunda opinião.** O texto sai da MESMA
   função que decidiu (`AVSerie.avaliarPlaylist` devolve `{ mes, motivo }`, e
   `mesDaPlaylist` é a metade dela que a regra usa). Uma segunda escrita das
