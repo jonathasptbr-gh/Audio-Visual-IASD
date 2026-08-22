@@ -1,5 +1,11 @@
 [
   {
+    "versao": "1.1.18",
+    "itens": [
+      "A aba Bíblia não aparece mais na folha de leitura quando a Bíblia não está no ar — com uma música em cena ficam só Letra e Cifra, como deveria ser desde a versão passada."
+    ]
+  },
+  {
     "versao": "1.1.17",
     "itens": [
       "A cifra passa a ser buscada assim que a música entra em cena, e não quando você abre a aba — na maioria das vezes ela já está pronta quando você precisa dela.",
