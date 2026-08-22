@@ -95,10 +95,23 @@ secao('2. o que é acorde, e o que não pode ser');
 [
   'C', 'G', 'A7', 'Bm', 'Em7', 'C#m7', 'Ab', 'Bb7', 'Dsus4', 'Gadd9',
   'F#m7(b5)', 'G/B', 'A/C#', 'Cº', 'D+',
+  // A CLASSE QUE O DEFEITO DA v1.1.13 DEIXAVA DE FORA. O sufixo era uma lista
+  // de palavras MINÚSCULAS exigindo dígitos depois, então `7M` — a notação
+  // brasileira de sétima maior, e a mais comum num hinário — não casava. Como
+  // `transporAcorde` devolvia intacto o que não casasse, esses acordes ficavam
+  // PARADOS no tom original enquanto a folha inteira andava.
+  'G7M', 'D7M', 'A7M/E', 'D7M/A', 'D#7M', 'A#7M/F',
+  'Cmaj7', 'CM7', 'A5+', 'E7(9)', 'Am7(b5)', 'F#7(4)', 'Bm6',
 ].forEach((t) => checar(C.pareceAcorde(t), 'aceita o acorde ' + t));
 [
   'Deus', 'Cristo', 'Amor', 'Ele', 'Senhor', 'Bendito', 'Filho', 'Graca',
   'Glória', 'e', 'do', 'Aleluia',
+  // A gramática AFROUXOU na v1.1.14 (de lista de palavras para conjunto de
+  // caracteres), e é justamente aí que ela poderia passar a engolir letra. Esta
+  // metade é a que prova que não engoliu — sem ela, a correção do `7M` teria
+  // sido comprada apagando a letra da aba, que é o defeito PIOR.
+  'Canta', 'Face', 'Bendize', 'Ergue', 'Adora', 'Cada', 'Grande', 'Fica',
+  '---', '[Intro]', 'Refrao',
 ].forEach((t) => checar(!C.pareceAcorde(t), 'NÃO aceita a palavra ' + t));
 
 // ── 3. TRANSPOSIÇÃO ─────────────────────────────────────────────────────────
@@ -117,6 +130,25 @@ checar(C.transporAcorde('C', 1) === 'C#', 'sem bemol na origem, sobe em sustenid
 checar(C.transporAcorde('Deus', 2) === 'Deus', 'o que não é acorde não é transposto');
 checar(C.transporAcorde('C', 0) === 'C' && C.transporLinha('C   G', 0) === 'C   G',
   'zero semitom é identidade');
+
+// ── 3a. O DEFEITO DA v1.1.13, preso pelos números do aparelho ───────────────
+// A folha real vem no tom de D; o operador pediu A (−5) e A# (−4). Os valores
+// esperados foram conferidos contra a página do site nos dois tons: era ali que
+// `D7M/A` e `G7M` ficavam parados enquanto o resto da linha andava.
+checar(C.transporAcorde('D7M/A', -5) === 'A7M/E',
+  'D7M/A −5 = A7M/E (raiz E baixo andam, o 7M viaja intacto)', C.transporAcorde('D7M/A', -5));
+checar(C.transporAcorde('G7M', -5) === 'D7M', 'G7M −5 = D7M', C.transporAcorde('G7M', -5));
+checar(C.transporAcorde('D7M/A', -4) === 'A#7M/F', 'D7M/A −4 = A#7M/F', C.transporAcorde('D7M/A', -4));
+checar(C.transporAcorde('G7M', -4) === 'D#7M', 'G7M −4 = D#7M', C.transporAcorde('G7M', -4));
+checar(C.transporAcorde('Cmaj7', 2) === 'Dmaj7', 'a grafia por extenso também anda');
+checar(C.transporAcorde('A5+', 3) === 'C5+', 'e as alterações com sinal');
+// A GRAFIA SEGUE A RAIZ, não um `b` perdido dentro da extensão: o bemol de uma
+// ALTERAÇÃO não diz nada sobre como a fundamental é escrita.
+checar(C.transporAcorde('C7(b9)', 1) === 'C#7(b9)',
+  'o b de (b9) não force a raiz para bemol', C.transporAcorde('C7(b9)', 1));
+// E A EXTENSÃO VIAJA VERBATIM — só raiz e baixo andam.
+checar(C.transporAcorde('F#m7(b5)', 1) === 'Gm7(b5)',
+  'a extensão inteira é preservada', C.transporAcorde('F#m7(b5)', 1));
 
 // A COLUNA é o dado. Um acorde vale por estar sobre a sílaba em que a harmonia
 // troca; um `replace` ingênuo empurra todos os seguintes e a folha sai fora de

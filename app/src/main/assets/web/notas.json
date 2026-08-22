@@ -1,11 +1,16 @@
 [
   {
+    "versao": "1.1.15",
+    "itens": [
+      "Corrigida a transposição da cifra: acordes com sétima maior (7M) ficavam parados no tom original enquanto o resto da folha mudava — o que soava desafinado para quem tocava.",
+      "Agora a folha inteira acompanha o tom escolhido, incluindo os acordes com baixo invertido (como D7M/A)."
+    ]
+  },
+  {
     "versao": "1.1.14",
     "itens": [
-      "O Registro contava errado: um único roubo de som por outro app aparecia como três ou quatro. Agora conta episódios, não tentativas.",
-      "E ele deixa de marcar “pausa espontânea” quando você apenas minimiza o app — o navegador pausa a prévia de propósito, e isso não é defeito.",
-      "A retomada do telão não desiste mais depois de três socorros que DERAM CERTO: agora só a sequência de falhas conta para desistir.",
-      "Os números do telão somem do Registro quando a TV se desconecta, em vez de continuarem na tela como se ainda valessem."
+      "Corrigida a transposição da cifra: acordes com sétima maior (7M) ficavam parados no tom original enquanto o resto da folha mudava — o que soava desafinado para quem tocava.",
+      "Agora a folha inteira acompanha o tom escolhido, incluindo os acordes com baixo invertido (como D7M/A)."
     ]
   },
   {
