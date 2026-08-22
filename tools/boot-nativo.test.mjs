@@ -1460,7 +1460,7 @@ try {
           .map((e) => e.textContent),
         marcaveis: gav.querySelectorAll('.hymn-opcoes .song-menu-check').length,
         confirmar: ((gav.querySelector('.song-menu-go .song-menu-label') || {}).textContent) || '',
-        // O PADRÃO, antes de qualquer toque (v1.1.7): "Tocar agora" nasce
+        // O PADRÃO, antes de qualquer toque (v1.1.8): "Tocar agora" nasce
         // marcado, e SÓ ele.
         jaMarcadas: gav.querySelectorAll('.hymn-opcoes .song-menu-check.on').length,
         rotuloMarcado: ([...gav.querySelectorAll('.hymn-opcoes .song-menu-sel')]
@@ -1624,7 +1624,7 @@ try {
     + 'sobreposição relatada, e ela some por construção quando o corpo da linha '
     + 'deixa de ter outra ação',
     'abaixo: ' + favs.gaveta.abaixo);
-  // ===== "TOCAR AGORA" NASCE MARCADO (v1.1.7) =====
+  // ===== "TOCAR AGORA" NASCE MARCADO (v1.1.8) =====
   //
   // Pedido do operador: *"nas opções de play, deixe que venha por padrão o check
   // de tocar agora, pois é a opção que normalmente já se tem mais urgência"*. O
@@ -3937,7 +3937,7 @@ try {
   checar(false, 'o percurso do tamanho da letra terminou sem exceção (' + (e && e.message) + ')');
 }
 
-// ===== O LINK DO YOUTUBE NA ÁREA DE TRANSFERÊNCIA (v1.1.7, shell 48) =====
+// ===== O LINK DO YOUTUBE NA ÁREA DE TRANSFERÊNCIA (v1.1.8, shell 48) =====
 //
 // Este caminho é do APP e só do app: no navegador ele não existe, então sem a
 // ponte de mentira ele nunca seria executado por teste nenhum — que é a razão de

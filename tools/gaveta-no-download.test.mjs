@@ -2,7 +2,7 @@
 //
 // DUAS PORTAS PARA A MESMA SALA, e a segunda chegou por relato depois da
 // primeira estar corrigida: o progresso do download (v1.1.2) e o resultado da
-// busca no YouTube (v1.1.7). As duas terminam em `renderSearchResults`, que faz
+// busca no YouTube (v1.1.8). As duas terminam em `renderSearchResults`, que faz
 // `hymnResultsEl.innerHTML = ''`; as duas são disparadas por algo que não foi o
 // toque do operador. Ficam no mesmo arquivo de propósito — separá-las convidaria
 // a corrigir uma e deixar a outra, que foi exatamente o que aconteceu.
@@ -41,7 +41,7 @@
 //  4. e a espera TERMINA: fechada a gaveta, o redesenho adiado sai sozinho e o
 //     card mostra o estado em dia. Sem esta, "nunca redesenhar" passaria.
 //
-// A PORTA DO YOUTUBE (v1.1.7), no fim do arquivo:
+// A PORTA DO YOUTUBE (v1.1.8), no fim do arquivo:
 //
 // Relato do operador: *"se pesquiso na biblioteca e vou tocar uma música que já
 // está na biblioteca, ele fecha as opções de play quando mostra as opções do
@@ -294,7 +294,7 @@ try {
     return !!card && /Baixando 2 de 2/.test(card.textContent);
   }, 'fechada a gaveta, o redesenho adiado sai sozinho e o card mostra o estado em dia', null, 6000);
 
-  // ---- 5. A PORTA DO YOUTUBE (v1.1.7) ------------------------------------
+  // ---- 5. A PORTA DO YOUTUBE (v1.1.8) ------------------------------------
   //
   // Mesma sala, outra porta. Aqui o modo é BUSCA (há termo digitado), então
   // `acervoAVista()` é falso e o guarda do download nem entra — quem tem de

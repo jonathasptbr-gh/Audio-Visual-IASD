@@ -2131,7 +2131,7 @@ try {
     li.querySelector('.row').click();
     await new Promise((r) => setTimeout(r, 450));
     const sels = [...li.querySelectorAll('.hymn-opcoes .song-menu-sel')];
-    // A SEGUNDA opção, e não a primeira: desde a v1.1.7 o "Tocar agora" nasce
+    // A SEGUNDA opção, e não a primeira: desde a v1.1.8 o "Tocar agora" nasce
     // MARCADO, então tocar nele DESMARCA — e o caso mediria a ida ao contrário
     // do que a asserção diz. A segunda é "Adicionar à playlist", que nasce
     // limpa; o caminho de detachment exercitado é o MESMO (marcar chama
@@ -2164,7 +2164,7 @@ try {
     ui(window.__cid).expanded = false; grupoAberto = ''; favAberto = true;
     songMenuFor = null; closeHymnSearch();
   });
-  // ===== "TOCAR AGORA" NASCE MARCADO (v1.1.7) =====
+  // ===== "TOCAR AGORA" NASCE MARCADO (v1.1.8) =====
   // Pedido do operador: é a opção de mais urgência, e o que ela compra é o caso
   // de DOIS destinos — tocar em "Adicionar ao Cronograma" projeta E guarda no
   // mesmo toque. O confirmar nascer ATIVO é a outra metade: a gaveta abre já

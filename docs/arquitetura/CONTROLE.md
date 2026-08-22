@@ -1263,7 +1263,7 @@ no dia em que `--hit` mudar.
 resolução nasce no padrão a cada item: uma marcação que grudasse mandaria para os
 Favoritos, sem aviso, o vídeo que se quis ver uma vez.
 
-**"TOCAR AGORA" NASCE MARCADO ONDE A MÍDIA É LOCAL** (v1.1.7, `destPadraoTocar`).
+**"TOCAR AGORA" NASCE MARCADO ONDE A MÍDIA É LOCAL** (v1.1.8, `destPadraoTocar`).
 Ela compra duas coisas: o caso de DOIS destinos vira um toque (com o telão já
 marcado, tocar em "Adicionar ao Cronograma" projeta E guarda) e o CONFIRMAR nasce
 ativo — a gaveta abre respondível em vez de com um botão morto pedindo escolha.
@@ -3220,7 +3220,7 @@ as duas são disparadas por algo que não foi o toque do operador:
 | porta | quem dispara | quem segura |
 |---|---|---|
 | progresso de download (v1.1.2) | o tique de 400 ms, em modo FOLHEAR | `refreshCollectionsIfVisible` rearma enquanto `interacaoAbertaNoAcervo()` |
-| resultado da busca no YouTube (v1.1.7) | `buscarNoYoutube`, em modo BUSCA | `renderBuscaQuandoPuder` rearma pelo mesmo guarda |
+| resultado da busca no YouTube (v1.1.8) | `buscarNoYoutube`, em modo BUSCA | `renderBuscaQuandoPuder` rearma pelo mesmo guarda |
 
 - **`interacaoAbertaNoAcervo()` conta `abrindo` como aberta.** Entre o toque e o
   `expanded` há um `await` (a letra sai do IndexedDB), e era ali que o redesenho
@@ -3245,7 +3245,7 @@ as duas são disparadas por algo que não foi o toque do operador:
 Oráculo: `tools/gaveta-no-download.test.mjs`, com as duas portas e um hazard
 próprio para cada. **Ficam no mesmo arquivo de propósito** — separá-las
 convidaria a corrigir uma e deixar a outra, que é literalmente o que aconteceu
-entre a v1.1.2 e a v1.1.7.
+entre a v1.1.2 e a v1.1.8.
 
 Sincronização é **aditiva e resumível**: interromper e sincronizar de novo só
 baixa o que falta (`fileGet` reconfirma que o arquivo catalogado ainda existe de
@@ -4264,7 +4264,7 @@ cresce/encolhe conforme o texto do slide muda — `width`/`height` fixos (não
 `max-width` + altura intrínseca), hoje **84cqw × 40cqh**, para a moldura não
 pular de tamanho entre uma estrofe e a seguinte.
 
-**E A LETRA NUNCA É CORTADA COM RETICÊNCIAS** (v1.1.7), em nenhum tamanho de
+**E A LETRA NUNCA É CORTADA COM RETICÊNCIAS** (v1.1.8), em nenhum tamanho de
 tela. Cortar é a única resposta que um telão não pode dar: o verso que some é o
 que a congregação ia cantar, e ninguém no salão tem como saber que faltou. Eram
 duas causas somadas — a caixa fora calibrada com a estrofe de DUAS linhas em
@@ -4346,7 +4346,7 @@ empírica para a proporção errada, não uma necessidade. O `overflow: hidden`
 do `.lyrics-box`/`.pv-lyrics-box` FICA, mas mudou de papel: não é mais a
 garantia de encaixe (essa é a escala) e sim a contenção do caso em que a
 escala encosta no piso — ali a estrofe vaza para fora da moldura em vez de
-por cima da imagem. **O `-webkit-line-clamp` da estrofe SAIU** (v1.1.7); o
+por cima da imagem. **O `-webkit-line-clamp` da estrofe SAIU** (v1.1.8); o
 único que sobrou é o de TRÊS linhas do título na CAPA, que é outro problema:
 lá o texto é um nome próprio que ninguém canta junto.
 
@@ -4393,7 +4393,7 @@ aberto):
   **Cronograma** (`imports`), pronto para tocar.
 - **Outras URLs** → `kind` detectado pela extensão (`video`/`audio`/`image`/`url`).
 
-#### O LINK COPIADO — a mesma folha, precedida de uma pergunta (v1.1.7)
+#### O LINK COPIADO — a mesma folha, precedida de uma pergunta (v1.1.8)
 
 `conferirLinkCopiado()` roda na ABERTURA e em toda RETOMADA
 (`visibilitychange`), e no navegador é no-op — `navigator.clipboard.readText()`

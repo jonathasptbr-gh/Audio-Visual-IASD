@@ -753,7 +753,7 @@ body {
    Padrão "vídeo de louvor": cantos retos, sem borda, sem sombra. O fundo
    semitransparente só com `.imgbg` — no preto puro seria uma zona escura
    flutuando à toa (ver `applyPvLyricsBgClass`). */
-/* A CAIXA ESPELHA A DO TELÃO (v1.1.7): 84cqw × 40cqh e SEM `line-clamp` — quem
+/* A CAIXA ESPELHA A DO TELÃO (v1.1.8): 84cqw × 40cqh e SEM `line-clamp` — quem
    garante que a estrofe cabe é `pvAjustarLetra()`, o mesmo mecanismo do
    `display.js`. As duas folhas continuam separadas de propósito (a preview é uma
    miniatura num documento COM tema), mas a REGRA tem de ser a mesma: a preview
@@ -4710,7 +4710,7 @@ main {
    logo acima — que é o conteúdo. */
 .dialog-rodape { font-size: .82rem; }
 .dialog-input { width: 100%; padding: 10px 12px; font-size: .95rem; }
-/* O PAR DIVIDE A LARGURA (v1.1.7), em vez de medir o RÓTULO encostado à direita.
+/* O PAR DIVIDE A LARGURA (v1.1.8), em vez de medir o RÓTULO encostado à direita.
    Com a largura do texto, o alvo de cada botão dependia do TAMANHO DA PALAVRA —
    "OK" virava um alvo pequeno ao lado de um "Deixar para depois" três vezes
    maior, e num par de decisões OPOSTAS o alvo não pode dizer qual delas é a mais
@@ -5138,7 +5138,10 @@ body.mode-simple .bottombar { display: none; }
 .cast-acao-txt b { font-size: .92rem; }
 /* A linha auxiliar herda o `--on-accent` com alfa em vez de virar `--muted`:
    o cinza da paleta é calibrado contra as superfícies escuras e some sobre o
-   âmbar preenchido. */
+   âmbar preenchido. Por alfa e não por token: ela existe nos DOIS fundos deste
+   botão (o preenchido e o `.connected`), e cada um traz a própria cor de texto
+   — herdar as duas é o que um token único não faria. */
+.cast-acao-txt small { display: block; margin-top: .12rem; font-size: .74rem; opacity: .82; }
 
 /* O INTERRUPTOR. Ele é uma LINHA de estado, não um botão: fundo de superfície
    comum, texto normal, e o sinal fica todo no trilho à direita. A linha inteira

@@ -24,7 +24,8 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
-- **v1.1.7** — A LETRA DO TELÃO NUNCA MAIS É CORTADA COM RETICÊNCIAS: o `-webkit-line-clamp: 2` era a garantia de encaixe, e é a única resposta que um telão não pode dar — o verso que some é o que a congregação ia cantar. Quem garante agora é uma ESCALA medida por busca binária, com piso, `ResizeObserver` e as MESMAS proporções calibradas. Mais a SEGUNDA PORTA do redesenho que fecha a gaveta (a busca no YouTube, irmã do progresso de download da v1.1.2), o "Tocar agora" nascendo MARCADO onde a mídia é local, a caixa crescendo de 76×32 para 84×40cq, os botões do aviso dividindo a largura toda e o LINK COPIADO virando uma pergunta na abertura (`areaTransferencia`). `SHELL_VERSION` 48. EXIGE RELEASE
+- **v1.1.8** — A LETRA DO TELÃO NUNCA MAIS É CORTADA COM RETICÊNCIAS: o `-webkit-line-clamp: 2` era a garantia de encaixe, e é a única resposta que um telão não pode dar — o verso que some é o que a congregação ia cantar. Quem garante agora é uma ESCALA medida por busca binária, com piso, `ResizeObserver` e as MESMAS proporções calibradas. Mais a SEGUNDA PORTA do redesenho que fecha a gaveta (a busca no YouTube, irmã do progresso de download da v1.1.2), o "Tocar agora" nascendo MARCADO onde a mídia é local, a caixa crescendo de 76×32 para 84×40cq, os botões do aviso dividindo a largura toda e o LINK COPIADO virando uma pergunta na abertura (`areaTransferencia`). `SHELL_VERSION` 48. EXIGE RELEASE
+- **v1.1.7** — O ESPELHAMENTO LEVA O SOM DO APARELHO INTEIRO, e não há API pública que isole: o `Presentation` isola a JANELA, e o áudio do Wi-Fi Display nasce de um `REMOTE_SUBMIX` sem parâmetro de display. O que resolve é o som não NASCER no celular — e por isso a APRESENTAÇÃO passa a chegar às telas da rede (uma `/m/` por página), fechando a dívida que impedia o telão por comandos de substituir o espelhamento num culto com sermão. Mais o `AbortController` sem guarda, que derrubava toda TV de 2018 na entrada. OTA PURO
 - **v1.1.6** — O TAMANHO DA LETRA PASSA A SER DO OPERADOR: um par A+/A− nas DUAS casas de leitura (a folha do avançado e a linha do nome do Modo Fácil), escada DISCRETA e o valor salvo no banco. E o respiro entre estrofes volta a ser DERIVADO — com a fonte ajustável, um respiro fixo valeria só no degrau em que foi escolhido. A metade que falharia calada é a memória, e ela tem oráculo com PÁGINA NOVA. OTA PURO
 - **v1.1.5** — A LETRA RECUA PARA 1.4rem E O RESPIRO ENCOLHE: no dobro, TODA linha de hino quebrava em duas. E o respiro entre estrofes deixa de ser DERIVADO da fonte — "uma linha em branco" custava 2,1rem, e o custo virou rolagem em vez de tipografia. O piso que sobrevive (e que o oráculo passa a travar) é a ENTRELINHA da própria estrofe. OTA PURO
 - **v1.1.4** — A BIBLIOTECA ABRE TODA FECHADA, E FECHÁ-LA A DEVOLVE AO PADRÃO: o `favAberto = true` da v5.276 respondia a uma tela com dois cabeçalhos, e hoje cada série nova é mais uma barra disputando o vão. O estado de navegação é de MÓDULO e o nó do popup é o MESMO entre uma abertura e a seguinte — sem o reset, ela reabria com o hinário de 613 hinos escancarado de meia hora atrás. Mais a LETRA da música em cena dobrando de tamanho. OTA PURO
@@ -206,11 +207,11 @@ na nota que a revoga, não apagada da que a criou.
 
 ---
 
-## v1.1.7 — A letra não se corta; ela encolhe
+## v1.1.8 — A letra não se corta; ela encolhe
 
-**Lote de três itens do operador, dois entregues aqui** (o terceiro — link do
-YouTube pela área de transferência — precisa de método novo na ponte, logo de
-Release, e sai noutro lote).
+**Cinco pedidos do operador, quatro entregues aqui.** O quinto — o índice
+temático do hinário — está bloqueado por FALTA DE FONTE, não por trabalho: ver
+o fim do bloco.
 
 ### A caixa escura NUNCA corta a letra com reticências
 
@@ -442,6 +443,127 @@ custa só leitura: ele produz a decisão errada** — quem lesse "o line-clamp �
 garantia contra vazamento" e não achasse o clamp no código tenderia a
 reintroduzi-lo. Corrigidos no mesmo lote, que é a regra de `CLAUDE.md`.
 
+### O que NÃO entrou: o índice temático do hinário
+
+Pedido do operador: *"o novo hinário tem agrupamentos internos como músicas
+infantis, a criação, crescimento em Cristo… gostaria de fazer um pequeno índice
+no início da lista do álbum do hinário e pequenos títulos no meio da listagem"*.
+
+**Bloqueado por FALTA DE FONTE, não por trabalho** — e a distinção importa,
+porque o mecanismo (índice no topo do card + cabeçalhos intercalados) é
+pequeno e a TABELA é o recurso inteiro.
+
+O que o banco entrega hoje, verificado contra
+`docs/FONTE-DE-DADOS-LOUVORJA.md`:
+
+| fonte | o que traz | serve? |
+|---|---|---|
+| `pt_hymnal` | `id_music`, `track`, `name`, `duration`, `has_instrumental_music` | **não** — não há campo de tema |
+| `pt_categories` | categoria → álbum (a hierarquia é de DOIS níveis e só isso: não há subcategoria nem `id_parent`) | **não** — é coletânea, não seção de hinário |
+| `music_{id}.albums[]` | os álbuns a que a MÚSICA pertence, com `type` e `pivot.track` | **talvez** — é a única pista |
+
+A terceira é a pista que sobra, e ela é barata: `downloadCollectionSong` já
+busca `music_{id}` por faixa e hoje **descarta** o `albums[]`. Se a LouvorJA
+publicar as seções como álbuns, a tabela vem de dado que o aparelho já baixa —
+sem chute e sem requisição nova.
+
+**Nada disso foi confirmado**, porque `api.louvorja.com.br` é negado pela
+política de rede do ambiente em que este lote foi escrito (`403` no CONNECT do
+proxy, não uma falha transitória).
+
+**E a tabela não pode ser escrita de memória.** Uma fronteira errada põe
+"Músicas infantis" sobre o hino errado, e erra do jeito que este projeto mais
+teme: **calada** — a lista continua completa, na ordem certa, com um cabeçalho
+mentindo no meio. Fica esperando UMA das duas: a confirmação das faixas contra
+o hinário impresso, ou a leitura do `albums[]` num aparelho com rede.
+---
+
+## v1.1.7 — o espelhamento leva o som do aparelho inteiro; a apresentação chega às telas da rede
+
+**A v1.1.7: O ESPELHAMENTO LEVA O SOM DO APARELHO INTEIRO — E A APRESENTAÇÃO
+PASSA A CHEGAR ÀS TELAS DA REDE. OTA PURO** (nenhuma linha de Kotlin,
+`SHELL_VERSION` intacto em 47; sem Release).
+
+Relato do operador: *"ao espelhar, o áudio vaza de qualquer aplicativo que eu
+usar"* — com a suspeita de que a causa fosse o player da notificação.
+
+**A suspeita erra a causa e acerta um sintoma vizinho.** `MediaSession` é
+superfície de controle e metadado: não transporta PCM nem participa de rota
+nenhuma, e `SessionService.kt` não importa uma única API de áudio — o vazamento
+aconteceria idêntico com o arquivo apagado. O que ele viu é real por outro
+caminho: o `MediaSessionService` recalcula a sessão de botões pela lista de UIDs
+tocando, então outro app com mídia no ar mexe no cartão do sistema **no mesmo
+instante** em que vaza. Mesmo evento, dois efeitos.
+
+**A causa é estrutural, e a resposta é uma NEGATIVA — que é justamente por que
+ela precisou virar documentação.** O `Presentation` isola uma JANELA num
+`Display`; o Android não tem o conceito de "áudio deste Display". No caminho do
+Wi-Fi Display o vídeo nasce de um `SurfaceMediaSource` ligado ao display
+virtual e o áudio de `AUDIO_SOURCE_REMOTE_SUBMIX` — um mix global, sem
+parâmetro de display. Medido no relato: o que vaza é **mídia** de outros apps
+(`STRATEGY_MEDIA`); toque e alarme têm guarda explícita no audio policy
+(`// no sonification on remote submix (e.g. WFD)`).
+
+**O que resolveria é `@SystemApi`:** `AudioPolicy.setUidDeviceAffinity`,
+`setPreferredDeviceForStrategy` e `registerAudioPolicy`, todos atrás de
+`MODIFY_AUDIO_ROUTING` (`signature|privileged|role`). Registrado para a
+investigação não ser refeita a cada relato.
+
+**E o reflexo óbvio é uma REGRESSÃO.** `requestAudioFocus` no Kotlin parece
+higiene barata e não é: foco deixou de ser cooperativo no Android 12 (o sistema
+faz fade-out e mantém o perdedor mudo até ele pedir de novo), e quem toca aqui
+não é o Kotlin — é o WebView, que pede foco por `<video>`
+(`kRequestSystemAudioFocus`, ligado por padrão, sem override em
+`android_webview/`). Como `propagateFocusLossFromGain_syncAf` **não filtra por
+uid**, um pedido nosso despejaria o próprio WebView do telão: `AUDIOFOCUS_LOSS`
+→ `onSuspend` → **projeção pausada na frente da congregação**. Idem
+`GAIN_TRANSIENT_EXCLUSIVE`. `ALLOW_CAPTURE_BY_NONE` é vetor invertido (só afeta
+o áudio do PRÓPRIO app) e `setMode(MODE_IN_COMMUNICATION)` tiraria o culto da TV
+junto com o vazamento.
+
+**A DÚVIDA QUE FICA, e ela é maior que o vazamento:** se o WebView já pede foco,
+a projeção pode estar sendo pausada sozinha hoje quando outro app toca áudio.
+**Não foi medido em aparelho, e o oráculo para isso já existe sem código novo** —
+`display.js` carimba `PAUSA ESPONTÂNEA` × `pausa (comando)` no Registro.
+
+### O que o lote entrega
+
+- **A APRESENTAÇÃO CHEGA ÀS TELAS DA REDE** — a última dívida E4.1 que importava,
+  e a que impedia o telão por comandos (o único caminho SEM vazamento, porque
+  ali a mídia toca no navegador da outra ponta) de substituir o espelhamento num
+  culto com sermão. O deck é o único kind cujo conteúdo é uma LISTA, e por isso
+  não cabia no `url` do registro saneado: `telaDeckUrls` cunha um token por
+  página (id estável `dk:<item>:<i>`, irmão do `ly:`) e
+  `telaEmpurrarPaginasDeck` os enfileira EM ORDEM — a fila do empurrão é
+  serializada, então a página 1 chega primeiro, que é a que a tela busca assim
+  que o `load` pousa. No `stage.js`, `pages` passou a aceitar **string ou Blob**
+  (`urlDaPagina`): o mesmo par `rec.url` × `rec.blob` da mídia principal,
+  aplicado à lista. **Tudo ou nada** — sem `crypto.randomUUID` a lista inteira é
+  recusada e a cena volta ao aviso, porque meia lista projetaria uma página em
+  branco no meio do sermão.
+- **O AVISO, no ponto em que se decide conectar.** Com uma TV no ar (e só então
+  — um aviso sobre consequência que ainda não existe é ruído), o botão de
+  conectar ganha uma linha auxiliar: *"O som deste celular vai junto: vídeo ou
+  áudio de outro app é ouvido nas caixas."* Ela nomeia o que o operador
+  RECONHECE; a afirmação estrita, com os três graus do que se sabe, fica no
+  bloco **"Áudio do aparelho"** do Registro — que é onde se copia e se repassa.
+  A regra CSS da linha auxiliar já tinha um comentário órfão em `controle.css`
+  descrevendo-a: ela existiu, foi removida, e a lápide ficou.
+- **O `AbortController` SEM GUARDA em `espelho/tela.js`**, nos dois pontos
+  críticos (o SSE do `conectar()` e o `postar()`). Ele é de Chromium 66, e as
+  telas da rede são navegadores de TV: Tizen 5.0 (Samsung 2018) é Chromium 63,
+  webOS 4.x (LG 2018) é 53. Uma TV dessas lançava `ReferenceError` DENTRO do
+  `conectar()` e ficava presa na entrada, num domingo, sem nada que apontasse a
+  causa — enquanto o `shared/mse.js` já tinha o padrão certo três arquivos ao
+  lado.
+
+**Oráculo:** `tela-rede.test.mjs` ganhou a metade CONSUMIDORA do deck (entra
+pela página 1 por `/m/`, o slide troca só a fonte do `<img>`, e a página nunca
+vira `blob:`) — verificada por reversão: sem a correção do `stage.js` ela
+reprova 2 de 3. A metade PRODUTORA (`telaEnriquecer`) segue **sem oráculo**, e
+está dito no código: as duas quebram diferente, e é a consumidora que quebra na
+frente da congregação.
+
 ---
 
 ## v1.1.6 — o tamanho da letra passa a ser do operador (A+ / A−)
@@ -510,7 +632,6 @@ quando o operador abre o app na semana seguinte.
 segunda vez neste ciclo: a espera era só pelos módulos, e o `load()` — que LÊ o
 tamanho guardado e reescreve `lvTamanho` — desfazia o primeiro passo do caso. A
 correção é a da tabela: esperar o `#playlist li`, isto é, o app estar DE PÉ.
-
 ## v1.1.5 — a letra recua para 1.4rem, e o respiro entre estrofes encolhe
 
 *"Deixa a letra em 1.4rem então, e pode reduzir o espaço entre as estrofes."*

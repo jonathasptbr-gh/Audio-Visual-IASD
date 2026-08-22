@@ -332,7 +332,7 @@ function renderLyricSlide(idx) {
 }
 
 /**
- * ===== A LETRA NUNCA É CORTADA COM RETICÊNCIAS (v1.1.7) =====
+ * ===== A LETRA NUNCA É CORTADA COM RETICÊNCIAS (v1.1.8) =====
  *
  * Pedido do operador: *"ela não pode de forma alguma cortar a letra com
  * reticências independente do tamanho da tela"*.

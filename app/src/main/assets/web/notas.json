@@ -1,6 +1,6 @@
 [
   {
-    "versao": "1.1.7",
+    "versao": "1.1.8",
     "itens": [
       "A letra no telão nunca mais é cortada com \"...\": se a estrofe é longa, ela diminui de tamanho até caber inteira.",
       "A zona escura da letra ficou maior, então a letra cabe em corpo maior antes de precisar diminuir.",
@@ -8,6 +8,14 @@
       "Na Biblioteca, a busca no YouTube não fecha mais as opções de play que você abriu — os vídeos entram na lista quando você fechar.",
       "E as opções de play já abrem com \"Tocar agora\" marcado: marcar o Cronograma ao lado projeta e guarda no mesmo toque.",
       "Copiou um link do YouTube e abriu o app? Ele pergunta se você quer usá-lo, com as mesmas opções do compartilhar."
+    ]
+  },
+  {
+    "versao": "1.1.7",
+    "itens": [
+      "Apresentações (PDF e PowerPoint) passam a aparecer nas telas da rede, uma página por vez — antes só o telão da TV as mostrava.",
+      "Com uma TV espelhando, a folha de conexão avisa que o som deste celular vai junto: vídeo ou áudio de outro app é ouvido nas caixas.",
+      "Telas de TV mais antigas não ficam mais presas na entrada na hora de ativar."
     ]
   },
   {

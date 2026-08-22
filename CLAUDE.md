@@ -1367,7 +1367,7 @@ derruba a transmissão — sem TV, as telas da rede SÃO o que a congregação v
 | `EspelhoDiag.kt` | o anel. **Devolve JSON, não texto** — quem monta a frase é o `controle.js` |
 | `espelho/tela.js` | a casca do papel `tela`, carregada **no próprio `display/index.html`** entre `native.js` e `db.js`, e no-op de uma guarda fora do papel. Define `__AVBus` (recepção = SSE; envio = o DRENO), neutraliza o `postMessage` do `BroadcastChannel`, corrige o relógio (mediana do epoch dos pings — cronômetro e sorteio chegam como DESCRITOR com instante do celular), embrulha `AVDB.getMedia` para resolver `__rec.url`, e mantém a vigília para a tela não dormir |
 | `display.js` (papel `tela`) | `forceMuted` nasce ligado (autoplay sem gesto não existe num navegador de verdade); `window.__telaSom(true)` é o que o botão de entrada chama ao gastar o único gesto; wallpaper por `__wp` (ou o sentinela `'padrao'`), fundo da letra por `imageUrl` na estrofe |
-| `controle.js` | **enriquece** cada `load` com `__rec` (registro saneado: id/kind/nome/tipo/url=`/m/<token>`/letra — **nunca** blob, opfsPath ou youtubeId) e dispara o empurrão; reescreve o manifesto de stream para `/s/<token>`; **elege** uma tela como referência de tempo; converte embed do YouTube e deck em `tela-aviso` (o que a tela não sabe tocar, ela DIZ) |
+| `controle.js` | **enriquece** cada `load` com `__rec` (registro saneado: id/kind/nome/tipo/url=`/m/<token>`/letra — **nunca** blob, opfsPath ou youtubeId) e dispara o empurrão; reescreve o manifesto de stream para `/s/<token>`; **elege** uma tela como referência de tempo; manda a APRESENTAÇÃO por páginas (uma `/m/` por página, `telaDeckUrls`); converte o embed do YouTube em `tela-aviso` (o que a tela não sabe tocar, ela DIZ) |
 
 ### As decisões que precisam estar ditas
 
@@ -1415,7 +1415,19 @@ derruba a transmissão — sem TV, as telas da rede SÃO o que a congregação v
   com o UA que combina com a URL, e o `telaEnriquecer` reescreve
   `/stream/<token>` → `/s/<token>`. O token é o MESMO dos dois lados (o registro
   do `StreamProxy` é um só): não há segunda extração. **O que ainda não vai para
-  a rede é o EMBED e o DECK.**
+  a rede é o EMBED** — iframe de terceiro, que a CSP das telas barra por
+  construção.
+- **A APRESENTAÇÃO CHEGA ÀS TELAS, uma `/m/` POR PÁGINA.** Ela é o único kind
+  cujo conteúdo é uma LISTA, e por isso não cabia no `url` do registro saneado:
+  `telaDeckUrls` cunha um token por página (id estável `dk:<item>:<i>`, irmão do
+  `ly:`) e `telaEmpurrarPaginasDeck` os enfileira EM ORDEM — a página 1 chega
+  primeiro, que é a que a tela busca assim que o `load` pousa. No `stage.js`,
+  `pages` passou a aceitar **string ou Blob** (`urlDaPagina`): é o mesmo par
+  `rec.url` × `rec.blob` da mídia principal, aplicado à lista. Sem token forte
+  (`crypto.randomUUID` ausente) a lista inteira é recusada e a cena volta ao
+  aviso — meia lista projetaria uma página em branco no meio do sermão. Oráculo:
+  a metade CONSUMIDORA no `tela-rede.test.mjs`; a produtora (`telaEnriquecer`)
+  segue **sem oráculo**, e isso está dito porque as duas quebram diferente.
 - **A preview não atrasa para telas de comando** (`dePixels` em
   `recalcularAtrasoPreview`): o atraso media o buffer de MSE do espelho de
   pixels; uma tela por comandos aplica no ato, e o alvo é 0.
@@ -2008,6 +2020,43 @@ primeiro que existe **e não resolve para o Play Services** (`com.google.android
   Configurações mostra "Espelhar abre: …" — é essa string que diz qual candidato
   pegou quando o botão abre a tela errada, sem depender de logcat.
 
+#### O espelhamento leva o som do APARELHO INTEIRO, e não há como isolá-lo
+
+**O `Presentation` isola a JANELA; ele não isola o SOM, e o Android não tem o
+conceito de "áudio deste Display".** A assimetria está no caminho do Wi-Fi
+Display: o vídeo nasce de um `SurfaceMediaSource` ligado ao display virtual, o
+áudio nasce de `AUDIO_SOURCE_REMOTE_SUBMIX` — um mix global, sem parâmetro de
+display. A doc de `TYPE_REMOTE_SUBMIX` descreve o caso literalmente ("playing
+from a device in screen mirroring mode").
+
+Consequência, e ela é OPERACIONAL: com o espelhamento no ar, **vídeo ou áudio
+tocado em qualquer app deste celular sai nas caixas da igreja**, junto com a
+projeção. Toque de chamada e alarme ficam de fora (o audio policy tem guarda
+explícita: `// no sonification on remote submix (e.g. WFD)`); som de notificação
+depende do aparelho.
+
+**NÃO HÁ CONSERTO NO APP, e é preciso estar escrito para a investigação não ser
+refeita.** O que resolveria — `AudioPolicy.setUidDeviceAffinity`,
+`setPreferredDeviceForStrategy`, `registerAudioPolicy` — é `@SystemApi` atrás de
+`MODIFY_AUDIO_ROUTING` (`signature|privileged|role`). Um APK assinado com a
+keystore do projeto nunca as obtém.
+
+**E `requestAudioFocus` no Kotlin seria uma REGRESSÃO, não higiene.** Foco
+deixou de ser cooperativo no Android 12 (o sistema faz fade-out e mantém o
+perdedor mudo), e quem toca aqui não é o Kotlin — é o WebView, que pede foco por
+`<video>` (`kRequestSystemAudioFocus`, ligado por padrão). Um pedido nosso
+despejaria o próprio WebView (`propagateFocusLossFromGain_syncAf` não filtra por
+uid) e **pausaria o telão no meio do culto**. Vale o mesmo para
+`GAIN_TRANSIENT_EXCLUSIVE`. Também descartados: `ALLOW_CAPTURE_BY_NONE` (só
+afeta o áudio do PRÓPRIO app, e quem monta os `AudioAttributes` é o WebView) e
+`setMode(MODE_IN_COMMUNICATION)` (tiraria o culto da TV junto com o vazamento).
+
+**A saída é estrutural: o áudio não nascer no celular** — o telão por comandos,
+com o espelhamento DESLIGADO (os dois juntos mantêm a mistura no ar), ou um
+aparelho dedicado só para projetar. O operador é avisado disso na folha de
+conexão (só com TV no ar) e por inteiro no bloco "Áudio do aparelho" do
+Registro.
+
 ### Andaimes do modelo de dois PWAs, removidos
 
 A base nasceu como dois PWAs instaláveis que se falavam por BroadcastChannel.
@@ -2516,7 +2565,7 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: v1.1.7** (base web) · **v1.1.7** (APK) · `SHELL_VERSION` **48** · bundle com
+**Versão atual: v1.1.8** (base web) · **v1.1.8** (APK) · `SHELL_VERSION` **48** · bundle com
 `minShell: 48` — o shell 48 é o **PISO**: todo método da ponte existe, e não há
 guarda de versão no lado web. O que continua valendo é que `java/`, `res/`, o
 manifest e os workflows **só chegam instalando o APK**.

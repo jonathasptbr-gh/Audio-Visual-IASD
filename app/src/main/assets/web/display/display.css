@@ -172,7 +172,7 @@ html, body {
    **Sem linha de borda** (v5.42): o contorno branco desenhava um retângulo
    que competia com a letra em vez de ajudá-la a ser lida — quem separa o
    texto da foto é a faixa escura, não a moldura. */
-/* ===== A CAIXA NUNCA CORTA A LETRA COM RETICÊNCIAS (v1.1.7) =====
+/* ===== A CAIXA NUNCA CORTA A LETRA COM RETICÊNCIAS (v1.1.8) =====
    É a única resposta que um telão não pode dar: o verso que some é o que a
    congregação ia cantar, e ninguém no salão tem como saber que faltou. Por isso
    NÃO HÁ `-webkit-line-clamp` na `.lyrics-line`/`.lyrics-aux` — acrescentar um
@@ -226,7 +226,7 @@ html, body {
   color: var(--stage-text); font-weight: 700; text-transform: uppercase;
   font-size: calc(8cqmin * var(--lyrics-escala, 1)); line-height: 1.2;
   white-space: pre-line;
-  /* SEM `-webkit-line-clamp` (v1.1.7): quem garante que cabe é `ajustarLetra()`.
+  /* SEM `-webkit-line-clamp` (v1.1.8): quem garante que cabe é `ajustarLetra()`.
      `overflow-wrap` cobre o caso que a escala não resolve — uma palavra única
      mais larga que a caixa. */
   overflow-wrap: break-word;

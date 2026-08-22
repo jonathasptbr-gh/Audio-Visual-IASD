@@ -60,7 +60,7 @@
 | E1 | Fundações puras no shell: Range RFC 7233 + framing SSE no `EspelhoHttp` — com JUnit, sem fiação | **CONCLUÍDA** (commit b756d19, CI verde: 128 JUnit, 21 novos) |
 | E2 | Servir o bundle à LAN (prefixos `web/display/`, `web/shared/`, `web/espelho/`) + rota SSE `GET /e` + tap de comandos em `busPost` → servidor | **CONCLUÍDA** (aguardou o CI verde do lote E2+E3) |
 | E3 | Papel `tela` no lado web (`espelho/tela.js` + `?tela=1`): display rodando num navegador da LAN, TEXTO completo (versículo, mensagem, cronômetro com correção de relógio, sorteio, cortina), dreno de subida, vigília de tela acesa | **CONCLUÍDA** (tela-rede.test 23/23 no Chromium; ligado no apk.yml) |
-| E4 | Mídia sob demanda: cache no shell + canal ArrayBuffer OPFS→shell + `GET /m/<token>` com Range + `__rec` no load + wallpaper | **CONCLUÍDA** (JUnit do cache; tela-rede.test 26/26). Pendências DECLARADAS → E4.1: pré-busca da playlist, imagens de fundo da letra, deck por páginas, proxy da transmissão direta (§7) — hoje deck/stream/embed viram o aviso de cena-sem-rede |
+| E4 | Mídia sob demanda: cache no shell + canal ArrayBuffer OPFS→shell + `GET /m/<token>` com Range + `__rec` no load + wallpaper | **CONCLUÍDA** (JUnit do cache; tela-rede.test 26/26). Pendências DECLARADAS → E4.1: pré-busca da playlist. Fechadas: imagens de fundo da letra (v5.188), proxy da transmissão direta (§7, v5.189) e **deck por páginas (v1.1.7)** — hoje só o EMBED vira o aviso de cena-sem-rede |
 | E5 | Status de volta (`tela-status` → ponte → Controle), eleição de referência, snoop da notificação, preview sem atraso | **CONCLUÍDA** (ramo `st` no /r → MessageBus + snoop; eleição no controle.js; preview: telas de comando não entram em `mirrorEstado.telas`, então o atraso já resolve 0 sem pixels). Folha/Registro novos → E6 |
 | E6 | Corte: a transmissão liga o caminho novo; raiz `/` → tela; frases da UI; política YouTube sem TV | **CONCLUÍDA** (commit 518f960) — **DESVIO DECLARADO**: a pedido do operador, E6 e E7 saíram num lote só; a "volta por constante" não existe — a volta é o revert do lote |
 | E7 | Remoção: EspelhoCodec/EspelhoAudio/EspelhoDisplay/MirrorPresentation/fmp4.js/cliente.js/espelho.css/sonda.html; EspelhoDiag realocado na MainActivity; dreno do papel espelho fora do native.js; testes e CI atualizados; SHELL_VERSION 37; v5.187 | **CONCLUÍDA** (o commit desta linha) |
@@ -76,7 +76,7 @@
 > e mascarou o diagnóstico por três rodadas.
 >
 > **PROJETO CONCLUÍDO (v5.187 / v1.86).** O que fica de fora, declarado:
-> E4.1 (pré-busca da playlist, imagens de fundo da letra, deck por páginas),
+> E4.1 (pré-busca da playlist — as outras três fecharam),
 > §7 (proxy da transmissão direta — hoje ela cai no download quando não há
 > TV), e o primeiro culto de VALIDAÇÃO em aparelho — que, pela regra de
 > calendário herdada do espelho, acontece numa terça-feira, nunca num
@@ -443,11 +443,17 @@ transmissão está ligada; o wallpaper vai por `__wp: <url>` no comando
 `wallpaper` e no reenvio de cena.
 
 ### 5.6 Cenas que não vão para a rede
-`kind === 'youtube'` (embed) e `rec.stream` (transmissão direta, fase §7):
-o Controle relaya no lugar do load um `{type:'tela-aviso',
-texto:'Esta cena não aparece nas telas da rede.'}` + `media-clear`. O
-tela.js desenha o aviso; o display limpa. Política E6: com transmissão
-ligada e sem TV, "Tocar agora" de YouTube cai no download.
+Sobrou **uma**: `kind === 'youtube'` (embed), que é iframe de terceiro e a CSP
+das telas barra por construção. O Controle relaya no lugar do load um
+`{type:'tela-aviso', texto:'Esta cena não aparece nas telas da rede.'}` +
+`media-clear`. O tela.js desenha o aviso; o display limpa. Política E6: com
+transmissão ligada e sem TV, "Tocar agora" de YouTube cai no download.
+
+`rec.stream` SAIU desta lista na v5.189 (a rota `/s/<token>`), e o **deck** na
+v1.1.7: cada página vira uma `/m/` (`telaDeckUrls`/`telaEmpurrarPaginasDeck` no
+Controle; `urlDaPagina` no `stage.js`, que passou a aceitar string ou Blob em
+`pages`). Um deck de que não se consiga cunhar token cai no aviso — lista com
+buraco projetaria página em branco no meio do sermão.
 
 ## §6 AS ETAPAS
 
