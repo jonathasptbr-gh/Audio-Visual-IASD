@@ -24,6 +24,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
+- **v1.1.17** — A CIFRA PASSA A SER BUSCADA QUANDO A MÚSICA ENTRA EM CENA, e não ao abrir a aba: quem a abre está com o instrumento na mão e a música tocando, o pior instante para esperar a rede. O gatilho mora no `send` — o ponto por onde TODOS os caminhos passam —, senão a playlist automática ficaria de fora e ninguém notaria. Nasce `cifraCabe`, UMA pergunta para os dois consumidores (a aba que se oferece e o `send` que busca), cortando por conteúdo musical: um episódio de série é testemunho em vídeo, e ali a busca é requisição perdida. O contrato não mudou — uma música por vez, sem lote e sem disco —, mudou o QUANDO. OTA PURO
 - **v1.1.16** — O BOTÃO DE VERIFICAR SAI, E A VERIFICAÇÃO FICA: ele só aparecia num álbum COMPLETO, e o que fazia — pular o TTL de 12 h para reler o índice — passou a acontecer sozinho na abertura, só para os álbuns que o operador TEM no aparelho e UMA VEZ POR SESSÃO (esta função roda a cada retomada, e o operador troca de app dezenas de vezes num culto). A lixeira sobe para a barra do card, revelada pelo mesmo gesto que revela o que ela apaga; o botão de BAIXAR deixa de se esconder com o card aberto, porque o painel que o repetia saiu. OTA PURO
 - **v1.1.15** — A TRANSPOSIÇÃO DEIXAVA OS ACORDES DE SÉTIMA MAIOR PARADOS: o sufixo da gramática era uma lista de palavras minúsculas EXIGINDO dígitos depois, e `7M` (dígito + M maiúsculo, a notação brasileira mais comum num hinário) não casava. Como `transporAcorde` devolvia intacto o que não casasse, `D7M/A` e `G7M` ficavam no tom original com a folha andando à volta deles — dissonância na frente de quem toca, sem sinal em lugar nenhum. Slash chords NUNCA estiveram quebrados. A correção por conjunto de caracteres foi reprovada pelo oráculo (`Cada` virava acorde); ficou uma sequência de PEÇAS inteiras, nenhuma exigindo dígito. A transposição passou a andar só na raiz e no baixo. OTA PURO
 - **v1.1.14** — O CONTADOR DA RETOMADA MENTIA, E ELE ERA A ÚNICA COISA QUE A v1.1.11 ENTREGOU PARA SER LIDA A DISTÂNCIA: cada `play()` nosso que fosse negado produzia outra pausa espontânea, e um único roubo era anunciado como quatro. Mais o crédito que confundia SUCESSO com FALHA (três socorros certos esgotavam o teto), o `t2` que carregava a espera onde todo o resto carrega a posição, e o carimbo da preview que chamava de espontânea a pausa do próprio navegador ao minimizar o app — este último achado veio de um Registro REAL colado pelo operador. OTA PURO
@@ -215,6 +216,50 @@ na nota que a revoga, não apagada da que a criou.
 
 ---
 
+## v1.1.17 — a cifra passa a ser buscada quando a música entra em cena
+
+*"ajuste para que a busca da cifra seja automaticamente ao tocar a música e não
+ao abrir a aba de cifras."*
+
+### A REDE SAI DO CAMINHO CRÍTICO
+
+Buscar ao abrir a aba punia exatamente o momento errado. Quem abre a aba de
+cifra está com o instrumento na mão e a música já tocando — é o pior instante
+possível para esperar um `GET` a um site de terceiro. Disparada quando a música
+entra em cena, a folha costuma estar pronta antes de alguém pedir por ela.
+
+**O contrato não mudou, mudou o QUANDO.** Continua sendo uma requisição por
+música projetada: nada em lote, nada no bundle, nada em disco, cache num `Map`
+que morre com o app.
+
+### O GATILHO MORA NO `send`, E ISSO NÃO É ESCOLHA DE CONVENIÊNCIA
+
+`send` é o ponto por onde TODOS os caminhos passam — o toque na lista, o avanço
+automático da playlist, o ⏮/⏭ do transporte, a notificação nativa e o roteiro. É
+o mesmo argumento que já sustenta as três guardas logo acima dele (cena de
+roteiro, link do YouTube, imagem sobre áudio); pendurar o gatilho no toque da
+lista deixaria a playlist automática de fora, e ninguém notaria — a aba
+simplesmente voltaria a esperar a rede naquele caso.
+
+Sem `await`: a cena não pode esperar pela cifra, que é auxiliar. A aba se
+redesenha sozinha quando a resposta chega, e `cifraGarantir` é idempotente (a
+entrada nasce no estado `buscando`, e é ela que impede a segunda requisição),
+então repetir a mesma música não repete a rede.
+
+### `cifraCabe` — UMA pergunta, dois consumidores
+
+A mesma pergunta passou a existir em dois lugares: a aba decide se **se
+oferece**, o `send` decide se **busca**. Duas escritas dela divergiriam no
+primeiro ajuste — e a divergência entre "o que conta como acorde" e "o que é
+transposto" foi exatamente o que produziu o defeito da v1.1.15. Uma função,
+dois chamadores.
+
+O corte é por **conteúdo musical**, não por nome: `kind: 'audio'` (todo o
+hinário e os álbuns) ou item com letra (o louvor gravado em vídeo). Um episódio
+de série é um testemunho em vídeo — buscar cifra dele é uma requisição
+garantidamente perdida, e a aba oferecida ali só sabia dizer que não achou.
+
+OTA PURO — `minShell` segue 49, sem `shellTag`.
 ## v1.1.16 — o botão de verificar sai, e a verificação fica
 
 *"Remova o botão de verificar atualizações dos álbuns, e coloque o botão de

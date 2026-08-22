@@ -1,5 +1,12 @@
 [
   {
+    "versao": "1.1.17",
+    "itens": [
+      "A cifra passa a ser buscada assim que a música entra em cena, e não quando você abre a aba — na maioria das vezes ela já está pronta quando você precisa dela.",
+      "A aba de cifra deixa de aparecer em vídeos de série, onde ela nunca teria o que mostrar."
+    ]
+  },
+  {
     "versao": "1.1.16",
     "itens": [
       "O botão de verificar atualizações dos álbuns saiu: o app confere sozinho ao abrir, em segundo plano.",
