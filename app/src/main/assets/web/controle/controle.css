@@ -5126,7 +5126,10 @@ body.mode-simple .bottombar { display: none; }
 .cast-acao-txt b { font-size: .92rem; }
 /* A linha auxiliar herda o `--on-accent` com alfa em vez de virar `--muted`:
    o cinza da paleta é calibrado contra as superfícies escuras e some sobre o
-   âmbar preenchido. */
+   âmbar preenchido. Por alfa e não por token: ela existe nos DOIS fundos deste
+   botão (o preenchido e o `.connected`), e cada um traz a própria cor de texto
+   — herdar as duas é o que um token único não faria. */
+.cast-acao-txt small { display: block; margin-top: .12rem; font-size: .74rem; opacity: .82; }
 
 /* O INTERRUPTOR. Ele é uma LINHA de estado, não um botão: fundo de superfície
    comum, texto normal, e o sinal fica todo no trilho à direita. A linha inteira

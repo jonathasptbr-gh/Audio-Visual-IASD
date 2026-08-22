@@ -231,7 +231,7 @@ const appVersionEl = document.getElementById('appVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.1.6';
+const WEB_VERSION = '1.1.7';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -425,6 +425,7 @@ const castNetLabelEl = document.getElementById('castNetLabel');
 const castLocalBtnEl = document.getElementById('castLocalBtn');
 const castMsgEl = document.getElementById('castMsg');
 const castMirrorLabelEl = document.getElementById('castMirrorLabel');
+const castMirrorNotaEl = document.getElementById('castMirrorNota');
 const castLiveEl = document.getElementById('castLive');
 const castUrlEl = document.getElementById('castUrl');
 const castUrlCopyEl = document.getElementById('castUrlCopy');
@@ -15517,6 +15518,38 @@ let diagTexto = '';
 // justamente o que se foi buscar.
 let diagSeq = 0;
 
+// O ÁUDIO DO APARELHO — por que o som de outro app sai nas caixas.
+//
+// Existe porque este vazamento NÃO TEM SINTOMA QUE APONTE A CAUSA: o operador
+// ouve o WhatsApp na PA e conclui que o app está com defeito. E porque a
+// resposta é uma negativa de ARQUITETURA — não há o que consertar —, ela
+// precisa estar escrita onde se copia e se repassa, senão a investigação é
+// refeita do zero a cada relato.
+//
+// A FRASE AQUI É MAIS ESTRITA QUE A DA FOLHA DE CONEXÃO. Lá cabe "o som deste
+// celular vai junto", que é o que o operador precisa saber para agir. Aqui a
+// afirmação é técnica, e o que se sabe tem três graus: a MÍDIA de outros apps
+// vai (observado em aparelho); toque e alarme têm guarda explícita no audio
+// policy do AOSP (`// no sonification on remote submix (e.g. WFD)`); e som de
+// NOTIFICAÇÃO depende do aparelho — a Samsung é implementação própria. Escrever
+// as três como certezas seria inventar duas.
+function blocoAudio() {
+  if (!window.__NATIVE__) return '';
+  const tv = lastDisplays[0] || null;
+  const linhas = [
+    tv ? 'espelhando para "' + (tv.name || 'TV') + '" — o som deste aparelho vai junto'
+       : 'nenhuma TV espelhando agora',
+    'o espelhamento carrega a mistura de MÍDIA do aparelho: vídeo ou áudio',
+    '  tocado em qualquer app sai nas caixas junto com a projeção.',
+    'toque de chamada e alarme ficam no celular; notificação depende do aparelho.',
+    'não há como isolar: o Android roteia áudio por APARELHO, não por tela — a',
+    '  Presentation isola a janela, nunca o som. Não é ajuste que falta.',
+    'sem vazamento: "Transmitir para navegador" (a tela toca o arquivo dela),',
+    '  com o espelhamento DESLIGADO — os dois juntos mantêm a mistura no ar.',
+  ];
+  return 'Áudio do aparelho\n' + linhas.join('\n');
+}
+
 async function renderDiag() {
   const meu = ++diagSeq;
   // O ESTADO DA PROCURA antes de montar o cabeçalho, que o lê (shell 31+). É a
@@ -15556,6 +15589,10 @@ async function renderDiag() {
     const bloco = blocoEspelho(ed);
     if (bloco) blocos.push(bloco);
   }
+  // O ÁUDIO DO APARELHO — logo depois do estado da transmissão, porque responde
+  // à mesma pergunta ("o que está no ar?") pelo lado que ninguém escolheu.
+  const ba = blocoAudio();
+  if (ba) blocos.push(ba);
   // AS SÉRIES: o que a regra achou nos canais, com os nomes CRUS. Ele vem
   // depois do estado da transmissão e antes da linha do tempo porque a ordem
   // desta caixa é "quem eu sou → o que tentei → o que está no ar → o que
@@ -19312,6 +19349,18 @@ function renderCast() {
       : 'Conectar uma TV';
   }
   if (castMirrorBtnEl) castMirrorBtnEl.classList.toggle('connected', !!tv);
+  // O AVISO DO SOM (ver o comentário no HTML), e ele SÓ EXISTE COM TV NO AR:
+  // sem ela não há para onde vazar, e um aviso permanente sobre uma
+  // consequência que ainda não aconteceu é ruído na folha em que se decide
+  // conectar. A frase nomeia o que o operador RECONHECE ("vídeo ou áudio de
+  // outro app"), não a categoria do Android que a explica — o `USAGE_MEDIA`
+  // fica no Registro, que é onde a afirmação precisa ser estrita.
+  if (castMirrorNotaEl) {
+    castMirrorNotaEl.hidden = !tv;
+    castMirrorNotaEl.textContent = tv
+      ? 'O som deste celular vai junto: vídeo ou áudio de outro app é ouvido nas caixas.'
+      : '';
+  }
   // (O subtítulo do interruptor saiu na v5.194: desligado ele descrevia o
   // recurso para quem já decidiu usá-lo, e ligado dizia "N tela(s) recebendo" —
   // que é exatamente o que a LISTA logo abaixo mostra, com nome e tempo de
@@ -20484,6 +20533,15 @@ function telaSanearRec(it, token) {
     seconds: it.seconds || 0,
     height: it.height || 0,
   };
+  // A APRESENTAÇÃO É O ÚNICO KIND CUJO CONTEÚDO É UMA LISTA, e por isso o
+  // saneamento dela não cabe no `url` acima: cada página é um arquivo próprio,
+  // e o que viaja é uma `/m/` POR PÁGINA. O `stage.js` aceita string ou Blob em
+  // `pages` — é o mesmo par `rec.url` × `rec.blob` da mídia principal, aplicado
+  // à lista. O `url` de cima continua sendo cunhado e NUNCA recebe bytes: o
+  // ramo do deck vence antes dele no `stage.js`, e gastar um `if` para não
+  // cunhar um token que ninguém busca custaria mais do que paga.
+  const pgs = telaDeckUrls(it);
+  if (pgs) rec.pages = pgs;
   if (it.hymnName) rec.hymnName = it.hymnName;
   if (it.hymnTrack) rec.hymnTrack = it.hymnTrack;
   if (it.hymnAlbum) rec.hymnAlbum = it.hymnAlbum;
@@ -20535,6 +20593,49 @@ function telaManifestoDaRede(man) {
 function telaImagemLetraUrl(opfsPath) {
   const token = telaTokenDe('ly:' + opfsPath);
   return token ? '/m/' + token : undefined;
+}
+
+// AS URLs DAS PÁGINAS de uma apresentação, ou `null`.
+//
+// `null` é o veredito de "esta apresentação NÃO vai para a rede", e ele tem
+// duas causas: não é um deck, ou o aparelho não tem `crypto.randomUUID` e
+// nenhum token forte pôde ser cunhado (`telaTokenDe`). Devolver uma lista com
+// buracos seria pior que devolver nada — o `stage.js` acharia `pages` e
+// projetaria uma página em branco no lugar do slide.
+//
+// Id estável por página ('dk:<item>:<i>', irmão do 'ly:<caminho>'): a regra
+// "mesmo id + mesmo token = já tenho" do shell faz o segundo `load` da mesma
+// apresentação custar ZERO empurrão — que é o caso normal de um sermão, em que
+// o operador volta um slide.
+function telaDeckUrls(it) {
+  if (!it || it.kind !== 'deck' || !Array.isArray(it.pages) || !it.pages.length) return null;
+  const urls = [];
+  for (let i = 0; i < it.pages.length; i++) {
+    const t = telaTokenDe(telaDeckPaginaId(it.id, i));
+    if (!t) return null;
+    urls.push('/m/' + t);
+  }
+  return urls;
+}
+function telaDeckPaginaId(id, i) { return 'dk:' + id + ':' + i; }
+
+// Enfileira o empurrão das páginas de uma apresentação.
+//
+// EM ORDEM, e a ordem é o recurso: a fila do empurrão é serializada, então a
+// página 1 chega primeiro — que é a que a tela vai buscar assim que o `load`
+// pousar. As seguintes escoam enquanto o pregador fala em cima da primeira.
+function telaEmpurrarPaginasDeck(it) {
+  if (!Array.isArray(it.pages)) return;
+  for (let i = 0; i < it.pages.length; i++) {
+    const b = it.pages[i];
+    if (!b) continue;
+    telaGarantirEnvio({
+      id: telaDeckPaginaId(it.id, i),
+      name: (it.name || 'Apresentação') + ' · ' + (i + 1),
+      type: b.type || 'image/jpeg',
+      blob: b,
+    });
+  }
 }
 
 // Enfileira o empurrão das imagens de fundo de um registro já saneado.
@@ -20708,7 +20809,11 @@ function telaEnriquecer(cmd) {
     // terceiro (e a CSP das telas o barra por construção); o deck
     // são Blobs por página (E4.1). O aviso sai LOGO DEPOIS do load — a tela
     // sem __rec limpa a cena sozinha (getMedia nulo → clear).
-    if (it.kind === 'youtube' || it.kind === 'deck') {
+    // O DECK SAIU DAQUI (a dívida E4.1): as páginas viajam como uma `/m/` cada
+    // (ver `telaDeckUrls`). Continua caindo no aviso o deck de que não se
+    // consegue cunhar token — e o embed, que é iframe de terceiro e a CSP das
+    // telas barra por construção.
+    if (it.kind === 'youtube' || (it.kind === 'deck' && !telaDeckUrls(it))) {
       setTimeout(() => {
         try { AVDB.sendCommand({ type: 'tela-aviso', texto: 'Esta cena não aparece nas telas da rede.' }); } catch (_) { /* nada */ }
       }, 0);
@@ -20717,7 +20822,11 @@ function telaEnriquecer(cmd) {
     const token = telaTokenDe(it.id);
     if (!token) return;
     cmd.__rec = telaSanearRec(it, token);
-    telaGarantirEnvio(it);
+    // A APRESENTAÇÃO não tem arquivo único a empurrar — tem uma lista. O
+    // `telaGarantirEnvio(it)` dela sairia sem `blob` nem `opfsPath` e morreria
+    // calado dentro do `telaEmpurrarAgora`, gastando um giro da fila.
+    if (it.kind === 'deck') telaEmpurrarPaginasDeck(it);
+    else telaGarantirEnvio(it);
     telaEmpurrarImagensLetra(it);
   } else if (cmd.type === 'text' && cmd.mode === 'image') {
     // A IMAGEM SOBRE O ÁUDIO (v5.312) precisa do MESMO enriquecimento do
