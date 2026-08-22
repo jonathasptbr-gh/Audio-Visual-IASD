@@ -1088,9 +1088,23 @@ mixer (`#lyricsViewBtn`, folha com linhas) abre um bottom-sheet **com scroll**
   acontece de verdade com um louvor de fundo durante a leitura. Com uma fonte
   só, ela abre direto, sem um seletor de uma opção. A escolha manual (`lvSource`)
   vale enquanto aquela fonte existir; sumindo, cai na disponível.
+- **A LETRA É GRANDE, e isso é `--lv-fonte`** (v1.1.4, `1.9rem` — o dobro do
+  que era). Pedido do operador: *"pode dobrar o tamanho da fonte nos campos de
+  leitura de letra das músicas que estão sendo transmitidas; atual está muito
+  pequeno e só sobrando espaço lateral na linha"*. Ele descreve a MEDIDA: a
+  `.95rem` uma linha de hino de 35 caracteres cabia inteira numa tela de 412px
+  com largura sobrando. **O preço, dito: a linha agora QUEBRA em duas**, e num
+  texto em que o fim da linha é parte do que se canta isso se nota — o que
+  decide a favor é para que este campo existe, ler de relance com o aparelho no
+  suporte. Os RÓTULOS (a capa, "Estrofe 2", o número do versículo) sobem menos:
+  dobrá-los junto faria um metadado ficar maior que a letra. É um token porque
+  o respiro abaixo é derivado dele e porque os dois consumidores da `.lv-row` —
+  esta folha e a zona de letra do Modo Fácil — mudam juntos.
 - **O RESPIRO ENTRE ESTROFES É UMA LINHA EM BRANCO** (`--lv-estrofe-gap`, no
   `:root` de `controle.css` — é medida de layout, não cor). O valor não é gosto:
-  é literalmente o que a fonte codifica (`<br><br>`) e vale nos TRÊS lugares em
+  é literalmente o que a fonte codifica (`<br><br>`), **derivado de `--lv-fonte`
+  × 1,5** (preso ao valor antigo, a fronteira passaria a medir menos que uma
+  linha e duas estrofes encostariam), e vale nos TRÊS lugares em
   que uma estrofe termina — o `gap` desta folha, o `gap` da zona de letra do
   Modo Fácil e o `margin-top` entre dois blocos DENTRO de um slide (a API às
   vezes empacota duas estrofes numa entrada só — v5.142). Uma fronteira de
@@ -1784,9 +1798,10 @@ anterior e a Biblioteca reabria no meio de um hinário.
  │ ▸ Hinário 1996            │   │ ▸ Hinário 1996            │
  │ CDs oficiais/ano     ▼    │   │ CDs oficiais/ano     ▼    │
  └───────────────────────────┘   └───────────────────────────┘
-   a tela como ela ABRE: o vão      passando do piso, a seção CRESCE
-   é o PISO da seção, mesmo         e empurra as fechadas para baixo,
-   com a lista vazia                com a Biblioteca rolando
+   com a seção ABERTA (desde a      passando do piso, a seção CRESCE
+   v1.1.4 é preciso tocá-la): o     e empurra as fechadas para baixo,
+   vão é o PISO dela, mesmo         com a Biblioteca rolando
+   com a lista vazia
 ```
 
 **O vão conta TODO vizinho, não só as seções** (`medirVaoDosFavoritos`). Desde a
@@ -1795,6 +1810,25 @@ somar só `.coll-group--drop` devolvia um vão maior que a tela e empurrava as
 fechadas para FORA dela — o oposto do que o vão existe para produzir. A conta
 procura a barra pelos dois nomes (`.coll-group-bar, .coll-bar`) e cai na altura
 do próprio bloco quando não há nenhuma.
+
+**TUDO NASCE FECHADO, e fechar a Biblioteca DEVOLVE a esse estado** (v1.1.4,
+`resetarBiblioteca`). Pedido do operador: *"faça o padrão da biblioteca ser os
+grupos todos fechados e compactados. Inclusive toda vez que fechar a biblioteca,
+reset para o estado padrão… atualmente os favoritos vêm abertos, mas isso era
+antes de eu tirar de dentro dos grupos o Provai e Vede e o Informativo das
+Missões, o que apertou o espaço disponível. E futuramente haverá mais grupos"*.
+
+O `favAberto = true` da v5.276 respondia a uma tela com dois cabeçalhos de
+coleção; hoje são quatro cards fixos na RAIZ mais as seções, e cada série nova é
+mais uma barra. A seção aberta RESERVA o vão, e o vão é o que falta quando a
+lista de barras cresce.
+
+O reset zera `grupoAberto`, `favAberto`, `pastaAberta`, o `gruposAnimar` e o
+`expanded`/`shown` de cada card. Ele existe porque o estado de navegação é de
+MÓDULO e o nó do popup é o MESMO entre uma abertura e a seguinte (a razão do
+`scrollTop = 0`): sem ele, a Biblioteca reabria com o hinário de 613 hinos
+escancarado de uma consulta de meia hora atrás. **No FECHAR e não no abrir**: ali
+a tela já saiu de cena, e nada do que se colapsa é visto colapsando.
 
 **São DOIS estados, e não um.** `grupoAberto` é o rodízio das COLEÇÕES (uma
 aberta por vez) e `favAberto` é a seção dos Favoritos, que responde só a si
