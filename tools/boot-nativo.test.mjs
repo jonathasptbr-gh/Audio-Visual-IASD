@@ -2706,6 +2706,72 @@ try {
 }
 
 // ---------------------------------------------------------------------------
+// O PADRÃO DE FÁBRICA DAS IMAGENS DOS SLIDES (v1.1.1)
+//
+// As imagens vêm baixadas com a música (`resolveImage` não consulta preferência
+// nenhuma), e até aqui o app nascia ignorando-as: o hino saía em texto sobre
+// preto e quem instalava não tinha como saber que existia um segmento chamado
+// "Imagens dos slides". Nada erra nesse caminho — nem console, nem Registro —,
+// então só um oráculo o segura.
+//
+// CONTEXTO PRÓPRIO, de propósito: o `ctx` compartilhado recebe um
+// `setState('lyricsBg', 'image')` no bloco do `__tela`, logo abaixo, e uma
+// asserção sobre o padrão medida depois dele estaria lendo a escrita alheia —
+// aprovaria com a leitura do banco invertida, que é justamente o que ela existe
+// para reprovar.
+//
+// As DUAS metades, porque nenhuma basta sozinha: sem a primeira, a leitura do
+// banco pode voltar a `=== 'image'` e o padrão se desfaz calado no primeiro
+// lançamento; sem a segunda, alguém "conserta" o padrão ignorando o banco e o
+// "Remover" do operador deixa de valer.
+try {
+  const ctxNovo = await navegador.newContext({ viewport: { width: 430, height: 900 }, hasTouch: true });
+  await semRedeExterna(ctxNovo);
+  const pgP = await ctxNovo.newPage();
+  await pgP.addInitScript(PONTE);
+  // ESPERAR PELO CRITÉRIO DO WATCHDOG, não por `__avBack` sozinho: aquele existe
+  // assim que o `controle.js` é parseado, e quem marca o segmento é o `load()`,
+  // que é assíncrono. Perguntar antes dele lê `.active` como `null` e reprova o
+  // app por um relógio. Não é tautologia: dentro do `load()` o
+  // `renderLyricsBgSeg()` roda ANTES do `renderPlaylist()`, então o `<li>` só
+  // aparece depois de o segmento já estar marcado.
+  const dePe = () => pgP.waitForFunction(
+    () => window.AVDB && typeof window.__avBack === 'function'
+      && !!document.querySelector('#playlist li'),
+    null, { timeout: 25000 });
+  await pgP.goto(base + '/controle/', { waitUntil: 'domcontentloaded' });
+  await dePe();
+
+  // 1) APARELHO RECÉM-INSTALADO: nada gravado em `lyricsBg`.
+  const zero = await pgP.evaluate(async () => ({
+    gravado: await window.AVDB.getState('lyricsBg'),
+    marcado: document.querySelector('#lyricsBgSeg .fit-opt.active')?.dataset.lyricsbg || null,
+  }));
+  checar(zero.gravado === undefined || zero.gravado === null,
+    'num aparelho recém-instalado nada está gravado em `lyricsBg`',
+    JSON.stringify(zero));
+  checar(zero.marcado === 'image',
+    'e o segmento "Imagens dos slides" nasce em MOSTRAR — as imagens já vieram '
+    + 'baixadas com a música, e escondê-las era esconder material que o aparelho '
+    + 'já tinha', 'marcado: ' + JSON.stringify(zero.marcado));
+
+  // 2) E O "REMOVER" DO OPERADOR CONTINUA VALENDO depois de reabrir o app.
+  await pgP.evaluate(() => window.AVDB.setState('lyricsBg', 'black'));
+  await pgP.reload({ waitUntil: 'domcontentloaded' });
+  await dePe();
+  const escolhido = await pgP.evaluate(() =>
+    document.querySelector('#lyricsBgSeg .fit-opt.active')?.dataset.lyricsbg || null);
+  checar(escolhido === 'black',
+    'e quem ESCOLHEU "Remover" continua em Remover na abertura seguinte — o '
+    + 'padrão vale para o valor ausente, não por cima de uma escolha',
+    'marcado: ' + JSON.stringify(escolhido));
+  await pgP.close();
+  await ctxNovo.close();
+} catch (e) {
+  checar(false, 'o padrão das imagens dos slides terminou sem exceção (' + (e && e.message) + ')');
+}
+
+// ---------------------------------------------------------------------------
 // A METADE CONSUMIDORA DO `__tela` (v5.223)
 //
 // Uma tela da rede não tem o IndexedDB do celular: wallpaper, fundo da letra e
@@ -2765,9 +2831,8 @@ try {
   // culto e não movem um byte.
   //
   // O preço da guarda larga era o defeito que este reenvio existe para fechar: a
-  // tela nasce em `lyricsBgMode = 'black'` (ela não tem o IndexedDB do celular
-  // para consultar) e ficava com o FUNDO DOS SLIDES PRETO com a opção ligada,
-  // para sempre — nada reexamina uma estrofe já renderizada.
+  // tela não tem o IndexedDB do celular para consultar, então ficava no valor
+  // com que NASCEU para sempre — nada reexamina uma estrofe já renderizada.
   //
   // E ele era CALADO: sem canal não há erro, não há linha no Registro, e o
   // padrão do `fit` e do wallpaper é aceitável o bastante para ninguém reparar.

@@ -4048,10 +4048,14 @@ capa perderia o título ao ser re-renderizado pelo tick de tempo (ex:
 operador volta pra estrofe 0 depois de já ter avançado).
 
 **Fundo preto vs. imagens dos slides** (`lyricsBgMode`, state `lyricsBg`,
-comando `lyricsbg`): **preto é o padrão** — a imagem de cada slide (baixada
-durante a sincronização, ver acima) só é de fato usada como fundo se o
-operador escolher "Mostrar" no segmento **Imagens dos slides** do popup de
-**Exibição** (`#lyricsBgSeg` → `setLyricsBg`/`renderLyricsBgSeg`). Até a v5.18
+comando `lyricsbg`): **as imagens são o padrão** — a de cada slide vem baixada
+com a música (`resolveImage`, ver acima, que não consulta preferência nenhuma),
+e o operador tira-as em **Remover**, no segmento **Imagens dos slides** do popup
+de **Exibição** (`#lyricsBgSeg` → `setLyricsBg`/`renderLyricsBgSeg`). **A leitura
+do banco pergunta `=== 'black'`, nunca `=== 'image'`**: ausente é quem nunca
+escolheu e cai no padrão; só o "Remover" grava um valor. Pela mesma razão o
+reenvio à tela da rede (`telaReenviarPreferencias`) manda o `lyricsbg` **sem
+condição** — condicioná-lo ao modo calaria justamente o "Remover". Até a v5.18
 isso era um botão do mixer; ele saiu de lá porque é uma preferência de
 aparência (como preenchimento e wallpaper, seus vizinhos agora), não um
 controle de operação — e o lugar que abriu no mixer virou a **leitura
