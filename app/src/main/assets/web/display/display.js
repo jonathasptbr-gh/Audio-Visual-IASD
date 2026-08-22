@@ -158,7 +158,17 @@ const stage = createStage({
   // brigariam entre si. Quem conserta é o Controle, cuja preview toca o MESMO
   // registro e vê o mesmo erro no mesmo instante — e que reenvia a cena
   // arrumada pelo caminho de sempre.
-  onStreamErro: (rec, porque) => { console.warn('[stream] telão:', porque); },
+  // O ERRO DE MÍDIA DO TELÃO não tinha para onde ir. A PREVIEW já mandava o
+  // dela ao Registro (`ERRO DE MÍDIA na preview`); aqui ele terminava num
+  // `console.warn` DENTRO de uma Presentation — uma janela sem console, num
+  // aparelho que ninguém liga no computador durante o culto. O sintoma na sala
+  // é o telão preto, e o Registro não tinha uma linha para explicá-lo.
+  onError: (ev) => {
+    const el = ev && ev.target;
+    const cod = (el && el.error && el.error.code) || '?';
+    diag('ERRO DE MÍDIA no telão (código ' + cod + ')', { t2: Math.round(videoEl.currentTime || 0) });
+  },
+  onStreamErro: (rec, porque) => { diag('transmissão falhou no telão: ' + porque); },
   onBlocked: () => {
     // A guarda de nativo fica AQUI, e não só dentro de beginAudioRecovery():
     // no APK não há política de gesto (ver #startBtn), então um NotAllowedError
