@@ -2543,7 +2543,7 @@ main {
    centros ou tamanhos que discordem num par colado é a coisa que mais parece
    defeito numa linha. O que os distingue é a COR e o modificador:
    `.coll-bar-dl` puro = baixar/cancelar · `.coll-bar-at` = atualizar a lista
-   (v1.1.20, só na série) · `.coll-bar-rm` = remover.
+   (v1.1.21, só na série) · `.coll-bar-rm` = remover.
    O de atualizar fica no tom neutro dos irmãos; só o destrutivo muda de cor.
    (`.coll-bar-dl.vago` saiu junto: ela escondia o botão de baixar com o card
    aberto porque o painel de dentro repetia a ação. O painel saiu.) */
@@ -2684,7 +2684,7 @@ main {
   font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1;
 }
 
-/* ---------- O DESTAQUE DO SÁBADO, NA SÉRIE (v1.1.20) ----------
+/* ---------- O DESTAQUE DO SÁBADO, NA SÉRIE (v1.1.21) ----------
    Um bloco acima da lista, com o episódio desta semana — ou a frase que diz que
    ele ainda não saiu. Ver `blocoDestaque` para o porquê de o item SAIR da lista.
 

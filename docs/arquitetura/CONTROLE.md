@@ -3220,7 +3220,7 @@ responde a uma pergunta diferente:
   o toque borbulha até o card e o FECHA — a lixeira fecharia o álbum debaixo do
   diálogo que ela acabou de abrir.
 
-**A COLUNA DA DIREITA tem TRÊS botões possíveis** (v1.1.20), todos com a
+**A COLUNA DA DIREITA tem TRÊS botões possíveis** (v1.1.21), todos com a
 geometria de `.coll-bar-dl` — centros ou tamanhos que discordem num par colado é
 a coisa que mais parece defeito numa linha:
 
@@ -3238,7 +3238,7 @@ a coisa que mais parece defeito numa linha:
   v1.1.16 com o painel que repetia a ação). A barra é o que gruda no topo
   (`sticky`) enquanto se percorre a lista: um álbum de centenas de faixas precisa
   poder começar (e parar) num toque, de qualquer ponto da rolagem.
-- **A SÉRIE não tem os outros dois** (v1.1.20), e a razão é do modelo de dados,
+- **A SÉRIE não tem os outros dois** (v1.1.21), e a razão é do modelo de dados,
   não da tela: **o álbum de série não retém arquivo**. Um episódio só existe no
   aparelho enquanto está no Cronograma, nos Favoritos ou na playlist. Não há
   acervo do álbum para baixar em lote (~15 GB/ano) nem para remover — "Remover
@@ -3253,7 +3253,7 @@ a coisa que mais parece defeito numa linha:
 - **`stopPropagation` nos três**: sem ele o toque borbulha até o card e o FECHA
   — a lixeira fecharia o álbum debaixo do diálogo que ela acabou de abrir.
 
-**O DESTAQUE DO SÁBADO** (v1.1.20, `blocoDestaque`/`destaqueDaSerie`): acima da
+**O DESTAQUE DO SÁBADO** (v1.1.21, `blocoDestaque`/`destaqueDaSerie`): acima da
 lista, só na série, o episódio desta semana — ou a frase que diz que ele ainda
 não saiu.
 
@@ -3280,7 +3280,7 @@ não saiu.
   destaque e a tela dizer "Aguardando lançamento" sobre um vídeo que está na
   lista logo abaixo.
 
-> **O painel `.coll-opts` não existe mais** (v1.1.20). As três ações que ele teve
+> **O painel `.coll-opts` não existe mais** (v1.1.21). As três ações que ele teve
 > terminaram na coluna da direita da barra: o "Verificar" saiu na v1.1.16 (a
 > verificação virou automática na abertura — ver `forcarIndice`), o "Baixar" já
 > existia na barra e era só repetido, e o "Atualizar a lista" da série virou
@@ -4721,7 +4721,7 @@ sábado é visto uma vez. Então:
 | "Tocar agora" | `ytAcao(…, ['tocar'])` | **TRANSMISSÃO DIRETA** — `ytStream` → `shared/mse.js`, sem baixar |
 | Modo Fácil | `simplePlaySong` desvia para o mesmo `ytAcao` | aquele modo não pergunta nada, e esperar 300 MB com o culto rodando não é opção |
 | guardar offline | os destinos da folha (playlist · Cronograma · Favoritos) | um episódio por vez, pelo caminho de download do YouTube |
-| card | `renderCollectionCard` | **card da RAIZ** do índice (v1.0.1), acima dos hinários. **UM botão só** (v1.1.20): "Atualizar a lista" (`syncCollection(coll, { soIndice: true })`), puro e sem texto, na direita da barra — sem baixar em lote e sem lixeira, porque o álbum não retém arquivo. A barra diz quantos EPISÓDIOS a lista tem, não peso, e o do sábado desta semana fica DESTACADO no topo (`blocoDestaque`). A série sai de "Baixar toda a biblioteca" |
+| card | `renderCollectionCard` | **card da RAIZ** do índice (v1.0.1), acima dos hinários. **UM botão só** (v1.1.21): "Atualizar a lista" (`syncCollection(coll, { soIndice: true })`), puro e sem texto, na direita da barra — sem baixar em lote e sem lixeira, porque o álbum não retém arquivo. A barra diz quantos EPISÓDIOS a lista tem, não peso, e o do sábado desta semana fica DESTACADO no topo (`blocoDestaque`). A série sai de "Baixar toda a biblioteca" |
 
 `downloadSerieItem` e o laço de `syncCollection` continuam existindo e corretos
 — o que mudou é que nenhum toque de UI os alcança hoje. O que muda em relação a

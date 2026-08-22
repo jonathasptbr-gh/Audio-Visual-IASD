@@ -629,7 +629,7 @@ checar(/^r[0-9a-z]+$/.test(S.impressao()), 'a impressão é uma string curta e e
 checar(S.impressao() !== S.impressao('outra função'),
   'e ela muda quando o montador da faixa muda (a fresta da v5.236)');
 
-// ── 8. O SÁBADO DESTA SEMANA (v1.1.20) ─────────────────────────────────────
+// ── 8. O SÁBADO DESTA SEMANA (v1.1.21) ─────────────────────────────────────
 //
 // É a régua do destaque no topo da lista da série. **A SEMANA COMEÇA NO
 // DOMINGO** — a semana adventista, e a que o operador vive: no domingo ele já

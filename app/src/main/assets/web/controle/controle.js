@@ -232,7 +232,7 @@ const appVersionEl = document.getElementById('appVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.1.20';
+const WEB_VERSION = '1.1.21';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -7346,7 +7346,7 @@ function renderCollectionCard(coll, ctx) {
   // Resumo de sincronização: progresso ao vivo enquanto sincroniza, senão
   // baixados/total.
   //
-  // **A SÉRIE NÃO TEM PESO A ANUNCIAR** (v1.1.20). `fracaoPeso` devolve, para
+  // **A SÉRIE NÃO TEM PESO A ANUNCIAR** (v1.1.21). `fracaoPeso` devolve, para
   // um acervo vazio, "o que vai custar baixar" — e num álbum de série isso era
   // um número de gigabytes prometendo um download em lote que nunca existiu e
   // que agora nem botão tem. O que ela tem de verdade para dizer na barra é
@@ -7394,7 +7394,7 @@ function renderCollectionCard(coll, ctx) {
   // canto vazio. Download EM CURSO: o cancelar fica ali mesmo com o card aberto
   // — centenas de faixas precisam poder parar num toque, de qualquer ponto da
   // rolagem.
-  // A SÉRIE NÃO BAIXA EM LOTE, NEM COM A LISTA VAZIA (v1.1.20). Até aqui o
+  // A SÉRIE NÃO BAIXA EM LOTE, NEM COM A LISTA VAZIA (v1.1.21). Até aqui o
   // botão ficava enquanto não houvesse índice — ali ele buscava a LISTA, não
   // baixava —, e isso era um botão com dois significados conforme o estado. A
   // busca da lista passou a ter botão PRÓPRIO na mesma coluna (logo abaixo), e
@@ -7421,7 +7421,7 @@ function renderCollectionCard(coll, ctx) {
     bar.appendChild(dl);
   }
 
-  // ===== A SÉRIE TEM UM BOTÃO SÓ, E ELE É O DE ATUALIZAR A LISTA (v1.1.20) =====
+  // ===== A SÉRIE TEM UM BOTÃO SÓ, E ELE É O DE ATUALIZAR A LISTA (v1.1.21) =====
   //
   // Pedido do operador: *"para o Provai e Vede e para o Informativo, os arquivos
   // precisam estar ou no cronograma ou nos favoritos ou no player para o arquivo
@@ -7470,7 +7470,7 @@ function renderCollectionCard(coll, ctx) {
   // varre todas as faixas do álbum, e o acervo é redesenhado a cada 400 ms
   // enquanto um download corre. Há no máximo um card aberto (o acordeão), então
   // a varredura acontece uma vez por redesenho, não quarenta.
-  // A SÉRIE fica de fora (v1.1.20): ela não retém arquivo nenhum, e remover o
+  // A SÉRIE fica de fora (v1.1.21): ela não retém arquivo nenhum, e remover o
   // que ela não tem apagaria o que está em outra lista — ou nada.
   if (!ehLink(coll) && u.expanded && (total > 0 || countDownloaded(coll.id) > 0)) {
     const rm = document.createElement('button');
@@ -7911,7 +7911,7 @@ function openCollectionOptions(coll) {
   redesenharAcervo();
 }
 
-// (`buildCollectionOptions` e o painel `.coll-opts` saíram na v1.1.20, e as
+// (`buildCollectionOptions` e o painel `.coll-opts` saíram na v1.1.21, e as
 // três ações que ele teve terminaram na COLUNA DA DIREITA DA BARRA — ver
 // `renderCollectionCard`. A última a sair foi o "Atualizar a lista" da série,
 // que virou botão puro ao lado dos irmãos; antes dele saíram o "Verificar"
@@ -7925,7 +7925,7 @@ function openCollectionOptions(coll) {
 // barra `sticky` dois centímetros acima.)
 
 /**
- * ===== O DESTAQUE DO SÁBADO, NO TOPO DA LISTA DA SÉRIE (v1.1.20) =====
+ * ===== O DESTAQUE DO SÁBADO, NO TOPO DA LISTA DA SÉRIE (v1.1.21) =====
  *
  * Pedido do operador: *"gostaria que fizesse um sistema de destaque que
  * colocasse separado destacado no topo da lista o item referente ao sábado

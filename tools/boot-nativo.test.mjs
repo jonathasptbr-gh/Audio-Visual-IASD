@@ -542,7 +542,7 @@ try {
   // a ignorar vermelho (v5.204). O clock fica preso a esta página para não
   // contaminar nada do que já foi medido acima.
   const corte = await (async () => {
-    // CONTEXTO PRÓPRIO, e não `ctx.newPage()` (v1.1.20). MEDIDO: o
+    // CONTEXTO PRÓPRIO, e não `ctx.newPage()` (v1.1.21). MEDIDO: o
     // `clock.setFixedTime` de uma página feita neste contexto CONGELA O
     // CONTEXTO INTEIRO — a página principal continuava rodando, e o relógio
     // dela ficava preso em 15/Ago/2026 de aqui até o fim do arquivo. Nada
@@ -908,7 +908,7 @@ try {
       achou: !!card,
       // O botão de BAIXAR é o `.coll-bar-dl` SEM modificador: os três desta
       // coluna dividem a geometria, e sem o `:not()` esta asserção passaria a
-      // medir o de atualizar, que nasceu ali na v1.1.20.
+      // medir o de atualizar, que nasceu ali na v1.1.21.
       temBotaoBaixar: !!(card && card.querySelector(
         '.coll-bar .coll-bar-dl:not(.coll-bar-at):not(.coll-bar-rm)')),
       temLixeira: !!(card && card.querySelector('.coll-bar .coll-bar-rm')),
@@ -928,7 +928,7 @@ try {
     return r;
   });
   checar(semLote.achou, 'o card da série está na lista para ser medido');
-  // ===== A SÉRIE NÃO GUARDA NADA, E POR ISSO PERDE DOIS BOTÕES (v1.1.20) =====
+  // ===== A SÉRIE NÃO GUARDA NADA, E POR ISSO PERDE DOIS BOTÕES (v1.1.21) =====
   // Pedido do operador: os episódios só existem enquanto estão no Cronograma,
   // nos Favoritos ou na playlist — o álbum não retém arquivo. Logo não há o que
   // baixar em lote (~15 GB/ano) nem o que remover: "Remover do dispositivo" ali
@@ -2512,7 +2512,7 @@ try {
     JSON.stringify(letras.pedidos.slice(0, 5)));
 
   // ── AS OPÇÕES DO ÁLBUM SÃO UMA LINHA SÓ (v5.233) ───────────────────────
-  // ===== O DESTAQUE DO SÁBADO, NO TOPO DA LISTA DA SÉRIE (v1.1.20) =====
+  // ===== O DESTAQUE DO SÁBADO, NO TOPO DA LISTA DA SÉRIE (v1.1.21) =====
   //
   // Pedido do operador: *"um sistema de destaque que colocasse separado
   // destacado no topo da lista o item referente ao sábado atual; caso não

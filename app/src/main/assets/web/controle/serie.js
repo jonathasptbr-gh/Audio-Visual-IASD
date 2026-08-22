@@ -639,7 +639,7 @@
   }
 
   /**
-   * ===== O SÁBADO DESTA SEMANA (v1.1.20) =====
+   * ===== O SÁBADO DESTA SEMANA (v1.1.21) =====
    *
    * Pedido do operador: *"faça um sistema de destaque que colocasse separado
    * destacado no topo da lista o item referente ao sábado atual; caso não
