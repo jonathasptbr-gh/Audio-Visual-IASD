@@ -542,7 +542,17 @@ try {
   // a ignorar vermelho (v5.204). O clock fica preso a esta página para não
   // contaminar nada do que já foi medido acima.
   const corte = await (async () => {
-    const pgC = await ctx.newPage();
+    // CONTEXTO PRÓPRIO, e não `ctx.newPage()` (v1.1.21). MEDIDO: o
+    // `clock.setFixedTime` de uma página feita neste contexto CONGELA O
+    // CONTEXTO INTEIRO — a página principal continuava rodando, e o relógio
+    // dela ficava preso em 15/Ago/2026 de aqui até o fim do arquivo. Nada
+    // reprovava: as asserções seguintes ou não olhavam o relógio, ou olhavam
+    // duas vezes o mesmo relógio de mentira e concordavam consigo mesmas. Foi o
+    // caso do destaque do sábado que topou nisso — ele lê a data e escreve o
+    // rótulo, então uma data congelada aparece na tela.
+    const ctxC = await navegador.newContext({ viewport: { width: 430, height: 900 } });
+    await semRedeExterna(ctxC);
+    const pgC = await ctxC.newPage();
     try {
       // ANTES do sábado de 15/Ago, que é um episódio que o stub JÁ tem — assim
       // o caso não precisa de um episódio futuro no stub, que ficaria no
@@ -587,7 +597,7 @@ try {
         { itens: (o.itens || []).map((n) => String(n).split(' · ')[0]) });
       return { antes: soData(antes), naTerca: soData(naTerca),
         naQuarta: soData(naQuarta), noDia: soData(noDia) };
-    } finally { await pgC.close(); }
+    } finally { await pgC.close(); await ctxC.close(); }
   })();
   checar(!(corte.antes.itens || []).includes('15/Ago'),
     'EM 10/JUL o episódio de 15/Ago NÃO chega à lista — ele ainda não foi liberado',
@@ -893,16 +903,54 @@ try {
     renderCollectionsList(lista, () => {}, { semTotal: true });
     const cards = [...lista.querySelectorAll('.hymnal-card')];
     const card = cards.find((el) => /Provai e Vede 2026/.test(el.textContent));
+    const at = card && card.querySelector('.coll-bar .coll-bar-at');
     const r = {
       achou: !!card,
-      temBotaoBaixar: !!(card && card.querySelector('.coll-bar-dl')),
+      // O botão de BAIXAR é o `.coll-bar-dl` SEM modificador: os três desta
+      // coluna dividem a geometria, e sem o `:not()` esta asserção passaria a
+      // medir o de atualizar, que nasceu ali na v1.1.21.
+      temBotaoBaixar: !!(card && card.querySelector(
+        '.coll-bar .coll-bar-dl:not(.coll-bar-at):not(.coll-bar-rm)')),
+      temLixeira: !!(card && card.querySelector('.coll-bar .coll-bar-rm')),
+      temAtualizar: !!at,
+      // "Botão puro, sem texto": nós de TEXTO, não `textContent` — este traz o
+      // codepoint do glifo junto (ver a lixeira, mais abaixo).
+      textoAtualizar: at ? [...at.childNodes].filter((n) => n.nodeType === 3)
+        .map((n) => n.textContent).join('').trim() : null,
+      rotuloAtualizar: at ? (at.getAttribute('aria-label') || at.title || '') : '',
+      temPainel: !!(card && card.querySelector('.coll-opts')),
+      // O SUBTÍTULO da barra: `fracaoPeso` devolvia, para um acervo vazio, "o
+      // que vai custar baixar" — gigabytes prometendo um download em lote que
+      // nunca existiu e que agora nem botão tem.
+      resumo: card ? ((card.querySelector('.coll-bar-sync') || {}).textContent || '') : '',
     };
     grupoAberto = guardado;
     return r;
   });
   checar(semLote.achou, 'o card da série está na lista para ser medido');
+  // ===== A SÉRIE NÃO GUARDA NADA, E POR ISSO PERDE DOIS BOTÕES (v1.1.21) =====
+  // Pedido do operador: os episódios só existem enquanto estão no Cronograma,
+  // nos Favoritos ou na playlist — o álbum não retém arquivo. Logo não há o que
+  // baixar em lote (~15 GB/ano) nem o que remover: "Remover do dispositivo" ali
+  // apagaria o que está em OUTRA lista, ou nada, e as duas leituras são erradas.
   checar(!semLote.temBotaoBaixar,
-    'e ele NÃO tem o botão de baixar a coleção — "não quero um download direto"');
+    'a série NÃO tem o botão de baixar a coleção — "não quero um download direto"');
+  checar(!semLote.temLixeira,
+    'e NÃO tem a lixeira: o álbum de série não retém arquivo nenhum');
+  checar(semLote.temAtualizar && semLote.textoAtualizar === '',
+    'o que ela tem é UM botão, puro e sem texto — "atualizar a lista" no lugar '
+    + 'onde ficava o excluir', JSON.stringify(semLote.textoAtualizar));
+  checar(/Atualizar a lista/.test(semLote.rotuloAtualizar),
+    'com a frase no `aria-label`/`title` — quem não vê o ícone continua sabendo '
+    + 'o que o toque faz', semLote.rotuloAtualizar);
+  checar(!semLote.temPainel,
+    'e o painel `.coll-opts` não existe mais: as três ações que ele teve '
+    + 'terminaram todas na coluna da direita da barra');
+  checar(!/\d+(,\d+)?\s?(KB|MB|GB)/.test(semLote.resumo)
+    && /epis[óo]dio/.test(semLote.resumo),
+    'e a barra dela não anuncia PESO nenhum — diz quantos episódios a lista tem. '
+    + 'O peso ali era o custo de um download em lote que não existe',
+    JSON.stringify(semLote.resumo));
 
   // ── A GAVETA DA LINHA É DO TIPO DO ITEM (v5.236) ───────────────────────
   // Relato do operador: *"o toque nele na lista abre ainda a opção de ver a
@@ -2464,152 +2512,89 @@ try {
     JSON.stringify(letras.pedidos.slice(0, 5)));
 
   // ── AS OPÇÕES DO ÁLBUM SÃO UMA LINHA SÓ (v5.233) ───────────────────────
-  // Pedido do operador: o PESO sai (ele já está na barra, antes de abrir) e o
-  // resto vira uma linha — a verificação (com progresso e resultado) ou a
-  // remoção. O que este caso trava é o par: os chips SUMIRAM **e** o estado que
-  // eles carregavam continua na tela. Sem a segunda metade, apagar o painel
-  // inteiro passaria — a mesma cobrança de duas metades do `registro.test.mjs`.
-  const opcoes = await pg.evaluate(() => {
-    const c = allCollections().find((x) => x.kind === 'serie');
-    // O MODO AVANÇADO, e ele é pré-requisito da medição inteira: no Modo Fácil
-    // o painel de opções é `display: none` por regra (`.mode-simple
-    // .coll-opts`), e num elemento escondido TODA medida é zero — larguras,
-    // topos, centros. Zeros comparados com zeros passam, e foi assim que a
-    // primeira versão deste caso aprovou um layout que ela não tinha medido
-    // (a lição da v5.208, aqui de novo).
-    const modoAntes = document.body.classList.contains('mode-simple') ? 'simple' : 'full';
-    setAppMode('full');
-    // ABRE o card: o `openCollectionOptions` marca o estado e manda o acervo se
-    // redesenhar, e o acervo de verdade não é o `<ul>` de teste criado abaixo.
-    openCollectionOptions(c);
-    // UMA LISTA PRÓPRIA E VISÍVEL, e isto é o teste inteiro: o `#hymnResults`
-    // mora dentro do popup de busca, que está FECHADO — ali todo
-    // `getBoundingClientRect()` devolve zero, e uma medição de larguras e
-    // linhas contra zeros PASSA sem medir nada (a lição da v5.208). A largura
-    // é a de um celular comum, porque é ela que decide se a linha cabe.
-    const lista = document.createElement('ul');
-    lista.className = 'hymnal-list';
-    lista.style.width = '390px';
-    document.body.appendChild(lista);
-    grupoAberto = '';  // as fixas ficam na RAIZ desde a v1.0.1 — não há grupo a abrir
-    renderCollectionsList(lista, () => {}, { semTotal: true });
-    const card = [...lista.querySelectorAll('.hymnal-card')]
-      .find((el) => /Provai e Vede 2026/.test(el.textContent));
-    const opts = card && card.querySelector('.coll-opts');
-    const filhos = opts ? [...opts.children].map((el) => el.className) : [];
-    const btns = opts ? [...opts.querySelectorAll('button')] : [];
-    // Uma LINHA: todos os controles do painel partilham o mesmo topo.
-    const topos = btns.map((b) => Math.round(b.getBoundingClientRect().top));
-    const r = {
-      achou: !!opts,
-      filhos,
-      chips: opts ? opts.querySelectorAll('.hymnal-stat, .hymnal-card-stats').length : -1,
-      // O peso da BARRA continua onde sempre esteve — é ele que torna o do
-      // painel redundante, então a asserção precisa vê-lo para valer.
-      pesoNaBarra: !!(card && /\d+(,\d+)?\s?(KB|MB|GB)/.test(
-        (card.querySelector('.coll-bar-sync') || {}).textContent || '')),
-      pesoNoPainel: opts ? /\d+(,\d+)?\s?(KB|MB|GB)/.test(opts.textContent) : true,
-      rotulos: btns.map((b) => b.textContent.trim().replace(/\s+/g, ' ')),
-      estado: opts ? [...opts.querySelectorAll('.coll-opt-estado')].map((e) => e.textContent) : [],
-      umaLinha: topos.length >= 1 && Math.max(...topos) - Math.min(...topos) <= 2,
-      // ── A LIXEIRA SUBIU PARA A BARRA (v1.1.16) ─────────────────────────
-      // Ela não está mais no painel, e as duas metades importam: o painel NÃO
-      // pode tê-la (senão haveria duas), e a barra TEM de tê-la com o card
-      // aberto. Sem a segunda, apagá-la de vez passaria.
-      lixeiraNoPainel: opts ? opts.querySelectorAll('.new-folder-btn.danger').length : -1,
-      barraTemLixeira: !!(card && card.querySelector('.coll-bar .coll-bar-rm')),
-      // ── A FORMA DA LINHA (v5.235) ──────────────────────────────────────
-      // O estado na MESMA linha do rótulo: os dois centros verticais coincidem.
-      // Medir a ALTURA do botão não serviria — `align-items: stretch` iguala os
-      // dois, então um botão que quebrasse em duas linhas esticaria a lixeira
-      // junto e a diferença sumiria.
-      estadoNaLinha: (() => {
-        const b = opts && opts.querySelector('.coll-opts-acoes .new-folder-btn');
-        const e = b && b.querySelector('.coll-opt-estado');
-        if (!b || !e) return false;
-        const rb = b.getBoundingClientRect(), re = e.getBoundingClientRect();
-        return Math.abs((re.top + re.bottom) / 2 - (rb.top + rb.bottom) / 2) <= 3;
-      })(),
-      // A largura de referência: sem ela, zeros passariam por medidas.
-      largLista: lista.getBoundingClientRect().width,
-      lixeira: (() => {
-        const rm = card && card.querySelector('.coll-bar .coll-bar-rm');
-        const ver = card && card.querySelector('.coll-bar .coll-bar-dl:not(.coll-bar-rm)');
-        if (!rm) return null;
-        return {
-          // O RÓTULO são os nós de TEXTO do botão, não o `textContent` — este
-          // traz o CODEPOINT do ícone junto (o `.msym` é uma ligadura da fonte,
-          // um caractere de uso privado que `trim()` não remove e que
-          // `JSON.stringify` imprime sem escapar: a primeira versão desta
-          // asserção reprovava contra um "texto vazio" que tinha um caractere.
-          texto: [...rm.childNodes].filter((n) => n.nodeType === 3)
-            .map((n) => n.textContent).join('').trim(),
-          temIcone: !!rm.querySelector('.msym, svg'),
-          rotuloAssistivo: rm.getAttribute('aria-label') || rm.title || '',
-          larg: rm.getBoundingClientRect().width,
-          alt: rm.getBoundingClientRect().height,
-          // O IRMÃO DE BAIXAR, quando existe: os dois dividem a coluna da
-          // direita, e centros que discordam num par colado é a coisa que mais
-          // parece defeito numa linha.
-          largIrmao: ver ? ver.getBoundingClientRect().width : null,
-          altIrmao: ver ? ver.getBoundingClientRect().height : null,
-        };
-      })(),
+  // ===== O DESTAQUE DO SÁBADO, NO TOPO DA LISTA DA SÉRIE (v1.1.21) =====
+  //
+  // Pedido do operador: *"um sistema de destaque que colocasse separado
+  // destacado no topo da lista o item referente ao sábado atual; caso não
+  // tenha, deixe uma mensagem de Aguardando lançamento"*.
+  //
+  // **A SÉRIE É SINTÉTICA, e isso é o que impede este caso de medir o RELÓGIO
+  // DO RUNNER.** O catálogo tem o ano fixo (2026) e `diasAte` compara contra
+  // ele: num runner de outro ano NENHUM episódio cairia na semana corrente, e o
+  // caso reprovaria o app por uma data de calendário. Aqui o `ano` da série é o
+  // ano de hoje, e a data do episódio vem de `AVSerie.sabadoDaSemana()` — a
+  // função do APP, nunca uma segunda escrita da regra dentro do teste.
+  //
+  // As metades:
+  //  1. o episódio do sábado aparece no bloco de destaque;
+  //  2. e SAI da lista — deixá-lo nos dois lugares daria duas linhas que fazem
+  //     a mesma coisa, e a de baixo, no meio de cinquenta irmãs, é a que o
+  //     operador tocaria por engano procurando outra data;
+  //  3. sem ele, "Aguardando lançamento" — e o cabeçalho continua dizendo de
+  //     QUE sábado se trata, senão a frase valeria para qualquer semana;
+  //  4. e um ÁLBUM não recebe destaque nenhum.
+  const dest = await pg.evaluate(() => {
+    const ID = 'serie-destaque-teste';
+    const coll = { id: ID, kind: 'serie', name: 'Série de teste',
+      serie: { ano: new Date().getFullYear(), futuros: AVSerie.FUTUROS_MOSTRAR } };
+    const sab = AVSerie.sabadoDaSemana();
+    const faixa = (nome, data) => ({ id_music: 'e' + nome, name: nome, duration: '20:00',
+      has_instrumental_music: false, fileIdFull: null, fileIdPlayback: null,
+      ytUrl: 'https://youtu.be/' + nome, serieData: data });
+    // Duas datas BEM longe do sábado desta semana, em qualquer direção.
+    const longe = (n) => {
+      const d = new Date(sab.ano, sab.mes - 1, sab.dia + n);
+      return { mes: d.getMonth() + 1, dia: d.getDate() };
     };
-    lista.remove();
-    setAppMode(modoAntes);
+    const ler = (bloco) => ({
+      existe: !!bloco,
+      rotulo: bloco ? ((bloco.querySelector('.serie-destaque-rot') || {}).textContent || '') : null,
+      data: bloco ? ((bloco.querySelector('.serie-destaque-data') || {}).textContent || '') : null,
+      linhas: bloco ? bloco.querySelectorAll('.hymn-result').length : -1,
+      texto: bloco ? bloco.textContent : '',
+      vazio: bloco ? ((bloco.querySelector('.serie-destaque-vazio') || {}).textContent || '') : '',
+    });
+    const r = {};
+    // (1) e (2): COM o episódio do sábado.
+    collState[ID] = { songs: [
+      faixa('Anterior', longe(-14)), faixa('DoSabado', { mes: sab.mes, dia: sab.dia }),
+      faixa('Seguinte', longe(14)),
+    ] };
+    r.com = ler(blocoDestaque(coll));
+    r.comData = AVSerie.rotuloData(sab);
+    r.listaCom = faixasDaLista(coll).map((x) => x.name);
+    // (3): SEM ele.
+    collState[ID] = { songs: [faixa('Anterior', longe(-14)), faixa('Seguinte', longe(14))] };
+    r.sem = ler(blocoDestaque(coll));
+    r.listaSem = faixasDaLista(coll).map((x) => x.name);
+    // (4): um ÁLBUM não tem destaque.
+    r.album = blocoDestaque({ id: ID, kind: 'album', name: 'Álbum de teste' }) === null;
+    delete collState[ID];
     return r;
   });
-  checar(opcoes.achou, 'o painel de opções do álbum abre');
-  checar(opcoes.chips === 0,
-    'e a faixa de CHIPS não existe mais nele', JSON.stringify(opcoes.filhos));
-  checar(opcoes.pesoNaBarra && !opcoes.pesoNoPainel,
-    'o PESO ficou só na barra do card, antes de abrir — no painel ele era a mesma '
-    + 'medida dita duas vezes');
-  // UMA linha é literal, e são DUAS medidas: o painel tem um filho só (não
-  // sobrou faixa nenhuma acima dos botões) e os botões partilham o mesmo topo.
-  // Sem a primeira, a asserção passaria com os chips de volta — eles nunca
-  // estiveram na mesma linha dos botões, estavam ACIMA deles.
-  // ===== O PAINEL DA SÉRIE FICOU COM UM BOTÃO SÓ (v1.1.16) =====
-  // "Verificar" saiu (a verificação virou automática na abertura) e a lixeira
-  // subiu para a barra. Numa SÉRIE o "Atualizar a lista" fica: ela não baixa em
-  // lote por desenho, e o índice dela custa uma extração do canal do YouTube —
-  // é a única porta para refazer uma lista que o TTL segura por 12 h.
-  checar(opcoes.umaLinha && opcoes.filhos.length === 1 && opcoes.rotulos.length === 1
-    && /Atualizar a lista/.test(opcoes.rotulos[0]),
-    'o painel da SÉRIE ficou com UM botão, e ele é o "Atualizar a lista" — não o '
-    + '"Verificar", que saiu com a verificação automática',
-    JSON.stringify(opcoes.rotulos));
-  // A FRAÇÃO LIMPA, E SÓ ELA (v5.241, pedido do operador). O estado é um NÚMERO —
-  // a fração num álbum, a contagem numa série — e nunca uma palavra: "✓ completo"
-  // trazia um glifo de fora da fonte de ícones e dizia por extenso o que "24/24"
-  // já diz, com a cor verde ao lado repetindo pela terceira vez.
-  checar(opcoes.estado.length === 1 && /^[\d/]+$/.test(opcoes.estado[0].trim()),
-    'o ESTADO não se perdeu, e é só NÚMERO: nem "completo", nem "episódios" ("'
-    + (opcoes.estado[0] || '') + '")');
-  // E ele fica NA MESMA LINHA do rótulo (v5.235). Uma segunda linha resolvia a
-  // largura e desfazia metade do ganho: o painel voltava a ter duas alturas de
-  // texto, que é justamente o que condensá-lo veio tirar.
-  checar(opcoes.estadoNaLinha,
-    'e ele divide a linha com o rótulo, sem quebrar para uma segunda');
-  // ===== E A LIXEIRA SUBIU PARA A BARRA (v1.1.16) =====
-  // Pedido do operador: *"coloque o botão de excluir na direita no card do
-  // título do álbum… deixe o botão de excluir apenas visível quando abrir o
-  // álbum"*. As DUAS metades: o painel não pode tê-la (senão haveria duas na
-  // tela) e a barra tem de tê-la — sem a segunda, apagá-la de vez passaria.
-  checar(opcoes.lixeiraNoPainel === 0 && opcoes.barraTemLixeira,
-    'a LIXEIRA saiu do painel e está na BARRA do card',
-    JSON.stringify([opcoes.lixeiraNoPainel, opcoes.barraTemLixeira]));
-  const lx = opcoes.lixeira;
-  checar(!!lx && lx.texto === '' && lx.temIcone,
-    'ela é só o ícone, sem rótulo na tela', lx ? JSON.stringify(lx.texto) : 'sem botão');
-  checar(!!lx && /Remover do dispositivo/.test(lx.rotuloAssistivo),
-    'com a frase inteira no `aria-label` — quem não vê o ícone continua sabendo o alcance');
-  await pg.evaluate(() => {
-    allCollections().forEach((c) => { ui(c.id).expanded = false; });
-    grupoAberto = ''; favAberto = false;
-    redesenharAcervo();
-  });
+  checar(dest.com.existe && dest.com.linhas === 1 && /DoSabado/.test(dest.com.texto),
+    'o episódio DESTE SÁBADO aparece no bloco de destaque, no topo da lista',
+    JSON.stringify(dest.com.linhas));
+  checar(dest.com.rotulo === 'Este sábado' && dest.com.data === dest.comData,
+    'e o cabeçalho diz de QUE sábado se trata (' + dest.com.data + ')',
+    JSON.stringify([dest.com.rotulo, dest.com.data, dest.comData]));
+  checar(dest.listaCom.length === 2 && !dest.listaCom.includes('DoSabado'),
+    'e ele SAI da lista — "separado" é literal: duas linhas que fazem a mesma '
+    + 'coisa, a dois centímetros uma da outra, é a de baixo que o operador toca '
+    + 'por engano', JSON.stringify(dest.listaCom));
+  checar(dest.sem.existe && dest.sem.linhas === 0
+    && /Aguardando lançamento/.test(dest.sem.vazio),
+    'sem o episódio da semana, o bloco diz "Aguardando lançamento" — sem ele, um '
+    + 'card sem o vídeo do sábado fica indistinguível de um que não carregou',
+    JSON.stringify(dest.sem));
+  checar(dest.sem.data === dest.comData,
+    'e continua nomeando o sábado: a frase sozinha valeria para qualquer semana');
+  checar(dest.listaSem.length === 2,
+    'e a lista fica inteira quando não há o que separar dela',
+    JSON.stringify(dest.listaSem));
+  checar(dest.album,
+    'um ÁLBUM não recebe destaque nenhum: isto é recurso do CALENDÁRIO de uma '
+    + 'série semanal, não do acervo');
 
   // ===== A VERIFICAÇÃO DE ÁLBUM VIRA AUTOMÁTICA (v1.1.16) =====
   //
