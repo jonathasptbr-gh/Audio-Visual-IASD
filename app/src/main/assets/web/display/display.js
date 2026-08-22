@@ -24,24 +24,21 @@ const textImgEl = document.getElementById('textImg');
 // tem com a época dele.
 const INSTANCIA = 'd' + Math.random().toString(36).slice(2, 10).padEnd(8, '0');
 
-// ESTE DOCUMENTO É O ESPELHO DE PIXELS? (ver docs/ESPELHO-DE-PIXELS.md)
+// O TERCEIRO PAPEL (telão por comandos, docs/TELAO-POR-COMANDOS.md): este MESMO
+// documento rodando num navegador da LAN, servido pelo celular, com os comandos
+// chegando por SSE pela casca `espelho/tela.js`. É o mesmo arquivo, o mesmo
+// barramento e a mesma cena do telão de verdade — o que muda é o PAPEL, e toda
+// diferença de comportamento pendura NESTA constante.
 //
-// O espelho é uma SEGUNDA cópia deste mesmo `/display/`, hospedada numa
-// `Presentation` sobre um `VirtualDisplay` privado cujo framebuffer é
-// codificado e servido na rede local. É o mesmo arquivo, o mesmo origin e o
-// mesmo barramento do telão de verdade — o que muda é o PAPEL, e todas as
-// diferenças de comportamento penduram nesta constante.
+// Ela é falsa no telão e no navegador de desenvolvimento (sem a ponte não há
+// `__AV_ROLE__`), que é a regra de escrita do projeto: o comportamento de sempre
+// é o padrão, o novo é a exceção que se declara.
 //
-// No navegador ela é `false` (não há `__AV_ROLE__` sem a ponte) e no telão de
-// verdade também, então tudo o que ela guarda é código morto nos dois casos —
-// que é exatamente a regra de escrita do projeto: o comportamento de sempre é
-// o padrão, o novo é a exceção que se declara.
-
-// O quarto papel (telão por comandos, docs/TELAO-POR-COMANDOS.md): este MESMO
-// documento rodando num navegador da LAN, servido pelo celular, com os
-// comandos chegando por SSE pela casca `espelho/tela.js`. Ele é falso no
-// telão, no espelho e no navegador de desenvolvimento — a mesma regra de
-// escrita do ESPELHO acima: o comportamento de sempre é o padrão.
+// (Aqui havia um bloco gêmeo descrevendo um `ESPELHO` — o papel do espelho de
+// PIXELS, removido na v5.187 junto com a constante. O comentário ficou de pé e
+// passou a afirmar, no presente, um identificador que não existe em lugar
+// nenhum. A história dele mora em passado no rodapé deste arquivo e em
+// `docs/ESPELHO-DE-PIXELS.md`.)
 const TELA = window.__AV_ROLE__ === 'tela';
 
 // Config de transições, usada aqui para animar o player do YouTube (que vive
@@ -839,15 +836,6 @@ let micSeq = 0;
 
 async function startMic() {
   if (micStream) return; // já no ar
-  // O ESPELHO NÃO ABRE MICROFONE, e a razão não é economia: ele é uma SEGUNDA
-  // instância de `/display/`, e o comando `mic` chega às duas por broadcast.
-  // A janela do espelho é montada sem o `MicChromeClient` de propósito (dois
-  // `getUserMedia` no mesmo microfone é realimentação na caixa de som do
-  // templo), então o WebView NEGA em silêncio — e a rejeição cairia no
-  // `micStatus(false, …)` daqui, que o Controle aplica sem olhar de quem veio.
-  // Ou seja: o espelho APAGARIA o estado do microfone real, no meio de um
-  // push-to-talk. Sair antes de qualquer status é o que mantém o telão dono
-  // dessa informação.
   const seq = ++micSeq;
   if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
     micStatus(false, 'unsupported');
@@ -980,6 +968,30 @@ function stopMic() {
 let micWanted = false;
 
 function setMic(on) {
+  // O MICROFONE É DO TELÃO, e esta linha é a única coisa que diz isso.
+  //
+  // O comando `mic` DESCE para toda tela da rede sem filtro nenhum: o fan-out
+  // do `EspelhoServidor.difundirJson` repassa verbatim o que o barramento
+  // emitiu (só o `__para` do reenvio endereçado é lido), e o `entregar()` do
+  // `tela.js` não olha o tipo. Sem esta guarda, cada tela executa `startMic` e
+  // abre o microfone DO APARELHO ONDE O NAVEGADOR RODA — o notebook do saguão,
+  // a Smart TV —, devolvendo-o às caixas DAQUELE aparelho. Nenhum áudio
+  // atravessa a rede aqui, então o estrago não é "a tela fala com a voz do
+  // púlpito": é realimentação local, num aparelho que ninguém está olhando.
+  //
+  // Hoje isso NÃO ACONTECE, e é por isso que a guarda precisa existir: quem o
+  // impede é o ambiente, não o app. Uma tela roda em `http://`, e ali
+  // `navigator.mediaDevices` simplesmente não existe (a API é `[SecureContext]`)
+  // — a chamada morre na conferência de presença logo abaixo. É uma proteção
+  // EMPRESTADA do navegador, e ela se desfaz sozinha no dia em que a transmissão
+  // subir em `https://` (o `EspelhoCert` continua inteiro no shell; o que saiu
+  // na v5.196 foi só a folha que o alimentava). Nesse dia, sem esta linha, o
+  // primeiro push-to-talk pediria microfone em cada tela da igreja.
+  //
+  // (Onde esta guarda mora era, até aqui, um COMENTÁRIO dizendo que ela existia.
+  // Ele descrevia o papel `espelho` — removido na v5.187 — e prometia uma saída
+  // antecipada que nenhuma linha implementava.)
+  if (TELA) return;
   micWanted = !!on;
   if (micWanted) startMic(); else stopMic();
 }

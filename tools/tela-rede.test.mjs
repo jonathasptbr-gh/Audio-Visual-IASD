@@ -505,6 +505,62 @@ checar(await pg.$eval('#text', (e) => e.hidden), 'text-hide tira a Camada de Tex
 }
 
 // ---------------------------------------------------------------------------
+// 5b-quater. A TELA DA REDE NUNCA ABRE O MICROFONE
+//
+// O comando `mic` DESCE para toda tela sem filtro nenhum — o `difundirJson` do
+// Kotlin repassa verbatim o que o barramento emitiu (só o `__para` do reenvio
+// endereçado é lido) e o `entregar()` do `tela.js` não olha o tipo. O que
+// separa o telão da tela é, de novo, uma linha: o `if (TELA) return` no topo do
+// `setMic`. Mesma família do bloco acima e da invariante 9.
+//
+// POR QUE ELA PRECISA EXISTIR, se hoje nada acontece sem ela: quem impede o
+// microfone de abrir numa tela é o AMBIENTE, não o app. Uma tela roda em
+// `http://`, e `navigator.mediaDevices` é `[SecureContext]` — não existe ali. É
+// proteção emprestada do navegador, e ela se desfaz sozinha no dia em que a
+// transmissão subir em `https://` (o `EspelhoCert` continua inteiro no shell).
+// O lugar onde essa guarda morava era, até a v1.1.20, um COMENTÁRIO afirmando
+// que ela existia.
+//
+// MEDE O EFEITO, não um sintoma: conta as chamadas a `getUserMedia`. E o
+// contador é instalado numa `navigator.mediaDevices` FORJADA — sem ela não há o
+// que espionar neste Chromium, que roda em `localhost` (contexto seguro) mas
+// não tem microfone. Forjá-la é também o que torna este bloco a prova do dia de
+// amanhã: ele mede a tela COMO SE já estivesse em contexto seguro com a API
+// presente, que é exatamente o cenário que a guarda existe para cobrir.
+// ---------------------------------------------------------------------------
+{
+  await pg.evaluate(() => {
+    window.__gum = 0;
+    // `mediaDevices` é somente-leitura no protótipo; define-se por cima.
+    Object.defineProperty(navigator, 'mediaDevices', {
+      configurable: true,
+      value: { getUserMedia: () => { window.__gum++; return Promise.reject(new Error('teste')); } },
+    });
+  });
+  evento({ type: 'mic', on: true, __mid: 'm:mic1' });
+  // AUSÊNCIA não tem fato pelo qual esperar. O caminho medido é curto (o
+  // `setMic` é síncrono até o `getUserMedia`), então 800 ms são folga larga.
+  await new Promise((f) => setTimeout(f, 800));
+  const gum = await pg.evaluate(() => {
+    const n = window.__gum;
+    delete navigator.mediaDevices;   // não envenena os blocos seguintes
+    return n;
+  });
+  checar(gum === 0,
+    'o papel `tela` NÃO abre o microfone: o comando `mic` chega e não vira `getUserMedia` nenhum',
+    'getUserMedia=' + gum);
+  // E NÃO SOBE STATUS. Esta asserção mede a SEGUNDA camada, não a guarda: ela
+  // continua passando com o `if (TELA)` removido (medido por reversão), porque
+  // quem mata um `mic-status` da tela é o DRENO do `tela.js`. As duas juntas são
+  // o que faz o estado do microfone ser do telão — a guarda impede a captura, o
+  // dreno impede a opinião. Uma sem a outra deixa metade do caminho aberto.
+  const statuses = sts().filter((st) => st && st.type === 'mic-status').length;
+  checar(statuses === 0,
+    'e não devolve `mic-status` nenhum — o estado do microfone é do telão',
+    'mic-status=' + statuses);
+}
+
+// ---------------------------------------------------------------------------
 // 5c. O wallpaper por URL e o aviso de cena-sem-rede
 // ---------------------------------------------------------------------------
 {

@@ -1,5 +1,14 @@
 [
   {
+    "versao": "1.1.24",
+    "itens": [
+      "O botão do microfone parou de mentir: sem TV conectada ele recusa o toque e explica por quê, em vez de acender “No ar” sem nada estar captando.",
+      "E ele não pede mais a permissão de microfone do Android quando não há para onde mandar a voz.",
+      "As telas da rede não tentam mais abrir o microfone do aparelho em que rodam — o microfone é do telão.",
+      "O Registro passou a dizer onde a voz sai (ou por que não sai)."
+    ]
+  },
+  {
     "versao": "1.1.23",
     "itens": [
       "As cifras dos CDs oficiais e dos CDs do ano passam a ser procuradas direto na coleção “Ministério Jovem” do Cifra Club, antes de cair na busca por texto — é um endereço deduzido do nome da música, sem depender de quem o site escolhe mostrar primeiro."
