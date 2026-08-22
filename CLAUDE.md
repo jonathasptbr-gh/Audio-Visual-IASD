@@ -1764,7 +1764,20 @@ a congregação vê continua sendo a letra, pelo caminho de sempre.
   um acorde.
 - **A aba é a ÚLTIMA da lista de fontes**, e isso é a precedência inteira: sem
   escolha do operador, `lvActiveSource` abre a primeira — e a que abre sozinha
-  tem de ser a letra, que é o que quem opera o culto está lendo.
+  tem de ser a letra, que é o que quem opera o culto está lendo. **A Bíblia NO AR
+  é exclusiva** (v1.1.11): projetando, ela é a única fonte, e a cifra não é
+  oferecida — ver o capítulo do Controle.
+- **A folha QUEBRA em vez de rolar de lado** (`pre-wrap`), e o preço está dito no
+  CSS: na linha que de fato quebrar, a continuação recomeça na margem e o par
+  acorde/letra perde o alinhamento NAQUELE ponto. É a troca que o formato
+  permite — alinhamento perfeito com rolagem lateral, ou tudo à vista com a
+  quebra ocasional —, e numa tela de celular rolar de lado a cada verso custava
+  mais. O respiro vai ENTRE os pares (`.lv-cifra-letra + .lv-cifra-acordes`),
+  nunca dentro deles: é a proximidade do acorde com a letra que diz a qual sílaba
+  ele pertence.
+- **"Ver no Cifra Club" é um LINK no rodapé**, não um botão de corpo inteiro. Ele
+  é a ação menos principal da aba (quem a abre quer LER a cifra) e, com peso de
+  botão, cobrava altura de uma caixa cuja única função é mostrar texto.
 - **Ela não existe no navegador.** Sem ponte não há como buscar a página, e uma
   aba que só sabe explicar por que não funciona é pior que aba nenhuma — o
   seletor do topo só aparece com duas fontes, e esta apareceria em toda música.
@@ -2689,7 +2702,7 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: v1.1.12** (base web) · **v1.1.10** (APK) · `SHELL_VERSION` **49** · bundle com
+**Versão atual: v1.1.13** (base web) · **v1.1.10** (APK) · `SHELL_VERSION` **49** · bundle com
 `minShell: 49` — o shell 49 é o **PISO**: todo método da ponte existe, e não há
 guarda de versão no lado web. O que continua valendo é que `java/`, `res/`, o
 manifest e os workflows **só chegam instalando o APK**.

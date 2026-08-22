@@ -1079,16 +1079,30 @@ vem depois, e a preview só espelha o que já está no ar. O botão do meio do
 mixer (`#lyricsViewBtn`, folha com linhas) abre um bottom-sheet **com scroll**
 (`#lyricsPopup`) com a íntegra do que está em cena.
 
-- **Três fontes, uma tela**: a **letra** da música em cena
-  (`currentItem.lyrics`, os mesmos slides que o Display projeta — o slide de
+- **Três fontes possíveis, nunca as três de uma vez**: a **letra** da música em
+  cena (`currentItem.lyrics`, os mesmos slides que o Display projeta — o slide de
   capa vira a linha "Início"), o **capítulo** da leitura bíblica
-  (`bibleSession.verses`, numerados como numa Bíblia impressa) e a **cifra**
-  (v1.1.7). Para a Bíblia basta a sessão existir: um capítulo fora do ar continua
-  sendo o que o operador está lendo.
-- **O seletor do topo (`#lyricsViewSeg`) só aparece quando há mais de uma** — o
-  que acontece de verdade com um louvor de fundo durante a leitura. Com uma fonte
-  só, ela abre direto, sem um seletor de uma opção. A escolha manual (`lvSource`)
-  vale enquanto aquela fonte existir; sumindo, cai na disponível.
+  (`bibleSession.verses`, numerados como numa Bíblia impressa) e a **cifra**.
+- **A BÍBLIA NO AR É EXCLUSIVA** (v1.1.11). Projetando, ela é a única fonte
+  oferecida; fora do ar, ela não disputa com a música e volta só como RESERVA —
+  quando não há letra nem cifra para mostrar. Com música em cena, portanto, as
+  fontes são **Letra e Cifra**, e nada mais.
+
+  A regra é sobre **projeção**, nunca sobre a sessão existir. O que ela resolve é
+  concreto: com um louvor de fundo durante a leitura, as três coexistiam e o
+  seletor virava três abas — mas quem lê a Bíblia em voz alta não vai consultar a
+  cifra do louvor de fundo no mesmo minuto. A folha responde *"o que está em cena
+  AGORA?"*, e com a Bíblia projetando a resposta é uma só.
+- **O seletor do topo (`#lyricsViewSeg`) só aparece quando há mais de uma** fonte
+  — com uma só, ela abre direto, sem um seletor de uma opção. Os botões dividem a
+  largura (`.fit-seg` é `flex`, `.fit-opt` é `flex: 1`), então menos abas já
+  significa mais espaço para cada uma. A escolha manual (`lvSource`) vale
+  enquanto aquela fonte existir; sumindo, cai na disponível.
+- **O corpo é uma CAIXA com barra de rolagem** (v1.1.11). Sem ela o texto
+  terminava no ar contra o fundo da folha, e "acabou" era indistinguível de
+  "está cortado" — a rolagem só se descobria tentando. O tom vem de `--surface`,
+  que dentro da `.popup-sheet` já resolve para o afundado; preenchimento, nunca
+  contorno.
 - **A CIFRA é a ÚLTIMA da lista** (`lyricsViewSources`), e isso é a precedência
   inteira: sem escolha do operador, `lvActiveSource` devolve a primeira — e a que
   abre sozinha tem de ser a letra, que é o que quem opera o culto está lendo.

@@ -1,5 +1,15 @@
 [
   {
+    "versao": "1.1.13",
+    "itens": [
+      "O botão de encerrar a camada de texto agora aparece SEMPRE que há texto sobreposto — Bíblia, mensagem ou cronômetro, com ou sem música por baixo. Antes ele só existia com música tocando.",
+      "A folha de leitura mostra só as fontes que fazem sentido agora: com música, Letra e Cifra; com a Bíblia no ar, só a Bíblia.",
+      "A cifra ganhou respiro entre as linhas e quebra sozinha em vez de rolar para o lado.",
+      "O texto agora fica dentro de uma caixa com barra de rolagem, então dá para ver que há mais abaixo.",
+      "E o \"Ver no Cifra Club\" virou um link no rodapé — ele estava roubando altura da leitura."
+    ]
+  },
+  {
     "versao": "1.1.12",
     "itens": [
       "O Hinário 2022 ganhou um Índice de temas no topo do álbum: toque numa seção e a lista pula até ela.",

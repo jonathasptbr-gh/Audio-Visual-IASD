@@ -24,6 +24,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
+- **v1.1.13** — O SELO DE CAMADAS DEIXA DE PERGUNTAR SE HÁ MÚSICA POR BAIXO: ele exigia `midiaNoAr` e por isso sumia justamente onde é mais procurado — Bíblia, mensagem e cronômetro, que são projetados sem música o tempo todo. Um controle que aparece e some conforme o contexto é um controle que ninguém aprende (revoga a segunda metade da regra da v1.0.3). Mais: a Bíblia NO AR vira fonte exclusiva da folha de leitura (com música, só Letra e Cifra), o corpo da folha vira CAIXA com barra de rolagem — "acabou" era indistinguível de "está cortado" —, a cifra QUEBRA em vez de rolar de lado (com o preço escrito) e o "Ver no Cifra Club" vira link de rodapé. OTA PURO
 - **v1.1.12** — O HINÁRIO GANHA AS SEÇÕES TEMÁTICAS QUE O BANCO NÃO TEM: `pt_hymnal` traz número, nome, duração e playback, e mais nada — o que identifica a seção de um hino é a POSIÇÃO dele, então a resposta é uma TABELA DE FAIXAS pura (35 seções, 8 blocos, transcritas do índice da CPB) com oráculo que trava a cobertura CONTÍGUA de 1 a 600. Índice fechado por padrão no topo do card, títulos intercalados na listagem, e o salto que estica a lista antes de rolar. A paginação conta `.hymn-result` e não os filhos — contar os filhos pularia um hino por cabeçalho. OTA PURO
 - **v1.1.11** — O TELÃO SE DEFENDE DE QUEM ROUBA O FOCO DE ÁUDIO: medido em aparelho, tocar qualquer outra mídia no celular PAUSA a projeção — e na perda PERMANENTE o Chromium abandona o foco e não volta nunca. A pausa espontânea passa a disparar um `stage.play()`, que é o próprio Chromium re-pedindo foco. Três tentativas com espera crescente e desistência até comando humano: sem teto, dois apps que retomam sozinhos gaguejam para sempre, e gagueira é pior que pausa. As guardas são a entrega, não o `play()`. OTA PURO
 - **v1.1.10** — A ABA DE CIFRA, LIDA SOB DEMANDA: acordes sobre a letra na folha de leitura, buscados no momento em que a aba abre. NADA é baixado em lote, NADA entra no bundle e NADA é gravado em disco — o cache é um `Map` que morre com o app, e a distinção não é de grau: guardar mudaria o recurso de LER conteúdo de terceiro para DISTRIBUIR uma cópia dele. A busca sai do Kotlin porque CORS não deixa alternativa, e SÓ o transporte sai — quem lê o HTML é `controle/cifra.js`, para o conserto chegar por OTA no dia em que o site mudar. A transposição PRESERVA A COLUNA. `SHELL_VERSION` 49. EXIGE RELEASE
@@ -211,6 +212,100 @@ na nota que a revoga, não apagada da que a criou.
 
 ---
 
+## v1.1.13 — o selo de camadas vira padrão, e a folha de leitura vira caixa
+
+Quatro ajustes pedidos depois da primeira ligada da aba de cifra num aparelho de
+verdade. O Registro daquela sessão trouxe, de quebra, a única prova que faltava:
+`direta …/santo-santo-santo/ → ok` com `HTTP 200, 524660 caractere(s)`. **O
+parser casa com a marcação real do site** — era a metade que as fixtures
+sintéticas não podiam provar.
+
+### O SELO DE CAMADAS DEIXA DE PERGUNTAR SE HÁ MÚSICA POR BAIXO
+
+*"Não estou recebendo o ícone de desativar camada quando coloco no ar bíblia,
+mensagem e afins na tela, independente de ter música de fundo ou não."*
+
+`renderCamadaBtn` exigia `cenaDeRoteiroNoAr() && midiaNoAr`. A segunda condição
+tinha um argumento escrito — sobre um versículo sozinho não haveria camada a
+encerrar, e o Parar já resolveria —, e **ele estava errado por duas razões, as
+duas do operador**:
+
+- **O botão sumia justamente onde é mais procurado.** Bíblia, mensagem e
+  cronômetro são projetados o tempo todo SEM música por baixo. Ali ele nunca
+  existiu, e o mesmo gesto funcionava ou não conforme algo que não tem relação
+  nenhuma com o texto que está na tela.
+- **Um controle que aparece e some conforme o contexto é um controle que ninguém
+  aprende.** Se ele é a saída da Camada de Texto, é a saída SEMPRE; que embaixo
+  esteja um louvor ou o wallpaper não muda o que o toque faz nem o que o
+  operador quis.
+
+`encerrarCamadaDeCima` já estava certo para os dois casos — cada provedor sai
+pela própria porta e o que houver por baixo fica. A revogação é da condição, não
+do mecanismo. (Revoga a segunda metade da regra da v1.0.3.)
+
+### A BÍBLIA NO AR É EXCLUSIVA NA FOLHA DE LEITURA
+
+*"quando temos uma música, termos apenas letra e cifra disponível, e quando está
+no ar a bíblia, automaticamente fica só a bíblia."*
+
+Com um louvor de fundo durante a leitura, as três fontes coexistiam e o seletor
+virava três abas — mas quem lê a Bíblia em voz alta não vai consultar a cifra do
+louvor de fundo no mesmo minuto.
+
+A regra é sobre **projeção**, nunca sobre a sessão existir: um capítulo aberto e
+fora do ar não rouba a folha da música que está tocando. Ele volta como
+**reserva**, na última linha de `lyricsViewSources` — sem letra e sem cifra, um
+capítulo aberto ainda é o que o operador foi buscar ao abrir a folha.
+
+Os botões já eram `flex: 1` dentro de um `.fit-seg` flex, então menos abas já
+significa mais largura para cada uma: não houve o que mudar no CSS do seletor.
+
+### A FOLHA VIRA CAIXA, E A CAIXA É O SINAL
+
+Sem ela o texto terminava no ar contra o fundo da folha, e **"acabou" era
+indistinguível de "está cortado"** — a rolagem só se descobria tentando. O tom
+vem de `--surface`, que dentro da `.popup-sheet` já resolve para o afundado pela
+regra das camadas: preenchimento, nunca contorno.
+
+A barra de rolagem visível é o segundo sinal, e é o que funciona no MEIO da
+rolagem: a caixa diz que há um dentro, a barra diz onde se está nele. Mesma
+receita da `.bible-half`, que já tinha resolvido este problema.
+
+### A CIFRA QUEBRA EM VEZ DE ROLAR DE LADO, E O PREÇO ESTÁ DITO
+
+`white-space: pre` virou `pre-wrap`. Os espaços continuam preservados — é deles
+que vem a coluna do acorde —, e a linha que não couber passa a quebrar em vez de
+empurrar a folha para fora da tela.
+
+**O preço, escrito no CSS:** na linha que de fato quebrar, a continuação
+recomeça na margem e o par acorde/letra perde o alinhamento NAQUELE ponto. É a
+troca que o formato permite: alinhamento perfeito com rolagem lateral, ou tudo à
+vista com a quebra ocasional. Numa tela de celular a maioria das linhas cabe, e
+rolar de lado a cada verso custava mais.
+
+O respiro (`line-height` 1.45 → 1.7) vai também **ENTRE os pares** e nunca dentro
+deles (`.lv-cifra-letra + .lv-cifra-acordes`): é a proximidade do acorde com a
+letra que diz a qual sílaba ele pertence, e afastá-los seria desfazer o que a
+folha existe para mostrar.
+
+### E O "VER NO CIFRA CLUB" VIRA LINK DE RODAPÉ
+
+*"atualmente ele está cortando absurdamente a área disponível para o texto."*
+
+Ele era um botão de corpo inteiro com `min-height: var(--hit)` no fim da folha.
+O peso prometia uma ação principal, e esta é a MENOS principal da aba — quem
+abre a cifra quer ler a cifra; ir ao site é o caminho de quem não achou.
+
+Agora é texto sublinhado, alinhado à direita, sem `--hit`: não é alvo de culto, é
+uma nota de rodapé que por acaso é tocável. **No fim do conteúdo que rola**, e
+não fixo no rodapé da folha — fixo, ele cobraria de volta a mesma altura que
+acabou de devolver ao texto. O botão do estado de ERRO continua com corpo de
+botão, e ali está certo: sem texto na caixa, ele é a única ação da tela.
+
+OTA PURO — não há uma linha em `java/`, `res/` nem no manifest. `minShell`
+continua 49 e **não há `shellTag`**: declarar um que não fosse `v1.1.11` reprova
+no portão, e declarar `v1.1.11` seguraria o bundle para sempre esperando uma
+Release que não vai existir.
 ## v1.1.12 — As seções do hinário, que o banco não tem
 
 *"Vamos verificar se conseguimos algum registro de classificação dos hinos do

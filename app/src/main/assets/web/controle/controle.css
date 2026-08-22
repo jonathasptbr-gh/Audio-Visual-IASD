@@ -4607,12 +4607,32 @@ main {
    operador vê o todo e sabe o que vem depois. A linha no ar fica destacada e a
    lista a acompanha sozinha até o operador rolar com o dedo (ver lvFollow). */
 .lyricsview-seg { padding: .6rem .9rem .2rem; flex-shrink: 0; }
+/* O CORPO É UMA CAIXA, e a caixa é o que diz "há mais texto aqui dentro"
+   (v1.1.11). Sem ela o texto terminava no ar contra o fundo da folha, e não
+   havia como distinguir "acabou" de "está cortado" — a rolagem só se descobria
+   tentando. O tom vem de `--surface`, que DENTRO da `.popup-sheet` já resolve
+   para o afundado (ver a regra das camadas no topo deste arquivo): a caixa
+   recua em relação à folha, que é a leitura certa para um campo de conteúdo.
+   Preenchimento, nunca contorno — este app não desenha borda em lugar nenhum. */
 .lyricsview-body {
   position: relative;         /* offsetParent das linhas — ver lvScrollToCurrent */
   flex: 1; overflow-y: auto;
-  padding: .6rem .9rem 1rem;
+  margin: 0 .9rem .9rem;
+  padding: .7rem .8rem;
+  background: var(--surface);
+  border-radius: var(--radius-btn);
   display: flex; flex-direction: column; gap: var(--lv-estrofe-gap);
   overscroll-behavior: contain;
+  /* A BARRA VISÍVEL é o segundo sinal, e ele é o que funciona no meio da
+     rolagem: a caixa diz que há um dentro, a barra diz ONDE se está nele.
+     Mesma receita da `.bible-half`, que já tinha este problema. */
+  scrollbar-width: thin;
+  scrollbar-color: var(--accent) transparent;
+}
+.lyricsview-body::-webkit-scrollbar { width: 7px; }
+.lyricsview-body::-webkit-scrollbar-track { background: transparent; }
+.lyricsview-body::-webkit-scrollbar-thumb {
+  background: var(--accent); border-radius: var(--radius-pill);
 }
 /* UM bloco de texto, não uma pilha de cartões. Cada estrofe/versículo é um
    parágrafo: sem fundo, sem moldura e sem o padding que cada cartão cobrava —
@@ -4726,13 +4746,26 @@ main {
      e no MESMO corpo a folha começaria a rolar de lado em tela de celular. O
      A+/A− continua governando os dois — é o mesmo token. */
   font-size: calc(var(--lv-fonte) * .74);
-  line-height: 1.45;
-  /* A folha rola de lado DENTRO DA PRÓPRIA CAIXA. Sem isto quem rola é o corpo
-     do popup, e a letra e o cabeçalho saem da tela junto com ela. */
-  overflow-x: auto;
-  padding-bottom: .4rem;
+  line-height: 1.7;
+  padding-bottom: .2rem;
 }
-.lv-cifra-linha { white-space: pre; min-height: 1px; }
+/* QUEBRA AUTOMÁTICA em vez de rolagem lateral (v1.1.11).
+   `pre-wrap` mantém os espaços — que é o que segura o acorde na coluna da
+   sílaba — e passa a quebrar a linha que não couber, em vez de empurrar a folha
+   para fora da tela. **O preço está dito:** na linha que de fato quebrar, a
+   continuação recomeça na margem e o par acorde/letra perde o alinhamento
+   NAQUELE ponto. É a troca que o formato permite: alinhamento perfeito com
+   rolagem lateral, ou tudo à vista com a quebra ocasional. Em tela de celular a
+   maioria das linhas cabe, e rolar de lado a cada verso custava mais. */
+.lv-cifra-linha {
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  min-height: 1px;
+}
+/* O RESPIRO VAI ENTRE OS PARES, não dentro deles: o acorde tem de ficar COLADO
+   na letra que ele rege (é essa proximidade que diz a qual sílaba ele pertence),
+   e o que precisa de ar é a distância de um par para o próximo. */
+.lv-cifra-letra + .lv-cifra-acordes { margin-top: .55em; }
 /* O acorde em acento e o texto no tom normal: a mesma distinção que a folha
    impressa faz com negrito, feita com a cor que este app já usa para "isto é
    navegação". */
@@ -4761,16 +4794,31 @@ main {
 }
 .lv-cifra-erro { display: block; }
 
-/* A saída manual, e a origem. Preenchimento em vez de contorno — este app não
-   desenha borda em lugar nenhum (ver `tokens.test.mjs`). */
+/* A SAÍDA MANUAL do estado de erro — ali ela É a ação principal (não há texto
+   nenhum na caixa disputando espaço), então continua com corpo de botão.
+   Preenchimento em vez de contorno: este app não desenha borda em lugar nenhum
+   (ver `tokens.test.mjs`). */
 .lv-cifra-abrir {
   margin-top: .9rem; align-self: flex-start;
   min-height: var(--hit); padding: 0 .9rem;
   border: none; border-radius: var(--radius-btn);
-  background: var(--surface); color: var(--accent);
+  background: var(--surface-2); color: var(--accent);
   font-size: .9rem; font-weight: 600; cursor: pointer;
 }
 .lv-cifra-abrir:active { transform: var(--press); }
+
+/* A ORIGEM, no rodapé da folha e à DIREITA — texto, não botão. Ela é a ação
+   menos principal desta aba (quem a abre quer LER a cifra), e com corpo de
+   botão cobrava altura de uma caixa cuja única função é mostrar texto. Sem
+   `--hit`: não é alvo de culto, é uma nota de rodapé que por acaso é tocável. */
+.lv-cifra-rodape { display: flex; justify-content: flex-end; margin-top: .5rem; }
+.lv-cifra-link {
+  border: none; background: none; padding: .15rem 0;
+  color: var(--accent); font-size: .82rem; font-weight: 600;
+  text-decoration: underline; text-underline-offset: 2px;
+  cursor: pointer;
+}
+.lv-cifra-link:active { opacity: .6; }
 
 /* Nota: o antigo "toast" flutuante foi removido — as informações agora são
    transmitidas pela própria interface (ver flash() em controle.js, hoje um
