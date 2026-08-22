@@ -232,6 +232,48 @@ try {
   // que não existe — ver `blocoEspelho`.
   checar(!/cabem ~\d+ tela/.test(texto),
     'o enlace mostra a banda crua, sem o teto de telas calculado sobre 3 Mbps de encoder');
+
+  // ---- O PLACAR DA RETOMADA: a metade CONSUMIDORA do contrato ---------------
+  //
+  // O telão manda os contadores no `diag-dump` que já existia, e o `controle.js`
+  // os renderiza no bloco "Áudio do aparelho". Sem oráculo aqui, esquecer o
+  // segundo argumento de `juntarDiag`, renomear `diagRetomada` ou mover o
+  // `linhas.push` para depois do `return` faz a linha SUMIR do Registro sem
+  // erro em lugar nenhum — e quem lê a distância interpreta a ausência como
+  // "não aconteceu nada", que é a resposta OPOSTA à verdadeira.
+  const comPlacar = await pg.evaluate(async () => {
+    // Entregue pelo mesmo caminho do telão de verdade: um canal SEPARADO, como
+    // a Presentation é. `AVDB.sendCommand` não serviria — um BroadcastChannel
+    // não entrega ao próprio objeto que postou, e o handler do app escuta no
+    // canal DELE.
+    const bc = new BroadcastChannel('av-iasd');
+    bc.postMessage({
+      type: 'diag-dump', linhas: [],
+      retomada: { espontaneas: 4, recuperadas: 3, desistidas: 1 },
+      __mid: 'reg:1',
+    });
+    await new Promise((f) => setTimeout(f, 200));
+    bc.close();
+    await window.renderDiag();
+    return typeof diagTexto === 'string' ? diagTexto : '';
+  });
+  checar(comPlacar.includes('outro app pausou o telão: 4x'),
+    'o placar da retomada CHEGA ao Registro — a metade consumidora do `diag-dump`');
+  checar(/retomado 3x/.test(comPlacar) && /desistido 1x/.test(comPlacar),
+    'com as três contas, que respondem coisas diferentes (roubos · socorros · desistências)');
+
+  // E UM BUNDLE ANTIGO não manda o campo: a linha some, e NADA sai quebrado —
+  // é a regra de que toda linha do bloco é opcional, cobrada onde ela vale.
+  const semPlacar = await pg.evaluate(async () => {
+    const bc2 = new BroadcastChannel('av-iasd');
+    bc2.postMessage({ type: 'diag-dump', linhas: [], __mid: 'reg:2' });
+    await new Promise((f) => setTimeout(f, 200));
+    bc2.close();
+    await window.renderDiag();
+    return typeof diagTexto === 'string' ? diagTexto : '';
+  });
+  checar(!/\bundefined\b/.test(semPlacar) && !/\bNaN\b/.test(semPlacar),
+    'e um telão de bundle ANTIGO, sem o campo, não produz "undefined" nem "NaN"');
 } finally {
   await navegador.close();
   servidor.close();

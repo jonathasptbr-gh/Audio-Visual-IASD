@@ -2228,6 +2228,35 @@ try {
           ? Math.round(card.getBoundingClientRect().right - alvo.getBoundingClientRect().right) : -1,
         naThumb: !!(card && card.querySelector('.coll-bar-icon.coll-bar-fechar')),
         naDireita: !!(card && card.querySelector('.coll-bar-dl.coll-bar-cfg')),
+        // ── A COLUNA DA DIREITA DEPOIS DA v1.1.16 ───────────────────────
+        // Dois botões, cada um respondendo a uma pergunta: BAIXAR a "há o que
+        // baixar?" (independente de aberto), REMOVER a "o álbum está aberto?".
+        // Medidos separadamente porque as duas regras erram de jeitos
+        // diferentes — e a segunda erra CARO: uma lixeira num card fechado é
+        // destruição a um toque de distância numa lista inteira de cards.
+        temDl: !!(card && card.querySelector('.coll-bar .coll-bar-dl:not(.coll-bar-rm)')),
+        temRm: !!(card && card.querySelector('.coll-bar .coll-bar-rm')),
+        // VISÍVEL de verdade, não só presente: até a v1.1.15 o botão de baixar
+        // continuava no DOM com o card aberto e era escondido por
+        // `visibility` (`vago`). Uma asserção de presença aprovaria aquilo.
+        dlVisivel: (() => {
+          const b = card && card.querySelector('.coll-bar .coll-bar-dl:not(.coll-bar-rm)');
+          if (!b) return false;
+          const cs = getComputedStyle(b);
+          return cs.visibility !== 'hidden' && cs.display !== 'none'
+            && b.getBoundingClientRect().width > 0;
+        })(),
+        // Os dois dividem a coluna: centros que discordam num par colado é a
+        // coisa que mais parece defeito numa linha.
+        parAlinhado: (() => {
+          const d = card && card.querySelector('.coll-bar .coll-bar-dl:not(.coll-bar-rm)');
+          const m = card && card.querySelector('.coll-bar .coll-bar-rm');
+          if (!d || !m) return null;
+          const rd = d.getBoundingClientRect(), rm = m.getBoundingClientRect();
+          return Math.abs((rd.top + rd.bottom) / 2 - (rm.top + rm.bottom) / 2) <= 1
+            && Math.round(rd.width) === Math.round(rm.width)
+            && Math.round(rd.height) === Math.round(rm.height);
+        })(),
       };
       lista.remove();
       return r;
@@ -2303,12 +2332,34 @@ try {
   } catch (e) {
     checar(false, 'a medição da thumb das raízes terminou sem exceção (' + (e && e.message) + ')');
   }
-  checar(col.completoFechado.borda > 0 && col.completoFechado.borda === col.completoAberto.borda,
-    'e a coluna da direita de um álbum completo não se mexe ao abrir ('
-    + col.completoFechado.borda + 'px da borda, aberto e fechado)');
-  checar(col.parcialFechado.borda > 0 && col.parcialFechado.borda === col.parcialAberto.borda,
-    'nem a de um álbum incompleto, cujo lugar do botão fica RESERVADO ('
-    + col.parcialFechado.borda + 'px da borda, aberto e fechado)');
+  // ===== A COLUNA DA DIREITA, DEPOIS DA v1.1.16 =====
+  //
+  // Pedido do operador: *"coloque o botão de excluir na direita no card do
+  // título do álbum, ali onde fica o botão de download… deixe o botão de
+  // excluir apenas visível quando abrir o álbum"* — e a verificação, que virou
+  // automática, levou junto o painel que repetia o "Baixar" dois centímetros
+  // abaixo (era ele que obrigava o da barra a se esconder com o card aberto).
+  //
+  // Os QUATRO estados, e cada um cobra uma metade diferente. O que erra CARO é
+  // a lixeira no card FECHADO: o acervo é uma lista de cards fechados, e ali
+  // ela seria destruição a um toque de distância, repetida linha a linha.
+  checar(!col.completoFechado.temRm && !col.parcialFechado.temRm,
+    'FECHADO, nenhum álbum mostra a lixeira — o acervo é uma lista de cards '
+    + 'fechados, e destruição não se oferece em série',
+    JSON.stringify([col.completoFechado.temRm, col.parcialFechado.temRm]));
+  checar(col.completoAberto.temRm && col.parcialAberto.temRm,
+    'ABERTO, os dois mostram — o mesmo gesto que revela o conteúdo revela o '
+    + 'botão que o apaga');
+  checar(!col.completoFechado.temDl && !col.completoAberto.temDl,
+    'um álbum COMPLETO não tem botão de baixar em estado nenhum: não há o que baixar');
+  checar(col.parcialFechado.dlVisivel && col.parcialAberto.dlVisivel,
+    'e o de um álbum INCOMPLETO fica VISÍVEL nos dois estados — o `vago` saiu com '
+    + 'o painel que repetia a ação, e a barra é o que gruda no topo enquanto se '
+    + 'percorre a lista',
+    JSON.stringify([col.parcialFechado.dlVisivel, col.parcialAberto.dlVisivel]));
+  checar(col.parcialAberto.parAlinhado === true,
+    'e com os dois na coluna eles têm o mesmo tamanho e o mesmo centro',
+    JSON.stringify(col.parcialAberto.parAlinhado));
 } catch (e) {
   checar(false, 'a medição da coluna da direita terminou sem exceção (' + (e && e.message) + ')');
 }

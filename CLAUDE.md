@@ -1721,7 +1721,7 @@ a congregação vê continua sendo a letra, pelo caminho de sempre.
   natureza: o app deixaria de LER conteúdo de terceiro no aparelho do operador e
   passaria a DISTRIBUIR uma cópia dele. As duas coisas não são degraus da mesma
   escada.
-- **O GATILHO é a música ENTRAR EM CENA, não a aba abrir** (v1.1.16). Uma
+- **O GATILHO é a música ENTRAR EM CENA, não a aba abrir** (v1.1.17). Uma
   requisição por música projetada, disparada no `send` — o ponto por onde todos
   os caminhos passam. Isso tira a rede do caminho crítico: quem abre a aba está
   com o instrumento na mão e a música tocando, e é o pior momento para esperar
@@ -2719,7 +2719,7 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: v1.1.16** (base web) · **v1.1.10** (APK) · `SHELL_VERSION` **49** · bundle com
+**Versão atual: v1.1.17** (base web) · **v1.1.10** (APK) · `SHELL_VERSION` **49** · bundle com
 `minShell: 49` — o shell 49 é o **PISO**: todo método da ponte existe, e não há
 guarda de versão no lado web. O que continua valendo é que `java/`, `res/`, o
 manifest e os workflows **só chegam instalando o APK**.

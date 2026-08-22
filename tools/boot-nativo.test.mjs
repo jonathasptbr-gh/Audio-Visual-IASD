@@ -2499,7 +2499,13 @@ try {
       pesoNoPainel: opts ? /\d+(,\d+)?\s?(KB|MB|GB)/.test(opts.textContent) : true,
       rotulos: btns.map((b) => b.textContent.trim().replace(/\s+/g, ' ')),
       estado: opts ? [...opts.querySelectorAll('.coll-opt-estado')].map((e) => e.textContent) : [],
-      umaLinha: topos.length > 1 && Math.max(...topos) - Math.min(...topos) <= 2,
+      umaLinha: topos.length >= 1 && Math.max(...topos) - Math.min(...topos) <= 2,
+      // ── A LIXEIRA SUBIU PARA A BARRA (v1.1.16) ─────────────────────────
+      // Ela não está mais no painel, e as duas metades importam: o painel NÃO
+      // pode tê-la (senão haveria duas), e a barra TEM de tê-la com o card
+      // aberto. Sem a segunda, apagá-la de vez passaria.
+      lixeiraNoPainel: opts ? opts.querySelectorAll('.new-folder-btn.danger').length : -1,
+      barraTemLixeira: !!(card && card.querySelector('.coll-bar .coll-bar-rm')),
       // ── A FORMA DA LINHA (v5.235) ──────────────────────────────────────
       // O estado na MESMA linha do rótulo: os dois centros verticais coincidem.
       // Medir a ALTURA do botão não serviria — `align-items: stretch` iguala os
@@ -2515,9 +2521,9 @@ try {
       // A largura de referência: sem ela, zeros passariam por medidas.
       largLista: lista.getBoundingClientRect().width,
       lixeira: (() => {
-        const rm = opts && opts.querySelector('.new-folder-btn.danger');
-        const ver = opts && opts.querySelector('.new-folder-btn:not(.danger)');
-        if (!rm || !ver) return null;
+        const rm = card && card.querySelector('.coll-bar .coll-bar-rm');
+        const ver = card && card.querySelector('.coll-bar .coll-bar-dl:not(.coll-bar-rm)');
+        if (!rm) return null;
         return {
           // O RÓTULO são os nós de TEXTO do botão, não o `textContent` — este
           // traz o CODEPOINT do ícone junto (o `.msym` é uma ligadura da fonte,
@@ -2529,7 +2535,12 @@ try {
           temIcone: !!rm.querySelector('.msym, svg'),
           rotuloAssistivo: rm.getAttribute('aria-label') || rm.title || '',
           larg: rm.getBoundingClientRect().width,
-          largVerificar: ver.getBoundingClientRect().width,
+          alt: rm.getBoundingClientRect().height,
+          // O IRMÃO DE BAIXAR, quando existe: os dois dividem a coluna da
+          // direita, e centros que discordam num par colado é a coisa que mais
+          // parece defeito numa linha.
+          largIrmao: ver ? ver.getBoundingClientRect().width : null,
+          altIrmao: ver ? ver.getBoundingClientRect().height : null,
         };
       })(),
     };
@@ -2547,8 +2558,16 @@ try {
   // sobrou faixa nenhuma acima dos botões) e os botões partilham o mesmo topo.
   // Sem a primeira, a asserção passaria com os chips de volta — eles nunca
   // estiveram na mesma linha dos botões, estavam ACIMA deles.
-  checar(opcoes.umaLinha && opcoes.filhos.length === 1,
-    'e o que sobrou divide UMA linha: verificação e remoção', JSON.stringify(opcoes.rotulos));
+  // ===== O PAINEL DA SÉRIE FICOU COM UM BOTÃO SÓ (v1.1.16) =====
+  // "Verificar" saiu (a verificação virou automática na abertura) e a lixeira
+  // subiu para a barra. Numa SÉRIE o "Atualizar a lista" fica: ela não baixa em
+  // lote por desenho, e o índice dela custa uma extração do canal do YouTube —
+  // é a única porta para refazer uma lista que o TTL segura por 12 h.
+  checar(opcoes.umaLinha && opcoes.filhos.length === 1 && opcoes.rotulos.length === 1
+    && /Atualizar a lista/.test(opcoes.rotulos[0]),
+    'o painel da SÉRIE ficou com UM botão, e ele é o "Atualizar a lista" — não o '
+    + '"Verificar", que saiu com a verificação automática',
+    JSON.stringify(opcoes.rotulos));
   // A FRAÇÃO LIMPA, E SÓ ELA (v5.241, pedido do operador). O estado é um NÚMERO —
   // a fração num álbum, a contagem numa série — e nunca uma palavra: "✓ completo"
   // trazia um glifo de fora da fonte de ícones e dizia por extenso o que "24/24"
@@ -2561,19 +2580,136 @@ try {
   // texto, que é justamente o que condensá-lo veio tirar.
   checar(opcoes.estadoNaLinha,
     'e ele divide a linha com o rótulo, sem quebrar para uma segunda');
+  // ===== E A LIXEIRA SUBIU PARA A BARRA (v1.1.16) =====
+  // Pedido do operador: *"coloque o botão de excluir na direita no card do
+  // título do álbum… deixe o botão de excluir apenas visível quando abrir o
+  // álbum"*. As DUAS metades: o painel não pode tê-la (senão haveria duas na
+  // tela) e a barra tem de tê-la — sem a segunda, apagá-la de vez passaria.
+  checar(opcoes.lixeiraNoPainel === 0 && opcoes.barraTemLixeira,
+    'a LIXEIRA saiu do painel e está na BARRA do card',
+    JSON.stringify([opcoes.lixeiraNoPainel, opcoes.barraTemLixeira]));
   const lx = opcoes.lixeira;
   checar(!!lx && lx.texto === '' && lx.temIcone,
-    'a REMOÇÃO é só a lixeira, sem rótulo na tela', lx ? JSON.stringify(lx.texto) : 'sem botão');
+    'ela é só o ícone, sem rótulo na tela', lx ? JSON.stringify(lx.texto) : 'sem botão');
   checar(!!lx && /Remover do dispositivo/.test(lx.rotuloAssistivo),
     'com a frase inteira no `aria-label` — quem não vê o ícone continua sabendo o alcance');
-  checar(!!lx && lx.larg < lx.largVerificar * 0.6,
-    'e ela para no próprio tamanho: o espaço liberado é do botão de atualizar ('
-    + (lx ? Math.round(lx.larg) + 'px contra ' + Math.round(lx.largVerificar) + 'px' : '?') + ')');
   await pg.evaluate(() => {
     allCollections().forEach((c) => { ui(c.id).expanded = false; });
     grupoAberto = ''; favAberto = false;
     redesenharAcervo();
   });
+
+  // ===== A VERIFICAÇÃO DE ÁLBUM VIRA AUTOMÁTICA (v1.1.16) =====
+  //
+  // Pedido do operador: *"agora a verificação é feita de forma automática, no
+  // segundo plano toda vez que o app abre… sem efeito de peso significativo de
+  // processamento, para não ser notado, e se tiver alguma diferença ele mostra
+  // o botão de download"*.
+  //
+  // O botão "Verificar" saiu, e com ele a única porta manual para pular o TTL
+  // de 12 h. Se `forcarIndice` não escolher o que deve, **nada na tela diz
+  // isso**: o álbum cresceu na origem, o aparelho continua achando que está
+  // completo, e o botão de baixar simplesmente não aparece — pelo tempo que o
+  // TTL levar. Não há erro, não há log, não há sintoma.
+  //
+  // As QUATRO metades, e as duas últimas são as caras:
+  //
+  //  1. o álbum COM DOWNLOAD e índice FRESCO é relido assim mesmo — é isso que
+  //     o botão fazia;
+  //  2. o álbum SEM download não é: a conta é proporcional ao que o operador
+  //     guardou, nunca ao catálogo inteiro;
+  //  3. na RETOMADA nada é forçado de novo. Esta função roda a cada
+  //     `visibilitychange`, e o operador troca de app dezenas de vezes num
+  //     culto: sem o `indicesForcados`, "toda vez que o app abre" viraria uma
+  //     rajada de requisições a cada volta — que é exatamente o "peso
+  //     significativo" que o pedido exclui;
+  //  4. a SÉRIE fica de fora mesmo com o índice fresco: o índice dela custa uma
+  //     extração do canal do YouTube, não um GET de JSON.
+  //
+  // O espião é instalado sobre a GLOBAL: o `controle.js` é script clássico, e a
+  // chamada sem qualificador resolve pela mesma propriedade.
+  const auto = await pg.evaluate(async () => {
+    const guardado = {};
+    // DOIS ÁLBUNS semeados no catálogo: eles vêm do `pt_categories`, e este
+    // oráculo roda sem rede externa (`semRedeExterna`), então o catálogo está
+    // vazio. Restaurados no `finally`.
+    const catAntes = albumCatalog.categories;
+    const albAntes = albumCatalog.albums;
+    albumCatalog.categories = [{ name: 'Exemplos', albums: [
+      { id_album: 901, name: 'Álbum com download' },
+      { id_album: 902, name: 'Álbum sem download' },
+    ] }];
+    albumCatalog.albums = albumCatalog.categories[0].albums;
+    const albuns = allCollections().filter((c) => c.kind === 'album');
+    const serie = allCollections().find((c) => c.kind === 'serie');
+    if (albuns.length < 2 || !serie) {
+      albumCatalog.categories = catAntes; albumCatalog.albums = albAntes;
+      return { insuficiente: true, albuns: albuns.length, serie: !!serie };
+    }
+    const [comDl, semDl] = albuns;
+    const agora = Date.now();
+    const faixa = (baixada) => ({ id_music: 'x1', track: 1, name: 'Faixa', duration: '3:00',
+      has_instrumental_music: false, fileIdFull: baixada ? 'f1' : null, fileIdPlayback: null });
+    // ÍNDICE FRESCO nos três: é dentro do TTL que a pergunta existe. Vencido,
+    // todos entrariam pela regra antiga e o caso não mediria nada.
+    for (const c of [comDl, semDl, serie]) guardado[c.id] = collState[c.id];
+    collState[comDl.id] = { indexSyncedAt: agora, songs: [faixa(true)] };
+    collState[semDl.id] = { indexSyncedAt: agora, songs: [faixa(false)] };
+    collState[serie.id] = { indexSyncedAt: agora, songs: [faixa(true)],
+      serieDiarioEm: agora, serieDiaEm: serieDiaLocal(new Date(agora)) };
+    // O espião. `fetchCollectionIndex` é o que custa rede; devolver na hora
+    // mantém o oráculo determinístico.
+    const orig = window.fetchCollectionIndex;
+    const vistos = [];
+    window.fetchCollectionIndex = (c) => { vistos.push(c.id); return Promise.resolve(); };
+    // E o resto do que a função faz não interessa aqui — só a ESCOLHA.
+    const origCat = window.fetchAlbumCatalog; window.fetchAlbumCatalog = () => Promise.resolve();
+    const origLet = window.syncLyrics; window.syncLyrics = () => Promise.resolve();
+    try {
+      indicesForcados.clear();
+      await autoRefreshCollections();
+      const abertura = vistos.slice();
+      vistos.length = 0;
+      // A RETOMADA: a mesma função, o mesmo estado, tudo ainda fresco.
+      await autoRefreshCollections();
+      return {
+        comDl: comDl.id, semDl: semDl.id, serie: serie.id,
+        aberturaTemComDl: abertura.includes(comDl.id),
+        aberturaTemSemDl: abertura.includes(semDl.id),
+        aberturaTemSerie: abertura.includes(serie.id),
+        retomadaTemComDl: vistos.includes(comDl.id),
+      };
+    } finally {
+      window.fetchCollectionIndex = orig;
+      window.fetchAlbumCatalog = origCat;
+      window.syncLyrics = origLet;
+      for (const id of Object.keys(guardado)) {
+        if (guardado[id]) collState[id] = guardado[id]; else delete collState[id];
+      }
+      indicesForcados.clear();
+      albumCatalog.categories = catAntes;
+      albumCatalog.albums = albAntes;
+    }
+  });
+  if (auto.insuficiente) {
+    checar(false, 'o cenário da verificação automática tem dois álbuns e uma série',
+      JSON.stringify(auto));
+  } else {
+    checar(auto.aberturaTemComDl,
+      'NA ABERTURA, o álbum COM DOWNLOAD é relido mesmo com o índice fresco — é o '
+      + 'que o botão "Verificar" fazia, e é o que faz o botão de BAIXAR aparecer '
+      + 'quando o catálogo cresce');
+    checar(!auto.aberturaTemSemDl,
+      'e o álbum SEM download não é: a conta é proporcional ao que o operador '
+      + 'guardou, nunca ao catálogo inteiro');
+    checar(!auto.aberturaTemSerie,
+      'a SÉRIE fica de fora mesmo fresca — o índice dela custa uma extração do '
+      + 'canal do YouTube, e é por isso que ela mantém o botão "Atualizar a lista"');
+    checar(!auto.retomadaTemComDl,
+      'e NA RETOMADA nada é forçado de novo: esta função roda a cada '
+      + '`visibilitychange`, e sem o `indicesForcados` cada volta ao app seria uma '
+      + 'rajada de requisições na Wi-Fi da igreja');
+  }
 
   // E o bloco de conexão do Modo Fácil, que é o caminho que a v5.195 quebrou:
   // com shell >= 32 ele mostra as DUAS formas de conectar, não só o espelhar.

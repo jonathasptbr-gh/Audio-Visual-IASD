@@ -232,7 +232,7 @@ const appVersionEl = document.getElementById('appVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.1.16';
+const WEB_VERSION = '1.1.17';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -7378,16 +7378,14 @@ function renderCollectionCard(coll, ctx) {
   conferirPesoSeFaltar(coll.id);
 
   // A BARRA INTEIRA é o alvo do acordeão; a seta de abrir mora na THUMB (o
-  // único elemento sem função com o álbum aberto). A engrenagem mora DENTRO do
-  // card aberto: manutenção é o que se procura depois de abrir o álbum.
+  // único elemento sem função com o álbum aberto).
   //
-  // A COLUNA DA DIREITA é função de UMA pergunta só ("há o que baixar?"),
-  // independente de aberto/fechado — senão o peso salta ao abrir num álbum
-  // completo (canto vazio) e não salta num incompleto: o mesmo gesto movendo ou
-  // não a tela conforme o estado do download. Álbum completo: nenhum botão.
-  // Aberto e parado: lugar RESERVADO (`vago`, por `visibility`) — quem baixa é
-  // o botão do painel abaixo. Download EM CURSO: o cancelar fica na barra
-  // mesmo com o card aberto (centenas de faixas precisam parar num toque).
+  // A COLUNA DA DIREITA tem até dois botões, e cada um responde a uma pergunta
+  // diferente (v1.1.16): BAIXAR a "há o que baixar?", independente de
+  // aberto/fechado; REMOVER a "o álbum está aberto?". Álbum completo e fechado:
+  // canto vazio. Download EM CURSO: o cancelar fica ali mesmo com o card aberto
+  // — centenas de faixas precisam poder parar num toque, de qualquer ponto da
+  // rolagem.
   if ((u.syncBusy || !complete) && !(ehLink(coll) && total > 0)) {
     // **O QUE É LINK NÃO BAIXA EM LOTE** (v5.230). São ~52 vídeos de ~300 MB — o
     // "download direto" que o operador pediu para não existir, na maior escala
@@ -7401,16 +7399,50 @@ function renderCollectionCard(coll, ctx) {
       : (total > 0 ? 'Baixar esta coleção' : 'Sincronizar a lista');
     dl.innerHTML = u.syncBusy ? closeIconSvg() : downloadAllIconSvg();
     dl.addEventListener('click', (e) => { e.stopPropagation(); syncCollection(coll); });
-    // A exceção é o download EM CURSO: ali o botão é o CANCELAR, e ele continua
-    // VISÍVEL com o card aberto. Um álbum de centenas de faixas, uma vez
-    // começado, precisa poder parar num toque — e a barra é o que gruda no topo
-    // enquanto se percorre a lista.
-    if (u.expanded && !u.syncBusy) dl.classList.add('vago');
+    // ELE NÃO SE ESCONDE MAIS COM O CARD ABERTO (v1.1.16). O `vago` existia
+    // porque o painel de dentro tinha um "Baixar" que fazia a mesma coisa dois
+    // centímetros abaixo — e o painel saiu. Agora a barra é o ÚNICO lugar onde
+    // se baixa, e ela é o que gruda no topo enquanto se percorre a lista: um
+    // álbum de centenas de faixas precisa poder começar (e parar) num toque, de
+    // qualquer ponto da rolagem.
     bar.appendChild(dl);
   }
 
-  // Sem índice ainda não há lista para abrir — o toque abre o card assim mesmo,
-  // e o que ele mostra são as opções, onde está o sincronizar que resolve isso.
+  // ===== A LIXEIRA MORA NA BARRA, E SÓ COM O ÁLBUM ABERTO (v1.1.16) =====
+  //
+  // Pedido do operador: *"coloque o botão de excluir na direita no card do
+  // título do álbum, ali onde fica o botão de download… deixe o botão de
+  // excluir apenas visível quando abrir o álbum"*.
+  //
+  // As duas metades do pedido são uma coisa só: a lixeira ganha o lugar mais
+  // alcançável da linha E o gesto que a revela é o mesmo que revela o conteúdo
+  // que ela apaga. Fechado, o card não oferece destruição nenhuma — e o acervo
+  // inteiro é uma lista de cards fechados.
+  //
+  // `countDownloaded` só é chamado com o card ABERTO, e isso é deliberado: ele
+  // varre todas as faixas do álbum, e o acervo é redesenhado a cada 400 ms
+  // enquanto um download corre. Há no máximo um card aberto (o acordeão), então
+  // a varredura acontece uma vez por redesenho, não quarenta.
+  if (u.expanded && (total > 0 || countDownloaded(coll.id) > 0)) {
+    const rm = document.createElement('button');
+    // "Remover do dispositivo", e não "Excluir": o que sai é o que ocupa espaço
+    // NESTE aparelho, e o álbum continua no acervo para ser baixado de novo.
+    // "Excluir" prometeria um dano maior do que o que a ação faz.
+    rm.className = 'coll-bar-dl coll-bar-rm';
+    rm.title = 'Remover do dispositivo';
+    rm.setAttribute('aria-label', 'Remover do dispositivo');
+    rm.appendChild(msym(ICON.del));
+    // `stopPropagation` como no irmão ao lado: sem ele o toque borbulha até o
+    // card e FECHA o álbum — debaixo do diálogo de confirmação que acabou de
+    // abrir.
+    rm.addEventListener('click', (e) => { e.stopPropagation(); deleteCollection(coll); });
+    bar.appendChild(rm);
+  }
+
+  // Sem índice ainda não há lista para abrir — o toque abre o card assim mesmo.
+  // O que resolve a ausência é o botão da BARRA ("Sincronizar a lista"), que
+  // está ali com o card fechado ou aberto; abrir revela a lixeira e, numa
+  // série, o painel dela.
   //
   // Nomeada porque tem DOIS gatilhos: o toque na barra e a seta (v5.95).
   const alternarAcordeao = () => {
@@ -7488,9 +7520,14 @@ function renderCollectionCard(coll, ctx) {
     // sincronização de um álbum que já está aberto na tela era uma camada a
     // mais sobre outra camada — o acervo já é um popup de tela cheia. Aqui elas
     // ficam onde o assunto está, e fechar é o mesmo toque que abriu.
-    const opts = document.createElement('div'); opts.className = 'coll-opts coll-opts--inline';
-    buildCollectionOptions(coll, opts);
-    aberto.appendChild(opts);
+    // A caixa só nasce quando há o que pôr nela (v1.1.16): um `.coll-opts`
+    // vazio empurraria a lista de músicas para baixo com o respiro dele, e um
+    // vão sem causa dentro de um card lê-se como algo que não carregou.
+    if (temPainelDeColecao(coll)) {
+      const opts = document.createElement('div'); opts.className = 'coll-opts coll-opts--inline';
+      buildCollectionOptions(coll, opts);
+      aberto.appendChild(opts);
+    }
 
     // A lista sai INTEIRA, quantos itens tenha: aqui o operador está folheando
     // um álbum, não filtrando o acervo — cortar num teto esconderia o fim de
@@ -7830,144 +7867,76 @@ function openCollectionOptions(coll) {
   redesenharAcervo();
 }
 
-// Preenche `alvo` com o painel de opções da coleção. Não abre nada: quem decide
-// ONDE ele aparece é o card (`.coll-opts--inline`), e quem o mantém em dia é o
-// redesenho do acervo, que o progresso da sincronização já dispara
-// (`refreshCollectionsIfVisible`) — não há mais um popup com vida própria para
-// sincronizar à parte.
+/**
+ * ===== O PAINEL DO ÁLBUM PERDEU AS DUAS AÇÕES (v1.1.16) =====
+ *
+ * Pedido do operador: *"remova o botão de verificar atualizações dos álbuns…
+ * agora a verificação é feita de forma automática, no segundo plano toda vez
+ * que o app abre… e se tiver alguma diferença ele mostra o botão de download
+ * (ali na barra do álbum)"*.
+ *
+ * As duas saíram por motivos diferentes, e as duas para a BARRA:
+ *
+ *  - **"Verificar" era um botão para fazer o que o app já fazia sozinho.** Ele
+ *    só aparecia num álbum COMPLETO — ali não há o que baixar, e o toque
+ *    apenas re-lia o índice para ver se o catálogo cresceu. Quem re-lê o índice
+ *    é o `autoRefreshCollections`, na abertura; o que faltava era ele não pular
+ *    o TTL para os álbuns que o operador de fato tem no aparelho, e é isso que
+ *    o `forcarIndice` passou a fazer. O desfecho é o mesmo, sem o toque: o
+ *    índice cresce, `colecaoCompleta` vira falso, e o botão de BAIXAR aparece
+ *    na barra.
+ *  - **"Baixar" já existia na barra** — o painel o repetia dois centímetros
+ *    abaixo, e era por causa dessa repetição que o da barra se escondia com o
+ *    card aberto (`vago`). Some a repetição, some o esconderijo.
+ *  - **A LIXEIRA subiu para a barra**, onde ela é revelada pelo mesmo gesto que
+ *    revela o que ela apaga (ver `renderCollectionCard`).
+ *
+ * **A SÉRIE FICA COM O BOTÃO DELA, e a diferença não é capricho:** "Atualizar a
+ * lista" não é "verificar se há o que baixar" — uma série não baixa em lote por
+ * desenho (~15 GB/ano). É a única porta para refazer uma lista cujo índice custa
+ * uma extração do canal do YouTube, e por isso o TTL dela é de 12 h e ela NÃO
+ * entra no `forcarIndice`. Tirar este botão deixaria o operador esperando até
+ * meio dia pelo episódio do sábado sem ter o que fazer.
+ */
 function buildCollectionOptions(coll, collOptsEl) {
+  // Só a SÉRIE tem painel. Nos demais o `.coll-opts` nem é criado — ver o
+  // chamador, que consulta `temPainelDeColecao`.
+  if (!ehSerie(coll)) return;
   const total = songsBaixaveis(coll.id).length;
-  const downloaded = countDownloaded(coll.id);
-  // UMA definição só, e ela conta VARIANTES (ver `levantarColecao`): a antiga
-  // comparava músicas com `fileIdFull`, ignorando os Playbacks que o download
-  // busca — e nunca ficava completa numa coleção com música sem áudio na
-  // origem, deixando o botão de baixar para sempre na tela.
-  const complete = colecaoCompleta(coll.id);
   const u = ui(coll.id);
 
-  // A LINHA DE STATUS SAIU DAQUI (v5.73). Parada, ela repetia numa linha
-  // inteira o que o estado ao lado do botão já diz ("Completo offline",
-  // "Parcial", "Não sincronizado"); em movimento, repetia PALAVRA POR PALAVRA o
-  // "Baixando 2 de 4…" que a barra do card mostra dois centímetros acima — e a
-  // barra é fixa no topo do aberto, então ela nunca sai de vista enquanto se
-  // lê o painel.
-  //
-  // E A FAIXA DE CHIPS SAIU TODA (v5.232, pedido do operador). Eram duas
-  // linhas — "Sincronizados: 4/4 · Completo offline" e "Peso: 18 MB" — para um
-  // painel cujas ações cabem numa. O PESO já está na barra do card, ANTES de
-  // abrir (`fracaoPeso`, o mesmo par de números): repeti-lo aqui era dizer duas
-  // vezes, a dois centímetros, a coisa que o operador já tinha lido para
-  // decidir abrir. O ESTADO não se perdeu — ele desceu para DENTRO do botão de
-  // verificação, que é a única coisa da tela que ele qualifica: o rótulo diz o
-  // que o toque faz e o estado diz por que ele faz isso.
-
-  // OS DOIS BOTÕES DIVIDEM UMA LINHA (v5.95). Empilhados, eles ocupavam duas
-  // faixas largas para duas ações curtas, e era esse tamanho que obrigava a
-  // esconder tudo atrás de uma engrenagem. Lado a lado eles cabem sempre — e é
-  // por isso que as opções não precisam mais ser reveladas por um botão.
-  //
-  // Os rótulos encurtaram junto, pelo mesmo motivo: "Baixar álbum" virou
-  // "Baixar" e "Cancelar o download" virou "Cancelar" porque o card em volta JÁ
-  // diz de que álbum se trata e a barra logo acima já mostra o progresso — a
-  // palavra que sobrava era a que repetia o contexto, não a que informava.
   const acoes = document.createElement('div');
   acoes.className = 'coll-opts-acoes';
 
-  // O MESMO botão dispara e cancela — o download de um álbum grande leva
-  // dezenas de minutos, e sem um jeito de parar o operador ficava refém dele.
+  // O MESMO botão dispara e cancela — a varredura de um canal com doze
+  // playlists leva dezenas de segundos, e sem um jeito de parar o operador
+  // ficava refém dela.
   const syncBtn = document.createElement('button');
   // `cancel`, não `busy`: `busy` gira o ícone, e um ✕ girando não se lê como
-  // "toque para parar". Quem indica atividade é o status logo acima.
+  // "toque para parar". Quem indica atividade é a barra do card.
   syncBtn.className = 'new-folder-btn' + (u.syncBusy ? ' cancel' : '');
   syncBtn.innerHTML = u.syncBusy ? closeIconSvg() : syncIconSvg();
-  // O rótulo diz o que ESTE toque vai fazer neste álbum (v5.73). "Atualizar e
-  // baixar" era a mesma frase para os dois casos opostos: com o álbum inteiro
-  // no aparelho não há o que baixar — só conferir se o catálogo mudou —, e com
-  // ele vazio "atualizar" não descreve nada do que vai acontecer.
-  // Numa SÉRIE o rótulo é sempre "Atualizar a lista" (v5.230): o toque só
-  // busca as playlists do canal — os episódios são baixados um a um, pela
-  // folha, como um vídeo do YouTube. Prometer "Baixar" aqui seria oferecer
-  // ~15 GB atrás de uma palavra de três sílabas.
-  syncBtn.appendChild(document.createTextNode(
-    u.syncBusy ? 'Cancelar'
-      : (ehSerie(coll) ? 'Atualizar a lista' : (complete ? 'Verificar' : 'Baixar')),
-  ));
+  syncBtn.appendChild(document.createTextNode(u.syncBusy ? 'Cancelar' : 'Atualizar a lista'));
 
-  // O ESTADO VIVE DENTRO DO BOTÃO (v5.233) — é o que sobrou do chip de
-  // sincronização, reduzido ao que ele de fato acrescenta ao rótulo.
-  //
-  // A regra é a do resto do app (a cortina, o botão de transmitir): **o rótulo
-  // nomeia a AÇÃO, o estado diz onde ela está**. "Verificar" com um "✓ completo"
-  // ao lado responde as duas perguntas de uma vez; "Verificar atualizações"
-  // sozinho, num álbum inteiro no aparelho, não dizia nem que ele estava
-  // inteiro. Ele fica na MESMA linha do rótulo (v5.235): uma segunda linha
-  // desfazia metade do ganho de ter condensado o painel. Numa SÉRIE o número que importa não é quanto foi baixado (nada é,
-  // por desenho — ver `serieComoYoutube`): é quantos episódios a lista tem.
+  // O ESTADO VIVE DENTRO DO BOTÃO (v5.233), e numa série o número que importa
+  // não é quanto foi baixado (nada é, por desenho — ver `serieComoYoutube`): é
+  // quantos episódios a lista tem. Sem a palavra ao lado — o rótulo já diz de
+  // que lista se trata. Em movimento ele é MUDO: quem escreve o andamento é a
+  // barra do card, fixa no topo do aberto e visível daqui.
   const estado = document.createElement('small');
-  estado.className = 'coll-opt-estado';   // sem o verde (v5.263)
-  if (u.syncBusy) {
-    // Em movimento o estado é MUDO, e de propósito: quem escreve "Baixando 2 de
-    // 4…" é a barra do card, fixa no topo do aberto e visível daqui. O que este
-    // botão acrescenta é o que aquela linha não tem — o PROGRESSO desenhado
-    // (`--p`, abaixo), que se lê sem ler.
-    estado.textContent = '';
-  } else if (ehSerie(coll)) {
-    // A série não baixa por desenho, então não há fração: o número que importa
-    // é quantos episódios a lista tem. Sem a palavra ao lado — o rótulo do
-    // botão ("Atualizar a lista") já diz de que lista se trata.
-    estado.textContent = total ? String(total) : '';
-  } else {
-    // **SÓ A FRAÇÃO** (v5.241, pedido do operador: *"utilize apenas a fração
-    // limpa, sem o texto de completo que hoje tem uma grafia e design
-    // completamente diferente do padrão do app"*).
-    //
-    // Ele está certo por duas réguas de uma vez. "✓ completo" trazia um glifo
-    // que não é da fonte de ícones do app e uma palavra em caixa baixa no meio
-    // de uma linha de números; e ele dizia, por extenso, exatamente o que
-    // "24/24" já diz — com a cor verde ao lado dizendo a mesma coisa pela
-    // terceira vez. Quem carrega o estado neste app é a COR, e o texto fica com
-    // o que a cor não sabe dizer: quanto falta.
-    //
-    // Sem índice não há fração, e um "sem lista" seria repor o texto que acabou
-    // de sair: o botão ao lado já diz "Baixar", e um botão de baixar num álbum
-    // vazio é a própria mensagem.
-    estado.textContent = total > 0 ? downloaded + '/' + total : '';
-  }
+  estado.className = 'coll-opt-estado';
+  estado.textContent = u.syncBusy ? '' : (total ? String(total) : '');
   if (estado.textContent) syncBtn.appendChild(estado);
 
-  // O PROGRESSO É O PREENCHIMENTO DO PRÓPRIO BOTÃO. Uma segunda frase de
-  // "Baixando 2 de 4…" seria o defeito que a v5.73 tirou daqui; uma barra
-  // determinada não repete palavra nenhuma e responde "quanto falta?" no lugar
-  // em que o dedo já está — que é o botão de cancelar. Sem índice não há fração
-  // e não há barra: prometer uma proporção que não se conhece é pior que nada.
-  if (u.syncBusy && total > 0) {
-    syncBtn.style.setProperty('--p', Math.min(100, Math.round(downloaded * 100 / total)) + '%');
-  }
-  syncBtn.addEventListener('click', () => syncCollection(coll, ehSerie(coll) ? { soIndice: true } : undefined));
+  syncBtn.addEventListener('click', () => syncCollection(coll, { soIndice: true }));
   acoes.appendChild(syncBtn);
-
-  if (downloaded > 0 || total > 0) {
-    const rmBtn = document.createElement('button');
-    // SÓ O ÍCONE (v5.235, pedido do operador): a lixeira para no próprio
-    // tamanho e devolve a linha inteira ao botão que carrega ação, estado e
-    // progresso. A frase continua existindo onde ela é lida — no `title`, e
-    // sobretudo no DIÁLOGO que a ação abre, que nomeia o alcance ("o que foi
-    // baixado… e a lista offline"). É essa confirmação que permite um
-    // destrutivo sem rótulo; sem ela, o ícone sozinho seria uma aposta.
-    //
-    // "Remover do dispositivo", e não "Excluir downloads do álbum": o que sai é
-    // o que ocupa espaço NESTE aparelho, e o álbum continua no acervo para
-    // baixar de novo quando quiser. "Excluir" prometia um dano maior do que o
-    // que a ação faz.
-    rmBtn.className = 'new-folder-btn danger icone';
-    rmBtn.title = 'Remover do dispositivo';
-    rmBtn.setAttribute('aria-label', 'Remover do dispositivo');
-    rmBtn.appendChild(msym(ICON.del));
-    rmBtn.addEventListener('click', () => deleteCollection(coll));
-    acoes.appendChild(rmBtn);
-  }
   collOptsEl.appendChild(acoes);
 }
+
+// Há painel a desenhar para esta coleção? UMA pergunta, num lugar só: quem
+// monta o card precisa saber ANTES de criar a caixa, senão sobra um `.coll-opts`
+// vazio empurrando a lista de músicas para baixo com o respiro dele.
+function temPainelDeColecao(coll) { return ehSerie(coll); }
 
 // (`hymnalStat` — o construtor dos chips do painel — saiu na v5.232 com o
 // último chip que restava, o do peso: ele já estava na barra do card, antes
@@ -11338,6 +11307,52 @@ function indiceVencido(c, agora) {
     && st.serieDiaEm !== serieDiaLocal(new Date(agora));
 }
 
+/**
+ * ===== A VERIFICAÇÃO DE ÁLBUM VIRA AUTOMÁTICA (v1.1.16) =====
+ *
+ * Pedido do operador: *"agora a verificação é feita de forma automática, no
+ * segundo plano toda vez que o app abre (tente fazer de forma a ser algo
+ * invisível para o usuário e sem efeito de peso significativo de processamento,
+ * para não ser notado), e se tiver alguma diferença ele mostra o botão de
+ * download"*.
+ *
+ * **O QUE FALTAVA ERA POUCO, e é a razão de o botão ter podido sair.** Esta
+ * função já roda na abertura e relê os índices; a fase 2 é que só pegava os
+ * VENCIDOS pelo TTL de 12 h. O botão "Verificar" existia exatamente para pular
+ * esse TTL, e só aparecia num álbum COMPLETO — o caso em que não há o que
+ * baixar e a única pergunta é "o catálogo cresceu?".
+ *
+ * `forcarIndice` reproduz aquele toque, sem o toque: relê o índice dos álbuns
+ * que o operador DE FATO tem no aparelho. O desfecho é o mesmo que o botão
+ * dava — o índice cresce, `colecaoCompleta` vira falso, e o botão de BAIXAR
+ * aparece na barra do card, que é onde o pedido manda mostrá-lo.
+ *
+ * ===== E ELE PRECISA SER INVISÍVEL, QUE É A METADE DIFÍCIL =====
+ *
+ *  - **UMA VEZ POR SESSÃO, não por retomada** (`indicesForcados`). Esta função
+ *    roda também no `visibilitychange`, e o operador troca de app dezenas de
+ *    vezes durante um culto: forçar a cada volta seria uma rajada de
+ *    requisições na Wi-Fi da igreja toda vez que ele olha uma mensagem. O
+ *    conjunto vive no módulo e morre com a página — que é exatamente o
+ *    significado de "toda vez que o app abre".
+ *  - **SÓ ÁLBUM, e só o que tem download.** A conta é proporcional ao que o
+ *    operador guardou (tipicamente um punhado), nunca ao catálogo inteiro
+ *    (~40). Num aparelho sem nada baixado o custo é ZERO — nenhuma requisição
+ *    a mais que hoje.
+ *  - **A SÉRIE FICA DE FORA**, e essa é a exceção que precisa estar dita: o
+ *    índice dela custa uma extração do canal do YouTube, não um GET de JSON. É
+ *    por isso que ela mantém o TTL de 12 h e o botão "Atualizar a lista" —
+ *    forçá-la aqui seria justamente o "peso significativo de processamento"
+ *    que o pedido exclui.
+ *  - **Os HINÁRIOS já eram relidos sem TTL** (fase 1, sempre): para eles não
+ *    muda nada, e nunca fez falta.
+ *
+ * O erro possível aqui é o BARATO: uma releitura a mais de um JSON de lista.
+ * O caro seria o oposto — o operador com um álbum incompleto e nenhum botão
+ * para baixá-lo —, e é contra isso que `colecaoCompleta` decide sozinha.
+ */
+const indicesForcados = new Set();
+
 async function autoRefreshCollections() {
   if (collectionsRefreshing) return;
   collectionsRefreshing = true;
@@ -11359,8 +11374,21 @@ async function autoRefreshCollections() {
     // assinatura das playlists não mudou (ver `fetchSerieIndex`), e caro quando
     // mudou. O TTL é o mesmo dos álbuns porque a pergunta é a mesma ("a lista
     // envelheceu?"), e a série publica um episódio por semana.
+    // O álbum COM DOWNLOAD é relido nesta abertura mesmo dentro do TTL — é o
+    // que o botão "Verificar" fazia, e ver o KDoc acima para o porquê de a
+    // série ficar de fora. `countDownloaded` varre as faixas em memória (sem
+    // rede, sem disco), e só para os álbuns, uma vez por sessão.
+    const forcarIndice = (c) => c.kind === 'album'
+      && !indicesForcados.has(c.id)
+      && countDownloaded(c.id) > 0;
     const stale = allCollections().filter(
-      (c) => (c.kind === 'album' || c.kind === 'serie') && idle(c) && indiceVencido(c, now));
+      (c) => (c.kind === 'album' || c.kind === 'serie') && idle(c)
+        && (indiceVencido(c, now) || forcarIndice(c)));
+    // O carimbo é posto ANTES da rede, e para TODOS os escolhidos: uma falha de
+    // rede não pode fazer a próxima retomada tentar de novo — aí o "uma vez por
+    // sessão" viraria "a cada volta ao app" justamente no aparelho com a pior
+    // conexão. Quem retenta é a abertura seguinte.
+    stale.forEach((c) => { if (c.kind === 'album') indicesForcados.add(c.id); });
     await runLimited(stale, NET_CONCURRENCY, (c) => fetchCollectionIndex(c).catch(() => {}));
     // Fase 3: as LETRAS dos hinários, como informação padrão do acervo — o
     // índice sozinho não responde "qual hino fala em…". Fire-and-forget: é
