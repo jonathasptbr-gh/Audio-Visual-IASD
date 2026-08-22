@@ -24,6 +24,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
+- **v1.1.10** — A ABA DE CIFRA, LIDA SOB DEMANDA: acordes sobre a letra na folha de leitura, buscados no momento em que a aba abre. NADA é baixado em lote, NADA entra no bundle e NADA é gravado em disco — o cache é um `Map` que morre com o app, e a distinção não é de grau: guardar mudaria o recurso de LER conteúdo de terceiro para DISTRIBUIR uma cópia dele. A busca sai do Kotlin porque CORS não deixa alternativa, e SÓ o transporte sai — quem lê o HTML é `controle/cifra.js`, para o conserto chegar por OTA no dia em que o site mudar. A transposição PRESERVA A COLUNA. `SHELL_VERSION` 49. EXIGE RELEASE
 - **v1.1.9** — O REGISTRO DO TELÃO MENTIA NO PONTO QUE MAIS IMPORTA: o fim de TODA faixa era carimbado "PAUSA ESPONTÂNEA", a linha reservada a "alguém tirou a projeção do ar sem pedir" — e ela é lida A DISTÂNCIA, por quem não tem como conferir. Um louvor por culto bastava para afogar o sinal no ruído. Sai também a decisão de NÃO retomar automaticamente a mídia roubada, com as quatro razões medidas em fonte, e os dois achados de áudio ficam registrados esperando medição. OTA PURO
 - **v1.1.8** — A LETRA DO TELÃO NUNCA MAIS É CORTADA COM RETICÊNCIAS: o `-webkit-line-clamp: 2` era a garantia de encaixe, e é a única resposta que um telão não pode dar — o verso que some é o que a congregação ia cantar. Quem garante agora é uma ESCALA medida por busca binária, com piso, `ResizeObserver` e as MESMAS proporções calibradas. Mais a SEGUNDA PORTA do redesenho que fecha a gaveta (a busca no YouTube, irmã do progresso de download da v1.1.2), o "Tocar agora" nascendo MARCADO onde a mídia é local, a caixa crescendo de 76×32 para 84×40cq, os botões do aviso dividindo a largura toda e o LINK COPIADO virando uma pergunta na abertura (`areaTransferencia`). `SHELL_VERSION` 48. EXIGE RELEASE
 - **v1.1.7** — O ESPELHAMENTO LEVA O SOM DO APARELHO INTEIRO, e não há API pública que isole: o `Presentation` isola a JANELA, e o áudio do Wi-Fi Display nasce de um `REMOTE_SUBMIX` sem parâmetro de display. O que resolve é o som não NASCER no celular — e por isso a APRESENTAÇÃO passa a chegar às telas da rede (uma `/m/` por página), fechando a dívida que impedia o telão por comandos de substituir o espelhamento num culto com sermão. Mais o `AbortController` sem guarda, que derrubava toda TV de 2018 na entrada. OTA PURO
@@ -208,6 +209,125 @@ na nota que a revoga, não apagada da que a criou.
 
 ---
 
+## v1.1.10 — a aba de CIFRA, lida sob demanda
+
+*"faça uma aba dentro do visualizador de letras, pode fazer por enquanto um
+sistema online, sem ter de 'baixar' esse registro para todas as músicas, faça
+isso sob demanda. eu preciso do titulo, letra e cifras."*
+
+A folha de letra ganha uma terceira fonte, ao lado de *Letra* e *Bíblia*.
+
+### SOB DEMANDA É O CONTRATO, NÃO UMA OTIMIZAÇÃO
+
+Nada é baixado em lote, **nada entra no bundle do OTA e nada é gravado em
+disco**. O cache é um `Map` em memória, morto ao fechar o app.
+
+A distinção não é de grau. Guardar as cifras num IndexedDB — ou, pior, no zip do
+OTA — mudaria o recurso de natureza: o app deixaria de LER conteúdo de terceiro
+no aparelho do operador e passaria a DISTRIBUIR uma cópia dele para a frota. É a
+mesma linha que separa o download de um vídeo do YouTube (o operador, no
+aparelho dele) de embutir vídeos no APK, e é a razão de o escopo ter sido dado
+assim.
+
+### A BUSCA SAI DO KOTLIN PORQUE NÃO HÁ ALTERNATIVA — E SÓ O TRANSPORTE SAI
+
+Os WebViews rodam em `appassets.androidplatform.net` (invariante 1) e um site de
+terceiro não manda `Access-Control-Allow-Origin` para esse origin: o `fetch()` da
+página morre antes de sair. O `<iframe>` cai no `X-Frame-Options`, o mesmo muro
+que já tinha recusado embutir a busca do YouTube. Sobrou o shell — e por isso
+este lote **exige Release** (`SHELL_VERSION` 49, `minShell: 49`, `shellTag`).
+
+`CifraFonte.kt` faz **um `GET` e mais nada**: host travado por componente do
+`URI` (nunca por prefixo — sem isso o método é um proxy HTTP de uso geral
+pendurado num WebView privilegiado), `https` obrigatório, teto de bytes e prazos
+bem abaixo dos 60 s do `call()`. Quem lê o HTML é `controle/cifra.js`.
+
+É a divisão das SÉRIES aplicada de novo, e aqui pelo motivo mais forte que ela já
+teve: a marcação de um site muda quando o dono dele quiser. Nesse dia, no web o
+conserto chega por OTA em minutos com oráculo em Node; em Kotlin custaria um
+degrau de `SHELL_VERSION` e uma Release **por vírgula**, e até ela sair a aba
+fica muda. Um parser HTML no Kotlin seria a peça mais frágil do app colocada do
+lado que menos sabe consertá-la.
+
+### DUAS TENTATIVAS, E A SEGUNDA É O "QUALQUER MÚSICA"
+
+Para uma coleção do catálogo (`AVCifra.CATALOGO`, hoje os dois hinários) a URL é
+DEDUZÍVEL do nome do hino: uma requisição, direta, sem o ranking de ninguém
+escolhendo por nós. É o caminho de quase todo culto.
+
+Só falhando ela entra a busca do site — que cobre o "qualquer música" pedido e
+também o hino cujo nome no acervo não bate com o do site.
+
+**`ilegivel` não cai na busca**, e essa exceção é o ponto: ali a página existe e
+o parser é que não a entendeu. Repetir a leitura por outro caminho trocaria o
+motivo certo por um errado e apagaria a única pista de que o site mudou.
+
+### FALHAR VAZIO É PROIBIDO
+
+`lerPagina` devolve `null` para *"respondeu e eu não entendi"*, que é diferente
+de *"não tem"*. Achatados numa frase só, uma mudança de marcação do site fica
+indistinguível de uma música ausente — e ninguém investigaria. São quatro motivos
+(`sem-rede`, `nao-tem`, `recusou`, `ilegivel`) e quatro frases, porque cada um
+pede uma ação diferente do operador.
+
+O Registro ganha o bloco `Cifra (última busca)` com as DUAS metades: os endereços
+que o web tentou e o que o parser entendeu de cada um, mais o status que o shell
+recebeu. O caso que só as duas juntas resolvem é `HTTP 200` + `ilegivel` — a
+página está lá, a rede está boa, e o `cifra.js` é que precisa de um lote novo.
+
+### A TRANSPOSIÇÃO PRESERVA A COLUNA
+
+Um acorde vale por estar **sobre a sílaba** em que a harmonia troca. Um `replace`
+ingênuo empurra todos os acordes seguintes quando um deles cresce (`C` → `C#`), e
+depois de três trocas a folha está fora de sincronia com a letra logo abaixo —
+**parecendo certa**, que é o pior desfecho possível. Cada token é reposto na
+coluna em que começava; quando o anterior invadiu essa coluna entra um espaço,
+porque perder a coluna exata é ruim mas colar dois acordes num só é ilegível.
+
+O passo é guardado na entrada do cache: voltar a um hino devolve o tom em que o
+operador o deixou, e trocar de hino não arrasta o passo do anterior. E a GRAFIA
+segue a origem — folha em bemóis continua em bemóis, que é musicalmente correto e
+é o que a faz continuar parecendo a mesma folha para quem já a conhece.
+
+### A GRAMÁTICA DO ACORDE É ESTREITA DE PROPÓSITO
+
+A tentação é aceitar "maiúscula seguida de qualquer coisa" — e aí uma linha de
+letra inteira é classificada como acordes e **some da aba, sem erro nenhum**. Por
+isso o sufixo é uma LISTA e não um curinga, e o oráculo cobra os dois lados em
+pares: o que ela tem de aceitar e o que ela não pode aceitar junto.
+
+A fonte de verdade é a MARCAÇÃO (`<b>`); o formato é só a rede, para o dia em que
+o site parar de marcar. O preço dela está escrito no código: a palavra portuguesa
+"A" é também um acorde.
+
+### O QUE O ORÁCULO NÃO COBRE, DITO
+
+As fixtures do `cifra.test.mjs` são **sintéticas** — nenhum conteúdo de terceiro
+entra neste repositório, que é a premissa do recurso. Elas provam a GRAMÁTICA do
+parser, não que ela case com o HTML de hoje do site; essa segunda metade só se
+prova contra uma página real, e é exatamente a metade que se conserta por OTA.
+
+A âncora que existe é o slug: `urlDoHino('hymnal-2022', '001. Santo, Santo,
+Santo')` tem de produzir a URL real conferida à mão. Sem ele nada mais é
+exercitado — a coleção inteira diria "não achei".
+
+### DETALHES QUE VALEM O REGISTRO
+
+- **`AVCifra` entrou no `otaAppIsUp` NO MESMO LOTE** em que o arquivo nasceu. A
+  aba é lida DENTRO de função no `controle.js`, então um erro de topo em
+  `cifra.js` não abortaria nada visível: a playlist renderiza, `__avBack` existe,
+  o watchdog carimbaria o bundle como bom **para sempre** e a aba ficaria muda.
+  É a armadilha exata que custou `AVSerie`/`AVSorteio` versões de atraso.
+- **A aba é a ÚLTIMA da lista de fontes.** Sem escolha do operador,
+  `lvActiveSource` abre a primeira — e a que abre sozinha tem de ser a letra.
+- **Ela não existe no navegador.** Sem ponte não há como buscar a página, e o
+  seletor do topo só aparece com duas fontes: uma aba que só sabe explicar por
+  que não funciona apareceria em toda música.
+- **Ela nunca vai ao telão.** A cifra é para quem toca; o que a congregação vê
+  continua sendo a letra, pelo caminho de sempre.
+- **Os sentinelas do parser são escapes** (`'\ue000'`/`'\ue001'`), nunca o caractere literal:
+  invisíveis num diff, seriam apagados por um editor distraído sem ninguém ver, e
+  o que quebra é a classificação inteira das linhas — em silêncio.
 ## v1.1.9 — o Registro do telão deixa de gastar a linha do caso grave no caso banal
 
 **A v1.1.9: O CARIMBO DO FIM NATURAL, E A DECISÃO DE NÃO RETOMAR. OTA PURO**

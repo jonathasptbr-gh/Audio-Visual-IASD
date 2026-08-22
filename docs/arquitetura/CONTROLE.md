@@ -1079,15 +1079,28 @@ vem depois, e a preview só espelha o que já está no ar. O botão do meio do
 mixer (`#lyricsViewBtn`, folha com linhas) abre um bottom-sheet **com scroll**
 (`#lyricsPopup`) com a íntegra do que está em cena.
 
-- **Duas fontes, uma tela**: a **letra** da música em cena
+- **Três fontes, uma tela**: a **letra** da música em cena
   (`currentItem.lyrics`, os mesmos slides que o Display projeta — o slide de
-  capa vira a linha "Início") e o **capítulo** da leitura bíblica
-  (`bibleSession.verses`, numerados como numa Bíblia impressa). Basta a sessão
-  existir: um capítulo fora do ar continua sendo o que o operador está lendo.
-- **O seletor do topo (`#lyricsViewSeg`) só aparece quando há as duas** — o que
-  acontece de verdade com um louvor de fundo durante a leitura. Com uma fonte
+  capa vira a linha "Início"), o **capítulo** da leitura bíblica
+  (`bibleSession.verses`, numerados como numa Bíblia impressa) e a **cifra**
+  (v1.1.7). Para a Bíblia basta a sessão existir: um capítulo fora do ar continua
+  sendo o que o operador está lendo.
+- **O seletor do topo (`#lyricsViewSeg`) só aparece quando há mais de uma** — o
+  que acontece de verdade com um louvor de fundo durante a leitura. Com uma fonte
   só, ela abre direto, sem um seletor de uma opção. A escolha manual (`lvSource`)
   vale enquanto aquela fonte existir; sumindo, cai na disponível.
+- **A CIFRA é a ÚLTIMA da lista** (`lyricsViewSources`), e isso é a precedência
+  inteira: sem escolha do operador, `lvActiveSource` devolve a primeira — e a que
+  abre sozinha tem de ser a letra, que é o que quem opera o culto está lendo.
+  Quem toca escolhe a cifra uma vez. Ela **não existe no navegador** (a busca
+  precisa da ponte — CORS) e **nunca vai ao telão**: é para quem toca, e o que a
+  congregação vê continua sendo a letra.
+
+  Ela é lida **sob demanda** e nada é guardado (o cache é um `Map` que morre com
+  o app). O desenho completo — as duas tentativas, os quatro motivos de falha, a
+  transposição que preserva a COLUNA do acorde e por que o parser mora no web e
+  não no Kotlin — está em **"A aba de cifra"** no `CLAUDE.md`; a regra em si, em
+  `controle/cifra.js`, com oráculo em `tools/cifra.test.mjs`.
 - **O TAMANHO DA LETRA É DO OPERADOR** (v1.1.6): um par **A+ / A−** no cabeçalho
   desta folha **e** na linha do nome do Modo Fácil — duas casas, um estado, o
   token `--lv-fonte`. *"Aproveite para criar dois botões de A+ e A− nestas seções

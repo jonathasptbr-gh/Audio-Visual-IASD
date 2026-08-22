@@ -5,7 +5,7 @@ para a TV com `android.app.Presentation`.
 
 > **Este diretório é o irmão de [`../arquitetura/`](../arquitetura/).** Aquele
 > cobre a base web (`assets/web/`); este cobre o Kotlin
-> (`app/src/main/java/br/org/iasd/av/`, 26 arquivos). As regras que valem para
+> (`app/src/main/java/br/org/iasd/av/`, 27 arquivos). As regras que valem para
 > o app inteiro — invariantes, paleta, entrega, divergências web × nativo —
 > ficam em [`../../CLAUDE.md`](../../CLAUDE.md), que continua sendo a **leitura
 > obrigatória**; aqui está o detalhe que ela aponta.
@@ -23,7 +23,7 @@ para a TV com `android.app.Presentation`.
 > build/assinatura/backup) vive nas seções correspondentes do `CLAUDE.md` mais o
 > KDoc dos arquivos.
 
-## Os 26 arquivos, e onde cada um é explicado
+## Os 27 arquivos, e onde cada um é explicado
 
 | arquivo | linhas | onde |
 |---|---|---|
@@ -53,6 +53,7 @@ para a TV com `android.app.Presentation`.
 | `MessageBus.kt` | 54 | `CLAUDE.md` — "Barramento de comandos" |
 | `ShareIntake.kt` | 143 | `CLAUDE.md` — "Compartilhamento" |
 | `SlideDeck.kt` | 321 | [`../arquitetura/DOCUMENTO-EM-CENA.md`](../arquitetura/DOCUMENTO-EM-CENA.md) |
+| `CifraFonte.kt` | 167 | `CLAUDE.md` — "A aba de cifra" (transporte só; quem lê o HTML é `controle/cifra.js`) |
 
 > **Números envelhecem a cada commit.** Meça antes de citá-los:
 > `wc -l app/src/main/java/br/org/iasd/av/*.kt`.
