@@ -2610,6 +2610,9 @@ Rodar local: `./gradlew assembleDebug` (exige Android SDK).
   parado de truncar (ela descartava até 84 das 100 linhas que já estavam na mão,
   incluindo as 60 que o `diag-ask` foi buscar no telão) e o que encurta ser o
   colapso da repetição CONSECUTIVA (`visibilidade ×7`), que não apaga nada.
+  **E daí a ORDEM importar:** a linha do tempo vem logo depois do cabeçalho e
+  ANTES de todo bloco de verificação por recurso — ela era o último dos oito, e
+  num Registro real começava na linha ~150. Bloco novo entra DEPOIS dela.
 - **O REGISTRO É SOBRE O CULTO, não sobre o catálogo** (v1.1.19). Ele responde a
   quatro perguntas, e é por elas que se decide o que entra: *o que eu toquei
   antes disso?* (ações do operador) · *quando a conexão mudou?* (TV e telas, em

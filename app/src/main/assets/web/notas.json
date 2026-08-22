@@ -1,5 +1,14 @@
 [
   {
+    "versao": "1.1.19",
+    "itens": [
+      "O Registro passou a contar o culto: o que entrou em cena, a TV conectando e caindo, a projeção se reapresentando, a mídia parada, a rede indo embora e voltando.",
+      "A linha do tempo subiu para o topo do Registro — ela ficava por último, atrás de sete blocos de verificação — e deixou de ser cortada em 16 linhas: agora vem inteira, com as repetições agrupadas (×7).",
+      "O bloco das séries virou resumo: em vez de listar dezenas de nomes recusados, ele conta quantos foram e mostra os primeiros de cada motivo.",
+      "Falha de mídia no telão agora aparece no Registro — antes ela só existia num console que ninguém vê durante o culto."
+    ]
+  },
+  {
     "versao": "1.1.18",
     "itens": [
       "A aba Bíblia não aparece mais na folha de leitura quando a Bíblia não está no ar — com uma música em cena ficam só Letra e Cifra, como deveria ser desde a versão passada."

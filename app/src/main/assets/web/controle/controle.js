@@ -232,7 +232,7 @@ const appVersionEl = document.getElementById('appVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.1.18';
+const WEB_VERSION = '1.1.19';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -16380,6 +16380,19 @@ async function renderDiag() {
     if (meu !== diagSeq) return;
   }
   const blocos = [cabecalhoDiag()];
+  // A LINHA DO TEMPO VEM EM SEGUNDO, logo depois do cabeçalho, e essa posição é
+  // o recurso (v1.1.19). Ela era o ÚLTIMO bloco — depois da extração do
+  // YouTube, da cifra, da transmissão, do espelho, do áudio, das Séries e do
+  // sorteio —, e "por último, atrás de sete blocos de verificação" é a
+  // definição operacional de ENTERRADO: num Registro real ela começava na linha
+  // ~150. É ela que responde "o que aconteceu no culto?", que é a pergunta que
+  // faz alguém copiar isto; os outros blocos respondem "por que ESTE recurso se
+  // comportou assim?", que só se pergunta depois de saber o que aconteceu.
+  //
+  // Ela é montada AQUI mas só ganha as linhas do telão quando o `diag-ask`
+  // responde — e é por isso que o `renderDiag` roda DUAS vezes ao abrir a folha
+  // (ver a guarda de sequência). A ordem dos blocos não muda entre as duas.
+  blocos.push(eventosDiag());
   // A ÚLTIMA EXTRAÇÃO DO YOUTUBE vinha numa faixa do rodapé, em espaço fixo:
   // uma extração com várias tentativas transbordava e a parte de baixo ficava
   // inalcançável. Aqui ela é só mais um bloco de uma caixa que rola.
@@ -16449,7 +16462,6 @@ async function renderDiag() {
   const bso = blocoSorteio();
   if (bso) blocos.push(bso);
   if (meu !== diagSeq) return;   // outro render assumiu durante a espera
-  blocos.push(eventosDiag());
   // O TEXTO MORA NA VARIÁVEL, e não num nó do DOM (v5.207). O visor `<pre>`
   // saiu de Configurações — ver o comentário do bloco no `index.html`: ele
   // gastava 240px de espaço sempre visível para exibir, em fonte de 0,68rem,

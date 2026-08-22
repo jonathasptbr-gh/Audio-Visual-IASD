@@ -455,7 +455,7 @@ try {
   checar(/playlists por mês/.test(reg) && /playlists por trimestre/.test(reg),
     'com os PARÂMETROS de cada série (é neles que o ajuste é feito)');
 
-  // AS RECUSAS, AGRUPADAS POR MOTIVO (v1.1.16) — e o nome cru dos primeiros de
+  // AS RECUSAS, AGRUPADAS POR MOTIVO (v1.1.19) — e o nome cru dos primeiros de
   // cada grupo. O contrato ANTERIOR era "cada recusa com o nome verbatim", e ele
   // custou o Registro inteiro: num aparelho de verdade este bloco ocupou ~140 de
   // ~170 linhas, com "não começa com Informativo" repetido sessenta vezes,

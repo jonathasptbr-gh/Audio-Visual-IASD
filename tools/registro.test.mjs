@@ -233,7 +233,7 @@ try {
   checar(!/cabem ~\d+ tela/.test(texto),
     'o enlace mostra a banda crua, sem o teto de telas calculado sobre 3 Mbps de encoder');
 
-  // ---- A LINHA DO TEMPO NÃO TRUNCA MAIS (v1.1.16) ---------------------------
+  // ---- A LINHA DO TEMPO NÃO TRUNCA MAIS (v1.1.19) ---------------------------
   //
   // Ela fazia `.slice(-16)` sobre `diarioC` + as 60 linhas que o telão manda no
   // `diag-dump`: até 100 linhas JÁ NA MÃO, e até 84 jogadas fora — incluindo as
@@ -264,6 +264,30 @@ try {
   // A ABERTURA é a primeira linha do anel, e ancora todas as outras.
   checar(/app aberto · web v/.test(muitas),
     'a ABERTURA carimba a linha do tempo com a versão — "em qual versão?" é a pergunta seguinte a "o que aconteceu?"');
+
+  // A POSIÇÃO É O RECURSO. A linha do tempo era o ÚLTIMO bloco, atrás de sete
+  // blocos de verificação — num Registro real ela começava na linha ~150, que é
+  // a definição operacional de ENTERRADA. Ela responde "o que aconteceu no
+  // culto?", a pergunta que faz alguém copiar isto; os outros respondem "por que
+  // ESTE recurso se comportou assim?", que só se pergunta depois.
+  //
+  // Medida por POSIÇÃO NO TEXTO contra os blocos que de fato existem nesta
+  // fixture, e não por índice de array: é o texto colado que o operador manda, e
+  // é nele que "está no fim" ou "está no topo" quer dizer alguma coisa.
+  const posTempo = muitas.indexOf('Linha do tempo');
+  const outros = ['Áudio do aparelho', 'Séries do YouTube', 'Transmissão para navegador']
+    .map((t) => muitas.indexOf(t))
+    .filter((i) => i >= 0);
+  checar(posTempo >= 0 && outros.length > 0 && outros.every((i) => i > posTempo),
+    'e a LINHA DO TEMPO vem ANTES de todo bloco de verificação — atrás deles ela estava '
+    + 'enterrada, que era o defeito',
+    'tempo@' + posTempo + ' · outros@' + JSON.stringify(outros));
+  // E DEPOIS do cabeçalho: ele é o que responde "quem mandou isto?", e sem ele a
+  // primeira resposta a distância é sempre a mesma pergunta.
+  const posCab = muitas.indexOf('Web v');
+  checar(posCab >= 0 && posCab < posTempo,
+    'e DEPOIS do cabeçalho — sem ele a primeira resposta a distância é sempre a mesma pergunta',
+    'cabeçalho@' + posCab);
 
   // ---- O PLACAR DA RETOMADA: a metade CONSUMIDORA do contrato ---------------
   //
