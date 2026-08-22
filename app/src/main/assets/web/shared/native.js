@@ -305,6 +305,16 @@
     // Compartilhamento vindo de outros apps (substitui o share_target do SW).
     onShare(cb) { shareCb = cb; pumpShare(); },
 
+    // O LINK COPIADO, e só quando ele é NOVO: `{ texto, carimbo }` ou null.
+    // `desde` é o carimbo do último conteúdo já examinado, e ele viaja como
+    // TEXTO — o carimbo é um `long` em milissegundos e a ponte converte número
+    // por `double`. Quem compara é o Kotlin, ANTES de ler: do Android 12 em
+    // diante ler o conteúdo de outro app mostra um aviso do sistema, e
+    // consultar a descrição não mostra nada (ver `BridgeHost.readClipboardUrl`).
+    areaTransferencia: (desde) => call(
+      (id) => B.areaTransferencia(id, String(desde || 0)), CALL_TIMEOUT_MS,
+    ),
+
     // Telas de apresentação (a TV).
     displays: () => call((id) => B.displays(id), CALL_TIMEOUT_MS).then((r) => r || []),
     onDisplayChange(cb) { displaysCb = cb; },

@@ -24,7 +24,10 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
-- **v1.1.7** — A ABA DE CIFRA, LIDA SOB DEMANDA: acordes sobre a letra na folha de leitura, buscados no momento em que a aba abre. NADA é baixado em lote, NADA entra no bundle e NADA é gravado em disco — o cache é um `Map` que morre com o app, e a distinção não é de grau: guardar mudaria o recurso de LER conteúdo de terceiro para DISTRIBUIR uma cópia dele. A busca sai do Kotlin porque CORS não deixa alternativa, e SÓ o transporte sai — quem lê o HTML é `controle/cifra.js`, para o conserto chegar por OTA no dia em que o site mudar. A transposição PRESERVA A COLUNA. `SHELL_VERSION` 48. EXIGE RELEASE
+- **v1.1.10** — A ABA DE CIFRA, LIDA SOB DEMANDA: acordes sobre a letra na folha de leitura, buscados no momento em que a aba abre. NADA é baixado em lote, NADA entra no bundle e NADA é gravado em disco — o cache é um `Map` que morre com o app, e a distinção não é de grau: guardar mudaria o recurso de LER conteúdo de terceiro para DISTRIBUIR uma cópia dele. A busca sai do Kotlin porque CORS não deixa alternativa, e SÓ o transporte sai — quem lê o HTML é `controle/cifra.js`, para o conserto chegar por OTA no dia em que o site mudar. A transposição PRESERVA A COLUNA. `SHELL_VERSION` 49. EXIGE RELEASE
+- **v1.1.9** — O REGISTRO DO TELÃO MENTIA NO PONTO QUE MAIS IMPORTA: o fim de TODA faixa era carimbado "PAUSA ESPONTÂNEA", a linha reservada a "alguém tirou a projeção do ar sem pedir" — e ela é lida A DISTÂNCIA, por quem não tem como conferir. Um louvor por culto bastava para afogar o sinal no ruído. Sai também a decisão de NÃO retomar automaticamente a mídia roubada, com as quatro razões medidas em fonte, e os dois achados de áudio ficam registrados esperando medição. OTA PURO
+- **v1.1.8** — A LETRA DO TELÃO NUNCA MAIS É CORTADA COM RETICÊNCIAS: o `-webkit-line-clamp: 2` era a garantia de encaixe, e é a única resposta que um telão não pode dar — o verso que some é o que a congregação ia cantar. Quem garante agora é uma ESCALA medida por busca binária, com piso, `ResizeObserver` e as MESMAS proporções calibradas. Mais a SEGUNDA PORTA do redesenho que fecha a gaveta (a busca no YouTube, irmã do progresso de download da v1.1.2), o "Tocar agora" nascendo MARCADO onde a mídia é local, a caixa crescendo de 76×32 para 84×40cq, os botões do aviso dividindo a largura toda e o LINK COPIADO virando uma pergunta na abertura (`areaTransferencia`). `SHELL_VERSION` 48. EXIGE RELEASE
+- **v1.1.7** — O ESPELHAMENTO LEVA O SOM DO APARELHO INTEIRO, e não há API pública que isole: o `Presentation` isola a JANELA, e o áudio do Wi-Fi Display nasce de um `REMOTE_SUBMIX` sem parâmetro de display. O que resolve é o som não NASCER no celular — e por isso a APRESENTAÇÃO passa a chegar às telas da rede (uma `/m/` por página), fechando a dívida que impedia o telão por comandos de substituir o espelhamento num culto com sermão. Mais o `AbortController` sem guarda, que derrubava toda TV de 2018 na entrada. OTA PURO
 - **v1.1.6** — O TAMANHO DA LETRA PASSA A SER DO OPERADOR: um par A+/A− nas DUAS casas de leitura (a folha do avançado e a linha do nome do Modo Fácil), escada DISCRETA e o valor salvo no banco. E o respiro entre estrofes volta a ser DERIVADO — com a fonte ajustável, um respiro fixo valeria só no degrau em que foi escolhido. A metade que falharia calada é a memória, e ela tem oráculo com PÁGINA NOVA. OTA PURO
 - **v1.1.5** — A LETRA RECUA PARA 1.4rem E O RESPIRO ENCOLHE: no dobro, TODA linha de hino quebrava em duas. E o respiro entre estrofes deixa de ser DERIVADO da fonte — "uma linha em branco" custava 2,1rem, e o custo virou rolagem em vez de tipografia. O piso que sobrevive (e que o oráculo passa a travar) é a ENTRELINHA da própria estrofe. OTA PURO
 - **v1.1.4** — A BIBLIOTECA ABRE TODA FECHADA, E FECHÁ-LA A DEVOLVE AO PADRÃO: o `favAberto = true` da v5.276 respondia a uma tela com dois cabeçalhos, e hoje cada série nova é mais uma barra disputando o vão. O estado de navegação é de MÓDULO e o nó do popup é o MESMO entre uma abertura e a seguinte — sem o reset, ela reabria com o hinário de 613 hinos escancarado de meia hora atrás. Mais a LETRA da música em cena dobrando de tamanho. OTA PURO
@@ -206,7 +209,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ---
 
-## v1.1.7 — a aba de CIFRA, lida sob demanda
+## v1.1.10 — a aba de CIFRA, lida sob demanda
 
 *"faça uma aba dentro do visualizador de letras, pode fazer por enquanto um
 sistema online, sem ter de 'baixar' esse registro para todas as músicas, faça
@@ -232,7 +235,7 @@ Os WebViews rodam em `appassets.androidplatform.net` (invariante 1) e um site de
 terceiro não manda `Access-Control-Allow-Origin` para esse origin: o `fetch()` da
 página morre antes de sair. O `<iframe>` cai no `X-Frame-Options`, o mesmo muro
 que já tinha recusado embutir a busca do YouTube. Sobrou o shell — e por isso
-este lote **exige Release** (`SHELL_VERSION` 48, `minShell: 48`, `shellTag`).
+este lote **exige Release** (`SHELL_VERSION` 49, `minShell: 49`, `shellTag`).
 
 `CifraFonte.kt` faz **um `GET` e mais nada**: host travado por componente do
 `URI` (nunca por prefixo — sem isso o método é um proxy HTTP de uso geral
@@ -325,6 +328,428 @@ exercitado — a coleção inteira diria "não achei".
 - **Os sentinelas do parser são escapes** (`'\ue000'`/`'\ue001'`), nunca o caractere literal:
   invisíveis num diff, seriam apagados por um editor distraído sem ninguém ver, e
   o que quebra é a classificação inteira das linhas — em silêncio.
+## v1.1.9 — o Registro do telão deixa de gastar a linha do caso grave no caso banal
+
+**A v1.1.9: O CARIMBO DO FIM NATURAL, E A DECISÃO DE NÃO RETOMAR. OTA PURO**
+(nenhuma linha de Kotlin, `SHELL_VERSION` intacto em 47; sem Release).
+
+O lote nasceu de uma pergunta do operador — *"é possível simplesmente refazer o
+play da nossa mídia no exato momento em que ela é pausada, pausando assim a
+outra mídia?"* — e o que ele entrega é o oposto de um recurso novo: um
+diagnóstico que voltou a ser verdade, e uma decisão de não fazer, escrita com os
+motivos.
+
+**O DEFEITO, e ele estava à vista.** `display.js` carimba `PAUSA ESPONTÂNEA`
+quando o `<video>` para sem comando. A especificação de HTML manda o elemento
+levantar `ended`, pôr `paused` em true e SÓ ENTÃO disparar `pause` (e, depois
+dele, `ended`) — e `pausaComandada` não é armado por fim natural, porque não
+houve comando. Resultado: **o fim de toda faixa produzia a linha reservada ao
+caso mais grave do app**.
+
+O preço não era uma linha feia: era o artefato inteiro. Aquela linha responde
+UMA pergunta — *"alguém tirou a projeção do ar sem pedir?"* — e é o tipo de coisa
+que este projeto trata com cuidado especial, porque é **lida a distância por quem
+não tem como conferir**. Com uma delas por louvor, o Registro respondia "sim" em
+todo culto normal. *Um diagnóstico que responde errado é pior que um que não
+responde* — e este respondia errado justamente quando alguém fosse investigar.
+
+**A DECISÃO DE NÃO RETOMAR.** Re-tocar no evento de pausa é possível e seria OTA
+puro: o `play()` do Chromium re-pede foco de verdade (não existe "tocar mudo" —
+concedido volta com som, negado ele mesmo pausa de novo). Ficou de fora por
+quatro razões lidas em fonte, não por cautela:
+
+1. **Não pausa a outra mídia**, que era o ganho esperado. O framework MUTA o
+   perdedor com `VolumeShaper` e **desfaz sozinho ~4 s depois**
+   (`MSL_L_FORGET_UID` → `forgetUid` → `unfadeOutUid`).
+2. **Contra um alarme não faz nada** — `USAGE_ALARM` está fora de
+   `DEFAULT_FADEABLE_USAGES`. O desfecho seria louvor **e** despertador juntos.
+3. **Uma chamada não é distinguível a tempo**: ela é perda TRANSITÓRIA e dura
+   minutos, então qualquer espera curta dispara DENTRO da ligação — e nesse caso
+   o Chromium já retoma sozinho no fim, sem código nosso.
+4. **Ela apagaria o sintoma** que a caixa-preta existe para capturar.
+
+E o caso em que o mecanismo funcionaria como o operador descreveu — dois players
+do MESMO uid, onde o framework não impõe nada
+(`FocusRequester.frameworkHandleFocusLoss` tem `if (frWinner.mCallingUid ==
+this.mCallingUid) return false`) — é exatamente o que o `acertarSaidaDeAudio` já
+previne desde a v5.215.
+
+> **Achado colateral, e ele reforça aquela decisão:**
+> `MediaSessionController::IsMediaSessionNeeded()` só recusa foco quando
+> `web_contents_->IsAudioMuted()` — o `.muted` do ELEMENTO não impede o pedido.
+> Uma preview apenas `muted` no Controle ainda pediria `AUDIOFOCUS_GAIN` e
+> roubaria o foco do telão. É o mudo por conexão que separa a paz da guerra.
+
+**ORÁCULO com as duas metades** (`display-smoke.mjs`): primeiro o HAZARD — uma
+pausa que não é fim de faixa TEM de continuar saindo como espontânea —, e só
+então a prova. Sem a primeira, a segunda provaria que a função concorda consigo
+mesma. O diário é lido pelo contrato que já existe (`diag-ask` → `diag-dump`),
+nunca por um global de teste, e a espera é pela CHEGADA da resposta, não por
+prazo. Verificado por reversão: sem a correção, reprova.
+
+**Os dois achados de áudio foram para `ACHADOS-EM-ABERTO.md`** — o desvio por
+fone/Bluetooth e a pausa espontânea de verdade —, os dois esperando a mesma
+coisa: uma medição em aparelho. É a primeira vez desde a v5.316 que aquele
+arquivo deixa de estar vazio, e as duas entradas trazem a ressalva do cético.
+
+## v1.1.8 — A letra não se corta; ela encolhe
+
+**Cinco pedidos do operador, quatro entregues aqui.** O quinto — o índice
+temático do hinário — está bloqueado por FALTA DE FONTE, não por trabalho: ver
+o fim do bloco.
+
+### A caixa escura NUNCA corta a letra com reticências
+
+Pedido verbatim: *"verifique as margens e tamanho total da zona escura que fica
+a letra na apresentação dos slides… ela não pode de forma alguma cortar a letra
+com reticências independente do tamanho da tela"*.
+
+**Eram DUAS causas somadas, e só a segunda é a que aparece na tela.**
+
+1. A caixa era `76cqw × 32cqh` — calibrada em cima de um vídeo de louvor de
+   referência, com a estrofe de DUAS linhas em mente. Hino de quatro linhas por
+   estrofe é comum, de oito não é raro.
+2. **O que garantia o encaixe era um `-webkit-line-clamp: 2`** na `.lyrics-line`
+   (e o irmão dele na `.pv-lyrics-line` da preview). Ele cumpria o contrato de
+   "não estoura a moldura" cortando o texto — e essa é a única resposta que um
+   telão não pode dar: **o verso que some é o que a congregação ia cantar, e
+   ninguém no salão tem como saber que faltou.** Não há erro, não há log, não há
+   sintoma: a projeção continua bonita e incompleta.
+
+**O clamp saiu.** Quem garante o encaixe é `ajustarLetra()` (`display.js`) e o
+espelho dele `pvAjustarLetra()` (`controle.js`): medem a altura das peças
+visíveis contra a altura útil da caixa e ENCOLHEM o conjunto até caber.
+
+- **Busca binária, sete passadas.** Um laço decrescente de 0,02 em 0,02 custaria
+  de 1 a 30 releituras forçadas de layout, e o pior caso cairia justamente na
+  estrofe mais longa — que é o caso que este lote existe para atender.
+- **O caso comum sai sem NENHUMA passada**: a estrofe de duas linhas cabe em
+  escala 1 e a função retorna na primeira medição. O custo do recurso é zero
+  onde ele não é preciso.
+- **O que encolhe é a ESCALA DO CONJUNTO** (`--lyrics-escala`, multiplicando
+  todas as fontes da caixa), não o corpo de uma peça. Encolher só a estrofe
+  faria o rótulo "Refrão" ficar MAIOR que ela — e as proporções calibradas
+  (linha 8cqmin, rótulo 4,2, número 5,8, capa 8,4) são o desenho: elas ficam, o
+  que varia é o multiplicador.
+- **Há um PISO** (`ESCALA_MIN`, 0,34): abaixo dele não se lê do fundo do salão,
+  e cortar passa a ser menos ruim que projetar o ilegível. Ali o
+  `overflow: hidden` da caixa contém o resto — é a única saída em que ainda se
+  corta, e ela é ordens de grandeza mais rara que o clamp de duas linhas.
+- **`ResizeObserver` na caixa.** A tela muda de tamanho sem o slide mudar: o
+  dongle entra, a TV troca de resolução, a preview vai para tela cheia. Sem ele
+  a escala medida para a caixa anterior ficaria de pé, e o defeito voltaria pela
+  porta dos fundos.
+- **A caixa também cresceu**: `84cqw × 40cqh`. Mais área para o mesmo corpo de
+  letra é menos ocasião de precisar encolher — a escala é a garantia, não o
+  primeiro recurso.
+
+**A PREVIEW ESPELHA A REGRA, e isso não é simetria estética.** A preview existe
+para mostrar o que o telão vai mostrar; uma que corta o que o telão não corta
+mente ao operador — e mente exatamente no ensaio, quando ele ainda podia
+escolher outra coisa.
+
+**MEDIDO** em 1280×720, 1920×1080, 960×540 e 800×1280 (retrato), com estrofes de
+2, 4 e 8 linhas — doze pares, nenhum corte. A escala depende do TEXTO e não da
+tela (é o que as unidades `cq*` garantem): 1 para duas linhas, 0,69 para quatro
+e 0,41 para oito, iguais nas quatro resoluções.
+
+**O único `-webkit-line-clamp` que sobrou na letra é o de TRÊS linhas do título
+na CAPA**, e ele é outro problema: lá o texto é um nome próprio que ninguém canta
+junto, e a caixa da capa CRESCE com o conteúdo em vez de ter altura fixa.
+
+### Os botões do aviso de atualização dividem a largura toda
+
+*"eles estão meio puxados para direita"*. Estavam: `.dialog-actions` era
+`justify-content: flex-end` e cada `.dialog-btn` media o próprio texto, então
+"Atualizar agora" e "Deixar para depois" ficavam encostados na borda direita com
+um vão morto à esquerda. Hoje é `display: flex` sem alinhamento e
+`.dialog-btn { flex: 1; min-width: 0 }` — os dois repartem a linha em partes
+iguais, e um diálogo de botão único (`cancelText: null`) fica com um botão de
+largura inteira, que é a forma certa dele.
+
+### A SEGUNDA PORTA do redesenho que fecha a gaveta
+
+Relato do operador: *"se pesquiso na biblioteca e vou tocar uma música que já
+está na biblioteca, ele fecha as opções de play quando mostra as opções do
+YouTube, como um refresh da tela, semelhante ao que já acontecia durante o
+download das coletâneas"*. **Ele nomeou a família certa.**
+
+A v1.1.2 fechou a porta do PROGRESSO DE DOWNLOAD, e a análise de lá vale inteira
+aqui: `renderSearchResults` faz `hymnResultsEl.innerHTML = ''` e remonta a lista,
+e o que ABRE uma linha vive no `li` que ele acabou de jogar fora. O que mudou é
+QUEM chama — e esta chamada é pior que a outra em dois pontos:
+
+- **O gesto de olhar era o gesto que agendava a interrupção.** A auto-busca do
+  YouTube dispara quando a sentinela do rodapé entra em cena (`armarAutoBuscaYt`,
+  `IntersectionObserver` + 500 ms), e **abrir a gaveta é justamente o que empurra
+  a sentinela para dentro do campo de visão** — a linha cresce e o rodapé sobe.
+  Quem abria as opções de uma música do acervo estava, sem saber, marcando o
+  próprio fechamento delas para dali a alguns segundos.
+- **A pergunta era LATERAL.** No caso do download há um trabalho em curso que o
+  operador conhece; aqui ele nem pediu a busca — e a música que ele quer JÁ ESTÁ
+  no acervo, ou seja, o resultado do YouTube não interessava a ninguém naquele
+  instante.
+
+**Quem espera é o REDESENHO, não a busca.** `renderBuscaQuandoPuder` REARMA a
+cada 400 ms enquanto `interacaoAbertaNoAcervo()` responder sim — a mesma escolha
+do tique do progresso, e pelo mesmo motivo: a espera dura exatamente o tempo em
+que há gaveta aberta, e o desfecho sai sozinho sem depender de alguém lembrar de
+chamar isto de dentro de cada caminho que fecha uma gaveta. Os bytes chegam no
+tempo deles.
+
+**O toque EXPLÍCITO no botão de buscar não espera** (`imediato`). Ali quem
+redesenha é o operador, e a regra deste app é que a ação dele sempre vence — é o
+mesmo motivo pelo qual uma tecla nova redesenha a lista sem perguntar por gaveta
+nenhuma. O preço está dito no código: uma gaveta aberta DURANTE a busca que ele
+mesmo pediu se fecha. O contrário seria um toque que não faz nada, que é pior.
+
+O oráculo é o `gaveta-no-download.test.mjs`, que passa a cobrir **as duas
+portas** — com hazard próprio para a segunda (em modo BUSCA o redesenho cru joga
+o `li` fora igual) e com a resposta do `ytSearch` sob controle do arquivo, para
+não medir o relógio da rede. **Separá-las em dois arquivos convidaria a corrigir
+uma e deixar a outra**, que é literalmente o que aconteceu entre a v1.1.2 e este
+lote.
+
+### "Tocar agora" nasce MARCADO — onde a mídia é local
+
+Pedido do operador: *"nas opções de play, deixe que venha por padrão o check de
+tocar agora, pois é a opção que normalmente já se tem mais urgência"*.
+
+O que a marca compra são duas coisas, e a segunda é a que quase não aparece:
+
+1. **O caso de DOIS destinos vira UM toque.** Com o telão já marcado, tocar em
+   "Adicionar ao Cronograma" projeta E guarda — antes era marcar a caixa do
+   "Tocar agora", depois tocar na linha do Cronograma.
+2. **O CONFIRMAR nasce ativo.** A linha de confirmação aparece com pelo menos um
+   marcado; com nada marcado ela era um botão morto dizendo "Escolha uma opção".
+   A gaveta passa a abrir já respondível.
+
+**SÓ ONDE A MÍDIA É LOCAL** — `renderSongMenu` (a faixa do acervo) e
+`renderItemMenu` (favoritos e pastas). **A folha do YouTube (`openYtMenu`) fica
+de fora de propósito:** ali "Tocar agora" TRANSMITE — abre rede, monta MSE e põe
+algo no telão — e as três linhas de lista significam "espere o download".
+Marcado por padrão, um toque em "Favoritar" começaria uma transmissão na frente
+da congregação por um destino que não pedia projeção nenhuma. Onde os bytes já
+estão no aparelho o pior caso é uma faixa entrando em cena, que é o que o
+operador está fazendo de qualquer jeito.
+
+**A marca nasce no ponto de ABERTURA, nunca no de render.** `renderSongMenu` é
+também o `destRemontar` (o seletor Cantada/Playback e cada marca de destino a
+chamam de volta): remarcar lá dentro tornaria o "Tocar agora" **impossível de
+desmarcar** — o toque tiraria a marca e o redesenho a devolveria, no mesmo
+quadro. Daí `destPadraoTocar()` ser chamado por `montarOpcoes` e por
+`renderItemMenu`, e não pelas funções que desenham.
+
+Os dois oráculos que mediam o padrão ANTIGO foram corrigidos para medir o novo, e
+não afrouxados: o `smoke.mjs` passou a tocar na SEGUNDA opção (a primeira agora
+desmarcaria, e o caso mediria a ida ao contrário do que a asserção diz) e os dois
+ganharam a afirmação da regra — uma marca, no "Tocar agora", e o confirmar ativo.
+
+### O LINK COPIADO vira uma pergunta (shell 48)
+
+Pedido do operador: *"adicione uma função de ao entrar no app com um link do
+YouTube copiado, ele ofereça a mesma opção de quando se compartilha um link via
+share normal"*.
+
+**COPIAR NÃO É UM PEDIDO, e é dessa distinção que sai o desenho.** Um share é um
+ato dirigido a ESTE app; um link na área de transferência pode estar ali por
+qualquer razão, inclusive nenhuma. Por isso o caminho não é o do share: há uma
+PERGUNTA antes, e só o "sim" entrega o link ao `importShare` — que dali em diante
+é literalmente o mesmo código, com as mesmas quatro escolhas.
+
+A pergunta também é o que torna o recurso seguro no **Modo Fácil**: ali um link
+compartilhado vira transmissão direta SEM perguntar nada, e um vídeo projetado na
+frente da congregação porque estava copiado seria o pior desfecho possível deste
+recurso.
+
+#### O aviso do sistema é o custo, e ele é pago UMA VEZ POR LINK
+
+Do Android 12 em diante, LER a área de transferência que outro app preencheu
+mostra um aviso na tela. Ler a cada vinda ao app daria esse aviso em toda
+retomada — **o recurso seria pior que a ausência dele**, e é essa a razão de ele
+não ter sido escrito como "leia e classifique".
+
+Quem evita isso é o **CARIMBO** (`ClipDescription.getTimestamp`). A ordem das
+perguntas em `MainActivity.lerLinkCopiado` é o recurso inteiro:
+
+```
+descrição  →  carimbo  →  conteúdo
+(sem aviso)  (sem aviso)  (AQUI aparece o aviso)
+```
+
+Invertida, o aviso volta a ser por retomada. E `desde` — o carimbo do último
+conteúdo já examinado — é comparado **antes** da terceira etapa, no Kotlin: o
+gate não pode morar no lado web, porque quando o texto chega lá o aviso já
+apareceu.
+
+- **Carimbo `0` DESISTE.** `getTimestamp` devolve 0 quando o sistema não sabe
+  dizer quando aquilo foi copiado, e sem carimbo não há como evitar a releitura.
+  O desfecho é o recurso não acontecer naquele aparelho, calado — e não um aviso
+  em toda retomada. É a escolha conservadora, dita.
+- **A MEMÓRIA do carimbo é do lado WEB** (`clip-carimbo`, no banco), e isso não é
+  arbitrário: só o web sabe se conseguiu OFERECER o link. Com um diálogo já na
+  tela ele não pergunta e **não avança o carimbo** — `openAppDialog` resolve o
+  anterior como cancelado ao abrir o próximo, e o que estaria ali é a pergunta da
+  atualização, recusada por baixo sem ninguém ter tocado em nada. A retomada
+  seguinte ainda tem o que perguntar.
+- **No banco e não em memória**: o processo morre, o app reabre, e um carimbo
+  perdido faria a mesma pergunta de novo — com o aviso do sistema junto.
+- **Texto que NÃO é do YouTube avança o carimbo do mesmo jeito.** Sem isso, um
+  texto qualquer copiado seria relido a cada retomada, e cada releitura é um
+  aviso na tela por um link que nunca vai ser oferecido.
+
+#### O filtro no Kotlin é PRIVACIDADE, não classificação
+
+O shell só devolve texto simples que COMEÇA com `http(s)` e cabe em 2 kB. Quem
+decide se o endereço é do YouTube continua sendo o `controle.js` (invariante 5 —
+o `extractYouTubeId` já existe lá, com as cinco formas de URL). O que as duas
+linhas de filtro fazem é impedir que uma senha copiada entre no heap do
+JavaScript para ser descartada um passo depois: mesma família da regra do
+`ShareIntake`, que só aceita `content://`.
+
+`areaTransferencia` fica **fora das três filas**, com o `ytCancel` e os métodos do
+telão: o `ClipboardManager` exige uma thread com `Looper` (as filas são `Thread`
+daemon sem um) e é trabalho de microssegundos que, atrás de um download, venceria
+os 60 s e resolveria `null` — indistinguível de "não havia link copiado". E
+`host == null` (o WebView do telão) resolve `null`: invariante 9, sem a qual um
+script de terceiro naquele documento leria a área de transferência do aparelho.
+
+O oráculo é o `boot-nativo.test.mjs` — o único que tem ponte —, com o **gate
+reproduzido no stub**: ele só devolve conteúdo com carimbo maior que o `desde`
+recebido. Um stub que devolvesse sempre o mesmo objeto provaria o percurso e
+deixaria passar justamente a metade que custa caro no aparelho.
+
+### Documentação: o comentário que passou a mentir
+
+A remoção do clamp deixou de pé quatro comentários que o descreviam como "a
+garantia final" — em `display.css`, `controle.css` e `docs/arquitetura/CONTROLE.md`
+—, mais seis citações do tamanho antigo da caixa. **Um comentário errado não
+custa só leitura: ele produz a decisão errada** — quem lesse "o line-clamp é a
+garantia contra vazamento" e não achasse o clamp no código tenderia a
+reintroduzi-lo. Corrigidos no mesmo lote, que é a regra de `CLAUDE.md`.
+
+### O que NÃO entrou: o índice temático do hinário
+
+Pedido do operador: *"o novo hinário tem agrupamentos internos como músicas
+infantis, a criação, crescimento em Cristo… gostaria de fazer um pequeno índice
+no início da lista do álbum do hinário e pequenos títulos no meio da listagem"*.
+
+**Bloqueado por FALTA DE FONTE, não por trabalho** — e a distinção importa,
+porque o mecanismo (índice no topo do card + cabeçalhos intercalados) é
+pequeno e a TABELA é o recurso inteiro.
+
+O que o banco entrega hoje, verificado contra
+`docs/FONTE-DE-DADOS-LOUVORJA.md`:
+
+| fonte | o que traz | serve? |
+|---|---|---|
+| `pt_hymnal` | `id_music`, `track`, `name`, `duration`, `has_instrumental_music` | **não** — não há campo de tema |
+| `pt_categories` | categoria → álbum (a hierarquia é de DOIS níveis e só isso: não há subcategoria nem `id_parent`) | **não** — é coletânea, não seção de hinário |
+| `music_{id}.albums[]` | os álbuns a que a MÚSICA pertence, com `type` e `pivot.track` | **talvez** — é a única pista |
+
+A terceira é a pista que sobra, e ela é barata: `downloadCollectionSong` já
+busca `music_{id}` por faixa e hoje **descarta** o `albums[]`. Se a LouvorJA
+publicar as seções como álbuns, a tabela vem de dado que o aparelho já baixa —
+sem chute e sem requisição nova.
+
+**Nada disso foi confirmado**, porque `api.louvorja.com.br` é negado pela
+política de rede do ambiente em que este lote foi escrito (`403` no CONNECT do
+proxy, não uma falha transitória).
+
+**E a tabela não pode ser escrita de memória.** Uma fronteira errada põe
+"Músicas infantis" sobre o hino errado, e erra do jeito que este projeto mais
+teme: **calada** — a lista continua completa, na ordem certa, com um cabeçalho
+mentindo no meio. Fica esperando UMA das duas: a confirmação das faixas contra
+o hinário impresso, ou a leitura do `albums[]` num aparelho com rede.
+---
+
+## v1.1.7 — o espelhamento leva o som do aparelho inteiro; a apresentação chega às telas da rede
+
+**A v1.1.7: O ESPELHAMENTO LEVA O SOM DO APARELHO INTEIRO — E A APRESENTAÇÃO
+PASSA A CHEGAR ÀS TELAS DA REDE. OTA PURO** (nenhuma linha de Kotlin,
+`SHELL_VERSION` intacto em 47; sem Release).
+
+Relato do operador: *"ao espelhar, o áudio vaza de qualquer aplicativo que eu
+usar"* — com a suspeita de que a causa fosse o player da notificação.
+
+**A suspeita erra a causa e acerta um sintoma vizinho.** `MediaSession` é
+superfície de controle e metadado: não transporta PCM nem participa de rota
+nenhuma, e `SessionService.kt` não importa uma única API de áudio — o vazamento
+aconteceria idêntico com o arquivo apagado. O que ele viu é real por outro
+caminho: o `MediaSessionService` recalcula a sessão de botões pela lista de UIDs
+tocando, então outro app com mídia no ar mexe no cartão do sistema **no mesmo
+instante** em que vaza. Mesmo evento, dois efeitos.
+
+**A causa é estrutural, e a resposta é uma NEGATIVA — que é justamente por que
+ela precisou virar documentação.** O `Presentation` isola uma JANELA num
+`Display`; o Android não tem o conceito de "áudio deste Display". No caminho do
+Wi-Fi Display o vídeo nasce de um `SurfaceMediaSource` ligado ao display
+virtual e o áudio de `AUDIO_SOURCE_REMOTE_SUBMIX` — um mix global, sem
+parâmetro de display. Medido no relato: o que vaza é **mídia** de outros apps
+(`STRATEGY_MEDIA`); toque e alarme têm guarda explícita no audio policy
+(`// no sonification on remote submix (e.g. WFD)`).
+
+**O que resolveria é `@SystemApi`:** `AudioPolicy.setUidDeviceAffinity`,
+`setPreferredDeviceForStrategy` e `registerAudioPolicy`, todos atrás de
+`MODIFY_AUDIO_ROUTING` (`signature|privileged|role`). Registrado para a
+investigação não ser refeita a cada relato.
+
+**E o reflexo óbvio é uma REGRESSÃO.** `requestAudioFocus` no Kotlin parece
+higiene barata e não é: foco deixou de ser cooperativo no Android 12 (o sistema
+faz fade-out e mantém o perdedor mudo até ele pedir de novo), e quem toca aqui
+não é o Kotlin — é o WebView, que pede foco por `<video>`
+(`kRequestSystemAudioFocus`, ligado por padrão, sem override em
+`android_webview/`). Como `propagateFocusLossFromGain_syncAf` **não filtra por
+uid**, um pedido nosso despejaria o próprio WebView do telão: `AUDIOFOCUS_LOSS`
+→ `onSuspend` → **projeção pausada na frente da congregação**. Idem
+`GAIN_TRANSIENT_EXCLUSIVE`. `ALLOW_CAPTURE_BY_NONE` é vetor invertido (só afeta
+o áudio do PRÓPRIO app) e `setMode(MODE_IN_COMMUNICATION)` tiraria o culto da TV
+junto com o vazamento.
+
+**A DÚVIDA QUE FICA, e ela é maior que o vazamento:** se o WebView já pede foco,
+a projeção pode estar sendo pausada sozinha hoje quando outro app toca áudio.
+**Não foi medido em aparelho, e o oráculo para isso já existe sem código novo** —
+`display.js` carimba `PAUSA ESPONTÂNEA` × `pausa (comando)` no Registro.
+
+### O que o lote entrega
+
+- **A APRESENTAÇÃO CHEGA ÀS TELAS DA REDE** — a última dívida E4.1 que importava,
+  e a que impedia o telão por comandos (o único caminho SEM vazamento, porque
+  ali a mídia toca no navegador da outra ponta) de substituir o espelhamento num
+  culto com sermão. O deck é o único kind cujo conteúdo é uma LISTA, e por isso
+  não cabia no `url` do registro saneado: `telaDeckUrls` cunha um token por
+  página (id estável `dk:<item>:<i>`, irmão do `ly:`) e
+  `telaEmpurrarPaginasDeck` os enfileira EM ORDEM — a fila do empurrão é
+  serializada, então a página 1 chega primeiro, que é a que a tela busca assim
+  que o `load` pousa. No `stage.js`, `pages` passou a aceitar **string ou Blob**
+  (`urlDaPagina`): o mesmo par `rec.url` × `rec.blob` da mídia principal,
+  aplicado à lista. **Tudo ou nada** — sem `crypto.randomUUID` a lista inteira é
+  recusada e a cena volta ao aviso, porque meia lista projetaria uma página em
+  branco no meio do sermão.
+- **O AVISO, no ponto em que se decide conectar.** Com uma TV no ar (e só então
+  — um aviso sobre consequência que ainda não existe é ruído), o botão de
+  conectar ganha uma linha auxiliar: *"O som deste celular vai junto: vídeo ou
+  áudio de outro app é ouvido nas caixas."* Ela nomeia o que o operador
+  RECONHECE; a afirmação estrita, com os três graus do que se sabe, fica no
+  bloco **"Áudio do aparelho"** do Registro — que é onde se copia e se repassa.
+  A regra CSS da linha auxiliar já tinha um comentário órfão em `controle.css`
+  descrevendo-a: ela existiu, foi removida, e a lápide ficou.
+- **O `AbortController` SEM GUARDA em `espelho/tela.js`**, nos dois pontos
+  críticos (o SSE do `conectar()` e o `postar()`). Ele é de Chromium 66, e as
+  telas da rede são navegadores de TV: Tizen 5.0 (Samsung 2018) é Chromium 63,
+  webOS 4.x (LG 2018) é 53. Uma TV dessas lançava `ReferenceError` DENTRO do
+  `conectar()` e ficava presa na entrada, num domingo, sem nada que apontasse a
+  causa — enquanto o `shared/mse.js` já tinha o padrão certo três arquivos ao
+  lado.
+
+**Oráculo:** `tela-rede.test.mjs` ganhou a metade CONSUMIDORA do deck (entra
+pela página 1 por `/m/`, o slide troca só a fonte do `<img>`, e a página nunca
+vira `blob:`) — verificada por reversão: sem a correção do `stage.js` ela
+reprova 2 de 3. A metade PRODUTORA (`telaEnriquecer`) segue **sem oráculo**, e
+está dito no código: as duas quebram diferente, e é a consumidora que quebra na
+frente da congregação.
+
+---
 
 ## v1.1.6 — o tamanho da letra passa a ser do operador (A+ / A−)
 
@@ -392,7 +817,6 @@ quando o operador abre o app na semana seguinte.
 segunda vez neste ciclo: a espera era só pelos módulos, e o `load()` — que LÊ o
 tamanho guardado e reescreve `lvTamanho` — desfazia o primeiro passo do caso. A
 correção é a da tabela: esperar o `#playlist li`, isto é, o app estar DE PÉ.
-
 ## v1.1.5 — a letra recua para 1.4rem, e o respiro entre estrofes encolhe
 
 *"Deixa a letra em 1.4rem então, e pode reduzir o espaço entre as estrofes."*
@@ -1624,6 +2048,7 @@ história do contrato, não regra viva.
 
 | shell | o que mudou |
 |---|---|
+| **48** | `areaTransferencia(desde)` — o LINK COPIADO, quando ele é novo. O carimbo é a metade que importa: sem ele, LER a área de transferência daria o aviso do Android 12+ em toda retomada |
 | **47** | `atualizacaoEstado` ganha `webNotas` — a LINHA DO TEMPO da atualização, lida do `notas.json` do bundle baixado. Não acrescenta poder: acrescenta um campo, e **forma de retorno é superfície** |
 | **46** | `espelhoLigar` perde o `modo`; `espelhoAprovar(id, sim)` vira `espelhoDerrubar(rotulo)`. O primeiro degrau em que ENCOLHER foi o objetivo do lote |
 | **45** | `espelhoDiag` ganha `midia { itens, bytes, teto }` — o cache da rota `/m/` no Registro. Não muda poder nenhum; o degrau existe porque **forma de retorno é superfície**, e o Registro é lido A DISTÂNCIA |

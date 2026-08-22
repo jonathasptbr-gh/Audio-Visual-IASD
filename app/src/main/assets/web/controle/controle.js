@@ -189,6 +189,7 @@ const pvLyricsEl = document.getElementById('pvLyrics');
 const pvLyricsImgEl = document.getElementById('pvLyricsImg');
 const pvLyricsContentEl = document.getElementById('pvLyricsContent');
 const pvLyricsLineEl = document.getElementById('pvLyricsLine');
+const pvLyricsBoxEl = document.getElementById('pvLyricsBox');
 const pvLyricsAuxEl = document.getElementById('pvLyricsAux');
 const pvLyricsNumEl = document.getElementById('pvLyricsNum');
 const pvTextEl = document.getElementById('pvText');
@@ -231,7 +232,7 @@ const appVersionEl = document.getElementById('appVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.1.7';
+const WEB_VERSION = '1.1.10';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -425,6 +426,7 @@ const castNetLabelEl = document.getElementById('castNetLabel');
 const castLocalBtnEl = document.getElementById('castLocalBtn');
 const castMsgEl = document.getElementById('castMsg');
 const castMirrorLabelEl = document.getElementById('castMirrorLabel');
+const castMirrorNotaEl = document.getElementById('castMirrorNota');
 const castLiveEl = document.getElementById('castLive');
 const castUrlEl = document.getElementById('castUrl');
 const castUrlCopyEl = document.getElementById('castUrlCopy');
@@ -1987,6 +1989,46 @@ function showPvLyrics(rec) {
 // A moldura (borda + fundo semitransparente) só faz sentido cobrindo uma
 // imagem de fundo de verdade — mesmo motivo do Display (ver
 // applyLyricsBgClass em display.js). `.imgbg` liga a moldura só quando
+// ===== A PREVIEW NÃO CORTA A LETRA (v1.1.8) =====
+// O espelho de `ajustarLetra()` do `display.js`, e ele existe pela razão de
+// sempre: a preview mostra o que o telão vai mostrar, e uma que corta o que o
+// telão não corta MENTE ao operador — ele confere ali antes de projetar.
+//
+// As DUAS metades são separadas (documentos diferentes, folhas diferentes, uma
+// delas com tema), e a regra é a mesma: escala do CONJUNTO por busca binária,
+// piso, e `ResizeObserver` para a caixa que muda de tamanho sem o slide mudar
+// (a preview entra e sai de tela cheia, e ali ela muda de proporção inteira).
+const PV_ESCALA_MAX = 1;
+const PV_ESCALA_MIN = 0.34;
+function pvCabeNaCaixa() {
+  const cs = getComputedStyle(pvLyricsBoxEl);
+  const util = pvLyricsBoxEl.clientHeight
+    - (parseFloat(cs.paddingTop) || 0) - (parseFloat(cs.paddingBottom) || 0);
+  if (util <= 0) return true;
+  const gap = parseFloat(cs.rowGap) || 0;
+  const pecas = [...pvLyricsBoxEl.children].filter((el) => !el.hidden);
+  const alto = pecas.reduce((soma, el) => soma + el.getBoundingClientRect().height, 0)
+    + gap * Math.max(0, pecas.length - 1);
+  return alto <= util + 0.5;
+}
+function pvAjustarLetra() {
+  if (!pvLyricsBoxEl) return;
+  const escrever = (v) => pvLyricsBoxEl.style.setProperty('--lyrics-escala', String(v));
+  escrever(PV_ESCALA_MAX);
+  if (pvCabeNaCaixa()) return;
+  let cabe = PV_ESCALA_MIN;
+  let naoCabe = PV_ESCALA_MAX;
+  for (let i = 0; i < 7; i++) {
+    const meio = (cabe + naoCabe) / 2;
+    escrever(meio);
+    if (pvCabeNaCaixa()) cabe = meio; else naoCabe = meio;
+  }
+  escrever(cabe);
+}
+if (window.ResizeObserver && pvLyricsBoxEl) {
+  new ResizeObserver(() => pvAjustarLetra()).observe(pvLyricsBoxEl);
+}
+
 // lyricsBg==='image' (ver .pv-lyrics-box/.pv-lyrics-content.imgbg em
 // controle.css).
 function applyPvLyricsBgClass() {
@@ -2022,6 +2064,8 @@ function renderPvLyricSlide(idx) {
   // some, deixando só a imagem de fundo — mesmo comportamento do telão.
   pvLyricsContentEl.classList.toggle('nolyric',
     !pvLyricsLineEl.textContent.trim() && pvLyricsAuxEl.hidden && pvLyricsNumEl.hidden);
+  // ANTES do fade, como no telão: a escala é medida com o texto novo no lugar.
+  pvAjustarLetra();
   pvFadeIn(pvLyricsLineEl);
   if (!pvLyricsNumEl.hidden) pvFadeIn(pvLyricsNumEl);
   if (!pvLyricsAuxEl.hidden) pvFadeIn(pvLyricsAuxEl);
@@ -8317,8 +8361,34 @@ function linhaDeItem(item, opts) {
 // O resto é a MESMA maquinaria — `songMenuItem` com `destino`, `destExecutor`,
 // `destRemontar` e `destConfirmRow` —, pelo motivo de sempre: uma segunda lista
 // de destinos com a mesma anatomia divergiria da primeira no próximo ajuste.
+/**
+ * ===== "TOCAR AGORA" NASCE MARCADO (v1.1.8) =====
+ *
+ * Pedido do operador: *"nas opções de play, deixe que venha por padrão o check
+ * de tocar agora, pois é a opção que normalmente já se tem mais urgência"*.
+ *
+ * O que isso muda de fato é o caso de DOIS destinos: com o telão já marcado,
+ * tocar em "Adicionar ao Cronograma" projeta E guarda no mesmo toque, sem
+ * precisar marcar a caixa do "Tocar agora" antes. E a linha de CONFIRMAR nasce
+ * na tela (ela aparece com pelo menos um marcado), então a gaveta abre já
+ * respondível.
+ *
+ * **Só onde a mídia É LOCAL.** A folha do YouTube (`openYtMenu`) fica de fora de
+ * propósito: ali "Tocar agora" TRANSMITE — abre rede, monta MSE e põe algo no
+ * telão —, e as três linhas de lista significam "espere o download". Marcado por
+ * padrão, um toque em "Favoritar" começaria uma transmissão na frente da
+ * congregação por um destino que não pedia projeção nenhuma. Aqui os bytes já
+ * estão no aparelho e o pior caso é uma faixa entrando em cena, que é o que o
+ * operador está fazendo de qualquer jeito.
+ *
+ * Desmarcar continua sendo um toque na linha, como em qualquer destino — o que
+ * muda é de qual lado a gaveta começa.
+ */
+function destPadraoTocar() { destMarcados.add('tocar'); }
+
 function renderItemMenu(item, alvo, destinos, aoLado) {
   destLimpar();
+  destPadraoTocar();
   // `aoLado` é o irmão do confirmar (v5.286, hoje a faixa de ações da linha —
   // ver `linhaDeItem`). Ele viaja no ESTADO, e não como argumento de
   // `destConfirmRow`, porque quem monta a linha de fecho é a folha e ela não
@@ -12155,7 +12225,7 @@ function appendYoutubeSearch(texto) {
     // YouTube na página inicial.
     txt.textContent = 'Pesquisar “' + termo + '” no YouTube';
     btn.appendChild(txt);
-    btn.addEventListener('click', () => buscarNoYoutube(termo));
+    btn.addEventListener('click', () => buscarNoYoutube(termo, true));
     li.appendChild(btn);
   }
   hymnResultsEl.appendChild(li);
@@ -13072,10 +13142,54 @@ function armarAutoBuscaYt(sentinela, termo) {
   ytAutoObs.observe(sentinela);
 }
 
+/**
+ * ===== O RESULTADO DO YOUTUBE ESPERA A GAVETA FECHAR (v1.1.8) =====
+ *
+ * Relato do operador: *"se pesquiso na biblioteca e vou tocar uma música que já
+ * está na biblioteca, ele fecha as opções de play quando mostra as opções do
+ * YouTube, como um refresh da tela, semelhante ao que já acontecia durante o
+ * download das coletâneas"*.
+ *
+ * É a MESMA armadilha do progresso dos downloads (`interacaoAbertaNoAcervo`),
+ * por outra porta: `renderSearchResults` faz `hymnResultsEl.innerHTML = ''` e
+ * remonta a lista, e o que ABRE uma linha vive no `li` que ele acabou de jogar
+ * fora. Aqui é ainda menos esperado — a gaveta é de uma música que JÁ ESTÁ no
+ * acervo, e quem redesenha é uma busca que o operador não pediu: a auto-busca
+ * dispara sozinha quando a sentinela do rodapé entra em cena, e **ABRIR a gaveta
+ * é justamente o que empurra a sentinela para dentro do campo de visão**.
+ *
+ * **A BUSCA não espera; só o REDESENHO dela.** Os bytes chegam no tempo deles e
+ * a lista se atualiza assim que a gaveta fechar — o que não pode é a resposta de
+ * uma pergunta lateral tirar do lugar o que o operador está usando.
+ *
+ * `imediato` é o toque EXPLÍCITO no botão de buscar: ali quem redesenha é o
+ * operador, e a regra deste app é que a ação dele sempre vence (é o mesmo motivo
+ * pelo qual uma tecla nova redesenha a lista sem perguntar por gaveta nenhuma).
+ * O preço, dito: uma gaveta aberta DURANTE a busca que ele mesmo pediu se fecha.
+ * O contrário seria um toque que não faz nada — que é pior.
+ */
+let ytRedesenhoTimer = 0;
+const YT_REDESENHO_MS = 400;
+function renderBuscaQuandoPuder(imediato) {
+  clearTimeout(ytRedesenhoTimer);
+  ytRedesenhoTimer = 0;
+  // Biblioteca fechada: não há lista a redesenhar, e reabri-la a monta do zero.
+  if (!hymnSearchPopupEl.classList.contains('open')) return;
+  if (!imediato && interacaoAbertaNoAcervo()) {
+    // REARMA em vez de marcar um pendente — a mesma escolha do tique do
+    // progresso: a espera dura exatamente o tempo em que há gaveta aberta, e o
+    // desfecho sai sozinho, sem depender de alguém lembrar de chamar isto de
+    // dentro de cada caminho que fecha uma gaveta.
+    ytRedesenhoTimer = setTimeout(() => renderBuscaQuandoPuder(false), YT_REDESENHO_MS);
+    return;
+  }
+  renderSearchResults(hymnSearchInputEl.value);
+}
+
 // Pede a busca ao shell e redesenha a lista com o resultado. No navegador (e
 // num shell antigo) não há como pesquisar de dentro do app: ali o toque volta a
 // ser o que sempre foi — abrir o YouTube por fora.
-async function buscarNoYoutube(termo) {
+async function buscarNoYoutube(termo, imediato) {
   if (!window.__NATIVE__) {
     openYoutubeSearch(termo);
     return;
@@ -13084,7 +13198,7 @@ async function buscarNoYoutube(termo) {
   ytBuscando = true;
   ytBuscaTermo = termo;
   ytBuscaItens = null;
-  renderSearchResults(hymnSearchInputEl.value);
+  renderBuscaQuandoPuder(imediato);
   try {
     const r = await AVNative.ytSearch(termo);
     ytBuscaItens = Array.isArray(r) ? r : [];
@@ -13093,7 +13207,7 @@ async function buscarNoYoutube(termo) {
   } finally {
     ytBuscando = false;
     ytBuscaTermo = termo;
-    renderSearchResults(hymnSearchInputEl.value);
+    renderBuscaQuandoPuder(imediato);
   }
 }
 
@@ -13281,6 +13395,12 @@ function hymnResultRow(coll, s, lyricHit, semColecao) {
       return;
     }
     songMenuFor = { coll, s, variant: 'full', alvo: opcoes, aoLado };
+    // A marca nasce AQUI e não em `renderSongMenu`: aquela função é também o
+    // `destRemontar` (o seletor Cantada/Playback e cada marca de destino a
+    // chamam de volta), e remarcar lá dentro tornaria o "Tocar agora"
+    // impossível de DESMARCAR — o toque tiraria a marca e o redesenho a
+    // devolveria, no mesmo quadro.
+    destPadraoTocar();
     renderSongMenu();
   }
 
@@ -15809,6 +15929,38 @@ let diagTexto = '';
 // justamente o que se foi buscar.
 let diagSeq = 0;
 
+// O ÁUDIO DO APARELHO — por que o som de outro app sai nas caixas.
+//
+// Existe porque este vazamento NÃO TEM SINTOMA QUE APONTE A CAUSA: o operador
+// ouve o WhatsApp na PA e conclui que o app está com defeito. E porque a
+// resposta é uma negativa de ARQUITETURA — não há o que consertar —, ela
+// precisa estar escrita onde se copia e se repassa, senão a investigação é
+// refeita do zero a cada relato.
+//
+// A FRASE AQUI É MAIS ESTRITA QUE A DA FOLHA DE CONEXÃO. Lá cabe "o som deste
+// celular vai junto", que é o que o operador precisa saber para agir. Aqui a
+// afirmação é técnica, e o que se sabe tem três graus: a MÍDIA de outros apps
+// vai (observado em aparelho); toque e alarme têm guarda explícita no audio
+// policy do AOSP (`// no sonification on remote submix (e.g. WFD)`); e som de
+// NOTIFICAÇÃO depende do aparelho — a Samsung é implementação própria. Escrever
+// as três como certezas seria inventar duas.
+function blocoAudio() {
+  if (!window.__NATIVE__) return '';
+  const tv = lastDisplays[0] || null;
+  const linhas = [
+    tv ? 'espelhando para "' + (tv.name || 'TV') + '" — o som deste aparelho vai junto'
+       : 'nenhuma TV espelhando agora',
+    'o espelhamento carrega a mistura de MÍDIA do aparelho: vídeo ou áudio',
+    '  tocado em qualquer app sai nas caixas junto com a projeção.',
+    'toque de chamada e alarme ficam no celular; notificação depende do aparelho.',
+    'não há como isolar: o Android roteia áudio por APARELHO, não por tela — a',
+    '  Presentation isola a janela, nunca o som. Não é ajuste que falta.',
+    'sem vazamento: "Transmitir para navegador" (a tela toca o arquivo dela),',
+    '  com o espelhamento DESLIGADO — os dois juntos mantêm a mistura no ar.',
+  ];
+  return 'Áudio do aparelho\n' + linhas.join('\n');
+}
+
 async function renderDiag() {
   const meu = ++diagSeq;
   // O ESTADO DA PROCURA antes de montar o cabeçalho, que o lê (shell 31+). É a
@@ -15870,6 +16022,10 @@ async function renderDiag() {
     const bloco = blocoEspelho(ed);
     if (bloco) blocos.push(bloco);
   }
+  // O ÁUDIO DO APARELHO — logo depois do estado da transmissão, porque responde
+  // à mesma pergunta ("o que está no ar?") pelo lado que ninguém escolheu.
+  const ba = blocoAudio();
+  if (ba) blocos.push(ba);
   // AS SÉRIES: o que a regra achou nos canais, com os nomes CRUS. Ele vem
   // depois do estado da transmissão e antes da linha do tempo porque a ordem
   // desta caixa é "quem eu sou → o que tentei → o que está no ar → o que
@@ -17092,6 +17248,82 @@ function registrarShareNativo() {
       });
     });
   });
+}
+
+
+// ===== O LINK DO YOUTUBE QUE ESTÁ NA ÁREA DE TRANSFERÊNCIA (v1.1.8) =====
+//
+// Pedido do operador: *"ao entrar no app com um link do YouTube copiado, ele
+// ofereça a mesma opção de quando se compartilha um link via share normal"*.
+//
+// **A DIFERENÇA ENTRE COPIAR E COMPARTILHAR É QUE COPIAR NÃO É UM PEDIDO.** Um
+// share é um ato dirigido a ESTE app; um link na área de transferência pode
+// estar ali por qualquer razão, inclusive nenhuma. Por isso o caminho não é o
+// do share: aqui há uma PERGUNTA antes, e só o "sim" entrega o link ao
+// `importShare` — que dali em diante é literalmente o mesmo código, com as
+// mesmas escolhas (tocar · playlist · Cronograma · Favoritos, mais a forma e o
+// teto de qualidade).
+//
+// A pergunta também é o que torna o recurso seguro no MODO FÁCIL: ali um link
+// compartilhado vira transmissão direta SEM perguntar nada — e um link
+// projetado na frente da congregação porque estava copiado seria o pior
+// desfecho possível deste recurso.
+//
+// ===== O AVISO DO SISTEMA É O CUSTO, E ELE É PAGO UMA VEZ POR LINK =====
+//
+// Do Android 12 em diante, LER a área de transferência que outro app preencheu
+// mostra um aviso na tela. Ler a cada vinda ao app daria esse aviso em toda
+// retomada — o recurso seria pior que a ausência dele. Quem evita isso é o
+// CARIMBO (`ClipDescription.getTimestamp`), consultado pelo shell ANTES de ler:
+// consultar a descrição não mostra aviso nenhum, então o conteúdo só é lido
+// quando ele é novo. Ver `BridgeHost.readClipboardUrl`.
+//
+// O carimbo do último conteúdo já examinado mora no BANCO (`clip-carimbo`), e
+// não em memória: o processo morre, o app reabre, e um carimbo perdido faria a
+// mesma pergunta de novo — com o aviso do sistema junto.
+const CLIP_ESTADO = 'clip-carimbo';
+let clipConferindo = false;
+
+async function conferirLinkCopiado() {
+  // No navegador não existe: `navigator.clipboard.readText()` pede permissão e
+  // exige gesto, que é exatamente o oposto do que este caminho quer ser.
+  if (!window.__NATIVE__ || clipConferindo) return;
+  clipConferindo = true;
+  try {
+    const desde = (await AVDB.getState(CLIP_ESTADO)) || 0;
+    const achado = await AVNative.areaTransferencia(desde);
+    if (!achado || !achado.carimbo) return;
+    const vid = extractYouTubeId(achado.texto || '');
+    if (!vid) {
+      // NÃO É DO YOUTUBE: o carimbo avança do mesmo jeito. Sem isto, um texto
+      // qualquer copiado seria relido a cada retomada — e cada releitura é um
+      // aviso do sistema na tela por um link que nunca vai ser oferecido.
+      await AVDB.updateState(CLIP_ESTADO, () => achado.carimbo);
+      return;
+    }
+    // UM DIÁLOGO JÁ NA TELA ADIA A PERGUNTA, e o carimbo NÃO avança: o
+    // `openAppDialog` resolve o anterior como cancelado ao abrir o próximo, e a
+    // pergunta que estaria ali é a da atualização — recusá-la por baixo, sem
+    // ninguém ter tocado em nada, é o desfecho que esta guarda existe para
+    // impedir. A retomada seguinte pergunta de novo, e o carimbo intacto é o
+    // que garante que ela ainda tem o que perguntar.
+    if (appDialogResolve) return;
+    await AVDB.updateState(CLIP_ESTADO, () => achado.carimbo);
+    const usar = await appConfirm({
+      title: 'Link do YouTube copiado',
+      message: 'Você tem um link do YouTube na área de transferência. '
+        + 'Quer usá-lo agora?\n\n' + achado.texto,
+      okText: 'Usar o link', cancelText: 'Agora não',
+    });
+    if (!usar) return;
+    await importShare({ url: achado.texto });
+  } catch (e) {
+    // O caminho inteiro é opcional: nada aqui pode derrubar a abertura do app
+    // nem o handler de retomada, que faz meia dúzia de outras coisas depois.
+    diagC('area de transferencia: ' + ((e && e.message) || e));
+  } finally {
+    clipConferindo = false;
+  }
 }
 
 // ===== O FEEDBACK MORA NA INTERFACE DE ORIGEM =====
@@ -19626,6 +19858,18 @@ function renderCast() {
       : 'Conectar uma TV';
   }
   if (castMirrorBtnEl) castMirrorBtnEl.classList.toggle('connected', !!tv);
+  // O AVISO DO SOM (ver o comentário no HTML), e ele SÓ EXISTE COM TV NO AR:
+  // sem ela não há para onde vazar, e um aviso permanente sobre uma
+  // consequência que ainda não aconteceu é ruído na folha em que se decide
+  // conectar. A frase nomeia o que o operador RECONHECE ("vídeo ou áudio de
+  // outro app"), não a categoria do Android que a explica — o `USAGE_MEDIA`
+  // fica no Registro, que é onde a afirmação precisa ser estrita.
+  if (castMirrorNotaEl) {
+    castMirrorNotaEl.hidden = !tv;
+    castMirrorNotaEl.textContent = tv
+      ? 'O som deste celular vai junto: vídeo ou áudio de outro app é ouvido nas caixas.'
+      : '';
+  }
   // (O subtítulo do interruptor saiu na v5.194: desligado ele descrevia o
   // recurso para quem já decidiu usá-lo, e ligado dizia "N tela(s) recebendo" —
   // que é exatamente o que a LISTA logo abaixo mostra, com nome e tempo de
@@ -20170,6 +20414,10 @@ document.addEventListener('visibilitychange', () => {
     return;
   }
   autoRefreshCollections();
+  // O LINK COPIADO ENQUANTO O APP ESTAVA FORA DA FRENTE — que é o caso normal:
+  // o operador sai daqui, copia no YouTube e volta. Sem carimbo novo isto não
+  // chega a ler nada (ver `conferirLinkCopiado`).
+  conferirLinkCopiado();
   // A tela pode ter caído (ou voltado) com o app minimizado — e é exatamente aí
   // que este WebView está estrangulado e pode perder o aviso do shell. Reler a
   // lista ao voltar para a frente é o piso que impede o ícone de cast de ficar
@@ -20216,6 +20464,10 @@ document.addEventListener('visibilitychange', () => {
   await applyPvWallpaper();
   // registra a chegada de compartilhamentos (intent nativo; no navegador é no-op)
   registrarShareNativo();
+  // E O LINK QUE JÁ ESTAVA COPIADO. Fire-and-forget, como os dois abaixo: a
+  // pergunta pode esperar o app terminar de abrir, e segurar a abertura por uma
+  // ida à ponte seria pagar por um caso que quase sempre não existe.
+  conferirLinkCopiado();
   // Índices das coleções em segundo plano (fire-and-forget): não atrasa a
   // abertura do app, só deixa a busca/os cards prontos assim que a resposta chegar.
   autoRefreshCollections();
@@ -20798,6 +21050,15 @@ function telaSanearRec(it, token) {
     seconds: it.seconds || 0,
     height: it.height || 0,
   };
+  // A APRESENTAÇÃO É O ÚNICO KIND CUJO CONTEÚDO É UMA LISTA, e por isso o
+  // saneamento dela não cabe no `url` acima: cada página é um arquivo próprio,
+  // e o que viaja é uma `/m/` POR PÁGINA. O `stage.js` aceita string ou Blob em
+  // `pages` — é o mesmo par `rec.url` × `rec.blob` da mídia principal, aplicado
+  // à lista. O `url` de cima continua sendo cunhado e NUNCA recebe bytes: o
+  // ramo do deck vence antes dele no `stage.js`, e gastar um `if` para não
+  // cunhar um token que ninguém busca custaria mais do que paga.
+  const pgs = telaDeckUrls(it);
+  if (pgs) rec.pages = pgs;
   if (it.hymnName) rec.hymnName = it.hymnName;
   if (it.hymnTrack) rec.hymnTrack = it.hymnTrack;
   if (it.hymnAlbum) rec.hymnAlbum = it.hymnAlbum;
@@ -20849,6 +21110,49 @@ function telaManifestoDaRede(man) {
 function telaImagemLetraUrl(opfsPath) {
   const token = telaTokenDe('ly:' + opfsPath);
   return token ? '/m/' + token : undefined;
+}
+
+// AS URLs DAS PÁGINAS de uma apresentação, ou `null`.
+//
+// `null` é o veredito de "esta apresentação NÃO vai para a rede", e ele tem
+// duas causas: não é um deck, ou o aparelho não tem `crypto.randomUUID` e
+// nenhum token forte pôde ser cunhado (`telaTokenDe`). Devolver uma lista com
+// buracos seria pior que devolver nada — o `stage.js` acharia `pages` e
+// projetaria uma página em branco no lugar do slide.
+//
+// Id estável por página ('dk:<item>:<i>', irmão do 'ly:<caminho>'): a regra
+// "mesmo id + mesmo token = já tenho" do shell faz o segundo `load` da mesma
+// apresentação custar ZERO empurrão — que é o caso normal de um sermão, em que
+// o operador volta um slide.
+function telaDeckUrls(it) {
+  if (!it || it.kind !== 'deck' || !Array.isArray(it.pages) || !it.pages.length) return null;
+  const urls = [];
+  for (let i = 0; i < it.pages.length; i++) {
+    const t = telaTokenDe(telaDeckPaginaId(it.id, i));
+    if (!t) return null;
+    urls.push('/m/' + t);
+  }
+  return urls;
+}
+function telaDeckPaginaId(id, i) { return 'dk:' + id + ':' + i; }
+
+// Enfileira o empurrão das páginas de uma apresentação.
+//
+// EM ORDEM, e a ordem é o recurso: a fila do empurrão é serializada, então a
+// página 1 chega primeiro — que é a que a tela vai buscar assim que o `load`
+// pousar. As seguintes escoam enquanto o pregador fala em cima da primeira.
+function telaEmpurrarPaginasDeck(it) {
+  if (!Array.isArray(it.pages)) return;
+  for (let i = 0; i < it.pages.length; i++) {
+    const b = it.pages[i];
+    if (!b) continue;
+    telaGarantirEnvio({
+      id: telaDeckPaginaId(it.id, i),
+      name: (it.name || 'Apresentação') + ' · ' + (i + 1),
+      type: b.type || 'image/jpeg',
+      blob: b,
+    });
+  }
 }
 
 // Enfileira o empurrão das imagens de fundo de um registro já saneado.
@@ -21022,7 +21326,11 @@ function telaEnriquecer(cmd) {
     // terceiro (e a CSP das telas o barra por construção); o deck
     // são Blobs por página (E4.1). O aviso sai LOGO DEPOIS do load — a tela
     // sem __rec limpa a cena sozinha (getMedia nulo → clear).
-    if (it.kind === 'youtube' || it.kind === 'deck') {
+    // O DECK SAIU DAQUI (a dívida E4.1): as páginas viajam como uma `/m/` cada
+    // (ver `telaDeckUrls`). Continua caindo no aviso o deck de que não se
+    // consegue cunhar token — e o embed, que é iframe de terceiro e a CSP das
+    // telas barra por construção.
+    if (it.kind === 'youtube' || (it.kind === 'deck' && !telaDeckUrls(it))) {
       setTimeout(() => {
         try { AVDB.sendCommand({ type: 'tela-aviso', texto: 'Esta cena não aparece nas telas da rede.' }); } catch (_) { /* nada */ }
       }, 0);
@@ -21031,7 +21339,11 @@ function telaEnriquecer(cmd) {
     const token = telaTokenDe(it.id);
     if (!token) return;
     cmd.__rec = telaSanearRec(it, token);
-    telaGarantirEnvio(it);
+    // A APRESENTAÇÃO não tem arquivo único a empurrar — tem uma lista. O
+    // `telaGarantirEnvio(it)` dela sairia sem `blob` nem `opfsPath` e morreria
+    // calado dentro do `telaEmpurrarAgora`, gastando um giro da fila.
+    if (it.kind === 'deck') telaEmpurrarPaginasDeck(it);
+    else telaGarantirEnvio(it);
     telaEmpurrarImagensLetra(it);
   } else if (cmd.type === 'text' && cmd.mode === 'image') {
     // A IMAGEM SOBRE O ÁUDIO (v5.312) precisa do MESMO enriquecimento do

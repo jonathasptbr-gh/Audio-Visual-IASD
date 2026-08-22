@@ -337,6 +337,16 @@ window.AVNative = {
   pickDoc(mimes),      // → [{ url, name, type }]: o SELETOR DE ARQUIVOS do aparelho
   listFolder(uri),     // → [{ name, size, mtime, type, url }]   (só no Controle)
   onShare(cb),         // cb({ files:[{name,type,size,url}], url, title })
+  areaTransferencia(desde), // → { texto, carimbo } ou null: o LINK COPIADO, e
+                       //   só quando é NOVO. `desde` é o carimbo do último
+                       //   conteúdo já examinado, em TEXTO (o carimbo é um
+                       //   `long` em ms), e quem compara é o Kotlin ANTES de
+                       //   ler — do Android 12 em diante LER a área de
+                       //   transferência de outro app mostra um aviso do
+                       //   sistema, e consultar a DESCRIÇÃO não mostra nada.
+                       //   Só texto simples que COMEÇA com http(s), teto de
+                       //   2 kB: privacidade, não classificação — quem decide
+                       //   se é do YouTube é o `controle.js`
   displays(),          // → [{ id, name, w, h, density }]
   onDisplayChange(cb),
   openCast(),          // seletor de ESPELHAMENTO DE TELA do Android (≠ Google Cast)
@@ -416,7 +426,7 @@ window.AVNative = {
   cifraDiag(),         // → string: o que a última busca de cifra recebeu
 }
 ```
-São **45 métodos**, e essa é a superfície inteira que o resto do lado web tem
+São **46 métodos**, e essa é a superfície inteira que o resto do lado web tem
 direito de usar — fora do `native.js`, tocar em `__AVBridge` direto é
 acoplamento indevido. O próprio `native.js` chama mais oito coisas lá, e nenhuma
 é API para o app: `ytFetchAudio` e `ytFetchAte` (não são métodos a mais, são os
@@ -474,7 +484,7 @@ prazo (um timeout ali resolveria null com o operador ainda escolhendo a pasta).
 
 ### `SHELL_VERSION` — subir SEMPRE que a superfície mudar
 
-Hoje vale **48**, e ele é o **PISO**: o bundle declara `minShell: 48`, então
+Hoje vale **49**, e ele é o **PISO**: o bundle declara `minShell: 49`, então
 todo método da ponte existe sempre e **não há guarda de versão no lado web**.
 "Superfície" inclui **forma de retorno** e **comportamento**, não só assinatura:
 um campo que some, um contrato de URL que muda ou um método que passa a fazer
@@ -487,7 +497,7 @@ escondia. Sem guardas, o web chama um método que o APK instalado não tem: o
 existe, é tocável e não faz nada. Por isso mudança de ponte é um lote
 **APK + web publicado JUNTO**, com `shellTag` no `version.json`.
 
-> A tabela dos 48 degraus está em `docs/HISTORICO.md` — ela é história do
+> A tabela dos 49 degraus está em `docs/HISTORICO.md` — ela é história do
 > contrato, e história mora lá.
 
 ### As TRÊS filas da ponte — escolher a errada é uma regressão muda
@@ -538,7 +548,7 @@ E duas regras que ficam de fora das três filas:
   e volta; quem responde é o laço de cópia do `YoutubeGrab`, a cada bloco de
   64 kB.
 
-**O bundle declara `minShell: 48`, e é a VÁLVULA que resolve.** Um bundle que
+**O bundle declara `minShell: 49`, e é a VÁLVULA que resolve.** Um bundle que
 exija ponte mais nova que o `SHELL_VERSION` instalado é recusado inteiro
 (`WebUpdater.kt`), e o app segue no que tinha — a recusa acontece no shell, e
 não em runtime no meio de um culto. **Guarda de versão no lado web é proibida:**
@@ -1370,7 +1380,7 @@ derruba a transmissão — sem TV, as telas da rede SÃO o que a congregação v
 | `EspelhoDiag.kt` | o anel. **Devolve JSON, não texto** — quem monta a frase é o `controle.js` |
 | `espelho/tela.js` | a casca do papel `tela`, carregada **no próprio `display/index.html`** entre `native.js` e `db.js`, e no-op de uma guarda fora do papel. Define `__AVBus` (recepção = SSE; envio = o DRENO), neutraliza o `postMessage` do `BroadcastChannel`, corrige o relógio (mediana do epoch dos pings — cronômetro e sorteio chegam como DESCRITOR com instante do celular), embrulha `AVDB.getMedia` para resolver `__rec.url`, e mantém a vigília para a tela não dormir |
 | `display.js` (papel `tela`) | `forceMuted` nasce ligado (autoplay sem gesto não existe num navegador de verdade); `window.__telaSom(true)` é o que o botão de entrada chama ao gastar o único gesto; wallpaper por `__wp` (ou o sentinela `'padrao'`), fundo da letra por `imageUrl` na estrofe |
-| `controle.js` | **enriquece** cada `load` com `__rec` (registro saneado: id/kind/nome/tipo/url=`/m/<token>`/letra — **nunca** blob, opfsPath ou youtubeId) e dispara o empurrão; reescreve o manifesto de stream para `/s/<token>`; **elege** uma tela como referência de tempo; converte embed do YouTube e deck em `tela-aviso` (o que a tela não sabe tocar, ela DIZ) |
+| `controle.js` | **enriquece** cada `load` com `__rec` (registro saneado: id/kind/nome/tipo/url=`/m/<token>`/letra — **nunca** blob, opfsPath ou youtubeId) e dispara o empurrão; reescreve o manifesto de stream para `/s/<token>`; **elege** uma tela como referência de tempo; manda a APRESENTAÇÃO por páginas (uma `/m/` por página, `telaDeckUrls`); converte o embed do YouTube em `tela-aviso` (o que a tela não sabe tocar, ela DIZ) |
 
 ### As decisões que precisam estar ditas
 
@@ -1418,7 +1428,19 @@ derruba a transmissão — sem TV, as telas da rede SÃO o que a congregação v
   com o UA que combina com a URL, e o `telaEnriquecer` reescreve
   `/stream/<token>` → `/s/<token>`. O token é o MESMO dos dois lados (o registro
   do `StreamProxy` é um só): não há segunda extração. **O que ainda não vai para
-  a rede é o EMBED e o DECK.**
+  a rede é o EMBED** — iframe de terceiro, que a CSP das telas barra por
+  construção.
+- **A APRESENTAÇÃO CHEGA ÀS TELAS, uma `/m/` POR PÁGINA.** Ela é o único kind
+  cujo conteúdo é uma LISTA, e por isso não cabia no `url` do registro saneado:
+  `telaDeckUrls` cunha um token por página (id estável `dk:<item>:<i>`, irmão do
+  `ly:`) e `telaEmpurrarPaginasDeck` os enfileira EM ORDEM — a página 1 chega
+  primeiro, que é a que a tela busca assim que o `load` pousa. No `stage.js`,
+  `pages` passou a aceitar **string ou Blob** (`urlDaPagina`): é o mesmo par
+  `rec.url` × `rec.blob` da mídia principal, aplicado à lista. Sem token forte
+  (`crypto.randomUUID` ausente) a lista inteira é recusada e a cena volta ao
+  aviso — meia lista projetaria uma página em branco no meio do sermão. Oráculo:
+  a metade CONSUMIDORA no `tela-rede.test.mjs`; a produtora (`telaEnriquecer`)
+  segue **sem oráculo**, e isso está dito porque as duas quebram diferente.
 - **A preview não atrasa para telas de comando** (`dePixels` em
   `recalcularAtrasoPreview`): o atraso media o buffer de MSE do espelho de
   pixels; uma tela por comandos aplica no ato, e o alvo é 0.
@@ -1951,6 +1973,7 @@ que ela é desenvolvida e testada fora do aparelho.
 | Áudio bloqueado | segue mudo + retentativas | **recuperação desativada no `onBlocked`** — sem política de gesto, `NotAllowedError` só pode ser falso positivo |
 | Pastas do dispositivo | `showDirectoryPicker()` | **SAF** — a File System Access API não existe no Android |
 | Compartilhamento | **não existe** (vinha do `share_target` + SW, ambos removidos) | **`intent-filter`** (`ShareIntake.kt`), só `content://` — ver abaixo |
+| Link do YouTube COPIADO | **não existe** (`navigator.clipboard.readText()` pede permissão e exige gesto — o oposto do que este caminho é) | **oferecido na abertura e na retomada** (`areaTransferencia`, shell 48). COPIAR NÃO É UM PEDIDO, então há uma PERGUNTA antes e só o "sim" entrega o link ao `importShare` — que dali em diante é o mesmo código do share. A pergunta é o que torna isto seguro no Modo Fácil, onde um link compartilhado vira transmissão SEM perguntar. O aviso do sistema do Android 12+ é pago **uma vez por link copiado**, nunca por retomada: o shell compara o CARIMBO da descrição antes de ler |
 | Link do YouTube compartilhado | vira item de LINK, que só o app resolve | avançado: as MESMAS quatro escolhas da busca (tocar · playlist · Cronograma · Favoritos + vídeo/só-áudio + teto). Simplificado: sem pergunta, **transmissão direta** (`tentarTransmitir`) — ali o link É um "tocar agora". Falhando: download; falhando ele: item de LINK, resolvido no toque seguinte (`resolverLinkYoutube`) — um link compartilhado nunca se perde |
 | Destino de um item | uma escolha por vez | **VÁRIOS destinos de uma vez**, método único: toda opção da folha (as três listas **e** o "Tocar agora") é selecionável de corpo inteiro, e um confirmar sempre visível executa. Um vídeo do YouTube é baixado UMA vez para dois destinos. Importação e share abrem a mesma folha com o Cronograma já marcado; desistir entra no Cronograma. Ver `docs/ARQUITETURA-WEB.md`, "UM item, VÁRIOS destinos" |
 | Onde o share aterrissa | idem (mesmo `importShare`) | **`focarImportado`**: fecha popups e seleção; projeta na hora no simplificado (item vai para a prateleira `avulsos`, que não tem lista visível) ou vai ao Cronograma no avançado. A preview em tela cheia só é encerrada se houver telão |
@@ -1961,7 +1984,7 @@ que ela é desenvolvida e testada fora do aparelho.
 | Som da preview | com a janela do Display aberta é muda; sem ela toca (sujeito a autoplay) | **sem tela nenhuma conectada, o som sai DESTE aparelho** (`acertarSaidaDeAudio`). No avançado é DERIVADO da conexão (`simpleDisplay` = TV **ou** tela da rede); no Modo Fácil é ESCOLHA (`tocarNoCelular`, o "Tocar neste celular" da folha de conexão), porque lá o padrão é bloquear — escolha de IDA, sem persistência, que se rearma ao fechar o app, ao passar pelo avançado ou quando uma tela entra. Com qualquer tela conectada este aparelho fica mudo nos dois modos — os WebViews dividem o processo e a saída de áudio, e a preview roubava o foco do player do telão |
 | PDF · `.pptx` · Google Apresentações | **PDF não existe**; `.pptx` funciona pelo mesmo caminho do app | **uma IMAGEM POR PÁGINA**. PDF pelo `PdfRenderer` da plataforma (`SlideDeck.kt` + `deckPages`); `.pptx` pelo renderizador de `assets/web/vendor/` (`pptxParaPaginas`, `import()` dinâmico + `<foreignObject>`/canvas). Daí é mídia comum, com ⏮/⏭ passando página. **Não há botão de "apresentação"** — entra por "Importar arquivos" (`pickDoc`: o PDF precisa que o shell abra o ARQUIVO, e `<input type=file>` só devolve bytes) ou pelo share. `.ppt` legado e `.odp` ficam de fora: ninguém sabe desenhá-los |
 | **Tocar agora** de vídeo do YouTube | **não toca**, e a linha do item diz isso | **TRANSMISSÃO DIRETA** (shell 26; só funciona do 27 em diante): `ytStream` monta o manifesto das duas adaptativas, `StreamProxy` as serve pelo NOSSO origin com o UA que combina, e `shared/mse.js` as vira um `<video>` comum — fade, cortina, `MediaSession` e barra de graça, zero pixel de YouTube no telão. Faixa de bytes na QUERY (`?r=ini-fim`), **nunca** em `Range` (invariante 8). Só em "Tocar agora": as outras ações GUARDAM, e manifesto expira em horas. Falhando qualquer coisa, cai no download, calado |
-| **Cifra do hino** | **não existe** — sem ponte não há como buscar a página (CORS), e a aba nem é oferecida | **aba CIFRA no visualizador de letras** (shell 48): `cifraHtml` traz o HTML cru, `controle/cifra.js` o lê, e a folha aparece com transposição por meio tom. **SOB DEMANDA:** nada é baixado em lote, nada entra no bundle, nada é gravado em disco — o cache é um `Map` que morre com o app |
+| **Cifra do hino** | **não existe** — sem ponte não há como buscar a página (CORS), e a aba nem é oferecida | **aba CIFRA no visualizador de letras** (shell 49): `cifraHtml` traz o HTML cru, `controle/cifra.js` o lê, e a folha aparece com transposição por meio tom. **SOB DEMANDA:** nada é baixado em lote, nada entra no bundle, nada é gravado em disco — o cache é um `Map` que morre com o app |
 | Vídeo do YouTube | **não toca** | **baixado PELO APARELHO** (`YoutubeGrab.kt` + `ytFetch`) — a extração sai do IP do chip, que é o que o YouTube não bloqueia. Falhando, vira item de LINK, retentado no toque seguinte |
 | Qualidade do download | — | teto escolhido pelo operador: **Online · 1080p · 720p · 480p**, no mesmo seletor de Vídeo/Só áudio. Nasce no padrão A CADA ITEM (um teto que grudasse daria 480p no vídeo do domingo sem aviso). 1080p usa o `ytFetch` de sempre; só teto MENOR usa `ytFetchAte`. "Online" (`-1`, e não `0`, que já significa "sem teto") guarda **só o link** |
 | Resolução do download | — | **até 1080p, montando as duas faixas** — acima de 720p o YouTube entrega vídeo sem som. `MuxMp4.kt` junta com `MediaMuxer` (cópia de amostras, sem recodificar). Pares do MESMO contêiner (mp4+m4a, webm+webm na API 29+): "a melhor de cada lado" daria VP9 em MP4, que o muxer recusa **depois de tudo baixado**. Falhando, o progressivo é o piso. Requer o extrator ≥ v0.26.4 (cliente **visionOS**, que entrega adaptativas sem PO Token); as listas chegam misturadas, daí a **fila de candidatos** — ver `docs/ARQUITETURA-WEB.md` |
@@ -2095,6 +2118,43 @@ primeiro que existe **e não resolve para o Play Services** (`com.google.android
 - `describeCastTarget()` devolve o rótulo **com o componente real**, e
   Configurações mostra "Espelhar abre: …" — é essa string que diz qual candidato
   pegou quando o botão abre a tela errada, sem depender de logcat.
+
+#### O espelhamento leva o som do APARELHO INTEIRO, e não há como isolá-lo
+
+**O `Presentation` isola a JANELA; ele não isola o SOM, e o Android não tem o
+conceito de "áudio deste Display".** A assimetria está no caminho do Wi-Fi
+Display: o vídeo nasce de um `SurfaceMediaSource` ligado ao display virtual, o
+áudio nasce de `AUDIO_SOURCE_REMOTE_SUBMIX` — um mix global, sem parâmetro de
+display. A doc de `TYPE_REMOTE_SUBMIX` descreve o caso literalmente ("playing
+from a device in screen mirroring mode").
+
+Consequência, e ela é OPERACIONAL: com o espelhamento no ar, **vídeo ou áudio
+tocado em qualquer app deste celular sai nas caixas da igreja**, junto com a
+projeção. Toque de chamada e alarme ficam de fora (o audio policy tem guarda
+explícita: `// no sonification on remote submix (e.g. WFD)`); som de notificação
+depende do aparelho.
+
+**NÃO HÁ CONSERTO NO APP, e é preciso estar escrito para a investigação não ser
+refeita.** O que resolveria — `AudioPolicy.setUidDeviceAffinity`,
+`setPreferredDeviceForStrategy`, `registerAudioPolicy` — é `@SystemApi` atrás de
+`MODIFY_AUDIO_ROUTING` (`signature|privileged|role`). Um APK assinado com a
+keystore do projeto nunca as obtém.
+
+**E `requestAudioFocus` no Kotlin seria uma REGRESSÃO, não higiene.** Foco
+deixou de ser cooperativo no Android 12 (o sistema faz fade-out e mantém o
+perdedor mudo), e quem toca aqui não é o Kotlin — é o WebView, que pede foco por
+`<video>` (`kRequestSystemAudioFocus`, ligado por padrão). Um pedido nosso
+despejaria o próprio WebView (`propagateFocusLossFromGain_syncAf` não filtra por
+uid) e **pausaria o telão no meio do culto**. Vale o mesmo para
+`GAIN_TRANSIENT_EXCLUSIVE`. Também descartados: `ALLOW_CAPTURE_BY_NONE` (só
+afeta o áudio do PRÓPRIO app, e quem monta os `AudioAttributes` é o WebView) e
+`setMode(MODE_IN_COMMUNICATION)` (tiraria o culto da TV junto com o vazamento).
+
+**A saída é estrutural: o áudio não nascer no celular** — o telão por comandos,
+com o espelhamento DESLIGADO (os dois juntos mantêm a mistura no ar), ou um
+aparelho dedicado só para projetar. O operador é avisado disso na folha de
+conexão (só com TV no ar) e por inteiro no bloco "Áudio do aparelho" do
+Registro.
 
 ### Andaimes do modelo de dois PWAs, removidos
 
@@ -2605,8 +2665,8 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: v1.1.7** (base web) · **v1.1.3** (APK) · `SHELL_VERSION` **48** · bundle com
-`minShell: 48` — o shell 48 é o **PISO**: todo método da ponte existe, e não há
+**Versão atual: v1.1.10** (base web) · **v1.1.10** (APK) · `SHELL_VERSION` **49** · bundle com
+`minShell: 49` — o shell 49 é o **PISO**: todo método da ponte existe, e não há
 guarda de versão no lado web. O que continua valendo é que `java/`, `res/`, o
 manifest e os workflows **só chegam instalando o APK**.
 

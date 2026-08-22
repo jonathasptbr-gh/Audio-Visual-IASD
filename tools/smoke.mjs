@@ -2130,11 +2130,25 @@ try {
     const li = document.querySelector('#hymnResults .coll-songs > .hymn-result');
     li.querySelector('.row').click();
     await new Promise((r) => setTimeout(r, 450));
-    const b = li.querySelector('.hymn-opcoes .song-menu-sel');
+    const sels = [...li.querySelectorAll('.hymn-opcoes .song-menu-sel')];
+    // A SEGUNDA opção, e não a primeira: desde a v1.1.8 o "Tocar agora" nasce
+    // MARCADO, então tocar nele DESMARCA — e o caso mediria a ida ao contrário
+    // do que a asserção diz. A segunda é "Adicionar à playlist", que nasce
+    // limpa; o caminho de detachment exercitado é o MESMO (marcar chama
+    // `renderSongMenu`, que faz `alvo.innerHTML = ''` e apaga o `e.target`).
+    const b = sels[1];
     if (!b) return null;
     b.scrollIntoView({ block: 'center' });
     const r2 = b.getBoundingClientRect();
-    return { x: Math.round(r2.left + r2.width / 2), y: Math.round(r2.top + r2.height / 2) };
+    return {
+      x: Math.round(r2.left + r2.width / 2), y: Math.round(r2.top + r2.height / 2),
+      // O PADRÃO, lido antes de qualquer toque: quantas caixas já vêm marcadas e
+      // qual é o rótulo da que veio.
+      jaMarcadas: [...li.querySelectorAll('.hymn-opcoes .song-menu-check.on')].length,
+      rotuloMarcado: (sels.find((e) => e.querySelector('.song-menu-check.on'))
+        || {}).textContent || '',
+      confirmarAtivo: !(li.querySelector('.hymn-opcoes .song-menu-go') || {}).disabled,
+    };
   });
   let opcaoNaoFecha = null; let opcaoMarcou = null;
   if (marcou) {
@@ -2142,7 +2156,7 @@ try {
     await pg.waitForTimeout(400);
     const dep = await pg.evaluate(() => ({
       album: !!ui(window.__cid).expanded,
-      marcado: !!document.querySelector('#hymnResults .song-menu-check.on'),
+      marcado: [...document.querySelectorAll('#hymnResults .song-menu-check.on')].length === 2,
     }));
     opcaoNaoFecha = dep.album; opcaoMarcou = dep.marcado;
   }
@@ -2150,6 +2164,17 @@ try {
     ui(window.__cid).expanded = false; grupoAberto = ''; favAberto = true;
     songMenuFor = null; closeHymnSearch();
   });
+  // ===== "TOCAR AGORA" NASCE MARCADO (v1.1.8) =====
+  // Pedido do operador: é a opção de mais urgência, e o que ela compra é o caso
+  // de DOIS destinos — tocar em "Adicionar ao Cronograma" projeta E guarda no
+  // mesmo toque. O confirmar nascer ATIVO é a outra metade: a gaveta abre já
+  // respondível, em vez de com um botão morto pedindo uma escolha.
+  checar(!!marcou && marcou.jaMarcadas === 1 && /Tocar agora/.test(marcou.rotuloMarcado),
+    'a gaveta da Biblioteca abre com "Tocar agora" JÁ MARCADO, e só ele',
+    marcou && (marcou.jaMarcadas + ' marcada(s): ' + JSON.stringify(marcou.rotuloMarcado)));
+  checar(!!marcou && marcou.confirmarAtivo === true,
+    'e o CONFIRMAR nasce ativo — a gaveta abre respondível, sem um toque só para '
+    + 'destravar o botão');
   checar(opcaoNaoFecha === true && opcaoMarcou === true,
     'e um toque numa CAIXA DE MARCAÇÃO das opções não fecha o álbum — a guarda '
     + 'pergunta pelo CAMINHO do evento (fixado no disparo) e não pela árvore de '

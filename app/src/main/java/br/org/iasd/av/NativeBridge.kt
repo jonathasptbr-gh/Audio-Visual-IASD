@@ -66,6 +66,34 @@ interface BridgeHost {
     fun takePendingShare(): JSONObject?
 
     /**
+     * O LINK que está na ÁREA DE TRANSFERÊNCIA, se ele for novo.
+     *
+     * `desde` é o carimbo (`ClipDescription.getTimestamp`) do último conteúdo
+     * que o lado web já examinou. **A comparação acontece ANTES de ler**, e é o
+     * ponto inteiro deste método: do Android 12 em diante, LER a área de
+     * transferência de outro app mostra um aviso do sistema na tela
+     * ("… colou do seu bloco de notas"). Consultar a DESCRIÇÃO não mostra nada,
+     * então perguntar o carimbo primeiro faz o aviso aparecer no máximo uma vez
+     * por item recém-copiado — e nunca a cada vinda ao app.
+     *
+     * Devolve `{ texto, carimbo }` ou `null`. `null` também quando:
+     *
+     * - o carimbo é `0` (o sistema não sabe dizer quando aquilo foi copiado):
+     *   sem carimbo não há como não reler, e reler a cada retomada é o aviso do
+     *   sistema em toda vinda ao app — o preço não vale o recurso;
+     * - o app não tem foco (do Android 10 em diante a área de transferência só
+     *   é legível com foco, e a descrição volta nula);
+     * - o conteúdo não é texto simples, ou não COMEÇA com `http://`/`https://`.
+     *
+     * Esse último filtro é privacidade, não classificação: quem decide se um
+     * endereço é do YouTube é o `controle.js` (invariante 5, e o
+     * `extractYouTubeId` já existe lá). O que o filtro faz é impedir que uma
+     * senha copiada entre no heap do JavaScript para ser descartada um passo
+     * depois — a mesma família do `ShareIntake`, que só aceita `content://`.
+     */
+    fun readClipboardUrl(desde: Long, onResult: (JSONObject?) -> Unit)
+
+    /**
      * Aplica AGORA a base web que esperava o próximo lançamento e recarrega os
      * dois WebViews. Devolve a versão aplicada, ou `null` se não havia nada.
      * Só a Activity pode fazê-lo: é ela que tem as duas páginas.
@@ -166,7 +194,7 @@ class NativeBridge(
          *
          * O degrau a degrau está na tabela da seção "A ponte" do `CLAUDE.md`.
          */
-        const val SHELL_VERSION = 48
+        const val SHELL_VERSION = 49
 
         /**
          * O CONSUMIDOR DA LAN para o barramento (telão por comandos, E2 —
@@ -1279,6 +1307,34 @@ class NativeBridge(
     fun takeShare(callId: String) {
         val share = host?.takePendingShare()
         resolve(callId, share?.toString() ?: "null")
+    }
+
+    /**
+     * O link copiado, quando ele é NOVO — ver [BridgeHost.readClipboardUrl] para
+     * o contrato e para o porquê do carimbo.
+     *
+     * **Fora de qualquer fila**, como os métodos do telão por comandos, e pelo
+     * mesmo motivo somado a outro: é trabalho de microssegundos que não pode
+     * esperar atrás de um download de 380 MB (venceria o prazo de 60 s e
+     * resolveria `null`, que aqui é indistinguível de "não havia link"), e o
+     * `ClipboardManager` precisa de uma thread com `Looper` — a fila `io` é uma
+     * `Thread` daemon sem um.
+     *
+     * `host == null` (o WebView do telão) resolve `null`: invariante 9. Sem a
+     * guarda, um script de terceiro naquele documento leria a área de
+     * transferência do aparelho.
+     *
+     * `desde` chega como STRING de propósito: o carimbo é um `long` em
+     * milissegundos e o `@JavascriptInterface` converte número de JS por
+     * `double` — o texto atravessa sem intermediário que arredonde.
+     */
+    @JavascriptInterface
+    fun areaTransferencia(callId: String, desde: String) {
+        val h = host
+        if (h == null) { resolve(callId, "null"); return }
+        h.readClipboardUrl(desde.toLongOrNull() ?: 0L) { obj ->
+            resolve(callId, obj?.toString() ?: "null")
+        }
     }
 
     // ---------- pastas do dispositivo (SAF) ----------

@@ -4,6 +4,7 @@ const videoEl = document.getElementById('video');
 const lyricsEl = document.getElementById('lyrics');
 const lyricsImgEl = document.getElementById('lyricsImg');
 const lyricsContentEl = document.getElementById('lyricsContent');
+const lyricsBoxEl = document.getElementById('lyricsBox');
 const lyricsLineEl = document.getElementById('lyricsLine');
 const lyricsAuxEl = document.getElementById('lyricsAux');
 const lyricsNumEl = document.getElementById('lyricsNum');
@@ -321,10 +322,79 @@ function renderLyricSlide(idx) {
   // tela não tem função nenhuma. Volta sozinha quando houver o que cantar.
   lyricsContentEl.classList.toggle('nolyric',
     !lyricsLineEl.textContent.trim() && lyricsAuxEl.hidden && lyricsNumEl.hidden);
+  // ANTES do fade: a escala é medida com o texto novo já no lugar, e medir
+  // durante a transição leria uma caixa a meio caminho.
+  ajustarLetra();
   animateFadeIn(lyricsLineEl);
   if (!lyricsAuxEl.hidden) animateFadeIn(lyricsAuxEl);
 
   applyLyricsImage(slide);
+}
+
+/**
+ * ===== A LETRA NUNCA É CORTADA COM RETICÊNCIAS (v1.1.8) =====
+ *
+ * Pedido do operador: *"ela não pode de forma alguma cortar a letra com
+ * reticências independente do tamanho da tela"*.
+ *
+ * Até aqui a garantia era um `-webkit-line-clamp: 2` na `.lyrics-line` — e ele
+ * é justamente a resposta que um telão não pode dar: o verso que some é o que a
+ * congregação ia cantar, e ninguém no salão tem como saber que faltou. O clamp
+ * saiu; o que garante que cabe é esta medição.
+ *
+ * O QUE ELA AJUSTA É A ESCALA DO CONJUNTO (`--lyrics-escala`), não o corpo de
+ * uma peça. Encolher só a estrofe faria o "Refrão" ficar maior que ela, e a
+ * hierarquia calibrada (linha 8cqmin, rótulo 4,2, número 5,8) é o desenho —
+ * o que este ajuste muda é o tamanho do conjunto inteiro.
+ *
+ * BUSCA BINÁRIA e não um laço decrescente: sete passadas resolvem qualquer
+ * estrofe, e o custo é conhecido. Um laço de −5% por vez faria de 1 a 30
+ * releituras de layout conforme o texto — e o pior caso cai justamente na
+ * estrofe mais longa, que é quando a troca de slide precisa ser instantânea.
+ *
+ * O PISO existe (`ESCALA_MIN`) porque tamanho de letra tem um limite abaixo do
+ * qual não se lê do fundo do salão: uma estrofe absurda encolhe até ele e o
+ * `overflow: hidden` da caixa contém o resto. É a única saída em que ainda se
+ * corta — e ela é ordens de grandeza mais rara que o clamp de duas linhas.
+ */
+const ESCALA_MAX = 1;
+const ESCALA_MIN = 0.34;
+function cabeNaCaixa() {
+  const cs = getComputedStyle(lyricsBoxEl);
+  const util = lyricsBoxEl.clientHeight
+    - (parseFloat(cs.paddingTop) || 0) - (parseFloat(cs.paddingBottom) || 0);
+  if (util <= 0) return true;   // caixa ainda sem layout: nada a decidir
+  const gap = parseFloat(cs.rowGap) || 0;
+  // Só as peças VISÍVEIS: o número e o rótulo somem em quase todo slide, e
+  // contá-los ocultos reservaria altura que ninguém usa — a estrofe encolheria
+  // sem precisar.
+  const pecas = [...lyricsBoxEl.children].filter((el) => !el.hidden);
+  const alto = pecas.reduce((soma, el) => soma + el.getBoundingClientRect().height, 0)
+    + gap * Math.max(0, pecas.length - 1);
+  return alto <= util + 0.5;
+}
+function ajustarLetra() {
+  if (!lyricsBoxEl) return;
+  const escrever = (v) => lyricsBoxEl.style.setProperty('--lyrics-escala', String(v));
+  escrever(ESCALA_MAX);
+  // O CASO COMUM SAI AQUI, sem nenhuma passada: a estrofe de duas linhas para a
+  // qual a caixa foi calibrada cabe no tamanho cheio.
+  if (cabeNaCaixa()) return;
+  let cabe = ESCALA_MIN;
+  let naoCabe = ESCALA_MAX;
+  for (let i = 0; i < 7; i++) {
+    const meio = (cabe + naoCabe) / 2;
+    escrever(meio);
+    if (cabeNaCaixa()) cabe = meio; else naoCabe = meio;
+  }
+  escrever(cabe);
+}
+// A TELA MUDA DE TAMANHO SEM O SLIDE MUDAR: o dongle entra, a TV troca de
+// resolução, a janela do navegador da tela da rede é redimensionada. Sem isto a
+// escala medida para a caixa anterior ficaria de pé — grande demais (voltando a
+// cortar) ou pequena demais (letra miúda numa tela que agora cabe tudo).
+if (window.ResizeObserver && lyricsBoxEl) {
+  new ResizeObserver(() => ajustarLetra()).observe(lyricsBoxEl);
 }
 
 // Resolve (ou limpa) a imagem de fundo do slide dado, respeitando o modo
@@ -1076,8 +1146,30 @@ let pausaComandada = 0;
     // elemento. Com 400 ms fixos contra um fade de 600 ms, TODA parada pedida
     // pelo operador era carimbada "PAUSA ESPONTÂNEA" no Registro, que é o
     // artefato lido a distância justamente para separar as duas coisas.
+    // O FIM NATURAL NÃO É UMA PAUSA ESPONTÂNEA, e antes desta linha ele era
+    // carimbado como uma — em TODA faixa que terminasse.
+    //
+    // A ordem é da especificação de HTML: ao chegar ao fim, o elemento levanta
+    // a bandeira de `ended`, põe `paused` em true e SÓ ENTÃO dispara `pause` e,
+    // depois dele, `ended`. Ou seja, este handler roda com `v.ended` já
+    // verdadeiro — e `pausaComandada` não é armado por fim natural, porque não
+    // houve comando nenhum. As duas coisas juntas faziam o desfecho mais banal
+    // do app produzir a linha reservada ao mais grave.
+    //
+    // O PREÇO ERA O ARTEFATO INTEIRO. "PAUSA ESPONTÂNEA" existe para responder
+    // UMA pergunta — "alguém tirou o telão do ar sem pedir?" — e é lida A
+    // DISTÂNCIA, por quem não tem como conferir. Com uma linha dessas por
+    // louvor, o Registro respondia "sim" em todo culto normal: quem fosse
+    // investigar uma pausa de verdade encontraria o sinal afogado no ruído, e
+    // quem procurasse ruído concluiria que o telão vive caindo. Um diagnóstico
+    // que responde errado é pior que um que não responde.
+    //
+    // O teto por `duration` é cinto sobre suspensório: cobre o quadro em que a
+    // bandeira ainda não subiu e o aparelho que entrega `duration` com folga.
+    const fim = v.ended || (v.duration > 0 && v.currentTime >= v.duration - 0.25);
     const meu = Date.now() - pausaComandada < (fadeCfg.time * 1000 + 400);
-    diag(meu ? 'pausa (comando)' : 'PAUSA ESPONTÂNEA', { t2: Math.round(v.currentTime) });
+    diag(fim ? 'fim natural' : (meu ? 'pausa (comando)' : 'PAUSA ESPONTÂNEA'),
+      { t2: Math.round(v.currentTime) });
   });
   v.addEventListener('play', () => diag('play', { t2: Math.round(v.currentTime) }));
   v.addEventListener('stalled', () => diag('travou'));

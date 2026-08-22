@@ -1,11 +1,36 @@
 [
   {
-    "versao": "1.1.7",
+    "versao": "1.1.10",
     "itens": [
       "A folha de letra ganhou uma aba CIFRA: acordes sobre a letra, buscados na hora pela internet.",
       "Dá para subir e descer meio tom — o alinhamento do acorde com a sílaba é preservado.",
       "Nada é baixado nem ocupa espaço: a cifra é lida no momento em que você abre a aba.",
       "Não achou? O botão leva a busca pronta para o site, sem você digitar de novo."
+    ]
+  },
+  {
+    "versao": "1.1.9",
+    "itens": [
+      "O Registro do telão parava de ser confiável no ponto que mais importa: ele marcava “pausa espontânea” no fim de TODA música. Agora o fim natural é dito por extenso, e o aviso volta a significar só o que promete — alguém tirou a projeção do ar sem pedir."
+    ]
+  },
+  {
+    "versao": "1.1.8",
+    "itens": [
+      "A letra no telão nunca mais é cortada com \"...\": se a estrofe é longa, ela diminui de tamanho até caber inteira.",
+      "A zona escura da letra ficou maior, então a letra cabe em corpo maior antes de precisar diminuir.",
+      "Os botões \"Atualizar agora\" e \"Deixar para depois\" agora dividem a largura toda do aviso.",
+      "Na Biblioteca, a busca no YouTube não fecha mais as opções de play que você abriu — os vídeos entram na lista quando você fechar.",
+      "E as opções de play já abrem com \"Tocar agora\" marcado: marcar o Cronograma ao lado projeta e guarda no mesmo toque.",
+      "Copiou um link do YouTube e abriu o app? Ele pergunta se você quer usá-lo, com as mesmas opções do compartilhar."
+    ]
+  },
+  {
+    "versao": "1.1.7",
+    "itens": [
+      "Apresentações (PDF e PowerPoint) passam a aparecer nas telas da rede, uma página por vez — antes só o telão da TV as mostrava.",
+      "Com uma TV espelhando, a folha de conexão avisa que o som deste celular vai junto: vídeo ou áudio de outro app é ouvido nas caixas.",
+      "Telas de TV mais antigas não ficam mais presas na entrada na hora de ativar."
     ]
   },
   {

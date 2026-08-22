@@ -1,5 +1,6 @@
 package br.org.iasd.av
 
+import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ActivityInfo
@@ -1226,6 +1227,55 @@ class MainActivity : ComponentActivity(), BridgeHost {
     }
 
     override fun takePendingShare(): JSONObject? = pendingShare.getAndSet(null)
+
+    /**
+     * O LINK COPIADO, e só quando ele é novo — ver [BridgeHost.readClipboardUrl].
+     *
+     * A ORDEM DAS PERGUNTAS É O RECURSO INTEIRO, e ela é: descrição → carimbo →
+     * conteúdo. Do Android 12 em diante, ler o conteúdo que outro app pôs ali
+     * mostra um aviso do sistema na tela; consultar a DESCRIÇÃO
+     * ([ClipboardManager.getPrimaryClipDescription]) não mostra nada. Invertida,
+     * a ordem daria o aviso a cada vinda ao app — que é o modo de este recurso
+     * ser pior que a ausência dele.
+     *
+     * Carimbo `0` DESISTE, e é a escolha conservadora: `getTimestamp` devolve 0
+     * quando o sistema não sabe dizer quando aquilo foi copiado, e sem carimbo
+     * não há como evitar a releitura. O desfecho é o recurso não acontecer
+     * naquele aparelho, calado — e não um aviso do sistema em toda retomada.
+     *
+     * Roda na MAIN THREAD (o `ClipboardManager` quer uma thread com `Looper`, e
+     * as filas da ponte são `Thread` daemon sem um). É trabalho de
+     * microssegundos: não há o que enfileirar.
+     */
+    override fun readClipboardUrl(desde: Long, onResult: (JSONObject?) -> Unit) {
+        runOnUiThread {
+            val achado = try { lerLinkCopiado(desde) } catch (_: Throwable) { null }
+            onResult(achado)
+        }
+    }
+
+    private fun lerLinkCopiado(desde: Long): JSONObject? {
+        val cb = getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager ?: return null
+        // Do Android 10 em diante a área de transferência só é legível com FOCO,
+        // e sem ele a descrição volta nula. Não é erro: é o caso normal de quem
+        // chamou cedo demais, e a retomada seguinte pergunta de novo.
+        val desc = cb.primaryClipDescription ?: return null
+        if (!desc.hasMimeType(android.content.ClipDescription.MIMETYPE_TEXT_PLAIN)) return null
+        val carimbo = desc.timestamp
+        if (carimbo <= 0L || carimbo <= desde) return null
+        // Só AQUI o conteúdo é lido — e é só aqui que o aviso do sistema aparece.
+        val item = cb.primaryClip?.takeIf { it.itemCount > 0 }?.getItemAt(0) ?: return null
+        val texto = (item.text ?: return null).toString().trim()
+        // TETO DE TAMANHO e SCHEME obrigatório: privacidade, não classificação.
+        // Quem decide se o endereço é do YouTube é o `controle.js`; o que estas
+        // duas linhas fazem é impedir que um texto qualquer copiado — uma senha,
+        // uma mensagem — entre no heap do JavaScript para ser descartado um
+        // passo depois. Mesma família da regra do [ShareIntake], que só aceita
+        // `content://`.
+        if (texto.length > 2048) return null
+        if (!texto.startsWith("https://") && !texto.startsWith("http://")) return null
+        return JSONObject().put("texto", texto).put("carimbo", carimbo)
+    }
 
     // ---------- transmissão para as telas da rede ----------
     //

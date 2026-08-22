@@ -393,6 +393,44 @@ checar(await pg.$eval('#text', (e) => e.hidden), 'text-hide tira a Camada de Tex
 }
 
 // ---------------------------------------------------------------------------
+// 5b-bis. A APRESENTAÇÃO: cada página é uma /m/, e o slide troca sem recarregar
+//
+// Esta é a METADE CONSUMIDORA da dívida E4.1. A produtora — o `telaEnriquecer`
+// do Controle, que decide emitir `pages` em vez do aviso — não tem oráculo, e
+// isso está dito de propósito: as duas quebram de jeitos diferentes, e é esta
+// que quebra NA FRENTE DA CONGREGAÇÃO (a outra falha para o aviso, que é feio
+// mas honesto).
+//
+// O que se afirma aqui é o que um Blob NÃO daria: numa tela da rede não existe
+// `URL.createObjectURL` para uma página — ela é uma string servida pelo
+// celular. Um `stage.js` que volte a supor Blob quebra os dois casos de uma vez
+// (`load` e troca de slide), e é por isso que os dois são medidos.
+// ---------------------------------------------------------------------------
+{
+  const PG1 = '/m/tokpaginaUM1111111111';
+  const PG2 = '/m/tokpaginaDOIS11111111';
+  evento({
+    type: 'load', mediaId: 'dk1', view: 'visual', muted: true, volume: 1, page: 0,
+    __rec: {
+      id: 'dk1', kind: 'deck', name: 'Sermão', type: 'application/pdf',
+      url: '/m/tokdeckprincipal111111', pages: [PG1, PG2],
+    },
+    __mid: 'm:6b',
+  });
+  await ate(() => pg.$eval('#img', (e) => !e.hidden && e.src.includes('tokpaginaUM')).catch(() => false), 5000);
+  checar(await pg.$eval('#img', (e) => !e.hidden && e.src.includes('tokpaginaUM')),
+    'a APRESENTAÇÃO entra pela primeira página, servida por /m/ como qualquer mídia');
+
+  evento({ type: 'page', page: 1, __mid: 'm:6c' });
+  await ate(() => pg.$eval('#img', (e) => e.src.includes('tokpaginaDOIS')).catch(() => false), 4000);
+  checar(await pg.$eval('#img', (e) => e.src.includes('tokpaginaDOIS')),
+    'e o slide seguinte troca só a fonte do <img>: sem load, sem piscar preto');
+  checar(!(await pg.$eval('#img', (e) => e.src.startsWith('blob:'))),
+    'a página NUNCA vira blob: numa tela da rede não há Blob a criar nem a revogar',
+    await pg.$eval('#img', (e) => e.src.slice(0, 24)));
+}
+
+// ---------------------------------------------------------------------------
 // 5c. O wallpaper por URL e o aviso de cena-sem-rede
 // ---------------------------------------------------------------------------
 {

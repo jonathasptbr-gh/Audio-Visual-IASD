@@ -768,8 +768,9 @@
         isBlobUrl = true;
       } else if (rec.kind === 'deck' && Array.isArray(rec.pages) && rec.pages.length) {
         deckIdx = Math.min(Math.max(page | 0, 0), rec.pages.length - 1);
-        url = URL.createObjectURL(rec.pages[deckIdx]);
-        isBlobUrl = true;
+        const pg = urlDaPagina(rec.pages[deckIdx]);
+        url = pg.url;
+        isBlobUrl = pg.blob;
       } else if (rec.opfsPath) {
         // Arquivo sincronizado no OPFS: resolve o File direto do origin,
         // sem permissão e sem cópia para o IDB.
@@ -935,6 +936,19 @@
       }
     }
 
+    // UMA PÁGINA DA APRESENTAÇÃO, resolvida em URL.
+    //
+    // As páginas são Blobs no aparelho (`AVDB.addDeck` as guarda assim) e
+    // STRINGS numa tela da rede, que recebe o registro saneado com uma `/m/`
+    // por página — a mesma distinção que o `rec.blob` × `rec.url` já faz para a
+    // mídia principal, aplicada ao único kind cujo conteúdo é uma LISTA. Quem
+    // devolve também diz se cabe revogar depois: `URL.createObjectURL` exige
+    // `revokeObjectURL`, uma `/m/` não.
+    function urlDaPagina(pg) {
+      if (typeof pg === 'string') return { url: pg, blob: false };
+      return { url: URL.createObjectURL(pg), blob: true };
+    }
+
     // TROCA DE PÁGINA da apresentação em cena. Um `load` novo faria o ciclo
     // inteiro — fade de saída, leitura do IndexedDB, fade de entrada — para
     // trocar uma imagem que já está na mão: passar slide ficaria lento e
@@ -947,8 +961,9 @@
       if (alvo === deckIdx) return;
       deckIdx = alvo;
       _revokeUrl();
-      url = URL.createObjectURL(pages[alvo]);
-      isBlobUrl = true;
+      const r = urlDaPagina(pages[alvo]);
+      url = r.url;
+      isBlobUrl = r.blob;
       img.src = url;
     }
 
