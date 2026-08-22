@@ -2150,7 +2150,24 @@ uid) e **pausaria o telão no meio do culto**. Vale o mesmo para
 afeta o áudio do PRÓPRIO app, e quem monta os `AudioAttributes` é o WebView) e
 `setMode(MODE_IN_COMMUNICATION)` (tiraria o culto da TV junto com o vazamento).
 
-**A saída é estrutural: o áudio não nascer no celular** — o telão por comandos,
+**MAS A PROJEÇÃO SE DEFENDE, e isso não contradiz o parágrafo acima.** MEDIDO em
+aparelho: tocar qualquer outra mídia no celular PAUSA a do telão, e na perda
+PERMANENTE o Chromium abandona o foco e não volta nunca. Desde a v1.1.11 o
+`display.js` reage à pausa espontânea com `stage.play()` — que é o Chromium
+re-pedindo foco por conta própria, não um `requestAudioFocus` nosso, e por isso
+a regra de cima segue de pé. Três tentativas (1,5 s / 4 s / 10 s) e desistência
+até um comando humano; sem teto, dois apps que retomam sozinhos gaguejam para
+sempre, e gagueira é pior que pausa. **Ela não garante que a outra mídia pare** —
+o framework MUTA o perdedor e desfaz sozinho segundos depois; contra um alarme
+(`USAGE_ALARM`, fora das usages esmaecíveis) não faz nada. As guardas são a
+entrega, não o `play()`: `TELA` (N telas da rede religando mídia é o oposto do
+que o operador controla) e `v.ended` — o fim natural dispara `pause` ANTES de
+`ended`, e sem ela o fim de cada louvor religaria a faixa com a playlist
+avançando por baixo. **Essa segunda existe DUAS vezes, e o oráculo só reprova
+quando as duas somem** (medido por reversão): quem tirar uma vai ver o teste
+passar e concluir que ela não servia.
+
+**A saída para o VAZAMENTO continua estrutural: o áudio não nascer no celular** — o telão por comandos,
 com o espelhamento DESLIGADO (os dois juntos mantêm a mistura no ar), ou um
 aparelho dedicado só para projetar. O operador é avisado disso na folha de
 conexão (só com TV no ar) e por inteiro no bloco "Áudio do aparelho" do

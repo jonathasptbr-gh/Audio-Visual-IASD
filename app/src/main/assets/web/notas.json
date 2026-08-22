@@ -1,5 +1,13 @@
 [
   {
+    "versao": "1.1.11",
+    "itens": [
+      "Se outro aplicativo do celular tomar o som, o telão volta a tocar sozinho — antes ele ficava parado até alguém tocar ▶.",
+      "Ele tenta três vezes, com pausas crescentes, e desiste se não conseguir: um som picotado seria pior que uma parada limpa.",
+      "O Registro passa a contar quantas vezes o telão foi interrompido por outro app e quantas ele conseguiu voltar."
+    ]
+  },
+  {
     "versao": "1.1.10",
     "itens": [
       "A folha de letra ganhou uma aba CIFRA: acordes sobre a letra, buscados na hora pela internet.",

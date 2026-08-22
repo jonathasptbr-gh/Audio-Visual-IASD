@@ -431,6 +431,56 @@ checar(await pg.$eval('#text', (e) => e.hidden), 'text-hide tira a Camada de Tex
 }
 
 // ---------------------------------------------------------------------------
+// 5b-ter. A TELA DA REDE NUNCA RETOMA MÍDIA SOZINHA
+//
+// A retomada por roubo de foco de áudio existe para o TELÃO, num aparelho que o
+// operador controla. As telas da rede rodam o MESMO `display.js` num navegador
+// de outra pessoa, com política de autoplay e som liberado por gesto — e são
+// até três. N telas religando mídia por conta própria é o oposto do que o
+// operador controla, e o que impede isso é um `if (TELA) return false` de uma
+// linha — do tamanho exato do que um refactor apaga sem notar. Família da
+// invariante 9: o papel `tela` roda o arquivo inteiro, e o que o separa do
+// telão é sempre uma linha.
+//
+// MEDE O EFEITO, não um sintoma: conta as chamadas a `video.play()`. O par que
+// dá sentido a este zero está no `display-smoke.mjs`, onde o MESMO gesto no
+// telão produz pelo menos uma.
+//
+// E ESPERA POR TEMPO, o que este projeto normalmente recusa — mas aqui a
+// afirmação é uma AUSÊNCIA, e ausência não tem fato pelo qual esperar. O prazo
+// tem de passar da cadência do app (a primeira tentativa espera 1,5 s); 2,4 s
+// dão quase um segundo de folga.
+// ---------------------------------------------------------------------------
+{
+  await pg.evaluate(() => {
+    const v = document.querySelector('video');
+    window.__plays = 0;
+    const orig = v.play.bind(v);
+    v.play = function () { window.__plays++; try { return orig(); } catch (e) { return undefined; } };
+  });
+  evento({
+    type: 'load', mediaId: 'aud1', view: 'visual', muted: true, volume: 1,
+    __rec: { id: 'aud1', kind: 'audio', name: 'Louvor', type: 'audio/mpeg', url: '/m/tokaudio111111111111' },
+    __mid: 'm:6d',
+  });
+  // Além da janela do `pausaComandada` (fade 600 ms + 400 ms), senão a pausa
+  // forjada sai carimbada "comando" e o teste mede a própria montagem.
+  await new Promise((f) => setTimeout(f, 1400));
+  await pg.evaluate(() => {
+    const v = document.querySelector('video');
+    Object.defineProperty(v, 'ended', { get: () => false, configurable: true });
+    window.__plays = 0;                       // zera o que a entrada em cena gastou
+    v.dispatchEvent(new Event('play'));
+    v.dispatchEvent(new Event('pause'));
+  });
+  await new Promise((f) => setTimeout(f, 2400));
+  const plays = await pg.evaluate(() => window.__plays);
+  checar(plays === 0,
+    'o papel `tela` NÃO retoma sozinho: uma pausa espontânea não vira `play()` nenhum',
+    'plays=' + plays);
+}
+
+// ---------------------------------------------------------------------------
 // 5c. O wallpaper por URL e o aviso de cena-sem-rede
 // ---------------------------------------------------------------------------
 {
