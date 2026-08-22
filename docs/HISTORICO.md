@@ -358,6 +358,45 @@ do `vigiarPreview` chamava isso de espontâneo. Mesmo defeito do fim natural, no
 outro arquivo, e só um Registro de verdade o mostraria: nenhuma das três lentes
 da revisão olhou para o `controle.js` por esse ângulo.
 
+### A cobertura veio LOGO DEPOIS, e sem subir versão
+
+A revisão classificou como "derruba o culto" duas AUSÊNCIAS de oráculo, e a
+segunda é a que importa: **o teto, o freio de gagueira, a espera crescente e o
+silêncio definitivo não eram executados por máquina nenhuma** — `grep` por
+`RETOM_|DESISTI|retomDesistiu` em `tools/` devolvia um comentário. Era o recurso
+que o próprio lote chama de "O TETO É O RECURSO", e o modo de falhar dele é som
+picotado na frente da congregação.
+
+Fecharam num commit **só de `tools/`**, sem número novo: nada em `assets/web/`
+mudou, então bumpar a versão faria a frota inteira baixar ~1 MB de bundle
+IDÊNTICO. O que entrou:
+
+- **o teto medido de ponta a ponta** — três pausas espontâneas na MESMA cena (um
+  `load` no meio zeraria o crédito), exatamente três chamadas a `video.play()`, a
+  desistência contada, e uma quarta pausa que **não** produz `play()` nenhum: é
+  esta última que separa um TETO de um simples atraso;
+- **a devolução de crédito** no único ramo de recusa TARDIA (`já voltou a tocar`),
+  medida pelo TEXTO da linha seguinte — 1,5 s e não 4 s;
+- **os contadores por DELTA**, não por tipo: o `temContadores` anterior afirmava
+  que o campo existia e nunca o VALOR, então o placar podia ficar preso em zero
+  para sempre com o oráculo aprovando;
+- **a metade CONSUMIDORA** (`registro.test.mjs`): um `diag-dump` de fixture com
+  o placar, e o mesmo dump SEM o campo — o caso em que o `|| 0` é de fato
+  cobrado;
+- **a montagem do `tela-rede` num relógio só.** Ela media o prazo no NODE e o
+  `pausaComandada` no RENDERER: um engasgo de 400 ms fazia a pausa sair
+  carimbada "comando" e o zero passava por nada ter acontecido. Agora a espera
+  roda DENTRO da página, depois de esperar a cena entrar como FATO, e há um
+  controle positivo ao lado;
+- **e a limpeza do estado sujo** (`delete v.ended; delete v.play;`) — o 7-A-bis
+  deixava `ended` preso em TRUE para quem viesse depois.
+
+Cada uma verificada por REVERSÃO, e duas delas corrigiram a própria asserção no
+caminho: a do silêncio definitivo passava com o `if (retomDesistiu) return;`
+removido (quem impõe o silêncio é o teto; aquela guarda impede a desistência de
+ser contada DUAS vezes), e por isso o delta de `desistidas` passou a ser medido
+DEPOIS da pausa extra.
+
 ### O oráculo do ⏸ também mentia
 
 O caso (c) do `display-smoke` passava por causa do `pausaComandada`, que já
