@@ -1,5 +1,13 @@
 [
   {
+    "versao": "1.1.14",
+    "itens": [
+      "O botão de verificar atualizações dos álbuns saiu: o app confere sozinho ao abrir, em segundo plano.",
+      "Achou música nova? O botão de baixar aparece na própria barra do álbum — é só tocar.",
+      "E a lixeira mudou de lugar: agora fica à direita na barra, e só aparece com o álbum aberto."
+    ]
+  },
+  {
     "versao": "1.1.13",
     "itens": [
       "O botão de encerrar a camada de texto agora aparece SEMPRE que há texto sobreposto — Bíblia, mensagem ou cronômetro, com ou sem música por baixo. Antes ele só existia com música tocando.",

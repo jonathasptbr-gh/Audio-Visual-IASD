@@ -2702,7 +2702,7 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: v1.1.13** (base web) · **v1.1.10** (APK) · `SHELL_VERSION` **49** · bundle com
+**Versão atual: v1.1.14** (base web) · **v1.1.10** (APK) · `SHELL_VERSION` **49** · bundle com
 `minShell: 49` — o shell 49 é o **PISO**: todo método da ponte existe, e não há
 guarda de versão no lado web. O que continua valendo é que `java/`, `res/`, o
 manifest e os workflows **só chegam instalando o APK**.
