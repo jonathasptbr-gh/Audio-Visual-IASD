@@ -532,7 +532,9 @@
           <div id="pvLyrics" class="pv-layer pv-lyrics" hidden>
             <div class="pv-lyrics-bg"><img id="pvLyricsImg" alt="" hidden></div>
             <div class="pv-lyrics-content" id="pvLyricsContent">
-              <div class="pv-lyrics-box">
+              <!-- `id` para o `pvAjustarLetra()` medir (v1.1.7) — o espelho
+                   da regra do telão. -->
+              <div class="pv-lyrics-box" id="pvLyricsBox">
                 <!-- Espelha o Display elemento a elemento (ver o comentário de
                      lá): número na capa, título, e a linha auxiliar que na capa
                      vira o álbum. -->
@@ -1037,7 +1039,7 @@
              pedir ajuda"), e agora ocupam a mesma faixa: a versão à esquerda, o
              Registro à direita, no espaço que já estava sobrando. -->
         <div class="footer-diag">
-          <span id="appVersion" class="app-version">Controle v1.1.6</span>
+          <span id="appVersion" class="app-version">Controle v1.1.7</span>
           <span class="footer-diag-rot">Registro</span>
           <button id="diagCopy" class="log-copy" title="Copiar o registro" aria-label="Copiar o registro">
             <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoCopiar"/></svg>

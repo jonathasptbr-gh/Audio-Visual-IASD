@@ -331,6 +331,16 @@ window.AVNative = {
   pickDoc(mimes),      // → [{ url, name, type }]: o SELETOR DE ARQUIVOS do aparelho
   listFolder(uri),     // → [{ name, size, mtime, type, url }]   (só no Controle)
   onShare(cb),         // cb({ files:[{name,type,size,url}], url, title })
+  areaTransferencia(desde), // → { texto, carimbo } ou null: o LINK COPIADO, e
+                       //   só quando é NOVO. `desde` é o carimbo do último
+                       //   conteúdo já examinado, em TEXTO (o carimbo é um
+                       //   `long` em ms), e quem compara é o Kotlin ANTES de
+                       //   ler — do Android 12 em diante LER a área de
+                       //   transferência de outro app mostra um aviso do
+                       //   sistema, e consultar a DESCRIÇÃO não mostra nada.
+                       //   Só texto simples que COMEÇA com http(s), teto de
+                       //   2 kB: privacidade, não classificação — quem decide
+                       //   se é do YouTube é o `controle.js`
   displays(),          // → [{ id, name, w, h, density }]
   onDisplayChange(cb),
   openCast(),          // seletor de ESPELHAMENTO DE TELA do Android (≠ Google Cast)
@@ -403,7 +413,7 @@ window.AVNative = {
                        //   desenhar uma folha, não publicar uma Release.
 }
 ```
-São **43 métodos**, e essa é a superfície inteira que o resto do lado web tem
+São **44 métodos**, e essa é a superfície inteira que o resto do lado web tem
 direito de usar — fora do `native.js`, tocar em `__AVBridge` direto é
 acoplamento indevido. O próprio `native.js` chama mais oito coisas lá, e nenhuma
 é API para o app: `ytFetchAudio` e `ytFetchAte` (não são métodos a mais, são os
@@ -461,7 +471,7 @@ prazo (um timeout ali resolveria null com o operador ainda escolhendo a pasta).
 
 ### `SHELL_VERSION` — subir SEMPRE que a superfície mudar
 
-Hoje vale **47**, e ele é o **PISO**: o bundle declara `minShell: 47`, então
+Hoje vale **48**, e ele é o **PISO**: o bundle declara `minShell: 48`, então
 todo método da ponte existe sempre e **não há guarda de versão no lado web**.
 "Superfície" inclui **forma de retorno** e **comportamento**, não só assinatura:
 um campo que some, um contrato de URL que muda ou um método que passa a fazer
@@ -474,7 +484,7 @@ escondia. Sem guardas, o web chama um método que o APK instalado não tem: o
 existe, é tocável e não faz nada. Por isso mudança de ponte é um lote
 **APK + web publicado JUNTO**, com `shellTag` no `version.json`.
 
-> A tabela dos 47 degraus está em `docs/HISTORICO.md` — ela é história do
+> A tabela dos 48 degraus está em `docs/HISTORICO.md` — ela é história do
 > contrato, e história mora lá.
 
 ### As TRÊS filas da ponte — escolher a errada é uma regressão muda
@@ -525,7 +535,7 @@ E duas regras que ficam de fora das três filas:
   e volta; quem responde é o laço de cópia do `YoutubeGrab`, a cada bloco de
   64 kB.
 
-**O bundle declara `minShell: 47`, e é a VÁLVULA que resolve.** Um bundle que
+**O bundle declara `minShell: 48`, e é a VÁLVULA que resolve.** Um bundle que
 exija ponte mais nova que o `SHELL_VERSION` instalado é recusado inteiro
 (`WebUpdater.kt`), e o app segue no que tinha — a recusa acontece no shell, e
 não em runtime no meio de um culto. **Guarda de versão no lado web é proibida:**
@@ -1853,6 +1863,7 @@ que ela é desenvolvida e testada fora do aparelho.
 | Áudio bloqueado | segue mudo + retentativas | **recuperação desativada no `onBlocked`** — sem política de gesto, `NotAllowedError` só pode ser falso positivo |
 | Pastas do dispositivo | `showDirectoryPicker()` | **SAF** — a File System Access API não existe no Android |
 | Compartilhamento | **não existe** (vinha do `share_target` + SW, ambos removidos) | **`intent-filter`** (`ShareIntake.kt`), só `content://` — ver abaixo |
+| Link do YouTube COPIADO | **não existe** (`navigator.clipboard.readText()` pede permissão e exige gesto — o oposto do que este caminho é) | **oferecido na abertura e na retomada** (`areaTransferencia`, shell 48). COPIAR NÃO É UM PEDIDO, então há uma PERGUNTA antes e só o "sim" entrega o link ao `importShare` — que dali em diante é o mesmo código do share. A pergunta é o que torna isto seguro no Modo Fácil, onde um link compartilhado vira transmissão SEM perguntar. O aviso do sistema do Android 12+ é pago **uma vez por link copiado**, nunca por retomada: o shell compara o CARIMBO da descrição antes de ler |
 | Link do YouTube compartilhado | vira item de LINK, que só o app resolve | avançado: as MESMAS quatro escolhas da busca (tocar · playlist · Cronograma · Favoritos + vídeo/só-áudio + teto). Simplificado: sem pergunta, **transmissão direta** (`tentarTransmitir`) — ali o link É um "tocar agora". Falhando: download; falhando ele: item de LINK, resolvido no toque seguinte (`resolverLinkYoutube`) — um link compartilhado nunca se perde |
 | Destino de um item | uma escolha por vez | **VÁRIOS destinos de uma vez**, método único: toda opção da folha (as três listas **e** o "Tocar agora") é selecionável de corpo inteiro, e um confirmar sempre visível executa. Um vídeo do YouTube é baixado UMA vez para dois destinos. Importação e share abrem a mesma folha com o Cronograma já marcado; desistir entra no Cronograma. Ver `docs/ARQUITETURA-WEB.md`, "UM item, VÁRIOS destinos" |
 | Onde o share aterrissa | idem (mesmo `importShare`) | **`focarImportado`**: fecha popups e seleção; projeta na hora no simplificado (item vai para a prateleira `avulsos`, que não tem lista visível) ou vai ao Cronograma no avançado. A preview em tela cheia só é encerrada se houver telão |
@@ -2505,8 +2516,8 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: v1.1.6** (base web) · **v1.1.2** (APK) · `SHELL_VERSION` **47** · bundle com
-`minShell: 47` — o shell 47 é o **PISO**: todo método da ponte existe, e não há
+**Versão atual: v1.1.7** (base web) · **v1.1.7** (APK) · `SHELL_VERSION` **48** · bundle com
+`minShell: 48` — o shell 48 é o **PISO**: todo método da ponte existe, e não há
 guarda de versão no lado web. O que continua valendo é que `java/`, `res/`, o
 manifest e os workflows **só chegam instalando o APK**.
 

@@ -41,7 +41,7 @@ Nenhum dos dois aparece num teste de comportamento. Por isso existe o
    (49 métodos)          addJavascript      │
                           Interface         │ remonta
                                             ▼
-                                       window.AVNative  (43 métodos)
+                                       window.AVNative  (44 métodos)
                                        + 4 globais lidas direto
 ```
 
@@ -177,6 +177,11 @@ portanto **compartilhados por todas as instâncias**. Todos daemon.
   ocupada justamente pelo download que se quer parar. Ele escreve um `@Volatile`
   e volta; quem responde é o laço de cópia do `YoutubeGrab`, a cada bloco de
   64 kB.
+- **`areaTransferencia` também fica fora**, por duas razões somadas: o
+  `ClipboardManager` exige uma thread com `Looper` (as filas são `Thread` daemon
+  sem um), e é trabalho de microssegundos que atrás de um download venceria os
+  60 s — resolvendo `null`, que aqui é indistinguível de "não havia link
+  copiado".
 
 ---
 
@@ -288,6 +293,35 @@ endereço `http://`.
 > Os três métodos de certificado **estão sem UI desde a v5.196** — a folha de
 > "Ajustes avançados" era a única porta deles e saiu. Ficam na ponte de
 > propósito: voltar atrás é desenhar uma folha, não publicar uma Release.
+
+### `areaTransferencia(desde)` — o carimbo é o recurso, não o texto
+
+Devolve `{ texto, carimbo }` ou `null`. O que ele responde não é "o que está
+copiado?", é **"há algo copiado que este app ainda não examinou?"** — e a
+diferença é o preço do recurso: do Android 12 em diante, LER a área de
+transferência que outro app preencheu mostra um aviso do sistema na tela.
+Consultar a DESCRIÇÃO não mostra nada.
+
+Daí a ordem das perguntas no `MainActivity.lerLinkCopiado`, que é o recurso
+inteiro: **descrição → carimbo → conteúdo**. Invertida, o aviso apareceria a
+cada vinda ao app.
+
+| desfecho | quando |
+|---|---|
+| `{ texto, carimbo }` | texto simples, começando com `http(s)`, com carimbo MAIOR que `desde` |
+| `null` | carimbo `0` (o sistema não sabe quando aquilo foi copiado — **desiste**, porque sem carimbo não há como não reler), sem foco (do Android 10 em diante a descrição volta nula), não é texto simples, não começa com `http(s)`, ou passa de 2 kB |
+
+- **`desde` viaja como TEXTO**: é um `long` em milissegundos e o
+  `@JavascriptInterface` converte número de JS por `double`.
+- **O filtro de scheme e o teto de 2 kB são PRIVACIDADE, não classificação.**
+  Quem decide se o endereço é do YouTube é o `controle.js` (invariante 5, e o
+  `extractYouTubeId` já existe lá); o que estas duas linhas fazem é impedir que
+  uma senha copiada entre no heap do JavaScript para ser descartada um passo
+  depois. Mesma família da regra do `ShareIntake`, que só aceita `content://`.
+- **A memória do último carimbo é do LADO WEB** (`clip-carimbo`, no banco), e
+  isso não é acidente: só o web sabe se conseguiu OFERECER o link. Com um
+  diálogo já na tela ele não pergunta e **não avança o carimbo** — a retomada
+  seguinte ainda tem o que perguntar.
 
 ### `espelhoDerrubar(rotulo)` — e o nome diz o que ele faz
 

@@ -1,4 +1,11 @@
-// O PROGRESSO DE UM DOWNLOAD NÃO PODE FECHAR A GAVETA DA LINHA (v1.1.2).
+// UM REDESENHO QUE O OPERADOR NÃO PEDIU NÃO PODE FECHAR A GAVETA DA LINHA.
+//
+// DUAS PORTAS PARA A MESMA SALA, e a segunda chegou por relato depois da
+// primeira estar corrigida: o progresso do download (v1.1.2) e o resultado da
+// busca no YouTube (v1.1.7). As duas terminam em `renderSearchResults`, que faz
+// `hymnResultsEl.innerHTML = ''`; as duas são disparadas por algo que não foi o
+// toque do operador. Ficam no mesmo arquivo de propósito — separá-las convidaria
+// a corrigir uma e deixar a outra, que foi exatamente o que aconteceu.
 //
 // ## Por que ele existe
 //
@@ -34,8 +41,20 @@
 //  4. e a espera TERMINA: fechada a gaveta, o redesenho adiado sai sozinho e o
 //     card mostra o estado em dia. Sem esta, "nunca redesenhar" passaria.
 //
-// Roda em Chromium de verdade, sobre a base web servida como no aparelho e SEM
-// `__AVBridge` (é o caminho de navegador — nada aqui depende do shell).
+// A PORTA DO YOUTUBE (v1.1.7), no fim do arquivo:
+//
+// Relato do operador: *"se pesquiso na biblioteca e vou tocar uma música que já
+// está na biblioteca, ele fecha as opções de play quando mostra as opções do
+// YouTube, como um refresh da tela, semelhante ao que já acontecia durante o
+// download das coletâneas"*. A auto-busca dispara sozinha quando a sentinela do
+// rodapé entra em cena — e **abrir a gaveta é justamente o que a empurra para
+// dentro do campo de visão**, então o gesto de olhar um item do acervo era o
+// gesto que agendava a própria interrupção.
+//
+// Roda em Chromium de verdade, sobre a base web servida como no aparelho. O
+// grosso é o caminho de NAVEGADOR (sem ponte); só o último caso liga um
+// `__NATIVE__` de mentira com dois métodos, porque `buscarNoYoutube` não existe
+// fora do app — ali sem ponte o botão abre o YouTube por fora.
 //
 //   node tools/gaveta-no-download.test.mjs
 import { chromium } from 'playwright';
@@ -274,6 +293,94 @@ try {
       .find((el) => /Hinário/i.test(el.textContent));
     return !!card && /Baixando 2 de 2/.test(card.textContent);
   }, 'fechada a gaveta, o redesenho adiado sai sozinho e o card mostra o estado em dia', null, 6000);
+
+  // ---- 5. A PORTA DO YOUTUBE (v1.1.7) ------------------------------------
+  //
+  // Mesma sala, outra porta. Aqui o modo é BUSCA (há termo digitado), então
+  // `acervoAVista()` é falso e o guarda do download nem entra — quem tem de
+  // segurar é `renderBuscaQuandoPuder`.
+  //
+  // A ponte de mentira é MÍNIMA e declarada: `buscarNoYoutube` cai em
+  // `openYoutubeSearch` sem `__NATIVE__`, e o caso não existiria. `ytSearch`
+  // devolve uma Promise que ESTE arquivo resolve — sem isso o oráculo mediria
+  // o relógio da rede em vez do comportamento do app.
+  await pg.evaluate(() => {
+    window.__NATIVE__ = true;
+    let solta;
+    const espera = new Promise((res) => { solta = res; });
+    window.__soltarYt = (itens) => solta(itens);
+    window.AVNative = Object.assign(window.AVNative || {}, { ytSearch: () => espera });
+  });
+  await pg.evaluate(() => {
+    hymnSearchInputEl.value = 'noite';
+    hymnSearchInputEl.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+  if (!await esperar(pg, () => {
+    const li = document.querySelector('#hymnResults > .hymn-result');
+    return !!li && /Noite de Paz/.test(li.textContent);
+  }, 'a busca por texto acha a faixa do acervo')) throw new Error('busca sem resultado');
+
+  const abrirNaBusca = () => pg.evaluate(async () => {
+    const li = document.querySelector('#hymnResults > .hymn-result');
+    li.dataset.carimbo = 'busca';
+    li.querySelector('.hymn-row').click();
+  });
+  const estadoBusca = () => pg.evaluate(() => {
+    const li = document.querySelector('#hymnResults > .hymn-result');
+    return {
+      aberta: !!(li && li.classList.contains('expanded')),
+      mesmoNo: !!(li && li.dataset.carimbo === 'busca'),
+      temYt: !!document.querySelector('#hymnResults .yt-result'),
+    };
+  });
+
+  // O HAZARD desta porta, medido onde ela mora: em modo BUSCA o redesenho cru
+  // joga o `li` fora igual. Sem isto, o resto provaria que uma função concorda
+  // consigo mesma.
+  await abrirNaBusca();
+  if (!await esperar(pg, () => {
+    const li = document.querySelector('#hymnResults > .hymn-result');
+    return !!li && li.classList.contains('expanded');
+  }, 'a gaveta abre também no modo BUSCA')) throw new Error('gaveta não abriu (busca)');
+  await pg.evaluate(() => renderSearchResults(hymnSearchInputEl.value));
+  let eb = await estadoBusca();
+  checar(!eb.aberta && !eb.mesmoNo,
+    'HAZARD: o redesenho cru da busca também joga o `li` fora', eb);
+
+  await abrirNaBusca();
+  if (!await esperar(pg, () => {
+    const li = document.querySelector('#hymnResults > .hymn-result');
+    return !!li && li.classList.contains('expanded');
+  }, 'e ela reabre')) throw new Error('gaveta não reabriu (busca)');
+
+  // A busca SAI (é o que a sentinela dispararia sozinha), e o desenho do
+  // "buscando…" não pode levar a gaveta junto.
+  await pg.evaluate(() => { buscarNoYoutube('noite'); });
+  await pg.waitForTimeout(150);
+  eb = await estadoBusca();
+  checar(eb.aberta && eb.mesmoNo,
+    'a auto-busca do YouTube COMEÇA e a gaveta continua aberta — o mesmo `li`', eb);
+
+  // E os RESULTADOS chegam. É o instante do relato: até aqui a lista era
+  // remontada com os vídeos dentro, e a gaveta ia junto.
+  await pg.evaluate(() => window.__soltarYt([
+    { id: 'v1', url: 'https://youtu.be/v1', name: 'Noite de Paz (coral)',
+      author: 'Canal', seconds: 200, thumb: '' },
+  ]));
+  await pg.waitForTimeout(700);
+  eb = await estadoBusca();
+  checar(eb.aberta && eb.mesmoNo,
+    'e com os RESULTADOS na mão ela CONTINUA aberta — é este o instante do relato', eb);
+  checar(!eb.temYt,
+    'e os vídeos ainda não estão na lista: é o redesenho ADIADO, não um que passou batido',
+    eb);
+
+  // E A ESPERA TERMINA — sem esta metade, "nunca redesenhar" passaria.
+  await pg.evaluate(() => {
+    document.querySelector('#hymnResults > .hymn-result .hymn-row').click();
+  });
+  await esperar(pg, () => !!document.querySelector('#hymnResults .yt-result'),
+    'fechada a gaveta, o redesenho adiado sai sozinho e os vídeos aparecem', null, 6000);
 
   checar(erros.length === 0, 'nenhum erro de console', erros.join(' | '));
 } catch (err) {

@@ -142,7 +142,7 @@ html, body {
    escala junto, sempre.
    SEM padding percentual aqui (só a margem de segurança de gestos, em px):
    `.lyrics-box` já é dimensionado como fração deste mesmo container
-   (76cqw/32cqh) e o espaço que sobra vira margem automaticamente via
+   (84cqw/40cqh) e o espaço que sobra vira margem automaticamente via
    `align-items`/`justify-content: center`. Um padding em cq* aqui além
    disso encolheria o content-box do container, e `.lyrics-box` (também em
    cq*, mas relativo a esse content-box já encolhido) ficaria menor que o
@@ -155,11 +155,9 @@ html, body {
   padding-bottom: env(safe-area-inset-bottom);
   box-sizing: border-box; font-family: system-ui, sans-serif;
 }
-/* Tamanho FIXO (não cresce/encolhe com o texto do slide) — precisa caber a
-   letra mais longa de qualquer slide sem vazar. overflow:hidden + o
-   line-clamp de .lyrics-line/.lyrics-aux abaixo são a garantia final contra
-   vazamento: textos grandes demais são cortados com reticências, nunca
-   estouram a caixa.
+/* Tamanho FIXO (não cresce/encolhe com o texto do slide): a moldura não pode
+   pular de tamanho entre uma estrofe e a seguinte. Quem faz o texto CABER é a
+   ESCALA (bloco abaixo), não a caixa.
    Proporções calibradas por medição em pixel de um vídeo de louvor de
    referência (moldura ~76-80% da largura da tela / ~27-36% da altura;
    fonte da letra com cap-height ~8,3% da altura da tela). */
@@ -174,9 +172,26 @@ html, body {
    **Sem linha de borda** (v5.42): o contorno branco desenhava um retângulo
    que competia com a letra em vez de ajudá-la a ser lida — quem separa o
    texto da foto é a faixa escura, não a moldura. */
+/* ===== A CAIXA NUNCA CORTA A LETRA COM RETICÊNCIAS (v1.1.7) =====
+   É a única resposta que um telão não pode dar: o verso que some é o que a
+   congregação ia cantar, e ninguém no salão tem como saber que faltou. Por isso
+   NÃO HÁ `-webkit-line-clamp` na `.lyrics-line`/`.lyrics-aux` — acrescentar um
+   aqui é reintroduzir o defeito, e ele é MUDO (nenhum erro, nenhum log).
+
+   Quem garante que cabe é `ajustarLetra()` (display.js): mede e ENCOLHE o
+   conjunto até a estrofe inteira caber, escrevendo `--lyrics-escala`. A escala
+   multiplica TODAS as peças (linha, rótulo, número, capa) — encolher só a linha
+   faria o "Refrão" ficar maior que a estrofe. As proporções calibradas ficam; o
+   que muda é a escala do conjunto.
+
+   A caixa é generosa (84cqw × 40cqh) pelo mesmo motivo: mais área para o mesmo
+   corpo de letra é menos ocasião de precisar encolher.
+
+   `overflow: hidden` FICA como contenção de último caso — no piso da escala,
+   uma estrofe absurda vaza para fora da moldura em vez de por cima da imagem. */
 .lyrics-box {
-  width: 76cqw;
-  height: 32cqh;
+  width: 84cqw;
+  height: 40cqh;
   box-sizing: border-box;
   padding: 2.5cqh 4cqw;
   border-radius: 0;
@@ -209,17 +224,20 @@ html, body {
    `cqmin` faz a fonte encolher junto com a dimensão mais apertada, sempre. */
 .lyrics-line {
   color: var(--stage-text); font-weight: 700; text-transform: uppercase;
-  font-size: 8cqmin; line-height: 1.2;
+  font-size: calc(8cqmin * var(--lyrics-escala, 1)); line-height: 1.2;
   white-space: pre-line;
-  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden;
+  /* SEM `-webkit-line-clamp` (v1.1.7): quem garante que cabe é `ajustarLetra()`.
+     `overflow-wrap` cobre o caso que a escala não resolve — uma palavra única
+     mais larga que a caixa. */
+  overflow-wrap: break-word;
 }
 /* aux_lyric é um rótulo curto de seção (ex: "Refrão") — 1 linha só, não 2:
    isso também mantém a caixa mais enxuta (linha principal domina o espaço). */
 .lyrics-aux {
   color: var(--stage-text-dim); font-weight: 600;
-  font-size: 4.2cqmin; line-height: 1.25;
+  font-size: calc(4.2cqmin * var(--lyrics-escala, 1)); line-height: 1.25;
   white-space: pre-line;
-  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 1; overflow: hidden;
+  overflow-wrap: break-word;
 }
 /* ---------- O SLIDE DE CAPA (v5.218) ----------
    Ele era UMA linha: o título com o número colado na frente ("147. NOME DO
@@ -241,11 +259,11 @@ html, body {
    grande) → álbum (esmaecido). Sem número e sem álbum, sobra o título
    centralizado — que é exatamente a capa de antes, só branca.
 
-   As medidas somam MENOS que a caixa (32cqh) com o título em duas linhas:
+   As medidas somam MENOS que a caixa (40cqh) com o título em duas linhas:
    4,4×1,2 + 2×(8,4×1,15) + 3,4×1,3 + 2 gaps ≈ 30cqh. O `overflow: hidden` da
    caixa continua sendo a garantia final. */
 .lyrics-content.cover .lyrics-line {
-  color: var(--stage-text); font-size: 8.4cqmin; font-weight: 800;
+  color: var(--stage-text); font-size: calc(8.4cqmin * var(--lyrics-escala, 1)); font-weight: 800;
   letter-spacing: .01em;
   /* TRÊS linhas na capa (a estrofe segue com duas): um título de álbum passa
      fácil de duas — "Cristo, o Senhor, Ressuscitou Hoje na Manhã Gloriosa" — e
@@ -274,7 +292,7 @@ html, body {
   display: flex; align-items: center; justify-content: center; gap: 2cqmin;
   align-self: stretch;
   color: var(--stage-text); font-weight: 800;
-  font-size: 5.8cqmin; line-height: 1.2; letter-spacing: .14em;
+  font-size: calc(5.8cqmin * var(--lyrics-escala, 1)); line-height: 1.2; letter-spacing: .14em;
   font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1;
 }
 .lyrics-num::before, .lyrics-num::after {
@@ -286,10 +304,10 @@ html, body {
    uma pergunta de segunda ordem — quem a lê já leu o título. */
 .lyrics-content.cover .lyrics-aux {
   color: var(--stage-text-dim); font-weight: 600; text-transform: uppercase;
-  font-size: 3.4cqmin; letter-spacing: .14em;
+  font-size: calc(3.4cqmin * var(--lyrics-escala, 1)); letter-spacing: .14em;
 }
 /* A CAIXA DA CAPA CRESCE COM O CONTEÚDO, e é a única do sistema que faz isso.
-   A altura fixa (32cqh) existe para a moldura não pular de tamanho entre uma
+   A altura fixa (40cqh) existe para a moldura não pular de tamanho entre uma
    estrofe e a seguinte — mas na capa ela produzia o defeito oposto, e ele foi
    fotografado: com o título em duas linhas, num + título + álbum somam mais que
    a caixa, o flex encolhe os itens e a linha do álbum era desenhada POR CIMA da

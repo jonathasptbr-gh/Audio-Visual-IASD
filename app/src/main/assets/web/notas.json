@@ -1,5 +1,16 @@
 [
   {
+    "versao": "1.1.7",
+    "itens": [
+      "A letra no telão nunca mais é cortada com \"...\": se a estrofe é longa, ela diminui de tamanho até caber inteira.",
+      "A zona escura da letra ficou maior, então a letra cabe em corpo maior antes de precisar diminuir.",
+      "Os botões \"Atualizar agora\" e \"Deixar para depois\" agora dividem a largura toda do aviso.",
+      "Na Biblioteca, a busca no YouTube não fecha mais as opções de play que você abriu — os vídeos entram na lista quando você fechar.",
+      "E as opções de play já abrem com \"Tocar agora\" marcado: marcar o Cronograma ao lado projeta e guarda no mesmo toque.",
+      "Copiou um link do YouTube e abriu o app? Ele pergunta se você quer usá-lo, com as mesmas opções do compartilhar."
+    ]
+  },
+  {
     "versao": "1.1.6",
     "itens": [
       "A letra agora tem A+ e A− para você escolher o tamanho — no alto da folha de letra e, no Modo Fácil, ao lado do nome da música.",

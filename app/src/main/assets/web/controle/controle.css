@@ -749,15 +749,19 @@ body {
   display: flex; align-items: center; justify-content: center;
   box-sizing: border-box;
 }
-/* Tamanho FIXO (não acompanha o texto do slide): `overflow: hidden` +
-   line-clamp garantem que qualquer letra caiba sem vazar. Proporções
-   equivalentes às do Display, reexpressas em `cq*`.
+/* Proporções equivalentes às do Display, reexpressas em `cq*`.
    Padrão "vídeo de louvor": cantos retos, sem borda, sem sombra. O fundo
    semitransparente só com `.imgbg` — no preto puro seria uma zona escura
    flutuando à toa (ver `applyPvLyricsBgClass`). */
+/* A CAIXA ESPELHA A DO TELÃO (v1.1.7): 84cqw × 40cqh e SEM `line-clamp` — quem
+   garante que a estrofe cabe é `pvAjustarLetra()`, o mesmo mecanismo do
+   `display.js`. As duas folhas continuam separadas de propósito (a preview é uma
+   miniatura num documento COM tema), mas a REGRA tem de ser a mesma: a preview
+   existe para mostrar o que o telão vai mostrar, e uma que corta o que o telão
+   não corta mente ao operador. */
 .pv-lyrics-box {
-  width: 76cqw;
-  height: 32cqh;
+  width: 84cqw;
+  height: 40cqh;
   box-sizing: border-box;
   padding: 2.5cqh 4cqw;
   border-radius: 0;
@@ -777,12 +781,13 @@ body {
    Fonte em `cqmin`: encolhe pela dimensão mais apertada, nunca só pela altura. */
 .pv-lyrics-line {
   color: var(--stage-text); font-weight: 700; text-transform: uppercase;
-  font-size: 8cqmin; line-height: 1.2; white-space: pre-line;
-  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+  font-size: calc(8cqmin * var(--lyrics-escala, 1)); line-height: 1.2; white-space: pre-line;
+  overflow-wrap: break-word;
 }
 .pv-lyrics-aux {
-  color: var(--stage-text-dim); font-weight: 600; font-size: 4.2cqmin; line-height: 1.25; white-space: pre-line;
-  display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden;
+  color: var(--stage-text-dim); font-weight: 600;
+  font-size: calc(4.2cqmin * var(--lyrics-escala, 1)); line-height: 1.25; white-space: pre-line;
+  overflow-wrap: break-word;
 }
 /* O SLIDE DE CAPA, espelhando o Display regra a regra (ver o bloco grande em
    display.css para o porquê de cada peça). As duas folhas são separadas de
@@ -791,7 +796,7 @@ body {
    era exatamente esta regra que pintava o título em denim escuro sobre o preto
    quando o operador estava no tema claro. */
 .pv-lyrics-content.cover .pv-lyrics-line {
-  color: var(--stage-text); font-size: 8.4cqmin; font-weight: 800;
+  color: var(--stage-text); font-size: calc(8.4cqmin * var(--lyrics-escala, 1)); font-weight: 800;
   letter-spacing: .01em;
   /* TRÊS linhas na capa (a estrofe segue com duas): um título de álbum passa
      fácil de duas — "Cristo, o Senhor, Ressuscitou Hoje na Manhã Gloriosa" — e
@@ -816,7 +821,7 @@ body {
   display: flex; align-items: center; justify-content: center; gap: 2cqmin;
   align-self: stretch;
   color: var(--stage-text); font-weight: 800;
-  font-size: 5.8cqmin; line-height: 1.2; letter-spacing: .14em;
+  font-size: calc(5.8cqmin * var(--lyrics-escala, 1)); line-height: 1.2; letter-spacing: .14em;
   font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1;
 }
 .pv-lyrics-num::before, .pv-lyrics-num::after {
@@ -825,7 +830,7 @@ body {
 }
 .pv-lyrics-content.cover .pv-lyrics-aux {
   color: var(--stage-text-dim); font-weight: 600; text-transform: uppercase;
-  font-size: 3.4cqmin; letter-spacing: .14em;
+  font-size: calc(3.4cqmin * var(--lyrics-escala, 1)); letter-spacing: .14em;
 }
 /* A CAIXA DA CAPA CRESCE COM O CONTEÚDO — a única do sistema que faz isso. A
    altura fixa existe para a moldura não pular entre estrofes; na capa não há
@@ -4705,8 +4710,15 @@ main {
    logo acima — que é o conteúdo. */
 .dialog-rodape { font-size: .82rem; }
 .dialog-input { width: 100%; padding: 10px 12px; font-size: .95rem; }
-.dialog-actions { display: flex; gap: .5rem; justify-content: flex-end; margin-top: .1rem; }
+/* O PAR DIVIDE A LARGURA (v1.1.7), em vez de medir o RÓTULO encostado à direita.
+   Com a largura do texto, o alvo de cada botão dependia do TAMANHO DA PALAVRA —
+   "OK" virava um alvo pequeno ao lado de um "Deixar para depois" três vezes
+   maior, e num par de decisões OPOSTAS o alvo não pode dizer qual delas é a mais
+   fácil de tocar. `flex: 1` nos dois; com o cancelar oculto (`cancelText: null`)
+   o que sobra é UM botão ocupando a linha, que é o certo para um "Entendi". */
+.dialog-actions { display: flex; gap: .5rem; margin-top: .1rem; }
 .dialog-btn {
+  flex: 1; min-width: 0;
   border: none; appearance: none; -webkit-appearance: none;
   border-radius: var(--radius-btn); padding: .55rem 1.1rem;
   background: var(--surface-2); color: var(--text);

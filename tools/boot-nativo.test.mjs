@@ -234,6 +234,19 @@ const ponteCom = (espelho, telas) => `(() => {
       }, 0);
     },
   };
+  // A ÁREA DE TRANSFERÊNCIA (shell 48). O stub reproduz o GATE, que é o recurso:
+  // ele só devolve conteúdo com carimbo MAIOR que o \`desde\` recebido — é assim
+  // que o shell evita o aviso do Android 12+ a cada retomada. Um stub que
+  // devolvesse sempre o mesmo objeto provaria o percurso e deixaria passar
+  // justamente a metade que custa caro no aparelho.
+  B.areaTransferencia = (id, desde) => {
+    const c = window.__clip;
+    const de = Number(desde) || 0;
+    const r = (c && c.carimbo > de) ? { texto: c.texto, carimbo: c.carimbo } : null;
+    window.__clipLeituras = (window.__clipLeituras || 0) + (r ? 1 : 0);
+    setTimeout(() => { try { window.__avResolve(id, r); } catch (_) {} }, 0);
+    return undefined;
+  };
   const nomes = ['apkInstalar','apkProcurar','bgProgress','captureVolumeKeys','castTarget',
     'deckDiscard','deckExportUrl','deckPages','displays','espelhoCertApagar',
     'espelhoCertEstado','espelhoCertImportar','espelhoDesligar','espelhoDiag','espelhoEstado',
@@ -1447,6 +1460,12 @@ try {
           .map((e) => e.textContent),
         marcaveis: gav.querySelectorAll('.hymn-opcoes .song-menu-check').length,
         confirmar: ((gav.querySelector('.song-menu-go .song-menu-label') || {}).textContent) || '',
+        // O PADRÃO, antes de qualquer toque (v1.1.7): "Tocar agora" nasce
+        // marcado, e SÓ ele.
+        jaMarcadas: gav.querySelectorAll('.hymn-opcoes .song-menu-check.on').length,
+        rotuloMarcado: ([...gav.querySelectorAll('.hymn-opcoes .song-menu-sel')]
+          .find((e) => e.querySelector('.song-menu-check.on')) || {}).textContent || '',
+        confirmarNasceAtivo: !(gav.querySelector('.song-menu-go') || {}).disabled,
         acoesNaGaveta: !!gav.querySelector('.fav-acoes .row-ordem')
           && !!gav.querySelector('.fav-acoes .row-excluir'),
         // ===== UMA SAÍDA SÓ, E ELA PERGUNTA (v5.288) =====
@@ -1605,10 +1624,27 @@ try {
     + 'sobreposição relatada, e ela some por construção quando o corpo da linha '
     + 'deixa de ter outra ação',
     'abaixo: ' + favs.gaveta.abaixo);
+  // ===== "TOCAR AGORA" NASCE MARCADO (v1.1.7) =====
+  //
+  // Pedido do operador: *"nas opções de play, deixe que venha por padrão o check
+  // de tocar agora, pois é a opção que normalmente já se tem mais urgência"*. O
+  // que ela compra é o caso de DOIS destinos — tocar em "Adicionar ao
+  // Cronograma" projeta E guarda no mesmo toque —, e o confirmar nascer ATIVO é
+  // a outra metade: a gaveta abre respondível.
+  //
+  // A regra vale onde a mídia é LOCAL. A folha do YouTube fica de fora de
+  // propósito (lá "Tocar agora" TRANSMITE), e é por isso que ela é afirmada
+  // aqui, na lista de favoritos, e no `smoke` na gaveta da Biblioteca — as duas
+  // casas que a recebem.
+  checar(favs.gaveta.jaMarcadas === 1 && /Tocar agora/.test(favs.gaveta.rotuloMarcado),
+    'a gaveta do FAVORITO abre com "Tocar agora" já marcado, e só ele',
+    favs.gaveta.jaMarcadas + ' marcada(s): ' + JSON.stringify(favs.gaveta.rotuloMarcado));
+  checar(favs.gaveta.confirmarNasceAtivo === true,
+    'e o CONFIRMAR nasce ativo — sem um toque só para destravar o botão');
   checar(favs.gaveta.opcoes.length === 3
     && /Tocar agora/.test(favs.gaveta.opcoes[0])
     && favs.gaveta.marcaveis === 3
-    && /Escolha uma opção/.test(favs.gaveta.confirmar),
+    && /Confirmar/.test(favs.gaveta.confirmar),
     'e são as MESMAS opções marcáveis da Biblioteca — telão, playlist e '
     + 'Cronograma —, com o confirmar sempre visível',
     JSON.stringify(favs.gaveta.opcoes) + ' · ' + favs.gaveta.confirmar);
@@ -3899,6 +3935,118 @@ try {
   await pg8.close();
 } catch (e) {
   checar(false, 'o percurso do tamanho da letra terminou sem exceção (' + (e && e.message) + ')');
+}
+
+// ===== O LINK DO YOUTUBE NA ÁREA DE TRANSFERÊNCIA (v1.1.7, shell 48) =====
+//
+// Este caminho é do APP e só do app: no navegador ele não existe, então sem a
+// ponte de mentira ele nunca seria executado por teste nenhum — que é a razão de
+// este arquivo existir.
+//
+// As QUATRO metades, e nenhuma sozinha prova o recurso:
+//
+//  1. o link copiado VIRA PERGUNTA, e a pergunta mostra o endereço;
+//  2. "Agora não" não importa nada — copiar não é um pedido, e a recusa tem de
+//     ser o desfecho barato;
+//  3. o CARIMBO AVANÇA e a leitura seguinte não lê mais nada. É a metade cara:
+//     sem ela, cada retomada relê a área de transferência, e no Android 12+ cada
+//     releitura é um aviso do sistema na tela;
+//  4. com um DIÁLOGO já na tela ela não pergunta E NÃO AVANÇA o carimbo — o
+//     `openAppDialog` resolve o anterior como cancelado ao abrir o próximo, e o
+//     que estaria ali é a pergunta da atualização.
+try {
+  const pg9 = await ctx.newPage();
+  await pg9.addInitScript(PONTE);
+  await pg9.goto(`http://127.0.0.1:${porta}/controle/`, { waitUntil: 'load' });
+  await pg9.waitForFunction(() => window.AVDB && typeof window.__avBack === 'function'
+    && !!document.querySelector('#playlist li'), null, { timeout: 25000 });
+
+  const clip = await pg9.evaluate(async () => {
+    const r = {};
+    const esperarDialogo = async () => {
+      for (let i = 0; i < 60; i++) {
+        if (appDialogEl.classList.contains('open')) return true;
+        await new Promise((res) => setTimeout(res, 50));
+      }
+      return false;
+    };
+    // Um link do YouTube, recém-copiado.
+    window.__clip = { texto: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ', carimbo: 1000 };
+    window.__clipLeituras = 0;
+    const antes = (await AVDB.listIds('imports')).length;
+
+    conferirLinkCopiado();
+    r.perguntou = await esperarDialogo();
+    r.mostraOLink = appDialogMsgEl.textContent.includes('dQw4w9WgXcQ');
+    r.rotulos = [appDialogOkEl.textContent, appDialogCancelEl.textContent];
+    // "Agora não".
+    appDialogCancelEl.click();
+    await new Promise((res) => setTimeout(res, 250));
+    r.naoImportou = (await AVDB.listIds('imports')).length === antes;
+    r.carimboGuardado = await AVDB.getState('clip-carimbo');
+
+    // 3. A MESMA área de transferência, uma retomada depois: nada é lido.
+    const leituras = window.__clipLeituras;
+    await conferirLinkCopiado();
+    await new Promise((res) => setTimeout(res, 150));
+    r.naoReleu = window.__clipLeituras === leituras;
+    r.naoPerguntouDeNovo = !appDialogEl.classList.contains('open');
+
+    // 4. DIÁLOGO NA TELA: não pergunta e não avança o carimbo.
+    window.__clip = { texto: 'https://youtu.be/abcdefghijk', carimbo: 2000 };
+    const outra = appConfirm({ title: 'Outra pergunta', message: 'x', okText: 'ok' });
+    await new Promise((res) => setTimeout(res, 50));
+    await conferirLinkCopiado();
+    await new Promise((res) => setTimeout(res, 150));
+    r.dialogoIntacto = appDialogTitleEl.textContent === 'Outra pergunta';
+    r.carimboNaoAndou = (await AVDB.getState('clip-carimbo')) === 1000;
+    appDialogCancelEl.click();
+    await outra;
+    await new Promise((res) => setTimeout(res, 100));
+
+    // E a retomada SEGUINTE ainda tem o que perguntar — é o que o carimbo
+    // intacto compra.
+    conferirLinkCopiado();
+    r.perguntouDepois = await esperarDialogo();
+    appDialogCancelEl.click();
+    await new Promise((res) => setTimeout(res, 150));
+
+    // 5. TEXTO QUE NÃO É DO YOUTUBE: não pergunta, mas o carimbo AVANÇA — senão
+    //    um texto qualquer copiado seria relido (e avisado) em toda retomada.
+    window.__clip = { texto: 'https://exemplo.org/algo', carimbo: 3000 };
+    await conferirLinkCopiado();
+    await new Promise((res) => setTimeout(res, 150));
+    r.naoPerguntouPorOutroLink = !appDialogEl.classList.contains('open');
+    r.carimboAvancouAssimMesmo = (await AVDB.getState('clip-carimbo')) === 3000;
+    return r;
+  });
+
+  checar(clip.perguntou && clip.mostraOLink,
+    'um link do YouTube copiado vira PERGUNTA, e ela mostra o endereço — copiar '
+    + 'não é um pedido, então nada entra sem o "sim"', JSON.stringify(clip.rotulos));
+  checar(clip.naoImportou,
+    'e "Agora não" não importa nada');
+  checar(clip.carimboGuardado === 1000,
+    'o CARIMBO fica no banco (não em memória): o processo morre, o app reabre, e '
+    + 'um carimbo perdido faria a mesma pergunta com o aviso do sistema junto',
+    'carimbo: ' + clip.carimboGuardado);
+  checar(clip.naoReleu && clip.naoPerguntouDeNovo,
+    'a retomada seguinte NÃO LÊ a área de transferência — é esta metade que '
+    + 'impede o aviso do Android 12+ de aparecer em toda vinda ao app',
+    JSON.stringify([clip.naoReleu, clip.naoPerguntouDeNovo]));
+  checar(clip.dialogoIntacto && clip.carimboNaoAndou,
+    'com um DIÁLOGO já na tela ela não pergunta E não avança o carimbo — abrir o '
+    + 'próximo resolveria o anterior como cancelado, e o que estaria ali é a '
+    + 'pergunta da atualização', JSON.stringify(clip));
+  checar(clip.perguntouDepois,
+    'e por isso a retomada seguinte ainda tem o que perguntar');
+  checar(clip.naoPerguntouPorOutroLink && clip.carimboAvancouAssimMesmo,
+    'um link que NÃO é do YouTube não pergunta nada, mas o carimbo avança do '
+    + 'mesmo jeito: sem isso ele seria relido (e avisado) em toda retomada',
+    JSON.stringify(clip));
+  await pg9.close();
+} catch (e) {
+  checar(false, 'o percurso da área de transferência terminou sem exceção (' + (e && e.message) + ')');
 }
 
 checar(erros.length === 0, 'nenhum erro de console' + (erros.length ? ':\n        ' + erros.join('\n        ') : ''));
