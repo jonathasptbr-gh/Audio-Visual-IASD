@@ -24,6 +24,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
+- **v1.1.8** — O REGISTRO DO TELÃO MENTIA NO PONTO QUE MAIS IMPORTA: o fim de TODA faixa era carimbado "PAUSA ESPONTÂNEA", a linha reservada a "alguém tirou a projeção do ar sem pedir" — e ela é lida A DISTÂNCIA, por quem não tem como conferir. Um louvor por culto bastava para afogar o sinal no ruído. Sai também a decisão de NÃO retomar automaticamente a mídia roubada, com as quatro razões medidas em fonte, e os dois achados de áudio ficam registrados esperando medição. OTA PURO
 - **v1.1.7** — O ESPELHAMENTO LEVA O SOM DO APARELHO INTEIRO, e não há API pública que isole: o `Presentation` isola a JANELA, e o áudio do Wi-Fi Display nasce de um `REMOTE_SUBMIX` sem parâmetro de display. O que resolve é o som não NASCER no celular — e por isso a APRESENTAÇÃO passa a chegar às telas da rede (uma `/m/` por página), fechando a dívida que impedia o telão por comandos de substituir o espelhamento num culto com sermão. Mais o `AbortController` sem guarda, que derrubava toda TV de 2018 na entrada. OTA PURO
 - **v1.1.6** — O TAMANHO DA LETRA PASSA A SER DO OPERADOR: um par A+/A− nas DUAS casas de leitura (a folha do avançado e a linha do nome do Modo Fácil), escada DISCRETA e o valor salvo no banco. E o respiro entre estrofes volta a ser DERIVADO — com a fonte ajustável, um respiro fixo valeria só no degrau em que foi escolhido. A metade que falharia calada é a memória, e ela tem oráculo com PÁGINA NOVA. OTA PURO
 - **v1.1.5** — A LETRA RECUA PARA 1.4rem E O RESPIRO ENCOLHE: no dobro, TODA linha de hino quebrava em duas. E o respiro entre estrofes deixa de ser DERIVADO da fonte — "uma linha em branco" custava 2,1rem, e o custo virou rolagem em vez de tipografia. O piso que sobrevive (e que o oráculo passa a travar) é a ENTRELINHA da própria estrofe. OTA PURO
@@ -203,6 +204,72 @@ na nota que a revoga, não apagada da que a criou.
 - **v5.154** — é METADE OTA e METADE APK, e a divisão importa para quem for testar em aparelho.
 - **v5.155** — é OTA PURO
 - **v5.156** — é METADE OTA e METADE APK, de novo.
+
+---
+
+## v1.1.8 — o Registro do telão deixa de gastar a linha do caso grave no caso banal
+
+**A v1.1.8: O CARIMBO DO FIM NATURAL, E A DECISÃO DE NÃO RETOMAR. OTA PURO**
+(nenhuma linha de Kotlin, `SHELL_VERSION` intacto em 47; sem Release).
+
+O lote nasceu de uma pergunta do operador — *"é possível simplesmente refazer o
+play da nossa mídia no exato momento em que ela é pausada, pausando assim a
+outra mídia?"* — e o que ele entrega é o oposto de um recurso novo: um
+diagnóstico que voltou a ser verdade, e uma decisão de não fazer, escrita com os
+motivos.
+
+**O DEFEITO, e ele estava à vista.** `display.js` carimba `PAUSA ESPONTÂNEA`
+quando o `<video>` para sem comando. A especificação de HTML manda o elemento
+levantar `ended`, pôr `paused` em true e SÓ ENTÃO disparar `pause` (e, depois
+dele, `ended`) — e `pausaComandada` não é armado por fim natural, porque não
+houve comando. Resultado: **o fim de toda faixa produzia a linha reservada ao
+caso mais grave do app**.
+
+O preço não era uma linha feia: era o artefato inteiro. Aquela linha responde
+UMA pergunta — *"alguém tirou a projeção do ar sem pedir?"* — e é o tipo de coisa
+que este projeto trata com cuidado especial, porque é **lida a distância por quem
+não tem como conferir**. Com uma delas por louvor, o Registro respondia "sim" em
+todo culto normal. *Um diagnóstico que responde errado é pior que um que não
+responde* — e este respondia errado justamente quando alguém fosse investigar.
+
+**A DECISÃO DE NÃO RETOMAR.** Re-tocar no evento de pausa é possível e seria OTA
+puro: o `play()` do Chromium re-pede foco de verdade (não existe "tocar mudo" —
+concedido volta com som, negado ele mesmo pausa de novo). Ficou de fora por
+quatro razões lidas em fonte, não por cautela:
+
+1. **Não pausa a outra mídia**, que era o ganho esperado. O framework MUTA o
+   perdedor com `VolumeShaper` e **desfaz sozinho ~4 s depois**
+   (`MSL_L_FORGET_UID` → `forgetUid` → `unfadeOutUid`).
+2. **Contra um alarme não faz nada** — `USAGE_ALARM` está fora de
+   `DEFAULT_FADEABLE_USAGES`. O desfecho seria louvor **e** despertador juntos.
+3. **Uma chamada não é distinguível a tempo**: ela é perda TRANSITÓRIA e dura
+   minutos, então qualquer espera curta dispara DENTRO da ligação — e nesse caso
+   o Chromium já retoma sozinho no fim, sem código nosso.
+4. **Ela apagaria o sintoma** que a caixa-preta existe para capturar.
+
+E o caso em que o mecanismo funcionaria como o operador descreveu — dois players
+do MESMO uid, onde o framework não impõe nada
+(`FocusRequester.frameworkHandleFocusLoss` tem `if (frWinner.mCallingUid ==
+this.mCallingUid) return false`) — é exatamente o que o `acertarSaidaDeAudio` já
+previne desde a v5.215.
+
+> **Achado colateral, e ele reforça aquela decisão:**
+> `MediaSessionController::IsMediaSessionNeeded()` só recusa foco quando
+> `web_contents_->IsAudioMuted()` — o `.muted` do ELEMENTO não impede o pedido.
+> Uma preview apenas `muted` no Controle ainda pediria `AUDIOFOCUS_GAIN` e
+> roubaria o foco do telão. É o mudo por conexão que separa a paz da guerra.
+
+**ORÁCULO com as duas metades** (`display-smoke.mjs`): primeiro o HAZARD — uma
+pausa que não é fim de faixa TEM de continuar saindo como espontânea —, e só
+então a prova. Sem a primeira, a segunda provaria que a função concorda consigo
+mesma. O diário é lido pelo contrato que já existe (`diag-ask` → `diag-dump`),
+nunca por um global de teste, e a espera é pela CHEGADA da resposta, não por
+prazo. Verificado por reversão: sem a correção, reprova.
+
+**Os dois achados de áudio foram para `ACHADOS-EM-ABERTO.md`** — o desvio por
+fone/Bluetooth e a pausa espontânea de verdade —, os dois esperando a mesma
+coisa: uma medição em aparelho. É a primeira vez desde a v5.316 que aquele
+arquivo deixa de estar vazio, e as duas entradas trazem a ressalva do cético.
 
 ---
 

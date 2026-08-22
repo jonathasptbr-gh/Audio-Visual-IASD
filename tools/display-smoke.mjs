@@ -494,6 +494,60 @@ checar(fonteTelao > 0 && fonteEspelho === fonteTelao,
   'a letra do espelho (961×540) tem EXATAMENTE o tamanho da do telão (960×540) — a densidade 213 dpi está certa',
   fonteEspelho + 'px vs ' + fonteTelao + 'px');
 
+// 7-A-bis. O FIM NATURAL NÃO É UMA "PAUSA ESPONTÂNEA".
+//
+//    O Registro do telão tem UMA linha reservada ao caso grave — "alguém tirou
+//    a projeção do ar sem pedir" — e ela é lida A DISTÂNCIA, por quem não tem
+//    como conferir no aparelho. O fim de cada faixa a produzia: a especificação
+//    manda o elemento levantar `ended` e disparar `pause` ANTES de `ended`, e
+//    `pausaComandada` não é armado por fim natural porque não houve comando.
+//    Um louvor por culto bastava para afogar o sinal no ruído.
+//
+//    AS DUAS METADES, e a primeira é o HAZARD: sem a bandeira de fim a MESMA
+//    pausa tem de sair como espontânea. Sem ela, a segunda provaria apenas que
+//    a função concorda consigo mesma.
+//
+//    O diário é lido pelo contrato que já existe (`diag-ask` → `diag-dump`),
+//    nunca por um global de teste, e a espera é pela CHEGADA da resposta — não
+//    por um prazo, que mediria o runner.
+try {
+  const carimbos = await telao.evaluate(async () => {
+    const bc = new BroadcastChannel('av-iasd');
+    const pedirDiario = () => new Promise((resolve) => {
+      const ouvir = (ev) => {
+        const m = ev && ev.data;
+        if (!m || m.type !== 'diag-dump') return;
+        bc.removeEventListener('message', ouvir);
+        resolve(Array.isArray(m.linhas) ? m.linhas : []);
+      };
+      bc.addEventListener('message', ouvir);
+      bc.postMessage({ type: 'diag-ask' });
+    });
+    const v = document.querySelector('video');
+    // `ended` é getter do protótipo; defini-lo na INSTÂNCIA o sombreia, que é
+    // a única forma de forjar um fim de faixa sem tocar 3 minutos de áudio.
+    const forjar = (fim) => {
+      Object.defineProperty(v, 'ended', { get: () => fim, configurable: true });
+      v.dispatchEvent(new Event('pause'));
+    };
+    forjar(false);
+    const semFim = await pedirDiario();
+    forjar(true);
+    const comFim = await pedirDiario();
+    bc.close();
+    const ultimo = (ls) => (ls.length ? String(ls[ls.length - 1].ev || '') : '(vazio)');
+    return { semFim: ultimo(semFim), comFim: ultimo(comFim) };
+  });
+  checar(carimbos.semFim === 'PAUSA ESPONTÂNEA',
+    'uma pausa que NÃO é fim de faixa continua sendo carimbada espontânea (o hazard)',
+    JSON.stringify(carimbos));
+  checar(carimbos.comFim === 'fim natural',
+    'e o FIM NATURAL deixa de gastar a linha reservada ao caso grave',
+    JSON.stringify(carimbos));
+} catch (e) {
+  checar(false, 'o carimbo do fim natural pôde ser medido', String(e && e.message));
+}
+
 // 7-B. A CORTINA NÃO ENGOLE A CAMADA DE TEXTO.
 //
 //    O stage decide a cortina sozinho em três pontos que não sabiam do cartão
