@@ -232,7 +232,7 @@ const appVersionEl = document.getElementById('appVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.1.8';
+const WEB_VERSION = '1.1.9';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -7489,6 +7489,9 @@ function renderCollectionCard(coll, ctx) {
     // `COLL_PAGE`, à medida que o scroll alcança o fim — ver `fillSongList`.
     if (total > 0) {
       const lista = document.createElement('ul'); lista.className = 'coll-songs';
+      // O ÍNDICE ANTES da lista, e FECHADO (ver `indiceDeSecoes`).
+      const indice = indiceDeSecoes(coll, u, lista);
+      if (indice) aberto.appendChild(indice);
       fillSongList(lista, coll, u);
       aberto.appendChild(lista);
     }
@@ -7528,7 +7531,13 @@ function fillSongList(lista, coll, u) {
   const songs = collSongs(coll.id);
   if (!u.shown) u.shown = COLL_PAGE;
   const ate = Math.min(u.shown, songs.length);
+  // A retomada conta só as FAIXAS (`.hymn-result`), nunca os filhos da lista:
+  // os cabeçalhos de seção moram na mesma `<ul>` e contá-los faria a página
+  // seguinte começar adiantada, pulando tantos hinos quantos cabeçalhos já
+  // tivessem sido desenhados.
   for (let i = lista.querySelectorAll('.hymn-result').length; i < ate; i++) {
+    const cab = cabecalhoDeSecao(coll, songs[i]);
+    if (cab) lista.appendChild(cab);
     lista.appendChild(hymnResultRow(coll, songs[i], null, true));
   }
 
@@ -7570,6 +7579,152 @@ function fillSongList(lista, coll, u) {
   sent.__obs = obs;
   lista.appendChild(sent);
   obs.observe(sent);
+}
+
+// ===== O ÍNDICE DE TEMAS, NO TOPO DO CARD DO HINÁRIO (v1.1.9) =====
+//
+// Pedido do operador: *"um pequeno índice no início da lista do álbum do
+// hinário"*.
+//
+// **ELE NASCE FECHADO**, como uma barra de uma linha, e essa é a decisão que o
+// mantém "pequeno": são 35 seções, e desenhá-las abertas empurraria os 600
+// hinos para baixo de um paredão que o operador teria de rolar TODA vez que
+// abrisse o hinário — inclusive nas nove vezes em dez em que ele já sabe o
+// número que quer. É a mesma regra da v1.1.4 ("a Biblioteca abre com tudo
+// fechado e compacto"), aplicada um nível abaixo.
+//
+// O estado mora na `ui()` do álbum (`u.indiceAberto`), como todo estado de
+// navegação deste acervo: o card é REMONTADO a cada redesenho (o progresso de
+// um download, uma sincronização), e um estado guardado no nó morreria junto
+// com ele.
+//
+// **O TOQUE NUMA SEÇÃO ROLA ATÉ ELA — e antes disso GARANTE que ela exista.** A
+// lista chega de `COLL_PAGE` em `COLL_PAGE` por scroll: pedir "Despedida" (592)
+// com 100 linhas desenhadas rolaria até o fim de uma lista que ainda não tem o
+// destino. Por isso o `u.shown` é esticado até cobrir o número ANTES do
+// `scrollIntoView` — e o desfecho é o cabeçalho no topo da tela, não um pulo
+// para o vazio.
+function indiceDeSecoes(coll, u, lista) {
+  if (!window.AVHinario || !ehHinarioNovo(coll)) return null;
+  const cx = document.createElement('div');
+  cx.className = 'hino-indice' + (u.indiceAberto ? ' aberto' : '');
+
+  const barra = document.createElement('button');
+  barra.type = 'button';
+  barra.className = 'hino-indice-bar';
+  const rot = document.createElement('span'); rot.className = 'hino-indice-rot';
+  rot.textContent = 'Índice de temas';
+  const cnt = document.createElement('span'); cnt.className = 'hino-indice-cnt';
+  cnt.textContent = AVHinario.SECOES.length + ' seções';
+  barra.appendChild(rot); barra.appendChild(cnt);
+  barra.setAttribute('aria-expanded', u.indiceAberto ? 'true' : 'false');
+  cx.appendChild(barra);
+
+  const corpo = document.createElement('div');
+  corpo.className = 'hino-indice-corpo';
+  corpo.hidden = !u.indiceAberto;
+  for (const g of AVHinario.indice()) {
+    const t = document.createElement('div'); t.className = 'hino-indice-bloco';
+    t.textContent = g.bloco;
+    corpo.appendChild(t);
+    const grade = document.createElement('div'); grade.className = 'hino-indice-grade';
+    for (const sec of g.secoes) {
+      const b = document.createElement('button');
+      b.type = 'button'; b.className = 'hino-indice-chip';
+      const n = document.createElement('span'); n.className = 'hino-indice-chip-nome';
+      n.textContent = sec.nome;
+      const f = document.createElement('span'); f.className = 'hino-indice-chip-faixa';
+      f.textContent = sec.de === sec.ate ? String(sec.de) : sec.de + '–' + sec.ate;
+      b.appendChild(n); b.appendChild(f);
+      b.addEventListener('click', () => irParaSecao(coll, u, lista, sec.de));
+      grade.appendChild(b);
+    }
+    corpo.appendChild(grade);
+  }
+  cx.appendChild(corpo);
+
+  barra.addEventListener('click', () => {
+    u.indiceAberto = !u.indiceAberto;
+    cx.classList.toggle('aberto', u.indiceAberto);
+    corpo.hidden = !u.indiceAberto;
+    barra.setAttribute('aria-expanded', u.indiceAberto ? 'true' : 'false');
+    if (u.indiceAberto && !semMovimento()) requestAnimationFrame(() => expandAccordion(corpo));
+  });
+  return cx;
+}
+
+// Estica a lista até o hino pedido existir no DOM e rola até o cabeçalho dele.
+//
+// O `u.shown` é arredondado para cima em páginas inteiras: `fillSongList` é
+// incremental e a próxima página parte de `u.shown`, então um valor quebrado
+// deixaria a paginação seguinte fora do passo. E o `scrollIntoView` espera um
+// quadro — o `<li>` acabou de ser inserido e medir agora daria a posição
+// anterior.
+function irParaSecao(coll, u, lista, numero) {
+  const songs = collSongs(coll.id);
+  const alvo = songs.findIndex((x) => (x.track | 0) === numero);
+  if (alvo < 0) return;
+  const preciso = Math.ceil((alvo + 1) / COLL_PAGE) * COLL_PAGE;
+  if ((u.shown || 0) < preciso) {
+    u.shown = preciso;
+    fillSongList(lista, coll, u);
+  }
+  requestAnimationFrame(() => {
+    const cab = lista.querySelector('.hino-secao[data-secao="' + numero + '"]');
+    if (cab) cab.scrollIntoView({ block: 'start', behavior: semMovimento() ? 'auto' : 'smooth' });
+  });
+}
+
+// ===== OS TÍTULOS DE SEÇÃO NO MEIO DA LISTAGEM (v1.1.9) =====
+//
+// Pedido do operador: *"adicionar pequenos títulos no meio da listagem dos
+// hinos, para demarcar as divisões de temas"*.
+//
+// Quem sabe a seção de um número é `AVHinario` (a tabela pura, com oráculo). O
+// que mora AQUI é só a decisão de desenhar, e ela tem três guardas:
+//
+//  - **Só o hinário NOVO** (`ehHinarioNovo`): os números da tabela são os do
+//    2022. O de 1996 tem 613 hinos e outra organização — desenhar "Infantis"
+//    sobre o 508 dele seria um rótulo mentindo, que é o defeito que este
+//    recurso inteiro existe para não ter.
+//  - **Só quem COMEÇA uma seção** (`comecaSecao`), nunca "mudou em relação à
+//    linha anterior": a lista chega de 100 em 100 e a linha anterior nem sempre
+//    está no DOM — a comparação erraria exatamente na primeira linha de cada
+//    página, e erraria desenhando um cabeçalho a mais no meio de uma seção.
+//  - **Só na LISTA DO ÁLBUM**, não nos resultados de busca: ali as linhas vêm
+//    de coleções diferentes e fora de ordem, e um "A Trindade" sobre um
+//    resultado solto não demarca nada — afirma.
+//
+// `aria-hidden` não: o cabeçalho é conteúdo, e um leitor de tela que o pule
+// perde justamente a informação que ele acrescenta. É um `<li>` de propósito
+// (a lista é uma `<ul>`), com `role="presentation"` fora de questão pelo mesmo
+// motivo.
+function ehHinarioNovo(coll) { return !!coll && coll.id === HYMNAL_2022_ID; }
+
+function cabecalhoDeSecao(coll, s) {
+  if (!window.AVHinario || !ehHinarioNovo(coll)) return null;
+  const sec = AVHinario.comecaSecao(s && s.track);
+  if (!sec) return null;
+  const li = document.createElement('li');
+  li.className = 'hino-secao';
+  li.dataset.secao = String(sec.de);
+  // O NOME é o título; o BLOCO é a linha de cima, esmaecida — e ela só aparece
+  // quando muda, senão "A Doutrina da Vida Cristã" se repetiria cinco vezes
+  // seguidas dizendo a mesma coisa.
+  if (sec.de === (AVHinario.SECOES.find((x) => x.bloco === sec.bloco) || {}).de) {
+    const b = document.createElement('span'); b.className = 'hino-secao-bloco';
+    b.textContent = sec.bloco;
+    li.appendChild(b);
+  }
+  const n = document.createElement('span'); n.className = 'hino-secao-nome';
+  n.textContent = sec.nome;
+  li.appendChild(n);
+  // A FAIXA, à direita: é ela que responde "estou perto?" quando o operador
+  // rola procurando um número, que é como um hinário de verdade é folheado.
+  const f = document.createElement('span'); f.className = 'hino-secao-faixa';
+  f.textContent = sec.de === sec.ate ? String(sec.de) : sec.de + '–' + sec.ate;
+  li.appendChild(f);
+  return li;
 }
 
 // ===== Acordeões: a animação de altura =====
@@ -14284,7 +14439,7 @@ function sorteioCap() {
     // O HINÁRIO NOVO, e só ele: a faixa 508–557 dos infantis é a numeração DELE
     // (ver `AVSorteio.INFANTIL_DE`). O de 1996 numera outra coisa, e emprestar
     // estes números para lá recusaria cinquenta hinos escolhidos ao acaso.
-    ehHinarioNovo: (coll) => !!coll && coll.id === HYMNAL_2022_ID,
+    ehHinarioNovo,
     faixas: (coll) => collSongs(coll.id),
     letraCasa: (coll, s, q) => !!lyricMatch(coll, s, q),
     noAparelho: (coll, s, variante) => !!(variante === AVSorteio.VARIANTE_PLAYBACK

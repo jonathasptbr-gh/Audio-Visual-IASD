@@ -1,5 +1,13 @@
 [
   {
+    "versao": "1.1.9",
+    "itens": [
+      "O Hinário 2022 ganhou um Índice de temas no topo do álbum: toque numa seção e a lista pula até ela.",
+      "E os títulos das seções aparecem no meio da listagem — \"O Sábado\", \"Infantis\", \"Introito\" — para você saber onde está enquanto rola.",
+      "São as 35 divisões do hinário impresso, com a faixa de números de cada uma."
+    ]
+  },
+  {
     "versao": "1.1.8",
     "itens": [
       "A letra no telão nunca mais é cortada com \"...\": se a estrofe é longa, ela diminui de tamanho até caber inteira.",

@@ -24,6 +24,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
+- **v1.1.9** — O HINÁRIO GANHA AS SEÇÕES TEMÁTICAS QUE O BANCO NÃO TEM: `pt_hymnal` traz número, nome, duração e playback, e mais nada — o que identifica a seção de um hino é a POSIÇÃO dele, então a resposta é uma TABELA DE FAIXAS pura (35 seções, 8 blocos, transcritas do índice da CPB) com oráculo que trava a cobertura CONTÍGUA de 1 a 600. Índice fechado por padrão no topo do card, títulos intercalados na listagem, e o salto que estica a lista antes de rolar. A paginação conta `.hymn-result` e não os filhos — contar os filhos pularia um hino por cabeçalho. OTA PURO
 - **v1.1.8** — A LETRA DO TELÃO NUNCA MAIS É CORTADA COM RETICÊNCIAS: o `-webkit-line-clamp: 2` era a garantia de encaixe, e é a única resposta que um telão não pode dar — o verso que some é o que a congregação ia cantar. Quem garante agora é uma ESCALA medida por busca binária, com piso, `ResizeObserver` e as MESMAS proporções calibradas. Mais a SEGUNDA PORTA do redesenho que fecha a gaveta (a busca no YouTube, irmã do progresso de download da v1.1.2), o "Tocar agora" nascendo MARCADO onde a mídia é local, a caixa crescendo de 76×32 para 84×40cq, os botões do aviso dividindo a largura toda e o LINK COPIADO virando uma pergunta na abertura (`areaTransferencia`). `SHELL_VERSION` 48. EXIGE RELEASE
 - **v1.1.7** — O ESPELHAMENTO LEVA O SOM DO APARELHO INTEIRO, e não há API pública que isole: o `Presentation` isola a JANELA, e o áudio do Wi-Fi Display nasce de um `REMOTE_SUBMIX` sem parâmetro de display. O que resolve é o som não NASCER no celular — e por isso a APRESENTAÇÃO passa a chegar às telas da rede (uma `/m/` por página), fechando a dívida que impedia o telão por comandos de substituir o espelhamento num culto com sermão. Mais o `AbortController` sem guarda, que derrubava toda TV de 2018 na entrada. OTA PURO
 - **v1.1.6** — O TAMANHO DA LETRA PASSA A SER DO OPERADOR: um par A+/A− nas DUAS casas de leitura (a folha do avançado e a linha do nome do Modo Fácil), escada DISCRETA e o valor salvo no banco. E o respiro entre estrofes volta a ser DERIVADO — com a fonte ajustável, um respiro fixo valeria só no degrau em que foi escolhido. A metade que falharia calada é a memória, e ela tem oráculo com PÁGINA NOVA. OTA PURO
@@ -204,6 +205,96 @@ na nota que a revoga, não apagada da que a criou.
 - **v5.154** — é METADE OTA e METADE APK, e a divisão importa para quem for testar em aparelho.
 - **v5.155** — é OTA PURO
 - **v5.156** — é METADE OTA e METADE APK, de novo.
+
+---
+
+## v1.1.9 — As seções do hinário, que o banco não tem
+
+*"Vamos verificar se conseguimos algum registro de classificação dos hinos do
+novo hinário, pois ele tem agrupamentos internos como músicas infantis, a
+criação, crescimento em Cristo e diversas outras categorias. Eu gostaria de
+pesquisar quais as subdivisões e fazer um pequeno índice no início da lista do
+álbum do hinário. E adicionar pequenos títulos no meio da listagem dos hinos,
+para demarcar as divisões de temas."*
+
+**OTA PURO** (nada em `java/`, `res/` ou no manifest; `version.json` sem
+`shellTag`. O `apk.yml` muda, mas workflow é lido do repositório e não viaja no
+APK — mesma situação da v5.316).
+
+### A pergunta que precedeu o código: de onde vem o dado?
+
+**Do banco, não vem.** Verificado contra `docs/FONTE-DE-DADOS-LOUVORJA.md`:
+
+| fonte | o que traz | serve? |
+|---|---|---|
+| `pt_hymnal` | `id_music`, `track`, `name`, `duration`, `has_instrumental_music` | **não** — não há campo de tema |
+| `pt_categories` | categoria → álbum; a hierarquia é de DOIS níveis e só isso (sem subcategoria, sem `id_parent`) | **não** — é coletânea, não seção de hinário |
+| `music_{id}.albums[]` | os álbuns a que a MÚSICA pertence | não verificável — a rede externa é negada por política no ambiente deste lote |
+
+O índice existe publicado (`novohinario.cpb.com.br/doutrinas/`) e **o operador
+mandou o conteúdo**, o que foi o único caminho que restou: todos os hosts que o
+carregam são negados pelo proxy deste ambiente, e a busca — que ainda responde —
+**inventa números** quando pressionada. Ela produziu "A Trindade 1 a 10" com
+fonte nenhuma; o índice real diz **1 a 14**. Esse número quase virou tabela, e é
+a razão de nada aqui ter sido escrito de memória.
+
+### A tabela é o recurso, e o erro dela é MUDO
+
+`controle/hinario.js` é a terceira regra pura do Controle, ao lado de `serie.js`
+e `sorteio.js`: 35 faixas, 8 blocos, zero DOM, zero rede. Ela traduz NÚMERO em
+SEÇÃO e não sabe nada sobre coleção — quem responde "é o hinário novo?" é o
+`controle.js`.
+
+**Um limite digitado errado não quebra nada.** A lista continua completa, na
+ordem certa, e um cabeçalho passa a mentir sobre os hinos abaixo dele: sem erro
+de console, sem requisição falhando, sem teste de comportamento que note. Quem
+descobre é o operador, no sábado, com a congregação na frente.
+
+Por isso o `hinario.test.mjs` trava a única propriedade que pega isso: **a
+cobertura é CONTÍGUA de 1 a 600, sem lacuna e sem sobreposição** — encurtar uma
+faixa abre um buraco, esticá-la invade a vizinha, e as duas coisas são invisíveis
+olhando a tabela linha a linha. Mais a pergunta pelo outro lado (todo número cai
+em EXATAMENTE uma seção), as 18 pontas conferidas contra a transcrição, e a faixa
+infantil comparada com o `sorteio.js`.
+
+**A faixa infantil está nos DOIS arquivos, e a duplicação é deliberada.** Fazer
+um módulo puro importar outro para ler duas constantes trocaria uma duplicação
+VISÍVEL por um acoplamento INVISÍVEL; quem impede a divergência é o oráculo. Ele
+também afirma que o `sorteio.js` continua DECLARANDO as constantes — sem isso, o
+dia em que elas mudarem de nome a comparação vira um no-op silencioso.
+
+### As quatro decisões de tela
+
+- **O índice NASCE FECHADO.** São 35 seções: abertas, empurrariam os 600 hinos
+  para baixo de um paredão, todas as vezes — inclusive nas nove em dez em que o
+  operador já sabe o número que quer. É a regra da v1.1.4 um nível abaixo. O
+  estado mora na `ui()` do álbum, não no nó: o card é remontado a cada redesenho.
+- **O cabeçalho vem de `comecaSecao`, não de "mudou desde a linha anterior".** A
+  lista chega de 100 em 100 e a linha anterior nem sempre está no DOM — a
+  comparação erraria exatamente na primeira linha de cada página.
+- **A retomada da paginação conta `.hymn-result`, nunca os filhos da lista.** Os
+  cabeçalhos moram na MESMA `<ul>`: contá-los faria a página seguinte começar
+  adiantada, **pulando um hino por cabeçalho já desenhado**. Hinos sumindo do
+  meio da lista, sem erro nenhum. É o caso que o oráculo de tela pega, e foi
+  verificado por REVERSÃO — trocado por `lista.children.length`, ele reprova 3 de
+  22.
+- **O salto GARANTE a linha antes de rolar.** Pedir "Despedida" (592) com 100
+  linhas desenhadas rolaria até o fim de uma lista que ainda não tem o destino.
+
+### E o hinário de 1996 não recebe nada
+
+Os números são os do 2022. O de 1996 tem 613 hinos e outra organização, e um
+"Infantis" sobre o 508 DELE é o rótulo mentindo que este recurso inteiro existe
+para não ter — **e é o único desses defeitos que ninguém notaria olhando o
+hinário certo.** Daí ele ser um caso do oráculo, também verificado por reversão.
+
+### Duas coisas menores que caem daí
+
+`ehHinarioNovo` virou UMA função: a capacidade injetada no `sorteioCap` era uma
+segunda cópia da mesma comparação, escrita em linha. E `AVHinario` entrou no
+**watchdog de boot do OTA** no mesmo lote em que o arquivo nasce — um módulo novo
+do Controle que não esteja lá é um buraco novo naquele watchdog, e a v5.315
+custou uma versão inteira para fechar o buraco anterior.
 
 ---
 
