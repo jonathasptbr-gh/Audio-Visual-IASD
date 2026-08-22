@@ -170,7 +170,7 @@ const appVersionEl = document.getElementById('appVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.1.3';
+const WEB_VERSION = '1.1.4';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -455,19 +455,36 @@ let opfsFolders = [];      // [{id, name, count, syncedAt, handle?}] — pastas 
 // de MÓDULO e não classe no DOM, porque a lista é reconstruída a cada redesenho
 // — o progresso de um download a refaz a cada 400 ms.
 //
+// E DESDE A v1.1.4 ELE NEM ATRAVESSA A SESSÃO: `closeHymnSearch` chama
+// `resetarBiblioteca`, que devolve estes valores ao que estão escritos aqui. Os
+// dois lugares dizem a MESMA coisa de propósito — mudar o padrão é mudar as duas
+// linhas, e é por isso que os comentários se apontam.
+//
 // É UM NOME, NÃO UM CONJUNTO: um `Set` sabe escrever "duas abertas", e mantê-lo
 // longe disso exigiria uma guarda em cada escrita. Com um nome, esse estado
 // deixa de ser regra que alguém precisa lembrar — é frase que não dá para
-// escrever. `''` é legítimo: nenhuma coleção aberta é o normal de quem está
-// olhando os favoritos, que têm estado PRÓPRIO (`favAberto`) por não serem uma
-// coleção — são o atalho de quem já procurou antes.
+// escrever. `''` é legítimo — e desde a v1.1.4 é o ESTADO DE ABERTURA: os
+// Favoritos têm estado PRÓPRIO (`favAberto`) por não serem uma coleção (são o
+// atalho de quem já procurou antes), e nascem fechados como todo o resto.
 //
 // NASCE NO TOPO: é lido por um caminho de RENDER, e um `let` catorze mil linhas
 // abaixo é a zona morta temporal que já derrubou o app quatro vezes.
 let grupoAberto = '';
-// A seção dos Favoritos nasce ABERTA e é INDEPENDENTE do rodízio acima: abrir
-// uma coleção não a fecha. Booleano e não nome — ela é uma só.
-let favAberto = true;
+// A seção dos Favoritos é INDEPENDENTE do rodízio acima: abrir uma coleção não a
+// fecha. Booleano e não nome — ela é uma só.
+//
+// E ELA NASCE FECHADA (v1.1.4), como todo o resto. Pedido do operador: *"faça o
+// padrão da biblioteca ser os grupos todos fechados e compactados… atualmente os
+// favoritos vêm abertos, mas isso era antes de eu tirar de dentro dos grupos o
+// Provai e Vede e o Informativo das Missões, o que apertou o espaço disponível.
+// E futuramente haverá mais grupos"*.
+//
+// O `true` da v5.276 respondia a uma tela com DOIS cabeçalhos de coleção; hoje
+// são quatro cards fixos na raiz mais as seções, e cada série nova é mais uma
+// barra. A seção aberta reserva o vão (`--fav-vao`), e o vão é justamente o que
+// falta quando a lista de barras cresce — o padrão passou a gastar a tela com a
+// única coisa dali que o operador já sabe onde encontrar.
+let favAberto = false;
 // QUAL PASTA DO APARELHO está aberta — o id, ou `null`. Ela abre INLINE, como um
 // álbum, e precisa de estado que sobreviva ao redesenho da seção: favoritar um
 // arquivo de dentro dela redesenha os Favoritos. Um NOME e no topo, pelas mesmas
@@ -6938,8 +6955,9 @@ function renderCollectionsListMiolo(alvo, redesenhar, opts) {
     // diferentes disputando o mesmo interruptor.
     //
     // FECHAR UMA COLEÇÃO deixa `grupoAberto` VAZIO, e isso deixou de ser um
-    // estado a evitar: quem fechou o hinário está olhando os favoritos, que
-    // continuam abertos por conta própria.
+    // estado a evitar: é o estado em que a Biblioteca ABRE (v1.1.4), e os
+    // Favoritos respondem por conta própria — abrir ou fechar uma coleção não
+    // toca neles.
     const alternar = () => {
       const abrindo = !aberto;
       const aplicar = () => {
@@ -11560,6 +11578,46 @@ function openHymnSearch() {
   }, ABRIR_TECLADO_MS);
 }
 
+/**
+ * ===== A BIBLIOTECA VOLTA AO ESTADO PADRÃO AO FECHAR (v1.1.4) =====
+ *
+ * Pedido do operador: *"inclusive toda vez que fechar a biblioteca, reset para o
+ * estado padrão"*.
+ *
+ * O que ele resolve é ACÚMULO: `grupoAberto`, `favAberto`, `pastaAberta` e o
+ * `expanded` de cada card sobrevivem ao fechamento do popup — o nó é o mesmo
+ * entre uma abertura e a seguinte (a mesma razão do `scrollTop = 0` do
+ * `openHymnSearch`). Sem isto, a Biblioteca reabria com o hinário de 613 hinos
+ * escancarado de uma consulta de meia hora atrás, e o operador pagava dois
+ * toques para voltar a ver o índice. Com uma série nova a cada ano, a tela em
+ * que ele reabre é a que menos cabe.
+ *
+ * **É a única definição de "estado padrão" que existe**, e ela é a mesma que o
+ * módulo carrega: nada aberto. Escrever a lista de zeragens aqui e os valores
+ * iniciais lá em cima seria duas verdades sobre a mesma coisa — daí os
+ * comentários dos dois lados apontarem um para o outro.
+ *
+ * Por `collUI` e não por `allCollections()`: quem tem estado é o que já foi
+ * tocado, e esta função roda também durante a CARGA do módulo (via
+ * `renderSimpleGate` → `closeHymnSearch`), quando ainda não há catálogo.
+ */
+function resetarBiblioteca() {
+  grupoAberto = '';
+  favAberto = false;
+  pastaAberta = null;
+  // A animação de abertura é um RECADO de um toque que já não vale: reabrir a
+  // Biblioteca veria as seções "abrindo" sozinhas por um gesto de outra sessão.
+  gruposAnimar.clear();
+  for (const id of Object.keys(collUI)) {
+    const u = collUI[id];
+    u.expanded = false;
+    // A paginação zera junto, como no acordeão do card: reabrir um hinário que
+    // ficou rolado até o fim traria as 613 linhas de uma vez.
+    u.shown = 0;
+    u.animarAbertura = false;
+  }
+}
+
 function closeHymnSearch() {
   // O FOCO PENDENTE MORRE COM A TELA, e isto não é higiene: fechar a Biblioteca
   // dentro da janela do adiamento deixaria o `focus()` cair num campo que já
@@ -11568,6 +11626,10 @@ function closeHymnSearch() {
   clearTimeout(hymnFocoTimer);
   hymnFocoTimer = null;
   hymnSearchPopupEl.classList.remove('open');
+  // FECHAR é o momento certo, e não abrir: aqui a tela já saiu de cena, então
+  // nada do que se colapsa é visto colapsando. No `openHymnSearch` o mesmo
+  // trabalho apareceria como a Biblioteca se desmontando na frente do operador.
+  resetarBiblioteca();
 }
 
 // Duas telas no mesmo popup, e **o campo é a chave**: vazio = o ACERVO (as

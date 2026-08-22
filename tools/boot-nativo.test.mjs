@@ -97,6 +97,28 @@ function checar(cond, msg, obtido) {
 // (o contexto é o mesmo): ali "as duas séries têm índice" já é verdade antes de
 // a varredura começar, e a espera voltava na hora, para dentro da corrida.
 const SERIES = ['serie-provai-vede-2026', 'serie-informativo-missoes-2026'];
+// ===== A BIBLIOTECA COM A SEÇÃO DOS FAVORITOS ABERTA =====
+// Desde a v1.1.4 a Biblioteca abre TODA FECHADA (`resetarBiblioteca`), e uma
+// seção fechada **não constrói corpo** — `[data-fav-corpo]` simplesmente não
+// existe. Os casos que falam da seção (a pasta do aparelho, a gaveta de um
+// favorito, o par ↑↓, o vão) precisam dela ABERTA, e abri-la é montar o CENÁRIO
+// deles, não medir o padrão: o padrão tem caso próprio, lido verbatim do estado
+// que o módulo carrega.
+//
+// POR PÁGINA, e não uma vez: alguns blocos abrem documento próprio (`pg6`), e
+// uma função pendurada em `window` não atravessa navegação.
+//
+// Idempotente de propósito: há blocos que herdam a Biblioteca já aberta do
+// anterior, e reabri-la passaria pelo `closeHymnSearch` de quem fechou — que
+// agora zera o estado.
+const instalarCenarioFav = (pagina) => pagina.evaluate(() => {
+  window.__bibliotecaComFavoritos = () => {
+    if (!hymnSearchPopupEl.classList.contains('open')) openHymnSearch();
+    favAberto = true;
+    renderSearchResults('');
+  };
+});
+
 const esperarVarredura = (pagina) => pagina.waitForFunction((ids) => (
   collectionsRefreshing === false
     && ids.every((id) => {
@@ -287,6 +309,19 @@ try {
     deuPe = true;
   } catch (_) { deuPe = false; }
   checar(deuPe, 'O APP FICOU DE PÉ com a ponte presente (o critério do watchdog do OTA)');
+
+  // ===== A BIBLIOTECA COM A SEÇÃO DOS FAVORITOS ABERTA =====
+  // Desde a v1.1.4 a Biblioteca abre TODA FECHADA (`resetarBiblioteca`), e uma
+  // seção fechada **não constrói corpo** — `[data-fav-corpo]` simplesmente não
+  // existe. Os casos abaixo que falam da seção (a pasta do aparelho, a gaveta de
+  // um favorito, o par ↑↓) precisam dela ABERTA, e abri-la é montar o CENÁRIO
+  // deles, não medir o padrão: o padrão tem caso próprio, lido verbatim do
+  // estado que o módulo carrega.
+  //
+  // Idempotente de propósito: alguns blocos herdam a Biblioteca já aberta do
+  // anterior, e reabri-la ali passaria pelo `closeHymnSearch` de quem fechou,
+  // que agora zera o estado.
+  await instalarCenarioFav(pg);
 
   // A VARREDURA DA ABERTURA ASSENTA ANTES DO PRIMEIRO BLOCO DAS SÉRIES: daqui
   // para baixo nada mais compete com ela pelo diário. Ver `esperarVarredura`.
@@ -975,10 +1010,10 @@ try {
   await pg.evaluate(() => { window.__modoBiblioteca = appMode; setAppMode('full'); });
   const indice = await pg.evaluate(async () => {
     // O ESTADO PADRÃO, VERBATIM. Ele não é montado aqui de propósito: o que se
-    // afirma é o que o app trouxe da carga do módulo — os Favoritos abertos e
-    // NENHUMA coleção. Escrevê-lo aqui mediria a suposição do teste, não a
-    // decisão do app; e esta leitura ainda serve de guarda de que os casos
-    // acima devolveram o que tomaram emprestado.
+    // afirma é o que o app trouxe da carga do módulo — desde a v1.1.4, NADA
+    // aberto. Escrevê-lo aqui mediria a suposição do teste, não a decisão do
+    // app; e esta leitura ainda serve de guarda de que os casos acima
+    // devolveram o que tomaram emprestado.
     const padrao = { fav: favAberto, colecao: grupoAberto };
     // DUAS SEÇÕES DE ÁLBUM, semeadas aqui (v1.0.1). Este caso fala do RODÍZIO
     // — abrir uma fecha a outra —, e ele precisa de duas seções para existir.
@@ -1001,7 +1036,8 @@ try {
     };
     desenhar();
     const grupos = [...lista.querySelectorAll('.coll-group-name')].map((e) => e.textContent.trim());
-    // A SEÇÃO DOS FAVORITOS: aberta por padrão, e COLAPSÁVEL como as outras.
+    // A SEÇÃO DOS FAVORITOS: fechada por padrão (v1.1.4) e COLAPSÁVEL como as
+    // outras — o corpo dela não é construído até alguém tocar.
     const acharFav = () => [...lista.querySelectorAll('.coll-group')]
       .find((g) => /Favoritos/.test((g.querySelector('.coll-group-name') || {}).textContent || ''));
     const gFav = acharFav();
@@ -1015,7 +1051,9 @@ try {
     // ELA RESPONDE AO PRÓPRIO TOQUE, e só a ele (v5.276). A v5.273 a tinha feito
     // um no-op — ela era o piso do rodízio, e fechá-la deixaria a tela sem
     // nenhuma seção aberta. Fora do rodízio, o gesto volta a ser o de qualquer
-    // outra: fecha e reabre. A espera é generosa de propósito — o recolhimento é
+    // outra — e desde a v1.1.4 o primeiro toque ABRE, porque ela nasce fechada.
+    // As duas metades continuam sendo necessárias: sem a segunda, "colapsável"
+    // seria mão única. A espera é generosa de propósito — o recolhimento é
     // animado (`collapseAccordion`), e ler cedo aprovaria uma seção que fecha
     // meio segundo depois.
     const tocarFav = async () => {
@@ -1025,10 +1063,11 @@ try {
       await new Promise((r) => setTimeout(r, 400));
     };
     await tocarFav();
-    fav.fechaNoProprioToque = !!acharFav()
-      && !acharFav().classList.contains('aberto') && favAberto === false;
+    fav.abreNoProprioToque = !!acharFav()
+      && acharFav().classList.contains('aberto') && favAberto === true;
     await tocarFav();
-    fav.reabre = !!acharFav() && acharFav().classList.contains('aberto') && favAberto === true;
+    fav.fechaDeVolta = !!acharFav()
+      && !acharFav().classList.contains('aberto') && favAberto === false;
     // Daqui para baixo o caso é o do ÍNDICE, que fala dos grupos de coleção. A
     // referência de "fechado" é a tela como ela ABRE: os Favoritos (que não têm
     // card nenhum) e todas as coleções recolhidas.
@@ -1060,6 +1099,11 @@ try {
       await new Promise((r) => setTimeout(r, 400));
     };
     const doisGrupos = grupos.filter((n) => n !== 'Favoritos').slice(0, 2);
+    // A INDEPENDÊNCIA SÓ É OBSERVÁVEL COM A SEÇÃO ABERTA, e desde a v1.1.4 ela
+    // não nasce assim. Abri-la aqui MONTA o cenário da regra que vem a seguir
+    // (abrir uma coleção não a toca) — não mede o padrão, que já foi afirmado
+    // acima contra o estado verbatim da carga.
+    await tocarFav();
     await tocar(doisGrupos[0]);
     const aberto = {
       // A MESMA MEDIDA do `fechado`, e ela tem de ser a mesma: contar todos os
@@ -1093,7 +1137,7 @@ try {
     // Devolve o estado PADRÃO do app: os casos abaixo desenham a Biblioteca de
     // verdade, e deixá-la noutra seção seria emprestar a este arquivo um
     // comportamento que o app não tem.
-    grupoAberto = ''; favAberto = true;
+    grupoAberto = ''; favAberto = false;
     return { fechado, aberto, trocou, fav, doisGrupos };
   });
   // E DEVOLVE O MODO. O modo é global: os casos abaixo medem o Modo Fácil
@@ -1112,20 +1156,20 @@ try {
   // sendo a seção aberta de nascença, mas agora ela não se fecha quando outro
   // se abre; as coleções são concorrentes entre si, mas não com os favoritos"*.
   //
-  // São CINCO metades, e nenhuma basta sozinha: o padrão (senão a seção
-  // nasceria fechada como qualquer outra), o toque nela própria que a fecha E
-  // reabre (senão "colapsável" seria mão única), abrir uma coleção que NÃO a
-  // toca, o rodízio valendo entre coleções, e fechar a coleção aberta deixando
-  // a tela sem nenhuma — que a v5.273 proibia e agora é o estado normal.
-  checar(indice.fav.padrao.fav === true && indice.fav.padrao.colecao === '',
-    'o PADRÃO do app são os Favoritos abertos e NENHUMA coleção',
-    JSON.stringify(indice.fav.padrao));
-  checar(indice.fav.corpoVisivel,
-    'e é assim que a Biblioteca abre — os favoritos à vista, o resto fechado');
+  // São CINCO metades, e nenhuma basta sozinha: o padrão (que desde a v1.1.4 é
+  // NADA aberto), o toque nela própria que a abre E fecha (senão "colapsável"
+  // seria mão única), abrir uma coleção que NÃO a toca, o rodízio valendo entre
+  // coleções, e fechar a coleção aberta deixando a tela sem nenhuma — que a
+  // v5.273 proibia e agora é o estado normal.
+  checar(indice.fav.padrao.fav === false && indice.fav.padrao.colecao === '',
+    'o PADRÃO do app é a Biblioteca TODA FECHADA — nem os Favoritos, nem coleção '
+    + 'nenhuma', JSON.stringify(indice.fav.padrao));
+  checar(!indice.fav.corpoVisivel,
+    'e é assim que ela abre: só as barras, empilhadas e compactas');
   checar(indice.fav.temSeta,
     'ela tem a MESMA seta das outras seções, na thumb da barra');
-  checar(indice.fav.fechaNoProprioToque && indice.fav.reabre,
-    'o toque NELA a recolhe — e reabre, senão "colapsável" seria mão única');
+  checar(indice.fav.abreNoProprioToque && indice.fav.fechaDeVolta,
+    'o toque NELA a abre — e fecha de volta, senão "colapsável" seria mão única');
   checar(indice.aberto.favSegue && indice.aberto.abertas === 2,
     'abrir uma COLEÇÃO não a fecha: as duas ficam abertas, porque elas não '
     + 'disputam o mesmo interruptor', indice.aberto.abertas + ' aberta(s)');
@@ -1138,6 +1182,76 @@ try {
   checar(indice.aberto.cards > 0 && indice.aberto.construiu,
     'o toque no cabeçalho abre a seção e os cards aparecem',
     indice.aberto.cards + ' card(s)');
+
+  // ── FECHAR A BIBLIOTECA VOLTA AO ESTADO PADRÃO (v1.1.4) ───────────────────
+  // Pedido do operador: *"inclusive toda vez que fechar a biblioteca, reset para
+  // o estado padrão"*.
+  //
+  // O defeito que ele descreve é MUDO: o estado de navegação é de MÓDULO e o nó
+  // do popup é o MESMO entre uma abertura e a seguinte (a razão do
+  // `scrollTop = 0` do `openHymnSearch`), então a Biblioteca reabria com o
+  // hinário de 613 hinos escancarado de uma consulta de meia hora atrás. Nada
+  // erra alto — só a tela em que ela abre deixa de ser a tela que ela promete.
+  //
+  // DUAS METADES, e a primeira é o HAZARD: fechar SEM o reset — literalmente o
+  // que `closeHymnSearch` fazia até a v1.1.3 — deixa tudo de pé. Sem ela, a
+  // segunda provaria que uma função concorda consigo mesma.
+  const reset = await pg.evaluate(async () => {
+    const modoAntes = appMode;
+    setAppMode('full');
+    const catAntes = albumCatalog.categories;
+    const albAntes = albumCatalog.albums;
+    albumCatalog.categories = [{ name: 'Diversas', albums: [{ id_album: 900, name: 'Álbum X' }] }];
+    albumCatalog.albums = [albumCatalog.categories[0].albums[0]];
+    openHymnSearch();
+    await new Promise((r) => setTimeout(r, 250));
+    // SUJAR pelas mesmas variáveis que os toques escrevem: o que este caso mede
+    // é o RESET, e montar o cenário por cliques encadeados o faria depender das
+    // animações de três acordeões.
+    const alvo = allCollections()[0];
+    const sujar = () => {
+      favAberto = true;
+      grupoAberto = 'Diversas';
+      const u = ui(alvo.id);
+      u.expanded = true; u.shown = 100;
+    };
+    const ler = () => ({
+      fav: favAberto, colecao: grupoAberto, pasta: pastaAberta,
+      card: !!ui(alvo.id).expanded, pagina: ui(alvo.id).shown | 0,
+    });
+    sujar();
+    hymnSearchPopupEl.classList.remove('open');   // o fechar de ANTES da v1.1.4
+    openHymnSearch();
+    await new Promise((r) => setTimeout(r, 250));
+    const semReset = ler();
+    // E AGORA a porta de verdade.
+    sujar();
+    closeHymnSearch();
+    const comReset = ler();
+    openHymnSearch();
+    await new Promise((r) => setTimeout(r, 250));
+    const aoReabrir = Object.assign(ler(), {
+      abertas: hymnResultsEl.querySelectorAll('.coll-group--drop.aberto').length,
+      cards: hymnResultsEl.querySelectorAll('.hymnal-card.expanded').length,
+    });
+    closeHymnSearch();
+    albumCatalog.categories = catAntes; albumCatalog.albums = albAntes;
+    setAppMode(modoAntes);
+    return { semReset, comReset, aoReabrir, achouColecao: !!alvo };
+  });
+  checar(reset.achouColecao, 'há uma coleção com que medir o estado do card');
+  checar(reset.semReset.fav === true && reset.semReset.colecao === 'Diversas'
+    && reset.semReset.card === true,
+    'HAZARD: fechar sem o reset deixa TUDO de pé — a Biblioteca reabre na forma '
+    + 'da consulta anterior', JSON.stringify(reset.semReset));
+  checar(reset.comReset.fav === false && reset.comReset.colecao === ''
+    && reset.comReset.pasta === null && reset.comReset.card === false
+    && reset.comReset.pagina === 0,
+    'e `closeHymnSearch` devolve os QUATRO ao padrão: favoritos, coleção, pasta '
+    + 'e o card (com a paginação zerada)', JSON.stringify(reset.comReset));
+  checar(reset.aoReabrir.abertas === 0 && reset.aoReabrir.cards === 0,
+    'de modo que ela reabre desenhada como abre da primeira vez: nenhuma seção '
+    + 'e nenhum card expandidos', JSON.stringify(reset.aoReabrir));
   checar(indice.aberto.dentroDoCorpo,
     'dentro do CORPO do grupo — a lista virou árvore, não uma pilha com títulos');
   checar(indice.aberto.altura > indice.fechado.altura,
@@ -1157,9 +1271,9 @@ try {
     const rec = await AVDB.addMedia(new Blob(['x'], { type: 'audio/mpeg' }),
       { name: 'Louvor favorito de teste', list: 'favs' });
     await recarregarFavoritos();
-    // Só os Favoritos abertos — o PADRÃO do app (v5.262). Antes a linha era um
-    // `clear()` seco, com a nota "a seção é FIXA: não depende disto"; ela passou
-    // a depender, e um `clear()` a deixaria fechada e sem corpo para medir.
+    // A SEÇÃO ABERTA É O CENÁRIO DESTE CASO, não o padrão do app (que desde a
+    // v1.1.4 é fechada — ver `resetarBiblioteca`): tudo o que ele mede é o CORPO
+    // dela, e uma seção fechada não constrói corpo nenhum.
     grupoAberto = ''; favAberto = true;
     const lista = document.createElement('ul');
     lista.className = 'hymnal-list';
@@ -1379,7 +1493,7 @@ try {
     lista2.remove();
     favItems = guardados;
     lista.remove();
-    grupoAberto = ''; favAberto = true;
+    grupoAberto = ''; favAberto = false;
     await AVDB.listRemove('favs', rec.id);
     await recarregarFavoritos();
     return r;
@@ -1530,7 +1644,7 @@ try {
     }
     await AVDB.setState('opfs-folders', [{ id: 'pasta-inline', name: 'Vídeos do culto', count: 2 }]);
     await load();
-    if (!hymnSearchPopupEl.classList.contains('open')) openHymnSearch();
+    window.__bibliotecaComFavoritos();
     await new Promise((r) => setTimeout(r, 400));
     const corpo = document.querySelector('[data-fav-corpo]');
     const li = corpo && corpo.querySelector('.folder-opfs');
@@ -1617,6 +1731,15 @@ try {
       await new Promise((r) => setTimeout(r, 500));
     }
     const itens = [...li.querySelectorAll('.folder-itens > .lib-item')];
+    // E GARANTE OS ARQUIVOS FECHADOS, pela MESMA razão da linha acima: a
+    // afirmação é sobre a gaveta de um item FECHADO, e herdar do caso anterior
+    // um arquivo aberto a faz medir outra coisa — passando ou reprovando
+    // conforme a ordem em que os blocos rodaram.
+    for (const x of itens) {
+      if (!x.classList.contains('expanded')) continue;
+      x.querySelector('.row').click();
+      await new Promise((r) => setTimeout(r, 450));
+    }
     const alt = (el) => Math.round(el.getBoundingClientRect().height);
     const r = {
       // 1. A GAVETA DE UM ITEM FECHADO NÃO APARECE. Era a faixa preta embaixo de
@@ -1759,7 +1882,7 @@ try {
       { name: 'Favorito solto', type: 'audio/mpeg', kind: 'audio', list: 'favs' });
     await AVDB.setState('opfs-folders', [{ id: 'pw1', name: 'Pasta W', count: 1 }]);
     await load();
-    if (!hymnSearchPopupEl.classList.contains('open')) openHymnSearch();
+    window.__bibliotecaComFavoritos();
     await new Promise((r) => setTimeout(r, 450));
     const corpo = () => document.querySelector('[data-fav-corpo]');
     const nomes = () => [...corpo().querySelectorAll('.fav-itens > .lib-item .row-name')]
@@ -1853,7 +1976,7 @@ try {
     // tela no modo em que ela não vive.
     const modoAntes = appMode;
     setAppMode('full');
-    openHymnSearch();
+    window.__bibliotecaComFavoritos();
     await new Promise((r) => setTimeout(r, 250));
     const secao = () => document.querySelector('#hymnResults [data-fav-corpo]');
     const antes = !!secao() && /Favorito ao vivo/.test(secao().textContent);
@@ -1903,7 +2026,7 @@ try {
   const vao = await pg.evaluate(async () => {
     const modoAntes = appMode;
     setAppMode('full');
-    openHymnSearch();
+    window.__bibliotecaComFavoritos();
     await new Promise((r) => setTimeout(r, 250));
     // A BIBLIOTECA DO OPERADOR, e a fidelidade aqui é o caso inteiro: são OITO
     // seções nos prints dele, e é isso que torna o vão pequeno o bastante para
@@ -2071,7 +2194,7 @@ try {
     const aoReabrir = hymnResultsEl.scrollTop;
     albumCatalog.categories = []; albumCatalog.albums = [];
     delete collState[hin.id]; ui(hin.id).expanded = false;
-    grupoAberto = ''; favAberto = true;
+    grupoAberto = ''; favAberto = false;
     closeHymnSearch();
     setAppMode(modoAntes);
     return { rolou, aoReabrir };
@@ -2104,6 +2227,9 @@ try {
       albums: [{ id_album: 700 + i, name: 'Álbum ' + nome }],
     }));
     albumCatalog.albums = albumCatalog.categories.map((c) => c.albums[0]);
+    // Os Favoritos ABERTOS são cenário deste caso (o padrão da v1.1.4 é
+    // fechado): a segunda metade da asserção é que a ALTURA deles não muda ao
+    // abrir uma coleção, e uma seção fechada não tem altura a comparar.
     grupoAberto = ''; favAberto = true;
     hymnResultsEl.innerHTML = '';   // `renderCollectionsList` ACRESCENTA (v5.232)
     renderCollectionsList(hymnResultsEl, () => renderSearchResults(''), { semTotal: true });
@@ -2136,7 +2262,7 @@ try {
       altFavDepois: secao('Favoritos').getBoundingClientRect().height,
     };
     albumCatalog.categories = []; albumCatalog.albums = [];
-    grupoAberto = ''; favAberto = true;
+    grupoAberto = ''; favAberto = false;
     closeHymnSearch();
     setAppMode(modoAntes);
     return r;
@@ -2409,7 +2535,7 @@ try {
     + (lx ? Math.round(lx.larg) + 'px contra ' + Math.round(lx.largVerificar) + 'px' : '?') + ')');
   await pg.evaluate(() => {
     allCollections().forEach((c) => { ui(c.id).expanded = false; });
-    grupoAberto = ''; favAberto = true;
+    grupoAberto = ''; favAberto = false;
     redesenharAcervo();
   });
 
@@ -3070,6 +3196,7 @@ try {
   await pg6.goto(`http://127.0.0.1:${porta}/controle/`, { waitUntil: 'load' });
   await pg6.waitForFunction(() => window.AVDB && typeof window.__avBack === 'function',
     null, { timeout: 20000 });
+  await instalarCenarioFav(pg6);
 
   const fav = await pg6.evaluate(async () => {
     setAppMode('full');
@@ -3081,7 +3208,7 @@ try {
       ids.push(m.id);
     }
     await load();
-    openHymnSearch();
+    window.__bibliotecaComFavoritos();
     await new Promise((r) => setTimeout(r, 400));
     const corpo = document.querySelector('[data-fav-corpo]');
     const li = corpo && corpo.querySelector('.lib-item[data-id="' + ids[0] + '"]');
@@ -3626,7 +3753,7 @@ try {
     await AVDB.setState('opfs-folders',
       [{ id: 'pasta-renomear', name: 'Vídeos do culto', count: 2 }]);
     await load();
-    if (!hymnSearchPopupEl.classList.contains('open')) openHymnSearch();
+    window.__bibliotecaComFavoritos();
     await new Promise((res) => setTimeout(res, 400));
     const corpoFav = document.querySelector('[data-fav-corpo]');
     const liPasta = corpoFav && corpoFav.querySelector('.folder-opfs');

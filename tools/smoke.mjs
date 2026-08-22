@@ -850,20 +850,32 @@ try {
 // arquivo. Ela não é apagada em lugar nenhum — quem a apagasse devolveria as 26
 // reprovações que ela existe para evitar.
 const SECAO = 'Álbuns de exemplo';
+// ELA É REAPLICÁVEL, e desde a v1.1.4 tem de ser: `closeHymnSearch` devolve a
+// Biblioteca ao estado padrão (`resetarBiblioteca`), e `setAppMode('full')` —
+// que quase todo bloco abaixo chama — passa por ele. O `expanded` do álbum, que
+// esta semente escrevia UMA vez para o arquivo inteiro, morria ali; o terceiro
+// degrau da escada (o card DENTRO da seção) deixava de existir e as medidas
+// viravam `AUSENTE`.
+//
+// A semente do CATÁLOGO continua valendo para o arquivo todo — o que precisa ser
+// reposto é só o estado de ABERTURA, que agora é transiente por decisão do app.
 await pg.evaluate((nome) => {
-  albumCatalog.categories = [{ name: nome,
-    albums: [{ id_album: 77, name: 'Álbum de exemplo' }] }];
-  albumCatalog.albums = [{ id_album: 77, name: 'Álbum de exemplo' }];
-  // COM ESTADO E ABERTO: a escada de tons tem TRÊS degraus (folha → seção →
-  // card) e o terceiro só existe se houver um card DENTRO da seção. Um álbum
-  // vazio desenharia a seção e mais nada.
-  const songs = [];
-  for (let i = 1; i <= 4; i++) {
-    songs.push({ id_music: 's' + i, name: 'Faixa de exemplo ' + i, track: i,
-      has_instrumental_music: false, duration: '3:20' });
-  }
-  collState['album-77'] = { indexSyncedAt: Date.now(), songs };
-  ui('album-77').expanded = true; ui('album-77').shown = 100;
+  window.__semearSecao = () => {
+    albumCatalog.categories = [{ name: nome,
+      albums: [{ id_album: 77, name: 'Álbum de exemplo' }] }];
+    albumCatalog.albums = [{ id_album: 77, name: 'Álbum de exemplo' }];
+    // COM ESTADO E ABERTO: a escada de tons tem TRÊS degraus (folha → seção →
+    // card) e o terceiro só existe se houver um card DENTRO da seção. Um álbum
+    // vazio desenharia a seção e mais nada.
+    const songs = [];
+    for (let i = 1; i <= 4; i++) {
+      songs.push({ id_music: 's' + i, name: 'Faixa de exemplo ' + i, track: i,
+        has_instrumental_music: false, duration: '3:20' });
+    }
+    collState['album-77'] = { indexSyncedAt: Date.now(), songs };
+    ui('album-77').expanded = true; ui('album-77').shown = 100;
+  };
+  window.__semearSecao();
 }, SECAO);
 
 try {
@@ -876,6 +888,7 @@ try {
         has_instrumental_music: false, duration: '3:47' });
     }
     collState[c.id] = { indexSyncedAt: Date.now(), songs, isHymnal: true };
+    window.__semearSecao();   // o `setAppMode` acima passou pelo reset (v1.1.4)
     grupoAberto = 'Álbuns de exemplo';
     ui(c.id).expanded = true; ui(c.id).shown = 100;
     // Uma lista PRÓPRIA e VISÍVEL, com a largura de um celular: dentro do popup
@@ -1007,6 +1020,7 @@ for (const tema of ['escuro', 'claro']) {
           has_instrumental_music: false, duration: '3:47' });
       }
       collState[c.id] = { indexSyncedAt: Date.now(), songs, isHymnal: true };
+      window.__semearSecao();   // o `setAppMode` acima passou pelo reset (v1.1.4)
       grupoAberto = 'Álbuns de exemplo';
       ui(c.id).expanded = true; ui(c.id).shown = 100;
       // A LISTA PRECISA MORAR NA FOLHA DE VERDADE (v5.267): o tom de cada nível
@@ -1361,6 +1375,7 @@ for (const tema of ['escuro', 'claro']) {
       // precisaria em relação à quantidade e altura necessária para os itens"*.
       // O vão é dos Favoritos; uma coleção que o tomasse ficaria com meia tela
       // de fundo vazio embaixo de dois cards.
+      window.__semearSecao();   // o `setAppMode` acima passou pelo reset (v1.1.4)
       grupoAberto = 'Álbuns de exemplo';
       hymnResultsEl.innerHTML = '';   // `renderCollectionsList` ACRESCENTA (v5.232)
       renderCollectionsList(hymnResultsEl, () => {}, { semTotal: true });
@@ -1650,6 +1665,7 @@ try {
     lista.className = 'hymnal-list';
     lista.style.width = '390px';
     document.body.appendChild(lista);
+    window.__semearSecao();   // o `setAppMode` acima passou pelo reset (v1.1.4)
     grupoAberto = 'Álbuns de exemplo';
     renderCollectionsList(lista, () => {}, { semTotal: true });
     const linha = lista.querySelector('.coll-songs > .hymn-result');
@@ -1760,6 +1776,7 @@ try {
     const lista = document.createElement('ul');
     lista.className = 'hymnal-list'; lista.style.width = '390px';
     document.body.appendChild(lista);
+    window.__semearSecao();   // o `setAppMode` acima passou pelo reset (v1.1.4)
     grupoAberto = 'Álbuns de exemplo';
     renderCollectionsList(lista, () => {}, { semTotal: true });
     // DENTRO DA SEÇÃO ABERTA (v1.0.1): a gaveta é comparada com a FAIXA VIZINHA
@@ -2021,6 +2038,7 @@ try {
     collState[c.id] = { indexSyncedAt: Date.now(), isHymnal: true,
       songs: [1, 2, 3].map((i) => ({ id_music: 'a' + i, name: 'Hino ' + i, track: i,
         has_instrumental_music: false, duration: '3:47' })) };
+    window.__semearSecao();   // o `setAppMode` acima passou pelo reset (v1.1.4)
     grupoAberto = 'Álbuns de exemplo'; favAberto = false;
     ui(c.id).expanded = !!ab; ui(c.id).shown = 100;
     redesenharAcervo();
@@ -2147,6 +2165,7 @@ try {
           fileIdFull: (completo || i < 3) ? 'f' + i : null });
       }
       collState[c.id] = { indexSyncedAt: Date.now(), songs, isHymnal: true };
+      window.__semearSecao();   // o `setAppMode` acima passou pelo reset (v1.1.4)
       grupoAberto = 'Álbuns de exemplo';
       ui(c.id).expanded = aberto; ui(c.id).shown = 100;
       const lista = document.createElement('ul');

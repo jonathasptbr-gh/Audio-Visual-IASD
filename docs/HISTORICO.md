@@ -24,6 +24,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
+- **v1.1.4** — A BIBLIOTECA ABRE TODA FECHADA, E FECHÁ-LA A DEVOLVE AO PADRÃO: o `favAberto = true` da v5.276 respondia a uma tela com dois cabeçalhos, e hoje cada série nova é mais uma barra disputando o vão. O estado de navegação é de MÓDULO e o nó do popup é o MESMO entre uma abertura e a seguinte — sem o reset, ela reabria com o hinário de 613 hinos escancarado de meia hora atrás. Mais a LETRA da música em cena dobrando de tamanho. OTA PURO
 - **v1.1.3** — A COLUNA DA TELA CHEIA GANHA FOLGA DAS BORDAS: os 10px que a v1.1.2 não deu. Ela herdou os 2px dos `.pv-fabs` dos cantos, e o território é outro — aqueles moram numa miniatura onde 2px custam mídia visível; em tela cheia o que sobra é espaço, e encostado na borda o alvo divide lugar com a moldura arredondada e com o recorte da câmera. OTA PURO
 - **v1.1.2** — QUATRO AJUSTES PEDIDOS: a coluna da tela cheia ocupa a lateral inteira (centrada, ela era um bloco de 250px numa tela em paisagem), ganha botão de 40px e PERDE o par de volume — os botões físicos já entregam ao mesmo fader, se acham no escuro e não esperam os 4s da coluna acender (vão de 2px → ~46px); o ✕ de PARAR da notificação vira o quadrado que a ação é — `android.R.drawable` não tem um ícone de parar, e o ✕ se lia como "dispensar"; e o redesenho do progresso de um download deixa de remontar a Biblioteca por baixo da gaveta que o operador acabou de abrir — o caso do relato acontecia DENTRO do `await` da montagem, e o toque simplesmente não fazia nada. EXIGE RELEASE
 - **v1.1.1** — AS IMAGENS DOS SLIDES PASSAM A SER O PADRÃO: o app nascia em "Remover" e o hino saía em texto sobre preto — escondendo imagens que já vinham baixadas com a música. O padrão morava em QUATRO lugares, e dois deles eram leituras que normalizavam tudo que não fosse `'image'` para preto: virar só a inicialização se desfaria no primeiro `load()`. Mais o reenvio à tela da rede, que só acertava por coincidência enquanto o padrão era preto. OTA PURO
@@ -201,6 +202,88 @@ na nota que a revoga, não apagada da que a criou.
 - **v5.156** — é METADE OTA e METADE APK, de novo.
 
 ---
+
+## v1.1.4 — a Biblioteca abre toda fechada (e fechá-la a devolve ao padrão); a letra dobra
+
+Dois pedidos do operador, independentes.
+
+### 1. O PADRÃO DA BIBLIOTECA É TUDO FECHADO
+
+*"Faça o padrão da biblioteca ser os grupos todos fechados e compactados.
+Inclusive toda vez que fechar a biblioteca, reset para o estado padrão.
+Atualmente os favoritos vêm abertos, mas isso era antes de eu tirar de dentro
+dos grupos o Provai e Vede e o Informativo das Missões, o que apertou o espaço
+disponível. E futuramente haverá mais grupos, portanto já estou preparando para
+não ter espaço para os favoritos ficarem abertos por padrão."*
+
+Ele está desfazendo uma decisão pela razão que a produziu. O `favAberto = true`
+nasceu na v5.276, quando a Biblioteca tinha DOIS cabeçalhos de coleção e sobrava
+tela; desde a v1.0.1 as coleções fixas são cards da RAIZ — quatro barras que
+existem sempre — e cada série nova é mais uma. A seção aberta **reserva** o vão
+(`--fav-vao`), e o vão é exatamente o que falta quando a lista de barras cresce:
+o padrão passou a gastar a tela com a única coisa dali que o operador já sabe
+onde encontrar.
+
+### E O ESTADO NÃO ATRAVESSA MAIS O FECHAMENTO
+
+`grupoAberto`, `favAberto`, `pastaAberta` e o `expanded`/`shown` de cada card são
+estado de MÓDULO, e o nó do popup é o MESMO entre uma abertura e a seguinte — é a
+mesma propriedade que obrigou o `scrollTop = 0` do `openHymnSearch`. Sem reset, a
+Biblioteca reabria com o hinário de 613 hinos escancarado de uma consulta de meia
+hora atrás, e o operador pagava dois toques para voltar a ver o índice.
+
+`resetarBiblioteca` roda **no fechar, não no abrir**: ali a tela já saiu de cena,
+e nada do que se colapsa é visto colapsando. Ela zera também o `gruposAnimar` —
+uma animação de abertura é o recado de um toque que já não vale, e reabrir a
+Biblioteca veria as seções "abrindo" sozinhas por um gesto de outra sessão.
+
+**Duas verdades sobre a mesma coisa, e elas se apontam:** o padrão está escrito
+nos valores iniciais no topo do arquivo E na função de reset. Mudar o padrão é
+mudar as duas linhas, e é por isso que os comentários dos dois lados se citam.
+
+### O ORÁCULO, E O QUE ELE OBRIGOU A ARRUMAR
+
+O caso novo tem DUAS metades, e a primeira é o HAZARD: fechar sem o reset —
+literalmente o que `closeHymnSearch` fazia até a v1.1.3 — deixa tudo de pé. Sem
+ela, a segunda provaria que uma função concorda consigo mesma.
+
+E o padrão novo derrubou **onze** asserções do `boot-nativo`, todas pela mesma
+causa: uma seção fechada **não constrói corpo**, então `[data-fav-corpo]` deixou
+de existir e os casos da pasta do aparelho, da gaveta de um favorito e do par ↑↓
+morriam num `null`. A correção não foi afrouxá-los — foi separar CENÁRIO de
+PADRÃO: nasce `instalarCenarioFav`, que abre a Biblioteca com a seção dos
+Favoritos aberta porque é disso que aqueles casos falam, enquanto o padrão passa
+a ser afirmado num caso próprio, lido verbatim do estado que o módulo carrega.
+Ela é instalada POR PÁGINA (o bloco dos Favoritos abre documento próprio, e uma
+função em `window` não atravessa navegação).
+
+Um deles estava **dependendo da ordem dos blocos** sem dizer: "a gaveta de um
+arquivo FECHADO não aparece" herdava do caso anterior os arquivos fechados. Ele
+passou a garantir a própria precondição, que é o que o bloco já fazia para a
+pasta e explicava em comentário.
+
+### 2. A LETRA DA MÚSICA EM CENA DOBRA DE TAMANHO
+
+*"Pode dobrar o tamanho da fonte nos campos de leitura de letra das músicas que
+estão sendo transmitidas. Atual está muito pequeno e só sobrando espaço lateral
+na linha."*
+
+MEDIDO: a `.95rem` uma linha de hino ("Firme nas promessas do meu Salvador", 35
+caracteres) cabe inteira numa tela de 412px e ainda sobra largura. A `1.9rem` ela
+ocupa a largura e **quebra em duas** — e o preço fica escrito na folha, porque é
+real: a quebra acrescenta uma linha visual que a música não tem, e num texto em
+que o fim da linha é parte do que se canta isso se nota. O que decide a favor é
+para que o campo existe: ler de relance, com o aparelho no suporte e a atenção na
+congregação.
+
+`--lv-fonte` é TOKEN e não literal por duas razões que não são estilo: o respiro
+entre estrofes é derivado dele (uma linha — preso ao valor antigo, a fronteira
+mediria menos que uma linha e duas estrofes encostariam), e a `.lv-row` tem DOIS
+consumidores, a folha de leitura do avançado e a zona de letra do Modo Fácil.
+
+Os RÓTULOS sobem menos (1,05–1,1rem contra 0,7–0,78rem): a capa, o "Estrofe 2" e
+o número do versículo são metadado, e dobrá-los junto faria um deles ficar maior
+que a letra que o campo existe para mostrar.
 
 ## v1.1.3 — a coluna da tela cheia ganha a folga das bordas
 
