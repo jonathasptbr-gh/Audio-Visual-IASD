@@ -524,5 +524,35 @@ secao('11. a busca escolhe por parentesco');
     'álbum em branco não muda a consulta');
 }
 
+// ── 12. OS ARTISTAS PADRÃO (os CDs oficiais e os do ano) ────────────────────
+// Os álbuns do acervo são dezenas ("Missão", "Salmos", "Adoradores"…) e no site
+// caem todos sob a coleção **Ministério Jovem**. Como a URL ali é DEDUZÍVEL do
+// nome, ela vale uma tentativa própria — uma requisição, sem ranking de ninguém
+// escolhendo por nós —, entre o catálogo e a busca genérica.
+//
+// A ÂNCORA é uma URL REAL conferida à mão, como a do hinário na seção 1:
+//   https://www.cifraclub.com.br/ministerio-jovem/meu-farol/
+// Sem ela, esta seção provaria só que a função concorda com quem a escreveu.
+secao('12. artistas padrão');
+{
+  checar(C.urlsPadrao('Meu Farol')[0] === 'https://www.cifraclub.com.br/ministerio-jovem/meu-farol/',
+    'a URL do Ministério Jovem bate com a página real', C.urlsPadrao('Meu Farol')[0]);
+  checar(C.urlsPadrao('Em Oração')[0] === 'https://www.cifraclub.com.br/ministerio-jovem/em-oracao/',
+    'e o slug tira o acento como no hinário', C.urlsPadrao('Em Oração')[0]);
+  checar(C.urlsPadrao('').length === 0, 'nome vazio não produz URL nenhuma');
+  checar(C.urlsPadrao('Meu Farol').length === C.ARTISTAS_PADRAO.length,
+    'uma URL por artista padrão — a lista é o que manda, não um caso especial');
+
+  // O DESEMPATE NA BUSCA: um resultado sob o artista padrão é, por definição, de
+  // um CD oficial. Ele sobe mesmo sem o álbum do acervo bater com nada.
+  const html = [
+    '<a href="/outro-artista-marcador/meu-farol/">Meu Farol</a>',
+    '<a href="/ministerio-jovem/meu-farol/">Meu Farol</a>',
+  ].join('');
+  const ord = C.ordenarBusca(C.lerBusca(html), 'Meu Farol', '');
+  checar(ord.length === 2, 'os dois continuam na lista — o padrão desempata, não filtra', ord.length);
+  checar(/ministerio-jovem/.test(ord[0].url), 'e o do artista padrão vem primeiro', ord[0].url);
+}
+
 console.log('\n' + (falhas.length ? falhas.length + ' FALHA(S)' : 'tudo certo'));
 process.exit(falhas.length ? 1 : 0);

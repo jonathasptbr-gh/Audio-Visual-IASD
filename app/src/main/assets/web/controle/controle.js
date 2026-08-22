@@ -237,7 +237,7 @@ const appVersionEl = document.getElementById('appVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.1.22';
+const WEB_VERSION = '1.1.23';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -9670,7 +9670,21 @@ function cifraGarantir(item) {
       tentativas.push('direta ' + direta + ' → ' + desfecho.motivo);
     }
 
-    // 2ª TENTATIVA: a busca do site. Ela cobre o "qualquer música" E o hino cujo
+    // 2ª TENTATIVA: os ARTISTAS PADRÃO. Os CDs oficiais e os do ano estão sob a
+    // coleção "Ministério Jovem" do site, e ali a URL é DEDUZÍVEL do nome — uma
+    // requisição, sem ranking de ninguém escolhendo por nós, que é a mesma razão
+    // pela qual o catálogo vem antes da busca. Errar custa um 404 e a busca roda
+    // em seguida como sempre.
+    if (!desfecho.ok && desfecho.motivo !== AVCifra.MOTIVO_ILEGIVEL) {
+      for (const u of AVCifra.urlsPadrao(nome)) {
+        url = u;
+        desfecho = await cifraPedir(u);
+        tentativas.push('padrão ' + u + ' → ' + desfecho.motivo);
+        if (desfecho.ok || desfecho.motivo === AVCifra.MOTIVO_ILEGIVEL) break;
+      }
+    }
+
+    // 3ª TENTATIVA: a busca do site. Ela cobre o "qualquer música" E o hino cujo
     // nome no acervo não bate com o do site — mas NÃO cobre o `ilegivel`: ali a
     // página existe e o parser é que não a entendeu, e repetir a mesma leitura
     // por outro caminho só troca o motivo certo por um errado.
