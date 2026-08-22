@@ -232,7 +232,7 @@ const appVersionEl = document.getElementById('appVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.1.10';
+const WEB_VERSION = '1.1.11';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -4645,20 +4645,30 @@ function provedorDeTextoNoAr() {
 }
 
 /**
- * ===== O SELO DE CAMADAS APARECE SÓ COM DUAS COISAS NO AR =====
+ * ===== O SELO DE CAMADAS É PADRÃO DE TODA CAMADA DE TEXTO (v1.1.11) =====
  *
- * As DUAS condições, e nenhuma basta: uma Camada de Texto projetando E mídia no
- * ar por baixo dela. Sem a segunda ele apareceria sobre um versículo sozinho —
- * e ali não há camada de cima nenhuma a encerrar, o Parar já é a resposta certa
- * e o selo estaria oferecendo um caminho a mais para o mesmo desfecho.
+ * UMA condição: há Camada de Texto projetando. Ele **não** pergunta mais se há
+ * mídia por baixo.
  *
- * `midiaNoAr` e não `playing`: um louvor PAUSADO para a oração continua sendo a
- * cena por baixo, e é exatamente o caso em que perder o áudio junto com o texto
- * mais dói. É a mesma régua de `audioNoAr` e do reenvio de cena.
+ * A regra anterior exigia as duas coisas, com o argumento de que sobre um
+ * versículo sozinho não há camada a encerrar e o Parar já resolveria. O
+ * argumento estava errado por duas razões, e as duas são do operador:
+ *
+ *  - **O botão sumia justamente onde ele é mais procurado.** Bíblia, mensagem e
+ *    cronômetro são projetados o tempo todo SEM música por baixo, e ali o selo
+ *    simplesmente não existia — o mesmo gesto funcionava ou não conforme algo
+ *    que não tem relação nenhuma com o texto na tela.
+ *  - **Um controle que aparece e some conforme o contexto é um controle que
+ *    ninguém aprende.** Se ele é a saída da Camada de Texto, ele é a saída
+ *    SEMPRE; que a camada de baixo seja um louvor ou o wallpaper não muda o que
+ *    o toque faz nem o que o operador quis.
+ *
+ * `encerrarCamadaDeCima` já estava certo para os dois casos: cada provedor sai
+ * pela própria porta e o que houver por baixo — áudio ou wallpaper — fica.
  */
 function renderCamadaBtn() {
   if (!pvCamadaBtnEl) return;
-  pvCamadaBtnEl.hidden = !(cenaDeRoteiroNoAr() && midiaNoAr);
+  pvCamadaBtnEl.hidden = !cenaDeRoteiroNoAr();
 }
 
 /**
@@ -9141,12 +9151,27 @@ let lvSig = '';           // assinatura do conteúdo já renderizado (ver lvSign
 
 // Fontes disponíveis AGORA, na mesma ordem de precedência da tela.
 function lyricsViewSources() {
+  // ===== A BÍBLIA NO AR É EXCLUSIVA (v1.1.11) =====
+  //
+  // Pedido do operador: *"quando temos uma música, termos apenas letra e cifra
+  // disponível, e quando está no ar a bíblia, automaticamente fica só a
+  // bíblia"*.
+  //
+  // Com um louvor de fundo durante a leitura, as três fontes coexistiam e o
+  // seletor virava três abas — mas quem está lendo a Bíblia em voz alta não vai
+  // consultar a cifra do louvor de fundo no mesmo minuto. A pergunta que o
+  // leitor auxiliar responde é "o que está em cena AGORA?", e com a Bíblia
+  // projetando a resposta é uma só.
+  //
+  // É PROJEÇÃO, nunca a existência da sessão: um capítulo aberto e fora do ar
+  // não rouba a folha da música que está tocando — ele volta lá embaixo, na
+  // reserva, que é o caso da última linha desta função.
+  if (bibleSession && bibleSession.projecting
+      && bibleSession.verses && bibleSession.verses.length) return ['bible'];
+
   const list = [];
   const lyrics = currentItem && Array.isArray(currentItem.lyrics) ? currentItem.lyrics : null;
   if (lyrics && lyrics.length) list.push('lyrics');
-  // A sessão de leitura basta (mesmo fora do ar): o capítulo está em cena para
-  // o operador, que é justamente quem lê aqui.
-  if (bibleSession && bibleSession.verses && bibleSession.verses.length) list.push('bible');
   // A CIFRA vem por ÚLTIMA, e isso é a precedência inteira: `lvActiveSource`
   // devolve a primeira da lista quando o operador não escolheu, e a aba que
   // abre sozinha tem de ser a letra — quem opera o culto está lendo a letra, e
@@ -9158,6 +9183,10 @@ function lyricsViewSources() {
   // duas fontes, e esta apareceria sempre, empurrando um botão morto para a
   // frente do operador em toda música.
   if (window.__NATIVE__ && cifraNomeDoItem(currentItem)) list.push('cifra');
+  // A RESERVA: sem música em cena, um capítulo aberto (mesmo fora do ar) ainda
+  // é o que o operador tem para ler — e é o que ele foi buscar ao abrir esta
+  // folha. Só não disputa com a música, que é o ponto da regra acima.
+  if (!list.length && bibleSession && bibleSession.verses && bibleSession.verses.length) list.push('bible');
   return list;
 }
 
@@ -9512,15 +9541,25 @@ function lvBuildCifra(el) {
   });
   el.appendChild(folha);
 
-  // A ORIGEM, dita e clicável. Ela responde "de onde veio isto?" — e o toque
-  // leva à página inteira, que tem o que a aba não traz (vídeo-aula, outras
-  // versões). `openExternal` porque o WebView recusa navegar para outro origin.
+  // A ORIGEM, dita e clicável — mas COMO LINK, no rodapé, à direita.
+  //
+  // Ela era um botão de corpo inteiro no fim da folha, e cobrava altura de uma
+  // caixa cuja única função é mostrar texto: *"está cortando absurdamente a
+  // área disponível para o texto"*. O peso de um botão prometia uma ação
+  // principal, e esta é a menos principal da aba — quem abre a cifra quer LER a
+  // cifra; ir ao site é o caminho de quem não achou o que queria.
+  //
+  // No FIM do conteúdo que rola, não fixo no rodapé da folha: fixo, ele
+  // cobraria a mesma altura que acabou de ser devolvida ao texto.
+  const rodape = document.createElement('div');
+  rodape.className = 'lv-cifra-rodape';
   const fonte = document.createElement('button');
   fonte.type = 'button';
-  fonte.className = 'lv-cifra-abrir';
+  fonte.className = 'lv-cifra-link';
   fonte.textContent = 'Ver no Cifra Club';
   fonte.addEventListener('click', () => { if (entrada.url) AVNative.openExternal(entrada.url); });
-  el.appendChild(fonte);
+  rodape.appendChild(fonte);
+  el.appendChild(rodape);
 }
 
 // Desenha as estrofes da música em cena dentro de `el`, destacando `cur`.
