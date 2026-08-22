@@ -24,6 +24,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
+- **v1.1.5** — A LETRA RECUA PARA 1.4rem E O RESPIRO ENCOLHE: no dobro, TODA linha de hino quebrava em duas. E o respiro entre estrofes deixa de ser DERIVADO da fonte — "uma linha em branco" custava 2,1rem, e o custo virou rolagem em vez de tipografia. O piso que sobrevive (e que o oráculo passa a travar) é a ENTRELINHA da própria estrofe. OTA PURO
 - **v1.1.4** — A BIBLIOTECA ABRE TODA FECHADA, E FECHÁ-LA A DEVOLVE AO PADRÃO: o `favAberto = true` da v5.276 respondia a uma tela com dois cabeçalhos, e hoje cada série nova é mais uma barra disputando o vão. O estado de navegação é de MÓDULO e o nó do popup é o MESMO entre uma abertura e a seguinte — sem o reset, ela reabria com o hinário de 613 hinos escancarado de meia hora atrás. Mais a LETRA da música em cena dobrando de tamanho. OTA PURO
 - **v1.1.3** — A COLUNA DA TELA CHEIA GANHA FOLGA DAS BORDAS: os 10px que a v1.1.2 não deu. Ela herdou os 2px dos `.pv-fabs` dos cantos, e o território é outro — aqueles moram numa miniatura onde 2px custam mídia visível; em tela cheia o que sobra é espaço, e encostado na borda o alvo divide lugar com a moldura arredondada e com o recorte da câmera. OTA PURO
 - **v1.1.2** — QUATRO AJUSTES PEDIDOS: a coluna da tela cheia ocupa a lateral inteira (centrada, ela era um bloco de 250px numa tela em paisagem), ganha botão de 40px e PERDE o par de volume — os botões físicos já entregam ao mesmo fader, se acham no escuro e não esperam os 4s da coluna acender (vão de 2px → ~46px); o ✕ de PARAR da notificação vira o quadrado que a ação é — `android.R.drawable` não tem um ícone de parar, e o ✕ se lia como "dispensar"; e o redesenho do progresso de um download deixa de remontar a Biblioteca por baixo da gaveta que o operador acabou de abrir — o caso do relato acontecia DENTRO do `await` da montagem, e o toque simplesmente não fazia nada. EXIGE RELEASE
@@ -202,6 +203,48 @@ na nota que a revoga, não apagada da que a criou.
 - **v5.156** — é METADE OTA e METADE APK, de novo.
 
 ---
+
+## v1.1.5 — a letra recua para 1.4rem, e o respiro entre estrofes encolhe
+
+*"Deixa a letra em 1.4rem então, e pode reduzir o espaço entre as estrofes."*
+
+A resposta a ter VISTO a v1.1.4 no aparelho. O dobro (`1.9rem`) entregou o que o
+pedido dizia — a largura passou a ser usada — e cobrou o que aquela nota já
+anunciava como preço: **toda** linha de hino quebrando em duas. A `1.4rem` a
+maior parte ainda quebra, e a diferença que importa é outra: MEDIDO em 412×892,
+quatro estrofes cabem na folha onde antes cabiam duas.
+
+### O RESPIRO DEIXA DE SER DERIVADO DA FONTE
+
+Esta é a parte que revoga uma regra, e ela merece o parágrafo.
+
+`--lv-estrofe-gap` era **uma linha da letra** (fonte × 1,5), e o argumento era
+bom: é literalmente o que a fonte codifica — o banco separa estrofes com
+`<br><br>`. Ele valia enquanto a letra media `.95rem`, onde a linha em branco
+custava 1,4 rem. Com `1.4rem` de letra a mesma regra pede 2,1 rem, e aí o custo
+deixa de ser tipográfico e passa a ser **rolagem**: numa tela de celular, três
+estrofes empurram a quarta para fora. Hoje são **1,2 rem**, decididos.
+
+**O que NÃO foi revogado**, e é o que o token existe para garantir: as TRÊS
+fronteiras continuam iguais entre si (o `gap` da folha, o `gap` do Modo Fácil e o
+`margin-top` entre dois blocos dentro de um slide). O defeito da v5.225 — duas
+estrofes mais juntas que o miolo de uma — continua impossível de escrever.
+
+### E O ORÁCULO TROCA DE PISO, NÃO DE DEFEITO
+
+`tools/smoke.mjs` travava *"a fronteira vale ao menos uma LINHA"*. Essa asserção
+media a regra que acabou de ser revogada — mantê-la reprovaria o pedido, e
+apagá-la deixaria o caminho sem piso nenhum.
+
+O piso novo é o que sempre importou de verdade: **a fronteira acrescenta mais
+branco que a ENTRELINHA da própria estrofe** (`line-height` − corpo da letra).
+Abaixo disso, uma fronteira de estrofe fica MENOS visível que uma quebra de linha
+comum — que é a v5.225 outra vez, com outro número. Medido: 19,2 px de fronteira
+contra 11,2 px de entrelinha.
+
+E continua sendo a REGRA e não o pixel, pela razão de sempre: escrever o valor
+faria o oráculo reprovar na próxima mudança de fonte — que é exatamente o que
+este lote é.
 
 ## v1.1.4 — a Biblioteca abre toda fechada (e fechá-la a devolve ao padrão); a letra dobra
 
