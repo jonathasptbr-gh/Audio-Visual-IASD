@@ -24,6 +24,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
+- **v1.1.24** — O MICROFONE, VERIFICADO NOS QUATRO MODELOS DE PROJEÇÃO: ele funciona com TV espelhando e em mais nenhum — e sem TV o botão acendia "No ar" sem nada estar captando, porque `micPressed` é escrito no `pointerdown` e sem `Presentation` ninguém responde `mic-status`. A recusa entra ANTES do pedido de permissão do Android: pedir o microfone para uma ação que não pode funcionar é queimar a única permissão sensível do app. Mais a guarda que um comentário prometia desde a v5.187 e que nunca existiu — o comando `mic` DESCE para toda tela da rede sem filtro, e o que impedia o desfecho era o ambiente (`getUserMedia` é `[SecureContext]`), não o app; proteção emprestada do navegador é proteção com prazo, e o `EspelhoCert` continua inteiro no shell. O oráculo FORJA `navigator.mediaDevices` para medir o dia em que houver TLS. OTA PURO
 - **v1.1.23** — OS CDs OFICIAIS TÊM ENDEREÇO DEDUZÍVEL, E ELE NÃO ESTAVA SENDO USADO: os álbuns do acervo são dezenas e no Cifra Club caem todos sob a coleção **Ministério Jovem** — a mesma forma do `CATALOGO` dos hinários, sem uma coleção do acervo para mapear. Vira uma tentativa própria entre o catálogo e a busca, pela razão que ordena as três: ali a URL sai do NOME da música, e é uma requisição sem ranking de ninguém escolhendo por nós. Errar custa um 404 (a busca roda em seguida como sempre, nenhum caminho regride) e o Registro imprime a tentativa verbatim, então um slug renomeado aparece em toda música e se conserta por OTA. O mesmo artista vira DESEMPATE na busca, e esse não depende de o nome do álbum do acervo bater com nada. OTA PURO
 - **v1.1.22** — A BUSCA DE CIFRA CAÍA NO ÍNDICE ALFABÉTICO DO SITE: ela pegava o PRIMEIRO link de dois segmentos da página de resultados, e a navegação do site também é link de dois segmentos — e mora no cabeçalho, portanto vem ANTES de qualquer resultado no HTML. MEDIDO num aparelho: "Em Oração" devolveu 27 resultados e o escolhido foi `/letra/A/`, que respondeu HTTP 200 com 398 kB e virou `ilegivel` — o diagnóstico certo para a pergunta errada. A defesa NÃO é uma lista de rotas de terceiro (ela envelhece sozinha): é exigir PARENTESCO entre o texto do resultado e o nome procurado, com zero sendo RECUSA e não último lugar. O álbum entra como desempate e como segundo tento de consulta, nunca como filtro nem na primeira consulta — ele é o álbum, não o artista do site. OTA PURO No mesmo relato: os controles da folha ROLAVAM COM O TEXTO (o pausar saía de cena em segundos, e alcançá-lo exigia rolar de volta ao topo, brigando com a rolagem que se queria parar) e a rolagem TREMIA — ~0,37 px por quadro escritos como inteiro andam 1 px a cada três quadros e param nos outros dois; a posição passou a ser nossa e fracionária.
 - **v1.1.21** — A SÉRIE DEIXA DE FINGIR QUE GUARDA ARQUIVO: os episódios só existem enquanto estão no Cronograma, nos Favoritos ou na playlist, então o card perde o baixar em lote, a lixeira E o peso em gigabytes que prometia um download inexistente. Sobra UM botão puro — atualizar a lista — onde ficava o excluir. E o episódio DESTE SÁBADO sai da lista e vira um bloco destacado no topo, com "Aguardando lançamento" quando ainda não saiu; a janela é a semana adventista (domingo a sábado), não o dia exato. De quebra: o relógio congelado de um caso do `boot-nativo` VAZAVA para o contexto inteiro e prendia a página principal em 15/Ago. OTA PURO
@@ -219,6 +220,95 @@ na nota que a revoga, não apagada da que a criou.
 - **v5.154** — é METADE OTA e METADE APK, e a divisão importa para quem for testar em aparelho.
 - **v5.155** — é OTA PURO
 - **v5.156** — é METADE OTA e METADE APK, de novo.
+
+---
+
+## v1.1.24 — o microfone, verificado nos quatro modelos de projeção
+
+Pedido: *"verifique a função do microfone, que deveria enviar o áudio para
+qualquer que seja o modelo de transmissão"*. A verificação achou três coisas, e
+duas delas eram silenciosas por construção.
+
+### O QUE O MICROFONE FAZ HOJE, POR MODELO
+
+| modelo | funciona? | por quê |
+|---|---|---|
+| TV por espelhamento | **sim** | capta na `Presentation`, sai na mistura de mídia do celular, e o espelhamento a leva à PA |
+| sem tela nenhuma | **não — e o botão dizia que sim** | sem TV o `syncPresentation` não cria `Presentation`; ninguém executa `display.js`, ninguém consome o comando |
+| só telas da rede | **não** | elas rodam em `http://`, e `getUserMedia` é `[SecureContext]` |
+| TV + telas | pela TV | as telas tentavam e falhavam mudas |
+
+### O BOTÃO MENTIA, E ERA A CLASSE MAIS CARA DE DEFEITO
+
+`renderMicUI` acende com `micOn || micPressed`, e `micPressed` é escrito no
+`pointerdown`, **antes de qualquer confirmação**. Sem TV ninguém responde
+`mic-status`, então `micError` fica vazio e a nota de diagnóstico não aparece: o
+operador segura o botão, lê **"No ar"** em vermelho, e nada está captando. Nada
+erra, nada quebra, ninguém descobre.
+
+A recusa entra **antes do pedido de permissão do Android**, e a ordem é o ponto:
+pedir o microfone para uma ação que não pode funcionar é gastar — talvez queimar
+— a única permissão sensível deste app. É a mesma razão pela qual o pedido já não
+morava na abertura.
+
+A pergunta é `haOndeReproduzirMic()`, e ela pergunta pela **TV**, nunca por
+`simpleDisplay()`: as telas da rede contam como projeção para todo o resto e
+**não contam para isto**. No navegador o Display é outra janela, aberta à mão, e
+ali a resposta otimista continua sendo a certa.
+
+### A GUARDA QUE UM COMENTÁRIO PROMETIA HÁ 33 VERSÕES
+
+Dentro de `startMic` havia nove linhas explicando que uma segunda instância de
+`/display/` sai antes de emitir status, "o que mantém o telão dono dessa
+informação". **Não havia saída nenhuma** — depois do comentário vinha
+`const seq = ++micSeq;`. Ele descrevia o papel `espelho`, removido na v5.187
+junto com a constante que o comentário testava.
+
+E o comando `mic` **desce para toda tela da rede**, verbatim: o `difundirJson`
+não lê tipo (só o `__para` do reenvio endereçado) e o `entregar()` do `tela.js`
+também não. O que impedia o desfecho era o ambiente, não o app: `getUserMedia`
+não existe em `http://`.
+
+**Proteção emprestada do navegador é proteção com prazo.** Ela se desfaz sozinha
+no dia em que a transmissão subir em `https://` — o `EspelhoCert` continua
+inteiro no shell, e o que saiu na v5.196 foi só a folha que o alimentava. Nesse
+dia, o primeiro push-to-talk pediria o microfone **de cada aparelho da rede**.
+
+O estrago não seria o que parece, e vale dizer para ninguém dimensioná-lo errado:
+**nenhum áudio atravessa a rede aqui**. O comando é `{type:'mic', on}` e mais
+nada; uma tela abriria o microfone *dela* e o devolveria às caixas *dela*. Não é
+"a tela do saguão fala com a voz do púlpito" — é realimentação local num aparelho
+que ninguém está olhando.
+
+Hoje é `if (TELA) return` no topo do `setMic`, com oráculo que **forja**
+`navigator.mediaDevices` — medindo a tela como se já estivesse em contexto
+seguro, que é exatamente o cenário que a guarda existe para cobrir.
+
+### E DUAS COISAS SOBRE O PRÓPRIO MÉTODO
+
+O bloco de cabeçalho do `display.js` descrevia, no presente, uma constante
+`ESPELHO` que não existe em lugar nenhum — e o comentário do `TELA` logo abaixo
+se apoiava nele ("a mesma regra de escrita do ESPELHO acima"). Os dois foram
+reescritos como um só.
+
+E o oráculo do botão precisou de duas correções para medir o que promete: a ponte
+de mentira **negava** `requestMic`, e um `PointerEvent` sintético **não
+estabelece captura de ponteiro** — o handler saía na guarda de "já soltou",
+antes da guarda de telão. Com os dois consertados, as três asserções reprovam na
+reversão; sem eles, duas passavam por um motivo que não era o delas.
+
+### O QUE ESTE LOTE NÃO FAZ
+
+Não faz o microfone chegar às telas da rede. Isso não é um ajuste: `getUserMedia`
+e `AudioWorklet` são os dois `[SecureContext]`, então a captura teria de ser no
+celular e o áudio teria de ser TRANSPORTADO — e o projeto já construiu
+exatamente isso (AAC no mesmo fluxo chunked, `AudioWorklet` → `EspelhoAudio.kt` →
+fMP4 → MSE) e **removeu na v5.187**, depois de uma auditoria em que o áudio era o
+defeito dominante e permanente. Também não grava mensagem de voz: o
+`ControleChromeClient` nega TODA permissão de mídia (`request.deny()`
+incondicional), então gravar no Controle custa uma Release.
+
+OTA PURO — `minShell` 49, sem `shellTag`.
 
 ---
 
