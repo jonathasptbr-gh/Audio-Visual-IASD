@@ -104,6 +104,18 @@
   var token = '';
   var vivo = false;
   var abortar = null;
+
+  // O `AbortController` é de Chromium 66, e as telas da rede são NAVEGADORES
+  // DE TV: Tizen 5.0 (Samsung 2018) é Chromium 63, webOS 4.x (LG 2018) é 53.
+  // Sem guarda, o `new AbortController()` lança `ReferenceError` DENTRO do
+  // `conectar()` — a tela fica presa na entrada, num domingo, sem nada na tela
+  // que aponte a causa. Sem ele o `fetch` vai sem `signal`: o fio não é cortado
+  // na hora, mas o laço de reconexão continua inteiro, que é a degradação
+  // certa. Mesmo padrão do `shared/mse.js`.
+  function abortador() {
+    return (typeof AbortController === 'function') ? new AbortController() : null;
+  }
+  function sinalDe(ac) { return ac ? ac.signal : undefined; }
   var tentativa = 0;
   var ultimoByteMs = 0;
   var fioMudo = false;
@@ -261,7 +273,7 @@
   // nunca viaja numa URL), com o AbortController e o vigia de fio herdados.
   // --------------------------------------------------------------------------
   async function conectar() {
-    var ac = new AbortController();
+    var ac = abortador();
     abortar = ac;
     fioMudo = false;
     var resp;
@@ -269,7 +281,7 @@
       resp = await fetch('/e', {
         headers: { Authorization: 'Bearer ' + token },
         cache: 'no-store',
-        signal: ac.signal,
+        signal: sinalDe(ac),
       });
     } catch (e) {
       return fioMudo ? 'fio mudo' : 'rede';
@@ -451,15 +463,15 @@
 
   async function postar(corpo) {
     if (!token) return;
-    var ac = new AbortController();
-    var t = setTimeout(function () { ac.abort(); }, PRAZO_POST_MS);
+    var ac = abortador();
+    var t = setTimeout(function () { if (ac) try { ac.abort(); } catch (e) { /* já caiu */ } }, PRAZO_POST_MS);
     try {
       var r = await fetch('/r', {
         method: 'POST',
         headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
         body: JSON.stringify(corpo),
         cache: 'no-store',
-        signal: ac.signal,
+        signal: sinalDe(ac),
       });
       // MUDO de propósito: não há código a digitar desde a v5.189 (a porta é o
       // ENDEREÇO), a reentrada é sozinha, e o KDoc do `cairToken` diz que isto

@@ -1026,7 +1026,7 @@
              pedir ajuda"), e agora ocupam a mesma faixa: a versão à esquerda, o
              Registro à direita, no espaço que já estava sobrando. -->
         <div class="footer-diag">
-          <span id="appVersion" class="app-version">Controle v1.1.5</span>
+          <span id="appVersion" class="app-version">Controle v1.1.6</span>
           <span class="footer-diag-rot">Registro</span>
           <button id="diagCopy" class="log-copy" title="Copiar o registro" aria-label="Copiar o registro">
             <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoCopiar"/></svg>
@@ -1100,7 +1100,14 @@
       <div class="mirror-body" id="castConn">
         <button type="button" id="castMirrorBtn" class="cast-acao">
           <svg class="cast-acao-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoEspelhar"/></svg>
-          <span class="cast-acao-txt"><b id="castMirrorLabel">Conectar uma TV</b></span>
+          <!-- A LINHA AUXILIAR SÓ EXISTE COM UMA TV NO AR, e diz a única coisa
+               que o espelhamento faz e o operador não escolheu: ele leva o som
+               do aparelho INTEIRO. Não é preferência nem estado do app — é
+               consequência do Android, que roteia áudio por APARELHO e não por
+               tela, e por isso não tem interruptor. Ela mora no próprio botão
+               pela mesma razão que o "Conectado: …" mora (v5.196): é onde a
+               decisão é tomada, e é para onde o olho já foi. -->
+          <span class="cast-acao-txt"><b id="castMirrorLabel">Conectar uma TV</b><small id="castMirrorNota" hidden></small></span>
         </button>
 
         <!-- A SEGUNDA FORMA DE CONECTAR, e ela é o BOTÃO IRMÃO do de cima
