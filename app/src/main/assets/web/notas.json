@@ -1,5 +1,12 @@
 [
   {
+    "versao": "1.1.6",
+    "itens": [
+      "A letra agora tem A+ e A− para você escolher o tamanho — no alto da folha de letra e, no Modo Fácil, ao lado do nome da música.",
+      "O tamanho escolhido fica salvo: o app abre nele na próxima vez."
+    ]
+  },
+  {
     "versao": "1.1.5",
     "itens": [
       "A letra da música em cena fica num tamanho intermediário — grande, mas com menos linhas quebrando ao meio.",

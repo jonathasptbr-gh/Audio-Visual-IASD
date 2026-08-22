@@ -192,7 +192,18 @@
          e as teclas. Mesmas linhas (.lv-row) da leitura auxiliar do modo
          avançado, com o mesmo destaque e o mesmo acompanhamento automático. -->
     <div class="simple-song">
-      <div class="simple-np" id="simpleNpName">Nada tocando</div>
+      <!-- A linha do nome hospeda o par A+/A− (v1.1.6). Ele mora AQUI e não
+           dentro da caixa da letra por uma razão de altura: naquele modo a
+           letra é a tela inteira, e um controle dentro dela custaria linhas
+           lidas. O nome continua centrado — o par é absoluto e a folga é
+           reservada dos DOIS lados. -->
+      <div class="simple-np-linha">
+        <div class="simple-np" id="simpleNpName">Nada tocando</div>
+        <div class="lv-fonte-ctl">
+          <button type="button" class="lv-fonte-btn lv-fonte-menos" title="Diminuir a letra" aria-label="Diminuir a letra">A&#8722;</button>
+          <button type="button" class="lv-fonte-btn lv-fonte-mais" title="Aumentar a letra" aria-label="Aumentar a letra">A+</button>
+        </div>
+      </div>
       <!-- Linha do tempo da música: decorrido, barra e duração. É só LEITURA —
            neste modo não se arrasta nada (o volume também virou tecla); quem
            precisa saltar no tempo usa o modo avançado. Some quando o que está
@@ -1026,7 +1037,7 @@
              pedir ajuda"), e agora ocupam a mesma faixa: a versão à esquerda, o
              Registro à direita, no espaço que já estava sobrando. -->
         <div class="footer-diag">
-          <span id="appVersion" class="app-version">Controle v1.1.5</span>
+          <span id="appVersion" class="app-version">Controle v1.1.6</span>
           <span class="footer-diag-rot">Registro</span>
           <button id="diagCopy" class="log-copy" title="Copiar o registro" aria-label="Copiar o registro">
             <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoCopiar"/></svg>
@@ -1250,6 +1261,14 @@
           <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoTexto"/></svg>
         </span>
         <span class="popup-title" id="lyricsPopupTitle">Letra</span>
+        <!-- A+ / A− : o tamanho da letra, ajustado ONDE ela é lida. Ver
+             `passoTamanhoDaLetra` — a escada é discreta, o valor é salvo e as
+             DUAS casas (esta folha e a zona de letra do Modo Fácil) mostram o
+             mesmo par porque mexem no mesmo token. -->
+        <div class="lv-fonte-ctl">
+          <button type="button" class="lv-fonte-btn lv-fonte-menos" title="Diminuir a letra" aria-label="Diminuir a letra">A&#8722;</button>
+          <button type="button" class="lv-fonte-btn lv-fonte-mais" title="Aumentar a letra" aria-label="Aumentar a letra">A+</button>
+        </div>
         <button id="lyricsPopupClose" class="popup-close" title="Fechar"><span class="msym" aria-hidden="true">&#xe14c;</span></button>
       </div>
       <!-- Só aparece quando há letra E texto bíblico em cena ao mesmo tempo. -->

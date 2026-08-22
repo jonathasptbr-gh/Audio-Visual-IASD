@@ -1088,8 +1088,20 @@ mixer (`#lyricsViewBtn`, folha com linhas) abre um bottom-sheet **com scroll**
   acontece de verdade com um louvor de fundo durante a leitura. Com uma fonte
   só, ela abre direto, sem um seletor de uma opção. A escolha manual (`lvSource`)
   vale enquanto aquela fonte existir; sumindo, cai na disponível.
-- **A LETRA É GRANDE, e isso é `--lv-fonte`** (`1.4rem`, contra `.95rem` até a
-  v1.1.3). Pedido do operador: *"pode dobrar o tamanho da fonte nos campos de
+- **O TAMANHO DA LETRA É DO OPERADOR** (v1.1.6): um par **A+ / A−** no cabeçalho
+  desta folha **e** na linha do nome do Modo Fácil — duas casas, um estado, o
+  token `--lv-fonte`. *"Aproveite para criar dois botões de A+ e A− nestas seções
+  de letras… sendo é claro o tamanho salvo na memória do app."* A escada é
+  DISCRETA (`LV_TAMANHOS`, de `1rem` a `2.4rem`) e não um fator: dois toques em
+  A+ chegam sempre no mesmo lugar, um percentual acumularia erro e produziria
+  medidas que ninguém escolheu. Nos extremos o botão **desabilita** em vez de
+  sumir — sumir mudaria a largura do cabeçalho a cada toque. O valor vai para
+  `state.lyricsFont` e é relido no `load()`, ao lado de `fit` e `rotate`; a
+  metade que falharia calada é essa, e ela tem oráculo próprio no
+  `boot-nativo.test.mjs` (uma página NOVA, porque o que se afirma é a ABERTURA
+  seguinte). O ouvinte é UM, delegado por classe: uma terceira casa entra sem
+  tocar no JS.
+- **O PADRÃO É `1.4rem`** (contra `.95rem` até a v1.1.3). Pedido do operador: *"pode dobrar o tamanho da fonte nos campos de
   leitura de letra das músicas que estão sendo transmitidas; atual está muito
   pequeno e só sobrando espaço lateral na linha"*. Ele descreve a MEDIDA: a
   `.95rem` uma linha de hino de 35 caracteres cabia inteira numa tela de 412px
@@ -1113,12 +1125,18 @@ mixer (`#lyricsViewBtn`, folha com linhas) abre um bottom-sheet **com scroll**
   uma. A estrutura por baixo estava inteira desde a v5.42; o que a desmentia era
   o par de medidas.
 
-  **De onde vem o NÚMERO mudou na v1.1.5** (*"pode reduzir o espaço entre as
-  estrofes"*). Ele era "uma linha em branco" — literalmente o que a fonte
-  codifica (`<br><br>`) —, e o argumento valia enquanto a letra media `.95rem`,
+  **O FATOR mudou na v1.1.5** (*"pode reduzir o espaço entre as estrofes"*). Ele
+  era "uma linha em branco" — literalmente o que a fonte codifica (`<br><br>`),
+  isto é, fonte × 1,5 —, e o argumento valia enquanto a letra media `.95rem`,
   onde a linha custava 1,4 rem. Com `1.4rem` de letra a mesma regra pediria
   2,1 rem e o custo deixa de ser tipográfico: numa tela de celular, três estrofes
-  empurram a quarta para fora. Hoje são **1,2 rem**, decididos.
+  empurram a quarta para fora.
+
+  **Continua DERIVADO da fonte** (`calc(var(--lv-fonte) * .86)`), e desde a
+  v1.1.6 isso é obrigatório: com o operador ajustando a fonte, um respiro fixo
+  valeria só no degrau em que foi escolhido — no maior empataria com a entrelinha
+  e a fronteira sumiria, no menor sobraria branco. `.86` é a razão que a v1.1.5
+  aprovou olhando (1,2 / 1,4) e dá ~1,7× a entrelinha em qualquer degrau.
 
   **O piso continua sendo o que sempre importou**, e é ele que `tools/smoke.mjs`
   trava: a fronteira acrescenta mais branco que a ENTRELINHA da própria estrofe
