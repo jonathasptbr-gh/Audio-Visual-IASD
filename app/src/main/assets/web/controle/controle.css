@@ -44,11 +44,19 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
      Decisão do operador (*"pode reduzir o espaço entre as estrofes"*).
 
      O PISO CONTINUA SENDO O QUE ELE SEMPRE FOI: a fronteira precisa medir
-     visivelmente MAIS que o vão entre duas linhas da MESMA estrofe (a `1.4rem`
-     com `line-height: 1.5`, ~0,7rem de entrelinha), senão duas estrofes
-     encostam e o `<br><br>` some da tela. `1.2rem` é ~1,7× esse vão. */
+     visivelmente MAIS que o vão entre duas linhas da MESMA estrofe
+     (`line-height: 1.5` menos o corpo da letra = metade dela), senão duas
+     estrofes encostam e o `<br><br>` some da tela.
+
+     E ELE VOLTA A SER DERIVADO na v1.1.6, agora que o operador AJUSTA a fonte
+     (o par A+/A−): um respiro fixo em `1.2rem` valeria só no degrau em que foi
+     escolhido — no maior da escada ele empataria com a entrelinha e a fronteira
+     sumiria; no menor sobraria branco. O fator `.86` é a razão que a v1.1.5
+     aprovou olhando (1,2 / 1,4), e é ~1,7× a entrelinha em QUALQUER degrau.
+     Derivar não desfaz a v1.1.5: o que ela revogou foi o fator 1.5 ("uma linha
+     em branco"), não a derivação. */
   --lv-fonte: 1.4rem;
-  --lv-estrofe-gap: 1.2rem;
+  --lv-estrofe-gap: calc(var(--lv-fonte) * .86);
 
   /* ---------- Raios ----------
      Dois degraus (controle × cartão) e três exceções nomeadas. Um raio literal
@@ -4559,6 +4567,41 @@ main {
    única diferença é que um deles também carrega o destaque e a posição. */
 .lv-row .lv-text { white-space: pre-line; }
 .lv-row .lv-text + .lv-text { margin-top: var(--lv-estrofe-gap); }
+/* ===== O PAR A+ / A− (v1.1.6) =====
+   Pedido do operador: *"aproveite para criar dois botões de A+ e A− nestas
+   seções de letras para poder ajustar para mais ou para menos o tamanho da
+   fonte, sendo é claro o tamanho salvo na memória do app"*.
+
+   DUAS INSTÂNCIAS, UM ESTADO: o mesmo par existe no cabeçalho da folha de
+   leitura e na linha do nome do Modo Fácil, e os dois mexem no MESMO
+   `--lv-fonte` (ver `passoTamanhoDaLetra`). Por CLASSE e não por id — quem
+   procura os botões usa `querySelectorAll`, então uma terceira casa entra sem
+   tocar no JS.
+
+   O ALVO É `--hit`, o piso do app: eles são pequenos de propósito (o assunto da
+   tela é a letra, não o controle), e encolher o alvo junto seria trocar
+   discrição por erro de toque. O rótulo é TEXTO e não glifo — a fonte de ícones
+   é um subset de 31 codepoints, e um "A" ali seria mais um a manter. */
+.lv-fonte-ctl { flex: none; display: flex; align-items: center; gap: 2px; }
+.lv-fonte-btn {
+  width: var(--hit); height: var(--hit); flex: none; padding: 0;
+  border: none; border-radius: var(--radius-btn);
+  background: var(--surface); color: var(--text);
+  font-size: .82rem; font-weight: 700; font-variant-numeric: tabular-nums;
+  display: inline-flex; align-items: center; justify-content: center;
+  cursor: pointer;
+}
+/* No FIM DA ESCADA o botão não some, ele SE APAGA: sumir mudaria a largura do
+   cabeçalho a cada toque, e o par deixaria de ser um par. */
+.lv-fonte-btn:disabled { opacity: .38; cursor: default; }
+.lv-fonte-btn:not(:disabled):active { transform: var(--press); }
+/* A LINHA DO NOME do Modo Fácil hospeda o par sem deslocar o nome: ele é
+   absoluto, e a folga vem reservada dos DOIS lados para o centro continuar
+   sendo o centro. */
+.simple-np-linha { flex: none; position: relative; display: flex; align-items: center; }
+.simple-np-linha > .simple-np { flex: 1; min-width: 0; padding: 0 calc(var(--hit) * 2 + 2px); }
+.simple-np-linha > .lv-fonte-ctl { position: absolute; right: 0; top: 50%; transform: translateY(-50%); }
+
 /* OS SATÉLITES SOBEM MENOS QUE O CORPO (v1.1.4). Eles são RÓTULO — a capa, o
    "Estrofe 2", o número do versículo —, e dobrá-los junto faria um metadado
    ficar maior que a letra que o campo existe para mostrar. Sobem o bastante para

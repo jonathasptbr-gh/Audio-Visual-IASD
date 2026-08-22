@@ -24,7 +24,8 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
-- **v1.1.6** — O ESPELHAMENTO LEVA O SOM DO APARELHO INTEIRO, e não há API pública que isole: o `Presentation` isola a JANELA, e o áudio do Wi-Fi Display nasce de um `REMOTE_SUBMIX` sem parâmetro de display. O que resolve é o som não NASCER no celular — e por isso a APRESENTAÇÃO passa a chegar às telas da rede (uma `/m/` por página), fechando a dívida que impedia o telão por comandos de substituir o espelhamento num culto com sermão. Mais o `AbortController` sem guarda, que derrubava toda TV de 2018 na entrada. OTA PURO
+- **v1.1.7** — O ESPELHAMENTO LEVA O SOM DO APARELHO INTEIRO, e não há API pública que isole: o `Presentation` isola a JANELA, e o áudio do Wi-Fi Display nasce de um `REMOTE_SUBMIX` sem parâmetro de display. O que resolve é o som não NASCER no celular — e por isso a APRESENTAÇÃO passa a chegar às telas da rede (uma `/m/` por página), fechando a dívida que impedia o telão por comandos de substituir o espelhamento num culto com sermão. Mais o `AbortController` sem guarda, que derrubava toda TV de 2018 na entrada. OTA PURO
+- **v1.1.6** — O TAMANHO DA LETRA PASSA A SER DO OPERADOR: um par A+/A− nas DUAS casas de leitura (a folha do avançado e a linha do nome do Modo Fácil), escada DISCRETA e o valor salvo no banco. E o respiro entre estrofes volta a ser DERIVADO — com a fonte ajustável, um respiro fixo valeria só no degrau em que foi escolhido. A metade que falharia calada é a memória, e ela tem oráculo com PÁGINA NOVA. OTA PURO
 - **v1.1.5** — A LETRA RECUA PARA 1.4rem E O RESPIRO ENCOLHE: no dobro, TODA linha de hino quebrava em duas. E o respiro entre estrofes deixa de ser DERIVADO da fonte — "uma linha em branco" custava 2,1rem, e o custo virou rolagem em vez de tipografia. O piso que sobrevive (e que o oráculo passa a travar) é a ENTRELINHA da própria estrofe. OTA PURO
 - **v1.1.4** — A BIBLIOTECA ABRE TODA FECHADA, E FECHÁ-LA A DEVOLVE AO PADRÃO: o `favAberto = true` da v5.276 respondia a uma tela com dois cabeçalhos, e hoje cada série nova é mais uma barra disputando o vão. O estado de navegação é de MÓDULO e o nó do popup é o MESMO entre uma abertura e a seguinte — sem o reset, ela reabria com o hinário de 613 hinos escancarado de meia hora atrás. Mais a LETRA da música em cena dobrando de tamanho. OTA PURO
 - **v1.1.3** — A COLUNA DA TELA CHEIA GANHA FOLGA DAS BORDAS: os 10px que a v1.1.2 não deu. Ela herdou os 2px dos `.pv-fabs` dos cantos, e o território é outro — aqueles moram numa miniatura onde 2px custam mídia visível; em tela cheia o que sobra é espaço, e encostado na borda o alvo divide lugar com a moldura arredondada e com o recorte da câmera. OTA PURO
@@ -205,9 +206,9 @@ na nota que a revoga, não apagada da que a criou.
 
 ---
 
-## v1.1.6
+## v1.1.7 — o espelhamento leva o som do aparelho inteiro; a apresentação chega às telas da rede
 
-**A v1.1.6: O ESPELHAMENTO LEVA O SOM DO APARELHO INTEIRO — E A APRESENTAÇÃO
+**A v1.1.7: O ESPELHAMENTO LEVA O SOM DO APARELHO INTEIRO — E A APRESENTAÇÃO
 PASSA A CHEGAR ÀS TELAS DA REDE. OTA PURO** (nenhuma linha de Kotlin,
 `SHELL_VERSION` intacto em 47; sem Release).
 
@@ -293,6 +294,72 @@ frente da congregação.
 
 ---
 
+## v1.1.6 — o tamanho da letra passa a ser do operador (A+ / A−)
+
+*"Aproveite para criar dois botões de A+ e A− nestas seções de letras para poder
+ajustar para mais ou para menos o tamanho da fonte, sendo é claro o tamanho salvo
+na memória do app."*
+
+O fecho de três lotes escolhendo o número por mim (`.95rem` → `1.9rem` → `1.4rem`):
+o número passa a ser dele, e o app para de adivinhar.
+
+### DUAS CASAS, UM ESTADO
+
+O par existe no cabeçalho da folha de leitura **e** na linha do nome do Modo
+Fácil. As duas mexem no MESMO `--lv-fonte`, porque é dele que as duas leem. Um
+par só serviria metade dos operadores — o Modo Fácil não tem a folha, e é
+justamente lá que a letra é a tela inteira.
+
+No Modo Fácil ele mora na LINHA DO NOME e não dentro da caixa da letra, por uma
+razão de altura: naquele modo cada linha lida importa, e um controle dentro da
+caixa custaria linhas. O nome continua centrado — o par é absoluto e a folga é
+reservada dos dois lados.
+
+**O ouvinte é UM**, delegado no documento pela classe que o CSS já pinta. Dois
+pares de ouvintes por id dariam duas listas para manter em dia, e a segunda casa
+já nasceu depois da primeira.
+
+### A ESCADA É DISCRETA, E OS FINS DESABILITAM
+
+`LV_TAMANHOS = [1, 1.2, 1.4, 1.7, 2, 2.4]`, padrão `1.4` (o que a v1.1.5 fixou
+olhando o aparelho). Não é um fator multiplicativo: dois toques em A+ têm de
+chegar sempre no mesmo lugar, e um percentual acumula erro, produz valores que
+ninguém escolheu (1,3312rem) e não tem fim.
+
+Nos extremos o botão **desabilita**, não some: sumir mudaria a largura do
+cabeçalho a cada toque, e o par deixaria de ser um par. E um toque no fim que não
+faz nada nem diz por quê se lê como travamento.
+
+**Valor guardado fora da escada cai no padrão**, como o `mediaRot` já fazia: a
+escada pode encolher numa versão futura, e o que estava salvo continua sendo
+lido sem virar uma medida que ninguém escolheu.
+
+### O RESPIRO VOLTA A SER DERIVADO — e agora é obrigatório
+
+A v1.1.5 tinha fixado `--lv-estrofe-gap` em `1.2rem`. Com a fonte ajustável isso
+passa a valer só no degrau em que foi escolhido: no maior da escada o respiro
+empataria com a entrelinha e a fronteira de estrofe sumiria; no menor sobraria
+branco. Volta a `calc(var(--lv-fonte) * .86)` — e **derivar não desfaz a
+v1.1.5**: o que ela revogou foi o fator `1.5` ("uma linha em branco"), não a
+derivação. `.86` é a razão que ela aprovou olhando (1,2 / 1,4), e dá ~1,7× a
+entrelinha em qualquer degrau.
+
+### O ORÁCULO MEDE A ABERTURA SEGUINTE, NÃO A SESSÃO
+
+A metade que falha CALADA é a memória. O botão errado se denuncia no primeiro
+toque; um `setState` que não grava — ou um `getState` que ninguém lê no `load()`
+— não erra em lugar nenhum: o operador escolhe o tamanho, opera o culto inteiro,
+e no sábado seguinte a letra está pequena outra vez sem nada na tela que
+explique.
+
+Daí o caso usar uma PÁGINA NOVA (mesmo contexto, mesmo IndexedDB) em vez de um
+`reload`: o que se afirma é o caminho de leitura do `load()`, que é o que roda
+quando o operador abre o app na semana seguinte.
+
+**E ele nasceu com a quarta classe de "oráculo que mede o runner" dentro**, pela
+segunda vez neste ciclo: a espera era só pelos módulos, e o `load()` — que LÊ o
+tamanho guardado e reescreve `lvTamanho` — desfazia o primeiro passo do caso. A
+correção é a da tabela: esperar o `#playlist li`, isto é, o app estar DE PÉ.
 ## v1.1.5 — a letra recua para 1.4rem, e o respiro entre estrofes encolhe
 
 *"Deixa a letra em 1.4rem então, e pode reduzir o espaço entre as estrofes."*

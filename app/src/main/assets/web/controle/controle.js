@@ -114,6 +114,67 @@ const lyricsPopupTitleEl = document.getElementById('lyricsPopupTitle');
 const lyricsPopupCloseEl = document.getElementById('lyricsPopupClose');
 const lyricsViewSegEl = document.getElementById('lyricsViewSeg');
 const lyricsViewBodyEl = document.getElementById('lyricsViewBody');
+
+/**
+ * ===== O TAMANHO DA LETRA, AJUSTADO ONDE ELA É LIDA (v1.1.6) =====
+ *
+ * Pedido do operador: *"aproveite para criar dois botões de A+ e A− nestas
+ * seções de letras para poder ajustar para mais ou para menos o tamanho da
+ * fonte, sendo é claro o tamanho salvo na memória do app"*.
+ *
+ * UMA ESCADA DISCRETA, e não um passo percentual: dois toques em A+ têm de
+ * chegar sempre no mesmo lugar. Um fator multiplicativo acumula erro, produz
+ * valores que ninguém escolheu (1,3312rem) e não tem fim — o fim aqui é o
+ * primeiro e o último degrau, e é ele que desabilita o botão.
+ *
+ * O VALOR VIVE NO TOKEN `--lv-fonte`, escrito no `<html>`. É de lá que saem as
+ * DUAS casas (a folha de leitura do avançado e a zona de letra do Modo Fácil) e
+ * o respiro entre estrofes, que é derivado dele no CSS — um lugar só para
+ * escrever, e nada a sincronizar.
+ *
+ * `1.4rem` é o padrão porque é o que a v1.1.5 fixou olhando o aparelho; a escada
+ * abre para os dois lados a partir dele.
+ */
+const LV_TAMANHOS = [1, 1.2, 1.4, 1.7, 2, 2.4];
+const LV_PADRAO = 1.4;
+let lvTamanho = LV_PADRAO;
+
+function aplicarTamanhoDaLetra() {
+  document.documentElement.style.setProperty('--lv-fonte', lvTamanho + 'rem');
+  const i = LV_TAMANHOS.indexOf(lvTamanho);
+  // POR CLASSE, as duas casas de uma vez: uma terceira entra sem tocar aqui.
+  document.querySelectorAll('.lv-fonte-menos').forEach((b) => { b.disabled = i <= 0; });
+  document.querySelectorAll('.lv-fonte-mais')
+    .forEach((b) => { b.disabled = i >= LV_TAMANHOS.length - 1; });
+}
+
+// GRAVA SÓ QUANDO MUDA. No fim da escada o toque não é um no-op silencioso: o
+// botão já está desabilitado, e esta guarda é a rede para o caminho por teclado.
+async function passoTamanhoDaLetra(passo) {
+  const atual = LV_TAMANHOS.indexOf(lvTamanho);
+  const base = atual < 0 ? LV_TAMANHOS.indexOf(LV_PADRAO) : atual;
+  const alvo = Math.min(LV_TAMANHOS.length - 1, Math.max(0, base + passo));
+  if (LV_TAMANHOS[alvo] === lvTamanho) return;
+  lvTamanho = LV_TAMANHOS[alvo];
+  aplicarTamanhoDaLetra();
+  // A LISTA ACOMPANHA O QUE ESTÁ NO AR: mudar o corpo da letra muda a altura de
+  // toda linha, e a que estava centrada sai do lugar. NAS DUAS CASAS, com o
+  // `lvScroll` que o acompanhamento automático já usa — não há segunda conta de
+  // rolagem aqui, e cada uma respeita o próprio `follow` (quem rolou com o dedo
+  // continua onde deixou).
+  lvScroll(lyricsViewBodyEl, lvFollow, false);
+  lvScroll(simpleLyricsEl, lvSimpleFollow, false);
+  try { await AVDB.setState('lyricsFont', lvTamanho); } catch (_) { /* sem banco: vale a sessão */ }
+}
+
+// O PAR VIVE EM DUAS CASAS, e o ouvinte é UM: delegado no documento, pela mesma
+// classe que o CSS pinta. Registrar dois pares de ouvintes por id daria duas
+// listas para manter em dia — e a do Modo Fácil já nasceu depois da outra.
+document.addEventListener('click', (e) => {
+  const btn = e.target.closest && e.target.closest('.lv-fonte-btn');
+  if (!btn || btn.disabled) return;
+  passoTamanhoDaLetra(btn.classList.contains('lv-fonte-mais') ? 1 : -1);
+});
 const openDisplayBtnEl = document.getElementById('openDisplayBtn');
 const displayStatusTextEl = document.getElementById('displayStatusText');
 
@@ -170,7 +231,7 @@ const appVersionEl = document.getElementById('appVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.1.6';
+const WEB_VERSION = '1.1.7';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -2384,6 +2445,7 @@ async function load(opts) {
   const drawPrefsV = (await AVDB.getState('drawPrefs')) || null;
   const storedFit = await AVDB.getState('fit');
   const storedRot = await AVDB.getState('rotate');
+  const lvFonteV = await AVDB.getState('lyricsFont');
   const lyricsBgV = (await AVDB.getState('lyricsBg')) === 'black' ? 'black' : 'image';
   const downloadOkV = !!(await AVDB.getState('downloadOk'));
   let libItemsV;
@@ -2424,6 +2486,11 @@ async function load(opts) {
   if (storedFit === 'fill') { mediaFit = 'contain'; AVDB.setState('fit', mediaFit); }
   else if (storedFit) mediaFit = storedFit;
   mediaRot = ROTACOES.includes(storedRot | 0) ? (storedRot | 0) : 0;
+  // O TAMANHO DA LETRA guardado. Como o `mediaRot` logo acima: valor fora da
+  // escada cai no padrão, e não numa medida que ninguém escolheu — a escada pode
+  // encolher numa versão futura, e o que estava salvo continua sendo lido.
+  lvTamanho = LV_TAMANHOS.includes(lvFonteV) ? lvFonteV : LV_PADRAO;
+  aplicarTamanhoDaLetra();
   lyricsBg = lyricsBgV;
   downloadConsent = downloadOkV;
   libItems = libItemsV;

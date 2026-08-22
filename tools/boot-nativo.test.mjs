@@ -3797,6 +3797,110 @@ try {
   checar(false, 'o percurso dos Favoritos terminou sem exceção (' + (e && e.message) + ')');
 }
 
+// ===== O TAMANHO DA LETRA: O PAR A+/A− E A MEMÓRIA (v1.1.6) =====
+//
+// Pedido do operador: *"aproveite para criar dois botões de A+ e A− nestas
+// seções de letras… sendo é claro o tamanho salvo na memória do app"*.
+//
+// A metade que falha CALADA é a MEMÓRIA. O botão errado se denuncia no primeiro
+// toque; o `setState` que não grava (ou o `getState` que não é lido na abertura)
+// não erra em lugar nenhum — o operador escolhe o tamanho, opera o culto
+// inteiro, e no sábado seguinte a letra está pequena outra vez sem que nada na
+// tela explique. Por isso a segunda página: ela mede a ABERTURA, não a sessão.
+//
+// PÁGINA NOVA e não `reload`: é o mesmo contexto, logo o mesmo IndexedDB, e o
+// que se afirma é o caminho de leitura do `load()` — que é o que roda quando o
+// operador abre o app na semana seguinte.
+try {
+  const pg7 = await ctx.newPage();
+  await pg7.addInitScript(PONTE);
+  await pg7.goto(`http://127.0.0.1:${porta}/controle/`, { waitUntil: 'load' });
+  // ESPERA O `#playlist li`, e não só os módulos: o `load()` LÊ o tamanho
+  // guardado e reescreve `lvTamanho`. Sem esta espera, o primeiro passo deste
+  // caso corre contra a abertura e é desfeito por ela — MEDIDO, e é a quarta
+  // classe da tabela ("o oráculo correndo contra o app") outra vez.
+  await pg7.waitForFunction(() => window.AVDB && typeof window.__avBack === 'function'
+    && !!document.querySelector('#playlist li'), null, { timeout: 25000 });
+
+  const fonte = await pg7.evaluate(async () => {
+    setAppMode('full');
+    const ler = () => ({
+      token: getComputedStyle(document.documentElement)
+        .getPropertyValue('--lv-fonte').trim(),
+      valor: lvTamanho,
+      menosOff: !!document.querySelector('#lyricsPopup .lv-fonte-menos').disabled,
+      maisOff: !!document.querySelector('#lyricsPopup .lv-fonte-mais').disabled,
+    });
+    const r = { padrao: ler() };
+    // AS DUAS CASAS existem: a folha de leitura e a linha do nome do Modo Fácil.
+    // Um par só serviria metade dos operadores — e o Modo Fácil não tem a folha.
+    r.pares = document.querySelectorAll('.lv-fonte-ctl').length;
+    r.naFolha = !!document.querySelector('#lyricsPopup .lv-fonte-ctl');
+    r.noSimples = !!document.querySelector('.simple-np-linha .lv-fonte-ctl');
+    // UM PASSO, e ele é DISCRETO: o valor seguinte é o da escada, não o anterior
+    // vezes um fator.
+    await passoTamanhoDaLetra(1);
+    r.umAcima = ler();
+    // O RESPIRO ACOMPANHA a fonte (o `calc` do CSS): sem isto, o degrau maior
+    // empataria a fronteira de estrofe com a entrelinha e ela sumiria.
+    const corpo = document.getElementById('lyricsViewBody');
+    const px = (v) => parseFloat(v) || 0;
+    r.razaoRespiro = px(getComputedStyle(corpo).rowGap)
+      / px(getComputedStyle(document.documentElement).fontSize) / lvTamanho;
+    // OS FINS DA ESCADA DESABILITAM o botão — sem isso o toque no fim é um
+    // no-op mudo, que se lê como travamento.
+    for (let i = 0; i < 12; i++) await passoTamanhoDaLetra(1);
+    r.teto = ler();
+    for (let i = 0; i < 12; i++) await passoTamanhoDaLetra(-1);
+    r.piso = ler();
+    // E O QUE FICA GUARDADO é o valor final — a página seguinte o lê.
+    await passoTamanhoDaLetra(1);
+    r.guardado = { valor: lvTamanho, noBanco: await AVDB.getState('lyricsFont') };
+    return r;
+  });
+  checar(fonte.padrao.valor === 1.4 && fonte.padrao.token === '1.4rem',
+    'O TAMANHO DA LETRA abre no padrão da v1.1.5 (1.4rem), no token que as duas '
+    + 'casas leem', JSON.stringify(fonte.padrao));
+  checar(fonte.pares === 2 && fonte.naFolha && fonte.noSimples,
+    'e o par A+/A− existe nas DUAS casas — a folha de leitura e a linha do nome '
+    + 'do Modo Fácil, que não tem a folha',
+    JSON.stringify([fonte.pares, fonte.naFolha, fonte.noSimples]));
+  checar(fonte.umAcima.valor === 1.7 && fonte.umAcima.token === '1.7rem',
+    'um toque em A+ sobe UM DEGRAU da escada — não um fator, que acumularia erro '
+    + 'e produziria medidas que ninguém escolheu', JSON.stringify(fonte.umAcima));
+  checar(Math.abs(fonte.razaoRespiro - 0.86) < 0.02,
+    'e o respiro entre estrofes acompanha a fonte (razão ~0,86 em qualquer '
+    + 'degrau)', fonte.razaoRespiro.toFixed(3));
+  checar(fonte.teto.maisOff && !fonte.teto.menosOff,
+    'no TETO da escada o A+ desabilita — e só ele',
+    JSON.stringify(fonte.teto));
+  checar(fonte.piso.menosOff && !fonte.piso.maisOff,
+    'no PISO, o A−', JSON.stringify(fonte.piso));
+  checar(fonte.guardado.noBanco === fonte.guardado.valor,
+    'e a escolha vai para o BANCO no mesmo toque', JSON.stringify(fonte.guardado));
+
+  // A ABERTURA SEGUINTE. É esta metade que o pedido chama de "salvo na memória".
+  const pg8 = await ctx.newPage();
+  await pg8.addInitScript(PONTE);
+  await pg8.goto(`http://127.0.0.1:${porta}/controle/`, { waitUntil: 'load' });
+  await pg8.waitForFunction(() => window.AVDB && typeof window.__avBack === 'function'
+    && !!document.querySelector('#playlist li'), null, { timeout: 20000 });
+  const volta = await pg8.evaluate(() => ({
+    valor: lvTamanho,
+    token: getComputedStyle(document.documentElement).getPropertyValue('--lv-fonte').trim(),
+    naLetra: Math.round(parseFloat(getComputedStyle(
+      document.getElementById('lyricsViewBody')).fontSize) * 100) / 100,
+  }));
+  checar(volta.valor === fonte.guardado.valor && volta.token === fonte.guardado.valor + 'rem',
+    'e A ABERTURA SEGUINTE nasce com ela — a metade que falharia calada, sem '
+    + 'erro nenhum e só um "voltou ao pequeno" no sábado seguinte',
+    JSON.stringify([volta, fonte.guardado.valor]));
+  await pg7.close();
+  await pg8.close();
+} catch (e) {
+  checar(false, 'o percurso do tamanho da letra terminou sem exceção (' + (e && e.message) + ')');
+}
+
 checar(erros.length === 0, 'nenhum erro de console' + (erros.length ? ':\n        ' + erros.join('\n        ') : ''));
 
 await navegador.close();
