@@ -24,6 +24,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
+- **v1.2.14** — O ARQUIVO DE CIFRAS VALE PARA A BIBLIOTECA INTEIRA, e a folha deixou de ser de quem está no ar. (1) O que era só dos dois hinários passa a valer para todo acervo de MÚSICA baixado — o que separava um álbum de um hinário era o CUSTO (uma requisição contra a cadeia deduzível inteira), nunca o direito. A varredura pula a busca do site, MEDIDA em zero, e o que ela não acha fica gravado COM DATA: no acervo de álbuns dois terços não estão sob nenhum endereço deduzível, e sem memória isso são milhares de requisições a um site de terceiro em toda abertura. Uma folha não vence; uma ausência volta para a fila em 30 dias, e falha de rede continua não gravando nada. (2) A gaveta da Biblioteca ganhou **"Abrir a folha"**: o MESMO leitor do Controle apontado para aquela faixa — cifra, tom, corpo e rolagem — sem levar NADA ao telão. Ler deixou de exigir projetar. O relógio e o destaque continuam sendo da CENA: com o alvo noutra música, seguir o tempo do que está tocando não erra alto, *parece* funcionar. OTA PURO
 - **v1.2.13** — A PERMISSÃO QUE FALTAVA ERA NOSSA, E NÃO ERA A DO MICROFONE. Cinco rodadas acusaram o aparelho (espelhamento, interruptor de privacidade, processamento, Auto Blocker); a causa estava no `AndroidManifest.xml` deste repositório. O Chromium DE DENTRO DO WEBVIEW exige `MODIFY_AUDIO_SETTINGS` do app HOSPEDEIRO: `AudioManagerAndroid.hasPermission()` consulta o `checkSelfPermission` DELE, `setCommunicationDevice()` devolve `false` sem ela, e `MakeLowLatencyInputStream` devolve `nullptr` — que vira `STREAM_CREATE_ERROR` e chega ao JS como `NotReadableError`. Conferido VERBATIM no fonte do Chromium, incluindo o desvio (`AAudioPerStreamDeviceSelection`) travado atrás de `is_desktop()`. Ela é `protectionLevel="normal"`: concedida na instalação, INVISÍVEL na tela de permissões — por isso quatro rodadas olharam para a permissão errada, que estava concedida com toda a razão. Mais: `MODE_FOREGROUND` ganhou ramo próprio no `MicDiag` (era o desfecho MAIS provável e saía como "modo 4", lido como bloqueio), e o campo `modAudio` responde "o APK instalado já tem o conserto?". EXIGE RELEASE v1.2.13
 - **v1.2.12** — "O SITE SÓ TEM A LETRA" VIROU UMA RESPOSTA, e ela era a metade que faltava do `ilegivel`. MEDIDO na primeira bateria de testes: ~12 das 85 falhas eram endereços que EXISTEM, respondendo 200 com centenas de kB e nenhum `<pre>` — o Cifra Club tem a LETRA daquela música e não a cifra. Chamar isso de "não entendi a página" é falso nos dois sentidos: manda investigar um parser que está certo, e faz o download do hinário rebater a mesma música toda sessão, para sempre. O novo veredito é GRAVADO — e por isso tem DUAS defesas: ele exige um marcador POSITIVO (responder pela ausência de `<pre>` faria uma mudança de marcação do site apagar o acervo inteiro) e um TETO por passada (uma música sem cifra é um fato; um terço do hinário de uma vez é o site tendo mudado). Mais: a bateria passou a trazer a FORMA das páginas que não abriram, no resultado dela — é isso que separa as duas hipóteses. OTA PURO
 - **v1.2.11** — A PERGUNTA QUE SÓ O SHELL SABE RESPONDER: quatro rodadas pelo lado web terminaram sempre em `NotReadableError` nas três configurações, nos dois WebViews, com `RECORD_AUDIO` concedida e uma entrada enumerada. `AppOps` pode RECUSAR `RECORD_AUDIO` enquanto `checkSelfPermission` devolve concedida — o interruptor de privacidade, o Auto Blocker da Samsung sobre app fora da loja, o mudo global —, e o navegador não enxerga essa diferença. Nasce `MicDiag.kt` + `AVNative.micDiag()` (shell 53), LEITURA PURA. E a correção da v1.2.9 NÃO RODAVA: o laço pulava `deviceId === "default"`, e no aparelho há UMA entrada cujo id é exatamente `default` — o Registro seguiu marcando "3 tentativa(s)" enquanto eu anunciava quatro. O oráculo GUARDAVA esse pulo como contrato, e a asserção foi reescrita para a regra certa. EXIGE RELEASE v1.2.11
@@ -239,6 +240,64 @@ na nota que a revoga, não apagada da que a criou.
 - **v5.154** — é METADE OTA e METADE APK, e a divisão importa para quem for testar em aparelho.
 - **v5.155** — é OTA PURO
 - **v5.156** — é METADE OTA e METADE APK, de novo.
+
+---
+
+## v1.2.14 — o arquivo para a biblioteca inteira, e a folha que não precisa do telão
+
+Dois pedidos do operador no mesmo lote, e os dois saem do mesmo lugar: o
+instrumentista.
+
+### 1. O arquivo de cifras deixa de ser dos hinários
+
+O que separava um álbum de um hinário nunca foi o direito de guardar — era o
+**custo**. No hinário o endereço sai do catálogo e a música custa UMA
+requisição; num álbum custa a cadeia deduzível inteira. Confundir as duas
+perguntas foi o que manteve o arquivo preso aos dois hinários por seis versões,
+e a separação agora está escrita: `cifraDeduzivel` responde *"quanto custa?"*,
+`cifraGuardavel` responde *"guarda?"*.
+
+Duas decisões tornam a varredura do acervo viável:
+
+| decisão | por quê |
+|---|---|
+| a varredura **pula a busca do site** | MEDIDO na bateria: toda linha `busca …` devolveu `0 resultado(s)`. Duas requisições por música que, em massa, dobrariam a varredura para não achar nada. Na aba ela fica — lá é a última carta, e custa duas requisições UMA vez |
+| a ausência é **gravada com data** | no hinário toda música existe no site e "não achei" era defeito nosso; no acervo de álbuns **dois terços** não estão sob nenhum endereço deduzível. Sem memória são milhares de requisições a um site de terceiro em TODA abertura |
+
+O prazo (30 dias) é o que evita os dois extremos: gravar para sempre faria um
+Wi-Fi ruim custar um buraco permanente; não gravar custa a rede toda semana. Uma
+FOLHA não vence — ela não envelhece. E `sem-rede`, `recusou` e `ilegivel`
+continuam não gravando nada: os dois primeiros não são resposta do site, o
+terceiro é defeito do nosso parser.
+
+E a ausência guardada **responde**, em vez de refazer a cadeia: sem isso a aba
+gasta quatro requisições para chegar à mesma frase que a varredura já tinha
+escrito, com o instrumento na mão.
+
+### 2. A folha deixou de ser de quem está no ar
+
+Ela nasceu presa ao `currentItem` — era o auxiliar de leitura da CENA —, e a
+consequência é que **ler uma música exigia projetá-la**. O músico quer o oposto:
+abrir a cifra no ensaio sem que a congregação veja nada.
+
+`lvAlvo` é a música que a folha mostra quando ela não é a que está em cena; nulo
+é o caso de sempre, e por isso o desvio é a exceção que se declara. A gaveta da
+Biblioteca ganhou **"Abrir a folha"**, que aponta o MESMO leitor para aquela
+faixa — reusar, nunca reconstruir: uma segunda folha divergiria da primeira no
+primeiro ajuste, e quem tocasse por ela veria a versão de ontem.
+
+Três guardas, as três provadas por reversão:
+
+- **Nada projeta.** O oráculo afirma ZERO comandos no barramento — é a metade
+  que falharia sem deixar rastro na tela de quem abriu a folha.
+- **O relógio é da CENA.** Com o alvo noutra música, seguir o
+  `authoritativeTime()` faria a folha andar no compasso de outro louvor. Isso
+  não erra alto: *parece* funcionar. Sem relógio o `auto` cai no livre, que é o
+  que um ensaio sem gravação quer.
+- **O destaque também.** Sem cena não há posição: nenhuma estrofe é marcada.
+
+A aba escolhida sobrevive à reabertura e não à troca de alvo (são duas coisas), e
+o alvo morre ao fechar — é o desvio de UMA leitura.
 
 ---
 

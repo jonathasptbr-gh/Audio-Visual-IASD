@@ -1209,6 +1209,14 @@ mixer (`#lyricsViewBtn`, folha com linhas) abre um bottom-sheet **com scroll**
   **"A aba de cifra"** no `CLAUDE.md`; a regra em si, em `controle/cifra.js`,
   com oráculo em `tools/cifra.test.mjs`.
 
+  **A FOLHA NÃO É SÓ DE QUEM ESTÁ NO AR** (v1.2.14): a gaveta de uma faixa da
+  Biblioteca tem **"Abrir a folha"**, que aponta este mesmo leitor para aquela
+  música — cifra, tom, corpo de letra e rolagem — **sem levar nada ao telão**.
+  É a porta de quem toca: até então, ler uma música exigia projetá-la. O relógio
+  e o destaque de estrofe continuam sendo da CENA (`lvNaCena`): seguir o tempo
+  do louvor que está tocando faria a folha do ensaio andar no compasso errado, e
+  isso *parece* funcionar.
+
   **A cadeia de tentativas é UMA** (`cifraProcurar`) e tem dois consumidores: a
   aba, e a **bateria de testes** do pé de Configurações — um botão que sorteia
   uma ou duas músicas de cada álbum, roda a mesma cadeia e escreve no Registro

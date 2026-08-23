@@ -244,7 +244,7 @@ const appVersionEl = document.getElementById('appVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.2.13';
+const WEB_VERSION = '1.2.14';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -9920,11 +9920,15 @@ function lyricsViewSources() {
   // É PROJEÇÃO, nunca a existência da sessão: um capítulo aberto e fora do ar
   // não rouba a folha da música que está tocando — ele volta lá embaixo, na
   // reserva, que é o caso da última linha desta função.
-  if (bibleSession && bibleSession.projecting
+  // COM UM ALVO DA BIBLIOTECA a Bíblia sai de cena: quem abriu a folha de uma
+  // música pediu AQUELA música, e o capítulo aberto no Controle não tem por que
+  // roubar a folha de um ensaio.
+  if (lvNaCena() && bibleSession && bibleSession.projecting
       && bibleSession.verses && bibleSession.verses.length) return ['bible'];
 
   const list = [];
-  const lyrics = currentItem && Array.isArray(currentItem.lyrics) ? currentItem.lyrics : null;
+  const alvo = lvItem();
+  const lyrics = alvo && Array.isArray(alvo.lyrics) ? alvo.lyrics : null;
   if (lyrics && lyrics.length) list.push('lyrics');
   // A CIFRA vem por ÚLTIMA, e isso é a precedência inteira: `lvActiveSource`
   // devolve a primeira da lista quando o operador não escolheu, e a aba que
@@ -9936,13 +9940,45 @@ function lyricsViewSources() {
   // que não funciona é pior que não oferecê-la: o seletor do topo só aparece com
   // duas fontes, e esta apareceria sempre, empurrando um botão morto para a
   // frente do operador em toda música.
-  if (cifraCabe(currentItem)) list.push('cifra');
+  if (cifraCabe(alvo)) list.push('cifra');
   // A RESERVA: sem música em cena, um capítulo aberto (mesmo fora do ar) ainda
   // é o que o operador tem para ler — e é o que ele foi buscar ao abrir esta
   // folha. Só não disputa com a música, que é o ponto da regra acima.
-  if (!list.length && bibleSession && bibleSession.verses && bibleSession.verses.length) list.push('bible');
+  if (!list.length && lvNaCena() && bibleSession && bibleSession.verses
+      && bibleSession.verses.length) list.push('bible');
   return list;
 }
+
+/**
+ * ===== O ALVO DO LEITOR (v1.2.14) =====
+ *
+ * A folha nasceu presa ao `currentItem`: ela era o "auxiliar de leitura" de
+ * QUEM ESTÁ NO AR, e por isso ler uma música exigia projetá-la. Quem TOCA não
+ * quer isso — ele quer abrir a cifra de um louvor no ensaio sem que a
+ * congregação veja nada.
+ *
+ * `lvAlvo` é a música que a folha mostra quando ela NÃO é a que está em cena.
+ * Nulo é o caso de sempre (o leitor segue a cena), e por isso o desvio é a
+ * exceção que se declara — a mesma forma do `if (!window.__NATIVE__)`.
+ *
+ * **Nada aqui projeta.** O alvo não toca em `currentItem`, não emite comando e
+ * não passa pelo `send`: o telão não sabe que esta folha existe.
+ */
+let lvAlvo = null;
+
+/** A música que a FOLHA mostra: o alvo escolhido, ou o que está em cena. */
+function lvItem() { return lvAlvo || currentItem; }
+
+/**
+ * A folha está mostrando o que está NO AR?
+ *
+ * Governa as duas coisas que só fazem sentido para a cena: o DESTAQUE da
+ * estrofe corrente e o RELÓGIO da rolagem automática. Com o alvo apontando para
+ * outra música, seguir o `authoritativeTime()` faria a folha andar no compasso
+ * de um louvor diferente — o defeito mais confuso que este recurso poderia
+ * produzir, porque parece funcionar.
+ */
+function lvNaCena() { return !lvAlvo; }
 
 // Qual fonte mostrar: a escolhida pelo operador enquanto continuar disponível;
 // senão a primeira da lista (a letra, quando há as duas).
@@ -9954,7 +9990,12 @@ function lvActiveSource() {
 
 // Índice do que está no ar dentro da fonte ativa.
 function lvCurrentIndex(src) {
-  if (src === 'lyrics') return findSlideIndex(currentItem.lyrics, authoritativeTime());
+  // SÓ A CENA TEM POSIÇÃO. Uma música aberta da Biblioteca não está tocando —
+  // destacar uma estrofe dela pelo relógio de OUTRA música é pior que não
+  // destacar nenhuma, porque parece certo.
+  if (src === 'lyrics') {
+    return lvNaCena() ? findSlideIndex(lvItem().lyrics, authoritativeTime()) : -1;
+  }
   if (src === 'bible') return bibleSession.idx;
   // A CIFRA NÃO TEM POSIÇÃO. Ela é uma folha para ler, não uma sequência de
   // slides — não há "estrofe no ar" a destacar, e o `-1` faz o `lvScroll` sair
@@ -9973,7 +10014,14 @@ function lvCurrentIndex(src) {
 // seletor do topo só apareceria na próxima troca de estrofe.
 function lvSignature(src) {
   const avail = lyricsViewSources().join('+');
-  if (src === 'lyrics') return avail + '|lyrics|' + currentId + '|' + currentItem.lyrics.length;
+  // A CHAVE É DO ALVO, não do que está em cena: com a folha aberta para uma
+  // música da Biblioteca, o `send` de outra não pode trocar o conteúdo por
+  // baixo de quem está lendo.
+  if (src === 'lyrics') {
+    const a = lvItem();
+    return avail + '|lyrics|' + (lvAlvo ? 'alvo:' + (a.id || a.name) : currentId)
+      + '|' + a.lyrics.length;
+  }
   if (src === 'bible') {
     const s = bibleSession;
     return avail + '|bible|' + s.versionId + '|' + s.bookIdx + '|' + s.chapter + '|' + s.verses.length;
@@ -9983,14 +10031,37 @@ function lvSignature(src) {
   // segunda porque transpor não muda música nenhuma — sem o passo na assinatura,
   // o `refreshLyricsView` do pulso seguinte reverteria a folha ao tom original.
   if (src === 'cifra') {
-    const e = cifraEstado(currentItem);
-    return avail + '|cifra|' + cifraChave(currentItem)
+    const e = cifraEstado(lvItem());
+    return avail + '|cifra|' + cifraChave(lvItem())
       + '|' + (e ? e.estado + '|' + e.motivo + '|' + e.semitons : 'novo');
   }
   return avail + '|none';
 }
 
-function openLyricsPopup() {
+/**
+ * Abre a folha. Sem argumento, para o que está em cena (o caso de sempre); com
+ * um item, para AQUELA música — é assim que a Biblioteca abre a mesma folha sem
+ * projetar nada.
+ */
+function openLyricsPopup(item, fonte) {
+  // O ALVO É A EXCEÇÃO, e ela se declara: um item igual ao que já está em cena
+  // não é desvio nenhum, e guardá-lo faria a folha parar de acompanhar o culto
+  // por uma coincidência.
+  const novo = (item && item !== currentItem) ? item : null;
+  // A ABA ESCOLHIDA SOBREVIVE À REABERTURA, e só não sobrevive à TROCA DE
+  // ALVO. São duas coisas diferentes: quem escolheu "cifra" no transporte quer
+  // continuar na cifra na próxima abertura (é a preferência de quem toca o
+  // culto inteiro); mas carregá-la para OUTRA música seria abrir a folha de um
+  // louvor na aba que o operador escolheu para outro.
+  //
+  // `fonte` é o PEDIDO de quem abriu, e vence os dois — a Biblioteca abre na
+  // cifra, porque quem toca ali foi buscar os acordes. Não é imposição:
+  // `lvActiveSource` só a honra enquanto a fonte existir, e sem ponte
+  // (navegador) a cifra nem entra na lista, então a folha abre na letra sem
+  // nenhum caso especial.
+  if (fonte) lvSource = fonte;
+  else if (novo !== lvAlvo) lvSource = null;
+  lvAlvo = novo;
   lvFollow = true; // toda abertura começa acompanhando o que está no ar
   // Abrir a folha é pedir para ver a CIFRA, não a lista de onde ela veio: o
   // seletor é sempre um desvio deliberado, e um desvio não sobrevive ao fechar.
@@ -10006,6 +10077,10 @@ function openLyricsPopup() {
 
 function closeLyricsPopup() {
   lyricsPopupEl.classList.remove('open');
+  // O ALVO MORRE COM A FOLHA. Ele é um desvio de UMA leitura: sobrevivendo ao
+  // fechamento, a próxima abertura pelo transporte mostraria a música do ensaio
+  // em vez da que está no ar — e nada na tela explicaria por quê.
+  lvAlvo = null;
   // Sem folha na tela não há o que rolar, e um rAF vivo atrás de um popup
   // fechado é trabalho por quadro para ninguém ver.
   cifraRolarParar();
@@ -10054,11 +10129,12 @@ function renderLyricsView() {
     return;
   }
   if (src === 'lyrics') {
-    const track = currentItem.hymnTrack ? currentItem.hymnTrack + '. ' : '';
-    lyricsPopupTitleEl.textContent = track + (currentItem.hymnName || currentItem.name || 'Letra');
+    const a = lvItem();
+    const track = a.hymnTrack ? a.hymnTrack + '. ' : '';
+    lyricsPopupTitleEl.textContent = track + (a.hymnName || a.name || 'Letra');
     lvBuildSong(lyricsViewBodyEl, lvCurIdx);
   } else if (src === 'cifra') {
-    lyricsPopupTitleEl.textContent = cifraNomeDoItem(currentItem) || 'Cifra';
+    lyricsPopupTitleEl.textContent = cifraNomeDoItem(lvItem()) || 'Cifra';
     lvBuildCifra(lyricsViewBodyEl, lyricsViewBarEl);
   } else {
     const b = bibleSession;
@@ -10244,7 +10320,8 @@ const CIFRA_VIA_NOME = {
  * está guardado no aparelho, porque a bateria pergunta *"o endereço ainda
  * leva à página?"* e ler o disco responde outra coisa; `opts.coletar` recebe a
  * radiografia de cada página ilegível — é como a bateria leva a forma delas sem
- * escrever no slot compartilhado.
+ * escrever no slot compartilhado; `opts.semBusca` pula o último degrau, que em
+ * massa custa o dobro de requisições para devolver zero.
  */
 async function cifraProcurar(nome, coll, chave, opts) {
   const o = opts || {};
@@ -10257,7 +10334,8 @@ async function cifraProcurar(nome, coll, chave, opts) {
   // Um degrau só falha PARA A FRENTE se a página não existir. `ilegivel` é
   // "respondeu e o parser não entendeu", e insistir noutro endereço troca o
   // motivo certo (o site mudou de formato) por um errado (a música não existe).
-  const segue = () => !desfecho.ok && desfecho.motivo !== AVCifra.MOTIVO_ILEGIVEL;
+  const segue = () => !desfecho.ok && desfecho.motivo !== AVCifra.MOTIVO_ILEGIVEL
+    && !respondidoPeloDisco;
   // `so-letra` NÃO interrompe a cadeia, e isso é escolha: ele diz que AQUELE
   // endereço não tem cifra, não que a música não exista no site — outro artista
   // pode ter a folha. Só o `ilegivel` para, porque ali a página é a certa e o
@@ -10268,6 +10346,14 @@ async function cifraProcurar(nome, coll, chave, opts) {
   // "nenhum endereço tinha a página" — a resposta menos informativa das três,
   // e a única que manda o operador continuar procurando o que já foi achado.
   let viuSoLetra = false;
+  // A AUSÊNCIA GUARDADA ENCERRA a procura — refazer a cadeia que a produziu é
+  // gastar as mesmas requisições para chegar à mesma resposta. Ela vence pelo
+  // PRAZO, não por um toque; o que a contorna é a escolha à mão (tentativa 0).
+  //
+  // Declarado AQUI, com o resto do estado, e não junto do passo que o escreve:
+  // o `segue()` logo abaixo o lê, e um `const` alcançado de cima é uma zona
+  // morta esperando a ordem de chamada mudar.
+  let respondidoPeloDisco = false;
 
   // 0ª TENTATIVA: O QUE O OPERADOR JÁ ESCOLHEU. Ela vem antes de tudo e
   // encerra o assunto: quem fixou um endereço sabe qual é a música, e
@@ -10295,11 +10381,25 @@ async function cifraProcurar(nome, coll, chave, opts) {
       desfecho = { ok: true, pagina: g.pagina, motivo: AVCifra.OK };
       via = 'aparelho';
       tentativas.push('guardada no aparelho ' + url + ' → ok');
+    } else if (cifraNoDiscoVale(g, Date.now())) {
+      // A AUSÊNCIA GUARDADA TAMBÉM RESPONDE, e responde na hora. Sem isto, a
+      // aba gasta a cadeia inteira para chegar à MESMA frase que a varredura já
+      // tinha escrito — quatro requisições e alguns segundos de "Procurando…"
+      // com o instrumento na mão. O prazo é o mesmo do `cifraNoDiscoVale`: uma
+      // ausência de 30 dias volta a ser perguntada.
+      //
+      // O operador não fica preso a ela: "Trocar" abre o seletor e uma escolha
+      // fixada é a tentativa 0, à frente do disco.
+      via = 'aparelho';
+      desfecho = { ok: false, motivo: g.soLetra ? AVCifra.MOTIVO_SO_LETRA : AVCifra.MOTIVO_NAO_TEM };
+      respondidoPeloDisco = true;
+      tentativas.push('guardada no aparelho → ' + desfecho.motivo
+        + ' (de ' + new Date(g.em || 0).toLocaleDateString('pt-BR') + ')');
     }
   }
 
   // 1ª TENTATIVA: o atalho do catálogo.
-  const direta = !desfecho.ok && coll ? AVCifra.urlDoHino(coll.id, nome) : '';
+  const direta = !desfecho.ok && !respondidoPeloDisco && coll ? AVCifra.urlDoHino(coll.id, nome) : '';
   if (direta) {
     url = direta;
     desfecho = await cifraPedir(direta, o.mudo, o.coletar);
@@ -10355,7 +10455,13 @@ async function cifraProcurar(nome, coll, chave, opts) {
   // playback ou um homônimo. Cada tentativa entra no Registro, então três
   // `ilegivel` seguidos continuam dizendo "o site mudou de formato" — mais
   // alto, não mais baixo.
-  if (segue()) {
+  // A BUSCA DO SITE é pulada no trabalho de MASSA (`semBusca`). MEDIDO na
+  // bateria: toda linha `busca …` devolveu `0 resultado(s)` — os resultados são
+  // desenhados por JavaScript, que o `cifraHtml` não executa. São duas
+  // requisições por música que, varrendo o acervo, dobrariam o custo para não
+  // achar nada. Na aba ela fica: lá é a última carta da música que o operador
+  // tem na frente, e custa duas requisições UMA vez.
+  if (segue() && !o.semBusca) {
     // As consultas, na ordem, SEM repetir: o álbum entra na segunda, e quando
     // não há álbum a segunda simplesmente não existe (a primeira versão
     // repetia a mesma consulta e gastava uma requisição a troco de nada).
@@ -10488,6 +10594,36 @@ const CIFRA_LOTE = 20;          // hinos por gravação
  * tenta de novo.
  */
 const CIFRA_SO_LETRA_TETO = 0.34;
+
+/**
+ * O PRAZO DE UMA AUSÊNCIA — o que torna possível varrer o acervo INTEIRO.
+ *
+ * No hinário toda música existe no site, e "não achei" era sempre defeito
+ * nosso: por isso a varredura nunca gravava um `nao-tem`, e a passada seguinte
+ * tentava de novo. **No acervo de álbuns a conta se inverte.** MEDIDO na
+ * bateria: cerca de dois terços das músicas não estão sob nenhum dos endereços
+ * deduzíveis — e sem memória isso são milhares de requisições a um site de
+ * terceiro EM TODA ABERTURA, para redescobrir o que já se sabia.
+ *
+ * A resposta não é gravar para sempre (um Wi-Fi ruim não pode custar um buraco
+ * permanente) nem não gravar (o custo acima): é gravar **com data**. Trinta
+ * dias depois a música volta para a fila e é reperguntada — tempo de sobra para
+ * o site publicar uma cifra nova, e curto o bastante para um erro se corrigir
+ * sozinho.
+ *
+ * O que NUNCA entra aqui continua sendo a falha de REDE (`sem-rede`, `recusou`)
+ * e o `ilegivel`: a primeira não é resposta do site, e o segundo é defeito do
+ * nosso parser — gravar qualquer um dos dois seria carimbar como "não tem" uma
+ * pergunta que nem chegou a ser feita.
+ */
+const CIFRA_REVISITA_MS = 30 * 24 * 60 * 60 * 1000;
+
+/** A entrada guardada ainda vale? Uma FOLHA vale sempre; uma ausência, 30 dias. */
+function cifraNoDiscoVale(v, agora) {
+  if (!v) return false;
+  if (v.pagina) return true;
+  return (agora - (v.em || 0)) < CIFRA_REVISITA_MS;
+}
 let cifraDiscoColl = '';        // de qual coleção é o `cifraDisco` carregado
 let cifraDisco = null;          // { nome normalizado → { pagina, url, em } }
 let cifraSyncRodando = false;
@@ -10544,42 +10680,99 @@ async function cifraDiscoMesclar(collId, novas) {
   if (cifraDiscoColl === collId) cifraDisco = junto;
 }
 
-/** O hinário tem endereço DEDUZÍVEL? É essa a condição de guardar. */
-function cifraGuardavel(coll) {
+/**
+ * UMA FAIXA DA BIBLIOTECA COMO ALVO DO LEITOR (v1.2.14).
+ *
+ * O leitor sempre falou a língua do `currentItem` — o registro de uma mídia
+ * baixada. Uma faixa da Biblioteca é outra coisa (a entrada do catálogo), e o
+ * que falta entre as duas é pouco: o nome, a procedência e a letra.
+ *
+ * **A letra vem do que JÁ EXISTE no aparelho** (`songLyricStanzas`: o acervo de
+ * texto ou os slides do arquivo baixado), nunca de uma requisição nova — abrir
+ * uma folha no ensaio não pode depender da rede da igreja. E os TEMPOS não são
+ * reconstruídos de propósito: sem cena não há posição a destacar
+ * (`lvCurrentIndex` devolve -1), então um `time` aqui seria um número que
+ * ninguém lê e que sugeriria uma sincronia que não existe.
+ *
+ * `kind: 'audio'` é o que faz o `cifraCabe` aceitar a faixa mesmo sem letra
+ * guardada: é conteúdo musical, e a cifra é justamente o que se foi buscar.
+ */
+async function lvItemDaBiblioteca(coll, s) {
+  const estrofes = await songLyricStanzas(coll, s).catch(() => null);
+  const lyrics = (estrofes || []).map((e) => ({
+    time: 0, cover: false, text: (e.l || []).join('\n'), auxText: e.a || null,
+    imageOpfsPath: null, imagePosition: null,
+  }));
+  return {
+    id: 'lib:' + coll.id + ':' + s.id_music,
+    kind: 'audio',
+    name: s.name,
+    hymnName: s.name,
+    hymnTrack: collNumbersSongs(coll) ? s.track : null,
+    // É por ELE que o `cifraColecaoDoItem` reencontra a coleção — e com ela o
+    // catálogo, o álbum-como-artista e o arquivo de cifras no aparelho.
+    hymnAlbum: coll.name || '',
+    lyrics,
+  };
+}
+
+/**
+ * O ENDEREÇO É DEDUZÍVEL DO CATÁLOGO? Só os dois hinários são.
+ *
+ * Continua existindo depois de o arquivo abrir para o acervo inteiro, porque
+ * responde outra pergunta: **quantas requisições custa uma música**. No hinário
+ * é UMA (o catálogo acerta), num álbum é a cadeia inteira. Quem decide se
+ * GUARDA é o `cifraGuardavel`; este decide o que esperar da varredura.
+ */
+function cifraDeduzivel(coll) {
   return !!(coll && AVCifra.CATALOGO[coll.id]);
 }
 
 /**
- * Baixa e guarda a cifra de todo hino do hinário que ainda não tem uma.
+ * GUARDA CIFRA PARA ESTA COLEÇÃO? — hoje, todo acervo de MÚSICA (v1.2.14).
  *
- * Roda DEPOIS do download do hinário (`syncCollection`) e é retomável por
- * construção: o que já está guardado não é pedido de novo, então uma
- * interrupção custa o que faltava, nunca o que já foi.
+ * Nasceu valendo só para os dois hinários, porque ali o endereço é deduzível e
+ * "baixar tudo" era uma operação previsível em vez de 600 apostas. O acervo de
+ * álbuns provou, na bateria de testes, que a cadeia deduzível (álbum como
+ * artista + artistas padrão) acerta uma boa parte dele — e o que ela não acerta
+ * agora é RESPOSTA GUARDADA, não uma pergunta refeita a cada abertura.
+ *
+ * O corte é o mesmo do `cifraCabe`: conteúdo musical. Uma SÉRIE é testemunho em
+ * vídeo, e procurar cifra dela é requisição garantidamente perdida.
  */
+function cifraGuardavel(coll) {
+  return !!coll && temLetra(coll);
+}
+
 /**
- * As cifras de TODO hinário que o operador tem no aparelho.
+ * As cifras de TODO acervo de música que o operador tem no aparelho.
  *
  * O irmão do `syncLyrics`, e chamado do mesmo lugar: sem isto, o recurso só
- * existia para quem baixasse o hinário DEPOIS da v1.1.28 — quem já o tinha
- * ficava em `0 de 601` para sempre, e o Registro dizia isso sem que nada na
+ * existia para quem baixasse o acervo DEPOIS da versão que o trouxe — quem já o
+ * tinha ficava em `0 de N` para sempre, e o Registro dizia isso sem que nada na
  * tela explicasse o quê fazer.
+ *
+ * **A coleção precisa ter algo BAIXADO** (`countDownloaded`): um álbum que o
+ * operador nunca trouxe para o aparelho não é acervo dele, e varrer o catálogo
+ * inteiro seria pagar rede por música que ninguém vai tocar.
  */
-async function syncCifrasHinarios() {
+async function syncCifrasAcervo() {
   for (const c of allCollections().filter((c) => cifraGuardavel(c) && countDownloaded(c.id) > 0)) {
-    await syncCifrasHinario(c).catch(() => {});
+    await syncCifrasColecao(c).catch(() => {});
   }
 }
 
-async function syncCifrasHinario(coll) {
+async function syncCifrasColecao(coll) {
   if (!window.__NATIVE__ || !cifraGuardavel(coll) || cifraSyncRodando) return;
   // A MESMA REGRA DO `syncLyrics`: são centenas de requisições a um site que
   // não é nosso, e o plano de dados do operador não é o lugar delas.
   if (networkType() === 'cellular') return;
 
   const disco = await cifraDiscoDe(coll.id);
+  const agora = Date.now();
   const faltam = collSongs(coll.id)
     .map((s) => ({ nome: s.name, chave: cifraChaveNoDisco(s.name) }))
-    .filter((h) => h.chave && !disco[h.chave]);
+    .filter((h) => h.chave && !cifraNoDiscoVale(disco[h.chave], agora));
   if (!faltam.length) return;
 
   cifraSyncRodando = true;
@@ -10599,21 +10792,35 @@ async function syncCifrasHinario(coll) {
         await runLimited(faltam, NET_CONCURRENCY, async (h) => {
           bgItemStart(notifId, h.nome);
           try {
-            const url = AVCifra.urlDoHino(coll.id, h.nome);
-            if (url) {
-              const d = await cifraPedir(url, true);   // massa: não fala no Registro
-              // SÓ O SUCESSO É GRAVADO. `nao-tem` e `ilegivel` ficam de fora
-              // para a próxima passada tentar de novo — num acervo em que toda
-              // música existe no site, uma ausência é defeito nosso, e gravá-la
-              // a tornaria permanente.
-              if (d.ok && d.pagina) pendentes[h.chave] = { pagina: d.pagina, url, em: Date.now() };
-              // O SITE SÓ TEM A LETRA DESTA — é resposta, não falha, e por isso
-              // é a ÚNICA ausência que este laço grava. Sem ela, os hinos sem
-              // cifra são rebatidos a cada sessão, para sempre.
-              else if (d.motivo === AVCifra.MOTIVO_SO_LETRA) {
-                semCifra[h.chave] = { soLetra: true, url, em: Date.now() };
-              }
+            // A CADEIA INTEIRA, e não só o catálogo (v1.2.14). É ela que faz o
+            // arquivo valer para um álbum, onde o endereço não é deduzível de
+            // uma tabela: quem acerta ali é o álbum-como-artista e os artistas
+            // padrão. Num hinário nada muda — o catálogo é o primeiro degrau e
+            // encerra na primeira requisição.
+            //
+            // `semBusca` porque a busca do site é MEDIDA em zero: toda linha
+            // `busca …` da bateria devolveu `0 resultado(s)`. Ela custa duas
+            // requisições por música e, em massa, dobraria a varredura do acervo
+            // para não achar nada. Na aba ela FICA — lá é a última carta para a
+            // música que está na frente do operador.
+            const chave = coll.id + '|' + AVCifra.normalizar(h.nome).toLowerCase();
+            const d = await cifraProcurar(h.nome, coll, chave, {
+              mudo: true, semDisco: true, semBusca: true,
+            });
+            if (d.ok && d.pagina) {
+              pendentes[h.chave] = { pagina: d.pagina, url: d.url, em: Date.now() };
+            } else if (d.motivo === AVCifra.MOTIVO_SO_LETRA) {
+              // O SITE SÓ TEM A LETRA DESTA — é resposta, não falha.
+              semCifra[h.chave] = { soLetra: true, url: d.url, em: Date.now() };
+            } else if (d.motivo === AVCifra.MOTIVO_NAO_TEM) {
+              // NENHUM ENDEREÇO DEDUZÍVEL TINHA A PÁGINA. Também é resposta do
+              // site — e, ao contrário do `so-letra`, ela pode mudar quando
+              // alguém publicar a cifra: daí o prazo, e não o silêncio eterno.
+              pendentes[h.chave] = { naoTem: true, em: Date.now() };
             }
+            // `sem-rede`, `recusou` e `ilegivel` NÃO gravam nada: os dois
+            // primeiros não são resposta do site, e o terceiro é defeito do
+            // nosso parser. A passada seguinte tenta de novo.
           } catch (_) { /* rede: a próxima passada tenta de novo */ }
           finally { bgItemEnd(notifId, h.nome); }
           done++;
@@ -11074,7 +11281,7 @@ function cifraRadiografiaTexto(rotulo, html) {
 /** Abre/fecha o seletor, sempre soltando a prévia — ela é do seletor. */
 function cifraEscolherMostrar(mostrar) {
   cifraEscolherAberto = !!mostrar;
-  cifraEscolherChave = mostrar ? cifraChave(currentItem) : '';
+  cifraEscolherChave = mostrar ? cifraChave(lvItem()) : '';
   cifraPrevia = null;
   // ABRIR O SELETOR SEM LISTA É ABRIR UMA TELA VAZIA — e é o caso mais comum
   // dele: a folha ABRIU (pelo catálogo ou pelo artista padrão, sem busca
@@ -11083,7 +11290,7 @@ function cifraEscolherMostrar(mostrar) {
   if (mostrar) {
     const e = cifraCache.get(cifraEscolherChave);
     if (e && !(e.crus || []).length && !e.buscando) {
-      cifraRebuscar(currentItem, e.consulta || cifraNomeDoItem(currentItem));
+      cifraRebuscar(lvItem(), e.consulta || cifraNomeDoItem(lvItem()));
       return;   // o `cifraRebuscar` redesenha nas duas pontas
     }
   }
@@ -11151,7 +11358,7 @@ function cifraEstado(item) {
 // variável solta: voltar a um hino já transposto nesta sessão devolve o tom em
 // que o operador o deixou, e trocar de hino não arrasta o passo do anterior.
 function cifraTranspor(passo) {
-  const e = cifraEstado(currentItem);
+  const e = cifraEstado(lvItem());
   if (!e || e.estado !== 'ok') return;
   // Doze semitons é a volta inteira: passar disso é o mesmo tom com outro nome.
   e.semitons = ((e.semitons + passo) % 12 + 12) % 12;
@@ -11371,6 +11578,12 @@ function cifraAlvoDoRelogio(rolavel) {
  * o `auto` quer: pausar a música PARA a folha, e isso é o recurso funcionando.
  */
 function cifraDuracaoNoAr() {
+  // E COM UM ALVO DA BIBLIOTECA NÃO HÁ RELÓGIO NENHUM (v1.2.14). A folha aberta
+  // no ensaio não é a música em cena: seguir o `authoritativeTime()` faria ela
+  // andar no compasso de OUTRO louvor — e, ao contrário de uma folha parada,
+  // isso parece funcionar. Sem relógio o modo `auto` cai no LIVRE, que é o que
+  // um ensaio sem gravação de fato quer.
+  if (!lvNaCena()) return 0;
   if (!midiaNoAr || seekEl.disabled) return 0;
   return parseFloat(seekEl.max) || 0;
 }
@@ -11759,7 +11972,7 @@ function cifraDesenharFolha(el, pagina, semitons) {
 // Desenha a folha dentro de `el`, e os controles dentro de `barra` — que fica
 // FORA do que rola, para o pausar continuar alcançável com a folha andando.
 function lvBuildCifra(el, barra) {
-  const item = currentItem;
+  const item = lvItem();
   // OS BOTÕES MORREM COM O RENDER ANTERIOR. Sem soltá-los aqui, um render que
   // caia em "procurando" ou em erro deixa `cifraPintarRolar` escrevendo num nó
   // já desligado da árvore — sem erro, e sem efeito nenhum na tela.
@@ -11902,7 +12115,7 @@ function lvBuildCifra(el, barra) {
 
 // Desenha as estrofes da música em cena dentro de `el`, destacando `cur`.
 function lvBuildSong(el, cur) {
-  const lyrics = currentItem.lyrics;
+  const lyrics = lvItem().lyrics;
   lyrics.forEach((slide, i) => {
     // O slide de capa não tem letra (no telão é o título do hino). Vira uma
     // linha curta "Início": some do texto, mas continua sendo uma posição real
@@ -13615,7 +13828,7 @@ async function autoRefreshCollections() {
     // depois de o operador tocar a sincronização. Aqui é como o `syncLyrics`
     // sempre foi — informação padrão do acervo, uma vez por sessão, em segundo
     // plano —, e o download deixa de ser a única porta.
-    syncCifrasHinarios().catch(() => {});
+    syncCifrasAcervo().catch(() => {});
   } finally { collectionsRefreshing = false; }
 }
 
@@ -13702,7 +13915,7 @@ async function syncCollection(coll, opts) {
       // por aqui, e era exatamente este o caminho em que o download de cifras
       // da v1.1.28 nunca acontecia. Tocar em sincronizar tem de fazer alguma
       // coisa quando ainda há o que buscar.
-      await syncCifrasHinario(coll).catch(() => {});
+      await syncCifrasColecao(coll).catch(() => {});
       return { ok: true, baixados: 0, falhou: 0 };
     }
     if (cancelled()) { setCollStatus(coll.id, 'Cancelado', 4000); return { ok: true, baixados: 0, falhou: 0 }; }
@@ -13788,7 +14001,7 @@ async function syncCollection(coll, opts) {
     // torna a folha utilizável sem rede. `await` de propósito: ela usa a mesma
     // proteção de segundo plano, e soltá-la aqui deixaria o `finally` desligar
     // o serviço com centenas de requisições ainda por fazer.
-    if (!cancelled()) await syncCifrasHinario(coll).catch(() => {});
+    if (!cancelled()) await syncCifrasColecao(coll).catch(() => {});
     // Tudo o que se tentou falhou: para o lote isso é o mesmo que não ter
     // baixado nada, e o cabeçalho do grupo precisa saber.
     return { ok: !(falhou > 0 && falhou >= done), baixados: done - falhou, falhou };
@@ -15943,9 +16156,44 @@ function hymnResultRow(coll, s, lyricHit, semColecao) {
     } catch (_) { /* fica o texto de sempre: o padrão é o caso comum */ }
   }
 
+  /**
+   * O BOTÃO QUE ABRE A FOLHA — a mesma do Controle, sem levar nada ao telão.
+   *
+   * A gaveta da Biblioteca mostra a letra para responder *"é este mesmo?"*.
+   * Quem TOCA precisa de outra coisa: acordes, tom, corpo de letra e rolagem —
+   * e até aqui a única forma de chegar nelas era PROJETAR a música. Este botão
+   * abre o leitor de verdade (`openLyricsPopup`) apontado para esta faixa: a
+   * mesma folha, os mesmos controles, e o telão sem saber que ela existe.
+   *
+   * **Reusar o leitor em vez de reconstruí-lo aqui** é a mesma regra do
+   * `cifraCabe` e do `cifraProcurar`: uma segunda folha divergiria da primeira
+   * no primeiro ajuste, e quem tocasse por esta veria uma versão de ontem.
+   *
+   * Ele existe mesmo SEM letra guardada — é justamente aí que a cifra é a
+   * única coisa que a gaveta tem a oferecer.
+   */
+  function botaoFolha() {
+    if (!temLetra(coll)) return null;
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'hymn-lyrics-folha';
+    b.textContent = 'Abrir a folha (cifra, tom e rolagem)';
+    b.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      const item = await lvItemDaBiblioteca(coll, s);
+      // NA CIFRA, porque é o que se veio buscar. Sem ponte ela não existe e a
+      // folha abre na letra sozinha — `lvActiveSource` só honra a preferência
+      // enquanto a fonte estiver disponível.
+      openLyricsPopup(item, 'cifra');
+    });
+    return b;
+  }
+
   async function montarLetra() {
     const estrofes = await songLyricStanzas(coll, s);
     conteudo.innerHTML = '';
+    const folha = botaoFolha();
+    if (folha) conteudo.appendChild(folha);
     if (!estrofes) {
       const vazio = document.createElement('div');
       vazio.className = 'hymn-lyrics-empty';
@@ -18785,27 +19033,33 @@ async function renderDiag() {
     for (const c of allCollections().filter(cifraGuardavel)) {
       let n = 0;
       let semCifra = 0;
+      let naoAchei = 0;
       try {
-        // AS DUAS CONTAS SÃO SEPARADAS de propósito: uma entrada `soLetra` é uma
-        // pergunta RESPONDIDA, não uma cifra guardada — somá-las faria o número
-        // prometer folhas que não existem.
+        // AS TRÊS CONTAS SÃO SEPARADAS de propósito: uma cifra guardada é uma
+        // folha que abre sem rede; um `soLetra` é o site respondendo que aquela
+        // música não tem acordes; um `naoTem` é nenhum endereço deduzível ter a
+        // página — e este último VENCE em 30 dias, então nem é resposta final.
+        // Somá-los faria o número prometer folhas que não existem.
         for (const v of Object.values((await AVDB.getState('cifras:' + c.id)) || {})) {
           if (v && v.pagina) n++;
           else if (v && v.soLetra) semCifra++;
+          else if (v && v.naoTem) naoAchei++;
         }
-      } catch (_) { n = 0; semCifra = 0; }
+      } catch (_) { n = 0; semCifra = 0; naoAchei = 0; }
       const total = collSongs(c.id).length;
       // HINÁRIO NÃO BAIXADO É OUTRA RESPOSTA, não um zero. As cifras só são
       // buscadas para o hinário que existe no aparelho (`countDownloaded`), e
       // um "0 de 613" seco se lê como recurso quebrado — foi exatamente essa a
       // pergunta que o operador fez sobre o hinário de 1996.
       if (!countDownloaded(c.id)) {
-        linhas.push(c.name + ': hinário não baixado — as cifras dele não são buscadas');
+        linhas.push(c.name + ': nada baixado — as cifras dele não são buscadas');
         continue;
       }
+      const resolvidas = n + semCifra + naoAchei;
       linhas.push(c.name + ': ' + n + ' de ' + total + ' cifra(s) no aparelho'
-        + (semCifra ? ' · ' + semCifra + ' sem cifra no site (só a letra)' : '')
-        + (n && n + semCifra < total ? ' (o download completa o resto)' : ''));
+        + (semCifra ? ' · ' + semCifra + ' só letra no site' : '')
+        + (naoAchei ? ' · ' + naoAchei + ' não achei (repergunto em 30 dias)' : '')
+        + (resolvidas < total ? ' · ' + (total - resolvidas) + ' por varrer' : ''));
     }
     if (linhas.length) blocos.push('Cifra (última busca)\n' + linhas.join('\n'));
     // A ESTRUTURA da última página que o parser NÃO entendeu — bloco à parte

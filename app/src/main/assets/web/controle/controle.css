@@ -4396,6 +4396,25 @@ main {
 }
 .hymn-lyrics-empty { font-size: .84rem; color: var(--muted); font-style: italic; }
 
+/* O BOTÃO QUE ABRE A FOLHA (v1.2.14). Ele mora DENTRO da caixa da letra, no
+   topo, porque é ali que a pergunta nasce: o músico está lendo a letra e quer
+   os acordes. Largura inteira e PREENCHIMENTO SUAVE, que na gramática do app é
+   a consulta — abrir uma folha não muda nada no telão.
+
+   `position: sticky` no topo da caixa que rola: a letra pode ter trinta linhas,
+   e um botão que sai de cena ao rolar é um botão que não existe no momento em
+   que se decide usá-lo — a mesma regra que tirou os controles da cifra de
+   dentro da caixa rolável. */
+.hymn-lyrics-folha {
+  position: sticky; top: -.5rem; z-index: 1;
+  display: block; width: calc(100% + 1.2rem);
+  margin: -.5rem -.6rem .5rem; padding: .5rem .6rem;
+  background: var(--accent-soft); color: var(--accent);
+  font-size: .82rem; font-weight: 600; text-align: center;
+  cursor: pointer;
+}
+.hymn-lyrics-folha:active { filter: brightness(1.15); }
+
 /* ---------- A gaveta de um VÍDEO (v5.236) ---------- */
 /* A mesma caixa da letra, com o mesmo recuo e a mesma moldura: as duas
    respondem "é este mesmo?" e não há razão para parecerem coisas diferentes.

@@ -109,6 +109,7 @@ const PONTE = `(() => {
   window.__AVBridge = B;
 })();`;
 
+const collSongsNome = 'Um Numero 1';
 const falhas = [];
 function checar(cond, msg, obtido) {
   if (cond) console.log('ok      ' + msg);
@@ -308,6 +309,80 @@ try {
   });
   checar(!rotulo.escondido && /✓/.test(rotulo.texto) && /✗/.test(rotulo.texto),
     'e o botão mostra o placar da última bateria', rotulo);
+  // ---- O LEITOR DA BIBLIOTECA: A MESMA FOLHA, SEM TELÃO (v1.2.14) --------
+  //
+  // A folha nasceu presa ao `currentItem`, então ler uma música exigia
+  // PROJETÁ-LA. O músico quer o contrário: abrir a cifra no ensaio sem que a
+  // congregação veja nada.
+  //
+  // Três coisas podem falhar aqui, e as três calam:
+  //  1. a folha mostrar a música ERRADA (a da cena, não a que se pediu);
+  //  2. alguma coisa ir ao TELÃO — o defeito que o recurso existe para não ter;
+  //  3. o relógio da cena governar a rolagem de OUTRA música, o que não erra
+  //     alto: a folha anda, só que no compasso errado.
+  const leitor = await pg.evaluate(async () => {
+    const enviados = [];
+    const orig = AVDB.sendCommand;
+    AVDB.sendCommand = (c) => { enviados.push(c && c.type); return orig.call(AVDB, c); };
+    // A CENA: outra música, com duração, para o relógio existir de verdade.
+    currentItem = {
+      id: 'da-cena', name: 'Musica Da Cena', kind: 'audio', seconds: 200,
+      lyrics: [{ text: 'linha da cena' }],
+    };
+    // O RELÓGIO DA CENA, DE VERDADE: sem isto o `cifraDuracaoNoAr` devolveria 0
+    // por outro motivo (barra desabilitada) e a guarda que este caso mede nunca
+    // seria exercitada — o oráculo aprovaria a remoção dela.
+    midiaNoAr = true;
+    seekEl.disabled = false;
+    seekEl.max = '200';
+    const coll = allCollections().find((c) => c.id === 'album-a1');
+    const faixa = collSongs('album-a1')[0];
+    const alvo = await lvItemDaBiblioteca(coll, faixa);
+    openLyricsPopup(alvo, 'cifra');
+    const r = {
+      titulo: lyricsPopupTitleEl.textContent,
+      fonte: lvActiveSource(),
+      naCena: lvNaCena(),
+      nome: cifraNomeDoItem(lvItem()),
+      colecao: (cifraColecaoDoItem(lvItem()) || {}).id || '',
+      relogio: cifraDuracaoNoAr(),
+      indice: lvCurrentIndex('lyrics'),
+      enviados: enviados.slice(),
+    };
+    // E a CENA continua com relógio — a prova de que o 0 acima veio da guarda,
+    // não de a barra estar desabilitada.
+    closeLyricsPopup();
+    r.relogioDaCena = cifraDuracaoNoAr();
+    r.depoisDeFechar = lvNaCena();
+    midiaNoAr = false; seekEl.disabled = true;
+    AVDB.sendCommand = orig;
+    return r;
+  });
+  checar(leitor.nome === collSongsNome, 'a folha abre para a faixa da BIBLIOTECA, não para a da cena',
+    { nome: leitor.nome, titulo: leitor.titulo });
+  checar(leitor.colecao === 'album-a1',
+    'e ela reencontra a coleção — é dela que saem o catálogo e o arquivo no aparelho',
+    leitor.colecao);
+  checar(leitor.fonte === 'cifra', 'abre na CIFRA, que é o que o músico foi buscar', leitor.fonte);
+  checar(leitor.naCena === false, 'e a folha sabe que NÃO é a cena', leitor.naCena);
+  // 2. NADA VAI AO TELÃO. É a promessa inteira do recurso, e a única que falha
+  // sem deixar rastro na tela de quem abriu a folha.
+  checar(leitor.enviados.length === 0,
+    'NENHUM comando foi ao telão — ler não é projetar', leitor.enviados);
+  // 3. E O RELÓGIO DA CENA NÃO GOVERNA ESTA FOLHA. Com duração, o modo `auto`
+  // vira uma função de `authoritativeTime()` — que aqui é o tempo de OUTRA
+  // música. Sem relógio ele cai no livre, que é o que um ensaio quer.
+  checar(leitor.relogio === 0,
+    'a rolagem automática não segue o relógio de outra música', leitor.relogio);
+  checar(leitor.relogioDaCena === 200,
+    'e o relógio EXISTIA — o zero acima é a guarda, não uma barra desabilitada',
+    leitor.relogioDaCena);
+  checar(leitor.indice === -1,
+    'e nenhuma estrofe é destacada: sem cena não há posição', leitor.indice);
+  checar(leitor.depoisDeFechar === true,
+    'fechar a folha devolve o leitor à cena — o alvo é o desvio de UMA leitura',
+    leitor.depoisDeFechar);
+
 } finally {
   await navegador.close();
   servidor.close();

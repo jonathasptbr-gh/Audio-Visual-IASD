@@ -1844,12 +1844,33 @@ a congregação vê continua sendo a letra, pelo caminho de sempre.
   requisição, sem ranking de ninguém escolhendo por nós. Só falhando ela entra a
   **busca genérica**, que é o "qualquer música" e também cobre o hino cujo nome
   no acervo não bate com o do site.
-- **O HINÁRIO 2022 FICA GUARDADO NO APARELHO** (v1.1.28), e é o ÚNICO acervo que
-  fica. Ele é o único cujo endereço no site é DEDUZÍVEL do nome do hino
-  (`CATALOGO`), e por isso o único em que baixar tudo é uma operação previsível
-  em vez de 600 apostas. O download do hinário passa a trazer as cifras junto,
-  e a partir daí a folha abre **sem rede** — que é o problema real: o Wi-Fi da
-  igreja no sábado de manhã.
+- **AS CIFRAS FICAM GUARDADAS NO APARELHO, PARA TODA A BIBLIOTECA BAIXADA**
+  (v1.1.28 nos hinários, v1.2.14 no acervo inteiro). A folha abre **sem rede** —
+  que é o problema real: o Wi-Fi da igreja no sábado de manhã.
+  - **O que separa um hinário de um álbum é o CUSTO, não o direito**
+    (`cifraDeduzivel` × `cifraGuardavel`). No hinário o endereço sai do catálogo
+    e a música custa UMA requisição; num álbum custa a cadeia deduzível inteira
+    (álbum-como-artista + artistas padrão). Confundir as duas perguntas foi o
+    que manteve o arquivo preso aos dois hinários por seis versões.
+  - **A VARREDURA PULA A BUSCA DO SITE** (`semBusca`). MEDIDO na bateria: toda
+    linha `busca …` devolveu `0 resultado(s)` — os resultados são desenhados por
+    JavaScript. Ela custa duas requisições por música e, em massa, dobraria a
+    varredura para não achar nada. Na aba ela FICA: lá é a última carta da
+    música que está na frente do operador, e custa duas requisições UMA vez.
+  - **A AUSÊNCIA TEM PRAZO, e é ela que torna o acervo varrível**
+    (`CIFRA_REVISITA_MS`, 30 dias). No hinário toda música existe no site, e
+    "não achei" era sempre defeito nosso: nada era gravado. **No acervo de
+    álbuns a conta se inverte** — MEDIDO, cerca de dois terços não estão sob
+    nenhum endereço deduzível, e sem memória isso são milhares de requisições a
+    um site de terceiro EM TODA ABERTURA. A resposta não é gravar para sempre
+    (um Wi-Fi ruim não pode custar um buraco permanente) nem não gravar: é
+    gravar **com data**. Uma FOLHA não vence; uma ausência volta para a fila em
+    30 dias. `sem-rede`, `recusou` e `ilegivel` continuam não gravando nada — os
+    dois primeiros não são resposta do site, e o terceiro é defeito do parser.
+  - **E a ausência guardada RESPONDE**, em vez de refazer a cadeia: sem isso a
+    aba gasta quatro requisições para chegar à mesma frase que a varredura já
+    tinha escrito, com o instrumento na mão. Quem a contorna é a escolha à mão,
+    que é a tentativa 0.
   - **QUEM BAIXA É O APARELHO, e essa é a decisão inteira.** Nada disto entra no
     bundle do OTA nem no repositório: o `.zip` do canal é público e servido em
     nome de quem publica, e um acervo ali dentro é o app DISTRIBUINDO obra de
@@ -2086,6 +2107,27 @@ a congregação vê continua sendo a letra, pelo caminho de sempre.
   acordes" é o `<b>` da página. `pareceAcorde` só entra quando não há marcação
   nenhuma, e o preço está declarado no código: a palavra portuguesa "A" é também
   um acorde.
+- **A FOLHA NÃO É MAIS DE QUEM ESTÁ NO AR** (`lvAlvo`, v1.2.14). Ela nasceu
+  presa ao `currentItem` — era o auxiliar de leitura da CENA —, e por isso ler
+  uma música exigia PROJETÁ-LA. Quem toca quer o contrário: abrir a cifra no
+  ensaio sem a congregação ver nada. A gaveta da Biblioteca ganhou **"Abrir a
+  folha"**, que aponta o MESMO leitor para aquela faixa.
+  - **Reusar o leitor, nunca reconstruí-lo na gaveta.** É a regra do
+    `cifraCabe` e do `cifraProcurar`: uma segunda folha divergiria da primeira
+    no primeiro ajuste, e quem tocasse por ela veria a versão de ontem.
+  - **Nada projeta.** O alvo não toca em `currentItem`, não emite comando e não
+    passa pelo `send` — o oráculo afirma ZERO comandos no barramento, que é a
+    metade que falharia sem deixar rastro na tela de quem abriu a folha.
+  - **O RELÓGIO E O DESTAQUE SÃO DA CENA, e só dela** (`lvNaCena`). Com o alvo
+    apontando para outra música, seguir o `authoritativeTime()` faria a folha
+    andar no compasso de OUTRO louvor — e isso não erra alto: *parece*
+    funcionar. Sem relógio o `auto` cai no LIVRE, que é o que um ensaio quer, e
+    nenhuma estrofe é destacada.
+  - **A ABA escolhida sobrevive à reabertura e NÃO à troca de alvo** — são duas
+    coisas: quem escolheu "cifra" no transporte quer continuar nela; carregá-la
+    para outra música abriria a folha de um louvor na aba escolhida para outro.
+    Quem abre pela Biblioteca pede `'cifra'` explicitamente, porque é o que foi
+    buscar. O ALVO morre ao fechar: é o desvio de UMA leitura.
 - **A aba é a ÚLTIMA da lista de fontes**, e isso é a precedência inteira: sem
   escolha do operador, `lvActiveSource` abre a primeira — e a que abre sozinha
   tem de ser a letra, que é o que quem opera o culto está lendo. **A Bíblia NO AR
@@ -3244,7 +3286,7 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: v1.2.13** (base web) · **v1.2.13** (APK) · `SHELL_VERSION` **54** · bundle com
+**Versão atual: v1.2.14** (base web) · **v1.2.13** (APK) · `SHELL_VERSION` **54** · bundle com
 `minShell: 54` — o shell 54 é o **PISO**: todo método da ponte existe, e não há
 guarda de versão no lado web. O que continua valendo é que `java/`, `res/`, o
 manifest e os workflows **só chegam instalando o APK**.
