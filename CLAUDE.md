@@ -763,8 +763,22 @@ do outro. O `finally` de `withBgWork()` é o ponto crítico: uma falha de rede n
 pode deixar serviço e wake lock ligados.
 
 Pontos cobertos: `syncGroup`, `syncCollection`, `ensureSongDownloaded`,
-`syncLyrics`, `ensureBibleVersionDownloaded` e `syncDeviceFolder` (o único que
-chama `bgWorkBegin`/`bgWorkEnd` direto). No navegador é tudo no-op.
+`syncLyrics`, `syncCifrasColecao`, `ensureBibleVersionDownloaded` e
+`syncDeviceFolder` (o único que chama `bgWorkBegin`/`bgWorkEnd` direto). No
+navegador é tudo no-op.
+
+**E O CONTADOR RESPONDE A DUAS PERGUNTAS, que não são a mesma** (v1.2.28).
+`bgWorkCount` responde ao SISTEMA — *"o processo pode ser congelado?"* —, e para
+isso toda tarefa conta, rotina inclusive. Mas ele também responde
+*"é hora de perguntar sobre a atualização?"* (`horaRuimParaPerguntar`), e aí a
+pergunta é outra: **quem PEDIU o trabalho?** `syncLyrics` e `syncCifrasColecao`
+rodam sozinhas na abertura sobre o acervo inteiro (MEDIDO: 309 + 145 hinos numa
+passada), e enquanto elas corriam a pergunta da atualização não aparecia — a
+armadilha do espelho na v5.151 outra vez: *uma condição quase sempre verdadeira
+não ADIA a pergunta, ela a APAGA*. Daí `withBgRotina`, irmão do `withBgWork` com
+a mesma proteção e contado à parte (`bgRotinaCount`); quem os dois `horaRuim*`
+consultam é `bgWorkPedido()`. O contador de rotina zera junto com o outro, senão
+um `finally` perdido suprimiria a pergunta pelo resto da sessão.
 
 ### O download RETOMA de onde parou
 
@@ -3328,7 +3342,7 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: v1.2.27** (base web) · **v1.2.17** (APK) · `SHELL_VERSION` **55** · bundle com
+**Versão atual: v1.2.28** (base web) · **v1.2.17** (APK) · `SHELL_VERSION` **55** · bundle com
 `minShell: 55` — o shell 55 é o **PISO**: todo método da ponte existe, e não há
 guarda de versão no lado web. O que continua valendo é que `java/`, `res/`, o
 manifest e os workflows **só chegam instalando o APK**.

@@ -1,5 +1,12 @@
 [
   {
+    "versao": "1.2.28",
+    "itens": [
+      "Correção: a pergunta de atualização não aparecia enquanto a busca de cifras (ou a de letras) rodava em segundo plano — e ela roda sozinha na abertura, sobre a biblioteca inteira. Agora só um download que VOCÊ pediu adia a pergunta.",
+      "Isso importa quando o app precisa de uma versão nova do APK para aceitar a base web: sem a pergunta, o aparelho ficava parado sem avisar que havia um app novo para instalar."
+    ]
+  },
+  {
     "versao": "1.2.27",
     "itens": [
       "Correção visual: tocar no título de uma música com a gaveta aberta encolhia o cartão DUAS vezes, e o título ficava alguns pixels mais estreito que a gaveta logo abaixo — abrindo uma fresta branca nas laterais. Agora o cartão encolhe inteiro, de uma vez só."
