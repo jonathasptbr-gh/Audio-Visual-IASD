@@ -24,6 +24,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
+- **v1.2.11** — A PERGUNTA QUE SÓ O SHELL SABE RESPONDER: quatro rodadas pelo lado web terminaram sempre em `NotReadableError` nas três configurações, nos dois WebViews, com `RECORD_AUDIO` concedida e uma entrada enumerada. `AppOps` pode RECUSAR `RECORD_AUDIO` enquanto `checkSelfPermission` devolve concedida — o interruptor de privacidade, o Auto Blocker da Samsung sobre app fora da loja, o mudo global —, e o navegador não enxerga essa diferença. Nasce `MicDiag.kt` + `AVNative.micDiag()` (shell 53), LEITURA PURA. E a correção da v1.2.9 NÃO RODAVA: o laço pulava `deviceId === "default"`, e no aparelho há UMA entrada cujo id é exatamente `default` — o Registro seguiu marcando "3 tentativa(s)" enquanto eu anunciava quatro. O oráculo GUARDAVA esse pulo como contrato, e a asserção foi reescrita para a regra certa. EXIGE RELEASE v1.2.11
 - **v1.2.10** — AS CIFRAS GUARDADAS DO HINÁRIO SUMIAM, E O APP RECOMEÇAVA O DOWNLOAD A CADA ABERTURA. MEDIDO num aparelho: `275 de 601` virou `0 de 601`. A gravação era `setState` do mapa INTEIRO a partir de um slot de módulo (`cifraDisco`) cuja identidade mora noutra variável (`cifraDiscoColl`) — o ler-calcular-gravar que o `CLAUDE.md` proíbe para o `state`, com o agravante de o que ia ao disco poder ser o mapa de OUTRA coleção, ou `{}` por cima de um acervo cheio. Passa a MESCLAR com `updateState`, numa transação só: uma substituição pode produzir zero a partir de 275, **uma mescla não pode** — a correção é a propriedade, não o interleaving daquela vez. Mais: o Registro deixou de dizer "0 de 613 cifra(s)" para um hinário que não está baixado. OTA PURO
 - **v1.2.9** — O PEDIDO PELO ID DO DISPOSITIVO, E O REGISTRO QUE DAVA UM VEREDITO ERRADO: o Registro da v1.2.7 mostrou `entradas de áudio: 1` com os três degraus em `NotReadableError` — o que mata o interruptor de privacidade (daria zero) E o processamento (o pedido CRU foi negado). Sobrou uma pergunta que a escada nunca fez: o `default` do Chromium não é o microfone, é uma entrada virtual que segue o roteamento do sistema. Os dois caminhos passam a pedir cada entrada pelo `deviceId` com `exact`, pulando o default. E o `micStatus` mandava só o erro FINAL: o Controle via UMA tentativa e imprimia "falhou antes de esgotar a escada" — enquanto o telão tinha rodado as três. O Registro não ficava em branco, ele continuava respondendo com a frase errada. Mais a MENSAGEM do erro e o RÓTULO de cada entrada. OTA PURO
 - **v1.2.8** — A BATERIA DE TESTES DA CIFRA, e o buscador externo aposentado. O acervo é FIXO e ANTIGO: os álbuns não ganham faixa nova e os nomes não mudam, então a pergunta que sobra não é "a regra está certa?" e sim **"para quais álbuns a cadeia de endereços não chega?"** — e ela só tem resposta medindo. Um botão em Configurações sorteia uma ou duas músicas de CADA álbum, roda a MESMA cadeia da aba (`cifraProcurar`, extraída para ter dois consumidores) e escreve no Registro o degrau que venceu em cada uma — com TODOS os endereços tentados nas que falharam, que é o que transforma um "✗" em conserto: com a lista na mão o operador acha a música no site, quase sempre sob outro artista, e fixa o endereço. Ela mede a REDE (`semDisco`) e não apaga a radiografia do operador (`mudo`) — as três guardas provadas por reversão. E o BUSCADOR EXTERNO saiu: MEDIDO, o endpoint HTML do DuckDuckGo responde **HTTP 202**, a recusa anti-robô, e uma recusa lida como página vazia é uma requisição por procura para não devolver nada. **EXIGE RELEASE v1.2.8**: shell 51 → 52, o host do buscador sai da allowlist do `CifraFonte`
@@ -236,6 +237,88 @@ na nota que a revoga, não apagada da que a criou.
 - **v5.154** — é METADE OTA e METADE APK, e a divisão importa para quem for testar em aparelho.
 - **v5.155** — é OTA PURO
 - **v5.156** — é METADE OTA e METADE APK, de novo.
+
+---
+
+## v1.2.11 — a pergunta que só o shell sabe responder (e o meu conserto que não rodava)
+
+Quatro rodadas de investigação pelo lado web terminaram sempre no mesmo lugar:
+
+```
+microfone (recado) RECUSADO em 3 tentativa(s): com eco=NotReadableError ·
+sem eco=NotReadableError · cru=NotReadableError · entradas de áudio: 1
+```
+
+`RECORD_AUDIO` concedida, uma entrada enumerada, as três configurações
+recusadas, nos DOIS WebViews. Do lado web não sobrava pergunta a fazer.
+
+### A CORREÇÃO DA v1.2.9 NÃO RODAVA, E O REGISTRO DENUNCIOU
+
+Ela prometia uma quarta tentativa — pedir o dispositivo pelo `deviceId` em vez
+de aceitar o `default` do navegador — e o Registro seguiu marcando **"3
+tentativa(s)"**. O laço pulava `deviceId === 'default'`, e no aparelho há UMA
+entrada, cujo id é exatamente `default`. A tentativa nunca aconteceu.
+
+O `mic-escada.test.mjs` **guardava esse pulo como contrato** — eu o escrevi
+assim. A asserção foi reescrita para o contrato certo (não pular), que é a
+disciplina deste projeto: o oráculo acompanha a regra, não o código.
+
+### O QUE O NAVEGADOR NÃO PODE VER
+
+`AppOps` pode **recusar** `RECORD_AUDIO` enquanto `checkSelfPermission` devolve
+**concedida**. É o mecanismo do interruptor de privacidade do Android, dos
+controles do fabricante (o Auto Blocker da Samsung sobre um app instalado fora
+da loja) e do mudo global. Nos três a tela do app diz "permissão concedida" e a
+abertura falha — exatamente o que o Registro vinha mostrando.
+
+Nasce `MicDiag.kt` e o método `AVNative.micDiag()` (shell 53), **leitura pura**:
+não abre o microfone, não pede permissão, não muda nada. Tudo API pública sem
+permissão adicional.
+
+| o que ele lê | a pergunta que responde |
+|---|---|
+| `checkSelfPermission` | a concessão existe? (vinha sim — por isso sozinha não explicava nada) |
+| **`AppOps` para `RECORD_AUDIO`** | ela está VALENDO agora? |
+| `isMicrophoneMute` | o mudo global está ligado? |
+| `getMode()` | há uma chamada em curso? (a causa que a frase da tela sempre acusou e que nunca foi verificada) |
+| `activeRecordingConfigurations` | outro app está gravando? |
+| `getDevices(GET_DEVICES_INPUTS)` | quais entradas o SISTEMA enxerga, com tipo e nome |
+
+A última é independente da lista do navegador, e **a diferença entre as duas é
+informação**: um microfone que o sistema lista e o navegador não é um problema
+do WebView, não do aparelho.
+
+### O VEREDITO PASSA A NOMEAR A CAUSA E O LUGAR DE MEXER
+
+Com o AppOps recusando, o Registro deixa de mandar reconceder a permissão — que
+não resolve — e aponta o interruptor de privacidade e o Bloqueio automático. Os
+vereditos são exclusivos e o do sistema vence os genéricos: dois diagnósticos no
+mesmo bloco é o Registro discordando de si mesmo.
+
+Sem resposta do shell (bundle novo sobre APK antigo) nenhuma dessas linhas
+aparece, e o veredito de sempre volta — nunca "undefined" num log que vai ser
+repassado.
+
+### O QUE O ORÁCULO MEDE
+
+`registro.test.mjs` injeta a resposta do shell e cobra os quatro desfechos
+(bloqueado · em chamada · mudo · shell calado), que o veredito do sistema vença
+o genérico, e que as entradas do sistema apareçam com tipo e nome. Provado por
+reversão nos dois pontos: sem o veredito do AppOps e sem a chamada à sonda.
+
+O arnês precisou de um conserto para medir o que promete: o caso da permissão
+negada deixava o `requestMic` respondendo `false` para os testes seguintes, e as
+asserções passariam por não ter chegado à escada.
+
+### O QUE AINDA NÃO SE SABE, DITO
+
+Se o AppOps voltar "permitido", com o mudo desligado, sem chamada e sem outra
+sessão gravando — então o sistema afirma que a captura é possível e ela falha
+assim mesmo, e a próxima pergunta é sobre o WebView, não sobre o Android. Este
+lote não resolve o microfone: ele torna a causa **legível**.
+
+EXIGE RELEASE v1.2.11 — `SHELL_VERSION` 52 → 53, `minShell: 53`,
+`shellTag: "v1.2.11"`.
 
 ---
 

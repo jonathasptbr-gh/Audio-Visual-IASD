@@ -194,7 +194,7 @@ class NativeBridge(
          *
          * O degrau a degrau está na tabela da seção "A ponte" do `CLAUDE.md`.
          */
-        const val SHELL_VERSION = 52
+        const val SHELL_VERSION = 53
 
         /**
          * O CONSUMIDOR DA LAN para o barramento (telão por comandos, E2 —
@@ -443,6 +443,25 @@ class NativeBridge(
     fun otaDiag(callId: String) {
         io.execute {
             resolve(callId, JSONObject.quote(if (host == null) "" else WebUpdater.diag(ctx)))
+        }
+    }
+
+    /**
+     * POR QUE O MICROFONE NÃO ABRE — o que só o shell sabe (shell 53).
+     *
+     * Ver [MicDiag]: `AppOps`, mudo global, modo de áudio, sessões de gravação
+     * ativas e as entradas que o SISTEMA enxerga. Tudo leitura, tudo API
+     * pública, nada de permissão nova — e nada que abra o microfone.
+     *
+     * Na fila `io` porque é isso mesmo: consultas de milissegundos a serviços do
+     * sistema, sem rede. Sem `host` devolve `{}` — a superfície privilegiada é
+     * do Controle (invariante 9), e o telão não tem o que fazer com ela.
+     */
+    @JavascriptInterface
+    fun micDiag(callId: String) {
+        io.execute {
+            if (host == null) { resolve(callId, "{}"); return@execute }
+            resolve(callId, runCatching { MicDiag.paraJson(ctx).toString() }.getOrDefault("{}"))
         }
     }
 

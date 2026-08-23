@@ -913,8 +913,10 @@ async function startMic() {
   // restrições ter se esgotado, e só se houver um id para pedir.
   if (!stream && ultimoErro !== 'NotAllowedError' && ultimoErro !== 'SecurityError'
       && (seq === micSeq && micWanted)) {
+    // O `default` NÃO É PULADO — ver o gêmeo no `controle.js`: num aparelho com
+    // UMA entrada, o id dela É `default`, e pular significava não tentar nada.
     for (const d of await micDispositivos()) {
-      if (!d.deviceId || d.deviceId === 'default') continue;
+      if (!d.deviceId) continue;
       try {
         stream = await navigator.mediaDevices.getUserMedia({
           audio: { deviceId: { exact: d.deviceId } }, video: false,

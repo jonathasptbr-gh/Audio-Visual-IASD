@@ -511,6 +511,19 @@
     // o que ela deu e quantas falhas seguidas.
     otaDiag: () => call((id) => B.otaDiag(id), CALL_TIMEOUT_MS).then((r) => r || ''),
 
+    // POR QUE O MICROFONE NÃO ABRE — o que só o shell sabe (shell 53).
+    //
+    // `{ permissao, appops, mudo, modo, gravando, entradas:[{tipo,nome}] }`.
+    // Leitura PURA: não abre o microfone, não pede permissão, não muda nada.
+    //
+    // Ela existe porque quatro rodadas pelo lado web terminaram no mesmo lugar —
+    // `NotReadableError` nas três configurações, nos dois WebViews, com a
+    // permissão concedida e um dispositivo enumerado. O `AppOps` pode NEGAR
+    // `RECORD_AUDIO` enquanto `checkSelfPermission` devolve concedida, e o
+    // navegador não enxerga essa diferença.
+    micDiag: () => call((id) => B.micDiag(id), CALL_TIMEOUT_MS)
+      .then((r) => (r && typeof r === 'object' ? r : null)),
+
     // DIAGNÓSTICO da última extração do YouTube: uma linha dizendo quantas
     // faixas de cada tipo o extrator recebeu e qual venceu. Vazio num shell
     // antigo (o `call` resolve null) e antes da primeira extração.

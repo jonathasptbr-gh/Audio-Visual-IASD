@@ -432,10 +432,18 @@ window.AVNative = {
                        //   quem lê o HTML é `controle/cifra.js`. Os dois campos
                        //   respondem perguntas diferentes — `status 0` é "não
                        //   houve resposta", `404` é "o site não tem"
+  micDiag(),           // → { permissao, appops, mudo, modo, gravando,
+                       //     entradas:[{tipo,nome}] }: POR QUE o microfone não
+                       //     abre — o que só o SHELL sabe. `AppOps` pode RECUSAR
+                       //     `RECORD_AUDIO` com `checkSelfPermission` devolvendo
+                       //     concedida (o interruptor de privacidade, o Auto
+                       //     Blocker da Samsung sobre app fora da loja, o mudo
+                       //     global), e o navegador não enxerga essa diferença.
+                       //     LEITURA PURA: não abre o microfone, não pede nada
   cifraDiag(),         // → string: o que a última busca de cifra recebeu
 }
 ```
-São **46 métodos**, e essa é a superfície inteira que o resto do lado web tem
+São **47 métodos**, e essa é a superfície inteira que o resto do lado web tem
 direito de usar — fora do `native.js`, tocar em `__AVBridge` direto é
 acoplamento indevido. O próprio `native.js` chama mais oito coisas lá, e nenhuma
 é API para o app: `ytFetchAudio` e `ytFetchAte` (não são métodos a mais, são os
@@ -493,7 +501,7 @@ prazo (um timeout ali resolveria null com o operador ainda escolhendo a pasta).
 
 ### `SHELL_VERSION` — subir SEMPRE que a superfície mudar
 
-Hoje vale **52**, e ele é o **PISO**: o bundle declara `minShell: 52`, então
+Hoje vale **53**, e ele é o **PISO**: o bundle declara `minShell: 53`, então
 todo método da ponte existe sempre e **não há guarda de versão no lado web**.
 "Superfície" inclui **forma de retorno** e **comportamento**, não só assinatura:
 um campo que some, um contrato de URL que muda ou um método que passa a fazer
@@ -3190,8 +3198,8 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: v1.2.10** (base web) · **v1.2.8** (APK) · `SHELL_VERSION` **52** · bundle com
-`minShell: 52` — o shell 52 é o **PISO**: todo método da ponte existe, e não há
+**Versão atual: v1.2.11** (base web) · **v1.2.11** (APK) · `SHELL_VERSION` **53** · bundle com
+`minShell: 53` — o shell 53 é o **PISO**: todo método da ponte existe, e não há
 guarda de versão no lado web. O que continua valendo é que `java/`, `res/`, o
 manifest e os workflows **só chegam instalando o APK**.
 

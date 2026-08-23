@@ -244,7 +244,7 @@ const appVersionEl = document.getElementById('appVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.2.10';
+const WEB_VERSION = '1.2.11';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -5028,7 +5028,15 @@ const MIC_TENTATIVAS = [
 let micUltima = null;   // { origem, quando, degraus:[{qual,erro}], entradas, ok }
 
 function micRegistrar(origem, degraus, disp, ok) {
-  micUltima = { origem, quando: Date.now(), degraus, disp: disp || null, ok };
+  micUltima = { origem, quando: Date.now(), degraus, disp: disp || null, ok, shell: null };
+  // A SONDA DO SHELL, só na FALHA e só quando há ponte. Ela responde o que o
+  // navegador não enxerga — `AppOps` pode negar `RECORD_AUDIO` com a permissão
+  // concedida —, e é assíncrona: o bloco do Registro a mostra quando chegar, e
+  // o resto da linha não espera por ela.
+  if (!ok && window.__NATIVE__) {
+    const alvo = micUltima;
+    AVNative.micDiag().then((d) => { if (d) alvo.shell = d; }).catch(() => {});
+  }
   const falhas = degraus.filter((d) => d.erro);
   if (ok) {
     if (falhas.length) {
@@ -5155,8 +5163,13 @@ async function iniciarRecado() {
   const disp = await micDispositivos();
   if (!fluxo && erroFinal !== 'NotAllowedError' && erroFinal !== 'SecurityError'
       && seq === recSeq) {
-    for (const d of disp) {
-      if (!d.deviceId || d.deviceId === 'default') continue;
+    // O `default` NÃO É PULADO. A primeira escrita disto pulava — e no aparelho
+    // do relato havia UMA entrada, cujo id É `default`: a tentativa por id nunca
+    // rodou, e o Registro seguiu marcando "3 tentativa(s)". Pedi-lo por
+    // `{exact:'default'}` é um pedido DIFERENTE de `{audio:true}` mesmo assim, e
+    // custa uma chamada.
+    for (const d of (disp || [])) {
+      if (!d.deviceId) continue;
       try {
         fluxo = await navigator.mediaDevices.getUserMedia({
           audio: { deviceId: { exact: d.deviceId } }, video: false,
@@ -18449,12 +18462,57 @@ function blocoMicrofone() {
       l.push('    · ' + (d.label || '(sem rótulo — a permissão não chegou a valer)'));
     }
   }
-  // O VEREDITO, e ele é o ponto do bloco: a mesma frase na tela sai de quatro
+  // O QUE O SISTEMA DIZ, quando o shell respondeu. Estas linhas são as únicas
+  // do bloco que o navegador não podia produzir — e são elas que fecham o caso
+  // em que tudo do lado web está em ordem e a captura falha assim mesmo.
+  const sh = micUltima.shell;
+  if (sh) {
+    l.push('  --- o que o SISTEMA diz (shell) ---');
+    if (sh.permissao !== null && sh.permissao !== undefined) {
+      l.push('  permissão RECORD_AUDIO: ' + (sh.permissao ? 'concedida' : 'NEGADA'));
+    }
+    if (sh.appops) l.push('  AppOps para gravar: ' + sh.appops);
+    if (sh.mudo !== null && sh.mudo !== undefined) {
+      l.push('  microfone mudo no sistema: ' + (sh.mudo ? 'SIM' : 'não'));
+    }
+    if (sh.modo !== null && sh.modo !== undefined) {
+      // 2 = MODE_IN_CALL, 3 = MODE_IN_COMMUNICATION. É a causa que a frase da
+      // tela sempre acusou e que nunca tinha sido verificada.
+      const emChamada = sh.modo === 2 || sh.modo === 3;
+      l.push('  modo de áudio: ' + sh.modo + (emChamada ? ' (EM CHAMADA)' : ''));
+    }
+    if (sh.gravando !== null && sh.gravando !== undefined) {
+      l.push('  sessões de gravação visíveis: ' + sh.gravando);
+    }
+    if (Array.isArray(sh.entradas)) {
+      l.push('  entradas que o SISTEMA enxerga: ' + sh.entradas.length);
+      for (const e of sh.entradas) {
+        l.push('    · ' + e.tipo + (e.nome ? ' — ' + e.nome : ''));
+      }
+    }
+  }
+  // O VEREDITO, e ele é o ponto do bloco: a mesma frase na tela sai de várias
   // causas, e cada uma pede uma ação diferente. Quem lê o Registro está a
-  // distância e não pode tentar as quatro.
+  // distância e não pode tentar todas.
   if (!micUltima.ok) {
     const erros = micUltima.degraus.map((d) => d.erro);
-    if (erros.some((e) => e === 'NotAllowedError' || e === 'SecurityError')) {
+    if (sh && sh.appops && sh.appops !== 'permitido' && sh.appops !== '?') {
+      // O CASO QUE QUATRO RODADAS NÃO CONSEGUIRAM NOMEAR. A permissão está
+      // concedida e o AppOps a recusa — é o interruptor de privacidade do
+      // sistema, o controle do fabricante (o Auto Blocker da Samsung sobre um
+      // app instalado fora da loja) ou o mudo global. Nos três a tela do app diz
+      // "permissão concedida" e a captura falha assim mesmo.
+      l.push('→ O SISTEMA ESTÁ BLOQUEANDO A GRAVAÇÃO (AppOps: ' + sh.appops + '), mesmo com '
+        + 'a permissão concedida. Não adianta reconceder a permissão. Veja: o interruptor '
+        + '"Acesso ao microfone" nas configurações rápidas; e, num Samsung, o Bloqueio '
+        + 'automático (Auto Blocker) em Segurança e privacidade — ele restringe apps '
+        + 'instalados fora da Play Store.');
+    } else if (sh && (sh.modo === 2 || sh.modo === 3)) {
+      l.push('→ O APARELHO ESTÁ EM CHAMADA (modo ' + sh.modo + '): aí o microfone é da '
+        + 'chamada, e esta é a única vez em que a frase antiga estava certa.');
+    } else if (sh && sh.mudo === true) {
+      l.push('→ O MICROFONE ESTÁ MUDO NO SISTEMA. Não é permissão nem app concorrente.');
+    } else if (erros.some((e) => e === 'NotAllowedError' || e === 'SecurityError')) {
       l.push('→ PERMISSÃO: o Android (ou o WebView) negou. Autorize o app em '
         + 'Configurações › Aplicativos › Áudio Visual › Permissões.');
     } else if (disp && disp.length === 0) {
