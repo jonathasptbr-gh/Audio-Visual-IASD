@@ -258,6 +258,16 @@ jobs:
           # `tela-rede.test.mjs` cobrava o par; ele não cobrava — aquele oráculo
           # sobe um servidor de MENTIRA e nunca lê o Kotlin.
           node tools/tipos-que-sobem.test.mjs
+
+          # AS DUAS ESCADAS DE CAPTURA DO MICROFONE. O app abre o microfone em
+          # dois lugares (o AO VIVO no telão, o RECADO no Controle) e os dois
+          # precisam da MESMA escada de três tentativas — é o segundo degrau que
+          # abre o microfone com o ESPELHAMENTO LIGADO, isto é, no modo normal
+          # de um culto com TV. O recado nasceu com UM degrau e o operador
+          # recebeu "O Android não liberou o microfone" no primeiro toque.
+          # Duas escadas sem oráculo divergem no primeiro esquecimento — mesma
+          # razão do `tipos-que-sobem`, e o mesmo remédio.
+          node tools/mic-escada.test.mjs
           # A REGRA DA SÉRIE: quais playlists do canal formam o álbum "Provai e
           # Vede 2026" e quais vídeos entram nele. Os dois modos de errar são
           # silenciosos e caros — aceitar demais põe a versão em LIBRAS em par

@@ -1,10 +1,19 @@
 [
   {
-    "versao": "1.2.2",
+    "versao": "1.2.3",
     "itens": [
       "A BUSCA DE CIFRA PASSA A USAR UM BUSCADOR. A busca do próprio Cifra Club desenha os resultados por JavaScript, então o app nunca via nenhum — a página que ele recebia só tinha o índice A–Z. Agora a procura é feita num buscador, com o site travado na consulta.",
       "Isso conserta também o seletor manual: a lista de resultados que você abre para escolher a cifra certa estava vazia pelo mesmo motivo.",
-      "Esta versão precisa do app novo (v1.2.2) — o endereço do buscador é liberado no aplicativo, não na base."
+      "Esta versão precisa do app novo (v1.2.2) — o endereço do buscador é liberado no aplicativo, não na base.",
+      "O Recado não gravava com a TV espelhando — que é justamente o modo normal de um culto. Ele pedia o microfone com cancelamento de eco, e o Android recusa esse pedido quando o som está indo para outro lugar.",
+      "Esta versão precisa do app novo (v1.2.3) — o endereço do buscador é liberado no aplicativo, não na base."
+    ]
+  },
+  {
+    "versao": "1.2.2",
+    "itens": [
+      "O Recado não gravava com a TV espelhando — que é justamente o modo normal de um culto. Ele pedia o microfone com cancelamento de eco, e o Android recusa esse pedido quando o som está indo para outro lugar.",
+      "Agora ele tenta três formas, da melhor para a que sempre abre, exatamente como o microfone ao vivo já fazia."
     ]
   },
   {
