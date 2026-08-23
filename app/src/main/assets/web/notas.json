@@ -1,5 +1,12 @@
 [
   {
+    "versao": "1.2.2",
+    "itens": [
+      "O Recado não gravava com a TV espelhando — que é justamente o modo normal de um culto. Ele pedia o microfone com cancelamento de eco, e o Android recusa esse pedido quando o som está indo para outro lugar.",
+      "Agora ele tenta três formas, da melhor para a que sempre abre, exatamente como o microfone ao vivo já fazia."
+    ]
+  },
+  {
     "versao": "1.2.1",
     "itens": [
       "CORRIGIDO: as cifras do hinário nunca eram baixadas por quem JÁ tinha o hinário. Elas estavam penduradas no fim do download, e um hinário completo termina antes disso — o Registro dizia “0 de 601” mesmo depois de sincronizar. Agora elas vêm na abertura do app, em segundo plano, como as letras."
