@@ -502,13 +502,56 @@ try {
   checar(/MICROFONE ESTÁ MUDO NO SISTEMA/.test(mudo),
     'o MUDO global tem veredito próprio — é outro interruptor, e outra ação');
 
+  // A PERMISSÃO QUE FALTAVA NO NOSSO PRÓPRIO APK. É o único veredito deste bloco
+  // cujo conserto é NOSSO, e por isso ele precisa VENCER até o do AppOps: com o
+  // Chromium recusando a abertura antes de existir AudioRecord, o que o AppOps
+  // diz é irrelevante, e mandar o operador mexer no Auto Blocker é a rodada
+  // perdida em cima de um app que ainda não foi consertado.
+  const semModAudio = await comShell({
+    permissao: true, modAudio: false, appops: 'recusado', mudo: true, modo: 2, gravando: 3,
+    entradas: [{ tipo: 'microfone embutido', nome: 'SM-S928B' }],
+  });
+  checar(/permissão MODIFY_AUDIO_SETTINGS: AUSENTE/.test(semModAudio),
+    'o Registro diz que a permissão que o CHROMIUM exige não está no APK instalado',
+    semModAudio.slice(semModAudio.indexOf('Microfone'), semModAudio.indexOf('Microfone') + 700));
+  checar(/FALTA A PERMISSÃO MODIFY_AUDIO_SETTINGS/.test(semModAudio),
+    'e o veredito nomeia a causa e diz que o conserto é INSTALAR o APK novo');
+  // As quatro comparações são contra a frase do VEREDITO, nunca contra a linha de
+  // FATO que a alimenta: "modo de áudio: 2 (EM CHAMADA)" continua sendo impresso
+  // — é um fato, e fatos não competem entre si. Quem não pode acumular é o
+  // veredito.
+  checar(!/O SISTEMA ESTÁ BLOQUEANDO/.test(semModAudio)
+    && !/O APARELHO ESTÁ EM CHAMADA/.test(semModAudio)
+    && !/O MICROFONE ESTÁ MUDO NO SISTEMA/.test(semModAudio)
+    && !/TODOS OS DEGRAUS FALHARAM/.test(semModAudio),
+    'e ele VENCE os quatro outros vereditos, mesmo com AppOps recusando, mudo ligado e '
+    + 'chamada em curso ao mesmo tempo — enquanto ele acender, os outros perseguem a '
+    + 'causa errada');
+
+  // MODE_FOREGROUND É O ESTADO NORMAL DO APARELHO, e sem o ramo dele o Registro
+  // acusava bloqueio no caso mais comum que existe. "Permitir apenas ao usar o
+  // app" é o padrão de RECORD_AUDIO do Android 10 em diante.
+  const primPlano = await comShell({
+    permissao: true, modAudio: true, appops: 'primeiro plano', mudo: false, modo: 0,
+    gravando: 0, entradas: [{ tipo: 'microfone embutido', nome: 'SM-S928B' }],
+  });
+  checar(/AppOps para gravar: primeiro plano/.test(primPlano),
+    'o AppOps em MODE_FOREGROUND sai por extenso, nunca como "modo 4"');
+  checar(!/O SISTEMA ESTÁ BLOQUEANDO/.test(primPlano),
+    'e ele NÃO é lido como bloqueio: com o app na frente — o único momento em que este '
+    + 'diagnóstico roda — MODE_FOREGROUND é permitido, e acusar o sistema aí é a frase '
+    + 'certa pela razão errada, num log que é lido a distância');
+  checar(/TODOS OS DEGRAUS FALHARAM/.test(primPlano),
+    'com o sistema em ordem o veredito volta a ser o genérico, que é a resposta honesta');
+
   // E COM O SHELL CALADO (bundle novo, APK antigo) nada disso aparece, e o
   // veredito genérico volta: um campo ausente nunca vira "undefined" num log.
   const semShell = await comShell(null);
   checar(!/o que o SISTEMA diz/.test(semShell) && /TODOS OS DEGRAUS FALHARAM/.test(semShell),
     'sem resposta do shell o bloco cai no veredito de sempre, sem inventar linha nenhuma');
-  checar(!/undefined|NaN|\[object Object\]/.test(bloq + chamada + mudo + semShell),
-    'e nenhum dos quatro produz "undefined", "NaN" ou "[object Object]"');
+  checar(!/undefined|NaN|\[object Object\]/.test(bloq + chamada + mudo + semShell
+      + semModAudio + primPlano),
+    'e nenhum dos seis produz "undefined", "NaN" ou "[object Object]"');
 
   checar(!/undefined|NaN|\[object Object\]/.test(tres + zero + perm),
     'e nenhum dos três casos produz "undefined", "NaN" ou "[object Object]"');

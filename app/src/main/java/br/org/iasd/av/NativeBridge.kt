@@ -194,7 +194,7 @@ class NativeBridge(
          *
          * O degrau a degrau está na tabela da seção "A ponte" do `CLAUDE.md`.
          */
-        const val SHELL_VERSION = 53
+        const val SHELL_VERSION = 54
 
         /**
          * O CONSUMIDOR DA LAN para o barramento (telão por comandos, E2 —
