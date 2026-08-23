@@ -57,6 +57,27 @@ object MicDiag {
             }.getOrNull() ?: JSONObject.NULL,
         )
 
+        // 1-B. A OUTRA PERMISSÃO — a que o Chromium exige e o Android não.
+        //    `AudioManagerAndroid.hasPermission()` consulta o
+        //    `checkSelfPermission` do app HOSPEDEIRO, então sem
+        //    `MODIFY_AUDIO_SETTINGS` o `setCommunicationDevice()` devolve
+        //    `false`, `MakeLowLatencyInputStream` devolve `nullptr`, e TODA
+        //    abertura de áudio morre em `NotReadableError` antes de qualquer
+        //    restrição ser negociada. Ela é `normal` (concedida na instalação,
+        //    invisível na tela de permissões), e foi a causa do defeito que este
+        //    arquivo nasceu para diagnosticar.
+        //
+        //    FICA depois do conserto, e é isso que a torna útil: ela responde
+        //    "o APK instalado JÁ TEM o conserto?" — a pergunta que separa
+        //    "continua quebrado" de "é outra coisa".
+        o.put(
+            "modAudio",
+            runCatching {
+                ctx.checkSelfPermission(android.Manifest.permission.MODIFY_AUDIO_SETTINGS) ==
+                    PackageManager.PERMISSION_GRANTED
+            }.getOrNull() ?: JSONObject.NULL,
+        )
+
         // 2. O APPOPS — a resposta que faltava. `checkSelfPermission` lê a
         //    concessão; o AppOps lê se ela está VALENDO agora. É aqui que o
         //    interruptor de privacidade e os controles do fabricante aparecem, e
@@ -78,10 +99,13 @@ object MicDiag {
         o.put("modo", runCatching { am?.mode }.getOrNull() ?: JSONObject.NULL)
 
         // 5. QUEM ESTÁ GRAVANDO AGORA. A outra metade da mesma acusação: se
-        //    outro app segura o microfone, é aqui que ele aparece. A lista é
-        //    filtrada pelo sistema (nem toda sessão é visível a um app comum),
-        //    então ZERO não prova ausência — e é por isso que o campo é a
-        //    CONTAGEM, e o veredito do web fala em "nenhuma sessão VISÍVEL".
+        //    outro app segura o microfone, é aqui que ele aparece. A lista vem
+        //    ANONIMIZADA (sem `MODIFY_AUDIO_ROUTING`, que este APK nunca terá,
+        //    cada entrada volta com uid -1 e pacote vazio) mas COMPLETA: a
+        //    contagem é do APARELHO INTEIRO, e é por isso que ela pode acusar
+        //    outro app. Ainda assim ZERO não prova ausência — um `AudioRecord`
+        //    construído e não iniciado não aparece —, e é por isso que o campo é
+        //    a CONTAGEM e o veredito do web fala em "nenhuma sessão VISÍVEL".
         o.put(
             "gravando",
             runCatching { am?.activeRecordingConfigurations?.size }.getOrNull()
@@ -128,6 +152,14 @@ object MicDiag {
         }
         return when (modo) {
             AppOpsManager.MODE_ALLOWED -> "permitido"
+            // O DESFECHO MAIS PROVÁVEL, e sem este ramo ele saía como "modo 4".
+            // Do Android 10 em diante, `RECORD_AUDIO` concedida no padrão
+            // ("Permitir apenas ao usar o app") devolve MODE_FOREGROUND aqui —
+            // e isso é PERMITIDO com o app na frente, que é o único momento em
+            // que este diagnóstico roda. Lido pelo `else`, o Registro acusaria
+            // bloqueio no estado NORMAL do aparelho: a frase certa pela razão
+            // errada, num log que é lido a distância.
+            AppOpsManager.MODE_FOREGROUND -> "primeiro plano"
             AppOpsManager.MODE_IGNORED -> "bloqueado"      // silencioso: o app "grava" e não vem som
             AppOpsManager.MODE_ERRORED -> "recusado"       // a abertura FALHA — o nosso caso
             AppOpsManager.MODE_DEFAULT -> "padrao"
