@@ -143,19 +143,49 @@
       <circle cx="11" cy="11" r="7"/>
       <line x1="16.5" y1="16.5" x2="21" y2="21"/>
     </symbol>
-    <!-- HISTÓRICO: o relógio com a seta de VOLTAR NO TEMPO saindo dele. O
-         relógio sozinho é "hora" (e é o que o `more_time` do Cronograma já
-         diz); o que separa este daquele é o sentido da seta, anti-horária —
-         "o que já passou". A abertura no canto superior esquerdo do mostrador
-         é onde a seta entra: fechá-la deixaria dois desenhos empilhados num
-         quadrado de 20px, a mesma razão do canto aberto do `icoCast`.
+    <!-- HISTÓRICO: o TRILHO com os nós — a linha do tempo do que já foi ao
+         telão, um traço por item, na ordem em que aconteceram.
+
+         ELE ERA UM RELÓGIO COM A SETA ANTI-HORÁRIA, e o operador pediu que
+         deixasse de ser: *"ajuste o ícone do botão de histórico do player, para
+         que ele seja sobre histórico, mas diferente do cronograma"*. A aba
+         Cronograma é um RELÓGIO (`circle r=9` + ponteiros), e o desenho antigo
+         era o mesmo mostrador com os mesmos ponteiros mais uma seta pequena: a
+         **silhueta** dos dois era a mesma bola, e a 20px o que se lê é a
+         silhueta, não o detalhe. Trocar a espessura da seta seria um
+         meio-conserto — dois desenhos redondos a poucos centímetros um do
+         outro continuam gêmeos.
+
+         O TRILHO é o que resolve, e ele diz a coisa certa: a lista deste botão
+         é a SEQUÊNCIA do que já foi projetado neste culto, em ordem. Aberto nas
+         duas pontas de propósito (as cabeças redondas passam dos nós): a linha
+         do tempo continua fora do quadro.
+
+         **E ele não pode virar o `icoTexto`**, que mora dois botões abaixo na
+         MESMA coluna: aquele é uma folha (moldura) com linhas de comprimentos
+         desiguais dentro. Aqui não há moldura, as barras são iguais, e o que
+         assina o desenho são os NÓS sobre o trilho — sem eles isto seria uma
+         lista com marcadores, que é outra coisa. Os nós são `h.01` com ponta
+         redonda (o truque do `icoCast` e do `icoSorteio`: o consumidor pinta
+         com `fill="none"`, então um `<circle>` cheio sairia vazado) e levam
+         espessura própria, porque um nó com a largura da barra (2) não se lê
+         como nó.
+
+         Descartados, e por quê: a seta circular sozinha vira o "sincronizar"
+         do card de álbum (`syncIconSvg`); a seta com o ▶ dentro vira "tocar de
+         novo"; a lista com marcadores não diz TEMPO nenhum.
+
          Em SVG e não em glifo: `history` (e875) NÃO está no subset de 31
          codepoints de `shared/fonts/material-symbols.woff2`, e um codepoint de
          fora do subset não desenha NADA — ver `tools/glifos.test.mjs`. -->
     <symbol id="icoHistorico" viewBox="0 0 24 24">
-      <path d="M3.6 9.4A9 9 0 1 1 3 12"/>
-      <path d="M3.2 4.6v4.8h4.8"/>
-      <path d="M12 7.4V12l3.4 2"/>
+      <path d="M5 4.4v15.2" stroke-width="1.3"/>
+      <path d="M5 6.6h.01" stroke-width="4"/>
+      <path d="M5 12h.01" stroke-width="4"/>
+      <path d="M5 17.4h.01" stroke-width="4"/>
+      <path d="M10 6.6h9"/>
+      <path d="M10 12h9"/>
+      <path d="M10 17.4h9"/>
     </symbol>
     <!-- SORTEIO: o DADO. Ele nasceu como o glifo `casino` (e30c) e saiu na
          tela SEM DESENHO NENHUM — o subset da fonte tem 31 codepoints e aquele
@@ -1120,7 +1150,7 @@
              pedir ajuda"), e agora ocupam a mesma faixa: a versão à esquerda, o
              Registro à direita, no espaço que já estava sobrando. -->
         <div class="footer-diag">
-          <span id="appVersion" class="app-version">Controle v1.2.22</span>
+          <span id="appVersion" class="app-version">Controle v1.2.23</span>
           <span class="footer-diag-rot">Registro</span>
           <!-- SALVAR EM ARQUIVO (v1.2.16). Com o acervo inteiro varrido o
                Registro passa de setenta linhas só na seção de cifras, e copiar

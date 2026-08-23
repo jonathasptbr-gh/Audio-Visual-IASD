@@ -1,5 +1,11 @@
 [
   {
+    "versao": "1.2.23",
+    "itens": [
+      "O botão de HISTÓRICO nos controles deixou de ser um relógio. Ele e a aba Cronograma eram o mesmo mostrador redondo, e a 20 pixels o que se lê é o formato, não o detalhe: agora ele é a linha do tempo com os nós — a sequência do que já foi ao telão neste culto."
+    ]
+  },
+  {
     "versao": "1.2.22",
     "itens": [
       "O Provai e Vede e o Informativo Mundial das Missões passaram a PROCURAR o episódio deste sábado toda vez que o app abre. Enquanto ele não estiver na lista, o app repergunta ao canal; assim que ele entra, para de perguntar — não há download nem varredura pesada, é só a listagem sendo conferida.",
