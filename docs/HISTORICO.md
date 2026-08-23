@@ -24,6 +24,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
+- **v1.2.1** — AS CIFRAS DO HINÁRIO NUNCA CHEGAVAM A QUEM JÁ TINHA O HINÁRIO: a v1.1.28 pendurou a busca no fim do `syncCollection`, e um hinário completo faz aquela função retornar em "Já completo offline" muito ANTES do gancho. O recurso só existia para quem baixasse o hinário depois dele — todo o resto ficava em `0 de 601` para sempre, e o Registro dizia isso sem que nada explicasse o quê fazer. MEDIDO em dois Registros seguidos. Passa a rodar na abertura, ao lado do `syncLyrics`, que é onde toda informação padrão do acervo sempre esteve. OTA PURO
 - **v1.2.0** — CINCO CORREÇÕES MENORES, E UMA DELAS ABRE UM LUGAR NOVO. (1) A TRANSMISSÃO DIRETA ERA INTERROMPIDA EM SEGUNDO PLANO, e ela é a única mídia do app que precisa de JS rodando enquanto toca: com o buffer cheio nada mais dispara evento, e quem reacordava o player era um `setInterval` — que o Chromium estrangula a 1×/min numa página escondida, contra 20 s de buffer. O compasso passa a sair também dos eventos do `<video>`, e uma falha de rede deixa de matar a transmissão (4 tentativas, sem retentar 4xx, que é a URL expirada). (2) O PARAR passa a falar de UMA CAMADA SÓ: com mídia E Camada de Texto no ar sai só a mídia, porque o selo sobre a preview já é a porta da de cima. (3) O "atualizar a lista" das séries só existe com o ÁLBUM ABERTO — a régua da lixeira da v1.1.16. (4) A ENGRENAGEM sobe para o cabeçalho do modo avançado, no mesmo canto do Modo Fácil: trocar de modo não pode trocar o canto em que a mesma porta se abre. (5) No lugar dela nasce o HISTÓRICO DO CULTO, a lista do que já foi ao telão nesta sessão, com a hora de cada projeção e um botão "Ao Cronograma". OTA PURO
 - **v1.1.29** — A RADIOGRAFIA CALAVA-SE EXATAMENTE ONDE ERA NECESSÁRIA: ela amostrava só os links que PASSARAM pelo filtro, então um Registro real saiu com "38 link(s) de 2 segmentos, 0 com forma de música" e nenhum dos 38 à vista — muda na única pergunta que importa ali, "por quê?". Passa a mostrar o que HAVIA quando nada passa, marcado como crua. E o CD Jovem 2018 entra nos artistas padrão, verificado contra a página real: os CDs do ano têm artista próprio no site. OTA PURO
 - **v1.1.28** — AS CIFRAS DO HINÁRIO 2022 PASSAM A FICAR NO APARELHO, e a folha abre SEM REDE: o problema real nunca foi achar a cifra, foi o Wi-Fi da igreja no sábado de manhã. É o ÚNICO acervo que fica, porque é o único cujo endereço no site é DEDUZÍVEL do nome — nos álbuns seriam 600 apostas em vez de 600 requisições previsíveis. **QUEM BAIXA É O APARELHO**: nada entra no bundle nem no repositório, porque o `.zip` do canal é público e um acervo ali dentro é o app DISTRIBUINDO obra de terceiro, outra coisa que não um grau a mais de ler sob demanda. A forma é a do `syncLyrics` (fila, segundo plano, lotes, nada em dados móveis) e a regra que mais importa é a mesma: falha de rede NÃO grava nada. OTA PURO
@@ -226,6 +227,47 @@ na nota que a revoga, não apagada da que a criou.
 - **v5.154** — é METADE OTA e METADE APK, e a divisão importa para quem for testar em aparelho.
 - **v5.155** — é OTA PURO
 - **v5.156** — é METADE OTA e METADE APK, de novo.
+
+---
+
+## v1.2.1 — as cifras do hinário nunca chegavam a quem já tinha o hinário
+
+Dois Registros seguidos, de um aparelho em uso, depois de o operador
+sincronizar:
+
+```
+Hinário Adventista 2022: 0 de 601 cifra(s) no aparelho
+Hinário Adventista 1996: 0 de 613 cifra(s) no aparelho
+```
+
+A v1.1.28 pendurou `syncCifrasHinario` no fim do `syncCollection`. E o
+`syncCollection` tem uma saída antes disso:
+
+```js
+if (pending.length === 0) { setCollStatus(coll.id, 'Já completo offline', 4000); return …; }
+```
+
+**Um hinário completo termina ali.** O gancho ficava depois — inalcançável
+exatamente para quem já tem o acervo no aparelho, que é todo mundo que o recurso
+existia para servir. Quem baixasse o hinário pela primeira vez depois da v1.1.28
+teria as cifras; todos os outros ficariam em `0 de 601` para sempre, sem nada na
+tela dizendo o quê fazer.
+
+**O erro de desenho foi tratar a cifra como um efeito colateral do download.**
+Ela não é: é informação padrão do acervo, como a letra — e a letra nunca esteve
+pendurada num download. `syncLyrics` roda na ABERTURA, em segundo plano, uma vez
+por sessão, para as coleções que o operador tem. `syncCifrasHinarios` passou a
+ser chamada da mesma linha, e tocar em sincronizar num hinário completo também
+dispara, porque um gesto do operador não pode ser mudo quando ainda há o que
+buscar.
+
+O oráculo ganhou a metade que faltava: **existe um caminho que não depende do
+download**, e ele é chamado pela rotina de abertura. Quem remover a chamada
+reproduz o defeito, e o caso reprova.
+
+**A regra que fica:** um trabalho de fundo pendurado no FIM de outro herda todas
+as saídas antecipadas dele — e a mais comum delas é justamente "não havia nada a
+fazer", que é quando o trabalho pendurado mais precisa acontecer.
 
 ---
 

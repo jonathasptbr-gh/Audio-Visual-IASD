@@ -1830,6 +1830,14 @@ a congregação vê continua sendo a letra, pelo caminho de sempre.
     download do hinário) e o ONDE (IndexedDB, não a memória da sessão). De
     quebra: a cifra fica sempre atual, o repositório não incha, e não nasce uma
     segunda fonte de verdade para divergir.
+  - **E O GATILHO É O DELE TAMBÉM** (v1.2.1). A primeira versão pendurou a busca
+    no fim do `syncCollection`, e ela nunca alcançou quem MAIS precisa dela: um
+    hinário já completo faz aquela função retornar em "Já completo offline"
+    muito antes do gancho. MEDIDO em dois Registros seguidos, `0 de 601` depois
+    de o operador sincronizar. Hoje `syncCifrasHinarios` roda na abertura, ao
+    lado do `syncLyrics` — informação padrão do acervo, uma vez por sessão, em
+    segundo plano —, e o download deixou de ser a única porta (tocar em
+    sincronizar num hinário completo também dispara).
   - **A forma é a do `syncLyrics`**, de propósito: mesma fila, mesma proteção de
     segundo plano, mesma notificação, gravação em LOTES, nada em dados móveis. E
     a regra que mais importa é a mesma — **falha de rede não grava nada**: num
@@ -3068,7 +3076,7 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: v1.2.0** (base web) · **v1.1.26** (APK) · `SHELL_VERSION` **50** · bundle com
+**Versão atual: v1.2.1** (base web) · **v1.1.26** (APK) · `SHELL_VERSION` **50** · bundle com
 `minShell: 50` — o shell 50 é o **PISO**: todo método da ponte existe, e não há
 guarda de versão no lado web. O que continua valendo é que `java/`, `res/`, o
 manifest e os workflows **só chegam instalando o APK**.

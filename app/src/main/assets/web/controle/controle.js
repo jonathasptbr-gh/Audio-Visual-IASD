@@ -244,7 +244,7 @@ const appVersionEl = document.getElementById('appVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.2.0';
+const WEB_VERSION = '1.2.1';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -10246,6 +10246,20 @@ function cifraGuardavel(coll) {
  * construção: o que já está guardado não é pedido de novo, então uma
  * interrupção custa o que faltava, nunca o que já foi.
  */
+/**
+ * As cifras de TODO hinário que o operador tem no aparelho.
+ *
+ * O irmão do `syncLyrics`, e chamado do mesmo lugar: sem isto, o recurso só
+ * existia para quem baixasse o hinário DEPOIS da v1.1.28 — quem já o tinha
+ * ficava em `0 de 601` para sempre, e o Registro dizia isso sem que nada na
+ * tela explicasse o quê fazer.
+ */
+async function syncCifrasHinarios() {
+  for (const c of allCollections().filter((c) => cifraGuardavel(c) && countDownloaded(c.id) > 0)) {
+    await syncCifrasHinario(c).catch(() => {});
+  }
+}
+
 async function syncCifrasHinario(coll) {
   if (!window.__NATIVE__ || !cifraGuardavel(coll) || cifraSyncRodando) return;
   // A MESMA REGRA DO `syncLyrics`: são centenas de requisições a um site que
@@ -12918,6 +12932,16 @@ async function autoRefreshCollections() {
     // longa (uma requisição por música) e nada na tela espera por ela; o
     // progresso vai para a notificação, como qualquer trabalho de massa.
     syncLyrics().catch(() => {});
+    // Fase 4: as CIFRAS dos hinários, pelo mesmo motivo e pelo mesmo caminho.
+    //
+    // ELA PRECISOU SAIR DO DOWNLOAD (v1.1.30). Pendurada no fim do
+    // `syncCollection`, a v1.1.28 nunca alcançou quem MAIS precisa dela: um
+    // hinário já completo faz aquela função retornar em "Já completo offline",
+    // muito antes do gancho. MEDIDO em dois Registros seguidos: `0 de 601`
+    // depois de o operador tocar a sincronização. Aqui é como o `syncLyrics`
+    // sempre foi — informação padrão do acervo, uma vez por sessão, em segundo
+    // plano —, e o download deixa de ser a única porta.
+    syncCifrasHinarios().catch(() => {});
   } finally { collectionsRefreshing = false; }
 }
 
@@ -12998,7 +13022,15 @@ async function syncCollection(coll, opts) {
       const flags = await Promise.all(fatia.map((s) => songVariantsNeeded(coll, s)));
       flags.forEach((f, k) => { if (f.needsFull || f.needsPlayback) pending.push(fatia[k]); });
     }
-    if (pending.length === 0) { setCollStatus(coll.id, 'Já completo offline', 4000); return { ok: true, baixados: 0, falhou: 0 }; }
+    if (pending.length === 0) {
+      setCollStatus(coll.id, 'Já completo offline', 4000);
+      // …mas as CIFRAS podem faltar. Um hinário com todo o áudio no disco sai
+      // por aqui, e era exatamente este o caminho em que o download de cifras
+      // da v1.1.28 nunca acontecia. Tocar em sincronizar tem de fazer alguma
+      // coisa quando ainda há o que buscar.
+      await syncCifrasHinario(coll).catch(() => {});
+      return { ok: true, baixados: 0, falhou: 0 };
+    }
     if (cancelled()) { setCollStatus(coll.id, 'Cancelado', 4000); return { ok: true, baixados: 0, falhou: 0 }; }
 
     // Fora do Wi-Fi a sincronização em massa NÃO é bloqueada — ela pergunta.
