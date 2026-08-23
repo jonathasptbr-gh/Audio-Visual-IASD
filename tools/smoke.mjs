@@ -167,7 +167,7 @@ try {
   checar(true, 'Configurações abre');
 
   // ==========================================================================
-  // A GAVETA ENTRA PELA BORDA DO BOTÃO QUE A ABRE (v1.2.2)
+  // A GAVETA ENTRA PELA BORDA DO BOTÃO QUE A ABRE (v1.2.3)
   //
   // Pedido do operador: as duas folhas cujo botão está no ALTO — Configurações
   // (a engrenagem foi para o cabeçalho na v1.2.0) e a playlist automática (o

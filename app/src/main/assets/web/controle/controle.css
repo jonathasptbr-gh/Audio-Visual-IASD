@@ -3602,7 +3602,7 @@ main {
 }
 .popup-backdrop.open .popup-sheet { transform: translateY(0); }
 
-/* ---------- A GAVETA DESCE DO LADO DO BOTÃO QUE A ABRE (v1.2.2) ----------
+/* ---------- A GAVETA DESCE DO LADO DO BOTÃO QUE A ABRE (v1.2.3) ----------
    Pedido do operador: *"ajuste a gaveta de configurações para que seja uma
    gaveta do topo para baixo, para que fique no teto, considerando que seu botão
    está no topo. e o mesmo vale para a gaveta da playlist automática"*.
@@ -3652,7 +3652,7 @@ main {
 /* ---------- ELA TEM UM CAMPO DE TEXTO, LOGO ELA DESCONTA O TECLADO ----------
    A exceção declarada ao `inset: 0` do `.popup-backdrop`. Ela nasceu quando esta
    folha subia da BASE — ali um campo fica literalmente atrás do teclado que ele
-   próprio abre —, e o motivo MUDOU com a v1.2.2, que a levou para o teto: hoje o
+   próprio abre —, e o motivo MUDOU com a v1.2.3, que a levou para o teto: hoje o
    campo está sempre à vista, e o que este desconto ainda faz é impedir a LISTA
    de crescer por baixo do teclado. É ele que dá sentido ao `max-height: 80%` do
    `--topo`: com `80vh` a folha mediria a tela inteira e ignoraria o desconto,

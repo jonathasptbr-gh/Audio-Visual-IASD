@@ -431,7 +431,7 @@ por natureza, já que um toque numa mídia da Biblioteca redefine a fila inteira
   consecutiva, nunca do item.
 - **Sem excluir e sem reordenar.** Um registro do que JÁ aconteceu não se
   edita, e um destrutivo aqui apagaria o registro sem apagar nada do aparelho.
-- **O TOQUE NA LINHA PROJETA** (v1.2.2, pedido do operador: *"pode fazer o item
+- **O TOQUE NA LINHA PROJETA** (v1.2.3, pedido do operador: *"pode fazer o item
   do histórico ser executável diretamente no toque"*). A v1.2.0 tinha recusado
   isto — o argumento era que uma lista consultada durante o culto não podia
   mandar coisa ao telão por um toque de rolagem —, e ele **não se sustenta**: um

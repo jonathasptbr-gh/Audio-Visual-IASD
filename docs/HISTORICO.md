@@ -24,7 +24,8 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
-- **v1.2.2** — TRÊS AJUSTES DO OPERADOR, E O PRIMEIRO É UMA FOLHA QUE NÃO SE MEXE. (1) A ROLAGEM `AUTO` DA CIFRA PARAVA quando a música não estava tocando: a escolha entre "seguir o relógio" e "ritmo fixo" saía da BARRA DE PROGRESSO, que responde outra pergunta — `renderNowPlaying` a habilita pelo `kind` do item ATUAL, e `currentItem` sobrevive de propósito ao Parar, ao fim da faixa e a uma letra avulsa. Com duração sobre um telão vazio, o `auto` ancora a folha em `fracaoDaRolagem(0, dur)` e ela não sai mais do lugar, com o modo livre nunca sendo alcançado. A pergunta certa é `midiaNoAr`, a mesma do reenvio de cena e do Parar por camada. (2) O ITEM DO HISTÓRICO VAI AO TELÃO NO TOQUE — a recusa da v1.2.0 supunha um risco que não existe (um `click` não sai de um gesto que rolou a lista), e o que ela cobrava era uma linha permanente no Cronograma por uma repetição. (3) AS GAVETAS DE CONFIGURAÇÕES E DA PLAYLIST AUTOMÁTICA DESCEM DO TETO: a folha entra pela borda do BOTÃO que a abre, e os dois estão no alto. OTA PURO
+- **v1.2.3** — TRÊS AJUSTES DO OPERADOR, E O PRIMEIRO É UMA FOLHA QUE NÃO SE MEXE. (1) A ROLAGEM `AUTO` DA CIFRA PARAVA quando a música não estava tocando: a escolha entre "seguir o relógio" e "ritmo fixo" saía da BARRA DE PROGRESSO, que responde outra pergunta — `renderNowPlaying` a habilita pelo `kind` do item ATUAL, e `currentItem` sobrevive de propósito ao Parar, ao fim da faixa e a uma letra avulsa. Com duração sobre um telão vazio, o `auto` ancora a folha em `fracaoDaRolagem(0, dur)` e ela não sai mais do lugar, com o modo livre nunca sendo alcançado. A pergunta certa é `midiaNoAr`, a mesma do reenvio de cena e do Parar por camada. (2) O ITEM DO HISTÓRICO VAI AO TELÃO NO TOQUE — a recusa da v1.2.0 supunha um risco que não existe (um `click` não sai de um gesto que rolou a lista), e o que ela cobrava era uma linha permanente no Cronograma por uma repetição. (3) AS GAVETAS DE CONFIGURAÇÕES E DA PLAYLIST AUTOMÁTICA DESCEM DO TETO: a folha entra pela borda do BOTÃO que a abre, e os dois estão no alto. OTA PURO
+- **v1.2.2** — O RECADO NÃO GRAVAVA COM O ESPELHAMENTO LIGADO, que é o modo NORMAL de um culto com TV: `iniciarRecado` pedia o microfone UMA vez com `echoCancellation`, e o Android recusa a sessão de VOZ quando a saída de áudio está em outro caminho. O `startMic` do telão já pedia TRÊS, e o comentário que explica isso estava no arquivo lido para escrever o gravador — foi lido e não aplicado. O conserto não é a escada copiada: é o `mic-escada.test.mjs`, que cobra que as duas sejam idênticas, que os três degraus tenham as três propriedades (uma igualdade sozinha aprovaria duas escadas igualmente erradas) e que os dois consumidores PERCORRAM a escada — declarar três e usar o índice zero é o defeito original com mais linhas. OTA PURO
 - **v1.2.1** — AS CIFRAS DO HINÁRIO NUNCA CHEGAVAM A QUEM JÁ TINHA O HINÁRIO: a v1.1.28 pendurou a busca no fim do `syncCollection`, e um hinário completo faz aquela função retornar em "Já completo offline" muito ANTES do gancho. O recurso só existia para quem baixasse o hinário depois dele — todo o resto ficava em `0 de 601` para sempre, e o Registro dizia isso sem que nada explicasse o quê fazer. MEDIDO em dois Registros seguidos. Passa a rodar na abertura, ao lado do `syncLyrics`, que é onde toda informação padrão do acervo sempre esteve. OTA PURO
 - **v1.2.0** — CINCO CORREÇÕES MENORES, E UMA DELAS ABRE UM LUGAR NOVO. (1) A TRANSMISSÃO DIRETA ERA INTERROMPIDA EM SEGUNDO PLANO, e ela é a única mídia do app que precisa de JS rodando enquanto toca: com o buffer cheio nada mais dispara evento, e quem reacordava o player era um `setInterval` — que o Chromium estrangula a 1×/min numa página escondida, contra 20 s de buffer. O compasso passa a sair também dos eventos do `<video>`, e uma falha de rede deixa de matar a transmissão (4 tentativas, sem retentar 4xx, que é a URL expirada). (2) O PARAR passa a falar de UMA CAMADA SÓ: com mídia E Camada de Texto no ar sai só a mídia, porque o selo sobre a preview já é a porta da de cima. (3) O "atualizar a lista" das séries só existe com o ÁLBUM ABERTO — a régua da lixeira da v1.1.16. (4) A ENGRENAGEM sobe para o cabeçalho do modo avançado, no mesmo canto do Modo Fácil: trocar de modo não pode trocar o canto em que a mesma porta se abre. (5) No lugar dela nasce o HISTÓRICO DO CULTO, a lista do que já foi ao telão nesta sessão, com a hora de cada projeção e um botão "Ao Cronograma". OTA PURO
 - **v1.1.29** — A RADIOGRAFIA CALAVA-SE EXATAMENTE ONDE ERA NECESSÁRIA: ela amostrava só os links que PASSARAM pelo filtro, então um Registro real saiu com "38 link(s) de 2 segmentos, 0 com forma de música" e nenhum dos 38 à vista — muda na única pergunta que importa ali, "por quê?". Passa a mostrar o que HAVIA quando nada passa, marcado como crua. E o CD Jovem 2018 entra nos artistas padrão, verificado contra a página real: os CDs do ano têm artista próprio no site. OTA PURO
@@ -231,16 +232,21 @@ na nota que a revoga, não apagada da que a criou.
 
 ---
 
-## v1.2.2 — a folha que não se mexia, o toque que não tocava, e a gaveta do lado errado
+## v1.2.3 — a folha que não se mexia, o toque que não tocava, e a gaveta do lado errado
 
-**A v1.2.2: TRÊS AJUSTES PEDIDOS EM SEQUÊNCIA. OTA PURO** (nenhuma linha de
+**A v1.2.3: TRÊS AJUSTES PEDIDOS EM SEQUÊNCIA. OTA PURO** (nenhuma linha de
 Kotlin, `SHELL_VERSION` intacto em 50; sem Release).
 
-> **Ela nasceu como v1.2.1 e foi RENUMERADA no merge.** Outro lote publicou uma
-> v1.2.1 em `main` enquanto este corria, e duas bases com o mesmo número são uma
-> só para o OTA: `compareVersions` só aceita o que for MAIOR, então a segunda a
-> chegar seria ignorada **em silêncio**, na frota inteira. Quem cede é sempre o
-> lote que ainda não publicou — o número já entregue não se move.
+> **Ela nasceu como v1.2.1 e foi RENUMERADA DUAS VEZES no merge** — 1.2.1 →
+> 1.2.2 → 1.2.3. Outros lotes publicaram uma v1.2.1 e uma v1.2.2 em `main`
+> enquanto este corria, e duas bases com o mesmo número são uma só para o OTA:
+> `compareVersions` só aceita o que for MAIOR, então a segunda a chegar seria
+> ignorada **em silêncio**, na frota inteira. Quem cede é sempre o lote que ainda
+> não publicou — o número já entregue não se move.
+>
+> **E a colisão não se anuncia:** as três casas da versão mesclam LIMPAS, porque
+> os dois lados escreveram o mesmo valor. Quem a denuncia é olhar o `main` de
+> destino antes de fechar o merge, nunca o `git merge`.
 
 ---
 
@@ -347,6 +353,57 @@ e com `vh` a folha ignoraria o desconto e voltaria a crescer por baixo dele. O
 comentário daquela exceção também mudou de razão: ele falava de um campo que
 ficava ATRÁS do teclado, e hoje o campo está sempre à vista — o que o desconto
 ainda faz é impedir a LISTA de passar por baixo.
+## v1.2.2 — o Recado não gravava com o espelhamento ligado
+
+Relatado do aparelho no primeiro toque, com captura: os dois botões na tela, o
+espelhamento no ar, e a frase **"O Android não liberou o microfone"**.
+
+### O DEGRAU QUE FALTAVA
+
+`iniciarRecado` pedia o microfone UMA vez, com `echoCancellation: true`. O
+`startMic` do telão pede TRÊS, e o comentário ao lado dele explica exatamente
+este desfecho:
+
+> `NotReadableError` NÃO é "outro app está usando o microfone": é o "não consegui
+> abrir o dispositivo" genérico do WebRTC, e no Android a causa comum é o
+> PROCESSAMENTO pedido. Com `echoCancellation` o Chromium abre o `AudioRecord`
+> em `VOICE_COMMUNICATION` (sessão de voz), que o sistema recusa quando a saída
+> de áudio está em outro caminho — **o caso deste app com espelhamento ligado**.
+
+"Com espelhamento ligado" é o modo NORMAL de um culto com TV. O recado nasceu
+quebrado exatamente onde ele mais seria usado — e a frase que o operador leu
+mandava fechar uma chamada ou um gravador que não existiam.
+
+O comentário já estava escrito, no arquivo que foi lido para escrever o
+gravador. Ele não foi aplicado.
+
+### O ORÁCULO É O CONSERTO, NÃO A ESCADA
+
+Copiar os três degraus resolve hoje. O que impede a próxima divergência é
+`tools/mic-escada.test.mjs`, que lê as DUAS declarações e cobra:
+
+- que sejam **idênticas** — mesmas opções, mesma ordem;
+- que os três degraus tenham as três PROPRIEDADES (eco ligado, eco desligado,
+  pedido cru) — uma igualdade sozinha aprovaria duas escadas igualmente erradas;
+- que os dois consumidores **percorram** a escada inteira. Declarar três e usar
+  o índice zero é o defeito original com mais linhas, e é a forma que uma
+  comparação de literais não veria.
+
+MEDIDO por reversão: a escada de um degrau reprova, e a escada certa percorrida
+só no zero reprova por outra asserção.
+
+**Por que não é uma função só:** são dois documentos, em dois WebViews, com
+estados diferentes (o telão tem `micSeq`/`micWanted` e emite `mic-status`; o
+Controle tem `recSeq` e escreve `recErro`). Unificá-las pediria um módulo em
+`shared/` — que as TELAS DA REDE também carregam, e lá `getUserMedia` não
+existe. O preço de manter duas é o oráculo, e é a mesma solução do
+`tipos-que-sobem.test.mjs`.
+
+OTA PURO — `minShell` 50 (o recado precisa do shell 50, que a v1.1.26 entregou),
+sem `shellTag`.
+
+---
+
 ## v1.2.1 — as cifras do hinário nunca chegavam a quem já tinha o hinário
 
 Dois Registros seguidos, de um aparelho em uso, depois de o operador

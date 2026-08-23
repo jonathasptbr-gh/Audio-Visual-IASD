@@ -4,7 +4,7 @@
 //
 // ## O defeito que ele trava
 //
-// Relato do operador (v1.2.2): *"o modo automático não está se movendo quando
+// Relato do operador (v1.2.3): *"o modo automático não está se movendo quando
 // usado apenas a letra da música"*.
 //
 // No modo `auto` a posição da folha é uma FUNÇÃO da posição da música. Sem

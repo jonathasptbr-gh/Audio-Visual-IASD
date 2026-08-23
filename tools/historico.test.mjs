@@ -184,7 +184,7 @@ try {
   checar(foi === true,
     'o botão da linha põe o item NO CRONOGRAMA de verdade — não é só um pulso', foi);
 
-  // ── O TOQUE NA LINHA PROJETA (v1.2.2) ────────────────────────────────────
+  // ── O TOQUE NA LINHA PROJETA (v1.2.3) ────────────────────────────────────
   // Pedido do operador: *"pode fazer o item do histórico ser executável
   // diretamente no toque"*. É a razão de o histórico existir — repetir um
   // louvor que entrou de improviso e não ficou guardado em lista nenhuma —, e

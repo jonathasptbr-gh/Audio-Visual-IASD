@@ -305,7 +305,7 @@ try {
   }));
   const conta0 = await lerConta();
   checar(folha.aberta, 'o toque no botão ABRE a folha');
-  // ---- E ELA DESCE DO TETO (v1.2.2) ----
+  // ---- E ELA DESCE DO TETO (v1.2.3) ----
   // A regra de ORIGEM: a gaveta entra pela borda do botão que a abre, e o dado
   // mora na barra de busca da Biblioteca, que é o primeiro elemento sob o
   // cabeçalho. (A outra folha do teto é Configurações; o `smoke.mjs` mede as
