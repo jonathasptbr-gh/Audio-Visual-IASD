@@ -376,6 +376,16 @@
   --accent: #95b5f4;
   --accent-fill: #2f557f;                /* denim OFICIAL */
   --accent-soft: rgba(149, 181, 244, .16);
+  /* NEAR-MISS DECLARADO (medido na v1.3.0): `--accent` COMO TEXTO sobre esta
+     tinta, quando ela cai sobre `--panel`, compõe (61,73,89) e dá **4,46:1** —
+     quatro centésimos abaixo do piso de 4,5. Sobre `--bg` (mais escuro) o par
+     passa com folga, então só os consumidores que moram DENTRO de um cartão
+     raspam: `.pl-pack`, `.t-btn.slide-mode`, `.folder-count--st` e irmãos.
+     Fica assumido, e não corrigido, porque o .16 é load-bearing: é ele que faz
+     esta tinta compor exatamente o `--panel-2` (#3d4959), que é a medição em
+     que a regra "os fundos de estado são OPACOS" se apoia (ver "superfície que
+     afunda", no topo de controle.css). Baixar para .14 devolveria 4,64:1 e
+     quebraria aquela igualdade. Quem mexer aqui refaz as duas contas. */
   --on-accent: #e8edf3;
   /* Halo da pílula "Ligar Sistema" do Display (`.start-pill`) — o ÚNICO
      consumidor. Segue a MATIZ do accent, não o --accent-fill: um halo na cor do
