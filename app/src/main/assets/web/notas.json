@@ -1,5 +1,13 @@
 [
   {
+    "versao": "1.1.27",
+    "itens": [
+      "CORRIGIDO: o teclado sumia ao tentar digitar na busca de cifras. Abrir o teclado redimensiona a tela, e a folha se remedia nessa hora — refazendo a aba e apagando o campo em que você estava escrevendo.",
+      "A busca manual passou a usar o nome do ÁLBUM no desempate dos resultados, como a automática já fazia.",
+      "E o seletor ganhou dois atalhos abaixo do campo: “+ <álbum>” e “+ Ministério Jovem”, que é onde moram os CDs oficiais e os do ano. Eles escrevem no campo antes de buscar, então dá para editar a partir dali."
+    ]
+  },
+  {
     "versao": "1.1.26",
     "itens": [
       "O MICROFONE VIROU WALKIE-TALKIE: segure o botão “Recado”, fale, solte — e a voz vai direto ao ar. Funciona com TV, sem TV e nas telas da rede, que é onde o microfone ao vivo nunca funcionou.",

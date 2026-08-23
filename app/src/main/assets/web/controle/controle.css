@@ -4900,6 +4900,16 @@ main {
   font-size: .95rem; font-family: inherit;
 }
 .lv-cifra-campo::placeholder { color: var(--field-muted); }
+/* OS ATALHOS DE CONSULTA: o álbum e o Ministério Jovem, a um toque. Chips e
+   não botões de corpo inteiro — eles MODIFICAM a busca que já está no campo,
+   não são a ação principal da tela. */
+.lv-cifra-chips { display: flex; flex-wrap: wrap; gap: .4rem; padding: 0 0 .6rem; }
+.lv-cifra-chip {
+  padding: .3rem .65rem; border: none; border-radius: var(--radius-pill);
+  background: var(--surface-2); color: var(--accent);
+  font-family: inherit; font-size: .82rem; font-weight: 600; cursor: pointer;
+}
+.lv-cifra-chip:active { transform: var(--press); }
 .lv-cifra-cab { color: var(--muted); font-size: .85rem; padding: .1rem 0 .4rem; }
 /* CADA RESULTADO É UM ALVO DE TOQUE INTEIRO, e não um link no meio do texto: a
    lista é para ser percorrida com o polegar, com o instrumento na outra mão. */
