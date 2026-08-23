@@ -167,8 +167,17 @@
    * verbatim, então um slug que o site renomeie aparece como
    * `padrao …/ministerio-jovem/… → nao-tem` em toda música, e se conserta por
    * OTA sem Release.
+   *
+   * **A LISTA É PLURAL PORQUE OS CDs DO ANO TÊM ARTISTA PRÓPRIO.** O
+   * `cd-jovem-2018` entrou verificado contra a página real
+   * (`/cd-jovem-2018/nunca-mais-as-lagrimas/`), e a família continua: cada ano
+   * é uma linha. O teto prático é o número de requisições — cada entrada é uma
+   * tentativa a mais numa música que não está em nenhuma delas —, então a
+   * lista é para os artistas que cobrem MUITAS músicas, não para um álbum
+   * específico. Um álbum que se saiba mapear vale mais no [CATALOGO], que é
+   * uma tentativa DIRIGIDA em vez de mais uma no rodízio.
    */
-  const ARTISTAS_PADRAO = ['ministerio-jovem'];
+  const ARTISTAS_PADRAO = ['ministerio-jovem', 'cd-jovem-2018'];
 
   /** As URLs dedutíveis de [ARTISTAS_PADRAO] para este nome. */
   function urlsPadrao(nome) {
@@ -856,7 +865,13 @@
       bNoMaiorPre: (maior.match(/<b\b/gi) || []).length,
       links: links.length,
       linksDeMusica: deMusica.length,
-      amostra: deMusica.slice(0, RADIO_AMOSTRA),
+      // A AMOSTRA MOSTRA O QUE PASSOU — e, quando NADA passou, o que havia
+      // (v1.1.29). O ponto cego da primeira versão: ela amostrava só
+      // `deMusica`, então o Registro ficava mudo exatamente no caso em que a
+      // pergunta é "por que zero?". MEDIDO num aparelho: "38 link(s) de 2
+      // segmentos, 0 com forma de música" e nenhuma pista de quais eram os 38.
+      amostra: (deMusica.length ? deMusica : links).slice(0, RADIO_AMOSTRA),
+      amostraEhCrua: deMusica.length === 0 && links.length > 0,
     };
   }
 

@@ -237,7 +237,7 @@ const appVersionEl = document.getElementById('appVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.1.28';
+const WEB_VERSION = '1.1.29';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -10374,7 +10374,8 @@ function cifraGuardarEstrutura(rotulo, html) {
   if (r.h1 || r.h2) l.push('  <h1> ' + JSON.stringify(r.h1) + ' · <h2> ' + JSON.stringify(r.h2));
   l.push('  ' + r.pres + ' <pre>, o maior com ' + r.maiorPre + ' caractere(s) e '
     + r.bNoMaiorPre + ' <b>' + (r.tom ? ' · tom "' + r.tom + '"' : ' · tom não achado'));
-  l.push('  ' + r.links + ' link(s) de 2 segmentos, ' + r.linksDeMusica + ' com forma de música');
+  l.push('  ' + r.links + ' link(s) de 2 segmentos, ' + r.linksDeMusica + ' com forma de música'
+    + (r.amostraEhCrua ? ' — a amostra abaixo é do que HAVIA, já que nada passou' : ''));
   for (const a of r.amostra) l.push('    ' + a.caminho + '  ' + JSON.stringify(a.texto));
   cifraEstrutura = l.join('\n');
 }

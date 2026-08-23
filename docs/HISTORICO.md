@@ -24,6 +24,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
+- **v1.1.29** — A RADIOGRAFIA CALAVA-SE EXATAMENTE ONDE ERA NECESSÁRIA: ela amostrava só os links que PASSARAM pelo filtro, então um Registro real saiu com "38 link(s) de 2 segmentos, 0 com forma de música" e nenhum dos 38 à vista — muda na única pergunta que importa ali, "por quê?". Passa a mostrar o que HAVIA quando nada passa, marcado como crua. E o CD Jovem 2018 entra nos artistas padrão, verificado contra a página real: os CDs do ano têm artista próprio no site. OTA PURO
 - **v1.1.28** — AS CIFRAS DO HINÁRIO 2022 PASSAM A FICAR NO APARELHO, e a folha abre SEM REDE: o problema real nunca foi achar a cifra, foi o Wi-Fi da igreja no sábado de manhã. É o ÚNICO acervo que fica, porque é o único cujo endereço no site é DEDUZÍVEL do nome — nos álbuns seriam 600 apostas em vez de 600 requisições previsíveis. **QUEM BAIXA É O APARELHO**: nada entra no bundle nem no repositório, porque o `.zip` do canal é público e um acervo ali dentro é o app DISTRIBUINDO obra de terceiro, outra coisa que não um grau a mais de ler sob demanda. A forma é a do `syncLyrics` (fila, segundo plano, lotes, nada em dados móveis) e a regra que mais importa é a mesma: falha de rede NÃO grava nada. OTA PURO
 - **v1.1.27** — O TECLADO SUMIA AO DIGITAR NA BUSCA DE CIFRA, e a causa era uma correção de duas versões antes: o teclado virtual é um `resize`, o `resize` remede a folha, e o redesenho destrói o `<input>` com foco — um campo sem foco fecha o teclado, e o fechamento é outro `resize`. Sai um teclado que pisca e some, sem erro nenhum, e o seletor inteiro fica inalcançável. A guarda é pelo FOCO, não por "o seletor está aberto". Mais: a busca passa a ter TRÊS parâmetros em vez de dois (consulta, alvo do parentesco, desempate) — juntá-los deixava a busca MANUAL sem o álbum em lugar nenhum —, e o seletor ganha os atalhos `+ <álbum>` e `+ Ministério Jovem`. OTA PURO
 - **v1.1.26** — O MICROFONE VIRA WALKIE-TALKIE, E PASSA A FUNCIONAR NOS QUATRO MODELOS: em vez de TRANSPORTAR ÁUDIO, ele transporta um ARQUIVO — a voz vira item `kind:"audio"` comum e entra pelo caminho de projeção de sempre, chegando às telas da rede de graça pelo `/m/<token>`. É a inversão que faz o recurso caber: o ao vivo para a rede está bloqueado por `[SecureContext]`, e o projeto já construiu esse transporte (AAC → MSE) e o removeu na v5.187. A Release é de UMA LINHA — o `ControleChromeClient` negava toda permissão de mídia e passa a conceder áudio, e só áudio, chamando as três regras do `MicChromeClient` em vez de reescrevê-las. O FIM do recado é interceptado nos DOIS caminhos: sendo item comum, ele caía no `autoAdvance`, onde `repeat one` repetia a voz do operador PARA SEMPRE e `repeat all` começava a playlist do zero — nenhum dos dois com sinal na tela. E ele DEVOLVE a cena, com a posição dentro do próprio `load`. EXIGE RELEASE
@@ -224,6 +225,44 @@ na nota que a revoga, não apagada da que a criou.
 - **v5.154** — é METADE OTA e METADE APK, e a divisão importa para quem for testar em aparelho.
 - **v5.155** — é OTA PURO
 - **v5.156** — é METADE OTA e METADE APK, de novo.
+
+---
+
+## v1.1.29 — a radiografia calava-se exatamente onde era necessária
+
+Um Registro real, de um aparelho, com a busca de "Nunca Mais as Lágrimas":
+
+```
+busca …/?q=Nunca%20Mais%20as%20Lágrimas → 0 resultado(s), 0 com parentesco
+  38 link(s) de 2 segmentos, 0 com forma de música
+```
+
+E nada mais. **Os 38 não apareciam** — a amostra só continha os links que
+passaram pelo filtro, e nenhum passou. O bloco existe para responder *"o site
+mudou o quê?"*, e ficava mudo no único caso em que ele é a única pista.
+
+A correção é de uma linha: quando nada passa, a amostra mostra **o que havia**,
+com `amostraEhCrua` dizendo que é isso — sem a marca, os endereços da navegação
+pareceriam resultados aceitos. O oráculo cobra as duas: a amostra normal quando
+há o que mostrar, e a crua quando não há.
+
+**A regra geral que fica:** um diagnóstico que só reporta o caminho feliz não é
+um diagnóstico. Todo campo do Registro que CONTA alguma coisa precisa dizer
+também o que havia quando a conta deu zero.
+
+### E o CD Jovem 2018
+
+Os CDs do ano têm artista PRÓPRIO no site — `/cd-jovem-2018/<slug>/` —, o que os
+põe na mesma família do Ministério Jovem: endereço deduzível do nome, uma
+requisição, sem ranking de ninguém escolhendo por nós. Entra em
+`ARTISTAS_PADRAO`, verificado contra a página real
+(`/cd-jovem-2018/nunca-mais-as-lagrimas/`), que é a segunda âncora dessa seção do
+oráculo.
+
+**A lista é plural, mas não é infinita:** cada entrada é uma requisição a mais
+numa música que não está em nenhuma delas. Ela é para artistas que cobrem MUITAS
+músicas; um álbum que se saiba mapear vale mais no `CATALOGO`, que é uma
+tentativa DIRIGIDA em vez de mais uma no rodízio.
 
 ---
 

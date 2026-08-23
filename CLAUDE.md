@@ -1871,7 +1871,10 @@ a congregação vê continua sendo a letra, pelo caminho de sempre.
   era"* — e a distância entre as duas é uma sessão de adivinhação a distância.
   A radiografia devolve FORMA: quantos `<pre>` e de que tamanho, quantos `<b>`
   no maior deles, quantos links de música, `<title>`/`<h1>`/`<h2>`, o tom, e uma
-  amostra curta de endereços. **Nenhum pedaço de letra ou de acorde sai** — não
+  amostra curta de endereços — **a dos que passaram, ou, quando NENHUM passou, a
+  do que havia** (`amostraEhCrua`). Amostrar só o que passa deixa o Registro mudo
+  no caso em que ele é a única pista: MEDIDO, "38 link(s) de 2 segmentos, 0 com
+  forma de música" e nenhum dos 38 à vista. **Nenhum pedaço de letra ou de acorde sai** — não
   é economia de bytes, é o contrato: um Registro existe para ser copiado para
   FORA, e o app lê conteúdo de terceiro sem distribuí-lo. O oráculo cobra as
   duas metades, e a segunda (o conteúdo NÃO sair) é a que protege o contrato de
@@ -3038,7 +3041,7 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: v1.1.28** (base web) · **v1.1.26** (APK) · `SHELL_VERSION` **50** · bundle com
+**Versão atual: v1.1.29** (base web) · **v1.1.26** (APK) · `SHELL_VERSION` **50** · bundle com
 `minShell: 50` — o shell 50 é o **PISO**: todo método da ponte existe, e não há
 guarda de versão no lado web. O que continua valendo é que `java/`, `res/`, o
 manifest e os workflows **só chegam instalando o APK**.
