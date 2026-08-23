@@ -237,7 +237,7 @@ const appVersionEl = document.getElementById('appVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.1.24';
+const WEB_VERSION = '1.1.25';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -2495,6 +2495,7 @@ async function load(opts) {
   const storedRot = await AVDB.getState('rotate');
   const lvFonteV = await AVDB.getState('lyricsFont');
   const cifraVelV = await AVDB.getState('cifraVelocidade');
+  const cifraEscolhasV = await AVDB.getState('cifraEscolhas');
   const lyricsBgV = (await AVDB.getState('lyricsBg')) === 'black' ? 'black' : 'image';
   const downloadOkV = !!(await AVDB.getState('downloadOk'));
   let libItemsV;
@@ -2540,6 +2541,7 @@ async function load(opts) {
   // encolher numa versão futura, e o que estava salvo continua sendo lido.
   lvTamanho = LV_TAMANHOS.includes(lvFonteV) ? lvFonteV : LV_PADRAO;
   cifraAdotarVelocidade(cifraVelV);
+  cifraAdotarEscolhas(cifraEscolhasV);
   aplicarTamanhoDaLetra();
   lyricsBg = lyricsBgV;
   downloadConsent = downloadOkV;
@@ -9493,6 +9495,10 @@ function lvSignature(src) {
 
 function openLyricsPopup() {
   lvFollow = true; // toda abertura começa acompanhando o que está no ar
+  // Abrir a folha é pedir para ver a CIFRA, não a lista de onde ela veio: o
+  // seletor é sempre um desvio deliberado, e um desvio não sobrevive ao fechar.
+  cifraEscolherAberto = false;
+  cifraPrevia = null;
   renderLyricsView();
   lyricsPopupEl.classList.add('open');
   // Depois de aberto (a folha ainda está subindo): o scroll só é possível com
@@ -9671,7 +9677,15 @@ async function cifraPedir(url) {
   if (r.status === 404) return { ok: false, motivo: AVCifra.MOTIVO_NAO_TEM };
   if (r.status < 200 || r.status > 299) return { ok: false, motivo: AVCifra.MOTIVO_RECUSOU };
   const pagina = AVCifra.lerPagina(r.html);
-  if (!pagina) return { ok: false, motivo: AVCifra.MOTIVO_ILEGIVEL };
+  // A RADIOGRAFIA SÓ DO CASO QUE PRECISA DELA. `ilegivel` é o único desfecho em
+  // que o Registro fica devendo uma resposta: a página está lá, a rede está boa,
+  // e "não entendi" não diz O QUE era. Guardá-la também no caminho feliz
+  // sobrescreveria justamente a página que interessa — a última música do culto
+  // apagaria a que quebrou dez minutos antes.
+  if (!pagina) {
+    cifraGuardarEstrutura('página ' + url, r.html);
+    return { ok: false, motivo: AVCifra.MOTIVO_ILEGIVEL };
+  }
   return { ok: true, pagina, motivo: AVCifra.OK };
 }
 
@@ -9684,7 +9698,13 @@ function cifraGarantir(item) {
 
   const nome = cifraNomeDoItem(item);
   const coll = cifraColecaoDoItem(item);
-  const entrada = { estado: 'buscando', url: '', pagina: null, motivo: '', semitons: 0 };
+  const entrada = {
+    estado: 'buscando', url: '', pagina: null, motivo: '', semitons: 0,
+    // O QUE O SELETOR PRECISA. `crus` é TUDO que parece música na página de
+    // resultados — inclusive o que a regra recusou, que é justamente o que o
+    // operador precisa ver para dizer "é aquele ali".
+    consulta: nome, crus: [], buscando: false,
+  };
   cifraCache.set(chave, entrada);
 
   const seq = ++lvCifraSeq;
@@ -9693,8 +9713,20 @@ function cifraGarantir(item) {
     let desfecho = { ok: false, motivo: AVCifra.MOTIVO_NAO_TEM };
     let url = '';
 
+    // 0ª TENTATIVA: O QUE O OPERADOR JÁ ESCOLHEU. Ela vem antes de tudo e
+    // encerra o assunto: quem fixou um endereço sabe qual é a música, e
+    // continuar adivinhando depois disso seria desfazer a correção dele a cada
+    // abertura do app. Falhando (o site tirou a página do ar), o caminho
+    // automático roda em seguida como sempre.
+    const fixada = cifraEscolhas[chave];
+    if (fixada) {
+      url = fixada;
+      desfecho = await cifraPedir(fixada);
+      tentativas.push('fixada ' + fixada + ' → ' + desfecho.motivo);
+    }
+
     // 1ª TENTATIVA: o atalho do catálogo.
-    const direta = coll ? AVCifra.urlDoHino(coll.id, nome) : '';
+    const direta = !desfecho.ok && coll ? AVCifra.urlDoHino(coll.id, nome) : '';
     if (direta) {
       url = direta;
       desfecho = await cifraPedir(direta);
@@ -9732,14 +9764,17 @@ function cifraGarantir(item) {
     // alto, não mais baixo.
     if (!desfecho.ok && desfecho.motivo !== AVCifra.MOTIVO_ILEGIVEL) {
       const consultas = [AVCifra.urlDeBusca(nome)];
-      if (coll && coll.name) consultas.push(AVCifra.urlDeBusca(nome, coll.name));
       let candidatos = [];
-      for (const busca of consultas) {
-        if (!busca || candidatos.length) continue;
-        const rb = await AVNative.cifraHtml(busca);
-        const achados = rb.status >= 200 && rb.status <= 299 ? AVCifra.lerBusca(rb.html) : [];
-        candidatos = AVCifra.ordenarBusca(achados, nome, coll && coll.name);
-        tentativas.push('busca ' + busca + ' → ' + achados.length + ' resultado(s), '
+      for (const extra of ['', (coll && coll.name) || '']) {
+        if (candidatos.length || (extra === '' && consultas.length === 0)) continue;
+        const r = await cifraBuscarNoSite(nome, extra);
+        if (!r.url) continue;
+        candidatos = r.ordenados;
+        // OS CRUS FICAM NA ENTRADA. É deles que o seletor vive, e buscá-los de
+        // novo ao abri-lo seria uma segunda requisição para saber o que já se
+        // sabia — no meio do culto, com o instrumento na mão.
+        if (r.crus.length) { entrada.crus = r.crus; entrada.consulta = nome; }
+        tentativas.push('busca ' + r.url + ' → ' + r.crus.length + ' resultado(s), '
           + candidatos.length + ' com parentesco');
       }
       for (const c of candidatos.slice(0, CIFRA_CANDIDATOS)) {
@@ -9768,6 +9803,172 @@ function cifraGarantir(item) {
   });
 
   return entrada;
+}
+
+// ===== ESCOLHER A CIFRA À MÃO (v1.1.24) =====
+//
+// O método automático ADIVINHA a partir de um nome; o operador SABE qual é a
+// música. Medido no aparelho: na maioria das falhas o resultado certo ESTAVA na
+// página de busca — só não era o que a regra elegeu, e não havia como olhar a
+// lista nem dizer "é este".
+//
+// ## Não é um navegador embutido, e não podia ser
+//
+// O WebView recusa navegar para outro origin (invariante 2) e `openExternal`
+// sai do app. O que existe é a mesma divisão de sempre: o shell traz o HTML CRU
+// (`cifraHtml`), o `cifra.js` extrai a LISTA, e a lista é desenhada com os
+// nossos próprios controles. Sai melhor que um navegador: nenhum script de
+// terceiro roda, nenhum anúncio carrega, e a lista já vem com o parentesco que
+// a regra calculou — o operador vê o que ela escolheu E o que ela recusou.
+//
+// ## A ESCOLHA É GUARDADA — e isso não fura o contrato do recurso
+//
+// "Nada é gravado em disco" sempre falou do CONTEÚDO: o app LÊ cifra de
+// terceiro no aparelho do operador e não distribui cópia dela. O que
+// `cifraEscolhas` guarda é um ENDEREÇO por música — algumas dezenas de bytes,
+// um ponteiro, não um texto. Marcar um favorito não é copiar o livro.
+//
+// Sem guardar, a escolha morreria ao fechar o app e o operador refaria a mesma
+// procura todo sábado — que é a diferença entre uma correção e um remendo.
+// Gravada com `updateState` (transação única), pela regra do `CLAUDE.md`.
+const CIFRA_ESCOLHAS_MAX = 400;
+let cifraEscolhas = {};        // chave da música → URL fixada pelo operador
+let cifraEscolherAberto = false;
+let cifraEscolherChave = '';   // de QUAL música — ver a guarda no `lvBuildCifra`
+let cifraPrevia = null;        // { url, pagina, nome } — o resultado sendo espiado
+let cifraEstrutura = '';       // a RADIOGRAFIA da última página, para o Registro
+
+/**
+ * Adota as escolhas guardadas. Por FUNÇÃO (hoisted) pelo mesmo motivo do
+ * `cifraAdotarVelocidade`: o estado mora no fim do arquivo e o `load()` que
+ * hidrata roda muito antes na leitura.
+ */
+function cifraAdotarEscolhas(v) {
+  cifraEscolhas = (v && typeof v === 'object') ? v : {};
+}
+
+/**
+ * Fixa (ou solta, com `url` vazia) a cifra desta música.
+ *
+ * O teto existe porque isto cresce para sempre e vive no mesmo `state` que o
+ * resto: 400 escolhas são muito mais do que um acervo de culto tem, e o corte
+ * é pelas MAIS ANTIGAS — a ordem de inserção do objeto, que o JS preserva para
+ * chaves de texto.
+ */
+async function cifraFixar(chave, url) {
+  if (!chave) return;
+  try {
+    await AVDB.updateState('cifraEscolhas', (v) => {
+      const m = (v && typeof v === 'object') ? { ...v } : {};
+      delete m[chave];                       // re-fixar move para o fim da fila
+      if (url) m[chave] = url;
+      const chaves = Object.keys(m);
+      for (const k of chaves.slice(0, Math.max(0, chaves.length - CIFRA_ESCOLHAS_MAX))) delete m[k];
+      cifraEscolhas = m;
+      return m;
+    });
+  } catch (_) { /* sem banco: vale a sessão */ }
+}
+
+/**
+ * Uma busca no site, já lida: `{ crus, ordenados }`.
+ *
+ * `crus` é TUDO que estruturalmente parece música — é o que o seletor mostra,
+ * porque o ponto dele é justamente deixar ver o que a regra RECUSOU.
+ * `ordenados` é o que a regra aceitaria, na ordem dela.
+ */
+async function cifraBuscarNoSite(nome, extra) {
+  const busca = AVCifra.urlDeBusca(nome, extra);
+  if (!busca) return { crus: [], ordenados: [], url: '' };
+  const rb = await AVNative.cifraHtml(busca);
+  const ok = rb.status >= 200 && rb.status <= 299;
+  cifraGuardarEstrutura('busca ' + busca, ok ? rb.html : '');
+  const crus = ok ? AVCifra.lerBusca(rb.html) : [];
+  return { crus, ordenados: AVCifra.ordenarBusca(crus, nome, extra), url: busca };
+}
+
+/**
+ * A RADIOGRAFIA da última página, em texto, para o Registro.
+ *
+ * Guardada aqui e não no `cifra.js` porque o módulo é puro e devolve OBJETO —
+ * quem monta a frase é o `controle.js`, que é a mesma regra do Kotlin devolver
+ * JSON. Uma linha por fato, e nenhuma delas leva conteúdo da página.
+ */
+function cifraGuardarEstrutura(rotulo, html) {
+  if (!html) { cifraEstrutura = rotulo + ' → sem corpo'; return; }
+  const r = AVCifra.radiografia(html);
+  const l = [rotulo + ' → ' + r.bytes + ' caractere(s)'];
+  if (r.titulo) l.push('  <title> ' + JSON.stringify(r.titulo));
+  if (r.h1 || r.h2) l.push('  <h1> ' + JSON.stringify(r.h1) + ' · <h2> ' + JSON.stringify(r.h2));
+  l.push('  ' + r.pres + ' <pre>, o maior com ' + r.maiorPre + ' caractere(s) e '
+    + r.bNoMaiorPre + ' <b>' + (r.tom ? ' · tom "' + r.tom + '"' : ' · tom não achado'));
+  l.push('  ' + r.links + ' link(s) de 2 segmentos, ' + r.linksDeMusica + ' com forma de música');
+  for (const a of r.amostra) l.push('    ' + a.caminho + '  ' + JSON.stringify(a.texto));
+  cifraEstrutura = l.join('\n');
+}
+
+/** Abre/fecha o seletor, sempre soltando a prévia — ela é do seletor. */
+function cifraEscolherMostrar(mostrar) {
+  cifraEscolherAberto = !!mostrar;
+  cifraEscolherChave = mostrar ? cifraChave(currentItem) : '';
+  cifraPrevia = null;
+  // ABRIR O SELETOR SEM LISTA É ABRIR UMA TELA VAZIA — e é o caso mais comum
+  // dele: a folha ABRIU (pelo catálogo ou pelo artista padrão, sem busca
+  // nenhuma) e está errada, que é justamente quando o operador toca em "Trocar".
+  // Aqui a busca é o próprio conteúdo da tela, então ela dispara sozinha.
+  if (mostrar) {
+    const e = cifraCache.get(cifraEscolherChave);
+    if (e && !(e.crus || []).length && !e.buscando) {
+      cifraRebuscar(currentItem, e.consulta || cifraNomeDoItem(currentItem));
+      return;   // o `cifraRebuscar` redesenha nas duas pontas
+    }
+  }
+  renderLyricsView();
+}
+
+/** Busca de novo com o termo que o operador digitou, e redesenha. */
+async function cifraRebuscar(item, consulta) {
+  const chave = cifraChave(item);
+  const entrada = cifraCache.get(chave);
+  if (!entrada) return;
+  entrada.buscando = true;
+  renderLyricsView();
+  try {
+    const r = await cifraBuscarNoSite(consulta, '');
+    entrada.consulta = consulta;
+    entrada.crus = r.crus;
+  } catch (_) { entrada.crus = []; }
+  entrada.buscando = false;
+  if (lyricsPopupEl.classList.contains('open')) renderLyricsView();
+}
+
+/** Espia um resultado: busca a página e a mostra, ainda SEM fixar nada. */
+async function cifraEspiar(url, nome) {
+  cifraPrevia = { url, pagina: null, nome, carregando: true, motivo: '' };
+  renderLyricsView();
+  const d = await cifraPedir(url);
+  // O operador pode ter tocado noutro resultado enquanto este vinha.
+  if (!cifraPrevia || cifraPrevia.url !== url) return;
+  cifraPrevia = { url, pagina: d.pagina || null, nome, carregando: false, motivo: d.motivo };
+  if (lyricsPopupEl.classList.contains('open')) renderLyricsView();
+}
+
+/** "Usar esta cifra": a prévia vira a folha do item, e o endereço fica fixado. */
+async function cifraUsarPrevia(item) {
+  if (!cifraPrevia || !cifraPrevia.pagina) return;
+  const chave = cifraChave(item);
+  const entrada = cifraCache.get(chave);
+  if (entrada) {
+    entrada.estado = 'ok';
+    entrada.pagina = cifraPrevia.pagina;
+    entrada.url = cifraPrevia.url;
+    entrada.motivo = AVCifra.OK;
+    entrada.semitons = 0;   // tom novo, folha nova: a transposição era da outra
+  }
+  await cifraFixar(chave, cifraPrevia.url);
+  cifraEscolherAberto = false;
+  cifraPrevia = null;
+  renderLyricsView();
 }
 
 // O estado atual da cifra do item em cena, SEM disparar busca — para a
@@ -10144,6 +10345,176 @@ async function cifraVelPasso() {
 window.addEventListener('resize', cifraRemedir);
 window.addEventListener('orientationchange', () => { requestAnimationFrame(cifraRemedir); });
 
+/**
+ * O SELETOR: a lista de resultados, dentro do app, com "usar esta".
+ *
+ * Desenha três coisas em sequência, e cada uma responde a uma pergunta que a
+ * anterior deixou aberta: o campo de busca ("e se eu procurar por outro
+ * nome?"), a lista ("o que existe lá?") e a prévia ("é esta mesmo?").
+ */
+function lvBuildCifraEscolher(el, item, nome) {
+  const chave = cifraChave(item);
+  const entrada = cifraCache.get(chave) || {};
+
+  // ---- A PRÉVIA toma a tela inteira quando existe ----
+  // Ela é a resposta à pergunta "é esta?", e essa pergunta se responde LENDO a
+  // folha — com a lista por baixo, a folha ficaria espremida no que sobrou.
+  if (cifraPrevia) {
+    const barra = document.createElement('div');
+    barra.className = 'lv-cifra-previa';
+    const t = document.createElement('span');
+    t.className = 'lv-cifra-previa-nome';
+    t.textContent = cifraPrevia.nome || 'Prévia';
+    const voltar = document.createElement('button');
+    voltar.type = 'button';
+    voltar.className = 'lv-cifra-link';
+    voltar.textContent = 'Voltar';
+    voltar.addEventListener('click', () => { cifraPrevia = null; renderLyricsView(); });
+    const usar = document.createElement('button');
+    usar.type = 'button';
+    usar.className = 'lv-cifra-usar';
+    usar.textContent = 'Usar esta cifra';
+    usar.disabled = !cifraPrevia.pagina;
+    usar.addEventListener('click', () => cifraUsarPrevia(item));
+    barra.append(t, voltar, usar);
+    el.appendChild(barra);
+
+    if (cifraPrevia.carregando) { el.appendChild(cifraEspera('Abrindo…')); return; }
+    if (!cifraPrevia.pagina) {
+      const err = document.createElement('div');
+      err.className = 'lv-cifra-estado lv-cifra-erro';
+      err.textContent = cifraPrevia.motivo === AVCifra.MOTIVO_ILEGIVEL
+        ? 'Esta página abriu, mas não está no formato que eu sei ler. O Registro guardou a estrutura dela.'
+        : 'Não consegui abrir esta página.';
+      el.appendChild(err);
+      return;
+    }
+    // A folha da prévia, SEM transposição: o passo guardado é da outra música.
+    cifraDesenharFolha(el, cifraPrevia.pagina, 0);
+    return;
+  }
+
+  // ---- O CAMPO DE BUSCA ----
+  const linha = document.createElement('div');
+  linha.className = 'lv-cifra-busca';
+  const campo = document.createElement('input');
+  campo.type = 'search';
+  campo.className = 'lv-cifra-campo';
+  campo.value = entrada.consulta || nome;
+  campo.placeholder = 'Procurar no Cifra Club';
+  campo.setAttribute('aria-label', 'Procurar no Cifra Club');
+  const ir = document.createElement('button');
+  ir.type = 'button';
+  ir.className = 'lv-cifra-usar';
+  ir.textContent = 'Buscar';
+  const disparar = () => {
+    const q = campo.value.trim();
+    if (q) cifraRebuscar(item, q);
+  };
+  ir.addEventListener('click', disparar);
+  campo.addEventListener('keydown', (e) => { if (e.key === 'Enter') disparar(); });
+  linha.append(campo, ir);
+  el.appendChild(linha);
+
+  if (entrada.buscando) { el.appendChild(cifraEspera('Procurando…')); return; }
+
+  // ---- A LISTA ----
+  const crus = Array.isArray(entrada.crus) ? entrada.crus : [];
+  if (!crus.length) {
+    const vazio = document.createElement('div');
+    vazio.className = 'lv-cifra-estado';
+    vazio.textContent = 'Nenhum resultado. Tente outro nome — o do site pode ser diferente do nosso.';
+    el.appendChild(vazio);
+  } else {
+    const cab = document.createElement('div');
+    cab.className = 'lv-cifra-cab';
+    cab.textContent = crus.length + ' resultado(s) — toque para abrir';
+    el.appendChild(cab);
+
+    // ORDENADOS PELA MESMA REGRA da busca automática, mas SEM o corte: o que ela
+    // recusou continua na lista, embaixo. É exatamente isso que o seletor existe
+    // para mostrar — a regra recusar o certo é o caso que se está corrigindo.
+    const parente = new Set(AVCifra.ordenarBusca(crus, entrada.consulta || nome, '').map((r) => r.url));
+    const ordem = crus.slice().sort((a, b) => (parente.has(b.url) ? 1 : 0) - (parente.has(a.url) ? 1 : 0));
+    const fixada = cifraEscolhas[chave];
+    for (const r of ordem) {
+      const row = document.createElement('button');
+      row.type = 'button';
+      row.className = 'lv-cifra-res';
+      const nm = document.createElement('span');
+      nm.className = 'lv-cifra-res-nome';
+      nm.textContent = r.nome;
+      const ar = document.createElement('span');
+      ar.className = 'lv-cifra-res-art';
+      ar.textContent = r.artista + (r.url === fixada ? ' · em uso' : parente.has(r.url) ? '' : ' · fora da regra');
+      row.append(nm, ar);
+      row.addEventListener('click', () => cifraEspiar(r.url, r.nome));
+      el.appendChild(row);
+    }
+  }
+
+  // A SAÍDA PARA O SITE fica, e continua sendo a última linha: quando nem a
+  // busca à mão acha, o lugar de procurar é lá.
+  const rodape = document.createElement('div');
+  rodape.className = 'lv-cifra-rodape';
+  if (cifraEscolhas[chave]) {
+    const soltar = document.createElement('button');
+    soltar.type = 'button';
+    soltar.className = 'lv-cifra-link';
+    soltar.textContent = 'Esquecer a escolhida';
+    soltar.addEventListener('click', async () => {
+      await cifraFixar(chave, '');
+      cifraCache.delete(chave);            // volta a procurar do zero
+      cifraEscolherAberto = false;
+      renderLyricsView();
+    });
+    rodape.appendChild(soltar);
+  }
+  const fonte = document.createElement('button');
+  fonte.type = 'button';
+  fonte.className = 'lv-cifra-link';
+  fonte.textContent = 'Abrir o site';
+  fonte.addEventListener('click', () => {
+    const u = AVCifra.urlDeBusca(entrada.consulta || nome);
+    if (u) AVNative.openExternal(u);
+  });
+  rodape.appendChild(fonte);
+  el.appendChild(rodape);
+}
+
+/** O aro de espera com uma frase — três chamadores, um desenho. */
+function cifraEspera(frase) {
+  const box = document.createElement('div');
+  box.className = 'lv-cifra-estado';
+  const anel = document.createElement('span');
+  anel.className = 'dl-ring';
+  const txt = document.createElement('span');
+  txt.textContent = frase;
+  box.append(anel, txt);
+  return box;
+}
+
+/**
+ * A FOLHA em si — as linhas medidas, quebradas e transpostas.
+ *
+ * Extraída do `lvBuildCifra` porque a PRÉVIA desenha a mesma coisa: duas cópias
+ * divergiriam no primeiro ajuste, e a que divergiria em silêncio é a prévia,
+ * que é justamente a tela onde o operador decide se a folha está certa.
+ */
+function cifraDesenharFolha(el, pagina, semitons) {
+  const folha = document.createElement('div');
+  folha.className = 'lv-cifra-folha';
+  el.appendChild(folha);
+  const linhas = AVCifra.quebrarPares(pagina.linhas, cifraColunas(folha));
+  linhas.forEach((linha) => {
+    const div = document.createElement('div');
+    div.className = 'lv-cifra-linha lv-cifra-' + linha.tipo;
+    div.textContent = linha.tipo === 'acordes'
+      ? AVCifra.transporLinha(linha.texto, semitons) : linha.texto;
+    folha.appendChild(div);
+  });
+}
+
 // Desenha a folha dentro de `el`, e os controles dentro de `barra` — que fica
 // FORA do que rola, para o pausar continuar alcançável com a folha andando.
 function lvBuildCifra(el, barra) {
@@ -10157,16 +10528,22 @@ function lvBuildCifra(el, barra) {
   const nome = cifraNomeDoItem(item);
 
   if (!entrada || entrada.estado === 'buscando') {
-    const espera = document.createElement('div');
-    espera.className = 'lv-cifra-estado';
-    const anel = document.createElement('span');
-    anel.className = 'dl-ring';
-    const txt = document.createElement('span');
-    txt.textContent = 'Procurando a cifra…';
-    espera.append(anel, txt);
-    el.appendChild(espera);
+    el.appendChild(cifraEspera('Procurando a cifra…'));
     return;
   }
+
+  // MÚSICA NOVA FECHA O SELETOR. Ele é de UMA música — aberto, o louvor
+  // seguinte entrava mostrando a lista de resultados da anterior no lugar da
+  // própria folha, e nada na tela explicaria por quê.
+  if (cifraEscolherAberto && cifraEscolherChave !== cifraChave(item)) {
+    cifraEscolherAberto = false;
+    cifraPrevia = null;
+  }
+
+  // O SELETOR ABERTO É A TELA. Ele foi pedido de propósito (pelo "Trocar", ou
+  // por ter falhado), e desenhá-lo por cima da folha antiga faria a tela mostrar
+  // duas respostas para a mesma pergunta.
+  if (cifraEscolherAberto) { lvBuildCifraEscolher(el, item, nome); return; }
 
   if (entrada.estado !== 'ok') {
     // CADA MOTIVO PEDE UMA AÇÃO DIFERENTE, e por isso são frases diferentes.
@@ -10184,17 +10561,11 @@ function lvBuildCifra(el, barra) {
     box.textContent = frases[entrada.motivo] || 'Não foi possível carregar a cifra.';
     el.appendChild(box);
 
-    // A SAÍDA MANUAL. Quando a busca automática não acha, o operador acha em
-    // dois toques — e o site é justamente o lugar onde essa procura é boa.
-    const abrir = document.createElement('button');
-    abrir.type = 'button';
-    abrir.className = 'lv-cifra-abrir';
-    abrir.textContent = 'Procurar no Cifra Club';
-    abrir.addEventListener('click', () => {
-      const u = AVCifra.urlDeBusca(nome);
-      if (u) AVNative.openExternal(u);
-    });
-    el.appendChild(abrir);
+    // A SAÍDA MANUAL, e ela mudou de natureza (v1.1.24): antes o app desistia e
+    // mandava o operador para o navegador; agora a falha ABRE O SELETOR, porque
+    // na maioria das vezes o resultado certo está na mesma lista que a regra
+    // acabou de ler — só não era o que ela elegeu.
+    lvBuildCifraEscolher(el, item, nome);
     return;
   }
 
@@ -10251,24 +10622,11 @@ function lvBuildCifra(el, barra) {
   cifraPintarRolar();
 
   // A FOLHA. Um nó por linha, com a classe dizendo o que ela é — é o que deixa
-  // o acorde ganhar cor sem o CSS ter de adivinhar nada do conteúdo.
-  //
-  // VAZIA PRIMEIRO, para poder ser MEDIDA. A quebra de linha é nossa (ver
-  // `AVCifra.quebrarPares`) e precisa saber quantos caracteres cabem — o que só
-  // se sabe com o elemento no documento, na fonte em que ele vai de fato ser
-  // desenhado. Medir um elemento fora da árvore devolveria zero.
-  const folha = document.createElement('div');
-  folha.className = 'lv-cifra-folha';
-  el.appendChild(folha);
-  const linhas = AVCifra.quebrarPares(p.linhas, cifraColunas(folha));
-  linhas.forEach((linha) => {
-    const div = document.createElement('div');
-    div.className = 'lv-cifra-linha lv-cifra-' + linha.tipo;
-    // Só a linha de ACORDES é transposta. Passar a de letra pela mesma função
-    // reescreveria palavras que casam com a gramática de acorde.
-    div.textContent = linha.tipo === 'acordes' ? AVCifra.transporLinha(linha.texto, n) : linha.texto;
-    folha.appendChild(div);
-  });
+  // o acorde ganhar cor sem o CSS ter de adivinhar nada do conteúdo. Só a linha
+  // de ACORDES é transposta: passar a de letra pela mesma função reescreveria
+  // palavras que casam com a gramática de acorde. Ver `cifraDesenharFolha`, que
+  // a PRÉVIA do seletor também usa.
+  cifraDesenharFolha(el, p, n);
 
   // A ORIGEM, dita e clicável — mas COMO LINK, no rodapé, à direita.
   //
@@ -10282,12 +10640,20 @@ function lvBuildCifra(el, barra) {
   // cobraria a mesma altura que acabou de ser devolvida ao texto.
   const rodape = document.createElement('div');
   rodape.className = 'lv-cifra-rodape';
+  // "TROCAR" existe mesmo com a folha ABERTA, e é aí que ele mais serve: o
+  // desfecho pior desta busca não é não achar nada — é achar a cifra ERRADA
+  // (uma versão simplificada, um homônimo) e o operador não ter como dizer isso.
+  const trocar = document.createElement('button');
+  trocar.type = 'button';
+  trocar.className = 'lv-cifra-link';
+  trocar.textContent = 'Trocar';
+  trocar.addEventListener('click', () => cifraEscolherMostrar(true));
   const fonte = document.createElement('button');
   fonte.type = 'button';
   fonte.className = 'lv-cifra-link';
   fonte.textContent = 'Ver no Cifra Club';
   fonte.addEventListener('click', () => { if (entrada.url) AVNative.openExternal(entrada.url); });
-  rodape.appendChild(fonte);
+  rodape.append(trocar, fonte);
   el.appendChild(rodape);
 }
 
@@ -16969,7 +17335,17 @@ async function renderDiag() {
     const linhas = [];
     if (cifraUltimoDiag) linhas.push(cifraUltimoDiag);
     if (cd) linhas.push('shell: ' + cd);
+    const fix = Object.keys(cifraEscolhas).length;
+    if (fix) linhas.push(fix + ' cifra(s) fixada(s) à mão pelo operador');
     if (linhas.length) blocos.push('Cifra (última busca)\n' + linhas.join('\n'));
+    // A ESTRUTURA da última página que o parser NÃO entendeu — bloco à parte
+    // porque responde outra pergunta. As duas linhas acima dizem "tentei estes
+    // endereços e não entendi"; esta diz O QUE a página era, que é o que permite
+    // ajustar a regra sem ter a página na frente. Só FORMA: contagens, tamanhos
+    // e endereços. Nenhum pedaço de letra ou de acorde sai daqui — um Registro
+    // é feito para ser copiado para fora, e o contrato deste recurso é ler
+    // conteúdo de terceiro no aparelho, nunca distribuí-lo.
+    if (cifraEstrutura) blocos.push('Cifra (estrutura da página que não abriu)\n' + cifraEstrutura);
   }
   // O lado WEB da última tentativa de transmitir. Ele vem à parte do
   // diagnóstico do shell porque três dos cinco pontos de desistência acontecem
@@ -19188,6 +19564,8 @@ lyricsViewSegEl.addEventListener('click', (e) => {
   lvSource = btn.dataset.lvsrc;
   lvFollow = true; // trocar de fonte é pedir para ver onde ela está
   cifraRolarParar(); // e a rolagem é da FOLHA, não da aba que entrou no lugar
+  cifraEscolherAberto = false;
+  cifraPrevia = null;
   renderLyricsView();
   lvScrollToCurrent(false);
 });

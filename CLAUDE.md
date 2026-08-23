@@ -1791,6 +1791,43 @@ a congregação vê continua sendo a letra, pelo caminho de sempre.
   requisição, sem ranking de ninguém escolhendo por nós. Só falhando ela entra a
   **busca genérica**, que é o "qualquer música" e também cobre o hino cujo nome
   no acervo não bate com o do site.
+- **O OPERADOR ESCOLHE, E A ESCOLHA VENCE TUDO** (o seletor, v1.1.25). O método
+  automático ADIVINHA a partir de um nome; quem opera SABE qual é a música.
+  MEDIDO: na maioria das falhas o resultado certo estava na página de busca — só
+  não era o que a regra elegeu, e não havia como olhar a lista nem dizer "é
+  este". A aba passa a desenhar a LISTA de resultados (a mesma que a regra leu),
+  abrir a folha de qualquer um deles em PRÉVIA, e fixar o escolhido.
+  - **Não é um navegador embutido, e não podia ser**: o WebView recusa navegar
+    para outro origin (invariante 2) e `openExternal` sai do app. É a divisão de
+    sempre — shell traz o HTML cru, `cifra.js` extrai a lista, e o desenho é
+    nosso. Sai melhor: nenhum script de terceiro roda, nenhum anúncio carrega, e
+    a lista mostra também **o que a regra RECUSOU** ("fora da regra"), que é
+    justamente o que se está corrigindo.
+  - **A escolha é GUARDADA, e isso não fura o contrato do recurso.** "Nada é
+    gravado em disco" sempre falou do CONTEÚDO: o app lê cifra de terceiro no
+    aparelho e não distribui cópia. `cifraEscolhas` guarda um ENDEREÇO por
+    música — um ponteiro, não um texto. Marcar um favorito não é copiar o livro.
+    Sem guardar, a correção morreria ao fechar o app e o operador a refaria todo
+    sábado. Gravada com `updateState`, com teto de 400 e corte pelas mais
+    antigas.
+  - **Ela é a tentativa 0** e encerra o assunto: continuar adivinhando depois de
+    o operador ter dito qual é seria desfazer a correção dele a cada abertura.
+    Falhando (o site tirou a página do ar), o caminho automático roda em seguida.
+  - **"Trocar" existe com a folha ABERTA**, e é aí que mais serve: o desfecho
+    pior não é não achar nada — é achar a cifra ERRADA (uma versão simplificada,
+    um homônimo) e não ter como dizer isso. Abrir o seletor sem lista dispara a
+    busca sozinho, senão a tela nasceria vazia justamente no caso mais comum.
+- **O REGISTRO GUARDA A ESTRUTURA DA PÁGINA QUE NÃO ABRIU**
+  (`AVCifra.radiografia`). `ilegivel` responde *"não entendi"*, não *"o que
+  era"* — e a distância entre as duas é uma sessão de adivinhação a distância.
+  A radiografia devolve FORMA: quantos `<pre>` e de que tamanho, quantos `<b>`
+  no maior deles, quantos links de música, `<title>`/`<h1>`/`<h2>`, o tom, e uma
+  amostra curta de endereços. **Nenhum pedaço de letra ou de acorde sai** — não
+  é economia de bytes, é o contrato: um Registro existe para ser copiado para
+  FORA, e o app lê conteúdo de terceiro sem distribuí-lo. O oráculo cobra as
+  duas metades, e a segunda (o conteúdo NÃO sair) é a que protege o contrato de
+  um campo novo acrescentado sem pensar. Só o caso `ilegivel` a grava: no
+  caminho feliz ela sobrescreveria a página que interessa.
 - **OS CDs OFICIAIS TÊM ENDEREÇO DEDUZÍVEL TAMBÉM** (`AVCifra.ARTISTAS_PADRAO`).
   Os álbuns do acervo são dezenas ("Missão", "Salmos", "Adoradores"…) e no site
   caem todos sob a coleção **Ministério Jovem** — a mesma forma do `CATALOGO`,
@@ -2897,7 +2934,7 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: v1.1.23** (base web) · **v1.1.10** (APK) · `SHELL_VERSION` **49** · bundle com
+**Versão atual: v1.1.25** (base web) · **v1.1.10** (APK) · `SHELL_VERSION` **49** · bundle com
 `minShell: 49` — o shell 49 é o **PISO**: todo método da ponte existe, e não há
 guarda de versão no lado web. O que continua valendo é que `java/`, `res/`, o
 manifest e os workflows **só chegam instalando o APK**.

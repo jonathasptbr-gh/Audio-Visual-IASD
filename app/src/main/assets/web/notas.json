@@ -1,5 +1,14 @@
 [
   {
+    "versao": "1.1.25",
+    "itens": [
+      "AGORA VOCÊ ESCOLHE A CIFRA. Quando a busca não acha (ou acha a errada), a aba passa a mostrar a LISTA de resultados do site dentro do próprio app: toque num para abri-lo, leia a folha, e “Usar esta cifra” fixa aquele endereço para esta música — inclusive nos próximos cultos. Dá para digitar outro nome e buscar de novo.",
+      "A lista mostra também o que a regra automática RECUSOU, marcado como “fora da regra” — é quase sempre ali que está o resultado certo.",
+      "Com a folha aberta, o rodapé ganhou “Trocar”: o pior desfecho não é não achar nada, é achar a cifra errada e não ter como dizer isso.",
+      "O Registro passou a guardar a ESTRUTURA da página que o app não conseguiu ler (quantos blocos, que endereços) — sem nenhum pedaço da letra ou dos acordes. É o que permite ajustar a busca a partir de um Registro copiado."
+    ]
+  },
+  {
     "versao": "1.1.24",
     "itens": [
       "O botão do microfone parou de mentir: sem TV conectada ele recusa o toque e explica por quê, em vez de acender “No ar” sem nada estar captando.",
