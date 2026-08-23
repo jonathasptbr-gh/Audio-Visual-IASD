@@ -5596,7 +5596,7 @@ body.mode-simple .bottombar { display: none; }
    atualização"), PREENCHIDO é a ação que muda alguma coisa ("Atualizar: base
    v… e app v…"). Desabilitado ele perde as duas — é o estado em que a hora é
    ruim, e o próprio rótulo diz o que ele está esperando. */
-/* E A `.diag-acao` É A MESMA FAIXA, para a bateria de testes da cifra (v1.2.7).
+/* E A `.diag-acao` É A MESMA FAIXA, para a bateria de testes da cifra (v1.2.8).
    Mesma forma porque é a mesma coisa: uma ação de largura inteira no pé de
    Configurações. Um segundo bloco copiado daqui divergiria no primeiro ajuste
    de raio — o nome é que muda, porque `ota-row` fala do OTA. */

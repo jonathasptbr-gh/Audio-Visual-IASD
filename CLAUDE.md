@@ -1944,7 +1944,7 @@ a congregação vê continua sendo a letra, pelo caminho de sempre.
   como **desempate** na busca: um resultado sob ele é, por definição, de um CD
   oficial, e isso não depende de o nome do álbum do acervo bater com nada.
 - **A BUSCA DO PRÓPRIO SITE NÃO EXISTE, E O BUSCADOR EXTERNO TAMBÉM NÃO
-  RESOLVEU** (shell 52, v1.2.7). MEDIDO num aparelho: `cifraclub.com.br/?q=`
+  RESOLVEU** (shell 52, v1.2.8). MEDIDO num aparelho: `cifraclub.com.br/?q=`
   responde 425 kB, sabe qual foi a consulta (ela está no `<title>`) e os únicos
   links de duas partes na página são o índice A–Z e o "Academy" — **os
   resultados são desenhados por JavaScript**, que o `cifraHtml` não executa. A
@@ -2147,7 +2147,7 @@ a congregação vê continua sendo a letra, pelo caminho de sempre.
   recebeu. O caso que só as duas juntas resolvem é `HTTP 200` + `ilegivel` — a
   página está lá, a rede está boa, e o `cifra.js` é que precisa de um lote novo.
 
-### A bateria de testes (v1.2.7)
+### A bateria de testes (v1.2.8)
 
 **A cadeia de tentativas é UMA (`cifraProcurar`), e a bateria é o segundo
 consumidor dela** — a mesma razão do `cifraCabe`: uma segunda escrita da cadeia
@@ -3043,6 +3043,11 @@ Rodar local: `./gradlew assembleDebug` (exige Android SDK).
   **E daí a ORDEM importar:** a linha do tempo vem logo depois do cabeçalho e
   ANTES de todo bloco de verificação por recurso — ela era o último dos oito, e
   num Registro real começava na linha ~150. Bloco novo entra DEPOIS dela.
+  **E ela é MONTADA NA HORA DE DESENHAR** (v1.2.7), nunca guardada pronta: o anel
+  do celular continua crescendo depois do último `diag-dump`, e continua
+  crescendo mesmo SEM TELÃO — caso em que o `diag-ask` nem chega a sair.
+  Montá-la no `juntarDiag` congelava a lista no instante da última resposta do
+  telão, e ela seguia parecendo completa.
 - **O REGISTRO É SOBRE O CULTO, não sobre o catálogo** (v1.1.19). Ele responde a
   quatro perguntas, e é por elas que se decide o que entra: *o que eu toquei
   antes disso?* (ações do operador) · *quando a conexão mudou?* (TV e telas, em
@@ -3174,7 +3179,7 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: v1.2.7** (base web) · **v1.2.7** (APK) · `SHELL_VERSION` **52** · bundle com
+**Versão atual: v1.2.8** (base web) · **v1.2.8** (APK) · `SHELL_VERSION` **52** · bundle com
 `minShell: 52` — o shell 52 é o **PISO**: todo método da ponte existe, e não há
 guarda de versão no lado web. O que continua valendo é que `java/`, `res/`, o
 manifest e os workflows **só chegam instalando o APK**.

@@ -318,6 +318,123 @@ try {
   checar(/retomado 3x/.test(comPlacar) && /desistido 1x/.test(comPlacar),
     'com as três contas, que respondem coisas diferentes (roubos · socorros · desistências)');
 
+
+
+  // ---- O MICROFONE RECUSADO: o Registro precisa DIZER qual degrau ----------
+  //
+  // Relatado do aparelho, com captura: "O Android não liberou o microfone.
+  // Costuma ser uma chamada, um gravador aberto…". Nenhuma das causas nomeadas
+  // era verdade — e o Registro colado junto não tinha UMA linha sobre o
+  // microfone, porque só o caminho de SUCESSO era registrado.
+  //
+  // A mesma frase na tela sai de causas que pedem ações OPOSTAS: permissão,
+  // nenhuma entrada de áudio, ou os três degraus recusados (aí o problema não é
+  // o processamento que a escada contorna). Este bloco prova que o Registro as
+  // separa — sem ele, quem lê a distância recebe a mesma frase para todas.
+  //
+  // FORJA A CAPTURA e exercita o caminho REAL (o botão, a escada, o registro).
+  // Nada de costura de teste: o que se quer medir é o que o app FAZ quando o
+  // aparelho recusa, e um gancho só-para-teste mediria o gancho.
+  // A PONTE CONCEDE nesta página: sem isso o caminho sai na permissão, ANTES da
+  // escada, e as asserções sobre os degraus passariam por não ter chegado lá.
+  // (O caso da permissão negada é medido à parte, no fim, com a ponte real.)
+  await pg.evaluate(() => {
+    window.__AVBridge.requestMic = (id) => {
+      setTimeout(() => { try { window.__avResolve(id, true); } catch (_) {} }, 0);
+    };
+  });
+
+  async function tentarRecado(erro, entradas) {
+    return pg.evaluate(async ([nomeErro, nDisp]) => {
+      const dorme = (ms) => new Promise((f) => setTimeout(f, ms));
+      Object.defineProperty(navigator, 'mediaDevices', {
+        configurable: true,
+        value: {
+          getUserMedia: () => {
+            const e = new Error('forjado'); e.name = nomeErro;
+            return Promise.reject(e);
+          },
+          enumerateDevices: () => Promise.resolve(
+            Array.from({ length: nDisp }, (_, i) => ({ kind: 'audioinput', deviceId: 'd' + i }))),
+        },
+      });
+      const ir = (t) => { const b = document.querySelector('[data-tab="' + t + '"]'); if (b) b.click(); };
+      ir('mic');
+      await dorme(250);
+      const btn = document.getElementById('recadoBtn');
+      if (!btn) return { semBotao: true };
+      btn.setPointerCapture = () => {};
+      btn.hasPointerCapture = () => true;
+      btn.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerId: 7 }));
+      await dorme(700);
+      btn.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, pointerId: 7 }));
+      await dorme(400);
+      await window.renderDiag();
+      delete navigator.mediaDevices;
+      return { texto: typeof diagTexto === 'string' ? diagTexto : '' };
+    }, [erro, entradas]);
+  }
+
+  const semTentativa = await pg.evaluate(async () => {
+    await window.renderDiag();
+    return typeof diagTexto === 'string' ? diagTexto : '';
+  });
+  checar(!/Microfone \(última tentativa\)/.test(semTentativa),
+    'sem NENHUMA tentativa de captura o bloco do microfone NÃO existe — linha que não '
+    + 'responde nada não é impressa');
+
+  // OS TRÊS DEGRAUS RECUSADOS: o caso do relato. O pedido CRU também falhou,
+  // então o problema não é o processamento que a escada existe para contornar.
+  const tres = (await tentarRecado('NotReadableError', 1)).texto || '';
+  checar(/Microfone \(última tentativa\)/.test(tres),
+    'havendo tentativa, o bloco aparece', tres.slice(0, 200));
+  checar(/com eco: NotReadableError/.test(tres) && /cru: NotReadableError/.test(tres),
+    'e ele nomeia CADA degrau com o erro dele — "falhou" sozinho não distingue "o '
+    + 'processamento incomodou" de "o sistema não entrega o microfone"');
+  checar(/OS TRÊS DEGRAUS FALHARAM/.test(tres),
+    'e dá o VEREDITO: com o pedido cru recusado, a escada não tem mais o que contornar');
+  checar(/entradas de áudio que o navegador enxerga: 1/.test(tres),
+    'com a contagem de entradas — é ela que separa "não abre" de "não existe"');
+  // E A LINHA DO TEMPO leva o mesmo fato: é ela que dá a HORA, ao lado do que o
+  // operador estava fazendo.
+  checar(/microfone \(recado\) RECUSADO em 3 tentativa\(s\)/.test(tres),
+    'e a LINHA DO TEMPO carimba a recusa com a hora, ao lado do resto do culto');
+
+  // ZERO ENTRADAS é outra causa e outra ação: não adianta mexer em permissão.
+  const zero = (await tentarRecado('NotFoundError', 0)).texto || '';
+  checar(/NENHUMA ENTRADA DE ÁUDIO/.test(zero) && /não é permissão/.test(zero),
+    'ZERO entradas dá um veredito DIFERENTE, e ele nega a causa errada por extenso — '
+    + 'mandar mexer em permissão aqui é a adivinhação que este bloco existe para acabar');
+  checar(!/OS TRÊS DEGRAUS FALHARAM/.test(zero),
+    'e sem acumular o outro veredito: dois diagnósticos no mesmo bloco é o Registro '
+    + 'discordando de si mesmo');
+
+  // PERMISSÃO NEGADA PELO ANDROID: a saída acontece ANTES da escada, e é o caso
+  // em que o Registro ficava mais mudo — a resposta é a mais simples de todas.
+  const perm = await pg.evaluate(async () => {
+    const dorme = (ms) => new Promise((f) => setTimeout(f, ms));
+    window.__AVBridge.requestMic = (id) => {
+      setTimeout(() => { try { window.__avResolve(id, false); } catch (_) {} }, 0);
+    };
+    const btn = document.getElementById('recadoBtn');
+    btn.setPointerCapture = () => {}; btn.hasPointerCapture = () => true;
+    btn.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerId: 9 }));
+    await dorme(500);
+    btn.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, pointerId: 9 }));
+    await dorme(400);
+    await window.renderDiag();
+    return typeof diagTexto === 'string' ? diagTexto : '';
+  });
+  checar(/PERMISSÃO/.test(perm) && /Permissões/.test(perm),
+    'PERMISSÃO NEGADA pelo Android tem o terceiro veredito, com o caminho das '
+    + 'Configurações — e ela sai ANTES da escada, que era onde o Registro ficava mudo',
+    perm.slice(perm.indexOf('Microfone'), perm.indexOf('Microfone') + 300));
+  checar(/permissão do Android: NotAllowedError/.test(perm),
+    'e o degrau que falhou é NOMEADO como a permissão, não como um pedido de captura');
+
+  checar(!/undefined|NaN|\[object Object\]/.test(tres + zero + perm),
+    'e nenhum dos três casos produz "undefined", "NaN" ou "[object Object]"');
+
   // E UM BUNDLE ANTIGO não manda o campo: a linha some, e NADA sai quebrado —
   // é a regra de que toda linha do bloco é opcional, cobrada onde ela vale.
   const semPlacar = await pg.evaluate(async () => {

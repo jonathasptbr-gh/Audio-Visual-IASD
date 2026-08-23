@@ -244,7 +244,7 @@ const appVersionEl = document.getElementById('appVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.2.7';
+const WEB_VERSION = '1.2.8';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -5011,6 +5011,50 @@ const MIC_TENTATIVAS = [
   { echoCancellation: false, noiseSuppression: false, autoGainControl: false },
   true,
 ];
+// A ÚLTIMA TENTATIVA DE CAPTURA, guardada para o Registro.
+//
+// Ela existe porque o caminho de FALHA não escrevia nada em lugar nenhum: o
+// operador via "O Android não liberou o microfone" na tela e o Registro — que é
+// o que ele copia e manda — não tinha uma linha sobre o assunto. A frase acusava
+// uma chamada ou um gravador aberto, que é a causa MENOS provável, e não havia
+// como saber se falhou UM degrau ou os TRÊS.
+//
+// As perguntas que só esta estrutura separa, e cada uma pede uma ação oposta:
+//
+//   nenhum dispositivo de entrada  → não é permissão, é o aparelho/privacidade;
+//   um degrau falhou, outro abriu  → é o PROCESSAMENTO (a escada fez o trabalho);
+//   os TRÊS falharam               → o sistema recusa o microfone a este app;
+//   NotAllowedError                → permissão, e a frase de sempre serve.
+let micUltima = null;   // { origem, quando, degraus:[{qual,erro}], entradas, ok }
+
+function micRegistrar(origem, degraus, entradas, ok) {
+  micUltima = { origem, quando: Date.now(), degraus, entradas, ok };
+  const falhas = degraus.filter((d) => d.erro);
+  if (ok) {
+    if (falhas.length) {
+      diagC('microfone (' + origem + ') abriu no degrau ' + (falhas.length + 1)
+        + ' — o(s) anterior(es) deu(deram) ' + falhas.map((d) => d.erro).join(', '));
+    }
+    return;
+  }
+  // TODOS OS DEGRAUS NA MESMA LINHA: é a diferença entre "o processamento
+  // incomodou" e "o sistema não entrega o microfone", e ela decide o que fazer.
+  diagC('microfone (' + origem + ') RECUSADO em ' + degraus.length + ' tentativa(s): '
+    + degraus.map((d) => d.qual + '=' + d.erro).join(' · ')
+    + ' · entradas de áudio: ' + (entradas === null ? '?' : entradas));
+}
+
+// QUANTOS MICROFONES O NAVEGADOR ENXERGA. Zero separa "o aparelho não entrega
+// microfone nenhum a este app" (privacidade do sistema, hardware ocupado) de
+// "existe e não abre" — e as duas leem igual na tela.
+async function micEntradas() {
+  try {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) return null;
+    const ds = await navigator.mediaDevices.enumerateDevices();
+    return ds.filter((d) => d.kind === 'audioinput').length;
+  } catch (_) { return null; }
+}
+
 const RECADO_MIN_MS = 700;
 // E UM BOTÃO QUE GRUDA NÃO GRAVA PARA SEMPRE. `setPointerCapture` torna a
 // soltura confiável, mas o custo de errar aqui é um arquivo crescendo em
@@ -5040,7 +5084,14 @@ async function iniciarRecado() {
   if (!recadoDisponivel()) { recErro = 'unsupported'; renderRecadoUI(); return; }
   if (window.__NATIVE__) {
     const ok = await AVNative.requestMic();
-    if (!ok) { recErro = 'NotAllowedError'; renderRecadoUI(); return; }
+    if (!ok) {
+      // TAMBÉM ENTRA NO REGISTRO. Esta saída acontece ANTES da escada, e sem a
+      // linha o Registro ficava sem nada a dizer justamente no caso em que a
+      // resposta é a mais simples de todas — o Android não deu a permissão.
+      micRegistrar('recado', [{ qual: 'permissão do Android', erro: 'NotAllowedError' }],
+        null, false);
+      recErro = 'NotAllowedError'; renderRecadoUI(); return;
+    }
   }
   // O OPERADOR PODE TER SOLTADO enquanto a permissão era resolvida — é a mesma
   // corrida que o `micSeq` do telão fecha, e pelo mesmo motivo: sem o token, um
@@ -5068,18 +5119,22 @@ async function iniciarRecado() {
   // são dois arquivos, dois WebViews e dois estados diferentes, então não dá
   // para ser uma função só — mas duas escadas sem oráculo divergem no primeiro
   // esquecimento, e foi exatamente assim que esta nasceu com um degrau.
+  const QUAL = ['com eco', 'sem eco', 'cru'];
   let fluxo = null;
   let erroFinal = 'error';
   let semEco = false;
+  const degraus = [];
   for (let i = 0; i < MIC_TENTATIVAS.length; i++) {
     try {
       fluxo = await navigator.mediaDevices.getUserMedia({
         audio: MIC_TENTATIVAS[i], video: false,
       });
       semEco = i > 0;
+      degraus.push({ qual: QUAL[i] || String(i), erro: '' });
       break;
     } catch (e) {
       erroFinal = (e && e.name) || 'error';
+      degraus.push({ qual: QUAL[i] || String(i), erro: erroFinal });
       // PERMISSÃO NEGADA não melhora com menos processamento: é resposta do
       // sistema, e insistir só gasta duas chamadas para dar o mesmo erro.
       if (erroFinal === 'NotAllowedError' || erroFinal === 'SecurityError') break;
@@ -5087,6 +5142,11 @@ async function iniciarRecado() {
       if (seq !== recSeq) break;
     }
   }
+  // A CONTAGEM DE ENTRADAS é lida DEPOIS das tentativas, de propósito: antes de
+  // uma permissão concedida o navegador pode devolver a lista sem rótulo (ou
+  // vazia) por privacidade, e o número diria mais sobre a política do navegador
+  // do que sobre o aparelho.
+  micRegistrar('recado', degraus, await micEntradas(), !!fluxo);
   if (!fluxo) {
     recErro = erroFinal;
     renderRecadoUI();
@@ -10442,7 +10502,7 @@ async function syncCifrasHinario(coll) {
   }
 }
 
-// ===== A BATERIA DE TESTES DA CIFRA (v1.2.7) =====
+// ===== A BATERIA DE TESTES DA CIFRA (v1.2.8) =====
 //
 // O acervo é FIXO e ANTIGO: os álbuns não ganham faixa nova, os nomes não
 // mudam, e o único risco real é o Cifra Club reorganizar endereços — coisa
@@ -10749,7 +10809,7 @@ async function cifraFixar(chave, url) {
  * apagaria a estrutura da página que o operador está diagnosticando.
  */
 async function cifraBuscarNoSite(consulta, alvo, artista, mudo) {
-  // UM MOTOR SÓ — o buscador externo saiu na v1.2.7.
+  // UM MOTOR SÓ — o buscador externo saiu na v1.2.8.
   //
   // Ele entrou na v1.2.2 porque a busca interna nunca teve como funcionar
   // (MEDIDO: `cifraclub.com.br/?q=` responde 425 kB cujos únicos links de duas
@@ -17579,7 +17639,11 @@ function closeFadePopup() {
 // console, não há logcat, e este WebView está estrangulado justamente nesse
 // intervalo. O despejo é pedido ao ABRIR esta tela, não continuamente: o telão
 // guarda o anel dele e entrega quando alguém pergunta.
-let diagLinhas = [];
+// O QUE O TELÃO MANDOU no último `diag-dump` — só a metade dele. A linha do
+// tempo é montada na hora de desenhar (ver `eventosDiag`), porque o anel do
+// celular continua crescendo depois que o telão respondeu — e continua
+// crescendo mesmo quando não há telão para responder.
+let diagDoTelao = [];
 
 // O CONTROLE TEM O PRÓPRIO ANEL, e ele é o que importa quando o som sai DESTE
 // APARELHO (v5.215, `acertarSaidaDeAudio`): ali quem toca é o `<video>` desta
@@ -17938,6 +18002,12 @@ function blocoEspelho(d) {
 
 // A LINHA DO TEMPO dos dois processos, em ordem de relógio.
 function eventosDiag() {
+  // A JUNÇÃO ACONTECE AQUI, na hora de desenhar, e não quando o telão responde.
+  // O anel do celular (`diarioC`) continua crescendo depois do último
+  // `diag-dump` — e continua crescendo mesmo quando não há telão nenhum para
+  // mandar um. Montar a lista no `juntarDiag` congelava a linha do tempo no
+  // instante da última resposta do telão. Ver o comentário de lá.
+  const diagLinhas = diarioC.concat(diagDoTelao || []).sort((a, b) => a.t - b.t);
   if (!diagLinhas.length) {
     return 'Linha do tempo\n(sem registros — minimize o app com algo tocando e volte aqui)';
   }
@@ -18292,6 +18362,54 @@ let diagSeq = 0;
 // policy do AOSP (`// no sonification on remote submix (e.g. WFD)`); e som de
 // NOTIFICAÇÃO depende do aparelho — a Samsung é implementação própria. Escrever
 // as três como certezas seria inventar duas.
+// O MICROFONE, NO REGISTRO — a última tentativa de captura, degrau a degrau.
+//
+// O bloco "Áudio do aparelho" responde ONDE a voz sai; este responde POR QUE ela
+// não saiu, e são perguntas diferentes. Ele existe porque o desfecho relatado do
+// aparelho — "O Android não liberou o microfone" — é uma frase que acusa a causa
+// MENOS provável (uma chamada, um gravador aberto) e não distingue os quatro
+// casos que pedem ações opostas.
+//
+// SÓ APARECE DEPOIS DE UMA TENTATIVA. Num Registro de um culto em que ninguém
+// tocou no microfone ele não responde pergunta nenhuma, e a regra deste arquivo
+// é que linha que não responde nada não é impressa.
+function blocoMicrofone() {
+  if (!micUltima) return '';
+  const l = [];
+  const quando = new Date(micUltima.quando).toLocaleTimeString('pt-BR', { hour12: false });
+  l.push(micUltima.origem + ' · ' + quando + ' · '
+    + (micUltima.ok ? 'ABRIU' : 'RECUSADO'));
+  for (const d of micUltima.degraus) {
+    l.push('  ' + d.qual + ': ' + (d.erro || 'abriu'));
+  }
+  if (micUltima.entradas !== null && micUltima.entradas !== undefined) {
+    l.push('  entradas de áudio que o navegador enxerga: ' + micUltima.entradas);
+  }
+  // O VEREDITO, e ele é o ponto do bloco: a mesma frase na tela sai de quatro
+  // causas, e cada uma pede uma ação diferente. Quem lê o Registro está a
+  // distância e não pode tentar as quatro.
+  if (!micUltima.ok) {
+    const erros = micUltima.degraus.map((d) => d.erro);
+    if (erros.some((e) => e === 'NotAllowedError' || e === 'SecurityError')) {
+      l.push('→ PERMISSÃO: o Android (ou o WebView) negou. Autorize o app em '
+        + 'Configurações › Aplicativos › Áudio Visual › Permissões.');
+    } else if (micUltima.entradas === 0) {
+      l.push('→ NENHUMA ENTRADA DE ÁUDIO: não é permissão. O aparelho não está '
+        + 'entregando microfone nenhum ao app — veja o interruptor de PRIVACIDADE '
+        + '"Acesso ao microfone" nas configurações rápidas.');
+    } else if (micUltima.degraus.length >= 3 && erros.every(Boolean)) {
+      l.push('→ OS TRÊS DEGRAUS FALHARAM, inclusive o pedido CRU: o problema não é '
+        + 'o processamento de áudio (que é o que a escada contorna). O sistema está '
+        + 'recusando o microfone a este app — privacidade, outro app segurando o '
+        + 'dispositivo, ou política do fabricante.');
+    } else {
+      l.push('→ falhou antes de esgotar a escada (o operador soltou o botão, ou o '
+        + 'erro não era retentável).');
+    }
+  }
+  return 'Microfone (última tentativa)\n' + l.join('\n');
+}
+
 function blocoAudio() {
   if (!window.__NATIVE__) return '';
   const tv = lastDisplays[0] || null;
@@ -18448,6 +18566,11 @@ async function renderDiag() {
   // à mesma pergunta ("o que está no ar?") pelo lado que ninguém escolheu.
   const ba = blocoAudio();
   if (ba) blocos.push(ba);
+  // DEPOIS do áudio, e não antes: aquele responde "onde a voz sai", este
+  // responde "por que ela não saiu". Só o segundo é condicional a ter havido
+  // tentativa, então ele é o que pode faltar.
+  const bm = blocoMicrofone();
+  if (bm) blocos.push(bm);
   // AS SÉRIES: o que a regra achou nos canais, com os nomes CRUS. Ele vem
   // depois do estado da transmissão e antes da linha do tempo porque a ordem
   // desta caixa é "quem eu sou → o que tentei → o que está no ar → o que
@@ -18480,7 +18603,20 @@ async function renderDiag() {
 // repassado (regra do projeto: toda linha do bloco é opcional).
 let diagRetomada = null;
 function juntarDiag(doTelao, retomada) {
-  diagLinhas = diarioC.concat(doTelao || []).sort((a, b) => a.t - b.t);
+  // GUARDA O QUE VEIO DO TELÃO; a JUNÇÃO acontece na hora de desenhar.
+  //
+  // Antes esta função montava `diagLinhas` e pronto — e como ela só roda quando
+  // o telão RESPONDE ao `diag-ask`, a linha do tempo era um instantâneo daquele
+  // momento. Todo evento do celular registrado depois dele ficava invisível, e
+  // SEM TELÃO NENHUM ela congelava de vez: o `diag-ask` não chega a sair, então
+  // a última junção era a de quando havia telão, horas antes.
+  //
+  // MEDIDO num Registro real: a linha do tempo terminava às 09:35:51, no
+  // instante em que a TV caiu, e o operador copiou o texto muito depois — com
+  // três tentativas de microfone no meio, nenhuma delas na lista. O bloco que
+  // existe para responder "o que aconteceu no culto?" parava de responder
+  // exatamente quando o culto continuava.
+  diagDoTelao = doTelao || [];
   if (retomada && typeof retomada === 'object') diagRetomada = retomada;
   renderDiag();
 }
@@ -23002,7 +23138,19 @@ AVDB.onCommand((msg) => {
   // item em exibição.
   if (msg.type === 'mic-status') {
     micOn = !!msg.on;
-    micError = msg.error || '';
+    // O ERRO DO AO VIVO TAMBÉM ENTRA NO REGISTRO, e a razão é que ele nasce no
+    // TELÃO: o `diag('microfone recusado: …')` de lá mora no diário da
+    // `Presentation`, que só chega ao Registro se o `diag-ask` conseguir
+    // respondê-lo — e um dongle que caiu no meio leva o diário junto. A linha
+    // que o operador precisa é a do CELULAR, que sobrevive.
+    //
+    // Só na TRANSIÇÃO: o telão reemite `mic-status` e repetir a mesma recusa
+    // encheria a linha do tempo com o mesmo fato.
+    const erroNovo = msg.error || '';
+    if (erroNovo && erroNovo !== micError) {
+      micRegistrar('ao vivo', [{ qual: 'telão', erro: erroNovo }], null, false);
+    }
+    micError = erroNovo;
     if (activeTab === 'mic') renderMicUI();
     return;
   }

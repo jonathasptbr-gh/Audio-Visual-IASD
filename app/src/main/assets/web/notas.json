@@ -1,9 +1,17 @@
 [
   {
-    "versao": "1.2.7",
+    "versao": "1.2.8",
     "itens": [
       "Uma BATERIA DE TESTES da cifra, em Configurações: ela sorteia uma ou duas músicas de cada álbum, procura a cifra de cada uma como o app procura no culto, e escreve o resultado no Registro — com TODOS os endereços tentados nas que falharam, que é o que permite achar a música à mão no site e corrigir o caminho.",
       "O buscador externo saiu. Ele respondia com uma recusa anti-robô, e uma recusa lida como página vazia era uma requisição por procura para não devolver nada. Quem acha as músicas são os endereços deduzíveis — o catálogo do hinário, o álbum como artista do site e os artistas padrão."
+    ]
+  },
+  {
+    "versao": "1.2.7",
+    "itens": [
+      "A LINHA DO TEMPO do Registro estava congelada: ela parava no instante em que a TV foi desconectada e não registrava mais nada. Agora ela é montada na hora de abrir o Registro, e vale também quando nunca houve TV.",
+      "O Registro ganhou um bloco de MICROFONE: quando a gravação não abre, ele diz qual tentativa falhou, com que erro, quantos microfones o aparelho entregou — e o que fazer em cada caso.",
+      "Antes disso, a única resposta era uma frase na tela acusando uma chamada ou um gravador aberto, que quase nunca é a causa."
     ]
   },
   {

@@ -79,7 +79,7 @@ object CifraFonte {
      *
      * O do app basta no Cifra Club e está em uso desde o começo — trocá-lo
      * mexeria no único caminho que hoje funciona. A escolha POR HOST saiu com o
-     * buscador externo (v1.2.7): sobrou um host, e um `if` sobre um conjunto de
+     * buscador externo (v1.2.8): sobrou um host, e um `if` sobre um conjunto de
      * um elemento é uma bifurcação que só existe para o leitor procurar o outro
      * ramo.
      */
