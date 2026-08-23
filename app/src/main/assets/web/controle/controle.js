@@ -244,7 +244,7 @@ const appVersionEl = document.getElementById('appVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.2.15';
+const WEB_VERSION = '1.2.16';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -1368,12 +1368,6 @@ const preview = createStage({
     pvLyricsEnded = true;
     if (pvLyrics) pvLayerOut(pvLyricsEl);
     if (displayActive()) return;
-    // O RECADO TAMBÉM TERMINA AQUI, e este é o caminho do modelo em que ele
-    // mais importa: SEM TELA NENHUMA a preview em tela cheia É a projeção, e o
-    // `media-ended` remoto nunca chega porque não há telão para emiti-lo. Uma
-    // guarda só no ramo remoto deixaria o recado repetindo para sempre
-    // justamente onde o microfone ao vivo já não funcionava.
-    if (recadoTerminou(currentId)) return;
     autoAdvance();
   },
   onError: (e) => {
@@ -4954,63 +4948,6 @@ function micErrorText(err) {
   return 'Não foi possível abrir o microfone (' + err + ').';
 }
 
-// ===== O RECADO: o microfone estilo walkie-talkie (v1.1.26, shell 50) =====
-//
-// Segurar grava; soltar MANDA AO AR. A voz vira um item de mídia comum
-// (`kind:'audio'`) e entra pelo caminho de projeção que já existe — e é isso
-// que faz o recado chegar aos QUATRO modelos de graça, inclusive aos dois em
-// que o microfone AO VIVO não existe:
-//
-//   TV espelhando ...... o telão toca, o espelhamento leva às caixas
-//   sem tela nenhuma ... a preview em tela cheia É a projeção, e ela toca
-//   telas da rede ...... `telaSanearRec` cunha `/m/<token>` e os bytes viajam
-//   TV + telas ......... os dois caminhos, cada um com a própria cópia
-//
-// POR QUE ELE PRECISOU DE UMA RELEASE: gravar é `MediaRecorder`, que precisa de
-// um `MediaStream`, que precisa de `getUserMedia` — e o WebView do Controle
-// negava TODA permissão de mídia (`onPermissionRequest` → `deny()`). O telão
-// não servia porque ele só existe com TV conectada, que é exatamente o caso que
-// o recado veio cobrir. Daí o shell 50.
-//
-// A PRATELEIRA É `avulsos`, e o teto de 3 é o recurso, não um limite: um recado
-// é descartável por natureza, e `fixarAvulso` já despeja o mais antigo pelo
-// `listRemove`, que roda o coletor. Nada disso encosta no Cronograma — foi o
-// pedido, literalmente ("ir direto ao invés de ser criado um arquivo no
-// cronograma").
-
-// O FORMATO É ESCOLHIDO PELO NAVEGADOR, e a ordem é por quem TOCA, não por quem
-// grava. O telão é o WebView do Android (previsível); as telas da rede são
-// navegadores de TERCEIRO — a Smart TV do salão, o notebook do saguão —, e ali
-// AAC em MP4 é o que toca em qualquer lugar. Opus em WebM é o que o Chromium
-// grava melhor e o que uma TV antiga pode não conhecer. Por isso o mp4 vem
-// primeiro mesmo sendo o menos garantido de GRAVAR: falhar ao gravar é um
-// `isTypeSupported` falso, aqui, agora; falhar ao tocar é o silêncio na igreja.
-const RECADO_FORMATOS = [
-  'audio/mp4;codecs=mp4a.40.2',
-  'audio/mp4',
-  'audio/webm;codecs=opus',
-  'audio/webm',
-  'audio/ogg;codecs=opus',
-];
-function recadoFormato() {
-  if (typeof MediaRecorder === 'undefined') return '';
-  for (const f of RECADO_FORMATOS) {
-    try { if (MediaRecorder.isTypeSupported(f)) return f; } catch (_) {}
-  }
-  return '';  // o navegador escolhe sozinho — e o blob dirá qual foi
-}
-
-// UM TOQUE ACIDENTAL NÃO VAI AO AR. O botão ocupa a largura inteira da barra
-// (é o que o faz achável sem olhar), e um roçar do dedo produziria um recado de
-// 80 ms projetado na frente da congregação.
-// A ESCADA DE CAPTURA, gêmea da do `startMic` (display.js). Ela é o que faz o
-// microfone abrir COM O ESPELHAMENTO LIGADO — ver o comentário em
-// `iniciarRecado`. Mudou aqui, muda lá: `tools/mic-escada.test.mjs` cobra o par.
-const MIC_TENTATIVAS = [
-  { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
-  { echoCancellation: false, noiseSuppression: false, autoGainControl: false },
-  true,
-];
 // A ÚLTIMA TENTATIVA DE CAPTURA, guardada para o Registro.
 //
 // Ela existe porque o caminho de FALHA não escrevia nada em lugar nenhum: o
@@ -5037,6 +4974,17 @@ function micRegistrar(origem, degraus, disp, ok) {
     const alvo = micUltima;
     AVNative.micDiag().then((d) => { if (d) alvo.shell = d; }).catch(() => {});
   }
+  // E A LISTA DE ENTRADAS, quando quem registrou não a trouxe. O AO VIVO capta
+  // no TELÃO, então a falha chega aqui por `mic-status` e sem lista nenhuma — e
+  // é justamente a contagem que separa "não abre" de "não existe", os dois
+  // vereditos que pedem ações opostas. Enumerar é LEITURA PURA: não abre o
+  // microfone, não pede permissão, e os dois WebViews são o MESMO aparelho, logo
+  // a lista do Controle vale pela do telão. Assíncrona pelo mesmo motivo da
+  // sonda: o resto da linha não espera por ela.
+  if (!disp) {
+    const alvo = micUltima;
+    micDispositivos().then((d) => { if (d && alvo === micUltima) alvo.disp = d; }).catch(() => {});
+  }
   const falhas = degraus.filter((d) => d.erro);
   if (ok) {
     if (falhas.length) {
@@ -5062,254 +5010,6 @@ async function micDispositivos() {
     return ds.filter((d) => d.kind === 'audioinput')
       .map((d) => ({ deviceId: d.deviceId, label: d.label || '' }));
   } catch (_) { return null; }
-}
-
-const RECADO_MIN_MS = 700;
-// E UM BOTÃO QUE GRUDA NÃO GRAVA PARA SEMPRE. `setPointerCapture` torna a
-// soltura confiável, mas o custo de errar aqui é um arquivo crescendo em
-// memória durante um culto inteiro.
-const RECADO_MAX_MS = 120000;
-
-let recGravador = null;   // o MediaRecorder em curso
-let recFluxo = null;      // o MediaStream, para desligar as trilhas
-let recPedacos = [];
-let recDesde = 0;
-let recTeto = null;       // o timer do teto
-let recSeq = 0;           // época da gravação, como o `micSeq` do telão
-let recadoNoAr = '';      // o id do recado que está tocando AGORA
-let recadoCenaAnterior = null;  // { id, t, playing } — o que ele interrompeu
-let recEstado = '';       // '' | 'gravando' | 'enviando'
-let recErro = '';
-
-function recadoDisponivel() {
-  return typeof MediaRecorder !== 'undefined'
-    && !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
-}
-
-async function iniciarRecado() {
-  if (recGravador || recEstado) return;
-  const seq = ++recSeq;
-  recErro = '';
-  if (!recadoDisponivel()) { recErro = 'unsupported'; renderRecadoUI(); return; }
-  if (window.__NATIVE__) {
-    const ok = await AVNative.requestMic();
-    if (!ok) {
-      // TAMBÉM ENTRA NO REGISTRO. Esta saída acontece ANTES da escada, e sem a
-      // linha o Registro ficava sem nada a dizer justamente no caso em que a
-      // resposta é a mais simples de todas — o Android não deu a permissão.
-      micRegistrar('recado', [{ qual: 'permissão do Android', erro: 'NotAllowedError' }],
-        null, false);
-      recErro = 'NotAllowedError'; renderRecadoUI(); return;
-    }
-  }
-  // O OPERADOR PODE TER SOLTADO enquanto a permissão era resolvida — é a mesma
-  // corrida que o `micSeq` do telão fecha, e pelo mesmo motivo: sem o token, um
-  // toque curto deixaria um gravador vivo que nenhum evento desliga.
-  if (seq !== recSeq) return;
-  // AS TRÊS TENTATIVAS, gêmeas das do `startMic` do telão — e a primeira versão
-  // deste gravador tinha UMA só, com `echoCancellation` ligado. Relatado do
-  // aparelho, com captura: "O Android não liberou o microfone", com o
-  // espelhamento no ar.
-  //
-  // `NotReadableError` NÃO é "outro app está usando o microfone": é o "não
-  // consegui abrir o dispositivo" genérico do WebRTC, e no Android a causa comum
-  // é o PROCESSAMENTO pedido. Com `echoCancellation` o Chromium abre o
-  // `AudioRecord` em `VOICE_COMMUNICATION` (sessão de voz), que o sistema recusa
-  // quando a saída de áudio está em OUTRO CAMINHO — que é o caso deste app com
-  // espelhamento ligado, isto é, o modo NORMAL de um culto com TV. O microfone
-  // CRU não passa por ali e abre.
-  //
-  // A ordem é deliberada e é a mesma do telão: o cancelamento de eco vem
-  // primeiro porque o alto-falante deste celular está a centímetros do
-  // microfone dele, e uma realimentação num culto é estrago público imediato.
-  // Um recado com risco de microfonia é melhor que um que não grava.
-  //
-  // A LIGAÇÃO ENTRE AS DUAS ESCADAS TEM ORÁCULO (`tools/mic-escada.test.mjs`):
-  // são dois arquivos, dois WebViews e dois estados diferentes, então não dá
-  // para ser uma função só — mas duas escadas sem oráculo divergem no primeiro
-  // esquecimento, e foi exatamente assim que esta nasceu com um degrau.
-  const QUAL = ['com eco', 'sem eco', 'cru'];
-  let fluxo = null;
-  let erroFinal = 'error';
-  let msgFinal = '';
-  let semEco = false;
-  const degraus = [];
-  for (let i = 0; i < MIC_TENTATIVAS.length; i++) {
-    try {
-      fluxo = await navigator.mediaDevices.getUserMedia({
-        audio: MIC_TENTATIVAS[i], video: false,
-      });
-      semEco = i > 0;
-      degraus.push({ qual: QUAL[i] || String(i), erro: '' });
-      break;
-    } catch (e) {
-      erroFinal = (e && e.name) || 'error';
-      // A MENSAGEM, e não só o nome: `NotReadableError` é o balde genérico do
-      // WebRTC, e a frase do Chromium costuma nomear a etapa que falhou.
-      msgFinal = (e && e.message) ? String(e.message).slice(0, 120) : '';
-      degraus.push({ qual: QUAL[i] || String(i), erro: erroFinal, msg: msgFinal });
-      // PERMISSÃO NEGADA não melhora com menos processamento: é resposta do
-      // sistema, e insistir só gasta duas chamadas para dar o mesmo erro.
-      if (erroFinal === 'NotAllowedError' || erroFinal === 'SecurityError') break;
-      // E o operador pode ter soltado o botão entre uma tentativa e outra.
-      if (seq !== recSeq) break;
-    }
-  }
-  // O ÚLTIMO RECURSO: pedir o dispositivo PELO ID, em vez de deixar o navegador
-  // escolher o "default". O `default` do Chromium é uma entrada virtual que
-  // segue o roteamento do sistema, e ela pode falhar enquanto o dispositivo
-  // físico abre — é a mesma tentativa do telão, e o `mic-escada.test.mjs` cobra
-  // que as duas existam.
-  const disp = await micDispositivos();
-  if (!fluxo && erroFinal !== 'NotAllowedError' && erroFinal !== 'SecurityError'
-      && seq === recSeq) {
-    // O `default` NÃO É PULADO. A primeira escrita disto pulava — e no aparelho
-    // do relato havia UMA entrada, cujo id É `default`: a tentativa por id nunca
-    // rodou, e o Registro seguiu marcando "3 tentativa(s)". Pedi-lo por
-    // `{exact:'default'}` é um pedido DIFERENTE de `{audio:true}` mesmo assim, e
-    // custa uma chamada.
-    for (const d of (disp || [])) {
-      if (!d.deviceId) continue;
-      try {
-        fluxo = await navigator.mediaDevices.getUserMedia({
-          audio: { deviceId: { exact: d.deviceId } }, video: false,
-        });
-        semEco = true;
-        degraus.push({ qual: 'id ' + (d.label || d.deviceId).slice(0, 24), erro: '' });
-        break;
-      } catch (e) {
-        erroFinal = (e && e.name) || 'error';
-        msgFinal = (e && e.message) ? String(e.message).slice(0, 120) : '';
-        degraus.push({ qual: 'id ' + (d.label || d.deviceId).slice(0, 24), erro: erroFinal, msg: msgFinal });
-      }
-      if (seq !== recSeq) break;
-    }
-  }
-  micRegistrar('recado', degraus, disp, !!fluxo);
-  if (!fluxo) {
-    recErro = erroFinal;
-    renderRecadoUI();
-    return;
-  }
-  if (semEco) diagC('recado SEM cancelamento de eco (o modo com eco foi recusado)');
-  if (seq !== recSeq) { fluxo.getTracks().forEach((t) => t.stop()); return; }
-  const formato = recadoFormato();
-  let g;
-  try {
-    g = formato ? new MediaRecorder(fluxo, { mimeType: formato }) : new MediaRecorder(fluxo);
-  } catch (e) {
-    fluxo.getTracks().forEach((t) => t.stop());
-    recErro = 'formato';
-    renderRecadoUI();
-    return;
-  }
-  recPedacos = [];
-  g.ondataavailable = (ev) => { if (ev.data && ev.data.size) recPedacos.push(ev.data); };
-  g.onstop = () => { fecharRecado(seq, g.mimeType || formato); };
-  recGravador = g;
-  recFluxo = fluxo;
-  recDesde = Date.now();
-  recEstado = 'gravando';
-  recTeto = setTimeout(() => { pararRecado(); }, RECADO_MAX_MS);
-  try { g.start(); } catch (e) {
-    recErro = 'formato';
-    pararRecado();
-    return;
-  }
-  renderRecadoUI();
-}
-
-// SOLTAR só PEDE a parada: os bytes chegam no `onstop`, um tique depois.
-function pararRecado() {
-  if (recTeto) { clearTimeout(recTeto); recTeto = null; }
-  const g = recGravador;
-  if (!g) {
-    // Nada a parar — mas a intenção precisa ser registrada assim mesmo, senão
-    // um `getUserMedia` ainda pendente vira um gravador que ninguém desliga.
-    ++recSeq;
-    if (recFluxo) { recFluxo.getTracks().forEach((t) => t.stop()); recFluxo = null; }
-    recEstado = '';
-    renderRecadoUI();
-    return;
-  }
-  recEstado = 'enviando';
-  renderRecadoUI();
-  try { g.stop(); } catch (_) { fecharRecado(recSeq, g.mimeType || ''); }
-}
-
-async function fecharRecado(seq, mime) {
-  const duracaoMs = recDesde ? Date.now() - recDesde : 0;
-  const pedacos = recPedacos;
-  recGravador = null;
-  recPedacos = [];
-  recDesde = 0;
-  if (recFluxo) { recFluxo.getTracks().forEach((t) => t.stop()); recFluxo = null; }
-  const encerrar = (erro) => {
-    recEstado = '';
-    recErro = erro || '';
-    renderRecadoUI();
-  };
-  if (seq !== recSeq && recSeq !== seq) { encerrar(''); return; }
-  if (duracaoMs < RECADO_MIN_MS || !pedacos.length) { encerrar('curto'); return; }
-  // O TIPO DO BLOB PERDE O PARÂMETRO DE CODEC, e isso não é cosmética: o
-  // `.type` do blob é o que viaja como `Content-Type` da rota `/m/` para as
-  // telas da rede, e o saneador do shell (`EspelhoMidiaCache.tipoValido`) só
-  // aceita `tipo/subtipo` — um `audio/webm;codecs=opus` sairia servido como
-  // `application/octet-stream`. Cortar aqui mantém a correção inteira no lado
-  // web, que é o lado que chega por OTA.
-  const tipo = String(mime || 'audio/webm').split(';')[0].trim() || 'audio/webm';
-  const blob = new Blob(pedacos, { type: tipo });
-  try {
-    const quando = new Date();
-    const hh = String(quando.getHours()).padStart(2, '0');
-    const mm = String(quando.getMinutes()).padStart(2, '0');
-    const rec = await AVDB.addMedia(blob, {
-      kind: 'audio',
-      type: tipo,
-      name: 'Recado ' + hh + ':' + mm,
-      seconds: Math.round(duracaoMs / 1000) || null,
-      list: 'avulsos',
-    });
-    if (!rec || !rec.id) { encerrar('erro'); return; }
-    await fixarAvulso(rec.id);
-    // A CENA QUE ELE INTERROMPE é guardada ANTES do envio, e o motor tem UM
-    // slot: o recado necessariamente derruba o que estiver tocando. Guardar a
-    // POSIÇÃO é o que faz um louvor voltar de onde parou em vez de recomeçar
-    // na frente da congregação — o mesmo `{time, playing}` que a reconexão do
-    // telão já usa (ver `resendSceneToDisplay`).
-    recadoCenaAnterior = (midiaNoAr && currentId && !isCue(currentItem))
-      ? {
-        id: currentId,
-        t: !seekEl.disabled ? (parseFloat(seekEl.value) || 0) : 0,
-        playing,
-      }
-      : null;
-    recadoNoAr = rec.id;
-    diagC('recado ao ar (' + Math.round(duracaoMs / 1000) + 's)');
-    encerrar('');
-    await send(rec.id);
-  } catch (e) {
-    encerrar('erro');
-  }
-}
-
-// O FIM DO RECADO NÃO É O FIM DE UMA FAIXA, e sem esta distinção o desfecho é
-// grotesco: `autoAdvance` com `repeat: 'one'` REPETE o recado para sempre, e
-// com `repeat: 'all'` o id do recado não está em `plItems`, então o `findIndex`
-// devolve -1 e a playlist COMEÇA DO PRIMEIRO ITEM sozinha. Nenhum dos dois tem
-// sinal na tela — os dois simplesmente acontecem, no meio do culto.
-//
-// Devolve `true` quando consumiu o fim (e o chamador não deve avançar).
-function recadoTerminou(id) {
-  if (!recadoNoAr || id !== recadoNoAr) return false;
-  recadoNoAr = '';
-  const volta = recadoCenaAnterior;
-  recadoCenaAnterior = null;
-  if (volta && volta.id) { send(volta.id, false, volta); return true; }
-  // Nada antes dele: o telão volta ao wallpaper, como no fim de qualquer faixa
-  // com `repeat: 'off'`.
-  resetAfterEnd();
-  return true;
 }
 
 // O microfone virou uma BARRA, e não mais um disco: ele fica fixo na base da
@@ -5347,7 +5047,16 @@ function renderMic() {
     // reflexo. No navegador não existe ponte: o getUserMedia do Display pede.
     if (window.__NATIVE__) {
       const ok = await AVNative.requestMic();
-      if (!ok) { micError = 'NotAllowedError'; renderMicUI(); return; }
+      if (!ok) {
+        // NO REGISTRO TAMBÉM. A recusa acontece ANTES de qualquer captura, então
+        // o telão não emite `mic-status` nenhum e o bloco do microfone ficaria
+        // sem uma linha sequer sobre a tentativa — que é exatamente o estado
+        // mudo que ele existe para acabar. (Este caminho era do RECADO até a
+        // v1.2.16; ele saiu, e o registro veio com ele para cá.)
+        micRegistrar('ao vivo', [{ qual: 'permissão do Android', erro: 'NotAllowedError' }],
+          null, false);
+        micError = 'NotAllowedError'; renderMicUI(); return;
+      }
       if (!micPressed && !btn.hasPointerCapture(e.pointerId)) return; // já soltou
     }
     sendMic(true);
@@ -5357,71 +5066,6 @@ function renderMic() {
   btn.addEventListener('pointercancel', release);
 
   return btn;
-}
-
-function renderRecado() {
-  const btn = document.createElement('button');
-  btn.type = 'button'; btn.id = 'recadoBtn'; btn.className = 'mic-btn';
-  btn.innerHTML = '<svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor"'
-    + ' stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
-    + '<path d="M21 11.5a8.4 8.4 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7'
-    + 'a8.4 8.4 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.4 8.4 0 0 1 3.8-.9h.5a8.5 8.5 0 0 1 8 8v.5z"/></svg>';
-  const label = document.createElement('span'); label.className = 'mic-btn-label';
-  label.textContent = 'Recado';
-  btn.appendChild(label);
-  // MESMO GESTO DO AO VIVO — segurar e soltar —, e a captura de ponteiro pela
-  // mesma razão: sem ela, o dedo escorregando para fora do botão deixaria o
-  // gravador aberto.
-  btn.addEventListener('pointerdown', (e) => {
-    e.preventDefault();
-    try { btn.setPointerCapture(e.pointerId); } catch (_) {}
-    iniciarRecado();
-  });
-  const soltar = () => { if (recEstado === 'gravando') pararRecado(); };
-  btn.addEventListener('pointerup', soltar);
-  btn.addEventListener('pointercancel', soltar);
-  return btn;
-}
-
-function renderRecadoUI() {
-  const btn = document.getElementById('recadoBtn');
-  if (!btn) return;
-  const gravando = recEstado === 'gravando';
-  btn.classList.toggle('live', gravando);
-  const label = btn.querySelector('.mic-btn-label');
-  if (label) {
-    label.textContent = gravando ? 'Gravando…'
-      : (recEstado === 'enviando' ? 'Enviando…' : 'Recado');
-  }
-  // A NOTA É COMPARTILHADA com o ao vivo (`#micNote`): são a mesma família de
-  // aviso, no mesmo rodapé, e duas notas empilhadas custariam altura numa barra
-  // que existe para ser alcançada sem olhar.
-  const note = document.getElementById('micNote');
-  if (note && recErro) {
-    note.textContent = recadoErroTexto(recErro);
-    note.hidden = false;
-  } else if (note && !micError) {
-    note.textContent = '';
-    note.hidden = true;
-  }
-}
-
-function recadoErroTexto(err) {
-  // O TOQUE CURTO NÃO É ERRO, e a frase diz o que fazer em vez de acusar.
-  if (err === 'curto') return 'Muito curto. Segure o botão enquanto fala e solte no fim.';
-  if (err === 'unsupported') {
-    return 'Este aparelho não grava áudio pelo app. Atualize o aplicativo e tente de novo.';
-  }
-  if (err === 'formato') return 'O aparelho não gravou em nenhum formato conhecido.';
-  if (err === 'NotAllowedError' || err === 'SecurityError') {
-    return 'Permissão de microfone negada. Autorize o app nas configurações do Android.';
-  }
-  if (err === 'NotFoundError') return 'Nenhum microfone encontrado neste aparelho.';
-  if (err === 'NotReadableError') {
-    return 'O Android não liberou o microfone. Costuma ser uma chamada, um gravador '
-      + 'aberto em outro app ou o assistente de voz — feche-os e tente de novo.';
-  }
-  return 'Não foi possível gravar o recado (' + err + ').';
 }
 
 // ===== Rodapé da aba Ferramentas: microfone + projetar =====
@@ -5458,18 +5102,14 @@ function renderFoot() {
   const wrap = document.createElement('div'); wrap.className = 'mic-wrap';
 
   const row = document.createElement('div'); row.className = 'misc-foot';
+  // UM BOTÃO SÓ. O RECADO (o walkie-talkie da v1.1.26) saiu na v1.2.16: ele
+  // existia para cobrir os modelos SEM TV, onde o microfone ao vivo não podia
+  // funcionar — e a razão pela qual o ao vivo não funcionava era um defeito
+  // nosso (`MODIFY_AUDIO_SETTINGS` ausente do manifest, v1.2.13), não uma
+  // limitação. Consertado o ao vivo, o que sobrava do recado era um segundo
+  // caminho que INTERROMPE a cena para dizer o que o primeiro diz sem
+  // interromper nada.
   row.appendChild(renderMic());
-  // DOIS BOTÕES, e a razão de não serem um só com dois modos é a regra da
-  // v1.1.13: um controle que muda de comportamento conforme o contexto é um
-  // controle que ninguém aprende. São ações diferentes, e o operador escolhe:
-  //
-  //   AO VIVO ... a voz sai ENQUANTO ele fala, sem atraso. Só com TV.
-  //   RECADO .... grava e manda. Funciona nos quatro modelos, e INTERROMPE a
-  //               cena (o motor tem um slot), devolvendo-a no fim.
-  //
-  // O ao vivo continua existindo porque, onde ele funciona, é melhor: zero
-  // atraso e não derruba o que está no telão.
-  row.appendChild(renderRecado());
 
   const st = miscProjectState();
   const proj = document.createElement('button');
@@ -23840,11 +23480,6 @@ AVDB.onCommand((msg) => {
     // a letra esmaece e trava, para o slide de capa não piscar no replay.
     pvLyricsEnded = true;
     if (pvLyrics) pvLayerOut(pvLyricsEl);
-    // O RECADO PRIMEIRO: ele não é uma faixa da fila, e deixá-lo cair no
-    // `autoAdvance` repete a voz para sempre (`repeat: 'one'`) ou faz a
-    // playlist começar do zero sozinha (`repeat: 'all'`, porque o id do recado
-    // não está em `plItems` e o `findIndex` devolve -1). Ver `recadoTerminou`.
-    if (recadoTerminou(msg.mediaId || currentId)) return;
     autoAdvance();
   }
 });

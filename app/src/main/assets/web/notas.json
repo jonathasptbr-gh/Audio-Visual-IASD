@@ -1,5 +1,14 @@
 [
   {
+    "versao": "1.2.16",
+    "itens": [
+      "O RECADO SAIU. O microfone voltou a ser UM sistema: segure o botão e fale — a voz sai no telão enquanto você fala, sem gravar nada e sem interromper o que está projetado.",
+      "Ele existia porque o microfone ao vivo não abria sem TV. Isso era um defeito do app (a permissão que faltava, corrigida na v1.2.13), não uma limitação \u2014 e consertado o ao vivo, o recado só fazia parar o louvor para dizer o que o outro diz sem parar nada.",
+      "O microfone continua sendo do TELÃO: sem TV conectada ele não tem para onde mandar a voz, e o app diz isso em vez de fingir que gravou.",
+      "E o Registro passou a contar as entradas de áudio também quando a recusa vem do telão \u2014 é essa contagem que separa \u201cnão abre\u201d de \u201cnão existe\u201d."
+    ]
+  },
+  {
     "versao": "1.2.15",
     "itens": [
       "A varredura de cifras ficou bem mais barata no hinário: quando o endereço do catálogo responde que o site só tem a letra, a procura acaba ali — antes ela gastava mais três requisições, todas em vão, para chegar ao mesmo resultado. E o nome do hinário deixou de ser adivinhado como artista do site, que era um erro garantido a cada hino.",
