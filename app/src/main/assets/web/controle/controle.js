@@ -244,7 +244,7 @@ const appVersionEl = document.getElementById('appVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.2.19';
+const WEB_VERSION = '1.2.21';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -4926,8 +4926,11 @@ function micErrorText(err) {
   // NÃO É UM ERRO DO MICROFONE, e é por isso que a frase não fala dele: o
   // aparelho está bem, o que falta é para ONDE mandar a voz.
   if (err === 'sem-telao') {
-    return 'Sem TV conectada: a voz não tem onde sair. O microfone vai para o '
-      + 'telão, e sem TV não há telão — as telas da rede não captam som.';
+    // DESDE A v1.2.20 ELE É UMA CORRIDA, não o caminho normal: sem TV o botão
+    // nem é desenhado. Só se alcança aqui se a tela cair ENTRE o desenho e o
+    // toque — a guarda fica porque essa janela existe, e um `sendMic` sem
+    // destino acenderia "No ar" sobre um telão que já não está lá.
+    return 'A TV saiu: a voz não tem mais onde sair.';
   }
   if (err === 'NotAllowedError' || err === 'SecurityError') {
     return 'Permissão de microfone negada. Autorize o app nas configurações do Android.';
@@ -5110,7 +5113,23 @@ function renderFoot() {
   // limitação. Consertado o ao vivo, o que sobrava do recado era um segundo
   // caminho que INTERROMPE a cena para dizer o que o primeiro diz sem
   // interromper nada.
-  row.appendChild(renderMic());
+  // O MICROFONE SÓ EXISTE QUANDO HÁ PARA ONDE MANDAR A VOZ (v1.2.21).
+  //
+  // Quem capta é o `/display/`, e ele só roda dentro da `Presentation` — sem TV
+  // o `syncPresentation` não cria nenhuma e ninguém consome o comando `mic`. As
+  // telas da rede também não servem: elas rodam o mesmo `display.js`, e lá o
+  // `setMic` sai por `if (TELA) return`.
+  //
+  // ANTES ELE FICAVA VISÍVEL E RECUSAVA O TOQUE, explicando por quê. Explicar é
+  // melhor que mentir (era o conserto da v1.1.20, quando ele acendia "No ar"
+  // sem capturar nada), mas não é melhor que NÃO OFERECER: um controle que só
+  // sabe dizer que não funciona é um controle a mais para o operador aprender,
+  // e a frase aparece no pior momento — com o dedo no botão, no meio do culto.
+  //
+  // A LARGURA VEM DE GRAÇA: `.misc-foot` é flex e os dois filhos são `flex: 1`,
+  // então sozinho o "Projetar no telão" ocupa a linha inteira. Não há regra de
+  // CSS para o caso — há a ausência de um irmão.
+  if (haOndeReproduzirMic()) row.appendChild(renderMic());
 
   const st = miscProjectState();
   const proj = document.createElement('button');
@@ -9904,25 +9923,29 @@ async function cifraPedir(url, mudo, coletar) {
   // sobrescreveria justamente a página que interessa — a última música do culto
   // apagaria a que quebrou dez minutos antes.
   if (!pagina) {
-    // DOIS DESFECHOS, e eles pedem ações opostas: `so-letra` é o site
-    // respondendo que aquela música não TEM cifra (a página existe e é de
-    // letra), `ilegivel` é o parser não entendendo o que veio. Achatá-los num
-    // só manda investigar um parser certo e faz o download do hinário rebater a
-    // mesma música toda sessão. Quem decide é o `cifra.js` (regra pura); aqui
-    // só se traduz o veredito.
-    const soLetra = AVCifra.soLetra(r.html);
-    // A RADIOGRAFIA VALE PARA OS DOIS (v1.2.16). Ela era só do `ilegivel`,
-    // porque "já se sabia o que a página de letra era" — e essa certeza caiu:
-    // o operador conferiu à mão que o Hinário 2022 tem 100% das cifras no site,
-    // e mesmo assim ~309 hinos voltaram como `so-letra`. Ou o endereço não leva
-    // à página que pensamos, ou aquela marcação não significa o que
-    // supusemos — e as duas só se distinguem VENDO A FORMA da página.
+    // DOIS DESFECHOS, e eles pedem ações opostas: `sem-cifra` é o site
+    // respondendo que aquela música não TEM cifra ali (a página existe e é a
+    // letra ou a partitura), `ilegivel` é o parser não entendendo o que veio.
+    // Achatá-los num só manda investigar um parser certo e faz a varredura
+    // rebater a mesma música toda sessão. Quem decide é o `cifra.js` (regra
+    // pura); aqui só se traduz o veredito.
+    const variante = AVCifra.varianteSemCifra(r.html);
+    // A RADIOGRAFIA VALE PARA OS DOIS. Ela era só do `ilegivel`, porque "já se
+    // sabia o que a página de letra era" — e foi a radiografia que resolveu a
+    // dúvida seguinte: `/ministerio-jovem/meu-senhor-minha-vida/` respondeu
+    // 449 kB de "partituras para teclado", com o `<h1>` da música certa e zero
+    // `<pre>`. Sem ver a FORMA da página não havia como separar "o endereço
+    // está errado" de "o site não tem cifra desta música".
     if (!mudo) cifraGuardarEstrutura('página ' + url, r.html);
     // O COLETOR é o segundo destino da radiografia: a BATERIA precisa da forma
     // das páginas que ELA não entendeu, e não pode escrevê-la no slot
     // compartilhado (é justamente o diagnóstico do operador que ela enterraria).
     if (coletar) coletar(cifraRadiografiaTexto('página ' + url, r.html));
-    return { ok: false, motivo: soLetra ? AVCifra.MOTIVO_SO_LETRA : AVCifra.MOTIVO_ILEGIVEL };
+    // A VARIANTE viaja junto do motivo: ela é o que o Registro mostra e o que
+    // permite descobrir, um dia, que o site passou a servir uma terceira.
+    return variante
+      ? { ok: false, motivo: AVCifra.MOTIVO_SEM_CIFRA, variante }
+      : { ok: false, motivo: AVCifra.MOTIVO_ILEGIVEL };
   }
   return { ok: true, pagina, motivo: AVCifra.OK };
 }
@@ -9981,16 +10004,16 @@ async function cifraProcurar(nome, coll, chave, opts) {
   // motivo certo (o site mudou de formato) por um errado (a música não existe).
   const segue = () => !desfecho.ok && desfecho.motivo !== AVCifra.MOTIVO_ILEGIVEL
     && !respondidoPeloDisco && !fechadoPeloCatalogo;
-  // `so-letra` NÃO interrompe a cadeia, e isso é escolha: ele diz que AQUELE
+  // `sem-cifra` NÃO interrompe a cadeia, e isso é escolha: ele diz que AQUELE
   // endereço não tem cifra, não que a música não exista no site — outro artista
   // pode ter a folha. Só o `ilegivel` para, porque ali a página é a certa e o
   // problema é a leitura.
   //
   // MAS ELE SOBREVIVE ATÉ O FIM. O motivo devolvido é o do ÚLTIMO endereço
-  // tentado, e sem esta memória um `so-letra` seguido de dois 404 sairia como
+  // tentado, e sem esta memória um `sem-cifra` seguido de dois 404 sairia como
   // "nenhum endereço tinha a página" — a resposta menos informativa das três,
   // e a única que manda o operador continuar procurando o que já foi achado.
-  let viuSoLetra = false;
+  let viuSemCifra = false;
   // A AUSÊNCIA GUARDADA ENCERRA a procura — refazer a cadeia que a produziu é
   // gastar as mesmas requisições para chegar à mesma resposta. Ela vence pelo
   // PRAZO, não por um toque; o que a contorna é a escolha à mão (tentativa 0).
@@ -10003,12 +10026,12 @@ async function cifraProcurar(nome, coll, chave, opts) {
   // catálogo responde "o site só tem a letra", a procura ACABA: aquela É a
   // página daquele hino no site, e continuar é pedir os outros endereços
   // deduzíveis para uma pergunta que já foi respondida. MEDIDO num Registro
-  // real: `Teu Divinal Amor` deu `so-letra` no catálogo e gastou mais três
+  // real: `Teu Divinal Amor` deu `sem-cifra` no catálogo e gastou mais três
   // requisições (o álbum-como-artista e os dois artistas padrão), todas 404,
   // para chegar ao mesmo veredito — vezes as ~300 do Hinário 2022 que ainda
   // faltavam varrer.
   //
-  // Só vale para a coleção do CATÁLOGO. Num álbum o `so-letra` de um endereço
+  // Só vale para a coleção do CATÁLOGO. Num álbum o `sem-cifra` de um endereço
   // não fecha a pergunta: a mesma música pode estar cifrada sob outro artista.
   let fechadoPeloCatalogo = false;
 
@@ -10021,7 +10044,7 @@ async function cifraProcurar(nome, coll, chave, opts) {
   if (fixada) {
     url = fixada;
     desfecho = await cifraPedir(fixada, o.mudo, o.coletar);
-    if (desfecho.motivo === AVCifra.MOTIVO_SO_LETRA) viuSoLetra = true;
+    if (desfecho.motivo === AVCifra.MOTIVO_SEM_CIFRA) viuSemCifra = true;
     tentativas.push('fixada ' + fixada + ' → ' + desfecho.motivo);
     if (desfecho.ok) via = 'fixada';
   }
@@ -10048,7 +10071,13 @@ async function cifraProcurar(nome, coll, chave, opts) {
       // O operador não fica preso a ela: "Trocar" abre o seletor e uma escolha
       // fixada é a tentativa 0, à frente do disco.
       via = 'aparelho';
-      desfecho = { ok: false, motivo: g.soLetra ? AVCifra.MOTIVO_SO_LETRA : AVCifra.MOTIVO_NAO_TEM };
+      // `soLetra` é a forma ANTIGA da mesma entrada (v1.2.12 a v1.2.20). Ela
+      // continua sendo lida porque está gravada em aparelhos: rebaixá-la seria
+      // refazer a varredura inteira por uma troca de nome de campo.
+      const semCifraGuardado = g.semCifra || (g.soLetra ? 'letra' : '');
+      desfecho = semCifraGuardado
+        ? { ok: false, motivo: AVCifra.MOTIVO_SEM_CIFRA, variante: semCifraGuardado }
+        : { ok: false, motivo: AVCifra.MOTIVO_NAO_TEM };
       respondidoPeloDisco = true;
       tentativas.push('guardada no aparelho → ' + desfecho.motivo
         + ' (de ' + new Date(g.em || 0).toLocaleDateString('pt-BR') + ')');
@@ -10060,8 +10089,8 @@ async function cifraProcurar(nome, coll, chave, opts) {
   if (direta) {
     url = direta;
     desfecho = await cifraPedir(direta, o.mudo, o.coletar);
-    if (desfecho.motivo === AVCifra.MOTIVO_SO_LETRA) {
-      viuSoLetra = true;
+    if (desfecho.motivo === AVCifra.MOTIVO_SEM_CIFRA) {
+      viuSemCifra = true;
       fechadoPeloCatalogo = true;   // ver a declaração: o catálogo é autoridade
     }
     tentativas.push('direta ' + direta + ' → ' + desfecho.motivo);
@@ -10083,7 +10112,7 @@ async function cifraProcurar(nome, coll, chave, opts) {
     if (ua && ua !== url) {
       url = ua;
       desfecho = await cifraPedir(ua, o.mudo, o.coletar);
-      if (desfecho.motivo === AVCifra.MOTIVO_SO_LETRA) viuSoLetra = true;
+      if (desfecho.motivo === AVCifra.MOTIVO_SEM_CIFRA) viuSemCifra = true;
       tentativas.push('álbum ' + ua + ' → ' + desfecho.motivo);
       if (desfecho.ok) via = 'album';
     }
@@ -10098,7 +10127,7 @@ async function cifraProcurar(nome, coll, chave, opts) {
     for (const u of AVCifra.urlsPadrao(nome)) {
       url = u;
       desfecho = await cifraPedir(u, o.mudo, o.coletar);
-      if (desfecho.motivo === AVCifra.MOTIVO_SO_LETRA) viuSoLetra = true;
+      if (desfecho.motivo === AVCifra.MOTIVO_SEM_CIFRA) viuSemCifra = true;
       tentativas.push('padrão ' + u + ' → ' + desfecho.motivo);
       if (desfecho.ok) via = 'padrao';
       if (desfecho.ok || desfecho.motivo === AVCifra.MOTIVO_ILEGIVEL) break;
@@ -10152,17 +10181,17 @@ async function cifraProcurar(nome, coll, chave, opts) {
     for (const c of candidatos.slice(0, CIFRA_CANDIDATOS)) {
       url = c.url;
       desfecho = await cifraPedir(url, o.mudo, o.coletar);
-      if (desfecho.motivo === AVCifra.MOTIVO_SO_LETRA) viuSoLetra = true;
+      if (desfecho.motivo === AVCifra.MOTIVO_SEM_CIFRA) viuSemCifra = true;
       tentativas.push('tentada ' + url + ' → ' + desfecho.motivo);
       if (desfecho.ok) { via = 'busca'; break; }
     }
   }
 
-  // O `so-letra` visto em qualquer degrau vence o `nao-tem` do último — e SÓ
+  // O `sem-cifra` visto em qualquer degrau vence o `nao-tem` do último — e SÓ
   // ele: um `sem-rede` no fim é outra história, e anunciá-lo como "o site só
   // tem a letra" seria inventar um fato a partir de uma queda de conexão.
-  const motivo = (!desfecho.ok && viuSoLetra && desfecho.motivo === AVCifra.MOTIVO_NAO_TEM)
-    ? AVCifra.MOTIVO_SO_LETRA : desfecho.motivo;
+  const motivo = (!desfecho.ok && viuSemCifra && desfecho.motivo === AVCifra.MOTIVO_NAO_TEM)
+    ? AVCifra.MOTIVO_SEM_CIFRA : desfecho.motivo;
   return {
     ok: !!desfecho.ok, pagina: desfecho.pagina || null, motivo,
     url, via, tentativas, crus, consulta,
@@ -10243,21 +10272,31 @@ function cifraGarantir(item) {
 // que tudo existe, um buraco é sempre erro nosso.
 const CIFRA_LOTE = 20;          // hinos por gravação
 /**
- * O TETO DO `so-letra` NUMA PASSADA — a segunda linha de defesa do acervo.
+ * ===== POR QUE NÃO HÁ MAIS UM TETO POR PASSADA (v1.2.21) =====
  *
- * Gravar "esta música não tem cifra no site" é o que impede o download de
- * rebater os mesmos hinos toda sessão. Mas é um veredito GRAVADO, e um veredito
- * gravado errado é um buraco permanente — a mesma razão pela qual falha de rede
- * nunca grava nada aqui.
+ * Houve um: uma passada dominada por "sem cifra" não gravava nada, na suspeita
+ * de que o site tivesse mudado de marcação. **Ele custou caro e não protegia
+ * nada.** MEDIDO: o Hinário 2022 fechou uma passada com `309 tentadas · 0
+ * achadas · 309 recusadas`, e como nada era gravado a varredura recomeçava do
+ * zero a cada abertura, para sempre.
  *
- * O marcador positivo do `AVCifra.soLetra` já protege contra o caso normal. Este
- * teto protege contra o caso CATASTRÓFICO: se o site passar a anunciar toda
- * página como letra, uma passada inteira viraria "não tem" e o acervo seria
- * apagado por dentro. Uma música sem cifra é um fato; um terço do hinário de uma
- * vez é o site tendo mudado — e aí não se grava nada, e a passada seguinte
- * tenta de novo.
+ * E a suspeita era falsa. O operador conferiu à mão as páginas que a
+ * radiografia nomeou: aquele hino tem só a letra no site mesmo, e a outra não
+ * tem cifra nenhuma. **O veredito estava certo; o teto é que não sabia disso.**
+ *
+ * Ele também é estruturalmente errado: a passada só cobre o que FALTA, então a
+ * proporção de ausências tende a 100% conforme o acervo completa — um teto por
+ * proporção acaba disparando num acervo saudável, que é exatamente o que
+ * aconteceu.
+ *
+ * O que protege contra a mudança de marcação são as duas defesas que ficam, e
+ * elas não têm esse defeito:
+ *
+ *  1. o MARCADOR POSITIVO (`AVCifra.varianteSemCifra`): sem o `<title>`
+ *     anunciando a variante, o desfecho volta a ser `ilegivel` e nada é gravado;
+ *  2. o PRAZO de 30 dias (`CIFRA_REVISITA_MS`): nenhum veredito nosso vira
+ *     buraco permanente, nem em massa.
  */
-const CIFRA_SO_LETRA_TETO = 0.34;
 
 /**
  * O PRAZO DE UMA AUSÊNCIA — o que torna possível varrer o acervo INTEIRO.
@@ -10292,22 +10331,7 @@ const CIFRA_REVISITA_MS = 30 * 24 * 60 * 60 * 1000;
  */
 const CIFRA_FALTANDO_MAX = 20;
 
-/**
- * O PRAZO DE UMA PASSADA RECUSADA — o fim de um laço mudo (v1.2.16).
- *
- * O teto do `so-letra` recusa uma passada dominada por aquele veredito, e ele
- * está certo: um terço do hinário sem cifra de uma vez é o site tendo mudado,
- * não o acervo. **Mas recusar não pode significar refazer.** MEDIDO num
- * aparelho: o Hinário 2022 fechou uma passada com `282 ok · 10 não achei · 309
- * recusadas` — e como nada das 309 foi gravado, a varredura recomeçava do zero
- * a cada abertura do app, com as mesmas ~900 requisições, para sempre.
- *
- * A resposta não é gravar o que se acabou de julgar suspeito: é **parar de
- * perguntar por um tempo, dizendo por quê**. Uma semana é curta o bastante para
- * um conserto do `cifra.js` chegar por OTA e a varredura retomar sozinha, e
- * longa o bastante para o laço não custar nada enquanto isso.
- */
-const CIFRA_PASSADA_RECUSADA_MS = 7 * 24 * 60 * 60 * 1000;
+
 
 /**
  * A VERSÃO DO DIÁRIO, e ela existe por causa do PRAZO.
@@ -10477,15 +10501,9 @@ async function syncCifrasColecao(coll) {
   if (networkType() === 'cellular') return;
 
   const agora = Date.now();
-  // A PASSADA ANTERIOR FOI RECUSADA? Então não se repete o trabalho que acabou
-  // de ser julgado suspeito — ver `CIFRA_PASSADA_RECUSADA_MS`. Lido ANTES do
-  // disco: sem isto, carregar o mapa de 601 hinos era o custo de descobrir que
-  // não havia nada a fazer.
-  let passada = null;
-  try { passada = await AVDB.getState(cifraPassadaChave(coll.id)); } catch (_) { passada = null; }
-  if (passada && passada.v === CIFRA_PASSADA_VERSAO && passada.recusadas
-      && (agora - (passada.em || 0)) < CIFRA_PASSADA_RECUSADA_MS) return;
-
+  // NÃO HÁ MAIS PRAZO DE PASSADA (v1.2.21): ele existia para o caso em que o
+  // teto recusava tudo, e o teto saiu — quem impede a revarredura agora é o
+  // que sempre deveria: cada música tem uma resposta GRAVADA, com data.
   const disco = await cifraDiscoDe(coll.id);
   const faltam = collSongs(coll.id)
     .map((s) => ({ nome: s.name, chave: cifraChaveNoDisco(s.name) }))
@@ -10499,9 +10517,9 @@ async function syncCifrasColecao(coll) {
   // O QUE AINDA NÃO FOI PARA O DISCO, e só isso. A gravação mescla este punhado
   // no que já está guardado — nunca manda o acervo inteiro de volta.
   const pendentes = {};
-  // OS `so-letra` FICAM À PARTE ATÉ O FIM DA PASSADA, porque o teto só pode ser
-  // julgado quando ela termina: é a PROPORÇÃO deles que separa "estas músicas
-  // não têm cifra" de "o site mudou".
+  // OS `sem-cifra` FICAM À PARTE do resto só para o diário poder contá-los
+  // separadamente: eles são resposta do site ("a página está aqui, a cifra
+  // não"), não uma falha nossa, e é essa distinção que o Registro mostra.
   const semCifra = {};
   // CONTADOS À PARTE porque `cifraDiscoMesclar` ESVAZIA `pendentes` depois do
   // commit: recontar o objeto no fim daria zero sempre, e o diário sairia
@@ -10542,12 +10560,15 @@ async function syncCifrasColecao(coll) {
             if (d.ok && d.pagina) {
               pendentes[h.chave] = { pagina: d.pagina, url: d.url, em: Date.now() };
               okDaPassada++;
-            } else if (d.motivo === AVCifra.MOTIVO_SO_LETRA) {
-              // O SITE SÓ TEM A LETRA DESTA — é resposta, não falha.
-              semCifra[h.chave] = { soLetra: true, url: d.url, em: Date.now() };
+            } else if (d.motivo === AVCifra.MOTIVO_SEM_CIFRA) {
+              // O SITE TEM A PÁGINA E NÃO A CIFRA — é resposta, não falha.
+              // A VARIANTE é guardada, não um booleano: é ela que o Registro
+              // mostra, e é por ela que se descobre, um dia, que o site passou
+              // a servir uma terceira.
+              semCifra[h.chave] = { semCifra: d.variante || 'letra', url: d.url, em: Date.now() };
             } else if (d.motivo === AVCifra.MOTIVO_NAO_TEM) {
               // NENHUM ENDEREÇO DEDUZÍVEL TINHA A PÁGINA. Também é resposta do
-              // site — e, ao contrário do `so-letra`, ela pode mudar quando
+              // site — e, ao contrário do `sem-cifra`, ela pode mudar quando
               // alguém publicar a cifra: daí o prazo, e não o silêncio eterno.
               pendentes[h.chave] = { naoTem: true, em: Date.now() };
               naoTemDaPassada++;
@@ -10576,12 +10597,10 @@ async function syncCifrasColecao(coll) {
     });
   } finally {
     await cifraDiscoMesclar(coll.id, pendentes).catch(() => {});
-    // O TETO, julgado sobre o que esta passada de fato TENTOU. Dominada por
-    // `so-letra`, ela não grava nenhum deles: a leitura certa ali não é "o
-    // acervo não tem cifra", é "o site mudou de marcação".
+    // OS `sem-cifra` VÃO PARA O DISCO como qualquer outra resposta — ver o
+    // bloco que explica por que não há mais teto por passada.
     const quantos = Object.keys(semCifra).length;
-    const cabe = quantos <= Math.max(1, Math.floor(faltam.length * CIFRA_SO_LETRA_TETO));
-    if (quantos && cabe) await cifraDiscoMesclar(coll.id, semCifra).catch(() => {});
+    if (quantos) await cifraDiscoMesclar(coll.id, semCifra).catch(() => {});
     // O DIÁRIO DA PASSADA — e ele é o que transforma um laço mudo num achado.
     // Sem ele, "309 por varrer" reaparecia a cada abertura sem que nada na tela
     // dissesse que aquelas 309 tinham sido julgadas E RECUSADAS. Guardado com
@@ -10590,8 +10609,7 @@ async function syncCifrasColecao(coll) {
       v: CIFRA_PASSADA_VERSAO,
       em: Date.now(), tentadas: faltam.length,
       ok: okDaPassada, naoTem: naoTemDaPassada,
-      soLetra: cabe ? quantos : 0,
-      recusadas: cabe ? 0 : quantos,
+      semCifra: quantos,
       exemplos,
     }).catch(() => {});
     cifraSyncRodando = false;
@@ -10654,7 +10672,7 @@ const CIFRA_BATERIA_MOTIVO = {
   [AVCifra.MOTIVO_NAO_TEM]: 'nenhum endereço tinha a página',
   [AVCifra.MOTIVO_RECUSOU]: 'o site recusou a página',
   [AVCifra.MOTIVO_ILEGIVEL]: 'a página abriu e o parser não a entendeu',
-  [AVCifra.MOTIVO_SO_LETRA]: 'o site respondeu a página de LETRA, não a cifra',
+  [AVCifra.MOTIVO_SEM_CIFRA]: 'o site tem a página, mas não a cifra',
 };
 
 let cifraBateriaRodando = false;
@@ -10710,7 +10728,7 @@ async function cifraRodarBateria() {
   cifraBateriaRodando = true;
   const estado = {
     em: Date.now(), albuns: albuns.length, total: alvos.length, ok: 0, itens: [],
-    // Quantas páginas abriram SEM FOLHA ao todo (ilegíveis e "só letra") — o
+    // Quantas páginas abriram SEM FOLHA ao todo (ilegíveis e sem-cifra) — o
     // denominador do corte acima. Sem ele, "4 radiografias" se leria como "só 4
     // páginas falharam".
     ilegiveis: 0,
@@ -10817,7 +10835,7 @@ function cifraBateriaTexto() {
     + ' música(s) de ' + b.albuns + ' álbum(ns): ' + b.ok + ' ✓ / ' + falhas + ' ✗'];
   // NENHUM CORTE É SILENCIOSO: o que não coube continua contado.
   if (b.ilegiveis > comRadio) {
-    l.push(b.ilegiveis + ' página(s) que abriram SEM FOLHA (ilegíveis ou "só letra") — a '
+    l.push(b.ilegiveis + ' página(s) que abriram SEM FOLHA (ilegíveis ou sem cifra) — a '
       + 'forma de ' + comRadio + ' delas está abaixo (as demais são da mesma classe)');
   }
   const porAlbum = new Map();
@@ -11761,13 +11779,13 @@ function lvBuildCifra(el, barra) {
       [AVCifra.MOTIVO_SEM_REDE]: 'Sem resposta da internet. A cifra é lida na hora — sem rede, não há como buscá-la.',
       [AVCifra.MOTIVO_NAO_TEM]: 'Não encontrei a cifra de “' + nome + '”.',
       [AVCifra.MOTIVO_RECUSOU]: 'O site respondeu, mas recusou a página. Tente de novo daqui a pouco.',
-      // A FRASE DIZ O QUE FOI OBSERVADO, não o que se conclui dele (v1.2.18).
+      // A FRASE DIZ O QUE FOI OBSERVADO, não o que se conclui dele (v1.2.21).
       // Ela afirmava "o site não tem os acordes desta música" — e MEDIDO: o
       // Cifra Club serve VARIANTES no mesmo endereço (cifra, letra, partituras
       // para teclado), e a página de letra chegando não prova ausência de cifra
       // nenhuma. Afirmar a conclusão errada é pior que descrever o fato.
-      [AVCifra.MOTIVO_SO_LETRA]: 'O Cifra Club respondeu com a página de LETRA de “' + nome
-        + '”, não com a cifra. Use “Trocar” para apontar a versão certa.',
+      [AVCifra.MOTIVO_SEM_CIFRA]: 'O Cifra Club tem “' + nome + '”, mas não a cifra dela '
+        + '— só a letra ou a partitura. Se houver outra versão no site, use “Trocar”.',
       [AVCifra.MOTIVO_ILEGIVEL]: 'Achei a página e não consegui lê-la — o site mudou de formato. '
         + 'Isso se corrige numa atualização da base; o Registro em Configurações tem o detalhe.',
     };
@@ -18801,14 +18819,15 @@ async function renderDiag() {
       const faltando = [];
       try {
         // AS TRÊS CONTAS SÃO SEPARADAS de propósito: uma cifra guardada é uma
-        // folha que abre sem rede; um `soLetra` é o site respondendo que aquela
-        // música não tem acordes; um `naoTem` é nenhum endereço deduzível ter a
+        // folha que abre sem rede; um `semCifra` é o site respondendo que a
+        // página está lá e a cifra não; um `naoTem` é nenhum endereço ter a
         // página — e este último VENCE em 30 dias, então nem é resposta final.
         // Somá-los faria o número prometer folhas que não existem.
         const guardado = (await AVDB.getState('cifras:' + c.id)) || {};
         for (const [chave, v] of Object.entries(guardado)) {
           if (v && v.pagina) n++;
-          else if (v && v.soLetra) semCifra++;
+          // `soLetra` é a forma ANTIGA da mesma entrada — ver `cifraProcurar`.
+          else if (v && (v.semCifra || v.soLetra)) semCifra++;
           else if (v && v.naoTem) { naoAchei++; if (cifraDeduzivel(c)) faltando.push(chave); }
         }
       } catch (_) { n = 0; semCifra = 0; naoAchei = 0; }
@@ -18823,25 +18842,19 @@ async function renderDiag() {
       }
       const resolvidas = n + semCifra + naoAchei;
       linhas.push(c.name + ': ' + n + ' de ' + total + ' cifra(s) no aparelho'
-        + (semCifra ? ' · ' + semCifra + ' voltaram como página de LETRA' : '')
+        + (semCifra ? ' · ' + semCifra + ' sem cifra no site' : '')
         + (naoAchei ? ' · ' + naoAchei + ' não achei (repergunto em 30 dias)' : '')
         + (resolvidas < total ? ' · ' + (total - resolvidas) + ' por varrer' : ''));
       // A ÚLTIMA PASSADA, quando ela teve algo a dizer. É a linha que faltava
-      // para "309 por varrer" deixar de ser um mistério que volta toda sessão:
-      // aquelas 309 FORAM julgadas, e o teto as recusou porque uma passada
-      // dominada por "só letra" é o site tendo mudado, não o acervo sem cifra.
+      // para "N por varrer" deixar de ser um mistério que volta toda sessão:
+      // ela diz quantas foram tentadas e o que cada desfecho respondeu.
       let passada = null;
       try { passada = await AVDB.getState(cifraPassadaChave(c.id)); } catch (_) { passada = null; }
-      if (passada && (passada.recusadas || (passada.exemplos || []).length)) {
-        const dias = Math.max(0, Math.round(
-          (CIFRA_PASSADA_RECUSADA_MS - (Date.now() - (passada.em || 0))) / 86400000));
+      if (passada && (passada.exemplos || []).length) {
         linhas.push('    última passada (' + new Date(passada.em || 0).toLocaleDateString('pt-BR')
-          + '): ' + passada.tentadas + ' tentada(s), ' + passada.ok + ' achada(s)'
-          + (passada.recusadas
-            ? ', e ' + passada.recusadas + ' página(s) de LETRA RECUSADAS pelo teto — uma '
-              + 'passada dominada por esse veredito é o site tendo mudado, não o acervo sem '
-              + 'cifra. Repito em ' + dias + ' dia(s).'
-            : '.'));
+          + '): ' + passada.tentadas + ' tentada(s), ' + passada.ok + ' achada(s), '
+          + (passada.semCifra || 0) + ' sem cifra no site, '
+          + (passada.naoTem || 0) + ' sem página.');
       }
       // OS EXEMPLOS, COM O ENDEREÇO — é isto que permite abrir a página no
       // navegador e ver o que ela é. Um nome sozinho não serve: o que se quer
@@ -22707,7 +22720,18 @@ if (window.__NATIVE__) {
     else if (antes && tv && (antes.id !== tv.id || antes.w !== tv.w || antes.h !== tv.h)) {
       diagC('TV mudou: ' + nomeDe(tv));
     }
+    // A PRESENÇA, não a lista: é ela que decide se o botão de microfone existe
+    // (`haOndeReproduzirMic`), e é ela que precisa disparar o redesenho da aba
+    // Ferramentas. Sem isto o botão só apareceria na próxima vez que o operador
+    // TROCASSE de aba — isto é, a TV entra no meio do culto e o microfone
+    // continua ausente, sem nada na tela explicando.
+    const tinhaTela = lastDisplays.length > 0;
     lastDisplays = list || [];
+    // SÓ NA TRANSIÇÃO. `refreshDiversos` esvazia o `libraryEl` e redesenha o
+    // painel inteiro: rodá-lo a cada callback (o `onResume` reconfere a lista)
+    // derrubaria o que o operador está usando — um campo com foco, uma lista
+    // rolada — por um evento que não mudou nada.
+    if (tinhaTela !== (lastDisplays.length > 0)) refreshDiversos();
     // Conectar (ou perder) o telão MUDA O REGIME da preview: com TV a projeção
     // é ela, chega no ato, e a preview volta a andar junto. Ver `cmd`.
     recalcularAtrasoPreview();

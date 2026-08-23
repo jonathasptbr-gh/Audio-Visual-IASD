@@ -288,7 +288,7 @@ try {
     window.__rota = null;
     const disco = (await AVDB.getState('cifras:hymnal-2022')) || {};
     const vals = Object.values(disco);
-    return { cifras: vals.filter((v) => v.pagina).length, semCifra: vals.filter((v) => v.soLetra).length };
+    return { cifras: vals.filter((v) => v.pagina).length, semCifra: vals.filter((v) => v.semCifra).length };
   }, { quantos: quantosSoLetra, total });
 
   // ---- OS EXEMPLOS SOBREVIVEM À RECUSA (v1.2.18) -------------------------
@@ -303,7 +303,7 @@ try {
     await AVDB.setState('cifras-passada:hymnal-2022', null);
     const nomes = Array.from({ length: 10 }, (_, i) => '00' + (i + 1) + '. Hino De Marcador ' + (i + 1));
     collState['hymnal-2022'] = { songs: nomes.map((n, i) => ({ id_music: 'h' + i, name: n })) };
-    // TODAS voltam como página de letra: a passada será recusada pelo teto.
+    // TODAS voltam como página de letra — o caso que o teto recusava.
     window.__rota = () => ({
       status: 200, html: '<title>X (letra da música)</title><h1>X</h1><p>letra</p>',
     });
@@ -314,12 +314,12 @@ try {
     const disco = (await AVDB.getState('cifras:hymnal-2022')) || {};
     return { diario: d, guardadas: Object.keys(disco).length };
   });
-  checar(comExemplos.guardadas === 0,
-    'a passada dominada por página de LETRA não grava nada — o teto fez o trabalho dele',
-    comExemplos.guardadas);
-  checar(comExemplos.diario.recusadas === 10,
-    'mas o DIÁRIO registra a recusa: sem ele, aquelas dez voltariam à fila para sempre '
-    + 'sem que nada dissesse que foram julgadas', comExemplos.diario);
+  checar(comExemplos.guardadas === 10,
+    'uma passada TODA de páginas sem cifra GRAVA as dez — o teto que as recusava saiu '
+    + '(v1.2.21): ele era estruturalmente errado, porque a passada só cobre o que FALTA '
+    + 'e a proporção de ausências tende a 100% num acervo saudável', comExemplos.guardadas);
+  checar(comExemplos.diario.semCifra === 10,
+    'e o diário conta o que a passada de fato encontrou', comExemplos.diario);
   const ex = comExemplos.diario.exemplos || [];
   checar(ex.length > 0 && ex.length <= 12,
     'e ele guarda EXEMPLOS do que não saiu com folha', ex.length);
@@ -329,18 +329,19 @@ try {
   checar(ex.every((e) => /^https:\/\/www\.cifraclub\.com\.br\//.test(e.url)),
     'e com o ENDEREÇO tentado: sem ele não há como ver se o erro é o endereço ou a leitura',
     ex.map((e) => e.url));
-  checar(ex.every((e) => e.motivo === 'so-letra'),
+  checar(ex.every((e) => e.motivo === 'sem-cifra'),
     'e o veredito de cada um', ex.map((e) => e.motivo));
 
   const poucas = await passada(2, 20);
   checar(poucas.cifras === 18 && poucas.semCifra === 2,
-    'as duas sem cifra ficam GRAVADAS — é isso que impede o download de rebatê-las toda sessão',
+    'as duas sem cifra ficam GRAVADAS — é isso que impede a varredura de rebatê-las toda sessão',
     poucas);
 
   const dominada = await passada(18, 20);
-  checar(dominada.cifras === 2 && dominada.semCifra === 0,
-    'mas uma passada DOMINADA por "só letra" não grava nenhuma: isso não é o acervo '
-    + 'sem cifra, é o site tendo mudado de marcação', dominada);
+  checar(dominada.cifras === 2 && dominada.semCifra === 18,
+    'e uma passada DOMINADA por elas também grava — o que protege contra uma mudança '
+    + 'de marcação do site não é a proporção, é o MARCADOR POSITIVO (sem o `<title>` '
+    + 'anunciando a variante nada é gravado) e o PRAZO de 30 dias', dominada);
 
   // ---- A AUSÊNCIA TEM PRAZO, E É ELA QUE TORNA O ACERVO VARRÍVEL (v1.2.14) --
   //
@@ -362,8 +363,8 @@ try {
       ausenciaNova: cifraNoDiscoVale({ naoTem: true, em: agora - 3 * dia }, agora),
       // …e uma VENCIDA volta para a fila: o site pode ter publicado a cifra.
       ausenciaVelha: cifraNoDiscoVale({ naoTem: true, em: agora - 40 * dia }, agora),
-      soLetraNova: cifraNoDiscoVale({ soLetra: true, em: agora - dia }, agora),
-      soLetraVelha: cifraNoDiscoVale({ soLetra: true, em: agora - 40 * dia }, agora),
+      soLetraNova: cifraNoDiscoVale({ semCifra: 'letra', em: agora - dia }, agora),
+      soLetraVelha: cifraNoDiscoVale({ semCifra: 'letra', em: agora - 40 * dia }, agora),
       vazio: cifraNoDiscoVale(null, agora),
     };
   });
@@ -372,7 +373,7 @@ try {
     'uma ausência vale 30 dias e depois volta para a fila: o site pode ter publicado a cifra',
     prazo);
   checar(prazo.soLetraNova === true && prazo.soLetraVelha === false,
-    'e "só letra" segue a mesma régua — nenhum veredito nosso vira buraco permanente', prazo);
+    'e o sem-cifra segue a mesma régua — nenhum veredito nosso vira buraco permanente', prazo);
   checar(prazo.vazio === false, 'nada guardado é nada guardado');
 
   // A OUTRA METADE: a ausência guardada RESPONDE, em vez de refazer a cadeia.
@@ -380,7 +381,7 @@ try {
   // varredura já tinha escrito — com o instrumento na mão.
   const respondeDoDisco = await pg.evaluate(async () => {
     await AVDB.setState('cifras:hymnal-2022', {
-      [cifraChaveNoDisco('001. Hino Sem Cifra')]: { soLetra: true, url: 'u', em: Date.now() },
+      [cifraChaveNoDisco('001. Hino Sem Cifra')]: { semCifra: 'letra', url: 'u', em: Date.now() },
     });
     cifraDiscoColl = ''; cifraDisco = null;
     const coll = allCollections().find((c) => c.id === 'hymnal-2022');
@@ -388,7 +389,7 @@ try {
     const r = await cifraProcurar('001. Hino Sem Cifra', coll, 'k', {});
     return { motivo: r.motivo, via: r.via, rede: window.__nCifraHtml - antes };
   });
-  checar(respondeDoDisco.motivo === 'so-letra' && respondeDoDisco.via === 'aparelho',
+  checar(respondeDoDisco.motivo === 'sem-cifra' && respondeDoDisco.via === 'aparelho',
     'a ausência guardada responde com o motivo que a varredura achou', respondeDoDisco);
   checar(respondeDoDisco.rede === 0,
     'e SEM tocar na rede — é o que ela existe para poupar', respondeDoDisco.rede);
@@ -402,7 +403,7 @@ try {
   //
   // Duas podas, e as duas valem SÓ para a coleção do catálogo: ali o endereço é
   // deduzível de uma tabela, então aquela É a página do hino. Num álbum o
-  // `so-letra` de um endereço não fecha a pergunta.
+  // `sem-cifra` de um endereço não fecha a pergunta.
   const poda = await pg.evaluate(async () => {
     const coll = allCollections().find((c) => c.id === 'hymnal-2022');
     await AVDB.setState('cifras:hymnal-2022', {});
@@ -419,8 +420,8 @@ try {
     window.__rota = null;
     return { motivo: r.motivo, via: r.via, vistas, tentativas: r.tentativas };
   });
-  checar(poda.motivo === 'so-letra',
-    'o catálogo responde "só a letra" e esse é o veredito', poda.motivo);
+  checar(poda.motivo === 'sem-cifra',
+    'o catálogo responde a página de letra e esse é o veredito', poda.motivo);
   checar(poda.vistas.length === 1,
     'e a procura PARA ali: uma requisição, não quatro — o catálogo é autoridade '
     + 'sobre o hinário', poda.vistas);
@@ -441,7 +442,7 @@ try {
     'o nome do hinário NUNCA é adivinhado como artista: `/hinario-adventista-2022/` '
     + 'não existe no site, e seria um 404 certo por hino', semNome);
 
-  // A OUTRA METADE: num ÁLBUM o `so-letra` de um endereço NÃO fecha a pergunta,
+  // A OUTRA METADE: num ÁLBUM o `sem-cifra` de um endereço NÃO fecha a pergunta,
   // porque a mesma música pode estar cifrada sob outro artista. Sem ela, a poda
   // acima cortaria o acervo inteiro junto com o desperdício.
   const album = await pg.evaluate(async () => {
@@ -462,7 +463,7 @@ try {
     return { ok: r.ok, via: r.via, vistas };
   });
   checar(album.ok === true && album.via === 'padrao',
-    'num ÁLBUM a cadeia continua depois de um "só letra" — e acha a cifra sob outro artista',
+    'num ÁLBUM a cadeia continua depois de um sem-cifra — e acha a cifra sob outro artista',
     album);
   checar(album.vistas.length >= 2,
     'ou seja: ela gastou a requisição seguinte de propósito', album.vistas);
