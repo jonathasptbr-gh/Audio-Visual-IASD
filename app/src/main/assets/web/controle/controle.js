@@ -244,7 +244,7 @@ const appVersionEl = document.getElementById('appVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.2.28';
+const WEB_VERSION = '1.2.29';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -11201,7 +11201,16 @@ function cifraAplicarPos(el) {
 function cifraRolarAlternar() {
   if (cifraRolando) { cifraRolarParar(); return; }
   cifraRolando = true;
-  cifraRolandoChave = cifraChave(currentItem);
+  // A CHAVE É DA FOLHA, NÃO DA CENA — e a distinção nasceu com o `lvAlvo`
+  // (v1.2.14). Enquanto ela era `cifraChave(currentItem)`, ler a folha de uma
+  // música da Biblioteca gravava a chave da música PROJETADA, e a guarda
+  // "música nova é folha nova" do `lvBuildCifra` — que compara com
+  // `cifraChave(lvItem())` — parava a rolagem no primeiro redesenho da folha.
+  // Transpor meio tom, tocar em A+/A− ou girar o aparelho bastavam: os três
+  // redesenham. Sem erro nenhum, e justamente no ENSAIO, que é o caso para o
+  // qual a folha sem telão existe. As duas pontas têm de perguntar a mesma
+  // coisa; quem responde "de que música é esta folha?" é `lvItem()`.
+  cifraRolandoChave = cifraChave(lvItem());
   cifraQuadroT = 0;
   // Começar do zero: ligar a rolagem é pedir para seguir a MÚSICA, não para
   // manter o deslocamento com que a folha estava parada até agora.
@@ -17785,7 +17794,10 @@ function diagMse() {
   return codecs + ' · faixa na URL';
 }
 
-// ===== O bloco do ESPELHO DE PIXELS no Registro =====
+// ===== O bloco da TRANSMISSÃO no Registro =====
+// (Chamou-se "espelho de pixels" até a v1.2.29. Aquele recurso saiu na v5.187;
+// o bloco é do telão por comandos desde então, e os nomes `mirror*` são os do
+// contrato da ponte, que não mudou.)
 // O Kotlin devolve DADO (JSON) e a frase é montada AQUI. Não é preciosismo: é
 // a mesma divisão do `otaDiag`/`ytDiag`, é o que respeita a invariante 5, e é o
 // que mantém a sanitização do que veio da rede num ponto só do lado nativo.
@@ -18565,21 +18577,38 @@ async function renderDiag() {
       // ausência é o caso normal (MEDIDO: 35% de acerto), e listar 383 nomes
       // enterraria o Registro sem dizer nada que o número já não diga.
       const faltando = [];
+      let porVarrer = 0;
+      const total = collSongs(c.id).length;
       try {
         // AS TRÊS CONTAS SÃO SEPARADAS de propósito: uma cifra guardada é uma
         // folha que abre sem rede; um `semCifra` é o site respondendo que a
         // página está lá e a cifra não; um `naoTem` é nenhum endereço ter a
         // página — e este último VENCE em 30 dias, então nem é resposta final.
         // Somá-los faria o número prometer folhas que não existem.
+        //
+        // E QUEM DIZ SE UMA ENTRADA AINDA VALE É `cifraNoDiscoVale`, a MESMA
+        // função com que `syncCifrasColecao` monta a fila. Contar "resolvida"
+        // por fora era uma SEGUNDA OPINIÃO, e ela passava a discordar do
+        // aparelho no 31º dia: a ausência vence, volta para a varredura, e
+        // seguia somada como resolvida — o Registro dizia "0 por varrer" com
+        // centenas ainda por refazer. É o pior artefato que este projeto sabe
+        // produzir: um log que discorda do aparelho, lido A DISTÂNCIA.
+        //
+        // E o laço é sobre as MÚSICAS DO ÍNDICE, não sobre as chaves do disco:
+        // o "de N" fala do acervo, e uma música que saiu do álbum deixa a
+        // entrada dela no mapa — somá-la dava mais resolvidas que o total.
         const guardado = (await AVDB.getState('cifras:' + c.id)) || {};
-        for (const [chave, v] of Object.entries(guardado)) {
-          if (v && v.pagina) n++;
+        const agora = Date.now();
+        for (const s of collSongs(c.id)) {
+          const k = cifraChaveNoDisco(s.name);
+          const v = k ? guardado[k] : null;
+          if (!cifraNoDiscoVale(v, agora)) { porVarrer++; continue; }
+          if (v.pagina) n++;
           // `soLetra` é a forma ANTIGA da mesma entrada — ver `cifraProcurar`.
-          else if (v && (v.semCifra || v.soLetra)) semCifra++;
-          else if (v && v.naoTem) { naoAchei++; if (cifraDeduzivel(c)) faltando.push(chave); }
+          else if (v.semCifra || v.soLetra) semCifra++;
+          else { naoAchei++; if (cifraDeduzivel(c)) faltando.push(k); }
         }
-      } catch (_) { n = 0; semCifra = 0; naoAchei = 0; }
-      const total = collSongs(c.id).length;
+      } catch (_) { n = 0; semCifra = 0; naoAchei = 0; porVarrer = 0; }
       // HINÁRIO NÃO BAIXADO É OUTRA RESPOSTA, não um zero. As cifras só são
       // buscadas para o hinário que existe no aparelho (`countDownloaded`), e
       // um "0 de 613" seco se lê como recurso quebrado — foi exatamente essa a
@@ -18588,11 +18617,10 @@ async function renderDiag() {
         linhas.push(c.name + ': nada baixado — as cifras dele não são buscadas');
         continue;
       }
-      const resolvidas = n + semCifra + naoAchei;
       linhas.push(c.name + ': ' + n + ' de ' + total + ' cifra(s) no aparelho'
         + (semCifra ? ' · ' + semCifra + ' sem cifra no site' : '')
         + (naoAchei ? ' · ' + naoAchei + ' não achei (repergunto em 30 dias)' : '')
-        + (resolvidas < total ? ' · ' + (total - resolvidas) + ' por varrer' : ''));
+        + (porVarrer ? ' · ' + porVarrer + ' por varrer' : ''));
       // A ÚLTIMA PASSADA, quando ela teve algo a dizer. É a linha que faltava
       // para "N por varrer" deixar de ser um mistério que volta toda sessão:
       // ela diz quantas foram tentadas e o que cada desfecho respondeu.

@@ -24,6 +24,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
+- **v1.2.29** — A AUDITORIA PÓS-1.0: TRÊS DEFEITOS, E OS TRÊS ERRAVAM CALADOS. (1) A ROLAGEM DA CIFRA MORRIA NO ENSAIO: `cifraRolandoChave` nasceu na v1.1.20 com `cifraChave(currentItem)` — a música EM CENA —, e a v1.2.14 pôs a folha para apontar para OUTRA música (`lvAlvo`) sem atualizar este sítio. A guarda "música nova é folha nova" do `lvBuildCifra` compara com `lvItem()`, então as duas chaves nunca batiam com um alvo da Biblioteca e o primeiro redesenho da folha chamava `cifraRolarParar()`. Transpor meio tom, tocar em A+/A− ou girar o aparelho bastavam — os três redesenham. (2) `salvarTexto` NUNCA RESOLVIA NO SUCESSO: `resolve()` injeta o segundo argumento como EXPRESSÃO JavaScript, e este era o único dos 40+ sítios que passava uma string CRUA — `__avResolve("e:1", registro-av-….txt)` é `SyntaxError`, o `evaluateJavascript` engole, e o método é justamente o que não tem prazo. O arquivo era gravado e o botão nunca respondia. (3) O REGISTRO DISCORDAVA DO APARELHO: ele somava "resolvidas" por fora em vez de perguntar a `cifraNoDiscoVale`, e a partir do 31º dia dizia "0 por varrer" com centenas ainda por refazer. Mais a documentação posta em dia contra o CÓDIGO. METADE OTA e METADE APK (o (2) só chega instalando).
 - **v1.2.28** — A ROTINA DE FUNDO APAGAVA A PERGUNTA DA ATUALIZAÇÃO. Relato do operador: o app deveria oferecer sozinho o download do APK novo, e não ofereceu. `horaRuimParaPerguntar` esperava `bgWorkCount === 0` — e a varredura de cifras e a de letras rodam SOZINHAS na abertura, sobre o acervo inteiro (MEDIDO num aparelho: 309 hinos num hinário e 145 no outro, numa passada só). Enquanto ela corre, a pergunta não aparece; e ela corre justamente na janela em que o operador abre o app. É a armadilha que a v5.151 já pagou com o espelho: **uma condição quase sempre verdadeira não ADIA a pergunta, ela a APAGA** — e aqui o desfecho é o pior que este canal produz, porque com o shell abaixo do `minShell` a válvula recusa toda base web e o APK é a ÚNICA saída: o aparelho fica preso, em silêncio, sem nunca ser avisado do que o destrava. A distinção é QUEM PEDIU: `withBgRotina` protege o processo do congelamento igual (o sistema continua sabendo), e não adia pergunta nenhuma. O oráculo ganhou também o lote SÓ DE APK, que não tinha caso nenhum. OTA PURO
 - **v1.2.27** — DOIS `--press` NO MESMO DEDO. Relato do operador: *"ao encolher, as bordas do card de título ficam com uma marca de encolhimento nas laterais direita e esquerda, fazendo um bug visual da parte branca do card"*. `:active` casa também nos ANCESTRAIS, então o toque na linha de uma faixa satisfazia o `.lib-item` **e** a `.hymn-row` de dentro dele — as duas na lista de `--press`, 0,96 × 0,96. MEDIDO em 430px com a gaveta aberta: o cartão a 370px e o título, dentro dele, a 355 — 7px mais estreito de cada lado que a gaveta logo abaixo, com o branco do `.lib-item` aparecendo nessa fresta. É a MESMA fresta que o comentário da v5.267 já nomeia ("o miolo se afastava de uma moldura parada e abria uma fresta dos dois lados"): a correção de então foi fazer o CARTÃO encolher, e a `.hymn-row` ficou na lista mesmo assim — invisível com a linha fechada, porque ali cartão e linha são a mesma caixa e as duas pintam `--linha`. Saiu junto o `.hymn-play-thumb`, que DEIXOU DE SER BOTÃO na v5.285 e continuava dando resposta de toque. Oráculo no `smoke.mjs`, medindo a FRESTA em pixels durante uma pressão de verdade. OTA PURO
 - **v1.2.26** — O LEITOR ABRIA ATRÁS DA BIBLIOTECA. Relato do operador: *"estando na biblioteca, ele abre o pop da letra apenas na tela principal, atrás da biblioteca"*. A folha é chamada de DENTRO da Biblioteca, que é outra camada, e as duas estavam no `z-index: 200` de todo `.popup-backdrop` — com o mesmo degrau quem decide é a ORDEM DO DOCUMENTO, e o `#lyricsPopup` está declarado ANTES do `#hymnSearchPopup`. A tabela `POPUPS` do `controle.js` já dizia a ordem certa (o leitor DEPOIS da Biblioteca, porque o voltar a percorre de trás para a frente); faltava o `z-index` dizer o mesmo — 205, acima da Biblioteca e abaixo da folha da música, que é exatamente aquela ordem. **As duas coisas mudam juntas, sempre.** O oráculo mede por HIT-TEST (`elementFromPoint` no centro da folha), não por comparação de `z-index`: é o que o dedo encontra que decide, e um número maior num contexto de empilhamento diferente não valeria nada. Provado por reversão. OTA PURO
@@ -254,6 +255,128 @@ na nota que a revoga, não apagada da que a criou.
 - **v5.154** — é METADE OTA e METADE APK, e a divisão importa para quem for testar em aparelho.
 - **v5.155** — é OTA PURO
 - **v5.156** — é METADE OTA e METADE APK, de novo.
+
+---
+
+## v1.2.29 — a auditoria pós-1.0: três defeitos, e os três erravam calados
+
+Pedido do operador: *"vamos fazer uma auditoria para procurar bugs e erros, mais
+especificamente nas áreas das atualizações após a versão 1.0"* — e, junto,
+*"dê prioridade à realidade atual do código acima da descrição da documentação"*.
+
+Os 37 oráculos passavam antes e passam depois: os três achados moram fora do que
+eles perguntam, que é o que uma auditoria existe para cobrir.
+
+### 1. A rolagem da cifra morria no ENSAIO — o caso para o qual a folha foi feita
+
+`cifraRolarAlternar()` gravava `cifraRolandoChave = cifraChave(currentItem)` — a
+música **em cena**. A guarda que para a rolagem quando a folha troca de música
+mora no `lvBuildCifra` e compara com `cifraChave(lvItem())` — o **alvo**.
+
+Enquanto as duas eram a mesma coisa, ninguém notou. A v1.2.14 separou-as
+(`lvAlvo`: ler a folha de uma música da Biblioteca sem projetar nada) e
+atualizou o consumidor, não o produtor: `git log -S` mostra a linha inalterada
+desde a v1.1.20. Com um alvo da Biblioteca as chaves NUNCA batem, e o próximo
+`renderLyricsView()` chama `cifraRolarParar()`.
+
+**O que redesenha a folha:** transpor meio tom, o A+/A−, o `resize` (o teclado
+do sistema, girar o aparelho), a busca da cifra chegando. Isto é, tudo o que se
+faz num ensaio — que é exatamente o cenário que a folha sem telão existe para
+servir. O desfecho não é um erro: o ▶ volta sozinho e a folha para.
+
+MEDIDO no arnês, antes: `rolando=false`, `scrollTop` 11 → 0. Depois: `true`,
+11 → 18.
+
+O oráculo `cifra-rolagem.test.mjs` ganhou uma TERCEIRA metade, provada por
+reversão (2 falhas com a linha antiga). A terceira asserção dela prova que a
+guarda "música nova é folha nova" **não** foi apagada para as outras duas
+passarem — sem ela, deletar a guarda "consertaria" o caso.
+
+### 2. `salvarTexto` gravava o arquivo e a promise nunca resolvia
+
+`NativeBridge.resolve(callId, jsonValue)` interpola o segundo argumento **no
+meio de uma chamada de função**:
+
+```kotlin
+"window.__avResolve && window.__avResolve($id, $jsonValue);"
+```
+
+Dos 40+ sítios de `resolve()` no arquivo, **dois** passavam texto cru, e os dois
+eram do `salvarTexto` (shell 55, v1.2.16). Um nome de arquivo vira
+`__avResolve("e:1", registro-av-20260823-1030.txt)` — `SyntaxError`. O
+`evaluateJavascript` recebe callback `null` e engole o erro; e `salvarTexto` é,
+de propósito, o método **sem prazo** (quem responde é uma pessoa no seletor do
+sistema). Resultado: a promise fica pendurada para sempre.
+
+**Sintoma:** o Registro é gravado no arquivo escolhido e o botão não responde —
+nem ✓, nem "Não foi salvo". Desistir funcionava por acidente: `resolve(callId, "")`
+produz `__avResolve("e:1", )`, e vírgula final em chamada é legal desde o ES2017,
+então aquele caminho resolvia `undefined`.
+
+**Bônus de segurança:** o nome vem do seletor SAF. Sem `JSONObject.quote`, um
+nome escolhido pela pessoa é JavaScript arbitrário no origin privilegiado.
+
+A regra virou texto em `docs/shell/PONTE.md`: o segundo argumento de `resolve()`
+é uma EXPRESSÃO, e todo texto de fora passa obrigatoriamente por
+`JSONObject.quote`.
+
+**Esta metade só chega instalando o APK.** O bundle **não** declara `shellTag`,
+e isso é escolha: `shellTag` responde *"este lote PRECISA de uma Release?"*, e o
+lado web deste lote não depende em nada do shell novo. Declará-lo seguraria as
+correções 1 e 3 — que chegam por OTA em minutos — atrás de uma Release. Pelo
+mesmo motivo o `SHELL_VERSION` **não** sobe: a superfície documentada não mudou
+(o método sempre prometeu devolver o nome), e um `minShell: 56` faria todo
+aparelho no APK v1.2.17 recusar a base web até instalar o APK novo — o preço
+errado para consertar um botão que não confirma.
+
+### 3. O Registro discordava do aparelho a partir do 31º dia
+
+O bloco "Cifra (última busca)" somava `pagina + semCifra + naoTem` para dizer
+quantas músicas faltavam varrer. Mas uma ausência **vence** em 30 dias
+(`CIFRA_REVISITA_MS`) e volta para a fila da varredura — e seguia contada como
+resolvida. O Registro dizia "0 por varrer" com centenas ainda por refazer.
+
+Ele também somava **chaves do disco** contra um total de **músicas do índice**:
+uma música removida do álbum deixa a entrada lá, e as resolvidas podiam passar do
+total.
+
+Hoje o laço é sobre `collSongs()` e quem responde "esta entrada ainda vale?" é
+`cifraNoDiscoVale` — a MESMA função com que `syncCifrasColecao` monta a fila. É
+a regra do diagnóstico deste projeto aplicada onde ela tinha sido esquecida: **um
+bloco guarda o VEREDITO, nunca uma segunda opinião**. O pior artefato que este
+projeto sabe produzir é um log que discorda do aparelho, porque é lido a
+distância por quem não pode conferir.
+
+### A documentação, posta em dia contra o CÓDIGO
+
+Sete divergências, todas medidas contra os arquivos, não relidas do texto:
+
+| o que dizia | o que é |
+|---|---|
+| "27 arquivos Kotlin" (e a árvore sem ele) | **28** — `MicDiag.kt` nasceu na v1.2.11 e nunca entrou na estrutura nem na tabela de `docs/shell/README.md` |
+| "O bundle declara `minShell: 50`" | **55** — a seção das três filas ficou no número velho |
+| "A tabela dos 50 degraus" | **55** |
+| "`docs/ACHADOS-EM-ABERTO.md` … hoje está VAZIO" | tem **dois**, os do áudio do espelhamento |
+| "A segunda linha de defesa é o TETO POR PASSADA (`CIFRA_SO_LETRA_TETO`)" | o teto **saiu na v1.2.21** e a constante não existe — o próprio CLAUDE.md dizia isso duas subseções abaixo, e as duas afirmações conviviam |
+| "`syncCifrasHinarios` roda na abertura" | `syncCifrasAcervo` — renomeada na v1.2.14, quando deixou de ser só dos hinários |
+| "Quem abre pela Biblioteca pede `'cifra'` explicitamente" | desde a v1.2.25 o botão de lá é "Ver a letra" e não pede fonte nenhuma; o parâmetro `fonte` de `openLyricsPopup` **hoje não tem chamador** |
+
+E dois cabeçalhos de comentário que nomeavam um recurso REMOVIDO (o espelho de
+pixels, v5.187) sobre código que hoje é o telão por comandos — em `controle.css`
+e no bloco do Registro. É a regra que a v5.300 comprou caro: *um comentário
+errado é pior que um comentário longo, porque ele responde, e responde errado.*
+
+### O que a auditoria conferiu e estava certo
+
+Para não ser refeito: os 48 métodos da ponte batem com o `native.js` campo a
+campo; nenhuma chamada de função sem declaração nas 33 mil linhas de JS; nenhum
+`getElementById` apontando para id inexistente (os nove que "faltam" no HTML são
+criados em runtime); nenhum `updateState` com `fn` assíncrona; nenhum `parseInt`
+sem radix; a invariante 9 de pé no `StagePresentation` (`host = null`,
+`withSaf = false`) e os cinco métodos privilegiados guardados; permissões do
+manifest, ordem dos scripts, escada de `z-index` × tabela `POPUPS`, e as ~30
+constantes que o CLAUDE.md cita (rondas, backoffs, tetos, prazos) todas medidas
+contra o código.
 
 ---
 

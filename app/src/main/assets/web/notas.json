@@ -1,5 +1,13 @@
 [
   {
+    "versao": "1.2.29",
+    "itens": [
+      "Correção: a rolagem automática da cifra parava sozinha quando a folha era de uma música aberta pela Biblioteca (o ensaio, sem projetar nada). Bastava subir meio tom, mudar o tamanho da letra ou girar o aparelho — os três redesenham a folha, e a rolagem morria ali, com o ▶ voltando sem aviso.",
+      "Correção: o “Salvar Registro” de Configurações gravava o arquivo e o botão nunca respondia — nem confirmação, nem erro. (Esta metade só chega instalando o APK novo.)",
+      "Correção: no Registro, a conta de cifras do acervo dizia “0 por varrer” depois de 30 dias, quando as ausências voltam para a fila. Agora ela pergunta o mesmo que a varredura pergunta."
+    ]
+  },
+  {
     "versao": "1.2.28",
     "itens": [
       "Correção: a pergunta de atualização não aparecia enquanto a busca de cifras (ou a de letras) rodava em segundo plano — e ela roda sozinha na abertura, sobre a biblioteca inteira. Agora só um download que VOCÊ pediu adia a pergunta.",

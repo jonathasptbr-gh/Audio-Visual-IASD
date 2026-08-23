@@ -35,10 +35,11 @@ espelhar o celular.
 
 **Fora daqui:** `docs/ACHADOS-EM-ABERTO.md` (os defeitos CONFIRMADOS e ainda não
 corrigidos, com cenário e correção proposta — **leia antes de mexer no que ele
-nomeia**; hoje está VAZIO, e é arquivo para esvaziar, não para crescer),
+nomeia**; hoje tem DOIS, os dois do áudio do espelhamento, e é arquivo para
+esvaziar, não para crescer),
 `docs/shell/README.md`
 (o HUB do **Kotlin**: um capítulo por
-subsistema do shell, mais a tabela que diz onde cada um dos 27 arquivos é
+subsistema do shell, mais a tabela que diz onde cada um dos 28 arquivos é
 explicado), `docs/ARQUITETURA-WEB.md` (o HUB da base web: regras gerais e o
 mapa dos capítulos em `docs/arquitetura/`), `docs/TELAO-POR-COMANDOS.md`
 (o contrato das telas da rede), `docs/FONTE-DE-DADOS-LOUVORJA.md` (hinos/Bíblia)
@@ -138,6 +139,9 @@ app/src/main/
 │   ├── StreamProxy.kt           # /stream/<token>: serve o googlevideo pelo NOSSO origin
 │   ├── SlideDeck.kt             # apresentação (PDF/Google) → uma imagem por página
 │   ├── MicChromeClient.kt       # onPermissionRequest: microfone no WebView do telão
+│   ├── MicDiag.kt               # POR QUE o microfone não abre — o que só o SHELL
+│   │                            #   sabe (permissão, AppOps, modo, entradas).
+│   │                            #   LEITURA PURA: não abre nada, não pede nada
 │   ├── MessageBus.kt            # relay de comandos entre os dois WebViews
 │   │                            # ↓ TELÃO POR COMANDOS (ver a seção do recurso)
 │   ├── EspelhoHttp.kt           # o parser HTTP (+ Range/SSE) — PURO, zero import de Android
@@ -179,7 +183,7 @@ docs/
 └── ESPELHO-DE-PIXELS.md         # ARQUIVO: recurso removido (v5.187); só §2.3, §2.4 e §10-A
 ```
 
-**27 arquivos Kotlin, uma dependência de terceiros no shell** — o resto é
+**28 arquivos Kotlin, uma dependência de terceiros no shell** — o resto é
 AndroidX oficial (`core-ktx`, `activity-ktx`, `webkit`). O que sustenta essa
 proporção Kotlin × JavaScript é a invariante 5; ela é o argumento contra
 Capacitor/Cordova, que arrastariam npm e um build system inteiro e ainda assim
@@ -537,7 +541,7 @@ escondia. Sem guardas, o web chama um método que o APK instalado não tem: o
 existe, é tocável e não faz nada. Por isso mudança de ponte é um lote
 **APK + web publicado JUNTO**, com `shellTag` no `version.json`.
 
-> A tabela dos 50 degraus está em `docs/HISTORICO.md` — ela é história do
+> A tabela dos 55 degraus está em `docs/HISTORICO.md` — ela é história do
 > contrato, e história mora lá.
 
 ### As TRÊS filas da ponte — escolher a errada é uma regressão muda
@@ -588,7 +592,7 @@ E duas regras que ficam de fora das três filas:
   e volta; quem responde é o laço de cópia do `YoutubeGrab`, a cada bloco de
   64 kB.
 
-**O bundle declara `minShell: 50`, e é a VÁLVULA que resolve.** Um bundle que
+**O bundle declara `minShell: 55`, e é a VÁLVULA que resolve.** Um bundle que
 exija ponte mais nova que o `SHELL_VERSION` instalado é recusado inteiro
 (`WebUpdater.kt`), e o app segue no que tinha — a recusa acontece no shell, e
 não em runtime no meio de um culto. **Guarda de versão no lado web é proibida:**
@@ -1944,7 +1948,7 @@ a congregação vê continua sendo a letra, pelo caminho de sempre.
     no fim do `syncCollection`, e ela nunca alcançou quem MAIS precisa dela: um
     hinário já completo faz aquela função retornar em "Já completo offline"
     muito antes do gancho. MEDIDO em dois Registros seguidos, `0 de 601` depois
-    de o operador sincronizar. Hoje `syncCifrasHinarios` roda na abertura, ao
+    de o operador sincronizar. Hoje `syncCifrasAcervo` roda na abertura, ao
     lado do `syncLyrics` — informação padrão do acervo, uma vez por sessão, em
     segundo plano —, e o download deixou de ser a única porta (tocar em
     sincronizar num hinário completo também dispara).
@@ -2135,10 +2139,11 @@ a congregação vê continua sendo a letra, pelo caminho de sempre.
     um buraco permanente. São duas condições independentes: nenhuma folha **e**
     o site anunciando a página como letra. Uma mudança de marcação derruba a
     primeira e não inventa a segunda, e o desfecho volta a ser `ilegivel`.
-  - **A segunda linha de defesa é o TETO POR PASSADA**
-    (`CIFRA_SO_LETRA_TETO`): a varredura recusa-se a gravar uma passada
-    DOMINADA por este veredito. Uma música sem cifra é um fato; um terço do
-    hinário de uma vez é o site tendo mudado.
+  - **A segunda linha de defesa é o PRAZO**, e não um teto por passada. Houve
+    um (`CIFRA_SO_LETRA_TETO`, v1.2.12), e ele saiu na v1.2.21 — ver o bloco
+    "por que não há mais um teto por passada" logo abaixo. O que sobra são as
+    duas defesas que não têm esse defeito: o marcador POSITIVO acima e a
+    revisita em 30 dias (`CIFRA_REVISITA_MS`).
   - **O CIFRA CLUB SERVE VARIANTES NO MESMO ENDEREÇO**, e é isso que o
     `sem-cifra` reconhece (`AVCifra.varianteSemCifra`). MEDIDO em duas páginas
     reais, CONFERIDAS À MÃO pelo operador: `/novo-hinario-adventista/
@@ -2229,8 +2234,11 @@ a congregação vê continua sendo a letra, pelo caminho de sempre.
   - **A ABA escolhida sobrevive à reabertura e NÃO à troca de alvo** — são duas
     coisas: quem escolheu "cifra" no transporte quer continuar nela; carregá-la
     para outra música abriria a folha de um louvor na aba escolhida para outro.
-    Quem abre pela Biblioteca pede `'cifra'` explicitamente, porque é o que foi
-    buscar. O ALVO morre ao fechar: é o desvio de UMA leitura.
+    Quem abre pela Biblioteca não pede fonte nenhuma desde a v1.2.25: o botão
+    de lá é **"Ver a letra"**, e a folha nasce na primeira fonte disponível, que
+    é a letra. O parâmetro `fonte` de `openLyricsPopup` continua na assinatura e
+    HOJE NENHUM CHAMADOR O USA. O ALVO morre ao fechar: é o desvio de UMA
+    leitura.
 - **A aba é a ÚLTIMA da lista de fontes**, e isso é a precedência inteira: sem
   escolha do operador, `lvActiveSource` abre a primeira — e a que abre sozinha
   tem de ser a letra, que é o que quem opera o culto está lendo. **A Bíblia NO AR
@@ -2958,7 +2966,7 @@ mundo anterior por outro caminho.
 | `cena.test.mjs` | o que o telão mostra ao RECONECTAR (o caminho menos testável à mão: exige TV, dongle e o timing de derrubá-lo) |
 | `imagem-sobre-audio.test.mjs` | a IMAGEM projetada por cima do áudio. A regra é uma AUSÊNCIA — nenhum `load` sai daquele caminho —, e ausência não tem sintoma de tela nem erro de console: quem a prova é o `currentTime` do `<video>` medido em DOIS instantes ("não pausou" é fraco; "andou" prova que é o mesmo áudio). Nas duas metades: o Controle que decide sobrepor e o telão que pinta |
 | `parar-por-camada.test.mjs` | **o Parar do transporte, que fala de UMA camada só.** A regra é CONDICIONAL (mídia + Camada de Texto → sai só a mídia; uma das duas sozinha → sai a cena inteira), e uma condicional errada é muda nos DOIS sentidos: ou a Camada de Texto fica presa no telão sem saída no transporte, ou o louvor de fundo volta a levar o versículo junto. Mede as TRÊS cenas, e a prova é o `currentTime` do `<video>` mais o TIPO do comando — `clear` e `media-clear` apagam o mesmo vídeo da preview |
-| `cifra-rolagem.test.mjs` | **a rolagem `auto` da cifra precisa de um relógio ANDANDO.** A barra de progresso responde "este ITEM tem linha do tempo?", e `currentItem` sobrevive ao Parar, ao fim da faixa e a uma letra avulsa — a barra ficava habilitada sobre um telão vazio, e o `auto` ancorava a folha em `fracaoDaRolagem(0, dur)`. O desfecho não é um erro, é uma folha PARADA. As DUAS metades: sem mídia no ar ela anda (o livre assumiu), com mídia no ar ela não anda sozinha — "cair sempre no livre" apagaria o recurso |
+| `cifra-rolagem.test.mjs` | **a rolagem `auto` da cifra precisa de um relógio ANDANDO.** A barra de progresso responde "este ITEM tem linha do tempo?", e `currentItem` sobrevive ao Parar, ao fim da faixa e a uma letra avulsa — a barra ficava habilitada sobre um telão vazio, e o `auto` ancorava a folha em `fracaoDaRolagem(0, dur)`. O desfecho não é um erro, é uma folha PARADA. TRÊS metades: sem mídia no ar ela anda (o livre assumiu), com mídia no ar ela não anda sozinha — "cair sempre no livre" apagaria o recurso —, e a folha de uma música da BIBLIOTECA (`lvAlvo`) continua rolando depois de um redesenho. Esta terceira trava a divergência que a v1.2.14 abriu: `cifraRolarAlternar` gravava a chave de `currentItem` e a guarda de `lvBuildCifra` compara com `lvItem()`, então no ensaio a rolagem morria no primeiro `renderLyricsView` (transpor, A+/A−, girar). A terceira asserção prova que a guarda "música nova é folha nova" não foi apagada para as outras duas passarem |
 | `leitor-do-transporte.test.mjs` | **o BOTÃO que abre o auxiliar de leitura.** `openLyricsPopup` ganhou `(item, fonte)` e o ouvinte continuou registrado por REFERÊNCIA — `addEventListener` chama com o EVENTO, o `PointerEvent` virou o `lvAlvo`, e as três fontes (letra, cifra e a reserva da Bíblia) sumiam de uma vez: a folha abria dizendo "Nada em exibição" para TODA música, com o console limpo. Os três oráculos que já abriam esta folha chamam `openLyricsPopup()` direto — o único caminho que continuava funcionando —, e é por isso que este CLICA. A segunda metade (a Biblioteca continua desviando o alvo) impede que apagar os parâmetros "conserte" a primeira |
 | `historico.test.mjs` | **o histórico do culto**, uma lista que se preenche sozinha no ponto mais quente do app (`send`) e cujos três modos de errar são mudos: não registrar (a folha abre vazia depois de um culto inteiro), registrar demais (`repeat: 'one'` enterrando o culto em cópias do mesmo nome) e oferecer ao Cronograma um id que o coletor já recolheu — este só aparece no sábado seguinte |
 | `gaveta-no-download.test.mjs` | a GAVETA DA LINHA contra o redesenho do progresso — o único lugar do acervo em que o operador DECIDE, e o redesenho remontava a lista por baixo dela a cada 400 ms. MUDO nos dois tempos: aberta, ela some sem erro nenhum; ABRINDO (há um `await` do IndexedDB entre o toque e o `expanded`), o `li` vira órfão e o toque não faz nada. Quatro metades, e a primeira é o HAZARD — sem ela as outras provariam que uma função concorda consigo mesma |
@@ -3342,7 +3350,7 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: v1.2.28** (base web) · **v1.2.17** (APK) · `SHELL_VERSION` **55** · bundle com
+**Versão atual: v1.2.29** (base web) · **v1.2.17** (APK) · `SHELL_VERSION` **55** · bundle com
 `minShell: 55` — o shell 55 é o **PISO**: todo método da ponte existe, e não há
 guarda de versão no lado web. O que continua valendo é que `java/`, `res/`, o
 manifest e os workflows **só chegam instalando o APK**.

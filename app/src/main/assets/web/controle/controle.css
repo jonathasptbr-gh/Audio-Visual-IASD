@@ -5466,20 +5466,21 @@ body.mode-simple .bottombar { display: none; }
   @keyframes eco-piscar { from { opacity: .9; } to { opacity: 0; } }
 }
 
-/* ---------- Espelho de pixels (v5.141) ---------- */
+/* ---------- O TELÃO POR COMANDOS: a folha de conexão ---------- */
 /* O telão inteiro em até três navegadores da rede local. Uma LINHA em
    Configurações e uma FOLHA — ver o comentário no HTML para por que são as
    duas coisas e não uma.
 
-   A folha abre DE DENTRO de Configurações, e por isso sobe um degrau: com o
-   mesmo z-index de todos, quem decidiria seria a ordem do documento, e é
-   justamente esse acaso que já cobriu um popup por inteiro aqui (o toque
-   parecia não fazer nada). O degrau é o mesmo de `#songMenuPopup`, que abre de
-   dentro do acervo pela mesma razão — as duas nunca coexistem. */
-/* A folha de CONECTAR UMA TELA abre da tela principal (o botão de cast), então
-   ela fica no 200 padrão — e a folha do espelho, que abre DE DENTRO dela,
-   continua no 210. O degrau é o mesmo que o leitor de QR já exigia, e
-   `tools/smoke.mjs` o afirma. */
+   (O cabeçalho dizia "Espelho de pixels (v5.141)" até a v1.2.29. Aquele recurso
+   foi REMOVIDO na v5.187 e o que ficou aqui é a folha do telão por comandos —
+   um cabeçalho que nomeia um mecanismo que não existe mais manda o próximo
+   leitor procurar o que não está lá.)
+
+   A folha de CONECTAR UMA TELA abre da tela principal (o botão de cast), então
+   ela fica no 200 padrão. O degrau acima dele existe para quem abre DE DENTRO
+   de outra folha: com o mesmo z-index de todos, quem decidiria seria a ordem do
+   documento, e é justamente esse acaso que já cobriu um popup por inteiro aqui
+   (o toque parecia não fazer nada) — ver `#lyricsPopup` e `#songMenuPopup`. */
 #castPopup { z-index: 200; }
 
 /* ---------- A folha de conexão: uma AÇÃO e um ESTADO ----------

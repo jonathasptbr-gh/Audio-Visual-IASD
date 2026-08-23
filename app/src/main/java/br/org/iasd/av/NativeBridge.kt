@@ -1446,12 +1446,23 @@ class NativeBridge(
      *
      * SEM PRAZO no lado web: quem responde é uma PESSOA no seletor do sistema —
      * a mesma regra do [pickFolder], do [pickDoc] e do [requestMic].
+     *
+     * **E É JUSTAMENTE POR NÃO TER PRAZO QUE O NOME PRECISA DE `JSONObject.quote`.**
+     * [resolve] injeta o segundo argumento como EXPRESSÃO JavaScript; um nome
+     * cru vira `__avResolve("e:1", registro-av-20260823-1030.txt)`, que é
+     * `SyntaxError`. O `evaluateJavascript` engole o erro (callback `null`), e
+     * sem prazo a promise fica pendurada PARA SEMPRE: o arquivo é gravado e o
+     * botão nunca responde — nem ✓, nem "Não foi salvo". O `""` da guarda de
+     * host tem o mesmo defeito por outro caminho (`__avResolve("e:1", )` só não
+     * quebra porque vírgula final é legal, e resolve `undefined`).
+     * Como o nome vem do seletor SAF, ele também é texto de fora: sem as aspas
+     * qualquer nome escolhido é JavaScript arbitrário neste origin.
      */
     @JavascriptInterface
     fun salvarTexto(callId: String, nome: String, texto: String) {
         val h = host
-        if (h == null) { resolve(callId, "") ; return }
-        h.requestTextSave(nome, texto) { salvo -> resolve(callId, salvo) }
+        if (h == null) { resolve(callId, JSONObject.quote("")); return }
+        h.requestTextSave(nome, texto) { salvo -> resolve(callId, JSONObject.quote(salvo)) }
     }
 
     /** O nome de exibição do documento, ou "Apresentação" se o provedor não o der. */
