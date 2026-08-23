@@ -24,6 +24,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
+- **v1.1.28** — AS CIFRAS DO HINÁRIO 2022 PASSAM A FICAR NO APARELHO, e a folha abre SEM REDE: o problema real nunca foi achar a cifra, foi o Wi-Fi da igreja no sábado de manhã. É o ÚNICO acervo que fica, porque é o único cujo endereço no site é DEDUZÍVEL do nome — nos álbuns seriam 600 apostas em vez de 600 requisições previsíveis. **QUEM BAIXA É O APARELHO**: nada entra no bundle nem no repositório, porque o `.zip` do canal é público e um acervo ali dentro é o app DISTRIBUINDO obra de terceiro, outra coisa que não um grau a mais de ler sob demanda. A forma é a do `syncLyrics` (fila, segundo plano, lotes, nada em dados móveis) e a regra que mais importa é a mesma: falha de rede NÃO grava nada. OTA PURO
 - **v1.1.27** — O TECLADO SUMIA AO DIGITAR NA BUSCA DE CIFRA, e a causa era uma correção de duas versões antes: o teclado virtual é um `resize`, o `resize` remede a folha, e o redesenho destrói o `<input>` com foco — um campo sem foco fecha o teclado, e o fechamento é outro `resize`. Sai um teclado que pisca e some, sem erro nenhum, e o seletor inteiro fica inalcançável. A guarda é pelo FOCO, não por "o seletor está aberto". Mais: a busca passa a ter TRÊS parâmetros em vez de dois (consulta, alvo do parentesco, desempate) — juntá-los deixava a busca MANUAL sem o álbum em lugar nenhum —, e o seletor ganha os atalhos `+ <álbum>` e `+ Ministério Jovem`. OTA PURO
 - **v1.1.26** — O MICROFONE VIRA WALKIE-TALKIE, E PASSA A FUNCIONAR NOS QUATRO MODELOS: em vez de TRANSPORTAR ÁUDIO, ele transporta um ARQUIVO — a voz vira item `kind:"audio"` comum e entra pelo caminho de projeção de sempre, chegando às telas da rede de graça pelo `/m/<token>`. É a inversão que faz o recurso caber: o ao vivo para a rede está bloqueado por `[SecureContext]`, e o projeto já construiu esse transporte (AAC → MSE) e o removeu na v5.187. A Release é de UMA LINHA — o `ControleChromeClient` negava toda permissão de mídia e passa a conceder áudio, e só áudio, chamando as três regras do `MicChromeClient` em vez de reescrevê-las. O FIM do recado é interceptado nos DOIS caminhos: sendo item comum, ele caía no `autoAdvance`, onde `repeat one` repetia a voz do operador PARA SEMPRE e `repeat all` começava a playlist do zero — nenhum dos dois com sinal na tela. E ele DEVOLVE a cena, com a posição dentro do próprio `load`. EXIGE RELEASE
 - **v1.1.25** — O OPERADOR ESCOLHE A CIFRA, E A ESCOLHA VENCE TUDO: o método automático adivinha a partir de um nome, e quem opera SABE qual é a música. MEDIDO no aparelho: na maioria das falhas o resultado certo ESTAVA na página de busca — só não era o que a regra elegeu, e não havia como olhar a lista nem dizer "é este". A aba passa a desenhar a lista dentro do app (inclusive o que a regra RECUSOU, marcado), abrir qualquer resultado em PRÉVIA e fixar o escolhido, que vira a tentativa 0 e sobrevive ao fechar o app. Não é navegador embutido — é a divisão de sempre, com o desenho nosso: nenhum script de terceiro roda. Guardar um ENDEREÇO não fura o "nada em disco", que sempre falou do CONTEÚDO. E o Registro passa a guardar a RADIOGRAFIA da página que não abriu — só forma, nenhum pedaço de letra ou acorde —, porque `ilegivel` responde "não entendi" e não "o que era". OTA PURO
@@ -223,6 +224,76 @@ na nota que a revoga, não apagada da que a criou.
 - **v5.154** — é METADE OTA e METADE APK, e a divisão importa para quem for testar em aparelho.
 - **v5.155** — é OTA PURO
 - **v5.156** — é METADE OTA e METADE APK, de novo.
+
+---
+
+## v1.1.28 — as cifras do Hinário 2022 passam a ficar no aparelho
+
+**O problema real nunca foi achar a cifra.** Foi o Wi-Fi da igreja no sábado de
+manhã. Uma aba que lê sob demanda funciona perfeitamente na terça e é inútil no
+momento em que alguém está com o instrumento na mão.
+
+### Por que SÓ o hinário
+
+Porque é o único acervo cujo endereço no site é **deduzível do nome**
+(`CATALOGO` → `/novo-hinario-adventista/<slug>/`). Baixar 600 hinos é 600
+requisições previsíveis; baixar os álbuns seria 600 **apostas** — cada uma
+passando pela busca, pelo parentesco e por até três candidatos, com uma taxa de
+acerto que o próprio operador descreve como inconstante. Guardar um acervo com
+buracos aleatórios é pior que não guardar: o buraco vira permanente e ninguém
+sabe qual hino ficou de fora.
+
+### QUEM BAIXA É O APARELHO — e essa é a decisão inteira
+
+A pergunta era empacotar as cifras no bundle. **A resposta é não, e o motivo não
+é técnico.** O `.zip` do canal OTA é público e servido em nome de quem publica;
+um acervo inteiro ali dentro é o app **distribuindo** obra de terceiro. Isso não
+é um grau a mais de "ler sob demanda no aparelho de quem opera" — é outra
+categoria de coisa, e o `CLAUDE.md` já dizia isso desde a v1.1.10.
+
+O que a v1.1.28 faz entrega o mesmo resultado por outro caminho: **cada aparelho
+busca o que vai usar**, como já fazia uma música por vez. O que muda é o QUANDO
+(uma vez, no download do hinário) e o ONDE (IndexedDB, não a memória da sessão).
+Três ganhos de quebra, e nenhum deles é consolo:
+
+- a cifra fica sempre **atual** — rebaixar é apagar e sincronizar, não publicar
+  uma versão nova do app;
+- o repositório não incha e o canal OTA não carrega megabytes a cada lote;
+- **não nasce uma segunda fonte de verdade** para divergir da primeira, que é o
+  modo de falha que este projeto mais evita.
+
+### A forma é a do `syncLyrics`, de propósito
+
+Mesma fila (`runLimited`, 6 workers), mesma proteção de segundo plano
+(`withBgWork` — o download sobrevive ao app minimizado), mesma notificação de
+progresso com o nome do hino, gravação em LOTES de 20, e nada em dados móveis.
+
+E a regra que mais importa é a mesma: **falha de rede não grava nada.** Num
+acervo em que toda música existe no site, uma ausência gravada seria um buraco
+permanente causado por um Wi-Fi que oscilou. `nao-tem` e `ilegivel` também ficam
+de fora — a próxima passada tenta de novo. Retomável por construção: o que já
+está guardado não é pedido, então uma interrupção custa o que faltava.
+
+A leitura entra como a tentativa **que não toca na rede**, entre a escolha do
+operador (que vale mais — é uma correção à mão) e o catálogo.
+
+### O oráculo NÃO pergunta se a folha apareceu
+
+`tools/cifra-offline.test.mjs`. A promessa é operacional, e falha **calada**: sem
+a leitura do disco o app cai no caminho de rede e — *com* rede — a folha aparece
+igual, com a mesma aparência, pela porta errada. Ninguém veria diferença até o
+dia em que a rede não estivesse lá, que é exatamente o dia que o recurso existe
+para cobrir.
+
+Por isso a asserção é outra: **`cifraHtml` não foi chamado nenhuma vez**, com a
+ponte de mentira CONTANDO as chamadas e respondendo `status 0` a todas. Se o
+disco não for lido, não há segundo caminho por onde a folha possa vir. Provado
+por reversão (desligar a leitura deixa três casos vermelhos) e campanha 4/4 a 2×
+de carga.
+
+A outra metade é o simétrico, e sem ela a primeira seria vazia: um hino que **não
+está guardado** tem de ir à rede. Sem esse caso, "nunca chamar a rede" passaria —
+e o recurso seria um cache que nunca preenche.
 
 ---
 

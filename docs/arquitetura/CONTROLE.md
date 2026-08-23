@@ -1113,8 +1113,10 @@ mixer (`#lyricsViewBtn`, folha com linhas) abre um bottom-sheet **com scroll**
   precisa da ponte — CORS) e **nunca vai ao telão**: é para quem toca, e o que a
   congregação vê continua sendo a letra.
 
-  Ela é lida **sob demanda** e nada é guardado (o cache é um `Map` que morre com
-  o app), e a busca começa quando a música **entra em cena** — não quando a aba
+  Ela é lida **sob demanda** — com uma exceção: **o Hinário 2022 fica guardado no
+  aparelho** (v1.1.28), baixado junto com o hinário, porque é o único acervo cujo
+  endereço no site é deduzível do nome. Fora dele o cache é um `Map` que morre
+  com o app. A busca começa quando a música **entra em cena** — não quando a aba
   abre (v1.1.17): assim a folha costuma estar pronta antes de alguém pedir por
   ela. Quem decide se cabe cifra para um item é `cifraCabe`, a MESMA função que
   a aba usa para se oferecer. **Achando a cifra errada — ou nenhuma — o operador
