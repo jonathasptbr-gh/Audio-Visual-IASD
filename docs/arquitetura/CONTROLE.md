@@ -2725,7 +2725,7 @@ gaveta aberta, tirando o botão de baixo do dedo.
 | selector | o que ele passou a alcançar |
 |---|---|
 | `.lib-item.expanded .hymn-gaveta` | a pasta ABERTA satisfaz o `.expanded`, então a gaveta de TODO arquivo lá dentro virava `display: block` |
-| `.lib-item:not(.vendo-letra) :is(.hymn-lyrics, .item-detalhe)` | a pasta nunca tem `.vendo-letra`, então ela escondia o detalhe de um arquivo que TEM |
+| `.lib-item:not(.vendo-letra) .item-detalhe` | a pasta nunca tem `.vendo-letra`, então ela escondia o detalhe de um arquivo que TEM |
 | `.lib-item:has(.hymn-gaveta :active)` | não alcançava `.folder-itens`, e o `--press` da pasta encolhia com o toque num arquivo |
 
 A primeira linha explica dois sintomas de uma vez: a faixa preta embaixo de cada
@@ -3284,14 +3284,14 @@ na barra.
 Um acordeão que troca `display` aparece **pronto**, e num toque a lista abaixo
 dá um salto — o operador perde de vista onde estava. Animar a altura mostra de
 onde o conteúdo saiu, que é a informação que o salto destrói. Vale para os dois
-acordeões do acervo: o **card do álbum** e a **letra** de cada linha.
+acordeões do acervo: o **card do álbum** e a **gaveta** de cada linha.
 
 - **A altura é MEDIDA e animada em JS** (`expandAccordion`/`collapseAccordion`,
   Web Animations API, `ACC_MS` = 220 ms). `auto` não é animável em CSS, e um
   teto fixo cortaria a letra de um hino de 40 linhas.
-- **`offsetHeight`, não `scrollHeight`.** A caixa da letra tem teto
-  (`max-height: 40vh`) e rola por dentro: animar até o `scrollHeight` abriria um
-  vão e depois recuaria.
+- **`offsetHeight`, não `scrollHeight`.** Uma gaveta com teto que role por
+  dentro mediria mais do que ocupa: animar até o `scrollHeight` abriria um vão e
+  depois recuaria.
 - **O `overflow: hidden` é devolvido no fim** (`finish` **e** `cancel`), senão a
   lista fica presa à altura do instante em que a animação foi montada.
 - **O card tem um invólucro** (`.coll-open`, com o painel de opções e a lista)
@@ -3307,9 +3307,9 @@ acordeões do acervo: o **card do álbum** e a **letra** de cada linha.
   já aberto, e vê-lo "abrir" sozinho leria como se algo tivesse acontecido.
 - **Fechar anima ANTES de redesenhar**: o redesenho apaga o nó, e um nó apagado
   não sai deslizando.
-- **A letra é montada antes de a linha abrir.** `montarLetra()` é assíncrona e
-  uma caixa vazia mediria zero. Quem rola até a linha que casou com a busca é o
-  chamador, depois de abrir — `scrollIntoView` numa caixa `display:none` é no-op.
+- **A gaveta é montada antes de a linha abrir.** Uma caixa vazia mediria zero.
+  Quem rola até a linha que casou com a busca é o chamador, depois de abrir —
+  `scrollIntoView` numa caixa `display:none` é no-op.
 - **`prefers-reduced-motion: reduce` desliga tudo** (`semMovimento()`).
 
 > **Vocabulário: na TELA ela se chama "Biblioteca"** (v5.96). No código e neste
@@ -4159,10 +4159,13 @@ empurrariam a lista e tirariam do lugar o que o operador estava mirando.
  │  Tocar agora           │
  │  [Cantada|Playback|Letra] │  as OPÇÕES
  │  Adicionar à playlist  │
- │  … + Confirmar         │
+ │  … + [Ver a letra]     │  → ABRE O LEITOR (numa MÚSICA)
+ └────────────────────────┘
+
+ num VÍDEO, a metade de baixo continua:
  ├────────────────────────┤
- │  1ª ESTROFE            │  a LETRA (ou o detalhe do vídeo)
- │  Ó adorai o Senhor…    │
+ │  [miniatura] 20:00     │  o detalhe do episódio
+ │  Toca sem baixar       │
  └────────────────────────┘
 ```
 
@@ -4171,10 +4174,21 @@ Um alvo só, e a lista inteira do outro lado. Com dois botões na linha (um ▶ 
 exigia primeiro decidir **qual dos dois era o dono da pergunta** — e essa é uma
 pergunta sobre a UI, não sobre o culto.
 
-- **A gaveta tem DUAS metades, e a letra FICA:** as opções em cima, a letra (ou o
-  detalhe do vídeo) logo abaixo, na mesma abertura. A ordem não é arbitrária —
-  quem abre a gaveta acabou de tocar para DECIDIR, e a decisão tem de estar sob o
-  dedo; a letra é a conferência, e ela pode rolar. Quem some fechado é o
+- **NUMA MÚSICA A GAVETA É SÓ AS OPÇÕES** (v1.2.25), e "Ver a letra" abre o
+  **leitor** — a mesma folha do transporte, apontada para aquela faixa
+  (`lvItemDaBiblioteca`, ver "A folha não é mais de quem está no ar"). A caixa de
+  texto que ficava aqui embaixo era uma SEGUNDA leitura, pior que a que o app já
+  tem: sem cifra, sem tom, sem corpo de fonte e sem rolagem — e o caminho para a
+  boa era PROJETAR a música, que é justamente o que o operador pediu para não
+  precisar fazer. Reusar, nunca reconstruir: uma segunda folha divergiria da
+  primeira no primeiro ajuste. Sem fonte forçada — a folha abre na LETRA, com a
+  Cifra ao lado; quem veio da gaveta veio de uma lista de músicas, não dos
+  acordes.
+- **NUM VÍDEO A METADE DE BAIXO FICA:** ali ela é a miniatura, a duração e o
+  estado no aparelho — o que responde *"é este mesmo?"* num item sem letra —, e o
+  mesmo botão continua sendo o interruptor dela ("Ver / Ocultar os detalhes",
+  duas frases empilhadas numa grade 1×1 para a largura não mudar sob o dedo).
+  Quem decide é `temLetra(coll)`, nunca `ehSerie`. Quem some fechado é o
   ENVELOPE (`.hymn-gaveta`), nunca cada metade: a animação do acordeão mede
   `offsetHeight` de UM elemento, e com duas caixas irmãs aparecendo por conta
   própria a medida seria de meia gaveta.

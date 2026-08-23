@@ -24,6 +24,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
+- **v1.2.25** — O "VER A LETRA" DA BIBLIOTECA ABRE O LEITOR. Pedido do operador: *"gostaria que esse botão nos itens da biblioteca, 'ver a letra', abrisse o mesmo modelo pup gaveta do auxiliar de leitura que já trabalha com letras e cifras… não quero mais apenas essa letra em uma caixa de texto abaixo das opções de play"*. A caixa era uma SEGUNDA leitura, pior que a que o app já tem: sem cifra, sem tom, sem corpo de fonte e sem rolagem. O mesmo botão passa a apontar o leitor do transporte para aquela faixa (`lvItemDaBiblioteca`), e nada vai ao telão. Com a caixa saem `montarLetra`, `botaoFolha`, `letraAlvo` e o CSS de `.hymn-lyrics*`. Três oráculos mudaram porque o COMPORTAMENTO mudou, e dois deles ganharam medição melhor: a guarda `abrindo` do `gaveta-no-download` passou a ser medida de DENTRO da montagem (uma propriedade, não uma janela de tempo — a janela sumiu na música e continua no vídeo), e a largura de dois estados do botão mudou de casa para o `boot-nativo`, que é o único harness que enxerga uma série. OTA PURO
 - **v1.2.24** — O ÍCONE DO HISTÓRICO DEIXOU DE SER O RELÓGIO DO CRONOGRAMA. Pedido do operador: *"ajuste o ícone do botão de histórico do player, para que ele seja sobre histórico, mas diferente do cronograma"*. Os dois eram o MESMO mostrador redondo — a aba é `circle r=9` + ponteiros, e o botão era o mesmo mostrador, os mesmos ponteiros e uma seta anti-horária pequena. A 20px o que se lê é a SILHUETA, não o detalhe, e engrossar a seta seria um meio-conserto: dois desenhos redondos a poucos centímetros um do outro continuam gêmeos. Agora é o TRILHO COM OS NÓS — a linha do tempo do que já foi ao telão, que é literalmente o que a lista daquele botão contém. Descartados e por quê: a seta circular sozinha vira o "sincronizar" do card de álbum, a seta com o ▶ dentro vira "tocar de novo", e a lista com marcadores não diz tempo nenhum — o que a separa do `icoTexto`, dois botões abaixo na MESMA coluna, é não ter moldura e ter os nós. Conferido RENDERIZADO a 20px contra os dois vizinhos. OTA PURO
 - **v1.2.23** — A BATERIA DE TESTES DE CIFRA SAIU. Ela nasceu para responder "para quais álbuns a cadeia de endereços não chega?" quando o arquivo de cifras valia só para os dois hinários e não havia como medir o resto. A varredura do acervo INTEIRO passou a responder isso sozinha e melhor: o Registro mostra, por coleção, quantas foram achadas, quantas o site tem sem cifra e quantas não têm página — com exemplos NOMEADOS e o endereço tentado, sobre o acervo todo em vez de duas amostras por álbum. Um segundo caminho que responde a mesma pergunta com menos dados é um caminho a menos. O oráculo dela guardava os casos do LEITOR DA BIBLIOTECA, que cobrem recurso vivo: eles ganharam arquivo próprio (`tools/leitor-biblioteca.test.mjs`). OTA PURO
 - **v1.2.22** — O APP PROCURA O EPISÓDIO DESTE SÁBADO, EM VEZ DE ESPERAR O TTL. Pedido do operador: *"faça o provai e vede e o informativo das missões serem atualizados, em especial buscando apenas o vídeo dessa semana, busca de se atualizar diretamente quando o app é aberto… não para baixar o vídeo nem nada, apenas verificar a listagem"*. O TTL de 12 h responde *"a lista envelheceu?"*; a pergunta de quem abre o app é outra — *"já saiu o vídeo deste sábado?"* —, e um índice de onze horas atrás é FRESCO para o primeiro e pode ser de antes da publicação. O **Provai e Vede** era o caso puro: sem a regra do dia (que só vale para quem esconde o futuro), só o TTL o reconferia. Agora, enquanto faltar o episódio da semana, o índice está vencido — e **a procura se desarma sozinha** assim que ele entra, que é o que separa "procurar o que falta" de "revarrer sempre". Quem responde é `AVSerie.ehDoSabadoAtual`, a MESMA função do destaque (duas contas de calendário divergiriam — o defeito da v1.2.19). Três guardas a mantêm invisível: piso de 30 min (o `visibilitychange` chama o mesmo caminho dezenas de vezes por culto), a primeira passada da SESSÃO ignorando o piso (o pedido ao pé da letra) e só o ANO CORRENTE. Nada baixa vídeo: roda `fetchSerieIndex`, que só refaz a lista. OTA PURO
@@ -252,6 +253,69 @@ na nota que a revoga, não apagada da que a criou.
 - **v5.156** — é METADE OTA e METADE APK, de novo.
 
 ---
+
+## v1.2.25 — o "Ver a letra" da Biblioteca abre o LEITOR
+
+Pedido do operador: *"eu já havia solicitado, mas gostaria que esse botão nos
+itens da biblioteca, 'ver a letra', abrisse o mesmo modelo pup gaveta do
+auxiliar de leitura que já trabalha com letras e cifras… não quero mais apenas
+essa letra em uma caixa de texto abaixo das opções de play. apenas abra o popup
+do leitor da letra, como já é feito nos controles"*.
+
+### O que estava errado
+
+A gaveta de uma música tinha DUAS metades: as opções em cima, e a letra numa
+caixa de texto embaixo, revelada pelo botão "Ver a letra". Essa caixa é do
+tempo em que ler uma música era conferir *"é esta mesma?"* — e desde a v1.2.14
+o app tem um leitor de verdade (letra, **cifra**, tom, corpo da fonte, rolagem
+que acompanha a música, e o alvo desviado sem projetar nada).
+
+Ficaram os dois ao mesmo tempo, e a caixa era a pior das duas: quem tocasse em
+"Ver a letra" a partir da Biblioteca recebia a leitura pobre, e o caminho para
+a boa era **projetar** a música e abrir a folha pelo transporte — exatamente o
+que o operador tinha pedido para não precisar fazer.
+
+### O que ficou
+
+O mesmo botão, o mesmo rótulo, outro destino: `openLyricsPopup(await
+lvItemDaBiblioteca(coll, s))`. **Reusar, nunca reconstruir** — é a regra do
+`cifraCabe` e do `cifraProcurar`: uma segunda folha divergiria da primeira no
+primeiro ajuste, e quem tocasse por ela veria a versão de ontem.
+
+Sem fonte forçada: a folha abre na LETRA, com a Cifra ao lado. Quem abre pela
+gaveta veio de uma lista de músicas, não dos acordes — a fonte explícita
+(`'cifra'`) fica para quem a pediu por outro caminho.
+
+O VÍDEO não muda: ali a metade de baixo é a miniatura, a duração e o estado no
+aparelho, e o botão continua sendo o interruptor dela. O que decide é
+`temLetra(coll)`, nunca `ehSerie` — a regra de sempre.
+
+Saíram junto: `montarLetra`, `botaoFolha`, `letraAlvo` e as regras
+`.hymn-lyrics*` / `.hymn-stanza*` do CSS. **Apagar código é apagar o que o
+descreve, no mesmo lote.**
+
+### Os três oráculos, e por que dois deles ficaram MELHORES
+
+O comportamento mudou de propósito, então três medições passaram a falar de um
+app que não existe mais. Nenhuma foi afrouxada:
+
+- **`boot-nativo`** — o caso da gaveta de música afirma agora a AUSÊNCIA da
+  caixa e a permanência do rótulo. E recebeu a medição de LARGURA que era do
+  `smoke`: o botão de duas frases ("Ver os detalhes" / "Ocultar os detalhes",
+  empilhadas numa grade 1×1) só existe no VÍDEO, e o `smoke` roda **sem ponte**,
+  onde uma série nem chega a aparecer na Biblioteca. Provado por reversão
+  (`visibility: hidden` → `display: none` reprova: 151px → 184px).
+- **`gaveta-no-download`** — o caso 2 media a marca `abrindo` por uma JANELA DE
+  TEMPO ("no turno do clique a linha ainda não está `expanded`"). Numa música
+  essa janela **deixou de existir**, porque nada mais é aguardado. Medir tempo
+  passaria a aprovar a remoção da marca; hoje a pergunta é feita de DENTRO da
+  montagem, por um espião sobre `renderSongMenu`: *"quando a gaveta começou a
+  ser montada, o guarda já enxergava esta linha?"*. Só a marca pode responder
+  que sim ali — é uma PROPRIEDADE, e vale igual num montador que espere o
+  IndexedDB (o vídeo) e num que não espere. Provado por reversão.
+- **`smoke`** — media `.hymn-lyrics`, que não existe mais (e por isso o
+  `getComputedStyle` lançava). Passou a afirmar as duas pontas do que mudou: a
+  caixa AUSENTE **e** o popup do leitor ABERTO depois do toque.
 
 ## v1.2.24 — o histórico deixou de ser o relógio do cronograma
 

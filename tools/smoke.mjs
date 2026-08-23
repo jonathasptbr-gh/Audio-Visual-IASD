@@ -1947,27 +1947,44 @@ try {
         return out;
       })(),
       // 6 · A LETRA está atrás de um botão, LADO A LADO com o confirmar.
-      letra: getComputedStyle(li.querySelector('.hymn-lyrics')).display,
       ladoALado: (() => {
         const go = op.querySelector('.song-menu-go');
         const ver = op.querySelector('.song-menu-letra');
         if (!go || !ver) return null;
         return Math.abs(go.getBoundingClientRect().top - ver.getBoundingClientRect().top) <= 2;
       })(),
-      // ===== A LARGURA DO BOTÃO NÃO MUDA COM O ESTADO (v5.287) =====
-      // Pedido do operador. "Ocultar" é mais longo que "Ver", então o botão
-      // crescia ao ser tocado e o CONFIRMAR ao lado encolhia junto. Medido nos
-      // dois estados, com o MESMO nó — recriá-lo mediria outra coisa.
-      larguras: (() => {
+      // ===== E NUMA MÚSICA ELE ABRE O LEITOR (v1.2.25) =====
+      //
+      // A metade de baixo da gaveta era uma SEGUNDA leitura da letra, pior que
+      // a que o app já tem: sem cifra, sem tom, sem corpo e sem rolagem. Hoje o
+      // mesmo botão aponta o leitor do transporte para esta faixa — e a caixa
+      // de texto não existe mais, o que esta medição afirma nas duas pontas
+      // (o `.hymn-lyrics` ausente E o popup aberto).
+      caixaDeLetra: !!li.querySelector('.hymn-lyrics'),
+      leitor: await (async () => {
         const ver = op.querySelector('.song-menu-letra');
         if (!ver) return null;
-        const antes = Math.round(ver.getBoundingClientRect().width);
-        ver.click();
-        const depois = Math.round(
-          op.querySelector('.song-menu-letra').getBoundingClientRect().width);
-        return { antes, depois };
+        const rotulo = ver.textContent.trim();
+        const largura = Math.round(ver.getBoundingClientRect().width);
+        ver.click();   // o ouvinte é `async`: monta o alvo antes de abrir
+        for (let i = 0; i < 120 && !lyricsPopupEl.classList.contains('open'); i++) {
+          await new Promise((r2) => setTimeout(r2, 25));
+        }
+        const r2 = {
+          rotulo,
+          largura,
+          aberto: lyricsPopupEl.classList.contains('open'),
+          titulo: (document.getElementById('lyricsPopupTitle') || {}).textContent || '',
+          // A LARGURA NÃO MUDA (v5.287): aqui ela não pode mudar por
+          // construção — há uma frase só —, e é isso que a asserção diz.
+          larguraDepois: Math.round(
+            op.querySelector('.song-menu-letra').getBoundingClientRect().width),
+        };
+        // FECHADO antes de sair: a pressão de verdade lá fora mira a gaveta, e
+        // um backdrop aberto por cima dela mediria o toque em outra coisa.
+        closeLyricsPopup();
+        return r2;
       })(),
-      letraDepois: getComputedStyle(li.querySelector('.hymn-lyrics')).display,
     };
     // Deixa a lista NO DOCUMENTO para a pressão de verdade lá fora; quem a
     // remove é o segundo `evaluate`.
@@ -2080,13 +2097,18 @@ try {
       '[' + tema + '] e do CARD do álbum, que é a cor que aparece nos vãos entre '
       + 'as linhas (' + par(t.gaveta, t.card).toFixed(2) + ':1)');
   }
-  checar(g.letra === 'none' && g.ladoALado === true && g.letraDepois === 'block',
-    'e a LETRA fica atrás de um botão lado a lado com o confirmar, que a revela',
-    JSON.stringify({ antes: g.letra, ladoALado: g.ladoALado, depois: g.letraDepois }));
-  checar(!!g.larguras && g.larguras.antes === g.larguras.depois && g.larguras.antes > 0,
-    'e ele tem a MESMA LARGURA nos dois estados: "Ocultar" é mais longo que '
-    + '"Ver", e o botão crescia debaixo do dedo levando o confirmar junto ('
-    + JSON.stringify(g.larguras) + ')');
+  checar(g.ladoALado === true && g.caixaDeLetra === false,
+    'e a LETRA fica atrás de um botão lado a lado com o confirmar — que numa '
+    + 'MÚSICA não revela mais caixa de texto nenhuma aqui dentro',
+    JSON.stringify({ ladoALado: g.ladoALado, caixaDeLetra: g.caixaDeLetra }));
+  checar(!!g.leitor && g.leitor.aberto && /Ver a letra/.test(g.leitor.rotulo),
+    'o toque nele abre o LEITOR — a mesma folha do transporte (letra, cifra, '
+    + 'tom, corpo e rolagem), apontada para esta faixa e sem levar nada ao telão',
+    JSON.stringify(g.leitor));
+  checar(!!g.leitor && g.leitor.largura > 0 && g.leitor.largura === g.leitor.larguraDepois,
+    'e ele não muda de largura ao ser tocado: o confirmar ao lado não encolhe '
+    + 'debaixo do dedo (o pedido da v5.287 — a versão de duas frases sobrevive '
+    + 'no vídeo, medida no `boot-nativo`)', JSON.stringify(g.leitor));
 } catch (e) {
   checar(false, 'a medição da gaveta de opções terminou sem exceção ('
     + (e && e.message) + ')');

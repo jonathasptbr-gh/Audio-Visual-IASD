@@ -244,7 +244,7 @@ const appVersionEl = document.getElementById('appVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.2.24';
+const WEB_VERSION = '1.2.25';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -15610,20 +15610,25 @@ function hymnResultRow(coll, s, lyricHit, semColecao) {
   // Só é montada quando a linha ABRE (e uma vez só): montá-la para todos os
   // resultados encheria a lista de centenas de nós que ninguém pediu — e a
   // lista é reconstruída a cada tecla.
-  // A GAVETA TEM DUAS METADES (v5.285): as OPÇÕES em cima e o conteúdo de
-  // reconhecimento embaixo — a letra numa música, a miniatura e o estado num
-  // vídeo. A ordem não é arbitrária: quem abre a gaveta acabou de tocar na
-  // linha para DECIDIR alguma coisa, e a decisão tem de estar sob o dedo; a
-  // letra é a conferência, e ela pode rolar.
+  // A GAVETA DE UMA MÚSICA É SÓ AS OPÇÕES (v1.2.25). Ela teve duas metades —
+  // opções em cima, letra embaixo — e a de baixo saiu: a letra numa CAIXA DE
+  // TEXTO dentro da gaveta era uma segunda leitura, pior que a que o app já
+  // tem. Quem quer ler abre o LEITOR (`openLyricsPopup`), com cifra, tom,
+  // corpo de letra e rolagem; e quem só quer conferir "é este mesmo?" já tem o
+  // trecho casado na própria linha do resultado (`hymn-lyric-hit`).
+  //
+  // Num VÍDEO a metade de baixo FICA: ali ela não é letra, é a miniatura, a
+  // duração e o estado no aparelho — a única forma de reconhecer um episódio
+  // de que se sabe só a data, e nada disso cabe num leitor de letra.
   const gaveta = document.createElement('div');
   gaveta.className = 'hymn-gaveta';
   const opcoes = document.createElement('ul');
   opcoes.className = 'song-menu-list hymn-opcoes';
   const conteudo = document.createElement('div');
-  conteudo.className = temLetra(coll) ? 'hymn-lyrics' : 'item-detalhe';
-  gaveta.append(opcoes, conteudo);
+  conteudo.className = 'item-detalhe';
+  gaveta.append(opcoes);
+  if (!temLetra(coll)) gaveta.appendChild(conteudo);
   let gavetaMontada = false;
-  let letraAlvo = null;   // a linha que casou com a busca, para rolar até ela
 
   // A gaveta de um VÍDEO. Sem prometer nada que dependa de rede: a miniatura é
   // ilustração (sai de cena sozinha se não carregar) e as duas linhas de texto
@@ -15653,9 +15658,25 @@ function hymnResultRow(coll, s, lyricHit, semColecao) {
       const b = document.createElement('button');
       b.type = 'button';
       b.className = 'song-menu-btn song-menu-letra';
-      // O rótulo nomeia o que o TOQUE faz, e o substantivo muda com o tipo: numa
-      // música é a letra, num vídeo é o que a gaveta tem a dizer sobre ele.
-      const nome = temLetra(coll) ? 'a letra' : 'os detalhes';
+      // NUMA MÚSICA O BOTÃO ABRE O LEITOR (v1.2.25), e não uma caixa de texto
+      // aqui embaixo: é a MESMA folha do transporte — letra, cifra, tom, corpo
+      // e rolagem —, apontada para esta faixa e SEM levar nada ao telão.
+      // Reusar, nunca reconstruir: uma segunda leitura divergiria da primeira
+      // no primeiro ajuste, e quem lesse por ela veria a versão de ontem.
+      if (temLetra(coll)) {
+        const cx = document.createElement('span');
+        cx.className = 'song-menu-label';
+        cx.textContent = 'Ver a letra';
+        b.appendChild(cx);
+        b.addEventListener('click', async (e) => {
+          e.stopPropagation();
+          openLyricsPopup(await lvItemDaBiblioteca(coll, s));
+        });
+        return b;
+      }
+      // Num VÍDEO ele continua sendo o interruptor da metade de baixo da
+      // gaveta, que ali é a miniatura e o estado no aparelho.
+      const nome = 'os detalhes';
       // ===== A LARGURA NÃO MUDA COM O ESTADO (v5.287) =====
       //
       // Pedido do operador: *"fixe a largura do botão de ver/ocultar letra, para
@@ -15740,90 +15761,6 @@ function hymnResultRow(coll, s, lyricHit, semColecao) {
     } catch (_) { /* fica o texto de sempre: o padrão é o caso comum */ }
   }
 
-  /**
-   * O BOTÃO QUE ABRE A FOLHA — a mesma do Controle, sem levar nada ao telão.
-   *
-   * A gaveta da Biblioteca mostra a letra para responder *"é este mesmo?"*.
-   * Quem TOCA precisa de outra coisa: acordes, tom, corpo de letra e rolagem —
-   * e até aqui a única forma de chegar nelas era PROJETAR a música. Este botão
-   * abre o leitor de verdade (`openLyricsPopup`) apontado para esta faixa: a
-   * mesma folha, os mesmos controles, e o telão sem saber que ela existe.
-   *
-   * **Reusar o leitor em vez de reconstruí-lo aqui** é a mesma regra do
-   * `cifraCabe` e do `cifraProcurar`: uma segunda folha divergiria da primeira
-   * no primeiro ajuste, e quem tocasse por esta veria uma versão de ontem.
-   *
-   * Ele existe mesmo SEM letra guardada — é justamente aí que a cifra é a
-   * única coisa que a gaveta tem a oferecer.
-   */
-  function botaoFolha() {
-    if (!temLetra(coll)) return null;
-    const b = document.createElement('button');
-    b.type = 'button';
-    b.className = 'hymn-lyrics-folha';
-    b.textContent = 'Abrir a folha (cifra, tom e rolagem)';
-    b.addEventListener('click', async (e) => {
-      e.stopPropagation();
-      const item = await lvItemDaBiblioteca(coll, s);
-      // NA CIFRA, porque é o que se veio buscar. Sem ponte ela não existe e a
-      // folha abre na letra sozinha — `lvActiveSource` só honra a preferência
-      // enquanto a fonte estiver disponível.
-      openLyricsPopup(item, 'cifra');
-    });
-    return b;
-  }
-
-  async function montarLetra() {
-    const estrofes = await songLyricStanzas(coll, s);
-    conteudo.innerHTML = '';
-    const folha = botaoFolha();
-    if (folha) conteudo.appendChild(folha);
-    if (!estrofes) {
-      const vazio = document.createElement('div');
-      vazio.className = 'hymn-lyrics-empty';
-      // Desde a v5.38 a letra cobre TODO o acervo, então a ausência passou a
-      // significar sempre a mesma coisa: a fila do arranque ainda não chegou
-      // nesta música (ou falhou). Duas mensagens diferentes sugeririam duas
-      // causas diferentes onde só há uma.
-      vazio.textContent = 'Letra ainda não baixada.';
-      conteudo.appendChild(vazio);
-      return;
-    }
-    const q = normalizeForSearch(hymnSearchInputEl.value).trim();
-    let alvo = null;
-    // Uma ESTROFE por bloco, com o rótulo ("Refrão") acima quando o banco o
-    // traz. É a divisão que o operador enxerga no hinário e a que ele vai
-    // projetar — trinta linhas seguidas eram um paredão em que não se acha
-    // nada de relance.
-    estrofes.forEach((est) => {
-      const bloco = document.createElement('div');
-      bloco.className = 'hymn-stanza';
-      if (est.a) {
-        const rot = document.createElement('div');
-        rot.className = 'hymn-stanza-label';
-        rot.textContent = est.a;
-        bloco.appendChild(rot);
-      }
-      est.l.forEach((ln) => {
-        const d = document.createElement('div');
-        d.className = 'hymn-lyrics-line';
-        d.textContent = ln;
-        // A linha que casou com a busca fica marcada: o operador digitou um
-        // trecho justamente para achá-lo, e numa letra de 30 linhas procurá-lo
-        // de novo com os olhos é trabalho que o app pode poupar.
-        if (q.length >= LYRIC_MIN_Q && normalizeForSearch(ln).includes(q)) {
-          d.classList.add('hit');
-          if (!alvo) alvo = d;
-        }
-        bloco.appendChild(d);
-      });
-      conteudo.appendChild(bloco);
-    });
-    // Rolar até ela só faz sentido com a caixa JÁ visível — e agora a letra é
-    // montada antes de a linha abrir (a animação precisa medir a altura). Quem
-    // rola é o chamador, depois de abrir.
-    letraAlvo = alvo;
-  }
 
   row.addEventListener('click', async () => {
     // No simplificado a linha TOCA — não abre gaveta nenhuma.
@@ -15857,11 +15794,10 @@ function hymnResultRow(coll, s, lyricHit, semColecao) {
       if (!gavetaMontada) {
         gavetaMontada = true;
         montarOpcoes();
-        await (temLetra(coll) ? montarLetra() : montarDetalhe());
+        if (!temLetra(coll)) await montarDetalhe();
       }
       li.classList.add('expanded');
       expandAccordion(gaveta);
-      if (letraAlvo) letraAlvo.scrollIntoView({ block: 'center' });
     } finally {
       // No `finally` porque um montador que lance não pode deixar a marca
       // presa: ela seguraria o redesenho do acervo até a linha sair da tela.

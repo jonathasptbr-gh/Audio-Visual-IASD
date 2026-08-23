@@ -4284,7 +4284,7 @@ main {
    `.song-menu-go` fica de fora: ele é o único botão primário da faixa e o
    preenchimento em accent é o que o torna a resposta. */
 .hymn-opcoes .song-menu-btn:not(.song-menu-go) { background: var(--gaveta-btn); }
-.hymn-gaveta :is(.hymn-lyrics, .item-detalhe) {
+.hymn-gaveta .item-detalhe {
   background: var(--gaveta-btn);
   margin: 0 .5rem .5rem;
 }
@@ -4361,59 +4361,12 @@ main {
 /* A METADE DE BAIXO da gaveta só aparece com `vendo-letra` (v5.286) — ver o
    botão irmão do confirmar em `montarOpcoes`. Ela é a mais alta das duas, e
    aberta por padrão empurrava as opções para longe do dedo em toda abertura,
-   quando o que se abre a gaveta para fazer é decidir. */
-.lib-item:not(.vendo-letra) > .hymn-gaveta > :is(.hymn-lyrics, .item-detalhe) { display: none; }
-.hymn-lyrics {
-  display: block; max-height: 40vh; overflow-y: auto;
-  margin: 0 .55rem .55rem; padding: .5rem .6rem;
-  border-radius: var(--radius-btn);
-  background: var(--bg);
-}
-/* Uma ESTROFE por bloco. O espaço entre blocos é o que a divide — mais
-   confiável que uma linha em branco, que some quando a estrofe já termina
-   perto do fim do bloco de rolagem. */
-.hymn-stanza + .hymn-stanza { margin-top: .7rem; }
-/* Rótulo da seção ("Refrão", "1ª Estrofe"): vem do `aux_lyric` do banco. Em
-   dourado e caixa alta pequena — é metadado, não letra a cantar, e precisa se
-   distinguir dela à primeira vista sem roubar o olho. */
-.hymn-stanza-label {
-  font-size: .68rem; font-weight: 800; letter-spacing: .06em;
-  text-transform: uppercase; color: var(--brand);
-  margin-bottom: .15rem;
-}
-.hymn-lyrics-line {
-  font-size: .88rem; line-height: 1.5; color: var(--text);
-  white-space: pre-line;
-}
-/* Linha que casou com a busca: o operador digitou o trecho para achá-lo, e
-   numa letra de 30 linhas procurá-lo de novo com os olhos é trabalho que o app
-   pode poupar. Fundo (e não só cor) porque a marca precisa ser achada de
-   relance, com a lista rolando. */
-.hymn-lyrics-line.hit {
-  background: var(--brand-soft); color: var(--brand-text);
-  font-weight: 700; border-radius: var(--radius-xs);
-  margin: .1rem -.25rem; padding: .1rem .25rem;
-}
-.hymn-lyrics-empty { font-size: .84rem; color: var(--muted); font-style: italic; }
+   quando o que se abre a gaveta para fazer é decidir.
 
-/* O BOTÃO QUE ABRE A FOLHA (v1.2.14). Ele mora DENTRO da caixa da letra, no
-   topo, porque é ali que a pergunta nasce: o músico está lendo a letra e quer
-   os acordes. Largura inteira e PREENCHIMENTO SUAVE, que na gramática do app é
-   a consulta — abrir uma folha não muda nada no telão.
-
-   `position: sticky` no topo da caixa que rola: a letra pode ter trinta linhas,
-   e um botão que sai de cena ao rolar é um botão que não existe no momento em
-   que se decide usá-lo — a mesma regra que tirou os controles da cifra de
-   dentro da caixa rolável. */
-.hymn-lyrics-folha {
-  position: sticky; top: -.5rem; z-index: 1;
-  display: block; width: calc(100% + 1.2rem);
-  margin: -.5rem -.6rem .5rem; padding: .5rem .6rem;
-  background: var(--accent-soft); color: var(--accent);
-  font-size: .82rem; font-weight: 600; text-align: center;
-  cursor: pointer;
-}
-.hymn-lyrics-folha:active { filter: brightness(1.15); }
+   Hoje ela só existe num VÍDEO: numa música a metade de baixo era a letra numa
+   caixa de texto, e ela saiu na v1.2.25 — quem quer ler abre o LEITOR, com
+   cifra, tom, corpo e rolagem. */
+.lib-item:not(.vendo-letra) > .hymn-gaveta > .item-detalhe { display: none; }
 
 /* ---------- A gaveta de um VÍDEO (v5.236) ---------- */
 /* A mesma caixa da letra, com o mesmo recuo e a mesma moldura: as duas
