@@ -24,6 +24,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
+- **v1.2.22** — O APP PROCURA O EPISÓDIO DESTE SÁBADO, EM VEZ DE ESPERAR O TTL. Pedido do operador: *"faça o provai e vede e o informativo das missões serem atualizados, em especial buscando apenas o vídeo dessa semana, busca de se atualizar diretamente quando o app é aberto… não para baixar o vídeo nem nada, apenas verificar a listagem"*. O TTL de 12 h responde *"a lista envelheceu?"*; a pergunta de quem abre o app é outra — *"já saiu o vídeo deste sábado?"* —, e um índice de onze horas atrás é FRESCO para o primeiro e pode ser de antes da publicação. O **Provai e Vede** era o caso puro: sem a regra do dia (que só vale para quem esconde o futuro), só o TTL o reconferia. Agora, enquanto faltar o episódio da semana, o índice está vencido — e **a procura se desarma sozinha** assim que ele entra, que é o que separa "procurar o que falta" de "revarrer sempre". Quem responde é `AVSerie.ehDoSabadoAtual`, a MESMA função do destaque (duas contas de calendário divergiriam — o defeito da v1.2.19). Três guardas a mantêm invisível: piso de 30 min (o `visibilitychange` chama o mesmo caminho dezenas de vezes por culto), a primeira passada da SESSÃO ignorando o piso (o pedido ao pé da letra) e só o ANO CORRENTE. Nada baixa vídeo: roda `fetchSerieIndex`, que só refaz a lista. OTA PURO
 - **v1.2.21** — O VEREDITO ESTAVA CERTO; O TETO É QUE NÃO SABIA. O operador abriu as duas páginas que a radiografia nomeou e conferiu: `teu-divinal-amor` tem só a letra no site mesmo, e a de "partituras para teclado" não tem cifra nenhuma. Ou seja, `so-letra` acertava — e as ~309 recusadas pelo teto eram respostas boas jogadas fora, com a varredura recomeçando do zero a cada abertura. O teto SAI: ele é estruturalmente errado, porque a passada só cobre o que FALTA e a proporção de ausências tende a 100% num acervo saudável. Quem protege continua sendo o marcador POSITIVO da página e o prazo de 30 dias. Junto, o veredito virou `sem-cifra` e passou a cobrir também a PARTITURA — que era `ilegivel` e por isso reperguntada toda sessão. OTA PURO
 - **v1.2.20** — SEM TV, O BOTÃO DE MICROFONE DEIXOU DE SER DESENHADO. Terceiro degrau da mesma pergunta: até a v1.1.20 ele acendia "No ar" com o `micPressed` local e nada captava; ela o fez RECUSAR o toque e DIZER por quê; agora ele não é oferecido. **Explicar é melhor que mentir, mas não é melhor que não oferecer** — um controle que só sabe dizer que não funciona é um controle a mais para o operador aprender, e a frase chegava no pior momento possível, com o dedo no botão e o culto correndo. O "Projetar no telão" passa a ocupar a linha inteira, e isso vem da AUSÊNCIA do irmão (`.misc-foot` é flex, os filhos são `flex: 1`), não de uma regra de CSS para o caso. A METADE QUE FALHARIA CALADA é a outra: `renderDisplayStatus` chama `refreshDiversos()` na TRANSIÇÃO de presença — sem ela a TV conecta no meio do culto e o microfone continua ausente, sem nada na tela explicando. A guarda `sem-telao` FICA, e virou uma corrida (a TV pode cair entre o desenho e o toque). OTA PURO
 - **v1.2.19** — DUAS REGRAS QUE DISCORDAVAM DE SI MESMAS, e as duas erravam CALADAS. (1) O AUXILIAR DE LEITURA DIZIA QUE NENHUMA MÚSICA TEM LETRA: a v1.2.14 deu parâmetros ao `openLyricsPopup(item, fonte)` e o ouvinte do botão do transporte continuou registrado POR REFERÊNCIA — `addEventListener` chama com o EVENTO, e o `PointerEvent` virou o `lvAlvo`, o desvio que aquele mesmo lote criou. `lvItem().lyrics` era `undefined`, `cifraCabe` recusava e `lvNaCena()` virava falso: as TRÊS fontes sumiam de uma vez e a folha abria com "Nada em exibição com letra ou texto bíblico". Os três oráculos que já abriam essa folha chamam a função DIRETO — o único caminho que continuava funcionando —, e o novo CLICA. (2) O INFORMATIVO ESCONDIA O EPISÓDIO DO SÁBADO DESTA SEMANA em três dos sete dias dela: `sabadoDaSemana` abre a semana no DOMINGO (é a semana adventista) e `DIAS_DE_ANTECEDENCIA` só abria a janela na QUARTA. O destaque do topo declarava "o desta semana" um episódio que a lista logo abaixo tinha escondido, e dizia "Aguardando lançamento" sobre um vídeo já liberado pelo canal — relatado num DOMINGO, com o vídeo conferido na fonte. `aindaNaoSaiu` passa a DELEGAR em `ehDoSabadoAtual`: os três dias viram PISO das semanas seguintes, que continuam escondidas. OTA PURO
@@ -247,6 +248,63 @@ na nota que a revoga, não apagada da que a criou.
 - **v5.154** — é METADE OTA e METADE APK, e a divisão importa para quem for testar em aparelho.
 - **v5.155** — é OTA PURO
 - **v5.156** — é METADE OTA e METADE APK, de novo.
+
+---
+
+## v1.2.22 — o app procura o episódio deste sábado
+
+Pedido do operador: *"faça o provai e vede e o informativo das missões serem
+atualizados, em especial buscando apenas o vídeo dessa semana, busca de se
+atualizar diretamente quando o app é aberto. Não para baixar o vídeo nem nada,
+apenas verificar a listagem em busca do vídeo atual."*
+
+### Duas perguntas que pareciam uma
+
+`indiceVencido` tinha o TTL de 12 h, que responde **"a lista envelheceu?"**. A
+pergunta de quem abre o app num sábado de manhã é outra: **"já saiu o vídeo
+deste sábado?"** — e um índice de onze horas atrás é FRESCO para a primeira e
+pode ser de antes de o canal publicar.
+
+O **Provai e Vede** era o caso puro: a regra do dia (v5.255) só vale para as
+séries com `futuros: 'esconder'`, isto é, só para o Informativo. Sobrava o TTL,
+e com ele um vídeo publicado na manhã de sábado podia não estar na lista do
+culto daquele mesmo sábado.
+
+### A regra, e por que ela não é "revarrer sempre"
+
+Enquanto faltar o episódio do sábado desta semana, o índice está vencido. **Ela
+se desarma sozinha:** achado o episódio, a série volta a custar zero requisição.
+É essa assimetria que a torna barata — a procura existe exatamente enquanto há o
+que achar, que é o que o pedido descreve.
+
+Quem responde é `AVSerie.ehDoSabadoAtual`, a **mesma** função que decide o bloco
+de destaque no topo da lista. Uma segunda conta de calendário escrita aqui
+divergiria dela, e o desfecho seria o app procurando para sempre um episódio que
+a tela já mostra — que é, com outro sinal, o defeito da v1.2.19.
+
+### As três guardas, e o que cada uma impede
+
+| guarda | o que ela impede |
+|---|---|
+| piso de 30 min (`SERIE_PROCURA_MIN_MS`) | `autoRefreshCollections` roda também no `visibilitychange`, e o operador troca de app dezenas de vezes por culto: sem o piso, uma extração da aba do canal a cada volta — a rajada na Wi-Fi da igreja que o KDoc daquela função recusa |
+| `serieProcuraDaAbertura` | a primeira passada da SESSÃO ignora o piso, que é o pedido ao pé da letra. Cobre o caso concreto: o Android mata o app, o operador reabre quinze minutos depois da última varredura, e o episódio saiu no meio deles. Desarmada no `autoRefreshCollections` e **não** no `indiceVencido` — aquele é um predicado dentro de um `filter`, e o efeito colateral a apagaria na primeira coleção da lista |
+| `c.serie.ano === ano corrente` | o `ano` do catálogo é explícito: em 2027 nenhum episódio do álbum de 2026 pode ser "o desta semana", e sem a guarda um álbum antigo na Biblioteca seria procurado de meia em meia hora, para sempre, sem nada a achar |
+
+### O preço, dito
+
+Um episódio publicado **sem data no título** nunca satisfaz a pergunta, e a
+série segue sendo procurada de meia em meia hora enquanto o app estiver aberto.
+O teto é de duas extrações por hora, o Registro já nomeia esse caso
+(`! entrou SEM data`), e o conserto é na leitura da data — não aqui.
+
+**Nada disto baixa vídeo.** Quem roda é `fetchCollectionIndex`, que para uma
+série é `fetchSerieIndex`: só a LISTA. O download continua sendo item a item,
+pela folha de destinos.
+
+Oráculo: `boot-nativo.test.mjs`, no contexto de relógio fixo que já existia —
+as quatro metades (com o episódio não revarre · faltando vence · o piso segura ·
+a abertura pergunta assim mesmo), mais o Provai e Vede como o caso que a regra
+resgata. Provado por reversão.
 
 ---
 
