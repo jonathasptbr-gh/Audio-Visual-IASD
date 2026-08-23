@@ -24,6 +24,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
+- **v1.2.2** — A BUSCA DO PRÓPRIO CIFRA CLUB NUNCA TEVE COMO FUNCIONAR, e o Registro provou: `?q=<termo>` responde 425 kB, sabe qual foi a consulta (está no `<title>`), e os únicos links de duas partes na página são o índice A–Z e o "Academy" — os resultados são desenhados por JAVASCRIPT, que o `cifraHtml` não executa. A v1.1.22 achou que estava pegando o link errado; não havia link certo para pegar, e o seletor manual do operador estava travado pelo mesmo motivo. Passa a perguntar a um BUSCADOR (endpoint HTML do DuckDuckGo, com `site:` na consulta) — não o Google, cujas classes são aleatorizadas a cada implantação. Trocar de motor não troca o critério: o parentesco continua julgando. **EXIGE RELEASE v1.2.2**: shell 50 → 51, o host do buscador entra na allowlist do `CifraFonte`
 - **v1.2.1** — AS CIFRAS DO HINÁRIO NUNCA CHEGAVAM A QUEM JÁ TINHA O HINÁRIO: a v1.1.28 pendurou a busca no fim do `syncCollection`, e um hinário completo faz aquela função retornar em "Já completo offline" muito ANTES do gancho. O recurso só existia para quem baixasse o hinário depois dele — todo o resto ficava em `0 de 601` para sempre, e o Registro dizia isso sem que nada explicasse o quê fazer. MEDIDO em dois Registros seguidos. Passa a rodar na abertura, ao lado do `syncLyrics`, que é onde toda informação padrão do acervo sempre esteve. OTA PURO
 - **v1.2.0** — CINCO CORREÇÕES MENORES, E UMA DELAS ABRE UM LUGAR NOVO. (1) A TRANSMISSÃO DIRETA ERA INTERROMPIDA EM SEGUNDO PLANO, e ela é a única mídia do app que precisa de JS rodando enquanto toca: com o buffer cheio nada mais dispara evento, e quem reacordava o player era um `setInterval` — que o Chromium estrangula a 1×/min numa página escondida, contra 20 s de buffer. O compasso passa a sair também dos eventos do `<video>`, e uma falha de rede deixa de matar a transmissão (4 tentativas, sem retentar 4xx, que é a URL expirada). (2) O PARAR passa a falar de UMA CAMADA SÓ: com mídia E Camada de Texto no ar sai só a mídia, porque o selo sobre a preview já é a porta da de cima. (3) O "atualizar a lista" das séries só existe com o ÁLBUM ABERTO — a régua da lixeira da v1.1.16. (4) A ENGRENAGEM sobe para o cabeçalho do modo avançado, no mesmo canto do Modo Fácil: trocar de modo não pode trocar o canto em que a mesma porta se abre. (5) No lugar dela nasce o HISTÓRICO DO CULTO, a lista do que já foi ao telão nesta sessão, com a hora de cada projeção e um botão "Ao Cronograma". OTA PURO
 - **v1.1.29** — A RADIOGRAFIA CALAVA-SE EXATAMENTE ONDE ERA NECESSÁRIA: ela amostrava só os links que PASSARAM pelo filtro, então um Registro real saiu com "38 link(s) de 2 segmentos, 0 com forma de música" e nenhum dos 38 à vista — muda na única pergunta que importa ali, "por quê?". Passa a mostrar o que HAVIA quando nada passa, marcado como crua. E o CD Jovem 2018 entra nos artistas padrão, verificado contra a página real: os CDs do ano têm artista próprio no site. OTA PURO
@@ -227,6 +228,91 @@ na nota que a revoga, não apagada da que a criou.
 - **v5.154** — é METADE OTA e METADE APK, e a divisão importa para quem for testar em aparelho.
 - **v5.155** — é OTA PURO
 - **v5.156** — é METADE OTA e METADE APK, de novo.
+
+---
+
+## v1.2.2 — a busca do próprio Cifra Club nunca teve como funcionar
+
+A radiografia da v1.1.29 nasceu para responder *"o site mudou o quê?"*. Ela
+respondeu outra coisa, maior:
+
+```
+busca …/?q=Unidos em Cristo → 425443 caractere(s)
+  <title> "Resultados da busca: Unidos em Cristo - Cifra Club"
+  38 link(s) de 2 segmentos, 0 com forma de música — a amostra abaixo é do que HAVIA
+    /academy/  "Academy"
+    /letra/A/  "A"
+    /letra/B/  "B"
+    …
+```
+
+O servidor devolve 425 kB, **sabe** qual foi a consulta — ela está no `<title>` e
+no `<h1>` — e não entrega um único resultado. Os 38 links são o índice
+alfabético do rodapé mais o "Academy". **Os resultados são desenhados por
+JavaScript**, e o `cifraHtml` traz o HTML do servidor sem executá-lo.
+
+**Isso reescreve o diagnóstico da v1.1.22.** Lá eu tratei o caso como "peguei o
+link errado" e construí o parentesco para escolher melhor. O parentesco está
+certo e continua valendo — mas o problema era outro: **não havia link certo para
+pegar**. A terceira tentativa da cadeia foi decorativa desde o primeiro dia, e o
+seletor manual da v1.1.25, que mostra ao operador a lista de resultados, estava
+travado pelo mesmo motivo — a lista vinha vazia.
+
+### O motor novo, e por que não é o Google
+
+O operador propôs o Google, com o raciocínio de que *"lidar com a busca do Google
+é muito mais estável e padronizada que o interno do Cifra Club"*. A primeira
+metade está certa — um buscador externo ranqueia muito melhor, e `site:` trava o
+domínio. A segunda se inverte:
+
+| | Cifra Club | Google |
+|---|---|---|
+| markup | classes estáveis, `<pre>` estrutural | **aleatorizadas a cada implantação** |
+| sem JS | a página de CIFRA vem inteira | muro de consentimento em boa parte das regiões |
+| automação | tolerada na prática | bloqueada por construção (429, CAPTCHA) |
+
+O Google **parece** estável porque o desenho visual é estável; o HTML por trás é
+adversarial a parser de propósito, porque raspagem é exatamente o que ele
+impede. O endpoint HTML do DuckDuckGo é o oposto: servido pelo servidor, sem JS,
+sem consentimento, e tolerante a acesso automatizado.
+
+### O que NÃO mudou, e é o ponto
+
+`lerBuscaExterna` devolve **a mesma forma** do `lerBusca`, e quem julga continua
+sendo o `ordenarBusca`. **Trocar de motor não pode trocar o critério**: o
+parentesco com o nome da música decide, venha o candidato de onde vier — e é ele
+que impede um resultado qualquer de virar a cifra do culto. Só entra endereço do
+Cifra Club, conferido por HOST (invariante 2): um resultado patrocinado
+apontando para `cifraclub.com.br.exemplo.com` viraria a folha se a conferência
+fosse por prefixo.
+
+O resultado vem **embrulhado** num redirecionamento (`/l/?uddg=<URL
+codificada>`), e um parser que só procurasse `href="https://…"` não acharia
+resultado nenhum — acharia a navegação do buscador. Seria o mesmo defeito, no
+site novo. As duas formas são aceitas, porque qual delas vem depende da região.
+
+**A busca interna fica, em último lugar.** Custa uma requisição e hoje devolve
+zero; se o site voltar a desenhar no servidor, volta a funcionar sozinha. O
+primeiro motor que trouxer candidato encerra a busca.
+
+### O que este lote NÃO prova
+
+O ambiente em que ele foi escrito **não tem saída para a internet** — nenhum dos
+dois endpoints foi consultado de verdade. O oráculo prova a GRAMÁTICA do parser
+contra fixtures sintéticas, exatamente como o do Cifra Club; que ela case com o
+HTML de hoje do buscador é a metade que só se prova em aparelho, e o Registro
+está preparado para dizer (a radiografia mostra a estrutura do que voltar, e a
+linha de tentativas nomeia o motor que respondeu).
+
+O `User-Agent` do buscador se apresenta como um navegador comum — buscadores
+recusam agente desconhecido com frequência. O do Cifra Club continua o do app:
+trocá-lo mexeria no único caminho que hoje funciona.
+
+**EXIGE RELEASE v1.2.2.** `SHELL_VERSION` 50 → 51, porque o host travado do
+`CifraFonte` passou a aceitar o buscador. A forma do `cifraHtml` não mudou; o
+COMPORTAMENTO sim — contra o shell 50 a URL do buscador devolve `status 0`, e o
+recurso falharia em silêncio. É o caso exato para o qual a regra do degrau
+existe.
 
 ---
 

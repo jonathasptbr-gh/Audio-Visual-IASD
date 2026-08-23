@@ -1,5 +1,13 @@
 [
   {
+    "versao": "1.2.2",
+    "itens": [
+      "A BUSCA DE CIFRA PASSA A USAR UM BUSCADOR. A busca do próprio Cifra Club desenha os resultados por JavaScript, então o app nunca via nenhum — a página que ele recebia só tinha o índice A–Z. Agora a procura é feita num buscador, com o site travado na consulta.",
+      "Isso conserta também o seletor manual: a lista de resultados que você abre para escolher a cifra certa estava vazia pelo mesmo motivo.",
+      "Esta versão precisa do app novo (v1.2.2) — o endereço do buscador é liberado no aplicativo, não na base."
+    ]
+  },
+  {
     "versao": "1.2.1",
     "itens": [
       "CORRIGIDO: as cifras do hinário nunca eram baixadas por quem JÁ tinha o hinário. Elas estavam penduradas no fim do download, e um hinário completo termina antes disso — o Registro dizia “0 de 601” mesmo depois de sincronizar. Agora elas vêm na abertura do app, em segundo plano, como as letras."

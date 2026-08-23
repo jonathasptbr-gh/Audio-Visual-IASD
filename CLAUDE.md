@@ -424,7 +424,12 @@ window.AVNative = {
                        //   desenhar uma folha, não publicar uma Release.
   // ---- CIFRA — ver a seção do recurso ----
   cifraHtml(url),      // → { status, html }: o corpo CRU de uma página de
-                       //   cifra, host TRAVADO (`CifraFonte.kt`). TRANSPORTE:
+                       //   CIFRA **ou de uma busca** — o host travado passou a
+                       //   aceitar o buscador (shell 51). A forma não mudou; o
+                       //   COMPORTAMENTO sim, e é por isso que o degrau subiu:
+                       //   contra o shell 50 a URL do buscador devolve
+                       //   `status 0`, e o recurso falha em silêncio.
+                       //   Host TRAVADO (`CifraFonte.kt`). TRANSPORTE:
                        //   quem lê o HTML é `controle/cifra.js`. Os dois campos
                        //   respondem perguntas diferentes — `status 0` é "não
                        //   houve resposta", `404` é "o site não tem"
@@ -1924,6 +1929,34 @@ a congregação vê continua sendo a letra, pelo caminho de sempre.
   renomeie aparece em toda música e se conserta por OTA. O mesmo artista entra
   como **desempate** na busca: um resultado sob ele é, por definição, de um CD
   oficial, e isso não depende de o nome do álbum do acervo bater com nada.
+- **A BUSCA DO PRÓPRIO SITE NÃO EXISTE — quem procura é um BUSCADOR** (shell 51,
+  v1.2.2). MEDIDO num aparelho: `cifraclub.com.br/?q=<termo>` responde 425 kB,
+  sabe qual foi a consulta (ela está no `<title>`) e os únicos links de duas
+  partes na página são o índice A–Z e o "Academy" — **os resultados são
+  desenhados por JavaScript**, que o `cifraHtml` não executa. A v1.1.22 achou
+  que estava pegando o link errado; não havia link certo para pegar, e o seletor
+  manual do operador ficava travado pelo mesmo motivo.
+  - **O motor é o endpoint HTML do DuckDuckGo**, com `site:cifraclub.com.br` na
+    consulta. **Não é o Google**, e a intuição comum se inverte: o Google PARECE
+    estável porque o desenho visual é estável, mas as classes do resultado são
+    aleatorizadas a cada implantação, a página exige consentimento em boa parte
+    das regiões, e uma igreja inteira pesquisando do mesmo IP é o caso que os
+    429 existem para pegar.
+  - **O resultado vem EMBRULHADO** (`/l/?uddg=<URL codificada>`), e um parser que
+    só procurasse `href="https://…"` não acharia resultado nenhum — acharia a
+    navegação, que é o defeito deste caminho repetido noutro site. As duas
+    formas (embrulhada e direta) são aceitas: qual vem depende da região.
+  - **Trocar de motor NÃO troca o critério.** `lerBuscaExterna` devolve a mesma
+    forma do `lerBusca`, e quem julga continua sendo o `ordenarBusca` — o
+    parentesco com o nome da música decide, venha o candidato de onde vier. Só
+    entra endereço do Cifra Club, conferido por HOST (invariante 2): um
+    resultado patrocinado apontando para `cifraclub.com.br.exemplo.com` viraria
+    a folha do culto se a conferência fosse por prefixo.
+  - **A busca interna FICA, em último lugar.** Ela custa uma requisição e hoje
+    devolve zero; se o site voltar a desenhar no servidor, volta a funcionar
+    sozinha, e o Registro segue acumulando a resposta dela. O primeiro motor que
+    trouxer candidato encerra — dois buscadores no caminho crítico do culto é
+    desperdício puro.
 - **A BUSCA ESCOLHE POR PARENTESCO, NUNCA POR POSIÇÃO** (`AVCifra.ordenarBusca`).
   Pegar o primeiro link de dois segmentos da página de resultados é errado por
   duas razões independentes: a NAVEGAÇÃO do site também é link de dois segmentos,
@@ -3076,8 +3109,8 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: v1.2.1** (base web) · **v1.1.26** (APK) · `SHELL_VERSION` **50** · bundle com
-`minShell: 50` — o shell 50 é o **PISO**: todo método da ponte existe, e não há
+**Versão atual: v1.2.2** (base web) · **v1.2.2** (APK) · `SHELL_VERSION` **51** · bundle com
+`minShell: 51` — o shell 51 é o **PISO**: todo método da ponte existe, e não há
 guarda de versão no lado web. O que continua valendo é que `java/`, `res/`, o
 manifest e os workflows **só chegam instalando o APK**.
 

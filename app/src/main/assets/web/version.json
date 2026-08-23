@@ -1,4 +1,5 @@
 {
-  "version": "1.2.1",
-  "minShell": 50
+  "version": "1.2.2",
+  "minShell": 51,
+  "shellTag": "v1.2.2"
 }
