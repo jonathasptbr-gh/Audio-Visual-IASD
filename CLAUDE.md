@@ -1852,6 +1852,22 @@ a congregação vê continua sendo a letra, pelo caminho de sempre.
     e a música custa UMA requisição; num álbum custa a cadeia deduzível inteira
     (álbum-como-artista + artistas padrão). Confundir as duas perguntas foi o
     que manteve o arquivo preso aos dois hinários por seis versões.
+  - **O CATÁLOGO É AUTORIDADE SOBRE O HINÁRIO** (v1.2.15). Um `so-letra` no
+    endereço do catálogo ENCERRA a procura: aquela É a página daquele hino no
+    site. MEDIDO: `Teu Divinal Amor` gastava mais três requisições (o
+    álbum-como-artista e os dois artistas padrão), todas 404, para chegar ao
+    mesmo veredito — vezes as ~300 do Hinário 2022 ainda por varrer. **Só na
+    coleção do catálogo**: num álbum o `so-letra` de um endereço não fecha a
+    pergunta, porque a música pode estar cifrada sob outro artista.
+  - **E o nome de um hinário NUNCA é adivinhado como artista.** MEDIDO:
+    `/hinario-adventista-2022/` não existe no site — 404 certo, uma vez por hino
+    num acervo de 601. Onde o endereço já é deduzível de uma tabela, adivinhá-lo
+    de novo pelo nome do álbum só pode errar.
+  - **O Registro NOMEIA os hinos que faltaram**, e só nos hinários
+    (`CIFRA_FALTANDO_MAX`): ali toda música existe no site, então cada nome é a
+    NOSSA regra de slug errando — conserto de uma linha no `cifra.js`. Num álbum
+    a ausência é o caso normal (MEDIDO: 35% de acerto contra 95% no hinário), e
+    listar centenas de nomes enterraria o Registro sem dizer nada novo.
   - **A VARREDURA PULA A BUSCA DO SITE** (`semBusca`). MEDIDO na bateria: toda
     linha `busca …` devolveu `0 resultado(s)` — os resultados são desenhados por
     JavaScript. Ela custa duas requisições por música e, em massa, dobraria a
@@ -3286,7 +3302,7 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: v1.2.14** (base web) · **v1.2.13** (APK) · `SHELL_VERSION` **54** · bundle com
+**Versão atual: v1.2.15** (base web) · **v1.2.13** (APK) · `SHELL_VERSION` **54** · bundle com
 `minShell: 54` — o shell 54 é o **PISO**: todo método da ponte existe, e não há
 guarda de versão no lado web. O que continua valendo é que `java/`, `res/`, o
 manifest e os workflows **só chegam instalando o APK**.

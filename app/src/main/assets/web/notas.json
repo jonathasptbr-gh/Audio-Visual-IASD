@@ -1,5 +1,12 @@
 [
   {
+    "versao": "1.2.15",
+    "itens": [
+      "A varredura de cifras ficou bem mais barata no hinário: quando o endereço do catálogo responde que o site só tem a letra, a procura acaba ali — antes ela gastava mais três requisições, todas em vão, para chegar ao mesmo resultado. E o nome do hinário deixou de ser adivinhado como artista do site, que era um erro garantido a cada hino.",
+      "O Registro passou a NOMEAR os hinos que a procura não achou. Ali toda música existe no site, então cada nome dessa lista é um endereço que a regra do app está montando errado — e é o que permite corrigi-la."
+    ]
+  },
+  {
     "versao": "1.2.14",
     "itens": [
       "As cifras guardadas no aparelho passaram a valer para TODA a biblioteca baixada, não só para os dois hinários. O que a procura automática não achar fica registrado com data e é reperguntado em 30 dias — sem isso, dois terços do acervo seriam reperguntados a cada abertura do app.",

@@ -244,7 +244,7 @@ const appVersionEl = document.getElementById('appVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.2.14';
+const WEB_VERSION = '1.2.15';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -10335,7 +10335,7 @@ async function cifraProcurar(nome, coll, chave, opts) {
   // "respondeu e o parser não entendeu", e insistir noutro endereço troca o
   // motivo certo (o site mudou de formato) por um errado (a música não existe).
   const segue = () => !desfecho.ok && desfecho.motivo !== AVCifra.MOTIVO_ILEGIVEL
-    && !respondidoPeloDisco;
+    && !respondidoPeloDisco && !fechadoPeloCatalogo;
   // `so-letra` NÃO interrompe a cadeia, e isso é escolha: ele diz que AQUELE
   // endereço não tem cifra, não que a música não exista no site — outro artista
   // pode ter a folha. Só o `ilegivel` para, porque ali a página é a certa e o
@@ -10354,6 +10354,18 @@ async function cifraProcurar(nome, coll, chave, opts) {
   // o `segue()` logo abaixo o lê, e um `const` alcançado de cima é uma zona
   // morta esperando a ordem de chamada mudar.
   let respondidoPeloDisco = false;
+  // O CATÁLOGO É AUTORIDADE SOBRE O HINÁRIO (v1.2.15). Quando o endereço do
+  // catálogo responde "o site só tem a letra", a procura ACABA: aquela É a
+  // página daquele hino no site, e continuar é pedir os outros endereços
+  // deduzíveis para uma pergunta que já foi respondida. MEDIDO num Registro
+  // real: `Teu Divinal Amor` deu `so-letra` no catálogo e gastou mais três
+  // requisições (o álbum-como-artista e os dois artistas padrão), todas 404,
+  // para chegar ao mesmo veredito — vezes as ~300 do Hinário 2022 que ainda
+  // faltavam varrer.
+  //
+  // Só vale para a coleção do CATÁLOGO. Num álbum o `so-letra` de um endereço
+  // não fecha a pergunta: a mesma música pode estar cifrada sob outro artista.
+  let fechadoPeloCatalogo = false;
 
   // 0ª TENTATIVA: O QUE O OPERADOR JÁ ESCOLHEU. Ela vem antes de tudo e
   // encerra o assunto: quem fixou um endereço sabe qual é a música, e
@@ -10403,7 +10415,10 @@ async function cifraProcurar(nome, coll, chave, opts) {
   if (direta) {
     url = direta;
     desfecho = await cifraPedir(direta, o.mudo, o.coletar);
-    if (desfecho.motivo === AVCifra.MOTIVO_SO_LETRA) viuSoLetra = true;
+    if (desfecho.motivo === AVCifra.MOTIVO_SO_LETRA) {
+      viuSoLetra = true;
+      fechadoPeloCatalogo = true;   // ver a declaração: o catálogo é autoridade
+    }
     tentativas.push('direta ' + direta + ' → ' + desfecho.motivo);
     if (desfecho.ok) via = 'catalogo';
   }
@@ -10414,7 +10429,11 @@ async function cifraProcurar(nome, coll, chave, opts) {
   // custo-benefício que este recurso tem, porque sai do dado que já está no
   // item: nem catálogo para manter, nem rodízio fixo. Vem ANTES dos artistas
   // padrão porque é mais específica que eles.
-  if (segue() && coll && coll.name) {
+  // **NUNCA PARA UMA COLEÇÃO DO CATÁLOGO**, e isto é MEDIDO: o nome do Hinário
+  // 2022 vira `/hinario-adventista-2022/`, que não existe no site — 404 certo,
+  // uma vez por hino, num acervo de 601. Onde o endereço já é deduzível de uma
+  // tabela, adivinhá-lo de novo pelo nome do álbum só pode errar.
+  if (segue() && coll && coll.name && !cifraDeduzivel(coll)) {
     const ua = AVCifra.urlDoAlbum(coll.name, nome);
     if (ua && ua !== url) {
       url = ua;
@@ -10617,6 +10636,16 @@ const CIFRA_SO_LETRA_TETO = 0.34;
  * pergunta que nem chegou a ser feita.
  */
 const CIFRA_REVISITA_MS = 30 * 24 * 60 * 60 * 1000;
+
+/**
+ * Quantos nomes de hino "não achei" o Registro imprime por hinário.
+ *
+ * Vinte: são poucos por construção (MEDIDO, 41 nos dois hinários juntos) e cada
+ * um é um conserto de uma linha na regra de slug. O teto existe para o dia em
+ * que a regra quebrar de vez — aí o número da linha acima é que responde, e
+ * duzentos nomes só enterrariam a linha do tempo.
+ */
+const CIFRA_FALTANDO_MAX = 20;
 
 /** A entrada guardada ainda vale? Uma FOLHA vale sempre; uma ausência, 30 dias. */
 function cifraNoDiscoVale(v, agora) {
@@ -19034,16 +19063,23 @@ async function renderDiag() {
       let n = 0;
       let semCifra = 0;
       let naoAchei = 0;
+      // OS NOMES QUE FALTARAM, e SÓ nos hinários (v1.2.15). Ali o endereço é
+      // deduzível e toda música existe no site: um "não achei" é a NOSSA regra
+      // de slug errando, e é conserto de uma linha no `cifra.js`. Num álbum a
+      // ausência é o caso normal (MEDIDO: 35% de acerto), e listar 383 nomes
+      // enterraria o Registro sem dizer nada que o número já não diga.
+      const faltando = [];
       try {
         // AS TRÊS CONTAS SÃO SEPARADAS de propósito: uma cifra guardada é uma
         // folha que abre sem rede; um `soLetra` é o site respondendo que aquela
         // música não tem acordes; um `naoTem` é nenhum endereço deduzível ter a
         // página — e este último VENCE em 30 dias, então nem é resposta final.
         // Somá-los faria o número prometer folhas que não existem.
-        for (const v of Object.values((await AVDB.getState('cifras:' + c.id)) || {})) {
+        const guardado = (await AVDB.getState('cifras:' + c.id)) || {};
+        for (const [chave, v] of Object.entries(guardado)) {
           if (v && v.pagina) n++;
           else if (v && v.soLetra) semCifra++;
-          else if (v && v.naoTem) naoAchei++;
+          else if (v && v.naoTem) { naoAchei++; if (cifraDeduzivel(c)) faltando.push(chave); }
         }
       } catch (_) { n = 0; semCifra = 0; naoAchei = 0; }
       const total = collSongs(c.id).length;
@@ -19060,6 +19096,13 @@ async function renderDiag() {
         + (semCifra ? ' · ' + semCifra + ' só letra no site' : '')
         + (naoAchei ? ' · ' + naoAchei + ' não achei (repergunto em 30 dias)' : '')
         + (resolvidas < total ? ' · ' + (total - resolvidas) + ' por varrer' : ''));
+      // Os nomes, com teto — e o CORTE É DITO, como em todo bloco deste
+      // Registro: um número que some é pior que uma lista longa.
+      if (faltando.length) {
+        linhas.push('    não achei: ' + faltando.slice(0, CIFRA_FALTANDO_MAX).join(' · ')
+          + (faltando.length > CIFRA_FALTANDO_MAX
+            ? ' … e mais ' + (faltando.length - CIFRA_FALTANDO_MAX) : ''));
+      }
     }
     if (linhas.length) blocos.push('Cifra (última busca)\n' + linhas.join('\n'));
     // A ESTRUTURA da última página que o parser NÃO entendeu — bloco à parte
