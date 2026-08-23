@@ -244,7 +244,7 @@ const appVersionEl = document.getElementById('appVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.2.18';
+const WEB_VERSION = '1.2.19';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -10309,6 +10309,20 @@ const CIFRA_FALTANDO_MAX = 20;
  */
 const CIFRA_PASSADA_RECUSADA_MS = 7 * 24 * 60 * 60 * 1000;
 
+/**
+ * A VERSÃO DO DIÁRIO, e ela existe por causa do PRAZO.
+ *
+ * Um diário recusado põe a coleção em prazo de uma semana. Um lote novo que
+ * mude o que a passada faz — ou o que ela GUARDA — não pode ficar esperando o
+ * prazo escrito pelo código antigo: a correção chegaria por OTA e não rodaria.
+ * Diário de versão diferente é IGNORADO, e a passada recomeça com o código
+ * novo, que é o que se quis publicar.
+ */
+const CIFRA_PASSADA_VERSAO = 2;
+
+/** Quantas falhas o diário guarda como EXEMPLO. */
+const CIFRA_EXEMPLOS_MAX = 12;
+
 /** A chave do diário de uma passada de varredura. */
 function cifraPassadaChave(collId) { return 'cifras-passada:' + collId; }
 
@@ -10469,7 +10483,7 @@ async function syncCifrasColecao(coll) {
   // não havia nada a fazer.
   let passada = null;
   try { passada = await AVDB.getState(cifraPassadaChave(coll.id)); } catch (_) { passada = null; }
-  if (passada && passada.recusadas
+  if (passada && passada.v === CIFRA_PASSADA_VERSAO && passada.recusadas
       && (agora - (passada.em || 0)) < CIFRA_PASSADA_RECUSADA_MS) return;
 
   const disco = await cifraDiscoDe(coll.id);
@@ -10494,6 +10508,16 @@ async function syncCifrasColecao(coll) {
   // dizendo que a passada não achou nada.
   let okDaPassada = 0;
   let naoTemDaPassada = 0;
+  // OS EXEMPLOS DO QUE NÃO SAIU COM FOLHA — número, nome, veredito e o ENDEREÇO
+  // tentado. É o que responde a pergunta que nenhum contador responde: *"quais
+  // hinos, e o que a página deles tem?"*. Sem o endereço a lista não serve para
+  // nada — é abrindo a página no navegador que se descobre se o erro é o nosso
+  // endereço ou a nossa leitura.
+  //
+  // Guardados no DIÁRIO e não no disco de cifras, porque o diário é escrito
+  // MESMO QUANDO O TETO RECUSA a passada: é justamente o caso em que nada mais
+  // sobrevive, e era o caso em que não havia como investigar.
+  const exemplos = [];
   try {
     await withBgWork(async () => {
       try {
@@ -10531,6 +10555,14 @@ async function syncCifrasColecao(coll) {
             // `sem-rede`, `recusou` e `ilegivel` NÃO gravam nada: os dois
             // primeiros não são resposta do site, e o terceiro é defeito do
             // nosso parser. A passada seguinte tenta de novo.
+            // O EXEMPLO, para o que NÃO saiu com folha. `sem-rede` fica de fora:
+            // ali não houve resposta do site, e um endereço sem resposta não é
+            // pista de nada — mandaria o operador abrir uma página que o app
+            // nem chegou a ver.
+            if (!d.ok && d.motivo !== AVCifra.MOTIVO_SEM_REDE
+                && exemplos.length < CIFRA_EXEMPLOS_MAX) {
+              exemplos.push({ nome: h.nome, motivo: d.motivo, url: d.url || '' });
+            }
           } catch (_) { /* rede: a próxima passada tenta de novo */ }
           finally { bgItemEnd(notifId, h.nome); }
           done++;
@@ -10555,10 +10587,12 @@ async function syncCifrasColecao(coll) {
     // dissesse que aquelas 309 tinham sido julgadas E RECUSADAS. Guardado com
     // `setState` (objeto inteiro, uma escritora só) e lido pelo Registro.
     await AVDB.setState(cifraPassadaChave(coll.id), {
+      v: CIFRA_PASSADA_VERSAO,
       em: Date.now(), tentadas: faltam.length,
       ok: okDaPassada, naoTem: naoTemDaPassada,
       soLetra: cabe ? quantos : 0,
       recusadas: cabe ? 0 : quantos,
+      exemplos,
     }).catch(() => {});
     cifraSyncRodando = false;
   }
@@ -10620,7 +10654,7 @@ const CIFRA_BATERIA_MOTIVO = {
   [AVCifra.MOTIVO_NAO_TEM]: 'nenhum endereço tinha a página',
   [AVCifra.MOTIVO_RECUSOU]: 'o site recusou a página',
   [AVCifra.MOTIVO_ILEGIVEL]: 'a página abriu e o parser não a entendeu',
-  [AVCifra.MOTIVO_SO_LETRA]: 'o site tem só a letra, sem os acordes',
+  [AVCifra.MOTIVO_SO_LETRA]: 'o site respondeu a página de LETRA, não a cifra',
 };
 
 let cifraBateriaRodando = false;
@@ -11727,8 +11761,13 @@ function lvBuildCifra(el, barra) {
       [AVCifra.MOTIVO_SEM_REDE]: 'Sem resposta da internet. A cifra é lida na hora — sem rede, não há como buscá-la.',
       [AVCifra.MOTIVO_NAO_TEM]: 'Não encontrei a cifra de “' + nome + '”.',
       [AVCifra.MOTIVO_RECUSOU]: 'O site respondeu, mas recusou a página. Tente de novo daqui a pouco.',
-      [AVCifra.MOTIVO_SO_LETRA]: 'O Cifra Club tem só a LETRA de “' + nome + '”, sem os acordes. '
-        + 'Se você souber de outra versão no site, use “Trocar” para apontá-la.',
+      // A FRASE DIZ O QUE FOI OBSERVADO, não o que se conclui dele (v1.2.18).
+      // Ela afirmava "o site não tem os acordes desta música" — e MEDIDO: o
+      // Cifra Club serve VARIANTES no mesmo endereço (cifra, letra, partituras
+      // para teclado), e a página de letra chegando não prova ausência de cifra
+      // nenhuma. Afirmar a conclusão errada é pior que descrever o fato.
+      [AVCifra.MOTIVO_SO_LETRA]: 'O Cifra Club respondeu com a página de LETRA de “' + nome
+        + '”, não com a cifra. Use “Trocar” para apontar a versão certa.',
       [AVCifra.MOTIVO_ILEGIVEL]: 'Achei a página e não consegui lê-la — o site mudou de formato. '
         + 'Isso se corrige numa atualização da base; o Registro em Configurações tem o detalhe.',
     };
@@ -18784,7 +18823,7 @@ async function renderDiag() {
       }
       const resolvidas = n + semCifra + naoAchei;
       linhas.push(c.name + ': ' + n + ' de ' + total + ' cifra(s) no aparelho'
-        + (semCifra ? ' · ' + semCifra + ' só letra no site' : '')
+        + (semCifra ? ' · ' + semCifra + ' voltaram como página de LETRA' : '')
         + (naoAchei ? ' · ' + naoAchei + ' não achei (repergunto em 30 dias)' : '')
         + (resolvidas < total ? ' · ' + (total - resolvidas) + ' por varrer' : ''));
       // A ÚLTIMA PASSADA, quando ela teve algo a dizer. É a linha que faltava
@@ -18793,17 +18832,25 @@ async function renderDiag() {
       // dominada por "só letra" é o site tendo mudado, não o acervo sem cifra.
       let passada = null;
       try { passada = await AVDB.getState(cifraPassadaChave(c.id)); } catch (_) { passada = null; }
-      if (passada && passada.recusadas) {
+      if (passada && (passada.recusadas || (passada.exemplos || []).length)) {
         const dias = Math.max(0, Math.round(
           (CIFRA_PASSADA_RECUSADA_MS - (Date.now() - (passada.em || 0))) / 86400000));
         linhas.push('    última passada (' + new Date(passada.em || 0).toLocaleDateString('pt-BR')
-          + '): ' + passada.tentadas + ' tentada(s), ' + passada.ok + ' achada(s), e '
-          + passada.recusadas + ' "só letra" RECUSADAS pelo teto — passada dominada por '
-          + 'esse veredito é o site tendo mudado de marcação, não o acervo sem cifra. '
-          + 'Repito em ' + dias + ' dia(s).');
+          + '): ' + passada.tentadas + ' tentada(s), ' + passada.ok + ' achada(s)'
+          + (passada.recusadas
+            ? ', e ' + passada.recusadas + ' página(s) de LETRA RECUSADAS pelo teto — uma '
+              + 'passada dominada por esse veredito é o site tendo mudado, não o acervo sem '
+              + 'cifra. Repito em ' + dias + ' dia(s).'
+            : '.'));
       }
-      // Os nomes, com teto — e o CORTE É DITO, como em todo bloco deste
-      // Registro: um número que some é pior que uma lista longa.
+      // OS EXEMPLOS, COM O ENDEREÇO — é isto que permite abrir a página no
+      // navegador e ver o que ela é. Um nome sozinho não serve: o que se quer
+      // saber é se o endereço está errado ou se a leitura é que está.
+      for (const e of (passada && passada.exemplos) || []) {
+        linhas.push('      ' + e.nome + ' → ' + e.motivo + (e.url ? '  ' + e.url : ''));
+      }
+      // E os nomes do que ficou GUARDADO como ausente, com teto — o CORTE É
+      // DITO, como em todo bloco deste Registro.
       if (faltando.length) {
         linhas.push('    não achei: ' + faltando.slice(0, CIFRA_FALTANDO_MAX).join(' · ')
           + (faltando.length > CIFRA_FALTANDO_MAX

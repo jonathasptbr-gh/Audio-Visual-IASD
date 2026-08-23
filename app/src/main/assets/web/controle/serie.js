@@ -467,7 +467,7 @@
    */
   function aindaNaoSaiu(data, serie, hoje) {
     if ((serie || {}).futuros !== FUTUROS_ESCONDER || !data) return false;
-    // O EPISÓDIO DESTA SEMANA NUNCA É ESCONDIDO (v1.2.18).
+    // O EPISÓDIO DESTA SEMANA NUNCA É ESCONDIDO (v1.2.19).
     //
     // Duas regras deste mesmo arquivo respondiam "de que semana é este
     // episódio?" com calendários diferentes: [sabadoDaSemana] abre a semana no
@@ -866,7 +866,7 @@
       String(tituloDoEpisodio), String(ehLibras), String(normalizar),
       String(mesDoNome), String(mesDoTrimestre),
       String(avaliarPlaylist), String(avaliarVideo), String(aindaNaoSaiu), String(diasAte),
-      // [ehDoSabadoAtual] entra aqui desde a v1.2.18: ela deixou de ser só o
+      // [ehDoSabadoAtual] entra aqui desde a v1.2.19: ela deixou de ser só o
       // destaque do topo e passou a decidir o que a LISTA contém (é ela que
       // impede o episódio desta semana de ser escondido). Sem ela, mexer na
       // janela da semana deixaria de pé todo índice já guardado.

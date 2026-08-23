@@ -581,7 +581,7 @@ try {
       }, limpar);
       const antes = await ler(true);
       // A FRONTEIRA, medida no percurso inteiro e não só na regra pura. Ela é a
-      // VIRADA DA SEMANA desde a v1.2.18: o sábado 08 ainda é a semana
+      // VIRADA DA SEMANA desde a v1.2.19: o sábado 08 ainda é a semana
       // anterior, o domingo 09 abre a do episódio de 15/Ago. A terça e a quarta
       // ficam porque eram a fronteira ANTIGA (3 dias, v5.256) — hoje as duas
       // respondem "está lá", e é essa mudança de veredito que o relato do

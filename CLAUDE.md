@@ -2107,6 +2107,22 @@ a congregação vê continua sendo a letra, pelo caminho de sempre.
     (`CIFRA_SO_LETRA_TETO`): a varredura recusa-se a gravar uma passada
     DOMINADA por este veredito. Uma música sem cifra é um fato; um terço do
     hinário de uma vez é o site tendo mudado.
+  - **O CIFRA CLUB SERVE VARIANTES NO MESMO ENDEREÇO**, e é isso que o
+    `so-letra` e metade dos `ilegivel` estavam vendo (v1.2.18). MEDIDO numa
+    radiografia: `/ministerio-jovem/meu-senhor-minha-vida/` respondeu 449 kB com
+    `<title>` *"… (partituras para teclado) …"*, `<h2>` "Menu principal", ZERO
+    `<pre>` e 39 links só de navegação. O endereço está CERTO — a música é
+    aquela; o que voltou foi outra VARIANTE da página. O mesmo vale para as que
+    voltam com "(letra da música)". **Receber a letra não prova ausência de
+    cifra**, e por isso a frase da aba passou a descrever o que foi observado
+    ("o site respondeu com a página de LETRA") em vez de concluir o que não se
+    sabe. Enquanto a variante certa não for pedida, o teto é o que segura o
+    estrago.
+  - **O DIÁRIO GUARDA EXEMPLOS** (`CIFRA_EXEMPLOS_MAX`): nome (com o NÚMERO do
+    hino), veredito e o ENDEREÇO tentado. Eles sobrevivem à recusa do teto — são
+    a única coisa que sobrevive — e é abrindo aquela página no navegador que se
+    separa "o endereço que montamos está errado" de "a leitura que fazemos dele
+    está errada". Um nome sozinho não responde nem uma nem outra.
   - **MAS RECUSAR NÃO PODE SIGNIFICAR REFAZER** (v1.2.16). MEDIDO: o Hinário
     2022 fechou uma passada com `282 ok · 10 não achei · 309 recusadas`, e como
     nada das 309 era gravado a varredura recomeçava do zero a cada abertura —
@@ -3296,7 +3312,7 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: v1.2.18** (base web) · **v1.2.17** (APK) · `SHELL_VERSION` **55** · bundle com
+**Versão atual: v1.2.19** (base web) · **v1.2.17** (APK) · `SHELL_VERSION` **55** · bundle com
 `minShell: 55` — o shell 55 é o **PISO**: todo método da ponte existe, e não há
 guarda de versão no lado web. O que continua valendo é que `java/`, `res/`, o
 manifest e os workflows **só chegam instalando o APK**.
