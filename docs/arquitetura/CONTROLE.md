@@ -76,8 +76,10 @@ então a tela certa aparece sem esperar JS ou IndexedDB.
 cabeçalho que faziam o mesmo saíram: eram dois controles para uma decisão só, e
 o do avançado ocupava a esquerda de uma faixa com largura de celular (e
 empurrava o título 63px para fora do centro, medido). No Modo Fácil o cabeçalho
-ficou com uma **engrenagem** (`#simpleSettingsBtn`), que é o ÚNICO acesso a
-Configurações aqui — daí ela ser `--accent` e não o `--muted` da gêmea do mixer.
+ficou com uma **engrenagem** (`#simpleSettingsBtn`). Desde a v1.2.0 a gêmea do
+avançado mora no MESMO canto (ver "Layout geral"), e as duas dividem a regra de
+CSS: mesma caixa, mesma cor `--accent` — trocar de modo não pode trocar o canto
+em que a mesma porta se abre.
 
 > **A ORDEM DAS DUAS REMOÇÕES NÃO FOI ACIDENTE:** o botão do Modo Fácil não podia
 > sair antes de existir a engrenagem, porque este modo esconde a `.bottombar`
@@ -272,7 +274,7 @@ olha o `closed` — e ele só existe enquanto a janela existe.
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│                    CRONOGRAMA                           │ ← .list-header (topo; sem appbar)
+│                    CRONOGRAMA                    [Cfg]  │ ← .list-header (topo; sem appbar)
 │  ┌───────────────────────────────────────────────────┐  │
 │  │  item 1                                           │  │  ← .lib-list
 │  │  item 2                                           │  │     (área scrollável)
@@ -282,7 +284,7 @@ olha o `closed` — e ele só existe enquanto a janela existe.
 ├─────────────────────────────────────────────────────────┤
 │ [Cronograma] [Bíblia] [Ferramentas] [🔍]                │  ← .tabs (dentro da barra)
 │  ┌─────────────────────────────────────┬──────┐         │  ← .bottombar (base fixa)
-│  │  Nome da mídia atual  [seek bar]    │ Cfg  │         │
+│  │  Nome da mídia atual  [seek bar]    │ Hist │         │
 │  │─────────────────────────────────────│ Wall │         │
 │  │    Preview (proporção do telão)     │ Letra│         │
 │  │─────────────────────────────────────│ Mudo │         │
@@ -294,10 +296,22 @@ olha o `closed` — e ele só existe enquanto a janela existe.
 **Sem barra de topo (`.appbar`):** o app começa no cabeçalho da lista, e `main`
 ganhou `padding-top` com `env(safe-area-inset-top)`.
 
-**Cabeçalho da lista (`.list-header`):** o `#listTitle` centrado e, só na
-navegação da Bíblia, o `#backBtn` à esquerda. A faixa já teve SEIS elementos, e o
-sintoma de estar disputada era objetivo: numa tela de 360px a raiz dos Favoritos
-cortava o próprio título com reticências.
+**Cabeçalho da lista (`.list-header`):** o `#listTitle` centrado, o
+`#settingsBtn` à direita e, só na navegação da Bíblia, o `#backBtn` à esquerda. A
+faixa já teve SEIS elementos, e o sintoma de estar disputada era objetivo: numa
+tela de 360px a raiz dos Favoritos cortava o próprio título com reticências.
+
+**A ENGRENAGEM SUBIU PARA CÁ NA v1.2.0** (pedido do operador: *"jogue o botão de
+configurações no modo avançado para o topo da tela, na mesma posição que ele já
+ocupa no modo fácil"*). Ela morava na fatia de cima da coluna do mixer, encostada
+na BASE — o canto oposto ao do gêmeo do Modo Fácil —, e trocar de modo trocava o
+canto em que a mesma porta se abre. Agora é o mesmo gesto nos dois: canto
+superior direito, mesma caixa (`--hit`), mesma cor (`--accent`, a do `#backBtn`
+em frente — a regra do app é que navegação/acesso é chapado e em accent).
+
+O lugar já estava reservado: esta é a trilha 3, aberta pela v5.309 como um VÃO só
+para o título não sair do eixo, e que previa este dia por escrito. O que ficou
+vago no mixer virou o `#historyBtn` (ver "O histórico do culto").
 
 O título é `.84rem` (em .72rem o único texto que responde "onde eu estou" era
 menor que o subtítulo de qualquer linha).
@@ -314,11 +328,13 @@ está `hidden`, porque quem ocupa uma trilha é a POSIÇÃO EXPLÍCITA e um item
 `display: none` não desloca ninguém — então o `[hidden] { display: none
 !important }` do topo da folha segue valendo inteiro.
 
-- **As COLUNAS** (v5.309). O `.list-head-vao` é a trilha 3, e existe porque
-  reservar só a do voltar deixaria o título fora do eixo da faixa em toda a
-  interface: trocaria um deslocamento por um desalinhamento. Com auto-placement
-  o vão cairia na coluna 1 justamente nas telas sem voltar — o defeito de volta,
-  com outro nome.
+- **As COLUNAS** (v5.309). A trilha 3 existe porque reservar só a do voltar
+  deixaria o título fora do eixo da faixa em toda a interface: trocaria um
+  deslocamento por um desalinhamento. Com auto-placement o ocupante dela cairia
+  na coluna 1 justamente nas telas sem voltar — o defeito de volta, com outro
+  nome. Ela nasceu como o vão vazio `.list-head-vao` e desde a v1.2.0 é a casa da
+  ENGRENAGEM; a trilha não mudou de tamanho, porque o botão é `--hit`, que é a
+  medida que ela sempre teve.
 - **A LINHA** (v5.310). Sem `grid-template-rows` a altura é IMPLÍCITA, isto é, a
   do item mais alto: 15px com só o texto e os 34px de `--hit` quando o voltar
   entra. MEDIDO: o título descia 9px e **a lista inteira descia 19px**, que é o
@@ -368,19 +384,68 @@ mínimo automático, mas uma faixa `auto` continua dimensionada pelo max-content
 
 | Fatia | Linha da grade | Conteúdo |
 |---|---|---|
-| `.mixer-top` | 1 (`.nowplaying`) | **Configurações** (`#settingsBtn`), **sem caixa de botão** |
+| `.mixer-top` | 1 (`.nowplaying`) | **Histórico do culto** (`#historyBtn`), **sem caixa de botão** |
 | `.mixer-mid` | 2 (`.preview-row`) | **letra** (`#lyricsViewBtn`), **cortina** (`#viewToggle`), **mudo** (`#muteToggle`) — cada um `flex: 1` |
 | `.mixer-bottom` | 3 (`.transport`) | **volume** (`#volToggle`/`#volClose`, recolhível) |
 
-A ordem separa o que NÃO opera o culto do que opera: a engrenagem no topo,
-sozinha, e abaixo o bloco de operação (letra → cortina → mudo → volume), que é o
-que o polegar procura sem olhar. Na fatia do meio a leitura da letra vem primeiro:
-é o botão que se consulta enquanto o louvor corre.
+A ordem separa o que NÃO opera o culto do que opera: no topo, sozinho, o botão
+que só ABRE uma lista, e abaixo o bloco de operação (letra → cortina → mudo →
+volume), que é o que o polegar procura sem olhar. Na fatia do meio a leitura da
+letra vem primeiro: é o botão que se consulta enquanto o louvor corre.
 
-**A engrenagem não tem caixa de botão** (`.settings-btn`, não `.ctl-btn`): a
-fatia do topo acompanha a altura de `.nowplaying`, bem menor que a da preview, e
-um bloco achatado ao lado de quatro botões de altura cheia lê como botão mal
-encaixado. Mesmo tratamento do `#backBtn`: navegação é chapada, operação é botão.
+**A fatia do topo era a de Configurações até a v1.2.0**, quando a engrenagem
+subiu para o cabeçalho da tela (ver "Layout geral") e o **histórico** ocupou o
+lugar. A geometria não mudou — e por isso o `#historyBtn` herda a classe
+`.settings-btn`, que descreve a CAIXA e não o significado.
+
+**Ele não tem caixa de botão** (`.settings-btn`, não `.ctl-btn`): a fatia do topo
+acompanha a altura de `.nowplaying`, bem menor que a da preview, e um bloco
+achatado ao lado de quatro botões de altura cheia lê como botão mal encaixado.
+Mesmo tratamento do `#backBtn`: navegação/acesso é chapado, operação é botão — e
+o histórico é acesso, não operação.
+
+#### O histórico do culto (`#histPopup`, v1.2.0)
+
+Pedido do operador: *"crie um botão de histórico, que lista todos os itens que já
+tocaram naquela sessão. deve ser uma lista tipo a do cronograma, mas sem opções
+de exclusão, mas com opções de enviar para o cronograma. essa lista deve ter a
+hora de cada apresentação de cada item e deve ser apagada a cada nova sessão do
+app"*.
+
+Ele responde a pergunta que **nenhuma outra lista do app responde**: o Cronograma
+é o que se PRETENDE tocar e a playlist é o que vem A SEGUIR — as duas voláteis
+por natureza, já que um toque numa mídia da Biblioteca redefine a fila inteira.
+*"O que eu já toquei hoje?"* não tinha onde ser feita.
+
+- **Quem registra é o `send`**, o ponto por onde TODOS os caminhos passam (o
+  toque na lista, o avanço automático da fila, o ⏮/⏭ do transporte, a notificação
+  nativa, o roteiro) — o mesmo argumento do `diagC` que está na linha ao lado.
+- **A linha guarda CÓPIAS do nome e do subtítulo**, não um ponteiro: a prateleira
+  `avulsos` tem teto de três e o coletor recolhe os bytes de quem sai da última
+  lista, então um item pode deixar de existir entre tocar e ser consultado.
+  Guardar só o id daria uma lista de linhas em branco no fim de um culto normal.
+- **A repetição CONSECUTIVA colapsa** (`×3`), atualizando a hora em vez de abrir
+  linha nova: `repeat: 'one'` reenvia o mesmo id a cada fim de faixa, e um louvor
+  deixado em laço durante a oração enterraria o culto inteiro em cópias do mesmo
+  nome. Alternar entre dois itens abre linha nova — o colapso é da repetição
+  consecutiva, nunca do item.
+- **Sem excluir e sem reordenar, e sem projetar pelo toque na linha.** Um
+  registro do que JÁ aconteceu não se edita, e um destrutivo aqui apagaria o
+  registro sem apagar nada do aparelho. O toque na linha também não projeta: uma
+  lista consultada durante o culto não pode mandar coisa ao telão por um toque de
+  rolagem. A ação é UMA — "Adicionar ao Cronograma" —, e é a do pedido.
+- **A linha do item que saiu do aparelho FICA**, esmaecida, dizendo "Não está
+  mais no aparelho" e sem botão: apagá-la apagaria o fato. A conferência acontece
+  DEPOIS do desenho (a folha abre com a lista já na tela) e outra vez no TOQUE,
+  porque o coletor roda em toda remoção de lista — sem a segunda, o Cronograma
+  ganharia uma linha órfã que não abre nada.
+- **Em memória, e é isso que "apagada a cada nova sessão" significa aqui:** a
+  mesma escolha (e o mesmo modo de falhar) do `diarioC`, o outro artefato que
+  responde *"o que aconteceu neste culto?"*. Uma sessão é uma carga do documento
+  — minimizar não zera, fechar e reabrir zera. O preço está dito: uma morte do
+  renderer leva o histórico junto, como já leva a linha do tempo do Registro.
+
+Oráculo: `tools/historico.test.mjs`.
 
 **Fonte única do volume (`applyVolume`)**: o fader, o arrasto vertical no terço
 direito da preview em tela cheia e os **botões físicos** passam pela mesma função
@@ -519,7 +584,8 @@ que todo player usa.
 | 2 | `#pvFullBtn` (expandir) | **tela cheia** da preview (`requestFullscreen` + trava de paisagem) |
 
 > Eram **três**: a engrenagem (`#pvSettingsBtn`) abria o popup de Exibição.
-> Saiu na v5.49, quando Configurações ganhou um botão fixo no topo do mixer —
+> Saiu na v5.49, quando Configurações ganhou um botão fixo no topo do mixer (que
+> na v1.2.0 subiu para o cabeçalho da tela) —
 > duas portas para a mesma tela, uma delas escondível por um toque na preview,
 > é espaço gasto sem informação nova (o mesmo argumento que aposentou a aba de
 > Álbuns na v5.44). E uma **configuração** que some com um toque acidental na
@@ -581,7 +647,7 @@ destravada no `fullscreenchange`) é a **projeção quando não há telão
 conectado**. CSS: `.preview:fullscreen` preenche a tela (cantos retos, sem
 borda, `touch-action:none`; as camadas internas já são `inset:0` +
 `object-fit`). O popup de **Configurações** (`#fadePopup`, aberto pelo
-`#settingsBtn` no topo do mixer) guarda o **modo do app** (`#appModeSeg`), a
+`#settingsBtn` no cabeçalho da tela) guarda o **modo do app** (`#appModeSeg`), a
 o seletor de **preenchimento da mídia**
 (`#fitSeg` — Ajustar/Preencher/Esticar, ver `stage.setFit()`), as **imagens dos
 slides** das músicas (`#lyricsBgSeg` — Mostrar/Remover, ver "Fundo preto vs.
@@ -676,7 +742,7 @@ comando (ver a chave legada `fade`).
 ### Wallpaper personalizado
 
 A cortina do telão aceita uma **imagem escolhida pelo operador** no lugar do
-desenho padrão — em **Configurações** (engrenagem no topo do mixer):
+desenho padrão — em **Configurações** (a engrenagem do cabeçalho):
 *Padrão* / *Escolher imagem* (nessa ordem desde a v5.188: o estado de partida
 à esquerda, a ação à direita, como nos demais segmentados).
 
@@ -1113,8 +1179,10 @@ mixer (`#lyricsViewBtn`, folha com linhas) abre um bottom-sheet **com scroll**
   precisa da ponte — CORS) e **nunca vai ao telão**: é para quem toca, e o que a
   congregação vê continua sendo a letra.
 
-  Ela é lida **sob demanda** e nada é guardado (o cache é um `Map` que morre com
-  o app), e a busca começa quando a música **entra em cena** — não quando a aba
+  Ela é lida **sob demanda** — com uma exceção: **o Hinário 2022 fica guardado no
+  aparelho** (v1.1.28), baixado junto com o hinário, porque é o único acervo cujo
+  endereço no site é deduzível do nome. Fora dele o cache é um `Map` que morre
+  com o app. A busca começa quando a música **entra em cena** — não quando a aba
   abre (v1.1.17): assim a folha costuma estar pronta antes de alguém pedir por
   ela. Quem decide se cabe cifra para um item é `cifraCabe`, a MESMA função que
   a aba usa para se oferecer. **Achando a cifra errada — ou nenhuma — o operador

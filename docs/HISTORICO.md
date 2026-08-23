@@ -24,7 +24,12 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
-- **v1.1.27** — O RECADO NÃO GRAVAVA COM O ESPELHAMENTO LIGADO, que é o modo NORMAL de um culto com TV: `iniciarRecado` pedia o microfone UMA vez com `echoCancellation`, e o Android recusa a sessão de VOZ quando a saída de áudio está em outro caminho. O `startMic` do telão já pedia TRÊS, e o comentário que explica isso estava no arquivo lido para escrever o gravador — foi lido e não aplicado. O conserto não é a escada copiada: é o `mic-escada.test.mjs`, que cobra que as duas sejam idênticas, que os três degraus tenham as três propriedades (uma igualdade sozinha aprovaria duas escadas igualmente erradas) e que os dois consumidores PERCORRAM a escada — declarar três e usar o índice zero é o defeito original com mais linhas. OTA PURO
+- **v1.2.2** — O RECADO NÃO GRAVAVA COM O ESPELHAMENTO LIGADO, que é o modo NORMAL de um culto com TV: `iniciarRecado` pedia o microfone UMA vez com `echoCancellation`, e o Android recusa a sessão de VOZ quando a saída de áudio está em outro caminho. O `startMic` do telão já pedia TRÊS, e o comentário que explica isso estava no arquivo lido para escrever o gravador — foi lido e não aplicado. O conserto não é a escada copiada: é o `mic-escada.test.mjs`, que cobra que as duas sejam idênticas, que os três degraus tenham as três propriedades (uma igualdade sozinha aprovaria duas escadas igualmente erradas) e que os dois consumidores PERCORRAM a escada — declarar três e usar o índice zero é o defeito original com mais linhas. OTA PURO
+- **v1.2.1** — AS CIFRAS DO HINÁRIO NUNCA CHEGAVAM A QUEM JÁ TINHA O HINÁRIO: a v1.1.28 pendurou a busca no fim do `syncCollection`, e um hinário completo faz aquela função retornar em "Já completo offline" muito ANTES do gancho. O recurso só existia para quem baixasse o hinário depois dele — todo o resto ficava em `0 de 601` para sempre, e o Registro dizia isso sem que nada explicasse o quê fazer. MEDIDO em dois Registros seguidos. Passa a rodar na abertura, ao lado do `syncLyrics`, que é onde toda informação padrão do acervo sempre esteve. OTA PURO
+- **v1.2.0** — CINCO CORREÇÕES MENORES, E UMA DELAS ABRE UM LUGAR NOVO. (1) A TRANSMISSÃO DIRETA ERA INTERROMPIDA EM SEGUNDO PLANO, e ela é a única mídia do app que precisa de JS rodando enquanto toca: com o buffer cheio nada mais dispara evento, e quem reacordava o player era um `setInterval` — que o Chromium estrangula a 1×/min numa página escondida, contra 20 s de buffer. O compasso passa a sair também dos eventos do `<video>`, e uma falha de rede deixa de matar a transmissão (4 tentativas, sem retentar 4xx, que é a URL expirada). (2) O PARAR passa a falar de UMA CAMADA SÓ: com mídia E Camada de Texto no ar sai só a mídia, porque o selo sobre a preview já é a porta da de cima. (3) O "atualizar a lista" das séries só existe com o ÁLBUM ABERTO — a régua da lixeira da v1.1.16. (4) A ENGRENAGEM sobe para o cabeçalho do modo avançado, no mesmo canto do Modo Fácil: trocar de modo não pode trocar o canto em que a mesma porta se abre. (5) No lugar dela nasce o HISTÓRICO DO CULTO, a lista do que já foi ao telão nesta sessão, com a hora de cada projeção e um botão "Ao Cronograma". OTA PURO
+- **v1.1.29** — A RADIOGRAFIA CALAVA-SE EXATAMENTE ONDE ERA NECESSÁRIA: ela amostrava só os links que PASSARAM pelo filtro, então um Registro real saiu com "38 link(s) de 2 segmentos, 0 com forma de música" e nenhum dos 38 à vista — muda na única pergunta que importa ali, "por quê?". Passa a mostrar o que HAVIA quando nada passa, marcado como crua. E o CD Jovem 2018 entra nos artistas padrão, verificado contra a página real: os CDs do ano têm artista próprio no site. OTA PURO
+- **v1.1.28** — AS CIFRAS DO HINÁRIO 2022 PASSAM A FICAR NO APARELHO, e a folha abre SEM REDE: o problema real nunca foi achar a cifra, foi o Wi-Fi da igreja no sábado de manhã. É o ÚNICO acervo que fica, porque é o único cujo endereço no site é DEDUZÍVEL do nome — nos álbuns seriam 600 apostas em vez de 600 requisições previsíveis. **QUEM BAIXA É O APARELHO**: nada entra no bundle nem no repositório, porque o `.zip` do canal é público e um acervo ali dentro é o app DISTRIBUINDO obra de terceiro, outra coisa que não um grau a mais de ler sob demanda. A forma é a do `syncLyrics` (fila, segundo plano, lotes, nada em dados móveis) e a regra que mais importa é a mesma: falha de rede NÃO grava nada. OTA PURO
+- **v1.1.27** — O TECLADO SUMIA AO DIGITAR NA BUSCA DE CIFRA, e a causa era uma correção de duas versões antes: o teclado virtual é um `resize`, o `resize` remede a folha, e o redesenho destrói o `<input>` com foco — um campo sem foco fecha o teclado, e o fechamento é outro `resize`. Sai um teclado que pisca e some, sem erro nenhum, e o seletor inteiro fica inalcançável. A guarda é pelo FOCO, não por "o seletor está aberto". Mais: a busca passa a ter TRÊS parâmetros em vez de dois (consulta, alvo do parentesco, desempate) — juntá-los deixava a busca MANUAL sem o álbum em lugar nenhum —, e o seletor ganha os atalhos `+ <álbum>` e `+ Ministério Jovem`. OTA PURO
 - **v1.1.26** — O MICROFONE VIRA WALKIE-TALKIE, E PASSA A FUNCIONAR NOS QUATRO MODELOS: em vez de TRANSPORTAR ÁUDIO, ele transporta um ARQUIVO — a voz vira item `kind:"audio"` comum e entra pelo caminho de projeção de sempre, chegando às telas da rede de graça pelo `/m/<token>`. É a inversão que faz o recurso caber: o ao vivo para a rede está bloqueado por `[SecureContext]`, e o projeto já construiu esse transporte (AAC → MSE) e o removeu na v5.187. A Release é de UMA LINHA — o `ControleChromeClient` negava toda permissão de mídia e passa a conceder áudio, e só áudio, chamando as três regras do `MicChromeClient` em vez de reescrevê-las. O FIM do recado é interceptado nos DOIS caminhos: sendo item comum, ele caía no `autoAdvance`, onde `repeat one` repetia a voz do operador PARA SEMPRE e `repeat all` começava a playlist do zero — nenhum dos dois com sinal na tela. E ele DEVOLVE a cena, com a posição dentro do próprio `load`. EXIGE RELEASE
 - **v1.1.25** — O OPERADOR ESCOLHE A CIFRA, E A ESCOLHA VENCE TUDO: o método automático adivinha a partir de um nome, e quem opera SABE qual é a música. MEDIDO no aparelho: na maioria das falhas o resultado certo ESTAVA na página de busca — só não era o que a regra elegeu, e não havia como olhar a lista nem dizer "é este". A aba passa a desenhar a lista dentro do app (inclusive o que a regra RECUSOU, marcado), abrir qualquer resultado em PRÉVIA e fixar o escolhido, que vira a tentativa 0 e sobrevive ao fechar o app. Não é navegador embutido — é a divisão de sempre, com o desenho nosso: nenhum script de terceiro roda. Guardar um ENDEREÇO não fura o "nada em disco", que sempre falou do CONTEÚDO. E o Registro passa a guardar a RADIOGRAFIA da página que não abriu — só forma, nenhum pedaço de letra ou acorde —, porque `ilegivel` responde "não entendi" e não "o que era". OTA PURO
 - **v1.1.24** — O MICROFONE, VERIFICADO NOS QUATRO MODELOS DE PROJEÇÃO: ele funciona com TV espelhando e em mais nenhum — e sem TV o botão acendia "No ar" sem nada estar captando, porque `micPressed` é escrito no `pointerdown` e sem `Presentation` ninguém responde `mic-status`. A recusa entra ANTES do pedido de permissão do Android: pedir o microfone para uma ação que não pode funcionar é queimar a única permissão sensível do app. Mais a guarda que um comentário prometia desde a v5.187 e que nunca existiu — o comando `mic` DESCE para toda tela da rede sem filtro, e o que impedia o desfecho era o ambiente (`getUserMedia` é `[SecureContext]`), não o app; proteção emprestada do navegador é proteção com prazo, e o `EspelhoCert` continua inteiro no shell. O oráculo FORJA `navigator.mediaDevices` para medir o dia em que houver TLS. OTA PURO
@@ -226,7 +231,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ---
 
-## v1.1.27 — o Recado não gravava com o espelhamento ligado
+## v1.2.2 — o Recado não gravava com o espelhamento ligado
 
 Relatado do aparelho no primeiro toque, com captura: os dois botões na tela, o
 espelhamento no ar, e a frase **"O Android não liberou o microfone"**.
@@ -274,6 +279,443 @@ existe. O preço de manter duas é o oráculo, e é a mesma solução do
 
 OTA PURO — `minShell` 50 (o recado precisa do shell 50, que a v1.1.26 entregou),
 sem `shellTag`.
+
+---
+
+## v1.2.1 — as cifras do hinário nunca chegavam a quem já tinha o hinário
+
+Dois Registros seguidos, de um aparelho em uso, depois de o operador
+sincronizar:
+
+```
+Hinário Adventista 2022: 0 de 601 cifra(s) no aparelho
+Hinário Adventista 1996: 0 de 613 cifra(s) no aparelho
+```
+
+A v1.1.28 pendurou `syncCifrasHinario` no fim do `syncCollection`. E o
+`syncCollection` tem uma saída antes disso:
+
+```js
+if (pending.length === 0) { setCollStatus(coll.id, 'Já completo offline', 4000); return …; }
+```
+
+**Um hinário completo termina ali.** O gancho ficava depois — inalcançável
+exatamente para quem já tem o acervo no aparelho, que é todo mundo que o recurso
+existia para servir. Quem baixasse o hinário pela primeira vez depois da v1.1.28
+teria as cifras; todos os outros ficariam em `0 de 601` para sempre, sem nada na
+tela dizendo o quê fazer.
+
+**O erro de desenho foi tratar a cifra como um efeito colateral do download.**
+Ela não é: é informação padrão do acervo, como a letra — e a letra nunca esteve
+pendurada num download. `syncLyrics` roda na ABERTURA, em segundo plano, uma vez
+por sessão, para as coleções que o operador tem. `syncCifrasHinarios` passou a
+ser chamada da mesma linha, e tocar em sincronizar num hinário completo também
+dispara, porque um gesto do operador não pode ser mudo quando ainda há o que
+buscar.
+
+O oráculo ganhou a metade que faltava: **existe um caminho que não depende do
+download**, e ele é chamado pela rotina de abertura. Quem remover a chamada
+reproduz o defeito, e o caso reprova.
+
+**A regra que fica:** um trabalho de fundo pendurado no FIM de outro herda todas
+as saídas antecipadas dele — e a mais comum delas é justamente "não havia nada a
+fazer", que é quando o trabalho pendurado mais precisa acontecer.
+
+---
+
+## v1.2.0 — o segundo plano parava o stream, o Parar levava a camada junto, e nasce o histórico
+
+**A v1.2.0: CINCO CORREÇÕES MENORES, PEDIDAS EM UM LOTE SÓ. OTA PURO** (nenhuma
+linha de Kotlin, `SHELL_VERSION` intacto em 50; sem Release). O degrau é
+INCREMENTAL porque a quinta abre um lugar que não existia — a regra do número diz
+"uma seção inteiramente nova do app: um lugar que não existia, com tela e fluxo
+próprios", e é literalmente o que o histórico é.
+
+---
+
+### 1. A transmissão direta parava em segundo plano
+
+*"Vídeos tocando direto do YouTube sem baixar são interrompidos quando o app está
+em segundo plano."*
+
+**O que separa este caso de todos os outros é uma frase:** um arquivo BAIXADO
+toca sozinho — o `<video>` consome bytes do disco e nenhuma linha de JavaScript
+participa. Um stream não. Quem repõe o buffer é o `shared/mse.js`, e ele estava
+apoiado em duas coisas que o segundo plano quebra.
+
+**O compasso era um `setInterval`, e só.** `updateend` encadeia a maior parte dos
+ciclos — append → evento → próximo append —, mas isso PARA por construção quando
+o buffer atinge `ALVO_S` (20 s): nada mais é appendado, logo nada mais dispara
+evento, e quem reacorda o player é o tique de `TICK_MS`. Um `setInterval` de
+página em segundo plano é estrangulado pelo Chromium: 1×/s, e **1×/min depois de
+alguns minutos escondida**. A conta é aritmética e o desfecho é o relato:
+
+```
+buffer enche (20 s) → nenhum updateend → só o tique acorda
+   → tique estrangulado para 1×/min
+   → 20 s de vídeo consumidos, 40 s de silêncio
+   → a projeção para sozinha, sem erro em lugar nenhum
+```
+
+Hoje o compasso sai TAMBÉM dos eventos do próprio `<video>`
+(`EVENTOS_DO_COMPASSO`: `timeupdate`, `progress`, `waiting`, `stalled`), que
+nascem do pipeline de mídia e não do agendador de tarefas — `timeupdate` cobre o
+caso normal a ~4 Hz enquanto toca, e os outros três cobrem exatamente o instante
+em que ele PARA de sair. O intervalo FICA como piso: é ele que cobre a cena
+PAUSADA, onde não há `timeupdate`.
+
+**E uma falha de rede matava a transmissão inteira.** Qualquer tropeço — um
+`fetch` que não completa, um corpo interrompido no meio — subia até o `morrer`, o
+Controle recebia `onStreamErro` e `recuperarStream` derrubava a cena e caía no
+download: 300 MB começando a baixar por causa de um pacote perdido. E é
+justamente em segundo plano que o tropeço acontece, porque o Wi-Fi do aparelho
+entra em economia de energia com o app fora da frente.
+
+O download já sabia disso desde sempre (`YoutubeGrab.baixar`: oito tentativas com
+espera crescente, e 4xx nunca retentado); a transmissão era o único caminho de
+rede do app sem nenhuma. Agora `pegar()` retenta 4 vezes (0,4 s → 1,2 s → 3 s),
+com a **mesma divisão**: passa o que pode ter sido acidente (requisição que não
+completou, corpo interrompido, 5xx, 429, resposta vazia) e **não** retenta 4xx —
+401/403 é a URL do googlevideo EXPIRADA, e insistir nela atrasa a única resposta
+que funciona, que é o `recuperarStream` re-extraindo o manifesto. A marca viaja
+no PRÓPRIO erro (`marcar`/`retentavel`), nunca casando strings de mensagem
+depois — que é a forma de errar que este arquivo já paga em outro lugar.
+
+**A espera é interrompível pelo `morto`:** um `destruir()` durante os 3 s da
+última espera não pode render uma requisição a mais para uma cena que já saiu do
+telão.
+
+---
+
+### 2. O Parar levava a Camada de Texto junto
+
+*"Considerando que o preview tem um botão apenas para remover as camadas
+superiores, ajuste o botão de stop para em caso onde há mídia de fundo e
+mensagens ou sobreposição de elementos na tela como bíblia e etc… o botão de stop
+funciona apenas para a mídia de fundo."*
+
+O telão empilha DUAS coisas ao mesmo tempo, e cada uma já tinha a própria porta:
+o selo `#pvCamadaBtn` sobre a preview (`encerrarCamadaDeCima`) para a de cima, e
+`pararMidia('media-clear')` para a de baixo — a divisão que o `retirarDoAr` da
+linha faz desde a v5.178. **O `stopClear` era o único controle que não escolhia
+nenhuma:** mandava `clear` e derrubava as duas.
+
+| Cena no ar | Antes | Agora |
+|---|---|---|
+| mídia **e** Camada de Texto | `clear` (as duas) | `media-clear` — sai só a mídia |
+| só a mídia | `clear` | `clear` |
+| só a Camada de Texto | `clear` | `clear` |
+
+**A pergunta é `midiaNoAr`, nunca `currentId`** — este sobrevive ao Parar de
+propósito (é ele que deixa o ▶ repetir a faixa), e perguntar por ele faria o
+SEGUNDO Parar seguido virar no-op para sempre, deixando a Camada de Texto presa
+no telão. É a mesma régua do reenvio de cena.
+
+**A terceira linha da tabela é o que impede a correção de virar regressão**, e
+por isso o oráculo mede as três: um Parar que sempre poupasse o texto tiraria a
+única saída dele no transporte — o defeito trocado de lado, e igualmente mudo.
+
+---
+
+### 3. O "atualizar a lista" das séries só existe com o álbum aberto
+
+*"Os botões de atualizar lista do provai e vede e do informativo mundial das
+missões só deve aparecer com o album/grupo aberto."*
+
+É a régua da LIXEIRA (v1.1.16) aplicada ao terceiro botão daquela coluna: o gesto
+que revela a ação é o mesmo que revela a LISTA sobre a qual ela age. Fechado, o
+card de uma série não oferece nada — e o acervo inteiro é uma lista de cards
+fechados, onde aquele ícone aparecia em cada série como uma ação sem contexto a
+dois centímetros do nome.
+
+**`u.syncBusy` é a exceção, e não é uma segunda regra:** enquanto a varredura
+corre, aquele botão não é "atualizar", é o CANCELAR dela — o mesmo desfecho que
+faz o irmão de download ficar visível com o card fechado.
+
+O oráculo mede os DOIS estados. Uma medição só aprovaria as duas leituras
+opostas — sem a metade FECHADA ele aprovaria um botão que aparece sempre; sem a
+ABERTA, um que sumiu de vez.
+
+---
+
+### 4. A engrenagem sobe para o cabeçalho
+
+*"Jogue o botão de configurações no modo avançado para o topo da tela, na mesma
+posição que ele já ocupa no modo fácil."*
+
+Ela morava na fatia de cima da coluna do mixer, encostada na BASE da tela — o
+canto OPOSTO ao do gêmeo do Modo Fácil. Trocar de modo trocava o canto em que a
+mesma porta se abre, e o que se aprende num modo não valia no outro.
+
+**O lugar já estava reservado.** A trilha 3 da `.list-header` nasceu na v5.309
+como um VÃO vazio, só para o título não sair do eixo da faixa quando o voltar
+aparece — e a nota daquela versão previa este dia por escrito: *"ele some no dia
+em que um botão voltar a morar deste lado"*. A trilha não mudou de tamanho,
+porque ela sempre mediu `--hit`, que é a caixa do botão. Os dois modos passam a
+dividir a mesma regra de CSS: mesma caixa, mesmo canto, mesma cor (`--accent`, a
+do `#backBtn` em frente — navegação/acesso é chapado e em accent).
+
+---
+
+### 5. O histórico do culto
+
+*"No lugar do botão de configurações nos controles do modo avançado, crie um
+botão de histórico, que lista todos os itens que já tocaram naquela sessão. deve
+ser uma lista tipo a do cronograma, mas sem opções de exclusão, mas com opções de
+enviar para o cronograma. essa lista deve ter a hora de cada apresentação de cada
+item e deve ser apagada a cada nova sessão do app."*
+
+Ele responde a pergunta que **nenhuma outra lista do app responde**. O Cronograma
+é o que se PRETENDE tocar; a playlist é o que vem A SEGUIR — as duas voláteis por
+natureza, já que um toque numa mídia da Biblioteca redefine a fila inteira.
+*"O que eu já toquei hoje?"* não tinha onde ser feita, e é a pergunta de quem
+monta o culto seguinte ou precisa repetir um louvor que entrou de improviso.
+
+- **Quem registra é o `send`**, o ponto por onde TODOS os caminhos passam (o
+  toque na lista, o avanço automático da fila, o ⏮/⏭ do transporte, a notificação
+  nativa, o roteiro) — o mesmo argumento do `diagC` que está na linha ao lado.
+- **A linha guarda CÓPIAS do nome e do subtítulo, não um ponteiro.** A prateleira
+  `avulsos` tem teto de três e o coletor recolhe os bytes de quem sai da última
+  lista: um item pode deixar de existir entre tocar e ser consultado, e guardar
+  só o id daria uma lista de linhas em branco no fim de um culto normal.
+- **A repetição CONSECUTIVA colapsa** (`×3`), atualizando a hora em vez de abrir
+  linha nova. `repeat: 'one'` reenvia o mesmo id a cada fim de faixa, e um louvor
+  deixado em laço durante a oração encheria a lista com trinta cópias do mesmo
+  nome — enterrando exatamente o que se foi consultar. Alternar entre dois itens
+  abre linha nova: o colapso é da repetição consecutiva, nunca do item.
+- **Sem excluir, sem reordenar, e o toque na linha não projeta.** Um registro do
+  que JÁ aconteceu não se edita, e um destrutivo aqui apagaria o registro sem
+  apagar nada do aparelho. O toque também não projeta: uma lista consultada
+  durante o culto não pode mandar coisa ao telão por um toque de rolagem. A ação
+  é UMA, e é a do pedido.
+- **A linha do item que saiu do aparelho FICA**, esmaecida e sem botão, dizendo
+  "Não está mais no aparelho": apagá-la apagaria o fato. A conferência acontece
+  DEPOIS do desenho (a folha abre com a lista já na tela, e as linhas mortas
+  esmaecem no quadro seguinte) e OUTRA VEZ no toque — sem a segunda, o Cronograma
+  ganharia um id órfão, e uma linha que não abre nada só aparece no sábado.
+- **Em memória, e é isso que "apagada a cada nova sessão" significa aqui.** É a
+  mesma escolha (e o mesmo modo de falhar) do `diarioC`, o outro artefato que
+  responde *"o que aconteceu neste culto?"*: uma sessão é uma carga do documento
+  — minimizar não zera, fechar e reabrir zera. Persistir no IndexedDB custaria
+  uma escrita por projeção, no caminho mais quente do culto, para proteger um
+  dado que perde o sentido no domingo seguinte. **O preço está dito:** uma morte
+  do renderer leva o histórico junto, como já leva a linha do tempo do Registro.
+
+**O ícone é SVG**, não glifo: `history` (e875) não está nos 31 codepoints do
+subset da fonte, e um codepoint de fora do subset não desenha NADA — a armadilha
+que o `glifos.test.mjs` existe para pegar.
+
+---
+
+### Os dois oráculos entram no workflow no MESMO commit em que nascem
+
+A lição da v5.145. `parar-por-camada.test.mjs` mede as três cenas do Parar, e a
+prova de cada uma é o `currentTime` do `<video>` MAIS o TIPO do comando que saiu
+— `clear` e `media-clear` apagam o mesmo vídeo da preview, e sem essa segunda
+leitura as duas cenas se leriam igual do lado de cá. Ele foi medido POR REVERSÃO:
+com a condicional desligada, duas asserções reprovam.
+
+`historico.test.mjs` mede os três modos mudos de errar (não registrar, registrar
+demais, oferecer o que não existe mais) mais as SUBTRAÇÕES, que são parte do
+pedido tanto quanto a lista.
+
+O `boot-nativo.test.mjs` ganhou a medição do card de série nos DOIS estados —
+e a montagem dele limpa a lista entre as passadas, porque
+`renderCollectionsList` ACRESCENTA (a lição da v5.232): sem isso a segunda
+passada mediria o card da primeira, que é justamente o estado oposto.
+
+---
+
+## v1.1.29 — a radiografia calava-se exatamente onde era necessária
+
+Um Registro real, de um aparelho, com a busca de "Nunca Mais as Lágrimas":
+
+```
+busca …/?q=Nunca%20Mais%20as%20Lágrimas → 0 resultado(s), 0 com parentesco
+  38 link(s) de 2 segmentos, 0 com forma de música
+```
+
+E nada mais. **Os 38 não apareciam** — a amostra só continha os links que
+passaram pelo filtro, e nenhum passou. O bloco existe para responder *"o site
+mudou o quê?"*, e ficava mudo no único caso em que ele é a única pista.
+
+A correção é de uma linha: quando nada passa, a amostra mostra **o que havia**,
+com `amostraEhCrua` dizendo que é isso — sem a marca, os endereços da navegação
+pareceriam resultados aceitos. O oráculo cobra as duas: a amostra normal quando
+há o que mostrar, e a crua quando não há.
+
+**A regra geral que fica:** um diagnóstico que só reporta o caminho feliz não é
+um diagnóstico. Todo campo do Registro que CONTA alguma coisa precisa dizer
+também o que havia quando a conta deu zero.
+
+### E o CD Jovem 2018
+
+Os CDs do ano têm artista PRÓPRIO no site — `/cd-jovem-2018/<slug>/` —, o que os
+põe na mesma família do Ministério Jovem: endereço deduzível do nome, uma
+requisição, sem ranking de ninguém escolhendo por nós. Entra em
+`ARTISTAS_PADRAO`, verificado contra a página real
+(`/cd-jovem-2018/nunca-mais-as-lagrimas/`), que é a segunda âncora dessa seção do
+oráculo.
+
+**A lista é plural, mas não é infinita:** cada entrada é uma requisição a mais
+numa música que não está em nenhuma delas. Ela é para artistas que cobrem MUITAS
+músicas; um álbum que se saiba mapear vale mais no `CATALOGO`, que é uma
+tentativa DIRIGIDA em vez de mais uma no rodízio.
+
+---
+
+## v1.1.28 — as cifras do Hinário 2022 passam a ficar no aparelho
+
+**O problema real nunca foi achar a cifra.** Foi o Wi-Fi da igreja no sábado de
+manhã. Uma aba que lê sob demanda funciona perfeitamente na terça e é inútil no
+momento em que alguém está com o instrumento na mão.
+
+### Por que SÓ o hinário
+
+Porque é o único acervo cujo endereço no site é **deduzível do nome**
+(`CATALOGO` → `/novo-hinario-adventista/<slug>/`). Baixar 600 hinos é 600
+requisições previsíveis; baixar os álbuns seria 600 **apostas** — cada uma
+passando pela busca, pelo parentesco e por até três candidatos, com uma taxa de
+acerto que o próprio operador descreve como inconstante. Guardar um acervo com
+buracos aleatórios é pior que não guardar: o buraco vira permanente e ninguém
+sabe qual hino ficou de fora.
+
+### QUEM BAIXA É O APARELHO — e essa é a decisão inteira
+
+A pergunta era empacotar as cifras no bundle. **A resposta é não, e o motivo não
+é técnico.** O `.zip` do canal OTA é público e servido em nome de quem publica;
+um acervo inteiro ali dentro é o app **distribuindo** obra de terceiro. Isso não
+é um grau a mais de "ler sob demanda no aparelho de quem opera" — é outra
+categoria de coisa, e o `CLAUDE.md` já dizia isso desde a v1.1.10.
+
+O que a v1.1.28 faz entrega o mesmo resultado por outro caminho: **cada aparelho
+busca o que vai usar**, como já fazia uma música por vez. O que muda é o QUANDO
+(uma vez, no download do hinário) e o ONDE (IndexedDB, não a memória da sessão).
+Três ganhos de quebra, e nenhum deles é consolo:
+
+- a cifra fica sempre **atual** — rebaixar é apagar e sincronizar, não publicar
+  uma versão nova do app;
+- o repositório não incha e o canal OTA não carrega megabytes a cada lote;
+- **não nasce uma segunda fonte de verdade** para divergir da primeira, que é o
+  modo de falha que este projeto mais evita.
+
+### A forma é a do `syncLyrics`, de propósito
+
+Mesma fila (`runLimited`, 6 workers), mesma proteção de segundo plano
+(`withBgWork` — o download sobrevive ao app minimizado), mesma notificação de
+progresso com o nome do hino, gravação em LOTES de 20, e nada em dados móveis.
+
+E a regra que mais importa é a mesma: **falha de rede não grava nada.** Num
+acervo em que toda música existe no site, uma ausência gravada seria um buraco
+permanente causado por um Wi-Fi que oscilou. `nao-tem` e `ilegivel` também ficam
+de fora — a próxima passada tenta de novo. Retomável por construção: o que já
+está guardado não é pedido, então uma interrupção custa o que faltava.
+
+A leitura entra como a tentativa **que não toca na rede**, entre a escolha do
+operador (que vale mais — é uma correção à mão) e o catálogo.
+
+### O oráculo NÃO pergunta se a folha apareceu
+
+`tools/cifra-offline.test.mjs`. A promessa é operacional, e falha **calada**: sem
+a leitura do disco o app cai no caminho de rede e — *com* rede — a folha aparece
+igual, com a mesma aparência, pela porta errada. Ninguém veria diferença até o
+dia em que a rede não estivesse lá, que é exatamente o dia que o recurso existe
+para cobrir.
+
+Por isso a asserção é outra: **`cifraHtml` não foi chamado nenhuma vez**, com a
+ponte de mentira CONTANDO as chamadas e respondendo `status 0` a todas. Se o
+disco não for lido, não há segundo caminho por onde a folha possa vir. Provado
+por reversão (desligar a leitura deixa três casos vermelhos) e campanha 4/4 a 2×
+de carga.
+
+A outra metade é o simétrico, e sem ela a primeira seria vazia: um hino que **não
+está guardado** tem de ir à rede. Sem esse caso, "nunca chamar a rede" passaria —
+e o recurso seria um cache que nunca preenche.
+
+---
+
+## v1.1.27 — o teclado sumia ao digitar na busca de cifra
+
+**O relato:** *"oculta o teclado quando tento digitar na caixa de texto de busca
+das cifras"*. E a causa é uma correção de duas versões antes, funcionando
+exatamente como foi escrita.
+
+### O laço
+
+A v1.1.20 fez a quebra de linha da folha ser NOSSA, medida em caracteres na
+fonte renderizada. Medida em caracteres depende da largura, então ela precisa
+ser refeita quando a largura muda — e a largura muda ao girar o aparelho.
+Ganhou um `resize`.
+
+**O teclado virtual também é um `resize`.** A sequência:
+
+```
+toca no campo → teclado sobe → janela encolhe → `resize`
+  → cifraRemedir → renderLyricsView → a aba é REFEITA
+  → o <input> com foco deixa de existir
+  → campo sem foco → o teclado DESCE → `resize` ────┐
+  └───────────────────────────────────────────────── ┘
+```
+
+Da tela sai um teclado que pisca e some. Nenhum erro, nenhum log — e o seletor
+inteiro, que a v1.1.25 acabara de entregar, fica inalcançável: não há como
+digitar nele.
+
+**A guarda é pelo FOCO, não por "o seletor está aberto"**: a regra que se quer é
+*não destruir o que a pessoa está usando*, e ela vale para todo campo que esta
+aba venha a ter. `cifraDigitando()` pergunta se o `activeElement` é um campo
+nosso; se for, o redesenho espera.
+
+### O oráculo, e a primeira versão dele que não servia
+
+`tools/cifra-teclado.test.mjs` (Chromium, no workflow). A **primeira versão
+passava com a guarda REMOVIDA**: ela montava o seletor à mão num nó solto, e
+`cifraRemedir` desiste antes de desenhar quando o popup não está aberto ou a
+fonte ativa não é a cifra — e sem `__AVBridge` a cifra nem é uma fonte possível.
+O campo sobrevivia por um motivo que não era o do app. Era o oráculo medindo a
+si mesmo, a classe que o `CLAUDE.md` já nomeia.
+
+A versão que serve injeta a ponte, abre o popup de verdade e seleciona a cifra.
+**A prova é a reversão**: tirar `if (cifraDigitando()) return;` deixa dois casos
+vermelhos. Campanha de determinismo: 4/4 com a máquina a 2× de carga.
+
+E ela ainda encontrou uma segunda armadilha do arnês, esta do próprio app:
+plantar `currentItem` antes de o `init()` assíncrono terminar é correr contra a
+inicialização, que o zera com toda a razão ao acabar. O cenário evaporava sem
+erro nenhum. A espera passou a ser a do watchdog do OTA — um `<li>` na playlist —
+e a chave da música é conferida ANTES do `waitForSelector`, senão o sintoma seria
+"esperei 15 s" em vez de "a música não está mais em cena".
+
+### O álbum, que o operador notou faltando
+
+Relatado junto: *"o nome auto preenchido não incluía o nome do álbum e nem a
+recomendação do Ministério Jovem"*. Estava certo, e por baixo havia um defeito de
+desenho: `cifraBuscarNoSite(nome, extra)` usava **um** parâmetro para três
+papéis. O seletor, que manda a consulta DIGITADA, passava `''` — e ficava sem
+álbum na consulta E no desempate.
+
+Agora são três, cada um com um trabalho:
+
+| parâmetro | o quê |
+|---|---|
+| `consulta` | o que vai no `?q=`, já montado por quem chama |
+| `alvo` | contra o que o PARENTESCO compara |
+| `artista` | o DESEMPATE, e só isso |
+
+No automático o parentesco é contra o nome da música — com o álbum colado na
+consulta, nenhum resultado seria parente dela. No seletor é contra o que o
+operador digitou, que é o que ele está procurando: exigir semelhança com o nome
+do acervo derrubaria justamente a correção que ele veio fazer.
+
+E o seletor ganhou **os atalhos**: `+ <álbum>` e `+ Ministério Jovem`. As duas
+coisas que mais fazem uma busca achar não estão no nome da música, e o operador
+não tem como adivinhá-las. Eles ESCREVEM no campo antes de buscar, de propósito:
+a consulta que rodou fica à vista e pode ser editada dali, em vez de o botão
+fazer algo invisível.
+
+Um detalhe do mesmo lote: a consulta guardada passa a ser **a que produziu a
+lista**, não o nome puro — é ela que o campo mostra, e um campo que diz outra
+coisa do que foi buscado faz o operador editar a partir de uma premissa falsa.
 
 ---
 

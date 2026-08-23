@@ -44,7 +44,35 @@
   // ciclos; este intervalo cobre o caso em que TUDO está satisfeito e nada mais
   // dispararia evento nenhum — sem ele, o player pararia de pedir ao encher o
   // buffer e só voltaria a acordar num seek.
+  //
+  // **ELE NÃO PODE SER O ÚNICO A ACORDAR O PLAYER** — ver `EVENTOS_DO_COMPASSO`.
   const TICK_MS = 400;
+  // ===== O COMPASSO NÃO PODE DEPENDER SÓ DE UM `setInterval` (v1.2.0) =====
+  //
+  // Relato do operador: *"vídeos tocando direto do YouTube sem baixar são
+  // interrompidos quando o app está em segundo plano"*. Um arquivo BAIXADO não
+  // é: ali o `<video>` toca sozinho e nenhum JavaScript precisa rodar durante a
+  // reprodução. Aqui precisa — quem repõe o buffer é este laço.
+  //
+  // E o laço morria por uma razão que não é nossa: **um `setInterval` de página
+  // em segundo plano é estrangulado pelo Chromium** (1×/s, e 1×/min depois de
+  // alguns minutos escondida). Com `ALVO_S` em 20 s de buffer e um compasso de
+  // até um minuto, a sequência é aritmética: o buffer enche, nenhum
+  // `updateend` sai porque nada mais é appendado, o vídeo consome os 20 s
+  // guardados e trava — até o tique seguinte, que pode estar a quarenta
+  // segundos dali. Do lado de quem assiste isso é a projeção parando sozinha,
+  // sem erro em lugar nenhum.
+  //
+  // A saída é não depender de temporizador para o que a MÍDIA já anuncia: os
+  // eventos do `<video>` nascem do pipeline de mídia, não do agendador de
+  // tarefas, e continuam saindo com a página escondida. `timeupdate` sozinho
+  // (~4 Hz enquanto toca) já cobre o caso normal; os outros três cobrem
+  // justamente o instante em que ele PARA de sair — a mídia travou por falta de
+  // dados, que é quando repor é mais urgente.
+  //
+  // O intervalo FICA, como piso: ele é o que ainda cobre a cena PAUSADA (sem
+  // `timeupdate`) e o buffer cheio com o vídeo parado.
+  const EVENTOS_DO_COMPASSO = ['timeupdate', 'progress', 'waiting', 'stalled'];
   // Quanto passado descartar quando o navegador reclamar de espaço. O MSE tem
   // cota, e num vídeo de 1080p ela é atingida antes do fim: descartar o que já
   // passou é o único jeito de continuar, e 30 s atrás do cursor é folga
@@ -180,12 +208,28 @@
     return segs;
   }
 
+  // A MARCA de "vale a pena tentar de novo", carregada no próprio erro. Ela
+  // viaja no objeto e não numa tabela de mensagens porque quem SABE se o
+  // tropeço foi acidente é quem o produziu — casar strings de erro depois é a
+  // forma de errar que este arquivo já paga em outro lugar (ver o
+  // `/HTTP 40[13]/` do `recuperarStream`, que é contrato justamente por isso).
+  function marcar(erro, sim) {
+    erro.retentavel = !!sim;
+    return erro;
+  }
+
   // --------------------------------------------------------------------------
 
   function criar(video, man, opts) {
     const onErro = (opts && opts.onErro) || function () {};
     let morto = false;
     let tick = null;
+    // Os ouvintes de `EVENTOS_DO_COMPASSO` já estão no `<video>`? A bandeira
+    // existe porque `morrer` pode ser chamado ANTES de `iniciar()` chegar a
+    // armá-los (um mime recusado no `addSourceBuffer`, um init que não desce),
+    // e `removeEventListener` de quem nunca foi adicionado é um no-op silencioso
+    // que esconderia a ordem real dos fatos de quem ler isto depois.
+    let compassoLigado = false;
     let objUrl = null;
     const ms = new MediaSource();
     const faixas = [];
@@ -196,10 +240,22 @@
     // gasta por um vídeo que ninguém mais vai ver.
     const emVoo = new Set();
 
+    function soltarCompasso() {
+      if (!compassoLigado) return;
+      compassoLigado = false;
+      EVENTOS_DO_COMPASSO.forEach((ev) => {
+        try { video.removeEventListener(ev, bombear); } catch (_) {}
+      });
+    }
+
     function morrer(porque) {
       if (morto) return;
       morto = true;
       clearInterval(tick);
+      // Os ouvintes do compasso saem JUNTO do intervalo, e pelo mesmo motivo:
+      // eles chamam `bombear()`, e um `<video>` que já mudou de fonte
+      // continuaria emitindo `timeupdate` para um player morto.
+      soltarCompasso();
       // Derruba as requisições em voo. Quem estava no `await` recebe um
       // AbortError, cai no catch de quem chamou e esbarra no `morto` já
       // ligado — nenhuma segunda mensagem de erro sai daqui.
@@ -223,10 +279,62 @@
       }
     }
 
+    // ===== UMA FALHA DE REDE NÃO É O FIM DA TRANSMISSÃO (v1.2.0) =====
+    //
+    // Até aqui QUALQUER tropeço matava o player: um `fetch` que não completa
+    // sobe pelo `alimentar` até o `morrer`, o Controle recebe `onStreamErro` e
+    // `recuperarStream` derruba a cena e cai no download. Um vídeo de 300 MB
+    // começando a baixar por causa de um pacote perdido.
+    //
+    // E é justamente em SEGUNDO PLANO que o tropeço acontece: o Wi-Fi do
+    // aparelho entra em economia de energia com o app fora da frente, e o que
+    // sai daí é uma conexão que cai e volta em segundos. O download já sabia
+    // disso desde sempre (`YoutubeGrab.baixar`: oito tentativas com espera
+    // crescente, e 4xx nunca retentado); a transmissão era o único caminho de
+    // rede do app sem nenhuma.
+    //
+    // **A DIVISÃO É A MESMA DO DOWNLOAD, e ela não é preciosismo:** 401/403 é a
+    // URL do googlevideo EXPIRADA, e insistir nela é gastar segundos para
+    // receber o mesmo 403 — quem conserta isso é `recuperarStream`, que
+    // re-extrai o manifesto, e ele reconhece o caso pela MENSAGEM (`HTTP 403`).
+    // Retentar aqui atrasaria a única resposta que funciona. O que se retenta é
+    // o que pode ter sido um acidente: a requisição que não completou e o 5xx.
+    const TENTATIVAS = 4;
+    const ESPERA_MS = [400, 1200, 3000];
+
+    function retentavel(e) {
+      return !!(e && e.retentavel);
+    }
+
+    function dormir(ms) {
+      return new Promise((resolve) => setTimeout(resolve, ms));
+    }
+
     // O `passo` viaja junto do erro porque "não deu" não leva a lugar nenhum:
     // este player busca três coisas por faixa — inicialização, índice e mídia —
     // e cada uma falha por um motivo diferente, com um conserto diferente.
+    //
+    // A ESPERA É INTERROMPÍVEL pelo `morto`: um `destruir()` durante os 3 s da
+    // última espera não pode render uma requisição a mais para uma cena que já
+    // saiu do telão.
     async function pegar(url, ini, fim, passo) {
+      let ultima = null;
+      for (let t = 0; t < TENTATIVAS; t++) {
+        if (t) {
+          await dormir(ESPERA_MS[Math.min(t - 1, ESPERA_MS.length - 1)]);
+          if (morto) throw ultima;
+        }
+        try {
+          return await pegarUmaVez(url, ini, fim, passo);
+        } catch (e) {
+          if (morto || !retentavel(e)) throw e;
+          ultima = e;
+        }
+      }
+      throw ultima;
+    }
+
+    async function pegarUmaVez(url, ini, fim, passo) {
       const alvo = pedido(url, ini, fim);
       // Abortável: o controller entra no conjunto `emVoo` enquanto a
       // requisição vive, e `morrer` derruba todos de uma vez. O finally o
@@ -242,8 +350,12 @@
           // ramos de `pegar()` que não imprimia os números, e foi justamente ele
           // que falhou em aparelho. A investigação inteira teve de deduzir por
           // aritmética o que uma linha de log teria dito.
-          throw new Error(passo + ': a requisição não completou (' + ((e && e.message) || '?')
-            + ') pedindo bytes ' + ini + '-' + fim);
+          // ABORT NÃO É TROPEÇO: ele vem de `morrer`/`destruir`, isto é, de uma
+          // decisão nossa. Marcá-lo como retentável faria a saída de cena
+          // custar quatro requisições a um servidor que ninguém mais espera.
+          const abortou = !!(e && e.name === 'AbortError');
+          throw marcar(new Error(passo + ': a requisição não completou ('
+            + ((e && e.message) || '?') + ') pedindo bytes ' + ini + '-' + fim), !abortou);
         }
         // 200 é aceito além do 206: um proxy pode responder a faixa inteira, e
         // recusar isso quebraria por preciosismo.
@@ -253,17 +365,31 @@
           // Forbidden", o texto de uma falha de rede. Sem ele sobra um número, e
           // um 404 do proxy e um 404 do asset loader se leem igual — apontando
           // para lugares opostos.
-          throw new Error(passo + ': HTTP ' + r.status
+          // 5xx e 429 são do SERVIDOR e passam; 4xx é a URL expirada ou negada,
+          // e a resposta certa a ela mora no `recuperarStream` do Controle.
+          throw marcar(new Error(passo + ': HTTP ' + r.status
             + (r.statusText ? ' (' + r.statusText + ')' : '')
-            + ' pedindo bytes ' + ini + '-' + fim);
+            + ' pedindo bytes ' + ini + '-' + fim), r.status >= 500 || r.status === 429);
         }
-        const buf = await r.arrayBuffer();
+        // O CORPO TAMBÉM PODE MORRER NO MEIO, e este era o ramo sem tratamento:
+        // os cabeçalhos chegam, a conexão cai antes do último byte e o
+        // `arrayBuffer()` rejeita com um erro do navegador, sem `passo` nenhum.
+        // É o desfecho mais provável de um Wi-Fi que entra em economia de
+        // energia — exatamente o caso que este lote existe para atravessar.
+        let buf;
+        try {
+          buf = await r.arrayBuffer();
+        } catch (e) {
+          const abortou = !!(e && e.name === 'AbortError');
+          throw marcar(new Error(passo + ': o corpo não chegou inteiro ('
+            + ((e && e.message) || '?') + ') pedindo bytes ' + ini + '-' + fim), !abortou);
+        }
         // ZERO BYTES com status bom é o caso mais traiçoeiro: o `appendBuffer`
         // aceita sem reclamar e o vídeo simplesmente nunca começa. Melhor falhar
         // aqui, com o número na mão.
         if (!buf.byteLength) {
-          throw new Error(passo + ': resposta vazia (HTTP ' + r.status + ', pedidos '
-            + (fim - ini + 1) + ' bytes)');
+          throw marcar(new Error(passo + ': resposta vazia (HTTP ' + r.status + ', pedidos '
+            + (fim - ini + 1) + ' bytes)'), true);
         }
         return buf;
       } finally {
@@ -455,6 +581,13 @@
         // telão (`resendSceneToDisplay` reenvia `load` com `time`) e a aplicação
         // de um OTA, que recarrega as duas páginas com a cena no ar.
         aoBuscar();
+        // OS DOIS CAMINHOS, e a ordem não importa porque `bombear` é
+        // idempotente (`alimentar` sai por `f.ocupada` e pelo `ALVO_S`).
+        // Ver `EVENTOS_DO_COMPASSO`: o intervalo é o piso, os eventos da mídia
+        // são o que sobrevive ao estrangulamento de uma página em segundo
+        // plano.
+        EVENTOS_DO_COMPASSO.forEach((ev) => video.addEventListener(ev, bombear));
+        compassoLigado = true;
         tick = setInterval(bombear, TICK_MS);
       } catch (e) {
         morrer((e && e.message) || 'início');

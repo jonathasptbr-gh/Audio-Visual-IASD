@@ -216,6 +216,13 @@ const plClearEl = document.getElementById('plClear');
 // enquanto ele está fora de cena, e é ela que some com a fila vazia.
 const plClearFaixaEl = document.getElementById('plClearFaixa');
 
+// O HISTÓRICO DO CULTO (v1.2.0) — a folha irmã da playlist, e por isso vizinha
+// dela aqui: mesma anatomia de bottom-sheet, mesma `.popup-list`, mesma linha.
+const historyBtnEl = document.getElementById('historyBtn');
+const histPopupEl = document.getElementById('histPopup');
+const histListEl = document.getElementById('histList');
+const histPopupCloseEl = document.getElementById('histPopupClose');
+
 const fileEl = document.getElementById('file');
 const mainEl = document.querySelector('main');
 const tabsEl = document.querySelector('.tabs');
@@ -237,7 +244,7 @@ const appVersionEl = document.getElementById('appVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.1.27';
+const WEB_VERSION = '1.2.2';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -7831,7 +7838,25 @@ function renderCollectionCard(coll, ctx) {
   // dela custa uma extração do canal do YouTube, então o TTL de 12 h a segura —
   // e sem este botão o operador esperaria meio dia pelo episódio do sábado sem
   // ter o que fazer (ver `forcarIndice`, que de propósito não a força).
-  if (ehLink(coll)) {
+  //
+  // ===== E ELE SÓ EXISTE COM O ÁLBUM ABERTO (v1.2.0) =====
+  //
+  // Pedido do operador: *"os botões de atualizar lista do provai e vede e do
+  // informativo mundial das missões só deve aparecer com o album/grupo
+  // aberto"*.
+  //
+  // É a régua da LIXEIRA (v1.1.16) aplicada ao terceiro botão desta coluna: o
+  // gesto que revela a ação é o mesmo que revela a LISTA sobre a qual ela age.
+  // Fechado, o card de uma série não oferece nada — e o acervo inteiro é uma
+  // lista de cards fechados, onde este ícone aparecia em cada série como uma
+  // ação sem contexto a dois centímetros do nome.
+  //
+  // **`u.syncBusy` é a exceção, e ela não é uma segunda regra:** enquanto a
+  // varredura corre este botão não é "atualizar", é o CANCELAR dela — o mesmo
+  // desfecho que faz o irmão de download ficar visível com o card fechado. Um
+  // cancelar que some é um cancelar que não existe no único momento em que ele
+  // importa.
+  if (ehLink(coll) && (u.expanded || u.syncBusy)) {
     const at = document.createElement('button');
     // `coll-bar-at` além da base: os TRÊS botões desta coluna dividem a
     // geometria (`.coll-bar-dl`) e precisam ser distinguíveis um do outro — por
@@ -9549,6 +9574,9 @@ async function send(id, daFila, retomarEm) {
   // porque este ponto não distingue toque de reenvio programático.
   diagC('entrou em cena: ' + ((currentItem && currentItem.name) || id)
     + (daFila ? ' ← fila' : ''));
+  // E O HISTÓRICO DO CULTO, pelo mesmo argumento da linha acima: `send` é o
+  // ponto por onde TODOS os caminhos passam. Ver `historicoRegistrar`.
+  historicoRegistrar(id, currentItem);
   // A POSIÇÃO VIAJA DENTRO DO `load`, nunca como um `seek` logo depois — o
   // `onCommand` do Display NÃO serializa, o `load` é assíncrono (getMedia →
   // opfsGetFile → mediaReady, mais o fade de saída), e um comando que chegasse
@@ -10083,6 +10111,20 @@ function cifraGarantir(item) {
       tentativas.push('fixada ' + fixada + ' → ' + desfecho.motivo);
     }
 
+    // 0,5ª TENTATIVA: O QUE JÁ ESTÁ NO APARELHO. É a única que não toca na rede,
+    // e por isso é a que faz a folha abrir no sábado com o Wi-Fi da igreja
+    // oscilando. Vem DEPOIS da escolha do operador (uma correção à mão vale
+    // mais que o automático guardado) e ANTES de todo o resto.
+    if (!desfecho.ok && coll && cifraGuardavel(coll)) {
+      const disco = await cifraDiscoDe(coll.id);
+      const g = disco[cifraChaveNoDisco(nome)];
+      if (g && g.pagina) {
+        url = g.url || '';
+        desfecho = { ok: true, pagina: g.pagina, motivo: AVCifra.OK };
+        tentativas.push('guardada no aparelho ' + url + ' → ok');
+      }
+    }
+
     // 1ª TENTATIVA: o atalho do catálogo.
     const direta = !desfecho.ok && coll ? AVCifra.urlDoHino(coll.id, nome) : '';
     if (direta) {
@@ -10121,17 +10163,27 @@ function cifraGarantir(item) {
     // `ilegivel` seguidos continuam dizendo "o site mudou de formato" — mais
     // alto, não mais baixo.
     if (!desfecho.ok && desfecho.motivo !== AVCifra.MOTIVO_ILEGIVEL) {
-      const consultas = [AVCifra.urlDeBusca(nome)];
+      // As consultas, na ordem, SEM repetir: o álbum entra na segunda, e quando
+      // não há álbum a segunda simplesmente não existe (a primeira versão
+      // repetia a mesma consulta e gastava uma requisição a troco de nada).
+      const album = (coll && coll.name) || '';
+      const consultas = [nome];
+      if (album) consultas.push(nome + ' ' + album);
       let candidatos = [];
-      for (const extra of ['', (coll && coll.name) || '']) {
-        if (candidatos.length || (extra === '' && consultas.length === 0)) continue;
-        const r = await cifraBuscarNoSite(nome, extra);
+      for (const q of consultas) {
+        if (candidatos.length) continue;
+        // O PARENTESCO É SEMPRE CONTRA O NOME DA MÚSICA, nunca contra a consulta:
+        // com o álbum colado, nenhum resultado seria parente dela.
+        const r = await cifraBuscarNoSite(q, nome, album);
         if (!r.url) continue;
         candidatos = r.ordenados;
         // OS CRUS FICAM NA ENTRADA. É deles que o seletor vive, e buscá-los de
         // novo ao abri-lo seria uma segunda requisição para saber o que já se
         // sabia — no meio do culto, com o instrumento na mão.
-        if (r.crus.length) { entrada.crus = r.crus; entrada.consulta = nome; }
+        // A CONSULTA GUARDADA É A QUE PRODUZIU A LISTA, não o nome puro: é ela
+        // que o campo do seletor mostra, e um campo que diz outra coisa do que
+        // foi buscado faz o operador editar a partir de uma premissa falsa.
+        if (r.crus.length) { entrada.crus = r.crus; entrada.consulta = q; }
         tentativas.push('busca ' + r.url + ' → ' + r.crus.length + ' resultado(s), '
           + candidatos.length + ' com parentesco');
       }
@@ -10161,6 +10213,139 @@ function cifraGarantir(item) {
   });
 
   return entrada;
+}
+
+// ===== A CIFRA DO HINÁRIO, GUARDADA NO APARELHO (v1.1.28) =====
+//
+// O Hinário 2022 é o único acervo em que o endereço da cifra é **deduzível e
+// estável**: a coleção existe no site, o slug sai do nome do hino, e MEDIDO em
+// uso não falhou uma vez. Isso o torna o único caso em que vale guardar — e o
+// caso em que guardar resolve o problema de verdade: no sábado, com a rede da
+// igreja oscilando, a folha abre sem rede nenhuma.
+//
+// ## QUEM BAIXA É O APARELHO, e isso é a decisão inteira
+//
+// Nada disto entra no bundle do OTA nem no repositório. O `.zip` do canal é
+// público e servido em nome de quem publica; um acervo inteiro ali dentro é o
+// app DISTRIBUINDO uma obra de terceiro, e não é isso que ele faz. Aqui cada
+// aparelho busca o que vai usar, do mesmo jeito que já busca uma cifra por vez
+// — o que muda é só QUANDO (uma vez, no download do hinário) e ONDE fica
+// (IndexedDB do aparelho, não a memória da sessão).
+//
+// O ganho prático é o mesmo, e há três de quebra: a cifra fica sempre ATUAL
+// (rebaixar é apagar e sincronizar), o repositório não incha, e não existe um
+// segundo lugar de onde a verdade possa divergir.
+//
+// ## A forma é a do `syncLyrics`, e de propósito
+//
+// Mesma fila (`runLimited`), mesma proteção de segundo plano (`withBgWork`),
+// mesma notificação de progresso, mesma gravação em LOTES, e a mesma regra que
+// mais importa: **falha de rede não grava nada**. Marcar "não tem" por causa de
+// um Wi-Fi que oscilou tiraria o hino da lista para sempre — e num acervo em
+// que tudo existe, um buraco é sempre erro nosso.
+const CIFRA_LOTE = 20;          // hinos por gravação
+let cifraDiscoColl = '';        // de qual coleção é o `cifraDisco` carregado
+let cifraDisco = null;          // { nome normalizado → { pagina, url, em } }
+let cifraSyncRodando = false;
+
+/** A chave de um hino dentro da coleção — a mesma normalização do cache. */
+function cifraChaveNoDisco(nome) {
+  return AVCifra.normalizar(AVCifra.semNumero(nome)).toLowerCase();
+}
+
+/**
+ * Carrega (uma vez por coleção) o que está guardado.
+ *
+ * Por COLEÇÃO e sob demanda, não tudo na abertura: só os hinários têm cifra
+ * guardada, e trazer os dois para a memória no `load()` custaria alguns MB num
+ * processo que já divide espaço com dois WebViews e um vídeo.
+ */
+async function cifraDiscoDe(collId) {
+  if (cifraDiscoColl === collId && cifraDisco) return cifraDisco;
+  let v = null;
+  try { v = await AVDB.getState('cifras:' + collId); } catch (_) { v = null; }
+  cifraDiscoColl = collId;
+  cifraDisco = (v && typeof v === 'object') ? v : {};
+  return cifraDisco;
+}
+
+/** Grava o que está em memória para esta coleção. */
+function cifraDiscoGravar(collId) {
+  return AVDB.setState('cifras:' + collId, cifraDisco || {});
+}
+
+/** O hinário tem endereço DEDUZÍVEL? É essa a condição de guardar. */
+function cifraGuardavel(coll) {
+  return !!(coll && AVCifra.CATALOGO[coll.id]);
+}
+
+/**
+ * Baixa e guarda a cifra de todo hino do hinário que ainda não tem uma.
+ *
+ * Roda DEPOIS do download do hinário (`syncCollection`) e é retomável por
+ * construção: o que já está guardado não é pedido de novo, então uma
+ * interrupção custa o que faltava, nunca o que já foi.
+ */
+/**
+ * As cifras de TODO hinário que o operador tem no aparelho.
+ *
+ * O irmão do `syncLyrics`, e chamado do mesmo lugar: sem isto, o recurso só
+ * existia para quem baixasse o hinário DEPOIS da v1.1.28 — quem já o tinha
+ * ficava em `0 de 601` para sempre, e o Registro dizia isso sem que nada na
+ * tela explicasse o quê fazer.
+ */
+async function syncCifrasHinarios() {
+  for (const c of allCollections().filter((c) => cifraGuardavel(c) && countDownloaded(c.id) > 0)) {
+    await syncCifrasHinario(c).catch(() => {});
+  }
+}
+
+async function syncCifrasHinario(coll) {
+  if (!window.__NATIVE__ || !cifraGuardavel(coll) || cifraSyncRodando) return;
+  // A MESMA REGRA DO `syncLyrics`: são centenas de requisições a um site que
+  // não é nosso, e o plano de dados do operador não é o lugar delas.
+  if (networkType() === 'cellular') return;
+
+  const disco = await cifraDiscoDe(coll.id);
+  const faltam = collSongs(coll.id)
+    .map((s) => ({ nome: s.name, chave: cifraChaveNoDisco(s.name) }))
+    .filter((h) => h.chave && !disco[h.chave]);
+  if (!faltam.length) return;
+
+  cifraSyncRodando = true;
+  const notifId = bgTaskStart('Cifras do ' + coll.name, faltam.length);
+  let done = 0;
+  let desdeGravacao = 0;
+  try {
+    await withBgWork(async () => {
+      try {
+        await runLimited(faltam, NET_CONCURRENCY, async (h) => {
+          bgItemStart(notifId, h.nome);
+          try {
+            const url = AVCifra.urlDoHino(coll.id, h.nome);
+            if (url) {
+              const d = await cifraPedir(url);
+              // SÓ O SUCESSO É GRAVADO. `nao-tem` e `ilegivel` ficam de fora
+              // para a próxima passada tentar de novo — num acervo em que toda
+              // música existe no site, uma ausência é defeito nosso, e gravá-la
+              // a tornaria permanente.
+              if (d.ok && d.pagina) disco[h.chave] = { pagina: d.pagina, url, em: Date.now() };
+            }
+          } catch (_) { /* rede: a próxima passada tenta de novo */ }
+          finally { bgItemEnd(notifId, h.nome); }
+          done++;
+          bgTaskStep(notifId, done);
+          if (++desdeGravacao >= CIFRA_LOTE) {
+            desdeGravacao = 0;
+            await cifraDiscoGravar(coll.id);
+          }
+        });
+      } finally { bgTaskEnd(notifId); }
+    });
+  } finally {
+    await cifraDiscoGravar(coll.id).catch(() => {});
+    cifraSyncRodando = false;
+  }
 }
 
 // ===== ESCOLHER A CIFRA À MÃO (v1.1.24) =====
@@ -10229,20 +10414,31 @@ async function cifraFixar(chave, url) {
 }
 
 /**
- * Uma busca no site, já lida: `{ crus, ordenados }`.
+ * Uma busca no site, já lida: `{ crus, ordenados, url }`.
  *
  * `crus` é TUDO que estruturalmente parece música — é o que o seletor mostra,
  * porque o ponto dele é justamente deixar ver o que a regra RECUSOU.
  * `ordenados` é o que a regra aceitaria, na ordem dela.
+ *
+ * **TRÊS PARÂMETROS PORQUE SÃO TRÊS PAPÉIS**, e juntá-los foi um defeito real:
+ * a primeira versão passava um `extra` que ia ao mesmo tempo para a consulta e
+ * para o parentesco, e o seletor — que manda a consulta DIGITADA — acabava sem
+ * álbum em lugar nenhum, nem na busca nem no desempate.
+ *
+ *  - `consulta` é o que vai no `?q=`, já montado por quem chama;
+ *  - `alvo` é contra o que o PARENTESCO compara (o nome da música, ou o que o
+ *    operador digitou — nunca a consulta com o álbum colado, senão nenhum
+ *    resultado seria parente dela);
+ *  - `artista` é o DESEMPATE, e só isso.
  */
-async function cifraBuscarNoSite(nome, extra) {
-  const busca = AVCifra.urlDeBusca(nome, extra);
+async function cifraBuscarNoSite(consulta, alvo, artista) {
+  const busca = AVCifra.urlDeBusca(consulta);
   if (!busca) return { crus: [], ordenados: [], url: '' };
   const rb = await AVNative.cifraHtml(busca);
   const ok = rb.status >= 200 && rb.status <= 299;
   cifraGuardarEstrutura('busca ' + busca, ok ? rb.html : '');
   const crus = ok ? AVCifra.lerBusca(rb.html) : [];
-  return { crus, ordenados: AVCifra.ordenarBusca(crus, nome, extra), url: busca };
+  return { crus, ordenados: AVCifra.ordenarBusca(crus, alvo, artista), url: busca };
 }
 
 /**
@@ -10260,7 +10456,8 @@ function cifraGuardarEstrutura(rotulo, html) {
   if (r.h1 || r.h2) l.push('  <h1> ' + JSON.stringify(r.h1) + ' · <h2> ' + JSON.stringify(r.h2));
   l.push('  ' + r.pres + ' <pre>, o maior com ' + r.maiorPre + ' caractere(s) e '
     + r.bNoMaiorPre + ' <b>' + (r.tom ? ' · tom "' + r.tom + '"' : ' · tom não achado'));
-  l.push('  ' + r.links + ' link(s) de 2 segmentos, ' + r.linksDeMusica + ' com forma de música');
+  l.push('  ' + r.links + ' link(s) de 2 segmentos, ' + r.linksDeMusica + ' com forma de música'
+    + (r.amostraEhCrua ? ' — a amostra abaixo é do que HAVIA, já que nada passou' : ''));
   for (const a of r.amostra) l.push('    ' + a.caminho + '  ' + JSON.stringify(a.texto));
   cifraEstrutura = l.join('\n');
 }
@@ -10292,7 +10489,12 @@ async function cifraRebuscar(item, consulta) {
   entrada.buscando = true;
   renderLyricsView();
   try {
-    const r = await cifraBuscarNoSite(consulta, '');
+    // O PARENTESCO compara com o que o operador DIGITOU — ele é quem sabe o que
+    // está procurando, e exigir semelhança com o nome do acervo derrubaria
+    // justamente a correção que ele veio fazer. O ÁLBUM continua desempatando:
+    // ele não filtra nada, e não custa nada.
+    const coll = cifraColecaoDoItem(item);
+    const r = await cifraBuscarNoSite(consulta, consulta, (coll && coll.name) || '');
     entrada.consulta = consulta;
     entrada.crus = r.crus;
   } catch (_) { entrada.crus = []; }
@@ -10389,7 +10591,23 @@ function cifraColunas(folha) {
 function cifraRemedir() {
   if (!lyricsPopupEl.classList.contains('open')) return;
   if (lvActiveSource() !== 'cifra') return;
+  // O TECLADO DO SISTEMA É UM `resize`, e este era o pior jeito de descobrir
+  // isso: abrir o teclado redimensiona a janela, o redesenho REFAZ a aba
+  // inteira, o `<input>` que tinha o foco deixa de existir — e um campo sem
+  // foco fecha o teclado, que é outro `resize`. Da tela sai um teclado que
+  // pisca e some, e nenhum erro em lugar nenhum.
+  //
+  // A guarda é pelo FOCO e não pelo seletor estar aberto: a regra que se quer é
+  // "não destruir o que a pessoa está usando", e ela vale para todo campo que
+  // esta aba venha a ter.
+  if (cifraDigitando()) return;
   renderLyricsView();
+}
+
+/** O operador está com o dedo num campo NOSSO? Ver a guarda do `cifraRemedir`. */
+function cifraDigitando() {
+  const a = document.activeElement;
+  return !!(a && a.classList && a.classList.contains('lv-cifra-campo'));
 }
 
 // ===== A ROLAGEM AUTOMÁTICA DA FOLHA (v1.1.20) =====
@@ -10774,6 +10992,37 @@ function lvBuildCifraEscolher(el, item, nome) {
   linha.append(campo, ir);
   el.appendChild(linha);
 
+  // ---- OS ATALHOS DE CONSULTA ----
+  //
+  // As duas coisas que mais fazem uma busca achar não estão no nome da música,
+  // e o operador não tem como adivinhá-las: o ÁLBUM do acervo e a coleção
+  // MINISTÉRIO JOVEM, onde moram os CDs oficiais e os do ano. O campo nasce com
+  // o nome puro — que é a melhor consulta na maioria das vezes, porque uma
+  // palavra a mais numa busca de TEXTO pode encolher o resultado em vez de
+  // afiná-lo —, e estes botões deixam as duas a um toque.
+  //
+  // Eles ESCREVEM no campo antes de buscar de propósito: assim a consulta que
+  // rodou fica à vista, e o operador pode editá-la a partir dali em vez de
+  // adivinhar o que o botão fez.
+  const coll0 = cifraColecaoDoItem(item);
+  const atalhos = [];
+  if (coll0 && coll0.name) atalhos.push(coll0.name);
+  atalhos.push('Ministério Jovem');
+  const chips = document.createElement('div');
+  chips.className = 'lv-cifra-chips';
+  for (const termo of atalhos) {
+    const q = nome + ' ' + termo;
+    if ((campo.value || '').trim().toLowerCase() === q.toLowerCase()) continue;
+    const chip = document.createElement('button');
+    chip.type = 'button';
+    chip.className = 'lv-cifra-chip';
+    chip.textContent = '+ ' + termo;
+    chip.title = 'Procurar “' + q + '”';
+    chip.addEventListener('click', () => { campo.value = q; cifraRebuscar(item, q); });
+    chips.appendChild(chip);
+  }
+  if (chips.childElementCount) el.appendChild(chips);
+
   if (entrada.buscando) { el.appendChild(cifraEspera('Procurando…')); return; }
 
   // ---- A LISTA ----
@@ -10792,7 +11041,9 @@ function lvBuildCifraEscolher(el, item, nome) {
     // ORDENADOS PELA MESMA REGRA da busca automática, mas SEM o corte: o que ela
     // recusou continua na lista, embaixo. É exatamente isso que o seletor existe
     // para mostrar — a regra recusar o certo é o caso que se está corrigindo.
-    const parente = new Set(AVCifra.ordenarBusca(crus, entrada.consulta || nome, '').map((r) => r.url));
+    const coll = cifraColecaoDoItem(item);
+    const parente = new Set(AVCifra.ordenarBusca(
+      crus, entrada.consulta || nome, (coll && coll.name) || '').map((r) => r.url));
     const ordem = crus.slice().sort((a, b) => (parente.has(b.url) ? 1 : 0) - (parente.has(a.url) ? 1 : 0));
     const fixada = cifraEscolhas[chave];
     for (const r of ordem) {
@@ -11298,8 +11549,46 @@ async function pararMidia(tipo) {
   curTimeEl.textContent = '0:00';
 }
 
-// Parar = limpar o display (volta ao wallpaper); mantém currentId para replay com play.
+/**
+ * Parar = limpar o display (volta ao wallpaper); mantém currentId para replay
+ * com play.
+ *
+ * ===== COM AS DUAS CAMADAS NO AR, ELE FALA SÓ DA DE BAIXO (v1.2.0) =====
+ *
+ * Pedido do operador: *"considerando que o preview tem um botão apenas para
+ * remover as camadas superiores, ajuste o botão de stop para em caso onde há
+ * mídia de fundo e mensagens ou sobreposição de elementos na tela como bíblia
+ * e etc… o botão de stop funciona apenas para a mídia de fundo"*.
+ *
+ * O app já tinha as DUAS portas — `encerrarCamadaDeCima` (o selo `#pvCamadaBtn`
+ * sobre a preview) para a de cima, `pararMidia('media-clear')` para a de baixo
+ * —, e o Parar era o único controle que não escolhia nenhuma: ele derrubava as
+ * duas de uma vez. Com um louvor de fundo sob um versículo (o uso normal, e o
+ * que a independência áudio × texto existe para permitir), tirar a música
+ * levava o versículo junto, e devolvê-lo custava reprojetar a cena na frente da
+ * congregação.
+ *
+ * A regra é: **cada botão fala de UMA camada, e o Parar fala da mídia** — o
+ * mesmo desdobramento que o `retirarDoAr` da linha já faz. Com uma camada só no
+ * ar não há o que escolher, e ele volta a ser o ponto final de sempre.
+ *
+ * A PERGUNTA É `midiaNoAr`, NUNCA `currentId`: este último sobrevive ao Parar
+ * de propósito (é ele que deixa o ▶ repetir a faixa), então perguntar por ele
+ * faria o SEGUNDO Parar seguido — o que encerraria o versículo — virar no-op
+ * para sempre. É a mesma régua do reenvio de cena.
+ */
 async function stopClear() {
+  // As duas camadas no ar: sai só a de baixo, e a Camada de Texto fica onde
+  // está. O `clearManualText` NÃO pode entrar aqui — ele é a escrituração que
+  // apaga as seis sessões, e sem elas o operador perderia a navegação do
+  // versículo que continua projetado.
+  if (cenaDeRoteiroNoAr() && midiaNoAr) {
+    await pararMidia('media-clear');
+    marcarNoAr();
+    renderNowPlaying();
+    await persistCurrent();
+    return;
+  }
   await pararMidia('clear');
   clearManualText();
   // A cena de roteiro caiu junto (o `clearManualText` acima), e o realce dela
@@ -12683,6 +12972,16 @@ async function autoRefreshCollections() {
     // longa (uma requisição por música) e nada na tela espera por ela; o
     // progresso vai para a notificação, como qualquer trabalho de massa.
     syncLyrics().catch(() => {});
+    // Fase 4: as CIFRAS dos hinários, pelo mesmo motivo e pelo mesmo caminho.
+    //
+    // ELA PRECISOU SAIR DO DOWNLOAD (v1.1.30). Pendurada no fim do
+    // `syncCollection`, a v1.1.28 nunca alcançou quem MAIS precisa dela: um
+    // hinário já completo faz aquela função retornar em "Já completo offline",
+    // muito antes do gancho. MEDIDO em dois Registros seguidos: `0 de 601`
+    // depois de o operador tocar a sincronização. Aqui é como o `syncLyrics`
+    // sempre foi — informação padrão do acervo, uma vez por sessão, em segundo
+    // plano —, e o download deixa de ser a única porta.
+    syncCifrasHinarios().catch(() => {});
   } finally { collectionsRefreshing = false; }
 }
 
@@ -12763,7 +13062,15 @@ async function syncCollection(coll, opts) {
       const flags = await Promise.all(fatia.map((s) => songVariantsNeeded(coll, s)));
       flags.forEach((f, k) => { if (f.needsFull || f.needsPlayback) pending.push(fatia[k]); });
     }
-    if (pending.length === 0) { setCollStatus(coll.id, 'Já completo offline', 4000); return { ok: true, baixados: 0, falhou: 0 }; }
+    if (pending.length === 0) {
+      setCollStatus(coll.id, 'Já completo offline', 4000);
+      // …mas as CIFRAS podem faltar. Um hinário com todo o áudio no disco sai
+      // por aqui, e era exatamente este o caminho em que o download de cifras
+      // da v1.1.28 nunca acontecia. Tocar em sincronizar tem de fazer alguma
+      // coisa quando ainda há o que buscar.
+      await syncCifrasHinario(coll).catch(() => {});
+      return { ok: true, baixados: 0, falhou: 0 };
+    }
     if (cancelled()) { setCollStatus(coll.id, 'Cancelado', 4000); return { ok: true, baixados: 0, falhou: 0 }; }
 
     // Fora do Wi-Fi a sincronização em massa NÃO é bloqueada — ela pergunta.
@@ -12841,6 +13148,13 @@ async function syncCollection(coll, opts) {
     });
     setCollStatus(coll.id, (cancelled() ? 'Cancelado (' : 'Atualizado (') + (done - falhou) + ' baixado(s))'
       + (falhou ? ' · ' + falhou + ' sem rede' : ''), 4000);
+    // AS CIFRAS DO HINÁRIO VÊM JUNTO (v1.1.28), e só do hinário: é o único
+    // acervo cujo endereço no site é deduzível do nome. Depois do áudio, nunca
+    // antes — o que o operador pediu foi o hinário, e a cifra é o extra que
+    // torna a folha utilizável sem rede. `await` de propósito: ela usa a mesma
+    // proteção de segundo plano, e soltá-la aqui deixaria o `finally` desligar
+    // o serviço com centenas de requisições ainda por fazer.
+    if (!cancelled()) await syncCifrasHinario(coll).catch(() => {});
     // Tudo o que se tentou falhou: para o lote isso é o mesmo que não ter
     // baixado nada, e o cabeçalho do grupo precisa saber.
     return { ok: !(falhou > 0 && falhou >= done), baixados: done - falhou, falhou };
@@ -17695,6 +18009,16 @@ async function renderDiag() {
     if (cd) linhas.push('shell: ' + cd);
     const fix = Object.keys(cifraEscolhas).length;
     if (fix) linhas.push(fix + ' cifra(s) fixada(s) à mão pelo operador');
+    // O QUE ESTÁ GUARDADO, POR HINÁRIO. Responde "a folha vai abrir sem rede no
+    // sábado?" — a pergunta que o download das cifras existe para responder, e a
+    // única que nem a linha de tentativas nem o status do shell alcançam.
+    for (const c of allCollections().filter(cifraGuardavel)) {
+      let n = 0;
+      try { n = Object.keys((await AVDB.getState('cifras:' + c.id)) || {}).length; } catch (_) { n = 0; }
+      const total = collSongs(c.id).length;
+      linhas.push(c.name + ': ' + n + ' de ' + total + ' cifra(s) no aparelho'
+        + (n && n < total ? ' (o download completa o resto)' : ''));
+    }
     if (linhas.length) blocos.push('Cifra (última busca)\n' + linhas.join('\n'));
     // A ESTRUTURA da última página que o parser NÃO entendeu — bloco à parte
     // porque responde outra pergunta. As duas linhas acima dizem "tentei estes
@@ -19780,6 +20104,207 @@ async function limparPlaylist() {
   await load();
 }
 
+// ============================================================================
+// O HISTÓRICO DO CULTO (v1.2.0)
+// ============================================================================
+//
+// Pedido do operador: *"crie um botão de histórico, que lista todos os itens
+// que já tocaram naquela sessão. deve ser uma lista tipo a do cronograma, mas
+// sem opções de exclusão, mas com opções de enviar para o cronograma. essa
+// lista deve ter a hora de cada apresentação de cada item e deve ser apagada a
+// cada nova sessão do app"*.
+//
+// ## Por que ele resolve algo que nenhuma lista do app resolve
+//
+// O Cronograma é o que se PRETENDE tocar, a playlist é o que vem A SEGUIR, e as
+// duas são voláteis por natureza — um toque numa mídia da Biblioteca redefine a
+// fila inteira. Nenhuma das duas responde *"o que eu já toquei hoje?"*, e é essa
+// a pergunta de quem monta o culto seguinte ou precisa repetir um louvor que
+// entrou de improviso e não ficou guardado em lugar nenhum.
+//
+// ## O QUE ELE GUARDA, e por que não é só um id
+//
+// Um item pode DEIXAR DE EXISTIR entre tocar e ser consultado: a prateleira
+// `avulsos` tem teto de três, e o coletor recolhe os bytes de quem sai da última
+// lista (ver o KDoc de `LISTS` em `db.js`). Guardar só o id daria uma lista de
+// linhas em branco no fim de um culto normal. Por isso o nome e o subtítulo são
+// copiados NO INSTANTE da projeção — o histórico é um registro do que aconteceu,
+// e um registro não pode depender de o objeto ainda estar lá.
+//
+// ## EM MEMÓRIA, e é isso que o "apagada a cada nova sessão" significa aqui
+//
+// É a mesma escolha (e o mesmo modo de falhar) do `diarioC`, o outro artefato
+// deste app que responde "o que aconteceu neste culto?": ele morre com a
+// página. Uma sessão do app é uma carga do documento — fechar e reabrir zera as
+// duas listas, minimizar não zera nenhuma. Persistir no IndexedDB custaria uma
+// escrita por projeção (o caminho mais quente do culto) para proteger um dado
+// que perde o sentido no domingo seguinte, e ainda precisaria de uma definição
+// de "sessão" que o lado web não tem como observar.
+//
+// **O preço, dito:** uma morte do renderer (`onRendererGone`) leva o histórico
+// junto, como já leva a linha do tempo do Registro.
+const HIST_MAX = 300;
+// A LISTA, do mais RECENTE para o mais antigo — a ordem em que ela é lida. Uma
+// lista de culto cresce para trás: o que interessa é o que acabou de sair de
+// cena, e rolar até o fim para achá-lo seria a lista errada.
+let historico = [];
+
+/**
+ * REGISTRA UMA PROJEÇÃO. Chamado de UM lugar só: o `send`, que é o ponto por
+ * onde todos os caminhos passam (o toque na lista, o avanço automático da fila,
+ * o ⏮/⏭ do transporte, a notificação nativa, o roteiro). É o mesmo argumento
+ * das três guardas do topo daquela função e do `diagC` ao lado desta chamada.
+ *
+ * **REPETIÇÃO CONSECUTIVA NÃO VIRA LINHA NOVA.** `repeat: 'one'` reenvia o
+ * mesmo id a cada fim de faixa, e um louvor deixado em laço durante a oração
+ * encheria a lista inteira com trinta cópias do mesmo nome — enterrando tudo o
+ * que veio antes, que é justamente o que se foi consultar. O que se atualiza é
+ * a HORA: a linha passa a dizer quando a última volta começou.
+ */
+function historicoRegistrar(id, item) {
+  if (!id) return;
+  const topo = historico[0];
+  if (topo && topo.id === id) { topo.hora = Date.now(); topo.vezes++; return; }
+  historico.unshift({
+    id,
+    // O NOME E O SUBTÍTULO SÃO CÓPIAS, não ponteiros — ver o cabeçalho: o
+    // registro pode não existir mais quando alguém abrir a folha.
+    nome: (item && item.name) || 'Item',
+    sub: subtituloItem(item),
+    hora: Date.now(),
+    vezes: 1,
+  });
+  // Um culto não passa de algumas dezenas de projeções; o teto existe para o
+  // caso patológico (o app aberto a semana inteira), não para o uso normal.
+  if (historico.length > HIST_MAX) historico.length = HIST_MAX;
+}
+
+// HH:MM, que é a precisão da pergunta ("antes ou depois do sermão?"). Segundos
+// só acrescentariam dígitos a uma coluna que existe para ser percorrida de
+// relance.
+function histHora(t) {
+  const d = new Date(t);
+  return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+}
+
+/**
+ * A FOLHA. Linha do Cronograma, com duas subtrações e uma soma.
+ *
+ *  - **sem excluir e sem reordenar**: o histórico é o que JÁ aconteceu, e um
+ *    fato não se edita. (Foi o pedido, e ele é o certo: um destrutivo aqui
+ *    apagaria o registro sem apagar nada do aparelho.)
+ *  - **sem tocar na linha**: o toque numa linha do Cronograma PROJETA, e uma
+ *    lista consultada durante o culto não pode mandar coisa ao telão por um
+ *    toque de rolagem. Quem quer tocar de novo manda ao Cronograma e toca lá.
+ *  - **mais a HORA**, que é a coluna pela qual esta lista se lê.
+ */
+function renderHistorico() {
+  histListEl.innerHTML = '';
+  if (!historico.length) {
+    histListEl.innerHTML = '<li class="empty">Nada projetado ainda nesta sessão.'
+      + '<br>Cada item que for ao telão aparece aqui, com a hora.</li>';
+    return;
+  }
+  historico.forEach((h) => {
+    const li = document.createElement('li');
+    li.className = 'row-item';
+
+    const row = document.createElement('div');
+    row.className = 'row';
+
+    const hora = document.createElement('span');
+    hora.className = 'hist-hora';
+    hora.textContent = histHora(h.hora);
+
+    const texto = document.createElement('div');
+    texto.className = 'row-text';
+    const nome = document.createElement('span');
+    nome.className = 'row-name'; nome.textContent = h.nome;
+    const sub = document.createElement('span');
+    sub.className = 'row-sub';
+    // "×3" é a repetição consecutiva colapsada (ver `historicoRegistrar`) — o
+    // mesmo recurso que a linha do tempo do Registro usa, e pela mesma razão:
+    // ele encurta sem apagar nada.
+    sub.textContent = (h.vezes > 1 ? '×' + h.vezes + ' · ' : '') + (h.sub || '');
+    texto.append(nome, sub);
+    row.append(hora, texto);
+
+    // AO CRONOGRAMA — a única ação da linha, e a que o pedido nomeia. Ela é
+    // ASSÍNCRONA na decisão de existir: só o banco sabe se o item ainda está
+    // lá, e perguntar a ele por linha, a cada render, é barato (a folha é
+    // desenhada quando alguém a abre, não a 400 ms como o acervo).
+    const add = document.createElement('button');
+    add.type = 'button';
+    add.className = 'row-btn';
+    add.title = 'Adicionar ao Cronograma';
+    add.setAttribute('aria-label', 'Adicionar ao Cronograma');
+    add.appendChild(msym(ICON.cronoAdd));
+    add.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      // A CONFERÊNCIA SE REPETE NO TOQUE, e não só no desenho: entre abrir a
+      // folha e tocar o botão o item pode ter saído (o coletor roda em TODA
+      // remoção de lista, e a prateleira `avulsos` despeja sozinha). Sem ela,
+      // `adicionarNasListas` gravaria um id órfão e o Cronograma ganharia uma
+      // linha que não abre nada — pior que o botão ter falhado.
+      const vivo = await AVDB.getMedia(h.id);
+      if (!vivo) { histMarcarSumido(li, add, true); return; }
+      await adicionarNasListas(['imports'], h.id, h.nome, add);
+    });
+    row.appendChild(add);
+
+    li.appendChild(row);
+    li.dataset.histId = h.id;
+    histListEl.appendChild(li);
+  });
+  // E A CONFERÊNCIA DE TODAS AS LINHAS VEM DEPOIS DO DESENHO, nunca antes: a
+  // folha abre com a lista JÁ na tela e as linhas mortas esmaecem no quadro
+  // seguinte. Perguntar ao banco antes de desenhar trocaria uma marca que
+  // chega tarde por uma folha que abre vazia, que é o defeito pior.
+  histConferirVivos();
+}
+
+/**
+ * A LINHA CUJO ARQUIVO SAIU DO APARELHO. Ela FICA — o histórico responde o que
+ * aconteceu, e apagá-la apagaria o fato —, mas perde a ação e ganha o motivo no
+ * subtítulo.
+ *
+ * `tocado` separa os DOIS chamadores, e a diferença é toda a razão do
+ * parâmetro: a varredura acha isto sozinha, e um pulso vermelho num botão que
+ * ninguém encostou é o app alarmando sobre nada. Vindo do toque, o pulso é a
+ * resposta ao dedo — e o botão só sai DEPOIS dele, senão o quadro que responde
+ * é o mesmo em que ele desaparece.
+ */
+function histMarcarSumido(li, add, tocado) {
+  if (!li.classList.contains('hist-sumiu')) {
+    li.classList.add('hist-sumiu');
+    const sub = li.querySelector('.row-sub');
+    if (sub) sub.textContent = 'Não está mais no aparelho';
+  }
+  if (!add) return;
+  if (tocado && responder(add, 'erro')) setTimeout(() => add.remove(), PULSO_MS);
+  else add.remove();
+}
+
+// Quais linhas ainda têm arquivo no banco. Em PARALELO (as leituras são
+// independentes, e em série uma folha de quarenta linhas pagaria quarenta idas
+// ao IndexedDB uma atrás da outra — a mesma razão do `Promise.all` de
+// `ensureBibleMeta`).
+async function histConferirVivos() {
+  const linhas = Array.from(histListEl.querySelectorAll('li[data-hist-id]'));
+  await Promise.all(linhas.map(async (li) => {
+    const vivo = await AVDB.getMedia(li.dataset.histId);
+    // A FOLHA PODE TER SIDO REDESENHADA no meio (outra abertura): mexer num
+    // `li` órfão é inofensivo, mas conferir é de graça e diz a intenção.
+    if (!vivo && li.isConnected) histMarcarSumido(li, li.querySelector('.row-btn'), false);
+  }));
+}
+
+function openHistPopup() {
+  renderHistorico();
+  histPopupEl.classList.add('open');
+}
+function closeHistPopup() { histPopupEl.classList.remove('open'); }
+
 function openPlPopup() {
   renderPlaylist();
   plPopupEl.classList.add('open');
@@ -19899,11 +20424,14 @@ seekEl.addEventListener('change', () => cmd({ type: 'seek', time: parseFloat(see
 
 viewToggleEl.addEventListener('click', () => setView(view === 'visual' ? 'wallpaper' : 'visual'));
 muteToggleEl.addEventListener('click', toggleMute);
-// Configurações: a porta fixa no topo da coluna do mixer. Substituiu a
-// engrenagem que ficava sobre a preview — aquela sumia com um toque na
+// Configurações: a porta fixa no cabeçalho da tela (v1.2.0 — ela nasceu sobre a
+// preview, passou pelo topo da coluna do mixer e subiu para cá, o mesmo canto do
+// gêmeo do Modo Fácil). A engrenagem da preview sumia com um toque na
 // miniatura, e uma configuração escondida atrás de um estado de UI é a que
 // ninguém acha.
 settingsBtnEl.addEventListener('click', openFadePopup);
+// E o HISTÓRICO, que herdou a fatia do topo do mixer que ela deixou vaga.
+historyBtnEl.addEventListener('click', openHistPopup);
 // O CANCELAR do cartão sobre a preview (v5.191). A preview inteira tem gestos
 // próprios (arrastar o volume, tocar para tela cheia): sem o `stopPropagation`,
 // cancelar um download dispararia também o de baixo.
@@ -21816,6 +22344,10 @@ if (castMirrorBtnEl) {
 // mesmo toque na engrenagem que o abriu, ou o toque na barra que fecha o card.)
 const POPUPS = [
   [plPopupEl, plPopupCloseEl, closePlPopup],
+  // O HISTÓRICO abre da mesma barra que a playlist e não abre nada por cima de
+  // si — vizinho dela aqui, e pela mesma razão que a ordem desta tabela existe:
+  // o voltar a percorre de trás para a frente.
+  [histPopupEl, histPopupCloseEl, closeHistPopup],
   [hymnSearchPopupEl, hymnSearchCloseEl, closeHymnSearch],
   [bibleVerPopupEl, bibleVerCloseEl, closeBibleVerPopup],
   [fadePopupEl, fadePopupCloseEl, closeFadePopup],

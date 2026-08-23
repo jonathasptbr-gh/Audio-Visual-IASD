@@ -541,6 +541,21 @@ jobs:
           # devolveria só a linha tocada — o item iria para um destino em vez de
           # dois, sem erro nenhum. Mesma classe de falha muda do `slideLabel`.
           rodar tools/destinos.test.mjs
+          # E O TECLADO NO CAMPO DE BUSCA DA CIFRA. O teclado virtual é um
+          # `resize`, e o `resize` remede a folha — que refaz a aba e destrói o
+          # `<input>` com foco; sem foco o teclado FECHA, e o fechamento é outro
+          # `resize`. Da tela sai um teclado que pisca e some, sem erro nenhum,
+          # e o seletor inteiro fica inalcançável. Ele injeta a PONTE e abre o
+          # popup de verdade: a primeira versão montava o seletor num nó solto e
+          # passava com a guarda REMOVIDA, porque `cifraRemedir` desiste antes.
+          rodar tools/cifra-teclado.test.mjs
+          # E A CIFRA GUARDADA NO APARELHO. A promessa é operacional — no sábado,
+          # com o Wi-Fi da igreja oscilando, a folha do hinário abre — e ela
+          # falha CALADA: sem a leitura do disco o app cai no caminho de rede e,
+          # COM rede, a folha aparece igual, pela porta errada. Por isso a
+          # asserção não é "a folha apareceu": é `cifraHtml` NÃO ter sido
+          # chamado nenhuma vez, com a ponte respondendo "sem rede" a tudo.
+          rodar tools/cifra-offline.test.mjs
           # E A PLAYLIST AUTOMÁTICA, DA FOLHA ATÉ A FILA. O `sorteio.test.mjs`
           # (Node puro, acima) trava a REGRA; este trava a LIGAÇÃO, que falha de
           # outro jeito — a regra continua certa e o recurso não faz nada. As
@@ -612,6 +627,22 @@ jobs:
           # certo. Ele entra no workflow no MESMO commit em que nasce — a lição
           # da v5.145.
           rodar tools/hinario-tela.test.mjs
+          # E O PARAR, QUE FALA DE UMA CAMADA SÓ. A regra é CONDICIONAL — com
+          # mídia E Camada de Texto no ar sai só a mídia; com uma das duas, sai
+          # a cena inteira —, e uma condicional errada não emite erro em lugar
+          # nenhum nos DOIS sentidos: ou a Camada de Texto fica presa no telão
+          # sem saída no transporte, ou o louvor de fundo volta a levar o
+          # versículo junto. Ele entra no workflow no MESMO commit em que nasce
+          # (a lição da v5.145).
+          rodar tools/parar-por-camada.test.mjs
+          # E O HISTÓRICO DO CULTO — uma lista que se preenche sozinha no ponto
+          # mais quente do app (`send`), com três modos de errar todos mudos:
+          # não registrar (a folha abre vazia depois de um culto inteiro),
+          # registrar demais (`repeat: 'one'` enterrando o culto em cópias do
+          # mesmo nome) e oferecer ao Cronograma um id que o coletor já
+          # recolheu — este último só aparece no sábado seguinte. Idem: entra
+          # no workflow no MESMO commit em que nasce.
+          rodar tools/historico.test.mjs
 
           # O PLACAR VAI PARA O RESUMO DO RUN, não só para o log — a queixa que
           # originou este lote foi precisamente que o desfecho só existia lá

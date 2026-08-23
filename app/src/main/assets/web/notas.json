@@ -1,9 +1,48 @@
 [
   {
-    "versao": "1.1.27",
+    "versao": "1.2.2",
     "itens": [
       "O Recado não gravava com a TV espelhando — que é justamente o modo normal de um culto. Ele pedia o microfone com cancelamento de eco, e o Android recusa esse pedido quando o som está indo para outro lugar.",
       "Agora ele tenta três formas, da melhor para a que sempre abre, exatamente como o microfone ao vivo já fazia."
+    ]
+  },
+  {
+    "versao": "1.2.1",
+    "itens": [
+      "CORRIGIDO: as cifras do hinário nunca eram baixadas por quem JÁ tinha o hinário. Elas estavam penduradas no fim do download, e um hinário completo termina antes disso — o Registro dizia “0 de 601” mesmo depois de sincronizar. Agora elas vêm na abertura do app, em segundo plano, como as letras."
+    ]
+  },
+  {
+    "versao": "1.2.0",
+    "itens": [
+      "CORRIGIDO: o vídeo do YouTube tocado SEM BAIXAR era interrompido quando o app ficava em segundo plano. Ele é o único tipo de mídia que depende do app estar acordado enquanto toca, e agora ele se abastece pelo próprio vídeo em vez de por um relógio que o Android desacelera. Uma oscilação de rede também deixou de derrubá-lo: ele tenta de novo, em vez de desistir e cair no download.",
+      "O PARAR passou a falar só da MÍDIA quando há algo por cima dela. Com um louvor de fundo sob um versículo, uma mensagem ou o cronômetro, o ⏹ tira só a música — o texto continua projetado, e quem o encerra é o botão sobre a preview. Sem nada por cima, ele continua encerrando a cena inteira.",
+      "NOVO: o HISTÓRICO DO CULTO, no botão do alto da coluna de controles, à direita (onde ficava a engrenagem). Ele lista tudo o que foi ao telão nesta sessão, com a hora de cada projeção, e cada linha tem um botão para mandar o item ao Cronograma. A lista recomeça a cada vez que o app é aberto.",
+      "A engrenagem de Configurações mudou de lugar: agora ela fica no ALTO da tela, no mesmo canto em que já ficava no Modo Fácil.",
+      "Nos álbuns do Provai e Vede e do Informativo, o botão de atualizar a lista só aparece com o álbum ABERTO."
+    ]
+  },
+  {
+    "versao": "1.1.29",
+    "itens": [
+      "As músicas do CD Jovem 2018 passam a ser encontradas direto: no Cifra Club elas moram sob um artista próprio, e agora ele é tentado junto com o Ministério Jovem.",
+      "O Registro passou a mostrar QUAIS endereços a página de busca tinha quando nenhum serviu — antes ele dizia “0 com forma de música” e não mostrava nada, calando justamente a pergunta “por quê?”."
+    ]
+  },
+  {
+    "versao": "1.1.28",
+    "itens": [
+      "AS CIFRAS DO HINÁRIO 2022 FICAM NO APARELHO. Baixar o hinário passa a trazer também a cifra de cada hino — e a partir daí a folha abre SEM INTERNET, que é o que resolve o sábado com o Wi-Fi da igreja oscilando.",
+      "O download é retomável: o que já está guardado não é pedido de novo, então uma interrupção custa só o que faltava. Ele não roda em dados móveis, e o Registro diz quantas cifras estão no aparelho.",
+      "Só o hinário: é o único acervo cujo endereço no site é deduzível do nome do hino. Para os álbuns, a busca continua sendo feita na hora."
+    ]
+  },
+  {
+    "versao": "1.1.27",
+    "itens": [
+      "CORRIGIDO: o teclado sumia ao tentar digitar na busca de cifras. Abrir o teclado redimensiona a tela, e a folha se remedia nessa hora — refazendo a aba e apagando o campo em que você estava escrevendo.",
+      "A busca manual passou a usar o nome do ÁLBUM no desempate dos resultados, como a automática já fazia.",
+      "E o seletor ganhou dois atalhos abaixo do campo: “+ <álbum>” e “+ Ministério Jovem”, que é onde moram os CDs oficiais e os do ano. Eles escrevem no campo antes de buscar, então dá para editar a partir dali."
     ]
   },
   {

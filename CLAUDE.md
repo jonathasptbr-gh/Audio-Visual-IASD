@@ -774,6 +774,31 @@ memória caminho → URL), um parcial do 137 seria "retomado" por um download do
 136 — dois vídeos emendados, sem erro, aparecendo só na hora de projetar. O mapa
 morre com o processo de propósito.
 
+### A TRANSMISSÃO DIRETA é a única mídia que precisa de JS enquanto toca
+
+Um arquivo baixado toca sozinho: o `<video>` consome bytes do disco e nenhuma
+linha de JavaScript participa. Um stream não — quem repõe o buffer é o
+`shared/mse.js`, e por isso ele é a única cena do app que o segundo plano
+consegue interromper. Duas regras, e as duas nasceram do mesmo relato
+(*"vídeos tocando direto do YouTube sem baixar são interrompidos quando o app
+está em segundo plano"*):
+
+- **O compasso do abastecimento NÃO pode depender só de um `setInterval`.** Com
+  o buffer cheio (`ALVO_S`, 20 s) nada mais é appendado e nenhum `updateend`
+  sai — quem reacorda o player é o tique. E um `setInterval` de página em
+  segundo plano é estrangulado pelo Chromium (1×/s, e 1×/min depois de alguns
+  minutos escondida): 20 s de buffer contra um compasso de até um minuto dá
+  projeção parando sozinha, sem erro em lugar nenhum. O compasso sai também dos
+  eventos do próprio `<video>` (`EVENTOS_DO_COMPASSO`), que nascem do pipeline
+  de mídia e não do agendador. O intervalo fica como PISO — é ele que cobre a
+  cena pausada, onde não há `timeupdate`.
+- **Uma falha de rede não é o fim da transmissão.** Qualquer tropeço matava o
+  player e a cena caía no download — 300 MB começando a baixar por causa de um
+  pacote perdido, e justamente em segundo plano, que é quando o Wi-Fi entra em
+  economia de energia. `pegar()` retenta 4 vezes (0,4 s → 1,2 s → 3 s) com a
+  MESMA divisão do download: passa o acidente, **não** retenta 4xx (a URL
+  expirada é conserto do `recuperarStream`, que a reconhece pela mensagem).
+
 > **A TRANSMISSÃO viaja no serviço da sessão de mídia** (não tem serviço
 > próprio): o `SessionService` tem **duas razões independentes de viver** (cena ·
 > transmissão) e só para quando as duas caem. O tipo é a UNIÃO
@@ -1791,6 +1816,41 @@ a congregação vê continua sendo a letra, pelo caminho de sempre.
   requisição, sem ranking de ninguém escolhendo por nós. Só falhando ela entra a
   **busca genérica**, que é o "qualquer música" e também cobre o hino cujo nome
   no acervo não bate com o do site.
+- **O HINÁRIO 2022 FICA GUARDADO NO APARELHO** (v1.1.28), e é o ÚNICO acervo que
+  fica. Ele é o único cujo endereço no site é DEDUZÍVEL do nome do hino
+  (`CATALOGO`), e por isso o único em que baixar tudo é uma operação previsível
+  em vez de 600 apostas. O download do hinário passa a trazer as cifras junto,
+  e a partir daí a folha abre **sem rede** — que é o problema real: o Wi-Fi da
+  igreja no sábado de manhã.
+  - **QUEM BAIXA É O APARELHO, e essa é a decisão inteira.** Nada disto entra no
+    bundle do OTA nem no repositório: o `.zip` do canal é público e servido em
+    nome de quem publica, e um acervo ali dentro é o app DISTRIBUINDO obra de
+    terceiro — outra coisa, não um grau a mais de ler sob demanda. Cada aparelho
+    busca o que vai usar, como já fazia uma música por vez; muda o QUANDO (no
+    download do hinário) e o ONDE (IndexedDB, não a memória da sessão). De
+    quebra: a cifra fica sempre atual, o repositório não incha, e não nasce uma
+    segunda fonte de verdade para divergir.
+  - **E O GATILHO É O DELE TAMBÉM** (v1.2.1). A primeira versão pendurou a busca
+    no fim do `syncCollection`, e ela nunca alcançou quem MAIS precisa dela: um
+    hinário já completo faz aquela função retornar em "Já completo offline"
+    muito antes do gancho. MEDIDO em dois Registros seguidos, `0 de 601` depois
+    de o operador sincronizar. Hoje `syncCifrasHinarios` roda na abertura, ao
+    lado do `syncLyrics` — informação padrão do acervo, uma vez por sessão, em
+    segundo plano —, e o download deixou de ser a única porta (tocar em
+    sincronizar num hinário completo também dispara).
+  - **A forma é a do `syncLyrics`**, de propósito: mesma fila, mesma proteção de
+    segundo plano, mesma notificação, gravação em LOTES, nada em dados móveis. E
+    a regra que mais importa é a mesma — **falha de rede não grava nada**: num
+    acervo em que toda música existe no site, uma ausência gravada é um buraco
+    permanente causado por um Wi-Fi que oscilou. Retomável por construção (o que
+    está guardado não é pedido de novo).
+  - **A leitura é a tentativa que não toca na rede**, entre a escolha do operador
+    (que vale mais, é uma correção à mão) e o catálogo. O oráculo
+    (`tools/cifra-offline.test.mjs`) NÃO afirma "a folha apareceu" — afirma que
+    **`cifraHtml` não foi chamado**, com a ponte respondendo "sem rede" a tudo:
+    com rede, uma leitura de disco que não acontecesse produziria a mesma folha
+    pela porta errada, e ninguém veria diferença até o dia em que a rede não
+    estivesse lá.
 - **O OPERADOR ESCOLHE, E A ESCOLHA VENCE TUDO** (o seletor, v1.1.25). O método
   automático ADIVINHA a partir de um nome; quem opera SABE qual é a música.
   MEDIDO: na maioria das falhas o resultado certo estava na página de busca — só
@@ -1813,6 +1873,28 @@ a congregação vê continua sendo a letra, pelo caminho de sempre.
   - **Ela é a tentativa 0** e encerra o assunto: continuar adivinhando depois de
     o operador ter dito qual é seria desfazer a correção dele a cada abertura.
     Falhando (o site tirou a página do ar), o caminho automático roda em seguida.
+  - **O TECLADO DO SISTEMA É UM `resize`**, e o `resize` remede a folha
+    (`cifraRemedir` → `renderLyricsView`). Sem guarda, tocar no campo abre o
+    teclado, a aba é REFEITA, o `<input>` com foco deixa de existir — e um campo
+    sem foco fecha o teclado, que é outro `resize`. Da tela sai um teclado que
+    pisca e some, sem erro em lugar nenhum, e o seletor fica inalcançável. A
+    guarda é pelo FOCO (`cifraDigitando`), não por "o seletor está aberto": a
+    regra é *não destruir o que a pessoa está usando*, e ela vale para todo campo
+    que esta aba venha a ter. Oráculo: `tools/cifra-teclado.test.mjs`, que injeta
+    a PONTE e abre o popup de verdade — montado num nó solto ele passava com a
+    guarda REMOVIDA, porque `cifraRemedir` desiste antes de desenhar.
+  - **A busca tem TRÊS papéis, e juntá-los foi um defeito real**
+    (`cifraBuscarNoSite(consulta, alvo, artista)`): o que vai no `?q=`, o que o
+    PARENTESCO compara, e o DESEMPATE. A primeira versão passava um `extra` que
+    servia aos três, e o seletor — que manda a consulta DIGITADA — ficava sem
+    álbum em lugar nenhum. No automático o parentesco é contra o nome da música
+    (com o álbum colado na consulta, nenhum resultado seria parente dela); no
+    seletor é contra o que o operador digitou, que é o que ele está procurando.
+  - **Os ATALHOS de consulta** (`+ <álbum>`, `+ Ministério Jovem`) existem porque
+    as duas coisas que mais fazem uma busca achar não estão no nome da música, e
+    o operador não tem como adivinhá-las. Eles ESCREVEM no campo antes de buscar:
+    assim a consulta que rodou fica à vista e pode ser editada dali, em vez de o
+    botão fazer algo invisível.
   - **"Trocar" existe com a folha ABERTA**, e é aí que mais serve: o desfecho
     pior não é não achar nada — é achar a cifra ERRADA (uma versão simplificada,
     um homônimo) e não ter como dizer isso. Abrir o seletor sem lista dispara a
@@ -1822,7 +1904,10 @@ a congregação vê continua sendo a letra, pelo caminho de sempre.
   era"* — e a distância entre as duas é uma sessão de adivinhação a distância.
   A radiografia devolve FORMA: quantos `<pre>` e de que tamanho, quantos `<b>`
   no maior deles, quantos links de música, `<title>`/`<h1>`/`<h2>`, o tom, e uma
-  amostra curta de endereços. **Nenhum pedaço de letra ou de acorde sai** — não
+  amostra curta de endereços — **a dos que passaram, ou, quando NENHUM passou, a
+  do que havia** (`amostraEhCrua`). Amostrar só o que passa deixa o Registro mudo
+  no caso em que ele é a única pista: MEDIDO, "38 link(s) de 2 segmentos, 0 com
+  forma de música" e nenhum dos 38 à vista. **Nenhum pedaço de letra ou de acorde sai** — não
   é economia de bytes, é o contrato: um Registro existe para ser copiado para
   FORA, e o app lê conteúdo de terceiro sem distribuí-lo. O oráculo cobra as
   duas metades, e a segunda (o conteúdo NÃO sair) é a que protege o contrato de
@@ -2218,7 +2303,7 @@ que ela é desenvolvida e testada fora do aparelho.
 | Girar a mídia | idem (comando `rotate`) | botão em Configurações, 90° por toque. O motor TROCA O EIXO da caixa antes de girar, para o `object-fit` medir o retângulo em que a mídia vai de fato aparecer |
 | Som da preview | com a janela do Display aberta é muda; sem ela toca (sujeito a autoplay) | **sem tela nenhuma conectada, o som sai DESTE aparelho** (`acertarSaidaDeAudio`). No avançado é DERIVADO da conexão (`simpleDisplay` = TV **ou** tela da rede); no Modo Fácil é ESCOLHA (`tocarNoCelular`, o "Tocar neste celular" da folha de conexão), porque lá o padrão é bloquear — escolha de IDA, sem persistência, que se rearma ao fechar o app, ao passar pelo avançado ou quando uma tela entra. Com qualquer tela conectada este aparelho fica mudo nos dois modos — os WebViews dividem o processo e a saída de áudio, e a preview roubava o foco do player do telão |
 | PDF · `.pptx` · Google Apresentações | **PDF não existe**; `.pptx` funciona pelo mesmo caminho do app | **uma IMAGEM POR PÁGINA**. PDF pelo `PdfRenderer` da plataforma (`SlideDeck.kt` + `deckPages`); `.pptx` pelo renderizador de `assets/web/vendor/` (`pptxParaPaginas`, `import()` dinâmico + `<foreignObject>`/canvas). Daí é mídia comum, com ⏮/⏭ passando página. **Não há botão de "apresentação"** — entra por "Importar arquivos" (`pickDoc`: o PDF precisa que o shell abra o ARQUIVO, e `<input type=file>` só devolve bytes) ou pelo share. `.ppt` legado e `.odp` ficam de fora: ninguém sabe desenhá-los |
-| **Tocar agora** de vídeo do YouTube | **não toca**, e a linha do item diz isso | **TRANSMISSÃO DIRETA** (shell 26; só funciona do 27 em diante): `ytStream` monta o manifesto das duas adaptativas, `StreamProxy` as serve pelo NOSSO origin com o UA que combina, e `shared/mse.js` as vira um `<video>` comum — fade, cortina, `MediaSession` e barra de graça, zero pixel de YouTube no telão. Faixa de bytes na QUERY (`?r=ini-fim`), **nunca** em `Range` (invariante 8). Só em "Tocar agora": as outras ações GUARDAM, e manifesto expira em horas. Falhando qualquer coisa, cai no download, calado |
+| **Tocar agora** de vídeo do YouTube | **não toca**, e a linha do item diz isso | **TRANSMISSÃO DIRETA** (shell 26; só funciona do 27 em diante): `ytStream` monta o manifesto das duas adaptativas, `StreamProxy` as serve pelo NOSSO origin com o UA que combina, e `shared/mse.js` as vira um `<video>` comum — fade, cortina, `MediaSession` e barra de graça, zero pixel de YouTube no telão. Faixa de bytes na QUERY (`?r=ini-fim`), **nunca** em `Range` (invariante 8). Só em "Tocar agora": as outras ações GUARDAM, e manifesto expira em horas. Falhando qualquer coisa, cai no download, calado. **É o único tipo de mídia que precisa de JS rodando enquanto toca** — ver abaixo |
 | **Cifra do hino** | **não existe** — sem ponte não há como buscar a página (CORS), e a aba nem é oferecida | **aba CIFRA no visualizador de letras** (shell 49): `cifraHtml` traz o HTML cru, `controle/cifra.js` o lê, e a folha aparece com transposição por meio tom. **SOB DEMANDA:** nada é baixado em lote, nada entra no bundle, nada é gravado em disco — o cache é um `Map` que morre com o app |
 | Vídeo do YouTube | **não toca** | **baixado PELO APARELHO** (`YoutubeGrab.kt` + `ytFetch`) — a extração sai do IP do chip, que é o que o YouTube não bloqueia. Falhando, vira item de LINK, retentado no toque seguinte |
 | Qualidade do download | — | teto escolhido pelo operador: **Online · 1080p · 720p · 480p**, no mesmo seletor de Vídeo/Só áudio. Nasce no padrão A CADA ITEM (um teto que grudasse daria 480p no vídeo do domingo sem aviso). 1080p usa o `ytFetch` de sempre; só teto MENOR usa `ytFetchAte`. "Online" (`-1`, e não `0`, que já significa "sem teto") guarda **só o link** |
@@ -2615,7 +2700,11 @@ mundo anterior por outro caminho.
 | `ponte.test.mjs` | **o que a ponte de fato ENTREGA** — `native.js` REMONTA campo a campo, e um campo esquecido some em silêncio. Afirma também que ele não drena papel nenhum e que o display emite as quatro mensagens (`display-ready`, `display-status`, `media-ended`, `mic-status`) — quem filtra é o `tela.js`, nunca a fonte |
 | `cena.test.mjs` | o que o telão mostra ao RECONECTAR (o caminho menos testável à mão: exige TV, dongle e o timing de derrubá-lo) |
 | `imagem-sobre-audio.test.mjs` | a IMAGEM projetada por cima do áudio. A regra é uma AUSÊNCIA — nenhum `load` sai daquele caminho —, e ausência não tem sintoma de tela nem erro de console: quem a prova é o `currentTime` do `<video>` medido em DOIS instantes ("não pausou" é fraco; "andou" prova que é o mesmo áudio). Nas duas metades: o Controle que decide sobrepor e o telão que pinta |
+| `parar-por-camada.test.mjs` | **o Parar do transporte, que fala de UMA camada só.** A regra é CONDICIONAL (mídia + Camada de Texto → sai só a mídia; uma das duas sozinha → sai a cena inteira), e uma condicional errada é muda nos DOIS sentidos: ou a Camada de Texto fica presa no telão sem saída no transporte, ou o louvor de fundo volta a levar o versículo junto. Mede as TRÊS cenas, e a prova é o `currentTime` do `<video>` mais o TIPO do comando — `clear` e `media-clear` apagam o mesmo vídeo da preview |
+| `historico.test.mjs` | **o histórico do culto**, uma lista que se preenche sozinha no ponto mais quente do app (`send`) e cujos três modos de errar são mudos: não registrar (a folha abre vazia depois de um culto inteiro), registrar demais (`repeat: 'one'` enterrando o culto em cópias do mesmo nome) e oferecer ao Cronograma um id que o coletor já recolheu — este só aparece no sábado seguinte |
 | `gaveta-no-download.test.mjs` | a GAVETA DA LINHA contra o redesenho do progresso — o único lugar do acervo em que o operador DECIDE, e o redesenho remontava a lista por baixo dela a cada 400 ms. MUDO nos dois tempos: aberta, ela some sem erro nenhum; ABRINDO (há um `await` do IndexedDB entre o toque e o `expanded`), o `li` vira órfão e o toque não faz nada. Quatro metades, e a primeira é o HAZARD — sem ela as outras provariam que uma função concorda consigo mesma |
+| `cifra-offline.test.mjs` | **a cifra guardada do hinário abre SEM REDE**. A promessa é operacional e falha calada: sem a leitura do disco o app cai no caminho de rede e, COM rede, a folha aparece igual — pela porta errada. Por isso a asserção é `cifraHtml` NÃO ter sido chamado, com a ponte respondendo "sem rede" a tudo; a outra metade prova que o que NÃO está guardado ainda vai à rede |
+| `cifra-teclado.test.mjs` | **o teclado virtual contra o campo de busca da cifra**. O teclado é um `resize`, e o `resize` remede a folha — que refaz a aba e destrói o `<input>` com foco; sem foco o teclado FECHA, e o fechamento é outro `resize`. Nada erra: sai um teclado que pisca e some, e o seletor fica inalcançável. Ele injeta a PONTE e abre o popup de verdade, porque montado num nó solto ele passava com a guarda REMOVIDA |
 | `destinos.test.mjs` | o que está marcado atravessa o fechamento da folha — a ação roda depois de `closeSongMenu()`, que zera o conjunto |
 | `hinario-tela.test.mjs` | as seções do hinário **da tabela até a tela**. O `hinario.test.mjs` trava a REGRA; este, a LIGAÇÃO. Dois casos não gritam: os cabeçalhos moram na MESMA `<ul>` das faixas, e uma retomada de paginação que contasse os FILHOS pularia um hino por cabeçalho (hinos sumindo do meio da lista); e o hinário de 1996 tem outra numeração, então um "Infantis" sobre o 508 DELE ninguém nota olhando o hinário certo |
 | `sorteio-tela.test.mjs` | a **playlist automática** da folha até a fila. O `sorteio.test.mjs` trava a REGRA; este trava a LIGAÇÃO, que falha de outro jeito — a regra continua certa e o recurso não faz nada. As quatro capacidades injetadas são ponteiros, e um errado devolve um pool plausível e ERRADO |
@@ -2988,7 +3077,7 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: v1.1.27** (base web) · **v1.1.26** (APK) · `SHELL_VERSION` **50** · bundle com
+**Versão atual: v1.2.2** (base web) · **v1.1.26** (APK) · `SHELL_VERSION` **50** · bundle com
 `minShell: 50` — o shell 50 é o **PISO**: todo método da ponte existe, e não há
 guarda de versão no lado web. O que continua valendo é que `java/`, `res/`, o
 manifest e os workflows **só chegam instalando o APK**.
