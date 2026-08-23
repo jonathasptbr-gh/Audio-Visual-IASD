@@ -220,6 +220,73 @@ try {
     + 'segura o começo parado de propósito', { t0: comAr.t0, t1: comAr.t1 });
   checar(/tempo da música/.test(comAr.titulo),
     'e o botão diz que está seguindo a música', comAr.titulo);
+
+  // ======================================================================
+  // METADE 3 — A FOLHA DA BIBLIOTECA: a rolagem tem de SOBREVIVER ao redesenho
+  // ======================================================================
+  //
+  // Desde a v1.2.14 a folha não é mais de quem está no ar: `lvAlvo` a aponta
+  // para uma música da Biblioteca, e o `lvBuildCifra` para a rolagem quando a
+  // folha troca de música (`cifraRolandoChave !== cifraChave(lvItem())`). A
+  // chave era gravada de `currentItem` — a música da CENA —, então com um alvo
+  // as duas nunca batiam: a rolagem morria no PRIMEIRO redesenho da folha, que
+  // é o que transpor meio tom, tocar em A+/A− e girar o aparelho fazem.
+  //
+  // O desfecho não é um erro: o ▶ volta sozinho e a folha para. E ele aparece
+  // exatamente no ENSAIO — ler a cifra sem projetar nada —, que é o caso para o
+  // qual a folha sem telão foi feita.
+  //
+  // AS DUAS ASSERÇÕES SÃO NECESSÁRIAS: `cifraRolando` continuar `true` sem a
+  // folha andar seria um botão mentindo, e a folha andar num quadro solto sem
+  // o estado de pé não é rolagem. E a guarda que este caso exercita é REAL —
+  // trocar de música com a rolagem ligada tem de parar —, então a última
+  // asserção prova que ela não foi simplesmente apagada.
+  const alvo = await pg.evaluate(async () => {
+    // A cena continua a mesma; a FOLHA passa a ser de outra música.
+    const outra = {
+      id: 'alvo-da-biblioteca', name: 'Musica Do Ensaio', hymnName: 'Musica Do Ensaio',
+      kind: 'audio', seconds: 200, lyrics: [{ text: 'linha do ensaio' }],
+    };
+    openLyricsPopup(outra);
+    lvSource = 'cifra';
+    renderLyricsView();
+    return { fonte: lvActiveSource(), naCena: lvNaCena() };
+  });
+  checar(alvo.fonte === 'cifra' && alvo.naCena === false,
+    'a folha aponta para uma música da BIBLIOTECA, na aba de cifra (o cenário '
+    + 'do ensaio)', alvo);
+  await pg.waitForSelector('.lv-cifra-acordes', { timeout: 15000 });
+
+  const ensaio = await pg.evaluate(async () => {
+    // Ritmo FIXO: esta metade fala da chave, não do relógio.
+    cifraAdotarVelocidade(1);
+    midiaNoAr = false;
+    lyricsViewBodyEl.scrollTop = 0;
+    cifraRolarAlternar();
+    await new Promise((r) => setTimeout(r, 500));
+    const t0 = lyricsViewBodyEl.scrollTop;
+    // O QUE O OPERADOR FAZ NO ENSAIO: sobe meio tom, aumenta a fonte, gira o
+    // aparelho. Os três chegam aqui — `renderLyricsView` refaz a folha inteira.
+    renderLyricsView();
+    await new Promise((r) => setTimeout(r, 800));
+    const t1 = lyricsViewBodyEl.scrollTop;
+    const rolando = cifraRolando;
+    // E A GUARDA CONTINUA VALENDO: a cena vira a folha, e a rolagem é da outra.
+    lvAlvo = null;
+    renderLyricsView();
+    const depoisDeTrocar = cifraRolando;
+    cifraRolarParar();
+    return { t0, t1, rolando, depoisDeTrocar };
+  });
+  checar(ensaio.rolando === true,
+    'a rolagem SOBREVIVE ao redesenho da folha da Biblioteca — a chave gravada '
+    + 'é a do ALVO, não a da cena', ensaio);
+  checar(ensaio.t1 > ensaio.t0 + 2,
+    'e a folha continua ANDANDO depois dele (estado de pé sem movimento seria '
+    + 'um botão mentindo)', { t0: ensaio.t0, t1: ensaio.t1 });
+  checar(ensaio.depoisDeTrocar === false,
+    'e trocar a música DA FOLHA continua parando a rolagem — a guarda não foi '
+    + 'apagada para o caso acima passar', ensaio);
 } finally {
   await navegador.close();
   servidor.close();

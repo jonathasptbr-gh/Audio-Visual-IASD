@@ -187,6 +187,20 @@ html, body {
    A caixa é generosa (84cqw × 40cqh) pelo mesmo motivo: mais área para o mesmo
    corpo de letra é menos ocasião de precisar encolher.
 
+   ATÉ ONDE ELA VAI, MEDIDO (v1.3.0), com linhas de ~62 caracteres:
+
+   | resolução | 2 linhas | 4 linhas | 8 linhas | 16 linhas |
+   |---|---|---|---|---|
+   | 1920×1080 · 1280×720 · 961×540 (16:9) | 1,00 | 0,63 | 0,38 | PISO, corta |
+   | 1024×768 (4:3) | 1,00 | 0,51 | PISO, corta | PISO, corta |
+
+   Isto é, em 16:9 a caixa cobre a estrofe longa com folga; **é o 4:3 que chega
+   ao piso primeiro**, e ele não é hipotético (projetor XGA de igreja). O que
+   corta ali é o `overflow: hidden` abaixo — a contenção de último caso —, e a
+   saída real não é baixar `ESCALA_MIN` (0,34 já é pequeno para um salão): é a
+   estrofe chegar PARTIDA do outro lado, que é decisão do Controle e da fonte da
+   letra, não desta folha.
+
    `overflow: hidden` FICA como contenção de último caso — no piso da escala,
    uma estrofe absurda vaza para fora da moldura em vez de por cima da imagem. */
 .lyrics-box {

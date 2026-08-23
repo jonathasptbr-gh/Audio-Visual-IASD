@@ -119,12 +119,36 @@ resolvia a promise homônima da NOVA.
 |---|---|---|
 | `CALL_TIMEOUT_MS` = **60 s** | tudo que depende de MÁQUINA | nenhuma deveria demorar mais que isso |
 | `APK_TIMEOUT_MS` = **15 min** | `apkInstalar` | dezenas de MB numa rede de igreja levam minutos; um prazo curto resolveria `null` sobre um trabalho que continua, e o instalador abriria sozinho depois de a tela já ter dito que falhou |
-| **sem prazo** | `pickFolder`, `pickDoc`, `requestMic`, `ytFetch`, `deckPages` | quem responde é uma **PESSOA** num diálogo do sistema — um timeout resolveria `null` com o operador ainda escolhendo a pasta |
+| **sem prazo** | `pickFolder`, `pickDoc`, `requestMic`, `salvarTexto`, `ytFetch`, `deckPages` | quem responde é uma **PESSOA** num diálogo do sistema — um timeout resolveria `null` com o operador ainda escolhendo a pasta |
 
 Vencido o prazo, `call()` resolve **`null`**, e cada chamador já trata isso como
 lista vazia, string vazia ou `false`. **Isso é uma mentira silenciosa por
 construção** — e é exatamente por isso que a escolha de fila (abaixo) importa
 tanto.
+
+### O segundo argumento de `resolve()` é uma EXPRESSÃO JavaScript, não um valor
+
+```kotlin
+web.evaluateJavascript("window.__avResolve && window.__avResolve($id, $jsonValue);", null)
+```
+
+`jsonValue` é **interpolado no meio de uma chamada de função**, então tem de ser
+JSON válido por construção: `JSONObject`/`JSONArray`.`toString()`,
+`JSONObject.quote(texto)` para uma string, ou um literal (`"null"`, `"true"`,
+`"[]"`, `"{}"`). **Uma string CRUA ali não é um valor — é código.**
+
+O modo de falhar é o pior deste arquivo, e a v1.2.29 o pagou no `salvarTexto`:
+um nome de arquivo sai como `__avResolve("e:1", registro-av-20260823.txt)`, que
+é `SyntaxError`; o `evaluateJavascript` engole o erro (callback `null`), e a
+promise **fica pendurada para sempre** — sem prazo, ninguém a resolve. O
+arquivo é gravado e o botão nunca responde: nem ✓, nem "Não foi salvo". A
+string vazia falha por outro caminho (`__avResolve("e:1", )` só não quebra
+porque vírgula final é legal em chamada, e resolve `undefined`).
+
+**Corolário de segurança:** todo texto que vem de fora — o nome escolhido no
+seletor SAF, o rótulo de uma tela, uma mensagem de erro do site — passa
+obrigatoriamente por `JSONObject.quote`. Sem as aspas, ele é JavaScript
+arbitrário rodando no origin privilegiado.
 
 ---
 

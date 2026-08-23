@@ -1209,12 +1209,19 @@ mixer (`#lyricsViewBtn`, folha com linhas) abre um bottom-sheet **com scroll**
   **"A aba de cifra"** no `CLAUDE.md`; a regra em si, em `controle/cifra.js`,
   com oráculo em `tools/cifra.test.mjs`.
 
+  **A FOLHA NÃO É SÓ DE QUEM ESTÁ NO AR** (v1.2.14): a gaveta de uma faixa da
+  Biblioteca tem **"Abrir a folha"**, que aponta este mesmo leitor para aquela
+  música — cifra, tom, corpo de letra e rolagem — **sem levar nada ao telão**.
+  É a porta de quem toca: até então, ler uma música exigia projetá-la. O relógio
+  e o destaque de estrofe continuam sendo da CENA (`lvNaCena`): seguir o tempo
+  do louvor que está tocando faria a folha do ensaio andar no compasso errado, e
+  isso *parece* funcionar.
+
   **A cadeia de tentativas é UMA** (`cifraProcurar`) e tem dois consumidores: a
-  aba, e a **bateria de testes** do pé de Configurações — um botão que sorteia
-  uma ou duas músicas de cada álbum, roda a mesma cadeia e escreve no Registro
-  quais álbuns ela alcança e por qual degrau, com TODOS os endereços tentados
-  nos que falharam. É o que responde *"para quais álbuns o site mudou de
-  endereço?"* sem depender de alguém topar com a falha no sábado.
+  aba, e a **varredura do acervo** que guarda as cifras no aparelho. Ela é quem
+  responde *"para quais álbuns o site não tem cifra?"* — o Registro mostra, por
+  coleção, quantas foram achadas, quantas o site tem sem cifra e quantas não têm
+  página, com exemplos nomeados e o endereço tentado.
 
   A barra do topo da folha carrega **quatro** controles, e a ordem é a de uso:
   a rolagem automática e a velocidade (usadas durante a música inteira) antes do
@@ -2718,7 +2725,7 @@ gaveta aberta, tirando o botão de baixo do dedo.
 | selector | o que ele passou a alcançar |
 |---|---|
 | `.lib-item.expanded .hymn-gaveta` | a pasta ABERTA satisfaz o `.expanded`, então a gaveta de TODO arquivo lá dentro virava `display: block` |
-| `.lib-item:not(.vendo-letra) :is(.hymn-lyrics, .item-detalhe)` | a pasta nunca tem `.vendo-letra`, então ela escondia o detalhe de um arquivo que TEM |
+| `.lib-item:not(.vendo-letra) .item-detalhe` | a pasta nunca tem `.vendo-letra`, então ela escondia o detalhe de um arquivo que TEM |
 | `.lib-item:has(.hymn-gaveta :active)` | não alcançava `.folder-itens`, e o `--press` da pasta encolhia com o toque num arquivo |
 
 A primeira linha explica dois sintomas de uma vez: a faixa preta embaixo de cada
@@ -3277,14 +3284,14 @@ na barra.
 Um acordeão que troca `display` aparece **pronto**, e num toque a lista abaixo
 dá um salto — o operador perde de vista onde estava. Animar a altura mostra de
 onde o conteúdo saiu, que é a informação que o salto destrói. Vale para os dois
-acordeões do acervo: o **card do álbum** e a **letra** de cada linha.
+acordeões do acervo: o **card do álbum** e a **gaveta** de cada linha.
 
 - **A altura é MEDIDA e animada em JS** (`expandAccordion`/`collapseAccordion`,
   Web Animations API, `ACC_MS` = 220 ms). `auto` não é animável em CSS, e um
   teto fixo cortaria a letra de um hino de 40 linhas.
-- **`offsetHeight`, não `scrollHeight`.** A caixa da letra tem teto
-  (`max-height: 40vh`) e rola por dentro: animar até o `scrollHeight` abriria um
-  vão e depois recuaria.
+- **`offsetHeight`, não `scrollHeight`.** Uma gaveta com teto que role por
+  dentro mediria mais do que ocupa: animar até o `scrollHeight` abriria um vão e
+  depois recuaria.
 - **O `overflow: hidden` é devolvido no fim** (`finish` **e** `cancel`), senão a
   lista fica presa à altura do instante em que a animação foi montada.
 - **O card tem um invólucro** (`.coll-open`, com o painel de opções e a lista)
@@ -3300,9 +3307,9 @@ acordeões do acervo: o **card do álbum** e a **letra** de cada linha.
   já aberto, e vê-lo "abrir" sozinho leria como se algo tivesse acontecido.
 - **Fechar anima ANTES de redesenhar**: o redesenho apaga o nó, e um nó apagado
   não sai deslizando.
-- **A letra é montada antes de a linha abrir.** `montarLetra()` é assíncrona e
-  uma caixa vazia mediria zero. Quem rola até a linha que casou com a busca é o
-  chamador, depois de abrir — `scrollIntoView` numa caixa `display:none` é no-op.
+- **A gaveta é montada antes de a linha abrir.** Uma caixa vazia mediria zero.
+  Quem rola até a linha que casou com a busca é o chamador, depois de abrir —
+  `scrollIntoView` numa caixa `display:none` é no-op.
 - **`prefers-reduced-motion: reduce` desliga tudo** (`semMovimento()`).
 
 > **Vocabulário: na TELA ela se chama "Biblioteca"** (v5.96). No código e neste
@@ -4152,10 +4159,13 @@ empurrariam a lista e tirariam do lugar o que o operador estava mirando.
  │  Tocar agora           │
  │  [Cantada|Playback|Letra] │  as OPÇÕES
  │  Adicionar à playlist  │
- │  … + Confirmar         │
+ │  … + [Ver a letra]     │  → ABRE O LEITOR (numa MÚSICA)
+ └────────────────────────┘
+
+ num VÍDEO, a metade de baixo continua:
  ├────────────────────────┤
- │  1ª ESTROFE            │  a LETRA (ou o detalhe do vídeo)
- │  Ó adorai o Senhor…    │
+ │  [miniatura] 20:00     │  o detalhe do episódio
+ │  Toca sem baixar       │
  └────────────────────────┘
 ```
 
@@ -4164,10 +4174,21 @@ Um alvo só, e a lista inteira do outro lado. Com dois botões na linha (um ▶ 
 exigia primeiro decidir **qual dos dois era o dono da pergunta** — e essa é uma
 pergunta sobre a UI, não sobre o culto.
 
-- **A gaveta tem DUAS metades, e a letra FICA:** as opções em cima, a letra (ou o
-  detalhe do vídeo) logo abaixo, na mesma abertura. A ordem não é arbitrária —
-  quem abre a gaveta acabou de tocar para DECIDIR, e a decisão tem de estar sob o
-  dedo; a letra é a conferência, e ela pode rolar. Quem some fechado é o
+- **NUMA MÚSICA A GAVETA É SÓ AS OPÇÕES** (v1.2.25), e "Ver a letra" abre o
+  **leitor** — a mesma folha do transporte, apontada para aquela faixa
+  (`lvItemDaBiblioteca`, ver "A folha não é mais de quem está no ar"). A caixa de
+  texto que ficava aqui embaixo era uma SEGUNDA leitura, pior que a que o app já
+  tem: sem cifra, sem tom, sem corpo de fonte e sem rolagem — e o caminho para a
+  boa era PROJETAR a música, que é justamente o que o operador pediu para não
+  precisar fazer. Reusar, nunca reconstruir: uma segunda folha divergiria da
+  primeira no primeiro ajuste. Sem fonte forçada — a folha abre na LETRA, com a
+  Cifra ao lado; quem veio da gaveta veio de uma lista de músicas, não dos
+  acordes.
+- **NUM VÍDEO A METADE DE BAIXO FICA:** ali ela é a miniatura, a duração e o
+  estado no aparelho — o que responde *"é este mesmo?"* num item sem letra —, e o
+  mesmo botão continua sendo o interruptor dela ("Ver / Ocultar os detalhes",
+  duas frases empilhadas numa grade 1×1 para a largura não mudar sob o dedo).
+  Quem decide é `temLetra(coll)`, nunca `ehSerie`. Quem some fechado é o
   ENVELOPE (`.hymn-gaveta`), nunca cada metade: a animação do acordeão mede
   `offsetHeight` de UM elemento, e com duas caixas irmãs aparecendo por conta
   própria a medida seria de meia gaveta.
@@ -4805,7 +4826,7 @@ havia uma série só, e as três viraram campo declarado:
 |---|---|---|---|
 | `periodo` | `mes` — "Provai e Vede - Agosto 2026" | `trimestre` — "Informativo \| 3º Trimestre 2026" | `mesDaPlaylist` devolve o mês em que o PERÍODO começa: ele ordena as playlists e é o PISO de quem não declarar data. Quem dá o mês de cada item é sempre a data do TÍTULO |
 | `titulo` | `esquerda` — "Match point \| Provai e Vede 2026 (15/Ago)" | `nenhum` — "Informativo Mundial das Missões \| 15 AGOSTO 2026" | no segundo o título é a série + a data, e a história ("O Sonho de Enoc") vive na MINIATURA. Aplicar o padrão daria 52 linhas idênticas, que é o defeito que o padrão existe para corrigir — ao contrário |
-| `futuros` | `mostrar` — a playlist do mês só traz o que já saiu | `esconder` — o canal sobe o trimestre e libera um sábado por vez | os que faltam ficam como "prioridade para membros": aparecem e não tocam. Corte pela DATA, com **3 dias de antecedência** (a quarta antes do sábado, v5.256 — o roteiro é montado na semana); sem data no título, nunca esconde |
+| `futuros` | `mostrar` — a playlist do mês só traz o que já saiu | `esconder` — o canal sobe o trimestre e libera um sábado por vez | os que faltam ficam como "prioridade para membros": aparecem e não tocam. Corte pela DATA, e a janela é a **semana corrente** (v1.2.19 — o episódio deste sábado nunca é escondido, e é `ehDoSabadoAtual` quem responde), com os **3 dias** da v5.256 como PISO para as semanas seguintes; sem data no título, nunca esconde |
 | (nenhum) | — | — | o **idioma** virou recusa GLOBAL, não campo: ver `ehOutroIdioma` abaixo |
 
 **O canal do Informativo publica a MESMA série em quatro idiomas**, lado a lado
@@ -4894,8 +4915,8 @@ primeiro ajuste. A ordem das perguntas virou contrato porque é ela que o texto
 mostra; e as duas metades (aba do canal × varredura dos vídeos) trazem datas
 próprias, porque a assinatura pula a extração e só uma delas é de agora.
 
-**O preço da antecedência tem remédio** (v5.256): nesses três dias o vídeo pode
-ainda não estar público. `serieComoYoutube` anexa `avisoSeFalhar` (e o card da
+**O preço da antecedência tem remédio** (v5.256): enquanto o sábado não chega o
+vídeo pode ainda não estar público. `serieComoYoutube` anexa `avisoSeFalhar` (e o card da
 série como endereço) enquanto `AVSerie.diasAte(...) > 0`, e o caminho de falha do
 `ytAcao` a usa no lugar de "não foi possível baixar" — em dois lugares, porque
 "Tocar agora" fecha a Biblioteca e os destinos que guardam não.
@@ -4905,6 +4926,27 @@ lugares: `indiceVencido` vence o índice na virada do dia (só nas séries com
 `futuros: 'esconder'`) e o dia entra na **assinatura** das playlists. Sem o
 segundo, a economia devolveria a lista de ontem — sem o episódio de hoje —
 carimbada como de hoje, que é o sintoma da v5.233 por outra porta.
+
+**E O ÍNDICE É PROCURADO ENQUANTO FALTAR O EPISÓDIO DESTA SEMANA** (v1.2.22,
+`serieTemODaSemana` no `indiceVencido`). Vale para **as duas séries**, e é o que
+resgata o Provai e Vede — ele não tem a regra do dia acima, então só o TTL de
+12 h o reconferia, e um vídeo publicado na manhã de sábado podia não estar na
+lista do culto daquele mesmo sábado.
+
+| guarda | por quê |
+|---|---|
+| responde `AVSerie.ehDoSabadoAtual` | é a MESMA função do bloco de destaque — uma segunda conta de calendário divergiria dela, que é o defeito da v1.2.19 |
+| piso de `SERIE_PROCURA_MIN_MS` (30 min) | `autoRefreshCollections` roda também no `visibilitychange`, e são dezenas de voltas ao app por culto |
+| `serieProcuraDaAbertura` | a PRIMEIRA passada da sessão ignora o piso: "quando o app é aberto" é o pedido, e uma carga de página é rara. Desarmada no `autoRefreshCollections`, nunca dentro do predicado |
+| `c.serie.ano === ano corrente` | em 2027 nenhum episódio do álbum de 2026 é "o desta semana"; sem ela, um álbum antigo na Biblioteca seria procurado para sempre |
+
+Ela **se desarma sozinha**: achado o episódio, a série volta a custar zero
+requisição até o TTL ou a virada da semana. Custa uma extração da aba do canal
+por procura — as ~12 das playlists continuam puladas pela assinatura enquanto a
+contagem não mudar. **Nada aqui baixa vídeo:** quem roda é `fetchSerieIndex`.
+O preço declarado é o episódio publicado SEM data no título: ele nunca satisfaz
+a pergunta, e a série segue sendo procurada de meia em meia hora — o conserto
+é a leitura da data, e o Registro já o nomeia (`! entrou SEM data`).
 
 **O índice falha com EXCEÇÃO, nunca com lista vazia.** Quem chama já trata isso
 como "sem internet — falha ao atualizar" e preserva o índice anterior; devolver

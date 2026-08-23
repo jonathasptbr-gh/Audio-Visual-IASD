@@ -580,8 +580,17 @@ try {
         return { itens: collSongs(c.id).map((s) => s.name), futuros: (d && d.futuros || []).length };
       }, limpar);
       const antes = await ler(true);
-      // A TERÇA e a QUARTA antes do sábado 15 — a fronteira que o operador
-      // pediu, medida no percurso inteiro e não só na regra pura.
+      // A FRONTEIRA, medida no percurso inteiro e não só na regra pura. Ela é a
+      // VIRADA DA SEMANA desde a v1.2.19: o sábado 08 ainda é a semana
+      // anterior, o domingo 09 abre a do episódio de 15/Ago. A terça e a quarta
+      // ficam porque eram a fronteira ANTIGA (3 dias, v5.256) — hoje as duas
+      // respondem "está lá", e é essa mudança de veredito que o relato do
+      // operador comprou: num domingo a lista escondia o episódio que o
+      // destaque do topo declarava o desta semana.
+      await pgC.clock.setFixedTime(new Date('2026-08-08T12:00:00'));
+      const sabadoAntes = await ler(false);
+      await pgC.clock.setFixedTime(new Date('2026-08-09T12:00:00'));
+      const noDomingo = await ler(false);
       await pgC.clock.setFixedTime(new Date('2026-08-11T12:00:00'));
       const naTerca = await ler(false);
       await pgC.clock.setFixedTime(new Date('2026-08-12T12:00:00'));
@@ -590,13 +599,65 @@ try {
       // nenhum. É o corte INCLUSIVO, que é o que o operador descreveu.
       await pgC.clock.setFixedTime(new Date('2026-08-15T12:00:00'));
       const noDia = await ler(false);
+
+      // ===== A PROCURA DO EPISÓDIO DESTA SEMANA (v1.2.22) =====
+      //
+      // O relógio está preso em 15/Ago (sábado), e o índice acabou de ser
+      // varrido — as três respostas abaixo saem SÓ da regra nova: o TTL de 12 h
+      // está fresco, o dia é o mesmo, e o diário está carimbado.
+      const procura = await pgC.evaluate(() => {
+        const agora = Date.now();
+        const info = allCollections().find((x) => x.id === 'serie-informativo-missoes-2026');
+        const st = collState[info.id];
+        // Um índice de meia hora atrás: dentro do TTL, fora do PISO. É a única
+        // janela em que a regra nova é a que responde.
+        st.indexSyncedAt = agora - 31 * 60 * 1000;
+        st.serieDiaEm = serieDiaLocal(new Date(agora));
+        st.serieDiarioEm = agora;
+        const com = indiceVencido(info, agora);
+        // Tirar o episódio da semana do índice é o cenário que a regra existe
+        // para pegar: o canal ainda não publicou (ou publicou depois da última
+        // varredura), e o operador abre o app justamente para saber disso.
+        const guardadas = st.songs.slice();
+        st.songs = st.songs.filter(
+          (x) => !AVSerie.ehDoSabadoAtual(x.serieData, info.serie, new Date(agora)));
+        const removidas = guardadas.length - st.songs.length;
+        const sem = indiceVencido(info, agora);
+        // O PISO: recém-varrido, não procura de novo. Sem ele a pergunta seria
+        // feita a cada `visibilitychange` — uma extração do canal por volta ao
+        // app, durante o culto inteiro.
+        st.indexSyncedAt = agora;
+        const semRecemVarrido = indiceVencido(info, agora);
+        // E A ABERTURA, que é o pedido ao pé da letra: a PRIMEIRA passada da
+        // sessão pergunta mesmo com o índice recém-varrido. O `autoRefresh` da
+        // carga desta página já a desarmou, então o caso é rearmá-la — que é o
+        // que uma reabertura do app faz.
+        st.songs = st.songs.filter(
+          (x) => !AVSerie.ehDoSabadoAtual(x.serieData, info.serie, new Date(agora)));
+        serieProcuraDaAbertura = true;
+        const naAbertura = indiceVencido(info, agora);
+        serieProcuraDaAbertura = false;
+        st.songs = guardadas;
+        st.indexSyncedAt = agora;
+
+        // E O PROVAI E VEDE, que é a série SEM a regra do dia — a que podia
+        // passar o sábado inteiro sem o vídeo do culto. Em 15/Ago o stub dela
+        // tem 01 e 08/Ago: nenhum é desta semana (dom 09 a sáb 15).
+        const pv = allCollections().find((x) => x.id === 'serie-provai-vede-2026');
+        const stPv = collState[pv.id] || {};
+        const pvTem = (stPv.songs || []).length
+          ? serieTemODaSemana(pv, agora) : null;
+        return { com, sem, semRecemVarrido, naAbertura, removidas, pvTem };
+      });
+
       // SÓ A DATA entra na comparação (v5.271): estes casos falam da JANELA, e
       // comparar o nome inteiro os faria reprovar a cada ajuste de nomenclatura
       // — foi o que aconteceu quando o rótulo passou a levar a série junto.
       const soData = (o) => Object.assign({}, o,
         { itens: (o.itens || []).map((n) => String(n).split(' · ')[0]) });
-      return { antes: soData(antes), naTerca: soData(naTerca),
-        naQuarta: soData(naQuarta), noDia: soData(noDia) };
+      return { antes: soData(antes), sabadoAntes: soData(sabadoAntes),
+        noDomingo: soData(noDomingo), naTerca: soData(naTerca),
+        naQuarta: soData(naQuarta), noDia: soData(noDia), procura };
     } finally { await pgC.close(); await ctxC.close(); }
   })();
   checar(!(corte.antes.itens || []).includes('15/Ago'),
@@ -613,9 +674,47 @@ try {
   checar((corte.naQuarta.itens || []).includes('15/Ago'),
     'E JÁ NA QUARTA ANTES DELE, que é quando o roteiro do culto é montado',
     JSON.stringify(corte.naQuarta.itens));
-  checar(!(corte.naTerca.itens || []).includes('15/Ago'),
-    'mas não na TERÇA: a janela é de 3 dias, não "o mês todo"',
+  checar((corte.naTerca.itens || []).includes('15/Ago'),
+    'E NA TERÇA também — a janela é a SEMANA dele, e a terça já é dela',
     JSON.stringify(corte.naTerca.itens));
+  // A METADE QUE FECHA, e sem ela as três acima aprovariam uma janela infinita:
+  // no SÁBADO 08 o episódio de 15/Ago é da semana SEGUINTE e não aparece; no
+  // domingo 09, a semana dele começou. É a virada, medida na tela.
+  checar(!(corte.sabadoAntes.itens || []).includes('15/Ago'),
+    'NO SÁBADO ANTERIOR ele ainda NÃO está na lista — é a semana que vem',
+    JSON.stringify(corte.sabadoAntes.itens));
+  checar((corte.noDomingo.itens || []).includes('15/Ago'),
+    '[relato] e no DOMINGO seguinte ele entra: a semana dele começou',
+    JSON.stringify(corte.noDomingo.itens));
+
+  // ── A PROCURA DO EPISÓDIO DESTA SEMANA (v1.2.22) ──────────────────────────
+  //
+  // Relato do operador: *"faça o provai e vede e o informativo das missões
+  // serem atualizados, em especial buscando apenas o vídeo dessa semana, busca
+  // de se atualizar diretamente quando o app é aberto"*.
+  //
+  // O TTL de 12 h responde "a lista envelheceu?"; a regra nova responde "já
+  // saiu o vídeo deste sábado?". As TRÊS metades, porque cada uma sozinha
+  // aprovaria um app errado: sem a primeira a regra vira "revarrer sempre"
+  // (uma extração do canal por volta ao app); sem a segunda ela não procura
+  // nada; sem o piso ela vira a rajada que o `autoRefreshCollections` recusa.
+  checar(corte.procura.removidas === 1,
+    'o cenário de fato tira UM episódio — o desta semana', corte.procura.removidas);
+  checar(corte.procura.com === false,
+    'COM o episódio da semana no índice, a série NÃO é revarrida — a procura se desarma sozinha',
+    corte.procura.com);
+  checar(corte.procura.sem === true,
+    '[relato] FALTANDO o episódio desta semana, o índice vence — mesmo fresco pelo TTL e no mesmo dia',
+    corte.procura.sem);
+  checar(corte.procura.semRecemVarrido === false,
+    'e o PISO segura: recém-varrido, não procura de novo (a rajada do visibilitychange)',
+    corte.procura.semRecemVarrido);
+  checar(corte.procura.naAbertura === true,
+    '[relato] mas a ABERTURA do app pergunta assim mesmo — é o piso que vale para as voltas ao app, não para abrir',
+    corte.procura.naAbertura);
+  checar(corte.procura.pvTem === false,
+    'e o PROVAI E VEDE, que não tem a regra do dia, é a série que a procura resgata: em 15/Ago ela não tem o episódio da semana',
+    corte.procura.pvTem);
 
   // ── O AVISO QUANDO O DOWNLOAD FALHA NA JANELA (v5.256) ─────────────────
   // O preço da antecedência: nesses três dias o vídeo pode ainda não estar
@@ -1011,6 +1110,10 @@ try {
     // resolvido — e é ele que a asserção procura.
     const lista = document.createElement('ul');
     lista.className = 'hymnal-list';
+    // COM LARGURA DE CELULAR: a medição do botão lá embaixo é em pixels, e num
+    // contêiner sem largura resolvida toda medida é zero — zeros comparados com
+    // zeros passam sem medir nada (a lição da v5.208).
+    lista.style.width = '390px';
     document.body.appendChild(lista);
     const li = hymnResultRow(c, s, null, true);
     lista.appendChild(li);
@@ -1018,7 +1121,8 @@ try {
     // A montagem é assíncrona (o estado no aparelho vem do IndexedDB): dois
     // turnos bastam, e esperar pelo TEXTO em vez de por um prazo fixo é o que
     // impede o caso de virar intermitente num runner lento.
-    for (let i = 0; i < 40 && !li.querySelector('.item-detalhe-estado'); i++) {
+    for (let i = 0; i < 40
+      && !(li.querySelector('.item-detalhe-estado') && li.classList.contains('expanded')); i++) {
       await new Promise((r) => setTimeout(r, 25));
     }
     const det = li.querySelector('.item-detalhe');
@@ -1028,6 +1132,26 @@ try {
       texto: li.textContent,
       temThumb: !!li.querySelector('.item-detalhe-thumb'),
       duracaoGuardada: s.duration || '',
+      // ===== A LARGURA DO BOTÃO NÃO MUDA COM O ESTADO (v5.287) =====
+      //
+      // "Ocultar" é mais longo que "Ver", então o botão crescia ao ser tocado e
+      // o CONFIRMAR ao lado encolhia junto — um toque que muda a largura do
+      // vizinho é a coisa que mais parece defeito numa faixa de dois botões. As
+      // duas frases entram empilhadas na mesma célula de uma grade 1x1
+      // (`.song-menu-letra-cx`), e a largura passa a ser a da MAIOR.
+      //
+      // A medição mora AQUI desde a v1.2.25: o interruptor de duas frases só
+      // existe no VÍDEO — numa música o mesmo botão abre o leitor e tem uma
+      // frase só. O `smoke.mjs`, que roda sem ponte, nem chega a ver uma série.
+      larguras: (() => {
+        const ver = li.querySelector('.song-menu-letra');
+        if (!ver) return null;
+        const antes = Math.round(ver.getBoundingClientRect().width);
+        ver.click();   // no vídeo o ouvinte é síncrono: alterna `vendo-letra`
+        const depois = Math.round(
+          li.querySelector('.song-menu-letra').getBoundingClientRect().width);
+        return { antes, depois, rotulo: ver.textContent };
+      })(),
     };
     lista.remove();
     setAppMode(modoAntes);   // o modo é global: deixá-lo trocado quebra os casos seguintes
@@ -1047,10 +1171,18 @@ try {
   checar(/Toca sem baixar|Já no aparelho/.test(gaveta.texto),
     'mais o estado no aparelho, que é o que decide: transmitir agora ou ~300 MB',
     JSON.stringify(gaveta.texto.slice(0, 120)));
+  checar(!!gaveta.larguras && gaveta.larguras.antes > 0
+    && gaveta.larguras.antes === gaveta.larguras.depois,
+    'e o botão que a revela tem a MESMA LARGURA nos dois estados: "Ocultar" é '
+    + 'mais longo que "Ver", e ele crescia debaixo do dedo levando o confirmar '
+    + 'ao lado junto', JSON.stringify(gaveta.larguras));
 
-  // A OUTRA METADE: uma MÚSICA continua abrindo a letra. Sem coleção do
-  // LouvorJA neste harness (não há rede), a faixa e a letra são postas à mão —
-  // o que se afirma é o desvio de `hymnResultRow`, não o banco de origem.
+  // A OUTRA METADE: numa MÚSICA a gaveta é SÓ AS OPÇÕES (v1.2.25). A letra numa
+  // caixa de texto aqui dentro era uma segunda leitura, pior que a que o app já
+  // tem: quem quer ler abre o LEITOR (cifra, tom, corpo, rolagem), e quem só
+  // quer conferir "é este mesmo?" já tem o trecho casado na linha do resultado.
+  // Sem coleção do LouvorJA neste harness (não há rede), a faixa é posta à mão
+  // — o que se afirma é o desvio de `hymnResultRow`, não o banco de origem.
   const gavetaMusica = await pg.evaluate(async () => {
     const modoAntes = document.body.classList.contains('mode-simple') ? 'simple' : 'full';
     setAppMode('full');
@@ -1065,13 +1197,15 @@ try {
     const li = hymnResultRow(c, s, null, true);
     lista.appendChild(li);
     li.querySelector('.hymn-row').click();
-    for (let i = 0; i < 40 && !li.querySelector('.hymn-lyrics-line'); i++) {
+    for (let i = 0; i < 40 && !li.classList.contains('expanded'); i++) {
       await new Promise((r) => setTimeout(r, 25));
     }
     const r = {
+      abriu: li.classList.contains('expanded'),
+      temOpcoes: !!li.querySelector('.hymn-opcoes .song-menu-btn'),
       temCaixaDeLetra: !!li.querySelector('.hymn-lyrics'),
       temDetalhe: !!li.querySelector('.item-detalhe'),
-      linhas: [...li.querySelectorAll('.hymn-lyrics-line')].map((e) => e.textContent),
+      rotuloDaLetra: (li.querySelector('.song-menu-letra') || {}).textContent || '',
     };
     lista.remove();
     setAppMode(modoAntes);
@@ -1081,9 +1215,14 @@ try {
     if (estadoAntes) collState[c.id] = estadoAntes; else delete collState[c.id];
     return r;
   });
-  checar(gavetaMusica.temCaixaDeLetra && gavetaMusica.linhas.length === 2,
-    'e o toque numa MÚSICA continua abrindo a LETRA, com as estrofes',
-    JSON.stringify(gavetaMusica.linhas));
+  checar(gavetaMusica.abriu && gavetaMusica.temOpcoes,
+    'o toque numa MÚSICA abre a gaveta com as OPÇÕES', gavetaMusica);
+  checar(!gavetaMusica.temCaixaDeLetra,
+    'e SEM a caixa de letra: ela virou o leitor, que tem cifra, tom e rolagem',
+    gavetaMusica.temCaixaDeLetra);
+  checar(/Ver a letra/.test(gavetaMusica.rotuloDaLetra),
+    'o botão continua se chamando "Ver a letra" — o que muda é PARA ONDE ele leva',
+    gavetaMusica.rotuloDaLetra);
   checar(!gavetaMusica.temDetalhe,
     'sem a gaveta do vídeo no meio — cada tipo abre a sua, e só a sua');
 
@@ -4209,237 +4348,41 @@ try {
   checar(false, 'o percurso da área de transferência terminou sem exceção (' + (e && e.message) + ')');
 }
 
-// ===== O RECADO (walkie-talkie): DA VOZ AO TELÃO, E O FIM QUE NÃO AVANÇA =====
-//
-// O recado é um item `kind:'audio'` COMUM, e é isso que o faz chegar aos quatro
-// modelos de graça — inclusive aos dois em que o microfone ao vivo não existe.
-// Mas ser comum é exatamente o perigo: quando ele acaba, o `media-ended` cai no
-// `autoAdvance` como qualquer faixa, e ali há dois desfechos grotescos, os dois
-// SEM SINAL NENHUM na tela:
-//
-//   repeat 'one' → `send(currentId)` — a voz do operador REPETE PARA SEMPRE;
-//   repeat 'all' → o id do recado não está em `plItems`, o `findIndex` devolve
-//                  -1, e a playlist COMEÇA DO PRIMEIRO ITEM sozinha.
-//
-// O ARNÊS FORJA A CAPTURA (`getUserMedia` + `MediaRecorder`), e isso é o que
-// torna o bloco possível: o Chromium do CI não tem microfone, e o que se quer
-// medir não é a captura — é o que o app FAZ com os bytes. As duas peças são
-// mínimas e honestas: um MediaStream com uma trilha falsa que sabe `stop()`, e
-// um gravador que entrega um pedaço e dispara `onstop`.
-//
-// MEDE O EFEITO: os comandos `load` que saem no barramento, e QUAL id vai em
-// cada um.
-try {
-  const pgR = await ctx.newPage();
-  await pgR.addInitScript(PONTE);
-  await pgR.addInitScript(`(() => {
-    // O microfone do Android é concedido pelo shell 50; aqui a ponte de mentira
-    // precisa dizer sim, senão o caminho para antes de gravar.
-    const arm = () => {
-      const B = window.__AVBridge;
-      if (!B) { setTimeout(arm, 0); return; }
-      B.requestMic = (id) => {
-        setTimeout(() => { try { window.__avResolve(id, true); } catch (_) {} }, 0);
-      };
-    };
-    arm();
-    const trilha = () => ({ stop() { this.parado = true; }, kind: 'audio' });
-    Object.defineProperty(navigator, 'mediaDevices', {
-      configurable: true,
-      value: {
-        getUserMedia: () => {
-          window.__gumPedidos = (window.__gumPedidos || 0) + 1;
-          const ts = [trilha()];
-          return Promise.resolve({ getTracks: () => ts });
-        },
-      },
-    });
-    class GravadorFalso {
-      constructor(fluxo, opcoes) {
-        this.stream = fluxo;
-        this.mimeType = (opcoes && opcoes.mimeType) || 'audio/webm';
-        this.state = 'inactive';
-      }
-      static isTypeSupported(t) { return window.__recFormatos.indexOf(t) >= 0; }
-      start() { this.state = 'recording'; }
-      stop() {
-        this.state = 'inactive';
-        // Um pedaço de verdade, para o Blob não sair vazio.
-        if (this.ondataavailable) {
-          this.ondataavailable({ data: new Blob([new Uint8Array([1, 2, 3, 4])], { type: this.mimeType }) });
-        }
-        if (this.onstop) this.onstop();
-      }
-    }
-    // A LISTA DE FORMATOS ACEITOS é do teste, para poder afirmar a ORDEM de
-    // preferência do app sem depender do que este Chromium grava.
-    window.__recFormatos = ['audio/webm;codecs=opus', 'audio/webm'];
-    window.MediaRecorder = GravadorFalso;
-  })();`);
-  await pgR.goto(`http://127.0.0.1:${porta}/controle/`, { waitUntil: 'load' });
-  await pgR.waitForFunction(() => window.AVDB && typeof window.__avBack === 'function'
-    && !!document.querySelector('#playlist li'), null, { timeout: 25000 });
-
-  const r = await pgR.evaluate(async () => {
-    const dorme = (ms) => new Promise((f) => setTimeout(f, ms));
-    const loads = [];
-    const espiao = new BroadcastChannel('av-iasd');
-    espiao.onmessage = (ev) => {
-      const m = ev.data;
-      if (m && m.type === 'load' && m.mediaId) loads.push({ id: m.mediaId, time: m.time });
-    };
-    await dorme(60);
-
-    const ir = (t) => { const b = document.querySelector('[data-tab="' + t + '"]'); if (b) b.click(); };
-    ir('mic');
-    await dorme(300);
-    const btn = document.getElementById('recadoBtn');
-    if (!btn) { espiao.close(); return { semBotao: true }; }
-
-    // ---- O GESTO: segurar, falar, soltar --------------------------------
-    btn.setPointerCapture = () => {};
-    btn.hasPointerCapture = () => true;
-    btn.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerId: 1 }));
-    await dorme(250);
-    const rotuloGravando = (btn.querySelector('.mic-btn-label') || {}).textContent || '';
-    const acesoGravando = btn.classList.contains('live');
-    // PASSA DO MÍNIMO de propósito: abaixo de RECADO_MIN_MS o recado é
-    // descartado, e isso é medido no caso separado, abaixo.
-    await dorme(650);
-    btn.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, pointerId: 1 }));
-    await dorme(1200);
-
-    const avulsos = await window.AVDB.listIds('avulsos');
-    const ultimo = avulsos[avulsos.length - 1] || '';
-    const reg = ultimo ? await window.AVDB.getMedia(ultimo) : null;
-    const foiAoAr = loads.some((l) => l.id === ultimo);
-
-    // ---- O FIM DELE: não pode avançar nem repetir ------------------------
-    //
-    // COM `repeat` EM 'one', E ISSO É O TESTE. Com o padrão ('off') o
-    // `autoAdvance` chama `resetAfterEnd()` e não emite `load` nenhum — então
-    // um zero ali passaria com a guarda REMOVIDA, provando nada. MEDIDO por
-    // reversão: foi exatamente o que aconteceu na primeira escrita deste bloco.
-    // 'one' é o pior caso: sem a guarda, `send(currentId, true)` recarrega o
-    // recado, e a voz do operador repete para sempre na frente da congregação.
-    // O MODO É LIDO DO `title` do próprio botão (`renderRepeat` o escreve), e
-    // não de um global inventado: o app já publica esse estado, e um segundo
-    // caminho para a mesma resposta envelheceria à parte.
-    const rep = document.getElementById('repeat');
-    for (let i = 0; i < 6 && !/Repetir 1/.test(rep.title); i++) {
-      rep.click();
-      await dorme(80);
-    }
-    const repeatAgora = rep.title;
-    loads.length = 0;
-    const bc = new BroadcastChannel('av-iasd');
-    bc.postMessage({ type: 'media-ended', mediaId: ultimo, __mid: 'rec:fim' });
-    await dorme(1200);
-    const depoisDoFim = loads.slice();
-    espiao.close(); bc.close();
-
-    return {
-      rotuloGravando,
-      acesoGravando,
-      gum: window.__gumPedidos || 0,
-      recadoId: ultimo,
-      kind: reg && reg.kind,
-      tipo: reg && reg.type,
-      nome: reg && reg.name,
-      foiAoAr,
-      depoisDoFim,
-      repeatAgora,
-      naAvulsos: avulsos.length,
-    };
-  });
-
-  checar(!r.semBotao, 'a aba Ferramentas traz o botão de Recado', JSON.stringify(r));
-  checar(r.gum >= 1 && r.acesoGravando && /gravando/i.test(r.rotuloGravando),
-    'segurar o botão ABRE a captura e o botão diz que está gravando', JSON.stringify(r));
-  checar(!!r.recadoId && r.kind === 'audio',
-    'soltar cria um item `kind:"audio"` na prateleira `avulsos` — sem passar pelo Cronograma',
-    JSON.stringify(r));
-  checar(r.tipo === 'audio/webm',
-    'e o TIPO perde o parâmetro de codec: é ele que vira o Content-Type da rota /m/ das '
-    + 'telas da rede, e o saneador do shell só aceita tipo/subtipo', JSON.stringify(r.tipo));
-  checar(/^Recado \d\d:\d\d$/.test(r.nome || ''),
-    'o nome diz a HORA — é o que distingue dois recados na mesma prateleira', r.nome);
-  checar(r.foiAoAr === true,
-    'e ele VAI DIRETO AO AR: um `load` do próprio recado sai no barramento, sem tela intermediária',
-    JSON.stringify(r.depoisDoFim));
-  // O CONTROLE POSITIVO: sem ele o zero abaixo prova só que o `repeat` não foi
-  // parar em 'one' e o `autoAdvance` caiu no ramo que nunca emite `load`.
-  checar(/Repetir 1/.test(r.repeatAgora || ''),
-    'a montagem chegou ao pior caso: `repeat` em "one", onde o fim de uma faixa RECARREGA a '
-    + 'própria faixa', JSON.stringify(r.repeatAgora));
-  checar(r.depoisDoFim.length === 0,
-    'O FIM DO RECADO NÃO AVANÇA NADA, nem com `repeat one`: nenhum `load` novo. Sem esta '
-    + 'guarda a voz do operador repetiria para sempre na frente da congregação',
-    JSON.stringify(r.depoisDoFim));
-
-  // ---- O TOQUE ACIDENTAL NÃO VAI AO AR ---------------------------------
-  const curto = await pgR.evaluate(async () => {
-    const dorme = (ms) => new Promise((f) => setTimeout(f, ms));
-    const antes = (await window.AVDB.listIds('avulsos')).length;
-    const btn = document.getElementById('recadoBtn');
-    btn.setPointerCapture = () => {};
-    btn.hasPointerCapture = () => true;
-    btn.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerId: 2 }));
-    await dorme(120);                       // MUITO abaixo de RECADO_MIN_MS
-    btn.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, pointerId: 2 }));
-    await dorme(900);
-    const nota = document.getElementById('micNote');
-    return {
-      antes,
-      depois: (await window.AVDB.listIds('avulsos')).length,
-      nota: nota && !nota.hidden ? (nota.textContent || '') : '',
-    };
-  });
-  checar(curto.depois === curto.antes,
-    'UM TOQUE ACIDENTAL NÃO VIRA RECADO: abaixo do mínimo nada é criado nem projetado',
-    JSON.stringify(curto));
-  checar(/curto|segure/i.test(curto.nota),
-    'e o app DIZ por quê, com o que fazer — um toque que não faz nada e não explica é '
-    + 'indistinguível de um botão quebrado', JSON.stringify(curto.nota));
-
-  await pgR.close();
-} catch (e) {
-  checar(false, 'o percurso do recado terminou sem exceção (' + (e && e.message) + ')');
-}
-
-// ===== O MICROFONE SEM TELÃO: O BOTÃO PARAVA DE MENTIR (v1.1.20) =====
+// ===== O MICROFONE SEM TELÃO: O BOTÃO NÃO É OFERECIDO (v1.2.20) =====
 //
 // Quem abre o microfone é o `/display/`, e ele só existe DENTRO da
 // `Presentation` — sem TV conectada o `syncPresentation` não cria nenhuma, e
-// ninguém consome o comando `mic`. Como ninguém o consome, ninguém responde
-// `mic-status`: `micError` ficava vazio, a nota de diagnóstico não aparecia, e o
-// único sinal na tela era o botão vermelho escrito "No ar" — que é o
-// `micPressed` local, nunca uma confirmação.
+// ninguém consome o comando `mic`. As telas da rede também não servem: elas
+// rodam o MESMO `display.js`, e lá o `setMic` sai por `if (TELA) return`.
 //
-// É a classe de defeito mais cara deste app: nada erra, nada quebra, e o
-// operador segura o botão achando que está falando para a igreja.
+// A HISTÓRIA DESTE BLOCO, em três degraus, porque cada um consertou o anterior:
 //
-// A PONTE PADRÃO DESTE ARQUIVO JÁ TEM ZERO TELAS (`ponteCom(…, [])`), então esta
-// é a condição normal aqui — e é por isso que o bloco não monta cenário nenhum.
+//   até a v1.1.20 ... o botão acendia "No ar" com o `micPressed` local, sem
+//                     nada captando. O operador falava para ninguém.
+//   v1.1.20 ........ ele passou a RECUSAR o toque e DIZER por quê.
+//   v1.2.20 ........ ele deixou de ser desenhado. Explicar é melhor que mentir,
+//                    mas não é melhor que não oferecer — a frase chegava com o
+//                    dedo no botão, no meio do culto.
 //
-// AS DUAS METADES: que a recusa ACONTECE (o botão não acende) e que ela é DITA
-// (a nota aparece, com a razão). A primeira sozinha seria um botão que não faz
-// nada — exatamente o defeito, com outra aparência.
+// A PONTE PADRÃO DESTE ARQUIVO TEM ZERO TELAS (`ponteCom(…, [])`), então a
+// ausência é a condição normal aqui. O QUE PRECISA DE CENÁRIO é o contrário:
+// a TV ENTRANDO deve fazer o botão aparecer SEM trocar de aba — sem isso ele só
+// voltaria na próxima navegação, isto é, a TV conecta no meio do culto e o
+// microfone continua ausente, sem nada na tela explicando.
 try {
   const pgM = await ctx.newPage();
   await pgM.addInitScript(PONTE);
-  // A PERMISSÃO DO ANDROID É CONCEDIDA NESTA PÁGINA, e sem isso este bloco não
-  // mede o que promete: a ponte padrão resolve `requestMic` como `null` → falso,
-  // o handler sai em `NotAllowedError` ANTES da guarda de telão, e as asserções
-  // passariam por um motivo que não é o delas. MEDIDO por reversão: com a ponte
-  // padrão, retirar a guarda deixava duas das três asserções verdes.
-  //
-  // Concedida a permissão, o caminho chega à guarda — e é aí que "sem TV" é a
-  // única coisa que decide.
+  // A LISTA DE TELAS VIRA MUTÁVEL, para a TV poder entrar no meio do teste. O
+  // `__avDisplaysChanged` do `native.js` reconsulta a ponte, então basta trocar
+  // o que ela responde.
   await pgM.addInitScript(`(() => {
+    window.__telas = [];
     const arm = () => {
       const B = window.__AVBridge;
       if (!B) { setTimeout(arm, 0); return; }
+      B.displays = (id) => {
+        setTimeout(() => { try { window.__avResolve(id, window.__telas); } catch (_) {} }, 0);
+      };
       B.requestMic = (id) => {
         setTimeout(() => { try { window.__avResolve(id, true); } catch (_) {} }, 0);
       };
@@ -4450,51 +4393,69 @@ try {
   await pgM.waitForFunction(() => window.AVDB && typeof window.__avBack === 'function'
     && !!document.querySelector('#playlist li'), null, { timeout: 25000 });
 
-  const mic = await pgM.evaluate(async () => {
-    const ir = (t) => {
-      const b = document.querySelector('[data-tab="' + t + '"]');
-      if (b) b.click();
-    };
+  const semTv = await pgM.evaluate(async () => {
+    const ir = (t) => { const b = document.querySelector('[data-tab="' + t + '"]'); if (b) b.click(); };
     ir('mic');
     await new Promise((f) => setTimeout(f, 300));
-    const btn = document.getElementById('micBtn');
-    if (!btn) return { semBotao: true };
-    // O PUSH-TO-TALK É `pointerdown`/`pointerup`, não `click` — e o que se quer
-    // medir é o estado DURANTE o aperto, que é quando o rótulo mentia.
-    //
-    // A CAPTURA DE PONTEIRO PRECISA VALER, e isto não é detalhe de arnês: o
-    // handler tem uma segunda saída, `if (!micPressed && !hasPointerCapture)
-    // return` — o "já soltou" —, e com um PointerEvent sintético o
-    // `setPointerCapture` lança e o `hasPointerCapture` responde falso. O
-    // caminho saía ALI, antes da guarda de telão, e a asserção do rótulo passava
-    // por não ter chegado a lugar nenhum. MEDIDO por reversão: sem estas duas
-    // linhas, retirar a guarda deixava a asserção do "No ar" verde.
-    btn.setPointerCapture = () => {};
-    btn.hasPointerCapture = () => true;
-    btn.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerId: 1 }));
-    await new Promise((f) => setTimeout(f, 120));
-    const rotulo = (btn.querySelector('.mic-btn-label') || {}).textContent || '';
-    const aceso = btn.classList.contains('live');
-    const nota = document.getElementById('micNote');
-    const notaTexto = nota && !nota.hidden ? (nota.textContent || '') : '';
-    btn.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, pointerId: 1 }));
-    await new Promise((f) => setTimeout(f, 120));
-    // A NOTA SOBREVIVE À SOLTURA: a soltura de um toque recusado não tem nada a
-    // desfazer, e limpá-la a tiraria da tela antes de alguém lê-la.
-    const notaDepois = nota && !nota.hidden ? (nota.textContent || '') : '';
-    return { rotulo, aceso, notaTexto, notaDepois };
+    const proj = document.getElementById('miscProjectBtn');
+    const row = proj && proj.parentElement;
+    return {
+      temMic: !!document.getElementById('micBtn'),
+      temProj: !!proj,
+      // A LARGURA É MEDIDA CONTRA A LINHA, nunca contra um número de pixel: a
+      // fonte e a densidade são da MÁQUINA, e afirmar "440px" seria medir o
+      // runner. O que o desenho promete é que o botão OCUPA A LINHA.
+      largura: proj ? Math.round(proj.getBoundingClientRect().width) : 0,
+      larguraDaLinha: row ? Math.round(row.getBoundingClientRect().width) : 0,
+      irmaos: row ? row.children.length : 0,
+    };
   });
 
-  checar(!mic.semBotao, 'a aba Ferramentas traz o botão de microfone', JSON.stringify(mic));
-  checar(mic.aceso === false && !/no ar/i.test(mic.rotulo),
-    'SEM TV o botão NÃO acende nem diz "No ar" — não há telão para captar, e dizer '
-    + 'que há é a única coisa que este botão não pode fazer', JSON.stringify(mic));
-  checar(/sem tv|não tem onde|telão/i.test(mic.notaTexto),
-    'e a recusa é DITA, com a razão — um botão que não faz nada e não explica é o '
-    + 'mesmo defeito com outra aparência', JSON.stringify(mic.notaTexto));
-  checar(mic.notaDepois === mic.notaTexto && mic.notaDepois !== '',
-    'e a nota sobrevive à soltura do botão — senão ela sairia da tela antes de ser lida',
-    JSON.stringify([mic.notaTexto, mic.notaDepois]));
+  checar(semTv.temMic === false,
+    'SEM TV o botão de microfone NÃO É DESENHADO — um controle que só sabe dizer que '
+    + 'não funciona é um controle a mais para o operador aprender', JSON.stringify(semTv));
+  checar(semTv.temProj === true && semTv.irmaos === 1,
+    'e o "Projetar no telão" fica SOZINHO na linha', JSON.stringify(semTv));
+  checar(semTv.larguraDaLinha > 0 && semTv.largura >= semTv.larguraDaLinha - 2,
+    'OCUPANDO-A DE LADO A LADO: `.misc-foot` é flex e o filho é `flex: 1`, então a '
+    + 'largura vem da AUSÊNCIA do irmão, não de uma regra de CSS para o caso',
+    JSON.stringify(semTv));
+
+  // A METADE QUE FALHARIA CALADA: a TV ENTRA e o botão precisa aparecer SEM que
+  // o operador troque de aba. Quem faz isso é o `refreshDiversos()` disparado
+  // pela TRANSIÇÃO de presença no `renderDisplayStatus` — e sem ele nada erra:
+  // a aba simplesmente continua sem microfone.
+  const comTv = await pgM.evaluate(async () => {
+    window.__telas = [{ id: 1, name: 'TV do templo', w: 1920, h: 1080, density: 320 }];
+    window.__avDisplaysChanged();
+    await new Promise((f) => setTimeout(f, 500));
+    const proj = document.getElementById('miscProjectBtn');
+    const row = proj && proj.parentElement;
+    return {
+      temMic: !!document.getElementById('micBtn'),
+      irmaos: row ? row.children.length : 0,
+      abaAtiva: !!document.querySelector('[data-tab="mic"].active')
+        || !!document.getElementById('miscProjectBtn'),
+    };
+  });
+  checar(comTv.temMic === true,
+    'A TV ENTRANDO faz o botão APARECER, sem trocar de aba — sem isso ela conecta no '
+    + 'meio do culto e o microfone continua ausente, calado', JSON.stringify(comTv));
+  checar(comTv.irmaos === 2,
+    'e a linha volta a ter os dois, dividindo a largura', JSON.stringify(comTv));
+
+  // E A TV SAINDO desfaz: a simetria não é elegância, é o caso do dongle que
+  // cai — e ali o botão precisa sumir, senão volta a ser o que mentia.
+  const saiu = await pgM.evaluate(async () => {
+    window.__telas = [];
+    window.__avDisplaysChanged();
+    await new Promise((f) => setTimeout(f, 500));
+    return { temMic: !!document.getElementById('micBtn') };
+  });
+  checar(saiu.temMic === false,
+    'e a TV SAINDO o tira de novo — é o caso do dongle que cai no meio do culto',
+    JSON.stringify(saiu));
+
   await pgM.close();
 } catch (e) {
   checar(false, 'o percurso do microfone sem telão terminou sem exceção (' + (e && e.message) + ')');

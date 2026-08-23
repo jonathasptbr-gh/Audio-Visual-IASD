@@ -24,6 +24,23 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
+- **v1.3.0** — A AUDITORIA PÓS-1.0: QUATRO DEFEITOS, E OS QUATRO ERRAVAM CALADOS. (1) A ROLAGEM DA CIFRA MORRIA NO ENSAIO: `cifraRolandoChave` nasceu na v1.1.20 com `cifraChave(currentItem)` — a música EM CENA —, e a v1.2.14 pôs a folha para apontar para OUTRA música (`lvAlvo`) sem atualizar este sítio. A guarda "música nova é folha nova" do `lvBuildCifra` compara com `lvItem()`, então as duas chaves nunca batiam com um alvo da Biblioteca e o primeiro redesenho da folha chamava `cifraRolarParar()`. Transpor meio tom, tocar em A+/A− ou girar o aparelho bastavam — os três redesenham. (2) `salvarTexto` NUNCA RESOLVIA NO SUCESSO: `resolve()` injeta o segundo argumento como EXPRESSÃO JavaScript, e este era o único dos 40+ sítios que passava uma string CRUA — `__avResolve("e:1", registro-av-….txt)` é `SyntaxError`, o `evaluateJavascript` engole, e o método é justamente o que não tem prazo. O arquivo era gravado e o botão nunca respondia. (3) O REGISTRO DISCORDAVA DO APARELHO: ele somava "resolvidas" por fora em vez de perguntar a `cifraNoDiscoVale`, e a partir do 31º dia dizia "0 por varrer" com centenas ainda por refazer. (4) DOIS PARES DE CONTRASTE ABAIXO DO PISO no tema CLARO, medidos no RENDERIZADO: o seletor "Fácil/Avançado" a 3,47:1 (é o QUARTO degrau da escada de camadas, que o DESIGN-SYSTEM já nomeia como o que reprova AA) e a linha de versão do rodapé a 4,15:1. Mais a documentação posta em dia contra o CÓDIGO. O lote fecha o pacote da 1.2 e sobe o degrau INCREMENTAL a pedido de quem publica. METADE OTA e METADE APK (o (2) só chega instalando).
+- **v1.2.28** — A ROTINA DE FUNDO APAGAVA A PERGUNTA DA ATUALIZAÇÃO. Relato do operador: o app deveria oferecer sozinho o download do APK novo, e não ofereceu. `horaRuimParaPerguntar` esperava `bgWorkCount === 0` — e a varredura de cifras e a de letras rodam SOZINHAS na abertura, sobre o acervo inteiro (MEDIDO num aparelho: 309 hinos num hinário e 145 no outro, numa passada só). Enquanto ela corre, a pergunta não aparece; e ela corre justamente na janela em que o operador abre o app. É a armadilha que a v5.151 já pagou com o espelho: **uma condição quase sempre verdadeira não ADIA a pergunta, ela a APAGA** — e aqui o desfecho é o pior que este canal produz, porque com o shell abaixo do `minShell` a válvula recusa toda base web e o APK é a ÚNICA saída: o aparelho fica preso, em silêncio, sem nunca ser avisado do que o destrava. A distinção é QUEM PEDIU: `withBgRotina` protege o processo do congelamento igual (o sistema continua sabendo), e não adia pergunta nenhuma. O oráculo ganhou também o lote SÓ DE APK, que não tinha caso nenhum. OTA PURO
+- **v1.2.27** — DOIS `--press` NO MESMO DEDO. Relato do operador: *"ao encolher, as bordas do card de título ficam com uma marca de encolhimento nas laterais direita e esquerda, fazendo um bug visual da parte branca do card"*. `:active` casa também nos ANCESTRAIS, então o toque na linha de uma faixa satisfazia o `.lib-item` **e** a `.hymn-row` de dentro dele — as duas na lista de `--press`, 0,96 × 0,96. MEDIDO em 430px com a gaveta aberta: o cartão a 370px e o título, dentro dele, a 355 — 7px mais estreito de cada lado que a gaveta logo abaixo, com o branco do `.lib-item` aparecendo nessa fresta. É a MESMA fresta que o comentário da v5.267 já nomeia ("o miolo se afastava de uma moldura parada e abria uma fresta dos dois lados"): a correção de então foi fazer o CARTÃO encolher, e a `.hymn-row` ficou na lista mesmo assim — invisível com a linha fechada, porque ali cartão e linha são a mesma caixa e as duas pintam `--linha`. Saiu junto o `.hymn-play-thumb`, que DEIXOU DE SER BOTÃO na v5.285 e continuava dando resposta de toque. Oráculo no `smoke.mjs`, medindo a FRESTA em pixels durante uma pressão de verdade. OTA PURO
+- **v1.2.26** — O LEITOR ABRIA ATRÁS DA BIBLIOTECA. Relato do operador: *"estando na biblioteca, ele abre o pop da letra apenas na tela principal, atrás da biblioteca"*. A folha é chamada de DENTRO da Biblioteca, que é outra camada, e as duas estavam no `z-index: 200` de todo `.popup-backdrop` — com o mesmo degrau quem decide é a ORDEM DO DOCUMENTO, e o `#lyricsPopup` está declarado ANTES do `#hymnSearchPopup`. A tabela `POPUPS` do `controle.js` já dizia a ordem certa (o leitor DEPOIS da Biblioteca, porque o voltar a percorre de trás para a frente); faltava o `z-index` dizer o mesmo — 205, acima da Biblioteca e abaixo da folha da música, que é exatamente aquela ordem. **As duas coisas mudam juntas, sempre.** O oráculo mede por HIT-TEST (`elementFromPoint` no centro da folha), não por comparação de `z-index`: é o que o dedo encontra que decide, e um número maior num contexto de empilhamento diferente não valeria nada. Provado por reversão. OTA PURO
+- **v1.2.25** — O "VER A LETRA" DA BIBLIOTECA ABRE O LEITOR. Pedido do operador: *"gostaria que esse botão nos itens da biblioteca, 'ver a letra', abrisse o mesmo modelo pup gaveta do auxiliar de leitura que já trabalha com letras e cifras… não quero mais apenas essa letra em uma caixa de texto abaixo das opções de play"*. A caixa era uma SEGUNDA leitura, pior que a que o app já tem: sem cifra, sem tom, sem corpo de fonte e sem rolagem. O mesmo botão passa a apontar o leitor do transporte para aquela faixa (`lvItemDaBiblioteca`), e nada vai ao telão. Com a caixa saem `montarLetra`, `botaoFolha`, `letraAlvo` e o CSS de `.hymn-lyrics*`. Três oráculos mudaram porque o COMPORTAMENTO mudou, e dois deles ganharam medição melhor: a guarda `abrindo` do `gaveta-no-download` passou a ser medida de DENTRO da montagem (uma propriedade, não uma janela de tempo — a janela sumiu na música e continua no vídeo), e a largura de dois estados do botão mudou de casa para o `boot-nativo`, que é o único harness que enxerga uma série. OTA PURO
+- **v1.2.24** — O ÍCONE DO HISTÓRICO DEIXOU DE SER O RELÓGIO DO CRONOGRAMA. Pedido do operador: *"ajuste o ícone do botão de histórico do player, para que ele seja sobre histórico, mas diferente do cronograma"*. Os dois eram o MESMO mostrador redondo — a aba é `circle r=9` + ponteiros, e o botão era o mesmo mostrador, os mesmos ponteiros e uma seta anti-horária pequena. A 20px o que se lê é a SILHUETA, não o detalhe, e engrossar a seta seria um meio-conserto: dois desenhos redondos a poucos centímetros um do outro continuam gêmeos. Agora é o TRILHO COM OS NÓS — a linha do tempo do que já foi ao telão, que é literalmente o que a lista daquele botão contém. Descartados e por quê: a seta circular sozinha vira o "sincronizar" do card de álbum, a seta com o ▶ dentro vira "tocar de novo", e a lista com marcadores não diz tempo nenhum — o que a separa do `icoTexto`, dois botões abaixo na MESMA coluna, é não ter moldura e ter os nós. Conferido RENDERIZADO a 20px contra os dois vizinhos. OTA PURO
+- **v1.2.23** — A BATERIA DE TESTES DE CIFRA SAIU. Ela nasceu para responder "para quais álbuns a cadeia de endereços não chega?" quando o arquivo de cifras valia só para os dois hinários e não havia como medir o resto. A varredura do acervo INTEIRO passou a responder isso sozinha e melhor: o Registro mostra, por coleção, quantas foram achadas, quantas o site tem sem cifra e quantas não têm página — com exemplos NOMEADOS e o endereço tentado, sobre o acervo todo em vez de duas amostras por álbum. Um segundo caminho que responde a mesma pergunta com menos dados é um caminho a menos. O oráculo dela guardava os casos do LEITOR DA BIBLIOTECA, que cobrem recurso vivo: eles ganharam arquivo próprio (`tools/leitor-biblioteca.test.mjs`). OTA PURO
+- **v1.2.22** — O APP PROCURA O EPISÓDIO DESTE SÁBADO, EM VEZ DE ESPERAR O TTL. Pedido do operador: *"faça o provai e vede e o informativo das missões serem atualizados, em especial buscando apenas o vídeo dessa semana, busca de se atualizar diretamente quando o app é aberto… não para baixar o vídeo nem nada, apenas verificar a listagem"*. O TTL de 12 h responde *"a lista envelheceu?"*; a pergunta de quem abre o app é outra — *"já saiu o vídeo deste sábado?"* —, e um índice de onze horas atrás é FRESCO para o primeiro e pode ser de antes da publicação. O **Provai e Vede** era o caso puro: sem a regra do dia (que só vale para quem esconde o futuro), só o TTL o reconferia. Agora, enquanto faltar o episódio da semana, o índice está vencido — e **a procura se desarma sozinha** assim que ele entra, que é o que separa "procurar o que falta" de "revarrer sempre". Quem responde é `AVSerie.ehDoSabadoAtual`, a MESMA função do destaque (duas contas de calendário divergiriam — o defeito da v1.2.19). Três guardas a mantêm invisível: piso de 30 min (o `visibilitychange` chama o mesmo caminho dezenas de vezes por culto), a primeira passada da SESSÃO ignorando o piso (o pedido ao pé da letra) e só o ANO CORRENTE. Nada baixa vídeo: roda `fetchSerieIndex`, que só refaz a lista. OTA PURO
+- **v1.2.21** — O VEREDITO ESTAVA CERTO; O TETO É QUE NÃO SABIA. O operador abriu as duas páginas que a radiografia nomeou e conferiu: `teu-divinal-amor` tem só a letra no site mesmo, e a de "partituras para teclado" não tem cifra nenhuma. Ou seja, `so-letra` acertava — e as ~309 recusadas pelo teto eram respostas boas jogadas fora, com a varredura recomeçando do zero a cada abertura. O teto SAI: ele é estruturalmente errado, porque a passada só cobre o que FALTA e a proporção de ausências tende a 100% num acervo saudável. Quem protege continua sendo o marcador POSITIVO da página e o prazo de 30 dias. Junto, o veredito virou `sem-cifra` e passou a cobrir também a PARTITURA — que era `ilegivel` e por isso reperguntada toda sessão. OTA PURO
+- **v1.2.20** — SEM TV, O BOTÃO DE MICROFONE DEIXOU DE SER DESENHADO. Terceiro degrau da mesma pergunta: até a v1.1.20 ele acendia "No ar" com o `micPressed` local e nada captava; ela o fez RECUSAR o toque e DIZER por quê; agora ele não é oferecido. **Explicar é melhor que mentir, mas não é melhor que não oferecer** — um controle que só sabe dizer que não funciona é um controle a mais para o operador aprender, e a frase chegava no pior momento possível, com o dedo no botão e o culto correndo. O "Projetar no telão" passa a ocupar a linha inteira, e isso vem da AUSÊNCIA do irmão (`.misc-foot` é flex, os filhos são `flex: 1`), não de uma regra de CSS para o caso. A METADE QUE FALHARIA CALADA é a outra: `renderDisplayStatus` chama `refreshDiversos()` na TRANSIÇÃO de presença — sem ela a TV conecta no meio do culto e o microfone continua ausente, sem nada na tela explicando. A guarda `sem-telao` FICA, e virou uma corrida (a TV pode cair entre o desenho e o toque). OTA PURO
+- **v1.2.19** — DUAS REGRAS QUE DISCORDAVAM DE SI MESMAS, e as duas erravam CALADAS. (1) O AUXILIAR DE LEITURA DIZIA QUE NENHUMA MÚSICA TEM LETRA: a v1.2.14 deu parâmetros ao `openLyricsPopup(item, fonte)` e o ouvinte do botão do transporte continuou registrado POR REFERÊNCIA — `addEventListener` chama com o EVENTO, e o `PointerEvent` virou o `lvAlvo`, o desvio que aquele mesmo lote criou. `lvItem().lyrics` era `undefined`, `cifraCabe` recusava e `lvNaCena()` virava falso: as TRÊS fontes sumiam de uma vez e a folha abria com "Nada em exibição com letra ou texto bíblico". Os três oráculos que já abriam essa folha chamam a função DIRETO — o único caminho que continuava funcionando —, e o novo CLICA. (2) O INFORMATIVO ESCONDIA O EPISÓDIO DO SÁBADO DESTA SEMANA em três dos sete dias dela: `sabadoDaSemana` abre a semana no DOMINGO (é a semana adventista) e `DIAS_DE_ANTECEDENCIA` só abria a janela na QUARTA. O destaque do topo declarava "o desta semana" um episódio que a lista logo abaixo tinha escondido, e dizia "Aguardando lançamento" sobre um vídeo já liberado pelo canal — relatado num DOMINGO, com o vídeo conferido na fonte. `aindaNaoSaiu` passa a DELEGAR em `ehDoSabadoAtual`: os três dias viram PISO das semanas seguintes, que continuam escondidas. OTA PURO
+- **v1.2.18** — O CIFRA CLUB SERVE VARIANTES NO MESMO ENDEREÇO, e era isso que o app estava vendo. O operador conferiu à mão que o Hinário 2022 tem 100% das cifras no site e mandou o Registro em ARQUIVO — e a radiografia entregou: `/ministerio-jovem/meu-senhor-minha-vida/` respondeu 449 kB com `<title>` "… (partituras para teclado) …", `<h2>` "Menu principal", ZERO `<pre>` e 39 links só de navegação. O endereço está CERTO; o que voltou foi outra VARIANTE da página — e o `so-letra` é a mesma coisa com outro nome. Receber a letra não prova ausência de cifra, então a frase passou a descrever o que foi OBSERVADO em vez de concluir o que não se sabe. E o diário da passada passou a guardar EXEMPLOS com número do hino, veredito e ENDEREÇO — que sobrevivem à recusa do teto e são o que permite abrir a página e decidir se o erro é o endereço ou a leitura. OTA PURO
+- **v1.2.17** — O RECADO SAIU, E O MICROFONE VOLTOU A SER UM SISTEMA SÓ. Ele nasceu (v1.1.26, shell 50) para cobrir os modelos SEM TV, onde o microfone AO VIVO não abria — e a razão de não abrir era um defeito NOSSO, `MODIFY_AUDIO_SETTINGS` fora do manifest, consertado na v1.2.13. Consertada a causa, o que restava do recado era um SEGUNDO caminho que INTERROMPE a cena (o motor tem um slot) para dizer o que o primeiro diz sem interromper nada — e que trazia junto a classe de defeito mais cara dele: o fim do recado caindo no `autoAdvance`, com `repeat one` repetindo a voz do operador e `repeat all` recomeçando a playlist do zero. Saiu com ele a concessão de áudio do `ControleChromeClient`, que existia só para ele (comentário que se justificava por um recurso removido é o convite exato para o próximo leitor reintroduzi-lo). O `mic-escada.test.mjs` guardava um PAR de escadas; com uma só, as asserções de PAREAMENTO saíram e ficaram as de PROPRIEDADE — mais uma que é nova: o Controle não abre captura nenhuma. DUAS LACUNAS FECHADAS no caminho que ficou: ele não registrava a permissão negada (o recado registrava) e não contava as entradas de áudio (a falha chega por `mic-status`, sem lista). EXIGE RELEASE v1.2.17
+- **v1.2.16** — RECUSAR NÃO PODIA SIGNIFICAR REFAZER, e por isso a varredura recomeçava do zero a cada abertura. A aritmética do Registro do operador provou: `282 ok + 10 não achei + 309 por varrer = 601`, e NENHUMA "só letra" gravada — enquanto a bateria achava `so-letra` nos mesmos hinos. As 309 foram julgadas e o TETO as recusou em bloco (309 > 34% de 601), como ele deve; só que nada era gravado e tudo voltava na sessão seguinte, ~900 requisições, para sempre, sem uma linha na tela dizendo que aquilo tinha sido julgado. Agora a passada tem DIÁRIO, o Registro imprime o motivo e a coleção fica 7 dias em prazo. Junto: o operador conferiu à mão que o hinário novo tem 100% das cifras no site — logo o `so-letra` está ERRADO ali —, e o veredito deixou de ser poupado da radiografia na bateria. E o REGISTRO virou arquivo: `salvarTexto` (SAF) grava um `.txt`, porque copiar e colar corta o texto no meio sem avisar. **EXIGE RELEASE v1.2.16**: shell 54 → 55
+- **v1.2.15** — A VARREDURA DO HINÁRIO GASTAVA QUATRO REQUISIÇÕES PARA UMA RESPOSTA QUE A PRIMEIRA JÁ TINHA DADO. MEDIDO no primeiro Registro do acervo inteiro: um hino cujo endereço do CATÁLOGO respondeu "o site só tem a letra" seguia para o álbum-como-artista e os dois artistas padrão — três 404 certos — antes de concluir o mesmo. O catálogo é AUTORIDADE sobre o hinário: aquela é a página daquele hino, e a procura acaba ali (num álbum não, porque a música pode estar cifrada sob outro artista). Junto: o nome de um hinário deixa de ser adivinhado como artista (`/hinario-adventista-2022/` não existe — 404 por hino, 601 vezes). E o Registro passou a NOMEAR os hinos não achados: ali toda música existe no site, então cada nome é a nossa regra de slug errando. OTA PURO
+- **v1.2.14** — O ARQUIVO DE CIFRAS VALE PARA A BIBLIOTECA INTEIRA, e a folha deixou de ser de quem está no ar. (1) O que era só dos dois hinários passa a valer para todo acervo de MÚSICA baixado — o que separava um álbum de um hinário era o CUSTO (uma requisição contra a cadeia deduzível inteira), nunca o direito. A varredura pula a busca do site, MEDIDA em zero, e o que ela não acha fica gravado COM DATA: no acervo de álbuns dois terços não estão sob nenhum endereço deduzível, e sem memória isso são milhares de requisições a um site de terceiro em toda abertura. Uma folha não vence; uma ausência volta para a fila em 30 dias, e falha de rede continua não gravando nada. (2) A gaveta da Biblioteca ganhou **"Abrir a folha"**: o MESMO leitor do Controle apontado para aquela faixa — cifra, tom, corpo e rolagem — sem levar NADA ao telão. Ler deixou de exigir projetar. O relógio e o destaque continuam sendo da CENA: com o alvo noutra música, seguir o tempo do que está tocando não erra alto, *parece* funcionar. OTA PURO
+- **v1.2.13** — A PERMISSÃO QUE FALTAVA ERA NOSSA, E NÃO ERA A DO MICROFONE. Cinco rodadas acusaram o aparelho (espelhamento, interruptor de privacidade, processamento, Auto Blocker); a causa estava no `AndroidManifest.xml` deste repositório. O Chromium DE DENTRO DO WEBVIEW exige `MODIFY_AUDIO_SETTINGS` do app HOSPEDEIRO: `AudioManagerAndroid.hasPermission()` consulta o `checkSelfPermission` DELE, `setCommunicationDevice()` devolve `false` sem ela, e `MakeLowLatencyInputStream` devolve `nullptr` — que vira `STREAM_CREATE_ERROR` e chega ao JS como `NotReadableError`. Conferido VERBATIM no fonte do Chromium, incluindo o desvio (`AAudioPerStreamDeviceSelection`) travado atrás de `is_desktop()`. Ela é `protectionLevel="normal"`: concedida na instalação, INVISÍVEL na tela de permissões — por isso quatro rodadas olharam para a permissão errada, que estava concedida com toda a razão. Mais: `MODE_FOREGROUND` ganhou ramo próprio no `MicDiag` (era o desfecho MAIS provável e saía como "modo 4", lido como bloqueio), e o campo `modAudio` responde "o APK instalado já tem o conserto?". EXIGE RELEASE v1.2.13
 - **v1.2.12** — "O SITE SÓ TEM A LETRA" VIROU UMA RESPOSTA, e ela era a metade que faltava do `ilegivel`. MEDIDO na primeira bateria de testes: ~12 das 85 falhas eram endereços que EXISTEM, respondendo 200 com centenas de kB e nenhum `<pre>` — o Cifra Club tem a LETRA daquela música e não a cifra. Chamar isso de "não entendi a página" é falso nos dois sentidos: manda investigar um parser que está certo, e faz o download do hinário rebater a mesma música toda sessão, para sempre. O novo veredito é GRAVADO — e por isso tem DUAS defesas: ele exige um marcador POSITIVO (responder pela ausência de `<pre>` faria uma mudança de marcação do site apagar o acervo inteiro) e um TETO por passada (uma música sem cifra é um fato; um terço do hinário de uma vez é o site tendo mudado). Mais: a bateria passou a trazer a FORMA das páginas que não abriram, no resultado dela — é isso que separa as duas hipóteses. OTA PURO
 - **v1.2.11** — A PERGUNTA QUE SÓ O SHELL SABE RESPONDER: quatro rodadas pelo lado web terminaram sempre em `NotReadableError` nas três configurações, nos dois WebViews, com `RECORD_AUDIO` concedida e uma entrada enumerada. `AppOps` pode RECUSAR `RECORD_AUDIO` enquanto `checkSelfPermission` devolve concedida — o interruptor de privacidade, o Auto Blocker da Samsung sobre app fora da loja, o mudo global —, e o navegador não enxerga essa diferença. Nasce `MicDiag.kt` + `AVNative.micDiag()` (shell 53), LEITURA PURA. E a correção da v1.2.9 NÃO RODAVA: o laço pulava `deviceId === "default"`, e no aparelho há UMA entrada cujo id é exatamente `default` — o Registro seguiu marcando "3 tentativa(s)" enquanto eu anunciava quatro. O oráculo GUARDAVA esse pulo como contrato, e a asserção foi reescrita para a regra certa. EXIGE RELEASE v1.2.11
 - **v1.2.10** — AS CIFRAS GUARDADAS DO HINÁRIO SUMIAM, E O APP RECOMEÇAVA O DOWNLOAD A CADA ABERTURA. MEDIDO num aparelho: `275 de 601` virou `0 de 601`. A gravação era `setState` do mapa INTEIRO a partir de um slot de módulo (`cifraDisco`) cuja identidade mora noutra variável (`cifraDiscoColl`) — o ler-calcular-gravar que o `CLAUDE.md` proíbe para o `state`, com o agravante de o que ia ao disco poder ser o mapa de OUTRA coleção, ou `{}` por cima de um acervo cheio. Passa a MESCLAR com `updateState`, numa transação só: uma substituição pode produzir zero a partir de 275, **uma mescla não pode** — a correção é a propriedade, não o interleaving daquela vez. Mais: o Registro deixou de dizer "0 de 613 cifra(s)" para um hinário que não está baixado. OTA PURO
@@ -238,6 +255,1110 @@ na nota que a revoga, não apagada da que a criou.
 - **v5.154** — é METADE OTA e METADE APK, e a divisão importa para quem for testar em aparelho.
 - **v5.155** — é OTA PURO
 - **v5.156** — é METADE OTA e METADE APK, de novo.
+
+---
+
+## v1.3.0 — a auditoria pós-1.0: quatro defeitos, e os quatro erravam calados
+
+Pedido do operador: *"vamos fazer uma auditoria para procurar bugs e erros, mais
+especificamente nas áreas das atualizações após a versão 1.0"* — e, junto,
+*"dê prioridade à realidade atual do código acima da descrição da documentação"*.
+
+Os 37 oráculos passavam antes e passam depois: os três achados moram fora do que
+eles perguntam, que é o que uma auditoria existe para cobrir.
+
+### 1. A rolagem da cifra morria no ENSAIO — o caso para o qual a folha foi feita
+
+`cifraRolarAlternar()` gravava `cifraRolandoChave = cifraChave(currentItem)` — a
+música **em cena**. A guarda que para a rolagem quando a folha troca de música
+mora no `lvBuildCifra` e compara com `cifraChave(lvItem())` — o **alvo**.
+
+Enquanto as duas eram a mesma coisa, ninguém notou. A v1.2.14 separou-as
+(`lvAlvo`: ler a folha de uma música da Biblioteca sem projetar nada) e
+atualizou o consumidor, não o produtor: `git log -S` mostra a linha inalterada
+desde a v1.1.20. Com um alvo da Biblioteca as chaves NUNCA batem, e o próximo
+`renderLyricsView()` chama `cifraRolarParar()`.
+
+**O que redesenha a folha:** transpor meio tom, o A+/A−, o `resize` (o teclado
+do sistema, girar o aparelho), a busca da cifra chegando. Isto é, tudo o que se
+faz num ensaio — que é exatamente o cenário que a folha sem telão existe para
+servir. O desfecho não é um erro: o ▶ volta sozinho e a folha para.
+
+MEDIDO no arnês, antes: `rolando=false`, `scrollTop` 11 → 0. Depois: `true`,
+11 → 18.
+
+O oráculo `cifra-rolagem.test.mjs` ganhou uma TERCEIRA metade, provada por
+reversão (2 falhas com a linha antiga). A terceira asserção dela prova que a
+guarda "música nova é folha nova" **não** foi apagada para as outras duas
+passarem — sem ela, deletar a guarda "consertaria" o caso.
+
+### 2. `salvarTexto` gravava o arquivo e a promise nunca resolvia
+
+`NativeBridge.resolve(callId, jsonValue)` interpola o segundo argumento **no
+meio de uma chamada de função**:
+
+```kotlin
+"window.__avResolve && window.__avResolve($id, $jsonValue);"
+```
+
+Dos 40+ sítios de `resolve()` no arquivo, **dois** passavam texto cru, e os dois
+eram do `salvarTexto` (shell 55, v1.2.16). Um nome de arquivo vira
+`__avResolve("e:1", registro-av-20260823-1030.txt)` — `SyntaxError`. O
+`evaluateJavascript` recebe callback `null` e engole o erro; e `salvarTexto` é,
+de propósito, o método **sem prazo** (quem responde é uma pessoa no seletor do
+sistema). Resultado: a promise fica pendurada para sempre.
+
+**Sintoma:** o Registro é gravado no arquivo escolhido e o botão não responde —
+nem ✓, nem "Não foi salvo". Desistir funcionava por acidente: `resolve(callId, "")`
+produz `__avResolve("e:1", )`, e vírgula final em chamada é legal desde o ES2017,
+então aquele caminho resolvia `undefined`.
+
+**Bônus de segurança:** o nome vem do seletor SAF. Sem `JSONObject.quote`, um
+nome escolhido pela pessoa é JavaScript arbitrário no origin privilegiado.
+
+A regra virou texto em `docs/shell/PONTE.md`: o segundo argumento de `resolve()`
+é uma EXPRESSÃO, e todo texto de fora passa obrigatoriamente por
+`JSONObject.quote`.
+
+**Esta metade só chega instalando o APK.** O bundle **não** declara `shellTag`,
+e isso é escolha: `shellTag` responde *"este lote PRECISA de uma Release?"*, e o
+lado web deste lote não depende em nada do shell novo. Declará-lo seguraria as
+correções 1 e 3 — que chegam por OTA em minutos — atrás de uma Release. Pelo
+mesmo motivo o `SHELL_VERSION` **não** sobe: a superfície documentada não mudou
+(o método sempre prometeu devolver o nome), e um `minShell: 56` faria todo
+aparelho no APK v1.2.17 recusar a base web até instalar o APK novo — o preço
+errado para consertar um botão que não confirma.
+
+### 3. O Registro discordava do aparelho a partir do 31º dia
+
+O bloco "Cifra (última busca)" somava `pagina + semCifra + naoTem` para dizer
+quantas músicas faltavam varrer. Mas uma ausência **vence** em 30 dias
+(`CIFRA_REVISITA_MS`) e volta para a fila da varredura — e seguia contada como
+resolvida. O Registro dizia "0 por varrer" com centenas ainda por refazer.
+
+Ele também somava **chaves do disco** contra um total de **músicas do índice**:
+uma música removida do álbum deixa a entrada lá, e as resolvidas podiam passar do
+total.
+
+Hoje o laço é sobre `collSongs()` e quem responde "esta entrada ainda vale?" é
+`cifraNoDiscoVale` — a MESMA função com que `syncCifrasColecao` monta a fila. É
+a regra do diagnóstico deste projeto aplicada onde ela tinha sido esquecida: **um
+bloco guarda o VEREDITO, nunca uma segunda opinião**. O pior artefato que este
+projeto sabe produzir é um log que discorda do aparelho, porque é lido a
+distância por quem não pode conferir.
+
+### 4. Dois pares de contraste abaixo do piso, no tema CLARO
+
+O CLAUDE.md diz que **não há teste de contraste ABSOLUTO** — os números de
+`tokens.css` são medições à mão, e são de PARES DE TOKEN. Esta rodada mediu o
+RENDERIZADO: todo texto visível das telas do Controle, nos dois temas,
+compondo o fundo efetivo pela cadeia de ancestrais (alfa incluído) e comparando
+com o piso AA (4,5:1 texto pequeno, 3:1 ícone).
+
+Dois reprovaram, os dois no tema claro, e os dois pelo MESMO motivo — um fundo
+que **nenhum token tem**, porque é composto:
+
+| onde | fundo efetivo | hoje | com `--text` |
+|---|---|---|---|
+| `.fit-seg--grande .fit-opt` (o "Fácil/Avançado") | (182,187,194) | **3,47:1** | 4,61:1 |
+| `.app-version` (o rodapé de Configurações) | (204,204,204) | **4,15:1** | 5,52:1 |
+
+O primeiro é **o quarto degrau da escada de camadas**, e o
+`DESIGN-SYSTEM.md` já o descreve como o que reprova AA: fundo → folha →
+`.fade-row--destaque` (que pinta `--camada`) → `.fit-opt` (que afunda
+`--surface`). O degrau nasceu com a `--destaque`, na v1.1.3, e passou por
+todas as revisões desde então porque as medições à mão comparam TOKEN com
+TOKEN — e este fundo é uma composição de quatro camadas.
+
+O controle afetado não é decorativo: é o interruptor que troca o app de cara,
+e a opção NÃO escolhida é justamente a que o operador precisa ler para saber
+onde está. A opção ativa não mudou (`--on-accent` sobre o denim).
+
+**Um terceiro par ficou DECLARADO em vez de corrigido:** `--accent` como texto
+sobre `--accent-soft` dentro de um cartão dá **4,46:1** no escuro — quatro
+centésimos abaixo. Baixar a tinta para .14 devolveria 4,64:1 e quebraria a
+igualdade em que a regra "os fundos de estado são OPACOS" se apoia (o .16
+compõe exatamente o `--panel-2`). Está escrito ao lado do token.
+
+### O que mais a rodada de layout mediu, e estava certo
+
+- **Zero estouro horizontal**, em 360×640 e 430×900, no documento e em todo
+  bloco sem `overflow-x`.
+- **Alvos de toque** todos no piso declarado do app (`--hit`, 34px); só os dois
+  botões do diálogo ficam 1px abaixo, por arredondamento de `padding`.
+- **A letra do telão CABE** — `ajustarLetra()` medido em quatro resoluções com
+  estrofes de 2, 4, 8 e 16 linhas longas. Em 16:9 a estrofe de 8 linhas ainda
+  entra (escala 0,38); é o **4:3** que chega ao piso primeiro, e a tabela disso
+  entrou no comentário de `display.css`, onde antes se dizia só que "a caixa é
+  generosa".
+- **O telão por comandos**: o dreno com lista de PERMISSÃO nos dois lados, o
+  `TIPOS_QUE_SOBEM` conferido no servidor, `MessageBus.post(null,…)` fechando o
+  eco por construção, `anuncio()` como dono único do carimbo `__tela`, e todo
+  campo do item de mídia lido por outra thread marcado `@Volatile`.
+
+### A documentação, posta em dia contra o CÓDIGO
+
+Sete divergências, todas medidas contra os arquivos, não relidas do texto:
+
+| o que dizia | o que é |
+|---|---|
+| "27 arquivos Kotlin" (e a árvore sem ele) | **28** — `MicDiag.kt` nasceu na v1.2.11 e nunca entrou na estrutura nem na tabela de `docs/shell/README.md` |
+| "O bundle declara `minShell: 50`" | **55** — a seção das três filas ficou no número velho |
+| "A tabela dos 50 degraus" | **55** |
+| "`docs/ACHADOS-EM-ABERTO.md` … hoje está VAZIO" | tem **dois**, os do áudio do espelhamento |
+| "A segunda linha de defesa é o TETO POR PASSADA (`CIFRA_SO_LETRA_TETO`)" | o teto **saiu na v1.2.21** e a constante não existe — o próprio CLAUDE.md dizia isso duas subseções abaixo, e as duas afirmações conviviam |
+| "`syncCifrasHinarios` roda na abertura" | `syncCifrasAcervo` — renomeada na v1.2.14, quando deixou de ser só dos hinários |
+| "Quem abre pela Biblioteca pede `'cifra'` explicitamente" | desde a v1.2.25 o botão de lá é "Ver a letra" e não pede fonte nenhuma; o parâmetro `fonte` de `openLyricsPopup` **hoje não tem chamador** |
+
+E dois cabeçalhos de comentário que nomeavam um recurso REMOVIDO (o espelho de
+pixels, v5.187) sobre código que hoje é o telão por comandos — em `controle.css`
+e no bloco do Registro. É a regra que a v5.300 comprou caro: *um comentário
+errado é pior que um comentário longo, porque ele responde, e responde errado.*
+
+### O que a auditoria conferiu e estava certo
+
+Para não ser refeito: os 48 métodos da ponte batem com o `native.js` campo a
+campo; nenhuma chamada de função sem declaração nas 33 mil linhas de JS; nenhum
+`getElementById` apontando para id inexistente (os nove que "faltam" no HTML são
+criados em runtime); nenhum `updateState` com `fn` assíncrona; nenhum `parseInt`
+sem radix; a invariante 9 de pé no `StagePresentation` (`host = null`,
+`withSaf = false`) e os cinco métodos privilegiados guardados; permissões do
+manifest, ordem dos scripts, escada de `z-index` × tabela `POPUPS`, e as ~30
+constantes que o CLAUDE.md cita (rondas, backoffs, tetos, prazos) todas medidas
+contra o código.
+
+---
+
+## v1.2.28 — a rotina de fundo apagava a pergunta da atualização
+
+Relato do operador: *"verifique a questão do sistema de update automático que
+deveria oferecer no próprio app o download da nova versão do apk"*. O aparelho
+tinha ficado preso no shell v1.2.8 (`SHELL_VERSION` 52) com bundles exigindo 55,
+e a saída — o APK v1.2.17 — nunca foi oferecida na tela.
+
+### O que foi verificado e estava certo
+
+O canal inteiro: merge em `main`, CI verde, manifesto publicado com `sha256`
+batendo, zip baixável com o código dentro. E, no shell, a ordem que já estava
+escrita e é o que torna esta saída possível — **`WebUpdater.check` anuncia o
+bloco `shell` ANTES da válvula `minShell`**, então um bundle recusado não impede
+o APK de ser anunciado. Do lado web, `loteDaAtualizacao` monta um lote só de
+shell e `textoDaAtualizacao` sabe dizer *"App v1.2.17"* sem base web no meio.
+
+**Nada disso tinha oráculo.** O `ota.test.mjs` cobria o lote só-de-web, o lote
+web+APK e a retomada da intenção — nunca o lote **só de APK** partindo do zero,
+que é exatamente o caso do aparelho preso. Ele entra agora (caso 2b).
+
+### A causa
+
+`horaRuimParaPerguntar()` era `cenaNoAr() || bgWorkCount > 0`.
+
+`bgWorkCount` responde ao SISTEMA — *"o processo pode ser congelado?"* —, e para
+isso ele está certo: a varredura de cifras é rede, e rede congelada morre no
+meio. Mas ele passou a responder uma segunda pergunta, e para essa está errado.
+
+`syncCifrasAcervo` e `syncLyrics` rodam **sozinhas na abertura**, sobre o acervo
+inteiro. MEDIDO no Registro do operador: 309 hinos num hinário e 145 no outro,
+mais dezenas de álbuns, numa passada só. Enquanto isso corre, `bgWorkCount > 0`
+e a pergunta não aparece — na janela em que o app acabou de ser aberto, que é
+justamente quando ela deveria aparecer.
+
+É a armadilha que a v5.151 já pagou com o espelho, que fica ligado o culto
+inteiro: **uma condição quase sempre verdadeira não adia a pergunta, ela a
+apaga.** E o desfecho aqui é o pior que este canal sabe produzir — com o shell
+abaixo do `minShell`, a válvula recusa toda base web e o APK é a única saída;
+suprimir a pergunta deixa o aparelho preso, em silêncio, sem nunca ser avisado
+do que o destrava.
+
+### A correção: quem PEDIU o trabalho
+
+`withBgRotina(fn)` — irmão do `withBgWork`, mesma proteção contra o
+congelamento, contado à parte (`bgRotinaCount`). `bgWorkPedido()` é
+`bgWorkCount - bgRotinaCount > 0`, e é ele que os dois `horaRuim*` consultam.
+
+A distinção é *quem pediu*: o que o OPERADOR mandou fazer (baixar um álbum, a
+Bíblia, uma pasta) é o que ele está esperando terminar. A rotina de manutenção
+ninguém pediu, ninguém está olhando, e ela é retomável de graça — o que já está
+guardado não é pedido de novo na abertura seguinte.
+
+Dois pontos viraram rotina, e só eles: o `withBgWork` de `syncCifrasColecao` e o
+de `syncLyrics`. Os outros nove continuam como estavam.
+
+`bgRotinaCount` **zera junto** com o `bgWorkCount`, pela mesma razão do
+`bgTasks.clear()` ao lado: um `finally` perdido (renderer morto no meio)
+deixaria a pergunta suprimida pelo resto da sessão — o defeito que esta
+separação existe para tirar.
+
+O Registro acompanha: *"esperando o download que o operador pediu terminar"* em
+vez de *"cena/download"*, que mandaria procurar um download que ninguém iniciou.
+
+### O oráculo
+
+Duas metades, e nenhuma sozinha prova a regra: com a rotina no ar a pergunta
+**aparece** (e `bgWorkCount > 0` é afirmado no mesmo caso — o sistema continua
+sabendo, a proteção não foi perdida); com um download **pedido** ela continua
+esperando, e sai assim que ele termina. Sem a segunda, apagar a espera inteira
+passaria. Provado por reversão.
+
+## v1.2.27 — dois `--press` no mesmo dedo
+
+Relato do operador: *"isso é uma reação ao toque no card do título da música,
+que faz ele encolher pelo feedback tátil... a questão é que ao encolher, as
+bordas do card de título ficam com uma marca de encolhimento nas laterais
+direita e esquerda, fazendo um bug visual da parte branca do card"*.
+
+### A causa
+
+`:active` casa também nos **ancestrais** do elemento tocado. `.lib-item` e
+`.hymn-row` estavam as duas na lista de `--press`, e a `.hymn-row` é filha
+direta do `.lib-item`: um toque na linha aplicava `scale(.96)` nos dois,
+0,96 × 0,96 = 0,9216.
+
+MEDIDO em 430px de largura, com a gaveta aberta:
+
+| peça | durante a pressão |
+|---|---|
+| `.lib-item` | `scale(.96)` — 370px, x=30…400 |
+| `.hymn-row` | `scale(.96)` **sobre isso** — 355px, x=37…393 |
+| `.hymn-gaveta` | sem escala própria — 370px, x=30…400 |
+
+O título ficava **7px mais estreito de cada lado que a gaveta logo abaixo**, e
+o que aparecia nessa fresta era o fundo branco do próprio `.lib-item`.
+
+**A fresta já tinha nome neste arquivo.** O comentário da v5.267 sobre esta
+mesma lista diz: *"NA LISTA QUEM ENCOLHE É O CARTÃO INTEIRO, não a `.row` de
+dentro: com a borda do cartão VISÍVEL o miolo se afastava de uma moldura parada
+e abria uma fresta dos dois lados"*. A correção de então foi pôr o `.lib-item`
+na lista — e a `.hymn-row` **ficou nela**. Com a linha FECHADA isso não se vê:
+cartão e linha são a mesma caixa e as duas pintam `--linha`, então o halo é
+branco sobre branco. A gaveta aberta é que deu ao cartão uma altura e um vizinho
+de outra cor, e tornou a diferença visível.
+
+### A correção
+
+`.hymn-row` sai da lista de `--press`. Quem encolhe é o cartão, inteiro e de uma
+vez — o desenho que a v5.267 já tinha decidido.
+
+`.hymn-play-thumb` sai junto, pelo motivo irmão: ele **deixou de ser botão na
+v5.285** (virou o anel de download e a coluna que alinha a lista, um `<span>`
+sem ouvinte) e continuou dando resposta de toque — um terceiro encolhimento, de
+uma peça que não recebe o dedo. *Apagar código é apagar o que o descreve, no
+mesmo lote* — aqui a lápide era uma regra de CSS.
+
+### O oráculo
+
+No `smoke.mjs`, ao lado do caso da v5.286 (o toque numa OPÇÃO não encolhe a
+seção). A asserção é a **fresta em pixels**, medida durante uma pressão de
+verdade (`mouse.down`): as bordas esquerda e direita da linha e da gaveta têm de
+coincidir. Comparar `transform` não serviria — um `none` na linha seria
+satisfeito também por um cartão que parasse de encolher, que é outro desenho —,
+e por isso a segunda metade afirma que o cartão **encolhe mesmo**. Provado por
+reversão: com a `.hymn-row` de volta à lista, linha 26…364 contra gaveta 19…371.
+
+## v1.2.26 — o leitor abria ATRÁS da Biblioteca
+
+Relato do operador: *"apenas verifique, pois estando na biblioteca, ele abre o
+pop da letra apenas na tela principal, atrás da biblioteca"*.
+
+### A causa
+
+Todo `.popup-backdrop` deste app é `z-index: 200`. Os popups que abrem **de
+dentro de outro** ganham um degrau próprio — `#songMenuPopup` (210) e
+`#sorteioPopup` (220) —, e o comentário do CSS diz por quê: com o mesmo degrau
+quem decide é a **ordem do documento**, "e é justamente o tipo de acaso que já
+cobriu um popup por inteiro aqui".
+
+Foi esse acaso outra vez. O `#lyricsPopup` está declarado no `index.html`
+**antes** do `#hymnSearchPopup`, então a Biblioteca pintava por cima dele — a
+folha abria, respondia e ficava invisível, na tela principal, atrás da tela que
+a chamou.
+
+O defeito é anterior à v1.2.25: nasceu na v1.2.14, quando a gaveta ganhou o
+botão que aponta o leitor para uma faixa da Biblioteca. A v1.2.25 apenas o pôs
+no caminho de todo mundo — antes ele estava atrás de um terceiro botão.
+
+**A tabela `POPUPS` do `controle.js` já estava certa**: o leitor vem DEPOIS da
+Biblioteca ali, porque o voltar a percorre de trás para a frente e fecha o
+primeiro aberto. Faltava o `z-index` dizer a mesma coisa. É a regra que os dois
+comentários vizinhos já enunciavam — *as duas coisas dizem a mesma ordem, e
+mudar uma sem a outra é o acaso que já cobriu um popup por inteiro aqui*.
+
+### A correção
+
+`#lyricsPopup { z-index: 205; }` — acima da Biblioteca, abaixo da folha da
+música, que é exatamente a ordem da tabela.
+
+### O oráculo
+
+`leitor-biblioteca.test.mjs` ganhou o caso, e ele mede por **hit-test**
+(`elementFromPoint` no centro da folha, depois de esperar a animação de entrada
+terminar), nunca por comparação de `z-index`: é o que o dedo encontra que
+decide, e um número maior dentro de outro contexto de empilhamento não valeria
+nada. Duas metades — o leitor recebe o toque **e** a Biblioteca continua aberta
+por baixo, que é o que separa "está por cima" de "a Biblioteca sumiu". Provado
+por reversão: sem a linha, quem recebe o dedo é o `hymnSearchPopup`.
+
+## v1.2.25 — o "Ver a letra" da Biblioteca abre o LEITOR
+
+Pedido do operador: *"eu já havia solicitado, mas gostaria que esse botão nos
+itens da biblioteca, 'ver a letra', abrisse o mesmo modelo pup gaveta do
+auxiliar de leitura que já trabalha com letras e cifras… não quero mais apenas
+essa letra em uma caixa de texto abaixo das opções de play. apenas abra o popup
+do leitor da letra, como já é feito nos controles"*.
+
+### O que estava errado
+
+A gaveta de uma música tinha DUAS metades: as opções em cima, e a letra numa
+caixa de texto embaixo, revelada pelo botão "Ver a letra". Essa caixa é do
+tempo em que ler uma música era conferir *"é esta mesma?"* — e desde a v1.2.14
+o app tem um leitor de verdade (letra, **cifra**, tom, corpo da fonte, rolagem
+que acompanha a música, e o alvo desviado sem projetar nada).
+
+Ficaram os dois ao mesmo tempo, e a caixa era a pior das duas: quem tocasse em
+"Ver a letra" a partir da Biblioteca recebia a leitura pobre, e o caminho para
+a boa era **projetar** a música e abrir a folha pelo transporte — exatamente o
+que o operador tinha pedido para não precisar fazer.
+
+### O que ficou
+
+O mesmo botão, o mesmo rótulo, outro destino: `openLyricsPopup(await
+lvItemDaBiblioteca(coll, s))`. **Reusar, nunca reconstruir** — é a regra do
+`cifraCabe` e do `cifraProcurar`: uma segunda folha divergiria da primeira no
+primeiro ajuste, e quem tocasse por ela veria a versão de ontem.
+
+Sem fonte forçada: a folha abre na LETRA, com a Cifra ao lado. Quem abre pela
+gaveta veio de uma lista de músicas, não dos acordes — a fonte explícita
+(`'cifra'`) fica para quem a pediu por outro caminho.
+
+O VÍDEO não muda: ali a metade de baixo é a miniatura, a duração e o estado no
+aparelho, e o botão continua sendo o interruptor dela. O que decide é
+`temLetra(coll)`, nunca `ehSerie` — a regra de sempre.
+
+Saíram junto: `montarLetra`, `botaoFolha`, `letraAlvo` e as regras
+`.hymn-lyrics*` / `.hymn-stanza*` do CSS. **Apagar código é apagar o que o
+descreve, no mesmo lote.**
+
+### Os três oráculos, e por que dois deles ficaram MELHORES
+
+O comportamento mudou de propósito, então três medições passaram a falar de um
+app que não existe mais. Nenhuma foi afrouxada:
+
+- **`boot-nativo`** — o caso da gaveta de música afirma agora a AUSÊNCIA da
+  caixa e a permanência do rótulo. E recebeu a medição de LARGURA que era do
+  `smoke`: o botão de duas frases ("Ver os detalhes" / "Ocultar os detalhes",
+  empilhadas numa grade 1×1) só existe no VÍDEO, e o `smoke` roda **sem ponte**,
+  onde uma série nem chega a aparecer na Biblioteca. Provado por reversão
+  (`visibility: hidden` → `display: none` reprova: 151px → 184px).
+- **`gaveta-no-download`** — o caso 2 media a marca `abrindo` por uma JANELA DE
+  TEMPO ("no turno do clique a linha ainda não está `expanded`"). Numa música
+  essa janela **deixou de existir**, porque nada mais é aguardado. Medir tempo
+  passaria a aprovar a remoção da marca; hoje a pergunta é feita de DENTRO da
+  montagem, por um espião sobre `renderSongMenu`: *"quando a gaveta começou a
+  ser montada, o guarda já enxergava esta linha?"*. Só a marca pode responder
+  que sim ali — é uma PROPRIEDADE, e vale igual num montador que espere o
+  IndexedDB (o vídeo) e num que não espere. Provado por reversão.
+- **`smoke`** — media `.hymn-lyrics`, que não existe mais (e por isso o
+  `getComputedStyle` lançava). Passou a afirmar as duas pontas do que mudou: a
+  caixa AUSENTE **e** o popup do leitor ABERTO depois do toque.
+
+## v1.2.24 — o histórico deixou de ser o relógio do cronograma
+
+Pedido do operador: *"ajuste o ícone do botão de histórico do player, para que
+ele seja sobre histórico, mas diferente do cronograma"*.
+
+### O que estava errado
+
+A aba **Cronograma** é um relógio (`circle r=9` + ponteiros, v5.200). O botão de
+**Histórico** era o mesmo mostrador, os mesmos ponteiros e uma seta
+anti-horária pequena no canto. É o par canônico do Material (`schedule` ×
+`history`) — e é justamente por ser canônico que ninguém tinha olhado para ele
+com o olho de quem opera: **a 20px o que se lê é a silhueta, não o detalhe**, e
+as duas silhuetas eram a mesma bola.
+
+Engrossar a seta seria um meio-conserto. Dois desenhos redondos a poucos
+centímetros um do outro continuam gêmeos — a mesma lição do `icoSorteio`, que
+recusou as setas cruzadas por já haver um `shuffle` na mesma tela.
+
+### O desenho que ficou
+
+O **trilho com os nós**: uma linha vertical fina com três nós e um traço à
+direita de cada um. Ele diz o que a lista daquele botão de fato é — a
+**sequência** do que já foi projetado neste culto, em ordem —, e a silhueta
+aberta não disputa com nada:
+
+| vizinho | por que não se confunde |
+|---|---|
+| aba Cronograma | ela é redonda; este é vertical e aberto |
+| `icoTexto` (dois botões abaixo, MESMA coluna) | aquele é uma folha com moldura e linhas de comprimentos desiguais; aqui não há moldura, as barras são iguais, e o que assina o desenho são os NÓS |
+| `syncIconSvg` (card de álbum) | duas setas circulares — a razão de a seta anti-horária sozinha ter sido descartada |
+
+Descartados, e cada um por um motivo próprio: a **seta circular sozinha** vira o
+"sincronizar"; a **seta com o ▶ dentro** vira "tocar de novo" (`replay`); a
+**lista com marcadores** não diz tempo nenhum — sem o trilho isto seria um
+`format_list_bulleted`.
+
+Os nós são `h.01` com ponta redonda (o truque do `icoCast` e do `icoSorteio`: o
+consumidor pinta com `fill="none"`, e um `<circle>` cheio sairia vazado) e levam
+espessura própria — **4 contra 1,3 do trilho**, medido: com o trilho na
+espessura padrão (2) os nós se fundem nele e o que sai é uma lagarta, não contas
+num fio.
+
+**Um desenho, duas referências:** o símbolo serve o botão do mixer e o cabeçalho
+da folha, que é a razão de este sprite existir.
+
+Conferido **renderizado** a 20px (o tamanho real dos dois consumidores) contra o
+relógio da aba e o `icoTexto`, e não só no código.
+
+---
+
+## v1.2.23 — a bateria de testes saiu
+
+Ela nasceu (v1.2.8) para responder uma pergunta que naquele momento não tinha
+outra resposta: **"para quais álbuns a cadeia de endereços não chega?"**. O
+arquivo de cifras valia só para os dois hinários, e o resto do acervo só podia
+ser medido por amostragem — uma ou duas músicas por álbum, sorteadas a cada
+execução.
+
+A v1.2.14 abriu o arquivo para a biblioteca inteira, e com isso a varredura
+passou a responder a mesma pergunta **sobre o acervo todo, sozinha e por
+construção**: o Registro mostra, por coleção, quantas cifras foram achadas,
+quantas o site tem sem cifra e quantas não têm página — com exemplos nomeados e
+o endereço tentado.
+
+Duas amostras por álbum contra o acervo inteiro é a definição de caminho pior. E
+um segundo caminho que responde a mesma pergunta com menos dados não é
+redundância: é uma coisa a mais para manter, e uma segunda opinião que pode
+divergir da primeira.
+
+Saíram: o botão de Configurações, o bloco do Registro, `cifraRodarBateria` e as
+funções exclusivas dela (a amostragem, o placar, o `coletar` da cadeia e o
+`CIFRA_VIA_NOME`, que só o bloco lia).
+
+**O que NÃO saiu:** o oráculo da bateria hospedava os casos do LEITOR DA
+BIBLIOTECA — a folha de qualquer música sem levar nada ao telão, recurso vivo e
+com três modos de falhar calado. Eles ganharam arquivo próprio,
+`tools/leitor-biblioteca.test.mjs`, e o nome agora diz o que ele cobre.
+
+---
+
+## v1.2.22 — o app procura o episódio deste sábado
+
+Pedido do operador: *"faça o provai e vede e o informativo das missões serem
+atualizados, em especial buscando apenas o vídeo dessa semana, busca de se
+atualizar diretamente quando o app é aberto. Não para baixar o vídeo nem nada,
+apenas verificar a listagem em busca do vídeo atual."*
+
+### Duas perguntas que pareciam uma
+
+`indiceVencido` tinha o TTL de 12 h, que responde **"a lista envelheceu?"**. A
+pergunta de quem abre o app num sábado de manhã é outra: **"já saiu o vídeo
+deste sábado?"** — e um índice de onze horas atrás é FRESCO para a primeira e
+pode ser de antes de o canal publicar.
+
+O **Provai e Vede** era o caso puro: a regra do dia (v5.255) só vale para as
+séries com `futuros: 'esconder'`, isto é, só para o Informativo. Sobrava o TTL,
+e com ele um vídeo publicado na manhã de sábado podia não estar na lista do
+culto daquele mesmo sábado.
+
+### A regra, e por que ela não é "revarrer sempre"
+
+Enquanto faltar o episódio do sábado desta semana, o índice está vencido. **Ela
+se desarma sozinha:** achado o episódio, a série volta a custar zero requisição.
+É essa assimetria que a torna barata — a procura existe exatamente enquanto há o
+que achar, que é o que o pedido descreve.
+
+Quem responde é `AVSerie.ehDoSabadoAtual`, a **mesma** função que decide o bloco
+de destaque no topo da lista. Uma segunda conta de calendário escrita aqui
+divergiria dela, e o desfecho seria o app procurando para sempre um episódio que
+a tela já mostra — que é, com outro sinal, o defeito da v1.2.19.
+
+### As três guardas, e o que cada uma impede
+
+| guarda | o que ela impede |
+|---|---|
+| piso de 30 min (`SERIE_PROCURA_MIN_MS`) | `autoRefreshCollections` roda também no `visibilitychange`, e o operador troca de app dezenas de vezes por culto: sem o piso, uma extração da aba do canal a cada volta — a rajada na Wi-Fi da igreja que o KDoc daquela função recusa |
+| `serieProcuraDaAbertura` | a primeira passada da SESSÃO ignora o piso, que é o pedido ao pé da letra. Cobre o caso concreto: o Android mata o app, o operador reabre quinze minutos depois da última varredura, e o episódio saiu no meio deles. Desarmada no `autoRefreshCollections` e **não** no `indiceVencido` — aquele é um predicado dentro de um `filter`, e o efeito colateral a apagaria na primeira coleção da lista |
+| `c.serie.ano === ano corrente` | o `ano` do catálogo é explícito: em 2027 nenhum episódio do álbum de 2026 pode ser "o desta semana", e sem a guarda um álbum antigo na Biblioteca seria procurado de meia em meia hora, para sempre, sem nada a achar |
+
+### O preço, dito
+
+Um episódio publicado **sem data no título** nunca satisfaz a pergunta, e a
+série segue sendo procurada de meia em meia hora enquanto o app estiver aberto.
+O teto é de duas extrações por hora, o Registro já nomeia esse caso
+(`! entrou SEM data`), e o conserto é na leitura da data — não aqui.
+
+**Nada disto baixa vídeo.** Quem roda é `fetchCollectionIndex`, que para uma
+série é `fetchSerieIndex`: só a LISTA. O download continua sendo item a item,
+pela folha de destinos.
+
+Oráculo: `boot-nativo.test.mjs`, no contexto de relógio fixo que já existia —
+as quatro metades (com o episódio não revarre · faltando vence · o piso segura ·
+a abertura pergunta assim mesmo), mais o Provai e Vede como o caso que a regra
+resgata. Provado por reversão.
+
+---
+
+## v1.2.21 — o veredito estava certo; o teto é que não sabia
+
+A v1.2.18 entregou os endereços, e o operador fez o que só ele podia fazer: abriu
+as páginas.
+
+| página | o que ela é |
+|---|---|
+| `/novo-hinario-adventista/teu-divinal-amor/` | tem só a LETRA — aquele hino não tem cifra no site |
+| `/ministerio-jovem/meu-senhor-minha-vida/` | "partituras para teclado", sem cifra nenhuma |
+
+**As duas eram respostas corretas do site, e o app as tratava como suspeita.** A
+primeira virava `so-letra` e o teto por passada a recusava em bloco; a segunda
+virava `ilegivel` e voltava à fila toda sessão. Nos dois casos o parser estava
+certo e o veredito era descartado.
+
+### O teto sai
+
+Ele existia para o caso de o site mudar de marcação. Custou caro — o Hinário 2022
+fechou `309 tentadas · 0 achadas · 309 recusadas`, e a varredura recomeçava do
+zero a cada abertura — e a suspeita era falsa.
+
+E ele é **estruturalmente errado**: a passada só cobre o que FALTA, então a
+proporção de ausências tende a 100% conforme o acervo completa. Um teto por
+proporção acaba disparando num acervo saudável, que é exatamente o que aconteceu.
+
+O que protege contra uma mudança de marcação são as duas defesas que ficam, e
+nenhuma delas tem esse defeito:
+
+1. o **marcador positivo** (`AVCifra.varianteSemCifra`) — sem o `<title>`
+   anunciando a variante, o desfecho volta a ser `ilegivel` e nada é gravado;
+2. o **prazo de 30 dias** — nenhum veredito nosso vira buraco permanente, nem em
+   massa.
+
+### E a partitura virou resposta
+
+`so-letra` virou **`sem-cifra`**, e passou a reconhecer as duas variantes
+medidas: letra e partitura. As duas dizem a mesma coisa — *"esta música está
+aqui, e não há cifra para ela"* — e as duas agora são gravadas com data, em vez
+de reperguntadas para sempre.
+
+**Só variantes MEDIDAS entram na lista.** "Simplificada" É uma cifra e traz
+folha: incluí-la por simetria carimbaria como ausente uma página que o parser lê
+perfeitamente.
+
+---
+
+## v1.2.20 — sem TV, o botão de microfone deixou de ser desenhado
+
+> *"oculte o botão de microfone se não houver uma tela conectada disponível
+> compatível, para não precisarmos de avisos e mensagens para confundir o
+> usuário. no caso do botão oculto, deixe o botão de 'projetar no telão' ocupar
+> de lado a lado o espaço disponível"*
+
+### O terceiro degrau da mesma pergunta
+
+| até | o que o botão fazia sem TV |
+|---|---|
+| **v1.1.20** | acendia **"No ar"** com o `micPressed` local, e nada captava. O operador falava para ninguém |
+| **v1.1.20 →** | RECUSAVA o toque e DIZIA por quê, numa nota abaixo dele |
+| **v1.2.20** | **não é desenhado** |
+
+Cada degrau consertou o anterior, e o terceiro é o que fecha o assunto:
+**explicar é melhor que mentir, mas não é melhor que não oferecer.** A frase da
+v1.1.20 era correta e chegava no pior momento possível — com o dedo no botão, no
+meio do culto, para dizer que aquilo não ia funcionar.
+
+Quem capta é o `/display/`, e ele só roda dentro da `Presentation`: sem TV o
+`syncPresentation` não cria nenhuma. As telas da rede também não servem — elas
+rodam o MESMO `display.js`, e lá o `setMic` sai por `if (TELA) return`.
+
+### A largura vem da AUSÊNCIA do irmão
+
+`.misc-foot` é flex e os dois filhos são `flex: 1`. Sozinho, o "Projetar no
+telão" ocupa a linha inteira. **Não há regra de CSS para este caso**, e não
+deveria haver: uma classe `.sozinho` seria um segundo lugar onde a mesma decisão
+mora, para divergir no primeiro ajuste. O oráculo mede a largura **contra a
+linha**, nunca em pixel — fonte e densidade são da MÁQUINA, e afirmar `440px`
+seria medir o runner.
+
+### A metade que falharia calada
+
+Esconder é a parte fácil. O que ninguém veria quebrar é o inverso: **a TV entra
+no meio do culto e o botão precisa aparecer sem trocar de aba.**
+`renderDisplayStatus` passa a chamar `refreshDiversos()` — mas **só na TRANSIÇÃO
+de presença**, e essa restrição é o cuidado que importa: `refreshDiversos`
+esvazia o `libraryEl` e redesenha o painel inteiro, então rodá-lo a cada callback
+(o `onResume` reconfere a lista) derrubaria o que o operador está usando — um
+campo com foco, uma lista rolada — por um evento que não mudou nada.
+
+O oráculo cobra os três estados **na mesma página**: sem TV, a TV entrando, a TV
+saindo. As duas metades provadas por reversão, e cada uma derruba asserções
+DIFERENTES — o render condicional derruba quatro, o redesenho na transição
+derruba duas. Se derrubassem as mesmas, uma delas não estaria sendo medida.
+
+### O que NÃO saiu
+
+A guarda `sem-telao` no `pointerdown` fica. Ela deixou de ser o caminho normal e
+virou uma **corrida**: a TV pode cair entre o desenho e o dedo, e um `sendMic`
+sem destino acenderia "No ar" sobre um telão que já não está lá. A frase encolheu
+para o que ela agora é ("A TV saiu: a voz não tem mais onde sair"), porque um
+comentário que descreve um caminho que já não existe é pior que comentário
+nenhum.
+
+OTA PURO — nada de Kotlin, `minShell: 55`, sem `shellTag`.
+
+---
+
+## v1.2.19 — o leitor sem letra, e o sábado que a lista escondia
+
+Dois relatos do operador no mesmo dia, e as duas causas têm a mesma forma: **uma
+regra que discorda de outra regra do mesmo arquivo, sem nada na tela que o
+denuncie.**
+
+### 1. "O sistema não identifica que há letra nenhuma para o auxiliar de leitura"
+
+A v1.2.14 deu parâmetros ao leitor — `openLyricsPopup(item, fonte)` — para a
+Biblioteca poder abrir a folha de uma música que **não** está no ar. O ouvinte
+do botão do transporte ficou como estava desde a v1.0.3:
+
+```js
+lyricsViewBtnEl.addEventListener('click', openLyricsPopup);
+```
+
+`addEventListener` chama o ouvinte **com o evento**. O `PointerEvent` entrou
+como `item`, não era o `currentItem`, e virou `lvAlvo` — o desvio deliberado que
+aquele mesmo lote acabara de criar, apontado para um objeto que não é música
+nenhuma. As três fontes caíram juntas, cada uma por um caminho:
+
+| fonte | por que sumiu |
+|---|---|
+| letra | `lvItem().lyrics` é `undefined` |
+| cifra | `cifraCabe(evento)` não acha nome de item |
+| Bíblia | `lvNaCena()` virou falso, e é ele que guarda a RESERVA |
+
+O que sobrou foi *"Nada em exibição com letra ou texto bíblico."* para toda
+música — com o console limpo e `lyricsViewSources` continuando a decidir certo.
+**Calcular a coisa certa e não chamá-la direito é o mesmo defeito mudo da
+v1.1.18, por outra porta.**
+
+O conserto é o parêntese vazio, que também DECLARA a regra: a folha do
+transporte é sempre a CENA.
+
+**Por que nenhum oráculo pegou:** os três que abrem esta folha
+(`cifra-rolagem`, `cifra-teclado`, `cifra-offline`) chamam `openLyricsPopup()`
+direto — o único caminho que continuava funcionando. Um defeito no OUVINTE é
+invisível para quem não passa por ele. `leitor-do-transporte.test.mjs` **clica**,
+e a segunda metade dele (a Biblioteca continua desviando o alvo) impede que
+apagar os parâmetros "conserte" a primeira desfazendo o recurso da v1.2.14.
+Provado por reversão: o código antigo reproduz a frase do relato, verbatim.
+
+### 2. O episódio do sábado desta semana, escondido da lista
+
+Relato: *"não está buscando o vídeo disponível para o próximo sábado/sábado
+atual… já confirmei que o vídeo está disponível na fonte, mas ele não está
+listado"* — num **domingo**.
+
+Duas regras do `serie.js` respondiam *"de que semana é este episódio?"* com
+calendários diferentes:
+
+- `sabadoDaSemana` (v1.1.21) abre a semana no **domingo** — é a semana
+  adventista, e o argumento escrito lá é que *no domingo o operador já está
+  montando o culto do sábado que vem*;
+- `aindaNaoSaiu` cortava por `DIAS_DE_ANTECEDENCIA` (3), isto é, só abria a
+  janela na **quarta** (v5.256).
+
+Em três dos sete dias — domingo, segunda e terça — o destaque do topo declarava
+"o desta semana" um episódio que a lista logo abaixo tinha escondido, e escrevia
+**"Aguardando lançamento"** sobre um vídeo que o canal já havia liberado. As duas
+metades passaram versões concordando com quem as escreveu, cada uma lida
+sozinha.
+
+`aindaNaoSaiu` passa a **delegar** em `ehDoSabadoAtual` — a mesma decisão do
+`mesDaPlaylist` sobre o `avaliarPlaylist`, e pelo mesmo motivo: duas contas de
+calendário escritas à parte divergem, e foi a divergência que produziu isto. Os
+três dias continuam existindo como **PISO** para as semanas seguintes, que é a
+razão de o campo `futuros` existir — o canal sobe o trimestre inteiro e libera um
+sábado por vez, e mostrar de mais custa uma projeção parada no meio do culto.
+
+**O preço, dito:** enquanto o sábado não chega, o episódio pode não estar
+público, e o download falha. A frase que explica isso já existia desde a v5.256
+("ainda não liberado pelo canal — tente mais perto de 22/Ago"), nos dois fluxos.
+
+`ehDoSabadoAtual` entrou na `AVSerie.impressao`: ela deixou de ser só o destaque
+do topo e passou a decidir o que a LISTA contém — sem isso, todo índice já
+guardado no IndexedDB sobreviveria à correção, que é o defeito da v5.233.
+
+**Um caso do `serie.test.mjs` mudou de veredito** (o que exigia o episódio
+ausente na terça), e a supersessão está escrita no próprio oráculo para ninguém
+"consertá-lo" de volta.
+
+---
+
+## v1.2.18 — o site serve variantes no mesmo endereço
+
+O operador conferiu à mão: **o Hinário 2022 tem 100% das cifras no Cifra Club**.
+E mandou o Registro em ARQUIVO — o recurso da v1.2.16, usado na primeira
+oportunidade para trazer justamente o que não cabia numa cópia. A radiografia
+que veio dentro dele fecha a investigação:
+
+```
+✗ Meu Senhor, Minha Vida — a página abriu e o parser não a entendeu
+    padrão https://www.cifraclub.com.br/ministerio-jovem/meu-senhor-minha-vida/ → ilegivel
+    página …/meu-senhor-minha-vida/ → 449706 caractere(s)
+      <title> "Meu Senhor, Minha Vida - Ministério Jovem (partituras para teclado) - Cifra Club"
+      <h1> "Meu Senhor, Minha Vida" · <h2> "Menu principal"
+      0 <pre>, o maior com 0 caractere(s) e 0 <b> · tom não achado
+      39 link(s) de 2 segmentos, 0 com forma de música
+```
+
+**O endereço está certo** — o `<h1>` é a música que se procurou. O que voltou foi
+outra VARIANTE da página: partituras para teclado. E o `so-letra` é o mesmo
+fenômeno com outro nome: ali a variante servida é a letra.
+
+Isso reclassifica dois vereditos de uma vez. Nenhum dos dois significa "o site
+não tem os acordes desta música" — significam "o site respondeu com outra coisa".
+Daí:
+
+- a frase da aba passou a **descrever o que foi observado** ("o Cifra Club
+  respondeu com a página de LETRA de X, não com a cifra") em vez de afirmar uma
+  conclusão que os dados não sustentam;
+- o Registro conta `N voltaram como página de LETRA`, não `N só letra no site`.
+
+### E o diário passou a guardar exemplos
+
+Um contador não se investiga. O diário da passada agora guarda até doze
+falhas com **nome (que traz o número do hino), veredito e o ENDEREÇO tentado** —
+e eles **sobrevivem à recusa do teto**, que é o caso em que nada mais sobrevive e
+era exatamente o caso que não se podia investigar.
+
+O endereço é o ponto: é abrindo aquela página no navegador que se separa "o
+endereço que montamos está errado" de "a leitura que fazemos dele está errada".
+Um nome sozinho não responde nem uma nem outra.
+
+---
+
+## v1.2.17 — o recado saiu, e o microfone voltou a ser um sistema só
+
+> *"o microfone funcionou, ainda há um pouco de falha de estabilidade, mas
+> funciona. o sistema de mensagens também funcionou, mas não foi muito eficaz,
+> então pode remover esse método e focar no sistema do microfone"*
+
+O Registro do aparelho, com o APK v1.2.13 instalado:
+
+```
+Microfone (última tentativa)
+recado · 14:04:48 · ABRIU
+  com eco: abriu
+  entradas de áudio que o navegador enxerga: 4
+```
+
+**Abriu no PRIMEIRO degrau** — e as entradas passaram de `1` para `4`
+(`Speakerphone`, `Headset earpiece`, `Bluetooth headset`), porque
+`getCommunicationDevices()` é guardada pela mesma permissão que faltava. É a
+confirmação independente do diagnóstico da v1.2.13.
+
+### Por que o recado deixou de ter razão de existir
+
+Ele nasceu (v1.1.26, shell 50) de uma premissa: *"o ao vivo só funciona com TV,
+e é uma consequência da arquitetura, não um ajuste que falta"*. A primeira
+metade era verdade; a segunda não. **O ao vivo não abria em lugar nenhum** — nem
+com TV —, e a causa era `MODIFY_AUDIO_SETTINGS` fora do manifest. Consertada
+ela, o recado virou um segundo caminho que INTERROMPE a cena para dizer o que o
+primeiro diz sem interromper nada.
+
+E ele trazia junto a instabilidade que o operador notou. Na linha do tempo dele:
+
+```
+14:04:44  recado ao ar (2s) · entrou em cena: Recado 14:04 · play 0s
+14:04:45  PAUSA ESPONTÂNEA 1s · play 0s · PAUSA ESPONTÂNEA 0s
+```
+
+O recado é um item de mídia comum, então ele derruba a cena, disputa foco de
+áudio com o que estava tocando e volta pelo caminho de reconexão. Nada disso
+existe num microfone que só abre um `GainNode`.
+
+### O que saiu junto, e por quê
+
+| o quê | por quê |
+|---|---|
+| a concessão de áudio do `ControleChromeClient` | existia SÓ para o recado. Uma guarda que se justifica por um recurso removido é o convite exato para o próximo leitor reintroduzi-lo — a lição da v5.299/v5.300 |
+| o bloco do recado no `boot-nativo.test.mjs` | mede um percurso que não existe |
+| as asserções de PAREAMENTO do `mic-escada.test.mjs` | guardar a igualdade de um par de um só é medir nada |
+
+**O `onPermissionRequest` do Controle NÃO foi apagado** — ele volta a negar
+tudo, com log. Um WebView sem ele nega **em silêncio**, e o próximo que precisar
+de mídia ali descobriria a armadilha do zero.
+
+### As duas lacunas que a remoção abriu — e que este lote fecha
+
+O recado captava no Controle, então ele **sabia** coisas que o caminho ao vivo
+não sabe. Removê-lo sem isto teria feito o diagnóstico regredir em silêncio:
+
+1. **A permissão negada não era registrada.** O `requestMic()` do ao vivo
+   respondendo `false` sai ANTES de qualquer captura — o telão não emite
+   `mic-status` nenhum, e o bloco do Registro ficaria sem uma linha sequer sobre
+   a tentativa. É exatamente o estado mudo que aquele bloco existe para acabar.
+2. **A contagem de entradas sumia.** O ao vivo capta no TELÃO e a falha chega por
+   `mic-status`, sem lista de dispositivos. Mas é essa contagem que separa
+   *"não abre"* de *"não existe"* — dois vereditos que pedem ações opostas. Agora
+   o `micRegistrar` enumera sozinho quando quem registrou não trouxe lista:
+   leitura pura, e os dois WebViews são o MESMO aparelho, logo a lista do
+   Controle vale pela do telão.
+
+As duas provadas por reversão.
+
+### O oráculo passou a medir o app em vez de um consumidor que saiu
+
+O `registro.test.mjs` dirigia o bloco do microfone **pelo botão do recado**,
+forjando o `getUserMedia` local. Com o recado fora, ele dirige por
+`mic-status` num `BroadcastChannel` separado — que não é só o que restou: é o
+caminho de VERDADE do único microfone que existe hoje.
+
+Ele precisou de uma coisa a mais para não medir a si mesmo: o `micRegistrar` do
+ao vivo só dispara na TRANSIÇÃO do erro (o telão reemite `mic-status`, e repetir
+a mesma recusa encheria a linha do tempo). Sem zerar o erro entre cenários, o
+segundo seria engolido e as asserções passariam medindo o resultado do primeiro.
+
+EXIGE RELEASE v1.2.17 — `SHELL_VERSION` fica em **55** (a superfície da ponte
+não mudou), mas o `MainActivity` mudou, e Kotlin **só chega instalando APK**. O
+`shellTag` segura o bundle para as duas metades chegarem como UMA pergunta.
+
+---
+
+## v1.2.16 — recusar não podia significar refazer
+
+O operador relatou que a varredura "segue tentando rebaixar e reverificar tudo
+novamente". A aritmética do Registro dele prova o mecanismo em uma linha:
+
+```
+Hinário Adventista 2022: 282 de 601 · 10 não achei · 309 por varrer
+```
+
+`282 + 10 + 309 = 601`, e **nenhuma "só letra"** — enquanto a bateria, no mesmo
+aparelho, devolvia `so-letra` para hinos daquele hinário. As 309 FORAM julgadas;
+o teto (`CIFRA_SO_LETRA_TETO`, 34%) as recusou em bloco, exatamente como deve —
+uma passada dominada por aquele veredito é o site tendo mudado, não o acervo sem
+cifra. Só que **nada era gravado, e nada registrava a recusa**: na abertura
+seguinte as mesmas 309 voltavam à fila, com as mesmas ~900 requisições, para
+sempre.
+
+O teto estava certo e o laço era mudo. Agora:
+
+- a passada tem **diário** (`cifras-passada:<id>`: tentadas, achadas, recusadas);
+- o Registro imprime o motivo por extenso, com a data e quantos dias faltam;
+- a coleção recusada fica em **prazo de 7 dias** — curto o bastante para um
+  conserto do `cifra.js` chegar por OTA e a varredura retomar sozinha, longo o
+  bastante para o laço não custar nada enquanto isso.
+
+### E o veredito é o suspeito, não o acervo
+
+O operador conferiu à mão: **o Hinário 2022 tem 100% das cifras no site.** Logo o
+`so-letra` está errado ali — ou o endereço não leva à página que supomos, ou
+aquela marcação não significa o que supusemos. As duas hipóteses só se separam
+VENDO a página, e a bateria era justamente quem não a mostrava: `so-letra` era
+poupado da radiografia porque "já se sabia o que a página era". Essa certeza
+caiu, e a radiografia passa a valer para os dois vereditos.
+
+### O Registro virou arquivo
+
+Com o acervo inteiro varrido ele passou de setenta linhas só na seção de cifras,
+e o caminho de sempre — copiar e colar — é o que **corta o texto no meio sem
+avisar**. `AVNative.salvarTexto` abre o "Salvar como" do sistema e o SHELL
+escreve o `.txt`.
+
+Por que não um `<a download>` na página: o WebView deste app não define
+`DownloadListener`, e sem ele um clique num `blob:` com `download` não faz
+absolutamente nada — nem erro, nem arquivo. Pôr um listener genérico abriria um
+caminho de gravação para qualquer coisa que a página apontasse; este método grava
+UM texto, no arquivo que a pessoa acabou de escolher.
+
+**EXIGE RELEASE v1.2.16**: `SHELL_VERSION` 54 → 55.
+
+---
+
+## v1.2.15 — o catálogo é autoridade, e o que faltou passou a ter nome
+
+O primeiro Registro do acervo inteiro varrido (69 coleções, 1917 músicas) trouxe
+o placar — 949 cifras guardadas, 95% de acerto nos hinários contra 35% nos
+álbuns — e, junto, três desperdícios que só se veem com a lista na mão.
+
+### O catálogo responde uma vez, não quatro
+
+```
+✗ Teu Divinal Amor — o site tem só a letra, sem os acordes
+    direta  /novo-hinario-adventista/teu-divinal-amor/ → so-letra
+    álbum   /hinario-adventista-2022/teu-divinal-amor/ → nao-tem
+    padrão  /ministerio-jovem/teu-divinal-amor/        → nao-tem
+    padrão  /cd-jovem-2018/teu-divinal-amor/           → nao-tem
+```
+
+A primeira linha já respondera. `so-letra` não interrompe a cadeia de propósito
+— num álbum a mesma música pode estar cifrada sob outro artista —, mas **num
+hinário o endereço do catálogo É a página daquele hino**: se ela tem só a letra,
+nenhum outro endereço vai ter os acordes. Três requisições jogadas fora por hino,
+vezes as ~300 do Hinário 2022 que ainda faltavam.
+
+A poda vale só onde o endereço é deduzível de uma tabela (`cifraDeduzivel`), e o
+oráculo cobra as DUAS metades: o hinário para na primeira, e o álbum continua e
+acha a cifra sob o artista seguinte. Sem a segunda, a poda cortaria o acervo
+inteiro junto com o desperdício.
+
+### E o nome do hinário nunca foi um artista
+
+A segunda linha daquele bloco é `/hinario-adventista-2022/`, que não existe no
+site. O `urlDoAlbum` nasceu de um achado real (o nome do álbum É o artista lá:
+`/adoradores-5/usa-me/`), mas onde o endereço já vem do catálogo, adivinhá-lo de
+novo pelo nome só pode errar — 404 certo, uma vez por hino.
+
+### O que faltou passou a ter nome
+
+`31 não achei` num hinário de 613 é uma frase que não se pode investigar. Ali
+toda música existe no site, então cada uma dessas é a NOSSA regra de slug
+errando — e é conserto de uma linha. O Registro passa a listá-las (com teto e
+com o corte dito), **só nos hinários**: num álbum a ausência é o caso normal, e
+383 nomes enterrariam a linha do tempo sem dizer nada que o número não diga.
+
+---
+
+## v1.2.14 — o arquivo para a biblioteca inteira, e a folha que não precisa do telão
+
+Dois pedidos do operador no mesmo lote, e os dois saem do mesmo lugar: o
+instrumentista.
+
+### 1. O arquivo de cifras deixa de ser dos hinários
+
+O que separava um álbum de um hinário nunca foi o direito de guardar — era o
+**custo**. No hinário o endereço sai do catálogo e a música custa UMA
+requisição; num álbum custa a cadeia deduzível inteira. Confundir as duas
+perguntas foi o que manteve o arquivo preso aos dois hinários por seis versões,
+e a separação agora está escrita: `cifraDeduzivel` responde *"quanto custa?"*,
+`cifraGuardavel` responde *"guarda?"*.
+
+Duas decisões tornam a varredura do acervo viável:
+
+| decisão | por quê |
+|---|---|
+| a varredura **pula a busca do site** | MEDIDO na bateria: toda linha `busca …` devolveu `0 resultado(s)`. Duas requisições por música que, em massa, dobrariam a varredura para não achar nada. Na aba ela fica — lá é a última carta, e custa duas requisições UMA vez |
+| a ausência é **gravada com data** | no hinário toda música existe no site e "não achei" era defeito nosso; no acervo de álbuns **dois terços** não estão sob nenhum endereço deduzível. Sem memória são milhares de requisições a um site de terceiro em TODA abertura |
+
+O prazo (30 dias) é o que evita os dois extremos: gravar para sempre faria um
+Wi-Fi ruim custar um buraco permanente; não gravar custa a rede toda semana. Uma
+FOLHA não vence — ela não envelhece. E `sem-rede`, `recusou` e `ilegivel`
+continuam não gravando nada: os dois primeiros não são resposta do site, o
+terceiro é defeito do nosso parser.
+
+E a ausência guardada **responde**, em vez de refazer a cadeia: sem isso a aba
+gasta quatro requisições para chegar à mesma frase que a varredura já tinha
+escrito, com o instrumento na mão.
+
+### 2. A folha deixou de ser de quem está no ar
+
+Ela nasceu presa ao `currentItem` — era o auxiliar de leitura da CENA —, e a
+consequência é que **ler uma música exigia projetá-la**. O músico quer o oposto:
+abrir a cifra no ensaio sem que a congregação veja nada.
+
+`lvAlvo` é a música que a folha mostra quando ela não é a que está em cena; nulo
+é o caso de sempre, e por isso o desvio é a exceção que se declara. A gaveta da
+Biblioteca ganhou **"Abrir a folha"**, que aponta o MESMO leitor para aquela
+faixa — reusar, nunca reconstruir: uma segunda folha divergiria da primeira no
+primeiro ajuste, e quem tocasse por ela veria a versão de ontem.
+
+Três guardas, as três provadas por reversão:
+
+- **Nada projeta.** O oráculo afirma ZERO comandos no barramento — é a metade
+  que falharia sem deixar rastro na tela de quem abriu a folha.
+- **O relógio é da CENA.** Com o alvo noutra música, seguir o
+  `authoritativeTime()` faria a folha andar no compasso de outro louvor. Isso
+  não erra alto: *parece* funcionar. Sem relógio o `auto` cai no livre, que é o
+  que um ensaio sem gravação quer.
+- **O destaque também.** Sem cena não há posição: nenhuma estrofe é marcada.
+
+A aba escolhida sobrevive à reabertura e não à troca de alvo (são duas coisas), e
+o alvo morre ao fechar — é o desvio de UMA leitura.
+
+---
+
+## v1.2.13 — a permissão que faltava era nossa, e não era a do microfone
+
+Cinco rodadas de investigação acusaram o aparelho: o espelhamento, o
+interruptor de privacidade, o processamento de áudio, a escolha do `default`,
+o Bloqueio automático da Samsung. **A causa estava no `AndroidManifest.xml`
+deste repositório.**
+
+### A cadeia, conferida verbatim no fonte do Chromium
+
+```cpp
+// media/audio/android/audio_manager_android.cc:877
+if (!UseAAudioPerStreamDeviceSelection()) {
+  if (!GetJniDelegate().SetCommunicationDevice(device_id)) {
+    LOG(ERROR) << "Unable to select communication device!";
+    return nullptr;                       // ← toda captura de áudio morre aqui
+  }
+}
+```
+
+```java
+// AudioManagerAndroid.java:341
+if (!mHasModifyAudioSettingsPermission || !hasRecordAudioPermission) {
+    Log.w(TAG, "Requires MODIFY_AUDIO_SETTINGS and RECORD_AUDIO. "
+             + "Selected device will not be available for recording");
+    return false;
+}
+```
+
+E `hasPermission()` é `ContextUtils.getApplicationContext().checkSelfPermission(…)`
+— num WebView, o contexto do app **HOSPEDEIRO**. Quem precisa declarar a
+permissão somos NÓS, não o provider do WebView.
+
+O desvio existe e não se aplica: `UseAAudioPerStreamDeviceSelection()` exige
+`base::android::device_info::is_desktop()`, falso num celular. E o `nullptr`
+vira `CAPTURE_STARTUP_CREATE_STREAM_FAILED` → `STREAM_CREATE_ERROR`
+(`services/audio/input_controller.cc:778`), que chega ao JavaScript como
+**`NotReadableError`**.
+
+### Por que ela explica CADA evidência, e as outras hipóteses não
+
+| evidência medida | o que esta causa prevê |
+|---|---|
+| `RECORD_AUDIO` concedida | são permissões DIFERENTES. A que falta é `normal` — concedida na instalação, **invisível na tela de permissões do app** |
+| as TRÊS configurações falharam, inclusive `{audio:true}` cru | a recusa é ANTES de qualquer restrição ser negociada. Nenhum afrouxamento podia mudar o desfecho |
+| falha nos DOIS WebViews | `getApplicationContext()` é o mesmo objeto para os dois |
+| `entradas de áudio: 1`, id `default` | a lista do Chromium no Android é SINTÉTICA e não depende de abrir stream nenhum |
+| falha SEM TV | não tem relação com espelhamento |
+| Samsung, app fora da loja | irrelevante — o defeito é nosso |
+
+**E ela corrige uma afirmação FALSA da v1.2.9, que dirigiu três rodadas.** Lá
+está escrito que *"`entradas de áudio: 1` mata o interruptor de privacidade
+(ele daria zero)"*. Não dá: `AudioManagerAndroid::HasAudioInputDevices()` é
+`return true;` e `AddDefaultDevice()` é incondicional — a lista é sintética e
+vale `1` mesmo com a captura inteiramente bloqueada. Aquela evidência nunca
+derrubou hipótese nenhuma, e eu a usei como se derrubasse. Fica aqui porque
+este arquivo não se reescreve: a nota que revoga é esta.
+
+### O conserto, e o que ele custa
+
+Uma linha no manifest. Mas manifest **só chega instalando APK**, e é por isso
+que este lote exige Release: um merge em `main` sozinho não conserta aparelho
+nenhum.
+
+### As duas correções que andam junto, e as duas são do diagnóstico da v1.2.11
+
+- **`MODE_FOREGROUND` ganhou ramo próprio.** Ele é o desfecho **mais provável**
+  que existe — do Android 10 em diante, `RECORD_AUDIO` concedida no padrão
+  ("Permitir apenas ao usar o app") devolve `MODE_FOREGROUND`, não
+  `MODE_ALLOWED`. Sem o ramo, o Registro imprimia `AppOps para gravar: modo 4` e
+  o veredito o lia como bloqueio total: **a frase certa pela razão errada**, no
+  estado NORMAL do aparelho, num log que é lido a distância.
+- **O campo `modAudio`** responde *"o APK instalado já tem o conserto?"* — a
+  pergunta que separa "continua quebrado" de "é outra coisa", e a única que o
+  próximo Registro precisa responder. O veredito dele **vence todos os outros**:
+  enquanto ele acender, mexer em AppOps ou no Auto Blocker é perseguir a causa
+  errada.
+
+O oráculo cobra a precedência com AppOps recusando, mudo ligado e chamada em
+curso ao mesmo tempo, e cobra que `primeiro plano` **não** seja lido como
+bloqueio. Os dois provados por reversão.
+
+EXIGE RELEASE v1.2.13 — `SHELL_VERSION` 53 → 54 (o `micDiag` ganhou campo),
+`minShell: 54`, `shellTag: "v1.2.13"`. **O `minShell` é o que importa aqui:**
+ele segura o bundle novo longe de um APK sem a permissão, onde ele só saberia
+descrever o defeito sem consertá-lo.
 
 ---
 

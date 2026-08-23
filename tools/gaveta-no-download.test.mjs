@@ -220,26 +220,52 @@ try {
   checar(!e.aberta && !e.mesmoNo,
     'HAZARD: um redesenho não guardado joga fora o `li` e a gaveta volta fechada', e);
 
-  // ---- 2. A MARCA DE ABERTURA É SÍNCRONA ---------------------------------
-  // O caso do relato, medido onde ele acontece: no turno do clique, o handler
-  // já parou no primeiro `await` e o `expanded` ainda não foi escrito. Se a
-  // linha não estiver marcada AQUI, o tique de 400 ms que caia nesta janela
-  // remonta a lista e o toque não abre nada.
+  // ---- 2. A MARCA DE ABERTURA VEM ANTES DA MONTAGEM ----------------------
+  // O caso do relato: o tique de 400 ms alcança a lista NO MEIO da montagem, o
+  // `li` deste toque vira órfão e o `expanded` cai num nó fora do documento —
+  // o toque não abre nada e nada explica por quê.
+  //
+  // A pergunta é medida de DENTRO da montagem, e não pelo relógio de fora: o
+  // espião sobre `renderSongMenu` (o que `montarOpcoes` chama) responde
+  // *"quando a gaveta começou a ser montada, o guarda já enxergava esta
+  // linha?"*. Só a marca `abrindo` pode responder que sim ali — o `expanded`
+  // ainda não foi escrito. É uma propriedade, não uma janela de tempo: vale
+  // igual num montador que espere o IndexedDB e num que não espere.
+  //
+  // E é preciso ser assim porque a janela MUDOU DE TAMANHO na v1.2.25: numa
+  // MÚSICA a gaveta virou só as opções (a letra abre o leitor), então nada
+  // mais é aguardado e o `expanded` sai no próprio turno do toque. No VÍDEO o
+  // `montarDetalhe` continua assíncrono — a marca é o que o cobre, e medir a
+  // janela pelo relógio passaria a aprovar a remoção dela aqui.
   const janela = await pg.evaluate(() => {
     const li = document.querySelector('#hymnResults .coll-songs .hymn-result');
     li.dataset.carimbo = 'oraculo';
-    li.querySelector('.hymn-row').click();   // o handler é async: para no `await`
+    const orig = window.renderSongMenu;
+    let vistaNaMontagem = null;
+    window.renderSongMenu = function () {
+      if (vistaNaMontagem === null) vistaNaMontagem = interacaoAbertaNoAcervo();
+      return orig.apply(this, arguments);
+    };
+    li.querySelector('.hymn-row').click();
+    window.renderSongMenu = orig;
     return {
-      aindaNaoExpandiu: !li.classList.contains('expanded'),
+      vistaNaMontagem,
+      montou: vistaNaMontagem !== null,
+      expandiuNoTurno: li.classList.contains('expanded'),
       jaContaComoAberta: interacaoAbertaNoAcervo(),
     };
   });
-  checar(janela.aindaNaoExpandiu,
-    'no turno do clique a linha AINDA não está `expanded` — a montagem espera o IndexedDB',
+  checar(janela.montou && janela.vistaNaMontagem === true,
+    'quando a gaveta COMEÇA a ser montada, `interacaoAbertaNoAcervo()` já vê a '
+    + 'linha: é a marca `abrindo`, escrita antes de qualquer montador',
+    janela);
+  checar(janela.expandiuNoTurno,
+    'e numa MÚSICA o `expanded` já sai no turno do toque — a gaveta é só as '
+    + 'opções desde a v1.2.25, e nada mais espera o IndexedDB (no VÍDEO espera, '
+    + 'e é por isso que a marca acima continua sendo a guarda)',
     janela);
   checar(janela.jaContaComoAberta,
-    'e mesmo assim `interacaoAbertaNoAcervo()` já a vê: é a marca `abrindo`, escrita antes do primeiro `await`',
-    janela);
+    'e o guarda continua vendo a linha depois de aberta', janela);
 
   if (!await esperar(pg, () => {
     const li = document.querySelector('#hymnResults .coll-songs .hymn-result');

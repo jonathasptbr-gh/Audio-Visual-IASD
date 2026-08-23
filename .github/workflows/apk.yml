@@ -556,14 +556,13 @@ jobs:
           # asserção não é "a folha apareceu": é `cifraHtml` NÃO ter sido
           # chamado nenhuma vez, com a ponte respondendo "sem rede" a tudo.
           rodar tools/cifra-offline.test.mjs
-          # E A BATERIA DE TESTES DA CIFRA. Ela é um DIAGNÓSTICO, e um
-          # diagnóstico não falha calado: falha CONTINUANDO A RESPONDER, com a
-          # frase errada. Sem `semDisco` ela mede o cache e declara o acervo
-          # saudável sem ter feito uma requisição; sem a lista de endereços
-          # tentados, a falha vira uma reclamação em vez de trabalho de campo;
-          # sem `mudo` ela enterra a radiografia que o operador foi buscar.
-          # Os três estão travados aqui, e os três reprovam por reversão.
-          rodar tools/cifra-bateria.test.mjs
+          # E O LEITOR DA BIBLIOTECA — a folha de qualquer música SEM levar
+          # nada ao telão. Três coisas falham calado ali: a folha mostrar a
+          # música da CENA em vez da pedida; alguma coisa ir ao telão (o único
+          # defeito que não deixa rastro na tela de quem abriu a folha); e o
+          # relógio da cena governar a rolagem de OUTRA música — que não erra
+          # alto, a folha anda no compasso errado. As três por reversão.
+          rodar tools/leitor-biblioteca.test.mjs
           # E A PLAYLIST AUTOMÁTICA, DA FOLHA ATÉ A FILA. O `sorteio.test.mjs`
           # (Node puro, acima) trava a REGRA; este trava a LIGAÇÃO, que falha de
           # outro jeito — a regra continua certa e o recurso não faz nada. As
@@ -660,6 +659,16 @@ jobs:
           # metades, porque "cair sempre no livre" apagaria o recurso — e a
           # segunda é a que prova que ele continua seguindo a música.
           rodar tools/cifra-rolagem.test.mjs
+          # E O BOTÃO DO TRANSPORTE QUE ABRE ESSA MESMA FOLHA. `openLyricsPopup`
+          # ganhou `(item, fonte)` na v1.2.14 e o ouvinte continuou registrado
+          # POR REFERÊNCIA — `addEventListener` chama com o EVENTO, e o
+          # `PointerEvent` virou o ALVO da folha: as três fontes (letra, cifra e
+          # a reserva da Bíblia) sumiam de uma vez e o auxiliar de leitura abria
+          # dizendo "Nada em exibição" para TODA música. Os três oráculos que já
+          # abriam esta folha chamam `openLyricsPopup()` direto — o único
+          # caminho que continuava funcionando —, e por isso este CLICA. Idem:
+          # entra no workflow no MESMO commit em que nasce.
+          rodar tools/leitor-do-transporte.test.mjs
 
           # O PLACAR VAI PARA O RESUMO DO RUN, não só para o log — a queixa que
           # originou este lote foi precisamente que o desfecho só existia lá

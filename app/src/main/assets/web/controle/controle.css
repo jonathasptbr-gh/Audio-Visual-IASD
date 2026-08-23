@@ -238,13 +238,33 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
    outra que está entrando — poluem o conjunto. Quem encolhe é a peça tocada. */
 .lib-item:has(.row-mais:active) { transform: none; }
 .lib-item:has(:is(.hymn-gaveta, .folder-itens) :active) { transform: none; }
+/* ---------- E A REGRA VALE PARA A `.row` DELE TAMBÉM (v1.2.27) ----------
+   Relato do operador: *"ao encolher, as bordas do card de título ficam com uma
+   marca de encolhimento nas laterais direita e esquerda"*.
+
+   `:active` casa também nos ANCESTRAIS, então um toque na linha de uma faixa
+   satisfazia o `.lib-item` E a `.hymn-row` de dentro dele: DOIS `--press` sobre
+   o mesmo dedo, 0,96 × 0,96. MEDIDO com a gaveta aberta, em 430px: o cartão ia
+   a 370px e o título, dentro dele, a 355 — **7px mais estreito de cada lado que
+   a gaveta logo abaixo**, com o branco do `.lib-item` aparecendo nessa fresta.
+
+   É a fresta que o parágrafo acima já nomeia ("o miolo se afastava de uma
+   moldura parada e abria uma fresta dos dois lados"): a v5.267 respondeu a ela
+   fazendo o CARTÃO encolher, e a `.hymn-row` ficou na lista mesmo assim. Com a
+   linha fechada não se via — cartão e linha são a mesma caixa, e as duas pintam
+   `--linha` —, e a gaveta aberta tornou a diferença visível.
+
+   `.hymn-play-thumb` sai pelo motivo irmão: ele DEIXOU DE SER BOTÃO na v5.285
+   (é o anel de download e a coluna que alinha a lista, um `<span>` sem ouvinte)
+   e continuou dando resposta de toque — um terceiro encolhimento, de uma peça
+   que não recebe o dedo. */
 :is(
   .ctl-btn, .t-btn, .pv-fab, .settings-btn,
   .tab, .tab-add, .import-btn, .back-btn, .sel-btn,
   .row-btn, .popup-close, .new-folder-btn,
   .coll-bar-dl, .coll-group-btn, .coll-more-btn,
   .bible-cell, .bible-ref-part, .bible-vsec, .bible-ver-row,
-  .hymn-row, .hymn-play-thumb, .song-menu-btn, .msg-add-btn, .msg-item,
+  .song-menu-btn, .msg-add-btn, .msg-item,
   .misc-tab, .misc-seg, .misc-chip, .chrono-btn, .misc-project, .draw-go,
   .fit-opt, .dialog-btn, .lib-item, .coll-group-acao,
   .cue-save-btn, .pl-pack, .yt-search-btn, .log-copy, .hino-indice-chip,
@@ -293,8 +313,15 @@ body {
 
 /* ---------- Indicador de versão (no cabeçalho da lista) ---------- */
 .app-version {
+  /* `--text` pelo mesmo motivo do `.fit-seg--grande` acima, e MEDIDO: a pílula
+     afunda `--surface-2` dentro da folha, e no tema CLARO isso é preto a 20%
+     sobre branco (204,204,204) — `--muted` ali dá **4,15:1** a 11,2px, abaixo
+     do piso de 4,5. Com `--text`: **5,52:1** no claro e 10,55:1 no escuro.
+     Esta linha em particular não pode ser difícil de ler: é ela que responde
+     "o OTA chegou e o APK ainda não?" (ver `renderVersionLabel`), e é lida de
+     relance, no rodapé, por quem está diagnosticando. */
   flex-shrink: 0;
-  font-size: .7rem; color: var(--muted);
+  font-size: .7rem; color: var(--text);
   background: var(--surface-2); border-radius: var(--radius-pill); padding: 2px .55rem;
 }
 /* ---------- Barra de controles (base) ---------- */
@@ -3643,6 +3670,18 @@ main {
    (O `#collPopup` que dividia esta regra saiu na v5.72: as opções da coleção
    viraram um painel dentro do próprio card.) */
 #songMenuPopup { z-index: 210; }
+/* ---------- O LEITOR ABRE DE DENTRO DA BIBLIOTECA (v1.2.26) ----------
+   Mesmo caso, e ele mordeu: o auxiliar de leitura é chamado pela gaveta de uma
+   linha da Biblioteca, que é outra camada — e os dois estavam no `z-index: 200`
+   de todo `.popup-backdrop`. Com o mesmo degrau quem decide é a ORDEM DO
+   DOCUMENTO, e o `#lyricsPopup` está declarado ANTES do `#hymnSearchPopup`: a
+   folha abria por baixo da Biblioteca, isto é, na tela principal, atrás dela.
+   A tabela `POPUPS` do `controle.js` já dizia a ordem certa (o leitor DEPOIS da
+   Biblioteca, porque o voltar a percorre de trás para a frente) — faltava o
+   `z-index` dizer o mesmo. As duas coisas mudam juntas, sempre.
+   205 e não 210: ele fica ACIMA da Biblioteca e ABAIXO da folha da música,
+   que é exatamente a ordem daquela tabela. */
+#lyricsPopup { z-index: 205; }
 /* A folha da PLAYLIST AUTOMÁTICA abre de dentro da Biblioteca, como a da música
    — daí o degrau que o comentário abaixo reservava. Ela NÃO abre a folha da
    música por cima de si, então é a última linha de POPUPS e o degrau mais alto
@@ -4284,7 +4323,7 @@ main {
    `.song-menu-go` fica de fora: ele é o único botão primário da faixa e o
    preenchimento em accent é o que o torna a resposta. */
 .hymn-opcoes .song-menu-btn:not(.song-menu-go) { background: var(--gaveta-btn); }
-.hymn-gaveta :is(.hymn-lyrics, .item-detalhe) {
+.hymn-gaveta .item-detalhe {
   background: var(--gaveta-btn);
   margin: 0 .5rem .5rem;
 }
@@ -4361,40 +4400,12 @@ main {
 /* A METADE DE BAIXO da gaveta só aparece com `vendo-letra` (v5.286) — ver o
    botão irmão do confirmar em `montarOpcoes`. Ela é a mais alta das duas, e
    aberta por padrão empurrava as opções para longe do dedo em toda abertura,
-   quando o que se abre a gaveta para fazer é decidir. */
-.lib-item:not(.vendo-letra) > .hymn-gaveta > :is(.hymn-lyrics, .item-detalhe) { display: none; }
-.hymn-lyrics {
-  display: block; max-height: 40vh; overflow-y: auto;
-  margin: 0 .55rem .55rem; padding: .5rem .6rem;
-  border-radius: var(--radius-btn);
-  background: var(--bg);
-}
-/* Uma ESTROFE por bloco. O espaço entre blocos é o que a divide — mais
-   confiável que uma linha em branco, que some quando a estrofe já termina
-   perto do fim do bloco de rolagem. */
-.hymn-stanza + .hymn-stanza { margin-top: .7rem; }
-/* Rótulo da seção ("Refrão", "1ª Estrofe"): vem do `aux_lyric` do banco. Em
-   dourado e caixa alta pequena — é metadado, não letra a cantar, e precisa se
-   distinguir dela à primeira vista sem roubar o olho. */
-.hymn-stanza-label {
-  font-size: .68rem; font-weight: 800; letter-spacing: .06em;
-  text-transform: uppercase; color: var(--brand);
-  margin-bottom: .15rem;
-}
-.hymn-lyrics-line {
-  font-size: .88rem; line-height: 1.5; color: var(--text);
-  white-space: pre-line;
-}
-/* Linha que casou com a busca: o operador digitou o trecho para achá-lo, e
-   numa letra de 30 linhas procurá-lo de novo com os olhos é trabalho que o app
-   pode poupar. Fundo (e não só cor) porque a marca precisa ser achada de
-   relance, com a lista rolando. */
-.hymn-lyrics-line.hit {
-  background: var(--brand-soft); color: var(--brand-text);
-  font-weight: 700; border-radius: var(--radius-xs);
-  margin: .1rem -.25rem; padding: .1rem .25rem;
-}
-.hymn-lyrics-empty { font-size: .84rem; color: var(--muted); font-style: italic; }
+   quando o que se abre a gaveta para fazer é decidir.
+
+   Hoje ela só existe num VÍDEO: numa música a metade de baixo era a letra numa
+   caixa de texto, e ela saiu na v1.2.25 — quem quer ler abre o LEITOR, com
+   cifra, tom, corpo e rolagem. */
+.lib-item:not(.vendo-letra) > .hymn-gaveta > .item-detalhe { display: none; }
 
 /* ---------- A gaveta de um VÍDEO (v5.236) ---------- */
 /* A mesma caixa da letra, com o mesmo recuo e a mesma moldura: as duas
@@ -4693,6 +4704,19 @@ main {
    de propósito — é o único controle desta folha que o operador procura para
    mudar o app de cara, e ele é tocado com o polegar, não com a ponta do dedo. */
 .fit-seg--grande .fit-opt {
+  /* `--text`, E NÃO `--muted` — é o QUARTO DEGRAU da escada, medido (v1.3.0).
+     A `.fade-row--destaque` pinta `--camada` (o nível do `--panel-2`) e o
+     `.fit-opt` afunda `--surface` DENTRO dela: fundo → folha → destaque →
+     botão. É o caso que o DESIGN-SYSTEM já nomeia ("a escada tem três degraus,
+     e o quarto é o ESPAÇO"), e a conta bate com o aviso de lá — no tema CLARO
+     `--muted` sobre esse fundo (182,187,194) dá **3,47:1**, reprovando o piso
+     de 4,5 para texto pequeno. `--text` devolve **4,61:1** no claro e 9,24:1 no
+     escuro. A opção ATIVA não muda: `.fit-opt.active` vem depois, com a mesma
+     especificidade, e continua com `--on-accent` sobre o denim.
+     O degrau nasceu com a `--destaque` (v1.1.3) e passou despercebido porque as
+     medições à mão de `tokens.css` são de PARES DE TOKEN, e este fundo é uma
+     COMPOSIÇÃO — nenhum token tem esse valor. */
+  color: var(--text);
   padding: .8rem .4rem;
   font-size: .95rem;
 }
@@ -5462,20 +5486,21 @@ body.mode-simple .bottombar { display: none; }
   @keyframes eco-piscar { from { opacity: .9; } to { opacity: 0; } }
 }
 
-/* ---------- Espelho de pixels (v5.141) ---------- */
+/* ---------- O TELÃO POR COMANDOS: a folha de conexão ---------- */
 /* O telão inteiro em até três navegadores da rede local. Uma LINHA em
    Configurações e uma FOLHA — ver o comentário no HTML para por que são as
    duas coisas e não uma.
 
-   A folha abre DE DENTRO de Configurações, e por isso sobe um degrau: com o
-   mesmo z-index de todos, quem decidiria seria a ordem do documento, e é
-   justamente esse acaso que já cobriu um popup por inteiro aqui (o toque
-   parecia não fazer nada). O degrau é o mesmo de `#songMenuPopup`, que abre de
-   dentro do acervo pela mesma razão — as duas nunca coexistem. */
-/* A folha de CONECTAR UMA TELA abre da tela principal (o botão de cast), então
-   ela fica no 200 padrão — e a folha do espelho, que abre DE DENTRO dela,
-   continua no 210. O degrau é o mesmo que o leitor de QR já exigia, e
-   `tools/smoke.mjs` o afirma. */
+   (O cabeçalho dizia "Espelho de pixels (v5.141)" até a v1.2.29. Aquele recurso
+   foi REMOVIDO na v5.187 e o que ficou aqui é a folha do telão por comandos —
+   um cabeçalho que nomeia um mecanismo que não existe mais manda o próximo
+   leitor procurar o que não está lá.)
+
+   A folha de CONECTAR UMA TELA abre da tela principal (o botão de cast), então
+   ela fica no 200 padrão. O degrau acima dele existe para quem abre DE DENTRO
+   de outra folha: com o mesmo z-index de todos, quem decidiria seria a ordem do
+   documento, e é justamente esse acaso que já cobriu um popup por inteiro aqui
+   (o toque parecia não fazer nada) — ver `#lyricsPopup` e `#songMenuPopup`. */
 #castPopup { z-index: 200; }
 
 /* ---------- A folha de conexão: uma AÇÃO e um ESTADO ----------
@@ -5596,12 +5621,7 @@ body.mode-simple .bottombar { display: none; }
    atualização"), PREENCHIDO é a ação que muda alguma coisa ("Atualizar: base
    v… e app v…"). Desabilitado ele perde as duas — é o estado em que a hora é
    ruim, e o próprio rótulo diz o que ele está esperando. */
-/* E A `.diag-acao` É A MESMA FAIXA, para a bateria de testes da cifra (v1.2.8).
-   Mesma forma porque é a mesma coisa: uma ação de largura inteira no pé de
-   Configurações. Um segundo bloco copiado daqui divergiria no primeiro ajuste
-   de raio — o nome é que muda, porque `ota-row` fala do OTA. */
-.ota-row,
-.diag-acao {
+.ota-row {
   display: block; width: 100%;
   margin-top: 6px; padding: 8px 10px;
   border-radius: var(--radius-btn);
@@ -5613,8 +5633,7 @@ body.mode-simple .bottombar { display: none; }
   background: var(--accent-fill);
   color: var(--on-accent);
 }
-.ota-row:disabled,
-.diag-acao:disabled {
+.ota-row:disabled {
   background: var(--surface); color: var(--muted);
   cursor: default;
 }
