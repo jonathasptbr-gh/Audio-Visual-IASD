@@ -24,6 +24,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
+- **v1.2.5** — O NOME DO ÁLBUM É O ARTISTA DO SITE, e o diagnóstico tinha se calado sobre o motor novo. (1) MEDIDO: "Usa-me", do álbum **Adoradores 5**, mora em `/adoradores-5/usa-me/`. Vira a tentativa deduzível de melhor custo-benefício do recurso — não precisa de catálogo nem de rodízio, sai do dado que já está no item, e é UMA requisição. (2) O Registro reportava só o ÚLTIMO motor: um Registro real saiu com duas linhas `busca` e NENHUMA do `buscador`, que tinha sido consultado. Agora cada motor vira uma linha, com o status. (3) E o download em massa das cifras do hinário deixou de sobrescrever, a cada hino, a radiografia da página que o operador estava diagnosticando. OTA PURO
 - **v1.2.4** — A BUSCA DO PRÓPRIO CIFRA CLUB NUNCA TEVE COMO FUNCIONAR, e o Registro provou: `?q=<termo>` responde 425 kB, sabe qual foi a consulta (está no `<title>`), e os únicos links de duas partes na página são o índice A–Z e o "Academy" — os resultados são desenhados por JAVASCRIPT, que o `cifraHtml` não executa. A v1.1.22 achou que estava pegando o link errado; não havia link certo para pegar, e o seletor manual do operador estava travado pelo mesmo motivo. Passa a perguntar a um BUSCADOR (endpoint HTML do DuckDuckGo, com `site:` na consulta) — não o Google, cujas classes são aleatorizadas a cada implantação. Trocar de motor não troca o critério: o parentesco continua julgando. **EXIGE RELEASE v1.2.4**: shell 50 → 51, o host do buscador entra na allowlist do `CifraFonte`
 - **v1.2.3** — TRÊS AJUSTES DO OPERADOR, E O PRIMEIRO É UMA FOLHA QUE NÃO SE MEXE. (1) A ROLAGEM `AUTO` DA CIFRA PARAVA quando a música não estava tocando: a escolha entre "seguir o relógio" e "ritmo fixo" saía da BARRA DE PROGRESSO, que responde outra pergunta — `renderNowPlaying` a habilita pelo `kind` do item ATUAL, e `currentItem` sobrevive de propósito ao Parar, ao fim da faixa e a uma letra avulsa. Com duração sobre um telão vazio, o `auto` ancora a folha em `fracaoDaRolagem(0, dur)` e ela não sai mais do lugar, com o modo livre nunca sendo alcançado. A pergunta certa é `midiaNoAr`, a mesma do reenvio de cena e do Parar por camada. (2) O ITEM DO HISTÓRICO VAI AO TELÃO NO TOQUE — a recusa da v1.2.0 supunha um risco que não existe (um `click` não sai de um gesto que rolou a lista), e o que ela cobrava era uma linha permanente no Cronograma por uma repetição. (3) AS GAVETAS DE CONFIGURAÇÕES E DA PLAYLIST AUTOMÁTICA DESCEM DO TETO: a folha entra pela borda do BOTÃO que a abre, e os dois estão no alto. OTA PURO
 - **v1.2.2** — O RECADO NÃO GRAVAVA COM O ESPELHAMENTO LIGADO, que é o modo NORMAL de um culto com TV: `iniciarRecado` pedia o microfone UMA vez com `echoCancellation`, e o Android recusa a sessão de VOZ quando a saída de áudio está em outro caminho. O `startMic` do telão já pedia TRÊS, e o comentário que explica isso estava no arquivo lido para escrever o gravador — foi lido e não aplicado. O conserto não é a escada copiada: é o `mic-escada.test.mjs`, que cobra que as duas sejam idênticas, que os três degraus tenham as três propriedades (uma igualdade sozinha aprovaria duas escadas igualmente erradas) e que os dois consumidores PERCORRAM a escada — declarar três e usar o índice zero é o defeito original com mais linhas. OTA PURO
@@ -230,6 +231,65 @@ na nota que a revoga, não apagada da que a criou.
 - **v5.154** — é METADE OTA e METADE APK, e a divisão importa para quem for testar em aparelho.
 - **v5.155** — é OTA PURO
 - **v5.156** — é METADE OTA e METADE APK, de novo.
+
+---
+
+## v1.2.5 — o nome do álbum é o artista do site
+
+Três achados de um Registro só, e o primeiro é do operador.
+
+### O álbum do acervo É o artista do site
+
+```
+https://www.cifraclub.com.br/adoradores-5/usa-me/
+```
+
+"Usa-me" está no álbum **Adoradores 5**. O artista no site é `adoradores-5` — o
+nome do álbum, em slug. Isso põe a busca por álbum na mesma família do
+`CATALOGO` e dos `ARTISTAS_PADRAO`, e num degrau **melhor que os dois**:
+
+| | de onde sai |
+|---|---|
+| `CATALOGO` | uma linha por coleção, mantida à mão |
+| `ARTISTAS_PADRAO` | um rodízio fixo, uma requisição por entrada |
+| **`urlDoAlbum`** | **o dado que já está no item**, uma requisição |
+
+Nem todo álbum tem página — "Nunca Mais as Lágrimas" está sob `cd-jovem-2018`, e
+não sob "Fé e Ação". Errar custa um 404, o resto da cadeia roda como sempre, e
+acertar poupa a busca inteira. Terceira âncora real do oráculo, ao lado das do
+hinário e do CD Jovem.
+
+### O diagnóstico calou-se sobre o motor novo
+
+O Registro do mesmo aparelho, com o shell 51 já instalado:
+
+```
+busca …/?q=Usa-me → 0 resultado(s), 0 com parentesco
+busca …/?q=Usa-me Adoradores 5 → 0 resultado(s), 0 com parentesco
+```
+
+Duas linhas `busca` — a interna — e **nenhuma do `buscador`**, que tinha sido
+consultado antes de cada uma delas. `cifraBuscarNoSite` tentava os dois motores e
+devolvia só o ÚLTIMO, então o rótulo do primeiro nunca chegava ao diário.
+
+**Não se diagnostica um motor que o diário não menciona.** É a segunda vez que um
+diagnóstico deste recurso se cala exatamente sobre o que se queria medir — a
+primeira foi a radiografia da v1.1.29, que amostrava só o que passava no filtro.
+Agora cada motor vira uma linha, e ela leva o **status**: `HTTP 0` é "não
+respondeu" e `HTTP 403` é "recusou o agente", dois consertos opostos que a linha
+do shell não separa (ela guarda só a última requisição de todas, que quase nunca
+é a da busca).
+
+### E o trabalho de massa apagava o diagnóstico do operador
+
+O bloco da estrutura mostrava um hino qualquer
+(`/novo-hinario-adventista/jesus-esta-esperando/`) no lugar da página de busca
+que a linha acima nomeava. A radiografia é um slot só, e o download das cifras do
+hinário roda em segundo plano com seis trabalhadores: a cada hino ele
+sobrescrevia a página que o operador estava tentando diagnosticar.
+
+`cifraPedir(url, mudo)` — o trabalho de massa não fala no Registro. **Um
+diagnóstico com um escritor de fundo não é um diagnóstico**, é uma corrida.
 
 ---
 

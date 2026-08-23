@@ -1918,6 +1918,14 @@ a congregação vê continua sendo a letra, pelo caminho de sempre.
   duas metades, e a segunda (o conteúdo NÃO sair) é a que protege o contrato de
   um campo novo acrescentado sem pensar. Só o caso `ilegivel` a grava: no
   caminho feliz ela sobrescreveria a página que interessa.
+- **O NOME DO ÁLBUM É O ARTISTA DO SITE** (`AVCifra.urlDoAlbum`, v1.2.5), e esta
+  é a tentativa deduzível de melhor custo-benefício do recurso. MEDIDO:
+  "Usa-me", do álbum **Adoradores 5**, mora em `/adoradores-5/usa-me/`. Ela não
+  precisa de catálogo para manter nem de rodízio fixo — **sai do dado que já
+  está no item**, e é uma requisição. Vem antes dos artistas padrão porque é
+  mais específica. Nem todo álbum tem página ("Nunca Mais as Lágrimas" está sob
+  `cd-jovem-2018`, não sob "Fé e Ação"): errar custa um 404 e o resto da cadeia
+  roda como sempre.
 - **OS CDs OFICIAIS TÊM ENDEREÇO DEDUZÍVEL TAMBÉM** (`AVCifra.ARTISTAS_PADRAO`).
   Os álbuns do acervo são dezenas ("Missão", "Salmos", "Adoradores"…) e no site
   caem todos sob a coleção **Ministério Jovem** — a mesma forma do `CATALOGO`,
@@ -1952,6 +1960,11 @@ a congregação vê continua sendo a letra, pelo caminho de sempre.
     entra endereço do Cifra Club, conferido por HOST (invariante 2): um
     resultado patrocinado apontando para `cifraclub.com.br.exemplo.com` viraria
     a folha do culto se a conferência fosse por prefixo.
+  - **TODO MOTOR TENTADO VIRA UMA LINHA do Registro, com o STATUS** (v1.2.5). A
+    primeira versão reportava só o ÚLTIMO, e um Registro real saiu com duas
+    linhas `busca` e nenhuma do `buscador` — que tinha sido consultado. Não se
+    diagnostica um motor que o diário não menciona, e `HTTP 0` (não respondeu) e
+    `HTTP 403` (recusou o agente) pedem consertos opostos.
   - **A busca interna FICA, em último lugar.** Ela custa uma requisição e hoje
     devolve zero; se o site voltar a desenhar no servidor, volta a funcionar
     sozinha, e o Registro segue acumulando a resposta dela. O primeiro motor que
@@ -3122,7 +3135,7 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: v1.2.4** (base web) · **v1.2.4** (APK) · `SHELL_VERSION` **51** · bundle com
+**Versão atual: v1.2.5** (base web) · **v1.2.4** (APK) · `SHELL_VERSION` **51** · bundle com
 `minShell: 51` — o shell 51 é o **PISO**: todo método da ponte existe, e não há
 guarda de versão no lado web. O que continua valendo é que `java/`, `res/`, o
 manifest e os workflows **só chegam instalando o APK**.

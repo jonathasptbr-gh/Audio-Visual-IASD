@@ -1,5 +1,13 @@
 [
   {
+    "versao": "1.2.5",
+    "itens": [
+      "O NOME DO ÁLBUM PASSA A SER TENTADO COMO ENDEREÇO. No Cifra Club, “Usa-me” do álbum Adoradores 5 mora em /adoradores-5/usa-me/ — o nome do álbum É o artista lá. Agora ele é tentado direto, antes de qualquer busca, e é uma requisição só.",
+      "O Registro passou a mostrar TODOS os buscadores tentados, com o código de resposta de cada um. Antes ele mostrava só o último, e o buscador novo não aparecia em lugar nenhum mesmo tendo sido consultado.",
+      "E o download das cifras do hinário deixou de apagar, em segundo plano, o diagnóstico da busca que você estava fazendo."
+    ]
+  },
+  {
     "versao": "1.2.4",
     "itens": [
       "A BUSCA DE CIFRA PASSA A USAR UM BUSCADOR. A busca do próprio Cifra Club desenha os resultados por JavaScript, então o app nunca via nenhum — a página que ele recebia só tinha o índice A–Z. Agora a procura é feita num buscador, com o site travado na consulta.",

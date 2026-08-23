@@ -184,6 +184,26 @@
     return ARTISTAS_PADRAO.map((a) => urlDaMusica(a, nome)).filter(Boolean);
   }
 
+  /**
+   * O ÁLBUM DO ACERVO COMO ARTISTA DO SITE (v1.2.5).
+   *
+   * MEDIDO, e é o achado que mais barato compra acerto: "Usa-me", do álbum
+   * **Adoradores 5**, mora em `/adoradores-5/usa-me/`. O nome do álbum, em
+   * slug, É o artista lá — para os CDs que têm página própria.
+   *
+   * Isso o põe na mesma família do [CATALOGO] e dos [ARTISTAS_PADRAO], e num
+   * degrau melhor que os dois: o catálogo precisa de uma linha por coleção, os
+   * artistas padrão são um rodízio fixo, e este **sai do dado que já está no
+   * item**. Uma requisição, sem ranking de ninguém escolhendo por nós.
+   *
+   * **Nem todo álbum tem página** — "Nunca Mais as Lágrimas" está sob
+   * `cd-jovem-2018`, não sob "Fé e Ação". Errar custa um 404 e o resto da
+   * cadeia roda como sempre; acertar poupa a busca inteira.
+   */
+  function urlDoAlbum(album, nome) {
+    return urlDaMusica(album, nome);
+  }
+
   // A BUSCA GENÉRICA — o "qualquer música". Sem catálogo e sem palpite de
   // slug: quem procura é o site.
   /**
@@ -979,7 +999,7 @@
     OK, MOTIVO_SEM_REDE, MOTIVO_NAO_TEM, MOTIVO_RECUSOU, MOTIVO_ILEGIVEL,
     normalizar, semNumero, slug, decodificar,
     urlDoHino, urlDaMusica, urlDeBusca,
-    ARTISTAS_PADRAO, urlsPadrao,
+    ARTISTAS_PADRAO, urlsPadrao, urlDoAlbum,
     pareceAcorde, transporAcorde, transporLinha, transporTom,
     lerFolha, lerPagina, lerBusca, somenteLetra,
     ordenarBusca, parentesco, ehCaminhoDeMusica, radiografia,
