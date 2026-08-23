@@ -1218,11 +1218,10 @@ mixer (`#lyricsViewBtn`, folha com linhas) abre um bottom-sheet **com scroll**
   isso *parece* funcionar.
 
   **A cadeia de tentativas é UMA** (`cifraProcurar`) e tem dois consumidores: a
-  aba, e a **bateria de testes** do pé de Configurações — um botão que sorteia
-  uma ou duas músicas de cada álbum, roda a mesma cadeia e escreve no Registro
-  quais álbuns ela alcança e por qual degrau, com TODOS os endereços tentados
-  nos que falharam. É o que responde *"para quais álbuns o site mudou de
-  endereço?"* sem depender de alguém topar com a falha no sábado.
+  aba, e a **varredura do acervo** que guarda as cifras no aparelho. Ela é quem
+  responde *"para quais álbuns o site não tem cifra?"* — o Registro mostra, por
+  coleção, quantas foram achadas, quantas o site tem sem cifra e quantas não têm
+  página, com exemplos nomeados e o endereço tentado.
 
   A barra do topo da folha carrega **quatro** controles, e a ordem é a de uso:
   a rolagem automática e a velocidade (usadas durante a música inteira) antes do

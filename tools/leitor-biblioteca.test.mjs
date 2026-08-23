@@ -1,30 +1,20 @@
 #!/usr/bin/env node
 // ============================================================================
-// A BATERIA DE TESTES DA CIFRA — ela mede a REDE, e nomeia o que falhou
+// O LEITOR DA BIBLIOTECA: A MESMA FOLHA, SEM TELÃO
 //
-// ## Por que ela precisa de oráculo
+// A folha de letra/cifra nasceu presa ao `currentItem` — ela era o auxiliar de
+// leitura da CENA —, e por isso ler uma música exigia PROJETÁ-LA. O músico quer
+// o contrário: abrir a cifra no ensaio sem que a congregação veja nada.
 //
-// A bateria é um DIAGNÓSTICO, e um diagnóstico não falha calado: ele falha
-// **continuando a responder**, com a frase errada. É a mesma classe do
-// Registro, e por isso a mesma exigência.
+// Três coisas podem falhar aqui, e as três calam:
 //
-// Três modos de errar, todos mudos, todos travados aqui:
+//  1. a folha mostrar a música ERRADA (a da cena, não a que se pediu);
+//  2. alguma coisa ir ao TELÃO — o defeito que o recurso existe para não ter,
+//     e o único que não deixa rastro na tela de quem abriu a folha;
+//  3. o relógio da cena governar a rolagem de OUTRA música, o que não erra
+//     alto: a folha anda, só que no compasso errado.
 //
-//  1. **Ela mede o DISCO em vez da rede.** Sem o `semDisco`, cada hino do
-//     hinário volta "✓ guardada no aparelho" — a bateria declara o acervo
-//     saudável sem ter feito uma requisição sequer, que é o oposto do que o
-//     operador pediu. O caso semeia o disco com uma folha RECONHECÍVEL e
-//     exige que o resultado venha do catálogo.
-//  2. **A falha não diz onde ela tentou.** É a lista de endereços que
-//     transforma um "✗" em conserto: com ela na mão o operador acha a música
-//     no site, quase sempre sob outro artista, e fixa o endereço. Sem ela
-//     sobra uma reclamação.
-//  3. **Ela apaga a radiografia do operador.** Dezenas de procuras seguidas,
-//     com `cifraGuardarEstrutura` num slot por endereço: sem o `mudo`, a
-//     bateria enterra a página que o operador está diagnosticando — o mesmo
-//     defeito que já mordeu este recurso três vezes.
-//
-//   node tools/cifra-bateria.test.mjs
+//   node tools/leitor-biblioteca.test.mjs
 // ============================================================================
 import { chromium } from 'playwright';
 import http from 'node:http';
@@ -165,156 +155,6 @@ try {
     delete collState['hymnal-1996'];
   });
 
-  const albuns = await pg.evaluate(() => cifraAlbunsDaBateria().map((c) => c.name));
-  checar(albuns.length === 5, 'a bateria vê os cinco acervos com faixa', albuns);
-
-  // O TETO POR ÁLBUM. Três faixas plantadas, duas sorteadas — e SEM REPETIR,
-  // que é o que um sorteio com reposição erraria calado (o mesmo hino medido
-  // duas vezes e o terceiro nunca).
-  const amostra = await pg.evaluate(() => {
-    const c = allCollections().find((x) => x.id === 'album-a1');
-    const n = cifraAmostraDoAlbum(c).map((s) => s.name);
-    return { n, unicos: new Set(n).size };
-  });
-  checar(amostra.n.length === 2, 'sorteia no máximo duas faixas por álbum', amostra.n);
-  checar(amostra.unicos === 2, 'e não repete a mesma faixa', amostra);
-
-  // ---- O DISCO SEMEADO, com uma folha RECONHECÍVEL -----------------------
-  // Se a bateria ler o disco, o tom volta "Z" e a via volta `aparelho`. É a
-  // armadilha do caso 1, e ela tem de ficar intocada.
-  await pg.evaluate(async () => {
-    const disco = {};
-    for (const s of collSongs('hymnal-2022')) {
-      disco[cifraChaveNoDisco(s.name)] = {
-        url: 'https://www.cifraclub.com.br/DO-DISCO/', em: 1,
-        pagina: { titulo: s.name, artista: '', tom: 'Z', linhas: [{ tipo: 'letra', texto: 'do disco' }] },
-      };
-    }
-    await AVDB.setState('cifras:hymnal-2022', disco);
-    cifraDiscoColl = ''; cifraDisco = null;
-  });
-
-  // ---- A BATERIA ---------------------------------------------------------
-  await pg.evaluate(() => { cifraEstruturas = []; window.__urls = []; return cifraRodarBateria(); });
-  const r = await pg.evaluate(() => ({
-    total: cifraBateria.total,
-    albuns: cifraBateria.albuns,
-    pronto: !!cifraBateria.pronto,
-    itens: cifraBateria.itens.map((i) => ({
-      album: i.album, nome: i.nome, ok: i.ok, via: i.via, motivo: i.motivo,
-      url: i.url, tentativas: i.tentativas, radiografia: i.radiografia,
-    })),
-    ilegiveis: cifraBateria.ilegiveis,
-    estruturas: cifraEstruturas.length,
-    urls: window.__urls,
-    texto: cifraBateriaTexto(),
-    guardada: null,
-  }));
-  checar(r.pronto && r.total === 10 && r.itens.length === 10,
-    'dez músicas medidas — duas de cada um dos cinco acervos', { total: r.total, n: r.itens.length });
-
-  const hino = r.itens.filter((i) => i.album.includes('inário') || i.album.includes('inario'));
-  const um = r.itens.filter((i) => i.album === 'Marcador Um');
-  const dois = r.itens.filter((i) => i.album === 'Marcador Dois');
-  const tres = r.itens.filter((i) => i.album === 'Marcador Tres');
-  const quatro = r.itens.filter((i) => i.album === 'Marcador Quatro');
-  checar(hino.length === 2 && um.length === 2 && dois.length === 2 && tres.length === 2
-    && quatro.length === 2, 'e cada acervo aparece com as suas duas',
-    { hino: hino.length, um: um.length, dois: dois.length, tres: tres.length, quatro: quatro.length });
-
-  // 1. ELA MEDE A REDE, NÃO O DISCO.
-  checar(hino.every((i) => i.ok && i.via === 'catalogo'),
-    'o hino volta pelo CATÁLOGO, com o disco semeado por baixo — a bateria mede a rede',
-    hino.map((i) => i.via));
-  checar(r.urls.some((u) => /novo-hinario-adventista/.test(u)),
-    'e a requisição do catálogo de fato saiu', r.urls.filter((u) => /hinario/.test(u)).slice(0, 2));
-  checar(!r.itens.some((i) => i.via === 'aparelho'),
-    'nenhum resultado veio do aparelho — `semDisco` é o que faz a medição valer',
-    r.itens.map((i) => i.via));
-
-  // O DEGRAU DO ÁLBUM, que é o achado que a v1.2.5 comprou: o nome do álbum do
-  // acervo É o artista do site.
-  checar(um.every((i) => i.ok && i.via === 'album'),
-    'o álbum-como-artista aparece nomeado no resultado', um.map((i) => i.via));
-
-  // 2. A FALHA DIZ ONDE TENTOU — é isto que transforma um "✗" em conserto.
-  checar(dois.every((i) => !i.ok), 'o álbum que não existe no site falha', dois.map((i) => i.ok));
-  checar(dois.every((i) => (i.tentativas || []).length >= 2),
-    'e a falha carrega TODOS os endereços tentados', dois.map((i) => (i.tentativas || []).length));
-  checar(dois.every((i) => i.tentativas.some((t) => /marcador-dois/.test(t))
-    && i.tentativas.some((t) => /ministerio-jovem/.test(t))),
-    'o álbum E os artistas padrão estão na lista, com o desfecho de cada um',
-    dois[0] && dois[0].tentativas);
-  checar(um.every((i) => !(i.tentativas || []).length),
-    'o SUCESSO não carrega a cadeia — ali o que interessa é o degrau que venceu',
-    um.map((i) => (i.tentativas || []).length));
-
-  // 3. A RADIOGRAFIA DO OPERADOR FICA INTACTA. O terceiro álbum responde 200
-  // ilegível, que é o ÚNICO desfecho que grava estrutura.
-  checar(tres.every((i) => !i.ok && i.motivo === 'ilegivel'),
-    'o terceiro álbum abre a página e o parser não a entende', tres.map((i) => i.motivo));
-  checar(r.estruturas === 0,
-    'e a bateria NÃO escreve radiografia — sem `mudo` ela enterra o diagnóstico do operador',
-    r.estruturas);
-
-  // 3b. MAS ELA TRAZ A FORMA DAS PÁGINAS QUE NÃO ENTENDEU, no resultado DELA.
-  // Sem isto a pergunta que a bateria existe para responder — "o site mudou de
-  // marcação, ou aquelas músicas não têm cifra?" — fica sem resposta.
-  const comRadio = r.itens.filter((i) => i.radiografia);
-  checar(comRadio.length > 0,
-    'a bateria traz a radiografia das páginas ilegíveis, no resultado dela',
-    comRadio.length);
-  checar(comRadio.every((i) => /<pre>/.test(i.radiografia) && /caractere/.test(i.radiografia)),
-    'e ela é a FORMA da página: contagens e tamanhos', comRadio[0] && comRadio[0].radiografia);
-  checar(comRadio.every((i) => !/sem folha nenhuma aqui/.test(i.radiografia)),
-    'sem um pedaço do conteúdo — o Registro sai do aparelho, o conteúdo de terceiro não');
-  checar(r.ilegiveis >= comRadio.length,
-    'e o TOTAL de ilegíveis é contado, mesmo além do teto de radiografias',
-    { ilegiveis: r.ilegiveis, comRadio: comRadio.length });
-
-  // 4. O SITE SÓ TEM A LETRA — outro desfecho, outra ação. Achatá-lo em
-  // `ilegivel` manda investigar um parser certo e faz o download do hinário
-  // rebater a mesma música toda sessão, para sempre.
-  checar(quatro.every((i) => !i.ok && i.motivo === 'sem-cifra'),
-    'o quarto álbum responde uma página de LETRA, e o motivo diz isso',
-    quatro.map((i) => i.motivo));
-  // A RADIOGRAFIA VALE PARA O "SÓ LETRA" TAMBÉM (v1.2.16). Ela era poupada ali
-  // porque "já se sabia o que a página era" — e essa certeza caiu: o operador
-  // conferiu à mão que o Hinário 2022 tem 100% das cifras no site, e ~309 hinos
-  // voltaram como `so-letra`. Ou o endereço não leva à página que pensamos, ou
-  // a marcação não significa o que supusemos, e as duas só se distinguem
-  // VENDO A FORMA da página.
-  checar(quatro.some((i) => i.radiografia),
-    'a página de "só letra" também gasta radiografia — o veredito virou suspeito',
-    quatro.map((i) => !!i.radiografia));
-
-  // ---- O BLOCO DO REGISTRO ----------------------------------------------
-  checar(/\d+ ✓ \/ \d+ ✗/.test(r.texto), 'o bloco abre com o placar', r.texto.split('\n')[0]);
-  checar(r.texto.includes('Marcador Dois') && r.texto.includes('marcador-dois'),
-    'o álbum que falhou aparece com os endereços tentados, e é por eles que o operador acha a música à mão');
-  checar(r.texto.includes('catálogo do hinário') && r.texto.includes('álbum como artista'),
-    'e os degraus vencedores saem por extenso, não pela chave', r.texto.slice(0, 400));
-  // NADA DE CONTEÚDO. O Registro existe para ser COPIADO para fora, e o
-  // contrato deste recurso é LER cifra de terceiro no aparelho, nunca
-  // distribuí-la. Uma linha da folha aqui furaria isso em silêncio.
-  checar(!r.texto.includes('linha de marcador'),
-    'e nenhum pedaço de folha entra no Registro', r.texto.slice(0, 200));
-
-  // O QUE SOBREVIVE AO APP FECHADO — o valor da bateria é ser lida DEPOIS.
-  const guardado = await pg.evaluate(async () => {
-    const v = await AVDB.getState('cifraBateria');
-    return v && Array.isArray(v.itens) ? v.itens.length : -1;
-  });
-  checar(guardado === 10, 'o resultado fica guardado no banco, não só em memória', guardado);
-
-  // O BOTÃO diz o placar: o resultado mora no Registro, que não tem visor —
-  // sem ele, tocar e não ver nada é indistinguível de o botão não fazer nada.
-  const rotulo = await pg.evaluate(() => {
-    const el = document.getElementById('cifraBateriaRow');
-    return { texto: el ? el.textContent : '', escondido: el ? el.hidden : true };
-  });
-  checar(!rotulo.escondido && /✓/.test(rotulo.texto) && /✗/.test(rotulo.texto),
-    'e o botão mostra o placar da última bateria', rotulo);
   // ---- O LEITOR DA BIBLIOTECA: A MESMA FOLHA, SEM TELÃO (v1.2.14) --------
   //
   // A folha nasceu presa ao `currentItem`, então ler uma música exigia

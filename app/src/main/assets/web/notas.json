@@ -1,5 +1,11 @@
 [
   {
+    "versao": "1.2.23",
+    "itens": [
+      "A bateria de testes de cifra saiu de Configurações. Ela existia para descobrir a quais álbuns a procura não chegava — e a varredura do acervo inteiro passou a responder isso sozinha, no Registro, com exemplos nomeados e o endereço tentado."
+    ]
+  },
+  {
     "versao": "1.2.22",
     "itens": [
       "O Provai e Vede e o Informativo Mundial das Missões passaram a PROCURAR o episódio deste sábado toda vez que o app abre. Enquanto ele não estiver na lista, o app repergunta ao canal; assim que ele entra, para de perguntar — não há download nem varredura pesada, é só a listagem sendo conferida.",

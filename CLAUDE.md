@@ -1899,7 +1899,7 @@ a congregação vê continua sendo a letra, pelo caminho de sempre.
     NOSSA regra de slug errando — conserto de uma linha no `cifra.js`. Num álbum
     a ausência é o caso normal (MEDIDO: 35% de acerto contra 95% no hinário), e
     listar centenas de nomes enterraria o Registro sem dizer nada novo.
-  - **A VARREDURA PULA A BUSCA DO SITE** (`semBusca`). MEDIDO na bateria: toda
+  - **A VARREDURA PULA A BUSCA DO SITE** (`semBusca`). MEDIDO no acervo: toda
     linha `busca …` devolveu `0 resultado(s)` — os resultados são desenhados por
     JavaScript. Ela custa duas requisições por música e, em massa, dobraria a
     varredura para não achar nada. Na aba ela FICA: lá é a última carta da
@@ -2059,7 +2059,7 @@ a congregação vê continua sendo a letra, pelo caminho de sempre.
   - **O que passou a achar as músicas são os endereços DEDUZÍVEIS**: o catálogo
     do hinário, o álbum-como-artista e os artistas padrão — uma requisição cada,
     sem ranking de ninguém escolhendo por nós. É neles que o esforço vale, e é
-    isso que a bateria de testes mede.
+    isso que a varredura mostra no Registro.
   - **A busca interna FICA, em último lugar.** Ela custa a requisição que já
     custava e hoje devolve zero; se o site voltar a desenhar no servidor, volta
     a funcionar sozinha, e o Registro segue acumulando a resposta dela.
@@ -2109,7 +2109,7 @@ a congregação vê continua sendo a letra, pelo caminho de sempre.
   `recusou`, `ilegivel`, `sem-cifra`) e cinco frases, porque cada um pede uma
   ação diferente.
 - **`sem-cifra` É A METADE QUE FALTAVA DO `ilegivel`** (`AVCifra.varianteSemCifra`,
-  v1.2.12, generalizado na v1.2.20). MEDIDO numa bateria: ~12 das 85 falhas eram endereços que EXISTEM,
+  v1.2.12, generalizado na v1.2.20). MEDIDO numa varredura: ~12 das 85 falhas eram endereços que EXISTEM,
   respondendo 200 com centenas de kB e nenhum `<pre>` — o site tem a LETRA
   daquela música e não a cifra. Chamar isso de "não entendi" é falso nos dois
   sentidos: manda investigar um parser que está certo, e faz o download do
@@ -2323,49 +2323,6 @@ a congregação vê continua sendo a letra, pelo caminho de sempre.
   o web tentou e o que o parser entendeu de cada um, mais o status que o shell
   recebeu. O caso que só as duas juntas resolvem é `HTTP 200` + `ilegivel` — a
   página está lá, a rede está boa, e o `cifra.js` é que precisa de um lote novo.
-
-### A bateria de testes (v1.2.8)
-
-**A cadeia de tentativas é UMA (`cifraProcurar`), e a bateria é o segundo
-consumidor dela** — a mesma razão do `cifraCabe`: uma segunda escrita da cadeia
-divergiria no primeiro ajuste, e a bateria passaria a medir um app que não
-existe. Ela devolve `via`, o degrau que VENCEU, e é esse campo que a bateria
-colhe: *"achou"* e *"achou pelo catálogo"* respondem perguntas diferentes.
-
-O acervo é FIXO e ANTIGO — os álbuns não ganham faixa nova e os nomes não mudam
-—, então a pergunta que sobra não é "a regra está certa?" e sim **"para quais
-álbuns a cadeia de endereços não chega?"**. Ela só tem uma resposta honesta:
-medindo. Um toque em Configurações sorteia **uma ou duas músicas de cada
-álbum**, roda a cadeia e escreve o bloco `Cifra (bateria de testes)`.
-
-- **A FALHA IMPRIME TODOS OS ENDEREÇOS TENTADOS; o sucesso, uma linha.** Um "✗
-  não achei" é uma reclamação — a lista de endereços é trabalho de campo: com
-  ela o operador abre o site, acha a música (quase sempre sob outro artista) e
-  fixa o endereço à mão, ou traz o padrão para virar regra no `cifra.js`.
-- **`semDisco`: ela mede a REDE.** Ler o cache responde outra pergunta, e
-  responderia "✓" para todo o hinário — justamente o acervo que já se sabe que
-  funciona. Sem essa guarda a bateria declara o acervo saudável sem ter feito
-  uma requisição.
-- **`mudo`: ela não escreve radiografia.** São dezenas de procuras seguidas, e
-  sem a guarda a última enterra a página que o operador está diagnosticando — o
-  mesmo defeito que já mordeu este recurso três vezes.
-- **A RADIOGRAFIA das páginas ilegíveis vem no resultado DELA**
-  (`CIFRA_BATERIA_RADIOS`, v1.2.12). Ela é `mudo` e por isso não escrevia a forma
-  de nenhuma das páginas que não entendeu — e sem a forma, a pergunta que a
-  bateria existe para responder (*"o site mudou de marcação, ou aquelas músicas
-  não têm cifra?"*) fica sem resposta. Quatro, não todas: páginas da mesma classe
-  são iguais entre si. **O corte não é silencioso** — o bloco diz quantas
-  ficaram de fora. A página de LETRA não gasta radiografia: já se sabe o que ela é.
-- **O SORTEIO é a cada execução**, de propósito: rodá-la em sábados diferentes
-  varre o acervo aos poucos, sem custar centenas de requisições de uma vez. Três
-  frentes, e não as seis do resto: cada unidade daqui é uma CADEIA de até meia
-  dúzia de requisições ao mesmo site.
-- **O resultado é guardado no `state`** — o valor dele é ser lido DEPOIS, e o
-  Registro pode ser copiado horas mais tarde. Gravado também no meio do
-  caminho, senão um app fechado antes do fim jogaria fora tudo o que já mediu.
-- **O botão mostra o PLACAR da última bateria.** O resultado mora no Registro,
-  que não tem visor: sem o placar, tocar e não ver nada mudar é indistinguível
-  de o botão não fazer nada.
 
 > **O que o oráculo NÃO cobre, dito:** as fixtures do `cifra.test.mjs` são
 > SINTÉTICAS (nenhum conteúdo de terceiro entra neste repositório), então elas
@@ -2970,7 +2927,7 @@ mundo anterior por outro caminho.
 | `historico.test.mjs` | **o histórico do culto**, uma lista que se preenche sozinha no ponto mais quente do app (`send`) e cujos três modos de errar são mudos: não registrar (a folha abre vazia depois de um culto inteiro), registrar demais (`repeat: 'one'` enterrando o culto em cópias do mesmo nome) e oferecer ao Cronograma um id que o coletor já recolheu — este só aparece no sábado seguinte |
 | `gaveta-no-download.test.mjs` | a GAVETA DA LINHA contra o redesenho do progresso — o único lugar do acervo em que o operador DECIDE, e o redesenho remontava a lista por baixo dela a cada 400 ms. MUDO nos dois tempos: aberta, ela some sem erro nenhum; ABRINDO (há um `await` do IndexedDB entre o toque e o `expanded`), o `li` vira órfão e o toque não faz nada. Quatro metades, e a primeira é o HAZARD — sem ela as outras provariam que uma função concorda consigo mesma |
 | `cifra-offline.test.mjs` | **a cifra guardada do hinário abre SEM REDE**, e **a gravação MESCLA em vez de substituir**. A primeira promessa é operacional e falha calada: sem a leitura do disco o app cai no caminho de rede e, COM rede, a folha aparece igual — pela porta errada. Por isso a asserção é `cifraHtml` NÃO ter sido chamado, com a ponte respondendo "sem rede" a tudo; a outra metade prova que o que NÃO está guardado ainda vai à rede. A segunda trava o defeito que apagou 275 cifras de um aparelho: a asserção é a PROPRIEDADE (uma mescla não pode produzir zero a partir de 275), não o interleaving que mordeu daquela vez |
-| `cifra-bateria.test.mjs` | **a bateria de testes da cifra** — um DIAGNÓSTICO não falha calado, falha CONTINUANDO A RESPONDER com a frase errada. Três guardas, as três provadas por reversão: sem `semDisco` ela mede o cache e declara o acervo saudável sem uma requisição sequer; sem a lista de endereços tentados, a falha vira reclamação em vez de trabalho de campo; sem `mudo` ela enterra a radiografia que o operador foi buscar. E o bloco do Registro não pode levar um pedaço de folha junto |
+| `leitor-biblioteca.test.mjs` | **a folha de qualquer música da Biblioteca, SEM telão.** Ler deixou de exigir projetar, e três coisas falham calado: a folha mostrar a música da CENA em vez da pedida; alguma coisa ir ao TELÃO — o único defeito que não deixa rastro na tela de quem abriu a folha, e por isso o oráculo afirma ZERO comandos no barramento; e o relógio da cena governar a rolagem de OUTRA música, que não erra alto: a folha anda, no compasso errado |
 | `cifra-teclado.test.mjs` | **o teclado virtual contra o campo de busca da cifra**. O teclado é um `resize`, e o `resize` remede a folha — que refaz a aba e destrói o `<input>` com foco; sem foco o teclado FECHA, e o fechamento é outro `resize`. Nada erra: sai um teclado que pisca e some, e o seletor fica inalcançável. Ele injeta a PONTE e abre o popup de verdade, porque montado num nó solto ele passava com a guarda REMOVIDA |
 | `destinos.test.mjs` | o que está marcado atravessa o fechamento da folha — a ação roda depois de `closeSongMenu()`, que zera o conjunto |
 | `hinario-tela.test.mjs` | as seções do hinário **da tabela até a tela**. O `hinario.test.mjs` trava a REGRA; este, a LIGAÇÃO. Dois casos não gritam: os cabeçalhos moram na MESMA `<ul>` das faixas, e uma retomada de paginação que contasse os FILHOS pularia um hino por cabeçalho (hinos sumindo do meio da lista); e o hinário de 1996 tem outra numeração, então um "Infantis" sobre o 508 DELE ninguém nota olhando o hinário certo |
@@ -3349,7 +3306,7 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: v1.2.22** (base web) · **v1.2.17** (APK) · `SHELL_VERSION` **55** · bundle com
+**Versão atual: v1.2.23** (base web) · **v1.2.17** (APK) · `SHELL_VERSION` **55** · bundle com
 `minShell: 55` — o shell 55 é o **PISO**: todo método da ponte existe, e não há
 guarda de versão no lado web. O que continua valendo é que `java/`, `res/`, o
 manifest e os workflows **só chegam instalando o APK**.
