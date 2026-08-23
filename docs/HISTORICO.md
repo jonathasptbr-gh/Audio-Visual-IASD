@@ -24,6 +24,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
+- **v1.2.24** — O ÍCONE DO HISTÓRICO DEIXOU DE SER O RELÓGIO DO CRONOGRAMA. Pedido do operador: *"ajuste o ícone do botão de histórico do player, para que ele seja sobre histórico, mas diferente do cronograma"*. Os dois eram o MESMO mostrador redondo — a aba é `circle r=9` + ponteiros, e o botão era o mesmo mostrador, os mesmos ponteiros e uma seta anti-horária pequena. A 20px o que se lê é a SILHUETA, não o detalhe, e engrossar a seta seria um meio-conserto: dois desenhos redondos a poucos centímetros um do outro continuam gêmeos. Agora é o TRILHO COM OS NÓS — a linha do tempo do que já foi ao telão, que é literalmente o que a lista daquele botão contém. Descartados e por quê: a seta circular sozinha vira o "sincronizar" do card de álbum, a seta com o ▶ dentro vira "tocar de novo", e a lista com marcadores não diz tempo nenhum — o que a separa do `icoTexto`, dois botões abaixo na MESMA coluna, é não ter moldura e ter os nós. Conferido RENDERIZADO a 20px contra os dois vizinhos. OTA PURO
 - **v1.2.23** — A BATERIA DE TESTES DE CIFRA SAIU. Ela nasceu para responder "para quais álbuns a cadeia de endereços não chega?" quando o arquivo de cifras valia só para os dois hinários e não havia como medir o resto. A varredura do acervo INTEIRO passou a responder isso sozinha e melhor: o Registro mostra, por coleção, quantas foram achadas, quantas o site tem sem cifra e quantas não têm página — com exemplos NOMEADOS e o endereço tentado, sobre o acervo todo em vez de duas amostras por álbum. Um segundo caminho que responde a mesma pergunta com menos dados é um caminho a menos. O oráculo dela guardava os casos do LEITOR DA BIBLIOTECA, que cobrem recurso vivo: eles ganharam arquivo próprio (`tools/leitor-biblioteca.test.mjs`). OTA PURO
 - **v1.2.22** — O APP PROCURA O EPISÓDIO DESTE SÁBADO, EM VEZ DE ESPERAR O TTL. Pedido do operador: *"faça o provai e vede e o informativo das missões serem atualizados, em especial buscando apenas o vídeo dessa semana, busca de se atualizar diretamente quando o app é aberto… não para baixar o vídeo nem nada, apenas verificar a listagem"*. O TTL de 12 h responde *"a lista envelheceu?"*; a pergunta de quem abre o app é outra — *"já saiu o vídeo deste sábado?"* —, e um índice de onze horas atrás é FRESCO para o primeiro e pode ser de antes da publicação. O **Provai e Vede** era o caso puro: sem a regra do dia (que só vale para quem esconde o futuro), só o TTL o reconferia. Agora, enquanto faltar o episódio da semana, o índice está vencido — e **a procura se desarma sozinha** assim que ele entra, que é o que separa "procurar o que falta" de "revarrer sempre". Quem responde é `AVSerie.ehDoSabadoAtual`, a MESMA função do destaque (duas contas de calendário divergiriam — o defeito da v1.2.19). Três guardas a mantêm invisível: piso de 30 min (o `visibilitychange` chama o mesmo caminho dezenas de vezes por culto), a primeira passada da SESSÃO ignorando o piso (o pedido ao pé da letra) e só o ANO CORRENTE. Nada baixa vídeo: roda `fetchSerieIndex`, que só refaz a lista. OTA PURO
 - **v1.2.21** — O VEREDITO ESTAVA CERTO; O TETO É QUE NÃO SABIA. O operador abriu as duas páginas que a radiografia nomeou e conferiu: `teu-divinal-amor` tem só a letra no site mesmo, e a de "partituras para teclado" não tem cifra nenhuma. Ou seja, `so-letra` acertava — e as ~309 recusadas pelo teto eram respostas boas jogadas fora, com a varredura recomeçando do zero a cada abertura. O teto SAI: ele é estruturalmente errado, porque a passada só cobre o que FALTA e a proporção de ausências tende a 100% num acervo saudável. Quem protege continua sendo o marcador POSITIVO da página e o prazo de 30 dias. Junto, o veredito virou `sem-cifra` e passou a cobrir também a PARTITURA — que era `ilegivel` e por isso reperguntada toda sessão. OTA PURO
@@ -249,6 +250,56 @@ na nota que a revoga, não apagada da que a criou.
 - **v5.154** — é METADE OTA e METADE APK, e a divisão importa para quem for testar em aparelho.
 - **v5.155** — é OTA PURO
 - **v5.156** — é METADE OTA e METADE APK, de novo.
+
+---
+
+## v1.2.24 — o histórico deixou de ser o relógio do cronograma
+
+Pedido do operador: *"ajuste o ícone do botão de histórico do player, para que
+ele seja sobre histórico, mas diferente do cronograma"*.
+
+### O que estava errado
+
+A aba **Cronograma** é um relógio (`circle r=9` + ponteiros, v5.200). O botão de
+**Histórico** era o mesmo mostrador, os mesmos ponteiros e uma seta
+anti-horária pequena no canto. É o par canônico do Material (`schedule` ×
+`history`) — e é justamente por ser canônico que ninguém tinha olhado para ele
+com o olho de quem opera: **a 20px o que se lê é a silhueta, não o detalhe**, e
+as duas silhuetas eram a mesma bola.
+
+Engrossar a seta seria um meio-conserto. Dois desenhos redondos a poucos
+centímetros um do outro continuam gêmeos — a mesma lição do `icoSorteio`, que
+recusou as setas cruzadas por já haver um `shuffle` na mesma tela.
+
+### O desenho que ficou
+
+O **trilho com os nós**: uma linha vertical fina com três nós e um traço à
+direita de cada um. Ele diz o que a lista daquele botão de fato é — a
+**sequência** do que já foi projetado neste culto, em ordem —, e a silhueta
+aberta não disputa com nada:
+
+| vizinho | por que não se confunde |
+|---|---|
+| aba Cronograma | ela é redonda; este é vertical e aberto |
+| `icoTexto` (dois botões abaixo, MESMA coluna) | aquele é uma folha com moldura e linhas de comprimentos desiguais; aqui não há moldura, as barras são iguais, e o que assina o desenho são os NÓS |
+| `syncIconSvg` (card de álbum) | duas setas circulares — a razão de a seta anti-horária sozinha ter sido descartada |
+
+Descartados, e cada um por um motivo próprio: a **seta circular sozinha** vira o
+"sincronizar"; a **seta com o ▶ dentro** vira "tocar de novo" (`replay`); a
+**lista com marcadores** não diz tempo nenhum — sem o trilho isto seria um
+`format_list_bulleted`.
+
+Os nós são `h.01` com ponta redonda (o truque do `icoCast` e do `icoSorteio`: o
+consumidor pinta com `fill="none"`, e um `<circle>` cheio sairia vazado) e levam
+espessura própria — **4 contra 1,3 do trilho**, medido: com o trilho na
+espessura padrão (2) os nós se fundem nele e o que sai é uma lagarta, não contas
+num fio.
+
+**Um desenho, duas referências:** o símbolo serve o botão do mixer e o cabeçalho
+da folha, que é a razão de este sprite existir.
+
+Conferido **renderizado** a 20px (o tamanho real dos dois consumidores) contra o
+relógio da aba e o `icoTexto`, e não só no código.
 
 ---
 
