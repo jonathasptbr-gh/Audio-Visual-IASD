@@ -3881,8 +3881,17 @@ main {
 .folder-count--st { background: var(--accent-soft); color: var(--accent); font-variant-numeric: tabular-nums; }
 
 /* ---------- Rodapé do popup (Nova pasta) ---------- */
+/* O RITMO É O DA FOLHA, e ele tem UM número: `.9rem` (v1.3.1). Relato do
+   operador: *"os itens de versão e registro estão muito colados nessas bordas,
+   e com distância diferente dos outros elementos"*. MEDIDO em 430px: toda
+   `.fade-row` da folha começa a 14,4px de cada lado, e este rodapé a 11,2px —
+   3,2px a menos, o bastante para o olho ver duas colunas onde há uma. A base
+   era o mesmo caso: 9,6px contra os 16px que o corpo (`.fade-opts`) reserva
+   abaixo da última linha.
+   `.popup-footer` existe num lugar só (o `#fadePopup`), então alinhá-lo ao
+   corpo é alinhá-lo a tudo o que está acima dele. */
 .popup-footer {
-  padding: .6rem .7rem;
+  padding: .7rem .9rem .9rem;
   flex-shrink: 0;
 }
 /* Botão largo genérico do bottom-sheet (nova pasta, sincronizar, cancelar,
@@ -4928,7 +4937,14 @@ main {
    alcançá-lo exigia rolar de volta ao topo — brigando com a rolagem que se
    queria parar. O alinhamento horizontal é o MESMO da caixa (`.9rem`), senão a
    barra e o texto passariam a ser duas colunas diferentes. */
-.lyricsview-bar { margin: 0 .9rem .5rem; }
+/* E ELA PRECISA RESPIRAR NOS DOIS LADOS (v1.3.1). Com `margin-top: 0` ela
+   encostava no seletor Letra/Bíblia/Cifra: MEDIDO em 430px, 3,2px acima (só o
+   `padding-bottom` do seletor) contra 8px abaixo — apertada, e assimétrica ao
+   lado de vizinhos que respiram ~11px. O tom e os botões de rolagem são a
+   linha que se olha durante a música inteira; ficar espremida entre duas
+   fileiras de botões é o que faz o dedo errar o alvo.
+   Agora: 10,4px acima (3,2 do seletor + 7,2 daqui) e 9,6px abaixo. */
+.lyricsview-bar { margin: .45rem .9rem .6rem; }
 .lyricsview-bar[hidden] { display: none; }
 .lv-cifra-topo {
   display: flex; align-items: center; justify-content: space-between; gap: .6rem;
@@ -5027,7 +5043,16 @@ main {
    menos principal desta aba (quem a abre quer LER a cifra), e com corpo de
    botão cobrava altura de uma caixa cuja única função é mostrar texto. Sem
    `--hit`: não é alvo de culto, é uma nota de rodapé que por acaso é tocável. */
-.lv-cifra-rodape { display: flex; justify-content: flex-end; margin-top: .5rem; }
+/* O `gap` NÃO É ENFEITE: sem ele os dois links encostam e o olho lê UMA
+   palavra. Relato do operador: *"o texto errado 'Trocarver' no cifras club"* —
+   era o "Trocar" e o "Ver no Cifra Club" sem nada entre eles. Vale para os dois
+   rodapés desta aba (o outro põe "Esquecer a escolhida" ao lado de "Abrir o
+   site"), e é por isso que a folga mora aqui, no contêiner, e não num dos
+   botões: um rodapé novo já nasce separado. */
+.lv-cifra-rodape {
+  display: flex; justify-content: flex-end; align-items: baseline;
+  gap: 1.1rem; margin-top: .5rem;
+}
 .lv-cifra-link {
   border: none; background: none; padding: .15rem 0;
   color: var(--accent); font-size: .82rem; font-weight: 600;
