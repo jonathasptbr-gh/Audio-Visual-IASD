@@ -819,8 +819,25 @@ let micSrc = null;
 let micGain = null;
 const MIC_RAMP = 0.12; // s — entrada/saída sem estalo
 
-function micStatus(on, error) {
-  AVDB.sendCommand({ type: 'mic-status', on: !!on, error: error || '' });
+function micStatus(on, error, degraus) {
+  const m = { type: 'mic-status', on: !!on, error: error || '' };
+  // OS DEGRAUS SÓ VIAJAM NA FALHA: no sucesso o Controle não tem o que fazer com
+  // eles, e o `mic-status` sai a cada transição.
+  if (degraus && degraus.length) m.degraus = degraus;
+  AVDB.sendCommand(m);
+}
+
+// OS DISPOSITIVOS DE ENTRADA, com rótulo. O rótulo só existe depois de uma
+// permissão concedida — antes disso o navegador o esconde por privacidade —,
+// então esta lista é lida DEPOIS das tentativas, quando ela diz algo sobre o
+// aparelho em vez de sobre a política do navegador.
+async function micDispositivos() {
+  try {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) return [];
+    const ds = await navigator.mediaDevices.enumerateDevices();
+    return ds.filter((d) => d.kind === 'audioinput')
+      .map((d) => ({ deviceId: d.deviceId, label: d.label || '' }));
+  } catch (_) { return []; }
 }
 
 // Token da captura EM VOO. `micStream` sozinho não servia como guarda: ele só
@@ -860,16 +877,26 @@ async function startMic() {
     { echoCancellation: false, noiseSuppression: false, autoGainControl: false },
     true,
   ];
+  const QUAL = ['com eco', 'sem eco', 'cru'];
   let stream = null;
   let ultimoErro = 'error';
+  let ultimaMsg = '';
   let semEco = false;
+  const degraus = [];
   for (let i = 0; i < TENTATIVAS.length; i++) {
     try {
       stream = await navigator.mediaDevices.getUserMedia({ audio: TENTATIVAS[i], video: false });
       semEco = i > 0;
+      degraus.push({ qual: QUAL[i] || String(i), erro: '' });
       break;
     } catch (e) {
       ultimoErro = (e && e.name) || 'error';
+      // A MENSAGEM, e não só o nome. `NotReadableError` é o balde genérico do
+      // WebRTC; a frase que vem junto é do Chromium e costuma nomear a etapa
+      // que falhou. Sem ela o Registro empata em "não abriu" e a investigação
+      // vira adivinhação — que foi o que aconteceu por três rodadas.
+      ultimaMsg = (e && e.message) ? String(e.message).slice(0, 120) : '';
+      degraus.push({ qual: QUAL[i] || String(i), erro: ultimoErro, msg: ultimaMsg });
       // PERMISSÃO NEGADA não melhora com menos processamento: é resposta do
       // sistema (ou do `MicChromeClient`), e insistir só gasta duas chamadas
       // para dar o mesmo erro. Qualquer outra falha é candidata a ser o
@@ -879,9 +906,37 @@ async function startMic() {
       if (seq !== micSeq || !micWanted) break;
     }
   }
+  // O ÚLTIMO RECURSO: pedir o dispositivo PELO ID, em vez de deixar o navegador
+  // escolher o "default". Não é a mesma pergunta — o `default` do Chromium é uma
+  // entrada virtual que segue o roteamento do sistema, e ela pode falhar
+  // enquanto o dispositivo físico abre. Só roda depois de a escada de
+  // restrições ter se esgotado, e só se houver um id para pedir.
+  if (!stream && ultimoErro !== 'NotAllowedError' && ultimoErro !== 'SecurityError'
+      && (seq === micSeq && micWanted)) {
+    for (const d of await micDispositivos()) {
+      if (!d.deviceId || d.deviceId === 'default') continue;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          audio: { deviceId: { exact: d.deviceId } }, video: false,
+        });
+        semEco = true;
+        degraus.push({ qual: 'id ' + (d.label || d.deviceId).slice(0, 24), erro: '' });
+        break;
+      } catch (e) {
+        ultimoErro = (e && e.name) || 'error';
+        ultimaMsg = (e && e.message) ? String(e.message).slice(0, 120) : '';
+        degraus.push({ qual: 'id ' + (d.label || d.deviceId).slice(0, 24), erro: ultimoErro, msg: ultimaMsg });
+      }
+      if (seq !== micSeq || !micWanted) break;
+    }
+  }
   if (!stream) {
-    diag('microfone recusado: ' + ultimoErro);
-    micStatus(false, ultimoErro);
+    diag('microfone recusado: ' + ultimoErro + (ultimaMsg ? ' — ' + ultimaMsg : ''));
+    // OS DEGRAUS VÃO JUNTO, e é o que impede o Registro do CELULAR de mentir:
+    // ele via um `mic-status` com um erro só e concluía "falhou antes de esgotar
+    // a escada" — quando o telão tinha rodado a escada inteira. O consumidor não
+    // tinha como saber, porque a informação nunca saiu daqui.
+    micStatus(false, ultimoErro, degraus);
     return;
   }
   if (semEco) diag('microfone SEM cancelamento de eco (o modo com eco foi recusado)');

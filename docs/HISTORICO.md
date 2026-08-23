@@ -24,6 +24,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
+- **v1.2.8** — O PEDIDO PELO ID DO DISPOSITIVO, E O REGISTRO QUE DAVA UM VEREDITO ERRADO: o Registro da v1.2.7 mostrou `entradas de áudio: 1` com os três degraus em `NotReadableError` — o que mata o interruptor de privacidade (daria zero) E o processamento (o pedido CRU foi negado). Sobrou uma pergunta que a escada nunca fez: o `default` do Chromium não é o microfone, é uma entrada virtual que segue o roteamento do sistema. Os dois caminhos passam a pedir cada entrada pelo `deviceId` com `exact`, pulando o default. E o `micStatus` mandava só o erro FINAL: o Controle via UMA tentativa e imprimia "falhou antes de esgotar a escada" — enquanto o telão tinha rodado as três. O Registro não ficava em branco, ele continuava respondendo com a frase errada. Mais a MENSAGEM do erro e o RÓTULO de cada entrada. OTA PURO
 - **v1.2.7** — A LINHA DO TEMPO ESTAVA CONGELADA, E POR ISSO O MICROFONE ERA INVISÍVEL: `diagLinhas` era montada dentro do `juntarDiag`, que só roda quando o TELÃO responde ao `diag-ask` — e o anel do celular continua crescendo depois disso, e continua crescendo mesmo SEM TELÃO, caso em que o `diag-ask` nem sai. MEDIDO num Registro real: a linha do tempo terminava no instante em que a TV caiu, com três tentativas de microfone depois dela e nada indicando que faltava algo. A junção passou para a hora de DESENHAR. Mais o bloco "Microfone (última tentativa)", que nomeia cada degrau com o erro dele, conta as entradas de áudio e dá um VEREDITO exclusivo — o caminho de falha da captura não registrava NADA, e o que sobrava era uma frase que acusa a causa menos provável. OTA PURO
 - **v1.2.6** — A RADIOGRAFIA PASSA A SER UMA POR ENDEREÇO, e é a TERCEIRA vez que este diagnóstico se cala sobre o que se queria medir. Uma procura tenta vários endereços; com um slot só, a última escrita apagava as anteriores — e o que sobrava era sempre a página menos interessante. MEDIDO: o `buscador` respondeu **HTTP 202** (a recusa anti-robô do DuckDuckGo) e a estrutura dela foi sobrescrita pela busca interna que rodou logo depois; o Registro dizia "202" numa linha e mostrava OUTRA página embaixo. Agora guarda uma por endereço, com teto, e o `registro.test.mjs` cobra isso — provado por reversão. OTA PURO
 - **v1.2.5** — O NOME DO ÁLBUM É O ARTISTA DO SITE, e o diagnóstico tinha se calado sobre o motor novo. (1) MEDIDO: "Usa-me", do álbum **Adoradores 5**, mora em `/adoradores-5/usa-me/`. Vira a tentativa deduzível de melhor custo-benefício do recurso — não precisa de catálogo nem de rodízio, sai do dado que já está no item, e é UMA requisição. (2) O Registro reportava só o ÚLTIMO motor: um Registro real saiu com duas linhas `busca` e NENHUMA do `buscador`, que tinha sido consultado. Agora cada motor vira uma linha, com o status. (3) E o download em massa das cifras do hinário deixou de sobrescrever, a cada hino, a radiografia da página que o operador estava diagnosticando. OTA PURO
@@ -233,6 +234,72 @@ na nota que a revoga, não apagada da que a criou.
 - **v5.154** — é METADE OTA e METADE APK, e a divisão importa para quem for testar em aparelho.
 - **v5.155** — é OTA PURO
 - **v5.156** — é METADE OTA e METADE APK, de novo.
+
+---
+
+## v1.2.8 — o pedido pelo ID do dispositivo, e o Registro que dava um veredito errado
+
+O Registro da v1.2.7 fez o trabalho dele e derrubou duas hipóteses de uma vez:
+
+```
+microfone (recado) RECUSADO em 3 tentativa(s): com eco=NotReadableError ·
+sem eco=NotReadableError · cru=NotReadableError · entradas de áudio: 1
+microfone (ao vivo) RECUSADO em 1 tentativa(s): telão=NotReadableError
+```
+
+**`entradas de áudio: 1`** mata o interruptor de privacidade do sistema (ele
+daria zero). E os três degraus recusados matam o processamento — com o pedido
+CRU negado, não sobrava restrição a afrouxar. Falha nos DOIS WebViews, com a
+permissão concedida e o dispositivo à vista.
+
+### O QUE SOBROU PARA TENTAR
+
+O `default` do Chromium **não é o microfone**: é uma entrada virtual que segue o
+roteamento do sistema. Falhar nela não é o mesmo que falhar no dispositivo — e é
+a única pergunta que a escada de restrições nunca fez.
+
+Depois de esgotada a escada, os dois caminhos agora enumeram as entradas e pedem
+cada uma **pelo `deviceId`, com `exact`**, pulando o `default` (repeti-lo seria a
+mesma pergunta que acabou de falhar). É uma pergunta nova, não uma repetição.
+
+### O REGISTRO DAVA UM VEREDITO SOBRE UMA ESCADA QUE ELE NÃO VIU
+
+`micStatus` mandava só o erro FINAL. O Controle via uma tentativa e imprimia
+*"falhou antes de esgotar a escada (o operador soltou o botão…)"* — e o telão
+tinha rodado as três. A informação nunca saiu do telão, e o consumidor preencheu
+a lacuna com um palpite.
+
+É a falha que este projeto teme mais: o Registro não fica em branco, ele
+**continua respondendo, com a frase errada**, para quem está a distância e não
+tem como conferir. Agora os degraus viajam no `mic-status`, e o veredito de
+fallback deixou de afirmar interrupção — ele enumera as causas possíveis,
+inclusive "o bundle do telão é antigo e não reporta os degraus".
+
+### E DUAS COISAS QUE FALTAVAM AO DIAGNÓSTICO
+
+- **A MENSAGEM do erro, não só o nome.** `NotReadableError` é o balde genérico do
+  WebRTC; a frase que o Chromium anexa costuma nomear a etapa que falhou.
+  Truncada em 120 caracteres, porque um Registro é copiado inteiro.
+- **O RÓTULO de cada entrada de áudio.** Ele só existe com a permissão
+  concedida, então a presença dele já responde metade da pergunta — e o nome
+  responde a outra metade: um fone Bluetooth ausente eleito como entrada padrão
+  produz exatamente `NotReadableError` com o dispositivo ainda listado.
+
+O `mic-escada.test.mjs` passou a cobrar as três metades novas nos DOIS caminhos:
+a tentativa por ID, a mensagem guardada, e o telão mandando os degraus.
+
+### O QUE AINDA NÃO SE SABE, DITO
+
+Se o pedido por ID também falhar, o app terá esgotado o que dá para tentar do
+lado web: permissão concedida, dispositivo enumerado e rotulado, todas as
+restrições afrouxadas, e o dispositivo pedido pelo nome. A pergunta seguinte é do
+SHELL — `AudioManager.getActiveRecordingConfigurations()` (público, sem
+permissão) diz se outro app está segurando o microfone, e `isMicrophoneMute` diz
+se ele está mudo no sistema. Isso custa um método de ponte, `SHELL_VERSION` e uma
+Release, e por isso não entrou aqui: primeiro o Registro precisa mostrar que a
+resposta não está do lado web.
+
+OTA PURO — `minShell` 51, sem `shellTag`.
 
 ---
 

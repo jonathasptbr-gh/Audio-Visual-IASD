@@ -1,5 +1,13 @@
 [
   {
+    "versao": "1.2.8",
+    "itens": [
+      "Quando o microfone não abre, o app tenta mais uma coisa: pedir o microfone PELO NOME do dispositivo, em vez de aceitar a escolha automática do navegador.",
+      "E o Registro passou a mostrar o nome de cada microfone que o aparelho oferece e a frase de erro do navegador — antes ele só dizia que não abriu.",
+      "O Registro também parou de dar um veredito errado sobre o microfone ao vivo: o telão tentava três vezes e só contava uma."
+    ]
+  },
+  {
     "versao": "1.2.7",
     "itens": [
       "A LINHA DO TEMPO do Registro estava congelada: ela parava no instante em que a TV foi desconectada e não registrava mais nada. Agora ela é montada na hora de abrir o Registro, e vale também quando nunca houve TV.",

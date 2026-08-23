@@ -91,6 +91,40 @@ checar(/for\s*\(\s*let\s+i\s*=\s*0;\s*i\s*<\s*MIC_TENTATIVAS\.length/.test(contr
 checar(/for\s*\(\s*let\s+i\s*=\s*0;\s*i\s*<\s*TENTATIVAS\.length/.test(display),
   'e o AO VIVO também');
 
+// O ÚLTIMO RECURSO, nos dois: pedir o dispositivo PELO ID em vez de aceitar o
+// "default" do navegador. O `default` do Chromium é uma entrada virtual que
+// segue o roteamento do sistema, e ela pode falhar enquanto o dispositivo
+// físico abre — é uma pergunta diferente, não uma repetição da escada.
+//
+// Ele entrou depois de um Registro real em que os TRÊS degraus de restrição
+// deram `NotReadableError` com `entradas de áudio: 1`: com o dispositivo à
+// vista e a permissão concedida, não havia mais restrição a afrouxar.
+for (const [nome, src] of [['ao vivo', display], ['recado', controle]]) {
+  checar(/deviceId:\s*\{\s*exact:/.test(src),
+    'o ' + nome + ' tenta o dispositivo PELO ID depois da escada — o "default" do '
+    + 'navegador é uma entrada virtual, e falhar nele não é falhar no microfone');
+  checar(/d\.deviceId === 'default'\)\s*continue/.test(src),
+    'e PULA o "default" nessa volta: repeti-lo seria a mesma pergunta que já falhou');
+}
+
+// A MENSAGEM DO NAVEGADOR, nos dois: `NotReadableError` é o balde genérico do
+// WebRTC, e sem a frase que vem junto o Registro empata em "não abriu".
+for (const [nome, src] of [['ao vivo', display], ['recado', controle]]) {
+  checar(/e\.message\)\s*\?\s*String\(e\.message\)\.slice\(0, 120\)/.test(src),
+    'o ' + nome + ' guarda a MENSAGEM do erro, não só o nome — e a trunca, porque um '
+    + 'Registro é copiado inteiro');
+}
+
+// E O TELÃO PRECISA MANDAR OS DEGRAUS ao Controle. Sem isso o Registro do
+// celular via UMA tentativa e concluía "falhou antes de esgotar a escada" —
+// enquanto o telão tinha rodado a escada inteira. Um veredito errado é pior que
+// veredito nenhum, e este Registro é lido a distância.
+checar(/micStatus\(false, ultimoErro, degraus\)/.test(display),
+  'o telão MANDA os degraus no `mic-status` da falha — sem eles o Registro do celular '
+  + 'dá um veredito sobre uma escada que ele não viu');
+checar(/Array\.isArray\(msg\.degraus\)/.test(controle),
+  'e o Controle os LÊ, caindo num degrau genérico só quando o bundle do telão é antigo');
+
 // A DESISTÊNCIA ANTECIPADA, nos dois: permissão negada não melhora com menos
 // processamento, e insistir gasta duas chamadas para dar o mesmo erro.
 for (const [nome, src] of [['ao vivo', display], ['recado', controle]]) {
