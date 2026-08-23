@@ -4914,6 +4914,27 @@ lugares: `indiceVencido` vence o índice na virada do dia (só nas séries com
 segundo, a economia devolveria a lista de ontem — sem o episódio de hoje —
 carimbada como de hoje, que é o sintoma da v5.233 por outra porta.
 
+**E O ÍNDICE É PROCURADO ENQUANTO FALTAR O EPISÓDIO DESTA SEMANA** (v1.2.22,
+`serieTemODaSemana` no `indiceVencido`). Vale para **as duas séries**, e é o que
+resgata o Provai e Vede — ele não tem a regra do dia acima, então só o TTL de
+12 h o reconferia, e um vídeo publicado na manhã de sábado podia não estar na
+lista do culto daquele mesmo sábado.
+
+| guarda | por quê |
+|---|---|
+| responde `AVSerie.ehDoSabadoAtual` | é a MESMA função do bloco de destaque — uma segunda conta de calendário divergiria dela, que é o defeito da v1.2.19 |
+| piso de `SERIE_PROCURA_MIN_MS` (30 min) | `autoRefreshCollections` roda também no `visibilitychange`, e são dezenas de voltas ao app por culto |
+| `serieProcuraDaAbertura` | a PRIMEIRA passada da sessão ignora o piso: "quando o app é aberto" é o pedido, e uma carga de página é rara. Desarmada no `autoRefreshCollections`, nunca dentro do predicado |
+| `c.serie.ano === ano corrente` | em 2027 nenhum episódio do álbum de 2026 é "o desta semana"; sem ela, um álbum antigo na Biblioteca seria procurado para sempre |
+
+Ela **se desarma sozinha**: achado o episódio, a série volta a custar zero
+requisição até o TTL ou a virada da semana. Custa uma extração da aba do canal
+por procura — as ~12 das playlists continuam puladas pela assinatura enquanto a
+contagem não mudar. **Nada aqui baixa vídeo:** quem roda é `fetchSerieIndex`.
+O preço declarado é o episódio publicado SEM data no título: ele nunca satisfaz
+a pergunta, e a série segue sendo procurada de meia em meia hora — o conserto
+é a leitura da data, e o Registro já o nomeia (`! entrou SEM data`).
+
 **O índice falha com EXCEÇÃO, nunca com lista vazia.** Quem chama já trata isso
 como "sem internet — falha ao atualizar" e preserva o índice anterior; devolver
 zero itens apagaria da tela a série inteira que o operador já tem baixada, por

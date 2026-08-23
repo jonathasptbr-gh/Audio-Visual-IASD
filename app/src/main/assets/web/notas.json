@@ -1,5 +1,12 @@
 [
   {
+    "versao": "1.2.22",
+    "itens": [
+      "O Provai e Vede e o Informativo Mundial das Missões passaram a PROCURAR o episódio deste sábado toda vez que o app abre. Enquanto ele não estiver na lista, o app repergunta ao canal; assim que ele entra, para de perguntar — não há download nem varredura pesada, é só a listagem sendo conferida.",
+      "Antes a lista só era reconferida a cada 12 horas, e por isso um vídeo publicado de manhã podia não aparecer no culto do mesmo sábado."
+    ]
+  },
+  {
     "versao": "1.2.21",
     "itens": [
       "\"O site só tem a letra\" virou \"o site tem a página, mas não a cifra\" — e passou a cobrir também as páginas de PARTITURA, que antes eram tratadas como erro de leitura e por isso reperguntadas toda sessão.",

@@ -1671,6 +1671,24 @@ ser diagnosticável.
   22/Ago"), em **dois lugares**, porque são dois fluxos: o cartão sobre a preview
   ("Tocar agora" fecha a Biblioteca) e o card da série (pelo Cronograma ela
   continua aberta). Sem a frase, é indistinguível de queda de rede.
+- **E O APP PROCURA o episódio desta semana, em vez de esperar o TTL**
+  (`serieTemODaSemana`, no `indiceVencido`). O TTL de 12 h responde *"a lista
+  envelheceu?"*; a pergunta do operador ao abrir o app é outra — *"já saiu o
+  vídeo deste sábado?"* —, e um índice de onze horas atrás é FRESCO para o
+  primeiro e pode ser de antes da publicação. Enquanto o episódio faltar, o
+  índice está vencido; **achado, a procura se desarma sozinha** e a série volta
+  a custar zero requisição. Quem responde é `AVSerie.ehDoSabadoAtual`, a MESMA
+  função do bloco de destaque — duas contas de calendário divergiriam, e foi
+  uma divergência dessas que produziu o defeito da v1.2.19. Três guardas, e as
+  três são o que a mantém invisível: **piso de 30 min** entre procuras (o
+  `visibilitychange` chama o mesmo caminho dezenas de vezes por culto), **a
+  primeira passada da SESSÃO ignora o piso** (é o pedido ao pé da letra — uma
+  carga de página é rara e é o instante em que se pergunta), e **só o ANO
+  CORRENTE** (em 2027 nenhum episódio do álbum de 2026 é "o desta semana", e sem
+  a guarda um álbum antigo seria procurado para sempre). Nada aqui baixa vídeo:
+  roda `fetchSerieIndex`, que só refaz a LISTA. O preço declarado é o episódio
+  publicado SEM data no título — ele nunca satisfaz a pergunta, e a série é
+  procurada a cada meia hora até a data entrar no título.
 - **O QUE AINDA NÃO SAIU NÃO ENTRA NA LISTA** (campo `futuros`). O @daniellocutor
   sobe o trimestre inteiro e libera um por sábado; os que faltam aparecem na
   playlist e **não tocam**. A régua é a DATA (único sinal deste lado — o item de
@@ -3331,7 +3349,7 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: v1.2.20** (base web) · **v1.2.17** (APK) · `SHELL_VERSION` **55** · bundle com
+**Versão atual: v1.2.22** (base web) · **v1.2.17** (APK) · `SHELL_VERSION` **55** · bundle com
 `minShell: 55` — o shell 55 é o **PISO**: todo método da ponte existe, e não há
 guarda de versão no lado web. O que continua valendo é que `java/`, `res/`, o
 manifest e os workflows **só chegam instalando o APK**.
