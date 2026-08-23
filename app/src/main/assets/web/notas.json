@@ -1,5 +1,11 @@
 [
   {
+    "versao": "1.2.26",
+    "itens": [
+      "Correção: abrindo a folha de letra/cifra a partir de um item da Biblioteca, ela aparecia ATRÁS da Biblioteca, na tela principal. Agora ela abre por cima, e o botão voltar a fecha primeiro."
+    ]
+  },
+  {
     "versao": "1.2.25",
     "itens": [
       "O “Ver a letra” de um item da Biblioteca passou a abrir o LEITOR — a mesma folha do transporte, com a cifra, o tom, o corpo da fonte e a rolagem que acompanha a música — em vez da caixa de texto que ficava embaixo das opções de tocar.",

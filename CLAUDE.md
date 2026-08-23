@@ -2197,6 +2197,13 @@ a congregação vê continua sendo a letra, pelo caminho de sempre.
   - **Reusar o leitor, nunca reconstruí-lo na gaveta.** É a regra do
     `cifraCabe` e do `cifraProcurar`: uma segunda folha divergiria da primeira
     no primeiro ajuste, e quem tocasse por ela veria a versão de ontem.
+  - **E ELA ABRE POR CIMA DA BIBLIOTECA** (`#lyricsPopup { z-index: 205 }`,
+    v1.2.26). Todo `.popup-backdrop` é 200, e com o mesmo degrau quem decide é a
+    ORDEM DO DOCUMENTO — o `#lyricsPopup` está declarado ANTES do
+    `#hymnSearchPopup`, então a folha abria ATRÁS da tela que a chamou. A tabela
+    `POPUPS` já dizia a ordem certa (o leitor depois da Biblioteca, porque o
+    voltar a percorre de trás para a frente): **as duas dizem a mesma ordem, e
+    mudar uma sem a outra é o acaso que já cobriu um popup por inteiro aqui.**
   - **Nada projeta.** O alvo não toca em `currentItem`, não emite comando e não
     passa pelo `send` — o oráculo afirma ZERO comandos no barramento, que é a
     metade que falharia sem deixar rastro na tela de quem abriu a folha.
@@ -3311,7 +3318,7 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: v1.2.25** (base web) · **v1.2.17** (APK) · `SHELL_VERSION` **55** · bundle com
+**Versão atual: v1.2.26** (base web) · **v1.2.17** (APK) · `SHELL_VERSION` **55** · bundle com
 `minShell: 55` — o shell 55 é o **PISO**: todo método da ponte existe, e não há
 guarda de versão no lado web. O que continua valendo é que `java/`, `res/`, o
 manifest e os workflows **só chegam instalando o APK**.

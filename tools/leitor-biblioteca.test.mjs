@@ -229,6 +229,53 @@ try {
     'fechar a folha devolve o leitor à cena — o alvo é o desvio de UMA leitura',
     leitor.depoisDeFechar);
 
+  // ---- 4. E ELA FICA POR CIMA DA BIBLIOTECA (v1.2.26) --------------------
+  //
+  // O leitor é chamado de DENTRO da Biblioteca, que é outra camada. Os dois
+  // estavam no `z-index: 200` de todo `.popup-backdrop`, e com o mesmo degrau
+  // quem decide é a ORDEM DO DOCUMENTO — o `#lyricsPopup` está declarado ANTES
+  // do `#hymnSearchPopup`. O relato: *"estando na biblioteca, ele abre o pop da
+  // letra apenas na tela principal, atrás da biblioteca"*.
+  //
+  // A medição é um HIT-TEST DE VERDADE (`elementFromPoint` no centro da folha),
+  // e não uma comparação de `z-index`: é o que o dedo encontra que decide, e um
+  // número maior num contexto de empilhamento diferente não valeria nada. Duas
+  // metades, e a segunda é o que separa "está por cima" de "a Biblioteca
+  // sumiu": a Biblioteca continua ABERTA por baixo, que é o estado em que o
+  // voltar tem de fechar o leitor primeiro (a ordem da tabela `POPUPS`).
+  const porCima = await pg.evaluate(async () => {
+    openHymnSearch();
+    const coll = allCollections().find((c) => c.id === 'album-a1');
+    const faixa = collSongs('album-a1')[0];
+    openLyricsPopup(await lvItemDaBiblioteca(coll, faixa));
+    // A folha ENTRA animada (`transform`), e um hit-test no meio da animação
+    // acha o que estiver passando por ali. Esperar pelo FATO: a folha parada no
+    // lugar dela.
+    const folha = lyricsPopupEl.querySelector('.popup-sheet');
+    for (let i = 0; i < 60; i++) {
+      const t = getComputedStyle(folha).transform;
+      if (t === 'none' || /matrix\(1, 0, 0, 1, 0, 0\)/.test(t)) break;
+      await new Promise((r) => setTimeout(r, 25));
+    }
+    const c = folha.getBoundingClientRect();
+    const achado = document.elementFromPoint(
+      Math.round(c.left + c.width / 2), Math.round(c.top + c.height / 2));
+    const r = {
+      quemRecebeODedo: achado ? (achado.closest('.popup-backdrop') || {}).id || 'sem camada' : 'nada',
+      bibliotecaAberta: hymnSearchPopupEl.classList.contains('open'),
+      alturaDaFolha: Math.round(c.height),
+    };
+    closeLyricsPopup();
+    closeHymnSearch();
+    return r;
+  });
+  checar(porCima.alturaDaFolha > 0 && porCima.quemRecebeODedo === 'lyricsPopup',
+    'com a Biblioteca ABERTA, o leitor é quem recebe o dedo no meio da folha — '
+    + 'ele não abre atrás dela, na tela principal', porCima);
+  checar(porCima.bibliotecaAberta === true,
+    'e a Biblioteca continua aberta POR BAIXO: é a ordem da tabela `POPUPS`, em '
+    + 'que o voltar fecha o leitor primeiro', porCima);
+
 } finally {
   await navegador.close();
   servidor.close();

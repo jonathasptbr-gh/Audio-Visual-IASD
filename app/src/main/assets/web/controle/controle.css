@@ -3643,6 +3643,18 @@ main {
    (O `#collPopup` que dividia esta regra saiu na v5.72: as opções da coleção
    viraram um painel dentro do próprio card.) */
 #songMenuPopup { z-index: 210; }
+/* ---------- O LEITOR ABRE DE DENTRO DA BIBLIOTECA (v1.2.26) ----------
+   Mesmo caso, e ele mordeu: o auxiliar de leitura é chamado pela gaveta de uma
+   linha da Biblioteca, que é outra camada — e os dois estavam no `z-index: 200`
+   de todo `.popup-backdrop`. Com o mesmo degrau quem decide é a ORDEM DO
+   DOCUMENTO, e o `#lyricsPopup` está declarado ANTES do `#hymnSearchPopup`: a
+   folha abria por baixo da Biblioteca, isto é, na tela principal, atrás dela.
+   A tabela `POPUPS` do `controle.js` já dizia a ordem certa (o leitor DEPOIS da
+   Biblioteca, porque o voltar a percorre de trás para a frente) — faltava o
+   `z-index` dizer o mesmo. As duas coisas mudam juntas, sempre.
+   205 e não 210: ele fica ACIMA da Biblioteca e ABAIXO da folha da música,
+   que é exatamente a ordem daquela tabela. */
+#lyricsPopup { z-index: 205; }
 /* A folha da PLAYLIST AUTOMÁTICA abre de dentro da Biblioteca, como a da música
    — daí o degrau que o comentário abaixo reservava. Ela NÃO abre a folha da
    música por cima de si, então é a última linha de POPUPS e o degrau mais alto

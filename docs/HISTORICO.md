@@ -24,6 +24,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
+- **v1.2.26** — O LEITOR ABRIA ATRÁS DA BIBLIOTECA. Relato do operador: *"estando na biblioteca, ele abre o pop da letra apenas na tela principal, atrás da biblioteca"*. A folha é chamada de DENTRO da Biblioteca, que é outra camada, e as duas estavam no `z-index: 200` de todo `.popup-backdrop` — com o mesmo degrau quem decide é a ORDEM DO DOCUMENTO, e o `#lyricsPopup` está declarado ANTES do `#hymnSearchPopup`. A tabela `POPUPS` do `controle.js` já dizia a ordem certa (o leitor DEPOIS da Biblioteca, porque o voltar a percorre de trás para a frente); faltava o `z-index` dizer o mesmo — 205, acima da Biblioteca e abaixo da folha da música, que é exatamente aquela ordem. **As duas coisas mudam juntas, sempre.** O oráculo mede por HIT-TEST (`elementFromPoint` no centro da folha), não por comparação de `z-index`: é o que o dedo encontra que decide, e um número maior num contexto de empilhamento diferente não valeria nada. Provado por reversão. OTA PURO
 - **v1.2.25** — O "VER A LETRA" DA BIBLIOTECA ABRE O LEITOR. Pedido do operador: *"gostaria que esse botão nos itens da biblioteca, 'ver a letra', abrisse o mesmo modelo pup gaveta do auxiliar de leitura que já trabalha com letras e cifras… não quero mais apenas essa letra em uma caixa de texto abaixo das opções de play"*. A caixa era uma SEGUNDA leitura, pior que a que o app já tem: sem cifra, sem tom, sem corpo de fonte e sem rolagem. O mesmo botão passa a apontar o leitor do transporte para aquela faixa (`lvItemDaBiblioteca`), e nada vai ao telão. Com a caixa saem `montarLetra`, `botaoFolha`, `letraAlvo` e o CSS de `.hymn-lyrics*`. Três oráculos mudaram porque o COMPORTAMENTO mudou, e dois deles ganharam medição melhor: a guarda `abrindo` do `gaveta-no-download` passou a ser medida de DENTRO da montagem (uma propriedade, não uma janela de tempo — a janela sumiu na música e continua no vídeo), e a largura de dois estados do botão mudou de casa para o `boot-nativo`, que é o único harness que enxerga uma série. OTA PURO
 - **v1.2.24** — O ÍCONE DO HISTÓRICO DEIXOU DE SER O RELÓGIO DO CRONOGRAMA. Pedido do operador: *"ajuste o ícone do botão de histórico do player, para que ele seja sobre histórico, mas diferente do cronograma"*. Os dois eram o MESMO mostrador redondo — a aba é `circle r=9` + ponteiros, e o botão era o mesmo mostrador, os mesmos ponteiros e uma seta anti-horária pequena. A 20px o que se lê é a SILHUETA, não o detalhe, e engrossar a seta seria um meio-conserto: dois desenhos redondos a poucos centímetros um do outro continuam gêmeos. Agora é o TRILHO COM OS NÓS — a linha do tempo do que já foi ao telão, que é literalmente o que a lista daquele botão contém. Descartados e por quê: a seta circular sozinha vira o "sincronizar" do card de álbum, a seta com o ▶ dentro vira "tocar de novo", e a lista com marcadores não diz tempo nenhum — o que a separa do `icoTexto`, dois botões abaixo na MESMA coluna, é não ter moldura e ter os nós. Conferido RENDERIZADO a 20px contra os dois vizinhos. OTA PURO
 - **v1.2.23** — A BATERIA DE TESTES DE CIFRA SAIU. Ela nasceu para responder "para quais álbuns a cadeia de endereços não chega?" quando o arquivo de cifras valia só para os dois hinários e não havia como medir o resto. A varredura do acervo INTEIRO passou a responder isso sozinha e melhor: o Registro mostra, por coleção, quantas foram achadas, quantas o site tem sem cifra e quantas não têm página — com exemplos NOMEADOS e o endereço tentado, sobre o acervo todo em vez de duas amostras por álbum. Um segundo caminho que responde a mesma pergunta com menos dados é um caminho a menos. O oráculo dela guardava os casos do LEITOR DA BIBLIOTECA, que cobrem recurso vivo: eles ganharam arquivo próprio (`tools/leitor-biblioteca.test.mjs`). OTA PURO
@@ -253,6 +254,49 @@ na nota que a revoga, não apagada da que a criou.
 - **v5.156** — é METADE OTA e METADE APK, de novo.
 
 ---
+
+## v1.2.26 — o leitor abria ATRÁS da Biblioteca
+
+Relato do operador: *"apenas verifique, pois estando na biblioteca, ele abre o
+pop da letra apenas na tela principal, atrás da biblioteca"*.
+
+### A causa
+
+Todo `.popup-backdrop` deste app é `z-index: 200`. Os popups que abrem **de
+dentro de outro** ganham um degrau próprio — `#songMenuPopup` (210) e
+`#sorteioPopup` (220) —, e o comentário do CSS diz por quê: com o mesmo degrau
+quem decide é a **ordem do documento**, "e é justamente o tipo de acaso que já
+cobriu um popup por inteiro aqui".
+
+Foi esse acaso outra vez. O `#lyricsPopup` está declarado no `index.html`
+**antes** do `#hymnSearchPopup`, então a Biblioteca pintava por cima dele — a
+folha abria, respondia e ficava invisível, na tela principal, atrás da tela que
+a chamou.
+
+O defeito é anterior à v1.2.25: nasceu na v1.2.14, quando a gaveta ganhou o
+botão que aponta o leitor para uma faixa da Biblioteca. A v1.2.25 apenas o pôs
+no caminho de todo mundo — antes ele estava atrás de um terceiro botão.
+
+**A tabela `POPUPS` do `controle.js` já estava certa**: o leitor vem DEPOIS da
+Biblioteca ali, porque o voltar a percorre de trás para a frente e fecha o
+primeiro aberto. Faltava o `z-index` dizer a mesma coisa. É a regra que os dois
+comentários vizinhos já enunciavam — *as duas coisas dizem a mesma ordem, e
+mudar uma sem a outra é o acaso que já cobriu um popup por inteiro aqui*.
+
+### A correção
+
+`#lyricsPopup { z-index: 205; }` — acima da Biblioteca, abaixo da folha da
+música, que é exatamente a ordem da tabela.
+
+### O oráculo
+
+`leitor-biblioteca.test.mjs` ganhou o caso, e ele mede por **hit-test**
+(`elementFromPoint` no centro da folha, depois de esperar a animação de entrada
+terminar), nunca por comparação de `z-index`: é o que o dedo encontra que
+decide, e um número maior dentro de outro contexto de empilhamento não valeria
+nada. Duas metades — o leitor recebe o toque **e** a Biblioteca continua aberta
+por baixo, que é o que separa "está por cima" de "a Biblioteca sumiu". Provado
+por reversão: sem a linha, quem recebe o dedo é o `hymnSearchPopup`.
 
 ## v1.2.25 — o "Ver a letra" da Biblioteca abre o LEITOR
 
