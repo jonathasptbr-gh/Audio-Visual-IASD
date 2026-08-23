@@ -244,7 +244,7 @@ const appVersionEl = document.getElementById('appVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.2.8';
+const WEB_VERSION = '1.2.9';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -5027,8 +5027,8 @@ const MIC_TENTATIVAS = [
 //   NotAllowedError                → permissão, e a frase de sempre serve.
 let micUltima = null;   // { origem, quando, degraus:[{qual,erro}], entradas, ok }
 
-function micRegistrar(origem, degraus, entradas, ok) {
-  micUltima = { origem, quando: Date.now(), degraus, entradas, ok };
+function micRegistrar(origem, degraus, disp, ok) {
+  micUltima = { origem, quando: Date.now(), degraus, disp: disp || null, ok };
   const falhas = degraus.filter((d) => d.erro);
   if (ok) {
     if (falhas.length) {
@@ -5041,17 +5041,18 @@ function micRegistrar(origem, degraus, entradas, ok) {
   // incomodou" e "o sistema não entrega o microfone", e ela decide o que fazer.
   diagC('microfone (' + origem + ') RECUSADO em ' + degraus.length + ' tentativa(s): '
     + degraus.map((d) => d.qual + '=' + d.erro).join(' · ')
-    + ' · entradas de áudio: ' + (entradas === null ? '?' : entradas));
+    + ' · entradas de áudio: ' + (disp === null || disp === undefined ? '?' : disp.length));
 }
 
 // QUANTOS MICROFONES O NAVEGADOR ENXERGA. Zero separa "o aparelho não entrega
 // microfone nenhum a este app" (privacidade do sistema, hardware ocupado) de
 // "existe e não abre" — e as duas leem igual na tela.
-async function micEntradas() {
+async function micDispositivos() {
   try {
     if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) return null;
     const ds = await navigator.mediaDevices.enumerateDevices();
-    return ds.filter((d) => d.kind === 'audioinput').length;
+    return ds.filter((d) => d.kind === 'audioinput')
+      .map((d) => ({ deviceId: d.deviceId, label: d.label || '' }));
   } catch (_) { return null; }
 }
 
@@ -5122,6 +5123,7 @@ async function iniciarRecado() {
   const QUAL = ['com eco', 'sem eco', 'cru'];
   let fluxo = null;
   let erroFinal = 'error';
+  let msgFinal = '';
   let semEco = false;
   const degraus = [];
   for (let i = 0; i < MIC_TENTATIVAS.length; i++) {
@@ -5134,7 +5136,10 @@ async function iniciarRecado() {
       break;
     } catch (e) {
       erroFinal = (e && e.name) || 'error';
-      degraus.push({ qual: QUAL[i] || String(i), erro: erroFinal });
+      // A MENSAGEM, e não só o nome: `NotReadableError` é o balde genérico do
+      // WebRTC, e a frase do Chromium costuma nomear a etapa que falhou.
+      msgFinal = (e && e.message) ? String(e.message).slice(0, 120) : '';
+      degraus.push({ qual: QUAL[i] || String(i), erro: erroFinal, msg: msgFinal });
       // PERMISSÃO NEGADA não melhora com menos processamento: é resposta do
       // sistema, e insistir só gasta duas chamadas para dar o mesmo erro.
       if (erroFinal === 'NotAllowedError' || erroFinal === 'SecurityError') break;
@@ -5142,11 +5147,32 @@ async function iniciarRecado() {
       if (seq !== recSeq) break;
     }
   }
-  // A CONTAGEM DE ENTRADAS é lida DEPOIS das tentativas, de propósito: antes de
-  // uma permissão concedida o navegador pode devolver a lista sem rótulo (ou
-  // vazia) por privacidade, e o número diria mais sobre a política do navegador
-  // do que sobre o aparelho.
-  micRegistrar('recado', degraus, await micEntradas(), !!fluxo);
+  // O ÚLTIMO RECURSO: pedir o dispositivo PELO ID, em vez de deixar o navegador
+  // escolher o "default". O `default` do Chromium é uma entrada virtual que
+  // segue o roteamento do sistema, e ela pode falhar enquanto o dispositivo
+  // físico abre — é a mesma tentativa do telão, e o `mic-escada.test.mjs` cobra
+  // que as duas existam.
+  const disp = await micDispositivos();
+  if (!fluxo && erroFinal !== 'NotAllowedError' && erroFinal !== 'SecurityError'
+      && seq === recSeq) {
+    for (const d of disp) {
+      if (!d.deviceId || d.deviceId === 'default') continue;
+      try {
+        fluxo = await navigator.mediaDevices.getUserMedia({
+          audio: { deviceId: { exact: d.deviceId } }, video: false,
+        });
+        semEco = true;
+        degraus.push({ qual: 'id ' + (d.label || d.deviceId).slice(0, 24), erro: '' });
+        break;
+      } catch (e) {
+        erroFinal = (e && e.name) || 'error';
+        msgFinal = (e && e.message) ? String(e.message).slice(0, 120) : '';
+        degraus.push({ qual: 'id ' + (d.label || d.deviceId).slice(0, 24), erro: erroFinal, msg: msgFinal });
+      }
+      if (seq !== recSeq) break;
+    }
+  }
+  micRegistrar('recado', degraus, disp, !!fluxo);
   if (!fluxo) {
     recErro = erroFinal;
     renderRecadoUI();
@@ -18380,10 +18406,19 @@ function blocoMicrofone() {
   l.push(micUltima.origem + ' · ' + quando + ' · '
     + (micUltima.ok ? 'ABRIU' : 'RECUSADO'));
   for (const d of micUltima.degraus) {
-    l.push('  ' + d.qual + ': ' + (d.erro || 'abriu'));
+    // A MENSAGEM DO NAVEGADOR ao lado do nome do erro: `NotReadableError` é o
+    // balde genérico do WebRTC e a frase costuma nomear a etapa que falhou.
+    l.push('  ' + d.qual + ': ' + (d.erro || 'abriu') + (d.msg ? ' — ' + d.msg : ''));
   }
-  if (micUltima.entradas !== null && micUltima.entradas !== undefined) {
-    l.push('  entradas de áudio que o navegador enxerga: ' + micUltima.entradas);
+  const disp = micUltima.disp;
+  if (disp) {
+    l.push('  entradas de áudio que o navegador enxerga: ' + disp.length);
+    // O RÓTULO É O QUE DIZ QUAL microfone é. Ele só existe com permissão
+    // concedida, então a presença dele já responde metade da pergunta — e o
+    // nome ("Fone Bluetooth" contra o embutido) responde a outra metade.
+    for (const d of disp) {
+      l.push('    · ' + (d.label || '(sem rótulo — a permissão não chegou a valer)'));
+    }
   }
   // O VEREDITO, e ele é o ponto do bloco: a mesma frase na tela sai de quatro
   // causas, e cada uma pede uma ação diferente. Quem lê o Registro está a
@@ -18393,18 +18428,24 @@ function blocoMicrofone() {
     if (erros.some((e) => e === 'NotAllowedError' || e === 'SecurityError')) {
       l.push('→ PERMISSÃO: o Android (ou o WebView) negou. Autorize o app em '
         + 'Configurações › Aplicativos › Áudio Visual › Permissões.');
-    } else if (micUltima.entradas === 0) {
+    } else if (disp && disp.length === 0) {
       l.push('→ NENHUMA ENTRADA DE ÁUDIO: não é permissão. O aparelho não está '
         + 'entregando microfone nenhum ao app — veja o interruptor de PRIVACIDADE '
         + '"Acesso ao microfone" nas configurações rápidas.');
     } else if (micUltima.degraus.length >= 3 && erros.every(Boolean)) {
-      l.push('→ OS TRÊS DEGRAUS FALHARAM, inclusive o pedido CRU: o problema não é '
-        + 'o processamento de áudio (que é o que a escada contorna). O sistema está '
-        + 'recusando o microfone a este app — privacidade, outro app segurando o '
-        + 'dispositivo, ou política do fabricante.');
+      l.push('→ TODOS OS DEGRAUS FALHARAM, inclusive o pedido CRU e o pedido pelo ID '
+        + 'do dispositivo: o problema não é o processamento de áudio (que é o que a '
+        + 'escada contorna), nem a escolha do "default" do navegador. Com a permissão '
+        + 'concedida e o dispositivo à vista, quem recusa é o sistema — outro app '
+        + 'segurando o microfone, ou política do fabricante.');
     } else {
-      l.push('→ falhou antes de esgotar a escada (o operador soltou o botão, ou o '
-        + 'erro não era retentável).');
+      // NÃO AFIRMA QUE A ESCADA FOI INTERROMPIDA — ela pode ter rodado inteira no
+      // TELÃO e chegado aqui resumida por um bundle antigo. Um veredito errado é
+      // pior que veredito nenhum, e este Registro é lido a distância.
+      l.push('→ ' + micUltima.degraus.length + ' tentativa(s) registrada(s). Se o número '
+        + 'for menor que a escada, ou o erro não era retentável (permissão), ou o '
+        + 'operador soltou o botão, ou quem tentou foi um bundle que ainda não '
+        + 'reporta os degraus.');
     }
   }
   return 'Microfone (última tentativa)\n' + l.join('\n');
@@ -23148,7 +23189,14 @@ AVDB.onCommand((msg) => {
     // encheria a linha do tempo com o mesmo fato.
     const erroNovo = msg.error || '';
     if (erroNovo && erroNovo !== micError) {
-      micRegistrar('ao vivo', [{ qual: 'telão', erro: erroNovo }], null, false);
+      // OS DEGRAUS VÊM DO TELÃO quando ele os manda. Sem eles o Registro do
+      // celular via UMA tentativa e concluía "falhou antes de esgotar a escada"
+      // — enquanto o telão tinha rodado a escada inteira. O consumidor não
+      // tinha como saber, e um veredito errado é pior que veredito nenhum.
+      const dg = Array.isArray(msg.degraus) && msg.degraus.length
+        ? msg.degraus
+        : [{ qual: 'telão', erro: erroNovo }];
+      micRegistrar('ao vivo', dg, null, false);
     }
     micError = erroNovo;
     if (activeTab === 'mic') renderMicUI();

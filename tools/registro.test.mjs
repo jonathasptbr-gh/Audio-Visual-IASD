@@ -391,13 +391,14 @@ try {
   checar(/com eco: NotReadableError/.test(tres) && /cru: NotReadableError/.test(tres),
     'e ele nomeia CADA degrau com o erro dele — "falhou" sozinho não distingue "o '
     + 'processamento incomodou" de "o sistema não entrega o microfone"');
-  checar(/OS TRÊS DEGRAUS FALHARAM/.test(tres),
-    'e dá o VEREDITO: com o pedido cru recusado, a escada não tem mais o que contornar');
+  checar(/TODOS OS DEGRAUS FALHARAM/.test(tres) && /pelo ID/.test(tres),
+    'e dá o VEREDITO: com o pedido cru E o pedido pelo ID do dispositivo recusados, '
+    + 'não sobra o que a escada contorne', tres.slice(tres.indexOf('Microfone'), tres.indexOf('Microfone') + 500));
   checar(/entradas de áudio que o navegador enxerga: 1/.test(tres),
     'com a contagem de entradas — é ela que separa "não abre" de "não existe"');
   // E A LINHA DO TEMPO leva o mesmo fato: é ela que dá a HORA, ao lado do que o
   // operador estava fazendo.
-  checar(/microfone \(recado\) RECUSADO em 3 tentativa\(s\)/.test(tres),
+  checar(/microfone \(recado\) RECUSADO em \d+ tentativa\(s\)/.test(tres),
     'e a LINHA DO TEMPO carimba a recusa com a hora, ao lado do resto do culto');
 
   // ZERO ENTRADAS é outra causa e outra ação: não adianta mexer em permissão.
@@ -405,7 +406,7 @@ try {
   checar(/NENHUMA ENTRADA DE ÁUDIO/.test(zero) && /não é permissão/.test(zero),
     'ZERO entradas dá um veredito DIFERENTE, e ele nega a causa errada por extenso — '
     + 'mandar mexer em permissão aqui é a adivinhação que este bloco existe para acabar');
-  checar(!/OS TRÊS DEGRAUS FALHARAM/.test(zero),
+  checar(!/TODOS OS DEGRAUS FALHARAM/.test(zero),
     'e sem acumular o outro veredito: dois diagnósticos no mesmo bloco é o Registro '
     + 'discordando de si mesmo');
 
