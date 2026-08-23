@@ -316,7 +316,7 @@ try {
   });
   checar(comExemplos.guardadas === 10,
     'uma passada TODA de páginas sem cifra GRAVA as dez — o teto que as recusava saiu '
-    + '(v1.2.20): ele era estruturalmente errado, porque a passada só cobre o que FALTA '
+    + '(v1.2.21): ele era estruturalmente errado, porque a passada só cobre o que FALTA '
     + 'e a proporção de ausências tende a 100% num acervo saudável', comExemplos.guardadas);
   checar(comExemplos.diario.semCifra === 10,
     'e o diário conta o que a passada de fato encontrou', comExemplos.diario);

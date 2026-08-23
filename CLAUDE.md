@@ -1539,13 +1539,13 @@ derruba a transmissão — sem TV, as telas da rede SÃO o que a congregação v
    púlpito, é realimentação local num aparelho que ninguém está olhando.
    Oráculo: `tela-rede.test.mjs`.
 
-   **E o microfone é DO TELÃO no sentido forte: sem TV ele não existe.** Quem o
-   abre é o `/display/`, que só roda dentro da `Presentation` — sem TV o
-   `syncPresentation` não cria nenhuma. O botão do Controle recusa o toque
-   (`haOndeReproduzirMic`) **antes de pedir a permissão do Android**, porque
-   gastar a única permissão sensível do app numa ação que não pode funcionar é
-   como se queima uma permissão. Antes disso ele acendia "No ar" com o
-   `micPressed` local e nada capturava.
+   **E o microfone é DO TELÃO no sentido forte: sem TV ele NÃO É OFERECIDO.**
+   Quem o abre é o `/display/`, que só roda dentro da `Presentation` — sem TV o
+   `syncPresentation` não cria nenhuma. Desde a v1.2.20 o botão nem é desenhado
+   (`haOndeReproduzirMic`, em `renderFoot`); a guarda no toque fica pela CORRIDA
+   (a TV pode cair entre o desenho e o dedo), e ela continua vindo **antes de
+   pedir a permissão do Android**, porque gastar a única permissão sensível do
+   app numa ação que não pode funcionar é como se queima uma permissão.
 2. **O que vaza numa rede aberta mudou de natureza:** antes, a imagem contínua de
    tudo que a igreja projeta; agora, os comandos (títulos, referências, letras) e
    as mídias carregadas durante a transmissão, por tokens opacos por sessão. A
@@ -2122,7 +2122,7 @@ a congregação vê continua sendo a letra, pelo caminho de sempre.
       gravado. **Só variantes MEDIDAS entram na lista:** "simplificada" É uma
       cifra e traz folha, e incluí-la por simetria carimbaria como ausente uma
       página que o parser lê perfeitamente.
-    - **NÃO HÁ TETO POR PASSADA** (removido na v1.2.20). Houve um — uma passada
+    - **NÃO HÁ TETO POR PASSADA** (removido na v1.2.21). Houve um — uma passada
       dominada por `sem-cifra` não gravava nada, na suspeita de que o site
       tivesse mudado. Ele custou caro e não protegia: MEDIDO, o Hinário 2022
       fechou `309 tentadas · 0 achadas · 309 recusadas` e a varredura recomeçava
@@ -2577,7 +2577,7 @@ que ela é desenvolvida e testada fora do aparelho.
 | Sem tela conectada (simplificado) | mesmo bloqueio, com a janela do Display no lugar da `Presentation` | **modo bloqueado**: cortina embaçada, seção de conexão no centro, saída para o avançado na frente. **Não é incondicional**: o "Tocar neste celular" da folha (`tocarNoCelular`) desbloqueia e manda o som para este aparelho. **Caminho só de IDA e sem persistência**: o bloqueio se rearma ao fechar o app, ao passar pelo modo avançado (`setAppMode`) ou quando uma tela entra — e por isso o botão SOME depois do toque, em vez de oferecer o desfazer |
 | Fullscreen da preview | `requestFullscreen` + Screen Orientation | idem, com trava de paisagem **nativa** (`onShowCustomView`). Os controles são uma COLUNA na lateral direita que o toque acende e 4 s apagam — não gestos (v1.0.7, ver `docs/arquitetura/CONTROLE.md`) |
 | Botões físicos de volume | o navegador não os recebe | **interceptados**, ligados ao fader (ver abaixo) |
-| Microfone AO VIVO | o navegador pergunta | `MicChromeClient` + `RECORD_AUDIO` (ver abaixo). **Só com TV**: quem capta é o `/display/`, que só existe dentro da `Presentation` |
+| Microfone AO VIVO | o navegador pergunta | `MicChromeClient` + `RECORD_AUDIO` (ver abaixo). **Só com TV**: quem capta é o `/display/`, que só existe dentro da `Presentation` — e sem TV o botão **não é desenhado** (v1.2.21) |
 | Câmera | o navegador pergunta | **negada, sempre**. O `onPermissionRequest` do `ControleChromeClient` FICOU, negando **com log**: um WebView sem ele nega em silêncio, e o próximo que precisar de mídia aqui descobriria a armadilha do zero |
 | Botão voltar | — | **fecha o que estiver aberto** antes de minimizar (ver abaixo) |
 | Controles fora do app | — | `MediaSession`: notificação, tela de bloqueio, botões de mídia |
@@ -2646,10 +2646,23 @@ interromper nada. Com ele saiu a concessão de áudio do `ControleChromeClient`,
 que existia só para ele; `mic-escada.test.mjs` guarda que o Controle não volte a
 abrir captura sem trazer o par de volta ao oráculo.
 
-**O `sem-telao` continua sendo a recusa mais comum**, e ela é anterior à
-permissão de propósito (`haOndeReproduzirMic`): quem capta é o `/display/`, que
-só existe dentro da `Presentation`, e gastar a única permissão sensível do app
-numa ação que não pode funcionar é como se queima uma permissão.
+**SEM TV O BOTÃO NÃO EXISTE** (v1.2.21). `renderFoot` só o desenha com
+`haOndeReproduzirMic()`, e `renderDisplayStatus` chama `refreshDiversos()` na
+**transição de presença** — é ela que faz o botão aparecer quando a TV entra no
+meio do culto, sem trocar de aba, e sumir quando o dongle cai. Só na transição:
+`refreshDiversos` esvazia o `libraryEl`, e rodá-lo a cada callback (o `onResume`
+reconfere a lista) derrubaria o que o operador está usando.
+
+**A largura vem da AUSÊNCIA do irmão, não de uma regra de CSS:** `.misc-foot` é
+flex e os dois filhos são `flex: 1`, então sozinho o "Projetar no telão" ocupa a
+linha inteira.
+
+**A guarda `sem-telao` FICA, e virou uma corrida** — só se alcança se a TV cair
+entre o desenho e o toque. Ela é anterior à permissão pelo mesmo motivo de
+sempre. **Três degraus, cada um consertando o anterior:** até a v1.1.20 o botão
+acendia "No ar" sem nada captando; ela o fez recusar e DIZER por quê; a v1.2.20
+parou de oferecê-lo — explicar é melhor que mentir, mas não é melhor que não
+oferecer, e a frase chegava com o dedo no botão, no meio do culto.
 
 ### Botão voltar: fecha antes de minimizar
 
