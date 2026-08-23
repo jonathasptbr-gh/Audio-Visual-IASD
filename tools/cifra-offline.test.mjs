@@ -349,6 +349,80 @@ try {
   checar(respondeDoDisco.rede === 0,
     'e SEM tocar na rede — é o que ela existe para poupar', respondeDoDisco.rede);
 
+  // ---- A CADEIA NÃO GASTA O QUE JÁ FOI RESPONDIDO (v1.2.15) --------------
+  //
+  // MEDIDO num Registro real: um hino cujo endereço do CATÁLOGO respondeu
+  // "só a letra" gastava mais três requisições — o álbum-como-artista e os dois
+  // artistas padrão, todas 404 — para chegar ao MESMO veredito. Vezes as ~300
+  // do Hinário 2022 que faltavam varrer.
+  //
+  // Duas podas, e as duas valem SÓ para a coleção do catálogo: ali o endereço é
+  // deduzível de uma tabela, então aquela É a página do hino. Num álbum o
+  // `so-letra` de um endereço não fecha a pergunta.
+  const poda = await pg.evaluate(async () => {
+    const coll = allCollections().find((c) => c.id === 'hymnal-2022');
+    await AVDB.setState('cifras:hymnal-2022', {});
+    cifraDiscoColl = ''; cifraDisco = null;
+    const vistas = [];
+    window.__rota = (url) => {
+      vistas.push(url);
+      if (/\/novo-hinario-adventista\//.test(url)) {
+        return { status: 200, html: '<title>X (letra da música)</title><h1>X</h1><p>letra</p>' };
+      }
+      return { status: 404, html: '' };
+    };
+    const r = await cifraProcurar('001. Hino De Marcador', coll, 'k', { mudo: true, semDisco: true });
+    window.__rota = null;
+    return { motivo: r.motivo, via: r.via, vistas, tentativas: r.tentativas };
+  });
+  checar(poda.motivo === 'so-letra',
+    'o catálogo responde "só a letra" e esse é o veredito', poda.motivo);
+  checar(poda.vistas.length === 1,
+    'e a procura PARA ali: uma requisição, não quatro — o catálogo é autoridade '
+    + 'sobre o hinário', poda.vistas);
+  // E A SEGUNDA PODA precisa de um caso em que a cadeia CONTINUA — senão a
+  // parada acima a esconde, e o oráculo aprovaria a remoção dela.
+  const semNome = await pg.evaluate(async () => {
+    const coll = allCollections().find((c) => c.id === 'hymnal-2022');
+    const vistas = [];
+    window.__rota = (url) => { vistas.push(url); return { status: 404, html: '' }; };
+    await cifraProcurar('002. Outro Hino De Marcador', coll, 'k3', { mudo: true, semDisco: true });
+    window.__rota = null;
+    return vistas;
+  });
+  checar(semNome.length >= 2,
+    'com o catálogo em 404 a cadeia CONTINUA — é o caso que exercita a poda abaixo',
+    semNome);
+  checar(!semNome.some((u) => /hinario-adventista-2022/.test(u)),
+    'o nome do hinário NUNCA é adivinhado como artista: `/hinario-adventista-2022/` '
+    + 'não existe no site, e seria um 404 certo por hino', semNome);
+
+  // A OUTRA METADE: num ÁLBUM o `so-letra` de um endereço NÃO fecha a pergunta,
+  // porque a mesma música pode estar cifrada sob outro artista. Sem ela, a poda
+  // acima cortaria o acervo inteiro junto com o desperdício.
+  const album = await pg.evaluate(async () => {
+    const coll = { id: 'album-marcador', name: 'Album Marcador' };
+    const vistas = [];
+    window.__rota = (url) => {
+      vistas.push(url);
+      if (/\/album-marcador\//.test(url)) {
+        return { status: 200, html: '<title>X (letra da música)</title><h1>X</h1><p>letra</p>' };
+      }
+      if (/\/ministerio-jovem\//.test(url)) {
+        return { status: 200, html: '<h1>X</h1><pre><b>C</b>\nlinha de marcador\n</pre>' };
+      }
+      return { status: 404, html: '' };
+    };
+    const r = await cifraProcurar('Musica De Marcador', coll, 'k2', { mudo: true, semDisco: true });
+    window.__rota = null;
+    return { ok: r.ok, via: r.via, vistas };
+  });
+  checar(album.ok === true && album.via === 'padrao',
+    'num ÁLBUM a cadeia continua depois de um "só letra" — e acha a cifra sob outro artista',
+    album);
+  checar(album.vistas.length >= 2,
+    'ou seja: ela gastou a requisição seguinte de propósito', album.vistas);
+
 } finally {
   await navegador.close();
   servidor.close();
