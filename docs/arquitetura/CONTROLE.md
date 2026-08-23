@@ -4813,7 +4813,7 @@ havia uma série só, e as três viraram campo declarado:
 |---|---|---|---|
 | `periodo` | `mes` — "Provai e Vede - Agosto 2026" | `trimestre` — "Informativo \| 3º Trimestre 2026" | `mesDaPlaylist` devolve o mês em que o PERÍODO começa: ele ordena as playlists e é o PISO de quem não declarar data. Quem dá o mês de cada item é sempre a data do TÍTULO |
 | `titulo` | `esquerda` — "Match point \| Provai e Vede 2026 (15/Ago)" | `nenhum` — "Informativo Mundial das Missões \| 15 AGOSTO 2026" | no segundo o título é a série + a data, e a história ("O Sonho de Enoc") vive na MINIATURA. Aplicar o padrão daria 52 linhas idênticas, que é o defeito que o padrão existe para corrigir — ao contrário |
-| `futuros` | `mostrar` — a playlist do mês só traz o que já saiu | `esconder` — o canal sobe o trimestre e libera um sábado por vez | os que faltam ficam como "prioridade para membros": aparecem e não tocam. Corte pela DATA, com **3 dias de antecedência** (a quarta antes do sábado, v5.256 — o roteiro é montado na semana); sem data no título, nunca esconde |
+| `futuros` | `mostrar` — a playlist do mês só traz o que já saiu | `esconder` — o canal sobe o trimestre e libera um sábado por vez | os que faltam ficam como "prioridade para membros": aparecem e não tocam. Corte pela DATA, e a janela é a **semana corrente** (v1.2.19 — o episódio deste sábado nunca é escondido, e é `ehDoSabadoAtual` quem responde), com os **3 dias** da v5.256 como PISO para as semanas seguintes; sem data no título, nunca esconde |
 | (nenhum) | — | — | o **idioma** virou recusa GLOBAL, não campo: ver `ehOutroIdioma` abaixo |
 
 **O canal do Informativo publica a MESMA série em quatro idiomas**, lado a lado
@@ -4902,8 +4902,8 @@ primeiro ajuste. A ordem das perguntas virou contrato porque é ela que o texto
 mostra; e as duas metades (aba do canal × varredura dos vídeos) trazem datas
 próprias, porque a assinatura pula a extração e só uma delas é de agora.
 
-**O preço da antecedência tem remédio** (v5.256): nesses três dias o vídeo pode
-ainda não estar público. `serieComoYoutube` anexa `avisoSeFalhar` (e o card da
+**O preço da antecedência tem remédio** (v5.256): enquanto o sábado não chega o
+vídeo pode ainda não estar público. `serieComoYoutube` anexa `avisoSeFalhar` (e o card da
 série como endereço) enquanto `AVSerie.diasAte(...) > 0`, e o caminho de falha do
 `ytAcao` a usa no lugar de "não foi possível baixar" — em dois lugares, porque
 "Tocar agora" fecha a Biblioteca e os destinos que guardam não.

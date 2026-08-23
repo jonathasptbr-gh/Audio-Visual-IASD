@@ -580,8 +580,17 @@ try {
         return { itens: collSongs(c.id).map((s) => s.name), futuros: (d && d.futuros || []).length };
       }, limpar);
       const antes = await ler(true);
-      // A TERÇA e a QUARTA antes do sábado 15 — a fronteira que o operador
-      // pediu, medida no percurso inteiro e não só na regra pura.
+      // A FRONTEIRA, medida no percurso inteiro e não só na regra pura. Ela é a
+      // VIRADA DA SEMANA desde a v1.2.19: o sábado 08 ainda é a semana
+      // anterior, o domingo 09 abre a do episódio de 15/Ago. A terça e a quarta
+      // ficam porque eram a fronteira ANTIGA (3 dias, v5.256) — hoje as duas
+      // respondem "está lá", e é essa mudança de veredito que o relato do
+      // operador comprou: num domingo a lista escondia o episódio que o
+      // destaque do topo declarava o desta semana.
+      await pgC.clock.setFixedTime(new Date('2026-08-08T12:00:00'));
+      const sabadoAntes = await ler(false);
+      await pgC.clock.setFixedTime(new Date('2026-08-09T12:00:00'));
+      const noDomingo = await ler(false);
       await pgC.clock.setFixedTime(new Date('2026-08-11T12:00:00'));
       const naTerca = await ler(false);
       await pgC.clock.setFixedTime(new Date('2026-08-12T12:00:00'));
@@ -595,7 +604,8 @@ try {
       // — foi o que aconteceu quando o rótulo passou a levar a série junto.
       const soData = (o) => Object.assign({}, o,
         { itens: (o.itens || []).map((n) => String(n).split(' · ')[0]) });
-      return { antes: soData(antes), naTerca: soData(naTerca),
+      return { antes: soData(antes), sabadoAntes: soData(sabadoAntes),
+        noDomingo: soData(noDomingo), naTerca: soData(naTerca),
         naQuarta: soData(naQuarta), noDia: soData(noDia) };
     } finally { await pgC.close(); await ctxC.close(); }
   })();
@@ -613,9 +623,18 @@ try {
   checar((corte.naQuarta.itens || []).includes('15/Ago'),
     'E JÁ NA QUARTA ANTES DELE, que é quando o roteiro do culto é montado',
     JSON.stringify(corte.naQuarta.itens));
-  checar(!(corte.naTerca.itens || []).includes('15/Ago'),
-    'mas não na TERÇA: a janela é de 3 dias, não "o mês todo"',
+  checar((corte.naTerca.itens || []).includes('15/Ago'),
+    'E NA TERÇA também — a janela é a SEMANA dele, e a terça já é dela',
     JSON.stringify(corte.naTerca.itens));
+  // A METADE QUE FECHA, e sem ela as três acima aprovariam uma janela infinita:
+  // no SÁBADO 08 o episódio de 15/Ago é da semana SEGUINTE e não aparece; no
+  // domingo 09, a semana dele começou. É a virada, medida na tela.
+  checar(!(corte.sabadoAntes.itens || []).includes('15/Ago'),
+    'NO SÁBADO ANTERIOR ele ainda NÃO está na lista — é a semana que vem',
+    JSON.stringify(corte.sabadoAntes.itens));
+  checar((corte.noDomingo.itens || []).includes('15/Ago'),
+    '[relato] e no DOMINGO seguinte ele entra: a semana dele começou',
+    JSON.stringify(corte.noDomingo.itens));
 
   // ── O AVISO QUANDO O DOWNLOAD FALHA NA JANELA (v5.256) ─────────────────
   // O preço da antecedência: nesses três dias o vídeo pode ainda não estar
