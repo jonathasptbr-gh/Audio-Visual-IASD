@@ -275,7 +275,7 @@ try {
   // 4. O SITE SÓ TEM A LETRA — outro desfecho, outra ação. Achatá-lo em
   // `ilegivel` manda investigar um parser certo e faz o download do hinário
   // rebater a mesma música toda sessão, para sempre.
-  checar(quatro.every((i) => !i.ok && i.motivo === 'so-letra'),
+  checar(quatro.every((i) => !i.ok && i.motivo === 'sem-cifra'),
     'o quarto álbum responde uma página de LETRA, e o motivo diz isso',
     quatro.map((i) => i.motivo));
   // A RADIOGRAFIA VALE PARA O "SÓ LETRA" TAMBÉM (v1.2.16). Ela era poupada ali

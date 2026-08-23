@@ -1,10 +1,17 @@
 [
   {
+    "versao": "1.2.21",
+    "itens": [
+      "\"O site só tem a letra\" virou \"o site tem a página, mas não a cifra\" — e passou a cobrir também as páginas de PARTITURA, que antes eram tratadas como erro de leitura e por isso reperguntadas toda sessão.",
+      "O teto que recusava uma passada inteira saiu. Ele foi criado para o caso de o site mudar de marcação, mas era estruturalmente errado: a varredura só cobre o que falta, então a proporção de ausências cresce sozinha num acervo saudável — e foi o que fez o Hinário 2022 recomeçar do zero a cada abertura. Quem protege agora é o marcador da página e o prazo de 30 dias, que já protegiam."
+    ]
+  },
+  {
     "versao": "1.2.20",
     "itens": [
-      "O botão de microfone só aparece quando há uma TV conectada. Sem TV ele não tem para onde mandar a voz, e um botão que só sabe dizer que não funciona é um botão a mais para aprender \u2014 agora ele simplesmente não está lá.",
+      "O botão de microfone só aparece quando há uma TV conectada. Sem TV ele não tem para onde mandar a voz, e um botão que só sabe dizer que não funciona é um botão a mais para aprender — agora ele simplesmente não está lá.",
       "Ele aparece sozinho no instante em que a TV entra, e some quando ela cai: não é preciso sair e voltar da aba.",
-      "E com o microfone fora, o \u201cProjetar no telão\u201d passa a ocupar a linha inteira."
+      "E com o microfone fora, o “Projetar no telão” passa a ocupar a linha inteira."
     ]
   },
   {

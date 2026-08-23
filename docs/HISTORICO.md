@@ -24,6 +24,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
+- **v1.2.21** — O VEREDITO ESTAVA CERTO; O TETO É QUE NÃO SABIA. O operador abriu as duas páginas que a radiografia nomeou e conferiu: `teu-divinal-amor` tem só a letra no site mesmo, e a de "partituras para teclado" não tem cifra nenhuma. Ou seja, `so-letra` acertava — e as ~309 recusadas pelo teto eram respostas boas jogadas fora, com a varredura recomeçando do zero a cada abertura. O teto SAI: ele é estruturalmente errado, porque a passada só cobre o que FALTA e a proporção de ausências tende a 100% num acervo saudável. Quem protege continua sendo o marcador POSITIVO da página e o prazo de 30 dias. Junto, o veredito virou `sem-cifra` e passou a cobrir também a PARTITURA — que era `ilegivel` e por isso reperguntada toda sessão. OTA PURO
 - **v1.2.20** — SEM TV, O BOTÃO DE MICROFONE DEIXOU DE SER DESENHADO. Terceiro degrau da mesma pergunta: até a v1.1.20 ele acendia "No ar" com o `micPressed` local e nada captava; ela o fez RECUSAR o toque e DIZER por quê; agora ele não é oferecido. **Explicar é melhor que mentir, mas não é melhor que não oferecer** — um controle que só sabe dizer que não funciona é um controle a mais para o operador aprender, e a frase chegava no pior momento possível, com o dedo no botão e o culto correndo. O "Projetar no telão" passa a ocupar a linha inteira, e isso vem da AUSÊNCIA do irmão (`.misc-foot` é flex, os filhos são `flex: 1`), não de uma regra de CSS para o caso. A METADE QUE FALHARIA CALADA é a outra: `renderDisplayStatus` chama `refreshDiversos()` na TRANSIÇÃO de presença — sem ela a TV conecta no meio do culto e o microfone continua ausente, sem nada na tela explicando. A guarda `sem-telao` FICA, e virou uma corrida (a TV pode cair entre o desenho e o toque). OTA PURO
 - **v1.2.19** — DUAS REGRAS QUE DISCORDAVAM DE SI MESMAS, e as duas erravam CALADAS. (1) O AUXILIAR DE LEITURA DIZIA QUE NENHUMA MÚSICA TEM LETRA: a v1.2.14 deu parâmetros ao `openLyricsPopup(item, fonte)` e o ouvinte do botão do transporte continuou registrado POR REFERÊNCIA — `addEventListener` chama com o EVENTO, e o `PointerEvent` virou o `lvAlvo`, o desvio que aquele mesmo lote criou. `lvItem().lyrics` era `undefined`, `cifraCabe` recusava e `lvNaCena()` virava falso: as TRÊS fontes sumiam de uma vez e a folha abria com "Nada em exibição com letra ou texto bíblico". Os três oráculos que já abriam essa folha chamam a função DIRETO — o único caminho que continuava funcionando —, e o novo CLICA. (2) O INFORMATIVO ESCONDIA O EPISÓDIO DO SÁBADO DESTA SEMANA em três dos sete dias dela: `sabadoDaSemana` abre a semana no DOMINGO (é a semana adventista) e `DIAS_DE_ANTECEDENCIA` só abria a janela na QUARTA. O destaque do topo declarava "o desta semana" um episódio que a lista logo abaixo tinha escondido, e dizia "Aguardando lançamento" sobre um vídeo já liberado pelo canal — relatado num DOMINGO, com o vídeo conferido na fonte. `aindaNaoSaiu` passa a DELEGAR em `ehDoSabadoAtual`: os três dias viram PISO das semanas seguintes, que continuam escondidas. OTA PURO
 - **v1.2.18** — O CIFRA CLUB SERVE VARIANTES NO MESMO ENDEREÇO, e era isso que o app estava vendo. O operador conferiu à mão que o Hinário 2022 tem 100% das cifras no site e mandou o Registro em ARQUIVO — e a radiografia entregou: `/ministerio-jovem/meu-senhor-minha-vida/` respondeu 449 kB com `<title>` "… (partituras para teclado) …", `<h2>` "Menu principal", ZERO `<pre>` e 39 links só de navegação. O endereço está CERTO; o que voltou foi outra VARIANTE da página — e o `so-letra` é a mesma coisa com outro nome. Receber a letra não prova ausência de cifra, então a frase passou a descrever o que foi OBSERVADO em vez de concluir o que não se sabe. E o diário da passada passou a guardar EXEMPLOS com número do hino, veredito e ENDEREÇO — que sobrevivem à recusa do teto e são o que permite abrir a página e decidir se o erro é o endereço ou a leitura. OTA PURO
@@ -246,6 +247,52 @@ na nota que a revoga, não apagada da que a criou.
 - **v5.154** — é METADE OTA e METADE APK, e a divisão importa para quem for testar em aparelho.
 - **v5.155** — é OTA PURO
 - **v5.156** — é METADE OTA e METADE APK, de novo.
+
+---
+
+## v1.2.21 — o veredito estava certo; o teto é que não sabia
+
+A v1.2.18 entregou os endereços, e o operador fez o que só ele podia fazer: abriu
+as páginas.
+
+| página | o que ela é |
+|---|---|
+| `/novo-hinario-adventista/teu-divinal-amor/` | tem só a LETRA — aquele hino não tem cifra no site |
+| `/ministerio-jovem/meu-senhor-minha-vida/` | "partituras para teclado", sem cifra nenhuma |
+
+**As duas eram respostas corretas do site, e o app as tratava como suspeita.** A
+primeira virava `so-letra` e o teto por passada a recusava em bloco; a segunda
+virava `ilegivel` e voltava à fila toda sessão. Nos dois casos o parser estava
+certo e o veredito era descartado.
+
+### O teto sai
+
+Ele existia para o caso de o site mudar de marcação. Custou caro — o Hinário 2022
+fechou `309 tentadas · 0 achadas · 309 recusadas`, e a varredura recomeçava do
+zero a cada abertura — e a suspeita era falsa.
+
+E ele é **estruturalmente errado**: a passada só cobre o que FALTA, então a
+proporção de ausências tende a 100% conforme o acervo completa. Um teto por
+proporção acaba disparando num acervo saudável, que é exatamente o que aconteceu.
+
+O que protege contra uma mudança de marcação são as duas defesas que ficam, e
+nenhuma delas tem esse defeito:
+
+1. o **marcador positivo** (`AVCifra.varianteSemCifra`) — sem o `<title>`
+   anunciando a variante, o desfecho volta a ser `ilegivel` e nada é gravado;
+2. o **prazo de 30 dias** — nenhum veredito nosso vira buraco permanente, nem em
+   massa.
+
+### E a partitura virou resposta
+
+`so-letra` virou **`sem-cifra`**, e passou a reconhecer as duas variantes
+medidas: letra e partitura. As duas dizem a mesma coisa — *"esta música está
+aqui, e não há cifra para ela"* — e as duas agora são gravadas com data, em vez
+de reperguntadas para sempre.
+
+**Só variantes MEDIDAS entram na lista.** "Simplificada" É uma cifra e traz
+folha: incluí-la por simetria carimbaria como ausente uma página que o parser lê
+perfeitamente.
 
 ---
 

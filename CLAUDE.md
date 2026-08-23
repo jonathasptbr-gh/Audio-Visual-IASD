@@ -1865,12 +1865,12 @@ a congregação vê continua sendo a letra, pelo caminho de sempre.
     e a música custa UMA requisição; num álbum custa a cadeia deduzível inteira
     (álbum-como-artista + artistas padrão). Confundir as duas perguntas foi o
     que manteve o arquivo preso aos dois hinários por seis versões.
-  - **O CATÁLOGO É AUTORIDADE SOBRE O HINÁRIO** (v1.2.15). Um `so-letra` no
+  - **O CATÁLOGO É AUTORIDADE SOBRE O HINÁRIO** (v1.2.15). Um `sem-cifra` no
     endereço do catálogo ENCERRA a procura: aquela É a página daquele hino no
     site. MEDIDO: `Teu Divinal Amor` gastava mais três requisições (o
     álbum-como-artista e os dois artistas padrão), todas 404, para chegar ao
     mesmo veredito — vezes as ~300 do Hinário 2022 ainda por varrer. **Só na
-    coleção do catálogo**: num álbum o `so-letra` de um endereço não fecha a
+    coleção do catálogo**: num álbum o `sem-cifra` de um endereço não fecha a
     pergunta, porque a música pode estar cifrada sob outro artista.
   - **E o nome de um hinário NUNCA é adivinhado como artista.** MEDIDO:
     `/hinario-adventista-2022/` não existe no site — 404 certo, uma vez por hino
@@ -2088,18 +2088,18 @@ a congregação vê continua sendo a letra, pelo caminho de sempre.
   não entendi"*, e isso é diferente de *"não tem"*. Achatar os dois numa frase só
   faz uma mudança de marcação do site ficar indistinguível de uma música ausente
   — e ninguém investigaria. São **cinco motivos** (`sem-rede`, `nao-tem`,
-  `recusou`, `ilegivel`, `so-letra`) e cinco frases, porque cada um pede uma ação
-  diferente.
-- **`so-letra` É A METADE QUE FALTAVA DO `ilegivel`** (`AVCifra.soLetra`,
-  v1.2.12). MEDIDO numa bateria: ~12 das 85 falhas eram endereços que EXISTEM,
+  `recusou`, `ilegivel`, `sem-cifra`) e cinco frases, porque cada um pede uma
+  ação diferente.
+- **`sem-cifra` É A METADE QUE FALTAVA DO `ilegivel`** (`AVCifra.varianteSemCifra`,
+  v1.2.12, generalizado na v1.2.20). MEDIDO numa bateria: ~12 das 85 falhas eram endereços que EXISTEM,
   respondendo 200 com centenas de kB e nenhum `<pre>` — o site tem a LETRA
   daquela música e não a cifra. Chamar isso de "não entendi" é falso nos dois
   sentidos: manda investigar um parser que está certo, e faz o download do
   hinário rebater a mesma música toda sessão, para sempre.
   - **Ela exige um marcador POSITIVO, e essa é a decisão inteira.** Responder
-    pela AUSÊNCIA (`sem <pre>` ⇒ só letra) seria o defeito mais caro que este
+    pela AUSÊNCIA (`sem <pre>` ⇒ sem cifra) seria o defeito mais caro que este
     recurso pode produzir: no dia em que o site trocar a marcação, TODA página
-    vira "só letra" — e este veredito é GRAVADO, então o acervo inteiro ganharia
+    vira "sem cifra" — e este veredito é GRAVADO, então o acervo inteiro ganharia
     um buraco permanente. São duas condições independentes: nenhuma folha **e**
     o site anunciando a página como letra. Uma mudança de marcação derruba a
     primeira e não inventa a segunda, e o desfecho volta a ser `ilegivel`.
@@ -2108,34 +2108,40 @@ a congregação vê continua sendo a letra, pelo caminho de sempre.
     DOMINADA por este veredito. Uma música sem cifra é um fato; um terço do
     hinário de uma vez é o site tendo mudado.
   - **O CIFRA CLUB SERVE VARIANTES NO MESMO ENDEREÇO**, e é isso que o
-    `so-letra` e metade dos `ilegivel` estavam vendo (v1.2.18). MEDIDO numa
-    radiografia: `/ministerio-jovem/meu-senhor-minha-vida/` respondeu 449 kB com
-    `<title>` *"… (partituras para teclado) …"*, `<h2>` "Menu principal", ZERO
-    `<pre>` e 39 links só de navegação. O endereço está CERTO — a música é
-    aquela; o que voltou foi outra VARIANTE da página. O mesmo vale para as que
-    voltam com "(letra da música)". **Receber a letra não prova ausência de
-    cifra**, e por isso a frase da aba passou a descrever o que foi observado
-    ("o site respondeu com a página de LETRA") em vez de concluir o que não se
-    sabe. Enquanto a variante certa não for pedida, o teto é o que segura o
-    estrago.
+    `sem-cifra` reconhece (`AVCifra.varianteSemCifra`). MEDIDO em duas páginas
+    reais, CONFERIDAS À MÃO pelo operador: `/novo-hinario-adventista/
+    teu-divinal-amor/` responde a LETRA (aquele hino não tem cifra no site), e
+    `/ministerio-jovem/meu-senhor-minha-vida/` responde "partituras para
+    teclado" — 449 kB, `<h1>` com o nome certo da música, ZERO `<pre>`. As duas
+    são a MESMA resposta: *"esta música está aqui, e não há cifra para ela"*.
+    Tratar a segunda como `ilegivel` mandava investigar um parser certo e fazia
+    a varredura rebatê-la toda sessão.
+    - **O marcador é POSITIVO**: sem folha **e** o `<title>` anunciando a
+      variante. Uma mudança de marcação do site derruba a primeira condição e
+      não inventa a segunda — o desfecho volta a ser `ilegivel` e nada é
+      gravado. **Só variantes MEDIDAS entram na lista:** "simplificada" É uma
+      cifra e traz folha, e incluí-la por simetria carimbaria como ausente uma
+      página que o parser lê perfeitamente.
+    - **NÃO HÁ TETO POR PASSADA** (removido na v1.2.21). Houve um — uma passada
+      dominada por `sem-cifra` não gravava nada, na suspeita de que o site
+      tivesse mudado. Ele custou caro e não protegia: MEDIDO, o Hinário 2022
+      fechou `309 tentadas · 0 achadas · 309 recusadas` e a varredura recomeçava
+      do zero a cada abertura, para sempre — e a suspeita era FALSA, como a
+      conferência à mão provou. Ele também é estruturalmente errado: a passada
+      só cobre o que FALTA, então a proporção de ausências tende a 100% num
+      acervo saudável. Quem protege são as duas defesas acima: o marcador
+      positivo e o prazo de 30 dias.
   - **O DIÁRIO GUARDA EXEMPLOS** (`CIFRA_EXEMPLOS_MAX`): nome (com o NÚMERO do
-    hino), veredito e o ENDEREÇO tentado. Eles sobrevivem à recusa do teto — são
-    a única coisa que sobrevive — e é abrindo aquela página no navegador que se
-    separa "o endereço que montamos está errado" de "a leitura que fazemos dele
-    está errada". Um nome sozinho não responde nem uma nem outra.
-  - **MAS RECUSAR NÃO PODE SIGNIFICAR REFAZER** (v1.2.16). MEDIDO: o Hinário
-    2022 fechou uma passada com `282 ok · 10 não achei · 309 recusadas`, e como
-    nada das 309 era gravado a varredura recomeçava do zero a cada abertura —
-    as mesmas ~900 requisições, para sempre, sem uma linha na tela dizendo que
-    aquelas 309 tinham sido JULGADAS. Agora a passada tem DIÁRIO
-    (`cifras-passada:<id>`: tentadas, achadas, recusadas), o Registro imprime o
-    motivo, e a coleção fica em prazo (`CIFRA_PASSADA_RECUSADA_MS`, 7 dias) —
-    curto o bastante para um conserto por OTA retomar a varredura sozinho.
-  - **Ele NÃO interrompe a cadeia** (só o `ilegivel` interrompe): diz que AQUELE
-    endereço não tem cifra, não que a música não exista no site. **Mas
-    sobrevive até o fim** — sem essa memória, um `so-letra` seguido de dois 404
-    sairia como "nenhum endereço tinha a página", a resposta menos informativa
-    das três e a única que manda continuar procurando o que já foi achado.
+    hino), veredito e o ENDEREÇO tentado. É abrindo aquela página no navegador
+    que se separa "o endereço que montamos está errado" de "o site não tem cifra
+    desta música" — um nome sozinho não responde nem uma nem outra, e foi
+    exatamente assim que as duas hipóteses acima se resolveram.
+  - **`sem-cifra` NÃO interrompe a cadeia** (só o `ilegivel` interrompe): diz
+    que AQUELE endereço não tem cifra, não que a música não exista no site.
+    **Mas sobrevive até o fim** — sem essa memória, um `sem-cifra` seguido de
+    dois 404 sairia como "nenhum endereço tinha a página", a resposta menos
+    informativa das três e a única que manda continuar procurando o que já foi
+    achado.
 - **A TRANSPOSIÇÃO PRESERVA A COLUNA.** Um acorde vale por estar sobre a sílaba
   em que a harmonia troca. Um `replace` ingênuo empurra todos os acordes
   seguintes quando um deles cresce (`C` → `C#`), e depois de três trocas a folha
@@ -2571,7 +2577,7 @@ que ela é desenvolvida e testada fora do aparelho.
 | Sem tela conectada (simplificado) | mesmo bloqueio, com a janela do Display no lugar da `Presentation` | **modo bloqueado**: cortina embaçada, seção de conexão no centro, saída para o avançado na frente. **Não é incondicional**: o "Tocar neste celular" da folha (`tocarNoCelular`) desbloqueia e manda o som para este aparelho. **Caminho só de IDA e sem persistência**: o bloqueio se rearma ao fechar o app, ao passar pelo modo avançado (`setAppMode`) ou quando uma tela entra — e por isso o botão SOME depois do toque, em vez de oferecer o desfazer |
 | Fullscreen da preview | `requestFullscreen` + Screen Orientation | idem, com trava de paisagem **nativa** (`onShowCustomView`). Os controles são uma COLUNA na lateral direita que o toque acende e 4 s apagam — não gestos (v1.0.7, ver `docs/arquitetura/CONTROLE.md`) |
 | Botões físicos de volume | o navegador não os recebe | **interceptados**, ligados ao fader (ver abaixo) |
-| Microfone AO VIVO | o navegador pergunta | `MicChromeClient` + `RECORD_AUDIO` (ver abaixo). **Só com TV**: quem capta é o `/display/`, que só existe dentro da `Presentation` — e sem TV o botão **não é desenhado** (v1.2.20) |
+| Microfone AO VIVO | o navegador pergunta | `MicChromeClient` + `RECORD_AUDIO` (ver abaixo). **Só com TV**: quem capta é o `/display/`, que só existe dentro da `Presentation` — e sem TV o botão **não é desenhado** (v1.2.21) |
 | Câmera | o navegador pergunta | **negada, sempre**. O `onPermissionRequest` do `ControleChromeClient` FICOU, negando **com log**: um WebView sem ele nega em silêncio, e o próximo que precisar de mídia aqui descobriria a armadilha do zero |
 | Botão voltar | — | **fecha o que estiver aberto** antes de minimizar (ver abaixo) |
 | Controles fora do app | — | `MediaSession`: notificação, tela de bloqueio, botões de mídia |
@@ -2640,7 +2646,7 @@ interromper nada. Com ele saiu a concessão de áudio do `ControleChromeClient`,
 que existia só para ele; `mic-escada.test.mjs` guarda que o Controle não volte a
 abrir captura sem trazer o par de volta ao oráculo.
 
-**SEM TV O BOTÃO NÃO EXISTE** (v1.2.20). `renderFoot` só o desenha com
+**SEM TV O BOTÃO NÃO EXISTE** (v1.2.21). `renderFoot` só o desenha com
 `haOndeReproduzirMic()`, e `renderDisplayStatus` chama `refreshDiversos()` na
 **transição de presença** — é ela que faz o botão aparecer quando a TV entra no
 meio do culto, sem trocar de aba, e sumir quando o dongle cai. Só na transição:
