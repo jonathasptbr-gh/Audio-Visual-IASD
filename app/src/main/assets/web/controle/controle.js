@@ -10402,7 +10402,8 @@ function cifraGuardarEstrutura(rotulo, html) {
   if (r.h1 || r.h2) l.push('  <h1> ' + JSON.stringify(r.h1) + ' · <h2> ' + JSON.stringify(r.h2));
   l.push('  ' + r.pres + ' <pre>, o maior com ' + r.maiorPre + ' caractere(s) e '
     + r.bNoMaiorPre + ' <b>' + (r.tom ? ' · tom "' + r.tom + '"' : ' · tom não achado'));
-  l.push('  ' + r.links + ' link(s) de 2 segmentos, ' + r.linksDeMusica + ' com forma de música');
+  l.push('  ' + r.links + ' link(s) de 2 segmentos, ' + r.linksDeMusica + ' com forma de música'
+    + (r.amostraEhCrua ? ' — a amostra abaixo é do que HAVIA, já que nada passou' : ''));
   for (const a of r.amostra) l.push('    ' + a.caminho + '  ' + JSON.stringify(a.texto));
   cifraEstrutura = l.join('\n');
 }
