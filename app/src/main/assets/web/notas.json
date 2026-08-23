@@ -1,5 +1,12 @@
 [
   {
+    "versao": "1.2.10",
+    "itens": [
+      "As cifras guardadas do hinário PARARAM DE SUMIR. A gravação substituía o acervo inteiro por uma cópia de memória; quando essa cópia não era a daquela coleção, o que estava guardado era apagado — e a cada abertura o app recomeçava o download do zero. Agora ela MESCLA numa transação só: o que já está no aparelho não pode mais ser apagado por uma gravação.",
+      "O Registro deixou de dizer \"0 de 613 cifra(s)\" para um hinário que não está baixado — agora ele diz que o hinário não está baixado, que é outra resposta."
+    ]
+  },
+  {
     "versao": "1.2.9",
     "itens": [
       "Quando o microfone não abre, o app tenta mais uma coisa: pedir o microfone PELO NOME do dispositivo, em vez de aceitar a escolha automática do navegador.",
