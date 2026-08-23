@@ -549,6 +549,19 @@ secao('12. artistas padrão');
     .includes('https://www.cifraclub.com.br/cd-jovem-2018/nunca-mais-as-lagrimas/'),
     'o CD Jovem 2018 bate com a página real', C.urlsPadrao('Nunca Mais as Lágrimas'));
 
+  // O ÁLBUM DO ACERVO COMO ARTISTA DO SITE (v1.2.5) — a TERCEIRA âncora real, e
+  // a de melhor custo-benefício das três: ela não precisa de catálogo nem de
+  // rodízio, sai do dado que já está no item.
+  //   https://www.cifraclub.com.br/adoradores-5/usa-me/
+  checar(C.urlDoAlbum('Adoradores 5', 'Usa-me') === 'https://www.cifraclub.com.br/adoradores-5/usa-me/',
+    'o álbum do acervo vira o artista do site', C.urlDoAlbum('Adoradores 5', 'Usa-me'));
+  checar(C.urlDoAlbum('A Diferença é Cristo II', 'Repartir o Pão')
+    === 'https://www.cifraclub.com.br/a-diferenca-e-cristo-ii/repartir-o-pao/',
+    'acento e algarismo romano viram slug como em qualquer outro nome',
+    C.urlDoAlbum('A Diferença é Cristo II', 'Repartir o Pão'));
+  checar(C.urlDoAlbum('', 'Usa-me') === '', 'sem álbum não há URL de álbum');
+  checar(C.urlDoAlbum('Adoradores 5', '') === '', 'e sem nome também não');
+
   // O DESEMPATE NA BUSCA: um resultado sob o artista padrão é, por definição, de
   // um CD oficial. Ele sobe mesmo sem o álbum do acervo bater com nada.
   const html = [

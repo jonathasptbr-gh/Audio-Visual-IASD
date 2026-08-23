@@ -244,7 +244,7 @@ const appVersionEl = document.getElementById('appVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.2.4';
+const WEB_VERSION = '1.2.5';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -10057,7 +10057,14 @@ function cifraChave(item) {
 // `404` é "o site respondeu que não tem", outro status é "respondeu outra
 // coisa", e 200 com HTML que o parser não entende é `ilegivel`. Espalhar esta
 // tradução pelos chamadores é como duas listas divergem.
-async function cifraPedir(url) {
+/**
+ * `mudo: true` para o trabalho de MASSA. A radiografia é um slot só, e o
+ * download das cifras do hinário roda em segundo plano com 6 trabalhadores: sem
+ * esta guarda ele sobrescreve, a cada hino, a estrutura da página que o operador
+ * está tentando diagnosticar. MEDIDO num Registro real — o bloco mostrava um
+ * hino qualquer no lugar da página de busca que a linha acima nomeava.
+ */
+async function cifraPedir(url, mudo) {
   const r = await AVNative.cifraHtml(url);
   if (!r.status) return { ok: false, motivo: AVCifra.MOTIVO_SEM_REDE };
   if (r.status === 404) return { ok: false, motivo: AVCifra.MOTIVO_NAO_TEM };
@@ -10069,7 +10076,7 @@ async function cifraPedir(url) {
   // sobrescreveria justamente a página que interessa — a última música do culto
   // apagaria a que quebrou dez minutos antes.
   if (!pagina) {
-    cifraGuardarEstrutura('página ' + url, r.html);
+    if (!mudo) cifraGuardarEstrutura('página ' + url, r.html);
     return { ok: false, motivo: AVCifra.MOTIVO_ILEGIVEL };
   }
   return { ok: true, pagina, motivo: AVCifra.OK };
@@ -10133,6 +10140,21 @@ function cifraGarantir(item) {
       tentativas.push('direta ' + direta + ' → ' + desfecho.motivo);
     }
 
+    // 1,5ª TENTATIVA: O ÁLBUM DO ACERVO COMO ARTISTA DO SITE. MEDIDO:
+    // "Usa-me", do álbum **Adoradores 5**, mora em `/adoradores-5/usa-me/` — o
+    // nome do álbum em slug É o artista lá. É a tentativa deduzível de melhor
+    // custo-benefício que este recurso tem, porque sai do dado que já está no
+    // item: nem catálogo para manter, nem rodízio fixo. Vem ANTES dos artistas
+    // padrão porque é mais específica que eles.
+    if (!desfecho.ok && desfecho.motivo !== AVCifra.MOTIVO_ILEGIVEL && coll && coll.name) {
+      const ua = AVCifra.urlDoAlbum(coll.name, nome);
+      if (ua && ua !== url) {
+        url = ua;
+        desfecho = await cifraPedir(ua);
+        tentativas.push('álbum ' + ua + ' → ' + desfecho.motivo);
+      }
+    }
+
     // 2ª TENTATIVA: os ARTISTAS PADRÃO. Os CDs oficiais e os do ano estão sob a
     // coleção "Ministério Jovem" do site, e ali a URL é DEDUZÍVEL do nome — uma
     // requisição, sem ranking de ninguém escolhendo por nós, que é a mesma razão
@@ -10184,8 +10206,7 @@ function cifraGarantir(item) {
         // que o campo do seletor mostra, e um campo que diz outra coisa do que
         // foi buscado faz o operador editar a partir de uma premissa falsa.
         if (r.crus.length) { entrada.crus = r.crus; entrada.consulta = q; }
-        tentativas.push((r.rotulo || 'busca') + ' ' + r.url + ' → ' + r.crus.length
-          + ' resultado(s), ' + candidatos.length + ' com parentesco');
+        for (const l of (r.linhas || [])) tentativas.push(l);
       }
       for (const c of candidatos.slice(0, CIFRA_CANDIDATOS)) {
         url = c.url;
@@ -10324,7 +10345,7 @@ async function syncCifrasHinario(coll) {
           try {
             const url = AVCifra.urlDoHino(coll.id, h.nome);
             if (url) {
-              const d = await cifraPedir(url);
+              const d = await cifraPedir(url, true);   // massa: não fala no Registro
               // SÓ O SUCESSO É GRAVADO. `nao-tem` e `ilegivel` ficam de fora
               // para a próxima passada tentar de novo — num acervo em que toda
               // música existe no site, uma ausência é defeito nosso, e gravá-la
@@ -10448,16 +10469,29 @@ async function cifraBuscarNoSite(consulta, alvo, artista) {
     { rotulo: 'buscador', url: AVCifra.urlDeBuscaExterna(consulta), ler: AVCifra.lerBuscaExterna },
     { rotulo: 'busca', url: AVCifra.urlDeBusca(consulta), ler: AVCifra.lerBusca },
   ];
-  let ultima = { crus: [], ordenados: [], url: '' };
+  // CADA MOTOR VIRA UMA LINHA (v1.2.5). A primeira versão devolvia só o ÚLTIMO,
+  // e o Registro de um aparelho saiu com duas linhas `busca` e NENHUMA do
+  // `buscador` — que tinha sido tentado. Não dá para diagnosticar um motor que
+  // o diário não menciona, e este é o segundo lugar deste recurso em que um
+  // diagnóstico se calou justamente sobre o que se queria medir.
+  let ultima = { crus: [], ordenados: [], url: '', linhas: [] };
+  const linhas = [];
   for (const m of motores) {
     if (!m.url) continue;
     const rb = await AVNative.cifraHtml(m.url);
     const ok = rb.status >= 200 && rb.status <= 299;
     cifraGuardarEstrutura(m.rotulo + ' ' + m.url, ok ? rb.html : '');
     const crus = ok ? m.ler(rb.html) : [];
-    ultima = { crus, ordenados: AVCifra.ordenarBusca(crus, alvo, artista), url: m.url, rotulo: m.rotulo };
+    const ordenados = AVCifra.ordenarBusca(crus, alvo, artista);
+    // O STATUS entra na linha: `0` é "não houve resposta" e `403` é "o motor
+    // recusou o agente" — dois consertos diferentes, e a linha do shell só
+    // guarda a ÚLTIMA requisição de todas, que quase nunca é esta.
+    linhas.push(m.rotulo + ' ' + m.url + ' → HTTP ' + (rb.status | 0) + ', '
+      + crus.length + ' resultado(s), ' + ordenados.length + ' com parentesco');
+    ultima = { crus, ordenados, url: m.url, rotulo: m.rotulo, linhas };
     if (crus.length) return ultima;
   }
+  ultima.linhas = linhas;
   return ultima;
 }
 
