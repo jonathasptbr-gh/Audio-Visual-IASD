@@ -24,6 +24,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
+- **v1.2.27** — DOIS `--press` NO MESMO DEDO. Relato do operador: *"ao encolher, as bordas do card de título ficam com uma marca de encolhimento nas laterais direita e esquerda, fazendo um bug visual da parte branca do card"*. `:active` casa também nos ANCESTRAIS, então o toque na linha de uma faixa satisfazia o `.lib-item` **e** a `.hymn-row` de dentro dele — as duas na lista de `--press`, 0,96 × 0,96. MEDIDO em 430px com a gaveta aberta: o cartão a 370px e o título, dentro dele, a 355 — 7px mais estreito de cada lado que a gaveta logo abaixo, com o branco do `.lib-item` aparecendo nessa fresta. É a MESMA fresta que o comentário da v5.267 já nomeia ("o miolo se afastava de uma moldura parada e abria uma fresta dos dois lados"): a correção de então foi fazer o CARTÃO encolher, e a `.hymn-row` ficou na lista mesmo assim — invisível com a linha fechada, porque ali cartão e linha são a mesma caixa e as duas pintam `--linha`. Saiu junto o `.hymn-play-thumb`, que DEIXOU DE SER BOTÃO na v5.285 e continuava dando resposta de toque. Oráculo no `smoke.mjs`, medindo a FRESTA em pixels durante uma pressão de verdade. OTA PURO
 - **v1.2.26** — O LEITOR ABRIA ATRÁS DA BIBLIOTECA. Relato do operador: *"estando na biblioteca, ele abre o pop da letra apenas na tela principal, atrás da biblioteca"*. A folha é chamada de DENTRO da Biblioteca, que é outra camada, e as duas estavam no `z-index: 200` de todo `.popup-backdrop` — com o mesmo degrau quem decide é a ORDEM DO DOCUMENTO, e o `#lyricsPopup` está declarado ANTES do `#hymnSearchPopup`. A tabela `POPUPS` do `controle.js` já dizia a ordem certa (o leitor DEPOIS da Biblioteca, porque o voltar a percorre de trás para a frente); faltava o `z-index` dizer o mesmo — 205, acima da Biblioteca e abaixo da folha da música, que é exatamente aquela ordem. **As duas coisas mudam juntas, sempre.** O oráculo mede por HIT-TEST (`elementFromPoint` no centro da folha), não por comparação de `z-index`: é o que o dedo encontra que decide, e um número maior num contexto de empilhamento diferente não valeria nada. Provado por reversão. OTA PURO
 - **v1.2.25** — O "VER A LETRA" DA BIBLIOTECA ABRE O LEITOR. Pedido do operador: *"gostaria que esse botão nos itens da biblioteca, 'ver a letra', abrisse o mesmo modelo pup gaveta do auxiliar de leitura que já trabalha com letras e cifras… não quero mais apenas essa letra em uma caixa de texto abaixo das opções de play"*. A caixa era uma SEGUNDA leitura, pior que a que o app já tem: sem cifra, sem tom, sem corpo de fonte e sem rolagem. O mesmo botão passa a apontar o leitor do transporte para aquela faixa (`lvItemDaBiblioteca`), e nada vai ao telão. Com a caixa saem `montarLetra`, `botaoFolha`, `letraAlvo` e o CSS de `.hymn-lyrics*`. Três oráculos mudaram porque o COMPORTAMENTO mudou, e dois deles ganharam medição melhor: a guarda `abrindo` do `gaveta-no-download` passou a ser medida de DENTRO da montagem (uma propriedade, não uma janela de tempo — a janela sumiu na música e continua no vídeo), e a largura de dois estados do botão mudou de casa para o `boot-nativo`, que é o único harness que enxerga uma série. OTA PURO
 - **v1.2.24** — O ÍCONE DO HISTÓRICO DEIXOU DE SER O RELÓGIO DO CRONOGRAMA. Pedido do operador: *"ajuste o ícone do botão de histórico do player, para que ele seja sobre histórico, mas diferente do cronograma"*. Os dois eram o MESMO mostrador redondo — a aba é `circle r=9` + ponteiros, e o botão era o mesmo mostrador, os mesmos ponteiros e uma seta anti-horária pequena. A 20px o que se lê é a SILHUETA, não o detalhe, e engrossar a seta seria um meio-conserto: dois desenhos redondos a poucos centímetros um do outro continuam gêmeos. Agora é o TRILHO COM OS NÓS — a linha do tempo do que já foi ao telão, que é literalmente o que a lista daquele botão contém. Descartados e por quê: a seta circular sozinha vira o "sincronizar" do card de álbum, a seta com o ▶ dentro vira "tocar de novo", e a lista com marcadores não diz tempo nenhum — o que a separa do `icoTexto`, dois botões abaixo na MESMA coluna, é não ter moldura e ter os nós. Conferido RENDERIZADO a 20px contra os dois vizinhos. OTA PURO
@@ -254,6 +255,61 @@ na nota que a revoga, não apagada da que a criou.
 - **v5.156** — é METADE OTA e METADE APK, de novo.
 
 ---
+
+## v1.2.27 — dois `--press` no mesmo dedo
+
+Relato do operador: *"isso é uma reação ao toque no card do título da música,
+que faz ele encolher pelo feedback tátil... a questão é que ao encolher, as
+bordas do card de título ficam com uma marca de encolhimento nas laterais
+direita e esquerda, fazendo um bug visual da parte branca do card"*.
+
+### A causa
+
+`:active` casa também nos **ancestrais** do elemento tocado. `.lib-item` e
+`.hymn-row` estavam as duas na lista de `--press`, e a `.hymn-row` é filha
+direta do `.lib-item`: um toque na linha aplicava `scale(.96)` nos dois,
+0,96 × 0,96 = 0,9216.
+
+MEDIDO em 430px de largura, com a gaveta aberta:
+
+| peça | durante a pressão |
+|---|---|
+| `.lib-item` | `scale(.96)` — 370px, x=30…400 |
+| `.hymn-row` | `scale(.96)` **sobre isso** — 355px, x=37…393 |
+| `.hymn-gaveta` | sem escala própria — 370px, x=30…400 |
+
+O título ficava **7px mais estreito de cada lado que a gaveta logo abaixo**, e
+o que aparecia nessa fresta era o fundo branco do próprio `.lib-item`.
+
+**A fresta já tinha nome neste arquivo.** O comentário da v5.267 sobre esta
+mesma lista diz: *"NA LISTA QUEM ENCOLHE É O CARTÃO INTEIRO, não a `.row` de
+dentro: com a borda do cartão VISÍVEL o miolo se afastava de uma moldura parada
+e abria uma fresta dos dois lados"*. A correção de então foi pôr o `.lib-item`
+na lista — e a `.hymn-row` **ficou nela**. Com a linha FECHADA isso não se vê:
+cartão e linha são a mesma caixa e as duas pintam `--linha`, então o halo é
+branco sobre branco. A gaveta aberta é que deu ao cartão uma altura e um vizinho
+de outra cor, e tornou a diferença visível.
+
+### A correção
+
+`.hymn-row` sai da lista de `--press`. Quem encolhe é o cartão, inteiro e de uma
+vez — o desenho que a v5.267 já tinha decidido.
+
+`.hymn-play-thumb` sai junto, pelo motivo irmão: ele **deixou de ser botão na
+v5.285** (virou o anel de download e a coluna que alinha a lista, um `<span>`
+sem ouvinte) e continuou dando resposta de toque — um terceiro encolhimento, de
+uma peça que não recebe o dedo. *Apagar código é apagar o que o descreve, no
+mesmo lote* — aqui a lápide era uma regra de CSS.
+
+### O oráculo
+
+No `smoke.mjs`, ao lado do caso da v5.286 (o toque numa OPÇÃO não encolhe a
+seção). A asserção é a **fresta em pixels**, medida durante uma pressão de
+verdade (`mouse.down`): as bordas esquerda e direita da linha e da gaveta têm de
+coincidir. Comparar `transform` não serviria — um `none` na linha seria
+satisfeito também por um cartão que parasse de encolher, que é outro desenho —,
+e por isso a segunda metade afirma que o cartão **encolhe mesmo**. Provado por
+reversão: com a `.hymn-row` de volta à lista, linha 26…364 contra gaveta 19…371.
 
 ## v1.2.26 — o leitor abria ATRÁS da Biblioteca
 
