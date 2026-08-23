@@ -4974,81 +4974,24 @@ main {
 }
 .lv-cifra-erro { display: block; }
 
-/* A SAÍDA MANUAL do estado de erro — ali ela É a ação principal (não há texto
-   nenhum na caixa disputando espaço), então continua com corpo de botão.
-   Preenchimento em vez de contorno: este app não desenha borda em lugar nenhum
-   (ver `tokens.test.mjs`). */
-/* O SELETOR DE CIFRA (v1.1.24): a lista de resultados dentro do app.
-
-   `.lv-cifra-usar` herdou a caixa do antigo `.lv-cifra-abrir` (o "Procurar no
-   Cifra Club" de corpo inteiro, que saiu com ele): é a AÇÃO da tela, e as duas
-   que carregam esse peso — "Buscar" e "Usar esta cifra" — são as únicas que
-   mudam o que o operador vai ler. */
-.lv-cifra-usar {
-  align-self: flex-start; flex: none;
-  padding: .5rem .9rem; border: none; border-radius: var(--radius-btn);
-  /* O par é `--accent-fill` × `--on-accent`, nunca `--accent` × `--on-accent`:
-     no tema escuro o `--accent` é o azul CLARO (desenhado para ser LIDO sobre
-     o fundo quase-preto), e o off-white sobre ele não se lê. `--accent-fill` é
-     o denim cheio, e `--on-accent` existe justamente para ser escrito nele. */
-  background: var(--accent-fill); color: var(--on-accent);
-  font-size: .92rem; font-weight: 700; cursor: pointer;
-}
-.lv-cifra-usar:disabled { opacity: .45; cursor: default; }
-.lv-cifra-usar:not(:disabled):active { transform: var(--press); }
-/* O campo e o botão numa linha só: a busca é uma frase e um verbo. */
-.lv-cifra-busca { display: flex; gap: .5rem; align-items: center; padding: .2rem 0 .6rem; }
-.lv-cifra-campo {
-  flex: 1; min-width: 0;
-  padding: .5rem .7rem; border: none; border-radius: var(--radius-btn);
-  background: var(--field-bg); color: var(--field-text);
-  font-size: .95rem; font-family: inherit;
-}
-.lv-cifra-campo::placeholder { color: var(--field-muted); }
-/* OS ATALHOS DE CONSULTA: o álbum e o Ministério Jovem, a um toque. Chips e
-   não botões de corpo inteiro — eles MODIFICAM a busca que já está no campo,
-   não são a ação principal da tela. */
-.lv-cifra-chips { display: flex; flex-wrap: wrap; gap: .4rem; padding: 0 0 .6rem; }
-.lv-cifra-chip {
-  padding: .3rem .65rem; border: none; border-radius: var(--radius-pill);
-  background: var(--surface-2); color: var(--accent);
-  font-family: inherit; font-size: .82rem; font-weight: 600; cursor: pointer;
-}
-.lv-cifra-chip:active { transform: var(--press); }
-.lv-cifra-cab { color: var(--muted); font-size: .85rem; padding: .1rem 0 .4rem; }
-/* CADA RESULTADO É UM ALVO DE TOQUE INTEIRO, e não um link no meio do texto: a
-   lista é para ser percorrida com o polegar, com o instrumento na outra mão. */
-.lv-cifra-res {
-  display: flex; flex-direction: column; gap: .12rem; width: 100%;
-  text-align: left; padding: .55rem .7rem; margin-bottom: .35rem;
-  border: none; border-radius: var(--radius-btn);
-  background: var(--surface-2); color: var(--text);
-  font-family: inherit; font-size: .95rem; cursor: pointer;
-}
-.lv-cifra-res:active { transform: var(--press); }
-.lv-cifra-res-nome { font-weight: 600; }
-.lv-cifra-res-art { color: var(--muted); font-size: .82rem; }
-/* A BARRA DA PRÉVIA fica no topo do que rola e é curta de propósito: ela existe
-   para o "Usar esta cifra" estar à mão enquanto se lê a folha por baixo. */
-.lv-cifra-previa {
-  display: flex; align-items: center; gap: .5rem;
-  padding: 0 0 .55rem;
-}
-.lv-cifra-previa-nome {
-  flex: 1; min-width: 0; font-weight: 700; font-size: .95rem;
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-}
+/* (O SELETOR DE CIFRA saiu na v1.3.3, e com ele estas classes: `.lv-cifra-usar`,
+   `.lv-cifra-busca`, `.lv-cifra-campo`, `.lv-cifra-chips`/`-chip`, `.lv-cifra-cab`,
+   `.lv-cifra-res`/`-nome`/`-art` e `.lv-cifra-previa`/`-nome`. Eram a lista de
+   resultados dentro do app, o campo de consulta, os atalhos e a prévia. A aba de
+   cifra é só automática agora — ver "A CIFRA É SÓ AUTOMÁTICA" no `controle.js`.) */
 
 /* A ORIGEM, no rodapé da folha e à DIREITA — texto, não botão. Ela é a ação
    menos principal desta aba (quem a abre quer LER a cifra), e com corpo de
    botão cobrava altura de uma caixa cuja única função é mostrar texto. Sem
    `--hit`: não é alvo de culto, é uma nota de rodapé que por acaso é tocável. */
-/* O `gap` NÃO É ENFEITE: sem ele dois links encostam e o olho lê UMA palavra.
-   Relato do operador: *"o texto errado 'Trocarver' no cifras club"* — eram o
-   "Trocar" e o "Ver no Cifra Club" sem nada entre eles (v1.3.1). O "Trocar"
-   saiu na v1.3.2, mas a regra fica e é ela que importa: o rodapé do SELETOR
-   ainda põe "Esquecer a escolhida" ao lado de "Abrir o site", e a folga mora no
-   CONTÊINER justamente para que um rodapé novo já nasça separado. */
+/* HOJE HÁ UM LINK SÓ AQUI ("Ver no Cifra Club"), e o `gap` fica assim mesmo.
+   Ele nasceu de um relato: *"o texto errado 'Trocarver' no cifras club"* (v1.3.1)
+   — eram o "Trocar" e o "Ver no Cifra Club" sem nada entre eles, e encostados o
+   olho lia UMA palavra. Os dois outros ocupantes deste rodapé saíram depois (o
+   "Trocar" na v1.3.2, o "Esquecer a escolhida" com o seletor na v1.3.3), então
+   a regra não separa nada no momento. Fica porque a folga é do CONTÊINER: o
+   custo é zero com um filho, e o segundo link que voltar já nasce separado —
+   que é exatamente o que faltava quando o defeito apareceu. */
 .lv-cifra-rodape {
   display: flex; justify-content: flex-end; align-items: baseline;
   gap: 1.1rem; margin-top: .5rem;

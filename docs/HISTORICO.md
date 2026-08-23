@@ -24,6 +24,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
+- **v1.3.3** — A BUSCA MANUAL DE CIFRA SAIU INTEIRA, a pedido do operador: "vamos manter apenas o modo automático". Saíram a lista de resultados, a prévia, o campo de consulta, os atalhos, a escolha FIXADA (`cifraEscolhas` e a tentativa 0 do `cifraProcurar`), o "Esquecer a escolhida", 12 classes de CSS e o `cifra-teclado.test.mjs` — cujo assunto (o teclado do sistema contra o campo de busca) deixou de existir. MEDIDO: 633 linhas a menos. O QUE FICA é a cadeia automática inteira (disco → catálogo → álbum-como-artista → artistas padrão → busca do site) e, na falha, a FRASE do motivo e nada mais — verificado no arnês: zero `<input>`, zero resultados, zero botões. O PREÇO ESTÁ DITO: quando a regra erra, não há mais correção dentro do app. A guarda de teclado saiu com o campo que protegia, e está escrito que ela tem de voltar se um campo voltar. OTA PURO.
 - **v1.3.2** — O "TROCAR" SAIU DO RODAPÉ DA CIFRA, a pedido do operador. Ele era o ÚNICO chamador de `cifraEscolherMostrar`, então saiu com a máquina que só existia para ele (`cifraEscolherAberto`, `cifraEscolherChave`) — deixá-la seria código morto que nenhuma tela alcança. O SELETOR NÃO SAIU: o ramo de `estado !== 'ok'` continua desenhando-o sozinho, abaixo da frase do motivo, que é onde ele é usado quase sempre. A guarda que a máquina carregava ("a prévia é de outra música") passou a morar no próprio `cifraPrevia.chave`. O PREÇO ESTÁ DITO em três lugares: uma cifra que ABRIU errada não tem mais como ser trocada pela aba. E a frase do `sem-cifra` deixou de mandar usar um botão que não existe — aponta para a lista que já está na tela. O `cifra-teclado.test.mjs` deixou de cutucar a função interna e passa a alcançar o seletor como o operador o alcança: por uma procura que falha. OTA PURO.
 - **v1.3.1** — TRÊS AJUSTES DE LEITURA, TODOS PEDIDOS PELO OPERADOR E TODOS MEDIDOS. (1) "TROCARVER": `.lv-cifra-rodape` é `flex` SEM `gap`, então "Trocar" e "Ver no Cifra Club" encostavam e o olho lia UMA palavra. A folga foi para o CONTÊINER, não para um dos botões — o outro rodapé desta aba tem o mesmo par ("Esquecer a escolhida" + "Abrir o site") e um rodapé novo já nasce separado. (2) A BARRA DO TOM E DA ROLAGEM espremida: `margin-top: 0` a encostava no seletor Letra/Bíblia/Cifra — MEDIDO em 430px, 3,2px acima contra 8px abaixo. Agora 10,4 e 9,6. (3) O RODAPÉ DE CONFIGURAÇÕES fora do ritmo da folha: toda `.fade-row` começa a 14,4px de cada lado e ele começava a 11,2px, com 9,6px de base — o bastante para o olho ver duas colunas onde há uma. `.popup-footer` existe num lugar só, então alinhá-lo ao corpo alinha-o a tudo. OTA PURO.
 - **v1.3.0** — A AUDITORIA PÓS-1.0: QUATRO DEFEITOS, E OS QUATRO ERRAVAM CALADOS. (1) A ROLAGEM DA CIFRA MORRIA NO ENSAIO: `cifraRolandoChave` nasceu na v1.1.20 com `cifraChave(currentItem)` — a música EM CENA —, e a v1.2.14 pôs a folha para apontar para OUTRA música (`lvAlvo`) sem atualizar este sítio. A guarda "música nova é folha nova" do `lvBuildCifra` compara com `lvItem()`, então as duas chaves nunca batiam com um alvo da Biblioteca e o primeiro redesenho da folha chamava `cifraRolarParar()`. Transpor meio tom, tocar em A+/A− ou girar o aparelho bastavam — os três redesenham. (2) `salvarTexto` NUNCA RESOLVIA NO SUCESSO: `resolve()` injeta o segundo argumento como EXPRESSÃO JavaScript, e este era o único dos 40+ sítios que passava uma string CRUA — `__avResolve("e:1", registro-av-….txt)` é `SyntaxError`, o `evaluateJavascript` engole, e o método é justamente o que não tem prazo. O arquivo era gravado e o botão nunca respondia. (3) O REGISTRO DISCORDAVA DO APARELHO: ele somava "resolvidas" por fora em vez de perguntar a `cifraNoDiscoVale`, e a partir do 31º dia dizia "0 por varrer" com centenas ainda por refazer. (4) DOIS PARES DE CONTRASTE ABAIXO DO PISO no tema CLARO, medidos no RENDERIZADO: o seletor "Fácil/Avançado" a 3,47:1 (é o QUARTO degrau da escada de camadas, que o DESIGN-SYSTEM já nomeia como o que reprova AA) e a linha de versão do rodapé a 4,15:1. Mais a documentação posta em dia contra o CÓDIGO. O lote fecha o pacote da 1.2 e sobe o degrau INCREMENTAL a pedido de quem publica. METADE OTA e METADE APK (o (2) só chega instalando).
@@ -257,6 +258,79 @@ na nota que a revoga, não apagada da que a criou.
 - **v5.154** — é METADE OTA e METADE APK, e a divisão importa para quem for testar em aparelho.
 - **v5.155** — é OTA PURO
 - **v5.156** — é METADE OTA e METADE APK, de novo.
+
+---
+
+## v1.3.3 — a busca manual de cifra saiu inteira
+
+Pedido do operador, na sequência da v1.3.2: *"pode remover o sistema de busca
+manual quando não for encontrado uma cifra para a música. vamos manter apenas o
+modo automático"*.
+
+### O que saiu
+
+Tudo o que a v1.1.24 tinha construído, e o que ela arrastava:
+
+| peça | o que era |
+|---|---|
+| `lvBuildCifraEscolher` | a tela do seletor: lista de resultados, cabeçalho, rodapé |
+| `cifraEspiar` · `cifraUsarPrevia` · `cifraPrevia` | abrir um resultado em PRÉVIA antes de adotá-lo |
+| `cifraRebuscar` | buscar de novo com a consulta DIGITADA |
+| `cifraFixar` · `cifraEscolhas` · `cifraAdotarEscolhas` | a escolha guardada entre sessões |
+| a tentativa 0 do `cifraProcurar` | o `fixada` que vinha antes de tudo — e com ele o parâmetro `chave` da função |
+| `entrada.crus` · `entrada.consulta` | os resultados CRUS, que só o seletor lia |
+| `cifraDigitando` e a guarda do `cifraRemedir` | protegiam o `<input>` do seletor |
+| 12 classes de CSS | `.lv-cifra-usar`, `-busca`, `-campo`, `-chips`/`-chip`, `-cab`, `-res`/`-nome`/`-art`, `-previa`/`-nome` |
+| `tools/cifra-teclado.test.mjs` | 223 linhas cujo ASSUNTO deixou de existir |
+
+**633 linhas a menos**, medidas no diff.
+
+### O que fica, e como se sabe
+
+A cadeia automática inteira: guardada no aparelho → catálogo do hinário →
+álbum-como-artista → artistas padrão → busca do site. A busca do site é o último
+degrau do AUTOMÁTICO, não a manual, e continua escolhendo por PARENTESCO.
+
+Na falha, verificado no arnês com a ponte respondendo 404 na página: a aba mostra
+`"Não encontrei a cifra de …"` e **zero `<input>`, zero resultados, zero chips,
+zero botões**. Nenhum erro de página.
+
+### O preço, dito onde alguém o lerá
+
+A regra ADIVINHA a partir de um nome. Quando ela erra — uma versão simplificada,
+um homônimo — **não há mais correção dentro do app**; resta o link "Ver no Cifra
+Club" do rodapé, e ele só existe quando alguma folha ABRIU. MEDIDO à época em que
+o seletor foi construído: na maioria das falhas o resultado certo ESTAVA na
+página de busca, só não era o que a regra elegeu. É essa a distância que se
+aceitou pagar, e está escrita em três lugares (o `controle.js`, o `CLAUDE.md` e o
+capítulo do Controle) para que quem for reintroduzir a busca saiba o que
+reintroduz.
+
+### A baixa que pode voltar a doer
+
+A guarda de TECLADO saiu **com o campo que ela protegia**, e não porque deixou de
+ser verdadeira: o teclado do sistema é um `resize`, o `resize` remede a folha, o
+redesenho destrói o `<input>` com foco, e um campo sem foco fecha o teclado — que
+é outro `resize`. Da tela saía um teclado que piscava e sumia, sem erro nenhum.
+**Se um campo voltar a esta aba, a guarda tem de voltar com ele**, e isso está
+escrito no lugar de onde ela foi tirada.
+
+### Um resto fica no aparelho, de propósito
+
+A chave `cifraEscolhas` do `state` continua gravada em quem já usou o recurso.
+Ninguém a lê. Apagá-la exigiria uma migração para devolver algumas dezenas de
+bytes por música — e ela é o que uma volta atrás reaproveitaria.
+
+### Os comentários que a remoção tornou falsos
+
+Três, corrigidos no mesmo lote, pela regra de que um comentário errado produz a
+decisão errada: o KDoc do `cifraDesenharFolha` justificava a separação pela
+PRÉVIA (que não existe mais); o `gap` do `.lv-cifra-rodape` dizia separar dois
+links num rodapé que hoje tem um; e o bloco do disco prometia a escolha à mão
+como saída para uma ausência guardada — hoje quem a contorna é só o prazo de 30
+dias.
+
+Oráculos: 36/36 (eram 37; um saiu com o recurso). OTA PURO.
 
 ---
 

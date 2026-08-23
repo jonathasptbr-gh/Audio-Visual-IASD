@@ -1934,8 +1934,9 @@ a congregação vê continua sendo a letra, pelo caminho de sempre.
     dois primeiros não são resposta do site, e o terceiro é defeito do parser.
   - **E a ausência guardada RESPONDE**, em vez de refazer a cadeia: sem isso a
     aba gasta quatro requisições para chegar à mesma frase que a varredura já
-    tinha escrito, com o instrumento na mão. Quem a contorna é a escolha à mão,
-    que é a tentativa 0.
+    tinha escrito, com o instrumento na mão. Quem a contorna é o PRAZO — passados
+    30 dias ela volta para a fila —, e desde a v1.3.3 não há mais nada além dele:
+    a escolha à mão saiu.
   - **QUEM BAIXA É O APARELHO, e essa é a decisão inteira.** Nada disto entra no
     bundle do OTA nem no repositório: o `.zip` do canal é público e servido em
     nome de quem publica, e um acervo ali dentro é o app DISTRIBUINDO obra de
@@ -1976,63 +1977,42 @@ a congregação vê continua sendo a letra, pelo caminho de sempre.
     com rede, uma leitura de disco que não acontecesse produziria a mesma folha
     pela porta errada, e ninguém veria diferença até o dia em que a rede não
     estivesse lá.
-- **O OPERADOR ESCOLHE, E A ESCOLHA VENCE TUDO** (o seletor, v1.1.25). O método
-  automático ADIVINHA a partir de um nome; quem opera SABE qual é a música.
-  MEDIDO: na maioria das falhas o resultado certo estava na página de busca — só
-  não era o que a regra elegeu, e não havia como olhar a lista nem dizer "é
-  este". A aba passa a desenhar a LISTA de resultados (a mesma que a regra leu),
-  abrir a folha de qualquer um deles em PRÉVIA, e fixar o escolhido.
-  - **Não é um navegador embutido, e não podia ser**: o WebView recusa navegar
-    para outro origin (invariante 2) e `openExternal` sai do app. É a divisão de
-    sempre — shell traz o HTML cru, `cifra.js` extrai a lista, e o desenho é
-    nosso. Sai melhor: nenhum script de terceiro roda, nenhum anúncio carrega, e
-    a lista mostra também **o que a regra RECUSOU** ("fora da regra"), que é
-    justamente o que se está corrigindo.
-  - **A escolha é GUARDADA, e isso não fura o contrato do recurso.** "Nada é
-    gravado em disco" sempre falou do CONTEÚDO: o app lê cifra de terceiro no
-    aparelho e não distribui cópia. `cifraEscolhas` guarda um ENDEREÇO por
-    música — um ponteiro, não um texto. Marcar um favorito não é copiar o livro.
-    Sem guardar, a correção morreria ao fechar o app e o operador a refaria todo
-    sábado. Gravada com `updateState`, com teto de 400 e corte pelas mais
-    antigas.
-  - **Ela é a tentativa 0** e encerra o assunto: continuar adivinhando depois de
-    o operador ter dito qual é seria desfazer a correção dele a cada abertura.
-    Falhando (o site tirou a página do ar), o caminho automático roda em seguida.
-  - **O TECLADO DO SISTEMA É UM `resize`**, e o `resize` remede a folha
-    (`cifraRemedir` → `renderLyricsView`). Sem guarda, tocar no campo abre o
-    teclado, a aba é REFEITA, o `<input>` com foco deixa de existir — e um campo
-    sem foco fecha o teclado, que é outro `resize`. Da tela sai um teclado que
-    pisca e some, sem erro em lugar nenhum, e o seletor fica inalcançável. A
-    guarda é pelo FOCO (`cifraDigitando`), não por "o seletor está aberto": a
-    regra é *não destruir o que a pessoa está usando*, e ela vale para todo campo
-    que esta aba venha a ter. Oráculo: `tools/cifra-teclado.test.mjs`, que injeta
-    a PONTE e abre o popup de verdade — montado num nó solto ele passava com a
-    guarda REMOVIDA, porque `cifraRemedir` desiste antes de desenhar.
-  - **A busca tem TRÊS papéis, e juntá-los foi um defeito real**
-    (`cifraBuscarNoSite(consulta, alvo, artista)`): o que vai no `?q=`, o que o
-    PARENTESCO compara, e o DESEMPATE. A primeira versão passava um `extra` que
-    servia aos três, e o seletor — que manda a consulta DIGITADA — ficava sem
-    álbum em lugar nenhum. No automático o parentesco é contra o nome da música
-    (com o álbum colado na consulta, nenhum resultado seria parente dela); no
-    seletor é contra o que o operador digitou, que é o que ele está procurando.
-  - **Os ATALHOS de consulta** (`+ <álbum>`, `+ Ministério Jovem`) existem porque
-    as duas coisas que mais fazem uma busca achar não estão no nome da música, e
-    o operador não tem como adivinhá-las. Eles ESCREVEM no campo antes de buscar:
-    assim a consulta que rodou fica à vista e pode ser editada dali, em vez de o
-    botão fazer algo invisível.
-  - **O SELETOR SÓ APARECE NA FALHA** (v1.3.2). Ele existia também com a folha
-    ABERTA, por um botão "Trocar" no rodapé; o botão saiu a pedido do operador, e
-    com ele a única porta manual. O que fica é o caminho automático: `estado !==
-    'ok'` desenha a frase do motivo e o seletor logo abaixo dela — que é onde ele
-    é usado quase sempre, porque o resultado certo costuma estar na lista que a
-    regra acabou de ler. **O preço está dito no código:** uma cifra que ABRIU
-    errada (uma versão simplificada, um homônimo) não tem mais como ser trocada
-    pela aba; resta o link "Ver no Cifra Club". Saíram junto `cifraEscolherMostrar`,
-    `cifraEscolherAberto` e `cifraEscolherChave` — a máquina existia só para
-    aquele botão —, e a guarda que elas carregavam ("a prévia é de outra música")
-    passou a morar no próprio `cifraPrevia.chave`. O `cifra-teclado.test.mjs`
-    deixou de cutucar a função interna e passa a alcançar o seletor como o
-    operador o alcança: por uma procura que falha.
+- **A CIFRA É SÓ AUTOMÁTICA** (v1.3.3). Houve uma busca À MÃO aqui, da v1.1.24 à
+  v1.3.2: a aba desenhava a lista de resultados do site (inclusive o que a regra
+  RECUSOU), abria qualquer um em PRÉVIA, e o endereço escolhido era FIXADO para
+  aquela música — a tentativa 0 das aberturas seguintes, guardada entre sessões
+  em `cifraEscolhas`. Saiu inteira a pedido do operador: lista, prévia, campo de
+  consulta, atalhos (`+ <álbum>`, `+ Ministério Jovem`), a escolha fixada, o
+  "Esquecer a escolhida" e o botão "Trocar" do rodapé (este na v1.3.2).
+  - **O QUE ISSO CUSTA**, para quem for reintroduzi-la saber o que reintroduz: a
+    regra ADIVINHA a partir de um nome, e quando ela erra — uma versão
+    simplificada, um homônimo — **não há mais correção dentro do app**. Resta o
+    link "Ver no Cifra Club", no rodapé da folha. MEDIDO à época: na maioria das
+    falhas o resultado certo ESTAVA na página de busca, só não era o que a regra
+    elegeu. É essa a distância que se aceitou pagar.
+  - **A cadeia automática é o recurso inteiro agora:** guardada no aparelho →
+    catálogo → álbum-como-artista → artistas padrão → busca do site. A busca do
+    site FICA — ela é o último degrau do AUTOMÁTICO, não a manual —, e continua
+    escolhendo por PARENTESCO, nunca por posição.
+  - **`cifraBuscarNoSite(consulta, alvo, artista)` mantém os TRÊS papéis**: o que
+    vai no `?q=`, o que o PARENTESCO compara e o DESEMPATE. Eles seguem distintos
+    porque o segundo tento cola o álbum na consulta e o parentesco continua sendo
+    contra o nome da música — juntá-los foi um defeito real, e volta a ser um.
+  - **Falhar continua sendo CINCO motivos e cinco frases**, e agora a frase é a
+    resposta INTEIRA: não há mais uma tela de correção atrás dela. Foi por isso
+    que a do `sem-cifra` parou de mandar "escolha na lista abaixo" — uma
+    instrução que nomeia um controle ausente é pior que instrução nenhuma.
+  - **A guarda de TECLADO saiu junto, e é a única baixa que pode voltar a doer.**
+    Ela existia porque o teclado do sistema é um `resize`, o `resize` remede a
+    folha (`cifraRemedir` → `renderLyricsView`), o redesenho destrói o `<input>`
+    com foco, e um campo sem foco fecha o teclado — que é outro `resize`. Da tela
+    saía um teclado que piscava e sumia, sem erro em lugar nenhum. **Se um campo
+    voltar a esta aba, a guarda tem de voltar com ele**; o `cifra-teclado.test.mjs`
+    saiu neste lote e está no histórico do repositório com a forma dela.
+  - **Um resto fica no aparelho, de propósito:** a chave `cifraEscolhas` do
+    `state` continua gravada em quem já usou o recurso. Ninguém a lê, não custa
+    nada, e apagá-la exigiria uma migração para devolver bytes que não fazem
+    falta.
 - **O REGISTRO GUARDA A ESTRUTURA DA PÁGINA QUE NÃO ABRIU**
   (`AVCifra.radiografia`). `ilegivel` responde *"não entendi"*, não *"o que
   era"* — e a distância entre as duas é uma sessão de adivinhação a distância.
@@ -2981,7 +2961,6 @@ mundo anterior por outro caminho.
 | `gaveta-no-download.test.mjs` | a GAVETA DA LINHA contra o redesenho do progresso — o único lugar do acervo em que o operador DECIDE, e o redesenho remontava a lista por baixo dela a cada 400 ms. MUDO nos dois tempos: aberta, ela some sem erro nenhum; ABRINDO (há um `await` do IndexedDB entre o toque e o `expanded`), o `li` vira órfão e o toque não faz nada. Quatro metades, e a primeira é o HAZARD — sem ela as outras provariam que uma função concorda consigo mesma |
 | `cifra-offline.test.mjs` | **a cifra guardada do hinário abre SEM REDE**, e **a gravação MESCLA em vez de substituir**. A primeira promessa é operacional e falha calada: sem a leitura do disco o app cai no caminho de rede e, COM rede, a folha aparece igual — pela porta errada. Por isso a asserção é `cifraHtml` NÃO ter sido chamado, com a ponte respondendo "sem rede" a tudo; a outra metade prova que o que NÃO está guardado ainda vai à rede. A segunda trava o defeito que apagou 275 cifras de um aparelho: a asserção é a PROPRIEDADE (uma mescla não pode produzir zero a partir de 275), não o interleaving que mordeu daquela vez |
 | `leitor-biblioteca.test.mjs` | **a folha de qualquer música da Biblioteca, SEM telão.** Ler deixou de exigir projetar, e três coisas falham calado: a folha mostrar a música da CENA em vez da pedida; alguma coisa ir ao TELÃO — o único defeito que não deixa rastro na tela de quem abriu a folha, e por isso o oráculo afirma ZERO comandos no barramento; e o relógio da cena governar a rolagem de OUTRA música, que não erra alto: a folha anda, no compasso errado |
-| `cifra-teclado.test.mjs` | **o teclado virtual contra o campo de busca da cifra**. O teclado é um `resize`, e o `resize` remede a folha — que refaz a aba e destrói o `<input>` com foco; sem foco o teclado FECHA, e o fechamento é outro `resize`. Nada erra: sai um teclado que pisca e some, e o seletor fica inalcançável. Ele injeta a PONTE e abre o popup de verdade, porque montado num nó solto ele passava com a guarda REMOVIDA |
 | `destinos.test.mjs` | o que está marcado atravessa o fechamento da folha — a ação roda depois de `closeSongMenu()`, que zera o conjunto |
 | `hinario-tela.test.mjs` | as seções do hinário **da tabela até a tela**. O `hinario.test.mjs` trava a REGRA; este, a LIGAÇÃO. Dois casos não gritam: os cabeçalhos moram na MESMA `<ul>` das faixas, e uma retomada de paginação que contasse os FILHOS pularia um hino por cabeçalho (hinos sumindo do meio da lista); e o hinário de 1996 tem outra numeração, então um "Infantis" sobre o 508 DELE ninguém nota olhando o hinário certo |
 | `sorteio-tela.test.mjs` | a **playlist automática** da folha até a fila. O `sorteio.test.mjs` trava a REGRA; este trava a LIGAÇÃO, que falha de outro jeito — a regra continua certa e o recurso não faz nada. As quatro capacidades injetadas são ponteiros, e um errado devolve um pool plausível e ERRADO |
@@ -3359,7 +3338,7 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: v1.3.2** (base web) · **v1.3.0** (APK) · `SHELL_VERSION` **55** · bundle com
+**Versão atual: v1.3.3** (base web) · **v1.3.0** (APK) · `SHELL_VERSION` **55** · bundle com
 `minShell: 55` — o shell 55 é o **PISO**: todo método da ponte existe, e não há
 guarda de versão no lado web. O que continua valendo é que `java/`, `res/`, o
 manifest e os workflows **só chegam instalando o APK**.
