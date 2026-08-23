@@ -193,6 +193,53 @@ try {
   });
   checar(r2.rede > 0, 'um hino NÃO guardado vai à rede', r2);
   checar(r2.estado === 'falha', 'e sem rede ele falha, em vez de inventar uma folha', r2.estado);
+
+  // ---- A GRAVAÇÃO MESCLA; ELA NUNCA SUBSTITUI (v1.2.10) -------------------
+  //
+  // MEDIDO num aparelho: `275 de 601` virou `0 de 601`, e a cada abertura o app
+  // recomeçava o download do zero. A gravação era `setState` do mapa INTEIRO a
+  // partir de um slot de módulo cuja identidade mora noutra variável — bastava
+  // o slot não ser o daquela coleção (ou ser `null`) para o acervo guardado ser
+  // apagado por um `{}`.
+  //
+  // A asserção é a PROPRIEDADE, não o interleaving: **uma mescla não pode
+  // produzir zero a partir de 275**. O cenário abaixo é o pior caso do defeito
+  // — o slot de memória VAZIO na hora de gravar — e com a substituição de volta
+  // ele reprova.
+  const mesclou = await pg.evaluate(async () => {
+    await AVDB.setState('cifras:hymnal-2022', {
+      a: { pagina: { tom: 'A', linhas: [] }, url: 'u-a', em: 1 },
+      b: { pagina: { tom: 'B', linhas: [] }, url: 'u-b', em: 1 },
+      c: { pagina: { tom: 'C', linhas: [] }, url: 'u-c', em: 1 },
+    });
+    // O SLOT VAZIO: é o estado em que a substituição escrevia `{}` por cima.
+    cifraDiscoColl = ''; cifraDisco = null;
+    const novas = { d: { pagina: { tom: 'D', linhas: [] }, url: 'u-d', em: 2 } };
+    await cifraDiscoMesclar('hymnal-2022', novas);
+    const disco = (await AVDB.getState('cifras:hymnal-2022')) || {};
+    return { chaves: Object.keys(disco).sort(), sobrouPendente: Object.keys(novas).length };
+  });
+  checar(mesclou.chaves.join(',') === 'a,b,c,d',
+    'a gravação MESCLA: as três guardadas sobrevivem e a nova entra', mesclou.chaves);
+  checar(mesclou.sobrouPendente === 0,
+    'e o que foi para o disco sai da fila de pendentes — senão o lote seguinte o reenvia',
+    mesclou.sobrouPendente);
+
+  // E O SLOT DE LEITURA ACOMPANHA — quando é o DESTA coleção. Sem isto a aba
+  // iria à rede por uma cifra que a passada acabou de guardar; e escrevê-lo sem
+  // conferir de quem ele é seria o defeito original de novo, por outra porta.
+  const slot = await pg.evaluate(async () => {
+    const semDono = (cifraDiscoColl === 'hymnal-2022');   // ainda vazio: não é dela
+    await cifraDiscoDe('hymnal-2022');                    // agora o slot é dela
+    await cifraDiscoMesclar('hymnal-2022', {
+      e: { pagina: { tom: 'E', linhas: [] }, url: 'u-e', em: 3 },
+    });
+    return { semDono, chaves: Object.keys(cifraDisco || {}).sort().join(',') };
+  });
+  checar(slot.semDono === false,
+    'a mescla NÃO escreve num slot que é de outra coleção — era esse o defeito', slot.semDono);
+  checar(slot.chaves === 'a,b,c,d,e',
+    'e escreve no slot quando ele é o desta coleção', slot.chaves);
 } finally {
   await navegador.close();
   servidor.close();
