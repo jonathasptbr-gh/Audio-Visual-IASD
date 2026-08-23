@@ -72,38 +72,18 @@ object CifraFonte {
     private val HOSTS_PERMITIDOS = setOf(
         "www.cifraclub.com.br",
         "cifraclub.com.br",
-        // O BUSCADOR EXTERNO (shell 51). A busca do próprio Cifra Club devolve
-        // os resultados por JAVASCRIPT: MEDIDO num aparelho, `?q=<termo>`
-        // responde 425 kB em que os únicos links de duas partes são o índice
-        // A–Z e o "Academy" — zero músicas. O caminho da busca genérica nunca
-        // teve como funcionar, e o seletor manual do operador ficava travado
-        // pelo mesmo motivo.
-        //
-        // O endpoint HTML do DuckDuckGo é servido pelo SERVIDOR, sem JS e sem
-        // muro de consentimento. Não é o Google de propósito: as classes do
-        // resultado dele são aleatorizadas a cada implantação, a página exige
-        // consentimento em boa parte das regiões, e uma igreja inteira
-        // pesquisando do mesmo IP é o caso que os 429 existem para pegar.
-        "html.duckduckgo.com",
     )
 
     /**
-     * O `User-Agent` por host.
+     * O `User-Agent`.
      *
      * O do app basta no Cifra Club e está em uso desde o começo — trocá-lo
-     * mexeria no único caminho que hoje funciona. Buscadores, por outro lado,
-     * recusam agente desconhecido com frequência, então o do buscador se
-     * apresenta como um navegador comum.
-     *
-     * **NÃO VERIFICADO CONTRA O SERVIDOR DE VERDADE**: o ambiente em que este
-     * lote foi escrito não tem saída para a internet. Se o DuckDuckGo recusar,
-     * o Registro mostra o status e a radiografia da página — e a correção é
-     * uma linha aqui ou no `cifra.js`.
+     * mexeria no único caminho que hoje funciona. A escolha POR HOST saiu com o
+     * buscador externo (v1.2.7): sobrou um host, e um `if` sobre um conjunto de
+     * um elemento é uma bifurcação que só existe para o leitor procurar o outro
+     * ramo.
      */
-    private fun agenteDe(host: String): String =
-        if (host == "html.duckduckgo.com")
-            "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126 Mobile Safari/537.36"
-        else "AudioVisualIASD"
+    private const val AGENTE = "AudioVisualIASD"
 
     /** Conexão e leitura. Bem abaixo do `CALL_TIMEOUT_MS` (60 s) do lado web. */
     private const val TEMPO_MS = 15000
@@ -143,17 +123,13 @@ object CifraFonte {
         }
 
         var c: HttpURLConnection? = null
-        // O agente é resolvido FORA do `apply`: lá dentro o receptor implícito é
-        // a conexão, e um nome que ela viesse a expor sombrearia o `host` local
-        // em silêncio — o tipo de coisa que compila e manda o agente errado.
-        val agente = agenteDe(host)
         return try {
             c = (URL(url).openConnection() as HttpURLConnection).apply {
                 connectTimeout = TEMPO_MS
                 readTimeout = TEMPO_MS
                 instanceFollowRedirects = true
                 requestMethod = "GET"
-                setRequestProperty("User-Agent", agente)
+                setRequestProperty("User-Agent", AGENTE)
                 setRequestProperty("Accept", "text/html")
                 setRequestProperty("Accept-Language", "pt-BR,pt")
             }

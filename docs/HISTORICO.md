@@ -24,6 +24,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
+- **v1.2.7** — A BATERIA DE TESTES DA CIFRA, e o buscador externo aposentado. O acervo é FIXO e ANTIGO: os álbuns não ganham faixa nova e os nomes não mudam, então a pergunta que sobra não é "a regra está certa?" e sim **"para quais álbuns a cadeia de endereços não chega?"** — e ela só tem resposta medindo. Um botão em Configurações sorteia uma ou duas músicas de CADA álbum, roda a MESMA cadeia da aba (`cifraProcurar`, extraída para ter dois consumidores) e escreve no Registro o degrau que venceu em cada uma — com TODOS os endereços tentados nas que falharam, que é o que transforma um "✗" em conserto: com a lista na mão o operador acha a música no site, quase sempre sob outro artista, e fixa o endereço. Ela mede a REDE (`semDisco`) e não apaga a radiografia do operador (`mudo`) — as três guardas provadas por reversão. E o BUSCADOR EXTERNO saiu: MEDIDO, o endpoint HTML do DuckDuckGo responde **HTTP 202**, a recusa anti-robô, e uma recusa lida como página vazia é uma requisição por procura para não devolver nada. **EXIGE RELEASE v1.2.7**: shell 51 → 52, o host do buscador sai da allowlist do `CifraFonte`
 - **v1.2.6** — A RADIOGRAFIA PASSA A SER UMA POR ENDEREÇO, e é a TERCEIRA vez que este diagnóstico se cala sobre o que se queria medir. Uma procura tenta vários endereços; com um slot só, a última escrita apagava as anteriores — e o que sobrava era sempre a página menos interessante. MEDIDO: o `buscador` respondeu **HTTP 202** (a recusa anti-robô do DuckDuckGo) e a estrutura dela foi sobrescrita pela busca interna que rodou logo depois; o Registro dizia "202" numa linha e mostrava OUTRA página embaixo. Agora guarda uma por endereço, com teto, e o `registro.test.mjs` cobra isso — provado por reversão. OTA PURO
 - **v1.2.5** — O NOME DO ÁLBUM É O ARTISTA DO SITE, e o diagnóstico tinha se calado sobre o motor novo. (1) MEDIDO: "Usa-me", do álbum **Adoradores 5**, mora em `/adoradores-5/usa-me/`. Vira a tentativa deduzível de melhor custo-benefício do recurso — não precisa de catálogo nem de rodízio, sai do dado que já está no item, e é UMA requisição. (2) O Registro reportava só o ÚLTIMO motor: um Registro real saiu com duas linhas `busca` e NENHUMA do `buscador`, que tinha sido consultado. Agora cada motor vira uma linha, com o status. (3) E o download em massa das cifras do hinário deixou de sobrescrever, a cada hino, a radiografia da página que o operador estava diagnosticando. OTA PURO
 - **v1.2.4** — A BUSCA DO PRÓPRIO CIFRA CLUB NUNCA TEVE COMO FUNCIONAR, e o Registro provou: `?q=<termo>` responde 425 kB, sabe qual foi a consulta (está no `<title>`), e os únicos links de duas partes na página são o índice A–Z e o "Academy" — os resultados são desenhados por JAVASCRIPT, que o `cifraHtml` não executa. A v1.1.22 achou que estava pegando o link errado; não havia link certo para pegar, e o seletor manual do operador estava travado pelo mesmo motivo. Passa a perguntar a um BUSCADOR (endpoint HTML do DuckDuckGo, com `site:` na consulta) — não o Google, cujas classes são aleatorizadas a cada implantação. Trocar de motor não troca o critério: o parentesco continua julgando. **EXIGE RELEASE v1.2.4**: shell 50 → 51, o host do buscador entra na allowlist do `CifraFonte`
@@ -232,6 +233,78 @@ na nota que a revoga, não apagada da que a criou.
 - **v5.154** — é METADE OTA e METADE APK, e a divisão importa para quem for testar em aparelho.
 - **v5.155** — é OTA PURO
 - **v5.156** — é METADE OTA e METADE APK, de novo.
+
+---
+
+## v1.2.7 — a bateria de testes da cifra, e o buscador aposentado
+
+**A pergunta mudou de natureza.** Enquanto o recurso era novo, o que se ajustava
+era a REGRA: a gramática do acorde, o parentesco da busca, a quebra do par. Com
+ela assentada, o que sobra é outra coisa — o acervo desta igreja é FIXO e
+ANTIGO, os álbuns não ganham faixa nova, os nomes não mudam, e o único risco
+real é o Cifra Club reorganizar endereços. A pergunta que resta é **"para quais
+álbuns a cadeia não chega?"**, e ela não se responde por inspeção: responde-se
+medindo.
+
+### A bateria
+
+Um toque no pé de Configurações sorteia **uma ou duas músicas de cada álbum**,
+roda a cadeia de tentativas e escreve o bloco `Cifra (bateria de testes)` no
+Registro, agrupado por álbum, com o degrau que venceu em cada música.
+
+**A cadeia é UMA, e foi extraída para isso.** `cifraProcurar` saiu de dentro do
+`cifraGarantir` e passou a ter dois consumidores — a aba e a bateria —, pela
+mesma razão do `cifraCabe`: duas escritas dela divergiriam no primeiro ajuste, e
+a bateria passaria a medir um app que não existe, que é o pior artefato que este
+projeto sabe produzir. Ela devolve `via`, o degrau que venceu, e é esse campo que
+a bateria colhe: *"achou"* e *"achou pelo catálogo"* respondem perguntas
+diferentes.
+
+**A falha imprime TODOS os endereços tentados; o sucesso, uma linha.** É a
+decisão que faz a bateria valer a pena. Um "✗ não achei" é uma reclamação; a
+lista de endereços é trabalho de campo — com ela o operador abre o site, acha a
+música (quase sempre sob outro artista) e fixa o endereço à mão, ou traz o
+padrão para virar regra no `cifra.js`.
+
+Três guardas, e as três são o que separa medir de fingir que se mediu:
+
+| guarda | o que ela impede |
+|---|---|
+| `semDisco` | ler o cache responde outra pergunta, e responderia "✓" para todo o hinário — o acervo que já se sabe que funciona. Sem ela a bateria declara tudo saudável sem ter feito uma requisição |
+| `mudo` | dezenas de procuras seguidas enterram a radiografia que o operador foi buscar — o mesmo defeito que já mordeu este recurso três vezes |
+| a lista de tentativas | sem ela sobra o "✗", e o operador não tem por onde começar |
+
+As três reprovam por reversão no `cifra-bateria.test.mjs`, e o oráculo também
+cobra que **nenhum pedaço de folha** entre no bloco: um Registro existe para ser
+copiado para FORA, e o contrato deste recurso é LER cifra de terceiro no
+aparelho, nunca distribuí-la.
+
+O sorteio é a cada execução, de propósito — rodá-la em sábados diferentes varre
+o acervo aos poucos, sem custar centenas de requisições de uma vez. Três frentes
+e não as seis do resto, porque cada unidade daqui é uma CADEIA de até meia dúzia
+de requisições ao mesmo site. O resultado é guardado no `state`: o valor dele é
+ser lido DEPOIS, e o Registro pode ser copiado horas mais tarde.
+
+### O buscador externo sai
+
+A v1.2.2 respondeu à busca interna quebrada perguntando ao endpoint HTML do
+DuckDuckGo, com `site:` na consulta. MEDIDO em aparelho: ele responde
+**`HTTP 202`** — a recusa anti-robô —, e uma recusa lida como página vazia é uma
+requisição por procura para não devolver nada.
+
+O que passou a achar as músicas foram os endereços **deduzíveis**: o catálogo do
+hinário (v1.1.28), o álbum-como-artista (v1.2.5) e os artistas padrão. Uma
+requisição cada, sem ranking de ninguém escolhendo por nós — e é neles que o
+esforço vale, que é justamente o que a bateria mede.
+
+A busca interna FICA, em último lugar: ela custa a requisição que já custava e
+hoje devolve zero; se o site voltar a desenhar no servidor, volta a funcionar
+sozinha. O que sai é o motor externo, o parser dele e o host na allowlist do
+`CifraFonte` — daí o degrau de shell.
+
+**EXIGE RELEASE v1.2.7**: `SHELL_VERSION` 51 → 52. O `cifraHtml` não muda de
+forma; muda de COMPORTAMENTO (um host a menos), que é o mesmo critério pelo qual
+o 51 subiu ao acrescentá-lo.
 
 ---
 

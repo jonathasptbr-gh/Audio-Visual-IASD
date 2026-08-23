@@ -244,7 +244,7 @@ const appVersionEl = document.getElementById('appVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.2.6';
+const WEB_VERSION = '1.2.7';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -307,6 +307,10 @@ renderVersionLabel();
 // só de base web custa um piscar e vale a régua curta
 // (`horaRuimParaPerguntar()`: cena e download).
 const otaRowEl = document.getElementById('otaRow');
+// A BATERIA DE TESTES DA CIFRA. Mora ao lado do Registro porque o resultado
+// dela É o Registro: o botão mede, o bloco responde.
+const cifraBateriaRow = document.getElementById('cifraBateriaRow');
+if (cifraBateriaRow) cifraBateriaRow.addEventListener('click', () => { cifraRodarBateria(); });
 
 // ===== O BOTÃO SÓ EXISTE QUANDO HÁ O QUE FAZER NELE =====
 //
@@ -2518,6 +2522,7 @@ async function load(opts) {
   const lvFonteV = await AVDB.getState('lyricsFont');
   const cifraVelV = await AVDB.getState('cifraVelocidade');
   const cifraEscolhasV = await AVDB.getState('cifraEscolhas');
+  const cifraBateriaV = await AVDB.getState('cifraBateria');
   const lyricsBgV = (await AVDB.getState('lyricsBg')) === 'black' ? 'black' : 'image';
   const downloadOkV = !!(await AVDB.getState('downloadOk'));
   let libItemsV;
@@ -2564,6 +2569,13 @@ async function load(opts) {
   lvTamanho = LV_TAMANHOS.includes(lvFonteV) ? lvFonteV : LV_PADRAO;
   cifraAdotarVelocidade(cifraVelV);
   cifraAdotarEscolhas(cifraEscolhasV);
+  cifraAdotarBateria(cifraBateriaV);
+  // PINTADO AQUI, e não junto do `renderOtaRow()` do topo do arquivo: o estado
+  // da bateria é um `let` declarado no meio do arquivo, e chamá-lo antes disso
+  // é zona morta temporal — um `ReferenceError` que aborta o `controle.js`
+  // inteiro (a armadilha que o watchdog de boot existe para pegar, e que aqui é
+  // melhor não produzir).
+  cifraBateriaPintar();
   aplicarTamanhoDaLetra();
   lyricsBg = lyricsBgV;
   downloadConsent = downloadOkV;
@@ -10082,6 +10094,177 @@ async function cifraPedir(url, mudo) {
   return { ok: true, pagina, motivo: AVCifra.OK };
 }
 
+/**
+ * OS NOMES DAS VIAS, para o Registro.
+ *
+ * `via` é a CHAVE (curta, guardada no `state` da bateria e comparável); o nome
+ * por extenso é o que a frase mostra. Separados porque o resultado da bateria
+ * sobrevive à sessão: um rótulo já formado, guardado, congelaria a redação de
+ * hoje dentro de um dado de ontem.
+ */
+const CIFRA_VIA_NOME = {
+  fixada: 'fixada à mão',
+  aparelho: 'guardada no aparelho',
+  catalogo: 'catálogo do hinário',
+  album: 'álbum como artista',
+  padrao: 'artista padrão',
+  busca: 'busca no site',
+};
+
+/**
+ * A CADEIA DE TENTATIVAS — uma escrita, dois consumidores.
+ *
+ * A mesma razão do `cifraCabe`: quem projeta uma música (`cifraGarantir`) e quem
+ * roda a BATERIA DE TESTES (`cifraRodarBateria`) precisam da MESMA cadeia, e
+ * duas escritas dela divergiriam no primeiro ajuste — com a bateria passando a
+ * medir um app que não existe, que é o pior artefato que um diagnóstico pode
+ * produzir.
+ *
+ * Devolve `{ ok, pagina, motivo, url, via, tentativas, crus, consulta }`.
+ *
+ * **`via` é o degrau QUE VENCEU**, e é o campo que a bateria existe para
+ * colher: "achou" e "achou pelo catálogo" respondem perguntas diferentes, e é a
+ * segunda que diz se um álbum novo do acervo precisa de conserto no `cifra.js`
+ * ou se está apenas apoiado na busca — o degrau que menos acerta.
+ *
+ * `opts.mudo` cala a radiografia (trabalho de massa não pode sobrescrever a
+ * página que o operador está diagnosticando); `opts.semDisco` pula o que já
+ * está guardado no aparelho, porque a bateria pergunta *"o endereço ainda
+ * leva à página?"* e ler o disco responde outra coisa.
+ */
+async function cifraProcurar(nome, coll, chave, opts) {
+  const o = opts || {};
+  const tentativas = [];
+  let desfecho = { ok: false, motivo: AVCifra.MOTIVO_NAO_TEM };
+  let url = '';
+  let via = '';
+  let crus = [];
+  let consulta = nome;
+  // Um degrau só falha PARA A FRENTE se a página não existir. `ilegivel` é
+  // "respondeu e o parser não entendeu", e insistir noutro endereço troca o
+  // motivo certo (o site mudou de formato) por um errado (a música não existe).
+  const segue = () => !desfecho.ok && desfecho.motivo !== AVCifra.MOTIVO_ILEGIVEL;
+
+  // 0ª TENTATIVA: O QUE O OPERADOR JÁ ESCOLHEU. Ela vem antes de tudo e
+  // encerra o assunto: quem fixou um endereço sabe qual é a música, e
+  // continuar adivinhando depois disso seria desfazer a correção dele a cada
+  // abertura do app. Falhando (o site tirou a página do ar), o caminho
+  // automático roda em seguida como sempre.
+  const fixada = cifraEscolhas[chave];
+  if (fixada) {
+    url = fixada;
+    desfecho = await cifraPedir(fixada, o.mudo);
+    tentativas.push('fixada ' + fixada + ' → ' + desfecho.motivo);
+    if (desfecho.ok) via = 'fixada';
+  }
+
+  // 0,5ª TENTATIVA: O QUE JÁ ESTÁ NO APARELHO. É a única que não toca na rede,
+  // e por isso é a que faz a folha abrir no sábado com o Wi-Fi da igreja
+  // oscilando. Vem DEPOIS da escolha do operador (uma correção à mão vale
+  // mais que o automático guardado) e ANTES de todo o resto.
+  if (!desfecho.ok && !o.semDisco && coll && cifraGuardavel(coll)) {
+    const disco = await cifraDiscoDe(coll.id);
+    const g = disco[cifraChaveNoDisco(nome)];
+    if (g && g.pagina) {
+      url = g.url || '';
+      desfecho = { ok: true, pagina: g.pagina, motivo: AVCifra.OK };
+      via = 'aparelho';
+      tentativas.push('guardada no aparelho ' + url + ' → ok');
+    }
+  }
+
+  // 1ª TENTATIVA: o atalho do catálogo.
+  const direta = !desfecho.ok && coll ? AVCifra.urlDoHino(coll.id, nome) : '';
+  if (direta) {
+    url = direta;
+    desfecho = await cifraPedir(direta, o.mudo);
+    tentativas.push('direta ' + direta + ' → ' + desfecho.motivo);
+    if (desfecho.ok) via = 'catalogo';
+  }
+
+  // 1,5ª TENTATIVA: O ÁLBUM DO ACERVO COMO ARTISTA DO SITE. MEDIDO:
+  // "Usa-me", do álbum **Adoradores 5**, mora em `/adoradores-5/usa-me/` — o
+  // nome do álbum em slug É o artista lá. É a tentativa deduzível de melhor
+  // custo-benefício que este recurso tem, porque sai do dado que já está no
+  // item: nem catálogo para manter, nem rodízio fixo. Vem ANTES dos artistas
+  // padrão porque é mais específica que eles.
+  if (segue() && coll && coll.name) {
+    const ua = AVCifra.urlDoAlbum(coll.name, nome);
+    if (ua && ua !== url) {
+      url = ua;
+      desfecho = await cifraPedir(ua, o.mudo);
+      tentativas.push('álbum ' + ua + ' → ' + desfecho.motivo);
+      if (desfecho.ok) via = 'album';
+    }
+  }
+
+  // 2ª TENTATIVA: os ARTISTAS PADRÃO. Os CDs oficiais e os do ano estão sob a
+  // coleção "Ministério Jovem" do site, e ali a URL é DEDUZÍVEL do nome — uma
+  // requisição, sem ranking de ninguém escolhendo por nós, que é a mesma razão
+  // pela qual o catálogo vem antes da busca. Errar custa um 404 e a busca roda
+  // em seguida como sempre.
+  if (segue()) {
+    for (const u of AVCifra.urlsPadrao(nome)) {
+      url = u;
+      desfecho = await cifraPedir(u, o.mudo);
+      tentativas.push('padrão ' + u + ' → ' + desfecho.motivo);
+      if (desfecho.ok) via = 'padrao';
+      if (desfecho.ok || desfecho.motivo === AVCifra.MOTIVO_ILEGIVEL) break;
+    }
+  }
+
+  // 3ª TENTATIVA: a busca do site. Ela cobre o "qualquer música" E o hino cujo
+  // nome no acervo não bate com o do site — mas NÃO cobre o `ilegivel` (ver o
+  // `segue()`).
+  //
+  // DOIS TENTOS DE CONSULTA, e o álbum entra só no segundo: ele não é o
+  // artista do site, e uma palavra a mais numa busca de texto pode ENCOLHER o
+  // resultado em vez de afiná-lo. Quando o primeiro tento não devolve nada com
+  // parentesco, não há o que encolher — e aí o álbum é a única carta que sobra.
+  //
+  // ATÉ `CIFRA_CANDIDATOS` PÁGINAS, na ordem do parentesco. O ranking do site
+  // não é o nosso: o primeiro colocado pode ser uma versão simplificada, uma
+  // playback ou um homônimo. Cada tentativa entra no Registro, então três
+  // `ilegivel` seguidos continuam dizendo "o site mudou de formato" — mais
+  // alto, não mais baixo.
+  if (segue()) {
+    // As consultas, na ordem, SEM repetir: o álbum entra na segunda, e quando
+    // não há álbum a segunda simplesmente não existe (a primeira versão
+    // repetia a mesma consulta e gastava uma requisição a troco de nada).
+    const album = (coll && coll.name) || '';
+    const consultas = [nome];
+    if (album) consultas.push(nome + ' ' + album);
+    let candidatos = [];
+    for (const q of consultas) {
+      if (candidatos.length) continue;
+      // O PARENTESCO É SEMPRE CONTRA O NOME DA MÚSICA, nunca contra a consulta:
+      // com o álbum colado, nenhum resultado seria parente dela.
+      const r = await cifraBuscarNoSite(q, nome, album, o.mudo);
+      if (!r.url) continue;
+      candidatos = r.ordenados;
+      // OS CRUS VOLTAM COM O RESULTADO. É deles que o seletor vive, e buscá-los
+      // de novo ao abri-lo seria uma segunda requisição para saber o que já se
+      // sabia — no meio do culto, com o instrumento na mão.
+      // A CONSULTA DEVOLVIDA É A QUE PRODUZIU A LISTA, não o nome puro: é ela
+      // que o campo do seletor mostra, e um campo que diz outra coisa do que
+      // foi buscado faz o operador editar a partir de uma premissa falsa.
+      if (r.crus.length) { crus = r.crus; consulta = q; }
+      for (const l of (r.linhas || [])) tentativas.push(l);
+    }
+    for (const c of candidatos.slice(0, CIFRA_CANDIDATOS)) {
+      url = c.url;
+      desfecho = await cifraPedir(url, o.mudo);
+      tentativas.push('tentada ' + url + ' → ' + desfecho.motivo);
+      if (desfecho.ok) { via = 'busca'; break; }
+    }
+  }
+
+  return {
+    ok: !!desfecho.ok, pagina: desfecho.pagina || null, motivo: desfecho.motivo,
+    url, via, tentativas, crus, consulta,
+  };
+}
+
 // Garante que a cifra do item em cena está a caminho (ou já chegou). Idempotente
 // de propósito: `renderLyricsView` pode chamá-la a cada pulso, e o estado
 // `buscando` é o que impede uma segunda requisição para a mesma chave.
@@ -10104,133 +10287,20 @@ function cifraGarantir(item) {
   // As radiografias são DESTA procura: sem limpar, a música seguinte herdaria
   // as páginas da anterior e o Registro descreveria um culto misturado.
   cifraEstruturas = [];
-  (async () => {
-    const tentativas = [];
-    let desfecho = { ok: false, motivo: AVCifra.MOTIVO_NAO_TEM };
-    let url = '';
-
-    // 0ª TENTATIVA: O QUE O OPERADOR JÁ ESCOLHEU. Ela vem antes de tudo e
-    // encerra o assunto: quem fixou um endereço sabe qual é a música, e
-    // continuar adivinhando depois disso seria desfazer a correção dele a cada
-    // abertura do app. Falhando (o site tirou a página do ar), o caminho
-    // automático roda em seguida como sempre.
-    const fixada = cifraEscolhas[chave];
-    if (fixada) {
-      url = fixada;
-      desfecho = await cifraPedir(fixada);
-      tentativas.push('fixada ' + fixada + ' → ' + desfecho.motivo);
-    }
-
-    // 0,5ª TENTATIVA: O QUE JÁ ESTÁ NO APARELHO. É a única que não toca na rede,
-    // e por isso é a que faz a folha abrir no sábado com o Wi-Fi da igreja
-    // oscilando. Vem DEPOIS da escolha do operador (uma correção à mão vale
-    // mais que o automático guardado) e ANTES de todo o resto.
-    if (!desfecho.ok && coll && cifraGuardavel(coll)) {
-      const disco = await cifraDiscoDe(coll.id);
-      const g = disco[cifraChaveNoDisco(nome)];
-      if (g && g.pagina) {
-        url = g.url || '';
-        desfecho = { ok: true, pagina: g.pagina, motivo: AVCifra.OK };
-        tentativas.push('guardada no aparelho ' + url + ' → ok');
-      }
-    }
-
-    // 1ª TENTATIVA: o atalho do catálogo.
-    const direta = !desfecho.ok && coll ? AVCifra.urlDoHino(coll.id, nome) : '';
-    if (direta) {
-      url = direta;
-      desfecho = await cifraPedir(direta);
-      tentativas.push('direta ' + direta + ' → ' + desfecho.motivo);
-    }
-
-    // 1,5ª TENTATIVA: O ÁLBUM DO ACERVO COMO ARTISTA DO SITE. MEDIDO:
-    // "Usa-me", do álbum **Adoradores 5**, mora em `/adoradores-5/usa-me/` — o
-    // nome do álbum em slug É o artista lá. É a tentativa deduzível de melhor
-    // custo-benefício que este recurso tem, porque sai do dado que já está no
-    // item: nem catálogo para manter, nem rodízio fixo. Vem ANTES dos artistas
-    // padrão porque é mais específica que eles.
-    if (!desfecho.ok && desfecho.motivo !== AVCifra.MOTIVO_ILEGIVEL && coll && coll.name) {
-      const ua = AVCifra.urlDoAlbum(coll.name, nome);
-      if (ua && ua !== url) {
-        url = ua;
-        desfecho = await cifraPedir(ua);
-        tentativas.push('álbum ' + ua + ' → ' + desfecho.motivo);
-      }
-    }
-
-    // 2ª TENTATIVA: os ARTISTAS PADRÃO. Os CDs oficiais e os do ano estão sob a
-    // coleção "Ministério Jovem" do site, e ali a URL é DEDUZÍVEL do nome — uma
-    // requisição, sem ranking de ninguém escolhendo por nós, que é a mesma razão
-    // pela qual o catálogo vem antes da busca. Errar custa um 404 e a busca roda
-    // em seguida como sempre.
-    if (!desfecho.ok && desfecho.motivo !== AVCifra.MOTIVO_ILEGIVEL) {
-      for (const u of AVCifra.urlsPadrao(nome)) {
-        url = u;
-        desfecho = await cifraPedir(u);
-        tentativas.push('padrão ' + u + ' → ' + desfecho.motivo);
-        if (desfecho.ok || desfecho.motivo === AVCifra.MOTIVO_ILEGIVEL) break;
-      }
-    }
-
-    // 3ª TENTATIVA: a busca do site. Ela cobre o "qualquer música" E o hino cujo
-    // nome no acervo não bate com o do site — mas NÃO cobre o `ilegivel`: ali a
-    // página existe e o parser é que não a entendeu, e repetir a mesma leitura
-    // por outro caminho só troca o motivo certo por um errado.
-    //
-    // DOIS TENTOS DE CONSULTA, e o álbum entra só no segundo: ele não é o
-    // artista do site, e uma palavra a mais numa busca de texto pode ENCOLHER o
-    // resultado em vez de afiná-lo. Quando o primeiro tento não devolve nada com
-    // parentesco, não há o que encolher — e aí o álbum é a única carta que sobra.
-    //
-    // ATÉ `CIFRA_CANDIDATOS` PÁGINAS, na ordem do parentesco. O ranking do site
-    // não é o nosso: o primeiro colocado pode ser uma versão simplificada, uma
-    // playback ou um homônimo. Cada tentativa entra no Registro, então três
-    // `ilegivel` seguidos continuam dizendo "o site mudou de formato" — mais
-    // alto, não mais baixo.
-    if (!desfecho.ok && desfecho.motivo !== AVCifra.MOTIVO_ILEGIVEL) {
-      // As consultas, na ordem, SEM repetir: o álbum entra na segunda, e quando
-      // não há álbum a segunda simplesmente não existe (a primeira versão
-      // repetia a mesma consulta e gastava uma requisição a troco de nada).
-      const album = (coll && coll.name) || '';
-      const consultas = [nome];
-      if (album) consultas.push(nome + ' ' + album);
-      let candidatos = [];
-      for (const q of consultas) {
-        if (candidatos.length) continue;
-        // O PARENTESCO É SEMPRE CONTRA O NOME DA MÚSICA, nunca contra a consulta:
-        // com o álbum colado, nenhum resultado seria parente dela.
-        const r = await cifraBuscarNoSite(q, nome, album);
-        if (!r.url) continue;
-        candidatos = r.ordenados;
-        // OS CRUS FICAM NA ENTRADA. É deles que o seletor vive, e buscá-los de
-        // novo ao abri-lo seria uma segunda requisição para saber o que já se
-        // sabia — no meio do culto, com o instrumento na mão.
-        // A CONSULTA GUARDADA É A QUE PRODUZIU A LISTA, não o nome puro: é ela
-        // que o campo do seletor mostra, e um campo que diz outra coisa do que
-        // foi buscado faz o operador editar a partir de uma premissa falsa.
-        if (r.crus.length) { entrada.crus = r.crus; entrada.consulta = q; }
-        for (const l of (r.linhas || [])) tentativas.push(l);
-      }
-      for (const c of candidatos.slice(0, CIFRA_CANDIDATOS)) {
-        url = c.url;
-        desfecho = await cifraPedir(url);
-        tentativas.push('tentada ' + url + ' → ' + desfecho.motivo);
-        if (desfecho.ok) break;
-      }
-    }
-
+  cifraProcurar(nome, coll, chave).then((r) => {
+    if (r.crus.length) { entrada.crus = r.crus; entrada.consulta = r.consulta; }
     // Uma busca antiga não pode sobrescrever uma mais nova: o operador pode ter
     // trocado de música enquanto a rede respondia.
     if (seq !== lvCifraSeq && cifraCache.get(chave) !== entrada) return;
-    entrada.estado = desfecho.ok ? 'ok' : 'falha';
-    entrada.pagina = desfecho.pagina || null;
-    entrada.motivo = desfecho.motivo;
-    entrada.url = url;
-    cifraUltimoDiag = tentativas.join('\n');
+    entrada.estado = r.ok ? 'ok' : 'falha';
+    entrada.pagina = r.pagina;
+    entrada.motivo = r.motivo;
+    entrada.url = r.url;
+    cifraUltimoDiag = r.tentativas.join('\n');
     // O desfecho REDESENHA — sem isto a aba fica em "Procurando…" até o próximo
     // pulso do `refreshLyricsView`, que num áudio pausado nunca vem.
     if (lyricsPopupEl.classList.contains('open')) renderLyricsView();
-  })().catch(() => {
+  }).catch(() => {
     entrada.estado = 'falha';
     entrada.motivo = AVCifra.MOTIVO_SEM_REDE;
     if (lyricsPopupEl.classList.contains('open')) renderLyricsView();
@@ -10372,6 +10442,210 @@ async function syncCifrasHinario(coll) {
   }
 }
 
+// ===== A BATERIA DE TESTES DA CIFRA (v1.2.7) =====
+//
+// O acervo é FIXO e ANTIGO: os álbuns não ganham faixa nova, os nomes não
+// mudam, e o único risco real é o Cifra Club reorganizar endereços — coisa
+// improvável justamente porque são páginas velhas. Nesse mundo, a pergunta que
+// importa não é "a regra está certa?" e sim **"para quais álbuns a cadeia de
+// endereços não chega?"** — e ela só tem uma resposta honesta: medindo.
+//
+// A bateria sorteia UMA OU DUAS músicas de cada álbum, roda a MESMA cadeia da
+// aba (`cifraProcurar`, e não uma segunda escrita dela) e escreve no Registro o
+// que aconteceu com cada uma, com o degrau que venceu.
+//
+// ## O que ela guarda das FALHAS é o que a torna útil
+//
+// Um "✗ não achei" é uma reclamação; **os endereços TENTADOS são um trabalho de
+// campo**. Com a lista na mão o operador abre o site, encontra a música — quase
+// sempre sob outro artista — e fixa o endereço à mão (`cifraEscolhas`), ou traz
+// o padrão para virar regra no `cifra.js`. É por isso que a falha imprime a
+// cadeia inteira e o sucesso imprime uma linha só.
+//
+// ## E ela pula o que está GUARDADO no aparelho
+//
+// A pergunta é "o endereço ainda leva à página?"; ler o disco responde outra
+// coisa (e responderia "sim" para todo o hinário, que é justamente o acervo
+// que já se sabe que funciona). Daí o `semDisco` — a bateria mede a REDE.
+//
+// O SORTEIO É A CADA EXECUÇÃO, de propósito: rodá-la em sábados diferentes
+// varre o acervo aos poucos, sem custar centenas de requisições de uma vez.
+const CIFRA_BATERIA_POR_ALBUM = 2;
+// TRÊS FRENTES, não as seis do resto. Cada unidade daqui é uma CADEIA de até
+// meia dúzia de requisições ao mesmo site, e não uma requisição só como no
+// download das cifras do hinário — seis frentes seriam uma rajada de trinta.
+const CIFRA_BATERIA_FRENTES = 3;
+
+// As frases dos motivos, curtas. As da aba (`lvBuildCifra`) falam com quem está
+// com o instrumento na mão e explicam o que fazer; estas falam com quem lê um
+// Registro colado num computador, e ali o que se quer é a coluna alinhada.
+const CIFRA_BATERIA_MOTIVO = {
+  [AVCifra.MOTIVO_SEM_REDE]: 'sem resposta da rede',
+  [AVCifra.MOTIVO_NAO_TEM]: 'nenhum endereço tinha a página',
+  [AVCifra.MOTIVO_RECUSOU]: 'o site recusou a página',
+  [AVCifra.MOTIVO_ILEGIVEL]: 'a página abriu e o parser não a entendeu',
+};
+
+let cifraBateriaRodando = false;
+let cifraBateria = null;   // { em, albuns, total, ok, itens: [...] }
+
+/**
+ * Adota o que ficou guardado da última bateria.
+ *
+ * Por FUNÇÃO hoisted, como o `cifraAdotarEscolhas` e pelo mesmo motivo: o
+ * estado mora aqui, no meio do arquivo, e o `load()` que hidrata roda muito
+ * antes na leitura — um `let` alcançado de cima é uma zona morta esperando a
+ * ordem de chamada mudar.
+ */
+function cifraAdotarBateria(v) {
+  cifraBateria = (v && typeof v === 'object' && Array.isArray(v.itens)) ? v : null;
+}
+
+/** Os álbuns que a bateria mede: os de MÚSICA, e só os que têm faixa. */
+function cifraAlbunsDaBateria() {
+  return allCollections().filter((c) => temLetra(c) && collSongs(c.id).length > 0);
+}
+
+/** Uma ou duas faixas do álbum, ao acaso e sem repetir. */
+function cifraAmostraDoAlbum(coll) {
+  const pool = collSongs(coll.id).filter((s) => s && s.name);
+  const n = Math.min(CIFRA_BATERIA_POR_ALBUM, pool.length);
+  const saida = [];
+  for (let i = 0; i < n; i++) saida.push(pool.splice(Math.floor(Math.random() * pool.length), 1)[0]);
+  return saida;
+}
+
+/**
+ * Roda a bateria e guarda o resultado.
+ *
+ * Guardado no `state` porque o valor dele é ser LIDO DEPOIS: são dezenas de
+ * requisições, o operador minimiza o app enquanto elas correm, e o Registro
+ * pode ser copiado horas mais tarde. Gravado também NO MEIO do caminho (a cada
+ * lote), senão um app fechado antes do fim jogaria fora tudo o que já mediu.
+ *
+ * `setState` e não `updateState`: aqui não há ler-calcular-gravar: o objeto
+ * inteiro sai da memória desta função, que é a única escritora enquanto
+ * `cifraBateriaRodando` estiver de pé.
+ */
+async function cifraRodarBateria() {
+  if (!window.__NATIVE__ || cifraBateriaRodando) return;
+  const albuns = cifraAlbunsDaBateria();
+  const alvos = [];
+  for (const c of albuns) {
+    for (const m of cifraAmostraDoAlbum(c)) alvos.push({ coll: c, nome: m.name });
+  }
+  if (!alvos.length) return;
+
+  cifraBateriaRodando = true;
+  const estado = { em: Date.now(), albuns: albuns.length, total: alvos.length, ok: 0, itens: [] };
+  cifraBateria = estado;
+  cifraBateriaPintar();
+  const notifId = bgTaskStart('Bateria de cifras', alvos.length);
+  let done = 0;
+  try {
+    await withBgWork(async () => {
+      try {
+        await runLimited(alvos, CIFRA_BATERIA_FRENTES, async (a, i) => {
+          bgItemStart(notifId, a.nome);
+          let r = null;
+          try {
+            const chave = a.coll.id + '|' + AVCifra.normalizar(a.nome).toLowerCase();
+            // MUDO e SEM DISCO: a bateria não pode apagar a radiografia que o
+            // operador está diagnosticando, e mede a REDE, não o cache.
+            r = await cifraProcurar(a.nome, a.coll, chave, { mudo: true, semDisco: true });
+          } catch (_) { r = null; }
+          bgItemEnd(notifId, a.nome);
+          estado.itens[i] = {
+            album: a.coll.name || a.coll.id, nome: a.nome,
+            ok: !!(r && r.ok), via: (r && r.via) || '',
+            url: (r && r.ok && r.url) || '',
+            motivo: (r && r.motivo) || AVCifra.MOTIVO_SEM_REDE,
+            // A CADEIA SÓ NA FALHA. No sucesso ela seria ruído: o que interessa
+            // é o degrau que venceu, e ele já está no `via`.
+            tentativas: (r && !r.ok && r.tentativas) || [],
+          };
+          if (estado.itens[i].ok) estado.ok++;
+          done++;
+          bgTaskStep(notifId, done);
+          if (done % CIFRA_LOTE === 0) await AVDB.setState('cifraBateria', estado).catch(() => {});
+          cifraBateriaPintar();
+        });
+      } finally { bgTaskEnd(notifId); }
+    });
+  } finally {
+    // Buracos são possíveis se uma frente morreu: a lista é indexada, e um
+    // `undefined` no meio dela quebraria o bloco do Registro inteiro.
+    estado.itens = estado.itens.filter(Boolean);
+    estado.pronto = true;
+    await AVDB.setState('cifraBateria', estado).catch(() => {});
+    cifraBateriaRodando = false;
+    cifraBateriaPintar();
+  }
+}
+
+/**
+ * O botão, nos seus três estados.
+ *
+ * Ele diz o PLACAR da última bateria porque o resultado mora no Registro, que
+ * não tem visor: sem o placar, tocar no botão e não ver nada mudar é
+ * indistinguível de o botão não fazer nada.
+ */
+function cifraBateriaPintar() {
+  if (!cifraBateriaRow) return;
+  const ligado = !!window.__NATIVE__;
+  cifraBateriaRow.hidden = !ligado;
+  if (!ligado) return;
+  if (cifraBateriaRodando) {
+    const f = cifraBateria ? cifraBateria.itens.filter(Boolean).length : 0;
+    const t = cifraBateria ? cifraBateria.total : 0;
+    cifraBateriaRow.disabled = true;
+    cifraBateriaRow.textContent = 'Testando as cifras… ' + f + ' de ' + t;
+    return;
+  }
+  cifraBateriaRow.disabled = false;
+  const b = cifraBateria;
+  cifraBateriaRow.textContent = b && b.itens.length
+    ? 'Testar as cifras de novo — ' + b.ok + ' ✓ / ' + (b.itens.length - b.ok) + ' ✗ no Registro'
+    : 'Testar as cifras (1–2 por álbum)';
+}
+
+/**
+ * O bloco do Registro, por álbum.
+ *
+ * Agrupado pelo álbum porque é essa a unidade da pergunta do operador ("este
+ * álbum chega?"), e ordenado como a Biblioteca ordena — um relatório que
+ * embaralha a ordem da tela obriga a procurar cada linha duas vezes.
+ */
+function cifraBateriaTexto() {
+  const b = cifraBateria;
+  if (!b || !b.itens.length) return '';
+  const quando = new Date(b.em || Date.now()).toLocaleString('pt-BR');
+  const falhas = b.itens.length - b.ok;
+  const l = [quando + (b.pronto ? '' : ' (interrompida)') + ' — ' + b.itens.length
+    + ' música(s) de ' + b.albuns + ' álbum(ns): ' + b.ok + ' ✓ / ' + falhas + ' ✗'];
+  const porAlbum = new Map();
+  for (const it of b.itens) {
+    if (!porAlbum.has(it.album)) porAlbum.set(it.album, []);
+    porAlbum.get(it.album).push(it);
+  }
+  for (const [album, itens] of porAlbum) {
+    l.push(album);
+    for (const it of itens) {
+      if (it.ok) {
+        l.push('  ✓ ' + it.nome + ' — ' + (CIFRA_VIA_NOME[it.via] || it.via || 'via desconhecida'));
+        if (it.url) l.push('      ' + it.url);
+      } else {
+        l.push('  ✗ ' + it.nome + ' — ' + (CIFRA_BATERIA_MOTIVO[it.motivo] || it.motivo));
+        // TODOS OS ENDEREÇOS TENTADOS. É esta lista que deixa o operador achar
+        // a música à mão no site e dizer sob qual artista ela está — o único
+        // caminho que transforma uma falha em conserto.
+        for (const t of (it.tentativas || [])) l.push('      ' + t);
+      }
+    }
+  }
+  return l.join('\n');
+}
+
 // ===== ESCOLHER A CIFRA À MÃO (v1.1.24) =====
 //
 // O método automático ADIVINHA a partir de um nome; o operador SABE qual é a
@@ -10469,22 +10743,29 @@ async function cifraFixar(chave, url) {
  *    operador digitou — nunca a consulta com o álbum colado, senão nenhum
  *    resultado seria parente dela);
  *  - `artista` é o DESEMPATE, e só isso.
+ *
+ * `mudo` cala a radiografia, pela mesma razão do `cifraPedir`: a bateria de
+ * testes roda dezenas de procuras seguidas, e sem a guarda a última delas
+ * apagaria a estrutura da página que o operador está diagnosticando.
  */
-async function cifraBuscarNoSite(consulta, alvo, artista) {
-  // OS DOIS MOTORES, NESTA ORDEM (v1.2.2).
+async function cifraBuscarNoSite(consulta, alvo, artista, mudo) {
+  // UM MOTOR SÓ — o buscador externo saiu na v1.2.7.
   //
-  // O interno vinha primeiro e é o que NUNCA teve como funcionar: MEDIDO num
-  // aparelho, `cifraclub.com.br/?q=` responde 425 kB cujos únicos links de duas
-  // partes são o índice A–Z — os resultados são desenhados por JavaScript, que o
-  // `cifraHtml` não executa. Ele fica em ÚLTIMO, e não some: se o site voltar a
-  // desenhar no servidor, volta a funcionar sozinho, e o Registro continua
-  // acumulando a resposta dele.
+  // Ele entrou na v1.2.2 porque a busca interna nunca teve como funcionar
+  // (MEDIDO: `cifraclub.com.br/?q=` responde 425 kB cujos únicos links de duas
+  // partes são o índice A–Z — os resultados são desenhados por JavaScript, que
+  // o `cifraHtml` não executa), e saiu porque também não funcionou: o endpoint
+  // HTML do DuckDuckGo responde `HTTP 202` — a recusa anti-robô —, e uma recusa
+  // parseada como página vazia é uma requisição por procura para não devolver
+  // nada. Quem passou a achar as músicas foram os endereços DEDUZÍVEIS
+  // (catálogo, álbum-como-artista, artistas padrão), e é neles que o esforço
+  // vale: uma requisição, sem ranking de ninguém escolhendo por nós.
   //
-  // A ORDEM É A DO ACERTO ESPERADO, e o primeiro que trouxer candidato encerra:
-  // um buscador respondendo torna a segunda requisição desperdício puro no meio
-  // do culto.
+  // A busca interna FICA, e é a última carta: ela não custa mais do que a
+  // requisição que já custava, e no dia em que o site voltar a desenhar no
+  // servidor volta a funcionar sozinha — com o Registro acumulando a resposta
+  // dela enquanto isso não acontece.
   const motores = [
-    { rotulo: 'buscador', url: AVCifra.urlDeBuscaExterna(consulta), ler: AVCifra.lerBuscaExterna },
     { rotulo: 'busca', url: AVCifra.urlDeBusca(consulta), ler: AVCifra.lerBusca },
   ];
   // CADA MOTOR VIRA UMA LINHA (v1.2.5). A primeira versão devolvia só o ÚLTIMO,
@@ -10498,7 +10779,7 @@ async function cifraBuscarNoSite(consulta, alvo, artista) {
     if (!m.url) continue;
     const rb = await AVNative.cifraHtml(m.url);
     const ok = rb.status >= 200 && rb.status <= 299;
-    cifraGuardarEstrutura(m.rotulo + ' ' + m.url, ok ? rb.html : '');
+    if (!mudo) cifraGuardarEstrutura(m.rotulo + ' ' + m.url, ok ? rb.html : '');
     const crus = ok ? m.ler(rb.html) : [];
     const ordenados = AVCifra.ordenarBusca(crus, alvo, artista);
     // O STATUS entra na linha: `0` é "não houve resposta" e `403` é "o motor
@@ -18132,6 +18413,14 @@ async function renderDiag() {
       blocos.push('Cifra (estrutura das páginas que não abriram)\n'
         + cifraEstruturas.map((e) => e.texto).join('\n'));
     }
+    // A BATERIA DE TESTES — bloco à parte porque responde a uma pergunta de
+    // outra natureza: as linhas acima falam da ÚLTIMA procura (o culto de
+    // agora), esta fala do ACERVO (para quais álbuns a cadeia de endereços não
+    // chega). É a única do recurso que não nasce de um acidente: o operador a
+    // pede, e o que ela devolve é trabalho de campo — nas falhas, TODOS os
+    // endereços tentados, que é com o que se acha a música à mão no site.
+    const bat = cifraBateriaTexto();
+    if (bat) blocos.push('Cifra (bateria de testes)\n' + bat);
   }
   // O lado WEB da última tentativa de transmitir. Ele vem à parte do
   // diagnóstico do shell porque três dos cinco pontos de desistência acontecem

@@ -1203,10 +1203,18 @@ mixer (`#lyricsViewBtn`, folha com linhas) abre um bottom-sheet **com scroll**
   prévia e fixa o endereço escolhido para aquela música (tentativa 0 dali em
   diante, guardada entre sessões). Com a folha aberta o mesmo seletor está no
   rodapé, como "Trocar". O desenho completo — as tentativas (escolha fixada,
-  catálogo, artista padrão, busca), os quatro motivos de falha, a
-  transposição que preserva a COLUNA do acorde e por que o parser mora no web e
-  não no Kotlin — está em **"A aba de cifra"** no `CLAUDE.md`; a regra em si, em
-  `controle/cifra.js`, com oráculo em `tools/cifra.test.mjs`.
+  o que está guardado no aparelho, catálogo, álbum-como-artista, artistas
+  padrão, busca), os quatro motivos de falha, a transposição que preserva a
+  COLUNA do acorde e por que o parser mora no web e não no Kotlin — está em
+  **"A aba de cifra"** no `CLAUDE.md`; a regra em si, em `controle/cifra.js`,
+  com oráculo em `tools/cifra.test.mjs`.
+
+  **A cadeia de tentativas é UMA** (`cifraProcurar`) e tem dois consumidores: a
+  aba, e a **bateria de testes** do pé de Configurações — um botão que sorteia
+  uma ou duas músicas de cada álbum, roda a mesma cadeia e escreve no Registro
+  quais álbuns ela alcança e por qual degrau, com TODOS os endereços tentados
+  nos que falharam. É o que responde *"para quais álbuns o site mudou de
+  endereço?"* sem depender de alguém topar com a falha no sábado.
 
   A barra do topo da folha carrega **quatro** controles, e a ordem é a de uso:
   a rolagem automática e a velocidade (usadas durante a música inteira) antes do
