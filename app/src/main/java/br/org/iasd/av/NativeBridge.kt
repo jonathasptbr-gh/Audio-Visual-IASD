@@ -26,6 +26,17 @@ interface BridgeHost {
     fun requestDocPick(mimes: Array<String>, onResult: (List<Uri>) -> Unit)
 
     /**
+     * Abre o "Salvar como" do sistema (ACTION_CREATE_DOCUMENT) e ESCREVE o
+     * texto no arquivo escolhido. Devolve o nome gravado, ou `""` se o operador
+     * desistir.
+     *
+     * Quem escreve é o shell, e não a página, porque o WebView deste app não
+     * tem `DownloadListener`: um `<a download>` sobre um `blob:` simplesmente
+     * não faz nada ali — sem erro, sem arquivo, sem nada na tela.
+     */
+    fun requestTextSave(nome: String, texto: String, onResult: (String) -> Unit)
+
+    /**
      * Declara ao sistema que há download em andamento, para o processo não
      * ser congelado com o app minimizado (ver [SyncService]).
      */
@@ -194,7 +205,7 @@ class NativeBridge(
          *
          * O degrau a degrau está na tabela da seção "A ponte" do `CLAUDE.md`.
          */
-        const val SHELL_VERSION = 54
+        const val SHELL_VERSION = 55
 
         /**
          * O CONSUMIDOR DA LAN para o barramento (telão por comandos, E2 —
@@ -1417,6 +1428,30 @@ class NativeBridge(
             }
             resolve(callId, arr.toString())
         }
+    }
+
+    /**
+     * SALVA UM TEXTO NUM ARQUIVO ESCOLHIDO PELO OPERADOR (shell 55).
+     *
+     * O Registro deixou de caber numa cópia: com o acervo inteiro varrido ele
+     * passa de 70 linhas só na seção de cifras, e o caminho de sempre — copiar
+     * e colar — é o que corta o texto no meio sem avisar. Um arquivo não corta.
+     *
+     * **Por que não um `<a download>` na página:** o WebView deste app não
+     * define `DownloadListener`, e sem ele um clique num `blob:` com `download`
+     * não faz absolutamente nada — nem erro, nem arquivo. Pôr um listener
+     * genérico seria abrir um caminho de gravação para QUALQUER coisa que a
+     * página venha a apontar; este método grava UM texto, no arquivo que a
+     * pessoa acabou de escolher, e nada mais.
+     *
+     * SEM PRAZO no lado web: quem responde é uma PESSOA no seletor do sistema —
+     * a mesma regra do [pickFolder], do [pickDoc] e do [requestMic].
+     */
+    @JavascriptInterface
+    fun salvarTexto(callId: String, nome: String, texto: String) {
+        val h = host
+        if (h == null) { resolve(callId, "") ; return }
+        h.requestTextSave(nome, texto) { salvo -> resolve(callId, salvo) }
     }
 
     /** O nome de exibição do documento, ou "Apresentação" se o provedor não o der. */

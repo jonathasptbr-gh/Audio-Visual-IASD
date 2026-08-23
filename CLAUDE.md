@@ -456,10 +456,17 @@ window.AVNative = {
                        //     propósito, para um diagnóstico ganhar campo sem
                        //     mexer na ponte. O degrau do `SHELL_VERSION` continua
                        //     obrigatório: a FORMA de retorno mudou
+  salvarTexto(nome, texto), // → o NOME gravado, ou '' (desistiu ou falhou): o
+                       //   "Salvar como" do sistema (SAF `CREATE_DOCUMENT`),
+                       //   com o shell ESCREVENDO o texto. Existe porque o
+                       //   WebView do app não tem `DownloadListener`: um
+                       //   `<a download>` sobre um `blob:` não faz NADA ali —
+                       //   sem erro, sem arquivo. Sem prazo: quem responde é
+                       //   uma pessoa no seletor
   cifraDiag(),         // → string: o que a última busca de cifra recebeu
 }
 ```
-São **47 métodos**, e essa é a superfície inteira que o resto do lado web tem
+São **48 métodos**, e essa é a superfície inteira que o resto do lado web tem
 direito de usar — fora do `native.js`, tocar em `__AVBridge` direto é
 acoplamento indevido. O próprio `native.js` chama mais oito coisas lá, e nenhuma
 é API para o app: `ytFetchAudio` e `ytFetchAte` (não são métodos a mais, são os
@@ -517,7 +524,7 @@ prazo (um timeout ali resolveria null com o operador ainda escolhendo a pasta).
 
 ### `SHELL_VERSION` — subir SEMPRE que a superfície mudar
 
-Hoje vale **54**, e ele é o **PISO**: o bundle declara `minShell: 54`, então
+Hoje vale **55**, e ele é o **PISO**: o bundle declara `minShell: 55`, então
 todo método da ponte existe sempre e **não há guarda de versão no lado web**.
 "Superfície" inclui **forma de retorno** e **comportamento**, não só assinatura:
 um campo que some, um contrato de URL que muda ou um método que passa a fazer
@@ -2091,9 +2098,17 @@ a congregação vê continua sendo a letra, pelo caminho de sempre.
     o site anunciando a página como letra. Uma mudança de marcação derruba a
     primeira e não inventa a segunda, e o desfecho volta a ser `ilegivel`.
   - **A segunda linha de defesa é o TETO POR PASSADA**
-    (`CIFRA_SO_LETRA_TETO`): o `syncCifrasHinario` recusa-se a gravar uma
-    passada DOMINADA por este veredito. Uma música sem cifra é um fato;
-    um terço do hinário de uma vez é o site tendo mudado.
+    (`CIFRA_SO_LETRA_TETO`): a varredura recusa-se a gravar uma passada
+    DOMINADA por este veredito. Uma música sem cifra é um fato; um terço do
+    hinário de uma vez é o site tendo mudado.
+  - **MAS RECUSAR NÃO PODE SIGNIFICAR REFAZER** (v1.2.16). MEDIDO: o Hinário
+    2022 fechou uma passada com `282 ok · 10 não achei · 309 recusadas`, e como
+    nada das 309 era gravado a varredura recomeçava do zero a cada abertura —
+    as mesmas ~900 requisições, para sempre, sem uma linha na tela dizendo que
+    aquelas 309 tinham sido JULGADAS. Agora a passada tem DIÁRIO
+    (`cifras-passada:<id>`: tentadas, achadas, recusadas), o Registro imprime o
+    motivo, e a coleção fica em prazo (`CIFRA_PASSADA_RECUSADA_MS`, 7 dias) —
+    curto o bastante para um conserto por OTA retomar a varredura sozinho.
   - **Ele NÃO interrompe a cadeia** (só o `ilegivel` interrompe): diz que AQUELE
     endereço não tem cifra, não que a música não exista no site. **Mas
     sobrevive até o fim** — sem essa memória, um `so-letra` seguido de dois 404
@@ -3302,8 +3317,8 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: v1.2.15** (base web) · **v1.2.13** (APK) · `SHELL_VERSION` **54** · bundle com
-`minShell: 54` — o shell 54 é o **PISO**: todo método da ponte existe, e não há
+**Versão atual: v1.2.16** (base web) · **v1.2.16** (APK) · `SHELL_VERSION` **55** · bundle com
+`minShell: 55` — o shell 55 é o **PISO**: todo método da ponte existe, e não há
 guarda de versão no lado web. O que continua valendo é que `java/`, `res/`, o
 manifest e os workflows **só chegam instalando o APK**.
 
