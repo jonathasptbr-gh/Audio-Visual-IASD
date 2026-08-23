@@ -1,9 +1,17 @@
 [
   {
+    "versao": "1.2.4",
+    "itens": [
+      "A BUSCA DE CIFRA PASSA A USAR UM BUSCADOR. A busca do próprio Cifra Club desenha os resultados por JavaScript, então o app nunca via nenhum — a página que ele recebia só tinha o índice A–Z. Agora a procura é feita num buscador, com o site travado na consulta.",
+      "Isso conserta também o seletor manual: a lista de resultados que você abre para escolher a cifra certa estava vazia pelo mesmo motivo.",
+      "Esta versão precisa do app novo (v1.2.4) — o endereço do buscador é liberado no aplicativo, não na base."
+    ]
+  },
+  {
     "versao": "1.2.3",
     "itens": [
       "CORRIGIDO: a rolagem automática da cifra não saía do lugar quando a música não estava tocando — ao ler a letra sem tocar nada, ao parar, ou depois que a faixa terminou. Agora, sem música no ar, ela volta a rolar no ritmo fixo que o botão promete.",
-      "O item do HISTÓRICO agora vai ao telão no toque, direto — não é mais preciso mandá-lo ao Cronograma antes. O botão ao lado continua sendo só o \u201cAdicionar ao Cronograma\u201d.",
+      "O item do HISTÓRICO agora vai ao telão no toque, direto — não é mais preciso mandá-lo ao Cronograma antes. O botão ao lado continua sendo só o “Adicionar ao Cronograma”.",
       "As gavetas de Configurações e da Playlist automática passaram a DESCER do alto da tela, que é onde estão os botões que as abrem. As de baixo (playlist, histórico, opções da música) continuam subindo da base."
     ]
   },

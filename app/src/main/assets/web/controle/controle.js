@@ -244,7 +244,7 @@ const appVersionEl = document.getElementById('appVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.2.3';
+const WEB_VERSION = '1.2.4';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -10184,8 +10184,8 @@ function cifraGarantir(item) {
         // que o campo do seletor mostra, e um campo que diz outra coisa do que
         // foi buscado faz o operador editar a partir de uma premissa falsa.
         if (r.crus.length) { entrada.crus = r.crus; entrada.consulta = q; }
-        tentativas.push('busca ' + r.url + ' → ' + r.crus.length + ' resultado(s), '
-          + candidatos.length + ' com parentesco');
+        tentativas.push((r.rotulo || 'busca') + ' ' + r.url + ' → ' + r.crus.length
+          + ' resultado(s), ' + candidatos.length + ' com parentesco');
       }
       for (const c of candidatos.slice(0, CIFRA_CANDIDATOS)) {
         url = c.url;
@@ -10432,13 +10432,33 @@ async function cifraFixar(chave, url) {
  *  - `artista` é o DESEMPATE, e só isso.
  */
 async function cifraBuscarNoSite(consulta, alvo, artista) {
-  const busca = AVCifra.urlDeBusca(consulta);
-  if (!busca) return { crus: [], ordenados: [], url: '' };
-  const rb = await AVNative.cifraHtml(busca);
-  const ok = rb.status >= 200 && rb.status <= 299;
-  cifraGuardarEstrutura('busca ' + busca, ok ? rb.html : '');
-  const crus = ok ? AVCifra.lerBusca(rb.html) : [];
-  return { crus, ordenados: AVCifra.ordenarBusca(crus, alvo, artista), url: busca };
+  // OS DOIS MOTORES, NESTA ORDEM (v1.2.2).
+  //
+  // O interno vinha primeiro e é o que NUNCA teve como funcionar: MEDIDO num
+  // aparelho, `cifraclub.com.br/?q=` responde 425 kB cujos únicos links de duas
+  // partes são o índice A–Z — os resultados são desenhados por JavaScript, que o
+  // `cifraHtml` não executa. Ele fica em ÚLTIMO, e não some: se o site voltar a
+  // desenhar no servidor, volta a funcionar sozinho, e o Registro continua
+  // acumulando a resposta dele.
+  //
+  // A ORDEM É A DO ACERTO ESPERADO, e o primeiro que trouxer candidato encerra:
+  // um buscador respondendo torna a segunda requisição desperdício puro no meio
+  // do culto.
+  const motores = [
+    { rotulo: 'buscador', url: AVCifra.urlDeBuscaExterna(consulta), ler: AVCifra.lerBuscaExterna },
+    { rotulo: 'busca', url: AVCifra.urlDeBusca(consulta), ler: AVCifra.lerBusca },
+  ];
+  let ultima = { crus: [], ordenados: [], url: '' };
+  for (const m of motores) {
+    if (!m.url) continue;
+    const rb = await AVNative.cifraHtml(m.url);
+    const ok = rb.status >= 200 && rb.status <= 299;
+    cifraGuardarEstrutura(m.rotulo + ' ' + m.url, ok ? rb.html : '');
+    const crus = ok ? m.ler(rb.html) : [];
+    ultima = { crus, ordenados: AVCifra.ordenarBusca(crus, alvo, artista), url: m.url, rotulo: m.rotulo };
+    if (crus.length) return ultima;
+  }
+  return ultima;
 }
 
 /**
