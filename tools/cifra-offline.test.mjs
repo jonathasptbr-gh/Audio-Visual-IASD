@@ -121,6 +121,16 @@ try {
   checar(guardavel.hinario === true, 'o Hinário 2022 é guardável (endereço deduzível)');
   checar(guardavel.album === false, 'e um álbum comum não é — não há como deduzir o endereço dele');
 
+  // O GATILHO EXISTE FORA DO DOWNLOAD (v1.1.30). A v1.1.28 pendurou a busca no
+  // fim do `syncCollection` — e um hinário JÁ COMPLETO faz aquela função
+  // retornar em "Já completo offline" muito antes do gancho. MEDIDO em dois
+  // Registros seguidos: `0 de 601` depois de o operador sincronizar. Quem
+  // remover `syncCifrasHinarios` da rotina de abertura reproduz isso.
+  checar(await pg.evaluate(() => typeof syncCifrasHinarios === 'function'),
+    'existe um caminho que NÃO depende de o hinário estar sendo baixado');
+  const naRotina = await pg.evaluate(() => /syncCifrasHinarios\(\)/.test(String(autoRefreshCollections)));
+  checar(naRotina, 'e ele é chamado pela rotina de abertura, ao lado do syncLyrics', naRotina);
+
   // SEMEAR o disco como o download teria deixado.
   const semeou = await pg.evaluate(async () => {
     const chave = cifraChaveNoDisco('001. Hino De Marcador');

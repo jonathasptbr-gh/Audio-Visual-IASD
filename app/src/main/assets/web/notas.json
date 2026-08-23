@@ -1,5 +1,11 @@
 [
   {
+    "versao": "1.2.1",
+    "itens": [
+      "CORRIGIDO: as cifras do hinário nunca eram baixadas por quem JÁ tinha o hinário. Elas estavam penduradas no fim do download, e um hinário completo termina antes disso — o Registro dizia “0 de 601” mesmo depois de sincronizar. Agora elas vêm na abertura do app, em segundo plano, como as letras."
+    ]
+  },
+  {
     "versao": "1.2.0",
     "itens": [
       "CORRIGIDO: o vídeo do YouTube tocado SEM BAIXAR era interrompido quando o app ficava em segundo plano. Ele é o único tipo de mídia que depende do app estar acordado enquanto toca, e agora ele se abastece pelo próprio vídeo em vez de por um relógio que o Android desacelera. Uma oscilação de rede também deixou de derrubá-lo: ele tenta de novo, em vez de desistir e cair no download.",
