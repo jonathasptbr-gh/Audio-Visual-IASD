@@ -1,5 +1,15 @@
 [
   {
+    "versao": "1.2.0",
+    "itens": [
+      "CORRIGIDO: o vídeo do YouTube tocado SEM BAIXAR era interrompido quando o app ficava em segundo plano. Ele é o único tipo de mídia que depende do app estar acordado enquanto toca, e agora ele se abastece pelo próprio vídeo em vez de por um relógio que o Android desacelera. Uma oscilação de rede também deixou de derrubá-lo: ele tenta de novo, em vez de desistir e cair no download.",
+      "O PARAR passou a falar só da MÍDIA quando há algo por cima dela. Com um louvor de fundo sob um versículo, uma mensagem ou o cronômetro, o ⏹ tira só a música — o texto continua projetado, e quem o encerra é o botão sobre a preview. Sem nada por cima, ele continua encerrando a cena inteira.",
+      "NOVO: o HISTÓRICO DO CULTO, no botão do alto da coluna de controles, à direita (onde ficava a engrenagem). Ele lista tudo o que foi ao telão nesta sessão, com a hora de cada projeção, e cada linha tem um botão para mandar o item ao Cronograma. A lista recomeça a cada vez que o app é aberto.",
+      "A engrenagem de Configurações mudou de lugar: agora ela fica no ALTO da tela, no mesmo canto em que já ficava no Modo Fácil.",
+      "Nos álbuns do Provai e Vede e do Informativo, o botão de atualizar a lista só aparece com o álbum ABERTO."
+    ]
+  },
+  {
     "versao": "1.1.28",
     "itens": [
       "AS CIFRAS DO HINÁRIO 2022 FICAM NO APARELHO. Baixar o hinário passa a trazer também a cifra de cada hino — e a partir daí a folha abre SEM INTERNET, que é o que resolve o sábado com o Wi-Fi da igreja oscilando.",
