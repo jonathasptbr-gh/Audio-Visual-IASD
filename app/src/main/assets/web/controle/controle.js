@@ -244,7 +244,7 @@ const appVersionEl = document.getElementById('appVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.2.14';
+const WEB_VERSION = '1.2.15';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -21544,7 +21544,15 @@ if (pvBusyCancelEl) {
     if (fn) fn();
   });
 }
-lyricsViewBtnEl.addEventListener('click', openLyricsPopup);
+// A FOLHA DO TRANSPORTE É SEMPRE A CENA, e o parêntese vazio é quem diz isso.
+// `openLyricsPopup` ganhou `(item, fonte)` na v1.2.14, e um ouvinte registrado
+// POR REFERÊNCIA entrega o EVENTO no lugar do item: `lvAlvo` virava um
+// `PointerEvent`, `lvItem().lyrics` era `undefined`, `cifraCabe` recusava, e
+// `lvNaCena()` passava a ser falso — o que apagava também a reserva da Bíblia.
+// As três fontes sumiam de uma vez e a folha abria dizendo "Nada em exibição
+// com letra ou texto bíblico" para TODA música. Nada erra alto: a função que
+// decide continua certa, e só a tela denuncia.
+lyricsViewBtnEl.addEventListener('click', () => openLyricsPopup());
 // Letra × Bíblia (só aparece com as duas em cena — ver renderLyricsView).
 lyricsViewSegEl.addEventListener('click', (e) => {
   const btn = e.target.closest('.fit-opt');

@@ -105,21 +105,29 @@
   const FUTUROS_ESCONDER = 'esconder';    // o canal sobe o trimestre e libera aos poucos
 
   /**
-   * QUANTOS DIAS ANTES do sábado o episódio já aparece na lista (v5.256).
+   * O PISO da antecedência: quantos dias antes de um sábado FUTURO o episódio
+   * dele já aparece na lista (v5.256).
    *
-   * Três, isto é: **a quarta-feira antes do sábado**, que foi o pedido do
+   * Três, isto é: **a quarta-feira antes daquele sábado**, que foi o pedido do
    * operador — *"a data de corte não pode ser o próprio dia, pois muitos
    * aproveitam para fazer a organização antes"*. O roteiro do culto é montado
    * durante a semana, e uma lista que só mostra o episódio no sábado de manhã
    * chega tarde para quem prepara.
    *
-   * É uma contagem de DIAS e não um dia da semana, e as duas coisas são a mesma
-   * aqui (os episódios são sempre de sábado) — a contagem é que sobrevive ao dia
+   * É uma contagem de DIAS e não um dia da semana, e é ela que sobrevive ao dia
    * em que o canal publicar num domingo.
    *
-   * **O preço está dito e tem remédio:** nesses três dias o vídeo pode ainda não
-   * estar público, e o download falha. Quem explica isso é o `controle.js`, com
-   * a frase que manda esperar chegar mais perto — ver `serieComoYoutube`.
+   * **É PISO, e não a régua inteira:** o episódio da SEMANA CORRENTE nunca é
+   * escondido, venha ele daqui a seis dias — ver [aindaNaoSaiu], onde as duas
+   * metades se juntam, e [sabadoDaSemana], de onde sai a semana. Enquanto esta
+   * contagem foi a régua inteira, o domingo, a segunda e a terça escondiam o
+   * episódio do sábado que vem enquanto o destaque do topo o declarava o desta
+   * semana.
+   *
+   * **O preço está dito e tem remédio:** enquanto o sábado não chega o vídeo
+   * pode ainda não estar público, e o download falha. Quem explica isso é o
+   * `controle.js`, com a frase que manda esperar chegar mais perto — ver
+   * `serieComoYoutube`.
    */
   const DIAS_DE_ANTECEDENCIA = 3;
 
@@ -459,6 +467,22 @@
    */
   function aindaNaoSaiu(data, serie, hoje) {
     if ((serie || {}).futuros !== FUTUROS_ESCONDER || !data) return false;
+    // O EPISÓDIO DESTA SEMANA NUNCA É ESCONDIDO (v1.2.15).
+    //
+    // Duas regras deste mesmo arquivo respondiam "de que semana é este
+    // episódio?" com calendários diferentes: [sabadoDaSemana] abre a semana no
+    // DOMINGO (é a semana adventista, e o operador monta o culto a partir dela)
+    // e a contagem abaixo só abria a janela na QUARTA. No domingo, na segunda e
+    // na terça o episódio do sábado que vem era ESCONDIDO da lista pela segunda
+    // enquanto a primeira o declarava o desta semana — e o destaque do topo
+    // dizia "Aguardando lançamento" sobre um vídeo que o canal já tinha
+    // liberado. Três dos sete dias da semana, e justamente os que o operador
+    // usa para preparar.
+    //
+    // Ela DELEGA em [ehDoSabadoAtual] em vez de recontar os dias: é a mesma
+    // razão do [mesDaPlaylist] — duas contas de calendário escritas à parte
+    // divergem, e foi a divergência que produziu o defeito.
+    if (ehDoSabadoAtual(data, serie, hoje)) return false;
     return diasAte(data, serie, hoje) > DIAS_DE_ANTECEDENCIA;
   }
 
@@ -842,6 +866,11 @@
       String(tituloDoEpisodio), String(ehLibras), String(normalizar),
       String(mesDoNome), String(mesDoTrimestre),
       String(avaliarPlaylist), String(avaliarVideo), String(aindaNaoSaiu), String(diasAte),
+      // [ehDoSabadoAtual] entra aqui desde a v1.2.15: ela deixou de ser só o
+      // destaque do topo e passou a decidir o que a LISTA contém (é ela que
+      // impede o episódio desta semana de ser escondido). Sem ela, mexer na
+      // janela da semana deixaria de pé todo índice já guardado.
+      String(ehDoSabadoAtual), String(sabadoDaSemana),
       // As duas RECUSAS por idioma são DADOS e não código, e por isso entram
       // pelo valor: mudar uma marca (ou uma faixa de escrita) muda o que o
       // álbum contém, exatamente como mudar uma função — e sem isto o índice

@@ -1650,14 +1650,20 @@ ser diagnosticável.
   na playlist oficial iria direto ao telão.
 - **O ano é EXPLÍCITO no catálogo** — "o ano corrente" trocaria o conteúdo do
   álbum sozinho na virada de dezembro, no meio da programação de janeiro.
-- **O episódio aparece TRÊS DIAS ANTES** (`DIAS_DE_ANTECEDENCIA`): o roteiro é
-  montado durante a semana. É **contagem**, não dia da semana — sobrevive ao
-  canal que publicar num domingo. Nesses três dias o vídeo pode não estar
-  público, e falhando o download a resposta diz o que fazer ("ainda não liberado
-  pelo canal — tente mais perto de 22/Ago"), em **dois lugares**, porque são dois
-  fluxos: o cartão sobre a preview ("Tocar agora" fecha a Biblioteca) e o card da
-  série (pelo Cronograma ela continua aberta). Sem a frase, é indistinguível de
-  queda de rede.
+- **A JANELA É A SEMANA CORRENTE**, com `DIAS_DE_ANTECEDENCIA` (3) como PISO: o
+  episódio do sábado desta semana nunca é escondido, e o das seguintes só entra
+  três dias antes. As duas metades vivem em `aindaNaoSaiu`, que **delega** a
+  primeira em `ehDoSabadoAtual` — enquanto a contagem de dias foi a régua
+  inteira, ela e a semana adventista do `sabadoDaSemana` discordavam em **três
+  dos sete dias** (domingo, segunda e terça): a lista escondia o episódio que o
+  destaque do topo declarava o desta semana, e o topo dizia "Aguardando
+  lançamento" sobre um vídeo já liberado. O piso é **contagem**, não dia da
+  semana — é ele que sobrevive ao canal que publicar num domingo. Enquanto o
+  sábado não chega o vídeo pode não estar público, e falhando o download a
+  resposta diz o que fazer ("ainda não liberado pelo canal — tente mais perto de
+  22/Ago"), em **dois lugares**, porque são dois fluxos: o cartão sobre a preview
+  ("Tocar agora" fecha a Biblioteca) e o card da série (pelo Cronograma ela
+  continua aberta). Sem a frase, é indistinguível de queda de rede.
 - **O QUE AINDA NÃO SAIU NÃO ENTRA NA LISTA** (campo `futuros`). O @daniellocutor
   sobe o trimestre inteiro e libera um por sábado; os que faltam aparecem na
   playlist e **não tocam**. A régua é a DATA (único sinal deste lado — o item de
@@ -2904,6 +2910,7 @@ mundo anterior por outro caminho.
 | `imagem-sobre-audio.test.mjs` | a IMAGEM projetada por cima do áudio. A regra é uma AUSÊNCIA — nenhum `load` sai daquele caminho —, e ausência não tem sintoma de tela nem erro de console: quem a prova é o `currentTime` do `<video>` medido em DOIS instantes ("não pausou" é fraco; "andou" prova que é o mesmo áudio). Nas duas metades: o Controle que decide sobrepor e o telão que pinta |
 | `parar-por-camada.test.mjs` | **o Parar do transporte, que fala de UMA camada só.** A regra é CONDICIONAL (mídia + Camada de Texto → sai só a mídia; uma das duas sozinha → sai a cena inteira), e uma condicional errada é muda nos DOIS sentidos: ou a Camada de Texto fica presa no telão sem saída no transporte, ou o louvor de fundo volta a levar o versículo junto. Mede as TRÊS cenas, e a prova é o `currentTime` do `<video>` mais o TIPO do comando — `clear` e `media-clear` apagam o mesmo vídeo da preview |
 | `cifra-rolagem.test.mjs` | **a rolagem `auto` da cifra precisa de um relógio ANDANDO.** A barra de progresso responde "este ITEM tem linha do tempo?", e `currentItem` sobrevive ao Parar, ao fim da faixa e a uma letra avulsa — a barra ficava habilitada sobre um telão vazio, e o `auto` ancorava a folha em `fracaoDaRolagem(0, dur)`. O desfecho não é um erro, é uma folha PARADA. As DUAS metades: sem mídia no ar ela anda (o livre assumiu), com mídia no ar ela não anda sozinha — "cair sempre no livre" apagaria o recurso |
+| `leitor-do-transporte.test.mjs` | **o BOTÃO que abre o auxiliar de leitura.** `openLyricsPopup` ganhou `(item, fonte)` e o ouvinte continuou registrado por REFERÊNCIA — `addEventListener` chama com o EVENTO, o `PointerEvent` virou o `lvAlvo`, e as três fontes (letra, cifra e a reserva da Bíblia) sumiam de uma vez: a folha abria dizendo "Nada em exibição" para TODA música, com o console limpo. Os três oráculos que já abriam esta folha chamam `openLyricsPopup()` direto — o único caminho que continuava funcionando —, e é por isso que este CLICA. A segunda metade (a Biblioteca continua desviando o alvo) impede que apagar os parâmetros "conserte" a primeira |
 | `historico.test.mjs` | **o histórico do culto**, uma lista que se preenche sozinha no ponto mais quente do app (`send`) e cujos três modos de errar são mudos: não registrar (a folha abre vazia depois de um culto inteiro), registrar demais (`repeat: 'one'` enterrando o culto em cópias do mesmo nome) e oferecer ao Cronograma um id que o coletor já recolheu — este só aparece no sábado seguinte |
 | `gaveta-no-download.test.mjs` | a GAVETA DA LINHA contra o redesenho do progresso — o único lugar do acervo em que o operador DECIDE, e o redesenho remontava a lista por baixo dela a cada 400 ms. MUDO nos dois tempos: aberta, ela some sem erro nenhum; ABRINDO (há um `await` do IndexedDB entre o toque e o `expanded`), o `li` vira órfão e o toque não faz nada. Quatro metades, e a primeira é o HAZARD — sem ela as outras provariam que uma função concorda consigo mesma |
 | `cifra-offline.test.mjs` | **a cifra guardada do hinário abre SEM REDE**, e **a gravação MESCLA em vez de substituir**. A primeira promessa é operacional e falha calada: sem a leitura do disco o app cai no caminho de rede e, COM rede, a folha aparece igual — pela porta errada. Por isso a asserção é `cifraHtml` NÃO ter sido chamado, com a ponte respondendo "sem rede" a tudo; a outra metade prova que o que NÃO está guardado ainda vai à rede. A segunda trava o defeito que apagou 275 cifras de um aparelho: a asserção é a PROPRIEDADE (uma mescla não pode produzir zero a partir de 275), não o interleaving que mordeu daquela vez |
@@ -3286,7 +3293,7 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: v1.2.14** (base web) · **v1.2.13** (APK) · `SHELL_VERSION` **54** · bundle com
+**Versão atual: v1.2.15** (base web) · **v1.2.13** (APK) · `SHELL_VERSION` **54** · bundle com
 `minShell: 54` — o shell 54 é o **PISO**: todo método da ponte existe, e não há
 guarda de versão no lado web. O que continua valendo é que `java/`, `res/`, o
 manifest e os workflows **só chegam instalando o APK**.
