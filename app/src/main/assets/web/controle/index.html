@@ -126,6 +126,14 @@
       <rect x="9" y="9" width="11" height="11" rx="2"/>
       <path d="M5 15V5a2 2 0 0 1 2-2h10"/>
     </symbol>
+    <!-- SALVAR: a seta que desce para a bandeja é o símbolo universal de
+         download, e é o que distingue este botão do de COPIAR ao lado — os
+         dois levam o mesmo texto para fora, por caminhos diferentes. -->
+    <symbol id="icoSalvar" viewBox="0 0 24 24">
+      <path d="M12 3v12"/>
+      <path d="M7 11l5 5 5-5"/>
+      <path d="M4 19h16"/>
+    </symbol>
     <!-- LUPA. Ela já existia desenhada em JS (`searchIconSvg`, o botão de
          pesquisar no YouTube); virou símbolo na v5.264, quando a barra de busca
          da Biblioteca passou a precisar dela também. UM desenho e duas
@@ -1112,8 +1120,18 @@
              pedir ajuda"), e agora ocupam a mesma faixa: a versão à esquerda, o
              Registro à direita, no espaço que já estava sobrando. -->
         <div class="footer-diag">
-          <span id="appVersion" class="app-version">Controle v1.2.16</span>
+          <span id="appVersion" class="app-version">Controle v1.2.17</span>
           <span class="footer-diag-rot">Registro</span>
+          <!-- SALVAR EM ARQUIVO (v1.2.16). Com o acervo inteiro varrido o
+               Registro passa de setenta linhas só na seção de cifras, e copiar
+               e colar é o caminho que corta o texto no meio SEM AVISAR — foi o
+               relato que abriu este lote. Um arquivo não corta. Fica ao lado do
+               copiar porque os dois respondem à mesma intenção ("levar isto
+               para fora"); `hidden` fora do app, onde não há ponte para gravar
+               (quem o revela é `renderVersionLabel`). -->
+          <button id="diagSave" class="log-copy" title="Salvar o registro num arquivo" aria-label="Salvar o registro num arquivo" hidden>
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoSalvar"/></svg>
+          </button>
           <button id="diagCopy" class="log-copy" title="Copiar o registro" aria-label="Copiar o registro">
             <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoCopiar"/></svg>
           </button>

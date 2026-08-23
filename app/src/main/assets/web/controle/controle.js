@@ -244,7 +244,7 @@ const appVersionEl = document.getElementById('appVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.2.16';
+const WEB_VERSION = '1.2.17';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -429,6 +429,7 @@ const wallFileEl = document.getElementById('wallFile');
 const wallPickEl = document.getElementById('wallPick');
 const wallResetEl = document.getElementById('wallReset');
 const diagCopyEl = document.getElementById('diagCopy');
+const diagSaveEl = document.getElementById('diagSave');
 // "Conectar uma tela": a linha em Configurações e a folha que ela abre.
 const castPopupEl = document.getElementById('castPopup');
 const castConnEl = document.getElementById('castConn');
@@ -5052,7 +5053,7 @@ function renderMic() {
         // o telão não emite `mic-status` nenhum e o bloco do microfone ficaria
         // sem uma linha sequer sobre a tentativa — que é exatamente o estado
         // mudo que ele existe para acabar. (Este caminho era do RECADO até a
-        // v1.2.16; ele saiu, e o registro veio com ele para cá.)
+        // v1.2.17; ele saiu, e o registro veio com ele para cá.)
         micRegistrar('ao vivo', [{ qual: 'permissão do Android', erro: 'NotAllowedError' }],
           null, false);
         micError = 'NotAllowedError'; renderMicUI(); return;
@@ -5102,7 +5103,7 @@ function renderFoot() {
   const wrap = document.createElement('div'); wrap.className = 'mic-wrap';
 
   const row = document.createElement('div'); row.className = 'misc-foot';
-  // UM BOTÃO SÓ. O RECADO (o walkie-talkie da v1.1.26) saiu na v1.2.16: ele
+  // UM BOTÃO SÓ. O RECADO (o walkie-talkie da v1.1.26) saiu na v1.2.17: ele
   // existia para cobrir os modelos SEM TV, onde o microfone ao vivo não podia
   // funcionar — e a razão pela qual o ao vivo não funcionava era um defeito
   // nosso (`MODIFY_AUDIO_SETTINGS` ausente do manifest, v1.2.13), não uma
@@ -9910,13 +9911,17 @@ async function cifraPedir(url, mudo, coletar) {
     // mesma música toda sessão. Quem decide é o `cifra.js` (regra pura); aqui
     // só se traduz o veredito.
     const soLetra = AVCifra.soLetra(r.html);
-    // A RADIOGRAFIA CONTINUA SENDO DO `ilegivel`. Na página de letra não há
-    // nada a diagnosticar: já se sabe o que ela é.
-    if (!mudo && !soLetra) cifraGuardarEstrutura('página ' + url, r.html);
+    // A RADIOGRAFIA VALE PARA OS DOIS (v1.2.16). Ela era só do `ilegivel`,
+    // porque "já se sabia o que a página de letra era" — e essa certeza caiu:
+    // o operador conferiu à mão que o Hinário 2022 tem 100% das cifras no site,
+    // e mesmo assim ~309 hinos voltaram como `so-letra`. Ou o endereço não leva
+    // à página que pensamos, ou aquela marcação não significa o que
+    // supusemos — e as duas só se distinguem VENDO A FORMA da página.
+    if (!mudo) cifraGuardarEstrutura('página ' + url, r.html);
     // O COLETOR é o segundo destino da radiografia: a BATERIA precisa da forma
     // das páginas que ELA não entendeu, e não pode escrevê-la no slot
     // compartilhado (é justamente o diagnóstico do operador que ela enterraria).
-    if (coletar && !soLetra) coletar(cifraRadiografiaTexto('página ' + url, r.html));
+    if (coletar) coletar(cifraRadiografiaTexto('página ' + url, r.html));
     return { ok: false, motivo: soLetra ? AVCifra.MOTIVO_SO_LETRA : AVCifra.MOTIVO_ILEGIVEL };
   }
   return { ok: true, pagina, motivo: AVCifra.OK };
@@ -10287,6 +10292,26 @@ const CIFRA_REVISITA_MS = 30 * 24 * 60 * 60 * 1000;
  */
 const CIFRA_FALTANDO_MAX = 20;
 
+/**
+ * O PRAZO DE UMA PASSADA RECUSADA — o fim de um laço mudo (v1.2.16).
+ *
+ * O teto do `so-letra` recusa uma passada dominada por aquele veredito, e ele
+ * está certo: um terço do hinário sem cifra de uma vez é o site tendo mudado,
+ * não o acervo. **Mas recusar não pode significar refazer.** MEDIDO num
+ * aparelho: o Hinário 2022 fechou uma passada com `282 ok · 10 não achei · 309
+ * recusadas` — e como nada das 309 foi gravado, a varredura recomeçava do zero
+ * a cada abertura do app, com as mesmas ~900 requisições, para sempre.
+ *
+ * A resposta não é gravar o que se acabou de julgar suspeito: é **parar de
+ * perguntar por um tempo, dizendo por quê**. Uma semana é curta o bastante para
+ * um conserto do `cifra.js` chegar por OTA e a varredura retomar sozinha, e
+ * longa o bastante para o laço não custar nada enquanto isso.
+ */
+const CIFRA_PASSADA_RECUSADA_MS = 7 * 24 * 60 * 60 * 1000;
+
+/** A chave do diário de uma passada de varredura. */
+function cifraPassadaChave(collId) { return 'cifras-passada:' + collId; }
+
 /** A entrada guardada ainda vale? Uma FOLHA vale sempre; uma ausência, 30 dias. */
 function cifraNoDiscoVale(v, agora) {
   if (!v) return false;
@@ -10437,8 +10462,17 @@ async function syncCifrasColecao(coll) {
   // não é nosso, e o plano de dados do operador não é o lugar delas.
   if (networkType() === 'cellular') return;
 
-  const disco = await cifraDiscoDe(coll.id);
   const agora = Date.now();
+  // A PASSADA ANTERIOR FOI RECUSADA? Então não se repete o trabalho que acabou
+  // de ser julgado suspeito — ver `CIFRA_PASSADA_RECUSADA_MS`. Lido ANTES do
+  // disco: sem isto, carregar o mapa de 601 hinos era o custo de descobrir que
+  // não havia nada a fazer.
+  let passada = null;
+  try { passada = await AVDB.getState(cifraPassadaChave(coll.id)); } catch (_) { passada = null; }
+  if (passada && passada.recusadas
+      && (agora - (passada.em || 0)) < CIFRA_PASSADA_RECUSADA_MS) return;
+
+  const disco = await cifraDiscoDe(coll.id);
   const faltam = collSongs(coll.id)
     .map((s) => ({ nome: s.name, chave: cifraChaveNoDisco(s.name) }))
     .filter((h) => h.chave && !cifraNoDiscoVale(disco[h.chave], agora));
@@ -10455,6 +10489,11 @@ async function syncCifrasColecao(coll) {
   // julgado quando ela termina: é a PROPORÇÃO deles que separa "estas músicas
   // não têm cifra" de "o site mudou".
   const semCifra = {};
+  // CONTADOS À PARTE porque `cifraDiscoMesclar` ESVAZIA `pendentes` depois do
+  // commit: recontar o objeto no fim daria zero sempre, e o diário sairia
+  // dizendo que a passada não achou nada.
+  let okDaPassada = 0;
+  let naoTemDaPassada = 0;
   try {
     await withBgWork(async () => {
       try {
@@ -10478,6 +10517,7 @@ async function syncCifrasColecao(coll) {
             });
             if (d.ok && d.pagina) {
               pendentes[h.chave] = { pagina: d.pagina, url: d.url, em: Date.now() };
+              okDaPassada++;
             } else if (d.motivo === AVCifra.MOTIVO_SO_LETRA) {
               // O SITE SÓ TEM A LETRA DESTA — é resposta, não falha.
               semCifra[h.chave] = { soLetra: true, url: d.url, em: Date.now() };
@@ -10486,6 +10526,7 @@ async function syncCifrasColecao(coll) {
               // site — e, ao contrário do `so-letra`, ela pode mudar quando
               // alguém publicar a cifra: daí o prazo, e não o silêncio eterno.
               pendentes[h.chave] = { naoTem: true, em: Date.now() };
+              naoTemDaPassada++;
             }
             // `sem-rede`, `recusou` e `ilegivel` NÃO gravam nada: os dois
             // primeiros não são resposta do site, e o terceiro é defeito do
@@ -10507,9 +10548,18 @@ async function syncCifrasColecao(coll) {
     // `so-letra`, ela não grava nenhum deles: a leitura certa ali não é "o
     // acervo não tem cifra", é "o site mudou de marcação".
     const quantos = Object.keys(semCifra).length;
-    if (quantos && quantos <= Math.max(1, Math.floor(faltam.length * CIFRA_SO_LETRA_TETO))) {
-      await cifraDiscoMesclar(coll.id, semCifra).catch(() => {});
-    }
+    const cabe = quantos <= Math.max(1, Math.floor(faltam.length * CIFRA_SO_LETRA_TETO));
+    if (quantos && cabe) await cifraDiscoMesclar(coll.id, semCifra).catch(() => {});
+    // O DIÁRIO DA PASSADA — e ele é o que transforma um laço mudo num achado.
+    // Sem ele, "309 por varrer" reaparecia a cada abertura sem que nada na tela
+    // dissesse que aquelas 309 tinham sido julgadas E RECUSADAS. Guardado com
+    // `setState` (objeto inteiro, uma escritora só) e lido pelo Registro.
+    await AVDB.setState(cifraPassadaChave(coll.id), {
+      em: Date.now(), tentadas: faltam.length,
+      ok: okDaPassada, naoTem: naoTemDaPassada,
+      soLetra: cabe ? quantos : 0,
+      recusadas: cabe ? 0 : quantos,
+    }).catch(() => {});
     cifraSyncRodando = false;
   }
 }
@@ -10626,8 +10676,9 @@ async function cifraRodarBateria() {
   cifraBateriaRodando = true;
   const estado = {
     em: Date.now(), albuns: albuns.length, total: alvos.length, ok: 0, itens: [],
-    // Quantas páginas ilegíveis apareceram ao todo — o denominador do corte
-    // acima. Sem ele, "4 radiografias" se leria como "só 4 páginas falharam".
+    // Quantas páginas abriram SEM FOLHA ao todo (ilegíveis e "só letra") — o
+    // denominador do corte acima. Sem ele, "4 radiografias" se leria como "só 4
+    // páginas falharam".
     ilegiveis: 0,
   };
   cifraBateria = estado;
@@ -10732,8 +10783,8 @@ function cifraBateriaTexto() {
     + ' música(s) de ' + b.albuns + ' álbum(ns): ' + b.ok + ' ✓ / ' + falhas + ' ✗'];
   // NENHUM CORTE É SILENCIOSO: o que não coube continua contado.
   if (b.ilegiveis > comRadio) {
-    l.push(b.ilegiveis + ' página(s) que abriram e o parser não entendeu — a forma de '
-      + comRadio + ' delas está abaixo (as demais são da mesma classe)');
+    l.push(b.ilegiveis + ' página(s) que abriram SEM FOLHA (ilegíveis ou "só letra") — a '
+      + 'forma de ' + comRadio + ' delas está abaixo (as demais são da mesma classe)');
   }
   const porAlbum = new Map();
   for (const it of b.itens) {
@@ -18736,6 +18787,21 @@ async function renderDiag() {
         + (semCifra ? ' · ' + semCifra + ' só letra no site' : '')
         + (naoAchei ? ' · ' + naoAchei + ' não achei (repergunto em 30 dias)' : '')
         + (resolvidas < total ? ' · ' + (total - resolvidas) + ' por varrer' : ''));
+      // A ÚLTIMA PASSADA, quando ela teve algo a dizer. É a linha que faltava
+      // para "309 por varrer" deixar de ser um mistério que volta toda sessão:
+      // aquelas 309 FORAM julgadas, e o teto as recusou porque uma passada
+      // dominada por "só letra" é o site tendo mudado, não o acervo sem cifra.
+      let passada = null;
+      try { passada = await AVDB.getState(cifraPassadaChave(c.id)); } catch (_) { passada = null; }
+      if (passada && passada.recusadas) {
+        const dias = Math.max(0, Math.round(
+          (CIFRA_PASSADA_RECUSADA_MS - (Date.now() - (passada.em || 0))) / 86400000));
+        linhas.push('    última passada (' + new Date(passada.em || 0).toLocaleDateString('pt-BR')
+          + '): ' + passada.tentadas + ' tentada(s), ' + passada.ok + ' achada(s), e '
+          + passada.recusadas + ' "só letra" RECUSADAS pelo teto — passada dominada por '
+          + 'esse veredito é o site tendo mudado de marcação, não o acervo sem cifra. '
+          + 'Repito em ' + dias + ' dia(s).');
+      }
       // Os nomes, com teto — e o CORTE É DITO, como em todo bloco deste
       // Registro: um número que some é pior que uma lista longa.
       if (faltando.length) {
@@ -18915,6 +18981,45 @@ if (castUrlCopyEl) {
 
 if (diagCopyEl) {
   diagCopyEl.addEventListener('click', () => copiarTexto(diagTexto, diagCopyEl));
+}
+
+/**
+ * O REGISTRO EM ARQUIVO (v1.2.16).
+ *
+ * Copiar e colar é o caminho que CORTA o texto no meio sem avisar, e com o
+ * acervo inteiro varrido o Registro passou de setenta linhas só na seção de
+ * cifras. Um arquivo não corta — e ainda fica no aparelho para ser anexado
+ * depois, que é o que o operador de fato faz com ele.
+ *
+ * O nome carrega a DATA, porque o valor de um Registro é comparar dois: dois
+ * arquivos com o mesmo nome viram "registro (1).txt" na pasta e ninguém sabe
+ * qual é qual uma semana depois.
+ *
+ * Só no app: gravar arquivo é `AVNative.salvarTexto` (SAF), e no navegador não
+ * há ponte — o botão nasce `hidden` e quem o revela é o `renderVersionLabel`.
+ */
+if (diagSaveEl) {
+  // SÓ NO APP: gravar arquivo é a ponte (SAF), e no navegador um botão que só
+  // sabe não funcionar é pior que botão nenhum.
+  //
+  // Revelado AQUI, e não no `renderVersionLabel` — que seria o lugar natural,
+  // e é uma ZONA MORTA TEMPORAL: aquela função roda no topo do arquivo e este
+  // `const` só existe centenas de linhas abaixo. O `ReferenceError` aborta o
+  // `controle.js` inteiro, e o watchdog do OTA rejeita o bundle sem que nada
+  // na tela diga por quê. Medido: o app não subiu.
+  diagSaveEl.hidden = !window.__NATIVE__;
+  diagSaveEl.addEventListener('click', async () => {
+    if (!window.__NATIVE__) return;
+    const d = new Date();
+    const p2 = (n) => String(n).padStart(2, '0');
+    const nome = 'registro-av-' + d.getFullYear() + p2(d.getMonth() + 1) + p2(d.getDate())
+      + '-' + p2(d.getHours()) + p2(d.getMinutes()) + '.txt';
+    let salvo = '';
+    try { salvo = await AVNative.salvarTexto(nome, diagTexto); } catch (_) { salvo = ''; }
+    // VAZIO É "desistiu OU não deu", e a diferença não existe para quem opera:
+    // nos dois casos não há arquivo, e o botão continua ali para tentar de novo.
+    responder(diagSaveEl, salvo ? 'ok' : 'erro', salvo ? null : 'Não foi salvo');
+  });
 }
 
 function renderFitSeg() {

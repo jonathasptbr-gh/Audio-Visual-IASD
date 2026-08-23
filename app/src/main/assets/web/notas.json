@@ -1,11 +1,19 @@
 [
   {
-    "versao": "1.2.16",
+    "versao": "1.2.17",
     "itens": [
       "O RECADO SAIU. O microfone voltou a ser UM sistema: segure o botão e fale — a voz sai no telão enquanto você fala, sem gravar nada e sem interromper o que está projetado.",
       "Ele existia porque o microfone ao vivo não abria sem TV. Isso era um defeito do app (a permissão que faltava, corrigida na v1.2.13), não uma limitação \u2014 e consertado o ao vivo, o recado só fazia parar o louvor para dizer o que o outro diz sem parar nada.",
       "O microfone continua sendo do TELÃO: sem TV conectada ele não tem para onde mandar a voz, e o app diz isso em vez de fingir que gravou.",
       "E o Registro passou a contar as entradas de áudio também quando a recusa vem do telão \u2014 é essa contagem que separa \u201cnão abre\u201d de \u201cnão existe\u201d."
+    ]
+  },
+  {
+    "versao": "1.2.16",
+    "itens": [
+      "A varredura de cifras parou de recomeçar do zero a cada abertura. O teto de segurança recusava em bloco os vereditos de \"só letra\" do Hinário 2022 — e, como nada era gravado, tudo era reperguntado na sessão seguinte, para sempre. Agora a passada recusada fica registrada com data, o motivo aparece no Registro e a coleção só é revarrida uma semana depois.",
+      "O Registro pode ser SALVO NUM ARQUIVO .txt, ao lado do botão de copiar. Com o acervo inteiro varrido ele passou de setenta linhas só na seção de cifras, e copiar e colar é o caminho que corta o texto no meio sem avisar.",
+      "A bateria de testes passou a mostrar a forma também das páginas de \"só letra\" — o veredito virou suspeito depois de o operador conferir à mão que o hinário novo tem todas as cifras no site."
     ]
   },
   {

@@ -10,7 +10,7 @@
 // estética, é o que separa "o microfone funciona no culto" de "o microfone
 // funciona na bancada".
 //
-// ## ERA UM PAR, E DEIXOU DE SER (v1.2.16)
+// ## ERA UM PAR, E DEIXOU DE SER (v1.2.17)
 //
 // Até aqui este arquivo guardava DUAS escadas: a do `startMic` e a do
 // `iniciarRecado` (o RECADO, o microfone estilo walkie-talkie que gravava no

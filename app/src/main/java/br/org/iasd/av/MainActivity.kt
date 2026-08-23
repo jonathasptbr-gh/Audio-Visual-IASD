@@ -174,6 +174,36 @@ class MainActivity : ComponentActivity(), BridgeHost {
         cb?.invoke(uris ?: emptyList())
     }
 
+    /** Callback do `AVNative.salvarTexto()` em andamento, com o texto a gravar. */
+    private var pendingTextSave: Pair<String, (String) -> Unit>? = null
+
+    /**
+     * "Salvar como" do sistema. `CreateDocument` devolve um `content://` no
+     * qual este processo pode ESCREVER — é o único caminho de gravação do app,
+     * e ele existe porque o WebView não tem `DownloadListener` (ver
+     * `NativeBridge.salvarTexto`).
+     */
+    private val textSaver = registerForActivityResult(
+        ActivityResultContracts.CreateDocument("text/plain"),
+    ) { uri ->
+        val pend = pendingTextSave
+        pendingTextSave = null
+        if (pend == null) return@registerForActivityResult
+        val (texto, cb) = pend
+        if (uri == null) { cb(""); return@registerForActivityResult }
+        val nome = try {
+            contentResolver.openOutputStream(uri)?.use { it.write(texto.toByteArray(Charsets.UTF_8)) }
+            uri.lastPathSegment?.substringAfterLast('/') ?: "registro.txt"
+        } catch (e: Exception) {
+            // Falhar aqui é o operador ficar sem o arquivo, não o app quebrar —
+            // e a string vazia é o mesmo desfecho de ter desistido, que é o que
+            // a tela sabe explicar.
+            Log.w(TAG, "não consegui gravar o texto", e)
+            ""
+        }
+        cb(nome)
+    }
+
     private val folderPicker = registerForActivityResult(
         ActivityResultContracts.OpenDocumentTree(),
     ) { uri ->
@@ -814,6 +844,23 @@ class MainActivity : ComponentActivity(), BridgeHost {
                 Log.w(TAG, "seletor de documento indisponível", e)
                 pendingDocPick = null
                 onResult(emptyList())
+            }
+        }
+    }
+
+    override fun requestTextSave(nome: String, texto: String, onResult: (String) -> Unit) {
+        runOnUiThread {
+            // Mesmo padrão do [requestDocPick]: o pendente resolve vazio antes
+            // de ser sobrescrito, senão a Promise sem prazo do lado web fica
+            // pendurada para sempre.
+            pendingTextSave?.second?.invoke("")
+            pendingTextSave = texto to onResult
+            try {
+                textSaver.launch(nome)
+            } catch (e: Exception) {
+                Log.w(TAG, "seletor de gravação indisponível", e)
+                pendingTextSave = null
+                onResult("")
             }
         }
     }
@@ -1582,7 +1629,7 @@ class MainActivity : ComponentActivity(), BridgeHost {
          * O ÁUDIO ESTEVE AQUI (shell 50 → 54), pelo RECADO — o microfone
          * estilo walkie-talkie, que gravava neste WebView porque o telão só
          * existe com TV conectada e o recado precisava funcionar sem TV. O
-         * recado saiu na v1.2.16: o motivo de ele existir era que o microfone
+         * recado saiu na v1.2.17: o motivo de ele existir era que o microfone
          * AO VIVO não abria sem TV, e isso acabou sendo um defeito NOSSO
          * (`MODIFY_AUDIO_SETTINGS` fora do manifest), não uma limitação.
          * Sem o recado, nada neste WebView pede captura — e uma concessão que

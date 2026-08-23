@@ -354,7 +354,7 @@ try {
   // acima, um canal SEPARADO, porque um BroadcastChannel não entrega ao próprio
   // objeto que postou.
   //
-  // ERA O RECADO QUE DIRIGIA ESTE BLOCO até a v1.2.16 (o oráculo clicava no
+  // ERA O RECADO QUE DIRIGIA ESTE BLOCO até a v1.2.17 (o oráculo clicava no
   // botão dele e forjava o `getUserMedia` local). Com o recado fora, dirigir
   // pelo `mic-status` não é só o que restou: é o caminho de VERDADE do único
   // microfone que existe hoje — o oráculo passou a medir o app em vez de um
