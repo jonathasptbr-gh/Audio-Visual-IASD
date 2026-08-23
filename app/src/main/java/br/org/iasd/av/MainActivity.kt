@@ -1576,26 +1576,60 @@ class MainActivity : ComponentActivity(), BridgeHost {
         }
 
         /**
-         * O WebView do Controle NÃO recebe câmera, microfone, MIDI nem proteção
-         * de conteúdo — nada. Ele nega tudo, e a ausência de exceção é o ponto:
-         * este é o WebView com `host != null`, o que injeta `pickFolder`,
-         * `listFolder`, `openExternal` e `espelhoLigar`.
+         * O WebView do Controle recebe **áudio, e só áudio** — câmera, MIDI e
+         * proteção de conteúdo continuam negados, um a um.
+         *
+         * O ÁUDIO ENTROU NO SHELL 50, pelo RECADO (o microfone estilo
+         * walkie-talkie): gravar exige `MediaRecorder`, que exige um
+         * `MediaStream`, que exige `getUserMedia` — e um WebView cujo
+         * `onPermissionRequest` nega não tem nenhum dos três. O telão não
+         * servia para gravar porque ele **só existe com TV conectada**
+         * (`syncPresentation`), e o recado precisa funcionar justamente onde
+         * não há TV.
+         *
+         * AS TRÊS REGRAS SÃO AS DO [MicChromeClient], deliberadamente as
+         * mesmas: só `RESOURCE_AUDIO_CAPTURE`, só com `RECORD_AUDIO` no
+         * processo (conceder ao WebView o que o processo não tem adia a falha
+         * para um ponto sem sinal) e só da PRÓPRIA origem. Duas
+         * implementações da mesma política divergiriam no primeiro
+         * esquecimento, então esta chama a daquele.
+         *
+         * O QUE ISSO NÃO AFROUXA, e é a pergunta que este KDoc existia para
+         * responder: este é o WebView com `host != null`, o que injeta
+         * `pickFolder`, `listFolder`, `openExternal` e `espelhoLigar`. A guarda
+         * de ORIGEM é o que separa uma coisa da outra — só
+         * `appassets.androidplatform.net` recebe, e a invariante 2 já impede
+         * este WebView de navegar para qualquer outro host. Um script de
+         * terceiro aqui não ganha microfone porque não consegue estar aqui.
          *
          * ELE NÃO PODE SER REMOVIDO por parecer inútil: um WebView sem
-         * `onPermissionRequest` nega EM SILÊNCIO, o que dá o mesmo resultado
-         * hoje e deixaria a próxima pessoa que precisasse de mídia aqui
-         * descobrindo a armadilha do zero, no aparelho, sem erro no console (a
-         * mesma que o [MicChromeClient] documenta para o telão). Negar
-         * explicitamente, com log, transforma "não faz nada" numa linha no
-         * logcat.
+         * `onPermissionRequest` nega EM SILÊNCIO — o que daria o mesmo
+         * resultado para a câmera e mataria o recado sem erro no console.
          */
         override fun onPermissionRequest(request: PermissionRequest) {
-            Log.w(
-                TAG,
-                "permissão de mídia negada ao Controle " +
-                    "(${request.origin}): ${request.resources.joinToString()}",
-            )
-            request.deny()
+            val origem = request.origin?.toString()?.trimEnd('/')
+            val audio = request.resources.filter {
+                it == PermissionRequest.RESOURCE_AUDIO_CAPTURE
+            }
+            val negados = request.resources.filter {
+                it != PermissionRequest.RESOURCE_AUDIO_CAPTURE
+            }
+            if (negados.isNotEmpty()) {
+                Log.w(TAG, "permissão negada ao Controle ($origem): ${negados.joinToString()}")
+            }
+            if (audio.isEmpty() ||
+                !MicChromeClient.hasRecordAudio(this@MainActivity) ||
+                (origem != null && origem != WebViewFactory.ORIGIN)
+            ) {
+                Log.w(
+                    TAG,
+                    "áudio negado ao Controle ($origem): " +
+                        "pedido=${request.resources.joinToString()}",
+                )
+                request.deny()
+                return
+            }
+            request.grant(audio.toTypedArray())
         }
 
         override fun onShowCustomView(view: View, callback: CustomViewCallback) {
