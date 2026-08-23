@@ -2535,7 +2535,6 @@ que ela é desenvolvida e testada fora do aparelho.
 | Fullscreen da preview | `requestFullscreen` + Screen Orientation | idem, com trava de paisagem **nativa** (`onShowCustomView`). Os controles são uma COLUNA na lateral direita que o toque acende e 4 s apagam — não gestos (v1.0.7, ver `docs/arquitetura/CONTROLE.md`) |
 | Botões físicos de volume | o navegador não os recebe | **interceptados**, ligados ao fader (ver abaixo) |
 | Microfone AO VIVO | o navegador pergunta | `MicChromeClient` + `RECORD_AUDIO` (ver abaixo). **Só com TV**: quem capta é o `/display/`, que só existe dentro da `Presentation` |
-| **RECADO** (walkie-talkie) | **não existe** — sem `MediaRecorder` gravando no mesmo aparelho que projeta, o recurso não teria sentido no navegador | **shell 50**: segura, fala, solta — e a voz vira item `kind:'audio'` na prateleira `avulsos`, projetado na hora. Chega aos QUATRO modelos pelo caminho de mídia que já existe, inclusive às telas da rede (`/m/<token>`). Grava no WebView do **Controle**, que passou a receber áudio — e só áudio |
 | Câmera | o navegador pergunta | **negada, sempre**. O `onPermissionRequest` do `ControleChromeClient` FICOU, negando **com log**: um WebView sem ele nega em silêncio, e o próximo que precisar de mídia aqui descobriria a armadilha do zero |
 | Botão voltar | — | **fecha o que estiver aberto** antes de minimizar (ver abaixo) |
 | Controles fora do app | — | `MediaSession`: notificação, tela de bloqueio, botões de mídia |
@@ -2584,57 +2583,30 @@ com rampa nas duas pontas (cortar no meio de uma palavra estala na caixa).
 `echoCancellation` **ligado**: num culto a realimentação é estrago público
 imediato. Fecha sozinho ao soltar o botão, ao trocar de aba e em segundo plano.
 
-### O RECADO — o microfone estilo walkie-talkie (shell 50)
+**A ESCADA DE TRÊS DEGRAUS é o que o faz abrir NO CULTO** (`TENTATIVAS`, com
+oráculo): com `echoCancellation` o Chromium abre o `AudioRecord` em
+`VOICE_COMMUNICATION`, e o Android recusa essa sessão quando a saída de áudio
+está em outro caminho — que é o app **com o espelhamento ligado**. O segundo
+degrau desliga o processamento, o terceiro pede `true` cru, e depois deles vem o
+pedido pelo `deviceId` (o `default` do Chromium é uma entrada virtual, e falhar
+nele não é falhar no microfone). Quem falha DESISTE em `NotAllowedError`: os
+degraus seguintes dariam o mesmo erro.
 
-O ao vivo **só funciona com TV**, e é uma consequência da arquitetura, não um
-ajuste que falta: quem capta é o `/display/`, e ele só existe dentro da
-`Presentation`. Sem TV o `syncPresentation` não cria nenhuma, ninguém executa o
-arquivo, e o comando `mic` não é consumido por ninguém.
+**É O ÚNICO CAMINHO DE CAPTURA DO APP, e isso é recente.** O **RECADO** (o
+microfone estilo walkie-talkie, v1.1.26–v1.2.15) gravava no WebView do Controle
+e mandava a voz como item `kind:'audio'`, para cobrir os modelos SEM TV, onde o
+ao vivo não abria. Ele saiu na v1.2.15: **a razão de o ao vivo não abrir era um
+defeito nosso** — `MODIFY_AUDIO_SETTINGS` fora do manifest (v1.2.13) —, não uma
+limitação da arquitetura. Consertado o ao vivo, o que restava do recado era um
+segundo caminho que INTERROMPE a cena para dizer o que o primeiro diz sem
+interromper nada. Com ele saiu a concessão de áudio do `ControleChromeClient`,
+que existia só para ele; `mic-escada.test.mjs` guarda que o Controle não volte a
+abrir captura sem trazer o par de volta ao oráculo.
 
-O **RECADO** resolve isso por outro caminho: em vez de transportar áudio, ele
-transporta um ARQUIVO. Segurar grava; soltar manda ao ar. A voz vira um item
-`kind:'audio'` comum e entra pelo caminho de projeção de sempre — e é por ser
-comum que ela chega aos quatro modelos **de graça**, inclusive às telas da rede,
-onde `telaSanearRec` cunha o `/m/<token>` e os bytes viajam pelo canal que já
-existe. Nenhuma peça de transporte nova, nenhum encoder, nenhum MSE.
-
-- **Ele custou uma RELEASE, e só uma linha dela.** Gravar é `MediaRecorder` →
-  `MediaStream` → `getUserMedia`, e o `ControleChromeClient` negava TODA
-  permissão de mídia. Hoje ele concede **áudio, e só áudio**, com as TRÊS regras
-  do `MicChromeClient` (que ele CHAMA, em vez de reescrever): só
-  `RESOURCE_AUDIO_CAPTURE`, só com `RECORD_AUDIO` no processo, só da própria
-  origem. A guarda de origem é o que mantém a invariante: este é o WebView com
-  `host != null`, e um script de terceiro não ganha microfone porque não
-  consegue estar aqui (invariante 2).
-- **O FORMATO é escolhido pelo navegador, e a ordem é por quem TOCA.** AAC em
-  MP4 primeiro, Opus em WebM depois — o telão é o WebView do Android
-  (previsível), mas as telas da rede são navegadores de TERCEIRO. Falhar ao
-  gravar é um `isTypeSupported` falso, aqui, agora; falhar ao tocar é o silêncio
-  na igreja.
-- **O `.type` do blob perde o parâmetro de codec**, e isso mantém a correção
-  inteira do lado web: é ele que vira o `Content-Type` da rota `/m/`, e o
-  `EspelhoMidiaCache.tipoValido` só aceita `tipo/subtipo` — um
-  `audio/webm;codecs=opus` sairia servido como `application/octet-stream`.
-- **A prateleira é `avulsos`, e o teto de três é o RECURSO.** Um recado é
-  descartável por natureza; `fixarAvulso` despeja o mais antigo pelo
-  `listRemove`, que roda o coletor. Nada encosta no Cronograma.
-- **O FIM DELE NÃO É O FIM DE UMA FAIXA.** O motor tem um slot, então o recado
-  derruba o que estiver tocando — e, sendo item comum, o `media-ended` dele cai
-  no `autoAdvance`, onde há dois desfechos mudos: `repeat: 'one'` **repete a voz
-  do operador para sempre**, e `repeat: 'all'` não acha o id em `plItems`
-  (`findIndex` → -1) e **começa a playlist do zero**. `recadoTerminou` intercepta
-  ANTES, nos DOIS caminhos de fim (o `media-ended` do telão e o `onEnded` da
-  preview — este é o do modelo sem tela, onde não há telão para emitir o outro).
-- **E ele DEVOLVE a cena.** A posição é guardada antes do envio e volta dentro do
-  próprio `load` (`time`/`playing`) — nunca como um `seek` depois, porque o
-  `onCommand` do Display não serializa. Um louvor interrompido por um recado
-  volta de onde parou.
-- **Um toque acidental não vai ao ar** (`RECADO_MIN_MS`, 700 ms) e um botão que
-  gruda não grava para sempre (`RECADO_MAX_MS`, 2 min).
-- **São DOIS botões, não um com dois modos** — a regra da v1.1.13: um controle
-  que muda de comportamento conforme o contexto é um controle que ninguém
-  aprende. O ao vivo continua existindo porque, onde funciona, é melhor: zero
-  atraso e não derruba o telão.
+**O `sem-telao` continua sendo a recusa mais comum**, e ela é anterior à
+permissão de propósito (`haOndeReproduzirMic`): quem capta é o `/display/`, que
+só existe dentro da `Presentation`, e gastar a única permissão sensível do app
+numa ação que não pode funcionar é como se queima uma permissão.
 
 ### Botão voltar: fecha antes de minimizar
 
@@ -2821,7 +2793,7 @@ Antes de publicar: `node --check` em todo `.js` de `assets/web`, validação do
 | `sorteio.test.mjs` | quais faixas a **playlist automática** pode mandar ao telão. O operador toca UM botão e a faixa entra em cena, sem tela intermediária: os quatro modos de errar (série no lugar do louvor · faixa que casa e não aparece · PLAYBACK onde se esperava a voz · fila cheia do que falta baixar) são todos silenciosos |
 | `glifos.test.mjs` | **todo ícone de fonte existe na fonte.** O `.woff2` é um SUBSET de 31 codepoints, e um `.msym` fora dele não desenha NADA — sem erro, sem requisição falhando, só um vão: o botão existe, é tocável, faz o que promete e é invisível. Lê o `cmap` do próprio arquivo (`zlib.brotliDecompressSync`, zero dependência) |
 | `sidx.test.mjs` | o parser `sidx` |
-| `mic-escada.test.mjs` | **as DUAS escadas de captura do microfone**: o AO VIVO (`display.js`) e o RECADO (`controle.js`) abrem o microfone em WebViews diferentes e precisam da MESMA escada de três tentativas — é o SEGUNDO degrau (sem cancelamento de eco) que abre o microfone **com o espelhamento ligado**, isto é, no modo normal de um culto com TV. O recado nasceu com UM degrau e o operador recebeu "O Android não liberou o microfone" no primeiro toque. Duas escadas sem oráculo divergem no primeiro esquecimento |
+| `mic-escada.test.mjs` | **a escada de captura do microfone**: com `echoCancellation` o Chromium abre o `AudioRecord` em `VOICE_COMMUNICATION`, e o Android RECUSA essa sessão quando a saída de áudio está em outro caminho — isto é, **com o espelhamento ligado**, o modo normal de um culto com TV. É o SEGUNDO degrau (sem cancelamento de eco) que abre o microfone ali. Ele guardava um PAR (o ao vivo e o RECADO) até a v1.2.16; com o recado fora, as asserções de pareamento saíram e ficaram as de PROPRIEDADE — uma igualdade entre duas escadas nunca provou que elas estavam certas, aprovaria duas igualmente erradas. Guarda também que o Controle **não abre captura nenhuma**, para um segundo caminho não voltar mudo |
 | `tipos-que-sobem.test.mjs` | **as DUAS metades do dreno da tela da rede**: a lista de permissão do `drenar()` (`espelho/tela.js`) e a do `TIPOS_QUE_SOBEM` (`EspelhoServidor.kt`). Duas listas sem oráculo divergem no primeiro esquecimento, e a divergência é MUDA nos dois sentidos |
 | `contexto-seguro.test.mjs` | `VideoDecoder`, `wakeLock`, `audioWorklet`, `randomUUID`, `crypto.subtle` **fora de guarda** em `espelho/`, `display/` **e `shared/`** — o `/display/` das telas da rede roda em `http://`, e ele carrega quatro arquivos de `shared/`: lá essas APIs vêm `undefined`. Guarda vale `isSecureContext` **ou** detecção de presença na mesma linha |
 
@@ -3302,7 +3274,7 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: v1.2.15** (base web) · **v1.2.13** (APK) · `SHELL_VERSION` **54** · bundle com
+**Versão atual: v1.2.16** (base web) · **v1.2.16** (APK) · `SHELL_VERSION` **54** · bundle com
 `minShell: 54` — o shell 54 é o **PISO**: todo método da ponte existe, e não há
 guarda de versão no lado web. O que continua valendo é que `java/`, `res/`, o
 manifest e os workflows **só chegam instalando o APK**.

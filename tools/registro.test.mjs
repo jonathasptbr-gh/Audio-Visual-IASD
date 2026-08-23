@@ -349,36 +349,61 @@ try {
     };
   });
 
-  async function tentarRecado(erro, entradas) {
-    return pg.evaluate(async ([nomeErro, nDisp]) => {
+  // O AO VIVO CAPTA NO TELÃO, então a falha chega ao Controle como um
+  // `mic-status` com `error` e `degraus` — pelo mesmo caminho do `diag-dump`
+  // acima, um canal SEPARADO, porque um BroadcastChannel não entrega ao próprio
+  // objeto que postou.
+  //
+  // ERA O RECADO QUE DIRIGIA ESTE BLOCO até a v1.2.16 (o oráculo clicava no
+  // botão dele e forjava o `getUserMedia` local). Com o recado fora, dirigir
+  // pelo `mic-status` não é só o que restou: é o caminho de VERDADE do único
+  // microfone que existe hoje — o oráculo passou a medir o app em vez de um
+  // segundo consumidor que já não está lá.
+  let micSeqTeste = 0;
+  const proxSeq = () => ++micSeqTeste;
+  async function tentarAoVivo(erro, entradas) {
+    return pg.evaluate(async ([nomeErro, nDisp, seq]) => {
       const dorme = (ms) => new Promise((f) => setTimeout(f, ms));
+      // A lista de entradas é do NAVEGADOR e o `micRegistrar` a busca sozinho
+      // (o telão não a manda): forjar `enumerateDevices` é o que faz a contagem
+      // do Registro ser a do cenário, e é ela que separa "não abre" de
+      // "não existe".
       Object.defineProperty(navigator, 'mediaDevices', {
         configurable: true,
         value: {
-          getUserMedia: () => {
-            const e = new Error('forjado'); e.name = nomeErro;
-            return Promise.reject(e);
-          },
           enumerateDevices: () => Promise.resolve(
             Array.from({ length: nDisp }, (_, i) => ({ kind: 'audioinput', deviceId: 'd' + i }))),
         },
       });
-      const ir = (t) => { const b = document.querySelector('[data-tab="' + t + '"]'); if (b) b.click(); };
-      ir('mic');
-      await dorme(250);
-      const btn = document.getElementById('recadoBtn');
-      if (!btn) return { semBotao: true };
-      btn.setPointerCapture = () => {};
-      btn.hasPointerCapture = () => true;
-      btn.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerId: 7 }));
-      await dorme(700);
-      btn.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, pointerId: 7 }));
-      await dorme(400);
+      const bc = new BroadcastChannel('av-iasd');
+      // ZERA O ERRO ANTERIOR PRIMEIRO. O `micRegistrar` do ao vivo só dispara na
+      // TRANSIÇÃO (`erroNovo !== micError`), porque o telão reemite `mic-status`
+      // e repetir a mesma recusa encheria a linha do tempo com o mesmo fato. Sem
+      // esta limpeza, dois cenários com o MESMO erro fariam o segundo ser
+      // engolido — e o oráculo mediria o resultado do primeiro, passando.
+      bc.postMessage({ type: 'mic-status', on: false, error: '', __mid: 'micz:' + seq });
+      await dorme(120);
+      bc.postMessage({
+        type: 'mic-status', on: false, error: nomeErro,
+        degraus: [
+          { qual: 'com eco', erro: nomeErro },
+          { qual: 'sem eco', erro: nomeErro },
+          { qual: 'cru', erro: nomeErro },
+          { qual: 'pelo ID', erro: nomeErro },
+        ],
+        __mid: 'mic:' + seq,
+      });
+      await dorme(300);
+      bc.close();
       await window.renderDiag();
       delete navigator.mediaDevices;
       return { texto: typeof diagTexto === 'string' ? diagTexto : '' };
-    }, [erro, entradas]);
+    }, [erro, entradas, proxSeq()]);
   }
+  // O `micRegistrar` do ao vivo só dispara na TRANSIÇÃO do erro (o telão
+  // reemite `mic-status`, e repetir a mesma recusa encheria a linha do tempo).
+  // Cada cenário precisa de um erro DIFERENTE do anterior, senão o segundo é
+  // engolido e o oráculo mediria o resultado do primeiro.
 
   const semTentativa = await pg.evaluate(async () => {
     await window.renderDiag();
@@ -390,7 +415,7 @@ try {
 
   // OS TRÊS DEGRAUS RECUSADOS: o caso do relato. O pedido CRU também falhou,
   // então o problema não é o processamento que a escada existe para contornar.
-  const tres = (await tentarRecado('NotReadableError', 1)).texto || '';
+  const tres = (await tentarAoVivo('NotReadableError', 1)).texto || '';
   checar(/Microfone \(última tentativa\)/.test(tres),
     'havendo tentativa, o bloco aparece', tres.slice(0, 200));
   checar(/com eco: NotReadableError/.test(tres) && /cru: NotReadableError/.test(tres),
@@ -403,11 +428,11 @@ try {
     'com a contagem de entradas — é ela que separa "não abre" de "não existe"');
   // E A LINHA DO TEMPO leva o mesmo fato: é ela que dá a HORA, ao lado do que o
   // operador estava fazendo.
-  checar(/microfone \(recado\) RECUSADO em \d+ tentativa\(s\)/.test(tres),
+  checar(/microfone \(ao vivo\) RECUSADO em \d+ tentativa\(s\)/.test(tres),
     'e a LINHA DO TEMPO carimba a recusa com a hora, ao lado do resto do culto');
 
   // ZERO ENTRADAS é outra causa e outra ação: não adianta mexer em permissão.
-  const zero = (await tentarRecado('NotFoundError', 0)).texto || '';
+  const zero = (await tentarAoVivo('NotFoundError', 0)).texto || '';
   checar(/NENHUMA ENTRADA DE ÁUDIO/.test(zero) && /não é permissão/.test(zero),
     'ZERO entradas dá um veredito DIFERENTE, e ele nega a causa errada por extenso — '
     + 'mandar mexer em permissão aqui é a adivinhação que este bloco existe para acabar');
@@ -422,7 +447,11 @@ try {
     window.__AVBridge.requestMic = (id) => {
       setTimeout(() => { try { window.__avResolve(id, false); } catch (_) {} }, 0);
     };
-    const btn = document.getElementById('recadoBtn');
+    const ir = (t) => { const b = document.querySelector('[data-tab="' + t + '"]'); if (b) b.click(); };
+    ir('mic');
+    await dorme(250);
+    const btn = document.getElementById('micBtn');
+    if (!btn) return 'SEM BOTÃO DE MICROFONE';
     btn.setPointerCapture = () => {}; btn.hasPointerCapture = () => true;
     btn.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerId: 9 }));
     await dorme(500);
@@ -457,7 +486,7 @@ try {
         setTimeout(() => { try { window.__avResolve(id, true); } catch (_) {} }, 0);
       };
     }, shell);
-    const r = await tentarRecado(erro || 'NotReadableError', 1);
+    const r = await tentarAoVivo(erro || 'NotReadableError', 1);
     // A sonda é assíncrona de propósito (o resto da linha não espera por ela);
     // um render a mais garante que ela já chegou.
     return pg.evaluate(async () => {
