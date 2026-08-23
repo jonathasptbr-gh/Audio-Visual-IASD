@@ -24,6 +24,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
+- **v1.1.27** — O TECLADO SUMIA AO DIGITAR NA BUSCA DE CIFRA, e a causa era uma correção de duas versões antes: o teclado virtual é um `resize`, o `resize` remede a folha, e o redesenho destrói o `<input>` com foco — um campo sem foco fecha o teclado, e o fechamento é outro `resize`. Sai um teclado que pisca e some, sem erro nenhum, e o seletor inteiro fica inalcançável. A guarda é pelo FOCO, não por "o seletor está aberto". Mais: a busca passa a ter TRÊS parâmetros em vez de dois (consulta, alvo do parentesco, desempate) — juntá-los deixava a busca MANUAL sem o álbum em lugar nenhum —, e o seletor ganha os atalhos `+ <álbum>` e `+ Ministério Jovem`. OTA PURO
 - **v1.1.26** — O MICROFONE VIRA WALKIE-TALKIE, E PASSA A FUNCIONAR NOS QUATRO MODELOS: em vez de TRANSPORTAR ÁUDIO, ele transporta um ARQUIVO — a voz vira item `kind:"audio"` comum e entra pelo caminho de projeção de sempre, chegando às telas da rede de graça pelo `/m/<token>`. É a inversão que faz o recurso caber: o ao vivo para a rede está bloqueado por `[SecureContext]`, e o projeto já construiu esse transporte (AAC → MSE) e o removeu na v5.187. A Release é de UMA LINHA — o `ControleChromeClient` negava toda permissão de mídia e passa a conceder áudio, e só áudio, chamando as três regras do `MicChromeClient` em vez de reescrevê-las. O FIM do recado é interceptado nos DOIS caminhos: sendo item comum, ele caía no `autoAdvance`, onde `repeat one` repetia a voz do operador PARA SEMPRE e `repeat all` começava a playlist do zero — nenhum dos dois com sinal na tela. E ele DEVOLVE a cena, com a posição dentro do próprio `load`. EXIGE RELEASE
 - **v1.1.25** — O OPERADOR ESCOLHE A CIFRA, E A ESCOLHA VENCE TUDO: o método automático adivinha a partir de um nome, e quem opera SABE qual é a música. MEDIDO no aparelho: na maioria das falhas o resultado certo ESTAVA na página de busca — só não era o que a regra elegeu, e não havia como olhar a lista nem dizer "é este". A aba passa a desenhar a lista dentro do app (inclusive o que a regra RECUSOU, marcado), abrir qualquer resultado em PRÉVIA e fixar o escolhido, que vira a tentativa 0 e sobrevive ao fechar o app. Não é navegador embutido — é a divisão de sempre, com o desenho nosso: nenhum script de terceiro roda. Guardar um ENDEREÇO não fura o "nada em disco", que sempre falou do CONTEÚDO. E o Registro passa a guardar a RADIOGRAFIA da página que não abriu — só forma, nenhum pedaço de letra ou acorde —, porque `ilegivel` responde "não entendi" e não "o que era". OTA PURO
 - **v1.1.24** — O MICROFONE, VERIFICADO NOS QUATRO MODELOS DE PROJEÇÃO: ele funciona com TV espelhando e em mais nenhum — e sem TV o botão acendia "No ar" sem nada estar captando, porque `micPressed` é escrito no `pointerdown` e sem `Presentation` ninguém responde `mic-status`. A recusa entra ANTES do pedido de permissão do Android: pedir o microfone para uma ação que não pode funcionar é queimar a única permissão sensível do app. Mais a guarda que um comentário prometia desde a v5.187 e que nunca existiu — o comando `mic` DESCE para toda tela da rede sem filtro, e o que impedia o desfecho era o ambiente (`getUserMedia` é `[SecureContext]`), não o app; proteção emprestada do navegador é proteção com prazo, e o `EspelhoCert` continua inteiro no shell. O oráculo FORJA `navigator.mediaDevices` para medir o dia em que houver TLS. OTA PURO
@@ -222,6 +223,91 @@ na nota que a revoga, não apagada da que a criou.
 - **v5.154** — é METADE OTA e METADE APK, e a divisão importa para quem for testar em aparelho.
 - **v5.155** — é OTA PURO
 - **v5.156** — é METADE OTA e METADE APK, de novo.
+
+---
+
+## v1.1.27 — o teclado sumia ao digitar na busca de cifra
+
+**O relato:** *"oculta o teclado quando tento digitar na caixa de texto de busca
+das cifras"*. E a causa é uma correção de duas versões antes, funcionando
+exatamente como foi escrita.
+
+### O laço
+
+A v1.1.20 fez a quebra de linha da folha ser NOSSA, medida em caracteres na
+fonte renderizada. Medida em caracteres depende da largura, então ela precisa
+ser refeita quando a largura muda — e a largura muda ao girar o aparelho.
+Ganhou um `resize`.
+
+**O teclado virtual também é um `resize`.** A sequência:
+
+```
+toca no campo → teclado sobe → janela encolhe → `resize`
+  → cifraRemedir → renderLyricsView → a aba é REFEITA
+  → o <input> com foco deixa de existir
+  → campo sem foco → o teclado DESCE → `resize` ────┐
+  └───────────────────────────────────────────────── ┘
+```
+
+Da tela sai um teclado que pisca e some. Nenhum erro, nenhum log — e o seletor
+inteiro, que a v1.1.25 acabara de entregar, fica inalcançável: não há como
+digitar nele.
+
+**A guarda é pelo FOCO, não por "o seletor está aberto"**: a regra que se quer é
+*não destruir o que a pessoa está usando*, e ela vale para todo campo que esta
+aba venha a ter. `cifraDigitando()` pergunta se o `activeElement` é um campo
+nosso; se for, o redesenho espera.
+
+### O oráculo, e a primeira versão dele que não servia
+
+`tools/cifra-teclado.test.mjs` (Chromium, no workflow). A **primeira versão
+passava com a guarda REMOVIDA**: ela montava o seletor à mão num nó solto, e
+`cifraRemedir` desiste antes de desenhar quando o popup não está aberto ou a
+fonte ativa não é a cifra — e sem `__AVBridge` a cifra nem é uma fonte possível.
+O campo sobrevivia por um motivo que não era o do app. Era o oráculo medindo a
+si mesmo, a classe que o `CLAUDE.md` já nomeia.
+
+A versão que serve injeta a ponte, abre o popup de verdade e seleciona a cifra.
+**A prova é a reversão**: tirar `if (cifraDigitando()) return;` deixa dois casos
+vermelhos. Campanha de determinismo: 4/4 com a máquina a 2× de carga.
+
+E ela ainda encontrou uma segunda armadilha do arnês, esta do próprio app:
+plantar `currentItem` antes de o `init()` assíncrono terminar é correr contra a
+inicialização, que o zera com toda a razão ao acabar. O cenário evaporava sem
+erro nenhum. A espera passou a ser a do watchdog do OTA — um `<li>` na playlist —
+e a chave da música é conferida ANTES do `waitForSelector`, senão o sintoma seria
+"esperei 15 s" em vez de "a música não está mais em cena".
+
+### O álbum, que o operador notou faltando
+
+Relatado junto: *"o nome auto preenchido não incluía o nome do álbum e nem a
+recomendação do Ministério Jovem"*. Estava certo, e por baixo havia um defeito de
+desenho: `cifraBuscarNoSite(nome, extra)` usava **um** parâmetro para três
+papéis. O seletor, que manda a consulta DIGITADA, passava `''` — e ficava sem
+álbum na consulta E no desempate.
+
+Agora são três, cada um com um trabalho:
+
+| parâmetro | o quê |
+|---|---|
+| `consulta` | o que vai no `?q=`, já montado por quem chama |
+| `alvo` | contra o que o PARENTESCO compara |
+| `artista` | o DESEMPATE, e só isso |
+
+No automático o parentesco é contra o nome da música — com o álbum colado na
+consulta, nenhum resultado seria parente dela. No seletor é contra o que o
+operador digitou, que é o que ele está procurando: exigir semelhança com o nome
+do acervo derrubaria justamente a correção que ele veio fazer.
+
+E o seletor ganhou **os atalhos**: `+ <álbum>` e `+ Ministério Jovem`. As duas
+coisas que mais fazem uma busca achar não estão no nome da música, e o operador
+não tem como adivinhá-las. Eles ESCREVEM no campo antes de buscar, de propósito:
+a consulta que rodou fica à vista e pode ser editada dali, em vez de o botão
+fazer algo invisível.
+
+Um detalhe do mesmo lote: a consulta guardada passa a ser **a que produziu a
+lista**, não o nome puro — é ela que o campo mostra, e um campo que diz outra
+coisa do que foi buscado faz o operador editar a partir de uma premissa falsa.
 
 ---
 

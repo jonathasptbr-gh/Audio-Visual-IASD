@@ -237,7 +237,7 @@ const appVersionEl = document.getElementById('appVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.1.26';
+const WEB_VERSION = '1.1.27';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -10081,17 +10081,27 @@ function cifraGarantir(item) {
     // `ilegivel` seguidos continuam dizendo "o site mudou de formato" — mais
     // alto, não mais baixo.
     if (!desfecho.ok && desfecho.motivo !== AVCifra.MOTIVO_ILEGIVEL) {
-      const consultas = [AVCifra.urlDeBusca(nome)];
+      // As consultas, na ordem, SEM repetir: o álbum entra na segunda, e quando
+      // não há álbum a segunda simplesmente não existe (a primeira versão
+      // repetia a mesma consulta e gastava uma requisição a troco de nada).
+      const album = (coll && coll.name) || '';
+      const consultas = [nome];
+      if (album) consultas.push(nome + ' ' + album);
       let candidatos = [];
-      for (const extra of ['', (coll && coll.name) || '']) {
-        if (candidatos.length || (extra === '' && consultas.length === 0)) continue;
-        const r = await cifraBuscarNoSite(nome, extra);
+      for (const q of consultas) {
+        if (candidatos.length) continue;
+        // O PARENTESCO É SEMPRE CONTRA O NOME DA MÚSICA, nunca contra a consulta:
+        // com o álbum colado, nenhum resultado seria parente dela.
+        const r = await cifraBuscarNoSite(q, nome, album);
         if (!r.url) continue;
         candidatos = r.ordenados;
         // OS CRUS FICAM NA ENTRADA. É deles que o seletor vive, e buscá-los de
         // novo ao abri-lo seria uma segunda requisição para saber o que já se
         // sabia — no meio do culto, com o instrumento na mão.
-        if (r.crus.length) { entrada.crus = r.crus; entrada.consulta = nome; }
+        // A CONSULTA GUARDADA É A QUE PRODUZIU A LISTA, não o nome puro: é ela
+        // que o campo do seletor mostra, e um campo que diz outra coisa do que
+        // foi buscado faz o operador editar a partir de uma premissa falsa.
+        if (r.crus.length) { entrada.crus = r.crus; entrada.consulta = q; }
         tentativas.push('busca ' + r.url + ' → ' + r.crus.length + ' resultado(s), '
           + candidatos.length + ' com parentesco');
       }
@@ -10189,20 +10199,31 @@ async function cifraFixar(chave, url) {
 }
 
 /**
- * Uma busca no site, já lida: `{ crus, ordenados }`.
+ * Uma busca no site, já lida: `{ crus, ordenados, url }`.
  *
  * `crus` é TUDO que estruturalmente parece música — é o que o seletor mostra,
  * porque o ponto dele é justamente deixar ver o que a regra RECUSOU.
  * `ordenados` é o que a regra aceitaria, na ordem dela.
+ *
+ * **TRÊS PARÂMETROS PORQUE SÃO TRÊS PAPÉIS**, e juntá-los foi um defeito real:
+ * a primeira versão passava um `extra` que ia ao mesmo tempo para a consulta e
+ * para o parentesco, e o seletor — que manda a consulta DIGITADA — acabava sem
+ * álbum em lugar nenhum, nem na busca nem no desempate.
+ *
+ *  - `consulta` é o que vai no `?q=`, já montado por quem chama;
+ *  - `alvo` é contra o que o PARENTESCO compara (o nome da música, ou o que o
+ *    operador digitou — nunca a consulta com o álbum colado, senão nenhum
+ *    resultado seria parente dela);
+ *  - `artista` é o DESEMPATE, e só isso.
  */
-async function cifraBuscarNoSite(nome, extra) {
-  const busca = AVCifra.urlDeBusca(nome, extra);
+async function cifraBuscarNoSite(consulta, alvo, artista) {
+  const busca = AVCifra.urlDeBusca(consulta);
   if (!busca) return { crus: [], ordenados: [], url: '' };
   const rb = await AVNative.cifraHtml(busca);
   const ok = rb.status >= 200 && rb.status <= 299;
   cifraGuardarEstrutura('busca ' + busca, ok ? rb.html : '');
   const crus = ok ? AVCifra.lerBusca(rb.html) : [];
-  return { crus, ordenados: AVCifra.ordenarBusca(crus, nome, extra), url: busca };
+  return { crus, ordenados: AVCifra.ordenarBusca(crus, alvo, artista), url: busca };
 }
 
 /**
@@ -10252,7 +10273,12 @@ async function cifraRebuscar(item, consulta) {
   entrada.buscando = true;
   renderLyricsView();
   try {
-    const r = await cifraBuscarNoSite(consulta, '');
+    // O PARENTESCO compara com o que o operador DIGITOU — ele é quem sabe o que
+    // está procurando, e exigir semelhança com o nome do acervo derrubaria
+    // justamente a correção que ele veio fazer. O ÁLBUM continua desempatando:
+    // ele não filtra nada, e não custa nada.
+    const coll = cifraColecaoDoItem(item);
+    const r = await cifraBuscarNoSite(consulta, consulta, (coll && coll.name) || '');
     entrada.consulta = consulta;
     entrada.crus = r.crus;
   } catch (_) { entrada.crus = []; }
@@ -10349,7 +10375,23 @@ function cifraColunas(folha) {
 function cifraRemedir() {
   if (!lyricsPopupEl.classList.contains('open')) return;
   if (lvActiveSource() !== 'cifra') return;
+  // O TECLADO DO SISTEMA É UM `resize`, e este era o pior jeito de descobrir
+  // isso: abrir o teclado redimensiona a janela, o redesenho REFAZ a aba
+  // inteira, o `<input>` que tinha o foco deixa de existir — e um campo sem
+  // foco fecha o teclado, que é outro `resize`. Da tela sai um teclado que
+  // pisca e some, e nenhum erro em lugar nenhum.
+  //
+  // A guarda é pelo FOCO e não pelo seletor estar aberto: a regra que se quer é
+  // "não destruir o que a pessoa está usando", e ela vale para todo campo que
+  // esta aba venha a ter.
+  if (cifraDigitando()) return;
   renderLyricsView();
+}
+
+/** O operador está com o dedo num campo NOSSO? Ver a guarda do `cifraRemedir`. */
+function cifraDigitando() {
+  const a = document.activeElement;
+  return !!(a && a.classList && a.classList.contains('lv-cifra-campo'));
 }
 
 // ===== A ROLAGEM AUTOMÁTICA DA FOLHA (v1.1.20) =====
@@ -10734,6 +10776,37 @@ function lvBuildCifraEscolher(el, item, nome) {
   linha.append(campo, ir);
   el.appendChild(linha);
 
+  // ---- OS ATALHOS DE CONSULTA ----
+  //
+  // As duas coisas que mais fazem uma busca achar não estão no nome da música,
+  // e o operador não tem como adivinhá-las: o ÁLBUM do acervo e a coleção
+  // MINISTÉRIO JOVEM, onde moram os CDs oficiais e os do ano. O campo nasce com
+  // o nome puro — que é a melhor consulta na maioria das vezes, porque uma
+  // palavra a mais numa busca de TEXTO pode encolher o resultado em vez de
+  // afiná-lo —, e estes botões deixam as duas a um toque.
+  //
+  // Eles ESCREVEM no campo antes de buscar de propósito: assim a consulta que
+  // rodou fica à vista, e o operador pode editá-la a partir dali em vez de
+  // adivinhar o que o botão fez.
+  const coll0 = cifraColecaoDoItem(item);
+  const atalhos = [];
+  if (coll0 && coll0.name) atalhos.push(coll0.name);
+  atalhos.push('Ministério Jovem');
+  const chips = document.createElement('div');
+  chips.className = 'lv-cifra-chips';
+  for (const termo of atalhos) {
+    const q = nome + ' ' + termo;
+    if ((campo.value || '').trim().toLowerCase() === q.toLowerCase()) continue;
+    const chip = document.createElement('button');
+    chip.type = 'button';
+    chip.className = 'lv-cifra-chip';
+    chip.textContent = '+ ' + termo;
+    chip.title = 'Procurar “' + q + '”';
+    chip.addEventListener('click', () => { campo.value = q; cifraRebuscar(item, q); });
+    chips.appendChild(chip);
+  }
+  if (chips.childElementCount) el.appendChild(chips);
+
   if (entrada.buscando) { el.appendChild(cifraEspera('Procurando…')); return; }
 
   // ---- A LISTA ----
@@ -10752,7 +10825,9 @@ function lvBuildCifraEscolher(el, item, nome) {
     // ORDENADOS PELA MESMA REGRA da busca automática, mas SEM o corte: o que ela
     // recusou continua na lista, embaixo. É exatamente isso que o seletor existe
     // para mostrar — a regra recusar o certo é o caso que se está corrigindo.
-    const parente = new Set(AVCifra.ordenarBusca(crus, entrada.consulta || nome, '').map((r) => r.url));
+    const coll = cifraColecaoDoItem(item);
+    const parente = new Set(AVCifra.ordenarBusca(
+      crus, entrada.consulta || nome, (coll && coll.name) || '').map((r) => r.url));
     const ordem = crus.slice().sort((a, b) => (parente.has(b.url) ? 1 : 0) - (parente.has(a.url) ? 1 : 0));
     const fixada = cifraEscolhas[chave];
     for (const r of ordem) {
