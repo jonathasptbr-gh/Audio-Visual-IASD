@@ -244,7 +244,7 @@ const appVersionEl = document.getElementById('appVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.2.10';
+const WEB_VERSION = '1.2.11';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -10462,9 +10462,35 @@ async function cifraDiscoDe(collId) {
   return cifraDisco;
 }
 
-/** Grava o que está em memória para esta coleção. */
-function cifraDiscoGravar(collId) {
-  return AVDB.setState('cifras:' + collId, cifraDisco || {});
+/**
+ * MESCLA as cifras novas no que já está guardado — nunca SUBSTITUI.
+ *
+ * **A versão anterior gravava o mapa INTEIRO a partir de um slot de módulo**
+ * (`AVDB.setState('cifras:'+id, cifraDisco)`), e isso é a receita exata do
+ * ler-calcular-gravar que o `CLAUDE.md` proíbe para o `state`: duas transações
+ * com um vão entre elas, e quem lê primeiro grava por último. Pior: o que ia
+ * para o disco era um GLOBAL, cuja identidade mora noutra variável
+ * (`cifraDiscoColl`) — bastava outra coleção ser carregada no meio para o
+ * mapa do 1996 (ou um `{}`) ser escrito por cima do 2022.
+ *
+ * MEDIDO num aparelho: `275 de 601` virou `0 de 601`, e a cada abertura o app
+ * recomeçava o download do zero. Uma substituição pode produzir zero a partir
+ * de 275; **uma mescla não pode**, e é essa a diferença que faz a correção ser
+ * estrutural em vez de um remendo no interleaving que mordeu deste vez.
+ *
+ * `fn` é SÍNCRONA (um `await` lá dentro deixaria a transação fechar sozinha e a
+ * atomicidade sumiria em silêncio), e `novas` é ESVAZIADA depois do commit: o
+ * que já está no disco não pode ser reenviado no lote seguinte.
+ */
+async function cifraDiscoMesclar(collId, novas) {
+  const chaves = Object.keys(novas);
+  if (!chaves.length) return;
+  const junto = await AVDB.updateState('cifras:' + collId, (atual) =>
+    Object.assign((atual && typeof atual === 'object') ? atual : {}, novas));
+  for (const k of chaves) delete novas[k];
+  // O slot de leitura acompanha, senão a aba continuaria vendo o mapa de antes
+  // desta passada e iria à rede por uma cifra que acabou de ser guardada.
+  if (cifraDiscoColl === collId) cifraDisco = junto;
 }
 
 /** O hinário tem endereço DEDUZÍVEL? É essa a condição de guardar. */
@@ -10509,6 +10535,9 @@ async function syncCifrasHinario(coll) {
   const notifId = bgTaskStart('Cifras do ' + coll.name, faltam.length);
   let done = 0;
   let desdeGravacao = 0;
+  // O QUE AINDA NÃO FOI PARA O DISCO, e só isso. A gravação mescla este punhado
+  // no que já está guardado — nunca manda o acervo inteiro de volta.
+  const pendentes = {};
   try {
     await withBgWork(async () => {
       try {
@@ -10522,7 +10551,7 @@ async function syncCifrasHinario(coll) {
               // para a próxima passada tentar de novo — num acervo em que toda
               // música existe no site, uma ausência é defeito nosso, e gravá-la
               // a tornaria permanente.
-              if (d.ok && d.pagina) disco[h.chave] = { pagina: d.pagina, url, em: Date.now() };
+              if (d.ok && d.pagina) pendentes[h.chave] = { pagina: d.pagina, url, em: Date.now() };
             }
           } catch (_) { /* rede: a próxima passada tenta de novo */ }
           finally { bgItemEnd(notifId, h.nome); }
@@ -10530,13 +10559,13 @@ async function syncCifrasHinario(coll) {
           bgTaskStep(notifId, done);
           if (++desdeGravacao >= CIFRA_LOTE) {
             desdeGravacao = 0;
-            await cifraDiscoGravar(coll.id);
+            await cifraDiscoMesclar(coll.id, pendentes).catch(() => {});
           }
         });
       } finally { bgTaskEnd(notifId); }
     });
   } finally {
-    await cifraDiscoGravar(coll.id).catch(() => {});
+    await cifraDiscoMesclar(coll.id, pendentes).catch(() => {});
     cifraSyncRodando = false;
   }
 }
@@ -18615,6 +18644,14 @@ async function renderDiag() {
       let n = 0;
       try { n = Object.keys((await AVDB.getState('cifras:' + c.id)) || {}).length; } catch (_) { n = 0; }
       const total = collSongs(c.id).length;
+      // HINÁRIO NÃO BAIXADO É OUTRA RESPOSTA, não um zero. As cifras só são
+      // buscadas para o hinário que existe no aparelho (`countDownloaded`), e
+      // um "0 de 613" seco se lê como recurso quebrado — foi exatamente essa a
+      // pergunta que o operador fez sobre o hinário de 1996.
+      if (!countDownloaded(c.id)) {
+        linhas.push(c.name + ': hinário não baixado — as cifras dele não são buscadas');
+        continue;
+      }
       linhas.push(c.name + ': ' + n + ' de ' + total + ' cifra(s) no aparelho'
         + (n && n < total ? ' (o download completa o resto)' : ''));
     }

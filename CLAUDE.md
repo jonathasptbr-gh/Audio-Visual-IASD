@@ -1856,6 +1856,17 @@ a congregação vê continua sendo a letra, pelo caminho de sempre.
     acervo em que toda música existe no site, uma ausência gravada é um buraco
     permanente causado por um Wi-Fi que oscilou. Retomável por construção (o que
     está guardado não é pedido de novo).
+  - **A GRAVAÇÃO MESCLA; ELA NUNCA SUBSTITUI** (`cifraDiscoMesclar`, v1.2.10).
+    A primeira versão gravava o mapa INTEIRO com `setState`, a partir de um slot
+    de módulo (`cifraDisco`) cuja identidade mora noutra variável
+    (`cifraDiscoColl`) — o ler-calcular-gravar que este arquivo proíbe para o
+    `state`, com o agravante de o que ia ao disco poder ser o mapa de OUTRA
+    coleção, ou `{}`. **MEDIDO num aparelho: `275 de 601` virou `0 de 601`**, e a
+    cada abertura o app recomeçava o download do zero. A correção é estrutural,
+    não um remendo no interleaving: uma substituição pode produzir zero a partir
+    de 275, **uma mescla não pode**. `updateState` numa transação só, com a `fn`
+    SÍNCRONA, e a fila de pendentes esvaziada só depois do commit. Oráculo:
+    `cifra-offline.test.mjs`, provado por reversão.
   - **A leitura é a tentativa que não toca na rede**, entre a escolha do operador
     (que vale mais, é uma correção à mão) e o catálogo. O oráculo
     (`tools/cifra-offline.test.mjs`) NÃO afirma "a folha apareceu" — afirma que
@@ -2807,7 +2818,7 @@ mundo anterior por outro caminho.
 | `cifra-rolagem.test.mjs` | **a rolagem `auto` da cifra precisa de um relógio ANDANDO.** A barra de progresso responde "este ITEM tem linha do tempo?", e `currentItem` sobrevive ao Parar, ao fim da faixa e a uma letra avulsa — a barra ficava habilitada sobre um telão vazio, e o `auto` ancorava a folha em `fracaoDaRolagem(0, dur)`. O desfecho não é um erro, é uma folha PARADA. As DUAS metades: sem mídia no ar ela anda (o livre assumiu), com mídia no ar ela não anda sozinha — "cair sempre no livre" apagaria o recurso |
 | `historico.test.mjs` | **o histórico do culto**, uma lista que se preenche sozinha no ponto mais quente do app (`send`) e cujos três modos de errar são mudos: não registrar (a folha abre vazia depois de um culto inteiro), registrar demais (`repeat: 'one'` enterrando o culto em cópias do mesmo nome) e oferecer ao Cronograma um id que o coletor já recolheu — este só aparece no sábado seguinte |
 | `gaveta-no-download.test.mjs` | a GAVETA DA LINHA contra o redesenho do progresso — o único lugar do acervo em que o operador DECIDE, e o redesenho remontava a lista por baixo dela a cada 400 ms. MUDO nos dois tempos: aberta, ela some sem erro nenhum; ABRINDO (há um `await` do IndexedDB entre o toque e o `expanded`), o `li` vira órfão e o toque não faz nada. Quatro metades, e a primeira é o HAZARD — sem ela as outras provariam que uma função concorda consigo mesma |
-| `cifra-offline.test.mjs` | **a cifra guardada do hinário abre SEM REDE**. A promessa é operacional e falha calada: sem a leitura do disco o app cai no caminho de rede e, COM rede, a folha aparece igual — pela porta errada. Por isso a asserção é `cifraHtml` NÃO ter sido chamado, com a ponte respondendo "sem rede" a tudo; a outra metade prova que o que NÃO está guardado ainda vai à rede |
+| `cifra-offline.test.mjs` | **a cifra guardada do hinário abre SEM REDE**, e **a gravação MESCLA em vez de substituir**. A primeira promessa é operacional e falha calada: sem a leitura do disco o app cai no caminho de rede e, COM rede, a folha aparece igual — pela porta errada. Por isso a asserção é `cifraHtml` NÃO ter sido chamado, com a ponte respondendo "sem rede" a tudo; a outra metade prova que o que NÃO está guardado ainda vai à rede. A segunda trava o defeito que apagou 275 cifras de um aparelho: a asserção é a PROPRIEDADE (uma mescla não pode produzir zero a partir de 275), não o interleaving que mordeu daquela vez |
 | `cifra-bateria.test.mjs` | **a bateria de testes da cifra** — um DIAGNÓSTICO não falha calado, falha CONTINUANDO A RESPONDER com a frase errada. Três guardas, as três provadas por reversão: sem `semDisco` ela mede o cache e declara o acervo saudável sem uma requisição sequer; sem a lista de endereços tentados, a falha vira reclamação em vez de trabalho de campo; sem `mudo` ela enterra a radiografia que o operador foi buscar. E o bloco do Registro não pode levar um pedaço de folha junto |
 | `cifra-teclado.test.mjs` | **o teclado virtual contra o campo de busca da cifra**. O teclado é um `resize`, e o `resize` remede a folha — que refaz a aba e destrói o `<input>` com foco; sem foco o teclado FECHA, e o fechamento é outro `resize`. Nada erra: sai um teclado que pisca e some, e o seletor fica inalcançável. Ele injeta a PONTE e abre o popup de verdade, porque montado num nó solto ele passava com a guarda REMOVIDA |
 | `destinos.test.mjs` | o que está marcado atravessa o fechamento da folha — a ação roda depois de `closeSongMenu()`, que zera o conjunto |
@@ -3187,7 +3198,7 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: v1.2.10** (base web) · **v1.2.10** (APK) · `SHELL_VERSION` **53** · bundle com
+**Versão atual: v1.2.11** (base web) · **v1.2.11** (APK) · `SHELL_VERSION` **53** · bundle com
 `minShell: 53` — o shell 53 é o **PISO**: todo método da ponte existe, e não há
 guarda de versão no lado web. O que continua valendo é que `java/`, `res/`, o
 manifest e os workflows **só chegam instalando o APK**.

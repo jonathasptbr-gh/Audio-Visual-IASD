@@ -24,7 +24,8 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
-- **v1.2.10** — A PERGUNTA QUE SÓ O SHELL SABE RESPONDER: quatro rodadas pelo lado web terminaram sempre em `NotReadableError` nas três configurações, nos dois WebViews, com `RECORD_AUDIO` concedida e uma entrada enumerada. `AppOps` pode RECUSAR `RECORD_AUDIO` enquanto `checkSelfPermission` devolve concedida — o interruptor de privacidade, o Auto Blocker da Samsung sobre app fora da loja, o mudo global —, e o navegador não enxerga essa diferença. Nasce `MicDiag.kt` + `AVNative.micDiag()` (shell 53), LEITURA PURA. E a correção da v1.2.9 NÃO RODAVA: o laço pulava `deviceId === "default"`, e no aparelho há UMA entrada cujo id é exatamente `default` — o Registro seguiu marcando "3 tentativa(s)" enquanto eu anunciava quatro. O oráculo GUARDAVA esse pulo como contrato, e a asserção foi reescrita para a regra certa. EXIGE RELEASE
+- **v1.2.11** — A PERGUNTA QUE SÓ O SHELL SABE RESPONDER: quatro rodadas pelo lado web terminaram sempre em `NotReadableError` nas três configurações, nos dois WebViews, com `RECORD_AUDIO` concedida e uma entrada enumerada. `AppOps` pode RECUSAR `RECORD_AUDIO` enquanto `checkSelfPermission` devolve concedida — o interruptor de privacidade, o Auto Blocker da Samsung sobre app fora da loja, o mudo global —, e o navegador não enxerga essa diferença. Nasce `MicDiag.kt` + `AVNative.micDiag()` (shell 53), LEITURA PURA. E a correção da v1.2.9 NÃO RODAVA: o laço pulava `deviceId === "default"`, e no aparelho há UMA entrada cujo id é exatamente `default` — o Registro seguiu marcando "3 tentativa(s)" enquanto eu anunciava quatro. O oráculo GUARDAVA esse pulo como contrato, e a asserção foi reescrita para a regra certa. EXIGE RELEASE v1.2.11
+- **v1.2.10** — AS CIFRAS GUARDADAS DO HINÁRIO SUMIAM, E O APP RECOMEÇAVA O DOWNLOAD A CADA ABERTURA. MEDIDO num aparelho: `275 de 601` virou `0 de 601`. A gravação era `setState` do mapa INTEIRO a partir de um slot de módulo (`cifraDisco`) cuja identidade mora noutra variável (`cifraDiscoColl`) — o ler-calcular-gravar que o `CLAUDE.md` proíbe para o `state`, com o agravante de o que ia ao disco poder ser o mapa de OUTRA coleção, ou `{}` por cima de um acervo cheio. Passa a MESCLAR com `updateState`, numa transação só: uma substituição pode produzir zero a partir de 275, **uma mescla não pode** — a correção é a propriedade, não o interleaving daquela vez. Mais: o Registro deixou de dizer "0 de 613 cifra(s)" para um hinário que não está baixado. OTA PURO
 - **v1.2.9** — O PEDIDO PELO ID DO DISPOSITIVO, E O REGISTRO QUE DAVA UM VEREDITO ERRADO: o Registro da v1.2.7 mostrou `entradas de áudio: 1` com os três degraus em `NotReadableError` — o que mata o interruptor de privacidade (daria zero) E o processamento (o pedido CRU foi negado). Sobrou uma pergunta que a escada nunca fez: o `default` do Chromium não é o microfone, é uma entrada virtual que segue o roteamento do sistema. Os dois caminhos passam a pedir cada entrada pelo `deviceId` com `exact`, pulando o default. E o `micStatus` mandava só o erro FINAL: o Controle via UMA tentativa e imprimia "falhou antes de esgotar a escada" — enquanto o telão tinha rodado as três. O Registro não ficava em branco, ele continuava respondendo com a frase errada. Mais a MENSAGEM do erro e o RÓTULO de cada entrada. OTA PURO
 - **v1.2.8** — A BATERIA DE TESTES DA CIFRA, e o buscador externo aposentado. O acervo é FIXO e ANTIGO: os álbuns não ganham faixa nova e os nomes não mudam, então a pergunta que sobra não é "a regra está certa?" e sim **"para quais álbuns a cadeia de endereços não chega?"** — e ela só tem resposta medindo. Um botão em Configurações sorteia uma ou duas músicas de CADA álbum, roda a MESMA cadeia da aba (`cifraProcurar`, extraída para ter dois consumidores) e escreve no Registro o degrau que venceu em cada uma — com TODOS os endereços tentados nas que falharam, que é o que transforma um "✗" em conserto: com a lista na mão o operador acha a música no site, quase sempre sob outro artista, e fixa o endereço. Ela mede a REDE (`semDisco`) e não apaga a radiografia do operador (`mudo`) — as três guardas provadas por reversão. E o BUSCADOR EXTERNO saiu: MEDIDO, o endpoint HTML do DuckDuckGo responde **HTTP 202**, a recusa anti-robô, e uma recusa lida como página vazia é uma requisição por procura para não devolver nada. **EXIGE RELEASE v1.2.8**: shell 51 → 52, o host do buscador sai da allowlist do `CifraFonte`
 - **v1.2.7** — A LINHA DO TEMPO ESTAVA CONGELADA, E POR ISSO O MICROFONE ERA INVISÍVEL: `diagLinhas` era montada dentro do `juntarDiag`, que só roda quando o TELÃO responde ao `diag-ask` — e o anel do celular continua crescendo depois disso, e continua crescendo mesmo SEM TELÃO, caso em que o `diag-ask` nem sai. MEDIDO num Registro real: a linha do tempo terminava no instante em que a TV caiu, com três tentativas de microfone depois dela e nada indicando que faltava algo. A junção passou para a hora de DESENHAR. Mais o bloco "Microfone (última tentativa)", que nomeia cada degrau com o erro dele, conta as entradas de áudio e dá um VEREDITO exclusivo — o caminho de falha da captura não registrava NADA, e o que sobrava era uma frase que acusa a causa menos provável. OTA PURO
@@ -239,7 +240,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ---
 
-## v1.2.10 — a pergunta que só o shell sabe responder (e o meu conserto que não rodava)
+## v1.2.11 — a pergunta que só o shell sabe responder (e o meu conserto que não rodava)
 
 Quatro rodadas de investigação pelo lado web terminaram sempre no mesmo lugar:
 
@@ -316,8 +317,61 @@ sessão gravando — então o sistema afirma que a captura é possível e ela fa
 assim mesmo, e a próxima pergunta é sobre o WebView, não sobre o Android. Este
 lote não resolve o microfone: ele torna a causa **legível**.
 
-EXIGE RELEASE v1.2.10 — `SHELL_VERSION` 52 → 53, `minShell: 53`,
-`shellTag: "v1.2.10"`.
+EXIGE RELEASE v1.2.11 — `SHELL_VERSION` 52 → 53, `minShell: 53`,
+`shellTag: "v1.2.11"`.
+
+---
+
+## v1.2.10 — as cifras guardadas sumiam, e o download recomeçava do zero
+
+**A bateria de testes fez o trabalho dela na primeira semana.** O operador
+rodou-a, mandou o Registro, e o que apareceu não foi só o placar do acervo:
+apareceu que `Hinário Adventista 2022` marcava **`0 de 601`** onde dois
+Registros anteriores marcavam `275 de 601` — e que a cada abertura o app
+recomeçava a baixar tudo.
+
+### O mecanismo
+
+```js
+function cifraDiscoGravar(collId) {
+  return AVDB.setState('cifras:' + collId, cifraDisco || {});   // ← o defeito
+}
+```
+
+Três coisas erradas na mesma linha, e a terceira é a que mata:
+
+1. **`setState` do mapa INTEIRO** é o ler-calcular-gravar que o `CLAUDE.md`
+   proíbe para uma chave de `state`: duas transações com um vão entre elas, e
+   quem lê primeiro grava por último.
+2. **O que vai ao disco é um GLOBAL**, e não o mapa que o chamador tinha na mão.
+3. **A identidade desse global mora noutra variável** (`cifraDiscoColl`). O
+   argumento `collId` diz ONDE gravar; nada garante que `cifraDisco` seja DAQUELA
+   coleção. Basta o slot ter sido carregado com outro hinário — ou ainda estar
+   `null`, e aí o `|| {}` escreve um objeto VAZIO por cima de um acervo cheio.
+
+### A correção é a PROPRIEDADE, não o interleaving
+
+Não se conserta isto perseguindo a ordem de eventos que mordeu neste aparelho:
+conserta-se tornando a classe inteira impossível. **Uma substituição pode
+produzir zero a partir de 275; uma mescla não pode.**
+
+`cifraDiscoMesclar` grava com `AVDB.updateState` — ler, mesclar e gravar numa
+transação só, com a `fn` síncrona — e recebe apenas as cifras NOVAS, numa fila de
+pendentes que só é esvaziada depois do commit (senão o lote seguinte reenviaria o
+que já está no disco). O slot de leitura acompanha, mas **só quando é o daquela
+coleção** — escrevê-lo sem conferir de quem ele é seria o defeito original de
+novo, por outra porta.
+
+O oráculo (`cifra-offline.test.mjs`) monta o pior caso — o slot VAZIO na hora de
+gravar — e cobra que as três guardadas sobrevivam. Com a substituição de volta,
+ele reprova em dois casos.
+
+### E o Registro deixou de mentir sobre o hinário de 1996
+
+`0 de 613 cifra(s) no aparelho` se lê como recurso quebrado. As cifras só são
+buscadas para o hinário que EXISTE no aparelho (`countDownloaded`), então o que
+aquele zero significava era "este hinário não está baixado" — outra resposta, e a
+pergunta que o operador de fato fez ao ver a linha.
 
 ---
 
