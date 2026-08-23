@@ -1,5 +1,13 @@
 [
   {
+    "versao": "1.2.10",
+    "itens": [
+      "O Registro passou a perguntar AO SISTEMA por que o microfone não abre: se a gravação está bloqueada mesmo com a permissão concedida, se o aparelho está em chamada, se o microfone está mudo, e quais entradas de áudio o Android enxerga.",
+      "Isso responde o caso em que o app diz “permissão concedida” e a gravação falha assim mesmo — num Samsung, o Bloqueio automático costuma ser a causa em app instalado fora da Play Store.",
+      "E a tentativa de abrir o microfone pelo nome do dispositivo, que a versão passada anunciou, de fato não rodava: ela pulava a única entrada que o aparelho oferecia."
+    ]
+  },
+  {
     "versao": "1.2.9",
     "itens": [
       "Quando o microfone não abre, o app tenta mais uma coisa: pedir o microfone PELO NOME do dispositivo, em vez de aceitar a escolha automática do navegador.",

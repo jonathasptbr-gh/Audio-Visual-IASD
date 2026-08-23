@@ -342,6 +342,11 @@ try {
     window.__AVBridge.requestMic = (id) => {
       setTimeout(() => { try { window.__avResolve(id, true); } catch (_) {} }, 0);
     };
+    // A SONDA DO SHELL responde o que o teste mandar em `__micShell`.
+    window.__micShell = null;
+    window.__AVBridge.micDiag = (id) => {
+      setTimeout(() => { try { window.__avResolve(id, window.__micShell); } catch (_) {} }, 0);
+    };
   });
 
   async function tentarRecado(erro, entradas) {
@@ -432,6 +437,78 @@ try {
     perm.slice(perm.indexOf('Microfone'), perm.indexOf('Microfone') + 300));
   checar(/permissão do Android: NotAllowedError/.test(perm),
     'e o degrau que falhou é NOMEADO como a permissão, não como um pedido de captura');
+
+  // ---- O QUE SÓ O SHELL SABE: `AppOps` negando com a permissão concedida ----
+  //
+  // É o caso que quatro rodadas de investigação pelo lado web não conseguiram
+  // nomear: `NotReadableError` nas três configurações, nos dois WebViews, com
+  // `RECORD_AUDIO` concedida e um dispositivo enumerado. O `AppOps` pode RECUSAR
+  // a gravação enquanto `checkSelfPermission` devolve concedida — é o
+  // interruptor de privacidade, o controle do fabricante ou o mudo global —, e o
+  // navegador não enxerga essa diferença.
+  const comShell = async (shell, erro) => {
+    // REGRANTE A PERMISSÃO. O caso anterior (permissão negada) deixou o
+    // `requestMic` respondendo `false`, e sem isto o caminho sai ANTES da escada
+    // — as asserções abaixo passariam por um motivo que não é o delas. MEDIDO:
+    // foi o que aconteceu na primeira escrita deste bloco.
+    await pg.evaluate((sh) => {
+      window.__micShell = sh;
+      window.__AVBridge.requestMic = (id) => {
+        setTimeout(() => { try { window.__avResolve(id, true); } catch (_) {} }, 0);
+      };
+    }, shell);
+    const r = await tentarRecado(erro || 'NotReadableError', 1);
+    // A sonda é assíncrona de propósito (o resto da linha não espera por ela);
+    // um render a mais garante que ela já chegou.
+    return pg.evaluate(async () => {
+      await new Promise((f) => setTimeout(f, 250));
+      await window.renderDiag();
+      return typeof diagTexto === 'string' ? diagTexto : '';
+    }).then((t) => t || r.texto || '');
+  };
+
+  const bloq = await comShell({
+    permissao: true, appops: 'recusado', mudo: false, modo: 0, gravando: 0,
+    entradas: [{ tipo: 'microfone embutido', nome: 'SM-S928B' }],
+  });
+  checar(/permissão RECORD_AUDIO: concedida/.test(bloq) && /AppOps para gravar: recusado/.test(bloq),
+    'o Registro mostra a CONTRADIÇÃO em vez de supô-la: permissão concedida E AppOps '
+    + 'recusando', bloq.slice(bloq.indexOf('Microfone'), bloq.indexOf('Microfone') + 600));
+  checar(/O SISTEMA ESTÁ BLOQUEANDO A GRAVAÇÃO/.test(bloq) && /Auto Blocker/.test(bloq),
+    'e o veredito nomeia a causa E o lugar de mexer — reconceder a permissão não resolve, '
+    + 'e mandar fazer isso é a rodada perdida que este bloco existe para acabar');
+  checar(!/TODOS OS DEGRAUS FALHARAM/.test(bloq),
+    'o veredito do AppOps VENCE o genérico: dois diagnósticos no mesmo bloco é o Registro '
+    + 'discordando de si mesmo');
+  checar(/entradas que o SISTEMA enxerga: 1/.test(bloq) && /microfone embutido — SM-S928B/.test(bloq),
+    'e as entradas do SISTEMA aparecem com tipo e nome — a lista do navegador é outra, e a '
+    + 'diferença entre as duas é informação');
+
+  // EM CHAMADA é a única vez em que a frase antiga estava certa.
+  const chamada = await comShell({
+    permissao: true, appops: 'permitido', mudo: false, modo: 2, gravando: 1, entradas: [],
+  });
+  checar(/EM CHAMADA/.test(chamada) && /modo de áudio: 2 \(EM CHAMADA\)/.test(chamada),
+    'MODO 2 dá o veredito da CHAMADA — a causa que a frase da tela sempre acusou e que '
+    + 'nunca tinha sido verificada');
+  checar(!/O SISTEMA ESTÁ BLOQUEANDO/.test(chamada),
+    'e com o AppOps permitido o veredito do bloqueio NÃO aparece');
+
+  // MUDO GLOBAL é um terceiro interruptor, e um Registro que o confundisse com o
+  // AppOps mandaria mexer no lugar errado.
+  const mudo = await comShell({
+    permissao: true, appops: 'permitido', mudo: true, modo: 0, gravando: 0, entradas: [],
+  });
+  checar(/MICROFONE ESTÁ MUDO NO SISTEMA/.test(mudo),
+    'o MUDO global tem veredito próprio — é outro interruptor, e outra ação');
+
+  // E COM O SHELL CALADO (bundle novo, APK antigo) nada disso aparece, e o
+  // veredito genérico volta: um campo ausente nunca vira "undefined" num log.
+  const semShell = await comShell(null);
+  checar(!/o que o SISTEMA diz/.test(semShell) && /TODOS OS DEGRAUS FALHARAM/.test(semShell),
+    'sem resposta do shell o bloco cai no veredito de sempre, sem inventar linha nenhuma');
+  checar(!/undefined|NaN|\[object Object\]/.test(bloq + chamada + mudo + semShell),
+    'e nenhum dos quatro produz "undefined", "NaN" ou "[object Object]"');
 
   checar(!/undefined|NaN|\[object Object\]/.test(tres + zero + perm),
     'e nenhum dos três casos produz "undefined", "NaN" ou "[object Object]"');

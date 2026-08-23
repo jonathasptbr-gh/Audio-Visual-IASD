@@ -103,8 +103,13 @@ for (const [nome, src] of [['ao vivo', display], ['recado', controle]]) {
   checar(/deviceId:\s*\{\s*exact:/.test(src),
     'o ' + nome + ' tenta o dispositivo PELO ID depois da escada — o "default" do '
     + 'navegador é uma entrada virtual, e falhar nele não é falhar no microfone');
-  checar(/d\.deviceId === 'default'\)\s*continue/.test(src),
-    'e PULA o "default" nessa volta: repeti-lo seria a mesma pergunta que já falhou');
+  // E NÃO PULA O `default`, que era o contrato da v1.2.9 e o defeito dela:
+  // MEDIDO num aparelho, `entradas de áudio: 1` — e o id dessa entrada É
+  // `default`. Pular significava que a tentativa por id nunca rodava, e o
+  // Registro seguiu marcando "3 tentativa(s)" enquanto eu anunciava quatro.
+  checar(!/d\.deviceId === 'default'\)\s*continue/.test(src),
+    'e NÃO pula o "default": num aparelho com uma entrada só, o id dela é `default` — '
+    + 'pulá-lo faz a tentativa por id não rodar nunca');
 }
 
 // A MENSAGEM DO NAVEGADOR, nos dois: `NotReadableError` é o balde genérico do
