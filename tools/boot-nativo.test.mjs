@@ -4228,39 +4228,41 @@ try {
   checar(false, 'o percurso da área de transferência terminou sem exceção (' + (e && e.message) + ')');
 }
 
-// ===== O MICROFONE SEM TELÃO: O BOTÃO PARAVA DE MENTIR (v1.1.20) =====
+// ===== O MICROFONE SEM TELÃO: O BOTÃO NÃO É OFERECIDO (v1.2.20) =====
 //
 // Quem abre o microfone é o `/display/`, e ele só existe DENTRO da
 // `Presentation` — sem TV conectada o `syncPresentation` não cria nenhuma, e
-// ninguém consome o comando `mic`. Como ninguém o consome, ninguém responde
-// `mic-status`: `micError` ficava vazio, a nota de diagnóstico não aparecia, e o
-// único sinal na tela era o botão vermelho escrito "No ar" — que é o
-// `micPressed` local, nunca uma confirmação.
+// ninguém consome o comando `mic`. As telas da rede também não servem: elas
+// rodam o MESMO `display.js`, e lá o `setMic` sai por `if (TELA) return`.
 //
-// É a classe de defeito mais cara deste app: nada erra, nada quebra, e o
-// operador segura o botão achando que está falando para a igreja.
+// A HISTÓRIA DESTE BLOCO, em três degraus, porque cada um consertou o anterior:
 //
-// A PONTE PADRÃO DESTE ARQUIVO JÁ TEM ZERO TELAS (`ponteCom(…, [])`), então esta
-// é a condição normal aqui — e é por isso que o bloco não monta cenário nenhum.
+//   até a v1.1.20 ... o botão acendia "No ar" com o `micPressed` local, sem
+//                     nada captando. O operador falava para ninguém.
+//   v1.1.20 ........ ele passou a RECUSAR o toque e DIZER por quê.
+//   v1.2.20 ........ ele deixou de ser desenhado. Explicar é melhor que mentir,
+//                    mas não é melhor que não oferecer — a frase chegava com o
+//                    dedo no botão, no meio do culto.
 //
-// AS DUAS METADES: que a recusa ACONTECE (o botão não acende) e que ela é DITA
-// (a nota aparece, com a razão). A primeira sozinha seria um botão que não faz
-// nada — exatamente o defeito, com outra aparência.
+// A PONTE PADRÃO DESTE ARQUIVO TEM ZERO TELAS (`ponteCom(…, [])`), então a
+// ausência é a condição normal aqui. O QUE PRECISA DE CENÁRIO é o contrário:
+// a TV ENTRANDO deve fazer o botão aparecer SEM trocar de aba — sem isso ele só
+// voltaria na próxima navegação, isto é, a TV conecta no meio do culto e o
+// microfone continua ausente, sem nada na tela explicando.
 try {
   const pgM = await ctx.newPage();
   await pgM.addInitScript(PONTE);
-  // A PERMISSÃO DO ANDROID É CONCEDIDA NESTA PÁGINA, e sem isso este bloco não
-  // mede o que promete: a ponte padrão resolve `requestMic` como `null` → falso,
-  // o handler sai em `NotAllowedError` ANTES da guarda de telão, e as asserções
-  // passariam por um motivo que não é o delas. MEDIDO por reversão: com a ponte
-  // padrão, retirar a guarda deixava duas das três asserções verdes.
-  //
-  // Concedida a permissão, o caminho chega à guarda — e é aí que "sem TV" é a
-  // única coisa que decide.
+  // A LISTA DE TELAS VIRA MUTÁVEL, para a TV poder entrar no meio do teste. O
+  // `__avDisplaysChanged` do `native.js` reconsulta a ponte, então basta trocar
+  // o que ela responde.
   await pgM.addInitScript(`(() => {
+    window.__telas = [];
     const arm = () => {
       const B = window.__AVBridge;
       if (!B) { setTimeout(arm, 0); return; }
+      B.displays = (id) => {
+        setTimeout(() => { try { window.__avResolve(id, window.__telas); } catch (_) {} }, 0);
+      };
       B.requestMic = (id) => {
         setTimeout(() => { try { window.__avResolve(id, true); } catch (_) {} }, 0);
       };
@@ -4271,51 +4273,69 @@ try {
   await pgM.waitForFunction(() => window.AVDB && typeof window.__avBack === 'function'
     && !!document.querySelector('#playlist li'), null, { timeout: 25000 });
 
-  const mic = await pgM.evaluate(async () => {
-    const ir = (t) => {
-      const b = document.querySelector('[data-tab="' + t + '"]');
-      if (b) b.click();
-    };
+  const semTv = await pgM.evaluate(async () => {
+    const ir = (t) => { const b = document.querySelector('[data-tab="' + t + '"]'); if (b) b.click(); };
     ir('mic');
     await new Promise((f) => setTimeout(f, 300));
-    const btn = document.getElementById('micBtn');
-    if (!btn) return { semBotao: true };
-    // O PUSH-TO-TALK É `pointerdown`/`pointerup`, não `click` — e o que se quer
-    // medir é o estado DURANTE o aperto, que é quando o rótulo mentia.
-    //
-    // A CAPTURA DE PONTEIRO PRECISA VALER, e isto não é detalhe de arnês: o
-    // handler tem uma segunda saída, `if (!micPressed && !hasPointerCapture)
-    // return` — o "já soltou" —, e com um PointerEvent sintético o
-    // `setPointerCapture` lança e o `hasPointerCapture` responde falso. O
-    // caminho saía ALI, antes da guarda de telão, e a asserção do rótulo passava
-    // por não ter chegado a lugar nenhum. MEDIDO por reversão: sem estas duas
-    // linhas, retirar a guarda deixava a asserção do "No ar" verde.
-    btn.setPointerCapture = () => {};
-    btn.hasPointerCapture = () => true;
-    btn.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerId: 1 }));
-    await new Promise((f) => setTimeout(f, 120));
-    const rotulo = (btn.querySelector('.mic-btn-label') || {}).textContent || '';
-    const aceso = btn.classList.contains('live');
-    const nota = document.getElementById('micNote');
-    const notaTexto = nota && !nota.hidden ? (nota.textContent || '') : '';
-    btn.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, pointerId: 1 }));
-    await new Promise((f) => setTimeout(f, 120));
-    // A NOTA SOBREVIVE À SOLTURA: a soltura de um toque recusado não tem nada a
-    // desfazer, e limpá-la a tiraria da tela antes de alguém lê-la.
-    const notaDepois = nota && !nota.hidden ? (nota.textContent || '') : '';
-    return { rotulo, aceso, notaTexto, notaDepois };
+    const proj = document.getElementById('miscProjectBtn');
+    const row = proj && proj.parentElement;
+    return {
+      temMic: !!document.getElementById('micBtn'),
+      temProj: !!proj,
+      // A LARGURA É MEDIDA CONTRA A LINHA, nunca contra um número de pixel: a
+      // fonte e a densidade são da MÁQUINA, e afirmar "440px" seria medir o
+      // runner. O que o desenho promete é que o botão OCUPA A LINHA.
+      largura: proj ? Math.round(proj.getBoundingClientRect().width) : 0,
+      larguraDaLinha: row ? Math.round(row.getBoundingClientRect().width) : 0,
+      irmaos: row ? row.children.length : 0,
+    };
   });
 
-  checar(!mic.semBotao, 'a aba Ferramentas traz o botão de microfone', JSON.stringify(mic));
-  checar(mic.aceso === false && !/no ar/i.test(mic.rotulo),
-    'SEM TV o botão NÃO acende nem diz "No ar" — não há telão para captar, e dizer '
-    + 'que há é a única coisa que este botão não pode fazer', JSON.stringify(mic));
-  checar(/sem tv|não tem onde|telão/i.test(mic.notaTexto),
-    'e a recusa é DITA, com a razão — um botão que não faz nada e não explica é o '
-    + 'mesmo defeito com outra aparência', JSON.stringify(mic.notaTexto));
-  checar(mic.notaDepois === mic.notaTexto && mic.notaDepois !== '',
-    'e a nota sobrevive à soltura do botão — senão ela sairia da tela antes de ser lida',
-    JSON.stringify([mic.notaTexto, mic.notaDepois]));
+  checar(semTv.temMic === false,
+    'SEM TV o botão de microfone NÃO É DESENHADO — um controle que só sabe dizer que '
+    + 'não funciona é um controle a mais para o operador aprender', JSON.stringify(semTv));
+  checar(semTv.temProj === true && semTv.irmaos === 1,
+    'e o "Projetar no telão" fica SOZINHO na linha', JSON.stringify(semTv));
+  checar(semTv.larguraDaLinha > 0 && semTv.largura >= semTv.larguraDaLinha - 2,
+    'OCUPANDO-A DE LADO A LADO: `.misc-foot` é flex e o filho é `flex: 1`, então a '
+    + 'largura vem da AUSÊNCIA do irmão, não de uma regra de CSS para o caso',
+    JSON.stringify(semTv));
+
+  // A METADE QUE FALHARIA CALADA: a TV ENTRA e o botão precisa aparecer SEM que
+  // o operador troque de aba. Quem faz isso é o `refreshDiversos()` disparado
+  // pela TRANSIÇÃO de presença no `renderDisplayStatus` — e sem ele nada erra:
+  // a aba simplesmente continua sem microfone.
+  const comTv = await pgM.evaluate(async () => {
+    window.__telas = [{ id: 1, name: 'TV do templo', w: 1920, h: 1080, density: 320 }];
+    window.__avDisplaysChanged();
+    await new Promise((f) => setTimeout(f, 500));
+    const proj = document.getElementById('miscProjectBtn');
+    const row = proj && proj.parentElement;
+    return {
+      temMic: !!document.getElementById('micBtn'),
+      irmaos: row ? row.children.length : 0,
+      abaAtiva: !!document.querySelector('[data-tab="mic"].active')
+        || !!document.getElementById('miscProjectBtn'),
+    };
+  });
+  checar(comTv.temMic === true,
+    'A TV ENTRANDO faz o botão APARECER, sem trocar de aba — sem isso ela conecta no '
+    + 'meio do culto e o microfone continua ausente, calado', JSON.stringify(comTv));
+  checar(comTv.irmaos === 2,
+    'e a linha volta a ter os dois, dividindo a largura', JSON.stringify(comTv));
+
+  // E A TV SAINDO desfaz: a simetria não é elegância, é o caso do dongle que
+  // cai — e ali o botão precisa sumir, senão volta a ser o que mentia.
+  const saiu = await pgM.evaluate(async () => {
+    window.__telas = [];
+    window.__avDisplaysChanged();
+    await new Promise((f) => setTimeout(f, 500));
+    return { temMic: !!document.getElementById('micBtn') };
+  });
+  checar(saiu.temMic === false,
+    'e a TV SAINDO o tira de novo — é o caso do dongle que cai no meio do culto',
+    JSON.stringify(saiu));
+
   await pgM.close();
 } catch (e) {
   checar(false, 'o percurso do microfone sem telão terminou sem exceção (' + (e && e.message) + ')');

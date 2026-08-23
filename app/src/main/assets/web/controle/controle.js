@@ -244,7 +244,7 @@ const appVersionEl = document.getElementById('appVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.2.19';
+const WEB_VERSION = '1.2.20';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -4926,8 +4926,11 @@ function micErrorText(err) {
   // NÃO É UM ERRO DO MICROFONE, e é por isso que a frase não fala dele: o
   // aparelho está bem, o que falta é para ONDE mandar a voz.
   if (err === 'sem-telao') {
-    return 'Sem TV conectada: a voz não tem onde sair. O microfone vai para o '
-      + 'telão, e sem TV não há telão — as telas da rede não captam som.';
+    // DESDE A v1.2.20 ELE É UMA CORRIDA, não o caminho normal: sem TV o botão
+    // nem é desenhado. Só se alcança aqui se a tela cair ENTRE o desenho e o
+    // toque — a guarda fica porque essa janela existe, e um `sendMic` sem
+    // destino acenderia "No ar" sobre um telão que já não está lá.
+    return 'A TV saiu: a voz não tem mais onde sair.';
   }
   if (err === 'NotAllowedError' || err === 'SecurityError') {
     return 'Permissão de microfone negada. Autorize o app nas configurações do Android.';
@@ -5110,7 +5113,23 @@ function renderFoot() {
   // limitação. Consertado o ao vivo, o que sobrava do recado era um segundo
   // caminho que INTERROMPE a cena para dizer o que o primeiro diz sem
   // interromper nada.
-  row.appendChild(renderMic());
+  // O MICROFONE SÓ EXISTE QUANDO HÁ PARA ONDE MANDAR A VOZ (v1.2.20).
+  //
+  // Quem capta é o `/display/`, e ele só roda dentro da `Presentation` — sem TV
+  // o `syncPresentation` não cria nenhuma e ninguém consome o comando `mic`. As
+  // telas da rede também não servem: elas rodam o mesmo `display.js`, e lá o
+  // `setMic` sai por `if (TELA) return`.
+  //
+  // ANTES ELE FICAVA VISÍVEL E RECUSAVA O TOQUE, explicando por quê. Explicar é
+  // melhor que mentir (era o conserto da v1.1.20, quando ele acendia "No ar"
+  // sem capturar nada), mas não é melhor que NÃO OFERECER: um controle que só
+  // sabe dizer que não funciona é um controle a mais para o operador aprender,
+  // e a frase aparece no pior momento — com o dedo no botão, no meio do culto.
+  //
+  // A LARGURA VEM DE GRAÇA: `.misc-foot` é flex e os dois filhos são `flex: 1`,
+  // então sozinho o "Projetar no telão" ocupa a linha inteira. Não há regra de
+  // CSS para o caso — há a ausência de um irmão.
+  if (haOndeReproduzirMic()) row.appendChild(renderMic());
 
   const st = miscProjectState();
   const proj = document.createElement('button');
@@ -11761,7 +11780,7 @@ function lvBuildCifra(el, barra) {
       [AVCifra.MOTIVO_SEM_REDE]: 'Sem resposta da internet. A cifra é lida na hora — sem rede, não há como buscá-la.',
       [AVCifra.MOTIVO_NAO_TEM]: 'Não encontrei a cifra de “' + nome + '”.',
       [AVCifra.MOTIVO_RECUSOU]: 'O site respondeu, mas recusou a página. Tente de novo daqui a pouco.',
-      // A FRASE DIZ O QUE FOI OBSERVADO, não o que se conclui dele (v1.2.18).
+      // A FRASE DIZ O QUE FOI OBSERVADO, não o que se conclui dele (v1.2.20).
       // Ela afirmava "o site não tem os acordes desta música" — e MEDIDO: o
       // Cifra Club serve VARIANTES no mesmo endereço (cifra, letra, partituras
       // para teclado), e a página de letra chegando não prova ausência de cifra
@@ -22707,7 +22726,18 @@ if (window.__NATIVE__) {
     else if (antes && tv && (antes.id !== tv.id || antes.w !== tv.w || antes.h !== tv.h)) {
       diagC('TV mudou: ' + nomeDe(tv));
     }
+    // A PRESENÇA, não a lista: é ela que decide se o botão de microfone existe
+    // (`haOndeReproduzirMic`), e é ela que precisa disparar o redesenho da aba
+    // Ferramentas. Sem isto o botão só apareceria na próxima vez que o operador
+    // TROCASSE de aba — isto é, a TV entra no meio do culto e o microfone
+    // continua ausente, sem nada na tela explicando.
+    const tinhaTela = lastDisplays.length > 0;
     lastDisplays = list || [];
+    // SÓ NA TRANSIÇÃO. `refreshDiversos` esvazia o `libraryEl` e redesenha o
+    // painel inteiro: rodá-lo a cada callback (o `onResume` reconfere a lista)
+    // derrubaria o que o operador está usando — um campo com foco, uma lista
+    // rolada — por um evento que não mudou nada.
+    if (tinhaTela !== (lastDisplays.length > 0)) refreshDiversos();
     // Conectar (ou perder) o telão MUDA O REGIME da preview: com TV a projeção
     // é ela, chega no ato, e a preview volta a andar junto. Ver `cmd`.
     recalcularAtrasoPreview();
