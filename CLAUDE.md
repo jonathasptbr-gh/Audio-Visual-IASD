@@ -489,7 +489,7 @@ prazo (um timeout ali resolveria null com o operador ainda escolhendo a pasta).
 
 ### `SHELL_VERSION` — subir SEMPRE que a superfície mudar
 
-Hoje vale **49**, e ele é o **PISO**: o bundle declara `minShell: 49`, então
+Hoje vale **50**, e ele é o **PISO**: o bundle declara `minShell: 50`, então
 todo método da ponte existe sempre e **não há guarda de versão no lado web**.
 "Superfície" inclui **forma de retorno** e **comportamento**, não só assinatura:
 um campo que some, um contrato de URL que muda ou um método que passa a fazer
@@ -502,7 +502,7 @@ escondia. Sem guardas, o web chama um método que o APK instalado não tem: o
 existe, é tocável e não faz nada. Por isso mudança de ponte é um lote
 **APK + web publicado JUNTO**, com `shellTag` no `version.json`.
 
-> A tabela dos 49 degraus está em `docs/HISTORICO.md` — ela é história do
+> A tabela dos 50 degraus está em `docs/HISTORICO.md` — ela é história do
 > contrato, e história mora lá.
 
 ### As TRÊS filas da ponte — escolher a errada é uma regressão muda
@@ -553,7 +553,7 @@ E duas regras que ficam de fora das três filas:
   e volta; quem responde é o laço de cópia do `YoutubeGrab`, a cada bloco de
   64 kB.
 
-**O bundle declara `minShell: 49`, e é a VÁLVULA que resolve.** Um bundle que
+**O bundle declara `minShell: 50`, e é a VÁLVULA que resolve.** Um bundle que
 exija ponte mais nova que o `SHELL_VERSION` instalado é recusado inteiro
 (`WebUpdater.kt`), e o app segue no que tinha — a recusa acontece no shell, e
 não em runtime no meio de um culto. **Guarda de versão no lado web é proibida:**
@@ -2194,7 +2194,8 @@ que ela é desenvolvida e testada fora do aparelho.
 | Sem tela conectada (simplificado) | mesmo bloqueio, com a janela do Display no lugar da `Presentation` | **modo bloqueado**: cortina embaçada, seção de conexão no centro, saída para o avançado na frente. **Não é incondicional**: o "Tocar neste celular" da folha (`tocarNoCelular`) desbloqueia e manda o som para este aparelho. **Caminho só de IDA e sem persistência**: o bloqueio se rearma ao fechar o app, ao passar pelo modo avançado (`setAppMode`) ou quando uma tela entra — e por isso o botão SOME depois do toque, em vez de oferecer o desfazer |
 | Fullscreen da preview | `requestFullscreen` + Screen Orientation | idem, com trava de paisagem **nativa** (`onShowCustomView`). Os controles são uma COLUNA na lateral direita que o toque acende e 4 s apagam — não gestos (v1.0.7, ver `docs/arquitetura/CONTROLE.md`) |
 | Botões físicos de volume | o navegador não os recebe | **interceptados**, ligados ao fader (ver abaixo) |
-| Microfone | o navegador pergunta | `MicChromeClient` + `RECORD_AUDIO` (ver abaixo) |
+| Microfone AO VIVO | o navegador pergunta | `MicChromeClient` + `RECORD_AUDIO` (ver abaixo). **Só com TV**: quem capta é o `/display/`, que só existe dentro da `Presentation` |
+| **RECADO** (walkie-talkie) | **não existe** — sem `MediaRecorder` gravando no mesmo aparelho que projeta, o recurso não teria sentido no navegador | **shell 50**: segura, fala, solta — e a voz vira item `kind:'audio'` na prateleira `avulsos`, projetado na hora. Chega aos QUATRO modelos pelo caminho de mídia que já existe, inclusive às telas da rede (`/m/<token>`). Grava no WebView do **Controle**, que passou a receber áudio — e só áudio |
 | Câmera | o navegador pergunta | **negada, sempre**. O `onPermissionRequest` do `ControleChromeClient` FICOU, negando **com log**: um WebView sem ele nega em silêncio, e o próximo que precisar de mídia aqui descobriria a armadilha do zero |
 | Botão voltar | — | **fecha o que estiver aberto** antes de minimizar (ver abaixo) |
 | Controles fora do app | — | `MediaSession`: notificação, tela de bloqueio, botões de mídia |
@@ -2242,6 +2243,58 @@ Caminho no Display: `getUserMedia → MediaStreamSource → GainNode → destina
 com rampa nas duas pontas (cortar no meio de uma palavra estala na caixa).
 `echoCancellation` **ligado**: num culto a realimentação é estrago público
 imediato. Fecha sozinho ao soltar o botão, ao trocar de aba e em segundo plano.
+
+### O RECADO — o microfone estilo walkie-talkie (shell 50)
+
+O ao vivo **só funciona com TV**, e é uma consequência da arquitetura, não um
+ajuste que falta: quem capta é o `/display/`, e ele só existe dentro da
+`Presentation`. Sem TV o `syncPresentation` não cria nenhuma, ninguém executa o
+arquivo, e o comando `mic` não é consumido por ninguém.
+
+O **RECADO** resolve isso por outro caminho: em vez de transportar áudio, ele
+transporta um ARQUIVO. Segurar grava; soltar manda ao ar. A voz vira um item
+`kind:'audio'` comum e entra pelo caminho de projeção de sempre — e é por ser
+comum que ela chega aos quatro modelos **de graça**, inclusive às telas da rede,
+onde `telaSanearRec` cunha o `/m/<token>` e os bytes viajam pelo canal que já
+existe. Nenhuma peça de transporte nova, nenhum encoder, nenhum MSE.
+
+- **Ele custou uma RELEASE, e só uma linha dela.** Gravar é `MediaRecorder` →
+  `MediaStream` → `getUserMedia`, e o `ControleChromeClient` negava TODA
+  permissão de mídia. Hoje ele concede **áudio, e só áudio**, com as TRÊS regras
+  do `MicChromeClient` (que ele CHAMA, em vez de reescrever): só
+  `RESOURCE_AUDIO_CAPTURE`, só com `RECORD_AUDIO` no processo, só da própria
+  origem. A guarda de origem é o que mantém a invariante: este é o WebView com
+  `host != null`, e um script de terceiro não ganha microfone porque não
+  consegue estar aqui (invariante 2).
+- **O FORMATO é escolhido pelo navegador, e a ordem é por quem TOCA.** AAC em
+  MP4 primeiro, Opus em WebM depois — o telão é o WebView do Android
+  (previsível), mas as telas da rede são navegadores de TERCEIRO. Falhar ao
+  gravar é um `isTypeSupported` falso, aqui, agora; falhar ao tocar é o silêncio
+  na igreja.
+- **O `.type` do blob perde o parâmetro de codec**, e isso mantém a correção
+  inteira do lado web: é ele que vira o `Content-Type` da rota `/m/`, e o
+  `EspelhoMidiaCache.tipoValido` só aceita `tipo/subtipo` — um
+  `audio/webm;codecs=opus` sairia servido como `application/octet-stream`.
+- **A prateleira é `avulsos`, e o teto de três é o RECURSO.** Um recado é
+  descartável por natureza; `fixarAvulso` despeja o mais antigo pelo
+  `listRemove`, que roda o coletor. Nada encosta no Cronograma.
+- **O FIM DELE NÃO É O FIM DE UMA FAIXA.** O motor tem um slot, então o recado
+  derruba o que estiver tocando — e, sendo item comum, o `media-ended` dele cai
+  no `autoAdvance`, onde há dois desfechos mudos: `repeat: 'one'` **repete a voz
+  do operador para sempre**, e `repeat: 'all'` não acha o id em `plItems`
+  (`findIndex` → -1) e **começa a playlist do zero**. `recadoTerminou` intercepta
+  ANTES, nos DOIS caminhos de fim (o `media-ended` do telão e o `onEnded` da
+  preview — este é o do modelo sem tela, onde não há telão para emitir o outro).
+- **E ele DEVOLVE a cena.** A posição é guardada antes do envio e volta dentro do
+  próprio `load` (`time`/`playing`) — nunca como um `seek` depois, porque o
+  `onCommand` do Display não serializa. Um louvor interrompido por um recado
+  volta de onde parou.
+- **Um toque acidental não vai ao ar** (`RECADO_MIN_MS`, 700 ms) e um botão que
+  gruda não grava para sempre (`RECADO_MAX_MS`, 2 min).
+- **São DOIS botões, não um com dois modos** — a regra da v1.1.13: um controle
+  que muda de comportamento conforme o contexto é um controle que ninguém
+  aprende. O ao vivo continua existindo porque, onde funciona, é melhor: zero
+  atraso e não derruba o telão.
 
 ### Botão voltar: fecha antes de minimizar
 
@@ -2897,8 +2950,8 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: v1.1.23** (base web) · **v1.1.10** (APK) · `SHELL_VERSION` **49** · bundle com
-`minShell: 49` — o shell 49 é o **PISO**: todo método da ponte existe, e não há
+**Versão atual: v1.1.25** (base web) · **v1.1.25** (APK) · `SHELL_VERSION` **50** · bundle com
+`minShell: 50` — o shell 50 é o **PISO**: todo método da ponte existe, e não há
 guarda de versão no lado web. O que continua valendo é que `java/`, `res/`, o
 manifest e os workflows **só chegam instalando o APK**.
 

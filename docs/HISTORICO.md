@@ -24,6 +24,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
+- **v1.1.25** — O MICROFONE VIRA WALKIE-TALKIE, E PASSA A FUNCIONAR NOS QUATRO MODELOS: em vez de TRANSPORTAR ÁUDIO, ele transporta um ARQUIVO — a voz vira item `kind:"audio"` comum e entra pelo caminho de projeção de sempre, chegando às telas da rede de graça pelo `/m/<token>`. É a inversão que faz o recurso caber: o ao vivo para a rede está bloqueado por `[SecureContext]`, e o projeto já construiu esse transporte (AAC → MSE) e o removeu na v5.187. A Release é de UMA LINHA — o `ControleChromeClient` negava toda permissão de mídia e passa a conceder áudio, e só áudio, chamando as três regras do `MicChromeClient` em vez de reescrevê-las. O FIM do recado é interceptado nos DOIS caminhos: sendo item comum, ele caía no `autoAdvance`, onde `repeat one` repetia a voz do operador PARA SEMPRE e `repeat all` começava a playlist do zero — nenhum dos dois com sinal na tela. E ele DEVOLVE a cena, com a posição dentro do próprio `load`. EXIGE RELEASE
 - **v1.1.24** — O MICROFONE, VERIFICADO NOS QUATRO MODELOS DE PROJEÇÃO: ele funciona com TV espelhando e em mais nenhum — e sem TV o botão acendia "No ar" sem nada estar captando, porque `micPressed` é escrito no `pointerdown` e sem `Presentation` ninguém responde `mic-status`. A recusa entra ANTES do pedido de permissão do Android: pedir o microfone para uma ação que não pode funcionar é queimar a única permissão sensível do app. Mais a guarda que um comentário prometia desde a v5.187 e que nunca existiu — o comando `mic` DESCE para toda tela da rede sem filtro, e o que impedia o desfecho era o ambiente (`getUserMedia` é `[SecureContext]`), não o app; proteção emprestada do navegador é proteção com prazo, e o `EspelhoCert` continua inteiro no shell. O oráculo FORJA `navigator.mediaDevices` para medir o dia em que houver TLS. OTA PURO
 - **v1.1.23** — OS CDs OFICIAIS TÊM ENDEREÇO DEDUZÍVEL, E ELE NÃO ESTAVA SENDO USADO: os álbuns do acervo são dezenas e no Cifra Club caem todos sob a coleção **Ministério Jovem** — a mesma forma do `CATALOGO` dos hinários, sem uma coleção do acervo para mapear. Vira uma tentativa própria entre o catálogo e a busca, pela razão que ordena as três: ali a URL sai do NOME da música, e é uma requisição sem ranking de ninguém escolhendo por nós. Errar custa um 404 (a busca roda em seguida como sempre, nenhum caminho regride) e o Registro imprime a tentativa verbatim, então um slug renomeado aparece em toda música e se conserta por OTA. O mesmo artista vira DESEMPATE na busca, e esse não depende de o nome do álbum do acervo bater com nada. OTA PURO
 - **v1.1.22** — A BUSCA DE CIFRA CAÍA NO ÍNDICE ALFABÉTICO DO SITE: ela pegava o PRIMEIRO link de dois segmentos da página de resultados, e a navegação do site também é link de dois segmentos — e mora no cabeçalho, portanto vem ANTES de qualquer resultado no HTML. MEDIDO num aparelho: "Em Oração" devolveu 27 resultados e o escolhido foi `/letra/A/`, que respondeu HTTP 200 com 398 kB e virou `ilegivel` — o diagnóstico certo para a pergunta errada. A defesa NÃO é uma lista de rotas de terceiro (ela envelhece sozinha): é exigir PARENTESCO entre o texto do resultado e o nome procurado, com zero sendo RECUSA e não último lugar. O álbum entra como desempate e como segundo tento de consulta, nunca como filtro nem na primeira consulta — ele é o álbum, não o artista do site. OTA PURO No mesmo relato: os controles da folha ROLAVAM COM O TEXTO (o pausar saía de cena em segundos, e alcançá-lo exigia rolar de volta ao topo, brigando com a rolagem que se queria parar) e a rolagem TREMIA — ~0,37 px por quadro escritos como inteiro andam 1 px a cada três quadros e param nos outros dois; a posição passou a ser nossa e fracionária.
@@ -220,6 +221,108 @@ na nota que a revoga, não apagada da que a criou.
 - **v5.154** — é METADE OTA e METADE APK, e a divisão importa para quem for testar em aparelho.
 - **v5.155** — é OTA PURO
 - **v5.156** — é METADE OTA e METADE APK, de novo.
+
+---
+
+## v1.1.25 — o microfone vira walkie-talkie, e passa a funcionar nos quatro modelos
+
+A v1.1.24 estabeleceu o diagnóstico: o microfone ao vivo funciona **com TV
+espelhando e em mais nenhum modelo**, e isso é consequência da arquitetura, não
+ajuste que falta. Quem capta é o `/display/`, e ele só existe dentro da
+`Presentation`; sem TV o `syncPresentation` não cria nenhuma.
+
+Pedido do operador, verbatim: *"gravar e projetar, mas faça de forma a essa
+gravação ir direto ao invés de ser criado um arquivo no cronograma ou algo do
+tipo, esse sistema de microfone será ao estilo walkietalkie"*.
+
+### EM VEZ DE TRANSPORTAR ÁUDIO, TRANSPORTA UM ARQUIVO
+
+É a inversão que faz o recurso caber. O ao vivo para as telas da rede está
+estruturalmente bloqueado — `getUserMedia` e `AudioWorklet` são os dois
+`[SecureContext]` e não existem em `http://`, então a captura teria de ser no
+celular e o áudio TRANSPORTADO. O projeto já construiu exatamente isso (AAC no
+mesmo fluxo chunked, `AudioWorklet` → `EspelhoAudio.kt` → fMP4 → MSE) e **removeu
+na v5.187**, depois de uma auditoria em que o áudio era o defeito dominante e
+permanente.
+
+O recado não transporta áudio: a voz vira um item `kind:'audio'` COMUM, e entra
+pelo caminho de projeção de sempre. Por ser comum, ela chega aos quatro modelos
+de graça — inclusive às telas da rede, onde `telaSanearRec` cunha o `/m/<token>`
+e os bytes viajam pelo canal que já existe. Zero peça de transporte nova.
+
+### A RELEASE É DE UMA LINHA, E ELA É A RAZÃO DO SHELL 50
+
+Gravar é `MediaRecorder` → `MediaStream` → `getUserMedia`, e o
+`ControleChromeClient` fazia `request.deny()` **incondicional**. O telão não
+servia para gravar porque ele só existe com TV — que é justamente o caso que o
+recado veio cobrir.
+
+Hoje o Controle concede **áudio, e só áudio**, com as três regras do
+`MicChromeClient` — que ele CHAMA em vez de reescrever, porque duas
+implementações da mesma política divergem no primeiro esquecimento. A guarda de
+ORIGEM é o que mantém a invariante 2 de pé: este é o WebView com `host != null`,
+e um script de terceiro não ganha microfone porque não consegue estar aqui.
+
+### O FIM DO RECADO NÃO É O FIM DE UMA FAIXA
+
+O motor tem um slot, então o recado derruba o que estiver tocando. E, sendo item
+comum, o `media-ended` dele cai no `autoAdvance` — onde há dois desfechos
+grotescos, os dois **sem sinal nenhum na tela**:
+
+| `repeat` | o que acontecia |
+|---|---|
+| `one` | `send(currentId)` — a voz do operador **repete para sempre** na frente da congregação |
+| `all` | o id do recado não está em `plItems`, `findIndex` devolve -1, e a playlist **começa do primeiro item** sozinha |
+
+`recadoTerminou` intercepta antes, nos **DOIS** caminhos de fim: o `media-ended`
+do telão e o `onEnded` da preview. O segundo é o do modelo SEM TELA — ali não há
+telão para emitir o primeiro, e uma guarda só no ramo remoto deixaria o recado
+repetindo justamente onde o microfone ao vivo já não funcionava.
+
+**E ele devolve a cena.** A posição é guardada antes do envio e volta dentro do
+próprio `load` (`time`/`playing`), nunca como um `seek` depois — o `onCommand` do
+Display não serializa, e um comando que chegasse em seguida agiria sobre o
+`<video>` anterior. Um louvor interrompido volta de onde parou.
+
+### AS ESCOLHAS MENORES, E POR QUE CADA UMA
+
+- **O formato é escolhido pelo navegador, e a ordem é por quem TOCA.** AAC em MP4
+  primeiro, Opus em WebM depois. O telão é o WebView do Android (previsível); as
+  telas da rede são navegadores de TERCEIRO. Falhar ao gravar é um
+  `isTypeSupported` falso, aqui, agora; falhar ao tocar é o silêncio na igreja.
+- **O `.type` do blob perde o parâmetro de codec**, e isso mantém a correção
+  inteira do lado web (o que chega por OTA): é ele que vira o `Content-Type` da
+  rota `/m/`, e o `EspelhoMidiaCache.tipoValido` só aceita `tipo/subtipo` — um
+  `audio/webm;codecs=opus` sairia servido como `application/octet-stream`.
+- **A prateleira é `avulsos`, e o teto de três é o RECURSO.** Um recado é
+  descartável por natureza; `fixarAvulso` despeja o mais antigo. Nada encosta no
+  Cronograma, que foi o pedido literal.
+- **Um toque acidental não vai ao ar** (700 ms) e um botão que gruda não grava
+  para sempre (2 min).
+- **`medirAudio` passou a tratar `Infinity`** — o caso NORMAL de um blob de
+  `MediaRecorder`, cujo WebM sai sem duração no cabeçalho. `Math.round(Infinity)
+  || 0` é `Infinity`, e ele atravessava o `m.seconds || null`.
+- **São DOIS botões, não um com dois modos** (a regra da v1.1.13). O ao vivo
+  continua existindo porque, onde funciona, é melhor: zero atraso e não derruba
+  o telão.
+
+### O QUE O ORÁCULO MEDE, E O QUE ELE NÃO PODE MEDIR
+
+O arnês FORJA a captura (`getUserMedia` + `MediaRecorder`): o Chromium do CI não
+tem microfone, e o que se quer medir não é a captura — é o que o app faz com os
+bytes. Ele exercita o gesto inteiro, do `pointerdown` ao `load` no barramento.
+
+**A asserção do fim roda com `repeat` em `'one'`, e essa escolha é o teste.** Com
+o padrão (`'off'`) o `autoAdvance` chama `resetAfterEnd()` e não emite `load`
+nenhum — um zero ali passaria com a guarda REMOVIDA, provando nada. Foi
+exatamente o que aconteceu na primeira escrita do bloco, e a reversão pegou.
+
+**O que ele NÃO pode medir**, dito: se o formato gravado por ESTE parque de
+aparelhos toca no navegador da Smart TV da igreja. Isso só se prova numa terça,
+com a transmissão ligada e uma tela de verdade.
+
+EXIGE RELEASE v1.1.25 — `SHELL_VERSION` 49 → 50, `minShell: 50`,
+`shellTag: "v1.1.25"`.
 
 ---
 
