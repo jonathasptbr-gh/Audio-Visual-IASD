@@ -542,6 +542,12 @@ secao('12. artistas padrão');
   checar(C.urlsPadrao('').length === 0, 'nome vazio não produz URL nenhuma');
   checar(C.urlsPadrao('Meu Farol').length === C.ARTISTAS_PADRAO.length,
     'uma URL por artista padrão — a lista é o que manda, não um caso especial');
+  // A SEGUNDA ÂNCORA REAL, do mesmo jeito que a primeira: os CDs do ano têm
+  // artista próprio no site, e este foi conferido à mão.
+  //   https://www.cifraclub.com.br/cd-jovem-2018/nunca-mais-as-lagrimas/
+  checar(C.urlsPadrao('Nunca Mais as Lágrimas')
+    .includes('https://www.cifraclub.com.br/cd-jovem-2018/nunca-mais-as-lagrimas/'),
+    'o CD Jovem 2018 bate com a página real', C.urlsPadrao('Nunca Mais as Lágrimas'));
 
   // O DESEMPATE NA BUSCA: um resultado sob o artista padrão é, por definição, de
   // um CD oficial. Ele sobe mesmo sem o álbum do acervo bater com nada.
@@ -581,6 +587,17 @@ secao('13. radiografia');
   checar(r.tom === 'G', 'e o tom, quando achado', r.tom);
   checar(r.amostra.length === 1 && r.amostra[0].caminho === '/artista-de-marcador/musica-de-marcador/',
     'a amostra traz o ENDEREÇO, que é ponteiro', r.amostra);
+  checar(r.amostraEhCrua === false, 'e ela não é crua quando há o que mostrar', r.amostraEhCrua);
+
+  // O PONTO CEGO CORRIGIDO (v1.1.29). MEDIDO num aparelho: a página de busca do
+  // site devolveu "38 link(s) de 2 segmentos, 0 com forma de música" — e a
+  // amostra veio VAZIA, porque só amostrava o que passou. O Registro ficava mudo
+  // exatamente na pergunta "por que zero?", que é a única que importa ali.
+  const soNav = C.radiografia('<a href="/letra/A/">A</a><a href="/estilos/gospel/">Gospel</a>');
+  checar(soNav.linksDeMusica === 0, 'uma página só de navegação tem zero links de música');
+  checar(soNav.amostra.length === 2, 'e a amostra passa a mostrar o que HAVIA', soNav.amostra);
+  checar(soNav.amostraEhCrua === true, 'dizendo que é crua — senão pareceria um resultado', soNav);
+  checar(C.radiografia('').amostraEhCrua === false, 'página sem link nenhum não afirma amostra crua');
 
   // 2. O CONTEÚDO NÃO SAI. Esta é a metade que protege o contrato do recurso: o
   // Registro é feito para ser copiado para FORA do aparelho, e o app lê cifra de
