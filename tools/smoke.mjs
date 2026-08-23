@@ -160,12 +160,54 @@ try {
   );
   checar(true, 'a base web inicializa (AVDB + createStage + __avBack)');
 
-  // `.click()` do DOM, não o do Playwright: o botão mora na coluna do mixer, que
-  // nesta viewport pode estar recolhida — e o alvo do teste é o Registro, não a
-  // geometria do mixer. O handler executado é o mesmo.
+  // `.click()` do DOM, não o do Playwright: o alvo do teste é o Registro, não a
+  // geometria do cabeçalho. O handler executado é o mesmo.
   await pg.evaluate(() => document.getElementById('settingsBtn').click());
   await pg.waitForSelector('#fadePopup.open', { timeout: 5000 });
   checar(true, 'Configurações abre');
+
+  // ==========================================================================
+  // A GAVETA ENTRA PELA BORDA DO BOTÃO QUE A ABRE (v1.2.2)
+  //
+  // Pedido do operador: as duas folhas cujo botão está no ALTO — Configurações
+  // (a engrenagem foi para o cabeçalho na v1.2.0) e a playlist automática (o
+  // dado, na barra de busca da Biblioteca) — passam a descer do teto em vez de
+  // subir da base.
+  //
+  // MEDIDO NO RENDERIZADO, e não pela classe: a mudança são TRÊS declarações
+  // que precisam concordar (de onde ela entra, onde ela encosta e de que lado
+  // ficam os cantos), e uma classe presente com uma delas faltando dá uma folha
+  // colada no teto com o raio embaixo — um cartão fora de lugar, que nenhuma
+  // asserção sobre `classList` pegaria.
+  //
+  // E AS DE BAIXO ENTRAM NA MESMA MEDIÇÃO. Sem elas isto não seria uma regra de
+  // ORIGEM, seria "toda folha nasce no teto" — e a metade que prova a regra é
+  // justamente a que NÃO mudou.
+  // A MEDIDA ESPERA A TRANSIÇÃO TERMINAR, e espera pelo FATO (nenhuma animação
+  // correndo), nunca pelo valor que ela vai afirmar — esperar pela posição zero
+  // para depois afirmar que ela é zero é escrever uma tautologia. A folha entra
+  // deslizando em 0,3 s; medida no meio do caminho ela responde o ponto de
+  // partida (MEDIDO: -537px de 900), que é o transform, não o layout.
+  const gaveta = async (sel) => {
+    await pg.waitForFunction((s2) => {
+      const el = document.querySelector(s2 + ' .popup-sheet');
+      return !!el && el.getAnimations().every((a) => a.playState !== 'running');
+    }, sel, { timeout: 5000 });
+    return pg.$eval(sel + ' .popup-sheet', (el) => {
+      const r = el.getBoundingClientRect();
+      return {
+        topo: Math.round(r.top),
+        base: Math.round(window.innerHeight - r.bottom),
+        raio: getComputedStyle(el).borderRadius,
+      };
+    });
+  };
+  const cfg = await gaveta('#fadePopup');
+  checar(cfg.topo === 0 && cfg.base > 0,
+    'Configurações ENCOSTA NO TETO — o botão dela está no topo da tela', cfg);
+  checar(/^0px 0px \S+ \S+$/.test(cfg.raio),
+    'e os cantos arredondados são os DE BAIXO: é o raio que diz por onde ela sai',
+    cfg.raio);
 
   // O REGISTRO NÃO TEM MAIS VISOR (v5.207): a caixa `<pre>` gastava 240px de
   // espaço sempre visível em Configurações para exibir, em fonte de 0,68rem, um
@@ -210,6 +252,24 @@ try {
   // ==========================================================================
   await pg.evaluate(() => document.getElementById('fadePopupClose').click());
   await pg.waitForTimeout(250);
+
+  // ---- A OUTRA METADE DA REGRA DE ORIGEM: as de BAIXO continuam subindo ----
+  // Sem ela isto deixaria de ser "a gaveta entra pela borda do botão" e viraria
+  // "toda folha nasce no teto" — e a metade que PROVA a regra é justamente a
+  // que não mudou. Os botões destas duas moram na barra de controles, na base.
+  for (const [abrir, sel, nome] of [
+    [() => openPlPopup(), '#plPopup', 'a playlist'],
+    [() => openHistPopup(), '#histPopup', 'o histórico'],
+  ]) {
+    await pg.evaluate(abrir);
+    const g = await gaveta(sel);
+    checar(g.base === 0 && g.topo > 0,
+      nome + ' continua SUBINDO da base — o botão dela mora na barra de baixo', g);
+    checar(/^\S+ \S+ 0px 0px$/.test(g.raio),
+      'e com os cantos arredondados EM CIMA, do lado por onde ela sai', g.raio);
+    await pg.evaluate((s2) => document.querySelector(s2).classList.remove('open'), sel);
+    await pg.waitForTimeout(250);
+  }
 
   checar(await pg.evaluate(() => typeof avisar === 'undefined'),
     'a função da faixa flutuante não existe mais');

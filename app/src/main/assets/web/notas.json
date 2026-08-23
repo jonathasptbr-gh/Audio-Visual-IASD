@@ -1,5 +1,13 @@
 [
   {
+    "versao": "1.2.2",
+    "itens": [
+      "CORRIGIDO: a rolagem automática da cifra não saía do lugar quando a música não estava tocando — ao ler a letra sem tocar nada, ao parar, ou depois que a faixa terminou. Agora, sem música no ar, ela volta a rolar no ritmo fixo que o botão promete.",
+      "O item do HISTÓRICO agora vai ao telão no toque, direto — não é mais preciso mandá-lo ao Cronograma antes. O botão ao lado continua sendo só o \u201cAdicionar ao Cronograma\u201d.",
+      "As gavetas de Configurações e da Playlist automática passaram a DESCER do alto da tela, que é onde estão os botões que as abrem. As de baixo (playlist, histórico, opções da música) continuam subindo da base."
+    ]
+  },
+  {
     "versao": "1.2.1",
     "itens": [
       "CORRIGIDO: as cifras do hinário nunca eram baixadas por quem JÁ tinha o hinário. Elas estavam penduradas no fim do download, e um hinário completo termina antes disso — o Registro dizia “0 de 601” mesmo depois de sincronizar. Agora elas vêm na abertura do app, em segundo plano, como as letras."

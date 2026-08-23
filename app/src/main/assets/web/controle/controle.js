@@ -244,7 +244,7 @@ const appVersionEl = document.getElementById('appVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.2.1';
+const WEB_VERSION = '1.2.2';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -10698,9 +10698,32 @@ function cifraAlvoDoRelogio(rolavel) {
  * Uma função, e não um estado guardado: o `title` do botão a consulta no
  * instante em que é pintado, e a folha é desenhada muito antes de o laço de
  * rolagem existir. Um valor em cache responderia pelo culto passado.
+ *
+ * ===== "NO AR" É `midiaNoAr`, NUNCA A BARRA SOZINHA (v1.2.2) =====
+ *
+ * Relato do operador: *"o modo automático não está se movendo quando usado
+ * apenas a letra da música"*.
+ *
+ * A barra de progresso responde "este ITEM tem linha do tempo?", que não é a
+ * pergunta daqui — e as duas divergem no caso mais comum de quem só lê a letra:
+ * `renderNowPlaying` termina em `seekEl.disabled = !isTimed`, com `isTimed`
+ * saindo do `kind` do item ATUAL. Um louvor que já foi selecionado continua
+ * sendo `currentItem` depois do Parar, depois do fim da faixa e durante uma
+ * letra avulsa — então a barra seguia habilitada, com o `max` da faixa, sobre
+ * um telão vazio.
+ *
+ * E o desfecho disso é justamente "não se move", não um erro: com duração o
+ * modo `auto` vira uma FUNÇÃO de `authoritativeTime()`, que ali vale 0. A folha
+ * é ancorada na abertura da janela de rolagem e fica parada para sempre — o
+ * modo LIVRE, que deveria ter assumido, nunca é alcançado.
+ *
+ * `midiaNoAr` é a pergunta certa, e é a mesma que o reenvio de cena e o Parar
+ * por camada já fazem. Ela continua VERDADEIRA com a mídia pausada, que é o que
+ * o `auto` quer: pausar a música PARA a folha, e isso é o recurso funcionando.
  */
 function cifraDuracaoNoAr() {
-  return seekEl.disabled ? 0 : (parseFloat(seekEl.max) || 0);
+  if (!midiaNoAr || seekEl.disabled) return 0;
+  return parseFloat(seekEl.max) || 0;
 }
 
 /** O rótulo do degrau atual. Vírgula decimal — é o que o operador lê. */
@@ -20211,6 +20234,37 @@ function renderHistorico() {
       await adicionarNasListas(['imports'], h.id, h.nome, add);
     });
     row.appendChild(add);
+
+    // ===== E O TOQUE NA LINHA PROJETA (v1.2.2) =====
+    //
+    // Pedido do operador: *"pode fazer o item do histórico ser executável
+    // diretamente no toque"*. A v1.2.0 tinha recusado isto — o argumento era
+    // que uma lista consultada durante o culto não podia mandar coisa ao telão
+    // por um toque de rolagem —, e ele **não se sustenta**: um `click` não sai
+    // de um gesto que rolou a lista (o navegador o cancela), que é a mesma
+    // proteção sob a qual a folha da playlist já projeta desde sempre.
+    //
+    // O que sobra é a razão de o histórico existir: ele é a lista de onde se
+    // repete um louvor que entrou de improviso e não ficou guardado em lista
+    // nenhuma. Obrigar a passar pelo Cronograma para tocá-lo de novo é cobrar
+    // dois toques e uma linha permanente por uma repetição.
+    //
+    // **`projetarItem`, e não um `send` cru:** é a mesma porta do toque numa
+    // linha da Biblioteca, e é ela que distingue CENA de MÍDIA (uma cena vai
+    // direto ao `send`; uma mídia redefine a fila para si antes). Duplicar essa
+    // decisão aqui era garantir que as duas divergissem no primeiro ajuste.
+    //
+    // **E A FOLHA FECHA.** Ela cobre a preview e o transporte, que é onde a
+    // resposta ao toque aparece — projetar por trás dela seria o operador
+    // tocando e não vendo nada acontecer. É o mesmo desfecho do "Guardar como
+    // pacote" da playlist, pela mesma razão.
+    row.addEventListener('click', async (e) => {
+      if (e.target.closest('.row-btn')) return;
+      const vivo = await AVDB.getMedia(h.id);
+      if (!vivo) { histMarcarSumido(li, add, false); return; }
+      closeHistPopup();
+      await projetarItem(vivo);
+    });
 
     li.appendChild(row);
     li.dataset.histId = h.id;

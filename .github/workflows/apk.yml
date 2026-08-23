@@ -633,6 +633,15 @@ jobs:
           # recolheu — este último só aparece no sábado seguinte. Idem: entra
           # no workflow no MESMO commit em que nasce.
           rodar tools/historico.test.mjs
+          # E A ROLAGEM `AUTO` DA CIFRA, que precisa de um relógio ANDANDO. A
+          # barra de progresso responde "este ITEM tem linha do tempo?", e
+          # `currentItem` sobrevive ao Parar, ao fim da faixa e a uma letra
+          # avulsa — então ela ficava habilitada sobre um telão vazio e o `auto`
+          # ancorava a folha em `fracaoDaRolagem(0, dur)`. O desfecho não é um
+          # erro, é uma folha parada: nada no console, nada na tela. As DUAS
+          # metades, porque "cair sempre no livre" apagaria o recurso — e a
+          # segunda é a que prova que ele continua seguindo a música.
+          rodar tools/cifra-rolagem.test.mjs
 
           # O PLACAR VAI PARA O RESUMO DO RUN, não só para o log — a queixa que
           # originou este lote foi precisamente que o desfecho só existia lá

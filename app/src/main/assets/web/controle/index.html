@@ -950,14 +950,16 @@
     </div>
   </div>
 
-  <!-- CONFIGURAÇÕES (bottom sheet). Era "Exibição" e guardava só como o telão
+  <!-- CONFIGURAÇÕES (folha do TOPO desde a v1.2.2 — ela desce do teto, que é
+       onde mora a engrenagem que a abre; ver `.popup-sheet--topo`).
+       Era "Exibição" e guardava só como o telão
        se PARECE; com a mesa de som vinda do mixer, o que reúne as linhas passou
        a ser "o que se decide uma vez, ao montar o culto" — aparência do telão E
        roteamento do áudio. O id segue `fadePopup` por herança (os controles de
        fade que lhe deram nome saíram há versões): renomeá-lo tocaria em dezenas
        de referências sem mudar nada visível. -->
-  <div id="fadePopup" class="popup-backdrop">
-    <div class="popup-sheet">
+  <div id="fadePopup" class="popup-backdrop popup-backdrop--topo">
+    <div class="popup-sheet popup-sheet--topo">
       <div class="popup-header">
         <span class="popup-header-icon">
           <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoGear"/></svg>
@@ -1110,7 +1112,7 @@
              pedir ajuda"), e agora ocupam a mesma faixa: a versão à esquerda, o
              Registro à direita, no espaço que já estava sobrando. -->
         <div class="footer-diag">
-          <span id="appVersion" class="app-version">Controle v1.2.1</span>
+          <span id="appVersion" class="app-version">Controle v1.2.2</span>
           <span class="footer-diag-rot">Registro</span>
           <button id="diagCopy" class="log-copy" title="Copiar o registro" aria-label="Copiar o registro">
             <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoCopiar"/></svg>
@@ -1490,11 +1492,14 @@
   <!-- PLAYLIST AUTOMÁTICA: sortear por tema (v5.303).
        Abre DE DENTRO da Biblioteca, como a folha da música — daí o degrau
        próprio de z-index (220, ver controle.css) e a linha em POPUPS.
+       Ela DESCE DO TETO (v1.2.2): o dado que a abre mora na barra de busca da
+       Biblioteca, que é o primeiro elemento sob o cabeçalho dela — a folha entra
+       pela borda do botão. Ver `.popup-sheet--topo`.
        O corpo inteiro é montado por `renderSorteio()`: a folha muda de forma
        conforme o modo (a quantidade só existe montando fila) e um `<ul>` vazio
        no HTML é o mesmo molde do `#songMenuList`. -->
-  <div id="sorteioPopup" class="popup-backdrop">
-    <div class="popup-sheet">
+  <div id="sorteioPopup" class="popup-backdrop popup-backdrop--topo">
+    <div class="popup-sheet popup-sheet--topo">
       <div class="popup-header">
         <span class="popup-header-icon">
           <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoSorteio"/></svg>

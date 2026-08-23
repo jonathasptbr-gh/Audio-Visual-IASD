@@ -184,6 +184,61 @@ try {
   checar(foi === true,
     'o botão da linha põe o item NO CRONOGRAMA de verdade — não é só um pulso', foi);
 
+  // ── O TOQUE NA LINHA PROJETA (v1.2.2) ────────────────────────────────────
+  // Pedido do operador: *"pode fazer o item do histórico ser executável
+  // diretamente no toque"*. É a razão de o histórico existir — repetir um
+  // louvor que entrou de improviso e não ficou guardado em lista nenhuma —, e
+  // até aqui isso custava passar pelo Cronograma.
+  //
+  // A prova é o `currentId`, não o clique ter acontecido: um `send` que
+  // estourasse deixaria o toque sem efeito e sem erro na tela.
+  const tocou = await pg.evaluate(async (i) => {
+    await send(i.um);                 // outra coisa em cena, para haver o que trocar
+    await new Promise((r) => setTimeout(r, 300));
+    const antes = currentId;
+    openHistPopup();
+    const li = [...document.querySelectorAll('#histList li')]
+      .find((el) => /Aviso da secretaria/.test(el.textContent));
+    li.querySelector('.row').click();
+    await new Promise((r) => setTimeout(r, 600));
+    return {
+      antes,
+      depois: currentId,
+      alvo: i.dois,
+      // A FOLHA FECHA: ela cobre a preview e o transporte, que é onde a
+      // resposta ao toque aparece.
+      fechou: !document.getElementById('histPopup').classList.contains('open'),
+    };
+  }, ids);
+  checar(tocou.antes !== tocou.alvo,
+    'o cenário está montado: em cena estava OUTRO item', tocou);
+  checar(tocou.depois === tocou.alvo,
+    'o toque na linha PROJETA aquele item — é para isto que se abre o histórico',
+    tocou);
+  checar(tocou.fechou,
+    'e a folha fecha, senão a projeção aconteceria atrás dela', tocou);
+
+  // O BOTÃO NÃO PROJETA: ele tem `stopPropagation`, e sem isso "mandar ao
+  // Cronograma" mandaria ao TELÃO junto — uma ação a mais que ninguém pediu, na
+  // frente da congregação.
+  const soBotao = await pg.evaluate(async (i) => {
+    await send(i.um);
+    await new Promise((r) => setTimeout(r, 300));
+    openHistPopup();
+    const li = [...document.querySelectorAll('#histList li')]
+      .find((el) => /Aviso da secretaria/.test(el.textContent));
+    li.querySelector('.row-btn').click();
+    await new Promise((r) => setTimeout(r, 500));
+    const r2 = { emCena: currentId, alvo: i.um,
+      aberta: document.getElementById('histPopup').classList.contains('open') };
+    closeHistPopup();
+    return r2;
+  }, ids);
+  checar(soBotao.emCena === soBotao.alvo,
+    'o botão "Ao Cronograma" NÃO projeta — a cena continua a mesma', soBotao);
+  checar(soBotao.aberta,
+    'e a folha continua aberta: guardar um item não é sair da lista', soBotao);
+
   // ── O ITEM QUE SAIU DO APARELHO PERDE A AÇÃO, E A LINHA FICA ─────────────
   // O histórico responde o que ACONTECEU: apagar a linha apagaria o fato. O que
   // sai é o botão, porque não há mais nada a mandar adiante.
