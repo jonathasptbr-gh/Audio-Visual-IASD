@@ -424,12 +424,11 @@ window.AVNative = {
                        //   desenhar uma folha, não publicar uma Release.
   // ---- CIFRA — ver a seção do recurso ----
   cifraHtml(url),      // → { status, html }: o corpo CRU de uma página de
-                       //   CIFRA **ou de uma busca** — o host travado passou a
-                       //   aceitar o buscador (shell 51). A forma não mudou; o
-                       //   COMPORTAMENTO sim, e é por isso que o degrau subiu:
-                       //   contra o shell 50 a URL do buscador devolve
-                       //   `status 0`, e o recurso falha em silêncio.
-                       //   Host TRAVADO (`CifraFonte.kt`). TRANSPORTE:
+                       //   CIFRA **ou da busca do site**. O buscador externo
+                       //   saiu no shell 52 e o host dele com ele — a forma não
+                       //   mudou, o COMPORTAMENTO sim, e é por isso que o
+                       //   degrau subiu nas duas pontas (51 ao entrar, 52 ao
+                       //   sair). Host TRAVADO (`CifraFonte.kt`). TRANSPORTE:
                        //   quem lê o HTML é `controle/cifra.js`. Os dois campos
                        //   respondem perguntas diferentes — `status 0` é "não
                        //   houve resposta", `404` é "o site não tem"
@@ -494,7 +493,7 @@ prazo (um timeout ali resolveria null com o operador ainda escolhendo a pasta).
 
 ### `SHELL_VERSION` — subir SEMPRE que a superfície mudar
 
-Hoje vale **50**, e ele é o **PISO**: o bundle declara `minShell: 50`, então
+Hoje vale **52**, e ele é o **PISO**: o bundle declara `minShell: 52`, então
 todo método da ponte existe sempre e **não há guarda de versão no lado web**.
 "Superfície" inclui **forma de retorno** e **comportamento**, não só assinatura:
 um campo que some, um contrato de URL que muda ou um método que passa a fazer
@@ -1910,9 +1909,9 @@ a congregação vê continua sendo a letra, pelo caminho de sempre.
   **É UMA POR ENDEREÇO, não uma por procura** (v1.2.6): uma procura tenta vários,
   e enquanto o slot foi único a última escrita apagava as anteriores — sempre
   deixando a página menos interessante. MEDIDO três vezes: o download em massa
-  do hinário apagando o diagnóstico do operador, e o `buscador` respondendo
-  `HTTP 202` (a recusa anti-robô) com a estrutura dela sobrescrita pela busca
-  que rodou em seguida. Um Registro não tem pressão de tamanho — ele existe
+  do hinário apagando o diagnóstico do operador, e a recusa anti-robô de um
+  motor de busca (`HTTP 202`) com a estrutura dela sobrescrita pela busca que
+  rodou em seguida. Um Registro não tem pressão de tamanho — ele existe
   para ser COPIADO —, então guarda-se todas e imprime-se todas.
   A radiografia devolve FORMA: quantos `<pre>` e de que tamanho, quantos `<b>`
   no maior deles, quantos links de música, `<title>`/`<h1>`/`<h2>`, o tom, e uma
@@ -1944,39 +1943,35 @@ a congregação vê continua sendo a letra, pelo caminho de sempre.
   renomeie aparece em toda música e se conserta por OTA. O mesmo artista entra
   como **desempate** na busca: um resultado sob ele é, por definição, de um CD
   oficial, e isso não depende de o nome do álbum do acervo bater com nada.
-- **A BUSCA DO PRÓPRIO SITE NÃO EXISTE — quem procura é um BUSCADOR** (shell 51,
-  v1.2.2). MEDIDO num aparelho: `cifraclub.com.br/?q=<termo>` responde 425 kB,
-  sabe qual foi a consulta (ela está no `<title>`) e os únicos links de duas
-  partes na página são o índice A–Z e o "Academy" — **os resultados são
-  desenhados por JavaScript**, que o `cifraHtml` não executa. A v1.1.22 achou
-  que estava pegando o link errado; não havia link certo para pegar, e o seletor
-  manual do operador ficava travado pelo mesmo motivo.
-  - **O motor é o endpoint HTML do DuckDuckGo**, com `site:cifraclub.com.br` na
-    consulta. **Não é o Google**, e a intuição comum se inverte: o Google PARECE
-    estável porque o desenho visual é estável, mas as classes do resultado são
-    aleatorizadas a cada implantação, a página exige consentimento em boa parte
-    das regiões, e uma igreja inteira pesquisando do mesmo IP é o caso que os
-    429 existem para pegar.
-  - **O resultado vem EMBRULHADO** (`/l/?uddg=<URL codificada>`), e um parser que
-    só procurasse `href="https://…"` não acharia resultado nenhum — acharia a
-    navegação, que é o defeito deste caminho repetido noutro site. As duas
-    formas (embrulhada e direta) são aceitas: qual vem depende da região.
-  - **Trocar de motor NÃO troca o critério.** `lerBuscaExterna` devolve a mesma
-    forma do `lerBusca`, e quem julga continua sendo o `ordenarBusca` — o
+- **A BUSCA DO PRÓPRIO SITE NÃO EXISTE, E O BUSCADOR EXTERNO TAMBÉM NÃO
+  RESOLVEU** (shell 52, v1.2.8). MEDIDO num aparelho: `cifraclub.com.br/?q=`
+  responde 425 kB, sabe qual foi a consulta (ela está no `<title>`) e os únicos
+  links de duas partes na página são o índice A–Z e o "Academy" — **os
+  resultados são desenhados por JavaScript**, que o `cifraHtml` não executa. A
+  v1.2.2 respondeu a isso perguntando ao endpoint HTML do DuckDuckGo, com
+  `site:` na consulta; MEDIDO de novo, ele responde **`HTTP 202`** — a recusa
+  anti-robô —, e uma recusa lida como página vazia é uma requisição por procura
+  para não devolver nada. O motor saiu, e o host dele saiu do `CifraFonte`
+  junto.
+  - **O que passou a achar as músicas são os endereços DEDUZÍVEIS**: o catálogo
+    do hinário, o álbum-como-artista e os artistas padrão — uma requisição cada,
+    sem ranking de ninguém escolhendo por nós. É neles que o esforço vale, e é
+    isso que a bateria de testes mede.
+  - **A busca interna FICA, em último lugar.** Ela custa a requisição que já
+    custava e hoje devolve zero; se o site voltar a desenhar no servidor, volta
+    a funcionar sozinha, e o Registro segue acumulando a resposta dela.
+  - **TODO MOTOR TENTADO VIRA UMA LINHA do Registro, com o STATUS** (v1.2.5). A
+    primeira versão reportava só o ÚLTIMO, e um Registro real saiu com duas
+    linhas `busca` e nenhuma do motor que tinha sido consultado. Não se
+    diagnostica um motor que o diário não menciona, e `HTTP 0` (não respondeu) e
+    `HTTP 403` (recusou o agente) pedem consertos opostos. A regra fica de pé
+    com um motor só — ela é sobre o diário, não sobre a quantidade.
+  - **Trocar de motor NUNCA troca o critério.** O que um motor devolve entra na
+    mesma forma do `lerBusca`, e quem julga continua sendo o `ordenarBusca` — o
     parentesco com o nome da música decide, venha o candidato de onde vier. Só
     entra endereço do Cifra Club, conferido por HOST (invariante 2): um
     resultado patrocinado apontando para `cifraclub.com.br.exemplo.com` viraria
     a folha do culto se a conferência fosse por prefixo.
-  - **TODO MOTOR TENTADO VIRA UMA LINHA do Registro, com o STATUS** (v1.2.5). A
-    primeira versão reportava só o ÚLTIMO, e um Registro real saiu com duas
-    linhas `busca` e nenhuma do `buscador` — que tinha sido consultado. Não se
-    diagnostica um motor que o diário não menciona, e `HTTP 0` (não respondeu) e
-    `HTTP 403` (recusou o agente) pedem consertos opostos.
-  - **A busca interna FICA, em último lugar.** Ela custa uma requisição e hoje
-    devolve zero; se o site voltar a desenhar no servidor, volta a funcionar
-    sozinha, e o Registro segue acumulando a resposta dela. O primeiro motor que
-    trouxer candidato encerra — dois buscadores no caminho crítico do culto é
-    desperdício puro.
 - **A BUSCA ESCOLHE POR PARENTESCO, NUNCA POR POSIÇÃO** (`AVCifra.ordenarBusca`).
   Pegar o primeiro link de dois segmentos da página de resultados é errado por
   duas razões independentes: a NAVEGAÇÃO do site também é link de dois segmentos,
@@ -2151,6 +2146,42 @@ a congregação vê continua sendo a letra, pelo caminho de sempre.
   o web tentou e o que o parser entendeu de cada um, mais o status que o shell
   recebeu. O caso que só as duas juntas resolvem é `HTTP 200` + `ilegivel` — a
   página está lá, a rede está boa, e o `cifra.js` é que precisa de um lote novo.
+
+### A bateria de testes (v1.2.8)
+
+**A cadeia de tentativas é UMA (`cifraProcurar`), e a bateria é o segundo
+consumidor dela** — a mesma razão do `cifraCabe`: uma segunda escrita da cadeia
+divergiria no primeiro ajuste, e a bateria passaria a medir um app que não
+existe. Ela devolve `via`, o degrau que VENCEU, e é esse campo que a bateria
+colhe: *"achou"* e *"achou pelo catálogo"* respondem perguntas diferentes.
+
+O acervo é FIXO e ANTIGO — os álbuns não ganham faixa nova e os nomes não mudam
+—, então a pergunta que sobra não é "a regra está certa?" e sim **"para quais
+álbuns a cadeia de endereços não chega?"**. Ela só tem uma resposta honesta:
+medindo. Um toque em Configurações sorteia **uma ou duas músicas de cada
+álbum**, roda a cadeia e escreve o bloco `Cifra (bateria de testes)`.
+
+- **A FALHA IMPRIME TODOS OS ENDEREÇOS TENTADOS; o sucesso, uma linha.** Um "✗
+  não achei" é uma reclamação — a lista de endereços é trabalho de campo: com
+  ela o operador abre o site, acha a música (quase sempre sob outro artista) e
+  fixa o endereço à mão, ou traz o padrão para virar regra no `cifra.js`.
+- **`semDisco`: ela mede a REDE.** Ler o cache responde outra pergunta, e
+  responderia "✓" para todo o hinário — justamente o acervo que já se sabe que
+  funciona. Sem essa guarda a bateria declara o acervo saudável sem ter feito
+  uma requisição.
+- **`mudo`: ela não escreve radiografia.** São dezenas de procuras seguidas, e
+  sem a guarda a última enterra a página que o operador está diagnosticando — o
+  mesmo defeito que já mordeu este recurso três vezes.
+- **O SORTEIO é a cada execução**, de propósito: rodá-la em sábados diferentes
+  varre o acervo aos poucos, sem custar centenas de requisições de uma vez. Três
+  frentes, e não as seis do resto: cada unidade daqui é uma CADEIA de até meia
+  dúzia de requisições ao mesmo site.
+- **O resultado é guardado no `state`** — o valor dele é ser lido DEPOIS, e o
+  Registro pode ser copiado horas mais tarde. Gravado também no meio do
+  caminho, senão um app fechado antes do fim jogaria fora tudo o que já mediu.
+- **O botão mostra o PLACAR da última bateria.** O resultado mora no Registro,
+  que não tem visor: sem o placar, tocar e não ver nada mudar é indistinguível
+  de o botão não fazer nada.
 
 > **O que o oráculo NÃO cobre, dito:** as fixtures do `cifra.test.mjs` são
 > SINTÉTICAS (nenhum conteúdo de terceiro entra neste repositório), então elas
@@ -2769,6 +2800,7 @@ mundo anterior por outro caminho.
 | `historico.test.mjs` | **o histórico do culto**, uma lista que se preenche sozinha no ponto mais quente do app (`send`) e cujos três modos de errar são mudos: não registrar (a folha abre vazia depois de um culto inteiro), registrar demais (`repeat: 'one'` enterrando o culto em cópias do mesmo nome) e oferecer ao Cronograma um id que o coletor já recolheu — este só aparece no sábado seguinte |
 | `gaveta-no-download.test.mjs` | a GAVETA DA LINHA contra o redesenho do progresso — o único lugar do acervo em que o operador DECIDE, e o redesenho remontava a lista por baixo dela a cada 400 ms. MUDO nos dois tempos: aberta, ela some sem erro nenhum; ABRINDO (há um `await` do IndexedDB entre o toque e o `expanded`), o `li` vira órfão e o toque não faz nada. Quatro metades, e a primeira é o HAZARD — sem ela as outras provariam que uma função concorda consigo mesma |
 | `cifra-offline.test.mjs` | **a cifra guardada do hinário abre SEM REDE**. A promessa é operacional e falha calada: sem a leitura do disco o app cai no caminho de rede e, COM rede, a folha aparece igual — pela porta errada. Por isso a asserção é `cifraHtml` NÃO ter sido chamado, com a ponte respondendo "sem rede" a tudo; a outra metade prova que o que NÃO está guardado ainda vai à rede |
+| `cifra-bateria.test.mjs` | **a bateria de testes da cifra** — um DIAGNÓSTICO não falha calado, falha CONTINUANDO A RESPONDER com a frase errada. Três guardas, as três provadas por reversão: sem `semDisco` ela mede o cache e declara o acervo saudável sem uma requisição sequer; sem a lista de endereços tentados, a falha vira reclamação em vez de trabalho de campo; sem `mudo` ela enterra a radiografia que o operador foi buscar. E o bloco do Registro não pode levar um pedaço de folha junto |
 | `cifra-teclado.test.mjs` | **o teclado virtual contra o campo de busca da cifra**. O teclado é um `resize`, e o `resize` remede a folha — que refaz a aba e destrói o `<input>` com foco; sem foco o teclado FECHA, e o fechamento é outro `resize`. Nada erra: sai um teclado que pisca e some, e o seletor fica inalcançável. Ele injeta a PONTE e abre o popup de verdade, porque montado num nó solto ele passava com a guarda REMOVIDA |
 | `destinos.test.mjs` | o que está marcado atravessa o fechamento da folha — a ação roda depois de `closeSongMenu()`, que zera o conjunto |
 | `hinario-tela.test.mjs` | as seções do hinário **da tabela até a tela**. O `hinario.test.mjs` trava a REGRA; este, a LIGAÇÃO. Dois casos não gritam: os cabeçalhos moram na MESMA `<ul>` das faixas, e uma retomada de paginação que contasse os FILHOS pularia um hino por cabeçalho (hinos sumindo do meio da lista); e o hinário de 1996 tem outra numeração, então um "Infantis" sobre o 508 DELE ninguém nota olhando o hinário certo |
@@ -3147,8 +3179,8 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: v1.2.8** (base web) · **v1.2.4** (APK) · `SHELL_VERSION` **51** · bundle com
-`minShell: 51` — o shell 51 é o **PISO**: todo método da ponte existe, e não há
+**Versão atual: v1.2.9** (base web) · **v1.2.8** (APK) · `SHELL_VERSION` **52** · bundle com
+`minShell: 52` — o shell 52 é o **PISO**: todo método da ponte existe, e não há
 guarda de versão no lado web. O que continua valendo é que `java/`, `res/`, o
 manifest e os workflows **só chegam instalando o APK**.
 

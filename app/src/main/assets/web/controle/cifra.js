@@ -895,105 +895,6 @@
     };
   }
 
-
-  // ===== O BUSCADOR EXTERNO (v1.2.2) =====
-  //
-  // **A busca do próprio site nunca teve como funcionar.** MEDIDO num aparelho:
-  // `cifraclub.com.br/?q=<termo>` responde 425 kB, sabe qual foi a consulta (ela
-  // está no `<title>`), e os únicos links de duas partes na página são o índice
-  // A–Z e o "Academy" — os resultados são desenhados por JavaScript, que o
-  // `cifraHtml` não executa. A v1.1.22 achou que estava pegando o link errado;
-  // não havia link certo para pegar.
-  //
-  // O caminho que resta é perguntar a um BUSCADOR, com o site travado na própria
-  // consulta (`site:`). O escolhido é o endpoint HTML do DuckDuckGo — servido
-  // pelo servidor, sem JS e sem muro de consentimento. **Não é o Google**, e a
-  // intuição comum se inverte aqui: o Google PARECE estável porque o desenho
-  // visual é estável, mas o HTML por trás é aleatorizado a cada implantação e
-  // adversarial a parser por construção, que é exatamente o oposto do que se
-  // quer atrás de um `cifraHtml`.
-  //
-  // ## O que este módulo faz, e o que ele NÃO faz
-  //
-  // Ele lê a página de resultados e devolve os endereços do Cifra Club que
-  // encontrar, na MESMA forma do [lerBusca] — para o [ordenarBusca] continuar
-  // sendo o juiz. **Trocar de buscador não pode trocar o critério**: o
-  // parentesco com o nome da música continua decidindo, e é ele que impede um
-  // resultado qualquer de virar a cifra do culto.
-  const BUSCADOR = 'https://html.duckduckgo.com/html/?q=';
-
-  /**
-   * A consulta, com o site travado.
-   *
-   * `site:` é o que transforma um buscador de uso geral numa busca DENTRO do
-   * Cifra Club — sem ele, os primeiros resultados de um hino são letra, vídeo e
-   * karaokê em cinco outros sites, e o parentesco aprovaria qualquer um.
-   */
-  function urlDeBuscaExterna(termo) {
-    const t = String(termo == null ? '' : termo).trim();
-    if (!t) return '';
-    return BUSCADOR + encodeURIComponent('site:cifraclub.com.br ' + t);
-  }
-
-  /**
-   * Desembrulha o redirecionamento do buscador.
-   *
-   * O DuckDuckGo entrega os resultados como `//duckduckgo.com/l/?uddg=<URL
-   * codificada>&rut=…`, e um parser que só procurasse `href="https://…"` não
-   * acharia NENHUM resultado — encontraria a navegação, que é o defeito que
-   * este lote existe para consertar, repetido noutro site.
-   *
-   * Aceita as duas formas porque a que vem depende da região e do dia: a
-   * embrulhada e a direta.
-   */
-  function desembrulhar(href) {
-    const h = decodificar(String(href || ''));
-    const m = /[?&]uddg=([^&]+)/.exec(h);
-    if (m) { try { return decodeURIComponent(m[1]); } catch (_) { return ''; } }
-    return /^https?:\/\//.test(h) ? h : '';
-  }
-
-  /**
-   * Os resultados do Cifra Club numa página de buscador, na forma do [lerBusca].
-   *
-   * **Só endereços do Cifra Club entram**, conferidos por HOST — a mesma regra
-   * da invariante 2, e pelo mesmo motivo: `cifraclub.com.br.exemplo.com` é um
-   * domínio que qualquer um registra, e um resultado patrocinado apontando para
-   * lá viraria a folha do culto se a conferência fosse por prefixo.
-   */
-  function lerBuscaExterna(html) {
-    const vistos = new Set();
-    const saida = [];
-    const re = /<a\b[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi;
-    let m = re.exec(String(html || ''));
-    while (m) {
-      const bruto = desembrulhar(m[1]);
-      const nome = semTags(m[2]);
-      if (bruto && nome.length >= 2) {
-        const alvo = /^https?:\/\/([^/?#]+)(\/[^?#]*)/.exec(bruto);
-        const host = alvo ? alvo[1].toLowerCase() : '';
-        if (host === 'www.cifraclub.com.br' || host === 'cifraclub.com.br') {
-          const caminho = alvo[2].replace(/\/*$/, '') + '/';
-          const partes = caminho.split('/').filter(Boolean);
-          if (ehCaminhoDeMusica(partes) && !vistos.has(caminho)) {
-            vistos.add(caminho);
-            saida.push({
-              // O TÍTULO DO RESULTADO carrega o nome do site colado
-              // ("Música - Artista - Cifra Club"): quem compara é o
-              // `parentesco`, e um sufixo constante em TODOS os candidatos não
-              // separa nenhum deles — mas encurta o que sobra para comparar.
-              nome: nome.replace(/\s*[-–|]\s*Cifra\s*Club\s*$/i, '').trim() || nome,
-              artista: partes[0].replace(/-/g, ' '),
-              url: BASE.replace(/\/$/, '') + caminho,
-            });
-          }
-        }
-      }
-      m = re.exec(String(html || ''));
-    }
-    return saida;
-  }
-
   global.AVCifra = {
     CATALOGO, BASE,
     OK, MOTIVO_SEM_REDE, MOTIVO_NAO_TEM, MOTIVO_RECUSOU, MOTIVO_ILEGIVEL,
@@ -1003,7 +904,6 @@
     pareceAcorde, transporAcorde, transporLinha, transporTom,
     lerFolha, lerPagina, lerBusca, somenteLetra,
     ordenarBusca, parentesco, ehCaminhoDeMusica, radiografia,
-    urlDeBuscaExterna, lerBuscaExterna, desembrulhar,
     quebrarPares, pontoDeQuebra,
     janelaDeRolagem, fracaoDaRolagem,
   };
