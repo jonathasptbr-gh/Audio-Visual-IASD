@@ -432,14 +432,30 @@ window.AVNative = {
                        //   quem lê o HTML é `controle/cifra.js`. Os dois campos
                        //   respondem perguntas diferentes — `status 0` é "não
                        //   houve resposta", `404` é "o site não tem"
-  micDiag(),           // → { permissao, appops, mudo, modo, gravando,
+  micDiag(),           // → { permissao, modAudio, appops, mudo, modo, gravando,
                        //     entradas:[{tipo,nome}] }: POR QUE o microfone não
-                       //     abre — o que só o SHELL sabe. `AppOps` pode RECUSAR
-                       //     `RECORD_AUDIO` com `checkSelfPermission` devolvendo
-                       //     concedida (o interruptor de privacidade, o Auto
-                       //     Blocker da Samsung sobre app fora da loja, o mudo
-                       //     global), e o navegador não enxerga essa diferença.
+                       //     abre — o que só o SHELL sabe. `modAudio` é
+                       //     `MODIFY_AUDIO_SETTINGS`, e é ela que O CHROMIUM DO
+                       //     WEBVIEW exige do app HOSPEDEIRO para abrir QUALQUER
+                       //     captura: sem ela `setCommunicationDevice()` devolve
+                       //     `false` e `MakeLowLatencyInputStream` devolve
+                       //     `nullptr` — `NotReadableError` em toda configuração,
+                       //     antes de qualquer restrição ser negociada. Foi o
+                       //     defeito da v1.2.11 para trás. `AppOps` responde outra
+                       //     coisa: ele pode RECUSAR `RECORD_AUDIO` com
+                       //     `checkSelfPermission` devolvendo concedida (o
+                       //     interruptor de privacidade, o Auto Blocker da Samsung
+                       //     sobre app fora da loja, o mudo global). ATENÇÃO ao
+                       //     valor `primeiro plano` (`MODE_FOREGROUND`): é o
+                       //     ESTADO NORMAL do Android 10+ com a permissão no
+                       //     padrão, e lê-lo como bloqueio acusa o sistema no caso
+                       //     mais comum que existe.
                        //     LEITURA PURA: não abre o microfone, não pede nada
+                       //     ESTE É O ÚNICO MÉTODO QUE NÃO É REMONTADO campo a
+                       //     campo no `native.js` — ele passa o objeto inteiro, de
+                       //     propósito, para um diagnóstico ganhar campo sem
+                       //     mexer na ponte. O degrau do `SHELL_VERSION` continua
+                       //     obrigatório: a FORMA de retorno mudou
   cifraDiag(),         // → string: o que a última busca de cifra recebeu
 }
 ```
@@ -501,7 +517,7 @@ prazo (um timeout ali resolveria null com o operador ainda escolhendo a pasta).
 
 ### `SHELL_VERSION` — subir SEMPRE que a superfície mudar
 
-Hoje vale **53**, e ele é o **PISO**: o bundle declara `minShell: 53`, então
+Hoje vale **54**, e ele é o **PISO**: o bundle declara `minShell: 54`, então
 todo método da ponte existe sempre e **não há guarda de versão no lado web**.
 "Superfície" inclui **forma de retorno** e **comportamento**, não só assinatura:
 um campo que some, um contrato de URL que muda ou um método que passa a fazer
@@ -3228,8 +3244,8 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: v1.2.12** (base web) · **v1.2.11** (APK) · `SHELL_VERSION` **53** · bundle com
-`minShell: 53` — o shell 53 é o **PISO**: todo método da ponte existe, e não há
+**Versão atual: v1.2.13** (base web) · **v1.2.13** (APK) · `SHELL_VERSION` **54** · bundle com
+`minShell: 54` — o shell 54 é o **PISO**: todo método da ponte existe, e não há
 guarda de versão no lado web. O que continua valendo é que `java/`, `res/`, o
 manifest e os workflows **só chegam instalando o APK**.
 

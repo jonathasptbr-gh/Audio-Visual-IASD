@@ -24,6 +24,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
+- **v1.2.13** — A PERMISSÃO QUE FALTAVA ERA NOSSA, E NÃO ERA A DO MICROFONE. Cinco rodadas acusaram o aparelho (espelhamento, interruptor de privacidade, processamento, Auto Blocker); a causa estava no `AndroidManifest.xml` deste repositório. O Chromium DE DENTRO DO WEBVIEW exige `MODIFY_AUDIO_SETTINGS` do app HOSPEDEIRO: `AudioManagerAndroid.hasPermission()` consulta o `checkSelfPermission` DELE, `setCommunicationDevice()` devolve `false` sem ela, e `MakeLowLatencyInputStream` devolve `nullptr` — que vira `STREAM_CREATE_ERROR` e chega ao JS como `NotReadableError`. Conferido VERBATIM no fonte do Chromium, incluindo o desvio (`AAudioPerStreamDeviceSelection`) travado atrás de `is_desktop()`. Ela é `protectionLevel="normal"`: concedida na instalação, INVISÍVEL na tela de permissões — por isso quatro rodadas olharam para a permissão errada, que estava concedida com toda a razão. Mais: `MODE_FOREGROUND` ganhou ramo próprio no `MicDiag` (era o desfecho MAIS provável e saía como "modo 4", lido como bloqueio), e o campo `modAudio` responde "o APK instalado já tem o conserto?". EXIGE RELEASE v1.2.13
 - **v1.2.12** — "O SITE SÓ TEM A LETRA" VIROU UMA RESPOSTA, e ela era a metade que faltava do `ilegivel`. MEDIDO na primeira bateria de testes: ~12 das 85 falhas eram endereços que EXISTEM, respondendo 200 com centenas de kB e nenhum `<pre>` — o Cifra Club tem a LETRA daquela música e não a cifra. Chamar isso de "não entendi a página" é falso nos dois sentidos: manda investigar um parser que está certo, e faz o download do hinário rebater a mesma música toda sessão, para sempre. O novo veredito é GRAVADO — e por isso tem DUAS defesas: ele exige um marcador POSITIVO (responder pela ausência de `<pre>` faria uma mudança de marcação do site apagar o acervo inteiro) e um TETO por passada (uma música sem cifra é um fato; um terço do hinário de uma vez é o site tendo mudado). Mais: a bateria passou a trazer a FORMA das páginas que não abriram, no resultado dela — é isso que separa as duas hipóteses. OTA PURO
 - **v1.2.11** — A PERGUNTA QUE SÓ O SHELL SABE RESPONDER: quatro rodadas pelo lado web terminaram sempre em `NotReadableError` nas três configurações, nos dois WebViews, com `RECORD_AUDIO` concedida e uma entrada enumerada. `AppOps` pode RECUSAR `RECORD_AUDIO` enquanto `checkSelfPermission` devolve concedida — o interruptor de privacidade, o Auto Blocker da Samsung sobre app fora da loja, o mudo global —, e o navegador não enxerga essa diferença. Nasce `MicDiag.kt` + `AVNative.micDiag()` (shell 53), LEITURA PURA. E a correção da v1.2.9 NÃO RODAVA: o laço pulava `deviceId === "default"`, e no aparelho há UMA entrada cujo id é exatamente `default` — o Registro seguiu marcando "3 tentativa(s)" enquanto eu anunciava quatro. O oráculo GUARDAVA esse pulo como contrato, e a asserção foi reescrita para a regra certa. EXIGE RELEASE v1.2.11
 - **v1.2.10** — AS CIFRAS GUARDADAS DO HINÁRIO SUMIAM, E O APP RECOMEÇAVA O DOWNLOAD A CADA ABERTURA. MEDIDO num aparelho: `275 de 601` virou `0 de 601`. A gravação era `setState` do mapa INTEIRO a partir de um slot de módulo (`cifraDisco`) cuja identidade mora noutra variável (`cifraDiscoColl`) — o ler-calcular-gravar que o `CLAUDE.md` proíbe para o `state`, com o agravante de o que ia ao disco poder ser o mapa de OUTRA coleção, ou `{}` por cima de um acervo cheio. Passa a MESCLAR com `updateState`, numa transação só: uma substituição pode produzir zero a partir de 275, **uma mescla não pode** — a correção é a propriedade, não o interleaving daquela vez. Mais: o Registro deixou de dizer "0 de 613 cifra(s)" para um hinário que não está baixado. OTA PURO
@@ -238,6 +239,94 @@ na nota que a revoga, não apagada da que a criou.
 - **v5.154** — é METADE OTA e METADE APK, e a divisão importa para quem for testar em aparelho.
 - **v5.155** — é OTA PURO
 - **v5.156** — é METADE OTA e METADE APK, de novo.
+
+---
+
+## v1.2.13 — a permissão que faltava era nossa, e não era a do microfone
+
+Cinco rodadas de investigação acusaram o aparelho: o espelhamento, o
+interruptor de privacidade, o processamento de áudio, a escolha do `default`,
+o Bloqueio automático da Samsung. **A causa estava no `AndroidManifest.xml`
+deste repositório.**
+
+### A cadeia, conferida verbatim no fonte do Chromium
+
+```cpp
+// media/audio/android/audio_manager_android.cc:877
+if (!UseAAudioPerStreamDeviceSelection()) {
+  if (!GetJniDelegate().SetCommunicationDevice(device_id)) {
+    LOG(ERROR) << "Unable to select communication device!";
+    return nullptr;                       // ← toda captura de áudio morre aqui
+  }
+}
+```
+
+```java
+// AudioManagerAndroid.java:341
+if (!mHasModifyAudioSettingsPermission || !hasRecordAudioPermission) {
+    Log.w(TAG, "Requires MODIFY_AUDIO_SETTINGS and RECORD_AUDIO. "
+             + "Selected device will not be available for recording");
+    return false;
+}
+```
+
+E `hasPermission()` é `ContextUtils.getApplicationContext().checkSelfPermission(…)`
+— num WebView, o contexto do app **HOSPEDEIRO**. Quem precisa declarar a
+permissão somos NÓS, não o provider do WebView.
+
+O desvio existe e não se aplica: `UseAAudioPerStreamDeviceSelection()` exige
+`base::android::device_info::is_desktop()`, falso num celular. E o `nullptr`
+vira `CAPTURE_STARTUP_CREATE_STREAM_FAILED` → `STREAM_CREATE_ERROR`
+(`services/audio/input_controller.cc:778`), que chega ao JavaScript como
+**`NotReadableError`**.
+
+### Por que ela explica CADA evidência, e as outras hipóteses não
+
+| evidência medida | o que esta causa prevê |
+|---|---|
+| `RECORD_AUDIO` concedida | são permissões DIFERENTES. A que falta é `normal` — concedida na instalação, **invisível na tela de permissões do app** |
+| as TRÊS configurações falharam, inclusive `{audio:true}` cru | a recusa é ANTES de qualquer restrição ser negociada. Nenhum afrouxamento podia mudar o desfecho |
+| falha nos DOIS WebViews | `getApplicationContext()` é o mesmo objeto para os dois |
+| `entradas de áudio: 1`, id `default` | a lista do Chromium no Android é SINTÉTICA e não depende de abrir stream nenhum |
+| falha SEM TV | não tem relação com espelhamento |
+| Samsung, app fora da loja | irrelevante — o defeito é nosso |
+
+**E ela corrige uma afirmação FALSA da v1.2.9, que dirigiu três rodadas.** Lá
+está escrito que *"`entradas de áudio: 1` mata o interruptor de privacidade
+(ele daria zero)"*. Não dá: `AudioManagerAndroid::HasAudioInputDevices()` é
+`return true;` e `AddDefaultDevice()` é incondicional — a lista é sintética e
+vale `1` mesmo com a captura inteiramente bloqueada. Aquela evidência nunca
+derrubou hipótese nenhuma, e eu a usei como se derrubasse. Fica aqui porque
+este arquivo não se reescreve: a nota que revoga é esta.
+
+### O conserto, e o que ele custa
+
+Uma linha no manifest. Mas manifest **só chega instalando APK**, e é por isso
+que este lote exige Release: um merge em `main` sozinho não conserta aparelho
+nenhum.
+
+### As duas correções que andam junto, e as duas são do diagnóstico da v1.2.11
+
+- **`MODE_FOREGROUND` ganhou ramo próprio.** Ele é o desfecho **mais provável**
+  que existe — do Android 10 em diante, `RECORD_AUDIO` concedida no padrão
+  ("Permitir apenas ao usar o app") devolve `MODE_FOREGROUND`, não
+  `MODE_ALLOWED`. Sem o ramo, o Registro imprimia `AppOps para gravar: modo 4` e
+  o veredito o lia como bloqueio total: **a frase certa pela razão errada**, no
+  estado NORMAL do aparelho, num log que é lido a distância.
+- **O campo `modAudio`** responde *"o APK instalado já tem o conserto?"* — a
+  pergunta que separa "continua quebrado" de "é outra coisa", e a única que o
+  próximo Registro precisa responder. O veredito dele **vence todos os outros**:
+  enquanto ele acender, mexer em AppOps ou no Auto Blocker é perseguir a causa
+  errada.
+
+O oráculo cobra a precedência com AppOps recusando, mudo ligado e chamada em
+curso ao mesmo tempo, e cobra que `primeiro plano` **não** seja lido como
+bloqueio. Os dois provados por reversão.
+
+EXIGE RELEASE v1.2.13 — `SHELL_VERSION` 53 → 54 (o `micDiag` ganhou campo),
+`minShell: 54`, `shellTag: "v1.2.13"`. **O `minShell` é o que importa aqui:**
+ele segura o bundle novo longe de um APK sem a permissão, onde ele só saberia
+descrever o defeito sem consertá-lo.
 
 ---
 

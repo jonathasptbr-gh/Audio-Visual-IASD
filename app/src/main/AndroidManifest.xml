@@ -14,6 +14,24 @@
          enquanto o operador segura o botão; nada é gravado. -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
 
+    <!-- E ESTA É A QUE FAZ O MICROFONE ABRIR. Ela não é exigida pelo Android:
+         é exigida pelo CHROMIUM DE DENTRO DO WEBVIEW, e a cadeia é fechada —
+         `AudioManagerAndroid.hasPermission()` consulta o
+         `checkSelfPermission` do app HOSPEDEIRO (num WebView, NÓS), então
+         `setCommunicationDevice()` devolve `false` sem ela, e
+         `AudioManagerAndroid::MakeLowLatencyInputStream` devolve `nullptr`
+         ("Unable to select communication device!"). Isso vira
+         `STREAM_CREATE_ERROR` e chega ao JavaScript como `NotReadableError` —
+         em TODA configuração, porque a recusa acontece ANTES de qualquer
+         restrição ser negociada. O desvio (`AAudioPerStreamDeviceSelection`)
+         está travado atrás de `is_desktop()`, que é falso num celular.
+
+         `protectionLevel` é `normal`: concedida na INSTALAÇÃO, sem diálogo e
+         sem linha nova na tela de permissões do app. É por isso que quatro
+         rodadas de investigação olharam para a permissão errada — a que estava
+         concedida era visível, a que faltava não aparece em lugar nenhum. -->
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
+
     <!-- Serviço em primeiro plano durante downloads: sem ele o Android
          congela o processo ao minimizar o app e a sincronização de hinos,
          álbuns, Bíblia ou pastas para no meio (ver SyncService). -->

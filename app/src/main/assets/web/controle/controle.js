@@ -244,7 +244,7 @@ const appVersionEl = document.getElementById('appVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.2.12';
+const WEB_VERSION = '1.2.13';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -18596,6 +18596,9 @@ function blocoMicrofone() {
       l.push('  permissão RECORD_AUDIO: ' + (sh.permissao ? 'concedida' : 'NEGADA'));
     }
     if (sh.appops) l.push('  AppOps para gravar: ' + sh.appops);
+    if (sh.modAudio !== null && sh.modAudio !== undefined) {
+      l.push('  permissão MODIFY_AUDIO_SETTINGS: ' + (sh.modAudio ? 'concedida' : 'AUSENTE'));
+    }
     if (sh.mudo !== null && sh.mudo !== undefined) {
       l.push('  microfone mudo no sistema: ' + (sh.mudo ? 'SIM' : 'não'));
     }
@@ -18620,7 +18623,22 @@ function blocoMicrofone() {
   // distância e não pode tentar todas.
   if (!micUltima.ok) {
     const erros = micUltima.degraus.map((d) => d.erro);
-    if (sh && sh.appops && sh.appops !== 'permitido' && sh.appops !== '?') {
+    if (sh && sh.modAudio === false) {
+      // VENCE TODOS OS OUTROS, e é o único deste bloco cujo conserto é NOSSO.
+      // Sem `MODIFY_AUDIO_SETTINGS` no manifest, o Chromium do WebView recusa a
+      // abertura ANTES de qualquer AudioRecord existir — e como a recusa é
+      // anterior à negociação de restrições, ela produz `NotReadableError` em
+      // TODOS os degraus da escada, que é a assinatura exata que se via.
+      // Enquanto este ramo acender, investigar AppOps ou fabricante é perseguir
+      // a causa errada.
+      l.push('→ FALTA A PERMISSÃO MODIFY_AUDIO_SETTINGS NO APK INSTALADO. Não é o '
+        + 'aparelho, não é o AppOps e não é o fabricante: o Chromium do WebView exige '
+        + 'essa permissão do app HOSPEDEIRO para abrir qualquer captura de áudio, e sem '
+        + 'ela toda tentativa morre em NotReadableError. Ela é concedida na instalação '
+        + '(não há o que autorizar na tela). O conserto é INSTALAR O APK v1.2.13 OU MAIS '
+        + 'NOVO — versões anteriores não têm como funcionar.');
+    } else if (sh && sh.appops && sh.appops !== 'permitido' && sh.appops !== 'primeiro plano'
+        && sh.appops !== '?') {
       // O CASO QUE QUATRO RODADAS NÃO CONSEGUIRAM NOMEAR. A permissão está
       // concedida e o AppOps a recusa — é o interruptor de privacidade do
       // sistema, o controle do fabricante (o Auto Blocker da Samsung sobre um
