@@ -24,7 +24,8 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
-- **v1.1.25** — O MICROFONE VIRA WALKIE-TALKIE, E PASSA A FUNCIONAR NOS QUATRO MODELOS: em vez de TRANSPORTAR ÁUDIO, ele transporta um ARQUIVO — a voz vira item `kind:"audio"` comum e entra pelo caminho de projeção de sempre, chegando às telas da rede de graça pelo `/m/<token>`. É a inversão que faz o recurso caber: o ao vivo para a rede está bloqueado por `[SecureContext]`, e o projeto já construiu esse transporte (AAC → MSE) e o removeu na v5.187. A Release é de UMA LINHA — o `ControleChromeClient` negava toda permissão de mídia e passa a conceder áudio, e só áudio, chamando as três regras do `MicChromeClient` em vez de reescrevê-las. O FIM do recado é interceptado nos DOIS caminhos: sendo item comum, ele caía no `autoAdvance`, onde `repeat one` repetia a voz do operador PARA SEMPRE e `repeat all` começava a playlist do zero — nenhum dos dois com sinal na tela. E ele DEVOLVE a cena, com a posição dentro do próprio `load`. EXIGE RELEASE
+- **v1.1.26** — O MICROFONE VIRA WALKIE-TALKIE, E PASSA A FUNCIONAR NOS QUATRO MODELOS: em vez de TRANSPORTAR ÁUDIO, ele transporta um ARQUIVO — a voz vira item `kind:"audio"` comum e entra pelo caminho de projeção de sempre, chegando às telas da rede de graça pelo `/m/<token>`. É a inversão que faz o recurso caber: o ao vivo para a rede está bloqueado por `[SecureContext]`, e o projeto já construiu esse transporte (AAC → MSE) e o removeu na v5.187. A Release é de UMA LINHA — o `ControleChromeClient` negava toda permissão de mídia e passa a conceder áudio, e só áudio, chamando as três regras do `MicChromeClient` em vez de reescrevê-las. O FIM do recado é interceptado nos DOIS caminhos: sendo item comum, ele caía no `autoAdvance`, onde `repeat one` repetia a voz do operador PARA SEMPRE e `repeat all` começava a playlist do zero — nenhum dos dois com sinal na tela. E ele DEVOLVE a cena, com a posição dentro do próprio `load`. EXIGE RELEASE
+- **v1.1.25** — O OPERADOR ESCOLHE A CIFRA, E A ESCOLHA VENCE TUDO: o método automático adivinha a partir de um nome, e quem opera SABE qual é a música. MEDIDO no aparelho: na maioria das falhas o resultado certo ESTAVA na página de busca — só não era o que a regra elegeu, e não havia como olhar a lista nem dizer "é este". A aba passa a desenhar a lista dentro do app (inclusive o que a regra RECUSOU, marcado), abrir qualquer resultado em PRÉVIA e fixar o escolhido, que vira a tentativa 0 e sobrevive ao fechar o app. Não é navegador embutido — é a divisão de sempre, com o desenho nosso: nenhum script de terceiro roda. Guardar um ENDEREÇO não fura o "nada em disco", que sempre falou do CONTEÚDO. E o Registro passa a guardar a RADIOGRAFIA da página que não abriu — só forma, nenhum pedaço de letra ou acorde —, porque `ilegivel` responde "não entendi" e não "o que era". OTA PURO
 - **v1.1.24** — O MICROFONE, VERIFICADO NOS QUATRO MODELOS DE PROJEÇÃO: ele funciona com TV espelhando e em mais nenhum — e sem TV o botão acendia "No ar" sem nada estar captando, porque `micPressed` é escrito no `pointerdown` e sem `Presentation` ninguém responde `mic-status`. A recusa entra ANTES do pedido de permissão do Android: pedir o microfone para uma ação que não pode funcionar é queimar a única permissão sensível do app. Mais a guarda que um comentário prometia desde a v5.187 e que nunca existiu — o comando `mic` DESCE para toda tela da rede sem filtro, e o que impedia o desfecho era o ambiente (`getUserMedia` é `[SecureContext]`), não o app; proteção emprestada do navegador é proteção com prazo, e o `EspelhoCert` continua inteiro no shell. O oráculo FORJA `navigator.mediaDevices` para medir o dia em que houver TLS. OTA PURO
 - **v1.1.23** — OS CDs OFICIAIS TÊM ENDEREÇO DEDUZÍVEL, E ELE NÃO ESTAVA SENDO USADO: os álbuns do acervo são dezenas e no Cifra Club caem todos sob a coleção **Ministério Jovem** — a mesma forma do `CATALOGO` dos hinários, sem uma coleção do acervo para mapear. Vira uma tentativa própria entre o catálogo e a busca, pela razão que ordena as três: ali a URL sai do NOME da música, e é uma requisição sem ranking de ninguém escolhendo por nós. Errar custa um 404 (a busca roda em seguida como sempre, nenhum caminho regride) e o Registro imprime a tentativa verbatim, então um slug renomeado aparece em toda música e se conserta por OTA. O mesmo artista vira DESEMPATE na busca, e esse não depende de o nome do álbum do acervo bater com nada. OTA PURO
 - **v1.1.22** — A BUSCA DE CIFRA CAÍA NO ÍNDICE ALFABÉTICO DO SITE: ela pegava o PRIMEIRO link de dois segmentos da página de resultados, e a navegação do site também é link de dois segmentos — e mora no cabeçalho, portanto vem ANTES de qualquer resultado no HTML. MEDIDO num aparelho: "Em Oração" devolveu 27 resultados e o escolhido foi `/letra/A/`, que respondeu HTTP 200 com 398 kB e virou `ilegivel` — o diagnóstico certo para a pergunta errada. A defesa NÃO é uma lista de rotas de terceiro (ela envelhece sozinha): é exigir PARENTESCO entre o texto do resultado e o nome procurado, com zero sendo RECUSA e não último lugar. O álbum entra como desempate e como segundo tento de consulta, nunca como filtro nem na primeira consulta — ele é o álbum, não o artista do site. OTA PURO No mesmo relato: os controles da folha ROLAVAM COM O TEXTO (o pausar saía de cena em segundos, e alcançá-lo exigia rolar de volta ao topo, brigando com a rolagem que se queria parar) e a rolagem TREMIA — ~0,37 px por quadro escritos como inteiro andam 1 px a cada três quadros e param nos outros dois; a posição passou a ser nossa e fracionária.
@@ -224,7 +225,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ---
 
-## v1.1.25 — o microfone vira walkie-talkie, e passa a funcionar nos quatro modelos
+## v1.1.26 — o microfone vira walkie-talkie, e passa a funcionar nos quatro modelos
 
 A v1.1.24 estabeleceu o diagnóstico: o microfone ao vivo funciona **com TV
 espelhando e em mais nenhum modelo**, e isso é consequência da arquitetura, não
@@ -321,8 +322,82 @@ exatamente o que aconteceu na primeira escrita do bloco, e a reversão pegou.
 aparelhos toca no navegador da Smart TV da igreja. Isso só se prova numa terça,
 com a transmissão ligada e uma tela de verdade.
 
-EXIGE RELEASE v1.1.25 — `SHELL_VERSION` 49 → 50, `minShell: 50`,
-`shellTag: "v1.1.25"`.
+EXIGE RELEASE v1.1.26 — `SHELL_VERSION` 49 → 50, `minShell: 50`,
+`shellTag: "v1.1.26"`.
+
+---
+
+## v1.1.25 — o operador escolhe a cifra, e a escolha vence tudo
+
+**O método automático adivinha a partir de um nome. Quem opera SABE qual é a
+música.** Tudo até aqui — o catálogo, o artista padrão, o parentesco, os três
+candidatos — é engenharia para reduzir o erro de uma adivinhação. E MEDIDO no
+aparelho: na maioria das falhas o resultado certo **estava na página de busca**,
+só não era o que a regra elegeu. O operador via "não encontrei", com a resposta
+a dois toques de distância e nenhum jeito de alcançá-la.
+
+### Não é um navegador embutido, e não podia ser
+
+O WebView recusa navegar para outro origin (invariante 2) e `openExternal` sai do
+app. O que existe é a divisão de sempre: o shell traz o HTML CRU (`cifraHtml`), o
+`cifra.js` extrai a LISTA, e a lista é desenhada com os nossos controles.
+
+Sai **melhor** que um navegador, e isso não é consolo:
+
+- nenhum script de terceiro roda, nenhum anúncio carrega;
+- a lista já vem com o parentesco que a regra calculou, então o operador vê o que
+  ela escolheu **e o que ela recusou** (marcado "fora da regra") — que é
+  exatamente o que se está corrigindo;
+- tocar num resultado abre a folha em PRÉVIA, com o "Usar esta cifra" à mão
+  enquanto se lê. A pergunta "é esta?" se responde lendo, não pelo título.
+
+O campo de busca aceita outro termo: o nome no site pode não ser o nome no
+acervo, e essa é a razão mais comum de a regra não achar nada com parentesco.
+
+### A escolha é GUARDADA, e isso não fura o contrato
+
+O contrato deste recurso é **"nada é gravado em disco"**, e ele sempre falou do
+CONTEÚDO: o app LÊ cifra de terceiro no aparelho do operador e não distribui
+cópia dela. `cifraEscolhas` guarda um **endereço por música** — algumas dezenas
+de bytes, um ponteiro. Marcar um favorito não é copiar o livro.
+
+Sem guardar, a correção morreria ao fechar o app e o operador refaria a mesma
+procura todo sábado — que é a diferença entre uma correção e um remendo. Gravada
+com `updateState` (transação única, pela regra do `CLAUDE.md`), com teto de 400 e
+corte pelas MAIS ANTIGAS.
+
+**Ela é a tentativa 0**, antes do catálogo, e encerra o assunto: continuar
+adivinhando depois de o operador ter dito qual é seria desfazer a correção dele a
+cada abertura do app. Falhando (o site tirou a página do ar), o caminho
+automático roda em seguida como sempre.
+
+**E "Trocar" existe com a folha ABERTA.** É aí que ele mais serve: o desfecho
+pior desta busca não é não achar nada — é achar a cifra ERRADA (uma versão
+simplificada, um homônimo) e o operador não ter como dizer isso. Abrir o seletor
+sem lista dispara a busca sozinho, senão a tela nasceria vazia justamente no caso
+mais comum dele (a folha abriu pelo catálogo, sem busca nenhuma, e está errada).
+
+### A radiografia: o Registro passa a dizer O QUE a página era
+
+`ilegivel` responde *"não entendi"*. Não responde *"o que era"* — e a distância
+entre as duas é uma sessão inteira de adivinhação a distância, com quem tem a
+página na frente descrevendo-a de memória para quem vai ajustar a regra.
+
+`AVCifra.radiografia` devolve a FORMA: quantos `<pre>` e de que tamanho, quantos
+`<b>` dentro do maior, quantos links de dois segmentos e quantos com forma de
+música, `<title>`/`<h1>`/`<h2>`, o tom, e uma amostra curta de endereços. Um
+Registro colado numa conversa passa a responder "o site mudou o quê?".
+
+**O que ela NÃO leva é o conteúdo** — nem letra, nem acordes, nem parágrafo
+nenhum. Não é economia de bytes: um Registro existe para ser COPIADO para fora do
+aparelho, e o contrato do recurso é ler conteúdo de terceiro sem distribuí-lo.
+Endereço é ponteiro; texto de link entra truncado porque é o que identifica um
+resultado. **O oráculo cobra as duas metades**, e a segunda — o conteúdo NÃO
+sair — é a que protege o contrato de um campo novo acrescentado sem pensar:
+ela varre o objeto inteiro e reprova qualquer string longa.
+
+Só o caso `ilegivel` a grava. No caminho feliz ela sobrescreveria a página que
+interessa — a última música do culto apagaria a que quebrou dez minutos antes.
 
 ---
 
