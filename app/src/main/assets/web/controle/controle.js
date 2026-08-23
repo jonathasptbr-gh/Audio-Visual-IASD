@@ -244,7 +244,7 @@ const appVersionEl = document.getElementById('appVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.2.21';
+const WEB_VERSION = '1.2.22';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -13482,6 +13482,69 @@ function serieDiaLocal(d) {
     + '-' + String(x.getDate()).padStart(2, '0');
 }
 
+// ===== A PROCURA DO EPISÓDIO DESTA SEMANA (v1.2.22) =====
+//
+// Pedido do operador: *"faça o provai e vede e o informativo das missões serem
+// atualizados, em especial buscando apenas o vídeo dessa semana, busca de se
+// atualizar diretamente quando o app é aberto. Não para baixar o vídeo nem
+// nada, apenas verificar a listagem em busca do vídeo atual."*
+//
+// **O piso entre duas procuras, e ele existe porque a pergunta é feita também
+// no `visibilitychange`:** o operador troca de app dezenas de vezes durante um
+// culto, e uma extração da aba do canal a cada volta seria a rajada de
+// requisições na Wi-Fi da igreja que o KDoc do `autoRefreshCollections` recusa.
+// Meia hora enquanto FALTA é no máximo duas extrações por hora — e ZERO assim
+// que o episódio entra, que é o desenho inteiro desta regra.
+const SERIE_PROCURA_MIN_MS = 30 * 60 * 1000; // 30 min
+
+/**
+ * A PRIMEIRA passada da SESSÃO ignora o piso — *"quando o app é aberto"* é o
+ * pedido, ao pé da letra.
+ *
+ * Uma CARGA DE PÁGINA é rara (o app fica vivo o culto inteiro, segurado pelos
+ * serviços em primeiro plano) e é o instante em que o operador está perguntando
+ * *"já saiu?"*. O `visibilitychange`, que roda a mesma função, é o oposto: são
+ * dezenas de voltas por culto, e é dele que o piso protege.
+ *
+ * O caso concreto que ela cobre: o Android mata o app, o operador o reabre
+ * quinze minutos depois da última varredura, e o episódio saiu no meio desses
+ * quinze minutos. Com o piso sozinho, abrir o app não responderia — que é a
+ * queixa que este lote existe para consertar.
+ *
+ * **Quem a desarma é `autoRefreshCollections`, não o `indiceVencido`:** aquele
+ * é um PREDICADO, chamado dentro de um `filter` sobre todas as coleções, e um
+ * efeito colateral ali a apagaria na primeira coleção da lista — que pode nem
+ * ser uma série. Ela morre com a página, que é o significado de "sessão".
+ */
+let serieProcuraDaAbertura = true;
+
+/**
+ * O índice desta série JÁ TEM o episódio do sábado desta semana?
+ *
+ * Quem responde é `AVSerie.ehDoSabadoAtual`, a MESMA função que decide o bloco
+ * de destaque no topo da lista — e é essa identidade que importa: uma segunda
+ * conta de calendário escrita aqui divergiria dela, e o desfecho seria o app
+ * procurando para sempre um episódio que a tela já mostra (ou parando de
+ * procurar um que ela diz faltar). Foi uma divergência dessas que produziu o
+ * defeito da v1.2.19.
+ *
+ * `serieData` é `{ dia, mes }` guardado no índice por `serieFaixaDoItem`, ou
+ * `null` quando o título não declarou data — e `ehDoSabadoAtual` recusa `null`,
+ * que é o certo: não há como afirmar de que semana é um episódio sem data.
+ *
+ * **O PREÇO DISSO ESTÁ DITO:** um episódio publicado SEM data no título nunca
+ * satisfaz esta pergunta, e a série fica sendo procurada a cada meia hora
+ * enquanto o operador estiver com o app aberto. É o teto de duas extrações por
+ * hora, e o Registro já nomeia esse caso (`! entrou SEM data`) — o conserto é
+ * na leitura da data, não aqui.
+ */
+function serieTemODaSemana(c, agora) {
+  const st = collState[c.id];
+  const hoje = new Date(agora);
+  return (st.songs || []).some(
+    (s) => AVSerie.ehDoSabadoAtual(s.serieData, c.serie, hoje));
+}
+
 // O ÍNDICE DE UMA COLEÇÃO PRECISA SER REFEITO?
 //
 // Ela é uma função nomeada, e não o corpo de um `filter`, porque o oráculo
@@ -13500,6 +13563,32 @@ function indiceVencido(c, agora) {
   // `fetchSerieIndex`, senão ele voltaria a extrair o canal a cada abertura.
   if (c.kind !== 'serie') return false;
   if (!st.serieDiarioEm) return true;
+  // ENQUANTO FALTAR O EPISÓDIO DESTA SEMANA, O ÍNDICE ESTÁ VENCIDO (v1.2.22).
+  //
+  // O TTL de 12 h responde *"a lista envelheceu?"*; esta linha responde a
+  // pergunta que o operador de fato faz ao abrir o app — *"já saiu o vídeo
+  // deste sábado?"*. As duas não são a mesma: um índice de onze horas atrás é
+  // FRESCO para o TTL e pode ser de antes de o episódio ser publicado, e era
+  // por isso que o **Provai e Vede** (que não tem a regra do dia, logo abaixo)
+  // podia passar um sábado inteiro sem o vídeo do culto.
+  //
+  // **Ela se desarma sozinha:** achado o episódio, `serieTemODaSemana` passa a
+  // responder `true` e esta série volta a custar ZERO requisição até o TTL, ou
+  // até a semana virar. É o que separa "procurar o que falta" de "revarrer
+  // sempre" — e revarrer sempre seria o peso que o pedido exclui.
+  //
+  // **Só o ANO CORRENTE**, e a guarda não é detalhe: o `ano` do catálogo é
+  // explícito, então em 2027 nenhum episódio do álbum de 2026 pode ser "o desta
+  // semana" — sem ela, um álbum antigo que ficasse na Biblioteca seria
+  // procurado a cada meia hora, para sempre, sem nada a achar.
+  //
+  // NADA AQUI BAIXA VÍDEO: quem roda é `fetchCollectionIndex`, que só refaz a
+  // LISTA (`fetchSerieIndex`). O download continua sendo item a item, pela
+  // folha de destinos.
+  if (c.serie && c.serie.ano === new Date(agora).getFullYear()
+      && (serieProcuraDaAbertura
+        || (agora - (st.indexSyncedAt || 0)) > SERIE_PROCURA_MIN_MS)
+      && !serieTemODaSemana(c, agora)) return true;
   // E O DIA VENCE O ÍNDICE quando a série esconde o que ainda não saiu (v5.255).
   // Ali a lista é função do DIA: o episódio do culto de hoje estava escondido
   // ontem, e sem isto ele só apareceria quando o TTL de 12 h vencesse — que
@@ -13540,11 +13629,14 @@ function indiceVencido(c, agora) {
  *    operador guardou (tipicamente um punhado), nunca ao catálogo inteiro
  *    (~40). Num aparelho sem nada baixado o custo é ZERO — nenhuma requisição
  *    a mais que hoje.
- *  - **A SÉRIE FICA DE FORA**, e essa é a exceção que precisa estar dita: o
- *    índice dela custa uma extração do canal do YouTube, não um GET de JSON. É
- *    por isso que ela mantém o TTL de 12 h e o botão "Atualizar a lista" —
- *    forçá-la aqui seria justamente o "peso significativo de processamento"
- *    que o pedido exclui.
+ *  - **A SÉRIE NÃO É FORÇADA POR TER DOWNLOAD**, e essa é a exceção que precisa
+ *    estar dita: o índice dela custa uma extração do canal do YouTube, não um
+ *    GET de JSON, e forçá-la por aqui seria o "peso significativo de
+ *    processamento" que o pedido exclui. Ela entra pelo `indiceVencido`, que
+ *    desde a v1.2.22 tem uma pergunta a mais e ESPECÍFICA: enquanto faltar o
+ *    episódio do sábado desta semana, o índice está vencido (com piso de meia
+ *    hora entre procuras). É o contrário de forçar — a procura existe enquanto
+ *    há o que achar e se desarma sozinha quando acha.
  *  - **Os HINÁRIOS já eram relidos sem TTL** (fase 1, sempre): para eles não
  *    muda nada, e nunca fez falta.
  *
@@ -13574,7 +13666,8 @@ async function autoRefreshCollections() {
     // custa uma extração do YouTube para a aba do canal — barato quando a
     // assinatura das playlists não mudou (ver `fetchSerieIndex`), e caro quando
     // mudou. O TTL é o mesmo dos álbuns porque a pergunta é a mesma ("a lista
-    // envelheceu?"), e a série publica um episódio por semana.
+    // envelheceu?"); a pergunta PRÓPRIA da série — "já saiu o vídeo deste
+    // sábado?" — mora no `indiceVencido`, com piso de meia hora.
     // O álbum COM DOWNLOAD é relido nesta abertura mesmo dentro do TTL — é o
     // que o botão "Verificar" fazia, e ver o KDoc acima para o porquê de a
     // série ficar de fora. `countDownloaded` varre as faixas em memória (sem
@@ -13590,6 +13683,11 @@ async function autoRefreshCollections() {
     // sessão" viraria "a cada volta ao app" justamente no aparelho com a pior
     // conexão. Quem retenta é a abertura seguinte.
     stale.forEach((c) => { if (c.kind === 'album') indicesForcados.add(c.id); });
+    // E A ABERTURA JÁ FOI. Daqui em diante quem governa a procura do episódio
+    // da semana é o piso de meia hora — o `visibilitychange` chama esta mesma
+    // função, e é ele que produziria a rajada. Desarmado AQUI, e não no
+    // `indiceVencido`, porque aquele é um predicado dentro de um `filter`.
+    serieProcuraDaAbertura = false;
     await runLimited(stale, NET_CONCURRENCY, (c) => fetchCollectionIndex(c).catch(() => {}));
     // Fase 3: as LETRAS dos hinários, como informação padrão do acervo — o
     // índice sozinho não responde "qual hino fala em…". Fire-and-forget: é

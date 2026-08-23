@@ -599,6 +599,57 @@ try {
       // nenhum. É o corte INCLUSIVO, que é o que o operador descreveu.
       await pgC.clock.setFixedTime(new Date('2026-08-15T12:00:00'));
       const noDia = await ler(false);
+
+      // ===== A PROCURA DO EPISÓDIO DESTA SEMANA (v1.2.22) =====
+      //
+      // O relógio está preso em 15/Ago (sábado), e o índice acabou de ser
+      // varrido — as três respostas abaixo saem SÓ da regra nova: o TTL de 12 h
+      // está fresco, o dia é o mesmo, e o diário está carimbado.
+      const procura = await pgC.evaluate(() => {
+        const agora = Date.now();
+        const info = allCollections().find((x) => x.id === 'serie-informativo-missoes-2026');
+        const st = collState[info.id];
+        // Um índice de meia hora atrás: dentro do TTL, fora do PISO. É a única
+        // janela em que a regra nova é a que responde.
+        st.indexSyncedAt = agora - 31 * 60 * 1000;
+        st.serieDiaEm = serieDiaLocal(new Date(agora));
+        st.serieDiarioEm = agora;
+        const com = indiceVencido(info, agora);
+        // Tirar o episódio da semana do índice é o cenário que a regra existe
+        // para pegar: o canal ainda não publicou (ou publicou depois da última
+        // varredura), e o operador abre o app justamente para saber disso.
+        const guardadas = st.songs.slice();
+        st.songs = st.songs.filter(
+          (x) => !AVSerie.ehDoSabadoAtual(x.serieData, info.serie, new Date(agora)));
+        const removidas = guardadas.length - st.songs.length;
+        const sem = indiceVencido(info, agora);
+        // O PISO: recém-varrido, não procura de novo. Sem ele a pergunta seria
+        // feita a cada `visibilitychange` — uma extração do canal por volta ao
+        // app, durante o culto inteiro.
+        st.indexSyncedAt = agora;
+        const semRecemVarrido = indiceVencido(info, agora);
+        // E A ABERTURA, que é o pedido ao pé da letra: a PRIMEIRA passada da
+        // sessão pergunta mesmo com o índice recém-varrido. O `autoRefresh` da
+        // carga desta página já a desarmou, então o caso é rearmá-la — que é o
+        // que uma reabertura do app faz.
+        st.songs = st.songs.filter(
+          (x) => !AVSerie.ehDoSabadoAtual(x.serieData, info.serie, new Date(agora)));
+        serieProcuraDaAbertura = true;
+        const naAbertura = indiceVencido(info, agora);
+        serieProcuraDaAbertura = false;
+        st.songs = guardadas;
+        st.indexSyncedAt = agora;
+
+        // E O PROVAI E VEDE, que é a série SEM a regra do dia — a que podia
+        // passar o sábado inteiro sem o vídeo do culto. Em 15/Ago o stub dela
+        // tem 01 e 08/Ago: nenhum é desta semana (dom 09 a sáb 15).
+        const pv = allCollections().find((x) => x.id === 'serie-provai-vede-2026');
+        const stPv = collState[pv.id] || {};
+        const pvTem = (stPv.songs || []).length
+          ? serieTemODaSemana(pv, agora) : null;
+        return { com, sem, semRecemVarrido, naAbertura, removidas, pvTem };
+      });
+
       // SÓ A DATA entra na comparação (v5.271): estes casos falam da JANELA, e
       // comparar o nome inteiro os faria reprovar a cada ajuste de nomenclatura
       // — foi o que aconteceu quando o rótulo passou a levar a série junto.
@@ -606,7 +657,7 @@ try {
         { itens: (o.itens || []).map((n) => String(n).split(' · ')[0]) });
       return { antes: soData(antes), sabadoAntes: soData(sabadoAntes),
         noDomingo: soData(noDomingo), naTerca: soData(naTerca),
-        naQuarta: soData(naQuarta), noDia: soData(noDia) };
+        naQuarta: soData(naQuarta), noDia: soData(noDia), procura };
     } finally { await pgC.close(); await ctxC.close(); }
   })();
   checar(!(corte.antes.itens || []).includes('15/Ago'),
@@ -635,6 +686,35 @@ try {
   checar((corte.noDomingo.itens || []).includes('15/Ago'),
     '[relato] e no DOMINGO seguinte ele entra: a semana dele começou',
     JSON.stringify(corte.noDomingo.itens));
+
+  // ── A PROCURA DO EPISÓDIO DESTA SEMANA (v1.2.22) ──────────────────────────
+  //
+  // Relato do operador: *"faça o provai e vede e o informativo das missões
+  // serem atualizados, em especial buscando apenas o vídeo dessa semana, busca
+  // de se atualizar diretamente quando o app é aberto"*.
+  //
+  // O TTL de 12 h responde "a lista envelheceu?"; a regra nova responde "já
+  // saiu o vídeo deste sábado?". As TRÊS metades, porque cada uma sozinha
+  // aprovaria um app errado: sem a primeira a regra vira "revarrer sempre"
+  // (uma extração do canal por volta ao app); sem a segunda ela não procura
+  // nada; sem o piso ela vira a rajada que o `autoRefreshCollections` recusa.
+  checar(corte.procura.removidas === 1,
+    'o cenário de fato tira UM episódio — o desta semana', corte.procura.removidas);
+  checar(corte.procura.com === false,
+    'COM o episódio da semana no índice, a série NÃO é revarrida — a procura se desarma sozinha',
+    corte.procura.com);
+  checar(corte.procura.sem === true,
+    '[relato] FALTANDO o episódio desta semana, o índice vence — mesmo fresco pelo TTL e no mesmo dia',
+    corte.procura.sem);
+  checar(corte.procura.semRecemVarrido === false,
+    'e o PISO segura: recém-varrido, não procura de novo (a rajada do visibilitychange)',
+    corte.procura.semRecemVarrido);
+  checar(corte.procura.naAbertura === true,
+    '[relato] mas a ABERTURA do app pergunta assim mesmo — é o piso que vale para as voltas ao app, não para abrir',
+    corte.procura.naAbertura);
+  checar(corte.procura.pvTem === false,
+    'e o PROVAI E VEDE, que não tem a regra do dia, é a série que a procura resgata: em 15/Ago ela não tem o episódio da semana',
+    corte.procura.pvTem);
 
   // ── O AVISO QUANDO O DOWNLOAD FALHA NA JANELA (v5.256) ─────────────────
   // O preço da antecedência: nesses três dias o vídeo pode ainda não estar
