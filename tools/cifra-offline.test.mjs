@@ -59,9 +59,13 @@ const PONTE = `(() => {
     takeShare: () => '',
     busPost: () => {},
     otaConfirm: () => {},
-    cifraHtml: (id) => {
+    cifraHtml: (id, url) => {
       window.__nCifraHtml++;
-      setTimeout(() => { try { window.__avResolve(id, { status: 0, html: '' }); } catch (_) {} }, 0);
+      // Por padrão "sem rede" — é o instrumento dos casos de leitura do disco.
+      // window.__rota permite a um caso mandar o site responder outra coisa
+      // (sem crase: este bloco é um template literal).
+      const r = (window.__rota && window.__rota(url)) || { status: 0, html: '' };
+      setTimeout(() => { try { window.__avResolve(id, r); } catch (_) {} }, 0);
     },
   };
   const nomes = ['apkInstalar','apkProcurar','bgProgress','captureVolumeKeys','castTarget',
@@ -240,6 +244,48 @@ try {
     'a mescla NÃO escreve num slot que é de outra coleção — era esse o defeito', slot.semDono);
   checar(slot.chaves === 'a,b,c,d,e',
     'e escreve no slot quando ele é o desta coleção', slot.chaves);
+  // ---- "O SITE SÓ TEM A LETRA" É RESPOSTA, E ELA É GRAVADA (v1.2.10) ------
+  //
+  // MEDIDO numa bateria: ~12 das 85 falhas eram endereços que EXISTEM,
+  // respondendo 200 sem folha nenhuma. Chamar isso de "não entendi" faz o
+  // download do hinário rebater as mesmas músicas TODA sessão, para sempre.
+  //
+  // Gravar uma ausência é o que este arquivo mais teme — daí as DUAS defesas: o
+  // marcador positivo (no `cifra.js`, com oráculo próprio) e o TETO por passada,
+  // medido abaixo. Uma música sem cifra é um fato; um terço do hinário de uma
+  // vez é o site tendo mudado de marcação.
+  const passada = async (quantosSoLetra, total) => pg.evaluate(async (arg) => {
+    await AVDB.setState('cifras:hymnal-2022', {});
+    cifraDiscoColl = ''; cifraDisco = null; cifraSyncRodando = false;
+    const nomes = Array.from({ length: arg.total }, (_, i) => 'Hino ' + (i + 1));
+    collState['hymnal-2022'] = { songs: nomes.map((n, i) => ({ id_music: 'h' + i, name: n })) };
+    const soLetra = new Set(nomes.slice(0, arg.quantos).map((n) => AVCifra.slug(n)));
+    window.__rota = (url) => {
+      const m = /\/novo-hinario-adventista\/([^/]+)\//.exec(url);
+      if (!m) return { status: 404, html: '' };
+      if (soLetra.has(m[1])) {
+        return { status: 200, html: '<title>X (letra da música)</title><h1>X</h1><p>letra</p>' };
+      }
+      return { status: 200, html: '<h1>X</h1><pre><b>C</b>\nlinha de marcador\n</pre>' };
+    };
+    const coll = allCollections().find((c) => c.id === 'hymnal-2022');
+    await syncCifrasHinario(coll);
+    window.__rota = null;
+    const disco = (await AVDB.getState('cifras:hymnal-2022')) || {};
+    const vals = Object.values(disco);
+    return { cifras: vals.filter((v) => v.pagina).length, semCifra: vals.filter((v) => v.soLetra).length };
+  }, { quantos: quantosSoLetra, total });
+
+  const poucas = await passada(2, 20);
+  checar(poucas.cifras === 18 && poucas.semCifra === 2,
+    'as duas sem cifra ficam GRAVADAS — é isso que impede o download de rebatê-las toda sessão',
+    poucas);
+
+  const dominada = await passada(18, 20);
+  checar(dominada.cifras === 2 && dominada.semCifra === 0,
+    'mas uma passada DOMINADA por "só letra" não grava nenhuma: isso não é o acervo '
+    + 'sem cifra, é o site tendo mudado de marcação', dominada);
+
 } finally {
   await navegador.close();
   servidor.close();

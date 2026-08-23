@@ -24,7 +24,8 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
-- **v1.2.12** — A PERMISSÃO QUE FALTAVA ERA NOSSA, E NÃO ERA A DO MICROFONE. Cinco rodadas acusaram o aparelho (espelhamento, interruptor de privacidade, processamento, Auto Blocker); a causa estava no `AndroidManifest.xml` deste repositório. O Chromium DE DENTRO DO WEBVIEW exige `MODIFY_AUDIO_SETTINGS` do app HOSPEDEIRO: `AudioManagerAndroid.hasPermission()` consulta o `checkSelfPermission` DELE, `setCommunicationDevice()` devolve `false` sem ela, e `MakeLowLatencyInputStream` devolve `nullptr` — que vira `STREAM_CREATE_ERROR` e chega ao JS como `NotReadableError`. Conferido VERBATIM no fonte do Chromium, incluindo o desvio (`AAudioPerStreamDeviceSelection`) travado atrás de `is_desktop()`. Ela é `protectionLevel="normal"`: concedida na instalação, INVISÍVEL na tela de permissões — por isso quatro rodadas olharam para a permissão errada, que estava concedida com toda a razão. Mais: `MODE_FOREGROUND` ganhou ramo próprio no `MicDiag` (era o desfecho MAIS provável e saía como "modo 4", lido como bloqueio), e o campo `modAudio` responde "o APK instalado já tem o conserto?". EXIGE RELEASE v1.2.12
+- **v1.2.13** — A PERMISSÃO QUE FALTAVA ERA NOSSA, E NÃO ERA A DO MICROFONE. Cinco rodadas acusaram o aparelho (espelhamento, interruptor de privacidade, processamento, Auto Blocker); a causa estava no `AndroidManifest.xml` deste repositório. O Chromium DE DENTRO DO WEBVIEW exige `MODIFY_AUDIO_SETTINGS` do app HOSPEDEIRO: `AudioManagerAndroid.hasPermission()` consulta o `checkSelfPermission` DELE, `setCommunicationDevice()` devolve `false` sem ela, e `MakeLowLatencyInputStream` devolve `nullptr` — que vira `STREAM_CREATE_ERROR` e chega ao JS como `NotReadableError`. Conferido VERBATIM no fonte do Chromium, incluindo o desvio (`AAudioPerStreamDeviceSelection`) travado atrás de `is_desktop()`. Ela é `protectionLevel="normal"`: concedida na instalação, INVISÍVEL na tela de permissões — por isso quatro rodadas olharam para a permissão errada, que estava concedida com toda a razão. Mais: `MODE_FOREGROUND` ganhou ramo próprio no `MicDiag` (era o desfecho MAIS provável e saía como "modo 4", lido como bloqueio), e o campo `modAudio` responde "o APK instalado já tem o conserto?". EXIGE RELEASE v1.2.13
+- **v1.2.12** — "O SITE SÓ TEM A LETRA" VIROU UMA RESPOSTA, e ela era a metade que faltava do `ilegivel`. MEDIDO na primeira bateria de testes: ~12 das 85 falhas eram endereços que EXISTEM, respondendo 200 com centenas de kB e nenhum `<pre>` — o Cifra Club tem a LETRA daquela música e não a cifra. Chamar isso de "não entendi a página" é falso nos dois sentidos: manda investigar um parser que está certo, e faz o download do hinário rebater a mesma música toda sessão, para sempre. O novo veredito é GRAVADO — e por isso tem DUAS defesas: ele exige um marcador POSITIVO (responder pela ausência de `<pre>` faria uma mudança de marcação do site apagar o acervo inteiro) e um TETO por passada (uma música sem cifra é um fato; um terço do hinário de uma vez é o site tendo mudado). Mais: a bateria passou a trazer a FORMA das páginas que não abriram, no resultado dela — é isso que separa as duas hipóteses. OTA PURO
 - **v1.2.11** — A PERGUNTA QUE SÓ O SHELL SABE RESPONDER: quatro rodadas pelo lado web terminaram sempre em `NotReadableError` nas três configurações, nos dois WebViews, com `RECORD_AUDIO` concedida e uma entrada enumerada. `AppOps` pode RECUSAR `RECORD_AUDIO` enquanto `checkSelfPermission` devolve concedida — o interruptor de privacidade, o Auto Blocker da Samsung sobre app fora da loja, o mudo global —, e o navegador não enxerga essa diferença. Nasce `MicDiag.kt` + `AVNative.micDiag()` (shell 53), LEITURA PURA. E a correção da v1.2.9 NÃO RODAVA: o laço pulava `deviceId === "default"`, e no aparelho há UMA entrada cujo id é exatamente `default` — o Registro seguiu marcando "3 tentativa(s)" enquanto eu anunciava quatro. O oráculo GUARDAVA esse pulo como contrato, e a asserção foi reescrita para a regra certa. EXIGE RELEASE v1.2.11
 - **v1.2.10** — AS CIFRAS GUARDADAS DO HINÁRIO SUMIAM, E O APP RECOMEÇAVA O DOWNLOAD A CADA ABERTURA. MEDIDO num aparelho: `275 de 601` virou `0 de 601`. A gravação era `setState` do mapa INTEIRO a partir de um slot de módulo (`cifraDisco`) cuja identidade mora noutra variável (`cifraDiscoColl`) — o ler-calcular-gravar que o `CLAUDE.md` proíbe para o `state`, com o agravante de o que ia ao disco poder ser o mapa de OUTRA coleção, ou `{}` por cima de um acervo cheio. Passa a MESCLAR com `updateState`, numa transação só: uma substituição pode produzir zero a partir de 275, **uma mescla não pode** — a correção é a propriedade, não o interleaving daquela vez. Mais: o Registro deixou de dizer "0 de 613 cifra(s)" para um hinário que não está baixado. OTA PURO
 - **v1.2.9** — O PEDIDO PELO ID DO DISPOSITIVO, E O REGISTRO QUE DAVA UM VEREDITO ERRADO: o Registro da v1.2.7 mostrou `entradas de áudio: 1` com os três degraus em `NotReadableError` — o que mata o interruptor de privacidade (daria zero) E o processamento (o pedido CRU foi negado). Sobrou uma pergunta que a escada nunca fez: o `default` do Chromium não é o microfone, é uma entrada virtual que segue o roteamento do sistema. Os dois caminhos passam a pedir cada entrada pelo `deviceId` com `exact`, pulando o default. E o `micStatus` mandava só o erro FINAL: o Controle via UMA tentativa e imprimia "falhou antes de esgotar a escada" — enquanto o telão tinha rodado as três. O Registro não ficava em branco, ele continuava respondendo com a frase errada. Mais a MENSAGEM do erro e o RÓTULO de cada entrada. OTA PURO
@@ -241,7 +242,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ---
 
-## v1.2.12 — a permissão que faltava era nossa, e não era a do microfone
+## v1.2.13 — a permissão que faltava era nossa, e não era a do microfone
 
 Cinco rodadas de investigação acusaram o aparelho: o espelhamento, o
 interruptor de privacidade, o processamento de áudio, a escolha do `default`,
@@ -322,10 +323,60 @@ O oráculo cobra a precedência com AppOps recusando, mudo ligado e chamada em
 curso ao mesmo tempo, e cobra que `primeiro plano` **não** seja lido como
 bloqueio. Os dois provados por reversão.
 
-EXIGE RELEASE v1.2.12 — `SHELL_VERSION` 53 → 54 (o `micDiag` ganhou campo),
-`minShell: 54`, `shellTag: "v1.2.12"`. **O `minShell` é o que importa aqui:**
+EXIGE RELEASE v1.2.13 — `SHELL_VERSION` 53 → 54 (o `micDiag` ganhou campo),
+`minShell: 54`, `shellTag: "v1.2.13"`. **O `minShell` é o que importa aqui:**
 ele segura o bundle novo longe de um APK sem a permissão, onde ele só saberia
 descrever o defeito sem consertá-lo.
+
+---
+
+## v1.2.12 — "o site só tem a letra" virou uma resposta
+
+**A bateria pagou-se na primeira leitura.** O Registro de uma execução real
+mostrou `52 ✓ / 85 ✗` — e, dentro das 85, duas classes que nada distinguia até
+então:
+
+| classe | o que é | o que fazer |
+|---|---|---|
+| ~50 `nao-tem` | o endereço não existe: a música está no site sob outro artista | achar à mão e fixar com "Trocar" |
+| ~12 `ilegivel` | o endereço EXISTE e respondeu 200 com centenas de kB | **era a pergunta sem resposta** |
+
+As ~12 tinham uma coisa em comum: zero `<pre>`. O site tem a **letra** daquelas
+músicas e não a cifra. Chamá-las de "não entendi a página" erra nos dois
+sentidos — manda investigar um parser que está certo, e faz o
+`syncCifrasHinario` rebater as mesmas músicas em toda sessão, para sempre.
+
+### O veredito é gravado, e por isso tem duas defesas
+
+`so-letra` é a única ausência que este laço grava. Um veredito gravado errado é
+um buraco permanente no acervo — a mesma razão pela qual falha de rede nunca
+grava nada aqui. Daí:
+
+1. **Marcador POSITIVO** (`AVCifra.soLetra`, puro, com oráculo). A tentação é
+   responder pela AUSÊNCIA (`sem <pre>` ⇒ só letra), e seria o defeito mais caro
+   que este recurso pode produzir: no dia em que o site trocar a marcação, TODA
+   página vira "só letra" e o acervo inteiro é apagado por dentro. São duas
+   condições independentes — nenhuma folha **e** o site anunciando a página como
+   letra. Uma mudança de marcação derruba a primeira e não inventa a segunda: o
+   desfecho volta a ser `ilegivel`, que é o certo.
+2. **Teto por passada** (`CIFRA_SO_LETRA_TETO`). Uma passada DOMINADA por este
+   veredito não grava nenhum deles. Uma música sem cifra é um fato; um terço do
+   hinário de uma vez é o site tendo mudado de marcação.
+
+Ele **não interrompe a cadeia** — diz que AQUELE endereço não tem cifra, não que
+a música não exista no site —, **mas sobrevive até o fim**: sem essa memória, um
+`so-letra` seguido de dois 404 sairia como "nenhum endereço tinha a página", a
+resposta menos informativa das três e a única que manda continuar procurando o
+que já foi achado.
+
+### E a bateria passou a mostrar a forma do que não abriu
+
+Ela é `mudo` (não pode enterrar o diagnóstico do operador) e por isso não trazia
+a radiografia de nenhuma das páginas ilegíveis — justamente as que a pergunta
+acima precisa ver. Agora ela colhe as dela, no resultado dela, com teto de
+quatro (páginas da mesma classe são iguais entre si) e **sem corte silencioso**:
+o bloco diz quantas ficaram de fora. A página de LETRA não gasta radiografia —
+já se sabe o que ela é.
 
 ---
 

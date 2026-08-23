@@ -94,6 +94,7 @@
   const MOTIVO_NAO_TEM = 'nao-tem';      // 404: o site respondeu que não tem
   const MOTIVO_RECUSOU = 'recusou';      // outro status: o site respondeu outra coisa
   const MOTIVO_ILEGIVEL = 'ilegivel';    // respondeu 200 e o HTML não tem folha
+  const MOTIVO_SO_LETRA = 'so-letra';    // a página existe e o site só tem a LETRA
 
   // ===== texto =====
 
@@ -501,6 +502,50 @@
   }
 
   /**
+   * A PÁGINA É DE LETRA, e o site não tem a cifra desta música?
+   *
+   * **É a metade que faltava do `ilegivel`, e as duas pediam ações opostas.**
+   * MEDIDO numa bateria de testes: ~12 das 85 falhas eram endereços que
+   * EXISTEM — `/ministerio-jovem/o-amor-vive/`, `/vamos-semear/`,
+   * `/novo-hinario-adventista/vem-o-jesus/` — respondendo 200 com centenas de
+   * kB e nenhum `<pre>`. Chamar isso de "não entendi a página" é falso nos dois
+   * sentidos: manda investigar um parser que está certo, e faz o download do
+   * hinário rebater a mesma música toda sessão, para sempre.
+   *
+   * ## Ela exige um marcador POSITIVO, e essa é a decisão inteira
+   *
+   * A tentação é responder pela AUSÊNCIA (`sem <pre>` ⇒ só letra). Seria o
+   * defeito mais caro que este recurso poderia produzir: no dia em que o site
+   * trocar o `<pre>` por outra marcação, TODA página vira "só letra" — e, como
+   * este veredito é gravado, o acervo inteiro ganharia um buraco permanente,
+   * exatamente o que a regra do `syncCifrasHinario` existe para impedir.
+   *
+   * Por isso são DUAS condições independentes: nenhum bloco de folha **e** um
+   * marcador de que o site está anunciando uma página de LETRA. Uma mudança de
+   * marcação derruba a primeira e não inventa a segunda — o desfecho volta a
+   * ser `ilegivel`, que é o certo: "não entendi".
+   *
+   * (A segunda linha de defesa não mora aqui: é o teto do
+   * `syncCifrasHinario`, que se recusa a gravar uma passada DOMINADA por este
+   * veredito. Uma música sem cifra é um fato; trezentas de uma vez é o site
+   * tendo mudado.)
+   */
+  function soLetra(html) {
+    const h = String(html || '');
+    if (!h) return false;
+    if (maiorPre(h).trim()) return false;              // há folha: não é este caso
+    const titulo = primeiroTexto(h, 'h1');
+    if (!titulo) return false;                         // sem página de música, é ilegível
+    const cabecalho = /<title\b[^>]*>([\s\S]*?)<\/title>/i.exec(h);
+    const marca = normalizar(semTags(cabecalho ? cabecalho[1] : '')).toLowerCase();
+    // O MARCADOR do site: ele anuncia a página no próprio `<title>`
+    // ("… (letra da música)"). Sem acento e sem caixa, porque `normalizar` já
+    // passou por ele — e a forma sem acento é a que sobrevive a uma troca de
+    // codificação no meio do caminho.
+    return /letra da musica|^letra d[eao] /.test(marca);
+  }
+
+  /**
    * SÓ A LETRA — as linhas de acordes caem fora.
    *
    * A aba mostra a folha; esta função existe para o operador que quer a letra
@@ -897,12 +942,12 @@
 
   global.AVCifra = {
     CATALOGO, BASE,
-    OK, MOTIVO_SEM_REDE, MOTIVO_NAO_TEM, MOTIVO_RECUSOU, MOTIVO_ILEGIVEL,
+    OK, MOTIVO_SEM_REDE, MOTIVO_NAO_TEM, MOTIVO_RECUSOU, MOTIVO_ILEGIVEL, MOTIVO_SO_LETRA,
     normalizar, semNumero, slug, decodificar,
     urlDoHino, urlDaMusica, urlDeBusca,
     ARTISTAS_PADRAO, urlsPadrao, urlDoAlbum,
     pareceAcorde, transporAcorde, transporLinha, transporTom,
-    lerFolha, lerPagina, lerBusca, somenteLetra,
+    lerFolha, lerPagina, lerBusca, somenteLetra, soLetra,
     ordenarBusca, parentesco, ehCaminhoDeMusica, radiografia,
     quebrarPares, pontoDeQuebra,
     janelaDeRolagem, fracaoDaRolagem,

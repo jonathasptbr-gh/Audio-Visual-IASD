@@ -244,7 +244,7 @@ const appVersionEl = document.getElementById('appVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.2.12';
+const WEB_VERSION = '1.2.13';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -10175,7 +10175,7 @@ function cifraChave(item) {
  * está tentando diagnosticar. MEDIDO num Registro real — o bloco mostrava um
  * hino qualquer no lugar da página de busca que a linha acima nomeava.
  */
-async function cifraPedir(url, mudo) {
+async function cifraPedir(url, mudo, coletar) {
   const r = await AVNative.cifraHtml(url);
   if (!r.status) return { ok: false, motivo: AVCifra.MOTIVO_SEM_REDE };
   if (r.status === 404) return { ok: false, motivo: AVCifra.MOTIVO_NAO_TEM };
@@ -10187,8 +10187,21 @@ async function cifraPedir(url, mudo) {
   // sobrescreveria justamente a página que interessa — a última música do culto
   // apagaria a que quebrou dez minutos antes.
   if (!pagina) {
-    if (!mudo) cifraGuardarEstrutura('página ' + url, r.html);
-    return { ok: false, motivo: AVCifra.MOTIVO_ILEGIVEL };
+    // DOIS DESFECHOS, e eles pedem ações opostas: `so-letra` é o site
+    // respondendo que aquela música não TEM cifra (a página existe e é de
+    // letra), `ilegivel` é o parser não entendendo o que veio. Achatá-los num
+    // só manda investigar um parser certo e faz o download do hinário rebater a
+    // mesma música toda sessão. Quem decide é o `cifra.js` (regra pura); aqui
+    // só se traduz o veredito.
+    const soLetra = AVCifra.soLetra(r.html);
+    // A RADIOGRAFIA CONTINUA SENDO DO `ilegivel`. Na página de letra não há
+    // nada a diagnosticar: já se sabe o que ela é.
+    if (!mudo && !soLetra) cifraGuardarEstrutura('página ' + url, r.html);
+    // O COLETOR é o segundo destino da radiografia: a BATERIA precisa da forma
+    // das páginas que ELA não entendeu, e não pode escrevê-la no slot
+    // compartilhado (é justamente o diagnóstico do operador que ela enterraria).
+    if (coletar && !soLetra) coletar(cifraRadiografiaTexto('página ' + url, r.html));
+    return { ok: false, motivo: soLetra ? AVCifra.MOTIVO_SO_LETRA : AVCifra.MOTIVO_ILEGIVEL };
   }
   return { ok: true, pagina, motivo: AVCifra.OK };
 }
@@ -10229,7 +10242,9 @@ const CIFRA_VIA_NOME = {
  * `opts.mudo` cala a radiografia (trabalho de massa não pode sobrescrever a
  * página que o operador está diagnosticando); `opts.semDisco` pula o que já
  * está guardado no aparelho, porque a bateria pergunta *"o endereço ainda
- * leva à página?"* e ler o disco responde outra coisa.
+ * leva à página?"* e ler o disco responde outra coisa; `opts.coletar` recebe a
+ * radiografia de cada página ilegível — é como a bateria leva a forma delas sem
+ * escrever no slot compartilhado.
  */
 async function cifraProcurar(nome, coll, chave, opts) {
   const o = opts || {};
@@ -10243,6 +10258,16 @@ async function cifraProcurar(nome, coll, chave, opts) {
   // "respondeu e o parser não entendeu", e insistir noutro endereço troca o
   // motivo certo (o site mudou de formato) por um errado (a música não existe).
   const segue = () => !desfecho.ok && desfecho.motivo !== AVCifra.MOTIVO_ILEGIVEL;
+  // `so-letra` NÃO interrompe a cadeia, e isso é escolha: ele diz que AQUELE
+  // endereço não tem cifra, não que a música não exista no site — outro artista
+  // pode ter a folha. Só o `ilegivel` para, porque ali a página é a certa e o
+  // problema é a leitura.
+  //
+  // MAS ELE SOBREVIVE ATÉ O FIM. O motivo devolvido é o do ÚLTIMO endereço
+  // tentado, e sem esta memória um `so-letra` seguido de dois 404 sairia como
+  // "nenhum endereço tinha a página" — a resposta menos informativa das três,
+  // e a única que manda o operador continuar procurando o que já foi achado.
+  let viuSoLetra = false;
 
   // 0ª TENTATIVA: O QUE O OPERADOR JÁ ESCOLHEU. Ela vem antes de tudo e
   // encerra o assunto: quem fixou um endereço sabe qual é a música, e
@@ -10252,7 +10277,8 @@ async function cifraProcurar(nome, coll, chave, opts) {
   const fixada = cifraEscolhas[chave];
   if (fixada) {
     url = fixada;
-    desfecho = await cifraPedir(fixada, o.mudo);
+    desfecho = await cifraPedir(fixada, o.mudo, o.coletar);
+    if (desfecho.motivo === AVCifra.MOTIVO_SO_LETRA) viuSoLetra = true;
     tentativas.push('fixada ' + fixada + ' → ' + desfecho.motivo);
     if (desfecho.ok) via = 'fixada';
   }
@@ -10276,7 +10302,8 @@ async function cifraProcurar(nome, coll, chave, opts) {
   const direta = !desfecho.ok && coll ? AVCifra.urlDoHino(coll.id, nome) : '';
   if (direta) {
     url = direta;
-    desfecho = await cifraPedir(direta, o.mudo);
+    desfecho = await cifraPedir(direta, o.mudo, o.coletar);
+    if (desfecho.motivo === AVCifra.MOTIVO_SO_LETRA) viuSoLetra = true;
     tentativas.push('direta ' + direta + ' → ' + desfecho.motivo);
     if (desfecho.ok) via = 'catalogo';
   }
@@ -10291,7 +10318,8 @@ async function cifraProcurar(nome, coll, chave, opts) {
     const ua = AVCifra.urlDoAlbum(coll.name, nome);
     if (ua && ua !== url) {
       url = ua;
-      desfecho = await cifraPedir(ua, o.mudo);
+      desfecho = await cifraPedir(ua, o.mudo, o.coletar);
+      if (desfecho.motivo === AVCifra.MOTIVO_SO_LETRA) viuSoLetra = true;
       tentativas.push('álbum ' + ua + ' → ' + desfecho.motivo);
       if (desfecho.ok) via = 'album';
     }
@@ -10305,7 +10333,8 @@ async function cifraProcurar(nome, coll, chave, opts) {
   if (segue()) {
     for (const u of AVCifra.urlsPadrao(nome)) {
       url = u;
-      desfecho = await cifraPedir(u, o.mudo);
+      desfecho = await cifraPedir(u, o.mudo, o.coletar);
+      if (desfecho.motivo === AVCifra.MOTIVO_SO_LETRA) viuSoLetra = true;
       tentativas.push('padrão ' + u + ' → ' + desfecho.motivo);
       if (desfecho.ok) via = 'padrao';
       if (desfecho.ok || desfecho.motivo === AVCifra.MOTIVO_ILEGIVEL) break;
@@ -10352,14 +10381,20 @@ async function cifraProcurar(nome, coll, chave, opts) {
     }
     for (const c of candidatos.slice(0, CIFRA_CANDIDATOS)) {
       url = c.url;
-      desfecho = await cifraPedir(url, o.mudo);
+      desfecho = await cifraPedir(url, o.mudo, o.coletar);
+      if (desfecho.motivo === AVCifra.MOTIVO_SO_LETRA) viuSoLetra = true;
       tentativas.push('tentada ' + url + ' → ' + desfecho.motivo);
       if (desfecho.ok) { via = 'busca'; break; }
     }
   }
 
+  // O `so-letra` visto em qualquer degrau vence o `nao-tem` do último — e SÓ
+  // ele: um `sem-rede` no fim é outra história, e anunciá-lo como "o site só
+  // tem a letra" seria inventar um fato a partir de uma queda de conexão.
+  const motivo = (!desfecho.ok && viuSoLetra && desfecho.motivo === AVCifra.MOTIVO_NAO_TEM)
+    ? AVCifra.MOTIVO_SO_LETRA : desfecho.motivo;
   return {
-    ok: !!desfecho.ok, pagina: desfecho.pagina || null, motivo: desfecho.motivo,
+    ok: !!desfecho.ok, pagina: desfecho.pagina || null, motivo,
     url, via, tentativas, crus, consulta,
   };
 }
@@ -10437,6 +10472,22 @@ function cifraGarantir(item) {
 // um Wi-Fi que oscilou tiraria o hino da lista para sempre — e num acervo em
 // que tudo existe, um buraco é sempre erro nosso.
 const CIFRA_LOTE = 20;          // hinos por gravação
+/**
+ * O TETO DO `so-letra` NUMA PASSADA — a segunda linha de defesa do acervo.
+ *
+ * Gravar "esta música não tem cifra no site" é o que impede o download de
+ * rebater os mesmos hinos toda sessão. Mas é um veredito GRAVADO, e um veredito
+ * gravado errado é um buraco permanente — a mesma razão pela qual falha de rede
+ * nunca grava nada aqui.
+ *
+ * O marcador positivo do `AVCifra.soLetra` já protege contra o caso normal. Este
+ * teto protege contra o caso CATASTRÓFICO: se o site passar a anunciar toda
+ * página como letra, uma passada inteira viraria "não tem" e o acervo seria
+ * apagado por dentro. Uma música sem cifra é um fato; um terço do hinário de uma
+ * vez é o site tendo mudado — e aí não se grava nada, e a passada seguinte
+ * tenta de novo.
+ */
+const CIFRA_SO_LETRA_TETO = 0.34;
 let cifraDiscoColl = '';        // de qual coleção é o `cifraDisco` carregado
 let cifraDisco = null;          // { nome normalizado → { pagina, url, em } }
 let cifraSyncRodando = false;
@@ -10538,6 +10589,10 @@ async function syncCifrasHinario(coll) {
   // O QUE AINDA NÃO FOI PARA O DISCO, e só isso. A gravação mescla este punhado
   // no que já está guardado — nunca manda o acervo inteiro de volta.
   const pendentes = {};
+  // OS `so-letra` FICAM À PARTE ATÉ O FIM DA PASSADA, porque o teto só pode ser
+  // julgado quando ela termina: é a PROPORÇÃO deles que separa "estas músicas
+  // não têm cifra" de "o site mudou".
+  const semCifra = {};
   try {
     await withBgWork(async () => {
       try {
@@ -10552,6 +10607,12 @@ async function syncCifrasHinario(coll) {
               // música existe no site, uma ausência é defeito nosso, e gravá-la
               // a tornaria permanente.
               if (d.ok && d.pagina) pendentes[h.chave] = { pagina: d.pagina, url, em: Date.now() };
+              // O SITE SÓ TEM A LETRA DESTA — é resposta, não falha, e por isso
+              // é a ÚNICA ausência que este laço grava. Sem ela, os hinos sem
+              // cifra são rebatidos a cada sessão, para sempre.
+              else if (d.motivo === AVCifra.MOTIVO_SO_LETRA) {
+                semCifra[h.chave] = { soLetra: true, url, em: Date.now() };
+              }
             }
           } catch (_) { /* rede: a próxima passada tenta de novo */ }
           finally { bgItemEnd(notifId, h.nome); }
@@ -10566,6 +10627,13 @@ async function syncCifrasHinario(coll) {
     });
   } finally {
     await cifraDiscoMesclar(coll.id, pendentes).catch(() => {});
+    // O TETO, julgado sobre o que esta passada de fato TENTOU. Dominada por
+    // `so-letra`, ela não grava nenhum deles: a leitura certa ali não é "o
+    // acervo não tem cifra", é "o site mudou de marcação".
+    const quantos = Object.keys(semCifra).length;
+    if (quantos && quantos <= Math.max(1, Math.floor(faltam.length * CIFRA_SO_LETRA_TETO))) {
+      await cifraDiscoMesclar(coll.id, semCifra).catch(() => {});
+    }
     cifraSyncRodando = false;
   }
 }
@@ -10603,6 +10671,20 @@ const CIFRA_BATERIA_POR_ALBUM = 2;
 // meia dúzia de requisições ao mesmo site, e não uma requisição só como no
 // download das cifras do hinário — seis frentes seriam uma rajada de trinta.
 const CIFRA_BATERIA_FRENTES = 3;
+/**
+ * QUANTAS RADIOGRAFIAS a bateria traz de volta.
+ *
+ * Ela é `mudo` — não pode enterrar o diagnóstico do operador —, e por isso
+ * levava a forma de NENHUMA das páginas que não entendeu. Numa bateria real
+ * foram ~12 endereços que existem e não abriram: sem a forma deles, a pergunta
+ * "o site mudou, ou aquelas músicas não têm cifra?" fica sem resposta e vira
+ * uma sessão de adivinhação a distância.
+ *
+ * Quatro, e não todas: as páginas de uma mesma classe são iguais entre si, e a
+ * quinta cópia não acrescenta nada. **O corte não é silencioso** — o bloco diz
+ * quantas ficaram de fora.
+ */
+const CIFRA_BATERIA_RADIOS = 4;
 
 // As frases dos motivos, curtas. As da aba (`lvBuildCifra`) falam com quem está
 // com o instrumento na mão e explicam o que fazer; estas falam com quem lê um
@@ -10612,6 +10694,7 @@ const CIFRA_BATERIA_MOTIVO = {
   [AVCifra.MOTIVO_NAO_TEM]: 'nenhum endereço tinha a página',
   [AVCifra.MOTIVO_RECUSOU]: 'o site recusou a página',
   [AVCifra.MOTIVO_ILEGIVEL]: 'a página abriu e o parser não a entendeu',
+  [AVCifra.MOTIVO_SO_LETRA]: 'o site tem só a letra, sem os acordes',
 };
 
 let cifraBateriaRodando = false;
@@ -10665,7 +10748,12 @@ async function cifraRodarBateria() {
   if (!alvos.length) return;
 
   cifraBateriaRodando = true;
-  const estado = { em: Date.now(), albuns: albuns.length, total: alvos.length, ok: 0, itens: [] };
+  const estado = {
+    em: Date.now(), albuns: albuns.length, total: alvos.length, ok: 0, itens: [],
+    // Quantas páginas ilegíveis apareceram ao todo — o denominador do corte
+    // acima. Sem ele, "4 radiografias" se leria como "só 4 páginas falharam".
+    ilegiveis: 0,
+  };
   cifraBateria = estado;
   cifraBateriaPintar();
   const notifId = bgTaskStart('Bateria de cifras', alvos.length);
@@ -10676,12 +10764,25 @@ async function cifraRodarBateria() {
         await runLimited(alvos, CIFRA_BATERIA_FRENTES, async (a, i) => {
           bgItemStart(notifId, a.nome);
           let r = null;
+          const radios = [];
           try {
             const chave = a.coll.id + '|' + AVCifra.normalizar(a.nome).toLowerCase();
             // MUDO e SEM DISCO: a bateria não pode apagar a radiografia que o
-            // operador está diagnosticando, e mede a REDE, não o cache.
-            r = await cifraProcurar(a.nome, a.coll, chave, { mudo: true, semDisco: true });
+            // operador está diagnosticando, e mede a REDE, não o cache. O
+            // `coletar` é como ela leva a forma das páginas ilegíveis mesmo
+            // assim — para o resultado DELA, não para o slot compartilhado.
+            r = await cifraProcurar(a.nome, a.coll, chave, {
+              mudo: true, semDisco: true, coletar: (t) => radios.push(t),
+            });
           } catch (_) { r = null; }
+          if (radios.length) {
+            estado.ilegiveis += radios.length;
+            // O TETO É DA EXECUÇÃO INTEIRA, contado no estado — as páginas de
+            // uma mesma classe são iguais, e a quinta cópia não diz nada novo.
+            const cabe = CIFRA_BATERIA_RADIOS - estado.itens.filter((i) => i && i.radiografia).length;
+            if (cabe > 0) radios.length = Math.min(radios.length, cabe);
+            else radios.length = 0;
+          }
           bgItemEnd(notifId, a.nome);
           estado.itens[i] = {
             album: a.coll.name || a.coll.id, nome: a.nome,
@@ -10691,6 +10792,7 @@ async function cifraRodarBateria() {
             // A CADEIA SÓ NA FALHA. No sucesso ela seria ruído: o que interessa
             // é o degrau que venceu, e ele já está no `via`.
             tentativas: (r && !r.ok && r.tentativas) || [],
+            radiografia: radios.join('\n'),
           };
           if (estado.itens[i].ok) estado.ok++;
           done++;
@@ -10749,8 +10851,14 @@ function cifraBateriaTexto() {
   if (!b || !b.itens.length) return '';
   const quando = new Date(b.em || Date.now()).toLocaleString('pt-BR');
   const falhas = b.itens.length - b.ok;
+  const comRadio = b.itens.filter((i) => i && i.radiografia).length;
   const l = [quando + (b.pronto ? '' : ' (interrompida)') + ' — ' + b.itens.length
     + ' música(s) de ' + b.albuns + ' álbum(ns): ' + b.ok + ' ✓ / ' + falhas + ' ✗'];
+  // NENHUM CORTE É SILENCIOSO: o que não coube continua contado.
+  if (b.ilegiveis > comRadio) {
+    l.push(b.ilegiveis + ' página(s) que abriram e o parser não entendeu — a forma de '
+      + comRadio + ' delas está abaixo (as demais são da mesma classe)');
+  }
   const porAlbum = new Map();
   for (const it of b.itens) {
     if (!porAlbum.has(it.album)) porAlbum.set(it.album, []);
@@ -10768,6 +10876,9 @@ function cifraBateriaTexto() {
         // a música à mão no site e dizer sob qual artista ela está — o único
         // caminho que transforma uma falha em conserto.
         for (const t of (it.tentativas || [])) l.push('      ' + t);
+        // A FORMA da página que não abriu, quando a bateria a trouxe. É ela que
+        // separa "o site mudou de marcação" de "esta música não tem cifra lá".
+        if (it.radiografia) for (const linha of it.radiografia.split('\n')) l.push('      ' + linha);
       }
     }
   }
@@ -10930,13 +11041,24 @@ async function cifraBuscarNoSite(consulta, alvo, artista, mudo) {
  * JSON. Uma linha por fato, e nenhuma delas leva conteúdo da página.
  */
 function cifraGuardarEstrutura(rotulo, html) {
-  const por = (texto) => {
-    const i = cifraEstruturas.findIndex((e) => e.rotulo === rotulo);
-    if (i >= 0) cifraEstruturas[i] = { rotulo, texto };
-    else cifraEstruturas.push({ rotulo, texto });
-    if (cifraEstruturas.length > CIFRA_ESTRUTURAS_MAX) cifraEstruturas.shift();
-  };
-  if (!html) { por(rotulo + ' → sem corpo'); return; }
+  const i = cifraEstruturas.findIndex((e) => e.rotulo === rotulo);
+  const texto = cifraRadiografiaTexto(rotulo, html);
+  if (i >= 0) cifraEstruturas[i] = { rotulo, texto };
+  else cifraEstruturas.push({ rotulo, texto });
+  if (cifraEstruturas.length > CIFRA_ESTRUTURAS_MAX) cifraEstruturas.shift();
+}
+
+/**
+ * A RADIOGRAFIA EM TEXTO, sem guardar nada — o formatador separado de quem
+ * armazena.
+ *
+ * São DOIS destinos hoje: o slot compartilhado (o diagnóstico do operador, uma
+ * página por endereço) e o resultado da BATERIA, que precisa levar as dela
+ * junto do item que falhou. Uma segunda escrita deste formato divergiria no
+ * primeiro campo acrescentado — é a mesma razão do `cifraProcurar`.
+ */
+function cifraRadiografiaTexto(rotulo, html) {
+  if (!html) return rotulo + ' → sem corpo';
   const r = AVCifra.radiografia(html);
   const l = [rotulo + ' → ' + r.bytes + ' caractere(s)'];
   if (r.titulo) l.push('  <title> ' + JSON.stringify(r.titulo));
@@ -10946,7 +11068,7 @@ function cifraGuardarEstrutura(rotulo, html) {
   l.push('  ' + r.links + ' link(s) de 2 segmentos, ' + r.linksDeMusica + ' com forma de música'
     + (r.amostraEhCrua ? ' — a amostra abaixo é do que HAVIA, já que nada passou' : ''));
   for (const a of r.amostra) l.push('    ' + a.caminho + '  ' + JSON.stringify(a.texto));
-  por(l.join('\n'));
+  return l.join('\n');
 }
 
 /** Abre/fecha o seletor, sempre soltando a prévia — ela é do seletor. */
@@ -11672,6 +11794,8 @@ function lvBuildCifra(el, barra) {
       [AVCifra.MOTIVO_SEM_REDE]: 'Sem resposta da internet. A cifra é lida na hora — sem rede, não há como buscá-la.',
       [AVCifra.MOTIVO_NAO_TEM]: 'Não encontrei a cifra de “' + nome + '”.',
       [AVCifra.MOTIVO_RECUSOU]: 'O site respondeu, mas recusou a página. Tente de novo daqui a pouco.',
+      [AVCifra.MOTIVO_SO_LETRA]: 'O Cifra Club tem só a LETRA de “' + nome + '”, sem os acordes. '
+        + 'Se você souber de outra versão no site, use “Trocar” para apontá-la.',
       [AVCifra.MOTIVO_ILEGIVEL]: 'Achei a página e não consegui lê-la — o site mudou de formato. '
         + 'Isso se corrige numa atualização da base; o Registro em Configurações tem o detalhe.',
     };
@@ -18511,7 +18635,7 @@ function blocoMicrofone() {
         + 'aparelho, não é o AppOps e não é o fabricante: o Chromium do WebView exige '
         + 'essa permissão do app HOSPEDEIRO para abrir qualquer captura de áudio, e sem '
         + 'ela toda tentativa morre em NotReadableError. Ela é concedida na instalação '
-        + '(não há o que autorizar na tela). O conserto é INSTALAR O APK v1.2.12 OU MAIS '
+        + '(não há o que autorizar na tela). O conserto é INSTALAR O APK v1.2.13 OU MAIS '
         + 'NOVO — versões anteriores não têm como funcionar.');
     } else if (sh && sh.appops && sh.appops !== 'permitido' && sh.appops !== 'primeiro plano'
         && sh.appops !== '?') {
@@ -18660,7 +18784,16 @@ async function renderDiag() {
     // única que nem a linha de tentativas nem o status do shell alcançam.
     for (const c of allCollections().filter(cifraGuardavel)) {
       let n = 0;
-      try { n = Object.keys((await AVDB.getState('cifras:' + c.id)) || {}).length; } catch (_) { n = 0; }
+      let semCifra = 0;
+      try {
+        // AS DUAS CONTAS SÃO SEPARADAS de propósito: uma entrada `soLetra` é uma
+        // pergunta RESPONDIDA, não uma cifra guardada — somá-las faria o número
+        // prometer folhas que não existem.
+        for (const v of Object.values((await AVDB.getState('cifras:' + c.id)) || {})) {
+          if (v && v.pagina) n++;
+          else if (v && v.soLetra) semCifra++;
+        }
+      } catch (_) { n = 0; semCifra = 0; }
       const total = collSongs(c.id).length;
       // HINÁRIO NÃO BAIXADO É OUTRA RESPOSTA, não um zero. As cifras só são
       // buscadas para o hinário que existe no aparelho (`countDownloaded`), e
@@ -18671,7 +18804,8 @@ async function renderDiag() {
         continue;
       }
       linhas.push(c.name + ': ' + n + ' de ' + total + ' cifra(s) no aparelho'
-        + (n && n < total ? ' (o download completa o resto)' : ''));
+        + (semCifra ? ' · ' + semCifra + ' sem cifra no site (só a letra)' : '')
+        + (n && n + semCifra < total ? ' (o download completa o resto)' : ''));
     }
     if (linhas.length) blocos.push('Cifra (última busca)\n' + linhas.join('\n'));
     // A ESTRUTURA da última página que o parser NÃO entendeu — bloco à parte
