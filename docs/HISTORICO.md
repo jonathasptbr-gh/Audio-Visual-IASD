@@ -24,6 +24,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
+- **v1.2.7** — A LINHA DO TEMPO ESTAVA CONGELADA, E POR ISSO O MICROFONE ERA INVISÍVEL: `diagLinhas` era montada dentro do `juntarDiag`, que só roda quando o TELÃO responde ao `diag-ask` — e o anel do celular continua crescendo depois disso, e continua crescendo mesmo SEM TELÃO, caso em que o `diag-ask` nem sai. MEDIDO num Registro real: a linha do tempo terminava no instante em que a TV caiu, com três tentativas de microfone depois dela e nada indicando que faltava algo. A junção passou para a hora de DESENHAR. Mais o bloco "Microfone (última tentativa)", que nomeia cada degrau com o erro dele, conta as entradas de áudio e dá um VEREDITO exclusivo — o caminho de falha da captura não registrava NADA, e o que sobrava era uma frase que acusa a causa menos provável. OTA PURO
 - **v1.2.6** — A RADIOGRAFIA PASSA A SER UMA POR ENDEREÇO, e é a TERCEIRA vez que este diagnóstico se cala sobre o que se queria medir. Uma procura tenta vários endereços; com um slot só, a última escrita apagava as anteriores — e o que sobrava era sempre a página menos interessante. MEDIDO: o `buscador` respondeu **HTTP 202** (a recusa anti-robô do DuckDuckGo) e a estrutura dela foi sobrescrita pela busca interna que rodou logo depois; o Registro dizia "202" numa linha e mostrava OUTRA página embaixo. Agora guarda uma por endereço, com teto, e o `registro.test.mjs` cobra isso — provado por reversão. OTA PURO
 - **v1.2.5** — O NOME DO ÁLBUM É O ARTISTA DO SITE, e o diagnóstico tinha se calado sobre o motor novo. (1) MEDIDO: "Usa-me", do álbum **Adoradores 5**, mora em `/adoradores-5/usa-me/`. Vira a tentativa deduzível de melhor custo-benefício do recurso — não precisa de catálogo nem de rodízio, sai do dado que já está no item, e é UMA requisição. (2) O Registro reportava só o ÚLTIMO motor: um Registro real saiu com duas linhas `busca` e NENHUMA do `buscador`, que tinha sido consultado. Agora cada motor vira uma linha, com o status. (3) E o download em massa das cifras do hinário deixou de sobrescrever, a cada hino, a radiografia da página que o operador estava diagnosticando. OTA PURO
 - **v1.2.4** — A BUSCA DO PRÓPRIO CIFRA CLUB NUNCA TEVE COMO FUNCIONAR, e o Registro provou: `?q=<termo>` responde 425 kB, sabe qual foi a consulta (está no `<title>`), e os únicos links de duas partes na página são o índice A–Z e o "Academy" — os resultados são desenhados por JAVASCRIPT, que o `cifraHtml` não executa. A v1.1.22 achou que estava pegando o link errado; não havia link certo para pegar, e o seletor manual do operador estava travado pelo mesmo motivo. Passa a perguntar a um BUSCADOR (endpoint HTML do DuckDuckGo, com `site:` na consulta) — não o Google, cujas classes são aleatorizadas a cada implantação. Trocar de motor não troca o critério: o parentesco continua julgando. **EXIGE RELEASE v1.2.4**: shell 50 → 51, o host do buscador entra na allowlist do `CifraFonte`
@@ -232,6 +233,66 @@ na nota que a revoga, não apagada da que a criou.
 - **v5.154** — é METADE OTA e METADE APK, e a divisão importa para quem for testar em aparelho.
 - **v5.155** — é OTA PURO
 - **v5.156** — é METADE OTA e METADE APK, de novo.
+
+---
+
+## v1.2.7 — a linha do tempo estava congelada, e por isso o microfone era invisível
+
+Relatado do aparelho com TRÊS capturas e o Registro completo. O microfone
+recusava com "O Android não liberou o microfone" **com e sem TV** — e o Registro
+colado junto não tinha uma linha sequer sobre o assunto.
+
+### A LINHA DO TEMPO PARAVA NO ÚLTIMO `diag-dump`
+
+`diagLinhas` era montada dentro de `juntarDiag`, que só roda quando o TELÃO
+responde ao `diag-ask`. O anel do celular continua crescendo depois disso — e
+continua crescendo **mesmo quando não há telão nenhum**, caso em que o `diag-ask`
+nem chega a sair.
+
+No Registro real: a linha do tempo terminava em `09:35:51`, o instante exato em
+que a TV caiu. O operador copiou o texto muito depois, com três tentativas de
+microfone no meio. Nenhuma delas na lista, e nada indicando que faltava algo.
+
+O bloco que a v1.1.19 promoveu a segundo lugar — o que responde *"o que aconteceu
+no culto?"* — **parava de responder exatamente quando o culto continuava.** É a
+pior forma de falhar deste projeto: ele não fica em branco, ele continua
+respondendo, com uma lista que parece completa.
+
+A junção passou para `eventosDiag`, na hora de desenhar. `juntarDiag` guarda só
+a metade do telão.
+
+### E O MICROFONE SÓ REGISTRAVA O SUCESSO
+
+O caminho de falha da captura não escrevia nada em lugar nenhum — nem a escada,
+nem a permissão negada. O que sobrava era a frase na tela, que **acusa a causa
+menos provável** ("uma chamada, um gravador aberto") e não distingue casos que
+pedem ações opostas.
+
+Nasce o bloco **"Microfone (última tentativa)"**, com os degraus nomeados um a
+um, a contagem de entradas de áudio e um VEREDITO:
+
+| o que o Registro mostra | o que isso quer dizer |
+|---|---|
+| `permissão do Android: NotAllowedError` | o Android não deu a permissão — a frase de sempre serve |
+| `entradas de áudio: 0` | **não é permissão**: o aparelho não entrega microfone nenhum ao app |
+| os três degraus recusados, inclusive `cru` | o problema não é o processamento que a escada contorna — o sistema está recusando o microfone a este app |
+| `sem eco: abriu` depois de `com eco` falhar | a escada da v1.2.2 fez o trabalho dela, e sem esta linha ninguém saberia |
+
+Os vereditos são **exclusivos**: dois diagnósticos no mesmo bloco é o Registro
+discordando de si mesmo.
+
+### O ORÁCULO EXERCITA O CAMINHO REAL
+
+`registro.test.mjs` FORJA a captura (`getUserMedia` que rejeita com um erro
+escolhido, `enumerateDevices` com uma contagem escolhida) e aperta o botão de
+verdade. Nada de gancho só-para-teste: o que se quer medir é o que o app FAZ
+quando o aparelho recusa, e um gancho mediria o gancho.
+
+A asserção de que a recusa **chega à linha do tempo** é a que prende o
+congelamento — MEDIDO por reversão: devolvido o comportamento antigo, ela
+reprova.
+
+OTA PURO — `minShell` 51, sem `shellTag`.
 
 ---
 

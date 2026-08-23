@@ -1,5 +1,13 @@
 [
   {
+    "versao": "1.2.7",
+    "itens": [
+      "A LINHA DO TEMPO do Registro estava congelada: ela parava no instante em que a TV foi desconectada e não registrava mais nada. Agora ela é montada na hora de abrir o Registro, e vale também quando nunca houve TV.",
+      "O Registro ganhou um bloco de MICROFONE: quando a gravação não abre, ele diz qual tentativa falhou, com que erro, quantos microfones o aparelho entregou — e o que fazer em cada caso.",
+      "Antes disso, a única resposta era uma frase na tela acusando uma chamada ou um gravador aberto, que quase nunca é a causa."
+    ]
+  },
+  {
     "versao": "1.2.6",
     "itens": [
       "O Registro passou a guardar a estrutura de CADA endereço tentado, não só do último. Uma procura tenta vários, e a página mais interessante era justamente a que se perdia — o buscador respondeu com um código de recusa e o diagnóstico dele foi apagado pela busca seguinte."

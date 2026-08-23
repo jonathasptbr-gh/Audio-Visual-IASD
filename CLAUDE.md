@@ -3011,6 +3011,11 @@ Rodar local: `./gradlew assembleDebug` (exige Android SDK).
   **E daí a ORDEM importar:** a linha do tempo vem logo depois do cabeçalho e
   ANTES de todo bloco de verificação por recurso — ela era o último dos oito, e
   num Registro real começava na linha ~150. Bloco novo entra DEPOIS dela.
+  **E ela é MONTADA NA HORA DE DESENHAR** (v1.2.7), nunca guardada pronta: o anel
+  do celular continua crescendo depois do último `diag-dump`, e continua
+  crescendo mesmo SEM TELÃO — caso em que o `diag-ask` nem chega a sair.
+  Montá-la no `juntarDiag` congelava a lista no instante da última resposta do
+  telão, e ela seguia parecendo completa.
 - **O REGISTRO É SOBRE O CULTO, não sobre o catálogo** (v1.1.19). Ele responde a
   quatro perguntas, e é por elas que se decide o que entra: *o que eu toquei
   antes disso?* (ações do operador) · *quando a conexão mudou?* (TV e telas, em
@@ -3142,7 +3147,7 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: v1.2.6** (base web) · **v1.2.4** (APK) · `SHELL_VERSION` **51** · bundle com
+**Versão atual: v1.2.7** (base web) · **v1.2.4** (APK) · `SHELL_VERSION` **51** · bundle com
 `minShell: 51` — o shell 51 é o **PISO**: todo método da ponte existe, e não há
 guarda de versão no lado web. O que continua valendo é que `java/`, `res/`, o
 manifest e os workflows **só chegam instalando o APK**.
