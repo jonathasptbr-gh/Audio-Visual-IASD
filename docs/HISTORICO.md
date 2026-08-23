@@ -24,6 +24,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
+- **v1.3.1** — TRÊS AJUSTES DE LEITURA, TODOS PEDIDOS PELO OPERADOR E TODOS MEDIDOS. (1) "TROCARVER": `.lv-cifra-rodape` é `flex` SEM `gap`, então "Trocar" e "Ver no Cifra Club" encostavam e o olho lia UMA palavra. A folga foi para o CONTÊINER, não para um dos botões — o outro rodapé desta aba tem o mesmo par ("Esquecer a escolhida" + "Abrir o site") e um rodapé novo já nasce separado. (2) A BARRA DO TOM E DA ROLAGEM espremida: `margin-top: 0` a encostava no seletor Letra/Bíblia/Cifra — MEDIDO em 430px, 3,2px acima contra 8px abaixo. Agora 10,4 e 9,6. (3) O RODAPÉ DE CONFIGURAÇÕES fora do ritmo da folha: toda `.fade-row` começa a 14,4px de cada lado e ele começava a 11,2px, com 9,6px de base — o bastante para o olho ver duas colunas onde há uma. `.popup-footer` existe num lugar só, então alinhá-lo ao corpo alinha-o a tudo. OTA PURO.
 - **v1.3.0** — A AUDITORIA PÓS-1.0: QUATRO DEFEITOS, E OS QUATRO ERRAVAM CALADOS. (1) A ROLAGEM DA CIFRA MORRIA NO ENSAIO: `cifraRolandoChave` nasceu na v1.1.20 com `cifraChave(currentItem)` — a música EM CENA —, e a v1.2.14 pôs a folha para apontar para OUTRA música (`lvAlvo`) sem atualizar este sítio. A guarda "música nova é folha nova" do `lvBuildCifra` compara com `lvItem()`, então as duas chaves nunca batiam com um alvo da Biblioteca e o primeiro redesenho da folha chamava `cifraRolarParar()`. Transpor meio tom, tocar em A+/A− ou girar o aparelho bastavam — os três redesenham. (2) `salvarTexto` NUNCA RESOLVIA NO SUCESSO: `resolve()` injeta o segundo argumento como EXPRESSÃO JavaScript, e este era o único dos 40+ sítios que passava uma string CRUA — `__avResolve("e:1", registro-av-….txt)` é `SyntaxError`, o `evaluateJavascript` engole, e o método é justamente o que não tem prazo. O arquivo era gravado e o botão nunca respondia. (3) O REGISTRO DISCORDAVA DO APARELHO: ele somava "resolvidas" por fora em vez de perguntar a `cifraNoDiscoVale`, e a partir do 31º dia dizia "0 por varrer" com centenas ainda por refazer. (4) DOIS PARES DE CONTRASTE ABAIXO DO PISO no tema CLARO, medidos no RENDERIZADO: o seletor "Fácil/Avançado" a 3,47:1 (é o QUARTO degrau da escada de camadas, que o DESIGN-SYSTEM já nomeia como o que reprova AA) e a linha de versão do rodapé a 4,15:1. Mais a documentação posta em dia contra o CÓDIGO. O lote fecha o pacote da 1.2 e sobe o degrau INCREMENTAL a pedido de quem publica. METADE OTA e METADE APK (o (2) só chega instalando).
 - **v1.2.28** — A ROTINA DE FUNDO APAGAVA A PERGUNTA DA ATUALIZAÇÃO. Relato do operador: o app deveria oferecer sozinho o download do APK novo, e não ofereceu. `horaRuimParaPerguntar` esperava `bgWorkCount === 0` — e a varredura de cifras e a de letras rodam SOZINHAS na abertura, sobre o acervo inteiro (MEDIDO num aparelho: 309 hinos num hinário e 145 no outro, numa passada só). Enquanto ela corre, a pergunta não aparece; e ela corre justamente na janela em que o operador abre o app. É a armadilha que a v5.151 já pagou com o espelho: **uma condição quase sempre verdadeira não ADIA a pergunta, ela a APAGA** — e aqui o desfecho é o pior que este canal produz, porque com o shell abaixo do `minShell` a válvula recusa toda base web e o APK é a ÚNICA saída: o aparelho fica preso, em silêncio, sem nunca ser avisado do que o destrava. A distinção é QUEM PEDIU: `withBgRotina` protege o processo do congelamento igual (o sistema continua sabendo), e não adia pergunta nenhuma. O oráculo ganhou também o lote SÓ DE APK, que não tinha caso nenhum. OTA PURO
 - **v1.2.27** — DOIS `--press` NO MESMO DEDO. Relato do operador: *"ao encolher, as bordas do card de título ficam com uma marca de encolhimento nas laterais direita e esquerda, fazendo um bug visual da parte branca do card"*. `:active` casa também nos ANCESTRAIS, então o toque na linha de uma faixa satisfazia o `.lib-item` **e** a `.hymn-row` de dentro dele — as duas na lista de `--press`, 0,96 × 0,96. MEDIDO em 430px com a gaveta aberta: o cartão a 370px e o título, dentro dele, a 355 — 7px mais estreito de cada lado que a gaveta logo abaixo, com o branco do `.lib-item` aparecendo nessa fresta. É a MESMA fresta que o comentário da v5.267 já nomeia ("o miolo se afastava de uma moldura parada e abria uma fresta dos dois lados"): a correção de então foi fazer o CARTÃO encolher, e a `.hymn-row` ficou na lista mesmo assim — invisível com a linha fechada, porque ali cartão e linha são a mesma caixa e as duas pintam `--linha`. Saiu junto o `.hymn-play-thumb`, que DEIXOU DE SER BOTÃO na v5.285 e continuava dando resposta de toque. Oráculo no `smoke.mjs`, medindo a FRESTA em pixels durante uma pressão de verdade. OTA PURO
@@ -255,6 +256,79 @@ na nota que a revoga, não apagada da que a criou.
 - **v5.154** — é METADE OTA e METADE APK, e a divisão importa para quem for testar em aparelho.
 - **v5.155** — é OTA PURO
 - **v5.156** — é METADE OTA e METADE APK, de novo.
+
+---
+
+## v1.3.1 — três ajustes de leitura, e os três estavam medíveis
+
+Relato do operador, em três pedidos: *"ajuste o texto errado 'Trocarver' no
+cifras club na base da caixa de texto das cifras"*; *"o espaçamento entre o topo
+das opções das cifras, onde tem o tom e os botões de rolagem automática, pois
+eles estão com pouca margem em cima e em baixo em relação aos outros botões
+vizinhos"*; e *"o alinhamento dos itens de versão e registro nas configurações
+em relação às margens esquerda e direita e da base — esses itens estão muito
+colados nessas bordas, e completamente com distância diferente dos outros
+elementos"*.
+
+Os três foram MEDIDOS no renderizado antes e depois, em 430px, com a mesma
+sonda que a v1.3.0 usou para o contraste. Nenhum deles é questão de gosto: os
+três são um número fora do lugar.
+
+### 1. "Trocarver" — dois links sem nada entre eles
+
+`.lv-cifra-rodape` é `display: flex; justify-content: flex-end` **sem `gap`**.
+Os dois botões são links sublinhados, e encostados eles se leem como uma palavra
+só. Medido: **vão de 0px**; agora 17,6px.
+
+**A folga foi para o CONTÊINER, não para um dos botões.** O outro rodapé desta
+mesma aba põe "Esquecer a escolhida" ao lado de "Abrir o site" e tinha o defeito
+idêntico, sem ninguém ter reparado; com a regra no contêiner, um rodapé novo já
+nasce separado.
+
+**O "Trocar" FICA.** Ele é o que a v1.1.25 acrescentou para o pior desfecho
+desta busca — que não é não achar nada, é achar a cifra ERRADA e não ter como
+dizer isso. O que estava errado era a TIPOGRAFIA, não a existência do botão.
+
+### 2. A barra do tom e da rolagem, espremida
+
+`.lyricsview-bar` tinha `margin: 0 .9rem .5rem` — topo ZERO. O que a separava do
+seletor Letra/Bíblia/Cifra era só o `padding-bottom` do seletor.
+
+| | acima | abaixo |
+|---|---|---|
+| antes | 3,2px | 8px |
+| agora | 10,4px | 9,6px |
+
+Ela é a linha que se olha durante a música inteira (é dela que saem o pausar e a
+velocidade da rolagem), e ficar espremida entre duas fileiras de botões é o que
+faz o dedo errar o alvo — a mesma família de armadilha do `--press` da v1.2.27,
+com outra causa.
+
+### 3. O rodapé de Configurações fora do ritmo da folha
+
+MEDIDO, folha de 430px:
+
+| | esquerda | direita | base |
+|---|---|---|---|
+| toda `.fade-row` | 14,4px | 14,4px | — |
+| `.footer-diag` (antes) | 11,2px | 11,2px | 9,6px |
+| `.footer-diag` (agora) | 14,4px | 14,4px | 14,4px |
+
+`.popup-footer` levava `padding: .6rem .7rem`, e `.7rem` não é um número que
+apareça em mais nenhum lugar desta folha — o corpo (`.fade-opts`) usa `.9rem`.
+Três pixels e dois décimos bastam para o olho ver duas colunas onde há uma, que
+é exatamente o que o relato descreve.
+
+`.popup-footer` **existe num lugar só** (o `#fadePopup`), conferido antes de
+mexer: alinhá-lo ao corpo é alinhá-lo a tudo o que está acima dele, sem efeito
+colateral em outra folha.
+
+### Entrega
+
+OTA PURO: nenhum arquivo Kotlin, nenhum `res/`, nenhum workflow. O bundle **não**
+declara `shellTag` — não há Release a esperar —, e o `SHELL_VERSION` continua em
+55. O APK segue na v1.3.0, e o rodapé passa a mostrar `Web v1.3.1 · Shell
+v1.3.0`, que é a resposta certa a "o OTA chegou e o APK não precisou chegar".
 
 ---
 

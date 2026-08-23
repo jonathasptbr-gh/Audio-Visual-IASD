@@ -1,5 +1,13 @@
 [
   {
+    "versao": "1.3.1",
+    "itens": [
+      "Correção: no rodapé da cifra, “Trocar” e “Ver no Cifra Club” estavam colados e se liam como uma palavra só (“Trocarver”). Agora são dois links separados.",
+      "Ajuste: a linha do tom e dos botões de rolagem automática ganhou respiro em cima e embaixo — ela estava espremida contra o seletor de fontes.",
+      "Ajuste: em Configurações, a versão e o Registro estavam mais colados nas bordas que todo o resto da tela. Agora seguem a mesma margem das outras linhas."
+    ]
+  },
+  {
     "versao": "1.3.0",
     "itens": [
       "Correção: a rolagem automática da cifra parava sozinha quando a folha era de uma música aberta pela Biblioteca (o ensaio, sem projetar nada). Bastava subir meio tom, mudar o tamanho da letra ou girar o aparelho — os três redesenham a folha, e a rolagem morria ali, com o ▶ voltando sem aviso.",
