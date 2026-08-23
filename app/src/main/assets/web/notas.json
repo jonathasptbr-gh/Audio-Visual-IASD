@@ -1,18 +1,25 @@
 [
   {
+    "versao": "1.2.14",
+    "itens": [
+      "As cifras guardadas no aparelho passaram a valer para TODA a biblioteca baixada, não só para os dois hinários. O que a procura automática não achar fica registrado com data e é reperguntado em 30 dias — sem isso, dois terços do acervo seriam reperguntados a cada abertura do app.",
+      "A letra dentro da Biblioteca ganhou o botão \"Abrir a folha\": ele abre o MESMO leitor do Controle para aquela música — cifra, tom, tamanho da letra e rolagem automática — sem levar nada ao telão. É a música que o instrumentista quer tocar sem projetar."
+    ]
+  },
+  {
     "versao": "1.2.13",
     "itens": [
-      "O MICROFONE VOLTA A FUNCIONAR. Faltava uma permissão no próprio app \u2014 não no aparelho, não nas suas configurações: o navegador que roda dentro do app exige `MODIFY_AUDIO_SETTINGS` para abrir qualquer captura de áudio, e sem ela toda tentativa falhava, em qualquer configuração. Ela é concedida na instalação, sem nada a autorizar.",
+      "O MICROFONE VOLTA A FUNCIONAR. Faltava uma permissão no próprio app — não no aparelho, não nas suas configurações: o navegador que roda dentro do app exige `MODIFY_AUDIO_SETTINGS` para abrir qualquer captura de áudio, e sem ela toda tentativa falhava, em qualquer configuração. Ela é concedida na instalação, sem nada a autorizar.",
       "É por isso que reconceder a permissão do microfone nunca resolveu: a permissão que aparecia na tela estava certa; a que faltava não aparece em lugar nenhum.",
-      "Instalar o APK v1.2.13 é o conserto \u2014 as versões anteriores não tinham como funcionar.",
-      "E o Registro passou a dizer se o APK instalado já tem essa permissão, para separar \u201ccontinua quebrado\u201d de \u201cé outra coisa\u201d."
+      "Instalar o APK v1.2.13 é o conserto — as versões anteriores não tinham como funcionar.",
+      "E o Registro passou a dizer se o APK instalado já tem essa permissão, para separar “continua quebrado” de “é outra coisa”."
     ]
   },
   {
     "versao": "1.2.12",
     "itens": [
-      "\"O site só tem a LETRA desta música\" virou uma resposta própria, separada de \"não entendi a página\". As duas pediam ações opostas: uma manda investigar, a outra diz que a música não tem cifra no Cifra Club \u2014 e o download do hinário deixa de rebater essas mesmas músicas toda sessão.",
-      "A bateria de testes passou a trazer a FORMA das páginas que não abriram, no resultado dela \u2014 é isso que separa \"o site mudou de marcação\" de \"essa música não tem cifra lá\"."
+      "\"O site só tem a LETRA desta música\" virou uma resposta própria, separada de \"não entendi a página\". As duas pediam ações opostas: uma manda investigar, a outra diz que a música não tem cifra no Cifra Club — e o download do hinário deixa de rebater essas mesmas músicas toda sessão.",
+      "A bateria de testes passou a trazer a FORMA das páginas que não abriram, no resultado dela — é isso que separa \"o site mudou de marcação\" de \"essa música não tem cifra lá\"."
     ]
   },
   {

@@ -116,23 +116,35 @@ try {
     null, { timeout: 30000 },
   );
 
-  // A COLEÇÃO tem de ser uma do CATÁLOGO — é `cifraGuardavel` que decide, e a
-  // regra inteira depende de o endereço ser deduzível.
+  // QUEM GUARDA CIFRA — hoje, todo acervo de MÚSICA (v1.2.14). O corte é o
+  // mesmo do `cifraCabe`: uma SÉRIE é testemunho em vídeo, e procurar cifra
+  // dela é requisição garantidamente perdida.
+  //
+  // `cifraDeduzivel` continua existindo e responde OUTRA pergunta — quantas
+  // requisições custa uma música. Confundir as duas foi o que manteve o
+  // arquivo preso aos dois hinários.
   const guardavel = await pg.evaluate(() => ({
     hinario: cifraGuardavel({ id: 'hymnal-2022' }),
     album: cifraGuardavel({ id: 'qualquer-album' }),
+    serie: cifraGuardavel({ id: 'serie-x', kind: 'serie' }),
+    dedHinario: cifraDeduzivel({ id: 'hymnal-2022' }),
+    dedAlbum: cifraDeduzivel({ id: 'qualquer-album' }),
   }));
-  checar(guardavel.hinario === true, 'o Hinário 2022 é guardável (endereço deduzível)');
-  checar(guardavel.album === false, 'e um álbum comum não é — não há como deduzir o endereço dele');
+  checar(guardavel.hinario === true, 'o Hinário 2022 guarda cifra');
+  checar(guardavel.album === true, 'e um álbum comum TAMBÉM — o arquivo vale para o acervo inteiro');
+  checar(guardavel.serie === false,
+    'mas uma SÉRIE não: é vídeo, e a requisição seria perdida por construção');
+  checar(guardavel.dedHinario === true && guardavel.dedAlbum === false,
+    'e o endereço DEDUZÍVEL continua sendo só o dos hinários — outra pergunta', guardavel);
 
   // O GATILHO EXISTE FORA DO DOWNLOAD (v1.1.30). A v1.1.28 pendurou a busca no
   // fim do `syncCollection` — e um hinário JÁ COMPLETO faz aquela função
   // retornar em "Já completo offline" muito antes do gancho. MEDIDO em dois
   // Registros seguidos: `0 de 601` depois de o operador sincronizar. Quem
-  // remover `syncCifrasHinarios` da rotina de abertura reproduz isso.
-  checar(await pg.evaluate(() => typeof syncCifrasHinarios === 'function'),
+  // remover `syncCifrasAcervo` da rotina de abertura reproduz isso.
+  checar(await pg.evaluate(() => typeof syncCifrasAcervo === 'function'),
     'existe um caminho que NÃO depende de o hinário estar sendo baixado');
-  const naRotina = await pg.evaluate(() => /syncCifrasHinarios\(\)/.test(String(autoRefreshCollections)));
+  const naRotina = await pg.evaluate(() => /syncCifrasAcervo\(\)/.test(String(autoRefreshCollections)));
   checar(naRotina, 'e ele é chamado pela rotina de abertura, ao lado do syncLyrics', naRotina);
 
   // SEMEAR o disco como o download teria deixado.
@@ -269,7 +281,7 @@ try {
       return { status: 200, html: '<h1>X</h1><pre><b>C</b>\nlinha de marcador\n</pre>' };
     };
     const coll = allCollections().find((c) => c.id === 'hymnal-2022');
-    await syncCifrasHinario(coll);
+    await syncCifrasColecao(coll);
     window.__rota = null;
     const disco = (await AVDB.getState('cifras:hymnal-2022')) || {};
     const vals = Object.values(disco);
@@ -285,6 +297,57 @@ try {
   checar(dominada.cifras === 2 && dominada.semCifra === 0,
     'mas uma passada DOMINADA por "só letra" não grava nenhuma: isso não é o acervo '
     + 'sem cifra, é o site tendo mudado de marcação', dominada);
+
+  // ---- A AUSÊNCIA TEM PRAZO, E É ELA QUE TORNA O ACERVO VARRÍVEL (v1.2.14) --
+  //
+  // No hinário toda música existe no site, e "não achei" era sempre defeito
+  // nosso: nada era gravado, e a passada seguinte tentava de novo. No acervo de
+  // álbuns a conta se inverte — MEDIDO na bateria, cerca de dois terços não
+  // estão sob nenhum endereço deduzível. Sem memória, são milhares de
+  // requisições a um site de terceiro EM TODA ABERTURA para redescobrir o mesmo.
+  //
+  // A resposta não é gravar para sempre nem não gravar: é gravar COM DATA.
+  const prazo = await pg.evaluate(async () => {
+    const agora = Date.now();
+    const dia = 24 * 60 * 60 * 1000;
+    return {
+      // Uma FOLHA vale sempre: ela não envelhece, e rebaixá-la seria refazer o
+      // download do acervo inteiro por um relógio.
+      folhaVelha: cifraNoDiscoVale({ pagina: { linhas: [] }, em: agora - 900 * dia }, agora),
+      // Uma ausência RECENTE poupa a cadeia inteira…
+      ausenciaNova: cifraNoDiscoVale({ naoTem: true, em: agora - 3 * dia }, agora),
+      // …e uma VENCIDA volta para a fila: o site pode ter publicado a cifra.
+      ausenciaVelha: cifraNoDiscoVale({ naoTem: true, em: agora - 40 * dia }, agora),
+      soLetraNova: cifraNoDiscoVale({ soLetra: true, em: agora - dia }, agora),
+      soLetraVelha: cifraNoDiscoVale({ soLetra: true, em: agora - 40 * dia }, agora),
+      vazio: cifraNoDiscoVale(null, agora),
+    };
+  });
+  checar(prazo.folhaVelha === true, 'uma folha guardada NÃO vence — ela não envelhece', prazo);
+  checar(prazo.ausenciaNova === true && prazo.ausenciaVelha === false,
+    'uma ausência vale 30 dias e depois volta para a fila: o site pode ter publicado a cifra',
+    prazo);
+  checar(prazo.soLetraNova === true && prazo.soLetraVelha === false,
+    'e "só letra" segue a mesma régua — nenhum veredito nosso vira buraco permanente', prazo);
+  checar(prazo.vazio === false, 'nada guardado é nada guardado');
+
+  // A OUTRA METADE: a ausência guardada RESPONDE, em vez de refazer a cadeia.
+  // Sem isto a aba gasta quatro requisições para chegar à mesma frase que a
+  // varredura já tinha escrito — com o instrumento na mão.
+  const respondeDoDisco = await pg.evaluate(async () => {
+    await AVDB.setState('cifras:hymnal-2022', {
+      [cifraChaveNoDisco('001. Hino Sem Cifra')]: { soLetra: true, url: 'u', em: Date.now() },
+    });
+    cifraDiscoColl = ''; cifraDisco = null;
+    const coll = allCollections().find((c) => c.id === 'hymnal-2022');
+    const antes = window.__nCifraHtml;
+    const r = await cifraProcurar('001. Hino Sem Cifra', coll, 'k', {});
+    return { motivo: r.motivo, via: r.via, rede: window.__nCifraHtml - antes };
+  });
+  checar(respondeDoDisco.motivo === 'so-letra' && respondeDoDisco.via === 'aparelho',
+    'a ausência guardada responde com o motivo que a varredura achou', respondeDoDisco);
+  checar(respondeDoDisco.rede === 0,
+    'e SEM tocar na rede — é o que ela existe para poupar', respondeDoDisco.rede);
 
 } finally {
   await navegador.close();
