@@ -1198,15 +1198,12 @@ mixer (`#lyricsViewBtn`, folha com linhas) abre um bottom-sheet **com scroll**
   com o app. A busca começa quando a música **entra em cena** — não quando a aba
   abre (v1.1.17): assim a folha costuma estar pronta antes de alguém pedir por
   ela. Quem decide se cabe cifra para um item é `cifraCabe`, a MESMA função que
-  a aba usa para se oferecer. **Achando a cifra errada — ou nenhuma — o operador
-  ESCOLHE**: a aba desenha a lista de resultados do site, abre qualquer um em
-  prévia e fixa o endereço escolhido para aquela música (tentativa 0 dali em
-  diante, guardada entre sessões). **O seletor aparece na FALHA**, logo abaixo da
-  frase que diz o motivo — com a folha já aberta não há mais como chamá-lo (o
-  botão "Trocar" do rodapé saiu na v1.3.2, a pedido do operador). O desenho
-  completo — as tentativas (escolha fixada,
-  o que está guardado no aparelho, catálogo, álbum-como-artista, artistas
-  padrão, busca), os quatro motivos de falha, a transposição que preserva a
+  a aba usa para se oferecer. **Ela é SÓ AUTOMÁTICA** (v1.3.3): houve uma busca à
+  mão — lista de resultados, prévia e endereço fixado por música —, e ela saiu a
+  pedido do operador. Achando a cifra errada, a saída é o link "Ver no Cifra
+  Club"; não achando nenhuma, o que aparece é a frase do motivo. O desenho
+  completo — as tentativas (o que está guardado no aparelho, catálogo,
+  álbum-como-artista, artistas padrão, busca), os cinco motivos de falha, a transposição que preserva a
   COLUNA do acorde e por que o parser mora no web e não no Kotlin — está em
   **"A aba de cifra"** no `CLAUDE.md`; a regra em si, em `controle/cifra.js`,
   com oráculo em `tools/cifra.test.mjs`.

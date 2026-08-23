@@ -541,14 +541,6 @@ jobs:
           # devolveria só a linha tocada — o item iria para um destino em vez de
           # dois, sem erro nenhum. Mesma classe de falha muda do `slideLabel`.
           rodar tools/destinos.test.mjs
-          # E O TECLADO NO CAMPO DE BUSCA DA CIFRA. O teclado virtual é um
-          # `resize`, e o `resize` remede a folha — que refaz a aba e destrói o
-          # `<input>` com foco; sem foco o teclado FECHA, e o fechamento é outro
-          # `resize`. Da tela sai um teclado que pisca e some, sem erro nenhum,
-          # e o seletor inteiro fica inalcançável. Ele injeta a PONTE e abre o
-          # popup de verdade: a primeira versão montava o seletor num nó solto e
-          # passava com a guarda REMOVIDA, porque `cifraRemedir` desiste antes.
-          rodar tools/cifra-teclado.test.mjs
           # E A CIFRA GUARDADA NO APARELHO. A promessa é operacional — no sábado,
           # com o Wi-Fi da igreja oscilando, a folha do hinário abre — e ela
           # falha CALADA: sem a leitura do disco o app cai no caminho de rede e,
