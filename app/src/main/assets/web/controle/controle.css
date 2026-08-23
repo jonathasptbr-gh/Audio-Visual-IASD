@@ -238,13 +238,33 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
    outra que está entrando — poluem o conjunto. Quem encolhe é a peça tocada. */
 .lib-item:has(.row-mais:active) { transform: none; }
 .lib-item:has(:is(.hymn-gaveta, .folder-itens) :active) { transform: none; }
+/* ---------- E A REGRA VALE PARA A `.row` DELE TAMBÉM (v1.2.27) ----------
+   Relato do operador: *"ao encolher, as bordas do card de título ficam com uma
+   marca de encolhimento nas laterais direita e esquerda"*.
+
+   `:active` casa também nos ANCESTRAIS, então um toque na linha de uma faixa
+   satisfazia o `.lib-item` E a `.hymn-row` de dentro dele: DOIS `--press` sobre
+   o mesmo dedo, 0,96 × 0,96. MEDIDO com a gaveta aberta, em 430px: o cartão ia
+   a 370px e o título, dentro dele, a 355 — **7px mais estreito de cada lado que
+   a gaveta logo abaixo**, com o branco do `.lib-item` aparecendo nessa fresta.
+
+   É a fresta que o parágrafo acima já nomeia ("o miolo se afastava de uma
+   moldura parada e abria uma fresta dos dois lados"): a v5.267 respondeu a ela
+   fazendo o CARTÃO encolher, e a `.hymn-row` ficou na lista mesmo assim. Com a
+   linha fechada não se via — cartão e linha são a mesma caixa, e as duas pintam
+   `--linha` —, e a gaveta aberta tornou a diferença visível.
+
+   `.hymn-play-thumb` sai pelo motivo irmão: ele DEIXOU DE SER BOTÃO na v5.285
+   (é o anel de download e a coluna que alinha a lista, um `<span>` sem ouvinte)
+   e continuou dando resposta de toque — um terceiro encolhimento, de uma peça
+   que não recebe o dedo. */
 :is(
   .ctl-btn, .t-btn, .pv-fab, .settings-btn,
   .tab, .tab-add, .import-btn, .back-btn, .sel-btn,
   .row-btn, .popup-close, .new-folder-btn,
   .coll-bar-dl, .coll-group-btn, .coll-more-btn,
   .bible-cell, .bible-ref-part, .bible-vsec, .bible-ver-row,
-  .hymn-row, .hymn-play-thumb, .song-menu-btn, .msg-add-btn, .msg-item,
+  .song-menu-btn, .msg-add-btn, .msg-item,
   .misc-tab, .misc-seg, .misc-chip, .chrono-btn, .misc-project, .draw-go,
   .fit-opt, .dialog-btn, .lib-item, .coll-group-acao,
   .cue-save-btn, .pl-pack, .yt-search-btn, .log-copy, .hino-indice-chip,

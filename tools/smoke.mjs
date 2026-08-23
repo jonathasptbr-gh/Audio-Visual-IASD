@@ -2016,6 +2016,52 @@ try {
     await pg.mouse.up();
     return durante;
   })();
+  // ===== E UM TOQUE, UM ENCOLHIMENTO SÓ (v1.2.27) =====
+  //
+  // Relato do operador: *"ao encolher, as bordas do card de título ficam com uma
+  // marca de encolhimento nas laterais direita e esquerda"*. `:active` casa
+  // também nos ANCESTRAIS, então o toque na linha satisfazia o `.lib-item` E a
+  // `.hymn-row` de dentro: dois `--press` sobre o mesmo dedo, e o título ficava
+  // 7px mais estreito de cada lado que a gaveta logo abaixo, com o branco do
+  // cartão aparecendo nessa fresta.
+  //
+  // A asserção é a FRESTA, medida em pixels durante uma pressão de verdade:
+  // linha e gaveta são o mesmo bloco, então as bordas das duas têm de coincidir.
+  // Comparar `transform` não serviria — o `none` da linha seria satisfeito
+  // também por um cartão que parasse de encolher, que é outro desenho.
+  const pressLinha = await (async () => {
+    const cx = await pg.evaluate(() => {
+      const r2 = window.__gaveta.li.querySelector('.hymn-row').getBoundingClientRect();
+      return { x: Math.round(r2.left + r2.width / 2), y: Math.round(r2.top + r2.height / 2) };
+    });
+    await pg.mouse.move(cx.x, cx.y);
+    await pg.mouse.down();
+    const durante = await pg.evaluate(() => {
+      const li = window.__gaveta.li;
+      const cx2 = (el) => {
+        const r2 = el.getBoundingClientRect();
+        return { l: Math.round(r2.left), r: Math.round(r2.right), w: Math.round(r2.width) };
+      };
+      return {
+        cartao: cx2(li),
+        linha: cx2(li.querySelector('.hymn-row')),
+        gaveta: cx2(li.querySelector('.hymn-gaveta')),
+        // E O CARTÃO ENCOLHE MESMO: sem isto, "nada encolhe" passaria — e o
+        // feedback de toque teria sumido em vez de ficar inteiro.
+        encolheu: getComputedStyle(li).transform,
+      };
+    });
+    await pg.mouse.up();
+    return durante;
+  })();
+  checar(pressLinha.linha.l === pressLinha.gaveta.l
+    && pressLinha.linha.r === pressLinha.gaveta.r,
+    'o toque na LINHA encolhe o cartão INTEIRO, sem abrir fresta entre o título '
+    + 'e a gaveta — eram dois `--press` no mesmo dedo (0,96 × 0,96)',
+    JSON.stringify(pressLinha));
+  checar(pressLinha.encolheu !== 'none' && pressLinha.cartao.w > 0,
+    'e o cartão ENCOLHE de verdade: o feedback ficou inteiro, não sumiu',
+    JSON.stringify(pressLinha));
   await pg.evaluate(() => {
     window.__gaveta.lista.remove();
     delete window.__gaveta;

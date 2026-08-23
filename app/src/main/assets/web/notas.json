@@ -1,5 +1,11 @@
 [
   {
+    "versao": "1.2.27",
+    "itens": [
+      "Correção visual: tocar no título de uma música com a gaveta aberta encolhia o cartão DUAS vezes, e o título ficava alguns pixels mais estreito que a gaveta logo abaixo — abrindo uma fresta branca nas laterais. Agora o cartão encolhe inteiro, de uma vez só."
+    ]
+  },
+  {
     "versao": "1.2.26",
     "itens": [
       "Correção: abrindo a folha de letra/cifra a partir de um item da Biblioteca, ela aparecia ATRÁS da Biblioteca, na tela principal. Agora ela abre por cima, e o botão voltar a fecha primeiro."

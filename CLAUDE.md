@@ -2429,6 +2429,16 @@ Um contêiner que hospeda um controle responde por **PREENCHIMENTO**
 do card morar no `<li>` em vez de na barra: aquela correção salvou o alvo da
 BARRA e deixou de pé o do botão que mora dentro dela.
 
+**E DOIS `--press` NO MESMO DEDO ABREM UMA FRESTA** (v1.2.27). `:active` casa
+também nos ANCESTRAIS: um elemento e o contêiner dele na MESMA lista aplicam
+0,96 × 0,96, e o de dentro fica visivelmente mais estreito que os irmãos do de
+fora. MEDIDO na linha de uma faixa com a gaveta aberta: o cartão a 370px e o
+título, dentro dele, a 355 — 7px de fresta de cada lado, com o fundo do cartão
+aparecendo nela. **Numa lista quem encolhe é o CARTÃO INTEIRO**, nunca a `.row`
+de dentro; o `.hymn-play-thumb` saiu junto porque deixou de ser botão na v5.285
+e continuou dando resposta de toque. Antes de pôr uma classe na lista, pergunte
+se um ancestral dela já está lá.
+
 ### A escada de camadas
 
 - **A superfície AFUNDA dentro de um cartão** (regra no topo de `controle.css`).
@@ -3318,7 +3328,7 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: v1.2.26** (base web) · **v1.2.17** (APK) · `SHELL_VERSION` **55** · bundle com
+**Versão atual: v1.2.27** (base web) · **v1.2.17** (APK) · `SHELL_VERSION` **55** · bundle com
 `minShell: 55` — o shell 55 é o **PISO**: todo método da ponte existe, e não há
 guarda de versão no lado web. O que continua valendo é que `java/`, `res/`, o
 manifest e os workflows **só chegam instalando o APK**.
