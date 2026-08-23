@@ -24,7 +24,8 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
-- **v1.2.17** — DUAS REGRAS QUE DISCORDAVAM DE SI MESMAS, e as duas erravam CALADAS. (1) O AUXILIAR DE LEITURA DIZIA QUE NENHUMA MÚSICA TEM LETRA: a v1.2.14 deu parâmetros ao `openLyricsPopup(item, fonte)` e o ouvinte do botão do transporte continuou registrado POR REFERÊNCIA — `addEventListener` chama com o EVENTO, e o `PointerEvent` virou o `lvAlvo`, o desvio que aquele mesmo lote criou. `lvItem().lyrics` era `undefined`, `cifraCabe` recusava e `lvNaCena()` virava falso: as TRÊS fontes sumiam de uma vez e a folha abria com "Nada em exibição com letra ou texto bíblico". Os três oráculos que já abriam essa folha chamam a função DIRETO — o único caminho que continuava funcionando —, e o novo CLICA. (2) O INFORMATIVO ESCONDIA O EPISÓDIO DO SÁBADO DESTA SEMANA em três dos sete dias dela: `sabadoDaSemana` abre a semana no DOMINGO (é a semana adventista) e `DIAS_DE_ANTECEDENCIA` só abria a janela na QUARTA. O destaque do topo declarava "o desta semana" um episódio que a lista logo abaixo tinha escondido, e dizia "Aguardando lançamento" sobre um vídeo já liberado pelo canal — relatado num DOMINGO, com o vídeo conferido na fonte. `aindaNaoSaiu` passa a DELEGAR em `ehDoSabadoAtual`: os três dias viram PISO das semanas seguintes, que continuam escondidas. OTA PURO
+- **v1.2.18** — DUAS REGRAS QUE DISCORDAVAM DE SI MESMAS, e as duas erravam CALADAS. (1) O AUXILIAR DE LEITURA DIZIA QUE NENHUMA MÚSICA TEM LETRA: a v1.2.14 deu parâmetros ao `openLyricsPopup(item, fonte)` e o ouvinte do botão do transporte continuou registrado POR REFERÊNCIA — `addEventListener` chama com o EVENTO, e o `PointerEvent` virou o `lvAlvo`, o desvio que aquele mesmo lote criou. `lvItem().lyrics` era `undefined`, `cifraCabe` recusava e `lvNaCena()` virava falso: as TRÊS fontes sumiam de uma vez e a folha abria com "Nada em exibição com letra ou texto bíblico". Os três oráculos que já abriam essa folha chamam a função DIRETO — o único caminho que continuava funcionando —, e o novo CLICA. (2) O INFORMATIVO ESCONDIA O EPISÓDIO DO SÁBADO DESTA SEMANA em três dos sete dias dela: `sabadoDaSemana` abre a semana no DOMINGO (é a semana adventista) e `DIAS_DE_ANTECEDENCIA` só abria a janela na QUARTA. O destaque do topo declarava "o desta semana" um episódio que a lista logo abaixo tinha escondido, e dizia "Aguardando lançamento" sobre um vídeo já liberado pelo canal — relatado num DOMINGO, com o vídeo conferido na fonte. `aindaNaoSaiu` passa a DELEGAR em `ehDoSabadoAtual`: os três dias viram PISO das semanas seguintes, que continuam escondidas. OTA PURO
+- **v1.2.17** — O RECADO SAIU, E O MICROFONE VOLTOU A SER UM SISTEMA SÓ. Ele nasceu (v1.1.26, shell 50) para cobrir os modelos SEM TV, onde o microfone AO VIVO não abria — e a razão de não abrir era um defeito NOSSO, `MODIFY_AUDIO_SETTINGS` fora do manifest, consertado na v1.2.13. Consertada a causa, o que restava do recado era um SEGUNDO caminho que INTERROMPE a cena (o motor tem um slot) para dizer o que o primeiro diz sem interromper nada — e que trazia junto a classe de defeito mais cara dele: o fim do recado caindo no `autoAdvance`, com `repeat one` repetindo a voz do operador e `repeat all` recomeçando a playlist do zero. Saiu com ele a concessão de áudio do `ControleChromeClient`, que existia só para ele (comentário que se justificava por um recurso removido é o convite exato para o próximo leitor reintroduzi-lo). O `mic-escada.test.mjs` guardava um PAR de escadas; com uma só, as asserções de PAREAMENTO saíram e ficaram as de PROPRIEDADE — mais uma que é nova: o Controle não abre captura nenhuma. DUAS LACUNAS FECHADAS no caminho que ficou: ele não registrava a permissão negada (o recado registrava) e não contava as entradas de áudio (a falha chega por `mic-status`, sem lista). EXIGE RELEASE v1.2.17
 - **v1.2.16** — RECUSAR NÃO PODIA SIGNIFICAR REFAZER, e por isso a varredura recomeçava do zero a cada abertura. A aritmética do Registro do operador provou: `282 ok + 10 não achei + 309 por varrer = 601`, e NENHUMA "só letra" gravada — enquanto a bateria achava `so-letra` nos mesmos hinos. As 309 foram julgadas e o TETO as recusou em bloco (309 > 34% de 601), como ele deve; só que nada era gravado e tudo voltava na sessão seguinte, ~900 requisições, para sempre, sem uma linha na tela dizendo que aquilo tinha sido julgado. Agora a passada tem DIÁRIO, o Registro imprime o motivo e a coleção fica 7 dias em prazo. Junto: o operador conferiu à mão que o hinário novo tem 100% das cifras no site — logo o `so-letra` está ERRADO ali —, e o veredito deixou de ser poupado da radiografia na bateria. E o REGISTRO virou arquivo: `salvarTexto` (SAF) grava um `.txt`, porque copiar e colar corta o texto no meio sem avisar. **EXIGE RELEASE v1.2.16**: shell 54 → 55
 - **v1.2.15** — A VARREDURA DO HINÁRIO GASTAVA QUATRO REQUISIÇÕES PARA UMA RESPOSTA QUE A PRIMEIRA JÁ TINHA DADO. MEDIDO no primeiro Registro do acervo inteiro: um hino cujo endereço do CATÁLOGO respondeu "o site só tem a letra" seguia para o álbum-como-artista e os dois artistas padrão — três 404 certos — antes de concluir o mesmo. O catálogo é AUTORIDADE sobre o hinário: aquela é a página daquele hino, e a procura acaba ali (num álbum não, porque a música pode estar cifrada sob outro artista). Junto: o nome de um hinário deixa de ser adivinhado como artista (`/hinario-adventista-2022/` não existe — 404 por hino, 601 vezes). E o Registro passou a NOMEAR os hinos não achados: ali toda música existe no site, então cada nome é a nossa regra de slug errando. OTA PURO
 - **v1.2.14** — O ARQUIVO DE CIFRAS VALE PARA A BIBLIOTECA INTEIRA, e a folha deixou de ser de quem está no ar. (1) O que era só dos dois hinários passa a valer para todo acervo de MÚSICA baixado — o que separava um álbum de um hinário era o CUSTO (uma requisição contra a cadeia deduzível inteira), nunca o direito. A varredura pula a busca do site, MEDIDA em zero, e o que ela não acha fica gravado COM DATA: no acervo de álbuns dois terços não estão sob nenhum endereço deduzível, e sem memória isso são milhares de requisições a um site de terceiro em toda abertura. Uma folha não vence; uma ausência volta para a fila em 30 dias, e falha de rede continua não gravando nada. (2) A gaveta da Biblioteca ganhou **"Abrir a folha"**: o MESMO leitor do Controle apontado para aquela faixa — cifra, tom, corpo e rolagem — sem levar NADA ao telão. Ler deixou de exigir projetar. O relógio e o destaque continuam sendo da CENA: com o alvo noutra música, seguir o tempo do que está tocando não erra alto, *parece* funcionar. OTA PURO
@@ -246,7 +247,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ---
 
-## v1.2.17 — o leitor sem letra, e o sábado que a lista escondia
+## v1.2.18 — o leitor sem letra, e o sábado que a lista escondia
 
 Dois relatos do operador no mesmo dia, e as duas causas têm a mesma forma: **uma
 regra que discorda de outra regra do mesmo arquivo, sem nada na tela que o
@@ -328,6 +329,94 @@ guardado no IndexedDB sobreviveria à correção, que é o defeito da v5.233.
 **Um caso do `serie.test.mjs` mudou de veredito** (o que exigia o episódio
 ausente na terça), e a supersessão está escrita no próprio oráculo para ninguém
 "consertá-lo" de volta.
+
+---
+
+## v1.2.17 — o recado saiu, e o microfone voltou a ser um sistema só
+
+> *"o microfone funcionou, ainda há um pouco de falha de estabilidade, mas
+> funciona. o sistema de mensagens também funcionou, mas não foi muito eficaz,
+> então pode remover esse método e focar no sistema do microfone"*
+
+O Registro do aparelho, com o APK v1.2.13 instalado:
+
+```
+Microfone (última tentativa)
+recado · 14:04:48 · ABRIU
+  com eco: abriu
+  entradas de áudio que o navegador enxerga: 4
+```
+
+**Abriu no PRIMEIRO degrau** — e as entradas passaram de `1` para `4`
+(`Speakerphone`, `Headset earpiece`, `Bluetooth headset`), porque
+`getCommunicationDevices()` é guardada pela mesma permissão que faltava. É a
+confirmação independente do diagnóstico da v1.2.13.
+
+### Por que o recado deixou de ter razão de existir
+
+Ele nasceu (v1.1.26, shell 50) de uma premissa: *"o ao vivo só funciona com TV,
+e é uma consequência da arquitetura, não um ajuste que falta"*. A primeira
+metade era verdade; a segunda não. **O ao vivo não abria em lugar nenhum** — nem
+com TV —, e a causa era `MODIFY_AUDIO_SETTINGS` fora do manifest. Consertada
+ela, o recado virou um segundo caminho que INTERROMPE a cena para dizer o que o
+primeiro diz sem interromper nada.
+
+E ele trazia junto a instabilidade que o operador notou. Na linha do tempo dele:
+
+```
+14:04:44  recado ao ar (2s) · entrou em cena: Recado 14:04 · play 0s
+14:04:45  PAUSA ESPONTÂNEA 1s · play 0s · PAUSA ESPONTÂNEA 0s
+```
+
+O recado é um item de mídia comum, então ele derruba a cena, disputa foco de
+áudio com o que estava tocando e volta pelo caminho de reconexão. Nada disso
+existe num microfone que só abre um `GainNode`.
+
+### O que saiu junto, e por quê
+
+| o quê | por quê |
+|---|---|
+| a concessão de áudio do `ControleChromeClient` | existia SÓ para o recado. Uma guarda que se justifica por um recurso removido é o convite exato para o próximo leitor reintroduzi-lo — a lição da v5.299/v5.300 |
+| o bloco do recado no `boot-nativo.test.mjs` | mede um percurso que não existe |
+| as asserções de PAREAMENTO do `mic-escada.test.mjs` | guardar a igualdade de um par de um só é medir nada |
+
+**O `onPermissionRequest` do Controle NÃO foi apagado** — ele volta a negar
+tudo, com log. Um WebView sem ele nega **em silêncio**, e o próximo que precisar
+de mídia ali descobriria a armadilha do zero.
+
+### As duas lacunas que a remoção abriu — e que este lote fecha
+
+O recado captava no Controle, então ele **sabia** coisas que o caminho ao vivo
+não sabe. Removê-lo sem isto teria feito o diagnóstico regredir em silêncio:
+
+1. **A permissão negada não era registrada.** O `requestMic()` do ao vivo
+   respondendo `false` sai ANTES de qualquer captura — o telão não emite
+   `mic-status` nenhum, e o bloco do Registro ficaria sem uma linha sequer sobre
+   a tentativa. É exatamente o estado mudo que aquele bloco existe para acabar.
+2. **A contagem de entradas sumia.** O ao vivo capta no TELÃO e a falha chega por
+   `mic-status`, sem lista de dispositivos. Mas é essa contagem que separa
+   *"não abre"* de *"não existe"* — dois vereditos que pedem ações opostas. Agora
+   o `micRegistrar` enumera sozinho quando quem registrou não trouxe lista:
+   leitura pura, e os dois WebViews são o MESMO aparelho, logo a lista do
+   Controle vale pela do telão.
+
+As duas provadas por reversão.
+
+### O oráculo passou a medir o app em vez de um consumidor que saiu
+
+O `registro.test.mjs` dirigia o bloco do microfone **pelo botão do recado**,
+forjando o `getUserMedia` local. Com o recado fora, ele dirige por
+`mic-status` num `BroadcastChannel` separado — que não é só o que restou: é o
+caminho de VERDADE do único microfone que existe hoje.
+
+Ele precisou de uma coisa a mais para não medir a si mesmo: o `micRegistrar` do
+ao vivo só dispara na TRANSIÇÃO do erro (o telão reemite `mic-status`, e repetir
+a mesma recusa encheria a linha do tempo). Sem zerar o erro entre cenários, o
+segundo seria engolido e as asserções passariam medindo o resultado do primeiro.
+
+EXIGE RELEASE v1.2.17 — `SHELL_VERSION` fica em **55** (a superfície da ponte
+não mudou), mas o `MainActivity` mudou, e Kotlin **só chega instalando APK**. O
+`shellTag` segura o bundle para as duas metades chegarem como UMA pergunta.
 
 ---
 

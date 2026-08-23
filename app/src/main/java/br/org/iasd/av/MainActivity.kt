@@ -1623,60 +1623,35 @@ class MainActivity : ComponentActivity(), BridgeHost {
         }
 
         /**
-         * O WebView do Controle recebe **áudio, e só áudio** — câmera, MIDI e
-         * proteção de conteúdo continuam negados, um a um.
+         * O WebView do Controle **não recebe mídia nenhuma** — áudio, câmera,
+         * MIDI e proteção de conteúdo, todos negados, com log.
          *
-         * O ÁUDIO ENTROU NO SHELL 50, pelo RECADO (o microfone estilo
-         * walkie-talkie): gravar exige `MediaRecorder`, que exige um
-         * `MediaStream`, que exige `getUserMedia` — e um WebView cujo
-         * `onPermissionRequest` nega não tem nenhum dos três. O telão não
-         * servia para gravar porque ele **só existe com TV conectada**
-         * (`syncPresentation`), e o recado precisa funcionar justamente onde
-         * não há TV.
+         * O ÁUDIO ESTEVE AQUI (shell 50 → 54), pelo RECADO — o microfone
+         * estilo walkie-talkie, que gravava neste WebView porque o telão só
+         * existe com TV conectada e o recado precisava funcionar sem TV. O
+         * recado saiu na v1.2.17: o motivo de ele existir era que o microfone
+         * AO VIVO não abria sem TV, e isso acabou sendo um defeito NOSSO
+         * (`MODIFY_AUDIO_SETTINGS` fora do manifest), não uma limitação.
+         * Sem o recado, nada neste WebView pede captura — e uma concessão que
+         * ninguém usa é superfície pela qual não se paga nada em troca.
          *
-         * AS TRÊS REGRAS SÃO AS DO [MicChromeClient], deliberadamente as
-         * mesmas: só `RESOURCE_AUDIO_CAPTURE`, só com `RECORD_AUDIO` no
-         * processo (conceder ao WebView o que o processo não tem adia a falha
-         * para um ponto sem sinal) e só da PRÓPRIA origem. Duas
-         * implementações da mesma política divergiriam no primeiro
-         * esquecimento, então esta chama a daquele.
-         *
-         * O QUE ISSO NÃO AFROUXA, e é a pergunta que este KDoc existia para
-         * responder: este é o WebView com `host != null`, o que injeta
-         * `pickFolder`, `listFolder`, `openExternal` e `espelhoLigar`. A guarda
-         * de ORIGEM é o que separa uma coisa da outra — só
-         * `appassets.androidplatform.net` recebe, e a invariante 2 já impede
-         * este WebView de navegar para qualquer outro host. Um script de
-         * terceiro aqui não ganha microfone porque não consegue estar aqui.
+         * A CAPTURA SEGUE EXISTINDO, no [MicChromeClient], que é o WebView do
+         * telão: é lá que o microfone ao vivo sempre foi aberto, e é lá que as
+         * três regras (só `RESOURCE_AUDIO_CAPTURE`, só com `RECORD_AUDIO` no
+         * processo, só da própria origem) continuam valendo.
          *
          * ELE NÃO PODE SER REMOVIDO por parecer inútil: um WebView sem
-         * `onPermissionRequest` nega EM SILÊNCIO — o que daria o mesmo
-         * resultado para a câmera e mataria o recado sem erro no console.
+         * `onPermissionRequest` nega **em silêncio**, e o próximo que precisar
+         * de mídia aqui descobriria a armadilha do zero — é a mesma razão pela
+         * qual ele existia antes do shell 50, negando tudo.
          */
         override fun onPermissionRequest(request: PermissionRequest) {
-            val origem = request.origin?.toString()?.trimEnd('/')
-            val audio = request.resources.filter {
-                it == PermissionRequest.RESOURCE_AUDIO_CAPTURE
-            }
-            val negados = request.resources.filter {
-                it != PermissionRequest.RESOURCE_AUDIO_CAPTURE
-            }
-            if (negados.isNotEmpty()) {
-                Log.w(TAG, "permissão negada ao Controle ($origem): ${negados.joinToString()}")
-            }
-            if (audio.isEmpty() ||
-                !MicChromeClient.hasRecordAudio(this@MainActivity) ||
-                (origem != null && origem != WebViewFactory.ORIGIN)
-            ) {
-                Log.w(
-                    TAG,
-                    "áudio negado ao Controle ($origem): " +
-                        "pedido=${request.resources.joinToString()}",
-                )
-                request.deny()
-                return
-            }
-            request.grant(audio.toTypedArray())
+            Log.w(
+                TAG,
+                "mídia negada ao Controle (${request.origin}): " +
+                    request.resources.joinToString(),
+            )
+            request.deny()
         }
 
         override fun onShowCustomView(view: View, callback: CustomViewCallback) {

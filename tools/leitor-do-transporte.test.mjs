@@ -4,7 +4,7 @@
 //
 // ## O defeito que ele trava
 //
-// Relato do operador (v1.2.17): *"o sistema não identifica que há letra nenhuma
+// Relato do operador (v1.2.18): *"o sistema não identifica que há letra nenhuma
 // para o auxiliar de leitura"*.
 //
 // A v1.2.14 deu parâmetros ao `openLyricsPopup(item, fonte)` para a Biblioteca
