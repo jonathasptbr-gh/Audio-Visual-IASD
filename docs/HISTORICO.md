@@ -24,7 +24,9 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
-- **v1.2.15** — DUAS REGRAS QUE DISCORDAVAM DE SI MESMAS, e as duas erravam CALADAS. (1) O AUXILIAR DE LEITURA DIZIA QUE NENHUMA MÚSICA TEM LETRA: a v1.2.14 deu parâmetros ao `openLyricsPopup(item, fonte)` e o ouvinte do botão do transporte continuou registrado POR REFERÊNCIA — `addEventListener` chama com o EVENTO, e o `PointerEvent` virou o `lvAlvo`, o desvio que aquele mesmo lote criou. `lvItem().lyrics` era `undefined`, `cifraCabe` recusava e `lvNaCena()` virava falso: as TRÊS fontes sumiam de uma vez e a folha abria com "Nada em exibição com letra ou texto bíblico". Os três oráculos que já abriam essa folha chamam a função DIRETO — o único caminho que continuava funcionando —, e o novo CLICA. (2) O INFORMATIVO ESCONDIA O EPISÓDIO DO SÁBADO DESTA SEMANA em três dos sete dias dela: `sabadoDaSemana` abre a semana no DOMINGO (é a semana adventista) e `DIAS_DE_ANTECEDENCIA` só abria a janela na QUARTA. O destaque do topo declarava "o desta semana" um episódio que a lista logo abaixo tinha escondido, e dizia "Aguardando lançamento" sobre um vídeo já liberado pelo canal — relatado num DOMINGO, com o vídeo conferido na fonte. `aindaNaoSaiu` passa a DELEGAR em `ehDoSabadoAtual`: os três dias viram PISO das semanas seguintes, que continuam escondidas. OTA PURO
+- **v1.2.17** — DUAS REGRAS QUE DISCORDAVAM DE SI MESMAS, e as duas erravam CALADAS. (1) O AUXILIAR DE LEITURA DIZIA QUE NENHUMA MÚSICA TEM LETRA: a v1.2.14 deu parâmetros ao `openLyricsPopup(item, fonte)` e o ouvinte do botão do transporte continuou registrado POR REFERÊNCIA — `addEventListener` chama com o EVENTO, e o `PointerEvent` virou o `lvAlvo`, o desvio que aquele mesmo lote criou. `lvItem().lyrics` era `undefined`, `cifraCabe` recusava e `lvNaCena()` virava falso: as TRÊS fontes sumiam de uma vez e a folha abria com "Nada em exibição com letra ou texto bíblico". Os três oráculos que já abriam essa folha chamam a função DIRETO — o único caminho que continuava funcionando —, e o novo CLICA. (2) O INFORMATIVO ESCONDIA O EPISÓDIO DO SÁBADO DESTA SEMANA em três dos sete dias dela: `sabadoDaSemana` abre a semana no DOMINGO (é a semana adventista) e `DIAS_DE_ANTECEDENCIA` só abria a janela na QUARTA. O destaque do topo declarava "o desta semana" um episódio que a lista logo abaixo tinha escondido, e dizia "Aguardando lançamento" sobre um vídeo já liberado pelo canal — relatado num DOMINGO, com o vídeo conferido na fonte. `aindaNaoSaiu` passa a DELEGAR em `ehDoSabadoAtual`: os três dias viram PISO das semanas seguintes, que continuam escondidas. OTA PURO
+- **v1.2.16** — RECUSAR NÃO PODIA SIGNIFICAR REFAZER, e por isso a varredura recomeçava do zero a cada abertura. A aritmética do Registro do operador provou: `282 ok + 10 não achei + 309 por varrer = 601`, e NENHUMA "só letra" gravada — enquanto a bateria achava `so-letra` nos mesmos hinos. As 309 foram julgadas e o TETO as recusou em bloco (309 > 34% de 601), como ele deve; só que nada era gravado e tudo voltava na sessão seguinte, ~900 requisições, para sempre, sem uma linha na tela dizendo que aquilo tinha sido julgado. Agora a passada tem DIÁRIO, o Registro imprime o motivo e a coleção fica 7 dias em prazo. Junto: o operador conferiu à mão que o hinário novo tem 100% das cifras no site — logo o `so-letra` está ERRADO ali —, e o veredito deixou de ser poupado da radiografia na bateria. E o REGISTRO virou arquivo: `salvarTexto` (SAF) grava um `.txt`, porque copiar e colar corta o texto no meio sem avisar. **EXIGE RELEASE v1.2.16**: shell 54 → 55
+- **v1.2.15** — A VARREDURA DO HINÁRIO GASTAVA QUATRO REQUISIÇÕES PARA UMA RESPOSTA QUE A PRIMEIRA JÁ TINHA DADO. MEDIDO no primeiro Registro do acervo inteiro: um hino cujo endereço do CATÁLOGO respondeu "o site só tem a letra" seguia para o álbum-como-artista e os dois artistas padrão — três 404 certos — antes de concluir o mesmo. O catálogo é AUTORIDADE sobre o hinário: aquela é a página daquele hino, e a procura acaba ali (num álbum não, porque a música pode estar cifrada sob outro artista). Junto: o nome de um hinário deixa de ser adivinhado como artista (`/hinario-adventista-2022/` não existe — 404 por hino, 601 vezes). E o Registro passou a NOMEAR os hinos não achados: ali toda música existe no site, então cada nome é a nossa regra de slug errando. OTA PURO
 - **v1.2.14** — O ARQUIVO DE CIFRAS VALE PARA A BIBLIOTECA INTEIRA, e a folha deixou de ser de quem está no ar. (1) O que era só dos dois hinários passa a valer para todo acervo de MÚSICA baixado — o que separava um álbum de um hinário era o CUSTO (uma requisição contra a cadeia deduzível inteira), nunca o direito. A varredura pula a busca do site, MEDIDA em zero, e o que ela não acha fica gravado COM DATA: no acervo de álbuns dois terços não estão sob nenhum endereço deduzível, e sem memória isso são milhares de requisições a um site de terceiro em toda abertura. Uma folha não vence; uma ausência volta para a fila em 30 dias, e falha de rede continua não gravando nada. (2) A gaveta da Biblioteca ganhou **"Abrir a folha"**: o MESMO leitor do Controle apontado para aquela faixa — cifra, tom, corpo e rolagem — sem levar NADA ao telão. Ler deixou de exigir projetar. O relógio e o destaque continuam sendo da CENA: com o alvo noutra música, seguir o tempo do que está tocando não erra alto, *parece* funcionar. OTA PURO
 - **v1.2.13** — A PERMISSÃO QUE FALTAVA ERA NOSSA, E NÃO ERA A DO MICROFONE. Cinco rodadas acusaram o aparelho (espelhamento, interruptor de privacidade, processamento, Auto Blocker); a causa estava no `AndroidManifest.xml` deste repositório. O Chromium DE DENTRO DO WEBVIEW exige `MODIFY_AUDIO_SETTINGS` do app HOSPEDEIRO: `AudioManagerAndroid.hasPermission()` consulta o `checkSelfPermission` DELE, `setCommunicationDevice()` devolve `false` sem ela, e `MakeLowLatencyInputStream` devolve `nullptr` — que vira `STREAM_CREATE_ERROR` e chega ao JS como `NotReadableError`. Conferido VERBATIM no fonte do Chromium, incluindo o desvio (`AAudioPerStreamDeviceSelection`) travado atrás de `is_desktop()`. Ela é `protectionLevel="normal"`: concedida na instalação, INVISÍVEL na tela de permissões — por isso quatro rodadas olharam para a permissão errada, que estava concedida com toda a razão. Mais: `MODE_FOREGROUND` ganhou ramo próprio no `MicDiag` (era o desfecho MAIS provável e saía como "modo 4", lido como bloqueio), e o campo `modAudio` responde "o APK instalado já tem o conserto?". EXIGE RELEASE v1.2.13
 - **v1.2.12** — "O SITE SÓ TEM A LETRA" VIROU UMA RESPOSTA, e ela era a metade que faltava do `ilegivel`. MEDIDO na primeira bateria de testes: ~12 das 85 falhas eram endereços que EXISTEM, respondendo 200 com centenas de kB e nenhum `<pre>` — o Cifra Club tem a LETRA daquela música e não a cifra. Chamar isso de "não entendi a página" é falso nos dois sentidos: manda investigar um parser que está certo, e faz o download do hinário rebater a mesma música toda sessão, para sempre. O novo veredito é GRAVADO — e por isso tem DUAS defesas: ele exige um marcador POSITIVO (responder pela ausência de `<pre>` faria uma mudança de marcação do site apagar o acervo inteiro) e um TETO por passada (uma música sem cifra é um fato; um terço do hinário de uma vez é o site tendo mudado). Mais: a bateria passou a trazer a FORMA das páginas que não abriram, no resultado dela — é isso que separa as duas hipóteses. OTA PURO
@@ -244,7 +246,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ---
 
-## v1.2.15 — o leitor sem letra, e o sábado que a lista escondia
+## v1.2.17 — o leitor sem letra, e o sábado que a lista escondia
 
 Dois relatos do operador no mesmo dia, e as duas causas têm a mesma forma: **uma
 regra que discorda de outra regra do mesmo arquivo, sem nada na tela que o
@@ -326,6 +328,103 @@ guardado no IndexedDB sobreviveria à correção, que é o defeito da v5.233.
 **Um caso do `serie.test.mjs` mudou de veredito** (o que exigia o episódio
 ausente na terça), e a supersessão está escrita no próprio oráculo para ninguém
 "consertá-lo" de volta.
+
+---
+
+## v1.2.16 — recusar não podia significar refazer
+
+O operador relatou que a varredura "segue tentando rebaixar e reverificar tudo
+novamente". A aritmética do Registro dele prova o mecanismo em uma linha:
+
+```
+Hinário Adventista 2022: 282 de 601 · 10 não achei · 309 por varrer
+```
+
+`282 + 10 + 309 = 601`, e **nenhuma "só letra"** — enquanto a bateria, no mesmo
+aparelho, devolvia `so-letra` para hinos daquele hinário. As 309 FORAM julgadas;
+o teto (`CIFRA_SO_LETRA_TETO`, 34%) as recusou em bloco, exatamente como deve —
+uma passada dominada por aquele veredito é o site tendo mudado, não o acervo sem
+cifra. Só que **nada era gravado, e nada registrava a recusa**: na abertura
+seguinte as mesmas 309 voltavam à fila, com as mesmas ~900 requisições, para
+sempre.
+
+O teto estava certo e o laço era mudo. Agora:
+
+- a passada tem **diário** (`cifras-passada:<id>`: tentadas, achadas, recusadas);
+- o Registro imprime o motivo por extenso, com a data e quantos dias faltam;
+- a coleção recusada fica em **prazo de 7 dias** — curto o bastante para um
+  conserto do `cifra.js` chegar por OTA e a varredura retomar sozinha, longo o
+  bastante para o laço não custar nada enquanto isso.
+
+### E o veredito é o suspeito, não o acervo
+
+O operador conferiu à mão: **o Hinário 2022 tem 100% das cifras no site.** Logo o
+`so-letra` está errado ali — ou o endereço não leva à página que supomos, ou
+aquela marcação não significa o que supusemos. As duas hipóteses só se separam
+VENDO a página, e a bateria era justamente quem não a mostrava: `so-letra` era
+poupado da radiografia porque "já se sabia o que a página era". Essa certeza
+caiu, e a radiografia passa a valer para os dois vereditos.
+
+### O Registro virou arquivo
+
+Com o acervo inteiro varrido ele passou de setenta linhas só na seção de cifras,
+e o caminho de sempre — copiar e colar — é o que **corta o texto no meio sem
+avisar**. `AVNative.salvarTexto` abre o "Salvar como" do sistema e o SHELL
+escreve o `.txt`.
+
+Por que não um `<a download>` na página: o WebView deste app não define
+`DownloadListener`, e sem ele um clique num `blob:` com `download` não faz
+absolutamente nada — nem erro, nem arquivo. Pôr um listener genérico abriria um
+caminho de gravação para qualquer coisa que a página apontasse; este método grava
+UM texto, no arquivo que a pessoa acabou de escolher.
+
+**EXIGE RELEASE v1.2.16**: `SHELL_VERSION` 54 → 55.
+
+---
+
+## v1.2.15 — o catálogo é autoridade, e o que faltou passou a ter nome
+
+O primeiro Registro do acervo inteiro varrido (69 coleções, 1917 músicas) trouxe
+o placar — 949 cifras guardadas, 95% de acerto nos hinários contra 35% nos
+álbuns — e, junto, três desperdícios que só se veem com a lista na mão.
+
+### O catálogo responde uma vez, não quatro
+
+```
+✗ Teu Divinal Amor — o site tem só a letra, sem os acordes
+    direta  /novo-hinario-adventista/teu-divinal-amor/ → so-letra
+    álbum   /hinario-adventista-2022/teu-divinal-amor/ → nao-tem
+    padrão  /ministerio-jovem/teu-divinal-amor/        → nao-tem
+    padrão  /cd-jovem-2018/teu-divinal-amor/           → nao-tem
+```
+
+A primeira linha já respondera. `so-letra` não interrompe a cadeia de propósito
+— num álbum a mesma música pode estar cifrada sob outro artista —, mas **num
+hinário o endereço do catálogo É a página daquele hino**: se ela tem só a letra,
+nenhum outro endereço vai ter os acordes. Três requisições jogadas fora por hino,
+vezes as ~300 do Hinário 2022 que ainda faltavam.
+
+A poda vale só onde o endereço é deduzível de uma tabela (`cifraDeduzivel`), e o
+oráculo cobra as DUAS metades: o hinário para na primeira, e o álbum continua e
+acha a cifra sob o artista seguinte. Sem a segunda, a poda cortaria o acervo
+inteiro junto com o desperdício.
+
+### E o nome do hinário nunca foi um artista
+
+A segunda linha daquele bloco é `/hinario-adventista-2022/`, que não existe no
+site. O `urlDoAlbum` nasceu de um achado real (o nome do álbum É o artista lá:
+`/adoradores-5/usa-me/`), mas onde o endereço já vem do catálogo, adivinhá-lo de
+novo pelo nome só pode errar — 404 certo, uma vez por hino.
+
+### O que faltou passou a ter nome
+
+`31 não achei` num hinário de 613 é uma frase que não se pode investigar. Ali
+toda música existe no site, então cada uma dessas é a NOSSA regra de slug
+errando — e é conserto de uma linha. O Registro passa a listá-las (com teto e
+com o corte dito), **só nos hinários**: num álbum a ausência é o caso normal, e
+383 nomes enterrariam a linha do tempo sem dizer nada que o número não diga.
+
+---
 
 ## v1.2.14 — o arquivo para a biblioteca inteira, e a folha que não precisa do telão
 

@@ -421,6 +421,10 @@
     // `{ status: 0, html: '' }` de uma falha de rede — sem isso, cada chamador
     // teria de lembrar de conferir null antes de ler `.status`, e o que falha
     // quando alguém esquecer é a aba inteira, com um TypeError no console.
+    // SEM PRAZO: quem responde é uma PESSOA no seletor "Salvar como" do
+    // sistema, e um timeout resolveria vazio com o diálogo ainda aberto — a
+    // mesma regra do `pickFolder` e do `requestMic`.
+    salvarTexto: (nome, texto) => call((id) => B.salvarTexto(id, String(nome), String(texto))),
     cifraHtml: (url) => call((id) => B.cifraHtml(id, String(url)), CALL_TIMEOUT_MS)
       .then((r) => ({ status: (r && r.status) | 0, html: (r && r.html) || '' })),
 

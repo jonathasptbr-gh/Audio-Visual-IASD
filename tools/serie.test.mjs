@@ -552,7 +552,7 @@ checar(nomes(ate15) === '08/Ago ~ 15/Ago',
   '[relato] em 15/Ago a lista vai até 15/Ago — o de hoje ENTRA, o de 22 ainda não',
   nomes(ate15));
 
-// ── A JANELA DE ANTECEDÊNCIA É A SEMANA (v5.256, alargada na v1.2.15) ───────
+// ── A JANELA DE ANTECEDÊNCIA É A SEMANA (v5.256, alargada na v1.2.17) ───────
 //
 // A v5.256 atendeu a *"pode deixar para que o acesso ao vídeo já fique
 // disponível na quarta-feira antes do sábado"* com uma contagem de TRÊS DIAS, e

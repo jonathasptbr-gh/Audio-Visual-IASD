@@ -278,8 +278,14 @@ try {
   checar(quatro.every((i) => !i.ok && i.motivo === 'so-letra'),
     'o quarto álbum responde uma página de LETRA, e o motivo diz isso',
     quatro.map((i) => i.motivo));
-  checar(quatro.every((i) => !i.radiografia),
-    'e a página de letra NÃO gasta radiografia — já se sabe o que ela é',
+  // A RADIOGRAFIA VALE PARA O "SÓ LETRA" TAMBÉM (v1.2.16). Ela era poupada ali
+  // porque "já se sabia o que a página era" — e essa certeza caiu: o operador
+  // conferiu à mão que o Hinário 2022 tem 100% das cifras no site, e ~309 hinos
+  // voltaram como `so-letra`. Ou o endereço não leva à página que pensamos, ou
+  // a marcação não significa o que supusemos, e as duas só se distinguem
+  // VENDO A FORMA da página.
+  checar(quatro.some((i) => i.radiografia),
+    'a página de "só letra" também gasta radiografia — o veredito virou suspeito',
     quatro.map((i) => !!i.radiografia));
 
   // ---- O BLOCO DO REGISTRO ----------------------------------------------
