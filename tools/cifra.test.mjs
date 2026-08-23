@@ -640,21 +640,21 @@ secao('13. radiografia');
 // A DECISÃO A TRAVAR É O MARCADOR POSITIVO. Responder pela AUSÊNCIA de `<pre>`
 // seria o defeito mais caro que este recurso poderia produzir: no dia em que o
 // site trocar a marcação, TODA página vira "só letra" — e o veredito é gravado.
-secao('14. o site só tem a letra');
+secao('14. o site tem a página e não a cifra');
 {
   const soLetra = '<title>Musica Marcador - Artista (letra da música) - Cifra Club</title>'
     + '<h1>Musica Marcador</h1><h2>Artista Marcador</h2>'
     + '<div class="letra"><p>uma linha de marcador</p><p>outra linha de marcador</p></div>';
-  checar(C.soLetra(soLetra) === true,
-    'página SEM folha e COM o marcador de letra no título → só letra', C.soLetra(soLetra));
+  checar(C.varianteSemCifra(soLetra) === 'letra',
+    'página SEM folha e COM o marcador de letra no título → variante letra', C.varianteSemCifra(soLetra));
   checar(C.lerPagina(soLetra) === null, 'e o `lerPagina` continua devolvendo null nela');
 
   // A PRIMEIRA CONDIÇÃO: havendo folha, não é este caso — nem que o título
   // mencione a palavra.
   const comFolha = '<title>Musica Marcador (letra da música)</title><h1>Musica Marcador</h1>'
     + '<pre><b>C</b>  <b>G</b>\nlinha de marcador\n</pre>';
-  checar(C.soLetra(comFolha) === false,
-    'com folha na página, NUNCA é "só letra" — o `<pre>` decide primeiro', C.soLetra(comFolha));
+  checar(C.varianteSemCifra(comFolha) === '',
+    'com folha na página, NUNCA é sem-cifra — o `<pre>` decide primeiro', C.varianteSemCifra(comFolha));
 
   // A SEGUNDA CONDIÇÃO, e é ela que protege o acervo: uma página sem `<pre>` e
   // SEM o marcador continua sendo `ilegivel`. É este caso que uma mudança de
@@ -662,17 +662,35 @@ secao('14. o site só tem a letra');
   const mudouOSite = '<title>Musica Marcador - Artista - Cifra Club</title>'
     + '<h1>Musica Marcador</h1><h2>Artista Marcador</h2>'
     + '<div class="folha-nova"><span>C</span> linha de marcador</div>';
-  checar(C.soLetra(mudouOSite) === false,
-    'sem folha e SEM o marcador → ilegível, nunca "só letra": é assim que uma '
+  checar(C.varianteSemCifra(mudouOSite) === '',
+    'sem folha e SEM marcador → ilegível, nunca sem-cifra: é assim que uma '
     + 'mudança de marcação do site deixa de virar buraco permanente no acervo',
-    C.soLetra(mudouOSite));
+    C.varianteSemCifra(mudouOSite));
 
   // E O PISO: sem `<h1>` não há página de música nenhuma — um erro do servidor,
   // um muro de consentimento, uma página de busca. Nada disso é "não tem cifra".
-  checar(C.soLetra('<title>Erro (letra da música)</title><p>nada</p>') === false,
-    'sem <h1> não é página de música, logo não é "só letra"');
-  checar(C.soLetra('') === false, 'página vazia não explode e não é "só letra"');
-  checar(C.soLetra(null) === false, 'null também não');
+  checar(C.varianteSemCifra('<title>Erro (letra da música)</title><p>nada</p>') === '',
+    'sem <h1> não é página de música, logo não é sem-cifra');
+  // A VARIANTE PARTITURA — MEDIDA num aparelho: `/ministerio-jovem/
+  // meu-senhor-minha-vida/` respondeu 449 kB com este título, `<h2>` "Menu
+  // principal" e ZERO `<pre>`. O operador conferiu: aquela música não tem cifra
+  // no site. Era `ilegivel` e mandava investigar um parser que está certo.
+  const partitura = '<title>Musica Marcador - Artista (partituras para teclado) - Cifra Club</title>'
+    + '<h1>Musica Marcador</h1><h2>Menu principal</h2><div>nenhuma folha aqui</div>';
+  checar(C.varianteSemCifra(partitura) === 'partitura',
+    'a página de PARTITURA é o site dizendo "não tenho cifra desta", não um parser quebrado',
+    C.varianteSemCifra(partitura));
+
+  // E "SIMPLIFICADA" NÃO ENTRA: ela É uma cifra e traz folha. Incluí-la por
+  // simetria carimbaria como ausente uma página que o parser lê perfeitamente.
+  const simplificada = '<title>Musica Marcador (simplificada) - Cifra Club</title>'
+    + '<h1>Musica Marcador</h1><pre><b>C</b>\nlinha de marcador\n</pre>';
+  checar(C.varianteSemCifra(simplificada) === '',
+    'e uma variante COM folha nunca é sem-cifra, diga o título o que disser',
+    C.varianteSemCifra(simplificada));
+
+  checar(C.varianteSemCifra('') === '', 'página vazia não explode');
+  checar(C.varianteSemCifra(null) === '', 'null também não');
 }
 
 console.log('\n' + (falhas.length ? falhas.length + ' FALHA(S)' : 'tudo certo'));
