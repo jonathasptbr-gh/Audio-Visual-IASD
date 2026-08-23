@@ -1,5 +1,13 @@
 [
   {
+    "versao": "1.2.16",
+    "itens": [
+      "A varredura de cifras parou de recomeçar do zero a cada abertura. O teto de segurança recusava em bloco os vereditos de \"só letra\" do Hinário 2022 — e, como nada era gravado, tudo era reperguntado na sessão seguinte, para sempre. Agora a passada recusada fica registrada com data, o motivo aparece no Registro e a coleção só é revarrida uma semana depois.",
+      "O Registro pode ser SALVO NUM ARQUIVO .txt, ao lado do botão de copiar. Com o acervo inteiro varrido ele passou de setenta linhas só na seção de cifras, e copiar e colar é o caminho que corta o texto no meio sem avisar.",
+      "A bateria de testes passou a mostrar a forma também das páginas de \"só letra\" — o veredito virou suspeito depois de o operador conferir à mão que o hinário novo tem todas as cifras no site."
+    ]
+  },
+  {
     "versao": "1.2.15",
     "itens": [
       "A varredura de cifras ficou bem mais barata no hinário: quando o endereço do catálogo responde que o site só tem a letra, a procura acaba ali — antes ela gastava mais três requisições, todas em vão, para chegar ao mesmo resultado. E o nome do hinário deixou de ser adivinhado como artista do site, que era um erro garantido a cada hino.",

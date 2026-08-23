@@ -24,6 +24,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
+- **v1.2.16** — RECUSAR NÃO PODIA SIGNIFICAR REFAZER, e por isso a varredura recomeçava do zero a cada abertura. A aritmética do Registro do operador provou: `282 ok + 10 não achei + 309 por varrer = 601`, e NENHUMA "só letra" gravada — enquanto a bateria achava `so-letra` nos mesmos hinos. As 309 foram julgadas e o TETO as recusou em bloco (309 > 34% de 601), como ele deve; só que nada era gravado e tudo voltava na sessão seguinte, ~900 requisições, para sempre, sem uma linha na tela dizendo que aquilo tinha sido julgado. Agora a passada tem DIÁRIO, o Registro imprime o motivo e a coleção fica 7 dias em prazo. Junto: o operador conferiu à mão que o hinário novo tem 100% das cifras no site — logo o `so-letra` está ERRADO ali —, e o veredito deixou de ser poupado da radiografia na bateria. E o REGISTRO virou arquivo: `salvarTexto` (SAF) grava um `.txt`, porque copiar e colar corta o texto no meio sem avisar. **EXIGE RELEASE v1.2.16**: shell 54 → 55
 - **v1.2.15** — A VARREDURA DO HINÁRIO GASTAVA QUATRO REQUISIÇÕES PARA UMA RESPOSTA QUE A PRIMEIRA JÁ TINHA DADO. MEDIDO no primeiro Registro do acervo inteiro: um hino cujo endereço do CATÁLOGO respondeu "o site só tem a letra" seguia para o álbum-como-artista e os dois artistas padrão — três 404 certos — antes de concluir o mesmo. O catálogo é AUTORIDADE sobre o hinário: aquela é a página daquele hino, e a procura acaba ali (num álbum não, porque a música pode estar cifrada sob outro artista). Junto: o nome de um hinário deixa de ser adivinhado como artista (`/hinario-adventista-2022/` não existe — 404 por hino, 601 vezes). E o Registro passou a NOMEAR os hinos não achados: ali toda música existe no site, então cada nome é a nossa regra de slug errando. OTA PURO
 - **v1.2.14** — O ARQUIVO DE CIFRAS VALE PARA A BIBLIOTECA INTEIRA, e a folha deixou de ser de quem está no ar. (1) O que era só dos dois hinários passa a valer para todo acervo de MÚSICA baixado — o que separava um álbum de um hinário era o CUSTO (uma requisição contra a cadeia deduzível inteira), nunca o direito. A varredura pula a busca do site, MEDIDA em zero, e o que ela não acha fica gravado COM DATA: no acervo de álbuns dois terços não estão sob nenhum endereço deduzível, e sem memória isso são milhares de requisições a um site de terceiro em toda abertura. Uma folha não vence; uma ausência volta para a fila em 30 dias, e falha de rede continua não gravando nada. (2) A gaveta da Biblioteca ganhou **"Abrir a folha"**: o MESMO leitor do Controle apontado para aquela faixa — cifra, tom, corpo e rolagem — sem levar NADA ao telão. Ler deixou de exigir projetar. O relógio e o destaque continuam sendo da CENA: com o alvo noutra música, seguir o tempo do que está tocando não erra alto, *parece* funcionar. OTA PURO
 - **v1.2.13** — A PERMISSÃO QUE FALTAVA ERA NOSSA, E NÃO ERA A DO MICROFONE. Cinco rodadas acusaram o aparelho (espelhamento, interruptor de privacidade, processamento, Auto Blocker); a causa estava no `AndroidManifest.xml` deste repositório. O Chromium DE DENTRO DO WEBVIEW exige `MODIFY_AUDIO_SETTINGS` do app HOSPEDEIRO: `AudioManagerAndroid.hasPermission()` consulta o `checkSelfPermission` DELE, `setCommunicationDevice()` devolve `false` sem ela, e `MakeLowLatencyInputStream` devolve `nullptr` — que vira `STREAM_CREATE_ERROR` e chega ao JS como `NotReadableError`. Conferido VERBATIM no fonte do Chromium, incluindo o desvio (`AAudioPerStreamDeviceSelection`) travado atrás de `is_desktop()`. Ela é `protectionLevel="normal"`: concedida na instalação, INVISÍVEL na tela de permissões — por isso quatro rodadas olharam para a permissão errada, que estava concedida com toda a razão. Mais: `MODE_FOREGROUND` ganhou ramo próprio no `MicDiag` (era o desfecho MAIS provável e saía como "modo 4", lido como bloqueio), e o campo `modAudio` responde "o APK instalado já tem o conserto?". EXIGE RELEASE v1.2.13
@@ -241,6 +242,57 @@ na nota que a revoga, não apagada da que a criou.
 - **v5.154** — é METADE OTA e METADE APK, e a divisão importa para quem for testar em aparelho.
 - **v5.155** — é OTA PURO
 - **v5.156** — é METADE OTA e METADE APK, de novo.
+
+---
+
+## v1.2.16 — recusar não podia significar refazer
+
+O operador relatou que a varredura "segue tentando rebaixar e reverificar tudo
+novamente". A aritmética do Registro dele prova o mecanismo em uma linha:
+
+```
+Hinário Adventista 2022: 282 de 601 · 10 não achei · 309 por varrer
+```
+
+`282 + 10 + 309 = 601`, e **nenhuma "só letra"** — enquanto a bateria, no mesmo
+aparelho, devolvia `so-letra` para hinos daquele hinário. As 309 FORAM julgadas;
+o teto (`CIFRA_SO_LETRA_TETO`, 34%) as recusou em bloco, exatamente como deve —
+uma passada dominada por aquele veredito é o site tendo mudado, não o acervo sem
+cifra. Só que **nada era gravado, e nada registrava a recusa**: na abertura
+seguinte as mesmas 309 voltavam à fila, com as mesmas ~900 requisições, para
+sempre.
+
+O teto estava certo e o laço era mudo. Agora:
+
+- a passada tem **diário** (`cifras-passada:<id>`: tentadas, achadas, recusadas);
+- o Registro imprime o motivo por extenso, com a data e quantos dias faltam;
+- a coleção recusada fica em **prazo de 7 dias** — curto o bastante para um
+  conserto do `cifra.js` chegar por OTA e a varredura retomar sozinha, longo o
+  bastante para o laço não custar nada enquanto isso.
+
+### E o veredito é o suspeito, não o acervo
+
+O operador conferiu à mão: **o Hinário 2022 tem 100% das cifras no site.** Logo o
+`so-letra` está errado ali — ou o endereço não leva à página que supomos, ou
+aquela marcação não significa o que supusemos. As duas hipóteses só se separam
+VENDO a página, e a bateria era justamente quem não a mostrava: `so-letra` era
+poupado da radiografia porque "já se sabia o que a página era". Essa certeza
+caiu, e a radiografia passa a valer para os dois vereditos.
+
+### O Registro virou arquivo
+
+Com o acervo inteiro varrido ele passou de setenta linhas só na seção de cifras,
+e o caminho de sempre — copiar e colar — é o que **corta o texto no meio sem
+avisar**. `AVNative.salvarTexto` abre o "Salvar como" do sistema e o SHELL
+escreve o `.txt`.
+
+Por que não um `<a download>` na página: o WebView deste app não define
+`DownloadListener`, e sem ele um clique num `blob:` com `download` não faz
+absolutamente nada — nem erro, nem arquivo. Pôr um listener genérico abriria um
+caminho de gravação para qualquer coisa que a página apontasse; este método grava
+UM texto, no arquivo que a pessoa acabou de escolher.
+
+**EXIGE RELEASE v1.2.16**: `SHELL_VERSION` 54 → 55.
 
 ---
 
