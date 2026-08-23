@@ -1791,6 +1791,33 @@ a congregação vê continua sendo a letra, pelo caminho de sempre.
   requisição, sem ranking de ninguém escolhendo por nós. Só falhando ela entra a
   **busca genérica**, que é o "qualquer música" e também cobre o hino cujo nome
   no acervo não bate com o do site.
+- **O HINÁRIO 2022 FICA GUARDADO NO APARELHO** (v1.1.28), e é o ÚNICO acervo que
+  fica. Ele é o único cujo endereço no site é DEDUZÍVEL do nome do hino
+  (`CATALOGO`), e por isso o único em que baixar tudo é uma operação previsível
+  em vez de 600 apostas. O download do hinário passa a trazer as cifras junto,
+  e a partir daí a folha abre **sem rede** — que é o problema real: o Wi-Fi da
+  igreja no sábado de manhã.
+  - **QUEM BAIXA É O APARELHO, e essa é a decisão inteira.** Nada disto entra no
+    bundle do OTA nem no repositório: o `.zip` do canal é público e servido em
+    nome de quem publica, e um acervo ali dentro é o app DISTRIBUINDO obra de
+    terceiro — outra coisa, não um grau a mais de ler sob demanda. Cada aparelho
+    busca o que vai usar, como já fazia uma música por vez; muda o QUANDO (no
+    download do hinário) e o ONDE (IndexedDB, não a memória da sessão). De
+    quebra: a cifra fica sempre atual, o repositório não incha, e não nasce uma
+    segunda fonte de verdade para divergir.
+  - **A forma é a do `syncLyrics`**, de propósito: mesma fila, mesma proteção de
+    segundo plano, mesma notificação, gravação em LOTES, nada em dados móveis. E
+    a regra que mais importa é a mesma — **falha de rede não grava nada**: num
+    acervo em que toda música existe no site, uma ausência gravada é um buraco
+    permanente causado por um Wi-Fi que oscilou. Retomável por construção (o que
+    está guardado não é pedido de novo).
+  - **A leitura é a tentativa que não toca na rede**, entre a escolha do operador
+    (que vale mais, é uma correção à mão) e o catálogo. O oráculo
+    (`tools/cifra-offline.test.mjs`) NÃO afirma "a folha apareceu" — afirma que
+    **`cifraHtml` não foi chamado**, com a ponte respondendo "sem rede" a tudo:
+    com rede, uma leitura de disco que não acontecesse produziria a mesma folha
+    pela porta errada, e ninguém veria diferença até o dia em que a rede não
+    estivesse lá.
 - **O OPERADOR ESCOLHE, E A ESCOLHA VENCE TUDO** (o seletor, v1.1.25). O método
   automático ADIVINHA a partir de um nome; quem opera SABE qual é a música.
   MEDIDO: na maioria das falhas o resultado certo estava na página de busca — só
@@ -2637,6 +2664,7 @@ mundo anterior por outro caminho.
 | `cena.test.mjs` | o que o telão mostra ao RECONECTAR (o caminho menos testável à mão: exige TV, dongle e o timing de derrubá-lo) |
 | `imagem-sobre-audio.test.mjs` | a IMAGEM projetada por cima do áudio. A regra é uma AUSÊNCIA — nenhum `load` sai daquele caminho —, e ausência não tem sintoma de tela nem erro de console: quem a prova é o `currentTime` do `<video>` medido em DOIS instantes ("não pausou" é fraco; "andou" prova que é o mesmo áudio). Nas duas metades: o Controle que decide sobrepor e o telão que pinta |
 | `gaveta-no-download.test.mjs` | a GAVETA DA LINHA contra o redesenho do progresso — o único lugar do acervo em que o operador DECIDE, e o redesenho remontava a lista por baixo dela a cada 400 ms. MUDO nos dois tempos: aberta, ela some sem erro nenhum; ABRINDO (há um `await` do IndexedDB entre o toque e o `expanded`), o `li` vira órfão e o toque não faz nada. Quatro metades, e a primeira é o HAZARD — sem ela as outras provariam que uma função concorda consigo mesma |
+| `cifra-offline.test.mjs` | **a cifra guardada do hinário abre SEM REDE**. A promessa é operacional e falha calada: sem a leitura do disco o app cai no caminho de rede e, COM rede, a folha aparece igual — pela porta errada. Por isso a asserção é `cifraHtml` NÃO ter sido chamado, com a ponte respondendo "sem rede" a tudo; a outra metade prova que o que NÃO está guardado ainda vai à rede |
 | `cifra-teclado.test.mjs` | **o teclado virtual contra o campo de busca da cifra**. O teclado é um `resize`, e o `resize` remede a folha — que refaz a aba e destrói o `<input>` com foco; sem foco o teclado FECHA, e o fechamento é outro `resize`. Nada erra: sai um teclado que pisca e some, e o seletor fica inalcançável. Ele injeta a PONTE e abre o popup de verdade, porque montado num nó solto ele passava com a guarda REMOVIDA |
 | `destinos.test.mjs` | o que está marcado atravessa o fechamento da folha — a ação roda depois de `closeSongMenu()`, que zera o conjunto |
 | `hinario-tela.test.mjs` | as seções do hinário **da tabela até a tela**. O `hinario.test.mjs` trava a REGRA; este, a LIGAÇÃO. Dois casos não gritam: os cabeçalhos moram na MESMA `<ul>` das faixas, e uma retomada de paginação que contasse os FILHOS pularia um hino por cabeçalho (hinos sumindo do meio da lista); e o hinário de 1996 tem outra numeração, então um "Infantis" sobre o 508 DELE ninguém nota olhando o hinário certo |
@@ -3010,7 +3038,7 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: v1.1.27** (base web) · **v1.1.26** (APK) · `SHELL_VERSION` **50** · bundle com
+**Versão atual: v1.1.28** (base web) · **v1.1.26** (APK) · `SHELL_VERSION` **50** · bundle com
 `minShell: 50` — o shell 50 é o **PISO**: todo método da ponte existe, e não há
 guarda de versão no lado web. O que continua valendo é que `java/`, `res/`, o
 manifest e os workflows **só chegam instalando o APK**.

@@ -237,7 +237,7 @@ const appVersionEl = document.getElementById('appVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.1.27';
+const WEB_VERSION = '1.1.28';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -10043,6 +10043,20 @@ function cifraGarantir(item) {
       tentativas.push('fixada ' + fixada + ' → ' + desfecho.motivo);
     }
 
+    // 0,5ª TENTATIVA: O QUE JÁ ESTÁ NO APARELHO. É a única que não toca na rede,
+    // e por isso é a que faz a folha abrir no sábado com o Wi-Fi da igreja
+    // oscilando. Vem DEPOIS da escolha do operador (uma correção à mão vale
+    // mais que o automático guardado) e ANTES de todo o resto.
+    if (!desfecho.ok && coll && cifraGuardavel(coll)) {
+      const disco = await cifraDiscoDe(coll.id);
+      const g = disco[cifraChaveNoDisco(nome)];
+      if (g && g.pagina) {
+        url = g.url || '';
+        desfecho = { ok: true, pagina: g.pagina, motivo: AVCifra.OK };
+        tentativas.push('guardada no aparelho ' + url + ' → ok');
+      }
+    }
+
     // 1ª TENTATIVA: o atalho do catálogo.
     const direta = !desfecho.ok && coll ? AVCifra.urlDoHino(coll.id, nome) : '';
     if (direta) {
@@ -10131,6 +10145,125 @@ function cifraGarantir(item) {
   });
 
   return entrada;
+}
+
+// ===== A CIFRA DO HINÁRIO, GUARDADA NO APARELHO (v1.1.28) =====
+//
+// O Hinário 2022 é o único acervo em que o endereço da cifra é **deduzível e
+// estável**: a coleção existe no site, o slug sai do nome do hino, e MEDIDO em
+// uso não falhou uma vez. Isso o torna o único caso em que vale guardar — e o
+// caso em que guardar resolve o problema de verdade: no sábado, com a rede da
+// igreja oscilando, a folha abre sem rede nenhuma.
+//
+// ## QUEM BAIXA É O APARELHO, e isso é a decisão inteira
+//
+// Nada disto entra no bundle do OTA nem no repositório. O `.zip` do canal é
+// público e servido em nome de quem publica; um acervo inteiro ali dentro é o
+// app DISTRIBUINDO uma obra de terceiro, e não é isso que ele faz. Aqui cada
+// aparelho busca o que vai usar, do mesmo jeito que já busca uma cifra por vez
+// — o que muda é só QUANDO (uma vez, no download do hinário) e ONDE fica
+// (IndexedDB do aparelho, não a memória da sessão).
+//
+// O ganho prático é o mesmo, e há três de quebra: a cifra fica sempre ATUAL
+// (rebaixar é apagar e sincronizar), o repositório não incha, e não existe um
+// segundo lugar de onde a verdade possa divergir.
+//
+// ## A forma é a do `syncLyrics`, e de propósito
+//
+// Mesma fila (`runLimited`), mesma proteção de segundo plano (`withBgWork`),
+// mesma notificação de progresso, mesma gravação em LOTES, e a mesma regra que
+// mais importa: **falha de rede não grava nada**. Marcar "não tem" por causa de
+// um Wi-Fi que oscilou tiraria o hino da lista para sempre — e num acervo em
+// que tudo existe, um buraco é sempre erro nosso.
+const CIFRA_LOTE = 20;          // hinos por gravação
+let cifraDiscoColl = '';        // de qual coleção é o `cifraDisco` carregado
+let cifraDisco = null;          // { nome normalizado → { pagina, url, em } }
+let cifraSyncRodando = false;
+
+/** A chave de um hino dentro da coleção — a mesma normalização do cache. */
+function cifraChaveNoDisco(nome) {
+  return AVCifra.normalizar(AVCifra.semNumero(nome)).toLowerCase();
+}
+
+/**
+ * Carrega (uma vez por coleção) o que está guardado.
+ *
+ * Por COLEÇÃO e sob demanda, não tudo na abertura: só os hinários têm cifra
+ * guardada, e trazer os dois para a memória no `load()` custaria alguns MB num
+ * processo que já divide espaço com dois WebViews e um vídeo.
+ */
+async function cifraDiscoDe(collId) {
+  if (cifraDiscoColl === collId && cifraDisco) return cifraDisco;
+  let v = null;
+  try { v = await AVDB.getState('cifras:' + collId); } catch (_) { v = null; }
+  cifraDiscoColl = collId;
+  cifraDisco = (v && typeof v === 'object') ? v : {};
+  return cifraDisco;
+}
+
+/** Grava o que está em memória para esta coleção. */
+function cifraDiscoGravar(collId) {
+  return AVDB.setState('cifras:' + collId, cifraDisco || {});
+}
+
+/** O hinário tem endereço DEDUZÍVEL? É essa a condição de guardar. */
+function cifraGuardavel(coll) {
+  return !!(coll && AVCifra.CATALOGO[coll.id]);
+}
+
+/**
+ * Baixa e guarda a cifra de todo hino do hinário que ainda não tem uma.
+ *
+ * Roda DEPOIS do download do hinário (`syncCollection`) e é retomável por
+ * construção: o que já está guardado não é pedido de novo, então uma
+ * interrupção custa o que faltava, nunca o que já foi.
+ */
+async function syncCifrasHinario(coll) {
+  if (!window.__NATIVE__ || !cifraGuardavel(coll) || cifraSyncRodando) return;
+  // A MESMA REGRA DO `syncLyrics`: são centenas de requisições a um site que
+  // não é nosso, e o plano de dados do operador não é o lugar delas.
+  if (networkType() === 'cellular') return;
+
+  const disco = await cifraDiscoDe(coll.id);
+  const faltam = collSongs(coll.id)
+    .map((s) => ({ nome: s.name, chave: cifraChaveNoDisco(s.name) }))
+    .filter((h) => h.chave && !disco[h.chave]);
+  if (!faltam.length) return;
+
+  cifraSyncRodando = true;
+  const notifId = bgTaskStart('Cifras do ' + coll.name, faltam.length);
+  let done = 0;
+  let desdeGravacao = 0;
+  try {
+    await withBgWork(async () => {
+      try {
+        await runLimited(faltam, NET_CONCURRENCY, async (h) => {
+          bgItemStart(notifId, h.nome);
+          try {
+            const url = AVCifra.urlDoHino(coll.id, h.nome);
+            if (url) {
+              const d = await cifraPedir(url);
+              // SÓ O SUCESSO É GRAVADO. `nao-tem` e `ilegivel` ficam de fora
+              // para a próxima passada tentar de novo — num acervo em que toda
+              // música existe no site, uma ausência é defeito nosso, e gravá-la
+              // a tornaria permanente.
+              if (d.ok && d.pagina) disco[h.chave] = { pagina: d.pagina, url, em: Date.now() };
+            }
+          } catch (_) { /* rede: a próxima passada tenta de novo */ }
+          finally { bgItemEnd(notifId, h.nome); }
+          done++;
+          bgTaskStep(notifId, done);
+          if (++desdeGravacao >= CIFRA_LOTE) {
+            desdeGravacao = 0;
+            await cifraDiscoGravar(coll.id);
+          }
+        });
+      } finally { bgTaskEnd(notifId); }
+    });
+  } finally {
+    await cifraDiscoGravar(coll.id).catch(() => {});
+    cifraSyncRodando = false;
+  }
 }
 
 // ===== ESCOLHER A CIFRA À MÃO (v1.1.24) =====
@@ -12876,6 +13009,13 @@ async function syncCollection(coll, opts) {
     });
     setCollStatus(coll.id, (cancelled() ? 'Cancelado (' : 'Atualizado (') + (done - falhou) + ' baixado(s))'
       + (falhou ? ' · ' + falhou + ' sem rede' : ''), 4000);
+    // AS CIFRAS DO HINÁRIO VÊM JUNTO (v1.1.28), e só do hinário: é o único
+    // acervo cujo endereço no site é deduzível do nome. Depois do áudio, nunca
+    // antes — o que o operador pediu foi o hinário, e a cifra é o extra que
+    // torna a folha utilizável sem rede. `await` de propósito: ela usa a mesma
+    // proteção de segundo plano, e soltá-la aqui deixaria o `finally` desligar
+    // o serviço com centenas de requisições ainda por fazer.
+    if (!cancelled()) await syncCifrasHinario(coll).catch(() => {});
     // Tudo o que se tentou falhou: para o lote isso é o mesmo que não ter
     // baixado nada, e o cabeçalho do grupo precisa saber.
     return { ok: !(falhou > 0 && falhou >= done), baixados: done - falhou, falhou };
@@ -17730,6 +17870,16 @@ async function renderDiag() {
     if (cd) linhas.push('shell: ' + cd);
     const fix = Object.keys(cifraEscolhas).length;
     if (fix) linhas.push(fix + ' cifra(s) fixada(s) à mão pelo operador');
+    // O QUE ESTÁ GUARDADO, POR HINÁRIO. Responde "a folha vai abrir sem rede no
+    // sábado?" — a pergunta que o download das cifras existe para responder, e a
+    // única que nem a linha de tentativas nem o status do shell alcançam.
+    for (const c of allCollections().filter(cifraGuardavel)) {
+      let n = 0;
+      try { n = Object.keys((await AVDB.getState('cifras:' + c.id)) || {}).length; } catch (_) { n = 0; }
+      const total = collSongs(c.id).length;
+      linhas.push(c.name + ': ' + n + ' de ' + total + ' cifra(s) no aparelho'
+        + (n && n < total ? ' (o download completa o resto)' : ''));
+    }
     if (linhas.length) blocos.push('Cifra (última busca)\n' + linhas.join('\n'));
     // A ESTRUTURA da última página que o parser NÃO entendeu — bloco à parte
     // porque responde outra pergunta. As duas linhas acima dizem "tentei estes

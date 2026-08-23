@@ -1,5 +1,13 @@
 [
   {
+    "versao": "1.1.28",
+    "itens": [
+      "AS CIFRAS DO HINÁRIO 2022 FICAM NO APARELHO. Baixar o hinário passa a trazer também a cifra de cada hino — e a partir daí a folha abre SEM INTERNET, que é o que resolve o sábado com o Wi-Fi da igreja oscilando.",
+      "O download é retomável: o que já está guardado não é pedido de novo, então uma interrupção custa só o que faltava. Ele não roda em dados móveis, e o Registro diz quantas cifras estão no aparelho.",
+      "Só o hinário: é o único acervo cujo endereço no site é deduzível do nome do hino. Para os álbuns, a busca continua sendo feita na hora."
+    ]
+  },
+  {
     "versao": "1.1.27",
     "itens": [
       "CORRIGIDO: o teclado sumia ao tentar digitar na busca de cifras. Abrir o teclado redimensiona a tela, e a folha se remedia nessa hora — refazendo a aba e apagando o campo em que você estava escrevendo.",

@@ -539,6 +539,13 @@ jobs:
           # popup de verdade: a primeira versão montava o seletor num nó solto e
           # passava com a guarda REMOVIDA, porque `cifraRemedir` desiste antes.
           rodar tools/cifra-teclado.test.mjs
+          # E A CIFRA GUARDADA NO APARELHO. A promessa é operacional — no sábado,
+          # com o Wi-Fi da igreja oscilando, a folha do hinário abre — e ela
+          # falha CALADA: sem a leitura do disco o app cai no caminho de rede e,
+          # COM rede, a folha aparece igual, pela porta errada. Por isso a
+          # asserção não é "a folha apareceu": é `cifraHtml` NÃO ter sido
+          # chamado nenhuma vez, com a ponte respondendo "sem rede" a tudo.
+          rodar tools/cifra-offline.test.mjs
           # E A PLAYLIST AUTOMÁTICA, DA FOLHA ATÉ A FILA. O `sorteio.test.mjs`
           # (Node puro, acima) trava a REGRA; este trava a LIGAÇÃO, que falha de
           # outro jeito — a regra continua certa e o recurso não faz nada. As
