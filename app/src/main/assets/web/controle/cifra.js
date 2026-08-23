@@ -807,6 +807,59 @@
     return Math.min(1, Math.max(0, (x - t0) / (t1 - t0)));
   }
 
+
+  // ===== A RADIOGRAFIA: o que a PÁGINA parecia (v1.1.24) =====
+  //
+  // Este parser lê a marcação de um servidor que não é nosso e que não nos deve
+  // compatibilidade nenhuma. Quando ele quebra, o Registro diz `ilegivel` — e
+  // `ilegivel` responde "não entendi", não "o que era". A distância entre as
+  // duas é uma sessão inteira de adivinhação a distância.
+  //
+  // [radiografia] devolve a ESTRUTURA da página: quantos `<pre>`, de que
+  // tamanho, quantos `<b>` dentro do maior, quantos links de música, e uma
+  // amostra curta dos endereços. Com isso, um Registro colado numa conversa
+  // responde "o site mudou o quê?" sem ninguém precisar abrir a página.
+  //
+  // **O QUE ELA NÃO LEVA: o CONTEÚDO.** Nem letra, nem acordes, nem parágrafo
+  // nenhum da página. Isso não é economia de bytes — é o contrato do recurso: o
+  // app LÊ conteúdo de terceiro no aparelho do operador e não o distribui. Um
+  // Registro é feito para ser copiado e mandado para fora; o que sai daqui é
+  // FORMA (contagens, tamanhos, endereços), e endereço é ponteiro, não cópia.
+  // Os textos de link entram porque são o que identifica um resultado de busca,
+  // e vão truncados.
+  const RADIO_AMOSTRA = 8;      // endereços na amostra
+  const RADIO_TEXTO = 46;       // caracteres por texto de link
+
+  function radiografia(html) {
+    const s = String(html || '');
+    const pres = [];
+    const rePre = /<pre\b[^>]*>([\s\S]*?)<\/pre>/gi;
+    for (let m; (m = rePre.exec(s));) pres.push(m[1].length);
+    const maior = maiorPre(s) || '';
+    const links = [];
+    const re = /<a\b[^>]*href="(\/[^"#?]+\/)"[^>]*>([\s\S]*?)<\/a>/gi;
+    const vistos = new Set();
+    for (let m; (m = re.exec(s));) {
+      if (vistos.has(m[1])) continue;
+      vistos.add(m[1]);
+      links.push({ caminho: m[1], texto: semTags(m[2]).slice(0, RADIO_TEXTO) });
+    }
+    const deMusica = links.filter((l) => ehCaminhoDeMusica(l.caminho.split('/').filter(Boolean)));
+    return {
+      bytes: s.length,
+      titulo: primeiroTexto(s, 'title').slice(0, RADIO_TEXTO * 2),
+      h1: primeiroTexto(s, 'h1').slice(0, RADIO_TEXTO),
+      h2: primeiroTexto(s, 'h2').slice(0, RADIO_TEXTO),
+      tom: lerTom(s),
+      pres: pres.length,
+      maiorPre: maior.length,
+      bNoMaiorPre: (maior.match(/<b\b/gi) || []).length,
+      links: links.length,
+      linksDeMusica: deMusica.length,
+      amostra: deMusica.slice(0, RADIO_AMOSTRA),
+    };
+  }
+
   global.AVCifra = {
     CATALOGO, BASE,
     OK, MOTIVO_SEM_REDE, MOTIVO_NAO_TEM, MOTIVO_RECUSOU, MOTIVO_ILEGIVEL,
@@ -815,7 +868,7 @@
     ARTISTAS_PADRAO, urlsPadrao,
     pareceAcorde, transporAcorde, transporLinha, transporTom,
     lerFolha, lerPagina, lerBusca, somenteLetra,
-    ordenarBusca, parentesco, ehCaminhoDeMusica,
+    ordenarBusca, parentesco, ehCaminhoDeMusica, radiografia,
     quebrarPares, pontoDeQuebra,
     janelaDeRolagem, fracaoDaRolagem,
   };

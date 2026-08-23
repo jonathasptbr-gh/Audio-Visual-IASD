@@ -554,5 +554,54 @@ secao('12. artistas padrão');
   checar(/ministerio-jovem/.test(ord[0].url), 'e o do artista padrão vem primeiro', ord[0].url);
 }
 
+// ── 13. A RADIOGRAFIA (o que sai no Registro) ───────────────────────────────
+// Ela existe porque `ilegivel` responde "não entendi", e não "o que era" — e a
+// distância entre as duas é uma sessão de adivinhação a distância. Duas coisas
+// a travar, e a SEGUNDA é a que importa mais.
+secao('13. radiografia');
+{
+  const html = [
+    '<html><head><title>Musica De Marcador - Artista De Marcador</title></head><body>',
+    '<h1>Musica De Marcador</h1><h2>Artista De Marcador</h2>',
+    '<div>tom: <span>G</span></div>',
+    '<pre>curto</pre>',
+    '<pre><b>C</b>     <b>G</b>\nlinha de letra de marcador\n\nsegunda linha de marcador</pre>',
+    '<a href="/letra/A/">A</a>',
+    '<a href="/artista-de-marcador/musica-de-marcador/">Musica De Marcador</a>',
+    '</body></html>',
+  ].join('');
+  const r = C.radiografia(html);
+
+  // 1. A FORMA está lá, e é ela que responde "o site mudou o quê?".
+  checar(r.pres === 2, 'conta todos os <pre>', r.pres);
+  checar(r.bNoMaiorPre === 2, 'e os <b> do MAIOR deles — é neles que o parser se apoia', r.bNoMaiorPre);
+  checar(r.linksDeMusica === 1, 'conta só os links com forma de música', r.linksDeMusica);
+  checar(r.links === 2, 'mas mostra o total, para a diferença ser visível', r.links);
+  checar(r.titulo.includes('Musica De Marcador'), 'o <title> entra', r.titulo);
+  checar(r.tom === 'G', 'e o tom, quando achado', r.tom);
+  checar(r.amostra.length === 1 && r.amostra[0].caminho === '/artista-de-marcador/musica-de-marcador/',
+    'a amostra traz o ENDEREÇO, que é ponteiro', r.amostra);
+
+  // 2. O CONTEÚDO NÃO SAI. Esta é a metade que protege o contrato do recurso: o
+  // Registro é feito para ser copiado para FORA do aparelho, e o app lê cifra de
+  // terceiro sem distribuir cópia dela. Um campo novo que carregue texto da
+  // página passa por aqui.
+  const texto = JSON.stringify(r);
+  checar(!texto.includes('linha de letra de marcador'), 'NENHUMA linha de letra sai na radiografia', texto.slice(0, 200));
+  checar(!texto.includes('segunda linha'), 'nem a segunda');
+  checar(!texto.includes('curto'), 'nem o conteúdo do <pre> menor');
+  for (const [k, v] of Object.entries(r)) {
+    if (k === 'amostra') continue;
+    checar(typeof v !== 'string' || v.length <= 100,
+      'o campo "' + k + '" não pode carregar um bloco de texto', v);
+  }
+
+  // 3. HTML vazio não explode: o Registro é montado num `catch` e uma exceção
+  // aqui levaria os blocos SEGUINTES junto.
+  const vazio = C.radiografia('');
+  checar(vazio.pres === 0 && vazio.links === 0 && vazio.bytes === 0, 'HTML vazio devolve zeros', vazio);
+  checar(!!C.radiografia(null), 'e null também não explode');
+}
+
 console.log('\n' + (falhas.length ? falhas.length + ' FALHA(S)' : 'tudo certo'));
 process.exit(falhas.length ? 1 : 0);
