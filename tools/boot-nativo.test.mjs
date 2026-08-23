@@ -1110,6 +1110,10 @@ try {
     // resolvido — e é ele que a asserção procura.
     const lista = document.createElement('ul');
     lista.className = 'hymnal-list';
+    // COM LARGURA DE CELULAR: a medição do botão lá embaixo é em pixels, e num
+    // contêiner sem largura resolvida toda medida é zero — zeros comparados com
+    // zeros passam sem medir nada (a lição da v5.208).
+    lista.style.width = '390px';
     document.body.appendChild(lista);
     const li = hymnResultRow(c, s, null, true);
     lista.appendChild(li);
@@ -1117,7 +1121,8 @@ try {
     // A montagem é assíncrona (o estado no aparelho vem do IndexedDB): dois
     // turnos bastam, e esperar pelo TEXTO em vez de por um prazo fixo é o que
     // impede o caso de virar intermitente num runner lento.
-    for (let i = 0; i < 40 && !li.querySelector('.item-detalhe-estado'); i++) {
+    for (let i = 0; i < 40
+      && !(li.querySelector('.item-detalhe-estado') && li.classList.contains('expanded')); i++) {
       await new Promise((r) => setTimeout(r, 25));
     }
     const det = li.querySelector('.item-detalhe');
@@ -1127,6 +1132,26 @@ try {
       texto: li.textContent,
       temThumb: !!li.querySelector('.item-detalhe-thumb'),
       duracaoGuardada: s.duration || '',
+      // ===== A LARGURA DO BOTÃO NÃO MUDA COM O ESTADO (v5.287) =====
+      //
+      // "Ocultar" é mais longo que "Ver", então o botão crescia ao ser tocado e
+      // o CONFIRMAR ao lado encolhia junto — um toque que muda a largura do
+      // vizinho é a coisa que mais parece defeito numa faixa de dois botões. As
+      // duas frases entram empilhadas na mesma célula de uma grade 1x1
+      // (`.song-menu-letra-cx`), e a largura passa a ser a da MAIOR.
+      //
+      // A medição mora AQUI desde a v1.2.25: o interruptor de duas frases só
+      // existe no VÍDEO — numa música o mesmo botão abre o leitor e tem uma
+      // frase só. O `smoke.mjs`, que roda sem ponte, nem chega a ver uma série.
+      larguras: (() => {
+        const ver = li.querySelector('.song-menu-letra');
+        if (!ver) return null;
+        const antes = Math.round(ver.getBoundingClientRect().width);
+        ver.click();   // no vídeo o ouvinte é síncrono: alterna `vendo-letra`
+        const depois = Math.round(
+          li.querySelector('.song-menu-letra').getBoundingClientRect().width);
+        return { antes, depois, rotulo: ver.textContent };
+      })(),
     };
     lista.remove();
     setAppMode(modoAntes);   // o modo é global: deixá-lo trocado quebra os casos seguintes
@@ -1146,10 +1171,18 @@ try {
   checar(/Toca sem baixar|Já no aparelho/.test(gaveta.texto),
     'mais o estado no aparelho, que é o que decide: transmitir agora ou ~300 MB',
     JSON.stringify(gaveta.texto.slice(0, 120)));
+  checar(!!gaveta.larguras && gaveta.larguras.antes > 0
+    && gaveta.larguras.antes === gaveta.larguras.depois,
+    'e o botão que a revela tem a MESMA LARGURA nos dois estados: "Ocultar" é '
+    + 'mais longo que "Ver", e ele crescia debaixo do dedo levando o confirmar '
+    + 'ao lado junto', JSON.stringify(gaveta.larguras));
 
-  // A OUTRA METADE: uma MÚSICA continua abrindo a letra. Sem coleção do
-  // LouvorJA neste harness (não há rede), a faixa e a letra são postas à mão —
-  // o que se afirma é o desvio de `hymnResultRow`, não o banco de origem.
+  // A OUTRA METADE: numa MÚSICA a gaveta é SÓ AS OPÇÕES (v1.2.25). A letra numa
+  // caixa de texto aqui dentro era uma segunda leitura, pior que a que o app já
+  // tem: quem quer ler abre o LEITOR (cifra, tom, corpo, rolagem), e quem só
+  // quer conferir "é este mesmo?" já tem o trecho casado na linha do resultado.
+  // Sem coleção do LouvorJA neste harness (não há rede), a faixa é posta à mão
+  // — o que se afirma é o desvio de `hymnResultRow`, não o banco de origem.
   const gavetaMusica = await pg.evaluate(async () => {
     const modoAntes = document.body.classList.contains('mode-simple') ? 'simple' : 'full';
     setAppMode('full');
@@ -1164,13 +1197,15 @@ try {
     const li = hymnResultRow(c, s, null, true);
     lista.appendChild(li);
     li.querySelector('.hymn-row').click();
-    for (let i = 0; i < 40 && !li.querySelector('.hymn-lyrics-line'); i++) {
+    for (let i = 0; i < 40 && !li.classList.contains('expanded'); i++) {
       await new Promise((r) => setTimeout(r, 25));
     }
     const r = {
+      abriu: li.classList.contains('expanded'),
+      temOpcoes: !!li.querySelector('.hymn-opcoes .song-menu-btn'),
       temCaixaDeLetra: !!li.querySelector('.hymn-lyrics'),
       temDetalhe: !!li.querySelector('.item-detalhe'),
-      linhas: [...li.querySelectorAll('.hymn-lyrics-line')].map((e) => e.textContent),
+      rotuloDaLetra: (li.querySelector('.song-menu-letra') || {}).textContent || '',
     };
     lista.remove();
     setAppMode(modoAntes);
@@ -1180,9 +1215,14 @@ try {
     if (estadoAntes) collState[c.id] = estadoAntes; else delete collState[c.id];
     return r;
   });
-  checar(gavetaMusica.temCaixaDeLetra && gavetaMusica.linhas.length === 2,
-    'e o toque numa MÚSICA continua abrindo a LETRA, com as estrofes',
-    JSON.stringify(gavetaMusica.linhas));
+  checar(gavetaMusica.abriu && gavetaMusica.temOpcoes,
+    'o toque numa MÚSICA abre a gaveta com as OPÇÕES', gavetaMusica);
+  checar(!gavetaMusica.temCaixaDeLetra,
+    'e SEM a caixa de letra: ela virou o leitor, que tem cifra, tom e rolagem',
+    gavetaMusica.temCaixaDeLetra);
+  checar(/Ver a letra/.test(gavetaMusica.rotuloDaLetra),
+    'o botão continua se chamando "Ver a letra" — o que muda é PARA ONDE ele leva',
+    gavetaMusica.rotuloDaLetra);
   checar(!gavetaMusica.temDetalhe,
     'sem a gaveta do vídeo no meio — cada tipo abre a sua, e só a sua');
 

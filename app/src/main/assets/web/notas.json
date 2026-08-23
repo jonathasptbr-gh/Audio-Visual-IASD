@@ -1,5 +1,12 @@
 [
   {
+    "versao": "1.2.25",
+    "itens": [
+      "O “Ver a letra” de um item da Biblioteca passou a abrir o LEITOR — a mesma folha do transporte, com a cifra, o tom, o corpo da fonte e a rolagem que acompanha a música — em vez da caixa de texto que ficava embaixo das opções de tocar.",
+      "Nada disso vai ao telão: abrir a folha por ali é ler, não projetar."
+    ]
+  },
+  {
     "versao": "1.2.24",
     "itens": [
       "O botão de HISTÓRICO nos controles deixou de ser um relógio. Ele e a aba Cronograma eram o mesmo mostrador redondo, e a 20 pixels o que se lê é o formato, não o detalhe: agora ele é a linha do tempo com os nós — a sequência do que já foi ao telão neste culto."

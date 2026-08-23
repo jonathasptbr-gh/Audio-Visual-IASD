@@ -2187,8 +2187,13 @@ a congregação vê continua sendo a letra, pelo caminho de sempre.
 - **A FOLHA NÃO É MAIS DE QUEM ESTÁ NO AR** (`lvAlvo`, v1.2.14). Ela nasceu
   presa ao `currentItem` — era o auxiliar de leitura da CENA —, e por isso ler
   uma música exigia PROJETÁ-LA. Quem toca quer o contrário: abrir a cifra no
-  ensaio sem a congregação ver nada. A gaveta da Biblioteca ganhou **"Abrir a
-  folha"**, que aponta o MESMO leitor para aquela faixa.
+  ensaio sem a congregação ver nada. Na gaveta da Biblioteca é o **"Ver a
+  letra"** que aponta o MESMO leitor para aquela faixa (v1.2.25 — antes ele
+  revelava uma caixa de texto ali dentro, que era uma segunda leitura sem cifra,
+  sem tom, sem corpo de fonte e sem rolagem; o botão de abrir a folha era um
+  terceiro, ao lado dela). Num VÍDEO o mesmo botão continua sendo o interruptor
+  do detalhe (miniatura, duração, estado no aparelho): quem decide é
+  `temLetra(coll)`, nunca `ehSerie`.
   - **Reusar o leitor, nunca reconstruí-lo na gaveta.** É a regra do
     `cifraCabe` e do `cifraProcurar`: uma segunda folha divergiria da primeira
     no primeiro ajuste, e quem tocasse por ela veria a versão de ontem.
@@ -3306,7 +3311,7 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: v1.2.24** (base web) · **v1.2.17** (APK) · `SHELL_VERSION` **55** · bundle com
+**Versão atual: v1.2.25** (base web) · **v1.2.17** (APK) · `SHELL_VERSION` **55** · bundle com
 `minShell: 55` — o shell 55 é o **PISO**: todo método da ponte existe, e não há
 guarda de versão no lado web. O que continua valendo é que `java/`, `res/`, o
 manifest e os workflows **só chegam instalando o APK**.
