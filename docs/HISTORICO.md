@@ -24,6 +24,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
+- **v1.2.28** — A ROTINA DE FUNDO APAGAVA A PERGUNTA DA ATUALIZAÇÃO. Relato do operador: o app deveria oferecer sozinho o download do APK novo, e não ofereceu. `horaRuimParaPerguntar` esperava `bgWorkCount === 0` — e a varredura de cifras e a de letras rodam SOZINHAS na abertura, sobre o acervo inteiro (MEDIDO num aparelho: 309 hinos num hinário e 145 no outro, numa passada só). Enquanto ela corre, a pergunta não aparece; e ela corre justamente na janela em que o operador abre o app. É a armadilha que a v5.151 já pagou com o espelho: **uma condição quase sempre verdadeira não ADIA a pergunta, ela a APAGA** — e aqui o desfecho é o pior que este canal produz, porque com o shell abaixo do `minShell` a válvula recusa toda base web e o APK é a ÚNICA saída: o aparelho fica preso, em silêncio, sem nunca ser avisado do que o destrava. A distinção é QUEM PEDIU: `withBgRotina` protege o processo do congelamento igual (o sistema continua sabendo), e não adia pergunta nenhuma. O oráculo ganhou também o lote SÓ DE APK, que não tinha caso nenhum. OTA PURO
 - **v1.2.27** — DOIS `--press` NO MESMO DEDO. Relato do operador: *"ao encolher, as bordas do card de título ficam com uma marca de encolhimento nas laterais direita e esquerda, fazendo um bug visual da parte branca do card"*. `:active` casa também nos ANCESTRAIS, então o toque na linha de uma faixa satisfazia o `.lib-item` **e** a `.hymn-row` de dentro dele — as duas na lista de `--press`, 0,96 × 0,96. MEDIDO em 430px com a gaveta aberta: o cartão a 370px e o título, dentro dele, a 355 — 7px mais estreito de cada lado que a gaveta logo abaixo, com o branco do `.lib-item` aparecendo nessa fresta. É a MESMA fresta que o comentário da v5.267 já nomeia ("o miolo se afastava de uma moldura parada e abria uma fresta dos dois lados"): a correção de então foi fazer o CARTÃO encolher, e a `.hymn-row` ficou na lista mesmo assim — invisível com a linha fechada, porque ali cartão e linha são a mesma caixa e as duas pintam `--linha`. Saiu junto o `.hymn-play-thumb`, que DEIXOU DE SER BOTÃO na v5.285 e continuava dando resposta de toque. Oráculo no `smoke.mjs`, medindo a FRESTA em pixels durante uma pressão de verdade. OTA PURO
 - **v1.2.26** — O LEITOR ABRIA ATRÁS DA BIBLIOTECA. Relato do operador: *"estando na biblioteca, ele abre o pop da letra apenas na tela principal, atrás da biblioteca"*. A folha é chamada de DENTRO da Biblioteca, que é outra camada, e as duas estavam no `z-index: 200` de todo `.popup-backdrop` — com o mesmo degrau quem decide é a ORDEM DO DOCUMENTO, e o `#lyricsPopup` está declarado ANTES do `#hymnSearchPopup`. A tabela `POPUPS` do `controle.js` já dizia a ordem certa (o leitor DEPOIS da Biblioteca, porque o voltar a percorre de trás para a frente); faltava o `z-index` dizer o mesmo — 205, acima da Biblioteca e abaixo da folha da música, que é exatamente aquela ordem. **As duas coisas mudam juntas, sempre.** O oráculo mede por HIT-TEST (`elementFromPoint` no centro da folha), não por comparação de `z-index`: é o que o dedo encontra que decide, e um número maior num contexto de empilhamento diferente não valeria nada. Provado por reversão. OTA PURO
 - **v1.2.25** — O "VER A LETRA" DA BIBLIOTECA ABRE O LEITOR. Pedido do operador: *"gostaria que esse botão nos itens da biblioteca, 'ver a letra', abrisse o mesmo modelo pup gaveta do auxiliar de leitura que já trabalha com letras e cifras… não quero mais apenas essa letra em uma caixa de texto abaixo das opções de play"*. A caixa era uma SEGUNDA leitura, pior que a que o app já tem: sem cifra, sem tom, sem corpo de fonte e sem rolagem. O mesmo botão passa a apontar o leitor do transporte para aquela faixa (`lvItemDaBiblioteca`), e nada vai ao telão. Com a caixa saem `montarLetra`, `botaoFolha`, `letraAlvo` e o CSS de `.hymn-lyrics*`. Três oráculos mudaram porque o COMPORTAMENTO mudou, e dois deles ganharam medição melhor: a guarda `abrindo` do `gaveta-no-download` passou a ser medida de DENTRO da montagem (uma propriedade, não uma janela de tempo — a janela sumiu na música e continua no vídeo), e a largura de dois estados do botão mudou de casa para o `boot-nativo`, que é o único harness que enxerga uma série. OTA PURO
@@ -255,6 +256,77 @@ na nota que a revoga, não apagada da que a criou.
 - **v5.156** — é METADE OTA e METADE APK, de novo.
 
 ---
+
+## v1.2.28 — a rotina de fundo apagava a pergunta da atualização
+
+Relato do operador: *"verifique a questão do sistema de update automático que
+deveria oferecer no próprio app o download da nova versão do apk"*. O aparelho
+tinha ficado preso no shell v1.2.8 (`SHELL_VERSION` 52) com bundles exigindo 55,
+e a saída — o APK v1.2.17 — nunca foi oferecida na tela.
+
+### O que foi verificado e estava certo
+
+O canal inteiro: merge em `main`, CI verde, manifesto publicado com `sha256`
+batendo, zip baixável com o código dentro. E, no shell, a ordem que já estava
+escrita e é o que torna esta saída possível — **`WebUpdater.check` anuncia o
+bloco `shell` ANTES da válvula `minShell`**, então um bundle recusado não impede
+o APK de ser anunciado. Do lado web, `loteDaAtualizacao` monta um lote só de
+shell e `textoDaAtualizacao` sabe dizer *"App v1.2.17"* sem base web no meio.
+
+**Nada disso tinha oráculo.** O `ota.test.mjs` cobria o lote só-de-web, o lote
+web+APK e a retomada da intenção — nunca o lote **só de APK** partindo do zero,
+que é exatamente o caso do aparelho preso. Ele entra agora (caso 2b).
+
+### A causa
+
+`horaRuimParaPerguntar()` era `cenaNoAr() || bgWorkCount > 0`.
+
+`bgWorkCount` responde ao SISTEMA — *"o processo pode ser congelado?"* —, e para
+isso ele está certo: a varredura de cifras é rede, e rede congelada morre no
+meio. Mas ele passou a responder uma segunda pergunta, e para essa está errado.
+
+`syncCifrasAcervo` e `syncLyrics` rodam **sozinhas na abertura**, sobre o acervo
+inteiro. MEDIDO no Registro do operador: 309 hinos num hinário e 145 no outro,
+mais dezenas de álbuns, numa passada só. Enquanto isso corre, `bgWorkCount > 0`
+e a pergunta não aparece — na janela em que o app acabou de ser aberto, que é
+justamente quando ela deveria aparecer.
+
+É a armadilha que a v5.151 já pagou com o espelho, que fica ligado o culto
+inteiro: **uma condição quase sempre verdadeira não adia a pergunta, ela a
+apaga.** E o desfecho aqui é o pior que este canal sabe produzir — com o shell
+abaixo do `minShell`, a válvula recusa toda base web e o APK é a única saída;
+suprimir a pergunta deixa o aparelho preso, em silêncio, sem nunca ser avisado
+do que o destrava.
+
+### A correção: quem PEDIU o trabalho
+
+`withBgRotina(fn)` — irmão do `withBgWork`, mesma proteção contra o
+congelamento, contado à parte (`bgRotinaCount`). `bgWorkPedido()` é
+`bgWorkCount - bgRotinaCount > 0`, e é ele que os dois `horaRuim*` consultam.
+
+A distinção é *quem pediu*: o que o OPERADOR mandou fazer (baixar um álbum, a
+Bíblia, uma pasta) é o que ele está esperando terminar. A rotina de manutenção
+ninguém pediu, ninguém está olhando, e ela é retomável de graça — o que já está
+guardado não é pedido de novo na abertura seguinte.
+
+Dois pontos viraram rotina, e só eles: o `withBgWork` de `syncCifrasColecao` e o
+de `syncLyrics`. Os outros nove continuam como estavam.
+
+`bgRotinaCount` **zera junto** com o `bgWorkCount`, pela mesma razão do
+`bgTasks.clear()` ao lado: um `finally` perdido (renderer morto no meio)
+deixaria a pergunta suprimida pelo resto da sessão — o defeito que esta
+separação existe para tirar.
+
+O Registro acompanha: *"esperando o download que o operador pediu terminar"* em
+vez de *"cena/download"*, que mandaria procurar um download que ninguém iniciou.
+
+### O oráculo
+
+Duas metades, e nenhuma sozinha prova a regra: com a rotina no ar a pergunta
+**aparece** (e `bgWorkCount > 0` é afirmado no mesmo caso — o sistema continua
+sabendo, a proteção não foi perdida); com um download **pedido** ela continua
+esperando, e sai assim que ele termina. Sem a segunda, apagar a espera inteira
+passaria. Provado por reversão.
 
 ## v1.2.27 — dois `--press` no mesmo dedo
 

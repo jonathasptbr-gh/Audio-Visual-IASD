@@ -244,7 +244,7 @@ const appVersionEl = document.getElementById('appVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.2.27';
+const WEB_VERSION = '1.2.28';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -10505,7 +10505,7 @@ async function syncCifrasColecao(coll) {
   // sobrevive, e era o caso em que não havia como investigar.
   const exemplos = [];
   try {
-    await withBgWork(async () => {
+    await withBgRotina(async () => {
       try {
         await runLimited(faltam, NET_CONCURRENCY, async (h) => {
           bgItemStart(notifId, h.nome);
@@ -14226,7 +14226,7 @@ async function syncLyrics() {
   try {
     // `bgTaskEnd` DENTRO do withBgWork (mesma nota de syncGroup): o `finally`
     // dele roda antes do de fora e já limpa o registro de tarefas.
-    await withBgWork(async () => {
+    await withBgRotina(async () => {
      try {
       await runLimited(pendentes, NET_CONCURRENCY, async (item) => {
       bgItemStart(notifId, item.nome);
@@ -17723,14 +17723,19 @@ function cabecalhoDiag() {
     else if (otaAdiadas.has(loteReg.chave)) porque = 'o operador adiou nesta sessão';
     else if (apkBaixando) porque = 'baixando o app agora';
     else if (otaPerguntando) porque = 'perguntando agora';
-    else if (horaRuimParaPerguntar()) porque = 'esperando a cena/download sair do ar';
+    else if (cenaNoAr()) porque = 'esperando a cena sair do ar';
+    // O QUE O OPERADOR PEDIU, e não a rotina (v1.2.28): a varredura de cifras e
+    // a de letras rodam sozinhas sobre o acervo inteiro e não seguram mais a
+    // pergunta. Dizer "download" sobre elas mandaria procurar um download que
+    // ninguém iniciou.
+    else if (bgWorkPedido()) porque = 'esperando o download que o operador pediu terminar';
     else porque = 'a pergunta está prestes a aparecer';
     l.push('Atualização: ' + oque + ' esperando — ' + porque);
     // O peso do APK só interessa quando ele está no lote, e interessa muito:
     // é a diferença entre "esperar meio minuto" e "esperar o Wi-Fi da igreja".
     if (loteReg.bytes) l.push('  · o app pesa ' + mb(loteReg.bytes));
     if (loteReg.shell && horaRuimParaAtualizar()) {
-      l.push('  · instalar está bloqueado (cena/download/espelho no ar)');
+      l.push('  · instalar está bloqueado (cena, download pedido ou transmissão no ar)');
     }
   }
   // A PROCURA em si (v5.136). "Não apareceu aviso nenhum" tem quatro causas
@@ -20265,14 +20270,49 @@ async function setWallpaper(file) {
 // No NAVEGADOR tudo isto é no-op: a aba já continua baixando em segundo plano.
 let bgWorkCount = 0;
 
-function bgWorkBegin() {
+// ===== E QUANTO DELE É ROTINA, e não pedido do operador (v1.2.28) =====
+//
+// `bgWorkCount` responde ao SISTEMA: *"o processo pode ser congelado?"*. Para
+// isso ele está certo do jeito que está — a varredura de cifras é rede, e rede
+// congelada morre no meio como qualquer outra.
+//
+// Mas ele passou a responder uma segunda pergunta, e para essa ele está errado:
+// *"é hora de perguntar sobre a atualização?"* (`horaRuimParaPerguntar`). A
+// varredura de cifras e a de letras rodam SOZINHAS na abertura, sobre o acervo
+// inteiro — MEDIDO num aparelho: 309 hinos num hinário e 145 no outro, mais
+// dezenas de álbuns, numa passada só. Enquanto ela corre, a pergunta não
+// aparece; e ela corre justamente na janela em que o operador abre o app.
+//
+// É a MESMA armadilha que a v5.151 já pagou com o espelho: uma condição quase
+// sempre verdadeira não adia a pergunta, ela a APAGA. E o desfecho aqui é o
+// pior que este canal sabe produzir — com o shell abaixo do `minShell`, a
+// válvula recusa toda base web e o APK é a única saída; suprimir a pergunta
+// deixa o aparelho preso, em silêncio, sem nunca ser avisado do que o destrava.
+//
+// A distinção é *quem pediu*: o que o OPERADOR mandou fazer (baixar um álbum,
+// a Bíblia, uma pasta) é o que ele está esperando terminar. A ROTINA de
+// manutenção ninguém pediu, ninguém está olhando, e ela é retomável de graça —
+// o que já está guardado não é pedido de novo na abertura seguinte.
+let bgRotinaCount = 0;
+
+function bgWorkBegin(rotina) {
   if (!window.__NATIVE__) return;
+  if (rotina) bgRotinaCount++;
   if (++bgWorkCount === 1) AVNative.keepAlive(true);
 }
 
-function bgWorkEnd() {
+// O trabalho que o OPERADOR está esperando — o único que adia uma pergunta.
+function bgWorkPedido() { return bgWorkCount - bgRotinaCount > 0; }
+
+function bgWorkEnd(rotina) {
   if (!window.__NATIVE__) return;
+  if (rotina && bgRotinaCount > 0) bgRotinaCount--;
   if (bgWorkCount > 0 && --bgWorkCount === 0) {
+    // O contador de rotina ZERA junto, pela mesma razão do `bgTasks.clear()`
+    // abaixo: um `withBgRotina` que perdesse o `finally` (renderer morto no meio)
+    // deixaria a pergunta suprimida pelo resto da sessão, que é exatamente o
+    // defeito que esta separação existe para tirar.
+    bgRotinaCount = 0;
     // O `clear()` é a rede de segurança para uma tarefa que ficou órfã, mas
     // ele SOZINHO deixava o compasso ligado para sempre: com o `bgTasks` já
     // vazio, o `bgTaskEnd` que vinha depois achava o Map vazio, o `delete`
@@ -20294,6 +20334,13 @@ function bgWorkEnd() {
 async function withBgWork(fn) {
   bgWorkBegin();
   try { return await fn(); } finally { bgWorkEnd(); }
+}
+
+// O MESMO, para a ROTINA que ninguém pediu (ver `bgRotinaCount`): protege o
+// processo do congelamento igual, e NÃO adia a pergunta da atualização.
+async function withBgRotina(fn) {
+  bgWorkBegin(true);
+  try { return await fn(); } finally { bgWorkEnd(true); }
 }
 
 // ===== progresso na notificação do sistema =====
@@ -23601,7 +23648,7 @@ function cenaNoAr() {
 // até alguém recarregá-la; a cena e o download custam a projeção e o hinário
 // pela metade, que é outra ordem de grandeza.
 function horaRuimParaPerguntar() {
-  return cenaNoAr() || bgWorkCount > 0;
+  return cenaNoAr() || bgWorkPedido();
 }
 
 // Momento ruim para INSTALAR O APK: aqui o espelho volta a contar, porque
@@ -23610,7 +23657,7 @@ function horaRuimParaPerguntar() {
 // v5.242), e é o que o
 // Registro mostra.
 function horaRuimParaAtualizar() {
-  return cenaNoAr() || bgWorkCount > 0 || espelhoLigado();
+  return cenaNoAr() || bgWorkPedido() || espelhoLigado();
 }
 
 // O que está esperando, numa forma só. `null` quando não há nada.

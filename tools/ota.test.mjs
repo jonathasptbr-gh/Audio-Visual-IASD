@@ -422,6 +422,92 @@ try {
     await ctx.close();
   }
 
+  // ── 2b. LOTE SÓ DE APK: a pergunta aparece do mesmo jeito ───────────────
+  //
+  // O caminho SEM oráculo até a v1.2.28, e o que o operador viveu: com o shell
+  // instalado abaixo do `minShell` do bundle, a válvula recusa TODA base web —
+  // `web` fica vazio para sempre — e a única saída é o APK. É por isso que o
+  // `WebUpdater.check` anuncia o bloco `shell` ANTES da válvula.
+  //
+  // Se a pergunta dependesse de haver base web nova, o aparelho ficaria preso:
+  // recusando todo bundle e sem nunca ser avisado do APK que o destrava. Um
+  // beco sem saída silencioso, e o pior que este canal sabe produzir.
+  //
+  // Também é o caso do lote SÓ de Release (sem base web nova), que existe
+  // sempre que o Kotlin muda sozinho.
+  {
+    const { ctx, pg } = await abrir({ web: '', shell: '1.99', bytes: 4567720 });
+    await empurrar(pg, { web: '', shell: '1.99', shellBytes: 4567720 });
+    const d = await dialogo(pg);
+    checar(!!d, 'lote SÓ de APK: a pergunta aparece — sem base web nova no meio');
+    checar(!!d && /App v1\.99/.test(d.msg) && !/Base v/.test(d.msg),
+      'e ela fala só do app: não há base web neste lote, e prometer uma seria mentir',
+      d && d.msg);
+    checar(!!d && /4[,.]4 MB/.test(d.msg),
+      'com o peso, que aqui é a única coisa que dimensiona a espera', d && d.msg);
+    checar(!!d && /confirmar a instalação/i.test(d.rodape || ''),
+      'e o aviso do instalador do Android continua no rodapé', d && d.rodape);
+    // E O TOQUE INSTALA: sem base web para aplicar, `otaApply` não é chamado —
+    // a metade que faltaria se o caminho de APK dependesse do de web.
+    await tocar(pg, 'appDialogOk');
+    const instalou = await esperar(pg, () => window.__chamadas.includes('apkInstalar'),
+      null, PRAZO_CURTO_MS);
+    checar(instalou === true, 'e o toque vai direto ao instalador', porque(instalou));
+    checar(!(await pg.evaluate(() => window.__chamadas.includes('otaApply'))),
+      'sem aplicar base nenhuma — não havia o que aplicar');
+    await ctx.close();
+  }
+
+  // ── 2c. A ROTINA DE FUNDO NÃO SEGURA A PERGUNTA (v1.2.28) ───────────────
+  //
+  // `horaRuimParaPerguntar` esperava `bgWorkCount === 0`, e a varredura de
+  // cifras e a de letras rodam SOZINHAS na abertura, sobre o acervo inteiro —
+  // MEDIDO num aparelho: 309 hinos num hinário e 145 no outro numa passada só.
+  // Enquanto ela corria, a pergunta não aparecia; e ela corre justamente na
+  // janela em que o operador abre o app.
+  //
+  // É a armadilha que a v5.151 já pagou com o espelho: uma condição quase
+  // sempre verdadeira não ADIA a pergunta, ela a APAGA. E o desfecho é o pior
+  // que este canal produz — com o shell abaixo do `minShell`, o APK é a única
+  // saída, e suprimir a pergunta prende o aparelho em silêncio.
+  //
+  // AS DUAS METADES, e nenhuma sozinha prova a regra: a rotina NÃO segura, e o
+  // que o operador PEDIU continua segurando. Sem a segunda, apagar a espera
+  // inteira passaria.
+  {
+    const { ctx, pg } = await abrir({ web: '', shell: '1.99', bytes: 4567720 });
+    // A ROTINA: é o que `syncCifrasColecao`/`syncLyrics` fazem na abertura.
+    await pg.evaluate(() => { window.__soltar = null; withBgRotina(() => new Promise((r) => { window.__soltar = r; })); });
+    checar(await pg.evaluate(() => bgWorkCount > 0),
+      'a rotina está no ar e o SISTEMA sabe (o processo segue protegido do congelamento)');
+    await empurrar(pg, { web: '', shell: '1.99', shellBytes: 4567720 });
+    checar(!!(await dialogo(pg)),
+      'e a pergunta APARECE do mesmo jeito: ninguém pediu a varredura, e ela é '
+      + 'retomável de graça');
+    await tocar(pg, 'appDialogCancel');
+    await pg.evaluate(() => { window.__soltar(); });
+    await ctx.close();
+  }
+  {
+    // A OUTRA METADE: um download que o operador MANDOU fazer continua adiando.
+    const { ctx, pg } = await abrir({ web: '', shell: '1.99', bytes: 4567720 });
+    await pg.evaluate(() => { window.__soltar = null; withBgWork(() => new Promise((r) => { window.__soltar = r; })); });
+    await empurrar(pg, { web: '', shell: '1.99', shellBytes: 4567720 });
+    checar(!(await dialogo(pg)),
+      'com um download PEDIDO pelo operador, a pergunta continua esperando — é '
+      + 'o que ela sempre fez, e a separação não podia apagá-lo');
+    // E ELA NÃO SE PERDE: terminado o download, a enquete seguinte pergunta.
+    await pg.evaluate(() => { window.__soltar(); });
+    const voltou = await esperar(pg, () => {
+      decidirAtualizacao();
+      const d = document.getElementById('appDialog');
+      return !!d && d.classList.contains('open');
+    }, null, PRAZO_CURTO_MS);
+    checar(voltou === true,
+      'e assim que ele termina a pergunta sai — adiar não é apagar', porque(voltou));
+    await ctx.close();
+  }
+
   // ── 3. A INTENÇÃO ATRAVESSA A MORTE DO DOCUMENTO e vira a instalação ────
   {
     // A intenção já está no banco quando o Controle ABRE — semeada na página de
