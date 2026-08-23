@@ -24,6 +24,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
+- **v1.1.27** — O RECADO NÃO GRAVAVA COM O ESPELHAMENTO LIGADO, que é o modo NORMAL de um culto com TV: `iniciarRecado` pedia o microfone UMA vez com `echoCancellation`, e o Android recusa a sessão de VOZ quando a saída de áudio está em outro caminho. O `startMic` do telão já pedia TRÊS, e o comentário que explica isso estava no arquivo lido para escrever o gravador — foi lido e não aplicado. O conserto não é a escada copiada: é o `mic-escada.test.mjs`, que cobra que as duas sejam idênticas, que os três degraus tenham as três propriedades (uma igualdade sozinha aprovaria duas escadas igualmente erradas) e que os dois consumidores PERCORRAM a escada — declarar três e usar o índice zero é o defeito original com mais linhas. OTA PURO
 - **v1.1.26** — O MICROFONE VIRA WALKIE-TALKIE, E PASSA A FUNCIONAR NOS QUATRO MODELOS: em vez de TRANSPORTAR ÁUDIO, ele transporta um ARQUIVO — a voz vira item `kind:"audio"` comum e entra pelo caminho de projeção de sempre, chegando às telas da rede de graça pelo `/m/<token>`. É a inversão que faz o recurso caber: o ao vivo para a rede está bloqueado por `[SecureContext]`, e o projeto já construiu esse transporte (AAC → MSE) e o removeu na v5.187. A Release é de UMA LINHA — o `ControleChromeClient` negava toda permissão de mídia e passa a conceder áudio, e só áudio, chamando as três regras do `MicChromeClient` em vez de reescrevê-las. O FIM do recado é interceptado nos DOIS caminhos: sendo item comum, ele caía no `autoAdvance`, onde `repeat one` repetia a voz do operador PARA SEMPRE e `repeat all` começava a playlist do zero — nenhum dos dois com sinal na tela. E ele DEVOLVE a cena, com a posição dentro do próprio `load`. EXIGE RELEASE
 - **v1.1.25** — O OPERADOR ESCOLHE A CIFRA, E A ESCOLHA VENCE TUDO: o método automático adivinha a partir de um nome, e quem opera SABE qual é a música. MEDIDO no aparelho: na maioria das falhas o resultado certo ESTAVA na página de busca — só não era o que a regra elegeu, e não havia como olhar a lista nem dizer "é este". A aba passa a desenhar a lista dentro do app (inclusive o que a regra RECUSOU, marcado), abrir qualquer resultado em PRÉVIA e fixar o escolhido, que vira a tentativa 0 e sobrevive ao fechar o app. Não é navegador embutido — é a divisão de sempre, com o desenho nosso: nenhum script de terceiro roda. Guardar um ENDEREÇO não fura o "nada em disco", que sempre falou do CONTEÚDO. E o Registro passa a guardar a RADIOGRAFIA da página que não abriu — só forma, nenhum pedaço de letra ou acorde —, porque `ilegivel` responde "não entendi" e não "o que era". OTA PURO
 - **v1.1.24** — O MICROFONE, VERIFICADO NOS QUATRO MODELOS DE PROJEÇÃO: ele funciona com TV espelhando e em mais nenhum — e sem TV o botão acendia "No ar" sem nada estar captando, porque `micPressed` é escrito no `pointerdown` e sem `Presentation` ninguém responde `mic-status`. A recusa entra ANTES do pedido de permissão do Android: pedir o microfone para uma ação que não pode funcionar é queimar a única permissão sensível do app. Mais a guarda que um comentário prometia desde a v5.187 e que nunca existiu — o comando `mic` DESCE para toda tela da rede sem filtro, e o que impedia o desfecho era o ambiente (`getUserMedia` é `[SecureContext]`), não o app; proteção emprestada do navegador é proteção com prazo, e o `EspelhoCert` continua inteiro no shell. O oráculo FORJA `navigator.mediaDevices` para medir o dia em que houver TLS. OTA PURO
@@ -222,6 +223,57 @@ na nota que a revoga, não apagada da que a criou.
 - **v5.154** — é METADE OTA e METADE APK, e a divisão importa para quem for testar em aparelho.
 - **v5.155** — é OTA PURO
 - **v5.156** — é METADE OTA e METADE APK, de novo.
+
+---
+
+## v1.1.27 — o Recado não gravava com o espelhamento ligado
+
+Relatado do aparelho no primeiro toque, com captura: os dois botões na tela, o
+espelhamento no ar, e a frase **"O Android não liberou o microfone"**.
+
+### O DEGRAU QUE FALTAVA
+
+`iniciarRecado` pedia o microfone UMA vez, com `echoCancellation: true`. O
+`startMic` do telão pede TRÊS, e o comentário ao lado dele explica exatamente
+este desfecho:
+
+> `NotReadableError` NÃO é "outro app está usando o microfone": é o "não consegui
+> abrir o dispositivo" genérico do WebRTC, e no Android a causa comum é o
+> PROCESSAMENTO pedido. Com `echoCancellation` o Chromium abre o `AudioRecord`
+> em `VOICE_COMMUNICATION` (sessão de voz), que o sistema recusa quando a saída
+> de áudio está em outro caminho — **o caso deste app com espelhamento ligado**.
+
+"Com espelhamento ligado" é o modo NORMAL de um culto com TV. O recado nasceu
+quebrado exatamente onde ele mais seria usado — e a frase que o operador leu
+mandava fechar uma chamada ou um gravador que não existiam.
+
+O comentário já estava escrito, no arquivo que foi lido para escrever o
+gravador. Ele não foi aplicado.
+
+### O ORÁCULO É O CONSERTO, NÃO A ESCADA
+
+Copiar os três degraus resolve hoje. O que impede a próxima divergência é
+`tools/mic-escada.test.mjs`, que lê as DUAS declarações e cobra:
+
+- que sejam **idênticas** — mesmas opções, mesma ordem;
+- que os três degraus tenham as três PROPRIEDADES (eco ligado, eco desligado,
+  pedido cru) — uma igualdade sozinha aprovaria duas escadas igualmente erradas;
+- que os dois consumidores **percorram** a escada inteira. Declarar três e usar
+  o índice zero é o defeito original com mais linhas, e é a forma que uma
+  comparação de literais não veria.
+
+MEDIDO por reversão: a escada de um degrau reprova, e a escada certa percorrida
+só no zero reprova por outra asserção.
+
+**Por que não é uma função só:** são dois documentos, em dois WebViews, com
+estados diferentes (o telão tem `micSeq`/`micWanted` e emite `mic-status`; o
+Controle tem `recSeq` e escreve `recErro`). Unificá-las pediria um módulo em
+`shared/` — que as TELAS DA REDE também carregam, e lá `getUserMedia` não
+existe. O preço de manter duas é o oráculo, e é a mesma solução do
+`tipos-que-sobem.test.mjs`.
+
+OTA PURO — `minShell` 50 (o recado precisa do shell 50, que a v1.1.26 entregou),
+sem `shellTag`.
 
 ---
 

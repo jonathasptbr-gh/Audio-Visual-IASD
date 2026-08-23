@@ -237,7 +237,7 @@ const appVersionEl = document.getElementById('appVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.1.26';
+const WEB_VERSION = '1.1.27';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -4984,6 +4984,14 @@ function recadoFormato() {
 // UM TOQUE ACIDENTAL NÃO VAI AO AR. O botão ocupa a largura inteira da barra
 // (é o que o faz achável sem olhar), e um roçar do dedo produziria um recado de
 // 80 ms projetado na frente da congregação.
+// A ESCADA DE CAPTURA, gêmea da do `startMic` (display.js). Ela é o que faz o
+// microfone abrir COM O ESPELHAMENTO LIGADO — ver o comentário em
+// `iniciarRecado`. Mudou aqui, muda lá: `tools/mic-escada.test.mjs` cobra o par.
+const MIC_TENTATIVAS = [
+  { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+  { echoCancellation: false, noiseSuppression: false, autoGainControl: false },
+  true,
+];
 const RECADO_MIN_MS = 700;
 // E UM BOTÃO QUE GRUDA NÃO GRAVA PARA SEMPRE. `setPointerCapture` torna a
 // soltura confiável, mas o custo de errar aqui é um arquivo crescendo em
@@ -5019,21 +5027,53 @@ async function iniciarRecado() {
   // corrida que o `micSeq` do telão fecha, e pelo mesmo motivo: sem o token, um
   // toque curto deixaria um gravador vivo que nenhum evento desliga.
   if (seq !== recSeq) return;
+  // AS TRÊS TENTATIVAS, gêmeas das do `startMic` do telão — e a primeira versão
+  // deste gravador tinha UMA só, com `echoCancellation` ligado. Relatado do
+  // aparelho, com captura: "O Android não liberou o microfone", com o
+  // espelhamento no ar.
+  //
+  // `NotReadableError` NÃO é "outro app está usando o microfone": é o "não
+  // consegui abrir o dispositivo" genérico do WebRTC, e no Android a causa comum
+  // é o PROCESSAMENTO pedido. Com `echoCancellation` o Chromium abre o
+  // `AudioRecord` em `VOICE_COMMUNICATION` (sessão de voz), que o sistema recusa
+  // quando a saída de áudio está em OUTRO CAMINHO — que é o caso deste app com
+  // espelhamento ligado, isto é, o modo NORMAL de um culto com TV. O microfone
+  // CRU não passa por ali e abre.
+  //
+  // A ordem é deliberada e é a mesma do telão: o cancelamento de eco vem
+  // primeiro porque o alto-falante deste celular está a centímetros do
+  // microfone dele, e uma realimentação num culto é estrago público imediato.
+  // Um recado com risco de microfonia é melhor que um que não grava.
+  //
+  // A LIGAÇÃO ENTRE AS DUAS ESCADAS TEM ORÁCULO (`tools/mic-escada.test.mjs`):
+  // são dois arquivos, dois WebViews e dois estados diferentes, então não dá
+  // para ser uma função só — mas duas escadas sem oráculo divergem no primeiro
+  // esquecimento, e foi exatamente assim que esta nasceu com um degrau.
   let fluxo = null;
-  try {
-    // `echoCancellation` LIGADO: o alto-falante deste celular está a
-    // centímetros do microfone dele, e num culto uma realimentação é estrago
-    // público imediato. Aqui ele é barato — ao contrário do telão, não há
-    // saída de áudio em outro caminho para o sistema recusar a sessão de voz.
-    fluxo = await navigator.mediaDevices.getUserMedia({
-      audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
-      video: false,
-    });
-  } catch (e) {
-    recErro = (e && e.name) || 'error';
+  let erroFinal = 'error';
+  let semEco = false;
+  for (let i = 0; i < MIC_TENTATIVAS.length; i++) {
+    try {
+      fluxo = await navigator.mediaDevices.getUserMedia({
+        audio: MIC_TENTATIVAS[i], video: false,
+      });
+      semEco = i > 0;
+      break;
+    } catch (e) {
+      erroFinal = (e && e.name) || 'error';
+      // PERMISSÃO NEGADA não melhora com menos processamento: é resposta do
+      // sistema, e insistir só gasta duas chamadas para dar o mesmo erro.
+      if (erroFinal === 'NotAllowedError' || erroFinal === 'SecurityError') break;
+      // E o operador pode ter soltado o botão entre uma tentativa e outra.
+      if (seq !== recSeq) break;
+    }
+  }
+  if (!fluxo) {
+    recErro = erroFinal;
     renderRecadoUI();
     return;
   }
+  if (semEco) diagC('recado SEM cancelamento de eco (o modo com eco foi recusado)');
   if (seq !== recSeq) { fluxo.getTracks().forEach((t) => t.stop()); return; }
   const formato = recadoFormato();
   let g;

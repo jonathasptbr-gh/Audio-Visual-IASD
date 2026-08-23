@@ -1,5 +1,12 @@
 [
   {
+    "versao": "1.1.27",
+    "itens": [
+      "O Recado não gravava com a TV espelhando — que é justamente o modo normal de um culto. Ele pedia o microfone com cancelamento de eco, e o Android recusa esse pedido quando o som está indo para outro lugar.",
+      "Agora ele tenta três formas, da melhor para a que sempre abre, exatamente como o microfone ao vivo já fazia."
+    ]
+  },
+  {
     "versao": "1.1.26",
     "itens": [
       "O MICROFONE VIROU WALKIE-TALKIE: segure o botão “Recado”, fale, solte — e a voz vai direto ao ar. Funciona com TV, sem TV e nas telas da rede, que é onde o microfone ao vivo nunca funcionou.",
