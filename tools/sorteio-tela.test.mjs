@@ -305,6 +305,27 @@ try {
   }));
   const conta0 = await lerConta();
   checar(folha.aberta, 'o toque no botão ABRE a folha');
+  // ---- E ELA DESCE DO TETO (v1.2.1) ----
+  // A regra de ORIGEM: a gaveta entra pela borda do botão que a abre, e o dado
+  // mora na barra de busca da Biblioteca, que é o primeiro elemento sob o
+  // cabeçalho. (A outra folha do teto é Configurações; o `smoke.mjs` mede as
+  // duas metades da regra, com uma de baixo ao lado para provar que ela é sobre
+  // ORIGEM e não "toda folha nasce no teto".)
+  //
+  // A espera é pelo FIM DA TRANSIÇÃO, nunca pela posição que se vai afirmar: o
+  // `assentada` acima olha a OPACIDADE do backdrop (.25s), e a folha desliza em
+  // .3s — medida ali ela responderia o ponto de partida do transform.
+  await pg.waitForFunction(() => {
+    const el = document.querySelector('#sorteioPopup .popup-sheet');
+    return !!el && el.getAnimations().every((a) => a.playState !== 'running');
+  }, null, { timeout: 5000 });
+  const origem = await pg.$eval('#sorteioPopup .popup-sheet', (el) => {
+    const r = el.getBoundingClientRect();
+    return { topo: Math.round(r.top), raio: getComputedStyle(el).borderRadius };
+  });
+  checar(origem.topo === 0 && /^0px 0px \S+ \S+$/.test(origem.raio),
+    'e ela ENCOSTA NO TETO, com os cantos arredondados embaixo — o botão dela '
+    + 'está no alto da Biblioteca', origem);
   checar(folha.segmentos === 2 && folha.campo && folha.chips === 3 && folha.go,
     'e ela desenha os dois segmentos, o campo, os TRÊS filtros e o confirmar', folha);
   // A RESSALVA DOS INFANTIS APARECE DE SAÍDA (v1.0.7), e é o preço declarado de

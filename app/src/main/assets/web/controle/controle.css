@@ -3601,6 +3601,40 @@ main {
   padding-bottom: max(0px, env(safe-area-inset-bottom) - var(--kb, 0px));
 }
 .popup-backdrop.open .popup-sheet { transform: translateY(0); }
+
+/* ---------- A GAVETA DESCE DO LADO DO BOTÃO QUE A ABRE (v1.2.1) ----------
+   Pedido do operador: *"ajuste a gaveta de configurações para que seja uma
+   gaveta do topo para baixo, para que fique no teto, considerando que seu botão
+   está no topo. e o mesmo vale para a gaveta da playlist automática"*.
+
+   A regra é de ORIGEM, não de gosto: uma folha que entra pela borda oposta à do
+   botão atravessa a tela inteira para responder a um toque, e o olho a perde no
+   caminho. As duas que mudam de lado têm o botão no ALTO — a engrenagem foi
+   para o cabeçalho na v1.2.0, e o dado da playlist automática sempre morou na
+   barra de busca da Biblioteca, que é o primeiro elemento sob o cabeçalho dela.
+   As de baixo (playlist, histórico, folha da música) continuam subindo, pelo
+   mesmo motivo pelo avesso: os botões delas moram na barra de controles.
+
+   Três coisas mudam juntas, e nenhuma sozinha basta: de onde ela ENTRA
+   (`translateY(-100%)`), onde ela ENCOSTA (`flex-start`) e de que lado ficam os
+   CANTOS — uma folha colada no teto com o raio embaixo é um cartão flutuando
+   fora de lugar, e é o canto arredondado que diz para onde ela sai.
+
+   O `max-height` deixa de ser `80vh` e passa a ser 80% DA CAIXA. Nas gavetas de
+   baixo os dois valores coincidem (o backdrop é `inset: 0`), mas a da playlist
+   automática desconta o teclado (ver `#sorteioPopup` abaixo): com `vh` a folha
+   ignoraria esse desconto e voltaria a crescer por baixo do teclado, que é
+   justamente o que a exceção dela existe para impedir. */
+.popup-backdrop--topo { align-items: flex-start; }
+.popup-sheet--topo {
+  max-height: 80%;
+  border-radius: 0 0 var(--radius-sheet) var(--radius-sheet);
+  transform: translateY(-100%);
+  /* A área segura troca de ponta com a folha: no teto quem a atravessa é a
+     barra de status, não a de gestos. */
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: 0;
+}
 /* A folha rápida de uma música (▶/+ da linha) abre DE DENTRO do acervo, que é
    outro popup. Com o mesmo z-index de todos, quem decidiria seria a ordem do
    documento — e é justamente o tipo de acaso que já cobriu um popup por
@@ -3616,11 +3650,13 @@ main {
    este número), nunca uma só. */
 #sorteioPopup { z-index: 220; }
 /* ---------- ELA TEM UM CAMPO DE TEXTO, LOGO ELA DESCONTA O TECLADO ----------
-   A exceção declarada ao `inset: 0` do `.popup-backdrop`, e pela MESMA razão
-   que o `.dialog-backdrop` já a carrega: uma folha alinhada à BASE com um campo
-   dentro fica atrás do teclado que ela própria abre — e aqui o campo é o
-   recurso, não um detalhe da folha. A Biblioteca escapa disso por ser tela
-   cheia com a barra no topo; esta é um cartão de baixo. */
+   A exceção declarada ao `inset: 0` do `.popup-backdrop`. Ela nasceu quando esta
+   folha subia da BASE — ali um campo fica literalmente atrás do teclado que ele
+   próprio abre —, e o motivo MUDOU com a v1.2.1, que a levou para o teto: hoje o
+   campo está sempre à vista, e o que este desconto ainda faz é impedir a LISTA
+   de crescer por baixo do teclado. É ele que dá sentido ao `max-height: 80%` do
+   `--topo`: com `80vh` a folha mediria a tela inteira e ignoraria o desconto,
+   devolvendo o defeito por outro caminho. */
 #sorteioPopup { inset: var(--vv-top, 0px) 0 var(--kb, 0px) 0; }
 /* (O `#folderPopup` — o seletor de atalhos, que abria de dentro da folha da
    música e por isso pedia mais um degrau (220) — saiu na v5.254 com os atalhos

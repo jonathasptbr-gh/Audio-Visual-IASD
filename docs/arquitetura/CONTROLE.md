@@ -429,11 +429,24 @@ por natureza, já que um toque numa mídia da Biblioteca redefine a fila inteira
   deixado em laço durante a oração enterraria o culto inteiro em cópias do mesmo
   nome. Alternar entre dois itens abre linha nova — o colapso é da repetição
   consecutiva, nunca do item.
-- **Sem excluir e sem reordenar, e sem projetar pelo toque na linha.** Um
-  registro do que JÁ aconteceu não se edita, e um destrutivo aqui apagaria o
-  registro sem apagar nada do aparelho. O toque na linha também não projeta: uma
-  lista consultada durante o culto não pode mandar coisa ao telão por um toque de
-  rolagem. A ação é UMA — "Adicionar ao Cronograma" —, e é a do pedido.
+- **Sem excluir e sem reordenar.** Um registro do que JÁ aconteceu não se
+  edita, e um destrutivo aqui apagaria o registro sem apagar nada do aparelho.
+- **O TOQUE NA LINHA PROJETA** (v1.2.1, pedido do operador: *"pode fazer o item
+  do histórico ser executável diretamente no toque"*). A v1.2.0 tinha recusado
+  isto — o argumento era que uma lista consultada durante o culto não podia
+  mandar coisa ao telão por um toque de rolagem —, e ele **não se sustenta**: um
+  `click` não sai de um gesto que rolou a lista (o navegador o cancela), que é a
+  mesma proteção sob a qual a folha da playlist já projeta desde sempre. O que
+  sobra é a razão de o histórico existir: repetir um louvor que entrou de
+  improviso e não ficou guardado em lista nenhuma, sem cobrar uma linha
+  permanente no Cronograma por uma repetição.
+
+  Por `projetarItem`, e não um `send` cru: é a mesma porta do toque numa linha da
+  Biblioteca, e é ela que distingue CENA de MÍDIA. **E a folha FECHA** — ela cobre
+  a preview e o transporte, que é onde a resposta ao toque aparece; projetar por
+  trás dela seria o operador tocando e não vendo nada acontecer. O botão "Ao
+  Cronograma" tem `stopPropagation` pelo motivo espelhado: guardar um item não é
+  mandá-lo ao ar.
 - **A linha do item que saiu do aparelho FICA**, esmaecida, dizendo "Não está
   mais no aparelho" e sem botão: apagá-la apagaria o fato. A conferência acontece
   DEPOIS do desenho (a folha abre com a lista já na tela) e outra vez no TOQUE,

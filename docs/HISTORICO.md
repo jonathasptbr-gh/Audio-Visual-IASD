@@ -24,6 +24,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
+- **v1.2.1** — TRÊS AJUSTES DO OPERADOR, E O PRIMEIRO É UMA FOLHA QUE NÃO SE MEXE. (1) A ROLAGEM `AUTO` DA CIFRA PARAVA quando a música não estava tocando: a escolha entre "seguir o relógio" e "ritmo fixo" saía da BARRA DE PROGRESSO, que responde outra pergunta — `renderNowPlaying` a habilita pelo `kind` do item ATUAL, e `currentItem` sobrevive de propósito ao Parar, ao fim da faixa e a uma letra avulsa. Com duração sobre um telão vazio, o `auto` ancora a folha em `fracaoDaRolagem(0, dur)` e ela não sai mais do lugar, com o modo livre nunca sendo alcançado. A pergunta certa é `midiaNoAr`, a mesma do reenvio de cena e do Parar por camada. (2) O ITEM DO HISTÓRICO VAI AO TELÃO NO TOQUE — a recusa da v1.2.0 supunha um risco que não existe (um `click` não sai de um gesto que rolou a lista), e o que ela cobrava era uma linha permanente no Cronograma por uma repetição. (3) AS GAVETAS DE CONFIGURAÇÕES E DA PLAYLIST AUTOMÁTICA DESCEM DO TETO: a folha entra pela borda do BOTÃO que a abre, e os dois estão no alto. OTA PURO
 - **v1.2.0** — CINCO CORREÇÕES MENORES, E UMA DELAS ABRE UM LUGAR NOVO. (1) A TRANSMISSÃO DIRETA ERA INTERROMPIDA EM SEGUNDO PLANO, e ela é a única mídia do app que precisa de JS rodando enquanto toca: com o buffer cheio nada mais dispara evento, e quem reacordava o player era um `setInterval` — que o Chromium estrangula a 1×/min numa página escondida, contra 20 s de buffer. O compasso passa a sair também dos eventos do `<video>`, e uma falha de rede deixa de matar a transmissão (4 tentativas, sem retentar 4xx, que é a URL expirada). (2) O PARAR passa a falar de UMA CAMADA SÓ: com mídia E Camada de Texto no ar sai só a mídia, porque o selo sobre a preview já é a porta da de cima. (3) O "atualizar a lista" das séries só existe com o ÁLBUM ABERTO — a régua da lixeira da v1.1.16. (4) A ENGRENAGEM sobe para o cabeçalho do modo avançado, no mesmo canto do Modo Fácil: trocar de modo não pode trocar o canto em que a mesma porta se abre. (5) No lugar dela nasce o HISTÓRICO DO CULTO, a lista do que já foi ao telão nesta sessão, com a hora de cada projeção e um botão "Ao Cronograma". OTA PURO
 - **v1.1.29** — A RADIOGRAFIA CALAVA-SE EXATAMENTE ONDE ERA NECESSÁRIA: ela amostrava só os links que PASSARAM pelo filtro, então um Registro real saiu com "38 link(s) de 2 segmentos, 0 com forma de música" e nenhum dos 38 à vista — muda na única pergunta que importa ali, "por quê?". Passa a mostrar o que HAVIA quando nada passa, marcado como crua. E o CD Jovem 2018 entra nos artistas padrão, verificado contra a página real: os CDs do ano têm artista próprio no site. OTA PURO
 - **v1.1.28** — AS CIFRAS DO HINÁRIO 2022 PASSAM A FICAR NO APARELHO, e a folha abre SEM REDE: o problema real nunca foi achar a cifra, foi o Wi-Fi da igreja no sábado de manhã. É o ÚNICO acervo que fica, porque é o único cujo endereço no site é DEDUZÍVEL do nome — nos álbuns seriam 600 apostas em vez de 600 requisições previsíveis. **QUEM BAIXA É O APARELHO**: nada entra no bundle nem no repositório, porque o `.zip` do canal é público e um acervo ali dentro é o app DISTRIBUINDO obra de terceiro, outra coisa que não um grau a mais de ler sob demanda. A forma é a do `syncLyrics` (fila, segundo plano, lotes, nada em dados móveis) e a regra que mais importa é a mesma: falha de rede NÃO grava nada. OTA PURO
@@ -226,6 +227,119 @@ na nota que a revoga, não apagada da que a criou.
 - **v5.154** — é METADE OTA e METADE APK, e a divisão importa para quem for testar em aparelho.
 - **v5.155** — é OTA PURO
 - **v5.156** — é METADE OTA e METADE APK, de novo.
+
+---
+
+## v1.2.1 — a folha que não se mexia, o toque que não tocava, e a gaveta do lado errado
+
+**A v1.2.1: TRÊS AJUSTES PEDIDOS EM SEQUÊNCIA. OTA PURO** (nenhuma linha de
+Kotlin, `SHELL_VERSION` intacto em 50; sem Release).
+
+---
+
+### 1. A rolagem `auto` da cifra não saía do lugar
+
+*"O modo automático não está se movendo quando usado apenas a letra da música."*
+
+A v1.1.20 escreveu a regra certa e a documentou por extenso: no modo `auto` a
+posição da folha é uma FUNÇÃO da posição da música, e **sem relógio há o modo
+LIVRE**, com `Auto` caindo nele e dizendo isso no `title` do botão.
+
+**O que estava errado não era a regra — era a pergunta que escolhia entre as
+duas.** `cifraDuracaoNoAr()` consultava a BARRA DE PROGRESSO, e ela responde
+outra coisa:
+
+```
+renderNowPlaying → seekEl.disabled = !isTimed
+                   isTimed = currentItem.kind é 'audio' ou 'video'
+```
+
+`currentItem` **sobrevive de propósito** ao Parar (é ele que deixa o ▶ repetir a
+faixa), ao fim natural da faixa e a uma letra avulsa. Então a barra continuava
+habilitada, com o `max` da faixa, sobre um telão vazio — e a partir daí:
+
+```
+dur > 0 → o `auto` assume → alvo = fracaoDaRolagem(authoritativeTime(), dur)
+        → authoritativeTime() = 0 (nada tocando)
+        → a ABERTURA da janela segura o começo parado
+        → a folha ancora no topo e NUNCA MAIS SE MEXE
+```
+
+O modo livre, que deveria ter assumido, não chega a ser alcançado. E o desfecho
+não é um erro: é uma folha parada, sem nada no console e sem nada na tela.
+
+**A pergunta certa é `midiaNoAr`** — a mesma que o reenvio de cena e o Parar por
+camada já fazem, e a mesma que o CLAUDE.md já nomeava para "há algo no telão?".
+Ela continua VERDADEIRA com a mídia pausada, que é o que o `auto` quer: pausar a
+música PARA a folha, e isso é o recurso funcionando.
+
+**O oráculo tem as duas metades**, e a segunda é a que impede a correção de
+apagar o recurso: sem mídia no ar a folha ANDA (o livre assumiu), com mídia no ar
+ela NÃO anda sozinha (quem manda é o relógio). "Cair sempre no livre" passaria na
+primeira e faria a folha correr em ritmo fixo por cima de uma música tocando.
+Medido por REVERSÃO: três casos vermelhos.
+
+---
+
+### 2. O item do histórico vai ao telão no toque
+
+*"Pode fazer o item do histórico ser executável diretamente no toque."*
+
+**A v1.2.0 tinha recusado isto, e o argumento não se sustenta.** Ele era: "uma
+lista consultada durante o culto não pode mandar coisa ao telão por um toque de
+rolagem". Mas um `click` **não sai** de um gesto que rolou a lista — o navegador
+o cancela —, e é sob essa mesma proteção que a folha da playlist projeta desde
+sempre. A regra existia contra um risco que o próprio app já não corre.
+
+O que ela cobrava era real: para repetir um louvor que entrou de improviso e não
+ficou guardado em lista nenhuma — que é exatamente a razão de o histórico
+existir —, era preciso mandá-lo ao Cronograma antes. Dois toques e uma linha
+permanente por uma repetição.
+
+- **Por `projetarItem`**, e não por um `send` cru: é a mesma porta do toque numa
+  linha da Biblioteca, e é ela que distingue CENA de MÍDIA. Duplicar a decisão
+  aqui era garantir que as duas divergissem no primeiro ajuste.
+- **A folha FECHA.** Ela cobre a preview e o transporte, que é onde a resposta ao
+  toque aparece — projetar por trás dela seria o operador tocando e não vendo
+  nada acontecer.
+- **O botão "Ao Cronograma" não projeta** (`stopPropagation`), pelo motivo
+  espelhado: guardar um item não é mandá-lo ao ar. O oráculo mede as duas coisas,
+  porque um `stopPropagation` esquecido é mudo — a ação a mais acontece na frente
+  da congregação.
+
+---
+
+### 3. A gaveta entra pela borda do botão que a abre
+
+*"Ajuste a gaveta de configurações para que seja uma gaveta do topo para baixo,
+para que fique no teto, considerando que seu botão está no topo. E o mesmo vale
+para a gaveta da playlist automática."*
+
+É uma regra de ORIGEM, não de gosto: uma folha que entra pela borda oposta à do
+botão atravessa a tela inteira para responder a um toque, e o olho a perde no
+caminho. As duas que mudam de lado têm o botão no ALTO — a engrenagem foi para o
+cabeçalho na v1.2.0, e o dado da playlist automática sempre morou na barra de
+busca da Biblioteca. As de baixo (playlist, histórico, folha da música) continuam
+subindo: os botões delas moram na barra de controles.
+
+**São TRÊS declarações que precisam concordar**, e nenhuma sozinha basta: de onde
+ela ENTRA (`translateY(-100%)`), onde ela ENCOSTA (`flex-start`) e de que lado
+ficam os CANTOS — uma folha colada no teto com o raio embaixo é um cartão
+flutuando fora de lugar. Por isso o oráculo mede o RENDERIZADO e não a classe:
+com a classe presente e uma declaração faltando, `classList` continua
+concordando consigo mesma.
+
+**E ele mede as duas metades da regra.** Sem uma folha de BAIXO na mesma medição,
+isto deixaria de ser "a gaveta entra pela borda do botão" e viraria "toda folha
+nasce no teto" — a metade que prova a regra é justamente a que não mudou.
+
+**Um efeito colateral que precisou ser dito:** o `max-height` das folhas do teto
+passou a ser 80% DA CAIXA, e não `80vh`. Nas de baixo os dois coincidem; na
+playlist automática, não — ela desconta o teclado (`#sorteioPopup { inset: … }`),
+e com `vh` a folha ignoraria o desconto e voltaria a crescer por baixo dele. O
+comentário daquela exceção também mudou de razão: ele falava de um campo que
+ficava ATRÁS do teclado, e hoje o campo está sempre à vista — o que o desconto
+ainda faz é impedir a LISTA de passar por baixo.
 
 ---
 

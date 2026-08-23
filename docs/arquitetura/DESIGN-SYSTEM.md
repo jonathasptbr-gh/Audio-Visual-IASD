@@ -176,7 +176,7 @@ Fora de `tokens.css`, no `:root` do Controle (não são cor):
 | Token | Valor | Uso |
 |---|---|---|
 | `--radius-btn` / `--radius-card` / `--radius-pill` | `8px` / `10px` / `999px` | botões e controles / cartões e painéis / badges, chips, pills |
-| `--radius-sheet` | `18px` | bottom-sheet — raio MAIOR que o de cartão, e só nos cantos voltados para dentro da tela. É o que lê como "folha que deslizou de fora" em vez de "cartão grande". Eram três `18px` literais, três chances de divergirem |
+| `--radius-sheet` | `18px` | folha deslizante — raio MAIOR que o de cartão, e só nos cantos voltados para dentro da tela. É o que lê como "folha que deslizou de fora" em vez de "cartão grande". Eram três `18px` literais, três chances de divergirem. **De QUE lado ficam os cantos é a regra de origem da v1.2.1** (ver abaixo) |
 | `--radius-xs` | `4px` | marcas menores que um botão (badge de 1px de padding, realce de uma linha de letra, a linha-guia de arraste). Com `--radius-btn` elas viram cápsulas; sem raio nenhum, cortes secos no meio do texto |
 | `--deck-pv-h` | `130px` | altura da faixa da preview na grade do `.deck` — é token porque a LARGURA da preview sai dela (altura × proporção do telão) |
 | `--fader-cap` | `26px` | espessura do cap do fader — **dois** faders a usam (mixer e modo simplificado), e a posição do número sai dela |
@@ -240,8 +240,22 @@ Fora de `tokens.css`, no `:root` do Controle (não são cor):
   repetir** por elemento (era redundante em ~12 regras, removido).
 - **Exceção de seleção de texto:** só `input, textarea` no Controle (o campo de
   busca precisa ser editável) — ver "Regras de desenvolvimento".
+- **A FOLHA ENTRA PELA BORDA DO BOTÃO QUE A ABRE** (v1.2.1). Uma folha que
+  desliza da borda oposta à do botão atravessa a tela inteira para responder a um
+  toque, e o olho a perde no caminho. Hoje **descem do teto** as duas cujo botão
+  está no alto — Configurações (a engrenagem foi para o cabeçalho na v1.2.0) e a
+  playlist automática (o dado, na barra de busca da Biblioteca) —, e **sobem da
+  base** as demais, cujos botões moram na barra de controles.
+
+  São TRÊS declarações que precisam concordar, e nenhuma sozinha basta: de onde
+  ela ENTRA (`translateY(±100%)`), onde ela ENCOSTA (`align-items`) e de que lado
+  ficam os CANTOS — uma folha colada no teto com o raio embaixo é um cartão
+  flutuando fora de lugar. Vêm juntas em `.popup-backdrop--topo` +
+  `.popup-sheet--topo`, e o oráculo (`tools/smoke.mjs`) mede o RENDERIZADO, não a
+  classe: com a classe presente e uma declaração faltando, `classList` continua
+  concordando consigo mesma.
 - **Cantos:** botões/controles = `--radius-btn`; contêineres = `--radius-card`;
-  pills/badges = `--radius-pill`; bottom-sheets = `--radius-sheet`; marcas
+  pills/badges = `--radius-pill`; folhas deslizantes = `--radius-sheet`; marcas
   menores que um botão = `--radius-xs`. Os dois últimos existem porque três
   `18px` e vários `4px` literais eram três (e vários) chances de divergirem no
   primeiro ajuste. **Quatro botões largos violavam a primeira metade da regra**
