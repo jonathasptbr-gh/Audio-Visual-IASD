@@ -330,6 +330,49 @@ try {
   });
   checar(!/\bundefined\b/.test(semPlacar) && !/\bNaN\b/.test(semPlacar),
     'e um telão de bundle ANTIGO, sem o campo, não produz "undefined" nem "NaN"');
+  // ===== A RADIOGRAFIA DA CIFRA É UMA POR ENDEREÇO (v1.2.6) =====
+  //
+  // Uma procura de cifra tenta VÁRIOS endereços. Enquanto o diagnóstico era um
+  // slot só, a última escrita apagava as anteriores — e o que sobrava era
+  // sempre a página menos interessante. MEDIDO em três Registros diferentes:
+  // o `buscador` respondeu `HTTP 202` (a resposta anti-robô) e a estrutura dela
+  // foi sobrescrita pela busca interna que rodou logo depois; antes disso, o
+  // download em massa do hinário apagava a página que o operador estava
+  // tentando diagnosticar.
+  //
+  // **A forma do defeito é a que este arquivo vigia**, com o sinal trocado: em
+  // vez de um consumidor que lê o ausente como resposta, é um diagnóstico que
+  // RESPONDE sobre outra coisa. Nos dois casos o Registro fala com confiança e
+  // descreve o que não foi perguntado.
+  const radios = await pg.evaluate(() => {
+    cifraEstruturas = [];
+    cifraGuardarEstrutura('buscador https://exemplo/a', '<html><title>Um</title></html>');
+    cifraGuardarEstrutura('busca https://exemplo/b', '<html><title>Dois</title></html>');
+    cifraGuardarEstrutura('buscador https://exemplo/a', '<html><title>Um de novo</title></html>');
+    return cifraEstruturas.map((e) => e.rotulo);
+  });
+  checar(radios.length === 2, 'a radiografia guarda UMA POR ENDEREÇO, não só a última', radios);
+  // O acesso é DEFENSIVO: com o defeito de volta (um slot só) a lista tem um
+  // item, e um `radios[1].startsWith` lançaria — abortando todos os casos
+  // seguintes DESTE arquivo. Um oráculo que explode em vez de reprovar leva
+  // consigo o que ainda ia medir.
+  checar(String(radios[0] || '').startsWith('buscador') && String(radios[1] || '').startsWith('busca'),
+    'e mantém a ordem em que os endereços foram tentados', radios);
+
+  const radioTexto = await pg.evaluate(() => (cifraEstruturas || []).map((e) => e.texto).join('\n'));
+  checar(/Um de novo/.test(radioTexto) && !/"Um"/.test(radioTexto),
+    'repetir o mesmo endereço ATUALIZA em vez de empilhar', radioTexto.slice(0, 200));
+  checar(/Dois/.test(radioTexto),
+    'e a página do outro endereço continua lá — é ela que sumia', radioTexto.slice(0, 200));
+
+  // O TETO existe porque isto cresce por procura, mas não pode engolir o resto
+  // do Registro: um endereço a mais é uma linha, não um bloco novo.
+  const teto = await pg.evaluate(() => {
+    cifraEstruturas = [];
+    for (let i = 0; i < 20; i++) cifraGuardarEstrutura('r' + i, '<html><title>x</title></html>');
+    return cifraEstruturas.length;
+  });
+  checar(teto > 0 && teto <= 8, 'e há teto — o bloco não cresce sem limite', teto);
 } finally {
   await navegador.close();
   servidor.close();

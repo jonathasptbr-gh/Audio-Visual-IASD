@@ -244,7 +244,7 @@ const appVersionEl = document.getElementById('appVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.2.5';
+const WEB_VERSION = '1.2.6';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -10101,6 +10101,9 @@ function cifraGarantir(item) {
   cifraCache.set(chave, entrada);
 
   const seq = ++lvCifraSeq;
+  // As radiografias são DESTA procura: sem limpar, a música seguinte herdaria
+  // as páginas da anterior e o Registro descreveria um culto misturado.
+  cifraEstruturas = [];
   (async () => {
     const tentativas = [];
     let desfecho = { ok: false, motivo: AVCifra.MOTIVO_NAO_TEM };
@@ -10400,7 +10403,22 @@ let cifraEscolhas = {};        // chave da música → URL fixada pelo operador
 let cifraEscolherAberto = false;
 let cifraEscolherChave = '';   // de QUAL música — ver a guarda no `lvBuildCifra`
 let cifraPrevia = null;        // { url, pagina, nome } — o resultado sendo espiado
-let cifraEstrutura = '';       // a RADIOGRAFIA da última página, para o Registro
+/**
+ * As RADIOGRAFIAS desta procura, uma por endereço — para o Registro.
+ *
+ * **UMA SÓ NÃO BASTA, e este é o terceiro lugar do recurso onde isso mordeu**
+ * (v1.2.6). Uma procura tenta vários endereços; a última escrita apagava as
+ * anteriores, e o que sobrava era sempre a página menos interessante: o
+ * `buscador` respondeu `HTTP 202` — a resposta anti-robô — e a estrutura dela
+ * foi sobrescrita pela busca interna que rodou em seguida. O Registro dizia
+ * "202" numa linha e mostrava OUTRA página embaixo.
+ *
+ * Um Registro não tem pressão de tamanho (ele existe para ser COPIADO, não
+ * para caber numa tela), então o certo é guardar todas e imprimir todas. Uma
+ * por RÓTULO: repetir o mesmo endereço não empilha.
+ */
+const CIFRA_ESTRUTURAS_MAX = 6;
+let cifraEstruturas = [];      // [{ rotulo, texto }]
 
 /**
  * Adota as escolhas guardadas. Por FUNÇÃO (hoisted) pelo mesmo motivo do
@@ -10503,7 +10521,13 @@ async function cifraBuscarNoSite(consulta, alvo, artista) {
  * JSON. Uma linha por fato, e nenhuma delas leva conteúdo da página.
  */
 function cifraGuardarEstrutura(rotulo, html) {
-  if (!html) { cifraEstrutura = rotulo + ' → sem corpo'; return; }
+  const por = (texto) => {
+    const i = cifraEstruturas.findIndex((e) => e.rotulo === rotulo);
+    if (i >= 0) cifraEstruturas[i] = { rotulo, texto };
+    else cifraEstruturas.push({ rotulo, texto });
+    if (cifraEstruturas.length > CIFRA_ESTRUTURAS_MAX) cifraEstruturas.shift();
+  };
+  if (!html) { por(rotulo + ' → sem corpo'); return; }
   const r = AVCifra.radiografia(html);
   const l = [rotulo + ' → ' + r.bytes + ' caractere(s)'];
   if (r.titulo) l.push('  <title> ' + JSON.stringify(r.titulo));
@@ -10513,7 +10537,7 @@ function cifraGuardarEstrutura(rotulo, html) {
   l.push('  ' + r.links + ' link(s) de 2 segmentos, ' + r.linksDeMusica + ' com forma de música'
     + (r.amostraEhCrua ? ' — a amostra abaixo é do que HAVIA, já que nada passou' : ''));
   for (const a of r.amostra) l.push('    ' + a.caminho + '  ' + JSON.stringify(a.texto));
-  cifraEstrutura = l.join('\n');
+  por(l.join('\n'));
 }
 
 /** Abre/fecha o seletor, sempre soltando a prévia — ela é do seletor. */
@@ -18104,7 +18128,10 @@ async function renderDiag() {
     // e endereços. Nenhum pedaço de letra ou de acorde sai daqui — um Registro
     // é feito para ser copiado para fora, e o contrato deste recurso é ler
     // conteúdo de terceiro no aparelho, nunca distribuí-lo.
-    if (cifraEstrutura) blocos.push('Cifra (estrutura da página que não abriu)\n' + cifraEstrutura);
+    if (cifraEstruturas.length) {
+      blocos.push('Cifra (estrutura das páginas que não abriram)\n'
+        + cifraEstruturas.map((e) => e.texto).join('\n'));
+    }
   }
   // O lado WEB da última tentativa de transmitir. Ele vem à parte do
   // diagnóstico do shell porque três dos cinco pontos de desistência acontecem
