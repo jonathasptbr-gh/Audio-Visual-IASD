@@ -24,6 +24,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
+- **v1.2.19** — DUAS REGRAS QUE DISCORDAVAM DE SI MESMAS, e as duas erravam CALADAS. (1) O AUXILIAR DE LEITURA DIZIA QUE NENHUMA MÚSICA TEM LETRA: a v1.2.14 deu parâmetros ao `openLyricsPopup(item, fonte)` e o ouvinte do botão do transporte continuou registrado POR REFERÊNCIA — `addEventListener` chama com o EVENTO, e o `PointerEvent` virou o `lvAlvo`, o desvio que aquele mesmo lote criou. `lvItem().lyrics` era `undefined`, `cifraCabe` recusava e `lvNaCena()` virava falso: as TRÊS fontes sumiam de uma vez e a folha abria com "Nada em exibição com letra ou texto bíblico". Os três oráculos que já abriam essa folha chamam a função DIRETO — o único caminho que continuava funcionando —, e o novo CLICA. (2) O INFORMATIVO ESCONDIA O EPISÓDIO DO SÁBADO DESTA SEMANA em três dos sete dias dela: `sabadoDaSemana` abre a semana no DOMINGO (é a semana adventista) e `DIAS_DE_ANTECEDENCIA` só abria a janela na QUARTA. O destaque do topo declarava "o desta semana" um episódio que a lista logo abaixo tinha escondido, e dizia "Aguardando lançamento" sobre um vídeo já liberado pelo canal — relatado num DOMINGO, com o vídeo conferido na fonte. `aindaNaoSaiu` passa a DELEGAR em `ehDoSabadoAtual`: os três dias viram PISO das semanas seguintes, que continuam escondidas. OTA PURO
 - **v1.2.18** — O CIFRA CLUB SERVE VARIANTES NO MESMO ENDEREÇO, e era isso que o app estava vendo. O operador conferiu à mão que o Hinário 2022 tem 100% das cifras no site e mandou o Registro em ARQUIVO — e a radiografia entregou: `/ministerio-jovem/meu-senhor-minha-vida/` respondeu 449 kB com `<title>` "… (partituras para teclado) …", `<h2>` "Menu principal", ZERO `<pre>` e 39 links só de navegação. O endereço está CERTO; o que voltou foi outra VARIANTE da página — e o `so-letra` é a mesma coisa com outro nome. Receber a letra não prova ausência de cifra, então a frase passou a descrever o que foi OBSERVADO em vez de concluir o que não se sabe. E o diário da passada passou a guardar EXEMPLOS com número do hino, veredito e ENDEREÇO — que sobrevivem à recusa do teto e são o que permite abrir a página e decidir se o erro é o endereço ou a leitura. OTA PURO
 - **v1.2.17** — O RECADO SAIU, E O MICROFONE VOLTOU A SER UM SISTEMA SÓ. Ele nasceu (v1.1.26, shell 50) para cobrir os modelos SEM TV, onde o microfone AO VIVO não abria — e a razão de não abrir era um defeito NOSSO, `MODIFY_AUDIO_SETTINGS` fora do manifest, consertado na v1.2.13. Consertada a causa, o que restava do recado era um SEGUNDO caminho que INTERROMPE a cena (o motor tem um slot) para dizer o que o primeiro diz sem interromper nada — e que trazia junto a classe de defeito mais cara dele: o fim do recado caindo no `autoAdvance`, com `repeat one` repetindo a voz do operador e `repeat all` recomeçando a playlist do zero. Saiu com ele a concessão de áudio do `ControleChromeClient`, que existia só para ele (comentário que se justificava por um recurso removido é o convite exato para o próximo leitor reintroduzi-lo). O `mic-escada.test.mjs` guardava um PAR de escadas; com uma só, as asserções de PAREAMENTO saíram e ficaram as de PROPRIEDADE — mais uma que é nova: o Controle não abre captura nenhuma. DUAS LACUNAS FECHADAS no caminho que ficou: ele não registrava a permissão negada (o recado registrava) e não contava as entradas de áudio (a falha chega por `mic-status`, sem lista). EXIGE RELEASE v1.2.17
 - **v1.2.16** — RECUSAR NÃO PODIA SIGNIFICAR REFAZER, e por isso a varredura recomeçava do zero a cada abertura. A aritmética do Registro do operador provou: `282 ok + 10 não achei + 309 por varrer = 601`, e NENHUMA "só letra" gravada — enquanto a bateria achava `so-letra` nos mesmos hinos. As 309 foram julgadas e o TETO as recusou em bloco (309 > 34% de 601), como ele deve; só que nada era gravado e tudo voltava na sessão seguinte, ~900 requisições, para sempre, sem uma linha na tela dizendo que aquilo tinha sido julgado. Agora a passada tem DIÁRIO, o Registro imprime o motivo e a coleção fica 7 dias em prazo. Junto: o operador conferiu à mão que o hinário novo tem 100% das cifras no site — logo o `so-letra` está ERRADO ali —, e o veredito deixou de ser poupado da radiografia na bateria. E o REGISTRO virou arquivo: `salvarTexto` (SAF) grava um `.txt`, porque copiar e colar corta o texto no meio sem avisar. **EXIGE RELEASE v1.2.16**: shell 54 → 55
@@ -244,6 +245,91 @@ na nota que a revoga, não apagada da que a criou.
 - **v5.154** — é METADE OTA e METADE APK, e a divisão importa para quem for testar em aparelho.
 - **v5.155** — é OTA PURO
 - **v5.156** — é METADE OTA e METADE APK, de novo.
+
+---
+
+## v1.2.19 — o leitor sem letra, e o sábado que a lista escondia
+
+Dois relatos do operador no mesmo dia, e as duas causas têm a mesma forma: **uma
+regra que discorda de outra regra do mesmo arquivo, sem nada na tela que o
+denuncie.**
+
+### 1. "O sistema não identifica que há letra nenhuma para o auxiliar de leitura"
+
+A v1.2.14 deu parâmetros ao leitor — `openLyricsPopup(item, fonte)` — para a
+Biblioteca poder abrir a folha de uma música que **não** está no ar. O ouvinte
+do botão do transporte ficou como estava desde a v1.0.3:
+
+```js
+lyricsViewBtnEl.addEventListener('click', openLyricsPopup);
+```
+
+`addEventListener` chama o ouvinte **com o evento**. O `PointerEvent` entrou
+como `item`, não era o `currentItem`, e virou `lvAlvo` — o desvio deliberado que
+aquele mesmo lote acabara de criar, apontado para um objeto que não é música
+nenhuma. As três fontes caíram juntas, cada uma por um caminho:
+
+| fonte | por que sumiu |
+|---|---|
+| letra | `lvItem().lyrics` é `undefined` |
+| cifra | `cifraCabe(evento)` não acha nome de item |
+| Bíblia | `lvNaCena()` virou falso, e é ele que guarda a RESERVA |
+
+O que sobrou foi *"Nada em exibição com letra ou texto bíblico."* para toda
+música — com o console limpo e `lyricsViewSources` continuando a decidir certo.
+**Calcular a coisa certa e não chamá-la direito é o mesmo defeito mudo da
+v1.1.18, por outra porta.**
+
+O conserto é o parêntese vazio, que também DECLARA a regra: a folha do
+transporte é sempre a CENA.
+
+**Por que nenhum oráculo pegou:** os três que abrem esta folha
+(`cifra-rolagem`, `cifra-teclado`, `cifra-offline`) chamam `openLyricsPopup()`
+direto — o único caminho que continuava funcionando. Um defeito no OUVINTE é
+invisível para quem não passa por ele. `leitor-do-transporte.test.mjs` **clica**,
+e a segunda metade dele (a Biblioteca continua desviando o alvo) impede que
+apagar os parâmetros "conserte" a primeira desfazendo o recurso da v1.2.14.
+Provado por reversão: o código antigo reproduz a frase do relato, verbatim.
+
+### 2. O episódio do sábado desta semana, escondido da lista
+
+Relato: *"não está buscando o vídeo disponível para o próximo sábado/sábado
+atual… já confirmei que o vídeo está disponível na fonte, mas ele não está
+listado"* — num **domingo**.
+
+Duas regras do `serie.js` respondiam *"de que semana é este episódio?"* com
+calendários diferentes:
+
+- `sabadoDaSemana` (v1.1.21) abre a semana no **domingo** — é a semana
+  adventista, e o argumento escrito lá é que *no domingo o operador já está
+  montando o culto do sábado que vem*;
+- `aindaNaoSaiu` cortava por `DIAS_DE_ANTECEDENCIA` (3), isto é, só abria a
+  janela na **quarta** (v5.256).
+
+Em três dos sete dias — domingo, segunda e terça — o destaque do topo declarava
+"o desta semana" um episódio que a lista logo abaixo tinha escondido, e escrevia
+**"Aguardando lançamento"** sobre um vídeo que o canal já havia liberado. As duas
+metades passaram versões concordando com quem as escreveu, cada uma lida
+sozinha.
+
+`aindaNaoSaiu` passa a **delegar** em `ehDoSabadoAtual` — a mesma decisão do
+`mesDaPlaylist` sobre o `avaliarPlaylist`, e pelo mesmo motivo: duas contas de
+calendário escritas à parte divergem, e foi a divergência que produziu isto. Os
+três dias continuam existindo como **PISO** para as semanas seguintes, que é a
+razão de o campo `futuros` existir — o canal sobe o trimestre inteiro e libera um
+sábado por vez, e mostrar de mais custa uma projeção parada no meio do culto.
+
+**O preço, dito:** enquanto o sábado não chega, o episódio pode não estar
+público, e o download falha. A frase que explica isso já existia desde a v5.256
+("ainda não liberado pelo canal — tente mais perto de 22/Ago"), nos dois fluxos.
+
+`ehDoSabadoAtual` entrou na `AVSerie.impressao`: ela deixou de ser só o destaque
+do topo e passou a decidir o que a LISTA contém — sem isso, todo índice já
+guardado no IndexedDB sobreviveria à correção, que é o defeito da v5.233.
+
+**Um caso do `serie.test.mjs` mudou de veredito** (o que exigia o episódio
+ausente na terça), e a supersessão está escrita no próprio oráculo para ninguém
+"consertá-lo" de volta.
 
 ---
 

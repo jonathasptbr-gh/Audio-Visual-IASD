@@ -1,5 +1,12 @@
 [
   {
+    "versao": "1.2.19",
+    "itens": [
+      "O auxiliar de leitura voltou a achar a letra. O botão do transporte abria a folha dizendo \"Nada em exibição com letra ou texto bíblico\" para qualquer música — letra, cifra e Bíblia sumiam de uma vez, por causa da mudança da versão passada que permitiu abrir a folha de uma música que não está no ar.",
+      "O Informativo Mundial das Missões passou a listar o episódio do sábado desta semana desde o DOMINGO. A lista só o mostrava a partir da quarta-feira, enquanto o destaque do topo já o chamava de \"o desta semana\" — e dizia \"Aguardando lançamento\" sobre um vídeo que o canal já tinha liberado. Os episódios das semanas seguintes continuam escondidos até chegar a semana deles."
+    ]
+  },
+  {
     "versao": "1.2.18",
     "itens": [
       "O Registro passou a listar EXEMPLOS das músicas que não saíram com cifra — com o número do hino, o veredito e o ENDEREÇO tentado. É com ele que se abre a página no navegador e se descobre se o erro é o endereço que o app monta ou a leitura que ele faz.",

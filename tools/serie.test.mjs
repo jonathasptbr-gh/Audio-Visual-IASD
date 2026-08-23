@@ -552,16 +552,33 @@ checar(nomes(ate15) === '08/Ago ~ 15/Ago',
   '[relato] em 15/Ago a lista vai até 15/Ago — o de hoje ENTRA, o de 22 ainda não',
   nomes(ate15));
 
-// ── A JANELA DE ANTECEDÊNCIA (v5.256) ───────────────────────────────────────
-// Pedido do operador: *"a data de corte não pode ser o próprio dia, pois muitos
-// aproveitam para fazer a organização antes, então pode deixar para que o
-// acesso ao vídeo já fique disponível na quarta-feira antes do sábado."*
+// ── A JANELA DE ANTECEDÊNCIA É A SEMANA (v5.256, alargada na v1.2.19) ───────
 //
-// Os quatro dias em volta, porque a fronteira é o recurso inteiro: ela tem de
-// abrir na QUARTA e não antes.
+// A v5.256 atendeu a *"pode deixar para que o acesso ao vídeo já fique
+// disponível na quarta-feira antes do sábado"* com uma contagem de TRÊS DIAS, e
+// esses casos cobravam a fronteira na quarta — inclusive a metade negativa, que
+// exigia o episódio AUSENTE na terça.
+//
+// **Esse caso mudou de veredito por relato do operador, e a supersessão está
+// escrita aqui para ninguém "consertá-lo" de volta:** *"não está buscando o
+// vídeo disponível para o próximo sábado/sábado atual… já confirmei que o vídeo
+// está disponível na fonte, mas ele não está listado"* — num DOMINGO. A régua
+// de três dias e a semana adventista do [sabadoDaSemana] discordavam em três
+// dos sete dias (domingo, segunda e terça): a lista escondia o episódio que o
+// destaque do topo declarava o desta semana, e o topo dizia "Aguardando
+// lançamento" sobre um vídeo já liberado.
+//
+// A janela passou a ser a SEMANA CORRENTE, com os três dias como PISO. Os casos
+// abaixo cobram as duas metades — o que a semana abriu, e o que ela continua
+// fechando, que é a razão de o campo `futuros` existir.
+const domingo16 = S.itensDaPlaylist(trimestreQ3, 7, INFO, new Date(2026, 7, 16));
+checar(nomes(S.ordenarItens(domingo16)) === '08/Ago ~ 15/Ago ~ 22/Ago',
+  '[relato] no DOMINGO o episódio do sábado desta semana JÁ está na lista',
+  nomes(S.ordenarItens(domingo16)));
 const terca18 = S.itensDaPlaylist(trimestreQ3, 7, INFO, new Date(2026, 7, 18));
-checar(nomes(S.ordenarItens(terca18)) === '08/Ago ~ 15/Ago',
-  'na TERÇA (4 dias antes) o episódio de 22/Ago ainda não aparece', nomes(S.ordenarItens(terca18)));
+checar(nomes(S.ordenarItens(terca18)) === '08/Ago ~ 15/Ago ~ 22/Ago',
+  'e na TERÇA também — é a mesma semana, e a semana é a janela',
+  nomes(S.ordenarItens(terca18)));
 const quarta19 = S.itensDaPlaylist(trimestreQ3, 7, INFO, new Date(2026, 7, 19));
 checar(nomes(S.ordenarItens(quarta19)) === '08/Ago ~ 15/Ago ~ 22/Ago',
   '[relato] na QUARTA antes do sábado ele APARECE — é quando o roteiro é montado',
@@ -571,6 +588,28 @@ checar(S.DIAS_DE_ANTECEDENCIA === 3,
 const sabado22 = S.ordenarItens(S.itensDaPlaylist(trimestreQ3, 7, INFO, new Date(2026, 7, 22)));
 checar(nomes(sabado22) === '08/Ago ~ 15/Ago ~ 22/Ago',
   'e no próprio sábado ele continua lá — a janela abre, não pisca', nomes(sabado22));
+
+// A METADE QUE FECHA, e sem ela a correção acima viraria um apagador do campo
+// `futuros`: a SEMANA QUE VEM continua escondida. No sábado 15 o episódio de 22
+// ainda é de outra semana; ele entra no domingo 16, e não antes.
+checar(S.aindaNaoSaiu({ dia: 22, mes: 8 }, INFO, SABADO_15),
+  'no SÁBADO 15 o episódio de 22/Ago ainda NÃO aparece — é da semana seguinte');
+checar(!S.aindaNaoSaiu({ dia: 22, mes: 8 }, INFO, new Date(2026, 7, 16)),
+  'e um dia depois, no domingo, a semana dele começou e ele entra');
+
+// AS DUAS REGRAS CONCORDAM AGORA, e é essa concordância que o defeito quebrou:
+// o que o destaque do topo chama de "o desta semana" não pode estar fora da
+// lista que ele encabeça. Os SETE dias da semana, porque foram três deles que
+// discordavam — medir um só aprovaria o mundo anterior.
+let concordam = 0;
+for (let d = 16; d <= 22; d++) {
+  const hoje = new Date(2026, 7, d);
+  const alvo = { dia: 22, mes: 8 };
+  if (S.ehDoSabadoAtual(alvo, INFO, hoje) && !S.aindaNaoSaiu(alvo, INFO, hoje)) concordam++;
+}
+checar(concordam === 7,
+  'o episódio DESTA semana está na lista nos sete dias dela — destaque e lista não discordam',
+  concordam);
 
 // A CONTAGEM DE DIAS, isolada: é ela que os dois consumidores usam (a lista com
 // 3, e o aviso de falha com 0), e é ela que atravessa o fim do mês.
