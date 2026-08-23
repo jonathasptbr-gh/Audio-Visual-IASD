@@ -781,8 +781,10 @@ faders/mixer), a **lupa** da busca do acervo (`#hymnSearchBtn`), a antena de
 **Wi-Fi** dos cards de coleção (`wifiIconEl`), o **fone de ouvido** da mesa de
 som (`#pvSoundBtn`, hoje sobre a preview), a **folha com linhas** da leitura
 auxiliar (`#lyricsViewBtn`, que substituiu a flor do antigo botão de fundo da
-letra), a **engrenagem** de Configurações (`#settingsBtn`, no topo do mixer — e,
-desde a v5.250, também no cabeçalho do Modo Fácil), os **três pontos** do menu
+letra), a **engrenagem** de Configurações (`#settingsBtn` — desde a v5.250 no
+cabeçalho do Modo Fácil, e desde a v1.2.0 no cabeçalho dos DOIS modos), o
+**relógio com a seta anti-horária** do histórico do culto (`#icoHistorico`,
+v1.2.0 — `history` também está fora do subset), os **três pontos** do menu
 de uma linha (`dotsIconSvg`, v5.258 — `more_vert` não está no subset), o
 ícone **"arquivos+"** (documento com `+`) do botão de importar no fim do
 Cronograma (`.import-btn`), que diferencia importar ARQUIVOS de abrir os

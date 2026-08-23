@@ -458,6 +458,37 @@ perfil, sem DRM, sem múltiplas qualidades, sem legenda. O preço está declarad
 isto é superfície NOSSA, e por isso cada ponto de falha avisa quem chamou
 (`onErro` → `onStreamErro` do stage), e quem chamou tem para onde cair.
 
+###### O que segura a transmissão em SEGUNDO PLANO (v1.2.0)
+
+Relato do operador: *"vídeos tocando direto do YouTube sem baixar são
+interrompidos quando o app está em segundo plano"*. **Um arquivo BAIXADO não é**,
+e a assimetria é a explicação inteira: ali o `<video>` toca sozinho e nenhum
+JavaScript precisa rodar durante a reprodução. Aqui precisa — quem repõe o buffer
+é este player, e ele estava apoiado em duas coisas que o segundo plano quebra.
+
+- **O compasso não pode ser só um `setInterval`.** `updateend` encadeia a maior
+  parte dos ciclos, mas quando o buffer atinge `ALVO_S` (20 s) nada mais é
+  appendado e nada mais dispara evento: quem reacorda o player é o tique de
+  `TICK_MS`. Um `setInterval` de página em segundo plano é ESTRANGULADO pelo
+  Chromium (1×/s, e 1×/min depois de alguns minutos escondida), e a conta é
+  aritmética — 20 s de buffer contra um compasso de até um minuto dá projeção
+  parando sozinha, sem erro em lugar nenhum. Hoje o compasso também sai dos
+  eventos do próprio `<video>` (`EVENTOS_DO_COMPASSO`: `timeupdate`, `progress`,
+  `waiting`, `stalled`), que nascem do pipeline de mídia e não do agendador de
+  tarefas. O intervalo FICA como piso: é ele que cobre a cena PAUSADA, onde não
+  há `timeupdate`.
+- **Uma falha de rede não é o fim da transmissão.** Qualquer tropeço matava o
+  player: o erro subia até `morrer`, o Controle recebia `onStreamErro` e a cena
+  caía no download — um vídeo de 300 MB começando a baixar por causa de um pacote
+  perdido. E é justamente em segundo plano que o tropeço acontece, porque o Wi-Fi
+  entra em economia de energia com o app fora da frente. Hoje `pegar()` retenta
+  (4 tentativas, 0,4 s → 1,2 s → 3 s), com a **mesma divisão do download**: passa
+  o que pode ter sido acidente (requisição que não completou, corpo interrompido,
+  5xx, 429, resposta vazia) e **não** retenta 4xx — 401/403 é a URL expirada, e a
+  resposta a ela é o `recuperarStream` abaixo, que re-extrai o manifesto e
+  reconhece o caso pela MENSAGEM. A marca viaja no próprio erro
+  (`marcar`/`retentavel`), nunca casando strings depois.
+
 ###### A recuperação, e quem a faz
 
 As URLs do googlevideo expiram em algumas horas, então um registro de stream é

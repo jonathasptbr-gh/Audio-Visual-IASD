@@ -24,6 +24,8 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
+- **v1.2.0** — CINCO CORREÇÕES MENORES, E UMA DELAS ABRE UM LUGAR NOVO. (1) A TRANSMISSÃO DIRETA ERA INTERROMPIDA EM SEGUNDO PLANO, e ela é a única mídia do app que precisa de JS rodando enquanto toca: com o buffer cheio nada mais dispara evento, e quem reacordava o player era um `setInterval` — que o Chromium estrangula a 1×/min numa página escondida, contra 20 s de buffer. O compasso passa a sair também dos eventos do `<video>`, e uma falha de rede deixa de matar a transmissão (4 tentativas, sem retentar 4xx, que é a URL expirada). (2) O PARAR passa a falar de UMA CAMADA SÓ: com mídia E Camada de Texto no ar sai só a mídia, porque o selo sobre a preview já é a porta da de cima. (3) O "atualizar a lista" das séries só existe com o ÁLBUM ABERTO — a régua da lixeira da v1.1.16. (4) A ENGRENAGEM sobe para o cabeçalho do modo avançado, no mesmo canto do Modo Fácil: trocar de modo não pode trocar o canto em que a mesma porta se abre. (5) No lugar dela nasce o HISTÓRICO DO CULTO, a lista do que já foi ao telão nesta sessão, com a hora de cada projeção e um botão "Ao Cronograma". OTA PURO
+
 - **v1.1.27** — O TECLADO SUMIA AO DIGITAR NA BUSCA DE CIFRA, e a causa era uma correção de duas versões antes: o teclado virtual é um `resize`, o `resize` remede a folha, e o redesenho destrói o `<input>` com foco — um campo sem foco fecha o teclado, e o fechamento é outro `resize`. Sai um teclado que pisca e some, sem erro nenhum, e o seletor inteiro fica inalcançável. A guarda é pelo FOCO, não por "o seletor está aberto". Mais: a busca passa a ter TRÊS parâmetros em vez de dois (consulta, alvo do parentesco, desempate) — juntá-los deixava a busca MANUAL sem o álbum em lugar nenhum —, e o seletor ganha os atalhos `+ <álbum>` e `+ Ministério Jovem`. OTA PURO
 - **v1.1.26** — O MICROFONE VIRA WALKIE-TALKIE, E PASSA A FUNCIONAR NOS QUATRO MODELOS: em vez de TRANSPORTAR ÁUDIO, ele transporta um ARQUIVO — a voz vira item `kind:"audio"` comum e entra pelo caminho de projeção de sempre, chegando às telas da rede de graça pelo `/m/<token>`. É a inversão que faz o recurso caber: o ao vivo para a rede está bloqueado por `[SecureContext]`, e o projeto já construiu esse transporte (AAC → MSE) e o removeu na v5.187. A Release é de UMA LINHA — o `ControleChromeClient` negava toda permissão de mídia e passa a conceder áudio, e só áudio, chamando as três regras do `MicChromeClient` em vez de reescrevê-las. O FIM do recado é interceptado nos DOIS caminhos: sendo item comum, ele caía no `autoAdvance`, onde `repeat one` repetia a voz do operador PARA SEMPRE e `repeat all` começava a playlist do zero — nenhum dos dois com sinal na tela. E ele DEVOLVE a cena, com a posição dentro do próprio `load`. EXIGE RELEASE
 - **v1.1.25** — O OPERADOR ESCOLHE A CIFRA, E A ESCOLHA VENCE TUDO: o método automático adivinha a partir de um nome, e quem opera SABE qual é a música. MEDIDO no aparelho: na maioria das falhas o resultado certo ESTAVA na página de busca — só não era o que a regra elegeu, e não havia como olhar a lista nem dizer "é este". A aba passa a desenhar a lista dentro do app (inclusive o que a regra RECUSOU, marcado), abrir qualquer resultado em PRÉVIA e fixar o escolhido, que vira a tentativa 0 e sobrevive ao fechar o app. Não é navegador embutido — é a divisão de sempre, com o desenho nosso: nenhum script de terceiro roda. Guardar um ENDEREÇO não fura o "nada em disco", que sempre falou do CONTEÚDO. E o Registro passa a guardar a RADIOGRAFIA da página que não abriu — só forma, nenhum pedaço de letra ou acorde —, porque `ilegivel` responde "não entendi" e não "o que era". OTA PURO
@@ -223,6 +225,209 @@ na nota que a revoga, não apagada da que a criou.
 - **v5.154** — é METADE OTA e METADE APK, e a divisão importa para quem for testar em aparelho.
 - **v5.155** — é OTA PURO
 - **v5.156** — é METADE OTA e METADE APK, de novo.
+
+---
+
+## v1.2.0 — o segundo plano parava o stream, o Parar levava a camada junto, e nasce o histórico
+
+**A v1.2.0: CINCO CORREÇÕES MENORES, PEDIDAS EM UM LOTE SÓ. OTA PURO** (nenhuma
+linha de Kotlin, `SHELL_VERSION` intacto em 50; sem Release). O degrau é
+INCREMENTAL porque a quinta abre um lugar que não existia — a regra do número diz
+"uma seção inteiramente nova do app: um lugar que não existia, com tela e fluxo
+próprios", e é literalmente o que o histórico é.
+
+---
+
+### 1. A transmissão direta parava em segundo plano
+
+*"Vídeos tocando direto do YouTube sem baixar são interrompidos quando o app está
+em segundo plano."*
+
+**O que separa este caso de todos os outros é uma frase:** um arquivo BAIXADO
+toca sozinho — o `<video>` consome bytes do disco e nenhuma linha de JavaScript
+participa. Um stream não. Quem repõe o buffer é o `shared/mse.js`, e ele estava
+apoiado em duas coisas que o segundo plano quebra.
+
+**O compasso era um `setInterval`, e só.** `updateend` encadeia a maior parte dos
+ciclos — append → evento → próximo append —, mas isso PARA por construção quando
+o buffer atinge `ALVO_S` (20 s): nada mais é appendado, logo nada mais dispara
+evento, e quem reacorda o player é o tique de `TICK_MS`. Um `setInterval` de
+página em segundo plano é estrangulado pelo Chromium: 1×/s, e **1×/min depois de
+alguns minutos escondida**. A conta é aritmética e o desfecho é o relato:
+
+```
+buffer enche (20 s) → nenhum updateend → só o tique acorda
+   → tique estrangulado para 1×/min
+   → 20 s de vídeo consumidos, 40 s de silêncio
+   → a projeção para sozinha, sem erro em lugar nenhum
+```
+
+Hoje o compasso sai TAMBÉM dos eventos do próprio `<video>`
+(`EVENTOS_DO_COMPASSO`: `timeupdate`, `progress`, `waiting`, `stalled`), que
+nascem do pipeline de mídia e não do agendador de tarefas — `timeupdate` cobre o
+caso normal a ~4 Hz enquanto toca, e os outros três cobrem exatamente o instante
+em que ele PARA de sair. O intervalo FICA como piso: é ele que cobre a cena
+PAUSADA, onde não há `timeupdate`.
+
+**E uma falha de rede matava a transmissão inteira.** Qualquer tropeço — um
+`fetch` que não completa, um corpo interrompido no meio — subia até o `morrer`, o
+Controle recebia `onStreamErro` e `recuperarStream` derrubava a cena e caía no
+download: 300 MB começando a baixar por causa de um pacote perdido. E é
+justamente em segundo plano que o tropeço acontece, porque o Wi-Fi do aparelho
+entra em economia de energia com o app fora da frente.
+
+O download já sabia disso desde sempre (`YoutubeGrab.baixar`: oito tentativas com
+espera crescente, e 4xx nunca retentado); a transmissão era o único caminho de
+rede do app sem nenhuma. Agora `pegar()` retenta 4 vezes (0,4 s → 1,2 s → 3 s),
+com a **mesma divisão**: passa o que pode ter sido acidente (requisição que não
+completou, corpo interrompido, 5xx, 429, resposta vazia) e **não** retenta 4xx —
+401/403 é a URL do googlevideo EXPIRADA, e insistir nela atrasa a única resposta
+que funciona, que é o `recuperarStream` re-extraindo o manifesto. A marca viaja
+no PRÓPRIO erro (`marcar`/`retentavel`), nunca casando strings de mensagem
+depois — que é a forma de errar que este arquivo já paga em outro lugar.
+
+**A espera é interrompível pelo `morto`:** um `destruir()` durante os 3 s da
+última espera não pode render uma requisição a mais para uma cena que já saiu do
+telão.
+
+---
+
+### 2. O Parar levava a Camada de Texto junto
+
+*"Considerando que o preview tem um botão apenas para remover as camadas
+superiores, ajuste o botão de stop para em caso onde há mídia de fundo e
+mensagens ou sobreposição de elementos na tela como bíblia e etc… o botão de stop
+funciona apenas para a mídia de fundo."*
+
+O telão empilha DUAS coisas ao mesmo tempo, e cada uma já tinha a própria porta:
+o selo `#pvCamadaBtn` sobre a preview (`encerrarCamadaDeCima`) para a de cima, e
+`pararMidia('media-clear')` para a de baixo — a divisão que o `retirarDoAr` da
+linha faz desde a v5.178. **O `stopClear` era o único controle que não escolhia
+nenhuma:** mandava `clear` e derrubava as duas.
+
+| Cena no ar | Antes | Agora |
+|---|---|---|
+| mídia **e** Camada de Texto | `clear` (as duas) | `media-clear` — sai só a mídia |
+| só a mídia | `clear` | `clear` |
+| só a Camada de Texto | `clear` | `clear` |
+
+**A pergunta é `midiaNoAr`, nunca `currentId`** — este sobrevive ao Parar de
+propósito (é ele que deixa o ▶ repetir a faixa), e perguntar por ele faria o
+SEGUNDO Parar seguido virar no-op para sempre, deixando a Camada de Texto presa
+no telão. É a mesma régua do reenvio de cena.
+
+**A terceira linha da tabela é o que impede a correção de virar regressão**, e
+por isso o oráculo mede as três: um Parar que sempre poupasse o texto tiraria a
+única saída dele no transporte — o defeito trocado de lado, e igualmente mudo.
+
+---
+
+### 3. O "atualizar a lista" das séries só existe com o álbum aberto
+
+*"Os botões de atualizar lista do provai e vede e do informativo mundial das
+missões só deve aparecer com o album/grupo aberto."*
+
+É a régua da LIXEIRA (v1.1.16) aplicada ao terceiro botão daquela coluna: o gesto
+que revela a ação é o mesmo que revela a LISTA sobre a qual ela age. Fechado, o
+card de uma série não oferece nada — e o acervo inteiro é uma lista de cards
+fechados, onde aquele ícone aparecia em cada série como uma ação sem contexto a
+dois centímetros do nome.
+
+**`u.syncBusy` é a exceção, e não é uma segunda regra:** enquanto a varredura
+corre, aquele botão não é "atualizar", é o CANCELAR dela — o mesmo desfecho que
+faz o irmão de download ficar visível com o card fechado.
+
+O oráculo mede os DOIS estados. Uma medição só aprovaria as duas leituras
+opostas — sem a metade FECHADA ele aprovaria um botão que aparece sempre; sem a
+ABERTA, um que sumiu de vez.
+
+---
+
+### 4. A engrenagem sobe para o cabeçalho
+
+*"Jogue o botão de configurações no modo avançado para o topo da tela, na mesma
+posição que ele já ocupa no modo fácil."*
+
+Ela morava na fatia de cima da coluna do mixer, encostada na BASE da tela — o
+canto OPOSTO ao do gêmeo do Modo Fácil. Trocar de modo trocava o canto em que a
+mesma porta se abre, e o que se aprende num modo não valia no outro.
+
+**O lugar já estava reservado.** A trilha 3 da `.list-header` nasceu na v5.309
+como um VÃO vazio, só para o título não sair do eixo da faixa quando o voltar
+aparece — e a nota daquela versão previa este dia por escrito: *"ele some no dia
+em que um botão voltar a morar deste lado"*. A trilha não mudou de tamanho,
+porque ela sempre mediu `--hit`, que é a caixa do botão. Os dois modos passam a
+dividir a mesma regra de CSS: mesma caixa, mesmo canto, mesma cor (`--accent`, a
+do `#backBtn` em frente — navegação/acesso é chapado e em accent).
+
+---
+
+### 5. O histórico do culto
+
+*"No lugar do botão de configurações nos controles do modo avançado, crie um
+botão de histórico, que lista todos os itens que já tocaram naquela sessão. deve
+ser uma lista tipo a do cronograma, mas sem opções de exclusão, mas com opções de
+enviar para o cronograma. essa lista deve ter a hora de cada apresentação de cada
+item e deve ser apagada a cada nova sessão do app."*
+
+Ele responde a pergunta que **nenhuma outra lista do app responde**. O Cronograma
+é o que se PRETENDE tocar; a playlist é o que vem A SEGUIR — as duas voláteis por
+natureza, já que um toque numa mídia da Biblioteca redefine a fila inteira.
+*"O que eu já toquei hoje?"* não tinha onde ser feita, e é a pergunta de quem
+monta o culto seguinte ou precisa repetir um louvor que entrou de improviso.
+
+- **Quem registra é o `send`**, o ponto por onde TODOS os caminhos passam (o
+  toque na lista, o avanço automático da fila, o ⏮/⏭ do transporte, a notificação
+  nativa, o roteiro) — o mesmo argumento do `diagC` que está na linha ao lado.
+- **A linha guarda CÓPIAS do nome e do subtítulo, não um ponteiro.** A prateleira
+  `avulsos` tem teto de três e o coletor recolhe os bytes de quem sai da última
+  lista: um item pode deixar de existir entre tocar e ser consultado, e guardar
+  só o id daria uma lista de linhas em branco no fim de um culto normal.
+- **A repetição CONSECUTIVA colapsa** (`×3`), atualizando a hora em vez de abrir
+  linha nova. `repeat: 'one'` reenvia o mesmo id a cada fim de faixa, e um louvor
+  deixado em laço durante a oração encheria a lista com trinta cópias do mesmo
+  nome — enterrando exatamente o que se foi consultar. Alternar entre dois itens
+  abre linha nova: o colapso é da repetição consecutiva, nunca do item.
+- **Sem excluir, sem reordenar, e o toque na linha não projeta.** Um registro do
+  que JÁ aconteceu não se edita, e um destrutivo aqui apagaria o registro sem
+  apagar nada do aparelho. O toque também não projeta: uma lista consultada
+  durante o culto não pode mandar coisa ao telão por um toque de rolagem. A ação
+  é UMA, e é a do pedido.
+- **A linha do item que saiu do aparelho FICA**, esmaecida e sem botão, dizendo
+  "Não está mais no aparelho": apagá-la apagaria o fato. A conferência acontece
+  DEPOIS do desenho (a folha abre com a lista já na tela, e as linhas mortas
+  esmaecem no quadro seguinte) e OUTRA VEZ no toque — sem a segunda, o Cronograma
+  ganharia um id órfão, e uma linha que não abre nada só aparece no sábado.
+- **Em memória, e é isso que "apagada a cada nova sessão" significa aqui.** É a
+  mesma escolha (e o mesmo modo de falhar) do `diarioC`, o outro artefato que
+  responde *"o que aconteceu neste culto?"*: uma sessão é uma carga do documento
+  — minimizar não zera, fechar e reabrir zera. Persistir no IndexedDB custaria
+  uma escrita por projeção, no caminho mais quente do culto, para proteger um
+  dado que perde o sentido no domingo seguinte. **O preço está dito:** uma morte
+  do renderer leva o histórico junto, como já leva a linha do tempo do Registro.
+
+**O ícone é SVG**, não glifo: `history` (e875) não está nos 31 codepoints do
+subset da fonte, e um codepoint de fora do subset não desenha NADA — a armadilha
+que o `glifos.test.mjs` existe para pegar.
+
+---
+
+### Os dois oráculos entram no workflow no MESMO commit em que nascem
+
+A lição da v5.145. `parar-por-camada.test.mjs` mede as três cenas do Parar, e a
+prova de cada uma é o `currentTime` do `<video>` MAIS o TIPO do comando que saiu
+— `clear` e `media-clear` apagam o mesmo vídeo da preview, e sem essa segunda
+leitura as duas cenas se leriam igual do lado de cá. Ele foi medido POR REVERSÃO:
+com a condicional desligada, duas asserções reprovam.
+
+`historico.test.mjs` mede os três modos mudos de errar (não registrar, registrar
+demais, oferecer o que não existe mais) mais as SUBTRAÇÕES, que são parte do
+pedido tanto quanto a lista.
+
+O `boot-nativo.test.mjs` ganhou a medição do card de série nos DOIS estados —
+e a montagem dele limpa a lista entre as passadas, porque
+`renderCollectionsList` ACRESCENTA (a lição da v5.232): sem isso a segunda
+passada mediria o card da primeira, que é justamente o estado oposto.
 
 ---
 

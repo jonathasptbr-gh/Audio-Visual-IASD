@@ -896,10 +896,22 @@ try {
     'nem o seletor Cantada/Playback do acervo — a folha é a do YouTube, não a das músicas');
 
   // O download EM LOTE não pode existir para a série: são ~52 vídeos.
-  const semLote = await pg.evaluate(() => {
+  //
+  // MEDIDO NOS DOIS ESTADOS (v1.2.0): o `aberto` diz se o card da série está
+  // expandido quando a barra é desenhada, e é ele que separa as duas metades da
+  // regra nova — o botão de atualizar SÓ existe com o álbum aberto. Uma medição
+  // só aprovaria as duas leituras opostas, que é o modo de este oráculo passar
+  // sem afirmar nada.
+  const medirSerie = (aberto) => pg.evaluate((abrir) => {
     const lista = document.getElementById('hymnResults');
     const guardado = grupoAberto;
     grupoAberto = '';  // as fixas ficam na RAIZ desde a v1.0.1 — não há grupo a abrir
+    // `renderCollectionsList` ACRESCENTA à lista (a lição da v5.232): sem
+    // limpar, a segunda passada mediria o card da primeira — que é justamente o
+    // estado OPOSTO ao que ela veio medir.
+    lista.innerHTML = '';
+    const serie = allCollections().find((c) => /Provai e Vede 2026/.test(c.name || ''));
+    if (serie) ui(serie.id).expanded = !!abrir;
     renderCollectionsList(lista, () => {}, { semTotal: true });
     const cards = [...lista.querySelectorAll('.hymnal-card')];
     const card = cards.find((el) => /Provai e Vede 2026/.test(el.textContent));
@@ -924,9 +936,12 @@ try {
       // nunca existiu e que agora nem botão tem.
       resumo: card ? ((card.querySelector('.coll-bar-sync') || {}).textContent || '') : '',
     };
+    if (serie) ui(serie.id).expanded = false;
     grupoAberto = guardado;
     return r;
-  });
+  }, aberto);
+  const semLote = await medirSerie(false);
+  const aberta = await medirSerie(true);
   checar(semLote.achou, 'o card da série está na lista para ser medido');
   // ===== A SÉRIE NÃO GUARDA NADA, E POR ISSO PERDE DOIS BOTÕES (v1.1.21) =====
   // Pedido do operador: os episódios só existem enquanto estão no Cronograma,
@@ -937,12 +952,24 @@ try {
     'a série NÃO tem o botão de baixar a coleção — "não quero um download direto"');
   checar(!semLote.temLixeira,
     'e NÃO tem a lixeira: o álbum de série não retém arquivo nenhum');
-  checar(semLote.temAtualizar && semLote.textoAtualizar === '',
+  checar(aberta.temAtualizar && aberta.textoAtualizar === '',
     'o que ela tem é UM botão, puro e sem texto — "atualizar a lista" no lugar '
-    + 'onde ficava o excluir', JSON.stringify(semLote.textoAtualizar));
-  checar(/Atualizar a lista/.test(semLote.rotuloAtualizar),
+    + 'onde ficava o excluir', JSON.stringify(aberta.textoAtualizar));
+  checar(/Atualizar a lista/.test(aberta.rotuloAtualizar),
     'com a frase no `aria-label`/`title` — quem não vê o ícone continua sabendo '
-    + 'o que o toque faz', semLote.rotuloAtualizar);
+    + 'o que o toque faz', aberta.rotuloAtualizar);
+  // ===== E ELE SÓ EXISTE COM O ÁLBUM ABERTO (v1.2.0) =====
+  // Pedido do operador: *"os botões de atualizar lista do provai e vede e do
+  // informativo mundial das missões só deve aparecer com o album/grupo
+  // aberto"*. É a régua da lixeira (v1.1.16) aplicada ao terceiro botão desta
+  // coluna: o gesto que revela a ação é o mesmo que revela a LISTA sobre a qual
+  // ela age — e o acervo inteiro é uma lista de cards FECHADOS.
+  //
+  // As duas metades juntas são a asserção: sem a de baixo, o oráculo aprovaria
+  // um botão que aparece sempre; sem a de cima, aprovaria um que sumiu de vez.
+  checar(!semLote.temAtualizar,
+    'e com o álbum FECHADO ele NÃO existe — o card de uma série fechada não '
+    + 'oferece ação nenhuma');
   checar(!semLote.temPainel,
     'e o painel `.coll-opts` não existe mais: as três ações que ele teve '
     + 'terminaram todas na coluna da direita da barra');
