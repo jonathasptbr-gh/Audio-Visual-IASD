@@ -5043,12 +5043,12 @@ main {
    menos principal desta aba (quem a abre quer LER a cifra), e com corpo de
    botão cobrava altura de uma caixa cuja única função é mostrar texto. Sem
    `--hit`: não é alvo de culto, é uma nota de rodapé que por acaso é tocável. */
-/* O `gap` NÃO É ENFEITE: sem ele os dois links encostam e o olho lê UMA
-   palavra. Relato do operador: *"o texto errado 'Trocarver' no cifras club"* —
-   era o "Trocar" e o "Ver no Cifra Club" sem nada entre eles. Vale para os dois
-   rodapés desta aba (o outro põe "Esquecer a escolhida" ao lado de "Abrir o
-   site"), e é por isso que a folga mora aqui, no contêiner, e não num dos
-   botões: um rodapé novo já nasce separado. */
+/* O `gap` NÃO É ENFEITE: sem ele dois links encostam e o olho lê UMA palavra.
+   Relato do operador: *"o texto errado 'Trocarver' no cifras club"* — eram o
+   "Trocar" e o "Ver no Cifra Club" sem nada entre eles (v1.3.1). O "Trocar"
+   saiu na v1.3.2, mas a regra fica e é ela que importa: o rodapé do SELETOR
+   ainda põe "Esquecer a escolhida" ao lado de "Abrir o site", e a folga mora no
+   CONTÊINER justamente para que um rodapé novo já nasça separado. */
 .lv-cifra-rodape {
   display: flex; justify-content: flex-end; align-items: baseline;
   gap: 1.1rem; margin-top: .5rem;

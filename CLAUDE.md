@@ -2020,10 +2020,19 @@ a congregação vê continua sendo a letra, pelo caminho de sempre.
     o operador não tem como adivinhá-las. Eles ESCREVEM no campo antes de buscar:
     assim a consulta que rodou fica à vista e pode ser editada dali, em vez de o
     botão fazer algo invisível.
-  - **"Trocar" existe com a folha ABERTA**, e é aí que mais serve: o desfecho
-    pior não é não achar nada — é achar a cifra ERRADA (uma versão simplificada,
-    um homônimo) e não ter como dizer isso. Abrir o seletor sem lista dispara a
-    busca sozinho, senão a tela nasceria vazia justamente no caso mais comum.
+  - **O SELETOR SÓ APARECE NA FALHA** (v1.3.2). Ele existia também com a folha
+    ABERTA, por um botão "Trocar" no rodapé; o botão saiu a pedido do operador, e
+    com ele a única porta manual. O que fica é o caminho automático: `estado !==
+    'ok'` desenha a frase do motivo e o seletor logo abaixo dela — que é onde ele
+    é usado quase sempre, porque o resultado certo costuma estar na lista que a
+    regra acabou de ler. **O preço está dito no código:** uma cifra que ABRIU
+    errada (uma versão simplificada, um homônimo) não tem mais como ser trocada
+    pela aba; resta o link "Ver no Cifra Club". Saíram junto `cifraEscolherMostrar`,
+    `cifraEscolherAberto` e `cifraEscolherChave` — a máquina existia só para
+    aquele botão —, e a guarda que elas carregavam ("a prévia é de outra música")
+    passou a morar no próprio `cifraPrevia.chave`. O `cifra-teclado.test.mjs`
+    deixou de cutucar a função interna e passa a alcançar o seletor como o
+    operador o alcança: por uma procura que falha.
 - **O REGISTRO GUARDA A ESTRUTURA DA PÁGINA QUE NÃO ABRIU**
   (`AVCifra.radiografia`). `ilegivel` responde *"não entendi"*, não *"o que
   era"* — e a distância entre as duas é uma sessão de adivinhação a distância.
@@ -3350,7 +3359,7 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: v1.3.1** (base web) · **v1.3.0** (APK) · `SHELL_VERSION` **55** · bundle com
+**Versão atual: v1.3.2** (base web) · **v1.3.0** (APK) · `SHELL_VERSION` **55** · bundle com
 `minShell: 55` — o shell 55 é o **PISO**: todo método da ponte existe, e não há
 guarda de versão no lado web. O que continua valendo é que `java/`, `res/`, o
 manifest e os workflows **só chegam instalando o APK**.

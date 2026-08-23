@@ -162,11 +162,17 @@ try {
   checar(await pg.evaluate(() => lyricsPopupEl.classList.contains('open')),
     'e o popup está aberto — as duas condições de que o redesenho depende');
 
-  // O seletor, aberto pelo mesmo caminho do operador. A busca dispara sozinha.
+  // O SELETOR APARECE SOZINHO, e é assim que ele aparece no app desde a v1.3.2:
+  // a ponte de mentira responde 404 na PÁGINA e 200 na BUSCA, então a procura
+  // termina em falha e o ramo de `estado !== 'ok'` desenha o seletor abaixo da
+  // frase. Até a v1.3.1 este caso chamava `cifraEscolherMostrar(true)` — a porta
+  // do botão "Trocar", que saiu; cutucar a função interna era, além disso,
+  // exercitar um caminho que o operador não percorre.
+  //
   // A CHAVE É CONFERIDA AQUI, e não só lá embaixo: se a inicialização tiver
   // zerado o `currentItem`, é este caso que diz isso — o `waitForSelector`
   // seguinte só saberia dizer "esperei 15 s".
-  const chave = await pg.evaluate(() => { cifraEscolherMostrar(true); return cifraChave(currentItem); });
+  const chave = await pg.evaluate(() => cifraChave(currentItem));
   checar(chave !== '|' && chave.length > 1, 'a música plantada continua em cena', chave);
   await pg.waitForSelector('.lv-cifra-campo', { timeout: 15000 });
   checar(true, 'o seletor desenha o campo de busca');

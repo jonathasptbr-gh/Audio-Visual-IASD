@@ -24,6 +24,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
+- **v1.3.2** — O "TROCAR" SAIU DO RODAPÉ DA CIFRA, a pedido do operador. Ele era o ÚNICO chamador de `cifraEscolherMostrar`, então saiu com a máquina que só existia para ele (`cifraEscolherAberto`, `cifraEscolherChave`) — deixá-la seria código morto que nenhuma tela alcança. O SELETOR NÃO SAIU: o ramo de `estado !== 'ok'` continua desenhando-o sozinho, abaixo da frase do motivo, que é onde ele é usado quase sempre. A guarda que a máquina carregava ("a prévia é de outra música") passou a morar no próprio `cifraPrevia.chave`. O PREÇO ESTÁ DITO em três lugares: uma cifra que ABRIU errada não tem mais como ser trocada pela aba. E a frase do `sem-cifra` deixou de mandar usar um botão que não existe — aponta para a lista que já está na tela. O `cifra-teclado.test.mjs` deixou de cutucar a função interna e passa a alcançar o seletor como o operador o alcança: por uma procura que falha. OTA PURO.
 - **v1.3.1** — TRÊS AJUSTES DE LEITURA, TODOS PEDIDOS PELO OPERADOR E TODOS MEDIDOS. (1) "TROCARVER": `.lv-cifra-rodape` é `flex` SEM `gap`, então "Trocar" e "Ver no Cifra Club" encostavam e o olho lia UMA palavra. A folga foi para o CONTÊINER, não para um dos botões — o outro rodapé desta aba tem o mesmo par ("Esquecer a escolhida" + "Abrir o site") e um rodapé novo já nasce separado. (2) A BARRA DO TOM E DA ROLAGEM espremida: `margin-top: 0` a encostava no seletor Letra/Bíblia/Cifra — MEDIDO em 430px, 3,2px acima contra 8px abaixo. Agora 10,4 e 9,6. (3) O RODAPÉ DE CONFIGURAÇÕES fora do ritmo da folha: toda `.fade-row` começa a 14,4px de cada lado e ele começava a 11,2px, com 9,6px de base — o bastante para o olho ver duas colunas onde há uma. `.popup-footer` existe num lugar só, então alinhá-lo ao corpo alinha-o a tudo. OTA PURO.
 - **v1.3.0** — A AUDITORIA PÓS-1.0: QUATRO DEFEITOS, E OS QUATRO ERRAVAM CALADOS. (1) A ROLAGEM DA CIFRA MORRIA NO ENSAIO: `cifraRolandoChave` nasceu na v1.1.20 com `cifraChave(currentItem)` — a música EM CENA —, e a v1.2.14 pôs a folha para apontar para OUTRA música (`lvAlvo`) sem atualizar este sítio. A guarda "música nova é folha nova" do `lvBuildCifra` compara com `lvItem()`, então as duas chaves nunca batiam com um alvo da Biblioteca e o primeiro redesenho da folha chamava `cifraRolarParar()`. Transpor meio tom, tocar em A+/A− ou girar o aparelho bastavam — os três redesenham. (2) `salvarTexto` NUNCA RESOLVIA NO SUCESSO: `resolve()` injeta o segundo argumento como EXPRESSÃO JavaScript, e este era o único dos 40+ sítios que passava uma string CRUA — `__avResolve("e:1", registro-av-….txt)` é `SyntaxError`, o `evaluateJavascript` engole, e o método é justamente o que não tem prazo. O arquivo era gravado e o botão nunca respondia. (3) O REGISTRO DISCORDAVA DO APARELHO: ele somava "resolvidas" por fora em vez de perguntar a `cifraNoDiscoVale`, e a partir do 31º dia dizia "0 por varrer" com centenas ainda por refazer. (4) DOIS PARES DE CONTRASTE ABAIXO DO PISO no tema CLARO, medidos no RENDERIZADO: o seletor "Fácil/Avançado" a 3,47:1 (é o QUARTO degrau da escada de camadas, que o DESIGN-SYSTEM já nomeia como o que reprova AA) e a linha de versão do rodapé a 4,15:1. Mais a documentação posta em dia contra o CÓDIGO. O lote fecha o pacote da 1.2 e sobe o degrau INCREMENTAL a pedido de quem publica. METADE OTA e METADE APK (o (2) só chega instalando).
 - **v1.2.28** — A ROTINA DE FUNDO APAGAVA A PERGUNTA DA ATUALIZAÇÃO. Relato do operador: o app deveria oferecer sozinho o download do APK novo, e não ofereceu. `horaRuimParaPerguntar` esperava `bgWorkCount === 0` — e a varredura de cifras e a de letras rodam SOZINHAS na abertura, sobre o acervo inteiro (MEDIDO num aparelho: 309 hinos num hinário e 145 no outro, numa passada só). Enquanto ela corre, a pergunta não aparece; e ela corre justamente na janela em que o operador abre o app. É a armadilha que a v5.151 já pagou com o espelho: **uma condição quase sempre verdadeira não ADIA a pergunta, ela a APAGA** — e aqui o desfecho é o pior que este canal produz, porque com o shell abaixo do `minShell` a válvula recusa toda base web e o APK é a ÚNICA saída: o aparelho fica preso, em silêncio, sem nunca ser avisado do que o destrava. A distinção é QUEM PEDIU: `withBgRotina` protege o processo do congelamento igual (o sistema continua sabendo), e não adia pergunta nenhuma. O oráculo ganhou também o lote SÓ DE APK, que não tinha caso nenhum. OTA PURO
@@ -256,6 +257,67 @@ na nota que a revoga, não apagada da que a criou.
 - **v5.154** — é METADE OTA e METADE APK, e a divisão importa para quem for testar em aparelho.
 - **v5.155** — é OTA PURO
 - **v5.156** — é METADE OTA e METADE APK, de novo.
+
+---
+
+## v1.3.2 — o "Trocar" saiu, e o seletor ficou
+
+Pedido do operador, depois de a v1.3.1 ter separado os dois links do rodapé:
+*"pode remover o 'Trocar' das opções de cifras"*.
+
+### O que a remoção arrastou, e por quê
+
+`grep` antes de apagar: o botão era o **único chamador** de
+`cifraEscolherMostrar`, e essa função era a única que ligava
+`cifraEscolherAberto`. Sem o botão, a flag nunca mais poderia virar `true` — e
+com ela morriam as duas guardas de `lvBuildCifra` que a liam. Deixar isso de pé
+seria código morto que nenhuma tela alcança, e este arquivo já pagou caro por
+comentários que descrevem mecanismos removidos.
+
+Saíram: o botão, `cifraEscolherMostrar`, `cifraEscolherAberto`,
+`cifraEscolherChave` e o ramo `if (cifraEscolherAberto) …` de `lvBuildCifra`.
+
+**Ficaram:** `lvBuildCifraEscolher` (a lista, a prévia, os atalhos de consulta,
+o campo de busca, o "Esquecer a escolhida"), `cifraEspiar`, `cifraUsarPrevia`,
+`cifraRebuscar` e `cifraFixar`. O recurso continua inteiro; o que saiu foi uma
+das duas portas.
+
+### A guarda que a máquina carregava não podia sair junto
+
+`if (cifraEscolherAberto && cifraEscolherChave !== cifraChave(item))` existia
+para soltar uma prévia que era de OUTRA música. Sem a flag, a pergunta continua
+valendo — e passou a morar onde ela pertence: `cifraPrevia.chave`, gravada em
+`cifraEspiar`. Uma prévia que sabe de quem é não precisa de uma variável ao lado
+para lembrar.
+
+### O preço, dito em três lugares
+
+O seletor agora só aparece pelo caminho automático (`estado !== 'ok'`), que é
+onde ele é usado quase sempre — o resultado certo costuma estar na lista que a
+regra acabou de ler. Mas **uma cifra que ABRIU errada** (uma versão
+simplificada, um homônimo) **não tem mais como ser trocada por dentro da aba**;
+resta o link "Ver no Cifra Club". Isso está escrito no `lvBuildCifra`, no
+`CLAUDE.md` e no capítulo do Controle, porque é a única coisa que a tela deixou
+de saber fazer.
+
+### E a frase parou de mandar tocar num botão que não existe
+
+`MOTIVO_SEM_CIFRA` dizia *"se houver outra versão no site, use 'Trocar'"*. Ela
+cai no ramo de falha, que desenha o seletor logo abaixo dela — então a frase
+passou a apontar para o que já está na tela: *"escolha na lista abaixo"*. Uma
+instrução que nomeia um controle ausente é pior que instrução nenhuma: ela faz o
+operador procurar.
+
+### O oráculo passou a usar a porta do operador
+
+`cifra-teclado.test.mjs` abria o seletor chamando `cifraEscolherMostrar(true)` —
+cutucar a função interna era, além de quebrar agora, exercitar um caminho que
+ninguém percorre. A ponte de mentira dele **já** respondia 404 na página e 200
+na busca, isto é, já montava o cenário de falha: bastou deixar o app desenhar o
+seletor sozinho. O caso ficou mais forte do que era — hoje ele também é a prova
+de que o seletor continua alcançável depois desta remoção.
+
+OTA PURO: nenhum Kotlin, nenhum `res/`, nenhum workflow.
 
 ---
 

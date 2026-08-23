@@ -1201,8 +1201,10 @@ mixer (`#lyricsViewBtn`, folha com linhas) abre um bottom-sheet **com scroll**
   a aba usa para se oferecer. **Achando a cifra errada — ou nenhuma — o operador
   ESCOLHE**: a aba desenha a lista de resultados do site, abre qualquer um em
   prévia e fixa o endereço escolhido para aquela música (tentativa 0 dali em
-  diante, guardada entre sessões). Com a folha aberta o mesmo seletor está no
-  rodapé, como "Trocar". O desenho completo — as tentativas (escolha fixada,
+  diante, guardada entre sessões). **O seletor aparece na FALHA**, logo abaixo da
+  frase que diz o motivo — com a folha já aberta não há mais como chamá-lo (o
+  botão "Trocar" do rodapé saiu na v1.3.2, a pedido do operador). O desenho
+  completo — as tentativas (escolha fixada,
   o que está guardado no aparelho, catálogo, álbum-como-artista, artistas
   padrão, busca), os quatro motivos de falha, a transposição que preserva a
   COLUNA do acorde e por que o parser mora no web e não no Kotlin — está em

@@ -1,5 +1,13 @@
 [
   {
+    "versao": "1.3.2",
+    "itens": [
+      "O botão “Trocar” saiu do rodapé da cifra, como pedido. O rodapé agora tem só “Ver no Cifra Club”.",
+      "A lista para escolher outra cifra continua existindo: ela aparece sozinha quando a busca não acha (ou acha só a letra), logo abaixo da frase que diz o motivo.",
+      "O que muda: com uma cifra já aberta na tela, não há mais como pedir outra por dentro do app — o caminho passa a ser o link para o site."
+    ]
+  },
+  {
     "versao": "1.3.1",
     "itens": [
       "Correção: no rodapé da cifra, “Trocar” e “Ver no Cifra Club” estavam colados e se liam como uma palavra só (“Trocarver”). Agora são dois links separados.",
