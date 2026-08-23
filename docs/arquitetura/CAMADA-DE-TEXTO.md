@@ -167,6 +167,43 @@ de console. Ele mede o `currentTime` do `<video>` em DOIS instantes — "não
 pausou" é fraco, "andou" é o que prova que o áudio é o mesmo — nas duas
 metades: o Controle que decide sobrepor e o telão que pinta.
 
+### O Parar fala de UMA camada só (v1.2.0)
+
+Pedido do operador: *"considerando que o preview tem um botão apenas para
+remover as camadas superiores, ajuste o botão de stop para em caso onde há mídia
+de fundo e mensagens ou sobreposição de elementos na tela como bíblia e etc… o
+botão de stop funciona apenas para a mídia de fundo"*.
+
+O telão empilha DUAS coisas ao mesmo tempo, e cada uma já tinha a própria porta:
+o selo `#pvCamadaBtn` sobre a preview (`encerrarCamadaDeCima`) para a de cima, e
+`pararMidia('media-clear')` para a de baixo — a mesma divisão que o `retirarDoAr`
+da linha faz desde a v5.178. **O `stopClear` era o único controle que não
+escolhia nenhuma:** ele mandava `clear` e derrubava as duas de uma vez, e um
+louvor de fundo sob um versículo não podia sair sem levar o versículo junto.
+
+| Cena no ar | O que o Parar faz |
+|---|---|
+| mídia **e** Camada de Texto | `media-clear` — sai só a mídia, o cartão fica |
+| só a mídia | `clear` — a cena inteira, como sempre |
+| só a Camada de Texto | `clear` — ela é a cena, e o Parar é a saída dela no transporte |
+
+- **A pergunta é `midiaNoAr`, nunca `currentId`.** Este último sobrevive ao
+  Parar de propósito (é ele que deixa o ▶ repetir a faixa), então perguntar por
+  ele faria o SEGUNDO Parar seguido — o que encerra o versículo — virar no-op
+  para sempre. É a mesma régua do reenvio de cena.
+- **`clearManualText()` não pode entrar no ramo novo.** Ele é a escrituração que
+  zera as SEIS sessões, e sem elas o operador perderia a navegação do versículo
+  que continua projetado.
+- **A terceira linha da tabela é o que impede a correção de virar regressão.**
+  Um Parar que sempre poupasse o texto deixaria a Camada de Texto presa no telão
+  sem saída no transporte — o defeito trocado de lado, e igualmente mudo.
+
+**Oráculo: `tools/parar-por-camada.test.mjs`**, e ele mede as três cenas: a regra
+é condicional, e uma condicional errada não emite erro em lugar nenhum nos dois
+sentidos. A prova da primeira é o `currentTime` do `<video>` em dois instantes
+mais o TIPO do comando que saiu ao telão — `clear` e `media-clear` apagam o mesmo
+vídeo da preview, e sem essa segunda leitura as duas cenas se leriam igual.
+
 ### Botão voltar do aparelho (`__avBack`)
 
 O shell entrega o botão voltar do Android a `window.__avBack()`; devolver `true`
@@ -762,7 +799,8 @@ são dois casos distintos:
   aviso apagado continuava projetado no telão e na preview. Como a sessão
   morria junto, o botão "Tirar do telão" ficava **desabilitado** e a linha
   sumia da lista — o operador não tinha mais nenhum caminho na aba para tirar o
-  texto do ar, só ⏹ Parar ou projetar outra coisa por cima. Hoje é
+  texto do ar, só ⏹ Parar (e desde a v1.2.0 nem ele, se houver mídia por baixo —
+  ver "O Parar fala de UMA camada só") ou projetar outra coisa por cima. Hoje é
   `hideMessage()` (que envia o `text-hide`) e **depois** `clearMsgSession()`.
 - **Uma ACIMA da projetada** exige reindexar `msgSession.idx`. Sem isso ele
   passava a apontar para a vizinha errada — ou para fora do array: "Mensagem 3"

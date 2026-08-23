@@ -135,6 +135,20 @@
       <circle cx="11" cy="11" r="7"/>
       <line x1="16.5" y1="16.5" x2="21" y2="21"/>
     </symbol>
+    <!-- HISTÓRICO: o relógio com a seta de VOLTAR NO TEMPO saindo dele. O
+         relógio sozinho é "hora" (e é o que o `more_time` do Cronograma já
+         diz); o que separa este daquele é o sentido da seta, anti-horária —
+         "o que já passou". A abertura no canto superior esquerdo do mostrador
+         é onde a seta entra: fechá-la deixaria dois desenhos empilhados num
+         quadrado de 20px, a mesma razão do canto aberto do `icoCast`.
+         Em SVG e não em glifo: `history` (e875) NÃO está no subset de 31
+         codepoints de `shared/fonts/material-symbols.woff2`, e um codepoint de
+         fora do subset não desenha NADA — ver `tools/glifos.test.mjs`. -->
+    <symbol id="icoHistorico" viewBox="0 0 24 24">
+      <path d="M3.6 9.4A9 9 0 1 1 3 12"/>
+      <path d="M3.2 4.6v4.8h4.8"/>
+      <path d="M12 7.4V12l3.4 2"/>
+    </symbol>
     <!-- SORTEIO: o DADO. Ele nasceu como o glifo `casino` (e30c) e saiu na
          tela SEM DESENHO NENHUM — o subset da fonte tem 31 codepoints e aquele
          não está entre eles. É a mesma armadilha do `edit` (ver o comentário
@@ -357,16 +371,31 @@
            ENGRENAGEM no mesmo lugar: agora o caminho é o mesmo nos dois modos,
            e não sobrou nenhum `.mode-switch` no app. Ele não podia sair antes
            dela — daquele modo não havia como chegar a Configurações, porque a
-           outra engrenagem mora na coluna do mixer, que ele esconde por
-           inteiro (`body.mode-simple .bottombar`).) -->
+           engrenagem do avançado morava então na coluna do mixer, que ele
+           esconde por inteiro (`body.mode-simple .bottombar`). Desde a v1.2.0
+           ela mora AQUI, no mesmo canto da dele.) -->
       <span class="list-title" id="listTitle">Cronograma</span>
-      <!-- O VÃO DA DIREITA (v5.309). A faixa virou uma GRADE de três trilhas
-           fixas para o título parar de pular quando a Bíblia sai da grade de
-           livros e o voltar aparece (ver `.list-header` em controle.css). Este
-           vão é a trilha 3: sem ele, reservar só a do voltar deixaria o nome da
-           tela fora do eixo da faixa em toda a interface. Ele some no dia em
-           que um botão voltar a morar deste lado. -->
-      <span class="list-head-vao" aria-hidden="true"></span>
+      <!-- A ENGRENAGEM, NO TOPO DOS DOIS MODOS (v1.2.0, pedido do operador:
+           *"jogue o botão de configurações no modo avançado para o topo da
+           tela, na mesma posição que ele já ocupa no modo fácil"*).
+
+           Ela morava na fatia de cima da coluna do mixer, encostada na base da
+           tela — o canto oposto ao do gêmeo do Modo Fácil. Trocar de modo
+           trocava o CANTO em que a mesma porta se abre, e o que se aprende num
+           modo não valia no outro. Aqui os dois são o mesmo gesto: canto
+           superior direito, sempre.
+
+           E O LUGAR JÁ ESTAVA RESERVADO: esta é a trilha 3 da grade, que a
+           v5.309 abriu como um VÃO só para o título não sair do eixo da faixa
+           quando o voltar aparece. O vão previa este dia por escrito ("ele some
+           no dia em que um botão voltar a morar deste lado"), e a caixa dele é
+           exatamente `--hit` — a mesma do voltar em frente e a mesma da
+           engrenagem do Modo Fácil.
+
+           O que ficou vago no mixer virou o HISTÓRICO (ver `#historyBtn`). -->
+      <button id="settingsBtn" class="settings-btn" title="Configurações" aria-label="Configurações">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoGear"/></svg>
+      </button>
       <!-- (O botão de FAVORITOS saiu do cabeçalho na v5.238, a pedido do
            operador: "tudo agora será dentro da biblioteca". Os favoritos são a
            primeira seção da Biblioteca, sempre aberta, e a gaveta `#favPopup`
@@ -593,7 +622,8 @@
                sem moldura de botão — o contraste sobre uma mídia qualquer vem
                de uma sombra no traço do SVG (ver `.pv-fab`).
                São DOIS desde a v5.49: a engrenagem saiu daqui porque
-               Configurações ganhou um botão fixo no topo da coluna do mixer, e
+               Configurações ganhou um botão fixo na barra de baixo (hoje no
+               cabeçalho da tela, v1.2.0), e
                duas portas para a mesma tela é espaço gasto sem informação nova
                (o mesmo argumento que aposentou a aba de Álbuns na v5.44). Nunca
                houve botão de mensagem aqui: Mensagens é uma ferramenta do
@@ -763,22 +793,34 @@
            preview, e SAIU na v5.189 a pedido do operador: o som do sistema é o
            dos displays (a TV e as telas da rede), e o áudio da preview só
            disputava o foco de áudio do Android com a projeção. O botão que ela
-           deixou vago virou a porta de Configurações, e ela subiu para o TOPO
-           da coluna: é o único botão daqui que não opera o culto, então fica
-           fora do agrupamento de operação (cortina/letra/mudo/volume) em vez
-           de no meio dele. -->
+           deixou vago virou a porta de Configurações — que na v1.2.0 subiu para
+           o cabeçalho da tela, ao lado do gêmeo do Modo Fácil — e no lugar dela
+           entrou o HISTÓRICO. -->
       <div class="mixer" id="mixer">
         <div class="mixer-slot mixer-top">
           <div class="mixer-stack">
-            <!-- SEM fundo de botão (`.settings-btn`, e por isso não é
-                 `.ctl-btn`): esta fatia é a mais baixa da coluna, e um bloco
-                 achatado ao lado de quatro botões de altura cheia se lê como um
-                 botão MAL FEITO. Sem a caixa, o ícone solto diz o que é — o
-                 acesso às preferências, fora do grupo que opera o culto. Mesmo
-                 tratamento do `#backBtn` do cabeçalho, que também é navegação e
-                 também é chapado. -->
-            <button id="settingsBtn" class="settings-btn" title="Configurações">
-              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoGear"/></svg>
+            <!-- ===== O HISTÓRICO DO CULTO (v1.2.0) =====
+                 Pedido do operador: *"no lugar do botão de configurações nos
+                 controles do modo avançado, crie um botão de histórico, que
+                 lista todos os itens que já tocaram naquela sessão"*.
+
+                 ELE HERDA A CAIXA, não o significado: `.settings-btn` é o
+                 esqueleto do botão CHAPADO desta fatia — a mais baixa da
+                 coluna, onde um bloco achatado ao lado de quatro botões de
+                 altura cheia se lê como um botão mal feito. O nome da classe é
+                 herança do inquilino anterior; o que ela descreve é a geometria.
+
+                 E CHAPADO É O CERTO PARA ELE TAMBÉM: o histórico não opera o
+                 culto — ele ABRE uma lista, como a engrenagem abria uma folha.
+                 O grupo de operação (cortina/letra/mudo/volume) segue logo
+                 abaixo, com fundo, e a diferença de tratamento é o que os
+                 separa sem uma linha desenhada.
+
+                 O ícone é SVG e não glifo de fonte: o subset de
+                 `material-symbols.woff2` tem 31 codepoints e `history` não está
+                 entre eles — ver `tools/glifos.test.mjs`. -->
+            <button id="historyBtn" class="settings-btn" title="Histórico do culto" aria-label="Histórico do culto">
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoHistorico"/></svg>
             </button>
           </div>
         </div>
@@ -876,6 +918,35 @@
         <span class="msym" aria-hidden="true">&#xe03b;</span>
         <span>Guardar como pacote no Cronograma</span>
       </button>
+    </div>
+  </div>
+
+  <!-- ===== HISTÓRICO DO CULTO (bottom sheet, v1.2.0) =====
+       Pedido do operador: *"crie um botão de histórico, que lista todos os
+       itens que já tocaram naquela sessão. deve ser uma lista tipo a do
+       cronograma, mas sem opções de exclusão, mas com opções de enviar para o
+       cronograma. essa lista deve ter a hora de cada apresentação de cada item
+       e deve ser apagada a cada nova sessão do app"*.
+
+       A FOLHA É A DA PLAYLIST, e não uma tela nova: mesmo `.popup-sheet`, mesma
+       `.popup-list`, mesma linha `.row-item`. O que muda é o que cada linha
+       oferece — aqui não há excluir e não há reordenar, porque um registro do
+       que JÁ ACONTECEU não se edita: ele se consulta, e no máximo se reaproveita.
+
+       SEM CONTADOR no cabeçalho (o `.popup-count` da playlist): ali o número é
+       o que falta tocar, e é por isso que ele fica ao lado do título. Aqui o
+       número é quantas vezes se projetou alguma coisa — não pede ação nenhuma,
+       e a lista inteira já o mostra. -->
+  <div id="histPopup" class="popup-backdrop">
+    <div class="popup-sheet">
+      <div class="popup-header">
+        <span class="popup-header-icon">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoHistorico"/></svg>
+        </span>
+        <span class="popup-title">Histórico do culto</span>
+        <button id="histPopupClose" class="popup-close" title="Fechar"><span class="msym" aria-hidden="true">&#xe14c;</span></button>
+      </div>
+      <ul id="histList" class="popup-list"></ul>
     </div>
   </div>
 
@@ -1039,7 +1110,7 @@
              pedir ajuda"), e agora ocupam a mesma faixa: a versão à esquerda, o
              Registro à direita, no espaço que já estava sobrando. -->
         <div class="footer-diag">
-          <span id="appVersion" class="app-version">Controle v1.1.29</span>
+          <span id="appVersion" class="app-version">Controle v1.2.0</span>
           <span class="footer-diag-rot">Registro</span>
           <button id="diagCopy" class="log-copy" title="Copiar o registro" aria-label="Copiar o registro">
             <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoCopiar"/></svg>

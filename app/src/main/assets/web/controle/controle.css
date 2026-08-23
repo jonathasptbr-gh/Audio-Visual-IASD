@@ -1128,7 +1128,10 @@ main {
 }
 .list-header > .back-btn { grid-column: 1; }
 .list-header > .list-title { grid-column: 2; }
-.list-head-vao { grid-column: 3; }
+/* A TRILHA 3 era um VÃO reservado (v5.309, para o título não sair do eixo
+   quando o voltar aparece) e virou a casa da ENGRENAGEM na v1.2.0 — o vão
+   previa isto por escrito. A trilha já mede `--hit`, que é a caixa do botão. */
+.list-header > .settings-btn { grid-column: 3; }
 /* O nome da tela. Subiu de .72rem para .84rem na v5.51: com a versão fora do
    cabeçalho e o botão de troca de modo ancorado à direita, a faixa passou a ter
    espaço — e em .72rem o único texto que responde "onde eu estou" era menor que
@@ -1171,14 +1174,20 @@ main {
 .lib-item .row-btn {
   width: var(--thumb); height: var(--thumb);
 }
-/* ---------- A engrenagem do Modo Fácil ----------
+/* ---------- A engrenagem, nos cabeçalhos dos DOIS modos ----------
    CHAPADA, pela regra do app: navegação/acesso é ícone solto, operação é botão
-   (a razão do `#settingsBtn` do mixer e do `#backBtn`). Onde ela difere do
-   gêmeo do mixer é no que importa aqui: é o ÚNICO acesso a Configurações neste
-   modo, então o ícone é `--accent` e não `--muted` — o accent é o que este app
-   usa para "isto leva a outro lugar". O alvo é `--hit` cheio, e não o `flex: 1`
-   da coluna do mixer, que aqui esticaria o botão pela faixa inteira. */
-.simple-head .settings-btn {
+   (a mesma razão do `#backBtn` ao lado).
+
+   OS DOIS CABEÇALHOS COMPARTILHAM A REGRA (v1.2.0), e é isso que faz a mesma
+   porta se abrir do mesmo jeito nos dois modos: mesmo canto, mesma caixa
+   (`--hit` cheio, e não o `flex: 1` da coluna do mixer, que aqui esticaria o
+   botão pela faixa inteira), mesma cor. `--accent` e não `--muted`: no
+   cabeçalho ela é vizinha do `#backBtn`, e o accent é o que este app usa para
+   "isto leva a outro lugar" — era `--muted` na coluna do mixer porque lá o
+   vizinho era o grupo que opera o culto, e a diferença de tom é que os
+   separava. Quem herdou o `--muted` de lá é o `#historyBtn`. */
+.simple-head .settings-btn,
+.list-header .settings-btn {
   flex: 0 0 auto; margin-left: auto;
   width: var(--hit); height: var(--hit); min-height: 0;
   color: var(--accent);
@@ -3702,6 +3711,26 @@ main {
   display: flex; flex-direction: column; gap: .35rem;
 }
 .popup-list > li { flex-shrink: 0; }
+
+/* ---------- A HORA DA LINHA DO HISTÓRICO (v1.2.0) ----------
+   Ela é a PRIMEIRA coisa da linha, e não um pedaço do subtítulo: a pergunta
+   que se leva ao histórico é "o que eu toquei antes disto?", e a resposta se lê
+   percorrendo uma COLUNA de horas — enterrada no fim de um subtítulo com
+   reticências, ela desapareceria no primeiro nome comprido.
+
+   `tabular-nums` porque a coluna só se lê como coluna se os dígitos tiverem a
+   mesma largura; `flex: none` para ela nunca encolher (é o dado mais curto e o
+   único de largura fixa da linha). Em `--muted`: ela é contexto, e o nome é o
+   que se procura. */
+.hist-hora {
+  flex: none; font-size: .72rem; font-weight: 700; color: var(--muted);
+  font-variant-numeric: tabular-nums; letter-spacing: .02em;
+}
+/* A linha do item que SAIU do aparelho (o coletor recolheu os bytes quando ele
+   deixou a última lista). Ela FICA — o histórico responde o que aconteceu, e
+   apagar a linha apagaria o fato —, mas diz que não há o que mandar adiante:
+   o nome esmaece e o botão sai (ver `renderHistorico`). */
+.hist-sumiu .row-name { color: var(--muted); font-style: italic; }
 
 /* GUARDAR A FILA COMO PACOTE (v5.103) — o rodapé da folha da playlist. Mesma
    receita tracejada de "Importar arquivos": as duas são a ação que a lista

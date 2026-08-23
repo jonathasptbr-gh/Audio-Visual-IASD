@@ -774,6 +774,31 @@ memória caminho → URL), um parcial do 137 seria "retomado" por um download do
 136 — dois vídeos emendados, sem erro, aparecendo só na hora de projetar. O mapa
 morre com o processo de propósito.
 
+### A TRANSMISSÃO DIRETA é a única mídia que precisa de JS enquanto toca
+
+Um arquivo baixado toca sozinho: o `<video>` consome bytes do disco e nenhuma
+linha de JavaScript participa. Um stream não — quem repõe o buffer é o
+`shared/mse.js`, e por isso ele é a única cena do app que o segundo plano
+consegue interromper. Duas regras, e as duas nasceram do mesmo relato
+(*"vídeos tocando direto do YouTube sem baixar são interrompidos quando o app
+está em segundo plano"*):
+
+- **O compasso do abastecimento NÃO pode depender só de um `setInterval`.** Com
+  o buffer cheio (`ALVO_S`, 20 s) nada mais é appendado e nenhum `updateend`
+  sai — quem reacorda o player é o tique. E um `setInterval` de página em
+  segundo plano é estrangulado pelo Chromium (1×/s, e 1×/min depois de alguns
+  minutos escondida): 20 s de buffer contra um compasso de até um minuto dá
+  projeção parando sozinha, sem erro em lugar nenhum. O compasso sai também dos
+  eventos do próprio `<video>` (`EVENTOS_DO_COMPASSO`), que nascem do pipeline
+  de mídia e não do agendador. O intervalo fica como PISO — é ele que cobre a
+  cena pausada, onde não há `timeupdate`.
+- **Uma falha de rede não é o fim da transmissão.** Qualquer tropeço matava o
+  player e a cena caía no download — 300 MB começando a baixar por causa de um
+  pacote perdido, e justamente em segundo plano, que é quando o Wi-Fi entra em
+  economia de energia. `pegar()` retenta 4 vezes (0,4 s → 1,2 s → 3 s) com a
+  MESMA divisão do download: passa o acidente, **não** retenta 4xx (a URL
+  expirada é conserto do `recuperarStream`, que a reconhece pela mensagem).
+
 > **A TRANSMISSÃO viaja no serviço da sessão de mídia** (não tem serviço
 > próprio): o `SessionService` tem **duas razões independentes de viver** (cena ·
 > transmissão) e só para quando as duas caem. O tipo é a UNIÃO
@@ -2270,7 +2295,7 @@ que ela é desenvolvida e testada fora do aparelho.
 | Girar a mídia | idem (comando `rotate`) | botão em Configurações, 90° por toque. O motor TROCA O EIXO da caixa antes de girar, para o `object-fit` medir o retângulo em que a mídia vai de fato aparecer |
 | Som da preview | com a janela do Display aberta é muda; sem ela toca (sujeito a autoplay) | **sem tela nenhuma conectada, o som sai DESTE aparelho** (`acertarSaidaDeAudio`). No avançado é DERIVADO da conexão (`simpleDisplay` = TV **ou** tela da rede); no Modo Fácil é ESCOLHA (`tocarNoCelular`, o "Tocar neste celular" da folha de conexão), porque lá o padrão é bloquear — escolha de IDA, sem persistência, que se rearma ao fechar o app, ao passar pelo avançado ou quando uma tela entra. Com qualquer tela conectada este aparelho fica mudo nos dois modos — os WebViews dividem o processo e a saída de áudio, e a preview roubava o foco do player do telão |
 | PDF · `.pptx` · Google Apresentações | **PDF não existe**; `.pptx` funciona pelo mesmo caminho do app | **uma IMAGEM POR PÁGINA**. PDF pelo `PdfRenderer` da plataforma (`SlideDeck.kt` + `deckPages`); `.pptx` pelo renderizador de `assets/web/vendor/` (`pptxParaPaginas`, `import()` dinâmico + `<foreignObject>`/canvas). Daí é mídia comum, com ⏮/⏭ passando página. **Não há botão de "apresentação"** — entra por "Importar arquivos" (`pickDoc`: o PDF precisa que o shell abra o ARQUIVO, e `<input type=file>` só devolve bytes) ou pelo share. `.ppt` legado e `.odp` ficam de fora: ninguém sabe desenhá-los |
-| **Tocar agora** de vídeo do YouTube | **não toca**, e a linha do item diz isso | **TRANSMISSÃO DIRETA** (shell 26; só funciona do 27 em diante): `ytStream` monta o manifesto das duas adaptativas, `StreamProxy` as serve pelo NOSSO origin com o UA que combina, e `shared/mse.js` as vira um `<video>` comum — fade, cortina, `MediaSession` e barra de graça, zero pixel de YouTube no telão. Faixa de bytes na QUERY (`?r=ini-fim`), **nunca** em `Range` (invariante 8). Só em "Tocar agora": as outras ações GUARDAM, e manifesto expira em horas. Falhando qualquer coisa, cai no download, calado |
+| **Tocar agora** de vídeo do YouTube | **não toca**, e a linha do item diz isso | **TRANSMISSÃO DIRETA** (shell 26; só funciona do 27 em diante): `ytStream` monta o manifesto das duas adaptativas, `StreamProxy` as serve pelo NOSSO origin com o UA que combina, e `shared/mse.js` as vira um `<video>` comum — fade, cortina, `MediaSession` e barra de graça, zero pixel de YouTube no telão. Faixa de bytes na QUERY (`?r=ini-fim`), **nunca** em `Range` (invariante 8). Só em "Tocar agora": as outras ações GUARDAM, e manifesto expira em horas. Falhando qualquer coisa, cai no download, calado. **É o único tipo de mídia que precisa de JS rodando enquanto toca** — ver abaixo |
 | **Cifra do hino** | **não existe** — sem ponte não há como buscar a página (CORS), e a aba nem é oferecida | **aba CIFRA no visualizador de letras** (shell 49): `cifraHtml` traz o HTML cru, `controle/cifra.js` o lê, e a folha aparece com transposição por meio tom. **SOB DEMANDA:** nada é baixado em lote, nada entra no bundle, nada é gravado em disco — o cache é um `Map` que morre com o app |
 | Vídeo do YouTube | **não toca** | **baixado PELO APARELHO** (`YoutubeGrab.kt` + `ytFetch`) — a extração sai do IP do chip, que é o que o YouTube não bloqueia. Falhando, vira item de LINK, retentado no toque seguinte |
 | Qualidade do download | — | teto escolhido pelo operador: **Online · 1080p · 720p · 480p**, no mesmo seletor de Vídeo/Só áudio. Nasce no padrão A CADA ITEM (um teto que grudasse daria 480p no vídeo do domingo sem aviso). 1080p usa o `ytFetch` de sempre; só teto MENOR usa `ytFetchAte`. "Online" (`-1`, e não `0`, que já significa "sem teto") guarda **só o link** |
@@ -2666,6 +2691,8 @@ mundo anterior por outro caminho.
 | `ponte.test.mjs` | **o que a ponte de fato ENTREGA** — `native.js` REMONTA campo a campo, e um campo esquecido some em silêncio. Afirma também que ele não drena papel nenhum e que o display emite as quatro mensagens (`display-ready`, `display-status`, `media-ended`, `mic-status`) — quem filtra é o `tela.js`, nunca a fonte |
 | `cena.test.mjs` | o que o telão mostra ao RECONECTAR (o caminho menos testável à mão: exige TV, dongle e o timing de derrubá-lo) |
 | `imagem-sobre-audio.test.mjs` | a IMAGEM projetada por cima do áudio. A regra é uma AUSÊNCIA — nenhum `load` sai daquele caminho —, e ausência não tem sintoma de tela nem erro de console: quem a prova é o `currentTime` do `<video>` medido em DOIS instantes ("não pausou" é fraco; "andou" prova que é o mesmo áudio). Nas duas metades: o Controle que decide sobrepor e o telão que pinta |
+| `parar-por-camada.test.mjs` | **o Parar do transporte, que fala de UMA camada só.** A regra é CONDICIONAL (mídia + Camada de Texto → sai só a mídia; uma das duas sozinha → sai a cena inteira), e uma condicional errada é muda nos DOIS sentidos: ou a Camada de Texto fica presa no telão sem saída no transporte, ou o louvor de fundo volta a levar o versículo junto. Mede as TRÊS cenas, e a prova é o `currentTime` do `<video>` mais o TIPO do comando — `clear` e `media-clear` apagam o mesmo vídeo da preview |
+| `historico.test.mjs` | **o histórico do culto**, uma lista que se preenche sozinha no ponto mais quente do app (`send`) e cujos três modos de errar são mudos: não registrar (a folha abre vazia depois de um culto inteiro), registrar demais (`repeat: 'one'` enterrando o culto em cópias do mesmo nome) e oferecer ao Cronograma um id que o coletor já recolheu — este só aparece no sábado seguinte |
 | `gaveta-no-download.test.mjs` | a GAVETA DA LINHA contra o redesenho do progresso — o único lugar do acervo em que o operador DECIDE, e o redesenho remontava a lista por baixo dela a cada 400 ms. MUDO nos dois tempos: aberta, ela some sem erro nenhum; ABRINDO (há um `await` do IndexedDB entre o toque e o `expanded`), o `li` vira órfão e o toque não faz nada. Quatro metades, e a primeira é o HAZARD — sem ela as outras provariam que uma função concorda consigo mesma |
 | `cifra-offline.test.mjs` | **a cifra guardada do hinário abre SEM REDE**. A promessa é operacional e falha calada: sem a leitura do disco o app cai no caminho de rede e, COM rede, a folha aparece igual — pela porta errada. Por isso a asserção é `cifraHtml` NÃO ter sido chamado, com a ponte respondendo "sem rede" a tudo; a outra metade prova que o que NÃO está guardado ainda vai à rede |
 | `cifra-teclado.test.mjs` | **o teclado virtual contra o campo de busca da cifra**. O teclado é um `resize`, e o `resize` remede a folha — que refaz a aba e destrói o `<input>` com foco; sem foco o teclado FECHA, e o fechamento é outro `resize`. Nada erra: sai um teclado que pisca e some, e o seletor fica inalcançável. Ele injeta a PONTE e abre o popup de verdade, porque montado num nó solto ele passava com a guarda REMOVIDA |
@@ -3041,7 +3068,7 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: v1.1.29** (base web) · **v1.1.26** (APK) · `SHELL_VERSION` **50** · bundle com
+**Versão atual: v1.2.0** (base web) · **v1.1.26** (APK) · `SHELL_VERSION` **50** · bundle com
 `minShell: 50` — o shell 50 é o **PISO**: todo método da ponte existe, e não há
 guarda de versão no lado web. O que continua valendo é que `java/`, `res/`, o
 manifest e os workflows **só chegam instalando o APK**.

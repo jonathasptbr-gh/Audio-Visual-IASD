@@ -617,6 +617,22 @@ jobs:
           # certo. Ele entra no workflow no MESMO commit em que nasce — a lição
           # da v5.145.
           rodar tools/hinario-tela.test.mjs
+          # E O PARAR, QUE FALA DE UMA CAMADA SÓ. A regra é CONDICIONAL — com
+          # mídia E Camada de Texto no ar sai só a mídia; com uma das duas, sai
+          # a cena inteira —, e uma condicional errada não emite erro em lugar
+          # nenhum nos DOIS sentidos: ou a Camada de Texto fica presa no telão
+          # sem saída no transporte, ou o louvor de fundo volta a levar o
+          # versículo junto. Ele entra no workflow no MESMO commit em que nasce
+          # (a lição da v5.145).
+          rodar tools/parar-por-camada.test.mjs
+          # E O HISTÓRICO DO CULTO — uma lista que se preenche sozinha no ponto
+          # mais quente do app (`send`), com três modos de errar todos mudos:
+          # não registrar (a folha abre vazia depois de um culto inteiro),
+          # registrar demais (`repeat: 'one'` enterrando o culto em cópias do
+          # mesmo nome) e oferecer ao Cronograma um id que o coletor já
+          # recolheu — este último só aparece no sábado seguinte. Idem: entra
+          # no workflow no MESMO commit em que nasce.
+          rodar tools/historico.test.mjs
 
           # O PLACAR VAI PARA O RESUMO DO RUN, não só para o log — a queixa que
           # originou este lote foi precisamente que o desfecho só existia lá
