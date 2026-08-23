@@ -1,5 +1,11 @@
 [
   {
+    "versao": "1.2.6",
+    "itens": [
+      "O Registro passou a guardar a estrutura de CADA endereço tentado, não só do último. Uma procura tenta vários, e a página mais interessante era justamente a que se perdia — o buscador respondeu com um código de recusa e o diagnóstico dele foi apagado pela busca seguinte."
+    ]
+  },
+  {
     "versao": "1.2.5",
     "itens": [
       "O NOME DO ÁLBUM PASSA A SER TENTADO COMO ENDEREÇO. No Cifra Club, “Usa-me” do álbum Adoradores 5 mora em /adoradores-5/usa-me/ — o nome do álbum É o artista lá. Agora ele é tentado direto, antes de qualquer busca, e é uma requisição só.",

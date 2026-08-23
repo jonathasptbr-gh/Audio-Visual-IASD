@@ -1907,6 +1907,13 @@ a congregação vê continua sendo a letra, pelo caminho de sempre.
 - **O REGISTRO GUARDA A ESTRUTURA DA PÁGINA QUE NÃO ABRIU**
   (`AVCifra.radiografia`). `ilegivel` responde *"não entendi"*, não *"o que
   era"* — e a distância entre as duas é uma sessão de adivinhação a distância.
+  **É UMA POR ENDEREÇO, não uma por procura** (v1.2.6): uma procura tenta vários,
+  e enquanto o slot foi único a última escrita apagava as anteriores — sempre
+  deixando a página menos interessante. MEDIDO três vezes: o download em massa
+  do hinário apagando o diagnóstico do operador, e o `buscador` respondendo
+  `HTTP 202` (a recusa anti-robô) com a estrutura dela sobrescrita pela busca
+  que rodou em seguida. Um Registro não tem pressão de tamanho — ele existe
+  para ser COPIADO —, então guarda-se todas e imprime-se todas.
   A radiografia devolve FORMA: quantos `<pre>` e de que tamanho, quantos `<b>`
   no maior deles, quantos links de música, `<title>`/`<h1>`/`<h2>`, o tom, e uma
   amostra curta de endereços — **a dos que passaram, ou, quando NENHUM passou, a
@@ -3135,7 +3142,7 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: v1.2.5** (base web) · **v1.2.4** (APK) · `SHELL_VERSION` **51** · bundle com
+**Versão atual: v1.2.6** (base web) · **v1.2.4** (APK) · `SHELL_VERSION` **51** · bundle com
 `minShell: 51` — o shell 51 é o **PISO**: todo método da ponte existe, e não há
 guarda de versão no lado web. O que continua valendo é que `java/`, `res/`, o
 manifest e os workflows **só chegam instalando o APK**.

@@ -24,6 +24,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
+- **v1.2.6** — A RADIOGRAFIA PASSA A SER UMA POR ENDEREÇO, e é a TERCEIRA vez que este diagnóstico se cala sobre o que se queria medir. Uma procura tenta vários endereços; com um slot só, a última escrita apagava as anteriores — e o que sobrava era sempre a página menos interessante. MEDIDO: o `buscador` respondeu **HTTP 202** (a recusa anti-robô do DuckDuckGo) e a estrutura dela foi sobrescrita pela busca interna que rodou logo depois; o Registro dizia "202" numa linha e mostrava OUTRA página embaixo. Agora guarda uma por endereço, com teto, e o `registro.test.mjs` cobra isso — provado por reversão. OTA PURO
 - **v1.2.5** — O NOME DO ÁLBUM É O ARTISTA DO SITE, e o diagnóstico tinha se calado sobre o motor novo. (1) MEDIDO: "Usa-me", do álbum **Adoradores 5**, mora em `/adoradores-5/usa-me/`. Vira a tentativa deduzível de melhor custo-benefício do recurso — não precisa de catálogo nem de rodízio, sai do dado que já está no item, e é UMA requisição. (2) O Registro reportava só o ÚLTIMO motor: um Registro real saiu com duas linhas `busca` e NENHUMA do `buscador`, que tinha sido consultado. Agora cada motor vira uma linha, com o status. (3) E o download em massa das cifras do hinário deixou de sobrescrever, a cada hino, a radiografia da página que o operador estava diagnosticando. OTA PURO
 - **v1.2.4** — A BUSCA DO PRÓPRIO CIFRA CLUB NUNCA TEVE COMO FUNCIONAR, e o Registro provou: `?q=<termo>` responde 425 kB, sabe qual foi a consulta (está no `<title>`), e os únicos links de duas partes na página são o índice A–Z e o "Academy" — os resultados são desenhados por JAVASCRIPT, que o `cifraHtml` não executa. A v1.1.22 achou que estava pegando o link errado; não havia link certo para pegar, e o seletor manual do operador estava travado pelo mesmo motivo. Passa a perguntar a um BUSCADOR (endpoint HTML do DuckDuckGo, com `site:` na consulta) — não o Google, cujas classes são aleatorizadas a cada implantação. Trocar de motor não troca o critério: o parentesco continua julgando. **EXIGE RELEASE v1.2.4**: shell 50 → 51, o host do buscador entra na allowlist do `CifraFonte`
 - **v1.2.3** — TRÊS AJUSTES DO OPERADOR, E O PRIMEIRO É UMA FOLHA QUE NÃO SE MEXE. (1) A ROLAGEM `AUTO` DA CIFRA PARAVA quando a música não estava tocando: a escolha entre "seguir o relógio" e "ritmo fixo" saía da BARRA DE PROGRESSO, que responde outra pergunta — `renderNowPlaying` a habilita pelo `kind` do item ATUAL, e `currentItem` sobrevive de propósito ao Parar, ao fim da faixa e a uma letra avulsa. Com duração sobre um telão vazio, o `auto` ancora a folha em `fracaoDaRolagem(0, dur)` e ela não sai mais do lugar, com o modo livre nunca sendo alcançado. A pergunta certa é `midiaNoAr`, a mesma do reenvio de cena e do Parar por camada. (2) O ITEM DO HISTÓRICO VAI AO TELÃO NO TOQUE — a recusa da v1.2.0 supunha um risco que não existe (um `click` não sai de um gesto que rolou a lista), e o que ela cobrava era uma linha permanente no Cronograma por uma repetição. (3) AS GAVETAS DE CONFIGURAÇÕES E DA PLAYLIST AUTOMÁTICA DESCEM DO TETO: a folha entra pela borda do BOTÃO que a abre, e os dois estão no alto. OTA PURO
@@ -231,6 +232,55 @@ na nota que a revoga, não apagada da que a criou.
 - **v5.154** — é METADE OTA e METADE APK, e a divisão importa para quem for testar em aparelho.
 - **v5.155** — é OTA PURO
 - **v5.156** — é METADE OTA e METADE APK, de novo.
+
+---
+
+## v1.2.6 — a radiografia passa a ser uma por endereço
+
+**Terceira vez.** É a terceira vez que um diagnóstico deste recurso se cala
+exatamente sobre o que se queria medir:
+
+| lote | o que se calou |
+|---|---|
+| v1.1.29 | a amostra só mostrava os links que PASSARAM no filtro — e nenhum passou |
+| v1.2.5 | só o ÚLTIMO motor virava linha — o `buscador` nunca aparecia |
+| **v1.2.6** | **só a ÚLTIMA página virava radiografia** |
+
+O Registro que expôs esta:
+
+```
+buscador …/html/?q=site%3Acifraclub.com.br%20Tu%20És%20Deus → HTTP 202, 0 resultado(s)
+busca    …/?q=Tu%20És%20Deus                                → HTTP 200, 0 resultado(s)
+
+Cifra (estrutura da página que não abriu)
+busca …/?q=Tu És Deus Jesus, Meu Rei, Meu Amigo → 425679 caractere(s)
+```
+
+A linha diz `HTTP 202` no `buscador` — **a resposta anti-robô do DuckDuckGo**, e
+a única coisa que interessava naquele Registro. A estrutura dela foi
+sobrescrita pela busca interna que rodou em seguida, e o bloco descreve uma
+página que a linha acima nem menciona.
+
+**Um Registro não tem pressão de tamanho.** Ele existe para ser COPIADO e lido
+num computador, não para caber numa tela — essa é a razão pela qual a linha do
+tempo parou de truncar na v1.1.19. Então o certo aqui nunca foi escolher qual
+página guardar: é guardar todas. Uma por RÓTULO (repetir o mesmo endereço
+atualiza em vez de empilhar), com teto, para um endereço a mais ser uma linha e
+não um bloco novo.
+
+### A forma do defeito, e por que ela tem guarda agora
+
+O `registro.test.mjs` existe para vigiar **um consumidor que sobreviveu ao
+produtor e lê o valor ausente como se fosse resposta**. Este é o mesmo defeito
+com o sinal trocado: um diagnóstico que RESPONDE sobre outra coisa. Nos dois
+casos o Registro fala com confiança e descreve o que não foi perguntado — e
+quem lê está a distância, sem como conferir.
+
+Provado por reversão: com o slot único de volta, três casos ficam vermelhos. E
+o acesso à lista é DEFENSIVO de propósito — com o defeito presente ela tem um
+item, e um `radios[1].startsWith` lançaria, abortando todos os casos seguintes
+do arquivo. **Um oráculo que explode em vez de reprovar leva consigo o que
+ainda ia medir.**
 
 ---
 
