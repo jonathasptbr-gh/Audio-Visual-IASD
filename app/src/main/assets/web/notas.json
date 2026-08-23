@@ -1,11 +1,18 @@
 [
   {
+    "versao": "1.2.18",
+    "itens": [
+      "O Registro passou a listar EXEMPLOS das músicas que não saíram com cifra — com o número do hino, o veredito e o ENDEREÇO tentado. É com ele que se abre a página no navegador e se descobre se o erro é o endereço que o app monta ou a leitura que ele faz.",
+      "A frase \"o site só tem a letra\" virou \"o site respondeu com a página de LETRA\". A diferença não é de estilo: o Cifra Club serve VARIANTES no mesmo endereço (cifra, letra, partituras para teclado), e receber a letra não prova que a cifra não exista."
+    ]
+  },
+  {
     "versao": "1.2.17",
     "itens": [
       "O RECADO SAIU. O microfone voltou a ser UM sistema: segure o botão e fale — a voz sai no telão enquanto você fala, sem gravar nada e sem interromper o que está projetado.",
-      "Ele existia porque o microfone ao vivo não abria sem TV. Isso era um defeito do app (a permissão que faltava, corrigida na v1.2.13), não uma limitação \u2014 e consertado o ao vivo, o recado só fazia parar o louvor para dizer o que o outro diz sem parar nada.",
+      "Ele existia porque o microfone ao vivo não abria sem TV. Isso era um defeito do app (a permissão que faltava, corrigida na v1.2.13), não uma limitação — e consertado o ao vivo, o recado só fazia parar o louvor para dizer o que o outro diz sem parar nada.",
       "O microfone continua sendo do TELÃO: sem TV conectada ele não tem para onde mandar a voz, e o app diz isso em vez de fingir que gravou.",
-      "E o Registro passou a contar as entradas de áudio também quando a recusa vem do telão \u2014 é essa contagem que separa \u201cnão abre\u201d de \u201cnão existe\u201d."
+      "E o Registro passou a contar as entradas de áudio também quando a recusa vem do telão — é essa contagem que separa “não abre” de “não existe”."
     ]
   },
   {
