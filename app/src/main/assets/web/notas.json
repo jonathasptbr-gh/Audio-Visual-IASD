@@ -1,17 +1,24 @@
 [
   {
+    "versao": "1.2.12",
+    "itens": [
+      "\"O site só tem a LETRA desta música\" virou uma resposta própria, separada de \"não entendi a página\". As duas pediam ações opostas: uma manda investigar, a outra diz que a música não tem cifra no Cifra Club — e o download do hinário deixa de rebater essas mesmas músicas toda sessão.",
+      "A bateria de testes passou a trazer a FORMA das páginas que não abriram, no resultado dela — é isso que separa \"o site mudou de marcação\" de \"essa música não tem cifra lá\"."
+    ]
+  },
+  {
     "versao": "1.2.11",
     "itens": [
       "O Registro passou a perguntar AO SISTEMA por que o microfone não abre: se a gravação está bloqueada mesmo com a permissão concedida, se o aparelho está em chamada, se o microfone está mudo, e quais entradas de áudio o Android enxerga.",
-      "Isso responde o caso em que o app diz \u201cpermissão concedida\u201d e a gravação falha assim mesmo \u2014 num Samsung, o Bloqueio automático costuma ser a causa em app instalado fora da Play Store.",
+      "Isso responde o caso em que o app diz “permissão concedida” e a gravação falha assim mesmo — num Samsung, o Bloqueio automático costuma ser a causa em app instalado fora da Play Store.",
       "E a tentativa de abrir o microfone pelo nome do dispositivo, que a versão passada anunciou, de fato não rodava: ela pulava a única entrada que o aparelho oferecia."
     ]
   },
   {
     "versao": "1.2.10",
     "itens": [
-      "As cifras guardadas do hinário PARARAM DE SUMIR. A gravação substituía o acervo inteiro por uma cópia de memória; quando essa cópia não era a daquela coleção, o que estava guardado era apagado \u2014 e a cada abertura o app recomeçava o download do zero. Agora ela MESCLA numa transação só: o que já está no aparelho não pode mais ser apagado por uma gravação.",
-      "O Registro deixou de dizer \"0 de 613 cifra(s)\" para um hinário que não está baixado \u2014 agora ele diz que o hinário não está baixado, que é outra resposta."
+      "As cifras guardadas do hinário PARARAM DE SUMIR. A gravação substituía o acervo inteiro por uma cópia de memória; quando essa cópia não era a daquela coleção, o que estava guardado era apagado — e a cada abertura o app recomeçava o download do zero. Agora ela MESCLA numa transação só: o que já está no aparelho não pode mais ser apagado por uma gravação.",
+      "O Registro deixou de dizer \"0 de 613 cifra(s)\" para um hinário que não está baixado — agora ele diz que o hinário não está baixado, que é outra resposta."
     ]
   },
   {

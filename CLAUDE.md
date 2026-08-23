@@ -2021,8 +2021,31 @@ a congregação vê continua sendo a letra, pelo caminho de sempre.
 - **Falhar VAZIO é proibido.** `lerPagina` devolve `null` para *"respondeu e eu
   não entendi"*, e isso é diferente de *"não tem"*. Achatar os dois numa frase só
   faz uma mudança de marcação do site ficar indistinguível de uma música ausente
-  — e ninguém investigaria. São **quatro motivos** (`sem-rede`, `nao-tem`,
-  `recusou`, `ilegivel`) e quatro frases, porque cada um pede uma ação diferente.
+  — e ninguém investigaria. São **cinco motivos** (`sem-rede`, `nao-tem`,
+  `recusou`, `ilegivel`, `so-letra`) e cinco frases, porque cada um pede uma ação
+  diferente.
+- **`so-letra` É A METADE QUE FALTAVA DO `ilegivel`** (`AVCifra.soLetra`,
+  v1.2.12). MEDIDO numa bateria: ~12 das 85 falhas eram endereços que EXISTEM,
+  respondendo 200 com centenas de kB e nenhum `<pre>` — o site tem a LETRA
+  daquela música e não a cifra. Chamar isso de "não entendi" é falso nos dois
+  sentidos: manda investigar um parser que está certo, e faz o download do
+  hinário rebater a mesma música toda sessão, para sempre.
+  - **Ela exige um marcador POSITIVO, e essa é a decisão inteira.** Responder
+    pela AUSÊNCIA (`sem <pre>` ⇒ só letra) seria o defeito mais caro que este
+    recurso pode produzir: no dia em que o site trocar a marcação, TODA página
+    vira "só letra" — e este veredito é GRAVADO, então o acervo inteiro ganharia
+    um buraco permanente. São duas condições independentes: nenhuma folha **e**
+    o site anunciando a página como letra. Uma mudança de marcação derruba a
+    primeira e não inventa a segunda, e o desfecho volta a ser `ilegivel`.
+  - **A segunda linha de defesa é o TETO POR PASSADA**
+    (`CIFRA_SO_LETRA_TETO`): o `syncCifrasHinario` recusa-se a gravar uma
+    passada DOMINADA por este veredito. Uma música sem cifra é um fato;
+    um terço do hinário de uma vez é o site tendo mudado.
+  - **Ele NÃO interrompe a cadeia** (só o `ilegivel` interrompe): diz que AQUELE
+    endereço não tem cifra, não que a música não exista no site. **Mas
+    sobrevive até o fim** — sem essa memória, um `so-letra` seguido de dois 404
+    sairia como "nenhum endereço tinha a página", a resposta menos informativa
+    das três e a única que manda continuar procurando o que já foi achado.
 - **A TRANSPOSIÇÃO PRESERVA A COLUNA.** Um acorde vale por estar sobre a sílaba
   em que a harmonia troca. Um `replace` ingênuo empurra todos os acordes
   seguintes quando um deles cresce (`C` → `C#`), e depois de três trocas a folha
@@ -2191,6 +2214,13 @@ medindo. Um toque em Configurações sorteia **uma ou duas músicas de cada
 - **`mudo`: ela não escreve radiografia.** São dezenas de procuras seguidas, e
   sem a guarda a última enterra a página que o operador está diagnosticando — o
   mesmo defeito que já mordeu este recurso três vezes.
+- **A RADIOGRAFIA das páginas ilegíveis vem no resultado DELA**
+  (`CIFRA_BATERIA_RADIOS`, v1.2.12). Ela é `mudo` e por isso não escrevia a forma
+  de nenhuma das páginas que não entendeu — e sem a forma, a pergunta que a
+  bateria existe para responder (*"o site mudou de marcação, ou aquelas músicas
+  não têm cifra?"*) fica sem resposta. Quatro, não todas: páginas da mesma classe
+  são iguais entre si. **O corte não é silencioso** — o bloco diz quantas
+  ficaram de fora. A página de LETRA não gasta radiografia: já se sabe o que ela é.
 - **O SORTEIO é a cada execução**, de propósito: rodá-la em sábados diferentes
   varre o acervo aos poucos, sem custar centenas de requisições de uma vez. Três
   frentes, e não as seis do resto: cada unidade daqui é uma CADEIA de até meia
@@ -3198,7 +3228,7 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: v1.2.11** (base web) · **v1.2.11** (APK) · `SHELL_VERSION` **53** · bundle com
+**Versão atual: v1.2.12** (base web) · **v1.2.11** (APK) · `SHELL_VERSION` **53** · bundle com
 `minShell: 53` — o shell 53 é o **PISO**: todo método da ponte existe, e não há
 guarda de versão no lado web. O que continua valendo é que `java/`, `res/`, o
 manifest e os workflows **só chegam instalando o APK**.

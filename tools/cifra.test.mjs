@@ -633,5 +633,47 @@ secao('13. radiografia');
   checar(!!C.radiografia(null), 'e null também não explode');
 }
 
+// ── 14. O SITE SÓ TEM A LETRA ───────────────────────────────────────────────
+// A metade que faltava do `ilegivel`, e as duas pediam ações opostas: uma manda
+// investigar o parser, a outra diz que a música não tem cifra no site.
+//
+// A DECISÃO A TRAVAR É O MARCADOR POSITIVO. Responder pela AUSÊNCIA de `<pre>`
+// seria o defeito mais caro que este recurso poderia produzir: no dia em que o
+// site trocar a marcação, TODA página vira "só letra" — e o veredito é gravado.
+secao('14. o site só tem a letra');
+{
+  const soLetra = '<title>Musica Marcador - Artista (letra da música) - Cifra Club</title>'
+    + '<h1>Musica Marcador</h1><h2>Artista Marcador</h2>'
+    + '<div class="letra"><p>uma linha de marcador</p><p>outra linha de marcador</p></div>';
+  checar(C.soLetra(soLetra) === true,
+    'página SEM folha e COM o marcador de letra no título → só letra', C.soLetra(soLetra));
+  checar(C.lerPagina(soLetra) === null, 'e o `lerPagina` continua devolvendo null nela');
+
+  // A PRIMEIRA CONDIÇÃO: havendo folha, não é este caso — nem que o título
+  // mencione a palavra.
+  const comFolha = '<title>Musica Marcador (letra da música)</title><h1>Musica Marcador</h1>'
+    + '<pre><b>C</b>  <b>G</b>\nlinha de marcador\n</pre>';
+  checar(C.soLetra(comFolha) === false,
+    'com folha na página, NUNCA é "só letra" — o `<pre>` decide primeiro', C.soLetra(comFolha));
+
+  // A SEGUNDA CONDIÇÃO, e é ela que protege o acervo: uma página sem `<pre>` e
+  // SEM o marcador continua sendo `ilegivel`. É este caso que uma mudança de
+  // marcação do site produz — e o certo ali é "não entendi", não "não tem".
+  const mudouOSite = '<title>Musica Marcador - Artista - Cifra Club</title>'
+    + '<h1>Musica Marcador</h1><h2>Artista Marcador</h2>'
+    + '<div class="folha-nova"><span>C</span> linha de marcador</div>';
+  checar(C.soLetra(mudouOSite) === false,
+    'sem folha e SEM o marcador → ilegível, nunca "só letra": é assim que uma '
+    + 'mudança de marcação do site deixa de virar buraco permanente no acervo',
+    C.soLetra(mudouOSite));
+
+  // E O PISO: sem `<h1>` não há página de música nenhuma — um erro do servidor,
+  // um muro de consentimento, uma página de busca. Nada disso é "não tem cifra".
+  checar(C.soLetra('<title>Erro (letra da música)</title><p>nada</p>') === false,
+    'sem <h1> não é página de música, logo não é "só letra"');
+  checar(C.soLetra('') === false, 'página vazia não explode e não é "só letra"');
+  checar(C.soLetra(null) === false, 'null também não');
+}
+
 console.log('\n' + (falhas.length ? falhas.length + ' FALHA(S)' : 'tudo certo'));
 process.exit(falhas.length ? 1 : 0);

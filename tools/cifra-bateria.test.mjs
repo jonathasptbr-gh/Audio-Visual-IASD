@@ -65,6 +65,16 @@ const PONTE = `(() => {
   const FOLHA = '<h1>Musica Marcador</h1><h2>Artista Marcador</h2>'
     + '<span class="cifra_tom"><a>G</a></span>'
     + '<pre><b>G</b>      <b>C</b>\\nlinha de marcador\\n</pre>';
+  // A PÁGINA QUE NÃO ABRE: existe, tem título, e nenhuma folha nem marcador de
+  // letra — é o "não entendi", e é dela que a radiografia interessa.
+  const ILEGIVEL = '<title>Musica Marcador - Cifra Club</title>'
+    + '<h1>Musica Marcador</h1><h2>Artista Marcador</h2>'
+    + '<div class="folha-nova">sem folha nenhuma aqui</div>';
+  // E A PÁGINA DE LETRA: o site tem a música, sem os acordes. Outro desfecho,
+  // outra ação — e a radiografia dela NÃO deve ser colhida.
+  const SO_LETRA = '<title>Musica Marcador - Artista (letra da música) - Cifra Club</title>'
+    + '<h1>Musica Marcador</h1><h2>Artista Marcador</h2>'
+    + '<div class="letra"><p>uma linha de marcador</p></div>';
   const B = {
     shellVersion: () => 51,
     role: () => 'controle',
@@ -76,7 +86,8 @@ const PONTE = `(() => {
       window.__urls.push(url);
       let r = { status: 404, html: '' };
       if (/\\/novo-hinario-adventista\\//.test(url) || /\\/marcador-um\\//.test(url)) r = { status: 200, html: FOLHA };
-      else if (/\\/marcador-tres\\//.test(url)) r = { status: 200, html: '<div>sem folha nenhuma aqui</div>' };
+      else if (/\\/marcador-tres\\//.test(url)) r = { status: 200, html: ILEGIVEL };
+      else if (/\\/marcador-quatro\\//.test(url)) r = { status: 200, html: SO_LETRA };
       setTimeout(() => { try { window.__avResolve(id, r); } catch (_) {} }, 0);
     },
   };
@@ -141,18 +152,20 @@ try {
       { id_album: 'a1', name: 'Marcador Um' },
       { id_album: 'a2', name: 'Marcador Dois' },
       { id_album: 'a3', name: 'Marcador Tres' },
+      { id_album: 'a4', name: 'Marcador Quatro' },
     ];
     collState['hymnal-2022'] = { songs: faixas('Hino') };
     collState['album-a1'] = { songs: faixas('Um') };
     collState['album-a2'] = { songs: faixas('Dois') };
     collState['album-a3'] = { songs: faixas('Tres') };
+    collState['album-a4'] = { songs: faixas('Quatro') };
     // Os OUTROS acervos ficam de fora: um álbum sem faixa não entra na bateria,
     // e o hinário de 1996 sem faixas plantadas também não.
     delete collState['hymnal-1996'];
   });
 
   const albuns = await pg.evaluate(() => cifraAlbunsDaBateria().map((c) => c.name));
-  checar(albuns.length === 4, 'a bateria vê os quatro acervos com faixa', albuns);
+  checar(albuns.length === 5, 'a bateria vê os cinco acervos com faixa', albuns);
 
   // O TETO POR ÁLBUM. Três faixas plantadas, duas sorteadas — e SEM REPETIR,
   // que é o que um sorteio com reposição erraria calado (o mesmo hino medido
@@ -188,23 +201,25 @@ try {
     pronto: !!cifraBateria.pronto,
     itens: cifraBateria.itens.map((i) => ({
       album: i.album, nome: i.nome, ok: i.ok, via: i.via, motivo: i.motivo,
-      url: i.url, tentativas: i.tentativas,
+      url: i.url, tentativas: i.tentativas, radiografia: i.radiografia,
     })),
+    ilegiveis: cifraBateria.ilegiveis,
     estruturas: cifraEstruturas.length,
     urls: window.__urls,
     texto: cifraBateriaTexto(),
     guardada: null,
   }));
-  checar(r.pronto && r.total === 8 && r.itens.length === 8,
-    'oito músicas medidas — duas de cada um dos quatro acervos', { total: r.total, n: r.itens.length });
+  checar(r.pronto && r.total === 10 && r.itens.length === 10,
+    'dez músicas medidas — duas de cada um dos cinco acervos', { total: r.total, n: r.itens.length });
 
   const hino = r.itens.filter((i) => i.album.includes('inário') || i.album.includes('inario'));
   const um = r.itens.filter((i) => i.album === 'Marcador Um');
   const dois = r.itens.filter((i) => i.album === 'Marcador Dois');
   const tres = r.itens.filter((i) => i.album === 'Marcador Tres');
-  checar(hino.length === 2 && um.length === 2 && dois.length === 2 && tres.length === 2,
-    'e cada acervo aparece com as suas duas',
-    { hino: hino.length, um: um.length, dois: dois.length, tres: tres.length });
+  const quatro = r.itens.filter((i) => i.album === 'Marcador Quatro');
+  checar(hino.length === 2 && um.length === 2 && dois.length === 2 && tres.length === 2
+    && quatro.length === 2, 'e cada acervo aparece com as suas duas',
+    { hino: hino.length, um: um.length, dois: dois.length, tres: tres.length, quatro: quatro.length });
 
   // 1. ELA MEDE A REDE, NÃO O DISCO.
   checar(hino.every((i) => i.ok && i.via === 'catalogo'),
@@ -241,6 +256,31 @@ try {
     'e a bateria NÃO escreve radiografia — sem `mudo` ela enterra o diagnóstico do operador',
     r.estruturas);
 
+  // 3b. MAS ELA TRAZ A FORMA DAS PÁGINAS QUE NÃO ENTENDEU, no resultado DELA.
+  // Sem isto a pergunta que a bateria existe para responder — "o site mudou de
+  // marcação, ou aquelas músicas não têm cifra?" — fica sem resposta.
+  const comRadio = r.itens.filter((i) => i.radiografia);
+  checar(comRadio.length > 0,
+    'a bateria traz a radiografia das páginas ilegíveis, no resultado dela',
+    comRadio.length);
+  checar(comRadio.every((i) => /<pre>/.test(i.radiografia) && /caractere/.test(i.radiografia)),
+    'e ela é a FORMA da página: contagens e tamanhos', comRadio[0] && comRadio[0].radiografia);
+  checar(comRadio.every((i) => !/sem folha nenhuma aqui/.test(i.radiografia)),
+    'sem um pedaço do conteúdo — o Registro sai do aparelho, o conteúdo de terceiro não');
+  checar(r.ilegiveis >= comRadio.length,
+    'e o TOTAL de ilegíveis é contado, mesmo além do teto de radiografias',
+    { ilegiveis: r.ilegiveis, comRadio: comRadio.length });
+
+  // 4. O SITE SÓ TEM A LETRA — outro desfecho, outra ação. Achatá-lo em
+  // `ilegivel` manda investigar um parser certo e faz o download do hinário
+  // rebater a mesma música toda sessão, para sempre.
+  checar(quatro.every((i) => !i.ok && i.motivo === 'so-letra'),
+    'o quarto álbum responde uma página de LETRA, e o motivo diz isso',
+    quatro.map((i) => i.motivo));
+  checar(quatro.every((i) => !i.radiografia),
+    'e a página de letra NÃO gasta radiografia — já se sabe o que ela é',
+    quatro.map((i) => !!i.radiografia));
+
   // ---- O BLOCO DO REGISTRO ----------------------------------------------
   checar(/\d+ ✓ \/ \d+ ✗/.test(r.texto), 'o bloco abre com o placar', r.texto.split('\n')[0]);
   checar(r.texto.includes('Marcador Dois') && r.texto.includes('marcador-dois'),
@@ -258,7 +298,7 @@ try {
     const v = await AVDB.getState('cifraBateria');
     return v && Array.isArray(v.itens) ? v.itens.length : -1;
   });
-  checar(guardado === 8, 'o resultado fica guardado no banco, não só em memória', guardado);
+  checar(guardado === 10, 'o resultado fica guardado no banco, não só em memória', guardado);
 
   // O BOTÃO diz o placar: o resultado mora no Registro, que não tem visor —
   // sem ele, tocar e não ver nada é indistinguível de o botão não fazer nada.
