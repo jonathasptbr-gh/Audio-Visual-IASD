@@ -411,6 +411,11 @@ mínimo automático, mas uma faixa `auto` continua dimensionada pelo max-content
 preview") e o espaço virou o botão de passar slide, a pedido do operador — um
 alvo da altura da miniatura é o maior que este deck tem para oferecer.
 
+**Ele veste a altura MEDIDA da preview, não a da faixa** (v1.3.6, ver "Os dois
+botões de slide"), e por isso `.mixer-mid .mixer-stack` centra o que tem dentro:
+o que sobra da faixa fica dividido em cima e embaixo, como a própria miniatura
+já se centra na dela.
+
 A ordem continua separando o que NÃO opera o culto do que opera: no topo,
 sozinho, o botão que só ABRE uma lista; no meio e embaixo, o que se toca durante
 o culto.
@@ -591,6 +596,29 @@ nenhum**, e nas duas `attachTransportStep` segue sendo o mecanismo:
     literalmente "undefined". Faltavam `deck` (desde a v5.97) e `songlyrics` até
     a v5.102 — justamente o alvo em que eles são o ÚNICO jeito de passar página.
     Alvo novo em `slideTarget()` = três linhas novas aqui.
+- **A ALTURA DELES É A DA PREVIEW, MEDIDA** (`--pv-alt`, escrita por
+  `medirAlturaPreview` a partir de um `ResizeObserver`). Eles nasceram vestindo
+  a FAIXA da grade, e a faixa não é a preview: `--deck-pv-h` é fixa, mas a
+  miniatura dentro dela é dimensionada pela proporção do telão com
+  `max-width: 100%` — numa tela estreita, ou com uma TV muito larga, ela encolhe
+  e sobra faixa dos dois lados. MEDIDO: em 360px com uma TV 2,17:1, preview de
+  95px ao lado de botões de 150, com 27px de folga em cima e embaixo de cada um.
+  - **Por medição e não por CSS**, porque a conta é circular: a altura da
+    preview sai da LARGURA da coluna do meio, que sai da grade — uma coluna irmã
+    não tem como derivá-la. O observador cobre de graça tudo o que a muda:
+    girar o aparelho, o `--pv-ar` reescrito quando a TV conecta, o tamanho de
+    fonte do sistema.
+  - **Nada é escrito com a preview FORA DE CASA** — em tela cheia ela mede a
+    tela inteira, e no Modo Fácil ela muda de pai (`hostPreview`). Nos dois
+    casos o valor guardado é o último bom, que é o que vale quando ela voltar. O
+    CSS ainda assim trava o botão na faixa (`min(var(--pv-alt), 100%)`).
+  - **A regra do par mede 0,3,0 de propósito.** `.mixer-slot .ctl-btn
+    { flex: 1 }` mora 600 linhas abaixo e empata em 0,2,0 com um
+    `.mixer-slot .slide-btn` — e num empate vence a última regra do arquivo.
+    MEDIDO: a esquerda vestindo a preview e a direita ainda com a faixa
+    inteira, gêmeos de alturas diferentes e nada no console. E `flex: 1` não é
+    contornável por `height`: num contêiner de coluna o `flex-basis` É o tamanho
+    principal, então a altura declarada some em silêncio.
 - **O fim do caminho é o `disabled` de sempre** — o esmaecido que a v5.49 tinha
   trocado pelo `.axis-end`, e que voltou a valer quando o botão passou a ter um
   significado só.
@@ -635,8 +663,19 @@ tamanho do ícone vem do CSS (`24px`), não do atributo do `<svg>`.
 
 Os três moravam na fatia do meio da coluna do mixer, com moldura de botão, FORA
 da preview; vieram para cima dela a pedido do operador, e o espaço que deixaram
-virou o `#slideNextBtn`. Três consequências, e nenhuma é cosmética:
+virou o `#slideNextBtn`. Quatro consequências, e nenhuma é cosmética:
 
+- **TOPO, MEIO e BASE** (`justify-content: space-between`, v1.3.6), o mesmo
+  alinhamento da coluna do player ao lado: o de cima encosta na altura do cast,
+  o de baixo na do tela cheia. Em bloco no centro — como nasceram — os três liam
+  como um agrupamento solto no meio da miniatura, sem relação com nada, e a
+  lateral direita, a dois dedos dali, já usa as pontas.
+  - **Os botões daqui são ENCOLHÍVEIS** (`flex: 0 1 var(--hit)`), porque a
+    preview pode ficar baixa: MEDIDO, 95px em 360px com uma TV 2,17:1 e 77px em
+    320px — três alvos de 34px não cabem em nenhum dos dois. **O piso é o
+    tamanho do ÍCONE** (24px): abaixo dele a caixa fica menor que o desenho que
+    ela contém, e o que se ganha em folga se perde em ícone saindo do botão. Com
+    26px o terceiro ainda vazava 3,3px por baixo da miniatura a 320px, medido.
 - **O desenho passou a ser SVG do sprite, não glifo da fonte.** O `.pv-fab`
   pendura três `drop-shadow` no TRAÇO do `<svg>`, e um `.msym` não tem traço
   para sombrear — perderia justamente o contraste que mantém o ícone legível

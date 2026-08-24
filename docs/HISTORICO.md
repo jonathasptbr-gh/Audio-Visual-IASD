@@ -24,6 +24,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
+- **v1.3.6** — AS DUAS FOLGAS DO DECK NOVO, medidas antes de qualquer valor ser escolhido. (1) OS BOTÕES DE SLIDE VESTIAM A FAIXA, E A FAIXA NÃO É A PREVIEW: `--deck-pv-h` é fixa, mas a miniatura dentro dela é dimensionada pela proporção do telão com `max-width: 100%` — MEDIDO em 360px com uma TV 2,17:1, preview de 95px ao lado de botões de 150, com 27px de folga em cima e embaixo de cada um. Agora eles vestem a altura MEDIDA da preview (`--pv-alt`, de um `ResizeObserver`), porque a conta é circular e não tem resposta em CSS: a altura da preview sai da LARGURA da coluna do meio, que sai da grade. O observador não escreve com a preview fora de casa (tela cheia, Modo Fácil), e o CSS trava o botão na faixa de qualquer jeito. **A regra do par mede 0,3,0 de propósito**: `.mixer-slot .ctl-btn { flex: 1 }` mora 600 linhas abaixo e EMPATA em 0,2,0 — a esquerda vestia a preview e a direita continuava com a faixa inteira, gêmeos de alturas diferentes e nada no console. (2) OS TRÊS ÍCONES SOBRE A PREVIEW passaram de um bloco no centro para TOPO/MEIO/BASE, o alinhamento que a coluna do player ao lado já usa. O piso do alvo caiu de 26px para 24px — o tamanho do próprio ícone —, senão o terceiro vazava 3,3px por baixo da miniatura a 320px, medido. Conferido em sete combinações de largura × proporção de TV: folga zero em todas. Oráculo estendido, provado por reversão em quatro frentes. OTA PURO.
 - **v1.3.5** — O DECK DOS CONTROLES REDESENHADO, a pedido do operador, em quatro movimentos que se sustentam um no outro. (1) Os três controles da fatia do meio do mixer (ver a letra, cobrir o telão, mudo) subiram para CIMA da preview, numa coluna à esquerda, **só ícone e sem moldura** — o desenho que os dois vizinhos de lá já usavam. Com isso os dois de ESTADO trocaram o glifo da fonte por SVG (um `.msym` não tem traço para as três `drop-shadow` do `.pv-fab` sombrearem) e o estado deixou de ser FUNDO para virar COR DE TRAÇO. (2) O espaço que eles deixaram virou um botão de altura inteira para PASSAR SLIDE, e abriu-se uma coluna gêmea do outro lado da preview para VOLTAR — o `.deck` passou a ter três colunas, com `nowplaying` e `transporte` atravessando a da esquerda. (3) O selo de camadas saiu do canto superior esquerdo (que virou a coluna de operação) e foi para o topo AO CENTRO: no alto daquela pilha ele leria como mais um controle dela. (4) Com dois botões de slide na tela, o ⏮/⏭ do transporte perdeu o eixo de estrofe e passa MÍDIA e mais nada — saíram `attachTransportStep` dali, `.slide-mode` e `.axis-end`. O eixo duplo FICA nas duas superfícies sem botão de slide: a coluna da tela cheia (sem TV, o que se pinta ali a congregação vê) e a notificação (onde cabe rótulo, então o modo nunca é adivinhado). Oráculo novo, provado por reversão em quatro frentes — e ele documenta as DUAS asserções que **aprovam** a armadilha do `<use>`. OTA PURO.
 - **v1.3.4** — O RESPIRO ENTRE PARES DA FOLHA DE CIFRA, a pedido do operador: *"a cifra do par abaixo não fica tão próxima da letra do par de cima"*. MEDIDO glifo a glifo antes de escolher qualquer valor, e a medição mudou o plano: a quebra de ESTROFE estava a apenas **1,12×** do respiro entre pares, então subir só o de par a deixaria MENOR que ele — as estrofes parariam de se ler como estrofes. Os dois subiram: 11,6 / 20,7 / 23,2px viraram 11,6 / 29,0 / 43,9px, razões 1 : 2,5 : 3,8. O par NÃO foi tocado (quem o mantém colado é a entrelinha de 1,7). Em `em`, então o A+/A− preserva as proporções — conferido nos três degraus. OTA PURO.
 - **v1.3.3** — A BUSCA MANUAL DE CIFRA SAIU INTEIRA, a pedido do operador: "vamos manter apenas o modo automático". Saíram a lista de resultados, a prévia, o campo de consulta, os atalhos, a escolha FIXADA (`cifraEscolhas` e a tentativa 0 do `cifraProcurar`), o "Esquecer a escolhida", 12 classes de CSS e o `cifra-teclado.test.mjs` — cujo assunto (o teclado do sistema contra o campo de busca) deixou de existir. MEDIDO: 633 linhas a menos. O QUE FICA é a cadeia automática inteira (disco → catálogo → álbum-como-artista → artistas padrão → busca do site) e, na falha, a FRASE do motivo e nada mais — verificado no arnês: zero `<input>`, zero resultados, zero botões. O PREÇO ESTÁ DITO: quando a regra erra, não há mais correção dentro do app. A guarda de teclado saiu com o campo que protegia, e está escrito que ela tem de voltar se um campo voltar. OTA PURO.
@@ -260,6 +261,92 @@ na nota que a revoga, não apagada da que a criou.
 - **v5.154** — é METADE OTA e METADE APK, e a divisão importa para quem for testar em aparelho.
 - **v5.155** — é OTA PURO
 - **v5.156** — é METADE OTA e METADE APK, de novo.
+
+---
+
+## v1.3.6 — as duas folgas do deck novo
+
+Pedido do operador, sobre o lote anterior:
+
+> *"ajuste a altura dessa seção dos botões de voltar slides e passar slides,
+> juntamente com o preview, para que a altura dos botões laterais seja a mesma
+> altura do preview, não deixando folgas de diferença de altura entre o preview
+> e os botões laterais vizinhos dele. também ajuste os botões que foram para
+> lateral esquerda dentro do preview, para que usem o alinhamento comum de: um
+> no topo superior esquerdo, outro no meio esquerdo e outro na base esquerda, ao
+> invés de deixar eles agrupados no centro"*
+
+### A faixa não é a preview
+
+Os botões vestiam a FAIXA da grade (`--deck-pv-h`, 150px, fixa). A miniatura
+dentro dela é dimensionada pela PROPORÇÃO DO TELÃO (`--pv-ar`) com
+`max-width: 100%`: numa tela estreita, ou com uma TV muito larga, ela encolhe e
+sobra faixa dos dois lados. MEDIDO antes de mexer em qualquer coisa:
+
+| viewport | proporção | preview | botões | folga (cada lado) |
+|---|---|---|---|---|
+| 430×900 | 16:9 | 150 | 150 | **0** |
+| 430×900 | 2,17:1 | 127 | 150 | 11 |
+| 360×780 | 16:9 | 116 | 150 | 17 |
+| 360×780 | 2,17:1 | 95 | 150 | **27** |
+
+A primeira linha é a razão de isto ter passado: no viewport em que o deck foi
+desenhado e fotografado, a preview ocupa a faixa inteira e as duas coisas medem
+igual.
+
+**Por MEDIÇÃO, e não por CSS, porque a conta é circular:** a altura da preview
+sai da LARGURA da coluna do meio, que sai da grade — uma coluna irmã não tem
+como derivá-la. `medirAlturaPreview` escreve `--pv-alt` no `.deck` a partir de
+um `ResizeObserver`, que cobre de graça tudo o que muda a miniatura: girar o
+aparelho, o `--pv-ar` reescrito quando a TV conecta, o tamanho de fonte do
+sistema.
+
+**Não escreve com a preview FORA DE CASA** — em tela cheia ela mede a tela
+inteira, e no Modo Fácil ela muda de pai (`hostPreview`). Nos dois casos o valor
+guardado é o último bom, que é o que vale quando ela voltar; e o CSS trava o
+botão na faixa (`min(var(--pv-alt), 100%)`) para um valor que escapasse dali não
+transbordar o deck.
+
+### O empate de especificidade, que só derrubou METADE do par
+
+A primeira correção usou `.slide-side .slide-btn, .mixer-slot .slide-btn` —
+0,2,0. `.mixer-slot .ctl-btn { flex: 1 }` mede o MESMO e mora 600 linhas abaixo,
+e num empate vence a última regra do arquivo. MEDIDO: **a esquerda vestindo a
+preview e a direita ainda com a faixa inteira** — um par de gêmeos com alturas
+diferentes, sem nada no console.
+
+E `flex: 1` não é contornável por `height`: num contêiner de coluna o
+`flex-basis` É o tamanho principal, então a altura declarada some em silêncio. A
+regra passou a `.deck …` (0,3,0), que tira a ordem do arquivo da conta — duas
+regras distantes empatadas é armadilha, não estilo.
+
+### Topo, meio e base
+
+`justify-content: space-between` na coluna de operação, o mesmo alinhamento que
+a coluna do player ao lado já usa: o de cima encosta na altura do cast, o de
+baixo na do tela cheia.
+
+O piso do alvo caiu de 26px para **24px, o tamanho do próprio ícone** — abaixo
+disso a caixa fica menor que o desenho que ela contém. MEDIDO: com 26px o
+terceiro ícone vazava 3,3px por baixo da miniatura a 320px com uma TV 2,17:1,
+onde a preview tem 77px de altura e três alvos de 34px não cabem de jeito
+nenhum.
+
+### O que ficou conferido
+
+Sete combinações de largura × proporção (320/360/430/800 px × 1,33 / 1,78 /
+2,17): folga **0,0** em cima e embaixo dos dois botões em todas, e os três
+ícones dentro da miniatura em todas.
+
+O oráculo ganhou as duas metades, e a primeira precisou de cenário: ele roda em
+430×900, onde com 16:9 a preview ocupa a faixa inteira e a asserção passaria com
+o defeito no lugar. Ele agora **conecta uma TV 2,17:1** (escrevendo `--pv-ar`,
+que é de onde o app a lê) antes de medir, e afirma que a faixa é maior que a
+preview antes de afirmar qualquer outra coisa.
+
+**Provado por reversão em quatro frentes**: os botões de volta na faixa, o
+empate de especificidade sozinho (que derruba só as asserções da direita — o
+defeito real), os ícones de volta ao centro, e o `ResizeObserver` removido.
 
 ---
 
