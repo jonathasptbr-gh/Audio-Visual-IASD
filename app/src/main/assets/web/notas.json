@@ -1,5 +1,13 @@
 [
   {
+    "versao": "1.3.4",
+    "itens": [
+      "A folha de cifra respira melhor: a distância entre um par de linhas (o acorde e a letra dele) e o par seguinte aumentou, e o acorde de baixo deixou de encostar na letra de cima.",
+      "A quebra de ESTROFE subiu junto — ela estava quase igual à separação entre pares, e ficaria menor que ela. Agora os três níveis são distinguíveis de relance: dentro do par, entre pares, entre estrofes.",
+      "Tudo em proporção ao tamanho da letra: aumentar ou diminuir com A+/A− mantém o mesmo respiro relativo."
+    ]
+  },
+  {
     "versao": "1.3.3",
     "itens": [
       "A busca manual de cifra saiu, como pedido: a aba é só automática agora. Saíram a lista de resultados, a prévia, o campo de consulta, os atalhos e a cifra fixada à mão.",
