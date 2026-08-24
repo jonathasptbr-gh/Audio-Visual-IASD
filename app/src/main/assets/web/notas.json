@@ -1,5 +1,12 @@
 [
   {
+    "versao": "1.3.6",
+    "itens": [
+      "Os botões de passar e voltar slide agora têm exatamente a altura da preview, sem a folga que sobrava em cima e embaixo — antes eles vestiam a faixa inteira, que é maior que a miniatura sempre que a tela é estreita ou a TV é muito larga.",
+      "Os três ícones sobre a preview (ver a letra, cobrir o telão, mudo) deixaram de ficar agrupados no centro: agora é um no topo, um no meio e um na base, alinhados com o conectar e o tela cheia do outro lado."
+    ]
+  },
+  {
     "versao": "1.3.5",
     "itens": [
       "Os controles do modo avançado mudaram de lugar, como pedido. Os botões de PASSAR e VOLTAR slide agora ladeiam a preview — um de cada lado, altura inteira: o maior alvo do painel, e o de voltar ocupa um espaço que antes não existia.",

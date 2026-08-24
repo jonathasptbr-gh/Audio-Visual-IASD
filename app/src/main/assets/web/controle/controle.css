@@ -391,8 +391,11 @@ body {
 /* A coluna do VOLTAR UM SLIDE: mesma largura e mesmo respiro horizontal da
    coluna do mixer, para o botão sair com a caixa idêntica à do gêmeo da
    direita. A faixa é FIXA (`--deck-pv-h`), então um filho no fluxo não pode
-   inflá-la — daí não precisar do `.mixer-stack` absoluto que o mixer usa. */
-.slide-side { grid-column: 1; grid-row: 2; display: flex; min-width: 0; min-height: 0; padding: 0 .35rem; }
+   inflá-la — daí não precisar do `.mixer-stack` absoluto que o mixer usa.
+   `center` porque o botão NÃO ocupa a faixa inteira: ele veste a altura MEDIDA
+   da preview (ver `.slide-btn`), e o que sobra da faixa fica dividido em cima e
+   embaixo, como a própria preview já se centra. */
+.slide-side { grid-column: 1; grid-row: 2; display: flex; align-items: center; min-width: 0; min-height: 0; padding: 0 .35rem; }
 
 /* Linha da preview: só a miniatura. Os botões de slide que a flanqueiam desde
    a v1.3.5 não moram aqui — cada um ocupa uma COLUNA da grade (`.slide-side` e
@@ -400,11 +403,36 @@ body {
    altura vem da grade (.deck, `grid-template-rows: auto var(--deck-pv-h) auto`);
    `center` mantém a miniatura no meio da faixa. */
 .preview-row { display: flex; align-items: stretch; justify-content: center; gap: .4rem; }
-/* OS DOIS BOTÕES DE SLIDE (v1.3.5). Eles ocupam a fatia INTEIRA da própria
-   coluna — é o maior alvo do deck, e é o que o operador pediu ao trocar os três
-   controles da direita por ele. Desabilitados quando não há slide para onde ir
-   (`applySlideLimits`), que é a mesma condição que antes esmaecia o ⏮/⏭. */
-.slide-btn { flex: 1; width: 100%; min-height: 0; padding: .4rem 0; }
+/* OS DOIS BOTÕES DE SLIDE (v1.3.5). Eles são o maior alvo do deck, e é o que o
+   operador pediu ao trocar os três controles da direita por ele. Desabilitados
+   quando não há slide para onde ir (`applySlideLimits`), que é a mesma condição
+   que antes esmaecia o ⏮/⏭.
+
+   A ALTURA É A DA PREVIEW, MEDIDA (`--pv-alt`, escrita por
+   `medirAlturaPreview`). Eles ocupavam a FAIXA inteira, e a faixa não é a
+   preview: `--deck-pv-h` é fixa, mas a miniatura dentro dela é dimensionada
+   pela proporção do telão com `max-width: 100%` — numa tela estreita, ou com
+   uma TV muito larga, ela encolhe e sobra faixa dos dois lados. MEDIDO: em
+   360px com uma TV 2,17:1, preview de 95px ao lado de botões de 150, com 27px
+   de folga em cima e embaixo de cada um.
+
+   O `min(…, 100%)` é a trava, não um detalhe: a preview em TELA CHEIA mede a
+   tela inteira, e um valor grande que escapasse do guarda do JS transbordaria o
+   deck. O fallback `100%` é o comportamento anterior, para o caso de não haver
+   `ResizeObserver`.
+
+   A ESPECIFICIDADE É DELIBERADA (0,3,0). `.mixer-slot .ctl-btn { flex: 1 }`
+   mora 600 linhas abaixo e mede 0,2,0 — o mesmo que um `.mixer-slot
+   .slide-btn` aqui —, e num EMPATE quem vence é a última regra do arquivo.
+   MEDIDO: o botão da esquerda vestia a preview e o da direita continuava com a
+   faixa inteira, um par de gêmeos com alturas diferentes. E `flex: 1` não é
+   contornável pelo `height`: num contêiner de coluna o `flex-basis` É o tamanho
+   principal, então a altura declarada era ignorada em silêncio. Duas regras
+   distantes empatadas é armadilha; a especificidade tira a ordem da conta. */
+.deck .slide-side .slide-btn, .deck .mixer-slot .slide-btn {
+  flex: none; width: 100%; padding: .4rem 0;
+  height: min(var(--pv-alt, 100%), 100%);
+}
 .slide-btn:disabled { opacity: .35; cursor: default; }
 /* O fader do volume ocupa top+mid da coluna do mixer, e a fatia do meio é o
    PASSAR SLIDE — com o fader aberto ele sai de cena. Um par em que só a metade
@@ -491,16 +519,28 @@ body {
   flex-direction: row; justify-content: center;
 }
 /* A COLUNA DE OPERAÇÃO, à esquerda: leitura auxiliar, cortina e mudo (v1.3.5).
-   Centrada na altura, e não ancorada num canto como a do player: são três itens
-   e a preview pode ficar baixa (a faixa é fixa, mas a proporção do telão manda
-   na largura, e com um telão muito largo a miniatura encolhe junto). Por isso
-   os botões daqui são ENCOLHÍVEIS — `flex: 0 1 var(--hit)` com um piso —, senão
-   o terceiro sairia por baixo da miniatura numa TV 2,17:1. */
+   TOPO, MEIO e BASE (`space-between`), o alinhamento da coluna do player ao
+   lado: o de cima encosta na altura do cast, o de baixo na do tela cheia. Em
+   bloco no centro os três liam como um agrupamento solto no meio da miniatura,
+   sem relação com nada — e a lateral direita, a dois dedos dali, já usa as
+   pontas.
+
+   Os botões daqui são ENCOLHÍVEIS (`flex: 0 1 var(--hit)` com um piso) porque a
+   preview pode ficar baixa: a faixa é fixa, mas a proporção do telão manda na
+   largura, e com um telão muito largo a miniatura encolhe junto. MEDIDO: 95px
+   de altura em 360px com uma TV 2,17:1, e 77px em 320px — três alvos de 34px
+   não cabem em nenhum dos dois, e sem o encolhimento o terceiro sairia por
+   baixo da miniatura.
+
+   O PISO É O TAMANHO DO ÍCONE (24px, o `.pv-fab svg`), e não um número
+   escolhido: abaixo dele a caixa ficaria menor que o desenho que ela contém, e
+   o que se ganha em folga se perde em ícone saindo do botão. Com 26px o
+   terceiro ainda vazava 3,3px por baixo da miniatura a 320px — medido. */
 .pv-fabs--esq {
   right: auto; left: 2px;
-  justify-content: center;
+  justify-content: space-between;
 }
-.pv-fabs--esq .pv-fab { flex: 0 1 var(--hit); min-height: 26px; }
+.pv-fabs--esq .pv-fab { flex: 0 1 var(--hit); min-height: 24px; }
 /* No Modo Fácil a preview é o MESMO nó (ver `hostPreview`), e lá estes três não
    têm o que fazer: o mudo já é uma tecla grande da própria tela e o resto do
    modo existe justamente para não ter controles. O selo de camadas FICA — ele
@@ -1002,6 +1042,9 @@ body {
 }
 .mixer-top    { grid-row: 1; }
 .mixer-mid    { grid-row: 2; }
+/* O botão de slide veste a altura da preview, não a da faixa — o que sobra fica
+   dividido em cima e embaixo, igual ao gêmeo da esquerda. */
+.mixer-mid .mixer-stack { justify-content: center; }
 .mixer-bottom { grid-row: 3; }
 /* Cada botão preenche a própria fatia da grade, sem sobrar nem faltar espaço. */
 .mixer-slot .ctl-btn { flex: 1; min-height: 0; }

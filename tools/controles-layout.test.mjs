@@ -125,24 +125,68 @@ try {
   await pg.evaluate(() => setAppMode('full'));
 
   // ── 1. GEOMETRIA: a preview FLANQUEADA pelos dois botões de slide ───────
-  const geo = await pg.evaluate(() => {
+  //
+  // A MEDIÇÃO ACONTECE COM UMA TV LARGA (`--pv-ar` 2,17), e isso é o oráculo,
+  // não cenário. A faixa da grade é FIXA em `--deck-pv-h`, e a preview dentro
+  // dela é dimensionada pela proporção do telão: com 16:9 no viewport deste
+  // arnês ela ocupa a faixa INTEIRA, e aí um botão que vestisse a faixa e um
+  // que vestisse a preview medem igual — a asserção passaria com o defeito no
+  // lugar. É a proporção larga que separa as duas coisas (MEDIDO: 127px de
+  // preview numa faixa de 150).
+  //
+  // `--pv-ar` no `documentElement` é onde o próprio app a escreve, a partir de
+  // `AVNative.displays()` — isto é uma TV 2,17:1 conectada, não um truque.
+  const medir = () => pg.evaluate(() => {
     const cx = (sel) => {
       const r = document.querySelector(sel).getBoundingClientRect();
-      return { esq: r.left, dir: r.right, meio: r.left + r.width / 2, alto: r.height, larg: r.width };
+      return {
+        esq: r.left, dir: r.right, topo: r.top, base: r.bottom,
+        alto: r.height, larg: r.width,
+      };
     };
     return { pv: cx('.preview'), ant: cx('#slidePrevBtn'), prox: cx('#slideNextBtn') };
   });
+  const faixa = await pg.evaluate(() => parseFloat(
+    getComputedStyle(document.documentElement).getPropertyValue('--deck-pv-h')));
+  await pg.evaluate(() => document.documentElement.style.setProperty('--pv-ar', '2.17'));
+  // O `ResizeObserver` que escreve `--pv-alt` responde no quadro seguinte.
+  await pg.waitForFunction(() => {
+    const v = getComputedStyle(document.querySelector('.deck')).getPropertyValue('--pv-alt');
+    return !!v && Math.abs(parseFloat(v)
+      - document.querySelector('.preview').getBoundingClientRect().height) < 0.6;
+  }, null, { timeout: 5000 }).catch(() => {});
+  const geo = await medir();
+
   checar(geo.ant.dir <= geo.pv.esq,
     'o botão de VOLTAR slide fica à esquerda da preview, fora dela', geo);
   checar(geo.prox.esq >= geo.pv.dir,
     'o de PASSAR slide fica à direita, na fatia que os três controles deixaram vaga', geo);
-  checar(Math.abs(geo.ant.larg - geo.prox.larg) < 2 && Math.abs(geo.ant.alto - geo.prox.alto) < 2,
+  checar(Math.abs(geo.ant.larg - geo.prox.larg) < 1 && Math.abs(geo.ant.alto - geo.prox.alto) < 1,
     'e os dois têm a MESMA caixa — um par que não é gêmeo não se lê como par', geo);
-  // "Botão inteiro nesse espaço": ele acompanha a faixa da preview, não a
-  // altura de um ícone. Sem piso, uma regra perdida devolve um `.ctl-btn` de
-  // 34px boiando numa coluna de 150 — e a tela continua parecendo certa.
-  checar(geo.ant.alto > geo.pv.alto * 0.7,
-    'e cada um ocupa a fatia INTEIRA da própria coluna, não a altura de um ícone', geo);
+
+  // A ALTURA É A DA PREVIEW, e o cenário acima garante que a faixa é MAIOR que
+  // ela — senão isto não estaria medindo nada.
+  checar(geo.pv.alto < faixa - 5,
+    'o cenário tem a preview MAIS BAIXA que a faixa (é onde a folga aparecia)',
+    { preview: geo.pv.alto, faixa });
+  for (const [nome, b] of [['VOLTAR', geo.ant], ['PASSAR', geo.prox]]) {
+    checar(Math.abs(b.alto - geo.pv.alto) < 1,
+      `o botão de ${nome} tem exatamente a ALTURA da preview, não a da faixa`,
+      { botao: b.alto, preview: geo.pv.alto, faixa });
+    checar(Math.abs(b.topo - geo.pv.topo) < 1 && Math.abs(b.base - geo.pv.base) < 1,
+      `e topo e base alinhados com ela — nenhuma folga de altura entre vizinhos (${nome})`,
+      { botao: [b.topo, b.base], preview: [geo.pv.topo, geo.pv.base] });
+  }
+  // A METADE QUE FALHOU DE VERDADE: o da direita mora na coluna do mixer, onde
+  // `.mixer-slot .ctl-btn { flex: 1 }` empata em especificidade com a regra do
+  // par e vence pela ORDEM do arquivo (600 linhas abaixo). MEDIDO: a esquerda
+  // vestindo a preview e a direita ainda com a faixa inteira — gêmeos de
+  // alturas diferentes, e nada no console.
+  checar(Math.abs(geo.prox.alto - faixa) > 5,
+    'e o da DIREITA não caiu de volta na faixa inteira (o empate de especificidade com o mixer)',
+    { prox: geo.prox.alto, faixa });
+
+  await pg.evaluate(() => document.documentElement.style.removeProperty('--pv-ar'));
 
   // ── 2. A COLUNA DE OPERAÇÃO, SOBRE a preview e à esquerda ───────────────
   const col = await pg.evaluate(() => {
@@ -176,6 +220,35 @@ try {
   }
   checar(col.ordem.join(',') === 'lyricsViewBtn,viewToggle,muteToggle',
     'a ordem da coluna é leitura → cortina → mudo (o mais consultado no topo)', col.ordem);
+
+  // TOPO, MEIO e BASE — não um bloco no centro. É o alinhamento da coluna do
+  // player ao lado (cast em cima, tela cheia embaixo), e sem ele os três liam
+  // como um agrupamento solto no meio da miniatura. Falha calada: eles
+  // continuam ali, continuam funcionando, só param de ter relação com nada.
+  const espalho = await pg.evaluate(() => {
+    const pv = document.querySelector('.preview').getBoundingClientRect();
+    const ic = [...document.querySelectorAll('.pv-fabs--esq .pv-fab')]
+      .map((e) => e.getBoundingClientRect());
+    return {
+      alturaPv: pv.height,
+      topo: ic[0].top - pv.top,
+      base: pv.bottom - ic[ic.length - 1].bottom,
+      desvioDoMeio: ((ic[1].top + ic[1].bottom) / 2) - ((pv.top + pv.bottom) / 2),
+      // O vão entre vizinhos: com `space-between` ele é o que sobra; num bloco
+      // centrado é o `gap`, muito menor. É a assinatura das duas formas.
+      vao: ic[1].top - ic[0].bottom,
+    };
+  });
+  checar(espalho.topo >= 0 && espalho.topo <= 4,
+    'o primeiro ícone encosta no TOPO da preview', espalho);
+  checar(espalho.base >= 0 && espalho.base <= 4,
+    'o último encosta na BASE — e nenhum dos dois vaza para fora dela', espalho);
+  checar(Math.abs(espalho.desvioDoMeio) < 2,
+    'e o do meio fica no MEIO', espalho);
+  // A prova de que é `space-between` e não três botões colados no centro: o vão
+  // entre vizinhos tem de ser o que SOBRA da altura, não um `gap` fixo.
+  checar(espalho.vao > (espalho.alturaPv - 3 * 34) / 2 - 4,
+    'os três estão ESPALHADOS pela altura, não agrupados num bloco', espalho);
 
   // ── 3. O SELO DE CAMADAS, no TOPO AO CENTRO ─────────────────────────────
   const selo = await pg.evaluate(() => {
