@@ -97,7 +97,11 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
      preview é calculada a partir dela (altura × proporção do telão): divergindo,
      a preview deixa de caber na linha. Num telão mais largo que 16:9 a conta
      estoura a coluna e o `max-width: 100%` a encolhe de volta. */
-  --deck-pv-h: 150px;
+  /* O VÃO DO DECK — um só, e é o que o torna alinhado (v1.3.7). Ele vale entre
+     as colunas, entre as linhas e entre os botões do transporte: três lugares
+     que tinham três valores (.6rem, .45rem e .35rem), e o olho lia o resultado
+     como um botão fora do lugar. Ver "Um vão só" em controle.css. */
+  --deck-gap: .35rem;
 
   /* Espessura do cap do fader: há DOIS faders com a mesma aparência (mixer e a
      barra lateral do modo simplificado) e a posição do número dentro do cap é
@@ -356,7 +360,7 @@ body {
 /* ---------- Deck: controles + mixer ---------- */
 /* Grade real (CSS Grid), não flex aproximado: 2 colunas (conteúdo / mixer,
    56px) x 3 linhas (nowplaying / preview / transport, a mesma faixa de
-   `--deck-pv-h` do preview). O `.mixer` usa grid-template-rows:subgrid pra herdar
+   a faixa da preview). O `.mixer` usa grid-template-rows:subgrid pra herdar
    exatamente essas 3 faixas — garante que o topo/base de cada botão lateral
    caia na mesma altura do início/fim da linha correspondente à esquerda,
    sem depender de flex-basis calculado à parte (fonte do desalinhamento
@@ -377,49 +381,84 @@ body {
      Só a faixa da preview usa as três: nowplaying e transporte ATRAVESSAM a
      coluna da esquerda (`1 / 3`), senão sobrariam dois vãos de 56px onde não
      há botão nenhum — e o transporte, que divide a largura entre seis botões,
-     é justamente quem tem uso para ela. */
-  grid-template-columns: 56px minmax(0, 1fr) 56px;
-  grid-template-rows: auto var(--deck-pv-h) auto;
-  column-gap: .6rem;
-  row-gap: .45rem;
+     é justamente quem tem uso para ela.
+
+     ===== A LARGURA DA COLUNA LATERAL É A DE UM BOTÃO DO TRANSPORTE =====
+     `(100% - 6 vãos) / 7` não é uma aproximação: é a largura que faz as SETE
+     células da linha de baixo (os seis do transporte mais o volume) saírem
+     EXATAMENTE iguais, e ela se demonstra. O transporte atravessa as colunas
+     1-2, isto é, `W - col - vão`; seis botões com cinco vãos entre eles dão
+     `(W - col - 6·vão) / 6`, e substituindo `col = (W - 6·vão)/7` isso volta a
+     ser `(W - 6·vão)/7` — o mesmo `col`. Com 56px fixos os do transporte
+     mediam 52,3 e o do volume 44,8, e o olho lia o de baixo à direita como um
+     botão fora do lugar.
+
+     ===== A FAIXA DA PREVIEW É `auto`, E A PREVIEW PREENCHE A COLUNA =====
+     Ela era `--deck-pv-h` (150px, FIXA) e a miniatura dentro dela era
+     dimensionada pela proporção do telão — as duas quase nunca coincidiam, e
+     sobrava vazio num eixo ou no outro. MEDIDO em 430px: com uma TV 2,16:1 a
+     preview dava 128px numa faixa de 150 (11px de vazio em cima e embaixo);
+     com uma 16:9 dava 267px de largura numa coluna de 289 (11px de cada lado).
+     Na tela isso vira um vão de 18px em volta da preview onde todos os outros
+     medem 5,6.
+
+     A resposta é tirar a altura da conta: a preview PREENCHE a coluna
+     (`width: 100%`) e a altura sai da proporção do telão, que é a única coisa
+     que a miniatura não pode falsear. A faixa é `auto`, logo é exatamente essa
+     altura — **sem medir nada**. A largura da coluna não depende da faixa, e a
+     altura da preview não depende da faixa: não há realimentação, e não há a
+     catraca que um `max-height: 100%` criaria (a faixa encolhendo com a preview
+     e nunca deixando ela voltar a crescer).
+
+     E NÃO HÁ TETO DE ALTURA, de propósito. Um `max-height` que mordesse
+     clamparia a altura sem clampar a largura — a caixa preta sairia mais larga
+     que a proporção, que é precisamente a mentira que a proporção existe para
+     impedir. O preço é a preview crescer com a coluna: MEDIDO, 135px numa TV
+     2,16:1 e 163px numa 16:9 a 430px. `--pv-ar` vem de um display de verdade
+     (a TV, ou a tela do aparelho em paisagem) e o padrão do CSS é 16/9, então
+     o pior caso real é esse. */
+  grid-template-columns: var(--deck-col) minmax(0, 1fr) var(--deck-col);
+  grid-template-rows: auto auto auto;
+  gap: var(--deck-gap);
+  --deck-col: calc((100% - 6 * var(--deck-gap)) / 7);
 }
 /* `min-width: 0` pelo mesmo motivo, agora nos itens: sem isso cada um deles
    se recusaria a encolher abaixo do próprio min-content dentro da faixa. */
 .nowplaying  { grid-column: 1 / 3; grid-row: 1; min-width: 0; }
 .preview-row { grid-column: 2; grid-row: 2; min-width: 0; }
 .transport   { grid-column: 1 / 3; grid-row: 3; min-width: 0; }
-/* A coluna do VOLTAR UM SLIDE: mesma largura e mesmo respiro horizontal da
-   coluna do mixer, para o botão sair com a caixa idêntica à do gêmeo da
-   direita. A faixa é FIXA (`--deck-pv-h`), então um filho no fluxo não pode
-   inflá-la — daí não precisar do `.mixer-stack` absoluto que o mixer usa.
-   `center` porque o botão NÃO ocupa a faixa inteira: ele veste a altura MEDIDA
-   da preview (ver `.slide-btn`), e o que sobra da faixa fica dividido em cima e
-   embaixo, como a própria preview já se centra. */
-.slide-side { grid-column: 1; grid-row: 2; display: flex; align-items: center; min-width: 0; min-height: 0; padding: 0 .35rem; }
+/* A coluna do VOLTAR UM SLIDE. SEM respiro próprio: a coluna JÁ tem a largura
+   do botão, e o que a separa da preview é o vão da grade — o mesmo que separa
+   dois botões do transporte. Enquanto ela (e o mixer) tinham `padding: 0
+   .35rem` dentro de uma coluna de 56px, o vão real até a preview era 15,2px
+   contra os 5,6px do transporte, medido.
+   `stretch` (o padrão do flex) é o que dá ao botão a altura da faixa, e a
+   faixa É a preview — o botão da direita chega ao mesmo número pelo mesmo
+   caminho, dentro do `.mixer-stack`. */
+.slide-side { grid-column: 1; grid-row: 2; display: flex; min-width: 0; min-height: 0; }
 
 /* Linha da preview: só a miniatura. Os botões de slide que a flanqueiam desde
    a v1.3.5 não moram aqui — cada um ocupa uma COLUNA da grade (`.slide-side` e
-   a fatia `.mixer-mid`), que é o que lhes dá a altura inteira da faixa. A
-   altura vem da grade (.deck, `grid-template-rows: auto var(--deck-pv-h) auto`);
-   `center` mantém a miniatura no meio da faixa. */
+   a fatia `.mixer-mid`), que é o que lhes dá a altura da faixa. E a faixa É a
+   preview: desde a v1.3.7 ela é `auto` e a miniatura preenche a coluna, então
+   os três medem o mesmo por construção. */
 .preview-row { display: flex; align-items: stretch; justify-content: center; gap: .4rem; }
 /* OS DOIS BOTÕES DE SLIDE (v1.3.5). Eles são o maior alvo do deck, e é o que o
    operador pediu ao trocar os três controles da direita por ele. Desabilitados
    quando não há slide para onde ir (`applySlideLimits`), que é a mesma condição
    que antes esmaecia o ⏮/⏭.
 
-   A ALTURA É A DA PREVIEW, MEDIDA (`--pv-alt`, escrita por
-   `medirAlturaPreview`). Eles ocupavam a FAIXA inteira, e a faixa não é a
-   preview: `--deck-pv-h` é fixa, mas a miniatura dentro dela é dimensionada
-   pela proporção do telão com `max-width: 100%` — numa tela estreita, ou com
-   uma TV muito larga, ela encolhe e sobra faixa dos dois lados. MEDIDO: em
-   360px com uma TV 2,17:1, preview de 95px ao lado de botões de 150, com 27px
-   de folga em cima e embaixo de cada um.
+   A ALTURA É A DA FAIXA, e a faixa É a preview desde a v1.3.7 (`auto`, com a
+   miniatura preenchendo a coluna — ver `.deck`). Eles vestiam uma faixa FIXA de
+   150px enquanto a preview dentro dela era dimensionada pela proporção do
+   telão: MEDIDO, em 360px com uma TV 2,17:1, preview de 95px ao lado de botões
+   de 150. A v1.3.6 corrigiu isso MEDINDO a preview em JavaScript; a v1.3.7
+   tirou a medição do caminho — sem faixa fixa não há o que medir, e um `flex: 1`
+   dentro de um contêiner esticado pela faixa dá o mesmo número de graça.
 
-   O `min(…, 100%)` é a trava, não um detalhe: a preview em TELA CHEIA mede a
-   tela inteira, e um valor grande que escapasse do guarda do JS transbordaria o
-   deck. O fallback `100%` é o comportamento anterior, para o caso de não haver
-   `ResizeObserver`.
+   `flex: 1` e NÃO `height: 100%`: uma porcentagem contra uma faixa `auto` é
+   indefinida enquanto a própria faixa está sendo dimensionada, e o botão sairia
+   com a altura do ícone.
 
    A ESPECIFICIDADE É DELIBERADA (0,3,0). `.mixer-slot .ctl-btn { flex: 1 }`
    mora 600 linhas abaixo e mede 0,2,0 — o mesmo que um `.mixer-slot
@@ -430,8 +469,7 @@ body {
    principal, então a altura declarada era ignorada em silêncio. Duas regras
    distantes empatadas é armadilha; a especificidade tira a ordem da conta. */
 .deck .slide-side .slide-btn, .deck .mixer-slot .slide-btn {
-  flex: none; width: 100%; padding: .4rem 0;
-  height: min(var(--pv-alt, 100%), 100%);
+  flex: 1; width: 100%; min-height: 0; padding: .4rem 0;
 }
 .slide-btn:disabled { opacity: .35; cursor: default; }
 /* O fader do volume ocupa top+mid da coluna do mixer, e a fatia do meio é o
@@ -461,14 +499,17 @@ body {
      flex encolhe a preview até caber e a altura acompanha, preservando a
      proporção (que é o ponto de ela existir). `align-self: center` mantém a
      miniatura centrada na faixa quando ela fica mais baixa que a faixa. */
-  width: calc(var(--deck-pv-h) * var(--pv-ar, 1.7778));
-  max-width: 100%;
+  /* PREENCHE A COLUNA, e a altura sai da proporção (v1.3.7). Era o contrário —
+     a largura saía de `--deck-pv-h * proporção` e a altura da faixa fixa —, e
+     as duas quase nunca coincidiam com a coluna: sobrava vazio de um lado ou
+     do outro (ver `.deck`). Sem teto de altura: um `max-height` que mordesse
+     clamparia a altura e não a largura, e a caixa sairia mais larga que a
+     proporção do telão. */
+  width: 100%;
   height: auto;
-  max-height: 100%;
   aspect-ratio: var(--pv-ar, 16 / 9);
-  flex: 0 1 auto;
+  flex: none;
   min-width: 0;
-  align-self: center;
   background: var(--stage-bg); border-radius: var(--radius-card); overflow: hidden;
   /* A MOLDURA É PREENCHIDA, não uma linha (v5.267). Ela existe por um motivo
      medido: o palco é preto de verdade e a página do tema escuro é #0e1215 —
@@ -998,7 +1039,13 @@ body {
 #seek:disabled { opacity: .4; }
 
 /* Botões de transporte */
-.transport { display: flex; gap: .35rem; }
+/* ===== UM VÃO SÓ (v1.3.7) =====
+   `--deck-gap` vale entre as colunas do deck, entre as linhas dele e aqui,
+   entre os botões. Eram três valores (.6rem entre colunas, .45rem entre linhas
+   e .35rem aqui), e o que o olho lia era um botão do volume "com margem
+   diferente": 15,2px até o vizinho contra os 5,6px que os outros seis usavam
+   entre si. Um vão só é o que faz a linha de baixo se ler como UMA linha. */
+.transport { display: flex; gap: var(--deck-gap); }
 /* Botão-bloco que divide a largura da linha. */
 .t-btn {
   flex: 1; padding: .45rem 0;
@@ -1019,13 +1066,13 @@ body {
 /* ---------- Mixer ---------- */
 /* Sem "card" de fundo: cada botão tem o próprio (`.ctl-btn`), só alinhados pela
    grade. O `.mixer` ocupa as 3 linhas do `.deck` e usa `subgrid` para HERDAR as
-   mesmas faixas de altura (nowplaying / `--deck-pv-h` / transport) — top, mid e
+   mesmas faixas de altura (nowplaying / preview / transporte) — top, mid e
    bottom caem pixel a pixel, em vez de um `flex-basis` aproximado. Padding só
    horizontal: no eixo vertical ele deslocaria as linhas herdadas para dentro. */
 .mixer {
   grid-column: 3; grid-row: 1 / 4;
   display: grid; grid-template-rows: subgrid;
-  row-gap: .45rem; padding: 0 .35rem;
+  row-gap: var(--deck-gap);
   position: relative;
 }
 /* O mixer NUNCA dita a altura das faixas — quem dita é a coluna 1. Cada fatia é
@@ -1042,34 +1089,33 @@ body {
 }
 .mixer-top    { grid-row: 1; }
 .mixer-mid    { grid-row: 2; }
-/* O botão de slide veste a altura da preview, não a da faixa — o que sobra fica
-   dividido em cima e embaixo, igual ao gêmeo da esquerda. */
-.mixer-mid .mixer-stack { justify-content: center; }
 .mixer-bottom { grid-row: 3; }
 /* Cada botão preenche a própria fatia da grade, sem sobrar nem faltar espaço. */
 .mixer-slot .ctl-btn { flex: 1; min-height: 0; }
-/* Volume recolhível: por padrão a lateral mostra os botões (top+mid) e o de
-   volume na base; abrir troca top+mid pelo fader vertical, que ocupa exatamente
-   o mesmo espaço das duas linhas.
+/* ===== O FADER OCUPA A FATIA DO PASSAR SLIDE, E SÓ ELA (v1.3.7) =====
+   Ele ocupava `1 / 3` — a fatia do HISTÓRICO mais a do slide —, e a do
+   histórico não tem nada a ver com volume: abrir o fader apagava um botão de
+   outro assunto. Hoje é `grid-row: 2`, a faixa da preview: o fader nasce com a
+   altura dela, alinhado com a miniatura, e o histórico fica onde está.
+
    `min-height: 0` é o que impede o mixer de mudar o tamanho do resto ao abrir:
-   com `subgrid`, um piso de altura faria o fader empurrar a faixa 1 para cima e
-   a preview (16:9, faixa 2) mudaria de tamanho junto. */
-.fader-wrap { display: none; grid-row: 1 / 3; min-height: 0; position: relative; }
+   com `subgrid`, um piso de altura faria o fader empurrar a faixa e a preview
+   mudaria de tamanho junto. */
+.fader-wrap { display: none; grid-row: 2; min-height: 0; position: relative; }
 .mixer .vol-close { display: none; }
-.mixer.vol-open .mixer-top,
 .mixer.vol-open .mixer-mid { display: none; }
 .mixer.vol-open .fader-wrap { display: block; }
 .mixer.vol-open .vol-btn { display: none; }
 .mixer.vol-open .vol-close { display: flex; }
 /* Animação de abrir/fechar o slide de volume. O botão da BASE (volume/ocultar)
    NÃO é animado: ele fica no mesmo lugar e só troca de característica (ícone/
-   cor) instantaneamente. Anima-se apenas o que está ACIMA dele — o fader
-   (abrir/fechar) e os botões de top+mid (ao voltar, .vol-revealing). Fechar
+   cor) instantaneamente. Anima-se só quem de fato entra e sai — o fader e, ao
+   voltar, o botão de slide que ele cobria (`.vol-revealing`). O histórico saiu
+   das duas listas na v1.3.7, junto com o fader que deixou de cobri-lo. Fechar
    mantém a classe .vol-closing durante a saída do fader. Ver openVolume/
    closeVolume em controle.js. */
 .mixer.vol-open:not(.vol-closing) .fader-wrap { animation: vol-slide-in .2s ease both; }
 .mixer.vol-closing .fader-wrap { animation: vol-slide-out .2s ease both; }
-.mixer.vol-revealing .mixer-top,
 .mixer.vol-revealing .mixer-mid { animation: vol-slide-in .2s ease both; }
 @keyframes vol-slide-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes vol-slide-out { from { opacity: 1; transform: translateY(0); } to { opacity: 0; transform: translateY(10px); } }

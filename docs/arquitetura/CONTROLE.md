@@ -362,8 +362,8 @@ os dois precisam ser a mesma superfície. O `padding-bottom` usa
 navegação por gestos.
 
 **Grade real (CSS Grid), não flex aproximado:** `.deck` é um `grid` de **3
-colunas** (`56px` / `minmax(0, 1fr)` / `56px` do mixer) × 3 linhas (`auto` /
-`var(--deck-pv-h)` / `auto`), com `.slide-side`, `.nowplaying`, `.preview-row` e
+colunas** (`var(--deck-col)` / `minmax(0, 1fr)` / `var(--deck-col)`) × 3 linhas
+(todas `auto`), com `.slide-side`, `.nowplaying`, `.preview-row` e
 `.transport` como itens DIRETOS. O `#mixer` ocupa as 3 linhas e usa
 `grid-template-rows: subgrid` para **herdar exatamente essas faixas** —
 alinhamento pixel a pixel entre as colunas em vez de flex-basis calculado à
@@ -375,19 +375,56 @@ FLANQUEADA pelos dois botões de slide (ver "Um par de botões, dois eixos"). El
 tem a largura do mixer porque os dois botões precisam ser **gêmeos** — um par
 que não tem a mesma caixa não se lê como par —, e **só a faixa da preview usa
 as três**: `.nowplaying` e `.transport` atravessam a coluna da esquerda
-(`grid-column: 1 / 3`), senão sobrariam dois vãos de 56px onde não há botão
+(`grid-column: 1 / 3`), senão sobrariam dois vãos laterais onde não há botão
 nenhum. O transporte, que divide a largura entre seis botões, é justamente quem
 tem uso para ela.
 
 A coluna do meio é `minmax(0, 1fr)`, **não** `1fr`: uma faixa `1fr` tem mínimo
 automático igual ao min-content, e o título (`#npName`, `white-space: nowrap`)
 tem min-content do texto INTEIRO mesmo já cortado por ellipsis — um nome longo
-inflava a coluna, esmagava a de 56px e fazia a largura da preview depender do
+inflava a coluna, esmagava a lateral e fazia a largura da preview depender do
 título.
 
 A `.slide-side` **não precisa do `.mixer-stack` absoluto** que a coluna do mixer
-usa: a faixa 2 é FIXA (`var(--deck-pv-h)`), então um filho no fluxo não tem como
-inflá-la.
+usa: o único filho dela é o botão, e ele não tem como inflar a faixa acima da
+preview.
+
+#### Um vão só, sete células iguais e a faixa que É a preview (v1.3.7)
+
+**Três medidas de vão viraram uma** (`--deck-gap`, `.35rem`): entre as colunas
+eram `.6rem`, entre as linhas `.45rem` e no transporte `.35rem`, mais um
+`padding: 0 .35rem` dentro das colunas laterais. O que o olho lia era o botão do
+volume "com margem diferente" — MEDIDO, 15,2px até o vizinho contra os 5,6px que
+os outros seis usavam entre si.
+
+**A coluna lateral vale `(100% - 6 vãos) / 7`**, e isso não é aproximação: é a
+largura que faz as SETE células da linha de baixo (os seis do transporte mais o
+volume) saírem idênticas, e ela se demonstra. O transporte atravessa as colunas
+1-2, isto é `W - col - vão`; seis botões com cinco vãos dão
+`(W - col - 6·vão)/6`, e substituindo `col = (W - 6·vão)/7` isso volta a ser
+`col`. Com 56px fixos os do transporte mediam 52,3 e o do volume 44,8.
+
+**A faixa da preview é `auto`, e a preview PREENCHE a coluna.** Ela era fixa em
+150px enquanto a miniatura dentro dela era dimensionada pela proporção do
+telão — as duas quase nunca coincidiam, e sobrava vazio num eixo ou no outro.
+MEDIDO em 430px: com uma TV 2,16:1 a preview dava 128px numa faixa de 150 (11px
+em cima e embaixo); com uma 16:9 dava 267px de largura numa coluna de 289 (11px
+de cada lado). Na tela isso vira um vão de 18px em volta da preview onde todos
+os outros medem 5,6.
+
+- **Não há realimentação**: a largura da coluna não depende da faixa, e a altura
+  da preview não depende da faixa — ela sai da largura e da proporção. Por isso
+  a faixa pode ser `auto` sem ciclo, e **sem medir nada em JavaScript** (a
+  v1.3.6 media com um `ResizeObserver`; a v1.3.7 tirou a medição do caminho).
+- **Não há teto de altura, de propósito.** Um `max-height` que mordesse
+  clamparia a altura sem clampar a largura — a caixa preta sairia mais larga que
+  a proporção, que é precisamente a mentira que a proporção existe para
+  impedir. O preço é a preview crescer com a coluna: MEDIDO em 430px, 135px numa
+  TV 2,16:1 e 163px numa 16:9. `--pv-ar` vem de um display de verdade e o padrão
+  do CSS é 16/9, então esse é o pior caso real.
+- **`flex: 1` e não `height: 100%`** nos dois botões de slide: uma porcentagem
+  contra uma faixa `auto` é indefinida enquanto a própria faixa está sendo
+  dimensionada, e o botão sairia com a altura do ícone.
 
 **O mixer NUNCA dita a altura das faixas** — quem dita é sempre a coluna 1. Cada
 `.mixer-slot` é uma caixa vazia no fluxo, e os botões vivem num `.mixer-stack`
@@ -504,9 +541,11 @@ convivência com o toque: só recolhe o que ela mesma abriu (`volPeekOwned`); to
 em `#volToggle`/`#volClose` cancela a contagem (`cancelVolPeek`); mexer no fader
 durante a espiada a reinicia (`bumpVolPeek`).
 
-Tocar no botão de volume liga `.vol-open` no `#mixer`, que troca **top + mid**
-pelo **fader vertical** (`.fader-wrap`, `grid-row: 1 / 3` — exatamente o espaço
-de top+mid) mais um `#volClose` na fatia de baixo. O botão da base **não muda de
+Tocar no botão de volume liga `.vol-open` no `#mixer`, que troca a fatia do
+**passar slide** pelo **fader vertical** (`.fader-wrap`, `grid-row: 2` — a faixa
+da preview) mais um `#volClose` na fatia de baixo. **Ele ocupava `1 / 3`** até a
+v1.3.7 — a fatia do HISTÓRICO junto —, e a do histórico não tem nada a ver com
+volume: abrir o fader apagava um botão de outro assunto. O botão da base **não muda de
 lugar** entre os dois estados, só de ícone e cor; quem anima é o que está ACIMA
 dele. É só estado de UI, não persistido. As durações no JS
 (`openVolume`/`closeVolume`) casam com as do CSS (`@keyframes vol-slide-in/out`).
@@ -533,11 +572,10 @@ repete a MESMA conta de posição, com `--vol` e `--fader-cap` declaradas no
 continua sendo o input por baixo.
 
 **A linha da preview é só a preview**, e a partir da v1.3.5 ela é FLANQUEADA de
-novo — mas por fora, em colunas da grade, e não dentro da linha. `--deck-pv-h`
-seguiu em 150px: a preview é dimensionada pela ALTURA (altura × `--pv-ar`) com
-`max-width: 100%`, então ela encolhe sozinha para caber na coluna do meio. O
-botão de **repetir** (`#repeat`) é o primeiro de `.transport`, com o de playlist
-por último.
+novo — mas por fora, em colunas da grade, e não dentro da linha. Desde a v1.3.7
+a preview PREENCHE a coluna do meio e a altura dela sai da proporção do telão
+(ver "Um vão só…", acima). O botão de **repetir** (`#repeat`) é o primeiro de
+`.transport`, com o de playlist por último.
 
 ### Um par de botões, dois eixos — e onde ele ainda vale
 
@@ -596,22 +634,13 @@ nenhum**, e nas duas `attachTransportStep` segue sendo o mecanismo:
     literalmente "undefined". Faltavam `deck` (desde a v5.97) e `songlyrics` até
     a v5.102 — justamente o alvo em que eles são o ÚNICO jeito de passar página.
     Alvo novo em `slideTarget()` = três linhas novas aqui.
-- **A ALTURA DELES É A DA PREVIEW, MEDIDA** (`--pv-alt`, escrita por
-  `medirAlturaPreview` a partir de um `ResizeObserver`). Eles nasceram vestindo
-  a FAIXA da grade, e a faixa não é a preview: `--deck-pv-h` é fixa, mas a
-  miniatura dentro dela é dimensionada pela proporção do telão com
-  `max-width: 100%` — numa tela estreita, ou com uma TV muito larga, ela encolhe
-  e sobra faixa dos dois lados. MEDIDO: em 360px com uma TV 2,17:1, preview de
-  95px ao lado de botões de 150, com 27px de folga em cima e embaixo de cada um.
-  - **Por medição e não por CSS**, porque a conta é circular: a altura da
-    preview sai da LARGURA da coluna do meio, que sai da grade — uma coluna irmã
-    não tem como derivá-la. O observador cobre de graça tudo o que a muda:
-    girar o aparelho, o `--pv-ar` reescrito quando a TV conecta, o tamanho de
-    fonte do sistema.
-  - **Nada é escrito com a preview FORA DE CASA** — em tela cheia ela mede a
-    tela inteira, e no Modo Fácil ela muda de pai (`hostPreview`). Nos dois
-    casos o valor guardado é o último bom, que é o que vale quando ela voltar. O
-    CSS ainda assim trava o botão na faixa (`min(var(--pv-alt), 100%)`).
+- **A ALTURA DELES É A DA FAIXA, e a faixa É a preview** (v1.3.7 — ver "Um vão
+  só…", acima). Eles nasceram vestindo uma faixa FIXA de 150px enquanto a
+  miniatura dentro dela era dimensionada pela proporção do telão: MEDIDO, em
+  360px com uma TV 2,17:1, preview de 95px ao lado de botões de 150, com 27px de
+  folga em cima e embaixo de cada um. A v1.3.6 corrigiu isso MEDINDO a preview
+  num `ResizeObserver`; a v1.3.7 tirou a medição do caminho — sem faixa fixa não
+  há o que medir.
   - **A regra do par mede 0,3,0 de propósito.** `.mixer-slot .ctl-btn
     { flex: 1 }` mora 600 linhas abaixo e empata em 0,2,0 com um
     `.mixer-slot .slide-btn` — e num empate vence a última regra do arquivo.
@@ -622,9 +651,9 @@ nenhum**, e nas duas `attachTransportStep` segue sendo o mecanismo:
 - **O fim do caminho é o `disabled` de sempre** — o esmaecido que a v5.49 tinha
   trocado pelo `.axis-end`, e que voltou a valer quando o botão passou a ter um
   significado só.
-- **Com o fader do volume aberto o PAR some junto.** O fader ocupa top+mid, e a
-  fatia do meio é o `#slideNextBtn`; uma dupla em que só a metade da esquerda
-  sobrevive é pior que dupla nenhuma — o operador toca em "voltar" e procura o
+- **Com o fader do volume aberto o PAR some junto.** O fader ocupa a fatia do
+  `#slideNextBtn`; uma dupla em que só a metade da esquerda sobrevive é pior que
+  dupla nenhuma — o operador toca em "voltar" e procura o
   "passar" que não está lá. `openVolume`/`closeVolume` escrevem `vol-open`
   também no `.deck`, e `.deck.vol-open .slide-side` esconde o gêmeo.
 
