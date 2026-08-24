@@ -4917,16 +4917,39 @@ main {
 }
 /* O RESPIRO VAI ENTRE OS PARES, não dentro deles: o acorde tem de ficar COLADO
    na letra que ele rege (é essa proximidade que diz a qual sílaba ele pertence),
-   e o que precisa de ar é a distância de um par para o próximo. */
-.lv-cifra-letra + .lv-cifra-acordes { margin-top: .55em; }
+   e o que precisa de ar é a distância de um par para o próximo.
+
+   SÃO TRÊS NÍVEIS, e eles têm de ser distinguíveis À DISTÂNCIA — a folha é lida
+   com o instrumento na mão. MEDIDO glifo a glifo, em 430px (a entrelinha de 1,7
+   já dá 11,6px dentro do par, e é ela que mantém o par colado):
+
+   |                   | antes  | agora |
+   |---|---|---|
+   | dentro do par     | 11,6px | 11,6px (a entrelinha, intocada) |
+   | entre pares       | 20,7px | 29,0px |
+   | entre estrofes    | 23,2px | 43,9px |
+
+   **A ESTROFE TEVE DE SUBIR JUNTO, e este é o ponto da regra.** Ela estava a
+   apenas 1,12× do respiro entre pares — quase indistinguível já —, e subir só o
+   de par a deixaria MENOR que ele: as estrofes parariam de se ler como
+   estrofes. Por isso a linha vazia (`.lv-cifra-vazio`) cresceu no mesmo lote e
+   a primeira linha DEPOIS dela recebe a mesma margem do par. As razões ficam
+   1 : 2,5 : 3,8, que é a hierarquia que o olho separa sem contar pixel.
+
+   Em `em`, e não em pixel: a folha segue o A+/A− do operador (`--lv-fonte`), e
+   um respiro fixo apertaria a folha grande e afogaria a pequena. */
+.lv-cifra-letra + .lv-cifra-acordes,
+.lv-cifra-vazio + .lv-cifra-linha:not(.lv-cifra-vazio) { margin-top: 1.05em; }
 /* O acorde em acento e o texto no tom normal: a mesma distinção que a folha
    impressa faz com negrito, feita com a cor que este app já usa para "isto é
    navegação". */
 .lv-cifra-acordes { color: var(--accent); font-weight: 700; }
 .lv-cifra-letra { color: var(--text); }
 /* A linha vazia é RESPIRO entre estrofes e tem de ocupar altura — `pre` com
-   string vazia colapsa, e as estrofes encostam umas nas outras. */
-.lv-cifra-vazio { height: .7em; }
+   string vazia colapsa, e as estrofes encostam umas nas outras. Ela soma com a
+   margem da linha seguinte (ver a tabela dos três níveis, acima): é essa soma
+   que põe a estrofe acima do respiro entre pares, em vez de empatar com ele. */
+.lv-cifra-vazio { height: .9em; }
 
 /* Tom à esquerda, controles à direita — todos reusando `.lv-fonte-btn` porque é
    o mesmo gesto (um passo por toque numa escada) e duas aparências para o mesmo

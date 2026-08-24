@@ -24,6 +24,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
+- **v1.3.4** — O RESPIRO ENTRE PARES DA FOLHA DE CIFRA, a pedido do operador: *"a cifra do par abaixo não fica tão próxima da letra do par de cima"*. MEDIDO glifo a glifo antes de escolher qualquer valor, e a medição mudou o plano: a quebra de ESTROFE estava a apenas **1,12×** do respiro entre pares, então subir só o de par a deixaria MENOR que ele — as estrofes parariam de se ler como estrofes. Os dois subiram: 11,6 / 20,7 / 23,2px viraram 11,6 / 29,0 / 43,9px, razões 1 : 2,5 : 3,8. O par NÃO foi tocado (quem o mantém colado é a entrelinha de 1,7). Em `em`, então o A+/A− preserva as proporções — conferido nos três degraus. OTA PURO.
 - **v1.3.3** — A BUSCA MANUAL DE CIFRA SAIU INTEIRA, a pedido do operador: "vamos manter apenas o modo automático". Saíram a lista de resultados, a prévia, o campo de consulta, os atalhos, a escolha FIXADA (`cifraEscolhas` e a tentativa 0 do `cifraProcurar`), o "Esquecer a escolhida", 12 classes de CSS e o `cifra-teclado.test.mjs` — cujo assunto (o teclado do sistema contra o campo de busca) deixou de existir. MEDIDO: 633 linhas a menos. O QUE FICA é a cadeia automática inteira (disco → catálogo → álbum-como-artista → artistas padrão → busca do site) e, na falha, a FRASE do motivo e nada mais — verificado no arnês: zero `<input>`, zero resultados, zero botões. O PREÇO ESTÁ DITO: quando a regra erra, não há mais correção dentro do app. A guarda de teclado saiu com o campo que protegia, e está escrito que ela tem de voltar se um campo voltar. OTA PURO.
 - **v1.3.2** — O "TROCAR" SAIU DO RODAPÉ DA CIFRA, a pedido do operador. Ele era o ÚNICO chamador de `cifraEscolherMostrar`, então saiu com a máquina que só existia para ele (`cifraEscolherAberto`, `cifraEscolherChave`) — deixá-la seria código morto que nenhuma tela alcança. O SELETOR NÃO SAIU: o ramo de `estado !== 'ok'` continua desenhando-o sozinho, abaixo da frase do motivo, que é onde ele é usado quase sempre. A guarda que a máquina carregava ("a prévia é de outra música") passou a morar no próprio `cifraPrevia.chave`. O PREÇO ESTÁ DITO em três lugares: uma cifra que ABRIU errada não tem mais como ser trocada pela aba. E a frase do `sem-cifra` deixou de mandar usar um botão que não existe — aponta para a lista que já está na tela. O `cifra-teclado.test.mjs` deixou de cutucar a função interna e passa a alcançar o seletor como o operador o alcança: por uma procura que falha. OTA PURO.
 - **v1.3.1** — TRÊS AJUSTES DE LEITURA, TODOS PEDIDOS PELO OPERADOR E TODOS MEDIDOS. (1) "TROCARVER": `.lv-cifra-rodape` é `flex` SEM `gap`, então "Trocar" e "Ver no Cifra Club" encostavam e o olho lia UMA palavra. A folga foi para o CONTÊINER, não para um dos botões — o outro rodapé desta aba tem o mesmo par ("Esquecer a escolhida" + "Abrir o site") e um rodapé novo já nasce separado. (2) A BARRA DO TOM E DA ROLAGEM espremida: `margin-top: 0` a encostava no seletor Letra/Bíblia/Cifra — MEDIDO em 430px, 3,2px acima contra 8px abaixo. Agora 10,4 e 9,6. (3) O RODAPÉ DE CONFIGURAÇÕES fora do ritmo da folha: toda `.fade-row` começa a 14,4px de cada lado e ele começava a 11,2px, com 9,6px de base — o bastante para o olho ver duas colunas onde há uma. `.popup-footer` existe num lugar só, então alinhá-lo ao corpo alinha-o a tudo. OTA PURO.
@@ -258,6 +259,53 @@ na nota que a revoga, não apagada da que a criou.
 - **v5.154** — é METADE OTA e METADE APK, e a divisão importa para quem for testar em aparelho.
 - **v5.155** — é OTA PURO
 - **v5.156** — é METADE OTA e METADE APK, de novo.
+
+---
+
+## v1.3.4 — o respiro entre pares da folha de cifra
+
+Pedido do operador: *"aumente o espaçamento entre os pares de linhas da seção de
+cifras. temos a letra e a cifra acima dela, isso deve ficar próximo, formando um
+par de linhas. mas a separação entre pares distintos deve ser maior. assim a
+cifra do par abaixo não fica tão próxima da letra do par de cima"*.
+
+### A medição mudou o plano
+
+Antes de escolher qualquer valor, os três níveis foram medidos **glifo a glifo**
+(descontando o leading da entrelinha, que é o que o olho de fato vê), em 430px:
+
+| | antes | agora |
+|---|---|---|
+| dentro do par (acorde → letra) | 11,6px | **11,6px** — intocado |
+| entre pares (letra → acorde seguinte) | 20,7px | **29,0px** |
+| entre estrofes (letra → linha vazia → acorde) | 23,2px | **43,9px** |
+| razões | 1 : 1,78 : 2,00 | **1 : 2,50 : 3,78** |
+
+**E foi a medição que impediu uma regressão.** A quebra de estrofe estava a
+apenas **1,12×** do respiro entre pares — quase indistinguível já. Subir só o de
+par, que é o que o pedido pede ao pé da letra, a deixaria **MENOR** que ele: as
+estrofes parariam de se ler como estrofes, e o lote teria consertado uma coisa
+quebrando outra na mesma tela.
+
+Por isso os dois subiram. A linha vazia (`.lv-cifra-vazio`) foi de `.7em` para
+`.9em`, e a primeira linha DEPOIS dela passou a receber a mesma margem do par —
+a estrofe é a soma das duas, e é essa soma que a mantém acima do respiro entre
+pares em vez de empatar com ele.
+
+### O par não foi tocado
+
+Quem mantém o acorde colado na letra é a **entrelinha** (`line-height: 1.7` na
+`.lv-cifra-folha`), e ela ficou onde estava: é essa proximidade que diz a qual
+sílaba o acorde pertence, e o pedido descreve o par como já estando certo.
+
+### Em `em`, e é por isso
+
+A folha segue o A+/A− do operador (`--lv-fonte`). Um respiro em pixel apertaria
+a folha grande e afogaria a pequena; em `em` ele acompanha. Conferido nos três
+degraus do arnês — fonte de 11,8px, 16,6px e 28,4px —, as razões saem 2,50× e
+1,51× nos três.
+
+Oráculos: 36/36. OTA PURO.
 
 ---
 
