@@ -24,6 +24,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
+- **v1.3.7** — O SISTEMA DE GRADE DO DECK, CONFERIDO INTEIRO a pedido do operador — e o que estava errado não era um botão, eram TRÊS MEDIDAS DE VÃO e DUAS FOLGAS que ninguém declarou. (1) Os vãos viraram UM (`--deck-gap`): eram `.6rem` entre colunas, `.45rem` entre linhas e `.35rem` no transporte, mais um `padding: 0 .35rem` dentro das colunas laterais — MEDIDO, 15,2px do botão de volume até o vizinho contra os 5,6px que os outros seis usavam entre si, que é literalmente o "está com uma margem diferente" do relato. (2) A coluna lateral passou a valer `(100% - 6 vãos)/7`, a largura que faz as SETE células da linha de baixo saírem IDÊNTICAS — e ela se demonstra: o transporte atravessa as colunas 1-2, seis botões dão `(W - col - 6·vão)/6`, e substituindo `col` isso volta a ser `col`. Com 56px fixos os do transporte mediam 52,3 e o do volume 44,8. (3) A FAIXA DA PREVIEW virou `auto` e a preview passou a PREENCHER a coluna: a faixa era fixa em 150px enquanto a miniatura era dimensionada pela proporção do telão, e as duas quase nunca coincidiam — MEDIDO em 430px, 128px de preview numa faixa de 150 com uma TV 2,16:1, e 267px de largura numa coluna de 289 com uma 16:9. Sem faixa fixa não há o que medir: a medição em JavaScript da v1.3.6 SAIU. **Sem teto de altura, de propósito** — um `max-height` que mordesse clamparia a altura sem clampar a largura, e a caixa sairia mais larga que a proporção do telão, que é a mentira que a proporção existe para impedir. (4) O fader do volume deixou de ocupar `1 / 3` (a fatia do HISTÓRICO junto) e passou a `grid-row: 2`, a faixa da preview. Conferido em sete combinações de largura × proporção: todo vão do deck igual ao do deck, sete células idênticas, bordas batendo e a proporção do telão intacta. Oráculo reescrito para afirmar a INVARIANTE em DUAS proporções — as duas folgas apareciam em regimes opostos, e uma proporção só aprova metade do defeito. Provado por reversão em quatro frentes. OTA PURO.
 - **v1.3.6** — AS DUAS FOLGAS DO DECK NOVO, medidas antes de qualquer valor ser escolhido. (1) OS BOTÕES DE SLIDE VESTIAM A FAIXA, E A FAIXA NÃO É A PREVIEW: `--deck-pv-h` é fixa, mas a miniatura dentro dela é dimensionada pela proporção do telão com `max-width: 100%` — MEDIDO em 360px com uma TV 2,17:1, preview de 95px ao lado de botões de 150, com 27px de folga em cima e embaixo de cada um. Agora eles vestem a altura MEDIDA da preview (`--pv-alt`, de um `ResizeObserver`), porque a conta é circular e não tem resposta em CSS: a altura da preview sai da LARGURA da coluna do meio, que sai da grade. O observador não escreve com a preview fora de casa (tela cheia, Modo Fácil), e o CSS trava o botão na faixa de qualquer jeito. **A regra do par mede 0,3,0 de propósito**: `.mixer-slot .ctl-btn { flex: 1 }` mora 600 linhas abaixo e EMPATA em 0,2,0 — a esquerda vestia a preview e a direita continuava com a faixa inteira, gêmeos de alturas diferentes e nada no console. (2) OS TRÊS ÍCONES SOBRE A PREVIEW passaram de um bloco no centro para TOPO/MEIO/BASE, o alinhamento que a coluna do player ao lado já usa. O piso do alvo caiu de 26px para 24px — o tamanho do próprio ícone —, senão o terceiro vazava 3,3px por baixo da miniatura a 320px, medido. Conferido em sete combinações de largura × proporção de TV: folga zero em todas. Oráculo estendido, provado por reversão em quatro frentes. OTA PURO.
 - **v1.3.5** — O DECK DOS CONTROLES REDESENHADO, a pedido do operador, em quatro movimentos que se sustentam um no outro. (1) Os três controles da fatia do meio do mixer (ver a letra, cobrir o telão, mudo) subiram para CIMA da preview, numa coluna à esquerda, **só ícone e sem moldura** — o desenho que os dois vizinhos de lá já usavam. Com isso os dois de ESTADO trocaram o glifo da fonte por SVG (um `.msym` não tem traço para as três `drop-shadow` do `.pv-fab` sombrearem) e o estado deixou de ser FUNDO para virar COR DE TRAÇO. (2) O espaço que eles deixaram virou um botão de altura inteira para PASSAR SLIDE, e abriu-se uma coluna gêmea do outro lado da preview para VOLTAR — o `.deck` passou a ter três colunas, com `nowplaying` e `transporte` atravessando a da esquerda. (3) O selo de camadas saiu do canto superior esquerdo (que virou a coluna de operação) e foi para o topo AO CENTRO: no alto daquela pilha ele leria como mais um controle dela. (4) Com dois botões de slide na tela, o ⏮/⏭ do transporte perdeu o eixo de estrofe e passa MÍDIA e mais nada — saíram `attachTransportStep` dali, `.slide-mode` e `.axis-end`. O eixo duplo FICA nas duas superfícies sem botão de slide: a coluna da tela cheia (sem TV, o que se pinta ali a congregação vê) e a notificação (onde cabe rótulo, então o modo nunca é adivinhado). Oráculo novo, provado por reversão em quatro frentes — e ele documenta as DUAS asserções que **aprovam** a armadilha do `<use>`. OTA PURO.
 - **v1.3.4** — O RESPIRO ENTRE PARES DA FOLHA DE CIFRA, a pedido do operador: *"a cifra do par abaixo não fica tão próxima da letra do par de cima"*. MEDIDO glifo a glifo antes de escolher qualquer valor, e a medição mudou o plano: a quebra de ESTROFE estava a apenas **1,12×** do respiro entre pares, então subir só o de par a deixaria MENOR que ele — as estrofes parariam de se ler como estrofes. Os dois subiram: 11,6 / 20,7 / 23,2px viraram 11,6 / 29,0 / 43,9px, razões 1 : 2,5 : 3,8. O par NÃO foi tocado (quem o mantém colado é a entrelinha de 1,7). Em `em`, então o A+/A− preserva as proporções — conferido nos três degraus. OTA PURO.
@@ -261,6 +262,109 @@ na nota que a revoga, não apagada da que a criou.
 - **v5.154** — é METADE OTA e METADE APK, e a divisão importa para quem for testar em aparelho.
 - **v5.155** — é OTA PURO
 - **v5.156** — é METADE OTA e METADE APK, de novo.
+
+---
+
+## v1.3.7 — o sistema de grade do deck, conferido inteiro
+
+Pedido do operador, com uma captura da tela:
+
+> *"Verifique o sistema de grades e alinhamentos de toda essa seção dos
+> controles. o preview e os dois botões laterais agora estão alinhados, mas
+> ficaram com um espaço de margem em cima e abaixo em relação as outros
+> elementos… o mesmo acontece com os botões de baixo, mais especificamente o
+> botão do ajuste de volume, que está com uma margem diferente em relação aos
+> outros… e verifique também o botão de ajuste de volume, que está indo até a
+> zona do botão de histórico, mas que agora deve ficar limitado ao espaço da
+> zona do botão de próximo e sua altura."*
+
+O que estava errado não era um botão: eram **três medidas de vão** e **duas
+folgas** que nenhuma regra declarava.
+
+### O que a medição mostrou (430px, TV 2,16:1 — o aparelho da captura)
+
+| vão | medido | devia ser |
+|---|---|---|
+| entre dois botões do transporte | 5,6 | 5,6 |
+| nowplaying → preview | **18,2** | 5,6 |
+| preview → transporte | **18,2** | 5,6 |
+| botão de passar → botão de volume | **18,2** | 5,6 |
+| botão de volume → vizinho (horizontal) | **15,2** | 5,6 |
+
+E as larguras: seis botões de transporte a 52,3px ao lado de um volume de
+44,8px, com os dois botões de slide também a 44,8.
+
+### Um vão só
+
+`--deck-gap` (`.35rem`) passa a valer entre as colunas, entre as linhas e no
+transporte. Eram `.6rem`, `.45rem` e `.35rem`, mais um `padding: 0 .35rem`
+DENTRO das colunas laterais — é a soma desse padding com o `column-gap` que dava
+os 15,2px do relato.
+
+### Sete células iguais
+
+A coluna lateral passa a valer `(100% - 6·vão)/7`, e isso não é aproximação: é a
+largura que faz as sete células da linha de baixo saírem idênticas, e ela se
+demonstra. O transporte atravessa as colunas 1-2, isto é `W - col - vão`; seis
+botões com cinco vãos dão `(W - col - 6·vão)/6`; substituindo `col` isso volta a
+ser `col`.
+
+### A faixa da preview é `auto`, e a preview preenche a coluna
+
+Era `--deck-pv-h` (150px, FIXA) enquanto a miniatura dentro dela era
+dimensionada pela proporção do telão — as duas quase nunca coincidiam, e sobrava
+vazio num eixo ou no outro:
+
+| TV | preview | faixa / coluna | folga |
+|---|---|---|---|
+| 2,16:1 | 128px de altura | faixa de 150 | 11px em cima e embaixo |
+| 16:9 | 267px de largura | coluna de 289 | 11px de cada lado |
+
+**As duas folgas aparecem em regimes OPOSTOS** — largura limitando num caso,
+altura no outro —, e é por isso que o oráculo passou a medir em DUAS proporções:
+uma só aprova metade do defeito.
+
+A resposta é tirar a altura da conta. A preview preenche a coluna
+(`width: 100%`) e a altura sai da proporção, que é a única coisa que a miniatura
+não pode falsear. A faixa é `auto`, logo é exatamente essa altura — **sem medir
+nada**. A largura da coluna não depende da faixa e a altura da preview não
+depende da faixa: não há ciclo, e **a medição em JavaScript da v1.3.6 saiu**
+(`medirAlturaPreview` e o `ResizeObserver`).
+
+**Sem teto de altura, de propósito.** Um `max-height` que mordesse clamparia a
+altura sem clampar a largura — a caixa preta sairia mais larga que a proporção,
+que é precisamente a mentira que a proporção existe para impedir. O preço é a
+preview crescer com a coluna: MEDIDO em 430px, 135px numa TV 2,16:1 e 163px numa
+16:9. `--pv-ar` vem de um display de verdade (a TV, ou a tela do aparelho em
+paisagem) e o padrão do CSS é 16/9, então esse é o pior caso real — e num
+aparelho estreito o deck ENCOLHEU (179px a 320px, contra os ~215 de antes).
+
+### O fader não cobre mais o histórico
+
+`grid-row: 1 / 3` → `grid-row: 2`. Ele ocupava a fatia do HISTÓRICO junto com a
+do slide, e a do histórico não tem nada a ver com volume: abrir o fader apagava
+um botão de outro assunto. Agora ele nasce com a altura da preview, alinhado com
+ela, e o histórico fica onde está.
+
+### O que ficou conferido
+
+Sete combinações de largura × proporção (320/360/390/430/800 px × 1,33 / 1,78 /
+2,16): **todo** vão do deck igual a `--deck-gap`, sete células idênticas, bordas
+esquerda e direita batendo entre a linha do meio e a de baixo, os três boxes da
+linha do meio com topo e base juntos, e a proporção do telão intacta em todas.
+
+Também conferidas as três transições que uma faixa `auto` poderia quebrar, e
+nenhuma quebra: a TELA CHEIA (a preview sai do fluxo, a faixa colapsa atrás dela
+e volta exata na saída), o MODO FÁCIL (a preview muda de pai e volta) e a TROCA
+DE PROPORÇÃO quando a TV conecta — esta última sem catraca, que era o risco de
+um `max-height: 100%`.
+
+O oráculo foi reescrito para afirmar a INVARIANTE (todo vão é o do deck; as sete
+células são idênticas) em vez de um retrato, e mede nas duas proporções.
+**Provado por reversão em quatro frentes**: as colunas de 56px fixos, os três
+valores de vão, a faixa fixa de 150px e o fader de volta em `1 / 3`. A da faixa
+fixa é a mais instrutiva — ela derruba a asserção da PROPORÇÃO, que é o que
+prova que aquele arranjo fazia a miniatura mentir sobre o formato do telão.
 
 ---
 

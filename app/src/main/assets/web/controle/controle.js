@@ -109,6 +109,10 @@ const mixerEl = document.getElementById('mixer');
 // em que mora o botão de PASSAR SLIDE, e o de VOLTAR mora na outra ponta da
 // grade — fora do alcance de qualquer seletor a partir do `.mixer`. É aqui que
 // `openVolume`/`closeVolume` espelham o estado para os dois sumirem juntos.
+//
+// (Ele também guardou `--pv-alt`, a altura MEDIDA da preview, da v1.3.6 à
+//  v1.3.7. A medição saiu quando a faixa da grade virou `auto`: com a preview
+//  preenchendo a coluna, a faixa JÁ é a altura dela e não há o que medir.)
 const deckEl = document.querySelector('.deck');
 const volToggleEl = document.getElementById('volToggle');
 const volCloseEl = document.getElementById('volClose');
@@ -249,7 +253,7 @@ const appVersionEl = document.getElementById('appVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.3.6';
+const WEB_VERSION = '1.3.7';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -2048,32 +2052,6 @@ if (window.ResizeObserver && pvLyricsBoxEl) {
   new ResizeObserver(() => pvAjustarLetra()).observe(pvLyricsBoxEl);
 }
 
-// ===== A ALTURA DOS BOTÕES DE SLIDE É A DA PREVIEW =====
-// Eles vestiam a FAIXA da grade, e a faixa não é a preview: `--deck-pv-h` é
-// fixa, mas a miniatura dentro dela é dimensionada pela PROPORÇÃO DO TELÃO
-// (`--pv-ar`) com `max-width: 100%` — numa tela estreita, ou com uma TV muito
-// larga, ela encolhe e sobra faixa. MEDIDO: em 360px com uma TV 2,17:1, preview
-// de 95px ao lado de botões de 150, com 27px de folga em cima e embaixo de cada
-// um.
-//
-// POR MEDIÇÃO, E NÃO POR CSS, porque a conta é circular: a altura da preview sai
-// da LARGURA da coluna do meio, que sai da grade — uma coluna irmã não tem como
-// derivá-la. O `ResizeObserver` cobre de graça tudo o que a muda: girar o
-// aparelho, o `--pv-ar` reescrito quando a TV conecta, o tamanho de fonte do
-// sistema.
-//
-// NÃO ESCREVE COM A PREVIEW FORA DE CASA — em TELA CHEIA ela mede a tela inteira
-// e no Modo Fácil ela muda de pai (`hostPreview`). Nos dois casos o valor
-// guardado é o último bom, que é exatamente o que vale quando ela voltar. O CSS
-// ainda assim trava o botão na faixa (`min(var(--pv-alt), 100%)`): um valor
-// grande que escapasse daqui transbordaria o deck.
-function medirAlturaPreview() {
-  if (!deckEl || previewEl.parentElement !== previewRowEl) return;
-  if (document.fullscreenElement === previewEl) return;
-  const alto = previewEl.getBoundingClientRect().height;
-  if (alto > 0) deckEl.style.setProperty('--pv-alt', alto + 'px');
-}
-if (window.ResizeObserver) new ResizeObserver(medirAlturaPreview).observe(previewEl);
 
 // lyricsBg==='image' (ver .pv-lyrics-box/.pv-lyrics-content.imgbg em
 // controle.css).

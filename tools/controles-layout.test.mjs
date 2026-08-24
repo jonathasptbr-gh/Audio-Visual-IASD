@@ -124,68 +124,109 @@ try {
   // barra de transporte inteira nasce `display: none`.
   await pg.evaluate(() => setAppMode('full'));
 
-  // ── 1. GEOMETRIA: a preview FLANQUEADA pelos dois botões de slide ───────
+  // ── 1. UM VÃO SÓ, E SETE CÉLULAS IGUAIS ────────────────────────────────
   //
-  // A MEDIÇÃO ACONTECE COM UMA TV LARGA (`--pv-ar` 2,17), e isso é o oráculo,
-  // não cenário. A faixa da grade é FIXA em `--deck-pv-h`, e a preview dentro
-  // dela é dimensionada pela proporção do telão: com 16:9 no viewport deste
-  // arnês ela ocupa a faixa INTEIRA, e aí um botão que vestisse a faixa e um
-  // que vestisse a preview medem igual — a asserção passaria com o defeito no
-  // lugar. É a proporção larga que separa as duas coisas (MEDIDO: 127px de
-  // preview numa faixa de 150).
+  // A asserção é a INVARIANTE, não um retrato: **todo vão do deck mede
+  // `--deck-gap`, e as sete células da linha de baixo são idênticas**. Antes
+  // eram três valores de vão (.6rem entre colunas, .45rem entre linhas, .35rem
+  // no transporte) mais duas folgas que ninguém declarou — a faixa fixa de
+  // 150px em volta de uma preview de 128, e a coluna do meio mais larga que a
+  // miniatura que mora nela.
+  //
+  // MEDE EM DUAS PROPORÇÕES DE TELÃO, e isso é o oráculo, não cenário: as duas
+  // folgas apareciam em regimes OPOSTOS. Com uma TV larga (2,16:1) a preview é
+  // limitada pela LARGURA e sobrava faixa em cima e embaixo; com 16:9 ela era
+  // limitada pela ALTURA e sobrava coluna dos dois lados. Uma proporção só
+  // aprova metade do defeito.
   //
   // `--pv-ar` no `documentElement` é onde o próprio app a escreve, a partir de
-  // `AVNative.displays()` — isto é uma TV 2,17:1 conectada, não um truque.
-  const medir = () => pg.evaluate(() => {
+  // `AVNative.displays()` — é uma TV conectada, não um truque.
+  const medirDeck = () => pg.evaluate(() => {
     const cx = (sel) => {
       const r = document.querySelector(sel).getBoundingClientRect();
-      return {
-        esq: r.left, dir: r.right, topo: r.top, base: r.bottom,
-        alto: r.height, larg: r.width,
-      };
+      return { esq: +r.left.toFixed(2), dir: +r.right.toFixed(2), topo: +r.top.toFixed(2),
+        base: +r.bottom.toFixed(2), alto: +r.height.toFixed(2), larg: +r.width.toFixed(2) };
     };
-    return { pv: cx('.preview'), ant: cx('#slidePrevBtn'), prox: cx('#slideNextBtn') };
+    const seis = [...document.querySelectorAll('.transport .t-btn')].map((e) => {
+      const r = e.getBoundingClientRect();
+      return { esq: +r.left.toFixed(2), dir: +r.right.toFixed(2), topo: +r.top.toFixed(2),
+        base: +r.bottom.toFixed(2), alto: +r.height.toFixed(2), larg: +r.width.toFixed(2) };
+    });
+    return {
+      vao: parseFloat(getComputedStyle(document.querySelector('.deck')).rowGap),
+      deck: cx('.deck'), np: cx('.nowplaying'), tr: cx('.transport'),
+      pv: cx('.preview'), ant: cx('#slidePrevBtn'), prox: cx('#slideNextBtn'),
+      vol: cx('#volToggle'), hist: cx('#historyBtn'), seis,
+    };
   });
-  const faixa = await pg.evaluate(() => parseFloat(
-    getComputedStyle(document.documentElement).getPropertyValue('--deck-pv-h')));
-  await pg.evaluate(() => document.documentElement.style.setProperty('--pv-ar', '2.17'));
-  // O `ResizeObserver` que escreve `--pv-alt` responde no quadro seguinte.
-  await pg.waitForFunction(() => {
-    const v = getComputedStyle(document.querySelector('.deck')).getPropertyValue('--pv-alt');
-    return !!v && Math.abs(parseFloat(v)
-      - document.querySelector('.preview').getBoundingClientRect().height) < 0.6;
-  }, null, { timeout: 5000 }).catch(() => {});
-  const geo = await medir();
+  const perto = (a, b) => Math.abs(a - b) < 0.6;
 
-  checar(geo.ant.dir <= geo.pv.esq,
-    'o botão de VOLTAR slide fica à esquerda da preview, fora dela', geo);
-  checar(geo.prox.esq >= geo.pv.dir,
-    'o de PASSAR slide fica à direita, na fatia que os três controles deixaram vaga', geo);
-  checar(Math.abs(geo.ant.larg - geo.prox.larg) < 1 && Math.abs(geo.ant.alto - geo.prox.alto) < 1,
-    'e os dois têm a MESMA caixa — um par que não é gêmeo não se lê como par', geo);
+  for (const ar of ['2.16', '1.7778']) {
+    const nome = ar === '2.16' ? 'TV 2,16:1' : 'TV 16:9';
+    await pg.evaluate((v) => document.documentElement.style.setProperty('--pv-ar', v), ar);
+    await pg.waitForTimeout(120);
+    const g = await medirDeck();
 
-  // A ALTURA É A DA PREVIEW, e o cenário acima garante que a faixa é MAIOR que
-  // ela — senão isto não estaria medindo nada.
-  checar(geo.pv.alto < faixa - 5,
-    'o cenário tem a preview MAIS BAIXA que a faixa (é onde a folga aparecia)',
-    { preview: geo.pv.alto, faixa });
-  for (const [nome, b] of [['VOLTAR', geo.ant], ['PASSAR', geo.prox]]) {
-    checar(Math.abs(b.alto - geo.pv.alto) < 1,
-      `o botão de ${nome} tem exatamente a ALTURA da preview, não a da faixa`,
-      { botao: b.alto, preview: geo.pv.alto, faixa });
-    checar(Math.abs(b.topo - geo.pv.topo) < 1 && Math.abs(b.base - geo.pv.base) < 1,
-      `e topo e base alinhados com ela — nenhuma folga de altura entre vizinhos (${nome})`,
-      { botao: [b.topo, b.base], preview: [geo.pv.topo, geo.pv.base] });
+    checar(g.ant.dir <= g.pv.esq && g.prox.esq >= g.pv.dir,
+      `a preview é FLANQUEADA pelos dois botões de slide (${nome})`, g);
+
+    // TODO vão do deck é o mesmo — os cinco que cercam a preview mais o que
+    // separa o histórico do botão de voltar.
+    const vaos = {
+      'nowplaying→preview': g.pv.topo - g.np.base,
+      'preview→transporte': g.tr.topo - g.pv.base,
+      'voltar→preview': g.pv.esq - g.ant.dir,
+      'preview→passar': g.prox.esq - g.pv.dir,
+      'passar→volume': g.vol.topo - g.prox.base,
+      'histórico→voltar': g.ant.topo - g.hist.base,
+      'entre dois do transporte': g.seis[1].esq - g.seis[0].dir,
+    };
+    for (const [onde, v] of Object.entries(vaos)) {
+      checar(perto(v, g.vao), `o vão ${onde} é o do deck (${nome})`,
+        { medido: +v.toFixed(2), esperado: g.vao });
+    }
+
+    // AS SETE CÉLULAS DA LINHA DE BAIXO. Com a coluna lateral em 56px fixos os
+    // seis do transporte mediam 52,3 e o do volume 44,8 — e o vão até ele era
+    // 15,2 contra os 5,6 dos outros. Era esse conjunto que se lia como "o botão
+    // do volume está fora do lugar".
+    const larguras = [...g.seis.map((b) => b.larg), g.vol.larg];
+    const alturas = [...g.seis.map((b) => b.alto), g.vol.alto];
+    checar(Math.max(...larguras) - Math.min(...larguras) < 0.6,
+      `as SETE células da linha de baixo têm a mesma largura (${nome})`, larguras);
+    checar(Math.max(...alturas) - Math.min(...alturas) < 0.6,
+      `e a mesma altura (${nome})`, alturas);
+    checar(perto(g.vol.topo, g.seis[0].topo) && perto(g.vol.base, g.seis[0].base),
+      `o botão do VOLUME está na mesma linha dos seis do transporte (${nome})`,
+      { vol: [g.vol.topo, g.vol.base], t: [g.seis[0].topo, g.seis[0].base] });
+
+    // AS COLUNAS LATERAIS TÊM A LARGURA DE UM BOTÃO DO TRANSPORTE, e é isso
+    // que faz as bordas do deck baterem em cima e embaixo.
+    checar(perto(g.ant.larg, g.seis[0].larg) && perto(g.prox.larg, g.vol.larg),
+      `os botões de slide têm a largura de um botão do transporte (${nome})`,
+      { ant: g.ant.larg, prox: g.prox.larg, t: g.seis[0].larg });
+    checar(perto(g.ant.esq, g.deck.esq) && perto(g.ant.esq, g.seis[0].esq),
+      `a borda ESQUERDA do deck é uma só: voltar, transporte e deck (${nome})`,
+      { ant: g.ant.esq, t: g.seis[0].esq, deck: g.deck.esq });
+    checar(perto(g.prox.dir, g.deck.dir) && perto(g.prox.dir, g.vol.dir),
+      `e a DIREITA: passar, volume e deck (${nome})`,
+      { prox: g.prox.dir, vol: g.vol.dir, deck: g.deck.dir });
+
+    // A FAIXA É A PREVIEW: os três da linha do meio começam e terminam juntos.
+    for (const [q, b] of [['VOLTAR', g.ant], ['PASSAR', g.prox]]) {
+      checar(perto(b.alto, g.pv.alto) && perto(b.topo, g.pv.topo) && perto(b.base, g.pv.base),
+        `o botão de ${q} tem a ALTURA da preview, topo e base juntos (${nome})`,
+        { botao: [b.topo, b.base, b.alto], preview: [g.pv.topo, g.pv.base, g.pv.alto] });
+    }
+
+    // E A PROPORÇÃO DO TELÃO SOBREVIVE A TUDO ISSO. É a única coisa que a
+    // miniatura não pode falsear — ela existe para o operador conferir o que
+    // vai ao ar —, e é o que um `max-height` que mordesse teria quebrado:
+    // clamparia a altura sem clampar a largura.
+    checar(Math.abs((g.pv.larg / g.pv.alto) - parseFloat(ar)) < 0.02,
+      `e a preview mantém a proporção do telão, não a da caixa (${nome})`,
+      { medida: +(g.pv.larg / g.pv.alto).toFixed(3), telao: ar });
   }
-  // A METADE QUE FALHOU DE VERDADE: o da direita mora na coluna do mixer, onde
-  // `.mixer-slot .ctl-btn { flex: 1 }` empata em especificidade com a regra do
-  // par e vence pela ORDEM do arquivo (600 linhas abaixo). MEDIDO: a esquerda
-  // vestindo a preview e a direita ainda com a faixa inteira — gêmeos de
-  // alturas diferentes, e nada no console.
-  checar(Math.abs(geo.prox.alto - faixa) > 5,
-    'e o da DIREITA não caiu de volta na faixa inteira (o empate de especificidade com o mixer)',
-    { prox: geo.prox.alto, faixa });
-
   await pg.evaluate(() => document.documentElement.style.removeProperty('--pv-ar'));
 
   // ── 2. A COLUNA DE OPERAÇÃO, SOBRE a preview e à esquerda ───────────────
@@ -394,23 +435,60 @@ try {
   checar(semAlvo.titulo === 'Próximo slide',
     'e com o nome genérico: um nome específico ali prometeria uma cena que não está no ar', semAlvo.titulo);
 
-  // ── 6. O FADER ENGOLE A FATIA DO PASSAR — e o par some junto ────────────
-  const fader = await pg.evaluate(() => {
-    openVolume();
-    const vis = (sel) => {
+  // ── 6. O FADER OCUPA A FATIA DO SLIDE, E SÓ ELA ────────────────────────
+  //
+  // Ele ocupava `grid-row: 1 / 3` — a fatia do HISTÓRICO mais a do slide —, e
+  // abrir o volume apagava um botão de outro assunto. Hoje é a faixa da
+  // preview e nada além dela.
+  // A MEDIÇÃO ESPERA A ANIMAÇÃO TERMINAR, e isso não é folga de relógio: o
+  // `vol-slide-in` entra com `translateY(10px)`, então uma leitura no meio dela
+  // devolve o fader 10px abaixo do lugar — um deslocamento REAL, que passaria a
+  // ser lido como desalinhamento. Espera-se pelo FATO (a transformação ter
+  // voltado à identidade), nunca por um prazo.
+  const cxPg = () => pg.evaluate(() => {
+    const cx = (sel) => {
       const el = document.querySelector(sel);
+      const r = el.getBoundingClientRect();
       const cs = getComputedStyle(el);
-      return cs.display !== 'none' && cs.visibility !== 'hidden' && el.getBoundingClientRect().width > 0;
+      return {
+        vis: cs.display !== 'none' && cs.visibility !== 'hidden' && r.width > 0,
+        topo: +r.top.toFixed(2), base: +r.bottom.toFixed(2),
+        alto: +r.height.toFixed(2), larg: +r.width.toFixed(2),
+      };
     };
-    const aberto = { ant: vis('#slidePrevBtn'), prox: vis('#slideNextBtn') };
+    return {
+      pv: cx('.preview'), ant: cx('#slidePrevBtn'), prox: cx('#slideNextBtn'),
+      hist: cx('#historyBtn'), fader: cx('.fader-wrap'), vol: cx('#volToggle'),
+      fechar: cx('#volClose'),
+    };
+  });
+  const fechadoAntes = await cxPg();
+  await pg.evaluate(() => openVolume());
+  await pg.waitForFunction(() => {
+    const t = getComputedStyle(document.querySelector('.fader-wrap')).transform;
+    return t === 'none' || t === 'matrix(1, 0, 0, 1, 0, 0)';
+  }, null, { timeout: 5000 }).catch(() => {});
+  const fader = { aberto: { ...(await cxPg()), pv: fechadoAntes.pv } };
+  await pg.evaluate(() => {
     mixerEl.classList.remove('vol-open', 'vol-closing', 'vol-revealing');
     deckEl.classList.remove('vol-open');
-    return { aberto, fechado: { ant: vis('#slidePrevBtn'), prox: vis('#slideNextBtn') } };
   });
-  checar(fader.aberto.ant === false && fader.aberto.prox === false,
-    'com o fader aberto o PAR de slide some junto — meia dupla é pior que dupla nenhuma', fader.aberto);
-  checar(fader.fechado.ant && fader.fechado.prox,
-    'e volta junto ao fechar', fader.fechado);
+  fader.fechado = await cxPg();
+  const a = fader.aberto;
+  checar(a.fader.vis && perto(a.fader.topo, a.pv.topo) && perto(a.fader.base, a.pv.base),
+    'o fader ocupa exatamente a faixa da preview — a fatia do botão de passar slide',
+    { fader: [a.fader.topo, a.fader.base], preview: [a.pv.topo, a.pv.base] });
+  checar(a.hist.vis,
+    'e o HISTÓRICO continua na tela: ele não tem nada a ver com volume', a.hist);
+  checar(a.prox.vis === false && a.ant.vis === false,
+    'o PAR de slide some junto — meia dupla é pior que dupla nenhuma',
+    { ant: a.ant.vis, prox: a.prox.vis });
+  checar(perto(a.fader.larg, a.prox.larg) || perto(a.fader.larg, fader.fechado.prox.larg),
+    'e o fader tem a largura da coluna que ele ocupa', { fader: a.fader.larg, prox: fader.fechado.prox.larg });
+  checar(a.fechar.vis && a.vol.vis === false,
+    'o botão da base vira o ✕ de fechar, no mesmo lugar', { fechar: a.fechar.vis, vol: a.vol.vis });
+  checar(fader.fechado.ant.vis && fader.fechado.prox.vis && fader.fechado.hist.vis,
+    'e tudo volta ao fechar', fader.fechado);
 
   // ── 7. O MODO FÁCIL NÃO HERDA A COLUNA DE OPERAÇÃO ──────────────────────
   // A preview é UM nó só e MUDA DE CASA: tudo o que se pendura nela viaja.
