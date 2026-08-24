@@ -210,6 +210,59 @@
       <path d="M12 12h.01" stroke-width="3.4"/>
       <path d="M15.4 8.6h.01" stroke-width="3.4"/>
     </symbol>
+    <!-- A CORTINA DO TELÃO, em DOIS símbolos — a imagem INTEIRA e a RISCADA.
+         São dois desenhos e não um com duas camadas porque quem os troca é
+         CSS de documento (`.ico-base`/`.ico-alt`), e o conteúdo de um `<use>`
+         mora numa árvore-sombra que a folha do documento não alcança: só o
+         PRÓPRIO `<use>`, que é um elemento da árvore de luz, aceita o
+         `display:none`. Daí cada estado ser um símbolo e o consumidor pendurar
+         dois `<use>`.
+
+         Eram uma cópia byte a byte entre `#fsView` e o botão da cortina — e
+         cópia diverge no primeiro ajuste, que é a razão deste sprite existir.
+
+         O ÍCONE MOSTRA O ESTADO; o `title`, a AÇÃO (ver `renderControls`):
+         imagem inteira = mídia no ar, riscada = telão coberto. -->
+    <symbol id="icoImagem" viewBox="0 0 24 24">
+      <rect x="3.5" y="5" width="17" height="14" rx="2"/>
+      <circle cx="8.5" cy="10" r="1.4"/>
+      <path d="m4.5 17.5 5-5 4 4 3-2.5 3.5 3.5"/>
+    </symbol>
+    <symbol id="icoImagemOff" viewBox="0 0 24 24">
+      <rect x="3.5" y="5" width="17" height="14" rx="2"/>
+      <path d="m4.5 17.5 5-5 3 3"/>
+      <path d="M3 3.5 21 20.5"/>
+    </symbol>
+    <!-- O SOM, no mesmo par: alto-falante com as ondas e alto-falante riscado.
+         Ele nasceu aqui quando o botão de mudo saiu do mixer e foi para cima da
+         preview (v1.3.5): ali o desenho é um traço com três `drop-shadow`
+         (ver `.pv-fab svg`), e um glifo da fonte não tem traço para sombrear —
+         perderia justamente o contraste que o mantém legível sobre um slide
+         branco. O glifo `volume_up`/`volume_off` continua valendo onde há
+         moldura de botão: o `#simpleMute` do Modo Fácil. -->
+    <symbol id="icoSom" viewBox="0 0 24 24">
+      <path d="M4 9.5h3.2L12 5.5v13l-4.8-4H4z"/>
+      <path d="M16.2 9.4a3.6 3.6 0 0 1 0 5.2"/>
+      <path d="M18.8 6.8a7.2 7.2 0 0 1 0 10.4"/>
+    </symbol>
+    <symbol id="icoSomOff" viewBox="0 0 24 24">
+      <path d="M4 9.5h3.2L12 5.5v13l-4.8-4H4z"/>
+      <path d="m16.4 9.8 5 4.4"/>
+      <path d="m21.4 9.8-5 4.4"/>
+    </symbol>
+    <!-- PASSAR SLIDE: a seta cheia com a BARRA, o mesmo par de ⏮/⏭ do
+         transporte — só que aqui ela é o único significado do botão, e não o
+         eixo alternativo de um botão de mídia (v1.3.5). Os dois botões de
+         slide flanqueiam a preview, e a barra é o que os separa das setas
+         soltas de qualquer outro lugar da tela. -->
+    <symbol id="icoSlidePrev" viewBox="0 0 24 24">
+      <path d="M6 6v12"/>
+      <path d="M19 6.6 9.6 12 19 17.4z"/>
+    </symbol>
+    <symbol id="icoSlideNext" viewBox="0 0 24 24">
+      <path d="M18 6v12"/>
+      <path d="M5 6.6 14.4 12 5 17.4z"/>
+    </symbol>
   </svg>
   <!-- MODO SIMPLIFICADO: conectar a tela, buscar a música, tocar. Os controles
        são os mesmos botões do modo completo acionados por `.click()` (ver
@@ -568,6 +621,15 @@
          garante alinhamento pixel-perfeito entre as duas colunas em vez de
          depender de flex-basis aproximado. Ver controle.css. -->
     <div class="deck">
+      <!-- VOLTAR UM SLIDE. Ele ocupa a coluna da esquerda, na altura exata da
+           preview — o espelho da fatia que o `#slideNextBtn` ocupa na coluna
+           do mixer. As faixas de cima (nowplaying) e de baixo (transporte)
+           atravessam esta coluna, então ela só existe onde há botão. -->
+      <div class="slide-side">
+        <button id="slidePrevBtn" class="ctl-btn slide-btn" type="button" title="Slide anterior" aria-label="Slide anterior" disabled>
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoSlidePrev"/></svg>
+        </button>
+      </div>
       <div class="nowplaying">
         <div class="np-name" id="npName"><span class="np-name-inner" id="npNameInner">Nada em exibição</span></div>
         <div class="np-seek">
@@ -578,14 +640,23 @@
           <span id="durTime" class="np-time">0:00</span>
         </div>
       </div>
-      <!-- A linha da preview é só a preview desde a v5.49. Os dois botões de
-           estrofe (`#slidePrevBtn`/`#slideNextBtn`) que a flanqueavam saíram da
-           TELA, não do sistema: continuam no DOM, ocultos, logo abaixo — são o
-           ponto único onde "passar estrofe" é decidido (habilitado/desabilitado
-           por `renderSlideNav`), e agora quem os aciona é o toque curto em ⏮/⏭,
-           o gesto na tela cheia e a notificação nativa, todos por `.click()`. É
-           o mesmo padrão do modo simplificado, que nunca teve controles
-           próprios. Ver "Um par de botões, dois eixos" em controle.js. -->
+      <!-- ===== OS DOIS BOTÕES DE SLIDE VOLTARAM À TELA (v1.3.5) =====
+           `#slidePrevBtn`/`#slideNextBtn` são os mesmos de sempre — o ponto
+           ÚNICO onde "passar estrofe" é decidido (`applySlideLimits` escreve o
+           `disabled` deles, e um botão desabilitado é no-op natural). Da v5.49
+           até aqui eles estavam OCULTOS e quem os acionava era o toque curto
+           em ⏮/⏭, o gesto da tela cheia e a notificação nativa, todos por
+           `.click()`.
+
+           Agora eles têm coluna própria de cada lado da preview: o de VOLTAR à
+           esquerda, o de PASSAR na fatia que os três controles do mixer
+           deixaram vaga, à direita. Com isso ⏮/⏭ do transporte perderam o eixo
+           de estrofe e passam MÍDIA e mais nada (ver "Um par de botões, dois
+           eixos" em controle.js, que hoje descreve só as duas superfícies que
+           continuam com dois eixos: a tela cheia e a notificação).
+
+           Eles seguem sendo acionados por `.click()` de fora, então continuam
+           servindo de estado para aquelas duas. -->
       <div class="preview-row">
         <div class="preview" id="preview">
           <!-- O padrão é o símbolo oficial da IASD (shared/wallpaper-padrao.svg,
@@ -655,10 +726,12 @@
               </button>
             </div>
           </div>
-          <!-- Controles nos CANTOS da preview, em layout de player: cast no
-               canto superior direito, tela cheia no inferior direito. Só ícone,
-               sem moldura de botão — o contraste sobre uma mídia qualquer vem
-               de uma sombra no traço do SVG (ver `.pv-fab`).
+          <!-- A COLUNA DO PLAYER, à direita: cast no canto superior, tela
+               cheia no inferior. Só ícone, sem moldura de botão — o contraste
+               sobre uma mídia qualquer vem de uma sombra no traço do SVG
+               (ver `.pv-fab`). Ela é separada da coluna de OPERAÇÃO da
+               esquerda porque estes dois respondem "para onde eu mando isto?"
+               e aqueles três operam a cena.
                São DOIS desde a v5.49: a engrenagem saiu daqui porque
                Configurações ganhou um botão fixo na barra de baixo (hoje no
                cabeçalho da tela, v1.2.0), e
@@ -683,12 +756,20 @@
                permanente: enquanto ele está lá, há duas camadas; sumindo, há
                uma só, e o Parar volta a ser a resposta certa.
 
+               ELE MORA NO TOPO, AO CENTRO (v1.3.5). Ele ocupava o canto
+               superior esquerdo, e aquela lateral passou a ser a COLUNA DE
+               OPERAÇÃO (letra, cortina, mudo) — um selo vermelho no topo
+               daquela pilha leria como mais um controle dela, que é
+               exatamente o que ele não é. No centro ele não faz coluna com
+               ninguém: é a única coisa que aparece ali, e aparecer já é
+               metade da mensagem.
+
                O ÍCONE MOSTRA O ESTADO; O RÓTULO, A AÇÃO — a mesma regra dos
                botões da notificação de mídia. O desenho é a pilha de camadas
                (o que está acontecendo) e o `title` diz o que o toque faz.
                Vermelho `--live` porque é o vermelho de "está no ar agora"
                deste app, e a camada de cima é justamente isso. -->
-          <div class="pv-fabs pv-fabs--esq">
+          <div class="pv-fabs pv-fabs--topo">
             <button id="pvCamadaBtn" class="pv-fab pv-fab--camada" type="button"
                     title="Encerrar a camada de cima" aria-label="Encerrar a camada de cima" hidden>
               <!-- CAMADAS + ✕, e são as duas metades da mensagem: a pilha diz o
@@ -707,6 +788,53 @@
                 <path d="m2.5 10.9 7.5 3.8 3.4-1.7"/>
                 <path d="m16.4 16.4 5.1 5.1"/>
                 <path d="m21.5 16.4-5.1 5.1"/>
+              </svg>
+            </button>
+          </div>
+          <!-- ===== A COLUNA DE OPERAÇÃO (v1.3.5) =====
+               Leitura auxiliar, cortina do telão e mudo. Os três moravam na
+               fatia do meio da coluna do mixer, FORA da preview; vieram para
+               cima dela a pedido do operador, e o espaço que deixaram virou o
+               botão de PASSAR SLIDE (ver `.slide-side`).
+
+               SEM MOLDURA, COMO OS VIZINHOS: aqui o desenho da preview é o
+               traço branco com as três `drop-shadow` do `.pv-fab`, e um dos
+               três com pastilha viraria o único botão "de verdade" da
+               miniatura. Por isso os dois de ESTADO (cortina e mudo) trocaram
+               o glifo da fonte por SVG do sprite: um `.msym` não tem traço
+               para sombrear, e perderia justamente o contraste que o mantém
+               legível sobre um slide branco (ver `#icoImagem`/`#icoSom`).
+
+               E O ESTADO PASSOU A SER COR, não fundo: sem pastilha não há o
+               que pintar de `--danger-soft`. O mudo veste `--stage-alert` (o
+               vermelho de TRAÇO do palco, o mesmo do selo de camadas) e o
+               bloqueio de áudio veste `--warn-text`, com a pulsação de sempre.
+
+               NÃO APARECE NO MODO FÁCIL: a preview é UM nó só e MUDA DE CASA
+               (ver `hostPreview`), e lá o mudo já é uma tecla grande própria
+               (`#simpleMute`). Quem a esconde é `.simple-stage .pv-fabs--esq`. -->
+          <div class="pv-fabs pv-fabs--esq">
+            <!-- Leitura auxiliar: a letra INTEIRA da música em cena ou o
+                 capítulo INTEIRO da Bíblia em leitura, num popup com scroll.
+                 É o PRIMEIRO da coluna desde a v5.50 (trocou de lugar com a
+                 cortina): é o botão que se consulta o tempo todo enquanto o
+                 louvor corre, e a cortina é o que se usa em transições. -->
+            <button id="lyricsViewBtn" class="pv-fab" type="button" title="Ver a letra / o texto completo" aria-label="Ver a letra / o texto completo">
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoTexto"/></svg>
+            </button>
+            <!-- ESTADO INICIAL `view = 'visual'`: imagem INTEIRA, porque nada
+                 está coberto. Quem alterna é `renderControls`, pela classe
+                 `.alternado` — a mesma chave do `#fsView`. -->
+            <button id="viewToggle" class="pv-fab pv-fab--view" type="button" title="Cobrir o telão" aria-label="Cobrir o telão">
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <use class="ico-base" href="#icoImagem"/><use class="ico-alt" href="#icoImagemOff"/>
+              </svg>
+            </button>
+            <!-- Idem: `muted = false` no boot → sai som, então o alto-falante
+                 inteiro. É este botão que #simpleMute copia. -->
+            <button id="muteToggle" class="pv-fab pv-fab--mute" type="button" title="Mutar" aria-label="Mutar">
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <use class="ico-base" href="#icoSom"/><use class="ico-alt" href="#icoSomOff"/>
               </svg>
             </button>
           </div>
@@ -769,13 +897,9 @@
                ar; riscada = telão coberto) e o `title` diz a AÇÃO — a mesma
                divisão da notificação de mídia. -->
           <button type="button" id="fsView" class="pv-fab" title="Cobrir o telão">
-            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><g class="ico-base">
-              <rect x="3.5" y="5" width="17" height="14" rx="2"/>
-              <circle cx="8.5" cy="10" r="1.4"/><path d="m4.5 17.5 5-5 4 4 3-2.5 3.5 3.5"/>
-            </g><g class="ico-alt">
-              <rect x="3.5" y="5" width="17" height="14" rx="2"/>
-              <path d="m4.5 17.5 5-5 3 3"/><path d="M3 3.5 21 20.5"/>
-            </g></svg>
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <use class="ico-base" href="#icoImagem"/><use class="ico-alt" href="#icoImagemOff"/>
+            </svg>
           </button>
           <button type="button" id="fsPrev" class="pv-fab" title="Estrofe anterior (segurar: mídia anterior)">
             <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6v12"/><path d="M19 6.6 9.6 12 19 17.4z"/></svg>
@@ -789,8 +913,6 @@
           </button>
         </div>
         </div>
-        <button id="slidePrevBtn" class="slide-anchor" title="Estrofe anterior" disabled hidden></button>
-        <button id="slideNextBtn" class="slide-anchor" title="Próxima estrofe" disabled hidden></button>
       </div>
       <!-- CONVENÇÃO de todo botão só-de-ícone do app: o `<span class="msym">`
            leva `aria-hidden="true"`, exatamente como os `<svg>` já levavam. O
@@ -822,11 +944,10 @@
       </div>
 
       <!-- mixer: 3 "fatias" da grade (top/mid/bottom), sem card de fundo —
-           os botões ficam livres, só alinhados pela grade. top é
-           CONFIGURAÇÕES; mid agrupa os 3 botões do meio, nesta ordem no DOM:
-           cortina do telão (#viewToggle), letra completa (#lyricsViewBtn) e
-           mudo; bottom guarda o volume recolhível (vira fader ao abrir,
-           ocupando top+mid).
+           os botões ficam livres, só alinhados pela grade. top é o HISTÓRICO;
+           mid é o botão de PASSAR SLIDE (v1.3.5 — antes eram os três controles
+           que hoje moram sobre a preview); bottom guarda o volume recolhível
+           (vira fader ao abrir, ocupando top+mid).
            A "mesa de som" tinha um botão aqui, depois virou um ícone sobre a
            preview, e SAIU na v5.189 a pedido do operador: o som do sistema é o
            dos displays (a TV e as telas da rede), e o áudio da preview só
@@ -862,27 +983,18 @@
             </button>
           </div>
         </div>
+        <!-- PASSAR UM SLIDE — a fatia inteira, um botão só (v1.3.5).
+             Aqui moravam os três controles que subiram para cima da preview
+             (leitura auxiliar, cortina e mudo); o operador pediu o espaço para
+             a passagem de slide, e um alvo desta altura ao lado da miniatura é
+             o maior que este deck tem para oferecer.
+             O gêmeo dele (voltar) mora na coluna da esquerda, `.slide-side` —
+             o mesmo desenho, a mesma altura, do outro lado da preview. -->
         <div class="mixer-slot mixer-mid">
           <div class="mixer-stack">
-            <!-- Leitura auxiliar: a letra INTEIRA da música em cena ou o
-                 capítulo INTEIRO da Bíblia em leitura, num popup com scroll.
-                 É o PRIMEIRO da fatia desde a v5.50 (trocou de lugar com a
-                 cortina): é o botão que se consulta o tempo todo enquanto o
-                 louvor corre, e a cortina é o que se usa em transições — o mais
-                 frequente fica mais perto do topo, onde o polegar já está. -->
-            <button id="lyricsViewBtn" class="ctl-btn lyricsview-btn" title="Ver a letra / o texto completo">
-              <!-- Ícone de "texto corrido" (SVG inline, fora do subset da
-                   fonte): folha com linhas de texto de comprimentos desiguais —
-                   letra de música ou capítulo, o mesmo conceito nos dois. -->
-              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoTexto"/></svg>
+            <button id="slideNextBtn" class="ctl-btn slide-btn" type="button" title="Próximo slide" aria-label="Próximo slide" disabled>
+              <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoSlideNext"/></svg>
             </button>
-            <!-- Glifo e title do ESTADO INICIAL (`view = 'visual'`), iguais ao
-                 que `renderControls()` escreve: imagem INTEIRA, porque nada
-                 está coberto. O riscado é o corte (v5.50). -->
-            <button id="viewToggle" class="ctl-btn view-btn" title="Cobrir o telão"><span class="msym" aria-hidden="true">&#xe251;</span></button>
-            <!-- Idem: `muted = false` no boot → sai som, então o alto-falante
-                 inteiro. É este botão que #simpleMute copia. -->
-            <button id="muteToggle" class="ctl-btn mute-btn" title="Mutar"><span class="msym" aria-hidden="true">&#xe050;</span></button>
           </div>
         </div>
         <!-- estado aberto: fader ocupa o lugar de top+mid (mesma posição/altura) -->
@@ -1150,7 +1262,7 @@
              pedir ajuda"), e agora ocupam a mesma faixa: a versão à esquerda, o
              Registro à direita, no espaço que já estava sobrando. -->
         <div class="footer-diag">
-          <span id="appVersion" class="app-version">Controle v1.3.4</span>
+          <span id="appVersion" class="app-version">Controle v1.3.5</span>
           <span class="footer-diag-rot">Registro</span>
           <!-- SALVAR EM ARQUIVO (v1.2.16). Com o acervo inteiro varrido o
                Registro passa de setenta linhas só na seção de cifras, e copiar

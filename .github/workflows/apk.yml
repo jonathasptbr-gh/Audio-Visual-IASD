@@ -661,6 +661,22 @@ jobs:
           # caminho que continuava funcionando —, e por isso este CLICA. Idem:
           # entra no workflow no MESMO commit em que nasce.
           rodar tools/leitor-do-transporte.test.mjs
+          # E O DECK DOS CONTROLES: os dois botões de slide que voltaram a
+          # flanquear a preview, a coluna de operação que subiu para cima dela,
+          # e o ⏮/⏭ do transporte que perdeu o eixo de estrofe. As quatro
+          # mudanças da v1.3.5 falham CALADAS, e a mais cara é a última: se a
+          # troca não pegar, o botão de "próxima mídia" continua passando
+          # ESTROFE com uma letra no ar — o operador toca e a música não troca,
+          # no meio de um louvor, sem nada no console.
+          # Ele trava também a ARMADILHA DO `<use>`: a folha do documento NÃO
+          # atravessa a árvore-sombra de um `<use>`, então um `<symbol>` único
+          # com os dois desenhos dentro carrega, não erra e desenha os DOIS
+          # empilhados para sempre. As duas asserções mais óbvias (contar nós
+          # visíveis, fotografar o botão) APROVAM essa armadilha — está medido
+          # no cabeçalho do oráculo, e é por isso que ele pergunta qual
+          # SÍMBOLO está no ar. Idem: entra no workflow no MESMO commit em que
+          # nasce (a lição da v5.145).
+          rodar tools/controles-layout.test.mjs
 
           # O PLACAR VAI PARA O RESUMO DO RUN, não só para o log — a queixa que
           # originou este lote foi precisamente que o desfecho só existia lá

@@ -305,9 +305,9 @@ de **tamanho fixo**, tanto no **Display** (`#text` layer, ver abaixo) quanto na
 **preview** do Controle (`#pvText`, `showPvText`) — a preview sempre espelha o
 telão. `projectBibleVerse` monta esse comando via `cmd()`.
 
-Os **controles de slide** (o toque curto em ⏮/⏭, que aciona as âncoras
-`#slidePrevBtn`/`#slideNextBtn`, e os gestos
-invisíveis da preview em tela cheia) **passam/voltam versículos** quando há
+Os **controles de slide** (`#slidePrevBtn`/`#slideNextBtn`, os dois botões que
+flanqueiam a preview desde a v1.3.5, mais a coluna da tela cheia e a notificação
+nativa, que os acionam por `.click()`) **passam/voltam versículos** quando há
 sessão ativa: `stepSlide` e `renderSlideNav` checam `bibleSession` antes da letra
 sincronizada, chamando `bibleStep`. **No fim do último versículo do capítulo,
 `bibleStep` pula para o 1º versículo do capítulo seguinte — cruzando para o

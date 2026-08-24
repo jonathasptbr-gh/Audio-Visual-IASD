@@ -95,9 +95,11 @@ deck é imagem parada**, então nada mais rodava e ele ficava permanente. Só um
 importação consertava, por acidente: ela termina em `load()`, que chama
 `renderSlideNav()`.
 
-**A navegação é o par ⏮/⏭ que já passa estrofe** (`slideTarget()` devolve
-`'deck'`): cada toque passa uma página, e os botões desabilitam nos extremos
-como em qualquer outro alvo de slide. O comando é um `page` próprio, e não um
+**A navegação é o par de botões de slide que já passa estrofe**
+(`slideTarget()` devolve `'deck'`): cada toque passa uma página, e os botões
+desabilitam nos extremos como em qualquer outro alvo de slide. Na tela cheia e
+na notificação, onde não há botão de slide, quem faz isso é o ⏮/⏭ no toque
+curto — os dois acionam os mesmos `#slidePrevBtn`/`#slideNextBtn`. O comando é um `page` próprio, e não um
 `load` novo — recarregar a mídia para trocar uma imagem que já está na mão
 faria o telão piscar preto a cada slide. A `MediaSession` acompanha: o rótulo
 dos botões diz "(página)" em vez de "(estrofe)" quando é uma apresentação que

@@ -370,31 +370,48 @@ body {
      (ou empurrava para fora) a coluna de 56px do mixer — e a largura da
      preview passava a depender do título. Com o mínimo em 0, a fração é
      respeitada e a preview fica estável qualquer que seja o nome. */
-  grid-template-columns: minmax(0, 1fr) 56px;
+  /* TRÊS colunas desde a v1.3.5: a preview passou a ser FLANQUEADA pelos dois
+     botões de slide (voltar à esquerda, passar na fatia do meio do mixer, à
+     direita). A da esquerda é a mesma largura da do mixer — os dois botões têm
+     de ser gêmeos, e um par que não tem a mesma caixa não se lê como par.
+     Só a faixa da preview usa as três: nowplaying e transporte ATRAVESSAM a
+     coluna da esquerda (`1 / 3`), senão sobrariam dois vãos de 56px onde não
+     há botão nenhum — e o transporte, que divide a largura entre seis botões,
+     é justamente quem tem uso para ela. */
+  grid-template-columns: 56px minmax(0, 1fr) 56px;
   grid-template-rows: auto var(--deck-pv-h) auto;
   column-gap: .6rem;
   row-gap: .45rem;
 }
 /* `min-width: 0` pelo mesmo motivo, agora nos itens: sem isso cada um deles
    se recusaria a encolher abaixo do próprio min-content dentro da faixa. */
-.nowplaying  { grid-column: 1; grid-row: 1; min-width: 0; }
-.preview-row { grid-column: 1; grid-row: 2; min-width: 0; }
-.transport   { grid-column: 1; grid-row: 3; min-width: 0; }
+.nowplaying  { grid-column: 1 / 3; grid-row: 1; min-width: 0; }
+.preview-row { grid-column: 2; grid-row: 2; min-width: 0; }
+.transport   { grid-column: 1 / 3; grid-row: 3; min-width: 0; }
+/* A coluna do VOLTAR UM SLIDE: mesma largura e mesmo respiro horizontal da
+   coluna do mixer, para o botão sair com a caixa idêntica à do gêmeo da
+   direita. A faixa é FIXA (`--deck-pv-h`), então um filho no fluxo não pode
+   inflá-la — daí não precisar do `.mixer-stack` absoluto que o mixer usa. */
+.slide-side { grid-column: 1; grid-row: 2; display: flex; min-width: 0; min-height: 0; padding: 0 .35rem; }
 
-/* Linha da preview. Só a preview desde a v5.49: os dois botões de estrofe que
-   a flanqueavam viraram o toque curto em ⏮/⏭ (ver `.t-btn.slide-mode` e
-   "Um par de botões, dois eixos" em controle.js). A altura vem da grade
-   (.deck, `grid-template-rows: auto var(--deck-pv-h) auto`); `center` mantém a miniatura
-   no meio da faixa agora que não há mais nada dividindo a linha com ela. */
+/* Linha da preview: só a miniatura. Os botões de slide que a flanqueiam desde
+   a v1.3.5 não moram aqui — cada um ocupa uma COLUNA da grade (`.slide-side` e
+   a fatia `.mixer-mid`), que é o que lhes dá a altura inteira da faixa. A
+   altura vem da grade (.deck, `grid-template-rows: auto var(--deck-pv-h) auto`);
+   `center` mantém a miniatura no meio da faixa. */
 .preview-row { display: flex; align-items: stretch; justify-content: center; gap: .4rem; }
-/* Âncoras de estrofe: continuam no DOM (ocultas) porque é nelas que o estado
-   "dá para passar estrofe?" mora — `renderSlideNav` habilita/desabilita, e
-   quem aciona (toque curto no transporte, gesto da tela cheia, notificação
-   nativa) chama `.click()`. Um botão `disabled` é um no-op natural, e assim a
-   regra não passa a existir em quatro lugares. O `[hidden]` da linha 16 já as
-   tira do fluxo; a regra abaixo existe para que ninguém as veja aparecer ao
-   remover o atributo por engano num teste. */
-.slide-anchor { display: none !important; }
+/* OS DOIS BOTÕES DE SLIDE (v1.3.5). Eles ocupam a fatia INTEIRA da própria
+   coluna — é o maior alvo do deck, e é o que o operador pediu ao trocar os três
+   controles da direita por ele. Desabilitados quando não há slide para onde ir
+   (`applySlideLimits`), que é a mesma condição que antes esmaecia o ⏮/⏭. */
+.slide-btn { flex: 1; width: 100%; min-height: 0; padding: .4rem 0; }
+.slide-btn:disabled { opacity: .35; cursor: default; }
+/* O fader do volume ocupa top+mid da coluna do mixer, e a fatia do meio é o
+   PASSAR SLIDE — com o fader aberto ele sai de cena. Um par em que só a metade
+   da esquerda sobrevive é pior que par nenhum: o operador tocaria em "voltar"
+   e procuraria o "passar" que não está lá. Some junto, volta junto. Quem
+   escreve a classe é `openVolume`/`closeVolume`, no mesmo par do `.mixer`. */
+.deck.vol-open .slide-side { visibility: hidden; }
 
 /* Preview */
 /* A proporção é a do TELÃO REAL, não um 16:9 fixo (`--pv-ar`, escrito pelo JS a
@@ -463,12 +480,32 @@ body {
   z-index: 5; pointer-events: none;
   display: flex; flex-direction: column;
 }
-/* A COLUNA DA ESQUERDA tem um item só: o selo de camadas. Ela é outra coluna, e
-   não um terceiro botão na de cima, porque aqueles dois são o PLAYER (para onde
-   mando, e quero em tela cheia) e este é um ESTADO da cena. No meio da coluna
-   direita ele leria como mais um controle de player — e um vermelho ali
-   disputaria a leitura com os dois brancos vizinhos. */
-.pv-fabs--esq { right: auto; left: 2px; }
+/* O SELO DE CAMADAS mora no TOPO, AO CENTRO (v1.3.5). Ele não é uma coluna:
+   é UM item, e a faixa horizontal que ele ocupa existe só para centrá-lo. Ele
+   ficava no canto superior esquerdo até a lateral esquerda virar a COLUNA DE
+   OPERAÇÃO — no alto dela ele leria como mais um controle daquele grupo, que é
+   justamente o que ele não é (os três operam a cena; este DIZ um estado dela).
+   No centro ele não faz coluna com ninguém. */
+.pv-fabs--topo {
+  left: 0; right: 0; bottom: auto; top: 2px;
+  flex-direction: row; justify-content: center;
+}
+/* A COLUNA DE OPERAÇÃO, à esquerda: leitura auxiliar, cortina e mudo (v1.3.5).
+   Centrada na altura, e não ancorada num canto como a do player: são três itens
+   e a preview pode ficar baixa (a faixa é fixa, mas a proporção do telão manda
+   na largura, e com um telão muito largo a miniatura encolhe junto). Por isso
+   os botões daqui são ENCOLHÍVEIS — `flex: 0 1 var(--hit)` com um piso —, senão
+   o terceiro sairia por baixo da miniatura numa TV 2,17:1. */
+.pv-fabs--esq {
+  right: auto; left: 2px;
+  justify-content: center;
+}
+.pv-fabs--esq .pv-fab { flex: 0 1 var(--hit); min-height: 26px; }
+/* No Modo Fácil a preview é o MESMO nó (ver `hostPreview`), e lá estes três não
+   têm o que fazer: o mudo já é uma tecla grande da própria tela e o resto do
+   modo existe justamente para não ter controles. O selo de camadas FICA — ele
+   é a única saída da camada de cima, e não há gêmeo dele lá. */
+.simple-stage .pv-fabs--esq { display: none; }
 /* A tela cheia é a ÚLTIMA da coluna e vai para o rodapé por `margin-top: auto`,
    não por `justify-content: space-between`: no navegador o cast nem existe
    (`[hidden]`), e com um item só o `space-between` o jogaria de volta para o
@@ -522,6 +559,22 @@ body {
    `color: var(--stage-text)` e o selo saía BRANCO, igual aos botões de player
    ao lado — isto é, sem dizer nada. Medido. */
 .pv-fab--camada { color: var(--stage-alert); }
+/* ---------- OS DOIS ESTADOS QUE SUBIRAM PARA A PREVIEW (v1.3.5) ----------
+   Sem moldura não há o que pintar de `--danger-soft`: no mixer o estado era o
+   FUNDO do botão, e aqui o botão não tem fundo. O estado passa a ser a COR DO
+   TRAÇO — a mesma resposta que o selo de camadas já dava, e pelo mesmo motivo:
+   o território é o PALCO, que não tem tema, então o vermelho é `--stage-alert`
+   (o clareado de traço) e não o `--live`/`--danger` de preenchimento.
+   As duas regras vêm DEPOIS da `.pv-fab`, como a do selo: as três medem 0,1,0 e
+   quem vence é a última do arquivo. */
+.pv-fab--view.alternado, .pv-fab--mute.muted { color: var(--stage-alert); }
+/* Sem áudio no Display (bloqueio do navegador): AVISO pulsante, e o toque pede
+   a liberação do som. `--warn-text` é o âmbar CLARO da paleta — o único dos
+   dois que se lê como traço sobre o preto do palco. */
+.pv-fab--mute.blocked {
+  color: var(--warn-text);
+  animation: mute-blocked-pulse 1.2s ease-in-out infinite;
+}
 /* Em tela cheia a preview É a projeção (quando não há TV conectada): os botões
    PERMANENTES saem de cena, ou iriam junto para o telão. Quem os substitui lá é
    a coluna abaixo, que é passageira por construção. */
@@ -587,9 +640,17 @@ body {
    classe escolhe — trocar `innerHTML` a cada quadro reconstruiria o SVG por
    baixo do dedo, e o `.msym` dos irmãos da barra não serve aqui (ver o
    comentário do bloco no HTML). */
-.pv-fsctl .ico-alt { display: none; }
-.pv-fsctl .alternado .ico-base { display: none; }
-.pv-fsctl .alternado .ico-alt { display: block; }
+/* O ALTERNADOR DE DESENHO de todo `.pv-fab` de estado (v1.3.5 — era exclusivo
+   da coluna da tela cheia, e passou a valer para a cortina e o mudo que subiram
+   para cima da preview). `.alternado` é escrita por `renderControls`/
+   `renderFsCtl`; o ícone diz o ESTADO e o `title`, a AÇÃO.
+   Vale tanto para os `<g>` inline (o ▶/⏸ da tela cheia) quanto para os `<use>`
+   do sprite: só o PRÓPRIO `<use>` é elemento da árvore de luz, e é nele que a
+   folha do documento pega — o conteúdo clonado mora numa árvore-sombra que ela
+   não alcança, e é por isso que cada estado é um símbolo separado. */
+.pv-fab .ico-alt { display: none; }
+.pv-fab.alternado .ico-base { display: none; }
+.pv-fab.alternado .ico-alt { display: block; }
 
 /* "Baixando…" NA LINHA: o cartão da preview diz "isto vai entrar em cena", que
    é a mensagem errada quando o toque foi só ADICIONAR. Aqui o aviso mora onde o
@@ -696,7 +757,7 @@ body {
    o estado sozinha. */
 @media (prefers-reduced-motion: reduce) {
   .dl-ring::before { animation: none; border-color: var(--accent); }
-  .mic-btn.live, .mute-btn.blocked, .simple-key--big.blocked { animation: none; }
+  .mic-btn.live, .pv-fab--mute.blocked, .simple-key--big.blocked { animation: none; }
   /* A gaveta aparece no lugar: o que ela comunica está no conteúdo, não no
      movimento. */
   .row-acoes > * { transform: none; transition: none; }
@@ -908,15 +969,12 @@ body {
 .t-btn .msym { font-size: var(--icon-md); }
 .t-btn:disabled { opacity: .35; }
 #repeat.active { color: var(--accent); }
-/* ⏮/⏭ MUDAM DE EIXO: com letra, versículo ou mensagem no ar o toque curto passa
-   ESTROFE; sem isso passa MÍDIA (o toque longo sempre passa mídia). Na
-   notificação o eixo é dito no rótulo; aqui não cabe rótulo, então quem diz é a
-   cor — sem sinal, o operador só descobre o eixo depois de tocar. */
-.t-btn.slide-mode { background: var(--accent-soft); color: var(--accent); }
-/* Fim do eixo de estrofe: o toque curto não tem para onde ir, mas o LONGO ainda
-   troca de mídia — esmaece em vez de desabilitar, senão a outra metade do botão
-   sairia do ar junto. */
-.t-btn.slide-mode.axis-end { opacity: .55; }
+/* ⏮/⏭ do transporte falam de MÍDIA e mais nada desde a v1.3.5: quem passa
+   slide são os dois botões que flanqueiam a preview (`.slide-btn`). Saíram
+   daqui as duas classes que anunciavam o eixo de estrofe (`.slide-mode` e o
+   `.axis-end` que a esmaecia no fim da letra) — um botão com um significado só
+   não tem eixo a anunciar. O par de eixos continua vivo onde não há botão de
+   slide: a coluna da tela cheia e a notificação de mídia. */
 
 /* ---------- Mixer ---------- */
 /* Sem "card" de fundo: cada botão tem o próprio (`.ctl-btn`), só alinhados pela
@@ -925,7 +983,7 @@ body {
    bottom caem pixel a pixel, em vez de um `flex-basis` aproximado. Padding só
    horizontal: no eixo vertical ele deslocaria as linhas herdadas para dentro. */
 .mixer {
-  grid-column: 2; grid-row: 1 / 4;
+  grid-column: 3; grid-row: 1 / 4;
   display: grid; grid-template-rows: subgrid;
   row-gap: .45rem; padding: 0 .35rem;
   position: relative;
@@ -1053,31 +1111,20 @@ body {
 }
 .ctl-btn .msym { font-size: var(--icon-md); }
 .mixer .ctl-btn { width: 100%; padding: .4rem 0; }
-/* Estados dos controles agrupados por ESTADO, não por componente — a mesma
-   receita estava escrita quatro vezes. `.view-blocked` = visual bloqueado,
-   `.muted` = mudo, `.danger` = ação destrutiva. (Havia um quarto, `.active` da
-   mesa de som; ela saiu por inteiro na v5.189 — o som do sistema é o dos
-   displays.)
-   (O botão do fundo da letra saiu do mixer: virou o segmento "Imagens dos
-   slides" no popup de Exibição, e o lugar dele é a leitura da letra completa —
-   um botão que ABRE algo, sem estado próprio a pintar.) */
-/* A borda é `--danger-strong`, não `--danger`: o vermelho cheio da paleta é
-   ESCURO por construção (existe para receber `--on-live` por cima), então como
-   contorno sobre fundo escuro ele praticamente desaparece. E `--danger-strong`
-   e não o `--danger-text` pálido (v5.76): sobre o próprio `--danger-soft` ele
-   mede 4,68:1 — passa como texto — e é o único dos dois que se lê como
-   VERMELHO num rótulo de botão. */
-.view-btn.view-blocked, .mute-btn.muted, .coll-opts .new-folder-btn.danger {
+/* AÇÃO DESTRUTIVA num botão com moldura. Este bloco reunia três estados
+   (`.view-blocked`, `.muted` e este) — os dois primeiros eram do mixer e
+   subiram para cima da preview na v1.3.5, onde não há moldura para pintar e o
+   estado virou COR DE TRAÇO (ver `.pv-fab--view`/`.pv-fab--mute`).
+   O texto é `--danger-strong`, não `--danger`: o vermelho cheio da paleta é
+   ESCURO por construção (existe para receber `--on-live` por cima), então sobre
+   fundo escuro ele praticamente desaparece. E não o `--danger-text` pálido
+   (v5.76): sobre o próprio `--danger-soft` este mede 4,68:1 — passa como texto —
+   e é o único dos dois que se lê como VERMELHO num rótulo de botão. */
+.coll-opts .new-folder-btn.danger {
   background: var(--danger-soft); color: var(--danger-strong);
 }
-/* Sem áudio no Display (bloqueio do navegador): AVISO pulsante; o clique pede
-   a liberação do som (comando audio-retry). Em `--warn`, e não mais em
-   `--brand`: nesta paleta a cor da marca É o accent (mesmo valor), então
-   "áudio bloqueado" pintado de gold ficaria idêntico a "ação normal". */
-.mute-btn.blocked {
-  background: var(--warn-soft); color: var(--warn-text);
-  animation: mute-blocked-pulse 1.2s ease-in-out infinite;
-}
+/* A pulsação do áudio bloqueado é compartilhada pelo `.pv-fab--mute` da preview
+   e pela tecla grande do Modo Fácil. */
 @keyframes mute-blocked-pulse {
   0%, 100% { opacity: 1; }
   50% { opacity: .45; }
@@ -5364,9 +5411,11 @@ body.mode-simple .bottombar { display: none; }
 .simple-keys { display: grid; grid-template-columns: repeat(3, 1fr); gap: .6rem; }
 .simple-key--big { height: 76px; }
 .simple-key--big .msym { font-size: 34px; }
-/* Os mesmos dois estados do mixer, na tecla grande — e nos mesmos tokens (ver
-   `.mute-btn.muted`/`.mute-btn.blocked`): mudo é alerta, áudio bloqueado no
-   telão é aviso. Sem a borda (v5.76) quem carrega o estado é o par
+/* Os mesmos dois estados do mudo do modo avançado, na tecla grande. Aqui o
+   botão TEM moldura, então o estado é o par fundo-suave + cor — sobre a preview
+   ele é cor de traço (ver `.pv-fab--mute`), porque lá não há fundo a pintar:
+   mudo é alerta, áudio bloqueado no telão é aviso. Sem a borda (v5.76) quem
+   carrega o estado é o par
    fundo-suave + cor, que já estava aqui e é o que o resto do app usa; o mudo
    passou ao vermelho SATURADO (`--danger-strong`), que é o alarme que a cor
    pálida não dava. */

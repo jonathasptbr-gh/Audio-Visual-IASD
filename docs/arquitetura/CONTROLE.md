@@ -113,7 +113,10 @@ DOM, só oculta (`body.mode-simple`), e os controles daqui **acionam os botões
 reais por `.click()`** — o padrão da notificação nativa. Um botão `disabled`
 continua sendo no-op natural, e nenhuma regra de borda passa a existir em dois
 lugares. Na mesma linha, `renderSimple()` **copia o glifo e as classes** dos
-botões do mixer em vez de recalcular play/pause e mudo.
+botões reais em vez de recalcular play/pause e mudo. O do mudo subiu para cima
+da preview na v1.3.5 e deixou de ter glifo (virou SVG): o que se copia dele
+agora é a classe `.alternado`, que é a MESMA chave que lá troca o desenho — o
+espelho continua LENDO o controle de verdade, e não relendo `muted`.
 
 **A tela é um CONTROLE REMOTO**: teclas grandes (`.simple-key`), nada de
 arrastar — quem usa este modo está de pé, com o celular numa mão só. E **sem
@@ -358,19 +361,33 @@ os dois precisam ser a mesma superfície. O `padding-bottom` usa
 `max(env(safe-area-inset-bottom), 12px)`, contra acionamento acidental pela
 navegação por gestos.
 
-**Grade real (CSS Grid), não flex aproximado:** `.deck` é um `grid` de 2 colunas
-(`minmax(0, 1fr)` / `56px` do mixer) × 3 linhas (`auto` / `var(--deck-pv-h)` /
-`auto`), com `.nowplaying`, `.preview-row` e `.transport` como itens DIRETOS. O
-`#mixer` ocupa as 3 linhas e usa `grid-template-rows: subgrid` para **herdar
-exatamente essas faixas** — alinhamento pixel a pixel entre as colunas em vez de
-flex-basis calculado à parte. O `padding` do `#mixer` é **só horizontal**:
-vertical deslocaria as linhas herdadas.
+**Grade real (CSS Grid), não flex aproximado:** `.deck` é um `grid` de **3
+colunas** (`56px` / `minmax(0, 1fr)` / `56px` do mixer) × 3 linhas (`auto` /
+`var(--deck-pv-h)` / `auto`), com `.slide-side`, `.nowplaying`, `.preview-row` e
+`.transport` como itens DIRETOS. O `#mixer` ocupa as 3 linhas e usa
+`grid-template-rows: subgrid` para **herdar exatamente essas faixas** —
+alinhamento pixel a pixel entre as colunas em vez de flex-basis calculado à
+parte. O `padding` do `#mixer` é **só horizontal**: vertical deslocaria as
+linhas herdadas.
 
-A primeira coluna é `minmax(0, 1fr)`, **não** `1fr`: uma faixa `1fr` tem mínimo
+**A terceira coluna nasceu na v1.3.5**, quando a preview passou a ser
+FLANQUEADA pelos dois botões de slide (ver "Um par de botões, dois eixos"). Ela
+tem a largura do mixer porque os dois botões precisam ser **gêmeos** — um par
+que não tem a mesma caixa não se lê como par —, e **só a faixa da preview usa
+as três**: `.nowplaying` e `.transport` atravessam a coluna da esquerda
+(`grid-column: 1 / 3`), senão sobrariam dois vãos de 56px onde não há botão
+nenhum. O transporte, que divide a largura entre seis botões, é justamente quem
+tem uso para ela.
+
+A coluna do meio é `minmax(0, 1fr)`, **não** `1fr`: uma faixa `1fr` tem mínimo
 automático igual ao min-content, e o título (`#npName`, `white-space: nowrap`)
 tem min-content do texto INTEIRO mesmo já cortado por ellipsis — um nome longo
 inflava a coluna, esmagava a de 56px e fazia a largura da preview depender do
 título.
+
+A `.slide-side` **não precisa do `.mixer-stack` absoluto** que a coluna do mixer
+usa: a faixa 2 é FIXA (`var(--deck-pv-h)`), então um filho no fluxo não tem como
+inflá-la.
 
 **O mixer NUNCA dita a altura das faixas** — quem dita é sempre a coluna 1. Cada
 `.mixer-slot` é uma caixa vazia no fluxo, e os botões vivem num `.mixer-stack`
@@ -385,13 +402,18 @@ mínimo automático, mas uma faixa `auto` continua dimensionada pelo max-content
 | Fatia | Linha da grade | Conteúdo |
 |---|---|---|
 | `.mixer-top` | 1 (`.nowplaying`) | **Histórico do culto** (`#historyBtn`), **sem caixa de botão** |
-| `.mixer-mid` | 2 (`.preview-row`) | **letra** (`#lyricsViewBtn`), **cortina** (`#viewToggle`), **mudo** (`#muteToggle`) — cada um `flex: 1` |
+| `.mixer-mid` | 2 (`.preview-row`) | **passar slide** (`#slideNextBtn`) — a fatia inteira, um botão só |
 | `.mixer-bottom` | 3 (`.transport`) | **volume** (`#volToggle`/`#volClose`, recolhível) |
 
-A ordem separa o que NÃO opera o culto do que opera: no topo, sozinho, o botão
-que só ABRE uma lista, e abaixo o bloco de operação (letra → cortina → mudo →
-volume), que é o que o polegar procura sem olhar. Na fatia do meio a leitura da
-letra vem primeiro: é o botão que se consulta enquanto o louvor corre.
+**A fatia do meio era o bloco de operação até a v1.3.5**: letra
+(`#lyricsViewBtn`), cortina (`#viewToggle`) e mudo (`#muteToggle`), cada um
+`flex: 1`. Os três subiram para CIMA da preview (ver "Controles sobre a
+preview") e o espaço virou o botão de passar slide, a pedido do operador — um
+alvo da altura da miniatura é o maior que este deck tem para oferecer.
+
+A ordem continua separando o que NÃO opera o culto do que opera: no topo,
+sozinho, o botão que só ABRE uma lista; no meio e embaixo, o que se toca durante
+o culto.
 
 **A fatia do topo era a de Configurações até a v1.2.0**, quando a engrenagem
 subiu para o cabeçalho da tela (ver "Layout geral") e o **histórico** ocupou o
@@ -505,19 +527,21 @@ repete a MESMA conta de posição, com `--vol` e `--fader-cap` declaradas no
 `.fader-wrap` (o ancestral comum). `pointer-events: none`: quem recebe o arrasto
 continua sendo o input por baixo.
 
-**A linha da preview é só a preview**: os dois botões de estrofe que a
-flanqueavam viraram o toque curto em ⏮/⏭. Com a linha livre, `--deck-pv-h` subiu
-de 130px para 150px — a preview é dimensionada pela ALTURA (altura × `--pv-ar`),
-então a largura que os botões ocupavam teria virado espaço morto dos dois lados.
-O botão de **repetir** (`#repeat`) é o primeiro de `.transport`, com o de
-playlist por último.
+**A linha da preview é só a preview**, e a partir da v1.3.5 ela é FLANQUEADA de
+novo — mas por fora, em colunas da grade, e não dentro da linha. `--deck-pv-h`
+seguiu em 150px: a preview é dimensionada pela ALTURA (altura × `--pv-ar`) com
+`max-width: 100%`, então ela encolhe sozinha para caber na coluna do meio. O
+botão de **repetir** (`#repeat`) é o primeiro de `.transport`, com o de playlist
+por último.
+
+### Um par de botões, dois eixos — e onde ele ainda vale
 
 Até a v5.48 a tela tinha **quatro** botões para duas ações vizinhas: estrofe
 (flanqueando a preview) e mídia (no transporte). Quatro alvos disputando a mesma
 faixa estreita — e os de estrofe passavam a maior parte do culto **desabilitados**,
 porque sem letra, versículo ou mensagem no ar eles não fazem nada.
 
-Agora é **um par**, com os eixos separados pelo TEMPO do toque
+A v5.49 respondeu com **um par só**, com os eixos separados pelo TEMPO do toque
 (`attachTransportStep`):
 
 | Toque | O que faz |
@@ -525,36 +549,61 @@ Agora é **um par**, com os eixos separados pelo TEMPO do toque
 | **curto** | o eixo da CENA: passa estrofe quando há estrofe a passar (letra, versículo ou mensagem no ar); passa de mídia quando não há |
 | **longo** (`LONGPRESS`, 450 ms) | **sempre** mídia — a saída para trocar de música com uma letra em cena |
 
-- **Quem decide o eixo é `slideTarget()`**, a MESMA função que a notificação
-  nativa consulta (`slideMode` em `pushNowPlaying`) e que os gestos da tela
-  cheia já usavam. A regra existia em um lugar só e continua assim.
-- **Quem executa continua sendo `#slidePrevBtn`/`#slideNextBtn`**, agora ocultos
-  no DOM (`.slide-anchor`): é neles que `applySlideLimits` guarda "dá para
-  passar estrofe agora?", e um botão `disabled` é um no-op natural. O gesto da
-  tela cheia e a notificação seguem chamando `.click()` neles, sem saber de
-  nada. Tirá-los do DOM obrigaria a espalhar essa regra por quatro chamadores.
-- **O limiar é o mesmo `LONGPRESS` dos itens da biblioteca**: dois tempos
-  diferentes para "segurar" no mesmo app seriam duas coisas para o dedo
-  aprender. O toque longo age **ao vencer o prazo**, não ao soltar — segurar e
-  ver a música trocar é a resposta que o dedo espera —, e o `click` seguinte é
-  descartado por uma flag, para a ação não sair duas vezes.
-- **O botão diz em que eixo está** (`renderTransportAxis`): contorno em
-  `--accent` (`.slide-mode`) e o `title` nomeando estrofe/versículo/mensagem/
-  página. Na notificação esse papel é do rótulo; aqui não cabe rótulo, e sem
-  sinal nenhum o eixo só se descobriria depois de tocar — errar isso no meio de
-  um louvor custa a música inteira.
+**ISSO NÃO VALE MAIS PARA O TRANSPORTE (v1.3.5).** Lá o par voltou a ter um
+significado só — **mídia** anterior/próxima —, porque a preview passou a ser
+flanqueada por dois botões de slide de **altura inteira**: um eixo escondido
+atrás do tempo do toque não se justifica quando o outro tem botão próprio a dois
+centímetros dali. `#prev`/`#next` recebem um `click` direto para `step(dir)`, e
+saíram com eles as duas classes que anunciavam o eixo (`.slide-mode` e o
+`.axis-end` que esmaecia no fim da letra).
+
+O par de eixos continua vivo nas **duas superfícies em que não há botão de slide
+nenhum**, e nas duas `attachTransportStep` segue sendo o mecanismo:
+
+| Superfície | Por que o par continua lá |
+|---|---|
+| **coluna da tela cheia** (`#fsPrev`/`#fsNext`) | sem TV a preview em tela cheia É a projeção, e tudo o que se pinta ali a congregação vê — não cabe um par a mais |
+| **notificação nativa** | o eixo é dito no RÓTULO do botão (`slideMode`/`slideLabel` em `pushNowPlaying`); ali cabe rótulo, então o modo nunca precisa ser adivinhado |
+
+### Os dois botões de slide
+
+| Botão | Onde |
+|---|---|
+| `#slidePrevBtn` | `.slide-side`, a coluna 1 da grade — à esquerda da preview |
+| `#slideNextBtn` | `.mixer-mid`, a fatia que os três controles de operação deixaram vaga |
+
+- **São os MESMOS de sempre.** Da v5.49 à v1.3.4 eles estiveram ocultos no DOM
+  (`.slide-anchor`), e o que os acionava era o toque curto em ⏮/⏭, o gesto da
+  tela cheia e a notificação, todos por `.click()`. Voltaram à tela sem mudar de
+  papel: é neles que `applySlideLimits` guarda "dá para passar slide agora?", e
+  um botão `disabled` é um no-op natural. A tela cheia e a notificação continuam
+  chamando `.click()` neles, sem saber de nada.
+- **Quem decide o alvo é `slideTarget()`**, a MESMA função das outras duas
+  superfícies. A regra existia em um lugar só e continua assim.
+- **O que muda com a cena é o SUBSTANTIVO do rótulo**, não o eixo
+  (`renderTransportAxis`): "Próxima estrofe", "Próximo versículo", "Próxima
+  mensagem", "Próxima página". Sem alvo eles ficam com o nome genérico
+  ("Próximo slide") **e desabilitados** — um nome específico ali prometeria uma
+  cena que não está no ar.
   - **As três tabelas de rótulo (`SLIDE_AXIS_NAME`/`_PREV`/`_NEXT`) precisam
     cobrir TODOS os alvos de `slideTarget()`.** Elas são indexadas pelo alvo, e
     um alvo ausente não dá erro: vira `undefined` e o `title` passa a dizer
-    literalmente "undefined · segure para a próxima mídia". Faltavam `deck`
-    (desde a v5.97) e `songlyrics` até a v5.102 — justamente o alvo em que ⏮/⏭
-    são o ÚNICO jeito de passar página. Alvo novo em `slideTarget()` = três
-    linhas novas aqui.
-- **E diz quando o eixo ACABOU** (`.axis-end`, opacidade .55): na última estrofe
-  o toque curto não tem para onde ir. Antes isso era óbvio, o botão de estrofe
-  ficava cinza; como o mesmo botão ainda serve à mídia no toque longo, ele não
-  pode ser `disabled` — esmaecer entrega a mesma leitura sem tirar a outra
-  metade do ar.
+    literalmente "undefined". Faltavam `deck` (desde a v5.97) e `songlyrics` até
+    a v5.102 — justamente o alvo em que eles são o ÚNICO jeito de passar página.
+    Alvo novo em `slideTarget()` = três linhas novas aqui.
+- **O fim do caminho é o `disabled` de sempre** — o esmaecido que a v5.49 tinha
+  trocado pelo `.axis-end`, e que voltou a valer quando o botão passou a ter um
+  significado só.
+- **Com o fader do volume aberto o PAR some junto.** O fader ocupa top+mid, e a
+  fatia do meio é o `#slideNextBtn`; uma dupla em que só a metade da esquerda
+  sobrevive é pior que dupla nenhuma — o operador toca em "voltar" e procura o
+  "passar" que não está lá. `openVolume`/`closeVolume` escrevem `vol-open`
+  também no `.deck`, e `.deck.vol-open .slide-side` esconde o gêmeo.
+
+Oráculo: **`tools/controles-layout.test.mjs`** — a geometria (quem flanqueia
+quem, e com que caixa), o eixo do transporte medido pelo COMANDO que sai no
+barramento (`seek` é estrofe andando, e ele não pode mais sair de `#next`) e o
+par sumindo junto com o fader. Provado por reversão.
 
 **Título rolante (now-playing):** o nome da mídia em exibição (`#npName`) tem
 um span interno (`#npNameInner`); quando o texto não cabe na largura
@@ -571,10 +620,65 @@ local comanda a barra de progresso e o avanço automático da playlist. Para ite
 YouTube, `cmd()` também dirige um segundo `YT.Player` próprio da preview (mudo,
 qualidade mínima) — ver seção do YouTube no Display para os detalhes.
 
-**Controles sobre a preview** (`.pv-fabs`, `setupPreviewGestures`): **dois**
-ícones, um em cada canto da direita — **cast em cima, tela cheia embaixo** —,
-sempre visíveis (ver "Layout de player", abaixo). Cada um ocupa uma caixa de
-`--hit`, e o tamanho do ícone vem do CSS (`24px`), não do atributo do `<svg>`.
+**Controles sobre a preview** (`.pv-fabs`, `setupPreviewGestures`): **três
+grupos**, todos só-ícone, sem moldura, com a mesma `drop-shadow` tripla no traço
+(ver "Layout de player", abaixo). Cada botão ocupa uma caixa de `--hit`, e o
+tamanho do ícone vem do CSS (`24px`), não do atributo do `<svg>`.
+
+| Grupo | Onde | O quê | Pergunta que ele responde |
+|---|---|---|---|
+| `.pv-fabs` | coluna DIREITA | cast em cima, tela cheia embaixo | *para onde eu mando isto?* |
+| `.pv-fabs--esq` | coluna ESQUERDA (v1.3.5) | letra → cortina → mudo | *como eu opero a cena?* |
+| `.pv-fabs--topo` | topo, AO CENTRO (v1.3.5) | o selo de camadas (`#pvCamadaBtn`) | *o que está no ar por cima do quê?* |
+
+##### A coluna de operação (v1.3.5)
+
+Os três moravam na fatia do meio da coluna do mixer, com moldura de botão, FORA
+da preview; vieram para cima dela a pedido do operador, e o espaço que deixaram
+virou o `#slideNextBtn`. Três consequências, e nenhuma é cosmética:
+
+- **O desenho passou a ser SVG do sprite, não glifo da fonte.** O `.pv-fab`
+  pendura três `drop-shadow` no TRAÇO do `<svg>`, e um `.msym` não tem traço
+  para sombrear — perderia justamente o contraste que mantém o ícone legível
+  sobre um slide branco.
+- **O estado virou COR DE TRAÇO.** Sem pastilha não há o que pintar de
+  `--danger-soft`: mudo e telão coberto vestem `--stage-alert` (o vermelho de
+  TRAÇO do palco, o mesmo do selo de camadas — o território é o PALCO, que não
+  tem tema), e o áudio bloqueado veste `--warn-text` com a pulsação de sempre.
+  A tecla grande do Modo Fácil, que TEM moldura, continua com o par
+  fundo-suave + cor.
+- **Eles NÃO aparecem no Modo Fácil.** A preview é UM nó só e MUDA DE CASA
+  (`hostPreview`), então tudo o que se pendura nela viaja junto; lá o mudo já é
+  uma tecla grande própria (`#simpleMute`) e o resto do modo existe para não ter
+  controles. Quem os esconde é `.simple-stage .pv-fabs--esq`. **O selo de
+  camadas fica** — ele é a única saída da camada de cima, e não há gêmeo dele
+  lá.
+
+**A ARMADILHA DO `<use>`, e ela é a razão de cada estado ser um símbolo
+separado.** A cortina e o mudo trocam de desenho por `.ico-base`/`.ico-alt`,
+alternadas pela classe `.alternado` — a mesma chave do `#fsView` da tela cheia.
+O conteúdo clonado por um `<use>` mora numa **árvore-sombra que a folha do
+documento NÃO atravessa** (MEDIDO em Chromium): um `<symbol>` único com os dois
+desenhos dentro carrega, não erra e desenha **os dois empilhados, para sempre**.
+Por isso `#icoImagem`/`#icoImagemOff` e `#icoSom`/`#icoSomOff` são quatro
+símbolos, e o consumidor pendura dois `<use>` — que são elementos da árvore de
+LUZ, e é neles que o seletor pega. `#fsView` passou a usar o mesmo par, matando
+a cópia byte a byte que ele mantinha do desenho da cortina.
+
+##### O selo de camadas foi para o topo ao centro (v1.3.5)
+
+Ele ocupava o canto superior esquerdo, e aquela lateral virou a coluna de
+operação: no alto daquela pilha, um selo vermelho leria como mais um controle
+dela — que é exatamente o que ele não é (os três operam a cena; este DIZ um
+estado dela). No centro ele não faz coluna com ninguém, e aparecer já é metade
+da mensagem.
+
+Oráculo das três coisas: **`tools/controles-layout.test.mjs`**. As duas
+asserções mais óbvias para a armadilha do `<use>` — contar nós visíveis e
+fotografar o botão — **aprovam a armadilha**, e está medido no cabeçalho dele: a
+contagem porque o consumidor continua com um `<use>` visível, e a foto porque o
+botão é transparente e o fundo (a preview) muda no mesmo `renderControls`. O que
+ele pergunta é qual SÍMBOLO está no ar em cada estado.
 
 Passaram por três arranjos antes deste — e os dois primeiros foram **com quatro
 botões**, que é o detalhe que explica por que eles não valem como precedente
@@ -698,8 +802,12 @@ toque, some sozinha) e **translúcida** (`.72`).
 | ▶/⏸ | play/pause | `playPauseEl.click()` |
 | ⏭ | próxima estrofe · **segurar**: próxima mídia | `attachTransportStep(btn, 1)` |
 
-**Nada é reimplementado** (invariante 5). O ⏮/⏭ recebe o MESMO
-`attachTransportStep` da barra de transporte, então herda os dois eixos de graça.
+**Nada é reimplementado** (invariante 5). O ⏮/⏭ daqui recebe
+`attachTransportStep`, que é o par de dois eixos — e desde a v1.3.5 esta coluna
+e a notificação nativa são as ÚNICAS superfícies que ainda o usam: na barra de
+transporte o par voltou a ser só mídia, porque lá existem dois botões de slide
+próprios ao lado da preview. Aqui não existem, e não podem: sem TV a tela cheia
+É a projeção, e tudo o que se pinta nela a congregação vê.
 
 **O VOLUME NÃO ESTÁ AQUI** (v1.1.2, pedido do operador: *"pode remover os botões
 de volume na tela cheia do preview, para volume usamos apenas os botões físicos
@@ -4595,10 +4703,10 @@ do tratamento de comando do Display) e `previewTick()` (em vez do
 mostra a composição real (fundo + posição do texto), tornando a legenda
 redundante.
 
-**Controle**: a navegação manual de estrofe é o **toque curto em ⏮/⏭** do
-transporte (ver "Um par de botões, dois eixos"); as âncoras
-`#slidePrevBtn`/`#slideNextBtn` continuam existindo, ocultas, como o ponto único
-de estado e execução. `stepSlide(delta)` reaproveita o
+**Controle**: a navegação manual de estrofe é o par de botões que flanqueia a
+preview (`#slidePrevBtn`/`#slideNextBtn`, ver "Os dois botões de slide") — o
+ponto único de estado e execução, também para a tela cheia e a notificação, que
+os acionam por `.click()`. `stepSlide(delta)` reaproveita o
 **comando `seek` já existente** (sem novo tipo no protocolo) — pula pro
 `time` do slide vizinho, e tanto o Display quanto a própria preview
 sincronizam a letra sozinhos ao reagir ao novo tempo.

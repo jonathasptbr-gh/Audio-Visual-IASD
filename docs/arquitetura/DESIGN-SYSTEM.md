@@ -313,10 +313,13 @@ qual dos três.
 Botões de **função** (engrenagem, folha da leitura auxiliar) e **segmentados**
 ficam fora da regra por natureza: não alternam duas ações opostas.
 
-**⏮/⏭ são um terceiro caso**, e o único em que a cor não diz um estado do sistema
-e sim o EIXO do botão: `.slide-mode` (contorno em accent) = "o toque curto passa
-estrofe"; `.axis-end` (esmaecido) = "esse caminho acabou, o toque longo ainda
-troca de mídia".
+**⏮/⏭ foram um terceiro caso até a v1.3.5** — o único em que a cor não dizia um
+estado do sistema e sim o EIXO do botão: `.slide-mode` (contorno em accent) = "o
+toque curto passa estrofe"; `.axis-end` (esmaecido) = "esse caminho acabou, o
+toque longo ainda troca de mídia". As duas classes saíram com o eixo duplo do
+transporte: quem passa slide são dois botões PRÓPRIOS ao lado da preview, e um
+botão com um significado só não tem eixo a anunciar. O que diz "não há para onde
+ir" ali voltou a ser o `disabled` de sempre.
 
 ### Só preenchimento, nenhum contorno
 
