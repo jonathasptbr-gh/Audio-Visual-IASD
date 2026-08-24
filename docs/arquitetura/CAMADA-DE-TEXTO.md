@@ -49,8 +49,8 @@ no tempo de uma gravação.
   telão já sabe desenhar um bloco de texto centrado, que é exatamente o que uma
   estrofe é. Um modo novo no protocolo exigiria shell e bundle novos dos dois
   lados sem mudar um pixel do resultado.
-- **A passagem é do operador**, pelos mesmos ⏮/⏭ que já passam mensagem e
-  versículo: `slideTarget()` devolve `'songlyrics'` (à frente de `'message'` e
+- **A passagem é do operador**, pelos mesmos botões de slide que já passam
+  mensagem e versículo: `slideTarget()` devolve `'songlyrics'` (à frente de `'message'` e
   `'bible'`), `stepSlide` cai em `lyricStep` e `applySlideLimits` desabilita nos
   extremos. É a **ausência** de passagem automática que o operador está pedindo
   ao escolher esta opção.
@@ -152,9 +152,9 @@ cortina e o rodízio de provedor.
   a guarda o segundo toque caía no `pararMidia` do ramo de mídia — o operador
   tocava na IMAGEM para tirá-la e o que saía era o ÁUDIO.
 - **`slideTarget()` devolve `null`** com a imagem em cena, pelo mesmo motivo do
-  cronômetro: o ⏮/⏭ cairia na letra do áudio de fundo, que está ESCONDIDA
-  atrás do cartão — o operador apertaria "próxima estrofe" e a música saltaria
-  sem nada mudar na tela.
+  cronômetro: os botões de slide cairiam na letra do áudio de fundo, que está
+  ESCONDIDA atrás do cartão — o operador apertaria "próxima estrofe" e a música
+  saltaria sem nada mudar na tela.
 - **O título continua sendo o do ÁUDIO** (é o que o ▶ e a barra controlam); o
   que a imagem acrescenta é o subtítulo `'Imagem em cena'` no `pushNowPlaying`.
 - **Trocar de modo apaga a `<img>`** (`display.js`: `if (textMode !== 'image')

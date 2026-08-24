@@ -380,7 +380,8 @@
      tinta, quando ela cai sobre `--panel`, compõe (61,73,89) e dá **4,46:1** —
      quatro centésimos abaixo do piso de 4,5. Sobre `--bg` (mais escuro) o par
      passa com folga, então só os consumidores que moram DENTRO de um cartão
-     raspam: `.pl-pack`, `.t-btn.slide-mode`, `.folder-count--st` e irmãos.
+     raspam: `.pl-pack`, `.folder-count--st` e irmãos. (`.t-btn.slide-mode`
+     era um deles e saiu na v1.3.5, com o eixo de estrofe do transporte.)
      Fica assumido, e não corrigido, porque o .16 é load-bearing: é ele que faz
      esta tinta compor exatamente o `--panel-2` (#3d4959), que é a medição em
      que a regra "os fundos de estado são OPACOS" se apoia (ver "superfície que

@@ -24,6 +24,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
+- **v1.3.5** — O DECK DOS CONTROLES REDESENHADO, a pedido do operador, em quatro movimentos que se sustentam um no outro. (1) Os três controles da fatia do meio do mixer (ver a letra, cobrir o telão, mudo) subiram para CIMA da preview, numa coluna à esquerda, **só ícone e sem moldura** — o desenho que os dois vizinhos de lá já usavam. Com isso os dois de ESTADO trocaram o glifo da fonte por SVG (um `.msym` não tem traço para as três `drop-shadow` do `.pv-fab` sombrearem) e o estado deixou de ser FUNDO para virar COR DE TRAÇO. (2) O espaço que eles deixaram virou um botão de altura inteira para PASSAR SLIDE, e abriu-se uma coluna gêmea do outro lado da preview para VOLTAR — o `.deck` passou a ter três colunas, com `nowplaying` e `transporte` atravessando a da esquerda. (3) O selo de camadas saiu do canto superior esquerdo (que virou a coluna de operação) e foi para o topo AO CENTRO: no alto daquela pilha ele leria como mais um controle dela. (4) Com dois botões de slide na tela, o ⏮/⏭ do transporte perdeu o eixo de estrofe e passa MÍDIA e mais nada — saíram `attachTransportStep` dali, `.slide-mode` e `.axis-end`. O eixo duplo FICA nas duas superfícies sem botão de slide: a coluna da tela cheia (sem TV, o que se pinta ali a congregação vê) e a notificação (onde cabe rótulo, então o modo nunca é adivinhado). Oráculo novo, provado por reversão em quatro frentes — e ele documenta as DUAS asserções que **aprovam** a armadilha do `<use>`. OTA PURO.
 - **v1.3.4** — O RESPIRO ENTRE PARES DA FOLHA DE CIFRA, a pedido do operador: *"a cifra do par abaixo não fica tão próxima da letra do par de cima"*. MEDIDO glifo a glifo antes de escolher qualquer valor, e a medição mudou o plano: a quebra de ESTROFE estava a apenas **1,12×** do respiro entre pares, então subir só o de par a deixaria MENOR que ele — as estrofes parariam de se ler como estrofes. Os dois subiram: 11,6 / 20,7 / 23,2px viraram 11,6 / 29,0 / 43,9px, razões 1 : 2,5 : 3,8. O par NÃO foi tocado (quem o mantém colado é a entrelinha de 1,7). Em `em`, então o A+/A− preserva as proporções — conferido nos três degraus. OTA PURO.
 - **v1.3.3** — A BUSCA MANUAL DE CIFRA SAIU INTEIRA, a pedido do operador: "vamos manter apenas o modo automático". Saíram a lista de resultados, a prévia, o campo de consulta, os atalhos, a escolha FIXADA (`cifraEscolhas` e a tentativa 0 do `cifraProcurar`), o "Esquecer a escolhida", 12 classes de CSS e o `cifra-teclado.test.mjs` — cujo assunto (o teclado do sistema contra o campo de busca) deixou de existir. MEDIDO: 633 linhas a menos. O QUE FICA é a cadeia automática inteira (disco → catálogo → álbum-como-artista → artistas padrão → busca do site) e, na falha, a FRASE do motivo e nada mais — verificado no arnês: zero `<input>`, zero resultados, zero botões. O PREÇO ESTÁ DITO: quando a regra erra, não há mais correção dentro do app. A guarda de teclado saiu com o campo que protegia, e está escrito que ela tem de voltar se um campo voltar. OTA PURO.
 - **v1.3.2** — O "TROCAR" SAIU DO RODAPÉ DA CIFRA, a pedido do operador. Ele era o ÚNICO chamador de `cifraEscolherMostrar`, então saiu com a máquina que só existia para ele (`cifraEscolherAberto`, `cifraEscolherChave`) — deixá-la seria código morto que nenhuma tela alcança. O SELETOR NÃO SAIU: o ramo de `estado !== 'ok'` continua desenhando-o sozinho, abaixo da frase do motivo, que é onde ele é usado quase sempre. A guarda que a máquina carregava ("a prévia é de outra música") passou a morar no próprio `cifraPrevia.chave`. O PREÇO ESTÁ DITO em três lugares: uma cifra que ABRIU errada não tem mais como ser trocada pela aba. E a frase do `sem-cifra` deixou de mandar usar um botão que não existe — aponta para a lista que já está na tela. O `cifra-teclado.test.mjs` deixou de cutucar a função interna e passa a alcançar o seletor como o operador o alcança: por uma procura que falha. OTA PURO.
@@ -259,6 +260,135 @@ na nota que a revoga, não apagada da que a criou.
 - **v5.154** — é METADE OTA e METADE APK, e a divisão importa para quem for testar em aparelho.
 - **v5.155** — é OTA PURO
 - **v5.156** — é METADE OTA e METADE APK, de novo.
+
+---
+
+## v1.3.5 — o deck dos controles redesenhado
+
+Pedido do operador, em quatro partes:
+
+> *"coloque o icone/botão de fechamento da camada de mensagens e etc que ficam
+> sobrepostos, que hoje está sobre o preview, no topo esquerdo, para que fique
+> no topo no centro. coloque os 3 botão de mudo, wallpaper on e auxiliar de
+> leitura, sobre o preview, em uma coluna na lateral esquerda, cuidando para
+> usar o mesmo padrão de simbolos no preview, sem botão, apenas icones.
+> Aproveite o espaço onde estavam esses botões na direita fora da preview, para
+> fazer um botão inteiro nesse espaço para a passagem de slides. e abra um
+> espaço do outro lado para fazer um botão igual para retrocesso dos slides.
+> com esses botões novos para passagem de slides, torne os botões de anterior e
+> próximo que já temos na base, para botões que funcionam diretamente em
+> anterior e próxima midia da playlist, sem mais a função de passar slides
+> nesses botões."*
+
+As quatro se sustentam uma na outra, e é por isso que são um lote só: os três
+controles saem da direita, o vão que eles deixam vira o botão de passar slide,
+o de voltar exige uma coluna nova do outro lado, e só com os dois na tela é que
+o ⏮/⏭ pode largar o eixo de estrofe.
+
+### O `.deck` tem três colunas
+
+`56px / minmax(0, 1fr) / 56px`. A coluna nova tem a largura do mixer porque os
+dois botões de slide precisam ser **gêmeos** — um par que não tem a mesma caixa
+não se lê como par. **Só a faixa da preview usa as três**: `.nowplaying` e
+`.transport` atravessam a da esquerda (`grid-column: 1 / 3`), senão sobrariam
+dois vãos de 56px onde não há botão nenhum. O transporte, que divide a largura
+entre seis botões, é justamente quem tem uso para ela.
+
+A `.slide-side` não precisa do `.mixer-stack` absoluto que o mixer usa: a faixa
+2 é FIXA (`var(--deck-pv-h)`), então um filho no fluxo não tem como inflá-la.
+
+**Com o fader do volume aberto o PAR some junto.** O fader ocupa top+mid, e a
+fatia do meio é o `#slideNextBtn`; uma dupla em que só a metade da esquerda
+sobrevive é pior que dupla nenhuma — o operador toca em "voltar" e procura o
+"passar" que não está lá. `openVolume`/`closeVolume` escrevem `vol-open` também
+no `.deck`.
+
+### Sem moldura, o estado vira COR DE TRAÇO
+
+Os três que subiram viram `.pv-fab`, o desenho que o conectar e o tela cheia já
+usavam ali: traço branco com três `drop-shadow` no SVG. Duas consequências que
+não são cosméticas:
+
+- **O glifo da fonte não serve mais.** As sombras acompanham o TRAÇO do `<svg>`
+  (uma `box-shadow` sombrearia a caixa vazia do botão), e um `.msym` não tem
+  traço — perderia justamente o contraste que mantém o ícone legível sobre um
+  slide branco. Daí `#icoImagem`/`#icoImagemOff` e `#icoSom`/`#icoSomOff` no
+  sprite, e `ICON.image`/`ICON.imageOff` saindo da tabela por não ter mais
+  consumidor. O `#fsView` da tela cheia passou a usar o mesmo par, matando a
+  cópia byte a byte que ele mantinha do desenho da cortina.
+- **Não há o que pintar de `--danger-soft`.** Mudo e telão coberto vestem
+  `--stage-alert` (o vermelho de TRAÇO do palco — o território é o PALCO, que
+  não tem tema, e é o mesmo token do selo de camadas) e o áudio bloqueado veste
+  `--warn-text`, com a pulsação de sempre. A tecla grande do Modo Fácil, que TEM
+  moldura, continua com o par fundo-suave + cor.
+
+**E o espelho do Modo Fácil deixou de copiar o GLIFO.** `renderSimple` lia
+`muteToggleEl.querySelector('.msym').textContent`, e aquele botão não tem mais
+`.msym`. O que ele copia agora é a classe `.alternado` — a MESMA chave que lá
+troca o desenho —, então o espelho continua LENDO o controle de verdade em vez
+de reler `muted`/`displayAudioBlocked` por conta própria.
+
+**A coluna NÃO aparece no Modo Fácil.** A preview é UM nó só e MUDA DE CASA
+(`hostPreview`), então tudo o que se pendura nela viaja junto; lá o mudo já é
+uma tecla grande própria e o resto do modo existe para não ter controles. O
+SELO de camadas fica — ele é a única saída da camada de cima, e não há gêmeo
+dele lá.
+
+### A armadilha do `<use>`
+
+A cortina e o mudo trocam de desenho por `.ico-base`/`.ico-alt`, alternadas pela
+classe `.alternado` — a mesma chave do `#fsView`. **O conteúdo clonado por um
+`<use>` mora numa árvore-sombra que a folha do documento NÃO atravessa**
+(MEDIDO em Chromium, e o probe está descrito no oráculo): um `<symbol>` único
+com os dois desenhos dentro carrega, não erra e desenha **os dois empilhados,
+para sempre**. Por isso são quatro símbolos, e o consumidor pendura dois
+`<use>` — elementos da árvore de LUZ, onde o seletor pega.
+
+**As duas asserções mais óbvias contra ela APROVAM a armadilha**, e as duas
+foram escritas e reprovadas por reversão antes de a terceira ficar:
+
+| tentativa | por que ela passa com a armadilha no lugar |
+|---|---|
+| contar os filhos visíveis do `<svg>` | o consumidor continua com UM `<use>` visível; as duas camadas saem empilhadas POR BAIXO dele |
+| fotografar o botão nos dois estados | ele é transparente e mora SOBRE a preview, que troca a mídia pelo wallpaper no MESMO `renderControls` — a foto difere pelo FUNDO. Neutralizar a cor não basta: o fundo continua mudando |
+
+O que ficou é perguntar ao DOM **qual símbolo está no ar** em cada estado.
+
+### O ⏮/⏭ do transporte passa mídia, e só
+
+`#prev`/`#next` recebem um `click` direto para `step(dir)`. Saíram
+`attachTransportStep` dali e as duas classes que anunciavam o eixo
+(`.slide-mode`, e o `.axis-end` que esmaecia no fim da letra) — um botão com um
+significado só não tem eixo a anunciar, e o que diz "não há para onde ir" nos
+botões de slide voltou a ser o `disabled` de sempre.
+
+**O eixo duplo continua vivo onde não há botão de slide nenhum**, e nas duas
+`attachTransportStep` segue sendo o mecanismo: a coluna da TELA CHEIA (sem TV
+ela É a projeção, e tudo o que se pinta ali a congregação vê) e a NOTIFICAÇÃO
+nativa (onde o eixo é dito no RÓTULO — ali cabe rótulo, então o modo nunca
+precisa ser adivinhado). As duas continuam acionando `#slidePrevBtn`/
+`#slideNextBtn` por `.click()`, que seguem sendo o ponto único onde
+`applySlideLimits` guarda "dá para passar slide agora?".
+
+`renderTransportAxis` deixou de escrever no transporte: hoje ela nomeia os dois
+botões de slide, e o que muda com a cena é o SUBSTANTIVO do rótulo (estrofe,
+versículo, mensagem, página), não o eixo. Sem alvo eles ficam com o nome
+genérico e desabilitados — um nome específico ali prometeria uma cena que não
+está no ar.
+
+### O oráculo
+
+`tools/controles-layout.test.mjs`, no workflow no MESMO commit em que nasce.
+Cobre a geometria (quem flanqueia quem, e com que caixa), a coluna de operação
+(sobre a preview, sem pastilha, sem glifo), o selo centrado que não encosta
+nela, a armadilha do `<use>`, o eixo do transporte medido pelo COMANDO que sai
+no barramento (`seek` é a estrofe andando, e ele não pode mais sair de `#next`),
+o par sumindo com o fader e o Modo Fácil não herdando a coluna.
+
+**Provado por reversão em quatro frentes**: o `attachTransportStep` de volta no
+transporte, o `<symbol>` único, e as duas regras de CSS (`.simple-stage
+.pv-fabs--esq` e `.deck.vol-open .slide-side`). Cada uma derruba exatamente as
+asserções que fala, e nenhuma outra.
 
 ---
 

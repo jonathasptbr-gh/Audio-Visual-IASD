@@ -105,6 +105,11 @@ function pintarTema() {
 pintarTema();
 
 const mixerEl = document.getElementById('mixer');
+// O deck inteiro, e ele existe por UM motivo: o fader do volume cobre a fatia
+// em que mora o botão de PASSAR SLIDE, e o de VOLTAR mora na outra ponta da
+// grade — fora do alcance de qualquer seletor a partir do `.mixer`. É aqui que
+// `openVolume`/`closeVolume` espelham o estado para os dois sumirem juntos.
+const deckEl = document.querySelector('.deck');
 const volToggleEl = document.getElementById('volToggle');
 const volCloseEl = document.getElementById('volClose');
 const settingsBtnEl = document.getElementById('settingsBtn');
@@ -244,7 +249,7 @@ const appVersionEl = document.getElementById('appVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.3.4';
+const WEB_VERSION = '1.3.5';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -465,8 +470,9 @@ const ICON = {
   pause: '', // pause
   // Nomes pelo GLIFO, não pelo estado: os botões mostram a AÇÃO
   // (`renderControls`), então "viewOn" apareceria com a view DESLIGADA.
-  image: '',    // image
-  imageOff: '', // image_not_supported
+  // (`image`/`imageOff` saíram na v1.3.5: a cortina subiu para cima da
+  //  preview e virou SVG do sprite — ver `#icoImagem`. O par abaixo ficou
+  //  porque o `#simpleMute` do Modo Fácil tem moldura e segue sendo glifo.)
   volOn: '', // volume_up
   volOff: '', // volume_off
   music: '', // music_note
@@ -2611,29 +2617,37 @@ function rememberScroll() {
 // e a razão declarada era que estado e ação conviviam misturados na tela. O
 // problema era real, mas a solução escolhida gastava o riscado — o símbolo
 // universal de "cortado" — para dizer justamente que NÃO está cortado. Nada se
-// perde invertendo: a COR já carrega o estado sozinha (`.view-blocked`,
-// `.muted`, `.blocked` pintam o botão inteiro), o `title` continua nomeando a
-// ação, e o ícone volta a ser lido como todo mundo lê um alto-falante riscado.
+// perde invertendo: a COR já carrega o estado sozinha (`.alternado`, `.muted` e
+// `.blocked` pintam o traço sobre a preview e o botão inteiro no Modo Fácil), o
+// `title` continua nomeando a ação, e o ícone volta a ser lido como todo mundo
+// lê um alto-falante riscado.
 //
 // O ▶/⏸ segue sendo AÇÃO — ali a convenção é de plataforma (todo player do
 // mundo mostra ▶ quando está pausado) e o botão não tem cor de estado.
 // `renderRepeat` também segue mostrando o modo atual (ver lá).
 function renderControls() {
-  // Coberto → imagem RISCADA; mídia no ar → imagem inteira.
-  viewToggleEl.querySelector('.msym').textContent = view === 'wallpaper' ? ICON.imageOff : ICON.image;
-  viewToggleEl.classList.toggle('view-blocked', view === 'wallpaper');
+  // Coberto → imagem RISCADA; mídia no ar → imagem inteira. Desde a v1.3.5 os
+  // dois botões moram SOBRE a preview e o desenho é SVG do sprite: quem troca é
+  // a classe `.alternado` (o `<use>` do estado ativo aparece, o outro some — ver
+  // `.pv-fab .ico-alt`), a MESMA chave do `#fsView` da tela cheia. Era um glifo
+  // da fonte, e sobre a miniatura ele não teria traço para as três
+  // `drop-shadow` do `.pv-fab` sombrearem — perdia o contraste que o mantém
+  // legível sobre um slide branco.
+  viewToggleEl.classList.toggle('alternado', view === 'wallpaper');
   viewToggleEl.title = view === 'visual' ? 'Cobrir o telão' : 'Mostrar a mídia no telão';
+  viewToggleEl.setAttribute('aria-label', viewToggleEl.title);
   // 3 estados do botão de mudo: normal | mudo (operador) | sem áudio no
   // Display (navegador bloqueou — tocando mudo; clique tenta liberar). Nos dois
   // últimos NÃO SAI SOM, e é isso que o riscado diz; o que os distingue é a
   // cor (vermelho de mudo × âmbar pulsante de bloqueado).
   const blocked = displayAudioBlocked && !muted;
-  muteToggleEl.querySelector('.msym').textContent = (muted || blocked) ? ICON.volOff : ICON.volOn;
+  muteToggleEl.classList.toggle('alternado', muted || blocked);
   muteToggleEl.classList.toggle('muted', muted);
   muteToggleEl.classList.toggle('blocked', blocked);
   muteToggleEl.title = blocked
     ? 'Sem áudio no Display — toque para tentar liberar'
     : muted ? 'Tirar o mudo' : 'Mutar';
+  muteToggleEl.setAttribute('aria-label', muteToggleEl.title);
   // Os DOIS faders (mixer e barra lateral do modo simplificado) mostram o
   // mesmo volume: um só ponto os escreve, então nunca divergem.
   const volPct = Math.round(volume * 100);
@@ -9493,24 +9507,19 @@ function applySlideLimits(who) {
   slideNextBtnEl.disabled = idx >= lyrics.length - 1;
 }
 
-// Em que eixo ⏮/⏭ estão agora (ver "Um par de botões, dois eixos"). Na
-// notificação nativa o rótulo do botão diz o modo; na tela não cabe rótulo,
-// então dizem a COR (contorno em accent) e o `title`. Sem esse sinal o eixo só
-// se descobriria depois de tocar — e descobrir errado, no meio de um louvor,
-// custa a música inteira.
-//
-// E o botão precisa dizer também quando o toque curto NÃO tem para onde ir (a
-// última estrofe do hino, a última mensagem). Antes isso era óbvio: o botão de
-// estrofe ficava CINZA. Agora o mesmo botão ainda serve à mídia no toque longo,
-// então ele não pode ser `disabled` — o que ele faz é esmaecer (`.axis-end`),
-// que é a mesma leitura de "este caminho acabou" sem tirar o outro do ar.
+// O QUE OS DOIS BOTÕES DE SLIDE ESTÃO PASSANDO AGORA — estrofe, versículo,
+// mensagem ou página. Eles têm um significado só desde a v1.3.5 (o eixo de
+// mídia voltou a ser dos ⏮/⏭ do transporte, e de mais ninguém), então o que
+// muda com a cena não é mais o EIXO: é o SUBSTANTIVO do rótulo. Quem diz "não
+// há para onde ir" é o `disabled` que `applySlideLimits` escreve — o esmaecido
+// de um botão desabilitado, que é a leitura de sempre.
 //
 // AS TRÊS TABELAS COBREM TODOS OS ALVOS DE `slideTarget()`, e isso não é
 // zelo: elas são indexadas pelo alvo, e um alvo que falte não dá erro nenhum —
 // vira `undefined` e o `title` do botão passa a dizer literalmente
-// "undefined · segure para a próxima mídia". Faltavam justamente os dois mais
-// novos, `deck` (v5.97) e `songlyrics` — e o da apresentação é o que mais
-// aparece, porque ali ⏮/⏭ são o único jeito de passar página.
+// "undefined". Faltavam justamente os dois mais novos, `deck` (v5.97) e
+// `songlyrics` — e o da apresentação é o que mais aparece, porque ali eles são
+// o único jeito de passar página.
 const SLIDE_AXIS_NAME = {
   lyrics: 'estrofe', songlyrics: 'estrofe', bible: 'versículo',
   message: 'mensagem', deck: 'página',
@@ -9523,15 +9532,15 @@ const SLIDE_AXIS_NEXT = {
   lyrics: 'Próxima estrofe', songlyrics: 'Próxima estrofe', bible: 'Próximo versículo',
   message: 'Próxima mensagem', deck: 'Próxima página',
 };
+// O rótulo dos dois botões de slide. Sem alvo eles ficam com o nome genérico —
+// e desabilitados, porque `applySlideLimits` já respondeu que não há para onde
+// ir; um nome específico ali prometeria uma cena que não está no ar.
 function renderTransportAxis(who) {
-  const par = [[prevEl, slidePrevBtnEl, SLIDE_AXIS_PREV[who], 'Mídia anterior', 'segure para a mídia anterior'],
-    [nextEl, slideNextBtnEl, SLIDE_AXIS_NEXT[who], 'Próxima mídia', 'segure para a próxima mídia']];
-  for (const [btn, ancora, rotulo, soMidia, dica] of par) {
-    btn.classList.toggle('slide-mode', !!who);
-    btn.classList.toggle('axis-end', !!who && ancora.disabled);
-    btn.title = who
-      ? rotulo + (ancora.disabled ? ' (fim) · ' : ' · ') + dica
-      : soMidia;
+  const par = [[slidePrevBtnEl, SLIDE_AXIS_PREV[who], 'Slide anterior'],
+    [slideNextBtnEl, SLIDE_AXIS_NEXT[who], 'Próximo slide']];
+  for (const [btn, rotulo, generico] of par) {
+    btn.title = rotulo || generico;
+    btn.setAttribute('aria-label', btn.title);
   }
 }
 
@@ -20814,18 +20823,28 @@ stopEl.addEventListener('click', stopClear);
 slidePrevBtnEl.addEventListener('click', () => stepSlide(-1));
 slideNextBtnEl.addEventListener('click', () => stepSlide(1));
 
-// ===== Um par de botões, dois eixos (⏮/⏭) =====
-// UM par, com os dois eixos separados pelo TEMPO do toque:
+// ===== Um par de botões, dois eixos =====
+// UM par de ⏮/⏭ servindo aos DOIS eixos, separados pelo TEMPO do toque:
 //   • toque curto → o eixo da CENA: passa estrofe quando há estrofe a passar
 //     (letra, versículo ou mensagem no ar), e passa de mídia quando não há;
 //   • toque longo → SEMPRE mídia (a saída para quando a cena tem estrofes e
 //     mesmo assim se quer trocar de música).
 //
-// A regra de qual eixo vale é `slideTarget()`, a MESMA que a notificação nativa
-// consulta (`slideMode` em `pushNowPlaying`) e a mesma do gesto da tela cheia.
-// Quem executa continua sendo `#slidePrevBtn`/`#slideNextBtn` por `.click()`:
-// eles saíram da tela, não do sistema — é neles que `applySlideLimits` guarda
-// "dá para passar estrofe agora?", e um botão `disabled` é no-op natural.
+// ISTO NÃO VALE MAIS PARA O TRANSPORTE (v1.3.5). Lá o par voltou a ter um
+// significado só — MÍDIA anterior/próxima —, porque a preview passou a ser
+// flanqueada por dois botões de slide de altura inteira, e um eixo escondido
+// atrás do tempo do toque não se justifica quando o outro tem botão próprio a
+// dois centímetros dali. O que resta aqui são as DUAS superfícies em que não
+// há botão de slide nenhum e o par continua sendo tudo o que existe:
+//   • a COLUNA DA TELA CHEIA (sem TV ela É a projeção, e nada mais é desenhado);
+//   • a NOTIFICAÇÃO nativa, onde o eixo é dito no RÓTULO do botão
+//     (`slideMode`/`slideLabel` em `pushNowPlaying`) — ali cabe rótulo, então
+//     o modo nunca precisa ser adivinhado.
+//
+// A regra de qual eixo vale é `slideTarget()`, a MESMA nas duas. Quem executa
+// continua sendo `#slidePrevBtn`/`#slideNextBtn` por `.click()`: é neles que
+// `applySlideLimits` guarda "dá para passar slide agora?", e um botão
+// `disabled` é no-op natural.
 //
 // O limiar é o mesmo `LONGPRESS` (450 ms) dos itens da biblioteca: dois tempos
 // para "segurar" no mesmo app seriam duas coisas para o dedo aprender. O toque
@@ -20846,8 +20865,10 @@ function attachTransportStep(btn, dir) {
     else step(dir);
   });
 }
-attachTransportStep(prevEl, -1);
-attachTransportStep(nextEl, 1);
+// O TRANSPORTE PASSA MÍDIA E MAIS NADA (v1.3.5): sem toque longo, sem eixo a
+// descobrir. Quem passa slide são os dois botões que flanqueiam a preview.
+prevEl.addEventListener('click', () => step(-1));
+nextEl.addEventListener('click', () => step(1));
 repeatEl.addEventListener('click', cycleRepeat);
 
 
@@ -20920,10 +20941,17 @@ lyricsBgSegEl.addEventListener('click', (e) => {
 // vol-open/vol-closing/vol-revealing em controle.css.
 const VOL_ANIM = 190; // ms — casa com as durações das animações no CSS
 let volAnimTimer = null;
+// O `vol-open` do DECK é o mesmo estado, escrito num segundo lugar de
+// propósito (ver `deckEl`): o fader engole a fatia do `#slideNextBtn`, e um par
+// de slide com só a metade da esquerda no ar é pior que par nenhum — o operador
+// toca em "voltar" e procura o "passar" que não está lá. Some junto, volta
+// junto. Só o `vol-open` viaja: a animação de entrada/saída é do fader, e o
+// botão da esquerda não entra nem sai de lugar nenhum.
 function openVolume() {
   clearTimeout(volAnimTimer);
   mixerEl.classList.remove('vol-closing', 'vol-revealing');
   mixerEl.classList.add('vol-open');
+  deckEl.classList.add('vol-open');
 }
 function closeVolume() {
   if (!mixerEl.classList.contains('vol-open')) return;
@@ -20931,6 +20959,7 @@ function closeVolume() {
   mixerEl.classList.add('vol-closing');
   volAnimTimer = setTimeout(() => {
     mixerEl.classList.remove('vol-open', 'vol-closing');
+    deckEl.classList.remove('vol-open');
     mixerEl.classList.add('vol-revealing');
     volAnimTimer = setTimeout(() => mixerEl.classList.remove('vol-revealing'), VOL_ANIM);
   }, VOL_ANIM);
@@ -21135,7 +21164,13 @@ function renderSimple() {
   if (appMode !== 'simple') return;
   simpleNpNameEl.textContent = npNameInnerEl.textContent || 'Nada tocando';
   simplePlayEl.querySelector('.msym').textContent = playPauseEl.querySelector('.msym').textContent;
-  simpleMuteEl.querySelector('.msym').textContent = muteToggleEl.querySelector('.msym').textContent;
+  // O botão espelhado deixou de ter glifo na v1.3.5 (subiu para a preview e
+  // virou SVG), então o que se copia agora é a CLASSE de estado — `.alternado`
+  // é a mesma chave que lá troca o desenho. O espelho continua LENDO o controle
+  // de verdade em vez de reler `muted`/`displayAudioBlocked` por conta própria:
+  // uma segunda leitura divergiria no primeiro caso de borda.
+  simpleMuteEl.querySelector('.msym').textContent =
+    muteToggleEl.classList.contains('alternado') ? ICON.volOff : ICON.volOn;
   simpleMuteEl.classList.toggle('muted', muteToggleEl.classList.contains('muted'));
   simpleMuteEl.classList.toggle('blocked', muteToggleEl.classList.contains('blocked'));
   simpleMuteEl.title = muteToggleEl.title;
