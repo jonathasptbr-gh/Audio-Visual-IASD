@@ -24,6 +24,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
+- **v1.3.13** — O PLAYER PASSOU A SER UM DETENTOR, e a folha desce por onde subiu. (1) **APAGAR DO CRONOGRAMA UM ITEM EM EXECUÇÃO INTERROMPIA A CENA**, e eram DOIS defeitos. O primeiro era uma LINHA: `botaoExcluirDaLinha` chamava `retirarDoAr` antes de mexer na lista — a dica do próprio botão fala de LISTA, parar a projeção tem botão próprio (o segundo toque), e a FILA já fazia o certo desde a v5.309 com o motivo escrito. O segundo NÃO TEM SINTOMA: o coletor só conhece LISTAS, então sair da última apagava os bytes na MESMA transação, por baixo de uma projeção que seguia tocando — e só uma queda de dongle revelaria, quando o `resendSceneToDisplay` chamasse `getMedia`. A resposta é a que o operador nomeou (*"onplayer também deveria ser um elemento que mantém a existência de um item"*): `send()` fixa a cena na prateleira `avulsos`, que já era o detentor invisível do "Tocar agora" e do Modo Fácil e só não valia no avançado. O rodízio de três continua, e `soltarAvulso` mantém a regra antiga de pé — um item que JÁ TOCOU e foi excluído depois morre igual; sobrevive só o que está em cena AGORA. (2) A folha de Ferramentas ganhou a saída que faltava: mesma curva, mesma duração (`--tools-anim`, um valor só para o CSS e o JS), ao contrário. Quem a tira da árvore é o `hidden` no fim, não um `fill-mode` — uma folha "fora" por translação continuaria capturando toque —, e o relógio dispara sem `animationend`, que `prefers-reduced-motion` nunca entregaria. Oráculo novo (`excluir-em-cena`), provado por reversão em seis frentes. OTA PURO.
 - **v1.3.12** — O AVISO QUE FALTAVA NA IMPORTAÇÃO, E A PREVIEW QUE É A PROJEÇÃO. Dois pedidos do operador, e o segundo fecha o achado 3. (1) **IMPORTAR NÃO DIZIA QUE ESTAVA IMPORTANDO**: um vídeo do armazenamento leva segundos até virar linha (o `fetch` do `/saf/` copia o arquivo, o `prepararMidia` decodifica um quadro e mede a duração, o `addMedia` grava), e nesse tempo a folha de destinos já tinha fechado e a lista continuava igual — *"não soube se ele travou ou se estava importando"*. A importação de APRESENTAÇÃO já fazia o certo; o ramo da mídia comum é que tinha ficado sem. O par é o mesmo (`libBusy` no avançado, `previewBusy` no Modo Fácil), e o `soltar()` mora num `finally` por causa dos três `continue` do laço. O oráculo mede o MEIO, não o desfecho — a ausência de um aviso não é um erro, e um teste do fim passa nas duas versões —, com o arquivo servido AOS PEDAÇOS para a janela existir. (2) **O LOUVOR CALAVA AO MINIMIZAR SEM TELA CONECTADA**, e a cena que faltava veio do operador: *"ocorre quando não há telas conectadas, no caso no modo onde o áudio deve sair no próprio smartphone"*. Sem tela quem toca é o `<video>` da PREVIEW, no WebView do Controle, e o Chromium pausa o de uma página oculta — as três correções anteriores desta família (v1.26, v1.27, v1.28) protegiam o WebView do TELÃO. A resposta é a que `DISPLAY.md` deixou escrita para o dia, sem desvio: `AVNative.projecaoLocal(bool)` (shell **56**) liga no Controle o `manterVisivel` + `RENDERER_PRIORITY_IMPORTANT` que o telão já tem, mais `onResume`/`resumeTimers` no `onStop`. **CONDICIONAL de propósito** — com telão no ar o Controle DEVE ser estrangulado (é o que o `snoopDisplayStatus` contorna) —, e a pergunta tem duas metades: não há tela **e** há cena no ar. `cenaNoAr()` saiu de dentro do `pushNowPlaying` e virou veredito com dois leitores. O estado atravessa a remontagem do WebView, ao contrário do `backgroundWork` e pelo motivo oposto. **EXIGE RELEASE v1.3.12**: `SHELL_VERSION` 55 → 56, `minShell: 56`, `shellTag`.
 - **v1.3.11** — O FANTASMA DA TROCA DE ABA PASSAVA POR CIMA DO CABEÇALHO. Conserto da v1.3.10, achado relendo o próprio diff: o `.list-body` que nasceu para a folha de Ferramentas ancorar é POSICIONADO, e com isso virou o offsetParent da `#library` — mas o fantasma do carrossel continuava sendo pendurado no `<main>` com as coordenadas do FILHO (`offsetTop`/`offsetLeft`), o que o subia a altura inteira do cabeçalho. Por 220 ms a tela que sai passava sobre o nome da tela e a engrenagem, sem erro em lugar nenhum e sem oráculo que olhasse — é o tipo de coisa que só aparece perguntando *o que este diff mudou por baixo do que ele não tocou?*. Quem RECORTA continua sendo o `overflow: hidden` do `<main>`, ancestral dos dois. Asserção nova no `ferramentas-folha.test.mjs`, medindo o transiente no instante em que ele nasce (`switchTab` monta o fantasma de forma síncrona, antes do `await load()`); provada por reversão. OTA PURO.
 - **v1.3.10** — SEIS PEDIDOS DO OPERADOR, E UM DELES ERA UM DEFEITO DE VERDADE. (1) **O FUNDO DA LETRA sumia** ao trocar de música ou passar slide logo depois de carregar uma, e só voltava reiniciando a música ou religando as imagens em Configurações. A `<img>` de fundo é FILHA da camada da letra, então o desmonte dela é ADIADO; quando a letra volta antes do prazo — que é o que TODO `load` de música faz — alguém precisa CANCELAR o desmonte, e a guarda de sequência não cancela: ela não anda quando a estrofe que volta usa a MESMA imagem, o caso normal (o fallback grudento do sync dá uma imagem por hino, e hinos do mesmo hinário compartilham a arte do álbum). **O telão tinha as três proteções desde que o defeito foi visto lá; a preview não tinha — e a documentação já as descrevia como se fossem de ambos.** É a armadilha do `__tela` no `display-ready`: ler cada lado isolado aprova os dois. Sem TV a preview É a projeção. (2) A COLUNA DA TELA CHEIA nasce ACESA e o toque virou INTERRUPTOR — ela vinha apagada e não dizia que existia, que é o problema dos gestos invisíveis com um passo a mais; e o gesto existia num sentido só. Tocar num BOTÃO continua RENOVANDO, senão comandar a projeção fecharia a coluna a cada comando. (3) AS FERRAMENTAS saíram da faixa de abas e viraram uma FOLHA do Cronograma, aberta pelo botão à direita de "Importar arquivos" — e a mudança é de PARENTESCO, não de navegação: tudo que elas produzem é CENA que entra no roteiro. Ela sobe DENTRO da lista, deixando o cabeçalho e a caixa de controles à vista, e `activeTab` continua `'imports'`. O valor `'mic'` de `activeTab` deixou de existir. (4) A faixa ficou com Cronograma, Bíblia e a busca. (5) "Transmitir para navegador" virou **"Conectar um computador"**, fazendo par com "Conectar uma TV". (6) O selo de camadas desceu do topo para a base da preview. **O sétimo relato — mídia baixada pausando ao minimizar — não entrou:** aquela família já foi atacada quatro vezes e as três cenas possíveis (telão · preview · telas da rede) pedem correções opostas; virou o achado 3 de `ACHADOS-EM-ABERTO.md`, com o pedido de Registro que fecha em um passo. Dois oráculos novos, provados por reversão em oito frentes. OTA PURO.
@@ -267,6 +268,85 @@ na nota que a revoga, não apagada da que a criou.
 - **v5.154** — é METADE OTA e METADE APK, e a divisão importa para quem for testar em aparelho.
 - **v5.155** — é OTA PURO
 - **v5.156** — é METADE OTA e METADE APK, de novo.
+
+---
+
+## v1.3.13 — o player passou a ser um detentor, e a folha desce por onde subiu
+
+### 1. Apagar um item em execução interrompia a cena
+
+*"Ao apagar um item do cronograma (e provavelmente em outras listas) enquanto ele
+está em execução, o item interrompe sua execução. Verifique, pois onplayer também
+deveria ser um elemento que mantém a existência de um item no sistema."*
+
+Eram **dois** defeitos, e o operador nomeou o segundo sem ter como vê-lo.
+
+**O primeiro era uma linha.** `botaoExcluirDaLinha` chamava `retirarDoAr(item)`
+antes de mexer na lista. A dica do próprio botão é o contrato, e ela fala de
+LISTA — *"tirar isto desta lista; os arquivos só são apagados se ele não estiver
+em mais nenhuma"*. Parar a projeção é outra ação, tem botão próprio (o segundo
+toque na linha) e não podia vir de carona. **A FILA já fazia o certo**, com o
+motivo escrito na linha dela desde a v5.309 (*"o item pode estar no Cronograma e
+seguir projetando"*); era este caminho que destoava.
+
+**O segundo não tem sintoma, e é o que o pedido descreve.** O coletor só conhece
+LISTAS: `listRemove` pergunta se algum outro detentor aponta o id e, não achando
+nenhum, apaga os bytes na MESMA transação. Estar NO AR não era detenção nenhuma.
+Corrigir só o primeiro deixaria a cena tocando com o registro já apagado por
+baixo — e isso **não aparece**: o `<video>` já tem os bytes. Só uma queda de
+dongle revelaria, quando o `resendSceneToDisplay` chamasse `getMedia` e não
+achasse nada, no meio do culto, sem nada ligando uma coisa à outra.
+
+**A resposta já existia com outro nome.** A prateleira `avulsos` é, desde a
+v5.87, *"o detentor da mídia em cena sem lista nenhuma"* — e o `soltarAvulso` já
+carregava por escrito a regra certa: *"a ÚNICA exceção é o que está EM CENA:
+soltá-la apagaria o blob de baixo de uma projeção"*. O que faltava era pôr a
+cena LÁ no modo avançado, onde o item quase sempre TEM lista e por isso nunca era
+fixado. `send()` passou a chamar `fixarAvulso(id)` — o ponto por onde todos os
+caminhos passam, que é o mesmo argumento das três guardas que já moram ali.
+
+| consequência | por quê |
+|---|---|
+| **vale para todo caminho de remoção** | o excluir da linha, o da seleção múltipla e o que vier depois — nenhum precisa saber da regra |
+| **o rodízio de três continua** | tocar o culto inteiro não empilha nada: a mídia sai da prateleira três cenas depois |
+| **excluir continua sendo uma DECLARAÇÃO DE INTENÇÃO** | `soltarAvulso` roda em todo caminho de exclusão e tira o id da prateleira, exceto se ele for o `currentId`. Um item que JÁ TOCOU e foi excluído depois morre igual |
+| **sem `await` no `send`** | a cena não espera cinco transações de IndexedDB, e o que a proteção defende acontece segundos depois (o dedo indo até a lixeira). A guarda do `soltarAvulso` compara com `currentId`, escrito de forma síncrona — ela não depende dessa gravação |
+
+**O oráculo mede as três metades**, e a terceira é a que impede a correção de
+virar outro defeito: parar de coletar passaria nas duas primeiras e
+transformaria o aparelho num depósito. Ela precisou de cenário — o item de
+controle **toca antes** de ser excluído, senão nunca passaria pela prateleira e
+a asserção aprovaria o que existe para reprovar.
+
+### 2. A folha de Ferramentas desce por onde subiu
+
+*"Verifique o fechamento da seção de ferramentas, para fechar com animação igual
+é feito na abertura."*
+
+A v1.3.10 tinha escrito que a saída não teria par, com um argumento (*"fechar é o
+operador voltando ao roteiro, e uma folha que demora a sair atrasa o que ele foi
+fazer"*). O argumento estava errado pelo lado do olho: uma folha que aparece
+deslizando e some no talo lê como **duas coisas diferentes**, e a segunda parece
+um erro justamente porque a primeira já ensinou a esperar o contrário.
+
+- **Um valor só para o tempo** (`--tools-anim`), lido pelo CSS e espelhado no
+  `TOOLS_ANIM_MS`. Dois tempos divergiriam no primeiro ajuste, e o que se veria é
+  a folha sumindo no meio do caminho.
+- **Quem a tira da árvore é o `hidden`, no FIM** — não um `animation-fill-mode`:
+  uma folha "fora" por estar transladada continuaria capturando toque sobre a
+  lista. A animação é o caminho até o estado, não o estado.
+- **O corpo é esvaziado junto com o `hidden`**, e não no começo: limpá-lo antes
+  deixaria a folha descendo VAZIA — o mesmo defeito que o `hideText` já evita.
+- **Sem `animationend`.** `prefers-reduced-motion` desliga a animação e o evento
+  nunca chega: a folha ficaria de pé para sempre. O relógio dispara igual, e com
+  a animação desligada os 220 ms passam despercebidos.
+- **Reabrir cancela a saída em curso**, senão a folha entraria com a classe da
+  descida pendurada e o `setTimeout` daquela saída a esconderia logo depois.
+
+E os oráculos que liam o `hidden` no ato passaram a ler o **começo** da saída
+(`.saindo`) e depois esperar pelo fim: afirmar só o desfecho não separaria
+"fechou" de "nunca fechou", porque os dois acabam iguais depois de um prazo
+generoso.
 
 ---
 

@@ -710,6 +710,18 @@ jobs:
           # arquivo ilegível deixa um aro girando na lista para sempre.
           rodar tools/aviso-de-importacao.test.mjs
 
+          # EXCLUIR DE UMA LISTA NÃO PODE DERRUBAR A CENA, e eram DOIS defeitos.
+          # O primeiro tem sintoma (o louvor parava); o SEGUNDO não tem nenhum:
+          # o coletor só conhecia LISTAS, então sair da última apagava os bytes
+          # por baixo de uma projeção que seguia tocando — só uma queda de
+          # dongle revelaria, no meio do culto, sem nada ligando uma coisa à
+          # outra. Daí ele medir que a cena continua ANDANDO (não só "não
+          # pausou") E que o registro sobrevive. A terceira metade é a que
+          # impede a correção de virar outro defeito: um item que JÁ TOCOU e não
+          # está mais em cena tem de morrer de verdade — sem ela, parar de
+          # coletar passaria nas duas primeiras.
+          rodar tools/excluir-em-cena.test.mjs
+
           # O PLACAR VAI PARA O RESUMO DO RUN, não só para o log — a queixa que
           # originou este lote foi precisamente que o desfecho só existia lá
           # dentro. `rodados` é CONTADO, nunca digitado: um número fixo aqui

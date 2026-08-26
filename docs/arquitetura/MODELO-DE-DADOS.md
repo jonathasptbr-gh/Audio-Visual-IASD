@@ -87,6 +87,26 @@ entra empurra o mais ANTIGO para fora, e aí o `listRemove` decide sozinho — o
 blob some se ninguém mais o quiser e fica inteiro se o Cronograma, a playlist
 ou um Favorito também o tiverem.
 
+**E DESDE A v1.3.13 ELA SEGURA TODA CENA, não só a mídia sem lista.** O pedido do
+operador foi *"onplayer também deveria ser um elemento que mantém a existência de
+um item no sistema"*, depois de apagar do Cronograma um item que estava tocando e
+ver a cena cair. O coletor só conhece LISTAS — `listRemove` pergunta se algum
+outro detentor aponta o id e, não achando nenhum, apaga os bytes na MESMA
+transação —, então estar NO AR não era detenção nenhuma.
+
+`send()` passou a chamar `fixarAvulso(id)`, e é o ponto por onde TODOS os
+caminhos passam (o toque na lista, o avanço da playlist, o ⏮/⏭, a notificação
+nativa). Três consequências, e a terceira é a que mantém a regra antiga de pé:
+
+- **o player é um detentor** para qualquer caminho de remoção — o excluir da
+  linha, o da seleção múltipla e o que vier depois;
+- **o rodízio de três continua valendo**, então tocar o culto inteiro não empilha
+  nada: a mídia sai da prateleira três cenas depois;
+- **excluir continua sendo uma DECLARAÇÃO DE INTENÇÃO.** `soltarAvulso` roda em
+  todo caminho de exclusão e tira o id da prateleira — exceto se ele for o
+  `currentId`. Um item que JÁ TOCOU e foi excluído depois morre igual; o que está
+  em cena agora é o único que sobrevive, e sobrevive porque está sendo usado.
+
 O tamanho é a escolha entre dois extremos ruins. Com **um** lugar, voltar ao
 vídeo anterior baixa tudo de novo — exatamente o desperdício que a v5.87
 existe para acabar. **Sem limite**, a mídia que a tela não mostra vira uma

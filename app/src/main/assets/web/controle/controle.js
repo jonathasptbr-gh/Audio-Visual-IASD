@@ -252,7 +252,7 @@ const appVersionEl = document.getElementById('appVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.3.12';
+const WEB_VERSION = '1.3.13';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -3165,8 +3165,8 @@ function renderPlaylist() {
     //
     // O QUE NÃO MUDA É A SEMÂNTICA, e por isso ele não é um
     // `botaoExcluirDaLinha`: sair da FILA não é sair de uma lista de acervo.
-    // Sem `retirarDoAr` (o item pode estar no Cronograma e seguir projetando, e
-    // a linha de lá o explica) e sem `soltarAvulso` — a prateleira `avulsos` é
+    // Sem `retirarDoAr` (o item pode estar no Cronograma e seguir projetando) e
+    // sem `soltarAvulso` — a prateleira `avulsos` é
     // detentora à parte, e soltá-la aqui apagaria a mídia que o "Tocar agora"
     // segurava.
     //
@@ -6136,8 +6136,21 @@ function refreshDiversos() {
 // existia porque as ferramentas ocupavam a lista, e não ocupam mais.
 function ferramentasAbertas() { return !!toolsSheetEl && !toolsSheetEl.hidden; }
 
+// A DURAÇÃO DA ENTRADA E DA SAÍDA, e ela é UMA — lida do `--tools-anim` do CSS,
+// que é o dono. Um número repetido aqui divergiria do outro no primeiro ajuste,
+// e o que se veria é a folha sumindo no meio do caminho (ou uma faixa parada
+// depois de ela já ter descido).
+const TOOLS_ANIM_MS = 220;
+let toolsSaindoTimer = null;
+
 function abrirFerramentas() {
   if (!toolsSheetEl || ferramentasAbertas()) return;
+  // Uma saída em curso é CANCELADA: reabrir no meio dela deixaria a folha
+  // entrando com a classe da descida ainda pendurada, e o `setTimeout` daquela
+  // saída a esconderia logo depois — aberta e sumindo sozinha.
+  clearTimeout(toolsSaindoTimer);
+  toolsSaindoTimer = null;
+  toolsSheetEl.classList.remove('saindo');
   toolsSheetEl.hidden = false;
   toolsBodyEl.innerHTML = '';
   renderDiversos();
@@ -6154,8 +6167,31 @@ function fecharFerramentas() {
   // timer de 5 Hz reescrevendo nós que o `innerHTML = ''` já descartou.
   stopChronoPanelTimer();
   stopDrawPanelTimer();
-  toolsSheetEl.hidden = true;
-  toolsBodyEl.innerHTML = '';
+  // A FOLHA DESCE POR ONDE SUBIU (v1.3.13, a pedido do operador). Ela aparecia
+  // deslizando e sumia no talo — duas coisas diferentes para o olho, e a
+  // segunda lendo como um erro justamente porque a primeira já ensinou a
+  // esperar o contrário.
+  //
+  // O ESTADO CONTINUA SENDO O `hidden`, e ele só cai no FIM: uma folha "fora"
+  // por estar transladada continuaria na árvore e capturando toque. A animação
+  // é o caminho até o estado, não o estado.
+  //
+  // O CORPO É ESVAZIADO JUNTO COM O `hidden`, e não agora: limpá-lo aqui
+  // deixaria a folha descendo VAZIA, que é o mesmo defeito que o
+  // `hideText`/`hidePvText` já evita ("apagá-lo na hora deixaria o cartão vazio
+  // visível durante todo o fade").
+  //
+  // Sem `animationend`: um `prefers-reduced-motion` desliga a animação e o
+  // evento nunca chega — a folha ficaria de pé para sempre. O relógio dispara do
+  // mesmo jeito, e com a animação desligada os 220 ms passam despercebidos.
+  clearTimeout(toolsSaindoTimer);
+  toolsSheetEl.classList.add('saindo');
+  toolsSaindoTimer = setTimeout(() => {
+    toolsSaindoTimer = null;
+    toolsSheetEl.classList.remove('saindo');
+    toolsSheetEl.hidden = true;
+    toolsBodyEl.innerHTML = '';
+  }, TOOLS_ANIM_MS);
 }
 
 // ===== Mensagens: botão flutuante na preview + popup =====
@@ -6868,7 +6904,20 @@ function botaoExcluirDaLinha(item, lista, depois) {
       dica: 'Tirar ' + nome + ' desta lista. Os arquivos só são apagados se '
         + 'ele não estiver em mais nenhuma.',
       aoConfirmar: async () => {
-        if (noArAgora(item)) await retirarDoAr(item);
+        // EXCLUIR DE UMA LISTA NÃO TIRA DO AR (v1.3.13). Havia aqui um
+        // `retirarDoAr`, e era ele — não o coletor — que interrompia o louvor
+        // quando o operador apagava do Cronograma o item que estava tocando.
+        //
+        // A dica logo acima é o contrato, e ela fala de LISTA: *"tirar isto
+        // desta lista"*. Parar a projeção é outra ação, tem botão próprio (o
+        // segundo toque na linha) e não podia vir de carona.
+        //
+        // A FILA JÁ FAZIA ASSIM, com o motivo escrito na linha dela desde a
+        // v5.309: *"o item pode estar no Cronograma e seguir projetando"*. Era
+        // este caminho que destoava.
+        //
+        // E o que sustenta a mudança é o `fixarAvulso` do `send`: sem ele o
+        // `listRemove` abaixo apagaria os bytes de baixo da cena.
         if (lista === 'favs') favSet.delete(item.id);
         await AVDB.listRemove(lista, item.id);
         await soltarAvulso(item.id);
@@ -9437,6 +9486,37 @@ async function send(id, daFila, retomarEm) {
   // está em lista nenhuma, e sem essa leitura o `|| currentItem` deixava no ar
   // o nome do item ANTERIOR, que é pior que nome nenhum.
   currentItem = alvo || currentItem;
+  // ===== O PLAYER É UM DETENTOR (v1.3.13) =====
+  //
+  // Pedido do operador, nas palavras dele: *"onplayer também deveria ser um
+  // elemento que mantém a existência de um item no sistema"*. Ele apagou do
+  // Cronograma um item que estava tocando, e a cena caiu.
+  //
+  // O coletor só conhece LISTAS: `listRemove` pergunta se algum outro detentor
+  // aponta o id e, não achando nenhum, apaga os bytes na MESMA transação. Estar
+  // NO AR não era detenção nenhuma — então sair da última lista matava o
+  // registro de baixo de uma projeção. A cena até seguia (o `<video>` já tem os
+  // bytes), mas era irrecuperável: uma queda de dongle chama
+  // `resendSceneToDisplay`, e o `getMedia` não acharia mais nada.
+  //
+  // A PRATELEIRA `avulsos` JÁ ERA A RESPOSTA, e já era usada assim no Modo
+  // Fácil e no "Tocar agora" — ela existe exatamente para segurar "a mídia em
+  // cena sem pertencer a lista nenhuma". O que faltava era pô-la a valer no
+  // modo avançado, onde o item quase sempre TEM lista e por isso nunca era
+  // fixado. `fixarAvulso` é idempotente e faz rodízio de três, então tocar o
+  // culto inteiro não empilha nada.
+  //
+  // AQUI e não no toque da lista: `send` é o ponto por onde TODOS os caminhos
+  // passam — o avanço automático da playlist, o ⏮/⏭ do transporte, a
+  // notificação nativa, o roteiro. É o mesmo argumento das três guardas acima,
+  // e é o que faz a proteção valer para o excluir da LINHA, o da seleção
+  // múltipla e qualquer caminho de remoção que venha depois.
+  //
+  // SEM `await`: a cena não pode esperar por cinco transações de IndexedDB, e o
+  // que a proteção defende acontece segundos depois (o dedo indo até a lixeira).
+  // O `soltarAvulso` do caminho de excluir compara com `currentId`, que já foi
+  // escrito acima de forma síncrona — a guarda não depende desta gravação.
+  fixarAvulso(id).catch(() => { /* a prateleira é cache; falhar nela não derruba a cena */ });
   // ===== A CIFRA COMEÇA A SER BUSCADA AGORA, NÃO AO ABRIR A ABA (v1.1.16) =====
   //
   // Pedido do operador: *"que a busca da cifra seja automaticamente ao tocar a

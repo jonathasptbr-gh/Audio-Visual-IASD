@@ -62,6 +62,11 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
      Dois degraus (controle × cartão) e três exceções nomeadas. Um raio literal
      solto é o que produz dois botões irmãos, na mesma linha, com cantos
      diferentes. */
+  /* A folha de Ferramentas sobe e desce nesta duração — UM valor, porque o JS
+     precisa do MESMO número para tirar a folha da tela no fim da saída (ver
+     `TOOLS_ANIM_MS` em controle.js). Dois lugares com o mesmo tempo divergem no
+     primeiro ajuste, e o que se vê é a folha sumindo no meio do caminho. */
+  --tools-anim: .22s;
   --radius-btn: 8px;
   --radius-card: 10px;
   --radius-pill: 999px;
@@ -1656,17 +1661,33 @@ main {
   box-shadow: 0 4px 14px var(--shadow-card);
 }
 .tools-sheet[hidden] { display: none; }
-/* A ENTRADA é uma animação de UMA passada, e não uma transição de classe: a
+/* ENTRADA E SAÍDA SÃO ANIMAÇÕES DE UMA PASSADA, não transições de classe: a
    folha nasce com `hidden`, e um `transform` que muda no mesmo quadro em que o
    elemento aparece não anima — o navegador não tem estado anterior para
-   interpolar. A saída não tem par: fechar é o operador voltando ao roteiro, e
-   uma folha que demora a sair atrasa o que ele foi fazer. */
+   interpolar.
+
+   A SAÍDA GANHOU PAR na v1.3.13, a pedido do operador. Ela é a mesma curva e a
+   mesma duração da entrada, ao contrário: a folha desce por onde subiu. Uma
+   folha que aparece deslizando e some no talo lê como duas coisas diferentes —
+   a segunda parecendo um erro, porque o olho já aprendeu a primeira.
+
+   QUEM A TIRA DA TELA É O JS, no fim da animação (`fecharFerramentas`), e não o
+   `animation-fill-mode`: uma folha "fora" só por estar transladada continuaria
+   ocupando a árvore e capturando toque. O `hidden` é o estado, a animação é só
+   o caminho até ele. */
 @keyframes tools-sobe {
   from { transform: translateY(100%); }
   to { transform: none; }
 }
-.tools-sheet { animation: tools-sobe .22s ease; }
-@media (prefers-reduced-motion: reduce) { .tools-sheet { animation: none; } }
+@keyframes tools-desce {
+  from { transform: none; }
+  to { transform: translateY(100%); }
+}
+.tools-sheet { animation: tools-sobe var(--tools-anim) ease; }
+.tools-sheet.saindo { animation: tools-desce var(--tools-anim) ease; }
+@media (prefers-reduced-motion: reduce) {
+  .tools-sheet, .tools-sheet.saindo { animation: none; }
+}
 .tools-head {
   flex-shrink: 0; display: flex; align-items: center; gap: .4rem;
   margin-bottom: .5rem;

@@ -1755,6 +1755,7 @@ quarta célula de uma faixa feita de LUGARES.
 | **filha de `.list-body`**, não do `<main>` nem do `<body>` | é o que define o que ela NÃO cobre: o cabeçalho (nome da tela, engrenagem) e a caixa de controles inteira ficam à vista e ALCANÇÁVEIS. Quem projeta um cronômetro precisa do transporte e da preview na frente enquanto o acerta — uma folha de corpo inteiro cobra um fechar-e-abrir por ajuste. `.list-body` nasceu para isto: dar `position: relative` ao território da lista |
 | **não é `.popup-backdrop`** | aquilo é uma camada sobre a tela toda, com fundo escurecido e o toque fora fechando. Esta é uma camada da LISTA, e o app atrás dela continua vivo de propósito. Ela fica fora da tabela `POPUPS`; o ✕ e o degrau do voltar estão escritos à mão |
 | **a porta é só ÍCONE** | "Importar arquivos" fica com o rótulo e com a linha. Dois nomes lado a lado numa faixa de celular empurram o primeiro para reticências justamente na tela mais estreita |
+| **a saída tem PAR** (v1.3.13) | ela subia deslizando e sumia no talo — duas coisas diferentes para o olho, e a segunda lendo como um erro justamente porque a primeira já ensinou a esperar o contrário. Mesma curva, mesma duração (`--tools-anim`, um valor só, lido pelo CSS e pelo JS), ao contrário. Quem tira a folha da árvore é o `hidden` no FIM da animação, e não um `animation-fill-mode`: uma folha "fora" por estar transladada continuaria capturando toque. Sem `animationend`, porque `prefers-reduced-motion` desliga a animação e o evento nunca chegaria — a folha ficaria de pé para sempre |
 | **trocar de aba a fecha** (`switchTab` → `fecharFerramentas`) | ela é extensão do CRONOGRAMA; de pé sobre a Bíblia seria a folha de uma tela flutuando sobre outra |
 | **`fecharFerramentas` desliga o microfone e os laços** | eram as mesmas guardas do `switchTab`, quando sair daqui era trocar de aba: o push-to-talk não pode ficar captando sem nada na tela que o mostre, e os timers de 5 Hz do cronômetro/sorteio não podem sobrar reescrevendo nós já descartados |
 
@@ -2635,6 +2636,20 @@ nasce com a confirmação certa.
   fila inteira. Um gesto que PARECE reversível e não é custa, num episódio de
   série, ~300 MB baixados em rede de celular.
 | `⋮` → 🗑 | **Excluir da lista.** É o PRIMEIRO botão da faixa desde a v5.289 — o mais longe do `⋮`, que fica colado na ponta direita e é o alvo tocado repetidamente (abre e fecha): errá-lo por alguns pixels caía no destrutivo. Do outro lado o vizinho é o VAZIO da caixa, que também fecha, mas é uma área larga em que ninguém mira a borda. Desde a v5.301 ele **pergunta na própria faixa**, e por isso não a fecha |
+
+> **ELE NÃO TIRA DO AR** (v1.3.13). Havia aqui um `retirarDoAr`, e era ele — não
+> o coletor — que interrompia o louvor quando o operador apagava do Cronograma o
+> item que estava tocando. A dica do próprio botão é o contrato, e ela fala de
+> LISTA (*"tirar isto desta lista; os arquivos só são apagados se ele não estiver
+> em mais nenhuma"*); parar a projeção é outra ação, tem botão próprio (o segundo
+> toque na linha) e não podia vir de carona. **A FILA já fazia assim**, com o
+> motivo escrito na linha dela desde a v5.309 — era este caminho que destoava.
+>
+> E o que sustenta a mudança é o outro lado dela: `send()` fixa a cena na
+> prateleira `avulsos` (ver `MODELO-DE-DADOS.md`), senão o `listRemove` apagaria
+> os bytes de baixo da projeção. Isso não teria sintoma na hora — o `<video>` já
+> os tem —, e só apareceria numa queda de dongle, quando o `resendSceneToDisplay`
+> chamasse `getMedia` e não achasse nada. Oráculo: `tools/excluir-em-cena.test.mjs`.
 | `⋮` → ✏️ | **Renomear** o item, um toque (v5.288). Ele existia só para UM item de cada vez e atrás de quatro gestos (toque longo → seleção → botão do rodapé → diálogo). **Não entra na pasta do aparelho**, com a mesma guarda do excluir: ali o nome vem do arquivo, e um nome só no registro seria desfeito na varredura seguinte. O lápis é SVG inline — `edit` não está no subset da fonte, e codepoint ausente desenha um retângulo vazio |
 | `⋮` → ♫+ | **A fila, com ESTADO** (v5.301, alternador desde a v5.302). Ele diz se o item **está** na playlist — `+` apagado em `--line`, `✓` aceso em `--accent` —, e o segundo toque TIRA. ACRESCENTA, nunca substitui: quem substitui é o toque no corpo da linha (`onTap` → `replacePlaylistWith`), e são ações opostas. **Não aparece numa cena de roteiro** — o `onTap` já desvia um cue para longe da fila (*"um versículo não é uma fila de reprodução"*), e o Cronograma é justamente a lista cheia de cues. **Não fecha a caixa**, como a estrela: o desfecho dele é o próprio botão mudando sob o dedo |
 | Pressionar e segurar | Entra no modo de seleção múltipla |
