@@ -150,31 +150,56 @@ try {
   // ── 4. O VOLTAR DO ANDROID A FECHA ──────────────────────────────────────
   const voltou = await pg.evaluate(() => {
     const consumiu = window.__avBack();
-    return { consumiu, aberta: !document.getElementById('toolsSheet').hidden, aba: activeTab };
+    // O `.saindo` é o que separa "fechou" de "não fez nada": a folha leva os
+    // 220 ms da animação para deixar a árvore, e ler o `hidden` no ato mediria
+    // a animação, não o degrau.
+    return {
+      consumiu,
+      saindo: document.getElementById('toolsSheet').classList.contains('saindo'),
+      aba: activeTab,
+    };
   });
-  checar(voltou.consumiu === true && !voltou.aberta,
+  checar(voltou.consumiu === true && voltou.saindo,
     'o voltar do aparelho FECHA a folha e consome o toque — sem o degrau ele '
     + 'minimizaria o app no meio do culto', voltou);
   checar(voltou.aba === 'imports', 'e deixa o operador onde ele estava', voltou);
+  await pg.waitForFunction(
+    () => document.getElementById('toolsSheet').hidden, null, { timeout: 4000 },
+  ).catch(() => {});
 
   // ── 5. TROCAR DE ABA A FECHA ────────────────────────────────────────────
   await pg.click('#toolsBtn');
   await pg.waitForTimeout(200);
   const trocou = await pg.evaluate(async () => {
     await switchTab('bible');
-    return {
-      aberta: !document.getElementById('toolsSheet').hidden,
-      // O corpo é esvaziado junto: os laços dos painéis (cronômetro, sorteio)
-      // morrem com ele, e nós órfãos sendo reescritos a 5 Hz é o vazamento
-      // clássico desta família.
-      corpoVazio: document.getElementById('toolsBody').children.length === 0,
-      aba: activeTab,
-    };
+    // MEDIDO NO ATO: a folha COMEÇA a sair no mesmo turno. Ela leva os 220 ms da
+    // animação para deixar a árvore (ver `TOOLS_ANIM_MS`), e afirmar só o fim
+    // não separaria "fechou" de "nunca fechou" — os dois acabam iguais depois
+    // de um prazo generoso.
+    return { saindo: document.getElementById('toolsSheet').classList.contains('saindo'), aba: activeTab };
   });
-  checar(!trocou.aberta && trocou.aba === 'bible',
+  checar(trocou.saindo && trocou.aba === 'bible',
     'ir para a Bíblia fecha a folha — ela é uma extensão do CRONOGRAMA', trocou);
-  checar(trocou.corpoVazio,
-    'e o corpo dela é esvaziado, para os laços dos painéis não sobrarem', trocou);
+
+  // E ELA DE FATO SAI DA ÁRVORE. O `hidden` é o estado; a animação é só o
+  // caminho até ele. Uma folha "fora" por estar transladada continuaria
+  // capturando toque sobre a lista.
+  const saiu = await pg.waitForFunction(
+    () => document.getElementById('toolsSheet').hidden, null, { timeout: 4000 },
+  ).then(() => true).catch(() => false);
+  const depoisDeSair = await pg.evaluate(() => ({
+    hidden: document.getElementById('toolsSheet').hidden,
+    saindo: document.getElementById('toolsSheet').classList.contains('saindo'),
+    // O corpo é esvaziado junto: os laços dos painéis (cronômetro, sorteio)
+    // morrem com ele, e nós órfãos sendo reescritos a 5 Hz é o vazamento
+    // clássico desta família.
+    corpoVazio: document.getElementById('toolsBody').children.length === 0,
+  }));
+  checar(saiu && !depoisDeSair.saindo,
+    'e ela sai da árvore no fim da animação, sem deixar a classe da saída para trás',
+    depoisDeSair);
+  checar(depoisDeSair.corpoVazio,
+    'e o corpo dela é esvaziado, para os laços dos painéis não sobrarem', depoisDeSair);
 
   // ── 5-A. O FANTASMA DA TROCA DE ABA CONTINUA SOBRE A LISTA ──────────────
   //
@@ -198,6 +223,33 @@ try {
   checar(fantasma.erro === undefined && fantasma.invadeCabecalho === false,
     'o fantasma do carrossel fica sobre a LISTA, não sobre o cabeçalho', fantasma);
   await pg.waitForTimeout(400);
+
+  // ── 5-B. A SAÍDA TEM PAR (v1.3.13) ──────────────────────────────────────
+  //
+  // Pedido do operador: *"verifique o fechamento da seção de ferramentas, para
+  // fechar com animação igual é feito na abertura"*. Ela subia deslizando e
+  // sumia no talo — duas coisas diferentes para o olho, e a segunda lendo como
+  // um erro justamente porque a primeira já ensinou a esperar o contrário.
+  //
+  // O que se afirma é o PAR e a MESMA duração, não a curva desenhada: quem
+  // desenha é o CSS, e medir pixels de uma animação seria medir o compositor.
+  await pg.evaluate(async () => { await switchTab('imports'); });
+  await pg.waitForSelector('#toolsBtn', { timeout: 8000 });
+  const par = await pg.evaluate(async () => {
+    const f = document.getElementById('toolsSheet');
+    document.getElementById('toolsBtn').click();
+    const entrando = getComputedStyle(f).animationName;
+    const dEntra = getComputedStyle(f).animationDuration;
+    fecharFerramentas();
+    const saindo = getComputedStyle(f).animationName;
+    const dSai = getComputedStyle(f).animationDuration;
+    await new Promise((r) => setTimeout(r, 400));
+    return { entrando, saindo, dEntra, dSai };
+  });
+  checar(par.entrando === 'tools-sobe' && par.saindo === 'tools-desce',
+    'a folha DESCE por onde subiu — a saída tem par, e não é o mesmo desenho', par);
+  checar(par.dEntra === par.dSai,
+    'e com a mesma duração: dois tempos divergiriam no primeiro ajuste', par);
 
   // ── 6. A PORTA NÃO EXISTE FORA DO CRONOGRAMA ────────────────────────────
   const foraDoCrono = await pg.evaluate(async () => {

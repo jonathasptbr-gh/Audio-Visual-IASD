@@ -1,5 +1,14 @@
 [
   {
+    "versao": "1.3.13",
+    "itens": [
+      "APAGAR UM ITEM DO CRONOGRAMA NÃO INTERROMPE MAIS O QUE ESTÁ TOCANDO. Havia uma linha que tirava a cena do ar antes de mexer na lista — e o botão promete outra coisa: tirar o item DESTA lista. Parar a projeção continua tendo caminho próprio (o segundo toque na linha).",
+      "E o item que está no ar passa a segurar a si mesmo: até agora só as listas contavam, então sair da última lista apagava os arquivos por baixo da projeção. Isso não dava sintoma na hora, mas uma queda do cabo ou do dongle deixaria o telão sem como voltar.",
+      "O que NÃO está em cena continua sendo apagado normalmente ao excluir — inclusive o que tocou antes.",
+      "A folha de Ferramentas agora desce por onde subiu, em vez de sumir de uma vez."
+    ]
+  },
+  {
     "versao": "1.3.12",
     "itens": [
       "IMPORTAR UM ARQUIVO AGORA MOSTRA QUE ESTÁ IMPORTANDO. Um vídeo do armazenamento leva alguns segundos até virar linha, e nesse tempo a tela não mudava nada — indistinguível de travar. Agora a linha aparece na hora, com o nome do arquivo e o aro girando, e vira o item de verdade quando ele termina de entrar.",
