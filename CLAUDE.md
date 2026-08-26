@@ -2589,7 +2589,7 @@ que ela é desenvolvida e testada fora do aparelho.
 | Link para fora do app | `window.open` | **`openExternal(url)`** → `ACTION_VIEW` em tarefa própria. O WebView RECUSA navegar para outro origin (invariante 2): sem esse método um link externo não faz nada, nem erro no console |
 | Sem tela conectada (simplificado) | mesmo bloqueio, com a janela do Display no lugar da `Presentation` | **modo bloqueado**: cortina embaçada, seção de conexão no centro, saída para o avançado na frente. **Não é incondicional**: o "Tocar neste celular" da folha (`tocarNoCelular`) desbloqueia e manda o som para este aparelho. **Caminho só de IDA e sem persistência**: o bloqueio se rearma ao fechar o app, ao passar pelo modo avançado (`setAppMode`) ou quando uma tela entra — e por isso o botão SOME depois do toque, em vez de oferecer o desfazer |
 | Fullscreen da preview | `requestFullscreen` + Screen Orientation | idem, com trava de paisagem **nativa** (`onShowCustomView`). Os controles são uma COLUNA na lateral direita que o toque acende e 4 s apagam — não gestos (v1.0.7, ver `docs/arquitetura/CONTROLE.md`). É uma das duas superfícies em que ⏮/⏭ ainda tem DOIS eixos (a outra é a notificação): aqui não cabe um par de botões de slide, porque sem TV o que se pinta nesta tela a congregação vê |
-| Botões físicos de volume | o navegador não os recebe | **interceptados**, ligados ao fader (ver abaixo) |
+| Botões físicos de volume | o navegador não os recebe | vão para o **volume do sistema**, com o indicador do próprio Android (v1.3.8 — antes eram interceptados e ligados a um fader do deck, que saiu) |
 | Microfone AO VIVO | o navegador pergunta | `MicChromeClient` + `RECORD_AUDIO` (ver abaixo). **Só com TV**: quem capta é o `/display/`, que só existe dentro da `Presentation` — e sem TV o botão **não é desenhado** (v1.2.21) |
 | Câmera | o navegador pergunta | **negada, sempre**. O `onPermissionRequest` do `ControleChromeClient` FICOU, negando **com log**: um WebView sem ele nega em silêncio, e o próximo que precisar de mídia aqui descobriria a armadilha do zero |
 | Botão voltar | — | **fecha o que estiver aberto** antes de minimizar (ver abaixo) |
@@ -2685,7 +2685,8 @@ invariante 5); `MainActivity.handleBack()` pergunta e obedece. A ordem é do mai
 efêmero ao mais permanente:
 
 1. diálogo modal → 2. bottom-sheet (o de cima) → 3. preview em tela cheia (que,
-sem telão, **é** a projeção) → 4. coluna do mixer → 5. seleção múltipla →
+sem telão, **é** a projeção) → *(o degrau 4 era o fader do mixer, e saiu na
+v1.3.8)* → 5. seleção múltipla →
 6. sub-tela com voltar próprio (Bíblia) → 7. aba ≠ Cronograma → volta ao
 Cronograma → 8. nada aberto → `moveTaskToBack`.
 
@@ -2700,23 +2701,27 @@ Cronograma → 8. nada aberto → `moveTaskToBack`.
   que chega tarde é a RESPOSTA, não a ação. Fechar isso exigiria um token de
   corrida (`__avBack(token)` → `__avResolve`), mudança de contrato da ponte.
 
-### Botões físicos de volume
+### Botões físicos de volume: eles são do SISTEMA (v1.3.8)
 
-Com espelhamento ativo o Android roteia os botões para a TV, e o fader do app
-não saía do lugar. `MainActivity.onKeyDown` consome `KEYCODE_VOLUME_UP/DOWN` — e
-o `onKeyUp` correspondente, senão o sistema ainda reage à soltura — e entrega o
-passo a `window.__avVolumeKey(±1)` → `applyVolume()`, a mesma função do fader.
+O app **não consome mais** `KEYCODE_VOLUME_UP/DOWN`: o Controle chama
+`captureVolumeKeys(false)` e a tecla segue para a saída do sistema, com o
+indicador que o Android já desenha.
 
-- **Só intercepta depois que o web pede** (`captureVolumeKeys(true)`, no fim da
-  carga do Controle). Interceptar desde o `onCreate` faria uma falha de JS deixar
-  o aparelho sem **nenhum** controle de volume.
-- **Válvula de escape:** no máximo ou no zero, o web devolve o passo ao sistema
-  (`systemVolume` → `adjustStreamVolume` com `FLAG_SHOW_UI`).
-- **A tecla mostra o fader** por 2,8 s (`peekVolume`, reusando
-  `openVolume()`/`closeVolume()` — não uma segunda UI), inclusive quando o passo
-  vai para o sistema: ver o fader no fim do curso é a resposta para "por que o
-  volume não muda?". As três regras de convivência com o toque estão em
-  `docs/arquitetura/CONTROLE.md`, seção do Mixer.
+A interceptação existia por uma razão que morreu com o fader do deck: com
+espelhamento ativo o Android roteia os botões para a TV, e o **fader do app** não
+saía do lugar. Sem fader não há o que mover — e interceptar para mexer num número
+que a tela não mostra é a pior das duas opções, porque **quem intercepta também
+apaga a UI de volume do próprio Android**.
+
+- **Rede de segurança, não caminho normal:** `window.__avVolumeKey` continua
+  definido e DEVOLVE o passo ao sistema (`systemVolume`). Se a Activity estiver
+  consumindo a tecla por qualquer razão (um WebView remontado sobre um estado
+  antigo), o passo não some — uma tecla de volume que não faz nada é pior que
+  qualquer alternativa.
+- **O GANHO DO APP continua existindo** (`applyVolume`, comando `volume`), e não
+  é redundante: ele viaja para as **telas da rede**, que são outros aparelhos, e
+  o volume de mídia deste celular não as alcança. Quem o move hoje são as teclas
+  +/− do Modo Fácil; no deck ele fica onde estiver (1,0 por padrão, sem atenuar).
 
 ### Espelhamento de tela ≠ Google Cast
 
@@ -3344,7 +3349,7 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: v1.3.7** (base web) · **v1.3.0** (APK) · `SHELL_VERSION` **55** · bundle com
+**Versão atual: v1.3.8** (base web) · **v1.3.0** (APK) · `SHELL_VERSION` **55** · bundle com
 `minShell: 55` — o shell 55 é o **PISO**: todo método da ponte existe, e não há
 guarda de versão no lado web. O que continua valendo é que `java/`, `res/`, o
 manifest e os workflows **só chegam instalando o APK**.

@@ -1,5 +1,15 @@
 [
   {
+    "versao": "1.3.8",
+    "itens": [
+      "O ajuste manual de volume saiu do painel de controles, como pedido. O volume passa a ser o do próprio aparelho, pelos botões físicos — e agora com o indicador do Android, que antes não aparecia porque o app consumia a tecla.",
+      "O botão de histórico desceu para a última célula da linha de baixo, no lugar que era do volume.",
+      "Com o botão de histórico fora da vizinhança da barra de progresso, ela passou a usar a largura inteira: a barra começa e termina exatamente com a preview, o tempo decorrido fica sobre o botão de voltar slide, o tempo total sobre o de passar, e o título voltou a ficar centralizado.",
+      "O botão de voltar slide não desaparece mais: quem o escondia era o fader de volume ao ocupar o espaço do botão de passar, e ele não existe mais.",
+      "As teclas +/− do Modo Fácil continuam iguais — elas ajustam o volume que viaja para as telas da rede, que o volume do celular não alcança."
+    ]
+  },
+  {
     "versao": "1.3.7",
     "itens": [
       "Os espaçamentos do painel de controles ficaram todos iguais. Eram três medidas diferentes (entre as colunas, entre as linhas e entre os botões do transporte), e a preview ainda ficava dentro de uma faixa maior que ela — o que deixava um vão de 18px em volta dela onde todo o resto usava 5,6.",

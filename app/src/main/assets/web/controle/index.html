@@ -615,27 +615,38 @@
     <button id="selDelete" class="sel-btn danger" title="Excluir"><span class="msym" aria-hidden="true">&#xe872;</span></button>
   </div>
 
-    <!-- Grade real (CSS Grid): 2 colunas (conteúdo / mixer) x 3 linhas
-         (nowplaying / preview / transport). O mixer usa grid-template-rows:
-         subgrid pra herdar exatamente as mesmas 3 faixas de altura do .deck —
-         garante alinhamento pixel-perfeito entre as duas colunas em vez de
-         depender de flex-basis aproximado. Ver controle.css. -->
+    <!-- Grade real (CSS Grid): 3 colunas (lateral / conteúdo / lateral) x 3
+         linhas (nowplaying / preview / transporte), com SETE itens diretos e
+         nenhum aninhamento de grade. As colunas laterais valem exatamente a
+         largura de um botão do transporte, que é o que faz as sete células da
+         linha de baixo saírem idênticas — a demonstração está em controle.css.
+         Desde a v1.3.8 não há mais `subgrid`: a coluna da direita virou dois
+         botões soltos, um em cada linha. -->
     <div class="deck">
-      <!-- VOLTAR UM SLIDE. Ele ocupa a coluna da esquerda, na altura exata da
-           preview — o espelho da fatia que o `#slideNextBtn` ocupa na coluna
-           do mixer. As faixas de cima (nowplaying) e de baixo (transporte)
-           atravessam esta coluna, então ela só existe onde há botão. -->
+      <!-- VOLTAR UM SLIDE. Ele ocupa a coluna da esquerda, na faixa da
+           preview — o espelho exato do `#slideNextBtn`, na coluna da direita.
+           A faixa de baixo (o transporte) atravessa esta coluna, então ela só
+           existe onde há botão. -->
       <div class="slide-side">
         <button id="slidePrevBtn" class="ctl-btn slide-btn" type="button" title="Slide anterior" aria-label="Slide anterior" disabled>
           <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoSlidePrev"/></svg>
         </button>
       </div>
+      <!-- ===== A BARRA DE PROGRESSO SEGUE A GRADE DO DECK (v1.3.8) =====
+           Ela atravessa as TRÊS colunas, e o que está dentro dela cai nas
+           mesmas: o tempo decorrido sobre o botão de voltar slide, a barra
+           sobre a preview, o tempo total sobre o botão de passar. Antes ela
+           parava na coluna 2 (o histórico ocupava a 3), então a barra não
+           batia com a miniatura logo abaixo e o título nascia descentrado —
+           centrado numa caixa que não era a do deck.
+           O TÍTULO é o único que ignora as colunas: ele é centrado na largura
+           INTEIRA, que é onde o olho o procura. -->
       <div class="nowplaying">
         <div class="np-name" id="npName"><span class="np-name-inner" id="npNameInner">Nada em exibição</span></div>
         <div class="np-seek">
           <span id="curTime" class="np-time">0:00</span>
-          <!-- aria-label como o gêmeo #volSlider: um range sem nome acessível
-               é anunciado só como "controle deslizante", sem dizer de quê. -->
+          <!-- `aria-label` porque um range sem nome acessível é anunciado só
+               como "controle deslizante", sem dizer de quê. -->
           <input type="range" id="seek" min="0" max="0" value="0" step="0.1" aria-label="Posição da mídia" disabled>
           <span id="durTime" class="np-time">0:00</span>
         </div>
@@ -943,86 +954,50 @@
         </button>
       </div>
 
-      <!-- mixer: 3 "fatias" da grade (top/mid/bottom), sem card de fundo —
-           os botões ficam livres, só alinhados pela grade. top é o HISTÓRICO;
-           mid é o botão de PASSAR SLIDE (v1.3.5 — antes eram os três controles
-           que hoje moram sobre a preview); bottom guarda o volume recolhível
-           (vira fader ao abrir, ocupando top+mid).
-           A "mesa de som" tinha um botão aqui, depois virou um ícone sobre a
-           preview, e SAIU na v5.189 a pedido do operador: o som do sistema é o
-           dos displays (a TV e as telas da rede), e o áudio da preview só
-           disputava o foco de áudio do Android com a projeção. O botão que ela
-           deixou vago virou a porta de Configurações — que na v1.2.0 subiu para
-           o cabeçalho da tela, ao lado do gêmeo do Modo Fácil — e no lugar dela
-           entrou o HISTÓRICO. -->
-      <div class="mixer" id="mixer">
-        <div class="mixer-slot mixer-top">
-          <div class="mixer-stack">
-            <!-- ===== O HISTÓRICO DO CULTO (v1.2.0) =====
-                 Pedido do operador: *"no lugar do botão de configurações nos
-                 controles do modo avançado, crie um botão de histórico, que
-                 lista todos os itens que já tocaram naquela sessão"*.
+      <!-- ===== A COLUNA DA DIREITA, EM DUAS PEÇAS SOLTAS (v1.3.8) =====
+           Era o `#mixer`: um `subgrid` de três fatias com os botões num
+           `.mixer-stack` ABSOLUTO, e toda essa máquina existia por UMA razão —
+           o fader de volume atravessava duas linhas, e um item no fluxo ali
+           contribuiria para as faixas do pai. Sem o fader não há o que
+           atravessar: sobraram dois botões, cada um numa linha, e eles são
+           itens diretos da grade do deck como qualquer outro.
+           Com isso saíram `.mixer`, `.mixer-slot`, `.mixer-stack`, as três
+           fatias e o `subgrid`. -->
+      <!-- PASSAR UM SLIDE — a faixa da preview, um botão só (v1.3.5).
+           Aqui moravam os três controles que subiram para cima da miniatura
+           (leitura auxiliar, cortina e mudo); o operador pediu o espaço para a
+           passagem de slide, e um alvo desta altura ao lado dela é o maior que
+           este deck tem para oferecer.
+           O gêmeo (voltar) mora na coluna da esquerda, `.slide-side` — o mesmo
+           desenho, a mesma altura, do outro lado da preview. -->
+      <div class="slide-side slide-side--dir">
+        <button id="slideNextBtn" class="ctl-btn slide-btn" type="button" title="Próximo slide" aria-label="Próximo slide" disabled>
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoSlideNext"/></svg>
+        </button>
+      </div>
+      <!-- ===== O HISTÓRICO DO CULTO (v1.2.0), NA SÉTIMA CÉLULA (v1.3.8) =====
+           Pedido do operador: *"no lugar do botão de configurações nos
+           controles do modo avançado, crie um botão de histórico, que lista
+           todos os itens que já tocaram naquela sessão"*.
 
-                 ELE HERDA A CAIXA, não o significado: `.settings-btn` é o
-                 esqueleto do botão CHAPADO desta fatia — a mais baixa da
-                 coluna, onde um bloco achatado ao lado de quatro botões de
-                 altura cheia se lê como um botão mal feito. O nome da classe é
-                 herança do inquilino anterior; o que ela descreve é a geometria.
+           ELE MUDOU DE FATIA na v1.3.8, para a que era do volume: a linha de
+           baixo tem sete células iguais e a sétima ficou vaga quando o fader
+           saiu. Ele estava na fatia de CIMA, colado na barra de progresso — e
+           era ele que impedia a barra de usar a largura inteira do deck.
 
-                 E CHAPADO É O CERTO PARA ELE TAMBÉM: o histórico não opera o
-                 culto — ele ABRE uma lista, como a engrenagem abria uma folha.
-                 O grupo de operação (cortina/letra/mudo/volume) segue logo
-                 abaixo, com fundo, e a diferença de tratamento é o que os
-                 separa sem uma linha desenhada.
+           ELE HERDA A CAIXA do botão CHAPADO (`.settings-btn`), não o
+           significado: o nome da classe é herança do inquilino anterior (a
+           engrenagem de Configurações), e o que ela descreve é a geometria.
+           E chapado é o certo para ele: o histórico não opera o culto — ele
+           ABRE uma lista. Os seis do transporte, ao lado, têm fundo; a
+           diferença de tratamento é o que os separa sem uma linha desenhada.
 
-                 O ícone é SVG e não glifo de fonte: o subset de
-                 `material-symbols.woff2` tem 31 codepoints e `history` não está
-                 entre eles — ver `tools/glifos.test.mjs`. -->
-            <button id="historyBtn" class="settings-btn" title="Histórico do culto" aria-label="Histórico do culto">
-              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoHistorico"/></svg>
-            </button>
-          </div>
-        </div>
-        <!-- PASSAR UM SLIDE — a fatia inteira, um botão só (v1.3.5).
-             Aqui moravam os três controles que subiram para cima da preview
-             (leitura auxiliar, cortina e mudo); o operador pediu o espaço para
-             a passagem de slide, e um alvo desta altura ao lado da miniatura é
-             o maior que este deck tem para oferecer.
-             O gêmeo dele (voltar) mora na coluna da esquerda, `.slide-side` —
-             o mesmo desenho, a mesma altura, do outro lado da preview. -->
-        <div class="mixer-slot mixer-mid">
-          <div class="mixer-stack">
-            <button id="slideNextBtn" class="ctl-btn slide-btn" type="button" title="Próximo slide" aria-label="Próximo slide" disabled>
-              <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoSlideNext"/></svg>
-            </button>
-          </div>
-        </div>
-        <!-- estado aberto: fader ocupa o lugar de top+mid (mesma posição/altura) -->
-        <div class="fader-wrap">
-          <input type="range" id="volSlider" class="fader" min="0" max="100" value="100" aria-label="Volume da mídia">
-          <!-- O número (0–100) vive DENTRO do cap do fader — e é um elemento
-               à parte porque `::-webkit-slider-thumb` é pseudo-elemento e não
-               aceita conteúdo. Segue o cap pela mesma conta do preenchimento
-               (`--vol`/`--fader-cap`), então os dois nunca se descolam.
-               `pointer-events:none` no CSS: quem recebe o arrasto é o input.
-               `aria-hidden`: o valor já é anunciado pelo próprio range. -->
-          <span id="volValue" class="fader-value" aria-hidden="true">100</span>
-        </div>
-        <!-- base da grade: abrir o volume (ícone de mixer). Fica na MESMA
-             posição do botão de ocultar (✕), que aparece aqui no estado aberto -->
-        <div class="mixer-slot mixer-bottom">
-          <div class="mixer-stack">
-            <button id="volToggle" class="ctl-btn vol-btn" title="Volume (mixer)">
-              <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
-                <line x1="6" y1="4" x2="6" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/><line x1="18" y1="4" x2="18" y2="20"/>
-                <rect x="3.5" y="7" width="5" height="3" rx="1.5" fill="currentColor" stroke="none"/>
-                <rect x="9.5" y="13" width="5" height="3" rx="1.5" fill="currentColor" stroke="none"/>
-                <rect x="15.5" y="9" width="5" height="3" rx="1.5" fill="currentColor" stroke="none"/>
-              </svg>
-            </button>
-            <button id="volClose" class="ctl-btn vol-close" title="Ocultar volume"><span class="msym" aria-hidden="true">&#xe14c;</span></button>
-          </div>
-        </div>
+           O ícone é SVG e não glifo de fonte: o subset de
+           `material-symbols.woff2` tem 31 codepoints e `history` não está entre
+           eles — ver `tools/glifos.test.mjs`. -->
+      <button id="historyBtn" class="settings-btn" title="Histórico do culto" aria-label="Histórico do culto">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoHistorico"/></svg>
+      </button>
       </div>
     </div>
   </footer>
@@ -1262,7 +1237,7 @@
              pedir ajuda"), e agora ocupam a mesma faixa: a versão à esquerda, o
              Registro à direita, no espaço que já estava sobrando. -->
         <div class="footer-diag">
-          <span id="appVersion" class="app-version">Controle v1.3.7</span>
+          <span id="appVersion" class="app-version">Controle v1.3.8</span>
           <span class="footer-diag-rot">Registro</span>
           <!-- SALVAR EM ARQUIVO (v1.2.16). Com o acervo inteiro varrido o
                Registro passa de setenta linhas só na seção de cifras, e copiar
