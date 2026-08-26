@@ -1311,12 +1311,18 @@ trava a ausência do botão e do modo, e `tools/boot-nativo.test.mjs` (o único 
 sobe a base com a ponte presente, que é onde a conexão existe) trava os dois
 lados da regra.
 
-Do lado nativo isto é **OTA puro**: nenhuma linha de Kotlin, `SHELL_VERSION`
-intacto. O `AVNative.keepAudioAlive`, que a versão manual usava para o WebView
-do Controle atravessar o segundo plano, **não voltou** — áudio audível já isenta
-a página do estrangulamento (é o que a nota do `snoopDisplayStatus` no
-`CLAUDE.md` descreve pelo avesso), e o `SessionService` mantém o processo vivo
-enquanto houver cena.
+Do lado nativo isto era **OTA puro** — e deixou de ser na **v1.3.12**. A aposta
+daqui (*"áudio audível já isenta a página do estrangulamento"*) não se sustentou
+em aparelho: com o som saindo do celular e o app minimizado, o Chromium pausava o
+`<video>` da preview e o louvor calava. Quem carrega o caso agora é
+`AVNative.projecaoLocal` (shell **56**), que liga a proteção do telão neste
+WebView **enquanto** a preview for a projeção — ver
+[`DISPLAY.md`](DISPLAY.md), "A proteção da preview, e ela é CONDICIONAL". O
+`SessionService` continua mantendo o processo vivo enquanto houver cena; o que
+faltava não era o processo, era o renderer.
+
+O nome antigo (`keepAudioAlive`) não voltou de propósito: ele falava de ÁUDIO, e
+o que se protege é o `<video>` inteiro — a imagem parava junto.
 
 
 ### Leitura auxiliar (letra completa / capítulo inteiro)

@@ -1,5 +1,13 @@
 [
   {
+    "versao": "1.3.12",
+    "itens": [
+      "IMPORTAR UM ARQUIVO AGORA MOSTRA QUE ESTÁ IMPORTANDO. Um vídeo do armazenamento leva alguns segundos até virar linha, e nesse tempo a tela não mudava nada — indistinguível de travar. Agora a linha aparece na hora, com o nome do arquivo e o aro girando, e vira o item de verdade quando ele termina de entrar.",
+      "O LOUVOR NÃO CALA MAIS AO MINIMIZAR O APP quando não há tela conectada. Sem TV e sem tela de computador quem toca é a preview do próprio celular, e o Android a pausava ao sair da frente. ESTA PARTE PRECISA DO APP NOVO (instale a versão v1.3.12) — a base web sozinha não alcança.",
+      "Isso vale só quando o celular é a projeção: com TV ou tela de computador no ar, o app continua economizando bateria em segundo plano como sempre fez."
+    ]
+  },
+  {
     "versao": "1.3.11",
     "itens": [
       "Conserto do lote anterior: ao deslizar entre o Cronograma e a Bíblia, a tela que saía passava por cima do nome da tela e da engrenagem, no alto. Durava um quinto de segundo e não dava erro nenhum — apareceu ao conferir o que a folha de Ferramentas tinha mudado por baixo."

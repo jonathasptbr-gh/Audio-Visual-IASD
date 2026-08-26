@@ -252,7 +252,7 @@ const appVersionEl = document.getElementById('appVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.3.11';
+const WEB_VERSION = '1.3.12';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -1731,12 +1731,46 @@ function somLocalDeveEstar() {
 // (`setAppMode`) e a janela do Display no navegador (`openWebDisplay`).
 function acertarSaidaDeAudio() {
   const alvo = somLocalDeveEstar();
+  // A PROTEÇÃO É REAVALIADA SEMPRE, mesmo quando o mudo não muda: ela depende
+  // também da CENA, e a cena muda sem passar por aqui.
+  acertarProjecaoLocal();
   if (alvo === somLocal) return;
   somLocal = alvo;
   // A rampa curta mora no `stage` (ver `setForceMuted`): sem ela a troca seria
   // um corte no talo, e um corte estala na caixa de som.
   preview.setForceMuted(!somLocal);
   diagC(somLocal ? 'som: neste aparelho' : 'som: nos displays');
+}
+
+// ===== A PREVIEW QUE É A PROJEÇÃO NÃO PODE SER SUSPENSA (v1.3.12) =====
+//
+// Sem tela conectada quem projeta é o `<video>` da preview, no WebView do
+// CONTROLE — e o Chromium pausa o `<video>` de uma página oculta. Com o app
+// minimizado, o louvor calava. Relato do operador: *"mídias baixadas sendo
+// executadas estão sendo pausadas quando minimizo o aplicativo… ocorre quando
+// não há telas conectadas, no caso no modo onde o áudio deve sair no próprio
+// smartphone"*.
+//
+// A pergunta é de DUAS metades, e nenhuma delas sozinha basta:
+//  - **não há tela** (`somLocalDeveEstar`, o MESMO veredito que decide de onde
+//    sai o som — duas contas para a mesma pergunta divergiriam no primeiro
+//    ajuste); e
+//  - **há cena no ar** (`cenaNoAr`). Sem esta metade a proteção ficaria ligada
+//    o tempo todo num aparelho sem TV, e o que ela custa é um renderer que
+//    nunca desacelera em segundo plano — trocar um defeito por um consumo.
+//
+// COM tela conectada isto fica DESLIGADO de propósito: ali o Controle é a mesa
+// de comando, o som está lá fora, e ser estrangulado em segundo plano é o
+// comportamento certo (é o que o `snoopDisplayStatus` da ponte existe para
+// contornar).
+let projecaoLocalAtual = null;   // null = ainda não dito ao shell
+function acertarProjecaoLocal() {
+  if (!window.__NATIVE__) return;
+  const alvo = somLocalDeveEstar() && cenaNoAr();
+  if (alvo === projecaoLocalAtual) return;
+  projecaoLocalAtual = alvo;
+  AVNative.projecaoLocal(alvo);
+  diagC(alvo ? 'projeção: nesta preview' : 'projeção: fora deste WebView');
 }
 
 // Fundo da letra sincronizada (Hinário 2022): 'image' (PADRÃO) usa as imagens
@@ -2869,6 +2903,21 @@ function acoesDaNotificacao(who, temTempo) {
   return a;
 }
 
+// HÁ CENA NO AR? Um VEREDITO, com dois leitores: a sessão de mídia
+// (`pushNowPlaying`, que o publica como `active`) e a proteção da preview
+// (`acertarProjecaoLocal`). Ele saiu de dentro do primeiro na v1.3.12 — uma
+// segunda escrita da mesma pergunta envelheceria à parte, e as duas respostas
+// governam coisas que precisam concordar: o serviço em primeiro plano e o
+// WebView que não pode ser suspenso.
+function cenaNoAr() {
+  return !!currentId
+    || !!(msgSession && msgSession.projecting)
+    || !!(bibleSession && bibleSession.projecting)
+    || lyricProjecting()
+    || chronoProjecting()
+    || drawProjecting();
+}
+
 function pushNowPlaying() {
   if (!window.__NATIVE__) return;
   const who = slideTarget();
@@ -2882,12 +2931,11 @@ function pushNowPlaying() {
   // serviço em primeiro plano, e o processo (com a `Presentation` junto)
   // continua descartável sob pressão de memória exatamente durante os dez
   // minutos em que o operador minimiza o app para esperar.
-  const active = !!currentId
-    || !!(msgSession && msgSession.projecting)
-    || !!(bibleSession && bibleSession.projecting)
-    || lyricProjecting()
-    || chronoProjecting()
-    || drawProjecting();
+  const active = cenaNoAr();
+  // A CENA acabou de ser apurada, e a proteção da preview depende dela — este é
+  // o ponto por onde TODA mudança de cena passa. O outro chamador
+  // (`acertarSaidaDeAudio`) cobre a outra metade: a conexão mudando.
+  acertarProjecaoLocal();
   // A IMAGEM não vira `who` (ela não tem eixo de ⏮/⏭ — ver `slideTarget`),
   // mas o cartão que ela põe na tela é a informação que falta no título: ali
   // continua o nome do ÁUDIO, que é o que o ▶ e a barra de fato controlam.
@@ -19598,37 +19646,68 @@ async function importShare(pending) {
       }
       continue;
     }
-    let blob = null;
-    let name = '';
-    if (item instanceof File) {
-      blob = item;
-      name = item.name;
-    } else if (item && item.url) {
-      try {
-        const res = await fetch(item.url);
-        if (!res.ok) continue;
-        blob = await res.blob();
-      } catch (_) { continue; }
-      name = item.name || 'arquivo';
-    } else {
-      continue;
-    }
-    // O tipo vem da extensão (mesma fonte usada na sincronização de pastas):
-    // provedores do Android costumam devolver MIME genérico.
-    const type = guessMediaType(name) || blob.type;
-    const kind = AVDB.kindFromType(type);
-    const { thumb, height, seconds } = await prepararMidia(blob, kind);
-    const rec = await AVDB.addMedia(blob, {
-      name: name.replace(/\.[^.]+$/, ''), type, kind, thumb, height, seconds,
-      list: destinoDoShare(),
-    });
-    // Só conta o que DE FATO entrou: um `addMedia` que falha com `ok++` fora
-    // da guarda fazia o share terminar como sucesso sem item nenhum.
-    if (rec) {
-      await espalharShare(rec.id);
-      if (!primeiro) primeiro = rec.id;
-      lote.push(rec.id);
-      ok++;
+    // O AVISO VEM ANTES DO TRABALHO (v1.3.12), e não depois.
+    //
+    // Um vídeo do armazenamento leva SEGUNDOS até virar linha: o `fetch` do
+    // `/saf/` copia o arquivo inteiro, o `prepararMidia` decodifica um quadro
+    // para a miniatura e mede a duração, e o `addMedia` grava tudo no
+    // IndexedDB. Até aqui nada disso aparecia: a folha de destinos já tinha
+    // fechado, a lista continuava igual, e do lado de quem opera é
+    // indistinguível de o app ter travado — que foi a queixa do operador
+    // ("não soube se ele travou ou se estava importando").
+    //
+    // A REGRA É A DE SEMPRE: o aviso mora onde o resultado vai aparecer, e o
+    // par é o MESMO da importação de apresentação (ver `deckImportar`), que já
+    // fazia isto — este ramo é que tinha ficado sem. No avançado o resultado é
+    // uma LINHA, e `sairDasCamadas`, lá em cima, já pôs o operador no
+    // Cronograma; no Modo Fácil não há lista e o item vai ao TELÃO a seguir,
+    // onde o cartão sobre a preview é literalmente verdadeiro.
+    //
+    // SEM PERCENTUAL, de propósito: `fetch().blob()` não reporta progresso, e
+    // um número parado em 0% mente mais do que o aro girando. O que o operador
+    // precisa saber aqui é que HÁ trabalho em curso e sobre QUAL arquivo.
+    const rotulo = nomeSemExtensao((item && item.name) || 'Arquivo');
+    const bgImport = simplificado()
+      ? previewBusy('Importando', rotulo)
+      : libBusy(rotulo, null);
+    try {
+      let blob = null;
+      let name = '';
+      if (item instanceof File) {
+        blob = item;
+        name = item.name;
+      } else if (item && item.url) {
+        try {
+          const res = await fetch(item.url);
+          if (!res.ok) continue;
+          blob = await res.blob();
+        } catch (_) { continue; }
+        name = item.name || 'arquivo';
+      } else {
+        continue;
+      }
+      // O tipo vem da extensão (mesma fonte usada na sincronização de pastas):
+      // provedores do Android costumam devolver MIME genérico.
+      const type = guessMediaType(name) || blob.type;
+      const kind = AVDB.kindFromType(type);
+      const { thumb, height, seconds } = await prepararMidia(blob, kind);
+      const rec = await AVDB.addMedia(blob, {
+        name: name.replace(/\.[^.]+$/, ''), type, kind, thumb, height, seconds,
+        list: destinoDoShare(),
+      });
+      // Só conta o que DE FATO entrou: um `addMedia` que falha com `ok++` fora
+      // da guarda fazia o share terminar como sucesso sem item nenhum.
+      if (rec) {
+        await espalharShare(rec.id);
+        if (!primeiro) primeiro = rec.id;
+        lote.push(rec.id);
+        ok++;
+      }
+    } finally {
+      // NO `finally`, e os três `continue` acima são a razão: um arquivo que
+      // não abre sai do laço por eles, e sem isto a linha provisória ficaria na
+      // lista para sempre — um item fantasma que nenhum toque remove.
+      bgImport.soltar();
     }
   }
   if (ok > 0) added = true;

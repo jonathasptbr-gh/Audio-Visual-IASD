@@ -159,7 +159,7 @@ const ponte = ({ web = '', shell = '', bytes = 0, espelho = false, shellName = '
     busPost: () => {},
     otaConfirm: () => {},
   };
-  const nomes = ['apkInstalar','apkProcurar','atualizacaoEstado','bgProgress','captureVolumeKeys',
+  const nomes = ['apkInstalar','apkProcurar','atualizacaoEstado','bgProgress','captureVolumeKeys','projecaoLocal',
     'castTarget','deckDiscard','deckExportUrl','deckPages','displays',
     'espelhoCertApagar','espelhoCertEstado','espelhoCertImportar','espelhoDesligar','espelhoDiag',
     'espelhoEstado','espelhoLigar','keepAlive','listFolder','nowPlaying','openCast','openExternal',

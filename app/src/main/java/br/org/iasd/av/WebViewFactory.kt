@@ -98,12 +98,17 @@ object WebViewFactory {
      */
     class KeepVisibleWebView(ctx: Context) : WebView(ctx) {
         /**
-         * Ligado SÓ para o WebView da [StagePresentation], pelo parâmetro
-         * `keepVisible` de [create] — que é o único ponto do repositório que
-         * escreve este campo. Com `false` a subclasse é indistinguível de um
-         * WebView comum, e é assim que o Controle nasce: ali ser estrangulado
-         * em segundo plano é o comportamento CERTO. (O comentário de [create]
-         * carrega o porquê de a alternância em tempo de execução ter saído.)
+         * Ligado sempre para o WebView da [StagePresentation] (pelo parâmetro
+         * `keepVisible` de [create]) e, desde a v1.3.12, EM RUNTIME para o do
+         * Controle — só enquanto a preview dele for a projeção, isto é, só
+         * enquanto não houver tela conectada. Ver
+         * `MainActivity.setProjecaoLocal`, que é o outro (e único) ponto que
+         * escreve este campo.
+         *
+         * Com `false` a subclasse é indistinguível de um WebView comum, e é
+         * assim que o Controle nasce: COM uma tela lá fora, ser estrangulado em
+         * segundo plano é o comportamento CERTO — o som está no telão, e é o
+         * `snoopDisplayStatus` da ponte que contorna o estrangulamento.
          */
         var manterVisivel = false
 
@@ -123,7 +128,9 @@ object WebViewFactory {
     }
 
     /**
-     * @param keepVisible ver [KeepVisibleWebView] — só o telão usa.
+     * @param keepVisible ver [KeepVisibleWebView] — o telão nasce com ela. O
+     *   Controle a recebe EM RUNTIME quando a preview vira a projeção (ver
+     *   `MainActivity.setProjecaoLocal`), e não por este parâmetro.
      * @param onRendererGone chamado quando o processo do renderer morre. O
      *   WebView já foi desligado do barramento e destruído; cabe ao dono
      *   construir um novo no lugar. Sem callback, a página simplesmente some
@@ -136,16 +143,22 @@ object WebViewFactory {
         keepVisible: Boolean = false,
         onRendererGone: (() -> Unit)? = null,
     ): WebView {
-        // SEMPRE a subclasse, e hoje isso é uniformidade e não capacidade.
+        // SEMPRE a subclasse, e desde a v1.3.12 isso voltou a ser CAPACIDADE, e
+        // não só uniformidade.
         //
         // O motivo original era a "mesa de som" — o modo em que o celular ERA a
         // caixa de som e o WebView do CONTROLE não podia ser suspenso —, e ele
-        // saiu na v5.189 com o modo inteiro. Desde então `manterVisivel` só é
-        // escrito por este `keepVisible`, isto é, **só o telão**, exatamente
-        // como o KDoc do parâmetro já dizia. Com `false` a subclasse repassa o
-        // valor real de visibilidade e é indistinguível de um `WebView` comum,
-        // então construí-la aqui não muda comportamento nenhum: o que se ganha
-        // é um caminho de construção só.
+        // saiu na v5.189 com o modo inteiro. O CASO voltou por outra porta: sem
+        // tela nenhuma conectada quem projeta é o `<video>` da PREVIEW, neste
+        // WebView, e o Chromium pausa o `<video>` de uma página oculta. Quem
+        // liga a proteção agora é `MainActivity.setProjecaoLocal`, EM RUNTIME e
+        // só enquanto ela vale — este parâmetro segue sendo o do telão, que a
+        // tem sempre.
+        //
+        // Com `false` a subclasse repassa o valor real de visibilidade e é
+        // indistinguível de um `WebView` comum; é por isso que construí-la aqui
+        // sempre nunca mudou comportamento nenhum, e é o que torna a alternância
+        // em runtime possível sem um caminho de construção a mais.
         val web = KeepVisibleWebView(ctx).apply { manterVisivel = keepVisible }
         if (keepVisible) {
             // O renderer do telão NÃO pode ser rebaixado quando o app sai da

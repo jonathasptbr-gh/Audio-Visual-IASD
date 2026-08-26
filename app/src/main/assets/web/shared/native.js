@@ -642,6 +642,17 @@
     // Fader já no limite: devolve o passo ao volume do sistema.
     systemVolume(step) { try { B.systemVolume(step | 0); } catch (_) { /* ponte indisponível */ } },
 
+    // A PROJEÇÃO É ESTE APARELHO (shell 56): não há tela conectada e há cena no
+    // ar, então quem projeta é o `<video>` da PREVIEW — neste WebView. O
+    // Chromium pausa o `<video>` de uma página oculta, e com o app minimizado o
+    // louvor calava. O shell responde impedindo a suspensão deste WebView
+    // enquanto isto valer (ver `MainActivity.setProjecaoLocal`).
+    //
+    // SÓ O CONTROLE PERGUNTA ISSO. No papel `display` a resposta é sempre
+    // não — o telão já tem a proteção desde que nasce —, e no papel `tela` o
+    // shell nem existe.
+    projecaoLocal(on) { try { B.projecaoLocal(!!on); } catch (_) { /* ponte indisponível */ } },
+
     // TEMA (v5.192): o shell precisa saber qual dos dois está no ar, por duas
     // razões que o CSS não alcança.
     //

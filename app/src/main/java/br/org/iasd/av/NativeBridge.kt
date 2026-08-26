@@ -61,6 +61,15 @@ interface BridgeHost {
     /** Interceptar os botões físicos de volume e mandá-los para o app. */
     fun setCaptureVolumeKeys(on: Boolean)
 
+    /**
+     * A PROJEÇÃO É ESTE APARELHO — não há tela conectada, e há algo no ar.
+     *
+     * Ver [NativeBridge.projecaoLocal]: quem sabe responder isso é o lado web
+     * (ele conhece as telas e a cena), e o que o shell faz com a resposta é
+     * impedir que o WebView do Controle seja suspenso.
+     */
+    fun setProjecaoLocal(on: Boolean)
+
     /** Devolver um passo de volume ao SISTEMA (fader já no limite). */
     fun adjustSystemVolume(step: Int)
 
@@ -205,7 +214,7 @@ class NativeBridge(
          *
          * O degrau a degrau está na tabela da seção "A ponte" do `CLAUDE.md`.
          */
-        const val SHELL_VERSION = 55
+        const val SHELL_VERSION = 56
 
         /**
          * O CONSUMIDOR DA LAN para o barramento (telão por comandos, E2 —
@@ -1277,6 +1286,34 @@ class NativeBridge(
     @JavascriptInterface
     fun captureVolumeKeys(on: Boolean) {
         host?.setCaptureVolumeKeys(on)
+    }
+
+    // ---------- a preview que É a projeção ----------
+
+    /**
+     * **Sem tela conectada, quem projeta é o `<video>` da PREVIEW**, no WebView
+     * do Controle — e o Chromium pausa o `<video>` de uma página oculta. Com o
+     * app minimizado, o louvor calava.
+     *
+     * Isto é o caminho que `docs/arquitetura/DISPLAY.md` deixou escrito para
+     * este dia, palavra por palavra: *"se um dia o louvor calar ao minimizar o
+     * app com o som saindo do celular, é aqui que a resposta começa, e o caminho
+     * é o `manterVisivel` + `RENDERER_PRIORITY_IMPORTANT`"*. As três correções
+     * anteriores da mesma família (v1.26, v1.27, v1.28) protegiam o WebView do
+     * TELÃO; esta protege o outro, e só quando ele é a projeção.
+     *
+     * **A DECISÃO É DO LADO WEB** (invariante 5), e não podia ser de outro: só
+     * ele sabe se há TV, se há tela na rede e se há cena no ar. O shell recebe
+     * um fato já apurado e responde com o que só ele pode fazer.
+     *
+     * **E ELA É CONDICIONAL, não permanente.** Com telão conectado o Controle
+     * DEVE ser estrangulado em segundo plano — ele é a mesa de comando, o som
+     * está na TV, e é justamente o que o `snoopDisplayStatus` existe para
+     * contornar. Ligar isto sempre trocaria um defeito por um consumo.
+     */
+    @JavascriptInterface
+    fun projecaoLocal(on: Boolean) {
+        host?.setProjecaoLocal(on)
     }
 
     /**

@@ -249,25 +249,38 @@ Depois de tudo acima, veio a informação que faltava: a pausa acontecia com a
 toca é o `<video>` da **preview**, no WebView do **Controle**, e não o do telão.
 As três correções anteriores protegiam o WebView errado.
 
-> **E ISTO VOLTOU A TER DONO NA v5.215**, com uma diferença que precisa estar
-> dita: sem tela nenhuma conectada, quem toca é de novo o `<video>` da preview,
-> no WebView do **Controle** — mas o `AVNative.keepAudioAlive` (e o
-> `setAudioAlive` do shell) **saiu na v5.189 e não voltou**. O que segura o caso
-> hoje é o que já segurava o defeito relatado quando ele foi diagnosticado:
-> **áudio audível isenta a página do estrangulamento** — é a mesma observação
-> que o `CLAUDE.md` registra pelo avesso na nota do `snoopDisplayStatus` ("ligar
-> o áudio no próprio celular fazia o defeito sumir") — e o `SessionService`
-> mantém o processo vivo enquanto houver cena. Se um dia o louvor calar ao
-> minimizar o app com o som saindo do celular, é aqui que a resposta começa, e o
-> caminho é o `manterVisivel` + `RENDERER_PRIORITY_IMPORTANT` descrito acima.
-> Ele custa um degrau de `SHELL_VERSION` e uma Release.
+> **E O DIA CHEGOU: v1.3.12.** O aviso acima ficou escrito por versões — *"se um
+> dia o louvor calar ao minimizar o app com o som saindo do celular, é aqui que a
+> resposta começa"* — e o operador relatou exatamente isso, com a cena que
+> faltava: *"ocorre quando não há telas conectadas, no caso no modo onde o áudio
+> deve sair no próprio smartphone"*. A aposta anterior (**áudio audível isenta a
+> página do estrangulamento**) não se sustentou em aparelho, e a resposta é a que
+> estava prevista, sem desvio nenhum.
 
-E o Controle ser estrangulado em segundo plano é, normalmente, o comportamento
-CERTO: ele é a mesa de comando, e o som está no telão — é justamente o que o
-`snoopDisplayStatus` da ponte existe para contornar. **Não há interruptor
-nenhum hoje:** `manterVisivel` tem dono único (`WebViewFactory.create`, com
-`keepVisible = true`) e é escrito **só para o telão**; `keepAudioAlive`,
-`setAudioAlive` e `setStandalone` não existem em lugar nenhum do repositório.
+#### A proteção da preview, e ela é CONDICIONAL (v1.3.12)
+
+`AVNative.projecaoLocal(bool)` (shell **56**) diz ao shell o que só o lado web
+sabe: **não há tela conectada e há cena no ar**. O shell responde ligando no
+WebView do CONTROLE as mesmas duas metades que o telão já tem —
+`KeepVisibleWebView.manterVisivel` (a visibilidade, que o Chromium calcula da
+janela **e** da View) e `RENDERER_PRIORITY_IMPORTANT` com
+`waivedWhenNotVisible = false` —, mais `onResume`/`resumeTimers` no `onStop` da
+Activity, o instante exato em que o sistema desaceleraria tudo.
+
+| decisão | por quê |
+|---|---|
+| **a decisão é do lado WEB** | invariante 5, e não podia ser de outro: só ele sabe se há TV, se há tela na rede e se há cena. O shell recebe um fato apurado e responde com o que só ele pode fazer |
+| **duas metades na pergunta** (`somLocalDeveEstar() && cenaNoAr()`) | a primeira é o MESMO veredito que decide de onde sai o som — duas contas para a mesma pergunta divergiriam no primeiro ajuste. A segunda evita que a proteção fique ligada o tempo todo num aparelho sem TV: o que ela custa é um renderer que nunca desacelera |
+| **CONDICIONAL, nunca permanente** | com telão no ar o Controle DEVE ser estrangulado em segundo plano — ele é a mesa de comando, o som está lá fora, e é o `snoopDisplayStatus` que contorna o estrangulamento. Ligar sempre trocaria um defeito por um consumo |
+| **o estado atravessa a remontagem** (`MainActivity.projecaoLocal`) | o WebView é refeito a cada morte de renderer, e a página nova só pede a proteção depois de carregar — justamente o intervalo em que ela mais falta. É o oposto do `backgroundWork`, que é zerado ali: aquele pertencia ao documento morto, este pertence à CONEXÃO |
+| **`cenaNoAr()` virou função nomeada** | ela estava dentro do `pushNowPlaying` como o `active` da sessão de mídia. Dois leitores, um veredito: o serviço em primeiro plano e o WebView que não pode ser suspenso precisam concordar |
+
+E o Controle ser estrangulado em segundo plano segue sendo, com tela conectada,
+o comportamento CERTO. `manterVisivel` tem exatamente **dois** donos:
+`WebViewFactory.create` (`keepVisible = true`, o telão, sempre) e
+`MainActivity.setProjecaoLocal` (o Controle, em runtime). `keepAudioAlive`,
+`setAudioAlive` e `setStandalone` continuam não existindo em lugar nenhum — o
+nome antigo falava de ÁUDIO, e o que se protege é o `<video>` inteiro.
 
 **E, desta vez, uma CAIXA-PRETA.** `diag()` em `display.js` mantém um anel dos
 últimos 60 eventos do telão (visibilidade, `pagehide`, `freeze`/`resume`, e cada
