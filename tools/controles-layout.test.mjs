@@ -155,8 +155,10 @@ try {
     return {
       vao: parseFloat(getComputedStyle(document.querySelector('.deck')).rowGap),
       deck: cx('.deck'), np: cx('.nowplaying'), tr: cx('.transport'),
+      seek: cx('#seek'), cur: cx('#curTime'), dur: cx('#durTime'),
+      titulo: cx('#npNameInner'),
       pv: cx('.preview'), ant: cx('#slidePrevBtn'), prox: cx('#slideNextBtn'),
-      vol: cx('#volToggle'), hist: cx('#historyBtn'), seis,
+      hist: cx('#historyBtn'), seis,
     };
   });
   const perto = (a, b) => Math.abs(a - b) < 0.6;
@@ -177,8 +179,8 @@ try {
       'preview→transporte': g.tr.topo - g.pv.base,
       'voltar→preview': g.pv.esq - g.ant.dir,
       'preview→passar': g.prox.esq - g.pv.dir,
-      'passar→volume': g.vol.topo - g.prox.base,
-      'histórico→voltar': g.ant.topo - g.hist.base,
+      'passar→histórico': g.hist.topo - g.prox.base,
+      'transporte→histórico': g.hist.esq - g.seis[5].dir,
       'entre dois do transporte': g.seis[1].esq - g.seis[0].dir,
     };
     for (const [onde, v] of Object.entries(vaos)) {
@@ -190,27 +192,27 @@ try {
     // seis do transporte mediam 52,3 e o do volume 44,8 — e o vão até ele era
     // 15,2 contra os 5,6 dos outros. Era esse conjunto que se lia como "o botão
     // do volume está fora do lugar".
-    const larguras = [...g.seis.map((b) => b.larg), g.vol.larg];
-    const alturas = [...g.seis.map((b) => b.alto), g.vol.alto];
+    const larguras = [...g.seis.map((b) => b.larg), g.hist.larg];
+    const alturas = [...g.seis.map((b) => b.alto), g.hist.alto];
     checar(Math.max(...larguras) - Math.min(...larguras) < 0.6,
       `as SETE células da linha de baixo têm a mesma largura (${nome})`, larguras);
     checar(Math.max(...alturas) - Math.min(...alturas) < 0.6,
       `e a mesma altura (${nome})`, alturas);
-    checar(perto(g.vol.topo, g.seis[0].topo) && perto(g.vol.base, g.seis[0].base),
-      `o botão do VOLUME está na mesma linha dos seis do transporte (${nome})`,
-      { vol: [g.vol.topo, g.vol.base], t: [g.seis[0].topo, g.seis[0].base] });
+    checar(perto(g.hist.topo, g.seis[0].topo) && perto(g.hist.base, g.seis[0].base),
+      `o HISTÓRICO está na mesma linha dos seis do transporte (${nome})`,
+      { hist: [g.hist.topo, g.hist.base], t: [g.seis[0].topo, g.seis[0].base] });
 
     // AS COLUNAS LATERAIS TÊM A LARGURA DE UM BOTÃO DO TRANSPORTE, e é isso
     // que faz as bordas do deck baterem em cima e embaixo.
-    checar(perto(g.ant.larg, g.seis[0].larg) && perto(g.prox.larg, g.vol.larg),
+    checar(perto(g.ant.larg, g.seis[0].larg) && perto(g.prox.larg, g.hist.larg),
       `os botões de slide têm a largura de um botão do transporte (${nome})`,
       { ant: g.ant.larg, prox: g.prox.larg, t: g.seis[0].larg });
     checar(perto(g.ant.esq, g.deck.esq) && perto(g.ant.esq, g.seis[0].esq),
       `a borda ESQUERDA do deck é uma só: voltar, transporte e deck (${nome})`,
       { ant: g.ant.esq, t: g.seis[0].esq, deck: g.deck.esq });
-    checar(perto(g.prox.dir, g.deck.dir) && perto(g.prox.dir, g.vol.dir),
-      `e a DIREITA: passar, volume e deck (${nome})`,
-      { prox: g.prox.dir, vol: g.vol.dir, deck: g.deck.dir });
+    checar(perto(g.prox.dir, g.deck.dir) && perto(g.prox.dir, g.hist.dir),
+      `e a DIREITA: passar, histórico e deck (${nome})`,
+      { prox: g.prox.dir, hist: g.hist.dir, deck: g.deck.dir });
 
     // A FAIXA É A PREVIEW: os três da linha do meio começam e terminam juntos.
     for (const [q, b] of [['VOLTAR', g.ant], ['PASSAR', g.prox]]) {
@@ -218,6 +220,23 @@ try {
         `o botão de ${q} tem a ALTURA da preview, topo e base juntos (${nome})`,
         { botao: [b.topo, b.base, b.alto], preview: [g.pv.topo, g.pv.base, g.pv.alto] });
     }
+
+    // ===== A BARRA DE PROGRESSO CAI NAS COLUNAS DO DECK (v1.3.8) =====
+    // Ela parava na coluna 2 (a 3 era do histórico), então não batia com a
+    // miniatura logo abaixo e o título nascia descentrado — centrado numa
+    // caixa que não era a do deck. As três asserções são as três peças.
+    checar(perto(g.seek.esq, g.pv.esq) && perto(g.seek.dir, g.pv.dir),
+      `a BARRA começa e termina com a preview (${nome})`,
+      { seek: [g.seek.esq, g.seek.dir], preview: [g.pv.esq, g.pv.dir] });
+    checar(perto(g.cur.esq, g.ant.esq) && perto(g.cur.dir, g.ant.dir),
+      `o tempo DECORRIDO cai sobre o botão de voltar slide (${nome})`,
+      { cur: [g.cur.esq, g.cur.dir], ant: [g.ant.esq, g.ant.dir] });
+    checar(perto(g.dur.esq, g.prox.esq) && perto(g.dur.dir, g.prox.dir),
+      `o tempo TOTAL cai sobre o de passar (${nome})`,
+      { dur: [g.dur.esq, g.dur.dir], prox: [g.prox.esq, g.prox.dir] });
+    checar(perto((g.titulo.esq + g.titulo.dir) / 2, (g.deck.esq + g.deck.dir) / 2),
+      `e o TÍTULO está centrado na largura inteira do deck (${nome})`,
+      { titulo: (g.titulo.esq + g.titulo.dir) / 2, deck: (g.deck.esq + g.deck.dir) / 2 });
 
     // E A PROPORÇÃO DO TELÃO SOBREVIVE A TUDO ISSO. É a única coisa que a
     // miniatura não pode falsear — ela existe para o operador conferir o que
@@ -435,60 +454,53 @@ try {
   checar(semAlvo.titulo === 'Próximo slide',
     'e com o nome genérico: um nome específico ali prometeria uma cena que não está no ar', semAlvo.titulo);
 
-  // ── 6. O FADER OCUPA A FATIA DO SLIDE, E SÓ ELA ────────────────────────
+  // ── 6. O AJUSTE MANUAL DE VOLUME SAIU, E O PAR DE SLIDE NÃO SOME MAIS ──
   //
-  // Ele ocupava `grid-row: 1 / 3` — a fatia do HISTÓRICO mais a do slide —, e
-  // abrir o volume apagava um botão de outro assunto. Hoje é a faixa da
-  // preview e nada além dela.
-  // A MEDIÇÃO ESPERA A ANIMAÇÃO TERMINAR, e isso não é folga de relógio: o
-  // `vol-slide-in` entra com `translateY(10px)`, então uma leitura no meio dela
-  // devolve o fader 10px abaixo do lugar — um deslocamento REAL, que passaria a
-  // ser lido como desalinhamento. Espera-se pelo FATO (a transformação ter
-  // voltado à identidade), nunca por um prazo.
-  const cxPg = () => pg.evaluate(() => {
-    const cx = (sel) => {
+  // O fader ocupava a fatia do `#slideNextBtn`, e uma regra escondia o de
+  // VOLTAR junto para não deixar meia dupla no ar. O operador VIU esse
+  // sumiço — foi o relato que abriu este lote —, e a resposta não foi ajustar
+  // a regra: o ajuste manual saiu inteiro (o volume é do aparelho, pelos
+  // botões físicos). Sem fader não há o que esconder.
+  //
+  // A asserção é de AUSÊNCIA nos dois sentidos: nada do maquinário de volume
+  // sobrou no documento, e a classe que escondia o par também não — uma regra
+  // órfã de `visibility: hidden` num botão de culto é o tipo de resto que
+  // volta a morder sozinho.
+  const semVolume = await pg.evaluate(() => {
+    const sumiram = ['#volToggle', '#volClose', '#volSlider', '#volValue',
+      '.fader-wrap', '.fader', '#mixer', '.mixer', '.mixer-slot', '.mixer-stack']
+      .filter((sel) => document.querySelector(sel));
+    // A regra de esconder o par não pode ter ficado no CSS.
+    let regraOrfa = false;
+    for (const folha of document.styleSheets) {
+      let regras; try { regras = folha.cssRules; } catch (_) { continue; }
+      for (const r of regras || []) {
+        if (r.selectorText && /vol-open/.test(r.selectorText)) regraOrfa = true;
+      }
+    }
+    const vis = (sel) => {
       const el = document.querySelector(sel);
-      const r = el.getBoundingClientRect();
       const cs = getComputedStyle(el);
-      return {
-        vis: cs.display !== 'none' && cs.visibility !== 'hidden' && r.width > 0,
-        topo: +r.top.toFixed(2), base: +r.bottom.toFixed(2),
-        alto: +r.height.toFixed(2), larg: +r.width.toFixed(2),
-      };
+      return cs.display !== 'none' && cs.visibility !== 'hidden'
+        && el.getBoundingClientRect().width > 0;
     };
     return {
-      pv: cx('.preview'), ant: cx('#slidePrevBtn'), prox: cx('#slideNextBtn'),
-      hist: cx('#historyBtn'), fader: cx('.fader-wrap'), vol: cx('#volToggle'),
-      fechar: cx('#volClose'),
+      sumiram, regraOrfa,
+      funcoes: ['openVolume', 'closeVolume', 'peekVolume', 'syncFader']
+        .filter((n) => typeof window[n] === 'function'),
+      par: { ant: vis('#slidePrevBtn'), prox: vis('#slideNextBtn') },
+      hist: vis('#historyBtn'),
     };
   });
-  const fechadoAntes = await cxPg();
-  await pg.evaluate(() => openVolume());
-  await pg.waitForFunction(() => {
-    const t = getComputedStyle(document.querySelector('.fader-wrap')).transform;
-    return t === 'none' || t === 'matrix(1, 0, 0, 1, 0, 0)';
-  }, null, { timeout: 5000 }).catch(() => {});
-  const fader = { aberto: { ...(await cxPg()), pv: fechadoAntes.pv } };
-  await pg.evaluate(() => {
-    mixerEl.classList.remove('vol-open', 'vol-closing', 'vol-revealing');
-    deckEl.classList.remove('vol-open');
-  });
-  fader.fechado = await cxPg();
-  const a = fader.aberto;
-  checar(a.fader.vis && perto(a.fader.topo, a.pv.topo) && perto(a.fader.base, a.pv.base),
-    'o fader ocupa exatamente a faixa da preview — a fatia do botão de passar slide',
-    { fader: [a.fader.topo, a.fader.base], preview: [a.pv.topo, a.pv.base] });
-  checar(a.hist.vis,
-    'e o HISTÓRICO continua na tela: ele não tem nada a ver com volume', a.hist);
-  checar(a.prox.vis === false && a.ant.vis === false,
-    'o PAR de slide some junto — meia dupla é pior que dupla nenhuma',
-    { ant: a.ant.vis, prox: a.prox.vis });
-  checar(perto(a.fader.larg, a.prox.larg) || perto(a.fader.larg, fader.fechado.prox.larg),
-    'e o fader tem a largura da coluna que ele ocupa', { fader: a.fader.larg, prox: fader.fechado.prox.larg });
-  checar(a.fechar.vis && a.vol.vis === false,
-    'o botão da base vira o ✕ de fechar, no mesmo lugar', { fechar: a.fechar.vis, vol: a.vol.vis });
-  checar(fader.fechado.ant.vis && fader.fechado.prox.vis && fader.fechado.hist.vis,
-    'e tudo volta ao fechar', fader.fechado);
+  checar(semVolume.sumiram.length === 0,
+    'nenhum resto do ajuste manual de volume no documento', semVolume.sumiram);
+  checar(semVolume.regraOrfa === false,
+    'e nenhuma regra `vol-open` sobrou no CSS — era ela que escondia o botão de VOLTAR slide',
+    semVolume.regraOrfa);
+  checar(semVolume.par.ant && semVolume.par.prox,
+    'o par de slide está no ar, e agora não há estado nenhum que o esconda', semVolume.par);
+  checar(semVolume.hist,
+    'e o histórico está visível na sétima célula', semVolume.hist);
 
   // ── 7. O MODO FÁCIL NÃO HERDA A COLUNA DE OPERAÇÃO ──────────────────────
   // A preview é UM nó só e MUDA DE CASA: tudo o que se pendura nela viaja.

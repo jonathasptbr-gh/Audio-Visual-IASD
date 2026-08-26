@@ -103,10 +103,6 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
      como um botão fora do lugar. Ver "Um vão só" em controle.css. */
   --deck-gap: .35rem;
 
-  /* Espessura do cap do fader: há DOIS faders com a mesma aparência (mixer e a
-     barra lateral do modo simplificado) e a posição do número dentro do cap é
-     calculada a partir dela nos dois. */
-  --fader-cap: 26px;
 
   /* Altura das duas barras de ação da aba Ferramentas (`.mic-btn` e
      `.misc-project`): elas dividem a MESMA linha e precisam medir o mesmo.
@@ -357,27 +353,26 @@ body {
      é ele que a aba ativa ATRAVESSA de propósito. */
 }
 
-/* ---------- Deck: controles + mixer ---------- */
-/* Grade real (CSS Grid), não flex aproximado: 2 colunas (conteúdo / mixer,
-   56px) x 3 linhas (nowplaying / preview / transport, a mesma faixa de
-   a faixa da preview). O `.mixer` usa grid-template-rows:subgrid pra herdar
-   exatamente essas 3 faixas — garante que o topo/base de cada botão lateral
-   caia na mesma altura do início/fim da linha correspondente à esquerda,
-   sem depender de flex-basis calculado à parte (fonte do desalinhamento
-   antigo entre a coluna do mixer e nowplaying/preview/transport). */
+/* ---------- Deck: os controles ---------- */
+/* Grade real (CSS Grid), não flex aproximado: 3 colunas (lateral / conteúdo /
+   lateral) × 3 linhas (nowplaying / preview / transporte), com SETE itens
+   DIRETOS e nenhuma grade aninhada. Desde a v1.3.8 não há `subgrid`: a coluna
+   da direita virou dois botões soltos, um em cada linha, e cada um cai na
+   faixa do vizinho da esquerda por estar na MESMA linha da grade — não por um
+   alinhamento calculado à parte, que era a fonte do desalinhamento antigo. */
 .deck {
   display: grid;
   /* `minmax(0, 1fr)` — NÃO `1fr`: uma faixa `1fr` tem mínimo automático igual
      ao min-content do conteúdo, e o título (#npName, `white-space: nowrap`)
      tem min-content do tamanho do texto INTEIRO, mesmo já sendo cortado por
      overflow/ellipsis. Um nome de mídia longo inflava esta coluna e esmagava
-     (ou empurrava para fora) a coluna de 56px do mixer — e a largura da
-     preview passava a depender do título. Com o mínimo em 0, a fração é
+     (ou empurrava para fora) as laterais — e a largura da preview passava a
+     depender do título. Com o mínimo em 0, a fração é
      respeitada e a preview fica estável qualquer que seja o nome. */
   /* TRÊS colunas desde a v1.3.5: a preview passou a ser FLANQUEADA pelos dois
-     botões de slide (voltar à esquerda, passar na fatia do meio do mixer, à
-     direita). A da esquerda é a mesma largura da do mixer — os dois botões têm
-     de ser gêmeos, e um par que não tem a mesma caixa não se lê como par.
+     botões de slide, um de cada lado. As duas laterais têm a mesma largura —
+     os dois botões precisam ser gêmeos, e um par que não tem a mesma caixa não
+     se lê como par.
      Só a faixa da preview usa as três: nowplaying e transporte ATRAVESSAM a
      coluna da esquerda (`1 / 3`), senão sobrariam dois vãos de 56px onde não
      há botão nenhum — e o transporte, que divide a largura entre seis botões,
@@ -424,22 +419,26 @@ body {
 }
 /* `min-width: 0` pelo mesmo motivo, agora nos itens: sem isso cada um deles
    se recusaria a encolher abaixo do próprio min-content dentro da faixa. */
-.nowplaying  { grid-column: 1 / 3; grid-row: 1; min-width: 0; }
+/* A BARRA DE PROGRESSO ATRAVESSA AS TRÊS COLUNAS (v1.3.8). Ela parava na 2
+   porque a 3 era do histórico; com ele na linha de baixo, ela usa a largura
+   inteira — e o que está dentro dela cai nas colunas do deck (ver `.np-seek`). */
+.nowplaying  { grid-column: 1 / 4; grid-row: 1; min-width: 0; }
 .preview-row { grid-column: 2; grid-row: 2; min-width: 0; }
 .transport   { grid-column: 1 / 3; grid-row: 3; min-width: 0; }
 /* A coluna do VOLTAR UM SLIDE. SEM respiro próprio: a coluna JÁ tem a largura
    do botão, e o que a separa da preview é o vão da grade — o mesmo que separa
-   dois botões do transporte. Enquanto ela (e o mixer) tinham `padding: 0
-   .35rem` dentro de uma coluna de 56px, o vão real até a preview era 15,2px
-   contra os 5,6px do transporte, medido.
+   dois botões do transporte. Enquanto as laterais tinham `padding: 0 .35rem`
+   dentro de uma coluna de 56px, o vão real até a preview era 15,2px contra os
+   5,6px do transporte, medido.
    `stretch` (o padrão do flex) é o que dá ao botão a altura da faixa, e a
-   faixa É a preview — o botão da direita chega ao mesmo número pelo mesmo
-   caminho, dentro do `.mixer-stack`. */
+   faixa É a preview. A coluna da direita é a MESMA regra com outra coluna
+   (`.slide-side--dir`), o que é o que garante os dois gêmeos. */
 .slide-side { grid-column: 1; grid-row: 2; display: flex; min-width: 0; min-height: 0; }
+.slide-side--dir { grid-column: 3; }
 
 /* Linha da preview: só a miniatura. Os botões de slide que a flanqueiam desde
    a v1.3.5 não moram aqui — cada um ocupa uma COLUNA da grade (`.slide-side` e
-   a fatia `.mixer-mid`), que é o que lhes dá a altura da faixa. E a faixa É a
+   `.slide-side--dir`), que é o que lhes dá a altura da faixa. E a faixa É a
    preview: desde a v1.3.7 ela é `auto` e a miniatura preenche a coluna, então
    os três medem o mesmo por construção. */
 .preview-row { display: flex; align-items: stretch; justify-content: center; gap: .4rem; }
@@ -460,24 +459,24 @@ body {
    indefinida enquanto a própria faixa está sendo dimensionada, e o botão sairia
    com a altura do ícone.
 
-   A ESPECIFICIDADE É DELIBERADA (0,3,0). `.mixer-slot .ctl-btn { flex: 1 }`
-   mora 600 linhas abaixo e mede 0,2,0 — o mesmo que um `.mixer-slot
-   .slide-btn` aqui —, e num EMPATE quem vence é a última regra do arquivo.
-   MEDIDO: o botão da esquerda vestia a preview e o da direita continuava com a
-   faixa inteira, um par de gêmeos com alturas diferentes. E `flex: 1` não é
-   contornável pelo `height`: num contêiner de coluna o `flex-basis` É o tamanho
-   principal, então a altura declarada era ignorada em silêncio. Duas regras
-   distantes empatadas é armadilha; a especificidade tira a ordem da conta. */
-.deck .slide-side .slide-btn, .deck .mixer-slot .slide-btn {
+   OS DOIS LADOS SÃO A MESMA REGRA desde a v1.3.8, e é isso que os mantém
+   gêmeos. Eles já foram duas — o da direita morava no mixer e caía num
+   `.mixer-slot .ctl-btn { flex: 1 }` que empatava em especificidade e vencia
+   pela ORDEM do arquivo: MEDIDO, a esquerda vestia a preview e a direita
+   continuava com a faixa inteira, sem nada no console. Uma regra só não tem
+   como empatar consigo mesma. */
+.deck .slide-side .slide-btn {
   flex: 1; width: 100%; min-height: 0; padding: .4rem 0;
 }
+/* O HISTÓRICO é a SÉTIMA célula da linha de baixo: mesma coluna do botão de
+   passar slide, mesma faixa do transporte. Chapado (`.settings-btn`), porque
+   ele ABRE uma lista em vez de operar o culto. */
+.deck > #historyBtn { grid-column: 3; grid-row: 3; min-width: 0; }
 .slide-btn:disabled { opacity: .35; cursor: default; }
-/* O fader do volume ocupa top+mid da coluna do mixer, e a fatia do meio é o
-   PASSAR SLIDE — com o fader aberto ele sai de cena. Um par em que só a metade
-   da esquerda sobrevive é pior que par nenhum: o operador tocaria em "voltar"
-   e procuraria o "passar" que não está lá. Some junto, volta junto. Quem
-   escreve a classe é `openVolume`/`closeVolume`, no mesmo par do `.mixer`. */
-.deck.vol-open .slide-side { visibility: hidden; }
+/* (O `.deck.vol-open .slide-side` saiu na v1.3.8. Ele escondia o botão de
+   VOLTAR slide enquanto o fader de volume cobria o de PASSAR — meia dupla é
+   pior que dupla nenhuma. Sem fader não há o que cobrir, e o par de slide não
+   desaparece mais em situação nenhuma: era isto que o operador via sumir.) */
 
 /* Preview */
 /* A proporção é a do TELÃO REAL, não um 16:9 fixo (`--pv-ar`, escrito pelo JS a
@@ -493,7 +492,7 @@ body {
   /* Largura IDEAL = altura da faixa x proporção do telão. Mas ela é ENCOLHÍVEL
      (`flex: 0 1 auto` + `max-width: 100%`): numa tela estreita, ou com um telão
      muito largo, a largura ideal não cabe na linha — e com `height: 100%` fixo
-     a preview simplesmente transbordava por baixo da coluna do mixer, levando o
+     a preview simplesmente transbordava por baixo da coluna lateral, levando o
      botão de próxima estrofe para fora da tela.
      Com `height: auto` + `aspect-ratio`, quem manda passa a ser a LARGURA: o
      flex encolhe a preview até caber e a altura acompanha, preservando a
@@ -641,7 +640,7 @@ body {
    ao lado — isto é, sem dizer nada. Medido. */
 .pv-fab--camada { color: var(--stage-alert); }
 /* ---------- OS DOIS ESTADOS QUE SUBIRAM PARA A PREVIEW (v1.3.5) ----------
-   Sem moldura não há o que pintar de `--danger-soft`: no mixer o estado era o
+   Sem moldura não há o que pintar de `--danger-soft`: com moldura o estado era o
    FUNDO do botão, e aqui o botão não tem fundo. O estado passa a ser a COR DO
    TRAÇO — a mesma resposta que o selo de camadas já dava, e pelo mesmo motivo:
    o território é o PALCO, que não tem tema, então o vermelho é `--stage-alert`
@@ -1033,9 +1032,22 @@ body {
   0%, 12% { transform: translateX(0); }
   88%, 100% { transform: translateX(var(--np-shift, 0)); }
 }
-.np-seek { display: flex; align-items: center; gap: .5rem; }
-.np-time { font-size: .7rem; color: var(--muted); min-width: 32px; text-align: center; }
-#seek { flex: 1; accent-color: var(--accent); height: 4px; }
+/* ===== A LINHA DO TEMPO CAI NAS COLUNAS DO DECK (v1.3.8) =====
+   As MESMAS três colunas do `.deck`, com o MESMO vão: o tempo decorrido sobre o
+   botão de voltar slide, a barra sobre a preview, o tempo total sobre o de
+   passar. Era um `flex` com `gap: .5rem` e `min-width: 32px` nos tempos —
+   números que não vinham de lugar nenhum, e a barra terminava onde calhasse.
+
+   `--deck-col` é herdado do `.deck`, então esta grade não repete a conta: se a
+   largura da coluna lateral mudar, os tempos acompanham no mesmo lote. */
+.np-seek {
+  display: grid;
+  grid-template-columns: var(--deck-col) minmax(0, 1fr) var(--deck-col);
+  gap: var(--deck-gap);
+  align-items: center;
+}
+.np-time { font-size: .7rem; color: var(--muted); text-align: center; min-width: 0; }
+#seek { width: 100%; min-width: 0; accent-color: var(--accent); height: 4px; }
 #seek:disabled { opacity: .4; }
 
 /* Botões de transporte */
@@ -1063,132 +1075,29 @@ body {
    não tem eixo a anunciar. O par de eixos continua vivo onde não há botão de
    slide: a coluna da tela cheia e a notificação de mídia. */
 
-/* ---------- Mixer ---------- */
-/* Sem "card" de fundo: cada botão tem o próprio (`.ctl-btn`), só alinhados pela
-   grade. O `.mixer` ocupa as 3 linhas do `.deck` e usa `subgrid` para HERDAR as
-   mesmas faixas de altura (nowplaying / preview / transporte) — top, mid e
-   bottom caem pixel a pixel, em vez de um `flex-basis` aproximado. Padding só
-   horizontal: no eixo vertical ele deslocaria as linhas herdadas para dentro. */
-.mixer {
-  grid-column: 3; grid-row: 1 / 4;
-  display: grid; grid-template-rows: subgrid;
-  row-gap: var(--deck-gap);
-  position: relative;
-}
-/* O mixer NUNCA dita a altura das faixas — quem dita é a coluna 1. Cada fatia é
-   uma caixa de posicionamento VAZIA no fluxo, e os botões vivem num
-   `.mixer-stack` ABSOLUTO: item absoluto sai do fluxo e não entra no
-   max-content das faixas `auto` do `.deck` (com `subgrid`, tudo que estivesse
-   no fluxo aqui contribuiria para as faixas do pai). Era essa contribuição que
-   deformava o deck ao abrir o volume, porque o conteúdo do mixer muda entre os
-   dois estados. Fora do fluxo, eles são indistinguíveis para a grade. */
-.mixer-slot { position: relative; min-height: 0; }
-.mixer-stack {
-  position: absolute; inset: 0;
-  display: flex; flex-direction: column; gap: .35rem;
-}
-.mixer-top    { grid-row: 1; }
-.mixer-mid    { grid-row: 2; }
-.mixer-bottom { grid-row: 3; }
-/* Cada botão preenche a própria fatia da grade, sem sobrar nem faltar espaço. */
-.mixer-slot .ctl-btn { flex: 1; min-height: 0; }
-/* ===== O FADER OCUPA A FATIA DO PASSAR SLIDE, E SÓ ELA (v1.3.7) =====
-   Ele ocupava `1 / 3` — a fatia do HISTÓRICO mais a do slide —, e a do
-   histórico não tem nada a ver com volume: abrir o fader apagava um botão de
-   outro assunto. Hoje é `grid-row: 2`, a faixa da preview: o fader nasce com a
-   altura dela, alinhado com a miniatura, e o histórico fica onde está.
+/* ---------- A coluna da direita: dois botões soltos (v1.3.8) ----------
+   Aqui morava o `#mixer` — um `subgrid` de três fatias, com os botões dentro de
+   um `.mixer-stack` ABSOLUTO. Toda essa máquina existia por UMA razão: o fader
+   de volume atravessava duas linhas, e um item no fluxo de um subgrid
+   contribuiria para as faixas do PAI, deformando o deck ao abrir o volume.
 
-   `min-height: 0` é o que impede o mixer de mudar o tamanho do resto ao abrir:
-   com `subgrid`, um piso de altura faria o fader empurrar a faixa e a preview
-   mudaria de tamanho junto. */
-.fader-wrap { display: none; grid-row: 2; min-height: 0; position: relative; }
-.mixer .vol-close { display: none; }
-.mixer.vol-open .mixer-mid { display: none; }
-.mixer.vol-open .fader-wrap { display: block; }
-.mixer.vol-open .vol-btn { display: none; }
-.mixer.vol-open .vol-close { display: flex; }
-/* Animação de abrir/fechar o slide de volume. O botão da BASE (volume/ocultar)
-   NÃO é animado: ele fica no mesmo lugar e só troca de característica (ícone/
-   cor) instantaneamente. Anima-se só quem de fato entra e sai — o fader e, ao
-   voltar, o botão de slide que ele cobria (`.vol-revealing`). O histórico saiu
-   das duas listas na v1.3.7, junto com o fader que deixou de cobri-lo. Fechar
-   mantém a classe .vol-closing durante a saída do fader. Ver openVolume/
-   closeVolume em controle.js. */
-.mixer.vol-open:not(.vol-closing) .fader-wrap { animation: vol-slide-in .2s ease both; }
-.mixer.vol-closing .fader-wrap { animation: vol-slide-out .2s ease both; }
-.mixer.vol-revealing .mixer-mid { animation: vol-slide-in .2s ease both; }
-@keyframes vol-slide-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-@keyframes vol-slide-out { from { opacity: 1; transform: translateY(0); } to { opacity: 0; transform: translateY(10px); } }
-/* Botão de volume: PREENCHIDO no accent, com o ícone de mixer em `--on-accent`
-   (o tom claro que existe justamente para ser escrito sobre `--accent-fill`)
-   — visualmente distinto e prominente na base da coluna. Seletor com `.mixer`
-   para ganhar de `.ctl-btn` (mesma especificidade, definido depois). */
-.mixer .vol-btn { background: var(--accent-fill); color: var(--on-accent); }
-/* O fader OCUPA A COLUNA INTEIRA, como os botões que ele substitui: mesma
-   largura, mesmo raio, mesmo fundo (`--surface`) — a coluna não muda de
-   espessura ao abrir o volume, só de conteúdo.
-   O trilho é desenhado por nós (`appearance: none`): a espessura do trilho
-   nativo é fixa e NÃO acompanha a largura do elemento — alargar o `<input>`
-   sozinho só deixava a barrinha de sempre boiando num alvo maior. */
-.fader {
-  /* Preenchimento: `--accent` do zero até o nível, `--surface` acima — o mesmo
-     papel que o `accent-color` fazia no trilho nativo, que `appearance: none`
-     desliga. (O texto dizia "azul": era a paleta anterior, e a cor está no
-     token justamente para o comentário não precisar nomeá-la de novo.)
-     `--vol` (0–1) vem do JS, de onde o valor do fader já é escrito (ver
-     renderControls em controle.js).
-     O corte não é `--vol * 100%` puro: o CENTRO do cap percorre só a altura
-     menos a espessura dele, então esta conta mantém a borda do preenchimento
-     exatamente sob o cap em qualquer posição. */
-  --fader-stop: calc(var(--vol, 1) * (100% - var(--fader-cap)) + var(--fader-cap) / 2);
-  -webkit-appearance: none; appearance: none;
-  position: absolute; inset: 0; transform: none;
-  writing-mode: vertical-lr; direction: rtl;
-  width: auto; height: auto; margin: 0;
-  background: transparent;
-  touch-action: none; cursor: pointer;
-}
-.fader::-webkit-slider-runnable-track {
-  width: 100%; height: 100%;
-  border-radius: var(--radius-btn);
-  background: linear-gradient(to top,
-    var(--accent) 0 var(--fader-stop), var(--surface) var(--fader-stop) 100%);
-}
-/* O número (0–100) ocupa exatamente o retângulo do cap: mesma altura e a
-   mesma conta de posição do preenchimento (o centro do cap percorre a altura
-   menos a espessura dele), então ele acompanha o cap sem folga em qualquer
-   posição. Não recebe toque — quem arrasta é o input por baixo. */
-.fader-value {
-  position: absolute; left: 0; right: 0;
-  bottom: calc(var(--vol, 1) * (100% - var(--fader-cap)));
-  height: var(--fader-cap);
-  display: flex; align-items: center; justify-content: center;
-  font-size: .78rem; font-weight: 700; line-height: 1;
-  color: var(--bg);
-  pointer-events: none; user-select: none;
-}
-/* Cap do fader: atravessa a coluna inteira, como o cap de uma mesa de som de
-   verdade — e é um alvo de toque muito maior que o thumb redondo antigo. */
-.fader::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  width: 100%; height: var(--fader-cap);
-  border-radius: var(--radius-btn);
-  /* O cap é o elemento mais claro da coluna de propósito (é onde o olho vai
-     procurar o nível), e o número dentro dele é escrito em `--bg`. Branco
-     literal era a maior fonte isolada de luz emitida do app; `--text` é o
-     off-white já calibrado da paleta e mantém 11,4:1 com o número. */
-  background: var(--text);
-  box-shadow: 0 1px 4px var(--shadow-cap);
-  cursor: pointer;
-}
-/* Configurações: ÍCONE SOLTO, sem caixa. Não é `.ctl-btn` de propósito — a
-   fatia do topo é a mais baixa da coluna (acompanha a altura de `.nowplaying`,
-   não os 150px da preview), e um bloco achatado ao lado de quatro botões de
-   altura cheia lê como um botão mal encaixado. Sem a caixa ele deixa de
-   competir com o grupo que opera o culto, que é o que ele não é. Mesmo
-   tratamento do `#backBtn`: navegação/acesso é chapado, operação é botão. */
+   Sem o fader não há o que atravessar. Sobraram dois botões — passar slide na
+   faixa da preview, histórico na do transporte —, e eles são itens diretos da
+   grade do deck, como todos os outros. Saíram com o subgrid: `.mixer`,
+   `.mixer-slot`, `.mixer-stack`, `.mixer-top/mid/bottom`, `.fader*`,
+   `.vol-btn`, `.vol-close`, os três estados `vol-*` e as duas animações.
+
+   O `--fader-cap` saiu da paleta junto: ninguém mais o lia. */
+
+/* ÍCONE SOLTO, sem caixa — hoje o HISTÓRICO, na sétima célula da linha de
+   baixo. O nome da classe é herança do inquilino anterior (a engrenagem de
+   Configurações, que subiu para o cabeçalho na v1.2.0); o que ela descreve é a
+   ANATOMIA: chapado. Não é `.ctl-btn` de propósito — sem a caixa ele deixa de
+   competir com os seis botões de transporte ao lado, que operam o culto,
+   enquanto ele só ABRE uma lista. Mesmo tratamento do `#backBtn`:
+   navegação/acesso é chapado, operação é botão. */
 .settings-btn {
-  flex: 1; min-height: 0; width: 100%; padding: 0;
+  min-height: 0; width: 100%; padding: 0;
   border: none; background: none; color: var(--muted);
   display: flex; align-items: center; justify-content: center;
   cursor: pointer; appearance: none; -webkit-appearance: none;
@@ -1199,7 +1108,7 @@ body {
   color: var(--text); cursor: pointer; display: flex; align-items: center; justify-content: center;
 }
 .ctl-btn .msym { font-size: var(--icon-md); }
-.mixer .ctl-btn { width: 100%; padding: .4rem 0; }
+
 /* AÇÃO DESTRUTIVA num botão com moldura. Este bloco reunia três estados
    (`.view-blocked`, `.muted` e este) — os dois primeiros eram do mixer e
    subiram para cima da preview na v1.3.5, onde não há moldura para pintar e o
@@ -5511,7 +5420,7 @@ body.mode-simple .bottombar { display: none; }
 .simple-key--big.muted { background: var(--danger-soft); color: var(--danger-strong); }
 .simple-key--big.blocked { background: var(--warn-soft); color: var(--warn-text); animation: mute-blocked-pulse 1.2s ease-in-out infinite; }
 /* Volume: − e + são teclas iguais às outras; o indicador no meio mostra o
-   número e, embaixo, a mesma leitura do fader (quanto do curso está usado). */
+   número e, embaixo, quanto do curso está usado. */
 .simple-volrow { display: grid; grid-template-columns: 1fr 1.1fr 1fr; gap: .6rem; align-items: stretch; }
 .simple-key--vol { height: 76px; }
 .simple-key--vol svg { color: var(--text); }
@@ -5521,7 +5430,7 @@ body.mode-simple .bottombar { display: none; }
   position: relative; overflow: hidden;
 }
 /* Barra fina de preenchimento na base do indicador: o número diz o valor, ela
-   diz o curso — a mesma informação que o fader dava de relance. */
+   diz o curso, de relance. */
 .simple-vol-read::after {
   content: ''; position: absolute; left: 0; bottom: 0; height: 4px;
   width: calc(var(--vol, 1) * 100%);
@@ -5638,7 +5547,7 @@ body.mode-simple .bottombar { display: none; }
    o servidor sozinha ao abrir — um cartão não sabe dizer "ligado".
 
    O BOTÃO É PREENCHIDO NO ACCENT, a anatomia de botão principal do app
-   (`.tab-add`, `.misc-tab.active`, `.mixer .vol-btn`): `--accent-fill` de fundo
+   (`.tab-add`, `.misc-tab.active`): `--accent-fill` de fundo
    com `--on-accent` por cima — o par que existe para isso, e o único que passa
    o piso (5,37:1). Escrever `--accent` num fundo cheio é o erro que a paleta
    descreve: aquele tom é claro porque é para ser TEXTO sobre fundo escuro. */

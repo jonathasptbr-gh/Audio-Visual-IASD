@@ -155,8 +155,9 @@ repetição só começa depois de uma pausa, senão um toque comum viraria dois.
 entra no mesmo pulso de `renderSlideNav()`, sem timer próprio. Rolar com o dedo
 desliga o acompanhamento até a próxima música, como no popup.
 
-A espiada do volume pelos botões físicos (`peekVolume`) **não roda aqui**: as
-teclas de volume já estão na tela, com o número ao lado.
+As teclas de volume deste modo mexem no GANHO DO APP (`applyVolume`), com o
+número ao lado — e é ele que viaja para as telas da rede. As teclas FÍSICAS do
+aparelho são outra coisa desde a v1.3.8: elas vão para o volume do sistema.
 
 #### Sem tela conectada, o modo inteiro fica bloqueado
 
@@ -306,7 +307,7 @@ tela de 360px a raiz dos Favoritos cortava o próprio título com reticências.
 
 **A ENGRENAGEM SUBIU PARA CÁ NA v1.2.0** (pedido do operador: *"jogue o botão de
 configurações no modo avançado para o topo da tela, na mesma posição que ele já
-ocupa no modo fácil"*). Ela morava na fatia de cima da coluna do mixer, encostada
+ocupa no modo fácil"*). Ela morava na fatia de cima da coluna da direita, encostada
 na BASE — o canto oposto ao do gêmeo do Modo Fácil —, e trocar de modo trocava o
 canto em que a mesma porta se abre. Agora é o mesmo gesto nos dois: canto
 superior direito, mesma caixa (`--hit`), mesma cor (`--accent`, a do `#backBtn`
@@ -314,7 +315,8 @@ em frente — a regra do app é que navegação/acesso é chapado e em accent).
 
 O lugar já estava reservado: esta é a trilha 3, aberta pela v5.309 como um VÃO só
 para o título não sair do eixo, e que previa este dia por escrito. O que ficou
-vago no mixer virou o `#historyBtn` (ver "O histórico do culto").
+vago virou o `#historyBtn` (ver "O histórico do culto") — que na v1.3.8 desceu
+para a linha do transporte, liberando a barra de progresso.
 
 O título é `.84rem` (em .72rem o único texto que responde "onde eu estou" era
 menor que o subtítulo de qualquer linha).
@@ -363,21 +365,20 @@ navegação por gestos.
 
 **Grade real (CSS Grid), não flex aproximado:** `.deck` é um `grid` de **3
 colunas** (`var(--deck-col)` / `minmax(0, 1fr)` / `var(--deck-col)`) × 3 linhas
-(todas `auto`), com `.slide-side`, `.nowplaying`, `.preview-row` e
-`.transport` como itens DIRETOS. O `#mixer` ocupa as 3 linhas e usa
-`grid-template-rows: subgrid` para **herdar exatamente essas faixas** —
-alinhamento pixel a pixel entre as colunas em vez de flex-basis calculado à
-parte. O `padding` do `#mixer` é **só horizontal**: vertical deslocaria as
-linhas herdadas.
+(todas `auto`), com **sete itens DIRETOS** e nenhuma grade aninhada:
+`.nowplaying` (atravessa as três), `.slide-side`, `.preview-row`,
+`.slide-side--dir`, `.transport` (atravessa as duas primeiras) e `#historyBtn`.
+Desde a v1.3.8 não há `subgrid`: cada botão da coluna da direita cai na faixa do
+vizinho da esquerda por estar na MESMA linha da grade, não por um alinhamento
+calculado à parte.
 
 **A terceira coluna nasceu na v1.3.5**, quando a preview passou a ser
 FLANQUEADA pelos dois botões de slide (ver "Um par de botões, dois eixos"). Ela
-tem a largura do mixer porque os dois botões precisam ser **gêmeos** — um par
-que não tem a mesma caixa não se lê como par —, e **só a faixa da preview usa
-as três**: `.nowplaying` e `.transport` atravessam a coluna da esquerda
-(`grid-column: 1 / 3`), senão sobrariam dois vãos laterais onde não há botão
-nenhum. O transporte, que divide a largura entre seis botões, é justamente quem
-tem uso para ela.
+tem a mesma largura da direita porque os dois botões precisam ser **gêmeos** —
+um par que não tem a mesma caixa não se lê como par. O `.transport` atravessa a
+coluna da esquerda (`grid-column: 1 / 3`), senão sobraria um vão lateral onde
+não há botão nenhum; a `.nowplaying` atravessa as TRÊS desde a v1.3.8, e é isso
+que põe os tempos sobre os botões de slide.
 
 A coluna do meio é `minmax(0, 1fr)`, **não** `1fr`: uma faixa `1fr` tem mínimo
 automático igual ao min-content, e o título (`#npName`, `white-space: nowrap`)
@@ -385,9 +386,8 @@ tem min-content do texto INTEIRO mesmo já cortado por ellipsis — um nome long
 inflava a coluna, esmagava a lateral e fazia a largura da preview depender do
 título.
 
-A `.slide-side` **não precisa do `.mixer-stack` absoluto** que a coluna do mixer
-usa: o único filho dela é o botão, e ele não tem como inflar a faixa acima da
-preview.
+As duas `.slide-side` **não precisam de máquina nenhuma**: o único filho de cada
+uma é o botão, e ele não tem como inflar a faixa acima da preview.
 
 #### Um vão só, sete células iguais e a faixa que É a preview (v1.3.7)
 
@@ -426,150 +426,81 @@ os outros medem 5,6.
   contra uma faixa `auto` é indefinida enquanto a própria faixa está sendo
   dimensionada, e o botão sairia com a altura do ícone.
 
-**O mixer NUNCA dita a altura das faixas** — quem dita é sempre a coluna 1. Cada
-`.mixer-slot` é uma caixa vazia no fluxo, e os botões vivem num `.mixer-stack`
-`position: absolute; inset: 0`: um item absoluto não entra no max-content das
-faixas `auto`, e como o `#mixer` é `subgrid`, qualquer coisa no fluxo ali
-contribuiria para as faixas do PAI. Era essa contribuição que deformava a caixa
-ao ABRIR o slide de volume — o conteúdo do mixer muda entre os dois estados
-(alturas intrínsecas diferentes) e as faixas `auto` mudavam de tamanho, levando
-junto a altura do deck e da preview. (`min-height: 0` resolve metade: zera o
-mínimo automático, mas uma faixa `auto` continua dimensionada pelo max-content.)
+#### A coluna da direita: dois botões soltos (v1.3.8)
 
-| Fatia | Linha da grade | Conteúdo |
+Aqui morava o `#mixer`, um `subgrid` de três fatias com os botões dentro de um
+`.mixer-stack` **absoluto**. Toda essa máquina existia por UMA razão: o fader de
+volume atravessava duas linhas, e um item no fluxo de um subgrid contribuiria
+para as faixas do PAI — era essa contribuição que deformava o deck ao abrir o
+volume.
+
+**Sem o fader não há o que atravessar.** Sobraram dois botões, cada um numa
+linha, e eles são itens diretos da grade do deck como todos os outros:
+
+| item | coluna | linha |
 |---|---|---|
-| `.mixer-top` | 1 (`.nowplaying`) | **Histórico do culto** (`#historyBtn`), **sem caixa de botão** |
-| `.mixer-mid` | 2 (`.preview-row`) | **passar slide** (`#slideNextBtn`) — a fatia inteira, um botão só |
-| `.mixer-bottom` | 3 (`.transport`) | **volume** (`#volToggle`/`#volClose`, recolhível) |
+| `#slideNextBtn` (`.slide-side--dir`) | 3 | 2 (a faixa da preview) |
+| `#historyBtn` | 3 | 3 (a faixa do transporte) |
 
-**A fatia do meio era o bloco de operação até a v1.3.5**: letra
-(`#lyricsViewBtn`), cortina (`#viewToggle`) e mudo (`#muteToggle`), cada um
-`flex: 1`. Os três subiram para CIMA da preview (ver "Controles sobre a
-preview") e o espaço virou o botão de passar slide, a pedido do operador — um
-alvo da altura da miniatura é o maior que este deck tem para oferecer.
+Saíram com o subgrid: `.mixer`, `.mixer-slot`, `.mixer-stack`,
+`.mixer-top/mid/bottom`, `.fader*`, `.vol-btn`, `.vol-close`, os três estados
+`vol-*`, as duas animações e o token `--fader-cap`.
 
-**Ele veste a altura MEDIDA da preview, não a da faixa** (v1.3.6, ver "Os dois
-botões de slide"), e por isso `.mixer-mid .mixer-stack` centra o que tem dentro:
-o que sobra da faixa fica dividido em cima e embaixo, como a própria miniatura
-já se centra na dela.
+**O `#historyBtn` mudou de fatia**, da de cima para a que era do volume. A linha
+de baixo tem sete células iguais e a sétima ficou vaga quando o fader saiu — e
+era ele, na fatia de cima, que impedia a barra de progresso de usar a largura
+inteira do deck (ver "A barra de progresso segue a grade", abaixo). Ele mantém a
+anatomia CHAPADA (`.settings-btn`, nome herdado da engrenagem que morava ali):
+os seis do transporte operam o culto e têm fundo; ele só ABRE uma lista.
 
-A ordem continua separando o que NÃO opera o culto do que opera: no topo,
-sozinho, o botão que só ABRE uma lista; no meio e embaixo, o que se toca durante
-o culto.
+#### O ajuste manual de volume saiu (v1.3.8)
 
-**A fatia do topo era a de Configurações até a v1.2.0**, quando a engrenagem
-subiu para o cabeçalho da tela (ver "Layout geral") e o **histórico** ocupou o
-lugar. A geometria não mudou — e por isso o `#historyBtn` herda a classe
-`.settings-btn`, que descreve a CAIXA e não o significado.
+Pedido do operador: *"não teremos mais esse sistema manual de ajuste de volume.
+o volume é ajustado pelos botões físicos do smartphone."*
 
-**Ele não tem caixa de botão** (`.settings-btn`, não `.ctl-btn`): a fatia do topo
-acompanha a altura de `.nowplaying`, bem menor que a da preview, e um bloco
-achatado ao lado de quatro botões de altura cheia lê como botão mal encaixado.
-Mesmo tratamento do `#backBtn`: navegação/acesso é chapado, operação é botão — e
-o histórico é acesso, não operação.
+- **O fader do deck saiu inteiro**, com `#volToggle`, `#volClose`, `#volSlider`,
+  `#volValue`, `syncFader`, `openVolume`, `closeVolume`, `peekVolume`,
+  `cancelVolPeek`/`bumpVolPeek` e o degrau 4 do botão VOLTAR.
+- **As teclas físicas voltaram a ser do SISTEMA.** O Controle chama
+  `captureVolumeKeys(false)` e o Android mostra o próprio indicador. A
+  interceptação existia porque, com espelhamento ativo, o Android roteia essas
+  teclas para a TV e o **fader do app** não saía do lugar; sem fader não há o que
+  mover, e interceptar para mexer num número invisível é pior — **quem
+  intercepta também apaga a UI de volume do Android**. `__avVolumeKey` continua
+  definido como REDE DE SEGURANÇA: devolve o passo ao sistema
+  (`AVNative.systemVolume`), para que uma tecla nunca fique sem efeito.
+- **O GANHO DO APP continua** (`applyVolume`, comando `volume`), e não é
+  redundante: ele viaja para as **telas da rede**, que são outros aparelhos — o
+  volume de mídia deste celular não as alcança. Quem o move hoje são as teclas
+  +/− do Modo Fácil; no deck ele fica onde estiver (1,0 por padrão, sem atenuar).
+- **E o par de slide não some mais.** O fader ocupava a fatia do
+  `#slideNextBtn`, e uma regra (`.deck.vol-open .slide-side`) escondia o de
+  VOLTAR junto, para não deixar meia dupla no ar. Foi esse sumiço que o operador
+  relatou; a regra saiu com o fader, e hoje não há estado nenhum que esconda
+  aquele botão.
 
-#### O histórico do culto (`#histPopup`, v1.2.0)
+#### A barra de progresso segue a grade do deck (v1.3.8)
 
-Pedido do operador: *"crie um botão de histórico, que lista todos os itens que já
-tocaram naquela sessão. deve ser uma lista tipo a do cronograma, mas sem opções
-de exclusão, mas com opções de enviar para o cronograma. essa lista deve ter a
-hora de cada apresentação de cada item e deve ser apagada a cada nova sessão do
-app"*.
+`.nowplaying` atravessa as **três** colunas (`grid-column: 1 / 4`), e `.np-seek`
+é uma grade com as MESMAS colunas e o MESMO vão:
 
-Ele responde a pergunta que **nenhuma outra lista do app responde**: o Cronograma
-é o que se PRETENDE tocar e a playlist é o que vem A SEGUIR — as duas voláteis
-por natureza, já que um toque numa mídia da Biblioteca redefine a fila inteira.
-*"O que eu já toquei hoje?"* não tinha onde ser feita.
+| peça | cai sobre |
+|---|---|
+| `#curTime` | o botão de voltar slide |
+| `#seek` | a preview |
+| `#durTime` | o botão de passar slide |
 
-- **Quem registra é o `send`**, o ponto por onde TODOS os caminhos passam (o
-  toque na lista, o avanço automático da fila, o ⏮/⏭ do transporte, a notificação
-  nativa, o roteiro) — o mesmo argumento do `diagC` que está na linha ao lado.
-- **A linha guarda CÓPIAS do nome e do subtítulo**, não um ponteiro: a prateleira
-  `avulsos` tem teto de três e o coletor recolhe os bytes de quem sai da última
-  lista, então um item pode deixar de existir entre tocar e ser consultado.
-  Guardar só o id daria uma lista de linhas em branco no fim de um culto normal.
-- **A repetição CONSECUTIVA colapsa** (`×3`), atualizando a hora em vez de abrir
-  linha nova: `repeat: 'one'` reenvia o mesmo id a cada fim de faixa, e um louvor
-  deixado em laço durante a oração enterraria o culto inteiro em cópias do mesmo
-  nome. Alternar entre dois itens abre linha nova — o colapso é da repetição
-  consecutiva, nunca do item.
-- **Sem excluir e sem reordenar.** Um registro do que JÁ aconteceu não se
-  edita, e um destrutivo aqui apagaria o registro sem apagar nada do aparelho.
-- **O TOQUE NA LINHA PROJETA** (v1.2.3, pedido do operador: *"pode fazer o item
-  do histórico ser executável diretamente no toque"*). A v1.2.0 tinha recusado
-  isto — o argumento era que uma lista consultada durante o culto não podia
-  mandar coisa ao telão por um toque de rolagem —, e ele **não se sustenta**: um
-  `click` não sai de um gesto que rolou a lista (o navegador o cancela), que é a
-  mesma proteção sob a qual a folha da playlist já projeta desde sempre. O que
-  sobra é a razão de o histórico existir: repetir um louvor que entrou de
-  improviso e não ficou guardado em lista nenhuma, sem cobrar uma linha
-  permanente no Cronograma por uma repetição.
+Ela parava na coluna 2 porque a 3 era do histórico: a barra não batia com a
+miniatura logo abaixo, e o título nascia descentrado — centrado numa caixa que
+não era a do deck. Era um `flex` com `gap: .5rem` e `min-width: 32px` nos
+tempos, números que não vinham de lugar nenhum.
 
-  Por `projetarItem`, e não um `send` cru: é a mesma porta do toque numa linha da
-  Biblioteca, e é ela que distingue CENA de MÍDIA. **E a folha FECHA** — ela cobre
-  a preview e o transporte, que é onde a resposta ao toque aparece; projetar por
-  trás dela seria o operador tocando e não vendo nada acontecer. O botão "Ao
-  Cronograma" tem `stopPropagation` pelo motivo espelhado: guardar um item não é
-  mandá-lo ao ar.
-- **A linha do item que saiu do aparelho FICA**, esmaecida, dizendo "Não está
-  mais no aparelho" e sem botão: apagá-la apagaria o fato. A conferência acontece
-  DEPOIS do desenho (a folha abre com a lista já na tela) e outra vez no TOQUE,
-  porque o coletor roda em toda remoção de lista — sem a segunda, o Cronograma
-  ganharia uma linha órfã que não abre nada.
-- **Em memória, e é isso que "apagada a cada nova sessão" significa aqui:** a
-  mesma escolha (e o mesmo modo de falhar) do `diarioC`, o outro artefato que
-  responde *"o que aconteceu neste culto?"*. Uma sessão é uma carga do documento
-  — minimizar não zera, fechar e reabrir zera. O preço está dito: uma morte do
-  renderer leva o histórico junto, como já leva a linha do tempo do Registro.
+**`--deck-col` é herdado do `.deck`**, então esta grade não repete a conta: se a
+largura da coluna lateral mudar, os tempos acompanham no mesmo lote.
 
-Oráculo: `tools/historico.test.mjs`.
+**O TÍTULO é o único que ignora as colunas**: `text-align: center` na largura
+inteira, que é onde o olho o procura.
 
-**Fonte única do volume (`applyVolume`)**: o fader, o arrasto vertical no terço
-direito da preview em tela cheia e os **botões físicos** passam pela mesma função
-— clamp, desligar o mudo se subir de 0, enviar o comando, atualizar o fader.
-
-**Botões físicos** (só no app; `window.__avVolumeKey`): a Activity intercepta
-`KEYCODE_VOLUME_UP/DOWN` e entrega o passo aqui, porque o sistema os roteia para
-a **saída em uso** — com Smart View ativo isso vira o volume da TV. **No máximo
-(ou no zero)** o passo é devolvido ao sistema (`AVNative.systemVolume`), senão um
-aparelho com o volume de mídia baixo ficaria sem como subir com o app aberto.
-
-**A tecla ESPIA o fader** (`peekVolume`, `VOL_PEEK_MS` = 2,8 s): sem isso o botão
-físico mexia no volume de forma INVISÍVEL. Ela abre a MESMA visualização do toque
-em `#volToggle` (literalmente `openVolume()`) e a recolhe sozinha. Três regras de
-convivência com o toque: só recolhe o que ela mesma abriu (`volPeekOwned`); tocar
-em `#volToggle`/`#volClose` cancela a contagem (`cancelVolPeek`); mexer no fader
-durante a espiada a reinicia (`bumpVolPeek`).
-
-Tocar no botão de volume liga `.vol-open` no `#mixer`, que troca a fatia do
-**passar slide** pelo **fader vertical** (`.fader-wrap`, `grid-row: 2` — a faixa
-da preview) mais um `#volClose` na fatia de baixo. **Ele ocupava `1 / 3`** até a
-v1.3.7 — a fatia do HISTÓRICO junto —, e a do histórico não tem nada a ver com
-volume: abrir o fader apagava um botão de outro assunto. O botão da base **não muda de
-lugar** entre os dois estados, só de ícone e cor; quem anima é o que está ACIMA
-dele. É só estado de UI, não persistido. As durações no JS
-(`openVolume`/`closeVolume`) casam com as do CSS (`@keyframes vol-slide-in/out`).
-
-**O fader tem a LARGURA DOS BOTÕES que ele substitui**: a coluna não muda de
-espessura ao abrir o volume, só de conteúdo. Isso exige desenhar o trilho
-(`appearance: none` + `::-webkit-slider-runnable-track`), porque a espessura do
-trilho NATIVO é fixa — alargar o `<input>` sozinho só deixa a barrinha de sempre
-boiando num alvo maior (verificado).
-
-Como `appearance: none` desliga junto o preenchimento do `accent-color`, ele é um
-gradiente com o corte em `--vol` (0–1), escrito por `renderControls()` no mesmo
-ponto em que o valor do fader é sincronizado — um lugar só, e os dois nunca
-discordam. O corte NÃO é `--vol * 100%` puro: o CENTRO do cap percorre a altura
-MENOS a espessura dele (`--fader-cap`, 26px), então a conta desconta isso e a
-borda do preenchimento fica exatamente sob o cap em qualquer posição.
-
-**O cap carrega o NÚMERO (0–100)** (`#volValue`): saber que o fader está "mais ou
-menos na metade" não é saber que está em 50 — e com os botões físicos o valor
-muda sem ninguém tocar na barra. O número é IRMÃO do `<input>`, não filho
-(`::-webkit-slider-thumb` é pseudo-elemento e não aceita conteúdo), então ele
-repete a MESMA conta de posição, com `--vol` e `--fader-cap` declaradas no
-`.fader-wrap` (o ancestral comum). `pointer-events: none`: quem recebe o arrasto
-continua sendo o input por baixo.
 
 **A linha da preview é só a preview**, e a partir da v1.3.5 ela é FLANQUEADA de
 novo — mas por fora, em colunas da grade, e não dentro da linha. Desde a v1.3.7
@@ -613,7 +544,7 @@ nenhum**, e nas duas `attachTransportStep` segue sendo o mecanismo:
 | Botão | Onde |
 |---|---|
 | `#slidePrevBtn` | `.slide-side`, a coluna 1 da grade — à esquerda da preview |
-| `#slideNextBtn` | `.mixer-mid`, a fatia que os três controles de operação deixaram vaga |
+| `#slideNextBtn` | `.slide-side--dir`, a coluna 3 — à direita da preview |
 
 - **São os MESMOS de sempre.** Da v5.49 à v1.3.4 eles estiveram ocultos no DOM
   (`.slide-anchor`), e o que os acionava era o toque curto em ⏮/⏭, o gesto da
@@ -641,21 +572,24 @@ nenhum**, e nas duas `attachTransportStep` segue sendo o mecanismo:
   folga em cima e embaixo de cada um. A v1.3.6 corrigiu isso MEDINDO a preview
   num `ResizeObserver`; a v1.3.7 tirou a medição do caminho — sem faixa fixa não
   há o que medir.
-  - **A regra do par mede 0,3,0 de propósito.** `.mixer-slot .ctl-btn
-    { flex: 1 }` mora 600 linhas abaixo e empata em 0,2,0 com um
-    `.mixer-slot .slide-btn` — e num empate vence a última regra do arquivo.
-    MEDIDO: a esquerda vestindo a preview e a direita ainda com a faixa
-    inteira, gêmeos de alturas diferentes e nada no console. E `flex: 1` não é
+  - **OS DOIS LADOS SÃO A MESMA REGRA** desde a v1.3.8, e é isso que os mantém
+    gêmeos. Já foram duas: o da direita morava no mixer e caía num
+    `.mixer-slot .ctl-btn { flex: 1 }` que empatava em especificidade e vencia
+    pela ORDEM do arquivo — MEDIDO, a esquerda vestindo a preview e a direita
+    ainda com a faixa inteira, sem nada no console. E `flex: 1` não era
     contornável por `height`: num contêiner de coluna o `flex-basis` É o tamanho
-    principal, então a altura declarada some em silêncio.
+    principal, então a altura declarada sumia em silêncio. Uma regra só não tem
+    como empatar consigo mesma.
 - **O fim do caminho é o `disabled` de sempre** — o esmaecido que a v5.49 tinha
   trocado pelo `.axis-end`, e que voltou a valer quando o botão passou a ter um
   significado só.
-- **Com o fader do volume aberto o PAR some junto.** O fader ocupa a fatia do
-  `#slideNextBtn`; uma dupla em que só a metade da esquerda sobrevive é pior que
-  dupla nenhuma — o operador toca em "voltar" e procura o
-  "passar" que não está lá. `openVolume`/`closeVolume` escrevem `vol-open`
-  também no `.deck`, e `.deck.vol-open .slide-side` esconde o gêmeo.
+- **O PAR NÃO SOME MAIS** (v1.3.8). Enquanto havia fader, ele ocupava a fatia do
+  `#slideNextBtn` e uma regra escondia o de VOLTAR junto — uma dupla em que só a
+  metade da esquerda sobrevive é pior que dupla nenhuma. Foi esse sumiço que o
+  operador relatou, e a resposta não foi ajustar a regra: o ajuste manual de
+  volume saiu inteiro, e a regra saiu com ele. Hoje não há estado nenhum que
+  esconda aquele botão — o oráculo afirma isso pela AUSÊNCIA de qualquer regra
+  `vol-open` no CSS.
 
 Oráculo: **`tools/controles-layout.test.mjs`** — a geometria (quem flanqueia
 quem, e com que caixa), o eixo do transporte medido pelo COMANDO que sai no
