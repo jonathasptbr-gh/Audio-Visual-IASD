@@ -56,7 +56,7 @@ const PONTE = `(() => {
     busPost: () => {},
     otaConfirm: () => {},
   };
-  const nomes = ['apkInstalar','apkProcurar','bgProgress','captureVolumeKeys','castTarget',
+  const nomes = ['apkInstalar','apkProcurar','bgProgress','captureVolumeKeys','projecaoLocal','castTarget',
     'cifraDiag','cifraHtml','deckDiscard','deckExportUrl','deckPages','displays',
     'espelhoCertApagar','espelhoCertEstado','espelhoCertImportar','espelhoDerrubar',
     'espelhoDesligar','espelhoDiag','espelhoEstado','espelhoLigar','keepAlive','listFolder',

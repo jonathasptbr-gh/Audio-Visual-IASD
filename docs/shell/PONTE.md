@@ -357,6 +357,33 @@ tem; rótulo em branco é **recusado**, e não vale "todas".
 > tirou o `modo` do `espelhoLigar`, ignorado desde a v5.156. Os dois esperaram o
 > lote que sobe o degrau, que é a regra: encolher a ponte é APK + web juntos.
 
+### `projecaoLocal(bool)` — o único método cuja resposta o shell não sabe apurar
+
+Ele diz **"a projeção é ESTE aparelho"**: não há tela conectada e há cena no ar.
+O shell responde ligando no WebView do **Controle** as duas metades da proteção
+que o telão tem desde que nasce — `KeepVisibleWebView.manterVisivel` (a
+visibilidade, que o Chromium calcula da janela **e** da View) e
+`RENDERER_PRIORITY_IMPORTANT` com `waivedWhenNotVisible = false` — mais
+`onResume`/`resumeTimers` no `onStop` da Activity.
+
+**Por que ele existe:** sem tela quem toca é o `<video>` da preview, neste
+WebView, e o Chromium pausa o `<video>` de uma página oculta. Com o app
+minimizado, o louvor calava.
+
+**Por que a decisão é do web** (invariante 5): "há tela?" mistura TV
+(`listDisplays`), telas da rede (o servidor) e o modo do app; "há cena?" inclui
+mensagem, versículo, cronômetro e sorteio. O shell teria de reconstruir os dois,
+e a cópia envelheceria à parte da original.
+
+**Por que ele é CONDICIONAL** e não um `keepVisible = true` de fábrica: com telão
+no ar o Controle DEVE ser estrangulado em segundo plano — ele é a mesa de
+comando, o som está lá fora, e é justamente o que o `snoopDisplayStatus` existe
+para contornar. Ligar sempre trocaria um defeito por um consumo.
+
+> O nome ANTIGO desta ideia era `keepAudioAlive`, e ele saiu no shell 38 com a
+> "mesa de som". Não voltou de propósito: ele falava de ÁUDIO, e o que se
+> protege é o `<video>` inteiro — a imagem parava junto.
+
 ---
 
 ## As oito coisas que o `native.js` chama e NÃO são API

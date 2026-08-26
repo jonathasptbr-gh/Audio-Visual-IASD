@@ -35,9 +35,8 @@ espelhar o celular.
 
 **Fora daqui:** `docs/ACHADOS-EM-ABERTO.md` (os defeitos CONFIRMADOS e ainda não
 corrigidos, com cenário e correção proposta — **leia antes de mexer no que ele
-nomeia**; hoje tem TRÊS — os dois do áudio do espelhamento e o relato de mídia
-baixada pausando em segundo plano, que ainda não foi separado das três cenas
-possíveis —, e é arquivo para esvaziar, não para crescer),
+nomeia**; hoje tem DOIS, os dois do áudio do espelhamento, e é arquivo para
+esvaziar, não para crescer),
 `docs/shell/README.md`
 (o HUB do **Kotlin**: um capítulo por
 subsistema do shell, mais a tabela que diz onde cada um dos 28 arquivos é
@@ -401,6 +400,14 @@ window.AVNative = {
   deckExportUrl(link), // → URL de exportação PDF de um link do Google Apresentações
   deckDiscard(url),    //   e apaga as páginas depois da cópia
   captureVolumeKeys(bool), // botões físicos de volume vão para o app
+  projecaoLocal(bool), // A PREVIEW É A PROJEÇÃO: não há tela conectada e há
+                       //   cena no ar. O shell responde impedindo que o WebView
+                       //   do CONTROLE seja suspenso (o `manterVisivel` + a
+                       //   prioridade do renderer que o telão já tem). Sem tela
+                       //   quem toca é o `<video>` da preview, e o Chromium
+                       //   pausa o de uma página oculta — com o app minimizado o
+                       //   louvor calava. CONDICIONAL de propósito: com telão no
+                       //   ar o Controle DEVE ser estrangulado em segundo plano
   systemVolume(step),  // devolve um passo ao volume do sistema (fader no limite)
   temaClaro(bool),     // o TEMA escolhido: ícones das barras + windowBackground
   requestMic(),        // → bool: permissão RECORD_AUDIO (push-to-talk)
@@ -471,7 +478,7 @@ window.AVNative = {
   cifraDiag(),         // → string: o que a última busca de cifra recebeu
 }
 ```
-São **48 métodos**, e essa é a superfície inteira que o resto do lado web tem
+São **49 métodos**, e essa é a superfície inteira que o resto do lado web tem
 direito de usar — fora do `native.js`, tocar em `__AVBridge` direto é
 acoplamento indevido. O próprio `native.js` chama mais oito coisas lá, e nenhuma
 é API para o app: `ytFetchAudio` e `ytFetchAte` (não são métodos a mais, são os
@@ -529,7 +536,7 @@ prazo (um timeout ali resolveria null com o operador ainda escolhendo a pasta).
 
 ### `SHELL_VERSION` — subir SEMPRE que a superfície mudar
 
-Hoje vale **55**, e ele é o **PISO**: o bundle declara `minShell: 55`, então
+Hoje vale **56**, e ele é o **PISO**: o bundle declara `minShell: 56`, então
 todo método da ponte existe sempre e **não há guarda de versão no lado web**.
 "Superfície" inclui **forma de retorno** e **comportamento**, não só assinatura:
 um campo que some, um contrato de URL que muda ou um método que passa a fazer
@@ -542,7 +549,7 @@ escondia. Sem guardas, o web chama um método que o APK instalado não tem: o
 existe, é tocável e não faz nada. Por isso mudança de ponte é um lote
 **APK + web publicado JUNTO**, com `shellTag` no `version.json`.
 
-> A tabela dos 55 degraus está em `docs/HISTORICO.md` — ela é história do
+> A tabela dos 56 degraus está em `docs/HISTORICO.md` — ela é história do
 > contrato, e história mora lá.
 
 ### As TRÊS filas da ponte — escolher a errada é uma regressão muda
@@ -593,7 +600,7 @@ E duas regras que ficam de fora das três filas:
   e volta; quem responde é o laço de cópia do `YoutubeGrab`, a cada bloco de
   64 kB.
 
-**O bundle declara `minShell: 55`, e é a VÁLVULA que resolve.** Um bundle que
+**O bundle declara `minShell: 56`, e é a VÁLVULA que resolve.** Um bundle que
 exija ponte mais nova que o `SHELL_VERSION` instalado é recusado inteiro
 (`WebUpdater.kt`), e o app segue no que tinha — a recusa acontece no shell, e
 não em runtime no meio de um culto. **Guarda de versão no lado web é proibida:**
@@ -3353,8 +3360,8 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: v1.3.11** (base web) · **v1.3.0** (APK) · `SHELL_VERSION` **55** · bundle com
-`minShell: 55` — o shell 55 é o **PISO**: todo método da ponte existe, e não há
+**Versão atual: v1.3.12** (base web) · **v1.3.12** (APK) · `SHELL_VERSION` **56** · bundle com
+`minShell: 56` — o shell 56 é o **PISO**: todo método da ponte existe, e não há
 guarda de versão no lado web. O que continua valendo é que `java/`, `res/`, o
 manifest e os workflows **só chegam instalando o APK**.
 

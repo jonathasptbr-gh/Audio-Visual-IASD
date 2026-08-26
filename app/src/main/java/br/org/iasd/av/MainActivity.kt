@@ -127,6 +127,18 @@ class MainActivity : ComponentActivity(), BridgeHost {
      */
     private var captureVolumeKeys = false
 
+    /**
+     * A PROJEÇÃO É ESTE APARELHO: não há tela conectada e há cena no ar.
+     *
+     * Escrito pelo lado web (`AVNative.projecaoLocal`) — ver [setProjecaoLocal],
+     * que explica o que o shell faz com ele. Guardado aqui porque o WebView do
+     * Controle é REMONTADO a cada morte de renderer, e a página nova só pede a
+     * proteção de volta depois de carregar: o estado atravessa a remontagem,
+     * como o `backgroundWork` NÃO atravessa (e pelo motivo oposto — aquele
+     * pertencia ao documento que morreu, este pertence à CONEXÃO, que não).
+     */
+    private var projecaoLocal = false
+
     // Android 13+ exige permissão para MOSTRAR a notificação do serviço de
     // sincronização. Negá-la não impede o serviço de rodar — só esconde o
     // indicador —, por isso o pedido é feito uma vez e sem bloquear nada.
@@ -513,6 +525,11 @@ class MainActivity : ComponentActivity(), BridgeHost {
         // de cada bundle. O cache é do processo (os dois WebViews o dividem),
         // então basta aqui: o telão é criado depois e já pega o cache limpo.
         if (WebUpdater.baseTrocou) w.clearCache(true)
+        // A PROTEÇÃO DA PREVIEW ATRAVESSA A REMONTAGEM (v1.3.12). Ela pertence à
+        // CONEXÃO (não há tela lá fora), não ao documento que acabou de morrer —
+        // e é justamente durante a recarga, com o renderer novo ainda montando a
+        // página, que a página não tem como pedi-la de volta.
+        aplicarProjecaoLocal()
         w.loadUrl(WebViewFactory.URL_CONTROLE)
     }
 
@@ -576,11 +593,16 @@ class MainActivity : ComponentActivity(), BridgeHost {
     override fun onStop() {
         super.onStop()
         presentation?.keepPlaying()
-        // O WebView do Controle volta a ser estrangulado em segundo plano
-        // sempre, que é o certo para uma mesa de comando: quem mantém a
-        // projeção viva com o app minimizado é o telão (`keepPlaying` acima) e,
-        // nas telas da rede, o `SessionService` mais o wake lock do
-        // `EspelhoEnergia`.
+        // E O CONTROLE SÓ QUANDO ELE É A PROJEÇÃO (v1.3.12). Com telão ou tela
+        // na rede ele volta a ser estrangulado, que é o certo para uma mesa de
+        // comando: o som está lá fora, e é o `snoopDisplayStatus` que contorna o
+        // estrangulamento. SEM nenhuma delas, quem toca é o `<video>` da preview
+        // — e aí este WebView É a projeção. Ver [setProjecaoLocal].
+        if (projecaoLocal) {
+            try { web?.onResume(); web?.resumeTimers() } catch (e: Exception) {
+                Log.w(TAG, "o WebView do Controle não retomou no onStop", e)
+            }
+        }
     }
 
     override fun onDestroy() {
@@ -1183,6 +1205,55 @@ class MainActivity : ComponentActivity(), BridgeHost {
 
     override fun setCaptureVolumeKeys(on: Boolean) {
         runOnUiThread { captureVolumeKeys = on }
+    }
+
+    /**
+     * A PREVIEW É A PROJEÇÃO — e por isso ela não pode ser suspensa (v1.3.12).
+     *
+     * Sem tela conectada quem toca é o `<video>` do WebView do CONTROLE, e o
+     * Chromium pausa o `<video>` de uma página oculta. Com o app minimizado o
+     * louvor calava. As três correções anteriores desta família protegiam o
+     * WebView do TELÃO (v1.26, v1.27, v1.28) — este é o outro.
+     *
+     * As DUAS metades da suspensão, as mesmas que o telão já usa:
+     *  - **a visibilidade**, que o Chromium calcula da janela E da View
+     *    ([WebViewFactory.KeepVisibleWebView] mente sobre as duas);
+     *  - **a prioridade do renderer**, com `waivedWhenNotVisible = false` —
+     *    literalmente "não abra mão da prioridade só porque esta View não está
+     *    visível".
+     *
+     * `onResume`/`resumeTimers` ao LIGAR porque a proteção pode chegar com o
+     * app já em segundo plano (uma TV que cai no meio do culto): sem eles a
+     * página ficaria com a bandeira certa e o renderer já desacelerado.
+     *
+     * O ESTADO É LEMBRADO ([projecaoLocal]) porque o WebView é remontado a cada
+     * morte de renderer — e a página nova só pede a proteção de volta depois de
+     * carregar, que é justamente o intervalo em que ela mais falta.
+     */
+    override fun setProjecaoLocal(on: Boolean) {
+        runOnUiThread {
+            projecaoLocal = on
+            aplicarProjecaoLocal()
+        }
+    }
+
+    /** Escreve [projecaoLocal] no WebView do Controle. Só na main thread. */
+    private fun aplicarProjecaoLocal() {
+        val w = web ?: return
+        (w as? WebViewFactory.KeepVisibleWebView)?.manterVisivel = projecaoLocal
+        try {
+            w.setRendererPriorityPolicy(
+                if (projecaoLocal) WebView.RENDERER_PRIORITY_IMPORTANT else WebView.RENDERER_PRIORITY_BOUND,
+                !projecaoLocal,
+            )
+        } catch (e: Exception) {
+            Log.w(TAG, "prioridade do renderer do Controle não mudou", e)
+        }
+        if (projecaoLocal) {
+            try { w.onResume(); w.resumeTimers() } catch (e: Exception) {
+                Log.w(TAG, "o WebView do Controle não retomou", e)
+            }
+        }
     }
 
     /**

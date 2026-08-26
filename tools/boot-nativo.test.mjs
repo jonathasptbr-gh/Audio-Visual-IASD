@@ -247,6 +247,11 @@ const ponteCom = (espelho, telas) => `(() => {
     setTimeout(() => { try { window.__avResolve(id, r); } catch (_) {} }, 0);
     return undefined;
   };
+  // A PROTEÇÃO DA PREVIEW (shell 56). O stub GRAVA, porque o que se mede aqui é
+  // o que o app DIZ ao shell — o efeito (um WebView que não é suspenso) não
+  // existe num navegador, e afirmar o efeito seria afirmar o arnês.
+  window.__projLocal = [];
+  B.projecaoLocal = (on) => { window.__projLocal.push(!!on); };
   const nomes = ['apkInstalar','apkProcurar','bgProgress','captureVolumeKeys','castTarget',
     'deckDiscard','deckExportUrl','deckPages','displays','espelhoCertApagar',
     'espelhoCertEstado','espelhoCertImportar','espelhoDesligar','espelhoDiag','espelhoEstado',
@@ -2945,6 +2950,47 @@ try {
   checar(!somSemTela.facil.local && somSemTela.facil.mudo,
     'e no Modo Fácil ela volta a ser muda (lá a cortina cobre tudo)');
 
+  // ---- A PREVIEW QUE É A PROJEÇÃO NÃO PODE SER SUSPENSA (v1.3.12) --------
+  //
+  // Sem tela conectada quem toca é o `<video>` da preview, no WebView do
+  // Controle — e o Chromium pausa o `<video>` de uma página oculta. Com o app
+  // minimizado o louvor calava, que foi o relato do operador. O shell responde
+  // ligando neste WebView a proteção que o telão já tem, e quem lhe diz quando
+  // é o lado web: `AVNative.projecaoLocal`.
+  //
+  // O QUE SE MEDE É O QUE O APP DIZ, não o efeito: um WebView que não é
+  // suspenso não existe num navegador, e afirmar o efeito seria afirmar o
+  // arnês. O stub grava as chamadas.
+  //
+  // A PERGUNTA TEM DUAS METADES, e as três asserções cobrem as três
+  // combinações que importam. A segunda é a que impede a proteção de virar
+  // permanente: ligada sem cena, ela custa um renderer que nunca desacelera
+  // num aparelho que não está projetando nada.
+  const proj = await pg.evaluate(() => {
+    const ler = () => (window.__projLocal.length ? window.__projLocal[window.__projLocal.length - 1] : null);
+    setAppMode('full');
+    // O CENÁRIO É MONTADO, não herdado: as metades anteriores deste arquivo já
+    // projetaram coisas, e `currentId` sobrevive de propósito ao Parar. `cena0`
+    // vai junto no resultado para o oráculo não afirmar sobre um cenário que
+    // não conseguiu montar.
+    const salvo = { id: currentId, msg: msgSession, bib: bibleSession };
+    currentId = null; msgSession = null; bibleSession = null;
+    const cena0 = cenaNoAr();
+    acertarProjecaoLocal();
+    const semCena = ler();
+    // COM CENA, pelo caminho de verdade: `currentId` é o que o veredito lê.
+    currentId = 'uma-midia-qualquer';
+    acertarProjecaoLocal();
+    const comCena = ler();
+    currentId = salvo.id; msgSession = salvo.msg; bibleSession = salvo.bib;
+    return { semCena, comCena, cena0 };
+  });
+  checar(proj.comCena === true,
+    'SEM TELA E COM CENA o app pede a proteção da preview — é ela que projeta', proj);
+  checar(proj.cena0 === false && proj.semCena === false,
+    'e sem cena ele NÃO pede: a proteção ligada à toa é um renderer que nunca '
+    + 'desacelera num aparelho que não está projetando nada', proj);
+
   // ---- E A OUTRA METADE DA REGRA: uma tela ENTRANDO fecha a folha (v5.193) --
   //
   // O par do caso de baixo, e o que impede a correção da v5.217 de virar "a
@@ -3049,6 +3095,24 @@ try {
   });
   checar(somComTela.tela && !somComTela.local && somComTela.mudo,
     'COM TELA DA REDE RECEBENDO este aparelho fica mudo, inclusive no avançado');
+
+  // E A TERCEIRA COMBINAÇÃO: com tela no ar a proteção fica DESLIGADA, mesmo
+  // com cena. Ali o Controle é a mesa de comando, o som está lá fora, e ser
+  // estrangulado em segundo plano é o comportamento CERTO — é o que o
+  // `snoopDisplayStatus` da ponte existe para contornar. Sem esta metade a
+  // correção seria "nunca mais economizar bateria", que é outro defeito.
+  const projComTela = await pg2.evaluate(() => {
+    setAppMode('full');
+    const salvo = currentId;
+    currentId = 'uma-midia-qualquer';
+    acertarProjecaoLocal();
+    const r = window.__projLocal.length ? window.__projLocal[window.__projLocal.length - 1] : null;
+    currentId = salvo;
+    return { ultimo: r, tela: algumaTelaConectada() };
+  });
+  checar(projComTela.tela && projComTela.ultimo !== true,
+    'COM TELA NO AR a proteção da preview fica DESLIGADA, mesmo com cena — ali '
+    + 'o Controle é a mesa de comando, e ser estrangulado é o certo', projComTela);
 
   // ---- A FOLHA DE CONEXÃO ABRE COM TELA JÁ CONECTADA (v5.217) -----------
   //

@@ -81,7 +81,7 @@ const PONTE = `(() => {
       setTimeout(() => { try { window.__avResolve(id, r); } catch (_) {} }, 0);
     },
   };
-  const nomes = ['apkInstalar','apkProcurar','bgProgress','captureVolumeKeys','castTarget',
+  const nomes = ['apkInstalar','apkProcurar','bgProgress','captureVolumeKeys','projecaoLocal','castTarget',
     'cifraDiag','deckDiscard','deckExportUrl','deckPages','displays','espelhoCertApagar',
     'espelhoCertEstado','espelhoCertImportar','espelhoDesligar','espelhoDiag','espelhoEstado',
     'espelhoLigar','keepAlive','listFolder','nowPlaying','openCast','openExternal','otaApply',

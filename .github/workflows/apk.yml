@@ -699,6 +699,17 @@ jobs:
           # deixaria de ser desenhado, e nada disso dá erro.
           rodar tools/ferramentas-folha.test.mjs
 
+          # O AVISO DE QUE UM ARQUIVO ESTÁ ENTRANDO. A ausência dele NÃO É UM
+          # ERRO: nada quebra, nada aparece no console, e o item chega ao fim —
+          # só chega em silêncio, e do lado de quem opera "importei e não
+          # aconteceu nada" é indistinguível de o app ter travado. Um teste que
+          # medisse só o desfecho passa nas duas versões, então o que ele mede é
+          # o MEIO: com o arquivo servido AOS PEDAÇOS, existe uma linha com o
+          # nome dele na lista enquanto ele é lido. Trava também o `soltar()` no
+          # `finally` — os `continue` do laço são a razão dele, e sem ele um
+          # arquivo ilegível deixa um aro girando na lista para sempre.
+          rodar tools/aviso-de-importacao.test.mjs
+
           # O PLACAR VAI PARA O RESUMO DO RUN, não só para o log — a queixa que
           # originou este lote foi precisamente que o desfecho só existia lá
           # dentro. `rodados` é CONTADO, nunca digitado: um número fixo aqui

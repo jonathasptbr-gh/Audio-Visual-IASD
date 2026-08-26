@@ -24,6 +24,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
+- **v1.3.12** — O AVISO QUE FALTAVA NA IMPORTAÇÃO, E A PREVIEW QUE É A PROJEÇÃO. Dois pedidos do operador, e o segundo fecha o achado 3. (1) **IMPORTAR NÃO DIZIA QUE ESTAVA IMPORTANDO**: um vídeo do armazenamento leva segundos até virar linha (o `fetch` do `/saf/` copia o arquivo, o `prepararMidia` decodifica um quadro e mede a duração, o `addMedia` grava), e nesse tempo a folha de destinos já tinha fechado e a lista continuava igual — *"não soube se ele travou ou se estava importando"*. A importação de APRESENTAÇÃO já fazia o certo; o ramo da mídia comum é que tinha ficado sem. O par é o mesmo (`libBusy` no avançado, `previewBusy` no Modo Fácil), e o `soltar()` mora num `finally` por causa dos três `continue` do laço. O oráculo mede o MEIO, não o desfecho — a ausência de um aviso não é um erro, e um teste do fim passa nas duas versões —, com o arquivo servido AOS PEDAÇOS para a janela existir. (2) **O LOUVOR CALAVA AO MINIMIZAR SEM TELA CONECTADA**, e a cena que faltava veio do operador: *"ocorre quando não há telas conectadas, no caso no modo onde o áudio deve sair no próprio smartphone"*. Sem tela quem toca é o `<video>` da PREVIEW, no WebView do Controle, e o Chromium pausa o de uma página oculta — as três correções anteriores desta família (v1.26, v1.27, v1.28) protegiam o WebView do TELÃO. A resposta é a que `DISPLAY.md` deixou escrita para o dia, sem desvio: `AVNative.projecaoLocal(bool)` (shell **56**) liga no Controle o `manterVisivel` + `RENDERER_PRIORITY_IMPORTANT` que o telão já tem, mais `onResume`/`resumeTimers` no `onStop`. **CONDICIONAL de propósito** — com telão no ar o Controle DEVE ser estrangulado (é o que o `snoopDisplayStatus` contorna) —, e a pergunta tem duas metades: não há tela **e** há cena no ar. `cenaNoAr()` saiu de dentro do `pushNowPlaying` e virou veredito com dois leitores. O estado atravessa a remontagem do WebView, ao contrário do `backgroundWork` e pelo motivo oposto. **EXIGE RELEASE v1.3.12**: `SHELL_VERSION` 55 → 56, `minShell: 56`, `shellTag`.
 - **v1.3.11** — O FANTASMA DA TROCA DE ABA PASSAVA POR CIMA DO CABEÇALHO. Conserto da v1.3.10, achado relendo o próprio diff: o `.list-body` que nasceu para a folha de Ferramentas ancorar é POSICIONADO, e com isso virou o offsetParent da `#library` — mas o fantasma do carrossel continuava sendo pendurado no `<main>` com as coordenadas do FILHO (`offsetTop`/`offsetLeft`), o que o subia a altura inteira do cabeçalho. Por 220 ms a tela que sai passava sobre o nome da tela e a engrenagem, sem erro em lugar nenhum e sem oráculo que olhasse — é o tipo de coisa que só aparece perguntando *o que este diff mudou por baixo do que ele não tocou?*. Quem RECORTA continua sendo o `overflow: hidden` do `<main>`, ancestral dos dois. Asserção nova no `ferramentas-folha.test.mjs`, medindo o transiente no instante em que ele nasce (`switchTab` monta o fantasma de forma síncrona, antes do `await load()`); provada por reversão. OTA PURO.
 - **v1.3.10** — SEIS PEDIDOS DO OPERADOR, E UM DELES ERA UM DEFEITO DE VERDADE. (1) **O FUNDO DA LETRA sumia** ao trocar de música ou passar slide logo depois de carregar uma, e só voltava reiniciando a música ou religando as imagens em Configurações. A `<img>` de fundo é FILHA da camada da letra, então o desmonte dela é ADIADO; quando a letra volta antes do prazo — que é o que TODO `load` de música faz — alguém precisa CANCELAR o desmonte, e a guarda de sequência não cancela: ela não anda quando a estrofe que volta usa a MESMA imagem, o caso normal (o fallback grudento do sync dá uma imagem por hino, e hinos do mesmo hinário compartilham a arte do álbum). **O telão tinha as três proteções desde que o defeito foi visto lá; a preview não tinha — e a documentação já as descrevia como se fossem de ambos.** É a armadilha do `__tela` no `display-ready`: ler cada lado isolado aprova os dois. Sem TV a preview É a projeção. (2) A COLUNA DA TELA CHEIA nasce ACESA e o toque virou INTERRUPTOR — ela vinha apagada e não dizia que existia, que é o problema dos gestos invisíveis com um passo a mais; e o gesto existia num sentido só. Tocar num BOTÃO continua RENOVANDO, senão comandar a projeção fecharia a coluna a cada comando. (3) AS FERRAMENTAS saíram da faixa de abas e viraram uma FOLHA do Cronograma, aberta pelo botão à direita de "Importar arquivos" — e a mudança é de PARENTESCO, não de navegação: tudo que elas produzem é CENA que entra no roteiro. Ela sobe DENTRO da lista, deixando o cabeçalho e a caixa de controles à vista, e `activeTab` continua `'imports'`. O valor `'mic'` de `activeTab` deixou de existir. (4) A faixa ficou com Cronograma, Bíblia e a busca. (5) "Transmitir para navegador" virou **"Conectar um computador"**, fazendo par com "Conectar uma TV". (6) O selo de camadas desceu do topo para a base da preview. **O sétimo relato — mídia baixada pausando ao minimizar — não entrou:** aquela família já foi atacada quatro vezes e as três cenas possíveis (telão · preview · telas da rede) pedem correções opostas; virou o achado 3 de `ACHADOS-EM-ABERTO.md`, com o pedido de Registro que fecha em um passo. Dois oráculos novos, provados por reversão em oito frentes. OTA PURO.
 - **v1.3.9** — O FADER VOLTOU; O BOTÃO QUE O ABRIA É QUE TINHA DE SAIR. A v1.3.8 leu o pedido largo demais e removeu o sistema de volume inteiro; o operador corrigiu: *"eu não queria que removesse o sistema de slide de volume interno do nosso app, pois ele é o que impede alguns controles de volume de aparecer no display"*. **A RAZÃO É A PROJEÇÃO**, e ela não estava escrita em lugar nenhum: o app CONSOME a tecla de volume, e quem não consome deixa o Android desenhar o painel dele — que, com espelhamento ativo, aparece SOBRE o que a congregação está vendo. O fader do celular é o que o substitui. Voltaram `.fader*`, `#volSlider`, `#volValue`, `syncFader`, `peekVolume`, `captureVolumeKeys(true)` e o `__avVolumeKey` que mexe no ganho; ficam fora `#volToggle`/`#volClose` (o botão de tela, que é o que o operador dispensou) e, com eles, `cancelVolPeek`/`bumpVolPeek` — a máquina do caso "aberto na mão", que deixou de existir. **A TECLA é a única porta e o relógio dela a única saída** (2,8 s). O fader é agora item da grade do deck, na MESMA célula do botão de passar slide, e a regra que escondia o de VOLTAR junto NÃO voltou — era esse sumiço o outro relato. Mais dois ajustes pedidos: o histórico veste a mesma caixa dos vizinhos (`.t-btn`; um chapado sozinho numa fileira de seis com fundo lê como um que ficou de fora), e a linha de baixo foi reordenada para repetir → playlist → anterior → play → parar → próximo → histórico. Provado por reversão em quatro frentes. OTA PURO.
@@ -266,6 +267,87 @@ na nota que a revoga, não apagada da que a criou.
 - **v5.154** — é METADE OTA e METADE APK, e a divisão importa para quem for testar em aparelho.
 - **v5.155** — é OTA PURO
 - **v5.156** — é METADE OTA e METADE APK, de novo.
+
+---
+
+## v1.3.12 — o aviso que faltava na importação, e a preview que é a projeção
+
+Dois pedidos do operador. O segundo fecha o **achado 3** de
+`ACHADOS-EM-ABERTO.md`, que durou exatamente um lote — o tempo de ele dar a cena
+que faltava.
+
+### 1. Importar não dizia que estava importando
+
+*"Fui importar um vídeo do armazenamento para o cronograma, e acho que por ser um
+pouco pesado, levou um ou dois segundos, mas nesse meio tempo, eu não soube se
+ele travou ou se estava importando, pois já havia fechado a tela de importação e
+não houve nenhuma mudança."*
+
+Os segundos são reais e são três coisas: o `fetch` do `/saf/` copia o arquivo
+inteiro, o `prepararMidia` decodifica um quadro para a miniatura e mede a
+duração, e o `addMedia` grava tudo no IndexedDB. Nada disso aparecia.
+
+**A regra já existia, e este ramo é que estava fora dela** — *o aviso mora onde o
+resultado vai aparecer*. A importação de APRESENTAÇÃO (`deckImportar`) já fazia
+exatamente isto desde a v5.99: `libBusy` no avançado (a linha provisória, com o
+aro no lugar da miniatura que ela ainda não tem) e `previewBusy` no Modo Fácil
+(onde não há lista e o item vai ao telão a seguir). O ramo da mídia comum
+recebeu o mesmo par, sem inventar nada.
+
+- **`sairDasCamadas()` já roda no começo do `importShare`**, e é ele que põe o
+  operador no Cronograma — a linha nasce onde ele está olhando, sem um passo a
+  mais.
+- **Sem percentual, de propósito.** `fetch().blob()` não reporta progresso, e um
+  número parado em 0% mente mais do que o aro girando. O que falta saber ali é
+  que HÁ trabalho e sobre QUAL arquivo.
+- **O `soltar()` mora num `finally`**, e os três `continue` do laço são a razão:
+  um arquivo que não abre sai por eles, e sem isso a linha ficaria na lista para
+  sempre — um item fantasma que nenhum toque remove.
+
+**O oráculo mede o MEIO, não o desfecho.** A ausência de um aviso não é um erro:
+nada quebra, nada aparece no console, e o item chega ao fim — só chega em
+silêncio. Um teste que medisse "o item entrou na lista" passa nas duas versões.
+Daí o arquivo do cenário ser servido AOS PEDAÇOS, com atraso deliberado: sem
+isso a janela que se quer medir dura menos que uma volta do laço de eventos, e o
+oráculo mediria a máquina.
+
+### 2. A preview que É a projeção não pode ser suspensa
+
+*"Ocorre quando não há telas conectadas, no caso no modo onde o áudio deve sair
+no próprio smartphone."*
+
+Essa frase é o lote inteiro. A família já tinha sido atacada QUATRO vezes
+(`onWindowVisibilityChanged` na v1.26, `onVisibilityChanged` na v1.27, o `onStop`
+da `Presentation` na v1.28, o `keepPlaying` do `onStop` da Activity) — e as
+quatro protegiam o WebView do **telão**. Sem tela conectada quem toca é o
+`<video>` da **preview**, no WebView do **Controle**, e o Chromium pausa o
+`<video>` de uma página oculta.
+
+**A resposta estava escrita antes da pergunta.** `DISPLAY.md` carregava, havia
+versões: *"se um dia o louvor calar ao minimizar o app com o som saindo do
+celular, é aqui que a resposta começa, e o caminho é o `manterVisivel` +
+`RENDERER_PRIORITY_IMPORTANT`. Ele custa um degrau de `SHELL_VERSION` e uma
+Release."* Foi exatamente isso, sem desvio — a aposta que a sustentava (*"áudio
+audível isenta a página do estrangulamento"*) é que não se sustentou em aparelho.
+
+| decisão | por quê |
+|---|---|
+| **a decisão é do lado WEB** (`AVNative.projecaoLocal`) | invariante 5, e não podia ser de outro: só ele sabe se há TV, se há tela na rede e se há cena. O shell recebe um fato apurado e responde com o que só ele pode fazer |
+| **duas metades na pergunta** — `somLocalDeveEstar() && cenaNoAr()` | a primeira é o MESMO veredito que decide de onde sai o som; duas contas para a mesma pergunta divergiriam no primeiro ajuste. A segunda impede a proteção de virar permanente: ligada sem cena, ela é um renderer que nunca desacelera num aparelho que não projeta nada |
+| **CONDICIONAL, nunca sempre** | com telão no ar o Controle DEVE ser estrangulado em segundo plano — ele é a mesa de comando, o som está lá fora, e é o `snoopDisplayStatus` que contorna o estrangulamento. Ligar sempre trocaria um defeito por um consumo |
+| **`cenaNoAr()` virou função nomeada** | ela era o `active` inline do `pushNowPlaying`. Dois leitores, um veredito — o serviço em primeiro plano e o WebView que não pode ser suspenso precisam concordar |
+| **o estado atravessa a remontagem** (`MainActivity.projecaoLocal`) | o WebView é refeito a cada morte de renderer, e a página nova só pede a proteção depois de carregar — justamente o intervalo em que ela mais falta. É o oposto do `backgroundWork`, zerado ali, e pelo motivo oposto: aquele pertencia ao documento morto, este pertence à CONEXÃO |
+| **o nome antigo não voltou** | `keepAudioAlive` falava de ÁUDIO, e o que se protege é o `<video>` inteiro — a imagem parava junto |
+
+**O que o oráculo mede é o que o app DIZ**, não o efeito: um WebView que não é
+suspenso não existe num navegador, e afirmar o efeito seria afirmar o arnês. As
+três combinações que importam estão cobertas (sem tela e com cena → liga; sem
+cena → não liga; com tela → não liga), e cada uma reprova sob a reversão da sua
+metade.
+
+**EXIGE RELEASE v1.3.12** — `SHELL_VERSION` 55 → 56, `minShell: 56`,
+`shellTag: "v1.3.12"`. A metade 1 é web e chega por OTA; a metade 2 **não**, e a
+nota do lote diz isso ao operador com todas as letras.
 
 ---
 
@@ -6651,8 +6733,16 @@ só, não descreve ação possível.
 Ela morava no `CLAUDE.md` e passa a morar aqui: com o piso, a lista de degraus é
 história do contrato, não regra viva.
 
+> **A tabela vai até o 48 e retoma no 56.** Os degraus **49–55** ficaram só nas
+> notas dos lotes que os criaram — `cifraHtml` (49), o recado (50, v1.1.26, e o
+> recado saiu na v1.2.17), o host do buscador entrando (51, v1.2.4) e saindo
+> (52, v1.2.8), `micDiag` (53, v1.2.11), o campo novo dele (54, v1.2.13) e
+> `salvarTexto` (55, v1.2.16). Está dito porque uma tabela com um buraco que não
+> se anuncia mente por omissão: quem a lê conclui que o 55 não existiu.
+
 | shell | o que mudou |
 |---|---|
+| **56** | `+ projecaoLocal(bool)` — a preview que É a projeção não pode ser suspensa. O primeiro degrau em anos cujo motivo estava escrito ANTES dele: `DISPLAY.md` dizia *"se um dia o louvor calar ao minimizar o app com o som saindo do celular, é aqui que a resposta começa"*, e o dia chegou |
 | **48** | `areaTransferencia(desde)` — o LINK COPIADO, quando ele é novo. O carimbo é a metade que importa: sem ele, LER a área de transferência daria o aviso do Android 12+ em toda retomada |
 | **47** | `atualizacaoEstado` ganha `webNotas` — a LINHA DO TEMPO da atualização, lida do `notas.json` do bundle baixado. Não acrescenta poder: acrescenta um campo, e **forma de retorno é superfície** |
 | **46** | `espelhoLigar` perde o `modo`; `espelhoAprovar(id, sim)` vira `espelhoDerrubar(rotulo)`. O primeiro degrau em que ENCOLHER foi o objetivo do lote |
