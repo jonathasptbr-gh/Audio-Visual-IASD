@@ -495,6 +495,15 @@
            divergir, e o cabeçalho tem largura de celular.) -->
     </div>
 
+    <!-- O CORPO DA LISTA (v1.3.10). Ele existe para dar OFFSET PARENT à folha
+         de Ferramentas: ela desliza de baixo para cima DENTRO do Cronograma —
+         sobre a lista e o rodapé dela, e não sobre a tela toda —, então precisa
+         de um contêiner que comece exatamente onde a lista começa. Com a folha
+         ancorada no `<main>` ela cobriria o cabeçalho junto, levando embora a
+         engrenagem e o nome da tela.
+         O `gap` repete o do `<main>`: os dois filhos daqui saíram de lá e a
+         distância entre a lista e o rodapé é a mesma de sempre. -->
+    <div class="list-body">
     <ul id="library" class="lib-list"></ul>
     <!-- RODAPÉ DA CAIXA DA LISTA (v5.107): fora do `<ul>` rolável, então o que
          estiver aqui fica SEMPRE à vista, encostado na caixa de controles.
@@ -509,6 +518,42 @@
              sair da tela. Aqui ela ocupa a fatia da própria lista a que
              pertence, e as abas ficam onde sempre estiveram. -->
     <div id="listFoot" class="list-foot"></div>
+
+    <!-- ===== FERRAMENTAS: A FOLHA DO CRONOGRAMA (v1.3.10) =====
+         Mensagens, Tempo (cronômetro/relógio/timer), Sorteio e o microfone ao
+         vivo. Elas eram uma ABA, ao lado do Cronograma e da Bíblia, e a faixa
+         ficou com três destinos mais a busca — a pedido do operador ela voltou
+         a ter só os dois LUGARES do culto (o roteiro e a Bíblia) mais a porta
+         da Biblioteca.
+
+         E O LUGAR DELAS É O CRONOGRAMA, não um popup solto: toda ferramenta
+         daqui produz uma CENA que entra no roteiro (a mensagem vira cue, o
+         cronômetro e o sorteio são projetados no meio da ordem do culto). Ser
+         uma extensão do Cronograma é o que essa relação já era — a aba só a
+         escondia atrás de uma navegação lateral.
+
+         DESLIZA DENTRO DA LISTA, e é por isso que ela é filha do `.list-body` e
+         não do `<body>`: o cabeçalho (nome da tela, engrenagem) e a caixa de
+         controles inteira continuam à vista e ALCANÇÁVEIS — quem projeta um
+         cronômetro quer o transporte e a preview na frente, não atrás de uma
+         folha. Não é `.popup-backdrop` pelo mesmo motivo: aquilo é uma camada
+         sobre a tela toda, com fundo escurecido.
+
+         O ✕ e o voltar do Android a fecham (ver `POPUPS`/`__avBack`). -->
+    <div id="toolsSheet" class="tools-sheet" hidden>
+      <div class="tools-head">
+        <span class="tools-title">Ferramentas</span>
+        <button id="toolsClose" class="tools-close" type="button" title="Fechar" aria-label="Fechar">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/>
+          </svg>
+        </button>
+      </div>
+      <!-- O host das ferramentas. Ele veste `.lib-misc` de sempre: quem
+           administra a altura aqui é o painel ativo, não a rolagem da lista. -->
+      <div id="toolsBody" class="tools-body lib-misc"></div>
+    </div>
+    </div>
     <!-- Seletor de arquivos: mora aqui, solto, e é MOVIDO para dentro da
          linha "Importar arquivos" do rodapé a cada render (ver
          renderListFoot em controle.js) — assim sobrevive à reconstrução do
@@ -568,20 +613,11 @@
         <line x1="9.2" y1="8.4" x2="13.8" y2="8.4"/>
       </svg>
     </button>
-    <!-- Ferramentas: as que não são seção da biblioteca. O seletor
-         (MISC_TOOLS em controle.js) traz mensagens, tempo (cronômetro/
-         relógio/timer) e sorteio, mais o microfone ao vivo, que é fixo. O
-         ícone é uma grade de módulos (não mais o microfone): com mais de uma
-         ferramenta dentro, um glifo que nomeia só uma delas esconderia o
-         resto. -->
-    <button class="tab" data-tab="mic" title="Ferramentas">
-      <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-        <rect x="3.5" y="3.5" width="7" height="7" rx="1.6"/>
-        <rect x="13.5" y="3.5" width="7" height="7" rx="1.6"/>
-        <rect x="3.5" y="13.5" width="7" height="7" rx="1.6"/>
-        <rect x="13.5" y="13.5" width="7" height="7" rx="1.6"/>
-      </svg>
-    </button>
+    <!-- (A ABA DE FERRAMENTAS SAIU DAQUI na v1.3.10, a pedido do operador:
+         "deixe na barra de abas apenas o cronograma, a bíblia e a busca na
+         biblioteca". Ela virou uma FOLHA do Cronograma — ver `#toolsSheet` —,
+         aberta pelo botão ao lado de "Importar arquivos". A faixa voltou a ter
+         só os dois LUGARES do culto mais a porta da Biblioteca.) -->
     <!-- A ÚNICA porta do acervo desde a v5.44 (a aba de Álbuns saiu): abre
          no navegador de coleções e vira busca ao digitar. -->
     <button class="tab-add" id="hymnSearchBtn" title="Biblioteca: hinários, álbuns, séries e busca">
@@ -780,7 +816,7 @@
                (o que está acontecendo) e o `title` diz o que o toque faz.
                Vermelho `--live` porque é o vermelho de "está no ar agora"
                deste app, e a camada de cima é justamente isso. -->
-          <div class="pv-fabs pv-fabs--topo">
+          <div class="pv-fabs pv-fabs--base">
             <button id="pvCamadaBtn" class="pv-fab pv-fab--camada" type="button"
                     title="Encerrar a camada de cima" aria-label="Encerrar a camada de cima" hidden>
               <!-- CAMADAS + ✕, e são as duas metades da mensagem: a pilha diz o
@@ -1269,7 +1305,7 @@
              pedir ajuda"), e agora ocupam a mesma faixa: a versão à esquerda, o
              Registro à direita, no espaço que já estava sobrando. -->
         <div class="footer-diag">
-          <span id="appVersion" class="app-version">Controle v1.3.9</span>
+          <span id="appVersion" class="app-version">Controle v1.3.10</span>
           <span class="footer-diag-rot">Registro</span>
           <!-- SALVAR EM ARQUIVO (v1.2.16). Com o acervo inteiro varrido o
                Registro passa de setenta linhas só na seção de cifras, e copiar
@@ -1373,22 +1409,28 @@
 
              O QUE O INTERRUPTOR DAVA DE GRAÇA — dizer o estado parado — o
              botão diz pela COR e pelo RÓTULO: desligado ele é a chamada
-             preenchida ("Transmitir para navegador"); ligado ele fica no
+             preenchida ("Conectar um computador"); ligado ele fica no
              vermelho contornado e passa a nomear o que o toque FAZ ("Desligar
              transmissão"). É a mesma gramática do irmão, que fica no verde
              contornado quando há TV no ar — e o vermelho é CONTORNADO de
              propósito: preenchido, neste app, ele significa "está no ar
              agora" e competiria com a projeção.
 
-             O RÓTULO NOMEIA O DESTINO, não o meio (v5.198). Ele dizia
-             "Transmitir pela rede", e "pela rede" descreve por ONDE a coisa
-             viaja — o que não ajuda ninguém a escolher. "Navegador" é a
-             palavra certa porque é literalmente o que a outra ponta precisa
-             ter: um computador, um notebook, um tablet ou a própria TV, desde
-             que abra o endereço que aparece logo abaixo. -->
+             O RÓTULO NOMEIA O DESTINO, não o meio (v5.198), e desde a v1.3.10
+             ele nomeia o APARELHO em vez do programa. Ele já disse "Transmitir
+             pela rede" ("pela rede" descreve por ONDE a coisa viaja, o que não
+             ajuda ninguém a escolher) e "Transmitir para navegador" — certo,
+             mas pedindo do operador uma tradução: quem monta a projeção pensa
+             em "o computador da igreja", não no programa que vai abrir o
+             endereço. "Conectar um computador" faz PAR com o irmão de cima
+             ("Conectar uma TV"): as duas linhas passam a responder a mesma
+             pergunta na mesma forma — o que se conecta —, e a diferença entre
+             elas fica sendo só o aparelho. Um notebook, um tablet ou a própria
+             TV entram por esta mesma porta; quem os atende é o endereço que
+             aparece logo abaixo. -->
         <button type="button" id="castNetBtn" class="cast-acao" hidden>
           <svg class="cast-acao-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoNavegador"/></svg>
-          <span class="cast-acao-txt"><b id="castNetLabel">Transmitir para navegador</b></span>
+          <span class="cast-acao-txt"><b id="castNetLabel">Conectar um computador</b></span>
         </button>
 
         <!-- ===== A TERCEIRA PORTA, E ELA É A DE NÃO CONECTAR NADA =====
@@ -1483,7 +1525,7 @@
        • um parágrafo de ressalvas — que continua existindo, em UMA linha, na
          própria folha de conexão;
        • o botão "Ligar/Desligar o espelho" — o MESMO estado que o interruptor
-         "Transmitir para navegador", a dois centímetros dali, na folha de onde
+         de conectar um computador, a dois centímetros dali, na folha de onde
          esta era aberta. Dois controles para um estado é a forma mais direta
          de eles discordarem;
        • o certificado TLS (.p12), um degrau opcional que exige do operador um

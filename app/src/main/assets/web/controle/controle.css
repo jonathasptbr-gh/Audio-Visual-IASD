@@ -618,14 +618,15 @@ body {
   z-index: 5; pointer-events: none;
   display: flex; flex-direction: column;
 }
-/* O SELO DE CAMADAS mora no TOPO, AO CENTRO (v1.3.5). Ele não é uma coluna:
-   é UM item, e a faixa horizontal que ele ocupa existe só para centrá-lo. Ele
-   ficava no canto superior esquerdo até a lateral esquerda virar a COLUNA DE
-   OPERAÇÃO — no alto dela ele leria como mais um controle daquele grupo, que é
-   justamente o que ele não é (os três operam a cena; este DIZ um estado dela).
-   No centro ele não faz coluna com ninguém. */
-.pv-fabs--topo {
-  left: 0; right: 0; bottom: auto; top: 2px;
+/* O SELO DE CAMADAS mora na BASE, AO CENTRO (v1.3.10 — era o topo desde a
+   v1.3.5, e o canto superior esquerdo antes disso). Ele não é uma coluna: é UM
+   item, e a faixa horizontal que ele ocupa existe só para centrá-lo — no centro
+   ele não faz coluna com ninguém, que é o que o separa dos três da esquerda (os
+   três OPERAM a cena; este DIZ um estado dela).
+   Embaixo pelo alcance: ele é a saída da camada de cima e é o polegar que o
+   toca, e o polegar chega na base da miniatura sem atravessá-la. */
+.pv-fabs--base {
+  left: 0; right: 0; top: auto; bottom: 2px;
   flex-direction: row; justify-content: center;
 }
 /* A COLUNA DE OPERAÇÃO, à esquerda: leitura auxiliar, cortina e mudo (v1.3.5).
@@ -1483,6 +1484,19 @@ main {
    A margem de cima só vale DENTRO de uma lista, onde ele precisa se separar da
    última mídia; no rodapé quem dá o respiro é o `gap` do `<main>`. */
 .import-row { flex-shrink: 0; display: flex; gap: .5rem; margin-top: .85rem; }
+/* A PORTA DAS FERRAMENTAS, à direita da importação (v1.3.10). Ela é quadrada e
+   só de ícone: "Importar arquivos" fica com o rótulo e com a linha, e dois nomes
+   lado a lado numa faixa de celular empurrariam o primeiro para reticências
+   justamente na tela mais estreita. A caixa é a do irmão — quem manda na altura
+   é a linha, não este botão. */
+.tools-btn {
+  flex-shrink: 0; width: 44px;
+  display: flex; align-items: center; justify-content: center;
+  border: 0; border-radius: var(--radius-btn);
+  background: var(--surface); color: var(--accent);
+  cursor: pointer; appearance: none; -webkit-appearance: none;
+}
+.tools-btn:active { transform: var(--press); }
 .list-foot > .import-row { margin-top: 0; }
 /* (`.fav-section` saiu na v5.254: os favoritos são UMA lista, na ordem que o
    operador der a ela. Os cabeçalhos por tipo eram doze rótulos disputando a
@@ -1616,6 +1630,61 @@ main {
    Verificado com toque real: com `pan-y` aqui o histórico continua rolando de
    lado (scrollLeft 0 → 143). O `preventDefault` do `touchmove` cobria o buraco
    no navegador de mesa e NÃO no WebView; declarar o eixo funciona nos dois. */
+/* ---------- O CORPO DA LISTA, E A FOLHA QUE DESLIZA DENTRO DELE ----------
+   `.list-body` existe por UMA razão: ser o offsetParent da folha de
+   Ferramentas. Ela desliza de baixo para cima DENTRO do Cronograma, e o que a
+   define é o que ela NÃO cobre — o cabeçalho (nome da tela, engrenagem) e a
+   caixa de controles inteira ficam à vista e alcançáveis. Ancorada no `<main>`
+   ela levaria o cabeçalho junto; ancorada no `<body>`, a caixa de controles —
+   e quem projeta um cronômetro precisa do transporte e da preview na frente.
+   O `gap` repete o do `<main>`, de onde os dois filhos saíram. */
+.list-body {
+  flex: 1; min-height: 0; position: relative;
+  display: flex; flex-direction: column; gap: .7rem;
+}
+/* A FOLHA DE FERRAMENTAS (v1.3.10). Ela veste `--panel` porque é um bloco sobre
+   a página, e declara `--camada` como todo contêiner que hospeda filhos: quem
+   pinta um nível é o PAI, nunca quem é pintado. Sem fundo escurecido e sem
+   `.popup-backdrop`: aquilo é uma camada sobre a tela toda, e esta é uma
+   extensão do Cronograma — ela cobre a lista, não o app. */
+.tools-sheet {
+  position: absolute; inset: 0; z-index: 8;
+  --camada: var(--panel-2);
+  background: var(--panel); border-radius: var(--radius-card);
+  display: flex; flex-direction: column;
+  padding: .5rem .7rem .6rem;
+  box-shadow: 0 4px 14px var(--shadow-card);
+}
+.tools-sheet[hidden] { display: none; }
+/* A ENTRADA é uma animação de UMA passada, e não uma transição de classe: a
+   folha nasce com `hidden`, e um `transform` que muda no mesmo quadro em que o
+   elemento aparece não anima — o navegador não tem estado anterior para
+   interpolar. A saída não tem par: fechar é o operador voltando ao roteiro, e
+   uma folha que demora a sair atrasa o que ele foi fazer. */
+@keyframes tools-sobe {
+  from { transform: translateY(100%); }
+  to { transform: none; }
+}
+.tools-sheet { animation: tools-sobe .22s ease; }
+@media (prefers-reduced-motion: reduce) { .tools-sheet { animation: none; } }
+.tools-head {
+  flex-shrink: 0; display: flex; align-items: center; gap: .4rem;
+  margin-bottom: .5rem;
+}
+.tools-title { flex: 1; min-width: 0; font-size: .95rem; font-weight: 800; color: var(--text); }
+.tools-close {
+  flex-shrink: 0; width: var(--hit); height: var(--hit);
+  display: flex; align-items: center; justify-content: center;
+  border: 0; background: none; color: var(--muted); cursor: pointer;
+  border-radius: var(--radius-btn);
+  appearance: none; -webkit-appearance: none;
+}
+.tools-close:active { transform: var(--press); }
+/* O host das ferramentas ocupa o que sobra. Ele é o gêmeo da `.lib-list` no que
+   importa (coluna que ocupa a altura), e o oposto no que a `.lib-misc` diz
+   logo abaixo: aqui quem administra a altura é o painel ativo, não a rolagem. */
+.tools-body { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; }
+
 .lib-list { touch-action: pan-y; }
 .lib-list {
   flex: 1; min-height: 0; overflow-y: auto;
@@ -3396,7 +3465,7 @@ main {
    um acordeão e ele cobrava três cabeçalhos permanentes de altura para entregar
    a mesma coisa — além de deslocar o painel conforme a posição da ferramenta
    na pilha. */
-.lib-list.lib-misc { overflow: hidden; gap: 0; padding-bottom: 0; }
+.lib-misc { overflow: hidden; gap: 0; padding-bottom: 0; }
 /* Trilho do seletor: fundo próprio e segmento ativo PREENCHIDO, para não se
    confundir com os segmentados de DENTRO das ferramentas (Relógio/Cronômetro/
    Timer, Número/Texto), que usam contorno. São dois níveis de escolha, e

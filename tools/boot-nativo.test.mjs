@@ -2910,7 +2910,10 @@ try {
     ligado: document.getElementById('castNetBtn').classList.contains('ligado'),
     rotulo: document.getElementById('castNetLabel').textContent,
   }));
-  checar(!redeOff.ligado && /navegador/i.test(redeOff.rotulo),
+  // O rótulo nomeia o APARELHO de destino (v1.3.10) — ele já disse "pela rede"
+  // e "para navegador", e o que a asserção guarda é a PROPRIEDADE, não a
+  // palavra: desligada, a chamada diz PARA ONDE isto vai, e não o que ela faz.
+  checar(!redeOff.ligado && /computador/i.test(redeOff.rotulo),
     'desligada, a transmissão é a chamada preenchida e diz para onde vai ("'
     + redeOff.rotulo + '")');
   // O BLOQUEIO (v5.203, de volta a pedido do operador). Sem tela este modo não
@@ -4394,8 +4397,12 @@ try {
     && !!document.querySelector('#playlist li'), null, { timeout: 25000 });
 
   const semTv = await pgM.evaluate(async () => {
-    const ir = (t) => { const b = document.querySelector('[data-tab="' + t + '"]'); if (b) b.click(); };
-    ir('mic');
+    // A PORTA DAS FERRAMENTAS É O BOTÃO DO CRONOGRAMA (v1.3.10) — elas deixaram
+    // de ser uma aba. Clicar nele, e não chamar `abrirFerramentas()`, é o que
+    // mantém o caminho do operador dentro do oráculo.
+    setAppMode('full');
+    await new Promise((f) => setTimeout(f, 120));
+    document.getElementById('toolsBtn').click();
     await new Promise((f) => setTimeout(f, 300));
     const proj = document.getElementById('miscProjectBtn');
     const row = proj && proj.parentElement;

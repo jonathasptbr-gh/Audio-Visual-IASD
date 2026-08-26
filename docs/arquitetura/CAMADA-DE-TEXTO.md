@@ -730,8 +730,18 @@ carregam calibração continuam duplicadas, de propósito.
   A `<img>` é FILHA da camada: revogar a object URL e escondê-la de imediato
   faria o fundo sumir por trás de um texto ainda esmaecendo. Mesma coisa em
   `hidePvLyrics(fade)`.
+  - **AS TRÊS REGRAS ABAIXO VALEM NOS DOIS LADOS, e isso é da v1.3.10.** Elas
+    nasceram no telão e a preview ficou sem elas — enquanto o texto aqui já as
+    descrevia como se fossem de ambos. O desfecho foi a queixa do operador:
+    *"ao pular e voltar slides, em especial no início das músicas, ou usar os
+    botões de próxima/anterior música, as imagens da música não aparecem, e se
+    reiniciar a música ou reativar as imagens de fundo nas configurações, ela
+    volta normal"* — e **sem TV a preview É a projeção**. É a mesma armadilha
+    do `__tela` no `display-ready`: *ler cada lado isolado aprova os dois*.
+    Oráculo: **`tools/fundo-da-letra.test.mjs`**, com uma metade por regra.
   - **O teardown é cancelado EXPLICITAMENTE quando a letra volta** (o timer
-    fica guardado em `lyricTeardownTimer`, e `showLyrics` o limpa). A guarda de
+    fica guardado em `lyricTeardownTimer`/`pvLyricTeardownTimer`, e
+    `showLyrics`/`showPvLyrics` o limpam). A guarda de
     sequência sozinha **não bastava**: se a estrofe que volta usa a MESMA
     imagem (`key === lyricImgKey` — o caso normal quando um versículo entra e
     sai em menos de `LAYER_FADE_MS`, e também quando dois hinos compartilham o
@@ -744,8 +754,8 @@ carregam calibração continuam duplicadas, de propósito.
     nenhum outro caminho vai revogá-la. Deixá-la atrás do guard significava que
     uma imagem nova entrando em menos de `LAYER_FADE_MS` (estrofe seguinte, ou
     o operador religando o fundo pelo comando `lyricsbg`) invalidava o callback
-    e **o blob da foto ficava retido** até o WebView do telão morrer — uma vez
-    a cada ocorrência, o culto inteiro. Só o `removeAttribute('src')` continua
+    e **o blob da foto ficava retido** até o WebView morrer — uma vez a cada
+    ocorrência, o culto inteiro. Só o `removeAttribute('src')` continua
     atrás do guard, porque aí o `src` já é de outra imagem.
 - **`renderLyricSlide` só REGISTRA o índice depois de validá-lo.** Gravá-lo
   antes fazia um índice inexistente (`findSlideIndex` devolvendo -1 num tempo

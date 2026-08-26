@@ -1,5 +1,16 @@
 [
   {
+    "versao": "1.3.10",
+    "itens": [
+      "O FUNDO DA LETRA parou de sumir. Trocar de música (ou passar slide logo depois de carregar uma) apagava a imagem de fundo da estrofe na preview, e ela só voltava reiniciando a música ou desligando e religando as imagens em Configurações. Era a preview desmontando o fundo antigo depois de a letra nova já ter entrado — o telão já tinha essa proteção, a preview não tinha.",
+      "Na tela cheia os controles agora APARECEM ao entrar, e somem sozinhos depois de alguns segundos. E o toque virou interruptor: tocar em qualquer lugar da projeção mostra os controles quando estão apagados e os esconde quando estão à vista. Tocar num botão continua comandando, sem fechar a coluna.",
+      "As FERRAMENTAS (mensagens, tempo, sorteio e microfone) saíram da barra de abas e viraram uma folha do Cronograma, aberta pelo botão à direita de \"Importar arquivos\". Ela sobe de dentro da lista, então a preview e os controles continuam à vista e alcançáveis enquanto se ajusta um cronômetro.",
+      "A barra de abas ficou com o Cronograma, a Bíblia e a busca na biblioteca.",
+      "\"Transmitir para navegador\" passou a se chamar \"Conectar um computador\", fazendo par com o \"Conectar uma TV\" logo acima.",
+      "O selo que encerra a camada de mensagens/Bíblia sobre a preview desceu do topo para a base."
+    ]
+  },
+  {
     "versao": "1.3.9",
     "itens": [
       "O slide de volume VOLTOU — a versão anterior tinha removido demais. O que fica removido é só o botão de tela que o abria; o slide continua aparecendo ao apertar as teclas físicas de volume e some sozinho depois de alguns segundos.",
