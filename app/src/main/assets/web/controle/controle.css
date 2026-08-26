@@ -81,6 +81,9 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
      mesmo, ou a caixa da lista muda de tamanho ao entrar na seleção e a lista
      pula debaixo do dedo. */
   --hit: 34px;
+  /* Espessura do cap do fader de volume — ele atravessa a coluna inteira, como
+     o cap de uma mesa de som de verdade. */
+  --fader-cap: 26px;
   --hit-nav: 38px;
   --hit-foot: 44px;
   /* A LINHA DA BUSCA DA BIBLIOTECA: a altura do campo e o LADO do botão de
@@ -469,14 +472,81 @@ body {
   flex: 1; width: 100%; min-height: 0; padding: .4rem 0;
 }
 /* O HISTÓRICO é a SÉTIMA célula da linha de baixo: mesma coluna do botão de
-   passar slide, mesma faixa do transporte. Chapado (`.settings-btn`), porque
-   ele ABRE uma lista em vez de operar o culto. */
+   passar slide, mesma faixa do transporte, e desde a v1.3.9 a mesma CAIXA dos
+   seis vizinhos (`.t-btn`). Um único botão chapado numa fileira de seis com
+   fundo não se lê como distinção — lê-se como um que ficou de fora. */
 .deck > #historyBtn { grid-column: 3; grid-row: 3; min-width: 0; }
+
+/* ===== O FADER DE VOLUME: A MESMA CÉLULA DO PASSAR SLIDE =====
+   Ele é item da grade do deck (a coluna 3, a faixa da preview) e só existe
+   enquanto a tecla física o acendeu — ver `peekVolume`. Some com o botão de
+   passar slide, que ocupa a mesma célula; o de VOLTAR, na outra ponta, FICA:
+   ele sumia junto até a v1.3.8, e foi disso que o operador reclamou. */
+.fader-wrap { display: none; grid-column: 3; grid-row: 2; min-height: 0; position: relative; }
+.deck.vol-open .fader-wrap { display: block; }
+.deck.vol-open .slide-side--dir { display: none; }
+.deck.vol-open:not(.vol-closing) .fader-wrap { animation: vol-slide-in .2s ease both; }
+.deck.vol-closing .fader-wrap { animation: vol-slide-out .2s ease both; }
+@keyframes vol-slide-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes vol-slide-out { from { opacity: 1; transform: translateY(0); } to { opacity: 0; transform: translateY(10px); } }
+/* O FADER OCUPA A COLUNA INTEIRA, como o botão que ele substitui: a coluna não
+   muda de espessura ao acender, só de conteúdo. Isso exige desenhar o trilho
+   (`appearance: none`), porque a espessura do trilho NATIVO é fixa e não
+   acompanha a largura do elemento — alargar o `<input>` sozinho só deixa a
+   barrinha de sempre boiando num alvo maior (verificado). */
+.fader {
+  /* Preenchimento: `--accent` do zero até o nível, `--surface` acima — o mesmo
+     papel que o `accent-color` fazia no trilho nativo, que `appearance: none`
+     desliga. `--vol` (0–1) vem do JS, do mesmo ponto que escreve o valor do
+     fader (ver `syncFader`).
+     O corte não é `--vol * 100%` puro: o CENTRO do cap percorre só a altura
+     menos a espessura dele, então esta conta mantém a borda do preenchimento
+     exatamente sob o cap em qualquer posição. */
+  --fader-stop: calc(var(--vol, 1) * (100% - var(--fader-cap)) + var(--fader-cap) / 2);
+  -webkit-appearance: none; appearance: none;
+  position: absolute; inset: 0; transform: none;
+  writing-mode: vertical-lr; direction: rtl;
+  width: auto; height: auto; margin: 0;
+  background: transparent;
+  touch-action: none; cursor: pointer;
+}
+.fader::-webkit-slider-runnable-track {
+  width: 100%; height: 100%;
+  border-radius: var(--radius-btn);
+  background: linear-gradient(to top,
+    var(--accent) 0 var(--fader-stop), var(--surface) var(--fader-stop) 100%);
+}
+/* O número (0–100) ocupa exatamente o retângulo do cap: mesma altura e a mesma
+   conta de posição do preenchimento, então ele acompanha o cap sem folga em
+   qualquer posição. Não recebe toque — quem arrasta é o input por baixo. */
+.fader-value {
+  position: absolute; left: 0; right: 0;
+  bottom: calc(var(--vol, 1) * (100% - var(--fader-cap)));
+  height: var(--fader-cap);
+  display: flex; align-items: center; justify-content: center;
+  font-size: .78rem; font-weight: 700; line-height: 1;
+  color: var(--bg);
+  pointer-events: none; user-select: none;
+}
+/* Cap do fader: atravessa a coluna inteira, como o cap de uma mesa de som de
+   verdade — e é um alvo de toque muito maior que um thumb redondo. */
+.fader::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 100%; height: var(--fader-cap);
+  border-radius: var(--radius-btn);
+  /* O cap é o elemento mais claro da coluna de propósito (é onde o olho vai
+     procurar o nível), e o número dentro dele é escrito em `--bg`. Branco
+     literal era a maior fonte isolada de luz emitida do app; `--text` é o
+     off-white já calibrado da paleta e mantém 11,4:1 com o número. */
+  background: var(--text);
+  box-shadow: 0 1px 4px var(--shadow-cap);
+  cursor: pointer;
+}
 .slide-btn:disabled { opacity: .35; cursor: default; }
-/* (O `.deck.vol-open .slide-side` saiu na v1.3.8. Ele escondia o botão de
-   VOLTAR slide enquanto o fader de volume cobria o de PASSAR — meia dupla é
-   pior que dupla nenhuma. Sem fader não há o que cobrir, e o par de slide não
-   desaparece mais em situação nenhuma: era isto que o operador via sumir.) */
+/* (O `.deck.vol-open .slide-side` — que escondia o botão de VOLTAR slide
+   enquanto o fader cobria o de PASSAR — saiu na v1.3.8 e NÃO voltou com o
+   fader. Era exatamente esse sumiço que o operador via, e o par não some mais:
+   só o da direita dá lugar ao fader, na célula que os dois dividem.) */
 
 /* Preview */
 /* A proporção é a do TELÃO REAL, não um 16:9 fixo (`--pv-ar`, escrito pelo JS a
@@ -1084,18 +1154,21 @@ body {
    Sem o fader não há o que atravessar. Sobraram dois botões — passar slide na
    faixa da preview, histórico na do transporte —, e eles são itens diretos da
    grade do deck, como todos os outros. Saíram com o subgrid: `.mixer`,
-   `.mixer-slot`, `.mixer-stack`, `.mixer-top/mid/bottom`, `.fader*`,
-   `.vol-btn`, `.vol-close`, os três estados `vol-*` e as duas animações.
+   `.mixer-slot`, `.mixer-stack`, `.mixer-top/mid/bottom`, `.vol-btn` e
+   `.vol-close` — os dois últimos são o BOTÃO que abria o fader, que o operador
+   dispensou.
 
-   O `--fader-cap` saiu da paleta junto: ninguém mais o lia. */
+   O FADER EM SI FICOU (v1.3.9), e mora perto da grade, não aqui: ele é item
+   dela, na mesma célula do botão de passar slide. A única porta dele é a tecla
+   física de volume. */
 
-/* ÍCONE SOLTO, sem caixa — hoje o HISTÓRICO, na sétima célula da linha de
-   baixo. O nome da classe é herança do inquilino anterior (a engrenagem de
-   Configurações, que subiu para o cabeçalho na v1.2.0); o que ela descreve é a
-   ANATOMIA: chapado. Não é `.ctl-btn` de propósito — sem a caixa ele deixa de
-   competir com os seis botões de transporte ao lado, que operam o culto,
-   enquanto ele só ABRE uma lista. Mesmo tratamento do `#backBtn`:
-   navegação/acesso é chapado, operação é botão. */
+/* ÍCONE SOLTO, sem caixa: as DUAS portas de Configurações (o `#settingsBtn` do
+   cabeçalho e o `#simpleSettingsBtn` do Modo Fácil). A regra do app é que
+   navegação/acesso é chapado e operação é botão — mesmo tratamento do
+   `#backBtn`, em frente.
+   (O histórico usou esta classe da v1.2.0 à v1.3.8, enquanto morava numa fatia
+    só dele. Na linha de baixo ele é uma de sete células iguais e veste
+    `.t-btn` como os vizinhos: ali um único chapado não se lê como distinção.) */
 .settings-btn {
   min-height: 0; width: 100%; padding: 0;
   border: none; background: none; color: var(--muted);

@@ -28,6 +28,12 @@ const simpleStageEl = document.getElementById('simpleStage');
 // DE PAI conforme o modo (ver hostPreview).
 const previewEl = document.getElementById('preview');
 const previewRowEl = document.querySelector('.preview-row');
+const volSliderEl = document.getElementById('volSlider');
+const volValueEl = document.getElementById('volValue');
+const faderWrapEl = document.querySelector('.fader-wrap');
+// O deck inteiro: é nele que mora a classe `vol-open` (o fader é um item da
+// grade dele desde a v1.3.9, não mais de um `#mixer` que já não existe).
+const deckEl = document.querySelector('.deck');
 const pvCastBtnEl = document.getElementById('pvCastBtn');
 const fsCtlEl = document.getElementById('pvFsCtl');
 const simpleNpNameEl = document.getElementById('simpleNpName');
@@ -238,7 +244,7 @@ const appVersionEl = document.getElementById('appVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.3.8';
+const WEB_VERSION = '1.3.9';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -2638,8 +2644,9 @@ function renderControls() {
     ? 'Sem áudio no Display — toque para tentar liberar'
     : muted ? 'Tirar o mudo' : 'Mutar';
   muteToggleEl.setAttribute('aria-label', muteToggleEl.title);
-  // O volume não tem mais fader no deck (v1.3.8); quem o mostra é a leitura do
-  // Modo Fácil, escrita por `renderSimple`.
+  // Os DOIS mostradores de volume (o fader do deck e a leitura do Modo Fácil)
+  // saem daqui: um só ponto os escreve, então nunca divergem.
+  syncFader(Math.round(volume * 100));
   renderSimple();
   // A coluna da tela cheia espelha a cortina daqui: este é o único ponto que a
   // escreve, então é o único que precisa avisar.
@@ -2647,6 +2654,26 @@ function renderControls() {
   // A cortina (view) muda por aqui, não por renderNowPlaying — e o rótulo do
   // botão da notificação depende dela. A deduplicação segura o excesso.
   pushNowPlaying();
+}
+
+// O dedo está no fader? (ver os ouvintes dele, no fim do arquivo). Declarada
+// AQUI, ao lado da única função que a lê: `renderControls` chama `syncFader` na
+// abertura, muito antes de a parte de baixo do arquivo ser avaliada.
+let volArrastando = false;
+
+// Põe o fader no volume atual. O trilho e o preenchimento são desenhados pelo
+// nosso CSS (ver `.fader`), porque a espessura do trilho nativo é fixa e não
+// acompanha a largura da coluna — e `appearance: none` desliga junto o
+// preenchimento que vinha do `accent-color`. `--vol` é esse preenchimento, e
+// mora no WRAPPER porque o número dentro do cap é irmão do input.
+//
+// O input NÃO é reescrito enquanto o dedo o arrasta: o valor voltaria
+// arredondado no meio do movimento. O preenchimento e o número, sim — eles
+// devem seguir o dedo.
+function syncFader(pct) {
+  if (!volArrastando) volSliderEl.value = pct;
+  faderWrapEl.style.setProperty('--vol', String(pct / 100));
+  volValueEl.textContent = String(pct);
 }
 
 // EXCEÇÃO à convenção "ícone = ação": este botão CICLA por quatro modos
@@ -20908,6 +20935,62 @@ lyricsBgSegEl.addEventListener('click', (e) => {
   const btn = e.target.closest('.fit-opt');
   if (btn) setLyricsBg(btn.dataset.lyricsbg);
 });
+// ===== O FADER É UMA ESPIADA, E SÓ (v1.3.9) =====
+// Ele não tem mais botão que o abra: a ÚNICA porta é a tecla física de volume,
+// e a única saída é o relógio dela. Isso é o que o operador pediu — o botão de
+// tela saiu, a espiada ficou —, e simplifica a máquina: `cancelVolPeek` e
+// `bumpVolPeek` existiam para o caso "aberto na mão", que deixou de existir.
+//
+// POR QUE O APP CONTINUA CONSUMINDO A TECLA, que é o ponto do recurso: quem
+// não consome deixa o ANDROID desenhar o painel de volume dele — e com
+// espelhamento ativo esse painel aparece SOBRE A PROJEÇÃO, na frente da
+// congregação. O fader daqui é o que o substitui: ele mora no celular, some
+// sozinho, e nada disso chega ao telão.
+const VOL_ANIM = 190;   // ms — casa com as durações das animações no CSS
+const VOL_PEEK_MS = 2800;
+let volAnimTimer = null;
+let volPeekTimer = null;
+
+function abrirFader() {
+  clearTimeout(volAnimTimer);
+  deckEl.classList.remove('vol-closing');
+  deckEl.classList.add('vol-open');
+}
+function fecharFader() {
+  if (!deckEl.classList.contains('vol-open')) return;
+  clearTimeout(volAnimTimer);
+  deckEl.classList.add('vol-closing');
+  volAnimTimer = setTimeout(() => {
+    deckEl.classList.remove('vol-open', 'vol-closing');
+  }, VOL_ANIM);
+}
+
+// A tecla física ESPIA o fader: sem isso ela mexeria no volume de forma
+// INVISÍVEL — o operador mudaria sem ver quanto ficou nem quanto ainda cabe.
+// Mexer no fader enquanto ele está no ar reinicia a contagem (`peekVolume` é
+// chamada de novo): recolher debaixo do dedo seria o oposto do que ela faz.
+function peekVolume() {
+  // No Modo Fácil a barra de volume já é a lateral inteira da tela: não há o
+  // que espiar, e mexer numa classe do deck escondido não teria efeito nenhum.
+  if (appMode === 'simple') return;
+  abrirFader();
+  clearTimeout(volPeekTimer);
+  volPeekTimer = setTimeout(() => { volPeekTimer = null; fecharFader(); }, VOL_PEEK_MS);
+}
+
+// O fader continua sendo ARRASTÁVEL enquanto está no ar — ele é o mesmo
+// `<input type=range>` de sempre. Quem impede `syncFader` de reescrever o valor
+// debaixo do dedo é `volArrastando`, declarada JUNTO DELA lá em cima: um `let`
+// aqui embaixo seria uma zona morta esperando a ordem de chamada mudar, e
+// `renderControls` roda muito antes desta linha na leitura do arquivo.
+volSliderEl.addEventListener('pointerdown', () => { volArrastando = true; peekVolume(); });
+volSliderEl.addEventListener('pointerup', () => { volArrastando = false; });
+volSliderEl.addEventListener('input', () => {
+  applyVolume(parseFloat(volSliderEl.value) / 100);
+  peekVolume();
+});
+volSliderEl.addEventListener('change', () => { volArrastando = false; persistCurrent(); });
+
 // Se a largura mudar (ex: rotação), remede o título rolante — e o vazado da
 // faixa de abas, que é posicionado em PIXELS medidos: numa rotação as células
 // mudam de largura e ele ficaria sobre a aba errada. Sem animação, porque isto
@@ -20954,16 +21037,16 @@ window.addEventListener('resize', () => {
   apply();
 })();
 
-// Fonte única de "o operador mexeu no GANHO DO APP" — hoje só as teclas +/− do
-// Modo Fácil (o fader do deck saiu na v1.3.8). Ele continua importando por um
-// motivo que o volume do aparelho não cobre: este número viaja no comando
-// `volume` e chega às TELAS DA REDE, que são outros aparelhos. O volume de
-// mídia do Android não tem alcance nenhum sobre elas.
+// Fonte única de "o operador mexeu no volume": as teclas FÍSICAS, o arrasto no
+// fader e as teclas +/− do Modo Fácil passam todas por aqui, então nunca
+// divergem entre si (nem do mudo, que sai sozinho). E este número não é o
+// volume do aparelho: ele viaja no comando `volume` e chega também às TELAS DA
+// REDE, que são outros aparelhos.
 function applyVolume(v) {
   volume = Math.max(0, Math.min(1, v));
   if (volume > 0 && muted) { muted = false; cmd({ type: 'mute', muted }); }
   cmd({ type: 'volume', volume });
-  renderControls();   // e por ele a leitura do Modo Fácil (ver renderSimple)
+  renderControls();   // e por ele o fader e a leitura do Modo Fácil
 }
 
 
@@ -21545,30 +21628,32 @@ setAppMode(appMode);
 // dizendo isso, senão a primeira abertura de Configurações mostra dois botões
 // apagados e nenhuma escolha marcada.
 
-// ===== Botões físicos de volume: eles voltaram a ser do SISTEMA (v1.3.8) =====
-// A Activity os interceptava e o passo caía no fader do deck. Isso existia por
-// uma razão que morreu com o fader: com espelhamento ativo o Android roteia
-// esses botões para a TV, e o operador apertava sem que o FADER saísse do
-// lugar. Sem fader não há o que mover — e interceptar a tecla para mexer num
-// número que a tela não mostra é a pior das duas opções, porque quem
-// intercepta também apaga a UI de volume do próprio Android.
-//
-// Agora o app não consome mais a tecla: ela vai para a saída do sistema, com o
-// indicador que o Android já desenha. É o que o operador pediu ao dispensar o
-// ajuste manual — "o volume é ajustado pelos botões físicos do smartphone".
-//
-// O QUE ISSO NÃO COBRE, e por isso `applyVolume` continua de pé: as TELAS DA
-// REDE são outros aparelhos, e o volume de mídia deste celular não as alcança.
-// Quem manda nelas é o comando `volume`, e quem o move hoje são as teclas +/−
-// do Modo Fácil. No deck ele fica onde estiver (1,0 por padrão, sem atenuar).
+// ===== Botões físicos de volume =====
+// No app eles mexem no fader daqui, não na saída do sistema, e a razão é a
+// PROJEÇÃO: quem não consome a tecla deixa o Android desenhar o painel de
+// volume dele — e com espelhamento ativo esse painel aparece SOBRE o que a
+// congregação está vendo. Consumindo, nada disso chega ao telão: o que aparece
+// é o fader do celular, por alguns segundos (ver `peekVolume`).
+// A Activity intercepta a tecla e chama esta função (ver MainActivity.onKeyDown).
 const VOL_KEY_STEP = 0.05;
 if (window.__NATIVE__) {
-  // REDE DE SEGURANÇA, e não o caminho normal: se por qualquer razão a Activity
-  // estiver consumindo a tecla (um WebView remontado sobre um estado antigo),
-  // o passo é DEVOLVIDO ao sistema em vez de sumir. Uma tecla de volume que não
-  // faz nada é pior que qualquer alternativa aqui.
-  window.__avVolumeKey = (step) => { try { AVNative.systemVolume(step); } catch (_) {} };
-  AVNative.captureVolumeKeys(false);
+  window.__avVolumeKey = (step) => {
+    // Mostra o fader por alguns segundos — inclusive quando o passo vai para o
+    // sistema: o fader no máximo/zero é justamente a resposta para "por que o
+    // volume do app não muda?".
+    peekVolume();
+    // Já no limite do fader: devolve a tecla ao sistema (com a UI de volume do
+    // Android), senão um aparelho com o volume de mídia baixo ficaria sem como
+    // subir enquanto o app estivesse aberto.
+    if ((step > 0 && volume >= 1) || (step < 0 && volume <= 0)) {
+      AVNative.systemVolume(step);
+      return;
+    }
+    applyVolume(volume + step * VOL_KEY_STEP);
+    persistCurrent();
+  };
+  // Só agora — com o handler de pé — a Activity pode consumir as teclas.
+  AVNative.captureVolumeKeys(true);
 
   // ===== Controles da notificação / tela de bloqueio / botões de mídia =====
   // Tudo cai nos MESMOS botões da tela, via `.click()`: os handlers já tratam
