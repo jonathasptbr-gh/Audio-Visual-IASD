@@ -155,9 +155,9 @@ repetição só começa depois de uma pausa, senão um toque comum viraria dois.
 entra no mesmo pulso de `renderSlideNav()`, sem timer próprio. Rolar com o dedo
 desliga o acompanhamento até a próxima música, como no popup.
 
-As teclas de volume deste modo mexem no GANHO DO APP (`applyVolume`), com o
-número ao lado — e é ele que viaja para as telas da rede. As teclas FÍSICAS do
-aparelho são outra coisa desde a v1.3.8: elas vão para o volume do sistema.
+A espiada do volume pelos botões físicos (`peekVolume`) **não roda aqui**: as
+teclas de volume já estão na tela, com o número ao lado — e as duas passam pelo
+mesmo `applyVolume`, então nunca divergem.
 
 #### Sem tela conectada, o modo inteiro fica bloqueado
 
@@ -440,44 +440,57 @@ linha, e eles são itens diretos da grade do deck como todos os outros:
 | item | coluna | linha |
 |---|---|---|
 | `#slideNextBtn` (`.slide-side--dir`) | 3 | 2 (a faixa da preview) |
+| `.fader-wrap` (só enquanto aceso) | 3 | 2 — a MESMA célula, e é por isso que um esconde o outro |
 | `#historyBtn` | 3 | 3 (a faixa do transporte) |
 
 Saíram com o subgrid: `.mixer`, `.mixer-slot`, `.mixer-stack`,
-`.mixer-top/mid/bottom`, `.fader*`, `.vol-btn`, `.vol-close`, os três estados
-`vol-*`, as duas animações e o token `--fader-cap`.
+`.mixer-top/mid/bottom`, `.vol-btn` e `.vol-close`. O FADER ficou (v1.3.9) e é
+item da grade como os outros; o que sobrou dos estados é `vol-open`/`vol-closing`
+no `.deck`.
 
-**O `#historyBtn` mudou de fatia**, da de cima para a que era do volume. A linha
-de baixo tem sete células iguais e a sétima ficou vaga quando o fader saiu — e
-era ele, na fatia de cima, que impedia a barra de progresso de usar a largura
-inteira do deck (ver "A barra de progresso segue a grade", abaixo). Ele mantém a
-anatomia CHAPADA (`.settings-btn`, nome herdado da engrenagem que morava ali):
-os seis do transporte operam o culto e têm fundo; ele só ABRE uma lista.
+**O `#historyBtn` mudou de fatia**, da de cima para a que era do botão de
+volume. A linha de baixo tem sete células iguais e a sétima ficou vaga — e era
+ele, na fatia de cima, que impedia a barra de progresso de usar a largura
+inteira do deck (ver "A barra de progresso segue a grade", abaixo).
 
-#### O ajuste manual de volume saiu (v1.3.8)
+**E ele veste a mesma caixa dos vizinhos** (`.t-btn`, v1.3.9, a pedido do
+operador). Era CHAPADO (`.settings-btn`) enquanto morava numa fatia só dele,
+onde a distinção "abre uma lista" × "opera o culto" separava dois grupos. Na
+linha de baixo ele é uma de sete células iguais, ao lado da **playlist** — que
+também só abre uma lista e sempre teve fundo. Um único chapado numa fileira de
+seis com fundo não se lê como distinção: lê-se como um botão que ficou de fora.
 
-Pedido do operador: *"não teremos mais esse sistema manual de ajuste de volume.
-o volume é ajustado pelos botões físicos do smartphone."*
+**A ORDEM da linha** (v1.3.9, pedida): repetir → playlist → anterior → play →
+parar → próximo → histórico. Os dois que ABREM uma lista ficam nas pontas do
+grupo, e o miolo é o transporte contínuo.
 
-- **O fader do deck saiu inteiro**, com `#volToggle`, `#volClose`, `#volSlider`,
-  `#volValue`, `syncFader`, `openVolume`, `closeVolume`, `peekVolume`,
-  `cancelVolPeek`/`bumpVolPeek` e o degrau 4 do botão VOLTAR.
-- **As teclas físicas voltaram a ser do SISTEMA.** O Controle chama
-  `captureVolumeKeys(false)` e o Android mostra o próprio indicador. A
-  interceptação existia porque, com espelhamento ativo, o Android roteia essas
-  teclas para a TV e o **fader do app** não saía do lugar; sem fader não há o que
-  mover, e interceptar para mexer num número invisível é pior — **quem
-  intercepta também apaga a UI de volume do Android**. `__avVolumeKey` continua
-  definido como REDE DE SEGURANÇA: devolve o passo ao sistema
-  (`AVNative.systemVolume`), para que uma tecla nunca fique sem efeito.
-- **O GANHO DO APP continua** (`applyVolume`, comando `volume`), e não é
-  redundante: ele viaja para as **telas da rede**, que são outros aparelhos — o
-  volume de mídia deste celular não as alcança. Quem o move hoje são as teclas
-  +/− do Modo Fácil; no deck ele fica onde estiver (1,0 por padrão, sem atenuar).
-- **E o par de slide não some mais.** O fader ocupava a fatia do
-  `#slideNextBtn`, e uma regra (`.deck.vol-open .slide-side`) escondia o de
-  VOLTAR junto, para não deixar meia dupla no ar. Foi esse sumiço que o operador
-  relatou; a regra saiu com o fader, e hoje não há estado nenhum que esconda
-  aquele botão.
+#### O fader ficou; o BOTÃO que o abria é que saiu (v1.3.8 → v1.3.9)
+
+Pedido do operador, e a distinção é o recurso inteiro — ela já foi entendida ao
+contrário uma vez: *"eu não queria que removesse o sistema de slide de volume
+interno do nosso app, pois ele é o que impede alguns controles de volume de
+aparecer no display. o que eu queria era apenas remover o método usando o botão
+na tela para acessar o slide de volume […] mas ainda manter a função do slide
+aparecer e ser controlado pelas teclas físicas do volume."*
+
+- **O QUE SAIU** (v1.3.8): `#volToggle` e `#volClose`, o botão de tela que abria
+  e fechava o fader, mais `cancelVolPeek`/`bumpVolPeek` — a máquina do caso
+  "aberto na mão", que deixou de existir.
+- **O QUE FICOU**: o fader (`.fader-wrap`, `#volSlider`, `#volValue`,
+  `syncFader`), a interceptação das teclas físicas e o `peekVolume` que as
+  acende. **A tecla é a ÚNICA porta, e o relógio dela a única saída** (2,8 s).
+- **POR QUE O APP CONSOME A TECLA**, que é o ponto: quem não consome deixa o
+  Android desenhar o painel de volume dele, e com espelhamento ativo esse painel
+  aparece **sobre a projeção**, na frente da congregação. Este fader é o que o
+  substitui — mora no celular, some sozinho, e nada disso chega ao telão.
+- **O número não é o volume do aparelho:** `applyVolume` e o comando `volume`
+  viajam para as **telas da rede**, que são outros aparelhos, e o volume de
+  mídia do celular não as alcança.
+- **E o de VOLTAR slide NÃO some mais.** O fader ocupa a célula do
+  `#slideNextBtn` (coluna 3, a faixa da preview) e só o esconde; uma regra
+  (`.deck.vol-open .slide-side`) escondia o da outra ponta junto, "para não
+  deixar meia dupla no ar". Foi esse sumiço que o operador relatou, e ela **não
+  voltou** com o fader.
 
 #### A barra de progresso segue a grade do deck (v1.3.8)
 
@@ -583,13 +596,12 @@ nenhum**, e nas duas `attachTransportStep` segue sendo o mecanismo:
 - **O fim do caminho é o `disabled` de sempre** — o esmaecido que a v5.49 tinha
   trocado pelo `.axis-end`, e que voltou a valer quando o botão passou a ter um
   significado só.
-- **O PAR NÃO SOME MAIS** (v1.3.8). Enquanto havia fader, ele ocupava a fatia do
-  `#slideNextBtn` e uma regra escondia o de VOLTAR junto — uma dupla em que só a
-  metade da esquerda sobrevive é pior que dupla nenhuma. Foi esse sumiço que o
-  operador relatou, e a resposta não foi ajustar a regra: o ajuste manual de
-  volume saiu inteiro, e a regra saiu com ele. Hoje não há estado nenhum que
-  esconda aquele botão — o oráculo afirma isso pela AUSÊNCIA de qualquer regra
-  `vol-open` no CSS.
+- **O de VOLTAR NÃO SOME MAIS** (v1.3.8). O fader ocupa a célula do
+  `#slideNextBtn` e o esconde — os dois dividem aquela caixa —, mas uma regra
+  (`.deck.vol-open .slide-side`) escondia o da OUTRA ponta junto, "para não
+  deixar meia dupla no ar". Foi esse sumiço que o operador relatou, e a regra
+  saiu. Ela **não voltou** quando o fader ficou (v1.3.9): o oráculo acende o
+  fader por `peekVolume` e afirma que o botão de VOLTAR continua no ar.
 
 Oráculo: **`tools/controles-layout.test.mjs`** — a geometria (quem flanqueia
 quem, e com que caixa), o eixo do transporte medido pelo COMANDO que sai no

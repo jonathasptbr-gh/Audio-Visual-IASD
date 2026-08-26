@@ -454,53 +454,96 @@ try {
   checar(semAlvo.titulo === 'Próximo slide',
     'e com o nome genérico: um nome específico ali prometeria uma cena que não está no ar', semAlvo.titulo);
 
-  // ── 6. O AJUSTE MANUAL DE VOLUME SAIU, E O PAR DE SLIDE NÃO SOME MAIS ──
+  // ── 6. O FADER FICOU; O BOTÃO QUE O ABRIA É QUE SAIU ───────────────────
   //
-  // O fader ocupava a fatia do `#slideNextBtn`, e uma regra escondia o de
-  // VOLTAR junto para não deixar meia dupla no ar. O operador VIU esse
-  // sumiço — foi o relato que abriu este lote —, e a resposta não foi ajustar
-  // a regra: o ajuste manual saiu inteiro (o volume é do aparelho, pelos
-  // botões físicos). Sem fader não há o que esconder.
+  // A distinção é o recurso inteiro, e ela já foi entendida ao contrário uma
+  // vez: o operador dispensou o BOTÃO DE TELA que abria o fader, não o fader.
+  // Ele é o que mantém o painel de volume do ANDROID fora da projeção — o app
+  // consome a tecla, e quem não consome deixa o sistema desenhar o painel dele
+  // SOBRE o que a congregação está vendo.
   //
-  // A asserção é de AUSÊNCIA nos dois sentidos: nada do maquinário de volume
-  // sobrou no documento, e a classe que escondia o par também não — uma regra
-  // órfã de `visibility: hidden` num botão de culto é o tipo de resto que
-  // volta a morder sozinho.
-  const semVolume = await pg.evaluate(() => {
-    const sumiram = ['#volToggle', '#volClose', '#volSlider', '#volValue',
-      '.fader-wrap', '.fader', '#mixer', '.mixer', '.mixer-slot', '.mixer-stack']
-      .filter((sel) => document.querySelector(sel));
-    // A regra de esconder o par não pode ter ficado no CSS.
-    let regraOrfa = false;
-    for (const folha of document.styleSheets) {
-      let regras; try { regras = folha.cssRules; } catch (_) { continue; }
-      for (const r of regras || []) {
-        if (r.selectorText && /vol-open/.test(r.selectorText)) regraOrfa = true;
-      }
-    }
-    const vis = (sel) => {
+  // As três metades: o botão não existe, o fader existe e nasce escondido, e a
+  // TECLA o acende. Mais a que originou o relato — o botão de VOLTAR slide não
+  // some junto.
+  const faderCx = () => pg.evaluate(() => {
+    const cx = (sel) => {
       const el = document.querySelector(sel);
+      if (!el) return null;
+      const r = el.getBoundingClientRect();
       const cs = getComputedStyle(el);
-      return cs.display !== 'none' && cs.visibility !== 'hidden'
-        && el.getBoundingClientRect().width > 0;
+      return {
+        vis: cs.display !== 'none' && cs.visibility !== 'hidden' && r.width > 0,
+        topo: +r.top.toFixed(2), base: +r.bottom.toFixed(2),
+        esq: +r.left.toFixed(2), dir: +r.right.toFixed(2),
+      };
     };
     return {
-      sumiram, regraOrfa,
-      funcoes: ['openVolume', 'closeVolume', 'peekVolume', 'syncFader']
-        .filter((n) => typeof window[n] === 'function'),
-      par: { ant: vis('#slidePrevBtn'), prox: vis('#slideNextBtn') },
-      hist: vis('#historyBtn'),
+      fader: cx('.fader-wrap'), prox: cx('#slideNextBtn'), ant: cx('#slidePrevBtn'),
+      pv: cx('.preview'), hist: cx('#historyBtn'),
+      // O BOTÃO que abria o fader — este sim tinha de sair.
+      botoes: ['#volToggle', '#volClose'].filter((sel) => document.querySelector(sel)),
+      temFader: !!document.querySelector('#volSlider'),
     };
   });
-  checar(semVolume.sumiram.length === 0,
-    'nenhum resto do ajuste manual de volume no documento', semVolume.sumiram);
-  checar(semVolume.regraOrfa === false,
-    'e nenhuma regra `vol-open` sobrou no CSS — era ela que escondia o botão de VOLTAR slide',
-    semVolume.regraOrfa);
-  checar(semVolume.par.ant && semVolume.par.prox,
-    'o par de slide está no ar, e agora não há estado nenhum que o esconda', semVolume.par);
-  checar(semVolume.hist,
-    'e o histórico está visível na sétima célula', semVolume.hist);
+  const fechado = await faderCx();
+  checar(fechado.botoes.length === 0,
+    'não há botão de tela que abra o fader — era só ele que o operador dispensou', fechado.botoes);
+  checar(fechado.temFader && fechado.fader.vis === false,
+    'o fader EXISTE e nasce escondido: a única porta dele é a tecla física', fechado);
+  checar(fechado.prox.vis,
+    'com ele escondido, o botão de passar slide ocupa a célula', fechado.prox);
+
+  // A TECLA ACENDE. `peekVolume` é o que `__avVolumeKey` chama; medir por ela é
+  // medir o caminho de verdade, não um estado forçado à mão.
+  await pg.evaluate(() => peekVolume());
+  await pg.waitForFunction(() => {
+    const t = getComputedStyle(document.querySelector('.fader-wrap')).transform;
+    return t === 'none' || t === 'matrix(1, 0, 0, 1, 0, 0)';
+  }, null, { timeout: 5000 }).catch(() => {});
+  const aberto = await faderCx();
+  checar(aberto.fader.vis,
+    'a tecla física ACENDE o fader (`peekVolume`)', aberto.fader);
+  checar(perto(aberto.fader.topo, aberto.pv.topo) && perto(aberto.fader.base, aberto.pv.base),
+    'e ele ocupa exatamente a faixa da preview, na coluna do passar slide',
+    { fader: [aberto.fader.topo, aberto.fader.base], pv: [aberto.pv.topo, aberto.pv.base] });
+  checar(aberto.prox.vis === false,
+    'o botão de passar slide dá lugar a ele — os dois dividem a célula', aberto.prox);
+  // ESTA É A ASSERÇÃO DO RELATO: o de VOLTAR não some junto. Ele sumia por uma
+  // regra deliberada (`.deck.vol-open .slide-side`), e o operador viu.
+  checar(aberto.ant.vis,
+    'e o de VOLTAR slide FICA no ar — era o sumiço dele que o operador relatou', aberto.ant);
+  checar(aberto.hist.vis,
+    'o histórico também fica: ele não tem nada a ver com volume', aberto.hist);
+
+  // E SOME SOZINHO. Sem botão que feche, o relógio é a única saída — se ele
+  // falhar, o fader fica no lugar do botão de passar slide para sempre.
+  await pg.evaluate(() => {
+    // Encurta a espera SEM tocar na máquina: fecha pelo mesmo caminho do
+    // relógio, que é o que `peekVolume` agenda.
+    fecharFader();
+  });
+  await pg.waitForFunction(() => !document.querySelector('.deck').classList.contains('vol-open'),
+    null, { timeout: 5000 }).catch(() => {});
+  const devolta = await faderCx();
+  checar(devolta.fader.vis === false && devolta.prox.vis,
+    'fechado, a célula volta a ser do botão de passar slide', devolta);
+
+  // ── 6b. A ORDEM DA LINHA DE BAIXO, E A CAIXA DO HISTÓRICO ──────────────
+  const linha = await pg.evaluate(() => {
+    const ids = [...document.querySelectorAll('.transport .t-btn'), document.getElementById('historyBtn')]
+      .map((e) => e.id);
+    const caixa = (sel) => {
+      const cs = getComputedStyle(document.querySelector(sel));
+      return { fundo: cs.backgroundColor, raio: cs.borderTopLeftRadius };
+    };
+    return { ids, hist: caixa('#historyBtn'), vizinho: caixa('#next') };
+  });
+  checar(linha.ids.join(',') === 'repeat,plBtn,prev,playpause,stop,next,historyBtn',
+    'a ordem é repetir → playlist → anterior → play → parar → próximo → histórico',
+    linha.ids);
+  checar(linha.hist.fundo === linha.vizinho.fundo && linha.hist.raio === linha.vizinho.raio,
+    'e o histórico veste a MESMA caixa dos vizinhos — um chapado sozinho numa fileira de seis com fundo lê como um que ficou de fora',
+    linha);
 
   // ── 7. O MODO FÁCIL NÃO HERDA A COLUNA DE OPERAÇÃO ──────────────────────
   // A preview é UM nó só e MUDA DE CASA: tudo o que se pendura nela viaja.

@@ -1,5 +1,15 @@
 [
   {
+    "versao": "1.3.9",
+    "itens": [
+      "O slide de volume VOLTOU — a versão anterior tinha removido demais. O que fica removido é só o botão de tela que o abria; o slide continua aparecendo ao apertar as teclas físicas de volume e some sozinho depois de alguns segundos.",
+      "É ele que mantém o painel de volume do Android fora da projeção: o app consome a tecla, então o indicador do sistema não aparece na TV na frente da congregação.",
+      "O botão de voltar slide continua no ar quando o volume aparece — só o de passar dá lugar a ele, porque os dois dividem a mesma célula.",
+      "O botão de histórico ganhou a mesma caixa dos vizinhos, em vez do ícone solto.",
+      "A linha de baixo foi reordenada: repetir, playlist, anterior, play, parar, próximo, histórico."
+    ]
+  },
+  {
     "versao": "1.3.8",
     "itens": [
       "O ajuste manual de volume saiu do painel de controles, como pedido. O volume passa a ser o do próprio aparelho, pelos botões físicos — e agora com o indicador do Android, que antes não aparecia porque o app consumia a tecla.",

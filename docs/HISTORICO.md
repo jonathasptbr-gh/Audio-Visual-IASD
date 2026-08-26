@@ -24,6 +24,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
+- **v1.3.9** — O FADER VOLTOU; O BOTÃO QUE O ABRIA É QUE TINHA DE SAIR. A v1.3.8 leu o pedido largo demais e removeu o sistema de volume inteiro; o operador corrigiu: *"eu não queria que removesse o sistema de slide de volume interno do nosso app, pois ele é o que impede alguns controles de volume de aparecer no display"*. **A RAZÃO É A PROJEÇÃO**, e ela não estava escrita em lugar nenhum: o app CONSOME a tecla de volume, e quem não consome deixa o Android desenhar o painel dele — que, com espelhamento ativo, aparece SOBRE o que a congregação está vendo. O fader do celular é o que o substitui. Voltaram `.fader*`, `#volSlider`, `#volValue`, `syncFader`, `peekVolume`, `captureVolumeKeys(true)` e o `__avVolumeKey` que mexe no ganho; ficam fora `#volToggle`/`#volClose` (o botão de tela, que é o que o operador dispensou) e, com eles, `cancelVolPeek`/`bumpVolPeek` — a máquina do caso "aberto na mão", que deixou de existir. **A TECLA é a única porta e o relógio dela a única saída** (2,8 s). O fader é agora item da grade do deck, na MESMA célula do botão de passar slide, e a regra que escondia o de VOLTAR junto NÃO voltou — era esse sumiço o outro relato. Mais dois ajustes pedidos: o histórico veste a mesma caixa dos vizinhos (`.t-btn`; um chapado sozinho numa fileira de seis com fundo lê como um que ficou de fora), e a linha de baixo foi reordenada para repetir → playlist → anterior → play → parar → próximo → histórico. Provado por reversão em quatro frentes. OTA PURO.
 - **v1.3.8** — O AJUSTE MANUAL DE VOLUME SAIU, E COM ELE O SUBGRID DO MIXER. Pedido do operador: *"não teremos mais esse sistema manual de ajuste de volume. o volume é ajustado pelos botões físicos do smartphone"*, mais o relato de que o botão de VOLTAR slide sumia quando o fader aparecia. (1) O fader saiu inteiro — `#volToggle`, `#volClose`, `#volSlider`, `#volValue`, `syncFader`, `openVolume`/`closeVolume`/`peekVolume`, o degrau 4 do botão voltar, e a regra `.deck.vol-open .slide-side` que escondia o gêmeo do par: era ESSA o sumiço relatado, e a resposta não foi ajustar a regra, foi tirar a causa. (2) AS TECLAS FÍSICAS VOLTARAM A SER DO SISTEMA (`captureVolumeKeys(false)`): a interceptação existia porque, com espelhamento ativo, o Android roteia essas teclas para a TV e o FADER do app não saía do lugar — sem fader não há o que mover, e interceptar para mexer num número que a tela não mostra é a PIOR das duas opções, porque quem intercepta também apaga a UI de volume do próprio Android. `__avVolumeKey` fica como rede de segurança, devolvendo o passo ao sistema. (3) O GANHO DO APP CONTINUA e não é redundante: ele viaja no comando `volume` e chega às TELAS DA REDE, que são outros aparelhos — o volume de mídia do celular não as alcança. Quem o move são as teclas +/− do Modo Fácil. (4) Sem o fader não há o que atravessar duas linhas, então o `#mixer` INTEIRO saiu: o `subgrid`, as três fatias, o `.mixer-stack` absoluto (que existia só para um item no fluxo não deformar as faixas do pai) e o token `--fader-cap`. Sobraram dois botões soltos, itens diretos da grade. (5) O HISTÓRICO desceu para a sétima célula da linha de baixo, a que era do volume — e era ele, na fatia de cima, que impedia a barra de progresso de usar a largura inteira. (6) A BARRA DE PROGRESSO passou a seguir a grade do deck: `.nowplaying` atravessa as três colunas e `.np-seek` é uma grade com as MESMAS colunas, então o tempo decorrido cai sobre o botão de voltar slide, a barra sobre a preview, o tempo total sobre o de passar — e o título voltou a ser centrado na largura inteira. Medido em quatro larguras × duas proporções: todos os alinhamentos em 0,00. Oráculo estendido, provado por reversão em quatro frentes. OTA PURO.
 - **v1.3.7** — O SISTEMA DE GRADE DO DECK, CONFERIDO INTEIRO a pedido do operador — e o que estava errado não era um botão, eram TRÊS MEDIDAS DE VÃO e DUAS FOLGAS que ninguém declarou. (1) Os vãos viraram UM (`--deck-gap`): eram `.6rem` entre colunas, `.45rem` entre linhas e `.35rem` no transporte, mais um `padding: 0 .35rem` dentro das colunas laterais — MEDIDO, 15,2px do botão de volume até o vizinho contra os 5,6px que os outros seis usavam entre si, que é literalmente o "está com uma margem diferente" do relato. (2) A coluna lateral passou a valer `(100% - 6 vãos)/7`, a largura que faz as SETE células da linha de baixo saírem IDÊNTICAS — e ela se demonstra: o transporte atravessa as colunas 1-2, seis botões dão `(W - col - 6·vão)/6`, e substituindo `col` isso volta a ser `col`. Com 56px fixos os do transporte mediam 52,3 e o do volume 44,8. (3) A FAIXA DA PREVIEW virou `auto` e a preview passou a PREENCHER a coluna: a faixa era fixa em 150px enquanto a miniatura era dimensionada pela proporção do telão, e as duas quase nunca coincidiam — MEDIDO em 430px, 128px de preview numa faixa de 150 com uma TV 2,16:1, e 267px de largura numa coluna de 289 com uma 16:9. Sem faixa fixa não há o que medir: a medição em JavaScript da v1.3.6 SAIU. **Sem teto de altura, de propósito** — um `max-height` que mordesse clamparia a altura sem clampar a largura, e a caixa sairia mais larga que a proporção do telão, que é a mentira que a proporção existe para impedir. (4) O fader do volume deixou de ocupar `1 / 3` (a fatia do HISTÓRICO junto) e passou a `grid-row: 2`, a faixa da preview. Conferido em sete combinações de largura × proporção: todo vão do deck igual ao do deck, sete células idênticas, bordas batendo e a proporção do telão intacta. Oráculo reescrito para afirmar a INVARIANTE em DUAS proporções — as duas folgas apareciam em regimes opostos, e uma proporção só aprova metade do defeito. Provado por reversão em quatro frentes. OTA PURO.
 - **v1.3.6** — AS DUAS FOLGAS DO DECK NOVO, medidas antes de qualquer valor ser escolhido. (1) OS BOTÕES DE SLIDE VESTIAM A FAIXA, E A FAIXA NÃO É A PREVIEW: `--deck-pv-h` é fixa, mas a miniatura dentro dela é dimensionada pela proporção do telão com `max-width: 100%` — MEDIDO em 360px com uma TV 2,17:1, preview de 95px ao lado de botões de 150, com 27px de folga em cima e embaixo de cada um. Agora eles vestem a altura MEDIDA da preview (`--pv-alt`, de um `ResizeObserver`), porque a conta é circular e não tem resposta em CSS: a altura da preview sai da LARGURA da coluna do meio, que sai da grade. O observador não escreve com a preview fora de casa (tela cheia, Modo Fácil), e o CSS trava o botão na faixa de qualquer jeito. **A regra do par mede 0,3,0 de propósito**: `.mixer-slot .ctl-btn { flex: 1 }` mora 600 linhas abaixo e EMPATA em 0,2,0 — a esquerda vestia a preview e a direita continuava com a faixa inteira, gêmeos de alturas diferentes e nada no console. (2) OS TRÊS ÍCONES SOBRE A PREVIEW passaram de um bloco no centro para TOPO/MEIO/BASE, o alinhamento que a coluna do player ao lado já usa. O piso do alvo caiu de 26px para 24px — o tamanho do próprio ícone —, senão o terceiro vazava 3,3px por baixo da miniatura a 320px, medido. Conferido em sete combinações de largura × proporção de TV: folga zero em todas. Oráculo estendido, provado por reversão em quatro frentes. OTA PURO.
@@ -263,6 +264,77 @@ na nota que a revoga, não apagada da que a criou.
 - **v5.154** — é METADE OTA e METADE APK, e a divisão importa para quem for testar em aparelho.
 - **v5.155** — é OTA PURO
 - **v5.156** — é METADE OTA e METADE APK, de novo.
+
+---
+
+## v1.3.9 — o fader voltou; o botão que o abria é que tinha de sair
+
+A v1.3.8 leu o pedido largo demais. O operador corrigiu:
+
+> *"eu não queria que removesse o sistema de slide de volume interno do nosso
+> app, pois ele é o que impede alguns controles de volume de aparecer no
+> display. o que eu queria era apenas remover o método usando o botão na tela
+> para acessar o slide de volume e essa parte ficou correta. mas ainda manter a
+> função do slide aparecer e ser controlado pelas teclas físicas do volume."*
+
+### A razão do recurso não estava escrita em lugar nenhum
+
+**O app consome a tecla de volume, e quem não consome deixa o Android desenhar o
+painel de volume dele — que, com espelhamento ativo, aparece SOBRE A PROJEÇÃO**,
+na frente da congregação. O fader do celular é o que o substitui: mora aqui, some
+sozinho, e nada disso chega ao telão.
+
+A documentação justificava a interceptação por outra coisa ("com espelhamento
+ativo o Android roteia os botões para a TV, e o fader do app não saía do lugar"),
+que é verdade e é secundária. Foi essa lacuna que autorizou a remoção da v1.3.8 —
+e é a lição do lote: **um recurso cuja razão real não está escrita é um recurso
+que alguém remove com um argumento coerente.**
+
+### O que voltou, e o que continua fora
+
+| voltou | continua fora |
+|---|---|
+| `.fader*`, `#volSlider`, `#volValue`, `syncFader` | `#volToggle` / `#volClose` — o BOTÃO de tela |
+| `peekVolume`, `captureVolumeKeys(true)`, `__avVolumeKey` → `applyVolume` | `cancelVolPeek` / `bumpVolPeek` |
+| os estados `vol-open` / `vol-closing` (no `.deck`) | o degrau 4 do botão VOLTAR |
+
+**A tecla é a ÚNICA porta e o relógio dela a única saída** (2,8 s), e é isso que
+simplificou a máquina: `cancelVolPeek`/`bumpVolPeek` existiam para o caso
+"aberto na mão", que deixou de existir. `volArrastando` (o antigo `volSeekingEl`)
+foi declarada **junto de `syncFader`**, e não no fim do arquivo: `renderControls`
+a lê na abertura, muito antes de a parte de baixo ser avaliada — um `let` lá
+embaixo seria uma zona morta esperando a ordem de chamada mudar.
+
+### Onde ele mora agora
+
+O `#mixer` não existe mais (v1.3.8), então o fader é **item da grade do deck**,
+na coluna 3 / linha 2 — a **mesma célula** do `#slideNextBtn`, que ele esconde
+enquanto está aceso. O da OUTRA ponta **não some**: a regra
+`.deck.vol-open .slide-side` era o outro relato do operador e não voltou.
+
+### Os dois ajustes de forma
+
+- **O histórico veste a caixa dos vizinhos** (`.t-btn`). Era CHAPADO
+  (`.settings-btn`) enquanto morava numa fatia só dele, onde a distinção "abre
+  uma lista" × "opera o culto" separava dois grupos. Na linha de baixo ele é uma
+  de sete células iguais, ao lado da **playlist** — que também só abre uma lista
+  e sempre teve fundo. Um único chapado numa fileira de seis com fundo não se lê
+  como distinção: lê-se como um botão que ficou de fora.
+- **A ordem da linha**: repetir → playlist → anterior → play → parar → próximo →
+  histórico. Os dois que ABREM uma lista ficam nas pontas do grupo, e o miolo é
+  o transporte contínuo.
+
+### O oráculo
+
+A seção do volume foi reescrita ao contrário da v1.3.8: ela afirmava a AUSÊNCIA
+do maquinário, e agora afirma a distinção — o BOTÃO não existe, o FADER existe e
+nasce escondido, a TECLA o acende (por `peekVolume`, o caminho de verdade), ele
+ocupa a faixa da preview, o de VOLTAR fica no ar, e ele some sozinho. Mais a
+ordem da linha e a caixa do histórico.
+
+**Provado por reversão em quatro frentes**: a regra que escondia o VOLTAR
+reintroduzida, o histórico de volta a chapado, dois botões trocados de lugar e
+um fader que nunca acende.
 
 ---
 
