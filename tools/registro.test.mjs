@@ -447,8 +447,12 @@ try {
     window.__AVBridge.requestMic = (id) => {
       setTimeout(() => { try { window.__avResolve(id, false); } catch (_) {} }, 0);
     };
-    const ir = (t) => { const b = document.querySelector('[data-tab="' + t + '"]'); if (b) b.click(); };
-    ir('mic');
+    // A PORTA DAS FERRAMENTAS É O BOTÃO DO CRONOGRAMA (v1.3.10) — elas deixaram
+    // de ser uma aba. Clicar nele, e não chamar `abrirFerramentas()`, é o que
+    // mantém o caminho do operador dentro do oráculo.
+    setAppMode('full');
+    await dorme(120);
+    document.getElementById('toolsBtn').click();
     await dorme(250);
     const btn = document.getElementById('micBtn');
     if (!btn) return 'SEM BOTÃO DE MICROFONE';

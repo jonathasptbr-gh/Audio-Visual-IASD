@@ -231,6 +231,10 @@ const libraryEl = document.getElementById('library');
 // vista. Hospeda "Importar arquivos" e, durante a seleção múltipla, a `#selbar`
 // (ver `renderListFoot` e `hostSelbar`) — nunca os dois ao mesmo tempo.
 const listFootEl = document.getElementById('listFoot');
+// A FOLHA DE FERRAMENTAS (v1.3.10) — ver `abrirFerramentas`.
+const toolsSheetEl = document.getElementById('toolsSheet');
+const toolsBodyEl = document.getElementById('toolsBody');
+const toolsCloseEl = document.getElementById('toolsClose');
 // Há UM host de lista (`libraryEl`). A pasta do aparelho abre INLINE, como um
 // álbum — e por isso não há busca dentro de uma pasta nem seleção múltipla lá
 // dentro: a barra da Biblioteca varre `allCollections()`, que não alcança o
@@ -244,7 +248,7 @@ const appVersionEl = document.getElementById('appVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.3.9';
+const WEB_VERSION = '1.3.10';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -433,7 +437,8 @@ const simpleConnEl = document.getElementById('simpleConn');
 const castCloseEl = document.getElementById('castClose');
 const castMirrorBtnEl = document.getElementById('castMirrorBtn');
 // A transmissão para navegadores da rede é um ESTADO, e tem a forma de um: o
-// rótulo nomeia o DESTINO ("Transmitir para navegador"), não o meio.
+// rótulo nomeia o APARELHO de destino ("Conectar um computador"), não o meio
+// nem o programa — ele faz par com o "Conectar uma TV" logo acima.
 const castNetBtnEl = document.getElementById('castNetBtn');
 const castNetLabelEl = document.getElementById('castNetLabel');
 const castLocalBtnEl = document.getElementById('castLocalBtn');
@@ -1958,6 +1963,7 @@ let pvLyricsMeta = null; // { hymnName, hymnTrack, hymnAlbum } do item atual, pr
 let pvLyricSlideIdx = -1;
 let pvLyricLoadSeq = 0;
 let pvLyricImgKey = null;
+let pvLyricTeardownTimer = null;  // ver showPvLyrics: a letra que volta cancela o teardown
 let pvLyricImgUrl = null;
 // Fim natural da faixa (local ou reportado pelo Display): trava a troca de
 // slide até o próximo load/play/seek. Sem isso, o `currentTime = 0` que o fim
@@ -1982,9 +1988,10 @@ function hidePvLyrics(fade) {
     pvLyricsImgEl.hidden = true;
     pvLyricsImgEl.removeAttribute('src');
   };
+  clearTimeout(pvLyricTeardownTimer);
   if (fade && !pvLyricsEl.hidden && pvLyricsEl.animate && fadeCfg.out) {
     pvLayerOut(pvLyricsEl);
-    setTimeout(teardown, PV_LAYER_FADE_MS);
+    pvLyricTeardownTimer = setTimeout(teardown, PV_LAYER_FADE_MS);
   } else {
     pvLyricsEl.hidden = true;
     teardown();
@@ -1992,6 +1999,19 @@ function hidePvLyrics(fade) {
 }
 
 function showPvLyrics(rec) {
+  // A letra VOLTOU antes do teardown agendado por hidePvLyrics: cancela-o de
+  // forma explícita. A guarda de sequência sozinha NÃO basta — se a estrofe que
+  // volta usa a MESMA imagem (`key === pvLyricImgKey`), applyPvLyricsImage
+  // devolve cedo e não incrementa `pvLyricLoadSeq`: o teardown dispara com o seq
+  // ainda válido, revoga a object URL EM USO e apaga o fundo da letra que
+  // acabara de reaparecer — e como ele zera a chave, a estrofe seguinte
+  // reaparece e a de depois some de novo. É o caso NORMAL de trocar de música:
+  // o fallback "grudento" do sync faz estrofes seguidas (e hinos vizinhos)
+  // compartilharem o mesmo `imageOpfsPath`.
+  //
+  // O telão tem esta guarda desde que o defeito foi visto lá; a preview ficou
+  // sem ela, e sem TV a preview É a projeção.
+  clearTimeout(pvLyricTeardownTimer);
   pvLyrics = rec.lyrics;
   pvLyricsMeta = { hymnName: rec.hymnName, hymnTrack: rec.hymnTrack, hymnAlbum: rec.hymnAlbum };
   pvLyricSlideIdx = -1;
@@ -2052,9 +2072,13 @@ function applyPvLyricsBgClass() {
 
 function renderPvLyricSlide(idx) {
   if (idx === pvLyricSlideIdx) return;
-  pvLyricSlideIdx = idx;
   const slide = pvLyrics[idx];
+  // O índice só é REGISTRADO depois de validado (a mesma ordem do telão):
+  // gravá-lo antes fazia um índice inexistente ficar marcado como "já
+  // renderizado", e se o mesmo índice voltasse a ser pedido a guarda de cima
+  // devolvia cedo — o slide certo nunca era pintado.
   if (!slide) return;
+  pvLyricSlideIdx = idx;
 
   pvLyricsContentEl.classList.toggle('cover', !!slide.cover);
   if (slide.cover) {
@@ -2109,9 +2133,14 @@ function applyPvLyricsImage(slide) {
     pvLyricImgUrl = null;
     pvLayerOut(pvLyricsImgEl);
     setTimeout(() => {
-      if (seq !== pvLyricLoadSeq) return; // outra imagem já assumiu
-      pvLyricsImgEl.removeAttribute('src');
+      // A revogação vem ANTES da guarda, e de propósito: `pvLyricImgUrl` já foi
+      // zerada acima, então esta URL não é mais de ninguém — nenhum outro
+      // caminho vai revogá-la. Atrás da guarda, uma imagem nova entrando em
+      // menos de PV_LAYER_FADE_MS retinha o blob da foto até o WebView do
+      // Controle morrer, uma vez a cada ocorrência, o culto inteiro.
       if (url) URL.revokeObjectURL(url);
+      if (seq !== pvLyricLoadSeq) return; // outra imagem já assumiu: o src é DELA
+      pvLyricsImgEl.removeAttribute('src');
     }, PV_LAYER_FADE_MS);
     return;
   }
@@ -2990,16 +3019,11 @@ function moveTabIndicator(animar) {
 // o botão que podia sumir e mover o título simplesmente não existe mais.
 // (O cabeçalho DA GAVETA — `renderFavHeader` — saiu com ela na v5.294.)
 function renderListTitle() {
-  if (activeTab === 'mic') {
-    backBtnEl.hidden = true;
-    // "Ferramentas" desde a v5.51 — "Diversos" nomeava a aba pelo que ela NÃO
-    // é (nem acervo, nem Bíblia, nem Cronograma). O `activeTab` segue `'mic'` e
-    // as funções seguem `renderDiversos`/`refreshDiversos`: é a MESMA razão do
-    // `data-tab="mic"` — trocar a string interna não muda nada visível e
-    // esbarraria em `TAB_ORDER`, `scrollKey()` e nas guardas espalhadas.
-    listTitleEl.hidden = false; listTitleEl.textContent = 'Ferramentas';
-    return;
-  }
+  // (O ramo de 'mic' saiu na v1.3.10: as Ferramentas deixaram de ser uma ABA e
+  //  viraram uma FOLHA do Cronograma, com título próprio. O cabeçalho da tela
+  //  continua dizendo "Cronograma", que é onde o operador de fato está.
+  //  As funções seguem `renderDiversos`/`refreshDiversos` e o `miscTool` segue
+  //  com os ids de sempre — renomeá-las não mudaria nada visível.)
   if (activeTab === 'bible') {
     backBtnEl.hidden = bibleScreen === 'books';
     // A aba Bíblia era a ÚNICA sem título: ele saíra para liberar espaço numa
@@ -5146,7 +5170,7 @@ function renderFoot() {
   const note = document.createElement('div'); note.id = 'micNote'; note.className = 'mic-note'; note.hidden = true;
   wrap.appendChild(note);
 
-  libraryEl.appendChild(wrap);
+  toolsBodyEl.appendChild(wrap);
   renderMicUI();
 }
 
@@ -6016,18 +6040,18 @@ function renderDiversos() {
     b.addEventListener('click', () => {
       if (miscTool === t.id) return;
       miscTool = t.id;
-      libraryEl.innerHTML = '';
+      toolsBodyEl.innerHTML = '';
       renderDiversos();
     });
     sw.appendChild(b);
   });
-  libraryEl.appendChild(sw);
+  toolsBodyEl.appendChild(sw);
 
   const tool = MISC_TOOLS.find((t) => t.id === miscTool) || MISC_TOOLS[0];
   const panel = document.createElement('div');
   panel.className = 'misc-panel misc-panel--' + tool.id;
   panel.id = tool.wrap;
-  libraryEl.appendChild(panel);
+  toolsBodyEl.appendChild(panel);
   tool.render();
 
   renderFoot();
@@ -6036,9 +6060,50 @@ function renderDiversos() {
 // Redesenha só a aba Ferramentas (usado quando o estado de uma ferramenta muda
 // por fora do painel — ex.: uma mensagem projetada por outro caminho).
 function refreshDiversos() {
-  if (activeTab !== 'mic') return;
-  libraryEl.innerHTML = '';
+  if (!ferramentasAbertas()) return;
+  toolsBodyEl.innerHTML = '';
   renderDiversos();
+}
+
+// ===== A FOLHA DE FERRAMENTAS (v1.3.10) =====
+// As Ferramentas eram uma ABA, ao lado do Cronograma e da Bíblia. Elas viraram
+// uma FOLHA do Cronograma a pedido do operador — e a mudança não é de navegação,
+// é de PARENTESCO: toda ferramenta daqui produz uma CENA que entra no roteiro (a
+// mensagem vira cue, o cronômetro e o sorteio são projetados no meio da ordem do
+// culto). Ser uma extensão do Cronograma é o que essa relação já era; a aba só a
+// escondia atrás de um passo lateral.
+//
+// A FAIXA VOLTOU A TER SÓ OS DOIS LUGARES DO CULTO — o roteiro e a Bíblia —
+// mais a porta da Biblioteca. Um quarto alvo ali competia com eles sem ser um
+// lugar: ninguém "está nas Ferramentas", ninguém volta para elas.
+//
+// `activeTab` CONTINUA 'imports' com a folha aberta, e isso é o recurso, não um
+// detalhe: o Cronograma segue sendo a tela em que se está, o rodapé dele
+// continua desenhado, o carrossel continua sabendo para onde ir e o voltar
+// continua tendo para onde voltar. O estado 'mic' de `activeTab` SAIU — ele
+// existia porque as ferramentas ocupavam a lista, e não ocupam mais.
+function ferramentasAbertas() { return !!toolsSheetEl && !toolsSheetEl.hidden; }
+
+function abrirFerramentas() {
+  if (!toolsSheetEl || ferramentasAbertas()) return;
+  toolsSheetEl.hidden = false;
+  toolsBodyEl.innerHTML = '';
+  renderDiversos();
+}
+
+function fecharFerramentas() {
+  if (!ferramentasAbertas()) return;
+  // Sair com o microfone aberto o deixaria captando sem nada na tela que o
+  // mostrasse. O botão é push-to-talk: sem o botão, sem microfone. (Era a mesma
+  // guarda do `switchTab`, quando sair daqui era trocar de aba.)
+  if (micPressed || micOn) sendMic(false);
+  // Os laços dos painéis morrem com a folha — o cronômetro NÃO: ele segue
+  // correndo no estado, e a projeção tem laço próprio. Sem isto sobraria um
+  // timer de 5 Hz reescrevendo nós que o `innerHTML = ''` já descartou.
+  stopChronoPanelTimer();
+  stopDrawPanelTimer();
+  toolsSheetEl.hidden = true;
+  toolsBodyEl.innerHTML = '';
 }
 
 // ===== Mensagens: botão flutuante na preview + popup =====
@@ -6067,20 +6132,14 @@ function renderLibrary() {
   // aberta ocupa o que sobra e rola por dentro, se precisar). Com a rolagem da
   // lista ligada, a página inteira voltaria a rolar e o microfone sairia da
   // base — que é justamente o que o acordeão veio resolver.
-  libraryEl.classList.toggle('lib-misc', activeTab === 'mic');
-  // ANTES do desvio por aba, e não no fim: Bíblia, Ferramentas e a raiz dos
-  // Favoritos saem por `return` daqui, e o rodapé é da CAIXA da lista, não da
-  // lista — deixado para o fim, o "Importar arquivos" do Cronograma continuava
-  // desenhado embaixo da grade de livros da Bíblia.
+  // ANTES do desvio por aba, e não no fim: a Bíblia e a raiz dos Favoritos saem
+  // por `return` daqui, e o rodapé é da CAIXA da lista, não da lista — deixado
+  // para o fim, o "Importar arquivos" do Cronograma continuava desenhado
+  // embaixo da grade de livros da Bíblia.
   renderListFoot();
 
   if (activeTab === 'bible') {
     renderBible();
-    return;
-  }
-
-  if (activeTab === 'mic') {
-    renderDiversos();
     return;
   }
 
@@ -6364,10 +6423,34 @@ function renderListFoot() {
   // duas respondendo "de onde vem a mídia?" —, mas era também a ÚNICA porta da
   // gaveta, e uma porta no fim de uma lista rolável não é acesso rápido: com
   // trinta itens no Cronograma era preciso rolar tudo para chegar num favorito.
-  // Agora ela mora no cabeçalho FIXO, com rótulo, alcançável de qualquer aba —
-  // e "Importar arquivos" fica com a linha inteira, que é o que ele sempre
-  // quis (o nome do botão cabe sem reticências em qualquer tela).
+  // Agora ela mora no cabeçalho FIXO, com rótulo, alcançável de qualquer aba.
   li.appendChild(label);
+
+  // AS FERRAMENTAS, À DIREITA DA IMPORTAÇÃO (v1.3.10). Elas eram uma aba; o
+  // lugar delas é aqui porque o que produzem — mensagem, cronômetro, sorteio —
+  // é CENA que entra no roteiro. Este rodapé é o único ponto do Cronograma que
+  // fica sempre à vista (fora do `<ul>` rolável), então é o único onde uma
+  // porta com trinta itens na lista continua sendo acesso rápido.
+  //
+  // SÓ ÍCONE: "Importar arquivos" fica com o rótulo e com a linha, que é o que
+  // ele sempre quis (o nome cabe sem reticências em qualquer tela). Dois nomes
+  // lado a lado numa faixa de celular empurrariam o primeiro para reticências
+  // justamente na tela mais estreita.
+  const ferr = document.createElement('button');
+  ferr.type = 'button';
+  ferr.id = 'toolsBtn';
+  ferr.className = 'tools-btn';
+  ferr.title = 'Ferramentas: mensagens, tempo, sorteio e microfone';
+  ferr.setAttribute('aria-label', ferr.title);
+  ferr.innerHTML = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor"'
+    + ' stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
+    + '<rect x="3.5" y="3.5" width="7" height="7" rx="1.6"/>'
+    + '<rect x="13.5" y="3.5" width="7" height="7" rx="1.6"/>'
+    + '<rect x="3.5" y="13.5" width="7" height="7" rx="1.6"/>'
+    + '<rect x="13.5" y="13.5" width="7" height="7" rx="1.6"/></svg>';
+  ferr.addEventListener('click', abrirFerramentas);
+  li.appendChild(ferr);
+
   listFootEl.appendChild(li);
 }
 
@@ -18166,7 +18249,7 @@ function blocoAudio() {
       'toque de chamada e alarme ficam no celular; notificação depende do aparelho.',
       'não há como isolar: o Android roteia áudio por APARELHO, não por tela — a',
       '  Presentation isola a janela, nunca o som. Não é ajuste que falta.',
-      'sem vazamento: "Transmitir para navegador" (a tela toca o arquivo dela),',
+      'sem vazamento: "Conectar um computador" (a tela toca o arquivo dela),',
       '  com o espelhamento DESLIGADO — os dois juntos mantêm a mistura no ar.');
   }
   // O MICROFONE, e ONDE ELE SAI. É a pergunta que o operador faz depois de
@@ -21698,7 +21781,7 @@ plBtnEl.addEventListener('click', openPlPopup);
 // gaveta de Favoritos. Ela saiu na v5.294 com a gaveta: uma posição fantasma
 // numa lista que só serve para comparar índices não muda a direção de nada,
 // mas manda quem lê procurar uma aba que não existe.)
-const TAB_ORDER = ['imports', 'bible', 'mic'];
+const TAB_ORDER = ['imports', 'bible'];
 const prefersReducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 // Duração e curva da troca de aba. Vivem em DOIS lugares por necessidade — o
 // vazado da faixa é uma transição CSS (`--tab-move`) e a lista é Web Animations
@@ -21777,13 +21860,11 @@ async function switchTab(tab, semAnim) {
   // Mantém a posição: guarda o scroll da aba atual e NÃO reseta a pasta
   // aberta — voltar para os Favoritos retorna exatamente onde estava.
   rememberScroll();
-  // Sair da aba com o microfone aberto o deixaria captando sem nada na tela
-  // que mostrasse isso. O botão é push-to-talk: sem o botão, sem microfone.
-  if (activeTab === 'mic' && (micPressed || micOn)) sendMic(false);
-  // O laço do painel morre com a aba (o cronômetro NÃO — ele segue correndo no
-  // estado, e a projeção tem laço próprio). Sem isto sobraria um timer de 5 Hz
-  // reescrevendo um nó que o `innerHTML = ''` da lista já descartou.
-  if (activeTab === 'mic') { stopChronoPanelTimer(); stopDrawPanelTimer(); }
+  // Trocar de aba fecha a folha de Ferramentas: ela é uma extensão do
+  // CRONOGRAMA, e deixá-la de pé sobre a Bíblia seria a folha de uma tela
+  // flutuando sobre outra. É ela que desliga o microfone e os laços dos painéis
+  // (ver `fecharFerramentas`).
+  fecharFerramentas();
   const anima = !semAnim && !prefersReducedMotion && !!libraryEl.animate;
   // O fantasma é feito ANTES do render: ele leva embora os nós que ainda estão
   // na tela, e é ele que o operador continua vendo enquanto o `load()` monta a
@@ -21825,7 +21906,7 @@ tabsEl.addEventListener('click', (e) => {
 // horizontal? Um trilho de pílulas cheio responde sim; o mesmo trilho com três
 // pílulas responde não. Campos de texto ficam fora por outro motivo (ali o eixo
 // é do cursor), e são nomeáveis por serem conceito do HTML, não classe do app.
-const SWIPE_TABS = ['imports', 'bible', 'mic'];
+const SWIPE_TABS = ['imports', 'bible'];
 const TAB_SWIPE_MIN = 60;     // px — para TROCAR de aba
 const TAB_CLAIM_MIN = 12;     // px — para REIVINDICAR o gesto do navegador
 const TAB_SWIPE_RATIO = 1.5;  // quanto o eixo X precisa dominar o Y
@@ -22090,6 +22171,14 @@ hymnSearchInputEl.addEventListener('input', debounce(() => renderSearchResults(h
   // ELA SÓ VIVE 4 SEGUNDOS POR TOQUE. O relógio é reiniciado por QUALQUER toque
   // na projeção — inclusive num botão dela —, senão a coluna se apagaria no meio
   // de uma sequência de toques (passar três estrofes, subir o volume).
+  //
+  // E ELA NASCE ACESA (v1.3.10, a pedido do operador: *"quando se chega no
+  // preview em tela cheia, eu preciso ver os botões, e depois eles
+  // desaparecem"*). Entrar na tela cheia com a coluna apagada devolvia o
+  // problema que ela veio resolver: um mapa de gestos invisíveis, agora com um
+  // passo a mais — nada na tela dizia que havia o que tocar, e a única
+  // descoberta possível era tocar no escuro. Mostrar UMA vez, e sumir, é o que
+  // ensina sem cobrar tela: os 4s seguintes já são a projeção limpa.
   const FSCTL_MS = 4000;
   let fsTimer = null;
 
@@ -22105,12 +22194,28 @@ hymnSearchInputEl.addEventListener('input', debounce(() => renderSearchResults(h
     fsTimer = setTimeout(esconderFsCtl, FSCTL_MS);
   }
 
-  // O TOQUE QUE ACENDE NÃO PODE SER O MESMO QUE ACIONA. Com a coluna apagada ela
-  // é `pointer-events: none`, então o primeiro toque atravessa até aqui e só
-  // acende; com ela no ar, o toque num botão chega ao botão e este `pointerdown`
-  // (que borbulha) apenas RENOVA o relógio. É o comportamento de todo player: o
-  // primeiro toque traz os controles, o segundo comanda.
-  previewEl.addEventListener('pointerdown', () => { if (isFs()) acenderFsCtl(); });
+  // O TOQUE É UM INTERRUPTOR (v1.3.10, a segunda metade do mesmo pedido: *"o
+  // toque para vê-los deve ser o mesmo toque em qualquer lugar que faz eles
+  // desaparecerem quando visíveis"*). Antes ele só ACENDIA, e sumir era coisa
+  // do relógio: quem quisesse a tela limpa antes dos 4s não tinha o que tocar,
+  // e tocar de novo só reiniciava a contagem — o gesto existia num sentido só.
+  //
+  // O TOQUE QUE ACENDE CONTINUA NÃO SENDO O QUE ACIONA, e é o que sustenta o
+  // interruptor: com a coluna apagada ela é `pointer-events: none`, então o
+  // toque atravessa até aqui e só acende. Com ela no ar, um toque NUM BOTÃO
+  // chega ao botão — e este `pointerdown`, que borbulha, precisa RENOVAR em vez
+  // de apagar, senão comandar a projeção fecharia a coluna a cada comando. Só o
+  // toque que cai FORA dela é que a esconde.
+  //
+  // O vão entre os botões conta como DENTRO (a coluna acesa é `pointer-events:
+  // auto` inteira): errar o alvo por 2px renova, como sempre renovou — errar
+  // custa um toque, nunca uma ação que não se pediu.
+  previewEl.addEventListener('pointerdown', (e) => {
+    if (!isFs() || !fsCtlEl) return;
+    const naColuna = e.target && e.target.closest && e.target.closest('.pv-fsctl');
+    if (!naColuna && fsCtlEl.classList.contains('visivel')) { esconderFsCtl(); return; }
+    acenderFsCtl();
+  });
 
   // ===== CADA BOTÃO ACIONA O CONTROLE DE VERDADE (invariante 5) =====
   if (fsCtlEl) {
@@ -22134,9 +22239,15 @@ hymnSearchInputEl.addEventListener('input', debounce(() => renderSearchResults(h
     // entre os cinco que ficaram.)
   }
 
-  // Sair da tela cheia apaga a coluna: reentrar tem de começar do estado limpo,
-  // senão ela reapareceria acesa com um relógio de outra sessão correndo.
-  document.addEventListener('fullscreenchange', () => { if (!isFs()) esconderFsCtl(); });
+  // ENTRAR ACENDE, SAIR APAGA. O apagar não é simetria: reentrar tem de começar
+  // do estado limpo, senão a coluna reapareceria com o relógio de outra sessão
+  // correndo — e o `acenderFsCtl` de baixo é justamente quem arma o relógio
+  // novo. `esconderFsCtl` primeiro, sempre, para o caso de os dois eventos
+  // chegarem juntos (sair de uma e entrar em outra tela cheia).
+  document.addEventListener('fullscreenchange', () => {
+    esconderFsCtl();
+    if (isFs()) acenderFsCtl();
+  });
 })();
 
 // O ESPELHO DOS DOIS BOTÕES DE ESTADO. Ele LÊ os controles de verdade em vez de
@@ -22566,7 +22677,7 @@ function renderCast() {
       // "o que eu pedi", que é justamente o que divergiria numa resposta lenta.
       castNetLabelEl.textContent = mirrorOcupado
         ? (ligado ? 'Desligando…' : 'Ligando…')
-        : (ligado ? 'Desligar transmissão' : 'Transmitir para navegador');
+        : (ligado ? 'Desligar transmissão' : 'Conectar um computador');
     }
   }
   // O BOTÃO DE ESPELHAR DIZ QUAL TV ESTÁ NO AR (v5.196). Ele levava a folha de
@@ -22823,6 +22934,13 @@ const POPUPS = [
   // cobriu um popup por inteiro aqui.
   [sorteioPopupEl, sorteioCloseEl, fecharSorteio],
 ];
+// A FOLHA DE FERRAMENTAS fica FORA da tabela, e não por esquecimento: ela não é
+// um `.popup-backdrop` (não há camada sobre a tela toda, não há fundo escurecido
+// e o toque fora dela cai no app, que continua alcançável de propósito). O que
+// ela compartilha com a tabela é o ✕ e o degrau do voltar, e os dois estão
+// escritos aqui e no `__avBack`.
+if (toolsCloseEl) toolsCloseEl.addEventListener('click', fecharFerramentas);
+
 POPUPS.forEach(([backdrop, closeBtn, close]) => {
   closeBtn.addEventListener('click', close);
   // Só o próprio backdrop: um clique dentro da folha não fecha.
@@ -22858,6 +22976,10 @@ window.__avBack = function () {
     const [backdrop, , close] = POPUPS[i];
     if (backdrop.classList.contains('open')) { close(); return true; }
   }
+  // 2.5. A folha de Ferramentas. Depois dos bottom-sheets porque um deles pode
+  //    abrir DE DENTRO dela (a folha da música, pelo sorteio), e antes da tela
+  //    cheia porque ela é mais efêmera: é uma camada da lista, não a projeção.
+  if (ferramentasAbertas()) { fecharFerramentas(); return true; }
   // 3. Preview em tela cheia — que, sem telão conectado, É a projeção. Sair
   //    dela é exatamente o que o voltar significa aqui.
   if (document.fullscreenElement) {
@@ -23052,7 +23174,7 @@ AVDB.onCommand((msg) => {
       micRegistrar('ao vivo', dg, null, false);
     }
     micError = erroNovo;
-    if (activeTab === 'mic') renderMicUI();
+    if (ferramentasAbertas()) renderMicUI();
     return;
   }
   if (!currentItem || msg.mediaId !== currentId) return;

@@ -57,8 +57,9 @@ ter tema estão no Design System, mais abaixo.
 
 > **O nome na TELA é "Modo Fácil"**; no CÓDIGO o modo continua sendo `'simple'`
 > (a classe `mode-simple`, o `appMode`, o `data-mode`) — trocar a string interna
-> não mudaria um pixel e esbarraria em dezenas de referências, a mesma razão pela
-> qual a aba de Ferramentas segue com `activeTab === 'mic'`.
+> não mudaria um pixel e esbarraria em dezenas de referências. É a mesma razão
+> pela qual as Ferramentas seguem com `renderDiversos`/`refreshDiversos` e com os
+> ids de `miscTool`, mesmo depois de deixarem de ser uma aba (v1.3.10).
 
 O app atende duas pessoas: uma abre o celular para **conectar a tela e tocar um
 louvor**; a outra opera o culto inteiro. A tela que serve bem à segunda é
@@ -283,10 +284,12 @@ olha o `closed` — e ele só existe enquanto a janela existe.
 │  │  item 1                                           │  │  ← .lib-list
 │  │  item 2                                           │  │     (área scrollável)
 │  └───────────────────────────────────────────────────┘  │
-│  [        + Importar arquivos        ]                  │ ← #listFoot (fixo, não rola)
+│  [     + Importar arquivos     ] [⠿]                    │ ← #listFoot (fixo, não rola)
 │   ↑ na seleção múltipla, a #selbar ocupa esta mesma fatia │
+│   ↑ o [⠿] abre a FOLHA DE FERRAMENTAS, que sobe cobrindo  │
+│     a .lib-list e o #listFoot — e só eles (v1.3.10)       │
 ├─────────────────────────────────────────────────────────┤
-│ [Cronograma] [Bíblia] [Ferramentas] [🔍]                │  ← .tabs (dentro da barra)
+│ [Cronograma] [Bíblia] [🔍]                              │  ← .tabs (dentro da barra)
 │  ┌─────────────────────────────────────┬──────┐         │  ← .bottombar (base fixa)
 │  │  Nome da mídia atual  [seek bar]    │ Hist │         │
 │  │─────────────────────────────────────│ Wall │         │
@@ -632,7 +635,13 @@ tamanho do ícone vem do CSS (`24px`), não do atributo do `<svg>`.
 |---|---|---|---|
 | `.pv-fabs` | coluna DIREITA | cast em cima, tela cheia embaixo | *para onde eu mando isto?* |
 | `.pv-fabs--esq` | coluna ESQUERDA (v1.3.5) | letra → cortina → mudo | *como eu opero a cena?* |
-| `.pv-fabs--topo` | topo, AO CENTRO (v1.3.5) | o selo de camadas (`#pvCamadaBtn`) | *o que está no ar por cima do quê?* |
+| `.pv-fabs--base` | BASE, ao centro (v1.3.10) | o selo de camadas (`#pvCamadaBtn`) | *o que está no ar por cima do quê?* |
+
+> O selo já morou no canto superior esquerdo, e no topo ao centro (v1.3.5).
+> Desceu para a base a pedido do operador. Em qualquer das três posições a regra
+> é a mesma: **ele não faz coluna com ninguém** — a faixa horizontal que ocupa
+> existe só para centrá-lo, e é isso que o separa dos três da esquerda (os três
+> OPERAM a cena; este DIZ um estado dela).
 
 ##### A coluna de operação (v1.3.5)
 
@@ -795,8 +804,10 @@ state `fade`).
 
 #### Os controles DENTRO do fullscreen: uma coluna, não gestos (v1.0.7)
 
-**Uma coluna de ícones na lateral direita** (`#pvFsCtl`), que o toque acende e
-**4 s sem toque apagam** (`FSCTL_MS`), translúcida enquanto está no ar.
+**Uma coluna de ícones na lateral direita** (`#pvFsCtl`). Ela **nasce acesa** ao
+entrar na tela cheia, **4 s sem toque apagam** (`FSCTL_MS`), e o toque em
+qualquer lugar da projeção é um **INTERRUPTOR** — as duas últimas coisas são da
+v1.3.10, a pedido do operador.
 
 Ela substituiu um mapa de **gestos invisíveis** — toque por terço, deslizes nos
 quatro sentidos, arrasto de volume no terço direito. O motivo daquele desenho era
@@ -862,7 +873,43 @@ laterais.
 **Errar o alvo custa um toque, nunca uma ação errada:** acesa, a coluna é
 `pointer-events: auto` inteira, então o dedo que cai num vão morre nela em vez de
 atravessar para a projeção — e o `pointerdown` que borbulha até a `.preview`
-ainda renova os 4 s.
+apenas RENOVA os 4 s.
+
+##### Ela NASCE ACESA, e o toque é um INTERRUPTOR (v1.3.10)
+
+*"Quando se chego no preview em tela cheia, eu preciso ver os botões, e depois
+eles desaparecem. Atualmente eles vêm apagados e não dizem que existem. E o toque
+para vê-los deve ser o mesmo toque em qualquer lugar que faz eles desaparecerem
+quando visíveis."*
+
+Duas correções, e as duas devolvem à coluna o que ela veio dar:
+
+- **Entrar ACENDE** (`fullscreenchange` → `esconderFsCtl()` e, se entrou,
+  `acenderFsCtl()`). Nascer apagada devolvia o problema dos gestos invisíveis com
+  um passo a mais: nada na tela dizia que havia o que tocar, e a única descoberta
+  possível era tocar no escuro. Mostrar UMA vez e sumir é o que ensina sem cobrar
+  tela — os 4 s seguintes já são a projeção limpa. O `esconderFsCtl()` vem SEMPRE
+  primeiro, inclusive ao entrar: é ele que garante que a reentrada não herde o
+  relógio da sessão anterior.
+- **O toque ALTERNA.** Antes ele só acendia, e sumir era coisa do relógio: quem
+  quisesse a tela limpa antes dos 4 s não tinha o que tocar, e tocar de novo só
+  reiniciava a contagem — o gesto existia num sentido só.
+
+**O que sustenta o interruptor é a regra que já existia:** o toque que ACENDE não
+é o que ACIONA. Apagada, a coluna é `pointer-events: none` e o toque atravessa
+até o reconhecedor da `.preview`; acesa, o toque num BOTÃO chega ao botão, e esse
+`pointerdown` precisa RENOVAR em vez de apagar — senão comandar a projeção
+fecharia a coluna a cada comando, e passar três estrofes exigiria um toque de
+reabertura entre cada duas. Só o toque que cai **fora** dela esconde
+(`e.target.closest('.pv-fsctl')`), e **o vão entre os botões conta como
+DENTRO**: errar o alvo por 2px renova, como sempre renovou.
+
+Oráculo: as quatro asserções de tela cheia em `tools/controles-layout.test.mjs`.
+Elas esperam pelo **evento** `fullscreenchange`, nunca por
+`document.fullscreenElement` — MEDIDO, o Chromium publica a propriedade ANTES de
+despachar o evento, e a enquete do Playwright cai no vão: o oráculo lia a coluna
+apagada e reprovava um app que estava certo. Esperar pelo `.visivel` seria a
+outra ponta do erro (uma tautologia).
 
 **SVG e não `.msym`:** a fonte é um subset de 31 codepoints, e o `.pv-fab`
 pendura três `drop-shadow` no TRAÇO do SVG — é o que mantém o ícone legível
@@ -1597,10 +1644,18 @@ toque único.
 
 Ela fica **no alto da caixa de controles** (`.bottombar`) e são **abas de
 verdade**: uma fileira SEM trilho, encostada na borda de cima da caixa e indo de
-borda a borda (`margin: 0 -.7rem`, que desfaz o padding lateral dela). Quatro
-alvos idênticos — **Cronograma** · **Bíblia** · **Ferramentas** (as `.tab`) e o
+borda a borda (`margin: 0 -.7rem`, que desfaz o padding lateral dela). **TRÊS**
+alvos idênticos (v1.3.10) — **Cronograma** · **Bíblia** (as `.tab`) e o
 **acervo** (`#hymnSearchBtn`, `.tab-add`) —, todos `flex: 1` e `--hit-nav` de
 altura, transparentes enquanto não escolhidos.
+
+> **Eram QUATRO até a v1.3.10**, e o quarto era Ferramentas. Ele saiu a pedido do
+> operador, e o argumento fecha: a faixa é feita de LUGARES do culto — o roteiro
+> e a Bíblia —, e ninguém "está nas Ferramentas" nem volta para elas. Elas viraram
+> uma FOLHA do Cronograma (ver logo abaixo). Nada no CSS supunha quatro: a largura
+> é `flex: 1` e o vazado é MEDIDO (`moveTabIndicator` lê `offsetLeft`/`offsetWidth`
+> da célula ativa), justamente porque uma fração fixa quebraria calada no dia em
+> que um alvo mudasse de tamanho ou sumisse — e este é o dia.
 
 **A ativa é um VAZADO na cor do corpo**: pintado com `--bg`, o mesmo fundo das
 listas logo acima, com raio só EMBAIXO — a aba e a tela que ela abre viram a
@@ -1657,11 +1712,8 @@ As quatro células:
 - **Bíblia** (`bible`) — ver a seção própria. O cabeçalho mostra "Bíblia" nas três
   telas dela: as internas têm nome próprio no corpo (`.bible-book-head`), mas a
   faixa de cima responde "em que aba eu estou".
-- **Ferramentas** (`activeTab` segue sendo `'mic'`, por herança) — Mensagens,
-  Tempo e Sorteio num seletor no topo, mais o rodapé com microfone e "Projetar no
-  telão". O `data-tab` e `renderDiversos`/`refreshDiversos` mantêm os nomes
-  antigos de propósito: renomeá-los não muda nada visível e esbarraria em
-  `TAB_ORDER`, `scrollKey()` e nas guardas espalhadas que falam essas strings.
+- **Ferramentas** — **não é mais uma aba** (v1.3.10): é a folha `#toolsSheet`,
+  descrita abaixo. `activeTab` não tem mais o valor `'mic'`.
 - **Acervo** (`#hymnSearchBtn`, a lupa) — **não é uma aba**: não tem `activeTab`
   nem entra em `TAB_ORDER`. Abre o popup que é, ao mesmo tempo, o navegador de
   coleções (campo vazio) e a busca por nome/número/trecho de letra (ao digitar).
@@ -1677,6 +1729,38 @@ As quatro células:
   porque é ele que está atrás.
 - **Mensagens** — foi para a aba **Ferramentas** (v5.31), como seção do
   acordeão. Antes era um botão flutuante sobre a preview; ver abaixo.
+
+#### A FOLHA DE FERRAMENTAS (v1.3.10)
+
+Mensagens, Tempo (cronômetro/relógio/timer), Sorteio e o microfone ao vivo. Elas
+eram uma ABA; hoje são `#toolsSheet`, uma folha que sobe **de dentro do
+Cronograma**, aberta pelo `#toolsBtn` — o botão à direita de "Importar arquivos",
+no `#listFoot`.
+
+**A mudança não é de navegação, é de PARENTESCO.** Toda ferramenta daqui produz
+uma CENA que entra no roteiro: a mensagem vira cue, o cronômetro e o sorteio são
+projetados no meio da ordem do culto. Ser uma extensão do Cronograma é o que essa
+relação já era — a aba a escondia atrás de um passo lateral, e ainda cobrava uma
+quarta célula de uma faixa feita de LUGARES.
+
+| decisão | por quê |
+|---|---|
+| **`activeTab` continua `'imports'`** com a folha aberta | é o recurso, não um detalhe: o rodapé do Cronograma (onde mora a porta dela) continua desenhado, o carrossel continua sabendo para onde ir e o voltar continua tendo para onde voltar. O valor `'mic'` de `activeTab` **saiu** |
+| **filha de `.list-body`**, não do `<main>` nem do `<body>` | é o que define o que ela NÃO cobre: o cabeçalho (nome da tela, engrenagem) e a caixa de controles inteira ficam à vista e ALCANÇÁVEIS. Quem projeta um cronômetro precisa do transporte e da preview na frente enquanto o acerta — uma folha de corpo inteiro cobra um fechar-e-abrir por ajuste. `.list-body` nasceu para isto: dar `position: relative` ao território da lista |
+| **não é `.popup-backdrop`** | aquilo é uma camada sobre a tela toda, com fundo escurecido e o toque fora fechando. Esta é uma camada da LISTA, e o app atrás dela continua vivo de propósito. Ela fica fora da tabela `POPUPS`; o ✕ e o degrau do voltar estão escritos à mão |
+| **a porta é só ÍCONE** | "Importar arquivos" fica com o rótulo e com a linha. Dois nomes lado a lado numa faixa de celular empurram o primeiro para reticências justamente na tela mais estreita |
+| **trocar de aba a fecha** (`switchTab` → `fecharFerramentas`) | ela é extensão do CRONOGRAMA; de pé sobre a Bíblia seria a folha de uma tela flutuando sobre outra |
+| **`fecharFerramentas` desliga o microfone e os laços** | eram as mesmas guardas do `switchTab`, quando sair daqui era trocar de aba: o push-to-talk não pode ficar captando sem nada na tela que o mostre, e os timers de 5 Hz do cronômetro/sorteio não podem sobrar reescrevendo nós já descartados |
+
+**Os nomes internos ficaram**: `renderDiversos`/`refreshDiversos`, `miscTool`,
+`MISC_TOOLS` e as classes `.misc-*`. Renomeá-los não muda um pixel — a mesma
+regra do `'simple'` do Modo Fácil. O que mudou de host foi só o destino dos
+`appendChild`: `libraryEl` → `#toolsBody`.
+
+Oráculo: **`tools/ferramentas-folha.test.mjs`**, e a asserção que carrega o lote
+é GEOMÉTRICA — a caixa da folha contra a do cabeçalho e a da `.bottombar`. Uma
+folha de corpo inteiro continua funcionando e continua bonita; o que ela perde
+não aparece em teste de comportamento nenhum.
 
 #### O contrato do `shouldInterceptRequest`, e a transmissão direta
 

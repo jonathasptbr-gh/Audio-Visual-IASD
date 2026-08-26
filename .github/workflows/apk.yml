@@ -678,6 +678,27 @@ jobs:
           # nasce (a lição da v5.145).
           rodar tools/controles-layout.test.mjs
 
+          # O FUNDO DA LETRA NA PREVIEW. A imagem de fundo da estrofe é FILHA da
+          # camada da letra, e o desmonte dela é ADIADO — quando a letra volta
+          # antes do prazo (todo `load` de música faz isso), alguém precisa
+          # CANCELAR o desmonte. A guarda de sequência não cancela: ela não anda
+          # quando a estrofe que volta usa a MESMA imagem, que é o caso NORMAL
+          # (o fallback grudento do sync dá uma imagem por hino, e hinos do
+          # mesmo hinário compartilham a arte do álbum). O telão tinha a guarda;
+          # a preview não tinha — e sem TV a preview É a projeção.
+          rodar tools/fundo-da-letra.test.mjs
+
+          # AS FERRAMENTAS COMO FOLHA DO CRONOGRAMA. O que falha calado aqui é
+          # geométrico: uma folha de corpo inteiro continua funcionando e
+          # continua bonita, e cobra do operador um fechar-e-abrir por ajuste —
+          # quem projeta um cronômetro precisa do TRANSPORTE e da PREVIEW na
+          # frente enquanto o acerta. Daí a asserção medir a CAIXA da folha
+          # contra o cabeçalho e a caixa de controles. Ele trava também que
+          # `activeTab` continua em 'imports' com a folha aberta: se a folha
+          # trocasse a aba, o rodapé do Cronograma — onde mora a porta dela —
+          # deixaria de ser desenhado, e nada disso dá erro.
+          rodar tools/ferramentas-folha.test.mjs
+
           # O PLACAR VAI PARA O RESUMO DO RUN, não só para o log — a queixa que
           # originou este lote foi precisamente que o desfecho só existia lá
           # dentro. `rodados` é CONTADO, nunca digitado: um número fixo aqui

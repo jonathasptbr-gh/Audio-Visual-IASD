@@ -24,6 +24,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
+- **v1.3.10** — SEIS PEDIDOS DO OPERADOR, E UM DELES ERA UM DEFEITO DE VERDADE. (1) **O FUNDO DA LETRA sumia** ao trocar de música ou passar slide logo depois de carregar uma, e só voltava reiniciando a música ou religando as imagens em Configurações. A `<img>` de fundo é FILHA da camada da letra, então o desmonte dela é ADIADO; quando a letra volta antes do prazo — que é o que TODO `load` de música faz — alguém precisa CANCELAR o desmonte, e a guarda de sequência não cancela: ela não anda quando a estrofe que volta usa a MESMA imagem, o caso normal (o fallback grudento do sync dá uma imagem por hino, e hinos do mesmo hinário compartilham a arte do álbum). **O telão tinha as três proteções desde que o defeito foi visto lá; a preview não tinha — e a documentação já as descrevia como se fossem de ambos.** É a armadilha do `__tela` no `display-ready`: ler cada lado isolado aprova os dois. Sem TV a preview É a projeção. (2) A COLUNA DA TELA CHEIA nasce ACESA e o toque virou INTERRUPTOR — ela vinha apagada e não dizia que existia, que é o problema dos gestos invisíveis com um passo a mais; e o gesto existia num sentido só. Tocar num BOTÃO continua RENOVANDO, senão comandar a projeção fecharia a coluna a cada comando. (3) AS FERRAMENTAS saíram da faixa de abas e viraram uma FOLHA do Cronograma, aberta pelo botão à direita de "Importar arquivos" — e a mudança é de PARENTESCO, não de navegação: tudo que elas produzem é CENA que entra no roteiro. Ela sobe DENTRO da lista, deixando o cabeçalho e a caixa de controles à vista, e `activeTab` continua `'imports'`. O valor `'mic'` de `activeTab` deixou de existir. (4) A faixa ficou com Cronograma, Bíblia e a busca. (5) "Transmitir para navegador" virou **"Conectar um computador"**, fazendo par com "Conectar uma TV". (6) O selo de camadas desceu do topo para a base da preview. **O sétimo relato — mídia baixada pausando ao minimizar — não entrou:** aquela família já foi atacada quatro vezes e as três cenas possíveis (telão · preview · telas da rede) pedem correções opostas; virou o achado 3 de `ACHADOS-EM-ABERTO.md`, com o pedido de Registro que fecha em um passo. Dois oráculos novos, provados por reversão em oito frentes. OTA PURO.
 - **v1.3.9** — O FADER VOLTOU; O BOTÃO QUE O ABRIA É QUE TINHA DE SAIR. A v1.3.8 leu o pedido largo demais e removeu o sistema de volume inteiro; o operador corrigiu: *"eu não queria que removesse o sistema de slide de volume interno do nosso app, pois ele é o que impede alguns controles de volume de aparecer no display"*. **A RAZÃO É A PROJEÇÃO**, e ela não estava escrita em lugar nenhum: o app CONSOME a tecla de volume, e quem não consome deixa o Android desenhar o painel dele — que, com espelhamento ativo, aparece SOBRE o que a congregação está vendo. O fader do celular é o que o substitui. Voltaram `.fader*`, `#volSlider`, `#volValue`, `syncFader`, `peekVolume`, `captureVolumeKeys(true)` e o `__avVolumeKey` que mexe no ganho; ficam fora `#volToggle`/`#volClose` (o botão de tela, que é o que o operador dispensou) e, com eles, `cancelVolPeek`/`bumpVolPeek` — a máquina do caso "aberto na mão", que deixou de existir. **A TECLA é a única porta e o relógio dela a única saída** (2,8 s). O fader é agora item da grade do deck, na MESMA célula do botão de passar slide, e a regra que escondia o de VOLTAR junto NÃO voltou — era esse sumiço o outro relato. Mais dois ajustes pedidos: o histórico veste a mesma caixa dos vizinhos (`.t-btn`; um chapado sozinho numa fileira de seis com fundo lê como um que ficou de fora), e a linha de baixo foi reordenada para repetir → playlist → anterior → play → parar → próximo → histórico. Provado por reversão em quatro frentes. OTA PURO.
 - **v1.3.8** — O AJUSTE MANUAL DE VOLUME SAIU, E COM ELE O SUBGRID DO MIXER. Pedido do operador: *"não teremos mais esse sistema manual de ajuste de volume. o volume é ajustado pelos botões físicos do smartphone"*, mais o relato de que o botão de VOLTAR slide sumia quando o fader aparecia. (1) O fader saiu inteiro — `#volToggle`, `#volClose`, `#volSlider`, `#volValue`, `syncFader`, `openVolume`/`closeVolume`/`peekVolume`, o degrau 4 do botão voltar, e a regra `.deck.vol-open .slide-side` que escondia o gêmeo do par: era ESSA o sumiço relatado, e a resposta não foi ajustar a regra, foi tirar a causa. (2) AS TECLAS FÍSICAS VOLTARAM A SER DO SISTEMA (`captureVolumeKeys(false)`): a interceptação existia porque, com espelhamento ativo, o Android roteia essas teclas para a TV e o FADER do app não saía do lugar — sem fader não há o que mover, e interceptar para mexer num número que a tela não mostra é a PIOR das duas opções, porque quem intercepta também apaga a UI de volume do próprio Android. `__avVolumeKey` fica como rede de segurança, devolvendo o passo ao sistema. (3) O GANHO DO APP CONTINUA e não é redundante: ele viaja no comando `volume` e chega às TELAS DA REDE, que são outros aparelhos — o volume de mídia do celular não as alcança. Quem o move são as teclas +/− do Modo Fácil. (4) Sem o fader não há o que atravessar duas linhas, então o `#mixer` INTEIRO saiu: o `subgrid`, as três fatias, o `.mixer-stack` absoluto (que existia só para um item no fluxo não deformar as faixas do pai) e o token `--fader-cap`. Sobraram dois botões soltos, itens diretos da grade. (5) O HISTÓRICO desceu para a sétima célula da linha de baixo, a que era do volume — e era ele, na fatia de cima, que impedia a barra de progresso de usar a largura inteira. (6) A BARRA DE PROGRESSO passou a seguir a grade do deck: `.nowplaying` atravessa as três colunas e `.np-seek` é uma grade com as MESMAS colunas, então o tempo decorrido cai sobre o botão de voltar slide, a barra sobre a preview, o tempo total sobre o de passar — e o título voltou a ser centrado na largura inteira. Medido em quatro larguras × duas proporções: todos os alinhamentos em 0,00. Oráculo estendido, provado por reversão em quatro frentes. OTA PURO.
 - **v1.3.7** — O SISTEMA DE GRADE DO DECK, CONFERIDO INTEIRO a pedido do operador — e o que estava errado não era um botão, eram TRÊS MEDIDAS DE VÃO e DUAS FOLGAS que ninguém declarou. (1) Os vãos viraram UM (`--deck-gap`): eram `.6rem` entre colunas, `.45rem` entre linhas e `.35rem` no transporte, mais um `padding: 0 .35rem` dentro das colunas laterais — MEDIDO, 15,2px do botão de volume até o vizinho contra os 5,6px que os outros seis usavam entre si, que é literalmente o "está com uma margem diferente" do relato. (2) A coluna lateral passou a valer `(100% - 6 vãos)/7`, a largura que faz as SETE células da linha de baixo saírem IDÊNTICAS — e ela se demonstra: o transporte atravessa as colunas 1-2, seis botões dão `(W - col - 6·vão)/6`, e substituindo `col` isso volta a ser `col`. Com 56px fixos os do transporte mediam 52,3 e o do volume 44,8. (3) A FAIXA DA PREVIEW virou `auto` e a preview passou a PREENCHER a coluna: a faixa era fixa em 150px enquanto a miniatura era dimensionada pela proporção do telão, e as duas quase nunca coincidiam — MEDIDO em 430px, 128px de preview numa faixa de 150 com uma TV 2,16:1, e 267px de largura numa coluna de 289 com uma 16:9. Sem faixa fixa não há o que medir: a medição em JavaScript da v1.3.6 SAIU. **Sem teto de altura, de propósito** — um `max-height` que mordesse clamparia a altura sem clampar a largura, e a caixa sairia mais larga que a proporção do telão, que é a mentira que a proporção existe para impedir. (4) O fader do volume deixou de ocupar `1 / 3` (a fatia do HISTÓRICO junto) e passou a `grid-row: 2`, a faixa da preview. Conferido em sete combinações de largura × proporção: todo vão do deck igual ao do deck, sete células idênticas, bordas batendo e a proporção do telão intacta. Oráculo reescrito para afirmar a INVARIANTE em DUAS proporções — as duas folgas apareciam em regimes opostos, e uma proporção só aprova metade do defeito. Provado por reversão em quatro frentes. OTA PURO.
@@ -264,6 +265,155 @@ na nota que a revoga, não apagada da que a criou.
 - **v5.154** — é METADE OTA e METADE APK, e a divisão importa para quem for testar em aparelho.
 - **v5.155** — é OTA PURO
 - **v5.156** — é METADE OTA e METADE APK, de novo.
+
+---
+
+## v1.3.10 — seis pedidos, e o primeiro era um defeito de verdade
+
+Um lote de pedidos do operador, chegados por mensagem ao longo de três dias.
+Cinco eram de layout ou de palavra; **um era um defeito**, e é por ele que a nota
+começa. Um sétimo relato não entrou, e a razão está no fim.
+
+### 1. O fundo da letra sumia — e o telão já estava protegido
+
+*"Ao pular e voltar slides, em especial no início das músicas, ou usar os botões
+de próxima ou anterior música, faz com que a exibição das imagens da música não
+apareçam, e se reiniciar a música ou nas configurações reativar as imagens de
+fundo, então ela volta normal."*
+
+A imagem de fundo da estrofe é FILHA da camada da letra. Desmontá-la de imediato
+faria o fundo sumir por trás de um texto ainda esmaecendo, então
+`hidePvLyrics(true)` **adia** o desmonte em `PV_LAYER_FADE_MS`. Quando a letra
+VOLTA antes desse prazo — que é exatamente o que um `load` de música faz, com
+`hidePvLyrics` e `showPvLyrics` no mesmo tique — alguém precisa **cancelar** o
+desmonte agendado.
+
+**A guarda de sequência não cancela nada.** Ela só descarta o desmonte quando
+`pvLyricLoadSeq` andou, e ele NÃO anda quando a estrofe que volta usa a mesma
+imagem: `applyPvLyricsImage` devolve cedo em `key === pvLyricImgKey`. E esse é o
+caso NORMAL, não o raro — o fallback grudento do sync dá uma imagem por hino, e
+hinos do mesmo hinário compartilham a arte do álbum. O desmonte então dispara com
+o `seq` ainda válido, **revoga a object URL em uso** e apaga o fundo que acabara
+de entrar. "No início das músicas" é a janela: os 320 ms seguintes ao `load`.
+
+**O telão tem essa guarda desde que o defeito foi visto lá. A preview não tinha
+— e `CAMADA-DE-TEXTO.md` já descrevia as três proteções como se fossem de
+ambos.** É a mesma armadilha do `__tela` no `display-ready`: *ler cada lado
+isolado aprova os dois*. E sem TV a preview **É** a projeção.
+
+Foram TRÊS regras espelhadas, e cada uma tem sua reversão no oráculo novo
+(`tools/fundo-da-letra.test.mjs`):
+
+| regra | o que ela impede |
+|---|---|
+| `pvLyricTeardownTimer` + `clearTimeout` em `showPvLyrics` | o fundo apagado ao trocar de música com a mesma imagem |
+| o índice registrado só DEPOIS de validado | um índice inexistente marcado como "já renderizado", e o slide certo nunca mais pintado |
+| a revogação ANTES da guarda de sequência | o blob da foto retido até o WebView morrer, uma vez por ocorrência |
+
+A metade que mede o PULO DE SLIDE mede o **pisca**, não o estado final: o
+desmonte zera a chave, então a estrofe seguinte resolve a imagem de novo e
+conserta sozinha. Ler o fim aprova o defeito — o fundo volta, depois de uma
+estrofe inteira no preto. E o cenário dela é **rearmado à mão**, porque com o
+defeito de volta a metade anterior deixa a imagem fora do ar e um `load` a partir
+dali passa pelo caminho são.
+
+### 2. A coluna da tela cheia nasce acesa, e o toque é um interruptor
+
+*"Quando se chega no preview em tela cheia, eu preciso ver os botões, e depois
+eles desaparecem. Atualmente eles vêm apagados e não dizem que existem. E o toque
+para vê-los deve ser o mesmo toque em qualquer lugar que faz eles desaparecerem
+quando visíveis."*
+
+Nascer apagada devolvia o problema que a coluna veio resolver — uma superfície
+que não se anuncia — com um passo a mais: a única descoberta possível era tocar
+no escuro. E o toque só ACENDIA: quem quisesse a tela limpa antes dos 4 s não
+tinha o que tocar, e tocar de novo só reiniciava a contagem.
+
+**O que sustenta o interruptor é a regra que já existia:** o toque que acende não
+é o que aciona. Apagada, a coluna é `pointer-events: none`; acesa, um toque num
+BOTÃO chega ao botão e esse `pointerdown` precisa RENOVAR — senão comandar a
+projeção fecharia a coluna a cada comando, e passar três estrofes exigiria um
+toque de reabertura entre cada duas. Só o toque FORA dela esconde, e o vão entre
+os botões conta como DENTRO.
+
+**O oráculo espera pelo EVENTO, nunca por `document.fullscreenElement`.** MEDIDO:
+o Chromium publica a propriedade ANTES de despachar `fullscreenchange`, e a
+enquete do Playwright cai no vão — ele lia a coluna apagada e reprovava um app
+que estava certo. Esperar pelo `.visivel` seria a outra ponta do erro, uma
+tautologia.
+
+### 3. As Ferramentas viraram uma folha do Cronograma
+
+*"Deixe na barra de abas apenas o cronograma, a bíblia e a busca na biblioteca. E
+coloque o acesso às ferramentas dentro do cronograma, à direita do botão de
+importação. A partir de agora as ferramentas são uma extensão do cronograma. Pode
+fazer a tela delas deslizando de baixo para cima dentro do cronograma (não na
+tela toda)."*
+
+**A mudança é de PARENTESCO, não de navegação.** Toda ferramenta dali produz uma
+CENA que entra no roteiro: a mensagem vira cue, o cronômetro e o sorteio são
+projetados no meio da ordem do culto. Ser uma extensão do Cronograma é o que essa
+relação já era — a aba a escondia atrás de um passo lateral, e ainda cobrava uma
+quarta célula de uma faixa feita de LUGARES (ninguém "está nas Ferramentas", e
+ninguém volta para elas).
+
+- **`#toolsSheet` é filha de `.list-body`**, um contêiner novo que envolve
+  `#library` e `#listFoot`. É ele que define o que a folha NÃO cobre: o cabeçalho
+  e a caixa de controles inteira ficam à vista e ALCANÇÁVEIS. Ancorada no
+  `<main>` ela levaria o cabeçalho; ancorada no `<body>`, os controles — e quem
+  projeta um cronômetro precisa do transporte e da preview na frente enquanto o
+  acerta. É o "não na tela toda" do pedido, e é a asserção que carrega o oráculo:
+  uma folha de corpo inteiro continua funcionando e continua bonita.
+- **`activeTab` continua `'imports'`** com a folha aberta, e isso é o recurso:
+  o rodapé do Cronograma (onde mora a porta dela) continua desenhado, o carrossel
+  continua sabendo para onde ir e o voltar continua tendo para onde voltar. **O
+  valor `'mic'` de `activeTab` deixou de existir** — ele só existia porque as
+  ferramentas ocupavam a lista.
+- **Ela não é `.popup-backdrop`** e fica fora da tabela `POPUPS`: aquilo é uma
+  camada sobre a tela toda, com fundo escurecido. O ✕ e o degrau do voltar estão
+  escritos à mão.
+- **Trocar de aba a fecha**, e é `fecharFerramentas` que desliga o microfone e os
+  laços dos painéis — as mesmas guardas que moravam no `switchTab` quando sair
+  dali era trocar de aba.
+- **A porta é só ícone.** "Importar arquivos" fica com o rótulo e com a linha:
+  dois nomes lado a lado numa faixa de celular empurram o primeiro para
+  reticências justamente na tela mais estreita.
+
+Os nomes internos ficaram (`renderDiversos`, `miscTool`, `.misc-*`) — renomeá-los
+não muda um pixel, a mesma regra do `'simple'` do Modo Fácil. **Nada no CSS da
+faixa supunha quatro alvos:** a largura é `flex: 1` e o vazado é MEDIDO, porque
+uma fração fixa "quebraria calada no dia em que alguém acrescentasse ou
+escondesse um alvo" — e este é o dia.
+
+### 4 e 5. Duas palavras e um canto
+
+- **"Transmitir para navegador" → "Conectar um computador".** O rótulo já nomeava
+  o destino em vez do meio (v5.198); agora nomeia o APARELHO em vez do programa,
+  e faz PAR com o "Conectar uma TV" logo acima — as duas linhas passam a
+  responder a mesma pergunta na mesma forma, e a diferença entre elas fica sendo
+  só o aparelho. O oráculo guarda a PROPRIEDADE (a chamada diz para onde isto
+  vai), não a palavra.
+- **O selo de camadas desceu do topo para a base** da preview. Em qualquer das
+  três posições que já ocupou a regra é a mesma: ele não faz coluna com ninguém.
+
+### O que NÃO entrou, e por quê
+
+*"Mídias baixadas sendo executadas estão sendo pausadas quando minimizo o
+aplicativo."*
+
+Essa família já foi atacada QUATRO vezes — `onWindowVisibilityChanged` (v1.26),
+`onVisibilityChanged` (v1.27), o `onStop` da `Presentation` que derrubava o
+WebView (v1.28) e o `keepPlaying()` do `onStop` da Activity. Com as quatro de pé,
+o telão não deveria pausar, e é por isso que o relato **não pode ser respondido
+com um quinto remendo no mesmo lugar**: as três cenas possíveis (o telão, a
+preview sem TV, as telas da rede) pedem correções opostas — e uma delas, a
+preview, não tem o que corrigir, tem o que dizer.
+
+O que decide já está no aparelho: o diário do telão carrega `oculto` em cada
+linha e nomeia a pausa por causa. Virou o **achado 3** de
+`docs/ACHADOS-EM-ABERTO.md`, com o pedido de Registro que fecha a pergunta em um
+passo. *Cada uma das quatro correções acima foi barata porque foi feita contra
+uma medição.*
 
 ---
 

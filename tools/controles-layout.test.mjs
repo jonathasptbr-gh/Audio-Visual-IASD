@@ -310,14 +310,89 @@ try {
   checar(espalho.vao > (espalho.alturaPv - 3 * 34) / 2 - 4,
     'os três estão ESPALHADOS pela altura, não agrupados num bloco', espalho);
 
-  // ── 3. O SELO DE CAMADAS, no TOPO AO CENTRO ─────────────────────────────
+  // ── 3-A. A COLUNA DA TELA CHEIA: NASCE ACESA, E O TOQUE É INTERRUPTOR ───
+  //
+  // Sem TV a preview em tela cheia É a projeção, então tudo o que se pinta aqui
+  // a congregação vê — e foi por isso que a coluna nasceu apagada. O preço era
+  // o problema que ela veio resolver: uma superfície que não se anuncia. Quem
+  // não soubesse que basta tocar ficava com uma projeção sem saída à vista.
+  //
+  // AS DUAS METADES FALHAM CALADAS, e de jeitos opostos:
+  //  - nascer apagada não é erro nenhum na tela — é a ausência de um quadro;
+  //  - e o interruptor pode "funcionar" pela metade: se o toque num BOTÃO
+  //    também apagasse, cada comando fecharia a coluna, e a sequência normal do
+  //    culto (passar três estrofes) exigiria um toque de reabertura entre cada
+  //    dois. Por isso a asserção do meio é a que mais importa aqui.
+  //
+  // A tela cheia é REAL (`requestFullscreen` a partir de um clique de verdade),
+  // e não uma classe simulada: quem revela a coluna é `.preview:fullscreen`, um
+  // seletor que só existe quando o navegador de fato entrou.
+  //
+  // E O QUE SE ESPERA É O EVENTO, nunca `document.fullscreenElement`: MEDIDO, o
+  // Chromium publica a propriedade ANTES de despachar `fullscreenchange`, e a
+  // enquete do Playwright cai no vão — o oráculo lia a coluna apagada e
+  // reprovava um app que estava certo. Esperar pelo `.visivel` seria a outra
+  // ponta do erro: uma tautologia, esperar exatamente o que se vai afirmar.
+  const fsVis = () => pg.evaluate(() => {
+    const el = document.getElementById('pvFsCtl');
+    const cs = getComputedStyle(el);
+    return {
+      montada: cs.display !== 'none',
+      acesa: el.classList.contains('visivel'),
+      naTelaCheia: !!document.fullscreenElement,
+      qual: document.fullscreenElement && document.fullscreenElement.id,
+      eventos: window.__fsEventos || 0,
+    };
+  });
+  await pg.evaluate(() => {
+    window.__fsEventos = 0;
+    document.addEventListener('fullscreenchange', () => { window.__fsEventos++; });
+  });
+  const esperarEvento = (n) => pg.waitForFunction(
+    (alvo) => window.__fsEventos >= alvo, n, { timeout: 10000 },
+  ).catch(() => {});
+
+  await pg.click('#pvFullBtn');
+  await esperarEvento(1);
+  const fs1 = await fsVis();
+  checar(fs1.naTelaCheia && fs1.montada && fs1.acesa,
+    'entrar na tela cheia ACENDE a coluna — ela se anuncia em vez de esperar um toque no escuro', fs1);
+
+  // Um toque NUM BOTÃO comanda e RENOVA; jamais apaga.
+  await pg.click('#fsPlay');
+  const fs2 = await fsVis();
+  checar(fs2.acesa,
+    'tocar num BOTÃO da coluna não a apaga — senão cada comando cobraria um toque de reabertura', fs2);
+
+  // Um toque FORA dela apaga. O alvo é a própria projeção, longe da coluna
+  // (ela mora encostada na direita).
+  const cxPreview = await pg.evaluate(() => {
+    const r = document.querySelector('.preview').getBoundingClientRect();
+    return { x: Math.round(r.left + r.width * 0.2), y: Math.round(r.top + r.height / 2) };
+  });
+  await pg.mouse.click(cxPreview.x, cxPreview.y);
+  const fs3 = await fsVis();
+  checar(!fs3.acesa, 'um toque FORA da coluna a apaga — o mesmo gesto nos dois sentidos', fs3);
+
+  // E o mesmo toque, no mesmo lugar, a traz de volta.
+  await pg.mouse.click(cxPreview.x, cxPreview.y);
+  const fs4 = await fsVis();
+  checar(fs4.acesa, 'e o MESMO toque, no mesmo lugar, a traz de volta', fs4);
+
+  await pg.evaluate(() => document.exitFullscreen && document.exitFullscreen());
+  await esperarEvento(2);
+  const fs5 = await fsVis();
+  checar(!fs5.acesa,
+    'sair apaga: reentrar tem de começar do estado limpo, sem o relógio de outra sessão', fs5);
+
+  // ── 3. O SELO DE CAMADAS, na BASE AO CENTRO (v1.3.10) ───────────────────
   const selo = await pg.evaluate(() => {
     document.getElementById('pvCamadaBtn').hidden = false;   // ele só aparece com duas camadas no ar
     const pv = document.querySelector('.preview').getBoundingClientRect();
     const r = document.getElementById('pvCamadaBtn').getBoundingClientRect();
     return {
       desvio: Math.abs((r.left + r.width / 2) - (pv.left + pv.width / 2)),
-      noAlto: r.top - pv.top,
+      naBase: pv.bottom - r.bottom,
       alturaPv: pv.height,
       colideComOperacao: (() => {
         const c = document.querySelector('.pv-fabs--esq').getBoundingClientRect();
@@ -326,7 +401,7 @@ try {
     };
   });
   checar(selo.desvio < 2, 'o selo de camadas está CENTRADO na horizontal', selo);
-  checar(selo.noAlto < selo.alturaPv * 0.25, 'e no ALTO da preview', selo);
+  checar(selo.naBase < selo.alturaPv * 0.25, 'e na BASE da preview', selo);
   checar(selo.colideComOperacao === false,
     'e ele não encosta na coluna de operação — é por não fazer coluna com ninguém que ele continua se lendo como estado, e não como controle', selo);
 
@@ -558,7 +633,7 @@ try {
     const r = {
       mudouDeCasa: document.querySelector('.preview').closest('.simple-stage') !== null,
       operacao: vis('.pv-fabs--esq'),
-      selo: vis('.pv-fabs--topo'),
+      selo: vis('.pv-fabs--base'),
       teclaPropria: vis('#simpleMute'),
     };
     setAppMode('full');
