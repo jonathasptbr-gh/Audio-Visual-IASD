@@ -1,5 +1,11 @@
 [
   {
+    "versao": "1.3.11",
+    "itens": [
+      "Conserto do lote anterior: ao deslizar entre o Cronograma e a Bíblia, a tela que saía passava por cima do nome da tela e da engrenagem, no alto. Durava um quinto de segundo e não dava erro nenhum — apareceu ao conferir o que a folha de Ferramentas tinha mudado por baixo."
+    ]
+  },
+  {
     "versao": "1.3.10",
     "itens": [
       "O FUNDO DA LETRA parou de sumir. Trocar de música (ou passar slide logo depois de carregar uma) apagava a imagem de fundo da estrofe na preview, e ela só voltava reiniciando a música ou desligando e religando as imagens em Configurações. Era a preview desmontando o fundo antigo depois de a letra nova já ter entrado — o telão já tinha essa proteção, a preview não tinha.",

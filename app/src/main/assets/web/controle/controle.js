@@ -232,6 +232,10 @@ const libraryEl = document.getElementById('library');
 // (ver `renderListFoot` e `hostSelbar`) — nunca os dois ao mesmo tempo.
 const listFootEl = document.getElementById('listFoot');
 // A FOLHA DE FERRAMENTAS (v1.3.10) — ver `abrirFerramentas`.
+// O CORPO DA LISTA (v1.3.10): `#library` + `#listFoot` + a folha. Ele é o
+// offsetParent do fantasma da troca de aba E da folha de Ferramentas — as duas
+// coisas medidas em coordenadas DELE, e não do `<main>`.
+const listBodyEl = document.querySelector('.list-body');
 const toolsSheetEl = document.getElementById('toolsSheet');
 const toolsBodyEl = document.getElementById('toolsBody');
 const toolsCloseEl = document.getElementById('toolsClose');
@@ -248,7 +252,7 @@ const appVersionEl = document.getElementById('appVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.3.10';
+const WEB_VERSION = '1.3.11';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -21830,7 +21834,15 @@ function makeTabGhost() {
   // que importa arquivos deixaria de acontecer sem erro nenhum no console.
   if (fileEl.parentElement && fileEl.parentElement.closest('#library')) mainEl.appendChild(fileEl);
   while (libraryEl.firstChild) g.appendChild(libraryEl.firstChild);
-  mainEl.appendChild(g);
+  // NO `.list-body`, e não no `<main>` (v1.3.10). As medidas acima são
+  // `offsetTop`/`offsetLeft`, isto é, coordenadas do OFFSETPARENT da lista — e
+  // desde que o `.list-body` nasceu (posicionado, para a folha de Ferramentas
+  // ancorar nele) esse pai é ele, não o `<main>`. Pendurar o fantasma no
+  // `<main>` com as coordenadas do filho o subia a altura inteira do cabeçalho:
+  // o deslize passaria por cima do nome da tela e da engrenagem, por 220 ms, sem
+  // erro em lugar nenhum. Quem RECORTA continua sendo o `overflow: hidden` do
+  // `<main>`, que é ancestral dos dois.
+  listBodyEl.appendChild(g);
   g.scrollTop = topo;   // o fantasma tem de começar onde o olho estava
   tabGhost = g;
   return g;

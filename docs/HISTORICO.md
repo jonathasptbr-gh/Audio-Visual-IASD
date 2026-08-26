@@ -24,6 +24,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
+- **v1.3.11** — O FANTASMA DA TROCA DE ABA PASSAVA POR CIMA DO CABEÇALHO. Conserto da v1.3.10, achado relendo o próprio diff: o `.list-body` que nasceu para a folha de Ferramentas ancorar é POSICIONADO, e com isso virou o offsetParent da `#library` — mas o fantasma do carrossel continuava sendo pendurado no `<main>` com as coordenadas do FILHO (`offsetTop`/`offsetLeft`), o que o subia a altura inteira do cabeçalho. Por 220 ms a tela que sai passava sobre o nome da tela e a engrenagem, sem erro em lugar nenhum e sem oráculo que olhasse — é o tipo de coisa que só aparece perguntando *o que este diff mudou por baixo do que ele não tocou?*. Quem RECORTA continua sendo o `overflow: hidden` do `<main>`, ancestral dos dois. Asserção nova no `ferramentas-folha.test.mjs`, medindo o transiente no instante em que ele nasce (`switchTab` monta o fantasma de forma síncrona, antes do `await load()`); provada por reversão. OTA PURO.
 - **v1.3.10** — SEIS PEDIDOS DO OPERADOR, E UM DELES ERA UM DEFEITO DE VERDADE. (1) **O FUNDO DA LETRA sumia** ao trocar de música ou passar slide logo depois de carregar uma, e só voltava reiniciando a música ou religando as imagens em Configurações. A `<img>` de fundo é FILHA da camada da letra, então o desmonte dela é ADIADO; quando a letra volta antes do prazo — que é o que TODO `load` de música faz — alguém precisa CANCELAR o desmonte, e a guarda de sequência não cancela: ela não anda quando a estrofe que volta usa a MESMA imagem, o caso normal (o fallback grudento do sync dá uma imagem por hino, e hinos do mesmo hinário compartilham a arte do álbum). **O telão tinha as três proteções desde que o defeito foi visto lá; a preview não tinha — e a documentação já as descrevia como se fossem de ambos.** É a armadilha do `__tela` no `display-ready`: ler cada lado isolado aprova os dois. Sem TV a preview É a projeção. (2) A COLUNA DA TELA CHEIA nasce ACESA e o toque virou INTERRUPTOR — ela vinha apagada e não dizia que existia, que é o problema dos gestos invisíveis com um passo a mais; e o gesto existia num sentido só. Tocar num BOTÃO continua RENOVANDO, senão comandar a projeção fecharia a coluna a cada comando. (3) AS FERRAMENTAS saíram da faixa de abas e viraram uma FOLHA do Cronograma, aberta pelo botão à direita de "Importar arquivos" — e a mudança é de PARENTESCO, não de navegação: tudo que elas produzem é CENA que entra no roteiro. Ela sobe DENTRO da lista, deixando o cabeçalho e a caixa de controles à vista, e `activeTab` continua `'imports'`. O valor `'mic'` de `activeTab` deixou de existir. (4) A faixa ficou com Cronograma, Bíblia e a busca. (5) "Transmitir para navegador" virou **"Conectar um computador"**, fazendo par com "Conectar uma TV". (6) O selo de camadas desceu do topo para a base da preview. **O sétimo relato — mídia baixada pausando ao minimizar — não entrou:** aquela família já foi atacada quatro vezes e as três cenas possíveis (telão · preview · telas da rede) pedem correções opostas; virou o achado 3 de `ACHADOS-EM-ABERTO.md`, com o pedido de Registro que fecha em um passo. Dois oráculos novos, provados por reversão em oito frentes. OTA PURO.
 - **v1.3.9** — O FADER VOLTOU; O BOTÃO QUE O ABRIA É QUE TINHA DE SAIR. A v1.3.8 leu o pedido largo demais e removeu o sistema de volume inteiro; o operador corrigiu: *"eu não queria que removesse o sistema de slide de volume interno do nosso app, pois ele é o que impede alguns controles de volume de aparecer no display"*. **A RAZÃO É A PROJEÇÃO**, e ela não estava escrita em lugar nenhum: o app CONSOME a tecla de volume, e quem não consome deixa o Android desenhar o painel dele — que, com espelhamento ativo, aparece SOBRE o que a congregação está vendo. O fader do celular é o que o substitui. Voltaram `.fader*`, `#volSlider`, `#volValue`, `syncFader`, `peekVolume`, `captureVolumeKeys(true)` e o `__avVolumeKey` que mexe no ganho; ficam fora `#volToggle`/`#volClose` (o botão de tela, que é o que o operador dispensou) e, com eles, `cancelVolPeek`/`bumpVolPeek` — a máquina do caso "aberto na mão", que deixou de existir. **A TECLA é a única porta e o relógio dela a única saída** (2,8 s). O fader é agora item da grade do deck, na MESMA célula do botão de passar slide, e a regra que escondia o de VOLTAR junto NÃO voltou — era esse sumiço o outro relato. Mais dois ajustes pedidos: o histórico veste a mesma caixa dos vizinhos (`.t-btn`; um chapado sozinho numa fileira de seis com fundo lê como um que ficou de fora), e a linha de baixo foi reordenada para repetir → playlist → anterior → play → parar → próximo → histórico. Provado por reversão em quatro frentes. OTA PURO.
 - **v1.3.8** — O AJUSTE MANUAL DE VOLUME SAIU, E COM ELE O SUBGRID DO MIXER. Pedido do operador: *"não teremos mais esse sistema manual de ajuste de volume. o volume é ajustado pelos botões físicos do smartphone"*, mais o relato de que o botão de VOLTAR slide sumia quando o fader aparecia. (1) O fader saiu inteiro — `#volToggle`, `#volClose`, `#volSlider`, `#volValue`, `syncFader`, `openVolume`/`closeVolume`/`peekVolume`, o degrau 4 do botão voltar, e a regra `.deck.vol-open .slide-side` que escondia o gêmeo do par: era ESSA o sumiço relatado, e a resposta não foi ajustar a regra, foi tirar a causa. (2) AS TECLAS FÍSICAS VOLTARAM A SER DO SISTEMA (`captureVolumeKeys(false)`): a interceptação existia porque, com espelhamento ativo, o Android roteia essas teclas para a TV e o FADER do app não saía do lugar — sem fader não há o que mover, e interceptar para mexer num número que a tela não mostra é a PIOR das duas opções, porque quem intercepta também apaga a UI de volume do próprio Android. `__avVolumeKey` fica como rede de segurança, devolvendo o passo ao sistema. (3) O GANHO DO APP CONTINUA e não é redundante: ele viaja no comando `volume` e chega às TELAS DA REDE, que são outros aparelhos — o volume de mídia do celular não as alcança. Quem o move são as teclas +/− do Modo Fácil. (4) Sem o fader não há o que atravessar duas linhas, então o `#mixer` INTEIRO saiu: o `subgrid`, as três fatias, o `.mixer-stack` absoluto (que existia só para um item no fluxo não deformar as faixas do pai) e o token `--fader-cap`. Sobraram dois botões soltos, itens diretos da grade. (5) O HISTÓRICO desceu para a sétima célula da linha de baixo, a que era do volume — e era ele, na fatia de cima, que impedia a barra de progresso de usar a largura inteira. (6) A BARRA DE PROGRESSO passou a seguir a grade do deck: `.nowplaying` atravessa as três colunas e `.np-seek` é uma grade com as MESMAS colunas, então o tempo decorrido cai sobre o botão de voltar slide, a barra sobre a preview, o tempo total sobre o de passar — e o título voltou a ser centrado na largura inteira. Medido em quatro larguras × duas proporções: todos os alinhamentos em 0,00. Oráculo estendido, provado por reversão em quatro frentes. OTA PURO.
@@ -265,6 +266,36 @@ na nota que a revoga, não apagada da que a criou.
 - **v5.154** — é METADE OTA e METADE APK, e a divisão importa para quem for testar em aparelho.
 - **v5.155** — é OTA PURO
 - **v5.156** — é METADE OTA e METADE APK, de novo.
+
+---
+
+## v1.3.11 — o fantasma da troca de aba passava por cima do cabeçalho
+
+Conserto da v1.3.10, achado relendo o próprio diff — nenhum oráculo o pegou e
+nenhum relato existia, porque ele dura 220 ms e não escreve nada no console.
+
+`.list-body` nasceu na v1.3.10 para a folha de Ferramentas ter onde ancorar, e
+para isso ele é `position: relative`. Isso o tornou o **offsetParent** da
+`#library` — e o fantasma do carrossel (`makeTabGhost`) se posiciona por
+`offsetTop`/`offsetLeft`, isto é, em coordenadas desse pai, enquanto continuava
+sendo pendurado no `<main>`. Resultado: o retângulo subia a altura inteira do
+cabeçalho e a tela que sai passava sobre o nome da tela e a engrenagem.
+
+A correção é uma linha (`listBodyEl.appendChild(g)`), e o que ela devolve é a
+coerência entre onde se MEDE e onde se PENDURA. Quem RECORTA continua sendo o
+`overflow: hidden` do `<main>`, que é ancestral dos dois — a defesa que impede
+as duas telas de aparecerem fora da área da lista não muda de dono.
+
+**A lição é de método, e é a que este lote paga:** um contêiner novo no meio de
+uma árvore muda o offsetParent de tudo que estava abaixo dele, e todo cálculo em
+`offsetTop`/`offsetLeft` daquele ramo passa a falar de outra origem — em
+silêncio. A pergunta que achou isto não foi "o que eu mudei?", foi **"o que este
+diff mudou por baixo do que ele não tocou?"**.
+
+A asserção nova mede o transiente no instante em que ele nasce: `switchTab` monta
+o fantasma de forma SÍNCRONA, antes do `await load()`, então basta chamá-lo sem
+aguardar e ler a caixa. Provada por reversão (sem o conserto: topo em 0, com o
+cabeçalho terminando em 44).
 
 ---
 

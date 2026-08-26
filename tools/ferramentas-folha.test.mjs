@@ -176,8 +176,34 @@ try {
   checar(trocou.corpoVazio,
     'e o corpo dela é esvaziado, para os laços dos painéis não sobrarem', trocou);
 
+  // ── 5-A. O FANTASMA DA TROCA DE ABA CONTINUA SOBRE A LISTA ──────────────
+  //
+  // `.list-body` nasceu POSICIONADO (para a folha ancorar nele), e com isso ele
+  // virou o offsetParent da `#library`. O fantasma do carrossel se posiciona por
+  // `offsetTop`/`offsetLeft` — coordenadas desse pai —, então pendurá-lo no
+  // `<main>`, como antes, o sobe a altura inteira do cabeçalho: o deslize passa
+  // por cima do nome da tela e da engrenagem, por 220 ms, sem erro nenhum.
+  //
+  // É um transiente de um quinto de segundo, e por isso ele é medido no
+  // instante em que nasce: `switchTab` monta o fantasma de forma SÍNCRONA,
+  // antes do `await load()`.
+  const fantasma = await pg.evaluate(() => {
+    switchTab('imports');                       // de propósito NÃO aguardado
+    const g = document.querySelector('.lib-ghost');
+    if (!g) return { erro: 'nenhum fantasma foi criado' };
+    const r = g.getBoundingClientRect();
+    const cab = document.querySelector('.list-header').getBoundingClientRect();
+    return { invadeCabecalho: r.top < cab.bottom - 1, topo: Math.round(r.top), cab: Math.round(cab.bottom) };
+  });
+  checar(fantasma.erro === undefined && fantasma.invadeCabecalho === false,
+    'o fantasma do carrossel fica sobre a LISTA, não sobre o cabeçalho', fantasma);
+  await pg.waitForTimeout(400);
+
   // ── 6. A PORTA NÃO EXISTE FORA DO CRONOGRAMA ────────────────────────────
-  const foraDoCrono = await pg.evaluate(() => !document.getElementById('toolsBtn'));
+  const foraDoCrono = await pg.evaluate(async () => {
+    await switchTab('bible');
+    return !document.getElementById('toolsBtn');
+  });
   checar(foraDoCrono,
     'e a porta some junto: ela é o rodapé do Cronograma, não um controle global');
 
