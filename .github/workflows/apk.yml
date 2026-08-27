@@ -722,6 +722,21 @@ jobs:
           # coletar passaria nas duas primeiras.
           rodar tools/excluir-em-cena.test.mjs
 
+          # A RESTAURAÇÃO DA LETRA ADIADA POR UM LOAD EM VOO — os DOIS lados, e
+          # são dois arquivos porque *ler cada lado isolado aprova os dois* (a
+          # armadilha que o `fundo-da-letra` já pagou). `restoreSceneAfterText` /
+          # `restorePvSceneAfterText` leem `getCurrent()`, e o `current` só troca
+          # depois do fade (os 600 ms de toda troca de cena) e do `getMedia`: um
+          # `text-hide` nessa janela remonta a letra do hino ANTERIOR sobre a
+          # música nova, e PARA SEMPRE — nada reavalia depois, as estrofes
+          # erradas passam a rolar pelo relógio da música certa. Cada um mede
+          # TRÊS cenas: o defeito, a restauração que continua IMEDIATA sem load
+          # em voo, e a saída de cena CANCELANDO o adiamento — esta última é a
+          # regressão que o adiamento introduz, e ela não tem sintoma nenhum (a
+          # cortina cobre): some da tela, fica no estado.
+          rodar tools/restaurar-letra-adiada.test.mjs
+          rodar tools/restaurar-letra-adiada-preview.test.mjs
+
           # O PLACAR VAI PARA O RESUMO DO RUN, não só para o log — a queixa que
           # originou este lote foi precisamente que o desfecho só existia lá
           # dentro. `rodados` é CONTADO, nunca digitado: um número fixo aqui

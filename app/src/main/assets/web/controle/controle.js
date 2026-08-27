@@ -779,6 +779,21 @@ let lyricSession = null;  // { title, stanzas: [string], idx, projecting } | nul
 // cena quando o download terminasse, por cima do que estivesse no ar. Mesmo
 // papel do `bibleLoadSeq` e do `loadSeq` do stage.
 let lyricLoadSeq = 0;
+// Senha de QUALQUER projeção nova: sobe em `send` (mídia e cena de roteiro) e em
+// `soUmProvedorDeTexto` (todo provedor da Camada de Texto — mensagem,
+// cronômetro, sorteio, imagem, letra avulsa). Quem a consulta é
+// `projetarVersiculoRef`, o único caminho que monta a sessão da Bíblia DO ZERO
+// e pode esperar a REDE no meio (`fetchBibleChapterCached` → `Bible.fetchChapter`,
+// no Wi-Fi da igreja). Sem ela o capítulo que chega tarde projeta o versículo
+// por cima do que o operador escolheu enquanto esperava, e o
+// `soUmProvedorDeTexto('bible')` de `projectBibleVerse` ainda destrói a sessão
+// do provedor novo (o operador perde ⏮/⏭ e a saída daquela cena). Nada aparece
+// na tela durante a espera — este caminho não abre `previewBusy` —, então a
+// única pista seria o versículo entrando sozinho.
+// Nem `bibleLoadSeq` nem `currentId` respondem por isto: o primeiro só sobe na
+// navegação da própria Bíblia, e projetar pela folha de Ferramentas não toca no
+// segundo.
+let projecaoSeq = 0;
 // id_bible_book real do livro no índice `idx` de Bible.BOOKS: usa o id da lista
 // online (mesma ordem canônica) quando baixada; senão cai no índice+1.
 function bibleBookId(idx) {
@@ -1906,7 +1921,7 @@ function aplicarNaPreview(obj, item) {
     // preview.handle() sempre roda primeiro: mantém preview.getCurrent()/
     // fallback de thumbnail em dia (stage.js já sabe lidar com kind=youtube,
     // só não toca o vídeo) — mesmo quando o player real assume por cima.
-    preview.handle(obj);
+    aoCarregarPv(preview.handle(obj));
     // Só mostra a letra do áudio se NÃO houver texto manual em cena (precedência).
     if (!keepText && item && item.kind === 'audio' && Array.isArray(item.lyrics) && item.lyrics.length) showPvLyrics(item);
     return;
@@ -1914,7 +1929,7 @@ function aplicarNaPreview(obj, item) {
   if (obj.type === 'clear') {
     hidePvLyrics(true);
     hidePvText(false); // a cena inteira está sendo encerrada; nada a restaurar
-    preview.handle(obj);
+    aoSairDeCenaPv(preview.handle(obj));
     return;
   }
   // PARAR SÓ A MÍDIA: a ilustração segue o telão camada por camada (v5.178). O
@@ -1923,7 +1938,7 @@ function aplicarNaPreview(obj, item) {
   // `pvTextActive`, que é o espelho local do `textActive` de lá.
   if (obj.type === 'media-clear') {
     hidePvLyrics(true);
-    preview.handle({ type: pvTextActive ? 'clear-media' : 'clear' });
+    aoSairDeCenaPv(preview.handle({ type: pvTextActive ? 'clear-media' : 'clear' }));
     return;
   }
   if (obj.type === 'lyricsbg') {
@@ -2220,6 +2235,47 @@ function applyPvLyricsBg() {
 // muda), como no Display. `mode`: 'verse' (sublinha = referência) | 'message'.
 let pvTextActive = false;
 
+// UM `load` EM VOO ADIA A RESTAURAÇÃO — a metade PREVIEW da regra que o
+// `display.js` aplica ao telão (`aoCarregar`/`aoSairDeCena`), e ler cada lado
+// isolado aprova os dois: é a armadilha que o `fundo-da-letra.test.mjs` já
+// pagou. `preview.handle({type:'load'})` só troca o `current` depois do fade de
+// saída (os ~600 ms de FADE.time, em TODA troca de cena) e do `getMedia`: dentro
+// dessa janela `preview.getCurrent()` ainda é a mídia ANTERIOR, e um `text-hide`
+// que chegue aí remonta a letra do hino VELHO sobre a música nova. E PARA
+// SEMPRE: quem montaria a letra da nova é o ramo `showPvLyrics(item)` do `load`,
+// que já passou, e nada reavalia depois — as estrofes erradas passam a rolar
+// pelo relógio da música certa. Sem TV a preview em tela cheia É a projeção.
+//
+// CONTADOR e não booleano (dois loads sobrepostos), com o decremento no `then`:
+// um load descartado pelo `loadSeq` do stage resolve do mesmo jeito.
+let pvCarregando = 0;
+let pvRestaurarAoAssentar = false;
+
+function aoCarregarPv(p) {
+  pvCarregando++;
+  Promise.resolve(p).catch(() => {}).then(() => {
+    if (--pvCarregando) return;
+    if (!pvRestaurarAoAssentar) return;
+    pvRestaurarAoAssentar = false;
+    // O cartão pode ter VOLTADO durante o load: aí quem manda é ele.
+    if (!pvTextActive) restorePvSceneAfterText();
+  });
+}
+
+// A CENA SAINDO CANCELA a restauração adiada — sem isto o adiamento INTRODUZ
+// uma regressão. `clearFaded` faz `++loadSeq` e o load em voo resolve na hora,
+// mas o `current` só vira null depois do fade: o callback acima dispararia com
+// o registro ANTIGO na mão e remontaria a letra sobre uma preview já esvaziada
+// (invisível — a cortina cobre —, mas o estado fica). Conferir
+// `preview.getCurrent()` lá NÃO serviria, pelo mesmo motivo.
+//
+// A promise passa INTACTA: o wrap existe pela forma — é por esta função que
+// toda saída de cena da preview passa, então um caminho novo nasce coberto.
+function aoSairDeCenaPv(p) {
+  pvRestaurarAoAssentar = false;
+  return p;
+}
+
 // `restore` = a cena anterior deve voltar (ver hideText no display.js: mesma
 // regra dos dois lados — 'text-hide' restaura; load visual/stop/clear não,
 // porque algo novo já vai assumir a cena).
@@ -2240,6 +2296,7 @@ function hidePvText(restore = true) {
 // no slide correspondente ao instante atual — por authoritativeTime(), que é
 // a posição do Display quando ele é a fonte de verdade.
 function restorePvSceneAfterText() {
+  if (pvCarregando) { pvRestaurarAoAssentar = true; return; } // ver `aoCarregarPv`
   const cur = preview.getCurrent();
   // NADA de fato em cena — nenhuma mídia carregada, ou a que havia já terminou
   // (só na playlist, ou tocada antes). O ponto de repouso é o WALLPAPER, não o
@@ -3712,6 +3769,16 @@ function hideBibleVerse() {
   renderControls();
   renderNowPlaying();
   renderSlideNav();
+  // A LINHA DA CENA SÓ SE REPINTA POR `marcarNoAr` — e nenhum dos irmãos acima
+  // toca em lista: `renderControls`/`renderNowPlaying`/`renderSlideNav` cuidam do
+  // transporte, `refreshDiversos` da folha de Ferramentas. Sem esta chamada o
+  // `<li>` do Cronograma fica com a classe `no-ar` e o selo "● No ar" sobre um
+  // telão em wallpaper, e NÃO se conserta sozinho: o outro caminho que chama
+  // `marcarNoAr` é o `display-status`, que o telão só emite com MÍDIA — e a
+  // cena de roteiro que mais usa estes `hide*` (cronômetro, sorteio) é
+  // justamente a que não tem mídia nenhuma por baixo. Todo `hide*` precisa
+  // dela; `hideImagemSobre` já a tinha.
+  marcarNoAr();
   bibleRenderReading();
 }
 
@@ -3898,6 +3965,18 @@ async function bibleStep(delta) {
 // trocar de versão / encerrar a leitura.
 let bibleAdjCache = {};
 let bibleAdjSeq = 0;
+// Capítulos vizinhos EM VOO, por chave. A dedupe é pela REQUISIÇÃO PENDENTE, e
+// não pelo cache já preenchido: `renderBibleReading` chama `ensureAdjLoaded` uma
+// vez por seção e, no ÚLTIMO versículo do capítulo, os deltas +1 e +2 cruzam
+// para o MESMO capítulo seguinte. As duas chamadas são SÍNCRONAS dentro do
+// mesmo render, então as duas passam pela guarda de cache antes de qualquer uma
+// preenchê-lo — saíam duas requisições idênticas e duas gravações do mesmo
+// `state`, a cada `bibleRenderReading()` (isto é, a cada passo de versículo).
+// De brinde, resolve o efeito colateral do `bibleAdjSeq`: com uma chamada só,
+// `seq === bibleAdjSeq` e o redesenho sempre acontece — antes, quem redesenhava
+// era a SEGUNDA, e uma falha dela deixava "…" na tela sobre um capítulo que a
+// primeira já tinha posto em cache.
+const bibleAdjEmVoo = new Map();
 
 // Info do versículo vizinho (delta = -1 anterior, +1 próximo). Dentro do
 // capítulo: o versículo direto. No limite: cruza pro capítulo/livro vizinho
@@ -3934,14 +4013,24 @@ async function ensureAdjLoaded(ref) {
   if (!s) return;
   const key = s.versionId + '_' + ref.bookIdx + '_' + ref.chapter;
   if (bibleAdjCache[key]) return;
+  if (bibleAdjEmVoo.has(key)) return bibleAdjEmVoo.get(key);
   const seq = ++bibleAdjSeq;
-  let verses;
-  try { verses = await fetchBibleChapterCached(s.versionId, ref.bookIdx, ref.chapter); }
-  catch (_) { return; }
-  bibleAdjCache[key] = verses;
-  if (seq === bibleAdjSeq && bibleSession && activeTab === 'bible' && bibleScreen === 'reading') {
-    bibleRenderReading();
-  }
+  const p = (async () => {
+    try {
+      bibleAdjCache[key] = await fetchBibleChapterCached(s.versionId, ref.bookIdx, ref.chapter);
+    } catch (_) {
+      return;
+    } finally {
+      // Depois da gravação no cache, nunca antes: solto cedo, um chamador do
+      // mesmo tick não veria nem o voo nem o cache e pediria de novo.
+      bibleAdjEmVoo.delete(key);
+    }
+    if (seq === bibleAdjSeq && bibleSession && activeTab === 'bible' && bibleScreen === 'reading') {
+      bibleRenderReading();
+    }
+  })();
+  bibleAdjEmVoo.set(key, p);
+  return p;
 }
 
 // Tela de LEITURA: seletor de versão + status offline no topo, versículo
@@ -4429,12 +4518,18 @@ async function projetarVersiculoRef(ref, cueId) {
   // hoje pode não ter este capítulo em cache, e a de então provavelmente tem.
   const versoes = [bibleVersionId, ref.versionId].filter((v, i, a) => v && a.indexOf(v) === i);
   if (!versoes.length) { falharNoItem(cueId, 'nenhuma versão da Bíblia baixada'); return; }
+  // A SENHA VEM ANTES DO `await` (ver `projecaoSeq`). O capítulo pode não estar
+  // em cache, e aí o laço abaixo vai à REDE: nesse tempo o operador — que não vê
+  // nada acontecendo — projeta outra coisa, e sem esta guarda o versículo entra
+  // no telão por cima dela quando o texto chegar.
+  const seq = ++projecaoSeq;
   let verses = null;
   let versao = versoes[0];
   for (const v of versoes) {
     try { verses = await fetchBibleChapterCached(v, ref.bookIdx, ref.chapter); versao = v; break; }
     catch (_) { /* tenta a próxima */ }
   }
+  if (seq !== projecaoSeq) return;   // o operador projetou outra coisa enquanto esperava
   if (!verses || !verses.length) { falharNoItem(cueId, 'capítulo não está no aparelho'); return; }
   const book = Bible.BOOKS[ref.bookIdx];
   if (!book) return;
@@ -4695,6 +4790,7 @@ function audioNoAr() {
  * esquecida. Aqui é um: quem entra diz QUEM É, e o resto sai.
  */
 function soUmProvedorDeTexto(quem) {
+  ++projecaoSeq;   // ver `projecaoSeq`: invalida um versículo de roteiro em voo
   // UM PROVEDOR DIFERENTE ASSUMINDO O CARTÃO TIRA A CENA DE ROTEIRO DO AR — e o
   // selo "● No ar" da linha do roteiro tem de sair junto. Sem esta linha o selo
   // ficava na linha ANTIGA e o toque seguinte lia `noArAgora = true`: o operador
@@ -4890,6 +4986,7 @@ function hideMessage() {
   renderControls();
   renderNowPlaying();
   renderSlideNav();
+  marcarNoAr();   // o selo "● No ar" da linha só sai por aqui — ver `hideBibleVerse`
   // Uma chamada só: a segunda (lapso — nenhum outro hide* do arquivo repete)
   // remontava a aba inteira, microfone incluído, duas vezes no mesmo pulso.
   refreshDiversos();
@@ -5334,6 +5431,7 @@ function hideChrono() {
   renderControls();
   renderNowPlaying();
   renderSlideNav();
+  marcarNoAr();   // o selo "● No ar" da linha só sai por aqui — ver `hideBibleVerse`
   refreshDiversos();
 }
 
@@ -5639,6 +5737,29 @@ function saveDrawPrefs() {
   });
 }
 
+// OS JÁ SORTEADOS QUE AINDA PERTENCEM À FAIXA.
+//
+// `draw.used` é o histórico da ferramenta e sobrevive à troca de min/max no
+// painel — só a troca número↔texto o zera. Contá-lo INTEIRO era dizer que uma
+// rifa nova de 1 a 10, rodada depois de outra de 91 a 100, já tinha saído toda:
+// `drawRemaining` devolvia 0, o chip anunciava "0 de 10 restantes" e o botão
+// Sortear nascia desabilitado, com o "Reiniciar" como única saída. É o mesmo
+// buraco que `projetarSorteioCue` já fecha no caminho do ROTEIRO (zerando
+// `draw.used`); aqui filtrar em vez de zerar preserva o histórico de quem só
+// ESTREITOU a faixa da mesma rifa.
+//
+// Só a FONTE do número está aqui; quem responde "acabou?" continua sendo o par
+// `drawRemaining`/`pickNumber`, e os dois têm de usar a mesma conta — divergir
+// daria um botão habilitado que sorteia `null`.
+function drawUsadosNaFaixa() {
+  const out = new Set();
+  for (const x of draw.used) {
+    const n = Number(x);
+    if (Number.isFinite(n) && n >= draw.min && n <= draw.max) out.add(n);
+  }
+  return out;
+}
+
 // Quantas opções ainda podem sair. Para número não materializa a faixa: um
 // "de 1 até 100000" viraria um array de 100 mil strings a cada render.
 function drawRemaining() {
@@ -5648,7 +5769,7 @@ function drawRemaining() {
     return draw.pool.filter((x) => !used.has(x)).length;
   }
   const span = Math.max(0, draw.max - draw.min + 1);
-  return draw.noRepeat ? Math.max(0, span - new Set(draw.used).size) : span;
+  return draw.noRepeat ? Math.max(0, span - drawUsadosNaFaixa().size) : span;
 }
 
 function pickText() {
@@ -5665,7 +5786,10 @@ function pickNumber() {
   const span = draw.max - draw.min + 1;
   if (span <= 0) return null;
   if (!draw.noRepeat) return draw.min + Math.floor(Math.random() * span);
-  const used = new Set(draw.used.map(Number));
+  // A MESMA conta do `drawRemaining`: um sorteado fora da faixa atual não pode
+  // esgotá-la. Contando `draw.used` inteiro, `used.size >= span` devolvia
+  // `null` para uma faixa em que nenhum número tinha saído.
+  const used = drawUsadosNaFaixa();
   if (used.size >= span) return null;
   for (let i = 0; i < 200; i++) {
     const n = draw.min + Math.floor(Math.random() * span);
@@ -5764,6 +5888,7 @@ function hideDraw() {
   renderControls();
   renderNowPlaying();
   renderSlideNav();
+  marcarNoAr();   // o selo "● No ar" da linha só sai por aqui — ver `hideBibleVerse`
   refreshDiversos();
 }
 
@@ -8424,8 +8549,25 @@ function interacaoAbertaNoAcervo() {
   // `.acoes-abertas` é a MESMA armadilha na outra lista deste host: a seção de
   // Favoritos da Biblioteca é montada aqui dentro, e o `⋮` de uma linha dela
   // morre no mesmo `innerHTML = ''`.
+  //
+  // `.lib-item.expanded` é a TERCEIRA marca de abertura deste host, e ela não é
+  // opcional: desde a v5.290 a linha de um favorito e a de um arquivo de pasta
+  // do aparelho são montadas por `linhaDeItem`, cuja gaveta se marca assim — e
+  // as três classes acima não a alcançam. Sem ela, abrir a gaveta de um
+  // favorito enquanto um álbum baixa (ou uma pasta sincroniza, que chama
+  // `statusPasta` uma vez POR ARQUIVO) a perdia em até 400 ms, com os destinos
+  // marcados junto. Marca de abertura nova entra AQUI: este seletor é a única
+  // definição de "há interação aberta neste host".
+  //
+  // O `:not(.folder-opfs)` é o contrário de um esquecimento. A PASTA aberta é
+  // estado que o redesenho PRESERVA de propósito (`pastaAberta` a reabre em
+  // `renderFolderList`), e ela fica aberta o tempo todo — contá-la faria a
+  // espera se rearmar para sempre e o progresso do download nunca chegar à
+  // tela. O que precisa de proteção é a gaveta de dentro dela, que é
+  // `.lib-item.expanded` sem `.folder-opfs`.
   return !!hymnResultsEl.querySelector(
-    '.hymn-result.expanded, .hymn-result.abrindo, .acoes-abertas',
+    '.hymn-result.expanded, .hymn-result.abrindo, .acoes-abertas,'
+    + ' .lib-item.expanded:not(.folder-opfs)',
   );
 }
 function refreshCollectionsIfVisible() {
@@ -8854,7 +8996,6 @@ function linhaDeItem(item, opts) {
   // Sem lista não há faixa: `null` faz o confirmar ocupar a linha sozinho, que é
   // o desenho de sempre (a pasta do aparelho não tem o que oferecer aqui).
   const aoLado = () => (acoes.childElementCount ? acoes : null);
-  let gavetaMontada = false;
 
   function abrir() {
     // A gaveta que se fecha aqui pode estar PERGUNTANDO (v5.301) — e um "sim"
@@ -8866,15 +9007,29 @@ function linhaDeItem(item, opts) {
         if (el !== li) el.classList.remove('expanded');
       });
     }
-    if (!gavetaMontada) { gavetaMontada = true; renderItemMenu(item, opcoes, cfg.destinos, aoLado); }
-    // REABRIR REAPONTA O GLOBAL (v5.302). A folha é montada uma vez só, então sem
-    // esta linha `songMenuFor` continuaria descrevendo a ÚLTIMA gaveta montada, e
-    // a invariante que todo leitor assume — *"ele descreve a gaveta ABERTA"* —
-    // seria falsa em silêncio. (O irmão do confirmar já não depende dela: ele vai
-    // por argumento, ver `destConfirmRow`. Isto fecha o resto.) Sem `destLimpar()`:
-    // as marcas desta linha são dela, e zerá-las ao reabrir apagaria a escolha que
-    // o operador acabou de fazer.
-    else songMenuFor = { item, alvo: opcoes, aoLado };
+    // ===== REABRIR REMONTA A GAVETA =====
+    //
+    // A folha inteira vive em globais de MÓDULO — `songMenuFor`, `destExecutor`,
+    // `destRemontar` e o Set `destMarcados` —, e há no máximo uma gaveta aberta
+    // por vez. Abrir a linha B reescreve os QUATRO. A v5.302 reapontava só o
+    // `songMenuFor` ao reabrir a linha A já montada, e os outros três seguiam
+    // sendo os de B: o DOM de A na tela, "Confirmar" na linha de A, e o
+    // `destExecutor` de B executando. Como "Tocar agora" nasce marcado
+    // (`destPadraoTocar`), bastava abrir A, espiar B e voltar a A — o item B ia
+    // ao Cronograma e ao TELÃO. Remontar repõe os quatro de uma vez.
+    //
+    // E é isto que torna verdadeira a regra escrita no `destMarcados`: *"o
+    // conjunto é da FOLHA ABERTA, não do item: ele nasce vazio a cada abertura"*.
+    // As marcas nunca foram por linha — o `destLimpar()` de `renderItemMenu` já
+    // as zerava ao abrir a vizinha; o que faltava era o DESENHO de A concordar
+    // com isso em vez de exibir caixas marcadas que não existiam mais.
+    //
+    // Remontar é seguro porque a faixa de ações é o MESMO nó a cada montagem (o
+    // `aoLado` devolve `acoes`): o `alvo.innerHTML = ''` de `renderItemMenu` não
+    // a alcança, e o `appendChild` apenas a MOVE de volta — ouvintes e uma
+    // confirmação de exclusão aberta sobrevivem. A montagem continua vindo ANTES
+    // do `expandAccordion`, que mede a altura do que vai ficar em cena.
+    renderItemMenu(item, opcoes, cfg.destinos, aoLado);
     li.classList.add('expanded');
     expandAccordion(gaveta);
   }
@@ -9423,6 +9578,7 @@ function favBtn(id, nome) {
 // `daFila` = o avanço automático da playlist chamou. Ver a guarda de imagem
 // sobre áudio, lá dentro: é a única coisa que a distingue de um toque.
 async function send(id, daFila, retomarEm) {
+  ++projecaoSeq;   // ver `projecaoSeq`: invalida um versículo de roteiro em voo
   // UMA CENA DE ROTEIRO NÃO É MÍDIA: ela não pode virar um comando `load` (o
   // telão apagaria, porque um registro sem blob/url/pages cai no `clear` do
   // stage). A guarda fica AQUI, e não só no toque da lista, porque `send` é o
@@ -10379,16 +10535,30 @@ function cifraGarantir(item) {
   const seq = ++lvCifraSeq;
   // As radiografias são DESTA procura: sem limpar, a música seguinte herdaria
   // as páginas da anterior e o Registro descreveria um culto misturado.
+  //
+  // O QUE ISTO NÃO COBRE, dito: `cifraGuardarEstrutura` é chamado lá de dentro
+  // da cadeia, sem a `seq` na mão. Com duas procuras SOBREPOSTAS (dois `send`
+  // seguidos), as páginas que a primeira ainda tem em voo caem nesta lista já
+  // zerada pela segunda. Fechá-lo é levar a `seq` até o `cifraPedir`.
   cifraEstruturas = [];
   cifraProcurar(nome, coll).then((r) => {
-    // Uma busca antiga não pode sobrescrever uma mais nova: o operador pode ter
-    // trocado de música enquanto a rede respondia.
-    if (seq !== lvCifraSeq && cifraCache.get(chave) !== entrada) return;
+    // O QUE É DA `entrada` ENTRA SEMPRE; O QUE É SLOT COMPARTILHADO, SÓ DO MAIS
+    // NOVO. Cada chave tem a entrada dela e ninguém a substitui no `cifraCache`
+    // — descartar a resposta inteira de uma procura vencida deixaria AQUELA
+    // música em `buscando` para sempre, porque `cifraGarantir` volta cedo pelo
+    // `has` e nunca mais pergunta. Já `cifraUltimoDiag` é UM só para o app
+    // todo: sem a guarda de sequência, a procura do louvor que SAIU de cena
+    // chega depois e o Registro passa a listar os endereços de outra música —
+    // o log que discorda do aparelho, lido a distância por quem não confere.
+    //
+    // A guarda anterior era `seq !== lvCifraSeq && cifraCache.get(chave) !==
+    // entrada`: o segundo termo é constante (nada troca nem apaga entrada do
+    // cache), então o `return` nunca rodava.
     entrada.estado = r.ok ? 'ok' : 'falha';
     entrada.pagina = r.pagina;
     entrada.motivo = r.motivo;
     entrada.url = r.url;
-    cifraUltimoDiag = r.tentativas.join('\n');
+    if (seq === lvCifraSeq) cifraUltimoDiag = r.tentativas.join('\n');
     // O desfecho REDESENHA — sem isto a aba fica em "Procurando…" até o próximo
     // pulso do `refreshLyricsView`, que num áudio pausado nunca vem.
     if (lyricsPopupEl.classList.contains('open')) renderLyricsView();
@@ -10712,8 +10882,14 @@ async function syncCifrasColecao(coll) {
             // requisições por música e, em massa, dobraria a varredura do acervo
             // para não achar nada. Na aba ela FICA — lá é a última carta para a
             // música que está na frente do operador.
-            const chave = coll.id + '|' + AVCifra.normalizar(h.nome).toLowerCase();
-            const d = await cifraProcurar(h.nome, coll, chave, {
+            // AS OPÇÕES VÃO NA TERCEIRA POSIÇÃO — `cifraProcurar(nome, coll,
+            // opts)`. Um argumento a mais aqui não erra alto: `opts` recebia a
+            // string do parâmetro que a v1.3.3 removeu, e `mudo`/`semDisco`/
+            // `semBusca` saíam `undefined`. A varredura voltava a bater na
+            // busca do site (MEDIDA em zero resultado, dois terços do acervo, a
+            // cada abertura) e a empurrar as radiografias do operador para fora
+            // do `CIFRA_ESTRUTURAS_MAX` — tudo sem uma linha no console.
+            const d = await cifraProcurar(h.nome, coll, {
               mudo: true, semDisco: true, semBusca: true,
             });
             if (d.ok && d.pagina) {
@@ -12571,6 +12747,20 @@ async function syncDeviceFolder(existing, botao) {
     }
 
     let done = 0, added = 0;
+    // O QUE FALHOU POR ARQUIVO TEM DE CHEGAR AO DESFECHO. Os três `catch` do
+    // laço seguem (um arquivo ilegível não pode derrubar a pasta inteira), mas
+    // seguir CALADO fazia o pior caso mentir: com o armazenamento cheio no
+    // arquivo 1, os 600 `opfsWriteFile` falham, o `catch (e)` externo nunca é
+    // alcançado, `added` fica em 0 — e a linha da pasta anuncia "em dia" sobre
+    // uma pasta em que nada foi copiado.
+    //
+    // A CAUSA é a do PRIMEIRO, não a do último: é ela que nomeia o que começou
+    // a dar errado (`QuotaExceededError`), e as que vêm depois são consequência.
+    let falhou = 0, causa = '';
+    const falha = (err) => {
+      falhou++;
+      if (!causa) causa = (err && err.name) || 'desconhecido';
+    };
     folderNotifId = bgTaskStart('Pasta · ' + folder.name, entries.length);
     for (const [entry, type] of entries) {
       done++;
@@ -12583,15 +12773,15 @@ async function syncDeviceFolder(existing, botao) {
       const name = entry.name;
       bgItemOnly(folderNotifId, name);
       let st;
-      try { st = await entry.stat(); } catch (_) { continue; }
+      try { st = await entry.stat(); } catch (err) { falha(err); continue; }
       const prev = bySrcName.get(name);
       // Já sincronizado e inalterado (mesmo tamanho e data) → pula.
       if (prev && prev.size === st.size && prev.mtime === st.mtime) continue;
       let file;
-      try { file = await entry.read(); } catch (_) { continue; }
+      try { file = await entry.read(); } catch (err) { falha(err); continue; }
       const kind = AVDB.kindFromType(type);
       const path = 'folders/' + folder.id + '/' + name;
-      try { await AVDB.opfsWriteFile(path, file); } catch (_) { continue; }
+      try { await AVDB.opfsWriteFile(path, file); } catch (err) { falha(err); continue; }
       const thumb = await makeThumb(file, kind);
       await AVDB.fileAdd({
         id: prev ? prev.id : uid(),
@@ -12627,7 +12817,13 @@ async function syncDeviceFolder(existing, botao) {
     // O desfecho vai para o CONTADOR da própria pasta: "já em dia" é a
     // resposta que evita re-sincronizar à toa, e ela precisa se distinguir de
     // "entrou". Some sozinho e o número volta.
-    statusPasta(folder.id, added > 0 ? '+' + added : 'em dia', 4000);
+    //
+    // FALHA VENCE OS DOIS, e fica na tela o mesmo tempo que o `catch` externo
+    // reserva (9 s): é ela que o operador precisa LER. `+N` sobre uma pasta em
+    // que 300 arquivos não entraram descreve o culto pela metade certa.
+    statusPasta(folder.id,
+      falhou ? falhou + ' falharam: ' + causa : (added > 0 ? '+' + added : 'em dia'),
+      falhou ? 9000 : 4000);
   } catch (e) {
     // A CAUSA VAI JUNTO. "Erro" sozinho não distingue disco cheio de permissão
     // revogada de arquivo ilegível, e as três têm saídas diferentes — a
@@ -12993,7 +13189,13 @@ async function fetchSerieIndex(coll) {
   };
   await AVDB.setState('coll:' + coll.id, collState[coll.id]);
   refreshCollectionsIfVisible();
-  if (hymnSearchPopupEl.classList.contains('open')) renderSearchResults(hymnSearchInputEl.value);
+  // PELO GUARDA, nunca direto: `renderSearchResults` faz `hymnResultsEl
+  // .innerHTML = ''`, e o que ABRE uma linha vive no `li` que ele joga fora
+  // (ver `interacaoAbertaNoAcervo`). Um índice que chega enquanto o operador
+  // tem uma gaveta aberta fecharia a gaveta e apagaria os destinos marcados —
+  // e `renderBuscaQuandoPuder` já confere a Biblioteca aberta, adia e REARMA,
+  // então a lista nova entra assim que a gaveta fechar.
+  renderBuscaQuandoPuder(false);
 }
 
 async function fetchCollectionIndex(coll) {
@@ -13048,9 +13250,12 @@ async function fetchCollectionIndex(coll) {
   // atualização de índice reescreveria megabytes por nada.
   if (colheu) { await saveLyricStore(coll.id); invalidateLyricIndex(); }
   refreshCollectionsIfVisible();
-  // Popup de busca aberto durante a atualização: re-renderiza pra refletir a
-  // lista nova na hora (sem esperar o operador reabrir o popup).
-  if (hymnSearchPopupEl.classList.contains('open')) renderSearchResults(hymnSearchInputEl.value);
+  // Popup de busca aberto durante a atualização: reflete a lista nova sem
+  // esperar o operador reabrir o popup — pelo guarda, que ADIA enquanto há
+  // gaveta aberta (`interacaoAbertaNoAcervo`) e rearma sozinho. `autoRefresh
+  // Collections` relê os dois hinários em toda retomada do app, sem TTL: sem
+  // o guarda, voltar para o app fechava a gaveta que estava aberta.
+  renderBuscaQuandoPuder(false);
 }
 
 
@@ -13427,6 +13632,18 @@ async function syncCollection(coll, opts) {
 
     let done = 0, falhou = 0;
     const CONCURRENCY = NET_CONCURRENCY;
+    // A CADA QUANTAS FAIXAS O ÍNDICE DA COLEÇÃO VAI AO DISCO — o irmão do
+    // `CHECKPOINT_PASTA` e do `LYRIC_BATCH`, e pelo mesmo motivo. Gravar por
+    // MÚSICA reescreve o índice INTEIRO cada vez: MEDIDO num índice do tamanho
+    // do Hinário 2022, 119 kB × 601 = 68 MB no IndexedDB por sincronização
+    // completa, disputando transação com o `state` que a mesma sessão usa
+    // (`lyrics:`, `opfs-folders`, `ota-intencao`) enquanto 6 downloads correm.
+    //
+    // O que a gravação protege é a RETOMADA: os `fileIdFull`/`fileIdPlayback`
+    // que `songVariantsNeeded` lê. O pior caso do lote é o processo ser morto e
+    // até 24 faixas serem rebaixadas — contra as centenas que nenhuma gravação
+    // custaria. Mesma troca que o `CHECKPOINT_PASTA` já aceitou.
+    const CHECKPOINT_COLECAO = 25;
     let next = 0;
     // Dentro de um lote (syncGroup) o rótulo da notificação já traz o contexto
     // do grupo; sozinho, é o nome do álbum.
@@ -13460,7 +13677,14 @@ async function syncCollection(coll, opts) {
           : 'Baixando ' + done + '/' + pending.length + '…');
         if (opts && opts.onSong) opts.onSong();
         else bgTaskStep(notifId, done);
-        await AVDB.setState('coll:' + coll.id, collState[coll.id]);
+        // `done` é compartilhado pelos CONCURRENCY workers e cada incremento é
+        // conferido uma vez, então o ponto de controle sai exatamente a cada
+        // CHECKPOINT_COLECAO faixas. O lote parcial do fim é gravado pelo
+        // `finally` do `Promise.all` — sem ele o cancelamento (que só fecha a
+        // fila) perderia o que veio depois do último múltiplo de 25.
+        if (done % CHECKPOINT_COLECAO === 0) {
+          await AVDB.setState('coll:' + coll.id, collState[coll.id]);
+        }
       }
     }
     // Sincronização em massa: dezenas ou centenas de áudios — o operador
@@ -13473,7 +13697,16 @@ async function syncCollection(coll, opts) {
     await withBgWork(async () => {
       try {
         await Promise.all(Array.from({ length: CONCURRENCY }, worker));
-      } finally { bgTaskEnd(notifId); }
+      } finally {
+        bgTaskEnd(notifId);
+        // O ÚLTIMO LOTE, SEMPRE — e no `finally` porque um worker pode LANÇAR
+        // (o `catch` externo só troca a faixa de status). Sem esta gravação as
+        // até 24 faixas depois do último ponto de controle ficariam no OPFS sem
+        // `fileIdFull` no índice: rebaixadas na passada seguinte, e o arquivo
+        // órfão recolhido pelo coletor.
+        try { await AVDB.setState('coll:' + coll.id, collState[coll.id]); }
+        catch (_) { /* a passada seguinte rebaixa o lote */ }
+      }
     });
     setCollStatus(coll.id, (cancelled() ? 'Cancelado (' : 'Atualizado (') + (done - falhou) + ' baixado(s))'
       + (falhou ? ' · ' + falhou + ' sem rede' : ''), 4000);
@@ -14012,8 +14245,10 @@ function ensureLyricIndex() {
   lyricIndexPending = buildLyricIndex().then((m) => {
     lyricIndex = m;
     lyricIndexPending = null;
-    // Só redesenha se o popup ainda estiver aberto e houver o que refinar.
-    if (hymnSearchPopupEl.classList.contains('open')) renderSearchResults(hymnSearchInputEl.value);
+    // Só redesenha se o popup ainda estiver aberto — e pelo guarda, que ADIA
+    // enquanto há gaveta aberta. Este índice fica pronto SEGUNDOS depois de o
+    // operador digitar, isto é, com uma linha do resultado já aberta na mão.
+    renderBuscaQuandoPuder(false);
     return m;
   }).catch(() => { lyricIndexPending = null; return null; });
   return lyricIndexPending;
@@ -15651,8 +15886,13 @@ function hymnResultRow(coll, s, lyricHit, semColecao) {
     // altura do que está em cena, e esperar o IndexedDB para desenhar deixaria
     // a animação partir de uma caixa vazia.
     try {
-      const recs = await AVDB.mediaByYoutube(s.id_music);
-      if (recs && recs.length) {
+      // `mediaByYoutube` devolve UM registro (ou `null`), nunca um array — e a
+      // pergunta é pelo BLOB, como em `marcarYtProntos` e `ytArquivo`. Um item
+      // criado pela qualidade "Online" (`addUrlMedia`, kind `youtube`) tem
+      // registro e NÃO tem bytes: anunciá-lo como "Já no aparelho" trocaria um
+      // defeito por outro.
+      const rec = await AVDB.mediaByYoutube(s.id_music);
+      if (rec && rec.blob) {
         est.textContent = 'Já no aparelho';
         est.classList.add('done');
       }
@@ -15995,10 +16235,11 @@ function destConfirmRow(aoLado) {
   // ===== ELE VEM POR ARGUMENTO, E ISSO NÃO É ESTILO (v5.302) =====
   //
   // `songMenuFor` é um slot GLOBAL e quem chama esta função é o `desenhar()` de
-  // UMA linha — um fecho que sobrevive ao global por dois caminhos que já
-  // existiam: a gaveta do acordeão é montada UMA vez (`gavetaMontada`), então
-  // REABRIR uma linha não reescreve `songMenuFor`; e `closeSongMenu()` o ANULA
-  // com a gaveta ainda aberta.
+  // UMA linha — um fecho que sobrevive ao global por dois caminhos: a gaveta da
+  // Biblioteca é montada UMA vez (`gavetaMontada`, em `hymnResultRow`), então
+  // reabrir uma linha DE LÁ não reescreve `songMenuFor`; e `closeSongMenu()` o
+  // ANULA com a gaveta ainda aberta. O segundo vale para todas — a gaveta de
+  // `linhaDeItem` inclusive, que REMONTA ao reabrir (ver `abrir()` lá).
   //
   // Enquanto o irmão era um botão NOVO a cada chamada ("Ver a letra"), a
   // divergência era invisível. Desde que ele passou a ser um NÓ VIVO ligado a um
@@ -16491,6 +16732,10 @@ function previewBusy(acao, nome, aoCancelar) {
     return { visivel: false, atualizar: () => {}, soltar: () => {}, falhar: () => {} };
   }
   pvBusyCount++;
+  // O CARTÃO DE FALHA FICA NO AR (ver `falhar`), então um trabalho NOVO pode
+  // nascer sobre ele: sem tirar a marca, `.falhou` esconderia o aro que gira e
+  // pintaria "Baixando…" em vermelho — o cartão dizendo duas coisas opostas.
+  pvBusyEl.classList.remove('falhou');
   pvBusyCapEl.textContent = acao;
   pvBusyLabelEl.textContent = nome;
   // O botão segue o ÚLTIMO a escrever, exatamente como a legenda — inclusive
@@ -16509,6 +16754,25 @@ function previewBusy(acao, nome, aoCancelar) {
     }, PV_BUSY_DELAY_MS);
   }
   let solto = false;
+  // A LIBERAÇÃO de verdade, separada da trava `solto`. `soltar()` faz as duas
+  // coisas; `falhar()` TRAVA SEM LIBERAR e só chega aqui no fim do prazo de
+  // leitura — é essa separação que faz o `finally` do chamador virar no-op em
+  // vez de apagar a mensagem no mesmo quadro em que ela nasce.
+  const liberar = () => {
+    // O botão sai com O DONO dele: se outro download assumiu o cartão nesse
+    // meio-tempo, quem manda é o novo — a mesma regra da legenda.
+    if (meuCancelar && pvBusyCancelar === meuCancelar) {
+      pvBusyCancelar = null;
+      pintarPvBusyCancelar();
+    }
+    pvBusyCount = Math.max(0, pvBusyCount - 1);
+    if (pvBusyCount) return;
+    clearTimeout(pvBusyTimer); pvBusyTimer = null;
+    pvBusyEl.classList.remove('on');
+    pvBusyEl.classList.remove('falhou');
+    pvBusyCancelar = null;
+    pintarPvBusyCancelar();
+  };
   return {
     visivel: true,
     // Reescreve a legenda sem abrir um cartão novo — é por aqui que o
@@ -16528,19 +16792,7 @@ function previewBusy(acao, nome, aoCancelar) {
     soltar() {
       if (solto) return;
       solto = true;
-      // O botão sai com O DONO dele: se outro download assumiu o cartão nesse
-      // meio-tempo, quem manda é o novo — a mesma regra da legenda.
-      if (meuCancelar && pvBusyCancelar === meuCancelar) {
-        pvBusyCancelar = null;
-        pintarPvBusyCancelar();
-      }
-      pvBusyCount = Math.max(0, pvBusyCount - 1);
-      if (pvBusyCount) return;
-      clearTimeout(pvBusyTimer); pvBusyTimer = null;
-      pvBusyEl.classList.remove('on');
-      pvBusyEl.classList.remove('falhou');
-      pvBusyCancelar = null;
-      pintarPvBusyCancelar();
+      liberar();
     },
     // O MESMO CARTÃO DIZ QUE NÃO DEU (v5.207).
     //
@@ -16555,6 +16807,14 @@ function previewBusy(acao, nome, aoCancelar) {
     // nasce.
     falhar(motivo) {
       if (solto) return;
+      // TRAVA SEM LIBERAR, e é aqui que a promessa acima se cumpre: quase todo
+      // chamador solta num `finally` que roda no MESMO tick (`playSongVariant`,
+      // `projectSongLyricsOnly`). Marcar `solto` faz esse `soltar()` virar
+      // no-op — sem isto o `pvBusyCount` caía a zero na hora, as classes
+      // `on`/`falhou` saíam, e o operador via o aro girar e sumir sem uma
+      // palavra: indistinguível do toque não ter funcionado. Quem devolve o
+      // contador é o prazo abaixo, e só ele.
+      solto = true;
       pvBusyEl.classList.add('on', 'falhou');
       pvBusyCapEl.textContent = 'Não deu';
       pvBusyLabelEl.textContent = motivo;
@@ -16562,8 +16822,7 @@ function previewBusy(acao, nome, aoCancelar) {
         pvBusyCancelar = null;
         pintarPvBusyCancelar();
       }
-      const eu = this;
-      setTimeout(() => eu.soltar(), PV_FALHA_MS);
+      setTimeout(liberar, PV_FALHA_MS);
     },
   };
 }
@@ -18454,7 +18713,17 @@ async function renderDiag() {
     // O QUE ESTÁ GUARDADO, POR HINÁRIO. Responde "a folha vai abrir sem rede no
     // sábado?" — a pergunta que o download das cifras existe para responder, e a
     // única que nem a linha de tentativas nem o status do shell alcançam.
-    for (const c of allCollections().filter(cifraGuardavel)) {
+    // A PERGUNTA BARATA VEM ANTES DO TRABALHO CARO, e o filtro é o MESMO do
+    // `syncCifrasAcervo`: quem não tem nada baixado não é varrido, logo não tem
+    // o que relatar. `cifraGuardavel` vale para todo acervo de música desde a
+    // v1.2.14 e `allCollections()` traz o catálogo INTEIRO do LouvorJA, baixado
+    // ou não — ler `cifras:<id>` e varrer `collSongs` de cada um para descartar
+    // tudo no `countDownloaded` logo abaixo custava dezenas de leituras de
+    // IndexedDB jogadas fora por abertura de Configurações (e `pedirDiag` chama
+    // `renderDiag` DUAS vezes), e enchia o bloco de linhas "nada baixado"
+    // idênticas — o ruído que os blocos das Séries já tiveram de resumir.
+    const cifraSemNada = allCollections().filter((c) => cifraGuardavel(c) && !countDownloaded(c.id));
+    for (const c of allCollections().filter((c) => cifraGuardavel(c) && countDownloaded(c.id) > 0)) {
       let n = 0;
       let semCifra = 0;
       let naoAchei = 0;
@@ -18496,14 +18765,6 @@ async function renderDiag() {
           else { naoAchei++; if (cifraDeduzivel(c)) faltando.push(k); }
         }
       } catch (_) { n = 0; semCifra = 0; naoAchei = 0; porVarrer = 0; }
-      // HINÁRIO NÃO BAIXADO É OUTRA RESPOSTA, não um zero. As cifras só são
-      // buscadas para o hinário que existe no aparelho (`countDownloaded`), e
-      // um "0 de 613" seco se lê como recurso quebrado — foi exatamente essa a
-      // pergunta que o operador fez sobre o hinário de 1996.
-      if (!countDownloaded(c.id)) {
-        linhas.push(c.name + ': nada baixado — as cifras dele não são buscadas');
-        continue;
-      }
       linhas.push(c.name + ': ' + n + ' de ' + total + ' cifra(s) no aparelho'
         + (semCifra ? ' · ' + semCifra + ' sem cifra no site' : '')
         + (naoAchei ? ' · ' + naoAchei + ' não achei (repergunto em 30 dias)' : '')
@@ -18532,6 +18793,18 @@ async function renderDiag() {
           + (faltando.length > CIFRA_FALTANDO_MAX
             ? ' … e mais ' + (faltando.length - CIFRA_FALTANDO_MAX) : ''));
       }
+    }
+    // NÃO BAIXADO É OUTRA RESPOSTA, não um zero — mas ela cabe em UMA linha. A
+    // frase nasceu (v1.2.15) quando o laço via só os DOIS hinários, para
+    // responder à pergunta do operador sobre o de 1996: um "0 de 613" seco se lê
+    // como recurso quebrado. Por isso os do CATÁLOGO (`cifraDeduzivel`) saem
+    // nominais e os álbuns entram só no número — o Registro é RESUMO, não
+    // listagem, e nenhum corte aqui é silencioso: o que sai continua contado.
+    if (cifraSemNada.length) {
+      const nominais = cifraSemNada.filter(cifraDeduzivel).map((c) => c.name);
+      linhas.push(cifraSemNada.length
+        + ' coleção(ões) sem nada baixado — as cifras delas não são buscadas'
+        + (nominais.length ? ': ' + nominais.join(' · ') : ''));
     }
     if (linhas.length) blocos.push('Cifra (última busca)\n' + linhas.join('\n'));
     // A ESTRUTURA da última página que o parser NÃO entendeu — bloco à parte
@@ -19821,7 +20094,12 @@ async function importShare(pending) {
   if (added && !tratado && lote.length
     && (listasEscolhidas.length > 1 || (listasEscolhidas.length === 1 && listasEscolhidas[0] !== 'imports'))) {
     const quantos = lote.length === 1 ? 'foi ' : lote.length + ' itens ';
-    notaNoItem(primeiro && primeiro.id, quantos + ondeDe(listasEscolhidas, 'para'), 'ok');
+    // `primeiro` JÁ É o id (os três pontos que o preenchem gravam `rec.id`), e é
+    // assim que ele é passado ao `focarImportado` acima. Um `.id` a mais aqui dá
+    // `undefined`, e `notaNoItem` sai calado na primeira linha: o import termina
+    // parecendo que nada entrou, que é o desfecho que este bloco existe para
+    // impedir.
+    notaNoItem(primeiro, quantos + ondeDe(listasEscolhidas, 'para'), 'ok');
   }
   if (naoAbriu) await avisarNaoAbriu(naoAbriu);
   return added;
@@ -23500,10 +23778,29 @@ document.addEventListener('visibilitychange', () => {
   await applyPvWallpaper();
   // registra a chegada de compartilhamentos (intent nativo; no navegador é no-op)
   registrarShareNativo();
-  // E O LINK QUE JÁ ESTAVA COPIADO. Fire-and-forget, como os dois abaixo: a
+  // E O LINK QUE JÁ ESTAVA COPIADO. Fire-and-forget, como os três abaixo: a
   // pergunta pode esperar o app terminar de abrir, e segurar a abertura por uma
   // ida à ponte seria pagar por um caso que quase sempre não existe.
   conferirLinkCopiado();
+  // A TRANSMISSÃO PODE JÁ ESTAR NO AR — o documento é que é novo.
+  //
+  // `EspelhoServidor` vive no SHELL: aplicar o OTA (`applyWebUpdate`) ou perder
+  // o renderer recarrega esta página com as telas da rede ainda pareadas pelo
+  // SSE. `mirrorEstado` nasce `null` e NINGUÉM o relê sozinho: as duas enquetes
+  // só ligam quando o estado JÁ é conhecido (`acertarEnqueteDeFundo` exige
+  // `espelhoLigado()`; a da folha exige o bloco de conexão à vista), e os demais
+  // `lerEspelho()` pendem de um gesto do operador.
+  //
+  // Com o cache nulo `telaAtiva()` MENTE, e o modo de falhar é mudo: todo `load`
+  // sai sem `__rec`, a tela não acha o id no IndexedDB dela e a projeção volta
+  // ao wallpaper — o culto inteiro, sem erro em lugar nenhum. Pelo mesmo cache,
+  // `somLocalDeveEstar()` desmuta a preview por cima das telas.
+  //
+  // Fire-and-forget, e ela se sustenta sozinha: `lerEspelho` termina em
+  // `acertarEnqueteDeFundo()`, que liga o relógio de 4 s assim que descobre a
+  // transmissão. Sem transmissão custa uma chamada de ponte com um JSON pequeno
+  // e nada muda — os consumidores já leem `{ligado:false}` e `null` igual.
+  lerEspelho();
   // Índices das coleções em segundo plano (fire-and-forget): não atrasa a
   // abertura do app, só deixa a busca/os cards prontos assim que a resposta chegar.
   autoRefreshCollections();

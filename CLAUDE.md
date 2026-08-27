@@ -1547,6 +1547,15 @@ derruba a transmissão — sem TV, as telas da rede SÃO o que a congregação v
   app minimizado.
 - **Detecção por PRESENÇA, não por versão**, onde há objeto injetável:
   `telaAtiva()` pergunta `espelhoLigado() && window.__avTelaMidia`.
+- **E O `mirrorEstado` É SEMEADO NA ABERTURA** (`lerEspelho()` no `init()`). O
+  servidor vive no SHELL e sobrevive ao documento: o OTA aplicado e a morte do
+  renderer recarregam o Controle com as telas ainda pareadas. Sem a semente o
+  cache nasce `null` e ninguém o relê — `acertarEnqueteDeFundo` só liga o
+  relógio de 4 s quando o estado JÁ é conhecido, e a enquete da folha depende do
+  bloco de conexão à vista. Aí `telaAtiva()` MENTE: todo `load` sai sem `__rec`,
+  a tela não acha o id no IndexedDB dela e a projeção volta ao wallpaper — o
+  culto inteiro, sem erro em lugar nenhum. Pelo mesmo cache nulo
+  `somLocalDeveEstar()` desmuta a preview por cima das telas.
 
 ### As inversões que precisam estar ditas
 
