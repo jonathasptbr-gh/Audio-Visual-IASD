@@ -219,7 +219,16 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
    da folha de tela cheia resolve para `--panel` — são cartões pela definição
    desta regra. Sem a barra de busca aqui, o campo dela ficava `--surface-2`
    (branco a 92%) sobre um `--panel` que no tema CLARO é branco puro: 1,00:1. */
-.coll-group--drop, #hymnSearchPopup .hymn-search-bar {
+.coll-group--drop, #hymnSearchPopup .hymn-search-bar,
+/* A FOLHA DE FERRAMENTAS (v1.4.0). Ela pinta `--panel` desde que nasceu, na
+   v1.3.10, e nunca entrou aqui — é o modo de falhar que esta regra existe para
+   fechar, acontecendo de novo. MEDIDO no tema CLARO: o `.mic-btn` saía em
+   `--surface-2` FLUTUANTE (branco a 92%) sobre um `--panel` que ali é branco
+   pleno — **1,00:1**. A barra de push-to-talk, 56px de altura, o controle que
+   se procura sem olhar no meio de uma frase, simplesmente não existia na tela.
+   (No escuro o mesmo botão ficava a 12,62:1 da folha: claro demais, o outro
+   lado do mesmo erro.) */
+.tools-sheet {
   --surface: var(--surface-sunk);
   --surface-2: var(--surface-2-sunk);
 }
@@ -3679,7 +3688,21 @@ main {
 .mic-btn {
   width: 100%; height: var(--misc-bar-h); flex-shrink: 0;
   border-radius: var(--radius-btn);
-  background: var(--surface-2); color: var(--text);
+  /* ---------- ELE É UM BLOCO, NÃO UM CHIP (v1.4.0) ----------
+     Ele vestia `--surface-2`, o overlay de CHIP, e isso o punha na aritmética
+     de R1 dentro de uma folha que pinta `--panel`: no claro, branco a 92% sobre
+     branco pleno — **1,00:1**, o botão sumia. Pôr a folha na lista de R1 (que é
+     onde ela sempre devia ter estado) conserta o claro e deixa o escuro em
+     1,19:1: correto pela regra, e fino demais para ESTE controle. Ele tem 56px
+     de altura e existe para ser achado e segurado SEM OLHAR no meio de uma
+     frase — é a peça desta aba que menos pode depender de procurar.
+
+     A saída não é um alfa novo, é o nível certo: um chip é uma peça DENTRO de
+     um bloco; isto é o bloco. `--camada` é o tom que a folha reserva para os
+     filhos dela (`--panel-2`), e é o mesmo que a `.msg-item` logo acima já
+     veste. MEDIDO: 1,33:1 contra a folha no escuro e 1,29:1 no claro — o
+     degrau de superfície grande, nos dois. */
+  background: var(--camada); color: var(--text);
   display: flex; flex-direction: row; align-items: center; justify-content: center; gap: .6rem;
   cursor: pointer; appearance: none; -webkit-appearance: none;
   /* O dedo fica parado em cima: nada de rolagem ou menu de contexto durante
