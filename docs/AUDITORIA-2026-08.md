@@ -6,10 +6,9 @@ adversarial cuja tarefa era REFUTÁ-LO por seis vias (trecho verbatim, guarda no
 chamador, decisão já documentada, `ACHADOS-EM-ABERTO.md`, oráculo que já cobre,
 sequência que o Android/navegador não produz).
 
-> **Estado: a auditoria foi INTERROMPIDA por limite de orçamento**, com o
-> `controle.js` varrido só em parte. As Etapas 1 e 2A estão **completas e
-> verificadas** — só o que sobreviveu ao cético está nelas. A Etapa 2B está
-> registrada como **hipóteses NÃO verificadas**, e está marcada como tal.
+> **Estado: 65 achados confirmados de 79 brutos, mais 4 da varredura mecânica.** Tudo o que está aqui
+> passou pelo verificador; nada é hipótese. Falta varrer um único escopo: as
+> fatias E e F do `controle.js` (linhas 16500–24516), listadas no fim.
 >
 > **Este arquivo é um INVENTÁRIO, não a lista de trabalho.** Um achado que for
 > aceito e corrigido sai daqui; um que for aceito e adiado migra para
@@ -173,24 +172,20 @@ produz e um relatório apressado publicaria:
 
 ---
 
-## Etapa 2B — `controle/controle.js` — **INTERROMPIDA**
+## Etapa 2B — `controle/controle.js` (fatias A–D, linhas 1–16500)
 
-Interrompida por limite de orçamento com **2 das 6 fatias** concluídas (linhas
-1–8250). As fatias C–F estavam em andamento e ainda produziram achados antes da
-parada.
+24 achados brutos · **22 confirmados** · 2 refutados. A varredura cobriu as
+fatias A–D; as fatias E e F (linhas 16500–24516, 5.905 linhas de código real)
+ainda não foram varridas.
 
-> ### Estes 24 achados NÃO passaram pelo verificador adversarial
->
-> Todos os das etapas anteriores passaram; estes não. Nas Etapas 1 e 2A o cético
-> derrubou **16 de 55** (29%), inclusive achados que pareciam sólidos na leitura.
-> Trate a lista abaixo como **hipóteses a verificar**, não como defeitos
-> confirmados. Retomar a auditoria começa por rodar a verificação sobre eles.
->
-> Os cinco marcados *(medido)* foram provados por execução pelo próprio auditor
-> que os encontrou — mas ainda assim sem o cético, cuja função é justamente
-> checar se o cenário medido é o cenário que o app produz.
+**A taxa de confirmação foi muito mais alta que nas etapas anteriores (92% × 71%),
+e a razão está no método:** aqui os auditores reproduziram os achados por
+execução antes de reportá-los, e os céticos os re-reproduziram antes de
+confirmá-los — vários com Playwright operando a UI por `.click()` real, não por
+estado montado à mão. Onde o cético mexeu foi na GRAVIDADE: quatro achados
+desceram de "alta" para "media" e três de "media" para "baixa".
 
-### O que eu confirmei à mão antes de parar
+### O caso que eu confirmei à mão antes da verificação
 
 **`controle.js:10718` — `syncCifrasColecao` chama `cifraProcurar` com a
 assinatura ANTIGA.** Verificado por leitura direta:
@@ -208,47 +203,84 @@ bater na busca do site — *"ela custa duas requisições por música e, em mass
 dobraria a varredura para não achar nada"*. O `const chave` ficou órfão do
 parâmetro removido.
 
-### As hipóteses, como saíram dos auditores
+### Os 22 confirmados
 
-| Linha | Grav. alegada | Categoria | Título |
+Cada um sobreviveu a um cético que tentou refutá-lo por seis vias. As gravidades
+abaixo são as CORRIGIDAS pelo verificador, não as alegadas pelo auditor.
+
+| Linha | Gravidade | Categoria | O quê |
 |---|---|---|---|
-| `:2239` | alta | correcao | A preview restaura a letra do hino ANTERIOR sobre a música nova — e não se corrige *(medido)* |
-| `:4582` | alta | correcao | `bg.falhar()` seguido do `finally { bg.soltar() }` apaga o cartão "Não deu" no MESMO quadro |
-| `:4442` | alta | correcao | `projetarVersiculoRef` escreve a sessão e PROJETA sem guarda de sequência depois do `await` |
-| `:8884` | alta | correcao | Reabrir a gaveta de uma linha JÁ MONTADA não repõe `destExecutor`/`destMarcados` — confirmar na linha A executa sobre o item B *(medido)* |
-| `:10718` | alta | correcao | `syncCifrasColecao` chama `cifraProcurar` com a assinatura ANTIGA — `mudo` e `semBusca` perdidos na varredura do acervo inteiro *(medido, e conferido à mão acima)* |
-| `:12602` | alta | correcao | Falha de gravação por arquivo é engolida e a pasta termina anunciando "em dia" |
-| `:1769` | media | correcao | A metade "há cena no ar" da proteção da preview nunca volta a ser falsa |
-| `:5647` | media | correcao | `drawRemaining`/`pickNumber` contam sorteados FORA da faixa: trocar a faixa à mão mata o botão Sortear |
-| `:5326` | media | correcao | `hideChrono`/`hideDraw`/`hideMessage` não chamam `marcarNoAr`: o selo "● No ar" fica mentindo na linha do Cronograma |
-| `:8435` | media | correcao | `interacaoAbertaNoAcervo` não enxerga a gaveta de uma linha de FAVORITO/pasta — o redesenho de 400 ms do progresso a destrói *(medido)* |
-| `:10388` | media | correcao | A guarda de sequência de `cifraGarantir` é INALCANÇÁVEL — o bloco "Cifra" do Registro descreve a música anterior *(medido)* |
-| `:13004` | media | correcao | `fetchCollectionIndex`/`fetchSerieIndex` redesenham a Biblioteca sem passar pelo guarda da gaveta — a TERCEIRA porta do defeito das v1.1.2/v1.1.8 |
-| `:15668` | media | correcao | A gaveta de um episódio de série NUNCA diz "Já no aparelho": `mediaByYoutube` devolve UM registro e o código testa `.length` |
-| `:2061` | media | codigo-morto | Comentário PARTIDO por inserção: a metade de cima encabeça outro símbolo e termina no meio da frase |
-| `:5705` | media | codigo-morto | `naoResta()` e as duas frases dele são inalcançáveis — `go.disabled` cobre exatamente as mesmas condições |
-| `:6197` | media | codigo-morto | Lápide: o bloco "Mensagens: botão flutuante na preview + popup" descreve recurso removido e hoje encabeça `msgProjecting` |
-| `:10024` | media | codigo-morto | O cabeçalho da aba de cifra declara como CONTRATO que "nada é gravado em disco" e que o cache "é o `Map` abaixo" — falso desde a v1.2.14, e desmentido 380 linhas abaixo no mesmo arquivo |
-| `:1595` | baixa | codigo-morto | O comentário de `resyncPreviewToDisplay` está truncado e promete uma guarda de "mesa de som" que não existe |
-| `:469` | baixa | codigo-morto | A tabela `ICON` afirma "nenhum acesso dinâmico" e há um acesso dinâmico |
-| `:6219` | baixa | codigo-morto | Lápide dentro de `renderLibrary`: a nota sobre "Ferramentas NÃO rola" e "o acordeão" fala de dois mecanismos que não existem mais |
-| `:11493` | baixa | codigo-morto | Três comentários em `lvBuildCifra` afirmam que o SELETOR MANUAL de cifra existe e é desenhado — ele saiu inteiro na v1.3.3, e um deles é um bloco sem código nenhum embaixo |
-| `:12030` | baixa | codigo-morto | O bloco que documenta `pintarSubNoAr` encabeça `FALHA_ITEM_MS`/`notaNoItem` — e `pintarSubNoAr` ficou sem documentação |
-| `:3988` | baixa | otimizacao | O capítulo vizinho da Bíblia é baixado DUAS vezes por render, e a primeira resposta não redesenha nada |
-| `:13471` | baixa | otimizacao | O índice INTEIRO da coleção é regravado no IndexedDB a cada música baixada — 68 MB por hinário, medidos |
+| `:2239` | alta | correcao | A preview restaura a letra do hino ANTERIOR sobre a música nova |
+| `:8884` | alta | correcao | Reabrir a gaveta de uma linha JÁ MONTADA não repõe destExecutor/destMarcados |
+| `:4582` | media | correcao | bg.falhar() seguido do finally { bg.soltar() } apaga o cartão 'Não deu' no MESMO quadro |
+| `:4442` | media | correcao | projetarVersiculoRef escreve a sessão e PROJETA sem guarda de sequência depois do await |
+| `:5647` | media | correcao | drawRemaining/pickNumber contam sorteados FORA da faixa: trocar a faixa à mão mata o botão Sortear |
+| `:5326` | media | correcao | hideChrono/hideDraw/hideMessage não chamam marcarNoAr: o selo 'No ar' fica mentindo |
+| `:10718` | media | correcao | syncCifrasColecao chama cifraProcurar com a assinatura ANTIGA (4 argumentos) |
+| `:8435` | media | correcao | interacaoAbertaNoAcervo não enxerga a gaveta de uma linha de FAVORITO/pasta |
+| `:10388` | media | correcao | A guarda de sequência de cifraGarantir é INALCANÇÁVEL |
+| `:10024` | media | codigo-morto | O cabeçalho da aba de cifra declara como CONTRATO que 'nada é gravado em disco' |
+| `:12602` | media | correcao | Falha de gravação por arquivo é engolida e a pasta termina anunciando 'em dia' |
+| `:13004` | media | correcao | fetchCollectionIndex/fetchSerieIndex redesenham a Biblioteca sem passar pelo guarda da gaveta |
+| `:15668` | media | correcao | A gaveta de um episódio de série NUNCA diz 'Já no aparelho': mediaByYoutube devolve UM registro e o código testa .length |
+| `:2061` | baixa | codigo-morto | Comentário PARTIDO por inserção: a metade de cima encabeça outro símbolo e termina no meio da frase |
+| `:1595` | baixa | codigo-morto | O comentário de resyncPreviewToDisplay está truncado e promete uma guarda de 'mesa de som' que não existe |
+| `:469` | baixa | codigo-morto | A tabela ICON afirma 'nenhum acesso dinâmico' e há um acesso dinâmico |
+| `:3988` | baixa | otimizacao | O capítulo vizinho da Bíblia é baixado DUAS vezes por render |
+| `:5705` | baixa | codigo-morto | naoResta() e as duas frases dele são inalcançáveis — go.disabled cobre as mesmas condições |
+| `:6197` | baixa | codigo-morto | Lápide: o bloco 'Mensagens: botão flutuante na preview + popup' descreve recurso removido |
+| `:6219` | baixa | codigo-morto | Lápide dentro de renderLibrary: a nota sobre 'Ferramentas NÃO rola' e 'o acordeão' |
+| `:11493` | baixa | codigo-morto | Três comentários em lvBuildCifra afirmam que o SELETOR MANUAL de cifra existe |
+| `:13471` | baixa | otimizacao | O índice INTEIRO da coleção é regravado no IndexedDB a cada música baixada — 68 MB por hinário |
 
-Uma delas corrobora um achado JÁ confirmado: a `:2239` ("a preview restaura a
-letra do hino ANTERIOR") é a metade **preview** do mesmo defeito que a Etapa 2A
-confirmou no `display.js:767` (a metade **telão**). Se as duas se sustentarem, é
-o padrão que o `fundo-da-letra.test.mjs` já pagou uma vez: *ler cada lado
-isolado aprova os dois.*
+### Os dois mais graves, medidos na UI real
 
-### Para retomar
+**`:2239` — a preview projeta a letra do hino ANTERIOR, e não se corrige.**
+Com um aviso da Camada de Texto sobre um louvor, trocar de louvor e tirar o
+aviso do ar dentro da janela de fade faz `restorePvSceneAfterText` ler
+`stage.getCurrent()` — que ainda é o hino velho, porque `current` só troca
+depois do `runFadeOut` e do `await AVDB.getMedia`. **A janela não é um fio de
+navalha: são os ~600 ms fixos do `FADE.time` de toda troca de cena.** Medido em
+Chromium operando a UI por clique real, falhando a 80/250/300/350/400/450/500 ms
+e passando a 600 ms. E o estado é PERMANENTE — dez segundos depois a letra
+errada continua e AVANÇA pelo relógio da música nova. Sem TV, a preview em tela
+cheia É a projeção.
 
-1. Rodar a verificação adversarial sobre os 24 acima.
-2. Terminar as fatias C–F do `controle.js` (linhas 8250–24516): elas produziram
-   achados mas não foram varridas por inteiro.
-3. CSS, HTML e os workflows do CI, intocados em todas as etapas.
+**`:8884` — confirmar na gaveta da linha A executa sobre o item B.** Reabrir uma
+linha já montada reaponta só o `songMenuFor`; `destExecutor` e `destMarcados`
+(um `Set` de módulo) continuam apontando para a última linha aberta. Medido: no
+caso mínimo — abrir A, espiar B, voltar a A e confirmar o "Tocar agora" que
+nasce marcado — a gaveta de A está na tela e **o item B é projetado**. O
+`docs/arquitetura/CONTROLE.md` já diagnostica esta classe ("um slot global só
+serve para o que não tem ALVO") e descreve a v5.302 consertando o irmão; estes
+dois globais ficaram de fora.
+
+### Os dois refutados
+
+- **`:1769`** — A metade 'há cena no ar' da proteção da preview nunca volta a ser falsa. Refutado pelo caminho 3 (decisão deliberada e documentada). O fato medido é verdadeiro — `grep -n "currentId *=" controle.js` mostra que só a linha 509 atribui `null`, então `cenaNoAr()` não volta a false na sessão —, mas ele é a propriedade que o projeto declara de propósito em cinco lugares: `stop
+- **`:12030`** — O bloco que documenta pintarSubNoAr encabeça FALHA_ITEM_MS/notaNoItem. REFUTADO pelo critério FACTUAL de "codigo-morto sobre comentário": o bloco não afirma nada que o código não faça, nem descreve mecanismo removido — conferi cada uma das suas afirmações contra o código vivo. O trecho EXISTE verbatim (`/**` em controle.js:12030, texto em 12031-12038; o segundo `/**` e
+
+O primeiro é instrutivo: **o fato medido era verdadeiro** — `currentId` nunca
+volta a `null`, então `cenaNoAr()` não fica falsa na sessão —, mas isso é a
+propriedade que o projeto declara de propósito em cinco lugares (o `currentId`
+sobrevive ao Parar para o ▶ repetir a faixa). Achado factualmente correto,
+veredito errado.
+
+### O par que fecha um padrão
+
+A `:2239` é a metade **preview** do mesmo defeito que a Etapa 2A confirmou no
+`display.js:767` (a metade **telão**) — e as duas foram confirmadas
+independentemente, por medição. É exatamente o padrão que o
+`fundo-da-letra.test.mjs` já pagou uma vez, e que o `CLAUDE.md` descreve:
+*ler cada lado isolado aprova os dois.* Corrigir um NÃO corrige o outro.
+
+### O que falta
+
+**Fatias E e F do `controle.js`** — linhas 16500 a 24516, 5.905 linhas de código
+real: o Registro e os blocos de diagnóstico, a via nativa do YouTube, a
+apresentação/`.pptx`, a área de transferência, o trabalho em segundo plano e a
+notificação de progresso, os eventos e o transporte, os modos de uso, o botão
+voltar, o OTA e o telão por comandos.
 
 ---
 
@@ -259,7 +291,7 @@ isolado aprova os dois.*
 - **A prova mais forte é a execução.** Onde o cético conseguiu montar o cenário
   num Chromium de verdade, está dito. Três achados (W1, W2, W4/W5) caíram ou
   sobreviveram por medição, não por leitura.
-- **Refutar é o trabalho, não a formalidade.** 16 dos 55 achados VERIFICADOS foram
+- **Refutar é o trabalho, não a formalidade.** 18 dos 79 achados foram
   derrubados — entre eles um "host que falha aberto" (a origem opaca não chega
   ao `WebMessageListener` com `allowedOriginRules` exato), um "redirect fora da
   allowlist" (os dois hosts do 3xx real já estão na lista) e uma otimização de
