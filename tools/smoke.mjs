@@ -858,51 +858,6 @@ try {
   checar(false, 'a medição do respiro entre estrofes terminou sem exceção (' + (e && e.message) + ')');
 }
 
-// ── O PROGRESSO DESENHADO NO BOTÃO DE CANCELAR (v5.232) ───────────────────
-// FORMA, e por isso mora aqui: o `boot-nativo` mede o ESTADO (o painel tem uma
-// linha só, com o resultado dentro do botão) e este mede o que a tela PINTA
-// enquanto o download roda. Ele existe porque a barra do card, dois centímetros
-// acima, já escreve "Baixando 2 de 4…" — repetir a frase aqui seria o defeito
-// que a v5.73 tirou deste painel, então o que o botão acrescenta não pode ser
-// texto. Um preenchimento invisível (a mesma tinta do fundo, ou atrás dele)
-// seria a promessa sem a entrega, e é isso que a medição cobra.
-try {
-  const barra = await pg.evaluate(() => {
-    const box = document.createElement('div');
-    box.className = 'coll-opts coll-opts--inline';
-    const linha = document.createElement('div'); linha.className = 'coll-opts-acoes';
-    const b = document.createElement('button');
-    b.className = 'new-folder-btn cancel';
-    b.style.setProperty('--p', '40%');
-    b.appendChild(document.createTextNode('Cancelar'));
-    linha.appendChild(b); box.appendChild(linha); document.body.appendChild(box);
-    const cs = getComputedStyle(b, '::before');
-    const larg = b.getBoundingClientRect().width;
-    const out = {
-      largura: parseFloat(cs.width),
-      caixa: larg,
-      // Atrás do texto, nunca por cima: o rótulo é um NÓ DE TEXTO e não tem
-      // como ser levantado, então quem desce é a barra.
-      z: cs.zIndex,
-      pinta: cs.backgroundColor,
-      fundoBotao: getComputedStyle(b).backgroundColor,
-    };
-    box.remove();
-    return out;
-  });
-  const prop = barra.caixa ? barra.largura / barra.caixa : 0;
-  checar(Math.abs(prop - 0.4) < 0.05,
-    'o botão de cancelar se preenche na PROPORÇÃO do download ('
-    + Math.round(prop * 100) + '% para --p: 40%)');
-  checar(barra.z === '-1',
-    'e o preenchimento fica ATRÁS do rótulo — texto solto não recebe z-index', barra.z);
-  checar(barra.pinta !== barra.fundoBotao && !/rgba\(0, 0, 0, 0\)/.test(barra.pinta),
-    'e ele é VISÍVEL: a tinta do progresso não é a mesma do fundo do botão ('
-    + barra.pinta + ' sobre ' + barra.fundoBotao + ')');
-} catch (e) {
-  checar(false, 'a medição do progresso no botão terminou sem exceção (' + (e && e.message) + ')');
-}
-
 // ── A ALTURA DA LINHA DE UMA FAIXA (v5.240) ──────────────────────────────
 // Relato do operador: os cards da lista de um álbum estão "muito volumosos
 // verticalmente, limitando o número de itens na visualização" e "ficando muito
@@ -3928,11 +3883,10 @@ try {
     return {
       ok,
       secao: cor('coll-group-count done').c,
-      album: cor('coll-opt-estado done').c,
       item: cor('item-detalhe-estado done'),
     };
   });
-  checar(verde.secao !== verde.ok && verde.album !== verde.ok && verde.item.c !== verde.ok,
+  checar(verde.secao !== verde.ok && verde.item.c !== verde.ok,
     'nenhum indicador de conclusão da Biblioteca é pintado de VERDE — a fração '
     + 'já diz que está completo, e a cor dizia a mesma coisa outra vez');
   checar(verde.item.p === '600',

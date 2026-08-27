@@ -44,8 +44,9 @@ import java.net.URL
  * mídia. PNG, e não JPEG, porque slide é TEXTO sobre fundo chapado — é onde o
  * JPEG borra as bordas das letras, e é justamente o que vai ser lido de longe.
  *
- * **BLOQUEANTE**: disco, rede e rasterização. Só pode ser chamado da fila de IO
- * da ponte, nunca da thread principal.
+ * **BLOQUEANTE**: disco, rede e rasterização. Só pode ser chamado da fila
+ * `extracao` da ponte — nunca da fila `io` (a de milissegundos, SEM rede) nem
+ * da thread principal.
  */
 object SlideDeck {
 
@@ -126,7 +127,25 @@ object SlideDeck {
                 u.host == WebViewFactory.ORIGIN_HOST -> {
                     val token = u.lastPathSegment ?: return erro("url /saf/ sem token")
                     val uri = SafRegistry.get(token) ?: return erro("token /saf/ desconhecido")
-                    ctx.contentResolver.openFileDescriptor(uri, "r")
+                    val aberto = ctx.contentResolver.openFileDescriptor(uri, "r")
+                    // O DESCRITOR PRECISA SER SEEKÁVEL, e nem todo provedor dá
+                    // um: o `PdfRenderer` procura a tabela de referências
+                    // cruzadas no FIM do arquivo, e um DocumentsProvider de
+                    // nuvem (Drive, OneDrive) entrega por PIPE o arquivo que
+                    // ainda não tem cópia local — `openPipeHelper`. Sobre um
+                    // pipe o construtor lança `IllegalArgumentException`, que
+                    // chega ao operador como uma classe de exceção que não
+                    // sugere ação nenhuma, num PDF perfeito. `statSize` é a
+                    // pergunta barata (`fstat`): ela devolve -1 para tudo que
+                    // não é arquivo comum, e um arquivo comum de verdade nunca
+                    // cai na cópia.
+                    if (aberto != null && aberto.statSize < 0L) {
+                        val copia = copiarParaCache(ctx, aberto)
+                        temporario = copia
+                        ParcelFileDescriptor.open(copia, ParcelFileDescriptor.MODE_READ_ONLY)
+                    } else {
+                        aberto
+                    }
                 }
                 u.scheme == "https" -> {
                     // [baixar] LANÇA com o motivo (código HTTP, teto, rede) em
@@ -221,6 +240,45 @@ object SlideDeck {
      * chega perto disto.
      */
     private const val TETO_PDF = 300L * 1024 * 1024
+
+    /**
+     * Copia para um arquivo do nosso cache o PDF que só chega em STREAM, e
+     * devolve-o — ou LANÇA, pelo mesmo contrato de [baixar].
+     *
+     * Existe porque o [PdfRenderer] exige um descritor seekável (ver o ramo
+     * `/saf/` de [paginas]). O descritor entra aqui e sai FECHADO em qualquer
+     * desfecho — daí o `use` envolver até a criação do temporário. Quem chama
+     * guarda o arquivo em `temporario`, e o `finally` de [paginas] o apaga: o
+     * cache não pode ficar com uma segunda cópia do PDF depois da
+     * rasterização. O teto é o mesmo [TETO_PDF] do download — este processo
+     * hospeda os dois WebViews e a Presentation.
+     */
+    private fun copiarParaCache(ctx: Context, fd: ParcelFileDescriptor): File =
+        ParcelFileDescriptor.AutoCloseInputStream(fd).use { entrada ->
+            val destino = File.createTempFile("saf-", ".pdf", raiz(ctx))
+            try {
+                FileOutputStream(destino).use { saida ->
+                    val buf = ByteArray(64 * 1024)
+                    var soma = 0L
+                    while (true) {
+                        val n = entrada.read(buf)
+                        if (n < 0) break
+                        soma += n
+                        if (soma > TETO_PDF) {
+                            throw java.io.IOException(
+                                "PDF acima de ${TETO_PDF / (1024 * 1024)} MB",
+                            )
+                        }
+                        saida.write(buf, 0, n)
+                    }
+                }
+                if (destino.length() <= 0L) throw java.io.IOException("PDF vazio")
+                destino
+            } catch (e: Exception) {
+                destino.delete()
+                throw e
+            }
+        }
 
     /**
      * Baixa o PDF e devolve o arquivo — ou LANÇA, com o motivo na mensagem.

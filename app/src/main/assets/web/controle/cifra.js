@@ -1,11 +1,18 @@
 // ============================================================================
 // CIFRA — a regra que lê uma página de cifra e a transforma em linhas
 //
-// A aba "Cifra" do visualizador de letras é lida SOB DEMANDA: o operador abre a
-// aba, o shell busca a página (`AVNative.cifraHtml`, ver `CifraFonte.kt`) e
-// este módulo a interpreta. **Nada é baixado em lote, nada entra no bundle do
-// OTA, nada é gravado em disco** — o cache é um `Map` em memória no
-// `controle.js`, morto ao fechar o app. Isso é contrato do recurso, não detalhe.
+// A cifra é lida SOB DEMANDA, uma música por vez: o shell busca a página
+// (`AVNative.cifraHtml`, ver `CifraFonte.kt`) e este módulo a interpreta. O que
+// é contrato do recurso, e não detalhe: **nada entra no bundle do OTA nem no
+// repositório — quem baixa é o APARELHO.** Ler conteúdo de terceiro no aparelho
+// do operador e DISTRIBUIR uma cópia dele não são degraus da mesma escada.
+//
+// O que o aparelho GUARDA é o veredito de cada música, e quem grava é o
+// `controle.js`: o `state` `cifras:<collId>`, por `AVDB.updateState` — mescla,
+// nunca substitui —, com a ausência valendo `CIFRA_REVISITA_MS` (30 dias). É
+// ele que faz a folha abrir sem rede e que torna varrível o acervo inteiro
+// (`syncCifrasAcervo`, na abertura). O `Map` em memória do `controle.js` é o
+// cache da SESSÃO, um degrau acima desse.
 //
 // ## Por que é um arquivo à parte, e PURO
 //
@@ -58,7 +65,8 @@
 //
 // ## O que este módulo NÃO faz, de propósito
 //
-//  - **Não guarda nada.** Sem IndexedDB, sem OPFS, sem `localStorage`.
+//  - **Não guarda nada — o MÓDULO.** Sem IndexedDB, sem OPFS, sem
+//    `localStorage`; ele é puro. Quem grava o veredito é o `controle.js`.
 //  - **Não decide URL de host.** Quem trava o host é o Kotlin ([CifraFonte]);
 //    aqui uma URL malformada é só uma busca que não acha.
 //  - **Não projeta.** A cifra é para o OPERADOR ler enquanto toca; o que vai ao
@@ -336,12 +344,23 @@
   // (b) NÃO exigir dígito depois de cada uma — era essa exigência que fazia
   // `7M` reprovar. As peças longas vêm antes das curtas na alternância, senão
   // `m` consumiria o começo de `maj` e sobraria `aj`.
+  //
+  // ===== A BARRA TEM DOIS SIGNIFICADOS =====
+  //
+  // Ela é o baixo invertido (`C/E`) **e** a tensão da notação Chediak, que é a
+  // do Cifra Club: `C7/9`, `C6/9`, `A7/13`, `Em7/9`, `G7/11`. Quem separa as
+  // duas é o que vem DEPOIS — dígito é extensão, raiz é baixo —, e é isso que
+  // a peça `\/(?=\d)` faz: a extensão só absorve a barra diante de número, e o
+  // lookahead deixa o `/E` para o grupo do baixo. Sem ela a família `X7/9`
+  // inteira reprovava, e o que a gramática reprova volta INTACTO de
+  // [transporAcorde] — parado no tom original com a folha andando à volta dele,
+  // que é o defeito da v1.1.13 noutra família de sufixo.
   const RAIZ = '[A-G][#b]?';
-  const PECA = '(?:maj|min|dim|aug|sus|add|M|m|º|°|\\+|-|#|b|\\d|\\([^)]{0,12}\\))';
+  const PECA = '(?:maj|min|dim|aug|sus|add|M|m|º|°|\\+|-|#|b|\\/(?=\\d)|\\d|\\([^)]{0,12}\\))';
   const EXTENSAO = PECA + '*';
   const ACORDE = new RegExp(
     '^(' + RAIZ + ')'                   // fundamental
-    + '(' + EXTENSAO + ')'              // 7M, m7, sus4, add9, (b5), 5+, maj7…
+    + '(' + EXTENSAO + ')'              // 7M, m7, sus4, add9, (b5), 5+, 7/9…
     + '(?:\\/(' + RAIZ + '))?$',        // baixo invertido
   );
 

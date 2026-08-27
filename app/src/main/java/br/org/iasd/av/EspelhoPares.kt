@@ -88,7 +88,7 @@ object EspelhoPares {
      * Encurtar nunca afrouxa um controle de acesso.
      *
      * E ele conserta uma falha real, que a porta aberta da v5.170 tornou
-     * frequente: uma sessão só saía de [vivas] por [encerrar], [recusar] ou o
+     * frequente: uma sessão só saía de [vivas] por [encerrar], [zerar] ou o
      * prazo de SEIS HORAS. Uma tela que recarrega a página numa aba nova (a TV
      * que foi desligada e religada, o navegador que perdeu o `sessionStorage`)
      * pede um token novo e o antigo fica ocupando vaga. **Três recomeços
@@ -532,7 +532,7 @@ object EspelhoPares {
      * mais de [PRAZO_OCIOSA_MS]. `false` = todas as três estão em uso.
      *
      * É o conserto do teto consumido por fantasmas: até aqui uma sessão só saía
-     * por [encerrar], por [recusar] ou pelas seis horas do prazo, e uma tela que
+     * por [encerrar], por [zerar] ou pelas seis horas do prazo, e uma tela que
      * recomeça numa aba nova deixa a anterior ocupando vaga. Com a porta aberta
      * isso deixou de ser hipótese — três recomeços e o espelho passava a recusar
      * todo mundo pelo resto do culto.

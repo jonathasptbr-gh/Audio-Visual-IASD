@@ -43,9 +43,11 @@ subsistema do shell, mais a tabela que diz onde cada um dos 28 arquivos é
 explicado), `docs/ARQUITETURA-WEB.md` (o HUB da base web: regras gerais e o
 mapa dos capítulos em `docs/arquitetura/`), `docs/TELAO-POR-COMANDOS.md`
 (o contrato das telas da rede), `docs/FONTE-DE-DADOS-LOUVORJA.md` (hinos/Bíblia)
-e `docs/HISTORICO.md`
+, `docs/HISTORICO.md`
 (**apêndice**: a nota de cada versão, para consultar por `grep`, nunca por
-leitura integral).
+leitura integral) e `docs/AUDITORIA-2026-08.md` (**apêndice**: a varredura de
+~60.000 linhas da v1.4, com os 75 achados, o método de refutação e os 26 que
+ficaram por aplicar — consultar por `grep`).
 
 ---
 
@@ -165,7 +167,7 @@ docs/
 │                                #   (a auditoria de 2026-08). Para ESVAZIAR.
 ├── shell/                       # HUB do KOTLIN + um capítulo por subsistema
 │   ├── README.md                #   o mapa: qual capítulo abrir, e onde cada .kt mora
-│   ├── PONTE.md                 #   AVNative campo a campo, SHELL_VERSION, as 3 filas
+│   ├── PONTE.md                 #   AVNative campo a campo, SHELL_VERSION, as 4 filas
 │   └── OTA.md                   #   watchdog de boot, detecção, shellTag, achados abertos
 ├── ARQUITETURA-WEB.md           # HUB da base web: regras gerais + mapa dos capítulos
 ├── arquitetura/                 # um capítulo por arquivo — abrir SÓ o que a pergunta pede
@@ -552,9 +554,9 @@ existe, é tocável e não faz nada. Por isso mudança de ponte é um lote
 > A tabela dos 56 degraus está em `docs/HISTORICO.md` — ela é história do
 > contrato, e história mora lá.
 
-### As TRÊS filas da ponte — escolher a errada é uma regressão muda
+### As QUATRO filas da ponte — escolher a errada é uma regressão muda
 
-São três executores de **uma thread cada**, no `companion` do `NativeBridge`
+São quatro executores de **uma thread cada**, no `companion` do `NativeBridge`
 (portanto **compartilhados por todas as instâncias**: um por instância vazava a
 `NativeBridge` inteira, e com ela a Activity/Presentation antigas, a cada morte
 de renderer e a cada ciclo do dongle). Todos daemon.
@@ -564,6 +566,7 @@ de renderer e a cada ciclo do dongle). Todos daemon.
 | **`io`** | só o que responde em MILISSEGUNDOS: `version.json`, estado do OTA, `listFolder` pelo `ContentResolver`. **Nada de rede** | é a fila de que tudo mais depende |
 | **`transferencia`** | as transferências de MINUTOS: o download do YouTube, o do APK, e o `ytDiscard` | ver abaixo |
 | **`extracao`** | o que vai à rede ler METADADOS (busca, playlists de canal, o manifesto do `ytStream`, o `apkProcurar`) e a rasterização de PDF — coisas de SEGUNDOS | ver abaixo |
+| **`cifra`** | só o `cifraHtml` — o GET da página do Cifra Club | ver abaixo |
 
 - **Enfileirar rede em `io` é o defeito que a separação corrigiu — e "curta"
   não salva.** `io` é de uma thread só; do lado web `CALL_TIMEOUT_MS` são 60 s e
@@ -587,8 +590,18 @@ de renderer e a cada ciclo do dongle). Todos daemon.
   inicialização global do NewPipe. Os diagnósticos não colidem: `diagnostico` é
   escrito só pelo caminho do download e `diagnosticoStream` só pelo do
   manifesto — que é justamente por que eles são dois campos.
+- **A `cifra` é própria porque ela é MASSA e a `extracao` é TOQUE.** A varredura
+  do acervo roda na ABERTURA com seis requisições concorrentes do lado web, e o
+  prazo do `CifraFonte` vale para connect E para read: na `extracao` havia
+  sempre ~6 páginas à frente de quem chegasse depois, e o `ytStream` de um
+  "Tocar agora" podia vencer os 60 s do `call()` e cair no download, calado. Sair
+  dali é seguro porque o que obriga AQUELA fila a ser serial é a inicialização
+  do NewPipe, que o `CifraFonte` não toca (`HttpURLConnection` avulso); esta
+  continua de uma thread pelo motivo dela — `CifraFonte.ultimaTentativa` é o
+  veredito da ÚLTIMA busca, e escritas concorrentes fariam a linha "Cifra:" do
+  Registro descrever outra tentativa.
 
-E duas regras que ficam de fora das três filas:
+E duas regras que ficam de fora das filas:
 
 - **Os cinco métodos do espelho rodam na MAIN THREAD**, fora de qualquer fila.
   "Ligar a transmissão" enfileirado atrás de um download venceria o prazo de
@@ -676,7 +689,9 @@ construção:
   da frente. Com nome PRÓPRIO, nada que espera "o telão" o recebe por engano: o
   `controle.js` **elege UMA tela** como referência (convertendo o status dela em
   `espelho-status`, que os consumidores já conhecem) e o
-  `NativeBridge.snoopStatusDeFora` faz a mesma conta de precedência.
+  `NativeBridge.snoopStatusDeFora` faz a mesma conta de precedência **e a mesma
+  ELEIÇÃO** — o silêncio que troca a eleita é o mesmo dos dois lados, porque
+  duas contas com réguas diferentes elegeriam telas diferentes.
 - **O `BroadcastChannel` é NEUTRALIZADO NO ENVIO, nunca apagado.** `db.js` escolhe
   o canal perguntando `'BroadcastChannel' in global`: apagar a propriedade
   deixaria a tela com um único caminho de **recepção**, e a redundância dos dois
@@ -1544,9 +1559,21 @@ derruba a transmissão — sem TV, as telas da rede SÃO o que a congregação v
   `espelho-status` e `tela-status` passam pelo MESMO relógio de precedência
   (`ultimoStatusDoTelaoMs`) — a versão por-instância tinha bug latente de
   precedência entre WebViews, e é ele que alimenta a notificação de mídia com o
-  app minimizado.
+  app minimizado. **E pela mesma ELEIÇÃO** (`telaRefId`): calado o telão, as até
+  três telas alternariam entre si, e `updateFromDisplay` supõe UMA fonte — a
+  barra da tela de bloqueio andando para a frente e para trás é o mesmo defeito
+  da precedência, um nível abaixo.
 - **Detecção por PRESENÇA, não por versão**, onde há objeto injetável:
   `telaAtiva()` pergunta `espelhoLigado() && window.__avTelaMidia`.
+- **E O `mirrorEstado` É SEMEADO NA ABERTURA** (`lerEspelho()` no `init()`). O
+  servidor vive no SHELL e sobrevive ao documento: o OTA aplicado e a morte do
+  renderer recarregam o Controle com as telas ainda pareadas. Sem a semente o
+  cache nasce `null` e ninguém o relê — `acertarEnqueteDeFundo` só liga o
+  relógio de 4 s quando o estado JÁ é conhecido, e a enquete da folha depende do
+  bloco de conexão à vista. Aí `telaAtiva()` MENTE: todo `load` sai sem `__rec`,
+  a tela não acha o id no IndexedDB dela e a projeção volta ao wallpaper — o
+  culto inteiro, sem erro em lugar nenhum. Pelo mesmo cache nulo
+  `somLocalDeveEstar()` desmuta a preview por cima das telas.
 
 ### As inversões que precisam estar ditas
 
@@ -3019,6 +3046,9 @@ mundo anterior por outro caminho.
 | `aviso-de-importacao.test.mjs` | **o aviso de que um arquivo está entrando.** A ausência dele NÃO É UM ERRO: nada quebra, nada aparece no console, e o item chega ao fim — só chega em silêncio, e "importei e não aconteceu nada" é indistinguível de travar. Um teste do desfecho passa nas duas versões, então ele mede o MEIO, com o arquivo servido AOS PEDAÇOS para a janela existir |
 | `ferramentas-folha.test.mjs` | **as Ferramentas como folha do Cronograma** (v1.3.10). A asserção que carrega o lote é GEOMÉTRICA — a caixa da folha contra o cabeçalho e a caixa de controles —, porque uma folha de corpo inteiro continua funcionando e continua bonita: o que ela perde é o transporte e a preview à vista, e isso não aparece em teste de comportamento nenhum. Trava também que `activeTab` continua em `'imports'` com a folha aberta (se ela trocasse a aba, o rodapé onde mora a porta dela deixaria de ser desenhado) |
 | `historico.test.mjs` | **o histórico do culto**, uma lista que se preenche sozinha no ponto mais quente do app (`send`) e cujos três modos de errar são mudos: não registrar (a folha abre vazia depois de um culto inteiro), registrar demais (`repeat: 'one'` enterrando o culto em cópias do mesmo nome) e oferecer ao Cronograma um id que o coletor já recolheu — este só aparece no sábado seguinte |
+| `restaurar-letra-adiada.test.mjs` | **a letra que volta depois de um aviso não pode ser a do hino ANTERIOR.** `restoreSceneAfterText` lia `stage.getCurrent()` sem saber que havia `load` em voo, e o `current` só troca depois do `runFadeOut` — a janela são os ~600 ms do `FADE.time` de TODA troca de cena, não um fio de navalha, e o estado é PERMANENTE: a letra errada AVANÇA pelo relógio da música nova. Três cenas, e as duas metades provadas por reversão: sem o adiamento a CENA 1 reprova, sem o CANCELAMENTO na saída de cena a CENA 3 reprova — um `clear` durante a espera remontava a letra sobre um palco já esvaziado, invisível porque a cortina cobre |
+| `restaurar-letra-adiada-preview.test.mjs` | **o par PREVIEW do de cima, e ele existe porque corrigir um lado não corrige o outro.** As duas metades foram confirmadas independentemente, por medição — é a armadilha que o `fundo-da-letra` já pagou uma vez: *ler cada lado isolado aprova os dois.* Sem TV a preview É a projeção |
+| `gaveta-e-cartao.test.mjs` | **o cartão de falha da preview não pode prender o trabalho SEGUINTE.** `falhar()` segura o cartão pelo prazo de leitura retendo o `pvBusyCount`, e um trabalho novo que nascesse e terminasse dentro da janela encontrava o contador em 1: o cartão ficava na tela com a legenda do trabalho NOVO, já terminado. Regressão de uma correção desta campanha, pega pelo revisor e provada por reversão. Tem a OUTRA metade — falhando sozinho o cartão FICA —, sem a qual a primeira seria a volta do defeito que o prazo existe para impedir |
 | `gaveta-no-download.test.mjs` | a GAVETA DA LINHA contra o redesenho do progresso — o único lugar do acervo em que o operador DECIDE, e o redesenho remontava a lista por baixo dela a cada 400 ms. MUDO nos dois tempos: aberta, ela some sem erro nenhum; ABRINDO (há um `await` do IndexedDB entre o toque e o `expanded`), o `li` vira órfão e o toque não faz nada. Quatro metades, e a primeira é o HAZARD — sem ela as outras provariam que uma função concorda consigo mesma |
 | `cifra-offline.test.mjs` | **a cifra guardada do hinário abre SEM REDE**, e **a gravação MESCLA em vez de substituir**. A primeira promessa é operacional e falha calada: sem a leitura do disco o app cai no caminho de rede e, COM rede, a folha aparece igual — pela porta errada. Por isso a asserção é `cifraHtml` NÃO ter sido chamado, com a ponte respondendo "sem rede" a tudo; a outra metade prova que o que NÃO está guardado ainda vai à rede. A segunda trava o defeito que apagou 275 cifras de um aparelho: a asserção é a PROPRIEDADE (uma mescla não pode produzir zero a partir de 275), não o interleaving que mordeu daquela vez |
 | `leitor-biblioteca.test.mjs` | **a folha de qualquer música da Biblioteca, SEM telão.** Ler deixou de exigir projetar, e três coisas falham calado: a folha mostrar a música da CENA em vez da pedida; alguma coisa ir ao TELÃO — o único defeito que não deixa rastro na tela de quem abriu a folha, e por isso o oráculo afirma ZERO comandos no barramento; e o relógio da cena governar a rolagem de OUTRA música, que não erra alto: a folha anda, no compasso errado |
@@ -3399,7 +3429,7 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: v1.3.16** (base web) · **v1.3.12** (APK) · `SHELL_VERSION` **56** · bundle com
+**Versão atual: v1.4** (base web) · **v1.4** (APK) · `SHELL_VERSION` **56** · bundle com
 `minShell: 56` — o shell 56 é o **PISO**: todo método da ponte existe, e não há
 guarda de versão no lado web. O que continua valendo é que `java/`, `res/`, o
 manifest e os workflows **só chegam instalando o APK**.

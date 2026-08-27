@@ -102,10 +102,19 @@ secao('2. o que é acorde, e o que não pode ser');
   // PARADOS no tom original enquanto a folha inteira andava.
   'G7M', 'D7M', 'A7M/E', 'D7M/A', 'D#7M', 'A#7M/F',
   'Cmaj7', 'CM7', 'A5+', 'E7(9)', 'Am7(b5)', 'F#7(4)', 'Bm6',
+  // A MESMA CLASSE DE DEFEITO, noutra família: a tensão depois da barra
+  // (notação Chediak, a do Cifra Club). Enquanto o único `/` permitido era o do
+  // baixo — que exige uma RAIZ depois —, `C7/9` reprovava e voltava intacto da
+  // transposição, parado no tom original com a folha andando à volta dele.
+  'C7/9', 'C6/9', 'A7/13', 'Em7/9', 'G7/11', 'D7/9-', 'Bb7/9', 'C7/9/E',
 ].forEach((t) => checar(C.pareceAcorde(t), 'aceita o acorde ' + t));
 [
   'Deus', 'Cristo', 'Amor', 'Ele', 'Senhor', 'Bendito', 'Filho', 'Graca',
   'Glória', 'e', 'do', 'Aleluia',
+  // O PAR da família `X7/9`: a barra só é absorvida diante de DÍGITO. Sem o
+  // lookahead ela viraria mais um caractere solto na extensão, e "E/os" — que
+  // é letra — passaria a acorde.
+  'E/os', 'A/o', 'C/da',
   // A gramática AFROUXOU na v1.1.14 (de lista de palavras para conjunto de
   // caracteres), e é justamente aí que ela poderia passar a engolir letra. Esta
   // metade é a que prova que não engoliu — sem ela, a correção do `7M` teria
@@ -140,6 +149,15 @@ checar(C.transporAcorde('D7M/A', -5) === 'A7M/E',
 checar(C.transporAcorde('G7M', -5) === 'D7M', 'G7M −5 = D7M', C.transporAcorde('G7M', -5));
 checar(C.transporAcorde('D7M/A', -4) === 'A#7M/F', 'D7M/A −4 = A#7M/F', C.transporAcorde('D7M/A', -4));
 checar(C.transporAcorde('G7M', -4) === 'D#7M', 'G7M −4 = D#7M', C.transporAcorde('G7M', -4));
+// A TENSÃO DEPOIS DA BARRA viaja com o resto da extensão, e o baixo de verdade
+// continua andando: as duas barras convivem no mesmo token (`C7/9/E`).
+checar(C.transporAcorde('C7/9', 2) === 'D7/9', 'C7/9 +2 = D7/9', C.transporAcorde('C7/9', 2));
+checar(C.transporAcorde('A7/13', -2) === 'G7/13', 'A7/13 −2 = G7/13', C.transporAcorde('A7/13', -2));
+checar(C.transporAcorde('C7/9/E', 2) === 'D7/9/F#',
+  'a tensão fica na extensão e o baixo anda', C.transporAcorde('C7/9/E', 2));
+checar(C.transporLinha('C7/9    Am7     D7/9    G7M', 2) === 'D7/9    Bm7     E7/9    A7M',
+  'a linha inteira anda — nenhum acorde fica para trás',
+  C.transporLinha('C7/9    Am7     D7/9    G7M', 2));
 checar(C.transporAcorde('Cmaj7', 2) === 'Dmaj7', 'a grafia por extenso também anda');
 checar(C.transporAcorde('A5+', 3) === 'C5+', 'e as alterações com sinal');
 // A GRAFIA SEGUE A RAIZ, não um `b` perdido dentro da extensão: o bemol de uma

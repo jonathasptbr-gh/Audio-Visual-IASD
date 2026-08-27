@@ -821,6 +821,18 @@ texto por cima precisa ser escura. Daí três tokens, um por papel:
   `--press-luz`; nunca uma escala, que vira doze valores diferentes num app cujos
   alvos vão de 34 a 408px. Um ancestral não responde ao toque que foi para um
   filho — e suprime as DUAS partes.
+- **R8 — texto secundário DENTRO de um controle preenchido herda a cor do
+  rótulo com alfa, nunca `--muted`.** O cinza é calibrado contra as superfícies
+  do app (fundo, painel, `--surface`), não contra o denim de `--accent-fill`:
+  medido no tema claro, um "· 3/6" em `--muted` ao lado de um rótulo
+  `--on-accent` ficava praticamente ilegível. Herdando com alfa, ele acompanha o
+  botão em qualquer variante (normal, aviso, destrutiva) sem uma regra por
+  variante.
+- **R9 — um destrutivo só fica sem rótulo se for CONFIRMADO.** Quem nomeia o
+  dano é o diálogo, e o `title`/`aria-label` guarda a frase para o ponteiro e
+  para o leitor de tela. E o peso visual acompanha o que a peça faz: reduzido ao
+  ícone, o destrutivo é o MENOR dos irmãos da linha — um alvo de um símbolo não
+  ocupa a largura de um controle que carrega ação, estado e progresso.
 
 ### Contraste — o que foi medido
 

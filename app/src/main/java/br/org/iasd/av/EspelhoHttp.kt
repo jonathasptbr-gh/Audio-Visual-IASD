@@ -365,7 +365,18 @@ object EspelhoHttp {
         return fora
     }
 
-    /** O terminador do corpo `chunked`. Só o `desligar()` e o adeus o usam. */
+    /**
+     * O terminador do corpo `chunked` — num corpo sem `Content-Length` ele **É**
+     * a afirmação "o recurso acabou aqui", e não há nada que o desminta.
+     *
+     * Três chamadores, todos no `EspelhoServidor`: o fim do SSE
+     * (`servirEventos`), o fim da transmissão direta de tamanho desconhecido
+     * (`servirTransmissao`) e o fim da mídia em crescimento (`servirMidia`) —
+     * este último SÓ quando os bytes anunciados chegaram todos. Escrevê-lo numa
+     * saída que não seja essa entrega MEIA MÍDIA como se fosse inteira, sem erro
+     * em lugar nenhum; a conta que decide está no `servirMidia`, e é lá que ela
+     * se audita.
+     */
     fun chunkFinal(): ByteArray = "0\r\n\r\n".toByteArray(Charsets.US_ASCII)
 
     // ------------------------------------------------- Range (RFC 7233, E1)

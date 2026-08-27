@@ -13,9 +13,9 @@
 //     [{id,name}] e um array de ids por atalho em "folder_<id>". São detentores
 //     de referência como as listas.
 //   - um blob de "media" só é apagado quando NADA mais aponta para ele — nem
-//     lista, nem Favorito, nem a CENA (`state.current.mediaId`; ver
-//     `lerDetentores`); registros de "files" pertencem à sua pasta OPFS e não
-//     passam pelo gc.
+//     lista, nem Favorito, nem a CENA (`state.current.mediaId`), nem um cue que
+//     o carregue em `data.ids` (o PACOTE; ver `lerDetentores`); registros de
+//     "files" pertencem à sua pasta OPFS e não passam pelo gc.
 //
 // Exposto como window.AVDB.
 
@@ -447,17 +447,9 @@
     if (rec) return rec;
     return fileGet(id);
   }
-  // REMOVIDAS na v5.48: `storeUrlTemp`, `storeMediaTemp` e `deleteMedia`.
-  // As duas primeiras gravavam em "media" SEM entrar em lista nenhuma, e o
-  // comentário da terceira dizia que servia "para limpar temp de pastas
-  // vinculadas" — pastas vinculadas não existem mais (foram substituídas pelas
-  // pastas OPFS, sincronizadas por syncDeviceFolder/fileAdd), e as três não
-  // tinham um único chamador em toda a base. Pior que código morto: quem lesse
-  // o comentário concluiria que existe um caminho de limpeza de temporários
-  // (não existe — o gc só roda dentro de `listRemove`), e voltar a usá-las
-  // criaria registros que NENHUM gc alcança, ou seja, vazamento permanente no
-  // IDB. Quem precisar de um registro de mídia usa `addMedia`/`addUrlMedia`,
-  // que já entram numa lista e portanto são coletáveis.
+  // Um registro de mídia que não entre em LISTA nenhuma nasce sem detentor, e
+  // é o `gcOrfaos` da abertura seguinte que o apaga. Quem precisar de um usa
+  // `addMedia`/`addUrlMedia`, que gravam registro e lista na MESMA transação.
   async function renameMedia(id, name) {
     // get + put na mesma transação para garantir atomicidade (o await entre os
     // dois mantém a transação viva pois ambos são requests IDB encadeados).
@@ -676,8 +668,8 @@
   // aberto), porque a decisão de apagar precisa enxergar o mesmo instante da
   // remoção — ver o TOCTOU descrito em listRemove.
   //
-  // NOTA: qualquer chave de `state` que passe a guardar ids de mídia precisa
-  // entrar AQUI. É o ponto único.
+  // NOTA: qualquer chave de `state` — ou campo de registro — que passe a guardar
+  // ids de mídia precisa entrar AQUI. É o ponto único.
   //
   // Devolve um Set com TODOS os ids detidos, lendo cada lista UMA vez — a forma
   // que os laços multi-id (listSet, folderDrop, gcOrfaos) consomem. Reperguntar
@@ -724,6 +716,30 @@
     // do aparelho e não tem porta de saída.
     const cena = await asPromise(stateStore.get('current'));
     if (cena && cena.noAr && cena.mediaId) donos.add(cena.mediaId);
+    // UM CUE TAMBÉM É DETENTOR — do que ele carrega em `data.ids`. O cue
+    // `group` (o "Guardar pacote" da fila) guarda uma FILA inteira de ids que
+    // podem não estar em lista nenhuma: sem descer neles, salvar a fila no
+    // Cronograma e depois TROCAR a fila apaga as mídias e deixa o pacote de pé
+    // apontando para bytes que não existem — `abrirPacote` só descobre em "as
+    // mídias saíram do aparelho", no sábado. (O pacote do SORTEIO escapava
+    // disto por acidente: os ids dele vivem no store `files`, que o coletor não
+    // toca. O da fila aceita importados e downloads do YouTube, que vivem aqui.)
+    //
+    // Só desce nos cues que JÁ SÃO detidos — um pacote órfão não segura nada, e
+    // morre com os ids dele na mesma passada. Uma passada só, sobre o instantâneo
+    // de `donos`: um pacote não contém pacote (`guardarPacote` filtra cues), e se
+    // um dia contiver, o de dentro apenas vaza — que é o lado seguro de errar
+    // aqui. Testar `data.ids` e não o subtipo faz um cue novo com ids nascer
+    // protegido em vez de nascer destrutivo.
+    //
+    // Lê do store "media" da MESMA transação: todo chamador tem de abri-la com
+    // STORE_MEDIA no escopo (todos já abrem — é lá que a mídia é apagada).
+    const midias = stateStore.transaction.objectStore(STORE_MEDIA);
+    for (const id of Array.from(donos)) {
+      const rec = await asPromise(midias.get(id));
+      if (!rec || rec.kind !== 'cue' || !rec.data) continue;
+      if (Array.isArray(rec.data.ids)) for (const dep of rec.data.ids) donos.add(dep);
+    }
     return donos;
   }
 
@@ -754,10 +770,10 @@
   // ISTO ERA UM VAZAMENTO SILENCIOSO até a v5.103. O Controle apagava o atalho
   // com dois `setState` crus — tirava a entrada de `folders` e gravava a lista
   // vazia — e nada mais acontecia: uma mídia cujo ÚLTIMO detentor era aquele
-  // atalho virava um registro que nenhuma lista aponta e que NENHUM gc alcança
-  // (o gc só roda dentro de `listRemove`). O blob ficava no IndexedDB para
-  // sempre, invisível na tela e sem caminho de limpeza — um vídeo de centenas
-  // de MB "sumia" e continuava ocupando o disco do aparelho.
+  // atalho virava um registro que nenhuma lista apontava e que nenhum gc
+  // alcançava (a faxina do `gcOrfaos` ainda não existia). O blob ficava no
+  // IndexedDB para sempre, invisível na tela e sem caminho de limpeza — um
+  // vídeo de centenas de MB "sumia" e continuava ocupando o disco do aparelho.
   //
   // A ordem importa: o atalho sai de `folders` ANTES da varredura, senão
   // `isReferenced` o encontraria no índice e ele seguraria os próprios ids.

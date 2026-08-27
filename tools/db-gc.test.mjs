@@ -149,6 +149,38 @@ checar((await pg.evaluate(() => window.AVDB.gcOrfaos())) === 1,
 checar(!(await existe(outroEmCena)), 'e o registro que ficou para trás some');
 checar(await existe(cenaNova), 'enquanto a cena nova continua inteira');
 
+// --- O PACOTE É DETENTOR DOS IDS QUE CARREGA -------------------------------
+// O cue `group` (o "Guardar pacote" da fila, e o pacote do sorteio) guarda uma
+// FILA inteira em `data.ids` — ids de mídia que podem não estar em lista
+// nenhuma. Sem descer neles, salvar a fila no Cronograma e depois trocar a fila
+// apaga as mídias e deixa o pacote de pé apontando para bytes que não existem:
+// `abrirPacote` só descobre em "as mídias saíram do aparelho", no sábado.
+//
+// A isenção escrita no histórico vale só para o pacote do SORTEIO, cujos ids
+// vivem no store `files` (que o coletor não toca). O da fila aceita importados e
+// downloads do YouTube, que vivem em `media`.
+const pa = await semear('playlist');
+const pb = await semear('playlist');
+const pacote = await pg.evaluate(async ([x, y]) => (await window.AVDB.addCue(
+  'group', { ids: [x, y] }, { name: 'Pacote', list: 'imports' },
+)).id, [pa, pb]);
+await pg.evaluate(() => window.AVDB.listSet('playlist', []));
+checar((await existe(pa)) && (await existe(pb)),
+  'trocar a fila NÃO apaga a mídia que um pacote guardado ainda aponta');
+checar(await existe(pacote), 'e o pacote continua no Cronograma');
+checar((await pg.evaluate(() => window.AVDB.gcOrfaos())) === 0,
+  'a faxina também as preserva — o pacote é detentor como uma lista');
+checar((await existe(pa)) && (await existe(pb)), 'e elas continuam no banco depois dela');
+
+// A OUTRA METADE, sem a qual a de cima seria VAZAMENTO: morto o pacote, os ids
+// dele voltam a ser órfãos comuns.
+await pg.evaluate((id) => window.AVDB.listRemove('imports', id), pacote);
+checar(!(await existe(pacote)), 'excluir o pacote do Cronograma o apaga');
+checar((await pg.evaluate(() => window.AVDB.gcOrfaos())) === 2,
+  'e a faxina seguinte recolhe as mídias que só ele segurava');
+checar(!(await existe(pa)) && !(await existe(pb)), 'que somem do banco');
+
+
 await navegador.close();
 console.log(falhas.length ? '\n' + falhas.length + ' FALHA(S)' : '\nTodos passaram.');
 process.exit(falhas.length ? 1 : 0);

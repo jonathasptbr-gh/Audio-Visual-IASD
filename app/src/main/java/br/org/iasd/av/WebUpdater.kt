@@ -710,50 +710,66 @@ object WebUpdater {
             Log.i(TAG, "verificação já em curso — ignorando a de $motivo")
             return
         }
-        thread(name = "web-ota", isDaemon = true) {
-            try {
-                // `check` escreve o [ultimoResultado] em cada desfecho seu —
-                // "nada novo" e "exige shell 32" são respostas diferentes, e
-                // carimbá-las aqui por fora apagaria a segunda.
-                val nova = check(app)
-                ultimoOk = SystemClock.elapsedRealtime()
-                ultimoInstante = ultimoOk
-                falhasSeguidas = 0
-                proximaEm = 0
-                // O EMPURRÃO SAI TAMBÉM QUANDO SÓ O SHELL MUDOU, e é por isso
-                // que ele não está mais dentro do `if (nova != null)`.
-                //
-                // Uma Release pode ser publicada sem base web nova (uma
-                // correção só de Kotlin), e nesse caso `check` devolve null com
-                // toda a razão: não há bundle a baixar. Amarrar o aviso ao
-                // bundle deixaria justamente esse caso mudo — o APK existiria,
-                // o `ShellUpdater` já saberia dele, e nada na tela diria nada
-                // até o operador abrir Configurações por conta própria.
-                if (nova != null || ShellUpdater.temNovidade()) {
-                    aoChegar?.invoke(nova ?: "")
-                }
-            } catch (e: Exception) {
-                ultimoInstante = SystemClock.elapsedRealtime()
-                ultimoResultado = "falhou (${e.message})"
-                // RETENTAR SOZINHO, com espera crescente. Sem isto, uma falha
-                // custava a sessão inteira: a ronda de 15 s ainda viria, mas
-                // "sem rede agora" quase nunca significa "sem rede daqui a
-                // meio minuto", e o custo de perguntar de novo é um JSON.
-                val i = minOf(falhasSeguidas, ESPERAS_FALHA_MS.size - 1)
-                val espera = ESPERAS_FALHA_MS[i]
-                falhasSeguidas++
-                proximaEm = SystemClock.elapsedRealtime() + espera
-                Log.i(TAG, "sem atualização ($motivo): ${e.message} — de novo em ${espera / 1000}s")
+        // A THREAD PODE NÃO NASCER, e o [checking] já está tomado neste ponto.
+        // `Thread.start()` lança quando o `pthread_create` falha, e este é o
+        // processo do `largeHeap`, dos dois WebViews e de um vídeo grande. Sem
+        // devolver o flag aqui, o `finally` do corpo nunca roda e o
+        // `compareAndSet` acima passa a recusar TODOS os quatro gatilhos pelo
+        // resto do processo: o aparelho para de receber base web e de saber de
+        // Release nova, sem sinal nenhum — o [diag] congela na frase plausível
+        // do último desfecho. `Throwable`, e não `Exception`, porque o modo de
+        // falhar que interessa é um `Error`.
+        try {
+            thread(name = "web-ota", isDaemon = true) {
                 try {
-                    val n = falhasSeguidas
-                    rondas.schedule(
-                        Runnable { checkAsync(app, "retentativa $n", forcar = true) },
-                        espera, java.util.concurrent.TimeUnit.MILLISECONDS,
-                    )
-                } catch (_: Exception) { /* executor encerrado */ }
-            } finally {
-                checking.set(false)
+                    // `check` escreve o [ultimoResultado] em cada desfecho seu —
+                    // "nada novo" e "exige shell 32" são respostas diferentes, e
+                    // carimbá-las aqui por fora apagaria a segunda.
+                    val nova = check(app)
+                    ultimoOk = SystemClock.elapsedRealtime()
+                    ultimoInstante = ultimoOk
+                    falhasSeguidas = 0
+                    proximaEm = 0
+                    // O EMPURRÃO SAI TAMBÉM QUANDO SÓ O SHELL MUDOU, e é por
+                    // isso que ele não está mais dentro do `if (nova != null)`.
+                    //
+                    // Uma Release pode ser publicada sem base web nova (uma
+                    // correção só de Kotlin), e nesse caso `check` devolve null
+                    // com toda a razão: não há bundle a baixar. Amarrar o aviso
+                    // ao bundle deixaria justamente esse caso mudo — o APK
+                    // existiria, o `ShellUpdater` já saberia dele, e nada na
+                    // tela diria nada até o operador abrir Configurações por
+                    // conta própria.
+                    if (nova != null || ShellUpdater.temNovidade()) {
+                        aoChegar?.invoke(nova ?: "")
+                    }
+                } catch (e: Exception) {
+                    ultimoInstante = SystemClock.elapsedRealtime()
+                    ultimoResultado = "falhou (${e.message})"
+                    // RETENTAR SOZINHO, com espera crescente. Sem isto, uma
+                    // falha custava a sessão inteira: a ronda de 15 s ainda
+                    // viria, mas "sem rede agora" quase nunca significa "sem
+                    // rede daqui a meio minuto", e o custo de perguntar de novo
+                    // é um JSON.
+                    val i = minOf(falhasSeguidas, ESPERAS_FALHA_MS.size - 1)
+                    val espera = ESPERAS_FALHA_MS[i]
+                    falhasSeguidas++
+                    proximaEm = SystemClock.elapsedRealtime() + espera
+                    Log.i(TAG, "sem atualização ($motivo): ${e.message} — de novo em ${espera / 1000}s")
+                    try {
+                        val n = falhasSeguidas
+                        rondas.schedule(
+                            Runnable { checkAsync(app, "retentativa $n", forcar = true) },
+                            espera, java.util.concurrent.TimeUnit.MILLISECONDS,
+                        )
+                    } catch (_: Exception) { /* executor encerrado */ }
+                } finally {
+                    checking.set(false)
+                }
             }
+        } catch (t: Throwable) {
+            checking.set(false)
+            Log.w(TAG, "não foi possível iniciar a verificação de $motivo", t)
         }
     }
 

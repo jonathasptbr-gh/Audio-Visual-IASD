@@ -163,6 +163,17 @@
     return out;
   }
 
+  // Um código fora da faixa útil devolve a entidade INTEIRA em vez de decodificar:
+  // `String.fromCodePoint` LANÇA acima de 0x10FFFF, e a exceção sobe por
+  // `parseChapter` levando o capítulo inteiro junto — os versículos íntegros
+  // somem com o defeituoso, e o chamador lê o desfecho como falha de REDE. O
+  // texto vem de servidor de terceiro, logo é entrada não confiável. Devolver a
+  // entidade (e não um "�") é a regra do `cifra.js`: "&#999999;" visível é um
+  // defeito que alguém relata; um caractere de substituição mudo, ninguém.
+  function codigo(n, todo) {
+    return Number.isFinite(n) && n > 0 && n <= 0x10ffff ? String.fromCodePoint(n) : todo;
+  }
+
   // Remove marcação HTML do texto de um versículo, deixando texto puro (o app
   // original renderiza com v-html; aqui NUNCA inserimos como HTML no DOM — só
   // extraímos o texto). É só troca de string (sem innerHTML), no mesmo espírito
@@ -184,8 +195,8 @@
       .replace(/&gt;/gi, '>')
       .replace(/&quot;/gi, '"')
       .replace(/&apos;/gi, "'")
-      .replace(/&#x([0-9a-f]+);/gi, (_, h) => String.fromCodePoint(parseInt(h, 16)))
-      .replace(/&#(\d+);/g, (_, d) => String.fromCodePoint(parseInt(d, 10)))
+      .replace(/&#x([0-9a-f]+);/gi, (todo, h) => codigo(parseInt(h, 16), todo))
+      .replace(/&#(\d+);/g, (todo, d) => codigo(parseInt(d, 10), todo))
       .replace(/&amp;/gi, '&');
     return t.replace(/\s+/g, ' ').trim();
   }

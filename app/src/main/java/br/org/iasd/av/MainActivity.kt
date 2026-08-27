@@ -54,7 +54,7 @@ class MainActivity : ComponentActivity(), BridgeHost {
      */
     private var temaClaro = false
     private lateinit var webContainer: FrameLayout
-    private lateinit var fullscreenContainer: FrameLayout
+    private lateinit var fullscreenContainer: KeepVisibleFrame
     private var web: WebView? = null
 
     private var presentation: StagePresentation? = null
@@ -275,7 +275,7 @@ class MainActivity : ComponentActivity(), BridgeHost {
         // compartilhado de `shared/tokens.css`.)
         root.setBackgroundColor(getColor(if (temaClaro) R.color.app_bg_claro else R.color.app_bg))
         webContainer = FrameLayout(this)
-        fullscreenContainer = FrameLayout(this)
+        fullscreenContainer = KeepVisibleFrame(this)
         fullscreenContainer.setBackgroundColor(Color.BLACK)
         fullscreenContainer.visibility = View.GONE
         root.addView(webContainer, matchParent())
@@ -1222,6 +1222,11 @@ class MainActivity : ComponentActivity(), BridgeHost {
      *    literalmente "não abra mão da prioridade só porque esta View não está
      *    visível".
      *
+     * E a visibilidade tem DOIS donos, não um: em TELA CHEIA o WebView deixa de
+     * ser quem reporta ao motor, e a mentira passa a ser do contêiner — ver
+     * [KeepVisibleFrame]. É o caso mais comum do culto sem TV, porque a preview
+     * em tela cheia é a projeção justamente ali.
+     *
      * `onResume`/`resumeTimers` ao LIGAR porque a proteção pode chegar com o
      * app já em segundo plano (uma TV que cai no meio do culto): sem eles a
      * página ficaria com a bandeira certa e o renderer já desacelerado.
@@ -1237,8 +1242,19 @@ class MainActivity : ComponentActivity(), BridgeHost {
         }
     }
 
-    /** Escreve [projecaoLocal] no WebView do Controle. Só na main thread. */
+    /**
+     * Escreve [projecaoLocal] nos DOIS lugares que reportam visibilidade ao
+     * motor — o WebView do Controle e o contêiner da tela cheia. Só na main
+     * thread.
+     *
+     * O contêiner vem ANTES da guarda do WebView de propósito: ele existe desde
+     * o `onCreate` e não morre com o renderer, então não há razão para a
+     * proteção da tela cheia depender de haver um WebView vivo neste instante.
+     */
     private fun aplicarProjecaoLocal() {
+        // Ver [KeepVisibleFrame]: em tela cheia quem fala com o motor é a View
+        // do Chromium pendurada aqui, e não o WebView abaixo.
+        fullscreenContainer.manterVisivel = projecaoLocal
         val w = web ?: return
         (w as? WebViewFactory.KeepVisibleWebView)?.manterVisivel = projecaoLocal
         try {
@@ -1746,6 +1762,45 @@ class MainActivity : ComponentActivity(), BridgeHost {
         override fun onConsoleMessage(msg: ConsoleMessage): Boolean {
             Log.d(TAG, "[web] ${msg.message()} (${msg.sourceId()}:${msg.lineNumber()})")
             return true
+        }
+    }
+
+    /**
+     * O contêiner da preview em TELA CHEIA, e a SEGUNDA metade da mentira de
+     * visibilidade — a [WebViewFactory.KeepVisibleWebView] não alcança este
+     * caso.
+     *
+     * Em tela cheia quem fala com o motor deixa de ser o WebView: o Chromium
+     * entrega ao `onShowCustomView` uma View PRÓPRIA, transfere para ela o
+     * tratamento real da View e deixa o WebView original com um tratamento
+     * no-op. A partir daí os dois `override` da `KeepVisibleWebView` não vão a
+     * lugar nenhum, e quem reporta visibilidade é essa View de terceiro — que o
+     * app não subclassifica e que só recebe visibilidade pelo DESPACHO deste
+     * contêiner (o `super` do `ViewGroup` é quem repassa o valor aos filhos).
+     * Sem a mentira aqui, minimizar o app com a preview em tela cheia leva a
+     * página a `hidden`, o Chromium pausa o `<video>` e o louvor cala — e sem
+     * TV a preview em tela cheia É a projeção.
+     *
+     * Com [manterVisivel] em `false` a classe é indistinguível de um
+     * `FrameLayout`, e é assim que ela nasce: com uma tela lá fora o Controle
+     * DEVE ser estrangulado em segundo plano. Quem escreve o campo é
+     * [aplicarProjecaoLocal], o mesmo (e único) ponto que escreve o do WebView.
+     */
+    private class KeepVisibleFrame(ctx: Context) : FrameLayout(ctx) {
+        var manterVisivel = false
+
+        override fun dispatchWindowVisibilityChanged(visibility: Int) {
+            super.dispatchWindowVisibilityChanged(if (manterVisivel) View.VISIBLE else visibility)
+        }
+
+        /**
+         * A visibilidade que o Chromium calcula tem DOIS componentes — a da
+         * janela e a da View —, e mentir só sobre o primeiro deixa o segundo
+         * derrubar a página do mesmo jeito. É o par do `onVisibilityChanged` da
+         * `KeepVisibleWebView`, um nível acima.
+         */
+        override fun dispatchVisibilityChanged(changedView: View, visibility: Int) {
+            super.dispatchVisibilityChanged(changedView, if (manterVisivel) View.VISIBLE else visibility)
         }
     }
 

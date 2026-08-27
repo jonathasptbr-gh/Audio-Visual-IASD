@@ -437,15 +437,9 @@
      afunda", no topo de controle.css). Baixar para .14 devolveria 4,64:1 e
      quebraria aquela igualdade. Quem mexer aqui refaz as duas contas. */
   --on-accent: #e8edf3;
-  /* Halo da pílula "Ligar Sistema" do Display (`.start-pill`) — o ÚNICO
-     consumidor. Segue a MATIZ do accent, não o --accent-fill: um halo na cor do
-     preenchimento (escuro por definição) sobre o preto do palco seria
-     invisível — a sombra existe para descolar a pílula do fundo. */
-  --accent-glow: rgba(149, 181, 244, .32);
 
   /* marca (o denim "IASD") — mesma família do accent, ver acima */
   --brand: #95b5f4;
-  --brand-soft: rgba(149, 181, 244, .16);
   --brand-text: #c2d4f8;
 
   /* ---------- VERMELHO: atenção, em dois papéis que NÃO se misturam ----------
@@ -710,10 +704,8 @@
   --accent-fill: #2f557f;
   --accent-soft: rgba(47, 85, 127, .12);
   --on-accent: #ffffff;
-  --accent-glow: rgba(47, 85, 127, .28);
 
   --brand: #2f557f;
-  --brand-soft: rgba(47, 85, 127, .12);
   --brand-text: #24446a;
 
   /* scarlett OFICIAL como fundo (branco em cima, 5,67:1). O `-strong` é o

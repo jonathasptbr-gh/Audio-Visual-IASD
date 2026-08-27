@@ -182,10 +182,13 @@ object ShellUpdater {
             val o = JSONObject(txt)
             val tag = o.optString("tag_name").trim()
             if (tag.isEmpty()) return fora.put("erro", "release sem tag")
+            // A tag do GitHub vem com o `v` (`limpar` existe só por isso), e
+            // TUDO que este arquivo guarda ou compara vive no domínio LIMPO.
+            val v = limpar(tag)
             val minha = versaoInstalada(app)
             // A comparação é NUMÉRICA por componente, como a do [WebUpdater]:
             // "1.9" é MAIOR que "1.76" como texto, e menor como versão.
-            if (WebUpdater.compareVersions(limpar(tag), limpar(minha)) <= 0) return fora
+            if (WebUpdater.compareVersions(v, limpar(minha)) <= 0) return fora
             val assets = o.optJSONArray("assets") ?: return fora.put("erro", "release sem arquivo")
             var url = ""
             var bytes = 0L
@@ -198,7 +201,14 @@ object ShellUpdater {
             }
             if (url.isEmpty()) return fora.put("erro", "release sem .apk")
             if (!hostOk(url)) return fora.put("erro", "endereco do arquivo fora do GitHub")
-            achado = Achado(tag, url, bytes, o.optString("body").take(600))
+            // GUARDAR A TAG CRUA aqui é o achado que se apaga sozinho: a
+            // leitura seguinte de [novidade] compararia "v1.3.12" com
+            // "1.3.11", leria o `v` como componente ZERO e concluiria que a
+            // Release é mais velha que o instalado — `achado = null`, e o
+            // canal do APK volta a dizer que não há nada. O `versao` do JSON
+            // continua cru de propósito: ali é RÓTULO de tela, não domínio de
+            // comparação.
+            achado = Achado(v, url, bytes, o.optString("body").take(600))
             return fora
                 .put("versao", tag)
                 .put("bytes", bytes)

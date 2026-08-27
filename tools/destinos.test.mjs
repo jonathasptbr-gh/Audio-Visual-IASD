@@ -374,6 +374,49 @@ try {
     'e a FOLHA nem chega a abrir para um item do acervo: a lista dele mora no '
     + 'corpo da linha desde a v5.285');
 
+  // ---- REABRIR UMA GAVETA JÁ MONTADA NÃO EXECUTA SOBRE A VIZINHA ----
+  //
+  // Tudo acima mede a folha (`renderSongMenu`/`openYtMenu`), que é montada a
+  // cada abertura. A gaveta de `linhaDeItem` — a linha de um FAVORITO e a de um
+  // arquivo da pasta do aparelho — vive no corpo da linha, e ali há um segundo
+  // caminho: abrir a linha B reescreve os QUATRO globais da folha
+  // (`songMenuFor`, `destExecutor`, `destRemontar` e o Set `destMarcados`), e
+  // voltar para A tinha de repor todos. Repondo só o `songMenuFor`, o DOM de A
+  // ficava na tela com o `destExecutor` de B por baixo: o "Confirmar" da linha A
+  // mandava B ao Cronograma e ao TELÃO. E ele não precisa de marca nenhuma para
+  // disparar — "Tocar agora" nasce marcado (`destPadraoTocar`).
+  //
+  // MUDO nos dois sentidos: nada no console, e a tela mostra a linha certa. A
+  // asserção é o que o EXECUTOR recebeu, nunca o que a gaveta desenha.
+  const reabrir = await pg.evaluate(async () => {
+    const mk = async (nome) => AVDB.addMedia(new Blob(['x'], { type: 'audio/mpeg' }),
+      { name: nome, type: 'audio/mpeg', kind: 'audio', list: 'avulsos' });
+    const A = await mk('ITEM A'); const B = await mk('ITEM B');
+    const ul = document.createElement('ul');
+    document.body.appendChild(ul);
+    ul.appendChild(linhaDeItem(A, { destinos: ['playlist', 'cronograma'] }));
+    ul.appendChild(linhaDeItem(B, { destinos: ['playlist', 'cronograma'] }));
+    const projetados = []; const listados = [];
+    const oProj = window.projetarItem; const oAdd = window.adicionarNasListas;
+    window.projetarItem = async (it) => { projetados.push(it.name); };
+    window.adicionarNasListas = async (l, id, nome) => { listados.push(nome); };
+    const linhas = [...ul.children];
+    const abrir = (i) => linhas[i].querySelector('.row').click();
+    abrir(0);   // A: a gaveta monta e "Tocar agora" nasce marcado
+    abrir(1);   // B: reescreve os globais da folha
+    abrir(0);   // volta para A — a gaveta dela JÁ está montada
+    linhas[0].querySelector('.song-menu-go').click();
+    await new Promise((r) => setTimeout(r, 200));
+    window.projetarItem = oProj; window.adicionarNasListas = oAdd;
+    ul.remove();
+    return { projetados, listados };
+  });
+  checar(JSON.stringify(reabrir.projetados) === JSON.stringify(['ITEM A']),
+    'reabrir a gaveta de um favorito executa sobre ELE, não sobre a última gaveta montada',
+    JSON.stringify(reabrir));
+  checar(!reabrir.listados.includes('ITEM B'),
+    'e nada da linha vizinha entra em lista nenhuma', JSON.stringify(reabrir));
+
   // ---- A SELEÇÃO MÚLTIPLA SOBREVIVE AO DESTINO ----
   // Os três botões da barra (playlist, favoritos, pasta) já eram destinos lado a
   // lado; o que os separava era a barra sumindo no primeiro toque. Mandar cinco

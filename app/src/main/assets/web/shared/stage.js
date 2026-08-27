@@ -545,7 +545,12 @@
       volume = vol;
       clearInterval(rampTimer); // operador manda: cancela rampa de fade em curso
       clearTimeout(muteApplyTimer); // evita mutar sozinho depois, com o volume já ajustado
+      // O CANCELAMENTO NÃO PODE PERDER O MUDO QUE A RAMPA IA APLICAR: com
+      // `forceMuted` ligado, o timer é o único que mutaria, e sem esta linha o
+      // som ficava no volume em que a rampa parou (a preview soando com a TV
+      // no ar). Ver setForceMuted.
       if (!forceMuted) video.volume = vol;
+      else video.muted = true;
     }
     // Preenchimento da mídia: 'contain' (ajustar, mostra tudo, pode ter barras)
     // ou 'cover' (preenche o quadro, corta o excesso). Aplicado direto via style
@@ -628,9 +633,16 @@
     // aparelho. A troca não corta o áudio na hora — faz a mesma
     // rampa curta do setMute (MUTE_RAMP_TIME): ao ATIVAR, respeita o mudo do
     // operador e sobe o volume de 0 até o alvo; ao DESATIVAR, desce até 0 e só
-    // então muta. Na desativação, `forceMuted` só liga no fim da rampa — senão
-    // rampVolume abortaria de imediato (ele ignora pedidos com forceMuted já
-    // ligado). Sem mídia tocando, aplica na hora (sem rampa, nada a esmaecer).
+    // então muta. Sem mídia tocando, aplica na hora (sem rampa, nada a
+    // esmaecer).
+    //
+    // NA DESATIVAÇÃO, `forceMuted` LIGA JÁ e só o `video.muted` espera a rampa.
+    // A intenção não pode viver apenas no `muteApplyTimer`: `play`, `setMute`,
+    // `setVolume` e `resetMediaDom` o cancelam, e o pedido sumia — a preview do
+    // Controle seguia com som pelo resto da sessão, com a TV no ar. A ORDEM é o
+    // que mantém a rampa de pé: `rampVolume` ignora pedido com `forceMuted`
+    // ligado, então ele vem DEPOIS dela (o `rampSteps` já em curso não
+    // reconsulta a bandeira).
     function setForceMuted(v) {
       const target = !!v;
       clearInterval(rampTimer);
@@ -643,11 +655,12 @@
         return;
       }
       if (target) {
-        // EMUDECER: rampa até 0, depois muta (forceMuted só no fim).
+        // EMUDECER: rampa até 0, depois muta (só o `video.muted` espera).
         if (video.muted) { forceMuted = true; return; }
         rampVolume(video.volume, 0, MUTE_RAMP_TIME);
+        forceMuted = true;
         muteApplyTimer = setTimeout(() => {
-          forceMuted = true; video.muted = true; video.volume = volume;
+          video.muted = true; video.volume = volume;
         }, MUTE_RAMP_TIME * 1000);
       } else {
         // DAR SOM: som já liberado; respeita o mudo do operador.
@@ -670,9 +683,9 @@
     function resetMediaDom() {
       clearInterval(rampTimer);
       clearTimeout(muteApplyTimer);
-      // Limpar a fonte é o fim de qualquer espera: stop, clear e o começo de
-      // todo load passam por aqui, então o giro nunca sobrevive à cena que o
-      // acendeu.
+      // Limpar a fonte é o fim de qualquer espera. O `load` NÃO passa por
+      // aqui: lá quem apaga o giro é o próprio load, depois do `mediaReady` e
+      // sob a guarda do `loadSeq`.
       mostrarEspera(false);
       img.hidden = true; img.removeAttribute('src');
       // Idem: esconder o <video> faz parte de limpar a fonte, não é detalhe
@@ -716,6 +729,14 @@
       // Guarda sequencial: se outra chamada load() começar antes desta terminar
       // o fade/getMedia(), descartamos esta para evitar race de URL/current.
       const seq = ++loadSeq;
+      // O GIRO É APAGADO POR QUEM ASSUME, e é a única saída que ele tem. Quem
+      // o acendeu volta do `mediaReady` já descartado pelo `loadSeq` e retorna
+      // ANTES do `mostrarEspera(false)` — de propósito: apagar depois de perder
+      // a corrida levaria junto o giro do load que assumiu. Sem esta linha o
+      // aro ficava girando sobre a projeção para sempre quando quem assume não
+      // é um stream — e o caso mais comum do culto é esse (áudio SEM LETRA, que
+      // não passa por nenhum dos dois ramos que apagam o giro).
+      mostrarEspera(false);
       // Troca de CONTEÚDO (item já visível dando lugar a outro): esmaece o
       // atual até o preto: sem relação com a cortina do wallpaper, que já
       // está fora de cena nesse caso (visibleEl() só retorna algo se não

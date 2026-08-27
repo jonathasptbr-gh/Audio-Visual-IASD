@@ -208,10 +208,19 @@
    * e carimbar o objeto guardado misturaria o estado de uma conexão com o da
    * seguinte. O fallback do `__de` existe para um display de bundle antigo não
    * devolver `''` e desligar as preferências em silêncio.
+   *
+   * E O `__mid` NÃO VIAJA JUNTO: ele é o carimbo do CANAL, que o `sendCommand`
+   * pôs na cópia que o dreno guardou. Repeti-lo faz o `alreadySeen` do Controle
+   * descartar o reanúncio como cópia — e então nem a cena
+   * (`resendSceneToDisplay`) nem as preferências (`telaReenviarPreferencias`)
+   * voltam, que é tudo o que o reanúncio existe para trazer. Sem o campo, o
+   * `alreadySeen` o trata como mensagem nova (`if (!mid) return false`).
    */
   function anuncio() {
     if (!prontoUltimo) return null;
-    return Object.assign({}, prontoUltimo, { __tela: telaId || '1' });
+    var a = Object.assign({}, prontoUltimo, { __tela: telaId || '1' });
+    delete a.__mid;
+    return a;
   }
 
   function entregar(msg) {
@@ -416,7 +425,11 @@
       conectada = false;
       abortar = null;
       if (!vivo) break;
-      if (fim === 'token') { cairToken('A transmissão foi reiniciada — reconectando.'); break; }
+      // MUDO, a mesma política do 404 do `postar` — é o MESMO evento (o token
+      // morreu) chegando pelo outro caminho. A reentrada é sozinha e a mídia
+      // local não parou: uma frase aqui vira um balão sobre a projeção pedindo
+      // uma ação que não existe (ver o KDoc do `cairToken`).
+      if (fim === 'token') { cairToken(''); break; }
       if (fim === 'adeus') { aoAdeus(); break; }
       var degrau = Math.min(tentativa, RECONEXAO.length - 1);
       tentativa++;
@@ -574,13 +587,10 @@
   // deixa o app fazer sozinho — `requestFullscreen()` e sair do `muted` exigem
   // ativação transitória do usuário. O toque não é senha, é o gesto.
   //
-  // Duas formas, e a diferença é se há mídia no ar:
-  //
-  // • **Nada tocando** (primeira carga): o overlay CHEIO, porque não há nada por
-  //   baixo para ele cobrir.
-  // • **Sessão viva no `sessionStorage`** (recarga no meio do culto): o fluxo
-  //   recomeça NA HORA, por trás, e o toque é oferecido por um botão discreto de
-  //   canto — cobrir a projeção com um cartaz seria trocar um problema por outro.
+  // UMA forma só: o overlay CHEIO, em TODA carga (v5.218). Não há segundo
+  // controle de canto — quem perde a PÁGINA perdeu o gesto junto, então não há
+  // projeção a preservar: volta o mesmo botão do primeiro acesso. Ver
+  // `iniciar()`.
   //
   // Uma queda de conexão não desenha nada: reentra sozinha (não há segredo a
   // pedir) e a mídia que estiver tocando continua até o fim.
@@ -778,6 +788,13 @@
     if (global.isSecureContext && global.navigator && global.navigator.wakeLock) {
       try {
         travaTela = await global.navigator.wakeLock.request('screen');
+        // SOLTAR É ESQUECER: o navegador libera a trava sozinho quando a aba
+        // sai de foco, e o sentinel NÃO some — ele só passa a `released: true`.
+        // Sem desfazer a referência aqui, a guarda do `visibilitychange`
+        // continuaria vendo um objeto e a trava nunca mais seria pedida.
+        try {
+          travaTela.addEventListener('release', function () { travaTela = null; });
+        } catch (e2) { /* sem evento: a guarda lê o `released` */ }
       } catch (e) {
         travaTela = null;   // negada (bateria fraca, política do aparelho): fica o piso
       }
@@ -790,8 +807,14 @@
     // A TRAVA MORRE QUANDO A ABA SAI DE FOCO, por contrato da API — e voltar
     // sem re-pedir deixaria a tela apagando no meio do sermão depois do
     // primeiro piscar. Este é o mesmo evento que reenvia o sinal de vida.
+    //
+    // A pergunta é pelo ESTADO da trava, nunca só pela existência da variável:
+    // um sentinel liberado continua truthy, e `!travaTela` sozinho recusava
+    // para sempre — a guarda só seria verdadeira no caso em que `travar()`
+    // FALHOU, isto é, quando não há nada a re-pedir. O `release` acima cobre o
+    // caminho normal; o `.released`, o navegador que não despacha o evento.
     doc.addEventListener('visibilitychange', function () {
-      if (!doc.hidden && !travaTela) travar();
+      if (!doc.hidden && (!travaTela || travaTela.released)) travar();
     });
     try {
       var c = doc.createElement('canvas');
