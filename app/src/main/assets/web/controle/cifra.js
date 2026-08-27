@@ -1,11 +1,18 @@
 // ============================================================================
 // CIFRA — a regra que lê uma página de cifra e a transforma em linhas
 //
-// A aba "Cifra" do visualizador de letras é lida SOB DEMANDA: o operador abre a
-// aba, o shell busca a página (`AVNative.cifraHtml`, ver `CifraFonte.kt`) e
-// este módulo a interpreta. **Nada é baixado em lote, nada entra no bundle do
-// OTA, nada é gravado em disco** — o cache é um `Map` em memória no
-// `controle.js`, morto ao fechar o app. Isso é contrato do recurso, não detalhe.
+// A cifra é lida SOB DEMANDA, uma música por vez: o shell busca a página
+// (`AVNative.cifraHtml`, ver `CifraFonte.kt`) e este módulo a interpreta. O que
+// é contrato do recurso, e não detalhe: **nada entra no bundle do OTA nem no
+// repositório — quem baixa é o APARELHO.** Ler conteúdo de terceiro no aparelho
+// do operador e DISTRIBUIR uma cópia dele não são degraus da mesma escada.
+//
+// O que o aparelho GUARDA é o veredito de cada música, e quem grava é o
+// `controle.js`: o `state` `cifras:<collId>`, por `AVDB.updateState` — mescla,
+// nunca substitui —, com a ausência valendo `CIFRA_REVISITA_MS` (30 dias). É
+// ele que faz a folha abrir sem rede e que torna varrível o acervo inteiro
+// (`syncCifrasAcervo`, na abertura). O `Map` em memória do `controle.js` é o
+// cache da SESSÃO, um degrau acima desse.
 //
 // ## Por que é um arquivo à parte, e PURO
 //
@@ -58,7 +65,8 @@
 //
 // ## O que este módulo NÃO faz, de propósito
 //
-//  - **Não guarda nada.** Sem IndexedDB, sem OPFS, sem `localStorage`.
+//  - **Não guarda nada — o MÓDULO.** Sem IndexedDB, sem OPFS, sem
+//    `localStorage`; ele é puro. Quem grava o veredito é o `controle.js`.
 //  - **Não decide URL de host.** Quem trava o host é o Kotlin ([CifraFonte]);
 //    aqui uma URL malformada é só uma busca que não acha.
 //  - **Não projeta.** A cifra é para o OPERADOR ler enquanto toca; o que vai ao

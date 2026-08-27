@@ -574,13 +574,10 @@
   // deixa o app fazer sozinho — `requestFullscreen()` e sair do `muted` exigem
   // ativação transitória do usuário. O toque não é senha, é o gesto.
   //
-  // Duas formas, e a diferença é se há mídia no ar:
-  //
-  // • **Nada tocando** (primeira carga): o overlay CHEIO, porque não há nada por
-  //   baixo para ele cobrir.
-  // • **Sessão viva no `sessionStorage`** (recarga no meio do culto): o fluxo
-  //   recomeça NA HORA, por trás, e o toque é oferecido por um botão discreto de
-  //   canto — cobrir a projeção com um cartaz seria trocar um problema por outro.
+  // UMA forma só: o overlay CHEIO, em TODA carga (v5.218). Não há segundo
+  // controle de canto — quem perde a PÁGINA perdeu o gesto junto, então não há
+  // projeção a preservar: volta o mesmo botão do primeiro acesso. Ver
+  // `iniciar()`.
   //
   // Uma queda de conexão não desenha nada: reentra sozinha (não há segredo a
   // pedir) e a mídia que estiver tocando continua até o fim.

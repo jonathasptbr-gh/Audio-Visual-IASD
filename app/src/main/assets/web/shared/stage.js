@@ -670,9 +670,9 @@
     function resetMediaDom() {
       clearInterval(rampTimer);
       clearTimeout(muteApplyTimer);
-      // Limpar a fonte é o fim de qualquer espera: stop, clear e o começo de
-      // todo load passam por aqui, então o giro nunca sobrevive à cena que o
-      // acendeu.
+      // Limpar a fonte é o fim de qualquer espera. O `load` NÃO passa por
+      // aqui: lá quem apaga o giro é o próprio load, depois do `mediaReady` e
+      // sob a guarda do `loadSeq`.
       mostrarEspera(false);
       img.hidden = true; img.removeAttribute('src');
       // Idem: esconder o <video> faz parte de limpar a fonte, não é detalhe

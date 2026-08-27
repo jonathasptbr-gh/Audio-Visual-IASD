@@ -466,9 +466,12 @@ const hymnResultsEl = document.getElementById('hymnResults');
 const bibleVerPopupEl = document.getElementById('bibleVerPopup');
 const bibleVerListEl = document.getElementById('bibleVerList');
 const bibleVerCloseEl = document.getElementById('bibleVerClose');
-// Só entradas COM chamador, e **nenhum acesso dinâmico**: toda leitura é por
-// nome literal, o que torna a tabela varrível — um nome que ninguém cita é
-// código morto demonstrável, não um talvez.
+// Só entradas COM chamador, e a leitura é por nome literal em quase toda
+// parte, o que torna a tabela varrível — um nome que ninguém cita é código
+// morto demonstrável. A ÚNICA porta dinâmica é `DEST_ICONE`, que alcança
+// `queue`, `cronoAdd` e `star` por STRING: conferi-la antes de tirar um nome
+// daqui, porque o `|| ICON.add` do chamador engole a falta — sai o glifo
+// errado, sem console e sem nada na tela que explique.
 const ICON = {
   play: '', // play_arrow
   pause: '', // pause
@@ -1593,11 +1596,12 @@ function tempoDaPreview() {
   return Math.max(0, authoritativeTime() - previewAtrasoMs() / 1000);
 }
 // Re-alinha a preview à projeção real do Display (fonte de verdade): casa o
-// Casa o play/pause e corrige o tempo da
-// preview se o drift passar de SYNC_DRIFT — sem isso, dois decodificadores
-// de áudio independentes (Display e preview) divergem aos poucos e a letra
-// sincronizada acaba trocando de slide em momentos diferentes nos dois
-// lados. Também não busca em "mesa de som" (evita salto audível).
+// play/pause e corrige o tempo da preview quando o drift passa de SYNC_DRIFT
+// — sem isso, dois decodificadores de áudio independentes (Display e preview)
+// divergem aos poucos e a letra sincronizada acaba trocando de slide em
+// momentos diferentes nos dois lados. O que segura o seek indevido são as
+// duas guardas do corpo: `preverPodeMexer()` (página oculta) e o próprio
+// SYNC_DRIFT.
 function resyncPreviewToDisplay(isPlaying, currentTime, tolerancia) {
   if (!preview.isTimed()) return;
   if (!preverPodeMexer()) return;   // ver `preverPodeMexer`
@@ -2058,9 +2062,6 @@ function showPvLyrics(rec) {
   renderPvLyricSlide(0);
 }
 
-// A moldura (borda + fundo semitransparente) só faz sentido cobrindo uma
-// imagem de fundo de verdade — mesmo motivo do Display (ver
-// applyLyricsBgClass em display.js). `.imgbg` liga a moldura só quando
 // ===== A PREVIEW NÃO CORTA A LETRA (v1.1.8) =====
 // O espelho de `ajustarLetra()` do `display.js`, e ele existe pela razão de
 // sempre: a preview mostra o que o telão vai mostrar, e uma que corta o que o
@@ -2102,6 +2103,9 @@ if (window.ResizeObserver && pvLyricsBoxEl) {
 }
 
 
+// A moldura (borda + fundo semitransparente) só faz sentido cobrindo uma
+// imagem de fundo de verdade — mesmo motivo do Display (ver
+// applyLyricsBgClass em display.js). `.imgbg` liga a moldura só quando
 // lyricsBg==='image' (ver .pv-lyrics-box/.pv-lyrics-content.imgbg em
 // controle.css).
 function applyPvLyricsBgClass() {
@@ -6194,15 +6198,8 @@ function fecharFerramentas() {
   }, TOOLS_ANIM_MS);
 }
 
-// ===== Mensagens: botão flutuante na preview + popup =====
-// Deixou de ser uma aba: um aviso de texto é uma interrupção rápida ("bem-vindos",
-// "desliguem o celular"), não uma seção da biblioteca que se navega. Vive como
-// um botão sobre a preview, no canto inferior esquerdo.
-//
-// O MESMO botão faz as duas coisas, conforme o estado: sem mensagem no ar, abre
-// a lista; com uma mensagem projetada, vira um **X que a tira da tela**. É a
-// ação que o operador quer ter à mão nesse momento — e evita ter que reabrir o
-// popup só para desligar o que já está exibido.
+// A mensagem está NO AR? Pela PROJEÇÃO, nunca pela existência da sessão — a
+// mesma pergunta dos outros cinco provedores de Camada de Texto.
 function msgProjecting() { return !!(msgSession && msgSession.projecting); }
 
 function renderLibrary() {
@@ -6216,10 +6213,6 @@ function renderLibrary() {
   thumbUrlsAtual = [];
   thumbUrlsPorHost.set(host, thumbUrlsAtual);
   host.innerHTML = '';
-  // Ferramentas NÃO rola: quem administra a altura ali é o acordeão (a seção
-  // aberta ocupa o que sobra e rola por dentro, se precisar). Com a rolagem da
-  // lista ligada, a página inteira voltaria a rolar e o microfone sairia da
-  // base — que é justamente o que o acordeão veio resolver.
   // ANTES do desvio por aba, e não no fim: a Bíblia e a raiz dos Favoritos saem
   // por `return` daqui, e o rodapé é da CAIXA da lista, não da lista — deixado
   // para o fim, o "Importar arquivos" do Cronograma continuava desenhado
@@ -10021,13 +10014,18 @@ function renderLyricsView() {
 // vai ao telão**: o que a congregação vê continua sendo a letra, pelo caminho
 // de sempre.
 //
-// ## SOB DEMANDA, e isso é o contrato
+// ## QUEM BAIXA É O APARELHO, e isso é o contrato
 //
-// Nada é baixado em lote, nada entra no bundle do OTA, **nada é gravado em
-// disco**. O cache é o `Map` abaixo — memória, morto ao fechar o app. Um
-// operador que abre a aba de três hinos num culto fez três requisições e não
-// deixou rastro no aparelho. Trocar isto por um cache em IndexedDB seria mudar
-// o recurso de natureza, não otimizá-lo.
+// **Nada entra no bundle do OTA nem no repositório** — o app LÊ conteúdo de
+// terceiro, nunca o DISTRIBUI. Cada aparelho busca o que vai usar.
+//
+// São DOIS caches, com prazos diferentes: o `Map` abaixo é o da SESSÃO (a
+// folha em cena, com o passo de transposição), morto ao fechar o app; o
+// arquivo do acervo mora no IndexedDB, em `cifras:<coleção>` — ver
+// "A CIFRA DO HINÁRIO, GUARDADA NO APARELHO", com `cifraDiscoDe`/
+// `cifraDiscoMesclar` e a ausência com prazo de `CIFRA_REVISITA_MS`. É ele que
+// faz a folha abrir SEM REDE, que é o problema real: o Wi-Fi da igreja no
+// sábado de manhã.
 //
 // ## As DUAS metades, e por que a segunda existe
 //
@@ -11384,10 +11382,6 @@ function lvBuildCifra(el, barra) {
     return;
   }
 
-  // MÚSICA NOVA FECHA O SELETOR. Ele é de UMA música — aberto, o louvor
-  // seguinte entrava mostrando a lista de resultados da anterior no lugar da
-  // própria folha, e nada na tela explicaria por quê.
-
   if (entrada.estado !== 'ok') {
     // CADA MOTIVO PEDE UMA AÇÃO DIFERENTE, e por isso são frases diferentes.
     // Um "não foi possível carregar" genérico é o que faz o operador tentar de
@@ -11474,8 +11468,7 @@ function lvBuildCifra(el, barra) {
   // A FOLHA. Um nó por linha, com a classe dizendo o que ela é — é o que deixa
   // o acorde ganhar cor sem o CSS ter de adivinhar nada do conteúdo. Só a linha
   // de ACORDES é transposta: passar a de letra pela mesma função reescreveria
-  // palavras que casam com a gramática de acorde. Ver `cifraDesenharFolha`, que
-  // a PRÉVIA do seletor também usa.
+  // palavras que casam com a gramática de acorde. Ver `cifraDesenharFolha`.
   cifraDesenharFolha(el, p, n);
 
   // A ORIGEM, dita e clicável — mas COMO LINK, no rodapé, à direita.
@@ -11490,12 +11483,11 @@ function lvBuildCifra(el, barra) {
   // cobraria a mesma altura que acabou de ser devolvida ao texto.
   const rodape = document.createElement('div');
   rodape.className = 'lv-cifra-rodape';
-  // O "TROCAR" SAIU (v1.3.2), a pedido do operador. Com ele saiu a única porta
-  // do seletor manual COM A FOLHA ABERTA — o seletor continua existindo e
-  // continua sendo desenhado sozinho quando a busca falha (ver o ramo de
-  // `estado !== 'ok'` acima), que é onde ele mais é usado. O preço, dito: uma
-  // cifra que ABRIU errada (uma versão simplificada, um homônimo) não tem mais
-  // como ser trocada por aqui; resta o site, no link ao lado.
+  // A CIFRA É SÓ AUTOMÁTICA (v1.3.3): não há seletor manual em lugar nenhum —
+  // nem aqui, nem no ramo de `estado !== 'ok'` acima, onde a frase é a resposta
+  // inteira. O preço, dito: uma cifra que ABRIU errada (uma versão
+  // simplificada, um homônimo) não tem mais como ser trocada dentro do app;
+  // resta o site, no link que as linhas abaixo desenham.
   const fonte = document.createElement('button');
   fonte.type = 'button';
   fonte.className = 'lv-cifra-link';
@@ -18566,9 +18558,9 @@ async function renderDiag() {
     blocos.push('Transmissão direta (último "Tocar agora")\n' + motivoStream
       + (falha ? '\nfalhou ao tocar: ' + falha : ''));
   }
-  // O ESPELHO DE PIXELS: mais um BLOCO desta caixa, nunca uma faixa nova em
-  // outro canto (regra do projeto). É o único lugar em que o veredito da sonda
-  // de readback e o estado do servidor podem ser LIDOS e REPASSADOS — e o botão
+  // A TRANSMISSÃO PARA NAVEGADOR: mais um BLOCO desta caixa, nunca uma faixa
+  // nova em outro canto (regra do projeto). É o único lugar em que o estado do
+  // servidor e das telas pareadas pode ser LIDO e REPASSADO — e o botão
   // de copiar, que já está no cabeçalho do Registro, os leva junto.
   if (espelhoDisponivel()) {
     let ed = null;
@@ -20006,27 +19998,15 @@ async function conferirLinkCopiado() {
 // Caminho novo sem onde responder: a pergunta certa não é "qual camada uso?" —
 // é "por que esta ação não tem uma interface?".
 
-// ===== Aviso de salvamento (v5.104) =====
-// A exceção à regra acima, e ela tem um limite claro: **só para o que o
-// operador NÃO vê acontecer**. Mandar um item para o Cronograma estando na aba
-// da Bíblia, favoritar de dentro do acervo, guardar um preset das Ferramentas —
-// nesses casos a lista de destino não está na tela, o toque não muda um pixel e
-// não há como saber se funcionou senão indo conferir. É assim que se acaba
-// tocando duas vezes.
-//
-// O que ele NÃO é: o toast de volta. Não flutua (mora no fim da área de lista),
-// não cobre o transporte (foi por isso que o toast saiu), não pede toque para
-// sair e não é usado por nada que já tenha estado próprio na tela.
-//
-// `tipo`: 'ok' (entrou) | 'dup' (já estava lá) | 'erro'. A distinção é o ponto:
-// "já estava nos favoritos" é a resposta que impede a duplicação acidental, e
-// ela precisa ser visivelmente diferente de "adicionado".
-
 // ===== O PULSO NO PRÓPRIO BOTÃO (v5.106) =====
 // É este o feedback de adicionar/favoritar, e não a faixa de aviso: o dedo já
 // está no botão e o olho também, e com dois destinos lado a lado (as
 // Ferramentas têm "Cronograma" e "Favoritos") uma mensagem genérica não diria
 // em qual dos dois se tocou.
+//
+// `tipo`: 'ok' (entrou) | 'dup' (já estava lá) | 'erro'. A distinção é o ponto:
+// "já estava nos favoritos" é a resposta que impede a duplicação acidental, e
+// ela precisa ser visivelmente diferente de "adicionado".
 //
 // Quando o botão tocado já saiu de cena — a folha do acervo, por exemplo, que
 // fecha porque o download pode levar minutos —, `responder` devolve `false` e
@@ -21517,18 +21497,6 @@ function holdRepeat(btn, fn) {
   ['pointerup', 'pointercancel', 'pointerleave'].forEach((ev) => btn.addEventListener(ev, stop));
 }
 
-// Estado da tela no cartão "Conectar a tela". No app a `Presentation` aparece
-// sozinha quando há telão, então o cartão informa o que já está conectado — e
-// o toque abre o seletor de espelhamento. No navegador não há Presentation
-// nem seletor: o cartão vira o atalho para a tela do Display.
-// O ÍCONE DE CAST SOBRE A PREVIEW — e ele vale nos DOIS modos (v5.142).
-//
-// Esta função morava dentro de `renderSimpleCast`, que começa com
-// `if (appMode !== 'simple') return`. O efeito era duplo e o segundo é o do
-// relato: no modo avançado o ícone NUNCA era repintado, então o vermelho de
-// "conectado" que o simplificado deixou aceso ficava para sempre — o operador
-// trocava de modo, a tela caía, e o ícone seguia dizendo que havia telão. O
-// estado da tela não é uma decoração de um dos modos; é o mesmo fato nos dois.
 /**
  * Quantas telas da REDE estão recebendo agora — 0 com o espelho desligado.
  *
@@ -21543,6 +21511,14 @@ function espelhoRecebendo() {
   return e.telas.length;
 }
 
+// O ÍCONE DE CAST SOBRE A PREVIEW — e ele vale nos DOIS modos (v5.142).
+//
+// Esta função morava dentro de `renderSimpleCast`, que começa com
+// `if (appMode !== 'simple') return`. O efeito era duplo e o segundo é o do
+// relato: no modo avançado o ícone NUNCA era repintado, então o vermelho de
+// "conectado" que o simplificado deixou aceso ficava para sempre — o operador
+// trocava de modo, a tela caía, e o ícone seguia dizendo que havia telão. O
+// estado da tela não é uma decoração de um dos modos; é o mesmo fato nos dois.
 function renderCastBtn() {
   const tv = simpleDisplay();
   // AS TELAS DA REDE CONTAM COMO CONEXÃO — e é o ÍCONE que passa a dizer isso
@@ -22546,27 +22522,27 @@ if (window.__NATIVE__) {
 }
 
 
-// ===== ESPELHO DE PIXELS: o telão nas telas da rede local =====
+// ===== TELÃO POR COMANDOS: o telão nas telas da rede local =====
 //
-// O shell hospeda uma SEGUNDA cópia de `/web/display/` numa tela virtual que
-// só ele enxerga, codifica o framebuffer dela e serve os quadros por HTTP na
-// rede da igreja — até três navegadores, sem instalar nada neles e sem
-// depender de internet. Ver `docs/ESPELHO-DE-PIXELS.md`.
+// O celular serve o próprio bundle na rede da igreja e cada navegador roda o
+// `/web/display/` de verdade — até três, sem instalar nada neles e sem depender
+// de internet. O que atravessa a rede são COMANDOS (os objetos JSON do
+// barramento, verbatim, por SSE) e MÍDIA sob demanda (`/m/<token>`, com Range).
+// Ver `docs/TELAO-POR-COMANDOS.md`.
 //
-// O QUE ESTE ARQUIVO FAZ, e só isto: desenha o interruptor, faz a pergunta que
-// precisa ser feita antes de ligar, mostra endereço e PIN, e põe o operador no
-// laço das telas que pedem entrada. Nenhuma decisão de rede, de encoder ou de
-// pareamento mora aqui — o Kotlin devolve DADO (JSON) e a frase é montada
-// deste lado, que é a mesma divisão do `otaDiag` e do `ytDiag`.
+// O QUE ESTE ARQUIVO FAZ, e só isto: desenha o interruptor, mostra o endereço
+// e põe o operador no laço das telas conectadas. Nenhuma decisão de rede ou de
+// pareamento mora aqui — o Kotlin devolve DADO (JSON) e a frase é montada deste
+// lado, que é a mesma divisão do `otaDiag` e do `ytDiag`.
 //
-// **O espelho é AUXILIAR por contrato, e a consequência que governa toda esta
-// tela: ele NUNCA se desliga sozinho.** Liga por ação do operador e desliga por
-// ação do operador, pelo fechamento do app, ou por uma falha que o app nomeia
-// em texto. Uma TV que conecta não o derruba — o que existe é uma CONFIRMAÇÃO
-// antes de ligar com o telão no ar (abaixo), porque aí o aparelho passa a
-// desenhar e codificar duas projeções ao mesmo tempo. Regra invertida seria pior
-// que regra nenhuma: sem TV, as telas da rede SÃO o que a congregação vê, e um
-// desligamento automático apagaria a projeção no meio do louvor.
+// **A transmissão é AUXILIAR por contrato, e a consequência que governa toda
+// esta tela: ela NUNCA se desliga sozinha.** Liga por ação do operador e
+// desliga por ação do operador, pelo fechamento do app, ou por uma falha que o
+// app nomeia em texto. Uma TV que conecta não a derruba, e ligar com o telão no
+// ar não pede confirmação nenhuma (ver `confirmarEspelhoComTv`, abaixo).
+// Regra invertida seria pior que regra nenhuma: sem TV, as telas da rede SÃO o
+// que a congregação vê, e um desligamento automático apagaria a projeção no
+// meio do louvor.
 
 // O piso de shell. Um método novo NÃO chega por OTA: num shell antigo a linha
 // simplesmente não é desenhada, e volta sozinha quando o APK novo for
@@ -22665,10 +22641,9 @@ async function confirmarEspelhoComTv() {
   return true;
 }
 
-// O ESPELHO É SÓ VÍDEO desde a v5.156 — o modo imagem saiu por não ter áudio
-// (ver `docs/ESPELHO-DE-PIXELS.md`). O `'video'` continua indo à ponte porque
-// a assinatura dela não mudou: tirar o parâmetro obrigaria a subir o
-// `SHELL_VERSION` sem ganhar nada, já que quem chama não escolhe mais.
+// O modo imagem saiu na v5.156 (não tinha áudio) e o parâmetro `modo` saiu da
+// ponte com ele, no lote que subiu o degrau: `espelhoLigar()` não recebe mais
+// nada. Ver `docs/TELAO-POR-COMANDOS.md`.
 async function ligarEspelho() {
   if (mirrorOcupado) return false;
   if (!(await confirmarEspelhoComTv())) return false;

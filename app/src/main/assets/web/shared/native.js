@@ -36,17 +36,9 @@
   //
   // `window.AVDB` no `load` NÃO basta. A ordem dos scripts do Controle é
   // native.js → db.js → mse.js → stage.js → louvorja.js → bible.js → serie.js →
-  // sorteio.js → controle.js, e um erro em qualquer um dos OITO últimos aborta
-  // só AQUELE script: o `load` dispara, `AVDB` continua lá, e o bundle quebrado
-  // é carimbado como bom PARA SEMPRE.
-  //
-  // ATENÇÃO — as condições abaixo NÃO cobrem os cinco do meio (`louvorja.js`,
-  // `bible.js`, `serie.js`, `sorteio.js`, `hinario.js`). Todo uso de `AVSerie`/`AVSorteio` no
-  // `controle.js` está DENTRO de função, então um erro de topo num deles não
-  // aborta o `controle.js`: o app sobe, o watchdog confirma, e o recurso
-  // daquele arquivo fica morto. Ver o achado registrado em docs/shell/OTA.md.
-  // Como o OTA publica a cada push e o controle.js é o que mais muda, esse é o
-  // caso provável.
+  // cifra.js → sorteio.js → hinario.js → controle.js, e um erro em qualquer um
+  // dos DEZ últimos aborta só AQUELE script: o `load` dispara, `AVDB` continua
+  // lá, e o bundle quebrado é carimbado como bom PARA SEMPRE.
   //
   // O sinal é "o app está DE PÉ", e cada peça cobre o que a anterior não cobre:
   //
@@ -57,10 +49,15 @@
   //      três módulos compartilhados, cada um publicando seu global no fim do
   //      arquivo (o `AVStream` existe mesmo sem MediaSource; só o `suportado()`
   //      responde false).
-  //   3. `__avBack` (perto do FIM do controle.js) — só existe se o arquivo foi
+  //   3. os seis módulos do Controle (`Louvorja`, `Bible`, `AVSerie`,
+  //      `AVSorteio`, `AVCifra`, `AVHinario`) — todo uso deles no `controle.js`
+  //      está DENTRO de função, então um erro de topo num deles NÃO aborta o
+  //      `controle.js`: sem esta condição o app sobe, o watchdog confirma e o
+  //      recurso daquele arquivo fica morto (ver docs/shell/OTA.md).
+  //   4. `__avBack` (perto do FIM do controle.js) — só existe se o arquivo foi
   //      parseado inteiro. É a mesma função que o `handleBack()` consulta: um
   //      contrato que já existe, não um marcador inventado aqui.
-  //   4. um `<li>` dentro de `#playlist` — o HTML entrega o `<ul>` VAZIO, e quem
+  //   5. um `<li>` dentro de `#playlist` — o HTML entrega o `<ul>` VAZIO, e quem
   //      o preenche é `renderPlaylist()`, dentro do `init()` assíncrono. Prova
   //      que a inicialização terminou.
   //
@@ -399,6 +396,17 @@
     // inteiro): é dele que o `serie.js` tira data e marca de Libras.
     ytPlaylist: (url) => call((id) => B.ytPlaylist(id, String(url)), CALL_TIMEOUT_MS),
 
+    // O "Salvar como" do sistema (SAF `CREATE_DOCUMENT`), com o shell
+    // ESCREVENDO o texto: resolve o NOME gravado, ou `''` quando o operador
+    // desistiu ou a gravação falhou. Existe porque o WebView do app não tem
+    // `DownloadListener` — um `<a download>` sobre um `blob:` ali não faz NADA,
+    // sem erro e sem arquivo.
+    //
+    // SEM PRAZO: quem responde é uma PESSOA no seletor "Salvar como" do
+    // sistema, e um timeout resolveria vazio com o diálogo ainda aberto — a
+    // mesma regra do `pickFolder` e do `requestMic`.
+    salvarTexto: (nome, texto) => call((id) => B.salvarTexto(id, String(nome), String(texto))),
+
     // ---- CIFRA — ver `controle/cifra.js` ----
     // TRANSPORTE, e só. Devolve `{ status, html }` com o corpo CRU da página:
     // quem sabe ler aquele HTML é o `cifra.js`, do lado web (invariante 5), e
@@ -421,10 +429,6 @@
     // `{ status: 0, html: '' }` de uma falha de rede — sem isso, cada chamador
     // teria de lembrar de conferir null antes de ler `.status`, e o que falha
     // quando alguém esquecer é a aba inteira, com um TypeError no console.
-    // SEM PRAZO: quem responde é uma PESSOA no seletor "Salvar como" do
-    // sistema, e um timeout resolveria vazio com o diálogo ainda aberto — a
-    // mesma regra do `pickFolder` e do `requestMic`.
-    salvarTexto: (nome, texto) => call((id) => B.salvarTexto(id, String(nome), String(texto))),
     cifraHtml: (url) => call((id) => B.cifraHtml(id, String(url)), CALL_TIMEOUT_MS)
       .then((r) => ({ status: (r && r.status) | 0, html: (r && r.html) || '' })),
 

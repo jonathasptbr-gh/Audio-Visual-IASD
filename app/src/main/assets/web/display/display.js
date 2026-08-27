@@ -41,16 +41,14 @@ const INSTANCIA = 'd' + Math.random().toString(36).slice(2, 10).padEnd(8, '0');
 // `docs/ESPELHO-DE-PIXELS.md`.)
 const TELA = window.__AV_ROLE__ === 'tela';
 
-// Config de transições, usada aqui para animar o player do YouTube (que vive
-// fora do stage). INERENTE ao sistema: toda troca visual é animada com fade,
-// sempre — não há opção de desligar nem ajustar. Vem de stage.js para não
+// Config de transições. INERENTE ao sistema: toda troca visual é animada com
+// fade, sempre — não há opção de desligar nem ajustar. Vem de stage.js para não
 // existirem duas cópias do mesmo objeto (Display e Controle) podendo divergir.
 const fadeCfg = createStage.FADE;
 
-// Fonte única do payload display-status: hoje só o stage o alimenta (a v5.212
-// tirou o segundo emissor, que era o do embed do YouTube).
-// (YouTube) só preenchem os valores; o `type` e o `audioBlocked` ficam num
-// lugar só, evitando que os dois campos saiam inconsistentes para o Controle.
+// Fonte única do payload display-status: quem chama só preenche os valores; o
+// `type` e o `audioBlocked` ficam num lugar só, evitando que os dois campos
+// saiam inconsistentes para o Controle.
 function sendDisplayStatus(fields) {
   AVDB.sendCommand(Object.assign({ type: 'display-status', audioBlocked }, fields));
 }
@@ -202,10 +200,10 @@ const stage = createStage({
 if (TELA) window.__telaSom = (on) => stage.setForceMuted(!on);
 
 // ===== Letra sincronizada (Hinário 2022 — ver CLAUDE.md) =====
-// Camada paralela ao stage.js (mesmo padrão da ponte do YouTube): stage.js
-// não sabe nada sobre texto/letra, só gerencia wallpaper/img/video. O layer
-// #lyrics vive no mesmo z-index dos demais layers de mídia, então a cortina
-// do wallpaper (z-index maior, já existente) cobre/revela-o de graça.
+// Camada paralela ao stage.js: ele não sabe nada sobre texto/letra, só
+// gerencia wallpaper/img/video. O layer #lyrics vive no mesmo z-index dos
+// demais layers de mídia, então a cortina do wallpaper (z-index maior, já
+// existente) cobre/revela-o de graça.
 let currentLyrics = null; // array de slides do item atual, ou null (sem letra)
 let currentLyricsMeta = null; // { hymnName, hymnTrack, hymnAlbum } do item atual — persistido à parte
                                // (não só passado ao showLyrics) pra o slide de capa mostrar o
@@ -760,9 +758,9 @@ function hideText(restore = true) {
 }
 
 // Devolve a cena ao estado em que ela estava antes do texto manual entrar.
-// Vídeo/imagem/YouTube não precisam de nada: nunca foram interrompidos e
-// reaparecem sozinhos assim que o cartão opaco sai da frente. Só a letra
-// sincronizada precisa ser remontada — e no slide certo, não do começo.
+// Vídeo e imagem não precisam de nada: nunca foram interrompidos e reaparecem
+// sozinhos assim que o cartão opaco sai da frente. Só a letra sincronizada
+// precisa ser remontada — e no slide certo, não do começo.
 function restoreSceneAfterText() {
   const cur = stage.getCurrent();
   // NADA de fato em cena — nenhuma mídia carregada, ou a que havia já terminou
@@ -784,15 +782,15 @@ function restoreSceneAfterText() {
   reconcileCover(stage.getView());
 }
 
-// A cortina do wallpaper é COMPARTILHADA (stage, YouTube e a camada de texto
-// mexem nela), mas o estado de view é de quem é dono da cena. Este helper só
-// faz a cortina obedecer a uma view já decidida — coverIn/coverOut devolvem
-// cedo quando ela já está onde deveria, então chamar à toa não custa nem
-// pisca nada no telão.
+// A cortina do wallpaper é COMPARTILHADA (o stage e a camada de texto mexem
+// nela), mas o estado de view é de quem é dono da cena. Este helper só faz a
+// cortina obedecer a uma view já decidida — coverIn/coverOut devolvem cedo
+// quando ela já está onde deveria, então chamar à toa não custa nem pisca
+// nada no telão.
 function reconcileCover(view) {
   // `stage.shouldCover()` cobre o caso do ÁUDIO SEM LETRA (v5.112): a view dele
   // é 'visual' como a de qualquer mídia, mas não há o que revelar — abrir a
-  // cortina deixaria o telão no preto do palco. Só vale quando a cena é do
+  // cortina deixaria o telão no preto do palco.
   if (view === 'wallpaper' || stage.shouldCover()) stage.coverIn(false);
   else stage.coverOut();
 }
@@ -1156,10 +1154,6 @@ function scheduleAudioRetry(ms) {
 }
 
 // Este mecanismo de recuperação é exclusivo do stage (vídeo/áudio locais).
-// O YouTube não usa detecção de bloqueio de autoplay: num PWA instalado o
-// autoplay com som é liberado normalmente, e a antiga tentativa de detecção
-// gerava falsos positivos (buffering demorado confundido com bloqueio),
-// deixando o vídeo mutando/desmutando e reiniciando em loop.
 function tryRestoreAudio() {
   if (!audioBlocked) return;
   const cur = stage.getCurrent();

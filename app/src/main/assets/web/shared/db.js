@@ -447,17 +447,9 @@
     if (rec) return rec;
     return fileGet(id);
   }
-  // REMOVIDAS na v5.48: `storeUrlTemp`, `storeMediaTemp` e `deleteMedia`.
-  // As duas primeiras gravavam em "media" SEM entrar em lista nenhuma, e o
-  // comentário da terceira dizia que servia "para limpar temp de pastas
-  // vinculadas" — pastas vinculadas não existem mais (foram substituídas pelas
-  // pastas OPFS, sincronizadas por syncDeviceFolder/fileAdd), e as três não
-  // tinham um único chamador em toda a base. Pior que código morto: quem lesse
-  // o comentário concluiria que existe um caminho de limpeza de temporários
-  // (não existe — o gc só roda dentro de `listRemove`), e voltar a usá-las
-  // criaria registros que NENHUM gc alcança, ou seja, vazamento permanente no
-  // IDB. Quem precisar de um registro de mídia usa `addMedia`/`addUrlMedia`,
-  // que já entram numa lista e portanto são coletáveis.
+  // Um registro de mídia que não entre em LISTA nenhuma nasce sem detentor, e
+  // é o `gcOrfaos` da abertura seguinte que o apaga. Quem precisar de um usa
+  // `addMedia`/`addUrlMedia`, que gravam registro e lista na MESMA transação.
   async function renameMedia(id, name) {
     // get + put na mesma transação para garantir atomicidade (o await entre os
     // dois mantém a transação viva pois ambos são requests IDB encadeados).
@@ -754,10 +746,10 @@
   // ISTO ERA UM VAZAMENTO SILENCIOSO até a v5.103. O Controle apagava o atalho
   // com dois `setState` crus — tirava a entrada de `folders` e gravava a lista
   // vazia — e nada mais acontecia: uma mídia cujo ÚLTIMO detentor era aquele
-  // atalho virava um registro que nenhuma lista aponta e que NENHUM gc alcança
-  // (o gc só roda dentro de `listRemove`). O blob ficava no IndexedDB para
-  // sempre, invisível na tela e sem caminho de limpeza — um vídeo de centenas
-  // de MB "sumia" e continuava ocupando o disco do aparelho.
+  // atalho virava um registro que nenhuma lista apontava e que nenhum gc
+  // alcançava (a faxina do `gcOrfaos` ainda não existia). O blob ficava no
+  // IndexedDB para sempre, invisível na tela e sem caminho de limpeza — um
+  // vídeo de centenas de MB "sumia" e continuava ocupando o disco do aparelho.
   //
   // A ordem importa: o atalho sai de `folders` ANTES da varredura, senão
   // `isReferenced` o encontraria no índice e ele seguraria os próprios ids.
