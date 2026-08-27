@@ -252,7 +252,7 @@ const appVersionEl = document.getElementById('appVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.3.13';
+const WEB_VERSION = '1.3.14';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -4031,10 +4031,18 @@ function renderBibleReading(wrap) {
     bibleSel = { bookIdx: s.bookIdx, chapter: s.chapter };
     gotoBibleScreen(screen);
   };
-  part('Livro', s.bookName, goto('books'), 'bible-ref-part--book');
-  part('Capítulo', String(s.chapter), goto('chapters'));
-  part('Versículo', String(v.n), goto('chapters'));
-  if (bibleVersions.length) part('Versão', bibleVersionAbbr(bibleVersionId), openBibleVerPopup);
+  // CADA PÍLULA VESTE A GRADE QUE ELA ABRE (v1.3.14) — ver `.bible-ref-part` no
+  // CSS. A do LIVRO leva a classe do GRUPO CANÔNICO dele, a mesma que a célula
+  // daquele livro tem no mosaico (`'bg-' + b.g`, em `renderBibleBooks`): a
+  // pílula é a amostra da tela seguinte, não mais um botão genérico. Grupo
+  // desconhecido não quebra nada — sem a classe, ela fica sem tinta e a faixa
+  // continua transparente.
+  const grupo = Bible.BOOKS[s.bookIdx] && Bible.BOOKS[s.bookIdx].g;
+  part('Livro', s.bookName, goto('books'),
+    'bible-ref-part--book' + (grupo ? ' bg-' + grupo : ''));
+  part('Capítulo', String(s.chapter), goto('chapters'), 'bible-ref-part--cap');
+  part('Versículo', String(v.n), goto('chapters'), 'bible-ref-part--vers');
+  if (bibleVersions.length) part('Versão', bibleVersionAbbr(bibleVersionId), openBibleVerPopup, 'bible-ref-part--edic');
   foot.appendChild(nav);
   // GUARDAR A REFERÊNCIA (v5.103). Até aqui a leitura bíblica era uma coisa do
   // MOMENTO: o versículo da pregação de domingo tinha de ser reencontrado ao
@@ -12671,7 +12679,7 @@ async function purgeCatalogRecords(recs) {
 }
 
 async function deleteOpfsFolder(f) {
-  if (!(await appConfirm({ title: 'Excluir pasta', message: 'Excluir a pasta "' + f.name + '" e todos os arquivos sincronizados?', okText: 'Excluir' }))) return;
+  if (!(await appConfirm({ title: 'Excluir pasta', message: 'Excluir a pasta "' + f.name + '" e todos os arquivos sincronizados?', okText: 'Excluir', perigo: true }))) return;
   const recs = await AVDB.filesByFolder(f.id);
   await purgeCatalogRecords(recs);
   await AVDB.opfsDeleteDir('folders/' + f.id);
@@ -13809,7 +13817,7 @@ async function buildLyricSlides(meta, timeField, resolveImage) {
 }
 
 async function deleteCollection(coll) {
-  if (!(await appConfirm({ title: 'Excluir ' + coll.name, message: 'Excluir o que foi baixado de "' + coll.name + '" (áudios e capas) e a lista offline?', okText: 'Excluir' }))) return;
+  if (!(await appConfirm({ title: 'Excluir ' + coll.name, message: 'Excluir o que foi baixado de "' + coll.name + '" (áudios e capas) e a lista offline?', okText: 'Excluir', perigo: true }))) return;
   const recs = await AVDB.filesByFolder(coll.id);
   await purgeCatalogRecords(recs);
   await AVDB.opfsDeleteDir('folders/' + coll.id);
@@ -20085,10 +20093,37 @@ function responder(btn, tipo) {
 // Botão desabilitado não emite `click`, então o eco nunca promete o que não
 // aconteceu.
 const ECO_MS = 420;
-// O transporte e os três do meio do mixer (cortina, letra, mudo) — os botões
-// cujo resultado mora no telão. `.slide-nav` não entra porque não existe: desde
-// a v5.49 quem passa estrofe é o próprio par ⏮/⏭ do transporte.
-const ECO_SELETOR = '.transport .t-btn, .mixer-mid button';
+// ===== QUEM RECEBE O ECO: TODO BOTÃO CUJO RESULTADO MORA NO TELÃO =====
+// Ele valia para `.transport .t-btn, .mixer-mid button` — e `.mixer-mid` NÃO
+// EXISTE desde a v1.3.8, quando o mixer saiu (o próprio CSS lista
+// `.mixer-top/mid/bottom` entre o que foi removido). Isto é: na prática o eco
+// era exclusivo dos seis botões do transporte, e foi assim que o operador o
+// leu — *"o feedback único dos botões de play, com bordas flutuantes
+// totalmente exclusivo no app"*.
+//
+// Ele está certo sobre a exclusividade e o conserto não é apagar o sinal: a
+// razão dele continua valendo, e vale IGUAL para os outros botões que mandam
+// alguma coisa para a projeção. O que faltava era a REGRA — um anel que
+// aparece em seis botões e em nenhum outro parece enfeite daqueles seis; o
+// mesmo anel em todos os que falam com o telão é um sinal do app.
+//
+// A regra: **o eco é de quem MANDA ALGO PARA A PROJEÇÃO.** Ele não se
+// confunde com a resposta de toque (`--press`, o recuo mais a luz), que diz
+// "recebi o dedo" e vale para todo controle. Este diz outra coisa — "o comando
+// saiu" —, e existe porque a resposta de verdade pode estar a ~1 s quando a
+// projeção são as telas da rede (ver `cmd`).
+//
+// Fica de fora o que NÃO vai ao telão: navegação, Configurações, a folha de
+// leitura auxiliar, a lupa do acervo. Um eco ali prometeria uma viagem que não
+// acontece.
+const ECO_SELETOR = [
+  '.transport .t-btn',        // repetir, playlist, ⏮, ▶, ■, ⏭
+  '.slide-btn',               // os dois que flanqueiam a preview: passam slide NO telão
+  '.pv-fab--view',            // a cortina
+  '.pv-fab--mute',            // o mudo
+  '.pv-fsctl .pv-fab',        // a coluna da tela cheia (sem TV, ela É a projeção)
+  '.misc-project',            // "Projetar no telão"
+].join(', ');
 
 document.addEventListener('click', (ev) => {
   const alvo = ev.target && ev.target.closest ? ev.target.closest(ECO_SELETOR) : null;
@@ -20628,7 +20663,7 @@ function onAppDialogKey(e) {
   closeAppDialog(appDialogInputEl.hidden ? false : null);
 }
 function openAppDialog(opts) {
-  const { title, message, okText, cancelText, input, value, placeholder, fixo, itens, rodape } = opts || {};
+  const { title, message, okText, cancelText, input, value, placeholder, fixo, itens, rodape, perigo } = opts || {};
   return new Promise((resolve) => {
     // Se já houver um diálogo aberto, resolve o anterior como cancelado.
     if (appDialogResolve) closeAppDialog(input ? null : false);
@@ -20653,6 +20688,13 @@ function openAppDialog(opts) {
     appDialogRodapeEl.textContent = rodape || '';
     appDialogRodapeEl.hidden = !rodape;
     appDialogOkEl.textContent = okText || 'OK';
+    // `perigo: true` = a confirmação APAGA alguma coisa. Ela troca o azul
+    // primário pelo par destrutivo da paleta — a mesma regra que o "Remover do
+    // dispositivo" de um álbum e o "Desconectar" de uma tela já seguiam. É a
+    // única tela do app em que uma decisão é irreversível, e era a única em que
+    // a cor não dizia isso.
+    appDialogOkEl.classList.toggle('perigo', !!perigo);
+    appDialogOkEl.classList.toggle('primary', !perigo);
     // `cancelText: null` é o diálogo de AVISO: ele não pergunta nada, só conta
     // o que aconteceu, e um "Cancelar" ao lado do "Entendi" ofereceria uma
     // escolha que não existe.

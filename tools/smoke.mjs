@@ -2046,9 +2046,15 @@ try {
         cartao: cx2(li),
         linha: cx2(li.querySelector('.hymn-row')),
         gaveta: cx2(li.querySelector('.hymn-gaveta')),
-        // E O CARTÃO ENCOLHE MESMO: sem isto, "nada encolhe" passaria — e o
-        // feedback de toque teria sumido em vez de ficar inteiro.
-        encolheu: getComputedStyle(li).transform,
+        // E O CARTÃO RESPONDE MESMO: sem isto, "nada se mexe" passaria — e o
+        // feedback de toque teria sumido em vez de ficar inteiro. Desde a
+        // v1.3.14 quem responde num BLOCO é a LUZ (`--press-luz`, um `filter`),
+        // não a geometria: um contêiner que hospeda outros controles não se
+        // move, e é a luz que diz "recebi". Medir `transform` aqui aprovaria o
+        // desenho velho e reprovaria o novo — a asserção é a RESPOSTA, não o
+        // mecanismo.
+        respondeu: getComputedStyle(li).filter,
+        moveu: getComputedStyle(li).transform,
       };
     });
     await pg.mouse.up();
@@ -2056,11 +2062,20 @@ try {
   })();
   checar(pressLinha.linha.l === pressLinha.gaveta.l
     && pressLinha.linha.r === pressLinha.gaveta.r,
-    'o toque na LINHA encolhe o cartão INTEIRO, sem abrir fresta entre o título '
-    + 'e a gaveta — eram dois `--press` no mesmo dedo (0,96 × 0,96)',
+    'o toque na LINHA não abre fresta entre o título e a gaveta — eram dois '
+    + '`--press` no mesmo dedo (0,96 × 0,96)',
     JSON.stringify(pressLinha));
-  checar(pressLinha.encolheu !== 'none' && pressLinha.cartao.w > 0,
-    'e o cartão ENCOLHE de verdade: o feedback ficou inteiro, não sumiu',
+  checar(pressLinha.respondeu !== 'none' && pressLinha.cartao.w > 0,
+    'e o cartão RESPONDE de verdade: a luz do toque ficou, o feedback não sumiu',
+    JSON.stringify(pressLinha));
+  // ===== E O RECUO É ABSOLUTO, NÃO UMA FRAÇÃO (v1.3.14) =====
+  // A outra metade, e ela é a que impede a correção acima de virar o defeito
+  // anterior por outro caminho: `scale(.96)` num cartão de 408px recuava 8,2px
+  // de cada lado. `translateY(2px)` não mexe na LARGURA — é `matrix(1,0,0,1,0,2)`
+  // —, e é por não mexer que a fresta acima não pode voltar.
+  checar(/matrix\(1,\s*0,\s*0,\s*1,\s*0,\s*2\)/.test(pressLinha.moveu),
+    'e o recuo é ABSOLUTO (2px para baixo), não uma fração da largura: é isso '
+    + 'que impede a fresta de voltar em qualquer tamanho de cartão',
     JSON.stringify(pressLinha));
   await pg.evaluate(() => {
     window.__gaveta.lista.remove();
