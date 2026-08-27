@@ -62,12 +62,18 @@ object EspelhoEnergia {
     private val relogio = Handler(Looper.getMainLooper())
 
     /**
-     * Os dois locks são escritos no [ligar]/[desligar] (main) e LIDOS das
-     * threads de escrita do [EspelhoServidor], por [progresso] — daí o
-     * `@Volatile`, como nos sete irmãos abaixo. Sem ele a renovação pode ler
-     * uma referência JÁ SOLTA e reacender um lock que ninguém mais tem como
-     * devolver (só o timeout de 2 h o faz), ou um `null` obsoleto e pular a
-     * renovação de uma transmissão viva.
+     * Os dois locks são escritos no [ligar]/[desligar] (main); o do wake é
+     * também LIDO das threads de escrita do [EspelhoServidor], por [progresso]
+     * — daí o `@Volatile`, como nos sete irmãos abaixo.
+     *
+     * **`@Volatile` dá VISIBILIDADE, e só ela.** O par ler-e-usar do
+     * [renovarWakeLock] (`val wl = wakeLock`, depois `wl.acquire`) não fica
+     * atômico por causa dele: quem o torna atômico contra o [releaseWakeLock] é
+     * o `@Synchronized` dos três métodos do wake lock. Sem essa exclusão, um
+     * "Desligar transmissão" que caia entre a leitura e o `acquire` REACENDE o
+     * lock depois do release, com o campo já nulo — ninguém mais tem referência
+     * para devolvê-lo, e a CPU fica presa acordada até o timeout de 2 h com a
+     * transmissão desligada e o app possivelmente minimizado.
      */
     @Volatile
     private var wakeLock: PowerManager.WakeLock? = null
@@ -171,7 +177,8 @@ object EspelhoEnergia {
     /**
      * Um bloco foi ENTREGUE a um cliente. Chamado das threads de escrita do
      * [EspelhoServidor], dezenas de vezes por segundo — por isso não faz nada
-     * além de uma leitura volátil e um piso de tempo.
+     * além de tomar um monitor de posse curta e conferir um piso de tempo: o
+     * `acquire` de verdade só acontece a cada [WAKELOCK_RENEW_MIN_MS].
      */
     fun progresso() {
         renovarWakeLock()
@@ -236,6 +243,7 @@ object EspelhoEnergia {
 
     // ---------- energia ----------
 
+    @Synchronized
     private fun acquireWakeLock() {
         if (wakeLock?.isHeld == true) return
         val pm = app?.getSystemService(PowerManager::class.java) ?: return
@@ -255,7 +263,12 @@ object EspelhoEnergia {
      * caído) não pode segurar a CPU acordada até a bateria acabar; um culto de
      * duas horas, esse sim, não pode perder a proteção no meio porque o teto de
      * 2 h venceu.
+     *
+     * `@Synchronized` porque este é o único dos três que roda FORA da main — e
+     * ler o campo aqui e soltá-lo no [releaseWakeLock] são o par que a exclusão
+     * fecha (ver o KDoc de [wakeLock]).
      */
+    @Synchronized
     private fun renovarWakeLock() {
         val wl = wakeLock ?: return
         val agora = SystemClock.elapsedRealtime()
@@ -268,6 +281,7 @@ object EspelhoEnergia {
         }
     }
 
+    @Synchronized
     private fun releaseWakeLock() {
         try {
             wakeLock?.let { if (it.isHeld) it.release() }

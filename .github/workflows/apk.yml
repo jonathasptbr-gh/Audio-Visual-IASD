@@ -737,6 +737,14 @@ jobs:
           rodar tools/restaurar-letra-adiada.test.mjs
           rodar tools/restaurar-letra-adiada-preview.test.mjs
 
+          # O CARTÃO DE FALHA DA PREVIEW segura o `pvBusyCount` pelo prazo de
+          # leitura — e quem toma a legenda ENCERRA esse prazo, senão o cartão do
+          # trabalho SEGUINTE fica preso na tela depois de ele terminar. As duas
+          # metades: o cartão sai com o fim do novo, e uma falha SOZINHA continua
+          # no ar para ser lida. Regressão de um lote desta campanha, pega pelo
+          # revisor e provada por reversão.
+          rodar tools/gaveta-e-cartao.test.mjs
+
           # O PLACAR VAI PARA O RESUMO DO RUN, não só para o log — a queixa que
           # originou este lote foi precisamente que o desfecho só existia lá
           # dentro. `rodados` é CONTADO, nunca digitado: um número fixo aqui

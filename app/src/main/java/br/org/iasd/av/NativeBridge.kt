@@ -249,6 +249,39 @@ class NativeBridge(
         private var ultimoStatusDoTelaoMs = 0L
 
         /**
+         * Por quanto tempo a TELA ELEITA continua sendo a referência depois de
+         * calar. Espelha o `TELA_REF_SILENCIO_MS` do `controle.js`, e o valor
+         * espelha de propósito: duas contas de eleição com réguas diferentes
+         * elegeriam telas diferentes.
+         */
+        private const val TELA_REF_SILENCIO_MS = 5_000L
+
+        /**
+         * A TELA ELEITA como referência de tempo, e quando ela falou.
+         *
+         * [ultimoStatusDoTelaoMs] resolve telão × telas; esta é a outra metade
+         * da mesma regra, ENTRE as até três telas pareadas. Cada uma emite
+         * `tela-status` a ~4 Hz pelo `POST /r` e
+         * [SessionService.updateFromDisplay] supõe UMA fonte: com duas
+         * alternando, o `playing` e a posição de uma contradizem os da outra a
+         * cada batida — uma tela que acabou de entrar (ou de recarregar)
+         * reporta 0 s e pausado enquanto as outras reportam o meio do louvor, e
+         * a barra da tela de bloqueio anda para a frente e para trás. É o mesmo
+         * defeito que a precedência existe para impedir, um nível abaixo.
+         *
+         * A eleita é a PRIMEIRA VISTA e troca quando cala por
+         * [TELA_REF_SILENCIO_MS] — a regra do `controle.js` (`telaRefId`),
+         * verbatim; a única diferença é o relógio (`elapsedRealtime`,
+         * monotônico, contra o `Date.now()` de lá). Não precisa ser zerada ao
+         * fim da cena: o silêncio já troca a eleita.
+         */
+        @Volatile
+        private var telaRefId: String? = null
+
+        @Volatile
+        private var telaRefEmMs = 0L
+
+        /**
          * O snoop da notificação de mídia, chamável DE FORA de uma ponte —
          * é o que alimenta a MediaSession quando o status vem do servidor da
          * LAN (`tela-status`, E5) com o app minimizado e o WebView do Controle
@@ -266,8 +299,17 @@ class NativeBridge(
             val agora = android.os.SystemClock.elapsedRealtime()
             if (tipo == "display-status") {
                 ultimoStatusDoTelaoMs = agora
-            } else if (agora - ultimoStatusDoTelaoMs < PRECEDENCIA_TELAO_MS) {
-                return
+            } else {
+                if (agora - ultimoStatusDoTelaoMs < PRECEDENCIA_TELAO_MS) return
+                // E ENTRE AS TELAS vale a ELEIÇÃO — ver [telaRefId]. Sem ela a
+                // precedência resolve só metade do problema: calado o telão, as
+                // até três telas pareadas passam a alternar entre si.
+                val id = o.optString("__tela").ifEmpty { "?" }
+                if (telaRefId == null || agora - telaRefEmMs > TELA_REF_SILENCIO_MS) {
+                    telaRefId = id
+                }
+                if (id != telaRefId) return
+                telaRefEmMs = agora
             }
             SessionService.updateFromDisplay(
                 ctx,
@@ -347,9 +389,42 @@ class NativeBridge(
          * esta fila já sabe ter. Os DIAGNÓSTICOS não colidem — `diagnostico` é
          * escrito só pelo caminho do download e `diagnosticoStream` só pelo do
          * manifesto, que é justamente por que eles são dois campos.
+         *
+         * **E é a fila de um TOQUE, nunca de uma varredura.** O preço acima é
+         * aceitável para UMA pergunta esporádica na frente do operador; trabalho
+         * de MASSA aqui esgota o único fio e empurra todo "Tocar agora" para
+         * além dos 60 s. É por isso que a varredura de cifras tem fila própria
+         * ([cifra]), e é a pergunta a fazer antes de pôr qualquer coisa aqui.
          */
         private val extracao = Executors.newSingleThreadExecutor { r ->
             Thread(r, "av-bridge-extr").apply { isDaemon = true }
+        }
+
+        /**
+         * A fila da CIFRA — o `GET` da página do Cifra Club ([cifraHtml]), e
+         * só ele.
+         *
+         * Ela é PRÓPRIA porque o trabalho dela é de MASSA e o da [extracao] é
+         * de TOQUE. A varredura do acervo roda na ABERTURA sobre tudo que está
+         * baixado e com SEIS requisições concorrentes do lado web, então
+         * enquanto ela corre há sempre ~6 tarefas de cifra à frente de quem
+         * chegar depois — cada uma com o prazo do [CifraFonte] valendo para
+         * connect E para read. Compartilhando a fila, o `ytStream` de um "Tocar
+         * agora" esperava essa cabeça inteira e podia vencer os 60 s do
+         * `call()`: a promessa resolve `null`, a transmissão direta falha e a
+         * cena cai no download de centenas de MB, sem nada na tela que
+         * explique.
+         *
+         * Sair da [extracao] é seguro porque o que obriga AQUELA fila a ser de
+         * uma thread só é a inicialização global do NewPipe, e o [CifraFonte]
+         * não o toca (é um `HttpURLConnection` avulso). Esta continua de UMA
+         * thread pelo motivo dela: `CifraFonte.ultimaTentativa` é o veredito da
+         * ÚLTIMA busca, e escritas concorrentes fariam a linha "Cifra:" do
+         * Registro descrever uma tentativa que não é a que o `cifra.js` está
+         * relatando ao lado.
+         */
+        private val cifra = Executors.newSingleThreadExecutor { r ->
+            Thread(r, "av-bridge-cifra").apply { isDaemon = true }
         }
     }
 
@@ -1152,10 +1227,12 @@ class NativeBridge(
      * indistinguíveis, que é o modo de falhar que este projeto chama de mentir
      * baixinho.
      *
-     * Na fila [extracao]: é rede lendo metadados, na casa dos segundos. Em `io`
-     * ela travaria a fila de que `listFolder`, `otaPending` e
-     * `atualizacaoEstado` dependem; em `transferencia` ela esperaria um
-     * download de minutos para responder a um toque numa aba.
+     * Na fila [cifra], que é dela e de mais ninguém. Em `io` ela travaria a
+     * fila de que `listFolder`, `otaPending` e `atualizacaoEstado` dependem;
+     * em `transferencia` ela esperaria um download de minutos para responder a
+     * um toque numa aba; e na [extracao] a VARREDURA do acervo põe seis
+     * páginas na frente do `ytStream` de um "Tocar agora", que assim vence os
+     * 60 s do `call()` e cai no download, calado. Ver o KDoc das duas filas.
      *
      * **Privilégio do Controle** (`host == null` no telão): sem a guarda,
      * qualquer script no documento do Display ganharia um cliente HTTP de
@@ -1164,7 +1241,7 @@ class NativeBridge(
     @JavascriptInterface
     fun cifraHtml(callId: String, url: String) {
         if (host == null) { resolve(callId, "null"); return }
-        extracao.execute {
+        cifra.execute {
             val (status, html) = try {
                 CifraFonte.buscar(url)
             } catch (_: Exception) {

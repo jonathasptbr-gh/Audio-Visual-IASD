@@ -210,10 +210,16 @@ class SessionService : Service() {
         // precisa saber: sem isto o próximo `espelhoLigar()` encontra o estado
         // antigo e vira no-op CALADO. Quando a parada foi pedida,
         // `transmissaoDesligada` já zerou tudo e nada é avisado aqui.
-        if (transmissao != null) {
+        // A conferência e a limpeza são um ato só (ver [trava]): uma contagem de
+        // telas chegando de uma thread do servidor entre as duas ressuscitaria a
+        // transmissão DEPOIS do aviso, e ninguém mais a desmontaria. O aviso em
+        // si sai FORA do monitor — ele chama de volta o dono, pelo `onGone`.
+        val haviaTx = synchronized(trava) {
+            val havia = transmissao != null
             transmissao = null
-            EspelhoEnergia.aoMorrerOServico()
+            havia
         }
+        if (haviaTx) EspelhoEnergia.aoMorrerOServico()
         // O sistema remove a notificação de um serviço em primeiro plano ao
         // destruí-lo, mas [publish] também usa `notify` quando o serviço já
         // está publicado — e um `notify` não tem relação nenhuma com o ciclo
@@ -357,10 +363,15 @@ class SessionService : Service() {
             )
         }
         // Marco da extrapolação: é contra isto que `updateFromDisplay` decide
-        // se o tempo do telão é um salto ou só o relógio andando.
-        lastPubPosMs = s.positionMs
-        lastPubAt = android.os.SystemClock.elapsedRealtime()
-        lastPubPlaying = s.playing
+        // se o tempo do telão é um salto ou só o relógio andando. Os três sob o
+        // mesmo monitor da cena ([trava]) porque são lidos JUNTOS lá — com a
+        // gravação partida ao meio, um `lastPubAt` novo ao lado de um
+        // `lastPubPosMs` velho fabrica um salto.
+        synchronized(trava) {
+            lastPubPosMs = s.positionMs
+            lastPubAt = android.os.SystemClock.elapsedRealtime()
+            lastPubPlaying = s.playing
+        }
 
         val notif = buildNotification(this, s, session)
         // O TIPO acompanha as razões vivas, e por isso é recalculado a cada
@@ -469,6 +480,32 @@ class SessionService : Service() {
             SessionRemote.STOP, SessionRemote.VIEW,
         )
 
+        /**
+         * O MONITOR DAS DUAS RAZÕES DE VIVER ([scene] e [transmissao]) e dos
+         * marcos da extrapolação (`lastPub*`).
+         *
+         * `@Volatile` dá VISIBILIDADE, nunca ATOMICIDADE — e as duas são
+         * escritas por LER-CALCULAR-GRAVAR a partir de threads diferentes:
+         * [update]/[stop] chegam pela thread da ponte do CONTROLE,
+         * [updateFromDisplay] pela ponte do TELÃO (o `busPost`, a ~4 Hz) e
+         * também pela thread de socket do [EspelhoServidor] (o `tela-status`
+         * do `POST /r`), e as telas da transmissão mudam nas threads do
+         * servidor. Sem o monitor, um Parar que cruze com um `display-status`
+         * em voo RESSUSCITA a cena morta: a thread do telão já leu `s`
+         * não-nulo e grava `s.copy(…)` por cima do `scene = null`, o serviço
+         * sobe de novo e o cartão volta com o louvor que acabou de sair — e
+         * ele não se conserta sozinho, porque o lado web deduplica por chave e
+         * não reenvia o `active:false`. É o mesmo defeito que o
+         * `getState`+`setState` que o projeto proíbe para o `state` do banco,
+         * aqui em Kotlin.
+         *
+         * **`publish()` e [iniciar] ficam FORA do bloco.** O monitor cobre só
+         * a leitura e a gravação dos campos; publicar salta para a main thread
+         * e volta a chamar para cá, e segurar o monitor nesse caminho é
+         * transformar uma correção de corrida numa fila.
+         */
+        private val trava = Any()
+
         @Volatile
         private var scene: Scene? = null
 
@@ -514,7 +551,7 @@ class SessionService : Service() {
 
         /** Há cena no ar: sobe o serviço (se preciso) e atualiza a notificação. */
         fun update(ctx: Context, s: Scene) {
-            scene = s
+            synchronized(trava) { scene = s }
             val inst = instance
             if (running && inst != null) {
                 inst.publish()
@@ -570,17 +607,23 @@ class SessionService : Service() {
          * nasceria sem título nenhum.
          */
         fun updateFromDisplay(ctx: Context, playing: Boolean, positionMs: Long, durationMs: Long) {
-            val s = scene ?: return
-            val dur = if (durationMs > 0) durationMs else s.durationMs
-            // Mesma economia do lado web: em reprodução contínua a sessão
-            // extrapola sozinha, então só vale reenviar quando o play/pause
-            // muda, a duração muda ou o tempo real destoa do extrapolado.
-            val extrapolado = if (lastPubAt == 0L) null else {
-                lastPubPosMs + if (lastPubPlaying) android.os.SystemClock.elapsedRealtime() - lastPubAt else 0L
+            // A LEITURA E A GRAVAÇÃO DE `scene` SÃO INDIVISÍVEIS — ver [trava].
+            // Esta thread não é a do lado web: fora do monitor, um `scene = null`
+            // de um Parar concorrente seria sobrescrito por uma cópia da cena
+            // anterior, e o cartão voltaria com o louvor que acabou de sair.
+            synchronized(trava) {
+                val s = scene ?: return
+                val dur = if (durationMs > 0) durationMs else s.durationMs
+                // Mesma economia do lado web: em reprodução contínua a sessão
+                // extrapola sozinha, então só vale reenviar quando o play/pause
+                // muda, a duração muda ou o tempo real destoa do extrapolado.
+                val extrapolado = if (lastPubAt == 0L) null else {
+                    lastPubPosMs + if (lastPubPlaying) android.os.SystemClock.elapsedRealtime() - lastPubAt else 0L
+                }
+                val saltou = extrapolado == null || Math.abs(positionMs - extrapolado) > POS_TOL_MS
+                if (playing == s.playing && dur == s.durationMs && !saltou) return
+                scene = s.copy(playing = playing, positionMs = positionMs, durationMs = dur)
             }
-            val saltou = extrapolado == null || Math.abs(positionMs - extrapolado) > POS_TOL_MS
-            if (playing == s.playing && dur == s.durationMs && !saltou) return
-            scene = s.copy(playing = playing, positionMs = positionMs, durationMs = dur)
             val inst = instance
             if (inst != null) {
                 inst.publish()
@@ -611,14 +654,18 @@ class SessionService : Service() {
          * um arranhão; perder a projeção, não.
          */
         fun stop(ctx: Context) {
-            scene = null
-            // Os marcos da extrapolação morrem com a cena: sem isto, o primeiro
-            // `display-status` da cena SEGUINTE era comparado com a posição da
-            // anterior — um "salto" fabricado (ou, pior, um salto real absorvido
-            // por coincidência de tempos).
-            lastPubPosMs = 0L
-            lastPubAt = 0L
-            lastPubPlaying = false
+            // A MORTE DA CENA E A DOS MARCOS SÃO O MESMO ATO — ver [trava]: é
+            // este `scene = null` que o `display-status` em voo sobrescrevia.
+            synchronized(trava) {
+                scene = null
+                // Os marcos da extrapolação morrem com a cena: sem isto, o
+                // primeiro `display-status` da cena SEGUINTE era comparado com a
+                // posição da anterior — um "salto" fabricado (ou, pior, um salto
+                // real absorvido por coincidência de tempos).
+                lastPubPosMs = 0L
+                lastPubAt = 0L
+                lastPubPlaying = false
+            }
             pararSeNadaVivo(ctx)
         }
 
@@ -647,28 +694,38 @@ class SessionService : Service() {
 
         /** O servidor das telas subiu: o cartão passa a existir mesmo sem cena. */
         fun transmissaoLigada(ctx: Context, endereco: String) {
-            transmissao = Transmissao(endereco, 0)
+            synchronized(trava) { transmissao = Transmissao(endereco, 0) }
             val inst = instance
             if (running && inst != null) inst.publish() else iniciar(ctx)
         }
 
         /** O servidor desceu: sem cena, o cartão vai junto. */
         fun transmissaoDesligada(ctx: Context) {
-            transmissao = null
+            synchronized(trava) { transmissao = null }
             pararSeNadaVivo(ctx)
         }
 
+        // OS DOIS ABAIXO CHEGAM DAS THREADS DO SERVIDOR (uma tela que entra ou
+        // sai, o `religarNoIp`), e o desligar chega da main: fora do monitor,
+        // uma contagem de telas gravada por cima do `transmissao = null` faria o
+        // cartão da transmissão renascer — e o `aoMorrerOServico` do `onDestroy`
+        // já teria passado, deixando o dono julgando que a proteção existe.
+
         fun transmissaoTelas(ctx: Context, quantas: Int) {
-            val t = transmissao ?: return
-            if (t.telas == quantas) return
-            transmissao = t.copy(telas = quantas)
+            synchronized(trava) {
+                val t = transmissao ?: return
+                if (t.telas == quantas) return
+                transmissao = t.copy(telas = quantas)
+            }
             atualizarTransmissao(ctx)
         }
 
         fun transmissaoEndereco(ctx: Context, novo: String) {
-            val t = transmissao ?: return
-            if (t.endereco == novo) return
-            transmissao = t.copy(endereco = novo)
+            synchronized(trava) {
+                val t = transmissao ?: return
+                if (t.endereco == novo) return
+                transmissao = t.copy(endereco = novo)
+            }
             atualizarTransmissao(ctx)
         }
 

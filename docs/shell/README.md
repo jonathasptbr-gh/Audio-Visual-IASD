@@ -14,7 +14,7 @@ para a TV com `android.app.Presentation`.
 
 | capítulo | arquivo | quando abrir |
 |---|---|---|
-| A ponte `AVNative` | [`PONTE.md`](PONTE.md) | usar ou mudar um método nativo; `SHELL_VERSION`; as três filas; os tokens `/saf/`; as invariantes 1-4 e 9 |
+| A ponte `AVNative` | [`PONTE.md`](PONTE.md) | usar ou mudar um método nativo; `SHELL_VERSION`; as quatro filas; os tokens `/saf/`; as invariantes 1-4 e 9 |
 | O OTA | [`OTA.md`](OTA.md) | publicar; o watchdog de boot; a detecção; `shellTag`; por que a atualização não chegou |
 
 > Os demais subsistemas ainda não têm capítulo próprio: o telão nas telas da

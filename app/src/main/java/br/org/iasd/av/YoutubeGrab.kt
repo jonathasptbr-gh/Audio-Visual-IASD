@@ -390,7 +390,7 @@ object YoutubeGrab {
     @Synchronized
     private fun garantirInit() {
         // `@Synchronized` desde que as extrações deixaram de dividir uma fila
-        // só com o download (ver as três filas em `NativeBridge`): o par
+        // só com o download (ver as filas em `NativeBridge`): o par
         // "testa `pronto`, então inicializa" não é atômico, e agora há duas
         // threads que podem chegar aqui ao mesmo tempo — a da transferência e a
         // da extração. `NewPipe.init` duas vezes provavelmente não faria mal,

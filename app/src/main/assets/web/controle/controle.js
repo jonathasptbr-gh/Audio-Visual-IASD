@@ -9039,7 +9039,22 @@ function linhaDeItem(item, opts) {
     // O SEGUNDO TOQUE RETIRA DO AR continua valendo (v5.165): com o item
     // projetado, a pergunta que a linha responde não é "o que fazer com ele?" —
     // é "tira isto do telão". A gaveta só abre quando não há nada a desfazer.
-    if (noArAgora(item)) { retirarDoAr(item); return; }
+    //
+    // MAS ELE TAMBÉM COLAPSA A GAVETA JÁ ABERTA, e sem isto ela não tinha como
+    // fechar: o "Tocar agora" nasce marcado (`destPadraoTocar`), então confirmar
+    // na própria gaveta põe o item no ar SEM colapsá-la (`closeSongMenu` é da
+    // FOLHA, não da linha), e daí todo toque cai neste `return`. A marca
+    // `.lib-item.expanded` presa para sempre é o que `interacaoAbertaNoAcervo`
+    // lê como "há interação aberta" — e o progresso do download deixava de
+    // chegar à tela pelo resto da sessão.
+    if (noArAgora(item)) {
+      retirarDoAr(item);
+      if (li.classList.contains('expanded')) {
+        fecharConfirmacaoNaLinha();
+        collapseAccordion(gaveta, () => li.classList.remove('expanded'));
+      }
+      return;
+    }
     if (li.classList.contains('expanded')) {
       fecharConfirmacaoNaLinha();
       collapseAccordion(gaveta, () => li.classList.remove('expanded'));
@@ -16624,6 +16639,9 @@ const PV_BUSY_DELAY_MS = 180;
 const PV_FALHA_MS = 5000;
 let pvBusyCount = 0;
 let pvBusyTimer = null;
+// As liberações que `falhar()` adiou pelo prazo de leitura e que ainda não
+// venceram. Um trabalho NOVO as consome ao nascer: ver o topo de `previewBusy`.
+const pvFalhasPendentes = [];
 
 // Devolve `{ visivel, soltar }`. `visivel` é falso no simplificado, onde a
 // preview não está na tela — ali quem avisa continua sendo o toast, e é por
@@ -16731,10 +16749,17 @@ function previewBusy(acao, nome, aoCancelar) {
   if (appMode === 'simple' && !simpleDisplay()) {
     return { visivel: false, atualizar: () => {}, soltar: () => {}, falhar: () => {} };
   }
-  pvBusyCount++;
   // O CARTÃO DE FALHA FICA NO AR (ver `falhar`), então um trabalho NOVO pode
-  // nascer sobre ele: sem tirar a marca, `.falhou` esconderia o aro que gira e
-  // pintaria "Baixando…" em vermelho — o cartão dizendo duas coisas opostas.
+  // nascer sobre ele — e ao nascer ele TOMA A LEGENDA, o que encerra o prazo de
+  // leitura do anterior: a mensagem que aquele prazo protegia acabou de ser
+  // sobrescrita, e o `pvBusyCount` que ele ainda segurava só prenderia o cartão
+  // DESTE trabalho depois que ele terminasse. É a regra que o botão de cancelar
+  // já segue no `liberar` ("sai com o DONO dele"), aplicada à legenda.
+  // ANTES do `pvBusyCount++`, para o contador do falho sair sem cruzar com o novo.
+  pvFalhasPendentes.splice(0).forEach((f) => f());
+  pvBusyCount++;
+  // Sem tirar a marca, `.falhou` esconderia o aro que gira e pintaria
+  // "Baixando…" em vermelho — o cartão dizendo duas coisas opostas.
   pvBusyEl.classList.remove('falhou');
   pvBusyCapEl.textContent = acao;
   pvBusyLabelEl.textContent = nome;
@@ -16822,7 +16847,14 @@ function previewBusy(acao, nome, aoCancelar) {
         pvBusyCancelar = null;
         pintarPvBusyCancelar();
       }
-      setTimeout(liberar, PV_FALHA_MS);
+      // UMA vez, venha o fim pelo prazo ou por outro trabalho tomar a legenda
+      // (ver o topo de `previewBusy`): as duas portas chamam o MESMO `fim`, e a
+      // trava `feito` é o que impede o contador de cair duas vezes — o que
+      // apagaria o cartão de um trabalho que ainda está correndo.
+      let feito = false;
+      const fim = () => { if (feito) return; feito = true; liberar(); };
+      pvFalhasPendentes.push(fim);
+      setTimeout(fim, PV_FALHA_MS);
     },
   };
 }

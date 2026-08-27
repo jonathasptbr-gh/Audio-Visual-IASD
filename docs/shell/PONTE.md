@@ -152,9 +152,9 @@ arbitrário rodando no origin privilegiado.
 
 ---
 
-## As TRÊS filas — escolher a errada é uma regressão muda
+## As QUATRO filas — escolher a errada é uma regressão muda
 
-Três executores de **uma thread cada**, no `companion` do `NativeBridge` e
+Quatro executores de **uma thread cada**, no `companion` do `NativeBridge` e
 portanto **compartilhados por todas as instâncias**. Todos daemon.
 
 | fila | o que roda nela |
@@ -162,6 +162,7 @@ portanto **compartilhados por todas as instâncias**. Todos daemon.
 | **`io`** | só o que responde em MILISSEGUNDOS: `version.json`, estado do OTA, `listFolder` pelo `ContentResolver`. **Nada de rede** |
 | **`transferencia`** | as transferências de MINUTOS: download do YouTube, download do APK, `ytDiscard` |
 | **`extracao`** | metadados de rede (busca, playlists de canal, o manifesto do `ytStream`, `apkProcurar`) e a rasterização de PDF — coisas de SEGUNDOS |
+| **`cifra`** | só o `cifraHtml` — o GET da página do Cifra Club |
 
 - **Um executor por INSTÂNCIA vazava.** `newSingleThreadExecutor` cria uma
   thread de core sem timeout e não-daemon, viva até um `shutdown` que nunca
@@ -190,8 +191,18 @@ portanto **compartilhados por todas as instâncias**. Todos daemon.
   toca no NewPipe (é `HttpURLConnection` avulso) e entra pela outra metade da
   regra — rede lendo metadados —, pagando o preço já declarado desta fila: o
   pior caso dele é um "Tocar agora" esperando.
+- **A `cifra` é própria porque ela é MASSA e a `extracao` é TOQUE.** O preço
+  acima só é aceitável para UMA pergunta esporádica: a varredura do acervo roda
+  na ABERTURA com seis requisições concorrentes do lado web, e o prazo do
+  `CifraFonte` vale para connect E para read — havia sempre ~6 páginas à frente
+  do `ytStream` de um "Tocar agora", que assim podia vencer os 60 s do `call()`
+  e cair no download, calado. Sair da `extracao` é seguro porque o que a obriga
+  a ser serial é a inicialização do NewPipe, e o `CifraFonte` não o toca
+  (`HttpURLConnection` avulso); esta continua de uma thread pelo motivo dela —
+  `CifraFonte.ultimaTentativa` é o veredito da ÚLTIMA busca, e escritas
+  concorrentes fariam a linha "Cifra:" do Registro descrever outra tentativa.
 
-**Fora das três filas:**
+**Fora das filas:**
 
 - **Os cinco métodos do espelho rodam na MAIN THREAD.** Enfileirados atrás de um
   download, "ligar a transmissão" venceria os 60 s e resolveria `null` — um erro
@@ -365,6 +376,16 @@ que o telão tem desde que nasce — `KeepVisibleWebView.manterVisivel` (a
 visibilidade, que o Chromium calcula da janela **e** da View) e
 `RENDERER_PRIORITY_IMPORTANT` com `waivedWhenNotVisible = false` — mais
 `onResume`/`resumeTimers` no `onStop` da Activity.
+
+**A visibilidade tem DOIS donos, e o segundo é a TELA CHEIA.** Ao entrar em
+fullscreen o Chromium entrega ao `onShowCustomView` uma View própria e deixa o
+WebView original com um tratamento no-op: dali em diante os `override` da
+`KeepVisibleWebView` não vão a lugar nenhum, e quem reporta visibilidade ao
+motor é essa View de terceiro — que só a recebe pelo DESPACHO do contêiner que a
+hospeda. Por isso o `fullscreenContainer` da `MainActivity` é um
+`KeepVisibleFrame`, que mente do mesmo jeito, e o `aplicarProjecaoLocal` escreve
+a bandeira nos dois. Sem ele o defeito volta inteiro **no caso mais comum do
+culto sem TV**, porque é ali que a preview em tela cheia É a projeção.
 
 **Por que ele existe:** sem tela quem toca é o `<video>` da preview, neste
 WebView, e o Chromium pausa o `<video>` de uma página oculta. Com o app

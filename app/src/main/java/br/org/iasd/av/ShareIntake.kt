@@ -23,7 +23,28 @@ import org.json.JSONObject
  */
 object ShareIntake {
 
-    fun parse(ctx: Context, intent: Intent?): JSONObject? {
+    /**
+     * Um share ILEGÍVEL é "não veio nada" — nunca um app que não abre.
+     *
+     * O `intent-filter` é público e o Bundle de extras é desserializado
+     * INTEIRO no PRIMEIRO acesso: um Parcelable de uma classe que não existe
+     * neste APK (extras próprios do app remetente são comuns) faz já o
+     * primeiro `getStringExtra` lançar `BadParcelableException`, e antes do
+     * 33 um `EXTRA_STREAM` que venha como lista onde se espera `Uri` lança
+     * `ClassCastException`. Sem esta guarda a exceção sobe até o `onCreate`
+     * e o app morre no lançamento — e morre DE NOVO a cada volta pelo
+     * Recentes, porque a Activity é `singleTask`, nunca é finalizada, e quem
+     * apaga a ação do intent (`consumeShareIntent`) só roda DEPOIS desta
+     * chamada. Daí a guarda envolver o corpo inteiro, e não cada leitura:
+     * o que lança é o primeiro toque nos extras, qualquer que ele seja.
+     */
+    fun parse(ctx: Context, intent: Intent?): JSONObject? = try {
+        interpretar(ctx, intent)
+    } catch (_: Exception) {
+        null
+    }
+
+    private fun interpretar(ctx: Context, intent: Intent?): JSONObject? {
         if (intent == null) return null
         val action = intent.action ?: return null
 
