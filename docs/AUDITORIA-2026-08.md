@@ -87,6 +87,32 @@ execução** em Chromium de verdade, não por leitura.
 
 ---
 
+## Etapa 2A (resto) — `espelho/tela.js` e os módulos puros (3.467 linhas)
+
+12 achados brutos · **9 confirmados** · 3 refutados. Os dois primeiros foram
+provados **por execução**, instrumentando o próprio `tools/tela-rede.test.mjs`.
+
+### Correção
+
+| # | Onde | O defeito |
+|---|---|---|
+| T1 | `tela.js:214` | **`anuncio()` reenvia o MESMO `__mid`, e o Controle o descarta como duplicata.** `prontoUltimo` é o objeto que `sendCommand` já carimbou, e `Object.assign` copia o carimbo junto; do outro lado, `deliverCommand` faz `if (bus && alreadySeen(msg.__mid)) return` antes de qualquer handler. Resultado: numa queda de fio, `resendSceneToDisplay` e `telaReenviarPreferencias` NÃO rodam — se o operador trocou a cena durante a queda, a tela volta ERRADA e calada. **MEDIDO**: dois `display-ready` com `__mid` idêntico; entregando-os ao `AVDB.onCommand` real, o handler recebe 1 de 2. O `db.js:890` documenta esta armadilha nominalmente. Recarga e primeira ligada escapam (o `MID_PREFIX` é sorteado por página); só a **queda de fio** quebra |
+| T2 | `tela.js:419` | **O 404 do fio desenha um balão sobre a projeção.** `#telaAviso` é `position:fixed; bottom:8%; z-index:9998` — uma pílula escura no rodapé da projeção por 6 s, na frente da congregação. Contradiz o KDoc do próprio `cairToken` e a política que o `postar` aplica ao MESMO evento. **MEDIDO** |
+| T3 | `cifra.js:340` | **A gramática do acorde recusa a família `X7/9`** (tensão depois da barra) — `C7/9`, `C6/9`, `A7/13`, `Em7/9`, `G7/11`. É a notação Chediak, a que o Cifra Club usa. O acorde recusado volta INTACTO da transposição e **fica parado no tom original com a folha inteira andando à volta dele** — o defeito exato da v1.1.13 (o `7M` que faltava), noutra família. **MEDIDO**: `pareceAcorde('C7/9') === false`, `transporAcorde('C7/9', 2) === 'C7/9'` |
+| T4 | `tela.js:794` | A guarda que deveria re-pedir a trava de tela nunca dispara: o navegador não zera a variável ao liberar o wake lock — o `WakeLockSentinel` passa a ter `released === true` mas o objeto continua truthy |
+| T5 | `bible.js:187` | **`stripHtml` LANÇA numa entidade fora de faixa.** `String.fromCodePoint(parseInt(...))` sem guarda: `&#1114112;` dá `RangeError` e derruba o capítulo inteiro. **MEDIDO**. O `cifra.js:245` já tem a guarda certa — este arquivo não tem oráculo próprio |
+
+### Código morto
+
+| # | Onde | O quê |
+|---|---|---|
+| T6 | `cifra.js:5` | **O cabeçalho declara como CONTRATO** ("Isso é contrato do recurso, não detalhe") que *"nada é baixado em lote"* e que *"nada é gravado em disco — o cache é um `Map` em memória, morto ao fechar o app"*. As duas coisas deixaram de valer: `syncCifrasAcervo()` roda na abertura sobre `allCollections()` inteira, e as cifras são gravadas no IndexedDB desde a v1.2.14 |
+| T7 | `tela.js:581` | O cabeçalho da entrada descreve, no presente, duas formas de ativação; a segunda (o "botão discreto de canto" e a recarga que "recomeça por trás") foi revogada na v5.218, e o código 260 linhas abaixo faz o OPOSTO e diz isso por extenso |
+| T8 | `cifra.js:553` | `somenteLetra` é exportada e **nunca teve chamador** (`git log -S` não devolve commit nenhum); só o oráculo a exercita. O KDoc descreve um recurso do operador que não existe em tela |
+| T9 | `cifra.js:217` | O parâmetro `extra` de `urlDeBusca` não tem chamador de produção, e o KDoc põe o SEGUNDO TENTO nele — mas quem o compõe é o `controle.js:10334`, um nível acima |
+
+---
+
 ## Achados da varredura mecânica
 
 Encontrados por análise estática do repositório inteiro, fora dos workflows.
@@ -101,12 +127,10 @@ Encontrados por análise estática do repositório inteiro, fora dos workflows.
 
 ## O que ainda não foi auditado
 
-| Escopo | Linhas |
-|---|---|
-| `espelho/tela.js` | 852 |
-| módulos puros: `serie.js`, `cifra.js`, `sorteio.js`, `hinario.js`, `bible.js`, `louvorja.js` | 2.615 |
-| `controle/controle.js` | 24.516 |
-| CSS, HTML, workflows do CI | — |
+| Escopo | Linhas | Estado |
+|---|---|---|
+| `controle/controle.js` | 24.516 | **em auditoria** — 6 fatias por área funcional |
+| CSS, HTML, workflows do CI | — | não auditado |
 
 ---
 
@@ -117,7 +141,7 @@ Encontrados por análise estática do repositório inteiro, fora dos workflows.
 - **A prova mais forte é a execução.** Onde o cético conseguiu montar o cenário
   num Chromium de verdade, está dito. Três achados (W1, W2, W4/W5) caíram ou
   sobreviveram por medição, não por leitura.
-- **Refutar é o trabalho, não a formalidade.** 13 dos 43 achados brutos foram
+- **Refutar é o trabalho, não a formalidade.** 16 dos 55 achados brutos foram
   derrubados — entre eles um "host que falha aberto" (a origem opaca não chega
   ao `WebMessageListener` com `allowedOriginRules` exato), um "redirect fora da
   allowlist" (os dois hosts do 3xx real já estão na lista) e uma otimização de
