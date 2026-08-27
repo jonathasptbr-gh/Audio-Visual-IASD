@@ -130,7 +130,9 @@ object WebViewFactory {
     /**
      * @param keepVisible ver [KeepVisibleWebView] — o telão nasce com ela. O
      *   Controle a recebe EM RUNTIME quando a preview vira a projeção (ver
-     *   `MainActivity.setProjecaoLocal`), e não por este parâmetro.
+     *   `MainActivity.setProjecaoLocal`), e não por este parâmetro. É também o
+     *   que diz "isto é PALCO" para a cor de fundo do WebView (ver abaixo):
+     *   ligá-la no Controle o devolveria ao preto fixo em qualquer tema.
      * @param onRendererGone chamado quando o processo do renderer morre. O
      *   WebView já foi desligado do barramento e destruído; cabe ao dono
      *   construir um novo no lugar. Sem callback, a página simplesmente some
@@ -168,7 +170,30 @@ object WebViewFactory {
             // sob pressão de memória — com a `Presentation` ainda no ar na TV.
             web.setRendererPriorityPolicy(WebView.RENDERER_PRIORITY_IMPORTANT, false)
         }
-        web.setBackgroundColor(Color.BLACK)
+        // O FUNDO DO WEBVIEW COBRE O QUE ESTÁ POR BAIXO. Ele é a cor base que o
+        // Chromium compõe ANTES de o CSS da página pintar, e o WebView é
+        // MATCH_PARENT sobre o `root` da Activity — então um preto fixo aqui
+        // devolve, a cada carga (abertura, OTA aplicado ao vivo, remontagem por
+        // morte de renderer), o mesmo retângulo preto que o `setTheme` e o
+        // `windowBackground` do tema claro existem para eliminar.
+        //
+        // O PALCO NÃO TEM TEMA (o bloco compartilhado de `shared/tokens.css`), e
+        // o telão é palco: ali o preto é a cor certa nos dois temas. Quem os
+        // separa é `keepVisible` — só a [StagePresentation] o liga na
+        // construção; o Controle recebe `manterVisivel` em RUNTIME, nunca por
+        // este parâmetro (ver [KeepVisibleWebView]).
+        //
+        // O Controle sai da MESMA cópia guardada de que sai o
+        // `windowBackground`, e pelo mesmo motivo: é a única fonte da escolha
+        // que existe antes de haver JavaScript. Lida na criação — a remontagem
+        // relê, e uma troca de tema com a página já pintada não aparece, porque
+        // aí quem pinta é o `--bg` do próprio documento.
+        web.setBackgroundColor(
+            if (keepVisible) Color.BLACK
+            else ctx.getColor(
+                if (MainActivity.temaClaroSalvo(ctx)) R.color.app_bg_claro else R.color.app_bg,
+            ),
+        )
         // O telão e a UI do operador nunca rolam a página inteira — o layout
         // web já é 100vh com áreas roláveis próprias.
         web.overScrollMode = WebView.OVER_SCROLL_NEVER

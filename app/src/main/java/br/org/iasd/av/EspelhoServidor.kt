@@ -1092,19 +1092,65 @@ class EspelhoServidor(
         EspelhoEnergia.progresso()
     }
 
-    /** Fecha uma tela de comandos de fora. Com [adeus], o evento entra na
-     *  frente do sentinela — a mesma ordem-contrato do [fechar] dos pixels. */
+    /** Fecha uma tela de comandos de fora. Com [adeus], a fila é ESVAZIADA e o
+     *  evento passa à frente de tudo — o pendente é status de uma cena que esta
+     *  tela não vai mais mostrar. */
     private fun fecharSse(t: TelaSse, motivo: String, adeus: ByteArray? = null) {
         if (!t.viva) return
         t.motivoDaSaida = motivo
         t.viva = false
-        if (adeus != null) t.fila.offer(adeus)
+        if (adeus != null) {
+            // A FILA É ESVAZIADA ANTES DA DESPEDIDA, e sem isso ela não é a
+            // "frente" que o KDoc promete: `offer` põe na CAUDA, e a fila é
+            // alimentada a ~4 Hz pelo `display-status` (o `difundirJson` não
+            // lê tipo). Numa tela que escoa devagar — sem estar travada — o
+            // acúmulo à frente passa do [ADEUS_PRAZO_MS] e o socket cai antes
+            // de o adeus chegar ao fio: a tela entra na escada de reconexão
+            // batendo numa porta que o `desligar` já fechou, em vez de saber
+            // que a transmissão acabou.
+            //
+            // Descartar o pendente não custa nada: são status de uma cena que
+            // esta tela não vai mais mostrar. É a mesma conta que o fan-out já
+            // faz ao derrubar quem não escoa ("ela reconecta e recebe a cena
+            // inteira de novo pelo `display-ready`").
+            t.fila.clear()
+            t.fila.offer(adeus)
+        }
         if (!t.fila.offer(FIM_SSE)) {
             // Fila entupida: o sentinela não coube. O socket cai de fora, que é
-            // o destravamento de sempre.
+            // o destravamento de sempre — e não há despedida a esperar, porque
+            // ela também não foi enfileirada.
+            fecharQuieto(t.cru)
+            return
+        }
+        if (adeus == null) {
+            fecharQuieto(t.cru)
+            return
+        }
+        // A CORTESIA TEM PRAZO — [ADEUS_PRAZO_MS].
+        //
+        // Com [adeus] o socket NÃO cai aqui: quem o fecha é a escritora do
+        // `GET /e`, ao drenar o sentinela e voltar pelo `finally` do laço de
+        // aceite. Ela pode estar BLOQUEADA dentro de `saida.write` (a tela
+        // parou de drenar e a janela TCP foi a zero), e nesse estado o único
+        // destravamento que existe é fechar o socket de fora. O vigia não
+        // serve: `viva` já é false, e o único chamador com adeus é [desligar],
+        // que no mesmo fôlego zera `servidor` (encerrando o laço do vigia) e
+        // limpa [telasSse] (apagando a última referência à tela). Sem prazo, a
+        // thread, o socket e a instância morta do servidor ficam presos pelo
+        // resto da vida do processo — que num culto é mantido vivo de propósito
+        // pelos serviços em primeiro plano.
+        //
+        // Fechar um socket já fechado é no-op, então o caminho feliz continua
+        // entregando o `{"m":"adeus"}` intacto e este fechamento não faz nada.
+        thread(name = "av-espelho-adeus", isDaemon = true) {
+            try {
+                Thread.sleep(ADEUS_PRAZO_MS)
+            } catch (e: InterruptedException) {
+                Thread.currentThread().interrupt()
+            }
             fecharQuieto(t.cru)
         }
-        if (adeus == null) fecharQuieto(t.cru)
     }
 
     /**
@@ -1811,6 +1857,17 @@ class EspelhoServidor(
          */
         private const val PRAZO_LINHA_MS = 10_000
         private const val TETO_ESCRITA_MS = 20_000L
+
+        /**
+         * Quanto o `{"m":"adeus"}` tem para sair antes de o socket cair de
+         * fora — ver o fim do [fecharSse].
+         *
+         * Bem abaixo do [TETO_ESCRITA_MS] de propósito: aquele é o prazo de uma
+         * tela VIVA, e aqui a transmissão já foi desligada. No socket saudável
+         * a despedida é um chunk de dezenas de bytes numa fila vazia, e sai em
+         * microssegundos; um segundo e meio é folga, não espera.
+         */
+        private const val ADEUS_PRAZO_MS = 1_500L
 
         /**
          * O batimento do fluxo de COMANDOS (`GET /e`, telão por comandos —

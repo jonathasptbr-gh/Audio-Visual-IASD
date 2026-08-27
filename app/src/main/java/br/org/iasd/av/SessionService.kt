@@ -210,6 +210,7 @@ class SessionService : Service() {
         // precisa saber: sem isto o próximo `espelhoLigar()` encontra o estado
         // antigo e vira no-op CALADO. Quando a parada foi pedida,
         // `transmissaoDesligada` já zerou tudo e nada é avisado aqui.
+        //
         // A conferência e a limpeza são um ato só (ver [trava]): uma contagem de
         // telas chegando de uma thread do servidor entre as duas ressuscitaria a
         // transmissão DEPOIS do aviso, e ninguém mais a desmontaria. O aviso em
@@ -486,18 +487,18 @@ class SessionService : Service() {
          *
          * `@Volatile` dá VISIBILIDADE, nunca ATOMICIDADE — e as duas são
          * escritas por LER-CALCULAR-GRAVAR a partir de threads diferentes:
-         * [update]/[stop] chegam pela thread da ponte do CONTROLE,
-         * [updateFromDisplay] pela ponte do TELÃO (o `busPost`, a ~4 Hz) e
-         * também pela thread de socket do [EspelhoServidor] (o `tela-status`
-         * do `POST /r`), e as telas da transmissão mudam nas threads do
-         * servidor. Sem o monitor, um Parar que cruze com um `display-status`
-         * em voo RESSUSCITA a cena morta: a thread do telão já leu `s`
-         * não-nulo e grava `s.copy(…)` por cima do `scene = null`, o serviço
-         * sobe de novo e o cartão volta com o louvor que acabou de sair — e
-         * ele não se conserta sozinho, porque o lado web deduplica por chave e
-         * não reenvia o `active:false`. É o mesmo defeito que o
-         * `getState`+`setState` que o projeto proíbe para o `state` do banco,
-         * aqui em Kotlin.
+         * [update] e [stop] chegam pela ponte do CONTROLE (e o [stop] também da
+         * main, no fechamento do app), [updateFromDisplay] pela ponte do TELÃO
+         * (o `busPost`, a ~4 Hz) e também pela thread de conexão do
+         * [EspelhoServidor] (o `tela-status` do `POST /r`), e a contagem de
+         * telas muda nas threads daquele servidor. Sem o monitor, um Parar que
+         * cruze com um `display-status` em voo RESSUSCITA a cena morta: a
+         * thread do telão já leu `s` não-nulo e grava `s.copy(…)` por cima do
+         * `scene = null`, o serviço sobe de novo e o cartão volta com o louvor
+         * que acabou de sair — e ele não se conserta sozinho, porque o lado web
+         * deduplica por chave e não reenvia o `active:false`. É o mesmo defeito
+         * que o `getState`+`setState` que o projeto proíbe para o `state` do
+         * banco, aqui em Kotlin.
          *
          * **`publish()` e [iniciar] ficam FORA do bloco.** O monitor cobre só
          * a leitura e a gravação dos campos; publicar salta para a main thread
@@ -608,9 +609,11 @@ class SessionService : Service() {
          */
         fun updateFromDisplay(ctx: Context, playing: Boolean, positionMs: Long, durationMs: Long) {
             // A LEITURA E A GRAVAÇÃO DE `scene` SÃO INDIVISÍVEIS — ver [trava].
-            // Esta thread não é a do lado web: fora do monitor, um `scene = null`
-            // de um Parar concorrente seria sobrescrito por uma cópia da cena
-            // anterior, e o cartão voltaria com o louvor que acabou de sair.
+            // Quem chega aqui não é a thread do CONTROLE (é a ponte do telão, ou
+            // uma conexão do servidor das telas): fora do monitor, um
+            // `scene = null` de um Parar concorrente seria sobrescrito por esta
+            // cópia da cena anterior, e o cartão voltaria com o louvor que
+            // acabou de sair.
             synchronized(trava) {
                 val s = scene ?: return
                 val dur = if (durationMs > 0) durationMs else s.durationMs
@@ -705,11 +708,15 @@ class SessionService : Service() {
             pararSeNadaVivo(ctx)
         }
 
-        // OS DOIS ABAIXO CHEGAM DAS THREADS DO SERVIDOR (uma tela que entra ou
-        // sai, o `religarNoIp`), e o desligar chega da main: fora do monitor,
-        // uma contagem de telas gravada por cima do `transmissao = null` faria o
-        // cartão da transmissão renascer — e o `aoMorrerOServico` do `onDestroy`
-        // já teria passado, deixando o dono julgando que a proteção existe.
+        // OS DOIS ABAIXO LEEM E GRAVAM `transmissao`, e vão ao monitor pela
+        // mesma razão da cena ([trava]). O que torna a contagem de telas o caso
+        // REAL é a thread: ela chega do `servirEventos` do [EspelhoServidor] —
+        // uma tela que entra ou cai, numa thread de conexão — enquanto o
+        // desligar chega da main. Fora do monitor, um `t.copy(telas = …)`
+        // gravado por cima do `transmissao = null` faz o cartão da transmissão
+        // renascer depois de o `aoMorrerOServico` já ter avisado o dono, e nada
+        // mais o desmonta. (O endereço só muda pela main — `runOnUiThread` no
+        // `religarNoIp` —, e está aqui para a regra valer para o campo inteiro.)
 
         fun transmissaoTelas(ctx: Context, quantas: Int) {
             synchronized(trava) {
