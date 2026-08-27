@@ -15,6 +15,8 @@ sequência que o Android/navegador não produz).
 > suíte de oráculos e pelo CI. O que este arquivo guarda agora é o INVENTÁRIO do
 > que foi encontrado e por quê — a lista de trabalho está vazia. Ver a seção
 > "A correção", no fim.
+>
+> **PUBLICADA NA v1.4** (base web e APK), o lote que fecha este ciclo.
 
 ## Linha de base da auditoria
 

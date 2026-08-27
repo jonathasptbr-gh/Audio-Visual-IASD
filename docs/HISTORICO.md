@@ -24,6 +24,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
+- **v1.4** — A AUDITORIA PROFUNDA: 75 DEFEITOS CONFIRMADOS, TODOS CORRIGIDOS. Uma varredura de ~60.000 linhas em cinco etapas sequenciais (shell Kotlin, `shared/`+`display/`, `espelho/`+puros, CSS/HTML/CI, `controle.js`), com verificação adversarial de cada achado por seis caminhos de refutação — 90 brutos, 71 sobreviveram, mais 4 da varredura mecânica. A correção saiu em SEIS lotes sequenciais, do risco menor para o maior. **O padrão dominante não era defeito de código: eram 30+ comentários AFIRMANDO COISAS FALSAS**, num repositório cujo `CLAUDE.md` diz que um comentário errado produz a decisão errada. Os três mais graves: (1) com a transmissão no ar, um documento renascido (OTA aplicado ou renderer morto) mandava TODO `load` às telas da rede SEM `__rec` — `mirrorEstado` nasce `null` e ninguém o relê, então a projeção da igreja ficava no wallpaper o culto inteiro, sem erro em lugar nenhum; a correção é UM `lerEspelho()` no `init()`; (2) `restoreSceneAfterText` lia `stage.getCurrent()` sem saber que havia `load` em voo — a janela são os ~600 ms do `FADE.time` de TODA troca de cena, e o estado é PERMANENTE: a letra do hino ANTERIOR remontada sobre a música nova, avançando pelo relógio dela; confirmado nas DUAS metades (telão e preview), independentemente, porque *ler cada lado isolado aprova os dois*; (3) reabrir a gaveta de uma linha já montada reapontava só o `songMenuFor` — `destExecutor` e `destMarcados` continuavam na linha anterior, e confirmar em A projetava B. O ciclo revisor→correção pagou QUATRO regressões das próprias correções, todas provadas por reversão, e descobriu uma classe que a auditoria não procurou: **um oráculo que testava código morto** (o `smoke.mjs` montava `.coll-opts` à mão desde a v1.1.21). Fecha com 44 oráculos verdes, três deles novos, e 26 achados deliberadamente por aplicar, cada um com justificativa no commit.
 - **v1.3.16** — O NOME DA TELA FICOU MAIOR, E A BARRA NÃO. Pedido do operador: *"aumente a fonte do título das abas Cronograma e Bíblia, mas não aumente a altura dessa barra do topo, apenas a fonte"*. A altura não se mexe e isso não depende de cuidado: a `.list-header` é uma grade com `grid-template-rows: var(--hit)` — 34px FIXOS, o alvo de toque dos dois botões que ela hospeda —, e a fonte do título não participa dessa conta. MEDIDO em sete tamanhos (.84 a 1,25rem), em 430px e em 320px: a barra fica em 34px em todos, sem cortar o glifo e sem reticências (os únicos dois títulos possíveis são "Cronograma" e "Bíblia"). O tamanho escolhido (`1,05rem`, 16,8px, +25%) corrige de passagem uma INVERSÃO: ele era `.84rem` e portanto MENOR que o título de uma folha (`.popup-title`/`.tools-title`, `.95rem`) — e uma folha abre EM CIMA da tela, não acima dela na hierarquia. Agora a ordem é tela › folha › conteúdo, e ele continua abaixo dos 22px do glifo dos botões vizinhos, então a faixa segue lendo como "ícone · rótulo · ícone". OTA PURO.
 - **v1.3.15** — TRÊS ACERTOS DA REVISÃO DE TEMA, todos do operador olhando o resultado. (1) **UMA COR POR LADRILHO DA BÍBLIA**: cada livro tinha DUAS bandas — a tinta do grupo e, sobre ela, uma faixa de 3px na versão saturada da mesma matiz —, o que numa grade de 66 livros são 132 manchas na única tela que preenche o visor inteiro de cor (*"duas faixas de cores no mesmo botão"*). A faixa nasceu na v5.192 para CARREGAR o agrupamento, quando a tinta era mais apagada; hoje é redundante, e MEDIDO: a tinta sozinha tem **≥19° de separação de matiz entre quaisquer duas** das dez (piso do projeto 20°, o par de 19 é arredondamento), saturação uniforme (33–35% no escuro, ~60% no claro), luminância estreita (18–30% · 79–91%) e pior rótulo 8,72:1 · 6,46:1. Os dez `--bt-*` saíram de `tokens.css` com ela — eram os únicos consumidores. A pílula de Livro da referência perdeu a faixa junto: ela é a AMOSTRA do ladrilho, e amostra que diverge do original não é amostra. (2) **A ABA ATIVA DEIXOU DE SER PINTADA**. A v1.3.14 respondeu ao vazado de 1,32:1 com a célula PREENCHIDA, e resolveu a leitura criando outro problema (*"use um método visual de seleção que seja mais discreto, menos volumoso, para não disputar a presença visual com o botão de pesquisa; não pinte todo o botão da aba"*): numa faixa de três células, duas manchas cheias de azul disputam, e a que menos deveria disputar é a que só diz "você está aqui". Hoje é uma BARRA de 3px na borda de cima da célula, em `--accent`, com o glifo na mesma cor — duas marcas de TRAÇO, nenhuma de área. O `.tab-ind` continua sendo o que sempre foi: um elemento que DESLIZA entre as células. (3) **O ✕ DAS FERRAMENTAS virou o botão quadrado padrão** (`.popup-close`): ele era um SVG traçado sobre `background: none`, o único fechar do app que não parecia um botão; a classe própria e o `:active` dela saíram. OTA PURO.
 - **v1.3.14** — A REVISÃO DE TEMA INTEIRA, a pedido do operador (*"o app inteiro está inconsistente do ponto de vista temático"*), e o que ela achou foi MEDIDO antes de qualquer valor ser escolhido. (1) **A SUPERFÍCIE DE UMA AÇÃO PASSOU A SER OPACA** (`--btn-accent/-danger/-warn/-ok`): os `-soft` são tinta com ALFA, e alfa EMPILHA — a aritmética de R1, que nunca foi estendida às famílias de COR. MEDIDO no escuro, o MESMO botão derivava **1,97:1** entre a base mais escura e a mais clara em que pousa, MAIS que o degrau `--bg` × `--panel` (1,49:1): o chevron de uma SEÇÃO compunha `#3d4959` e o de um CARD, `#4a596d`. Era a queixa "cores diferentes entre grupos de hinário, informativos e coleções". (2) **UMA LINGUAGEM DE ESTADO SÓ**: havia TRÊS (preenchido, `--sel-fill`, e só COR DE TEXTO), e a terceira é a fraca — o `#repeat` é o extremo dela, porque o glifo CICLA por quatro modos e não pode dizer ligado/desligado, então sobrava a cor sozinha num botão idêntico a cinco vizinhos (MEDIDO: 1,00:1 de fundo entre os dois estados; hoje 1,73:1). ESCOLHIDO = preenchido · LIGADO = superfície de ação · SELECIONADO = `--sel-fill` · ABERTO **não é cor**. (3) **NO TRILHO DE NAVEGAÇÃO O CHEIO FICA COM A ESCOLHA**: ação e escolha dividiam a faixa e o desempate estava invertido — a busca levava o preenchido e a aba ativa caía num vazado de 1,32:1, degrau que o próprio texto que o defendia admitia ser "pouco num salão escuro". Hoje 1,85:1, e a busca segue destacada como AÇÃO. (4) **O FEEDBACK DE TOQUE É UM RECUO ABSOLUTO**: `scale(.96)` num app cujos alvos vão de 34 a 408px produzia de **0,7px** (imperceptível) a **8,2px** (exagerado) — as duas queixas do operador de uma vez —, e o botão de confirmar exclusão recuava 3,1px de LADO e 0,7 de vertical, um aperto que não se lê como "apertei". Hoje `translateY(2px)` mais `--press-luz`, um `filter`; com isso morrem o hit-test (6 de 11 toques erravam o botão de baixar) e a fresta do aninhamento. (5) **NA BÍBLIA CADA PÍLULA VESTE A GRADE QUE ELA ABRE** — eram quatro botões translúcidos idênticos sobre grades sólidas e distintas; a de Livro leva a tinta do grupo com a faixa do mosaico. (6) **A BIBLIOTECA ALINHOU AS COLUNAS** (chevron, nome e baixar batiam a 2, 3 e 4px de diferença entre uma seção e um card irmão) e **o card FECHADO voltou a seguir o pai**: a medição que o prendia em `--panel-2` é sobre o INTERIOR dele, e o interior só existe ABERTO. (7) **O ECO deixou de ser do transporte**: ele apontava para `.mixer-mid`, removido na v1.3.8, e virou a regra "quem manda algo para a projeção". (8) **A FOLHA DE FERRAMENTAS ENTROU EM R1** — MEDIDO no tema claro, o microfone saía a **1,00:1** da folha: 56px de push-to-talk que não existiam na tela. Duas travas novas no `tokens.test.mjs`, provadas por REVERSÃO. OTA PURO.
@@ -271,6 +272,181 @@ na nota que a revoga, não apagada da que a criou.
 - **v5.154** — é METADE OTA e METADE APK, e a divisão importa para quem for testar em aparelho.
 - **v5.155** — é OTA PURO
 - **v5.156** — é METADE OTA e METADE APK, de novo.
+
+---
+
+## v1.4 — a auditoria profunda: 75 defeitos confirmados, todos corrigidos
+
+Fechamento de ciclo. Uma varredura de ~60.000 linhas — os 28 arquivos Kotlin do
+shell, a base web inteira, o CSS, o HTML e os workflows do CI — em **etapas
+sequenciais**, nunca simultâneas, para que um teto de tokens custasse o último
+processo e não todos. **90 achados brutos · 71 confirmados · 4 da varredura
+mecânica · 75 no total, todos corrigidos.**
+
+O inventário completo, com cenário e linha de cada um, está em
+`docs/AUDITORIA-2026-08.md`.
+
+### O método: nada entra sem cenário, nada sobrevive sem sobreviver à refutação
+
+Cada achado passou por seis caminhos de refutação, e bastava um para derrubá-lo:
+o trecho verbatim não existir, uma guarda no chamador já cobrir o caso, uma
+decisão deliberada e documentada explicá-lo, o `ACHADOS-EM-ABERTO.md` já
+nomeá-lo, um oráculo já travá-lo, ou a sequência de eventos ser impossível.
+**Dezenove morreram aí** — inclusive dois meus, que eu mesmo derrubei: o
+`--danger` (cujo comentário diz que a ausência de uso é de propósito) e as
+classes `.lv-cifra-*`, construídas dinamicamente por `'lv-cifra-' + linha.tipo`.
+
+Um deles é instrutivo porque o **fato medido era verdadeiro e o veredito era
+errado**: `currentId` de fato nunca volta a `null`, logo `cenaNoAr()` não fica
+falsa na sessão — mas isso é a propriedade que o projeto declara de propósito em
+cinco lugares (o `currentId` sobrevive ao Parar para o ▶ repetir a faixa).
+
+### O padrão dominante NÃO era defeito de código
+
+Foram **30+ comentários afirmando coisas falsas** — KDoc citando símbolos
+apagados na v5.185/v5.187, um arquivo que se dizia "o TERCEIRO uso" de uma API
+sendo o ÚNICO, um bloco prometendo "os cinco métodos" onde há oito, um cabeçalho
+do telão por comandos ainda descrevendo o ESPELHO DE PIXELS e prometendo uma
+confirmação que o código 110 linhas abaixo recusa.
+
+Isso não é higiene. É a regra que o próprio `CLAUDE.md` escreve: *um comentário
+errado é pior que um comentário longo — ele não custa só leitura, produz a
+decisão errada.* Duas guardas de segurança se justificavam por um motivo que já
+não existia, o que é o convite exato para o próximo leitor removê-las.
+
+O lote 1 corrigiu os 30 com **zero linhas de código alteradas**, provado pela
+regra 1 da poda (remover os comentários dos dois lados e comparar).
+
+### Os três mais graves
+
+**1. A projeção da igreja no wallpaper, o culto inteiro** (`controle.js:24364`).
+Com a transmissão para telas da rede NO AR, um documento renascido — o OTA
+aplicado, ou a morte do renderer, os dois normais — mandava **todo** `load` às
+telas SEM o `__rec`. `mirrorEstado` nasce `null` e ninguém o relê: as duas
+enquetes só ligam quando o estado JÁ é conhecido, e os demais `lerEspelho()`
+pendem de um gesto do operador. A tela não acha o id no IndexedDB dela e volta ao
+wallpaper; pelo mesmo cache nulo a preview desmuta por cima das telas. **A
+correção é UMA LINHA** — um `lerEspelho()` no `init()`, que fecha os três
+consumidores e se sustenta sozinho porque termina em `acertarEnqueteDeFundo()`.
+
+**2. A letra do hino ANTERIOR, permanente** (`display.js:767` e
+`controle.js:2239`). `restoreSceneAfterText` lia `stage.getCurrent()` sem saber
+que havia `load` em voo — o `current` só troca depois do `runFadeOut` e do
+`await AVDB.getMedia`. **A janela não é um fio de navalha: são os ~600 ms fixos
+do `FADE.time` de TODA troca de cena.** Medido em Chromium operando a UI por
+clique real: falha a 80/250/300/350/400/450/500 ms, passa a 600. E o estado é
+PERMANENTE — dez segundos depois a letra errada continua e AVANÇA pelo relógio da
+música nova. Confirmado nas duas metades **independentemente**, que é o padrão
+que o `fundo-da-letra.test.mjs` já pagou uma vez: *ler cada lado isolado aprova
+os dois.* A restauração passou a ser ADIADA por um contador de loads, e a saída
+de cena CANCELA o adiamento.
+
+**3. Confirmar em A executa sobre B** (`controle.js:8884`). Reabrir a gaveta de
+uma linha já montada reapontava só o `songMenuFor`; `destExecutor` e
+`destMarcados` (um `Set` de módulo) continuavam apontando para a última linha
+aberta. Medido no caso mínimo: abrir A, espiar B, voltar a A e confirmar o
+"Tocar agora" que nasce marcado — a gaveta de A na tela, **o item B projetado**.
+O `docs/arquitetura/CONTROLE.md` já diagnostica esta classe (*"um slot global só
+serve para o que não tem ALVO"*) e descreve a v5.302 consertando o irmão; estes
+dois globais tinham ficado de fora.
+
+### Os seis lotes
+
+| Lote | O quê | Prova |
+|---|---|---|
+| 1 | 30 comentários falsos + 2 tokens órfãos | zero linhas de código alteradas |
+| 2 | 10 correções de comportamento no JS | oráculo novo, por reversão |
+| 3 | 19 correções no `controle.js` | oráculo novo para a metade preview |
+| 3b | 2 regressões do próprio lote 3 | oráculo novo, por reversão |
+| 4 | 15 de código morto no Kotlin | compilou no CI |
+| 5 | 15 correções no Kotlin | zero mudança na ponte |
+| 6 | 15 regras CSS órfãs | e o oráculo que as testava |
+
+Sequenciais de propósito, do risco menor para o maior, com a suíte rodando a
+cada um.
+
+### O ciclo revisor→correção pagou quatro vezes
+
+Cada lote de comportamento passou por um revisor cuja tarefa era **derrubá-lo**.
+Ele achou quatro regressões das minhas próprias correções, todas provadas por
+reversão, e nenhuma teria aparecido em teste de comportamento:
+
+1. **Lote 2** — o adiamento da restauração da letra não era cancelado quando a
+   cena saía: um `clear` durante a espera remontava a letra sobre um palco já
+   esvaziado. Invisível (a cortina cobre), permanente no estado.
+2. **Lote 3** — a gaveta de uma linha NO AR não tinha como fechar. Como o mesmo
+   lote acrescentara `.lib-item.expanded` à guarda de redesenho, o progresso do
+   download deixava de chegar à tela **pelo resto da sessão**.
+3. **Lote 3** — o cartão de falha prendia o `pvBusyCount` do trabalho SEGUINTE,
+   deixando o cartão dele preso na tela depois de terminado.
+4. **Lote 5** — o `adeus` do SSE ia para a CAUDA da fila, atrás de todo
+   `display-status` acumulado a ~4 Hz: numa tela que escoa devagar o prazo de
+   1,5 s vencia antes de a despedida chegar ao fio, e ela entrava na escada de
+   reconexão batendo numa porta já fechada. O KDoc prometia *"entra na frente"* e
+   não era verdade; agora a fila é ESVAZIADA antes — o pendente é status de uma
+   cena que aquela tela não vai mais mostrar.
+
+**Uma correção não é um lote fechado até alguém tentar derrubá-la.**
+
+### Uma classe que esta auditoria não procurou
+
+**Um oráculo que testava código morto.** O `smoke.mjs` montava
+`.coll-opts > .coll-opts-acoes > .new-folder-btn.cancel` à mão, com
+`createElement`, e media o `::before` — CSS que nenhum elemento do app aplicava
+**desde a v1.1.21**. Um oráculo verde sobre nada, aprovando a si mesmo. Saíram as
+48 linhas e as 15 regras que elas testavam. **Testes que exercitam o que já não
+existe** valem uma varredura própria.
+
+### O que ficou por aplicar, e por quê
+
+26 achados, cada um com justificativa no commit do lote. Os que mais pesam:
+
+- **`EspelhoMidiaCanal.soltar()` sem chamador.** Removê-lo apagaria a metade
+  CERTA do defeito: o corpo está correto, o que falta é a CHAMADA. E chamá-lo é
+  mudança de ciclo de vida num canal que carrega mídia para a projeção.
+- **O carimbo da área de transferência**, que não avança quando o texto copiado
+  não é um link — então o aviso do Android passa a ser pago a cada retomada. O
+  conserto mora no `MainActivity.lerLinkCopiado`, e mudar a forma de retorno dele
+  é degrau de `SHELL_VERSION` (56→57) com lote APK+web publicado JUNTO.
+- **O mesmo defeito do `:8884` continua de pé em `hymnResultRow`** — a correção
+  cobriu `linhaDeItem` e não a linha do card do hinário.
+
+### E o merge com a revisão de tema colidiu exatamente onde tinha de colidir
+
+`main` andou três versões enquanto a auditoria corria (v1.3.14–v1.3.16, a
+revisão de tema inteira). **Dois conflitos, e os dois são a mesma colisão: a
+revisão pintou seletores que o lote 6 tinha removido por estarem MORTOS.**
+
+- **`controle.css`, quatro trechos, todos em torno do painel `.coll-opts`** —
+  morto desde a v1.1.21. Fica a remoção: o `boot-nativo.test.mjs` AFIRMA que o
+  painel não existe, e ressuscitar o CSS seria pintar um seletor que nenhum
+  elemento aplica. Nos dois trechos que não eram do painel as metades se somam:
+  a COR vem da revisão (`--btn-warn`/`--btn-danger` — R6, a superfície de um
+  controle é OPACA) e o COMENTÁRIO vem da auditoria, que acabara de tirar dele
+  a menção ao `.new-folder-btn.cancel`. Duas lápides de contagem caíram junto
+  (*"os TRÊS lugares em que se cancela um download"* listando dois; *"os outros
+  DOIS botões de cancelar"* quando só restou um) — a mesma classe que a
+  auditoria varreu, produzida pela auditoria.
+- **`DESIGN-SYSTEM.md`: os dois lados escreveram um R6 e um R7 diferentes, e os
+  quatro valem.** A numeração da revisão de tema fica de pé porque ela já tem
+  referências cruzadas no próprio arquivo; as da auditoria viram **R8** (texto
+  secundário dentro de um controle preenchido) e **R9** (destrutivo sem rótulo
+  só se for confirmado), e a única referência a elas — o `Ver R2 e R7` do
+  `controle.css` — anda junto.
+
+O que mais preocupava passou sozinho: o lote 1 removeu `--accent-glow` e
+`--brand-soft` enquanto a revisão reescrevia a paleta, e a árvore mesclada fecha
+sem um `var()` órfão — aprovada pelo `tokens.test.mjs`, que a própria revisão
+reforçou com 91 linhas.
+
+### O placar
+
+44 oráculos verdes, três deles nascidos aqui
+(`restaurar-letra-adiada.test.mjs`, o par `-preview` dele, e
+`gaveta-e-cartao.test.mjs`), todos registrados no CI — *teste que não está no
+workflow é documentação, não rede de segurança*. `SHELL_VERSION` segue **56**: a
+superfície da ponte não mudou em nenhum dos seis lotes. A Release existe porque
+`java/`, `res/` e os workflows mudaram, e isso **só chega instalando o APK**.
 
 ---
 

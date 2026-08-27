@@ -1,5 +1,18 @@
 [
   {
+    "versao": "1.4",
+    "itens": [
+      "FECHAMENTO DE CICLO: o código do app inteiro foi revisto de ponta a ponta, e 75 defeitos confirmados foram corrigidos. Quase todos eram SILENCIOSOS — nada quebrava na tela, nada aparecia como erro, e por isso ninguém tinha como relatá-los. Os que mais apareciam no culto estão abaixo.",
+      "A LETRA DO HINO ANTERIOR NÃO FICA MAIS NA PROJEÇÃO. Tirar do ar um versículo ou uma mensagem logo depois de trocar de louvor remontava a letra do louvor ANTIGO — e ela ficava lá, avançando pelo relógio da música nova, até alguém reiniciar. Valia para o telão e para a preview.",
+      "CONFIRMAR NUMA LINHA PASSOU A VALER PARA AQUELA LINHA. Abrir a gaveta de uma música, espiar outra e voltar à primeira deixava o confirmar apontando para a segunda: a gaveta de uma estava na tela e a OUTRA ia ao telão.",
+      "COM UM COMPUTADOR CONECTADO, a projeção dele voltava ao papel de parede depois de o app se atualizar sozinho — e ficava assim o culto inteiro, sem erro em lugar nenhum. Faltava uma linha na abertura; agora a transmissão é reconhecida ali.",
+      "CIFRA E BÍBLIA: acordes do tipo C7/9, A7/13 e Em7/9 voltaram a transpor junto com o resto da folha (ficavam parados no tom original enquanto a folha andava à volta deles), e um capítulo da Bíblia não some mais por causa de um caractere estranho vindo do servidor.",
+      "PRECISA DO APP NOVO (instale a versão v1.4): a proteção do som em segundo plano passou a valer também com a preview em TELA CHEIA (a versão anterior protegeu a preview normal e a tela cheia tinha ficado de fora), a notificação de controles parou de poder ressuscitar uma cena já parada, a busca de cifras deixou de disputar a fila com o \"Tocar agora\", e a despedida de uma tela conectada não chega mais tarde demais numa rede lenta.",
+      "MENOS TROPEÇO NO RESTO: o aviso de \"Não deu\" parou de ser apagado no mesmo instante em que aparecia, o sorteio parou de morrer ao trocar a faixa à mão, a gaveta do episódio passou a reconhecer o que já está no aparelho, e a imagem sobre o áudio numa tela conectada não deixa mais um cartão preto sobre a projeção.",
+      "E 68 MB a menos de memória por hinário aberto. Nada disso muda como o app se usa — é a mesma tela, com menos coisas para dar errado."
+    ]
+  },
+  {
     "versao": "1.3.16",
     "itens": [
       "O NOME DA TELA no alto (Cronograma, Bíblia) ficou maior e mais fácil de ler de relance. A barra do topo NÃO cresceu: a altura dela é fixa pelo tamanho dos botões que ela carrega, então só a letra mudou."
