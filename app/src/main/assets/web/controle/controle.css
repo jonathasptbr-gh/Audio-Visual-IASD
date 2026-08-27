@@ -1143,7 +1143,28 @@ body {
 }
 .t-btn .msym { font-size: var(--icon-md); }
 .t-btn:disabled { opacity: .35; }
-#repeat.active { color: var(--accent); }
+/* ---------- LIGADO É SUPERFÍCIE, NUNCA SÓ COR DE TEXTO (v1.4.0) ----------
+   Relato do operador: *"o botão de selecionar repetição altera apenas sua cor
+   interna quando ativo, sendo pouco visível a identificação de ativo ou não"*.
+
+   Ele tem razão, e este botão é o CASO EXTREMO da regra: em toda a outra parte
+   em que o app marca um interruptor, o DESENHO muda junto — a estrela de
+   favorito enche, o `+` da fila vira `✓` —, e ali a cor é reforço. Aqui não
+   pode mudar: o `repeat` CICLA por quatro modos e o glifo já está ocupado
+   dizendo QUAL deles está valendo (ver "O riscado é o corte" no
+   DESIGN-SYSTEM). Sobrava a cor sozinha, num botão idêntico a cinco vizinhos.
+
+   A resposta é a superfície de ação que a paleta passou a ter: `--btn-accent`
+   sob o traço `--accent`, o mesmo par dos botões de baixar da Biblioteca.
+   MEDIDO no escuro: o `--surface` de um `.t-btn` compõe rgb(34,40,46) sobre o
+   `--bg`, e a superfície ligada é #293d57 — 1,73:1 entre os dois estados,
+   contra os 1,00:1 de antes (o fundo não mudava). O traço fica a 5,37:1.
+
+   NÃO é `--accent-fill` preenchido: aquele par é "ESCOLHIDO entre alternativas"
+   (a célula da Bíblia, o segmento de Ferramentas), e este botão não é uma
+   escolha entre irmãos — é um interruptor de um modo só. Dois estados, duas
+   linguagens. */
+#repeat.active { background: var(--btn-accent); color: var(--accent); }
 /* ⏮/⏭ do transporte falam de MÍDIA e mais nada desde a v1.3.5: quem passa
    slide são os dois botões que flanqueiam a preview (`.slide-btn`). Saíram
    daqui as duas classes que anunciavam o eixo de estrofe (`.slide-mode` e o
@@ -3278,8 +3299,13 @@ main {
   background: var(--accent); border-radius: var(--radius-pill);
   min-height: 28px;
 }
-/* linha de uma versão no popup */
-.bible-ver-row.selected { color: var(--accent); }
+/* linha de uma versão no popup. ELA É UMA LINHA DE LISTA, e a escolhida veste
+   o que toda linha escolhida deste app veste — `--sel-fill`, opaco (v1.4.0).
+   Era só cor de TEXTO, o mesmo defeito do `#repeat`: aqui o `✓` do
+   `.bible-ver-check` acompanhava, então a cor não estava sozinha — mas duas
+   listas do mesmo app marcando a linha corrente de dois jeitos é a
+   inconsistência que esta passada existe para fechar. */
+.bible-ver-row.selected { --linha: var(--sel-fill); color: var(--accent); }
 .bible-ver-row .row-name { font-weight: 600; }
 .bible-ver-status { font-size: .68rem; color: var(--muted); }
 .bible-ver-status.done { color: var(--ok); }
