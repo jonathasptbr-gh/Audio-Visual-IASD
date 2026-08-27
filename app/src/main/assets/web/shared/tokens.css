@@ -344,6 +344,55 @@
      4,65:1 com o `--ok`. */
   --ok-fill: #2a4630;
 
+  /* ---------- A SUPERFÍCIE DE UMA AÇÃO É OPACA — a mesma razão dos três acima
+     (v1.4.0) ----------
+     Os `-soft` desta paleta são TINTA COM ALFA, e alfa EMPILHA: o mesmo token
+     compõe uma cor sobre `--panel` e outra sobre `--panel-2`. Era o defeito de
+     R1 (`--surface`), que nunca foi estendido às famílias de COR — e elas o
+     sofrem PIOR, porque um botão de ação nasce nas duas bases ao mesmo tempo.
+
+     MEDIDO no escuro, o quanto o MESMO botão derivava entre a base mais escura
+     e a mais clara em que ele pousa:
+
+         --accent-soft  1,97:1      --warn-soft  1,83:1
+         --danger-soft  1,70:1      --ok-soft    1,84:1
+
+     A deriva do accent é MAIOR que o degrau `--bg` × `--panel` (1,49:1) — isto
+     é, o mesmo chevron variava mais que dois níveis inteiros da escada. Foi o
+     que o operador relatou como "cores diferentes ou inconsistentes entre
+     grupos de hinário, informativos e coleções": o chevron da SEÇÃO compunha
+     #3d4959 e o do CARD, #4a596d. Um controle, duas cores.
+
+     Opacos, valem o mesmo em qualquer nível — a frase que os três `-fill`
+     acima já cumpriam. E o separador aqui NÃO é a claridade: é o CROMA. Os
+     quatro ficam a ~1,15:1 das duas bases de cartão de propósito, e a ~53–58%
+     de saturação contra os ~27% da escada neutra. Uma peça TINTA entre peças
+     cinzas se acha sem precisar ser mais clara — o mesmo argumento que a
+     paleta já assinou no `--live-fill` (1,03:1 do painel).
+
+     Cada um é a matiz OFICIAL da família (bluejay 214°, scarlett 353°,
+     campfire 21°, treefrog 101°), e cada um recebe por cima o traço que a
+     família já tinha. MEDIDO (escuro · claro):
+
+       token          traço            bg     panel  panel-2  traço sobre ele
+       --btn-accent   --accent         1,70   1,14   1,17     5,37 · 6,37
+       --btn-danger   --danger-strong  1,62   1,09   1,23     4,49 · 5,64
+       --btn-warn     --warn           1,69   1,13   1,18     4,30 · 5,68
+       --btn-ok       --ok             1,72   1,15   1,16     4,89 · 5,74
+
+     O `--btn-warn` é o único abaixo de 4,5:1 no escuro, e ele é ÍCONE — o piso
+     de 3:1 é o que vale para quem carrega informação sem ser texto.
+
+     OS `-soft` FICAM, e não são sinônimo destes: eles continuam certos onde a
+     translucidez é o ponto — uma tinta lavada por cima de mídia arbitrária ou
+     de uma barra de progresso, em que compor com o que está embaixo é o
+     efeito desejado, não o acidente. Superfície de BOTÃO ou de CHIP usa os
+     `--btn-*`. */
+  --btn-accent: #293d57;
+  --btn-danger: #5d282e;
+  --btn-warn:   #533423;
+  --btn-ok:     #2a431e;
+
   /* texto — off-white com a matiz do denim, nunca branco pleno (ver "A paleta"
      no CLAUDE.md: fora do palco, o branco pleno é a maior fonte isolada de luz
      emitida do app). DERIVADO de `white`, escurecido e tingido.
@@ -614,6 +663,16 @@
   --sel-fill: #d5e2f4;
   --live-fill: #f7d9d9;
   --ok-fill: #d2e9cc;                    /* 1,29:1 painel · 6,87:1 texto · 5,27:1 --ok */
+
+  /* As superfícies de ação opacas, no claro (ver o bloco do escuro).
+     Aqui a deriva dos `-soft` era pequena (1,09:1 — as bases claras estão
+     todas perto), mas o token tem de existir nos DOIS temas: um que só
+     morasse no escuro é o `var()` que computa para o valor inicial, sem aviso.
+     MEDIDO: 1,20:1 das duas bases de cartão, traço de 5,64 a 6,37:1. */
+  --btn-accent: #dcebfe;
+  --btn-danger: #fde3e6;
+  --btn-warn:   #f8e7de;
+  --btn-ok:     #d5f5c6;
 
   /* texto: `night` e um derivado dele. O `winter` OFICIAL (#717171) seria o
      secundário natural e dá 4,88:1 sobre BRANCO — mas sobre o cinza da página

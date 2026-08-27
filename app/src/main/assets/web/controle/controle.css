@@ -1198,7 +1198,7 @@ body {
    (v5.76): sobre o próprio `--danger-soft` este mede 4,68:1 — passa como texto —
    e é o único dos dois que se lê como VERMELHO num rótulo de botão. */
 .coll-opts .new-folder-btn.danger {
-  background: var(--danger-soft); color: var(--danger-strong);
+  background: var(--btn-danger); color: var(--danger-strong);
 }
 /* A pulsação do áudio bloqueado é compartilhada pelo `.pv-fab--mute` da preview
    e pela tecla grande do Modo Fácil. */
@@ -1536,7 +1536,7 @@ main {
    SELECIONADO era a silhueta "preenchimento + contorno sólido", e continua não
    havendo contorno nenhum aqui. */
 .import-btn, .list-foot > .selbar, .msg-add-btn, .pl-pack {
-  background: var(--accent-soft);
+  background: var(--btn-accent);
   border-radius: var(--radius-btn);
 }
 /* `min-height: var(--hit-foot)` e não só o padding: é ele que fixa a altura da
@@ -1893,7 +1893,7 @@ main {
 /* O SIM veste o par destrutivo da paleta (`--danger-soft` + `--danger-strong`),
    o mesmo do "Remover do dispositivo" de um álbum: vermelho SUAVE é ação
    destrutiva, e o saturado fica reservado para "está no ar agora". */
-.linha-sim { background: var(--danger-soft); color: var(--danger-strong); }
+.linha-sim { background: var(--btn-danger); color: var(--danger-strong); }
 /* Dentro da gaveta de um Favorito o `--surface` é um OVERLAY que AFUNDA, e
    afundar sobre o poço (já o tom mais escuro do app) não produz degrau nenhum —
    a mesma correção que `.fav-acoes .row-btn` recebeu na v5.287. */
@@ -1920,7 +1920,7 @@ main {
   display: none; position: absolute; inset: 0;
   align-items: center; justify-content: center;
   border-radius: inherit;
-  background: var(--danger-soft); color: var(--danger-strong);
+  background: var(--btn-danger); color: var(--danger-strong);
 }
 .row-lixo .msym { font-size: var(--icon-lg); }
 .lib-item.excluindo > .row > .thumb > .row-lixo { display: flex; }
@@ -2348,7 +2348,7 @@ main {
   flex-shrink: 0; width: var(--hit); height: var(--hit); padding: 0;
   border: none; appearance: none; -webkit-appearance: none;
   border-radius: var(--radius-btn);
-  background: var(--accent-soft); color: var(--accent);
+  background: var(--btn-accent); color: var(--accent);
   display: flex; align-items: center; justify-content: center; cursor: pointer;
 }
 /* Em andamento o botão vira "cancelar" — muda de papel, então muda de cor.
@@ -2359,7 +2359,7 @@ main {
    cancela um download (aqui, `.coll-bar-dl.busy` e `.new-folder-btn.cancel`)
    usam esta MESMA família — antes eram três cores diferentes para o mesmo
    toque. */
-.coll-group-btn.busy { background: var(--warn-soft); color: var(--warn); }
+.coll-group-btn.busy { background: var(--btn-warn); color: var(--warn); }
 
 /* ---------- O GRUPO COLAPSÁVEL (v5.237) ---------- */
 /* O cabeçalho vira um alvo, e por isso ele deixa de ser uma linha de texto
@@ -2573,7 +2573,7 @@ main {
 .coll-group-icon, .coll-bar-icon {
   width: 32px; height: 32px; flex-shrink: 0;
   border-radius: var(--radius-btn);
-  background: var(--accent-soft); color: var(--accent);
+  background: var(--btn-accent); color: var(--accent);
   display: flex; align-items: center; justify-content: center;
   transition: transform .2s ease;
 }
@@ -2604,7 +2604,7 @@ main {
   flex-shrink: 0; width: var(--hit); height: var(--hit); padding: 0;
   border: none; appearance: none; -webkit-appearance: none;
   border-radius: var(--radius-btn);
-  background: var(--accent-soft); color: var(--accent);
+  background: var(--btn-accent); color: var(--accent);
   display: flex; align-items: center; justify-content: center; cursor: pointer;
 }
 .coll-group-acao .msym { font-size: var(--icon-sm); }
@@ -2732,7 +2732,7 @@ main {
   display: flex; align-items: center; justify-content: center;
   border: none; appearance: none; -webkit-appearance: none;
   border-radius: var(--radius-btn);
-  background: var(--accent-soft); color: var(--accent); cursor: pointer;
+  background: var(--btn-accent); color: var(--accent); cursor: pointer;
 }
 /* (`.coll-bar-dl.done` saiu na v5.263: era código morto desde a v5.135, em que
    o botão de baixar SAI da barra com a coleção completa — nada nunca voltou a
@@ -2742,7 +2742,7 @@ main {
    escuro por construção, sobre a superfície de um botão DENTRO de um cartão —
    2,32:1 medidos, o pior contraste do app inteiro, justamente no controle que
    anuncia "toque para cancelar". */
-.coll-bar-dl.busy { background: var(--warn-soft); color: var(--warn); }
+.coll-bar-dl.busy { background: var(--btn-warn); color: var(--warn); }
 /* (A seta do acordeão saiu na v5.71, junto com as molduras: numa lista em que
    TODO card abre, ela dizia o mesmo em todas as linhas — e o que anuncia a
    abertura agora é o próprio movimento, que a v5.63 passou a animar.)
@@ -2791,7 +2791,7 @@ main {
    O de atualizar fica no tom neutro dos irmãos; só o destrutivo muda de cor.
    (`.coll-bar-dl.vago` saiu junto: ela escondia o botão de baixar com o card
    aberto porque o painel de dentro repetia a ação. O painel saiu.) */
-.coll-bar-rm { background: var(--danger-soft); color: var(--danger-strong); }
+.coll-bar-rm { background: var(--btn-danger); color: var(--danger-strong); }
 /* O invólucro do que a abertura revela (engrenagem + músicas). Existe só para a
    animação de altura ter UM nó para recortar — sem ele o `overflow:hidden`
    teria de ir no card, e o card tem a barra grudada no topo (`position:sticky`),
@@ -3017,7 +3017,7 @@ main {
 .yt-result .yt-ok {
   display: none; position: absolute; inset: 0;
   align-items: center; justify-content: center;
-  background: var(--ok-soft); color: var(--ok);
+  background: var(--btn-ok); color: var(--ok);
 }
 /* A FALHA, no mesmo canto (v5.119) — o terceiro estado da miniatura, ao lado do
    anel de download e do ✓. Ela morava numa faixa flutuante no fim da tela, e
@@ -3028,7 +3028,7 @@ main {
 .yt-result .yt-err {
   display: none; position: absolute; inset: 0;
   align-items: center; justify-content: center;
-  background: var(--danger-soft); color: var(--danger-text);
+  background: var(--btn-danger); color: var(--danger-text);
 }
 .yt-result .yt-err svg { width: 20px; height: 20px; }
 .yt-result.erro .yt-err { display: flex; }
@@ -3221,7 +3221,7 @@ main {
 }
 .coll-opts .new-folder-btn.cancel::before {
   content: ''; position: absolute; inset: 0 auto 0 0; z-index: -1;
-  width: var(--p, 0); background: var(--warn-soft);
+  width: var(--p, 0); background: var(--btn-warn);
   transition: width .3s cubic-bezier(.22, .61, .36, 1);
   pointer-events: none;
 }
@@ -3657,7 +3657,7 @@ main {
 }
 /* O ÚLTIMO sorteado em destaque: é o que acabou de ser anunciado, e a lista
    está em ordem inversa justamente para ele ficar à mão. */
-.draw-hist-chip.last { background: var(--accent-soft); color: var(--text); }
+.draw-hist-chip.last { background: var(--btn-accent); color: var(--text); }
 .draw-go {
   padding: .8rem .4rem;
   border-radius: var(--radius-btn);
@@ -4086,7 +4086,7 @@ main {
    flutuante que dizia isso no TOPO da tela, a meia tela de distância.
    O accent o separa de uma contagem comum sem trocar a caixa de lugar: a
    pílula é a mesma, e a linha não se mexe quando o texto troca. */
-.folder-count--st { background: var(--accent-soft); color: var(--accent); font-variant-numeric: tabular-nums; }
+.folder-count--st { background: var(--btn-accent); color: var(--accent); font-variant-numeric: tabular-nums; }
 
 /* ---------- Rodapé do popup (Nova pasta) ---------- */
 /* O RITMO É O DA FOLHA, e ele tem UM número: `.9rem` (v1.3.1). Relato do
@@ -5580,8 +5580,8 @@ body.mode-simple .bottombar { display: none; }
    fundo-suave + cor, que já estava aqui e é o que o resto do app usa; o mudo
    passou ao vermelho SATURADO (`--danger-strong`), que é o alarme que a cor
    pálida não dava. */
-.simple-key--big.muted { background: var(--danger-soft); color: var(--danger-strong); }
-.simple-key--big.blocked { background: var(--warn-soft); color: var(--warn-text); animation: mute-blocked-pulse 1.2s ease-in-out infinite; }
+.simple-key--big.muted { background: var(--btn-danger); color: var(--danger-strong); }
+.simple-key--big.blocked { background: var(--btn-warn); color: var(--warn-text); animation: mute-blocked-pulse 1.2s ease-in-out infinite; }
 /* Volume: − e + são teclas iguais às outras; o indicador no meio mostra o
    número e, embaixo, quanto do curso está usado. */
 .simple-volrow { display: grid; grid-template-columns: 1fr 1.1fr 1fr; gap: .6rem; align-items: stretch; }
@@ -5616,7 +5616,7 @@ body.mode-simple .bottombar { display: none; }
    (As irmãs `.log-line`/`.log-text` descreviam as linhas de log avulsas que o
    `#diagBox` unificou na v5.121 — nenhum JS as desenhava mais.) */
 .log-copy { background: var(--surface-2); color: var(--muted); }
-.log-copy.copiado { background: var(--ok-soft); color: var(--ok); }
+.log-copy.copiado { background: var(--btn-ok); color: var(--ok); }
 
 /* ---------- Pulso de confirmação NO BOTÃO (v5.106) ---------- */
 /* O feedback de "adicionei" mora no botão TOCADO, nunca numa faixa em outro
@@ -5646,9 +5646,9 @@ body.mode-simple .bottombar { display: none; }
 /* As três leituras, nas cores que o app já usa para elas: verde é concluído,
    âmbar é atenção (o "já estava lá", que é o que evita o toque repetido) e
    vermelho é falha. */
-.btn-pulso--ok { background: var(--ok-soft); color: var(--ok); }
-.btn-pulso--dup { background: var(--warn-soft); color: var(--warn-text); }
-.btn-pulso--erro { background: var(--danger-soft); color: var(--danger-text); }
+.btn-pulso--ok { background: var(--btn-ok); color: var(--ok); }
+.btn-pulso--dup { background: var(--btn-warn); color: var(--warn-text); }
+.btn-pulso--erro { background: var(--btn-danger); color: var(--danger-text); }
 .btn-pulso--erro::after { content: '\e14c'; }   /* close */
 
 /* ---------- O ECO: "o comando saiu" ----------
@@ -5818,15 +5818,15 @@ body.mode-simple .bottombar { display: none; }
    cores têm dono neste app.
 
    O BOTÃO DE ATUALIZAÇÃO (v5.245, herdeiro do `.apk-row` da v5.167).
-   A gramática é a do resto do app: CONTORNADO é a consulta ("Procurar
-   atualização"), PREENCHIDO é a ação que muda alguma coisa ("Atualizar: base
-   v… e app v…"). Desabilitado ele perde as duas — é o estado em que a hora é
-   ruim, e o próprio rótulo diz o que ele está esperando. */
+   A gramática é a do resto do app: a superfície de AÇÃO em accent
+   (`--btn-accent`), a mesma do "Importar arquivos" e dos botões de baixar da
+   Biblioteca. Desabilitado ele a perde — é o estado em que a hora é ruim, e o
+   próprio rótulo diz o que ele está esperando. */
 .ota-row {
   display: block; width: 100%;
   margin-top: 6px; padding: 8px 10px;
   border-radius: var(--radius-btn);
-  background: var(--accent-soft); color: var(--accent);
+  background: var(--btn-accent); color: var(--accent);
   font-size: .82rem; font-weight: 600; text-align: center;
   cursor: pointer;
 }
@@ -5962,7 +5962,7 @@ body.mode-simple .bottombar { display: none; }
    contornado" na v5.267 e passou a ser a INTENSIDADE do mesmo preenchimento). */
 .cast-tela-fora {
   flex: 0 0 auto; padding: .3rem .6rem; font-size: .75rem;
-  background: var(--danger-soft); color: var(--danger-text);
+  background: var(--btn-danger); color: var(--danger-text);
   border-radius: var(--radius-pill); cursor: pointer;
 }
 .cast-tela-fora:disabled { opacity: .5; cursor: default; }
