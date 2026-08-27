@@ -24,6 +24,9 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
+- **v1.3.16** — O NOME DA TELA FICOU MAIOR, E A BARRA NÃO. Pedido do operador: *"aumente a fonte do título das abas Cronograma e Bíblia, mas não aumente a altura dessa barra do topo, apenas a fonte"*. A altura não se mexe e isso não depende de cuidado: a `.list-header` é uma grade com `grid-template-rows: var(--hit)` — 34px FIXOS, o alvo de toque dos dois botões que ela hospeda —, e a fonte do título não participa dessa conta. MEDIDO em sete tamanhos (.84 a 1,25rem), em 430px e em 320px: a barra fica em 34px em todos, sem cortar o glifo e sem reticências (os únicos dois títulos possíveis são "Cronograma" e "Bíblia"). O tamanho escolhido (`1,05rem`, 16,8px, +25%) corrige de passagem uma INVERSÃO: ele era `.84rem` e portanto MENOR que o título de uma folha (`.popup-title`/`.tools-title`, `.95rem`) — e uma folha abre EM CIMA da tela, não acima dela na hierarquia. Agora a ordem é tela › folha › conteúdo, e ele continua abaixo dos 22px do glifo dos botões vizinhos, então a faixa segue lendo como "ícone · rótulo · ícone". OTA PURO.
+- **v1.3.15** — TRÊS ACERTOS DA REVISÃO DE TEMA, todos do operador olhando o resultado. (1) **UMA COR POR LADRILHO DA BÍBLIA**: cada livro tinha DUAS bandas — a tinta do grupo e, sobre ela, uma faixa de 3px na versão saturada da mesma matiz —, o que numa grade de 66 livros são 132 manchas na única tela que preenche o visor inteiro de cor (*"duas faixas de cores no mesmo botão"*). A faixa nasceu na v5.192 para CARREGAR o agrupamento, quando a tinta era mais apagada; hoje é redundante, e MEDIDO: a tinta sozinha tem **≥19° de separação de matiz entre quaisquer duas** das dez (piso do projeto 20°, o par de 19 é arredondamento), saturação uniforme (33–35% no escuro, ~60% no claro), luminância estreita (18–30% · 79–91%) e pior rótulo 8,72:1 · 6,46:1. Os dez `--bt-*` saíram de `tokens.css` com ela — eram os únicos consumidores. A pílula de Livro da referência perdeu a faixa junto: ela é a AMOSTRA do ladrilho, e amostra que diverge do original não é amostra. (2) **A ABA ATIVA DEIXOU DE SER PINTADA**. A v1.3.14 respondeu ao vazado de 1,32:1 com a célula PREENCHIDA, e resolveu a leitura criando outro problema (*"use um método visual de seleção que seja mais discreto, menos volumoso, para não disputar a presença visual com o botão de pesquisa; não pinte todo o botão da aba"*): numa faixa de três células, duas manchas cheias de azul disputam, e a que menos deveria disputar é a que só diz "você está aqui". Hoje é uma BARRA de 3px na borda de cima da célula, em `--accent`, com o glifo na mesma cor — duas marcas de TRAÇO, nenhuma de área. O `.tab-ind` continua sendo o que sempre foi: um elemento que DESLIZA entre as células. (3) **O ✕ DAS FERRAMENTAS virou o botão quadrado padrão** (`.popup-close`): ele era um SVG traçado sobre `background: none`, o único fechar do app que não parecia um botão; a classe própria e o `:active` dela saíram. OTA PURO.
+- **v1.3.14** — A REVISÃO DE TEMA INTEIRA, a pedido do operador (*"o app inteiro está inconsistente do ponto de vista temático"*), e o que ela achou foi MEDIDO antes de qualquer valor ser escolhido. (1) **A SUPERFÍCIE DE UMA AÇÃO PASSOU A SER OPACA** (`--btn-accent/-danger/-warn/-ok`): os `-soft` são tinta com ALFA, e alfa EMPILHA — a aritmética de R1, que nunca foi estendida às famílias de COR. MEDIDO no escuro, o MESMO botão derivava **1,97:1** entre a base mais escura e a mais clara em que pousa, MAIS que o degrau `--bg` × `--panel` (1,49:1): o chevron de uma SEÇÃO compunha `#3d4959` e o de um CARD, `#4a596d`. Era a queixa "cores diferentes entre grupos de hinário, informativos e coleções". (2) **UMA LINGUAGEM DE ESTADO SÓ**: havia TRÊS (preenchido, `--sel-fill`, e só COR DE TEXTO), e a terceira é a fraca — o `#repeat` é o extremo dela, porque o glifo CICLA por quatro modos e não pode dizer ligado/desligado, então sobrava a cor sozinha num botão idêntico a cinco vizinhos (MEDIDO: 1,00:1 de fundo entre os dois estados; hoje 1,73:1). ESCOLHIDO = preenchido · LIGADO = superfície de ação · SELECIONADO = `--sel-fill` · ABERTO **não é cor**. (3) **NO TRILHO DE NAVEGAÇÃO O CHEIO FICA COM A ESCOLHA**: ação e escolha dividiam a faixa e o desempate estava invertido — a busca levava o preenchido e a aba ativa caía num vazado de 1,32:1, degrau que o próprio texto que o defendia admitia ser "pouco num salão escuro". Hoje 1,85:1, e a busca segue destacada como AÇÃO. (4) **O FEEDBACK DE TOQUE É UM RECUO ABSOLUTO**: `scale(.96)` num app cujos alvos vão de 34 a 408px produzia de **0,7px** (imperceptível) a **8,2px** (exagerado) — as duas queixas do operador de uma vez —, e o botão de confirmar exclusão recuava 3,1px de LADO e 0,7 de vertical, um aperto que não se lê como "apertei". Hoje `translateY(2px)` mais `--press-luz`, um `filter`; com isso morrem o hit-test (6 de 11 toques erravam o botão de baixar) e a fresta do aninhamento. (5) **NA BÍBLIA CADA PÍLULA VESTE A GRADE QUE ELA ABRE** — eram quatro botões translúcidos idênticos sobre grades sólidas e distintas; a de Livro leva a tinta do grupo com a faixa do mosaico. (6) **A BIBLIOTECA ALINHOU AS COLUNAS** (chevron, nome e baixar batiam a 2, 3 e 4px de diferença entre uma seção e um card irmão) e **o card FECHADO voltou a seguir o pai**: a medição que o prendia em `--panel-2` é sobre o INTERIOR dele, e o interior só existe ABERTO. (7) **O ECO deixou de ser do transporte**: ele apontava para `.mixer-mid`, removido na v1.3.8, e virou a regra "quem manda algo para a projeção". (8) **A FOLHA DE FERRAMENTAS ENTROU EM R1** — MEDIDO no tema claro, o microfone saía a **1,00:1** da folha: 56px de push-to-talk que não existiam na tela. Duas travas novas no `tokens.test.mjs`, provadas por REVERSÃO. OTA PURO.
 - **v1.3.13** — O PLAYER PASSOU A SER UM DETENTOR, e a folha desce por onde subiu. (1) **APAGAR DO CRONOGRAMA UM ITEM EM EXECUÇÃO INTERROMPIA A CENA**, e eram DOIS defeitos. O primeiro era uma LINHA: `botaoExcluirDaLinha` chamava `retirarDoAr` antes de mexer na lista — a dica do próprio botão fala de LISTA, parar a projeção tem botão próprio (o segundo toque), e a FILA já fazia o certo desde a v5.309 com o motivo escrito. O segundo NÃO TEM SINTOMA: o coletor só conhece LISTAS, então sair da última apagava os bytes na MESMA transação, por baixo de uma projeção que seguia tocando — e só uma queda de dongle revelaria, quando o `resendSceneToDisplay` chamasse `getMedia`. A resposta é a que o operador nomeou (*"onplayer também deveria ser um elemento que mantém a existência de um item"*): `send()` fixa a cena na prateleira `avulsos`, que já era o detentor invisível do "Tocar agora" e do Modo Fácil e só não valia no avançado. O rodízio de três continua, e `soltarAvulso` mantém a regra antiga de pé — um item que JÁ TOCOU e foi excluído depois morre igual; sobrevive só o que está em cena AGORA. (2) A folha de Ferramentas ganhou a saída que faltava: mesma curva, mesma duração (`--tools-anim`, um valor só para o CSS e o JS), ao contrário. Quem a tira da árvore é o `hidden` no fim, não um `fill-mode` — uma folha "fora" por translação continuaria capturando toque —, e o relógio dispara sem `animationend`, que `prefers-reduced-motion` nunca entregaria. Oráculo novo (`excluir-em-cena`), provado por reversão em seis frentes. OTA PURO.
 - **v1.3.12** — O AVISO QUE FALTAVA NA IMPORTAÇÃO, E A PREVIEW QUE É A PROJEÇÃO. Dois pedidos do operador, e o segundo fecha o achado 3. (1) **IMPORTAR NÃO DIZIA QUE ESTAVA IMPORTANDO**: um vídeo do armazenamento leva segundos até virar linha (o `fetch` do `/saf/` copia o arquivo, o `prepararMidia` decodifica um quadro e mede a duração, o `addMedia` grava), e nesse tempo a folha de destinos já tinha fechado e a lista continuava igual — *"não soube se ele travou ou se estava importando"*. A importação de APRESENTAÇÃO já fazia o certo; o ramo da mídia comum é que tinha ficado sem. O par é o mesmo (`libBusy` no avançado, `previewBusy` no Modo Fácil), e o `soltar()` mora num `finally` por causa dos três `continue` do laço. O oráculo mede o MEIO, não o desfecho — a ausência de um aviso não é um erro, e um teste do fim passa nas duas versões —, com o arquivo servido AOS PEDAÇOS para a janela existir. (2) **O LOUVOR CALAVA AO MINIMIZAR SEM TELA CONECTADA**, e a cena que faltava veio do operador: *"ocorre quando não há telas conectadas, no caso no modo onde o áudio deve sair no próprio smartphone"*. Sem tela quem toca é o `<video>` da PREVIEW, no WebView do Controle, e o Chromium pausa o de uma página oculta — as três correções anteriores desta família (v1.26, v1.27, v1.28) protegiam o WebView do TELÃO. A resposta é a que `DISPLAY.md` deixou escrita para o dia, sem desvio: `AVNative.projecaoLocal(bool)` (shell **56**) liga no Controle o `manterVisivel` + `RENDERER_PRIORITY_IMPORTANT` que o telão já tem, mais `onResume`/`resumeTimers` no `onStop`. **CONDICIONAL de propósito** — com telão no ar o Controle DEVE ser estrangulado (é o que o `snoopDisplayStatus` contorna) —, e a pergunta tem duas metades: não há tela **e** há cena no ar. `cenaNoAr()` saiu de dentro do `pushNowPlaying` e virou veredito com dois leitores. O estado atravessa a remontagem do WebView, ao contrário do `backgroundWork` e pelo motivo oposto. **EXIGE RELEASE v1.3.12**: `SHELL_VERSION` 55 → 56, `minShell: 56`, `shellTag`.
 - **v1.3.11** — O FANTASMA DA TROCA DE ABA PASSAVA POR CIMA DO CABEÇALHO. Conserto da v1.3.10, achado relendo o próprio diff: o `.list-body` que nasceu para a folha de Ferramentas ancorar é POSICIONADO, e com isso virou o offsetParent da `#library` — mas o fantasma do carrossel continuava sendo pendurado no `<main>` com as coordenadas do FILHO (`offsetTop`/`offsetLeft`), o que o subia a altura inteira do cabeçalho. Por 220 ms a tela que sai passava sobre o nome da tela e a engrenagem, sem erro em lugar nenhum e sem oráculo que olhasse — é o tipo de coisa que só aparece perguntando *o que este diff mudou por baixo do que ele não tocou?*. Quem RECORTA continua sendo o `overflow: hidden` do `<main>`, ancestral dos dois. Asserção nova no `ferramentas-folha.test.mjs`, medindo o transiente no instante em que ele nasce (`switchTab` monta o fantasma de forma síncrona, antes do `await load()`); provada por reversão. OTA PURO.
@@ -270,6 +273,190 @@ na nota que a revoga, não apagada da que a criou.
 - **v5.156** — é METADE OTA e METADE APK, de novo.
 
 ---
+
+## v1.3.16 — o nome da tela ficou maior, e a barra não
+
+Pedido do operador: *"aumente a fonte do título das abas Cronograma e Bíblia,
+mas não aumente a altura dessa barra do topo, apenas a fonte"*.
+
+**A ALTURA NÃO SE MEXE, E ISSO NÃO DEPENDE DE CUIDADO.** A `.list-header` é uma
+grade com `grid-template-rows: var(--hit)` — 34px FIXOS, que é o alvo de toque
+dos dois botões que ela hospeda (voltar e engrenagem). A fonte do título não
+participa dessa conta, então não há o que segurar. MEDIDO em sete tamanhos
+(`.84` · `.92` · `1` · `1,05` · `1,1` · `1,18` · `1,25rem`), em 430px e em
+320px: a barra fica em **34px em todos**, sem cortar o glifo e sem reticências —
+os únicos dois títulos possíveis são "Cronograma" e "Bíblia", e o mais longo tem
+dez caracteres numa faixa de 217px no pior caso.
+
+**O TAMANHO ESCOLHIDO CORRIGE UMA INVERSÃO.** Ele era `.84rem` (13,44px), isto é
+MENOR que o título de uma folha (`.popup-title` e `.tools-title`, ambos
+`.95rem`) — e uma folha é uma coisa que abre EM CIMA da tela, não acima dela na
+hierarquia. A `1,05rem` (16,8px, +25%) o nome da tela passa a ser o maior rótulo
+do cromo, na ordem certa: **tela › folha › conteúdo**. E continua abaixo dos
+22px do glifo dos dois botões vizinhos, então a faixa segue lendo como
+"ícone · rótulo · ícone" e não como um cabeçalho de página.
+
+**OTA PURO** — nada em `java/`, `res/`, no manifest ou nos workflows.
+
+## v1.3.15 — três acertos da revisão de tema, com o operador olhando o resultado
+
+A v1.3.14 foi a passada larga; esta é a correção de mira, e os três pontos vieram
+de quem opera olhando a tela.
+
+**1. UMA COR POR LADRILHO DA BÍBLIA.** *"Ajustar a coloração dos livros, que tem
+duas faixas de cores no mesmo botão."* Cada ladrilho tinha a tinta do grupo no
+fundo e, sobre ela, uma faixa de 3px na versão saturada da mesma matiz — numa
+grade de 66 livros, 132 manchas de cor, na única tela do app que preenche o
+visor inteiro.
+
+A faixa nasceu na v5.192 para CARREGAR o agrupamento, quando a tinta era bem
+mais apagada. Hoje ela é redundante, e a medição é o que decidiu — a tinta
+sozinha:
+
+    menor separação de matiz entre quaisquer duas   19° escuro · 19° claro
+    saturação                                       33-35%  ·  ~60%
+    faixa de luminância                             18-30%  ·  79-91%
+    pior rótulo                                     8,72:1  ·  6,46:1
+
+O piso do projeto é 20° e o par de 19 é arredondamento: as dez se distinguem
+pela MATIZ, com saturação e luminância uniformes — que é exatamente o trabalho
+que a faixa fazia. Tirar a segunda banda não perde informação; perde o ruído.
+Os dez `--bt-*` saíram de `tokens.css` junto, porque eram os únicos consumidores
+dela, e o comentário que os descrevia saiu no mesmo lote.
+
+A pílula de **Livro** da referência perdeu a faixa junto: ela é a AMOSTRA do
+ladrilho (v1.3.14), e uma amostra que diverge do original não é amostra.
+
+**2. A ABA ATIVA DEIXOU DE SER PINTADA.** *"Use um método visual de seleção que
+seja mais discreto, menos volumoso, para não disputar a presença visual com o
+botão de pesquisa; não pinte todo o botão da aba."*
+
+O marcador já foi duas coisas, e as duas erraram para lados opostos: até a
+v1.3.13 um VAZADO em `--bg` (1,32:1 do trilho — o próprio texto que o defendia
+admitia que "num salão escuro isso é pouco"), e na v1.3.14 a célula PREENCHIDA
+em `--accent-fill`, que resolveu a leitura e criou o volume. O operador está
+certo: numa faixa de três células, duas manchas cheias de azul disputam, e a que
+menos deveria disputar é a que só diz "você está aqui".
+
+Hoje é o que uma aba sempre foi — uma BARRA de 3px encostada na borda de cima da
+célula ativa, em `--accent`, com o glifo na mesma cor. Duas marcas de TRAÇO,
+nenhuma de área: ela liga a aba à tela que desce dela e devolve à busca a única
+superfície da faixa. O `.tab-ind` continua sendo o que sempre foi — um elemento
+que DESLIZA entre as células —, e uma barra que corre de uma aba à outra é o
+gesto mais legível que este trilho já teve.
+
+**3. O ✕ DAS FERRAMENTAS É O BOTÃO QUADRADO PADRÃO.** Ele era um SVG traçado
+sobre `background: none` — um ✕ solto, e a única folha do app cujo fechar não
+parecia um botão, ao lado de outros cinco que usam `.popup-close` (a caixa do
+esqueleto de botão de ícone, o fundo `--surface-2` e o glifo `close` da fonte).
+A classe `.tools-close` e o `:active` dela saíram com ele.
+
+**OTA PURO** — nada em `java/`, `res/`, no manifest ou nos workflows.
+
+## v1.3.14 — a revisão de tema inteira: o que era "inconsistente" era MEDÍVEL
+
+Pedido do operador, com exemplos e a ressalva de que eram só exemplos: *"o app
+inteiro está inconsistente do ponto de vista temático"*. Sete achados, e cada um
+tem um número antes de ter um conserto.
+
+**1. A SUPERFÍCIE DE UMA AÇÃO PASSOU A SER OPACA** (`--btn-accent`,
+`--btn-danger`, `--btn-warn`, `--btn-ok`). Os `-soft` da paleta são tinta com
+ALFA, e alfa EMPILHA — é a aritmética de R1 (`--surface`), que nunca foi
+estendida às famílias de COR, e elas sofrem pior porque um botão de ação nasce
+em duas bases ao mesmo tempo. MEDIDO no escuro, a deriva do MESMO botão entre a
+base mais escura e a mais clara em que ele pousa: accent **1,97:1**, ok 1,84,
+warn 1,83, danger 1,70. A do accent é MAIOR que o degrau `--bg` × `--panel`
+(1,49:1) — o mesmo chevron variava mais que dois níveis inteiros da escada, e
+era literalmente a queixa: o chevron de uma SEÇÃO compunha `#3d4959` e o de um
+CARD, `#4a596d`. Os quatro tokens novos são ancorados na matiz OFICIAL, e o
+separador **não é a claridade, é o CROMA** (~53–58% contra os ~27% da escada) —
+o mesmo argumento que a paleta já assinou no `--live-fill`. Os `-soft` ficam
+para o que é wash de verdade.
+
+**2. UMA LINGUAGEM DE ESTADO SÓ.** Havia três maneiras de dizer "isto está
+ativo": preenchido em `--accent-fill`, `--sel-fill` opaco, e **só cor de
+texto**. O `#repeat` é o extremo da terceira e foi o que o operador nomeou: em
+todo outro interruptor do app o DESENHO muda junto (a estrela enche, o `+` vira
+`✓`) e a cor é reforço; ali o glifo não pode mudar, porque ele CICLA por quatro
+modos e já está ocupado dizendo qual está valendo. MEDIDO: o fundo não mudava —
+**1,00:1** entre ligado e desligado. A regra passa a responder quatro perguntas
+com quatro respostas: ESCOLHIDO entre alternativas = preenchido; LIGADO =
+superfície de ação; SELECIONADO numa lista = `--sel-fill`; ABERTO **não é cor**.
+
+**3. NO TRILHO DE NAVEGAÇÃO O CHEIO FICA COM A ESCOLHA.** O accent cheio serve a
+dois papéis em todo o app — botão primário e segmento escolhido — e fora dali
+nunca colide, porque os dois não dividem a mesma faixa. Ali dividiam, e o
+desempate estava invertido: o cheio ficava com a AÇÃO (a busca) e a ESCOLHA caía
+num vazado de **1,32:1**, degrau que o próprio texto que o defendia admitia ser
+"pouco num salão escuro", deixando a cor do ícone carregando o estado sozinha.
+Hoje a aba ativa é preenchida (1,85:1 do trilho) e a busca desce para a
+superfície de ação, onde segue destacada.
+
+**4. O FEEDBACK DE TOQUE É UM RECUO ABSOLUTO.** `--press` era `scale(.96)`, e
+uma FRAÇÃO aplicada a alvos de 34px a 408px não é um valor: são doze. MEDIDO, o
+recuo por lado: `.back-btn` 0,7px (imperceptível) · `.t-btn` 1,1 · `.tab` 2,9 ·
+`.dialog-btn` **3,1 lateral e 0,7 vertical** · `.lib-item` **8,2px**. São as
+duas queixas de uma vez, e o `.dialog-btn` É o botão de confirmar exclusão — um
+aperto de LADO, que não se lê como "apertei". Hoje `translateY(2px)` mais
+`--press-luz` (um `filter`, que responde até no que não tem fundo). Com o recuo
+absoluto morrem as duas armadilhas da escala: o HIT-TEST (MEDIDO, 6 de 11
+toques no botão de baixar erravam quando a barra de 408px recuava 8px de lado) e
+a FRESTA do aninhamento (0,96 × 0,96 deixava o filho 7px mais estreito). E as
+guardas de ancestral passam a suprimir as DUAS partes — matar só a geometria
+deixaria o bloco inteiro ACENDENDO por um toque de 40px.
+Na mesma passada: **confirmar uma exclusão não é uma ação primária.** O botão
+que apaga vestia o azul preenchido de "Baixar" e "Entendi", enquanto
+`.coll-bar-rm`, `.linha-sim` e `.cast-tela-fora` já seguiam a regra do vermelho
+suave. `openAppDialog` ganhou `perigo: true`.
+
+**5. NA BÍBLIA CADA PÍLULA VESTE A GRADE QUE ELA ABRE.** As quatro dividiam uma
+superfície translúcida e uma cor de valor — quatro botões idênticos — enquanto
+as grades que elas abrem são sólidas e distintas de propósito. Hoje a pílula é a
+AMOSTRA da tela seguinte, e a de Livro leva a tinta do grupo com a faixa de 3px
+do mosaico (o JS acrescenta `bg-<grupo>`). Rótulo e valor herdam a cor da
+pílula; quem os separa é a MÉTRICA. Pior par medido: valor 8,72:1 no escuro e
+6,46:1 no claro.
+
+**6. A BIBLIOTECA ALINHOU AS COLUNAS, E O CARD FECHADO VOLTOU A SEGUIR O PAI.**
+Na raiz, uma seção e um card fixo são linhas irmãs, e MEDIDO em 430px os três
+alvos batiam a 2, 3 e 4px de diferença — três colunas que quase se alinham é o
+que se lê como desalinhado, e o texto do `--hit` já afirmava o contrário. E o
+card vestia `--panel-2` SEMPRE (a exceção da v1.0.1), saindo 1,33:1 mais claro
+que a seção ao lado: a medição que forçava aquilo é sobre o INTERIOR do card, e
+o interior **só existe ABERTO** (com o card em `--panel` a faixa fica a 1,26:1 da
+gaveta no escuro e a **1,00:1** do card no claro). Fechado ele lê `--camada`;
+aberto ele sobe, e o degrau que aparece é o sinal de "isto levantou" — o lugar
+que o nome em accent ocupava antes de ABERTO deixar de ser cor.
+RECONSIDERADO no meio: o nome da seção chegou a ir para `--text` e o `smoke.mjs`
+reprovou com razão — a v5.296 separou cor de RÓTULO de cor de CONTEÚDO depois de
+um relato.
+
+**7. O ECO DEIXOU DE SER DO TRANSPORTE.** Ele valia para
+`.transport .t-btn, .mixer-mid button`, e `.mixer-mid` não existe desde a v1.3.8
+— na prática o anel era exclusivo dos seis botões do transporte, e foi assim que
+o operador o leu. A razão dele continua valendo e vale igual para os outros
+botões que falam com o telão; o que faltava era a REGRA: **o eco é de quem manda
+algo para a projeção.** Ele não se confunde com `--press`, que diz "recebi o
+dedo": duas mensagens, dois sinais.
+
+**8. A FOLHA DE FERRAMENTAS ENTROU EM R1** — achado varrendo as telas que a
+queixa não nomeava. Ela pinta `--panel` desde a v1.3.10 e nunca entrou na lista.
+MEDIDO no tema CLARO: o `.mic-btn` saía em `--surface-2` FLUTUANTE (branco a
+92%) sobre um `--panel` que ali é branco pleno — **1,00:1**. A barra de
+push-to-talk, 56px, o controle que se procura sem olhar no meio de uma frase,
+não existia na tela. Duas correções, porque são dois defeitos: a folha entra na
+lista, e o microfone deixa de vestir o overlay de CHIP (com R1 ele ficaria a
+1,19:1) para ler `--camada` — um chip é uma peça DENTRO de um bloco, e aquilo é
+o bloco.
+
+**Duas travas novas em `tools/tokens.test.mjs`, provadas por REVERSÃO:** nenhuma
+superfície de controle é tinta com alfa, e todo bloco que pinta `--panel` afunda
+a superfície dos filhos. A segunda existe porque a `.tools-sheet` passou quatro
+versões fora da lista sem ninguém notar. `smoke.mjs` passou a afirmar a RESPOSTA
+do toque e não o mecanismo, mais a metade que impede a correção de virar o
+defeito anterior por outro caminho.
+
+**OTA PURO** — nada em `java/`, `res/`, no manifest ou nos workflows.
 
 ## v1.3.13 — o player passou a ser um detentor, e a folha desce por onde subiu
 

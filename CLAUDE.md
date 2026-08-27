@@ -2443,8 +2443,9 @@ resto desta seção.
     marca" de "isto é navegação".
   - **Vermelho** (`scarlett`) é atenção, em dois papéis separados pela
     INTENSIDADE do preenchimento: saturado (`--live`) = está no ar agora, e não
-    pode ter concorrente na tela; suave (`--live-fill` numa linha,
-    `--danger-soft` num botão) = ação destrutiva.
+    pode ter concorrente na tela; suave (`--live-fill` numa linha, `--btn-danger`
+    num botão) = ação destrutiva — inclusive o botão que CONFIRMA uma exclusão
+    (`openAppDialog({ perigo: true })`), que vestia o azul primário até a v1.4.0.
   - **Verde** (`--ok`, do `treefrog`) é **só** concluído/conectado. Ele já disse
     "está no ar" em dois lugares enquanto outros quatro diziam o mesmo em
     vermelho — duas cores opostas para a mesma mensagem na mesma tela.
@@ -2453,6 +2454,27 @@ resto desta seção.
   `--panel-2` desta paleta — uma linha SELECIONADA ficava com a cor exata do
   nível de baixo da árvore. Opacos, valem o mesmo em qualquer nível: **um estado
   SAI da escada em vez de ocupar um degrau dela**.
+- **E A SUPERFÍCIE DE UMA AÇÃO TAMBÉM É OPACA** (`--btn-accent`, `--btn-danger`,
+  `--btn-warn`, `--btn-ok`). Os `-soft` são tinta com ALFA, e alfa EMPILHA:
+  MEDIDO no escuro, o mesmo botão derivava **1,97:1** entre a base mais escura e
+  a mais clara em que ele pousa — mais que o degrau `--bg` × `--panel` (1,49:1).
+  O chevron de uma SEÇÃO compunha `#3d4959` e o de um CARD, `#4a596d`: um
+  controle, duas cores. Os `-soft` ficam para o que é wash de verdade (a sombra
+  do pulso, o trilho do `.dl-ring`); **fundo de botão ou de chip usa `--btn-*`**,
+  e `tokens.test.mjs` trava isso.
+- **UMA LINGUAGEM DE ESTADO SÓ, e ela responde a quatro perguntas.** O app
+  tinha três maneiras de dizer "isto está ativo" (preenchido, `--sel-fill`, e
+  **só cor de texto** — a fraca, de que o operador reclamou no botão de
+  repetição). Hoje: **ESCOLHIDO** entre alternativas = `--accent-fill` +
+  `--on-accent`; **LIGADO** (interruptor) = `--btn-accent` + `--accent`;
+  **SELECIONADO** numa lista = `--sel-fill`; **ABERTO** = não é cor (a seta que
+  gira e o corpo à vista já dizem; na Biblioteca quem diz é o degrau de
+  ELEVAÇÃO). **Cor de texto nunca carrega estado sozinha.**
+  E quando AÇÃO e ESCOLHA dividem a MESMA faixa — o trilho de navegação é o
+  único caso — a ação desce para `--btn-accent` e a ESCOLHA é marcada **sem
+  área**: uma barra de 3px em `--accent` na borda de cima da aba, mais o glifo
+  na mesma cor (v1.3.15). Duas manchas cheias na mesma faixa disputam, e a que
+  menos deve disputar é a que só diz "você está aqui".
 - **Nem todo token é valor oficial, e os derivados estão marcados.** Os dezoito
   oficiais foram desenhados para fundo BRANCO — todos passam AA sobre branco, e
   **nenhum** passa AA como texto sobre o quase-preto do tema escuro (bluejay dá
@@ -2461,32 +2483,44 @@ resto desta seção.
   identidade tem sete famílias de matiz e a tela precisa de DEZ grupos separáveis
   por ≥20°: cinco são oficiais, cinco preenchem os vãos.
 
-### `--press` é para CONTROLE FOLHA, nunca para um contêiner
+### O feedback de toque é um RECUO ABSOLUTO, nunca uma fração
 
-`--press` é `scale(.96)`, e **uma escala num contêiner arrasta tudo o que vive
-dentro dele**. A `.coll-bar` do card de álbum tem 408px: 4% recuam a borda
-direita ~8px, e o botão de baixar está colado nessa borda — um dedo pousado na
-metade DIREITA dele ficava sobre a barra no instante do `pointerup`, e o toque
-abria o acordeão em vez de baixar.
+`--press` foi `scale(.96)`, e **uma FRAÇÃO aplicada a alvos de 34px a 408px não
+é um valor: são doze**. MEDIDO, o recuo por lado que ela produzia:
 
-**MEDIDO: 6 de 11 toques no botão de fato baixavam**, e os 5 que erravam eram
-todos à direita. Sem a escala, 11 de 11.
+| alvo | caixa | recuo |
+|---|---|---|
+| `.back-btn` · `.popup-close` | 34×34 | **0,7px** — imperceptível |
+| `.t-btn` | 53×36 | 1,1 lateral · 0,7 vertical |
+| `.tab` | 143×38 | 2,9 lateral · 0,8 vertical |
+| `.dialog-btn` | 157×33 | **3,1 lateral · 0,7 vertical** |
+| `.lib-item` | 408 | **8,2px** — exagerado |
 
-Um contêiner que hospeda um controle responde por **PREENCHIMENTO**
-(`.coll-bar:active`), que não move nada — ou por `filter`, como o
-`.cast-acao:active`. É a mesma família de armadilha que já tinha feito o ouvinte
-do card morar no `<li>` em vez de na barra: aquela correção salvou o alvo da
-BARRA e deixou de pé o do botão que mora dentro dela.
+São as DUAS queixas do operador de uma vez, e o `.dialog-btn` é literalmente o
+botão de confirmar exclusão: um aperto de LADO, que não se lê como "apertei".
 
-**E DOIS `--press` NO MESMO DEDO ABREM UMA FRESTA** (v1.2.27). `:active` casa
-também nos ANCESTRAIS: um elemento e o contêiner dele na MESMA lista aplicam
-0,96 × 0,96, e o de dentro fica visivelmente mais estreito que os irmãos do de
-fora. MEDIDO na linha de uma faixa com a gaveta aberta: o cartão a 370px e o
-título, dentro dele, a 355 — 7px de fresta de cada lado, com o fundo do cartão
-aparecendo nela. **Numa lista quem encolhe é o CARTÃO INTEIRO**, nunca a `.row`
-de dentro; o `.hymn-play-thumb` saiu junto porque deixou de ser botão na v5.285
-e continuou dando resposta de toque. Antes de pôr uma classe na lista, pergunte
-se um ancestral dela já está lá.
+Hoje **`--press: translateY(2px)`** — o mesmo recuo em qualquer alvo, a metáfora
+da tecla que afunda — mais **`--press-luz`**, um `filter: brightness()` (1.35 no
+escuro, .88 no claro) que responde até no que não tem fundo, acendendo o próprio
+traço. `filter` e não overlay de fundo porque não disputa propriedade com quem
+já usa `background-image` (a faixa da célula da Bíblia, a pílula do livro, o
+vazado da aba).
+
+**As duas armadilhas que a escala criava morreram com ela:**
+
+- **O HIT-TEST.** A `.coll-bar` do card tem 408px: 4% recuavam a borda direita
+  ~8px, e o botão de baixar está colado nela — **MEDIDO, 6 de 11 toques no botão
+  de fato baixavam**, e os 5 que erravam eram todos à direita. 2px na VERTICAL
+  não tiram dedo nenhum de um alvo de 34px.
+- **A FRESTA do aninhamento** (v1.2.27). `:active` casa também nos ANCESTRAIS:
+  0,96 × 0,96 deixava o filho 7px mais estreito de cada lado que os irmãos, com
+  o fundo do cartão aparecendo nela. Dois recuos são 4px na MESMA direção, sem
+  mudar de largura.
+
+**O que fica: um ANCESTRAL não responde ao toque que foi para um filho** — e as
+guardas suprimem as DUAS partes (`transform` e `filter`), senão o bloco inteiro
+acende por um toque de 40px, que é o mesmo defeito por outra propriedade. Antes
+de pôr uma classe na lista, pergunte se um ancestral dela já está lá.
 
 ### A escada de camadas
 
@@ -2576,10 +2610,13 @@ se um ancestral dela já está lá.
 tais ali mesmo. **Ao mexer num token, meça — e são DOIS temas.**
 
 O CI trava outra coisa: `tokens.test.mjs` (todo `var(--x)` sem fallback aponta
-para token que EXISTE; nenhum token só no claro; nenhum contorno) e `smoke.mjs`
-(o efeito RENDERIZADO nos dois temas, o palco que não os segue, a escolha que
-sobrevive à recarga, e a ESCADA DE CAMADAS medindo o degrau ENTRE níveis — a
-única parte do contraste que tem oráculo).
+para token que EXISTE; nenhum token só no claro; nenhum contorno; **nenhuma
+superfície de controle é tinta com alfa**; **todo bloco que pinta `--panel`
+afunda a superfície dos filhos** — as duas últimas provadas por REVERSÃO) e
+`smoke.mjs` (o efeito RENDERIZADO nos dois temas, o palco que não os segue, a
+escolha que sobrevive à recarga, a ESCADA DE CAMADAS medindo o degrau ENTRE
+níveis — a única parte do contraste que tem oráculo — e o recuo do toque, que
+tem de ser ABSOLUTO).
 
 ---
 
@@ -3387,7 +3424,7 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: v1.3.13** (base web) · **v1.3.12** (APK) · `SHELL_VERSION` **56** · bundle com
+**Versão atual: v1.3.16** (base web) · **v1.3.12** (APK) · `SHELL_VERSION` **56** · bundle com
 `minShell: 56` — o shell 56 é o **PISO**: todo método da ponte existe, e não há
 guarda de versão no lado web. O que continua valendo é que `java/`, `res/`, o
 manifest e os workflows **só chegam instalando o APK**.

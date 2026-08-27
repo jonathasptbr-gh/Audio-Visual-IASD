@@ -1,5 +1,32 @@
 [
   {
+    "versao": "1.3.16",
+    "itens": [
+      "O NOME DA TELA no alto (Cronograma, Bíblia) ficou maior e mais fácil de ler de relance. A barra do topo NÃO cresceu: a altura dela é fixa pelo tamanho dos botões que ela carrega, então só a letra mudou."
+    ]
+  },
+  {
+    "versao": "1.3.15",
+    "itens": [
+      "OS LIVROS DA BÍBLIA passaram a ter UMA cor cada. Cada botão tinha duas faixas — o fundo colorido e uma tira mais forte na lateral —, o que enchia a tela de 66 livros de manchas. A tira saiu; a cor do grupo continua a mesma e continua separando os grupos igual.",
+      "A ABA EM QUE VOCÊ ESTÁ deixou de ser pintada inteira. Agora ela é marcada por uma barrinha no topo, mais discreta, para não disputar atenção com a lupa da busca ao lado.",
+      "E o ✕ que fecha as Ferramentas virou o mesmo botão quadrado dos outros — era o único do app que aparecia solto, sem caixa."
+    ]
+  },
+  {
+    "versao": "1.3.14",
+    "itens": [
+      "REVISÃO DE TEMA DO APP INTEIRO, a partir dos seus exemplos. Botões que faziam a mesma coisa apareciam em cores diferentes conforme a tela em que estavam — o de baixar de um grupo e o de baixar de um álbum, por exemplo. Agora um botão tem UMA cor, em qualquer lugar.",
+      "O BOTÃO DE REPETIÇÃO agora acende de verdade quando está ligado: antes só o desenho mudava de cor, no meio de seis botões iguais.",
+      "A ABA EM QUE VOCÊ ESTÁ (Cronograma ou Bíblia) passou a ser preenchida, como toda escolha do app já era. A lupa da busca continua destacada — ela é uma AÇÃO, não uma das telas.",
+      "O TOQUE responde igual em todo botão: antes o encolhimento era proporcional ao tamanho, então os botões grandes se mexiam demais e os pequenos não se mexiam o suficiente — o de confirmar exclusão quase não respondia. Agora todos afundam a mesma medida e clareiam junto.",
+      "E CONFIRMAR UMA EXCLUSÃO ficou VERMELHO. Era a única tela do app com uma decisão sem volta, e o botão tinha a mesma cor de \"Baixar\".",
+      "NA BÍBLIA, as pílulas de Livro, Capítulo e Versículo passaram a ter a cor da grade que cada uma abre — a de Livro leva até a cor da divisão do livro. Antes eram quatro botões transparentes iguais.",
+      "NA BIBLIOTECA, os hinários e os grupos passaram a se alinhar na mesma coluna e a dividir o mesmo tom quando fechados. Um álbum aberto sobe um degrau, que é o que mostra que ele está aberto.",
+      "E na aba de Ferramentas, no tema CLARO, o botão do Microfone estava invisível — branco sobre branco. Corrigido."
+    ]
+  },
+  {
     "versao": "1.3.13",
     "itens": [
       "APAGAR UM ITEM DO CRONOGRAMA NÃO INTERROMPE MAIS O QUE ESTÁ TOCANDO. Havia uma linha que tirava a cena do ar antes de mexer na lista — e o botão promete outra coisa: tirar o item DESTA lista. Parar a projeção continua tendo caminho próprio (o segundo toque na linha).",

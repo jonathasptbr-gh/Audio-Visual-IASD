@@ -543,11 +543,12 @@
     <div id="toolsSheet" class="tools-sheet" hidden>
       <div class="tools-head">
         <span class="tools-title">Ferramentas</span>
-        <button id="toolsClose" class="tools-close" type="button" title="Fechar" aria-label="Fechar">
-          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/>
-          </svg>
-        </button>
+        <!-- O ✕ PADRÃO, o mesmo dos outros cinco do app (v1.3.15): a classe
+             `.popup-close` traz a caixa quadrada do esqueleto de botão de
+             ícone, o fundo `--surface-2` e o glifo `close` da fonte. Ele era
+             um SVG traçado sobre `background: none` — um ✕ solto, e a única
+             folha do app cujo fechar não parecia um botão. -->
+        <button id="toolsClose" class="popup-close" type="button" title="Fechar" aria-label="Fechar"><span class="msym" aria-hidden="true">&#xe14c;</span></button>
       </div>
       <!-- O host das ferramentas. Ele veste `.lib-misc` de sempre: quem
            administra a altura aqui é o painel ativo, não a rolagem da lista. -->
@@ -1305,7 +1306,7 @@
              pedir ajuda"), e agora ocupam a mesma faixa: a versão à esquerda, o
              Registro à direita, no espaço que já estava sobrando. -->
         <div class="footer-diag">
-          <span id="appVersion" class="app-version">Controle v1.3.13</span>
+          <span id="appVersion" class="app-version">Controle v1.3.16</span>
           <span class="footer-diag-rot">Registro</span>
           <!-- SALVAR EM ARQUIVO (v1.2.16). Com o acervo inteiro varrido o
                Registro passa de setenta linhas só na seção de cifras, e copiar

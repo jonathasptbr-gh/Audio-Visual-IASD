@@ -344,6 +344,55 @@
      4,65:1 com o `--ok`. */
   --ok-fill: #2a4630;
 
+  /* ---------- A SUPERFÍCIE DE UMA AÇÃO É OPACA — a mesma razão dos três acima
+     (v1.3.14) ----------
+     Os `-soft` desta paleta são TINTA COM ALFA, e alfa EMPILHA: o mesmo token
+     compõe uma cor sobre `--panel` e outra sobre `--panel-2`. Era o defeito de
+     R1 (`--surface`), que nunca foi estendido às famílias de COR — e elas o
+     sofrem PIOR, porque um botão de ação nasce nas duas bases ao mesmo tempo.
+
+     MEDIDO no escuro, o quanto o MESMO botão derivava entre a base mais escura
+     e a mais clara em que ele pousa:
+
+         --accent-soft  1,97:1      --warn-soft  1,83:1
+         --danger-soft  1,70:1      --ok-soft    1,84:1
+
+     A deriva do accent é MAIOR que o degrau `--bg` × `--panel` (1,49:1) — isto
+     é, o mesmo chevron variava mais que dois níveis inteiros da escada. Foi o
+     que o operador relatou como "cores diferentes ou inconsistentes entre
+     grupos de hinário, informativos e coleções": o chevron da SEÇÃO compunha
+     #3d4959 e o do CARD, #4a596d. Um controle, duas cores.
+
+     Opacos, valem o mesmo em qualquer nível — a frase que os três `-fill`
+     acima já cumpriam. E o separador aqui NÃO é a claridade: é o CROMA. Os
+     quatro ficam a ~1,15:1 das duas bases de cartão de propósito, e a ~53–58%
+     de saturação contra os ~27% da escada neutra. Uma peça TINTA entre peças
+     cinzas se acha sem precisar ser mais clara — o mesmo argumento que a
+     paleta já assinou no `--live-fill` (1,03:1 do painel).
+
+     Cada um é a matiz OFICIAL da família (bluejay 214°, scarlett 353°,
+     campfire 21°, treefrog 101°), e cada um recebe por cima o traço que a
+     família já tinha. MEDIDO (escuro · claro):
+
+       token          traço            bg     panel  panel-2  traço sobre ele
+       --btn-accent   --accent         1,70   1,14   1,17     5,37 · 6,37
+       --btn-danger   --danger-strong  1,62   1,09   1,23     4,49 · 5,64
+       --btn-warn     --warn           1,69   1,13   1,18     4,30 · 5,68
+       --btn-ok       --ok             1,72   1,15   1,16     4,89 · 5,74
+
+     O `--btn-warn` é o único abaixo de 4,5:1 no escuro, e ele é ÍCONE — o piso
+     de 3:1 é o que vale para quem carrega informação sem ser texto.
+
+     OS `-soft` FICAM, e não são sinônimo destes: eles continuam certos onde a
+     translucidez é o ponto — uma tinta lavada por cima de mídia arbitrária ou
+     de uma barra de progresso, em que compor com o que está embaixo é o
+     efeito desejado, não o acidente. Superfície de BOTÃO ou de CHIP usa os
+     `--btn-*`. */
+  --btn-accent: #293d57;
+  --btn-danger: #5d282e;
+  --btn-warn:   #533423;
+  --btn-ok:     #2a431e;
+
   /* texto — off-white com a matiz do denim, nunca branco pleno (ver "A paleta"
      no CLAUDE.md: fora do palco, o branco pleno é a maior fonte isolada de luz
      emitida do app). DERIVADO de `white`, escurecido e tingido.
@@ -490,16 +539,33 @@
      Medido — `--sel-fill`: 7,64:1 com o texto, 5,35:1 com `--muted`, 4,92:1 com
      `--accent`. `--live-fill`: 9,21:1 com o texto, 4,72:1 com `--live-strong`
      (a tinta do selo "● No ar"). */
-  --b-lei:#2a3955;        --bt-lei:#6187d5;
-  --b-historicos:#4b3325; --bt-historicos:#cc703e;
-  --b-poeticos:#1e3e37;   --bt-poeticos:#299982;
-  --b-pmaiores:#472e5c;   --bt-pmaiores:#a86fd9;
-  --b-pmenores:#532950;   --bt-pmenores:#d257ca;
-  --b-evangelhos:#333367; --bt-evangelhos:#7f7fdd;
-  --b-atos:#203d41;       --bt-atos:#2c95a7;
-  --b-paulinas:#1f3f2a;   --bt-paulinas:#299c51;
-  --b-gerais:#283e1f;     --bt-gerais:#4c9929;
-  --b-apocalipse:#3f391f; --bt-apocalipse:#9f872a;
+  /* ---------- BÍBLIA: DEZ MATIZES, UMA BANDA CADA (v1.3.15) ----------
+     O ladrilho de um livro é a tinta do grupo, e SÓ ela. Ele teve uma segunda
+     banda até a v1.3.14 — uma faixa de 3px na versão saturada da mesma matiz
+     (`--bt-*`, que saiu com ela) —, e o operador a leu como o que era: "duas
+     faixas de cores no mesmo botão", 124 manchas na tela mais colorida do app.
+
+     A faixa nasceu para CARREGAR o agrupamento quando a tinta era mais
+     apagada; hoje a tinta o carrega sozinha, e isso é medido: **≥19° de
+     separação de matiz entre quaisquer duas** das dez (o piso do projeto é 20°,
+     e o par de 19 é arredondamento), saturação uniforme (33–35%) e luminância
+     estreita (18–30%) — elas se distinguem pela MATIZ, que era o trabalho da
+     faixa. Pior rótulo 8,72:1.
+
+     A LUZ continua sendo o motivo do desenho: esta é a única tela que preenche
+     o visor inteiro de cor, e é a que se abre NO ESCURO no meio da pregação.
+     Saturada ela emitia 16,3% de luminância média contra 2,3% de uma lista;
+     com a tinta são 2,8%. */
+  --b-lei:#2a3955;
+  --b-historicos:#4b3325;
+  --b-poeticos:#1e3e37;
+  --b-pmaiores:#472e5c;
+  --b-pmenores:#532950;
+  --b-evangelhos:#333367;
+  --b-atos:#203d41;
+  --b-paulinas:#1f3f2a;
+  --b-gerais:#283e1f;
+  --b-apocalipse:#3f391f;
 
   /* Células de número da Bíblia (capítulo × versículo). Tons DISTINTOS por tela
      — capítulo em tom frio (a matiz do denim), versículo em tom quente — porque
@@ -609,6 +675,16 @@
   --live-fill: #f7d9d9;
   --ok-fill: #d2e9cc;                    /* 1,29:1 painel · 6,87:1 texto · 5,27:1 --ok */
 
+  /* As superfícies de ação opacas, no claro (ver o bloco do escuro).
+     Aqui a deriva dos `-soft` era pequena (1,09:1 — as bases claras estão
+     todas perto), mas o token tem de existir nos DOIS temas: um que só
+     morasse no escuro é o `var()` que computa para o valor inicial, sem aviso.
+     MEDIDO: 1,20:1 das duas bases de cartão, traço de 5,64 a 6,37:1. */
+  --btn-accent: #dcebfe;
+  --btn-danger: #fde3e6;
+  --btn-warn:   #f8e7de;
+  --btn-ok:     #d5f5c6;
+
   /* texto: `night` e um derivado dele. O `winter` OFICIAL (#717171) seria o
      secundário natural e dá 4,88:1 sobre BRANCO — mas sobre o cinza da página
      cai para 3,81:1 e reprova AA, e `--muted` aparece nos dois lugares. O
@@ -671,17 +747,18 @@
      e a razão é aritmética: o texto deste tema é o `night` (#4A4A4A), não um
      off-white, então um ladrilho com 8,7:1 contra ele seria branco puro e a
      matiz do grupo sumiria — que é o oposto do que a tela existe para fazer.
-     Pior rótulo 6,46:1, pior faixa 3,28:1 contra a própria tinta. */
-  --b-lei:#d2ddf4;        --bt-lei:#3d72dd;
-  --b-historicos:#f2d7c9; --bt-historicos:#be5922;
-  --b-poeticos:#a9eadd;   --bt-poeticos:#188670;
-  --b-pmaiores:#e7d7f5;   --bt-pmaiores:#9d51e0;
-  --b-pmenores:#f4d3f2;   --bt-pmenores:#ce24c3;
-  --b-evangelhos:#dbdbf6; --bt-evangelhos:#6868e4;
-  --b-atos:#b6e4ed;       --bt-atos:#1a8294;
-  --b-paulinas:#adeac3;   --bt-paulinas:#18883f;
-  --b-gerais:#bdeaa9;     --bt-gerais:#3b8818;
-  --b-apocalipse:#eadda9; --bt-apocalipse:#8c7519;
+     Pior rótulo 6,46:1; a separação de matiz é a mesma do escuro (≥19°), que é
+     o que dispensou a segunda banda (ver o bloco de lá). */
+  --b-lei:#d2ddf4;
+  --b-historicos:#f2d7c9;
+  --b-poeticos:#a9eadd;
+  --b-pmaiores:#e7d7f5;
+  --b-pmenores:#f4d3f2;
+  --b-evangelhos:#dbdbf6;
+  --b-atos:#b6e4ed;
+  --b-paulinas:#adeac3;
+  --b-gerais:#bdeaa9;
+  --b-apocalipse:#eadda9;
 
   --cell-chapter: #cedff3;      --cell-chapter-text: #183d67;   /* 8,13:1 */
   --cell-verse: #f4e5c7;        --cell-verse-text: #654310;     /* 7,14:1 */

@@ -178,5 +178,96 @@ checar(orfaos.length === 0,
     contornos.join('\n        '));
 }
 
+// ---------- A SUPERFÍCIE DE UM CONTROLE É OPACA (v1.3.14) ----------
+// Os `-soft` da paleta são TINTA COM ALFA, e alfa EMPILHA: o mesmo token compõe
+// uma cor sobre `--panel` e outra sobre `--panel-2`. MEDIDO no escuro, a deriva
+// do MESMO botão entre a base mais escura e a mais clara em que ele pousa era
+// de 1,97:1 no accent — MAIOR que o degrau `--bg` × `--panel` (1,49:1), isto é,
+// o mesmo chevron variava mais que dois níveis inteiros da escada. Era a queixa
+// "cores diferentes ou inconsistentes entre grupos de hinário, informativos e
+// coleções": o chevron da SEÇÃO compunha #3d4959 e o do CARD, #4a596d.
+//
+// A família `--btn-*` existe para isso, e este caso é o que a mantém: um
+// `background: var(--accent-soft)` é a coisa mais fácil de escrever quando se
+// quer "um botão azulzinho", e ele não erra alto — erra só quando o mesmo
+// componente nasce em duas telas, que é meses depois e longe daqui.
+//
+// OS `-soft` FICAM, e por isso a varredura é só de `background`: eles continuam
+// certos onde a translucidez é o efeito e não o acidente — o `box-shadow` do
+// pulso de "no ar", o trilho do `.dl-ring` (um anel desenhado sobre base
+// arbitrária). Nenhum dos dois é superfície de controle.
+{
+  const soft = [];
+  for (const f of arquivos) {
+    const s = fonte.get(f) || '';
+    for (const m of s.matchAll(/background(?:-color)?\s*:\s*var\(\s*--(accent|brand|danger|warn|ok|live)-soft\s*\)/g)) {
+      soft.push(path.relative(RAIZ, f) + ':' + (s.slice(0, m.index).split('\n').length)
+        + ' → --' + m[1] + '-soft (use --btn-' + m[1].replace('brand', 'accent').replace('live', 'danger') + ')');
+    }
+  }
+  checar(soft.length === 0,
+    'nenhuma superfície de controle é uma tinta com ALFA: fundo de botão e de '
+    + 'chip usa a família OPACA `--btn-*`, que vale o mesmo em qualquer camada',
+    soft.join('\n        '));
+}
+
+// ---------- QUEM PINTA `--panel` ENTRA NA REGRA R1 (v1.3.14) ----------
+// R1 diz que a superfície de um controle AFUNDA dentro de um cartão, e ela é
+// implementada por uma LISTA de seletores que redeclaram `--surface`. Uma lista
+// só protege quem está nela — e um bloco novo que pinte `--panel` sem entrar
+// aqui herda o overlay FLUTUANTE, que é branco com alfa.
+//
+// MEDIDO, e é o caso que criou esta asserção: a `.tools-sheet` nasceu na v1.3.10
+// pintando `--panel` e nunca entrou na lista. No tema CLARO o `.mic-btn` dentro
+// dela saía em branco a 92% sobre branco pleno — **1,00:1**. A barra de
+// push-to-talk, 56px, o controle que se procura sem olhar, não existia na tela.
+//
+// A varredura é do `--panel` LITERAL, não de `var(--camada)`: quem lê a camada
+// está justamente delegando o nível ao pai, e o pai é que precisa estar na
+// lista. Exceções nomeadas uma a uma, como as dos contornos.
+{
+  const css = fonte.get(arquivos.find((f) => f.endsWith('controle.css'))) || '';
+  const regra = css.match(/([^{}]*)\{\s*--surface:\s*var\(--surface-sunk\);\s*--surface-2:\s*var\(--surface-2-sunk\);\s*\}/);
+  const naLista = regra
+    ? new Set(regra[1].split(',').map((x) => x.trim()).filter(Boolean))
+    : new Set();
+  checar(naLista.size > 5, 'a lista de R1 (o que AFUNDA a superfície) foi encontrada',
+    naLista.size + ' seletores');
+  // Não é bloco de conteúdo: uma barra de rolagem não hospeda controle nenhum.
+  const excecoes = [/scrollbar/];
+  // A varredura é por BLOCO e não por regex de rua: entre um `}` e o seletor
+  // seguinte cabe um comentário de trinta linhas (já em branco, mas ocupando
+  // espaço), e um teto de caracteres no meio faz o oráculo pular exatamente as
+  // regras mais documentadas — que são as que mais importam. Foi o que
+  // aconteceu na primeira versão desta asserção: ela passou por cima da
+  // `.tools-sheet`, o caso que a criou.
+  const fora = [];
+  let pos = 0;
+  for (const bruto of css.split('}')) {
+    const chave = bruto.indexOf('{');
+    const inicio = pos;
+    pos += bruto.length + 1;
+    if (chave < 0) continue;
+    const sel = bruto.slice(0, chave).trim();
+    const corpo = bruto.slice(chave + 1);
+    if (!/background\s*:\s*var\(--panel\)/.test(corpo)) continue;
+    if (!sel || sel.startsWith('@') || excecoes.some((r) => r.test(sel))) continue;
+    // Um seletor composto entra se QUALQUER uma das partes dele estiver na lista.
+    if (sel.split(',').map((x) => x.trim()).some((x) => naLista.has(x))) continue;
+    // OU o bloco afunda a superfície POR CONTA PRÓPRIA, numa regra dele — é o
+    // caso da `.simple-conn`. O que a asserção cobra é o EFEITO (o controle
+    // dentro dele afunda), não a filiação a uma lista.
+    if (/--surface:\s*var\(--surface-sunk\)/.test(corpo)) continue;
+    if (new RegExp(sel.split(',')[0].trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+      + '\\s*\\{[^{}]*--surface:\\s*var\\(--surface-sunk\\)').test(css)) continue;
+    fora.push(sel.replace(/\s+/g, ' ') + ' (linha '
+      + (css.slice(0, inicio).split('\n').length) + ')');
+  }
+  checar(fora.length === 0,
+    'todo bloco que pinta `--panel` está na lista de R1: sem isso os controles '
+    + 'dentro dele usam a superfície FLUTUANTE e somem no tema claro',
+    fora.join('\n        '));
+}
+
 console.log(falhas.length ? '\n' + falhas.length + ' FALHA(S)' : '\nTodos passaram.');
 process.exit(falhas.length ? 1 : 0);
