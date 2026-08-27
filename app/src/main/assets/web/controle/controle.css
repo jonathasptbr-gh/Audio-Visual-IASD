@@ -1469,13 +1469,13 @@ main {
    controles), e é sempre o mesmo defeito: quatro retângulos com fundo próprio
    se leem como quatro AÇÕES, e um trilho por cima é uma segunda caixa dizendo
    "isto é um grupo" — coisa que quatro ícones lado a lado já dizem.
-   O que sobra é o que a palavra "aba" significa: uma célula encostada na borda
-   de cima da caixa, com raio só embaixo — a aba desce da tela que ela abre. A
-   ESCOLHIDA é preenchida em accent desde a v1.3.14 (era um vazado em `--bg`;
-   ver o `.tab-ind`), e a silhueta é a mesma: o que mudou foi só a tinta. O
-   inverso (tinta nas NÃO escolhidas) foi testado e revertido — a mancha precisa
-   acompanhar a aba EM USO. `margin: 0 -.7rem` desfaz o padding da caixa — uma
-   faixa recuada volta a parecer um componente pousado em cima. */
+   O que sobra é o que a palavra "aba" significa: células encostadas na borda de
+   cima da caixa, e a ESCOLHIDA marcada por uma BARRA de 3px nessa borda
+   (v1.3.15 — ver o `.tab-ind`, que é quem a desenha e a desliza). Ela já foi um
+   vazado em `--bg` e já foi a célula inteira preenchida; a barra é o que marca
+   sem ocupar área, que é o que uma faixa com uma AÇÃO ao lado precisa.
+   `margin: 0 -.7rem` desfaz o padding da caixa — uma faixa recuada volta a
+   parecer um componente pousado em cima. */
 .tabs {
   display: flex; align-items: stretch; flex-shrink: 0;
   /* Encostada no topo da caixa (o `.bottombar` zera o padding de cima só por
@@ -1497,33 +1497,39 @@ main {
    alvo. `--tab-move` é compartilhado com a animação da LISTA
    (`animateTabSwitch`): os dois movimentos são o mesmo gesto. */
 .tab-ind {
-  position: absolute; left: 0; top: 0; bottom: 0;
+  position: absolute; left: 0; top: 0;
   width: var(--tab-w, 0px);
   transform: translateX(var(--tab-x, 0px));
-  /* ---------- O TOM É O DA SELEÇÃO DO APP (v1.3.14) ----------
-     Ele foi um VAZADO em `--bg` — a célula ativa recortada na cor do corpo da
-     seção que ela abre. O desenho era bonito e o argumento ("a aba e a tela
-     dela viram a mesma superfície") era honesto, mas ele não sobreviveu a duas
-     medições:
+  /* ---------- UMA BARRA, NÃO UMA CÉLULA PINTADA (v1.3.15) ----------
+     Ele já foi duas coisas, e as duas erravam para lados opostos:
 
-       · o degrau `--bg` × `--bar` é 1,32:1, e o próprio texto que o defendia
-         admitia que "num salão escuro isso é pouco" — o que restava carregando
-         o estado era a COR DO ÍCONE, sozinha;
-       · e ele não é a linguagem de seleção deste app. Toda escolha entre
-         alternativas aqui é PREENCHIDA em accent (a célula da Bíblia, o
-         segmento e o chip de Ferramentas, a opção de enquadramento). O
-         operador nomeou isto: *"a alternância entre bíblia e cronograma já não
-         condiz com o sistema de seleção atual"*.
+       · até a v1.3.13, um VAZADO em `--bg` — a célula recortada na cor do corpo
+         da seção. MEDIDO, o degrau `--bg` × `--bar` é 1,32:1, e o texto que o
+         defendia já admitia que "num salão escuro isso é pouco": o que
+         carregava o estado era a cor do ícone, sozinha;
+       · na v1.3.14 virou a célula PREENCHIDA em `--accent-fill`, o que resolveu
+         a leitura e criou outro problema — pedido do operador: *"use um método
+         visual de seleção que seja mais discreto, menos volumoso, para não
+         disputar a presença visual com o botão de pesquisa; não pinte todo o
+         botão da aba"*. Ele está certo: numa faixa de três células, duas
+         manchas cheias de azul disputam, e a que MENOS deveria disputar é a
+         que só diz "você está aqui".
 
-     Agora ele é o preenchido de sempre — `--accent-fill` sob `--on-accent`.
-     MEDIDO: 1,85:1 contra o trilho (contra 1,32:1) e 6,54:1 do glifo.
+     Agora é o que uma aba sempre foi: uma BARRA de 3px encostada na borda de
+     cima da célula ativa, em `--accent`. Ela liga a aba à tela que desce dela,
+     não gasta área nenhuma, e não compete com o preenchimento suave da busca —
+     que passa a ser a única superfície da faixa.
 
-     E A FORMA FICA: encostado no topo, com raio só embaixo. Era ela que dizia
-     "isto é uma aba e não um botão pousado na faixa", e isso não dependia da
-     cor. O MOVIMENTO também fica, e é o que ele sempre foi — um elemento que
-     se desloca entre as células, não um fundo que troca de dono. */
-  background: var(--accent-fill);
-  border-radius: 0 0 var(--radius-btn) var(--radius-btn);
+     A COR NÃO CARREGA O ESTADO SOZINHA, e é isso que a torna suficiente:
+     `--accent` é saturado (contra o cinza quase neutro do trilho) e vem com o
+     GLIFO na mesma cor. Duas marcas de traço, nenhuma de área.
+
+     E O MOVIMENTO FICA — ele é o que ele sempre foi, um elemento que DESLIZA
+     entre as células, e uma barra que corre de uma aba à outra é o gesto mais
+     legível que este trilho já teve. */
+  height: 3px;
+  background: var(--accent);
+  border-radius: 0 0 var(--radius-xs) var(--radius-xs);
   transition: transform var(--tab-move), width var(--tab-move);
   pointer-events: none;
 }
@@ -1581,12 +1587,11 @@ main {
    Os segmentados de CONFIGURAÇÃO (`.fit-opt`, `.misc-tab`) seguem com a seleção
    preenchida, e não é incoerência: lá não há ação competindo pela mesma faixa —
    a escolha É a única coisa que aquele trilho comunica. */
-/* A aba ativa é PREENCHIDA, como toda escolha entre alternativas neste app
-   (v1.3.14 — ver o `.tab-ind`, que é quem pinta). Aqui fica só o que pertence
-   ao botão: o glifo em `--on-accent`, o par que existe para pousar sobre o
-   preenchido. Escrever `--accent` sobre ele seria o erro que a paleta descreve
-   — aquele tom é claro porque é para ser TEXTO sobre fundo escuro. */
-.tab.active { color: var(--on-accent); }
+/* A aba ativa não tem fundo: quem a marca é a BARRA de 3px do `.tab-ind` mais
+   este glifo, os dois em `--accent` (v1.3.15). O `--on-accent` que esteve aqui
+   era o par do preenchido que saiu — sobre a faixa sem pintura ele seria um
+   quase-branco sem contraste de matiz nenhum contra a aba inativa. */
+.tab.active { color: var(--accent); }
 
 /* ---------- Rodapé FIXO da caixa da lista (v5.107) ---------- */
 /* Fora do `<ul>` rolável: o que está aqui não some de vista, e é isso que o
@@ -1828,14 +1833,6 @@ main {
   margin-bottom: .5rem;
 }
 .tools-title { flex: 1; min-width: 0; font-size: .95rem; font-weight: 800; color: var(--text); }
-.tools-close {
-  flex-shrink: 0; width: var(--hit); height: var(--hit);
-  display: flex; align-items: center; justify-content: center;
-  border: 0; background: none; color: var(--muted); cursor: pointer;
-  border-radius: var(--radius-btn);
-  appearance: none; -webkit-appearance: none;
-}
-.tools-close:active { transform: var(--press); filter: var(--press-luz); }
 /* O host das ferramentas ocupa o que sobra. Ele é o gêmeo da `.lib-list` no que
    importa (coluna que ocupa a altura), e o oposto no que a `.lib-misc` diz
    logo abaixo: aqui quem administra a altura é o painel ativo, não a rolagem. */
@@ -3504,17 +3501,28 @@ main {
 /* Só a abreviação (sem nome completo) — fonte maior, centralizada. */
 .bible-grid--books .bible-cell-sym { font-size: 1.25rem; }
 
-/* Bloco de livro: TINTA ESCURA do grupo + faixa lateral com a matiz dele (ver
-   .bg-<g> abaixo e o campo `g` em bible.js) — sem número de índice.
-   Capítulos/versículos (.bible-cell--num) ficam neutros (superfície).
-   A FAIXA É PINTADA, não uma borda (v5.267): mesmos 3px, mesma cor, declarada
-   como o preenchimento que ela sempre foi. Ela mora aqui num `--faixa`
-   transparente para cada grupo trocar só a COR — que era exatamente o papel do
-   `border-left: 3px solid transparent` que estava neste lugar. */
+/* Bloco de livro: a TINTA do grupo, e só ela (ver `.bg-<g>` abaixo e o campo
+   `g` em `bible.js`) — sem número de índice. Capítulos e versículos
+   (`.bible-cell--num`) ficam neutros. */
+/* ---------- UMA COR POR LADRILHO (v1.3.15) ----------
+   Pedido do operador: *"ajustar a coloração dos livros, que tem duas faixas de
+   cores no mesmo botão"*. Cada ladrilho tinha DUAS: a tinta do grupo no fundo
+   e, por cima dela, uma faixa de 3px na versão saturada da mesma matiz — 62
+   botões, 124 manchas de cor, numa tela que já é a mais colorida do app.
+
+   A faixa nasceu na v5.192 para CARREGAR o agrupamento, quando a tinta era
+   muito mais apagada. Hoje ela é redundante, e isso é medido: as dez tintas
+   têm **≥19° de separação de matiz** entre quaisquer duas (o piso do projeto é
+   20°, e o par de 19 é arredondamento), saturação uniforme (33–35% no escuro,
+   ~60% no claro) e faixa de luminância estreita (18–30% · 79–91%) — isto é,
+   elas se distinguem pela MATIZ, que é exatamente o que a faixa fazia. O
+   rótulo passa com folga em todas: pior par 8,72:1 no escuro e 6,46:1 no
+   claro.
+
+   Tirar a segunda banda não perde informação nenhuma; perde só o ruído. Os
+   dez `--bt-*` saíram de `tokens.css` com ela — eram os únicos consumidores. */
 .bible-cell {
   position: relative; aspect-ratio: 1; min-width: 0;
-  --faixa: transparent;
-  background-image: linear-gradient(to right, var(--faixa) 0 3px, transparent 3px);
   border-radius: var(--radius-btn);
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   cursor: pointer; overflow: hidden; padding: 2px; text-align: center;
@@ -3557,16 +3565,16 @@ main {
    de separação mínima; quem carrega a informação é a FAIXA (3px).
    `background-color` e não a abreviação `background`: a faixa mora no
    `background-image` do bloco base, e a abreviação a apagaria. */
-.bg-lei        { background-color: var(--b-lei);        --faixa: var(--bt-lei); }        /* Pentateuco      */
-.bg-historicos { background-color: var(--b-historicos); --faixa: var(--bt-historicos); } /* Históricos      */
-.bg-poeticos   { background-color: var(--b-poeticos);   --faixa: var(--bt-poeticos); }   /* Poéticos        */
-.bg-pmaiores   { background-color: var(--b-pmaiores);   --faixa: var(--bt-pmaiores); }   /* Prof. Maiores   */
-.bg-pmenores   { background-color: var(--b-pmenores);   --faixa: var(--bt-pmenores); }   /* Prof. Menores   */
-.bg-evangelhos { background-color: var(--b-evangelhos); --faixa: var(--bt-evangelhos); } /* Evangelhos      */
-.bg-atos       { background-color: var(--b-atos);       --faixa: var(--bt-atos); }       /* Atos            */
-.bg-paulinas   { background-color: var(--b-paulinas);   --faixa: var(--bt-paulinas); }   /* Cartas Paulinas */
-.bg-gerais     { background-color: var(--b-gerais);     --faixa: var(--bt-gerais); }     /* Cartas Gerais   */
-.bg-apocalipse { background-color: var(--b-apocalipse); --faixa: var(--bt-apocalipse); } /* Apocalipse      */
+.bg-lei        { background-color: var(--b-lei); }        /* Pentateuco      */
+.bg-historicos { background-color: var(--b-historicos); } /* Históricos      */
+.bg-poeticos   { background-color: var(--b-poeticos); }   /* Poéticos        */
+.bg-pmaiores   { background-color: var(--b-pmaiores); }   /* Prof. Maiores   */
+.bg-pmenores   { background-color: var(--b-pmenores); }   /* Prof. Menores   */
+.bg-evangelhos { background-color: var(--b-evangelhos); } /* Evangelhos      */
+.bg-atos       { background-color: var(--b-atos); }       /* Atos            */
+.bg-paulinas   { background-color: var(--b-paulinas); }   /* Cartas Paulinas */
+.bg-gerais     { background-color: var(--b-gerais); }     /* Cartas Gerais   */
+.bg-apocalipse { background-color: var(--b-apocalipse); } /* Apocalipse      */
 
 /* ---------- Bíblia: tela de leitura (versículo anterior/atual/próximo) ---------- */
 /* A leitura cabe na tela SEM SCROLL: as quatro seções repartem entre si a
@@ -3620,14 +3628,12 @@ main {
 .bible-ref-part {
   display: flex; flex-direction: column; align-items: center; gap: 1px;
   color: var(--text);
-  --faixa: transparent;
   padding: .3rem .55rem; cursor: pointer; appearance: none; -webkit-appearance: none;
   min-width: 0; flex-shrink: 0;
 }
-/* O LIVRO: só a faixa: a TINTA vem do `.bg-<grupo>` que o JS acrescenta. */
-.bible-ref-part--book {
-  background-image: linear-gradient(to right, var(--faixa) 0 3px, transparent 3px);
-}
+/* O LIVRO não declara fundo: a tinta do grupo vem do `.bg-<grupo>` que o JS
+   acrescenta. (A faixa de 3px que havia aqui saiu com a do ladrilho — ver
+   "UMA COR POR LADRILHO".) */
 .bible-ref-part--cap  { background-color: var(--cell-chapter); color: var(--cell-chapter-text); }
 .bible-ref-part--vers { background-color: var(--cell-verse);   color: var(--cell-verse-text); }
 /* A VERSÃO não abre grade nenhuma — abre uma lista. Fica no neutro que a

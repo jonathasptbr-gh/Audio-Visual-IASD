@@ -165,7 +165,7 @@ só uma, o token está no bloco COMPARTILHADO e vale nos dois.
 | `--veil` / `--veil-solid` | `rgba(14,18,21,.55)` / `.92` | `rgba(223,227,231,.55)` / `.92` | cortina do bloqueio do modo simplificado. É o `--bg` com alfa, e os dois têm de andar **juntos**: senão o véu vira um retângulo mais escuro (ou mais claro) que o app inteiro, justamente na tela que abre por padrão sem TV conectada. A variante sólida cobre o caso sem `backdrop-filter` |
 | `--wallpaper` | `#04070d` | *(idem)* | a cor de BASE por baixo do desenho padrão do telão (o símbolo oficial sobre denim profundo, em `shared/wallpaper-padrao.svg`). **A URL não pode morar no token**: um `url()` substituído por `var()` resolve contra a PÁGINA, não contra a folha — quem aponta para o SVG são `display.css` e `controle.css`, com o mesmo caminho relativo |
 | `--lyrics-frame-bg` | `rgba(0,0,0,.62)` | *(idem)* | fundo da faixa da letra (modo imagem). **Sem borda**: o contorno branco desenhava um retângulo que competia com a letra, e quem separa o texto da foto é a faixa. A densidade foi escolhida pelo PIOR caso — uma foto branca: `.40` deixava o fundo em ~`#999` (**2,85:1** com o texto branco, reprovado); `.62` põe em ~`#616161`, **6,2:1** |
-| `--b-*` / `--bt-*` | dez pares | dez pares | ladrilhos da Bíblia: tinta + a matiz da faixa lateral, invertidas entre os temas. Ver "Ladrilhos da Bíblia" |
+| `--b-*` | dez | dez | ladrilhos da Bíblia: a tinta do grupo, UMA banda por ladrilho, invertida entre os temas. Ver "Ladrilhos da Bíblia". (Os `--bt-*` da faixa lateral saíram na v1.3.15 com ela) |
 | `--cell-chapter{,-text}` / `--cell-verse{,-text}` | `#283543`/`#d6e0eb` · `#433a28`/`#ede5d4` | `#cedff3`/`#183d67` · `#f4e5c7`/`#654310` | células de número da Bíblia. Tons distintos **de propósito** — capítulo frio (a matiz do denim), versículo quente: as duas grades são iguais em forma e conteúdo (só números) e ficam uma sobre a outra na mesma tela |
 
 (Os tokens `--yt`/`--yt-soft` saíram com o selo `.yt-badge` na v5.118, quando a
@@ -424,10 +424,24 @@ que o defendia admitia ser "pouco num salão escuro", deixando a cor do ícone
 carregando o estado sozinha. Era a queixa *"a alternância entre bíblia e
 cronograma já não condiz com o sistema de seleção atual"*.
 
-Hoje a aba ativa é `--accent-fill` + `--on-accent` (**1,85:1** do trilho, glifo a
-6,54:1) e a busca desce para a superfície de ação (`--btn-accent` + `--accent`),
-onde segue destacada — numa fileira em que a aba inativa não tem fundo nenhum,
-ela é a única outra célula com superfície.
+A busca desceu para a superfície de ação (`--btn-accent` + `--accent`), onde
+segue destacada — numa fileira em que a aba inativa não tem fundo nenhum, ela é
+a única célula com superfície.
+
+**E A ABA ATIVA NÃO É PINTADA** (v1.3.15). A v1.3.14 respondeu ao vazado fraco
+com a célula PREENCHIDA, e isso resolveu a leitura criando outro problema —
+pedido do operador: *"use um método visual de seleção que seja mais discreto,
+menos volumoso, para não disputar a presença visual com o botão de pesquisa; não
+pinte todo o botão da aba"*. Ele está certo: numa faixa de três células, duas
+manchas cheias de azul disputam, e a que menos deveria disputar é a que só diz
+"você está aqui".
+
+Hoje é o que uma aba sempre foi: uma **barra de 3px** encostada na borda de cima
+da célula ativa, em `--accent`, com o glifo na mesma cor. Duas marcas de TRAÇO,
+nenhuma de área — ela liga a aba à tela que desce dela e não gasta superfície.
+A cor não carrega o estado sozinha (é saturada contra o cinza quase neutro do
+trilho, e vem acompanhada do glifo), e o `.tab-ind` continua sendo o que sempre
+foi: um elemento que DESLIZA entre as células.
 
 **Confirmar uma exclusão não é uma ação primária.** O botão que apaga vestia o
 mesmo azul preenchido de "Baixar" e "Entendi" — a única tela do app em que uma
@@ -836,21 +850,45 @@ ativo).
 
 ### Ladrilhos da Bíblia
 
-Deixaram de ser dez blocos saturados e passaram a ser **tinta escura + faixa
-lateral de 3px com a matiz do grupo** (`--b-<grupo>` e `--bt-<grupo>`). Três
-razões, e a primeira é a que motivou tudo:
+Deixaram de ser dez blocos saturados e passaram a ser **a tinta do grupo**
+(`--b-<grupo>`). Três razões, e a primeira é a que motivou tudo:
 
 - **Luz.** É a única tela do app que preenche o visor inteiro de cor, e é
   justamente a que o operador abre NO ESCURO no meio da pregação. Medida, ela
   emitia **16,3% de luminância média** contra 2,3% de um painel comum — 7×
   mais. Com a tinta são **2,8%**, ou seja **5,8× menos luz**.
 - **Contraste.** Cinco dos dez grupos tinham o rótulo abaixo de AA, o pior em
-  **3,94:1**. Com a tinta o pior rótulo vai a **8,66:1**, e a faixa mantém
-  3,2:1 contra a própria tinta — suficiente para ela carregar a informação de
-  agrupamento.
+  **3,94:1**. Com a tinta o pior rótulo vai a **8,72:1**.
 - **As matizes se sobrepunham.** `.bg-lei` e `.bg-evangelhos` ficavam a **1,4°
   de matiz** uma da outra: indistinguíveis. As novas foram redistribuídas com
   **18° de separação mínima**.
+
+#### UMA banda por ladrilho (v1.3.15)
+
+Cada ladrilho teve DUAS bandas de cor até a v1.3.14: a tinta do grupo no fundo e,
+sobre ela, uma faixa de 3px na versão saturada da mesma matiz (`--bt-*`). Numa
+grade de 66 livros isso são 132 manchas de cor, na única tela do app que preenche
+o visor inteiro — e o operador a leu como o que era: *"duas faixas de cores no
+mesmo botão"*.
+
+A faixa nasceu na v5.192 para **carregar o agrupamento**, quando a tinta era bem
+mais apagada. Hoje ela é redundante, e isso é MEDIDO — a tinta sozinha:
+
+| | escuro | claro |
+|---|---|---|
+| menor separação de matiz entre quaisquer duas | **19°** | **19°** |
+| saturação | 33–35% | ~60% |
+| faixa de luminância | 18–30% | 79–91% |
+| pior rótulo | 8,72:1 | 6,46:1 |
+
+O piso do projeto é 20° e o par de 19 é arredondamento: as dez se distinguem
+pela MATIZ com saturação e luminância uniformes, que é exatamente o trabalho que
+a faixa fazia. Tirar a segunda banda não perde informação; perde o ruído. Os dez
+`--bt-*` saíram de `tokens.css` junto — eram os únicos consumidores dela.
+
+(A pílula de **Livro** da referência veste a mesma tinta e perdeu a faixa pelo
+mesmo motivo, no mesmo lote: ela é a amostra do ladrilho, e amostra que diverge
+do original não é amostra.)
 
 **AS MATIZES FORAM REANCORADAS NA IDENTIDADE OFICIAL (v5.192)**, e cinco delas
 não puderam ser: a identidade adventista tem SETE famílias de matiz e esta
@@ -900,8 +938,7 @@ rótulo é **.9** e não menos porque no claro o `--text` já é um cinza médio
 alvo do rótulo lá é **6,5:1**, e não os 8,7:1 do escuro, por aritmética: o texto
 do tema claro é o `night` (#4A4A4A), não um off-white, então um ladrilho com
 8,7:1 contra ele seria branco puro e a matiz do grupo sumiria — que é o oposto
-do que a tela existe para fazer. Medido: pior rótulo 6,46:1, pior faixa 3,28:1
-contra a própria tinta.
+do que a tela existe para fazer. Medido: pior rótulo 6,46:1.
 
 ### Ao adicionar/alterar estilo
 

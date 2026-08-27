@@ -2446,8 +2446,10 @@ resto desta seção.
   gira e o corpo à vista já dizem; na Biblioteca quem diz é o degrau de
   ELEVAÇÃO). **Cor de texto nunca carrega estado sozinha.**
   E quando AÇÃO e ESCOLHA dividem a MESMA faixa — o trilho de navegação é o
-  único caso — **o cheio fica com a ESCOLHA**, que é o que muda e precisa ser
-  lido de relance; a ação desce para `--btn-accent`.
+  único caso — a ação desce para `--btn-accent` e a ESCOLHA é marcada **sem
+  área**: uma barra de 3px em `--accent` na borda de cima da aba, mais o glifo
+  na mesma cor (v1.3.15). Duas manchas cheias na mesma faixa disputam, e a que
+  menos deve disputar é a que só diz "você está aqui".
 - **Nem todo token é valor oficial, e os derivados estão marcados.** Os dezoito
   oficiais foram desenhados para fundo BRANCO — todos passam AA sobre branco, e
   **nenhum** passa AA como texto sobre o quase-preto do tema escuro (bluejay dá
@@ -3397,7 +3399,7 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: v1.3.14** (base web) · **v1.3.12** (APK) · `SHELL_VERSION` **56** · bundle com
+**Versão atual: v1.3.15** (base web) · **v1.3.12** (APK) · `SHELL_VERSION` **56** · bundle com
 `minShell: 56` — o shell 56 é o **PISO**: todo método da ponte existe, e não há
 guarda de versão no lado web. O que continua valendo é que `java/`, `res/`, o
 manifest e os workflows **só chegam instalando o APK**.

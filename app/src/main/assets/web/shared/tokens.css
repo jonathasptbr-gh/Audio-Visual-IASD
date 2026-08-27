@@ -545,16 +545,33 @@
      Medido — `--sel-fill`: 7,64:1 com o texto, 5,35:1 com `--muted`, 4,92:1 com
      `--accent`. `--live-fill`: 9,21:1 com o texto, 4,72:1 com `--live-strong`
      (a tinta do selo "● No ar"). */
-  --b-lei:#2a3955;        --bt-lei:#6187d5;
-  --b-historicos:#4b3325; --bt-historicos:#cc703e;
-  --b-poeticos:#1e3e37;   --bt-poeticos:#299982;
-  --b-pmaiores:#472e5c;   --bt-pmaiores:#a86fd9;
-  --b-pmenores:#532950;   --bt-pmenores:#d257ca;
-  --b-evangelhos:#333367; --bt-evangelhos:#7f7fdd;
-  --b-atos:#203d41;       --bt-atos:#2c95a7;
-  --b-paulinas:#1f3f2a;   --bt-paulinas:#299c51;
-  --b-gerais:#283e1f;     --bt-gerais:#4c9929;
-  --b-apocalipse:#3f391f; --bt-apocalipse:#9f872a;
+  /* ---------- BÍBLIA: DEZ MATIZES, UMA BANDA CADA (v1.3.15) ----------
+     O ladrilho de um livro é a tinta do grupo, e SÓ ela. Ele teve uma segunda
+     banda até a v1.3.14 — uma faixa de 3px na versão saturada da mesma matiz
+     (`--bt-*`, que saiu com ela) —, e o operador a leu como o que era: "duas
+     faixas de cores no mesmo botão", 124 manchas na tela mais colorida do app.
+
+     A faixa nasceu para CARREGAR o agrupamento quando a tinta era mais
+     apagada; hoje a tinta o carrega sozinha, e isso é medido: **≥19° de
+     separação de matiz entre quaisquer duas** das dez (o piso do projeto é 20°,
+     e o par de 19 é arredondamento), saturação uniforme (33–35%) e luminância
+     estreita (18–30%) — elas se distinguem pela MATIZ, que era o trabalho da
+     faixa. Pior rótulo 8,72:1.
+
+     A LUZ continua sendo o motivo do desenho: esta é a única tela que preenche
+     o visor inteiro de cor, e é a que se abre NO ESCURO no meio da pregação.
+     Saturada ela emitia 16,3% de luminância média contra 2,3% de uma lista;
+     com a tinta são 2,8%. */
+  --b-lei:#2a3955;
+  --b-historicos:#4b3325;
+  --b-poeticos:#1e3e37;
+  --b-pmaiores:#472e5c;
+  --b-pmenores:#532950;
+  --b-evangelhos:#333367;
+  --b-atos:#203d41;
+  --b-paulinas:#1f3f2a;
+  --b-gerais:#283e1f;
+  --b-apocalipse:#3f391f;
 
   /* Células de número da Bíblia (capítulo × versículo). Tons DISTINTOS por tela
      — capítulo em tom frio (a matiz do denim), versículo em tom quente — porque
@@ -738,17 +755,18 @@
      e a razão é aritmética: o texto deste tema é o `night` (#4A4A4A), não um
      off-white, então um ladrilho com 8,7:1 contra ele seria branco puro e a
      matiz do grupo sumiria — que é o oposto do que a tela existe para fazer.
-     Pior rótulo 6,46:1, pior faixa 3,28:1 contra a própria tinta. */
-  --b-lei:#d2ddf4;        --bt-lei:#3d72dd;
-  --b-historicos:#f2d7c9; --bt-historicos:#be5922;
-  --b-poeticos:#a9eadd;   --bt-poeticos:#188670;
-  --b-pmaiores:#e7d7f5;   --bt-pmaiores:#9d51e0;
-  --b-pmenores:#f4d3f2;   --bt-pmenores:#ce24c3;
-  --b-evangelhos:#dbdbf6; --bt-evangelhos:#6868e4;
-  --b-atos:#b6e4ed;       --bt-atos:#1a8294;
-  --b-paulinas:#adeac3;   --bt-paulinas:#18883f;
-  --b-gerais:#bdeaa9;     --bt-gerais:#3b8818;
-  --b-apocalipse:#eadda9; --bt-apocalipse:#8c7519;
+     Pior rótulo 6,46:1; a separação de matiz é a mesma do escuro (≥19°), que é
+     o que dispensou a segunda banda (ver o bloco de lá). */
+  --b-lei:#d2ddf4;
+  --b-historicos:#f2d7c9;
+  --b-poeticos:#a9eadd;
+  --b-pmaiores:#e7d7f5;
+  --b-pmenores:#f4d3f2;
+  --b-evangelhos:#dbdbf6;
+  --b-atos:#b6e4ed;
+  --b-paulinas:#adeac3;
+  --b-gerais:#bdeaa9;
+  --b-apocalipse:#eadda9;
 
   --cell-chapter: #cedff3;      --cell-chapter-text: #183d67;   /* 8,13:1 */
   --cell-verse: #f4e5c7;        --cell-verse-text: #654310;     /* 7,14:1 */
