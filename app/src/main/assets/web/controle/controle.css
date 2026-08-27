@@ -298,8 +298,21 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
    HOSPEDA (o `⋮`, a gaveta de opções, a pasta aberta inline): ali já existe
    outra resposta, e duas ao mesmo toque — uma mexendo a caixa por baixo da
    outra que está entrando — poluem o conjunto. Quem encolhe é a peça tocada. */
-.lib-item:has(.row-mais:active) { transform: none; }
-.lib-item:has(:is(.hymn-gaveta, .folder-itens) :active) { transform: none; }
+/* E ELAS SUPRIMEM A LUZ TAMBÉM (v1.4.0): com o feedback em duas partes, matar
+   só a geometria deixaria o bloco inteiro ACENDENDO por um toque de 40px — o
+   mesmo defeito relatado, por outra propriedade.
+   A terceira linha é o caso ANINHADO: um arquivo dentro de uma pasta é uma
+   `.lib-item` dentro de outra, e sem ela as duas respondiam ao mesmo dedo. */
+.lib-item:has(.row-mais:active),
+.lib-item:has(:is(.hymn-gaveta, .folder-itens) :active),
+.lib-item:has(.lib-item:active) { transform: none; filter: none; }
+/* A BARRA de um card ou de uma seção hospeda os botões da coluna da direita
+   (baixar, remover, atualizar) e a seta do acordeão: o dedo pousa num deles e
+   é ELE que responde, não a linha inteira por baixo. */
+.coll-bar:has(:is(.coll-bar-dl, .coll-bar-icon, .coll-bar-fechar):active),
+.coll-group-bar:has(:is(.coll-group-btn, .coll-group-acao, .coll-group-icon):active) {
+  transform: none; filter: none;
+}
 /* ---------- E A REGRA VALE PARA A `.row` DELE TAMBÉM (v1.2.27) ----------
    Relato do operador: *"ao encolher, as bordas do card de título ficam com uma
    marca de encolhimento nas laterais direita e esquerda"*.
@@ -325,6 +338,12 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
   .tab, .tab-add, .import-btn, .back-btn, .sel-btn,
   .row-btn, .popup-close, .new-folder-btn,
   .coll-bar-dl, .coll-group-btn, .coll-more-btn,
+  /* AS DUAS BARRAS QUE ABREM UM BLOCO (v1.4.0). A `.coll-bar` respondia por um
+     overlay próprio (que saiu com a luz) e a `.coll-group-bar` não respondia a
+     nada — duas linhas com a mesma função, uma muda. Com o recuo ABSOLUTO elas
+     entram na lista sem trazer de volta o hit-test que tirava o dedo do botão
+     de baixar: 2px na vertical não movem alvo nenhum. */
+  .coll-bar, .coll-group-bar,
   .bible-cell, .bible-ref-part, .bible-vsec, .bible-ver-row,
   .song-menu-btn, .msg-add-btn, .msg-item,
   .misc-tab, .misc-seg, .misc-chip, .chrono-btn, .misc-project, .draw-go,
@@ -333,15 +352,6 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
   .simple-key, .simple-action, .simple-key--big, .simple-key--vol
 ):active { transform: var(--press); filter: var(--press-luz); }
 
-/* ---------- O CONTÊINER RESPONDE COM LUZ, SEM GEOMETRIA (v1.4.0) ----------
-   A regra que o `.coll-bar` já cumpria sozinha, agora escrita uma vez: um bloco
-   que HOSPEDA outros controles não se move. Com o recuo absoluto o motivo
-   original (o hit-test: 6 de 11 toques no botão de baixar erravam quando a
-   barra de 408px recuava 8px de lado) deixou de valer, mas o outro fica — o
-   dedo pousa no filho e é ELE que tem de responder; a caixa em volta andando
-   junto é uma segunda resposta ao mesmo toque.
-   A LUZ fica: numa área grande ela é o sinal mais forte dos dois. */
-:is(.lib-item, .coll-bar, .msg-item):active { transform: none; }
 
 /* ---------- A escala de ícone vale para SVG também ----------
    Metade dos ícones é `.msym` (glifo da fonte) e a outra é SVG inline — os que
@@ -2374,7 +2384,44 @@ main {
      (`.coll-group--drop`) lê `--camada` e fica em `--panel` — o defeito da
      v5.241, em que os dois dividiam `--panel-2` por ambos serem chamados de
      "contêiner", não volta. São contêineres, e não são o MESMO contêiner. */
-  --camada: var(--panel-2);
+  /* ---------- FECHADO ELE SEGUE O PAI; ABERTO ELE SOBE (v1.4.0) ----------
+     Ele declarava `--camada: var(--panel-2)` SEMPRE, e essa era a exceção da
+     v1.0.1: um card lê o degrau que o pai lhe reserva, e com as coleções fixas
+     na RAIZ o mesmo card nascia em dois lugares — dentro de uma seção
+     (`--panel-2`) e solto na folha (`--panel`) —, trocando de cor conforme
+     alguém o tivesse agrupado. A saída foi fixá-lo no degrau de cima.
+
+     O PREÇO dela era o que o operador viu: na raiz, uma SEÇÃO e um CARD FIXO
+     são linhas irmãs da mesma lista, e saíam em tons diferentes (`--panel`
+     contra `--panel-2`, 1,33:1) sem que nada na tela dissesse por quê. Era a
+     queixa *"cores diferentes ou inconsistentes entre grupos de hinário,
+     informativos e coleções, também diferentes dos álbuns"*.
+
+     A medição que forçava o degrau de cima é sobre o INTERIOR do card, e o
+     interior só existe ABERTO. MEDIDO no escuro com o card em `--panel`: a
+     faixa (`--item-fill`, recesso de 24%) compõe #21282e e a gaveta — que já
+     está no CHÃO da paleta — fica a 1,26:1 dela, abaixo do piso de 1,28. No
+     CLARO é pior: `--panel` é branco pleno e `--item-fill` é branco a 80%, ou
+     seja **1,00:1** — a faixa simplesmente não existe.
+
+     Então a regra passa a distinguir os dois estados, porque são dois:
+
+       FECHADO  o card é só a barra. Não há faixa nem gaveta, logo não há
+                escada interna a sustentar — ele lê `--camada` como qualquer
+                bloco e fica IGUAL à seção ao lado na raiz, e um degrau ABAIXO
+                dela dentro de uma seção (onde o corpo reserva `--panel-2`).
+       ABERTO   a escada interna nasce, e o card sobe para `--panel-2` — o
+                mesmo valor de antes, então nada do que foi medido regride.
+
+     E o degrau que aparece ao abrir NÃO é decoração: ele é o sinal de "isto
+     levantou", e é ele que ocupa o lugar do nome em accent que saiu daqui (ver
+     `.coll-bar-name`) — elevação em vez da cor de seleção.
+
+     ELA NÃO REVOGA "quem declara o tom é o CONTÊINER": o card só declara
+     `--camada` quando ABERTO, e aí ele quer o MESMO degrau para si e para a
+     tampa (`.hymnal-card.expanded .coll-bar`), que é o próprio card. A
+     `.coll-songs` zera o degrau seguinte. Nenhum filho veste por engano o que
+     este reservou. */
   background: var(--camada);
   /* ---------- O CARD NÃO TEM PADDING PRÓPRIO ----------
      Com `padding` no card, a `.coll-bar` começava 11,2px depois da borda dele —
@@ -2445,6 +2492,13 @@ main {
   padding: .7rem .7rem .1rem .2rem;
 }
 .coll-group:first-child { padding-top: .2rem; }
+/* A COR DELE FICA EM `--muted`, herdada da barra, e isto foi RECONSIDERADO na
+   v1.4.0: nivelá-la com o `--text` do título do card apagaria a distinção que a
+   v5.296 estabeleceu depois de um relato — cor de RÓTULO e cor de CONTEÚDO são
+   duas coisas, e o defeito de lá foi exatamente uma valendo pela outra. O que
+   nivela a seção e o card na raiz é o TOM DO BLOCO e as COLUNAS (acima); o que
+   os RANQUEIA continua sendo a escala de rótulo — caixa alta, espaçamento e a
+   cor de metadado. `smoke.mjs` trava as duas metades. */
 .coll-group-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* Resumo do grupo (baixados/total) ou o progresso do lote. Sem o nome (filtro
    ativo) ele é que ocupa a linha. */
@@ -2667,8 +2721,24 @@ main {
      (`.row-name` não declara peso), que volta ao 400 das outras listas. */
   font-size: .9rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
   color: var(--muted);
-  display: flex; align-items: center; gap: .5rem;
-  padding: .5rem .45rem .5rem .55rem;
+  /* O VÃO é o do card (`.55rem`), pela mesma razão do recuo abaixo: com `.5rem`
+     o nome da seção começava 1px antes do nome do card. */
+  display: flex; align-items: center; gap: .55rem;
+  /* ---------- AS MESMAS COLUNAS DA BARRA DO CARD (v1.4.0) ----------
+     Na RAIZ da Biblioteca uma seção e um card fixo são LINHAS IRMÃS, e elas
+     tinham recuos diferentes: `.5rem .45rem .5rem .55rem` aqui contra
+     `.55rem .7rem` lá. MEDIDO em 430px, com as duas empilhadas na mesma lista:
+
+       chevron   seção x=20   card x=22    2px de diferença
+       nome      seção x=60   card x=63    3px
+       baixar    seção  ..412 card  ..408  4px
+
+     Três colunas que quase se alinham é o que se lê como desalinhado — e o
+     texto do `--hit` já afirmava o contrário ("os dois botões de baixar têm o
+     mesmo alvo de propósito: alinhados na mesma coluna"). O alvo era igual
+     (34px), a COLUNA não. Um recuo só, o do card, e a lista passa a ter três
+     colunas de verdade. */
+  padding: .55rem .7rem;
   min-height: var(--hit);
   cursor: pointer;
 }
@@ -2856,11 +2926,13 @@ main {
 /* (A seta do acordeão saiu na v5.71, junto com as molduras: numa lista em que
    TODO card abre, ela dizia o mesmo em todas as linhas — e o que anuncia a
    abertura agora é o próprio movimento, que a v5.63 passou a animar.)
-   ABERTO se diz no NOME, em accent — o mesmo recurso com que o app marca "é
-   este" em toda parte (`.lib-item.active`, a aba ativa). Um segundo degrau de
-   tom não cabia: o cartão já subiu um para existir dentro da folha, e as
-   músicas ocupam o degrau de baixo. */
-.hymnal-card.expanded .coll-bar-name { color: var(--accent); }
+   E ABERTO DEIXOU DE SER COR (v1.4.0). O nome do card ficava em `--accent` —
+   o mesmo recurso com que o app marca ESCOLHIDO —, e três coisas já dizem
+   "aberto" ali sem gastar a linguagem de seleção: a seta que gira, a lista de
+   músicas à vista e a sombra da tampa grudada no topo. O que decidiu foi a
+   irmã: uma SEÇÃO aberta nunca pintou o nome dela, e na raiz as duas são
+   linhas do mesmo nível — o mesmo estado saía de duas cores conforme o tipo
+   do bloco. */
 /* A barra da coleção ABERTA gruda no topo enquanto se percorre as músicas dela.
    Sem isto, um hinário de 600 faixas empurrava a própria barra muito acima da
    tela: a barra é o que FECHA a coleção, e a única à vista passava a ser a de
@@ -2868,6 +2940,9 @@ main {
    opera, "toquei para fechar e abriu outro". Grudada, ela fica sempre ao
    alcance, e o nome da coleção junto — que é a outra metade da pergunta "onde
    eu estou?". */
+/* ABERTO A PLACA SOBE (v1.4.0) — ver o bloco do `.hymnal-card`. É aqui que ele
+   declara o degrau, e é a tampa logo abaixo quem o lê. */
+.hymnal-card.expanded { --camada: var(--panel-2); }
 .hymnal-card.expanded .coll-bar {
   position: sticky; top: 0; z-index: 3;
   background: var(--camada);   /* o mesmo do cartão: ela é a tampa dele */
@@ -5835,8 +5910,22 @@ body.mode-simple .bottombar { display: none; }
    Ele existe porque a resposta de verdade pode estar a ~1 s quando a projeção
    são as telas da rede (ver `cmd`), e um botão que fica um segundo sem responder
    é tocado de novo — o comando vai duas vezes.
-   `::before`, e não `::after`: o `.t-btn` do transporte já usa o `::after` para
-   o contorno do eixo (⏮/⏭ anunciando se passam estrofe ou mídia).
+
+   ELE NÃO É A RESPOSTA DE TOQUE, e a distinção é o que o justifica: `--press`
+   (o recuo mais a luz) diz "recebi o dedo" e vale para TODO controle; este diz
+   "o comando saiu" e vale só para quem manda algo à projeção. Duas mensagens,
+   dois sinais — e é por isso que os dois convivem no mesmo botão.
+
+   QUEM O RECEBE está em `ECO_SELETOR` (v1.4.0): o transporte, os dois botões de
+   slide, a cortina, o mudo, a coluna da tela cheia e o "Projetar no telão".
+   Antes eram só os seis do transporte — o segundo seletor da lista
+   (`.mixer-mid button`) apontava para um bloco removido na v1.3.8 —, e um anel
+   que aparece em seis botões e em nenhum outro se lê como enfeite daqueles
+   seis, que foi como o operador o leu.
+
+   `::before` e não `::after`: é a metade livre do par, e o `.btn-pulso` usa o
+   `::after` para o ✓/✕. (O contorno de eixo do `.t-btn` que ocupava o `::after`
+   saiu na v1.3.5, com o eixo duplo do transporte.)
    `pointer-events: none` porque ele cobre o botão inteiro durante a animação. */
 .btn-eco { position: relative; }
 .btn-eco::before {

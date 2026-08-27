@@ -20093,10 +20093,37 @@ function responder(btn, tipo) {
 // Botão desabilitado não emite `click`, então o eco nunca promete o que não
 // aconteceu.
 const ECO_MS = 420;
-// O transporte e os três do meio do mixer (cortina, letra, mudo) — os botões
-// cujo resultado mora no telão. `.slide-nav` não entra porque não existe: desde
-// a v5.49 quem passa estrofe é o próprio par ⏮/⏭ do transporte.
-const ECO_SELETOR = '.transport .t-btn, .mixer-mid button';
+// ===== QUEM RECEBE O ECO: TODO BOTÃO CUJO RESULTADO MORA NO TELÃO =====
+// Ele valia para `.transport .t-btn, .mixer-mid button` — e `.mixer-mid` NÃO
+// EXISTE desde a v1.3.8, quando o mixer saiu (o próprio CSS lista
+// `.mixer-top/mid/bottom` entre o que foi removido). Isto é: na prática o eco
+// era exclusivo dos seis botões do transporte, e foi assim que o operador o
+// leu — *"o feedback único dos botões de play, com bordas flutuantes
+// totalmente exclusivo no app"*.
+//
+// Ele está certo sobre a exclusividade e o conserto não é apagar o sinal: a
+// razão dele continua valendo, e vale IGUAL para os outros botões que mandam
+// alguma coisa para a projeção. O que faltava era a REGRA — um anel que
+// aparece em seis botões e em nenhum outro parece enfeite daqueles seis; o
+// mesmo anel em todos os que falam com o telão é um sinal do app.
+//
+// A regra: **o eco é de quem MANDA ALGO PARA A PROJEÇÃO.** Ele não se
+// confunde com a resposta de toque (`--press`, o recuo mais a luz), que diz
+// "recebi o dedo" e vale para todo controle. Este diz outra coisa — "o comando
+// saiu" —, e existe porque a resposta de verdade pode estar a ~1 s quando a
+// projeção são as telas da rede (ver `cmd`).
+//
+// Fica de fora o que NÃO vai ao telão: navegação, Configurações, a folha de
+// leitura auxiliar, a lupa do acervo. Um eco ali prometeria uma viagem que não
+// acontece.
+const ECO_SELETOR = [
+  '.transport .t-btn',        // repetir, playlist, ⏮, ▶, ■, ⏭
+  '.slide-btn',               // os dois que flanqueiam a preview: passam slide NO telão
+  '.pv-fab--view',            // a cortina
+  '.pv-fab--mute',            // o mudo
+  '.pv-fsctl .pv-fab',        // a coluna da tela cheia (sem TV, ela É a projeção)
+  '.misc-project',            // "Projetar no telão"
+].join(', ');
 
 document.addEventListener('click', (ev) => {
   const alvo = ev.target && ev.target.closest ? ev.target.closest(ECO_SELETOR) : null;

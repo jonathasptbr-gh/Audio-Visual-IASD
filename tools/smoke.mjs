@@ -2068,14 +2068,14 @@ try {
   checar(pressLinha.respondeu !== 'none' && pressLinha.cartao.w > 0,
     'e o cartão RESPONDE de verdade: a luz do toque ficou, o feedback não sumiu',
     JSON.stringify(pressLinha));
-  // ===== E UM BLOCO NÃO SE MEXE (v1.4.0) =====
+  // ===== E O RECUO É ABSOLUTO, NÃO UMA FRAÇÃO (v1.4.0) =====
   // A outra metade, e ela é a que impede a correção acima de virar o defeito
-  // anterior por outro caminho: um `--press` de volta no `.lib-item` faria a
-  // luz E a geometria responderem ao mesmo dedo, com a caixa de 408px andando
-  // por baixo do controle que o dedo de fato tocou.
-  checar(pressLinha.moveu === 'none',
-    'e ele NÃO se move: num bloco que hospeda outros controles a resposta é '
-    + 'só a luz — quem recua é a peça tocada',
+  // anterior por outro caminho: `scale(.96)` num cartão de 408px recuava 8,2px
+  // de cada lado. `translateY(2px)` não mexe na LARGURA — é `matrix(1,0,0,1,0,2)`
+  // —, e é por não mexer que a fresta acima não pode voltar.
+  checar(/matrix\(1,\s*0,\s*0,\s*1,\s*0,\s*2\)/.test(pressLinha.moveu),
+    'e o recuo é ABSOLUTO (2px para baixo), não uma fração da largura: é isso '
+    + 'que impede a fresta de voltar em qualquer tamanho de cartão',
     JSON.stringify(pressLinha));
   await pg.evaluate(() => {
     window.__gaveta.lista.remove();
