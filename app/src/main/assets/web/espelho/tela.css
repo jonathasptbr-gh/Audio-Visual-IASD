@@ -94,7 +94,16 @@
   transition: transform .12s ease;
 }
 
-#telaEntrar:active { transform: var(--press, scale(.96)); }
+/* O MESMO GESTO DO APP, e o fallback é que responde aqui (v1.3.14): `--press`
+   mora no `:root` do `controle.css`, que esta página não carrega — ela é o
+   `display/` servido a um navegador da rede. O valor foi `scale(.96)` enquanto
+   o app inteiro era; hoje o app recua 2px, e um botão de 1,1rem com padding de
+   2,2rem encolhendo 4% é justamente o exagero que a medição condenou lá.
+   A LUZ não vem junto de propósito: ela é `--press-luz`, que mora no mesmo
+   `:root` inalcançável, e escrever um `filter` literal aqui criaria uma segunda
+   fonte do valor para divergir na primeira troca. Este é o ÚNICO controle da
+   página, tocado uma vez na vida da tela — o recuo basta. */
+#telaEntrar:active { transform: var(--press, translateY(2px)); }
 
 #telaMsg {
   margin-top: 1rem;
