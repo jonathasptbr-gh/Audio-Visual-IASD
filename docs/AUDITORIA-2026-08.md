@@ -6,9 +6,10 @@ adversarial cuja tarefa era REFUTÁ-LO por seis vias (trecho verbatim, guarda no
 chamador, decisão já documentada, `ACHADOS-EM-ABERTO.md`, oráculo que já cobre,
 sequência que o Android/navegador não produz).
 
-> **Estado: 65 achados confirmados de 79 brutos, mais 4 da varredura mecânica.** Tudo o que está aqui
-> passou pelo verificador; nada é hipótese. Falta varrer um único escopo: as
-> fatias E e F do `controle.js` (linhas 16500–24516), listadas no fim.
+> **Estado: COMPLETA. 71 achados confirmados de 90 brutos, mais 4 da varredura
+> mecânica — 75 no total.** Todo o repositório foi varrido: ~60.000 linhas entre
+> Kotlin, JS, CSS, HTML e CI. Tudo o que está aqui passou por um verificador que
+> tentou derrubá-lo; nada é hipótese.
 >
 > **Este arquivo é um INVENTÁRIO, não a lista de trabalho.** Um achado que for
 > aceito e corrigido sai daqui; um que for aceito e adiado migra para
@@ -25,6 +26,24 @@ sequência que o Android/navegador não produz).
 | `SHELL_VERSION` × `minShell` | 56 × 56 |
 | versão nos três lugares | `1.3.13` em `version.json`, `WEB_VERSION` e `#appVersion` |
 | `notas.json` | 81 entradas, em ordem, sem duplicatas |
+
+## O resultado, por etapa
+
+| Etapa | Escopo | Linhas | Brutos | Confirmados |
+|---|---|---:|---:|---:|
+| 1 | shell Kotlin (28 arquivos) | 15.742 | 27 | **19** |
+| 2A | `shared/` + `display/` | 5.445 | 16 | **11** |
+| 2A resto | `espelho/tela.js` + módulos puros | 3.467 | 12 | **9** |
+| 2B A–D | `controle.js` 1–16500 | 16.500 | 24 | **22** |
+| 2B E–F | `controle.js` 16500–24516 | 8.016 | 11 | **10** |
+| 3 | CSS, HTML, CI | 10.848 | — | **1** |
+| — | varredura mecânica | — | — | **4** |
+| | | **~60.000** | **90** | **71 + 4 = 75** |
+
+Por categoria, nos 71 dos agentes: **37 de correção**, **31 de código morto**,
+**3 de otimização**. Quatro ficaram em gravidade **alta** — `MainActivity.kt:1243`,
+`db.js:688`, `controle.js:2239`, `controle.js:8884` — mais o `controle.js:24364`,
+que é o pior de todos.
 
 ---
 
@@ -164,15 +183,9 @@ produz e um relatório apressado publicaria:
 
 ---
 
-## O que ainda não foi auditado
+## Etapa 2B — `controle/controle.js` (24.516 linhas)
 
-| Escopo | Linhas | Estado |
-|---|---|---|
-| `controle/controle.js` | 24.516 | **parcial** — ver a Etapa 2B abaixo |
-
----
-
-## Etapa 2B — `controle/controle.js` (fatias A–D, linhas 1–16500)
+### Fatias A–D (linhas 1–16500)
 
 24 achados brutos · **22 confirmados** · 2 refutados. A varredura cobriu as
 fatias A–D; as fatias E e F (linhas 16500–24516, 5.905 linhas de código real)
@@ -274,13 +287,95 @@ independentemente, por medição. É exatamente o padrão que o
 `fundo-da-letra.test.mjs` já pagou uma vez, e que o `CLAUDE.md` descreve:
 *ler cada lado isolado aprova os dois.* Corrigir um NÃO corrige o outro.
 
-### O que falta
+### Fatias E e F (linhas 16500–24516)
 
-**Fatias E e F do `controle.js`** — linhas 16500 a 24516, 5.905 linhas de código
-real: o Registro e os blocos de diagnóstico, a via nativa do YouTube, a
-apresentação/`.pptx`, a área de transferência, o trabalho em segundo plano e a
-notificação de progresso, os eventos e o transporte, os modos de uso, o botão
-voltar, o OTA e o telão por comandos.
+11 achados brutos · **10 confirmados** · 1 refutado.
+
+| Linha | Gravidade | Categoria | O quê |
+|---|---|---|---|
+| `:24364` | alta | correcao | Documento renascido com a transmissão NO AR: `telaAtiva()` mente, e todo `load` vai às telas da rede SEM `__rec` |
+| `:16589` | media | correcao | playSongVariant: o cartão "Não deu" é apagado no mesmo quadro pelo finally { bg.soltar() } |
+| `:19832` | media | correcao | A nota "foi para os Favoritos" nunca aparece: `notaNoItem` recebe `primeiro.id` de uma string que JÁ é o id |
+| `:22549` | media | codigo-morto | Lápide: o cabeçalho do telão por comandos ainda descreve o ESPELHO DE PIXELS, e promete uma confirmação que o código 110 linhas abaixo recusa |
+| `:19952` | baixa | correcao | O carimbo da área de transferência NÃO avança quando o texto copiado não é um link — e o aviso do Android passa a ser pago a cada retomada |
+| `:18511` | baixa | otimizacao | O bloco da Cifra lê o IndexedDB de TODA coleção do catálogo antes de perguntar se ela está baixada — 62 leituras e 62 linhas de ruído medidas |
+| `:18569` | baixa | codigo-morto | Lápide: o comentário do bloco da transmissão o chama de "O ESPELHO DE PIXELS" e promete o veredito da "sonda de readback" |
+| `:20009` | baixa | codigo-morto | Lápide: o bloco "Aviso de salvamento (v5.104)" descreve no presente um componente removido na v5.207, e não encabeça função nenhuma |
+| `:22668` | baixa | codigo-morto | Lápide: o comentário de `ligarEspelho` afirma que `'video'` continua indo à ponte — a chamada não passa argumento nenhum |
+| `:21520` | baixa | codigo-morto | Comentário PARTIDO por inserção: dois blocos de `renderCastBtn` encabeçam `espelhoRecebendo`, e o primeiro descreve um cartão removido na v5.197 |
+
+#### O achado mais grave da campanha inteira
+
+**`:24364` — com a transmissão no ar, um documento renascido manda todo `load`
+às telas da rede SEM o `__rec`, e a projeção da igreja fica no wallpaper o culto
+inteiro.**
+
+`mirrorEstado` nasce `null` e **ninguém o relê**: `acertarEnqueteDeFundo` só liga
+o relógio de 4 s se `espelhoLigado()` já for verdadeiro, e `acertarEnqueteDaConexao`
+só liga o de 2,5 s com o bloco de conexão à vista — que no modo avançado exige o
+operador abrir a folha de cast ou Configurações. Nenhum dos cinco chamadores de
+`lerEspelho()` roda no `init()`.
+
+Dois caminhos chegam lá, e o primeiro é uma sequência normal de sábado: o
+operador liga a transmissão e, **antes de projetar qualquer coisa**, aceita a
+pergunta do OTA — que só aparece com `cenaNoAr()` falso, ou seja, exatamente
+nesse instante. `applyWebUpdate` recarrega o WebView e não toca no
+`EspelhoServidor`, que segue no ar com as telas pareadas. O segundo caminho não
+tem pré-condição alguma: a morte do renderer remonta a página com o servidor
+vivo.
+
+**Medido em Chromium**, com o shell respondendo que a transmissão está ligada:
+
+```
+boot:  {estado: null, ligado: false, canal: true, ativa: false, somLocal: true}
+load:  {"type":"load", "temRec": false}        ← sem __rec
+```
+
+A tela cai no `getMedia` embrulhado, não acha o id no `recCache`, consulta o
+IndexedDB **dela** (vazio) e o `display.js` esvazia o palco. Volta ao wallpaper e
+**fica** — em cada louvor seguinte, sem erro em lugar nenhum. Nenhum byte é
+empurrado pelo canal, então o `/m/<token>` também não existiria.
+
+**Segunda consequência, medida no mesmo roteiro:** `somLocalDeveEstar()` devolve
+`true` pelo mesmo cache nulo, a preview DESMUTA e o louvor passa a sair também
+pela caixinha do celular, por cima das telas da rede.
+
+A assinatura do defeito é cruel: **o app se conserta sozinho se o operador abrir
+Configurações** — um gesto que ninguém tem motivo para dar.
+
+E isto **não** é o custo declarado da v5.234 (o KDoc do `WebUpdater` nomeia só
+*"uma tela da rede segue com a página antiga até ser recarregada"*). É o falso
+negativo que a v5.208 **já corrigiu no irmão**: o comentário de
+`telaReenviarPreferencias` diz por extenso que `telaAtiva()` *"pergunta a um
+CACHE COM ENQUETE… Consultar o cache só pode produzir FALSO NEGATIVO"*. A guarda
+desceu naquela função e ficou de pé nesta — e `telaEnriquecer` é justamente a
+produtora que o `CLAUDE.md` declara **sem oráculo**.
+
+*Correção proposta pelo auditor: uma linha `lerEspelho();` no `init()`, ao lado
+dos outros fire-and-forget. Ela se sustenta sozinha — `lerEspelho` termina em
+`acertarEnqueteDeFundo()`, que liga o relógio assim que descobre a transmissão no
+ar — e fecha os três consumidores de uma vez.*
+
+#### O refutado, e por que ele importa
+
+**`:16777`** — "o índice de letras remonta a folha do sorteio e derruba o foco do
+campo". O mecanismo isolado é real: `renderSorteio` faz `alvo.innerHTML = ''` e
+recria o `<input>`. Mas o cético mediu com dois oráculos em Playwright, teclado
+real e biblioteca cheia, **sem atraso artificial**, e a janela não existe. É o
+lembrete de que um mecanismo plausível não é um defeito até alguém tentar
+produzi-lo.
+
+### O padrão que a fatia F revelou
+
+Seis dos dez achados são **lápides do ESPELHO DE PIXELS** (removido na v5.187) e
+de outros recursos podados. O cabeçalho do telão por comandos ainda descreve o
+espelho de pixels; o bloco da transmissão o chama pelo nome e promete o veredito
+de uma "sonda de readback" que não existe; `ligarEspelho` afirma passar `'video'`
+à ponte e não passa argumento nenhum. **Somando a campanha inteira: mais de 30
+comentários que afirmam coisas falsas** — o defeito mais frequente deste
+repositório, num projeto cujo próprio `CLAUDE.md` escreve que *"um comentário
+errado é pior que um comentário longo: ele não custa só leitura, produz a decisão
+errada."*
 
 ---
 
@@ -291,7 +386,7 @@ voltar, o OTA e o telão por comandos.
 - **A prova mais forte é a execução.** Onde o cético conseguiu montar o cenário
   num Chromium de verdade, está dito. Três achados (W1, W2, W4/W5) caíram ou
   sobreviveram por medição, não por leitura.
-- **Refutar é o trabalho, não a formalidade.** 18 dos 79 achados foram
+- **Refutar é o trabalho, não a formalidade.** 19 dos 90 achados foram
   derrubados — entre eles um "host que falha aberto" (a origem opaca não chega
   ao `WebMessageListener` com `allowedOriginRules` exato), um "redirect fora da
   allowlist" (os dois hosts do 3xx real já estão na lista) e uma otimização de
