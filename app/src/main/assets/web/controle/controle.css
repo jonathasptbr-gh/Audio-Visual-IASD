@@ -117,8 +117,57 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
      Medida de layout, então mora aqui e não em tokens.css (lá só entra cor). */
   --misc-bar-h: 56px;
 
-  /* feedback de toque padrão (:active) */
-  --press: scale(.96);
+  /* ---------- FEEDBACK DE TOQUE: RECUO ABSOLUTO, NUNCA PROPORCIONAL (v1.4.0)
+     ----------
+     Ele foi `scale(.96)` para tudo, e uma FRAÇÃO aplicada a alvos que vão de
+     34px a 408px não é um valor: são doze. MEDIDO, o recuo por lado que aquele
+     .96 produzia:
+
+       .back-btn / .popup-close  34× 34   0,7px   — imperceptível
+       .t-btn                    53× 36   1,1px lateral · 0,7 vertical
+       .bible-cell               52× 52   1,0px
+       .tab                     143× 38   2,9px lateral · 0,8 vertical
+       .dialog-btn              157× 33   3,1px lateral · 0,7 vertical
+       .lib-item                408× —    8,2px lateral
+
+     São as DUAS queixas do operador de uma vez: *"o feedback tátil em muitos
+     pontos está exagerado, encolhendo muito os elementos"* (os de baixo da
+     tabela) e *"em diversos casos não há feedback, ou não é perceptível, no
+     caso de botões de confirmar exclusão"* (os de cima — e o `.dialog-btn` é
+     literalmente o botão de confirmar exclusão, com 3,1px de deslocamento
+     LATERAL e 0,7px de vertical: um aperto de lado, que não se lê como
+     "apertei").
+
+     Agora é um RECUO de 2px para baixo, o mesmo em qualquer alvo — a metáfora
+     da tecla que afunda, que é o que um toque significa. Duas consequências
+     de graça:
+
+       · o risco de HIT-TEST some. Era a razão do `.coll-bar` não escalar
+         (MEDIDO: 6 de 11 toques no botão de baixar erravam, todos à direita,
+         porque a barra recuava 8px sob o dedo). 2px na VERTICAL não tiram
+         dedo nenhum de um alvo de 34px;
+       · e some a FRESTA do aninhamento: dois `--press` no mesmo dedo eram
+         0,96 × 0,96 e deixavam o filho 7px mais estreito que os irmãos. Dois
+         recuos são 4px na mesma direção — o conjunto anda junto, sem mudar de
+         largura.
+
+     O recuo sozinho é discreto num alvo grande, então ele vem com LUZ
+     (`--press-luz`): um filtro que não depende de saber o fundo do controle e
+     que responde também no que não tem fundo nenhum (a aba inativa, o ícone
+     solto), onde ele acende o próprio traço. É o mecanismo que o
+     `.cast-acao:active` já usava — agora é o do app inteiro. */
+  --press: translateY(2px);
+  /* A LUZ do toque. `filter` e não um overlay de fundo, por três razões:
+     ele não precisa saber a cor do controle, responde no que NÃO tem fundo
+     (acende o próprio traço) e não disputa com o `background-image` de quem
+     já usa um — a faixa da célula da Bíblia, a pílula do livro, o vazado da
+     aba. O overlay que o `.coll-bar` usava existia exatamente por causa dessa
+     disputa, e some com esta regra.
+     MEDIDO no escuro: 1,27:1 sobre a superfície de um botão, 1,38:1 sobre
+     `--btn-accent`, 1,56:1 sobre o preenchido e 1,86:1 num glifo sem fundo.
+     No claro o sinal INVERTE (escurece) pela mesma razão de sempre — ali as
+     superfícies são claras e não há para onde subir. */
+  --press-luz: brightness(1.35);
 
   /* Movimento da troca de aba — UM valor para os DOIS movimentos que ela produz:
      o vazado deslizando na faixa (`.tab-ind`) e a lista entrando pelo lado
@@ -228,6 +277,11 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
   --surface: var(--surface-sunk);
   --surface-2: var(--surface-2-sunk);
 }
+/* A LUZ DO TOQUE INVERTE NO CLARO: ali as superfícies são claras (o painel é
+   branco pleno) e clarear não tem para onde ir. MEDIDO com `.88`: 1,31:1 sobre
+   uma superfície de botão e 1,17:1 sobre o preenchido — este é o mais fraco
+   dos dois temas, e é onde o RECUO de 2px carrega a resposta. */
+:root[data-tema="claro"] { --press-luz: brightness(.88); }
 
 /* ---------- Feedback de toque (regra única) ----------
    O `*` acima zera o `-webkit-tap-highlight-color`, então um controle SEM
@@ -277,7 +331,17 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
   .fit-opt, .dialog-btn, .lib-item, .coll-group-acao,
   .cue-save-btn, .pl-pack, .yt-search-btn, .log-copy, .hino-indice-chip,
   .simple-key, .simple-action, .simple-key--big, .simple-key--vol
-):active { transform: var(--press); }
+):active { transform: var(--press); filter: var(--press-luz); }
+
+/* ---------- O CONTÊINER RESPONDE COM LUZ, SEM GEOMETRIA (v1.4.0) ----------
+   A regra que o `.coll-bar` já cumpria sozinha, agora escrita uma vez: um bloco
+   que HOSPEDA outros controles não se move. Com o recuo absoluto o motivo
+   original (o hit-test: 6 de 11 toques no botão de baixar erravam quando a
+   barra de 408px recuava 8px de lado) deixou de valer, mas o outro fica — o
+   dedo pousa no filho e é ELE que tem de responder; a caixa em volta andando
+   junto é uma segunda resposta ao mesmo toque.
+   A LUZ fica: numa área grande ela é o sinal mais forte dos dois. */
+:is(.lib-item, .coll-bar, .msg-item):active { transform: none; }
 
 /* ---------- A escala de ícone vale para SVG também ----------
    Metade dos ícones é `.msym` (glifo da fonte) e a outra é SVG inline — os que
@@ -1537,7 +1601,7 @@ main {
   background: var(--surface); color: var(--accent);
   cursor: pointer; appearance: none; -webkit-appearance: none;
 }
-.tools-btn:active { transform: var(--press); }
+.tools-btn:active { transform: var(--press); filter: var(--press-luz); }
 .list-foot > .import-row { margin-top: 0; }
 /* (`.fav-section` saiu na v5.254: os favoritos são UMA lista, na ordem que o
    operador der a ela. Os cabeçalhos por tipo eram doze rótulos disputando a
@@ -1752,7 +1816,7 @@ main {
   border-radius: var(--radius-btn);
   appearance: none; -webkit-appearance: none;
 }
-.tools-close:active { transform: var(--press); }
+.tools-close:active { transform: var(--press); filter: var(--press-luz); }
 /* O host das ferramentas ocupa o que sobra. Ele é o gêmeo da `.lib-list` no que
    importa (coluna que ocupa a altura), e o oposto no que a `.lib-misc` diz
    logo abaixo: aqui quem administra a altura é o painel ativo, não a rolagem. */
@@ -2703,20 +2767,14 @@ main {
    mesmo motivo pelo qual o ouvinte deste card mora no `li` e não aqui (ver
    `renderCollectionCard`): aquela correção salvou o alvo da BARRA e deixou de
    pé o do botão que mora dentro dela. */
-/* DUAS SELETORAS E UM `background-image`, e as duas razões são de CASCATA:
-   a barra do card ABERTO é a tampa dele e pinta `background: var(--camada)` numa
-   regra de especificidade maior (`.hymnal-card.expanded .coll-bar`). O atalho
-   `background` ZERA o `background-image`, então um `:active` de especificidade
-   menor não pintaria nada ali — e o card aberto é justamente onde se toca para
-   FECHAR. Daí a segunda seletora, que vence aquela.
-   E é `background-image` (não `background-color`) porque ele COMPÕE por cima do
-   que já houver: fechado, sobre o transparente; aberto, sobre a tampa — sem
-   nunca trocar a cor da tampa por um véu translúcido, que deixaria as faixas
-   aparecerem através dela no instante do toque. */
-.coll-bar:active,
-.hymnal-card.expanded .coll-bar:active {
-  background-image: linear-gradient(var(--surface), var(--surface));
-}
+/* (O overlay `background-image: linear-gradient(--surface, --surface)` que
+   respondia por esta barra SAIU na v1.4.0. Ele existia porque a barra do card
+   ABERTO pinta `background: var(--camada)` numa regra de especificidade maior,
+   e o atalho `background` zera o `background-image` — então o toque não pintava
+   nada justamente onde se toca para FECHAR, e a saída era uma segunda seletora
+   só para vencer aquela. A luz do toque (`--press-luz`, um `filter`) não
+   disputa propriedade nenhuma com o fundo: uma regra a menos e o caso do card
+   aberto resolvido por construção.) */
 /* Coluna nome + subtítulo das linhas de lista (coleção, versão da Bíblia,
    resultado de busca): a mesma receita, num lugar só. */
 .coll-bar-info, .bible-ver-main, .hymn-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
@@ -5173,7 +5231,8 @@ main {
 /* No FIM DA ESCADA o botão não some, ele SE APAGA: sumir mudaria a largura do
    cabeçalho a cada toque, e o par deixaria de ser um par. */
 .lv-fonte-btn:disabled { opacity: .38; cursor: default; }
-.lv-fonte-btn:not(:disabled):active { transform: var(--press); }
+.lv-fonte-btn:not(:disabled):active { transform: var(--press); filter: var(--press-luz); }
+
 /* A LINHA DO NOME do Modo Fácil hospeda o par sem deslocar o nome: ele é
    absoluto, e a folga vem reservada dos DOIS lados para o centro continuar
    sendo o centro. */
@@ -5437,6 +5496,18 @@ main {
   font-size: .9rem; font-weight: 600; cursor: pointer; font-family: inherit;
 }
 .dialog-btn.primary { background: var(--accent-fill); color: var(--on-accent); }
+/* ---------- CONFIRMAR UMA EXCLUSÃO NÃO É UMA AÇÃO PRIMÁRIA (v1.4.0) ----------
+   O botão que apaga vestia o MESMO azul preenchido de "Baixar", "Usar o link" e
+   "Entendi": a única tela do app em que uma decisão é irreversível era também a
+   única em que a cor não dizia isso. Em toda outra parte a regra já valia — o
+   "Remover do dispositivo" de um álbum (`.coll-bar-rm`), o SIM da linha
+   (`.linha-sim`), o "Desconectar" de uma tela (`.cast-tela-fora`) —, e é a
+   regra da paleta: vermelho SUAVE é ação destrutiva; o saturado fica reservado
+   para "está no ar agora".
+   O par é o mesmo dos outros três: `--btn-danger` sob `--danger-strong`
+   (4,49:1 no escuro, 5,64:1 no claro). Nunca `--danger` cheio — aquele tom é
+   escuro por construção, existe para receber `--on-live` por cima (R2). */
+.dialog-btn.perigo { background: var(--btn-danger); color: var(--danger-strong); }
 
 /* ---------- Modos de uso (simplificado × sonoplasta completo) ---------- */
 /* O app atende duas pessoas diferentes: quem só precisa conectar a tela e
@@ -5829,7 +5900,9 @@ body.mode-simple .bottombar { display: none; }
 }
 /* O toque escurece em vez de clarear: o preenchido já é a camada mais alta da
    tela, e clarear ainda mais o faria brilhar num salão escuro. */
-.cast-acao:active { filter: brightness(.88); }
+/* Ele foi o PRIMEIRO a responder por luz em vez de geometria, com o valor
+   escrito à mão; hoje é a regra do app e ele lê o token. */
+.cast-acao:active { filter: var(--press-luz); }
 /* COM UMA TV NO AR ele deixa de ser a chamada principal e vira estado: o
    preenchimento sai e fica o contorno, como todo controle "já resolvido" deste
    app. A ação continua a mesma (abrir o seletor do Android, que é onde se

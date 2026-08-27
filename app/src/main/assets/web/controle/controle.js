@@ -12679,7 +12679,7 @@ async function purgeCatalogRecords(recs) {
 }
 
 async function deleteOpfsFolder(f) {
-  if (!(await appConfirm({ title: 'Excluir pasta', message: 'Excluir a pasta "' + f.name + '" e todos os arquivos sincronizados?', okText: 'Excluir' }))) return;
+  if (!(await appConfirm({ title: 'Excluir pasta', message: 'Excluir a pasta "' + f.name + '" e todos os arquivos sincronizados?', okText: 'Excluir', perigo: true }))) return;
   const recs = await AVDB.filesByFolder(f.id);
   await purgeCatalogRecords(recs);
   await AVDB.opfsDeleteDir('folders/' + f.id);
@@ -13817,7 +13817,7 @@ async function buildLyricSlides(meta, timeField, resolveImage) {
 }
 
 async function deleteCollection(coll) {
-  if (!(await appConfirm({ title: 'Excluir ' + coll.name, message: 'Excluir o que foi baixado de "' + coll.name + '" (áudios e capas) e a lista offline?', okText: 'Excluir' }))) return;
+  if (!(await appConfirm({ title: 'Excluir ' + coll.name, message: 'Excluir o que foi baixado de "' + coll.name + '" (áudios e capas) e a lista offline?', okText: 'Excluir', perigo: true }))) return;
   const recs = await AVDB.filesByFolder(coll.id);
   await purgeCatalogRecords(recs);
   await AVDB.opfsDeleteDir('folders/' + coll.id);
@@ -20636,7 +20636,7 @@ function onAppDialogKey(e) {
   closeAppDialog(appDialogInputEl.hidden ? false : null);
 }
 function openAppDialog(opts) {
-  const { title, message, okText, cancelText, input, value, placeholder, fixo, itens, rodape } = opts || {};
+  const { title, message, okText, cancelText, input, value, placeholder, fixo, itens, rodape, perigo } = opts || {};
   return new Promise((resolve) => {
     // Se já houver um diálogo aberto, resolve o anterior como cancelado.
     if (appDialogResolve) closeAppDialog(input ? null : false);
@@ -20661,6 +20661,13 @@ function openAppDialog(opts) {
     appDialogRodapeEl.textContent = rodape || '';
     appDialogRodapeEl.hidden = !rodape;
     appDialogOkEl.textContent = okText || 'OK';
+    // `perigo: true` = a confirmação APAGA alguma coisa. Ela troca o azul
+    // primário pelo par destrutivo da paleta — a mesma regra que o "Remover do
+    // dispositivo" de um álbum e o "Desconectar" de uma tela já seguiam. É a
+    // única tela do app em que uma decisão é irreversível, e era a única em que
+    // a cor não dizia isso.
+    appDialogOkEl.classList.toggle('perigo', !!perigo);
+    appDialogOkEl.classList.toggle('primary', !perigo);
     // `cancelText: null` é o diálogo de AVISO: ele não pergunta nada, só conta
     // o que aconteceu, e um "Cancelar" ao lado do "Entendi" ofereceria uma
     // escolha que não existe.

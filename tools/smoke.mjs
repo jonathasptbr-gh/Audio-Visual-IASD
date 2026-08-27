@@ -2046,9 +2046,15 @@ try {
         cartao: cx2(li),
         linha: cx2(li.querySelector('.hymn-row')),
         gaveta: cx2(li.querySelector('.hymn-gaveta')),
-        // E O CARTÃO ENCOLHE MESMO: sem isto, "nada encolhe" passaria — e o
-        // feedback de toque teria sumido em vez de ficar inteiro.
-        encolheu: getComputedStyle(li).transform,
+        // E O CARTÃO RESPONDE MESMO: sem isto, "nada se mexe" passaria — e o
+        // feedback de toque teria sumido em vez de ficar inteiro. Desde a
+        // v1.4.0 quem responde num BLOCO é a LUZ (`--press-luz`, um `filter`),
+        // não a geometria: um contêiner que hospeda outros controles não se
+        // move, e é a luz que diz "recebi". Medir `transform` aqui aprovaria o
+        // desenho velho e reprovaria o novo — a asserção é a RESPOSTA, não o
+        // mecanismo.
+        respondeu: getComputedStyle(li).filter,
+        moveu: getComputedStyle(li).transform,
       };
     });
     await pg.mouse.up();
@@ -2056,11 +2062,20 @@ try {
   })();
   checar(pressLinha.linha.l === pressLinha.gaveta.l
     && pressLinha.linha.r === pressLinha.gaveta.r,
-    'o toque na LINHA encolhe o cartão INTEIRO, sem abrir fresta entre o título '
-    + 'e a gaveta — eram dois `--press` no mesmo dedo (0,96 × 0,96)',
+    'o toque na LINHA não abre fresta entre o título e a gaveta — eram dois '
+    + '`--press` no mesmo dedo (0,96 × 0,96)',
     JSON.stringify(pressLinha));
-  checar(pressLinha.encolheu !== 'none' && pressLinha.cartao.w > 0,
-    'e o cartão ENCOLHE de verdade: o feedback ficou inteiro, não sumiu',
+  checar(pressLinha.respondeu !== 'none' && pressLinha.cartao.w > 0,
+    'e o cartão RESPONDE de verdade: a luz do toque ficou, o feedback não sumiu',
+    JSON.stringify(pressLinha));
+  // ===== E UM BLOCO NÃO SE MEXE (v1.4.0) =====
+  // A outra metade, e ela é a que impede a correção acima de virar o defeito
+  // anterior por outro caminho: um `--press` de volta no `.lib-item` faria a
+  // luz E a geometria responderem ao mesmo dedo, com a caixa de 408px andando
+  // por baixo do controle que o dedo de fato tocou.
+  checar(pressLinha.moveu === 'none',
+    'e ele NÃO se move: num bloco que hospeda outros controles a resposta é '
+    + 'só a luz — quem recua é a peça tocada',
     JSON.stringify(pressLinha));
   await pg.evaluate(() => {
     window.__gaveta.lista.remove();
