@@ -18,14 +18,13 @@ import java.util.concurrent.TimeUnit
  *
  * O acervo vive no OPFS, que só o lado web lê; a rota `/m/` serve do
  * [EspelhoMidiaCache], que só o Kotlin escreve. Este canal é a ponte entre os
- * dois — o TERCEIRO uso do precedente `addWebMessageListener` de
- * `ArrayBuffer` (o `EspelhoAudio` foi o primeiro), com as três guardas dele
- * repetidas uma a uma: `allowedOriginRules` exato, `isMainFrame`, e
- * `sourceOrigin.host` conferido de novo.
+ * dois — o ÚNICO `addWebMessageListener` de `ArrayBuffer` do shell, com as
+ * três guardas escritas uma a uma: `allowedOriginRules` exato, `isMainFrame`,
+ * e `sourceOrigin.host` conferido de novo.
  *
  * Ele é instalado no WebView do CONTROLE — o único com direito a ler o acervo
  * (invariante 9: superfície nativa é privilégio do Controle) — e reinstalado
- * a cada remontagem por morte de renderer, como o do áudio.
+ * a cada remontagem por morte de renderer (`MainActivity.buildControleWebView`).
  *
  * ## O protocolo, e o controle de fluxo que ele embute
  *
@@ -52,8 +51,8 @@ class EspelhoMidiaCanal(
     @Volatile private var rodando = false
     @Volatile private var instalado = false
 
-    /** O item aberto — UM por vez, como o encoder do EspelhoAudio: a fila de
-     *  empurrões é serializada do lado web. */
+    /** O item aberto — UM por vez: a fila de empurrões é serializada do lado
+     *  web. */
     @Volatile private var tokenAberto: String? = null
 
     private class Trabalho(val bytes: ByteArray, val resposta: JavaScriptReplyProxy)

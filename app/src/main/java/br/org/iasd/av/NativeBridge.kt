@@ -756,7 +756,7 @@ class NativeBridge(
 
     // ---------- telão nas telas da rede local ----------
     //
-    // Os cinco métodos deste bloco NÃO vão para fila nenhuma, e essa é a decisão
+    // Os OITO métodos deste bloco NÃO vão para fila nenhuma, e essa é a decisão
     // que os separa do resto da ponte. Cada fila é de uma thread ÚNICA
     // compartilhada por todas as instâncias, e é na [transferencia] que roda o
     // download do YouTube: um vídeo de 380 MB a segura por minutos. Enfileirado,
@@ -765,13 +765,22 @@ class NativeBridge(
     // sem causa no toque de um botão.
     // Mesmo raciocínio já publicado para o `ytCancel`.
     //
-    // Quem faz o trabalho é a MAIN THREAD (ver os métodos do [BridgeHost]). A
-    // razão ORIGINAL disso morreu com o espelho de pixels (v5.187): até ali o
-    // recurso abria uma `Presentation`, que é um `Dialog` e exige uma thread com
-    // `Looper` — criá-la na `io` (uma `Thread` daemon sem `Looper`) lançava
-    // `Looper.prepare()` no primeiro toque. Não há mais janela nenhuma; o que
-    // sustenta a main thread hoje é ficar FORA da fila de IO (acima) e a
-    // serialização de `espelhoSrv`/`espelhoMidia`.
+    // Onde o trabalho ACONTECE são TRÊS lugares, não um (ver [BridgeHost]):
+    //  · [espelhoLigar], [espelhoEstado], [espelhoDiag] e [espelhoDerrubar]
+    //    saltam para a MAIN THREAD (`runOnUiThread`), que é a trava com que a
+    //    `MainActivity` serializa `espelhoSrv`/`espelhoMidia`. Não é mais o
+    //    requisito de `Looper` do espelho de pixels — aquele criava uma
+    //    `Presentation`, que é um `Dialog`, e saiu na v5.187.
+    //  · [espelhoDesligar] fica na thread do WebView, de propósito: quem
+    //    responde são os laços de cliente do [EspelhoServidor], e enfileirar a
+    //    desistência atrás do que se quer parar é o oposto de parar (a lição do
+    //    `ytCancel`).
+    //  · os três de certificado abrem THREAD PRÓPRIA (`av-cert`) — ler o `.p12`
+    //    do SAF e reescrever o PKCS12 é disco e cripto.
+    //
+    // E é por [espelhoDesligar] escrever `espelhoSrv`/`espelhoMidia` FORA da
+    // main thread que os dois campos são `@Volatile`: a anotação não é
+    // redundante com a main thread, é o que torna essa escrita segura.
     //
     // Todos guardados por `host != null`: superfície nativa é privilégio do
     // Controle (invariante 9). O WebView do telão recebe a ponte com

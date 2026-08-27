@@ -192,7 +192,6 @@ class SyncService : Service() {
     }
 
     private fun ensureChannel() {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
         val nm = getSystemService(NotificationManager::class.java)
         if (nm.getNotificationChannel(CHANNEL_ID) != null) return
         // IMPORTANCE_LOW: a notificação precisa existir (exigência do sistema
@@ -512,11 +511,7 @@ class SyncService : Service() {
         fun start(ctx: Context) {
             wanted = true
             val intent = Intent(ctx, SyncService::class.java)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                ctx.startForegroundService(intent)
-            } else {
-                ctx.startService(intent)
-            }
+            ctx.startForegroundService(intent)
         }
 
         /**

@@ -44,8 +44,9 @@ import java.net.URL
  * mídia. PNG, e não JPEG, porque slide é TEXTO sobre fundo chapado — é onde o
  * JPEG borra as bordas das letras, e é justamente o que vai ser lido de longe.
  *
- * **BLOQUEANTE**: disco, rede e rasterização. Só pode ser chamado da fila de IO
- * da ponte, nunca da thread principal.
+ * **BLOQUEANTE**: disco, rede e rasterização. Só pode ser chamado da fila
+ * `extracao` da ponte — nunca da fila `io` (a de milissegundos, SEM rede) nem
+ * da thread principal.
  */
 object SlideDeck {
 

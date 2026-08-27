@@ -546,7 +546,6 @@ object YoutubeGrab {
                     if (foiCancelado(e)) return null
                     continue
                 }
-                if (destino.length() <= 0L) { destino.delete(); continue }
                 diagnostico += " → veio ${alvo.faixa.ext} ${alvo.faixa.etiqueta}" +
                     (if (alvo.faixa.altura > 0) " (${alvo.faixa.altura}p)" else "")
                 return JSONObject()
@@ -987,9 +986,7 @@ object YoutubeGrab {
                         if (total > 0 && previsaoVideo > 0) total + previsaoVideo else total,
                     )
                 }
-                if (destino.length() > 0L) return destino
-                diagnostico += " · a:${a.etiqueta} vazio"
-                tentadas++
+                return destino
             } catch (e: Exception) {
                 Log.w(TAG, "falhou o áudio ${a.etiqueta} de $id", e)
                 diagnostico += " · a:${a.etiqueta} " + motivo(e)
@@ -1039,10 +1036,6 @@ object YoutubeGrab {
             val base = parteAudio.length()
             val perfil = baixarTentando(v.url, parteVideo) { lidos, total ->
                 onProgresso(base + lidos, if (total > 0) base + total else 0L)
-            }
-            if (parteVideo.length() <= 0L) {
-                diagnostico += " · v:${v.etiqueta} vazio"
-                return Desfecho.NaoMontou
             }
             // BAIXOU TUDO: os dois números se encontram. A junção (MuxMp4) que
             // vem a seguir é cópia de amostras, rápida e sem rede — não há
@@ -1715,6 +1708,8 @@ object YoutubeGrab {
         for ((rotulo, ua) in perfis) {
             try {
                 baixar(url, destino, ua, onProgresso)
+                // SÓ volta com arquivo NÃO VAZIO — vazio cai fora do laço e sai
+                // como exceção. Por isso nenhum chamador re-testa o tamanho.
                 if (destino.length() > 0L) return rotulo
             } catch (e: Exception) {
                 erro = e

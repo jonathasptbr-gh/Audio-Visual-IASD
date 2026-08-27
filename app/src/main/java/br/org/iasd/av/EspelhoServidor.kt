@@ -1074,7 +1074,6 @@ class EspelhoServidor(
             ultimaSaida = JSONObject()
                 .put("rotulo", tela.rotulo)
                 .put("motivo", tela.motivoDaSaida)
-                .put("haMs", 0)
             registrar("tela ${tela.rotulo} desconectada (${tela.motivoDaSaida})")
             EspelhoEnergia.telasMudaram(app, telasSse.size)
         }
