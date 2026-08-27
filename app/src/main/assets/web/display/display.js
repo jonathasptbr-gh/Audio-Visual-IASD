@@ -100,8 +100,22 @@ window.addEventListener('resume', () => diag('descongelou'));
 // `then`, nunca num ponto de sucesso.
 
 let saindoDeCena = 0;
+// Declarados AQUI, e não junto do `aoCarregar` lá embaixo, porque o
+// `aoSairDeCena` logo abaixo os toca: um `let` alcançado de cima é uma zona
+// morta esperando a ordem de chamada mudar (a mesma razão do
+// `cifraAdotarVelocidade`, no `controle.js`).
+let carregando = 0;
+let restaurarAoAssentar = false;
 function aoSairDeCena(p) {
   saindoDeCena++;
+  // A CENA SAINDO CANCELA A RESTAURAÇÃO ADIADA (ver `aoCarregar`). Zerar aqui, e
+  // não em cada ramo de `clear`: é por esta função que TODA saída de cena passa,
+  // então um caminho novo nasce coberto. Conferir `getCurrent()` no callback do
+  // `aoCarregar` NÃO serviria — `clearFaded` faz `++loadSeq` de imediato e o load
+  // em voo resolve na hora, mas o `current` só vira `null` depois do fade: no
+  // instante em que aquele `.then` roda, ele ainda é o registro ANTIGO, e a
+  // letra dele voltaria sobre um palco já esvaziado.
+  restaurarAoAssentar = false;
   Promise.resolve(p).catch(() => {}).then(() => {
     if (--saindoDeCena) return;
     // E O TELÃO VAZIO É DITO UMA VEZ, agora que ele é verdade. Sem esta linha o
@@ -653,18 +667,23 @@ function clearLive() {
 // objectURL por imagem projetada, num app que fica aberto o culto inteiro, é
 // vazamento de memória no processo que também segura os dois WebViews.
 let textImgUrl = null;
+let textImgSeq = 0;
+// Sequencial pelo mesmo motivo do `lyricLoadSeq`: a resolução é assíncrona
+// (IDB/OPFS/rede) e um segundo comando pode chegar antes de o primeiro
+// terminar — sem a guarda, a imagem ANTERIOR pintaria por cima da atual. O
+// degrau mora AQUI, no `soltarTextImg`, e não no começo do `pintarTextImg`:
+// tirar o cartão do ar (`hideText`, ou um `text` de outro modo) tem que matar
+// junto a ladeira de retentativa lá de baixo, senão ela repinta a imagem sobre
+// uma cena que já andou.
 function soltarTextImg() {
+  ++textImgSeq;
   if (textImgUrl) { URL.revokeObjectURL(textImgUrl); textImgUrl = null; }
   textImgEl.hidden = true;
   textImgEl.removeAttribute('src');
 }
-// Sequencial pelo mesmo motivo do `lyricLoadSeq`: a resolução é assíncrona
-// (IDB/OPFS) e um segundo comando pode chegar antes de o primeiro terminar —
-// sem a guarda, a imagem ANTERIOR pintaria por cima da atual.
-let textImgSeq = 0;
 async function pintarTextImg(cmd) {
-  const seq = ++textImgSeq;
   soltarTextImg();
+  const seq = ++textImgSeq;
   let rec = cmd.__rec || null;
   if (!rec && cmd.mediaId) { try { rec = await AVDB.getMedia(cmd.mediaId); } catch (_) { rec = null; } }
   if (seq !== textImgSeq) return;
@@ -676,7 +695,36 @@ async function pintarTextImg(cmd) {
     try { f = await AVDB.opfsGetFile(rec.opfsPath); } catch (_) {}
     if (seq !== textImgSeq) return;
     if (f) { textImgUrl = URL.createObjectURL(f); src = textImgUrl; }
-  } else if (rec.url) src = rec.url;
+  } else if (rec.url) {
+    // TELA DA REDE: a chave É a URL (`/m/<token>`), e os bytes podem ainda
+    // estar na fila do empurrão do Controle — um `src` que 404a não retenta
+    // NUNCA, e este cartão é OPACO: o que fica sobre a projeção é um retângulo
+    // preto até alguém trocar a cena. Ladeira igual à do fundo da letra e à do
+    // wallpaper, e pela mesma razão medida (os empurrões são serializados, e um
+    // louvor grande na frente atrasa a imagem por minutos): dobra até um platô,
+    // teto de TEMPO, morta pelo `textImgSeq`. Sem object URL: nada a revogar.
+    const ESPERA_MAX = 2500;   // ms — o platô: não adianta martelar
+    const TETO_MS = 45000;     // ms — desiste de vez
+    const prazoFinal = Date.now() + TETO_MS;
+    let esperaMs = 250;
+    const tentar = () => {
+      if (seq !== textImgSeq) return;
+      const img = new Image();
+      img.onload = () => {
+        if (seq !== textImgSeq) return;
+        textImgEl.src = rec.url;
+        textImgEl.hidden = false;
+      };
+      img.onerror = () => {
+        if (seq !== textImgSeq || Date.now() >= prazoFinal) return;
+        setTimeout(tentar, esperaMs);
+        esperaMs = Math.min(esperaMs * 2, ESPERA_MAX);
+      };
+      img.src = rec.url;
+    };
+    tentar();
+    return;
+  }
   if (!src) return;
   textImgEl.src = src;
   textImgEl.hidden = false;
@@ -757,11 +805,37 @@ function hideText(restore = true) {
   if (restore) restoreSceneAfterText();
 }
 
+// UM `load` EM VOO ADIA A RESTAURAÇÃO — e a janela não é um fio de navalha.
+// `stage.handle({type:'load'})` só troca o `current` depois do fade de saída
+// (os ~600 ms de FADE.time, em TODA troca de cena) e do `getMedia`: dentro dela
+// `stage.getCurrent()`, `hasEnded()` e `getTime()` ainda são os da mídia
+// ANTERIOR, e um `text-hide` que chegue aí remonta a letra do hino VELHO sobre
+// a música nova — andando pelo relógio dela, e PARA SEMPRE: nada reavalia
+// depois. Adiar, e não adivinhar: assentado o load, a restauração é a de
+// sempre. CONTADOR e não booleano (dois loads sobrepostos), com o decremento no
+// `then` pelo mesmo motivo do `saindoDeCena` — um load cancelado pelo `loadSeq`
+// resolve do mesmo jeito. (A metade PREVIEW do mesmo defeito mora no
+// `controle.js`: ler cada lado isolado aprova os dois.)
+//
+// `carregando`/`restaurarAoAssentar` são declarados lá em cima, junto do
+// `saindoDeCena`, porque é ele quem cancela a restauração adiada.
+function aoCarregar(p) {
+  carregando++;
+  Promise.resolve(p).catch(() => {}).then(() => {
+    if (--carregando) return;
+    if (!restaurarAoAssentar) return;
+    restaurarAoAssentar = false;
+    // O cartão pode ter VOLTADO durante o load: aí quem manda é ele.
+    if (!textActive) restoreSceneAfterText();
+  });
+}
+
 // Devolve a cena ao estado em que ela estava antes do texto manual entrar.
 // Vídeo e imagem não precisam de nada: nunca foram interrompidos e reaparecem
 // sozinhos assim que o cartão opaco sai da frente. Só a letra sincronizada
 // precisa ser remontada — e no slide certo, não do começo.
 function restoreSceneAfterText() {
+  if (carregando) { restaurarAoAssentar = true; return; } // ver `aoCarregar`
   const cur = stage.getCurrent();
   // NADA de fato em cena — nenhuma mídia carregada, ou a que havia já terminou
   // (só na playlist, ou tocada antes). O ponto de repouso do telão é o
@@ -1639,7 +1713,7 @@ AVDB.onCommand(async (cmd) => {
       return;
     }
     if (rec && rec.kind === 'audio' && Array.isArray(rec.lyrics) && rec.lyrics.length) showLyrics(rec);
-    stage.handle(cmd);
+    aoCarregar(stage.handle(cmd));
     return;
   }
 

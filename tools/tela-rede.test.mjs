@@ -658,6 +658,17 @@ checar(await pg.$eval('#text', (e) => e.hidden), 'text-hide tira a Camada de Tex
   await ate(() => sts().filter((s) => s && s.type === 'display-ready').length > prontosAntes, 5000);
   checar(sts().filter((s) => s && s.type === 'display-ready').length > prontosAntes,
     'e a tela REANUNCIA o display-ready — sem ele, a cena não voltaria');
+  // E O REANÚNCIO NÃO PODE REPETIR O `__mid`. Ele é o carimbo do CANAL, posto
+  // pelo `sendCommand` na cópia que o dreno guardou — e o `deliverCommand` do
+  // Controle descarta mid repetido ANTES de qualquer handler. Reanunciar com o
+  // mesmo carimbo é reanunciar para o vazio: a cena e as preferências não
+  // voltam, e nada erra em lugar nenhum. Contar os anúncios não pega isto —
+  // eles SOBEM, e é do outro lado que morrem.
+  const mids = sts().filter((s) => s && s.type === 'display-ready')
+    .map((s) => s.__mid).filter(Boolean);
+  checar(new Set(mids).size === mids.length,
+    'e cada anúncio leva um __mid PRÓPRIO (ou nenhum) — repetir o do canal é ser descartado como duplicata',
+    JSON.stringify(mids));
 }
 
 // ---------------------------------------------------------------------------

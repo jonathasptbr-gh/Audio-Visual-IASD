@@ -344,12 +344,23 @@
   // (b) NÃO exigir dígito depois de cada uma — era essa exigência que fazia
   // `7M` reprovar. As peças longas vêm antes das curtas na alternância, senão
   // `m` consumiria o começo de `maj` e sobraria `aj`.
+  //
+  // ===== A BARRA TEM DOIS SIGNIFICADOS =====
+  //
+  // Ela é o baixo invertido (`C/E`) **e** a tensão da notação Chediak, que é a
+  // do Cifra Club: `C7/9`, `C6/9`, `A7/13`, `Em7/9`, `G7/11`. Quem separa as
+  // duas é o que vem DEPOIS — dígito é extensão, raiz é baixo —, e é isso que
+  // a peça `\/(?=\d)` faz: a extensão só absorve a barra diante de número, e o
+  // lookahead deixa o `/E` para o grupo do baixo. Sem ela a família `X7/9`
+  // inteira reprovava, e o que a gramática reprova volta INTACTO de
+  // [transporAcorde] — parado no tom original com a folha andando à volta dele,
+  // que é o defeito da v1.1.13 noutra família de sufixo.
   const RAIZ = '[A-G][#b]?';
-  const PECA = '(?:maj|min|dim|aug|sus|add|M|m|º|°|\\+|-|#|b|\\d|\\([^)]{0,12}\\))';
+  const PECA = '(?:maj|min|dim|aug|sus|add|M|m|º|°|\\+|-|#|b|\\/(?=\\d)|\\d|\\([^)]{0,12}\\))';
   const EXTENSAO = PECA + '*';
   const ACORDE = new RegExp(
     '^(' + RAIZ + ')'                   // fundamental
-    + '(' + EXTENSAO + ')'              // 7M, m7, sus4, add9, (b5), 5+, maj7…
+    + '(' + EXTENSAO + ')'              // 7M, m7, sus4, add9, (b5), 5+, 7/9…
     + '(?:\\/(' + RAIZ + '))?$',        // baixo invertido
   );
 
