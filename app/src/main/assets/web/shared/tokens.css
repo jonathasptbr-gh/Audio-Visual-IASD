@@ -345,7 +345,7 @@
   --ok-fill: #2a4630;
 
   /* ---------- A SUPERFÍCIE DE UMA AÇÃO É OPACA — a mesma razão dos três acima
-     (v1.4.0) ----------
+     (v1.3.14) ----------
      Os `-soft` desta paleta são TINTA COM ALFA, e alfa EMPILHA: o mesmo token
      compõe uma cor sobre `--panel` e outra sobre `--panel-2`. Era o defeito de
      R1 (`--surface`), que nunca foi estendido às famílias de COR — e elas o

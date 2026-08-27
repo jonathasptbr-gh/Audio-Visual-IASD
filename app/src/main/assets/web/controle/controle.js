@@ -252,7 +252,7 @@ const appVersionEl = document.getElementById('appVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.3.13';
+const WEB_VERSION = '1.3.14';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -4031,7 +4031,7 @@ function renderBibleReading(wrap) {
     bibleSel = { bookIdx: s.bookIdx, chapter: s.chapter };
     gotoBibleScreen(screen);
   };
-  // CADA PÍLULA VESTE A GRADE QUE ELA ABRE (v1.4.0) — ver `.bible-ref-part` no
+  // CADA PÍLULA VESTE A GRADE QUE ELA ABRE (v1.3.14) — ver `.bible-ref-part` no
   // CSS. A do LIVRO leva a classe do GRUPO CANÔNICO dele, a mesma que a célula
   // daquele livro tem no mosaico (`'bg-' + b.g`, em `renderBibleBooks`): a
   // pílula é a amostra da tela seguinte, não mais um botão genérico. Grupo

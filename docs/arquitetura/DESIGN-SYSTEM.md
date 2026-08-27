@@ -154,7 +154,8 @@ só uma, o token está no bloco COMPARTILHADO e vale nos dois.
 | `--on-live` | `#f6eeef` | `#ffffff` | o que se escreve sobre `--live` — 4,96:1 e 5,67:1 |
 | `--live-strong` / `--danger-strong` | `#f97a7e` | `#b80419` | **o vermelho que se lê como vermelho** (v5.76): ícone, borda e marca preenchida. Derivado do `scarlett` (matiz 358°/353°), clareado no escuro e escurecido no claro. Escuro: 7,27:1 sobre `--bg`, 6,59:1 sobre o soft, 4,88:1 sobre `--panel`, **3,77:1 sobre `--panel-2`** — este passa o piso de borda e reprova o de texto, e é por isso que quem veste este vermelho veste junto o fundo suave da própria família. Claro: 4,63:1 sobre o soft, 6,84:1 sobre o painel |
 | `--danger-text` | `#e98d83` | `#93382e` | o salmão, para os TRÊS casos em que o `-strong` não serve: a falha na miniatura do YouTube, o pulso de erro e o aviso de falha pousado direto no painel — 5,17:1 sobre `--panel` no escuro, 7,38:1 no claro |
-| `--live-soft` / `--danger-soft` | `rgba(208,2,27,.22)` | `rgba(208,2,27,.08)` | fundo suave de "no ar" / destrutivo. O alfa é MUITO menor no claro: qualquer tinta ali escurece a base e derruba o contraste do texto que pousa em cima |
+| `--live-soft` / `--danger-soft` | `rgba(208,2,27,.22)` | `rgba(208,2,27,.08)` | fundo suave de "no ar" / destrutivo. O alfa é MUITO menor no claro: qualquer tinta ali escurece a base e derruba o contraste do texto que pousa em cima. **É wash, nunca superfície de controle** — ver `--btn-*` |
+| `--btn-accent` / `--btn-danger` / `--btn-warn` / `--btn-ok` | `#293d57` / `#5d282e` / `#533423` / `#2a431e` | `#dcebfe` / `#fde3e6` / `#f8e7de` / `#d5f5c6` | **a superfície OPACA de um botão ou chip** em cada família (v1.3.14). Recebem por cima o traço que a família já tinha (`--accent`, `--danger-strong`, `--warn`, `--ok`). Ver "A superfície de uma ação é opaca" |
 | `--warn` / `--warn-text` / `--warn-soft` | `#ef853f` / `#e5a86c` / `rgba(205,73,0,.18)` | `#bd520a` / `#934410` / `rgba(205,73,0,.08)` | aviso: borda/ícone, texto, fundo. Derivados do **`campfire` OFICIAL** (matiz 21°) — 6,34:1 e 7,95:1 sobre o próprio suave no escuro; 3,38:1 (piso de ícone) e 4,81:1 no claro |
 | `--ok` / `--ok-soft` | `#80bd64` / `rgba(43,133,0,.20)` | `#216900` / `rgba(33,105,0,.08)` | concluído/conectado. Derivado do **`treefrog` OFICIAL** (matiz 101°), clareado e DESSATURADO no escuro — no talo ele vira um limão que grita mais que o accent. 5,64:1 sobre painel · 8,41:1 sobre o fundo; no claro 6,81:1 sobre o painel |
 | `--stage-bg` / `--stage-text` | `#000` / `#fff` | *(idem)* | **o palco**, não a UI, e por isso NÃO tem tema: o preto é preto de verdade (as barras do letterbox têm de sumir na moldura da TV) e o texto projetado é branco pleno — num telão a legibilidade vem de luminância máxima, não de um off-white calibrado para uma tela a 30 cm do rosto |
@@ -181,20 +182,56 @@ Fora de `tokens.css`, no `:root` do Controle (não são cor):
 | `--deck-pv-h` | `130px` | altura da faixa da preview na grade do `.deck` — é token porque a LARGURA da preview sai dela (altura × proporção do telão) |
 | `--fader-cap` | `26px` | espessura do cap do fader — **dois** faders a usam (mixer e modo simplificado), e a posição do número sai dela |
 | `--icon-sm` / `--icon-md` / `--icon-lg` | `20` / `22` / `24px` | escala dos **glifos de fonte** (`.msym`). Os SVGs inline trazem `width`/`height` no próprio HTML e nunca estiveram sob ela; o modo simplificado tem escala própria, porque ali o alvo é o polegar de quem está de pé |
-| `--press` | `scale(.96)` | feedback de toque padrão: todo `:active` usa `transform: var(--press)` |
+| `--press` / `--press-luz` | `translateY(2px)` / `brightness(1.35)` · `.88` no claro | feedback de toque: recuo ABSOLUTO mais luz. Ver "Feedback de toque" |
 | `--kb` | `0px` | altura coberta pelo teclado virtual, escrita pelo JS (ver "Deslocamento com o teclado virtual") |
 
 ### Métodos/convenções visuais padronizados
 
-- **Feedback de toque:** todo elemento interativo usa
-  `:active { transform: var(--press); }` (antes havia `scale(.95/.96/.97/.98)`
-  misturados — unificados em `.96`). A regra é **UMA SÓ**, um `:is(...)` com a
-  lista de seletores logo depois do bloco `:root`. Antes ela estava repetida em
-  17 lugares e, ainda assim, nove controles ficavam de fora (voltar, abas,
-  seleção múltipla, botões de linha, fechar popup, escolher pasta,
-  preenchimento, linha de música…): como o `*` zera o tap-highlight, esses
-  ficavam **totalmente mudos ao toque** no aparelho. Com a lista única, um botão
-  novo entra acrescentando um nome — não copiando uma regra.
+- **Feedback de toque: RECUO ABSOLUTO + LUZ, nunca uma fração** (v1.3.14). A
+  regra é **UMA SÓ**, um `:is(...)` com a lista de seletores logo depois do
+  bloco `:root` — antes ela estava repetida em 17 lugares e, ainda assim, nove
+  controles ficavam de fora (voltar, abas, seleção múltipla, botões de linha,
+  fechar popup…): como o `*` zera o tap-highlight, esses ficavam **totalmente
+  mudos ao toque** no aparelho. Com a lista única, um botão novo entra
+  acrescentando um nome.
+
+  O VALOR era `scale(.96)`, e uma FRAÇÃO aplicada a alvos de 34px a 408px não é
+  um valor: são doze. MEDIDO, o recuo por lado que ela produzia:
+
+  | alvo | caixa | recuo |
+  |---|---|---|
+  | `.back-btn` · `.popup-close` | 34×34 | **0,7px** — imperceptível |
+  | `.t-btn` | 53×36 | 1,1 lateral · 0,7 vertical |
+  | `.bible-cell` | 52×52 | 1,0 |
+  | `.tab` | 143×38 | 2,9 lateral · 0,8 vertical |
+  | `.dialog-btn` | 157×33 | **3,1 lateral · 0,7 vertical** |
+  | `.lib-item` | 408 | **8,2px** — exagerado |
+
+  São as duas queixas do operador de uma vez (*"encolhendo muito os elementos"*
+  e *"em diversos casos não há feedback… no caso de botões de confirmar
+  exclusão"*), e o `.dialog-btn` É o botão de confirmar exclusão: 3,1px de
+  deslocamento LATERAL e 0,7 de vertical — um aperto de lado, que não se lê como
+  "apertei".
+
+  Hoje `--press` é **`translateY(2px)`**: o mesmo recuo em qualquer alvo, a
+  metáfora da tecla que afunda. Duas consequências de graça — o risco de
+  HIT-TEST some (era a razão de o `.coll-bar` não escalar: MEDIDO, 6 de 11
+  toques no botão de baixar erravam quando a barra de 408px recuava 8px de
+  lado), e some a FRESTA do aninhamento (dois `--press` eram 0,96 × 0,96 e
+  deixavam o filho 7px mais estreito que os irmãos; dois recuos são 4px na mesma
+  direção, sem mudar de largura).
+
+  E ele vem com **`--press-luz`**, um `filter: brightness()` — `1.35` no escuro,
+  `.88` no claro. `filter` e não um overlay de fundo por três razões: não
+  precisa saber a cor do controle, responde no que NÃO tem fundo nenhum
+  (acendendo o próprio traço) e não disputa propriedade com quem já usa
+  `background-image` — a faixa da célula da Bíblia, a pílula do livro, o vazado
+  da aba. MEDIDO no escuro: 1,27:1 sobre a superfície de um botão, 1,56:1 sobre
+  o preenchido, 1,86:1 num glifo sem fundo.
+
+  **Um ANCESTRAL não responde ao toque que foi para um filho** — e as guardas
+  suprimem as DUAS partes: matar só a geometria deixaria o bloco inteiro
+  acendendo por um toque de 40px, o mesmo defeito por outra propriedade.
 - **Tamanho de ícone:** três degraus — `--icon-sm` (20px, botões de
   linha/cabeçalho/popup), `--icon-md` (22px, abas e transporte) e `--icon-lg`
   (24px, miniatura-ícone, dicas de deslize e barras largas de ação). Antes havia
@@ -313,6 +350,29 @@ qual dos três.
 Botões de **função** (engrenagem, folha da leitura auxiliar) e **segmentados**
 ficam fora da regra por natureza: não alternam duas ações opostas.
 
+#### O ECO é de quem MANDA ALGO PARA A PROJEÇÃO (v1.3.14)
+
+Um anel curto em accent que nasce colado no botão e se abre desaparecendo
+(`.btn-eco`, 420 ms). Ele **não é a resposta de toque**, e a distinção é o que o
+justifica: `--press` (o recuo mais a luz) diz *"recebi o dedo"* e vale para todo
+controle; o eco diz *"o comando saiu"*, e existe porque a resposta de verdade
+pode estar a ~1 s quando a projeção são as telas da rede — um botão que fica um
+segundo sem responder é tocado de novo, e o comando vai duas vezes. Duas
+mensagens, dois sinais, e é por isso que convivem no mesmo botão.
+
+Ele valia para `.transport .t-btn, .mixer-mid button` — e `.mixer-mid` **não
+existe** desde a v1.3.8, quando o mixer saiu. Na prática o anel era exclusivo
+dos seis botões do transporte, e foi assim que o operador o leu (*"o feedback
+único dos botões de play, com bordas flutuantes totalmente exclusivo no app"*).
+Ele está certo sobre a exclusividade, e o conserto não é apagar o sinal: a razão
+dele vale IGUAL para os outros botões que falam com o telão. O que faltava era a
+REGRA.
+
+Recebem o eco (`ECO_SELETOR`, em `controle.js`): o transporte, os dois botões de
+slide que flanqueiam a preview, a cortina, o mudo, a coluna da tela cheia e
+"Projetar no telão". Ficam de fora navegação, Configurações e a lupa do acervo —
+um eco ali prometeria uma viagem que não acontece.
+
 **⏮/⏭ foram um terceiro caso até a v1.3.5** — o único em que a cor não dizia um
 estado do sistema e sim o EIXO do botão: `.slide-mode` (contorno em accent) = "o
 toque curto passa estrofe"; `.axis-end` (esmaecido) = "esse caminho acabou, o
@@ -320,6 +380,61 @@ toque longo ainda troca de mídia". As duas classes saíram com o eixo duplo do
 transporte: quem passa slide são dois botões PRÓPRIOS ao lado da preview, e um
 botão com um significado só não tem eixo a anunciar. O que diz "não há para onde
 ir" ali voltou a ser o `disabled` de sempre.
+
+### Uma linguagem de ESTADO só (v1.3.14)
+
+O app tinha **três** maneiras de dizer "isto está ativo", e a terceira é a que o
+operador reclamou (*"o botão de selecionar repetição altera apenas sua cor
+interna quando ativo, sendo pouco visível"*):
+
+| como era dito | onde |
+|---|---|
+| preenchido em `--accent-fill` | `.bible-cell.active`, `.misc-tab/.misc-seg/.misc-chip.active`, `.fit-opt.active` |
+| `--sel-fill` opaco na linha | `.lib-item.active`, `.bible-vsec.cur` |
+| **só cor de TEXTO** | `#repeat.active`, `.tab.active`, `.bible-ver-row.selected`, `.hymnal-card.expanded`, `.folder-opfs.expanded` |
+
+A regra, e ela responde a QUATRO perguntas diferentes com quatro respostas:
+
+- **ESCOLHIDO entre alternativas** (uma célula, um segmento, um chip, uma aba) →
+  **preenchido**: `--accent-fill` + `--on-accent`.
+- **LIGADO** (um interruptor de um modo só, sem irmãos disputando) →
+  **superfície de ação**: `--btn-accent` + `--accent`. É o caso do `#repeat`, e
+  ele é o extremo da regra: em todo outro interruptor do app o DESENHO muda
+  junto (a estrela de favorito enche, o `+` da fila vira `✓`) e a cor é reforço;
+  ali o glifo não pode mudar, porque ele CICLA por quatro modos e já está
+  ocupado dizendo qual está valendo. MEDIDO: o fundo não mudava (1,00:1 entre
+  ligado e desligado); hoje são 1,73:1, com o traço a 5,37:1.
+- **SELECIONADO numa lista** → `--sel-fill`, opaco.
+- **ABERTO** → **não é cor.** A seta que gira, o corpo à vista e a sombra da
+  tampa já dizem, e gastar a cor de seleção nisso faz o mesmo estado sair de
+  duas cores conforme o tipo do bloco (uma SEÇÃO aberta nunca pintou o nome
+  dela). No card da Biblioteca quem diz "isto levantou" é o degrau de ELEVAÇÃO.
+
+**Cor de TEXTO nunca carrega estado sozinha.** Onde ela carregava, ou o estado
+ganha superfície, ou ele já é dito pela forma e a cor sai.
+
+#### Quando AÇÃO e ESCOLHA dividem a mesma faixa, o CHEIO fica com a ESCOLHA
+
+O accent cheio serve aos dois papéis em todo o app — é o botão primário
+(`.cast-acao`, `.dialog-btn.primary`) e é o segmento escolhido — e fora do
+trilho de navegação isso nunca colide, porque os dois não dividem a mesma faixa.
+Ali dividiam, e o desempate estava invertido: o cheio ficava com a AÇÃO (a
+busca) e a ESCOLHA caía num vazado de **1,32:1** — degrau que o próprio texto
+que o defendia admitia ser "pouco num salão escuro", deixando a cor do ícone
+carregando o estado sozinha. Era a queixa *"a alternância entre bíblia e
+cronograma já não condiz com o sistema de seleção atual"*.
+
+Hoje a aba ativa é `--accent-fill` + `--on-accent` (**1,85:1** do trilho, glifo a
+6,54:1) e a busca desce para a superfície de ação (`--btn-accent` + `--accent`),
+onde segue destacada — numa fileira em que a aba inativa não tem fundo nenhum,
+ela é a única outra célula com superfície.
+
+**Confirmar uma exclusão não é uma ação primária.** O botão que apaga vestia o
+mesmo azul preenchido de "Baixar" e "Entendi" — a única tela do app em que uma
+decisão é irreversível era a única em que a cor não dizia isso, enquanto
+`.coll-bar-rm`, `.linha-sim` e `.cast-tela-fora` já seguiam a regra. Hoje
+`openAppDialog` aceita `perigo: true` e o botão veste o par destrutivo
+(`--btn-danger` + `--danger-strong`).
 
 ### Só preenchimento, nenhum contorno
 
@@ -377,6 +492,46 @@ E o sinal principal deles é a MATIZ, não a claridade — `--live-fill` fica a
 1,03:1 do painel de propósito. Uma linha vermelha entre linhas cinzas se acha sem
 precisar ser mais clara, e é a matiz que sobrevive ao brilho baixo de um salão
 escuro, onde meio degrau de luminância não sobrevive.
+
+#### E a mesma regra vale para a SUPERFÍCIE DE UMA AÇÃO (v1.3.14)
+
+Os `-soft` da paleta são tinta com alfa, e alfa **empilha** — a aritmética de R1,
+que nunca foi estendida às famílias de COR. E elas sofrem pior, porque um botão
+de ação nasce em duas bases ao mesmo tempo. MEDIDO no escuro, a deriva do MESMO
+botão entre a base mais escura e a mais clara em que ele pousa:
+
+| família | deriva |
+|---|---|
+| `--accent-soft` | **1,97:1** |
+| `--ok-soft` | 1,84:1 |
+| `--warn-soft` | 1,83:1 |
+| `--danger-soft` | 1,70:1 |
+
+A do accent é **maior que o degrau `--bg` × `--panel`** (1,49:1): o mesmo chevron
+variava mais que dois níveis inteiros da escada. Era a queixa do operador —
+*"cores diferentes ou inconsistentes entre grupos de hinário, informativos e
+coleções"*: o chevron da SEÇÃO compunha `#3d4959` e o do CARD, `#4a596d`.
+
+Daí `--btn-accent`, `--btn-danger`, `--btn-warn` e `--btn-ok`, opacos, um por
+família, ancorados na matiz OFICIAL (bluejay 214°, scarlett 353°, campfire 21°,
+treefrog 101°). O separador **não é a claridade, é o CROMA**: ~53–58% de
+saturação contra os ~27% da escada neutra, com ~1,15:1 das duas bases de cartão
+— o mesmo argumento que a paleta já assinou no `--live-fill`.
+
+| superfície | traço | `--bg` | `--panel` | `--panel-2` | traço sobre ela (escuro · claro) |
+|---|---|---|---|---|---|
+| `--btn-accent` | `--accent` | 1,70 | 1,14 | 1,17 | 5,37 · 6,37 |
+| `--btn-danger` | `--danger-strong` | 1,62 | 1,09 | 1,23 | 4,49 · 5,64 |
+| `--btn-warn` | `--warn` | 1,69 | 1,13 | 1,18 | **4,30** · 5,68 |
+| `--btn-ok` | `--ok` | 1,72 | 1,15 | 1,16 | 4,89 · 5,74 |
+
+O `--btn-warn` é o único abaixo de 4,5:1, e ele é ÍCONE — o piso de 3:1 é o que
+vale para quem carrega informação sem ser texto.
+
+**Os `-soft` ficam**, e não são sinônimo destes: eles continuam certos onde a
+translucidez é o efeito e não o acidente — o `box-shadow` do pulso de "no ar", o
+trilho do `.dl-ring` (um anel desenhado sobre base arbitrária). Superfície de
+BOTÃO ou de CHIP usa os `--btn-*`, e `tools/tokens.test.mjs` trava isso.
 
 #### A regra do vermelho é a INTENSIDADE, não o preenchimento
 
@@ -467,7 +622,24 @@ correta de UI escura (o cartão já está elevado, então o controle dentro dele
 
 Como custom properties **herdam**, essa regra só precisa marcar os elementos
 que de fato pintam `--panel` de fundo: toda a descendência vem junto, não há
-componente a ajustar, e um componente novo nasce coberto.
+componente a ajustar, e um componente novo nasce coberto — **desde que o
+CONTÊINER dele entre na lista.**
+
+**E uma lista só protege quem está nela** (v1.3.14). A `.tools-sheet` nasceu na
+v1.3.10 pintando `--panel` e nunca entrou aqui. MEDIDO no tema CLARO: o
+`.mic-btn` dentro dela saía em `--surface-2` FLUTUANTE (branco a 92%) sobre um
+`--panel` que ali é branco pleno — **1,00:1**. A barra de push-to-talk, 56px de
+altura, o controle que se procura sem olhar no meio de uma frase, simplesmente
+não existia na tela; no escuro o mesmo botão ficava a 12,62:1 da folha, o outro
+lado do mesmo erro. `tools/tokens.test.mjs` passou a cobrar a filiação: todo
+bloco que pinta `--panel` está na lista **ou** afunda a superfície por conta
+própria.
+
+**E um CHIP não é um BLOCO.** Com R1 no lugar o microfone ficaria a 1,19:1 —
+correto pela regra e fino demais para um alvo daquele tamanho. `--surface-2` é
+o overlay de uma peça DENTRO de um bloco; aquilo é o bloco, e ele passou a ler
+`--camada` (1,33:1 no escuro, 1,41:1 no claro). Antes de escolher o alfa,
+pergunte de que NÍVEL a peça é.
 
 Os VALORES saíram daqui na v5.192 e viraram `--surface-sunk`/`--surface-2-sunk`
 em `tokens.css` (o tema claro precisa de outros dois alfas). E o par FLUTUANTE
@@ -509,8 +681,11 @@ passaria a vestir aquele tom. A primeira versão desta regra pôs
 defeito da v5.241 de volta, e foi o oráculo da escada que o pegou, nos dois
 temas.
 
-**A EXCEÇÃO É O `.hymnal-card`** (v1.0.1), e ela é o caso de um bloco que quer o
-MESMO degrau para si e para os filhos. Com as coleções fixas na RAIZ, o card
+**O `.hymnal-card` FOI a exceção** (v1.0.1) e deixou de ser (v1.3.14) — ver
+"O card fechado segue o pai", abaixo. O que segue é o registro do porquê ela
+existiu, que é a medição que continua valendo para o card ABERTO.
+
+Ela era o caso de um bloco que quer o MESMO degrau para si e para os filhos. Com as coleções fixas na RAIZ, o card
 nasce em dois lugares — solto na folha e dentro de uma seção — e ler o pai o
 deixava em `--panel` num e `--panel-2` no outro: o mesmo álbum trocando de cor
 conforme alguém o tivesse agrupado, com a escada inteira de dentro dele descendo
@@ -525,15 +700,51 @@ quem lê `--camada` ali dentro é a tampa do card aberto
 o degrau seguinte. E o card continua sem coincidir com o que está atrás: a barra
 de uma seção lê `--camada` e fica em `--panel`.
 
+#### O card FECHADO segue o pai; ABERTO ele sobe (v1.3.14)
+
+O preço da exceção acima era o que o operador viu: **na raiz, uma SEÇÃO e um
+CARD FIXO são linhas irmãs da mesma lista**, e saíam em tons diferentes
+(`--panel` contra `--panel-2`, 1,33:1) sem que nada na tela dissesse por quê.
+
+A medição que forçava o degrau de cima é sobre o INTERIOR do card, e o interior
+**só existe ABERTO**. MEDIDO com o card em `--panel`: no escuro a faixa fica a
+1,26:1 da gaveta (piso 1,28); no CLARO é pior — `--panel` é branco pleno e
+`--item-fill` é branco a 80%, ou seja **1,00:1**: a faixa não existe.
+
+Então a regra distingue os dois estados, porque são dois:
+
+| estado | tom | por quê |
+|---|---|---|
+| **fechado** | lê `--camada` | ele é só a barra: não há faixa nem gaveta, logo não há escada interna a sustentar. Fica IGUAL à seção na raiz, e um degrau abaixo dela dentro de uma seção |
+| **aberto** | `--panel-2` | a escada interna nasce, e o card sobe — o mesmo valor de antes, então nada do que foi medido regride |
+
+E o degrau que aparece ao abrir **não é decoração**: é o sinal de "isto
+levantou", e ocupa o lugar do nome em accent que saiu dali — ABERTO deixou de
+ser cor, e o que decidiu foi a irmã: uma SEÇÃO aberta nunca pintou o nome dela.
+
+**As COLUNAS também não se encontravam.** MEDIDO em 430px, com uma seção e um
+card empilhados: chevron a x=20 contra x=22, nome a x=60 contra x=63, botão de
+baixar terminando em 412 contra 408. Três colunas que quase se alinham é o que
+se lê como desalinhado — e o texto do `--hit` já afirmava o contrário ("os dois
+botões de baixar têm o mesmo alvo de propósito: alinhados na mesma coluna"): o
+ALVO era igual (34px), a COLUNA não. Um recuo só (`.55rem .7rem`, o do card) e
+um vão só (`.55rem`), e as três batem.
+
+O que continua RANQUEANDO os dois é a escala de rótulo — caixa alta, espaçamento
+e a cor de metadado no nome da seção. Nivelá-la com o `--text` do título do card
+foi tentado e revertido: apagaria a distinção que a v5.296 estabeleceu depois de
+um relato (cor de RÓTULO e cor de CONTEÚDO são duas coisas), e `smoke.mjs`
+reprovou com razão.
+
 A árvore da Biblioteca fica assim, e é a mesma da tela principal um nível acima:
 
 ```
 folha de tela cheia   --bg          nível 0   (era --panel até a v5.267)
   ├ seção             --panel       nível 1   (barra + corpo, UM bloco sólido)
-  │   └ card do álbum --panel-2     nível 2
+  │   └ card do álbum --panel-2     nível 2   (fechado: o pai reserva; aberto: idem)
   │       └ faixa     (sem fundo)   separada da vizinha pelo ESPAÇO
-  └ coleção fixa      --panel-2     nível 2   NA RAIZ, e com o MESMO tom (v1.0.1)
-      └ faixa         (sem fundo)
+  └ coleção fixa      --panel       nível 1   NA RAIZ, fechada: o MESMO tom da seção
+      └ (aberta)      --panel-2     nível 2   a placa sobe, e a escada interna nasce
 ```
 
 **O preço, medido e assumido:** o degrau recuado contra o cartão cai para
@@ -588,6 +799,14 @@ texto por cima precisa ser escura. Daí três tokens, um por papel:
   suave + ícone.
 - **R5 — os tokens de cor moram em `shared/tokens.css`**, carregado pelos dois
   apps. Não há mais o que dessincronizar.
+- **R6 — a superfície de um CONTROLE é opaca.** Fundo de botão ou de chip usa
+  `--btn-accent`/`--btn-danger`/`--btn-warn`/`--btn-ok`. Os `-soft` são wash
+  (sombra de pulso, trilho de anel) e nunca superfície: alfa empilha, e o mesmo
+  token compõe uma cor por camada. `tokens.test.mjs` trava.
+- **R7 — o feedback de toque é ABSOLUTO.** `--press` (2px para baixo) mais
+  `--press-luz`; nunca uma escala, que vira doze valores diferentes num app cujos
+  alvos vão de 34 a 408px. Um ancestral não responde ao toque que foi para um
+  filho — e suprime as DUAS partes.
 
 ### Contraste — o que foi medido
 
@@ -654,6 +873,29 @@ vãos, com a separação mínima subindo para **20°**:
 O `scarlett` fica **fora da escala de propósito**: vermelho é atenção neste app,
 e um grupo de livros vermelho competiria com "está no ar" na mesma tela.
 
+#### O seletor veste a GRADE que ele abre (v1.3.14)
+
+As quatro pílulas da referência (Livro · Capítulo · Versículo · Versão)
+dividiam UMA superfície translúcida (`--surface-2`) e UMA cor de valor
+(`--accent`) — quatro botões idênticos —, enquanto as grades que elas abrem são
+sólidas e distintas de propósito. Era a queixa *"o seletor de capítulo,
+versículo e etc. usa cores transparentes e marcadores de cores sólidas, o que
+não faz sentido; podia ser só as sólidas"*.
+
+Hoje a pílula é a AMOSTRA da tela seguinte: o tom frio (`--cell-chapter`) abre a
+grade fria, o quente (`--cell-verse`) abre a quente, e a de Livro veste a tinta
+do grupo com a faixa de 3px — o mesmo desenho que aquele livro tem no mosaico
+(o JS acrescenta a classe `bg-<grupo>`, a mesma de `renderBibleBooks`). A de
+Versão não abre grade nenhuma e fica no neutro (`--panel-2`).
+
+Rótulo e valor herdam a cor da pílula (`currentColor`): quem os separa é a
+MÉTRICA (.56rem em caixa alta com espaçamento contra .86rem), não a cor — um
+`--accent` sobre a tinta quente do versículo não é a mesma leitura que sobre a
+fria do capítulo. MEDIDO, pior par entre os dez grupos e as duas grades: valor
+8,72:1 no escuro e 6,46:1 no claro; rótulo 6,16:1 e 5,05:1. A opacidade do
+rótulo é **.9** e não menos porque no claro o `--text` já é um cinza médio
+(`night`): a .72 ele cai a 3,42:1.
+
 **No tema CLARO a tinta se inverte** — ladrilho claro, rótulo em `--text`. O
 alvo do rótulo lá é **6,5:1**, e não os 8,7:1 do escuro, por aritmética: o texto
 do tema claro é o `night` (#4A4A4A), não um off-white, então um ladrilho com
@@ -665,14 +907,25 @@ contra a própria tinta.
 
 1. Existe token pro valor? Use-o. Não existe e o valor se repete? **Crie um
    token** — cor em `shared/tokens.css`, o resto no `:root` do Controle.
-2. Fundo em accent? Escolha pelo **papel**: `--accent-fill` se houver texto por
-   cima (e aí o texto é `--on-accent`), `--accent` se for texto/ícone/borda ou
-   decoração.
+2. Fundo em accent? Escolha pelo **papel**: `--accent-fill` se for uma ESCOLHA
+   entre alternativas ou um botão primário (e aí o texto é `--on-accent`),
+   `--btn-accent` se for a superfície de um botão/chip de ação ou um
+   interruptor LIGADO (e aí o traço é `--accent`), `--accent` se for
+   texto/ícone/decoração sem fundo próprio. **Nunca um `-soft`** (R6).
+2b. **Ação e escolha na MESMA faixa?** O cheio fica com a ESCOLHA; a ação desce
+   para `--btn-accent`.
+2c. **Um bloco novo que pinte `--panel`** entra na lista de R1, senão os
+   controles dentro dele usam a superfície flutuante e somem no tema claro. E
+   pergunte de que NÍVEL a peça é: um chip usa `--surface-2`, um bloco usa
+   `--camada`.
 3. Está pintando "no ar" ou "destrutivo"? R2: o traço é `--live-strong` /
    `--danger-text`, nunca `--live` / `--danger`.
 4. Botão novo → acrescentar o seletor à lista `:is(...)` do feedback de toque;
    nada de tap-highlight nem de `:active` próprio.
-5. Botão que alterna → ícone = ação, cor = estado (ver acima).
+5. Botão que alterna → ícone = ação, cor = estado (ver acima). **Interruptor
+   cujo glifo não pode mudar** (o `repeat` cicla) → superfície, nunca só cor de
+   texto.
+5b. O botão **manda algo para a projeção**? Acrescente-o ao `ECO_SELETOR`.
 6. Atualizar esta seção e incrementar a versão (os três lugares — ver "Regras
    de desenvolvimento").
 
@@ -684,7 +937,11 @@ pegam a classe de falha *silenciosa* do CSS: `tools/tokens.test.mjs` garante que
 todo `var(--x)` sem fallback aponta para um token que EXISTE (um `var()`
 inválido computa para o valor inicial da propriedade, sem aviso nenhum — foi
 assim que os dois botões da folha de conectar ficaram com cantos retos na
-v5.171) e que **nenhum token exista só no tema claro**; `tools/smoke.mjs` trava
+v5.171), que **nenhum token exista só no tema claro**, que **nenhuma superfície
+de controle seja uma tinta com alfa** (R6) e que **todo bloco que pinta
+`--panel` afunde a superfície dos filhos** (R1) — as duas últimas provadas por
+REVERSÃO, e a segunda existe porque a `.tools-sheet` passou três versões fora da
+lista com o microfone invisível no tema claro; `tools/smoke.mjs` trava
 o efeito RENDERIZADO nos dois temas, o palco que não os segue, a superfície que
 afunda dentro do cartão e a escolha que sobrevive à recarga. Nenhum dos dois
 mede razão de contraste.

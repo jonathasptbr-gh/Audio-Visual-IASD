@@ -2048,7 +2048,7 @@ try {
         gaveta: cx2(li.querySelector('.hymn-gaveta')),
         // E O CARTÃO RESPONDE MESMO: sem isto, "nada se mexe" passaria — e o
         // feedback de toque teria sumido em vez de ficar inteiro. Desde a
-        // v1.4.0 quem responde num BLOCO é a LUZ (`--press-luz`, um `filter`),
+        // v1.3.14 quem responde num BLOCO é a LUZ (`--press-luz`, um `filter`),
         // não a geometria: um contêiner que hospeda outros controles não se
         // move, e é a luz que diz "recebi". Medir `transform` aqui aprovaria o
         // desenho velho e reprovaria o novo — a asserção é a RESPOSTA, não o
@@ -2068,7 +2068,7 @@ try {
   checar(pressLinha.respondeu !== 'none' && pressLinha.cartao.w > 0,
     'e o cartão RESPONDE de verdade: a luz do toque ficou, o feedback não sumiu',
     JSON.stringify(pressLinha));
-  // ===== E O RECUO É ABSOLUTO, NÃO UMA FRAÇÃO (v1.4.0) =====
+  // ===== E O RECUO É ABSOLUTO, NÃO UMA FRAÇÃO (v1.3.14) =====
   // A outra metade, e ela é a que impede a correção acima de virar o defeito
   // anterior por outro caminho: `scale(.96)` num cartão de 408px recuava 8,2px
   // de cada lado. `translateY(2px)` não mexe na LARGURA — é `matrix(1,0,0,1,0,2)`

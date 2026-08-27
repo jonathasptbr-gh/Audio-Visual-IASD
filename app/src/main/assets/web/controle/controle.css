@@ -117,7 +117,7 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
      Medida de layout, então mora aqui e não em tokens.css (lá só entra cor). */
   --misc-bar-h: 56px;
 
-  /* ---------- FEEDBACK DE TOQUE: RECUO ABSOLUTO, NUNCA PROPORCIONAL (v1.4.0)
+  /* ---------- FEEDBACK DE TOQUE: RECUO ABSOLUTO, NUNCA PROPORCIONAL (v1.3.14)
      ----------
      Ele foi `scale(.96)` para tudo, e uma FRAÇÃO aplicada a alvos que vão de
      34px a 408px não é um valor: são doze. MEDIDO, o recuo por lado que aquele
@@ -220,7 +220,7 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
    desta regra. Sem a barra de busca aqui, o campo dela ficava `--surface-2`
    (branco a 92%) sobre um `--panel` que no tema CLARO é branco puro: 1,00:1. */
 .coll-group--drop, #hymnSearchPopup .hymn-search-bar,
-/* A FOLHA DE FERRAMENTAS (v1.4.0). Ela pinta `--panel` desde que nasceu, na
+/* A FOLHA DE FERRAMENTAS (v1.3.14). Ela pinta `--panel` desde que nasceu, na
    v1.3.10, e nunca entrou aqui — é o modo de falhar que esta regra existe para
    fechar, acontecendo de novo. MEDIDO no tema CLARO: o `.mic-btn` saía em
    `--surface-2` FLUTUANTE (branco a 92%) sobre um `--panel` que ali é branco
@@ -307,7 +307,7 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
    HOSPEDA (o `⋮`, a gaveta de opções, a pasta aberta inline): ali já existe
    outra resposta, e duas ao mesmo toque — uma mexendo a caixa por baixo da
    outra que está entrando — poluem o conjunto. Quem encolhe é a peça tocada. */
-/* E ELAS SUPRIMEM A LUZ TAMBÉM (v1.4.0): com o feedback em duas partes, matar
+/* E ELAS SUPRIMEM A LUZ TAMBÉM (v1.3.14): com o feedback em duas partes, matar
    só a geometria deixaria o bloco inteiro ACENDENDO por um toque de 40px — o
    mesmo defeito relatado, por outra propriedade.
    A terceira linha é o caso ANINHADO: um arquivo dentro de uma pasta é uma
@@ -347,7 +347,7 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
   .tab, .tab-add, .import-btn, .back-btn, .sel-btn,
   .row-btn, .popup-close, .new-folder-btn,
   .coll-bar-dl, .coll-group-btn, .coll-more-btn,
-  /* AS DUAS BARRAS QUE ABREM UM BLOCO (v1.4.0). A `.coll-bar` respondia por um
+  /* AS DUAS BARRAS QUE ABREM UM BLOCO (v1.3.14). A `.coll-bar` respondia por um
      overlay próprio (que saiu com a luz) e a `.coll-group-bar` não respondia a
      nada — duas linhas com a mesma função, uma muda. Com o recuo ABSOLUTO elas
      entram na lista sem trazer de volta o hit-test que tirava o dedo do botão
@@ -1226,7 +1226,7 @@ body {
 }
 .t-btn .msym { font-size: var(--icon-md); }
 .t-btn:disabled { opacity: .35; }
-/* ---------- LIGADO É SUPERFÍCIE, NUNCA SÓ COR DE TEXTO (v1.4.0) ----------
+/* ---------- LIGADO É SUPERFÍCIE, NUNCA SÓ COR DE TEXTO (v1.3.14) ----------
    Relato do operador: *"o botão de selecionar repetição altera apenas sua cor
    interna quando ativo, sendo pouco visível a identificação de ativo ou não"*.
 
@@ -1471,7 +1471,7 @@ main {
    "isto é um grupo" — coisa que quatro ícones lado a lado já dizem.
    O que sobra é o que a palavra "aba" significa: uma célula encostada na borda
    de cima da caixa, com raio só embaixo — a aba desce da tela que ela abre. A
-   ESCOLHIDA é preenchida em accent desde a v1.4.0 (era um vazado em `--bg`;
+   ESCOLHIDA é preenchida em accent desde a v1.3.14 (era um vazado em `--bg`;
    ver o `.tab-ind`), e a silhueta é a mesma: o que mudou foi só a tinta. O
    inverso (tinta nas NÃO escolhidas) foi testado e revertido — a mancha precisa
    acompanhar a aba EM USO. `margin: 0 -.7rem` desfaz o padding da caixa — uma
@@ -1500,7 +1500,7 @@ main {
   position: absolute; left: 0; top: 0; bottom: 0;
   width: var(--tab-w, 0px);
   transform: translateX(var(--tab-x, 0px));
-  /* ---------- O TOM É O DA SELEÇÃO DO APP (v1.4.0) ----------
+  /* ---------- O TOM É O DA SELEÇÃO DO APP (v1.3.14) ----------
      Ele foi um VAZADO em `--bg` — a célula ativa recortada na cor do corpo da
      seção que ela abre. O desenho era bonito e o argumento ("a aba e a tela
      dela viram a mesma superfície") era honesto, mas ele não sobreviveu a duas
@@ -1582,7 +1582,7 @@ main {
    preenchida, e não é incoerência: lá não há ação competindo pela mesma faixa —
    a escolha É a única coisa que aquele trilho comunica. */
 /* A aba ativa é PREENCHIDA, como toda escolha entre alternativas neste app
-   (v1.4.0 — ver o `.tab-ind`, que é quem pinta). Aqui fica só o que pertence
+   (v1.3.14 — ver o `.tab-ind`, que é quem pinta). Aqui fica só o que pertence
    ao botão: o glifo em `--on-accent`, o par que existe para pousar sobre o
    preenchido. Escrever `--accent` sobre ele seria o erro que a paleta descreve
    — aquele tom é claro porque é para ser TEXTO sobre fundo escuro. */
@@ -1677,7 +1677,7 @@ main {
 .import-btn .msym { flex-shrink: 0; font-size: var(--icon-sm); }
 .import-btn span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-/* ---------- Buscar no acervo: AÇÃO numa faixa de ESCOLHAS (v1.4.0) ----------
+/* ---------- Buscar no acervo: AÇÃO numa faixa de ESCOLHAS (v1.3.14) ----------
    (Único `.tab-add` que restou — o de importar desceu para o fim do
    Cronograma.) A caixa vem da regra compartilhada com `.tab`; aqui fica só o
    que o distingue.
@@ -2393,7 +2393,7 @@ main {
      (`.coll-group--drop`) lê `--camada` e fica em `--panel` — o defeito da
      v5.241, em que os dois dividiam `--panel-2` por ambos serem chamados de
      "contêiner", não volta. São contêineres, e não são o MESMO contêiner. */
-  /* ---------- FECHADO ELE SEGUE O PAI; ABERTO ELE SOBE (v1.4.0) ----------
+  /* ---------- FECHADO ELE SEGUE O PAI; ABERTO ELE SOBE (v1.3.14) ----------
      Ele declarava `--camada: var(--panel-2)` SEMPRE, e essa era a exceção da
      v1.0.1: um card lê o degrau que o pai lhe reserva, e com as coleções fixas
      na RAIZ o mesmo card nascia em dois lugares — dentro de uma seção
@@ -2502,7 +2502,7 @@ main {
 }
 .coll-group:first-child { padding-top: .2rem; }
 /* A COR DELE FICA EM `--muted`, herdada da barra, e isto foi RECONSIDERADO na
-   v1.4.0: nivelá-la com o `--text` do título do card apagaria a distinção que a
+   v1.3.14: nivelá-la com o `--text` do título do card apagaria a distinção que a
    v5.296 estabeleceu depois de um relato — cor de RÓTULO e cor de CONTEÚDO são
    duas coisas, e o defeito de lá foi exatamente uma valendo pela outra. O que
    nivela a seção e o card na raiz é o TOM DO BLOCO e as COLUNAS (acima); o que
@@ -2733,7 +2733,7 @@ main {
   /* O VÃO é o do card (`.55rem`), pela mesma razão do recuo abaixo: com `.5rem`
      o nome da seção começava 1px antes do nome do card. */
   display: flex; align-items: center; gap: .55rem;
-  /* ---------- AS MESMAS COLUNAS DA BARRA DO CARD (v1.4.0) ----------
+  /* ---------- AS MESMAS COLUNAS DA BARRA DO CARD (v1.3.14) ----------
      Na RAIZ da Biblioteca uma seção e um card fixo são LINHAS IRMÃS, e elas
      tinham recuos diferentes: `.5rem .45rem .5rem .55rem` aqui contra
      `.55rem .7rem` lá. MEDIDO em 430px, com as duas empilhadas na mesma lista:
@@ -2847,7 +2847,7 @@ main {
    `renderCollectionCard`): aquela correção salvou o alvo da BARRA e deixou de
    pé o do botão que mora dentro dela. */
 /* (O overlay `background-image: linear-gradient(--surface, --surface)` que
-   respondia por esta barra SAIU na v1.4.0. Ele existia porque a barra do card
+   respondia por esta barra SAIU na v1.3.14. Ele existia porque a barra do card
    ABERTO pinta `background: var(--camada)` numa regra de especificidade maior,
    e o atalho `background` zera o `background-image` — então o toque não pintava
    nada justamente onde se toca para FECHAR, e a saída era uma segunda seletora
@@ -2935,7 +2935,7 @@ main {
 /* (A seta do acordeão saiu na v5.71, junto com as molduras: numa lista em que
    TODO card abre, ela dizia o mesmo em todas as linhas — e o que anuncia a
    abertura agora é o próprio movimento, que a v5.63 passou a animar.)
-   E ABERTO DEIXOU DE SER COR (v1.4.0). O nome do card ficava em `--accent` —
+   E ABERTO DEIXOU DE SER COR (v1.3.14). O nome do card ficava em `--accent` —
    o mesmo recurso com que o app marca ESCOLHIDO —, e três coisas já dizem
    "aberto" ali sem gastar a linguagem de seleção: a seta que gira, a lista de
    músicas à vista e a sombra da tampa grudada no topo. O que decidiu foi a
@@ -2949,7 +2949,7 @@ main {
    opera, "toquei para fechar e abriu outro". Grudada, ela fica sempre ao
    alcance, e o nome da coleção junto — que é a outra metade da pergunta "onde
    eu estou?". */
-/* ABERTO A PLACA SOBE (v1.4.0) — ver o bloco do `.hymnal-card`. É aqui que ele
+/* ABERTO A PLACA SOBE (v1.3.14) — ver o bloco do `.hymnal-card`. É aqui que ele
    declara o degrau, e é a tampa logo abaixo quem o lê. */
 .hymnal-card.expanded { --camada: var(--panel-2); }
 .hymnal-card.expanded .coll-bar {
@@ -3473,7 +3473,7 @@ main {
   min-height: 28px;
 }
 /* linha de uma versão no popup. ELA É UMA LINHA DE LISTA, e a escolhida veste
-   o que toda linha escolhida deste app veste — `--sel-fill`, opaco (v1.4.0).
+   o que toda linha escolhida deste app veste — `--sel-fill`, opaco (v1.3.14).
    Era só cor de TEXTO, o mesmo defeito do `#repeat`: aqui o `✓` do
    `.bible-ver-check` acompanhava, então a cor não estava sozinha — mas duas
    listas do mesmo app marcando a linha corrente de dois jeitos é a
@@ -3590,7 +3590,7 @@ main {
    sem isso o padrão `min-width: auto` a impediria de encolher, e o nome longo de
    um livro empurraria os botões para fora da tela em vez de virar reticências. */
 .bible-ref-nav { display: flex; align-items: stretch; gap: 1px; min-width: 0; max-width: 100%; }
-/* ---------- CADA PÍLULA VESTE A GRADE QUE ELA ABRE (v1.4.0) ----------
+/* ---------- CADA PÍLULA VESTE A GRADE QUE ELA ABRE (v1.3.14) ----------
    Queixa do operador: *"o seletor de capítulo, versículo e etc. usa cores
    transparentes e marcadores de cores sólidas, o que não faz sentido; podia ser
    só as sólidas"*.
@@ -3688,7 +3688,7 @@ main {
 .mic-btn {
   width: 100%; height: var(--misc-bar-h); flex-shrink: 0;
   border-radius: var(--radius-btn);
-  /* ---------- ELE É UM BLOCO, NÃO UM CHIP (v1.4.0) ----------
+  /* ---------- ELE É UM BLOCO, NÃO UM CHIP (v1.3.14) ----------
      Ele vestia `--surface-2`, o overlay de CHIP, e isso o punha na aritmética
      de R1 dentro de uma folha que pinta `--panel`: no claro, branco a 92% sobre
      branco pleno — **1,00:1**, o botão sumia. Pôr a folha na lista de R1 (que é
@@ -5594,7 +5594,7 @@ main {
   font-size: .9rem; font-weight: 600; cursor: pointer; font-family: inherit;
 }
 .dialog-btn.primary { background: var(--accent-fill); color: var(--on-accent); }
-/* ---------- CONFIRMAR UMA EXCLUSÃO NÃO É UMA AÇÃO PRIMÁRIA (v1.4.0) ----------
+/* ---------- CONFIRMAR UMA EXCLUSÃO NÃO É UMA AÇÃO PRIMÁRIA (v1.3.14) ----------
    O botão que apaga vestia o MESMO azul preenchido de "Baixar", "Usar o link" e
    "Entendi": a única tela do app em que uma decisão é irreversível era também a
    única em que a cor não dizia isso. Em toda outra parte a regra já valia — o
@@ -5939,7 +5939,7 @@ body.mode-simple .bottombar { display: none; }
    "o comando saiu" e vale só para quem manda algo à projeção. Duas mensagens,
    dois sinais — e é por isso que os dois convivem no mesmo botão.
 
-   QUEM O RECEBE está em `ECO_SELETOR` (v1.4.0): o transporte, os dois botões de
+   QUEM O RECEBE está em `ECO_SELETOR` (v1.3.14): o transporte, os dois botões de
    slide, a cortina, o mudo, a coluna da tela cheia e o "Projetar no telão".
    Antes eram só os seis do transporte — o segundo seletor da lista
    (`.mixer-mid button`) apontava para um bloco removido na v1.3.8 —, e um anel
