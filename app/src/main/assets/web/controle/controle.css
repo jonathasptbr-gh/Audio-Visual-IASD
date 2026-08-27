@@ -3448,12 +3448,49 @@ main {
    sem isso o padrão `min-width: auto` a impediria de encolher, e o nome longo de
    um livro empurraria os botões para fora da tela em vez de virar reticências. */
 .bible-ref-nav { display: flex; align-items: stretch; gap: 1px; min-width: 0; max-width: 100%; }
+/* ---------- CADA PÍLULA VESTE A GRADE QUE ELA ABRE (v1.4.0) ----------
+   Queixa do operador: *"o seletor de capítulo, versículo e etc. usa cores
+   transparentes e marcadores de cores sólidas, o que não faz sentido; podia ser
+   só as sólidas"*.
+
+   As quatro pílulas dividiam UMA superfície translúcida (`--surface-2`, branco
+   com alfa) e UMA cor de valor (`--accent`) — quatro botões idênticos —,
+   enquanto as grades que elas abrem são SÓLIDAS e distintas de propósito:
+   capítulo em tom frio (`--cell-chapter`), versículo em tom quente
+   (`--cell-verse`) e o livro na tinta da divisão canônica dele. Nada ligava a
+   pílula "Capítulo" à grade de capítulos além da palavra escrita nela.
+
+   Agora a pílula É a amostra da grade: tocar no tom frio abre a grade fria,
+   tocar no quente abre a quente, e a de Livro veste a tinta do grupo — a MESMA
+   que aquele livro tem no mosaico — com a faixa de 3px do grupo, o mesmo
+   desenho da célula de lá. A referência deixou de ser quatro botões e virou
+   quatro amostras da tela seguinte.
+
+   O FUNDO NÃO MORA AQUI, de propósito: a pílula de Livro recebe do JS a classe
+   `bg-<grupo>` (a mesma do mosaico), e essas regras vêm ANTES desta no arquivo
+   — declarar `background-color` na base apagaria a tinta do grupo por ordem,
+   com a mesma especificidade. Cada variante pinta a sua.
+
+   MEDIDO — pior par de texto, entre os dez grupos e as duas grades:
+   valor 8,72:1 no escuro e 6,46:1 no claro; rótulo (a .9 de opacidade)
+   6,16:1 e 5,05:1. O `--surface-2` que saiu daqui era o mesmo overlay que
+   compõe uma cor diferente em cada camada — o defeito que `--btn-*` fechou. */
 .bible-ref-part {
   display: flex; flex-direction: column; align-items: center; gap: 1px;
-  background: var(--surface-2); color: var(--text);
+  color: var(--text);
+  --faixa: transparent;
   padding: .3rem .55rem; cursor: pointer; appearance: none; -webkit-appearance: none;
   min-width: 0; flex-shrink: 0;
 }
+/* O LIVRO: só a faixa: a TINTA vem do `.bg-<grupo>` que o JS acrescenta. */
+.bible-ref-part--book {
+  background-image: linear-gradient(to right, var(--faixa) 0 3px, transparent 3px);
+}
+.bible-ref-part--cap  { background-color: var(--cell-chapter); color: var(--cell-chapter-text); }
+.bible-ref-part--vers { background-color: var(--cell-verse);   color: var(--cell-verse-text); }
+/* A VERSÃO não abre grade nenhuma — abre uma lista. Fica no neutro que a
+   própria célula de número usa antes de saber de que grade ela é. */
+.bible-ref-part--edic { background-color: var(--panel-2); }
 /* O nome do livro é o único de largura imprevisível ("1 Tessalonicenses"): é
    ele que encolhe quando a linha aperta, com reticências. */
 .bible-ref-part--book { flex-shrink: 1; min-width: 3.5rem; }
@@ -3469,9 +3506,20 @@ main {
 .bible-read-acoes .cue-save-btn { width: 46px; height: auto; }
 .bible-ref-part:first-child { border-radius: var(--radius-btn) 0 0 var(--radius-btn); }
 .bible-ref-part:last-child { border-radius: 0 var(--radius-btn) var(--radius-btn) 0; }
-.bible-ref-label { font-size: .56rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+/* Rótulo e valor herdam a cor da PÍLULA (`currentColor`), senão as quatro
+   voltariam a ter o mesmo traço sobre quatro fundos diferentes — e um
+   `--accent` sobre a tinta quente do versículo não é a mesma leitura que sobre
+   a fria do capítulo. Quem os separa é a MÉTRICA (.56rem em caixa alta com
+   espaçamento contra .86rem), não a cor.
+   A .9 de opacidade é o teto que passa AA nos DOIS temas: no claro o `--text`
+   já é um cinza médio (`night`), e esmaecê-lo mais derruba o rótulo abaixo do
+   piso (MEDIDO: a .72 ele cai a 3,42:1). */
+.bible-ref-label {
+  font-size: .56rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+  color: currentColor; opacity: .9;
+}
 .bible-ref-value {
-  font-size: .86rem; font-weight: 700; color: var(--accent);
+  font-size: .86rem; font-weight: 700; color: currentColor;
   max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 

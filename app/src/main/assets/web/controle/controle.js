@@ -4031,10 +4031,18 @@ function renderBibleReading(wrap) {
     bibleSel = { bookIdx: s.bookIdx, chapter: s.chapter };
     gotoBibleScreen(screen);
   };
-  part('Livro', s.bookName, goto('books'), 'bible-ref-part--book');
-  part('Capítulo', String(s.chapter), goto('chapters'));
-  part('Versículo', String(v.n), goto('chapters'));
-  if (bibleVersions.length) part('Versão', bibleVersionAbbr(bibleVersionId), openBibleVerPopup);
+  // CADA PÍLULA VESTE A GRADE QUE ELA ABRE (v1.4.0) — ver `.bible-ref-part` no
+  // CSS. A do LIVRO leva a classe do GRUPO CANÔNICO dele, a mesma que a célula
+  // daquele livro tem no mosaico (`'bg-' + b.g`, em `renderBibleBooks`): a
+  // pílula é a amostra da tela seguinte, não mais um botão genérico. Grupo
+  // desconhecido não quebra nada — sem a classe, ela fica sem tinta e a faixa
+  // continua transparente.
+  const grupo = Bible.BOOKS[s.bookIdx] && Bible.BOOKS[s.bookIdx].g;
+  part('Livro', s.bookName, goto('books'),
+    'bible-ref-part--book' + (grupo ? ' bg-' + grupo : ''));
+  part('Capítulo', String(s.chapter), goto('chapters'), 'bible-ref-part--cap');
+  part('Versículo', String(v.n), goto('chapters'), 'bible-ref-part--vers');
+  if (bibleVersions.length) part('Versão', bibleVersionAbbr(bibleVersionId), openBibleVerPopup, 'bible-ref-part--edic');
   foot.appendChild(nav);
   // GUARDAR A REFERÊNCIA (v5.103). Até aqui a leitura bíblica era uma coisa do
   // MOMENTO: o versículo da pregação de domingo tinha de ser reencontrado ao
