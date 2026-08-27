@@ -1399,9 +1399,26 @@ main {
    `min-width: auto`, que se recusa a encolher abaixo do conteúdo, e sem os dois
    um nome longo empurra o vão da direita para fora da tela em vez de virar
    reticências. */
+/* ---------- O NOME DA TELA, e ele é o maior rótulo do cromo (v1.3.16) ----------
+   Pedido do operador: *"aumente a fonte do título das abas Cronograma e Bíblia,
+   mas não aumente a altura dessa barra do topo, apenas a fonte"*.
+
+   A ALTURA NÃO SE MEXE E ISSO NÃO DEPENDE DE CUIDADO: a `.list-header` é uma
+   grade com `grid-template-rows: var(--hit)` — 34px FIXOS, que é o alvo de
+   toque dos dois botões que ela hospeda. A fonte do título não participa dessa
+   conta. MEDIDO em .84 · .92 · 1 · 1,05 · 1,1 · 1,18 · 1,25rem: a barra fica em
+   34px nos sete, sem cortar o glifo, em 430px e em 320px.
+
+   O TAMANHO ESCOLHIDO CORRIGE UMA INVERSÃO. Ele era `.84rem` (13,44px), MENOR
+   que o título de uma folha (`.popup-title` e `.tools-title`, `.95rem`) — e uma
+   folha é uma coisa que abre EM CIMA da tela, não acima dela na hierarquia. A
+   `1,05rem` (16,8px) o nome da tela passa a ser o maior rótulo do cromo, na
+   ordem certa: tela › folha › conteúdo. E continua abaixo dos 22px do glifo dos
+   dois botões vizinhos, então a faixa segue lendo como "ícone · rótulo · ícone"
+   e não como um cabeçalho de página. */
 .list-title {
   min-width: 0; text-align: center;
-  font-size: .84rem; font-weight: 700; color: var(--muted);
+  font-size: 1.05rem; font-weight: 700; color: var(--muted);
   text-transform: uppercase; letter-spacing: .06em;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }

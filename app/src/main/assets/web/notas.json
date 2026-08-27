@@ -1,5 +1,11 @@
 [
   {
+    "versao": "1.3.16",
+    "itens": [
+      "O NOME DA TELA no alto (Cronograma, Bíblia) ficou maior e mais fácil de ler de relance. A barra do topo NÃO cresceu: a altura dela é fixa pelo tamanho dos botões que ela carrega, então só a letra mudou."
+    ]
+  },
+  {
     "versao": "1.3.15",
     "itens": [
       "OS LIVROS DA BÍBLIA passaram a ter UMA cor cada. Cada botão tinha duas faixas — o fundo colorido e uma tira mais forte na lateral —, o que enchia a tela de 66 livros de manchas. A tira saiu; a cor do grupo continua a mesma e continua separando os grupos igual.",
