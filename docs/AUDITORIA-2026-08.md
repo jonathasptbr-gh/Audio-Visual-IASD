@@ -127,6 +127,41 @@ Encontrados por análise estática do repositório inteiro, fora dos workflows.
 | M1 | **`tools/pares-de-comentario.mjs` não roda em workflow nenhum.** É a única prova que pega bloco que mudou de ALVO, e o `CLAUDE.md` a exige como a "prova 2" da poda de comentário. Rodando-a contra a v1.1.16 ela acha W8 e o `display.js:152` — o parágrafo "O TELÃO NÃO RECUPERA SOZINHO uma **transmissão** que falhou" (que explica `onStreamErro`) hoje encabeça `onError`, com `onStreamErro` logo abaixo sem comentário. **Ressalva medida:** a ferramenta dá falso positivo em blocos JSDoc, porque casa pelo cabeçalho e a primeira linha de todo `/** */` é `*`. Pôr no CI exige tratar isso antes |
 | M2 | **`--accent-glow`, `--brand-soft` e `--danger`** são definidos nos DOIS temas de `tokens.css` e nunca consumidos por `var()` em lugar nenhum |
 | M3 | `AVNative.otaPending` e `AVNative.apkProcurar` **não têm consumidor** em toda a base web nem em `tools/` — `atualizacaoEstado` os substituiu. São wrappers de ponte órfãos: a lógica subjacente (`WebUpdater.pendingVersion`, `ShellUpdater.procurar`) continua viva por outros caminhos, então remover os wrappers não remove comportamento. O `CLAUDE.md` ainda os documenta como ativos. *(Refutado como "defeito" pelo verificador — provado por execução que o fluxo do OTA passa com os dois lançando. Fica registrado como inventário, não como defeito.)* |
+| M4 | **25 regras CSS órfãs de um recurso removido.** `.coll-opts`, `.coll-opts--inline`, `.coll-opts-acoes`, `.coll-opt-estado` e `.new-folder-btn` não são aplicadas em lugar nenhum — nem literalmente, nem por construção dinâmica. O próprio `controle.js:8284` declara a remoção: *"(`buildCollectionOptions` e o painel `.coll-opts` saíram na v1.1.21…)"*. A poda tirou o JS e deixou o CSS, contra a regra do `CLAUDE.md`: *"APAGAR CÓDIGO É APAGAR O QUE O DESCREVE, NO MESMO LOTE."* Uma das regras órfãs (`controle.css:3103`) até se descreve como morta — *"todo `.coll-opts` nasce `--inline` desde então, e o valor daqui era…"* — sem que ninguém tenha notado que o seletor inteiro já não casa |
+
+---
+
+## Etapa 3 — CSS, HTML e os workflows do CI (10.848 linhas)
+
+Varredura mecânica completa deste escopo, que nenhuma etapa anterior tinha
+tocado. **Resultado: saudável.** O único achado é o M4 acima; tudo o mais que
+foi testado passou.
+
+### O que foi verificado e está correto
+
+| Verificação | Resultado |
+|---|---|
+| IDs duplicados no HTML | nenhum (174 ids no Controle, 16 no Display) |
+| `getElementById` para id inexistente | nenhum — os 7 candidatos são criados por `panel.id = tool.wrap`, e o comentário declara que só a ferramenta ativa existe no DOM |
+| ids no HTML que ninguém usa | nenhum |
+| ordem dos 11 scripts do Controle | bate exatamente com a documentada, e as 6 globais que o watchdog `otaAppIsUp` exige cobrem os 6 scripts próprios |
+| seletores CSS duplicados | nenhum |
+| classes CSS órfãs | 22 candidatas → 21 são construção dinâmica (`'bg-' + b.g`, `'lv-cifra-' + linha.tipo`, `'row-nota--' + f.tipo`, `'misc-panel--' + tool.id`); sobra o grupo do M4 |
+| tabela `POPUPS` × `z-index` | **concordam** — cast (200) → lyrics (205) → songMenu (210) → sorteio (220), na mesma ordem nos dois lugares. É a regra que o `CLAUDE.md` diz já ter coberto um popup por inteiro |
+| `!important` | 9 no arquivo de 5.970 linhas |
+| as 13 invariantes de CI que o `CLAUDE.md` declara | **todas cumpridas** — `concurrency`/`cancel-in-progress: false`, `fetch-depth: 0`, `versionCode` por `rev-list --count`, `-PrequireSigning=true`, o teste de `CN=Android Debug`, o decoder MIME do Base64, `npm ci` (nenhum `npm i` solto), `ignorar_oraculos`, o teto de `minShell` lido do `SHELL_VERSION` do Kotlin, a validação do `shellTag`, o JUnit antes do `assembleRelease`, e o `pages.yml` encadeado por `workflow_run` |
+
+### Dois falsos positivos que eu mesmo derrubei
+
+Registrados porque são exatamente o tipo de achado que uma varredura mecânica
+produz e um relatório apressado publicaria:
+
+- **`.lv-cifra-letra` / `.lv-cifra-acordes` / `.lv-cifra-vazio` "órfãs".** Elas
+  não aparecem literalmente em JS nenhum, e a regra do respiro entre os pares
+  (`CLAUDE.md`) dependeria delas. Mas `controle.js:11363` faz
+  `div.className = 'lv-cifra-linha lv-cifra-' + linha.tipo`, e `quebrarPares`
+  devolve `tipo` ∈ {`vazio`, `letra`, `acordes`}. As classes são aplicadas.
+- **7 `getElementById` sem id no HTML.** Criados por `panel.id = tool.wrap`.
 
 ---
 
@@ -135,7 +170,6 @@ Encontrados por análise estática do repositório inteiro, fora dos workflows.
 | Escopo | Linhas | Estado |
 |---|---|---|
 | `controle/controle.js` | 24.516 | **parcial** — ver a Etapa 2B abaixo |
-| CSS, HTML, workflows do CI | — | não auditado |
 
 ---
 
