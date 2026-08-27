@@ -11,10 +11,10 @@ sequência que o Android/navegador não produz).
 > Kotlin, JS, CSS, HTML e CI. Tudo o que está aqui passou por um verificador que
 > tentou derrubá-lo; nada é hipótese.
 >
-> **Este arquivo é um INVENTÁRIO, não a lista de trabalho.** Um achado que for
-> aceito e corrigido sai daqui; um que for aceito e adiado migra para
-> `docs/ACHADOS-EM-ABERTO.md`, que é onde mora o que MUDA COMPORTAMENTO e ainda
-> não foi corrigido. Nenhum destes foi corrigido ainda.
+> **TODOS FORAM CORRIGIDOS**, em seis lotes sequenciais, cada um validado pela
+> suíte de oráculos e pelo CI. O que este arquivo guarda agora é o INVENTÁRIO do
+> que foi encontrado e por quê — a lista de trabalho está vazia. Ver a seção
+> "A correção", no fim.
 
 ## Linha de base da auditoria
 
@@ -376,6 +376,67 @@ comentários que afirmam coisas falsas** — o defeito mais frequente deste
 repositório, num projeto cujo próprio `CLAUDE.md` escreve que *"um comentário
 errado é pior que um comentário longo: ele não custa só leitura, produz a decisão
 errada."*
+
+---
+
+## A correção — seis lotes, todos verdes
+
+Aplicada depois de a auditoria fechar, do risco menor para o maior, com a suíte
+rodando a cada lote e o CI compilando o Kotlin (que não compila neste ambiente:
+o proxy bloqueia `dl.google.com`).
+
+| Lote | O quê | Resultado |
+|---|---|---|
+| 1 | 29 comentários que afirmavam coisas falsas + 2 tokens órfãos | zero linhas de código alteradas, provado pela regra 1 da poda |
+| 2 | 10 correções de comportamento no JS | oráculo novo, provado por reversão |
+| 3 | 19 correções no `controle.js` | oráculo novo para a metade preview |
+| 3b | 2 regressões do próprio lote 3 | oráculo novo, provado por reversão |
+| 4 | 15 de código morto no Kotlin | compilou no CI |
+| 5 | 15 correções no Kotlin | zero mudança na ponte |
+| 6 | 15 regras CSS órfãs | e o oráculo que as testava |
+
+### O ciclo revisor→correção pagou três vezes
+
+Cada lote de comportamento passou por um revisor cuja tarefa era derrubá-lo. Ele
+achou **quatro regressões**, todas provadas por reversão, e nenhuma teria
+aparecido em teste de comportamento:
+
+1. **Lote 2** — o adiamento da restauração da letra não era cancelado quando a
+   cena saía: um `clear` durante a espera remontava a letra sobre um palco já
+   esvaziado. Invisível (a cortina cobre), permanente no estado.
+2. **Lote 3** — a gaveta de uma linha NO AR não tinha como fechar. Como o mesmo
+   lote acrescentara `.lib-item.expanded` ao guarda de redesenho, o progresso do
+   download deixava de chegar à tela pelo resto da sessão.
+3. **Lote 3** — o cartão de falha prendia o `pvBusyCount` do trabalho SEGUINTE,
+   deixando o cartão dele preso na tela depois de terminado.
+4. **Lote 5** — o `adeus` do SSE ia para a CAUDA da fila, atrás de todo
+   `display-status` acumulado a 4 Hz: numa tela que escoa devagar o prazo vencia
+   antes de a despedida chegar ao fio. O KDoc prometia "entra na frente" e não
+   era verdade.
+
+### O que a correção descobriu que a auditoria não tinha achado
+
+**Um oráculo que testava código morto.** O `smoke.mjs` montava
+`.coll-opts > .coll-opts-acoes > .new-folder-btn.cancel` à mão, com
+`createElement`, e media o `::before` — CSS que nenhum elemento do app aplicava
+desde a v1.1.21. Um oráculo verde sobre nada, aprovando a si mesmo. É uma classe
+que esta auditoria não procurou: **testes que exercitam o que já não existe.**
+Vale uma varredura própria.
+
+### O que foi deliberadamente NÃO corrigido
+
+26 achados ficaram por aplicar, cada um com justificativa registrada no commit
+do lote. Os que mais pesam:
+
+- **`EspelhoMidiaCanal.soltar()` sem chamador.** Removê-lo apagaria a metade
+  CERTA do defeito: o corpo está correto, o que falta é a CHAMADA. E chamá-lo é
+  mudança de ciclo de vida num canal que carrega mídia para a projeção — não
+  cabia num lote de remoção de morto.
+- **O carimbo da área de transferência.** O conserto mora no
+  `MainActivity.lerLinkCopiado`, e mudar a forma de retorno dele é degrau de
+  `SHELL_VERSION` (56→57) com lote APK+web publicado JUNTO.
+- **O mesmo defeito do `:8884` continua de pé em `hymnResultRow`** — a correção
+  cobriu `linhaDeItem` e não a linha do card do hinário.
 
 ---
 
