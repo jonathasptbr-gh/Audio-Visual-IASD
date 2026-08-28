@@ -3,17 +3,24 @@
 // Este oráculo existe porque as DUAS metades falham CALADAS, e em direções
 // opostas:
 //
-//  - de MENOS: a classificação para de reconhecer o iPhone (a Apple muda a
-//    forma do `userAgent`, alguém mexe na expressão), o download volta a
-//    aparecer ali, e a página continua linda. Ninguém relata "baixei e não
-//    abriu" para o repositório — a pessoa conclui que o app está quebrado e
-//    vai embora;
+//  - de MENOS: a classificação para de reconhecer um aparelho que não é
+//    Android, o download volta a aparecer ali, e a página continua linda.
+//    Ninguém relata "baixei e não abriu" para o repositório — a pessoa conclui
+//    que o app está quebrado e vai embora;
 //
 //  - de MAIS: a classificação passa a recusar um Android de verdade. **Este é
 //    o caro**, e é o motivo de o desenho FALHAR ABERTO: sem classe no `<html>`
 //    nada é escondido. A última asserção mede exatamente essa propriedade, e
 //    ela não tem sintoma nenhum — um Android sem botão de baixar é uma página
 //    que abre, rola e não oferece nada.
+//
+// A PERGUNTA É BINÁRIA, e o iPad é o caso que prova por quê. Com uma frase só
+// para iPhone, iPad e computador, não há classificação de iOS a fazer: o
+// iPadOS 13+ se anuncia como MACINTOSH, e uma leitura ingênua de `/iPad/` o
+// deixaria passar — mas ele cai no lado certo POR CONSTRUÇÃO, porque nenhum
+// aparelho da Apple tem "Android" no `userAgent`. É por isso que ele continua
+// entre os casos medidos aqui mesmo sem código próprio: a asserção guarda a
+// propriedade, não o mecanismo.
 //
 // A prova é sobre o que se VÊ (`isVisible`), nunca sobre a marcação: um link
 // dentro de um bloco `display:none` continua no HTML, e um teste que
@@ -77,15 +84,9 @@ const UA = {
 
 const navegador = await chromium.launch();
 
-// Abre a página com um `userAgent` e, quando pedido, com o toque de um iPad —
-// é `maxTouchPoints` que separa o iPadOS 13+ do Mac, e os dois mandam a MESMA
-// cadeia. Sem forjá-lo, o caso do iPad não existe.
-async function abrir(ua, toques) {
+async function abrir(ua) {
   const ctx = await navegador.newContext({ userAgent: ua, viewport: { width: 900, height: 900 } });
   await semRedeExterna(ctx);
-  if (toques) {
-    await ctx.addInitScript(`Object.defineProperty(navigator, 'maxTouchPoints', { get: () => 5 });`);
-  }
   const pg = await ctx.newPage();
   const erros = [];
   pg.on('pageerror', (e) => erros.push(String(e.message)));
@@ -105,8 +106,7 @@ try {
     checar(classe === 'plat-android', `${nome} no Android é classificado como Android`, classe);
     checar(await ver(pg, '#guia'), `${nome}: o guia de instalação aparece`);
     checar(await ver(pg, '.baixar'), `${nome}: o botão de baixar aparece`);
-    checar(!(await ver(pg, '.aviso-ios')) && !(await ver(pg, '.aviso-outro')),
-      `${nome}: e nenhum aviso de plataforma aparece`);
+    checar(!(await ver(pg, '.aviso-plat')), `${nome}: e o aviso de plataforma NÃO aparece`);
     // O TAMANHO DO ARQUIVO é atributo do download, e anda com ele.
     checar(/MB/.test(await pg.locator('.meta').innerText()),
       `${nome}: e a faixa da marca anuncia o tamanho do arquivo`);
@@ -126,50 +126,46 @@ try {
   }
 
   // =================================================================
-  // iOS — iPhone e o iPadOS que se diz Macintosh
+  // TUDO QUE NÃO É ANDROID — um aviso só, para os quatro
   // =================================================================
-  for (const [nome, ua, toques] of [['iPhone', UA.iphone, false], ['iPad (iPadOS 13+)', UA.ipad, true]]) {
-    const { ctx, pg, erros } = await abrir(ua, toques);
+  //
+  // O iPad entra aqui SEM código próprio para ele: o iPadOS 13+ manda a
+  // cadeia do Macintosh, e é justamente por a pergunta ser binária que isso
+  // deixou de importar. A asserção guarda a PROPRIEDADE (ele não recebe
+  // download), não o mecanismo que a produz.
+  for (const [nome, ua] of [
+    ['iPhone', UA.iphone],
+    ['iPad (iPadOS 13+, que se diz Macintosh)', UA.ipad],
+    ['Windows', UA.windows],
+    ['macOS', UA.mac],
+  ]) {
+    const { ctx, pg, erros } = await abrir(ua);
     const classe = await pg.evaluate(() => document.documentElement.className);
-    checar(classe === 'plat-ios', `${nome} é classificado como iOS`, classe);
+    checar(classe === 'plat-outro', `${nome} é classificado como "não é Android"`, classe);
     // A ASSERÇÃO É SOBRE O QUE SE VÊ. O `<a>` continua no HTML; o que não
     // existe é um caminho até ele — `display:none` o tira da árvore de
     // acessibilidade e da ordem de tabulação junto.
     checar(!(await ver(pg, '#guia')), `${nome}: o guia de instalação NÃO aparece`);
     checar(!(await ver(pg, '.baixar')), `${nome}: nenhum botão de baixar aparece`);
-    checar(await ver(pg, '.aviso-ios'), `${nome}: o aviso de iOS aparece`);
-    checar(!(await ver(pg, '.aviso-outro')), `${nome}: e só ele — o do computador fica fora`);
-    const txt = await pg.locator('.aviso-ios').innerText();
-    // A frase tem de dizer as DUAS coisas: por que não dá, e o que fazer.
-    // Um aviso que só recusa deixa a pessoa sem passo seguinte.
-    checar(/App Store/i.test(txt) && /Android/i.test(txt),
-      `${nome}: e ele diz POR QUE não dá e O QUE fazer`, txt.slice(0, 160));
+    checar(await ver(pg, '.aviso-plat'), `${nome}: o aviso aparece`);
     checar(!/MB/.test(await pg.locator('.meta').innerText()),
       `${nome}: e o TAMANHO do arquivo some junto — ele é atributo do download`);
-    checar(erros.length === 0, `${nome}: nenhum erro de página`, erros);
-    await ctx.close();
-  }
+    const m = await pg.$eval('.aviso-plat', (e) => getComputedStyle(e).marginTop);
+    checar(m === '0px', `${nome}: o aviso abre o \`main\` sem vão herdado do guia oculto`, m);
 
-  // =================================================================
-  // COMPUTADOR — Windows e macOS sem toque
-  // =================================================================
-  for (const [nome, ua] of [['Windows', UA.windows], ['macOS', UA.mac]]) {
-    const { ctx, pg, erros } = await abrir(ua);
-    const classe = await pg.evaluate(() => document.documentElement.className);
-    checar(classe === 'plat-outro', `${nome} é classificado como "outro"`, classe);
-    checar(!(await ver(pg, '#guia')), `${nome}: o guia de instalação NÃO aparece`);
-    checar(!(await ver(pg, '.baixar')), `${nome}: nenhum botão de baixar aparece`);
-    checar(await ver(pg, '.aviso-outro'), `${nome}: o aviso do computador aparece`);
-    checar(!(await ver(pg, '.aviso-ios')), `${nome}: e o de iOS fica fora`);
-    const m = await pg.$eval('.aviso-outro', (e) => getComputedStyle(e).marginTop);
-    checar(m === '0px', `${nome}: o aviso abre o \`main\` sem vão herdado do irmão oculto`, m);
-    // O ENDEREÇO SAI DO `location`, nunca do HTML: o site vive sob um prefixo
-    // de caminho hoje e pode migrar para um domínio próprio. Um literal
-    // continuaria bonito e passaria a apontar para um 404.
-    const end = await pg.locator('.aviso-outro .endereco').innerText();
-    checar(end === new URL(BASE).host + '/', `${nome}: o endereço a digitar sai do \`location\``, end);
-    checar(!/MB/.test(await pg.locator('.meta').innerText()),
-      `${nome}: e o TAMANHO do arquivo some junto — ele é atributo do download`);
+    // A MENSAGEM DIZ AS TRÊS COISAS, e nada além delas: que é um app Android,
+    // que não serve computador nem iPhone/iPad, e o que fazer. Um aviso que só
+    // recusa deixa a pessoa sem passo seguinte.
+    const txt = await pg.locator('.aviso-plat').innerText();
+    checar(/Android/.test(txt) && /computador/i.test(txt) && /iPhone|iPad/.test(txt),
+      `${nome}: o aviso nomeia o Android e os aparelhos que não servem`, txt);
+    checar(/abra esta página/i.test(txt),
+      `${nome}: e diz o que fazer`, txt);
+    // O ENDEREÇO NÃO É REPETIDO: quem lê isto já ESTÁ na página. Asserção
+    // própria porque a versão anterior o imprimia, e ele volta fácil.
+    checar(!/https?:|github\.io/i.test(txt),
+      `${nome}: e NÃO repete o endereço — quem lê já está nele`, txt);
+
     checar(erros.length === 0, `${nome}: nenhum erro de página`, erros);
     await ctx.close();
   }
@@ -200,7 +196,7 @@ try {
     await pg.evaluate(() => { document.documentElement.className = ''; });
     checar(await ver(pg, '#guia') && await ver(pg, '.baixar'),
       'e SEM a classe no `<html>` o guia e o download voltam: o filtro FALHA ABERTO');
-    checar(!(await ver(pg, '.aviso-ios')) && !(await ver(pg, '.aviso-outro')),
+    checar(!(await ver(pg, '.aviso-plat')),
       'e nenhum aviso é afirmado sem classificação — nada é adivinhado');
     await ctx.close();
   }

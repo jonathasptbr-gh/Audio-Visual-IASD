@@ -20,7 +20,14 @@
      quem está num iPhone ou num computador não é generosidade: é entregar um
      arquivo que o aparelho não sabe abrir, e depois deixar a pessoa concluir
      que o app está quebrado. Quem não é Android não vê o guia de instalação —
-     vê a frase que diz por quê, e o que fazer.
+     vê a frase que diz por quê.
+
+     A PERGUNTA É BINÁRIA: é Android, ou não é. Uma frase só serve iPhone, iPad
+     e computador, e por isso NÃO HÁ classificação de iOS aqui — nem regex de
+     `iPhone`, nem o `maxTouchPoints` que separa o iPadOS 13+ (que se anuncia
+     como Macintosh) de um Mac. Nada disso é preciso quando os dois recebem a
+     mesma resposta, e um aparelho da Apple cai no lado certo POR CONSTRUÇÃO:
+     nenhum deles tem "Android" no `userAgent`.
 
      ESTE SCRIPT É INLINE E FICA NO `<head>` de propósito. A alternativa —
      esconder no `DOMContentLoaded` — mostra o botão de baixar por um quadro
@@ -37,23 +44,14 @@
 <script>
   (function () {
     try {
-      var ua = navigator.userAgent || '';
       // O SINAL DE ANDROID VEM DE DUAS FONTES, e a segunda é aditiva: ela só
       // pode RESGATAR um caso, nunca criar um. Um Android com "site para
       // computador" ligado no Chrome perde a palavra "Android" do
       // `userAgent` — e é o único falso positivo conhecido deste caminho.
       var uad = navigator.userAgentData;
-      var android = /Android/i.test(ua)
+      var android = /Android/i.test(navigator.userAgent || '')
                  || (!!uad && /^Android$/i.test(uad.platform || ''));
-      // DO iPadOS 13 EM DIANTE O SAFARI SE ANUNCIA COMO MACINTOSH — um iPad
-      // reconhecido por `iPad` no `userAgent` é só o modelo antigo. O que
-      // separa o iPad do Mac é o toque: `maxTouchPoints` é 0 no macOS.
-      var ios = /iPhone|iPad|iPod/i.test(ua)
-             || (/Mac/i.test(ua) && (navigator.maxTouchPoints || 0) > 1);
-      // ANDROID PRIMEIRO: o positivo vence, porque errar para "não é Android"
-      // tira o app de quem veio buscá-lo.
-      document.documentElement.className =
-        android ? 'plat-android' : (ios ? 'plat-ios' : 'plat-outro');
+      document.documentElement.className = android ? 'plat-android' : 'plat-outro';
     } catch (_) { /* sem classe: a página inteira aparece, ver acima */ }
   })();
 </script>
@@ -218,33 +216,28 @@
   footer p { margin:.4rem 0; }
 
   /* ── O FILTRO DE PLATAFORMA ──────────────────────────────────
-     TRÊS REGRAS, e a ausência de uma quarta é o desenho: nada aqui esconde
+     DUAS REGRAS, e a ausência de uma terceira é o desenho: nada aqui esconde
      coisa alguma quando o `<html>` não tem classe. A classe é escrita pelo
      script do `<head>`; se ele não rodar, este bloco inteiro é inerte e a
      página serve o download a todo mundo, como servia antes.
 
-     `.so-android` É PARA O QUE SÓ FAZ SENTIDO NUM ANDROID — hoje o guia de
-     instalação, com o botão de baixar dentro dele. Escondido por
-     `display:none`, o link sai da árvore de acessibilidade E da ordem de
-     tabulação: ele não é um botão discreto, é um botão que não existe. */
-  .plat-ios .so-android,
+     `.so-android` É PARA O QUE SÓ FAZ SENTIDO NUM ANDROID — o guia de
+     instalação (com o botão de baixar dentro) e o tamanho do arquivo, que é
+     atributo do download. Escondido por `display:none`, o link sai da árvore
+     de acessibilidade E da ordem de tabulação: ele não é um botão discreto, é
+     um botão que não existe. */
   .plat-outro .so-android { display:none; }
-
-  /* Os avisos nascem FORA e cada plataforma acende o seu. Sem classe nenhuma
-     no `<html>` nenhum dos dois aparece — a falha aberta, de novo. */
   .aviso-plat { display:none; }
-  .plat-ios .aviso-ios,
-  .plat-outro .aviso-outro { display:block; }
+  .plat-outro .aviso-plat { display:block; }
 
   /* QUEM ABRE O `<main>` NÃO LEVA VÃO DE TOPO — e quem abre muda com a
      plataforma. `section + section` conta IRMÃOS NO DOM, e um irmão
-     `display:none` continua contando: sem estas três linhas o Android ganhava
-     o vão de uma seção inteira entre a faixa da marca e o guia, e o
-     computador entre a faixa e o aviso. Nenhuma delas erra alto — o que sai é
-     um respiro grande demais, que ninguém relata e ninguém explica. */
+     `display:none` continua contando: sem estas duas linhas o Android ganhava
+     o vão de uma seção inteira entre a faixa da marca e o guia. Não erra alto
+     — o que sai é um respiro grande demais, que ninguém relata e ninguém
+     explica. */
   .plat-android #guia,
-  .plat-ios .aviso-ios,
-  .plat-outro .aviso-outro { margin-top:0; }
+  .plat-outro .aviso-plat { margin-top:0; }
 
   /* O cartão veste a caixa dos passos que ele substitui — mesma cor, mesmo
      raio, mesma posição na descida do olho. Ele NÃO é `.reveal`: o resto da
@@ -252,25 +245,13 @@
      download sumiu tem de estar lá quando a tela pinta. */
   .aviso-cartao {
     background:var(--panel); border-radius:14px; padding:1.3rem 1.25rem;
-    display:grid; grid-template-columns:2.2rem 1fr; gap:1rem; align-items:start;
+    display:grid; grid-template-columns:2.2rem 1fr; gap:1rem; align-items:center;
   }
   .aviso-cartao svg {
     width:2.2rem; height:2.2rem; stroke:var(--accent); fill:none;
     stroke-width:1.7; stroke-linecap:round; stroke-linejoin:round;
   }
-  .aviso-cartao b { display:block; font-size:1.05rem; margin-bottom:.35rem; }
-  .aviso-cartao p { margin:0 0 .7rem; font-size:.92rem; color:var(--muted); }
-  .aviso-cartao p:last-child { margin-bottom:0; }
-  /* O ENDEREÇO É ESCRITO PELO JS, a partir do `location` — nunca digitado
-     aqui. O site vive hoje sob um prefixo de caminho e pode mudar para um
-     domínio próprio; um endereço literal continuaria bonito e passaria a
-     mandar a pessoa para o lugar errado. O texto do HTML é só o que se lê
-     enquanto o script não chega. */
-  .endereco {
-    display:inline-block; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-    font-size:.9rem; color:var(--accent); background:var(--panel-2);
-    padding:.35rem .6rem; border-radius:8px; word-break:break-all;
-  }
+  .aviso-cartao p { margin:0; font-size:.95rem; color:var(--muted); }
 
   a:focus-visible, .baixar:focus-visible { outline:3px solid var(--accent); outline-offset:3px; }
 
@@ -303,44 +284,22 @@
 
   <!-- ============================================================
        O AVISO, para quem não pode instalar — e o guia, para quem pode.
-       Os três ficam no MESMO ponto da página, porque respondem à mesma
+       Os dois ficam no MESMO ponto da página, porque respondem à mesma
        pergunta ("e agora, como eu instalo isto?") e a resposta muda com o
        aparelho, não com o lugar. Quem está num Android vê só o guia; quem
        não está vê só o aviso. Sem o script do `<head>`, vê o guia.
+
+       O ENDEREÇO NÃO É REPETIDO AQUI: quem lê esta frase já ESTÁ nesta
+       página, e mandá-lo copiar um endereço que ele acabou de abrir é
+       trabalho para dizer o que ele já sabe.
        ============================================================ -->
-
-  <section class="aviso-plat aviso-ios">
-    <h2>Este app não instala em iPhone ou iPad</h2>
+  <section class="aviso-plat">
+    <h2>Este app é só para Android</h2>
     <div class="aviso-cartao">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="2" width="12" height="20" rx="3"/><path d="M11 18.5h2"/><path d="M4 4l16 16"/></svg>
-      <div>
-        <b>Você está num aparelho da Apple.</b>
-        <p>O Áudio Visual IASD é um aplicativo <strong>Android</strong>, distribuído
-          como arquivo <code>.apk</code> — e o iOS não instala aplicativos fora da
-          App Store. <strong>Não existe versão para iPhone ou iPad</strong>, e por
-          isso o download não é oferecido aqui: o arquivo baixaria e não abriria.</p>
-        <p>Para usar, abra este endereço no navegador de um
-          <strong>celular ou tablet Android</strong>:</p>
-        <p><span class="endereco">este mesmo endereço</span></p>
-      </div>
-    </div>
-  </section>
-
-  <section class="aviso-plat aviso-outro">
-    <h2>Abra esta página no celular Android</h2>
-    <div class="aviso-cartao">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="4" width="20" height="13" rx="2"/><path d="M8 21h8"/><path d="M14.5 10.5l4 4M18.5 10.5l-4 4"/></svg>
-      <div>
-        <b>Você está num computador.</b>
-        <p>O Áudio Visual IASD é um aplicativo <strong>Android</strong>: ele se
-          instala no celular ou tablet que vai <em>controlar</em> a projeção — a
-          TV recebe a imagem, e o computador não entra nesse caminho. Um
-          <code>.apk</code> baixado aqui não abriria.</p>
-        <p>Abra este endereço no navegador do <strong>aparelho Android</strong>:</p>
-        <p><span class="endereco">este mesmo endereço</span></p>
-        <p>O resto desta página funciona normalmente — role para ver o que o app
-          faz e como ele é na prática.</p>
-      </div>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="2" width="12" height="20" rx="3"/><path d="M10.5 18.5h3"/></svg>
+      <p>O Áudio Visual IASD é um aplicativo <strong>Android</strong> — ele não
+        funciona em computador, iPhone ou iPad. Para baixar e instalar, abra
+        esta página por um <strong>aparelho Android</strong>.</p>
     </div>
   </section>
 
@@ -510,21 +469,6 @@
   } catch (_) {
     document.querySelectorAll('.reveal').forEach(function (el) { el.classList.add('on'); });
   }
-
-  // O ENDEREÇO QUE A PESSOA VAI DIGITAR NO CELULAR sai do `location`, nunca
-  // do HTML. Esta página é servida hoje de um subcaminho
-  // (`…github.io/Audio-Visual-IASD/`) e pode passar para um domínio próprio,
-  // servido da RAIZ — é a mesma razão pela qual todo caminho dentro de `site/`
-  // é relativo. Um endereço literal continuaria bonito depois da troca e
-  // passaria a mandar a pessoa para um 404, sem nada dizendo isso.
-  //
-  // A `origin` fica FORA: "https://" não se digita, e ela dobraria o
-  // comprimento da linha que existe justamente para ser copiada à mão. O
-  // texto que está no HTML é o que se lê enquanto este script não chega.
-  try {
-    var end = (location.host + location.pathname).replace(/\/index\.html$/, '/');
-    document.querySelectorAll('.endereco').forEach(function (el) { el.textContent = end; });
-  } catch (_) { /* fica o texto do HTML */ }
 
   // ===================================================================
   // O FAROL DE VISITA — uma por navegador por dia
