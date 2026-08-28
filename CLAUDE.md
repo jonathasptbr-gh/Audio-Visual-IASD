@@ -3135,7 +3135,7 @@ mundo anterior por outro caminho.
 | `acervo.test.mjs` | as contas da Biblioteca ("completa?" e "quanto ocupa?"), que já foram respondidas por fórmulas diferentes na mesma tela |
 | `mse.test.mjs` · `stage-fade.test.mjs` | mensagens de falha da transmissão direta · a transição de entrada do palco |
 | `registro-alcance.test.mjs` | **a MEDIÇÃO DE ALCANCE**, um dos dois que rodam sobre o `site/`. Duas coisas falham CALADAS ali. Um gráfico que desenha todos os valores iguais: `.barra-c`/`.barra-f` eram `<span>`, que é INLINE, e `width` não faz nada num elemento inline — 12, 5, 3 e 1 saíam idênticos, sem erro em lugar nenhum (provado por REVERSÃO). E o ROTEAMENTO do farol de visita, que é o requisito inteiro: se ele parar, os números continuam subindo e passam a incluir quem mede — **e contador não se corrige depois** |
-| `plataforma.test.mjs` | **o FILTRO DE PLATAFORMA da página**: o `.apk` só instala em Android, então quem chega de iPhone, iPad ou computador não vê o guia de instalação — vê a frase que diz por quê e o que fazer. Falha CALADO nos dois sentidos: de MENOS, o download volta a aparecer num iPhone e a pessoa conclui que o app está quebrado (ninguém relata isso); de MAIS — o caro —, a classificação recusa um Android de verdade e o que sai é uma página que abre, rola e não oferece nada. Daí o desenho FALHAR ABERTO (sem classe no `<html>` nada é escondido) e essa propriedade ter asserção própria: um desenho fail-CLOSED deixa a suíte inteira verde e reprova só ali. `userAgent` VERBATIM, e o do iPad é o do iPadOS 13+, que se anuncia como Macintosh — quem separa os dois é `maxTouchPoints` |
+| `plataforma.test.mjs` | **o FILTRO DE PLATAFORMA da página**: o `.apk` só instala em Android, então quem chega de iPhone, iPad ou computador não vê o guia de instalação — vê a frase que diz que este é um app Android e que a página deve ser aberta por um. Falha CALADO nos dois sentidos: de MENOS, o download volta a aparecer num iPhone e a pessoa conclui que o app está quebrado (ninguém relata isso); de MAIS — o caro —, a classificação recusa um Android de verdade e o que sai é uma página que abre, rola e não oferece nada. Daí o desenho FALHAR ABERTO (sem classe no `<html>` nada é escondido) e essa propriedade ter asserção própria: um desenho fail-CLOSED deixa a suíte inteira verde e reprova só ali. `userAgent` VERBATIM, **o iPad entre eles sem código próprio** — o iPadOS 13+ se anuncia como Macintosh e cai no lado certo por construção, então a asserção guarda a PROPRIEDADE e não o mecanismo |
 
 > **A REDE EXTERNA NÃO ENTRA NUM ORÁCULO** (`tools/sem-rede.mjs`,
 > `semRedeExterna(ctx)` logo depois de cada `newContext()`). A base web fala com
@@ -3326,29 +3326,44 @@ Rodar local: `./gradlew assembleDebug` (exige Android SDK).
 
   **E O DOWNLOAD SÓ EXISTE NO ANDROID.** O app é um `.apk`, e um `.apk` só
   instala em Android: quem chega de iPhone, iPad ou computador não vê o guia de
-  instalação — vê, no MESMO ponto da página, a frase que diz por quê e o que
-  fazer (abrir este endereço no aparelho Android, escrito a partir do
-  `location` e nunca literal, pela mesma razão da regra acima). O resto da
-  página fica: as funções, as telas e os modos de uso são verdade em qualquer
-  aparelho, e uma página que se apaga inteira não explica nada a ninguém.
+  instalação — vê, no MESMO ponto da página, uma frase dizendo que este é um
+  aplicativo Android, que ele não serve computador nem iPhone/iPad, e que a
+  página deve ser aberta por um aparelho Android. **O endereço não é repetido
+  ali**: quem lê a frase já ESTÁ na página, e mandá-lo copiar o que acabou de
+  abrir é trabalho para dizer o que ele já sabe. O resto da página fica: as
+  funções, as telas e os modos de uso são verdade em qualquer aparelho, e uma
+  página que se apaga inteira não explica nada a ninguém.
+
+  **A PERGUNTA É BINÁRIA — é Android, ou não é.** Uma frase só serve os três
+  casos, e por isso não há classificação de iOS: nem regex de `iPhone`, nem o
+  `maxTouchPoints` que separaria o iPadOS 13+ (que se anuncia como
+  **Macintosh**) de um Mac. Um aparelho da Apple cai no lado certo **por
+  construção** — nenhum deles tem `Android` no `userAgent` —, e é isso que faz
+  o desenho ficar mais robusto ao encolher: ele passou a depender só do
+  positivo. *Uma armadilha some quando a pergunta que a criava deixa de ser
+  feita.*
 
   **Três coisas sustentam isso, e a terceira é a que decide o desenho:**
 
   | peça | onde | por quê |
   |---|---|---|
-  | a classificação | um `<script>` INLINE no `<head>`, que escreve `plat-android`/`plat-ios`/`plat-outro` no `<html>` | esconder no `DOMContentLoaded` mostra o botão de baixar por um quadro antes de tirá-lo, e é exatamente aí que a pessoa toca |
-  | o `display:none` | CSS, sobre `.so-android` | um link escondido assim sai da árvore de acessibilidade E da ordem de tabulação — não é um botão discreto, é um botão que não existe |
+  | a classificação | um `<script>` INLINE no `<head>`, que escreve `plat-android` ou `plat-outro` no `<html>` | esconder no `DOMContentLoaded` mostra o botão de baixar por um quadro antes de tirá-lo, e é exatamente aí que a pessoa toca |
+  | o `display:none` | CSS, sobre `.so-android` (o guia **e** o tamanho do arquivo, que é atributo do download) | um link escondido assim sai da árvore de acessibilidade E da ordem de tabulação — não é um botão discreto, é um botão que não existe |
   | **a falha ABERTA** | a ausência de uma regra: sem classe no `<html>`, nada é escondido | script bloqueado ou uma exceção não prevista devolvem a página de antes. Falhar FECHADO inverteria o custo do erro para o lado que não se paga — um Android de verdade sem botão de baixar e sem nada na tela dizendo por quê |
 
-  **O iPadOS 13+ se anuncia como Macintosh**, então `/iPad/` sozinho reconhece
-  só o modelo antigo; o que separa o iPad do Mac é `maxTouchPoints`, que é 0 no
-  macOS. E o sinal de Android vem de DUAS fontes (`userAgent` e
+  **`section + section` conta irmãos NO DOM, e um irmão `display:none` continua
+  contando** — sem o `margin-top:0` do primeiro bloco VISÍVEL, o guia nasce com
+  o vão de uma seção inteira sob a faixa da marca. Não erra alto: o que sai é um
+  respiro grande demais, que ninguém relata e ninguém explica.
+
+  O sinal de Android vem de DUAS fontes (`userAgent` e
   `userAgentData.platform`), a segunda ADITIVA: ela só pode resgatar um caso,
   nunca criar um. **O falso positivo conhecido está dito e não tem conserto
   barato:** um Android com "site para computador" ligado no Chrome perde a
-  palavra `Android` do `userAgent` e cai no aviso do computador — que continua
-  sendo a instrução certa, só que redundante. Oráculo: `plataforma.test.mjs`,
-  com os `userAgent` VERBATIM e a falha aberta em asserção própria.
+  palavra `Android` do `userAgent` e cai no aviso — que continua sendo a
+  instrução certa, só que redundante. Oráculo: `plataforma.test.mjs`, com os
+  `userAgent` VERBATIM (o iPad entre eles, sem código próprio: a asserção
+  guarda a PROPRIEDADE, não o mecanismo) e a falha aberta em asserção própria.
 
 ### Código
 
