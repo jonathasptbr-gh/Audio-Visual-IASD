@@ -42,9 +42,8 @@ esvaziar, não para crescer),
 subsistema do shell, mais a tabela que diz onde cada um dos 28 arquivos é
 explicado), `docs/ARQUITETURA-WEB.md` (o HUB da base web: regras gerais e o
 mapa dos capítulos em `docs/arquitetura/`), `docs/TELAO-POR-COMANDOS.md`
-(o contrato das telas da rede — e o `docs/PONTO-DE-ACESSO-PLANO.md`,
-**plano NÃO implementado** de servir com o celular como ponto de acesso, parado
-esperando medição em aparelho), `docs/FONTE-DE-DADOS-LOUVORJA.md` (hinos/Bíblia)
+(o contrato das telas da rede — inclusive o celular como PONTO DE ACESSO, que
+saiu do plano e virou código na v1.4.1), `docs/FONTE-DE-DADOS-LOUVORJA.md` (hinos/Bíblia)
 , `docs/HISTORICO.md`
 (**apêndice**: a nota de cada versão, para consultar por `grep`, nunca por
 leitura integral) e `docs/AUDITORIA-2026-08.md` (**apêndice**: a varredura de
@@ -154,6 +153,10 @@ app/src/main/
 │   ├── EspelhoMidiaCache.kt     # o cache da rota /m/<token> — PURO, com JUnit
 │   ├── EspelhoMidiaCanal.kt     # canal de ArrayBuffer: OPFS → cache (WebMessage)
 │   ├── EspelhoEnergia.kt        # wake lock, Wi-Fi lock e térmica da transmissão
+│   ├── EspelhoInterfaces.kt     # EM QUE INTERFACE o socket abre — PURO, com
+│   │                            #   JUnit. É ele que acha o PONTO DE ACESSO,
+│   │                            #   que não é um `Network` e não aparece no
+│   │                            #   ConnectivityManager
 │   ├── EspelhoCert.kt           # o .p12 do TLS opcional (sem UI desde a v5.196)
 │   └── EspelhoDiag.kt           # o DIÁRIO da transmissão — devolve JSON, não frase
 └── res/
@@ -422,10 +425,17 @@ window.AVNative = {
                        //   pelo lado web. Vazio = os cinco de sempre
   onRemote(cb),        // cb('play'|'pause'|'playpause'|'prev'|'next'|'stop'|'view')
   // ---- TELÃO POR COMANDOS — ver a seção ----
-  espelhoLigar(),      // liga a transmissão
+  espelhoLigar(ip),    // liga a transmissão. `ip` VAZIO = "escolha você" (a
+                       //   primeira da lista, ponto de acesso na frente); com
+                       //   ip vai pelo `espelhoLigarEm`, método PRÓPRIO do
+                       //   Kotlin — ADITIVO, nunca uma assinatura trocada
   espelhoDesligar(),   // síncrono e sem resposta, como o `ytCancel`
-  espelhoEstado(),     // → { ligado, endereco, erro, telas:[…] }
+  espelhoEstado(),     // → { ligado, endereco, erro, via, redes:[…], telas:[…] }
                        //   (sem `codigo` desde a v5.189: a porta é o ENDEREÇO)
+                       //   `via` é `WIFI`|`PONTO_DE_ACESSO`; `redes` são as
+                       //   servíveis AGORA ({ip, via, iface}) e vem VAZIA com a
+                       //   transmissão no ar — montá-la enumera interfaces na
+                       //   main thread, e a folha não a desenha ligada
                        //   cada tela: { rotulo, comando:true, conectadaMs,
                        //   telaAcesaMin, aviso, eventos, pronta, fila }
   espelhoDiag(),       // → JSON do Registro (servidor, sessões, cache de
@@ -482,7 +492,7 @@ window.AVNative = {
   cifraDiag(),         // → string: o que a última busca de cifra recebeu
 }
 ```
-São **49 métodos**, e essa é a superfície inteira que o resto do lado web tem
+São **50 métodos**, e essa é a superfície inteira que o resto do lado web tem
 direito de usar — fora do `native.js`, tocar em `__AVBridge` direto é
 acoplamento indevido. O próprio `native.js` chama mais oito coisas lá, e nenhuma
 é API para o app: `ytFetchAudio` e `ytFetchAte` (não são métodos a mais, são os
@@ -540,7 +550,7 @@ prazo (um timeout ali resolveria null com o operador ainda escolhendo a pasta).
 
 ### `SHELL_VERSION` — subir SEMPRE que a superfície mudar
 
-Hoje vale **56**, e ele é o **PISO**: o bundle declara `minShell: 56`, então
+Hoje vale **57**, e ele é o **PISO**: o bundle declara `minShell: 57`, então
 todo método da ponte existe sempre e **não há guarda de versão no lado web**.
 "Superfície" inclui **forma de retorno** e **comportamento**, não só assinatura:
 um campo que some, um contrato de URL que muda ou um método que passa a fazer
@@ -553,7 +563,7 @@ escondia. Sem guardas, o web chama um método que o APK instalado não tem: o
 existe, é tocável e não faz nada. Por isso mudança de ponte é um lote
 **APK + web publicado JUNTO**, com `shellTag` no `version.json`.
 
-> A tabela dos 56 degraus está em `docs/HISTORICO.md` — ela é história do
+> A tabela dos 57 degraus está em `docs/HISTORICO.md` — ela é história do
 > contrato, e história mora lá.
 
 ### As QUATRO filas da ponte — escolher a errada é uma regressão muda
@@ -615,7 +625,7 @@ E duas regras que ficam de fora das filas:
   e volta; quem responde é o laço de cópia do `YoutubeGrab`, a cada bloco de
   64 kB.
 
-**O bundle declara `minShell: 56`, e é a VÁLVULA que resolve.** Um bundle que
+**O bundle declara `minShell: 57`, e é a VÁLVULA que resolve.** Um bundle que
 exija ponte mais nova que o `SHELL_VERSION` instalado é recusado inteiro
 (`WebUpdater.kt`), e o app segue no que tinha — a recusa acontece no shell, e
 não em runtime no meio de um culto. **Guarda de versão no lado web é proibida:**
@@ -1480,13 +1490,43 @@ nada.
 fechamento do app, ou por uma falha nomeada em texto. Uma TV que conecta **não**
 derruba a transmissão — sem TV, as telas da rede SÃO o que a congregação vê.
 
+**A REDE PODE SER O PRÓPRIO CELULAR (v1.4.1).** A transmissão nunca precisou de
+internet; ela precisava que o celular fosse **cliente** de uma Wi-Fi, e numa
+igreja sem rede isso não existe. Hoje há duas vias, e o `via` do estado diz qual
+está servindo:
+
+| via | o que é |
+|---|---|
+| `WIFI` | o de sempre: o celular é cliente de uma Wi-Fi (com ou **sem** uplink — `NET_CAPABILITY_VALIDATED` fica deliberadamente fora do filtro) |
+| `PONTO_DE_ACESSO` | o celular É o roteador: hotspot ligado, o computador entra nele |
+
+**E o ponto de acesso é a resposta mais forte ao AP ISOLATION** — a falha muda
+deste recurso (servidor de pé, porta escutando, nenhum SYN chegando). Isolamento
+bloqueia cliente↔cliente; no hotspot o celular é o **GATEWAY**, e é dele que o
+computador tira DHCP e DNS, então esse caminho não pode estar fechado.
+
+**As duas não se somam por decisão nossa:** com as duas de pé, quem escolhe é o
+operador (`redes.length > 1` desenha a escolha) — qual delas a tela alcança não
+é decidível pelo app. E quem serve não migra sozinho para a outra: o
+`confirmarRede` religa **na mesma via**, porque migrar seria ligar por conta
+própria, e o contrato diz AUXILIAR.
+
+**O que o AP tem de próprio, e por que a enquete existe:** `observarRede` assina
+`TRANSPORT_WIFI`, e em modo AP puro esse callback **nunca dispara** — não há
+`Network` para ganhar nem perder. Não há morte errada em 6 s ali; há coisa pior,
+**nada vigiaria o AP caindo**, e o socket ficaria amarrado a um endereço morto.
+Quem cobre isso é `vigiarPontoDeAcesso` (5 s), que levanta a mesma SUSPEITA e
+deixa o veredito com o `confirmarRede` de sempre. O caso não é raro: o hotspot
+**se desliga sozinho por ociosidade** em vários fabricantes.
+
 ### As peças, e o que cada uma se recusa a fazer
 
 | Arquivo | O quê |
 |---|---|
 | `EspelhoHttp.kt` | parser HTTP **+ Range + SSE** — **PURO, zero import de Android**, com JUnit. `alcanceDe` segue a RFC 7233 à risca: faixa malformada é **IGNORADA** (200 inteiro), nunca adivinhada; `Range` duplicado é malformado; fora do tamanho é 416 |
 | `EspelhoPares.kt` | porta, tokens, prazo, castigo — **PURO**, com JUnit. **Sem código de entrada**: a porta é o ENDEREÇO na rede, e o controle real é o teto de 3 sessões + o `derrubar` do operador (com castigo de 2 min, sem o qual "Desconectar" não faria nada visível). O token **nunca viaja numa URL**: o SSE vai por `fetch` + `Authorization: Bearer` (não `EventSource`, que não manda cabeçalho) |
-| `EspelhoServidor.kt` | sockets, rotas, fan-out. Serve **só** `PREFIXOS_BUNDLE` (display/shared/espelho — **nunca** `web/controle/`); `GET /e` (SSE: fila de 256 por tela, ping de 15 s com o epoch do celular, `adeus` no desligar); `/m/<token>` (completo = 206/416, **em crescimento = chunked**, servindo enquanto o empurrão anda); `POST /r` (o `st` injeta o status via `MessageBus.post(null,…)`, que **não** passa pelo `busPost` — **sem eco por construção** — e só os tipos de `TIPOS_QUE_SOBEM`). Bind explícito ao IPv4 da Wi-Fi, allowlist de `Host` exata |
+| `EspelhoServidor.kt` | sockets, rotas, fan-out. Serve **só** `PREFIXOS_BUNDLE` (display/shared/espelho — **nunca** `web/controle/`); `GET /e` (SSE: fila de 256 por tela, ping de 15 s com o epoch do celular, `adeus` no desligar); `/m/<token>` (completo = 206/416, **em crescimento = chunked**, servindo enquanto o empurrão anda); `POST /r` (o `st` injeta o status via `MessageBus.post(null,…)`, que **não** passa pelo `busPost` — **sem eco por construção** — e só os tipos de `TIPOS_QUE_SOBEM`). Bind explícito a um IPv4 **SERVÍVEL** (RFC1918, de uma interface que a regra aceita e que nenhum `Network` reivindica — ver `EspelhoInterfaces.kt`), **nunca** `0.0.0.0`; allowlist de `Host` exata |
+| `EspelhoInterfaces.kt` | **EM QUE INTERFACE** o socket pode abrir — **PURO**, com JUnit. Ele existe porque o **ponto de acesso do próprio celular não é um `Network`**: o downstream do tethering é montado no netd sem `NetworkAgent`, e sempre viveu no eixo que devolve NOME DE INTERFACE. **O discriminador não é o nome**, e é isso que faz a regra durar: *no ar, com IPv4 privado, e que NENHUM `Network` reivindica* — a do soft AP é a única com essa forma, porque não é uma rede que o aparelho USA, é uma que ele SERVE. O nome entra só na CLASSIFICAÇÃO, depois de três filtros. Ele **classifica; não faz política**: admitir só `PONTO_DE_ACESSO` é uma linha visível do `redeParaServir` |
 | `EspelhoMidiaCache.kt` | o cache da rota `/m/` — **PURO**, com JUnit. Token é **capacidade** (forma validada aqui; entropia de quem cunha — o Controle, `crypto.randomUUID`); mesmo id + mesmo token = mesmo item (a regra do `SafRegistry`); id com token novo **substitui**; LRU por **bytes** e só de **completos** (um item em crescimento tem um empurrão vivo do outro lado) |
 | `EspelhoMidiaCanal.kt` | o empurrão OPFS → cache, por `WebMessageListener` com `ArrayBuffer` (allowedOriginRules exato, `isMainFrame`, host conferido). Ack por bloco; a oferta na fila é **não-bloqueante** — fila cheia = erro retentável, nunca travar a main thread |
 | `EspelhoEnergia.kt` | wake lock, Wi-Fi lock e térmica — **não é um Service**: quem carrega a transmissão em primeiro plano é o `SessionService`. Exige `CHANGE_WIFI_MULTICAST_STATE` no manifest, senão `startForeground` **lança** |
@@ -2672,7 +2712,7 @@ que ela é desenvolvida e testada fora do aparelho.
 | Atualização da base web | recarregar a página | **OTA** |
 | Atualização do APP | — | **o app baixa e instala**; o diálogo do Android é obrigatório e está certo que seja |
 | Tema claro × escuro | CSS + `localStorage`; `theme-color` tinge a barra | idem **mais o cromo do sistema**: `temaClaro` vira os ÍCONES das barras e guarda a escolha para o `windowBackground` do PRÓXIMO lançamento (recurso de APK é resolvido antes de existir JS) |
-| **Telão nas telas da rede** | **não existe** (navegador não abre `ServerSocket`) | servidor HTTP no celular + SSE + `/m/<token>` — ver a seção do recurso |
+| **Telão nas telas da rede** | **não existe** (navegador não abre `ServerSocket`) | servidor HTTP no celular + SSE + `/m/<token>` — ver a seção do recurso. A rede é a Wi-Fi de que o celular é CLIENTE **ou o PONTO DE ACESSO dele mesmo** (v1.4.1): nenhuma das duas precisa de internet |
 | `__AV_ROLE__` | `'controle'` / `'display'` | **terceiro valor, `'tela'`** — o mesmo `/web/display/` num navegador da LAN. Seguro por construção: as leituras do papel comparam `!== 'controle'`, e **nenhum caminho testa `=== 'display'`** |
 
 ### Compartilhamento: ponto de entrada exportado valida o que recebe
@@ -3054,6 +3094,7 @@ mundo anterior por outro caminho.
 | `gaveta-no-download.test.mjs` | a GAVETA DA LINHA contra o redesenho do progresso — o único lugar do acervo em que o operador DECIDE, e o redesenho remontava a lista por baixo dela a cada 400 ms. MUDO nos dois tempos: aberta, ela some sem erro nenhum; ABRINDO (há um `await` do IndexedDB entre o toque e o `expanded`), o `li` vira órfão e o toque não faz nada. Quatro metades, e a primeira é o HAZARD — sem ela as outras provariam que uma função concorda consigo mesma |
 | `cifra-offline.test.mjs` | **a cifra guardada do hinário abre SEM REDE**, e **a gravação MESCLA em vez de substituir**. A primeira promessa é operacional e falha calada: sem a leitura do disco o app cai no caminho de rede e, COM rede, a folha aparece igual — pela porta errada. Por isso a asserção é `cifraHtml` NÃO ter sido chamado, com a ponte respondendo "sem rede" a tudo; a outra metade prova que o que NÃO está guardado ainda vai à rede. A segunda trava o defeito que apagou 275 cifras de um aparelho: a asserção é a PROPRIEDADE (uma mescla não pode produzir zero a partir de 275), não o interleaving que mordeu daquela vez |
 | `leitor-biblioteca.test.mjs` | **a folha de qualquer música da Biblioteca, SEM telão.** Ler deixou de exigir projetar, e três coisas falham calado: a folha mostrar a música da CENA em vez da pedida; alguma coisa ir ao TELÃO — o único defeito que não deixa rastro na tela de quem abriu a folha, e por isso o oráculo afirma ZERO comandos no barramento; e o relógio da cena governar a rolagem de OUTRA música, que não erra alto: a folha anda, no compasso errado |
+| `recusa-transmissao.test.mjs` | **a recusa da transmissão diz O QUE FAZER, e só quando é de REDE.** O veredito sempre saiu verbatim do shell (certo: a frase é de quem decidiu); o que faltava era a instrução, e ela falha calada nos DOIS sentidos — de menos, o operador lê "sem rede para transmitir" sem saber que o ponto de acesso do próprio celular resolve; de mais, a recusa de PORTA OCUPADA (a única deste caminho cujo conserto não é mexer na rede) passa a mandar mexer na rede. A segunda metade lê as frases do PRÓPRIO Kotlin — técnica do `tipos-que-sobem`, e pelo mesmo motivo: a decisão é por PALAVRA sobre uma string que o Kotlin escolhe |
 | `destinos.test.mjs` | o que está marcado atravessa o fechamento da folha — a ação roda depois de `closeSongMenu()`, que zera o conjunto |
 | `hinario-tela.test.mjs` | as seções do hinário **da tabela até a tela**. O `hinario.test.mjs` trava a REGRA; este, a LIGAÇÃO. Dois casos não gritam: os cabeçalhos moram na MESMA `<ul>` das faixas, e uma retomada de paginação que contasse os FILHOS pularia um hino por cabeçalho (hinos sumindo do meio da lista); e o hinário de 1996 tem outra numeração, então um "Infantis" sobre o 508 DELE ninguém nota olhando o hinário certo |
 | `sorteio-tela.test.mjs` | a **playlist automática** da folha até a fila. O `sorteio.test.mjs` trava a REGRA; este trava a LIGAÇÃO, que falha de outro jeito — a regra continua certa e o recurso não faz nada. As quatro capacidades injetadas são ponteiros, e um errado devolve um pool plausível e ERRADO |
@@ -3090,7 +3131,11 @@ mundo anterior por outro caminho.
 `EspelhoParesTest` (prazo, teto de sessões, saneamento), `EspelhoHttpRangeTest`
 (a gramática RFC 7233 do `alcanceDe` — malformado é IGNORADO e vira 200, nunca
 adivinhado; é a **inversão da invariante 8** escrita como código),
-`EspelhoMidiaCacheTest` (o token-capacidade da rota `/m/`) e `TrilhaAudioTest`
+`EspelhoMidiaCacheTest` (o token-capacidade da rota `/m/`),
+`EspelhoInterfacesTest` (EM QUE INTERFACE o socket abre — em PARES, e o par que
+carrega o arquivo é o `p2p-wlan0-0`/`192.168.49.1` do Wi-Fi Direct: privado, no
+ar, sem `Network` que o reivindique, a forma EXATA que a regra procura, e no ar
+durante todo culto com Miracast) e `TrilhaAudioTest`
 (qual trilha de áudio vai ao telão — o defeito mais silencioso deste caminho:
 tudo funciona, e o testemunho está em inglês na frente da congregação; doze casos
 **em pares**, o que a regra passou a recusar e o que ela não pode ter recusado
@@ -3431,8 +3476,8 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: v1.4** (base web) · **v1.4** (APK) · `SHELL_VERSION` **56** · bundle com
-`minShell: 56` — o shell 56 é o **PISO**: todo método da ponte existe, e não há
+**Versão atual: v1.4.1** (base web) · **v1.4.1** (APK) · `SHELL_VERSION` **57** · bundle com
+`minShell: 57` — o shell 57 é o **PISO**: todo método da ponte existe, e não há
 guarda de versão no lado web. O que continua valendo é que `java/`, `res/`, o
 manifest e os workflows **só chegam instalando o APK**.
 

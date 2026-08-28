@@ -602,13 +602,21 @@
     // O `/web/display/` de verdade rodando em navegadores da rede local, movido
     // pelos comandos do barramento (ver docs/TELAO-POR-COMANDOS.md).
     //
-    // ESTES QUATRO NÃO REMONTAM CAMPO A CAMPO, e isso é deliberado: eles só
+    // ESTES CINCO NÃO REMONTAM CAMPO A CAMPO, e isso é deliberado: eles só
     // repassam o `callId` e devolvem o JSON que o KOTLIN montou. A forma de
     // falhar preferida deste projeto — um campo esquecido na remontagem, lido
     // como `false`/`0` do outro lado (`slideLabel` v5.97→v5.102, `bytes`
     // v5.118→v5.137) — não tem por onde acontecer aqui, porque não há
     // remontagem. O que sobra de cuidado é a coerção dos ARGUMENTOS, abaixo.
-    espelhoLigar: () => call((id) => B.espelhoLigar(id), CALL_TIMEOUT_MS),
+    // `ip` VAZIO = "escolha você", e é o caminho de todo aparelho com uma rede
+    // só: o shell pega a primeira da lista, que já vem com o ponto de acesso na
+    // frente. Com ip, vai pelo `espelhoLigarEm` — método PRÓPRIO e ADITIVO
+    // (shell 57), nunca uma assinatura trocada: encolher ou mudar a forma de um
+    // método que já existe faz o bundle novo chamar contra um APK que ainda tem
+    // a forma velha, e o botão para de funcionar sem nada que o explique.
+    espelhoLigar: (ip) => (ip
+      ? call((id) => B.espelhoLigarEm(id, String(ip)), CALL_TIMEOUT_MS)
+      : call((id) => B.espelhoLigar(id), CALL_TIMEOUT_MS)),
     // Síncrono e SEM `callId`, no molde do `ytCancel`: desligar não pode
     // esperar a fila de nada. Quem responde é o próprio estado, na consulta
     // seguinte.

@@ -1445,15 +1445,35 @@ class MainActivity : ComponentActivity(), BridgeHost {
      * o mesmo código, e a FRASE da falha vem pronta de quem sabe o motivo. A
      * especificação proíbe degradar calado em todos os pontos deste caminho.
      */
-    override fun startMirror(onResult: (JSONObject) -> Unit) {
+    override fun startMirror(ip: String, onResult: (JSONObject) -> Unit) {
         runOnUiThread {
             if (espelhoSrv?.ligado == true) { onResult(mirrorJson()); return@runOnUiThread }
 
-            // 1. A REDE. `Recusa` traz a frase do operador na mensagem.
-            val rede = try {
-                EspelhoServidor.redeDaWifi(this)
+            // 1. A REDE — a Wi-Fi de que este aparelho é CLIENTE, ou o PONTO DE
+            //    ACESSO que ele mesmo serve. A lista já vem na ordem certa
+            //    (ponto de acesso primeiro), e `ip` só chega preenchido quando
+            //    o operador ESCOLHEU entre duas — o que só é oferecido quando
+            //    de fato existem duas.
+            val redes = try {
+                EspelhoServidor.redeParaServir(this)
             } catch (e: Exception) {
-                onResult(mirrorJson(erro = e.message ?: "o espelho só liga em Wi-Fi"))
+                emptyList<EspelhoServidor.Rede>()
+            }
+            val rede = (if (ip.isEmpty()) redes.firstOrNull()
+            else redes.firstOrNull { it.ip.hostAddress == ip })
+            if (rede == null) {
+                // A FRASE NASCE AQUI, e é a única do caminho que muda com o
+                // pedido: "escolhi e sumiu" e "não há nenhuma" pedem ações
+                // opostas do operador.
+                onResult(
+                    mirrorJson(
+                        erro = if (ip.isNotEmpty()) {
+                            "a rede escolhida nao esta mais disponivel"
+                        } else {
+                            EspelhoServidor.motivoSemRede(this)
+                        },
+                    ),
+                )
                 return@runOnUiThread
             }
 
@@ -1500,8 +1520,9 @@ class MainActivity : ComponentActivity(), BridgeHost {
             // 3. NÃO HÁ MAIS TELA VIRTUAL NEM ENCODER (E6, o corte do telão
             // por comandos): as telas da rede rodam o próprio /display/ servido
             // por este servidor e renderizam localmente — o que atravessa a
-            // rede são COMANDOS. [modo] segue IGNORADO (a assinatura da ponte
-            // fica; quem chama já não escolhe nada).
+            // rede são COMANDOS. O que a assinatura carrega hoje é o `ip`
+            // escolhido — a REDE, não um modo de transmitir: continua havendo
+            // um só.
             //
             // (Saiu na v5.206: `espelhoDiag.novaSessao()`. Ela zerava a âncora
             // do atraso captura→fio do anel de `ritmo`, e aquele anel morreu com
@@ -1586,10 +1607,40 @@ class MainActivity : ComponentActivity(), BridgeHost {
     private fun mirrorJson(erro: String = ""): JSONObject {
         val srv = espelhoSrv?.estado()
         val ligado = espelhoSrv?.ligado == true
+        // AS REDES SERVÍVEIS — inclusive na recusa, que é justamente quando o
+        // operador precisa saber o que existe. A lista é DADO: quem escreve "a
+        // Wi-Fi da igreja" ou "o ponto de acesso deste celular" é o
+        // `controle.js` (invariante 5), e a escolha só é DESENHADA com mais de
+        // uma — uma escolha que aparece no caso comum não cobra nada.
+        //
+        // **VAZIA COM A TRANSMISSÃO NO AR, e isso é deliberado.** Este objeto é
+        // relido a cada 2,5 s enquanto a folha está aberta, e montá-lo ENUMERA
+        // AS INTERFACES do aparelho na MAIN THREAD. Com o servidor de pé a
+        // lista não é desenhada (trocar de rede exige desligar), então o que
+        // sobraria era uma varredura por segundo e meio durante o culto inteiro
+        // para alimentar um bloco que ninguém pinta. Quem quer a leitura com a
+        // transmissão no ar tem o Registro, que a faz sob demanda.
+        val redes = JSONArray()
+        if (!ligado) {
+            try {
+                for (r in EspelhoServidor.redeParaServir(this)) {
+                    redes.put(
+                        JSONObject()
+                            .put("ip", r.ip.hostAddress ?: "")
+                            .put("via", r.via.name)
+                            .put("iface", r.iface),
+                    )
+                }
+            } catch (e: Exception) {
+                Log.w(TAG, "não foi possível listar as redes servíveis", e)
+            }
+        }
         return JSONObject()
             .put("ligado", ligado)
             .put("endereco", srv?.optString("url") ?: "")
             .put("erro", erro)
+            .put("via", srv?.optString("via") ?: "")
+            .put("redes", redes)
             .put("telas", srv?.optJSONArray("telas") ?: JSONArray())
     }
 
@@ -1608,6 +1659,14 @@ class MainActivity : ComponentActivity(), BridgeHost {
             val o = espelhoDiag.paraJson()
             o.put("ligado", espelhoSrv?.ligado == true)
             espelhoSrv?.let { o.put("servidor", it.estado()) }
+            // AS INTERFACES VISTAS E O MOTIVO DE CADA RECUSA. É a única forma
+            // de diagnosticar a distância um nome de interface de fabricante —
+            // sem ela, "não achou o ponto de acesso" num aparelho com o hotspot
+            // ligado não tem pista nenhuma, e isto é Kotlin: não há OTA que
+            // conserte a regra depois.
+            try { o.put("interfaces", EspelhoServidor.interfacesJson(this)) } catch (e: Exception) {
+                Log.w(TAG, "leitura de interfaces indisponível", e)
+            }
             try { o.put("servico", EspelhoEnergia.estado(this)) } catch (e: Exception) {
                 Log.w(TAG, "estado do serviço do espelho indisponível", e)
             }

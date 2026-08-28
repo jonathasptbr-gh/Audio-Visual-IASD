@@ -24,6 +24,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
+- **v1.4.1** — O CELULAR COMO PONTO DE ACESSO. A transmissão nunca precisou de internet — ela precisava que o celular fosse CLIENTE de uma Wi-Fi, e numa igreja sem rede isso não existe: o operador lia *"sem Wi-Fi — o espelho só liga em Wi-Fi"* com o hotspot ligado na frente dele. A causa é uma só, e não são "dois portões": `redeDaWifi` pergunta ao `ConnectivityManager`, e **o downstream do tethering não é um `Network`** (é montado no netd sem `NetworkAgent`, e sempre viveu no eixo que devolve NOME DE INTERFACE). Nasce o `EspelhoInterfaces.kt` — PURO, com JUnit em pares —, cujo discriminador **não é o nome**: *no ar, com IPv4 RFC1918, e que NENHUM `Network` reivindica*, porque a do soft AP é a única com essa forma — não é uma rede que o aparelho USA, é uma que ele SERVE. O nome entra só na CLASSIFICAÇÃO, depois de três filtros, porque isto é Kotlin e quando a regra errar num aparelho não há OTA que conserte. O par que carrega o arquivo é o `p2p-wlan0-0`/`192.168.49.1` do Wi-Fi Direct: privado, no ar, sem `Network` que o reivindique — **a forma EXATA que a regra procura**, e no ar durante todo culto com Miracast; sem a família `p2p` na denylist o servidor subiria no fio do dongle. O bind **não mudou uma letra**: continua explícito num IPv4, nunca `0.0.0.0`. Mais três coisas que o lote descobriu de passagem: o callback de rede **nunca dispara** em modo AP puro (não há morte errada em 6 s — há coisa pior, nada vigiaria o AP caindo, daí a enquete de 5 s); `ipAindaEDaWifi` virou `ipAindaEServivel` com um segundo degrau, sem o qual a transmissão morreria na primeira suspeita; e o **AP ISOLATION**, a falha muda deste recurso, praticamente DESAPARECE no hotspot — isolamento bloqueia cliente↔cliente e ali o celular é o GATEWAY. A recusa passou a DIZER O QUE FAZER, num nó próprio e só quando é de rede. `SHELL_VERSION` 57 (`espelhoLigarEm`, ADITIVO).
 - **v1.4** — A AUDITORIA PROFUNDA: 75 DEFEITOS CONFIRMADOS, TODOS CORRIGIDOS. Uma varredura de ~60.000 linhas em cinco etapas sequenciais (shell Kotlin, `shared/`+`display/`, `espelho/`+puros, CSS/HTML/CI, `controle.js`), com verificação adversarial de cada achado por seis caminhos de refutação — 90 brutos, 71 sobreviveram, mais 4 da varredura mecânica. A correção saiu em SEIS lotes sequenciais, do risco menor para o maior. **O padrão dominante não era defeito de código: eram 30+ comentários AFIRMANDO COISAS FALSAS**, num repositório cujo `CLAUDE.md` diz que um comentário errado produz a decisão errada. Os três mais graves: (1) com a transmissão no ar, um documento renascido (OTA aplicado ou renderer morto) mandava TODO `load` às telas da rede SEM `__rec` — `mirrorEstado` nasce `null` e ninguém o relê, então a projeção da igreja ficava no wallpaper o culto inteiro, sem erro em lugar nenhum; a correção é UM `lerEspelho()` no `init()`; (2) `restoreSceneAfterText` lia `stage.getCurrent()` sem saber que havia `load` em voo — a janela são os ~600 ms do `FADE.time` de TODA troca de cena, e o estado é PERMANENTE: a letra do hino ANTERIOR remontada sobre a música nova, avançando pelo relógio dela; confirmado nas DUAS metades (telão e preview), independentemente, porque *ler cada lado isolado aprova os dois*; (3) reabrir a gaveta de uma linha já montada reapontava só o `songMenuFor` — `destExecutor` e `destMarcados` continuavam na linha anterior, e confirmar em A projetava B. O ciclo revisor→correção pagou QUATRO regressões das próprias correções, todas provadas por reversão, e descobriu uma classe que a auditoria não procurou: **um oráculo que testava código morto** (o `smoke.mjs` montava `.coll-opts` à mão desde a v1.1.21). Fecha com 44 oráculos verdes, três deles novos, e 26 achados deliberadamente por aplicar, cada um com justificativa no commit.
 - **v1.3.16** — O NOME DA TELA FICOU MAIOR, E A BARRA NÃO. Pedido do operador: *"aumente a fonte do título das abas Cronograma e Bíblia, mas não aumente a altura dessa barra do topo, apenas a fonte"*. A altura não se mexe e isso não depende de cuidado: a `.list-header` é uma grade com `grid-template-rows: var(--hit)` — 34px FIXOS, o alvo de toque dos dois botões que ela hospeda —, e a fonte do título não participa dessa conta. MEDIDO em sete tamanhos (.84 a 1,25rem), em 430px e em 320px: a barra fica em 34px em todos, sem cortar o glifo e sem reticências (os únicos dois títulos possíveis são "Cronograma" e "Bíblia"). O tamanho escolhido (`1,05rem`, 16,8px, +25%) corrige de passagem uma INVERSÃO: ele era `.84rem` e portanto MENOR que o título de uma folha (`.popup-title`/`.tools-title`, `.95rem`) — e uma folha abre EM CIMA da tela, não acima dela na hierarquia. Agora a ordem é tela › folha › conteúdo, e ele continua abaixo dos 22px do glifo dos botões vizinhos, então a faixa segue lendo como "ícone · rótulo · ícone". OTA PURO.
 - **v1.3.15** — TRÊS ACERTOS DA REVISÃO DE TEMA, todos do operador olhando o resultado. (1) **UMA COR POR LADRILHO DA BÍBLIA**: cada livro tinha DUAS bandas — a tinta do grupo e, sobre ela, uma faixa de 3px na versão saturada da mesma matiz —, o que numa grade de 66 livros são 132 manchas na única tela que preenche o visor inteiro de cor (*"duas faixas de cores no mesmo botão"*). A faixa nasceu na v5.192 para CARREGAR o agrupamento, quando a tinta era mais apagada; hoje é redundante, e MEDIDO: a tinta sozinha tem **≥19° de separação de matiz entre quaisquer duas** das dez (piso do projeto 20°, o par de 19 é arredondamento), saturação uniforme (33–35% no escuro, ~60% no claro), luminância estreita (18–30% · 79–91%) e pior rótulo 8,72:1 · 6,46:1. Os dez `--bt-*` saíram de `tokens.css` com ela — eram os únicos consumidores. A pílula de Livro da referência perdeu a faixa junto: ela é a AMOSTRA do ladrilho, e amostra que diverge do original não é amostra. (2) **A ABA ATIVA DEIXOU DE SER PINTADA**. A v1.3.14 respondeu ao vazado de 1,32:1 com a célula PREENCHIDA, e resolveu a leitura criando outro problema (*"use um método visual de seleção que seja mais discreto, menos volumoso, para não disputar a presença visual com o botão de pesquisa; não pinte todo o botão da aba"*): numa faixa de três células, duas manchas cheias de azul disputam, e a que menos deveria disputar é a que só diz "você está aqui". Hoje é uma BARRA de 3px na borda de cima da célula, em `--accent`, com o glifo na mesma cor — duas marcas de TRAÇO, nenhuma de área. O `.tab-ind` continua sendo o que sempre foi: um elemento que DESLIZA entre as células. (3) **O ✕ DAS FERRAMENTAS virou o botão quadrado padrão** (`.popup-close`): ele era um SVG traçado sobre `background: none`, o único fechar do app que não parecia um botão; a classe própria e o `:active` dela saíram. OTA PURO.
@@ -274,6 +275,140 @@ na nota que a revoga, não apagada da que a criou.
 - **v5.156** — é METADE OTA e METADE APK, de novo.
 
 ---
+
+## v1.4.1 — o celular como ponto de acesso
+
+**O PEDIDO.** *"Gostaria de verificar a alternativa onde o próprio smartphone
+cria um Hotspot móvel (com ou sem internet), onde o outro aparelho como o
+computador se conecta para receber a transmissão via navegador."* Mais uma
+observação que enquadrou o lote inteiro: **não é objetivo usar mais de um método
+de conexão ao mesmo tempo.**
+
+**O QUE A VERIFICAÇÃO ACHOU.** O app recusava, e o documento que analisava o caso
+(`docs/PONTO-DE-ACESSO-PLANO.md`, escrito na v1.4 e agora substituído pela §7-B
+do contrato) descrevia a recusa com TRÊS imprecisões que o operador percebeu como
+confusão:
+
+1. **"Dois portões independentes" — não eram dois.** A causa é uma só:
+   `redeDaWifi` → `wifiDe` → `cm.allNetworks` filtrado por `TRANSPORT_WIFI`. O
+   "segundo portão" (a reconferência do `ligar()`) chamava **a mesma função** —
+   corrigida ela, ele passaria sozinho. O bind explícito não é um bloqueio: é o
+   que define *o que a correção precisa produzir* (um IP certo).
+2. **Metade dos "problemas" era USO SIMULTÂNEO**, que o pedido excluiu: "ligar o
+   hotspot derruba a transmissão em curso" é hotspot + Wi-Fi ao mesmo tempo;
+   "pode derrubar o Miracast" é hotspot + espelhamento. Quem liga o hotspot
+   *porque não há Wi-Fi* não perde nenhum dos dois.
+3. **O AP ISOLATION estava INVERTIDO** — listado como custo, e é o argumento mais
+   forte a favor: isolamento bloqueia cliente↔cliente, e no hotspot o celular é o
+   **GATEWAY** (é dele que o computador tira DHCP e DNS), então esse caminho não
+   pode estar fechado. O próprio documento se contradizia entre duas seções.
+
+**A CAUSA, e ela é uma linha.** O downstream do tethering Wi-Fi **não é um
+`Network`**: é montado no netd sem `NetworkAgent`, e sempre viveu no eixo que
+devolve NOME DE INTERFACE (`ap0`, `swlan0`, `wlan1`). Com o hotspot ligado sobra
+o upstream celular, recusado por transporte, e o operador lê *"sem Wi-Fi"* com o
+ponto de acesso ligado na frente dele. **Nenhum socket chegava a ser aberto.**
+
+**A REGRA NOVA — `EspelhoInterfaces.kt`, PURO, com JUnit em pares.** Irmão do
+`EspelhoHttp`/`EspelhoPares`/`EspelhoMidiaCache`, e pelo mesmo motivo: ele decide
+ONDE a primeira fronteira de rede do projeto abre um socket. **O discriminador
+não é o nome**, e é isso que o faz durar — nome de interface é o que cada OEM
+muda sem avisar, e **isto é Kotlin: quando a regra errar num aparelho, não há OTA
+que conserte**. A pergunta é *"que interface está no ar, com IPv4 RFC1918, e que
+NENHUM `Network` reivindica?"*, e a do soft AP é a única com essa forma: **não é
+uma rede que o aparelho USA, é uma que ele SERVE**, e por isso o
+ConnectivityManager não a conhece. O nome entra só na CLASSIFICAÇÃO, depois de
+três filtros independentes.
+
+Sete recusas ordenadas (a ordem é contrato — ela decide o motivo que o Registro
+imprime), e **duas famílias estão lá por casos que nenhum filtro genérico pega**:
+
+- **`rmnet` com IPv4 PRIVADO.** Um CGNAT de operadora entrega `10/8` ao chip: o
+  filtro de RFC1918 o APROVA e nenhum `Network` precisa reivindicá-lo. Só a
+  família o recusa — é o caso que prova por que a lista existe.
+- **`p2p`.** O Group Owner do Wi-Fi Direct serve `192.168.49.1`: privado, no ar,
+  sem `Network` que o reivindique — **a forma EXATA que a regra procura**, e no
+  ar durante **todo culto com Miracast**. Sem esta linha o servidor subiria no
+  fio do dongle e nenhuma tela da rede o alcançaria.
+
+**Ela classifica; não faz política:** `escolher` devolve tudo com o `Tipo`, e
+admitir só `PONTO_DE_ACESSO` é uma linha visível do `redeParaServir` — não um
+efeito colateral da ordem da enumeração. **Falhar FECHADO é o contrato.**
+
+**O BIND NÃO MUDOU UMA LETRA** — continua explícito, num IPv4, nunca `0.0.0.0`.
+O que mudou é a resposta a *"quais IPv4 são servíveis?"*. `redeDaWifi` também não
+mudou: é o degrau 1, e é o que garante zero regressão na igreja que já funciona.
+
+**TRÊS COISAS QUE O LOTE DESCOBRIU DE PASSAGEM, e que sem código teriam ficado
+mudas:**
+
+- **O callback de rede nunca dispara em modo AP puro.** `observarRede` assina
+  `TRANSPORT_WIFI`, e sem `Network` não há o que ganhar nem perder. Não há morte
+  errada em 6 s ali (`redeSuspeitaDesde` fica 0 e `confirmarRede` retorna na
+  primeira linha) — há coisa **pior**: nada vigiaria o AP caindo, e o socket
+  ficaria para sempre amarrado a um endereço morto. E o caso não é raro: o
+  hotspot **se desliga sozinho por ociosidade** em vários fabricantes. Daí
+  `vigiarPontoDeAcesso` (5 s, só na via do AP), que levanta a mesma SUSPEITA e
+  deixa o veredito com o `confirmarRede` de sempre.
+- **`ipAindaEDaWifi` virou `ipAindaEServivel`.** Ela pergunta ao
+  `ConnectivityManager`, que em modo AP responde SEMPRE não: sem o segundo
+  degrau, uma transmissão servida pelo ponto de acesso morreria na PRIMEIRA
+  suspeita, com a frase da Wi-Fi e o hotspot ligado o tempo todo.
+- **`confirmarRede` religa na MESMA via.** Migrar de ponto de acesso para Wi-Fi
+  sozinho seria ligar por conta própria, e o contrato diz AUXILIAR. E a frase do
+  religamento perdeu o *"sem perder o pareamento"* no AP: se o hotspot
+  reiniciou, as telas perderam o SSID, e prometer o contrário num artefato que é
+  lido A DISTÂNCIA é o pior que este projeto sabe produzir.
+
+**A RECUSA PASSOU A DIZER O QUE FAZER.** O veredito continua saindo VERBATIM do
+shell (a frase é de quem decidiu); o ensino vem num **nó próprio** — `#castMsg` é
+`role="status" aria-live="polite"` e existe para anunciar a MUDANÇA, então um
+segundo parágrafo ali faria um leitor de tela reler tudo a cada tentativa. E ele
+aparece **só na recusa de REDE**: a de PORTA OCUPADA é a única deste caminho cujo
+conserto não é mexer na rede. O `motivoSemRede` preserva o diagnóstico específico
+da Wi-Fi ("associada e sem IPv4" é uma pista) e só troca o *"sem Wi-Fi"* cru, que
+é o caso normal de quem vai usar o hotspot.
+
+**A ESCOLHA SÓ APARECE QUANDO HÁ DUAS.** Num aparelho de rádio duplo a Wi-Fi e o
+ponto de acesso ficam de pé ao mesmo tempo, e **qual delas a tela alcança não é
+decidível pelo app** — quem sabe onde o computador está conectado é a pessoa.
+Com uma só, o shell escolhe (ponto de acesso na frente): uma escolha que aparece
+no caso comum cobra atenção e não devolve nada. A ponte ganhou
+`espelhoLigarEm(callId, ip)`, **ADITIVO** — o `espelhoLigar` sem argumento fica,
+porque encolher ou trocar a forma de um método existente faz o bundle novo
+chamar contra um APK que ainda tem a velha, e o botão para de funcionar sem nada
+que o explique.
+
+**O REGISTRO GANHOU AS INTERFACES VISTAS**, com o motivo de cada recusa verbatim
+de quem decidiu. Não é conforto: é a ÚNICA pista a distância para um nome de
+interface de fabricante, e o conserto de uma regra em Kotlin é uma Release. A
+linha do servidor **parou de cravar `", ligado à Wi-Fi)"`** — ela lê o `via`;
+verdade enquanto a Wi-Fi era a única forma de servir, e mentira no instante em
+que o ponto de acesso passou a servir, num artefato que existe para ser COPIADO.
+
+**ORÁCULOS.** `EspelhoInterfacesTest` (14 casos, em pares) e o
+`recusa-transmissao.test.mjs` — que **pegou um buraco real ao ser escrito**: uma
+recusa de rede (`"o endereco pedido nao e mais servivel por este aparelho"`) que
+não casava com a regra do ensino, isto é, não ensinaria nada. A frase virou
+linguagem de operador e a regra ficou mais larga; quem garante que a de PORTA
+continua de fora é o próprio oráculo, que lê as frases do **Kotlin**. Mais a
+cobertura do `espelhoLigar(ip)` no `ponte.test.mjs`, que é o único oráculo que
+pega um roteamento de método trocado. **45/45 verdes.**
+
+**O QUE AINDA NÃO FOI MEDIDO EM APARELHO, e está escrito na §7-B.4:** que a
+interface do AP apareça em `getNetworkInterfaces()` com o IPv4 dela, e que um
+bind naquele endereço aceite conexão de um cliente do hotspot. **O modo de falhar
+é o comportamento de antes** — o degrau 2 não acha nada, a recusa vem com o
+ensino, e o degrau 1 continua intacto. O teste de custo zero: ligar o hotspot,
+conectar o computador e pingar o **gateway padrão** dele.
+
+**O CUSTO, DITO.** Ligar o ponto de acesso derruba a Wi-Fi em aparelho de rádio
+único e **pode derrubar o Miracast junto** (mesmo rádio) — os dois só doem para
+quem quer duas conexões AO MESMO TEMPO, que é justamente o que o pedido excluiu.
+A celular sobrevive: `ytFetch`, OTA e `apkProcurar` seguem pelo chip. E **nenhuma
+permissão nova** — resultado, não acaso: é o que separa este caminho do
+`TetheringManager`.
+
 
 ## v1.4 — a auditoria profunda: 75 defeitos confirmados, todos corrigidos
 
