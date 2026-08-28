@@ -1,0 +1,497 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Registro</title>
+<!-- FORA DOS BUSCADORES. Não é segurança (ver o aviso na própria página), é
+     higiene: esta página não tem por que aparecer em resultado de busca de
+     ninguém, e o `noindex` é a única parte disto que um robô respeita. -->
+<meta name="robots" content="noindex, nofollow, noarchive">
+<meta name="color-scheme" content="light">
+<link rel="icon" href="../icone.svg" type="image/svg+xml">
+<style>
+  /* A paleta é a do site (`site/index.html`), que é a do app — e CLARA E SÓ
+     CLARA pela mesma razão declarada lá: um padrão só, olhado uma vez.
+
+     AS DUAS CORES DE SÉRIE SÃO OUTRA COISA, e não saem daqui por gosto:
+     `bluejay` e `campfire` são dois dos dezoito valores OFICIAIS da identidade
+     IASD, e o par foi VALIDADO em vez de escolhido no olho — ΔE 30,3 em
+     protanopia, 35,2 em visão normal, os dois acima de 3:1 sobre o branco.
+     O denim (o accent do site) foi o primeiro candidato e REPROVOU: croma
+     0,082, abaixo do piso — como marca de dado ele lê como cinza. Ele continua
+     sendo a cor de texto e de título; o que mudou é que marca de dado é outro
+     trabalho. */
+  :root {
+    --bg:#dfe3e7; --panel:#fff; --panel-2:#d4dae2;
+    --text:#4a4a4a; --muted:#565d66; --accent:#2f557f; --rule:#c3cbd4;
+    --s1:#2e6de7;   /* bluejay  — aparelhos */
+    --s2:#cd4900;   /* campfire — visitas   */
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin:0; background:var(--bg); color:var(--text);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    font-size:16px; line-height:1.5; -webkit-font-smoothing:antialiased;
+  }
+  .env { max-width:56rem; margin:0 auto; padding:1.5rem 1.15rem 4rem; }
+  h1 { font-size:1.5rem; margin:0 0 .2rem; letter-spacing:-.02em; }
+  h2 { font-size:1.05rem; margin:2.2rem 0 .2rem; letter-spacing:-.01em; }
+  .sub { color:var(--muted); font-size:.9rem; margin:0 0 .4rem; }
+  .nota {
+    background:var(--panel-2); border-radius:10px; padding:.7rem .9rem;
+    font-size:.83rem; color:var(--muted); margin:1rem 0 0;
+  }
+  .nota b { color:var(--text); }
+
+  /* ===== a fileira de números ===== */
+  .kpis { display:grid; grid-template-columns:repeat(2,1fr); gap:.6rem; margin-top:1.2rem; }
+  @media (min-width:40rem) { .kpis { grid-template-columns:repeat(4,1fr); } }
+  .kpi { background:var(--panel); border-radius:12px; padding:.9rem 1rem; }
+  .kpi-n { font-size:1.9rem; font-weight:700; letter-spacing:-.03em; line-height:1.1; color:var(--accent); }
+  .kpi-r { font-size:.78rem; color:var(--muted); margin-top:.15rem; }
+
+  .caixa { background:var(--panel); border-radius:12px; padding:1rem .8rem .6rem; margin-top:.6rem; }
+  figure { margin:0; }
+  figcaption { font-size:.78rem; color:var(--muted); padding:0 .3rem .4rem; }
+  svg { display:block; width:100%; height:auto; overflow:visible; }
+
+  .legenda { display:flex; gap:1rem; flex-wrap:wrap; padding:.1rem .3rem .5rem; font-size:.82rem; }
+  .legenda span { display:inline-flex; align-items:center; gap:.35rem; color:var(--muted); }
+  .pip { width:10px; height:10px; border-radius:3px; display:inline-block; }
+
+  /* Tabela: exigência de acessibilidade (identidade nunca só por cor) e, aqui,
+     também o dado cru — esta página existe para ser LIDA, não admirada. */
+  details { margin-top:.5rem; }
+  summary { cursor:pointer; font-size:.85rem; color:var(--accent); }
+  table { border-collapse:collapse; width:100%; font-size:.82rem; margin-top:.5rem; }
+  th, td { text-align:right; padding:.3rem .5rem; }
+  th:first-child, td:first-child { text-align:left; }
+  thead th { color:var(--muted); font-weight:600; }
+  tbody tr:nth-child(odd) { background:var(--panel-2); }
+  .tw { overflow-x:auto; }
+
+  .barras { display:grid; gap:.35rem; }
+  .barra { display:grid; grid-template-columns:8.5rem 1fr auto; align-items:center; gap:.6rem; font-size:.84rem; }
+  .barra-t { color:var(--muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .barra-c { background:var(--panel-2); border-radius:4px; height:14px; display:block; }
+  .barra-f { background:var(--s1); border-radius:4px; height:14px; min-width:3px; display:block; }
+  .barra-n { font-variant-numeric:tabular-nums; font-weight:600; }
+
+  #dica {
+    position:fixed; pointer-events:none; opacity:0; transition:opacity .1s;
+    background:var(--text); color:#fff; border-radius:8px; padding:.45rem .6rem;
+    font-size:.78rem; line-height:1.35; white-space:nowrap; z-index:9;
+  }
+  #tranca { padding:4rem 1.15rem; text-align:center; color:var(--muted); }
+</style>
+</head>
+<body>
+
+<div id="tranca">Não encontrado.</div>
+<div class="env" id="pag" hidden></div>
+<div id="dica" role="status" aria-live="polite"></div>
+
+<script>
+(function () {
+  'use strict';
+
+  // ===================================================================
+  // A TRANCA — e o que ela NÃO é
+  // ===================================================================
+  //
+  // Isto é OBSCURIDADE, não segredo, e a distinção precisa estar escrita onde
+  // alguém a leia antes de confiar nela:
+  //
+  //  - a chave está NO HTML que o visitante acabou de baixar. Quem abrir esta
+  //    página sem ela e olhar o código-fonte a encontra em dez segundos;
+  //  - e os NÚMEROS não são secretos de jeito nenhum: `download_count` é API
+  //    PÚBLICA de um repositório PÚBLICO. Qualquer pessoa que saiba onde olhar
+  //    lê a contagem crua, com ou sem esta página.
+  //
+  // O que ela dá, e é para isso que ela existe: a seção fica fora do caminho de
+  // quem veio baixar o app, e fora dos buscadores. Para o painel ser mesmo
+  // confidencial seria preciso cifrá-lo com uma frase que só existisse em
+  // GitHub Secrets — e para os NÚMEROS serem confidenciais, o farol teria de
+  // viver fora de um repositório público. Ver `docs/AUDITORIA-DE-USO-PLANO.md`.
+  //
+  // TROCAR A CHAVE é trocar esta linha. Nada mais depende dela.
+  var CHAVE = 'alcance';
+
+  var REPO = 'jonathasptbr-gh/Audio-Visual-IASD';
+  // `raw.githubusercontent.com` e não o asset de release: asset de release
+  // responde SEM `Access-Control-Allow-Origin` (medido, e registrado no
+  // `pages.yml`), então o navegador não conseguiria lê-lo daqui.
+  var SERIE = 'https://raw.githubusercontent.com/' + REPO + '/dados/serie.json';
+
+  var trancaEl = document.getElementById('tranca');
+  var pagEl = document.getElementById('pag');
+  var dicaEl = document.getElementById('dica');
+
+  function chaveOk() {
+    return (location.hash || '').replace(/^#/, '') === CHAVE;
+  }
+  if (!chaveOk()) return;              // fica o "Não encontrado."
+  window.addEventListener('hashchange', function () { location.reload(); });
+
+  // ESTE NAVEGADOR É O DO OPERADOR, e a partir daqui as visitas dele contam
+  // NOUTRO contador (ver `site/index.html`). É a mesma regra da chave do app:
+  // exclusão POR CONSTRUÇÃO, nunca por subtração de uma estimativa — quem
+  // audita a própria página é a maior fonte de visita falsa que ela vai ter.
+  try { localStorage.setItem('avRegistroOperador', '1'); } catch (e) { /* storage bloqueado */ }
+
+  trancaEl.hidden = true;
+  pagEl.hidden = false;
+
+  // ---------- utilidades ----------
+  var esc = function (s) {
+    return String(s).replace(/[&<>"]/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c];
+    });
+  };
+  var num = function (n) { return (n || 0).toLocaleString('pt-BR'); };
+  var dia = function (t) { return String(t).slice(0, 10); };
+  var diaBr = function (d) { var p = d.split('-'); return p[2] + '/' + p[1]; };
+
+  function erro(msg, detalhe) {
+    pagEl.innerHTML = '<h1>Registro de alcance</h1>'
+      + '<p class="sub">' + esc(msg) + '</p>'
+      + (detalhe ? '<div class="nota">' + esc(detalhe) + '</div>' : '');
+  }
+
+  fetch(SERIE, { cache: 'no-store' })
+    .then(function (r) {
+      if (r.status === 404) throw new Error('404');
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return r.json();
+    })
+    .then(desenhar)
+    .catch(function (e) {
+      // O 404 É O ESTADO NORMAL ANTES DA PRIMEIRA AMOSTRA, e dizer "falhou"
+      // aqui mandaria procurar defeito onde só falta esperar a hora cheia.
+      if (String(e.message) === '404') {
+        erro('A série ainda não existe.',
+          'O workflow "Série de uso" grava a primeira amostra na próxima hora '
+          + 'cheia (ele roda no minuto 17). Até lá não há o que desenhar — e '
+          + 'isso não é falha nenhuma.');
+      } else {
+        erro('Não deu para ler a série.', String(e.message));
+      }
+    });
+
+  // ===================================================================
+  // O DESENHO
+  // ===================================================================
+  function desenhar(d) {
+    var am = (d && d.amostras) || [];
+    if (!am.length) {
+      erro('A série está vazia.', 'Nenhuma amostra gravada ainda.');
+      return;
+    }
+    var ultima = am[am.length - 1];
+
+    // ---- por dia: a ÚLTIMA amostra de cada dia (os contadores são
+    //      acumulados, então o que interessa é o valor no fim do dia) ----
+    var porDia = {};
+    am.forEach(function (a) { porDia[dia(a.t)] = a; });
+    var dias = Object.keys(porDia).sort();
+
+    // ---- a DIFERENÇA entre dias é a contagem daquele dia ----
+    // O farol acende UMA vez por aparelho por dia, então a diferença do
+    // contador entre dois dias é o número de APARELHOS daquele dia.
+    // Diferença negativa é impossível num contador monotônico: quando aparece,
+    // o asset foi recriado (e o contador voltou a zero). Tratar isso como
+    // número negativo desenharia um vale que nunca aconteceu.
+    function serieDiaria(campo) {
+      var fora = [];
+      for (var i = 1; i < dias.length; i++) {
+        var a = porDia[dias[i - 1]][campo] || 0;
+        var b = porDia[dias[i]][campo] || 0;
+        fora.push({ d: dias[i], v: b >= a ? b - a : null });
+      }
+      return fora;
+    }
+    var apar = serieDiaria('farol');
+    var visi = serieDiaria('visita');
+
+    // ---- os totais de vida inteira saem da MARCA D'ÁGUA ----
+    // `visto` guarda o maior valor já observado de cada asset, inclusive dos
+    // que a faxina do `web-ota` já apagou do GitHub. Somar só o que existe
+    // AGORA perderia todo bundle recolhido.
+    var visto = (d && d.visto) || {};
+    var totalApk = 0, apks = [];
+    Object.keys(visto).forEach(function (n) {
+      if (/\.apk$/i.test(n)) { totalApk += visto[n]; apks.push({ n: n, v: visto[n] }); }
+    });
+    apks.sort(function (a, b) { return b.v - a.v; });
+
+    var ultDia = apar.length ? apar[apar.length - 1] : null;
+    var ultVis = visi.length ? visi[visi.length - 1] : null;
+    var baseAtual = Object.keys(ultima.web || {}).sort(cmpVer).pop();
+
+    var h = [];
+    h.push('<h1>Registro de alcance</h1>');
+    h.push('<p class="sub">' + esc(am.length) + ' amostra(s) · última em '
+      + esc(new Date(ultima.t).toLocaleString('pt-BR')) + '</p>');
+
+    // ---- a fileira de números ----
+    h.push('<div class="kpis">');
+    h.push(kpi(num(totalApk), 'downloads de APK, desde a v1.0'));
+    h.push(kpi(ultDia && ultDia.v !== null ? num(ultDia.v) : '—',
+      'aparelhos no dia ' + (ultDia ? diaBr(ultDia.d) : '')));
+    h.push(kpi(ultVis && ultVis.v !== null ? num(ultVis.v) : '—',
+      'visitas ao site no mesmo dia'));
+    h.push(kpi(num((ultima.web || {})[baseAtual] || 0),
+      'adotaram a base v' + (baseAtual || '—')));
+    h.push('</div>');
+
+    // ---- a linha do tempo ----
+    // DUAS SÉRIES NO MESMO EIXO, e isso é uma escolha e não um descuido: as
+    // duas são "contagem por dia", mesma unidade e mesma natureza — o que
+    // permite lê-las como um funil (quem viu a página × quem usou o app). Dois
+    // eixos y aqui seriam a mentira clássica de gráfico.
+    h.push('<h2>Por dia</h2>');
+    h.push('<p class="sub">Aparelhos que abriram o app, e visitas à página de download.</p>');
+    h.push('<div class="caixa">');
+    h.push('<div class="legenda">'
+      + '<span><i class="pip" style="background:var(--s1)"></i>Aparelhos</span>'
+      + '<span><i class="pip" style="background:var(--s2)"></i>Visitas</span>'
+      + '</div>');
+    h.push(linhas([
+      { nome: 'Aparelhos', cor: 'var(--s1)', pts: apar },
+      { nome: 'Visitas', cor: 'var(--s2)', pts: visi },
+    ]));
+    h.push(tabela(dias, porDia, apar, visi));
+    h.push('</div>');
+
+    // ---- downloads por versão ----
+    h.push('<h2>Downloads por versão do APK</h2>');
+    h.push('<p class="sub">Eventos de download — não instalações, e não pessoas: '
+      + 'robô, espelho e a segunda tentativa de quem estava sem sinal contam igual.</p>');
+    h.push('<div class="caixa"><div class="barras">');
+    var maiorApk = apks.length ? apks[0].v : 1;
+    apks.forEach(function (a) {
+      h.push('<div class="barra">'
+        + '<span class="barra-t" title="' + esc(a.n) + '">'
+        + esc(a.n.replace(/^audio-visual-iasd-?/, '').replace(/\.apk$/, '') || 'nome fixo')
+        + '</span>'
+        + '<span class="barra-c"><span class="barra-f" style="width:'
+        + (100 * a.v / (maiorApk || 1)).toFixed(1) + '%"></span></span>'
+        + '<span class="barra-n">' + num(a.v) + '</span>'
+        + '</div>');
+    });
+    if (!apks.length) h.push('<p class="sub">Nada amostrado ainda.</p>');
+    h.push('</div></div>');
+
+    // ---- o medidor de horas ----
+    h.push(medidorDeHoras(am));
+
+    h.push('<div class="nota"><b>O que estes números não são.</b> '
+      + 'Nada aqui distingue um aparelho de outro: não há id, nem sorteado nem com hash. '
+      + 'Isso é o desenho, e o preço dele é que "aparelhos únicos" não existe — '
+      + '"aparelhos no dia" é a contagem de faróis daquele dia, e um aparelho usado '
+      + 'em dois dias conta nos dois. '
+      + 'Aparelhos marcados como de teste e o navegador de quem abre esta página '
+      + 'contam <b>em contadores separados</b>, e ficam fora dos números acima.</div>');
+
+    h.push('<div class="nota"><b>Esta página é discreta, não secreta.</b> '
+      + 'A chave está no HTML, e os contadores são API pública de um repositório '
+      + 'público — qualquer pessoa que saiba onde olhar lê os mesmos números. '
+      + 'O que a chave faz é manter isto fora do caminho de quem veio baixar o app.</div>');
+
+    pagEl.innerHTML = h.join('');
+    ligarDica();
+  }
+
+  function kpi(n, r) {
+    return '<div class="kpi"><div class="kpi-n">' + esc(n) + '</div>'
+      + '<div class="kpi-r">' + esc(r) + '</div></div>';
+  }
+
+  // Versões comparadas NUMERICAMENTE por componente, nunca como texto — é a
+  // mesma regra do `compareVersions` do shell: `4.9 < 4.82` como string.
+  function cmpVer(a, b) {
+    var x = String(a).split('.').map(Number), y = String(b).split('.').map(Number);
+    for (var i = 0; i < Math.max(x.length, y.length); i++) {
+      var p = x[i] || 0, q = y[i] || 0;
+      if (p !== q) return p - q;
+    }
+    return 0;
+  }
+
+  // ===================================================================
+  // O GRÁFICO DE LINHAS — SVG à mão, como todo o resto deste projeto
+  // ===================================================================
+  function linhas(series) {
+    var L = 34, R = 12, T = 10, B = 24, W = 720, H = 220;
+    var rot = [];
+    series.forEach(function (s) { s.pts.forEach(function (p) { rot.push(p.d); }); });
+    var dias = Array.from(new Set(rot)).sort();
+    if (dias.length < 2) {
+      return '<p class="sub" style="padding:.6rem .3rem">'
+        + 'Um dia de dados só — a diferença entre dias é o que este gráfico desenha, '
+        + 'então ele aparece a partir da segunda diária.</p>';
+    }
+    var max = 0;
+    series.forEach(function (s) {
+      s.pts.forEach(function (p) { if (p.v !== null && p.v > max) max = p.v; });
+    });
+    max = Math.max(max, 1);
+    // Teto "redondo": um eixo que termina em 37 faz o leitor calcular.
+    var passo = Math.pow(10, Math.floor(Math.log10(max)));
+    var teto = Math.ceil(max / passo) * passo;
+
+    var x = function (i) { return L + (W - L - R) * (dias.length < 2 ? 0 : i / (dias.length - 1)); };
+    var y = function (v) { return T + (H - T - B) * (1 - v / teto); };
+
+    var o = ['<svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="Aparelhos e visitas por dia">'];
+
+    // grade RECESSIVA — ela orienta, não compete
+    [0, 0.5, 1].forEach(function (f) {
+      var v = teto * f, yy = y(v);
+      o.push('<line x1="' + L + '" x2="' + (W - R) + '" y1="' + yy + '" y2="' + yy
+        + '" stroke="var(--rule)" stroke-width="1"/>');
+      o.push('<text x="' + (L - 6) + '" y="' + (yy + 4) + '" text-anchor="end" '
+        + 'font-size="11" fill="var(--muted)">' + Math.round(v) + '</text>');
+    });
+    // no máximo 6 rótulos de data, senão eles se atropelam no celular
+    var salto = Math.ceil(dias.length / 6);
+    dias.forEach(function (dd, i) {
+      if (i % salto && i !== dias.length - 1) return;
+      o.push('<text x="' + x(i) + '" y="' + (H - 6) + '" text-anchor="middle" '
+        + 'font-size="11" fill="var(--muted)">' + diaBr(dd) + '</text>');
+    });
+
+    series.forEach(function (s) {
+      var mapa = {};
+      s.pts.forEach(function (p) { mapa[p.d] = p.v; });
+      // BURACO É BURACO: um dia sem amostra (ou com o contador recriado) parte
+      // a linha em vez de ser interpolado. Uma linha reta atravessando uma
+      // lacuna afirma uma medição que não houve.
+      var seg = [], atual = [];
+      dias.forEach(function (dd, i) {
+        var v = mapa[dd];
+        if (v === undefined || v === null) { if (atual.length) { seg.push(atual); atual = []; } return; }
+        atual.push([x(i), y(v), v, dd]);
+      });
+      if (atual.length) seg.push(atual);
+
+      seg.forEach(function (g) {
+        if (g.length > 1) {
+          o.push('<path d="M' + g.map(function (p) { return p[0] + ' ' + p[1]; }).join('L')
+            + '" fill="none" stroke="' + s.cor + '" stroke-width="2" '
+            + 'stroke-linejoin="round" stroke-linecap="round"/>');
+        }
+        g.forEach(function (p) {
+          // anel da cor da superfície onde as duas séries se cruzam
+          o.push('<circle cx="' + p[0] + '" cy="' + p[1] + '" r="' + (g.length === 1 ? 4 : 3)
+            + '" fill="' + s.cor + '" stroke="var(--panel)" stroke-width="2"/>');
+        });
+      });
+      // RÓTULO DIRETO no último ponto: identidade sem depender só da legenda
+      var ult = seg.length ? seg[seg.length - 1][seg[seg.length - 1].length - 1] : null;
+      if (ult) {
+        o.push('<text x="' + (ult[0] + 7) + '" y="' + (ult[1] + 4) + '" font-size="11" '
+          + 'fill="var(--muted)">' + ult[2] + '</text>');
+      }
+    });
+
+    // ---- a camada de toque: uma faixa por dia, maior que a marca ----
+    dias.forEach(function (dd, i) {
+      var larg = (W - L - R) / Math.max(dias.length - 1, 1);
+      var linhasDica = [diaBr(dd)];
+      series.forEach(function (s) {
+        var p = s.pts.filter(function (q) { return q.d === dd; })[0];
+        linhasDica.push(s.nome + ': ' + (p && p.v !== null ? p.v : '—'));
+      });
+      o.push('<rect x="' + (x(i) - larg / 2) + '" y="' + T + '" width="' + larg
+        + '" height="' + (H - T - B) + '" fill="transparent" class="alvo" '
+        + 'data-dica="' + esc(linhasDica.join(' · ')) + '"/>');
+    });
+
+    o.push('</svg>');
+    return '<figure>' + o.join('')
+      + '<figcaption>Cada ponto é a diferença do contador em relação ao dia anterior.'
+      + '</figcaption></figure>';
+  }
+
+  function tabela(dias, porDia, apar, visi) {
+    var mA = {}, mV = {};
+    apar.forEach(function (p) { mA[p.d] = p.v; });
+    visi.forEach(function (p) { mV[p.d] = p.v; });
+    var l = ['<details><summary>Ver a tabela</summary><div class="tw"><table>',
+      '<thead><tr><th>Dia</th><th>Aparelhos</th><th>Visitas</th>',
+      '<th>Farol (acum.)</th><th>Visitas (acum.)</th></tr></thead><tbody>'];
+    dias.slice().reverse().forEach(function (dd) {
+      var a = porDia[dd];
+      l.push('<tr><td>' + esc(dd) + '</td>'
+        + '<td>' + (mA[dd] === undefined || mA[dd] === null ? '—' : mA[dd]) + '</td>'
+        + '<td>' + (mV[dd] === undefined || mV[dd] === null ? '—' : mV[dd]) + '</td>'
+        + '<td>' + num(a.farol) + '</td><td>' + num(a.visita) + '</td></tr>');
+    });
+    l.push('</tbody></table></div></details>');
+    return l.join('');
+  }
+
+  // ===================================================================
+  // O MEDIDOR DE HORAS — e por que ele é um INTERVALO
+  // ===================================================================
+  //
+  // Todo app rodando consulta o manifesto do OTA: 240 vezes por hora em
+  // primeiro plano, 30 em segundo (`WebUpdater.RONDA_MS`/`RONDA_FUNDO_MS`).
+  // O contador do `version.json` é, portanto, um medidor de horas de uso — mas
+  // a mistura entre primeiro e segundo plano é irredutível deste lado, então o
+  // honesto é um intervalo, nunca um número.
+  //
+  // Ele fica por ÚLTIMO e com a ressalva à vista de propósito: é a métrica
+  // menos confiável desta página, e a que mais parece precisa.
+  function medidorDeHoras(am) {
+    var somaD = 0, horas = 0;
+    for (var i = 1; i < am.length; i++) {
+      var a = am[i - 1].manifesto || 0, b = am[i].manifesto || 0;
+      // Contador MENOR que o anterior = o asset foi substituído (toda
+      // publicação troca o `version.json` e zera a contagem). O intervalo
+      // inteiro é descartado: não dá para saber quanto ele contou antes de
+      // sumir, e chutar seria inventar.
+      if (b < a) continue;
+      var dt = (new Date(am[i].t) - new Date(am[i - 1].t)) / 3600000;
+      if (dt <= 0 || dt > 3) continue;   // buraco na série, ou linha compactada
+      somaD += b - a; horas += dt;
+    }
+    if (!horas || !somaD) return '';
+    var porHora = somaD / horas;
+    var lo = porHora / 240, hi = porHora / 30;
+    return '<h2>Horas de uso (aproximado)</h2>'
+      + '<div class="caixa"><div style="padding:.2rem .3rem .6rem">'
+      + '<div class="kpi-n">' + lo.toFixed(1) + ' – ' + hi.toFixed(1) + '</div>'
+      + '<div class="kpi-r">aparelhos com o app aberto, em média, a cada hora</div>'
+      + '</div></div>'
+      + '<div class="nota">Este não é um farol: é o próprio OTA. Um app aberto '
+      + 'consulta o manifesto 240×/hora em primeiro plano e 30×/hora em segundo, '
+      + 'e não há como separar os dois deste lado — daí o intervalo. '
+      + '<b>Ele inclui o uso próprio</b> (o manifesto é um contador só, e a chave '
+      + 'de exclusão não o alcança) e as consultas do próprio CI.</div>';
+  }
+
+  // ---------- a dica que segue o dedo/ponteiro ----------
+  function ligarDica() {
+    pagEl.addEventListener('pointerover', function (e) {
+      var alvo = e.target.closest && e.target.closest('.alvo');
+      if (!alvo) return;
+      dicaEl.textContent = alvo.getAttribute('data-dica') || '';
+      dicaEl.style.opacity = '1';
+    });
+    pagEl.addEventListener('pointermove', function (e) {
+      if (dicaEl.style.opacity !== '1') return;
+      var x = Math.min(e.clientX + 14, innerWidth - dicaEl.offsetWidth - 8);
+      dicaEl.style.left = Math.max(8, x) + 'px';
+      dicaEl.style.top = Math.max(8, e.clientY - dicaEl.offsetHeight - 12) + 'px';
+    });
+    pagEl.addEventListener('pointerout', function (e) {
+      if (e.target.closest && e.target.closest('.alvo')) dicaEl.style.opacity = '0';
+    });
+  }
+})();
+</script>
+</body>
+</html>

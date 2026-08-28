@@ -745,6 +745,16 @@ jobs:
           # revisor e provada por reversão.
           rodar tools/gaveta-e-cartao.test.mjs
 
+          # A MEDIÇÃO DE ALCANCE, e ela é o ÚNICO oráculo desta suíte que roda
+          # sobre o `site/` — a página de download e a seção oculta do Registro.
+          # Duas coisas que falham CALADAS moram ali: um gráfico que desenha
+          # todos os valores iguais (`<span>` é inline, e `width` não faz nada
+          # num elemento inline — as barras saíam idênticas, sem erro em lugar
+          # nenhum), e o ROTEAMENTO do farol de visita, que é o requisito
+          # inteiro: se ele parar, os números continuam subindo e passam a
+          # incluir quem mede. Contador não se corrige depois.
+          rodar tools/registro-alcance.test.mjs
+
           # O PLACAR VAI PARA O RESUMO DO RUN, não só para o log — a queixa que
           # originou este lote foi precisamente que o desfecho só existia lá
           # dentro. `rodados` é CONTADO, nunca digitado: um número fixo aqui
@@ -816,7 +826,9 @@ jobs:
       && (
         github.ref == 'refs/heads/main'
         || startsWith(github.ref, 'refs/tags/v')
-        || (github.event_name == 'release' && github.event.release.tag_name != 'web-latest')
+        || (github.event_name == 'release'
+            && github.event.release.tag_name != 'web-latest'
+            && github.event.release.tag_name != 'dados-latest')
       )
     needs: [verificar, apk]
     runs-on: ubuntu-latest

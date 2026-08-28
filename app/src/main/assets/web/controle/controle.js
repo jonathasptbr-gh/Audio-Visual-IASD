@@ -19,6 +19,12 @@ const muteToggleEl = document.getElementById('muteToggle');
 // Modo de uso (ver "Modos de uso" mais abaixo)
 const appModeSegEl = document.getElementById('appModeSeg');
 const temaSegEl = document.getElementById('temaSeg');
+// A chave "este aparelho na medição de alcance" (v1.4.1) — ver `renderFarolSeg`.
+// Aqui em cima, com os irmãos, e não junto da função que a usa: o estado deste
+// arquivo mora no fim e as funções são alcançadas de cima, então um `const`
+// declarado lá embaixo é uma zona morta esperando a ordem de chamada mudar.
+const farolRowEl = document.getElementById('farolRow');
+const farolSegEl = document.getElementById('farolSeg');
 const simpleModeEl = document.getElementById('simpleMode');
 const simpleSettingsBtnEl = document.getElementById('simpleSettingsBtn');
 const simpleSearchBtnEl = document.getElementById('simpleSearchBtn');
@@ -252,7 +258,7 @@ const appVersionEl = document.getElementById('appVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.4';
+const WEB_VERSION = '1.4.1';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -267,6 +273,12 @@ const WEB_VERSION = '1.4';
 // escritos.
 let otaPendenteVersao = '';
 let otaDiagTexto = '';
+
+// O ESTADO DO FAROL para o Registro (v1.4.1), lido pelo `renderDiag` e escrito
+// pelo `cabecalhoDiag` — a mesma forma do `otaDiagTexto` logo acima, e pelo
+// mesmo motivo: o cabeçalho é síncrono e a ponte não é. `null` = ainda não
+// perguntado, ou não há ponte.
+let farolDiag = null;
 let apkNovo = null;
 let apkBaixando = false;
 // O que o operador mandou deixar para depois, POR LOTE (`web|shell`): recusar
@@ -17778,6 +17790,10 @@ function openFadePopup() {
   renderRotBtn();
   renderLyricsBgSeg();
   renderWallSeg();
+  // O FAROL é RELIDO ao abrir, e não pintado de uma cópia guardada: a chave
+  // vive em `SharedPreferences` do shell, e o app pode ter sido reinstalado ou
+  // restaurado de um backup desde a última vez que esta folha esteve aberta.
+  renderFarolSeg();
   // O estado do espelho é relido ao ABRIR (e depois só enquanto a folha dele
   // estiver aberta): a linha precisa dizer a verdade no instante em que o
   // operador olha para ela, e o espelho pode ter saído do ar sozinho por uma
@@ -17901,6 +17917,19 @@ function cabecalhoDiag() {
   // primeira pergunta é se o WebView deste aparelho aceita os codecs — e a
   // resposta não se descobre de fora.
   l.push('Transmissão: ' + diagMse());
+  // O ALCANCE (v1.4.1). Ele responde DUAS perguntas que a tela não separa, e a
+  // segunda é a que faz este Registro ser copiado: "este aparelho está sendo
+  // contado?" e "o farol chegou a acender?". Um aparelho marcado como de teste
+  // não deixa de acender — ele acende noutro contador —, e sem esta linha
+  // "marquei e continua contando" seria indistinguível de "marquei e o farol
+  // nunca saiu daqui".
+  if (farolDiag) {
+    l.push('Alcance: este aparelho '
+      + (farolDiag.conta ? 'ENTRA na contagem' : 'fica de fora (conta à parte)')
+      + ' · último aceso: '
+      + (farolDiag.ultimo ? new Date(farolDiag.ultimo).toLocaleString() : 'nunca')
+      + (farolDiag.diag ? ' · ' + farolDiag.diag : ''));
+  }
   // O LOTE QUE ESPERA, e POR QUE ele espera (v5.234).
   //
   // Desde que a pergunta voltou a existir, "por que ainda estou na versão
@@ -18711,6 +18740,9 @@ async function renderDiag() {
   // única linha do bloco que precisa ir à ponte, e ela é barata: uma string.
   if (window.__NATIVE__) {
     try { otaDiagTexto = await AVNative.otaDiag(); } catch (_) { otaDiagTexto = ''; }
+    if (meu !== diagSeq) return;
+    // O FAROL na mesma ida: duas leituras de preferência, sem rede.
+    try { farolDiag = await AVNative.farolEstado(); } catch (_) { farolDiag = null; }
     if (meu !== diagSeq) return;
   }
   const blocos = [cabecalhoDiag()];
@@ -21706,6 +21738,47 @@ function setTema(t) {
 function renderTemaSeg() {
   temaSegEl.querySelectorAll('.fit-opt').forEach((btn) => {
     btn.classList.toggle('active', btn.dataset.tema === tema);
+  });
+}
+
+// ===== ESTE APARELHO NA MEDIÇÃO DE ALCANCE (v1.4.1) =====
+//
+// A linha só existe no app: no navegador não há farol nenhum, e uma chave que
+// não liga nada é pior que chave nenhuma. Ela nasce `hidden` no HTML e é esta
+// função que a revela — sempre pelo mesmo caminho por que a pinta, senão os
+// dois estados podem discordar.
+//
+// O ESTADO VEM DO SHELL, e nunca de uma cópia local: `conta` é o VEREDITO (ele
+// já embute o build debuggável, que a tela não tem como saber). Guardar a
+// escolha aqui faria a tela afirmar "entra" num aparelho em que o shell decidiu
+// o contrário — a divergência exata que este projeto trata como o pior
+// artefato possível, porque ela é lida a distância e não tem como ser
+// conferida.
+async function renderFarolSeg() {
+  if (!farolRowEl || !farolSegEl) return;
+  if (!window.__NATIVE__) { farolRowEl.hidden = true; return; }
+  let est = null;
+  try { est = await AVNative.farolEstado(); } catch (_) { est = null; }
+  // Sem resposta a linha não aparece: uma chave desenhada sobre um estado
+  // desconhecido convida a tocá-la, e o toque gravaria por cima do que o shell
+  // de fato tem.
+  if (!est) { farolRowEl.hidden = true; return; }
+  farolRowEl.hidden = false;
+  farolSegEl.querySelectorAll('.fit-opt').forEach((btn) => {
+    btn.classList.toggle('active', (btn.dataset.farol === 'sim') === !!est.conta);
+  });
+}
+
+if (farolSegEl) {
+  farolSegEl.addEventListener('click', (e) => {
+    const btn = e.target.closest('.fit-opt');
+    if (!btn) return;
+    AVNative.farolContar(btn.dataset.farol === 'sim');
+    // RELER, e não pintar o que se acabou de pedir: o shell é quem responde, e
+    // um build debuggável continua fora da contagem por mais que a chave diga
+    // "entra". Pintar o pedido faria a tela mentir exatamente no aparelho em
+    // que a pergunta importa.
+    renderFarolSeg();
   });
 }
 

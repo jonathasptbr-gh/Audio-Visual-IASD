@@ -1,19 +1,30 @@
-# Auditoria de uso — PLANO, não implementação
+# A medição de alcance
 
-> # ⚠ NADA DISTO EXISTE NO APP NEM NO SITE.
->
-> **Este arquivo descreve um lote que NÃO foi escrito.** Ele está aqui para a
-> investigação não ser refeita e para as MEDIÇÕES do §10 não serem puladas — não
-> para descrever o que o app faz. Se você está tentando entender o comportamento
-> atual, feche este arquivo.
->
-> **Estado: estudo fechado, esperando DUAS MEDIÇÕES** (§10) e a escolha de
-> arquitetura do §11. A medição 1 derruba o §5 inteiro se falhar.
->
-> A pergunta que originou o estudo: *"quantos instalaram, quantos estão usando,
-> sem dado pessoal e sem que o meu próprio uso masque o número."*
+O app e o site contam **quantos aparelhos usam isto**, e nada além disso. Este
+arquivo é o CONTRATO: o que é contado, o que **nunca** é, por que o uso próprio
+sai por construção, e a medição de que o farol ainda depende (§10).
 
----
+> ## ⚠ UMA SUPOSIÇÃO AINDA NÃO FOI MEDIDA, e o farol inteiro depende dela
+>
+> Tudo aqui pressupõe que o `download_count` do GitHub **conta a busca feita
+> pelo app** (`HttpURLConnection` no `browser_download_url`, com `?t=`). Isso é
+> plausível e não é sabido — ver a medição 1 do §10, que custa dez minutos e um
+> aparelho. **Se ela falhar, o farol não conta nada e não avisa**: a contagem
+> fica em zero para sempre, e zero é indistinguível de "ninguém usou".
+>
+> Enquanto ela não rodar, a linha honesta é: *o mecanismo está montado e não
+> foi verificado em aparelho.*
+
+## §0 ONDE CADA PEÇA MORA
+
+| peça | arquivo | o quê |
+|---|---|---|
+| o farol do app | `app/src/main/java/br/org/iasd/av/Farol.kt` | uma busca por dia, na carona da ronda do OTA |
+| a chave de exclusão | `NativeBridge.farolEstado`/`farolContar` (shell 57), a linha em Configurações | marca este aparelho como de teste |
+| a série no tempo | `.github/workflows/dados.yml` | fotografa os contadores de hora em hora na branch órfã `dados` |
+| o painel | `site/registro/index.html` | caminho não listado, exige `#alcance` |
+| o farol de visita | o rodapé de `site/index.html` | uma por navegador por dia |
+| o oráculo | `tools/registro-alcance.test.mjs` | a tranca, a aritmética, o desenho e o ROTEAMENTO |
 
 ## §1 O QUE JÁ EXISTE E JÁ ESTÁ CONTANDO
 
@@ -71,9 +82,10 @@ Tudo o que segue é consequência disto.
 | os números são secretos? | **não** — API pública (§7) | sim | não |
 | mudança no APK | nenhuma no degrau 0 | sim | nenhuma |
 
-**Recomendado: A, em degraus** (§11). B fica registrado e parado: ele é a única
-resposta para "aparelhos únicos" e "agora", e o preço dele é exatamente o que o
-pedido excluiu — um servidor que vê o IP de cada aparelho da igreja.
+**A É A QUE ESTÁ NO AR**, nos dois degraus (§11). B fica registrado e parado:
+ele é a única resposta para "aparelhos únicos" e "agora", e o preço dele é
+exatamente o que o pedido excluiu — um servidor que vê o IP de cada aparelho da
+igreja.
 
 ## §4 "QUANTOS AGORA" É A PERGUNTA CARA E FRACA
 
@@ -131,26 +143,47 @@ São **três** fontes de contaminação própria, e cada uma tem resposta própr
 
 | fonte | resposta |
 |---|---|
-| **o CI** — os workflows buscam o `version.json` a cada publicação (§5) | o farol é um asset que **nenhum workflow toca**; e o painel desconta as buscas de CI, que são contáveis pelo número de runs |
-| **o aparelho do operador** — ele roda o APK de Release, como todo mundo | uma chave em Configurações (*"este aparelho não entra na contagem"*), guardada em `SharedPreferences`, que ROTEIA o farol para `b-dev`. Marcada uma vez por aparelho |
-| **o build de debug** — emulador, `assembleDebug`, cada sessão de trabalho | `BuildConfig.DEBUG` nunca toca o contador público. Sai de graça e cobre o caso mais frequente |
+| **o CI** — os workflows buscam o `version.json` a cada publicação (§5) | o farol é um asset que **nenhum workflow toca**. E o `dados.yml` lê os contadores pela **API**, que não os incrementa |
+| **o aparelho do operador** — ele roda o APK de Release, como todo mundo, e portanto não tem marca nenhuma que o distinga. Só uma pessoa sabe | a linha *"Este aparelho na medição de alcance"* em Configurações → `Farol.definirContar`, em `SharedPreferences` **próprias** (as do OTA estão fora do backup, e esta escolha deve sobreviver à troca de aparelho). Ela ROTEIA o farol para `b-dev.txt` |
+| **o build de debug** — emulador, `assembleDebug`, cada sessão de trabalho | `ApplicationInfo.FLAG_DEBUGGABLE`, lido em runtime — e **não** `BuildConfig.DEBUG`, que custaria ligar `buildFeatures { buildConfig = true }` no Gradle para um booleano que a plataforma já entrega |
 
-**E a mesma regra vale para as VISITAS AO SITE:** o navegador que abre a seção
-oculta grava um `localStorage` que o marca como o do operador, e dali em diante
-ele conta noutro lugar. Quem audita a própria página é a maior fonte de visita
-falsa que ela vai ter.
+**E a mesma regra vale para as VISITAS AO SITE:** abrir `site/registro/` com a
+chave grava `avRegistroOperador` no `localStorage` daquele navegador, e dali em
+diante ele acende `v-dev.txt`. Quem audita a própria página é a maior fonte de
+visita falsa que ela vai ter.
+
+**O ROTEAMENTO É A METADE QUE FALHA CALADA**, e é por isso que ele tem oráculo
+(`tools/registro-alcance.test.mjs`): se ele parar de funcionar, nada quebra — a
+página abre, o gráfico desenha, os números sobem. Só que passam a incluir quem
+mede, e **contador não se corrige depois**.
+
+**A VISITA É UMA POR NAVEGADOR POR DIA**, e não uma por carregamento. Não é
+economia: no painel esta série é desenhada NO MESMO EIXO que "aparelhos por
+dia", e duas séries só dividem um eixo quando dividem a unidade. Contando cada
+carregamento, uma pessoa que recarrega vinte vezes viraria vinte "visitas" ao
+lado de vinte aparelhos de verdade. O preço, dito: navegador anônimo ou com o
+armazenamento limpo conta de novo.
 
 ## §7 O "SEGREDO": O QUE UMA PÁGINA ESTÁTICA PODE E NÃO PODE ESCONDER
 
-**Caminho não listado mais `#chave` é OBSCURIDADE, não segredo.** Tudo o que a
-página lê, qualquer visitante lê; a chave estaria no HTML que ele acabou de
-baixar. Serve para não pôr um painel na frente de quem veio baixar o app — e não
-serve para mais nada.
+**O QUE ESTÁ NO AR É A OBSCURIDADE, por escolha do operador:** `site/registro/`
+não é linkado de lugar nenhum, leva `noindex` e exige `#alcance` no endereço.
+A chave é uma constante no topo do `<script>` — trocá-la é trocar aquela linha,
+e nada mais depende dela.
 
-**Segredo de verdade custa ~40 linhas e é honesto:** o workflow cifra o JSON
+**E ela É OBSCURIDADE, não segredo.** Tudo o que a página lê, qualquer visitante
+lê; a chave está no HTML que ele acabou de baixar. Serve para não pôr um painel
+na frente de quem veio baixar o app — e não serve para mais nada. **A própria
+página diz isso**, num aviso no rodapé dela: um operador que a lesse como
+segredo tomaria decisões erradas sobre o que pôr ali dentro.
+
+**Segredo de verdade custaria ~40 linhas, e continua disponível:** o workflow
+cifraria o JSON
 (AES-GCM, chave derivada por PBKDF2 de uma frase que só existe em GitHub Secrets
 e na cabeça do operador); a página pede a frase e decifra no navegador
-(WebCrypto). Nada da frase entra no repositório, nada dela entra no HTML.
+(WebCrypto). Nada da frase entraria no repositório, nada dela entraria no HTML.
+Não foi construído — e o que ele mudaria está no parágrafo abaixo, que é o
+motivo de a escolha ter sido barata.
 
 > **MAS ISSO PROTEGE O PAINEL, NÃO OS NÚMEROS — e esta é a frase que o pedido
 > pressupõe e que não é verdade.** `download_count` é API **pública** de um
@@ -221,7 +254,7 @@ substituição do asset zera o contador no meio do teste.
 
 ## §11 O DESENHO RECOMENDADO, EM DEGRAUS
 
-### Degrau 0 — hoje, sem tocar no APK
+### Degrau 0 — FEITO (`dados.yml` + `site/registro/`)
 
 Um workflow agendado (de hora em hora) lê os contadores pela API, acrescenta uma
 linha à série e a grava **na branch órfã `dados`** (§9.2). A seção oculta do
@@ -235,16 +268,21 @@ zero `SHELL_VERSION`.**
 E ele **fotografa antes da faxina** (§9.1) — que é a única parte com prazo: cada
 publicação nova apaga o contador de um `web-*.zip` que ninguém mais vai ler.
 
-### Degrau 1 — quando o alcance justificar
+### Degrau 1 — FEITO (`Farol.kt` + a chave de Configurações)
 
 O farol por sessão: o app busca **uma vez por dia** um asset minúsculo que
 nenhum workflow toca; a diferença diária é **aparelhos ativos no dia**, limpa,
 sem depender da aritmética do §5. Com a chave de exclusão do §6 roteando o
 aparelho do operador para o contador separado.
 
-Custo: um degrau de `SHELL_VERSION`, um lote APK + web publicado JUNTO com
-`shellTag` (a regra de entrega do `CLAUDE.md`), e uma Release. **Não vale a pena
-enquanto o alcance for de um dígito** — é o §1 decidindo, não o gosto.
+Custo pago: `SHELL_VERSION` 57, lote APK + web com `shellTag: v1.4.1`, e a
+Release.
+
+**O estudo argumentou contra construí-lo agora** — com o alcance em um dígito, o
+degrau 0 sozinho já responderia — e a decisão do operador foi construir os dois
+no mesmo lote. Fica registrado porque a razão importa: o degrau 1 é o único que
+dá "aparelhos ativos" **limpo**, sem depender da aritmética do §5, e ele só
+começa a acumular história a partir do dia em que é instalado.
 
 ### Degrau 2 — parado, e registrado como parado
 
@@ -263,3 +301,6 @@ com outro custo de privacidade.
 | commitar a série em `main` | republica o bundle e zera o contador que se quer medir (§9.2) |
 | ler a série de um asset de Release | sem CORS (§9.3) |
 | subtrair o próprio uso por estimativa | §6 — produz um painel confiável e falso |
+| cifrar o painel (AES-GCM + frase) | §7 — escolha do operador pela obscuridade. Continua disponível, e o que ele mudaria (a ANÁLISE, nunca os números) está escrito lá |
+| farol por SESSÃO em vez de por dia | quem abre o app quarenta vezes numa manhã de trabalho viraria quarenta. Por dia, o pior caso de um aparelho é contribuir com 1 — e a diferença entre dois dias passa a ser "aparelhos", que é a métrica de alcance |
+| retentar o farol que falhou | um dia perdido custa um ponto numa série; insistir custa fio e bateria no meio de um culto. É a única coisa deste projeto que pode falhar sem consequência, e falha calada de propósito |

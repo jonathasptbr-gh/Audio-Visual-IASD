@@ -24,6 +24,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
+- **v1.4.1** — A MEDIÇÃO DE ALCANCE. O app e o site passaram a contar **quantos aparelhos usam isto**, e nada além disso: uma busca por dia a um asset de Release cujo `download_count` o GitHub já mantém — sem id, sem corpo, sem nada que distinga um aparelho de outro, e sem uma requisição a domínio que o app já não usasse. O uso próprio sai **por construção** (contador separado: `b-dev.txt` para o aparelho marcado em Configurações e para todo build debuggável), nunca por subtração de uma estimativa — *subtrair um palpite do próprio uso é como se produz um painel confiável e falso*. Três achados MEDIDOS moldaram o desenho, e o segundo inverteu a escolha óbvia: (1) o alcance de hoje é de **um dígito** (v1.0 com 5 downloads, v1.4 com 1), então o instrumento barato vale mais que o preciso; (2) o `web-ota` **não tem filtro de caminho**, então gravar a série em `main` republicaria o bundle de hora em hora e ZERARIA o `version.json` — o instrumento destruiria a própria medida —, daí a branch órfã `dados`; (3) asset de Release não manda `Access-Control-Allow-Origin` (o `pages.yml` já registrava a medição), então o painel lê de `raw.githubusercontent.com`. A seção fica em `site/registro/` atrás de `#alcance`, e **a própria página diz que isso é obscuridade e não segredo** — `download_count` é API pública de um repositório público. Fecha com um oráculo novo (`registro-alcance.test.mjs`, o único que roda sobre o `site/`), provado por reversão contra um gráfico que desenhava 12, 5, 3 e 1 do mesmo tamanho: `.barra-c`/`.barra-f` eram `<span>`, e `width` não faz nada em elemento inline. **Uma suposição segue sem medir**, e o farol inteiro depende dela — ver o aviso no topo de `docs/MEDICAO-DE-ALCANCE.md`.
 - **v1.4** — A AUDITORIA PROFUNDA: 75 DEFEITOS CONFIRMADOS, TODOS CORRIGIDOS. Uma varredura de ~60.000 linhas em cinco etapas sequenciais (shell Kotlin, `shared/`+`display/`, `espelho/`+puros, CSS/HTML/CI, `controle.js`), com verificação adversarial de cada achado por seis caminhos de refutação — 90 brutos, 71 sobreviveram, mais 4 da varredura mecânica. A correção saiu em SEIS lotes sequenciais, do risco menor para o maior. **O padrão dominante não era defeito de código: eram 30+ comentários AFIRMANDO COISAS FALSAS**, num repositório cujo `CLAUDE.md` diz que um comentário errado produz a decisão errada. Os três mais graves: (1) com a transmissão no ar, um documento renascido (OTA aplicado ou renderer morto) mandava TODO `load` às telas da rede SEM `__rec` — `mirrorEstado` nasce `null` e ninguém o relê, então a projeção da igreja ficava no wallpaper o culto inteiro, sem erro em lugar nenhum; a correção é UM `lerEspelho()` no `init()`; (2) `restoreSceneAfterText` lia `stage.getCurrent()` sem saber que havia `load` em voo — a janela são os ~600 ms do `FADE.time` de TODA troca de cena, e o estado é PERMANENTE: a letra do hino ANTERIOR remontada sobre a música nova, avançando pelo relógio dela; confirmado nas DUAS metades (telão e preview), independentemente, porque *ler cada lado isolado aprova os dois*; (3) reabrir a gaveta de uma linha já montada reapontava só o `songMenuFor` — `destExecutor` e `destMarcados` continuavam na linha anterior, e confirmar em A projetava B. O ciclo revisor→correção pagou QUATRO regressões das próprias correções, todas provadas por reversão, e descobriu uma classe que a auditoria não procurou: **um oráculo que testava código morto** (o `smoke.mjs` montava `.coll-opts` à mão desde a v1.1.21). Fecha com 44 oráculos verdes, três deles novos, e 26 achados deliberadamente por aplicar, cada um com justificativa no commit.
 - **v1.3.16** — O NOME DA TELA FICOU MAIOR, E A BARRA NÃO. Pedido do operador: *"aumente a fonte do título das abas Cronograma e Bíblia, mas não aumente a altura dessa barra do topo, apenas a fonte"*. A altura não se mexe e isso não depende de cuidado: a `.list-header` é uma grade com `grid-template-rows: var(--hit)` — 34px FIXOS, o alvo de toque dos dois botões que ela hospeda —, e a fonte do título não participa dessa conta. MEDIDO em sete tamanhos (.84 a 1,25rem), em 430px e em 320px: a barra fica em 34px em todos, sem cortar o glifo e sem reticências (os únicos dois títulos possíveis são "Cronograma" e "Bíblia"). O tamanho escolhido (`1,05rem`, 16,8px, +25%) corrige de passagem uma INVERSÃO: ele era `.84rem` e portanto MENOR que o título de uma folha (`.popup-title`/`.tools-title`, `.95rem`) — e uma folha abre EM CIMA da tela, não acima dela na hierarquia. Agora a ordem é tela › folha › conteúdo, e ele continua abaixo dos 22px do glifo dos botões vizinhos, então a faixa segue lendo como "ícone · rótulo · ícone". OTA PURO.
 - **v1.3.15** — TRÊS ACERTOS DA REVISÃO DE TEMA, todos do operador olhando o resultado. (1) **UMA COR POR LADRILHO DA BÍBLIA**: cada livro tinha DUAS bandas — a tinta do grupo e, sobre ela, uma faixa de 3px na versão saturada da mesma matiz —, o que numa grade de 66 livros são 132 manchas na única tela que preenche o visor inteiro de cor (*"duas faixas de cores no mesmo botão"*). A faixa nasceu na v5.192 para CARREGAR o agrupamento, quando a tinta era mais apagada; hoje é redundante, e MEDIDO: a tinta sozinha tem **≥19° de separação de matiz entre quaisquer duas** das dez (piso do projeto 20°, o par de 19 é arredondamento), saturação uniforme (33–35% no escuro, ~60% no claro), luminância estreita (18–30% · 79–91%) e pior rótulo 8,72:1 · 6,46:1. Os dez `--bt-*` saíram de `tokens.css` com ela — eram os únicos consumidores. A pílula de Livro da referência perdeu a faixa junto: ela é a AMOSTRA do ladrilho, e amostra que diverge do original não é amostra. (2) **A ABA ATIVA DEIXOU DE SER PINTADA**. A v1.3.14 respondeu ao vazado de 1,32:1 com a célula PREENCHIDA, e resolveu a leitura criando outro problema (*"use um método visual de seleção que seja mais discreto, menos volumoso, para não disputar a presença visual com o botão de pesquisa; não pinte todo o botão da aba"*): numa faixa de três células, duas manchas cheias de azul disputam, e a que menos deveria disputar é a que só diz "você está aqui". Hoje é uma BARRA de 3px na borda de cima da célula, em `--accent`, com o glifo na mesma cor — duas marcas de TRAÇO, nenhuma de área. O `.tab-ind` continua sendo o que sempre foi: um elemento que DESLIZA entre as células. (3) **O ✕ DAS FERRAMENTAS virou o botão quadrado padrão** (`.popup-close`): ele era um SVG traçado sobre `background: none`, o único fechar do app que não parecia um botão; a classe própria e o `:active` dela saíram. OTA PURO.
@@ -272,6 +273,112 @@ na nota que a revoga, não apagada da que a criou.
 - **v5.154** — é METADE OTA e METADE APK, e a divisão importa para quem for testar em aparelho.
 - **v5.155** — é OTA PURO
 - **v5.156** — é METADE OTA e METADE APK, de novo.
+
+---
+
+## v1.4.1 — a medição de alcance
+
+**A pergunta:** *"quantos instalaram, quantos estão usando, sem dado pessoal e
+sem que o meu próprio uso masque o número."* O contrato do que foi construído
+está em `docs/MEDICAO-DE-ALCANCE.md`; aqui fica o porquê.
+
+### O que já contava sozinho, e ninguém tinha lido
+
+O GitHub mantém um `download_count` público por asset de Release, e ele acumula
+desde a v1.0 sem ninguém ter ligado nada. Medido em 2026-08-28, pela API:
+`audio-visual-iasd-v1.0.apk` **5**, o nome fixo da v1.0 **3**, v1.3.12 **1**,
+v1.4 **1**; os bundles `web-1.3.15.zip` e `web-1.3.16.zip` **2** cada — que é a
+ADOÇÃO por versão; `version.json` **2** desde a publicação daquela manhã.
+
+**O primeiro achado é o NÚMERO, não o mecanismo: o alcance é de um dígito.** É
+ele que ordena o resto — um instrumento barato instalado agora vale mais que um
+preciso instalado depois, porque o que ele vai medir ainda não aconteceu. Nada
+disto justifica infraestrutura, e é por isso que não há endpoint nenhum.
+
+### A restrição central
+
+Uma página do Pages **entrega** bytes e não tem onde **gravar**. Uma "seção de
+registro" no site não registra nada por si: ela só desenha o que outra coisa
+contou. Sobram três lugares capazes de registrar uma requisição — o
+`download_count` do próprio GitHub, um endpoint nosso, ou nada. O endpoint foi
+recusado pelo preço que o pedido excluía: um servidor que vê o IP de cada
+aparelho da igreja.
+
+### As três armadilhas medidas, e a segunda inverte o desenho
+
+1. **A faxina do `web-ota` (`apk.yml`, "Recolher bundles antigos") APAGA
+   contador.** Ela deixa os três zips mais novos, e apagar o asset destrói a
+   contagem dele para sempre. Daí a marca d'água do `dados.yml` (`visto`, o
+   maior valor já observado de cada asset) e a tag PRÓPRIA `dados-latest`, que
+   faxina nenhuma varre — um farol vale justamente por ser velho.
+2. **O `web-ota` NÃO TEM FILTRO DE CAMINHO.** Um workflow que gravasse a série
+   de hora em hora em `main` republicaria o bundle de hora em hora, e cada
+   publicação substitui o `version.json` — **zerando de hora em hora justamente
+   o contador que ele existe para medir**. O instrumento destruiria a própria
+   medida, e em silêncio. Daí a branch órfã `dados`: o `on: push` do `apk.yml` é
+   `branches: [main, 'claude/**']`, e ela não casa com nenhum dos dois.
+3. **Asset de Release não manda `Access-Control-Allow-Origin`** — medição que o
+   `pages.yml` já registrava, e é por ela que aquele workflow escreve a versão
+   no HTML em tempo de deploy. O painel, portanto, não pode ler a série de um
+   asset: lê de `raw.githubusercontent.com`, que responde com CORS liberado.
+
+### O uso próprio sai POR CONSTRUÇÃO
+
+Contadores separados, nunca filtro depois: o aparelho de teste não deixa de
+acender, ele acende em `b-dev.txt`. *Subtrair uma estimativa do próprio uso é
+como se produz um painel confiável e falso* — e assim um erro aparece como um
+número óbvio no contador errado, em vez de sumir dentro do certo.
+
+Três fontes, três respostas: o **CI** (o farol é um asset que nenhum workflow
+toca, e o `dados.yml` lê pela API, que não incrementa); o **aparelho do
+operador** (a linha em Configurações — ele roda o mesmo APK de todo mundo, então
+só uma pessoa sabe); e o **build debuggável**, por
+`ApplicationInfo.FLAG_DEBUGGABLE` lido em runtime, e **não** por
+`BuildConfig.DEBUG`, que custaria ligar `buildFeatures { buildConfig = true }`
+para um booleano que a plataforma já entrega. As visitas ao site seguem a mesma
+regra, pelo `localStorage`.
+
+### O que a página diz de si mesma
+
+A seção é `site/registro/`, não linkada, com `noindex`, exigindo `#alcance`.
+**Isso é obscuridade e não segredo, e a página afirma isso no rodapé dela**: a
+chave está no HTML que o visitante baixou, e `download_count` é API pública de
+um repositório público — qualquer pessoa que saiba onde olhar lê os mesmos
+números. Cifrar o painel (AES-GCM com frase em Secrets) protegeria a ANÁLISE,
+nunca os números; foi oferecido e recusado, e continua disponível.
+
+### O oráculo, e o defeito que ele pegou
+
+`tools/registro-alcance.test.mjs` é o único da suíte que roda sobre o `site/`.
+Ele existe porque duas coisas ali falham CALADAS. A primeira foi encontrada
+OLHANDO a página renderizada: `.barra-c` e `.barra-f` eram `<span>`, que é
+inline, e `width`/`height` não fazem nada em elemento inline — as barras de 12,
+5, 3 e 1 saíam idênticas, com o trilho à vista e o preenchimento invisível.
+`node --check` aprova um gráfico que mente, e por isso a asserção é sobre a
+GEOMETRIA renderizada. Provado por reversão.
+
+A segunda é o **roteamento**, que é o requisito inteiro: se ele parar, nada
+quebra — a página abre, o gráfico desenha, os números sobem — e passam a incluir
+quem mede. **Contador não se corrige depois.**
+
+### O par de cores foi validado, não escolhido
+
+`bluejay` (#2E6DE7) e `campfire` (#CD4900), os dois oficiais da identidade IASD:
+ΔE 30,3 em protanopia, 35,2 em visão normal, os dois acima de 3:1 sobre o
+branco. O `denim` — o accent do site — foi o primeiro candidato e REPROVOU no
+piso de croma (0,082): como marca de dado ele lê como cinza. Ele continua sendo
+a cor de texto e de título; o que mudou é que marca de dado é outro trabalho.
+
+### O que ficou por medir, e é dito no topo do documento
+
+Tudo pressupõe que o `download_count` conte a busca feita pelo APP
+(`HttpURLConnection` no `browser_download_url`). É plausível e **não é sabido**.
+Se falhar, o farol não conta nada e não avisa: a contagem fica em zero para
+sempre, e zero é indistinguível de "ninguém usou". A medição custa dez minutos e
+um aparelho, e está escrita no §10.
+
+**Ponte:** `SHELL_VERSION` **57** — `farolEstado()` e `farolContar(bool)`.
+**Lote APK + web publicado JUNTO**, com `shellTag: v1.4.1`.
 
 ---
 
