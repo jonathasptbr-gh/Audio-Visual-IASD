@@ -13,8 +13,15 @@ import java.io.File
  * ```
  *  AudioVisualIASD.exe  ──stdio──►  nucleo.jar  ──HTTP/SSE──►  as duas janelas
  *   (C#: janela, monitores,  ◄──────  (Kotlin: servidor,  ◄────  (WebView2)
- *    diálogos, volume)                 YouTube, cifra)
+ *    diálogos, volume)                 despacho, `/saf/`)
  * ```
+ *
+ * **O que ele AINDA não faz** — e está dito porque um diagrama que promete
+ * manda o próximo leitor procurar o que não existe: YouTube (`ytFetch`,
+ * `ytSearch`, `ytStream`…), cifra (`cifraHtml`) e as telas da rede
+ * (`espelho*`) são os lotes 4 e 6 de `docs/SEGUNDA-CASCA.md`. Hoje o
+ * [NucleoDespacho] responde a eles com o desfecho inofensivo, como responde a
+ * qualquer método que ninguém implementou ainda.
  *
  * ## Ele morre com a casca, e isso é o ponto
  *

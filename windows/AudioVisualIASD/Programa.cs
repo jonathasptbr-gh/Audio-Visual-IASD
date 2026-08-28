@@ -9,14 +9,20 @@ namespace AudioVisualIASD;
 ///
 /// Ela abre duas janelas sobre a MESMA base web que roda no celular, e não
 /// decide nada de culto: transporte, playlist, letra sincronizada, Bíblia,
-/// Camada de Texto e fades ficam no web (invariante 5), YouTube e cifra ficam
-/// no núcleo em Kotlin, e aqui fica o que só o Windows sabe fazer.
+/// Camada de Texto e fades ficam no web (invariante 5), o servidor e o despacho
+/// da ponte ficam no núcleo em Kotlin, e aqui fica o que só o Windows sabe
+/// fazer.
 ///
 /// ```
 ///  AudioVisualIASD.exe ──stdio──► nucleo.jar ──http://127.0.0.1:8420──► as duas janelas
 ///   (janela, monitores,   ◄──────  (servidor,      ◄──── SSE ─────────   (WebView2)
-///    diálogos, volume)              YouTube, cifra)
+///    diálogos, volume)              despacho, /saf/)
 /// ```
+///
+/// **YouTube e cifra AINDA não estão no núcleo** — são os lotes 4 e 6 de
+/// `docs/SEGUNDA-CASCA.md`, e dizê-los prontos aqui mandaria o próximo leitor
+/// procurar o que não existe. Quando entrarem, entram lá: nada de regra sobe
+/// para este arquivo.
 ///
 /// ## O que abre, e quando
 ///

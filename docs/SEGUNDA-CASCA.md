@@ -53,7 +53,7 @@ segundo sistema operacional, com **a mesma base web, byte a byte**.
 |---|---|---|---|
 | **2** | Layout de computador na base web + o oráculo da 2ª janela | duas colunas onde há largura E altura; o primeiro oráculo do repositório que abre uma segunda janela | **CONCLUÍDO** — v1.4.4, `e6256ed` |
 | **1** | O módulo `:core` | o Kotlin sem plataforma sai do `:app`; o compilador passa a impedir uma dependência de Android entrar nele | **CONCLUÍDO** — v1.4.5, `a804c22` |
-| **3** | Casca mínima: transporte + janelas + importação | servidor de loopback, ponte, despacho, `/saf/`, diálogos de arquivo, a casca em C# | **CONCLUÍDO** — v1.4.6, `df1e125` · `8ec12c4` · `6e6e4fa` |
+| **3** | Casca mínima: transporte + janelas + importação | servidor de loopback, ponte, despacho, `/saf/`, diálogos de arquivo, a casca em C# | **CONCLUÍDO** — v1.4.6, `df1e125` · `8ec12c4` · `6e6e4fa`, mais a varredura adversarial (`3f126cc` · `4e69c8f` · `3aed508` · `f202a9b` · `380963b`) |
 | **4** | YouTube e cifra | `YoutubeGrab` + `CifraFonte` ligados ao despacho. **Teto de 720p até o lote 5** | **A FAZER** |
 | **5** | Muxer e PDF | 1080p (o par vídeo+áudio) e a apresentação em imagens | **A FAZER** |
 | **6** | Telas da rede no PC | o `EspelhoServidor` na segunda casca | **A FAZER** |
@@ -421,7 +421,7 @@ não dá, porque o `jitpack.io` está bloqueado.
 | o quê | de onde vem | o que falta |
 |---|---|---|
 | `deckPages` `deckDiscard` | `SlideDeck.kt` — 379 linhas, **7** imports (`graphics.pdf` = `PdfRenderer`, `Bitmap`) | um rasterizador de PDF que não seja da plataforma. O `.pptx` **já funciona**: quem o desenha é o `vendor/` do lado web |
-| 1080p | `MuxMp4.kt` — 190 linhas, **5** imports, todos `android.media` | juntar as duas faixas sem recodificar. Até lá, **teto de 720p** (o progressivo) |
+| 1080p | `MuxMp4.kt` — 190 linhas, **4** imports de `android.media` (mais o `Log`) | juntar as duas faixas sem recodificar. Até lá, **teto de 720p** (o progressivo) |
 
 **Uma armadilha que o Android já pagou, e que o computador REABRE por outro
 campo.** Lá o defeito das v5.97–v5.99 foi perguntar `startsWith("https://")`
@@ -435,6 +435,14 @@ está: uma URL de `/saf/` é `http://127.0.0.1:8420/…` — o host não é o do
 Android, e o esquema não é `https`. O port precisa da sua própria constante de
 origem, e a pergunta continua sendo pelo **host mais a porta**, nunca pelo
 esquema.
+
+**E o desfecho disso é uma FALHA DECLARADA, não um desvio mudo** — o que muda o
+tamanho do trabalho e por isso está dito: falhando os dois ramos, o `when` cai
+no `else`, que devolve `erro("origem não é nem /saf/ nem https")`
+(`SlideDeck.kt:161`). O operador lê uma frase que nomeia a causa, e não uma
+apresentação em branco. É a diferença entre o que este arquivo já é hoje e o
+que ele era nas v5.97–v5.99, quando o ramo errado era ESCOLHIDO em vez de
+recusado.
 
 ### Lote 6 — as telas da rede (9 métodos)
 
@@ -542,11 +550,17 @@ sobre `CreateCoreWebView2Controller(HWND)`.
 ### O que TEM oráculo
 
 **70 testes JUnit** no `:core` só para a segunda casca (de 208 no total), mais
-**72 asserções** de Node/C#, mais **25** em Chromium.
+**70 asserções** de Node/C#, mais **23** em Chromium.
 
 > Os números entre parênteses são **pontos de chamada**, e não execuções: uma
 > asserção dentro de um laço conta uma vez. Reconte-os antes de citá-los — é a
 > regra deste repositório, e ela vale para o próprio documento.
+>
+> **E a contagem tem uma armadilha que já mordeu quatro deles de uma vez:** um
+> `grep -c 'checar('` inclui a **definição** da função quando ela é escrita como
+> `function checar(`, e não a inclui quando é `const checar = (ok, o) =>`. Os
+> quatro oráculos que declaram do primeiro jeito saíram daqui **um a mais** cada
+> um. Conte descontando a definição — ou conte as duas formas e compare.
 
 | oráculo | onde roda | o que ele trava |
 |---|---|---|
@@ -555,12 +569,12 @@ sobre `CreateCoreWebView2Controller(HWND)`.
 | `NucleoPonteTest` (9) | JUnit | o envelope contra as fixtures, e o cano de stdio |
 | `NucleoDespachoTest` (14) | JUnit | a **invariante 9 recusada no servidor**; o barramento excluindo o emissor; o que não tem dono ficando visível; o síncrono |
 | `NucleoArquivosTest` (15) | JUnit | a rota `/saf/`: token opaco e estável, a sessão, a listagem não recursiva |
-| `ponte-envelope.test.mjs` (24) | Node puro | o produtor **JavaScript** do envelope, e **a entrega do barramento de ponta a ponta** — a folha mais o `native.js` de verdade, na ordem real, com um quadro `b` como o núcleo o emite. Foi preciso: a versão que afirmava só o NOME do contrato ficou verde sobre um relay mudo, **e que a folha ofereça exatamente os 57 métodos que o `native.js` chama** — um a menos vira `TypeError` engolido pelo `catch`, com o botão mudo em culto |
-| `AudioVisualIASD.Testes` (14) | .NET, **em Linux** | o terceiro lado do envelope. Portátil de propósito: um contrato de três lados em que só dois têm oráculo é um contrato de dois lados outra vez |
+| `ponte-envelope.test.mjs` (23) | Node puro | o produtor **JavaScript** do envelope, e **a entrega do barramento de ponta a ponta** — a folha mais o `native.js` de verdade, na ordem real, com um quadro `b` como o núcleo o emite. Foi preciso: a versão que afirmava só o NOME do contrato ficou verde sobre um relay mudo, **e que a folha ofereça exatamente os 57 métodos que o `native.js` chama** — um a menos vira `TypeError` engolido pelo `catch`, com o botão mudo em culto |
+| `AudioVisualIASD.Testes` (13) | .NET, **em Linux** | o terceiro lado do envelope. Portátil de propósito: um contrato de três lados em que só dois têm oráculo é um contrato de dois lados outra vez |
 | `casca-contrato.test.mjs` (10) | Node puro | **as listas que moram em duas linguagens**: o degrau do contrato (`SHELL_VERSION` × `SHELL`), o que atravessa o cano (`DA_CASCA` × os `case` da casca) e a lista da invariante 9 — **e que o §7 deste documento não envelheça** em relação ao código |
 | `nucleo-de-pe.test.mjs` (24) | Node + JVM | **o programa DE PÉ**: o aperto de mão `NucleoMain` ↔ `Nucleo.Ligar()`, a base servida de verdade, o `Range`, a travessia **por socket cru**, a ponte de ponta a ponta e o `/saf/` com a invariante 9 |
-| `janela-do-display.test.mjs` (15) | Chromium | duas páginas do mesmo origin dividindo IndexedDB e barramento — **o primeiro oráculo deste repositório que abriu uma segunda janela** |
-| `degrau-desktop.test.mjs` (10) | Chromium | o layout de duas colunas, medindo **o que o desenho reserva**, nunca a soma renderizada |
+| `janela-do-display.test.mjs` (14) | Chromium | duas páginas do mesmo origin dividindo IndexedDB e barramento — **o primeiro oráculo deste repositório que abriu uma segunda janela** |
+| `degrau-desktop.test.mjs` (9) | Chromium | o layout de duas colunas, medindo **o que o desenho reserva**, nunca a soma renderizada |
 
 **Onde eles rodam:** o job **`segunda-casca`** do `.github/workflows/apk.yml`, a
 cada push. **Ninguém o tem como `needs`, e isso é decisão:** o `verificar` fecha

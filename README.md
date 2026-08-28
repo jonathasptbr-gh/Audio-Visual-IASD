@@ -46,8 +46,8 @@ o conjunto seja licenciado sob ela e que o código correspondente seja oferecido
 a quem recebe o binário — este repositório é público, e cada Release aponta para
 o commit de que foi compilada.
 
-O software de terceiros que vai no APK está listado em
-[`AVISOS-DE-TERCEIROS.md`](AVISOS-DE-TERCEIROS.md).
+O software de terceiros que vai em cada binário — o APK e o programa de
+Windows — está listado em [`AVISOS-DE-TERCEIROS.md`](AVISOS-DE-TERCEIROS.md).
 
 > A licença cobre o **código**. O símbolo e o nome **IASD** são da Igreja
 > Adventista do Sétimo Dia, e nada aqui concede direito sobre eles.

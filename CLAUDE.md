@@ -40,7 +40,7 @@ nomeia**; hoje tem DOIS, os dois do áudio do espelhamento, e é arquivo para
 esvaziar, não para crescer),
 `docs/shell/README.md`
 (o HUB do **Kotlin**: um capítulo por
-subsistema do shell, mais a tabela que diz onde cada um dos 29 arquivos é
+subsistema do shell, mais a tabela que diz onde cada um dos 37 arquivos é
 explicado), `docs/ARQUITETURA-WEB.md` (o HUB da base web: regras gerais e o
 mapa dos capítulos em `docs/arquitetura/`), `docs/SEGUNDA-CASCA.md` (o CONTRATO e o DIÁRIO DE BORDO do programa de
 Windows — **leia a §0 antes de retomar aquele trabalho**; ele carrega a tabela
@@ -3533,15 +3533,14 @@ Rodar local: `./gradlew assembleDebug` (exige Android SDK).
 - **Cor nova entra em `shared/tokens.css`**, nunca literal na folha do app — e
   nunca branco pleno fora do palco.
 - **Sem dependências externas** — Kotlin puro + AndroidX no shell, JavaScript
-  puro no web. **Quatro exceções, todas declaradas:**
+  puro no web. **Cinco exceções, todas declaradas:**
 
   | dependência | por que é inevitável |
   |---|---|
   | **`@aiden0z/pptx-renderer`** (`assets/web/vendor/`, Apache-2.0, `import()` dinâmico) | o Android **não desenha PowerPoint**: a plataforma só traz o `PdfRenderer`, as libs nativas são comerciais ou limitadas a 3 páginas, converter num servidor mandaria o material do culto para fora do aparelho, e escrever DrawingML à mão daria um slide PARECIDO com o que o pastor montou — pior que slide nenhum. Levantamento completo no `LEIA-ME.md` da pasta |
   | **`NewPipeExtractor`** | extrair a URL de um vídeo do YouTube é acompanhar as defesas deles (PO Tokens por vídeo, assinados por BotGuard/DroidGuard). A alternativa sem dependência — servidor público — FALHOU em aparelho: eles rodam em IP de datacenter, exatamente o que o YouTube bloqueia. E a conta é paga por quem publica: o SABR que derrubou o 1080p foi resolvido lá (cliente visionOS) e chegou aqui como **um bump de versão**. Manter o pin explícito e ler o CHANGELOG antes de reescrever extração à mão |
   | **JUnit** (`testImplementation`) | **não põe um byte no APK**. Existe porque o servidor das telas é **a primeira fronteira de rede do projeto** — um parser HTTP com controle de acesso, onde um erro não vira pixel errado, vira controle de acesso quebrado. Escrevê-lo sem oráculo, num repositório que recusa o RFC 6455 **por falta de oráculo**, seria o argumento aplicado contra ele mesmo |
-| **Playwright** (`package.json`, `devDependencies`) | **também não põe um byte no APK** — é o arnês dos oráculos de Chromium, e a única forma de exercitar o que só existe RENDERIZADO (contraste, escada de camadas, hit-test, o telão de verdade). Ele já era usado; o que mudou é que passou a ser **declarado e PINADO**: o `package.json` e o `package-lock.json` são versionados e o CI usa `npm ci`. Sem o pin, o passo instalava a `latest` do dia e o veredito do CI não era função só do nosso código — o que tornava impossível o passo BARRAR o build, e desde a v5.316 ele barra. **Subir o pin obriga a repetir a campanha de determinismo** (ver "Um oráculo não pode medir o runner") |
-
+  | **Playwright** (`package.json`, `devDependencies`) | **também não põe um byte no APK** — é o arnês dos oráculos de Chromium, e a única forma de exercitar o que só existe RENDERIZADO (contraste, escada de camadas, hit-test, o telão de verdade). Ele já era usado; o que mudou é que passou a ser **declarado e PINADO**: o `package.json` e o `package-lock.json` são versionados e o CI usa `npm ci`. Sem o pin, o passo instalava a `latest` do dia e o veredito do CI não era função só do nosso código — o que tornava impossível o passo BARRAR o build, e desde a v5.316 ele barra. **Subir o pin obriga a repetir a campanha de determinismo** (ver "Um oráculo não pode medir o runner") |
   | **`Microsoft.Web.WebView2`** (`windows/`, a segunda casca) | **é a única das cinco que VIAJA no produto** — as outras três de build não põem um byte em artefato nenhum. Ela é o SDK de hospedagem do runtime do Edge, e não há alternativa: sem ela não há como pôr uma página numa janela do Windows. O JCEF, que seria a alternativa sem ela, **vem com H.264/AAC desligados por patente** (`JBR-2368`) — o hinário tocaria e o YouTube, a transmissão direta e todo `.mp4` importado não. Ela é do próprio fabricante do sistema, licenciada por ele, e o runtime já está em todo Windows 10/11: o que o pacote carrega é o SDK, não um navegador. Ver `docs/SEGUNDA-CASCA.md` §3 e §9 |
 
   Uma sexta exceção precisa da mesma justificativa: um problema que não se
