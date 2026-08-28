@@ -766,7 +766,26 @@ object YoutubeGrab {
                 diagnosticoStream += contas + " → SEM PAR DASH, caindo no download"
                 return null
             }
-            diagnosticoStream += contas + " → transmitindo ${v.altura}p (${v.etiqueta} + ${a.etiqueta})" +
+            // O QUE HAVIA, ao lado do que foi ESCOLHIDO — e a linha só sai
+            // quando os dois DIFEREM. Ela responde a única pergunta que o
+            // Registro não sabia responder sobre resolução: *"o app escolheu
+            // baixo, ou só havia baixo?"*.
+            //
+            // A rede NÃO é resposta possível aqui, e é preciso estar dito: o
+            // `shared/mse.js` não faz ABR (está no cabeçalho dele, em letras
+            // maiúsculas). Uma rede fraca produz TRAVAMENTO, nunca resolução
+            // menor — quem conta os travamentos é o `AVStream.fome`. Sobram três
+            // causas para uma imagem ruim, e esta linha separa a primeira:
+            // a faixa que escolhemos, o teto que o operador pediu, e o encoder
+            // do espelhamento, que fica fora do alcance do app.
+            //
+            // SOB O MESMO TETO, senão um "480p" pedido pelo operador acusaria o
+            // app de ter deixado 1080p na mesa. O teto entra na linha pelo mesmo
+            // motivo: é ele que distingue escolha de escassez.
+            val possivel = maiorTransmissivel(info, teto)
+            diagnosticoStream += contas + " · teto ${teto}p" +
+                " → transmitindo ${v.altura}p (${v.etiqueta} + ${a.etiqueta})" +
+                (if (possivel > v.altura) " · HAVIA ${possivel}p transmissível (outro cliente)" else "") +
                 " · v=${v.mime};${v.codec} a=${a.mime};${a.codec}"
             JSONObject()
                 .put("name", tituloLimpo(info.name, info.uploaderName))
@@ -792,6 +811,29 @@ object YoutubeGrab {
      * responde de uma vez se o problema é o YouTube não mandar os byte-ranges,
      * a biblioteca não preencher o codec, ou simplesmente não haver faixa mp4.
      */
+    /**
+     * A MAIOR altura mp4 de fato transmissível da lista inteira, sob [teto] —
+     * **ignorando o cliente**, que é justamente o que [candidatosVideo] não
+     * ignora.
+     *
+     * Existe só para o diagnóstico, e para uma pergunta só: o app escolheu
+     * baixo, ou só havia baixo? `candidatosVideo` ordena por `ordemCliente`
+     * ANTES da altura (é do visionOS que vêm as URLs que o CDN serve), então em
+     * tese um vídeo cujo visionOS não tenha faixa alta sai numa resolução menor
+     * que a disponível — e nada no Registro dizia isso. **MEDIDO em aparelho na
+     * v5.127**, o caso normal é `137@VISIONOS`, que É 1080p; esta linha é o que
+     * mostra o dia em que deixar de ser.
+     *
+     * Não muda escolha nenhuma: reordenar por altura entre clientes é trocar
+     * uma imagem pior por um 403 na frente da congregação, e isso não se decide
+     * sem a medição que esta linha produz.
+     */
+    private fun maiorTransmissivel(info: StreamInfo, teto: Int): Int =
+        info.videoOnlyStreams
+            .mapNotNull { faixaDe(it) }
+            .filter { it.ext == "mp4" && it.dash && it.altura in 1..teto }
+            .maxOfOrNull { it.altura } ?: 0
+
     private fun porQueNaoDash(nome: String, fs: List<Faixa>): String {
         if (fs.isEmpty()) return "$nome 0"
         val init = fs.count { it.initFim > it.initIni }

@@ -500,6 +500,16 @@ jobs:
           # entre o preto e o primeiro quadro — tornou a falta visível. É um
           # defeito que nenhum `--check` pega e que a congregação inteira vê.
           rodar tools/stage-fade.test.mjs
+          # E O TRAVAMENTO NO MEIO DA TRANSMISSÃO. O giro só existia na CARGA,
+          # então uma parada por falta de buffer congelava o quadro sem nada na
+          # tela — e um app quebrado produz exatamente a mesma imagem. Relato do
+          # operador: *"veio som, porém ficou travando"*, com a única leitura
+          # possível sendo um palpite sobre a internet. Ele mede as quatro
+          # metades (aparece · não pisca · só no stream · é CONTADO) mais a que
+          # foi medida escrevendo o arquivo: um `MediaSource` nasce vazio e
+          # dispara `waiting` em TODA transmissão, então contar a carga faria o
+          # número do Registro dizer "≥1 sempre".
+          rodar tools/espera-do-stream.test.mjs
           # E o COLETOR DE LIXO do banco, que é o único código do app que apaga
           # mídia do operador. Um erro ali não dá tela branca: some com o vídeo
           # do domingo, em silêncio e sem desfazer.
@@ -578,6 +588,16 @@ jobs:
           # do dongle é o caminho menos testável à mão — exige TV, dongle e o
           # timing de derrubá-lo — e roda sozinho na frente da congregação.
           rodar tools/cena.test.mjs
+          # E A TELA CONECTADA COM O TELÃO NO CHÃO. "Há tela" nunca foi "há
+          # telão": a lista responde pelo `DisplayManager` e quem projeta é a
+          # `Presentation`, que numa negociação de Miracast pode não subir (o
+          # `show()` que lança) ou cair sozinha com a tela ainda listada. Nesse
+          # estado o web calava a preview por haver "para onde mandar o som" e
+          # não havia ninguém tocando do outro lado — SILÊNCIO NOS DOIS LADOS,
+          # sem erro no console e com o Registro dizendo "conectado". É o relato
+          # de "conectei na smart TV e o som ia e voltava", e nada nele erra
+          # alto.
+          rodar tools/telao-no-chao.test.mjs
           # E A IMAGEM SOBRE O ÁUDIO: a regra é uma AUSÊNCIA — nenhum `load`
           # sai daquele caminho, e é só por isso que o louvor de fundo
           # sobrevive ao aviso projetado por cima. Ausência não tem sintoma de

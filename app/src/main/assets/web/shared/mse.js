@@ -650,5 +650,22 @@
   // O ÚLTIMO erro de transmissão, para o Registro de Configurações. Um
   // `console.warn` não chega a quem opera o culto — e é justamente quem opera
   // que vê a falha acontecer.
-  global.AVStream = { suportado, criar, lerSidx, ultimoErro: '' };
+  //
+  // `fome` É O CENSO DAS PARADAS POR FALTA DE BUFFER, e ele existe porque a
+  // pergunta que este caminho produz não tem resposta em lugar nenhum. Relato do
+  // operador: *"veio som, porém ficou travando e qualidade de vídeo baixa"* — e
+  // a resposta possível era um palpite (*"deve ser a estabilidade da
+  // internet"*). Um `<video>` que trava por rede e um app quebrado produzem a
+  // MESMA tela; o que os separa é um número. `quantas` conta os episódios e
+  // `segundos` soma quanto tempo a projeção passou parada esperando dados: dois
+  // travamentos de meio segundo e dez de cinco segundos são diagnósticos
+  // opostos, e uma contagem sozinha não os distingue.
+  //
+  // Quem os escreve é o `stage.js` (é ele que tem os ouvintes de `waiting` e
+  // `playing` e que já acende o indicador de espera) — este módulo é o dono do
+  // BALCÃO, para o Registro ter um lugar só onde perguntar pela transmissão.
+  global.AVStream = {
+    suportado, criar, lerSidx, ultimoErro: '',
+    fome: { quantas: 0, segundos: 0 },
+  };
 })(window);

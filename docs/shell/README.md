@@ -48,7 +48,7 @@ para a TV com `android.app.Presentation`.
 | `TrilhaAudio.kt` | 138 | `CLAUDE.md` — "Séries do YouTube" |
 | `SessionService.kt` | 916 | `CLAUDE.md` — "Notificação de controles" |
 | `SyncService.kt` | 550 | `CLAUDE.md` — "Trabalho em segundo plano" |
-| `MainActivity.kt` | 2.005 | `CLAUDE.md` — voltar, volume, cast, fullscreen |
+| `MainActivity.kt` | 2.116 | `CLAUDE.md` — voltar, volume, cast, fullscreen |
 | `StagePresentation.kt` | 188 | `CLAUDE.md` — "Reconexão e morte do renderer" |
 | `MicChromeClient.kt` | 81 | `CLAUDE.md` — "Microfone ao vivo" |
 | `MicDiag.kt` | 181 | `CLAUDE.md` — "Microfone ao vivo" (o `micDiag` da ponte: POR QUE ele não abre — leitura PURA, não pede nada) |

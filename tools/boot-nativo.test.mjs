@@ -4497,7 +4497,10 @@ try {
   // pela TRANSIÇÃO de presença no `renderDisplayStatus` — e sem ele nada erra:
   // a aba simplesmente continua sem microfone.
   const comTv = await pgM.evaluate(async () => {
-    window.__telas = [{ id: 1, name: 'TV do templo', w: 1920, h: 1080, density: 320 }];
+    // `telao: true` NÃO É ENFEITE (shell 59): a lista responde pelo DisplayManager
+    // e quem decide microfone e som é a `Presentation`. Uma fixture sem o campo é
+    // uma TV conectada com o telão no chão — outro cenário, coberto logo abaixo.
+    window.__telas = [{ id: 1, name: 'TV do templo', w: 1920, h: 1080, density: 320, telao: true }];
     window.__avDisplaysChanged();
     await new Promise((f) => setTimeout(f, 500));
     const proj = document.getElementById('miscProjectBtn');
