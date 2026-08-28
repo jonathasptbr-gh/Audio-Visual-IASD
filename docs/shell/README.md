@@ -5,7 +5,7 @@ para a TV com `android.app.Presentation`.
 
 > **Este diretório é o irmão de [`../arquitetura/`](../arquitetura/).** Aquele
 > cobre a base web (`assets/web/`); este cobre o Kotlin
-> (`app/src/main/java/br/org/iasd/av/`, 28 arquivos). As regras que valem para
+> (`app/src/main/java/br/org/iasd/av/`, 29 arquivos). As regras que valem para
 > o app inteiro — invariantes, paleta, entrega, divergências web × nativo —
 > ficam em [`../../CLAUDE.md`](../../CLAUDE.md), que continua sendo a **leitura
 > obrigatória**; aqui está o detalhe que ela aponta.
@@ -23,20 +23,21 @@ para a TV com `android.app.Presentation`.
 > build/assinatura/backup) vive nas seções correspondentes do `CLAUDE.md` mais o
 > KDoc dos arquivos.
 
-## Os 28 arquivos, e onde cada um é explicado
+## Os 29 arquivos, e onde cada um é explicado
 
 | arquivo | linhas | onde |
 |---|---|---|
-| `NativeBridge.kt` | 1.580 | [`PONTE.md`](PONTE.md) |
+| `NativeBridge.kt` | 1.731 | [`PONTE.md`](PONTE.md) |
 | `WebViewFactory.kt` | 285 | [`PONTE.md`](PONTE.md) — invariantes 1-4 |
 | `SafPathHandler.kt` | 99 | [`PONTE.md`](PONTE.md) — o token `/saf/` |
 | `WebUpdater.kt` | 1.160 | [`OTA.md`](OTA.md) |
 | `ShellUpdater.kt` | 340 | [`OTA.md`](OTA.md) |
 | `WebPathHandler.kt` | 88 | [`OTA.md`](OTA.md) |
 | `EspelhoHttp.kt` | 911 | [`../TELAO-POR-COMANDOS.md`](../TELAO-POR-COMANDOS.md) |
-| `EspelhoServidor.kt` | 2.047 | idem |
+| `EspelhoServidor.kt` | 2.417 | idem |
 | `EspelhoPares.kt` | 630 | idem |
 | `EspelhoMidiaCache.kt` | 248 | idem |
+| `EspelhoInterfaces.kt` | 193 | idem — **em que interface o socket abre** (é ele que acha o PONTO DE ACESSO) |
 | `EspelhoMidiaCanal.kt` | 218 | idem |
 | `EspelhoEnergia.kt` | 334 | idem |
 | `EspelhoCert.kt` | 298 | idem (TLS opcional; **sem UI desde a v5.196**) |
@@ -47,7 +48,7 @@ para a TV com `android.app.Presentation`.
 | `TrilhaAudio.kt` | 138 | `CLAUDE.md` — "Séries do YouTube" |
 | `SessionService.kt` | 916 | `CLAUDE.md` — "Notificação de controles" |
 | `SyncService.kt` | 550 | `CLAUDE.md` — "Trabalho em segundo plano" |
-| `MainActivity.kt` | 1.820 | `CLAUDE.md` — voltar, volume, cast, fullscreen |
+| `MainActivity.kt` | 2.005 | `CLAUDE.md` — voltar, volume, cast, fullscreen |
 | `StagePresentation.kt` | 188 | `CLAUDE.md` — "Reconexão e morte do renderer" |
 | `MicChromeClient.kt` | 81 | `CLAUDE.md` — "Microfone ao vivo" |
 | `MicDiag.kt` | 181 | `CLAUDE.md` — "Microfone ao vivo" (o `micDiag` da ponte: POR QUE ele não abre — leitura PURA, não pede nada) |
