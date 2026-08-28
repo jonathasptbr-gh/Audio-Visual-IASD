@@ -1,5 +1,11 @@
 # A casca do computador
 
+> **O CONTRATO E O DIÁRIO DE BORDO deste trabalho estão em
+> [`../docs/SEGUNDA-CASCA.md`](../docs/SEGUNDA-CASCA.md).** Retomando o
+> trabalho? Comece pela **§0** de lá — ela tem a tabela de Estado dos lotes, o
+> mapa dos 57 métodos da ponte por destino, e o que já foi tentado e recusado.
+> Este arquivo é só o README da pasta.
+
 O mesmo Áudio Visual IASD, num computador com Windows — **a mesma base web**,
 byte a byte, servida por um servidor de loopback que o próprio programa sobe.
 Não é um port: é a mesma relação que o Android já tem (casca fina sobre base
@@ -77,9 +83,9 @@ web) num segundo sistema operacional.
 ## O que ainda não existe
 
 O lote 3 entrega o transporte inteiro, a casca que abre as duas janelas e a
-importação (diálogos de arquivo + a rota `/saf/`). Falta, nesta ordem: YouTube e
-cifra (lote 4), o muxer de 1080p e o PDF (lote 5), as telas da rede (lote 6) e o
-empacotamento (lote 7).
+importação (diálogos de arquivo + a rota `/saf/`). Faltam os lotes 4 a 7 —
+**a lista método a método, com a portabilidade de cada implementação do Android
+medida, está em [`../docs/SEGUNDA-CASCA.md`](../docs/SEGUNDA-CASCA.md), §7.**
 
 **Os dois lados dizem o que falta**, e isso é desenho, não sobra: o
 `NucleoDespacho.naoImplementados()` e o `Folhas.SemDono` guardam o que foi
@@ -95,7 +101,14 @@ dotnet build windows/AudioVisualIASD/AudioVisualIASD.csproj   # compila em Linux
 dotnet run --project windows/AudioVisualIASD.Testes            # o oráculo do envelope
 node tools/ponte-envelope.test.mjs                             # a metade JavaScript
 ./gradlew :core:test                                           # o núcleo, e a metade Kotlin
+node tools/nucleo-de-pe.test.mjs                               # o programa DE PÉ
 ```
+
+> ⚠️ **As duas últimas linhas só funcionam onde o `dl.google.com` é
+> alcançável.** A raiz do Gradle inclui o `:app`, que precisa do AGP; num
+> ambiente que o bloqueie, o `./gradlew` falha antes de chegar ao `:core` — e o
+> `nucleo-de-pe` precisa do jar que ele produz. A receita do arnês que contorna
+> isso está em **`../docs/SEGUNDA-CASCA.md`, §10**. No CI as quatro rodam.
 
 **Compilar não é funcionar.** A casca só se fecha numa máquina com Windows, um
 projetor ligado e a regra de calendário do projeto: **num dia sem culto**.

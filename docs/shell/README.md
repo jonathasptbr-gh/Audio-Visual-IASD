@@ -28,6 +28,7 @@ para a TV com `android.app.Presentation`.
 |---|---|---|
 | A ponte `AVNative` | [`PONTE.md`](PONTE.md) | usar ou mudar um método nativo; `SHELL_VERSION`; as quatro filas; os tokens `/saf/`; as invariantes 1-4 e 9 |
 | O OTA | [`OTA.md`](OTA.md) | publicar; o watchdog de boot; a detecção; `shellTag`; por que a atualização não chegou |
+| **A segunda casca** | [`../SEGUNDA-CASCA.md`](../SEGUNDA-CASCA.md) | o programa de **Windows**: o servidor de loopback, a ponte por SSE, a rota `/saf/`, o que falta e o que esta máquina prova. **É o contrato E o diário de bordo** — retomando aquele trabalho, comece pela §0 |
 
 > Os demais subsistemas ainda não têm capítulo próprio: o telão nas telas da
 > rede está em [`../TELAO-POR-COMANDOS.md`](../TELAO-POR-COMANDOS.md), e o resto
@@ -68,6 +69,13 @@ para a TV com `android.app.Presentation`.
 | `ShareIntake.kt` | 143 | `CLAUDE.md` — "Compartilhamento" |
 | `SlideDeck.kt` | 321 | [`../arquitetura/DOCUMENTO-EM-CENA.md`](../arquitetura/DOCUMENTO-EM-CENA.md) |
 | `CifraFonte.kt` | 178 | `CLAUDE.md` — "A aba de cifra" (transporte só; quem lê o HTML é `controle/cifra.js`) |
+| `NucleoRotas.kt` **(:core)** | 215 | [`../SEGUNDA-CASCA.md`](../SEGUNDA-CASCA.md) — o que uma rota **É** (PURO); a travessia mora aqui |
+| `NucleoServidor.kt` **(:core)** | 381 | [`../SEGUNDA-CASCA.md`](../SEGUNDA-CASCA.md) — o socket de loopback; **a porta é a origem** |
+| `NucleoPonte.kt` **(:core)** | 274 | [`../SEGUNDA-CASCA.md`](../SEGUNDA-CASCA.md) — o **envelope** da ponte (PURO); três escritas, uma fixture |
+| `NucleoDespacho.kt` **(:core)** | 254 | [`../SEGUNDA-CASCA.md`](../SEGUNDA-CASCA.md) — quem responde o quê; **a invariante 9 com oráculo** |
+| `NucleoArquivos.kt` **(:core)** | 178 | [`../SEGUNDA-CASCA.md`](../SEGUNDA-CASCA.md) — a rota `/saf/`: a única porta para fora do bundle |
+| `NucleoApresentacao.kt` **(:core)** | 33 | [`../SEGUNDA-CASCA.md`](../SEGUNDA-CASCA.md) — a única regra da apresentação que é string |
+| `NucleoMain.kt` **(:core)** | 97 | [`../SEGUNDA-CASCA.md`](../SEGUNDA-CASCA.md) — o `nucleo.jar` — o núcleo como programa |
 
 > **Números envelhecem a cada commit.** Meça antes de citá-los:
 > `wc -l app/src/main/java/br/org/iasd/av/*.kt`.

@@ -26,12 +26,13 @@ espelhar o celular.
 | 7 | [Notificação de controles](#notificação-de-controles-sessão-de-mídia) | `MediaSession`, transporte fora do app |
 | 8 | [OTA da base web](#ota-da-base-web-atualização-sem-apk) | publicar, watchdog de boot, detecção |
 | 9 | [Telão por comandos](#telão-por-comandos-o-telão-nas-telas-da-rede-local) | as telas da rede local |
-| 10 | [Séries do YouTube](#séries-do-youtube-o-álbum-provai-e-vede-2026) | os álbuns oficiais da Biblioteca |
-| 11 | [A aba de cifra](#a-aba-de-cifra-acordes-ao-lado-da-letra) | acordes sobre a letra, sob demanda |
-| 12 | [A paleta](#a-paleta) | **antes de escrever qualquer cor** |
-| 13 | [Divergências web × nativo](#divergências-entre-o-caminho-web-e-o-nativo) | o que muda entre navegador e app |
-| 14 | [Build e distribuição](#build-e-distribuição) | CI, oráculos, assinatura, backup |
-| 15 | [Regras de desenvolvimento](#regras-de-desenvolvimento) | **antes de commitar** |
+| 10 | [A segunda casca](#a-segunda-casca-o-áudio-visual-iasd-no-computador) | o programa de Windows |
+| 11 | [Séries do YouTube](#séries-do-youtube-o-álbum-provai-e-vede-2026) | os álbuns oficiais da Biblioteca |
+| 12 | [A aba de cifra](#a-aba-de-cifra-acordes-ao-lado-da-letra) | acordes sobre a letra, sob demanda |
+| 13 | [A paleta](#a-paleta) | **antes de escrever qualquer cor** |
+| 14 | [Divergências web × nativo](#divergências-entre-o-caminho-web-e-o-nativo) | o que muda entre navegador e app |
+| 15 | [Build e distribuição](#build-e-distribuição) | CI, oráculos, assinatura, backup |
+| 16 | [Regras de desenvolvimento](#regras-de-desenvolvimento) | **antes de commitar** |
 
 **Fora daqui:** `docs/ACHADOS-EM-ABERTO.md` (os defeitos CONFIRMADOS e ainda não
 corrigidos, com cenário e correção proposta — **leia antes de mexer no que ele
@@ -41,7 +42,10 @@ esvaziar, não para crescer),
 (o HUB do **Kotlin**: um capítulo por
 subsistema do shell, mais a tabela que diz onde cada um dos 29 arquivos é
 explicado), `docs/ARQUITETURA-WEB.md` (o HUB da base web: regras gerais e o
-mapa dos capítulos em `docs/arquitetura/`), `docs/TELAO-POR-COMANDOS.md`
+mapa dos capítulos em `docs/arquitetura/`), `docs/SEGUNDA-CASCA.md` (o CONTRATO e o DIÁRIO DE BORDO do programa de
+Windows — **leia a §0 antes de retomar aquele trabalho**; ele carrega a tabela
+de Estado dos lotes, o mapa dos 57 métodos da ponte por destino, o que foi
+tentado e RECUSADO, e o que esta máquina consegue provar), `docs/TELAO-POR-COMANDOS.md`
 (o contrato das telas da rede — inclusive o celular como PONTO DE ACESSO, que
 saiu do plano e virou código na v1.4.1), `docs/FONTE-DE-DADOS-LOUVORJA.md` (hinos/Bíblia)
 , `docs/MEDICAO-DE-ALCANCE.md` (o CONTRATO da contagem de uso — o que é contado,
@@ -1739,6 +1743,72 @@ deixa o veredito com o `confirmarRede` de sempre. O caso não é raro: o hotspot
 > O que a regra protege não é o dia: é ter **folga na frente para desfazer**. Um
 > recurso de rede que só falha na igreja falha na frente da congregação, e o
 > conserto de uma regra em Kotlin é uma Release.
+
+---
+
+## A segunda casca (o Áudio Visual IASD no computador)
+
+O mesmo sistema num **computador com Windows** — a **mesma base web, byte a
+byte**, hospedada por uma segunda casca. Não é um port: é a mesma relação
+(casca fina sobre base web) num segundo sistema operacional. O contrato e o
+diário de bordo estão em
+[`docs/SEGUNDA-CASCA.md`](docs/SEGUNDA-CASCA.md) — **leia antes de mexer**;
+esta seção é o mapa.
+
+```
+ AudioVisualIASD.exe ──stdio──► nucleo.jar ──http://127.0.0.1:8420──► as janelas
+  (C#: janela, monitores,  ◄────  (Kotlin: servidor,  ◄──── SSE ────   (WebView2)
+   diálogos, volume)               despacho da ponte)
+```
+
+**Ela é INDEPENDENTE do Android**: sem celular, sem rede, sem internet, e sem
+sincronização de acervo entre os dois. `127.0.0.1` não é rede — é o programa
+servindo a si mesmo, exatamente o que o `appassets.androidplatform.net` já faz
+no celular. Servir a si mesmo é o preço da **invariante 1** (OPFS e IndexedDB só
+existem em contexto seguro, e `file://` não é um), não uma dependência.
+
+**Um segundo monitor é a TV.** A janela do Telão nasce e morre com o monitor da
+projeção, como a `Presentation` nasce e morre com a TV — e **sem uma linha nova
+na base web**: `displays()` responde o que ela já sabe ler, o `display-ready` da
+janela nova dispara o reenvio da cena, e tirar o cabo devolve a projeção à
+preview em tela cheia.
+
+### As duas invariantes que nascem aqui
+
+- **A PORTA É A ORIGEM.** `http://127.0.0.1:8420` e `:8421` são origens
+  diferentes, com IndexedDB e OPFS diferentes. O reflexo normal diante de uma
+  porta ocupada — "pega outra livre" — **apagaria a biblioteca do operador em
+  silêncio**. Colisão é falha alta com frase, e a frase diz explicitamente para
+  **não** trocar a porta.
+- **A INVARIANTE 9 GANHOU ORÁCULO** (ver a invariante 9 acima): o papel é selado
+  na **sessão** pela casca, que é quem cria a janela, e o núcleo recusa a
+  superfície privilegiada **no servidor**. Vale para arquivo também — a rota é
+  `/saf/<sessao>/<token>`, e é a sessão na URL que reproduz o `withSaf = false`
+  do telão do Android, já que aqui as duas janelas dividem **um** socket.
+
+### A ponte não mudou uma linha do `native.js`
+
+A folha injetada (`windows/casca/ponte.js`) entrega um `__AVBridge` com a mesma
+superfície; o transporte vira `POST /ponte/call` mais o **SSE que o projeto já
+construiu** para as telas da rede. O envelope tem **três escritas em três
+linguagens** (JS · Kotlin · C#) contra **fixtures escritas à mão** que os três
+leem e nenhum gera — a resposta à forma que este projeto já viu falhar em
+silêncio duas vezes (o `__tela` do `display-ready`, o `TIPOS_QUE_SOBEM` do
+dreno).
+
+### Estado
+
+Os lotes **2, 1 e 3 estão CONCLUÍDOS** (transporte, janelas, importação);
+faltam **4** (YouTube e cifra), **5** (muxer e PDF), **6** (telas da rede) e
+**7** (Loja e ZIP). Dos 57 métodos da ponte, **19 têm dono** hoje; o que não tem
+resolve `null` **na hora** e entra numa lista que os dois lados mantêm — sem
+isso o botão existiria, seria tocável, e depois de 60 s não aconteceria nada.
+**A tabela de Estado, método a método, mora no `docs/SEGUNDA-CASCA.md`, §7.**
+
+> **O CI tem um job próprio, `segunda-casca`, e NINGUÉM o tem como `needs`.**
+> Uma casca de Windows quebrada não pode segurar o canal OTA nem o APK — ela não
+> entra no bundle nem no APK.
+
 
 ---
 
