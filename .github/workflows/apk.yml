@@ -755,15 +755,28 @@ jobs:
           # revisor e provada por reversão.
           rodar tools/gaveta-e-cartao.test.mjs
 
-          # A MEDIÇÃO DE ALCANCE, e ela é o ÚNICO oráculo desta suíte que roda
-          # sobre o `site/` — a página de download e a seção oculta do Registro.
-          # Duas coisas que falham CALADAS moram ali: um gráfico que desenha
+          # A MEDIÇÃO DE ALCANCE — um dos DOIS oráculos desta suíte que rodam
+          # sobre o `site/` (o outro é o `plataforma`, logo abaixo). Duas coisas
+          # que falham CALADAS moram ali: um gráfico que desenha
           # todos os valores iguais (`<span>` é inline, e `width` não faz nada
           # num elemento inline — as barras saíam idênticas, sem erro em lugar
           # nenhum), e o ROTEAMENTO do farol de visita, que é o requisito
           # inteiro: se ele parar, os números continuam subindo e passam a
           # incluir quem mede. Contador não se corrige depois.
           rodar tools/registro-alcance.test.mjs
+
+          # O FILTRO DE PLATAFORMA DA PÁGINA, e ele falha calado nos DOIS
+          # sentidos. De MENOS: a classificação para de reconhecer o iPhone (a
+          # Apple muda a forma do `userAgent`, alguém mexe na expressão), o
+          # download volta a aparecer ali, e ninguém relata "baixei e não
+          # abriu" — a pessoa conclui que o app está quebrado e vai embora. De
+          # MAIS, que é o caro: a classificação passa a recusar um Android de
+          # verdade, e o que sai é uma página que abre, rola e não oferece
+          # nada. É por isso que o desenho FALHA ABERTO — sem classe no
+          # `<html>` nada é escondido —, e essa propriedade tem asserção
+          # própria: um desenho fail-CLOSED deixa toda a suíte verde e reprova
+          # só ali.
+          rodar tools/plataforma.test.mjs
 
           # O PLACAR VAI PARA O RESUMO DO RUN, não só para o log — a queixa que
           # originou este lote foi precisamente que o desfecho só existia lá
