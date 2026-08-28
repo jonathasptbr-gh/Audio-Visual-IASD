@@ -18131,8 +18131,13 @@ function blocoEspelho(d) {
     // A LINHA MAIS IMPORTANTE DESTE BLOCO quando ela aparece. Servidor de pé,
     // porta escutando e nenhum SYN chegando é AP isolation — e ela é
     // indistinguível de "ninguém abriu ainda" sem que alguém a nomeie. Não há
-    // conserto do lado do app: a saída é operacional (outro SSID, ou o hotspot
-    // do celular), e por isso a frase precisa vir junto.
+    // conserto do lado do app: a saída é operacional — outro SSID, ou um
+    // roteador próprio, que NÃO precisa de internet (`NET_CAPABILITY_VALIDATED`
+    // está deliberadamente fora do filtro do `redeDaWifi`, para a igreja com o
+    // AP no ar e o link caído). O que NÃO é saída é o celular em modo ponto de
+    // acesso: ali ele deixa de ser cliente de Wi-Fi, `redeDaWifi` não acha rede
+    // nenhuma e o espelho recusa com "sem Wi-Fi" — e, com a projeção já no ar,
+    // ligar o ponto de acesso desassocia o Wi-Fi e DERRUBA a transmissão.
     if (srv.semConexaoMs > 120000) {
       l.push('nenhuma conexão desde que ligou (há ' + mirrorDur(srv.semConexaoMs) + ') — '
         + 'se alguém abriu o endereço, o roteador está isolando os clientes');
