@@ -154,11 +154,19 @@ try {
   // (ver `otaAppIsUp` em shared/native.js): um `<li>` dentro de `#playlist` só
   // existe depois que o `init()` assíncrono terminou. Reaproveitá-lo evita
   // inventar um segundo sinal que envelheceria à parte do primeiro.
+  //
+  // O `<li>` ESTAVA NO COMENTÁRIO E NÃO NA CONDIÇÃO — o texto prometia o
+  // marcador e o código esperava só `AVDB && createStage && __avBack`, que
+  // prova PARSE e não inicialização. A diferença morde quem planta fixture:
+  // o `init()` começa por `loadCollections()`, que faz `collState = {}` e
+  // apaga o que o oráculo acabou de plantar. Foi assim que o
+  // `acervo.test.mjs` reprovou no runner e passou em toda máquina rápida.
   await pg.waitForFunction(
-    () => window.AVDB && window.createStage && typeof window.__avBack === 'function',
-    null, { timeout: 20000 },
+    () => window.AVDB && window.createStage && typeof window.__avBack === 'function'
+      && !!document.querySelector('#playlist li'),
+    null, { timeout: 30000 },
   );
-  checar(true, 'a base web inicializa (AVDB + createStage + __avBack)');
+  checar(true, 'a base web inicializa (AVDB + createStage + __avBack + a playlist renderizada)');
 
   // `.click()` do DOM, não o do Playwright: o alvo do teste é o Registro, não a
   // geometria do cabeçalho. O handler executado é o mesmo.

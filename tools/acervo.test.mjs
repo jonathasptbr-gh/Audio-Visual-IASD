@@ -61,9 +61,31 @@ const pg = await ctx.newPage();
 
 try {
   await pg.goto(`http://localhost:${porta}/controle/`, { waitUntil: 'domcontentloaded' });
+  // O SINAL DE BOOT É O FORTE, e a diferença NÃO é de prazo — é de FATO.
+  //
+  // `AVDB && __avBack` só prova que o `controle.js` foi PARSEADO. O `init()` é
+  // assíncrono e começa por `loadCollections()`, que faz **`collState = {}`** —
+  // uma substituição inteira. Com o sinal fraco, este oráculo plantava a
+  // fixture ANTES disso e o `loadCollections` a APAGAVA no meio do percurso.
+  //
+  // MEDIDO (com `Emulation.setCPUThrottlingRate`, que é o runner de 4 vCPU sob
+  // carga): a 60× o `collState` tinha só a fixture no sinal fraco, e depois do
+  // `init()` ela sumia — exatamente a reprovação que apareceu no CI, e só na
+  // linha do GRUPO.
+  //
+  // E SÓ NA LINHA DO GRUPO porque as outras três esperam `false`: um
+  // `collState` vazio as satisfaz VACUAMENTE. Uma reprovação visível e três
+  // aprovações pelo motivo errado — é isso que um sinal de boot fraco produz
+  // aqui, e é por isso que o conserto não é somar prazo.
+  //
+  // O `<li>` da playlist é a mesma condição que o watchdog do OTA usa para
+  // dizer "a inicialização terminou" (o HTML entrega o `<ul>` vazio; quem o
+  // preenche é o `renderPlaylist()`, dentro do `init()`), e é a que o
+  // `leitor-biblioteca` e o `cifra-offline` já esperam.
   await pg.waitForFunction(
-    () => window.AVDB && typeof window.__avBack === 'function',
-    null, { timeout: 20000 },
+    () => window.AVDB && typeof window.__avBack === 'function'
+      && !!document.querySelector('#playlist li'),
+    null, { timeout: 30000 },
   );
 
   // ---- "esta coleção está completa?" ----------------------------------------

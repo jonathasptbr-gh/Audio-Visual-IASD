@@ -81,9 +81,16 @@ pg.on('pageerror', (e) => erros.push('pageerror: ' + e.message));
 
 try {
   await pg.goto(`http://localhost:${porta}/controle/`, { waitUntil: 'domcontentloaded' });
+  // O SINAL FORTE, e o `<li>` é a parte que importa: `AVDB && AVSorteio &&
+  // __avBack` prova que os arquivos foram PARSEADOS, não que o `init()`
+  // terminou — e o `init()` começa por `loadCollections()`, que faz
+  // `collState = {}`. Este oráculo planta `collState` logo abaixo, então sem o
+  // marcador a fixture pode ser apagada depois de montada (o defeito que
+  // reprovou o `acervo.test.mjs` no runner, medido a 60× de estrangulamento).
   await pg.waitForFunction(
-    () => window.AVDB && window.AVSorteio && typeof window.__avBack === 'function',
-    null, { timeout: 20000 },
+    () => window.AVDB && window.AVSorteio && typeof window.__avBack === 'function'
+      && !!document.querySelector('#playlist li'),
+    null, { timeout: 30000 },
   );
   // O app abre no simplificado; a folha e a fila do player são do avançado.
   await pg.evaluate(() => setAppMode('full'));
