@@ -630,6 +630,14 @@ object WebUpdater {
             // aparelho, que é indistinguível de "o OTA não funciona".
             Runnable {
                 try {
+                    // O FAROL PEGA CARONA AQUI, e antes do freio de segundo
+                    // plano de propósito: ele tem relógio PRÓPRIO (um dia) e o
+                    // que esta chamada faz em 99,99% das batidas é comparar
+                    // dois `Long` e voltar. Um agendador só para ele seria mais
+                    // um lugar de onde a contagem pode morrer calada — e este
+                    // `try` é justamente o que impede uma exceção de cancelar
+                    // todas as execuções seguintes da ronda.
+                    Farol.talvezAcender(app)
                     if (!emPrimeiroPlano) {
                         val agora = SystemClock.elapsedRealtime()
                         if (agora - ultimaRonda < RONDA_FUNDO_MS) return@Runnable

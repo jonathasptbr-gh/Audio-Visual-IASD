@@ -1255,6 +1255,31 @@
             </label>
           </div>
         </div>
+        <!-- ESTE APARELHO NA MEDIÇÃO DE ALCANCE (v1.4.1).
+             O app conta, uma vez por dia, quantos APARELHOS o usaram — um
+             contador agregado, sem id, sem corpo e sem nada que distinga um
+             aparelho de outro (ver `Farol.kt`). O que esta linha resolve é o
+             único caso que o agregado não resolve sozinho: o aparelho de quem
+             DESENVOLVE o app roda o mesmo APK de Release que todos os outros, e
+             portanto não tem marca nenhuma. Só uma pessoa sabe, então é ela
+             quem marca.
+
+             "Fica de fora" NÃO É "não manda nada": o aparelho passa a contar
+             num contador SEPARADO. Isso é o desenho e não uma economia —
+             subtrair depois uma estimativa do próprio uso é como se produz um
+             painel confiável e falso, e assim um erro aparece como um número
+             óbvio no lugar errado em vez de sumir dentro do certo.
+
+             `hidden` fora do app (quem o revela é `renderFarolSeg`, pelo
+             MESMO caminho por que a pinta): num navegador não há farol nenhum,
+             e uma chave que não liga nada é pior que chave nenhuma. -->
+        <div class="fade-row fade-row--fit" id="farolRow" hidden>
+          <span>Este aparelho na medição de alcance</span>
+          <div class="fit-seg" id="farolSeg">
+            <button type="button" class="fit-opt" data-farol="sim">Entra</button>
+            <button type="button" class="fit-opt" data-farol="nao">Fica de fora</button>
+          </div>
+        </div>
                 <!-- O REGISTRO, e é UM só (v5.121). Ele nasceu como a caixa-preta do
              telão: três versões seguidas tentaram consertar "o vídeo para
              quando o app é minimizado" por hipótese e as três erraram, porque
@@ -1306,7 +1331,7 @@
              pedir ajuda"), e agora ocupam a mesma faixa: a versão à esquerda, o
              Registro à direita, no espaço que já estava sobrando. -->
         <div class="footer-diag">
-          <span id="appVersion" class="app-version">Controle v1.4.1</span>
+          <span id="appVersion" class="app-version">Controle v1.4.2</span>
           <span class="footer-diag-rot">Registro</span>
           <!-- SALVAR EM ARQUIVO (v1.2.16). Com o acervo inteiro varrido o
                Registro passa de setenta linhas só na seção de cifras, e copiar

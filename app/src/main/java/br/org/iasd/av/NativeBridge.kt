@@ -217,7 +217,7 @@ class NativeBridge(
          *
          * O degrau a degrau está na tabela da seção "A ponte" do `CLAUDE.md`.
          */
-        const val SHELL_VERSION = 57
+        const val SHELL_VERSION = 58
 
         /**
          * O CONSUMIDOR DA LAN para o barramento (telão por comandos, E2 —
@@ -561,6 +561,61 @@ class NativeBridge(
             if (host == null) { resolve(callId, "{}"); return@execute }
             resolve(callId, runCatching { MicDiag.paraJson(ctx).toString() }.getOrDefault("{}"))
         }
+    }
+
+    // ---------- o FAROL: medir o alcance sem medir ninguém (shell 58) ----------
+
+    /**
+     * O estado do farol → `{ conta, ultimo, diag }`.
+     *
+     * Ver [Farol] para o desenho. Aqui só o que a ponte precisa dizer:
+     *
+     * - `conta` é o VEREDITO, não a chave. Ele já embute o build debuggável,
+     *   então a tela não precisa saber que existe um segundo motivo para um
+     *   aparelho não contar — e não pode ficar desatualizada quando aparecer um
+     *   terceiro. Quem decide é [Farol.contar], num lugar só.
+     * - `ultimo` é epoch em ms, e `0` é "nunca acendeu". Quem escreve a frase é
+     *   o `controle.js`: Kotlin devolve JSON, a UI monta o texto.
+     *
+     * Na fila [io] porque é isso mesmo — duas leituras de `SharedPreferences`,
+     * sem rede. O farol EM SI nunca roda aqui: ele tem fila própria, e é a
+     * ronda do OTA que o aciona.
+     *
+     * Sem `host` devolve `{}` (invariante 9): a chave de exclusão é do
+     * Controle, e um script de terceiro no documento do telão não tem por que
+     * poder tirar aquele aparelho da contagem — nem descobrir que ele existe.
+     */
+    @JavascriptInterface
+    fun farolEstado(callId: String) {
+        io.execute {
+            if (host == null) { resolve(callId, "{}"); return@execute }
+            val o = JSONObject()
+            runCatching {
+                o.put("conta", Farol.contar(ctx))
+                o.put("ultimo", Farol.ultimo(ctx))
+                o.put("diag", Farol.diag())
+            }
+            resolve(callId, o.toString())
+        }
+    }
+
+    /**
+     * A chave "este aparelho entra na contagem".
+     *
+     * Síncrona e sem resposta, como o [espelhoDesligar]: não há o que esperar —
+     * a gravação é local e o efeito é da PRÓXIMA vez que o farol acender. Um
+     * `callId` aqui prometeria um desfecho que não existe.
+     *
+     * **Ela não reacende nada, e isso é deliberado.** Marcar um aparelho como
+     * de teste no meio do dia não deve mandá-lo acender de novo no outro
+     * contador — o dia dele já foi contado, e um aparelho que aparecesse nos
+     * dois no mesmo dia é exatamente o duplo registro que este desenho existe
+     * para não ter.
+     */
+    @JavascriptInterface
+    fun farolContar(conta: Boolean) {
+        if (host == null) return
+        runCatching { Farol.definirContar(ctx, conta) }
     }
 
     /**

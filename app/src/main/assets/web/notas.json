@@ -1,5 +1,12 @@
 [
   {
+    "versao": "1.4.2",
+    "itens": [
+      "O APP PASSOU A CONTAR QUANTOS APARELHOS O USAM — sem saber quem são. Uma vez por dia ele busca um arquivo de contagem e joga fora a resposta: não vai id, não vai nome, não vai nada que distinga um aparelho de outro. É agregado e nada mais, e serve para uma pergunta só: o app chegou a quantas igrejas?",
+      "E EM CONFIGURAÇÕES HÁ UMA CHAVE PARA TIRAR ESTE APARELHO DA CONTA. O aparelho de quem desenvolve o app roda o mesmo instalador de todo mundo, então não há como distingui-lo sozinho — quem marca é uma pessoa. Marcado, ele passa a contar num lugar separado, em vez de deixar de contar: assim o número de fora nunca depende de subtrair um palpite."
+    ]
+  },
+  {
     "versao": "1.4.1",
     "itens": [
       "O CELULAR PODE SER O PONTO DE ACESSO. Antes, transmitir para o navegador de um computador exigia que o celular estivesse conectado a uma Wi-Fi — numa igreja sem rede, o recurso simplesmente recusava, com \"o espelho só liga em Wi-Fi\". Agora dá para ligar o ponto de acesso móvel do próprio celular, conectar o computador nele e transmitir. Não precisa de internet.",

@@ -44,7 +44,9 @@ explicado), `docs/ARQUITETURA-WEB.md` (o HUB da base web: regras gerais e o
 mapa dos capítulos em `docs/arquitetura/`), `docs/TELAO-POR-COMANDOS.md`
 (o contrato das telas da rede — inclusive o celular como PONTO DE ACESSO, que
 saiu do plano e virou código na v1.4.1), `docs/FONTE-DE-DADOS-LOUVORJA.md` (hinos/Bíblia)
-, `docs/HISTORICO.md`
+, `docs/MEDICAO-DE-ALCANCE.md` (o CONTRATO da contagem de uso — o que é contado,
+o que nunca é, por que o uso próprio sai por construção, e a MEDIÇÃO ainda
+pendente de que o farol depende), `docs/HISTORICO.md`
 (**apêndice**: a nota de cada versão, para consultar por `grep`, nunca por
 leitura integral) e `docs/AUDITORIA-2026-08.md` (**apêndice**: a varredura de
 ~60.000 linhas da v1.4, com os 75 achados, o método de refutação e os 26 que
@@ -132,6 +134,9 @@ app/src/main/
 │   ├── SessionService.kt        # o único FGS DO CULTO (o Sync só sobe em download)
 │   ├── WebUpdater.kt            # OTA da base web (watchdog, minShell, sha256)
 │   ├── ShellUpdater.kt          # OTA do APK: a Release nova, instalada de dentro do app
+│   ├── Farol.kt                 # A MEDIÇÃO DE ALCANCE: uma busca por dia, agregada,
+│   │                            #   sem id nenhum. Pega carona na ronda do OTA, e o
+│   │                            #   aparelho de teste conta num contador SEPARADO
 │   ├── WebPathHandler.kt        # serve o bundle OTA, com fallback pro APK
 │   ├── CifraFonte.kt            # o GET da página de cifra — host travado,
 │   │                            #   sem parse, sem gravar nada em disco
@@ -170,6 +175,8 @@ app/src/main/
 docs/
 ├── ACHADOS-EM-ABERTO.md         # os defeitos confirmados que MUDAM comportamento
 │                                #   (a auditoria de 2026-08). Para ESVAZIAR.
+├── MEDICAO-DE-ALCANCE.md        # o contrato da contagem de uso: o que é contado,
+│                                #   o que NUNCA é, e a medição ainda pendente
 ├── shell/                       # HUB do KOTLIN + um capítulo por subsistema
 │   ├── README.md                #   o mapa: qual capítulo abrir, e onde cada .kt mora
 │   ├── PONTE.md                 #   AVNative campo a campo, SHELL_VERSION, as 4 filas
@@ -490,9 +497,19 @@ window.AVNative = {
                        //   sem erro, sem arquivo. Sem prazo: quem responde é
                        //   uma pessoa no seletor
   cifraDiag(),         // → string: o que a última busca de cifra recebeu
+  // ---- A MEDIÇÃO DE ALCANCE — ver `docs/MEDICAO-DE-ALCANCE.md` ----
+  farolEstado(),       // → { conta, ultimo, diag }: este aparelho entra na
+                       //   contagem? `conta` é o VEREDITO e não a chave — ele
+                       //   já embute o build debuggável, que a tela não tem
+                       //   como saber. `ultimo` é epoch em ms (0 = nunca)
+  farolContar(bool),   // a chave de Configurações. Síncrona e sem resposta,
+                       //   como o `espelhoDesligar`: a gravação é local e o
+                       //   efeito é do PRÓXIMO acendimento. NÃO reacende nada —
+                       //   um aparelho nos dois contadores no mesmo dia é o
+                       //   duplo registro que o desenho existe para não ter
 }
 ```
-São **50 métodos**, e essa é a superfície inteira que o resto do lado web tem
+São **51 métodos**, e essa é a superfície inteira que o resto do lado web tem
 direito de usar — fora do `native.js`, tocar em `__AVBridge` direto é
 acoplamento indevido. O próprio `native.js` chama mais oito coisas lá, e nenhuma
 é API para o app: `ytFetchAudio` e `ytFetchAte` (não são métodos a mais, são os
@@ -550,7 +567,7 @@ prazo (um timeout ali resolveria null com o operador ainda escolhendo a pasta).
 
 ### `SHELL_VERSION` — subir SEMPRE que a superfície mudar
 
-Hoje vale **57**, e ele é o **PISO**: o bundle declara `minShell: 57`, então
+Hoje vale **58**, e ele é o **PISO**: o bundle declara `minShell: 58`, então
 todo método da ponte existe sempre e **não há guarda de versão no lado web**.
 "Superfície" inclui **forma de retorno** e **comportamento**, não só assinatura:
 um campo que some, um contrato de URL que muda ou um método que passa a fazer
@@ -563,7 +580,7 @@ escondia. Sem guardas, o web chama um método que o APK instalado não tem: o
 existe, é tocável e não faz nada. Por isso mudança de ponte é um lote
 **APK + web publicado JUNTO**, com `shellTag` no `version.json`.
 
-> A tabela dos 57 degraus está em `docs/HISTORICO.md` — ela é história do
+> A tabela dos 58 degraus está em `docs/HISTORICO.md` — ela é história do
 > contrato, e história mora lá.
 
 ### As QUATRO filas da ponte — escolher a errada é uma regressão muda
@@ -625,7 +642,7 @@ E duas regras que ficam de fora das filas:
   e volta; quem responde é o laço de cópia do `YoutubeGrab`, a cada bloco de
   64 kB.
 
-**O bundle declara `minShell: 57`, e é a VÁLVULA que resolve.** Um bundle que
+**O bundle declara `minShell: 58`, e é a VÁLVULA que resolve.** Um bundle que
 exija ponte mais nova que o `SHELL_VERSION` instalado é recusado inteiro
 (`WebUpdater.kt`), e o app segue no que tinha — a recusa acontece no shell, e
 não em runtime no meio de um culto. **Guarda de versão no lado web é proibida:**
@@ -2715,6 +2732,7 @@ que ela é desenvolvida e testada fora do aparelho.
 | Controles fora do app | — | `MediaSession`: notificação, tela de bloqueio, botões de mídia |
 | Download minimizado | a aba continua baixando | **foreground service + wake lock**; sem isso o processo é congelado |
 | Atualização da base web | recarregar a página | **OTA** |
+| Medição de alcance | **não existe** — e a linha de Configurações nem é desenhada (uma chave que não liga nada é pior que chave nenhuma) | **o farol** (shell 58): uma busca por dia a um asset de contagem, agregada e sem id. Pega carona na ronda do OTA. O aparelho marcado como de teste e o build debuggável acendem num contador **separado** — exclusão por CONSTRUÇÃO, nunca por subtração de uma estimativa |
 | Atualização do APP | — | **o app baixa e instala**; o diálogo do Android é obrigatório e está certo que seja |
 | Tema claro × escuro | CSS + `localStorage`; `theme-color` tinge a barra | idem **mais o cromo do sistema**: `temaClaro` vira os ÍCONES das barras e guarda a escolha para o `windowBackground` do PRÓXIMO lançamento (recurso de APK é resolvido antes de existir JS) |
 | **Telão nas telas da rede** | **não existe** (navegador não abre `ServerSocket`) | servidor HTTP no celular + SSE + `/m/<token>` — ver a seção do recurso. A rede é a Wi-Fi de que o celular é CLIENTE **ou o PONTO DE ACESSO dele mesmo** (v1.4.1): nenhuma das duas precisa de internet |
@@ -3107,6 +3125,7 @@ mundo anterior por outro caminho.
 | `db-estado.test.mjs` | **a atomicidade de uma chave de `state`** (`AVDB.updateState`). O defeito que ele trava não erra alto em lugar nenhum: `getState` + calcular + `setState` são duas transações com um vão entre elas, e o que se perde é a metade que o outro escritor acabou de gravar. Tem as DUAS metades — escreve o hazard à mão e prova que ele PERDE, e só então prova que a função não perde; sem a primeira, a segunda provaria que uma função concorda consigo mesma |
 | `acervo.test.mjs` | as contas da Biblioteca ("completa?" e "quanto ocupa?"), que já foram respondidas por fórmulas diferentes na mesma tela |
 | `mse.test.mjs` · `stage-fade.test.mjs` | mensagens de falha da transmissão direta · a transição de entrada do palco |
+| `registro-alcance.test.mjs` | **a MEDIÇÃO DE ALCANCE, e o único que roda sobre o `site/`.** Duas coisas falham CALADAS ali. Um gráfico que desenha todos os valores iguais: `.barra-c`/`.barra-f` eram `<span>`, que é INLINE, e `width` não faz nada num elemento inline — 12, 5, 3 e 1 saíam idênticos, sem erro em lugar nenhum (provado por REVERSÃO). E o ROTEAMENTO do farol de visita, que é o requisito inteiro: se ele parar, os números continuam subindo e passam a incluir quem mede — **e contador não se corrige depois** |
 
 > **A REDE EXTERNA NÃO ENTRA NUM ORÁCULO** (`tools/sem-rede.mjs`,
 > `semRedeExterna(ctx)` logo depois de cada `newContext()`). A base web fala com
@@ -3481,8 +3500,8 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: v1.4.1** (base web) · **v1.4.1** (APK) · `SHELL_VERSION` **57** · bundle com
-`minShell: 57` — o shell 57 é o **PISO**: todo método da ponte existe, e não há
+**Versão atual: v1.4.2** (base web) · **v1.4.2** (APK) · `SHELL_VERSION` **58** · bundle com
+`minShell: 58` — o shell 58 é o **PISO**: todo método da ponte existe, e não há
 guarda de versão no lado web. O que continua valendo é que `java/`, `res/`, o
 manifest e os workflows **só chegam instalando o APK**.
 

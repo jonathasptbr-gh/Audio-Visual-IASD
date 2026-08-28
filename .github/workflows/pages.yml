@@ -80,9 +80,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # A Release mais recente que NÃO é o canal OTA. `web-latest` é
-      # infraestrutura (o bundle da base web) e nunca deve ser oferecida para
-      # download — ela é `prerelease`, então `--exclude-pre-releases` já a tira,
+      # A Release mais recente que NÃO é infraestrutura. `web-latest` (o bundle
+      # da base web) e `dados-latest` (os faróis de uso) nunca devem ser
+      # oferecidas para download — as duas são `prerelease`, então
+      # `--exclude-pre-releases` já as tira,
       # mas o filtro por tag fica explícito porque uma release marcada errado
       # colocaria um zip de assets no botão "Baixar para Android".
       - name: Ler a Release publicada
@@ -92,7 +93,7 @@ jobs:
           set -euo pipefail
           REL=$(gh release list --repo "$GITHUB_REPOSITORY" --limit 20 \
                   --exclude-pre-releases --json tagName \
-                  --jq '[.[] | select(.tagName != "web-latest")][0].tagName')
+                  --jq '[.[] | select(.tagName != "web-latest" and .tagName != "dados-latest")][0].tagName')
           if [ -z "$REL" ] || [ "$REL" = "null" ]; then
             echo "::error::Nenhuma Release publicada — a página não tem o que oferecer."
             exit 1

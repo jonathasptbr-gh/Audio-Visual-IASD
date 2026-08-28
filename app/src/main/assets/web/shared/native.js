@@ -532,6 +532,31 @@
     micDiag: () => call((id) => B.micDiag(id), CALL_TIMEOUT_MS)
       .then((r) => (r && typeof r === 'object' ? r : null)),
 
+    // O FAROL: uma busca por dia, para o app poder responder "quantos aparelhos
+    // usaram isto esta semana?" (shell 58).
+    //
+    // `{ conta, ultimo, diag }` — REMONTADO campo a campo, como todo o resto
+    // desta ponte: um campo que o Kotlin passe a mandar e que não seja lido
+    // aqui some em silêncio, e do outro lado `optBoolean`/`optLong` leem
+    // ausente como `false`/`0`, que são valores legítimos. `tools/ponte.test.mjs`
+    // prende isso.
+    //
+    // `conta` é o VEREDITO e não a chave: ele já embute o build debuggável, e é
+    // por isso que a tela nunca calcula essa resposta por conta própria.
+    // `ultimo` é epoch em ms, com `0` significando "nunca acendeu" — quem
+    // escreve a frase é o `controle.js`.
+    farolEstado: () => call((id) => B.farolEstado(id), CALL_TIMEOUT_MS)
+      .then((r) => (r && typeof r === 'object' ? {
+        conta: r.conta !== false,
+        ultimo: Number(r.ultimo) || 0,
+        diag: r.diag || '',
+      } : null)),
+
+    // A CHAVE "este aparelho entra na contagem". Síncrona e sem resposta, como
+    // o `espelhoDesligar`: a gravação é local e o efeito é do próximo
+    // acendimento. Ela NÃO reacende nada — ver o KDoc do `farolContar`.
+    farolContar(conta) { try { B.farolContar(!!conta); } catch (_) { /* ponte indisponível */ } },
+
     // DIAGNÓSTICO da última extração do YouTube: uma linha dizendo quantas
     // faixas de cada tipo o extrator recebeu e qual venceu. Vazio num shell
     // antigo (o `call` resolve null) e antes da primeira extração.

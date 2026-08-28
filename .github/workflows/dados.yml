@@ -1,0 +1,233 @@
+# A SÉRIE DE USO — a fotografia horária dos contadores.
+#
+# O GitHub mantém um `download_count` público por asset de Release. Ele é
+# MONOTÔNICO E NÃO TEM TEMPO DENTRO: sozinho, ele responde "quantos, desde
+# sempre" e nada mais. O eixo de tempo — que é o que responde "quantos ESTA
+# SEMANA", a única pergunta que mede alcance — só existe se algo fotografar
+# periodicamente. Este workflow é esse algo.
+#
+# **A SÉRIE É O ARTEFATO; OS CONTADORES SÃO SÓ A SONDA.** Uma sonda que ninguém
+# fotografou não deixou história nenhuma para trás, e não há como reconstruí-la
+# depois: o contador de ontem não existe em lugar nenhum.
+#
+# ====================================================================
+# POR QUE ISTO NÃO GRAVA EM `main` — e esta é a decisão que inverte o
+# desenho óbvio
+# ====================================================================
+#
+# O job `web-ota` do `apk.yml` **NÃO TEM FILTRO DE CAMINHO**: todo push em
+# `main` republica o bundle da base web, mesmo um lote que só toque em
+# documentação. E toda publicação SUBSTITUI o asset `version.json`, o que
+# **ZERA o contador dele**.
+#
+# Um workflow que commitasse a série de hora em hora em `main` republicaria o
+# bundle de hora em hora e zeraria, de hora em hora, justamente o contador que
+# ele existe para medir. O instrumento destruiria a própria medida — e em
+# silêncio, porque nada disso falha.
+#
+# Daí a branch órfã `dados`: o `on: push` do `apk.yml` é
+# `branches: [main, 'claude/**']`, e `dados` não casa com nenhum dos dois.
+# **Se um dia alguém alargar aquele filtro, este arquivo passa a ser uma
+# bomba-relógio** — é por isso que a razão está escrita aqui e não numa linha
+# de commit.
+#
+# E a série mora numa BRANCH e não num asset de Release por um segundo motivo,
+# medido e já registrado no `pages.yml`: **asset de release responde sem
+# `Access-Control-Allow-Origin`**, então a página não teria como lê-lo do
+# navegador. `raw.githubusercontent.com` responde com CORS liberado.
+name: Série de uso
+
+on:
+  schedule:
+    # DE HORA EM HORA, E FORA DO MINUTO 0. O `:00` é o horário mais disputado
+    # do agendador do GitHub, e um cron atrasado o bastante colide com a hora
+    # seguinte — o que aqui não é atraso, é uma amostra PERDIDA que não se
+    # recupera.
+    - cron: '17 * * * *'
+  workflow_dispatch:
+
+# Só a branch `dados`. Nada aqui toca `main`.
+permissions:
+  contents: write
+
+# UMA POR VEZ, SEM CANCELAR. Duas execuções concorrentes fariam duas leituras
+# do mesmo instante e um `git push` perderia para o outro — e o que se perde é
+# uma amostra, que não volta. Cancelar no meio tem o mesmo efeito.
+concurrency:
+  group: dados
+  cancel-in-progress: false
+
+jobs:
+  amostrar:
+    runs-on: ubuntu-latest
+    steps:
+      # ==============================================================
+      # OS ASSETS DE FAROL — criados uma vez, JAMAIS recriados
+      # ==============================================================
+      #
+      # ⚠ **APAGAR UM DESTES ASSETS DESTRÓI O CONTADOR DELE PARA SEMPRE.**
+      # Não há como restaurá-lo: o número não existe em outro lugar, e um asset
+      # recriado nasce em zero. É por isso que aqui não há `--clobber`, não há
+      # `delete-asset` e não há "recriar se estiver diferente" — o conteúdo do
+      # arquivo é irrelevante (ninguém o lê), e a única propriedade que importa
+      # é ele ser VELHO.
+      #
+      # Pelo mesmo motivo a tag é PRÓPRIA e não `web-latest`: aquela release é
+      # varrida pelo passo "Recolher bundles antigos" do `apk.yml`.
+      - name: Garantir a release dos faróis
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if ! gh release view dados-latest --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release create dados-latest --repo "$GITHUB_REPOSITORY" \
+              --prerelease --title "Faróis de uso (infraestrutura)" \
+              --notes 'Infraestrutura — não é para instalar.
+
+          Estes arquivos existem para serem CONTADOS, não lidos: o que interessa
+          é o `download_count` que o GitHub mantém em cada um. Apagar qualquer um
+          deles zera a contagem, para sempre e sem recuperação.
+
+          `b.txt` aparelhos · `b-dev.txt` aparelhos de teste ·
+          `v.txt` visitas ao site · `v-dev.txt` visitas do operador.'
+          fi
+          EXISTENTES=$(gh release view dados-latest --repo "$GITHUB_REPOSITORY" \
+                         --json assets --jq '.assets[].name' || true)
+          for a in b b-dev v v-dev; do
+            if ! printf '%s\n' "$EXISTENTES" | grep -qxF "$a.txt"; then
+              # O conteúdo não importa e não deve crescer: o que se paga por
+              # acendimento é o tráfego deste arquivo, num celular na rede de
+              # dados de quem opera.
+              printf 'x' > "$a.txt"
+              gh release upload dados-latest "$a.txt" --repo "$GITHUB_REPOSITORY"
+              echo "criado: $a.txt"
+            fi
+          done
+
+      # A branch órfã: sem histórico de `main` dentro e sem nada além da série.
+      - name: Buscar a série
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          git init -q serie && cd serie
+          git remote add origin "https://x-access-token:$GH_TOKEN@github.com/$GITHUB_REPOSITORY"
+          if git fetch -q --depth 1 origin dados 2>/dev/null; then
+            git checkout -q FETCH_HEAD
+            echo "série existente: $(wc -c < serie.json 2>/dev/null || echo 0) bytes"
+          else
+            # `--orphan` de propósito: esta branch não é um ramo de `main`, é
+            # um depósito. Um ramo traria a árvore inteira do app junto.
+            git checkout -q --orphan dados
+            echo "série nova"
+          fi
+
+      - name: Ler os contadores
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh api --paginate "repos/$GITHUB_REPOSITORY/releases" > releases.json
+          echo "releases lidas: $(python3 -c 'import json;print(len(json.load(open("releases.json"))))')"
+
+      - name: Acrescentar a amostra
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, os, pathlib, datetime
+
+          rel = json.load(open('releases.json'))
+          agora = datetime.datetime.now(datetime.timezone.utc).replace(
+              microsecond=0).isoformat().replace('+00:00', 'Z')
+
+          apk, web, farois = {}, {}, {}
+          manifesto = 0
+          for r in rel:
+              for a in r.get('assets', []):
+                  n, c = a['name'], a.get('download_count', 0)
+                  if n.lower().endswith('.apk'):
+                      # A CHAVE É O NOME DO ASSET, não a tag: a v1.0 publicou
+                      # DOIS APKs (o versionado e um de nome fixo, que saiu
+                      # depois), e somá-los por tag esconderia que são dois
+                      # caminhos de download diferentes.
+                      apk[n] = c
+                  elif n.startswith('web-') and n.endswith('.zip'):
+                      web[n[4:-4]] = c
+                  elif n == 'version.json':
+                      manifesto = c
+                  elif n in ('b.txt', 'b-dev.txt', 'v.txt', 'v-dev.txt'):
+                      farois[n[:-4]] = c
+
+          p = pathlib.Path('serie/serie.json')
+          d = json.loads(p.read_text()) if p.exists() else {'amostras': [], 'visto': {}}
+          d.setdefault('amostras', [])
+          d.setdefault('visto', {})
+
+          d['amostras'].append({
+              't': agora,
+              'apk': apk,
+              'web': web,
+              'manifesto': manifesto,
+              'farol': farois.get('b', 0),
+              'farolDev': farois.get('b-dev', 0),
+              'visita': farois.get('v', 0),
+              'visitaDev': farois.get('v-dev', 0),
+          })
+
+          # ===== A MARCA D'ÁGUA, contra a faxina =====
+          # O `web-ota` recolhe os `web-*.zip` deixando os três mais novos, e
+          # apagar o asset apaga o contador. `visto` guarda o MAIOR valor já
+          # observado de cada asset, então uma vez fotografado o número nunca
+          # mais se perde — mesmo depois de o asset deixar de existir.
+          #
+          # O que ela NÃO cobre, e está dito: três publicações dentro da mesma
+          # hora recolhem um zip que nunca chegou a ser amostrado. Fechar isso
+          # exigiria fotografar de dentro do `apk.yml`, no caminho crítico de
+          # publicação — e um passo a mais ali arrisca o canal OTA para salvar
+          # um ponto de uma série.
+          for nome, valor in list(apk.items()) + [('web-' + k, v) for k, v in web.items()]:
+              if valor > d['visto'].get(nome, 0):
+                  d['visto'][nome] = valor
+
+          # ===== COMPACTAÇÃO =====
+          # Horária por 45 dias; mais velho que isso, uma amostra por dia (a
+          # última do dia). Sem isto o arquivo cresce ~1,7 MB por ano e a página
+          # passa a baixá-lo inteiro para desenhar um gráfico de um mês.
+          corte = (datetime.datetime.now(datetime.timezone.utc)
+                   - datetime.timedelta(days=45)).replace(
+                       microsecond=0).isoformat().replace('+00:00', 'Z')
+          recentes = [a for a in d['amostras'] if a['t'] >= corte]
+          antigas, por_dia = [a for a in d['amostras'] if a['t'] < corte], {}
+          for a in antigas:
+              por_dia[a['t'][:10]] = a          # a última do dia vence
+          d['amostras'] = sorted(por_dia.values(), key=lambda a: a['t']) + recentes
+          d['gerado'] = agora
+
+          p.parent.mkdir(parents=True, exist_ok=True)
+          p.write_text(json.dumps(d, ensure_ascii=False, separators=(',', ':')))
+          print(f"amostras: {len(d['amostras'])} · farol={farois.get('b',0)} "
+                f"dev={farois.get('b-dev',0)} visita={farois.get('v',0)} "
+                f"manifesto={manifesto}")
+          PY
+
+      - name: Gravar
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          cd serie
+          git config user.name  'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add serie.json
+          # NADA A GRAVAR NÃO É FALHA: entre duas horas sem ninguém usando o app
+          # e sem publicação nenhuma, os contadores não mudaram — mas o carimbo
+          # `gerado` muda sempre, então na prática este caminho só se alcança se
+          # a escrita falhar. Ele fica porque um `git commit` vazio devolve 1 e
+          # derrubaria o run com `set -e`.
+          if git diff --cached --quiet; then
+            echo 'nada mudou'
+            exit 0
+          fi
+          git commit -q -m "série: amostra de $(date -u +%Y-%m-%dT%H:%MZ)"
+          git push -q origin HEAD:dados
+          echo "gravado em \`dados/serie.json\`" >> "$GITHUB_STEP_SUMMARY"

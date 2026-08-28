@@ -366,6 +366,42 @@
   } catch (_) {
     document.querySelectorAll('.reveal').forEach(function (el) { el.classList.add('on'); });
   }
+
+  // ===================================================================
+  // O FAROL DE VISITA — uma por navegador por dia
+  // ===================================================================
+  //
+  // Ele busca um arquivo estático de uma Release e joga fora a resposta: o que
+  // conta é o `download_count` que o GitHub mantém nele. **Não há analytics de
+  // terceiro aqui, não há cookie, não há id e nada identificável sai desta
+  // página** — nem sequer uma requisição a outro domínio que não o GitHub, de
+  // onde o `.apk` já vem.
+  //
+  // UMA POR DIA, e não por carregamento, e isso não é economia: no Registro
+  // esta série é desenhada NO MESMO EIXO que "aparelhos por dia", e duas
+  // séries só dividem um eixo quando dividem a unidade. Contando cada
+  // carregamento, uma pessoa que recarrega vinte vezes viraria vinte
+  // "visitas" ao lado de vinte aparelhos de verdade. O preço, dito: navegador
+  // anônimo ou com o armazenamento limpo conta de novo.
+  //
+  // E QUEM AUDITA A PRÓPRIA PÁGINA CONTA NOUTRO LUGAR: abrir `/registro/` com
+  // a chave marca este navegador, e daí em diante ele acende o contador de
+  // teste. Exclusão por CONSTRUÇÃO, nunca por subtração de uma estimativa.
+  try {
+    var HOJE = new Date().toISOString().slice(0, 10);
+    if (localStorage.getItem('avVisitaDia') !== HOJE) {
+      localStorage.setItem('avVisitaDia', HOJE);
+      var qual = localStorage.getItem('avRegistroOperador') === '1' ? 'v-dev' : 'v';
+      // `no-cors` porque asset de release não manda `Access-Control-Allow-Origin`:
+      // a requisição SAI e conta, e a resposta chega opaca — que é exatamente o
+      // que se quer, já que ninguém aqui lê o corpo. O `?t=` é carimbo contra
+      // cache (sem ele um intermediário responde sem tocar no contador), nunca
+      // identidade: dois navegadores no mesmo milissegundo mandam a mesma URL.
+      fetch('https://github.com/jonathasptbr-gh/Audio-Visual-IASD/releases/download/'
+            + 'dados-latest/' + qual + '.txt?t=' + Date.now(),
+            { mode: 'no-cors', cache: 'no-store' }).catch(function () {});
+    }
+  } catch (_) { /* armazenamento bloqueado: não conta, e não quebra nada */ }
 </script>
 
 </body>
