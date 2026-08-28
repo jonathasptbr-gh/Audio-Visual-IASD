@@ -1,0 +1,85 @@
+# LIMPEZA DE RELEASES ANTIGAS — workflow de USO ÚNICO.
+#
+# ⚠ ELE APAGA RELEASES, E ISSO NÃO TEM VOLTA: o `download_count` de uma Release
+# apagada vai a zero para sempre e não se reconstrói. Antes de rodar, os
+# contadores TÊM de estar fotografados no `visto` do `serie.json` (o `dados.yml`
+# faz isso de hora em hora) — ver `docs/MEDICAO-DE-ALCANCE.md` §9.0.
+#
+# ESTE ARQUIVO É PARA SAIR DO REPOSITÓRIO depois de usado. Um workflow que
+# apaga Releases não deve ficar disponível para ser disparado por engano meses
+# depois, e a única razão de ele existir é que a API não é alcançável de fora
+# do runner.
+#
+# O QUE ELE NUNCA TOCA, por construção e não por cuidado:
+#   - `web-latest`  — o canal OTA (a URL está compilada no shell);
+#   - `dados-latest` — os faróis de uso (apagar zera a medição de alcance);
+#   - as N Releases mais recentes (`manter`), que são o caminho de recuo;
+#   - as TAGS. Só a Release sai; a tag fica, e com ela a possibilidade de
+#     recompilar qualquer versão passada.
+name: Limpeza de releases (uso único)
+
+on:
+  workflow_dispatch:
+    inputs:
+      manter:
+        description: 'Quantas Releases v* mais recentes preservar'
+        required: true
+        default: '2'
+      confirmar:
+        description: 'Digite APAGAR para confirmar'
+        required: true
+        default: ''
+
+permissions:
+  contents: write
+
+jobs:
+  limpar:
+    runs-on: ubuntu-latest
+    steps:
+      - name: A confirmação é digitada, nunca um checkbox
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event.inputs.confirmar }}" != "APAGAR" ]; then
+            echo "::error::Confirmação ausente — digite APAGAR. Nada foi tocado."
+            exit 1
+          fi
+
+      - name: Apagar as Releases antigas (as tags FICAM)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          MANTER: ${{ github.event.inputs.manter }}
+        run: |
+          set -euo pipefail
+          # A ordem é por data de publicação, não por nome: ordenar tag como
+          # texto poria a v1.4 depois da v1.3.12.
+          gh release list --repo "$GITHUB_REPOSITORY" --limit 100 \
+            --json tagName,isPrerelease,publishedAt \
+            --jq 'map(select(.isPrerelease == false
+                             and .tagName != "web-latest"
+                             and .tagName != "dados-latest"))
+                  | sort_by(.publishedAt) | reverse | .[].tagName' > todas.txt
+          echo "Releases candidatas (mais nova primeiro):"
+          cat todas.txt
+          echo
+          echo "Preservando as $MANTER mais recentes."
+          echo "## Limpeza de Releases" >> "$GITHUB_STEP_SUMMARY"
+          tail -n +$((MANTER + 1)) todas.txt > apagar.txt || true
+          if [ ! -s apagar.txt ]; then
+            echo "Nada a apagar." | tee -a "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          n=0
+          while read -r tag; do
+            [ -z "$tag" ] && continue
+            # SEM `--cleanup-tag`: a tag fica. Ela é uma ref de git, não custa
+            # nada, e é o que permite recompilar aquela versão.
+            echo "apagando Release $tag (a tag fica)"
+            gh release delete "$tag" --repo "$GITHUB_REPOSITORY" --yes
+            echo "- \`$tag\` — Release apagada, tag preservada" >> "$GITHUB_STEP_SUMMARY"
+            n=$((n + 1))
+          done < apagar.txt
+          echo
+          echo "$n Release(s) apagada(s)." | tee -a "$GITHUB_STEP_SUMMARY"
+          echo "Preservadas: $(head -n "$MANTER" todas.txt | tr '\n' ' ')web-latest dados-latest" \
+            | tee -a "$GITHUB_STEP_SUMMARY"
