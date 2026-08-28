@@ -962,13 +962,23 @@ está em segundo plano"*):
   - **Atraso de 600 ms antes de acender**, e **só no stream**: um arquivo local
     não fica sem dados, e um aro piscando a cada seek na frente da congregação é
     pior que aro nenhum. Oráculo: `tools/espera-do-stream.test.mjs`.
-- **A RESOLUÇÃO É ESCOLHIDA UMA VEZ e não se adapta.** `YoutubeGrab.manifesto`
-  pega a faixa mais alta do PRIMEIRO cliente da ordem (`ordemCliente`, visionOS
-  na frente) sob o teto, e o `mse.js` a serve até o fim — não há ABR. Numa rede
-  fraca a resposta é do OPERADOR e já existe: o seletor **Online · 1080p · 720p ·
-  480p** da folha vale para "Tocar agora" (o `altura` viaja até o `ytStream`). O
-  Registro dá as duas metades da conta: `transmitindo Xp` (o que foi escolhido) e
-  o `resumo` da extração com a maior altura POR CONTÊINER (o que havia).
+- **A RESOLUÇÃO É ESCOLHIDA UMA VEZ e NÃO SE ADAPTA — logo a REDE não pode
+  baixá-la.** `YoutubeGrab.manifesto` pega a faixa mais alta do PRIMEIRO cliente
+  da ordem (`ordemCliente`, visionOS na frente) sob o teto, e o `mse.js` a serve
+  até o fim: **não há ABR**, e está escrito no cabeçalho dele. Isto inverte a
+  intuição vinda do app do YouTube e precisa estar dito: aqui uma rede fraca
+  produz **travamento**, nunca imagem menor. Quem conta os travamentos é o
+  `AVStream.fome`; quem baixa a resolução é o OPERADOR, no seletor **Online ·
+  1080p · 720p · 480p** da folha, que vale para "Tocar agora" (o `altura` viaja
+  até o `ytStream`) — é assim que se troca travamento por imagem menor num app
+  que não faz isso sozinho.
+  - **O Registro separa as três causas de uma imagem ruim**: `teto Xp` (o que o
+    operador pediu), `transmitindo Yp` (o que foi escolhido) e a nota
+    `HAVIA Zp transmissível (outro cliente)`, que só sai quando deixamos
+    resolução na mesa — o único dos três que seria defeito nosso. MEDIDO em
+    aparelho (v5.127): o caso normal é `137@VISIONOS`, que É 1080p. Sobra o
+    encoder do Miracast, que fica fora do alcance do app. Ver
+    `docs/ACHADOS-EM-ABERTO.md` §3.
 
 > **A TRANSMISSÃO viaja no serviço da sessão de mídia** (não tem serviço
 > próprio): o `SessionService` tem **duas razões independentes de viver** (cena ·

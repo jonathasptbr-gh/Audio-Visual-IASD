@@ -6,7 +6,7 @@
       "E QUANDO A PROJEÇÃO NÃO SOBE, O APP TENTA DE NOVO SOZINHO — cinco vezes, ao longo de uns quinze segundos. Antes ela só era retomada se a TV se desconectasse e voltasse, ou se você saísse do app e entrasse de novo; com o celular no suporte, isso não acontecia e o culto seguia sem projeção.",
       "ENQUANTO ISSO O SOM VOLTA PARA O CELULAR, que no espelhamento continua chegando às caixas da igreja. E a folha de conexão passa a dizer o que está havendo, em vez de mostrar “Conectado” sobre uma TV que não mostra nada.",
       "E QUANDO UM VÍDEO DO YOUTUBE TRAVA NO MEIO, AGORA APARECE QUE ELE ESTÁ CARREGANDO. Antes o quadro simplesmente congelava, sem nada na tela — e um vídeo esperando a internet ficava igual a um app travado. O aro de espera já existia no começo da reprodução; agora ele também aparece no meio, depois de meio segundo parado (um soluço curto não acende nada, para não ficar piscando na projeção).",
-      "E O REGISTRO PASSOU A DIZER QUANTAS VEZES A TRANSMISSÃO FICOU SEM DADOS, e quantos segundos parada no total. É a diferença entre \"a internet oscilou\" e \"a internet não sustenta essa qualidade\" — e a segunda tem resposta: no menu do vídeo, escolher 720p ou 480p antes de tocar."
+      "E O REGISTRO PASSOU A DIZER QUANTAS VEZES A TRANSMISSÃO FICOU SEM DADOS, e quantos segundos parada no total. Vale saber: neste app a internet lenta NÃO baixa a qualidade do vídeo — ela faz o vídeo travar. Quem baixa a qualidade é você, no menu do vídeo (720p ou 480p antes de tocar), e é assim que se troca travamento por imagem menor numa rede fraca."
     ]
   },
   {
