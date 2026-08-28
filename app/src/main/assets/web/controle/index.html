@@ -1306,7 +1306,7 @@
              pedir ajuda"), e agora ocupam a mesma faixa: a versão à esquerda, o
              Registro à direita, no espaço que já estava sobrando. -->
         <div class="footer-diag">
-          <span id="appVersion" class="app-version">Controle v1.4</span>
+          <span id="appVersion" class="app-version">Controle v1.4.1</span>
           <span class="footer-diag-rot">Registro</span>
           <!-- SALVAR EM ARQUIVO (v1.2.16). Com o acervo inteiro varrido o
                Registro passa de setenta linhas só na seção de cifras, e copiar
@@ -1461,6 +1461,33 @@
 
         <p class="mirror-lead" id="castMsg" role="status" aria-live="polite"></p>
 
+        <!-- O QUE FAZER, quando a recusa é de REDE.
+
+             NÓ PRÓPRIO, e não um segundo parágrafo dentro do `#castMsg`: aquele
+             é `role="status" aria-live="polite"` e existe para anunciar a
+             MUDANÇA. O ensino é estático e vale enquanto a recusa valer — no
+             mesmo nó, um leitor de tela releria tudo a cada tentativa.
+
+             Ele existe porque "sem rede para transmitir" é verdade como
+             veredito e inútil como instrução: o operador lê que não dá, e não
+             lê o que fazer. As duas saídas (ligar o ponto de acesso deste
+             celular, ou entrar numa Wi-Fi qualquer — que NÃO precisa de
+             internet) estavam escritas só num comentário de código. -->
+        <p class="mirror-lead" id="castEnsino" hidden></p>
+
+        <!-- QUAL REDE SERVIR — e ela só é DESENHADA quando há mais de uma.
+
+             O caso comum é uma só (a Wi-Fi da igreja, ou o ponto de acesso), e
+             ali o shell escolhe sozinho: uma escolha que aparece quando não há
+             o que escolher cobra atenção e não devolve nada. Ela existe para o
+             aparelho de rádio duplo, em que a Wi-Fi e o ponto de acesso estão
+             de pé ao mesmo tempo — e aí qual delas o computador alcança NÃO é
+             decidível pelo app: quem sabe onde ele está conectado é a pessoa.
+
+             Só com a transmissão DESLIGADA: trocar de rede é refazer o socket,
+             e o endereço que as telas digitaram muda junto. -->
+        <div class="cast-redes" id="castRedes" role="group" aria-label="Rede da transmissão" hidden></div>
+
         <!-- O ENDEREÇO — a única coisa que a tela precisa.
 
              (O "E O CÓDIGO" saiu do texto na v5.206, tarde: o código de três
@@ -1504,7 +1531,12 @@
                  aparece no navegador do outro lado, como "site não encontrado".
                  O botão é o mesmo do Registro (`.log-copy`), pela razão de lá. -->
             <div class="cast-addr">
-              <span class="cast-rot">Acesse este endereço no navegador</span>
+              <!-- ELE NOMEIA A REDE, e não só a ação: com o ponto de acesso
+                   servindo, "acesse no navegador" está certo e é inútil — o
+                   computador tem de estar conectado NAQUELA rede, e é isso que
+                   decide se o endereço vai responder. Quem escreve a frase é o
+                   `renderCast`, do campo `via` do estado. -->
+              <span class="cast-rot" id="castRot">Acesse este endereço no navegador</span>
               <div class="cast-url-linha">
                 <span class="cast-url" id="castUrl"></span>
                 <button id="castUrlCopy" class="log-copy" title="Copiar o endereço" aria-label="Copiar o endereço">

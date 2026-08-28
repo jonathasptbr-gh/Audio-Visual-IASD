@@ -1,5 +1,15 @@
 [
   {
+    "versao": "1.4.1",
+    "itens": [
+      "O CELULAR PODE SER O PONTO DE ACESSO. Antes, transmitir para o navegador de um computador exigia que o celular estivesse conectado a uma Wi-Fi — numa igreja sem rede, o recurso simplesmente recusava, com \"o espelho só liga em Wi-Fi\". Agora dá para ligar o ponto de acesso móvel do próprio celular, conectar o computador nele e transmitir. Não precisa de internet.",
+      "E ISSO RESOLVE A FALHA MAIS DIFÍCIL DE DIAGNOSTICAR do recurso: em muitos roteadores de igreja os aparelhos não conseguem se enxergar (o endereço aparece, e nada conecta). Pelo ponto de acesso o celular é o roteador, então esse bloqueio deixa de existir.",
+      "QUANDO NÃO DÁ, O APP DIZ O QUE FAZER. A recusa mostrava o motivo e mais nada; agora ela vem com as duas saídas — ligar o ponto de acesso, ou entrar numa Wi-Fi qualquer (um roteador sem internet serve).",
+      "COM AS DUAS REDES DE PÉ ao mesmo tempo, o app pergunta em qual servir, em vez de escolher sozinho: quem sabe onde o computador está conectado é quem está operando.",
+      "PRECISA DO APP NOVO (instale a versão v1.4.1): tudo acima é do aparelho, não da base web."
+    ]
+  },
+  {
     "versao": "1.4",
     "itens": [
       "FECHAMENTO DE CICLO: o código do app inteiro foi revisto de ponta a ponta, e 75 defeitos confirmados foram corrigidos. Quase todos eram SILENCIOSOS — nada quebrava na tela, nada aparecia como erro, e por isso ninguém tinha como relatá-los. Os que mais apareciam no culto estão abaixo.",

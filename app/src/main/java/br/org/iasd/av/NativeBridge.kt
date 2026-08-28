@@ -126,8 +126,11 @@ interface BridgeHost {
      * LIGA a transmissão: o servidor HTTP da rede local que serve o próprio
      * `/web/display/` às telas (bundle + comandos por SSE + mídia por `/m/`).
      *
-     * `modo` é IGNORADO desde a v5.156 — ficou na assinatura para não custar um
-     * degrau de `SHELL_VERSION`.
+     * `ip` é o endereço ESCOLHIDO pelo operador, e vazio significa "escolha
+     * você" — o primeiro da lista de [EspelhoServidor.redeParaServir], que já
+     * vem com o ponto de acesso na frente. Ele só existe porque um aparelho
+     * pode ter DUAS redes servíveis ao mesmo tempo (a Wi-Fi da igreja e o
+     * ponto de acesso, num rádio duplo), e aí a certa não é adivinhável daqui.
      *
      * Só a Activity pode fazê-lo, e o motivo é a fila: ligar isto na fila de IO
      * da ponte venceria pelo prazo de 60 s durante um download (ver o bloco do
@@ -136,7 +139,7 @@ interface BridgeHost {
      * Devolve o MESMO objeto de [mirrorState] — com `erro` não-vazio quando não
      * deu —, para o lado web ter um formato só e um desenho só.
      */
-    fun startMirror(onResult: (JSONObject) -> Unit)
+    fun startMirror(ip: String, onResult: (JSONObject) -> Unit)
 
     /**
      * DESLIGA o espelho. Síncrono e sem resposta: quem chama já sabe o que
@@ -214,7 +217,7 @@ class NativeBridge(
          *
          * O degrau a degrau está na tabela da seção "A ponte" do `CLAUDE.md`.
          */
-        const val SHELL_VERSION = 56
+        const val SHELL_VERSION = 57
 
         /**
          * O CONSUMIDOR DA LAN para o barramento (telão por comandos, E2 —
@@ -831,7 +834,7 @@ class NativeBridge(
 
     // ---------- telão nas telas da rede local ----------
     //
-    // Os OITO métodos deste bloco NÃO vão para fila nenhuma, e essa é a decisão
+    // Os NOVE métodos deste bloco NÃO vão para fila nenhuma, e essa é a decisão
     // que os separa do resto da ponte. Cada fila é de uma thread ÚNICA
     // compartilhada por todas as instâncias, e é na [transferencia] que roda o
     // download do YouTube: um vídeo de 380 MB a segura por minutos. Enfileirado,
@@ -841,7 +844,8 @@ class NativeBridge(
     // Mesmo raciocínio já publicado para o `ytCancel`.
     //
     // Onde o trabalho ACONTECE são TRÊS lugares, não um (ver [BridgeHost]):
-    //  · [espelhoLigar], [espelhoEstado], [espelhoDiag] e [espelhoDerrubar]
+    //  · [espelhoLigar], [espelhoLigarEm], [espelhoEstado], [espelhoDiag] e
+    //    [espelhoDerrubar]
     //    saltam para a MAIN THREAD (`runOnUiThread`), que é a trava com que a
     //    `MainActivity` serializa `espelhoSrv`/`espelhoMidia`. Não é mais o
     //    requisito de `Looper` do espelho de pixels — aquele criava uma
@@ -866,7 +870,8 @@ class NativeBridge(
      * LIGA o espelho e resolve o estado resultante (o MESMO objeto do
      * [espelhoEstado], com `erro` não-vazio quando não deu).
      *
-     * Sem argumentos: só existe um modo de transmitir (o telão por comandos).
+     * Sem argumentos: o shell escolhe a rede (a melhor da lista, ponto de
+     * acesso na frente). Quem quer ESCOLHER usa o [espelhoLigarEm].
      * Ver [BridgeHost.startMirror].
      *
      * O espelho é AUXILIAR por contrato: ele liga por ação do operador e
@@ -878,7 +883,30 @@ class NativeBridge(
     fun espelhoLigar(callId: String) {
         val h = host
         if (h == null) { resolve(callId, "null"); return }
-        h.startMirror { estado -> resolve(callId, estado.toString()) }
+        h.startMirror("") { estado -> resolve(callId, estado.toString()) }
+    }
+
+    /**
+     * LIGA NUMA REDE ESCOLHIDA — o irmão ADITIVO do [espelhoLigar] (shell 57).
+     *
+     * Ele existe porque um aparelho pode ter duas redes servíveis ao mesmo
+     * tempo (a Wi-Fi da igreja e o próprio ponto de acesso, num rádio duplo), e
+     * qual delas as telas alcançam **não é decidível daqui**: quem sabe onde o
+     * computador está conectado é a pessoa. O `espelhoLigar` FICA, e é o
+     * caminho de todo aparelho com uma rede só.
+     *
+     * ADITIVO, e não uma assinatura trocada: encolher ou mudar a forma de um
+     * método existente faz o bundle novo chamar contra um APK que ainda tem a
+     * forma velha, e o recurso morre sem nada na tela que o explique.
+     *
+     * **Guardado por `host != null` como os outros — invariante 9: este método
+     * abre um servidor na rede da igreja.**
+     */
+    @JavascriptInterface
+    fun espelhoLigarEm(callId: String, ip: String) {
+        val h = host
+        if (h == null) { resolve(callId, "null"); return }
+        h.startMirror(ip) { estado -> resolve(callId, estado.toString()) }
     }
 
     /**

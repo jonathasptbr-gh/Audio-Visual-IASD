@@ -537,17 +537,131 @@ casado, upstream googlevideo) mas com **Range de verdade e streaming real**
 `__rec.stream` com URLs reescritas para o host do celular. O `mse.js` da
 tela consome com header Range (o modo query é só do caminho nativo).
 
-## §7-B O CELULAR COMO PONTO DE ACESSO (plano, NÃO implementado)
-Hoje o recurso exige que o celular seja **cliente** de uma Wi-Fi (`ehWifiLimpa`,
-`EspelhoServidor.kt:2069`) — e **não** exige internet. O celular sendo ele mesmo
-o ponto de acesso é recusado por DOIS portões: a admissão (o soft AP não é um
-`Network`) e o bind explícito ao IPv4 da Wi-Fi.
+## §7-B O CELULAR COMO PONTO DE ACESSO (v1.4.1)
+A transmissão **nunca precisou de internet** — ela precisava que o celular fosse
+**cliente** de uma Wi-Fi, e numa igreja sem rede isso não existe. Hoje há duas
+vias, e o campo `via` do estado diz qual está servindo.
 
-O plano de suportá-lo está em [`docs/PONTO-DE-ACESSO-PLANO.md`](PONTO-DE-ACESSO-PLANO.md),
-**parado esperando duas medições em aparelho** — a segunda derruba o desenho
-inteiro se falhar. O arquivo também guarda o que foi investigado e RECUSADO
-(`startLocalOnlyHotspot`, `TetheringManager`, Wi-Fi Direct, bind em `0.0.0.0`),
-com o preço de cada um, para a investigação não ser refeita.
+| via | o que é | como é achada |
+|---|---|---|
+| `WIFI` | o celular é cliente de uma Wi-Fi (com ou **sem** uplink) | `redeDaWifi` → `ConnectivityManager`, `ehWifiLimpa`. **Não mudou uma linha** — é o degrau 1, e é o que garante zero regressão na igreja que já funciona |
+| `PONTO_DE_ACESSO` | o celular É o roteador | `redeParaServir` degrau 2 → `EspelhoInterfaces.escolher` sobre `NetworkInterface.getNetworkInterfaces()` |
+
+**O soft AP não é um `Network`, e é disso que tudo decorre.** O downstream do
+tethering é montado no netd sem `NetworkAgent`: ele nunca apareceu em
+`cm.allNetworks` e sempre viveu no eixo que devolve NOME DE INTERFACE (`ap0`,
+`swlan0`, `wlan1`). Enquanto a admissão era só o `ConnectivityManager`, o
+operador com o hotspot ligado na frente dele lia *"sem Wi-Fi"*.
+
+**O DISCRIMINADOR NÃO É O NOME** — e é isso que faz a regra durar, porque nome de
+interface é o que cada OEM muda sem avisar, e **isto é Kotlin: quando erra num
+aparelho não há OTA que conserte**. A pergunta é *"que interface está no ar, com
+IPv4 RFC1918, e que NENHUM `Network` reivindica?"*, e a do soft AP é a única com
+essa forma — **não é uma rede que o aparelho USA, é uma que ele SERVE**. O nome
+entra só na CLASSIFICAÇÃO, depois de três filtros independentes.
+
+Sete recusas, nesta ordem (a ordem é contrato: ela decide o motivo que o Registro
+imprime): fora do ar · loopback · ponto-a-ponto · **família** (`rmnet`, `ccmni`,
+`pdp`, `v4-rmnet`, `clat`, `tun`, `ppp`, `ipsec`, `wg`, **`p2p`**, `sit`,
+`dummy`) · reivindicada por um `Network` · sem IPv4 · IPv4 fora de RFC1918
+(**o CGNAT `100.64/10` fica de fora de propósito**).
+
+**Duas famílias estão lá por casos que nenhum filtro genérico pega:**
+
+- **`rmnet` com IPv4 privado.** Um CGNAT de operadora entrega `10/8` ao chip: o
+  filtro de RFC1918 o aprova e nenhum `Network` precisa reivindicá-lo. Só a
+  família o recusa.
+- **`p2p`.** O Group Owner do Wi-Fi Direct serve `192.168.49.1` — privado, no ar,
+  sem `Network` que o reivindique: **a forma exata que a regra procura**, no ar
+  durante **todo culto com Miracast**. Sem esta linha o servidor subiria no fio
+  do dongle e nenhuma tela da rede o alcançaria.
+
+**Ela classifica; ela não faz política.** `escolher` devolve tudo que sobrou com
+o `Tipo` de cada um (`PONTO_DE_ACESSO` · `CABO` · `DESCONHECIDO`); admitir só o
+primeiro é uma linha visível do `redeParaServir`, e não um efeito colateral da
+ordem da enumeração. **Falhar FECHADO é o contrato:** nome desconhecido custa o
+recurso e uma frase, nunca um socket no lugar errado.
+
+**O bind não mudou uma letra** — continua explícito, num IPv4, nunca `0.0.0.0`.
+O que mudou é a resposta a *"quais IPv4 são servíveis?"*. A reconferência do
+`ligar()` passou a ser contra `redeParaServir`, e não contra `redeDaWifi`: sem
+isso um endereço de AP achado corretamente morreria três linhas depois de a
+regra tê-lo aprovado.
+
+**A sobrevivência tem duas metades, porque o callback não cobre o AP.**
+`observarRede` assina `TRANSPORT_WIFI`, e em modo AP puro ele **nunca dispara** —
+não há `Network` para ganhar nem perder. O desfecho não é uma queda errada
+(`redeSuspeitaDesde` fica 0 e `confirmarRede` retorna na primeira linha); é coisa
+pior: **nada vigiaria o AP caindo**, e o socket ficaria para sempre amarrado a um
+endereço morto. Quem cobre é `vigiarPontoDeAcesso` (5 s, e **só** quando
+`via == PONTO_DE_ACESSO`), que levanta a mesma SUSPEITA e deixa o veredito com o
+`confirmarRede` de sempre. O caso não é raro: o hotspot **se desliga sozinho por
+ociosidade** em vários fabricantes. Pelo mesmo motivo `ipAindaEDaWifi` virou
+`ipAindaEServivel` e ganhou um segundo degrau — o `ConnectivityManager` responde
+SEMPRE não em modo AP, e sem ele a transmissão morreria na primeira suspeita.
+
+**O `confirmarRede` religa na MESMA via**, nunca na outra: migrar de ponto de
+acesso para Wi-Fi sozinho seria ligar por conta própria, e o contrato diz
+AUXILIAR (§1). E a frase do religamento perdeu o *"sem perder o pareamento"* no
+AP — se o hotspot reiniciou, as telas perderam o SSID, e prometer o contrário
+num artefato que é lido a distância é o pior que este projeto sabe produzir.
+
+**A escolha entre as duas é do operador, e só aparece quando existem duas.**
+`redes.length > 1` desenha os dois botões; com uma só o shell escolhe (ponto de
+acesso na frente). Qual delas a tela alcança **não é decidível pelo app** — quem
+sabe onde o computador está conectado é a pessoa. A ponte ganhou
+`espelhoLigarEm(callId, ip)`, **ADITIVO** (`SHELL_VERSION` 57): o `espelhoLigar`
+sem argumento fica, e é o caminho de todo aparelho com uma rede só.
+
+### §7-B.1 O que isto muda no AP ISOLATION (§9)
+Isolamento de cliente é a falha muda deste recurso: servidor de pé, porta
+escutando, **nenhum SYN chegando**, indistinguível de "ninguém abriu ainda".
+Ela bloqueia cliente↔cliente — e **no ponto de acesso o celular é o GATEWAY**: é
+dele que o computador tira DHCP e DNS, então esse caminho não pode estar fechado.
+**O ponto de acesso é a resposta mais forte a esse defeito, não uma alternativa
+qualquer.**
+
+### §7-B.2 O custo, dito
+- **Ligar o ponto de acesso derruba a Wi-Fi** em aparelho de rádio único, e
+  **pode derrubar o Miracast junto** (softAP e Wi-Fi Direct disputam o mesmo
+  rádio). Os dois só doem para quem quer as duas conexões AO MESMO TEMPO; quem
+  liga o hotspot *porque não há Wi-Fi* não perde nada. A celular sobrevive:
+  `ytFetch`, OTA e `apkProcurar` seguem pelo chip.
+- **O hotspot se desliga sozinho por ociosidade** em vários fabricantes. A
+  enquete NOMEIA ("o ponto de acesso foi desligado"); ela não impede.
+- **A regra depende de nomes de interface, e é Kotlin.** Quando ela errar num
+  aparelho, o conserto é uma Release. Por isso o Registro imprime as interfaces
+  vistas e o motivo de cada recusa, verbatim: é a única pista a distância.
+- **Não custa permissão nenhuma**, e isso é resultado e não acaso — é o que
+  separa este caminho do `TetheringManager`.
+
+### §7-B.3 Investigado e RECUSADO — para não ser refeito
+| o quê | por que não |
+|---|---|
+| **`WifiManager.startLocalOnlyHotspot()`** (o app CRIAR a rede) | cobra `ACCESS_FINE_LOCATION` (o app tem UMA permissão sensível, `RECORD_AUDIO`) mais localização LIGADA até a API 32; **SSID e senha são sorteados pelo sistema a cada sessão** — o operador redigitaria uma senha aleatória em até três telas TODO SÁBADO; e ainda assim **não devolve um `Network`**, então sobraria a mesma enumeração |
+| **`TetheringManager` · `getWifiApConfiguration()` · `getTetheredIfaces()`** | `@hide`/`@SystemApi`; `TETHER_PRIVILEGED` é `signature\|privileged`; com `targetSdk = 35` a barreira de interfaces não-SDK fecha a reflexão |
+| **Wi-Fi Direct (`WifiP2pManager`)** | o navegador de um computador comum não entra num grupo Wi-Fi Direct |
+| **bind em `0.0.0.0`** | **quem alcança a porta PAREIA** (o código saiu na v5.189): o teto de 3 e o castigo medem OCUPAÇÃO, não admissão, e a allowlist de `Host` barra DNS rebinding e mais nada. A única membrana do recurso é o bind — e no cenário que motiva o pedido (igreja sem Wi-Fi = celular em dados móveis) o wildcard abre exatamente a `rmnet`. E nem paga o que promete: para imprimir o endereço ainda seria preciso enumerar interfaces |
+| **`p2p*` na allowlist** | ver acima: é o fio do dongle, no ar durante todo culto com Miracast |
+| **denylist de nomes como guarda PRIMÁRIA** | `eth0`/`usb0` de um dock, ou um OEM desconhecido com IPv4 privado, seriam ACEITOS. Falhar ABERTO em nome desconhecido é o oposto do que a primeira fronteira de rede do projeto pode fazer — daí a família ser o QUARTO filtro, e não o primeiro |
+| **não registrar `observarRede` em modo AP** | retirar condicionalmente um mecanismo existente. Ele fica: em AP puro nunca dispara (inofensivo), e um `onAvailable` de Wi-Fi alheia só chama `redeVoltou()`, que retorna cedo com `redeSuspeitaDesde == 0` |
+
+### §7-B.4 O que ainda NÃO foi medido em aparelho
+Duas suposições sustentam o degrau 2, e **as duas só se confirmam num aparelho de
+verdade** — o JUnit cobre a regra pura, não o sistema:
+
+1. a interface do AP aparece em `getNetworkInterfaces()` com o IPv4 dela, em
+   modo tethering (o nome varia por fabricante);
+2. **um bind NAQUELE endereço aceita conexão de um cliente do hotspot.**
+
+**Teste de custo zero:** ligar o ponto de acesso, conectar o computador e ver o
+**gateway padrão** dele — esse endereço É o do celular na rede do hotspot; se ele
+responde a ping, as duas estão essencialmente respondidas. Falhando, o degrau 2
+não acha nada, a recusa vem com o ensino, e **o degrau 1 continua intacto** — o
+modo de falhar é o comportamento de antes, nunca um socket no lugar errado.
+
+> **Regra de calendário:** a primeira ligada em rede de verdade é **numa
+> terça-feira, não no culto.**
 
 ## §8 SEGURANÇA — o que muda de verdade
 A inversão da §10 do espelho cresce: com `/m/`, o servidor tem OS ARQUIVOS
@@ -586,6 +700,17 @@ eco), mídia e posição reportadas, gesto/som, telaAcesaMin, bytes servidos de
 `/m/`, cache (itens/MB/despejos), heartbeats perdidos. Molde de sempre:
 Kotlin devolve JSON, controle.js monta a frase, linha ausente = shell
 antigo. O `EspelhoDiag` (anel) sobrevive à troca — realocado na E7.
+
+**E AS INTERFACES VISTAS, com o motivo de cada recusa** (v1.4.1,
+`EspelhoServidor.interfacesJson`). Ela não é conforto: a regra do ponto de acesso
+é KOTLIN e depende de nomes que cada fabricante escolhe, então quando ela errar
+num aparelho o conserto é uma Release — e ele começa por saber o nome que AQUELE
+aparelho deu à interface. Sem esta leitura, "o hotspot está ligado e o app não o
+acha" não tem pista nenhuma. O motivo sai VERBATIM de quem decidiu
+(`EspelhoInterfaces.escolher`); as recusadas saem TODAS (são poucas, e é
+justamente a recusada que explica o caso). A linha do servidor também parou de
+cravar *"ligado à Wi-Fi"* — ela lê o `via`, senão o Registro afirmaria a rede
+errada para quem está servindo pelo próprio celular.
 
 ## §10 FATOS DA VARREDURA — os que moldaram a spec
 

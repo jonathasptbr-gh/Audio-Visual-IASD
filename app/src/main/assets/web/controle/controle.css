@@ -5921,6 +5921,23 @@ body.mode-simple .bottombar { display: none; }
    RÓTULO deste botão, ele é o recado — e um recado a 55% de opacidade é o
    defeito que o lote veio corrigir, com outro nome. Continua claramente inerte;
    passou a ser legível. */
+/* A ESCOLHA DA REDE — a mesma anatomia do `.misc-seg`, que é o par
+   "ESCOLHIDO entre alternativas" da paleta: `--surface` no que não está
+   escolhido, `--accent-fill` + `--on-accent` no que está. Ela não reusa aquela
+   classe porque as duas vivem em telas diferentes e um ajuste de uma não deve
+   mexer na outra; o que se compartilha são os TOKENS, que é onde a linguagem
+   de estado mora. */
+.cast-redes { display: flex; gap: .35rem; }
+.cast-rede {
+  flex: 1; padding: .5rem .4rem;
+  border-radius: var(--radius-btn);
+  background: var(--surface); color: var(--muted);
+  font-size: .8rem; font-weight: 700; cursor: pointer;
+  appearance: none; -webkit-appearance: none;
+}
+.cast-rede.active { background: var(--accent-fill); color: var(--on-accent); }
+.cast-rede:active { filter: var(--press-luz); transform: var(--press); }
+
 .cast-acao:disabled { opacity: .7; cursor: default; }
 .cast-acao:disabled:active { filter: none; }
 

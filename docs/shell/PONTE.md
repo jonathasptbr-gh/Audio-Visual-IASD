@@ -38,7 +38,7 @@ Nenhum dos dois aparece num teste de comportamento. Por isso existe o
    NativeBridge.kt                     shared/native.js
    ───────────────                     ────────────────
    @JavascriptInterface  ──injetado──►  window.__AVBridge
-   (49 métodos)          addJavascript      │
+   (50 métodos)          addJavascript      │
                           Interface         │ remonta
                                             ▼
                                        window.AVNative  (44 métodos)
@@ -284,10 +284,22 @@ positionMs, durationMs, actions }`
 
 ### `espelhoEstado()` — o estado da transmissão
 
-`{ ligado, endereco, erro, telas[] }` — produzido por `MainActivity.mirrorJson`.
+`{ ligado, endereco, erro, via, redes[], telas[] }` — produzido por
+`MainActivity.mirrorJson`.
 
 Cada tela: `{ rotulo, comando, conectadaMs, telaAcesaMin, aviso, eventos,
 pronta, fila }`.
+
+- **`via` (shell 57)** — `WIFI` ou `PONTO_DE_ACESSO`: por onde o socket está
+  servindo. O `blocoEspelho` do Registro cravava `", ligado à Wi-Fi)"`, que
+  virou mentira no instante em que o ponto de acesso passou a servir.
+- **`redes[]` (shell 57)** — as servíveis AGORA (`{ ip, via, iface }`). Ela **vem
+  VAZIA com a transmissão no ar**, e isso é deliberado: montá-la ENUMERA AS
+  INTERFACES do aparelho na main thread, e este objeto é relido a cada 2,5 s
+  enquanto a folha está aberta. Ligado, a folha não desenha a escolha (trocar de
+  rede exige desligar), então o que sobraria era uma varredura por segundo e meio
+  durante o culto inteiro para alimentar um bloco que ninguém pinta. Quem quer a
+  leitura com a transmissão no ar tem o Registro, que a faz sob demanda.
 
 - **Sem `codigo` desde o shell 38:** a porta é o ENDEREÇO na rede.
 - **Sem pendentes desde o shell 36:** não há fila de aprovação. Quem entra pela
@@ -367,6 +379,24 @@ tem; rótulo em branco é **recusado**, e não vale "todas".
 > o shell 36 — um nome que prometia uma decisão que já não existia. O mesmo lote
 > tirou o `modo` do `espelhoLigar`, ignorado desde a v5.156. Os dois esperaram o
 > lote que sobe o degrau, que é a regra: encolher a ponte é APK + web juntos.
+
+### `espelhoLigarEm(ip)` — o irmão ADITIVO do `espelhoLigar` (shell 57)
+
+O `AVNative.espelhoLigar(ip)` do lado web é **um** método sobre **dois** do
+Kotlin: sem `ip` chama o `espelhoLigar` de sempre, com `ip` chama este.
+
+**Aditivo, e não uma assinatura trocada** — a assimetria de entrega é a razão: o
+web chega por OTA em minutos, o shell só instalando o APK. Trocar a forma do
+`espelhoLigar` faria o bundle novo chamar contra um APK que ainda tem a velha, e
+o botão existiria, seria tocável e não faria nada.
+
+Ele existe porque um aparelho de rádio duplo tem a Wi-Fi e o ponto de acesso de
+pé ao mesmo tempo, e **qual deles a tela alcança não é decidível pelo app**: quem
+sabe onde o computador está conectado é a pessoa. Com uma rede só, o shell
+escolhe (ponto de acesso na frente) e a escolha nem é desenhada.
+
+Guardado por `host != null` como os outros — **invariante 9: este método abre um
+servidor na rede da igreja.**
 
 ### `projecaoLocal(bool)` — o único método cuja resposta o shell não sabe apurar
 
