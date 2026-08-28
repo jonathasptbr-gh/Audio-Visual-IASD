@@ -86,10 +86,15 @@
     });
   }
 
-  // Tudo vira TEXTO, e o Kotlin lê de volta com `toBooleanStrict`/`toLong`. É
-  // a mesma redução que o `@JavascriptInterface` faz no Android, onde os tipos
-  // que atravessam são os primitivos e a String — e é o que mantém o envelope
-  // sem parser de tipos.
+  // TUDO VIRA TEXTO, e quem o lê de volta compara a string: o `"true"` deste
+  // `paraTexto` é o mesmo `"true"` que o `Arg(0) == "true"` da casca espera, e
+  // números voltam por `toLongOrNull`/`int.TryParse`. É a mesma redução que o
+  // `@JavascriptInterface` faz no Android — os tipos que atravessam são os
+  // primitivos e a String —, e é o que mantém o envelope sem parser de tipos.
+  //
+  // AUSENTE e VAZIO viram a MESMA coisa (`''`), de propósito: é o que o
+  // `native.js` já faz (`String(nome || '')`), e nenhum método da ponte
+  // distingue os dois.
   function paraTexto(v) {
     if (v === null || v === undefined) return '';
     if (v === true) return 'true';

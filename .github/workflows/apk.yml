@@ -343,6 +343,19 @@ jobs:
           # botão ficando mudo em culto. Node puro: sem `continue-on-error`.
           node tools/ponte-envelope.test.mjs
 
+      - name: O contrato da segunda casca, entre linguagens (Node puro)
+        run: |
+          # AS LISTAS QUE MORAM EM DUAS LINGUAGENS. Irmão do
+          # `tipos-que-sobem.test.mjs`, e pelo mesmo motivo: uma lista escrita
+          # duas vezes diverge no primeiro esquecimento, e a divergência é MUDA.
+          # Aqui são três: o degrau do contrato (`SHELL_VERSION` no Kotlin ×
+          # `SHELL` no C# — a superfície da ponte é UMA, e o número tem de ser
+          # um), o que atravessa o cano (`DA_CASCA` × os `case` da casca), e a
+          # lista da invariante 9. Ele cobra também que o §7 do
+          # `docs/SEGUNDA-CASCA.md` não envelheça em relação ao código.
+          # Node puro, sem rede: sem `continue-on-error`.
+          node tools/casca-contrato.test.mjs
+
       - name: Tokens de CSS que não existem (Node puro)
         run: |
           # Um `var(--nao-existe)` SEM fallback computa para o valor INICIAL da

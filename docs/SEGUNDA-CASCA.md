@@ -234,6 +234,7 @@ com um refactor distraído**.
 | esperar o aperto de mão sem prazo | uma JVM que suba e não escreva nada deixa o programa **pendurado para sempre**: sem janela, sem mensagem, sem nada dizendo por quê |
 | guardar geometria com `GetClientRect` | `left`/`top` são sempre 0: sair da tela cheia joga a janela no canto do monitor principal |
 | `Console.Error` numa casca `WinExe` | **não há console**: todo diagnóstico da casca ia para lugar nenhum |
+| o preâmbulo `__AV_CASCA__` faltar ou quebrar | a folha retorna na entrada, `__AVBridge` não existe, e a página **vira a build de NAVEGADOR** — sem ponte, sem `__NATIVE__`, sem erro. O app abre e parece funcionar até alguém tocar num botão nativo |
 | pôr a tecla no `WndProc` | o WebView2 cobre o cliente inteiro, então a tecla vai para a página e a janela nunca a vê. F11 sai do `AcceleratorKeyPressed` |
 
 ### As decisões da casca que precisam estar ditas
@@ -504,7 +505,7 @@ sobre `CreateCoreWebView2Controller(HWND)`.
 ### O que TEM oráculo
 
 **70 testes JUnit** no `:core` só para a segunda casca (de 208 no total), mais
-**54 asserções** de Node/C#, mais **25** em Chromium.
+**70 asserções** de Node/C#, mais **25** em Chromium.
 
 | oráculo | onde roda | o que ele trava |
 |---|---|---|
@@ -515,6 +516,7 @@ sobre `CreateCoreWebView2Controller(HWND)`.
 | `NucleoArquivosTest` (15) | JUnit | a rota `/saf/`: token opaco e estável, a sessão, a listagem não recursiva |
 | `ponte-envelope.test.mjs` (16) | Node puro | o produtor **JavaScript** do envelope, **e que a folha ofereça exatamente os 57 métodos que o `native.js` chama** — um a menos vira `TypeError` engolido pelo `catch`, com o botão mudo em culto |
 | `AudioVisualIASD.Testes` (14) | .NET, **em Linux** | o terceiro lado do envelope. Portátil de propósito: um contrato de três lados em que só dois têm oráculo é um contrato de dois lados outra vez |
+| `casca-contrato.test.mjs` (16) | Node puro | **as listas que moram em duas linguagens**: o degrau do contrato (`SHELL_VERSION` × `SHELL`), o que atravessa o cano (`DA_CASCA` × os `case` da casca) e a lista da invariante 9 — **e que o §7 deste documento não envelheça** em relação ao código |
 | `nucleo-de-pe.test.mjs` (24) | Node + JVM | **o programa DE PÉ**: o aperto de mão `NucleoMain` ↔ `Nucleo.Ligar()`, a base servida de verdade, o `Range`, a travessia **por socket cru**, a ponte de ponta a ponta e o `/saf/` com a invariante 9 |
 | `janela-do-display.test.mjs` (15) | Chromium | duas páginas do mesmo origin dividindo IndexedDB e barramento — **o primeiro oráculo deste repositório que abriu uma segunda janela** |
 | `degrau-desktop.test.mjs` (10) | Chromium | o layout de duas colunas, medindo **o que o desenho reserva**, nunca a soma renderizada |

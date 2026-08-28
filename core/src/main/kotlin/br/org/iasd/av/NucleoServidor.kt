@@ -164,10 +164,6 @@ class NucleoServidor(
         }
     }
 
-    /** Quantas janelas estão ouvindo. A casca a consulta para saber se o
-     *  Telão de fato subiu — e o oráculo, para esperar pelo FATO. */
-    fun janelasLigadas(): Int = fios.size
-
     private fun aceitar(s: ServerSocket) {
         while (vivo.get()) {
             val c = try { s.accept() } catch (_: Exception) { return }
