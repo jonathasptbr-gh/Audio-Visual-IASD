@@ -68,10 +68,19 @@ internal sealed class Folhas
         return alca;
     }
 
-    /// <summary>O que a casca ainda não sabe fazer — a mesma lista que o
+    /// <summary>
+    /// O que a casca ainda não sabe fazer — a mesma lista que o
     /// `NucleoDespacho.naoImplementados` mantém do outro lado, pelo mesmo
     /// motivo: "esta parte ainda não existe" e "o programa travou" são leituras
-    /// diferentes, e sem a lista elas são indistinguíveis.</summary>
+    /// diferentes, e sem a lista elas são indistinguíveis.
+    ///
+    /// **Ela ainda NÃO TEM LEITOR**, e isso está dito para não parecer que tem:
+    /// quem responde hoje é a anotação no diário, feita na primeira vez que
+    /// cada método é pedido. Esta propriedade é o gancho para levá-la ao
+    /// Registro de Configurações, que é onde o operador olha — e isso custa um
+    /// método de ponte novo, logo um degrau de `SHELL_VERSION`. Ver
+    /// `docs/SEGUNDA-CASCA.md` §7.
+    /// </summary>
     internal IReadOnlyList<string> SemDono { get { lock (_semDono) return _semDono.ToArray(); } }
 
     internal void Atender(Envelope.Chamada c)

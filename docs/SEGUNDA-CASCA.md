@@ -353,6 +353,12 @@ e nome vazio, **e nada disso dá erro**.
 | **o mesmo arquivo devolve sempre o mesmo token** | sem isso, cada `listFolder` de uma pasta de 500 arquivos acrescentaria 500 entradas a cada re-sincronização, num processo vivo o culto inteiro |
 | **ligado à SESSÃO** | é o que reproduz o `withSaf = false` do telão do Android (§4) |
 
+**E `pickFolder` é a exceção da regra acima: o `uri` que ele devolve é um
+CAMINHO, não uma URL servível.** Ele é o *punho* da pasta — o que o lado web
+guarda entre sessões e devolve ao `listFolder` —, e no Android ele também não é
+servível (é o `content://` da árvore do SAF). Quem vira `/saf/` são os ARQUIVOS,
+no `pickDoc` e no `listFolder`.
+
 **`listFolder` é do NÚCLEO, não da casca**: quem tem o sistema de arquivos e o
 registro é ele. A casca só **escolhe** a pasta, e devolve **caminhos, nunca
 URLs**. Ele continua na lista de privilegiados — era a exceção declarada do

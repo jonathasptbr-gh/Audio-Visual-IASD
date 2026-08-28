@@ -57,6 +57,13 @@ tasks.register<Jar>("nucleoJar") {
     from(configurations.runtimeClasspath.get().map { if (it.isDirectory) it else zipTree(it) })
     // Assinaturas de terceiros que sobrevivam à fusão fazem a JVM recusar o
     // jar inteiro por "invalid signature file".
-    exclude("META-INF/*.SF", "META-INF/*.DSA", "META-INF/*.RSA", "META-INF/versions/9/module-info.class")
+    // `META-INF/versions/9/module-info.class` é onde a stdlib do Kotlin o
+    // guarda hoje (conferido no jar), e `module-info.class` cobre a RAIZ — um
+    // jar fundido não é um módulo, e um descritor de módulo sobrevivente faz o
+    // class loader recusar o que está ali dentro.
+    exclude(
+        "META-INF/*.SF", "META-INF/*.DSA", "META-INF/*.RSA",
+        "META-INF/versions/*/module-info.class", "module-info.class",
+    )
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
 }
