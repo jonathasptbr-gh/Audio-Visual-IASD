@@ -1657,8 +1657,13 @@ deixa o veredito com o `confirmarRede` de sempre. O caso não é raro: o hotspot
    de o telão de verdade rodar o MESMO `display.js`: quebrar um é quebrar o
    outro, que é o defeito que aparece.
 
-> **Regra de calendário:** a primeira ligada em rede de verdade é **numa
-> terça-feira, não no culto**.
+> **Regra de calendário:** a primeira ligada em rede de verdade é **num dia SEM
+> culto** — segunda, terça, quinta ou sexta. A agenda é **sábado de manhã** (o
+> culto principal), mais **domingo e quarta à noite** (menores, opcionais).
+>
+> O que a regra protege não é o dia: é ter **folga na frente para desfazer**. Um
+> recurso de rede que só falha na igreja falha na frente da congregação, e o
+> conserto de uma regra em Kotlin é uma Release.
 
 ---
 

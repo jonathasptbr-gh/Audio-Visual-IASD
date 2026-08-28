@@ -79,8 +79,9 @@
 > E4.1 (pré-busca da playlist — as outras três fecharam),
 > §7 (proxy da transmissão direta — hoje ela cai no download quando não há
 > TV), e o primeiro culto de VALIDAÇÃO em aparelho — que, pela regra de
-> calendário herdada do espelho, acontece numa terça-feira, nunca num
-> domingo. O Registro e a folha mostram as telas de comando; o diagnóstico
+> calendário herdada do espelho, acontece num dia SEM culto (segunda, terça,
+> quinta ou sexta), nunca num dos três: sábado de manhã, domingo ou quarta à
+> noite. O Registro e a folha mostram as telas de comando; o diagnóstico
 > fino delas (eco de __mid, atraso medido) é evolução futura sobre o campo
 > `eventos`/`pronta` que já viaja.
 >
@@ -521,7 +522,7 @@ Cada etapa: testes verdes, Estado atualizado, commit na branch, merge em
   com o caminho velho compilado); frases MIRROR_TEXTO/confirmação com TV
   reescritas (os custos que descrevem deixaram de existir); política
   YouTube sem TV; `espelhoEstado()` ganha os campos novos mantendo os
-  velhos até a E7. **Liga-se numa terça-feira.** Prova: smoke completo +
+  velhos até a E7. **Liga-se num dia sem culto.** Prova: smoke completo +
   culto de teste do operador.
 - **E7 — remoção.** A lista do §2; `EspelhoDiag` realocado (dono passa a
   ser quem liga o servidor); `contexto-seguro.test.mjs` passa a varrer
@@ -660,8 +661,13 @@ responde a ping, as duas estão essencialmente respondidas. Falhando, o degrau 2
 não acha nada, a recusa vem com o ensino, e **o degrau 1 continua intacto** — o
 modo de falhar é o comportamento de antes, nunca um socket no lugar errado.
 
-> **Regra de calendário:** a primeira ligada em rede de verdade é **numa
-> terça-feira, não no culto.**
+> **Regra de calendário:** a primeira ligada em rede de verdade é **num dia SEM
+> culto** — segunda, terça, quinta ou sexta. A agenda é **sábado de manhã** (o
+> culto principal), mais **domingo e quarta à noite** (menores, opcionais).
+>
+> O que a regra protege não é o dia: é ter **folga na frente para desfazer**. Um
+> recurso de rede que só falha na igreja falha na frente da congregação, e o
+> conserto de uma regra em Kotlin é uma Release.
 
 ## §8 SEGURANÇA — o que muda de verdade
 A inversão da §10 do espelho cresce: com `/m/`, o servidor tem OS ARQUIVOS
@@ -774,4 +780,4 @@ errada para quem está servindo pelo próprio celular.
 
 *(CI e promessas de docs — leitores que caíram no limite de sessão — foram
 supridos pelo CLAUDE.md, que descreve o apk.yml passo a passo e as regras
-operacionais: OTA×APK, terça-feira, alfa fechado.)*
+operacionais: OTA×APK, dia sem culto, alfa fechado.)*

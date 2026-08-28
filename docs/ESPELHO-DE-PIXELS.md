@@ -25,7 +25,7 @@ avisava que **o som não vai completo** por causa do player embutido do YouTube
 (que saiu na v5.212 — hoje a tela toca o arquivo inteiro, local). Ela não estava
 velha: estava AFIRMANDO o contrário do aparelho, que é o defeito que este arquivo
 existe para não cometer. O que nela continua valendo — o espelho é auxiliar, a
-primeira ligada é numa terça-feira — vive no `CLAUDE.md` e em
+primeira ligada é num dia sem culto — vive no `CLAUDE.md` e em
 `TELAO-POR-COMANDOS.md`.
 
 ---
