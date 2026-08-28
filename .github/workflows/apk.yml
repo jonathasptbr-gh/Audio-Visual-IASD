@@ -527,6 +527,16 @@ jobs:
           # `slideLabel` (v5.97→v5.102) e `bytes`, que nunca chegou a viajar
           # desde a versão que o criou.
           rodar tools/ponte.test.mjs
+          # E A RECUSA DA TRANSMISSÃO — o veredito do shell mais a INSTRUÇÃO.
+          # Ele cobra o PAR, que é onde o ensino falha calado nos dois sentidos:
+          # de menos, e o operador lê "sem rede para transmitir" sem saber que
+          # ligar o ponto de acesso do próprio celular resolve; de mais, e a
+          # recusa de PORTA OCUPADA — a única deste caminho cujo conserto não é
+          # mexer na rede — passa a mandar mexer na rede. A segunda metade lê as
+          # frases do PRÓPRIO Kotlin, técnica do `tipos-que-sobem`: a decisão é
+          # por PALAVRA sobre uma string que o Kotlin escolhe, e sem oráculo
+          # alguém reescreve a `Recusa` e o ensino some sem nada acusar.
+          rodar tools/recusa-transmissao.test.mjs
           # E O TELÃO, que até agora NENHUM teste tinha carregado. A fumaça
           # acima abre o Controle; o `stage-fade` monta o palco à mão. A metade
           # que roda na frente da congregação era a metade que a CI nunca
@@ -1172,9 +1182,17 @@ jobs:
 
       # OS TESTES UNITÁRIOS EM JVM, E SEM `continue-on-error`.
       #
-      # Este passo existe por um arquivo e meio: o `EspelhoHttp.kt` e o
-      # `EspelhoPares.kt` (o telão por comandos — ver docs/TELAO-POR-COMANDOS.md)
-      # são o ÚNICO código do projeto que encara a rede. Tudo o mais que entra no app
+      # Este passo existe pelos arquivos PUROS do telão por comandos —
+      # `EspelhoHttp.kt`, `EspelhoPares.kt`, `EspelhoMidiaCache.kt` e
+      # `EspelhoInterfaces.kt` (ver docs/TELAO-POR-COMANDOS.md): eles são o
+      # ÚNICO código do projeto que encara a rede.
+      #
+      # O `EspelhoInterfaces` entrou com o ponto de acesso, e ele é o que mais
+      # depende deste passo: ele decide EM QUE INTERFACE o socket abre, e errar
+      # para o lado aberto põe o servidor no fio do dongle (o Group Owner do
+      # Wi-Fi Direct serve `192.168.49.1` — privado, no ar, sem `Network` que o
+      # reivindique, a forma exata que a regra procura). E é Kotlin: quando ele
+      # erra num aparelho, não há OTA que conserte. Tudo o mais que entra no app
       # vem do operador (SAF, compartilhamento) ou de uma URL que o próprio app
       # cunhou; ali entra o que um desconhecido na rede da igreja mandar. E é o
       # único código em que um erro não vira pixel errado: vira controle de acesso

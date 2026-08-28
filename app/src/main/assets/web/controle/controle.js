@@ -258,7 +258,7 @@ const appVersionEl = document.getElementById('appVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.4.1';
+const WEB_VERSION = '1.4.2';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -459,6 +459,10 @@ const castNetBtnEl = document.getElementById('castNetBtn');
 const castNetLabelEl = document.getElementById('castNetLabel');
 const castLocalBtnEl = document.getElementById('castLocalBtn');
 const castMsgEl = document.getElementById('castMsg');
+// O ENSINO da recusa de rede — nó PRÓPRIO, ver o comentário no HTML.
+const castEnsinoEl = document.getElementById('castEnsino');
+const castRedesEl = document.getElementById('castRedes');
+const castRotEl = document.getElementById('castRot');
 const castMirrorLabelEl = document.getElementById('castMirrorLabel');
 const castMirrorNotaEl = document.getElementById('castMirrorNota');
 const castLiveEl = document.getElementById('castLive');
@@ -18046,8 +18050,15 @@ function blocoEspelho(d) {
   const srv = d.servidor || {};
   const svc = d.servico || {};
   if (srv.ligado) {
+    // A VIA SAI DO ESTADO, e não de um literal. Ela era ", ligado à Wi-Fi)"
+    // cravado — verdade enquanto a Wi-Fi era a única forma de servir, e mentira
+    // no instante em que o ponto de acesso passou a servir também. Este é o
+    // artefato que existe para ser COPIADO e lido a distância: uma linha que
+    // afirma a rede errada manda investigar o roteador de quem está servindo
+    // pelo próprio celular.
     l.push('servidor: ' + (srv.url || '?')
-      + ' (' + (srv.tls ? 'HTTPS' : 'HTTP') + ', ligado à Wi-Fi)'
+      + ' (' + (srv.tls ? 'HTTPS' : 'HTTP') + ', ' + mirrorVia(srv.via)
+      + (srv.iface ? ' — ' + srv.iface : '') + ')'
       + (srv.noArMs ? ' · ' + mirrorDur(srv.noArMs) + ' no ar' : '')
       + (svc.servico ? ' · serviço de pé' : ' · SEM serviço em primeiro plano'));
   } else {
@@ -18160,13 +18171,16 @@ function blocoEspelho(d) {
     // A LINHA MAIS IMPORTANTE DESTE BLOCO quando ela aparece. Servidor de pé,
     // porta escutando e nenhum SYN chegando é AP isolation — e ela é
     // indistinguível de "ninguém abriu ainda" sem que alguém a nomeie. Não há
-    // conserto do lado do app: a saída é operacional — outro SSID, ou um
-    // roteador próprio, que NÃO precisa de internet (`NET_CAPABILITY_VALIDATED`
-    // está deliberadamente fora do filtro do `redeDaWifi`, para a igreja com o
-    // AP no ar e o link caído). O que NÃO é saída é o celular em modo ponto de
-    // acesso: ali ele deixa de ser cliente de Wi-Fi, `redeDaWifi` não acha rede
-    // nenhuma e o espelho recusa com "sem Wi-Fi" — e, com a projeção já no ar,
-    // ligar o ponto de acesso desassocia o Wi-Fi e DERRUBA a transmissão.
+    // conserto do lado do app: a saída é operacional — outro SSID, um roteador
+    // próprio (que NÃO precisa de internet: `NET_CAPABILITY_VALIDATED` está
+    // deliberadamente fora do filtro do `redeDaWifi`) ou o PONTO DE ACESSO
+    // deste celular.
+    //
+    // E ESSA TERCEIRA SAÍDA É A MAIS FORTE CONTRA ESTE DEFEITO, não uma
+    // alternativa qualquer: isolamento de cliente bloqueia cliente↔cliente, e
+    // no ponto de acesso o celular é o GATEWAY — é dele que o computador tira
+    // DHCP e DNS, então esse caminho não pode estar fechado. O que aqui é uma
+    // falha muda, lá deixa de existir.
     if (srv.semConexaoMs > 120000) {
       l.push('nenhuma conexão desde que ligou (há ' + mirrorDur(srv.semConexaoMs) + ') — '
         + 'se alguém abriu o endereço, o roteador está isolando os clientes');
@@ -18184,6 +18198,35 @@ function blocoEspelho(d) {
     if (saida && typeof saida === 'object') {
       l.push('ultima desconexao: tela ' + (saida.rotulo || '?')
         + ' · ' + (saida.motivo || '?'));
+    }
+  }
+  // AS INTERFACES QUE A REGRA VIU, e o motivo de cada recusa.
+  //
+  // É a ÚNICA forma de diagnosticar a distância um nome de interface de
+  // fabricante — e aqui isso não é conforto: a regra do ponto de acesso é
+  // KOTLIN, então quando ela erra num aparelho não há OTA que a conserte, e o
+  // conserto começa por saber o nome que aquele aparelho deu à interface.
+  //
+  // O motivo sai VERBATIM de quem decidiu (`EspelhoInterfaces.escolher`), nunca
+  // de uma segunda leitura escrita aqui: duas opiniões divergem no primeiro
+  // ajuste, e o que sobra é um log que discorda do aparelho.
+  const ifs = d.interfaces;
+  if (ifs && typeof ifs === 'object') {
+    const ach = Array.isArray(ifs.achados) ? ifs.achados : [];
+    const rec = Array.isArray(ifs.recusadas) ? ifs.recusadas : [];
+    if (ifs.erro) l.push('interfaces: ' + ifs.erro);
+    else if (!ach.length && !rec.length) l.push('interfaces: nenhuma lida');
+    else {
+      l.push('interfaces servíveis: ' + (ach.length || 'nenhuma'));
+      ach.forEach((a) => {
+        l.push('  + ' + (a.nome || '?') + ' ' + (a.ip || '?')
+          + ' → ' + mirrorTipoIface(a.tipo));
+      });
+      // As recusadas saem TODAS: são poucas (uma dúzia no pior aparelho), e é
+      // justamente a recusada que explica "o hotspot está ligado e o app não o
+      // acha". Um Registro não tem pressão de tamanho — ele existe para ser
+      // COPIADO —, e o que custa aqui é ENTERRAR, não comprimento.
+      rec.forEach((r) => l.push('  - ' + (r.nome || '?') + ' → ' + (r.motivo || '?')));
     }
   }
   const linhas = Array.isArray(d.linhas) ? d.linhas : [];
@@ -22987,6 +23030,24 @@ function espelhoDisponivel() {
 
 // (`mirrorEstado`, `mirrorTimer` e `mirrorOcupado` são declarados lá em cima,
 // junto do resto do estado de cena — ver o comentário de lá para o porquê.)
+// O NOME DA VIA para gente, num lugar só: o Kotlin manda a ENUM
+// (`WIFI`/`PONTO_DE_ACESSO`) e quem escreve a frase é o web (invariante 5).
+// Duas traduções em dois lugares divergiriam no primeiro ajuste, e a folha e o
+// Registro passariam a chamar a mesma rede por nomes diferentes.
+function mirrorVia(via) {
+  if (via === 'PONTO_DE_ACESSO') return 'pelo ponto de acesso deste celular';
+  if (via === 'WIFI') return 'pela Wi-Fi';
+  return 'via desconhecida';
+}
+
+// O tipo da interface para gente. Mesma razão do `mirrorVia`: a ENUM é do
+// Kotlin e a frase é do web.
+function mirrorTipoIface(t) {
+  if (t === 'PONTO_DE_ACESSO') return 'ponto de acesso';
+  if (t === 'CABO') return 'cabo (nao usado)';
+  return 'desconhecida (nao usada)';
+}
+
 function espelhoLigado() { return !!(mirrorEstado && mirrorEstado.ligado); }
 
 async function lerEspelho() {
@@ -23071,10 +23132,37 @@ async function confirmarEspelhoComTv() {
   return true;
 }
 
-// O modo imagem saiu na v5.156 (não tinha áudio) e o parâmetro `modo` saiu da
-// ponte com ele, no lote que subiu o degrau: `espelhoLigar()` não recebe mais
-// nada. Ver `docs/TELAO-POR-COMANDOS.md`.
-async function ligarEspelho() {
+// O QUE FAZER quando a recusa é de REDE, e SÓ nesses casos.
+//
+// O teste é por PALAVRA, nunca por igualdade com um literal: a frase é do
+// Kotlin e é ele quem a escolhe, então comparar strings faria o ensino sumir
+// no dia em que alguém corrigisse um acento. E ele precisa NÃO casar com a
+// recusa de PORTA OCUPADA ("nao foi possivel abrir a porta 8787: …"), que é a
+// única deste caminho com conserto diferente — ali a rede está certa e o que
+// falta é fechar quem ocupou a porta.
+//
+// A palavra é larga de propósito ("rede", e não uma frase inteira): errar para
+// MAIS custa uma instrução verdadeira num caso que não precisava dela; errar
+// para MENOS deixa o operador sem o próximo movimento justamente no caso para
+// o qual isto existe. Quem garante que a recusa de porta continua de fora é o
+// `tools/recusa-transmissao.test.mjs`, que lê as frases do PRÓPRIO Kotlin.
+const CAST_RECUSA_DE_REDE = /wi-?fi|ponto de acesso|rede/i;
+const CAST_ENSINO = 'A transmissão não precisa de internet — precisa de uma rede. '
+  + 'Ligue o ponto de acesso deste celular e conecte o computador nele, '
+  + 'ou entre numa Wi-Fi qualquer (um roteador sem internet serve).';
+
+// Limpa a mensagem da folha E o ensino, sempre juntos: um ensino de pé sob um
+// endereço que já está servindo é pior que ensino nenhum.
+function limparCastMsg() {
+  texto2(castMsgEl, '');
+  if (castEnsinoEl) { castEnsinoEl.hidden = true; texto2(castEnsinoEl, ''); }
+}
+
+// `ip` VAZIO = "escolha você", que é o caminho de todo aparelho com uma rede
+// só. Ele só chega preenchido quando o operador ESCOLHEU entre duas — e a
+// escolha só é desenhada quando de fato existem duas (ver `renderCastRedes`).
+// Ver `docs/TELAO-POR-COMANDOS.md`.
+async function ligarEspelho(ip) {
   if (mirrorOcupado) return false;
   if (!(await confirmarEspelhoComTv())) return false;
   mirrorOcupado = true;
@@ -23084,13 +23172,13 @@ async function ligarEspelho() {
   // depois do toque não é resposta.
   renderCast();
   let r = null;
-  try { r = await AVNative.espelhoLigar(); } catch (_) { r = null; }
+  try { r = await AVNative.espelhoLigar(ip || ''); } catch (_) { r = null; }
   mirrorOcupado = false;
   mirrorEstado = r || null;
   acertarEnqueteDeFundo();
-  // A falha é NOMEADA, sempre: "sem encoder livre agora", "só liga em Wi-Fi",
-  // a classe da exceção do `show()`. Um espelho que não liga em silêncio é
-  // indistinguível de um botão quebrado.
+  // A falha é NOMEADA, sempre: "sem rede para transmitir — ligue o ponto de
+  // acesso deste celular…", "nao foi possivel abrir a porta 8787: …". Um espelho
+  // que não liga em silêncio é indistinguível de um botão quebrado.
   // …E ELA MORA NA FOLHA DE CONEXÃO (v5.207), que é de onde o interruptor foi
   // tocado. Antes saía numa faixa flutuante no topo da tela — sobre uma folha
   // que estava aberta bem embaixo dela, com o dedo e o olho no interruptor.
@@ -23102,15 +23190,25 @@ async function ligarEspelho() {
   // (o Kotlin), não uma segunda opinião do web.
   if (!r) {
     diagC('transmissão: a ponte não respondeu');
+    limparCastMsg();
     texto2(castMsgEl, 'A transmissão não respondeu.'); return false;
   }
   if (r.erro) {
     diagC('transmissão RECUSADA: ' + r.erro);
-    texto2(castMsgEl, r.erro); return false;
+    limparCastMsg();
+    // O VEREDITO SAI VERBATIM (é de quem decidiu), e o ensino vem SEPARADO
+    // embaixo. Juntá-los faria a frase do Kotlin virar prosa do web, que é
+    // exatamente o que a invariante 5 recusa.
+    texto2(castMsgEl, r.erro);
+    if (castEnsinoEl && CAST_RECUSA_DE_REDE.test(r.erro)) {
+      texto2(castEnsinoEl, CAST_ENSINO);
+      castEnsinoEl.hidden = false;
+    }
+    return false;
   }
   // O SUCESSO NÃO PRECISA DE FRASE (a regra da v5.194): o endereço aparecendo
   // logo abaixo, com o rótulo que diz o que fazer com ele, É o "deu certo".
-  texto2(castMsgEl, '');
+  limparCastMsg();
   return true;
 }
 
@@ -23131,7 +23229,7 @@ async function desligarEspelho() {
   // Idem: quem responde é a própria folha. E aqui o sinal já é visível sem
   // frase nenhuma — o endereço e a lista de telas somem —, então ela só limpa
   // o que estivesse escrito.
-  texto2(castMsgEl, '');
+  limparCastMsg();
 }
 
 // ============================================================================
@@ -23165,7 +23263,7 @@ function abrirCast() {
   // parte do estado de agora, então "uma tela entrou" passa a significar
   // "entrou depois que abri isto". Ver `renderSimpleGate`.
   gateTinhaTela = !!simpleDisplay();
-  texto2(castMsgEl, '');
+  limparCastMsg();
   // O espelho na rede só existe no app, e só num shell que tenha os métodos.
   // No navegador a folha degrada para uma escolha só, que é a honesta.
   if (castNetBtnEl) castNetBtnEl.hidden = !espelhoDisponivel();
@@ -23216,6 +23314,46 @@ function castConnVisivel() {
   return castConnEl.parentElement === simpleConnEl
     ? !simpleConnEl.hidden
     : !!castPopupEl && castPopupEl.classList.contains('open');
+}
+
+// A REDE ESCOLHIDA PELO OPERADOR, em IP — e ela é de IDA: morre com a página,
+// como o resto do estado desta folha. Guardá-la entre sessões faria o app
+// insistir numa rede que só existia no sábado passado, e a recusa que sairia
+// disso ("a rede escolhida nao esta mais disponivel") seria sobre uma escolha
+// que ninguém lembra de ter feito.
+let castRedeEscolhida = '';
+
+// A ESCOLHA DA REDE — desenhada só quando há MAIS DE UMA e a transmissão está
+// desligada. Ver o comentário do bloco no HTML.
+//
+// Ela não decide nada sozinha: `ligarEspelho('')` continua sendo o caminho de
+// quem tem uma rede só, e o shell escolhe a primeira (ponto de acesso na
+// frente). O que ela faz é dar nome às duas quando as duas existem.
+function renderCastRedes(e, ligado) {
+  if (!castRedesEl) return;
+  const redes = Array.isArray(e.redes) ? e.redes : [];
+  const mostrar = !ligado && redes.length > 1;
+  castRedesEl.hidden = !mostrar;
+  if (!mostrar) { castRedesEl.textContent = ''; return; }
+  // A escolha some quando a rede some — senão o toque seguinte pediria um
+  // endereço que já não existe e colheria uma recusa que não explica nada.
+  if (castRedeEscolhida && !redes.some((r) => r.ip === castRedeEscolhida)) castRedeEscolhida = '';
+  const alvo = castRedeEscolhida || redes[0].ip;
+  const chave = redes.map((r) => r.ip).join('|') + '#' + alvo;
+  // Redesenhar a cada 2,5 s recriaria os botões debaixo do dedo — a mesma
+  // lição de `renderCastTelas`. Só se a lista ou a escolha mudarem.
+  if (castRedesEl.dataset.chave === chave) return;
+  castRedesEl.dataset.chave = chave;
+  castRedesEl.textContent = '';
+  redes.forEach((r) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'cast-rede' + (r.ip === alvo ? ' active' : '');
+    b.setAttribute('aria-pressed', r.ip === alvo ? 'true' : 'false');
+    b.textContent = r.via === 'PONTO_DE_ACESSO' ? 'Ponto de acesso' : 'Wi-Fi';
+    b.addEventListener('click', () => { castRedeEscolhida = r.ip; renderCast(); });
+    castRedesEl.appendChild(b);
+  });
 }
 
 function renderCast() {
@@ -23301,8 +23439,17 @@ function renderCast() {
   // controle.css). Ela é escrita SEMPRE — inclusive no `return` de baixo —,
   // senão desligar deixaria o bloco aberto com o endereço de um servidor que já
   // caiu.
+  renderCastRedes(e, ligado);
   if (castLiveEl) castLiveEl.classList.toggle('aberto', ligado);
   if (!ligado) return;
+  // O RÓTULO NOMEIA A REDE. "Acesse no navegador" está certo e é inútil com o
+  // ponto de acesso servindo: o que decide se o endereço responde é o outro
+  // aparelho estar CONECTADO ÀQUELA rede, e essa é a instrução que falta.
+  if (castRotEl) {
+    castRotEl.textContent = e.via === 'PONTO_DE_ACESSO'
+      ? 'No computador conectado ao ponto de acesso deste celular, acesse'
+      : 'No navegador de um aparelho na mesma Wi-Fi, acesse';
+  }
   // UM ENDEREÇO SÓ (v5.185): o IP. O `av.local` saiu com o responder mDNS —
   // ele não resolve no Chrome do Android nem na maioria das Smart TVs, que são
   // exatamente as telas deste recurso.
@@ -23444,7 +23591,7 @@ if (castMirrorBtnEl) {
       // RÓTULO do botão na v5.227 — ver `renderCast`. A linha de baixo ficou
       // com o que ela sempre soube dizer melhor: a FALHA, que é uma frase
       // inteira vinda do shell e não caberia num botão.)
-      const ok = await ligarEspelho();
+      const ok = await ligarEspelho(castRedeEscolhida);
       // A frase da falha já saiu por `texto2(castMsgEl, …)` (ela vem pronta do
       // Kotlin). Aqui fica a saída — e ela aponta para onde o operador pode agir.
       // O SUCESSO NÃO PRECISA DE FRASE (v5.194): o endereço aparecendo logo
@@ -23454,10 +23601,10 @@ if (castMirrorBtnEl) {
       // faixa flutuante. Com o motivo escrito AQUI pelo `ligarEspelho`, mandar
       // o operador olhar para outro lugar seria mandá-lo olhar para o lugar
       // onde a mensagem deixou de estar — então ela só não sobrescreve.)
-      if (ok) texto2(castMsgEl, '');
+      if (ok) limparCastMsg();
     } else {
       await desligarEspelho();
-      texto2(castMsgEl, '');
+      limparCastMsg();
     }
     renderCast();
   });

@@ -20,7 +20,7 @@ sai por construção, e a medição de que o farol ainda depende (§10).
 | peça | arquivo | o quê |
 |---|---|---|
 | o farol do app | `app/src/main/java/br/org/iasd/av/Farol.kt` | uma busca por dia, na carona da ronda do OTA |
-| a chave de exclusão | `NativeBridge.farolEstado`/`farolContar` (shell 57), a linha em Configurações | marca este aparelho como de teste |
+| a chave de exclusão | `NativeBridge.farolEstado`/`farolContar` (shell 58), a linha em Configurações | marca este aparelho como de teste |
 | a série no tempo | `.github/workflows/dados.yml` | fotografa os contadores de hora em hora na branch órfã `dados` |
 | o painel | `site/registro/index.html` | caminho não listado, exige `#alcance` |
 | o farol de visita | o rodapé de `site/index.html` | uma por navegador por dia |
@@ -275,7 +275,7 @@ nenhum workflow toca; a diferença diária é **aparelhos ativos no dia**, limpa
 sem depender da aritmética do §5. Com a chave de exclusão do §6 roteando o
 aparelho do operador para o contador separado.
 
-Custo pago: `SHELL_VERSION` 57, lote APK + web com `shellTag: v1.4.1`, e a
+Custo pago: `SHELL_VERSION` 58, lote APK + web com `shellTag: v1.4.2`, e a
 Release.
 
 **O estudo argumentou contra construí-lo agora** — com o alcance em um dígito, o

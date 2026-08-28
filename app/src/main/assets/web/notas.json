@@ -1,9 +1,19 @@
 [
   {
-    "versao": "1.4.1",
+    "versao": "1.4.2",
     "itens": [
       "O APP PASSOU A CONTAR QUANTOS APARELHOS O USAM — sem saber quem são. Uma vez por dia ele busca um arquivo de contagem e joga fora a resposta: não vai id, não vai nome, não vai nada que distinga um aparelho de outro. É agregado e nada mais, e serve para uma pergunta só: o app chegou a quantas igrejas?",
       "E EM CONFIGURAÇÕES HÁ UMA CHAVE PARA TIRAR ESTE APARELHO DA CONTA. O aparelho de quem desenvolve o app roda o mesmo instalador de todo mundo, então não há como distingui-lo sozinho — quem marca é uma pessoa. Marcado, ele passa a contar num lugar separado, em vez de deixar de contar: assim o número de fora nunca depende de subtrair um palpite."
+    ]
+  },
+  {
+    "versao": "1.4.1",
+    "itens": [
+      "O CELULAR PODE SER O PONTO DE ACESSO. Antes, transmitir para o navegador de um computador exigia que o celular estivesse conectado a uma Wi-Fi — numa igreja sem rede, o recurso simplesmente recusava, com \"o espelho só liga em Wi-Fi\". Agora dá para ligar o ponto de acesso móvel do próprio celular, conectar o computador nele e transmitir. Não precisa de internet.",
+      "E ISSO RESOLVE A FALHA MAIS DIFÍCIL DE DIAGNOSTICAR do recurso: em muitos roteadores de igreja os aparelhos não conseguem se enxergar (o endereço aparece, e nada conecta). Pelo ponto de acesso o celular é o roteador, então esse bloqueio deixa de existir.",
+      "QUANDO NÃO DÁ, O APP DIZ O QUE FAZER. A recusa mostrava o motivo e mais nada; agora ela vem com as duas saídas — ligar o ponto de acesso, ou entrar numa Wi-Fi qualquer (um roteador sem internet serve).",
+      "COM AS DUAS REDES DE PÉ ao mesmo tempo, o app pergunta em qual servir, em vez de escolher sozinho: quem sabe onde o computador está conectado é quem está operando.",
+      "PRECISA DO APP NOVO (instale a versão v1.4.1): tudo acima é do aparelho, não da base web."
     ]
   },
   {

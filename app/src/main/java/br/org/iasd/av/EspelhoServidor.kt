@@ -17,6 +17,7 @@ import java.io.OutputStream
 import java.net.Inet4Address
 import java.net.InetAddress
 import java.net.InetSocketAddress
+import java.net.NetworkInterface
 import java.net.ServerSocket
 import java.net.Socket
 import java.security.KeyStore
@@ -49,14 +50,19 @@ import kotlin.concurrent.thread
  * roteável**, sem NAT — o culto numa porta alcançável do mundo, sem ninguém no
  * prédio perceber. Por isso, e não é negociável:
  *
- * 1. bind **explícito ao IPv4 da rede ativa** (`ServerSocket().bind(...)`),
- *    nunca pelo construtor de porta e nunca em `::` (os IPv6 temporários do
- *    Android rotacionam);
- * 2. **recusa ligar** sem `TRANSPORT_WIFI`, ou com `TRANSPORT_CELLULAR`/
- *    `TRANSPORT_VPN` — com frase no Registro (ver [redeDaWifi] e [Recusa]);
- * 3. a rede que some **desliga o servidor**, por `registerNetworkCallback` de
- *    `TRANSPORT_WIFI` e não pelo callback da rede PADRÃO (v5.183,
- *    [observarRede]).
+ * 1. bind **explícito a um IPv4 SERVÍVEL** (`ServerSocket().bind(...)`), nunca
+ *    pelo construtor de porta e nunca em `::` (os IPv6 temporários do Android
+ *    rotacionam);
+ * 2. **recusa ligar** em qualquer endereço que a regra não aprove — com frase
+ *    no Registro (ver [redeParaServir] e [Recusa]). Servível é: a Wi-Fi de que
+ *    este aparelho é CLIENTE ([redeDaWifi]), ou o PONTO DE ACESSO que ele SERVE
+ *    — uma interface no ar, com IPv4 RFC1918, que nenhum `Network` reivindica e
+ *    que não é de nenhuma família recusada ([EspelhoInterfaces]). A `rmnet` da
+ *    operadora, a VPN e o `p2p` do Wi-Fi Direct continuam fora, cada uma por
+ *    uma regra própria;
+ * 3. a rede que some **desliga o servidor** — por `registerNetworkCallback` de
+ *    `TRANSPORT_WIFI` na Wi-Fi (v5.183, [observarRede]) e pela ENQUETE do
+ *    [vigiarPontoDeAcesso] no ponto de acesso, que aquele callback não cobre.
  *
  * ## O transporte é `Transfer-Encoding: chunked`, não WebSocket
  *
@@ -153,6 +159,21 @@ class EspelhoServidor(
 
     @Volatile private var ultimaSaida: JSONObject? = null
 
+    /**
+     * POR ONDE este socket está servindo, fixado no [ligar].
+     *
+     * Ele existe para o [confirmarRede] não migrar de via sozinho e para a
+     * enquete do [vigiar] saber se precisa vigiar o ponto de acesso — o
+     * callback de rede não o cobre, e nada mais o vigiaria.
+     */
+    @Volatile private var viaServida = Via.WIFI
+
+    /** A interface em que o socket ligou (`ap0`, `wlan0`) — leitura de Registro. */
+    @Volatile private var ifaceServida = ""
+
+    /** Ver [vigiar]: quando a enquete do ponto de acesso conferiu pela última vez. */
+    private var apConferidoEm = 0L
+
     /** Ver [suspeitarDaRede]: a rede parece ter caído desde quando, e por quê. */
     @Volatile private var redeSuspeitaDesde = 0L
     @Volatile private var redeSuspeitaMotivo = ""
@@ -167,14 +188,15 @@ class EspelhoServidor(
     /**
      * Sobe o servidor e devolve o endereço servido (`http://192.168.0.42:8787`).
      *
-     * @param ipv4 o IPv4 da Wi-Fi, obtido em [redeDaWifi]. Ele é **reconferido**
-     *   aqui contra a rede ativa: é barato, e a alternativa é um bind num
-     *   endereço que já não é o da Wi-Fi.
+     * @param ipv4 um IPv4 servível, obtido em [redeParaServir]. Ele é
+     *   **reconferido** aqui contra a lista de agora: é barato, e a alternativa
+     *   é um bind num endereço que já não é deste aparelho.
      * @param tls o `PKCS12` do operador, quando existir (P8). Nulo = HTTP em
      *   claro, que é o transporte de produção — ver a §2.4 da especificação.
-     * @throws Recusa quando não há Wi-Fi, quando a rede ativa é celular/VPN, ou
-     *   quando o socket não sobe. **Nunca falha em silêncio**: a mensagem é a
-     *   frase que o operador lê.
+     * @throws Recusa quando não há endereço servível (nem Wi-Fi, nem ponto de
+     *   acesso), quando o endereço pedido saiu da lista, ou quando o socket não
+     *   sobe. **Nunca falha em silêncio**: a mensagem é a frase que o operador
+     *   lê.
      */
     fun ligar(
         porta: Int,
@@ -197,10 +219,13 @@ class EspelhoServidor(
         // quem liga o espelho acabou de sortear o PIN — chamá-lo aqui sempre
         // apagaria o PIN que já está desenhado na tela do operador.
         if (servidor != null) desligar()
-        val rede = redeDaWifi(app)
-        if (ipv4 !is Inet4Address || rede.ip.hostAddress != ipv4.hostAddress) {
-            throw Recusa("o endereco pedido nao e o da Wi-Fi atual")
-        }
+        // A RECONFERÊNCIA É CONTRA A LISTA INTEIRA, não contra a Wi-Fi.
+        // Enquanto ela chamava `redeDaWifi`, um endereço de ponto de acesso
+        // achado corretamente morria AQUI — o mesmo `Recusa`, três linhas
+        // depois de a regra tê-lo aprovado.
+        if (ipv4 !is Inet4Address) throw Recusa("o endereco pedido nao e IPv4")
+        val rede = redeParaServir(app).firstOrNull { it.ip.hostAddress == ipv4.hostAddress }
+            ?: throw Recusa("a rede desse endereco saiu do ar")
         ssl = tls?.let { montarTls(it, senha) }
         comTls = ssl != null
 
@@ -243,6 +268,8 @@ class EspelhoServidor(
         // idêntico de sempre, isto é, "não funciona" sem uma linha em lugar
         // nenhum que o explique.)
         hostTlsServido = hostTls
+        viaServida = rede.via
+        ifaceServida = rede.iface
         hostsAceitos = montarHosts(comNome)
         ligadoEm = SystemClock.elapsedRealtime()
         conexoesTotais.set(0)
@@ -1231,6 +1258,7 @@ class EspelhoServidor(
                     fecharSse(t, "sessao expirada")
                 }
             }
+            vigiarPontoDeAcesso(agora)
             confirmarRede(agora)
             limparPares()
         }
@@ -1251,6 +1279,14 @@ class EspelhoServidor(
      * primeiro é a mesma regra da §2.3 (uma VPN se sobrepõe a tudo e o socket
      * iria para o lugar errado); o segundo é a internet funcionando, que é
      * exatamente o que não se pode exigir aqui.
+     *
+     * **ELE NÃO COBRE O PONTO DE ACESSO, e é por isso que a enquete do
+     * [vigiarPontoDeAcesso] existe** — não a apague como redundante. O
+     * downstream do tethering não é um `Network`: em modo AP puro este callback
+     * simplesmente nunca dispara, em nenhum dos quatro métodos. O registro
+     * FICA de qualquer jeito, porque ele é inofensivo ali (um `onAvailable` de
+     * uma Wi-Fi alheia só chama [redeVoltou], que retorna cedo com
+     * `redeSuspeitaDesde == 0`) e é o mecanismo inteiro na igreja com Wi-Fi.
      */
     private fun observarRede() {
         val gerente = app.getSystemService(ConnectivityManager::class.java) ?: return
@@ -1285,7 +1321,7 @@ class EspelhoServidor(
              */
             private fun conferir() {
                 if (servidor == null) return
-                if (ipAindaEDaWifi(app, ipServido)) redeVoltou() else suspeitarDaRede("a Wi-Fi sumiu")
+                if (ipAindaEServivel(app, ipServido)) redeVoltou() else suspeitarDaRede("a Wi-Fi sumiu")
             }
         }
         try {
@@ -1328,6 +1364,35 @@ class EspelhoServidor(
      * [GRACA_REDE_MS] depois consultando o estado de verdade, e só então a queda
      * acontece. Uma oscilação some sozinha e não custa nada.
      */
+    /**
+     * O PONTO DE ACESSO CAIU? — a enquete que existe porque o callback não a faz.
+     *
+     * [observarRede] assina `TRANSPORT_WIFI`, e **em modo ponto de acesso puro
+     * esse callback nunca dispara**: não há `Network` de Wi-Fi para ganhar nem
+     * para perder. O desfecho não é uma queda errada — `redeSuspeitaDesde` fica
+     * em zero e o [confirmarRede] retorna na primeira linha —, é coisa pior:
+     * **nada vigiaria o AP caindo**, e o servidor ficaria para sempre num
+     * socket amarrado a um endereço morto, com a folha anunciando um endereço
+     * que não atende.
+     *
+     * E o caso não é raro: o ponto de acesso **se desliga sozinho por
+     * ociosidade** em vários fabricantes, exatamente quando nenhuma tela está
+     * conectada.
+     *
+     * Ela não decide nada — levanta a mesma SUSPEITA que o callback levanta, e
+     * quem dá o veredito [GRACA_REDE_MS] depois continua sendo o
+     * [confirmarRede]. A cada [AP_ENQUETE_MS], e **só quando é o ponto de
+     * acesso que serve**: na igreja com Wi-Fi o callback já cobre tudo, e uma
+     * enumeração de interfaces por segundo seria custo sem pergunta.
+     */
+    private fun vigiarPontoDeAcesso(agora: Long) {
+        if (viaServida != Via.PONTO_DE_ACESSO || servidor == null) return
+        if (redeSuspeitaDesde != 0L) return
+        if (agora - apConferidoEm < AP_ENQUETE_MS) return
+        apConferidoEm = agora
+        if (!ipAindaEServivel(app, ipServido)) suspeitarDaRede("o ponto de acesso foi desligado")
+    }
+
     private fun suspeitarDaRede(motivo: String) {
         if (servidor == null || redeSuspeitaDesde != 0L) return
         redeSuspeitaDesde = SystemClock.elapsedRealtime()
@@ -1356,8 +1421,8 @@ class EspelhoServidor(
         // A PERGUNTA CERTA É A MAIS FRACA (v5.183): o endereço em que este
         // socket está ligado ainda é endereço de alguma Wi-Fi deste aparelho?
         // Reusar a função de ADMISSÃO numa pergunta de SOBREVIVÊNCIA era o erro
-        // estrutural — ver o KDoc de [ipAindaEDaWifi].
-        if (ipAindaEDaWifi(app, ipServido)) {
+        // estrutural — ver o KDoc de [ipAindaEServivel].
+        if (ipAindaEServivel(app, ipServido)) {
             redeVoltou()
             return
         }
@@ -1367,7 +1432,12 @@ class EspelhoServidor(
         // próprio — nenhum pacote da rede se perdeu e o aparelho está no mesmo
         // AP, mas até a v5.182 isso desligava servidor, tela virtual, encoder,
         // janela, mDNS e serviço, e **não havia religamento**.
-        val ipNovo = try { redeDaWifi(app).ip } catch (e: Exception) { null }
+        // A MESMA VIA, e nunca outra: migrar de ponto de acesso para Wi-Fi
+        // sozinho seria LIGAR por conta própria, e o contrato do recurso diz
+        // AUXILIAR — liga e desliga só por ação do operador.
+        val ipNovo = try {
+            redeParaServir(app).firstOrNull { it.via == viaServida }?.ip
+        } catch (e: Exception) { null }
         if (ipNovo != null && ipNovo.hostAddress != ipServido) {
             redeSuspeitaDesde = 0L
             redeSuspeitaMotivo = ""
@@ -1438,7 +1508,14 @@ class EspelhoServidor(
         else (if (comTls) "https://" else "http://") + ipServido + ":" + portaServida
         hostsAceitos = montarHosts(comNome)
         Thread({ aceitarConexoes(ss) }, "av-espelho-accept").apply { isDaemon = true }.start()
-        registrar("o endereço mudou de $velho para $ipServido — servidor religado, sem perder o pareamento")
+        // "SEM PERDER O PAREAMENTO" É VERDADE NA WI-FI E CONFORTO FALSO NO AP:
+        // se o ponto de acesso reiniciou, as telas perderam o SSID e vão
+        // reentrar do zero — prometer o contrário no Registro é o artefato que
+        // este projeto menos pode produzir, porque ele é lido a distância.
+        registrar(
+            "o endereço mudou de $velho para $ipServido — servidor religado" +
+                if (viaServida == Via.PONTO_DE_ACESSO) "" else ", sem perder o pareamento",
+        )
         try {
             aoTrocarEndereco(endereco, ipNovo)
         } catch (e: Exception) {
@@ -1494,6 +1571,12 @@ class EspelhoServidor(
             .put("ligado", servidor != null)
             .put("url", endereco)
             .put("ip", ipServido)
+            // POR ONDE ELE SERVE. Sem este campo o `blocoEspelho` do
+            // `controle.js` cravava ", ligado à Wi-Fi)" em toda leitura — e no
+            // instante em que o ponto de acesso passou a servir, aquela string
+            // virou mentira no artefato que existe para ser copiado.
+            .put("via", viaServida.name)
+            .put("iface", ifaceServida)
             .put("porta", portaServida)
             .put("tls", comTls)
             .put("noArMs", if (ligadoEm == 0L) 0L else agora - ligadoEm)
@@ -1805,8 +1888,26 @@ class EspelhoServidor(
     /** A rede recusou-se a servir, e a mensagem é a frase que o operador lê. */
     class Recusa(mensagem: String) : IOException(mensagem)
 
-    /** O que [redeDaWifi] apurou: o IPv4 do aparelho na Wi-Fi. */
-    data class Rede(val ip: Inet4Address)
+    /**
+     * POR ONDE o socket serve — e ela existe para o [confirmarRede] não MIGRAR
+     * sozinho de uma para a outra: o contrato do recurso diz AUXILIAR, e trocar
+     * de rede por conta própria seria ligar por conta própria.
+     */
+    enum class Via { WIFI, PONTO_DE_ACESSO }
+
+    /**
+     * O que [redeDaWifi] e [redeParaServir] apuraram: o IPv4 servível, a
+     * interface em que ele mora e por onde ele serve.
+     *
+     * `iface` e `via` têm padrão porque [redeDaWifi] segue devolvendo `Rede(ip)`
+     * — ela é o degrau 1 e não mudou uma linha, que é o que garante zero
+     * regressão na igreja que já funciona.
+     */
+    data class Rede(
+        val ip: Inet4Address,
+        val iface: String = "",
+        val via: Via = Via.WIFI,
+    )
 
     companion object {
         private const val TAG = "EspelhoServidor"
@@ -1980,6 +2081,14 @@ class EspelhoServidor(
         private const val GRACA_REDE_MS = 6_000L
 
         /**
+         * De quanto em quanto a enquete do ponto de acesso confere — ver
+         * [vigiarPontoDeAcesso]. Cinco segundos porque ela ENUMERA INTERFACES,
+         * e o laço que a hospeda roda a cada segundo: o que se vigia aqui é o
+         * operador desligando o hotspot, não um pacote perdido.
+         */
+        private const val AP_ENQUETE_MS = 5_000L
+
+        /**
          * Quantas trocas de endereço se aceita religar, e em que janela.
          *
          * Existe para uma rede instável não virar um laço de rebind: cada
@@ -2077,27 +2186,232 @@ class EspelhoServidor(
             .firstOrNull { !it.isLoopbackAddress && !it.isAnyLocalAddress }
 
         /**
-         * O `ipServido` ainda é endereço de ALGUMA Wi-Fi deste aparelho?
+         * O `ipServido` ainda é um endereço SERVÍVEL deste aparelho?
          *
          * É a pergunta de SOBREVIVÊNCIA, e ela é mais fraca que a de admissão
          * de propósito: [redeDaWifi] escolhe *uma* Wi-Fi e devolve *o primeiro*
          * IPv4 dela, então reusá-la aqui reprovaria um aparelho com duas
          * interfaces Wi-Fi (ou dois endereços na mesma) por uma questão de
          * ordem de listagem — e a reprovação significa desligar a projeção.
+         *
+         * **O PASSO CUJA AUSÊNCIA DERRUBARIA O PONTO DE ACESSO INTEIRO:** o
+         * primeiro degrau pergunta ao `ConnectivityManager`, que em modo AP
+         * responde SEMPRE não — o downstream do tethering não é um `Network`.
+         * Enquanto esta função só tinha aquele degrau, uma transmissão servida
+         * pelo ponto de acesso morreria na primeira suspeita, com a frase da
+         * Wi-Fi e o hotspot ligado o tempo todo.
          */
         @Suppress("DEPRECATION")
         @JvmStatic
-        fun ipAindaEDaWifi(ctx: Context, ip: String): Boolean {
+        fun ipAindaEServivel(ctx: Context, ip: String): Boolean {
             if (ip.isEmpty()) return false
             val cm = ctx.applicationContext.getSystemService(ConnectivityManager::class.java)
-                ?: return false
-            for (n in cm.allNetworks) {
-                val caps = cm.getNetworkCapabilities(n) ?: continue
-                if (!ehWifiLimpa(caps)) continue
-                val lp = cm.getLinkProperties(n) ?: continue
-                if (lp.linkAddresses.any { it.address.hostAddress == ip }) return true
+            if (cm != null) {
+                for (n in cm.allNetworks) {
+                    val caps = cm.getNetworkCapabilities(n) ?: continue
+                    if (!ehWifiLimpa(caps)) continue
+                    val lp = cm.getLinkProperties(n) ?: continue
+                    if (lp.linkAddresses.any { it.address.hostAddress == ip }) return true
+                }
             }
-            return false
+            // DEGRAU 2 — e ele FALHA FECHADO: o ponto de acesso desligado leva
+            // a interface embora (ou a derruba), e nenhum achado sobra.
+            return try {
+                lerInterfaces(ctx).achados.any { it.ip == ip }
+            } catch (e: Exception) {
+                Log.w(TAG, "não foi possível reler as interfaces", e)
+                false
+            }
+        }
+
+        /**
+         * TODO ENDEREÇO EM QUE ESTE APARELHO PODE SERVIR, o melhor primeiro.
+         *
+         * Dois degraus, e o primeiro **não mudou uma linha**:
+         *
+         * 1. [redeDaWifi] — a pergunta ao `ConnectivityManager` de sempre. É a
+         *    que responde na igreja com Wi-Fi, e mantê-la intacta é o que
+         *    garante zero regressão onde o recurso já funciona.
+         * 2. o **PONTO DE ACESSO**, e só quando o degrau 1 não respondeu por si
+         *    — a enumeração de interfaces do [EspelhoInterfaces]. O soft AP não
+         *    é um `Network`, então é o único eixo em que ele aparece.
+         *
+         * **Admitir só [EspelhoInterfaces.Tipo.PONTO_DE_ACESSO] é decisão DESTA
+         * função, não da regra:** o `EspelhoInterfaces` classifica e devolve
+         * tudo (inclusive `CABO` e `DESCONHECIDO`), e a política de quem entra
+         * fica visível aqui, numa linha, em vez de escondida na ordem de uma
+         * enumeração.
+         *
+         * Devolve lista vazia quando não há nada servível — quem transforma
+         * isso na frase do operador é a [MainActivity], nunca este arquivo.
+         */
+        @JvmStatic
+        fun redeParaServir(ctx: Context): List<Rede> {
+            val fora = ArrayList<Rede>()
+            try {
+                fora.add(redeDaWifi(ctx))
+            } catch (e: Recusa) {
+                // Sem Wi-Fi é o caso NORMAL do ponto de acesso, não um erro:
+                // segue para o degrau 2 sem registrar nada.
+            } catch (e: Exception) {
+                Log.w(TAG, "a leitura da Wi-Fi falhou", e)
+            }
+            try {
+                for (a in lerInterfaces(ctx).achados) {
+                    if (a.tipo != EspelhoInterfaces.Tipo.PONTO_DE_ACESSO) continue
+                    if (fora.any { it.ip.hostAddress == a.ip }) continue
+                    val ip = ipv4Literal(a.ip) ?: continue
+                    fora.add(Rede(ip, a.nome, Via.PONTO_DE_ACESSO))
+                }
+            } catch (e: Exception) {
+                Log.w(TAG, "não foi possível ler as interfaces", e)
+            }
+            return fora
+        }
+
+        /**
+         * POR QUE não há endereço servível — a frase que o operador lê.
+         *
+         * Ela não é mais "sem Wi-Fi": desde que o ponto de acesso passou a
+         * servir, essa resposta ficou incompleta (há outra saída) **e sugeria o
+         * movimento errado** — quem a lia entendia que precisava achar uma
+         * Wi-Fi, que é justamente o que a igreja sem rede não tem.
+         *
+         * Mas a recusa ESPECÍFICA da Wi-Fi continua valendo mais que a
+         * genérica: "associada e sem IPv4" é um diagnóstico, e perdê-lo dentro
+         * do [redeParaServir] trocaria uma pista por uma frase de cartilha.
+         * Por isso ela é consultada aqui — e só o "sem Wi-Fi" cru, que é o caso
+         * NORMAL de quem vai usar o ponto de acesso, cede lugar.
+         */
+        @JvmStatic
+        fun motivoSemRede(ctx: Context): String {
+            val daWifi = try {
+                redeDaWifi(ctx); null
+            } catch (e: Recusa) {
+                e.message
+            } catch (e: Exception) {
+                null
+            }
+            if (daWifi != null && !daWifi.startsWith("sem Wi-Fi")) return daWifi
+            return "sem rede para transmitir — ligue o ponto de acesso deste celular," +
+                " ou entre numa Wi-Fi (nao precisa de internet)"
+        }
+
+        /**
+         * A leitura crua das interfaces, entregue à regra pura.
+         *
+         * **`try/catch` POR INTERFACE**, e não um em volta do laço: `isUp()`
+         * lança sozinho em builds OEM (há relatos de `SocketException` no
+         * Android 11), e uma interface ilegível não pode levar junto a leitura
+         * das outras — inclusive a do ponto de acesso, que é a que interessa.
+         */
+        @JvmStatic
+        fun lerInterfaces(ctx: Context): EspelhoInterfaces.Leitura {
+            val brutas = ArrayList<EspelhoInterfaces.Bruta>()
+            val e = NetworkInterface.getNetworkInterfaces()
+                ?: return EspelhoInterfaces.Leitura(emptyList(), emptyList())
+            while (e.hasMoreElements()) {
+                val ni = e.nextElement() ?: continue
+                try {
+                    brutas.add(
+                        EspelhoInterfaces.Bruta(
+                            nome = ni.name ?: "",
+                            noAr = ni.isUp,
+                            loopback = ni.isLoopback,
+                            pontoAPonto = ni.isPointToPoint,
+                            ipv4 = ni.inetAddresses.toList()
+                                .filterIsInstance<Inet4Address>()
+                                .mapNotNull { it.hostAddress },
+                        ),
+                    )
+                } catch (ex: Exception) {
+                    Log.w(TAG, "interface ilegível: ${ni.name}", ex)
+                }
+            }
+            return EspelhoInterfaces.escolher(brutas, reivindicadas(ctx))
+        }
+
+        /**
+         * Nome da interface → quem a reivindica, do `ConnectivityManager`.
+         *
+         * É o segundo argumento do discriminador: uma interface que o sistema
+         * conhece é uma rede que este aparelho USA, e o ponto de acesso é, por
+         * construção, uma que ele SERVE. `getInterfaceName()` é API pública
+         * desde a 21.
+         */
+        @Suppress("DEPRECATION")
+        private fun reivindicadas(ctx: Context): Map<String, String> {
+            val cm = ctx.applicationContext.getSystemService(ConnectivityManager::class.java)
+                ?: return emptyMap()
+            val mapa = HashMap<String, String>()
+            for (n in cm.allNetworks) {
+                val nome = cm.getLinkProperties(n)?.interfaceName ?: continue
+                mapa[nome] = rotuloDe(cm.getNetworkCapabilities(n))
+            }
+            return mapa
+        }
+
+        /** O rótulo que entra no motivo da recusa, para o Registro ser legível. */
+        private fun rotuloDe(caps: NetworkCapabilities?): String = when {
+            caps == null -> "uma rede do sistema"
+            caps.hasTransport(NetworkCapabilities.TRANSPORT_VPN) -> "uma VPN"
+            caps.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) -> "a rede celular"
+            caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) -> "a Wi-Fi"
+            caps.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET) -> "a Ethernet"
+            else -> "uma rede do sistema"
+        }
+
+        /**
+         * `"192.168.43.1"` → [Inet4Address], **montado byte a byte**.
+         *
+         * `getByName` sobre um literal também não resolveria nada, mas montar o
+         * endereço à mão tira o resolvedor do caminho por construção — e este é
+         * o valor que vai virar o bind do servidor.
+         */
+        private fun ipv4Literal(ip: String): Inet4Address? {
+            val partes = ip.split('.')
+            if (partes.size != 4) return null
+            val bytes = ByteArray(4)
+            for (i in 0..3) {
+                val n = partes[i].toIntOrNull() ?: return null
+                if (n < 0 || n > 255) return null
+                bytes[i] = n.toByte()
+            }
+            return try {
+                InetAddress.getByAddress(bytes) as? Inet4Address
+            } catch (e: Exception) {
+                null
+            }
+        }
+
+        /**
+         * O que a varredura de interfaces viu, **em JSON e sem uma frase**.
+         *
+         * É a única forma de diagnosticar a distância um nome de interface de
+         * fabricante: sem ela, "não achou o ponto de acesso" num aparelho que
+         * está com ele ligado não tem pista nenhuma. Quem monta o parágrafo é o
+         * `controle.js`, como todo o resto do Registro.
+         */
+        @JvmStatic
+        fun interfacesJson(ctx: Context): JSONObject {
+            val o = JSONObject()
+            val achados = JSONArray()
+            val recusadas = JSONArray()
+            try {
+                val l = lerInterfaces(ctx)
+                for (a in l.achados) {
+                    achados.put(
+                        JSONObject().put("nome", a.nome).put("ip", a.ip)
+                            .put("tipo", a.tipo.name),
+                    )
+                }
+                for (r in l.recusadas) {
+                    recusadas.put(JSONObject().put("nome", r.nome).put("motivo", r.motivo))
+                }
+            } catch (e: Exception) {
+                o.put("erro", e.message ?: "falha lendo as interfaces")
+            }
+            return o.put("achados", achados).put("recusadas", recusadas)
         }
     }
 }

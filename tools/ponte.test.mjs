@@ -117,6 +117,45 @@ try {
     'bgProgress leva o `idleMs` — sem ele o "sem resposta há X" nunca aparece',
     t.idleMs);
 
+  // ---- espelhoLigar: qual MÉTODO do shell ele chama -----------------------
+  //
+  // Este é o par do lote do ponto de acesso, e o modo de errar dele é o mesmo
+  // da remontagem por campo: silencioso. `espelhoLigar(ip)` tem de ir para o
+  // `espelhoLigarEm` — método PRÓPRIO e ADITIVO (shell 57) — e `espelhoLigar()`
+  // sem ip tem de continuar indo para o método de sempre.
+  //
+  // Trocar um pelo outro não daria erro em lugar nenhum: passar o ip para o
+  // método antigo o descartaria em silêncio (a escolha do operador sumiria e o
+  // shell serviria a outra rede), e chamar o novo sempre quebraria o caminho
+  // contra um APK que ainda não o tem — o `call` venceria os 60 s e resolveria
+  // `null`, que a folha lê como "a transmissão não respondeu".
+  const chamadas = await pg.evaluate(async () => {
+    window.__espelho = [];
+    window.__AVBridge.espelhoLigar = (id) => {
+      window.__espelho.push(['espelhoLigar', null]);
+      window.__avResolve(id, { ligado: true });
+    };
+    window.__AVBridge.espelhoLigarEm = (id, ip) => {
+      window.__espelho.push(['espelhoLigarEm', ip]);
+      window.__avResolve(id, { ligado: true });
+    };
+    await AVNative.espelhoLigar();
+    await AVNative.espelhoLigar('');
+    await AVNative.espelhoLigar('192.168.43.1');
+    return window.__espelho;
+  });
+  checar(chamadas.length === 3, 'as três chamadas de espelhoLigar chegaram ao shell',
+    JSON.stringify(chamadas));
+  checar(chamadas[0] && chamadas[0][0] === 'espelhoLigar',
+    'sem ip, `espelhoLigar()` vai para o método SEM argumento (o caminho de todo aparelho com uma rede só)',
+    JSON.stringify(chamadas[0]));
+  checar(chamadas[1] && chamadas[1][0] === 'espelhoLigar',
+    'ip VAZIO é o mesmo que sem ip — "escolha você", e não uma escolha em branco',
+    JSON.stringify(chamadas[1]));
+  checar(chamadas[2] && chamadas[2][0] === 'espelhoLigarEm' && chamadas[2][1] === '192.168.43.1',
+    'com ip, ele vai para o `espelhoLigarEm` E O IP VIAJA — a escolha do operador',
+    JSON.stringify(chamadas[2]));
+
   // ---- nowPlaying: o outro objeto remontado campo a campo -----------------
   const n = await pg.evaluate(() => {
     AVNative.nowPlaying({
