@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    O CODEC, num alvo PORTÁTIL (`net8.0`, sem `-windows`) — e é de propósito.
+
+    A casca só roda no Windows, mas o envelope da ponte é o terceiro escritor
+    de um formato que já tem dois (a folha injetada, em JavaScript, e o
+    `NucleoPonte`, em Kotlin). Um contrato de três lados em que só dois têm
+    oráculo é o contrato de dois lados outra vez.
+
+    Num alvo portátil ele COMPILA E RODA em Linux — logo o oráculo dele roda no
+    CI que já existe, contra as mesmas fixtures dos outros dois, em vez de
+    esperar por uma máquina com Windows.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <LangVersion>12</LangVersion>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>AudioVisualIASD.Ponte</RootNamespace>
+  </PropertyGroup>
+</Project>

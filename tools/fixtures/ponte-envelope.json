@@ -1,0 +1,149 @@
+{
+  "leia_me": [
+    "O CONTRATO DO ENVELOPE DA PONTE DO COMPUTADOR — escrito A MÃO, de propósito.",
+    "",
+    "Ele tem DOIS produtores em linguagens diferentes (a folha injetada, em",
+    "JavaScript, e o `NucleoPonte.montar`, em Kotlin) e DOIS consumidores (o",
+    "`NucleoPonte.ler` e a casca em C#). É a forma exata que este projeto já viu",
+    "falhar em silêncio duas vezes — o `__tela` do `display-ready` e o",
+    "`TIPOS_QUE_SOBEM` do dreno —, e a resposta é a mesma: cada lado tem oráculo,",
+    "contra as MESMAS fixtures.",
+    "",
+    "OS BYTES ABAIXO NÃO SÃO GERADOS POR NENHUM DOS DOIS LADOS. Fossem, cada",
+    "oráculo provaria que um lado concorda consigo mesmo — e a divergência entre",
+    "eles é justamente o que não se enxerga lendo um de cada vez.",
+    "",
+    "`fio` é a sequência de bytes na ordem em que ela sai. `bytes` é o",
+    "comprimento dela em BYTES UTF-8, para o caso 'acentos' provar que o",
+    "comprimento não é de caracteres."
+  ],
+  "bons": [
+    {
+      "nome": "sem argumento",
+      "id": "ab12cd:1",
+      "metodo": "otaPending",
+      "args": [],
+      "fio": "AV1\nab12cd:1\notaPending\n0\n",
+      "bytes": 26
+    },
+    {
+      "nome": "um argumento ASCII",
+      "id": "ab12cd:2",
+      "metodo": "listFolder",
+      "args": [
+        "content://docs/tree/x"
+      ],
+      "fio": "AV1\nab12cd:2\nlistFolder\n1\n21\ncontent://docs/tree/x\n",
+      "bytes": 51
+    },
+    {
+      "nome": "acentos — o comprimento e de BYTES, nao de caracteres",
+      "id": "ab12cd:3",
+      "metodo": "salvarTexto",
+      "args": [
+        "Ó Adorai",
+        "letra"
+      ],
+      "fio": "AV1\nab12cd:3\nsalvarTexto\n2\n9\nÓ Adorai\n5\nletra\n",
+      "bytes": 47
+    },
+    {
+      "nome": "argumento COM QUEBRA DE LINHA — a razao de o formato existir",
+      "id": "ab12cd:4",
+      "metodo": "salvarTexto",
+      "args": [
+        "registro.txt",
+        "linha1\nlinha2"
+      ],
+      "fio": "AV1\nab12cd:4\nsalvarTexto\n2\n12\nregistro.txt\n13\nlinha1\nlinha2\n",
+      "bytes": 60
+    },
+    {
+      "nome": "argumento VAZIO — valor legitimo, nao ausencia",
+      "id": "ab12cd:5",
+      "metodo": "deckPages",
+      "args": [
+        "abc",
+        ""
+      ],
+      "fio": "AV1\nab12cd:5\ndeckPages\n2\n3\nabc\n0\n\n",
+      "bytes": 34
+    },
+    {
+      "nome": "objeto viaja como STRING — o nowPlaying do Android, igual",
+      "id": "ab12cd:6",
+      "metodo": "nowPlaying",
+      "args": [
+        "{\"active\":true,\"title\":\"Santo, Santo\"}"
+      ],
+      "fio": "AV1\nab12cd:6\nnowPlaying\n1\n38\n{\"active\":true,\"title\":\"Santo, Santo\"}\n",
+      "bytes": 68
+    }
+  ],
+  "malformados": [
+    {
+      "nome": "marca desconhecida — recusar, nunca adivinhar o dialeto",
+      "fio": "AV2\nab12cd:1\notaPending\n0\n"
+    },
+    {
+      "nome": "comprimento UM A MAIS — a quebra de conferencia e quem pega",
+      "fio": "AV1\nab12cd:2\nlistFolder\n1\n22\ncontent://docs/tree/x\n"
+    },
+    {
+      "nome": "comprimento UM A MENOS — idem, e este DESLOCARIA o resto",
+      "fio": "AV1\nab12cd:2\nlistFolder\n1\n20\ncontent://docs/tree/x\n"
+    },
+    {
+      "nome": "sobra depois do ultimo argumento — um segundo envelope colado",
+      "fio": "AV1\nab12cd:1\notaPending\n0\nAV1\nab12cd:2\notaApply\n0\n"
+    },
+    {
+      "nome": "metodo com maiuscula na frente — nao e um metodo da ponte",
+      "fio": "AV1\nab12cd:1\nOtaPending\n0\n"
+    },
+    {
+      "nome": "metodo com ponto — o que viraria caminho num descuido futuro",
+      "fio": "AV1\nab12cd:1\nota.pending\n0\n"
+    },
+    {
+      "nome": "metodo vazio",
+      "fio": "AV1\nab12cd:1\n\n0\n"
+    },
+    {
+      "nome": "id com espaco — fora do ASCII imprimivel exigido",
+      "fio": "AV1\nab 12cd:1\notaPending\n0\n"
+    },
+    {
+      "nome": "id vazio",
+      "fio": "AV1\n\notaPending\n0\n"
+    },
+    {
+      "nome": "argumentos demais",
+      "fio": "AV1\nab12cd:1\notaPending\n9\n0\n\n0\n\n0\n\n0\n\n0\n\n0\n\n0\n\n0\n\n0\n\n"
+    },
+    {
+      "nome": "quantidade negativa",
+      "fio": "AV1\nab12cd:1\notaPending\n-1\n"
+    },
+    {
+      "nome": "quantidade que nao e numero",
+      "fio": "AV1\nab12cd:1\notaPending\nx\n"
+    },
+    {
+      "nome": "comprimento maior que o corpo — a alocacao que alguem pediu",
+      "fio": "AV1\nab12cd:1\nlistFolder\n1\n99999\nabc\n"
+    },
+    {
+      "nome": "truncado no meio",
+      "fio": "AV1\nab12cd:1\nlistFolder\n1\n"
+    },
+    {
+      "nome": "vazio",
+      "fio": ""
+    },
+    {
+      "nome": "so a marca",
+      "fio": "AV1\n"
+    }
+  ]
+}

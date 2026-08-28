@@ -92,11 +92,34 @@ core/src/main/kotlin/br/org/iasd/av/   # ← :core — A LÓGICA SEM PLATAFORMA 
 ├── EspelhoMidiaCache.kt         # o cache da rota /m/<token>
 ├── EspelhoInterfaces.kt         # EM QUE INTERFACE o socket abre — é ele que acha
 │                                #   o PONTO DE ACESSO, que não é um `Network`
-└── TrilhaAudio.kt               # QUAL trilha de áudio vai ao telão (a dublagem
-                                 #   automática do YouTube)
+├── TrilhaAudio.kt               # QUAL trilha de áudio vai ao telão (a dublagem
+│                                #   automática do YouTube)
+├── NucleoApresentacao.kt        # a ÚNICA regra da apresentação que é string:
+│                                #   o link do Google → a URL de exportação
+│                                # ↓ O NÚCLEO DA SEGUNDA CASCA (v1.4.6)
+├── NucleoRotas.kt               # o que uma rota É — PURO. Travessia mora aqui
+├── NucleoServidor.kt            # o servidor de LOOPBACK: serve a base às
+│                                #   janelas do próprio programa. A PORTA É A
+│                                #   ORIGEM — trocá-la apaga o acervo
+├── NucleoPonte.kt               # o ENVELOPE da ponte — PURO. Três escritas em
+│                                #   três linguagens, uma fixture só
+├── NucleoDespacho.kt            # quem responde o quê: o núcleo, a casca, ou
+│                                #   ninguém ainda. A INVARIANTE 9 é uma linha
+│                                #   de tabela aqui — e por isso tem oráculo
+└── NucleoMain.kt                # o `nucleo.jar`: o núcleo como programa
    ·  ZERO import de android.* — e agora o COMPILADOR garante isso.
-   ·  138 testes JUnit, que continuam sendo os mesmos: o módulo mudou o
-      endereço dos arquivos, não uma linha deles.
+   ·  192 testes JUnit numa JVM comum, sem emulador e sem SDK do Android.
+
+windows/                             # ← A SEGUNDA CASCA (v1.4.6) — ver o LEIA-ME de lá
+├── casca/ponte.js               # a folha INJETADA em cada janela: o
+│                                #   `__AVBridge` do computador. O `native.js`
+│                                #   não muda uma linha por causa dela
+├── AudioVisualIASD.Ponte/       # o codec do envelope, em `net8.0` PORTÁTIL —
+│                                #   portátil para o oráculo dele RODAR em Linux
+├── AudioVisualIASD.Testes/      # a terceira metade do contrato do envelope
+└── AudioVisualIASD/             # a casca: janela Win32, WebView2, monitores,
+                                 #   o cano com o núcleo. `net8.0-windows` SEM
+                                 #   WinForms/WPF — é o que a faz compilar aqui
 
 app/src/main/
 ├── AndroidManifest.xml          # intent-filter de share, portrait, <queries>, regras de backup
@@ -289,12 +312,22 @@ silêncio**:
    ali ganharia `pickFolder`, `listFolder`, `pickDoc`, `openExternal` e
    `espelhoLigar` — este último abre um servidor na rede da igreja.
 
-   **NÃO HÁ ORÁCULO PARA ELA.** O `ponte.test.mjs` afirma o dreno e a remontagem
-   de campos, não a superfície privilegiada no papel `display`; a invariante mora
-   só no `StagePresentation.kt` (`host = null` e `assetLoader(…, withSaf = false)`)
-   mais as guardas `host == null` de cada método. Escrevê-la é carregar o
-   `native.js` com um `__AVBridge` cujo `role()` devolva `'display'` e afirmar
-   que os cinco métodos privilegiados resolvem o desfecho inofensivo.
+   **NÃO HÁ ORÁCULO PARA ELA NO ANDROID.** O `ponte.test.mjs` afirma o dreno e a
+   remontagem de campos, não a superfície privilegiada no papel `display`; a
+   invariante mora só no `StagePresentation.kt` (`host = null` e
+   `assetLoader(…, withSaf = false)`) mais as guardas `host == null` de cada
+   método. Escrevê-la é carregar o `native.js` com um `__AVBridge` cujo `role()`
+   devolva `'display'` e afirmar que os cinco métodos privilegiados resolvem o
+   desfecho inofensivo.
+
+   **NA SEGUNDA CASCA ELA TEM, e a diferença é onde o papel é selado.** No
+   computador quem cria a janela é a casca, e é ela que injeta o papel como
+   literal na sessão; o núcleo então recusa a superfície privilegiada **no
+   servidor**, antes de qualquer despacho. Isso a torna uma linha de tabela — e
+   uma linha de tabela se testa com um `POST` (`NucleoDespachoTest`, mais o
+   `nucleo-de-pe.test.mjs`, que a exercita com o programa de pé). `espelhoLigarEm`
+   está na lista junto com `espelhoLigar`: é o mesmo método com um argumento a
+   mais, e deixá-lo de fora seria a porta dos fundos exata do que a lista fecha.
 
 **No `AndroidManifest.xml`:** `hardwareAccelerated` e `largeHeap` — os dois
 WebViews e um vídeo grande dividem o mesmo processo.
@@ -3029,6 +3062,8 @@ Antes de publicar: `node --check` em todo `.js` de `assets/web`, validação do
 | `mic-escada.test.mjs` | **a escada de captura do microfone**: com `echoCancellation` o Chromium abre o `AudioRecord` em `VOICE_COMMUNICATION`, e o Android RECUSA essa sessão quando a saída de áudio está em outro caminho — isto é, **com o espelhamento ligado**, o modo normal de um culto com TV. É o SEGUNDO degrau (sem cancelamento de eco) que abre o microfone ali. Ele guardava um PAR (o ao vivo e o RECADO) até a v1.2.17; com o recado fora, as asserções de pareamento saíram e ficaram as de PROPRIEDADE — uma igualdade entre duas escadas nunca provou que elas estavam certas, aprovaria duas igualmente erradas. Guarda também que o Controle **não abre captura nenhuma**, para um segundo caminho não voltar mudo |
 | `tipos-que-sobem.test.mjs` | **as DUAS metades do dreno da tela da rede**: a lista de permissão do `drenar()` (`espelho/tela.js`) e a do `TIPOS_QUE_SOBEM` (`EspelhoServidor.kt`). Duas listas sem oráculo divergem no primeiro esquecimento, e a divergência é MUDA nos dois sentidos |
 | `contexto-seguro.test.mjs` | `VideoDecoder`, `wakeLock`, `audioWorklet`, `randomUUID`, `crypto.subtle` **fora de guarda** em `espelho/`, `display/` **e `shared/`** — o `/display/` das telas da rede roda em `http://`, e ele carrega quatro arquivos de `shared/`: lá essas APIs vêm `undefined`. Guarda vale `isSecureContext` **ou** detecção de presença na mesma linha |
+| `ponte-envelope.test.mjs` | **o ENVELOPE da ponte do computador, metade PRODUTORA.** Ele tem TRÊS escritas em três linguagens (a folha injetada em JS, o `NucleoPonte.kt`, o `Envelope.cs`), e é a forma que este projeto já viu falhar em silêncio duas vezes — o `__tela` do `display-ready` e o `TIPOS_QUE_SOBEM` do dreno. As três leem AS MESMAS fixtures, **escritas à mão** (`tools/fixtures/ponte-envelope.json`): nenhuma as gera, senão cada oráculo provaria que um lado concorda consigo mesmo. Cobra também que a folha ofereça EXATAMENTE os métodos que o `native.js` chama — um a menos vira `TypeError` engolido pelo `catch`, com o botão mudo em culto |
+| `nucleo-de-pe.test.mjs` | **o `nucleo.jar` SERVINDO A BASE DE VERDADE.** Os outros oráculos deste caminho medem peças; nenhum sobe o programa. O que só aparece na junção é o APERTO DE MÃO entre o `NucleoMain` (Kotlin) e o `Nucleo.Ligar()` (C#) — discordando, o programa não abre **na máquina do operador**, o único lugar que este repositório não alcança. A travessia é afirmada por SOCKET CRU, porque o `fetch` normaliza `..` antes de mandar: pedi-la por ele mede o cliente do Node, não o servidor. Precisa do jar (`./gradlew :core:nucleoJar`), e por isso mora no job `segunda-casca` |
 
 **Chromium de verdade, em DOIS PASSOS, e a ASSIMETRIA entre eles é a política:**
 
@@ -3174,7 +3209,7 @@ mundo anterior por outro caminho.
 **JUnit** (`./gradlew :core:test testDebugUnitTest`, **sem `continue-on-error`**,
 antes do `assembleRelease`) — **os DOIS módulos, e a primeira tarefa não é
 opcional**: `testDebugUnitTest` é do AGP e alcança só o `:app`, onde hoje resta
-um teste; os 138 dos arquivos puros rodam em `:core:test`. Deixar só a segunda
+um teste; os 192 dos arquivos puros rodam em `:core:test`. Deixar só a segunda
 faria o passo continuar verde testando quase nada. São eles: `EspelhoHttpTest` (tetos do parser,
 `read()` parcial, `Host` fora da allowlist, `Origin` estranha, 404 uniforme),
 `EspelhoParesTest` (prazo, teto de sessões, saneamento), `EspelhoHttpRangeTest`
@@ -3191,6 +3226,18 @@ tudo funciona, e o testemunho está em inglês na frente da congregação; doze 
 junto). **No `:app` ficou um só, o `EspelhoCertNomeTest`** — ele exercita as duas
 funções puras do `EspelhoCert`, que não atravessou porque lê `Context`, `Uri` e
 `Log` para tratar o `.p12`. Cada teste mora com o que ele testa.
+
+**E mais quatro, do núcleo da segunda casca** (v1.4.6): `NucleoRotasTest` (o que
+uma rota É, com a **travessia de diretório** — a única falha deste caminho que
+não produz pixel errado, e sim o disco do operador servido por HTTP; a barra
+INVERTIDA está entre os casos porque o alvo é o Windows, onde `\` também
+separa caminho e uma guarda escrita só com `/` a deixaria passar),
+`NucleoServidorTest` (o servidor com sockets de verdade: o bind SÓ no loopback,
+a recusa de porta ocupada — e que a frase dela **não mande trocar a porta**, que
+é o que apagaria o acervo —, o teto de corpo da ponte, e o fio SSE
+ENDEREÇADO) e `NucleoPonteTest` + `NucleoDespachoTest` (o envelope contra as
+fixtures, e a **invariante 9 recusada no servidor**, provada por três
+reversões).
 
 **Duas regras de método que ficam:**
 
@@ -3568,7 +3615,8 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: v1.4.2** (base web) · **v1.4.2** (APK) · `SHELL_VERSION` **58** · bundle com
+**Versão atual: v1.4.4** (base web) · **v1.4.2** (APK) · **v1.4.6** (o programa
+de Windows) · `SHELL_VERSION` **58** · bundle com
 `minShell: 58` — o shell 58 é o **PISO**: todo método da ponte existe, e não há
 guarda de versão no lado web. O que continua valendo é que `java/`, `res/`, o
 manifest e os workflows **só chegam instalando o APK**.

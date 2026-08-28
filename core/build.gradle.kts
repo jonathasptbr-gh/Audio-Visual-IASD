@@ -37,3 +37,26 @@ dependencies {
     // primeiro código deste projeto que aceita entrada de um desconhecido.
     testImplementation("junit:junit:4.13.2")
 }
+
+// ────────────────────────────────────────────────────────────────────────
+// O `nucleo.jar` — o núcleo COMO PROGRAMA, que a casca do Windows sobe.
+//
+// Um jar só, com a stdlib do Kotlin dentro. **Sem plugin de "fat jar"**: a
+// regra de zero dependência vale para o build também, e o que um plugin
+// acrescentaria aqui é conveniência sobre dez linhas — não uma capacidade.
+//
+// O `:app` NÃO usa esta tarefa: o Android empacota o `:core` como qualquer
+// outro módulo. Ela existe só para a segunda casca.
+tasks.register<Jar>("nucleoJar") {
+    archiveFileName.set("nucleo.jar")
+    manifest { attributes("Main-Class" to "br.org.iasd.av.NucleoMain") }
+    from(sourceSets.main.get().output)
+    // A stdlib entra DESCOMPACTADA. Um jar dentro de outro jar não é
+    // carregável pelo class loader padrão — ele não erra ao empacotar, erra ao
+    // ABRIR, com `NoClassDefFoundError` de uma classe que está ali dentro.
+    from(configurations.runtimeClasspath.get().map { if (it.isDirectory) it else zipTree(it) })
+    // Assinaturas de terceiros que sobrevivam à fusão fazem a JVM recusar o
+    // jar inteiro por "invalid signature file".
+    exclude("META-INF/*.SF", "META-INF/*.DSA", "META-INF/*.RSA", "META-INF/versions/9/module-info.class")
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+}

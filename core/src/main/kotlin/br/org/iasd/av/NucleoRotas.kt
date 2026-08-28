@@ -153,6 +153,32 @@ object NucleoRotas {
         return Rota.Bundle(cru, tipoDe(cru))
     }
 
+
+    /**
+     * A FORMA de uma sessão de janela.
+     *
+     * Cada janela do programa (Controle e Telão) recebe da casca um
+     * identificador aleatório, e ele viaja na query das duas rotas da ponte
+     * (`?s=`). Ele responde a duas perguntas que o servidor não teria como
+     * responder sozinho:
+     *
+     *  - **para quem volta a resposta.** No Android o `evaluateJavascript`
+     *    endereça UM WebView; aqui há um fio SSE por janela, e um `resolve`
+     *    entregue à janela errada resolveria a promise homônima dela.
+     *  - **quem NÃO recebe um comando do barramento.** O `BroadcastChannel`
+     *    não entrega ao próprio emissor e o `MessageBus` exclui a origem —
+     *    sem essa exclusão o `busPost` do Controle voltaria para o Controle,
+     *    e o `__mid` do `db.js` **não o pegaria**: aquele conjunto só conhece
+     *    os mids RECEBIDOS, e o emissor nunca viu o próprio.
+     *
+     * Ele NÃO é segredo — este socket é de loopback e tem allowlist de `Host`.
+     * É endereço. A forma é conferida porque ele indexa um mapa e sai num
+     * diagnóstico, não porque ele autentique alguém.
+     */
+    fun sessaoValida(s: String?): Boolean =
+        s != null && s.length in 8..64 &&
+            s.all { it in 'a'..'z' || it in 'A'..'Z' || it in '0'..'9' || it == '_' || it == '-' }
+
     /**
      * A allowlist de `Host` deste servidor, para o [EspelhoHttp.lerRequisicao].
      *

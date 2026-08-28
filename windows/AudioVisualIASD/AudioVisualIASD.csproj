@@ -1,0 +1,51 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    A CASCA. `net8.0-windows` SEM `UseWindowsForms`/`UseWPF`, e isso é decisão,
+    não economia: o SDK do Windows Desktop não existe fora do Windows, então um
+    projeto que dependesse dele não compilaria em lugar nenhum além de um runner
+    `windows-latest`. Sem ele a casca compila em Linux — e a metade do programa
+    que não é regra de culto passa a ser conferível no mesmo lugar que o resto.
+
+    O caminho de hospedagem não perde nada com isso: o controle WinForms do
+    WebView2 é uma casca fina sobre `CreateCoreWebView2Controller(HWND)`, que é
+    o que o `Win32.cs` entrega.
+  -->
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>12</LangVersion>
+    <AssemblyName>AudioVisualIASD</AssemblyName>
+    <RootNamespace>AudioVisualIASD</RootNamespace>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <AllowUnsafeBlocks>false</AllowUnsafeBlocks>
+    <!-- O número do APK e o do programa são o MESMO número (ver a seção do
+         NÚMERO no CLAUDE.md): as duas cascas rodam a mesma base web. -->
+    <Version>1.4.6</Version>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <!--
+      MSB3277 (`WindowsBase` em duas versões) é ARTEFATO DE COMPILAR AQUI, não
+      um problema do programa: o pacote do WebView2 traz junto o controle de
+      WPF, que depende do `WindowsBase` 5.0 do SDK do Windows Desktop. Num
+      Windows ele existe; no Linux o que existe é a fachada 4.0 do runtime, e o
+      MSBuild avisa que escolheu uma. **Nada nesta casca usa WPF** — a
+      hospedagem é `CreateCoreWebView2Controller(HWND)` —, então a escolha é
+      indiferente, e o aviso repetido esconderia um aviso de verdade.
+    -->
+    <MSBuildWarningsAsMessages>MSB3277</MSBuildWarningsAsMessages>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.2903.40" />
+    <ProjectReference Include="../AudioVisualIASD.Ponte/AudioVisualIASD.Ponte.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- A folha injetada viaja DENTRO do executável: assim ela não tem como
+         divergir da cópia versionada, e não há um arquivo em disco que
+         qualquer coisa possa reescrever com código para o origin
+         privilegiado. -->
+    <EmbeddedResource Include="../casca/ponte.js" LogicalName="ponte.js" />
+  </ItemGroup>
+</Project>

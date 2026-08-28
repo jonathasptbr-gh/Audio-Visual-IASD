@@ -24,6 +24,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
+- **v1.4.6** — O TRANSPORTE DA SEGUNDA CASCA, E O CONTRATO DE TRÊS LINGUAGENS. O `:core` ganhou o **servidor de loopback** que serve a base web às janelas do próprio programa (`NucleoRotas`, `NucleoServidor`, `NucleoPonte`, `NucleoDespacho`, `NucleoMain`) e nasceu a **casca do Windows** — `net8.0-windows` SEM WinForms/WPF, o que a faz compilar no runner Linux que já existe, em vez de esperar por uma máquina que este repositório não tem. **A ponte não muda uma linha do `native.js`**: a folha injetada entrega um `__AVBridge` com a mesma superfície, e o transporte vira `POST /ponte/call` mais o SSE que o projeto já construiu para as telas da rede. Três achados moldaram o lote. (1) **A PORTA É A ORIGEM**: `:8420` e `:8421` são origens diferentes, com IndexedDB e OPFS diferentes, então porta ocupada é falha alta com frase — e a frase diz explicitamente para NÃO trocar a porta, que é o que o operador tentaria sozinho e o que apagaria o acervo. (2) **O envelope da ponte tem TRÊS escritas em três linguagens** (a folha em JS, o `NucleoPonte.kt`, o `Envelope.cs`), que é a forma exata que este projeto já viu falhar em silêncio duas vezes — o `__tela` do `display-ready` e o `TIPOS_QUE_SOBEM` do dreno; a resposta são fixtures ESCRITAS À MÃO que os três leem e nenhum gera, mais um oráculo por lado, o do C# rodando em Linux porque o codec é `net8.0` portátil de propósito. (3) **O `/ponte/call` herdava o teto de corpo de 256 B do `EspelhoHttp`** — certo para um socket de rede, e um 413 em cima do `salvarTexto`, que carrega o Registro inteiro; o `native.js` leria isso como `null`, em silêncio. **A INVARIANTE 9 ganhou oráculo pela primeira vez**: no computador o papel é selado na SESSÃO pela casca, que é quem cria a janela, e o núcleo recusa a superfície privilegiada NO SERVIDOR — o que a torna uma linha de tabela, e uma linha de tabela se testa com um `POST` (provado por três reversões, entre elas a porta dos fundos do `espelhoLigarEm`). Um job de CI próprio (`segunda-casca`), que **ninguém tem como `needs`**: uma casca de Windows quebrada não pode segurar o canal OTA nem o APK. **LOTE DE SHELL: a base web não muda** (`version.json` intacto em 1.4.4) e **NÃO exige Release** — o único arquivo de `java/` tocado é o `SlideDeck.kt`, que passou a delegar a regra do link do Google ao `:core` sem mudar um comportamento.
 - **v1.4.5** — O MÓDULO `:core`, E O QUE ELE DESCOBRIU NO PRIMEIRO MINUTO. Metade do Kotlin deste projeto nunca foi Android — MEDIDO: seis arquivos com ZERO import de `android.*`, já cobertos por JUnit no CI, que eram Android só por morarem no módulo do app. Eles saíram para um módulo JVM puro, e a separação tem dois efeitos: o compilador passa a IMPEDIR que uma dependência de plataforma entre neles por descuido (a pureza deixa de ser promessa de comentário e vira erro de compilação), e a mesma lógica passa a poder ser hospedada por uma segunda casca sem uma linha duplicada. **Nenhum arquivo mudou — só o endereço**, e é por isso que os **138 testes** continuam passando sem uma asserção nova. **E o módulo refutou a própria premissa em um dos seis**: o `EspelhoDiag.kt` não compila fora do Android, porque `org.json` é API da PLATAFORMA, não da JVM — *"sem import de `android.*`" não é o mesmo que "portável"*, e só o compilador do módulo novo sabia disso. Ele voltou para o `:app` com a razão escrita no topo, e a alternativa (o artefato `org.json:json` do Maven) está registrada como recusada: a cláusula "Good, not Evil" dele não é licença livre reconhecida e não combina com a GPLv3 deste repositório. Um segundo achado de arrumação: o `EspelhoParesTest` guardava, no mesmo arquivo, uma classe que testa o `EspelhoCert` — com os dois em módulos diferentes, o arquivo não compilaria em lugar nenhum; foi dividido pelo que cada teste TESTA, que é como deveria ter sido desde o começo. O CI passou a rodar `:core:test` ao lado do `testDebugUnitTest`, que é tarefa do AGP e alcança só o `:app` — sem isso o passo continuaria VERDE testando quase nada. **LOTE DE SHELL: a base web não muda** (`version.json` intacto em 1.4.4) e **EXIGE RELEASE** para chegar a algum aparelho; não há mudança de comportamento nenhuma para o operador.
 - **v1.4.4** — O DEGRAU DE COMPUTADOR, e o defeito que ele revelou. Aberto numa tela larga, o app não ficava só feio: **a lista SUMIA**. MEDIDO — num notebook de 1280x800 o `main` media **90px** e a lista **10**; num monitor de 1920, 169 e 54; num celular, 612 e 497. A causa estava escrita duas vezes na folha e nunca se encontrou: `.bottombar` é `flex-shrink: 0` e a preview dentro dela **não tem teto de altura** (de propósito — um `max-height` mentiria sobre a proporção, que é o que a faz fiel). Num celular a coluna mede ~408px e a preview para em ~138; numa tela larga ela vira 897x560 e o `main` (`flex: 1`) é espremido a nada. **A correção não é pôr um teto na preview** — isso reintroduziria a mentira —, é parar de empilhar: onde há lugar, o app vira DUAS colunas (a lista à esquerda, as abas e o deck à direita), que é a mesma leitura girada 90°. A faixa de abas sobe para o TOPO do painel, porque ela troca o que a lista da ESQUERDA mostra e no meio da coluna direita ficava a meia tela do que acende; e o respiro superior que a folha tira de propósito VOLTA, porque a razão dele (emendar o vazado da aba com o corpo da seção) não existe quando esse corpo está na coluna de ao lado. **A guarda tem duas metades, e a segunda é a que importa**: `min-width: 900px` E `min-height: 600px` — largura sozinha alcançaria um celular DEITADO, que é a forma que o app toma na preview em tela cheia, a projeção quando não há TV. Dois oráculos novos, os dois provados por reversão: o do degrau (sem o piso de altura reprova EXATAMENTE a asserção do celular deitado; sem o degrau inteiro, as dez do desktop) e **o da SEGUNDA JANELA** — que nenhum teste deste repositório jamais tinha aberto (`waitForEvent` não aparecia em `tools/`, e `openWebDisplay` estava em produção com cobertura zero). Ele prova o que o app inteiro supõe e nunca verificou: duas páginas do mesmo origin dividem IndexedDB e BroadcastChannel. A reversão dele é o achado do lote — com o `/display/` aberto em `127.0.0.1` em vez de `localhost` (mesma máquina, mesma porta, só o host), o acervo some e o barramento emudece **sem um único erro de página**. OTA PURO.
 - **v1.4.2** — A MEDIÇÃO DE ALCANCE. O app e o site passaram a contar **quantos aparelhos usam isto**, e nada além disso: uma busca por dia a um asset de Release cujo `download_count` o GitHub já mantém — sem id, sem corpo, sem nada que distinga um aparelho de outro, e sem uma requisição a domínio que o app já não usasse. O uso próprio sai **por construção** (contador separado: `b-dev.txt` para o aparelho marcado em Configurações e para todo build debuggável), nunca por subtração de uma estimativa — *subtrair um palpite do próprio uso é como se produz um painel confiável e falso*. Três achados MEDIDOS moldaram o desenho, e o segundo inverteu a escolha óbvia: (1) o alcance de hoje é de **um dígito** (v1.0 com 5 downloads, v1.4 com 1), então o instrumento barato vale mais que o preciso; (2) o `web-ota` **não tem filtro de caminho**, então gravar a série em `main` republicaria o bundle de hora em hora e ZERARIA o `version.json` — o instrumento destruiria a própria medida —, daí a branch órfã `dados`; (3) asset de Release não manda `Access-Control-Allow-Origin` (o `pages.yml` já registrava a medição), então o painel lê de `raw.githubusercontent.com`. A seção fica em `site/registro/` atrás de `#alcance`, e **a própria página diz que isso é obscuridade e não segredo** — `download_count` é API pública de um repositório público. Fecha com um oráculo novo (`registro-alcance.test.mjs`, o único que roda sobre o `site/`), provado por reversão contra um gráfico que desenhava 12, 5, 3 e 1 do mesmo tamanho: `.barra-c`/`.barra-f` eram `<span>`, e `width` não faz nada em elemento inline. **Uma suposição segue sem medir**, e o farol inteiro depende dela — ver o aviso no topo de `docs/MEDICAO-DE-ALCANCE.md`.
@@ -276,6 +277,165 @@ na nota que a revoga, não apagada da que a criou.
 - **v5.154** — é METADE OTA e METADE APK, e a divisão importa para quem for testar em aparelho.
 - **v5.155** — é OTA PURO
 - **v5.156** — é METADE OTA e METADE APK, de novo.
+
+---
+
+## v1.4.6 — o transporte da segunda casca, e o contrato de três linguagens
+
+### O que o lote entrega
+
+O núcleo que faz o Áudio Visual IASD rodar num computador, e a casca que o
+hospeda. **A base web não muda**: é a mesma, byte a byte, servida por um
+servidor de loopback que o próprio programa sobe.
+
+```
+ AudioVisualIASD.exe ──stdio──► nucleo.jar ──http://127.0.0.1:8420──► as janelas
+  (C#: janela, monitores,  ◄────  (Kotlin: servidor,  ◄──── SSE ────   (WebView2)
+   diálogos, volume)               despacho da ponte)
+```
+
+Cinco arquivos novos no `:core` (`NucleoRotas`, `NucleoServidor`, `NucleoPonte`,
+`NucleoDespacho`, `NucleoMain`, mais o `NucleoApresentacao`), a folha injetada
+(`windows/casca/ponte.js`) e três projetos em C#.
+
+### A PORTA É A ORIGEM
+
+`http://127.0.0.1:8420` e `:8421` são **origens diferentes**, com IndexedDB e
+OPFS diferentes. O reflexo normal diante de uma porta ocupada — "pega outra
+livre" — **apagaria a biblioteca do operador em silêncio**: o Cronograma, o
+hinário, a Bíblia e os vídeos ficariam órfãos num origin que ninguém mais abre,
+ocupando disco, sem uma linha na tela dizendo o que houve.
+
+Daí a recusa ser falha alta com frase, e a frase dizer o que **não** fazer:
+
+> "A porta do programa já está em uso. Feche a outra cópia do Áudio Visual IASD
+> e abra de novo. **Não troque a porta**: é ela que identifica a sua biblioteca,
+> e mudá-la faria o programa abrir vazio."
+
+É a mesma disciplina que o `EspelhoPares` já aplica à porta da transmissão, com
+uma diferença de grau que muda o desenho: lá o custo de errar é uma tela que não
+conecta, aqui é um acervo perdido.
+
+### O ENVELOPE TEM TRÊS ESCRITAS, EM TRÊS LINGUAGENS
+
+A ponte do computador não pode usar `addJavascriptInterface` — ela não existe no
+WebView2 —, então o transporte vira `POST /ponte/call` mais o SSE que o projeto
+já construiu para as telas da rede. O que atravessa é um envelope de
+comprimento na frente, e ele é escrito **três vezes**: na folha injetada (JS),
+no `NucleoPonte.kt` e no `Envelope.cs`.
+
+**É a forma exata que este projeto já viu falhar em silêncio duas vezes** — o
+`__tela` do `display-ready`, que ia no `tela-status` e nunca no anúncio, e o
+`TIPOS_QUE_SOBEM` do dreno. A resposta é a mesma de lá: **fixtures escritas à
+mão** (`tools/fixtures/ponte-envelope.json`) que os três leem e **nenhum gera**
+— gerassem, cada oráculo provaria que um lado concorda consigo mesmo.
+
+Duas decisões do formato têm razão declarada:
+
+- **O comprimento é em BYTES, não em caracteres.** `a.length` funciona em todo
+  hino sem acento e erra em quase todos os outros — e erra DESLOCANDO o
+  argumento seguinte, não estourando.
+- **A quebra depois de cada argumento é a CONFERÊNCIA.** Sem ela, um
+  comprimento errado por um byte continua parseando, com o texto trocado de
+  lugar. *Um formato que se cala diante de um erro de comprimento é o mesmo
+  defeito da invariante 8, num lugar novo.*
+
+E o `:core` **não ganhou parser de JSON por causa disto**: os argumentos da
+ponte são STRINGS, sempre — inclusive os três que carregam objeto (`busPost`,
+`bgProgress`, `nowPlaying`), que no Android já chegam como `JSON.stringify` e
+são parseados por quem sabe o que aquele objeto é.
+
+### O `/ponte/call` herdava um teto de 256 bytes
+
+O `EspelhoHttp.TETO_CORPO` são 256 B, e ele está certo para o que protege: um
+socket de REDE, que qualquer um na Wi-Fi da igreja alcança. Deixá-lo valendo no
+socket de loopback daria **413 em cima do `salvarTexto`**, que carrega o
+Registro inteiro (dezenas de kB — ele existe para ser COPIADO e não tem pressão
+de tamanho), e de metade dos `nowPlaying`. O `native.js` lê um erro de rede como
+`null`: **em silêncio**.
+
+### A INVARIANTE 9 GANHOU ORÁCULO PELA PRIMEIRA VEZ
+
+No Android ela é `host = null` no WebView do telão mais uma guarda em cada
+método privilegiado, e o `CLAUDE.md` registra por extenso que **não há oráculo
+para ela**: afirmá-la exigiria carregar o `native.js` com um `__AVBridge` de
+mentira cujo `role()` devolvesse `display`.
+
+No computador o papel é selado na **sessão**, que a casca registra ao criar a
+janela — a folha não o escolhe e a página não o alcança —, e a recusa acontece
+**no servidor**, antes de qualquer despacho. Isso a torna uma linha de tabela, e
+uma linha de tabela se testa com um `POST`.
+
+Provada por três reversões: sem a guarda de papel, o Telão alcança os seis; sem
+`espelhoLigarEm` na lista, a porta dos fundos abre (é o mesmo método com um
+argumento a mais, e o pior dos seis — ele abre um servidor na rede da igreja); e
+sem a exclusão do emissor, o `busPost` do Controle volta para o Controle. Esta
+última não seria pega pelo `__mid` do `db.js`: aquele conjunto só conhece os
+mids RECEBIDOS, e o emissor nunca viu o próprio.
+
+### A CASCA COMPILA EM LINUX, E ISSO É DECISÃO
+
+`net8.0-windows` **sem** WinForms nem WPF. O SDK do Windows Desktop não existe
+fora do Windows: um projeto que dependesse dele só compilaria num runner
+`windows-latest`, e a metade da casca que não é regra de culto deixaria de ser
+conferível no mesmo lugar que todo o resto. Sem ele, a casca compila aqui — e a
+hospedagem do WebView2 não perde nada, porque o controle de WinForms é uma
+casca fina sobre `CreateCoreWebView2Controller(HWND)`.
+
+O oráculo do envelope em C# é `net8.0` **portátil** pela mesma razão, e por isso
+ele **roda**: um contrato de três lados em que só dois têm oráculo é um contrato
+de dois lados outra vez.
+
+### UM SEGUNDO MONITOR É A TV
+
+A janela do Telão nasce e morre com o monitor da projeção, como a `Presentation`
+nasce e morre com a TV. Sem ele, a projeção é a preview em tela cheia — o mesmo
+recuo do celular sem TV, **e sem uma linha nova na base web**: `displays()`
+responde o que ela já sabe ler, o `display-ready` da janela nova dispara o
+reenvio da cena, e tirar o cabo devolve a projeção à preview. O degrau de um
+clique, neste lote, é a tela cheia da própria janela do Telão.
+
+### O QUE NÃO EXISTE AINDA DIZ QUE NÃO EXISTE
+
+Um método sem dono resolve `null` **na hora** e entra numa lista, dos dois lados
+(`NucleoDespacho.naoImplementados()` e `Folhas.SemDono`). Sem isso ele resolveria
+`null` pelo prazo de 60 s do `native.js` — o botão existe, é tocável, e depois de
+um minuto não acontece nada. *A diferença entre "o programa travou" e "esta
+parte ainda não existe nesta versão" é uma linha de diagnóstico.*
+
+### O CI GANHOU UM JOB QUE NINGUÉM TEM COMO `needs`
+
+`segunda-casca` roda a cada push e cobre as três camadas: a casca compila, o
+envelope fecha nas três linguagens, e o **núcleo de pé** — o `nucleo.jar`
+servindo a base web de verdade, com o aperto de mão entre o `NucleoMain`
+(Kotlin) e o `Nucleo.Ligar()` (C#), que é o contrato cujo defeito só apareceria
+na máquina do operador.
+
+**Ele não gateia nada, de propósito.** O `verificar` fecha o canal OTA e o `apk`
+produz o APK: uma casca de Windows quebrada não pode segurar nenhum dos dois —
+ela não entra no bundle nem no APK, e acoplá-la ali faria um erro de C# impedir
+a igreja de receber uma correção da base web.
+
+### O oráculo do núcleo de pé mediu o cliente, e isso teve conserto
+
+A primeira escrita pedia `/shared/../../../etc/passwd` por `fetch` — que
+**normaliza `..` antes de mandar**. O `..` nunca chegava ao servidor, o teste
+passava, e o que ele afirmava era uma coisa que ninguém tinha testado. Hoje ele
+fala por socket cru, e **a asserção é a PROPRIEDADE** (*o disco do operador não
+sai*), nunca o status: o `EspelhoHttp` recusa `..` como malformado (400) antes de
+existir rota, e prender um número ali seria convidar alguém a afrouxar a defesa
+mais forte das duas para o teste passar.
+
+### Entrega
+
+**Nenhuma linha da base web mudou** — `version.json` intacto em 1.4.4, nada a
+publicar por OTA. O único arquivo de `java/` tocado é o `SlideDeck.kt`, que
+passou a delegar a regra do link do Google Apresentações ao `:core` (a mesma
+expressão regular, um consumidor a mais): **não exige Release**, porque não há
+mudança de comportamento para o operador nem de superfície na ponte
+(`SHELL_VERSION` intacto em 58).
+
+192 testes JUnit no `:core`, os dois oráculos novos de Node e o de C# verdes.
 
 ---
 

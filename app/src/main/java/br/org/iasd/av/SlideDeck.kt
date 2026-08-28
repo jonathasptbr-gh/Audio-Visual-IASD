@@ -73,16 +73,16 @@ object SlideDeck {
             "Chrome/124.0.0.0 Mobile Safari/537.36"
 
     /**
-     * `docs.google.com/presentation/d/<id>` em qualquer das formas que o botão
-     * de compartilhar do Google produz (`/edit`, `/view`, `?usp=sharing`).
+     * A apresentação do Google vira PDF por esta URL, ou `null` se não for uma.
+     *
+     * A regra mora no `:core` ([NucleoApresentacao]) porque as DUAS cascas
+     * precisam dela: no computador ela é o único método síncrono-com-retorno
+     * da ponte que não é uma constante injetada. Aqui ficou o repasse — uma
+     * segunda cópia da expressão regular divergiria da outra no primeiro
+     * ajuste, e a divergência seria muda (um link do Google que funciona num
+     * lado e não no outro).
      */
-    private val SLIDES_ID = Regex("docs\\.google\\.com/presentation/d/([A-Za-z0-9_-]{16,})")
-
-    /** A apresentação do Google vira PDF por esta URL, ou `null` se não for uma. */
-    fun urlDeExportacao(link: String): String? {
-        val id = SLIDES_ID.find(link)?.groupValues?.get(1) ?: return null
-        return "https://docs.google.com/presentation/d/$id/export/pdf"
-    }
+    fun urlDeExportacao(link: String): String? = NucleoApresentacao.urlDeExportacao(link)
 
     /**
      * Rasteriza a apresentação e devolve `{ name, pages: [url] }`.

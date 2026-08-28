@@ -55,9 +55,15 @@ class NucleoServidor(
     private val raizWeb: File,
     /** A porta FIXA. Ver o KDoc: ela é a origem, e não se troca. */
     val porta: Int,
-    /** Quem responde `POST /ponte/call`. O núcleo não sabe o que é um método
-     *  da ponte; ele sabe entregar bytes e devolver bytes. */
-    private val ponte: (corpo: ByteArray) -> ByteArray,
+    /**
+     * Quem responde `POST /ponte/call`. O núcleo não sabe o que é um método da
+     * ponte; ele sabe entregar bytes e devolver bytes.
+     *
+     * A [sessao] é a janela que chamou — ver [NucleoRotas.sessaoValida]. Sem
+     * ela o despacho não teria como endereçar a resposta nem como excluir o
+     * emissor de um comando do barramento.
+     */
+    private val ponte: (sessao: String, corpo: ByteArray) -> ByteArray,
 ) {
 
     /** Por que o servidor não subiu — em frases que a casca mostra sem traduzir. */
@@ -86,8 +92,11 @@ class NucleoServidor(
     }
     private val hosts = NucleoRotas.hostsAceitos(porta)
 
+    /** Um fio SSE aberto — a janela [sessao] e o cano por onde se empurra. */
+    private class Fio(val sessao: String, val saida: OutputStream)
+
     /** Os fios SSE abertos — um por janela (Controle e Telão). */
-    private val fios = CopyOnWriteArrayList<OutputStream>()
+    private val fios = CopyOnWriteArrayList<Fio>()
 
     /**
      * Sobe o servidor. Devolve `null` em sucesso, ou a [Recusa] — **nunca uma
@@ -118,29 +127,46 @@ class NucleoServidor(
 
     fun desligar() {
         vivo.set(false)
-        for (f in fios) try { f.close() } catch (_: Exception) {}
+        for (f in fios) try { f.saida.close() } catch (_: Exception) {}
         fios.clear()
         try { socket?.close() } catch (_: Exception) {}
         fila.shutdownNow()
     }
 
     /**
-     * Empurra um evento pelo fio SSE de todas as janelas.
+     * Empurra um evento pelos fios SSE — **endereçado**, sempre.
      *
-     * É por aqui que a resposta de uma chamada da ponte volta, e é por aqui que
-     * o barramento de comandos atravessa entre o Controle e o Telão quando o
-     * `BroadcastChannel` não bastar — o mesmo papel do `MessageBus` no Android.
+     * [alvo] é a janela que recebe (`null` = todas) e [menos] é a que NÃO
+     * recebe. Os dois casos existem e não são o mesmo:
+     *
+     *  - a resposta de uma chamada volta para UMA janela (`alvo`), como o
+     *    `evaluateJavascript` do Android endereça um WebView;
+     *  - um comando do barramento vai para todas MENOS o emissor (`menos`),
+     *    como o `MessageBus` e como o `BroadcastChannel`, que não entrega ao
+     *    próprio. Sem essa exclusão o `busPost` do Controle voltaria para o
+     *    Controle — e o `__mid` do `db.js` não o pegaria, porque o emissor
+     *    nunca viu o próprio mid.
      *
      * Fio que não aceita mais bytes é DESCARTADO na hora: a janela fechou, e
      * insistir nela travaria o empurrão para a que continua aberta.
      */
-    fun empurrar(json: String) {
+    fun empurrar(json: String, alvo: String? = null, menos: String? = null) {
         if (fios.isEmpty()) return
+        // `data:` de UMA linha só. O quadro é JSON e o [NucleoPonte.aspas] já
+        // escapou toda quebra de dentro das strings, então esta troca não
+        // altera nada legítimo — ela existe para que um quadro montado à mão
+        // por engano quebre o enquadramento SSE em vez de virar dois eventos.
         val bytes = emChunk("data: " + json.replace("\n", " ") + "\n\n")
         for (f in fios) {
-            try { f.write(bytes); f.flush() } catch (_: Exception) { fios.remove(f) }
+            if (alvo != null && f.sessao != alvo) continue
+            if (menos != null && f.sessao == menos) continue
+            try { f.saida.write(bytes); f.saida.flush() } catch (_: Exception) { fios.remove(f) }
         }
     }
+
+    /** Quantas janelas estão ouvindo. A casca a consulta para saber se o
+     *  Telão de fato subiu — e o oráculo, para esperar pelo FATO. */
+    fun janelasLigadas(): Int = fios.size
 
     private fun aceitar(s: ServerSocket) {
         while (vivo.get()) {
@@ -159,7 +185,15 @@ class NucleoServidor(
             // `EspelhoServidor` a usa. Um `try/catch` aqui compilaria e nunca
             // pegaria nada — a requisição malformada viraria uma exceção de
             // `getOrThrow` num lugar sem resposta HTTP.
-            val lida = EspelhoHttp.lerRequisicao(entrada, hosts)
+            val lida = EspelhoHttp.lerRequisicao(entrada, hosts) { caminho ->
+                // O TETO DO CORPO É POR ROTA, e o padrão de 256 B do
+                // `EspelhoHttp` está certo para o que ele protege — um socket
+                // de REDE. Deixá-lo valendo aqui daria 413 em cima do
+                // `salvarTexto` (que carrega o Registro inteiro) e de metade
+                // dos `nowPlaying`; e o `native.js` lê um erro de rede como
+                // `null`, isto é, EM SILÊNCIO. Ver [NucleoPonte.TETO_CORPO].
+                if (caminho == "/ponte/call") NucleoPonte.TETO_CORPO else EspelhoHttp.TETO_CORPO
+            }
             val req = lida.getOrElse { e ->
                 val erro = e as? EspelhoHttp.Erro ?: EspelhoHttp.Erro.Malformado
                 saida.write(EspelhoHttp.respostaDeErro(erro)); saida.flush(); return
@@ -174,14 +208,25 @@ class NucleoServidor(
                     )
                 }
                 is NucleoRotas.Rota.PonteCall -> {
-                    val corpo = try { ponte(req.corpo) } catch (e: Exception) {
-                        ("{\"erro\":" + aspas(e.message ?: "falhou") + "}").toByteArray(Charsets.UTF_8)
+                    // SEM SESSÃO VÁLIDA NÃO HÁ CHAMADA, e a resposta é o 404
+                    // uniforme — não um 400 explicando o que faltou. Quem tem
+                    // sessão é uma janela que a casca criou; quem não tem está
+                    // tateando, e a disciplina do espelho vale aqui: a
+                    // resposta não distingue "não existe" de "você não pode".
+                    val s = req.query["s"]
+                    if (!NucleoRotas.sessaoValida(s)) { saida.write(EspelhoHttp.naoEncontrado()); return }
+                    val corpo = try { ponte(s!!, req.corpo) } catch (e: Exception) {
+                        ("{\"erro\":" + NucleoPonte.aspas(e.message ?: "falhou") + "}").toByteArray(Charsets.UTF_8)
                     }
                     saida.write(EspelhoHttp.resposta(200, "application/json; charset=utf-8", corpo))
                 }
                 // O SSE NÃO FECHA: ele fica aberto até a janela sumir, e é por
                 // ele que o núcleo empurra. `viraFio` diz isso ao `finally`.
-                is NucleoRotas.Rota.PonteEventos -> { viraFio = true; servirSse(saida); return }
+                is NucleoRotas.Rota.PonteEventos -> {
+                    val s = req.query["s"]
+                    if (!NucleoRotas.sessaoValida(s)) { saida.write(EspelhoHttp.naoEncontrado()); return }
+                    viraFio = true; servirSse(s!!, saida); return
+                }
                 is NucleoRotas.Rota.Bundle -> servirArquivo(req, rota, saida)
                 is NucleoRotas.Rota.NaoAchei -> saida.write(EspelhoHttp.naoEncontrado())
             }
@@ -194,7 +239,7 @@ class NucleoServidor(
         }
     }
 
-    private fun servirSse(saida: OutputStream) {
+    private fun servirSse(sessao: String, saida: OutputStream) {
         saida.write(
             EspelhoHttp.cabecalhoChunked(
                 200,
@@ -206,7 +251,7 @@ class NucleoServidor(
         // já: sem um byte, alguns clientes seguram a Promise da resposta.
         saida.write(emChunk(": oi\n\n"))
         saida.flush()
-        fios.add(saida)
+        fios.add(Fio(sessao, saida))
     }
 
     /**
@@ -308,19 +353,4 @@ class NucleoServidor(
         }
     }
 
-    /** Escape de string JSON sem trazer uma biblioteca para o `:core` — ver a
-     *  nota do `EspelhoDiag.kt` sobre `org.json` não ser API da JVM. */
-    private fun aspas(s: String): String {
-        val b = StringBuilder("\"")
-        for (c in s) when {
-            c == '"' -> b.append("\\\"")
-            c == '\\' -> b.append("\\\\")
-            c == '\n' -> b.append("\\n")
-            c == '\r' -> b.append("\\r")
-            c == '\t' -> b.append("\\t")
-            c.code < 0x20 -> b.append(String.format("\\u%04x", c.code))
-            else -> b.append(c)
-        }
-        return b.append('"').toString()
-    }
 }

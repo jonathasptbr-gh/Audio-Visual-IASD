@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    O ORÁCULO DO CODEC DA CASCA — sem arnês de teste, e sem dependência.
+
+    Ele é um console `net8.0` que reprova com código de saída, e não um projeto
+    xunit, pela regra de dependências deste repositório: um arnês entraria como
+    quinta exceção declarada, e a única coisa que ele acrescentaria aqui é uma
+    sintaxe de asserção. O que se quer provar são fixtures lidas de um arquivo.
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>oraculo-envelope</AssemblyName>
+    <RootNamespace>AudioVisualIASD.Testes</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../AudioVisualIASD.Ponte/AudioVisualIASD.Ponte.csproj" />
+  </ItemGroup>
+</Project>

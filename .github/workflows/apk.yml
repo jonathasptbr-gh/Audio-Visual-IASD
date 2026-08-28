@@ -326,6 +326,23 @@ jobs:
           # Node puro, sem rede: sem `continue-on-error`.
           node tools/cifra.test.mjs
 
+      - name: O envelope da ponte do computador (Node puro)
+        run: |
+          # O ENVELOPE TEM TRÊS ESCRITAS, EM TRÊS LINGUAGENS: a folha injetada
+          # (`windows/casca/ponte.js`), o `NucleoPonte.kt` e o `Envelope.cs`. É
+          # a forma exata que este projeto já viu falhar em silêncio duas vezes
+          # — o `__tela` do `display-ready`, que ia no `tela-status` e nunca no
+          # anúncio, e o `TIPOS_QUE_SOBEM` do dreno —, e por isso as três leem
+          # AS MESMAS fixtures, escritas à mão em
+          # `tools/fixtures/ponte-envelope.json`. Nenhuma delas as gera: se
+          # gerassem, cada oráculo provaria que um lado concorda consigo mesmo.
+          #
+          # Este passo é a metade PRODUTORA em JavaScript, e cobra também que a
+          # folha ofereça exatamente os métodos que o `native.js` chama — um a
+          # menos vira `TypeError` engolido pelo `catch` do `native.js`, com o
+          # botão ficando mudo em culto. Node puro: sem `continue-on-error`.
+          node tools/ponte-envelope.test.mjs
+
       - name: Tokens de CSS que não existem (Node puro)
         run: |
           # Um `var(--nao-existe)` SEM fallback computa para o valor INICIAL da
@@ -1184,6 +1201,73 @@ jobs:
                 --repo "$GITHUB_REPOSITORY" --yes || true
             done
 
+  # ──────────────────────────────────────────────────────────────────────
+  # A SEGUNDA CASCA (o computador) — um job PRÓPRIO, e ninguém depende dele.
+  #
+  # A escolha de onde ele mora é a mesma que o `CLAUDE.md` já explica para o
+  # portão: o `verificar` fecha o canal OTA (automático, a cada push, sem
+  # ninguém olhando) e o `apk` produz o APK. **Uma casca de Windows quebrada
+  # não pode segurar nenhum dos dois** — ela não entra no bundle nem no APK, e
+  # acoplá-la ali faria um erro de C# impedir a igreja de receber uma correção
+  # da base web.
+  #
+  # Fora dos dois, ele ainda roda a CADA PUSH — que é o que impede o código
+  # apodrecer entre um lote e outro.
+  #
+  # Ele cobre as TRÊS camadas da segunda casca, e cada uma falha diferente: a
+  # casca em C# (compila), o envelope da ponte (o contrato de três linguagens)
+  # e o núcleo de pé (o aperto de mão entre as duas metades do programa).
+  segunda-casca:
+    if: >-
+      github.event_name != 'pull_request' ||
+      github.event.pull_request.head.repo.full_name != github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # O SDK É PINADO, pelo mesmo motivo que o Playwright é (ver "Um oráculo
+      # não pode medir o runner"): sem o pino, o veredito deste job deixa de
+      # ser função só do nosso código e passa a depender da imagem do dia.
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      # ELA COMPILA EM LINUX, e isso é decisão de projeto, não sorte:
+      # `net8.0-windows` **sem** WinForms/WPF. O SDK do Windows Desktop não
+      # existe fora do Windows, e um projeto que dependesse dele só compilaria
+      # num runner `windows-latest` — a metade da casca que não é regra de
+      # culto deixaria de ser conferível no mesmo lugar que todo o resto. A
+      # hospedagem do WebView2 não perde nada: o controle de WinForms é uma
+      # casca fina sobre `CreateCoreWebView2Controller(HWND)`.
+      - name: Compilar a casca
+        run: dotnet build windows/AudioVisualIASD/AudioVisualIASD.csproj -c Release --nologo -v q
+
+      # E O ORÁCULO DO ENVELOPE **RODA** AQUI. Ele é `net8.0` PORTÁTIL de
+      # propósito: é a TERCEIRA escrita de um formato que já tem duas (a folha
+      # injetada, em JavaScript, e o `NucleoPonte.kt`), e um contrato de três
+      # lados em que só dois têm oráculo é um contrato de dois lados outra vez.
+      # As três leem as MESMAS fixtures, escritas à mão.
+      - name: O envelope da ponte, do lado da casca
+        run: dotnet run --project windows/AudioVisualIASD.Testes -c Release --nologo -v q
+
+      # E O NÚCLEO DE PÉ — o `nucleo.jar` servindo a base web de verdade.
+      #
+      # Os outros oráculos deste caminho medem PEÇAS: o `NucleoServidorTest`
+      # mede o servidor com sockets, o `NucleoDespachoTest` mede o despacho, e
+      # os três oráculos do envelope medem o formato. Nenhum deles sobe o
+      # programa — e o que só aparece na junção é o APERTO DE MÃO entre o
+      # `NucleoMain` (Kotlin) e o `Nucleo.Ligar()` (C#). Se os dois
+      # discordarem, o programa não abre **na máquina do operador**, que é o
+      # único lugar que este repositório não alcança.
+      - name: O núcleo de pé (Node + JVM)
+        run: |
+          set -euo pipefail
+          ./gradlew --no-daemon :core:nucleoJar
+          node tools/nucleo-de-pe.test.mjs
+
   apk:
     # No evento `release` não há APK a construir: a Release ACABOU de publicar
     # um. Rodar aqui recompilaria o mesmo commit para jogar o resultado fora —
@@ -1255,6 +1339,7 @@ jobs:
       # continuar VERDE testando nada — o `:app` não tem mais teste de unidade.
       - name: Testes unitários (JVM)
         run: ./gradlew --no-daemon :core:test testDebugUnitTest
+
 
       # A versão sai da tag (v1.1 → versionName 1.1). O versionCode NÃO sai
       # mais do número da execução: `github.run_number` conta por WORKFLOW, e

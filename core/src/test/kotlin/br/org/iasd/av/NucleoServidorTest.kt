@@ -50,7 +50,10 @@ class NucleoServidorTest {
         raiz.deleteRecursively()
     }
 
-    private fun sobe(porta: Int = portaLivre(), ponte: (ByteArray) -> ByteArray = { "{}".toByteArray() }): NucleoServidor {
+    private fun sobe(
+        porta: Int = portaLivre(),
+        ponte: (String, ByteArray) -> ByteArray = { _, _ -> "{}".toByteArray() },
+    ): NucleoServidor {
         val s = NucleoServidor(raiz, porta, ponte)
         assertNull("o servidor devia subir", s.ligar())
         srv = s
@@ -141,7 +144,7 @@ class NucleoServidorTest {
     @Test
     fun portaOcupadaRecusaEmVezDeEscolherOutra() {
         val s = sobe()
-        val segunda = NucleoServidor(raiz, s.porta) { "{}".toByteArray() }
+        val segunda = NucleoServidor(raiz, s.porta) { _, _ -> "{}".toByteArray() }
         val recusa = segunda.ligar()
         outro = segunda
         assertNotNull("a segunda instância NÃO podia subir na mesma porta", recusa)
@@ -157,7 +160,7 @@ class NucleoServidorTest {
     @Test
     fun semBundleRecusaComFrasePropria() {
         val vazia = File.createTempFile("vazio", "").let { it.delete(); it.mkdirs(); it }
-        val s = NucleoServidor(vazia, portaLivre()) { ByteArray(0) }
+        val s = NucleoServidor(vazia, portaLivre()) { _, _ -> ByteArray(0) }
         val r = s.ligar()
         outro = s
         assertTrue(r is NucleoServidor.Recusa.SemBundle)
@@ -247,22 +250,79 @@ class NucleoServidorTest {
 
     // ---------- A PONTE ----------
 
+    /** Uma sessão de janela válida — ver [NucleoRotas.sessaoValida]. */
+    private val SESSAO = "janela-controle-1"
+
     @Test
     fun aPonteRecebeOCorpoEDevolveODela() {
         var visto: String? = null
-        val s = sobe(ponte = { corpo ->
+        var quem: String? = null
+        val s = sobe(ponte = { sessao, corpo ->
+            quem = sessao
             visto = String(corpo, Charsets.UTF_8)
             "{\"ok\":1}".toByteArray(Charsets.UTF_8)
         })
-        val corpo = "{\"m\":\"role\",\"id\":\"a:1\"}"
+        val corpo = "AV1\na:1\nrole\n0\n"
         val r = pedir(
             s.porta,
-            "POST /ponte/call HTTP/1.1\r\nHost: {HOST}\r\n" +
-                "Content-Type: application/json\r\nContent-Length: ${corpo.length}\r\n\r\n$corpo",
+            "POST /ponte/call?s=$SESSAO HTTP/1.1\r\nHost: {HOST}\r\n" +
+                "Content-Type: application/octet-stream\r\nContent-Length: ${corpo.length}\r\n\r\n$corpo",
         )
         assertEquals(corpo, visto)
+        assertEquals("a sessão da query chega ao despacho", SESSAO, quem)
         assertTrue(r, r.startsWith("HTTP/1.1 200 "))
         assertTrue(r, r.contains("{\"ok\":1}"))
+    }
+
+    /**
+     * SEM SESSÃO NÃO HÁ CHAMADA — e a recusa é o 404 uniforme, não um 400 que
+     * explique o que faltou. É a disciplina do espelho: a resposta não
+     * distingue "não existe" de "você não pode".
+     */
+    @Test
+    fun aPonteSemSessaoE404EnaoUmaExplicacao() {
+        var chamou = false
+        val s = sobe(ponte = { _, _ -> chamou = true; "{}".toByteArray() })
+        // `%20` e não um espaço cru: um espaço na linha de requisição é
+        // recusado pelo `EspelhoHttp` como MALFORMADO, antes de existir rota —
+        // e um cliente de verdade nunca o manda assim. Testá-lo cru mediria a
+        // camada de baixo e tentaria afrouxá-la para o 404 sair, que é o
+        // caminho exato para enfraquecer a defesa mais forte das duas.
+        for (query in listOf("", "?s=", "?s=curta", "?s=tem%20espaco", "?s=" + "x".repeat(65))) {
+            val r = pedir(
+                s.porta,
+                "POST /ponte/call$query HTTP/1.1\r\nHost: {HOST}\r\nContent-Length: 0\r\n\r\n",
+            )
+            assertTrue(query + " → " + r.lineSequence().first(), r.startsWith("HTTP/1.1 404 "))
+        }
+        // A ASSERÇÃO QUE CARREGA O TESTE é esta, e não o status: o despacho —
+        // e com ele a superfície inteira da ponte — não foi alcançado.
+        assertTrue("o despacho não pode ter sido alcançado", !chamou)
+    }
+
+    /**
+     * O TETO DO CORPO DA PONTE NÃO É O DA REDE.
+     *
+     * O `EspelhoHttp.TETO_CORPO` são 256 bytes, e ele está certo para o socket
+     * que qualquer um na Wi-Fi da igreja alcança. Aqui passa o `salvarTexto`,
+     * que carrega o Registro inteiro — e um 413 sobre ele chegaria ao
+     * `native.js` como `null`, isto é, em silêncio.
+     */
+    @Test
+    fun aPonteAceitaUmCorpoMuitoMaiorQueOTetoDaRede() {
+        var recebido = 0
+        val s = sobe(ponte = { _, corpo -> recebido = corpo.size; "{}".toByteArray() })
+        val grande = "x".repeat(64 * 1024)
+        val corpo = "AV1\na:1\nsalvarTexto\n1\n${grande.length}\n$grande\n"
+        val r = pedir(
+            s.porta,
+            "POST /ponte/call?s=$SESSAO HTTP/1.1\r\nHost: {HOST}\r\n" +
+                "Content-Length: ${corpo.length}\r\n\r\n$corpo",
+        )
+        assertTrue(r, r.startsWith("HTTP/1.1 200 "))
+        assertEquals(corpo.length, recebido)
+        // E o teto continua EXISTINDO: ele é de protocolo, não uma porta aberta.
+        assertTrue(NucleoPonte.TETO_CORPO in 1..(8 * 1024 * 1024))
     }
 
     /**
@@ -272,10 +332,10 @@ class NucleoServidorTest {
      */
     @Test
     fun aPonteQueLancaViraRespostaEnaoQueda() {
-        val s = sobe(ponte = { throw IllegalStateException("estourou") })
+        val s = sobe(ponte = { _, _ -> throw IllegalStateException("estourou") })
         val r = pedir(
             s.porta,
-            "POST /ponte/call HTTP/1.1\r\nHost: {HOST}\r\nContent-Length: 2\r\n\r\n{}",
+            "POST /ponte/call?s=$SESSAO HTTP/1.1\r\nHost: {HOST}\r\nContent-Length: 0\r\n\r\n",
         )
         assertTrue(r, r.startsWith("HTTP/1.1 200 "))
         assertTrue(r, r.contains("\"erro\""))
@@ -289,5 +349,123 @@ class NucleoServidorTest {
         val s = sobe()
         val r = get(s.porta, "/ponte/call")
         assertTrue(r, r.startsWith("HTTP/1.1 404 "))
+    }
+
+    // ---------- O FIO SSE ----------
+
+    /**
+     * O FIO É ENDEREÇADO, e as duas metades importam.
+     *
+     * A resposta de uma chamada volta para UMA janela — como o
+     * `evaluateJavascript` do Android endereça um WebView. Um comando do
+     * barramento vai para todas MENOS o emissor — como o `BroadcastChannel`,
+     * que não entrega ao próprio, e como o `MessageBus`. Sem a segunda, o
+     * `busPost` do Controle voltaria para o Controle: o `__mid` do `db.js` só
+     * conhece os mids RECEBIDOS, então o eco entraria como mensagem NOVA.
+     */
+    @Test
+    fun oQueDesceEEnderecado() {
+        val s = sobe()
+        val a = fio(s.porta, "sessao-controle-a")
+        val b = fio(s.porta, "sessao-telao-bbb")
+        try {
+            s.empurrar("{\"t\":\"r\",\"id\":\"a:1\"}", alvo = "sessao-controle-a")
+            s.empurrar("{\"t\":\"b\",\"m\":1}", menos = "sessao-controle-a")
+            val doA = leEventos(a, 1)
+            val doB = leEventos(b, 1)
+            assertTrue("a resposta foi para o Controle: $doA", doA.contains("\"t\":\"r\""))
+            assertTrue("e não voltou para quem a emitiu: $doA", !doA.contains("\"t\":\"b\""))
+            assertTrue("o comando foi para o Telão: $doB", doB.contains("\"t\":\"b\""))
+            assertTrue("e a resposta do outro não vazou: $doB", !doB.contains("\"t\":\"r\""))
+        } finally { a.close(); b.close() }
+    }
+
+    @Test
+    fun oFioSemSessaoE404() {
+        val s = sobe()
+        val r = get(s.porta, "/ponte/e")
+        assertTrue(r, r.startsWith("HTTP/1.1 404 "))
+    }
+
+    /**
+     * O CORPO DE UM `chunked` VAI EM CHUNKS. Escrever os bytes crus depois de
+     * anunciar `Transfer-Encoding: chunked` não dá erro em lugar nenhum: o
+     * navegador lê o começo do `data:` como o tamanho hexadecimal do bloco e o
+     * fio morre — ou fica pendurado esperando um bloco que nunca fecha.
+     */
+    @Test
+    fun oFioSaiEnquadrado() {
+        val s = sobe()
+        val c = fio(s.porta, "sessao-controle-a")
+        try {
+            val cab = c.cabecalho
+            assertTrue(cab, cab.contains("text/event-stream"))
+            assertTrue(cab, cab.contains("Transfer-Encoding: chunked"))
+            s.empurrar("{\"t\":\"r\",\"id\":\"a:1\",\"v\":null}", alvo = "sessao-controle-a")
+            val cru = leCru(c, 1)
+            // Cada empurrão sai como UM chunk: tamanho em hexadecimal, CRLF,
+            // os bytes, CRLF.
+            assertTrue("o chunk anuncia o tamanho: $cru", Regex("^[0-9a-f]+\\r\\n").containsMatchIn(cru))
+            assertTrue(cru, cru.contains("data: {"))
+        } finally { c.close() }
+    }
+
+    // ---------- ferramentas do fio ----------
+
+    /** Uma conexão SSE aberta e mantida — o que uma janela faz. */
+    private class Fio(val s: Socket, val cabecalho: String) {
+        val leitor = s.getInputStream().bufferedReader(Charsets.UTF_8)
+        fun close() { try { s.close() } catch (_: Exception) {} }
+    }
+
+    private fun fio(porta: Int, sessao: String): Fio {
+        val s = Socket(InetAddress.getLoopbackAddress(), porta)
+        s.soTimeout = 4000
+        s.getOutputStream().write(
+            ("GET /ponte/e?s=$sessao HTTP/1.1\r\nHost: 127.0.0.1:$porta\r\n\r\n")
+                .toByteArray(Charsets.US_ASCII)
+        )
+        s.getOutputStream().flush()
+        // O cabeçalho vem inteiro antes do primeiro chunk; lê-se até a linha em
+        // branco e nem um byte além, senão o corpo do teste some aqui.
+        val ent = s.getInputStream()
+        val cab = StringBuilder()
+        while (!cab.endsWith("\r\n\r\n")) {
+            val b = ent.read()
+            if (b < 0) break
+            cab.append(b.toChar())
+        }
+        return Fio(s, cab.toString())
+    }
+
+    /** Os `data:` que chegaram, esperando por [quantos] deles — pelo FATO, e
+     *  nunca por um prazo: o `soTimeout` é a rede de segurança, não a régua. */
+    private fun leEventos(f: Fio, quantos: Int): String {
+        val fora = StringBuilder()
+        var achados = 0
+        while (achados < quantos) {
+            val l = f.leitor.readLine() ?: break
+            if (l.startsWith("data: ")) { fora.append(l).append('\n'); achados++ }
+        }
+        return fora.toString()
+    }
+
+    /** Os bytes CRUS do corpo, sem desfazer o enquadramento — é o
+     *  enquadramento que se quer ver. */
+    private fun leCru(f: Fio, quantosEventos: Int): String {
+        val ent = f.s.getInputStream()
+        val buf = ByteArray(4096)
+        val fora = StringBuilder()
+        var vistos = 0
+        while (vistos < quantosEventos + 1) { // +1: o comentário `: oi` de abertura
+            val n = ent.read(buf)
+            if (n <= 0) break
+            val pedaco = String(buf, 0, n, Charsets.UTF_8)
+            fora.append(pedaco)
+            vistos += Regex("data: |: oi").findAll(pedaco).count()
+        }
+        // Corta o comentário de abertura: o que interessa é o chunk do evento.
+        val i = fora.indexOf("data: ")
+        return if (i > 0) fora.substring(fora.lastIndexOf("\r\n", i - 3).coerceAtLeast(0) + 2) else fora.toString()
     }
 }
