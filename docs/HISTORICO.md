@@ -24,6 +24,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
+- **v1.4.5** — O MÓDULO `:core`, E O QUE ELE DESCOBRIU NO PRIMEIRO MINUTO. Metade do Kotlin deste projeto nunca foi Android — MEDIDO: seis arquivos com ZERO import de `android.*`, já cobertos por JUnit no CI, que eram Android só por morarem no módulo do app. Eles saíram para um módulo JVM puro, e a separação tem dois efeitos: o compilador passa a IMPEDIR que uma dependência de plataforma entre neles por descuido (a pureza deixa de ser promessa de comentário e vira erro de compilação), e a mesma lógica passa a poder ser hospedada por uma segunda casca sem uma linha duplicada. **Nenhum arquivo mudou — só o endereço**, e é por isso que os **138 testes** continuam passando sem uma asserção nova. **E o módulo refutou a própria premissa em um dos seis**: o `EspelhoDiag.kt` não compila fora do Android, porque `org.json` é API da PLATAFORMA, não da JVM — *"sem import de `android.*`" não é o mesmo que "portável"*, e só o compilador do módulo novo sabia disso. Ele voltou para o `:app` com a razão escrita no topo, e a alternativa (o artefato `org.json:json` do Maven) está registrada como recusada: a cláusula "Good, not Evil" dele não é licença livre reconhecida e não combina com a GPLv3 deste repositório. Um segundo achado de arrumação: o `EspelhoParesTest` guardava, no mesmo arquivo, uma classe que testa o `EspelhoCert` — com os dois em módulos diferentes, o arquivo não compilaria em lugar nenhum; foi dividido pelo que cada teste TESTA, que é como deveria ter sido desde o começo. O CI passou a rodar `:core:test` ao lado do `testDebugUnitTest`, que é tarefa do AGP e alcança só o `:app` — sem isso o passo continuaria VERDE testando quase nada. **LOTE DE SHELL: a base web não muda** (`version.json` intacto em 1.4.4) e **EXIGE RELEASE** para chegar a algum aparelho; não há mudança de comportamento nenhuma para o operador.
 - **v1.4.4** — O DEGRAU DE COMPUTADOR, e o defeito que ele revelou. Aberto numa tela larga, o app não ficava só feio: **a lista SUMIA**. MEDIDO — num notebook de 1280x800 o `main` media **90px** e a lista **10**; num monitor de 1920, 169 e 54; num celular, 612 e 497. A causa estava escrita duas vezes na folha e nunca se encontrou: `.bottombar` é `flex-shrink: 0` e a preview dentro dela **não tem teto de altura** (de propósito — um `max-height` mentiria sobre a proporção, que é o que a faz fiel). Num celular a coluna mede ~408px e a preview para em ~138; numa tela larga ela vira 897x560 e o `main` (`flex: 1`) é espremido a nada. **A correção não é pôr um teto na preview** — isso reintroduziria a mentira —, é parar de empilhar: onde há lugar, o app vira DUAS colunas (a lista à esquerda, as abas e o deck à direita), que é a mesma leitura girada 90°. A faixa de abas sobe para o TOPO do painel, porque ela troca o que a lista da ESQUERDA mostra e no meio da coluna direita ficava a meia tela do que acende; e o respiro superior que a folha tira de propósito VOLTA, porque a razão dele (emendar o vazado da aba com o corpo da seção) não existe quando esse corpo está na coluna de ao lado. **A guarda tem duas metades, e a segunda é a que importa**: `min-width: 900px` E `min-height: 600px` — largura sozinha alcançaria um celular DEITADO, que é a forma que o app toma na preview em tela cheia, a projeção quando não há TV. Dois oráculos novos, os dois provados por reversão: o do degrau (sem o piso de altura reprova EXATAMENTE a asserção do celular deitado; sem o degrau inteiro, as dez do desktop) e **o da SEGUNDA JANELA** — que nenhum teste deste repositório jamais tinha aberto (`waitForEvent` não aparecia em `tools/`, e `openWebDisplay` estava em produção com cobertura zero). Ele prova o que o app inteiro supõe e nunca verificou: duas páginas do mesmo origin dividem IndexedDB e BroadcastChannel. A reversão dele é o achado do lote — com o `/display/` aberto em `127.0.0.1` em vez de `localhost` (mesma máquina, mesma porta, só o host), o acervo some e o barramento emudece **sem um único erro de página**. OTA PURO.
 - **v1.4.2** — A MEDIÇÃO DE ALCANCE. O app e o site passaram a contar **quantos aparelhos usam isto**, e nada além disso: uma busca por dia a um asset de Release cujo `download_count` o GitHub já mantém — sem id, sem corpo, sem nada que distinga um aparelho de outro, e sem uma requisição a domínio que o app já não usasse. O uso próprio sai **por construção** (contador separado: `b-dev.txt` para o aparelho marcado em Configurações e para todo build debuggável), nunca por subtração de uma estimativa — *subtrair um palpite do próprio uso é como se produz um painel confiável e falso*. Três achados MEDIDOS moldaram o desenho, e o segundo inverteu a escolha óbvia: (1) o alcance de hoje é de **um dígito** (v1.0 com 5 downloads, v1.4 com 1), então o instrumento barato vale mais que o preciso; (2) o `web-ota` **não tem filtro de caminho**, então gravar a série em `main` republicaria o bundle de hora em hora e ZERARIA o `version.json` — o instrumento destruiria a própria medida —, daí a branch órfã `dados`; (3) asset de Release não manda `Access-Control-Allow-Origin` (o `pages.yml` já registrava a medição), então o painel lê de `raw.githubusercontent.com`. A seção fica em `site/registro/` atrás de `#alcance`, e **a própria página diz que isso é obscuridade e não segredo** — `download_count` é API pública de um repositório público. Fecha com um oráculo novo (`registro-alcance.test.mjs`, o único que roda sobre o `site/`), provado por reversão contra um gráfico que desenhava 12, 5, 3 e 1 do mesmo tamanho: `.barra-c`/`.barra-f` eram `<span>`, e `width` não faz nada em elemento inline. **Uma suposição segue sem medir**, e o farol inteiro depende dela — ver o aviso no topo de `docs/MEDICAO-DE-ALCANCE.md`.
 - **v1.4.1** — O CELULAR COMO PONTO DE ACESSO. A transmissão nunca precisou de internet — ela precisava que o celular fosse CLIENTE de uma Wi-Fi, e numa igreja sem rede isso não existe: o operador lia *"sem Wi-Fi — o espelho só liga em Wi-Fi"* com o hotspot ligado na frente dele. A causa é uma só, e não são "dois portões": `redeDaWifi` pergunta ao `ConnectivityManager`, e **o downstream do tethering não é um `Network`** (é montado no netd sem `NetworkAgent`, e sempre viveu no eixo que devolve NOME DE INTERFACE). Nasce o `EspelhoInterfaces.kt` — PURO, com JUnit em pares —, cujo discriminador **não é o nome**: *no ar, com IPv4 RFC1918, e que NENHUM `Network` reivindica*, porque a do soft AP é a única com essa forma — não é uma rede que o aparelho USA, é uma que ele SERVE. O nome entra só na CLASSIFICAÇÃO, depois de três filtros, porque isto é Kotlin e quando a regra errar num aparelho não há OTA que conserte. O par que carrega o arquivo é o `p2p-wlan0-0`/`192.168.49.1` do Wi-Fi Direct: privado, no ar, sem `Network` que o reivindique — **a forma EXATA que a regra procura**, e no ar durante todo culto com Miracast; sem a família `p2p` na denylist o servidor subiria no fio do dongle. O bind **não mudou uma letra**: continua explícito num IPv4, nunca `0.0.0.0`. Mais três coisas que o lote descobriu de passagem: o callback de rede **nunca dispara** em modo AP puro (não há morte errada em 6 s — há coisa pior, nada vigiaria o AP caindo, daí a enquete de 5 s); `ipAindaEDaWifi` virou `ipAindaEServivel` com um segundo degrau, sem o qual a transmissão morreria na primeira suspeita; e o **AP ISOLATION**, a falha muda deste recurso, praticamente DESAPARECE no hotspot — isolamento bloqueia cliente↔cliente e ali o celular é o GATEWAY. A recusa passou a DIZER O QUE FAZER, num nó próprio e só quando é de rede. `SHELL_VERSION` 57 (`espelhoLigarEm`, ADITIVO).
@@ -275,6 +276,60 @@ na nota que a revoga, não apagada da que a criou.
 - **v5.154** — é METADE OTA e METADE APK, e a divisão importa para quem for testar em aparelho.
 - **v5.155** — é OTA PURO
 - **v5.156** — é METADE OTA e METADE APK, de novo.
+
+---
+
+## v1.4.5 — o módulo `:core`
+
+**Metade do Kotlin deste projeto nunca foi Android**, e agora o compilador sabe
+disso. Medido antes do lote (`grep -c "^import android\."` em cada `.kt`):
+
+| balde | linhas |
+|---|---:|
+| zero import de `android.*` | **2.247** |
+| acoplamento raso (`Log`, `Context`, `Uri`, `SystemClock`) | 6.307 |
+| preso à plataforma | 8.489 |
+
+O primeiro balde saiu para `core/src/main/kotlin/`, um módulo `kotlin.jvm` sem
+AGP e sem AndroidX. **Nenhum arquivo mudou — só o endereço deles**, e é por isso
+que os **138 testes JUnit** continuam passando sem uma asserção nova: eles foram
+junto.
+
+**O ganho não é arrumação.** É que a pureza deixa de ser promessa de comentário
+e vira erro de compilação — quando alguém, daqui a um ano, resolver "só logar
+uma coisinha" com `android.util.Log` num parser HTTP, o build diz não. E é o que
+permite uma segunda casca hospedar a MESMA lógica sem duplicar uma linha.
+
+### O módulo refutou a premissa em um dos seis, no primeiro minuto
+
+`EspelhoDiag.kt` tem zero import de `android.*` **e mesmo assim não compila fora
+do Android**: ele usa `org.json`, que é API da PLATAFORMA, não da JVM. *"Sem
+import de `android.*`" não é o mesmo que "portável"* — e nenhuma leitura do
+arquivo diria isso; quem disse foi o compilador do módulo novo, que é
+exatamente o serviço que ele presta.
+
+Ele voltou para o `:app`, com a razão escrita no topo. A alternativa fica
+registrada como **recusada**: o artefato `org.json:json` do Maven carrega a
+cláusula *"Good, not Evil"*, que não é licença livre reconhecida e não combina
+com a GPLv3 deste repositório. Quando a casca de computador precisar do diário,
+a escolha é entre um escritor de JSON próprio (o anel só emite string, número e
+lista) ou uma biblioteca com licença compatível — decisão do lote daquela casca.
+
+### Dois acertos de arrumação que o módulo forçou
+
+- **`EspelhoParesTest` estava com dois inquilinos.** Ele guardava, no mesmo
+  arquivo, a classe `EspelhoCertNomeTest` — e com `EspelhoPares` no `:core` e
+  `EspelhoCert` no `:app` (ele lê `Context`, `Uri` e `Log` para tratar o
+  `.p12`), o arquivo não compilaria em lugar nenhum. Foi dividido **pelo que
+  cada teste TESTA**, que é como deveria ter sido desde o começo. Nenhum corpo
+  reescrito.
+- **O CI testava quase nada, e teria ficado verde.** `testDebugUnitTest` é
+  tarefa do AGP e alcança só o `:app`; os 138 testes puros só rodam em
+  `:core:test`. O passo agora chama os dois.
+
+**LOTE DE SHELL.** A base web não muda (`version.json` intacto em 1.4.4), e
+**EXIGE RELEASE** para chegar a algum aparelho — não há mudança de comportamento
+nenhuma para o operador. `SHELL_VERSION` intacto em 58.
 
 ---
 

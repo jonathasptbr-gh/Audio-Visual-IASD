@@ -30,4 +30,17 @@ dependencyResolutionManagement {
 }
 
 rootProject.name = "AudioVisualIASD"
+
+// `:core` — A LÓGICA QUE NÃO SABE EM QUE PLATAFORMA ESTÁ.
+//
+// Ele existe porque metade do Kotlin deste projeto nunca foi Android: seis
+// arquivos com ZERO import de `android.*`, já cobertos por JUnit no CI. Eles
+// eram Android só por morarem no módulo do app.
+//
+// Separá-los tem dois efeitos, e o segundo é o que motiva o módulo: o compilador
+// passa a IMPEDIR que uma dependência de plataforma entre neles por descuido (a
+// pureza deixa de ser uma promessa de comentário e vira erro de compilação), e a
+// mesma lógica passa a poder ser hospedada por uma segunda casca — a de
+// computador — sem uma linha duplicada.
+include(":core")
 include(":app")

@@ -3,9 +3,21 @@
 A casca Kotlin que hospeda a base web em dois WebViews e manda **só o Display**
 para a TV com `android.app.Presentation`.
 
+> **DOIS MÓDULOS desde a v1.4.5.** O `:core` (`core/src/main/kotlin/`) é JVM
+> PURO — cinco arquivos que nunca foram Android, agora num módulo onde o
+> compilador IMPEDE que uma dependência de plataforma entre neles. O `:app` é a
+> casca. A separação é o que permite uma segunda casca hospedar a MESMA lógica
+> sem duplicar uma linha; os 138 testes JUnit foram junto, sem uma asserção
+> nova, porque **nenhum dos arquivos mudou — só o endereço deles**.
+>
+> `EspelhoDiag.kt` **não atravessou**, e o motivo está escrito no topo dele:
+> `org.json` é API da plataforma Android, não da JVM. *"Sem import de
+> `android.*`" não é o mesmo que "portável"* — e foi o compilador do módulo novo
+> que disse isso.
+
 > **Este diretório é o irmão de [`../arquitetura/`](../arquitetura/).** Aquele
 > cobre a base web (`assets/web/`); este cobre o Kotlin
-> (`app/src/main/java/br/org/iasd/av/`, 29 arquivos). As regras que valem para
+> (`app/src/main/java/br/org/iasd/av/` mais `core/src/main/kotlin/`). As regras que valem para
 > o app inteiro — invariantes, paleta, entrega, divergências web × nativo —
 > ficam em [`../../CLAUDE.md`](../../CLAUDE.md), que continua sendo a **leitura
 > obrigatória**; aqui está o detalhe que ela aponta.
@@ -23,7 +35,7 @@ para a TV com `android.app.Presentation`.
 > build/assinatura/backup) vive nas seções correspondentes do `CLAUDE.md` mais o
 > KDoc dos arquivos.
 
-## Os 29 arquivos, e onde cada um é explicado
+## Os arquivos, e onde cada um é explicado
 
 | arquivo | linhas | onde |
 |---|---|---|
@@ -33,11 +45,11 @@ para a TV com `android.app.Presentation`.
 | `WebUpdater.kt` | 1.160 | [`OTA.md`](OTA.md) |
 | `ShellUpdater.kt` | 340 | [`OTA.md`](OTA.md) |
 | `WebPathHandler.kt` | 88 | [`OTA.md`](OTA.md) |
-| `EspelhoHttp.kt` | 911 | [`../TELAO-POR-COMANDOS.md`](../TELAO-POR-COMANDOS.md) |
+| `EspelhoHttp.kt` **(:core)** | 911 | [`../TELAO-POR-COMANDOS.md`](../TELAO-POR-COMANDOS.md) |
 | `EspelhoServidor.kt` | 2.417 | idem |
-| `EspelhoPares.kt` | 630 | idem |
-| `EspelhoMidiaCache.kt` | 248 | idem |
-| `EspelhoInterfaces.kt` | 193 | idem — **em que interface o socket abre** (é ele que acha o PONTO DE ACESSO) |
+| `EspelhoPares.kt` **(:core)** | 630 | idem |
+| `EspelhoMidiaCache.kt` **(:core)** | 248 | idem |
+| `EspelhoInterfaces.kt` **(:core)** | 193 | idem — **em que interface o socket abre** (é ele que acha o PONTO DE ACESSO) |
 | `EspelhoMidiaCanal.kt` | 218 | idem |
 | `EspelhoEnergia.kt` | 334 | idem |
 | `EspelhoCert.kt` | 298 | idem (TLS opcional; **sem UI desde a v5.196**) |
@@ -45,7 +57,7 @@ para a TV com `android.app.Presentation`.
 | `YoutubeGrab.kt` | 1.996 | `CLAUDE.md` — "Trabalho em segundo plano" e "Divergências" |
 | `StreamProxy.kt` | 511 | `CLAUDE.md` — invariante 8 |
 | `MuxMp4.kt` | 190 | `CLAUDE.md` — "Resolução do download" |
-| `TrilhaAudio.kt` | 138 | `CLAUDE.md` — "Séries do YouTube" |
+| `TrilhaAudio.kt` **(:core)** | 138 | `CLAUDE.md` — "Séries do YouTube" |
 | `SessionService.kt` | 916 | `CLAUDE.md` — "Notificação de controles" |
 | `SyncService.kt` | 550 | `CLAUDE.md` — "Trabalho em segundo plano" |
 | `MainActivity.kt` | 2.005 | `CLAUDE.md` — voltar, volume, cast, fullscreen |

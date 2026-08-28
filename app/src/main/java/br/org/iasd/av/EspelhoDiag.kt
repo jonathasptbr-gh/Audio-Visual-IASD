@@ -1,5 +1,24 @@
 package br.org.iasd.av
 
+// POR QUE ESTE ARQUIVO NÃO ESTÁ NO `:core` (v1.4.5)
+//
+// Ele é puro no sentido em que os outros cinco são — ZERO import de `android.*`
+// — e mesmo assim NÃO É PORTÁVEL: `org.json` é API da PLATAFORMA Android, não
+// da JVM. O compilador só disse isso quando o módulo existiu, e é exatamente o
+// serviço que o `:core` presta.
+//
+// Ficar aqui é a resposta de menor custo: são ~116 linhas cujo trabalho é
+// PRODUZIR JSON ("devolve JSON, não frase" — a regra de diagnóstico do
+// projeto), e levá-las junto exigiria uma dependência nova só para isso. A
+// artefato `org.json:json` do Maven, além de ser dependência, carrega a
+// cláusula "Good, not Evil", que não é licença livre reconhecida e não combina
+// com a GPLv3 deste repositório.
+//
+// Quando a casca de computador precisar do diário, a escolha é entre um
+// escritor de JSON próprio (são poucas linhas: o anel só emite string, número e
+// lista) ou uma biblioteca com licença compatível — e essa decisão é do lote
+// daquela casca, não deste.
+
 import org.json.JSONArray
 import org.json.JSONObject
 

@@ -153,6 +153,13 @@ android {
 }
 
 dependencies {
+    // A LÓGICA QUE NÃO SABE EM QUE PLATAFORMA ESTÁ (ver `settings.gradle.kts`).
+    // Seis arquivos que nunca foram Android — parser HTTP, controle de acesso,
+    // cache de mídia, escolha de interface, trilha de áudio e o anel do diário
+    // —, agora num módulo JVM puro onde o compilador IMPEDE que uma dependência
+    // de plataforma entre neles por descuido.
+    implementation(project(":core"))
+
     // AndroidX oficial.
     implementation("androidx.core:core-ktx:1.15.0")
     implementation("androidx.activity:activity-ktx:1.9.3")
@@ -189,29 +196,13 @@ dependencies {
     implementation("com.github.TeamNewPipe:NewPipeExtractor:v0.26.4")
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs_nio:2.1.2")
 
-    // A TERCEIRA EXCEÇÃO à regra de zero dependência, e a primeira que **não põe
-    // um byte no APK** (a quarta, o Playwright do `package.json`, também não).
-    // Ainda assim é uma declaração nova, e por isso merece o mesmo tratamento
-    // por escrito das outras (o pptx-renderer e o NewPipe; a IFrame API do
-    // YouTube era a terceira e saiu na v5.212).
-    //
-    // Ela existe por causa do TELÃO POR COMANDOS (ver docs/TELAO-POR-COMANDOS.md).
-    // O `EspelhoHttp.kt` e o `EspelhoPares.kt` são o PRIMEIRO código deste
-    // projeto que aceita entrada de um desconhecido: um parser HTTP com controle
-    // de acesso, exposto num `ServerSocket` da rede da igreja. Em todo o resto do
-    // app um erro vira pixel errado; ali ele vira porta aberta.
-    //
-    // O argumento é do próprio documento que desenhou o recurso, virado contra
-    // ele mesmo: aquele texto recusa o RFC 6455 (WebSocket) porque seriam "~150
-    // linhas de protocolo SEM ORÁCULO, num repositório sem app/src/test" — e a
-    // mesma frase vale, palavra por palavra, contra um parser HTTP escrito à mão.
-    // Ou os dois arquivos são puros e testados, ou o argumento se aplica contra o
-    // recurso inteiro. Eles são: ZERO import de android.*, todo relógio entra por
-    // parâmetro, e o `./gradlew testDebugUnitTest` roda no CI **sem
-    // continue-on-error** (ver apk.yml).
-    //
-    // A conta da manutenção é do JUnit 4, que está estável há mais de uma década,
-    // não tem dependência transitiva além do hamcrest-core e roda no mesmo runner
-    // que o CI já usa para compilar o APK.
+    // O JUNIT FICA NOS DOIS MÓDULOS, e a razão é uma só: cada teste mora com o
+    // que ele testa. A maior parte dos testes puros mudou para o `:core` junto
+    // com os arquivos que exercitam (ver `core/build.gradle.kts`); aqui sobrou
+    // o `EspelhoCertNomeTest`, porque o `EspelhoCert` lê `Context`, `Uri` e
+    // `Log` para tratar o `.p12` e portanto não atravessa. A justificativa da
+    // exceção continua sendo a do `CLAUDE.md`: ele não põe um byte no APK, e o
+    // `EspelhoHttp`/`EspelhoPares` são o primeiro código deste projeto que
+    // aceita entrada de um desconhecido.
     testImplementation("junit:junit:4.13.2")
 }

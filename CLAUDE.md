@@ -86,6 +86,18 @@ PWA, hoje com a COLUNA de controles no lugar dos gestos invisíveis).
 ## Estrutura do repositório
 
 ```
+core/src/main/kotlin/br/org/iasd/av/   # ← :core — A LÓGICA SEM PLATAFORMA (v1.4.5)
+├── EspelhoHttp.kt               # o parser HTTP (+ Range/SSE), com JUnit
+├── EspelhoPares.kt              # a porta, tokens, prazo, castigo
+├── EspelhoMidiaCache.kt         # o cache da rota /m/<token>
+├── EspelhoInterfaces.kt         # EM QUE INTERFACE o socket abre — é ele que acha
+│                                #   o PONTO DE ACESSO, que não é um `Network`
+└── TrilhaAudio.kt               # QUAL trilha de áudio vai ao telão (a dublagem
+                                 #   automática do YouTube)
+   ·  ZERO import de android.* — e agora o COMPILADOR garante isso.
+   ·  138 testes JUnit, que continuam sendo os mesmos: o módulo mudou o
+      endereço dos arquivos, não uma linha deles.
+
 app/src/main/
 ├── AndroidManifest.xml          # intent-filter de share, portrait, <queries>, regras de backup
 ├── assets/web/                  # ← a base web (cópia própria, versionada aqui)
@@ -141,27 +153,18 @@ app/src/main/
 │   ├── CifraFonte.kt            # o GET da página de cifra — host travado,
 │   │                            #   sem parse, sem gravar nada em disco
 │   ├── YoutubeGrab.kt           # extrai e baixa o vídeo do YouTube NO APARELHO
-│   ├── TrilhaAudio.kt           # QUAL trilha de áudio vai ao telão (a dublagem
-│   │                            #   automática do YouTube) — PURO, com JUnit
-│   ├── MuxMp4.kt                # junta as faixas de vídeo e áudio (1080p) — MediaMuxer
-│   ├── StreamProxy.kt           # /stream/<token>: serve o googlevideo pelo NOSSO origin
 │   ├── SlideDeck.kt             # apresentação (PDF/Google) → uma imagem por página
 │   ├── MicChromeClient.kt       # onPermissionRequest: microfone no WebView do telão
 │   ├── MicDiag.kt               # POR QUE o microfone não abre — o que só o SHELL
 │   │                            #   sabe (permissão, AppOps, modo, entradas).
 │   │                            #   LEITURA PURA: não abre nada, não pede nada
 │   ├── MessageBus.kt            # relay de comandos entre os dois WebViews
-│   │                            # ↓ TELÃO POR COMANDOS (ver a seção do recurso)
-│   ├── EspelhoHttp.kt           # o parser HTTP (+ Range/SSE) — PURO, zero import de Android
-│   ├── EspelhoPares.kt          # a porta, tokens, prazo, castigo — PURO
+│   │                            # ↓ TELÃO POR COMANDOS — o servidor. O parser, o
+│   │                            #   controle de acesso, o cache e a escolha de
+│   │                            #   interface moram no `:core` (ver acima)
 │   ├── EspelhoServidor.kt       # sockets, rotas (bundle, /e, /m/, /par, /r), fan-out
-│   ├── EspelhoMidiaCache.kt     # o cache da rota /m/<token> — PURO, com JUnit
 │   ├── EspelhoMidiaCanal.kt     # canal de ArrayBuffer: OPFS → cache (WebMessage)
 │   ├── EspelhoEnergia.kt        # wake lock, Wi-Fi lock e térmica da transmissão
-│   ├── EspelhoInterfaces.kt     # EM QUE INTERFACE o socket abre — PURO, com
-│   │                            #   JUnit. É ele que acha o PONTO DE ACESSO,
-│   │                            #   que não é um `Network` e não aparece no
-│   │                            #   ConnectivityManager
 │   ├── EspelhoCert.kt           # o .p12 do TLS opcional (sem UI desde a v5.196)
 │   └── EspelhoDiag.kt           # o DIÁRIO da transmissão — devolve JSON, não frase
 └── res/
@@ -197,7 +200,16 @@ docs/
 └── ESPELHO-DE-PIXELS.md         # ARQUIVO: recurso removido (v5.187); só §2.3, §2.4 e §10-A
 ```
 
-**29 arquivos Kotlin, uma dependência de terceiros no shell** — o resto é
+**DOIS módulos Kotlin desde a v1.4.5** — `:core` (JVM puro, 5 arquivos: o parser
+HTTP, o controle de acesso, o cache de mídia, a escolha de interface e a trilha
+de áudio) e `:app` (a casca Android, 24 arquivos). A separação não é
+arrumação: é o compilador passando a IMPEDIR que uma dependência de plataforma
+entre no que é puro, e é o que permite uma segunda casca hospedar a MESMA
+lógica sem duplicar uma linha. **`EspelhoDiag.kt` NÃO atravessou**, e o motivo
+está escrito no topo dele: `org.json` é API da plataforma Android, não da JVM —
+"sem import de `android.*`" não é o mesmo que "portável".
+
+**Uma dependência de terceiros no shell** — o resto é
 AndroidX oficial (`core-ktx`, `activity-ktx`, `webkit`). O que sustenta essa
 proporção Kotlin × JavaScript é a invariante 5; ela é o argumento contra
 Capacitor/Cordova, que arrastariam npm e um build system inteiro e ainda assim
@@ -3159,8 +3171,11 @@ mundo anterior por outro caminho.
 > marca do papel como o servidor injeta, manda a CSP verbatim e roda **sem query
 > nenhuma**.
 
-**JUnit** (`./gradlew testDebugUnitTest`, **sem `continue-on-error`**, antes do
-`assembleRelease`) — os arquivos PUROS: `EspelhoHttpTest` (tetos do parser,
+**JUnit** (`./gradlew :core:test testDebugUnitTest`, **sem `continue-on-error`**,
+antes do `assembleRelease`) — **os DOIS módulos, e a primeira tarefa não é
+opcional**: `testDebugUnitTest` é do AGP e alcança só o `:app`, onde hoje resta
+um teste; os 138 dos arquivos puros rodam em `:core:test`. Deixar só a segunda
+faria o passo continuar verde testando quase nada. São eles: `EspelhoHttpTest` (tetos do parser,
 `read()` parcial, `Host` fora da allowlist, `Origin` estranha, 404 uniforme),
 `EspelhoParesTest` (prazo, teto de sessões, saneamento), `EspelhoHttpRangeTest`
 (a gramática RFC 7233 do `alcanceDe` — malformado é IGNORADO e vira 200, nunca
@@ -3173,7 +3188,9 @@ durante todo culto com Miracast) e `TrilhaAudioTest`
 (qual trilha de áudio vai ao telão — o defeito mais silencioso deste caminho:
 tudo funciona, e o testemunho está em inglês na frente da congregação; doze casos
 **em pares**, o que a regra passou a recusar e o que ela não pode ter recusado
-junto).
+junto). **No `:app` ficou um só, o `EspelhoCertNomeTest`** — ele exercita as duas
+funções puras do `EspelhoCert`, que não atravessou porque lê `Context`, `Uri` e
+`Log` para tratar o `.p12`. Cada teste mora com o que ele testa.
 
 **Duas regras de método que ficam:**
 
