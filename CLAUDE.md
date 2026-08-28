@@ -42,7 +42,9 @@ esvaziar, não para crescer),
 subsistema do shell, mais a tabela que diz onde cada um dos 28 arquivos é
 explicado), `docs/ARQUITETURA-WEB.md` (o HUB da base web: regras gerais e o
 mapa dos capítulos em `docs/arquitetura/`), `docs/TELAO-POR-COMANDOS.md`
-(o contrato das telas da rede), `docs/FONTE-DE-DADOS-LOUVORJA.md` (hinos/Bíblia)
+(o contrato das telas da rede — e o `docs/PONTO-DE-ACESSO-PLANO.md`,
+**plano NÃO implementado** de servir com o celular como ponto de acesso, parado
+esperando medição em aparelho), `docs/FONTE-DE-DADOS-LOUVORJA.md` (hinos/Bíblia)
 , `docs/HISTORICO.md`
 (**apêndice**: a nota de cada versão, para consultar por `grep`, nunca por
 leitura integral) e `docs/AUDITORIA-2026-08.md` (**apêndice**: a varredura de
