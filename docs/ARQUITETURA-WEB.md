@@ -57,12 +57,22 @@ git push origin main
 
 ## Regras de desenvolvimento
 
-- **Contexto de execução fixo: as duas telas SEMPRE rodam dentro do app
-  Android**, em dispositivo móvel — o Controle no celular do operador, o
-  Display numa `Presentation` na TV. Não projetar nem otimizar para aba de
-  navegador ou desktop: decisões de UX/autoplay/layout assumem esse contexto.
-  Rodar no navegador continua sendo obrigatório (é como se desenvolve e testa
-  fora do aparelho), mas não é o alvo do desenho.
+- **DOIS contextos de execução, e a casca é a exceção que se declara**
+  (v1.4.4; a regra anterior dizia "contexto fixo: sempre dentro do app Android"
+  e proibia otimizar para desktop). O alvo primário continua sendo o celular —
+  o Controle na mão do operador, o Display numa `Presentation` na TV —, mas a
+  base também roda **numa casca de computador** e num navegador comum (que é
+  como se desenvolve). O que a regra nova **NÃO autoriza**: um `if` por sistema
+  operacional dentro da base web. Toda guarda continua sendo
+  `if (!window.__NATIVE__)`; se duas cascas precisam de comportamentos
+  diferentes, quem diverge é a CASCA, atrás do mesmo método da ponte.
+
+  **No CSS a divergência é por ESPAÇO, não por plataforma.** A única regra de
+  largura da folha é o "degrau de computador" (`controle.css`), e ela pergunta
+  *"há lugar para duas colunas?"* — `min-width: 900px` **e** `min-height:
+  600px`. O piso de altura não é enfeite: sem ele a regra alcançaria um celular
+  DEITADO, que é a forma que o app toma na preview em tela cheia — a projeção
+  quando não há TV. Oráculo: `tools/degrau-desktop.test.mjs`.
 - Nunca perder funcionalidades existentes ao refatorar.
 - **Seleção de texto desligada globalmente nos dois apps** (`user-select:
   none !important` + `-webkit-touch-callout: none` +

@@ -1,5 +1,12 @@
 [
   {
+    "versao": "1.4.4",
+    "itens": [
+      "NUM COMPUTADOR O APP AGORA USA A TELA INTEIRA. Aberto numa janela larga, ele deixa de ser uma coluna de celular esticada e vira duas: o Cronograma à esquerda, a preview e os controles à direita. Antes, num notebook, a lista era espremida até quase sumir — o que o operador precisava ver era justamente o que a tela não mostrava.",
+      "No celular nada muda: a divisão só acontece onde há largura E altura de sobra, então nem o retrato nem a preview em tela cheia deitada são atingidos."
+    ]
+  },
+  {
     "versao": "1.4.3",
     "itens": [
       "A LISTA DE NOVIDADES DESTA JANELA ficou mais curta: ela guardava um resumo de cada versão desde a 1.0.1, e as antigas descreviam um app que ninguém mais roda. Agora ela cobre as duas últimas séries — o que muda é o peso da atualização, não o que você lê aqui."

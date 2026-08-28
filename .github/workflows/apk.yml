@@ -557,6 +557,18 @@ jobs:
           # `localhost` (mesma máquina, mesma porta, só o host diferente) o
           # acervo some e o barramento emudece **sem um único erro de página**.
           rodar tools/janela-do-display.test.mjs
+          # E O DEGRAU DE COMPUTADOR. Ele trava um defeito MEDIDO: sem a regra de
+          # largura, num notebook de 1280x800 o `main` media 90px e a lista
+          # DEZ — a superfície de trabalho do operador colapsava, porque a
+          # preview não tem teto de altura (de proposito) e `.bottombar` é
+          # `flex-shrink: 0`. O oráculo mede o que o desenho RESERVA (qual
+          # `display` o body computa, se as caixas estão lado a lado, o teto do
+          # `clamp`), nunca a soma renderizada de um texto — medir pixel de
+          # texto aqui mediria a fonte do runner. A asserção que mais vale é a
+          # do CELULAR DEITADO: a guarda tem `min-height` além de `min-width`
+          # porque o app entra em paisagem no caminho mais perigoso que tem, a
+          # preview em tela cheia, que sem TV É a projeção.
+          rodar tools/degrau-desktop.test.mjs
           # E OS DESTINOS das folhas de escolha. O que está marcado precisa
           # ATRAVESSAR o fechamento da folha: a ação roda depois de
           # `closeSongMenu()`, que zera o conjunto, e uma leitura tarde demais

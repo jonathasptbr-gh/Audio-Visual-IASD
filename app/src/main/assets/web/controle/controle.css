@@ -111,6 +111,15 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
      como um botão fora do lugar. Ver "Um vão só" em controle.css. */
   --deck-gap: .35rem;
 
+  /* A LARGURA DA COLUNA DO DECK NO COMPUTADOR (ver "O degrau de computador").
+     Medida de layout, então mora aqui e não em tokens.css (lá só entra cor).
+     `clamp` e não um número: num notebook de 1280 a coluna precisa sobrar
+     espaço para a lista, e num monitor de 1920 ela não pode continuar
+     crescendo — é justamente esse crescimento sem teto que o degrau existe
+     para conter. O piso é a largura em que o deck ainda cabe sem apertar as
+     sete células da linha de baixo. */
+  --deck-largura: clamp(380px, 30vw, 520px);
+
 
   /* Altura das duas barras de ação da aba Ferramentas (`.mic-btn` e
      `.misc-project`): elas dividem a MESMA linha e precisam medir o mesmo.
@@ -1313,6 +1322,67 @@ main {
      folga entre a última linha da lista e a borda de cima da caixa. */
   padding: calc(.6rem + env(safe-area-inset-top)) .8rem .35rem;
   display: flex; flex-direction: column; gap: .7rem;
+}
+
+/* ---------- O DEGRAU DE COMPUTADOR ----------
+   A ÚNICA regra de largura desta folha, e ela existe por um defeito MEDIDO,
+   não por estética: num notebook de 1280x800 o Cronograma SAI DA TELA.
+
+   A causa está escrita duas vezes acima e nunca se encontrou: `.bottombar` é
+   `flex-shrink: 0` e a preview dentro dela NÃO TEM TETO DE ALTURA (de
+   propósito — ver a nota da `.preview`, onde um `max-height` mentiria sobre a
+   proporção). Num celular isso é inofensivo, porque a coluna mede ~408px e a
+   preview cresce até ~138px. Numa tela larga a mesma regra dá uma preview de
+   897px de largura por 560 de altura, o `main` (que é `flex: 1`) é espremido a
+   nada, e a lista — a superfície de trabalho do operador — vai para baixo da
+   dobra. MEDIDO: `#playlist` em y=858 numa viewport de 800.
+
+   A correção NÃO é pôr um teto na preview (isso reintroduziria a mentira de
+   proporção). É parar de empilhar: onde há largura, o app deixa de ser uma
+   coluna e vira DUAS — `main` (a lista) à esquerda, `.bottombar` (as abas e o
+   deck) à direita. É a mesma leitura girada 90°, e a faixa de abas continua
+   colada ao deck porque foi assim que a v5.54 a desenhou de propósito: "duas
+   coisas que o polegar usa no mesmo movimento".
+
+   A GUARDA TEM DUAS METADES, e a segunda não é enfeite. Largura sozinha
+   alcançaria um celular DEITADO — e o app entra em paisagem exatamente no
+   caminho mais perigoso que ele tem, a preview em tela cheia, que sem TV É a
+   projeção. Ali a altura cai para ~430px, e o piso de 600 a exclui. (A caixa da
+   `:fullscreen` vive na top layer e não seria reposicionada de qualquer forma;
+   o que o piso protege é o layout POR BAIXO dela, que volta à tela ao sair.)
+
+   No aparelho nada disto vale: o `AndroidManifest` trava o retrato, e a coluna
+   nunca passa de ~500px. */
+@media (min-width: 900px) and (min-height: 600px) {
+  body {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) var(--deck-largura);
+    /* Uma linha só, da altura toda: as duas colunas rolam por dentro, como o
+       `main` já fazia. */
+    grid-template-rows: 100%;
+  }
+  /* `min-height: 0` nos dois: o padrão de um item de grade é `min-height:
+     auto`, que se recusa a encolher abaixo do conteúdo — e é o que devolveria
+     a lista para fora da tela por outro caminho. */
+  main { min-height: 0; padding-right: .35rem; }
+  .bottombar {
+    min-height: 0;
+    /* AS PONTAS DA COLUNA, e não o rodapé inteiro. O deck fica ancorado na
+       BASE (como no celular: o que muda de tela é a direção da leitura, não o
+       lugar do transporte na mão de quem opera), e a faixa de abas sobe para o
+       TOPO — ela troca o que a lista da ESQUERDA mostra, e deixá-la no meio da
+       coluna direita punha o interruptor a meia tela do que ele acende. No
+       topo ela emparelha com o cabeçalho da lista, que é o que ela comanda. */
+    justify-content: space-between;
+    padding-left: .35rem;
+    /* E O RESPIRO DE CIMA VOLTA. A folha o tira de propósito
+       (`padding: 0 .7rem .5rem`) para a faixa de abas encostar na borda e o
+       vazado da aba ativa emendar com o corpo da seção. Em duas colunas esse
+       corpo está na coluna DE AO LADO: não há emenda a preservar, e o que
+       sobra do zero é o traço da aba ativa cortado pela borda da janela.
+       O mesmo valor do `main`, para as duas colunas começarem na mesma linha. */
+    padding-top: calc(.6rem + env(safe-area-inset-top));
+  }
 }
 
 /* ---------- Aviso de salvamento (v5.104) ---------- */
