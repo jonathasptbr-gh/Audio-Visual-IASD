@@ -65,13 +65,13 @@ for (const c of fix.bons) {
     `${c.nome}: a fixture declara ${c.bytes} bytes e tem ${Buffer.byteLength(c.fio, 'utf8')}`);
 }
 
+const nativeJs = fs.readFileSync(path.join(raiz, 'app/src/main/assets/web/shared/native.js'), 'utf8');
 // ------------------------------------------------------------ o que a folha OFERECE
 //
 // A superfície da ponte está escrita por extenso na folha, e um método que o
 // `native.js` chame e não exista lá vira `TypeError` — engolido pelo `catch`
 // do `native.js`, com o botão ficando mudo em culto. Esta é a asserção que
 // pega isso, e ela lê a lista do `native.js`, não uma cópia.
-const nativeJs = fs.readFileSync(path.join(raiz, 'app/src/main/assets/web/shared/native.js'), 'utf8');
 const chamados = [...new Set([...nativeJs.matchAll(/\bB\.([a-zA-Z][A-Za-z0-9]*)\s*\(/g)].map((m) => m[1]))].sort();
 checar(chamados.length > 50, `o `.concat('`native.js` devia chamar dezenas de métodos, achei ', chamados.length));
 
@@ -85,6 +85,7 @@ const sobrando = Object.keys(janela.__AVBridge).filter((m) => !chamados.includes
 checar(sobrando.length === 0, 'a folha oferece o que ninguém chama: ' + sobrando.join(', '));
 
 console.log(`\nsuperfície: o native.js chama ${chamados.length} métodos; faltam ${faltando.length} na folha, sobram ${sobrando.length}`);
+
 
 // ------------------------------------------------- o BARRAMENTO não é da folha
 //
@@ -103,12 +104,64 @@ checar(janela.__AVBus === undefined,
 // E o PAR: ela tem de ENTREGAR pelo nome que o `native.js` escuta, que é o
 // mesmo que o `MessageBus.kt` do Android chama.
 {
-  const nativeSrc = fs.readFileSync(path.join(raiz, 'app/src/main/assets/web/shared/native.js'), 'utf8');
-  checar(/global\.__avBusDeliver\s*=/.test(nativeSrc),
+  checar(/global\.__avBusDeliver\s*=/.test(nativeJs),
     'o native.js define __avBusDeliver (o contrato que a folha usa)');
   const folhaSrc = fs.readFileSync(path.join(raiz, 'windows/casca/ponte.js'), 'utf8');
   checar(/__avBusDeliver\s*\(/.test(folhaSrc),
     'e a folha ENTREGA por ele — sem isso o comando da outra janela some');
+}
+
+// ------------------------------------------- e o BARRAMENTO ENTREGA DE VERDADE
+//
+// As duas asserções acima cobrem o NOME do contrato. Não bastam — e isso foi
+// MEDIDO, não suposto: a primeira correção deste caminho acertou o nome e
+// errou a FORMA (passava o comando já parseado a um `__avBusDeliver` que
+// começa por `JSON.parse`, e o objeto virava `"[object Object]"`, lançava, e o
+// `catch` DELE engolia). O relay continuou mudo, e o oráculo continuou verde.
+//
+// *Um contrato que se cumpre pelo nome e se quebra pela forma falha exatamente
+// como se não existisse.* Por isso este bloco monta a cadeia INTEIRA — a folha,
+// o `native.js` de verdade, um quadro `b` como o núcleo o emite — e afirma o
+// que a PÁGINA recebe.
+{
+  const j = {
+    __AV_CASCA__: { base: 'http://127.0.0.1:8420', papel: 'controle', sessao: 's-teste', shell: 58, nome: '1.4.6' },
+    TextEncoder,
+    fetch: () => Promise.resolve({}),
+    XMLHttpRequest: function () {},
+    addEventListener() {},
+    setTimeout,
+    clearTimeout,
+    document: { querySelector: () => null },
+  };
+  // Um `EventSource` de mentira que GUARDA o `onmessage`, para o teste poder
+  // entregar um quadro como o núcleo o entrega.
+  let aoQuadro = null;
+  j.EventSource = function () { return { set onmessage(f) { aoQuadro = f; } }; };
+
+  new Function('window', folha)(j);
+  // O `native.js` carrega DEPOIS — é a ordem real, e é ela que criava o
+  // defeito. E ele se invoca com `})(this)`, não `(window)`: para carregá-lo
+  // sobre uma janela de mentira é preciso LIGAR o `this`, senão ele lê o
+  // `globalThis` do Node, não acha `__AVBridge` e **retorna na entrada** — o
+  // oráculo mediria o silêncio e passaria.
+  new Function(nativeJs).call(j);
+
+  checar(typeof j.__avBusDeliver === 'function', 'o native.js publicou __avBusDeliver');
+  checar(typeof j.__AVBus?.recv === 'function', 'e o __AVBus é o DELE, não o da folha');
+
+  const recebidos = [];
+  j.__AVBus.recv((m) => recebidos.push(m));
+
+  // O quadro EXATO que o `NucleoPonte.quadroBus` emite.
+  const comando = { type: 'load', mediaId: 'x', __mid: 'zz:7' };
+  checar(typeof aoQuadro === 'function', 'a folha abriu o fio e registrou o onmessage');
+  aoQuadro({ data: JSON.stringify({ t: 'b', m: comando }) });
+
+  checar(recebidos.length === 1,
+    'o comando da OUTRA janela chega à página (recebidos: ' + recebidos.length + ')');
+  checar(JSON.stringify(recebidos[0]) === JSON.stringify(comando),
+    'e chega como OBJETO, com os campos intactos: ' + JSON.stringify(recebidos[0]));
 }
 
 // --------------------------------------------------- os SÍNCRONOS são síncronos

@@ -139,8 +139,15 @@
         //
         // `__avBusDeliver` é o mesmo nome que o `MessageBus.kt` do Android
         // chama — é contrato que já existe, não marcador inventado aqui.
+        //
+        // **E ELE ESPERA TEXTO, não objeto.** Ele começa por `JSON.parse`, e
+        // um objeto passado ali é coagido para `"[object Object]"`, lança, e o
+        // `catch` DELE engole — o comando some sem erro em lugar nenhum.
+        // `q.m` já vem parseado (o quadro inteiro passou por `JSON.parse`),
+        // então ele volta a texto aqui. *Um contrato que se cumpre pelo NOME e
+        // se quebra pela FORMA falha exatamente como se não existisse.*
         if (global.__avBusDeliver) {
-          try { global.__avBusDeliver(q.m); } catch (_) { /* handler da página */ }
+          try { global.__avBusDeliver(JSON.stringify(q.m)); } catch (_) { /* handler da página */ }
         }
       }
     };

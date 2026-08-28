@@ -226,6 +226,7 @@ com um refactor distraído**.
 
 | a armadilha | como ela falha |
 |---|---|
+| entregar o comando do barramento como OBJETO | `__avBusDeliver` começa por `JSON.parse`: um objeto ali vira `"[object Object]"`, lança, e o `catch` **dele** engole. **Foi a correção da linha de baixo que criou esta** — o nome do contrato certo, a forma errada, e o relay igualmente mudo. *Um contrato que se cumpre pelo nome e se quebra pela forma falha exatamente como se não existisse* |
 | a folha injetada definir `window.__AVBus` | o `native.js` carrega **depois** e o sobrescreve: o `db.js` assina o objeto dele, e o quadro do barramento cai num ouvinte que ninguém registrou. **O relay fica mudo na RECEPÇÃO** — e em silêncio, porque o `BroadcastChannel` continua entregando. A entrega é por `__avBusDeliver`, o mesmo nome que o `MessageBus.kt` chama |
 | declarar `WM_DISPLAYCHANGE` e não tratá-lo | o Telão nasce só na abertura: ligar o projetor depois **não cria janela nenhuma**, e tirar o cabo deixa uma janela órfã |
 | tocar o WebView2 fora da thread da interface | ele é COM de apartamento STA, e `Atender` roda na thread do cano: ora funciona, ora devolve `RPC_E_WRONG_THREAD`, ora trava — **a classe de defeito que aparece na máquina do operador e não na de quem escreveu** |
@@ -541,7 +542,7 @@ sobre `CreateCoreWebView2Controller(HWND)`.
 ### O que TEM oráculo
 
 **70 testes JUnit** no `:core` só para a segunda casca (de 208 no total), mais
-**67 asserções** de Node/C#, mais **25** em Chromium.
+**72 asserções** de Node/C#, mais **25** em Chromium.
 
 > Os números entre parênteses são **pontos de chamada**, e não execuções: uma
 > asserção dentro de um laço conta uma vez. Reconte-os antes de citá-los — é a
@@ -554,7 +555,7 @@ sobre `CreateCoreWebView2Controller(HWND)`.
 | `NucleoPonteTest` (9) | JUnit | o envelope contra as fixtures, e o cano de stdio |
 | `NucleoDespachoTest` (14) | JUnit | a **invariante 9 recusada no servidor**; o barramento excluindo o emissor; o que não tem dono ficando visível; o síncrono |
 | `NucleoArquivosTest` (15) | JUnit | a rota `/saf/`: token opaco e estável, a sessão, a listagem não recursiva |
-| `ponte-envelope.test.mjs` (19) | Node puro | o produtor **JavaScript** do envelope, **e que a folha ofereça exatamente os 57 métodos que o `native.js` chama** — um a menos vira `TypeError` engolido pelo `catch`, com o botão mudo em culto |
+| `ponte-envelope.test.mjs` (24) | Node puro | o produtor **JavaScript** do envelope, e **a entrega do barramento de ponta a ponta** — a folha mais o `native.js` de verdade, na ordem real, com um quadro `b` como o núcleo o emite. Foi preciso: a versão que afirmava só o NOME do contrato ficou verde sobre um relay mudo, **e que a folha ofereça exatamente os 57 métodos que o `native.js` chama** — um a menos vira `TypeError` engolido pelo `catch`, com o botão mudo em culto |
 | `AudioVisualIASD.Testes` (14) | .NET, **em Linux** | o terceiro lado do envelope. Portátil de propósito: um contrato de três lados em que só dois têm oráculo é um contrato de dois lados outra vez |
 | `casca-contrato.test.mjs` (10) | Node puro | **as listas que moram em duas linguagens**: o degrau do contrato (`SHELL_VERSION` × `SHELL`), o que atravessa o cano (`DA_CASCA` × os `case` da casca) e a lista da invariante 9 — **e que o §7 deste documento não envelheça** em relação ao código |
 | `nucleo-de-pe.test.mjs` (24) | Node + JVM | **o programa DE PÉ**: o aperto de mão `NucleoMain` ↔ `Nucleo.Ligar()`, a base servida de verdade, o `Range`, a travessia **por socket cru**, a ponte de ponta a ponta e o `/saf/` com a invariante 9 |

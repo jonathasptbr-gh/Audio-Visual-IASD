@@ -47,7 +47,7 @@ class NucleoDespacho(
 ) {
 
     /**
-     * OS CINCO PRIVILEGIADOS — a mesma lista da invariante 9.
+     * OS SEIS PRIVILEGIADOS — a mesma lista da invariante 9.
      *
      * `espelhoLigarEm` entra junto porque é o mesmo método com um argumento a
      * mais (ver a regra de entrega: o argumento novo virou método próprio para
