@@ -535,7 +535,11 @@ sobre `CreateCoreWebView2Controller(HWND)`.
 ### O que TEM oráculo
 
 **70 testes JUnit** no `:core` só para a segunda casca (de 208 no total), mais
-**70 asserções** de Node/C#, mais **25** em Chromium.
+**67 asserções** de Node/C#, mais **25** em Chromium.
+
+> Os números entre parênteses são **pontos de chamada**, e não execuções: uma
+> asserção dentro de um laço conta uma vez. Reconte-os antes de citá-los — é a
+> regra deste repositório, e ela vale para o próprio documento.
 
 | oráculo | onde roda | o que ele trava |
 |---|---|---|
@@ -544,9 +548,9 @@ sobre `CreateCoreWebView2Controller(HWND)`.
 | `NucleoPonteTest` (9) | JUnit | o envelope contra as fixtures, e o cano de stdio |
 | `NucleoDespachoTest` (14) | JUnit | a **invariante 9 recusada no servidor**; o barramento excluindo o emissor; o que não tem dono ficando visível; o síncrono |
 | `NucleoArquivosTest` (15) | JUnit | a rota `/saf/`: token opaco e estável, a sessão, a listagem não recursiva |
-| `ponte-envelope.test.mjs` (16) | Node puro | o produtor **JavaScript** do envelope, **e que a folha ofereça exatamente os 57 métodos que o `native.js` chama** — um a menos vira `TypeError` engolido pelo `catch`, com o botão mudo em culto |
+| `ponte-envelope.test.mjs` (19) | Node puro | o produtor **JavaScript** do envelope, **e que a folha ofereça exatamente os 57 métodos que o `native.js` chama** — um a menos vira `TypeError` engolido pelo `catch`, com o botão mudo em culto |
 | `AudioVisualIASD.Testes` (14) | .NET, **em Linux** | o terceiro lado do envelope. Portátil de propósito: um contrato de três lados em que só dois têm oráculo é um contrato de dois lados outra vez |
-| `casca-contrato.test.mjs` (16) | Node puro | **as listas que moram em duas linguagens**: o degrau do contrato (`SHELL_VERSION` × `SHELL`), o que atravessa o cano (`DA_CASCA` × os `case` da casca) e a lista da invariante 9 — **e que o §7 deste documento não envelheça** em relação ao código |
+| `casca-contrato.test.mjs` (10) | Node puro | **as listas que moram em duas linguagens**: o degrau do contrato (`SHELL_VERSION` × `SHELL`), o que atravessa o cano (`DA_CASCA` × os `case` da casca) e a lista da invariante 9 — **e que o §7 deste documento não envelheça** em relação ao código |
 | `nucleo-de-pe.test.mjs` (24) | Node + JVM | **o programa DE PÉ**: o aperto de mão `NucleoMain` ↔ `Nucleo.Ligar()`, a base servida de verdade, o `Range`, a travessia **por socket cru**, a ponte de ponta a ponta e o `/saf/` com a invariante 9 |
 | `janela-do-display.test.mjs` (15) | Chromium | duas páginas do mesmo origin dividindo IndexedDB e barramento — **o primeiro oráculo deste repositório que abriu uma segunda janela** |
 | `degrau-desktop.test.mjs` (10) | Chromium | o layout de duas colunas, medindo **o que o desenho reserva**, nunca a soma renderizada |
