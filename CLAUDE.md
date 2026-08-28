@@ -3134,7 +3134,8 @@ mundo anterior por outro caminho.
 | `db-estado.test.mjs` | **a atomicidade de uma chave de `state`** (`AVDB.updateState`). O defeito que ele trava não erra alto em lugar nenhum: `getState` + calcular + `setState` são duas transações com um vão entre elas, e o que se perde é a metade que o outro escritor acabou de gravar. Tem as DUAS metades — escreve o hazard à mão e prova que ele PERDE, e só então prova que a função não perde; sem a primeira, a segunda provaria que uma função concorda consigo mesma |
 | `acervo.test.mjs` | as contas da Biblioteca ("completa?" e "quanto ocupa?"), que já foram respondidas por fórmulas diferentes na mesma tela |
 | `mse.test.mjs` · `stage-fade.test.mjs` | mensagens de falha da transmissão direta · a transição de entrada do palco |
-| `registro-alcance.test.mjs` | **a MEDIÇÃO DE ALCANCE, e o único que roda sobre o `site/`.** Duas coisas falham CALADAS ali. Um gráfico que desenha todos os valores iguais: `.barra-c`/`.barra-f` eram `<span>`, que é INLINE, e `width` não faz nada num elemento inline — 12, 5, 3 e 1 saíam idênticos, sem erro em lugar nenhum (provado por REVERSÃO). E o ROTEAMENTO do farol de visita, que é o requisito inteiro: se ele parar, os números continuam subindo e passam a incluir quem mede — **e contador não se corrige depois** |
+| `registro-alcance.test.mjs` | **a MEDIÇÃO DE ALCANCE**, um dos dois que rodam sobre o `site/`. Duas coisas falham CALADAS ali. Um gráfico que desenha todos os valores iguais: `.barra-c`/`.barra-f` eram `<span>`, que é INLINE, e `width` não faz nada num elemento inline — 12, 5, 3 e 1 saíam idênticos, sem erro em lugar nenhum (provado por REVERSÃO). E o ROTEAMENTO do farol de visita, que é o requisito inteiro: se ele parar, os números continuam subindo e passam a incluir quem mede — **e contador não se corrige depois** |
+| `plataforma.test.mjs` | **o FILTRO DE PLATAFORMA da página**: o `.apk` só instala em Android, então quem chega de iPhone, iPad ou computador não vê o guia de instalação — vê a frase que diz por quê e o que fazer. Falha CALADO nos dois sentidos: de MENOS, o download volta a aparecer num iPhone e a pessoa conclui que o app está quebrado (ninguém relata isso); de MAIS — o caro —, a classificação recusa um Android de verdade e o que sai é uma página que abre, rola e não oferece nada. Daí o desenho FALHAR ABERTO (sem classe no `<html>` nada é escondido) e essa propriedade ter asserção própria: um desenho fail-CLOSED deixa a suíte inteira verde e reprova só ali. `userAgent` VERBATIM, e o do iPad é o do iPadOS 13+, que se anuncia como Macintosh — quem separa os dois é `maxTouchPoints` |
 
 > **A REDE EXTERNA NÃO ENTRA NUM ORÁCULO** (`tools/sem-rede.mjs`,
 > `semRedeExterna(ctx)` logo depois de cada `newContext()`). A base web fala com
@@ -3322,6 +3323,32 @@ Rodar local: `./gradlew assembleDebug` (exige Android SDK).
   responde é o 404 do GitHub, não um erro nosso. Com tudo relativo, o mesmo build
   serve os dois endereços sem uma linha alterada e a migração vira DNS mais um
   `CNAME`. Hoje a regra está cumprida: não há um caminho absoluto no `site/`.
+
+  **E O DOWNLOAD SÓ EXISTE NO ANDROID.** O app é um `.apk`, e um `.apk` só
+  instala em Android: quem chega de iPhone, iPad ou computador não vê o guia de
+  instalação — vê, no MESMO ponto da página, a frase que diz por quê e o que
+  fazer (abrir este endereço no aparelho Android, escrito a partir do
+  `location` e nunca literal, pela mesma razão da regra acima). O resto da
+  página fica: as funções, as telas e os modos de uso são verdade em qualquer
+  aparelho, e uma página que se apaga inteira não explica nada a ninguém.
+
+  **Três coisas sustentam isso, e a terceira é a que decide o desenho:**
+
+  | peça | onde | por quê |
+  |---|---|---|
+  | a classificação | um `<script>` INLINE no `<head>`, que escreve `plat-android`/`plat-ios`/`plat-outro` no `<html>` | esconder no `DOMContentLoaded` mostra o botão de baixar por um quadro antes de tirá-lo, e é exatamente aí que a pessoa toca |
+  | o `display:none` | CSS, sobre `.so-android` | um link escondido assim sai da árvore de acessibilidade E da ordem de tabulação — não é um botão discreto, é um botão que não existe |
+  | **a falha ABERTA** | a ausência de uma regra: sem classe no `<html>`, nada é escondido | script bloqueado ou uma exceção não prevista devolvem a página de antes. Falhar FECHADO inverteria o custo do erro para o lado que não se paga — um Android de verdade sem botão de baixar e sem nada na tela dizendo por quê |
+
+  **O iPadOS 13+ se anuncia como Macintosh**, então `/iPad/` sozinho reconhece
+  só o modelo antigo; o que separa o iPad do Mac é `maxTouchPoints`, que é 0 no
+  macOS. E o sinal de Android vem de DUAS fontes (`userAgent` e
+  `userAgentData.platform`), a segunda ADITIVA: ela só pode resgatar um caso,
+  nunca criar um. **O falso positivo conhecido está dito e não tem conserto
+  barato:** um Android com "site para computador" ligado no Chrome perde a
+  palavra `Android` do `userAgent` e cai no aviso do computador — que continua
+  sendo a instrução certa, só que redundante. Oráculo: `plataforma.test.mjs`,
+  com os `userAgent` VERBATIM e a falha aberta em asserção própria.
 
 ### Código
 
