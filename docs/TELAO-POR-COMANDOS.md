@@ -537,6 +537,18 @@ casado, upstream googlevideo) mas com **Range de verdade e streaming real**
 `__rec.stream` com URLs reescritas para o host do celular. O `mse.js` da
 tela consome com header Range (o modo query é só do caminho nativo).
 
+## §7-B O CELULAR COMO PONTO DE ACESSO (plano, NÃO implementado)
+Hoje o recurso exige que o celular seja **cliente** de uma Wi-Fi (`ehWifiLimpa`,
+`EspelhoServidor.kt:2069`) — e **não** exige internet. O celular sendo ele mesmo
+o ponto de acesso é recusado por DOIS portões: a admissão (o soft AP não é um
+`Network`) e o bind explícito ao IPv4 da Wi-Fi.
+
+O plano de suportá-lo está em [`docs/PONTO-DE-ACESSO-PLANO.md`](PONTO-DE-ACESSO-PLANO.md),
+**parado esperando duas medições em aparelho** — a segunda derruba o desenho
+inteiro se falhar. O arquivo também guarda o que foi investigado e RECUSADO
+(`startLocalOnlyHotspot`, `TetheringManager`, Wi-Fi Direct, bind em `0.0.0.0`),
+com o preço de cada um, para a investigação não ser refeita.
+
 ## §8 SEGURANÇA — o que muda de verdade
 A inversão da §10 do espelho cresce: com `/m/`, o servidor tem OS ARQUIVOS
 que o operador transmitir (não a foto deles), em HTTP claro por padrão. Fica
