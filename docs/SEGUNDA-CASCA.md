@@ -216,6 +216,25 @@ também.
 | `AudioVisualIASD/Dialogos.cs` | `IFileDialog`/`IFileSaveDialog` |
 | `AudioVisualIASD/Nucleo.cs` | o processo do jar e o cano de stdio |
 | `AudioVisualIASD/Win32.cs` | as chamadas do sistema, num lugar só |
+| `AudioVisualIASD/Diario.cs` | o rodapé de diagnóstico da casca — **um `WinExe` não tem console** |
+
+### As armadilhas da casca — todas MEDIDAS, todas silenciosas
+
+Uma varredura adversarial sobre o código recém-escrito achou **nove** defeitos
+que nenhum oráculo pegava. Estão corrigidos; ficam aqui porque **todos voltam
+com um refactor distraído**.
+
+| a armadilha | como ela falha |
+|---|---|
+| a folha injetada definir `window.__AVBus` | o `native.js` carrega **depois** e o sobrescreve: o `db.js` assina o objeto dele, e o quadro do barramento cai num ouvinte que ninguém registrou. **O relay fica mudo na RECEPÇÃO** — e em silêncio, porque o `BroadcastChannel` continua entregando. A entrega é por `__avBusDeliver`, o mesmo nome que o `MessageBus.kt` chama |
+| declarar `WM_DISPLAYCHANGE` e não tratá-lo | o Telão nasce só na abertura: ligar o projetor depois **não cria janela nenhuma**, e tirar o cabo deixa uma janela órfã |
+| tocar o WebView2 fora da thread da interface | ele é COM de apartamento STA, e `Atender` roda na thread do cano: ora funciona, ora devolve `RPC_E_WRONG_THREAD`, ora trava — **a classe de defeito que aparece na máquina do operador e não na de quem escreveu** |
+| um `Send` do contexto que só enfileira | quem o chama espera o efeito na linha seguinte. O diálogo nasce **sem dono**, atrás da janela, e o operador vê o app travado |
+| não tratar `PermissionRequested` | o WebView2 nega `getUserMedia` **em silêncio** — o botão acende "No ar" e nada capta. É a armadilha do `MicChromeClient`, reproduzida |
+| esperar o aperto de mão sem prazo | uma JVM que suba e não escreva nada deixa o programa **pendurado para sempre**: sem janela, sem mensagem, sem nada dizendo por quê |
+| guardar geometria com `GetClientRect` | `left`/`top` são sempre 0: sair da tela cheia joga a janela no canto do monitor principal |
+| `Console.Error` numa casca `WinExe` | **não há console**: todo diagnóstico da casca ia para lugar nenhum |
+| pôr a tecla no `WndProc` | o WebView2 cobre o cliente inteiro, então a tecla vai para a página e a janela nunca a vê. F11 sai do `AcceleratorKeyPressed` |
 
 ### As decisões da casca que precisam estar ditas
 

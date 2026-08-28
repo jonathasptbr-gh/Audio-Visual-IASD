@@ -28,10 +28,12 @@ internal sealed class LacoUi : SynchronizationContext
 {
     readonly ConcurrentQueue<(SendOrPostCallback, object?)> _fila = new();
     readonly IntPtr _recado;
+    readonly int _threadDaUi;
     readonly Win32.WndProc _proc; // guardado: um delegate coletado vira crash
 
     internal LacoUi()
     {
+        _threadDaUi = Environment.CurrentManagedThreadId;
         _proc = Proc;
         var inst = Win32.GetModuleHandleW(null);
         var classe = new Win32.WNDCLASSEX
@@ -55,7 +57,7 @@ internal sealed class LacoUi : SynchronizationContext
             // janelas ficariam de pé e mudas, com a projeção no ar e nada na
             // tela dizendo por quê.
             try { t.Item1(t.Item2); }
-            catch (Exception e) { Console.Error.WriteLine("[casca] continuação falhou: " + e); }
+            catch (Exception e) { Diario.Anotar("[casca] continuação falhou: " + e); }
         }
         return IntPtr.Zero;
     }
@@ -66,7 +68,30 @@ internal sealed class LacoUi : SynchronizationContext
         Win32.PostMessageW(_recado, Win32.WM_RODAR, IntPtr.Zero, IntPtr.Zero);
     }
 
-    public override void Send(SendOrPostCallback cb, object? estado) => Post(cb, estado);
+    /// <summary>
+    /// `Send` BLOQUEIA de verdade — ele não pode ser um `Post`.
+    ///
+    /// Quem o chama espera o efeito ter acontecido quando a linha seguinte
+    /// rodar (é o caso do `Folhas.Dono`, que precisa da alça da janela para
+    /// abrir um diálogo). Um `Send` que só enfileira devolve o valor de antes,
+    /// e o defeito é mudo: o diálogo nasce sem dono, atrás da janela do
+    /// programa, e o operador vê o app travado.
+    ///
+    /// **Chamado DA PRÓPRIA thread da interface ele executa direto**, senão
+    /// esperaria por um laço que é ele mesmo — um travamento total.
+    /// </summary>
+    public override void Send(SendOrPostCallback cb, object? estado)
+    {
+        if (Environment.CurrentManagedThreadId == _threadDaUi) { cb(estado); return; }
+        using var pronto = new ManualResetEventSlim(false);
+        Exception? falha = null;
+        Post(_ =>
+        {
+            try { cb(estado); } catch (Exception e) { falha = e; } finally { pronto.Set(); }
+        }, null);
+        pronto.Wait();
+        if (falha is not null) throw falha;
+    }
 
     /// <summary>Roda o laço até `PostQuitMessage`.</summary>
     internal static void Rodar()

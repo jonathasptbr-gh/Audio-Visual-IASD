@@ -32,6 +32,17 @@ internal sealed class Janela
 
     readonly Win32.WndProc _proc;   // guardado: um delegate coletado vira crash
     readonly Action _aoFechar;
+
+    /// <summary>
+    /// O cabo do projetor entrou ou saiu (`WM_DISPLAYCHANGE`).
+    ///
+    /// **Sem isto o Telão nasceria só na abertura e nunca mais**: ligar o
+    /// projetor depois de abrir o programa não criaria janela nenhuma, e tirar
+    /// o cabo deixaria uma janela órfã. É o análogo do `onDisplayChange` do
+    /// Android, e é dele que vem a recuperação de graça — a janela nova carrega
+    /// `/display/`, dispara `display-ready`, e o Controle reenvia a cena.
+    /// </summary>
+    internal Action? AoMudarDeTela;
     bool _cheia;
     int _antesX, _antesY, _antesL, _antesA;
 
@@ -145,6 +156,43 @@ internal sealed class Janela
         // externo é o `openExternal` da ponte, no navegador do sistema.
         w.NewWindowRequested += (_, e) => e.Handled = true;
 
+        // O MICROFONE AO VIVO. É o par do `MicChromeClient` do Android, e existe
+        // pela mesma razão: **sem tratar o pedido, o WebView2 nega
+        // `getUserMedia` em silêncio** — o botão acende "No ar" e nada capta.
+        //
+        // Três regras, as mesmas de lá: concede **só** microfone; **só no
+        // Telão** (quem capta é o `/display/`, e no Android ele só existe
+        // dentro da `Presentation`); e **só da própria origem** — defesa em
+        // profundidade, porque conceder é silencioso.
+        w.PermissionRequested += (_, e) =>
+        {
+            var doNosso = Uri.TryCreate(e.Uri, UriKind.Absolute, out var u) &&
+                          u.Host == origem.Host && u.Port == origem.Port;
+            var ehMic = e.PermissionKind == CoreWebView2PermissionKind.Microphone;
+            e.State = (ehMic && Papel == "display" && doNosso)
+                ? CoreWebView2PermissionState.Allow
+                : CoreWebView2PermissionState.Deny;
+            // A CÂMERA É NEGADA COM REGISTRO, como no Android: um WebView sem
+            // este tratamento nega em silêncio, e o próximo que precisar de
+            // mídia aqui descobriria a armadilha do zero.
+            if (!ehMic) Diario.Anotar($"permissão negada: {e.PermissionKind} em {e.Uri}");
+            e.Handled = true;
+        };
+
+        // O DEGRAU DE UM CLIQUE — F11 alterna a tela cheia da janela.
+        //
+        // Ele precisa do `AcceleratorKeyPressed` e não do `WndProc`: o WebView2
+        // cobre o cliente inteiro, então a tecla vai para a página, e a janela
+        // nunca a vê.
+        w.ContainsFullScreenElementChanged += (_, _) => { };
+        Controlador.AcceleratorKeyPressed += (_, e) =>
+        {
+            if (e.KeyEventKind != CoreWebView2KeyEventKind.KeyDown) return;
+            if (e.VirtualKey != 122) return; // VK_F11
+            e.Handled = true;
+            AlternarTelaCheia();
+        };
+
         w.Navigate(baseUrl + (Papel == "display" ? "/display/" : "/controle/"));
     }
 
@@ -173,7 +221,11 @@ internal sealed class Janela
         }
         else
         {
-            Win32.GetClientRect(Alca, out var r);
+            // `GetWindowRect` e NÃO `GetClientRect`: o segundo devolve o
+            // retângulo do CLIENTE, cujo `left`/`top` são sempre 0 — restaurar
+            // por ele joga a janela no canto do monitor principal, com o
+            // tamanho errado.
+            Win32.GetWindowRect(Alca, out var r);
             _antesX = r.left; _antesY = r.top; _antesL = r.right - r.left; _antesA = r.bottom - r.top;
             var mon = Telas.Todos().FirstOrDefault(m => m.Alca == Win32.MonitorFromWindow(Alca, 2))
                       ?? Telas.Todos().First();
@@ -211,6 +263,11 @@ internal sealed class Janela
                 return IntPtr.Zero;
             case Win32.WM_CLOSE:
                 j?._aoFechar();
+                return IntPtr.Zero;
+            case Win32.WM_DISPLAYCHANGE:
+                // O sistema manda este recado a TODA janela de topo, então as
+                // duas o recebem; quem tem o `AoMudarDeTela` é só o Controle.
+                j?.AoMudarDeTela?.Invoke();
                 return IntPtr.Zero;
             case Win32.WM_DESTROY:
                 return IntPtr.Zero;

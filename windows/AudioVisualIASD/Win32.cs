@@ -92,6 +92,12 @@ internal static class Win32
     [DllImport("user32.dll")] internal static extern bool ShowWindow(IntPtr h, int cmd);
     [DllImport("user32.dll")] internal static extern bool UpdateWindow(IntPtr h);
     [DllImport("user32.dll")] internal static extern bool GetClientRect(IntPtr h, out RECT r);
+    /// <summary>O retângulo da janela em coordenadas de TELA.
+    ///
+    /// `GetClientRect` devolve o retângulo do CLIENTE, cujo `left`/`top` são
+    /// sempre 0 — guardar geometria com ele para restaurar depois devolve a
+    /// janela ao canto do monitor principal, com o tamanho errado.</summary>
+    [DllImport("user32.dll")] internal static extern bool GetWindowRect(IntPtr h, out RECT r);
     [DllImport("user32.dll")] internal static extern int GetMessageW(out MSG m, IntPtr h, uint min, uint max);
     [DllImport("user32.dll")] internal static extern bool TranslateMessage(ref MSG m);
     [DllImport("user32.dll")] internal static extern IntPtr DispatchMessageW(ref MSG m);

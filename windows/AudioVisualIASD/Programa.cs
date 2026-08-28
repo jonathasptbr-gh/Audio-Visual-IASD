@@ -56,6 +56,7 @@ internal static class Programa
     static Janela? _telao;
     static Folhas? _folhas;
     static CoreWebView2Environment? _ambiente;
+    static LacoUi? _laco;
     static string _folha = "";
     static string _base = "";
 
@@ -67,7 +68,12 @@ internal static class Programa
         // do pool é a classe de defeito que só aparece no computador do
         // operador. Ver `LacoUi`.
         var laco = new LacoUi();
+        _laco = laco;
         SynchronizationContext.SetSynchronizationContext(laco);
+
+        var dadosLocais = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "AudioVisualIASD");
+        Diario.Abrir(dadosLocais);
 
         var aoLado = Path.GetDirectoryName(Environment.ProcessPath ?? AppContext.BaseDirectory)!;
         var raizWeb = Path.Combine(aoLado, "web");
@@ -93,7 +99,7 @@ internal static class Programa
             return 1;
         }
 
-        _folhas = new Folhas(_nucleo, papel => papel == "display" ? _telao : _controle);
+        _folhas = new Folhas(_nucleo, papel => papel == "display" ? _telao : _controle, laco);
 
         _ = MontarAsync();
         LacoUi.Rodar();
@@ -128,6 +134,10 @@ internal static class Programa
             _ambiente = await CoreWebView2Environment.CreateAsync(null, perfil, opcoes);
 
             _controle = new Janela("controle", "Áudio Visual IASD", null, Encerrar);
+            // O CABO DO PROJETOR ENTRANDO E SAINDO. Sem isto o Telão nasceria só
+            // na abertura: ligar o projetor depois não criaria janela nenhuma, e
+            // tirar o cabo deixaria uma janela órfã num monitor que sumiu.
+            _controle.AoMudarDeTela = () => _ = AcertarTelaoAsync();
             _nucleo!.RegistrarSessao(_controle.Sessao, "controle");
             await _controle.MontarAsync(_ambiente, _base, _folha, SHELL, VersaoDoPrograma());
 

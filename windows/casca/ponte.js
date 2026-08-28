@@ -121,26 +121,31 @@
         const r = q.c === 'deck' ? global.__avDeckProgress : global.__avYtProgress;
         if (r) r(q.id, q.a, q.b);
       } else if (q.t === 'b') {
-        // Um comando do barramento vindo da OUTRA janela. O núcleo já excluiu
-        // o emissor, então o que chega aqui nunca é o nosso próprio — e é bom
-        // que seja assim: o `__mid` do `db.js` só conhece os mids RECEBIDOS, e
-        // um eco entraria como mensagem nova.
-        if (recebedor) { try { recebedor(q.m); } catch (_) { /* handler da página */ } }
+        // Um comando do barramento vindo da OUTRA janela.
+        //
+        // **A ENTREGA É PELO `__avBusDeliver`, e a folha NÃO define `__AVBus`.**
+        // Quem o define é o `native.js`, que carrega DEPOIS desta folha e
+        // sobrescreveria qualquer coisa que ela pusesse ali — o `db.js`
+        // assinaria o objeto do `native.js` e o quadro cairia num ouvinte que
+        // ninguém registrou. **O relay ficaria mudo na RECEPÇÃO**, e em
+        // silêncio: o `BroadcastChannel` continua entregando, então nada
+        // quebra na tela; o que se perde é a redundância que este projeto
+        // construiu de propósito para o caso de ele falhar.
+        //
+        // `__avBusDeliver` é o mesmo nome que o `MessageBus.kt` do Android
+        // chama — é contrato que já existe, não marcador inventado aqui.
+        if (global.__avBusDeliver) {
+          try { global.__avBusDeliver(q.m); } catch (_) { /* handler da página */ }
+        }
       }
     };
     // Sem `onerror`: o `EventSource` reconecta sozinho, e um `close()` aqui
     // desligaria a ponte no primeiro soluço.
   }
 
-  let recebedor = null;
-
-  // O relay do barramento, com a MESMA forma do Android (`shared/native.js`
-  // monta `window.__AVBus` sobre `busPost`). Quem o consome é o `db.js`, que
-  // não sabe em qual das duas cascas está.
-  global.__AVBus = {
-    post: function (msg) { enviar('-', 'busPost', [JSON.stringify(msg)]); },
-    recv: function (fn) { recebedor = fn; },
-  };
+  // O `__AVBus` NÃO é definido aqui — ver o quadro `b` acima. O lado do ENVIO
+  // já funciona pelo caminho normal: o `native.js` monta o `__AVBus.post` dele
+  // sobre `busPost`, que é um método desta folha como qualquer outro.
 
   // ------------------------------------------------------------- a superfície
   //

@@ -48,7 +48,7 @@ internal sealed class Nucleo : IDisposable
                 CreateNoWindow = true,
             },
         };
-        _p.ErrorDataReceived += (_, e) => { if (e.Data is not null) Console.Error.WriteLine("[nucleo] " + e.Data); };
+        _p.ErrorDataReceived += (_, e) => { if (e.Data is not null) Diario.Anotar("[nucleo] " + e.Data); };
     }
 
     /// <summary>
@@ -68,7 +68,23 @@ internal sealed class Nucleo : IDisposable
         _p.BeginErrorReadLine();
 
         var saida = _p.StandardOutput.BaseStream;
-        var primeiro = Envelope.LerDoCano(saida);
+        // O APERTO DE MÃO TEM PRAZO, e sem ele a falha é a pior possível: uma
+        // JVM que suba e não escreva nada — porque o jar não está lá, porque o
+        // `Main-Class` está errado, porque uma exceção saiu antes do primeiro
+        // envelope — deixaria o programa **pendurado para sempre**, sem janela,
+        // sem mensagem e sem nada na tela dizendo por quê. `LerDoCano` bloqueia
+        // em `ReadByte()` e só desiste com fim de fluxo.
+        //
+        // 30 s é generoso de propósito: uma JVM fria num computador de igreja
+        // leva segundos, e o custo de um prazo curto é recusar um programa que
+        // ia funcionar.
+        var espera = Task.Run(() => Envelope.LerDoCano(saida));
+        if (!espera.Wait(TimeSpan.FromSeconds(30)))
+        {
+            return "A parte interna do programa não respondeu a tempo. " +
+                   "Feche e abra de novo; se continuar, reinstale.";
+        }
+        var primeiro = espera.Result;
         var c = primeiro is null ? null : Envelope.Ler(primeiro);
         if (c is null)
         {
@@ -88,7 +104,7 @@ internal sealed class Nucleo : IDisposable
                 // Uma chamada que lance não pode derrubar o leitor: as janelas
                 // ficariam de pé com a ponte muda, e nada na tela diria por quê.
                 try { _daPonte(ch); }
-                catch (Exception e) { Console.Error.WriteLine("[casca] chamada falhou: " + e); }
+                catch (Exception e) { Diario.Anotar("[casca] chamada falhou: " + e); }
             }
         }) { IsBackground = true, Name = "cano-do-nucleo" };
         _leitor.Start();
@@ -102,7 +118,7 @@ internal sealed class Nucleo : IDisposable
         lock (_trava)
         {
             try { Envelope.EscreverNoCano(_p.StandardInput.BaseStream, Envelope.Montar(id, metodo, args)); }
-            catch (Exception e) { Console.Error.WriteLine("[casca] o cano fechou: " + e.Message); }
+            catch (Exception e) { Diario.Anotar("[casca] o cano fechou: " + e.Message); }
         }
     }
 

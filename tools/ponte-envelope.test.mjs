@@ -86,6 +86,31 @@ checar(sobrando.length === 0, 'a folha oferece o que ninguém chama: ' + sobrand
 
 console.log(`\nsuperfície: o native.js chama ${chamados.length} métodos; faltam ${faltando.length} na folha, sobram ${sobrando.length}`);
 
+// ------------------------------------------------- o BARRAMENTO não é da folha
+//
+// A folha NÃO pode definir `window.__AVBus`: quem o define é o `native.js`, que
+// carrega DEPOIS dela (a folha entra por `AddScriptToExecuteOnDocumentCreated`,
+// antes de qualquer script da página). Uma definição aqui seria SOBRESCRITA, o
+// `db.js` assinaria o objeto do `native.js`, e o quadro `b` cairia num ouvinte
+// que ninguém registrou — **o relay ficaria mudo na RECEPÇÃO, em silêncio**,
+// porque o `BroadcastChannel` continua entregando e nada quebra na tela.
+//
+// O que se perde nesse silêncio é a redundância que o projeto construiu de
+// propósito para o caso de o `BroadcastChannel` falhar entre dois WebViews.
+checar(janela.__AVBus === undefined,
+  'a folha NÃO define __AVBus — o native.js o sobrescreveria e o relay ficaria mudo na recepção');
+
+// E o PAR: ela tem de ENTREGAR pelo nome que o `native.js` escuta, que é o
+// mesmo que o `MessageBus.kt` do Android chama.
+{
+  const nativeSrc = fs.readFileSync(path.join(raiz, 'app/src/main/assets/web/shared/native.js'), 'utf8');
+  checar(/global\.__avBusDeliver\s*=/.test(nativeSrc),
+    'o native.js define __avBusDeliver (o contrato que a folha usa)');
+  const folhaSrc = fs.readFileSync(path.join(raiz, 'windows/casca/ponte.js'), 'utf8');
+  checar(/__avBusDeliver\s*\(/.test(folhaSrc),
+    'e a folha ENTREGA por ele — sem isso o comando da outra janela some');
+}
+
 // --------------------------------------------------- os SÍNCRONOS são síncronos
 //
 // O `native.js` lê os três na CARGA, antes de qualquer Promise poder ter

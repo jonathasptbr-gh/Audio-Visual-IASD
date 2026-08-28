@@ -23,25 +23,49 @@ internal sealed class Folhas
 {
     readonly Nucleo _nucleo;
     readonly Func<string, Janela?> _janelaDe;
+    readonly SynchronizationContext _ui;
     readonly List<string> _semDono = new();
 
-    internal Folhas(Nucleo nucleo, Func<string, Janela?> janelaDe)
+    internal Folhas(Nucleo nucleo, Func<string, Janela?> janelaDe, SynchronizationContext ui)
     {
         _nucleo = nucleo;
         _janelaDe = janelaDe;
+        _ui = ui;
     }
+
+    /// <summary>
+    /// TUDO QUE TOCA UM WebView2 VOLTA PARA A THREAD DA INTERFACE.
+    ///
+    /// `Atender` roda na thread do cano (`Nucleo.Ligar` a criou para ler os
+    /// envelopes), e o WebView2 é COM de apartamento STA: tocá-lo de outra
+    /// thread ora funciona, ora devolve `RPC_E_WRONG_THREAD`, ora trava — a
+    /// classe de defeito que aparece na máquina do operador e não na de quem
+    /// escreveu. O mesmo vale para LER as janelas: as referências são escritas
+    /// pela thread do laço.
+    /// </summary>
+    void NaInterface(Action a) => _ui.Post(_ => {
+        try { a(); } catch (Exception e) { Diario.Anotar("[casca] na interface: " + e); }
+    }, null);
 
     /// <summary>A janela que fez o pedido — o diálogo do sistema é MODAL sobre
     /// ela. Sem dono, ele pode nascer atrás da janela do programa, e o que o
     /// operador vê é o app travado.</summary>
     IntPtr Dono(string sessao)
     {
-        foreach (var papel in new[] { "controle", "display" })
+        // Lido NA THREAD DA INTERFACE: as referências das janelas são escritas
+        // por ela, e um pedido que chegue durante a criação do Telão leria um
+        // campo pela metade. O `Send` bloqueia esta thread (a do cano) e não a
+        // da interface, que é justamente a que não pode parar.
+        IntPtr alca = IntPtr.Zero;
+        _ui.Send(_ =>
         {
-            var j = _janelaDe(papel);
-            if (j is not null && j.Sessao == sessao) return j.Alca;
-        }
-        return IntPtr.Zero;
+            foreach (var papel in new[] { "controle", "display" })
+            {
+                var j = _janelaDe(papel);
+                if (j is not null && j.Sessao == sessao) { alca = j.Alca; return; }
+            }
+        }, null);
+        return alca;
     }
 
     /// <summary>O que a casca ainda não sabe fazer — a mesma lista que o
@@ -118,7 +142,7 @@ internal sealed class Folhas
                         }
                         catch (Exception e)
                         {
-                            Console.Error.WriteLine("[casca] não gravou: " + e.Message);
+                            Diario.Anotar("[casca] não gravou: " + e.Message);
                             Resolver("\"\"");
                         }
                     });
@@ -183,16 +207,19 @@ internal sealed class Folhas
             case "temaClaro":
                 {
                     var claro = Arg(0) == "true";
-                    foreach (var papel in new[] { "controle", "display" })
+                    NaInterface(() =>
                     {
-                        var j = _janelaDe(papel);
-                        if (j?.Controlador is not null)
+                        foreach (var papel in new[] { "controle", "display" })
                         {
-                            j.Controlador.DefaultBackgroundColor =
-                                claro ? System.Drawing.Color.FromArgb(255, 0xF2, 0xF4, 0xF7)
-                                      : System.Drawing.Color.FromArgb(255, 0x14, 0x18, 0x1D);
+                            var j = _janelaDe(papel);
+                            if (j?.Controlador is not null)
+                            {
+                                j.Controlador.DefaultBackgroundColor =
+                                    claro ? System.Drawing.Color.FromArgb(255, 0xF2, 0xF4, 0xF7)
+                                          : System.Drawing.Color.FromArgb(255, 0x14, 0x18, 0x1D);
+                            }
                         }
-                    }
+                    });
                 }
                 break;
 
@@ -256,7 +283,7 @@ internal sealed class Folhas
         var t = new Thread(() =>
         {
             try { tarefa(); }
-            catch (Exception e) { Console.Error.WriteLine("[casca] diálogo falhou: " + e); }
+            catch (Exception e) { Diario.Anotar("[casca] diálogo falhou: " + e); }
         });
         t.SetApartmentState(ApartmentState.STA);
         t.IsBackground = true;
@@ -266,6 +293,6 @@ internal sealed class Folhas
     static void Abrir(string alvo)
     {
         try { Process.Start(new ProcessStartInfo(alvo) { UseShellExecute = true }); }
-        catch (Exception e) { Console.Error.WriteLine("[casca] não abriu " + alvo + ": " + e.Message); }
+        catch (Exception e) { Diario.Anotar("[casca] não abriu " + alvo + ": " + e.Message); }
     }
 }
