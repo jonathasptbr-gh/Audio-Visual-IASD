@@ -375,14 +375,25 @@ métodos**, e hoje eles se dividem assim.
 | casca, **declarado e ainda não implementado** | 5 | `areaTransferencia` `takeShare` `bgProgress` `nowPlaying` `captureVolumeKeys` |
 | **SEM DONO** | 33 | ver abaixo |
 
-> **O que não tem dono resolve `null` NA HORA e entra numa lista** — dos dois
-> lados (`NucleoDespacho.naoImplementados()` e `Folhas.SemDono`). Sem isso ele
+> **O que não tem dono resolve `null` NA HORA e é ANOTADO na primeira vez** —
+> dos dois lados (`NucleoDespacho` e `Folhas`), no diário da casca. Sem isso ele
 > resolveria `null` pelo prazo de 60 s do `native.js`: o botão existe, é
 > tocável, e depois de um minuto não acontece nada. *A diferença entre "o
 > programa travou" e "esta parte ainda não existe nesta versão" é uma linha de
 > diagnóstico.*
+>
+> **O limite, dito:** a anotação vai para o `casca.log`, **não para o Registro
+> de Configurações** — que é onde o operador olha. Levá-la até lá exige um
+> método de ponte novo, logo um degrau de `SHELL_VERSION`, logo um lote que
+> mexa na ponte por outro motivo. Fica para o lote 4.
 
 ### Lote 4 — YouTube e cifra (12 métodos)
+
+> **O número de imports de `android.*` é um PISO, não a medida.** A refutação
+> já foi paga uma vez: o `EspelhoDiag.kt` tem **zero** e mesmo assim não
+> atravessou para o `:core`, porque usa `org.json`, que é API da *plataforma*
+> Android e não da JVM. *"Sem import de `android.*`" não é o mesmo que
+> "portável"* — quem responde de verdade é o compilador do módulo puro.
 
 | métodos | de onde vem | portabilidade **medida** |
 |---|---|---|
@@ -405,10 +416,18 @@ não dá, porque o `jitpack.io` está bloqueado.
 | `deckPages` `deckDiscard` | `SlideDeck.kt` — 379 linhas, **7** imports (`graphics.pdf` = `PdfRenderer`, `Bitmap`) | um rasterizador de PDF que não seja da plataforma. O `.pptx` **já funciona**: quem o desenha é o `vendor/` do lado web |
 | 1080p | `MuxMp4.kt` — 190 linhas, **5** imports, todos `android.media` | juntar as duas faixas sem recodificar. Até lá, **teto de 720p** (o progressivo) |
 
-**Uma armadilha herdada, para não custar duas versões de novo:** no Android o
-`SlideDeck` pergunta `origem.startsWith("https://")` para decidir "é da rede ou é
-local?". No computador as URLs de `/saf/` são `http://127.0.0.1:…` — a pergunta
-certa é pelo **host**, nunca pelo esquema.
+**Uma armadilha que o Android já pagou, e que o computador REABRE por outro
+campo.** Lá o defeito das v5.97–v5.99 foi perguntar `startsWith("https://")`
+para decidir "é da rede ou é local?", o que mandava **todo arquivo do aparelho**
+para o caminho de download; hoje ele pergunta certo, pelo **host**
+(`u.host == WebViewFactory.ORIGIN_HOST`, `SlideDeck.kt:127`), e o ramo `https` é
+o do download da exportação do Google (`:150`).
+
+**No computador os dois ramos erram**, e é por isso que ele não se porta como
+está: uma URL de `/saf/` é `http://127.0.0.1:8420/…` — o host não é o do
+Android, e o esquema não é `https`. O port precisa da sua própria constante de
+origem, e a pergunta continua sendo pelo **host mais a porta**, nunca pelo
+esquema.
 
 ### Lote 6 — as telas da rede (9 métodos)
 
@@ -457,7 +476,18 @@ O modelo de permissão do MSIX combina com o do app: acesso amplo a disco é
 capacidade restrita, mas **acesso pelo seletor de arquivos é livre** — que é
 exatamente como o SAF já funciona.
 
-**Não verificado:** o caminho `makeappx` embrulhando `.exe` + `jar` + JRE. Medir
+**O QUE O PACOTE PRECISA CONTER**, porque a lista é maior do que parece — o
+`Programa.Main` monta **quatro** caminhos ao lado do executável, e faltando
+qualquer um o programa não abre:
+
+| ao lado do `.exe` | o quê | faltando ele |
+|---|---|---|
+| `web/` | **a base web inteira** | o núcleo recusa com `SemBundle` — "os arquivos do aplicativo não foram encontrados" |
+| `nucleo.jar` | o núcleo (`./gradlew :core:nucleoJar`) | o Java não sobe, e a casca mostra a frase do erro |
+| `jre/bin/javaw.exe` | o Java embutido | cai no `javaw.exe` do PATH; sem nenhum dos dois, a mesma frase |
+| (o WebView2 runtime) | **não vai no pacote** — já está em todo Windows 10/11 | a casca diz para instalar o "Microsoft Edge WebView2 Runtime" |
+
+**Não verificado:** o caminho `makeappx` embrulhando os três primeiros. Medir
 antes de prometer a Loja.
 
 ### O que provavelmente NÃO faz sentido no computador
@@ -657,4 +687,5 @@ node tools/nucleo-de-pe.test.mjs
 3. Atualize **a tabela de Estado deste arquivo, no MESMO commit**.
 4. Se a superfície da ponte mudar, suba `SHELL_VERSION` **nos dois lados**
    (`NativeBridge.SHELL_VERSION` e `Programa.SHELL`) — o número é um só, porque
-   a superfície é uma só.
+   a superfície é uma só. **O `casca-contrato.test.mjs` reprova se você esquecer
+   um dos dois**, e reprova também se a tabela da §7 divergir do código.

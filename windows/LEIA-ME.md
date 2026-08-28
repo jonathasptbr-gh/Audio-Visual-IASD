@@ -14,7 +14,7 @@ web) num segundo sistema operacional.
 ```
  AudioVisualIASD.exe ──stdio──► nucleo.jar ──http://127.0.0.1:8420──► as janelas
   (C#: janela, monitores,  ◄────  (Kotlin: servidor,  ◄──── SSE ────   (WebView2)
-   diálogos, volume)               YouTube, cifra)
+   diálogos, volume)               despacho da ponte)
 ```
 
 | peça | onde | o quê |

@@ -159,7 +159,14 @@ class NucleoDespacho(
             paraCasca(NucleoPonte.montar(c.id, c.metodo, listOf(sessao) + c.args))
             return RECIBO_OK
         }
-        faltando.add(c.metodo)
+        // ANOTADO NA PRIMEIRA VEZ, e só nela. Sem um leitor, esta lista era
+        // diagnóstico WRITE-ONLY: o KDoc prometia "uma linha de diagnóstico" e
+        // não havia onde lê-la. O `stderr` do núcleo vai para o diário da
+        // casca (`Nucleo.ErrorDataReceived`), que é onde se procura quando o
+        // programa se comporta mal na igreja.
+        if (faltando.add(c.metodo)) {
+            System.err.println("[nucleo] método ainda sem dono: " + c.metodo)
+        }
         resolver(sessao, c.id, "null")
         return RECIBO_OK
     }

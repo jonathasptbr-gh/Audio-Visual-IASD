@@ -233,7 +233,17 @@ internal sealed class Folhas
                 break;
 
             default:
-                lock (_semDono) { if (!_semDono.Contains(c.Metodo)) _semDono.Add(c.Metodo); }
+                // ANOTADO NA PRIMEIRA VEZ, e só nela — ver o par no
+                // `NucleoDespacho`. Sem isto a lista era write-only: o KDoc
+                // prometia "uma linha de diagnóstico" e não havia onde lê-la.
+                lock (_semDono)
+                {
+                    if (!_semDono.Contains(c.Metodo))
+                    {
+                        _semDono.Add(c.Metodo);
+                        Diario.Anotar("[casca] método ainda sem dono: " + c.Metodo);
+                    }
+                }
                 Resolver("null");
                 break;
         }

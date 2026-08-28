@@ -4,10 +4,10 @@ A casca Kotlin que hospeda a base web em dois WebViews e manda **só o Display**
 para a TV com `android.app.Presentation`.
 
 > **DOIS MÓDULOS desde a v1.4.5.** O `:core` (`core/src/main/kotlin/`) é JVM
-> PURO — cinco arquivos que nunca foram Android, agora num módulo onde o
+> PURO — doze arquivos que nunca foram Android, agora num módulo onde o
 > compilador IMPEDE que uma dependência de plataforma entre neles. O `:app` é a
 > casca. A separação é o que permite uma segunda casca hospedar a MESMA lógica
-> sem duplicar uma linha; os 138 testes JUnit foram junto, sem uma asserção
+> sem duplicar uma linha; os testes JUnit foram junto, sem uma asserção
 > nova, porque **nenhum dos arquivos mudou — só o endereço deles**.
 >
 > `EspelhoDiag.kt` **não atravessou**, e o motivo está escrito no topo dele:
@@ -46,7 +46,7 @@ para a TV com `android.app.Presentation`.
 | `WebUpdater.kt` | 1.160 | [`OTA.md`](OTA.md) |
 | `ShellUpdater.kt` | 340 | [`OTA.md`](OTA.md) |
 | `WebPathHandler.kt` | 88 | [`OTA.md`](OTA.md) |
-| `EspelhoHttp.kt` **(:core)** | 911 | [`../TELAO-POR-COMANDOS.md`](../TELAO-POR-COMANDOS.md) |
+| `EspelhoHttp.kt` **(:core)** | 922 | [`../TELAO-POR-COMANDOS.md`](../TELAO-POR-COMANDOS.md) |
 | `EspelhoServidor.kt` | 2.417 | idem |
 | `EspelhoPares.kt` **(:core)** | 630 | idem |
 | `EspelhoMidiaCache.kt` **(:core)** | 248 | idem |
@@ -67,7 +67,8 @@ para a TV com `android.app.Presentation`.
 | `MicDiag.kt` | 181 | `CLAUDE.md` — "Microfone ao vivo" (o `micDiag` da ponte: POR QUE ele não abre — leitura PURA, não pede nada) |
 | `MessageBus.kt` | 54 | `CLAUDE.md` — "Barramento de comandos" |
 | `ShareIntake.kt` | 143 | `CLAUDE.md` — "Compartilhamento" |
-| `SlideDeck.kt` | 321 | [`../arquitetura/DOCUMENTO-EM-CENA.md`](../arquitetura/DOCUMENTO-EM-CENA.md) |
+| `SlideDeck.kt` | 379 | [`../arquitetura/DOCUMENTO-EM-CENA.md`](../arquitetura/DOCUMENTO-EM-CENA.md) |
+| `Farol.kt` | 239 | `CLAUDE.md` — "Divergências" e [`../MEDICAO-DE-ALCANCE.md`](../MEDICAO-DE-ALCANCE.md) (a contagem de uso: uma busca por dia, agregada, sem id) |
 | `CifraFonte.kt` | 178 | `CLAUDE.md` — "A aba de cifra" (transporte só; quem lê o HTML é `controle/cifra.js`) |
 | `NucleoRotas.kt` **(:core)** | 215 | [`../SEGUNDA-CASCA.md`](../SEGUNDA-CASCA.md) — o que uma rota **É** (PURO); a travessia mora aqui |
 | `NucleoServidor.kt` **(:core)** | 381 | [`../SEGUNDA-CASCA.md`](../SEGUNDA-CASCA.md) — o socket de loopback; **a porta é a origem** |

@@ -1349,7 +1349,8 @@ jobs:
       # OS DOIS MÓDULOS. `testDebugUnitTest` é uma tarefa do AGP e alcança só o
       # `:app`; os testes puros mudaram para o `:core` (JVM, sem Android), e
       # `:core:test` é a tarefa que os roda. Deixar só a primeira faria o passo
-      # continuar VERDE testando nada — o `:app` não tem mais teste de unidade.
+      # continuar VERDE testando quase nada: no `:app` resta UM arquivo
+      # (`EspelhoCertNomeTest`, 10 `@Test`) contra os 208 do `:core`.
       - name: Testes unitários (JVM)
         run: ./gradlew --no-daemon :core:test testDebugUnitTest
 

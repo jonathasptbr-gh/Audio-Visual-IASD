@@ -231,9 +231,10 @@ docs/
 └── ESPELHO-DE-PIXELS.md         # ARQUIVO: recurso removido (v5.187); só §2.3, §2.4 e §10-A
 ```
 
-**DOIS módulos Kotlin desde a v1.4.5** — `:core` (JVM puro, 5 arquivos: o parser
-HTTP, o controle de acesso, o cache de mídia, a escolha de interface e a trilha
-de áudio) e `:app` (a casca Android, 24 arquivos). A separação não é
+**DOIS módulos Kotlin desde a v1.4.5** — `:core` (JVM puro, **12 arquivos**: os
+cinco que atravessaram na v1.4.5 — o parser HTTP, o controle de acesso, o cache
+de mídia, a escolha de interface e a trilha de áudio — mais os sete do núcleo da
+segunda casca) e `:app` (a casca Android, **25 arquivos**). A separação não é
 arrumação: é o compilador passando a IMPEDIR que uma dependência de plataforma
 entre no que é puro, e é o que permite uma segunda casca hospedar a MESMA
 lógica sem duplicar uma linha. **`EspelhoDiag.kt` NÃO atravessou**, e o motivo
@@ -1803,7 +1804,8 @@ faltam **4** (YouTube e cifra), **5** (muxer e PDF), **6** (telas da rede) e
 **7** (Loja e ZIP). Dos 57 métodos da ponte, **19 têm dono** hoje; o que não tem
 resolve `null` **na hora** e entra numa lista que os dois lados mantêm — sem
 isso o botão existiria, seria tocável, e depois de 60 s não aconteceria nada.
-**A tabela de Estado, método a método, mora no `docs/SEGUNDA-CASCA.md`, §7.**
+**A tabela de Estado dos lotes está no `docs/SEGUNDA-CASCA.md` §0; o mapa dos
+métodos por destino, na §7.**
 
 > **O CI tem um job próprio, `segunda-casca`, e NINGUÉM o tem como `needs`.**
 > Uma casca de Windows quebrada não pode segurar o canal OTA nem o APK — ela não
@@ -3237,6 +3239,8 @@ mundo anterior por outro caminho.
 | `cifra-rolagem.test.mjs` | **a rolagem `auto` da cifra precisa de um relógio ANDANDO.** A barra de progresso responde "este ITEM tem linha do tempo?", e `currentItem` sobrevive ao Parar, ao fim da faixa e a uma letra avulsa — a barra ficava habilitada sobre um telão vazio, e o `auto` ancorava a folha em `fracaoDaRolagem(0, dur)`. O desfecho não é um erro, é uma folha PARADA. TRÊS metades: sem mídia no ar ela anda (o livre assumiu), com mídia no ar ela não anda sozinha — "cair sempre no livre" apagaria o recurso —, e a folha de uma música da BIBLIOTECA (`lvAlvo`) continua rolando depois de um redesenho. Esta terceira trava a divergência que a v1.2.14 abriu: `cifraRolarAlternar` gravava a chave de `currentItem` e a guarda de `lvBuildCifra` compara com `lvItem()`, então no ensaio a rolagem morria no primeiro `renderLyricsView` (transpor, A+/A−, girar). A terceira asserção prova que a guarda "música nova é folha nova" não foi apagada para as outras duas passarem |
 | `leitor-do-transporte.test.mjs` | **o BOTÃO que abre o auxiliar de leitura.** `openLyricsPopup` ganhou `(item, fonte)` e o ouvinte continuou registrado por REFERÊNCIA — `addEventListener` chama com o EVENTO, o `PointerEvent` virou o `lvAlvo`, e as três fontes (letra, cifra e a reserva da Bíblia) sumiam de uma vez: a folha abria dizendo "Nada em exibição" para TODA música, com o console limpo. Os três oráculos que já abriam esta folha chamam `openLyricsPopup()` direto — o único caminho que continuava funcionando —, e é por isso que este CLICA. A segunda metade (a Biblioteca continua desviando o alvo) impede que apagar os parâmetros "conserte" a primeira |
 | `controles-layout.test.mjs` | **o DECK dos controles** (v1.3.5): os dois botões de slide que voltaram a flanquear a preview, a coluna de operação que subiu para cima dela, e o ⏮/⏭ do transporte que perdeu o eixo de estrofe. As quatro mudanças falham CALADAS, e a mais cara é a última — se a troca não pegar, "próxima mídia" continua passando ESTROFE com uma letra no ar, no meio de um louvor, sem nada no console; a prova é o COMANDO que sai no barramento (`seek` é a estrofe andando). Trava também a **ARMADILHA DO `<use>`**: a folha do documento NÃO atravessa a árvore-sombra de um `<use>`, então um `<symbol>` único com os dois desenhos dentro carrega, não erra e desenha os DOIS empilhados para sempre. As duas asserções mais óbvias contra ela — contar nós visíveis e fotografar o botão — **aprovam a armadilha** (medido), e por isso ele pergunta qual SÍMBOLO está no ar. Cobre também a COLUNA DA TELA CHEIA (v1.3.10): ela nasce ACESA e o toque é INTERRUPTOR. Ele espera pelo EVENTO `fullscreenchange`, nunca por `document.fullscreenElement` — MEDIDO, o Chromium publica a propriedade ANTES de despachar o evento e a enquete do Playwright cai no vão, reprovando um app que está certo |
+| `janela-do-display.test.mjs` | **duas páginas do mesmo origin dividindo IndexedDB e barramento** — o que o app inteiro supõe e nenhum oráculo jamais tinha aberto (`waitForEvent` não aparecia em `tools/`, e `openWebDisplay` estava em produção com cobertura zero). A reversão dele é o achado: com o `/display/` aberto em `127.0.0.1` em vez de `localhost` — mesma máquina, mesma porta, só o host — o acervo some e o barramento emudece **sem um único erro de página**. É a fundação da segunda casca, provada antes dela existir |
+| `degrau-desktop.test.mjs` | o layout de DUAS COLUNAS numa tela larga, e ele mede **o que o desenho RESERVA** (`display`, adjacência de caixa, o teto do `clamp`), nunca a soma renderizada de um texto — medir pixel de texto mediria a fonte do runner. A guarda tem duas metades, e a segunda protege o culto: largura **E** altura, senão ela alcançaria um celular DEITADO, que é a forma da preview em tela cheia |
 | `fundo-da-letra.test.mjs` | **o fundo da estrofe na PREVIEW**, que sumia ao trocar de música. A `<img>` é filha da camada da letra, então o desmonte é ADIADO — e quando a letra volta antes do prazo (todo `load` de música faz isso) alguém precisa CANCELAR o desmonte. A guarda de sequência não cancela: ela não anda quando a estrofe que volta usa a MESMA imagem, que é o caso NORMAL (o fallback grudento do sync dá uma imagem por hino). O telão tinha as três proteções e a preview não tinha — **e a documentação já as descrevia como se fossem de ambos**: é a armadilha do `__tela`, em que ler cada lado isolado aprova os dois. Sem TV a preview É a projeção |
 | `excluir-em-cena.test.mjs` | **excluir de uma lista não pode derrubar a cena**, e eram DOIS defeitos. O primeiro tem sintoma (o louvor parava, por um `retirarDoAr` no caminho de excluir); o SEGUNDO não tem nenhum — o coletor só conhecia LISTAS, então sair da última apagava os bytes por baixo de uma projeção que seguia tocando, e só uma queda de dongle revelaria. Mede que a cena continua ANDANDO (não só "não pausou") **e** que o registro sobrevive. A terceira metade impede a correção de virar outro defeito: um item que JÁ TOCOU e não está mais em cena tem de morrer de verdade |
 | `aviso-de-importacao.test.mjs` | **o aviso de que um arquivo está entrando.** A ausência dele NÃO É UM ERRO: nada quebra, nada aparece no console, e o item chega ao fim — só chega em silêncio, e "importei e não aconteceu nada" é indistinguível de travar. Um teste do desfecho passa nas duas versões, então ele mede o MEIO, com o arquivo servido AOS PEDAÇOS para a janela existir |
@@ -3284,7 +3288,8 @@ mundo anterior por outro caminho.
 **JUnit** (`./gradlew :core:test testDebugUnitTest`, **sem `continue-on-error`**,
 antes do `assembleRelease`) — **os DOIS módulos, e a primeira tarefa não é
 opcional**: `testDebugUnitTest` é do AGP e alcança só o `:app`, onde hoje resta
-um teste; os 208 dos arquivos puros rodam em `:core:test`. Deixar só a segunda
+um teste (`EspelhoCertNomeTest`, com 10 `@Test`); os 208 dos arquivos puros
+rodam em `:core:test`. Deixar só a segunda
 faria o passo continuar verde testando quase nada. São eles: `EspelhoHttpTest` (tetos do parser,
 `read()` parcial, `Host` fora da allowlist, `Origin` estranha, 404 uniforme),
 `EspelhoParesTest` (prazo, teto de sessões, saneamento), `EspelhoHttpRangeTest`
@@ -3537,7 +3542,9 @@ Rodar local: `./gradlew assembleDebug` (exige Android SDK).
   | **JUnit** (`testImplementation`) | **não põe um byte no APK**. Existe porque o servidor das telas é **a primeira fronteira de rede do projeto** — um parser HTTP com controle de acesso, onde um erro não vira pixel errado, vira controle de acesso quebrado. Escrevê-lo sem oráculo, num repositório que recusa o RFC 6455 **por falta de oráculo**, seria o argumento aplicado contra ele mesmo |
 | **Playwright** (`package.json`, `devDependencies`) | **também não põe um byte no APK** — é o arnês dos oráculos de Chromium, e a única forma de exercitar o que só existe RENDERIZADO (contraste, escada de camadas, hit-test, o telão de verdade). Ele já era usado; o que mudou é que passou a ser **declarado e PINADO**: o `package.json` e o `package-lock.json` são versionados e o CI usa `npm ci`. Sem o pin, o passo instalava a `latest` do dia e o veredito do CI não era função só do nosso código — o que tornava impossível o passo BARRAR o build, e desde a v5.316 ele barra. **Subir o pin obriga a repetir a campanha de determinismo** (ver "Um oráculo não pode medir o runner") |
 
-  Uma quinta exceção precisa da mesma justificativa: um problema que não se
+  | **`Microsoft.Web.WebView2`** (`windows/`, a segunda casca) | **é a única das cinco que VIAJA no produto** — as outras três de build não põem um byte em artefato nenhum. Ela é o SDK de hospedagem do runtime do Edge, e não há alternativa: sem ela não há como pôr uma página numa janela do Windows. O JCEF, que seria a alternativa sem ela, **vem com H.264/AAC desligados por patente** (`JBR-2368`) — o hinário tocaria e o YouTube, a transmissão direta e todo `.mp4` importado não. Ela é do próprio fabricante do sistema, licenciada por ele, e o runtime já está em todo Windows 10/11: o que o pacote carrega é o SDK, não um navegador. Ver `docs/SEGUNDA-CASCA.md` §3 e §9 |
+
+  Uma sexta exceção precisa da mesma justificativa: um problema que não se
   resolve de outro jeito, e a manutenção paga por quem publica a biblioteca.
 
 ### Diagnóstico

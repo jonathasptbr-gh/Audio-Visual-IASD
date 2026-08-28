@@ -164,6 +164,28 @@ internal static class Programa
     /// </summary>
     static async Task AcertarTelaoAsync()
     {
+        try { await AcertarTelaoInternoAsync(); }
+        finally
+        {
+            // O LADO WEB PRECISA SABER QUE A LISTA DE TELAS MUDOU.
+            //
+            // Criar e derrubar a janela não basta: quem desenha o estado do
+            // telão em Configurações é o `renderDisplayStatus`, registrado em
+            // `AVNative.onDisplayChange`, e ele só acorda por este empurrão —
+            // é o mesmo que a `MainActivity` do Android faz. Sem ele o
+            // projetor entra no meio do culto, a janela nasce, e **a interface
+            // continua dizendo que não há tela nenhuma**.
+            var c = _controle?.Controlador?.CoreWebView2;
+            if (c is not null)
+            {
+                try { await c.ExecuteScriptAsync("window.__avDisplaysChanged && window.__avDisplaysChanged();"); }
+                catch (Exception e) { Diario.Anotar("[casca] não avisou a troca de tela: " + e.Message); }
+            }
+        }
+    }
+
+    static async Task AcertarTelaoInternoAsync()
+    {
         var monitor = Telas.DaProjecao();
         if (monitor is null)
         {
