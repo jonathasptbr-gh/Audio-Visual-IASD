@@ -1258,6 +1258,21 @@ alguma tela conectada?  ── sim ──▶  preview MUDA (o som é da TV / das
   de divergirem no primeiro caso de borda. `telaoConectado()` continua
   respondendo só pela TV, que é a pergunta certa para o atraso da preview e para
   o botão de espelhar.
+- **E "A TV" É A `Presentation`, NÃO A TELA LISTADA** (v1.4.4). As duas divergem
+  numa negociação de Miracast — `show()` lança com o dongle instável, o sistema
+  derruba a janela sozinho numa oscilação, e nos dois casos a tela **continua
+  listada**. Enquanto a pergunta foi `lastDisplays.length > 0`, esse estado
+  calava a preview por haver "para onde mandar o som" sem ninguém tocando do
+  outro lado: **silêncio nos dois lados**, com o Registro dizendo "conectado". O
+  campo `telao` de cada tela (shell 59) é quem responde agora, por `telaoNoAr()`
+  — e as três perguntas que passaram a usá-lo são as que dependem de haver
+  PROJEÇÃO: o som, o microfone (`haOndeReproduzirMic` — quem capta é o
+  `/display/` DENTRO da janela) e o portão do Modo Fácil. O que descreve a
+  CONEXÃO segue lendo a lista crua: o rótulo da folha, o `applyPreviewAspect`, o
+  Registro — e é lá que a distância entre as duas vira frase. Com o telão no
+  chão o som volta para o celular, que no espelhamento continua chegando às
+  caixas pelo `REMOTE_SUBMIX` (v1.1.7), enquanto o shell retenta a janela por
+  ~15 s.
 - **No avançado por DERIVAÇÃO, no Modo Fácil por ESCOLHA** — e os dois pela mesma
   porta, porque a pergunta de baixo é uma só: há para onde mandar o som?
   (`somLocalDeveEstar`: `!algumaTelaConectada() && (appMode === 'full' ||

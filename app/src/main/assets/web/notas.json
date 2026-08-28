@@ -1,5 +1,15 @@
 [
   {
+    "versao": "1.4.4",
+    "itens": [
+      "O SOM DEIXOU DE SUMIR AO CONECTAR NUMA SMART TV. Numa conexão instável a TV podia aparecer na lista do Android sem que a projeção chegasse a subir nela — e nesse estado o app calava o celular (por achar que havia para onde mandar o som) sem ter ninguém tocando do outro lado. Ficava mudo dos dois lados, sem erro nenhum na tela.",
+      "E QUANDO A PROJEÇÃO NÃO SOBE, O APP TENTA DE NOVO SOZINHO — cinco vezes, ao longo de uns quinze segundos. Antes ela só era retomada se a TV se desconectasse e voltasse, ou se você saísse do app e entrasse de novo; com o celular no suporte, isso não acontecia e o culto seguia sem projeção.",
+      "ENQUANTO ISSO O SOM VOLTA PARA O CELULAR, que no espelhamento continua chegando às caixas da igreja. E a folha de conexão passa a dizer o que está havendo, em vez de mostrar “Conectado” sobre uma TV que não mostra nada.",
+      "E QUANDO UM VÍDEO DO YOUTUBE TRAVA NO MEIO, AGORA APARECE QUE ELE ESTÁ CARREGANDO. Antes o quadro simplesmente congelava, sem nada na tela — e um vídeo esperando a internet ficava igual a um app travado. O aro de espera já existia no começo da reprodução; agora ele também aparece no meio, depois de meio segundo parado (um soluço curto não acende nada, para não ficar piscando na projeção).",
+      "E O REGISTRO PASSOU A DIZER QUANTAS VEZES A TRANSMISSÃO FICOU SEM DADOS, e quantos segundos parada no total. É a diferença entre \"a internet oscilou\" e \"a internet não sustenta essa qualidade\" — e a segunda tem resposta: no menu do vídeo, escolher 720p ou 480p antes de tocar."
+    ]
+  },
+  {
     "versao": "1.4.3",
     "itens": [
       "A LISTA DE NOVIDADES DESTA JANELA ficou mais curta: ela guardava um resumo de cada versão desde a 1.0.1, e as antigas descreviam um app que ninguém mais roda. Agora ela cobre as duas últimas séries — o que muda é o peso da atualização, não o que você lê aqui."

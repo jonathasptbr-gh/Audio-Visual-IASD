@@ -60,6 +60,48 @@ class MainActivity : ComponentActivity(), BridgeHost {
     private var presentation: StagePresentation? = null
     private var displayManager: DisplayManager? = null
 
+    /**
+     * O displayId do telão que está DE FATO no ar, ou -1.
+     *
+     * "HÁ TELA" NÃO É "HÁ TELÃO", e confundir os dois é o defeito que este
+     * campo existe para fechar. [listDisplays] responde pelo DisplayManager e o
+     * lado web decidia por ele quem toca o som (`acertarSaidaDeAudio`), se o
+     * botão de microfone existe (`haOndeReproduzirMic`) e se o Modo Fácil
+     * destrava. Mas a projeção é a `Presentation` — e ela pode não estar no ar
+     * com a tela listada: `show()` lança quando o dongle está instável, e o
+     * sistema derruba a janela sozinho numa oscilação de Miracast.
+     *
+     * O desfecho era o pior possível num culto: a tela listada calava a preview
+     * (há para onde mandar o som) e não havia telão tocando — **silêncio nos
+     * dois lados**, sem erro em lugar nenhum e sem nada na tela que explicasse.
+     *
+     * `@Volatile` porque a escrita é da MAIN THREAD (só [syncPresentation] e o
+     * `setOnDismissListener`) e a leitura é da thread do WebView, em
+     * [listDisplays].
+     */
+    @Volatile
+    private var telaoDisplayId = -1
+
+    /**
+     * A ESCADA DE RETOMADA DO TELÃO. Sem ela, um `show()` que falha é definitivo:
+     * `syncPresentation` só roda de novo por um evento do DisplayManager — que
+     * pode não vir — ou por um `onResume`, que exige o operador sair do app e
+     * voltar. Num culto o celular fica no suporte, e o estado "tela conectada,
+     * telão no chão" durava o culto inteiro.
+     *
+     * Cresce (0,4 s → 8 s, ~15 s no total) pelo motivo da retomada de áudio do
+     * `display.js`: o pior caso audível é uma falha no começo, não uma tentativa
+     * a cada quadro. Zera em toda subida bem-sucedida e é CANCELADA quando a
+     * tela some de verdade — aí não há o que retomar, e o caminho normal
+     * (preview assume o som) já está certo.
+     */
+    private var telaoTentativa = 0
+    private var telaoRetryPendente = false
+    private val telaoRetomar = Runnable {
+        telaoRetryPendente = false
+        syncPresentation()
+    }
+
     /** Fullscreen HTML5 (a preview do Controle em tela cheia). */
     private var customView: View? = null
     private var customCallback: WebChromeClient.CustomViewCallback? = null
@@ -658,6 +700,10 @@ class MainActivity : ComponentActivity(), BridgeHost {
         EspelhoEnergia.onGone = null
         EspelhoEnergia.onTermica = null
         displayManager?.unregisterDisplayListener(displayListener)
+        // A escada de retomada captura ESTA Activity pelo `Runnable`: um pedido
+        // em voo levantaria uma `Presentation` de uma tela que já morreu.
+        cancelarRetomadaDoTelao()
+        telaoDisplayId = -1
         presentation?.let {
             it.release()
             it.dismiss()
@@ -737,6 +783,12 @@ class MainActivity : ComponentActivity(), BridgeHost {
             // web ficava com a última lista que recebeu, que ainda tinha a TV, e
             // o ícone seguia aceso. A saída antecipada estava dentro do `if`
             // errado: a notificação é sobre a TELA, não sobre a janela.
+            //
+            // A TELA SUMIU DE VERDADE: não há telão a retomar, e o caminho
+            // normal (a preview assume o som) já é o certo. Cancelar aqui é o
+            // que impede a escada de ficar batendo numa tela que foi embora.
+            cancelarRetomadaDoTelao()
+            telaoDisplayId = -1
             notifyDisplayChange()
             return
         }
@@ -748,6 +800,8 @@ class MainActivity : ComponentActivity(), BridgeHost {
                 // ela que o rodapé de Configurações exibe. Notificar aqui é um
                 // `evaluateJavascript` com uma leitura de lista do outro lado; o
                 // lado web já deduplica pelo que desenha.
+                cancelarRetomadaDoTelao()
+                telaoDisplayId = target.displayId
                 notifyDisplayChange()
                 return
             }
@@ -772,13 +826,20 @@ class MainActivity : ComponentActivity(), BridgeHost {
                 // `onDisplayRemoved` —, e sem esta linha o Controle só descobria
                 // a desconexão no próximo evento do DisplayManager, que pode não
                 // vir. `listDisplays` é reconsultado do outro lado, então se a
-                // tela ainda estiver lá nada muda na tela do operador.
+                // tela ainda estiver lá o web agora VÊ a diferença (`telao`) —
+                // e é por isso que a escada abaixo é armada junto: a janela caiu
+                // sozinha, mas a tela pode continuar lá, e ninguém mais tentaria
+                // levantá-la.
+                telaoDisplayId = -1
                 notifyDisplayChange()
+                agendarRetomadaDoTelao()
             }
         }
         try {
             p.show()
             presentation = p
+            telaoDisplayId = target.displayId
+            cancelarRetomadaDoTelao()
         } catch (e: Exception) {
             // A tela sumiu entre a consulta e o show() (dongle instável), ou o
             // WindowManager recusou o token. `show()` roda `onCreate` ANTES do
@@ -790,8 +851,36 @@ class MainActivity : ComponentActivity(), BridgeHost {
             p.release()
             try { p.dismiss() } catch (_: Exception) { /* nunca chegou a exibir */ }
             presentation = null
+            telaoDisplayId = -1
+            // E TENTA DE NOVO. Sem isto a falha é DEFINITIVA: `syncPresentation`
+            // só volta a rodar por um evento do DisplayManager — que numa tela
+            // que continua listada não vem — ou por um `onResume`, que exige o
+            // operador sair do app e voltar. É este o "conectei e não veio nada,
+            // nem som".
+            agendarRetomadaDoTelao()
         }
         notifyDisplayChange()
+    }
+
+    /**
+     * Reagenda [syncPresentation] com espera crescente. Um pedido em voo NÃO é
+     * reagendado: a escada é do episódio, não da chamada, e `onDisplayChanged`
+     * chega em rajada durante uma negociação de Miracast — sem esta guarda cada
+     * evento reiniciaria a contagem e a espera nunca cresceria.
+     */
+    private fun agendarRetomadaDoTelao() {
+        if (telaoRetryPendente) return
+        if (telaoTentativa >= TELAO_ESPERAS.size) return
+        val espera = TELAO_ESPERAS[telaoTentativa]
+        telaoTentativa++
+        telaoRetryPendente = true
+        webContainer.postDelayed(telaoRetomar, espera)
+    }
+
+    private fun cancelarRetomadaDoTelao() {
+        telaoTentativa = 0
+        telaoRetryPendente = false
+        webContainer.removeCallbacks(telaoRetomar)
     }
 
     private fun notifyDisplayChange() {
@@ -915,8 +1004,26 @@ class MainActivity : ComponentActivity(), BridgeHost {
      * (Quem o produzia era a tela virtual do espelho de pixels, removida na
      * v5.187; ver o KDoc de [telasExternas] para por que o filtro fica.)
      */
+    /**
+     * As telas externas, e para cada uma **se o telão está de fato no ar nela**.
+     *
+     * O campo `telao` é a correção de um desencontro que durava desde o começo:
+     * esta lista responde pelo DisplayManager e o lado web decidia por ela quem
+     * toca o som, se o microfone é oferecido e se o Modo Fácil destrava — três
+     * perguntas cuja resposta honesta é a `Presentation`, não a tela. Com a tela
+     * listada e a janela no chão (o `show()` que lança num dongle instável, o
+     * dismiss que o sistema faz sozinho numa oscilação de Miracast) o web calava
+     * a preview por haver "para onde mandar o som" e não havia telão tocando:
+     * **silêncio nos dois lados**, sem erro em lugar nenhum.
+     *
+     * A tela CONTINUA na lista quando o telão não subiu, e é isso que separa
+     * este campo de um filtro: "não há TV" e "a TV está aí e o telão não subiu"
+     * pedem frases diferentes no Registro e na folha de conexão, e a segunda é a
+     * única das duas que diz o que está acontecendo.
+     */
     override fun listDisplays(): JSONArray {
         val out = JSONArray()
+        val noAr = telaoDisplayId
         for (d in telasExternas()) {
             val metrics = android.util.DisplayMetrics()
             @Suppress("DEPRECATION")
@@ -927,7 +1034,8 @@ class MainActivity : ComponentActivity(), BridgeHost {
                     .put("name", d.name ?: "")
                     .put("w", metrics.widthPixels)
                     .put("h", metrics.heightPixels)
-                    .put("density", metrics.density.toDouble()),
+                    .put("density", metrics.density.toDouble())
+                    .put("telao", d.displayId == noAr),
             )
         }
         return out
@@ -1912,6 +2020,9 @@ class MainActivity : ComponentActivity(), BridgeHost {
 
     companion object {
         private const val TAG = "AvIasd"
+
+        /** As esperas da escada de retomada do telão — ver [agendarRetomadaDoTelao]. */
+        private val TELAO_ESPERAS = longArrayOf(400, 1000, 2000, 4000, 8000)
         /**
          * O tema escolhido, guardado só para o `windowBackground` do PRÓXIMO
          * lançamento (ver [setTemaClaro]). A fonte de verdade é o

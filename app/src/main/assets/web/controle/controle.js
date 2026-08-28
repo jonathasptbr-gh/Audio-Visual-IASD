@@ -258,7 +258,7 @@ const appVersionEl = document.getElementById('appVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.4.3';
+const WEB_VERSION = '1.4.4';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -1684,7 +1684,35 @@ function ressincronizarPreview() {
 // aparelho atrapalha alguém.
 function telaoConectado() {
   if (!window.__NATIVE__) return !!(webDisplayWin && !webDisplayWin.closed);
-  return lastDisplays.length > 0;
+  return !!telaoNoAr();
+}
+
+// A TELA EM QUE O TELÃO ESTÁ DE FATO NO AR — e ela NÃO é `lastDisplays[0]`.
+//
+// A lista responde pelo DisplayManager; a projeção é a `Presentation`, e as
+// duas divergem exatamente quando mais custa. `show()` lança num dongle
+// instável e o sistema derruba a janela sozinho numa oscilação de Miracast: a
+// tela continua listada e não há telão nenhum. Enquanto esta função foi
+// `lastDisplays.length > 0`, esse estado calava a preview (havia "para onde
+// mandar o som") sem ninguém tocando do outro lado — SILÊNCIO NOS DOIS LADOS,
+// sem erro em lugar nenhum. O `telao` do shell (59) é quem responde.
+//
+// Ela é a pergunta das TRÊS decisões que dependem de haver projeção: quem toca
+// o som (`acertarSaidaDeAudio`), se o microfone é oferecido
+// (`haOndeReproduzirMic`) e se o Modo Fácil destrava (`simpleDisplay`). O que
+// segue lendo a lista CRUA é o que descreve a CONEXÃO — o rótulo da folha, o
+// `applyPreviewAspect`, o Registro —, e é lá que a distância entre as duas vira
+// frase.
+function telaoNoAr() {
+  for (const d of lastDisplays) if (d && d.telao) return d;
+  return null;
+}
+
+// A TELA ESTÁ CONECTADA E O TELÃO NÃO SUBIU. É o estado que o shell retenta por
+// ~15 s (a escada do `syncPresentation`) e o único em que o app tem uma TV na
+// lista sem ter para onde projetar.
+function telaoNoChao() {
+  return window.__NATIVE__ && lastDisplays.length > 0 && !telaoNoAr();
 }
 
 // ===== A SAÍDA DE ÁUDIO: os displays, ou ESTE APARELHO =====
@@ -5104,7 +5132,11 @@ function sendMic(on) {
 // No NAVEGADOR o Display é outra janela, aberta à mão, e o app não tem como
 // saber se ela está lá — ali a resposta otimista continua sendo a certa.
 function haOndeReproduzirMic() {
-  return !window.__NATIVE__ || lastDisplays.length > 0;
+  // E A PERGUNTA É PELA `Presentation`, NÃO PELA TELA (shell 59). Quem abre o
+  // microfone é o `/display/`, que só existe dentro dela: com a tela listada e a
+  // janela no chão o botão era desenhado sobre nada, e o toque gastava a única
+  // permissão sensível do app numa ação que não podia funcionar.
+  return !window.__NATIVE__ || !!telaoNoAr();
 }
 
 function renderMicUI() {
@@ -18737,6 +18769,16 @@ function blocoAudio() {
     tv ? 'espelhando para "' + (tv.name || 'TV') + '" — o som deste aparelho vai junto'
        : 'nenhuma TV espelhando agora',
   ];
+  // E QUEM ESTÁ TOCANDO, que num relato de "o som some" é a primeira pergunta.
+  // Com o telão no chão a preview volta a ser a caixa de som (shell 59) — o que
+  // no espelhamento continua chegando à TV, porque o `REMOTE_SUBMIX` leva a
+  // mistura do aparelho inteiro. Sem esta linha, "com TV conectada este aparelho
+  // fica mudo" descreveria um estado que deixou de ser o único.
+  if (tv) {
+    linhas.push(tv.telao
+      ? 'o telão está no ar: quem toca é a Presentation, este aparelho está mudo'
+      : 'O TELÃO NÃO ESTÁ NO AR: quem toca é a preview deste aparelho');
+  }
   // AS SEIS LINHAS DE PROSA SÓ SAEM COM TV NO AR. Elas explicam uma
   // consequência do espelhamento, e saíam em toda cópia — inclusive nas de um
   // aparelho que nunca espelhou, onde não respondem pergunta nenhuma e empurram
@@ -18948,8 +18990,27 @@ async function renderDiag() {
     // "transmitindo 1080p" — a decisão — e nada sobre o vídeo ter morrido no
     // segundo zero logo depois. Decidir e conseguir são duas coisas.
     const falha = (window.AVStream && window.AVStream.ultimoErro) || '';
+    // E QUANTAS VEZES ELA FICOU SEM DADOS. Relato do operador: *"veio som, porém
+    // ficou travando e qualidade de vídeo baixa"* — e a resposta possível era um
+    // palpite ("deve ser a estabilidade da internet"), porque um `<video>` que
+    // trava por rede e um app quebrado produzem a MESMA tela. O censo é do
+    // `stage.js`, e vem em DOIS números: episódios e segundos parados. Dois
+    // travamentos de meio segundo é uma rede que oscila; dez de cinco segundos é
+    // uma rede que não sustenta a faixa escolhida — e a segunda tem resposta
+    // (baixar em vez de transmitir), a primeira não.
+    //
+    // SÓ APARECE DEPOIS DE ACONTECER: a ausência da linha é "não travou", e uma
+    // linha com zeros seria mais uma para o operador ler em toda cópia.
+    const fome = (window.AVStream && window.AVStream.fome) || null;
+    // "NESTA SESSÃO" está escrito porque o censo é CUMULATIVO e o título do
+    // bloco diz "último Tocar agora": sem a palavra, um número de cinco
+    // travamentos seria lido como cinco naquele vídeo.
+    const parou = fome && fome.quantas
+      ? '\nficou sem dados ' + fome.quantas + '\u00d7 nesta sessão ('
+        + fome.segundos + 's parada no total)'
+      : '';
     blocos.push('Transmissão direta (último "Tocar agora")\n' + motivoStream
-      + (falha ? '\nfalhou ao tocar: ' + falha : ''));
+      + parou + (falha ? '\nfalhou ao tocar: ' + falha : ''));
   }
   // A TRANSMISSÃO PARA NAVEGADOR: mais um BLOCO desta caixa, nunca uma faixa
   // nova em outro canto (regra do projeto). É o único lugar em que o estado do
@@ -22074,7 +22135,11 @@ function simpleDisplay() {
   if (!window.__NATIVE__) {
     return webDisplayWin && !webDisplayWin.closed ? { name: 'Display' } : null;
   }
-  if (lastDisplays[0]) return lastDisplays[0];
+  // O TELÃO NO AR, não a tela listada (shell 59): sem `Presentation` não há
+  // para onde projetar, e destravar o Modo Fácil ali dava um ▶ que não produz
+  // imagem nem som. A cortina volta, e a folha de conexão diz por quê.
+  const tv = telaoNoAr();
+  if (tv) return tv;
   const rede = telasDaRede();
   return rede.length ? { name: rede[0].rotulo || 'Tela da rede', rede: true } : null;
 }
@@ -22918,9 +22983,13 @@ let castAlvo = '';
 function descreverTelao() {
   if (!window.__NATIVE__) return 'navegador (sem Presentation)';
   const tv = lastDisplays[0];
-  return tv
-    ? 'conectado: ' + (tv.name || 'TV') + ' (' + tv.w + '\u00d7' + tv.h + ')'
-    : 'nenhum conectado';
+  if (!tv) return 'nenhum conectado';
+  // A TELA E O TELÃO SÃO DUAS COISAS, e este é o lugar em que a diferença tem
+  // de aparecer: um Registro que diz "conectado" sobre uma TV sem
+  // `Presentation` no ar manda investigar o app enquanto o que falhou foi a
+  // janela — e é justamente esse o estado de "conectei e não veio nada".
+  const est = tv.telao ? '' : ' — SEM TELÃO NO AR (a Presentation não subiu)';
+  return 'conectado: ' + (tv.name || 'TV') + ' (' + tv.w + '\u00d7' + tv.h + ')' + est;
 }
 
 if (window.__NATIVE__) {
@@ -22936,18 +23005,34 @@ if (window.__NATIVE__) {
     else if (antes && tv && (antes.id !== tv.id || antes.w !== tv.w || antes.h !== tv.h)) {
       diagC('TV mudou: ' + nomeDe(tv));
     }
-    // A PRESENÇA, não a lista: é ela que decide se o botão de microfone existe
-    // (`haOndeReproduzirMic`), e é ela que precisa disparar o redesenho da aba
-    // Ferramentas. Sem isto o botão só apareceria na próxima vez que o operador
-    // TROCASSE de aba — isto é, a TV entra no meio do culto e o microfone
-    // continua ausente, sem nada na tela explicando.
+    // A PRESENÇA DO TELÃO, não a da tela: é ela que decide se o botão de
+    // microfone existe (`haOndeReproduzirMic`), e é ela que precisa disparar o
+    // redesenho da aba Ferramentas. Sem isto o botão só apareceria na próxima
+    // vez que o operador TROCASSE de aba — isto é, a TV entra no meio do culto e
+    // o microfone continua ausente, sem nada na tela explicando.
+    //
+    // E É O TELÃO, e não `lastDisplays.length`, desde o shell 59: quem capta o
+    // microfone é o `/display/` dentro da `Presentation`, então uma tela listada
+    // com a janela no chão não é lugar de reproduzir nada.
     const tinhaTela = lastDisplays.length > 0;
+    const tinhaTelao = !!telaoNoAr();
     lastDisplays = list || [];
+    const temTelao = !!telaoNoAr();
+    // A DISTÂNCIA ENTRE A TELA E O TELÃO, na linha do tempo — e ela só é escrita
+    // quando é NOTÍCIA. Uma conexão normal já sai na linha "TV conectada" acima;
+    // o que aquela linha não sabe dizer é o estado que produz "conectei e não
+    // veio nada, nem som": a tela listada com a `Presentation` no chão. As três
+    // frases abaixo são as três bordas em que isso acontece.
+    if (tv && !temTelao && (!tinhaTela || tinhaTelao)) {
+      diagC('TV conectada, mas o TELÃO NÃO SUBIU (o shell vai retentar)');
+    } else if (tv && temTelao && tinhaTela && !tinhaTelao) {
+      diagC('o telão SUBIU (a TV já estava conectada)');
+    }
     // SÓ NA TRANSIÇÃO. `refreshDiversos` esvazia o `libraryEl` e redesenha o
     // painel inteiro: rodá-lo a cada callback (o `onResume` reconfere a lista)
     // derrubaria o que o operador está usando — um campo com foco, uma lista
     // rolada — por um evento que não mudou nada.
-    if (tinhaTela !== (lastDisplays.length > 0)) refreshDiversos();
+    if (tinhaTelao !== temTelao) refreshDiversos();
     // Conectar (ou perder) o telão MUDA O REGIME da preview: com TV a projeção
     // é ela, chega no ato, e a preview volta a andar junto. Ver `cmd`.
     recalcularAtrasoPreview();
@@ -23412,9 +23497,15 @@ function renderCast() {
   // dele; aqui se diz o DESFECHO.
   const tv = window.__NATIVE__ ? (lastDisplays[0] || null) : null;
   if (castMirrorLabelEl) {
-    castMirrorLabelEl.textContent = tv
-      ? 'Conectado: ' + (tv.name || 'TV')
-      : 'Conectar uma TV';
+    // "Conectado" descrevia a TELA e era lido como "o telão está lá". Com a
+    // `Presentation` no chão o operador via o rótulo verde sobre uma TV que não
+    // mostra nada — e a folha de conexão é exatamente onde ele vai procurar
+    // resposta. Ver `telaoNoAr`.
+    castMirrorLabelEl.textContent = !tv
+      ? 'Conectar uma TV'
+      : tv.telao
+        ? 'Conectado: ' + (tv.name || 'TV')
+        : 'Conectado a ' + (tv.name || 'TV') + ' — o telão não subiu, tentando de novo';
   }
   if (castMirrorBtnEl) castMirrorBtnEl.classList.toggle('connected', !!tv);
   // O AVISO DO SOM (ver o comentário no HTML), e ele SÓ EXISTE COM TV NO AR:

@@ -35,8 +35,8 @@ espelhar o celular.
 
 **Fora daqui:** `docs/ACHADOS-EM-ABERTO.md` (os defeitos CONFIRMADOS e ainda não
 corrigidos, com cenário e correção proposta — **leia antes de mexer no que ele
-nomeia**; hoje tem DOIS, os dois do áudio do espelhamento, e é arquivo para
-esvaziar, não para crescer),
+nomeia**; hoje tem TRÊS — os dois do áudio do espelhamento e a resolução da
+transmissão direta —, e é arquivo para esvaziar, não para crescer),
 `docs/shell/README.md`
 (o HUB do **Kotlin**: um capítulo por
 subsistema do shell, mais a tabela que diz onde cada um dos 29 arquivos é
@@ -306,6 +306,38 @@ normal — ali ser estrangulado em segundo plano é o certo, e é justamente o q
 Controle reenvia a cena (`resendSceneToDisplay`). **Não invente um mecanismo
 paralelo.**
 
+**MAS "HÁ TELA" NÃO É "HÁ TELÃO", e essa é a única parte que NÃO vem de graça.**
+`AVNative.displays()` responde pelo `DisplayManager`; quem projeta é a
+`Presentation`. As duas divergem exatamente durante uma negociação de Miracast —
+`show()` **lança** com o dongle instável, e o sistema derruba a janela sozinho
+numa oscilação —, e nos dois casos a tela **continua listada**. Enquanto o web
+perguntou `lastDisplays.length > 0`, esse estado calava a preview (havia "para
+onde mandar o som") sem ninguém tocando do outro lado: **silêncio nos dois
+lados**, sem erro no console e com o Registro dizendo "conectado". E não passava
+sozinho — `syncPresentation` só volta a rodar por um evento do `DisplayManager`
+(que numa tela que continua listada não vem) ou por um `onResume`, e num culto o
+celular fica no suporte.
+
+- **O campo `telao` de cada tela** é a `Presentation` DE FATO no ar nela, e é
+  ele que responde às três perguntas que dependem de haver projeção: quem toca o
+  som (`somLocalDeveEstar`), se o microfone é oferecido (`haOndeReproduzirMic`,
+  porque quem capta é o `/display/` dentro da janela) e se o Modo Fácil destrava
+  (`simpleDisplay`). O que segue lendo a lista CRUA é o que descreve a CONEXÃO —
+  o rótulo da folha, o `applyPreviewAspect`, o Registro.
+- **A tela CONTINUA na lista**, e é isso que separa o campo de um filtro: *"não
+  há TV"* e *"a TV está aí e o telão não subiu"* pedem frases diferentes, e a
+  segunda é a única das duas que diz o que está acontecendo.
+- **A escada de retomada** (`agendarRetomadaDoTelao`, 0,4 s → 8 s, cinco degraus)
+  retenta `syncPresentation`. Cresce pelo motivo da retomada de áudio do
+  `display.js` — o pior caso audível é uma falha no começo, não uma tentativa por
+  quadro —, zera em toda subida e é **cancelada quando a tela some de verdade**,
+  onde o caminho normal (a preview assume o som) já é o certo. Um pedido em voo
+  não é reagendado: `onDisplayChanged` chega em rajada, e sem essa guarda a
+  espera nunca cresceria.
+- **Enquanto o telão está no chão o som volta para o celular** — que no
+  espelhamento continua chegando às caixas, porque o `REMOTE_SUBMIX` leva a
+  mistura do aparelho inteiro. Oráculo: `tools/telao-no-chao.test.mjs`.
+
 **E o reenvio é ENDEREÇADO.** O barramento é broadcast, mas a resposta a um
 `display-ready` é para UMA instância: o telão assina o anúncio (`__de`, id
 aleatório por carga da página) e o Controle devolve a cena com `__para`, que o
@@ -370,7 +402,18 @@ window.AVNative = {
                        //   Só texto simples que COMEÇA com http(s), teto de
                        //   2 kB: privacidade, não classificação — quem decide
                        //   se é do YouTube é o `controle.js`
-  displays(),          // → [{ id, name, w, h, density }]
+  displays(),          // → [{ id, name, w, h, density, telao }]
+                       //   `telao` é a `Presentation` DE FATO no ar naquela
+                       //   tela — "há TELA" nunca foi "há TELÃO". A lista
+                       //   responde pelo DisplayManager; a projeção é a janela,
+                       //   e as duas divergem numa negociação de Miracast (o
+                       //   `show()` que lança, o dismiss que o sistema faz
+                       //   sozinho). É por ele que o web decide QUEM TOCA O SOM,
+                       //   se o microfone é oferecido e se o Modo Fácil
+                       //   destrava — as três perguntas cuja resposta honesta é
+                       //   a janela, não a tela. A tela CONTINUA na lista com o
+                       //   telão no chão: "não há TV" e "a TV está aí e o telão
+                       //   não subiu" pedem frases diferentes
   onDisplayChange(cb),
   openCast(),          // seletor de ESPELHAMENTO DE TELA do Android (≠ Google Cast)
   castTarget(),        // → string: rótulo do alvo de espelhamento deste aparelho
@@ -567,7 +610,7 @@ prazo (um timeout ali resolveria null com o operador ainda escolhendo a pasta).
 
 ### `SHELL_VERSION` — subir SEMPRE que a superfície mudar
 
-Hoje vale **58**, e ele é o **PISO**: o bundle declara `minShell: 58`, então
+Hoje vale **59**, e ele é o **PISO**: o bundle declara `minShell: 59`, então
 todo método da ponte existe sempre e **não há guarda de versão no lado web**.
 "Superfície" inclui **forma de retorno** e **comportamento**, não só assinatura:
 um campo que some, um contrato de URL que muda ou um método que passa a fazer
@@ -580,7 +623,7 @@ escondia. Sem guardas, o web chama um método que o APK instalado não tem: o
 existe, é tocável e não faz nada. Por isso mudança de ponte é um lote
 **APK + web publicado JUNTO**, com `shellTag` no `version.json`.
 
-> A tabela dos 58 degraus está em `docs/HISTORICO.md` — ela é história do
+> A tabela dos 59 degraus está em `docs/HISTORICO.md` — ela é história do
 > contrato, e história mora lá.
 
 ### As QUATRO filas da ponte — escolher a errada é uma regressão muda
@@ -642,7 +685,7 @@ E duas regras que ficam de fora das filas:
   e volta; quem responde é o laço de cópia do `YoutubeGrab`, a cada bloco de
   64 kB.
 
-**O bundle declara `minShell: 58`, e é a VÁLVULA que resolve.** Um bundle que
+**O bundle declara `minShell: 59`, e é a VÁLVULA que resolve.** Um bundle que
 exija ponte mais nova que o `SHELL_VERSION` instalado é recusado inteiro
 (`WebUpdater.kt`), e o app segue no que tinha — a recusa acontece no shell, e
 não em runtime no meio de um culto. **Guarda de versão no lado web é proibida:**
@@ -903,6 +946,29 @@ está em segundo plano"*):
   economia de energia. `pegar()` retenta 4 vezes (0,4 s → 1,2 s → 3 s) com a
   MESMA divisão do download: passa o acidente, **não** retenta 4xx (a URL
   expirada é conserto do `recuperarStream`, que a reconhece pela mensagem).
+
+- **UM TRAVAMENTO NO MEIO TEM DE APARECER, e ser CONTADO.** O indicador de
+  espera (`.av-stage-busy`) só existia na CARGA — do comando ao primeiro quadro
+  —, e uma parada por falta de buffer no meio do louvor congelava o quadro sem
+  nada na tela: **um app quebrado e uma rede ruim produzem a mesma imagem**, e a
+  leitura possível é a pior das duas. Hoje o giro tem **duas razões**
+  (`esperaCarga` · `esperaBuffer`) que não se apagam uma à outra, e a fome vira
+  número no Registro (`AVStream.fome`: episódios **e** segundos parados — dois
+  travamentos de meio segundo e dez de cinco pedem respostas opostas, e só a
+  segunda tem conserto: baixar em vez de transmitir).
+  - **A vigília só abre no primeiro `playing`.** MEDIDO: um `MediaSource` nasce
+    vazio e dispara `waiting` em TODA transmissão, então contar a carga faria o
+    número dizer *"≥1 sempre"* — o mesmo que não dizer nada.
+  - **Atraso de 600 ms antes de acender**, e **só no stream**: um arquivo local
+    não fica sem dados, e um aro piscando a cada seek na frente da congregação é
+    pior que aro nenhum. Oráculo: `tools/espera-do-stream.test.mjs`.
+- **A RESOLUÇÃO É ESCOLHIDA UMA VEZ e não se adapta.** `YoutubeGrab.manifesto`
+  pega a faixa mais alta do PRIMEIRO cliente da ordem (`ordemCliente`, visionOS
+  na frente) sob o teto, e o `mse.js` a serve até o fim — não há ABR. Numa rede
+  fraca a resposta é do OPERADOR e já existe: o seletor **Online · 1080p · 720p ·
+  480p** da folha vale para "Tocar agora" (o `altura` viaja até o `ytStream`). O
+  Registro dá as duas metades da conta: `transmitindo Xp` (o que foi escolhido) e
+  o `resumo` da extração com a maior altura POR CONTÊINER (o que havia).
 
 > **A TRANSMISSÃO viaja no serviço da sessão de mídia** (não tem serviço
 > próprio): o `SessionService` tem **duas razões independentes de viver** (cena ·
@@ -3110,6 +3176,7 @@ mundo anterior por outro caminho.
 | `tela-rede.test.mjs` | **a tela da rede de ponta a ponta**, contra um servidor de mentira que fala o protocolo do `EspelhoServidor` |
 | `ponte.test.mjs` | **o que a ponte de fato ENTREGA** — `native.js` REMONTA campo a campo, e um campo esquecido some em silêncio. Afirma também que ele não drena papel nenhum e que o display emite as quatro mensagens (`display-ready`, `display-status`, `media-ended`, `mic-status`) — quem filtra é o `tela.js`, nunca a fonte |
 | `cena.test.mjs` | o que o telão mostra ao RECONECTAR (o caminho menos testável à mão: exige TV, dongle e o timing de derrubá-lo) |
+| `telao-no-chao.test.mjs` | **a tela conectada com o telão NO CHÃO** — "há tela" nunca foi "há telão", e o estado em que as duas divergem calava a preview sem ninguém tocando do outro lado: SILÊNCIO NOS DOIS LADOS, sem erro no console e com o Registro dizendo "conectado". Mede as três metades, e nenhuma basta: o som que fica neste aparelho, o estado ser DIZÍVEL (um filtro que escondesse a tela diria "não há TV", que é falso) e a RECUPERAÇÃO sendo absorvida sem passar por uma desconexão — sem esta última, a escada do Kotlin seria só um jeito novo de ficar parado |
 | `imagem-sobre-audio.test.mjs` | a IMAGEM projetada por cima do áudio. A regra é uma AUSÊNCIA — nenhum `load` sai daquele caminho —, e ausência não tem sintoma de tela nem erro de console: quem a prova é o `currentTime` do `<video>` medido em DOIS instantes ("não pausou" é fraco; "andou" prova que é o mesmo áudio). Nas duas metades: o Controle que decide sobrepor e o telão que pinta |
 | `parar-por-camada.test.mjs` | **o Parar do transporte, que fala de UMA camada só.** A regra é CONDICIONAL (mídia + Camada de Texto → sai só a mídia; uma das duas sozinha → sai a cena inteira), e uma condicional errada é muda nos DOIS sentidos: ou a Camada de Texto fica presa no telão sem saída no transporte, ou o louvor de fundo volta a levar o versículo junto. Mede as TRÊS cenas, e a prova é o `currentTime` do `<video>` mais o TIPO do comando — `clear` e `media-clear` apagam o mesmo vídeo da preview |
 | `cifra-rolagem.test.mjs` | **a rolagem `auto` da cifra precisa de um relógio ANDANDO.** A barra de progresso responde "este ITEM tem linha do tempo?", e `currentItem` sobrevive ao Parar, ao fim da faixa e a uma letra avulsa — a barra ficava habilitada sobre um telão vazio, e o `auto` ancorava a folha em `fracaoDaRolagem(0, dur)`. O desfecho não é um erro, é uma folha PARADA. TRÊS metades: sem mídia no ar ela anda (o livre assumiu), com mídia no ar ela não anda sozinha — "cair sempre no livre" apagaria o recurso —, e a folha de uma música da BIBLIOTECA (`lvAlvo`) continua rolando depois de um redesenho. Esta terceira trava a divergência que a v1.2.14 abriu: `cifraRolarAlternar` gravava a chave de `currentItem` e a guarda de `lvBuildCifra` compara com `lvItem()`, então no ensaio a rolagem morria no primeiro `renderLyricsView` (transpor, A+/A−, girar). A terceira asserção prova que a guarda "música nova é folha nova" não foi apagada para as outras duas passarem |
@@ -3134,6 +3201,7 @@ mundo anterior por outro caminho.
 | `db-estado.test.mjs` | **a atomicidade de uma chave de `state`** (`AVDB.updateState`). O defeito que ele trava não erra alto em lugar nenhum: `getState` + calcular + `setState` são duas transações com um vão entre elas, e o que se perde é a metade que o outro escritor acabou de gravar. Tem as DUAS metades — escreve o hazard à mão e prova que ele PERDE, e só então prova que a função não perde; sem a primeira, a segunda provaria que uma função concorda consigo mesma |
 | `acervo.test.mjs` | as contas da Biblioteca ("completa?" e "quanto ocupa?"), que já foram respondidas por fórmulas diferentes na mesma tela |
 | `mse.test.mjs` · `stage-fade.test.mjs` | mensagens de falha da transmissão direta · a transição de entrada do palco |
+| `espera-do-stream.test.mjs` | **o travamento no meio da transmissão** — o giro só existia na CARGA, e uma parada por falta de buffer congelava o quadro sem nada na tela; um app quebrado produz a MESMA imagem. Quatro metades (aparece · não pisca · só no stream · é CONTADO) mais a que foi MEDIDA escrevendo o arquivo: um `MediaSource` nasce vazio e dispara `waiting` em toda transmissão, então contar a carga faria o número do Registro dizer "≥1 sempre" |
 | `registro-alcance.test.mjs` | **a MEDIÇÃO DE ALCANCE**, um dos dois que rodam sobre o `site/`. Duas coisas falham CALADAS ali. Um gráfico que desenha todos os valores iguais: `.barra-c`/`.barra-f` eram `<span>`, que é INLINE, e `width` não faz nada num elemento inline — 12, 5, 3 e 1 saíam idênticos, sem erro em lugar nenhum (provado por REVERSÃO). E o ROTEAMENTO do farol de visita, que é o requisito inteiro: se ele parar, os números continuam subindo e passam a incluir quem mede — **e contador não se corrige depois** |
 | `plataforma.test.mjs` | **o FILTRO DE PLATAFORMA da página**: o `.apk` só instala em Android, então quem chega de iPhone, iPad ou computador não vê o guia de instalação — vê a frase que diz que este é um app Android e que a página deve ser aberta por um. Falha CALADO nos dois sentidos: de MENOS, o download volta a aparecer num iPhone e a pessoa conclui que o app está quebrado (ninguém relata isso); de MAIS — o caro —, a classificação recusa um Android de verdade e o que sai é uma página que abre, rola e não oferece nada. Daí o desenho FALHAR ABERTO (sem classe no `<html>` nada é escondido) e essa propriedade ter asserção própria: um desenho fail-CLOSED deixa a suíte inteira verde e reprova só ali. `userAgent` VERBATIM, **o iPad entre eles sem código próprio** — o iPadOS 13+ se anuncia como Macintosh e cai no lado certo por construção, então a asserção guarda a PROPRIEDADE e não o mecanismo |
 
@@ -3551,8 +3619,8 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: v1.4.2** (base web) · **v1.4.2** (APK) · `SHELL_VERSION` **58** · bundle com
-`minShell: 58` — o shell 58 é o **PISO**: todo método da ponte existe, e não há
+**Versão atual: v1.4.4** (base web) · **v1.4.4** (APK) · `SHELL_VERSION` **59** · bundle com
+`minShell: 59` — o shell 59 é o **PISO**: todo método da ponte existe, e não há
 guarda de versão no lado web. O que continua valendo é que `java/`, `res/`, o
 manifest e os workflows **só chegam instalando o APK**.
 

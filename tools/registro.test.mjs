@@ -109,7 +109,7 @@ const ESTADO = {
 
 // A ponte de mentira, no mesmo molde do `boot-nativo.test.mjs`.
 const PONTE = `(() => {
-  const vazio = { displays: [{ id: 1, name: 'TV do templo', w: 1920, h: 1080, density: 320 }],
+  const vazio = { displays: [{ id: 1, name: 'TV do templo', w: 1920, h: 1080, density: 320, telao: true }],
     listFolder: [], pickDoc: [], ytSearch: [],
     espelhoEstado: ${JSON.stringify(ESTADO)}, espelhoDiag: ${JSON.stringify(DIAG)},
     espelhoCertEstado: { temCert: false }, castTarget: { label: 'Tela de teste' },
