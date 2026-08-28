@@ -545,6 +545,18 @@ jobs:
           # Ele trava, de quebra, o endereçamento do reenvio de cena: sem ele,
           # uma segunda instância do Display faz a TV recarregar a mídia.
           rodar tools/display-smoke.mjs
+          # E A SEGUNDA JANELA, que NENHUM oráculo jamais tinha aberto — medido:
+          # `openWebDisplay`/`openDisplayBtn` não apareciam em teste nenhum, e
+          # `waitForEvent` não era usada em lugar algum de `tools/`. É o caminho
+          # por onde a base web se desenvolve fora do aparelho, o que o
+          # `simpleDisplay()` já conta como tela conectada no navegador (e que
+          # portanto decide o som local e a cortina do Modo Fácil), e a fundação
+          # da casca de desktop. Ele prova o que o app inteiro SUPÕE: duas
+          # páginas do mesmo origin dividem IndexedDB e BroadcastChannel.
+          # Provado por reversão — com o Display aberto em `127.0.0.1` em vez de
+          # `localhost` (mesma máquina, mesma porta, só o host diferente) o
+          # acervo some e o barramento emudece **sem um único erro de página**.
+          rodar tools/janela-do-display.test.mjs
           # E OS DESTINOS das folhas de escolha. O que está marcado precisa
           # ATRAVESSAR o fechamento da folha: a ação roda depois de
           # `closeSongMenu()`, que zera o conjunto, e uma leitura tarde demais
