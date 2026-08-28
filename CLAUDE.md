@@ -45,7 +45,9 @@ mapa dos capítulos em `docs/arquitetura/`), `docs/TELAO-POR-COMANDOS.md`
 (o contrato das telas da rede — e o `docs/PONTO-DE-ACESSO-PLANO.md`,
 **plano NÃO implementado** de servir com o celular como ponto de acesso, parado
 esperando medição em aparelho), `docs/FONTE-DE-DADOS-LOUVORJA.md` (hinos/Bíblia)
-, `docs/HISTORICO.md`
+, `docs/AUDITORIA-DE-USO-PLANO.md` (**plano NÃO implementado** de medir o alcance
+do app — o que o `download_count` do GitHub já conta sozinho, e as duas medições
+que vêm antes da primeira linha), `docs/HISTORICO.md`
 (**apêndice**: a nota de cada versão, para consultar por `grep`, nunca por
 leitura integral) e `docs/AUDITORIA-2026-08.md` (**apêndice**: a varredura de
 ~60.000 linhas da v1.4, com os 75 achados, o método de refutação e os 26 que
