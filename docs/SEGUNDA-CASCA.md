@@ -700,13 +700,16 @@ node tools/ponte-envelope.test.mjs                    # o produtor JavaScript
 dotnet run --project windows/AudioVisualIASD.Testes   # o lado da casca
 #   (o lado Kotlin é o NucleoPonteTest, dentro de :core:test)
 
+# as listas que moram em MAIS DE UMA linguagem — e a tabela da §7 deste arquivo
+node tools/casca-contrato.test.mjs
+
 # o núcleo DE PÉ, servindo a base de verdade (precisa do jar — ver §10)
 node tools/nucleo-de-pe.test.mjs
 ```
 
 **Ao fechar um lote:**
 
-1. `:core:test` verde e os três oráculos da ponte verdes.
+1. `:core:test` verde, os três oráculos da ponte verdes e o `casca-contrato` verde.
 2. Prove cada guarda nova **por reversão** — quebre-a e veja o oráculo reprovar.
    Uma guarda sem reversão é uma guarda que ninguém sabe se está ligada.
 3. Atualize **a tabela de Estado deste arquivo, no MESMO commit**.
