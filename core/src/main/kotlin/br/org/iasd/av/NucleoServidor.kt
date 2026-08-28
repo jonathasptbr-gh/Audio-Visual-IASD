@@ -228,6 +228,17 @@ class NucleoServidor(
                     viraFio = true; servirSse(s!!, saida); return
                 }
                 is NucleoRotas.Rota.Bundle -> servirArquivo(req, rota, saida)
+                is NucleoRotas.Rota.Arquivo -> {
+                    // O REGISTRO É A FRONTEIRA. Sem ele nenhum arquivo do
+                    // disco do operador é alcançável por HTTP; com ele,
+                    // exatamente os que ele escolheu no seletor. Token
+                    // desconhecido, sessão errada e arquivo que sumiu do disco
+                    // dão o MESMO 404 — a disciplina do espelho: a resposta
+                    // não distingue "não existe" de "você não pode".
+                    val f = NucleoArquivos.arquivoDe(rota.sessao, rota.token)
+                    if (f == null) saida.write(EspelhoHttp.naoEncontrado())
+                    else servirDoDisco(req, f, NucleoArquivos.tipoDe(f.name), saida)
+                }
                 is NucleoRotas.Rota.NaoAchei -> saida.write(EspelhoHttp.naoEncontrado())
             }
             saida.flush()
@@ -288,9 +299,23 @@ class NucleoServidor(
         // canônico tem de continuar DENTRO da raiz. A decisão de rota já
         // recusou `..` e `\`, mas um link simbólico dentro do bundle não é uma
         // string — e esta é a única conferência que o enxerga.
+        //
+        // Ela NÃO vale para a rota `/saf/`, e não poderia: lá o arquivo mora
+        // fora da raiz de propósito, e quem autoriza é o registro (o operador
+        // escolheu aquele arquivo no seletor), não o caminho.
         if (!alvo.isFile || !alvo.canonicalPath.startsWith(raizWeb.canonicalPath + File.separator)) {
             saida.write(EspelhoHttp.naoEncontrado()); return
         }
+        servirDoDisco(req, alvo, rota.tipo, saida)
+    }
+
+    /** Serve um arquivo já autorizado, com `Range` de verdade. */
+    private fun servirDoDisco(
+        req: EspelhoHttp.Req,
+        alvo: File,
+        tipo: String,
+        saida: OutputStream,
+    ) {
         val tamanho = alvo.length()
         val extra = mutableListOf(
             "Accept-Ranges: bytes",
@@ -312,10 +337,10 @@ class NucleoServidor(
             is EspelhoHttp.Alcance.Parcial -> {
                 val f = a.faixa
                 extra.add("Content-Range: bytes ${f.ini}-${f.fim}/$tamanho")
-                escrever(saida, alvo, f.ini, f.bytes, 206, rota.tipo, extra)
+                escrever(saida, alvo, f.ini, f.bytes, 206, tipo, extra)
             }
             is EspelhoHttp.Alcance.Inteiro -> {
-                escrever(saida, alvo, 0, tamanho, 200, rota.tipo, extra)
+                escrever(saida, alvo, 0, tamanho, 200, tipo, extra)
             }
         }
     }

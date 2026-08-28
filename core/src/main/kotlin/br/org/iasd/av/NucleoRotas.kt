@@ -42,6 +42,17 @@ object NucleoRotas {
         /** `GET /ponte/e` — o fio por onde o núcleo empurra (SSE). */
         object PonteEventos : Rota()
 
+        /**
+         * `GET /saf/<sessao>/<token>` — um arquivo do DISCO do operador.
+         *
+         * A sessão está na URL, e não é decoração: no Android o WebView do
+         * telão é montado **sem** o handler `/saf/`, e aqui as duas janelas
+         * dividem um socket (a porta é a origem — um segundo socket seria um
+         * segundo IndexedDB). Sem a sessão no caminho, servir isto devolveria
+         * ao Telão o que o Android lhe nega. Ver [NucleoArquivos].
+         */
+        data class Arquivo(val sessao: String, val token: String) : Rota()
+
         /** `GET /` — o operador abriu o endereço na mão. */
         object Raiz : Rota()
 
@@ -138,6 +149,16 @@ object NucleoRotas {
         if (cru == "ponte/call") return if (metodo == "POST") Rota.PonteCall else Rota.NaoAchei
         if (cru == "ponte/e") return if (metodo == "GET") Rota.PonteEventos else Rota.NaoAchei
         if (metodo != "GET") return Rota.NaoAchei
+
+        if (cru.startsWith("saf/")) {
+            val p = cru.split('/')
+            // TRÊS segmentos EXATOS. Um a mais viraria um caminho dentro do
+            // arquivo, e é assim que uma rota de arquivo vira uma travessia.
+            if (p.size != 3 || !sessaoValida(p[1]) || !NucleoArquivos.tokenValido(p[2])) {
+                return Rota.NaoAchei
+            }
+            return Rota.Arquivo(p[1], p[2])
+        }
 
         if (cru in RAIZ_PERMITIDA) return Rota.Bundle(cru, tipoDe(cru))
 

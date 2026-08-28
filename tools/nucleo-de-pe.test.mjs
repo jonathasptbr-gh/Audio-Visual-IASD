@@ -171,13 +171,15 @@ try {
   })();
   checar(fio.headers.get('content-type').startsWith('text/event-stream'), 'o fio abre como SSE');
 
+  // `pickDoc` e não `listFolder`: este é o exemplo do que ATRAVESSA o cano,
+  // e `listFolder` é do NÚCLEO (é ele que tem o disco e o registro de `/saf/`).
   const rec = await fetch(url(`/ponte/call?s=${SES}`), {
-    method: 'POST', body: montar('ab12cd:1', 'listFolder', ['/tmp/x']),
+    method: 'POST', body: montar('ab12cd:1', 'pickDoc', ['audio/*']),
   });
   checar((await rec.text()) === '{}', 'o `POST` devolve um RECIBO — o valor volta pelo fio');
 
   const pedido = await doCano(8000);
-  checar(pedido !== null && pedido.toString('utf8') === `AV1\nab12cd:1\nlistFolder\n2\n${SES.length}\n${SES}\n6\n/tmp/x\n`,
+  checar(pedido !== null && pedido.toString('utf8') === `AV1\nab12cd:1\npickDoc\n2\n${SES.length}\n${SES}\n7\naudio/*\n`,
     'e o pedido chega à casca com a SESSÃO na frente: ' + JSON.stringify(pedido?.toString('utf8')));
 
   paraOCano('-', 'resolver', [SES, 'ab12cd:1', '[{"name":"hino.mp3"}]']);
@@ -192,6 +194,63 @@ try {
   await fetch(url(`/ponte/call?s=${TELAO}`), { method: 'POST', body: montar('zz:1', 'pickFolder', []) });
   const vazou = await doCano(1200);
   checar(vazou === null, 'o Telão pede `pickFolder` e NADA chega à casca');
+
+  // 6b. A ROTA `/saf/` — O DISCO DO OPERADOR, e a INVARIANTE 9 sobre ele.
+  //
+  // No Android o WebView do telão é montado SEM o handler `/saf/`: ele não tem
+  // como buscar um, nem sabendo o token. Aqui as duas janelas dividem UM
+  // socket — a porta é a origem, e um segundo socket seria um segundo
+  // IndexedDB —, então a negativa vem da SESSÃO na URL.
+  //
+  // **O fio abre ANTES do `POST`, sempre.** A resposta é empurrada no instante
+  // do despacho: abrir depois é esperar por um evento que já passou, e o que
+  // sai disso é um prazo estourado que se lê como defeito do app.
+  const perguntar = async (sessao, id, metodo, args) => {
+    const f = await fetch(url(`/ponte/e?s=${sessao}`));
+    const r = f.body.getReader();
+    await fetch(url(`/ponte/call?s=${sessao}`), { method: 'POST', body: montar(id, metodo, args) });
+    let buf = '';
+    try {
+      for (;;) {
+        const { value, done } = await r.read();
+        if (done) return undefined;
+        buf += Buffer.from(value).toString('utf8');
+        const l = buf.split('\n').find((x) => x.startsWith('data: ') && x.includes(`"${id}"`));
+        if (l) return JSON.parse(l.slice(6)).v;
+      }
+    } finally { r.cancel().catch(() => {}); }
+  };
+
+  const dir = fs.mkdtempSync(path.join(raiz, 'core/build/saf-'));
+  try {
+    fs.writeFileSync(path.join(dir, '001. Santo.mp3'), '0123456789');
+    fs.writeFileSync(path.join(dir, 'louvor.mp4'), 'abc');
+    fs.mkdirSync(path.join(dir, 'uma-pasta'));
+
+    const lista = await perguntar(SES, 'ab12cd:3', 'listFolder', [dir]);
+    checar(Array.isArray(lista) && lista.length === 2,
+      'o `listFolder` lê a pasta e ignora o diretório: ' + JSON.stringify(lista));
+    const mp3 = (lista || []).find((x) => x.name === '001. Santo.mp3');
+    checar(mp3?.type === 'audio/mpeg' && mp3?.size === 10,
+      'com o tipo e o tamanho de verdade — é o `type` que decide o kind da mídia');
+    checar(typeof mp3?.url === 'string' && mp3.url.startsWith(`http://127.0.0.1:${PORTA}/saf/${SES}/`),
+      'e uma URL SERVÍVEL do nosso origin: ' + mp3?.url);
+
+    const rf = await fetch(mp3.url);
+    checar(rf.status === 200 && (await rf.text()) === '0123456789',
+      'e ela serve os BYTES do disco do operador');
+
+    // A INVARIANTE 9: a MESMA URL, com a sessão do Telão, não acha nada.
+    checar((await fetch(mp3.url.replace(SES, TELAO))).status === 404,
+      'o Telão não alcança o mesmo arquivo — a sessão está na URL de propósito');
+
+    // E o Telão nem consegue LISTAR: `listFolder` é privilegiado, e era a
+    // EXCEÇÃO do Android (ele lê o `ContentResolver` direto; aqui, o disco).
+    checar((await perguntar(TELAO, 'zz:2', 'listFolder', [dir])) === null,
+      'e não lista a pasta: o índice inteiro do disco não sai para o Telão');
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
 
   // 7. O SÍNCRONO — o único método que responde no corpo do `POST`.
   const rs = await fetch(url(`/ponte/call?s=${SES}`), {

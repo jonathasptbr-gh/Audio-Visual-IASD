@@ -41,6 +41,9 @@ class NucleoDespacho(
     private val empurrar: (json: String, alvo: String?, menos: String?) -> Unit,
     /** O cano para a casca. Recebe um envelope [NucleoPonte.montar]. */
     private val paraCasca: (ByteArray) -> Unit,
+    /** O endereço do próprio servidor (`http://127.0.0.1:8420`), para montar as
+     *  URLs servíveis de `/saf/`. */
+    private val base: String = "",
 ) {
 
     /**
@@ -63,7 +66,7 @@ class NucleoDespacho(
      * casca, que é o que a invariante 5 proíbe.
      */
     val DA_CASCA = setOf(
-        "pickFolder", "pickDoc", "listFolder", "salvarTexto",
+        "pickFolder", "pickDoc", "salvarTexto",
         "displays", "openCast", "castTarget", "openExternal",
         "temaClaro", "systemVolume", "captureVolumeKeys", "projecaoLocal",
         "requestMic", "keepAlive", "bgProgress", "nowPlaying",
@@ -100,6 +103,11 @@ class NucleoDespacho(
         // chega. Ele é aceito e ignorado — recusá-lo faria o `native.js` cair
         // no `catch` a cada abertura, sem que nada estivesse errado.
         "otaConfirm" to { _, _ -> },
+        // `listFolder` é do NÚCLEO, não da casca, e a divisão não é arbitrária:
+        // quem tem o sistema de arquivos E o registro de `/saf/` é ele. A casca
+        // ESCOLHE a pasta (é ela que abre o diálogo); enumerar e cunhar as URLs
+        // servíveis é trabalho de quem vai servi-las.
+        "listFolder" to ::listarPasta,
     )
 
     private val papeis = ConcurrentHashMap<String, String>()
@@ -174,9 +182,46 @@ class NucleoDespacho(
                 ),
                 c.args[1], null,
             )
+            // A CASCA DEVOLVE CAMINHOS, NUNCA URLs. Quem cunha token é o
+            // núcleo, porque é ele que vai servir os bytes — e porque o token
+            // é ligado à SESSÃO (ver [NucleoArquivos]), que é o que impede o
+            // Telão de alcançar o disco do operador.
+            "resolverPasta" -> if (c.args.size == 3) {
+                val f = java.io.File(c.args[2])
+                resolver(c.args[0], c.args[1], if (f.isDirectory) NucleoArquivos.comoPasta(f) else "null")
+            }
+            "resolverArquivos" -> if (c.args.size >= 2) {
+                val arquivos = c.args.drop(2).map { java.io.File(it) }
+                resolver(c.args[0], c.args[1], NucleoArquivos.comoDocumentos(base, c.args[0], arquivos))
+            }
             "sessao" -> if (c.args.size == 2) registrarSessao(c.args[0], c.args[1])
-            "fechou" -> if (c.args.size == 1) esquecerSessao(c.args[0])
+            "fechou" -> if (c.args.size == 1) {
+                esquecerSessao(c.args[0])
+                // A janela fechou: os tokens dela vão junto. Sem isto, uma
+                // sessão de dias acumularia uma entrada por arquivo de toda
+                // pasta re-sincronizada.
+                NucleoArquivos.esquecer(c.args[0])
+            }
         }
+    }
+
+    /**
+     * `listFolder(uri)` — o conteúdo de uma pasta que o operador já concedeu.
+     *
+     * **Só o Controle**, pela guarda de [PRIVILEGIADOS] lá em cima: sem ela,
+     * qualquer script no documento do Telão leria o índice inteiro (nome,
+     * tamanho e token servível) de toda pasta concedida. Era a exceção do
+     * Android — `listFolder` honra a mesma regra por ler o `ContentResolver`
+     * direto —, e aqui é a mesma coisa por ler o disco direto.
+     */
+    private fun listarPasta(sessao: String, c: NucleoPonte.Chamada) {
+        val caminho = c.args.firstOrNull()
+        if (caminho.isNullOrBlank()) { resolver(sessao, c.id, "[]"); return }
+        val pasta = java.io.File(caminho)
+        // Lista VAZIA e não erro: é o que o `native.js` já trata, e é o que o
+        // `controle.js` lê como "a pasta sumiu do aparelho" — que é a verdade.
+        if (!pasta.isDirectory) { resolver(sessao, c.id, "[]"); return }
+        resolver(sessao, c.id, NucleoArquivos.listarPasta(base, sessao, pasta))
     }
 
     private fun resolver(sessao: String, id: String, valorJson: String) {

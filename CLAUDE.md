@@ -106,9 +106,12 @@ core/src/main/kotlin/br/org/iasd/av/   # ← :core — A LÓGICA SEM PLATAFORMA 
 ├── NucleoDespacho.kt            # quem responde o quê: o núcleo, a casca, ou
 │                                #   ninguém ainda. A INVARIANTE 9 é uma linha
 │                                #   de tabela aqui — e por isso tem oráculo
+├── NucleoArquivos.kt            # a rota `/saf/`: a ÚNICA porta para fora do
+│                                #   bundle. O token é ligado à SESSÃO, que é o
+│                                #   que reproduz o `withSaf = false` do telão
 └── NucleoMain.kt                # o `nucleo.jar`: o núcleo como programa
    ·  ZERO import de android.* — e agora o COMPILADOR garante isso.
-   ·  192 testes JUnit numa JVM comum, sem emulador e sem SDK do Android.
+   ·  208 testes JUnit numa JVM comum, sem emulador e sem SDK do Android.
 
 windows/                             # ← A SEGUNDA CASCA (v1.4.6) — ver o LEIA-ME de lá
 ├── casca/ponte.js               # a folha INJETADA em cada janela: o
@@ -118,7 +121,8 @@ windows/                             # ← A SEGUNDA CASCA (v1.4.6) — ver o LE
 │                                #   portátil para o oráculo dele RODAR em Linux
 ├── AudioVisualIASD.Testes/      # a terceira metade do contrato do envelope
 └── AudioVisualIASD/             # a casca: janela Win32, WebView2, monitores,
-                                 #   o cano com o núcleo. `net8.0-windows` SEM
+                                 #   diálogos de arquivo (IFileDialog), o cano
+                                 #   com o núcleo. `net8.0-windows` SEM
                                  #   WinForms/WPF — é o que a faz compilar aqui
 
 app/src/main/
@@ -3209,7 +3213,7 @@ mundo anterior por outro caminho.
 **JUnit** (`./gradlew :core:test testDebugUnitTest`, **sem `continue-on-error`**,
 antes do `assembleRelease`) — **os DOIS módulos, e a primeira tarefa não é
 opcional**: `testDebugUnitTest` é do AGP e alcança só o `:app`, onde hoje resta
-um teste; os 192 dos arquivos puros rodam em `:core:test`. Deixar só a segunda
+um teste; os 208 dos arquivos puros rodam em `:core:test`. Deixar só a segunda
 faria o passo continuar verde testando quase nada. São eles: `EspelhoHttpTest` (tetos do parser,
 `read()` parcial, `Host` fora da allowlist, `Origin` estranha, 404 uniforme),
 `EspelhoParesTest` (prazo, teto de sessões, saneamento), `EspelhoHttpRangeTest`
@@ -3227,12 +3231,16 @@ junto). **No `:app` ficou um só, o `EspelhoCertNomeTest`** — ele exercita as 
 funções puras do `EspelhoCert`, que não atravessou porque lê `Context`, `Uri` e
 `Log` para tratar o `.p12`. Cada teste mora com o que ele testa.
 
-**E mais quatro, do núcleo da segunda casca** (v1.4.6): `NucleoRotasTest` (o que
+**E mais cinco, do núcleo da segunda casca** (v1.4.6): `NucleoRotasTest` (o que
 uma rota É, com a **travessia de diretório** — a única falha deste caminho que
 não produz pixel errado, e sim o disco do operador servido por HTTP; a barra
 INVERTIDA está entre os casos porque o alvo é o Windows, onde `\` também
 separa caminho e uma guarda escrita só com `/` a deixaria passar),
-`NucleoServidorTest` (o servidor com sockets de verdade: o bind SÓ no loopback,
+`NucleoArquivosTest` (a rota `/saf/` — o token opaco e estável do
+`SafRegistry`, a listagem não recursiva, e a **invariante 9 aplicada a
+ARQUIVO**: no Android o WebView do telão é montado sem o handler `/saf/`, e
+aqui, com as duas janelas dividindo um socket, quem reproduz aquela negativa é a
+SESSÃO na URL), `NucleoServidorTest` (o servidor com sockets de verdade: o bind SÓ no loopback,
 a recusa de porta ocupada — e que a frase dela **não mande trocar a porta**, que
 é o que apagaria o acervo —, o teto de corpo da ponte, e o fio SSE
 ENDEREÇADO) e `NucleoPonteTest` + `NucleoDespachoTest` (o envelope contra as

@@ -31,6 +31,19 @@ internal sealed class Folhas
         _janelaDe = janelaDe;
     }
 
+    /// <summary>A janela que fez o pedido — o diálogo do sistema é MODAL sobre
+    /// ela. Sem dono, ele pode nascer atrás da janela do programa, e o que o
+    /// operador vê é o app travado.</summary>
+    IntPtr Dono(string sessao)
+    {
+        foreach (var papel in new[] { "controle", "display" })
+        {
+            var j = _janelaDe(papel);
+            if (j is not null && j.Sessao == sessao) return j.Alca;
+        }
+        return IntPtr.Zero;
+    }
+
     /// <summary>O que a casca ainda não sabe fazer — a mesma lista que o
     /// `NucleoDespacho.naoImplementados` mantém do outro lado, pelo mesmo
     /// motivo: "esta parte ainda não existe" e "o programa travou" são leituras
@@ -50,6 +63,66 @@ internal sealed class Folhas
         {
             case "displays":
                 Resolver(Telas.ComoJson());
+                break;
+
+            // ---------- OS ARQUIVOS DO OPERADOR ----------
+            //
+            // A CASCA DEVOLVE CAMINHOS, NUNCA URLs. Quem cunha o token de
+            // `/saf/` é o núcleo — porque é ele que vai servir os bytes, e
+            // porque o token é ligado à SESSÃO da janela, que é o que impede o
+            // Telão de alcançar o disco do operador (no Android o WebView dele
+            // é montado SEM o handler `/saf/`; aqui as duas janelas dividem um
+            // socket, e a sessão na URL é o que reproduz aquela negativa).
+            //
+            // Eles rodam FORA da thread da interface: quem responde é uma
+            // PESSOA no seletor, e enquanto ela escolhe a pasta o laço de
+            // mensagens precisa continuar girando — senão as duas janelas
+            // congelam, projeção inclusive.
+            case "pickFolder":
+                EmOutraThread(() =>
+                {
+                    var p = Dialogos.EscolherPasta(Dono(sessao), "Escolha a pasta de mídias");
+                    if (p is null) Resolver("null");
+                    else _nucleo.Mandar("-", "resolverPasta", new[] { sessao, c.Id, p });
+                });
+                break;
+
+            case "pickDoc":
+                EmOutraThread(() =>
+                {
+                    var ps = Dialogos.EscolherArquivos(Dono(sessao), "Escolha os arquivos");
+                    var args = new List<string> { sessao, c.Id };
+                    args.AddRange(ps);
+                    _nucleo.Mandar("-", "resolverArquivos", args);
+                });
+                break;
+
+            // O "Salvar como" — e é a CASCA que escreve os bytes, como no
+            // Android. Ele existe porque o WebView não tem `DownloadListener`:
+            // um `<a download>` sobre um `blob:` ali não faz NADA, sem erro e
+            // sem arquivo.
+            case "salvarTexto":
+                {
+                    var nome = Arg(0) ?? "registro.txt";
+                    var texto = Arg(1) ?? "";
+                    EmOutraThread(() =>
+                    {
+                        var alvo = Dialogos.OndeSalvar(Dono(sessao), nome);
+                        if (alvo is null) { Resolver("\"\""); return; }
+                        try
+                        {
+                            File.WriteAllText(alvo, texto, new System.Text.UTF8Encoding(false));
+                            // O NOME gravado, que é o que o `native.js` promete
+                            // — e o operador pode ter trocado no diálogo.
+                            Resolver(Ponte.Envelope.Aspas(Path.GetFileName(alvo)));
+                        }
+                        catch (Exception e)
+                        {
+                            Console.Error.WriteLine("[casca] não gravou: " + e.Message);
+                            Resolver("\"\"");
+                        }
+                    });
+                }
                 break;
 
             // O ESPELHAMENTO DO WINDOWS é o "Conectar" (Win+K) — o análogo do
@@ -165,6 +238,30 @@ internal sealed class Folhas
 
     [DllImport("kernel32.dll")]
     static extern uint SetThreadExecutionState(uint estado);
+
+    /// <summary>
+    /// O que espera uma PESSOA sai da thread da interface.
+    ///
+    /// `IFileDialog.Show` bloqueia até o operador responder. Chamado na thread
+    /// do laço, ele para o bombeamento de mensagens das DUAS janelas — a
+    /// projeção inclusive —, e o que se vê é o programa travado durante todo o
+    /// tempo em que alguém procura uma pasta.
+    ///
+    /// A thread é STA porque `IFileDialog` é COM de apartamento; fora dela o
+    /// `CreateInstance` falha, e falha de um jeito que só aparece na máquina do
+    /// operador.
+    /// </summary>
+    static void EmOutraThread(Action tarefa)
+    {
+        var t = new Thread(() =>
+        {
+            try { tarefa(); }
+            catch (Exception e) { Console.Error.WriteLine("[casca] diálogo falhou: " + e); }
+        });
+        t.SetApartmentState(ApartmentState.STA);
+        t.IsBackground = true;
+        t.Start();
+    }
 
     static void Abrir(string alvo)
     {

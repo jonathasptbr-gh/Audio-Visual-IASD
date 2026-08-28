@@ -64,21 +64,59 @@ class NucleoDespachoTest {
 
     /**
      * O PAR da anterior, e sem ele a de cima seria aprovada por um despacho que
-     * recusa tudo. O Controle alcança os mesmos seis.
+     * recusa tudo.
+     *
+     * Os privilegiados têm hoje TRÊS destinos, e o Controle alcança os três:
+     * a casca (o diálogo de arquivo), o próprio núcleo (`listFolder`, que lê o
+     * disco e cunha os tokens de `/saf/`), e [naoImplementados] — que é um
+     * destino LEGÍTIMO e visível, não uma recusa. A asserção é por destino, e
+     * não uma só para todos, porque uma condição frouxa o bastante para caber
+     * nos três aprovaria também a recusa por papel.
      */
     @Test
-    fun oControleAlcancaOsMesmosSeis() {
+    fun oControleAlcancaOsPrivilegiados() {
         val e = montado()
-        for (m in e.d.PRIVILEGIADOS) {
-            e.paraCasca.clear()
+        // Os que vão para a casca chegam lá.
+        for (m in e.d.PRIVILEGIADOS.filter { it in e.d.DA_CASCA }) {
+            e.paraCasca.clear(); e.quadros.clear()
             e.chamar(CONTROLE, m, "x")
-            // `espelhoLigar`/`espelhoLigarEm` ainda não têm dono no lote 3:
-            // eles caem em [naoImplementados], que é um destino LEGÍTIMO e
-            // visível. O que a asserção afirma é a AUSÊNCIA DE RECUSA POR
-            // PAPEL, e ela vale nos dois casos.
-            val recusadoPorPapel = e.paraCasca.isEmpty() && m in e.d.DA_CASCA
-            assertTrue("$m foi recusado ao Controle", !recusadoPorPapel)
+            assertEquals("$m devia chegar à casca", 1, e.paraCasca.size)
         }
+        // `listFolder` é do NÚCLEO, e responde com uma lista de verdade.
+        val pasta = java.io.File.createTempFile("lista", "").let { it.delete(); it.mkdirs(); it }
+        java.io.File(pasta, "001. Santo.mp3").writeText("x")
+        try {
+            e.paraCasca.clear(); e.quadros.clear()
+            e.chamar(CONTROLE, "listFolder", pasta.absolutePath)
+            assertEquals("`listFolder` não pode atravessar o cano", 0, e.paraCasca.size)
+            assertEquals(1, e.quadros.size)
+            assertTrue("e devolve a lista: " + e.quadros[0].first,
+                e.quadros[0].first.contains("001. Santo.mp3"))
+        } finally { pasta.deleteRecursively(); NucleoArquivos.esquecer(CONTROLE) }
+
+        // E os que ainda não têm dono ficam VISÍVEIS, não calados.
+        e.chamar(CONTROLE, "espelhoLigar")
+        assertTrue("espelhoLigar" in e.d.naoImplementados())
+    }
+
+    /**
+     * E A LISTA DE PASTA É NEGADA AO TELÃO, que era a EXCEÇÃO do Android: lá
+     * `listFolder` honra a guarda de `host` por ler o `ContentResolver` direto,
+     * e sem ela qualquer script no documento do Display lia o índice inteiro
+     * (nome, tamanho e token servível) de toda pasta concedida. Aqui é a mesma
+     * coisa por ler o disco direto.
+     */
+    @Test
+    fun oTelaoNaoListaPasta() {
+        val e = montado()
+        val pasta = java.io.File.createTempFile("lista", "").let { it.delete(); it.mkdirs(); it }
+        java.io.File(pasta, "001. Santo.mp3").writeText("x")
+        try {
+            e.chamar(TELAO, "listFolder", pasta.absolutePath)
+            assertEquals(1, e.quadros.size)
+            assertTrue("nada do disco sai: " + e.quadros[0].first,
+                e.quadros[0].first.contains("\"v\":null"))
+        } finally { pasta.deleteRecursively() }
     }
 
     /**
@@ -170,13 +208,13 @@ class NucleoDespachoTest {
     @Test
     fun oQueEDaCascaVaiParaOCanoComASessaoNaFrente() {
         val e = montado()
-        e.chamar(CONTROLE, "listFolder", "content://x")
+        e.chamar(CONTROLE, "pickDoc", "audio/*")
         assertEquals(1, e.paraCasca.size)
         val c = e.paraCasca[0]
-        assertEquals("listFolder", c.metodo)
+        assertEquals("pickDoc", c.metodo)
         assertEquals("a:1", c.id)
         assertEquals("a sessão vai na frente — é por ela que a resposta volta",
-            listOf(CONTROLE, "content://x"), c.args)
+            listOf(CONTROLE, "audio/*"), c.args)
         // E NADA foi resolvido ainda: quem responde é a casca.
         assertEquals(0, e.quadros.size)
     }

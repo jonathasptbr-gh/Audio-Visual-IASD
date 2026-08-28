@@ -52,6 +52,7 @@ object NucleoMain {
         val despacho = NucleoDespacho(
             empurrar = { json, alvo, menos -> servidor?.empurrar(json, alvo, menos) },
             paraCasca = { env -> synchronized(saida) { NucleoPonte.escreverNoCano(saida, env) } },
+            base = "http://127.0.0.1:$porta",
         )
 
         val s = NucleoServidor(raiz, porta) { sessao, corpo -> despacho.chamada(sessao, corpo) }

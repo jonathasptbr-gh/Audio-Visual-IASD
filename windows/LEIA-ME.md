@@ -55,6 +55,15 @@ web) num segundo sistema operacional.
   `TIPOS_QUE_SOBEM` do dreno. Nenhum dos três gera as fixtures: se gerasse,
   provaria que um lado concorda consigo mesmo.
 
+- **A rota `/saf/` é a única porta para fora do bundle** — e a sessão vai na
+  URL. No Android o WebView do telão é montado **sem** o handler `/saf/`
+  (`withSaf = false`): ele não tem como buscar um, nem sabendo o token. Aqui as
+  duas janelas dividem **um socket** (a porta é a origem; um segundo socket
+  seria um segundo IndexedDB), então a negativa vem de outro lugar:
+  `/saf/<sessao>/<token>`, com o registro indexado pelas duas. Como cunhar
+  token é privilégio do Controle, uma sessão de Telão **nunca tem entrada
+  nenhuma** — a defesa não é o segredo do token, é não haver o que achar.
+
 - **A invariante 9 ganha um degrau.** No Android o papel é `host = null` mais
   uma guarda por método, e o `CLAUDE.md` registra que **não há oráculo para
   ela**. Aqui o papel é selado na SESSÃO pela casca, que é quem cria a janela, e
@@ -67,10 +76,10 @@ web) num segundo sistema operacional.
 
 ## O que ainda não existe
 
-O lote 3 entrega o transporte inteiro e a casca que abre as duas janelas. Falta,
-nesta ordem: os diálogos de arquivo e a rota `/saf/` do núcleo (importação),
-YouTube e cifra (lote 4), o muxer de 1080p e o PDF (lote 5), as telas da rede
-(lote 6) e o empacotamento (lote 7).
+O lote 3 entrega o transporte inteiro, a casca que abre as duas janelas e a
+importação (diálogos de arquivo + a rota `/saf/`). Falta, nesta ordem: YouTube e
+cifra (lote 4), o muxer de 1080p e o PDF (lote 5), as telas da rede (lote 6) e o
+empacotamento (lote 7).
 
 **Os dois lados dizem o que falta**, e isso é desenho, não sobra: o
 `NucleoDespacho.naoImplementados()` e o `Folhas.SemDono` guardam o que foi
