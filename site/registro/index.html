@@ -118,6 +118,11 @@
   // TROCAR A CHAVE é trocar esta linha. Nada mais depende dela.
   var CHAVE = 'alcance';
 
+  // Quantas versões de APK ganham barra própria. O resto entra somado numa
+  // linha só — ver o bloco das barras. Seis cobre as últimas semanas de
+  // publicação sem transformar o gráfico num inventário.
+  var APK_NA_LISTA = 6;
+
   var REPO = 'jonathasptbr-gh/Audio-Visual-IASD';
   // `raw.githubusercontent.com` e não o asset de release: asset de release
   // responde SEM `Access-Control-Allow-Origin` (medido, e registrado no
@@ -218,12 +223,47 @@
     // `visto` guarda o maior valor já observado de cada asset, inclusive dos
     // que a faxina do `web-ota` já apagou do GitHub. Somar só o que existe
     // AGORA perderia todo bundle recolhido.
+    // A LISTA É A UNIÃO DE DUAS FONTES, e nenhuma das duas basta sozinha:
+    //
+    //  - a MARCA D'ÁGUA (`visto`) guarda o maior valor já observado de cada
+    //    asset, inclusive dos que não existem mais — os bundles que a faxina
+    //    do `web-ota` recolheu e as Releases antigas apagadas à mão. Só ela
+    //    sabe dos 47 downloads que vieram de versões que já saíram do ar;
+    //  - mas ela só guarda o que já teve download, então a versão RECÉM
+    //    PUBLICADA não está lá. Sem a união, o operador publicava e não via a
+    //    própria versão no quadro — e "onde está a v1.4.2?" não tem resposta
+    //    olhando um painel que a omite por ela ainda valer zero.
+    //
+    // A última amostra responde "o que existe agora", com zeros e tudo.
     var visto = (d && d.visto) || {};
-    var totalApk = 0, apks = [];
-    Object.keys(visto).forEach(function (n) {
-      if (/\.apk$/i.test(n)) { totalApk += visto[n]; apks.push({ n: n, v: visto[n] }); }
+    var totalApk = 0, apks = [], contagem = {};
+    Object.keys(visto).forEach(function (n) { contagem[n] = visto[n]; });
+    Object.keys(ultima.apk || {}).forEach(function (n) {
+      if (contagem[n] === undefined) contagem[n] = ultima.apk[n];
     });
-    apks.sort(function (a, b) { return b.v - a.v; });
+    Object.keys(contagem).forEach(function (n) {
+      if (/\.apk$/i.test(n)) {
+        totalApk += contagem[n];
+        var m = n.match(/-v([\d.]+)\.apk$/i);
+        apks.push({ n: n, v: contagem[n], ver: m ? m[1] : null });
+      }
+    });
+    // ORDENADO POR VERSÃO, não por contagem (v1.4.3).
+    //
+    // Por contagem o gráfico respondia "qual versão foi mais baixada?", que é
+    // uma pergunta de arqueologia: a v1.1.2 lidera com 6 e não existe mais em
+    // aparelho nenhum. Por versão ele responde "como está a adoção AGORA", que
+    // é a pergunta do painel — e as linhas passam a ler como uma linha do
+    // tempo, com a atual em cima.
+    //
+    // O APK de NOME FIXO (`audio-visual-iasd.apk`, da v1.0) não tem versão no
+    // nome e cai no fim por construção: `ver: null`. É o certo — ele é o mais
+    // antigo de todos.
+    apks.sort(function (a, b) {
+      if (!a.ver) return 1;
+      if (!b.ver) return -1;
+      return cmpVer(b.ver, a.ver);
+    });
 
     var ultDia = apar.length ? apar[apar.length - 1] : null;
     var ultVis = visi.length ? visi[visi.length - 1] : null;
@@ -269,17 +309,44 @@
     h.push('<p class="sub">Eventos de download — não instalações, e não pessoas: '
       + 'robô, espelho e a segunda tentativa de quem estava sem sinal contam igual.</p>');
     h.push('<div class="caixa"><div class="barras">');
-    var maiorApk = apks.length ? apks[0].v : 1;
-    apks.forEach(function (a) {
-      h.push('<div class="barra">'
-        + '<span class="barra-t" title="' + esc(a.n) + '">'
-        + esc(a.n.replace(/^audio-visual-iasd-?/, '').replace(/\.apk$/, '') || 'nome fixo')
-        + '</span>'
+    // ===== O PASSADO VIRA UMA LINHA, E NÃO SOME =====
+    //
+    // Com vinte versões o gráfico virava um inventário: as antigas ocupavam a
+    // caixa inteira e empurravam para baixo o que a medição de HOJE responde.
+    // Nenhuma delas roda em aparelho nenhum — a atualização é automática.
+    //
+    // Elas não são APAGADAS: entram somadas numa linha final, e o total lá em
+    // cima continua sendo a soma de TUDO. Esconder um número é uma coisa;
+    // deixar de contá-lo é outra, e a segunda faria o painel mentir.
+    var recentes = apks.slice(0, APK_NA_LISTA);
+    var passado = apks.slice(APK_NA_LISTA);
+    var somaPassado = passado.reduce(function (s, a) { return s + a.v; }, 0);
+    // A régua é a MAIOR barra desenhada, e o passado entra nela: sem isso uma
+    // soma de dezessete versões estoura a caixa e todas as outras viram traço.
+    var maiorApk = Math.max(
+      recentes.length ? recentes[0].v : 1,
+      apks.reduce(function (m, a) { return Math.max(m, a.v); }, 1),
+      somaPassado) || 1;
+    function barra(rot, val, titulo, cor) {
+      return '<div class="barra">'
+        + '<span class="barra-t" title="' + esc(titulo || rot) + '">' + esc(rot) + '</span>'
         + '<span class="barra-c"><span class="barra-f" style="width:'
-        + (100 * a.v / (maiorApk || 1)).toFixed(1) + '%"></span></span>'
-        + '<span class="barra-n">' + num(a.v) + '</span>'
-        + '</div>');
+        + (100 * val / maiorApk).toFixed(1) + '%'
+        + (cor ? ';background:' + cor : '') + '"></span></span>'
+        + '<span class="barra-n">' + num(val) + '</span>'
+        + '</div>';
+    }
+    recentes.forEach(function (a) {
+      h.push(barra(a.n.replace(/^audio-visual-iasd-?/, '').replace(/\.apk$/, '') || 'nome fixo',
+        a.v, a.n));
     });
+    if (passado.length) {
+      h.push(barra(passado.length + ' anteriores', somaPassado,
+        passado.map(function (a) {
+          return (a.ver ? 'v' + a.ver : 'nome fixo') + ': ' + a.v;
+        }).join(' · '),
+        'var(--panel-2)'));
+    }
     if (!apks.length) h.push('<p class="sub">Nada amostrado ainda.</p>');
     h.push('</div></div>');
 

@@ -1243,6 +1243,15 @@ O job `web-ota` (todo push em `main`) empacota `assets/web/` num
   caminho de rede, logo nada de novo pode falhar nele. **O preço, dito: um lote
   SÓ de APK não tem linha do tempo** — não há bundle novo de onde lê-la, e o
   desfecho é a pergunta sem a lista, nunca uma lista errada.
+- **O ARQUIVO GUARDA A SÉRIE ATUAL E A ANTERIOR, e nada mais** (v1.4.3). Ele
+  chegou a 87 entradas — 51 kB em TODO bundle, com linhas descrevendo a v1.0.1.
+  A regra de poda é `MAIOR.INCREMENTAL`: hoje 1.4.x e 1.3.x, 20 entradas e
+  17,5 kB. **O preço está dito e é pequeno:** o "E mais N mudanças" do rodapé
+  conta o que está NA LISTA, então um aparelho parado há meses vê um N
+  subestimado. A lista visível tem seis linhas de qualquer jeito
+  (`OTA_MAX_LINHAS`), e as podadas descrevem versões que não rodam em aparelho
+  nenhum. Podar de novo quando a série virar — o histórico completo de cada
+  lote continua em `docs/HISTORICO.md`, que é onde ele é consultado por `grep`.
 - **O teto de linhas é o que a mantém uma linha do tempo.** Seis
   (`OTA_MAX_LINHAS`); o que sobra vira *"E mais N mudanças."* **no rodapé, que
   não rola** — na lista, que rola, esse aviso era o primeiro item a ser cortado,

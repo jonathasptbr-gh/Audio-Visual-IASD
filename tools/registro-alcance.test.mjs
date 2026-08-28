@@ -64,12 +64,30 @@ const SERIE = {
   amostras: [
     { t: dia(2) + 'T23:17:00Z', apk: {}, web: { '1.4': 2 }, manifesto: 1000, farol: 10, farolDev: 1, visita: 40, visitaDev: 2 },
     { t: dia(1) + 'T23:17:00Z', apk: {}, web: { '1.4': 5 }, manifesto: 1240, farol: 13, farolDev: 1, visita: 47, visitaDev: 2 },
-    { t: dia(0) + 'T23:17:00Z', apk: {}, web: { '1.4': 9 }, manifesto: 1480, farol: 18, farolDev: 1, visita: 55, visitaDev: 2 },
+    // `v1.5` está na AMOSTRA com zero downloads e NÃO na marca d'água — é a
+    // versão recém-publicada, e a marca d'água só guarda contagem maior que
+    // zero. Sem a união das duas fontes ela some do quadro, e o operador
+    // publica sem ver a própria versão.
+    { t: dia(0) + 'T23:17:00Z', apk: { 'audio-visual-iasd-v1.5.apk': 0 }, web: { '1.4': 9 }, manifesto: 1480, farol: 18, farolDev: 1, visita: 55, visitaDev: 2 },
   ],
+  // NOVE APKs — acima do corte de seis, para o rolo-up do passado disparar.
+  // As contagens são escolhidas para a soma do passado (3+4+5 = 12) EMPATAR
+  // com a maior barra individual: é o caso em que uma régua mal escolhida
+  // estoura a caixa.
   visto: {
-    'audio-visual-iasd-v1.4.apk': 12, 'audio-visual-iasd-v1.0.apk': 3, 'web-1.4': 9,
+    'audio-visual-iasd-v1.4.2.apk': 12,
+    'audio-visual-iasd-v1.4.1.apk': 2,
+    'audio-visual-iasd-v1.4.apk': 1,
+    'audio-visual-iasd-v1.3.12.apk': 1,
+    'audio-visual-iasd-v1.3.0.apk': 3,
+    'audio-visual-iasd-v1.2.17.apk': 2,
+    'audio-visual-iasd-v1.2.4.apk': 3,
+    'audio-visual-iasd-v1.1.apk': 4,
+    'audio-visual-iasd.apk': 5,
+    'web-1.4': 9,
   },
 };
+const TOTAL_APK = 12 + 2 + 1 + 1 + 3 + 2 + 3 + 4 + 5;   // 33
 
 const navegador = await chromium.launch();
 try {
@@ -105,9 +123,13 @@ try {
     await pg.waitForSelector('.kpi');
 
     const kpis = await pg.locator('.kpi-n').allInnerTexts();
-    // 12 + 3 = 15, da MARCA D'ÁGUA (`visto`) e não da última amostra: é ela que
-    // sobrevive à faxina do `web-ota`, que apaga assets — e com eles a contagem.
-    checar(kpis[0] === '15', 'os downloads somam a marca d\'água, não só o que ainda existe', kpis[0]);
+    // Da MARCA D'ÁGUA (`visto`) e não da última amostra: é ela que sobrevive à
+    // faxina do `web-ota` — e, desde a v1.4.3, às Releases antigas apagadas à
+    // mão. **E ela soma TUDO**, inclusive as versões que o gráfico abaixo
+    // agrupa: esconder um número é uma coisa, deixar de contá-lo é outra, e a
+    // segunda faria o painel mentir.
+    checar(kpis[0] === String(TOTAL_APK),
+      'o total soma TUDO — inclusive o que o gráfico agrupa em "anteriores"', kpis[0]);
     // 18 − 13 = 5 aparelhos no último dia.
     checar(kpis[1] === '5', 'aparelhos no dia = a DIFERENÇA do contador entre dois dias', kpis[1]);
     // 55 − 47 = 8 visitas.
@@ -115,11 +137,46 @@ try {
 
     // ---- as barras: geometria RENDERIZADA, não o HTML ----
     const larguras = await pg.$$eval('.barra-f', (es) => es.map((e) => Math.round(e.getBoundingClientRect().width)));
-    checar(larguras.length === 2, 'uma barra por APK visto', larguras);
-    checar(larguras[0] > larguras[1] + 8,
-      'a barra de 12 é VISIVELMENTE maior que a de 3 — `<span>` inline ignora `width`', larguras);
+    // seis versões + a linha do passado
+    checar(larguras.length === 7, 'seis versões ganham barra, e o passado vira UMA linha', larguras);
+    const porRotulo = await pg.$$eval('.barra', (es) => {
+      const o = {};
+      es.forEach((e) => {
+        o[e.querySelector('.barra-t').textContent.trim()] =
+          Math.round(e.querySelector('.barra-f').getBoundingClientRect().width);
+      });
+      return o;
+    });
+    checar(porRotulo['v1.4.2'] > porRotulo['v1.4.1'] + 8,
+      'a barra de 12 é VISIVELMENTE maior que a de 2 — `<span>` inline ignora `width`', porRotulo);
+    // ZERO DESENHA UM TRAÇO, não o nada: a linha existe (a versão foi
+    // publicada) e a barra tem de dizer que ela não teve download nenhum.
+    checar(porRotulo['v1.5'] > 0 && porRotulo['v1.5'] < 8,
+      'e a versão em zero desenha um traço mínimo, não uma barra e não o vazio', porRotulo);
     const cor = await pg.$eval('.barra-f', (e) => getComputedStyle(e).backgroundColor);
     checar(cor === 'rgb(46, 109, 231)', 'e ela está pintada (bluejay), não só o trilho', cor);
+
+    // ---- a ordem é por VERSÃO, e a mais nova vem primeiro ----
+    const rotulos = await pg.$$eval('.barra-t', (es) => es.map((e) => e.textContent.trim()));
+    // A RECÉM-PUBLICADA APARECE MESMO EM ZERO. Ela vive só na amostra, não na
+    // marca d'água — e um painel que a omite não tem como responder "onde está
+    // a versão que acabei de publicar?".
+    checar(rotulos[0] === 'v1.5',
+      'a versão recém-publicada aparece mesmo com ZERO download', rotulos[0]);
+    checar(rotulos[1] === 'v1.4.2',
+      'e a ordem segue por versão, não por contagem', rotulos[1]);
+    checar(/^4 anteriores$/.test(rotulos[rotulos.length - 1]),
+      'e a última linha nomeia quantas versões ela agrupa', rotulos[rotulos.length - 1]);
+
+    // ---- o passado agrupado SOMA, e a régua o comporta ----
+    // 3 + 4 + 5 = 12, o mesmo da maior barra: as duas têm de sair do mesmo
+    // tamanho, e nenhuma pode estourar a caixa.
+    // com a `v1.5` entrando na frente, o passado agrupa 2+3+4+5 = 14
+    const nums = await pg.$$eval('.barra-n', (es) => es.map((e) => e.textContent.trim()));
+    checar(nums[nums.length - 1] === '14', 'a linha do passado SOMA as versões que ela esconde', nums);
+    const maior = Math.max.apply(null, larguras);
+    checar(larguras[larguras.length - 1] <= maior + 1,
+      'e a régua a comporta — a soma do passado não estoura a caixa', larguras);
 
     // ---- a marca do operador ----
     const marcado = await pg.evaluate(() => localStorage.getItem('avRegistroOperador'));

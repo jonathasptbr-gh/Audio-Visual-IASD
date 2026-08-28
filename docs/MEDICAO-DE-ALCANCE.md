@@ -215,6 +215,19 @@ motivo de a escolha ter sido barata.
 
 ## §9 AS ARMADILHAS — as três primeiras são MEDIDAS
 
+0. **AS RELEASES ANTIGAS FORAM APAGADAS À MÃO (v1.4.3), e a marca d'água passou
+   a ser LOAD-BEARING.** Dezessete Releases (v1.0 … v1.3.12) saíram a pedido do
+   operador; ficaram a atual e a anterior, como caminho de recuo. Apagar uma
+   Release **zera o `download_count` dela para sempre** — os 47 downloads que
+   elas somavam só existem hoje porque o `dados.yml` já os tinha fotografado no
+   `visto` do `serie.json` **antes** da limpeza. Conferido asset por asset antes
+   de apagar: os 18 com contagem maior que zero estavam todos capturados; os dois
+   que faltavam eram a v1.4.1 e a v1.4.2, ambas em zero e ambas mantidas.
+
+   **A regra que cai daqui: fotografar ANTES, nunca depois.** Uma limpeza feita
+   antes da primeira amostra teria apagado a única resposta retroativa que este
+   projeto tinha para "quantos instalaram", e não haveria como reconstruí-la.
+
 1. **A faxina do `web-ota` APAGA contador.** `apk.yml:1111` recolhe os
    `web-*.zip`, deixando os três mais novos. Apagar o asset **destrói a contagem
    dele para sempre**. Logo: a adoção por versão só existe se algo TIRAR
