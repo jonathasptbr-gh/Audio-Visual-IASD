@@ -521,6 +521,19 @@ jobs:
           # entre o preto e o primeiro quadro — tornou a falta visível. É um
           # defeito que nenhum `--check` pega e que a congregação inteira vê.
           rodar tools/stage-fade.test.mjs
+          # E O ESTALO AO NAVEGAR ENTRE AS ABAS. `setMute` declara estado e o
+          # `load()` a reaplica a cada troca de aba; a rampa de desmutar partia
+          # de ZERO, e cada reafirmação escrevia `volume 1 -> 0 -> 1` num
+          # <video> tocando. Nao tem sintoma de tela, o estado final e o mesmo
+          # nas duas versoes, e o que se ouve depende de o retorno de chamada do
+          # audio cair entre as duas escritas — ele mede as ESCRITAS.
+          rodar tools/aba-sem-estalo.test.mjs
+          # E A RESOLUCAO DE LINK QUE PERDE A VEZ. Resolver um link e a espera
+          # mais longa do app (extracao de segundos, download de minutos), e o
+          # desfecho chegava sem perguntar se ainda era esperado: `send` no fim,
+          # cena trocada, louvor cortado. Nada quebra e nada aparece no console —
+          # e a JANELA so existe com a ponte de mentira segurando as duas esperas.
+          rodar tools/link-perde-a-vez.test.mjs
           # E O TRAVAMENTO NO MEIO DA TRANSMISSÃO. O giro só existia na CARGA,
           # então uma parada por falta de buffer congelava o quadro sem nada na
           # tela — e um app quebrado produz exatamente a mesma imagem. Relato do

@@ -258,7 +258,7 @@ const appVersionEl = document.getElementById('appVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.4.16';
+const WEB_VERSION = '1.4.18';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -810,6 +810,50 @@ let lyricLoadSeq = 0;
 // navegação da própria Bíblia, e projetar pela folha de Ferramentas não toca no
 // segundo.
 let projecaoSeq = 0;
+
+// ===== UMA RESOLUÇÃO EM VOO PERDE A VEZ PARA A PROJEÇÃO SEGUINTE (v1.4.18) =====
+//
+// Relato do operador: *"ao tocar em um item do tipo link, ele começa a carregar,
+// em seguida eu toco em uma música normal nativa, a música começa a tocar, mas o
+// link que estava carregando não é interrompido, e quando termina de carregar ele
+// vem sobre a música que tocou na hora"*.
+//
+// Resolver um link é a espera mais longa do app — uma extração de rede de
+// SEGUNDOS (`ytStream`) e, falhando ela, um download de MINUTOS. Nesse intervalo
+// o operador projeta outra coisa, e o desfecho da resolução chegava sem perguntar
+// a ninguém se ainda era esperado: `send` no fim, cena trocada, louvor cortado.
+//
+// **É a terceira vez que esta base encontra a mesma classe**, e as duas
+// anteriores já têm nome: o `lyricLoadSeq` (o download do áudio de uma letra
+// avulsa) e o `projecaoSeq` (o capítulo da Bíblia que chega tarde). A senha é a
+// MESMA daquele — quem projeta qualquer coisa a incrementa —, e não uma quarta
+// contagem: duas réguas para "quem chegou por último" divergiriam.
+//
+// O slot guarda o CARTÃO junto porque a espera também é visível: sem ele, o
+// "Preparando <link>" fica sobre a preview enquanto a música nova já toca — a
+// tela dizendo que prepara uma coisa e tocando outra. MEDIDO em arnês antes da
+// correção.
+let palcoEmVoo = null;   // { senha, cartao } — a resolução de link que espera a rede
+
+// O DESFECHO de quem perdeu a vez. TRUTHY de propósito: para quem chamou,
+// "outra coisa está no ar" e "projetei" pedem a mesma resposta — parar. O que
+// ele acrescenta é a distinção que só o `resolverLinkInterno` precisa fazer —
+// abandonado NÃO cai no download, porque ninguém está mais esperando por ele.
+const PROJECAO_PERDIDA = 'perdeu-a-vez';
+
+function registrarPalcoEmVoo(cartao) {
+  palcoEmVoo = { senha: projecaoSeq, cartao };
+  return palcoEmVoo;
+}
+// Chamada por `send`, logo depois do `++projecaoSeq`: quem ganha a vez derruba o
+// cartão de quem a perdeu. `soltar()` é idempotente (o `solto` do `previewBusy`),
+// então o `finally` do dono continua rodando e vira no-op.
+function derrubarPalcoEmVoo() {
+  const v = palcoEmVoo;
+  if (!v) return;
+  palcoEmVoo = null;
+  try { v.cartao.soltar(); } catch (_) { /* o cartão é aviso; falhar nele não derruba nada */ }
+}
 // id_bible_book real do livro no índice `idx` de Bible.BOOKS: usa o id da lista
 // online (mesma ordem canônica) quando baixada; senão cai no índice+1.
 function bibleBookId(idx) {
@@ -9685,6 +9729,7 @@ function favBtn(id, nome) {
 // sobre áudio, lá dentro: é a única coisa que a distingue de um toque.
 async function send(id, daFila, retomarEm) {
   ++projecaoSeq;   // ver `projecaoSeq`: invalida um versículo de roteiro em voo
+  derrubarPalcoEmVoo();   // ver `palcoEmVoo`: e o cartão de uma resolução de link
   // UMA CENA DE ROTEIRO NÃO É MÍDIA: ela não pode virar um comando `load` (o
   // telão apagaria, porque um registro sem blob/url/pages cai no `clear` do
   // stage). A guarda fica AQUI, e não só no toque da lista, porque `send` é o
@@ -12148,7 +12193,11 @@ function cederOPalco(nome) {
       .then(() => { marcarNoAr(); renderNowPlaying(); })
       .catch(() => { /* o `finally` do chamador solta o cartão de qualquer jeito */ });
   }
-  return previewBusy('Preparando', nome);
+  const cartao = previewBusy('Preparando', nome);
+  // A senha é lida AQUI e não no chamador: `cederOPalco` é o ponto por onde as
+  // duas portas do link passam (o item de lista e o "Tocar agora" da busca).
+  registrarPalcoEmVoo(cartao);
+  return cartao;
 }
 
 
@@ -15309,6 +15358,9 @@ function openYtMenu(r, alvoDado) {
 let motivoStream = '';
 
 async function tentarTransmitir(r, altura, somenteAudio) {
+  // A SENHA DESTA PROJEÇÃO (ver `palcoEmVoo`), lida na entrada e conferida
+  // depois da extração — o único await longo desta função.
+  const senha = projecaoSeq;
   const soAudio = !!somenteAudio;
   motivoStream = '';
   if (window.AVStream) window.AVStream.ultimoErro = '';
@@ -15327,6 +15379,14 @@ async function tentarTransmitir(r, altura, somenteAudio) {
     return false;
   }
   if (!man) { motivoStream = 'o shell não montou o manifesto (ver a linha "transmissão" abaixo)'; return false; }
+  // PERDEU A VEZ? A extração leva segundos, e nesse intervalo o operador pode
+  // ter projetado outra coisa. Aqui, e não mais adiante: este é o ponto mais
+  // cedo em que a espera acabou, e daqui para baixo tudo tem efeito — o
+  // registro no banco, o aviso de resolução limitada, o censo e o `send`.
+  if (projecaoSeq !== senha) {
+    motivoStream = 'outra projeção assumiu enquanto a extração corria';
+    return PROJECAO_PERDIDA;
+  }
   // SÓ ÁUDIO: a faixa de vídeo é DESCARTADA aqui, no lado web, e o shell não
   // precisa saber de nada. Ele já monta o par no mesmo manifesto, então pedir
   // "só o áudio" é jogar fora um descritor — não um segundo pedido, não uma
@@ -15473,8 +15533,14 @@ async function resolverLinkYoutube(rec) {
 // resultado ia aparecer**, e o resultado ia para a projeção. A nota FICA: ela é
 // o certo quando a linha está à vista (o item de link do Cronograma), e as duas
 // não disputam nada.
-function recusarLink(rec, frase) {
+function recusarLink(rec, frase, senha) {
   notaNoItem(rec.id, frase);
+  // O CARTÃO SÓ SE A VEZ AINDA FOR DESTA RESOLUÇÃO (v1.4.18). A nota vai para a
+  // LINHA do item e é sempre certa — ela descreve aquele item, onde quer que o
+  // operador esteja. O cartão fica sobre a PREVIEW, e ali ele falaria por cima
+  // de uma cena que já é de outro: "Não deu" sobre um louvor que está tocando
+  // perfeitamente é o app acusando o que funcionou.
+  if (senha !== undefined && projecaoSeq !== senha) return false;
   // Cartão PRÓPRIO, e não o do `cederOPalco`: o do invólucro é solto no
   // `finally` logo a seguir, e `falhar()` precisa de um dono que segure a
   // mensagem pelo prazo de leitura. É o mesmo padrão do `ytAcaoInterno`, e a
@@ -15507,12 +15573,13 @@ async function motivoDaRecusa(padrao) {
 }
 
 async function resolverLinkInterno(rec) {
+  const senha = projecaoSeq;   // ver `palcoEmVoo`
   const vid = (rec && rec.youtubeId) || extractYouTubeId((rec && rec.url) || '');
-  if (!vid) return recusarLink(rec, 'Sem o vídeo de origem — não há o que projetar.');
+  if (!vid) return recusarLink(rec, 'Sem o vídeo de origem — não há o que projetar.', senha);
   if (!window.__NATIVE__) {
     // No navegador não há ponte: nem transmissão, nem download. Dizer isso é
     // melhor que projetar nada em silêncio.
-    return recusarLink(rec, 'Este link só toca pelo app — o navegador não baixa vídeo.');
+    return recusarLink(rec, 'Este link só toca pelo app — o navegador não baixa vídeo.', senha);
   }
   const link = 'https://www.youtube.com/watch?v=' + vid;
   // SEM GENÉRICO AQUI. O `name` deste alvo vira o nome do registro nos dois
@@ -15524,7 +15591,12 @@ async function resolverLinkInterno(rec) {
   // de volta. (Um item de link nasce como `youtube`; a leitura fica dita para o
   // dia em que houver um link só de áudio.)
   const soAudio = rec.kind === 'audio';
-  if (await tentarTransmitir(alvo, 0, soAudio)) {
+  const transmitiu = await tentarTransmitir(alvo, 0, soAudio);
+  // PERDEU A VEZ: nem projeta, nem CAI NO DOWNLOAD. Baixar aqui seria começar
+  // minutos de rede por um toque que o operador já substituiu — e terminar
+  // projetando por cima, que é o defeito inteiro por outro caminho.
+  if (transmitiu === PROJECAO_PERDIDA) return false;
+  if (transmitiu) {
     // A LINHA QUE RESOLVEU O LINK É A QUE ESTÁ NO AR (v5.269, pedido do
     // operador). `tentarTransmitir` termina em `send(<id do avulso>)`, e é ele
     // que zera a origem — então ela é escrita AQUI, depois, e não antes: um
@@ -15540,11 +15612,17 @@ async function resolverLinkInterno(rec) {
   }
   const novo = await ytArquivo(alvo, { lista: 'avulsos', aviso: 'preview', somenteAudio: soAudio });
   if (!novo) {
-    return recusarLink(rec, await motivoDaRecusa('Não foi possível transmitir nem baixar este vídeo.'));
+    return recusarLink(rec, await motivoDaRecusa('Não foi possível transmitir nem baixar este vídeo.'), senha);
   }
   await fixarAvulso(novo.id);
   await trocarLinkPeloArquivo(rec.id, novo.id);
   await load();
+  // PERDEU A VEZ — e aqui o desfecho é ASSIMÉTRICO de propósito: o arquivo FICA.
+  // Ele já foi baixado e já tomou o lugar do link na lista do operador
+  // (`trocarLinkPeloArquivo`), que é valor durável e foi o que o toque pediu; o
+  // que ele não pode é subir ao palco por cima do que está no ar. Da próxima vez
+  // aquela linha toca do disco, sem rede.
+  if (projecaoSeq !== senha) return false;
   await send(novo.id);
   return true;
 }
@@ -15651,6 +15729,7 @@ async function ytAcao(r, destinos, btn, somenteAudio, altura) {
 }
 
 async function ytAcaoInterno(r, destinos, btn, somenteAudio, altura) {
+  const senhaDoToque = projecaoSeq;   // ver `palcoEmVoo`
   const escolhas = [...new Set(typeof destinos === 'string' ? [destinos] : (destinos || []))];
   // Sem destino nenhum o download não teria dono e o item ficaria pendurado no
   // slot avulso, invisível — pior que o Cronograma, que é a lista à vista e de
@@ -15880,7 +15959,11 @@ async function ytAcaoInterno(r, destinos, btn, somenteAudio, altura) {
   }
   if (listas.includes('favs')) await recarregarFavoritos();
   await load();
-  if (tocar) {
+  // PERDEU A VEZ? (ver `palcoEmVoo`) A porta da BUSCA tem a mesma espera e o
+  // mesmo desfecho da porta do item de link: o download leva minutos, e o
+  // operador projeta outra coisa no meio. O arquivo já está guardado — o que
+  // não pode é subir ao palco por cima da cena de outro.
+  if (tocar && projecaoSeq === senhaDoToque) {
     // A mídia avulsa não está em `libItems` nem em `plItems`, então quem
     // resolve o nome dela é o `send` (que cai no `getMedia`).
     await send(rec.id);

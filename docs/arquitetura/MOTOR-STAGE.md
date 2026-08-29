@@ -312,8 +312,23 @@ Mutar/desmutar não corta o áudio na hora — faz uma rampa curta de volume
 (mutuamente exclusivas no tempo, a mais recente cancela a anterior). Ao
 mutar, a rampa desce até 0 e só então `video.muted` é de fato marcado como
 `true` (evita o "pop" de um corte abrupto); ao desmutar, `video.muted` volta
-a `false` já na hora (senão volume 0 não seria ouvido) e a rampa sobe de 0
-até o volume alvo. Um `setTimeout` (`muteApplyTimer`) aplica o `muted` real
+a `false` já na hora (senão volume 0 não seria ouvido) e a rampa sobe até o
+volume alvo **partindo de onde o volume está** — 0 quando se sai do mudo (não
+há o que preservar), o valor corrente em todo o resto.
+
+**Essa partida é o conserto da v1.4.17, e o defeito que ela apaga não tinha
+sintoma de tela.** A rampa partia de zero SEMPRE, e `setMute` é uma função de
+DECLARAR estado: quem a chama no Controle é o `load()`, que reaplica a cena
+inteira a cada troca de aba, a cada redesenho da lista, a cada importação. Com
+o som já ligado, cada uma dessas reafirmações escrevia `volume 1 → 0 → 1` no
+`<video>` que estava tocando (MEDIDO no arnês). Em JS o par é atômico; no
+aparelho cada escrita atravessa o renderer até o `AudioRendererImpl`, e o
+retorno de chamada do áudio roda a cada ~10 ms — caindo entre as duas, ele
+rende um buffer em silêncio. Era o ESTALO relatado ao navegar entre o
+Cronograma e a Bíblia com um louvor no ar, e a janela se abre justamente ali,
+onde a thread principal está mais ocupada. O outro caso que a partida corrige
+é o TOQUE DUPLO no botão de mudo — desmutar no meio da rampa de mutar.
+Oráculo: `tools/aba-sem-estalo.test.mjs`, provado por reversão. Um `setTimeout` (`muteApplyTimer`) aplica o `muted` real
 ao final da rampa de descida, mas confere `muted` de novo nesse instante —
 um `setMute()`/`load()` mais recente pode ter mudado a intenção enquanto a
 rampa corria, e a aplicação atrasada não deve "ressuscitar" um mudo já
