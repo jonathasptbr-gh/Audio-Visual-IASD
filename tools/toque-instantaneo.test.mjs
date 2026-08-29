@@ -36,6 +36,12 @@
 //  4. **Guardar numa lista NÃO interrompe nada.** Sem esta metade, a correção
 //     viraria um defeito maior que o que ela conserta: mandar um vídeo para o
 //     Cronograma derrubaria o louvor no ar.
+//  5. **O ITEM DE LINK JÁ GUARDADO responde igual** (v1.4.7). A v1.4.6 pôs o
+//     reconhecimento na folha da BUSCA e deixou de fora a outra porta do mesmo
+//     trabalho — relato do operador: *"o tocar agora tem o sistema de reação
+//     instantânea, mas o resto não… tocar em um item de link que esteja no
+//     cronograma ou dos favoritos"*. É a MESMA espera (a mesma extração de
+//     rede), por um caminho diferente.
 //
 //   node tools/toque-instantaneo.test.mjs
 // ============================================================================
@@ -246,7 +252,42 @@ try {
     + 'é do "Tocar agora", e só dele', guardando);
   await pg.evaluate(() => window.__acao2.catch(() => {}));
 
-  // ── 5. O SUBTEXTO do "Tocar agora" com "Online" ─────────────────────────
+  // ── 5. O ITEM DE LINK JÁ GUARDADO responde igual ────────────────────────
+  // A outra porta do mesmo trabalho: um `kind: 'youtube'` numa lista. Ele passa
+  // por `send` → `resolverLinkYoutube`, e não pelo `ytAcao` — por isso a guarda
+  // mora lá dentro, e não no invólucro da folha de busca.
+  await porNoAr();
+  await pg.evaluate(async () => {
+    window.__soltarStream = false;
+    const link = await AVDB.addUrlMedia('https://www.youtube.com/watch?v=vidL', {
+      kind: 'youtube', type: 'video/youtube', name: 'Link Guardado', youtubeId: 'vidL',
+    });
+    await AVDB.listAdd('imports', link.id);
+    await load();
+    window.__linkAcao = send(link.id);
+  });
+  await pg.waitForFunction(() => midiaNoAr === false, null, { timeout: 5000 });
+  const doLink = await pg.evaluate(() => ({ midia: midiaNoAr, soltou: !!window.__soltarStream }));
+  checar(doLink.midia === false && doLink.soltou === false,
+    'tocar num ITEM DE LINK do Cronograma interrompe a cena no ato, com a extração '
+    + 'ainda pendente — a mesma reação da folha de busca, por um caminho que a '
+    + 'v1.4.6 tinha deixado de fora', doLink);
+  await pg.waitForFunction(() => {
+    const el = document.getElementById('pvBusy');
+    return !!el && el.classList.contains('on');
+  }, null, { timeout: 5000 });
+  checar(/Link Guardado/.test(await pg.evaluate(() =>
+    (document.getElementById('pvBusyLabel') || {}).textContent || '')),
+    'e o cartão traz o nome do item da LISTA, não o de um resultado de busca');
+  await pg.evaluate(() => { window.__soltarStream = true; });
+  await pg.evaluate(() => window.__linkAcao.catch(() => {}));
+  await pg.waitForFunction(() => {
+    const el = document.getElementById('pvBusy');
+    return !!el && !el.classList.contains('on');
+  }, null, { timeout: 15000 });
+  checar(true, 'e ele sai no fim — o `finally` do `resolverLinkYoutube` cobre os quatro `return`');
+
+  // ── 6. O SUBTEXTO do "Tocar agora" com "Online" ─────────────────────────
   const subs = await pg.evaluate(() => {
     const ler = () => {
       const it = [...songMenuListEl.querySelectorAll('.song-menu-btn')]
@@ -270,6 +311,42 @@ try {
   checar(subs.mil !== subs.online && !!subs.mil,
     'e nos tetos fixos ele volta a dizer o que aquela linha não guarda — a frase '
     + 'é da situação, não do botão', subs);
+  // ── 7. O CONFIRMAR É SEMPRE O ÚLTIMO DA FAIXA ───────────────────────────
+  // Relato do operador: *"nos favoritos o botão de confirmar play está na
+  // direita, mas no resto da biblioteca está na esquerda; pode padronizar na
+  // direita?"*. O lado era escolha de quem fornecia o irmão (`data-antes`), e
+  // quem não a fizesse caía do outro lado — a divergência era o padrão do
+  // esquecimento. A asserção é sobre a POSIÇÃO na faixa, não sobre o
+  // mecanismo: é ela que sobrevive a uma reescrita do `destConfirmRow`.
+  //
+  // Ele mede o `destConfirmRow` DIRETO, com um irmão de mentira, porque é ali
+  // que a decisão morava — montar as duas listas de verdade (uma música com
+  // letra na Biblioteca, um Favorito com faixa de ações) para comparar duas
+  // posições seria medir dois renderizadores para afirmar uma coisa de um.
+  const ordem = await pg.evaluate(() => {
+    // `destExecutor` precisa existir: sem ele `destConfirmRow` devolve null.
+    openYtMenu({ id: 'vidY', url: 'https://www.youtube.com/watch?v=vidY', name: 'Louvor' });
+    const posicao = (irmao) => {
+      const li = destConfirmRow(() => irmao);
+      const filhos = [...li.children];
+      return {
+        total: filhos.length,
+        iConfirmar: filhos.findIndex((e) => e.classList.contains('song-menu-go')),
+      };
+    };
+    const nu = () => { const b = document.createElement('button'); return b; };
+    const comMarca = () => { const b = nu(); b.dataset.antes = '1'; return b; };
+    const r = { simples: posicao(nu()), marcado: posicao(comMarca()) };
+    closeSongMenu();
+    return r;
+  });
+  checar(ordem.simples.total === 2 && ordem.simples.iConfirmar === 1,
+    'com um IRMÃO na faixa, o CONFIRMAR é o ÚLTIMO — era este o caso que divergia: '
+    + 'o "Ver a letra" da Biblioteca não pedia lado e caía à esquerda do botão',
+    ordem.simples);
+  checar(ordem.marcado.total === 2 && ordem.marcado.iConfirmar === 1,
+    'e o antigo `data-antes` não muda mais nada: a escolha por chamador SAIU, que '
+    + 'é o que impede a divergência de voltar por esquecimento', ordem.marcado);
 } finally {
   await navegador.close();
   await new Promise((r) => servidor.close(r));

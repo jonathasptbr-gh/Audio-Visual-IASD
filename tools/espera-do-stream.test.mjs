@@ -108,6 +108,11 @@ try {
       wallpaper: document.getElementById('w'),
       img: document.getElementById('i'),
       video: document.getElementById('v'),
+      // `espera: true` é o que a PREVIEW do Controle passa (v1.4.7). O aro é
+      // maquinaria, e maquinaria é assunto de quem opera: o telão não a mostra.
+      // Sem esta linha este arquivo inteiro mediria o palco da PROJEÇÃO, onde a
+      // resposta certa é justamente não haver aro nenhum — ver a última metade.
+      espera: true,
     });
     // OS FADES NASCEM DESLIGADOS no `createStage` e o app os LIGA (`FADE`, via
     // `setFade`) — e é só com eles ligados que o giro da CARGA existe: ele mora
@@ -232,6 +237,36 @@ try {
     'e o censo continua contando só a transmissão — os dois episódios são os do '
     + 'stream (o `clear` do passo anterior FECHA a fome que interrompeu, e conta: '
     + 'a projeção esteve parada até ele)', await censo());
+  // ── 7. NA PROJEÇÃO NÃO HÁ ARO NENHUM ────────────────────────────────────
+  // Pedido do operador: *"para o telão, literalmente só apareça quando o vídeo
+  // estiver realmente sendo reproduzido"*. O mesmo `stage.js` roda no telão e
+  // nas telas da rede; o que os separa da preview é ESTA opção. Sem esta
+  // metade, o aro voltaria à projeção no dia em que alguém desse um `true` de
+  // conveniência ao criar um palco novo.
+  const semAro = await pg.evaluate(async () => {
+    // NUMA CAIXA PRÓPRIA, e isso não é arrumação: o `.av-stage-busy` é criado
+    // como IRMÃO do `<video>`, e com os dois palcos soltos no `body` o irmão do
+    // segundo seria o aro do PRIMEIRO — o oráculo reprovaria um app correto.
+    document.body.insertAdjacentHTML('beforeend',
+      '<div id="caixa2"><div id="w2"></div><img id="i2" hidden>'
+      + '<video id="v2" playsinline muted hidden></video></div>');
+    const p2 = createStage({
+      wallpaper: document.getElementById('w2'),
+      img: document.getElementById('i2'),
+      video: document.getElementById('v2'),
+    });
+    p2.setFade({ fadeIn: true, fadeOut: true, time: 0.3 });
+    p2.handle({ type: 'load', mediaId: 'st', view: 'visual' });
+    await new Promise((f) => setTimeout(f, 800));
+    const v2 = document.getElementById('v2');
+    // O `.av-stage-busy` é criado como IRMÃO do `<video>`: procurá-lo no
+    // documento inteiro acharia o da preview, que está aceso com toda a razão.
+    return !!(v2.parentElement && v2.parentElement.querySelector('.av-stage-busy'));
+  });
+  checar(semAro === false,
+    'um palco SEM `espera` (o telão e as telas da rede) não desenha aro nenhum — '
+    + 'a maquinaria de carregamento é assunto de quem opera, e na projeção ela é '
+    + 'o app contando como funciona a quem não perguntou', semAro);
 } finally {
   await navegador.close();
 }

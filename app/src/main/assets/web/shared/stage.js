@@ -194,8 +194,27 @@
     // rede (`default-src 'self'`, sem `style-src`) BLOQUEIA estilo embutido — o
     // elemento era anexado, as regras não valiam, e o indicador virava uma `div`
     // vazia. Hoje moram em `shared/stage.css`.
+    // ===== A MAQUINARIA DE CARREGAMENTO NÃO APARECE NA PROJEÇÃO =====
+    //
+    // Pedido do operador: *"revise para que todo o loading aconteça no controle,
+    // e para o telão, literalmente só apareça quando o vídeo estiver realmente
+    // sendo reproduzido"*.
+    //
+    // O telão tem DOIS estados, e nenhum deles é "trabalhando": o wallpaper em
+    // repouso, ou o conteúdo de fato no ar. Um aro girando na frente da
+    // congregação é o app contando como ele funciona a quem não perguntou — e
+    // era metade do carregamento aparecendo lá e metade aqui.
+    //
+    // Quem liga é o DONO, por opção explícita, e só a preview do Controle liga
+    // (ver `createStage` em `controle.js`). Um booleano, e não `__AV_ROLE__`
+    // lido aqui dentro: `stage.js` é compartilhado, e a pergunta que ele
+    // responde é "este palco é uma ILUSTRAÇÃO?", não "que papel é este" — a
+    // tela da rede é papel `tela` e é PROJEÇÃO, então uma leitura de papel
+    // acertaria por acidente e erraria no dia em que aparecesse um quarto.
+    const mostraEspera = !!opts.espera;
     let girando = null;
     function spinner() {
+      if (!mostraEspera) return null;
       if (girando) return girando;
       const casa = (video && video.parentElement) || null;
       if (!casa) return null;
@@ -482,26 +501,32 @@
     // decodificada / primeiro frame do vídeo). Sem isso o fade-in corre sobre
     // a camada preta e o conteúdo "pipoca" no meio da transição. Timeout de
     // segurança para mídia que demora/falha em carregar.
+    // Resolve `true` quando o elemento tem DE FATO o que mostrar, e `false`
+    // quando venceu o prazo sem nada — e essa diferença é o que separa "revelar
+    // o conteúdo" de "revelar o preto". Ver o `revelou` no `load`.
     function mediaReady(el, prazoMs) {
       return new Promise((resolve) => {
         let done = false;
         let t = null;
-        const finish = () => { if (!done) { done = true; clearTimeout(t); resolve(); } };
+        const finish = (ok) => { if (!done) { done = true; clearTimeout(t); resolve(ok !== false); } };
         // O PRAZO É DO CHAMADOR porque as duas fontes têm ordens de grandeza
         // diferentes: um arquivo local vira quadro em milissegundos (2,5 s ali
         // é um socorro que nunca dispara), e um stream tem a rede inteira pela
         // frente. Com o prazo curto num stream, a transição corria sobre o
         // preto e o primeiro quadro pipocava depois dela — a mesma "entrada no
         // talo" que este fade existe para eliminar.
-        t = setTimeout(finish, prazoMs || 2500);
+        t = setTimeout(() => finish(false), prazoMs || 2500);
         if (el === img) {
-          if (img.complete && img.naturalWidth) finish();
-          else if (img.decode) img.decode().then(finish, finish);
-          else img.addEventListener('load', finish, { once: true });
+          if (img.complete && img.naturalWidth) finish(true);
+          // `img.decode()` REJEITA numa imagem quebrada, e o `finish` no ramo de
+          // erro precisa dizer isso — passá-lo cru às duas pontas resolvia
+          // `true` para uma imagem que não existe (o argumento seria o erro).
+          else if (img.decode) img.decode().then(() => finish(true), () => finish(false));
+          else img.addEventListener('load', () => finish(true), { once: true });
         } else if (video.readyState >= 2) {
-          finish();
+          finish(true);
         } else {
-          video.addEventListener('loadeddata', finish, { once: true });
+          video.addEventListener('loadeddata', () => finish(true), { once: true });
         }
       });
     }
@@ -1015,9 +1040,22 @@
           // sem ele o operador vê exatamente a mesma tela de quando nada foi
           // pedido, por vários segundos, depois de ter pedido um vídeo.
           if (ehStream) mostrarEspera(true);
-          await mediaReady(alvo, ehStream ? PRONTO_STREAM_MS : 0);
+          const revelou = await mediaReady(alvo, ehStream ? PRONTO_STREAM_MS : 0);
           if (seq !== loadSeq) return;
           mostrarEspera(false);
+          // ===== SEM QUADRO, A CORTINA FICA (v1.4.7) =====
+          //
+          // O prazo existia como socorro para a transição não pendurar — mas o
+          // que ele socorria era REVELAR O PRETO: numa transmissão que não
+          // carrega, os 15 s venciam e o telão trocava o wallpaper por um
+          // retângulo vazio. O wallpaper é o estado de repouso da projeção e é a
+          // resposta certa a "não há o que mostrar"; revelar nada é pior em toda
+          // leitura.
+          //
+          // SÓ NO STREAM: um arquivo local que não dispara `loadeddata` em 2,5 s
+          // é o caso de borda que o socorro sempre cobriu, e trocar aquele
+          // comportamento não é o pedido deste lote.
+          if (ehStream && !revelou) return;
         }
         // Num stream a rampa de volume foi adiada lá em cima justamente para
         // cá: agora existe o que ouvir, e ela acompanha a cortina abrindo.
@@ -1037,11 +1075,15 @@
         // no stream, porque um arquivo local vira quadro em milissegundos e um
         // spinner que pisca é pior que nenhum (ver mostrarEspera/PRONTO_STREAM_MS).
         if (ehStream) mostrarEspera(true);
-        await mediaReady(alvo, ehStream ? PRONTO_STREAM_MS : 0);
+        const revelou = await mediaReady(alvo, ehStream ? PRONTO_STREAM_MS : 0);
         // A ORDEM É ESTA: um load mais novo já acendeu o giro dele, e esconder
         // depois de perder a corrida apagaria o spinner do load que ASSUMIU.
         if (seq !== loadSeq) return;
         mostrarEspera(false);
+        // Sem quadro, nada a revelar — ver o ramo da cortina acima. Aqui o
+        // elemento entrou com `opacity: 0` (o `entrada` logo acima), então sair
+        // sem o `runFadeIn` o deixa invisível, que é exatamente o certo.
+        if (ehStream && !revelou) return;
         await runFadeIn(alvo, ehStream);
         if (seq !== loadSeq) return;
       }
