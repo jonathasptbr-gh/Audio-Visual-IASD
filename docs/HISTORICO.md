@@ -24,6 +24,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
+- **v1.4.21** — A APRESENTAÇÃO CHEGAVA AO TELÃO SEM AS IMAGENS, e a causa não emite erro em lugar nenhum. Relato do operador, sobre um `.pptx` de 27 slides: *"ele não está herdando imagens e pelo que parece nem fontes"* — mais *"ao importar um pptx, após confirmar o direcionamento para o cronograma, a tela piscou e ocultou o cronograma, subindo os controles para o topo da tela"*. MEDIDO no arquivo dele: o deck não tem **um** `<img>` — todo fundo é `background-image: url(blob:…)`, e a rasterização só convertia `<img>`, logo não convertia NADA. O `<foreignObject>` é um documento à parte e nada disso falha: saem 27 páginas de 1920×1080, brancas. Consertar as imagens obriga a consertar o FORMATO junto (100,4 MB em PNG contra 12,3 MB em WebP, MEDIDO), e o palco de 1920×29.700 px pendurado no `<body>` durante a importação vira uma caixa 0×0. A tradução saiu do `controle.js` para `controle/deck.js`, com oráculo que mede PIXEL e traz a REVERSÃO ao lado de cada asserção. Lote **APK + web**: o `SlideDeck.kt` ganha a mesma regra de formato para o leitor de PDF.
 - **v1.4.20** — O ÍCONE DO CARTÃO DE ESPERA SEGUE A LEGENDA. Pedido do operador, sobre o cartão de um link do YouTube: *"seu ícone segue sendo um ícone de download, enquanto que deveria ser só o spinner, sem um ícone de download nesse tipo de preparação, já que não está realmente baixando algo, para diferenciar do download em si"*. O `.dl-ring` são **DOIS desenhos** — o aro que gira (`::before`) e a SETA parada (`svg`) —, e só a segunda afirma "bytes chegando". Numa PREPARAÇÃO ela prometia o que não estava acontecendo, e isso vale para MAIS casos do que o relato nomeia: a extração de um link, a montagem de uma playlist, a rasterização de um PDF **e a própria fase pré-bytes de um download**, que nasce em "Preparando vídeo" e só vira "Baixando vídeo · 12%" no primeiro progresso. **A regra é "o ícone segue a LEGENDA"**, e não uma bandeira a mais na assinatura do `previewBusy`: a legenda já carrega essa distinção na tela, em português, e é escrita em DOIS pontos (a criação do cartão e o `atualizar` do progresso) — derivá-la ali faz o desenho e a palavra nunca discordarem, que é o defeito que o pedido nomeia. Ela **falha para o lado certo**: uma legenda nova escrita de outro jeito perde a seta e vira um spinner puro, nunca o contrário. O aro FICA, porque a espera continua sendo verdade. Oráculo no `gaveta-e-cartao.test.mjs`, medindo o RENDERIZADO (`getClientRects`) e não a classe — a classe sem a regra de CSS passaria num teste de classe e continuaria desenhando a seta na tela do operador, que é exatamente o que ele relatou. Quatro reversões, uma por peça. OTA PURO.
 - **v1.4.19** — A VARREDURA DE ESTABILIDADE DE ÁUDIO E VÍDEO, APLICADA: nove dos dez achados do laudo `AUDITORIA-ESTABILIDADE-AV.md`, num lote só. O que carrega o lote é **um fragmento sem prazo de PAREDE**: era o único ponto da cadeia sem prazo nenhum, e o desfecho que ele deixava passar é o pior que esta projeção sabe ter — a transmissão congelada sem NADA acontecer, sem erro, sem queda para o download, com o cartão "Preparando" aceso para sempre. O cenário não é uma queda: é uma entrega que não termina (um CDN que goteja, o desfecho típico de uma Wi-Fi saturada ou de um aparelho em economia de energia), e nenhuma defesa existente o alcançava — o `readTimeout` do `StreamProxy` é **POR LEITURA**, então um byte a cada 29 s nunca o dispara; as 4 tentativas do `mse.js` só reagem a um erro que ACONTECE; e o `AVStream.fome` era o único lugar do app que SABIA que a projeção estava parada — e só escrevia no Registro. Três camadas novas: o prazo de parede por fragmento (PROPORCIONAL ao pedido, alimentando a escada de tentativas que já existia), o prazo TOTAL no `readBytes` do Kotlin, e o WATCHDOG DE FOME do `stage.js` (25 s, uma vez por cena), que transforma quadro congelado no `onStreamErro` de sempre. Mais: `streamRetentado` virou um `Map` COM JANELA — era um `Set` nunca limpo, então a segunda expiração do mesmo vídeo na mesma sessão (ensaio de manhã, culto à tarde) pulava a re-extração de dois segundos e ia direto ao download de centenas de MB na frente da congregação; a escada de degraus passou a perguntar `isTypeSupported` (mp4 hoje carrega AV1); o stream SÓ-ÁUDIO ganhou o aviso e a rampa que os dois ramos visuais escondiam dele; as rotinas de acervo (12 requisições concorrentes sobre 454 hinos, na abertura) passaram a CEDER A VEZ à cena; o `configChanges` ganhou as sete chaves que faltavam; e o `SessionService` deixou de cair numa recriação de Activity. **O décimo achado é MEDIÇÃO e continua aberto de propósito** — se o `shouldInterceptRequest` do WebView serializa, o fragmento de áudio espera atrás do de vídeo (que tem 20 s de folga), o que explicaria os relatos antigos de áudio falhando no YouTube; a receita está no laudo. Quatro oráculos novos, 57/57 verdes. **PEDE RELEASE** (`shellTag: v1.4.19`).
 - **v1.4.18** — UMA RESOLUÇÃO DE LINK EM VOO PERDE A VEZ PARA A PROJEÇÃO SEGUINTE. Relato do operador: *"ao tocar em um item do tipo link, ele começa a carregar, em seguida eu toco em uma música normal nativa, a música começa a tocar, mas o link que estava carregando não é interrompido, e quando termina de carregar ele vem sobre a música que tocou na hora"*. REPRODUZIDO em arnês, com a ponte de mentira segurando as duas esperas. Resolver um `kind: 'youtube'` é a espera mais longa do app — uma extração de rede de SEGUNDOS (`ytStream`) e, falhando ela, um download de MINUTOS —, e o desfecho chegava sem perguntar a ninguém se ainda era esperado: `send` no fim, cena trocada, louvor cortado na frente da congregação. **É a TERCEIRA vez que esta base encontra a mesma classe**, e as duas anteriores já têm nome: o `lyricLoadSeq` (o download do áudio de uma letra avulsa) e o `projecaoSeq` (o capítulo da Bíblia que chega tarde). A senha usada é a MESMA daquele — quem projeta qualquer coisa a incrementa —, e não uma quarta contagem: duas réguas para "quem chegou por último" divergiriam. CINCO guardas, uma por lugar em que a espera termina em efeito, e cada uma provada por reversão: a transmissão que volta tarde, o download do item de link, o download do "Tocar agora" da BUSCA (a outra porta, que a v1.4.6 já tinha deixado de fora uma vez), o CARTÃO "Preparando" que ficava sobre a música já tocando, e a marca de "no ar" que acendia na linha do link abandonado. **E o desfecho do download é ASSIMÉTRICO de propósito:** o arquivo FICA e toma o lugar do link na lista (`trocarLinkPeloArquivo`) — é valor durável e foi o que o toque pediu; o que ele não pode é subir ao palco. Já a transmissão abandonada **não escorrega para o download**: seriam minutos de rede por um toque que o operador substituiu. OTA PURO.
@@ -293,6 +294,154 @@ na nota que a revoga, não apagada da que a criou.
 - **v5.156** — é METADE OTA e METADE APK, de novo.
 
 ---
+
+## v1.4.21 — a apresentação chegava ao telão sem as imagens
+
+**Dois relatos do operador, no mesmo `.pptx`** ("Chaves da Felicidade Familiar
+— Semana da Família 2026", 27 slides):
+
+> *"podemos ver que ele não está herdando imagens e pelo que parece nem
+> fontes"*
+
+> *"ao importar um pptx, após confirmar o direcionamento para o cronograma, a
+> tela piscou e ocultou o cronograma, subindo os controles para o topo da tela,
+> e depois retornou o cronograma"*
+
+### 1. As imagens — e por que o defeito não tinha sintoma nenhum
+
+A rasterização do `.pptx` é `<foreignObject>`: o slide vai para dentro de um SVG
+que o navegador desenha como imagem. **Esse SVG é um documento à parte**, e o
+que ele não alcança some sem exceção no console, sem requisição falhando e sem
+página faltando — sai uma apresentação completa, com o número de páginas certo,
+e branca.
+
+`elementoParaPng` sabia disso e tratava **um** caso: as `<img>` do slide viravam
+`data:` antes da serialização. **MEDIDO no arquivo do operador: aquele deck não
+tem UMA `<img>`.** O renderizador aplica o fundo do slide como
+`style="background-image: url(blob:…)"` no `<div>` — 27 fundos, um por página —,
+e o mesmo vale para preenchimento em ladrilho e recorte por geometria. A
+conversão existia e não convertia nada.
+
+Junto com ela faltavam mais duas coisas que o clone não leva:
+
+- **os pixels de um `<canvas>`** — `cloneNode` copia o elemento, não o bitmap:
+  um gráfico do PowerPoint sairia como retângulo vazio;
+- **a fonte de símbolo**, que é a segunda metade do relato. Marcador de tópico
+  em PowerPoint é uma LETRA numa fonte do Windows: o `buChar="v"` em Wingdings
+  do slide 14 é **❖**, e o `buChar="U+F0B7"` em Symbol do slide 17 é **•**.
+  Nenhum Android tem essas fontes, então o telão mostrava a letra `v` — e, no
+  caso do Symbol, o retângulo vazio da área privativa.
+
+Hoje `embutirRecursos` varre os DOIS lugares em que o renderizador põe uma URL
+(o atributo e o `url(...)` de qualquer propriedade do `style` inline), com um
+cache por importação — o mesmo fundo se repete entre slides. Os bytes atravessam
+por `FileReader`, e não por um canvas: o blob já é o JPEG que veio dentro do
+`.pptx`, e reencodá-lo como PNG (o que a versão anterior fazia com as `<img>`)
+inflava uma fotografia de 500 kB em vários MB dentro de uma string que ainda
+seria percent-encodada.
+
+**A URL do SVG continua sendo `data:`, e agora está escrito por quê:** MEDIDO,
+um SVG carregado de uma `blob:` SUJA o canvas e o `toBlob` seguinte lança
+`SecurityError`. A troca pareceria uma otimização óbvia e derrubaria a
+apresentação inteira, com uma mensagem que não aponta para cá.
+
+**O que NÃO foi consertado, e não tem conserto aqui:** a fonte de TEXTO. O
+arquivo do operador pede `Muthiara -Demo Version-` no título e `Georgia` no
+corpo, e ele **não embute nenhuma das duas** (`ppt/fonts/` não existe, e não há
+`embeddedFontLst`). Sem o arquivo da fonte no aparelho, o que resta é o
+substituto do sistema — que é o que o PowerPoint de outro computador também
+faria.
+
+### 2. O formato — o conserto das imagens obrigava a este
+
+MEDIDO sobre o mesmo material, 1920×1080:
+
+| formato | a apresentação inteira |
+|---|---|
+| PNG | **100,4 MB** |
+| WebP sem perda | 57,7 MB |
+| WebP q .9 | **12,3 MB** |
+
+Ou seja: as imagens de volta multiplicariam por mil o que cada apresentação
+ocupa no IndexedDB do aparelho — fotografia é o pior caso do PNG. E o argumento
+do PNG continua VERDADEIRO onde ele nasceu (`SlideDeck.kt`): slide é texto sobre
+fundo chapado, e é ali que um compressor com perda borra a borda da letra que
+vai ser lida de longe.
+
+As duas coisas convivem porque a pergunta passou a ser respondida **por
+página**, e quem responde é o próprio PNG: não há sinal mais honesto de "isto é
+uma fotografia?" que o tamanho que ela ocupa sem perda. As páginas chapadas do
+mesmo arquivo ficaram entre 44 kB e 208 kB; as fotográficas passaram de 3 MB. O
+teto (`PAGINA_LEVE`, 512 kB) separa as duas por mais de uma ordem de grandeza —
+não é ajuste fino, é um abismo. O WebP só é encodado quando o PNG já disse que
+sim, e só vence se for MENOR: um navegador sem WebP devolve o próprio PNG deste
+`toBlob`, e a comparação de tamanho absorve isso sem uma guarda de recurso em
+lugar nenhum.
+
+**`SlideDeck.kt` ganhou a mesma regra e o mesmo número**, e é por isso que este
+lote leva Release: o leitor de PDF tem o defeito idêntico, e as duas metades do
+mesmo recurso produzem `kind: 'deck'` para o mesmo palco — uma apresentação que
+ocupa dez vezes mais conforme a porta de entrada é uma divergência que ninguém
+explica olhando a tela. A extensão do arquivo acompanha o formato porque é dela
+que sai o `Content-Type` do `/saf/<token>`.
+
+**`SHELL_VERSION` não sobe, e a razão é a que o número existe para medir:** um
+aparelho no shell 60 com o bundle novo funciona, e um no shell novo com o bundle
+velho também — o lado web trata a URL de uma página como opaca e a forma de
+retorno de `deckPages` não mudou. Não há acoplamento a detectar.
+
+### 3. O palco — e o app que encolhia no meio da importação
+
+`pptxParaPaginas` pendurava no `<body>` um `position:fixed` de **1920 × 29.700
+px** (as 27 páginas montadas de uma vez) a 99.999 px para a esquerda. São duas
+coisas erradas juntas: o pico de memória de uma apresentação inteira num
+processo que hospeda os dois WebViews e a `Presentation`, e uma região de layout
+gigante criada e destruída embaixo de um app cuja altura é
+`calc(100svh - var(--kb))` — `main` é `flex: 1`, e só encolhe se o `<body>`
+encolher, que é exatamente o relato.
+
+Hoje o palco é `position: fixed` **0×0 com `overflow: hidden`**, com o que é
+grande dentro dele: uma caixa desse tamanho não acrescenta um pixel de
+transbordo ao documento. E os slides são rasterizados **um a um**
+(`renderSlideToContainer` + `dispose`), então o pico é UMA página. Continua não
+sendo `display: none` pelo motivo de sempre — sem layout não há o que
+rasterizar —, e o oráculo mede as duas metades.
+
+**A conta do `--kb` ganhou a pergunta que faltava:** ela só produz altura
+descontada com um campo EDITÁVEL em foco. Um teclado não existe sem um, e nenhum
+limiar em pixels distingue teclado de acidente (num aparelho pequeno em paisagem
+o teclado passa de metade da tela). É a defesa em profundidade do sintoma: o
+palco corrigido tira a causa conhecida, e esta linha fecha a classe — qualquer
+encolhimento espúrio da viewport visual deixa de virar um app encolhido.
+
+**O que NÃO se conseguiu provar, e está dito:** o mecanismo exato do piscar não
+foi reproduzido fora do aparelho — num Chromium com emulação móvel o palco
+antigo não move a viewport, porque `html, body { overflow: hidden }` já corta o
+transbordo ali. O que sustenta a correção é que o palco era a ÚNICA coisa que a
+importação acrescentava ao documento naquela janela, que ele era objetivamente
+grande demais por outros dois motivos, e que `--kb` é o único caminho por onde
+`main` pode colapsar.
+
+### 4. O arquivo próprio, e o oráculo
+
+A tradução saiu do `controle.js` para **`controle/deck.js`** (`AVDeck`), ao lado
+de `serie.js`/`cifra.js`/`sorteio.js`/`hinario.js` e pelo mesmo motivo: ela tem
+três modos de falhar calados e um oráculo só alcança o que tem porta de entrada.
+Entrou no watchdog de boot (`otaAppIsUp`) no MESMO lote em que nasceu — a lição
+que custou versões a `AVSerie`/`AVSorteio`.
+
+`tools/apresentacao.test.mjs` mede **PIXEL**, porque um teste do desfecho aprova
+as duas versões (as duas produzem 27 páginas de 1920×1080 e nenhuma lança), e
+cada asserção de conteúdo tem a **REVERSÃO** ao lado — o mesmo fixture
+rasterizado pelo caminho ingênuo, provando que a pergunta tem dente. O fixture é
+sintético, escrito à mão: nenhum conteúdo de terceiro entra neste repositório.
+Ele cobre também o formato por página e o palco não mexer no layout — e, na
+outra ponta, que o conteúdo do palco TEM largura de verdade, senão a correção
+seria só um jeito novo de não rasterizar nada.
+
+**Medição de ponta a ponta com o arquivo do operador, pelo `deck.js` que
+embarca:** 27 páginas, todas WebP, **11,7 MB** no total, sem um único quadro em
+que o documento mude de tamanho.
 
 ## v1.4.20 — o ícone do cartão de espera segue a legenda
 

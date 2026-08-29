@@ -5,6 +5,7 @@ import android.graphics.Bitmap
 import android.graphics.Color
 import android.graphics.pdf.PdfRenderer
 import android.net.Uri
+import android.os.Build
 import android.os.ParcelFileDescriptor
 import android.util.Log
 import org.json.JSONArray
@@ -38,11 +39,20 @@ import java.net.URL
  *
  * ## O que ele entrega
  *
- * Uma imagem PNG por página, no cache, servida pelo mesmo `/saf/<token>` das
+ * Uma imagem por página, no cache, servida pelo mesmo `/saf/<token>` das
  * pastas do dispositivo: daqui para a frente o caminho é o de qualquer imagem
  * importada (`fetch` + `Blob`), e o lado web guarda as páginas no registro da
- * mídia. PNG, e não JPEG, porque slide é TEXTO sobre fundo chapado — é onde o
- * JPEG borra as bordas das letras, e é justamente o que vai ser lido de longe.
+ * mídia.
+ *
+ * O FORMATO É POR PÁGINA, e quem responde é o próprio PNG (ver [PAGINA_LEVE]).
+ * O argumento original do PNG continua de pé onde ele nasceu — slide é TEXTO
+ * sobre fundo chapado, e é ali que um compressor com perda borra a borda da
+ * letra que vai ser lida de longe. Ele só não vale para a página que é uma
+ * FOTOGRAFIA de página inteira, que é o pior caso do PNG: MEDIDO no lado web
+ * sobre um material de 27 páginas com fundo fotográfico, o PNG dá **100,4 MB**
+ * contra **12,3 MB** do WebP — num aparelho, e num banco que o operador nunca
+ * vê. A separação é um abismo, não um ajuste fino: as páginas chapadas do
+ * mesmo arquivo ficaram entre 44 kB e 208 kB.
  *
  * **BLOQUEANTE**: disco, rede e rasterização. Só pode ser chamado da fila
  * `extracao` da ponte — nunca da fila `io` (a de milissegundos, SEM rede) nem
@@ -64,6 +74,33 @@ object SlideDeck {
     /** Teto de páginas. Um PDF de 500 páginas não é um roteiro de culto — é um
      *  livro, e rasterizá-lo inteiro encheria a memória do aparelho. */
     private const val MAX_PAGINAS = 300
+
+    /**
+     * Abaixo disto a página fica em PNG — ver o KDoc do objeto para a medição.
+     *
+     * É o mesmo número do `PAGINA_LEVE` de `controle/deck.js`, e a igualdade é
+     * de propósito: as duas metades do MESMO recurso (o PDF pelo shell, o
+     * `.pptx` pelo WebView) produzem `kind: 'deck'` para o mesmo palco, e uma
+     * apresentação que ocupa dez vezes mais conforme a porta de entrada é uma
+     * divergência que ninguém consegue explicar olhando a tela.
+     */
+    private const val PAGINA_LEVE = 512 * 1024
+
+    /** Qualidade do WebP quando a página é fotográfica. */
+    private const val QUALIDADE = 90
+
+    /**
+     * O WebP com perda.
+     *
+     * `WEBP_LOSSY` só existe da API 30 em diante; abaixo dela o `WEBP`
+     * (depreciado justamente por isso) já é lossy para qualquer qualidade
+     * menor que 100. O `minSdk` do projeto é 26, então os dois caminhos são
+     * reais — e os dois produzem o mesmo arquivo.
+     */
+    @Suppress("DEPRECATION")
+    private val WEBP: Bitmap.CompressFormat =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) Bitmap.CompressFormat.WEBP_LOSSY
+        else Bitmap.CompressFormat.WEBP
 
     private const val CONECTA_MS = 15_000
     private const val LE_MS = 30_000
@@ -169,8 +206,8 @@ object SlideDeck {
                     val destino = pasta(ctx, chaveDe(origem))
                     val urls = JSONArray()
                     for (i in 0 until total) {
-                        val arquivo = File(destino, "%03d.png".format(i))
-                        if (!renderizar(pdf, i, arquivo)) return erro("falha ao gravar a página ${i + 1}")
+                        val arquivo = renderizar(pdf, i, destino)
+                            ?: return erro("falha ao gravar a página ${i + 1}")
                         urls.put(SafRegistry.urlFor(Uri.fromFile(arquivo)))
                         onProgresso(i + 1, total)
                     }
@@ -202,12 +239,15 @@ object SlideDeck {
     private fun erro(motivo: String) = JSONObject().put("erro", motivo)
 
     /**
-     * Rasteriza UMA página. O bitmap é criado e reciclado dentro da função de
-     * propósito: uma apresentação de 60 páginas em 1920px são ~8 MB por página,
-     * e segurar todas até o fim estoura a memória de um aparelho modesto — o
-     * lado web já copiou a anterior para o IndexedDB quando esta começa.
+     * Rasteriza UMA página e a grava em [pasta], devolvendo o arquivo (ou
+     * `null` se não deu para gravar).
+     *
+     * O bitmap é criado e reciclado dentro da função de propósito: uma
+     * apresentação de 60 páginas em 1920px são ~8 MB por página, e segurar
+     * todas até o fim estoura a memória de um aparelho modesto — o lado web já
+     * copiou a anterior para o IndexedDB quando esta começa.
      */
-    private fun renderizar(pdf: PdfRenderer, indice: Int, destino: File): Boolean {
+    private fun renderizar(pdf: PdfRenderer, indice: Int, pasta: File): File? =
         pdf.openPage(indice).use { pagina ->
             val escala = LADO_MAX.toFloat() / maxOf(pagina.width, pagina.height).toFloat()
             val w = maxOf(1, (pagina.width * escala).toInt())
@@ -222,14 +262,50 @@ object SlideDeck {
                 // palco: o texto some.
                 bmp.eraseColor(Color.WHITE)
                 pagina.render(bmp, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
-                FileOutputStream(destino).use { saida ->
-                    if (!bmp.compress(Bitmap.CompressFormat.PNG, 100, saida)) return false
-                }
+                // O bitmap é RECICLADO no `finally`, e por isso a compressão
+                // acontece aqui dentro: `gravar` já devolve o arquivo escrito.
+                gravar(bmp, pasta, indice)
             } finally {
                 bmp.recycle()
             }
         }
-        return true
+
+    /**
+     * Grava a página no formato que ELA pede — ver [PAGINA_LEVE].
+     *
+     * O PNG é sempre produzido primeiro, e não é desperdício: ele é a resposta
+     * certa para a página chapada (que é a maioria num roteiro de culto), é o
+     * mais barato dos dois de comprimir, e é ele quem RESPONDE a pergunta —
+     * "esta página é uma fotografia?" não tem sinal mais honesto que o
+     * tamanho que ela ocupa sem perda. O WebP só é encodado quando o PNG já
+     * disse que sim, e mesmo então só vence se for MENOR: um aparelho cujo
+     * encoder devolva algo pior mantém o PNG, em vez de piorar a imagem para
+     * nada.
+     *
+     * A extensão acompanha o formato porque é dela que sai o `Content-Type` do
+     * `/saf/<token>` (`ContentResolver.getType` de um `file://` responde pelo
+     * `MimeTypeMap`) — e é esse tipo que vira o `Blob` do lado web.
+     */
+    private fun gravar(bmp: Bitmap, pasta: File, numero: Int): File? {
+        val png = java.io.ByteArrayOutputStream()
+        if (!bmp.compress(Bitmap.CompressFormat.PNG, 100, png)) return null
+        var bytes = png.toByteArray()
+        var extensao = "png"
+        if (bytes.size > PAGINA_LEVE) {
+            val webp = java.io.ByteArrayOutputStream()
+            if (bmp.compress(WEBP, QUALIDADE, webp) && webp.size() < bytes.size) {
+                bytes = webp.toByteArray()
+                extensao = "webp"
+            }
+        }
+        val destino = File(pasta, "%03d.%s".format(numero, extensao))
+        return try {
+            FileOutputStream(destino).use { it.write(bytes) }
+            destino
+        } catch (_: Exception) {
+            destino.delete()
+            null
+        }
     }
 
     /**

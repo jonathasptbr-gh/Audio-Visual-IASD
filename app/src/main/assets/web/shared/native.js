@@ -97,6 +97,11 @@
     // arquivo: um módulo novo do Controle que não esteja aqui é um buraco novo
     // no watchdog, aberto no mesmo lote em que o arquivo nasce.
     if (!global.AVHinario) return false;
+    // `AVDeck` idem, e ele é o caso mais claro da regra: a apresentação é lida
+    // só dentro de `pptxImportar`, então um erro de topo em `deck.js` não
+    // aborta nada visível — o app sobe inteiro e o `.pptx` deixa de abrir, com
+    // um "não deu para abrir" que acusa o ARQUIVO do operador.
+    if (!global.AVDeck) return false;
     if (typeof global.__avBack !== 'function') return false;
     return !!document.querySelector('#playlist > li');
   }

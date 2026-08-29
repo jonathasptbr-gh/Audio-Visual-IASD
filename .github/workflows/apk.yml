@@ -800,6 +800,22 @@ jobs:
           # `finally` — os `continue` do laço são a razão dele, e sem ele um
           # arquivo ilegível deixa um aro girando na lista para sempre.
           rodar tools/aviso-de-importacao.test.mjs
+          # E A APRESENTAÇÃO QUE VIRA IMAGEM. A rasterização do `.pptx` é
+          # `<foreignObject>`, e um SVG é um DOCUMENTO À PARTE: tudo que ele não
+          # alcança some SEM ERRO NENHUM — sem exceção no console, sem
+          # requisição falhando, sem página faltando. O que sai é uma
+          # apresentação completa, com o número de páginas certo, e branca. Foi
+          # o que chegou ao telão do operador: 27 slides de fundo fotográfico
+          # com o texto solto sobre papel branco, porque o arquivo dele não tem
+          # UM `<img>` (todo fundo é `background-image: url(blob:)`) e a versão
+          # anterior só convertia `<img>`. Um teste do DESFECHO aprova as duas
+          # versões, então ele mede PIXEL — e cada asserção de conteúdo tem a
+          # REVERSÃO ao lado, rasterizando o mesmo fixture pelo caminho ingênuo.
+          # Cobre também o FORMATO por página (sem ele o conserto das imagens
+          # multiplicava por dez o que uma apresentação ocupa: MEDIDO, 100,4 MB
+          # em PNG contra 12,3 MB) e o PALCO não mexer no layout do documento,
+          # que é o relato do operador — o app encolhendo no meio da importação.
+          rodar tools/apresentacao.test.mjs
           # E O TOQUE QUE RESPONDE NA HORA. "Tocar agora" num vídeo comeca por uma
           # EXTRACAO DE REDE de segundos, e ate a v1.4.6 nada mudava na tela
           # nesse intervalo — nem o aro de carregamento. O caminho do DOWNLOAD ja

@@ -34,20 +34,104 @@ que um de apresentação, porque para o app não há diferença entre os dois.
   pior do que não aceitar.
 
 **O `.pptx` produz DOM; o app projeta IMAGEM.** A ponte entre os dois é
-`elementoParaPng`, sem biblioteca nenhuma: o slide vai para dentro de um
-`<foreignObject>` de SVG, que o navegador desenha como imagem, e daí para um
-canvas. Dois detalhes que não são opcionais:
+`controle/deck.js` (`AVDeck`), sem biblioteca nenhuma: o slide vai para dentro
+de um `<foreignObject>` de SVG, que o navegador desenha como imagem, e daí para
+um canvas.
 
-- **As `<img>` do slide são `blob:`, e uma URL blob NÃO carrega dentro do
-  `foreignObject`** (o SVG é um documento à parte). Cada uma é redesenhada num
-  canvas e vira `data:` antes da serialização — sem esse passo a foto do slide
-  simplesmente não aparece, e o defeito é silencioso.
+**Ele mora num arquivo próprio, ao lado de `serie.js`/`cifra.js`/`sorteio.js`/
+`hinario.js`, e pelo mesmo motivo**: o `<foreignObject>` é um DOCUMENTO À
+PARTE, então tudo que ele não alcança some **sem erro nenhum** — a
+apresentação sai completa, com o número de páginas certo, e vazia. Um oráculo
+(`tools/apresentacao.test.mjs`) só alcança o que tem porta de entrada, e um
+teste do desfecho aprovaria as duas versões. Cada asserção de conteúdo lá tem a
+REVERSÃO ao lado.
+
+São **três** coisas que o SVG não alcança, e a primeira apagou 27 slides do
+operador:
+
+- **Toda mídia do `.pptx` chega como `blob:`, e uma URL blob não carrega dentro
+  do `foreignObject`.** MEDIDO no material do operador (27 slides, "Semana da
+  Família 2026"): o arquivo tem **zero `<img>`** — todo fundo é
+  `style="background-image: url(blob:…)"` no `<div>` do slide. A versão anterior
+  convertia só `<img>`, logo não convertia nada, e as 27 páginas saíam brancas
+  com o texto solto no meio. `embutirRecursos` varre os DOIS lugares: o atributo
+  (`<img src>`, `<image href>`) e o `url(...)` de qualquer propriedade do
+  `style` inline. Os bytes atravessam por `FileReader` — o blob já é o JPEG que
+  veio dentro do `.pptx`, e redesenhá-lo num canvas para `toDataURL` (o que a
+  versão anterior fazia) reencodava uma fotografia como PNG de vários MB.
+- **`cloneNode` copia o `<canvas>` e não o bitmap dele** (`trocarCanvas`): um
+  GRÁFICO do PowerPoint sairia como retângulo vazio.
+- **A fonte de símbolo não existe no Android** (`trocarSimbolos`). Marcador de
+  tópico em PowerPoint é uma LETRA numa fonte do Windows: o `v` do material do
+  operador é ❖ em Wingdings, e o `` do Symbol é •. Sem tradução o telão
+  mostra a letra `v` — ou, no caso do Symbol, o retângulo vazio da área
+  privativa. As tabelas são CURTAS de propósito: o que não estiver nelas é
+  deixado como está (traduzir por palpite troca um erro visível por um errado
+  que parece certo), com uma exceção — um caractere da área privativa
+  (U+F000–U+F0FF) sem tradução vira `•`, porque ali não há como o caractere
+  estar certo e um ponto é infinitamente melhor que um retângulo vazio.
+
+Mais duas regras que não são opcionais:
+
+- **A URL do SVG é `data:`, nunca `URL.createObjectURL`.** MEDIDO: um SVG
+  carregado de uma `blob:` SUJA o canvas, e o `toBlob` seguinte lança
+  `SecurityError` — a apresentação inteira falharia, com uma mensagem que não
+  aponta para cá.
 - **Fundo branco antes de desenhar**, como no lado nativo: o slide pode não
   pintar o próprio papel, e transparente, no telão, é o preto do palco — o texto
   escuro sumiria.
 
-O palco de renderização fica `position:fixed; left:-99999px`, e não
-`display:none`: sem layout não há o que rasterizar.
+**O FORMATO É POR PÁGINA, e quem responde é o próprio PNG** (`escolherFormato`,
+`PAGINA_LEVE` = 512 kB). Consertar as imagens muda a aritmética inteira —
+MEDIDO sobre o material do operador, 1920×1080:
+
+| formato | a apresentação inteira |
+|---|---|
+| PNG | **100,4 MB** |
+| WebP sem perda | 57,7 MB |
+| WebP q .9 | **12,3 MB** |
+
+O argumento do PNG continua VERDADEIRO onde ele nasceu — slide é texto sobre
+fundo chapado, e é ali que o compressor com perda borra a borda da letra que vai
+ser lida de longe. Ele só não vale para a página que é uma FOTOGRAFIA inteira,
+que é o pior caso do PNG. As duas coisas convivem porque a pergunta é
+respondida por página, e não há sinal mais honesto de "isto é uma fotografia?"
+que o tamanho que ela ocupa SEM PERDA: as páginas chapadas do mesmo arquivo
+ficaram entre 44 kB e 208 kB, as fotográficas passaram de 3 MB — a separação é
+um abismo, não um ajuste fino. O WebP só é encodado quando o PNG já respondeu
+que sim, e só vence se for MENOR (um navegador sem WebP devolve o próprio PNG
+deste `toBlob`, e a comparação de tamanho absorve isso sem guarda nenhuma).
+**`SlideDeck.kt` usa o mesmo número pelo mesmo motivo**: as duas metades do
+mesmo recurso produzem `kind: 'deck'` para o mesmo palco, e uma apresentação que
+ocupa dez vezes mais conforme a porta de entrada é uma divergência que ninguém
+explica olhando a tela.
+
+**O palco é uma caixa de tamanho ZERO, e os slides saem UM A UM.** Ele era um
+`position:fixed` de 1920 px por **29.700 px** (as 27 páginas de uma vez) a
+99.999 px para a esquerda — duas coisas erradas juntas: o pico de memória de uma
+apresentação inteira num processo que hospeda os dois WebViews e a
+`Presentation`, e uma região de layout gigante criada e destruída embaixo de um
+app cuja altura é `calc(100svh - var(--kb))`. O relato do operador é a segunda
+(*"a tela piscou e ocultou o cronograma, subindo os controles para o topo da
+tela, e depois retornou o cronograma"* — `main` é `flex: 1` e só encolhe se o
+`<body>` encolher). Hoje o palco é `position:fixed` **0×0 com
+`overflow:hidden`** e o que é grande mora dentro dele: uma caixa desse tamanho
+não acrescenta um pixel de transbordo ao documento. Continua não sendo
+`display:none` pelo motivo de sempre — sem layout não há o que rasterizar —, e
+o oráculo mede as duas metades (nada muda no documento, e o conteúdo do palco
+tem largura de verdade).
+
+**A escala sai da APRESENTAÇÃO, não da caixa medida** (`visor.slideWidth`): o
+`.pptx` declara o tamanho do slide e ele não é sempre 16:9 — um material 4:3
+medido pela caixa sairia esticado. E o laço **espera o `ready` de cada página**
+em vez de dois quadros de `requestAnimationFrame`: o renderizador tem tarefas
+assíncronas (metarquivos EMF, gráficos, mídia que só sai do zip depois), e um
+relógio não sabe quando elas terminam.
+
+**O teto de páginas é o mesmo do lado nativo** (`MAX_PAGINAS`, 300) e o corte é
+DITO pela mesma porta (`falharNoItem`, a nota na linha do item): uma
+apresentação cortada em silêncio leria como "o arquivo era assim", e o operador
+só descobriria na frente da congregação, na página que não existe.
 
 **As portas de entrada são as mesmas de qualquer arquivo:**
 
