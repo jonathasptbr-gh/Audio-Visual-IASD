@@ -1,5 +1,13 @@
 [
   {
+    "versao": "1.4.28",
+    "itens": [
+      "Uma música agora pode tocar por trás dos slides, sem ser interrompida.",
+      "Com os slides no ar, os botões de passar continuam virando página.",
+      "A aba da bíblia foi para a esquerda, e letra e cifra ficaram juntas."
+    ]
+  },
+  {
     "versao": "1.4.27",
     "itens": [
       "A capa e o botão de opções saem de cena ao renomear ou excluir um item.",

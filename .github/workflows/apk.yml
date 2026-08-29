@@ -666,6 +666,25 @@ jobs:
           # `<video>` medido em dois instantes, nas duas metades (o Controle
           # que decide sobrepor, e o telão que pinta na frente da congregação).
           rodar tools/imagem-sobre-audio.test.mjs
+          # E A APRESENTAÇÃO ENTROU NA MESMA CAMADA (v1.4.28): *"adicione a
+          # possibilidade de música atrás dos slides. Atualmente são
+          # concorrentes, mas os slides devem ser tratados como camada, assim
+          # como as imagens ou os textos e mensagens"*. É o irmão do de cima e
+          # a regra é a MESMA ausência — nenhum `load` sai deste caminho —, mas
+          # um deck tem o que uma imagem não tem: PÁGINAS. Daí ele medir o que
+          # o irmão não mede: o eixo do ⏮/⏭ que volta (onde a imagem devolve
+          # `null`), a página andando por um caminho DIFERENTE (na camada ela
+          # reenvia o `text`; um `page` não acharia deck nenhum no motor e não
+          # faria NADA, sem erro, com o operador apertando o botão), e as TRÊS
+          # metades que pintam — telão, PREVIEW e a coluna do auxiliar —, cada
+          # uma escolhendo o blob por sua conta: sem a da preview ela ficaria na
+          # página 1 para sempre enquanto o telão passa slides, e sem TV a
+          # preview É a projeção. A prova da página é a COR do pixel: com
+          # páginas idênticas, "pintou a 4" e "continuou na 1" são o mesmo
+          # resultado. A reversão que fecha o lote é "sem áudio no ar a
+          # apresentação continua entrando como MÍDIA" — sem ela, sobrepor
+          # sempre passaria em tudo o mais.
+          rodar tools/slides-sobre-audio.test.mjs
           # E A TELA DA REDE do telão por comandos (E3 — ver
           # docs/TELAO-POR-COMANDOS.md): o /display/ servido pelo celular
           # rodando num navegador comum, com a entrada pelo código, o dreno de

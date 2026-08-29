@@ -16,7 +16,7 @@ cobre/revela "de graça", sem tocar em `stage.js`). São eles:
 | **Cronômetro/relógio/timer** | **derivado do relógio** (sem avanço) | o próprio tempo (`chronoReading`) | `#text` / `#pvText` |
 | **Sorteio** | **derivado** (rolo até assentar) | faixa numérica ou lista de opções (`drawReading`) | `#text` / `#pvText` |
 | **Letra sincronizada** | **temporizado** (segue o `currentTime` do áudio) | música do LouvorJA | `#lyrics` / `#pvLyrics` |
-| **Imagem sobre o áudio** | manual (o toque na imagem) | um registro de mídia `kind:'image'` | `#text` / `#pvText` (modo `mode-img`) |
+| **Mídia visual sobre o áudio** | manual (o toque na imagem ou na apresentação) | um registro `kind:'image'` — ou `kind:'deck'`, e aí o cartão pinta `pages[page]` | `#text` / `#pvText` (modo `mode-img`) |
 
 > **Mensagens vive na aba Ferramentas** (v5.31), como uma das ferramentas do
 > seletor: lista de avisos salvos, "+ Nova mensagem" e — quando há uma
@@ -100,7 +100,7 @@ Texto é **desacoplada do ciclo de vida da mídia do stage** — `showText`/
   último é o item SELECIONADO e continua apontando para a música terminada — era
   exatamente ele que fazia a preview achar que ainda havia algo em cena.
 
-### Imagem SOBRE o áudio (v5.312)
+### Mídia visual SOBRE o áudio — imagem (v5.312) e apresentação (v1.4.28)
 
 Um aviso, um versículo diagramado, o cartaz da campanha — conteúdo **só
 visual** — precisa entrar na tela **sem calar o louvor de fundo**, que é
@@ -120,12 +120,26 @@ dela (`{ type:'text', mode:'image', mediaId }`), não um slot novo. O motor não
 muda uma linha, e o recurso ganha de graça o `text-hide`, o reenvio de cena, a
 cortina e o rodízio de provedor.
 
+**E A APRESENTAÇÃO ENTROU NESTA MESMA CAMADA** (v1.4.28), a pedido do operador:
+*"adicione a possibilidade de música atrás dos slides. Atualmente são
+concorrentes, mas os slides devem ser tratados como camada, assim como as
+imagens ou os textos e mensagens"*. Uma página de deck é **uma imagem opaca
+ocupando a tela** — exatamente o que este cartão já pinta —, e o que muda entre
+as duas é só QUAL blob do registro sai: `rec.blob` na imagem, `rec.pages[page]`
+na apresentação. Por isso o comando continua sendo `mode: 'image'` com um campo
+`page` a mais: o telão ganha uma escolha de blob e **nenhum ramo novo**, nenhuma
+classe nova, nenhum caminho novo de reenvio nem de `text-hide`. É o mesmo
+argumento que tornou a v5.312 segura, aplicado de novo.
+
 | Onde | O quê |
 |---|---|
-| `send(id, daFila)` | **a decisão**: `!daFila && alvo.kind === 'image' && audioNoAr()` → `projetarImagemSobre`, senão o caminho de sempre |
-| `projetarImagemSobre` / `hideImagemSobre` | a sessão `imgSession = { id, nome, rec, projecting }` — a mesma forma das outras cinco, e é isso que a põe de graça no `cenaDeRoteiroNoAr`, no `soUmProvedorDeTexto` e no reenvio |
-| `display.js` → `pintarTextImg` | resolve `cmd.__rec || AVDB.getMedia(mediaId)` → blob/OPFS/url → `objectURL` em `#textImg`, com `textImgSeq` contra corrida e `soltarTextImg` revogando |
-| `telaEnriquecer` | anexa o `__rec` saneado (`/m/<token>`) — é o **único** comando de texto que precisa, porque é o único que leva um `mediaId` |
+| `send(id, daFila)` | **a decisão**: `!daFila && (alvo.kind === 'image' || isDeck(alvo)) && audioNoAr()` → `projetarVisualSobre`, senão o caminho de sempre |
+| `projetarVisualSobre` / `hideVisualSobre` | a sessão `visualSession = { id, nome, rec, projecting }` — a mesma forma das outras cinco, e é isso que a põe de graça no `cenaDeRoteiroNoAr`, no `soUmProvedorDeTexto` e no reenvio. **O nome é `visual` e não `img`** desde que a apresentação entrou: quem lesse um `imgSession` guardando um deck procuraria uma imagem que não está lá |
+| `deckSobreProjetando()` / `deckNoAr()` | a única pergunta que separa os dois conteúdos do cartão (um deck tem PÁGINAS) e a resposta ÚNICA para "qual apresentação está no ar" — pela camada, ou como a própria mídia. Duas leituras espalhadas divergiriam no primeiro caminho novo |
+| `deckIr(alvo)` | **dois caminhos, um ponto só**: como MÍDIA a página anda por `page` (o slot do motor); como CAMADA, reenviando o `text` com o número novo. Um `page` mandado para a camada não acha deck nenhum no motor e **não faz NADA** — sem erro, com o operador apertando o botão |
+| `display.js` → `pintarTextImg` | resolve `cmd.__rec || AVDB.getMedia(mediaId)` → **a página, quando o registro tem `pages`** → blob/OPFS/url → `objectURL` em `#textImg`, com `textImgSeq` contra corrida e `soltarTextImg` revogando |
+| `controle.js` → `pintarPvTextImg` | a metade PREVIEW da linha acima, e ela escolhe o blob **por conta própria**: sem a mesma escolha de página, a preview ficaria na página 1 para sempre enquanto o telão passa slides — e **sem TV a preview É a projeção**. A armadilha do `fundo-da-letra`: *ler cada lado isolado aprova os dois* |
+| `telaEnriquecer` | anexa o `__rec` saneado (`/m/<token>`) — é o **único** comando de texto que precisa, porque é o único que leva um `mediaId`. Num deck ele empurra as **páginas** (`telaEmpurrarPaginasDeck`), não o item: um deck não tem arquivo único, e o `telaGarantirEnvio` dele morreria calado gastando um giro da fila |
 
 **As decisões que precisam estar ditas:**
 
@@ -139,13 +153,13 @@ cortina e o rodízio de provedor.
   `currentId` ficava no áudio, o índice da fila não andava, e o botão "Próxima
   mídia" — aqui, na notificação e na tela de bloqueio — parava de andar.
 - **O `rec` viaja DENTRO da sessão**, e é o que `await0Rec` consulta antes das
-  listas: a imagem sobreposta quase sempre vem de `libItems`, que a troca de
+  listas: a mídia sobreposta quase sempre vem de `libItems`, que a troca de
   aba zera, e um reenvio de cena horas depois (uma tela da rede que deu F5)
   mandaria o comando sem `__rec` — cartão PRETO sobre a projeção.
 - **Sem áudio no ar a imagem projeta NORMAL** (substitui). A sobreposição é a
   exceção; aplicada sempre, uma imagem sozinha entraria como cartão de texto
   sobre nada — sem barra, sem cortina, sem transporte.
-- **A linha da lista responde pela IMAGEM** (`imagemSobreNaLinha`, consultada
+- **A linha da lista responde pela IMAGEM** (`visualSobreNaLinha`, consultada
   por `noArAgora`, `linhaNoAr` e `linhaAtiva`). A sobreposição rompe a premissa
   daquelas três funções, que dividem o mundo em CUE e MÍDIA: a imagem
   sobreposta é um item de mídia projetando pela porta da Camada de Texto. Sem
@@ -154,18 +168,43 @@ cortina e o rodízio de provedor.
 - **`slideTarget()` devolve `null`** com a imagem em cena, pelo mesmo motivo do
   cronômetro: os botões de slide cairiam na letra do áudio de fundo, que está
   ESCONDIDA atrás do cartão — o operador apertaria "próxima estrofe" e a música
-  saltaria sem nada mudar na tela.
+  saltaria sem nada mudar na tela. **A APRESENTAÇÃO É A EXCEÇÃO, e vem antes
+  dessa guarda**: o argumento dela é *"este cartão não tem para onde ir"*, e um
+  deck TEM — cada toque passa uma página, com o louvor andando por baixo.
 - **O título continua sendo o do ÁUDIO** (é o que o ▶ e a barra controlam); o
-  que a imagem acrescenta é o subtítulo `'Imagem em cena'` no `pushNowPlaying`.
+  que a imagem acrescenta é o subtítulo `'Imagem em cena'` no `pushNowPlaying`,
+  e a apresentação, `'Apresentação · 3/27'` — sem o número, duas páginas
+  seguidas dariam o mesmo cabeçalho.
+- **O auxiliar de leitura passa a oferecer as DUAS camadas** (v1.4.26 + v1.4.28):
+  Páginas por cima, a Letra do louvor de fundo por baixo, a Cifra por último. É
+  a pilha do `lyricsViewSources` — ver o capítulo do Controle. Ali a fonte
+  `deck` sai de `lvDeckRec()`, e não de `lvItem()`: sobreposta, quem está em
+  `currentItem` é a MÚSICA, e perguntar páginas a ela devolveria nada.
 - **Trocar de modo apaga a `<img>`** (`display.js`: `if (textMode !== 'image')
   soltarTextImg()`). O `mode-img` esconde `.text-content`, então uma `<img>`
   esquecida de pé cobriria o texto novo — cartão mudo, sem erro.
 
-**Oráculo: `tools/imagem-sobre-audio.test.mjs`.** A regra é uma AUSÊNCIA
-(nenhum `load` sai deste caminho), e ausência não tem sintoma de tela nem erro
-de console. Ele mede o `currentTime` do `<video>` em DOIS instantes — "não
-pausou" é fraco, "andou" é o que prova que o áudio é o mesmo — nas duas
-metades: o Controle que decide sobrepor e o telão que pinta.
+- **A APRESENTAÇÃO SOBREPOSTA ENTRA SEMPRE PELA PRIMEIRA PÁGINA**, e a linha
+  mora no `projetarVisualSobre`: o caminho da camada volta antes do
+  `deckPagina = 0` do `send`, e sem ela sobrepor um deck ao louvor abriria na
+  página em que o deck ANTERIOR parou — um slide aleatório no telão.
+- **O reenvio de cena leva a PÁGINA**, pelo mesmo motivo do tempo da mídia: um
+  telão que reconecta no meio da pregação não pode voltar ao primeiro slide na
+  frente de todo mundo.
+- **O GESTO É ASSIMÉTRICO, e de propósito.** A música vem PRIMEIRO e o toque na
+  apresentação a cobre; o contrário (deck no ar, toque numa música) SUBSTITUI,
+  como sempre substituiu. É a regra que a imagem já tinha, e inventar uma
+  segunda para a mesma pergunta é o que este projeto recusa em toda parte.
+
+**Oráculos: `tools/imagem-sobre-audio.test.mjs` e `tools/slides-sobre-audio.test.mjs`.**
+A regra é uma AUSÊNCIA (nenhum `load` sai deste caminho), e ausência não tem
+sintoma de tela nem erro de console. Os dois medem o `currentTime` do `<video>`
+em DOIS instantes — "não pausou" é fraco, "andou" é o que prova que o áudio é o
+mesmo — nas duas metades: o Controle que decide sobrepor e o telão que pinta. O
+segundo acrescenta o que só um deck tem: o eixo do ⏮/⏭ que volta, a página
+andando por um caminho diferente, e as TRÊS metades que pintam — a prova de
+qual página está na tela é a **COR do pixel**, porque com páginas idênticas
+"pintou a 4" e "continuou na 1" são o mesmo resultado.
 
 ### O Parar fala de UMA camada só (v1.2.0)
 

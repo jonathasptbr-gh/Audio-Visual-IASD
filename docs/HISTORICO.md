@@ -24,6 +24,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
+- **v1.4.28** — A APRESENTAÇÃO VIROU CAMADA (música atrás dos slides), E AS ABAS DO AUXILIAR SEGUEM A PILHA. Dois pedidos do operador: *"adicione a possibilidade de música atrás dos slides. Atualmente são concorrentes, mas os slides devem ser tratados como camada, assim como as imagens ou os textos e mensagens"* e *"a aba da bíblia está entre a letra e a cifra, coloque ela à esquerda, pois letra e cifra são irmãs, sempre juntas quando ambas existem"*. **O primeiro é a v5.312 aplicada de novo:** o motor tem UM slot de mídia (`loadInner` faz `video.pause()` + `removeAttribute('src')` sem condição), então todo `load` mata o louvor — e o que sobrevive a isso é a Camada de Texto, que não emite `load` nenhum. Uma página de deck é UMA imagem opaca ocupando a tela, que é exatamente o que aquele cartão já pinta, então a apresentação entrou no modo `image` com um campo `page` a mais: o telão ganhou uma **escolha de blob** e nenhum ramo novo, nenhuma classe, nenhum caminho novo de reenvio nem de `text-hide`. O que um deck tem e uma imagem não tem são PÁGINAS, e daí as três peças próprias: `slideTarget` devolve `'deck'` ANTES da guarda que devolve `null` para a imagem (o argumento dela é *"este cartão não tem para onde ir"*, e um deck tem); `deckIr` ganhou DOIS caminhos num ponto só (como mídia a página anda por `page`, na camada ela reenvia o `text` — um `page` mandado para a camada não acha deck nenhum no motor e **não faz NADA**, sem erro, com o operador apertando o botão); e `deckNoAr()` é a resposta ÚNICA para *"qual apresentação está no ar"*. **A metade que quase passou é a PREVIEW**: ela pinta este cartão por conta própria (`pintarPvTextImg`) e ficaria na página 1 para sempre enquanto o telão passa slides — sem TV a preview É a projeção, e é a armadilha do `fundo-da-letra` outra vez (*ler cada lado isolado aprova os dois*). **O segundo pedido era uma SEGUNDA LISTA**: a ordem certa já existia (a pilha do `lyricsViewSources`), e a errada era a do HTML estático — que divergiu em silêncio, com a folha funcionando e a Bíblia separando duas abas irmãs. Hoje a tela REORDENA os botões por `avail`. `imgSession` virou `visualSession` no mesmo lote: um nome que guardasse um deck seria a armadilha que este projeto nomeia. Oráculo novo (`slides-sobre-audio.test.mjs`, 24 asserções, com a COR do pixel provando a página), cinco reversões, 62/62 verdes. **SÓ BASE WEB.**
 - **v1.4.27** — O `⋮` CEDE A COLUNA AO PROCESSO, E A CAPA SAI JUNTO. Pedido do operador: *"durante a renomeação e durante a confirmação de exclusão, pode remover (no caso da exclusão) e utilizar (no caso de renomear) o botão que abre a gaveta de opções do item. Pois hoje durante um desses processos o botão fica visível, mas ele contradiz o fluxo dos botões, pois o processo de exclusão e o de renomear já devem ter métodos de retorno/cancelamento… inclusive, pode padronizar, ocultar também a thumbnail, para ter mais espaço tanto para a gaveta de opções como para a barra de renomeação… use o próprio botão de abrir gaveta de opções como botão indicativo"*. O defeito é de FLUXO, não de pintura: um `⋮` aceso ao lado de "Cancelar/Excluir" é uma **terceira saída** para uma pergunta que já tem duas — e as três fazem coisas diferentes, porque fechar a gaveta desfaz a pergunta, isto é, cancela POR ACIDENTE. **A capa saía pelo mesmo argumento, já vencido de dentro:** o que a mantinha era *"com o nome coberto, ela é a única coisa que ainda diz de QUAL linha é este menu"*, e na exclusão ela virava uma LIXEIRA — parava de identificar coisa nenhuma. Fora do processo o argumento continua inteiro e as duas colunas continuam lá. **A terceira parte é a que amarra as outras duas:** as duas primeiras abrem ~48px na faixa (MEDIDO: 292px → 340px a 430px), e a coluna do `⋮` passa a ser ocupada pelo SÍMBOLO do processo — a lixeira na exclusão, o ✓ no renomear —, na caixa exata que o `⋮` ocupava; sem ocupante a linha encolheria e a faixa dançaria de largura no meio de um destrutivo. O slot mede o `⋮` **por construção** (entra nas mesmas regras de caixa e de escala de ícone), então segue `--hit` na fila e `--thumb` no Cronograma sem ninguém precisar lembrar. **O CAMINHO B está medido e é o que o lote pode quebrar sem sintoma:** a gaveta dos FAVORITOS não tem `⋮` (ela abre pelo corpo da linha e a faixa fica ABAIXO, sem cobrir nada), e lá o ✓ volta para dentro da faixa e a lixeira para a capa — cada um para a casa de onde saiu, e são destinos diferentes de propósito, porque um DECIDE e o outro ILUSTRA. Quatro asserções novas no `smoke.mjs` e uma no `boot-nativo`, todas provadas por reversão. OTA PURO.
 - **v1.4.26** — O AUXILIAR DE LEITURA OFERECE TUDO O QUE ESTÁ EM EXIBIÇÃO, e o TOQUE PULA PARA O SLIDE. Pedido do operador, em duas partes: *"o auxiliar de leitura deve deixar disponível os auxiliares de tudo que estiver em exibição, seja uma música de fundo e uma bíblia sobrepondo… devo ter a opção da letra, da cifra e da bíblia, pois todos estes estão em exibição. É claro, o elemento na camada mais a frente de tudo é o que aparece na abertura"* e *"preciso da capacidade de tocar nos slides para passar ou pular diretamente para um slide em específico"*. A primeira **REVOGA duas exclusividades que este projeto escreveu e defendeu** — a da Bíblia (v1.1.11) e a da apresentação (v1.4.24): as duas acertavam a PRECEDÊNCIA e erravam em tirar as outras da mesa, porque a camada de baixo continua no ar (o louvor de fundo segue tocando sob o versículo) e quem opera pode precisar dela no minuto seguinte. `lyricsViewSources` virou a PILHA, na ordem do `slideTarget()` — e não numa segunda escrita dela, que divergiria no primeiro recurso novo. **A cifra continua por último e agora é a única precedência que não vem de camada nenhuma:** ela não é projetada, é o auxiliar de quem TOCA o que está no ar. A apresentação continua sozinha, e agora **por construção** (um deck não tem letra nem acorde), não por uma regra que cale as outras. **A parte não óbvia é a ESCOLHA GUARDADA:** a aba escolhida sobrevive à reabertura desde a v1.2.x, e com a pilha essa memória passa a poder contradizer o pedido — quem tocou "Cifra" com o louvor sozinho no ar não pediu cifra para o instante em que o versículo subir por cima dele. `lvFrenteVista` guarda a camada da frente vista na última abertura, e a regra é *mudou a frente, mudou a pergunta*; DENTRO da mesma frente ela sobrevive, e com a folha ABERTA nada troca a aba embaixo do dedo de quem está lendo. A segunda parte é `deckIr(alvo)`, extraída do `deckStep` para que o toque e o ⏮/⏭ sejam o MESMO caminho — não um segundo jeito de saltar —, e ela é **tocável só com a apresentação em cena**: uma folha da Biblioteca não projeta nada, que é a promessa inteira do `lvAlvo`. Oráculo novo com as duas metades da escolha guardada, provado por três reversões. **SÓ BASE WEB.**
 - **v1.4.25** — QUATRO AJUSTES NAS LISTAS, E O QUE OS LIGA É *"a resposta mora onde o toque nasceu"*. **1) O CARTÃO BALANÇAVA** — relato: *"há um bug de deslocamento, um pequeno movimento vertical do card da lista no cronograma ao selecionar a opção de excluir… essa movimentação não faz sentido, já que essas opções surgem deslizando dentro do próprio card"*. `:active` casa nos ANCESTRAIS, e a lista de guardas do `--press` cobria o `⋮`, a `.hymn-gaveta` e a `.lib-item` aninhada — **e não a `.row-acoes`**, que é justamente a faixa em que se toca. A gaveta dos FAVORITOS mora numa `.hymn-gaveta` e por isso já estava coberta: era só isso que fazia o defeito aparecer numa lista e não na outra. **2) RENOMEAR SAIU DO POPUP** e virou um campo na própria faixa (*"coloque o processo de renomear também dentro do item na lista do cronograma, não como um popup de tela inteira, assim como já é feito no processo de excluir"*) — é a correção da v5.301 aplicada onde ela vale MAIS: um modal tira o alvo de cena, e renomear é a única ação do app em que o nome VELHO precisa continuar à vista enquanto o novo é escrito. A troca de conteúdo da faixa virou mecanismo (`abrirNaFaixaDaLinha`), com a pergunta da exclusão e o campo entrando pela mesma porta. **3) OS ALTERNADORES DEIXARAM DE PARECER DESABILITADOS** (*"ao invés de modificar o ícone do botão e seus efeitos, foi simplesmente ofuscado o botão inteiro, o que dá a impressão de que não está disponível a opção"*): apagados eles vestiam `--line`, a cor de LINHA que neste app só o `↑↓` INERTE usa. Hoje apagado é o `.row-btn` de sempre e LIGADO é a linguagem que `tokens.css` já escrevia — `--btn-accent` + `--accent` —, com o ÍCONE continuando a carregar o estado sozinho. **4) A FILA DA PLAYLIST GANHOU OS DOIS DESTINOS** (*"na lista da playlist, pode adicionar opções como: adicionar aos favoritos e adicionar ao cronograma"*): ela era a única das três listas sem caminho para as outras duas, e é o pior lugar para esse buraco — a fila é onde o bloco de louvores é montado. Cinco asserções novas no `smoke.mjs`, duas reescritas no `boot-nativo`, todas provadas por reversão. OTA PURO.
@@ -298,6 +299,128 @@ na nota que a revoga, não apagada da que a criou.
 - **v5.154** — é METADE OTA e METADE APK, e a divisão importa para quem for testar em aparelho.
 - **v5.155** — é OTA PURO
 - **v5.156** — é METADE OTA e METADE APK, de novo.
+
+---
+
+## v1.4.28 — a apresentação virou camada, e as abas seguem a pilha
+
+Dois pedidos do operador, no mesmo lote:
+
+> *"a aba da bíblia está entre a letra e a cifra, coloque ela à esquerda, pois
+> letra e cifra são irmãs, sempre juntas quando ambas existem. E é claro, a
+> bíblia acaba sempre ficando por cima quando os três são exibidos.*
+>
+> *Aliás, adicione a possibilidade de música atrás dos slides. Atualmente são
+> concorrentes, mas os slides devem ser tratados como camada, assim como as
+> imagens ou os textos e mensagens."*
+
+### A apresentação como camada — a v5.312 aplicada de novo
+
+O motor de projeção tem **UM slot de mídia**: `stage.js` → `loadInner` faz, sem
+condição, `video.pause()` → `removeAttribute('src')` → `video.load()`. Logo todo
+caminho que emita um `load` mata o que estava tocando — e era por isso que uma
+apresentação e uma música eram concorrentes.
+
+**O que sobrevive ao slot único é a Camada de Texto**, e foi exatamente esse o
+raciocínio da v5.312 para a imagem. A apresentação entrou na MESMA camada, e não
+numa segunda: uma página de deck é **uma imagem opaca ocupando a tela**, que é o
+que aquele cartão já pinta. O comando continua sendo `mode: 'image'`, com um
+campo `page` a mais.
+
+**O telão ganhou uma escolha de blob e nada mais** — nenhum ramo novo no
+`showText`, nenhuma classe, nenhum caminho novo de reenvio nem de `text-hide`. É
+o mesmo argumento que tornou a v5.312 segura: *o código que roda na frente da
+congregação não muda*.
+
+### O que um deck tem e uma imagem não tem: PÁGINAS
+
+Daí as três peças próprias, e cada uma conserta um silêncio diferente:
+
+- **`slideTarget()` devolve `'deck'` ANTES da guarda** que devolve `null` para a
+  imagem. O argumento daquela guarda é *"este cartão não tem para onde ir, e o
+  ⏮/⏭ cairia na letra escondida atrás dele"* — e um deck TEM para onde ir. Sem a
+  exceção, os botões de slide passariam ESTROFE do louvor de fundo com a
+  apresentação na tela: a música saltaria, o slide não mudaria.
+- **`deckIr` ganhou DOIS caminhos, num ponto só.** Como mídia a apresentação está
+  no slot do motor e a página anda por `page`; como camada, ela anda reenviando o
+  `text` com o número novo (é o que o `showText` já faz numa troca de versículo:
+  repinta e faz o fade no lugar). **Um `page` mandado para a camada não acha deck
+  nenhum no motor e não faz NADA** — sem erro, com o operador apertando o botão
+  na frente da congregação.
+- **`deckNoAr()` é a resposta ÚNICA** para *"qual apresentação está no ar?"*.
+  Quatro lugares precisavam dela (os limites do ⏮/⏭, o número da página, a coluna
+  do auxiliar, o reenvio de cena), e quatro leituras espalhadas divergiriam no
+  primeiro caminho novo.
+
+### A metade que quase passou
+
+**A PREVIEW pinta este cartão por conta própria** (`pintarPvTextImg`, irmã do
+`pintarTextImg` do telão). Sem a mesma escolha de página ela ficaria na página 1
+para sempre enquanto o telão passa slides — e **sem TV a preview É a projeção**.
+
+É a armadilha do `fundo-da-letra` outra vez, e ela está escrita lá com estas
+palavras: *ler cada lado isolado aprova os dois*. As duas metades foram
+confirmadas por reversão, uma de cada vez.
+
+### O segundo pedido era uma SEGUNDA LISTA
+
+A ordem que o operador descreve **já existia**: é a pilha do
+`lyricsViewSources`, que a v1.4.26 escreveu. O que estava errado era haver uma
+segunda ordem — a do HTML estático (`Letra, Bíblia, Cifra`), escrita meses antes,
+que ninguém tinha razão para manter em dia.
+
+Ela divergiu **em silêncio**: a folha continuava abrindo, continuava com as três
+abas certas e continuava abrindo na certa — só que com a Bíblia separando duas
+abas que são irmãs. Nenhum teste de comportamento pega isso, e a lista, que é
+onde se olharia primeiro, estava certa.
+
+Por isso a correção não é reordenar o HTML: é a tela passar a **ler** a única
+ordem que existe. `renderLyricsView` reordena os botões visíveis por `avail`
+(`appendChild` MOVE um nó que já está no pai — reordenação no lugar, e
+idempotente). Uma fonte nova entra no lugar certo por ter entrado na pilha, e não
+por alguém lembrar de mover um `<button>`.
+
+E a asserção do oráculo é sobre o **DOM**, não sobre a lista — a lista passava
+quando a tela estava errada, e é exatamente por isso que ela não prova nada aqui.
+
+### O que ficou dito e não mudou
+
+- **O GESTO É ASSIMÉTRICO, de propósito.** A música vem PRIMEIRO e o toque na
+  apresentação a cobre; o contrário (deck no ar, toque numa música) SUBSTITUI,
+  como sempre substituiu. É a regra que a imagem já tinha, e o operador já a
+  conhece — inventar uma segunda regra para a mesma pergunta é o que este projeto
+  recusa em toda parte.
+- **`imgSession` virou `visualSession`** (e os cinco irmãos com ela). Um
+  `imgSession` guardando um deck é a armadilha que este projeto nomeia: quem o
+  lesse procuraria uma imagem que não está lá.
+- **A apresentação sobreposta entra sempre pela PRIMEIRA página**, e a linha mora
+  no `projetarVisualSobre`: o caminho da camada volta antes do `deckPagina = 0`
+  do `send`.
+- **O reenvio de cena leva a PÁGINA**, pelo mesmo motivo do tempo da mídia: um
+  telão que reconecta no meio da pregação não pode voltar ao primeiro slide.
+- **O auxiliar passa a oferecer as duas camadas** — é a consequência direta da
+  v1.4.26: com a apresentação sobre o louvor, Páginas E Letra E Cifra estão em
+  exibição. A fonte `deck` passou a sair de `lvDeckRec()` e não de `lvItem()`:
+  sobreposta, quem está em `currentItem` é a MÚSICA.
+
+### O oráculo
+
+`tools/slides-sobre-audio.test.mjs`, irmão do `imagem-sobre-audio`, no portão. A
+regra central é uma **AUSÊNCIA** — nenhum `load` sai deste caminho — e ausência
+não tem sintoma de tela nem erro de console: ele mede o `currentTime` em DOIS
+instantes, porque *"não pausou"* é fraco (um `<video>` sem `src` também responde
+`paused:false` por um átimo).
+
+**A prova de qual página está na tela é a COR do pixel**: com páginas idênticas,
+"pintou a 4" e "continuou na 1" são o mesmo resultado.
+
+Cinco reversões, uma por peça: a ordem das abas de volta ao HTML (reprova 4), o
+deck fora da guarda de sobreposição (reprova 12), o telão ignorando a página, a
+preview ignorando a página, e o `deckIr` mandando `page` também na camada. Mais a
+que fecha o lote — **sem áudio no ar a apresentação continua entrando como
+MÍDIA** —, sem a qual "sobrepor sempre" passaria em tudo o mais. 62/62 verdes.
+
+**SÓ BASE WEB** — sem degrau de ponte, sem `shellTag`, sem Release.
 
 ---
 
