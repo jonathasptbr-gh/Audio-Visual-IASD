@@ -24,6 +24,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
+- **v1.4.16** — A DATA DE CORTE, DITA PELO OPERADOR — E O REGISTRO QUE A DESCREVIA ERRADO. Enunciado do operador: *"a liberação começa na virada da meia noite de sábado para domingo, no caso o domingo é o primeiro dia da semana e já oferece a mídia para o sábado de sua semana, e quando acaba aquela semana, na virada do sábado para o domingo, já libera a próxima"*. **O app JÁ FAZIA exatamente isso desde a v1.2.19** — `ehDoSabadoAtual` é a semana adventista inteira, de domingo a sábado, e não o dia —, e o oráculo já travava a virada (`sáb 15` esconde 22/Ago, `dom 16` mostra). O que o lote corrige são as DUAS coisas que discordavam disso. **1) O PISO DE TRÊS DIAS SAIU** (`DIAS_DE_ANTECEDENCIA`, da v5.256). MEDIDO antes de tirar: sobre os 365×365 pares dia × episódio de 2026 ele mudava o veredito em **312**, e em **zero** deles o episódio caía num SÁBADO — o único dia em que os dois canais publicam. Ele só alcançava episódios datados de domingo, segunda ou terça DA SEMANA SEGUINTE, vistos de quinta em diante: era a única coisa do módulo capaz de mostrar um episódio antes de a semana dele abrir, isto é, de contrariar a data de corte. O pedido que o criou não regride — a semana dá SEIS dias de antecedência contra os três dele. **2) O REGISTRO PAROU DE MENTIR:** a linha dos retidos dizia *"a lista alcança 3 dia(s) além de <dia>"*, um corte que o app não aplicava; hoje diz o SÁBADO da semana da varredura, e a conta é a mesma do `AVSerie` (uma segunda conta de calendário no `controle.js` divergiria, e um log que discorda do aparelho é o pior artefato deste projeto). O oráculo ganhou a PROPRIEDADE exaustiva, escrita **por fora** da implementação — o domingo que abre a semana sai da data do EPISÓDIO, não da janela que o `aindaNaoSaiu` usa —, provada por reversão: quem reintroduzir o piso vê os 312 pares reprovarem. OTA PURO.
 - **v1.4.15** — O PROVAI E VEDE ENTROU NA REGRA DO QUE AINDA NÃO SAIU. Pedido do operador, depois de a v1.4.14 nomear a causa da recusa: *"acredito que possa ser por o vídeo ainda não estar liberado, e ir liberando uma semana de cada vez, então ajuste para que tenha o mesmo filtro e organização do informativo mundial das missões. no caso a lista só vai até o sábado da semana atual"*. Uma linha do catálogo: `futuros: FUTUROS_MOSTRAR` → `FUTUROS_ESCONDER`. **A MEDIÇÃO QUE O MANTINHA DE FORA ESTAVA ERRADA**, e isso é o que este lote de fato corrige: ela dizia *"em 15/ago já tinha até 26/set, e aqueles episódios TOCAM"* — a primeira metade era verdade, a segunda **nunca foi verificada**. O que se olhou foi a LISTA, não a reprodução, e o campo desmentiu: `ContentNotAvailableException` num episódio de 22/Set. O erro de método vale mais que o defeito: *uma playlist que mostra um item não prova que ele toca, e as duas perguntas se parecem o bastante para uma responder pela outra*. **O CAMPO FICA, embora hoje os dois valores sejam iguais** — ele separa a política do mecanismo, e um canal que um dia publique de verdade o mês inteiro volta a `mostrar` numa linha; o oráculo passou a provar o MECANISMO com uma série SINTÉTICA (os dois valores sobre a mesma entrada, no mesmo dia) em vez de fixar os valores que o catálogo tem hoje, que mudam quando um canal muda. **E o `boot-nativo` ganhou a metade que faltava**: a ligação entre o campo e o provedor de coleção nunca tinha sido afirmada para esta série, e o relógio congelado do bloco do corte passou de 10/Jul para 26/Jul — em 10/Jul os três episódios do stub estão no futuro, a lista nasce vazia e a espera da varredura não volta nunca. As datas do stub passaram a sustentar peso, e está escrito onde. Quatro asserções novas, com a que FECHA (passado o sábado dele, o episódio VOLTA à lista — sem ela as outras aprovariam uma lista que só encolhe), provadas por reversão. OTA PURO.
 - **v1.4.14** — UM VÍDEO QUE NÃO TOCA DEIXOU DE FALHAR EM SILÊNCIO. Relato do operador, num episódio de série: *"ele carrega um tempo, mas ele não toca nada e nem dá nenhuma mensagem de erro nem nada"*. REPRODUZIDO em arnês: o caminho da BUSCA falava pelo cartão da preview (`previewBusy(…).falhar`) e o do ITEM DE LINK não — a única saída era o `notaNoItem`, que escreve na LINHA do item. **E a linha some justamente neste caso:** um episódio de série mora dentro do álbum, e o "Tocar agora" FECHA a Biblioteca antes de começar, então a nota ia para um lugar que já tinha saído da tela. A assimetria era o defeito, e o cartão é a régua de sempre — o aviso mora onde o resultado ia aparecer, e ele ia para a projeção. **E A CAUSA passou a ser dita:** o Registro do campo trouxe `extração falhou: ContentNotAvailableException` nas duas linhas enquanto o app dizia a frase genérica, e *"não foi possível baixar"* × *"este vídeo não está disponível"* mandam fazer coisas OPOSTAS (tentar de novo × escolher outro). `motivoDaRecusa` lê o `ytDiag()` e procura a marca; é acoplamento a uma string do Kotlin e por isso ele **só ESPECIALIZA** — não achando, a genérica vale como sempre, e o dia em que o nome da exceção mudar isto volta ao comportamento de hoje, nunca a uma afirmação errada. Vale nos DOIS caminhos, senão o mesmo vídeo conta duas histórias conforme onde foi tocado; a janela de antecedência da série continua vencendo as duas, porque é a única que diz o que fazer. Três asserções novas, provadas por reversão nas três frentes (sem cartão; sem a causa; a causa invadindo o caso genérico). OTA PURO.
 - **v1.4.13** — O REGISTRO PASSOU A CONTAR, E NÃO SÓ A DESCREVER A ÚLTIMA VEZ. Pedido do operador depois que a terceira medição derrubou a segunda: *"adicione esse contador ao registro"*. O bloco da transmissão guardava a ÚLTIMA extração e só ela — responde *"o que aconteceu da última vez?"* e nunca *"com que frequência?"*, que é a pergunta de uma falha INTERMITENTE. MEDIDO: três Registros da mesma semana deram três respostas (duas extrações degeneradas em 360p, uma com o visionOS entregando 19 faixas e 1080p no ar), e a leitura que saiu delas — *"é sempre"* — foi uma generalização de duas amostras que a terceira derrubou. O `ytCenso` é a forma do `AVStream.fome` aplicada a este caminho: contadores de sessão, sem log e sem disco, em duas linhas novas (`nesta sessão: N pedido(s) · N transmitiu(ram) · N caiu(ram) no download` e `e N× a projeção saiu em qualidade limitada (a menor: Xp)`). Três decisões, e as três provadas por reversão: **o pedido conta no ponto em que o shell é PERGUNTADO** e não na entrada da função (acima dela há recusas que nunca extraem nada, e contá-las inflaria o denominador com o que não foi tentado); **a qualidade limitada é contada À PARTE**, porque um pedido pode transmitir e ainda assim sair abaixo do pedido; e ele **guarda o MENOR valor, não o último**. A primeira asserção não existia na primeira escrita — a reversão que movia o contador para a entrada passava —, e o caso que a fecha é um alvo SEM URL, que recua antes de perguntar. CONTADOR E NÃO LOG: guardar quais vídeos responderia mais e custaria tamanho, privacidade do que se copia e uma segunda fonte de verdade. OTA PURO.
@@ -286,6 +287,96 @@ na nota que a revoga, não apagada da que a criou.
 - **v5.154** — é METADE OTA e METADE APK, e a divisão importa para quem for testar em aparelho.
 - **v5.155** — é OTA PURO
 - **v5.156** — é METADE OTA e METADE APK, de novo.
+
+---
+
+## v1.4.16 — a data de corte, dita pelo operador (e o Registro que a descrevia errado)
+
+> *"a liberação começa na virada da meia noite de sábado para domingo, no caso o
+> domingo é o primeiro dia da semana e já oferece a mídia para o sábado de sua
+> semana, e quando acaba aquela semana, na virada do sábado para o domingo, já
+> libera a próxima. essa é a data de corte."*
+
+### O app já fazia isso — e a resposta anterior dizia o contrário
+
+A v1.2.19 trocou a régua da lista pela **semana adventista**: `ehDoSabadoAtual`
+não pergunta "é o sábado?", pergunta "está na semana corrente?" (`n >= -getDay()
+&& n <= 6 - getDay()`), de domingo a sábado. A virada já era a de meia-noite de
+sábado para domingo, e o `serie.test.mjs` já a travava:
+
+```
+no SÁBADO 15 o episódio de 22/Ago ainda NÃO aparece — é da semana seguinte
+e um dia depois, no domingo, a semana dele começou e ele entra
+```
+
+A nota da v1.4.15 afirmou, por cima disso, que *"a partir de quarta a lista
+também mostra o sábado seguinte"*. **Está errado**, e o erro é de leitura: numa
+quarta, o "sábado seguinte" é o **desta** semana (quarta 19 e sábado 22 são a
+mesma semana), não o da próxima. O piso de três dias nunca chegou a decidir
+aquilo.
+
+### O que o lote de fato muda: as duas coisas que discordavam da data de corte
+
+**1. O piso de três dias saiu.** `DIAS_DE_ANTECEDENCIA` (v5.256) era o segundo
+membro de `aindaNaoSaiu`. MEDIDO antes de remover, sobre os 365×365 pares
+dia-do-ano × episódio de 2026:
+
+| recorte | pares | o piso muda o veredito |
+|---|---|---|
+| todos | 133.225 | **312** |
+| só episódios de SÁBADO | 7.665 | **0** |
+
+Os 312 têm todos a mesma forma: episódio datado de **domingo, segunda ou terça
+da semana seguinte**, visto de **quinta em diante**. Como os dois canais
+publicam aos sábados, ele nunca decidiu nada — e a única coisa que ele podia
+fazer era mostrar um episódio antes de a semana dele abrir, isto é, contrariar a
+data de corte que o operador acabou de enunciar. Uma reserva que só pode
+quebrar a regra não é reserva.
+
+**O pedido que o criou não regride.** Ele nasceu de *"a data de corte não pode
+ser o próprio dia, pois muitos aproveitam para fazer a organização antes"*: a
+semana dá **seis** dias de antecedência (o episódio do sábado está na lista
+desde o domingo) contra os **três** do piso.
+
+**2. O Registro parou de mentir.** A linha dos retidos dizia:
+
+```
+(3 ainda não liberado(s) pelo canal — a lista alcança 3 dia(s) além de 19/08; …)
+```
+
+Aquele número era o piso, e o corte que o app aplicava era outro. Um Registro é
+lido **a distância**, por quem não tem como conferir — uma linha que descreve um
+corte que o app não faz é o pior artefato que este projeto sabe produzir. Hoje
+ela nomeia o **sábado da semana da varredura**:
+
+```
+(3 ainda não liberado(s) pelo canal — a lista vai até o sábado da semana da
+ varredura (22/Ago), que foi 19/08; o mais próximo é "…")
+```
+
+O sábado sai de `AVSerie.sabadoDaSemana` + `rotuloData`, a mesma conta que a
+lista usou. Uma segunda conta de calendário no `controle.js` divergiria dela, e
+o log passaria a discordar do aparelho. O dia guardado é o da **varredura**, não
+o de hoje: foi o corte dele que produziu a lista de retidos que a linha
+descreve.
+
+### O oráculo passou a medir a REGRA, não dias escolhidos
+
+Os casos anteriores fixavam datas (domingo 16, terça 18, quarta 19, sábado 22).
+O caso novo varre o ano inteiro e afirma a regra do operador **escrita por fora
+da implementação**: o domingo que abre a semana do episódio é calculado a partir
+da data DELE (recuo até `getDay() === 0`), não da janela que o `aindaNaoSaiu`
+usa — uma asserção derivada da mesma conta provaria só que a função concorda
+consigo mesma.
+
+```
+NENHUM episódio aparece antes do domingo que abre a semana dele
+e nenhum fica escondido depois dela: a virada LIBERA, não adia
+```
+
+Provado por reversão: com o piso de volta, a primeira reprova (os 312 pares).
+
+**OTA PURO** — nada em `java/`, `res/`, manifest ou workflows.
 
 ---
 

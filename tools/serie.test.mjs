@@ -552,7 +552,7 @@ checar(nomes(ate15) === '08/Ago ~ 15/Ago',
   '[relato] em 15/Ago a lista vai até 15/Ago — o de hoje ENTRA, o de 22 ainda não',
   nomes(ate15));
 
-// ── A JANELA DE ANTECEDÊNCIA É A SEMANA (v5.256, alargada na v1.2.19) ───────
+// ── A JANELA É A SEMANA, E SÓ ELA (v5.256 → v1.2.19 → v1.4.16) ─────────────
 //
 // A v5.256 atendeu a *"pode deixar para que o acesso ao vídeo já fique
 // disponível na quarta-feira antes do sábado"* com uma contagem de TRÊS DIAS, e
@@ -568,9 +568,16 @@ checar(nomes(ate15) === '08/Ago ~ 15/Ago',
 // destaque do topo declarava o desta semana, e o topo dizia "Aguardando
 // lançamento" sobre um vídeo já liberado.
 //
-// A janela passou a ser a SEMANA CORRENTE, com os três dias como PISO. Os casos
-// abaixo cobram as duas metades — o que a semana abriu, e o que ela continua
-// fechando, que é a razão de o campo `futuros` existir.
+// A janela passou a ser a SEMANA CORRENTE, e na v1.4.16 o piso de três dias
+// SAIU — o operador enunciou a data de corte do canal (*"a liberação começa na
+// virada da meia noite de sábado para domingo… quando acaba aquela semana, na
+// virada do sábado para o domingo, já libera a próxima"*), e o piso era a única
+// coisa capaz de contrariá-la. MEDIDO antes de tirar: sobre os 365×365 pares
+// dia × episódio de 2026 ele mudava o veredito em 312, e em ZERO deles o
+// episódio caía num SÁBADO — que é o único dia em que estes canais publicam.
+//
+// Os casos abaixo cobram as duas metades — o que a semana abre, e o que ela
+// continua fechando, que é a razão de o campo `futuros` existir.
 const domingo16 = S.itensDaPlaylist(trimestreQ3, 7, INFO, new Date(2026, 7, 16));
 checar(nomes(S.ordenarItens(domingo16)) === '08/Ago ~ 15/Ago ~ 22/Ago',
   '[relato] no DOMINGO o episódio do sábado desta semana JÁ está na lista',
@@ -583,8 +590,8 @@ const quarta19 = S.itensDaPlaylist(trimestreQ3, 7, INFO, new Date(2026, 7, 19));
 checar(nomes(S.ordenarItens(quarta19)) === '08/Ago ~ 15/Ago ~ 22/Ago',
   '[relato] na QUARTA antes do sábado ele APARECE — é quando o roteiro é montado',
   nomes(S.ordenarItens(quarta19)));
-checar(S.DIAS_DE_ANTECEDENCIA === 3,
-  'e a antecedência é uma constante nomeada, não um número solto', S.DIAS_DE_ANTECEDENCIA);
+checar(!('DIAS_DE_ANTECEDENCIA' in S),
+  'e não há mais piso de dias: a semana é a régua inteira, como o operador a enunciou');
 const sabado22 = S.ordenarItens(S.itensDaPlaylist(trimestreQ3, 7, INFO, new Date(2026, 7, 22)));
 checar(nomes(sabado22) === '08/Ago ~ 15/Ago ~ 22/Ago',
   'e no próprio sábado ele continua lá — a janela abre, não pisca', nomes(sabado22));
@@ -611,8 +618,9 @@ checar(concordam === 7,
   'o episódio DESTA semana está na lista nos sete dias dela — destaque e lista não discordam',
   concordam);
 
-// A CONTAGEM DE DIAS, isolada: é ela que os dois consumidores usam (a lista com
-// 3, e o aviso de falha com 0), e é ela que atravessa o fim do mês.
+// A CONTAGEM DE DIAS, isolada: é o primitivo de calendário do módulo (a lista o
+// usa pela semana, o aviso de falha o compara com ZERO), e é ele que atravessa
+// o fim do mês.
 checar(S.diasAte({ dia: 22, mes: 8 }, INFO, new Date(2026, 7, 19)) === 3, '19/Ago → 22/Ago são 3 dias');
 checar(S.diasAte({ dia: 1, mes: 9 }, INFO, new Date(2026, 7, 30)) === 2,
   'a virada do MÊS não confunde a conta (30/Ago → 01/Set = 2 dias)',
@@ -673,7 +681,54 @@ checar(S.aindaNaoSaiu({ dia: 22, mes: 8 }, INFO, SABADO_15)
   && !S.aindaNaoSaiu({ dia: 15, mes: 8 }, INFO, SABADO_15),
   'a fronteira, isolada: em 15/Ago o de 22 ainda não saiu e o de hoje saiu');
 checar(!S.aindaNaoSaiu({ dia: 22, mes: 8 }, INFO, new Date(2026, 7, 19)),
-  'e na quarta-feira ele passa a ter saído');
+  'e na quarta ele está na lista — não por antecedência, mas porque a quarta 19 '
+  + 'e o sábado 22 são a MESMA semana');
+
+// ── 7d-bis. A DATA DE CORTE, DITA PELO OPERADOR (v1.4.16) ───────────────────
+//
+// *"A liberação começa na virada da meia noite de sábado para domingo, no caso o
+// domingo é o primeiro dia da semana e já oferece a mídia para o sábado de sua
+// semana, e quando acaba aquela semana, na virada do sábado para o domingo, já
+// libera a próxima."*
+//
+// Os casos acima medem DIAS ESCOLHIDOS; este mede a REGRA, sobre o ano inteiro.
+// E ele a escreve **por fora da implementação**: o domingo que abre a semana do
+// episódio sai da data DELE (recuo até o `getDay() === 0`), não da janela que o
+// `aindaNaoSaiu` usa — uma asserção derivada da mesma conta provaria só que a
+// função concorda consigo mesma.
+//
+// É esta propriedade que o piso de três dias quebrava, e é por isso que ela
+// entrou no lote que o removeu: quem o reintroduzir vê 312 pares reprovarem.
+const ANO = new Date(2026, 0, 1);
+const domingoDaSemanaDe = (d) => {
+  const x = new Date(d.getFullYear(), d.getMonth(), d.getDate() - d.getDay());
+  return x.getTime();
+};
+let cedo = 0; let tarde = 0; let pares = 0; const exemploCedo = [];
+for (let t = 0; t < 365; t++) {
+  const hoje = new Date(ANO.getFullYear(), 0, 1 + t);
+  for (let e = 0; e < 365; e++) {
+    const ep = new Date(ANO.getFullYear(), 0, 1 + e);
+    const escondido = S.aindaNaoSaiu({ mes: ep.getMonth() + 1, dia: ep.getDate() }, INFO, hoje);
+    // A regra do operador: está na lista a partir do domingo que abre a semana
+    // do episódio, e nunca antes.
+    const semanaAberta = hoje.getTime() >= domingoDaSemanaDe(ep);
+    pares++;
+    if (!escondido && !semanaAberta) {
+      cedo++;
+      if (exemploCedo.length < 3) {
+        exemploCedo.push({ hoje: hoje.toDateString(), episodio: ep.toDateString() });
+      }
+    }
+    if (escondido && semanaAberta) tarde++;
+  }
+}
+checar(pares === 365 * 365, 'o ano inteiro é varrido — 365 dias × 365 episódios', pares);
+checar(cedo === 0,
+  '[relato] NENHUM episódio aparece antes do domingo que abre a semana dele — '
+  + 'a virada de sábado para domingo é a data de corte', exemploCedo);
+checar(tarde === 0,
+  'e nenhum fica escondido depois dela: a virada LIBERA, não adia', tarde);
 
 // ── 7e. A IMPRESSÃO DIGITAL enxerga as recusas de idioma ────────────────────
 // Sem isto, corrigir uma marca de idioma deixaria de pé todo índice já escrito

@@ -1947,10 +1947,23 @@ ser diagnosticável.
   na playlist oficial iria direto ao telão.
 - **O ano é EXPLÍCITO no catálogo** — "o ano corrente" trocaria o conteúdo do
   álbum sozinho na virada de dezembro, no meio da programação de janeiro.
-- **A JANELA É A SEMANA CORRENTE**, com `DIAS_DE_ANTECEDENCIA` (3) como PISO: o
-  episódio do sábado desta semana nunca é escondido, e o das seguintes só entra
-  três dias antes. As duas metades vivem em `aindaNaoSaiu`, que **delega** a
-  primeira em `ehDoSabadoAtual` — enquanto a contagem de dias foi a régua
+- **A JANELA É A SEMANA CORRENTE, E SÓ ELA** — a data de corte é a virada de
+  sábado para domingo, dita pelo operador: *"o domingo é o primeiro dia da
+  semana e já oferece a mídia para o sábado de sua semana, e quando acaba
+  aquela semana, na virada do sábado para o domingo, já libera a próxima"*.
+  `aindaNaoSaiu` **delega** em `ehDoSabadoAtual` e o que sobra dele é só *"está
+  no futuro?"*.
+  **O piso de 3 dias (`DIAS_DE_ANTECEDENCIA`, v5.256) saiu na v1.4.16**, e a
+  remoção é no-op MEDIDO: sobre os 365×365 pares dia × episódio de 2026 ele
+  mudava o veredito em 312, e em **zero** deles o episódio caía num sábado — só
+  alcançava episódios datados de domingo, segunda ou terça DA SEMANA SEGUINTE.
+  Era a única coisa do módulo capaz de mostrar um episódio antes de a semana
+  dele abrir, isto é, de contrariar a data de corte. E o pedido que o criou não
+  regride: a semana dá SEIS dias de antecedência contra os três dele. Oráculo:
+  a propriedade exaustiva do `serie.test.mjs`, escrita **por fora** da
+  implementação (o domingo sai da data do EPISÓDIO), provada por reversão —
+  quem reintroduzir o piso vê 312 pares reprovarem.
+  Enquanto a contagem de dias foi a régua
   inteira, ela e a semana adventista do `sabadoDaSemana` discordavam em **três
   dos sete dias** (domingo, segunda e terça): a lista escondia o episódio que o
   destaque do topo declarava o desta semana, e o topo dizia "Aguardando
@@ -3735,7 +3748,7 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: v1.4.15** (base web) · **v1.4.5** (APK) · `SHELL_VERSION` **60** · bundle com
+**Versão atual: v1.4.16** (base web) · **v1.4.5** (APK) · `SHELL_VERSION` **60** · bundle com
 `minShell: 60` — o shell 60 é o **PISO**: todo método da ponte existe, e não há
 guarda de versão no lado web. O que continua valendo é que `java/`, `res/`, o
 manifest e os workflows **só chegam instalando o APK**.

@@ -602,18 +602,27 @@ try {
       const INFO = 'serie-informativo-missoes-2026';
       const PV = 'serie-provai-vede-2026';
       const antes = await ler(INFO, true);
+      // O REGISTRO NO DIA CONGELADO (v1.4.16). A linha dos retidos só existe
+      // quando há retidos, e no relógio real do runner as datas do stub já são
+      // todas passado — lê-la na página principal seria medir o calendário do
+      // runner, não o app. Aqui o corte está ativo por construção.
+      const regCorte = await pgC.evaluate(async () => {
+        await renderDiag();
+        return diagTexto;
+      });
       // O PROVAI E VEDE NO MESMO DIA (v1.4.15). A regra pura tem oráculo próprio;
       // o que só pode ser afirmado AQUI é que o `futuros` do catálogo daquela
       // série chega ao provedor de coleção — o mesmo que a v5.255 afirmou para o
       // Informativo, e que ninguém tinha afirmado para esta.
       const pvAntes = await ler(PV, true);
       // A FRONTEIRA, medida no percurso inteiro e não só na regra pura. Ela é a
-      // VIRADA DA SEMANA desde a v1.2.19: o sábado 08 ainda é a semana
-      // anterior, o domingo 09 abre a do episódio de 15/Ago. A terça e a quarta
-      // ficam porque eram a fronteira ANTIGA (3 dias, v5.256) — hoje as duas
-      // respondem "está lá", e é essa mudança de veredito que o relato do
-      // operador comprou: num domingo a lista escondia o episódio que o
-      // destaque do topo declarava o desta semana.
+      // VIRADA DA SEMANA: o sábado 08 ainda é a semana anterior, o domingo 09
+      // abre a do episódio de 15/Ago. A terça e a quarta ficam porque eram a
+      // fronteira de uma régua ANTERIOR (a contagem de 3 dias da v5.256, que a
+      // v1.2.19 substituiu e a v1.4.16 removeu) — hoje as duas respondem "está
+      // lá" pela SEMANA, e é essa mudança de veredito que o relato do operador
+      // comprou: num domingo a lista escondia o episódio que o destaque do topo
+      // declarava o desta semana.
       await pgC.clock.setFixedTime(new Date('2026-08-08T12:00:00'));
       const sabadoAntes = await ler(INFO, false);
       await pgC.clock.setFixedTime(new Date('2026-08-09T12:00:00'));
@@ -691,7 +700,10 @@ try {
       return { antes: soData(antes), sabadoAntes: soData(sabadoAntes),
         noDomingo: soData(noDomingo), naTerca: soData(naTerca),
         naQuarta: soData(naQuarta), noDia: soData(noDia),
-        pvAntes: soData(pvAntes), pvNoDia: soData(pvNoDia), procura };
+        pvAntes: soData(pvAntes), pvNoDia: soData(pvNoDia), procura,
+        // Só as linhas dos retidos: o Registro inteiro atravessando o `evaluate`
+        // são dezenas de kB que nenhuma asserção daqui olha.
+        retidos: (regCorte.match(/^.*ainda não liberado.*$/gm) || []) };
     } finally { await pgC.close(); await ctxC.close(); }
   })();
   checar(!(corte.antes.itens || []).includes('15/Ago'),
@@ -747,6 +759,28 @@ try {
     'E PASSADO O SÁBADO DELE o episódio volta à lista do Provai e Vede',
     JSON.stringify(corte.pvNoDia.itens));
 
+  // ── E O REGISTRO DIZ A DATA DE CORTE, não um número de dias (v1.4.16) ─────
+  //
+  // Esta linha anunciava *"a lista alcança 3 dia(s) além de <dia>"*, e aqueles
+  // três dias eram o piso que a v1.4.16 removeu — MEDIDO, ele nunca decidiu
+  // nada para um episódio de sábado. O Registro é lido A DISTÂNCIA, por quem não
+  // tem como conferir: uma linha que descreve um corte que o app não aplica é o
+  // modo de falhar do `registro.test.mjs` — não quebra, CONTINUA RESPONDENDO
+  // com a frase errada.
+  //
+  // Ela é lida no dia CONGELADO de propósito: no relógio do runner as datas do
+  // stub já são passado, não há retido nenhum, e a linha simplesmente não sai —
+  // uma asserção na página principal mediria o calendário.
+  checar(corte.retidos.length >= 1,
+    'com o corte ativo o Registro traz a linha dos episódios retidos',
+    JSON.stringify(corte.retidos));
+  checar(corte.retidos.every((l) => /a lista vai até o sábado da semana da varredura \(\d\d\/\w+\)/.test(l)),
+    'e ela nomeia a DATA DE CORTE — o sábado da semana da varredura, não um número de dias',
+    JSON.stringify(corte.retidos));
+  checar(!corte.retidos.some((l) => /alcança \d+ dia/.test(l)),
+    'a frase do PISO não volta: ela descrevia um corte que o app não fazia',
+    JSON.stringify(corte.retidos));
+
   // ── A PROCURA DO EPISÓDIO DESTA SEMANA (v1.2.22) ──────────────────────────
   //
   // Relato do operador: *"faça o provai e vede e o informativo das missões
@@ -778,8 +812,8 @@ try {
     corte.procura.pvTem);
 
   // ── O AVISO QUANDO O DOWNLOAD FALHA NA JANELA (v5.256) ─────────────────
-  // O preço da antecedência: nesses três dias o vídeo pode ainda não estar
-  // público, e o download não vem. Sem uma frase, essa falha é indistinguível
+  // O preço da antecedência: entre o domingo que abre a semana e o sábado do
+  // episódio o vídeo pode ainda não estar público, e o download não vem. Sem uma frase, essa falha é indistinguível
   // de uma queda de rede — o operador tenta de novo, falha de novo, e conclui
   // que o app quebrou justamente no item que ele acabou de ver aparecer.
   //
