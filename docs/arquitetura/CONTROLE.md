@@ -4666,6 +4666,14 @@ segundos, e o toque precisa mudar a tela AGORA. Duas metades:
   demais centra e deixa invadir — só a de centro aprovaria a segunda.
 - **No simplificado sem tela conectada ele não existe** — a preview não está na
   tela —, e por isso `previewBusy` devolve `{ visivel, soltar }`.
+- **O cartão tem TRÊS desfechos que falam, não dois** (v1.4.11): `soltar()` (o
+  trabalho acabou e não há o que dizer), `falhar(motivo)` (não deu — âmbito
+  vermelho, "Não deu") e **`avisar(cap, texto)`** — deu certo, COM uma ressalva.
+  Os dois últimos partilham a mecânica (`encerrarCom`): travam sem liberar,
+  seguram o cartão pelo prazo de leitura, e um trabalho novo toma a legenda
+  antes. O que muda é a cor e a palavra: **âmbar, não vermelho**, porque neste
+  app o vermelho é ação destrutiva ou o que está NO AR, e uma ressalva não é
+  nenhum dos dois.
 
 #### Adicionar a uma lista: a marca vai para a LINHA
 

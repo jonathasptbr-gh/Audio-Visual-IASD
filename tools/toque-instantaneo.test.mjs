@@ -374,7 +374,11 @@ try {
     window.__soltarStream = false;
     window.__manifesto = {
       name: 'TITULO CRU DO YOUTUBE',
-      seconds: 100, height: 720,
+      // 1080p de propósito: com o teto padrão ele NÃO dispara o aviso de
+      // resolução limitada (metade 9), e assim as duas metades não interferem
+      // uma na outra — um aviso abriria um `previewBusy` com outra legenda, e a
+      // asserção de NOME leria isso como a troca que ela existe para proibir.
+      seconds: 100, height: 1080,
       video: { url: 'https://x/v', mime: 'video/webm; codecs="vp9"', size: 10 },
       videos: [], audio: { url: 'https://x/a', mime: 'audio/webm; codecs="opus"', size: 10 },
     };
@@ -417,6 +421,80 @@ try {
     + 'com a legenda certa e o registro errado a troca só muda de lugar — vai '
     + 'para a barra do que está tocando, a notificação de mídia e a linha da '
     + 'lista', nomeDoCartao);
+  // ── 9. O AVISO DE RESOLUÇÃO LIMITADA (v1.4.11) ──────────────────────────
+  //
+  // Pedido do operador, depois de projetar 360p numa TV 4K sem nada na tela
+  // dizendo isso: *"coloque o aviso sobre a resolução estar limitada"*.
+  //
+  // A regra é DUAS condições (abaixo do pedido E abaixo de um piso visível), e
+  // as duas metades de errar são silenciosas em direções opostas: de MENOS, o
+  // operador projeta 360p achando que o app quebrou; de MAIS, escolher 480p de
+  // propósito rende um aviso a cada toque dizendo o que ele acabou de pedir.
+  //
+  // Medido na REGRA e não no percurso: `avisarResolucaoLimitada` é uma função
+  // de duas entradas, e encenar quatro extrações de rede para exercitar quatro
+  // comparações seria medir o arnês. O percurso tem oráculo próprio nas metades
+  // acima — o que aqui se prova é que a regra decide certo e que o cartão de
+  // fato fala.
+  const aviso = await pg.evaluate(async () => {
+    const ler = () => ({
+      on: pvBusyEl.classList.contains('on'),
+      avisou: pvBusyEl.classList.contains('avisou'),
+      falhou: pvBusyEl.classList.contains('falhou'),
+      cap: pvBusyCapEl.textContent,
+      texto: pvBusyLabelEl.textContent,
+    });
+    const limpar = () => {
+      pvBusyEl.classList.remove('on', 'avisou', 'falhou');
+      pvBusyCapEl.textContent = ''; pvBusyLabelEl.textContent = '';
+    };
+    const caso = (entregue, teto) => {
+      limpar();
+      avisarResolucaoLimitada(entregue, teto);
+      const r = ler();
+      limpar();
+      return r;
+    };
+    return {
+      // 1080 pedido (o padrão), 360 entregue: é a queixa que originou o lote.
+      baixo: caso(360, 0),
+      // O operador ESCOLHEU 480p e recebeu 480p: não há o que avisar.
+      escolhido: caso(480, 480),
+      // Pediu 1080 e veio 720: abaixo do pedido, mas acima do piso — num telão
+      // de salão 720p se sustenta, e o Registro continua contando a diferença.
+      seteVinte: caso(720, 0),
+      // Altura desconhecida (shell antigo, ou caminho que não a reporta):
+      // inventar "qualidade limitada" sem número seria trocar uma ausência de
+      // informação por uma afirmação que ninguém pode conferir.
+      semAltura: caso(0, 0),
+      // Um teto BAIXO escolhido à mão e uma entrega ainda menor: as duas
+      // condições valem, e este é o caso que a regra de uma condição só
+      // ("abaixo do piso") deixaria passar em silêncio.
+      abaixoDoTetoBaixo: caso(360, 480),
+    };
+  });
+  checar(aviso.baixo.on && aviso.baixo.avisou && !aviso.baixo.falhou
+    && /360p/.test(aviso.baixo.texto),
+    'entregar 360p contra o teto padrão AVISA, com o número na frase — era esta '
+    + 'a projeção que saía numa TV 4K sem nada na tela dizendo por quê',
+    aviso.baixo);
+  checar(aviso.baixo.avisou && !aviso.baixo.falhou,
+    'e ele NÃO é uma falha: a mídia entrou em cena, e chamar isso de "Não deu" '
+    + 'mandaria investigar o que funcionou', aviso.baixo);
+  checar(aviso.escolhido.on === false,
+    'escolher 480p e receber 480p NÃO avisa — um aviso a cada toque dizendo ao '
+    + 'operador o que ele acabou de pedir é a metade de errar que ninguém relata',
+    aviso.escolhido);
+  checar(aviso.seteVinte.on === false,
+    'e 720p contra o teto padrão também não: abaixo do pedido, acima do piso em '
+    + 'que a diferença aparece num telão de salão', aviso.seteVinte);
+  checar(aviso.semAltura.on === false,
+    'altura DESCONHECIDA não vira aviso: sem número, "qualidade limitada" é uma '
+    + 'afirmação que ninguém pode conferir', aviso.semAltura);
+  checar(aviso.abaixoDoTetoBaixo.on && aviso.abaixoDoTetoBaixo.avisou,
+    'e um teto BAIXO com entrega ainda menor avisa — é o caso que uma regra de '
+    + 'uma condição só ("abaixo do piso") deixaria passar calada',
+    aviso.abaixoDoTetoBaixo);
 } finally {
   await navegador.close();
   await new Promise((r) => servidor.close(r));

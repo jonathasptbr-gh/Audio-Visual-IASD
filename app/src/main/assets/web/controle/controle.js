@@ -258,7 +258,7 @@ const appVersionEl = document.getElementById('appVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.4.10';
+const WEB_VERSION = '1.4.11';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -15010,6 +15010,75 @@ const YT_ALTURAS = [1080, 720, 480];
 // serem o mesmo valor.
 const YT_ONLINE = -1;
 
+// ===== O AVISO DE RESOLUÇÃO LIMITADA (v1.4.11) =====
+//
+// Pedido do operador, depois de projetar 360p numa TV 4K sem nada na tela
+// dizendo isso: *"coloque o aviso sobre a resolução estar limitada"*.
+//
+// O app SEMPRE soube a altura real — ela vem do shell e vira o subtítulo da
+// linha ("Vídeo · 1080p"). O buraco é que o "Tocar agora" põe o item na
+// prateleira `avulsos`, **que não tem lista visível**: a informação existia e
+// não tinha onde aparecer. O operador projetava 360p e a leitura possível era
+// *"o app está ruim"*.
+//
+// A CAUSA de hoje é externa e não tem conserto nosso: o YouTube apertou o SABR
+// e o extrator só devolve o progressivo legado, que é 360p por construção (ver
+// `docs/ACHADOS-EM-ABERTO.md` §3). O aviso não conserta nada — ele impede que a
+// falta de resolução seja lida como defeito do app, que é a única coisa que
+// ainda estava ao nosso alcance.
+//
+// ---- A REGRA, e ela é DUAS condições ----
+//
+// Só avisa quando o entregue está ABAIXO DO PEDIDO **e** abaixo de um piso em
+// que a diferença aparece na tela. Uma condição só erra para os dois lados:
+//
+//   · só "abaixo do pedido": escolher 480p de propósito passaria a render um
+//     aviso a cada toque, dizendo ao operador o que ele acabou de pedir;
+//   · só "abaixo do piso": um teto de 480p escolhido à mão viraria alarme.
+//
+// O PISO é 720p porque é o degrau em que a imagem ainda se sustenta num telão
+// de salão — 360p é o que produziu a queixa. Entre 720p e o teto o Registro
+// continua contando a diferença; a tela fica quieta.
+const YT_ALTURA_BAIXA = 720;
+
+// O TETO EFETIVO de um pedido. `0` e o `YT_ONLINE` significam "o padrão do
+// shell" (ver `ytBaixarNativo`), que é o primeiro da escada — só um teto
+// EXPLÍCITO vale por si, e é ele que o operador escolheu na folha.
+function tetoEfetivo(altura) {
+  const a = altura | 0;
+  return YT_ALTURAS.includes(a) ? a : YT_ALTURAS[0];
+}
+
+// O aviso propriamente, e ele é do CARTÃO DA PREVIEW — o mesmo que acabou de
+// dizer "Preparando". É ali que a mídia vai aparecer, então é ali que se diz
+// que ela vai aparecer pior do que se pediu; e a carência de saída do cartão
+// (`PV_BUSY_SAIDA_MS`) faz a troca de mensagem se ler como uma frase só, sem
+// piscar entre as duas.
+//
+// SILENCIOSO POR CONSTRUÇÃO quando não há o que dizer: altura desconhecida
+// (shell antigo, ou um caminho que não a reporta) não vira aviso. Inventar
+// "qualidade limitada" sem número seria trocar uma ausência de informação por
+// uma afirmação que não se pode conferir.
+function avisarResolucaoLimitada(entregue, teto) {
+  const h = entregue | 0;
+  if (h <= 0) return;
+  if (h >= tetoEfetivo(teto) || h >= YT_ALTURA_BAIXA) return;
+  // O VEREDITO fica na caixa alta (como o "Não deu") e o corpo traz o NÚMERO e
+  // DE QUEM é a limitação — sem o segundo o operador procura um ajuste que não
+  // existe. As DUAS chamadas são a mecânica do cartão: ele precisa ser ABERTO
+  // por um dono antes de poder falar, e `avisar` é o desfecho desse dono.
+  //
+  // O TEXTO É CURTO PORQUE A CAIXA É PEQUENA, e isso foi MEDIDO: o rótulo tem
+  // `-webkit-line-clamp: 2` e o cartão, com a folga simétrica da v1.4.9, mede
+  // ~163px de conteúdo a 360px de tela. "só havia 360p neste vídeo — o YouTube
+  // não liberou as melhores" corta ali (49px de texto numa caixa de 32), e o que
+  // sobra é a metade sem a causa. Esta cabe nas duas larguras, com as duas
+  // informações inteiras.
+  const cap = 'Qualidade limitada';
+  const texto = 'o YouTube só liberou ' + h + 'p';
+  previewBusy(cap, texto).avisar(cap, texto);
+}
+
 // Uma linha de segmentos da folha de download — o MESMO desenho de
 // Cantada/Playback das músicas do acervo. Duas perguntas usam este formato
 // (forma e qualidade), e escrevê-lo duas vezes era garantir que a segunda
@@ -15274,6 +15343,9 @@ async function tentarTransmitir(r, altura, somenteAudio) {
   });
   if (!rec) { motivoStream = 'o registro da mídia não foi criado'; return false; }
   motivoStream = soAudio ? 'transmitindo só o áudio' : 'transmitindo ' + (man.height || '?') + 'p';
+  // SÓ NO VÍDEO: num "só áudio" a resolução não existe, e avisar sobre ela ali
+  // seria o app falando de uma coisa que o operador acabou de dispensar.
+  if (!soAudio) avisarResolucaoLimitada(man.height, altura);
   setYtEstado(r.id, null);
   await fixarAvulso(rec.id);
   await load();
@@ -17022,7 +17094,7 @@ function previewBusy(acao, nome, aoCancelar) {
   // `falhar` entra no stub junto com os outros: um chamador que só quer relatar
   // uma falha não pode explodir porque o cartão não existe neste modo.
   if (appMode === 'simple' && !simpleDisplay()) {
-    return { visivel: false, atualizar: () => {}, soltar: () => {}, falhar: () => {} };
+    return { visivel: false, atualizar: () => {}, soltar: () => {}, falhar: () => {}, avisar: () => {} };
   }
   // O CARTÃO DE FALHA FICA NO AR (ver `falhar`), então um trabalho NOVO pode
   // nascer sobre ele — e ao nascer ele TOMA A LEGENDA, o que encerra o prazo de
@@ -17037,9 +17109,10 @@ function previewBusy(acao, nome, aoCancelar) {
   // ciclo anterior não sobreviver a este.
   clearTimeout(pvBusySaidaTimer); pvBusySaidaTimer = null;
   pvBusyCount++;
-  // Sem tirar a marca, `.falhou` esconderia o aro que gira e pintaria
-  // "Baixando…" em vermelho — o cartão dizendo duas coisas opostas.
-  pvBusyEl.classList.remove('falhou');
+  // Sem tirar as marcas, `.falhou`/`.avisou` esconderiam o aro que gira e
+  // pintariam "Baixando…" em vermelho ou âmbar — o cartão dizendo duas coisas
+  // opostas.
+  pvBusyEl.classList.remove('falhou', 'avisou');
   pvBusyCapEl.textContent = acao;
   pvBusyLabelEl.textContent = nome;
   // O botão segue o ÚLTIMO a escrever, exatamente como a legenda — inclusive
@@ -17086,9 +17159,35 @@ function previewBusy(acao, nome, aoCancelar) {
       // de pé. Ela fica porque o custo de errar aqui é o cartão sumir DEBAIXO de
       // um trabalho vivo, e o de acertar é uma comparação.
       if (pvBusyCount > 0) return;
-      pvBusyEl.classList.remove('on');
-      pvBusyEl.classList.remove('falhou');
+      pvBusyEl.classList.remove('on', 'falhou', 'avisou');
     }, PV_BUSY_SAIDA_MS);
+  };
+  // OS DOIS DESFECHOS QUE FALAM (`falhar` e `avisar`) — a mecânica é UMA.
+  //
+  // Eles TRAVAM SEM LIBERAR, e é aí que a promessa se cumpre: quase todo
+  // chamador solta num `finally` que roda no MESMO tick (`playSongVariant`,
+  // `projectSongLyricsOnly`). Marcar `solto` faz esse `soltar()` virar no-op —
+  // sem isto o `pvBusyCount` caía a zero na hora, as classes saíam, e o
+  // operador via o aro girar e sumir sem uma palavra: indistinguível do toque
+  // não ter funcionado. Quem devolve o contador é o prazo, e só ele.
+  const encerrarCom = (classe, cap, texto) => {
+    if (solto) return;
+    solto = true;
+    pvBusyEl.classList.add('on', classe);
+    pvBusyCapEl.textContent = cap;
+    pvBusyLabelEl.textContent = texto;
+    if (meuCancelar && pvBusyCancelar === meuCancelar) {
+      pvBusyCancelar = null;
+      pintarPvBusyCancelar();
+    }
+    // UMA vez, venha o fim pelo prazo ou por outro trabalho tomar a legenda
+    // (ver o topo de `previewBusy`): as duas portas chamam o MESMO `fim`, e a
+    // trava `feito` é o que impede o contador de cair duas vezes — o que
+    // apagaria o cartão de um trabalho que ainda está correndo.
+    let feito = false;
+    const fim = () => { if (feito) return; feito = true; liberar(); };
+    pvFalhasPendentes.push(fim);
+    setTimeout(fim, PV_FALHA_MS);
   };
   return {
     visivel: true,
@@ -17119,35 +17218,22 @@ function previewBusy(acao, nome, aoCancelar) {
     // topo da tela, longe do cartão que estava dizendo "Baixando…" um segundo
     // antes: duas camadas para as duas metades da mesma frase.
     //
-    // Ele SEGURA o cartão pelo tempo da leitura e só então solta — sem isso, o
-    // `finally` do chamador apagaria a mensagem no mesmo quadro em que ela
-    // nasce.
-    falhar(motivo) {
-      if (solto) return;
-      // TRAVA SEM LIBERAR, e é aqui que a promessa acima se cumpre: quase todo
-      // chamador solta num `finally` que roda no MESMO tick (`playSongVariant`,
-      // `projectSongLyricsOnly`). Marcar `solto` faz esse `soltar()` virar
-      // no-op — sem isto o `pvBusyCount` caía a zero na hora, as classes
-      // `on`/`falhou` saíam, e o operador via o aro girar e sumir sem uma
-      // palavra: indistinguível do toque não ter funcionado. Quem devolve o
-      // contador é o prazo abaixo, e só ele.
-      solto = true;
-      pvBusyEl.classList.add('on', 'falhou');
-      pvBusyCapEl.textContent = 'Não deu';
-      pvBusyLabelEl.textContent = motivo;
-      if (meuCancelar && pvBusyCancelar === meuCancelar) {
-        pvBusyCancelar = null;
-        pintarPvBusyCancelar();
-      }
-      // UMA vez, venha o fim pelo prazo ou por outro trabalho tomar a legenda
-      // (ver o topo de `previewBusy`): as duas portas chamam o MESMO `fim`, e a
-      // trava `feito` é o que impede o contador de cair duas vezes — o que
-      // apagaria o cartão de um trabalho que ainda está correndo.
-      let feito = false;
-      const fim = () => { if (feito) return; feito = true; liberar(); };
-      pvFalhasPendentes.push(fim);
-      setTimeout(fim, PV_FALHA_MS);
-    },
+    // Ele SEGURA o cartão pelo tempo da leitura e só então solta — a mecânica
+    // está no `encerrarCom`, partilhada com o `avisar`.
+    falhar(motivo) { encerrarCom('falhou', 'Não deu', motivo); },
+    // O MESMO CARTÃO DIZ QUE DEU, MAS COM RESSALVA (v1.4.11).
+    //
+    // Terceiro desfecho, e ele não é uma falha: a mídia ENTROU EM CENA e há uma
+    // coisa sobre ela que quem opera precisa saber — hoje, que a única
+    // resolução disponível era muito baixa. Chamar isso de "Não deu" seria
+    // falso nas duas pontas (manda investigar o que funcionou, e some com a
+    // informação que interessa).
+    //
+    // Mesma mecânica do `falhar`: segura o cartão pelo prazo de leitura, um
+    // trabalho novo toma a legenda antes. Muda a COR e a palavra — âmbar, não
+    // vermelho, porque vermelho neste app é ação destrutiva ou o que está no ar,
+    // e este aviso não é nenhum dos dois.
+    avisar(cap, texto) { encerrarCom('avisou', cap, texto); },
   };
 }
 
@@ -19660,6 +19746,16 @@ async function ytBaixarNativo(link, nome, opts) {
         // `kind: 'audio'`, e é o kind que faz o telão manter o wallpaper em vez
         // de trocar de imagem (ver `semVisual` em stage.js).
         const thumb = soAudio ? null : await makeThumb(blob, 'video');
+        // O AVISO MORA ONDE O RESULTADO VAI APARECER — a régua da v5.84, e ela
+        // decide este `if`. `aviso === 'preview'` é o download que vai ENTRAR EM
+        // CENA; nos outros destinos o resultado é uma LINHA, e ali a altura já
+        // aparece no subtítulo dela ("Vídeo · 360p") sem cartaz nenhum. Um
+        // cartão sobre a preview para um vídeo que só está sendo guardado
+        // insinuaria que ele vai ao telão a seguir.
+        //
+        // Vem ANTES do `addMedia` porque a gravação do blob pode demorar, e o
+        // cartão que ainda está no ar é o mesmo que vai falar.
+        if (!soAudio && aviso === 'preview') avisarResolucaoLimitada(r.height, altura);
         return await AVDB.addMedia(blob, {
           // O sufixo é a MESMA convenção das músicas do acervo, que já se
           // chamam "(Cantado)"/"(Playback)": sem ele, o vídeo e o áudio do
