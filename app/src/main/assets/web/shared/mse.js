@@ -82,6 +82,80 @@
   // propósito: ele não existe para apertar o aparelho, existe para que uma
   // resposta que nunca vem vire ERRO em vez de silêncio eterno.
   const APPEND_MS = 15000;
+  // ===== O PRAZO DE PAREDE DE UM FRAGMENTO (v1.4.19) =====
+  //
+  // Este era o único ponto da cadeia sem prazo NENHUM, e a falha que ele deixava
+  // passar é a pior que esta projeção sabe ter: **a transmissão congelada sem
+  // nada acontecer.**
+  //
+  // O cenário não é uma queda — é uma entrega que não termina. O CDN aceita a
+  // conexão e passa a gotejar, que é o desfecho típico de um Wi-Fi saturado ou
+  // de um aparelho em economia de energia. Nenhuma das defesas existentes o
+  // alcança:
+  //
+  // | camada | por que não cobre |
+  // |---|---|
+  // | `pegar` (4 tentativas) | só reage a um erro que ACONTECE — e aqui nada acontece |
+  // | `StreamProxy` (`readTimeout` 30 s) | é POR LEITURA: um byte a cada 29 s nunca o dispara |
+  // | `aplicar`/`esperarSbLivre` | cobrem o `SourceBuffer`, não a rede |
+  //
+  // O desfecho era o buffer drenando, o quadro congelando, o cartão
+  // "Preparando…" aceso para sempre — sem erro, sem queda para o download, sem
+  // nada que o operador pudesse ler.
+  //
+  // **O PRAZO É PROPORCIONAL AO QUE FOI PEDIDO**, e não fixo: um init de 800 B e
+  // um fragmento de 2,5 MB não têm o mesmo pior caso honesto, e um prazo fixo ou
+  // mata a transferência legítima de um fragmento grande, ou não alcança o
+  // gotejamento de um pequeno. A conta é um PISO mais uma taxa deliberadamente
+  // pessimista — no vencimento, a taxa efetiva já é menor que a do degrau mais
+  // baixo que este player oferece, isto é, o fragmento já estava perdido.
+  //
+  // E ele **alimenta a escada de retentativas que já existe**: o erro nasce
+  // `retentavel`, então quatro tentativas acontecem antes de qualquer coisa
+  // chegar ao `onErro`. Em rede boa nada disto é alcançado, e o comportamento é
+  // exatamente o de antes.
+  const PRAZO_PISO_MS = 20000;
+  const PRAZO_POR_MB_MS = 30000;   // ~270 kbps de piso efetivo
+  function prazoDoPedido(bytes) {
+    const mb = Math.max(0, bytes) / (1024 * 1024);
+    return PRAZO_PISO_MS + Math.round(mb * PRAZO_POR_MB_MS);
+  }
+
+  // ===== OS DEGRAUS QUE ESTE APARELHO SABE DECODIFICAR (v1.4.19) =====
+  //
+  // `suportado` valida o TOPO da escada (`man.video`) e o áudio — os dois que
+  // entram em cena se nada mais acontecer. Os DEGRAUS não passavam por
+  // conferência nenhuma: `escolherDegrau` escolhe só por banda.
+  //
+  // Do lado do shell a escada é filtrada por "mp4 e não webm", e **mp4 hoje
+  // carrega AV1**. Um aparelho cujo WebView decodifica avc1 e não av01 pode ter
+  // uma escada em que o topo passa e um degrau de baixo não — e a troca cai
+  // justamente quando a banda medida é ruim, isto é, no pior momento possível.
+  //
+  // Não era uma queda (o `catch` da troca repõe o init antigo e a transmissão
+  // segue), mas era caro onde não se pode gastar: duas idas à rede, até 5 s de
+  // `esperarSbLivre` e a bandeira `degrauFeito` queimada para sempre — tudo
+  // ANTES do primeiro quadro. E deixava o Registro anunciar um degrau que nunca
+  // chegou a valer.
+  //
+  // A PERGUNTA É INJETADA para a função continuar testável fora de um navegador
+  // com `MediaSource` — a mesma razão de `escolherDegrau` ser pura.
+  function degrausUsaveis(videos, aceita) {
+    if (!Array.isArray(videos) || videos.length < 2) return null;
+    let usaveis;
+    try {
+      usaveis = videos.filter((v) => !v || !v.mime || aceita(v.mime));
+    } catch (_) {
+      // A pergunta falhou (navegador sem `isTypeSupported`): a escada CRUA é a
+      // resposta certa — o desfecho é o comportamento de antes desta regra, e
+      // não uma recusa por um campo que não deu para conferir.
+      return videos;
+    }
+    // Sobrou um degrau só (ou nenhum): não há troca possível. Devolver a lista
+    // faria `escolherDegrau` responder 0 — o mesmo desfecho, por um caminho que
+    // o leitor teria de refazer.
+    return usaveis.length > 1 ? usaveis : null;
+  }
 
   // AS FAIXAS QUE ESTE MANIFESTO TEM — uma ou duas.
   //
@@ -283,7 +357,13 @@
     // sempre — uma troca com o louvor no ar é gagueira, e este projeto já
     // decidiu que gagueira é pior que uma escolha imperfeita.
     let degrauFeito = false;
-    const escada = (man && Array.isArray(man.videos) && man.videos.length > 1) ? man.videos : null;
+    // A ESCADA JÁ FILTRADA pelo que este aparelho decodifica — ver
+    // `degrausUsaveis`. O topo nunca some daqui: ele é o degrau 0, e o
+    // `suportado` já o aprovou antes de a cena entrar.
+    const escada = degrausUsaveis(
+      man && man.videos,
+      (mime) => global.MediaSource.isTypeSupported(mime),
+    );
     let tick = null;
     // Os ouvintes de `EVENTOS_DO_COMPASSO` já estão no `<video>`? A bandeira
     // existe porque `morrer` pode ser chamado ANTES de `iniciar()` chegar a
@@ -402,7 +482,19 @@
       // requisição vive, e `morrer` derruba todos de uma vez. O finally o
       // tira do conjunto em QUALQUER desfecho — sucesso, erro HTTP, abort.
       const ctl = typeof AbortController === 'function' ? new AbortController() : null;
-      if (ctl) { alvo[1].signal = ctl.signal; emVoo.add(ctl); }
+      // O PRAZO DE PAREDE (ver `prazoDoPedido`). `venceu` é o que separa os dois
+      // abortos que este controller pode sofrer, e a distinção é o recurso
+      // inteiro: o de `morrer` é decisão NOSSA e não se retenta; o do prazo é a
+      // rede desistindo, e é exatamente o que a escada de tentativas existe para
+      // atravessar. Sem a bandeira, os dois se leriam como o mesmo `AbortError`.
+      const prazoMs = prazoDoPedido(fim - ini + 1);
+      let venceu = false;
+      let prazo = null;
+      if (ctl) {
+        alvo[1].signal = ctl.signal;
+        emVoo.add(ctl);
+        prazo = setTimeout(() => { venceu = true; try { ctl.abort(); } catch (_) {} }, prazoMs);
+      }
       try {
         let r;
         try {
@@ -416,6 +508,11 @@
           // decisão nossa. Marcá-lo como retentável faria a saída de cena
           // custar quatro requisições a um servidor que ninguém mais espera.
           const abortou = !!(e && e.name === 'AbortError');
+          // O PRAZO TEM FRASE PRÓPRIA. Dizer "a requisição não completou
+          // (AbortError)" mandaria a investigação para o lugar errado: não houve
+          // erro nenhum — houve uma entrega que não terminou.
+          if (venceu) throw marcar(new Error(passo + ': não chegou em ' + (prazoMs / 1000)
+            + ' s (a rede parou de entregar) pedindo bytes ' + ini + '-' + fim), true);
           throw marcar(new Error(passo + ': a requisição não completou ('
             + ((e && e.message) || '?') + ') pedindo bytes ' + ini + '-' + fim), !abortou);
         }
@@ -443,6 +540,9 @@
           buf = await r.arrayBuffer();
         } catch (e) {
           const abortou = !!(e && e.name === 'AbortError');
+          if (venceu) throw marcar(new Error(passo + ': o corpo não chegou em '
+            + (prazoMs / 1000) + ' s (a rede parou de entregar) pedindo bytes '
+            + ini + '-' + fim), true);
           throw marcar(new Error(passo + ': o corpo não chegou inteiro ('
             + ((e && e.message) || '?') + ') pedindo bytes ' + ini + '-' + fim), !abortou);
         }
@@ -460,6 +560,7 @@
         medMs += Math.max(1, Date.now() - t0);
         return buf;
       } finally {
+        clearTimeout(prazo);
         if (ctl) emVoo.delete(ctl);
       }
     }
@@ -868,7 +969,7 @@
   // `playing` e que já acende o indicador de espera) — este módulo é o dono do
   // BALCÃO, para o Registro ter um lugar só onde perguntar pela transmissão.
   global.AVStream = {
-    suportado, criar, lerSidx, escolherDegrau, ultimoErro: '',
+    suportado, criar, lerSidx, escolherDegrau, degrausUsaveis, prazoDoPedido, ultimoErro: '',
     fome: { quantas: 0, segundos: 0 },
     // A BANDA MEDIDA na última transmissão, em bits por segundo, e o degrau em
     // que ela parou. Ela sobrevive ao item: o segundo louvor do culto começa

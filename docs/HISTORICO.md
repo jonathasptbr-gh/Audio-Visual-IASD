@@ -24,7 +24,8 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
-- **v1.4.19** — O ÍCONE DO CARTÃO DE ESPERA SEGUE A LEGENDA. Pedido do operador, sobre o cartão de um link do YouTube: *"seu ícone segue sendo um ícone de download, enquanto que deveria ser só o spinner, sem um ícone de download nesse tipo de preparação, já que não está realmente baixando algo, para diferenciar do download em si"*. O `.dl-ring` são **DOIS desenhos** — o aro que gira (`::before`) e a SETA parada (`svg`) —, e só a segunda afirma "bytes chegando". Numa PREPARAÇÃO ela prometia o que não estava acontecendo, e isso vale para MAIS casos do que o relato nomeia: a extração de um link, a montagem de uma playlist, a rasterização de um PDF **e a própria fase pré-bytes de um download**, que nasce em "Preparando vídeo" e só vira "Baixando vídeo · 12%" no primeiro progresso. **A regra é "o ícone segue a LEGENDA"**, e não uma bandeira a mais na assinatura do `previewBusy`: a legenda já carrega essa distinção na tela, em português, e é escrita em DOIS pontos (a criação do cartão e o `atualizar` do progresso) — derivá-la ali faz o desenho e a palavra nunca discordarem, que é o defeito que o pedido nomeia. Ela **falha para o lado certo**: uma legenda nova escrita de outro jeito perde a seta e vira um spinner puro, nunca o contrário. O aro FICA, porque a espera continua sendo verdade. Oráculo no `gaveta-e-cartao.test.mjs`, medindo o RENDERIZADO (`getClientRects`) e não a classe — a classe sem a regra de CSS passaria num teste de classe e continuaria desenhando a seta na tela do operador, que é exatamente o que ele relatou. Quatro reversões, uma por peça. OTA PURO.
+- **v1.4.20** — O ÍCONE DO CARTÃO DE ESPERA SEGUE A LEGENDA. Pedido do operador, sobre o cartão de um link do YouTube: *"seu ícone segue sendo um ícone de download, enquanto que deveria ser só o spinner, sem um ícone de download nesse tipo de preparação, já que não está realmente baixando algo, para diferenciar do download em si"*. O `.dl-ring` são **DOIS desenhos** — o aro que gira (`::before`) e a SETA parada (`svg`) —, e só a segunda afirma "bytes chegando". Numa PREPARAÇÃO ela prometia o que não estava acontecendo, e isso vale para MAIS casos do que o relato nomeia: a extração de um link, a montagem de uma playlist, a rasterização de um PDF **e a própria fase pré-bytes de um download**, que nasce em "Preparando vídeo" e só vira "Baixando vídeo · 12%" no primeiro progresso. **A regra é "o ícone segue a LEGENDA"**, e não uma bandeira a mais na assinatura do `previewBusy`: a legenda já carrega essa distinção na tela, em português, e é escrita em DOIS pontos (a criação do cartão e o `atualizar` do progresso) — derivá-la ali faz o desenho e a palavra nunca discordarem, que é o defeito que o pedido nomeia. Ela **falha para o lado certo**: uma legenda nova escrita de outro jeito perde a seta e vira um spinner puro, nunca o contrário. O aro FICA, porque a espera continua sendo verdade. Oráculo no `gaveta-e-cartao.test.mjs`, medindo o RENDERIZADO (`getClientRects`) e não a classe — a classe sem a regra de CSS passaria num teste de classe e continuaria desenhando a seta na tela do operador, que é exatamente o que ele relatou. Quatro reversões, uma por peça. OTA PURO.
+- **v1.4.19** — A VARREDURA DE ESTABILIDADE DE ÁUDIO E VÍDEO, APLICADA: nove dos dez achados do laudo `AUDITORIA-ESTABILIDADE-AV.md`, num lote só. O que carrega o lote é **um fragmento sem prazo de PAREDE**: era o único ponto da cadeia sem prazo nenhum, e o desfecho que ele deixava passar é o pior que esta projeção sabe ter — a transmissão congelada sem NADA acontecer, sem erro, sem queda para o download, com o cartão "Preparando" aceso para sempre. O cenário não é uma queda: é uma entrega que não termina (um CDN que goteja, o desfecho típico de uma Wi-Fi saturada ou de um aparelho em economia de energia), e nenhuma defesa existente o alcançava — o `readTimeout` do `StreamProxy` é **POR LEITURA**, então um byte a cada 29 s nunca o dispara; as 4 tentativas do `mse.js` só reagem a um erro que ACONTECE; e o `AVStream.fome` era o único lugar do app que SABIA que a projeção estava parada — e só escrevia no Registro. Três camadas novas: o prazo de parede por fragmento (PROPORCIONAL ao pedido, alimentando a escada de tentativas que já existia), o prazo TOTAL no `readBytes` do Kotlin, e o WATCHDOG DE FOME do `stage.js` (25 s, uma vez por cena), que transforma quadro congelado no `onStreamErro` de sempre. Mais: `streamRetentado` virou um `Map` COM JANELA — era um `Set` nunca limpo, então a segunda expiração do mesmo vídeo na mesma sessão (ensaio de manhã, culto à tarde) pulava a re-extração de dois segundos e ia direto ao download de centenas de MB na frente da congregação; a escada de degraus passou a perguntar `isTypeSupported` (mp4 hoje carrega AV1); o stream SÓ-ÁUDIO ganhou o aviso e a rampa que os dois ramos visuais escondiam dele; as rotinas de acervo (12 requisições concorrentes sobre 454 hinos, na abertura) passaram a CEDER A VEZ à cena; o `configChanges` ganhou as sete chaves que faltavam; e o `SessionService` deixou de cair numa recriação de Activity. **O décimo achado é MEDIÇÃO e continua aberto de propósito** — se o `shouldInterceptRequest` do WebView serializa, o fragmento de áudio espera atrás do de vídeo (que tem 20 s de folga), o que explicaria os relatos antigos de áudio falhando no YouTube; a receita está no laudo. Quatro oráculos novos, 57/57 verdes. **PEDE RELEASE** (`shellTag: v1.4.19`).
 - **v1.4.18** — UMA RESOLUÇÃO DE LINK EM VOO PERDE A VEZ PARA A PROJEÇÃO SEGUINTE. Relato do operador: *"ao tocar em um item do tipo link, ele começa a carregar, em seguida eu toco em uma música normal nativa, a música começa a tocar, mas o link que estava carregando não é interrompido, e quando termina de carregar ele vem sobre a música que tocou na hora"*. REPRODUZIDO em arnês, com a ponte de mentira segurando as duas esperas. Resolver um `kind: 'youtube'` é a espera mais longa do app — uma extração de rede de SEGUNDOS (`ytStream`) e, falhando ela, um download de MINUTOS —, e o desfecho chegava sem perguntar a ninguém se ainda era esperado: `send` no fim, cena trocada, louvor cortado na frente da congregação. **É a TERCEIRA vez que esta base encontra a mesma classe**, e as duas anteriores já têm nome: o `lyricLoadSeq` (o download do áudio de uma letra avulsa) e o `projecaoSeq` (o capítulo da Bíblia que chega tarde). A senha usada é a MESMA daquele — quem projeta qualquer coisa a incrementa —, e não uma quarta contagem: duas réguas para "quem chegou por último" divergiriam. CINCO guardas, uma por lugar em que a espera termina em efeito, e cada uma provada por reversão: a transmissão que volta tarde, o download do item de link, o download do "Tocar agora" da BUSCA (a outra porta, que a v1.4.6 já tinha deixado de fora uma vez), o CARTÃO "Preparando" que ficava sobre a música já tocando, e a marca de "no ar" que acendia na linha do link abandonado. **E o desfecho do download é ASSIMÉTRICO de propósito:** o arquivo FICA e toma o lugar do link na lista (`trocarLinkPeloArquivo`) — é valor durável e foi o que o toque pediu; o que ele não pode é subir ao palco. Já a transmissão abandonada **não escorrega para o download**: seriam minutos de rede por um toque que o operador substituiu. OTA PURO.
 - **v1.4.17** — O ESTALO NO SOM AO NAVEGAR ENTRE AS ABAS. Relato do operador, com o Registro do campo (sem TV — a preview É a projeção e o som sai do aparelho): *"o áudio demonstra um ruído no exato momento em que eu interajo com as abas do cronograma e bíblia, quando navego entre elas"*. REPRODUZIDO EM ARNÊS, e a causa é uma linha: `stage.setMute` é uma função de **declarar** estado, e quem a chama no Controle é o `load()` — que reaplica a cena inteira a cada troca de aba, a cada redesenho da lista, a cada importação. Mas o ramo de desmutar se comportava como uma função de **animar** a mudança: começava por `rampVolume(0, …)`, que ZERA o volume antes de subir. Com o som já ligado, cada reafirmação escrevia `volume 1 → 0 → 1` num `<video>` que estava tocando. **Em JS o par é atômico e nada se ouve; no aparelho não é** — cada escrita atravessa o renderer até o `AudioRendererImpl`, e o retorno de chamada do áudio roda a cada ~10 ms: caindo entre as duas, ele rende UM buffer em silêncio. E a janela se abre justamente na troca de aba, que é quando a thread principal está mais ocupada (a lista nova, o fantasma e as duas animações do carrossel). A correção é a rampa PARTIR DE ONDE O VOLUME ESTÁ — zero saindo do mudo, onde não há o que preservar; o valor corrente em todo o resto —, o espelho exato do que o ramo de mutar já fazia. De quebra ela conserta o TOQUE DUPLO no botão de mudo (desmutar no meio da rampa de mutar passava por zero). Oráculo novo, no portão: ele mede as ESCRITAS e não o som, porque o artefato é uma corrida com a thread de áudio (um teste do desfecho audível seria intermitente por construção) e o estado final é idêntico nas duas versões. **E uma GUARDA que eu tinha escrito junto SAIU antes de publicar:** ela também apagava o degrau, mas a reversão parcial passava — as duas se cobriam —, e a segunda hipótese que a justificava (uma rampa inútil armada a cada `load()`) foi MEDIDA e é falsa: o `setVolume` da linha seguinte a cancela no mesmo tique. Código que nenhuma reversão reprova não entra. OTA PURO.
 - **v1.4.16** — A DATA DE CORTE, DITA PELO OPERADOR — E O REGISTRO QUE A DESCREVIA ERRADO. Enunciado do operador: *"a liberação começa na virada da meia noite de sábado para domingo, no caso o domingo é o primeiro dia da semana e já oferece a mídia para o sábado de sua semana, e quando acaba aquela semana, na virada do sábado para o domingo, já libera a próxima"*. **O app JÁ FAZIA exatamente isso desde a v1.2.19** — `ehDoSabadoAtual` é a semana adventista inteira, de domingo a sábado, e não o dia —, e o oráculo já travava a virada (`sáb 15` esconde 22/Ago, `dom 16` mostra). O que o lote corrige são as DUAS coisas que discordavam disso. **1) O PISO DE TRÊS DIAS SAIU** (`DIAS_DE_ANTECEDENCIA`, da v5.256). MEDIDO antes de tirar: sobre os 365×365 pares dia × episódio de 2026 ele mudava o veredito em **312**, e em **zero** deles o episódio caía num SÁBADO — o único dia em que os dois canais publicam. Ele só alcançava episódios datados de domingo, segunda ou terça DA SEMANA SEGUINTE, vistos de quinta em diante: era a única coisa do módulo capaz de mostrar um episódio antes de a semana dele abrir, isto é, de contrariar a data de corte. O pedido que o criou não regride — a semana dá SEIS dias de antecedência contra os três dele. **2) O REGISTRO PAROU DE MENTIR:** a linha dos retidos dizia *"a lista alcança 3 dia(s) além de <dia>"*, um corte que o app não aplicava; hoje diz o SÁBADO da semana da varredura, e a conta é a mesma do `AVSerie` (uma segunda conta de calendário no `controle.js` divergiria, e um log que discorda do aparelho é o pior artefato deste projeto). O oráculo ganhou a PROPRIEDADE exaustiva, escrita **por fora** da implementação — o domingo que abre a semana sai da data do EPISÓDIO, não da janela que o `aindaNaoSaiu` usa —, provada por reversão: quem reintroduzir o piso vê os 312 pares reprovarem. OTA PURO.
@@ -293,7 +294,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ---
 
-## v1.4.19 — o ícone do cartão de espera segue a legenda
+## v1.4.20 — o ícone do cartão de espera segue a legenda
 
 > *"verifique o cartão de preparando o link do YouTube, pois seu ícone segue
 > sendo um ícone de download, enquanto que deveria ser só o spinner, sem um
@@ -365,6 +366,210 @@ Quatro reversões, uma por peça: a regra de CSS, a decisão na criação, a dec
 no `atualizar`, e a seta apagada em todos os casos.
 
 **OTA PURO** — nada em `java/`, `res/` ou no manifest.
+
+---
+
+## v1.4.19 — a varredura de estabilidade de áudio e vídeo, aplicada
+
+Nove dos dez achados de `docs/AUDITORIA-ESTABILIDADE-AV.md`, num lote só. O
+laudo guarda o cenário e a ressalva de cada um; aqui fica o que MUDOU.
+
+### A1 — um fragmento sem prazo de PAREDE congelava a transmissão para sempre
+
+É o achado que carrega o lote, e o desfecho dele é o pior que esta projeção sabe
+ter: **a transmissão congelada sem NADA acontecer**. Sem erro, sem queda para o
+download, sem uma linha no console — o cartão "Preparando…" aceso e o quadro
+parado.
+
+O cenário não é uma queda: é uma **entrega que não termina**. O CDN aceita a
+conexão e passa a gotejar, que é o desfecho típico de uma Wi-Fi saturada ou de
+um aparelho em economia de energia. E nenhuma das defesas existentes o
+alcançava:
+
+| camada | por que não cobria |
+|---|---|
+| `pegar` (4 tentativas) | só reage a um erro que ACONTECE — e aqui nada acontece |
+| `StreamProxy` (`readTimeout` 30 s) | é **POR LEITURA**: um byte a cada 29 s nunca o dispara |
+| `aplicar`/`esperarSbLivre` | cobrem o `SourceBuffer`, não a rede |
+| `AVStream.fome` | **sabia** que a projeção estava parada — e só escrevia no Registro |
+
+Três camadas novas, e as três são necessárias:
+
+1. **O prazo de parede por fragmento** (`prazoDoPedido`, no `mse.js`).
+   PROPORCIONAL ao que foi pedido, e não fixo: um init de 800 B e um fragmento
+   de 2,5 MB não têm o mesmo pior caso honesto, e um prazo fixo ou mata a
+   transferência legítima do grande, ou não alcança o gotejamento do pequeno. O
+   erro nasce `retentavel`, então ele **alimenta a escada de 4 tentativas que já
+   existia** — em rede boa nada disto é alcançado.
+2. **O prazo TOTAL** no `StreamProxy.readBytes`, que é exatamente onde o
+   `readTimeout` por leitura falhava. Vira `IOException` → 502 com texto → 5xx é
+   retentável do outro lado.
+3. **O watchdog de fome** no `stage.js` (`FOME_TETO_MS`, 25 s), a última linha.
+   Ele cobre o que sobrar, venha de onde vier — um `SourceBuffer` que parou de
+   aceitar, o decodificador travado, uma volta do segundo plano que não
+   reengata. A pergunta não é *"de quem é a culpa?"*, é *"faz quanto tempo que a
+   congregação está olhando um quadro congelado?"*. O teto é maior que `ALVO_S`
+   (20 s de buffer) de propósito, e o aviso sai **uma vez por cena**: a queda
+   para o download leva segundos, e um segundo aviso no meio dela derrubaria a
+   própria recuperação.
+
+**A propriedade que torna o prazo seguro é RELATIVA, e o oráculo a prova assim:**
+no vencimento, a taxa implícita já é no máximo um TERÇO da que aquele fragmento
+exige para sustentar o próprio degrau. Uma régua absoluta em bits por segundo
+aprovaria um prazo apertado para o degrau pequeno e frouxo para o grande — o
+tamanho do fragmento escala com o degrau (5 s de 1080p são megabytes; 5 s de
+144p são dezenas de kB). A primeira versão da asserção usava um piso absoluto e
+**reprovou**: o oráculo pegou a régua errada antes de o código sair daqui.
+
+### A3 — a segunda expiração do mesmo vídeo não re-extraía
+
+`streamRetentado` era um `Set` que **nunca era limpo**. A intenção escrita é
+*"uma tentativa só"* por episódio de falha; o que o código fazia era *"uma
+tentativa por item, para o resto da sessão"* — e a sessão é o PROCESSO, que
+neste app quase nunca morre.
+
+O cenário que morde é o do sábado: ensaio de manhã, a URL expira, o app
+re-extrai e conserta, invisível. Culto: o mesmo vídeo, o mesmo `rec.id`, a URL
+guardada expirada de novo. O conjunto já tinha o id — **nenhuma re-extração**. A
+cena saía do telão e o app começava a baixar centenas de MB na frente da
+congregação, por um conserto de dois segundos que ele sabe fazer e se proibiu de
+tentar.
+
+Virou um `Map` com JANELA de 5 min, e é a janela que mantém as duas propriedades
+ao mesmo tempo: uma falha SEGUIDA (o manifesto novo que também não presta)
+continua caindo no download, porque ela chega em segundos; um episódio NOVO
+horas depois volta a ter direito à sua tentativa.
+
+### A2 — o degrau escolhido nunca era perguntado ao decodificador
+
+`suportado` valida o TOPO da escada e o áudio. Os degraus não passavam por
+conferência nenhuma: `escolherDegrau` escolhe só por banda. E o filtro do shell é
+"mp4 e não webm" — **mp4 hoje carrega AV1**.
+
+Não era uma queda (o `catch` da troca repõe o init antigo e a transmissão
+segue), mas era caro onde não se pode gastar: duas idas à rede, até 5 s de
+`esperarSbLivre` e a bandeira `degrauFeito` queimada para sempre, tudo ANTES do
+primeiro quadro e justamente quando a banda medida é ruim. E o Registro anunciava
+um degrau que nunca chegou a valer.
+
+`degrausUsaveis` pergunta `isTypeSupported` de cada um, com a pergunta
+**INJETADA** (a função continua testável fora de um navegador com MediaSource,
+como o `escolherDegrau` é puro) e **falhando ABERTO**: uma pergunta que lança
+devolve a escada crua, que é o comportamento de antes da regra.
+
+### A4 — o stream de só-áudio entrava sem aviso e sem rampa
+
+`semVisual()` é verdadeiro para um `kind: 'audio'` sem letra — que é exatamente
+o que o "Tocar agora · Só áudio" de um link do YouTube produz. Com ele
+verdadeiro, o `load` **não entrava em nenhum dos dois ramos** que acendem o aviso
+de espera e disparam a rampa de entrada de um stream: o da cortina pede
+`!semVisual()`, e `entrada` também. A rampa comum exclui streams pelo `!ehStream`
+de propósito, porque foi MOVIDA para dentro daqueles ramos.
+
+Eram os dois defeitos que a v1.4.6 e a v1.4.8 corrigiram para o vídeo, ainda de
+pé para o áudio: a tela não dizia mais nada por vários segundos, e então o som
+entrava **no talo**. Hoje há um terceiro ramo, e ele é um ramo e não uma
+condição a mais nos outros dois — a pergunta é *"este stream ainda não
+começou?"*, e ela não tem nada a ver com haver ou não imagem.
+
+### A5 — o stream velho morria depois de a fonte ser puxada
+
+No `loadInner`, o ramo `willFade` fazia `removeAttribute('src')` + `load()`, e o
+`_revokeUrl()` que destrói o motor anterior só rodava DEPOIS do `getMedia`.
+Nesse vão o `AVStream` antigo seguia vivo sobre um `MediaSource` recém-desanexado,
+e um `appendBuffer` que sobrasse chamava `morrer(mensagem)` — que escreve em
+`AVStream.ultimoErro` **sem passar pela guarda do `loadSeq`**. O Registro podia
+acabar com o erro fantasma de uma cena que o operador trocou de propósito.
+
+### C1 — a abertura disparava 12 requisições concorrentes sem olhar a cena
+
+`syncLyrics` e `syncCifrasAcervo` saem da abertura SEM `await`, então correm
+juntas: `NET_CONCURRENCY` é 6, e são até **12 requisições concorrentes** a dois
+hosts de terceiros sobre o acervo inteiro (MEDIDO: 309 + 145 hinos numa
+passada). O único freio era rede móvel.
+
+**É estabilidade, não desempenho.** O uso normal é abrir o app minutos antes do
+culto e tocar o primeiro item, e nesse instante os fragmentos do MSE disputam a
+Wi-Fi da igreja com as 12 — justamente quando a MEDIDA DE BANDA que escolhe o
+degrau do louvor inteiro está sendo feita, uma vez, para sempre. A varredura do
+acervo podia rebaixar a resolução do louvor.
+
+O gate é consultado na PORTA das duas rotinas **e dentro do laço**: a porta cobre
+"começar com cena no ar", o laço cobre o caso NORMAL (o app abre vazio, a
+varredura parte, e só então o operador toca). E ele **cede a vez e SAI**, em vez
+de esperar: esperar seguraria o `withBgRotina` — e com ele o `SyncService`, cuja
+cota de `dataSync` é de 6 h em 24 h — parado por um culto inteiro sem baixar
+nada. Sair é seguro porque as duas são retomáveis por construção e porque
+`autoRefreshCollections` roda na abertura **e em todo `visibilitychange`**.
+
+### B1 e B2 — o shell derrubava a projeção sozinho
+
+`android:configChanges` não cobria `keyboard`, `navigation`, `touchscreen`,
+`fontScale`, `fontWeightAdjustment`, `locale`, `layoutDirection`, `colorMode`,
+`mcc` nem `mnc`. Qualquer uma delas RECRIA a Activity, e o `onDestroy` derruba,
+em ordem: o `SessionService`, a `Presentation` e os dois WebViews. Projeção e
+áudio caem e voltam segundos depois — pelo caminho de reconexão, que funciona,
+mas na frente da congregação. O caso realista neste uso é um **controle ou
+teclado Bluetooth** (o page-turner de quem opera) conectando ou dormindo.
+
+**O código já sabia disso:** a guarda `!isChangingConfigurations` do `onDestroy`
+existe exatamente porque mudar o tamanho da fonte recria a tela. Só o espelho
+tinha sido protegido. O `SessionService.stop` ganhou a mesma guarda — e ali o
+custo não é a notificação: ele é o único serviço em primeiro plano de um culto
+normal, e é o que impede o Android de congelar ou matar o processo dos dois
+WebViews e da `Presentation`. Derrubado, o `onCreate` seguinte precisa
+reerguê-lo, e `iniciar()` engole a `ForegroundServiceStartNotAllowedException`
+com razão — não há o que fazer com ela.
+
+### D2 — o som seguia a PRESENÇA de uma tela, não a projeção dela
+
+Saiu diferente do que o laudo propunha, e vale dito. A proposta era o
+`tela-status` carregar se aquela tela tem som; escrevendo a correção ficou claro
+que seria um no-op — **parear É o gesto que libera o som**. O que de fato faltava
+era o irmão do campo `telao`: `telasDaRede()` passou a exigir `pronta` (o `__de`
+do `display-ready` tendo voltado), que é a diferença entre "pareou" e "o
+`/display/` dela subiu". **A janela do socket morto continua aberta** e está
+escrita no laudo: um navegador que dorme sem FIN segura o mudo do celular até a
+escrita falhar (o vigia corta em 20 s).
+
+### O que NÃO entrou, e por quê
+
+**D1 é MEDIÇÃO, não conserto.** Se o `shouldInterceptRequest` do WebView
+serializa as chamadas, o fragmento de áudio espera atrás do de vídeo — que tem
+20 s de folga — e isso explicaria os relatos antigos de áudio falhando no
+YouTube. Não conferi o Chromium desta versão de WebView; a receita (um `Log.i`
+com o nome da thread na entrada e saída do `tryHandle`) está no laudo. **C2** (o
+empurrão para as telas da rede competindo com o renderer) não é defeito — é a
+fonte estrutural da classe "interagir com o app perturba o que está no ar", e
+está marcado para medir antes de mexer.
+
+### Oráculos
+
+Quatro novos, todos no portão: `degrau-e-prazo` (puro), `fome-que-desiste`,
+`stream-so-audio` e `rotina-cede-a-vez`. **57/57 verdes.**
+
+Dois aprendizados do arnês ficaram escritos nos arquivos:
+
+- **`page.clock` em FATIAS.** Um `fastForward(40000)` dispara o temporizador de
+  600 ms do anúncio de espera mas **não reprocessa o de 25 s que aquele callback
+  agenda no meio do salto**. O sintoma foi o aviso de um caso aparecendo dentro
+  da janela do caso seguinte, com os dois lendo como "o app está errado".
+  `runFor` em fatias de um segundo dá a cada nível de agendamento a sua vez.
+- **PRAZO NÃO É VEREDITO.** O `stream-so-audio` transforma o estouro de um
+  `waitForFunction` numa FRASE, como o `ota.test.mjs` — um TimeoutError cru faz
+  o log falar do relógio quando o que falhou foi o app, e ao contrário, sob
+  carga, faz o log culpar o app por um runner ocupado.
+
+**TRÊS CORREÇÕES FICARAM SEM ORÁCULO, e está dito no laudo:** A3 e D2 exigiriam
+semear um acervo e um estado de espelho inteiros para alcançar uma linha; B1 é
+uma linha do manifest, que nenhum oráculo deste projeto lê; B2 é Kotlin de ciclo
+de vida, que só um aparelho exercita. Onde não há oráculo, o que sobra é a
+reversão na revisão — não a impressão de que há rede de segurança.
+
+**PEDE RELEASE:** o lote mexe em `AndroidManifest.xml`, `MainActivity.kt` e
+`StreamProxy.kt`. `shellTag: "v1.4.19"` no `version.json` segura o bundle até a
+Release existir. `SHELL_VERSION` segue **60** — nenhum método da ponte mudou de
+assinatura, de forma de retorno ou de comportamento.
 
 ---
 

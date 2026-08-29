@@ -1,8 +1,19 @@
 [
   {
-    "versao": "1.4.19",
+    "versao": "1.4.20",
     "itens": [
       "O aviso de preparação deixou de mostrar o ícone de download."
+    ]
+  },
+  {
+    "versao": "1.4.19",
+    "itens": [
+      "A transmissão do YouTube deixou de congelar sem avisar quando a rede para.",
+      "Um vídeo online que já falhou uma vez volta a se recuperar sozinho depois.",
+      "Tocar só o áudio de um link agora mostra o aviso de carregamento.",
+      "E o som dele entra suave, em vez de começar no volume cheio.",
+      "A varredura de letras e cifras espera a mídia sair do ar.",
+      "Mudar ajustes do sistema não derruba mais a projeção no meio do culto."
     ]
   },
   {

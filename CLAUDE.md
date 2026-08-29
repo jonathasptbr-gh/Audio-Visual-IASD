@@ -48,9 +48,13 @@ saiu do plano e virou código na v1.4.1), `docs/FONTE-DE-DADOS-LOUVORJA.md` (hin
 o que nunca é, por que o uso próprio sai por construção, e a MEDIÇÃO ainda
 pendente de que o farol depende), `docs/HISTORICO.md`
 (**apêndice**: a nota de cada versão, para consultar por `grep`, nunca por
-leitura integral) e `docs/AUDITORIA-2026-08.md` (**apêndice**: a varredura de
+leitura integral), `docs/AUDITORIA-2026-08.md` (**apêndice**: a varredura de
 ~60.000 linhas da v1.4, com os 75 achados, o método de refutação e os 26 que
-ficaram por aplicar — consultar por `grep`).
+ficaram por aplicar — consultar por `grep`) e
+`docs/AUDITORIA-ESTABILIDADE-AV.md` (**apêndice**: a varredura de 2026-08-29
+focada em ESTABILIDADE — o que pode interromper a transmissão ou a mídia no ar:
+dez achados, cada um com cenário, correção proposta e ressalva; um deles é
+MEDIÇÃO, não conserto).
 
 ---
 
@@ -195,6 +199,7 @@ docs/
 ├── TELAO-POR-COMANDOS.md        # o CONTRATO do telão por comandos — ler antes de mexer nele
 ├── FONTE-DE-DADOS-LOUVORJA.md   # referência do banco LouvorJA (hinos/Bíblia)
 ├── HISTORICO.md                 # APÊNDICE: as notas de todas as versões — usar por grep
+├── AUDITORIA-ESTABILIDADE-AV.md # APÊNDICE: o que pode INTERROMPER áudio/vídeo
 └── ESPELHO-DE-PIXELS.md         # ARQUIVO: recurso removido (v5.187); só §2.3, §2.4 e §10-A
 ```
 
@@ -325,6 +330,13 @@ celular fica no suporte.
   porque quem capta é o `/display/` dentro da janela) e se o Modo Fácil destrava
   (`simpleDisplay`). O que segue lendo a lista CRUA é o que descreve a CONEXÃO —
   o rótulo da folha, o `applyPreviewAspect`, o Registro.
+- **E AS TELAS DA REDE TÊM O IRMÃO DISSO** (v1.4.19): `telasDaRede()` exige
+  `pronta` — o `__de` do `display-ready` tendo voltado, isto é, o `/display/`
+  daquela tela subiu e se anunciou. Entre o `POST /par` (que já cria a sessão e
+  o fio) e esse anúncio a tela não projeta nada, e sem TV a tela É a projeção:
+  o celular ficava mudo com ninguém tocando do outro lado. **A janela do socket
+  MORTO continua aberta** e está dita — um navegador que dorme sem FIN segura o
+  mudo até a escrita falhar (o vigia corta em 20 s).
 - **A tela CONTINUA na lista**, e é isso que separa o campo de um filtro: *"não
   há TV"* e *"a TV está aí e o telão não subiu"* pedem frases diferentes, e a
   segunda é a única das duas que diz o que está acontecendo.
@@ -876,6 +888,25 @@ Pontos cobertos: `syncGroup`, `syncCollection`, `ensureSongDownloaded`,
 `syncDeviceFolder` (o único que chama `bgWorkBegin`/`bgWorkEnd` direto). No
 navegador é tudo no-op.
 
+**E AS ROTINAS DE ACERVO CEDEM A VEZ AO QUE ESTÁ NO AR** (v1.4.19,
+`rotinaDeAcervoPodeCorrer`). `syncLyrics` e `syncCifrasAcervo` saem da abertura
+SEM `await`, então correm juntas: `NET_CONCURRENCY` é 6, e são até **12
+requisições concorrentes** a dois hosts de terceiros sobre o acervo inteiro
+(MEDIDO: 309 + 145 hinos numa passada). O único freio era rede móvel — nada
+consultava a cena. **Isso é estabilidade, não desempenho:** o uso normal é abrir
+o app minutos antes do culto e tocar o primeiro item, e nesse instante os
+fragmentos do MSE disputam a Wi-Fi da igreja com as 12 — justamente quando a
+MEDIDA DE BANDA que escolhe o degrau do louvor inteiro está sendo feita.
+
+- **A pergunta é `midiaNoAr`**, e ela é feita na PORTA das duas rotinas **e
+  dentro do laço**: a porta cobre "começar com cena no ar", o laço cobre o caso
+  NORMAL (o app abre vazio, a varredura parte, e só então o operador toca).
+- **CEDE A VEZ E SAI, não cede a vez e espera.** Esperar seguraria o
+  `withBgRotina` — e com ele o `SyncService`, cuja cota de `dataSync` é de 6 h em
+  24 h — parado por um culto inteiro sem baixar nada. Sair é seguro porque as
+  duas são RETOMÁVEIS por construção e porque quem as rearma já existe:
+  `autoRefreshCollections` roda na abertura **e em todo `visibilitychange`**.
+
 **E O CONTADOR RESPONDE A DUAS PERGUNTAS, que não são a mesma** (v1.2.28).
 `bgWorkCount` responde ao SISTEMA — *"o processo pode ser congelado?"* —, e para
 isso toda tarefa conta, rotina inclusive. Mas ele também responde
@@ -957,6 +988,33 @@ está em segundo plano"*):
   MESMA divisão do download: passa o acidente, **não** retenta 4xx (a URL
   expirada é conserto do `recuperarStream`, que a reconhece pela mensagem).
 
+- **NENHUM PEDIDO ESPERA PARA SEMPRE** (v1.4.19). Era o único ponto da cadeia
+  sem prazo NENHUM, e o desfecho que ele deixava passar é o pior desta projeção:
+  **a transmissão congelada sem nada acontecer** — sem erro, sem queda para o
+  download, com o cartão de espera aceso. O cenário não é uma queda, é uma
+  entrega que não termina; e o `readTimeout` do `StreamProxy` é **POR LEITURA**,
+  então um byte a cada 29 s nunca o dispara. Três camadas, e as três são
+  necessárias: o **prazo de parede por fragmento** no `mse.js` (`prazoDoPedido`
+  — PROPORCIONAL ao que foi pedido, porque um init de 800 B e um fragmento de
+  2,5 MB não têm o mesmo pior caso honesto; o erro nasce `retentavel` e alimenta
+  a escada de 4 tentativas que já existia), o **prazo TOTAL** no
+  `StreamProxy.readBytes`, e o **watchdog de fome** do `stage.js`
+  (`FOME_TETO_MS`, 25 s — maior que `ALVO_S` de propósito), que é a última
+  linha: passado ele, o que estava para chegar já não chega, e a cena vai para o
+  `onStreamErro` de sempre. **UMA vez por cena**: a queda para o download leva
+  segundos, e um segundo aviso no meio dela derrubaria a própria recuperação.
+  **O watchdog ATROPELA a escada de retentativas de propósito** — as duas medem
+  coisas diferentes: a escada mede a esperança da REDE, o teto mede o que a
+  congregação está VENDO, e 25 s de quadro congelado já é o desfecho ruim.
+  Durante a CARGA ele não arma (`streamComecou`): ali não há quadro congelado, e
+  a escada tem a paciência inteira dela.
+- **O DEGRAU ESCOLHIDO TEM DE SER DECODIFICÁVEL** (v1.4.19). `suportado` valida
+  o TOPO da escada e o áudio; os degraus não passavam por conferência nenhuma, e
+  o filtro do shell é "mp4 e não webm" — **mp4 hoje carrega AV1**.
+  `degrausUsaveis` pergunta `isTypeSupported` de cada um, com a pergunta
+  INJETADA (a função continua testável fora de um navegador com MediaSource) e
+  **falhando ABERTO**: uma pergunta que lança devolve a escada crua, que é o
+  comportamento de antes da regra.
 - **UM TRAVAMENTO NO MEIO TEM DE APARECER, e ser CONTADO.** O indicador de
   espera só existia na CARGA — do comando ao primeiro quadro —, e uma parada por
   falta de buffer no meio do louvor congelava o quadro sem nada na tela: **um
@@ -1629,10 +1687,11 @@ acrescentado sem a anotação passaria despercebido.
 #### As outras defesas do caminho de download
 
 - **Uma verificação por vez** (`checking`, `AtomicBoolean`). `checkAsync` roda em
-  todo `onCreate` e `android:configChanges` não cobre `fontScale` nem `locale`:
-  mudar o tamanho da fonte durante um download disparava um segundo `check()`
-  escrevendo nos MESMOS temporários — podia ativar um diretório INCOMPLETO. Os
-  temporários levam sufixo único por execução.
+  todo `onCreate`, e uma recriação de Activity continua possível (a v1.4.19
+  encheu o `android:configChanges`, o que a torna RARA — não impossível): uma
+  recriação durante um download disparava um segundo `check()` escrevendo nos
+  MESMOS temporários — podia ativar um diretório INCOMPLETO. Os temporários
+  levam sufixo único por execução.
 - **Host travado** (`github.com`, `objects.githubusercontent.com`) e **`https`
   obrigatório**. Não dá autenticidade, mas impede que um campo alterado aponte o
   download para outro servidor — e esse JS rodaria no origin privilegiado.
@@ -3321,6 +3380,10 @@ mundo anterior por outro caminho.
 | `aba-sem-estalo.test.mjs` | **o ESTALO ao navegar entre as abas** — `setMute` é função de DECLARAR estado e o `load()` a reaplica a cada troca de aba, a cada redesenho da lista; a rampa de desmutar partia de ZERO, então cada reafirmação escrevia `volume 1 → 0 → 1` num `<video>` que estava tocando. Em JS o par é atômico e nada se ouve; no aparelho cada escrita atravessa o renderer até o `AudioRendererImpl` e o retorno de chamada do áudio roda a cada ~10 ms — caindo entre as duas ele rende um buffer em SILÊNCIO. Ele mede as ESCRITAS e não o som: o artefato é uma corrida com a thread de áudio (um teste do desfecho audível seria intermitente por construção) e o estado final é o mesmo nas duas versões. TRÊS metades: reafirmar não escreve degrau (a troca de aba **e** um `load()` avulso), a rampa parte de onde o volume está (o toque duplo no botão de mudo), e a transição de verdade continua rampando — sem esta última, esvaziar o `setMute` passaria nas outras duas |
 | `espera-do-stream.test.mjs` | **o travamento no meio da transmissão** — o giro só existia na CARGA, e uma parada por falta de buffer congelava o quadro sem nada na tela; um app quebrado produz a MESMA imagem. Quatro metades (aparece · não pisca · só no stream · é CONTADO) mais a que foi MEDIDA escrevendo o arquivo: um `MediaSource` nasce vazio e dispara `waiting` em toda transmissão, então contar a carga faria o número do Registro dizer "≥1 sempre" |
 | `degrau-de-banda.test.mjs` | **a escolha do degrau da transmissão** — a regra é PURA (banda medida + escada + duração → índice) e cada caso decide uma coisa: o topo com rede sobrando (senão a regra vira um jeito elaborado de projetar 480p numa igreja com fibra), o degrau QUE CABE com rede apertada (recuar demais é o mesmo defeito do outro lado, e ninguém reclamaria dele), o PISO em vez de uma recusa, a MARGEM (a medida sai do slow start e subestima), o ÁUDIO na conta, e a MONOTONIA — mais banda nunca devolve degrau pior, a propriedade que nenhum caso isolado pega |
+| `degrau-e-prazo.test.mjs` | **as duas regras PURAS que a v1.4.19 acrescentou ao `mse.js`**: QUAL degrau pode ser escolhido (o `suportado` validava só o TOPO da escada, e mp4 hoje carrega AV1) e QUANTO TEMPO se espera por um pedaço. A segunda tem uma propriedade RELATIVA e não um valor: no vencimento a taxa implícita já é no máximo um TERÇO da que aquele fragmento exige — o prazo nunca alcança uma transferência que ainda podia dar certo, e a régua é relativa porque o tamanho do fragmento escala com o degrau. A FALHA ABERTA tem asserção própria: uma pergunta que lança devolve a escada crua |
+| `fome-que-desiste.test.mjs` | **a transmissão faminta DESISTE.** O `AVStream.fome` era o único lugar do app que sabia que a projeção estava parada — e só escrevia no Registro. Cinco metades, e a que carrega o lote é *trocar de cena CANCELA*: o teto (25 s) é maior que uma cena inteira, e o aviso da mídia que SAIU chegaria em cima da que ENTROU. O **relógio é MOCKADO** (`page.clock`) — esperar 25 s quatro vezes daria um oráculo cuja reprovação sob carga não distinguiria defeito de agendador. MEDIDO escrevendo o arquivo: `fastForward` não reprocessa o temporizador que o callback agenda no meio do salto, e o tempo tem de andar em FATIAS |
+| `stream-so-audio.test.mjs` | **o stream que não tem imagem.** Um `kind:'audio'` sem letra — o que o "Tocar agora · Só áudio" produz — não entrava em nenhum dos dois ramos que acendem o aviso e disparam a rampa (os dois pedem `!semVisual()`). A prova da rampa é a ESCRITA de um volume intermediário: um teste do valor FINAL passa nas duas versões, porque nos dois o volume termina em 1. A terceira metade (o ARQUIVO local continua como era) impede a correção de virar um segundo dono da mesma rampa |
+| `rotina-cede-a-vez.test.mjs` | **a varredura de acervo cede a vez ao que está no ar.** Duas naturezas de asserção, e a segunda é declarada: o COMPORTAMENTO (com cena no ar nenhuma das duas abre tarefa) e a FORMA (o gate nos cinco pontos), porque o ponto que mais importa — o de DENTRO do `runLimited`, que cobre o caso normal do culto — é inalcançável sem semear um acervo inteiro |
 | `registro-alcance.test.mjs` | **a MEDIÇÃO DE ALCANCE**, um dos dois que rodam sobre o `site/`. Duas coisas falham CALADAS ali. Um gráfico que desenha todos os valores iguais: `.barra-c`/`.barra-f` eram `<span>`, que é INLINE, e `width` não faz nada num elemento inline — 12, 5, 3 e 1 saíam idênticos, sem erro em lugar nenhum (provado por REVERSÃO). E o ROTEAMENTO do farol de visita, que é o requisito inteiro: se ele parar, os números continuam subindo e passam a incluir quem mede — **e contador não se corrige depois** |
 | `plataforma.test.mjs` | **o FILTRO DE PLATAFORMA da página**: o `.apk` só instala em Android, então quem chega de iPhone, iPad ou computador não vê o guia de instalação — vê a frase que diz que este é um app Android e que a página deve ser aberta por um. Falha CALADO nos dois sentidos: de MENOS, o download volta a aparecer num iPhone e a pessoa conclui que o app está quebrado (ninguém relata isso); de MAIS — o caro —, a classificação recusa um Android de verdade e o que sai é uma página que abre, rola e não oferece nada. Daí o desenho FALHAR ABERTO (sem classe no `<html>` nada é escondido) e essa propriedade ter asserção própria: um desenho fail-CLOSED deixa a suíte inteira verde e reprova só ali. `userAgent` VERBATIM, **o iPad entre eles sem código próprio** — o iPadOS 13+ se anuncia como Macintosh e cai no lado certo por construção, então a asserção guarda a PROPRIEDADE e não o mecanismo |
 
@@ -3750,7 +3813,7 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: v1.4.19** (base web) · **v1.4.5** (APK) · `SHELL_VERSION` **60** · bundle com
+**Versão atual: v1.4.20** (base web) · **v1.4.19** (APK) · `SHELL_VERSION` **60** · bundle com
 `minShell: 60` — o shell 60 é o **PISO**: todo método da ponte existe, e não há
 guarda de versão no lado web. O que continua valendo é que `java/`, `res/`, o
 manifest e os workflows **só chegam instalando o APK**.

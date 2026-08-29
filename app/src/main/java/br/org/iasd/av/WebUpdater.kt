@@ -135,9 +135,10 @@ object WebUpdater {
     )
 
     /**
-     * Uma verificação por vez. `checkAsync` roda em todo `onCreate`, e o
-     * `android:configChanges` do manifesto não cobre `fontScale` nem `locale`:
-     * mudar o tamanho da fonte ou o idioma durante um download disparava um
+     * Uma verificação por vez. `checkAsync` roda em todo `onCreate`, e uma
+     * recriação de Activity continua possível (a v1.4.19 encheu o
+     * `android:configChanges` do manifesto, o que a torna RARA — não
+     * impossível): uma recriação durante um download disparava um
      * segundo `check()` em paralelo ao primeiro. As duas execuções escreviam
      * nos MESMOS caminhos temporários — uma apagava o staging que a outra
      * estava extraindo, e podia sair um diretório INCOMPLETO ativado como

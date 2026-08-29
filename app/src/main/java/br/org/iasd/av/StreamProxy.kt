@@ -86,6 +86,34 @@ object StreamProxy {
     private const val LE_MS = 30_000
 
     /**
+     * O PRAZO TOTAL DE UM PEDAÇO — o que [LE_MS] não cobre (v1.4.19).
+     *
+     * `readTimeout` é **por leitura**: ele mede o intervalo entre dois bytes,
+     * não a duração da entrega. Um CDN que goteja — um punhado de bytes a cada
+     * vinte e poucos segundos, que é o desfecho típico de uma Wi-Fi saturada ou
+     * de um aparelho em economia de energia — nunca o dispara, e o
+     * [InputStream.readBytes] abaixo fica lendo por minutos.
+     *
+     * Do outro lado disso está a projeção congelada: o `mse.js` espera este
+     * `fetch`, o buffer drena e não há erro nenhum para o dono da cena tratar.
+     * Estourado o prazo, a leitura vira `IOException`, o [tryHandle] a
+     * transforma num **502 com texto** — e 5xx é retentável no `mse.js`, que
+     * repete o pedaço em vez de derrubar a transmissão.
+     *
+     * O valor é folgado de propósito: 90 s para um pedaço que nunca passa de
+     * alguns MB dá uma taxa efetiva menor que a do degrau mais baixo que este
+     * app transmite. Quando ele vence, o fragmento já estava perdido.
+     *
+     * **A CONFERÊNCIA É POR BLOCO, então o corte real pode passar do valor.**
+     * `read` bloqueia até [LE_MS], e um fluxo que entregue um bloco a cada 29 s
+     * só é reprovado na volta seguinte — o pior caso é uma leitura a mais.
+     * Apertar isso exigiria uma thread de vigia por requisição, e o que se
+     * ganharia são segundos num caminho que já tem o prazo de parede do
+     * `mse.js` do outro lado.
+     */
+    private const val PEDACO_MS = 90_000L
+
+    /**
      * Token opaco → URL do googlevideo.
      *
      * As mesmas três razões do `SafRegistry`, e uma quarta que só existe aqui:
@@ -498,6 +526,10 @@ object StreamProxy {
     private fun InputStream.readBytes(limite: Int): ByteArray {
         val saida = java.io.ByteArrayOutputStream()
         val buf = ByteArray(64 * 1024)
+        // O relógio de PAREDE do pedaço — ver [PEDACO_MS]. `elapsedRealtime`
+        // e não `currentTimeMillis`: um acerto de relógio do sistema no meio de
+        // um culto não pode vencer (nem zerar) o prazo de um fragmento.
+        val ateMs = android.os.SystemClock.elapsedRealtime() + PEDACO_MS
         while (true) {
             val n = read(buf)
             if (n < 0) break
@@ -505,6 +537,15 @@ object StreamProxy {
                 throw java.io.IOException("pedaço acima de ${limite / (1024 * 1024)} MB")
             }
             saida.write(buf, 0, n)
+            // A CONFERÊNCIA VEM DEPOIS DA ESCRITA, não antes: um pedaço que
+            // chegou inteiro no último instante é um pedaço que chegou, e
+            // recusá-lo por meio segundo de relógio seria inventar uma falha.
+            if (android.os.SystemClock.elapsedRealtime() > ateMs) {
+                throw java.io.IOException(
+                    "o pedaço não chegou em ${PEDACO_MS / 1000} s " +
+                        "(chegaram ${saida.size()} bytes)",
+                )
+            }
         }
         return saida.toByteArray()
     }

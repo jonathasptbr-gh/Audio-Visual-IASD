@@ -143,13 +143,43 @@
         android:supportsRtl="false"
         android:theme="@style/Theme.AvIasd">
 
+        <!--
+          ===== A LISTA DE `configChanges` É O QUE MANTÉM A PROJEÇÃO DE PÉ =====
+
+          Tudo que NÃO estiver aqui RECRIA a Activity, e o `onDestroy` derruba, em
+          ordem: o `SessionService`, a `Presentation` (o telão) e os dois WebViews.
+          Projeção e áudio caem e voltam segundos depois — pelo caminho de
+          reconexão, que funciona, mas na frente da congregação.
+
+          Até a v1.4.18 faltavam sete chaves, e o código JÁ SABIA disso: a guarda
+          `!isChangingConfigurations` do `onDestroy` existe exatamente porque mudar
+          o tamanho da fonte recria esta tela. Só o espelho tinha sido protegido.
+
+          O que cada uma cobre, e por que ela importa NESTE app:
+
+            keyboard, navigation  um teclado/controle Bluetooth conectando ou
+                                  dormindo — o page-turner de quem opera é isso
+            fontScale,            tamanho de fonte e "texto em negrito" do sistema
+            fontWeightAdjustment
+            locale,               idioma
+            layoutDirection
+            colorMode             faixa dinâmica/gamut: muda com dongle e com HDR
+            touchscreen, mcc,     raros, mas de graça
+            mnc
+
+          NUM APP QUE É UMA CASCA DE WEBVIEW, NÃO REAGIR A NENHUMA DELAS É O
+          COMPORTAMENTO DESEJADO: o WebView refaz o layout sozinho. O preço está
+          dito — com `fontScale` aqui, o texto do app deixa de acompanhar a
+          preferência de acessibilidade do sistema sem uma recarga. Numa mesa de
+          comando cuja saída é um telão, é o troco certo.
+        -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
             android:label="@string/app_name"
             android:launchMode="singleTask"
             android:screenOrientation="portrait"
-            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|uiMode|density"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|keyboard|navigation|touchscreen|uiMode|density|fontScale|fontWeightAdjustment|locale|layoutDirection|colorMode|mcc|mnc"
             android:windowSoftInputMode="adjustResize">
 
             <intent-filter>
