@@ -258,7 +258,7 @@ const appVersionEl = document.getElementById('appVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.4.19';
+const WEB_VERSION = '1.4.20';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -17321,6 +17321,38 @@ function pintarPvBusyCancelar() {
   pvBusyCancelEl.hidden = !pvBusyCancelar;
 }
 
+// ===== O ÍCONE DO CARTÃO SEGUE A LEGENDA (v1.4.19) =====
+//
+// Pedido do operador, sobre o cartão de um link do YouTube: *"seu ícone segue
+// sendo um ícone de download, enquanto que deveria ser só o spinner, sem um
+// ícone de download nesse tipo de preparação, já que não está realmente baixando
+// algo, para diferenciar do download em si"*.
+//
+// O `.dl-ring` são DOIS desenhos: o aro que gira e a SETA parada. O aro diz
+// "espere"; a seta diz "bytes chegando" — e só uma delas era verdade numa
+// PREPARAÇÃO. Preparar é a extração de um link, a montagem de uma playlist, a
+// rasterização de um PDF **e a própria fase pré-bytes de um download**, que
+// nasce em "Preparando vídeo" e só vira "Baixando vídeo · 12%" no primeiro
+// progresso (ver `ytBaixarNativo`). Nos três primeiros a seta prometia o que não
+// estava acontecendo; no quarto ela chegava cedo demais.
+//
+// **A REGRA É "O ÍCONE SEGUE A LEGENDA"**, e não uma bandeira a mais na
+// assinatura. A legenda já carrega essa distinção na tela, em português, e é
+// escrita em DOIS pontos (a criação do cartão e o `atualizar` do progresso) —
+// derivá-la ali faz o desenho e a palavra nunca discordarem, que é o defeito
+// que este pedido nomeia. O teste é pelo começo da palavra porque as legendas de
+// download são quatro e todas dele: "Baixando", "Baixando a letra", "Baixando
+// vídeo · N%", "Baixando áudio · N%".
+//
+// **E ele falha para o lado certo:** uma legenda nova escrita de outro jeito
+// perde a seta e vira um spinner puro — nunca o contrário. Um cartão que
+// promete download sem download é a queixa; um que não promete é apenas menos
+// específico.
+const CARTAO_BAIXANDO = /^\s*baixando/i;
+function pintarSetaDoCartao(acao) {
+  pvBusyEl.classList.toggle('sem-seta', !CARTAO_BAIXANDO.test(String(acao || '')));
+}
+
 function previewBusy(acao, nome, aoCancelar) {
   // No simplificado a preview só está na tela com um telão conectado (ver
   // hostPreview/`.simple.sem-tela`); bloqueado, quem avisa continua sendo o
@@ -17348,6 +17380,7 @@ function previewBusy(acao, nome, aoCancelar) {
   // opostas.
   pvBusyEl.classList.remove('falhou', 'avisou');
   pvBusyCapEl.textContent = acao;
+  pintarSetaDoCartao(acao);
   pvBusyLabelEl.textContent = nome;
   // O botão segue o ÚLTIMO a escrever, exatamente como a legenda — inclusive
   // quando o novo dono NÃO sabe cancelar (um hino baixando por cima de um vídeo
@@ -17434,6 +17467,10 @@ function previewBusy(acao, nome, aoCancelar) {
     atualizar(acaoNova, nomeNovo) {
       if (solto) return;
       pvBusyCapEl.textContent = acaoNova;
+      // A SETA ACENDE AQUI, e é este ponto que a torna honesta: é o primeiro
+      // progresso de um download que troca "Preparando vídeo" por "Baixando
+      // vídeo · N%". Antes dele não havia byte nenhum.
+      pintarSetaDoCartao(acaoNova);
       if (nomeNovo != null) pvBusyLabelEl.textContent = nomeNovo;
     },
     // Contado, e não um booleano: o operador pode disparar dois downloads

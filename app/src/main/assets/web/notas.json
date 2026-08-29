@@ -1,5 +1,11 @@
 [
   {
+    "versao": "1.4.20",
+    "itens": [
+      "O aviso de preparação deixou de mostrar o ícone de download."
+    ]
+  },
+  {
     "versao": "1.4.19",
     "itens": [
       "A transmissão do YouTube deixou de congelar sem avisar quando a rede para.",

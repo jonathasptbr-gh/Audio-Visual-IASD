@@ -985,7 +985,13 @@ body {
    desenho para os dois lugares em que se espera um download disparado por toque
    (miniatura da preview e miniatura da linha): dois spinners para a mesma
    espera fariam perguntar se são coisas diferentes. Tamanho por `--dl-ring`,
-   escrito por quem o hospeda. */
+   escrito por quem o hospeda.
+
+   E SÃO DOIS DESENHOS, não um (v1.4.19): o aro (`::before`) diz "espere" e a
+   seta (`svg`) diz "bytes chegando". No cartão da preview a segunda é
+   CONDICIONAL — ver `.pv-busy.sem-seta`, mais abaixo —, porque nem toda espera
+   ali é um download. Na miniatura da LINHA ela não é: aquele indicador só
+   acende quando há download de verdade (`ensureSongDownloaded`). */
 .dl-ring {
   position: relative; flex-shrink: 0;
   width: var(--dl-ring, 28px); height: var(--dl-ring, 28px);
@@ -1034,6 +1040,18 @@ body {
 .pv-busy.avisou .pv-busy-cap { color: var(--warn-text); }
 .pv-busy.falhou .dl-ring,
 .pv-busy.avisou .dl-ring { display: none; }
+/* SEM SETA QUANDO NADA ESTÁ SENDO BAIXADO (v1.4.19). Pedido do operador: *"seu
+   ícone segue sendo um ícone de download, enquanto que deveria ser só o
+   spinner… já que não está realmente baixando algo, para diferenciar do
+   download em si"*.
+   O `.dl-ring` é DOIS desenhos — o aro que gira (`::before`) e a seta parada
+   (`svg`) —, e só a segunda afirma "bytes chegando". Numa PREPARAÇÃO (a
+   extração de um link, a montagem de uma playlist, a rasterização de um PDF, e
+   a própria fase pré-bytes de um download) ela promete o que não está
+   acontecendo. O que sai é a seta; o aro fica, porque a espera continua sendo
+   verdade. Quem decide é `pintarSetaDoCartao`, no `controle.js`: o ícone segue
+   a LEGENDA, e assim os dois nunca dizem coisas diferentes. */
+.pv-busy.sem-seta .dl-ring svg { display: none; }
 /* Duas linhas no máximo: a miniatura tem ~150px de altura, e o nome de um hino
    longo tomaria a caixa inteira. */
 .pv-busy-label {

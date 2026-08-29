@@ -189,6 +189,67 @@ try {
     'e uma falha SOZINHA continua no ar pelo prazo de leitura',
     sozinho);
 
+  // ======================================================================
+  // O ÍCONE DO CARTÃO SEGUE A LEGENDA (v1.4.19)
+  // ======================================================================
+  //
+  // Pedido do operador, sobre o cartão de um link do YouTube: *"seu ícone segue
+  // sendo um ícone de download, enquanto que deveria ser só o spinner, sem um
+  // ícone de download nesse tipo de preparação, já que não está realmente
+  // baixando algo, para diferenciar do download em si"*.
+  //
+  // O `.dl-ring` são DOIS desenhos: o aro que gira e a SETA parada. O aro diz
+  // "espere"; a seta diz "bytes chegando" — e só uma delas era verdade numa
+  // PREPARAÇÃO.
+  //
+  // A asserção mede o RENDERIZADO (`getClientRects`), não a classe: a classe
+  // sem a regra de CSS passaria num teste de classe e continuaria desenhando a
+  // seta na tela do operador, que é exatamente o que ele relatou.
+  const iconeDo = (acao, depois) => pg.evaluate(([a, d]) => {
+    const c = previewBusy(a, 'Um nome qualquer');
+    if (d) c.atualizar(d);
+    const el = document.getElementById('pvBusy');
+    el.classList.add('on');   // o cartão só acende depois do respiro de entrada
+    const svg = el.querySelector('.dl-ring svg');
+    const aro = el.querySelector('.dl-ring');
+    const r = {
+      cap: document.getElementById('pvBusyCap').textContent,
+      seta: !!(svg && svg.getClientRects().length),
+      aro: !!(aro && aro.getClientRects().length),
+    };
+    c.soltar();
+    el.classList.remove('on');
+    return r;
+  }, [acao, depois || null]);
+
+  // AS PREPARAÇÕES: a extração de um link, a montagem de uma playlist, e a
+  // própria fase pré-bytes de um download (que nasce em "Preparando vídeo").
+  const semSeta = [];
+  for (const [acao, depois] of [['Preparando', null], ['Preparando vídeo', null],
+    ['Preparando apresentação', null], ['Montando', null]]) {
+    semSeta.push(await iconeDo(acao, depois));
+  }
+  checar(semSeta.every((r) => !r.seta),
+    '[relato] numa PREPARAÇÃO o cartão não desenha a seta de download',
+    semSeta.map((r) => r.cap + (r.seta ? ' ← SETA' : '')));
+  checar(semSeta.every((r) => r.aro),
+    'e o aro FICA: a espera continua sendo verdade, e sem ele o cartão vira '
+    + 'texto parado', semSeta.map((r) => r.cap + (r.aro ? '' : ' ← SEM ARO')));
+
+  // OS DOWNLOADS DE VERDADE, incluindo o que COMEÇA como preparação e vira
+  // download no primeiro progresso — sem esta metade, apagar a seta de todo
+  // cartão passaria na primeira e o desenho perderia a distinção que o pedido
+  // existe para criar.
+  const comSeta = [];
+  for (const [acao, depois] of [['Baixando', null], ['Baixando a letra', null],
+    ['Preparando vídeo', 'Baixando vídeo · 37%']]) {
+    comSeta.push(await iconeDo(acao, depois));
+  }
+  checar(comSeta.every((r) => r.seta),
+    'e num DOWNLOAD ela aparece — inclusive no que começa como "Preparando '
+    + 'vídeo" e vira "Baixando vídeo · N%" no primeiro progresso',
+    comSeta.map((r) => r.cap + (r.seta ? '' : ' ← SEM SETA')));
+
   checar(erros.length === 0, 'nenhum erro de console/pagina', erros);
 } finally {
   await navegador.close();
