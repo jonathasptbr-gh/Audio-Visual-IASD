@@ -24,6 +24,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
+- **v1.4.15** — O PROVAI E VEDE ENTROU NA REGRA DO QUE AINDA NÃO SAIU. Pedido do operador, depois de a v1.4.14 nomear a causa da recusa: *"acredito que possa ser por o vídeo ainda não estar liberado, e ir liberando uma semana de cada vez, então ajuste para que tenha o mesmo filtro e organização do informativo mundial das missões. no caso a lista só vai até o sábado da semana atual"*. Uma linha do catálogo: `futuros: FUTUROS_MOSTRAR` → `FUTUROS_ESCONDER`. **A MEDIÇÃO QUE O MANTINHA DE FORA ESTAVA ERRADA**, e isso é o que este lote de fato corrige: ela dizia *"em 15/ago já tinha até 26/set, e aqueles episódios TOCAM"* — a primeira metade era verdade, a segunda **nunca foi verificada**. O que se olhou foi a LISTA, não a reprodução, e o campo desmentiu: `ContentNotAvailableException` num episódio de 22/Set. O erro de método vale mais que o defeito: *uma playlist que mostra um item não prova que ele toca, e as duas perguntas se parecem o bastante para uma responder pela outra*. **O CAMPO FICA, embora hoje os dois valores sejam iguais** — ele separa a política do mecanismo, e um canal que um dia publique de verdade o mês inteiro volta a `mostrar` numa linha; o oráculo passou a provar o MECANISMO com uma série SINTÉTICA (os dois valores sobre a mesma entrada, no mesmo dia) em vez de fixar os valores que o catálogo tem hoje, que mudam quando um canal muda. **E o `boot-nativo` ganhou a metade que faltava**: a ligação entre o campo e o provedor de coleção nunca tinha sido afirmada para esta série, e o relógio congelado do bloco do corte passou de 10/Jul para 26/Jul — em 10/Jul os três episódios do stub estão no futuro, a lista nasce vazia e a espera da varredura não volta nunca. As datas do stub passaram a sustentar peso, e está escrito onde. Quatro asserções novas, com a que FECHA (passado o sábado dele, o episódio VOLTA à lista — sem ela as outras aprovariam uma lista que só encolhe), provadas por reversão. OTA PURO.
 - **v1.4.14** — UM VÍDEO QUE NÃO TOCA DEIXOU DE FALHAR EM SILÊNCIO. Relato do operador, num episódio de série: *"ele carrega um tempo, mas ele não toca nada e nem dá nenhuma mensagem de erro nem nada"*. REPRODUZIDO em arnês: o caminho da BUSCA falava pelo cartão da preview (`previewBusy(…).falhar`) e o do ITEM DE LINK não — a única saída era o `notaNoItem`, que escreve na LINHA do item. **E a linha some justamente neste caso:** um episódio de série mora dentro do álbum, e o "Tocar agora" FECHA a Biblioteca antes de começar, então a nota ia para um lugar que já tinha saído da tela. A assimetria era o defeito, e o cartão é a régua de sempre — o aviso mora onde o resultado ia aparecer, e ele ia para a projeção. **E A CAUSA passou a ser dita:** o Registro do campo trouxe `extração falhou: ContentNotAvailableException` nas duas linhas enquanto o app dizia a frase genérica, e *"não foi possível baixar"* × *"este vídeo não está disponível"* mandam fazer coisas OPOSTAS (tentar de novo × escolher outro). `motivoDaRecusa` lê o `ytDiag()` e procura a marca; é acoplamento a uma string do Kotlin e por isso ele **só ESPECIALIZA** — não achando, a genérica vale como sempre, e o dia em que o nome da exceção mudar isto volta ao comportamento de hoje, nunca a uma afirmação errada. Vale nos DOIS caminhos, senão o mesmo vídeo conta duas histórias conforme onde foi tocado; a janela de antecedência da série continua vencendo as duas, porque é a única que diz o que fazer. Três asserções novas, provadas por reversão nas três frentes (sem cartão; sem a causa; a causa invadindo o caso genérico). OTA PURO.
 - **v1.4.13** — O REGISTRO PASSOU A CONTAR, E NÃO SÓ A DESCREVER A ÚLTIMA VEZ. Pedido do operador depois que a terceira medição derrubou a segunda: *"adicione esse contador ao registro"*. O bloco da transmissão guardava a ÚLTIMA extração e só ela — responde *"o que aconteceu da última vez?"* e nunca *"com que frequência?"*, que é a pergunta de uma falha INTERMITENTE. MEDIDO: três Registros da mesma semana deram três respostas (duas extrações degeneradas em 360p, uma com o visionOS entregando 19 faixas e 1080p no ar), e a leitura que saiu delas — *"é sempre"* — foi uma generalização de duas amostras que a terceira derrubou. O `ytCenso` é a forma do `AVStream.fome` aplicada a este caminho: contadores de sessão, sem log e sem disco, em duas linhas novas (`nesta sessão: N pedido(s) · N transmitiu(ram) · N caiu(ram) no download` e `e N× a projeção saiu em qualidade limitada (a menor: Xp)`). Três decisões, e as três provadas por reversão: **o pedido conta no ponto em que o shell é PERGUNTADO** e não na entrada da função (acima dela há recusas que nunca extraem nada, e contá-las inflaria o denominador com o que não foi tentado); **a qualidade limitada é contada À PARTE**, porque um pedido pode transmitir e ainda assim sair abaixo do pedido; e ele **guarda o MENOR valor, não o último**. A primeira asserção não existia na primeira escrita — a reversão que movia o contador para a entrada passava —, e o caso que a fecha é um alvo SEM URL, que recua antes de perguntar. CONTADOR E NÃO LOG: guardar quais vídeos responderia mais e custaria tamanho, privacidade do que se copia e uma segunda fonte de verdade. OTA PURO.
 - **v1.4.12** — AS NOVIDADES VIRARAM TÓPICOS. Pedido do operador: *"está muito texto e muito agressivo. Use apenas tópicos e não precisa entrar em detalhes… a intenção desses textos não é explicar os problemas, mas nomear eles o suficiente para o usuário entender o que foi atacado naquela atualização, e não exatamente o COMO"*. As 29 versões do `notas.json` foram reescritas: **99 itens e 24,3 kB viraram 80 e 6,8 kB**, com a média de 220 caracteres por item caindo para 55 — e o arquivo viaja em TODO bundle do OTA. Três regras, e a terceira é a que o pedido nomeia: NOMEIA, não explica (o mecanismo e a medição vão para este arquivo, que é onde alguém os procura); UMA LINHA CURTA; e SEM CAIXA ALTA de ênfase — ela era o abre de todo item (*"O APP AGORA AVISA QUE…"*) e numa lista de seis é a tela gritando. **O CI passou a cobrar as duas que são mecânicas** (teto de 120 caracteres, no máximo uma palavra em caixa alta), porque uma regra só na prosa erode item a item e ninguém percebe até o arquivo estar em 24 kB de novo. MEDIDO no diálogo real: um tópico de ~55 chars ocupa 2 linhas a 430px e 3 a 320px, então o `OTA_MAX_LINHAS` de 6 continua descrevendo o que descrevia. OTA PURO.
@@ -285,6 +286,104 @@ na nota que a revoga, não apagada da que a criou.
 - **v5.154** — é METADE OTA e METADE APK, e a divisão importa para quem for testar em aparelho.
 - **v5.155** — é OTA PURO
 - **v5.156** — é METADE OTA e METADE APK, de novo.
+
+---
+
+## v1.4.15 — o Provai e Vede entrou na regra do que ainda não saiu
+
+> *"acredito que possa ser por o vídeo ainda não estar liberado, e ir liberando
+> uma semana de cada vez, então ajuste para que tenha o mesmo filtro e
+> organização do informativo mundial das missões. no caso a lista só vai até o
+> sábado da semana atual."*
+
+### A mudança é uma linha; o que ela corrige é uma medição
+
+```diff
+-      futuros: FUTUROS_MOSTRAR,
++      futuros: FUTUROS_ESCONDER,
+```
+
+O campo existe desde a v5.255 e o Provai e Vede ficou de fora dele por uma
+medição escrita no próprio catálogo:
+
+> *"A playlist do mês só traz o que já saiu — nada a esconder, e a medição é do
+> registro do aparelho: em 15 de agosto ela tinha até 26 de setembro, e aqueles
+> episódios TOCAM."*
+
+**A primeira metade era verdade. A segunda nunca foi verificada.** O que se
+olhou foi a LISTA — os episódios estavam lá, com título, miniatura e duração —,
+e daí se concluiu que tocavam. O campo desmentiu em 29/08/2026: o operador toca
+um episódio de 22/Set e o Registro devolve, nas duas linhas,
+
+```
+extração falhou: ContentNotAvailableException
+```
+
+que é exatamente o que a v1.4.14 tinha acabado de ensinar o app a dizer. Sem
+aquela frase, este lote não existiria: o sintoma anterior era a espera que
+terminava em nada.
+
+**O erro de método vale mais que o defeito:** *uma playlist que mostra um item
+não prova que ele toca*, e as duas perguntas se parecem o bastante para uma
+responder pela outra. O item de um vídeo restrito chega do extrator idêntico ao
+de um liberado — foi por isso que a v5.255 escolheu a DATA como régua, e é a
+mesma razão que agora vale para os dois canais.
+
+### O campo fica, embora hoje os dois valores sejam iguais
+
+Ele separa a POLÍTICA do MECANISMO. Um canal que um dia publique de verdade o
+mês inteiro volta a `FUTUROS_MOSTRAR` numa linha, sem tocar na regra — e o
+inverso (apagar o campo agora que os dois concordam) obrigaria a reescrevê-lo
+naquele dia, contra um código que já teria esquecido por que ele existia.
+
+O oráculo mudou de alvo por causa disso. Ele afirmava os VALORES do catálogo:
+
+- **antes** — "a lista de setembro tem N itens", que é uma asserção sobre a
+  política de hoje e reprova sozinha no dia em que ela mudar;
+- **agora** — `pvSetembro.length === 0` para a política corrente, e o MECANISMO
+  provado com uma série SINTÉTICA: a mesma entrada, no mesmo dia, com
+  `FUTUROS_MOSTRAR` de um lado e `FUTUROS_ESCONDER` do outro. É o campo que
+  decide, e é isso que se mede.
+
+### E o `boot-nativo` ganhou a metade que faltava
+
+A regra pura sempre teve oráculo. O que ninguém tinha afirmado é que o
+`futuros` **daquela série** chega ao provedor de coleção — e essa metade falha
+calada: o campo mora no catálogo, e um catálogo que o web nunca consultasse
+devolveria a lista inteira sem erro em lugar nenhum.
+
+O bloco do corte já existia para o Informativo, com relógio congelado. Ele
+passou de **10/Jul** para **26/Jul/2026**, e a troca não é cosmética:
+
+| clock | Provai e Vede | Informativo |
+|---|---|---|
+| 10/Jul | *(vazio — 25/Jul, 01 e 08/Ago são todos futuro)* | 04/Jul, 07/Fev, especial |
+| 26/Jul | 25/Jul, 01/Ago · **08/Ago fora** | 04/Jul, 07/Fev, especial |
+
+Em 10/Jul a lista da série nasce VAZIA, e a espera da varredura — que exige
+índice não vencido, o que começa por `songs.length` — **não volta nunca**. As
+datas do stub passaram a sustentar peso, e o comentário do relógio diz isso.
+
+Em 26/Jul as duas séries têm conteúdo **e** o corte está à vista, então a
+mudança compra uma prova de ponta a ponta no mesmo lugar em que custou uma
+correção. Quatro asserções novas, com a que FECHA — passado o sábado dele, o
+episódio **volta** à lista —, sem a qual as outras três aprovariam uma lista que
+só encolhe. Provadas por reversão: com `FUTUROS_MOSTRAR` de volta, a do 08/Ago
+reprova.
+
+O leitor daquele bloco passou a receber o ID da coleção em vez de conhecer só o
+Informativo. Um segundo leitor escrito à parte divergiria do primeiro no
+primeiro ajuste — é a razão do `mesDaPlaylist`, aplicada ao arnês.
+
+### O que este lote NÃO faz
+
+Ele não publica o que o canal não publicou. A **procura do episódio desta
+semana** (v1.2.22) continua sendo o que resgata a série quando o vídeo do sábado
+ainda não entrou no índice, e o `pvTem === false` daquele bloco continua
+medindo isso — esconder o que ainda não saiu e procurar o que já saiu são
+respostas a perguntas diferentes.
+
+**OTA PURO** — nada em `java/`, `res/`, manifest ou workflows.
 
 ---
 

@@ -1979,14 +1979,23 @@ ser diagnosticável.
   roda `fetchSerieIndex`, que só refaz a LISTA. O preço declarado é o episódio
   publicado SEM data no título — ele nunca satisfaz a pergunta, e a série é
   procurada a cada meia hora até a data entrar no título.
-- **O QUE AINDA NÃO SAIU NÃO ENTRA NA LISTA** (campo `futuros`). O @daniellocutor
-  sobe o trimestre inteiro e libera um por sábado; os que faltam aparecem na
-  playlist e **não tocam**. A régua é a DATA (único sinal deste lado — o item de
-  um vídeo restrito chega idêntico ao de um liberado), o corte é INCLUSIVO no dia
-  do culto, e vídeo SEM data nunca é escondido. **É campo e não regra global**: o
-  Provai e Vede libera o mês inteiro de uma vez (medido: em 15/ago já tinha até
-  26/set, e aqueles tocam). O DIA entra também na ASSINATURA das playlists,
-  senão a economia devolveria a lista de ontem no sábado de manhã.
+- **O QUE AINDA NÃO SAIU NÃO ENTRA NA LISTA** (campo `futuros`). **Os DOIS canais
+  fazem isso** — sobem o período inteiro e liberam um sábado por vez —, e os que
+  faltam aparecem na playlist e **não tocam**. A régua é a DATA (único sinal
+  deste lado — o item de um vídeo restrito chega idêntico ao de um liberado), o
+  corte é INCLUSIVO no dia do culto, e vídeo SEM data nunca é escondido. O DIA
+  entra também na ASSINATURA das playlists, senão a economia devolveria a lista
+  de ontem no sábado de manhã.
+  - **O Provai e Vede entrou na regra na v1.4.15, e a medição que o mantinha de
+    fora estava ERRADA.** Ela dizia *"em 15/ago já tinha até 26/set, e aqueles
+    tocam"*: a primeira metade era verdade, a segunda nunca foi verificada — o
+    que se olhou foi a LISTA, não a reprodução. O campo desmentiu (29/08/2026:
+    `ContentNotAvailableException` num episódio de 22/Set).
+  - **O campo FICA, embora hoje os dois valores sejam iguais.** Ele separa a
+    política do mecanismo; um canal que um dia publique de verdade o mês inteiro
+    volta a `mostrar` numa linha. O oráculo prova o MECANISMO com uma série
+    sintética (os dois valores sobre a mesma entrada), e não os valores que o
+    catálogo tem hoje — que mudam quando um canal muda.
 - **O NOME DO ITEM pode não sair do título do vídeo.** No Informativo o título é
   a série mais a data, e "o nome é o que vem antes da barra" daria 52 linhas
   idênticas. São DOIS modos, no campo `titulo` do catálogo:
@@ -3726,7 +3735,7 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: v1.4.14** (base web) · **v1.4.5** (APK) · `SHELL_VERSION` **60** · bundle com
+**Versão atual: v1.4.15** (base web) · **v1.4.5** (APK) · `SHELL_VERSION` **60** · bundle com
 `minShell: 60` — o shell 60 é o **PISO**: todo método da ponte existe, e não há
 guarda de versão no lado web. O que continua valendo é que `java/`, `res/`, o
 manifest e os workflows **só chegam instalando o APK**.

@@ -559,10 +559,20 @@ try {
     await semRedeExterna(ctxC);
     const pgC = await ctxC.newPage();
     try {
+      // DOMINGO 26/JUL/2026, e a data responde a DUAS exigências de uma vez.
+      //
       // ANTES do sábado de 15/Ago, que é um episódio que o stub JÁ tem — assim
       // o caso não precisa de um episódio futuro no stub, que ficaria no
       // passado com o tempo e mudaria as asserções da página principal.
-      await pgC.clock.install({ time: new Date('2026-07-10T12:00:00') });
+      //
+      // E DEPOIS de 25/Jul, o primeiro episódio do Provai e Vede (v1.4.15). Ela
+      // era 10/Jul, de quando aquela série MOSTRAVA o que ainda não saiu; hoje
+      // ela esconde, e em 10/Jul os três episódios do stub estão no futuro — a
+      // lista nasce VAZIA e a `esperarVarredura` acima não volta nunca. As datas
+      // do stub passaram a sustentar peso: em 26/Jul as duas séries têm conteúdo
+      // E o corte do Provai e Vede está à vista (25/Jul e 01/Ago dentro — este é
+      // o sábado DESTA semana —, 08/Ago fora).
+      await pgC.clock.install({ time: new Date('2026-07-26T12:00:00') });
       await pgC.addInitScript(PONTE);
       await pgC.goto(base + '/controle/', { waitUntil: 'domcontentloaded' });
       await pgC.waitForFunction(() => !!window.__avBack, null, { timeout: 25000 });
@@ -577,14 +587,26 @@ try {
       // ontem, sem o episódio de hoje, e carimbaria que ela é de hoje. É o
       // sintoma da v5.233 por outra porta, e apagar o índice aqui esconderia
       // exatamente isso.
-      const ler = async (limpar) => pgC.evaluate(async (zerar) => {
-        const c = allCollections().find((x) => x.id === 'serie-informativo-missoes-2026');
+      //
+      // POR ID desde a v1.4.15: o Provai e Vede passou a esconder o que o canal
+      // ainda não liberou, e até aqui este bloco media só o Informativo. Um
+      // segundo leitor escrito à parte divergiria do primeiro no primeiro ajuste
+      // — é a razão do `mesDaPlaylist`, aplicada ao arnês.
+      const ler = async (id, limpar) => pgC.evaluate(async ([cid, zerar]) => {
+        const c = allCollections().find((x) => x.id === cid);
         if (zerar) delete collState[c.id];
         await fetchCollectionIndex(c);
         const d = await AVDB.getState('serieDiag:' + c.id);
         return { itens: collSongs(c.id).map((s) => s.name), futuros: (d && d.futuros || []).length };
-      }, limpar);
-      const antes = await ler(true);
+      }, [id, limpar]);
+      const INFO = 'serie-informativo-missoes-2026';
+      const PV = 'serie-provai-vede-2026';
+      const antes = await ler(INFO, true);
+      // O PROVAI E VEDE NO MESMO DIA (v1.4.15). A regra pura tem oráculo próprio;
+      // o que só pode ser afirmado AQUI é que o `futuros` do catálogo daquela
+      // série chega ao provedor de coleção — o mesmo que a v5.255 afirmou para o
+      // Informativo, e que ninguém tinha afirmado para esta.
+      const pvAntes = await ler(PV, true);
       // A FRONTEIRA, medida no percurso inteiro e não só na regra pura. Ela é a
       // VIRADA DA SEMANA desde a v1.2.19: o sábado 08 ainda é a semana
       // anterior, o domingo 09 abre a do episódio de 15/Ago. A terça e a quarta
@@ -593,17 +615,22 @@ try {
       // operador comprou: num domingo a lista escondia o episódio que o
       // destaque do topo declarava o desta semana.
       await pgC.clock.setFixedTime(new Date('2026-08-08T12:00:00'));
-      const sabadoAntes = await ler(false);
+      const sabadoAntes = await ler(INFO, false);
       await pgC.clock.setFixedTime(new Date('2026-08-09T12:00:00'));
-      const noDomingo = await ler(false);
+      const noDomingo = await ler(INFO, false);
       await pgC.clock.setFixedTime(new Date('2026-08-11T12:00:00'));
-      const naTerca = await ler(false);
+      const naTerca = await ler(INFO, false);
       await pgC.clock.setFixedTime(new Date('2026-08-12T12:00:00'));
-      const naQuarta = await ler(false);
+      const naQuarta = await ler(INFO, false);
       // O PRÓPRIO SÁBADO do episódio: ele passa a existir, sozinho e sem toque
       // nenhum. É o corte INCLUSIVO, que é o que o operador descreveu.
       await pgC.clock.setFixedTime(new Date('2026-08-15T12:00:00'));
-      const noDia = await ler(false);
+      const noDia = await ler(INFO, false);
+      // E O PROVAI E VEDE DEPOIS DA VIRADA: em 15/Ago o episódio de 08/Ago já é
+      // passado e volta à lista. Sem esta segunda leitura a primeira provaria só
+      // que a lista é curta — e uma lista que nunca cresce é o defeito, não o
+      // recurso.
+      const pvNoDia = await ler(PV, false);
 
       // ===== A PROCURA DO EPISÓDIO DESTA SEMANA (v1.2.22) =====
       //
@@ -645,9 +672,10 @@ try {
         st.songs = guardadas;
         st.indexSyncedAt = agora;
 
-        // E O PROVAI E VEDE, que é a série SEM a regra do dia — a que podia
-        // passar o sábado inteiro sem o vídeo do culto. Em 15/Ago o stub dela
-        // tem 01 e 08/Ago: nenhum é desta semana (dom 09 a sáb 15).
+        // E O PROVAI E VEDE: em 15/Ago o stub dela tem 25/Jul, 01 e 08/Ago, e
+        // nenhum é desta semana (dom 09 a sáb 15). É o caso que a procura existe
+        // para resgatar, e a v1.4.15 não o desfez — esconder o que ainda não saiu
+        // não publica o episódio que o canal não publicou.
         const pv = allCollections().find((x) => x.id === 'serie-provai-vede-2026');
         const stPv = collState[pv.id] || {};
         const pvTem = (stPv.songs || []).length
@@ -662,11 +690,12 @@ try {
         { itens: (o.itens || []).map((n) => String(n).split(' · ')[0]) });
       return { antes: soData(antes), sabadoAntes: soData(sabadoAntes),
         noDomingo: soData(noDomingo), naTerca: soData(naTerca),
-        naQuarta: soData(naQuarta), noDia: soData(noDia), procura };
+        naQuarta: soData(naQuarta), noDia: soData(noDia),
+        pvAntes: soData(pvAntes), pvNoDia: soData(pvNoDia), procura };
     } finally { await pgC.close(); await ctxC.close(); }
   })();
   checar(!(corte.antes.itens || []).includes('15/Ago'),
-    'EM 10/JUL o episódio de 15/Ago NÃO chega à lista — ele ainda não foi liberado',
+    'EM 26/JUL o episódio de 15/Ago NÃO chega à lista — ele ainda não foi liberado',
     JSON.stringify(corte.antes.itens));
   checar((corte.antes.itens || []).includes('04/Jul'),
     'e os que já saíram continuam lá — o corte é uma data, não um apagador',
@@ -691,6 +720,32 @@ try {
   checar((corte.noDomingo.itens || []).includes('15/Ago'),
     '[relato] e no DOMINGO seguinte ele entra: a semana dele começou',
     JSON.stringify(corte.noDomingo.itens));
+
+  // ── E O MESMO CORTE NO PROVAI E VEDE (v1.4.15) ────────────────────────────
+  //
+  // Relato do operador: *"ajuste para que tenha o mesmo filtro e organização do
+  // informativo mundial das missões. no caso a lista só vai até o sábado da
+  // semana atual."* O canal libera um episódio por semana, e a lista mostrava
+  // até o fim do mês — um deles falhou em cena com `ContentNotAvailable`.
+  //
+  // A regra é a MESMA do Informativo e tem oráculo próprio; o que só pode ser
+  // afirmado aqui é a LIGAÇÃO, e ela falharia calada: o campo `futuros` mora no
+  // catálogo, e um catálogo que o web nunca consultasse devolveria a lista
+  // inteira sem erro em lugar nenhum.
+  checar(!(corte.pvAntes.itens || []).includes('08/Ago'),
+    'EM 26/JUL o episódio de 08/Ago do PROVAI E VEDE fica de fora — o canal ainda não o liberou',
+    JSON.stringify(corte.pvAntes.itens));
+  checar((corte.pvAntes.itens || []).includes('01/Ago'),
+    'e o sábado DESTA semana continua na lista, mesmo faltando seis dias: a janela é a semana, não a contagem',
+    JSON.stringify(corte.pvAntes.itens));
+  checar((corte.pvAntes.itens || []).includes('25/Jul'),
+    'e o que já saiu segue lá — aqui também o corte é uma data, não um apagador',
+    JSON.stringify(corte.pvAntes.itens));
+  // A METADE QUE FECHA: sem ela as três acima aprovariam uma lista que só
+  // encolhe. Em 15/Ago o 08/Ago já é passado, e ele TEM de voltar.
+  checar((corte.pvNoDia.itens || []).includes('08/Ago'),
+    'E PASSADO O SÁBADO DELE o episódio volta à lista do Provai e Vede',
+    JSON.stringify(corte.pvNoDia.itens));
 
   // ── A PROCURA DO EPISÓDIO DESTA SEMANA (v1.2.22) ──────────────────────────
   //
@@ -718,7 +773,8 @@ try {
     '[relato] mas a ABERTURA do app pergunta assim mesmo — é o piso que vale para as voltas ao app, não para abrir',
     corte.procura.naAbertura);
   checar(corte.procura.pvTem === false,
-    'e o PROVAI E VEDE, que não tem a regra do dia, é a série que a procura resgata: em 15/Ago ela não tem o episódio da semana',
+    'e o PROVAI E VEDE é a série que a procura resgata: em 15/Ago ela não tem o '
+    + 'episódio da semana — esconder o que ainda não saiu não publica o que o canal não publicou',
     corte.procura.pvTem);
 
   // ── O AVISO QUANDO O DOWNLOAD FALHA NA JANELA (v5.256) ─────────────────
@@ -744,7 +800,7 @@ try {
     // é síncrona do começo ao fim — nada roda entre ela e o `finally` —, então
     // nenhum outro caminho chega a ver o relógio de mentira.
     const Real = Date;
-    const FIXO = Real.UTC(2026, 6, 10, 12);   // 10/Jul/2026, o mesmo dia do corte
+    const FIXO = Real.UTC(2026, 6, 26, 12);   // 26/Jul/2026, o mesmo dia do corte
     class Congelado extends Real {
       constructor(...a) { super(...(a.length ? a : [FIXO])); }
       static now() { return FIXO; }

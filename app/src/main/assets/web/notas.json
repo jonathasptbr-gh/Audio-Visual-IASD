@@ -1,5 +1,12 @@
 [
   {
+    "versao": "1.4.15",
+    "itens": [
+      "O Provai e Vede deixou de listar episódios que o canal ainda não liberou.",
+      "A lista agora vai até o sábado desta semana, como no Informativo."
+    ]
+  },
+  {
     "versao": "1.4.14",
     "itens": [
       "Um vídeo que não toca deixou de falhar em silêncio.",
