@@ -495,6 +495,71 @@ try {
     'e um teto BAIXO com entrega ainda menor avisa — é o caso que uma regra de '
     + 'uma condição só ("abaixo do piso") deixaria passar calada',
     aviso.abaixoDoTetoBaixo);
+  // ── 10. O CENSO DA SESSÃO (v1.4.13) ─────────────────────────────────────
+  //
+  // O Registro guardava a ÚLTIMA extração e só ela, e a pergunta de uma falha
+  // INTERMITENTE é outra — MEDIDO em campo: três Registros, três respostas
+  // diferentes, nenhuma contando. A leitura que saiu disso ("é sempre") foi uma
+  // generalização de duas amostras, e estava errada.
+  //
+  // Medido por DELTA, e não em absoluto: as metades acima já rodaram fluxos que
+  // mexem nos mesmos contadores, e uma asserção sobre o total amarraria esta
+  // metade à ordem do arquivo — que é exatamente o tipo de acoplamento que faz
+  // um oráculo reprovar por um motivo que não é o dele.
+  const censo = await pg.evaluate(async () => {
+    const ler = () => Object.assign({}, ytCenso);
+    const antes = ler();
+    // 1) um pedido que TRANSMITE.
+    window.__soltarStream = true;
+    window.__manifesto = {
+      name: 'Com manifesto', seconds: 100, height: 1080,
+      video: { url: 'https://x/v', mime: 'video/webm; codecs="vp9"', size: 10 },
+      videos: [], audio: { url: 'https://x/a', mime: 'audio/webm; codecs="opus"', size: 10 },
+    };
+    await tentarTransmitir({ id: 'cen1', url: 'https://www.youtube.com/watch?v=cen1', name: 'Um' }, 0, false);
+    const comManifesto = ler();
+    // 2) um pedido que NÃO transmite: o shell não monta o manifesto, e o fluxo
+    //    real cairia no download.
+    window.__manifesto = null;
+    await tentarTransmitir({ id: 'cen2', url: 'https://www.youtube.com/watch?v=cen2', name: 'Dois' }, 0, false);
+    const semManifesto = ler();
+    // 3) uma recusa que acontece ANTES de perguntar ao shell (aqui, um alvo sem
+    //    URL). Ela não é extração nenhuma, e contá-la inflaria o denominador —
+    //    a proporção passaria a incluir o que nunca chegou a ser tentado.
+    await tentarTransmitir({ id: 'cen3', name: 'Sem URL' }, 0, false);
+    const semUrl = ler();
+    // 4) a qualidade limitada é OUTRA pergunta: um pedido pode transmitir e
+    //    ainda assim sair abaixo do pedido.
+    avisarResolucaoLimitada(360, 0);
+    avisarResolucaoLimitada(480, 0);
+    const comLimitadas = ler();
+    return { antes, comManifesto, semManifesto, semUrl, comLimitadas };
+  });
+  const d = (a, b) => ({
+    pedidos: b.pedidos - a.pedidos,
+    transmitiu: b.transmitiu - a.transmitiu,
+    limitadas: b.limitadas - a.limitadas,
+  });
+  const t = d(censo.antes, censo.comManifesto);
+  checar(t.pedidos === 1 && t.transmitiu === 1,
+    'um pedido que TRANSMITE conta nos dois: pedido e transmissão', t);
+  const f = d(censo.comManifesto, censo.semManifesto);
+  checar(f.pedidos === 1 && f.transmitiu === 0,
+    'e um que NÃO monta o manifesto conta só como pedido — é a diferença entre '
+    + 'os dois que responde "com que frequência a projeção cai no download?"', f);
+  const g = d(censo.semManifesto, censo.semUrl);
+  checar(g.pedidos === 0 && g.transmitiu === 0,
+    'uma recusa ANTERIOR à pergunta ao shell (alvo sem URL) NÃO conta como '
+    + 'pedido — contá-la inflaria o denominador com o que nunca foi tentado, e '
+    + 'a proporção deixaria de responder o que ela promete', g);
+  const l = d(censo.semUrl, censo.comLimitadas);
+  checar(l.limitadas === 2 && l.pedidos === 0,
+    'a qualidade limitada é contada À PARTE: um pedido pode transmitir e ainda '
+    + 'assim sair abaixo do pedido, então somá-la aos outros dois responderia '
+    + 'uma pergunta que ninguém fez', l);
+  checar(censo.comLimitadas.menor === 360,
+    'e o MENOR valor é guardado, não o último: é ele que diz se foi um degrau '
+    + 'ou o fundo do poço', censo.comLimitadas.menor);
 } finally {
   await navegador.close();
   await new Promise((r) => servidor.close(r));
