@@ -24,6 +24,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
+- **v1.4.21** — O "CARREGANDO" NA PRÓPRIA LINHA. Pedido do operador: *"ao carregar um link do YouTube… o item só entra em modo 'no ar' quando o vídeo realmente está visível na tela, e isso está correto, mas o item deve ter também um 'carregando' no próprio item da lista… semelhante à ideia de como já fazemos para representar visualmente downloads"*. Resolver um link leva **segundos** (a extração) ou **minutos** (o download), e nesse intervalo o `.no-ar` não pode acender — nada está no ar. O cartão sobre a preview responde *"o que vai entrar em cena?"*; a linha responde *"o que este toque está fazendo?"*, e sem ela o toque não deixava marca no lugar onde nasceu. A anatomia é a do `.baixando` de propósito (o mesmo aro, na mesma miniatura, no mesmo tamanho), com DUAS diferenças que carregam significado: o aro vai **sem a seta** (a regra da v1.4.20 aplicada de novo — não há bytes chegando) e a linha **não esmaece** (no download ela é PROVISÓRIA, o item ainda não existe; aqui ela é o item de verdade, prestes a entrar no ar). O estado vive num `Set`, não na classe do nó — a lista é reconstruída no meio da espera —, com as MESMAS duas metades do `.no-ar`: `porCarregando` na construção, nos DOIS montadores, e `pintarCarregando` na repintura. Liga e desliga em `resolverLinkYoutube`, o ponto por onde todos os caminhos do link passam, e **sobrevive a perder a vez** (v1.4.18): tocar noutra coisa abandona a projeção, não o trabalho — apagar o aro ali faria a linha dizer que parou o que continua acontecendo. Seis asserções novas no `link-perde-a-vez.test.mjs`, seis reversões, 57/57 verdes. Só web.
 - **v1.4.20** — O ÍCONE DO CARTÃO DE ESPERA SEGUE A LEGENDA. Pedido do operador, sobre o cartão de um link do YouTube: *"seu ícone segue sendo um ícone de download, enquanto que deveria ser só o spinner, sem um ícone de download nesse tipo de preparação, já que não está realmente baixando algo, para diferenciar do download em si"*. O `.dl-ring` são **DOIS desenhos** — o aro que gira (`::before`) e a SETA parada (`svg`) —, e só a segunda afirma "bytes chegando". Numa PREPARAÇÃO ela prometia o que não estava acontecendo, e isso vale para MAIS casos do que o relato nomeia: a extração de um link, a montagem de uma playlist, a rasterização de um PDF **e a própria fase pré-bytes de um download**, que nasce em "Preparando vídeo" e só vira "Baixando vídeo · 12%" no primeiro progresso. **A regra é "o ícone segue a LEGENDA"**, e não uma bandeira a mais na assinatura do `previewBusy`: a legenda já carrega essa distinção na tela, em português, e é escrita em DOIS pontos (a criação do cartão e o `atualizar` do progresso) — derivá-la ali faz o desenho e a palavra nunca discordarem, que é o defeito que o pedido nomeia. Ela **falha para o lado certo**: uma legenda nova escrita de outro jeito perde a seta e vira um spinner puro, nunca o contrário. O aro FICA, porque a espera continua sendo verdade. Oráculo no `gaveta-e-cartao.test.mjs`, medindo o RENDERIZADO (`getClientRects`) e não a classe — a classe sem a regra de CSS passaria num teste de classe e continuaria desenhando a seta na tela do operador, que é exatamente o que ele relatou. Quatro reversões, uma por peça. OTA PURO.
 - **v1.4.19** — A VARREDURA DE ESTABILIDADE DE ÁUDIO E VÍDEO, APLICADA: nove dos dez achados do laudo `AUDITORIA-ESTABILIDADE-AV.md`, num lote só. O que carrega o lote é **um fragmento sem prazo de PAREDE**: era o único ponto da cadeia sem prazo nenhum, e o desfecho que ele deixava passar é o pior que esta projeção sabe ter — a transmissão congelada sem NADA acontecer, sem erro, sem queda para o download, com o cartão "Preparando" aceso para sempre. O cenário não é uma queda: é uma entrega que não termina (um CDN que goteja, o desfecho típico de uma Wi-Fi saturada ou de um aparelho em economia de energia), e nenhuma defesa existente o alcançava — o `readTimeout` do `StreamProxy` é **POR LEITURA**, então um byte a cada 29 s nunca o dispara; as 4 tentativas do `mse.js` só reagem a um erro que ACONTECE; e o `AVStream.fome` era o único lugar do app que SABIA que a projeção estava parada — e só escrevia no Registro. Três camadas novas: o prazo de parede por fragmento (PROPORCIONAL ao pedido, alimentando a escada de tentativas que já existia), o prazo TOTAL no `readBytes` do Kotlin, e o WATCHDOG DE FOME do `stage.js` (25 s, uma vez por cena), que transforma quadro congelado no `onStreamErro` de sempre. Mais: `streamRetentado` virou um `Map` COM JANELA — era um `Set` nunca limpo, então a segunda expiração do mesmo vídeo na mesma sessão (ensaio de manhã, culto à tarde) pulava a re-extração de dois segundos e ia direto ao download de centenas de MB na frente da congregação; a escada de degraus passou a perguntar `isTypeSupported` (mp4 hoje carrega AV1); o stream SÓ-ÁUDIO ganhou o aviso e a rampa que os dois ramos visuais escondiam dele; as rotinas de acervo (12 requisições concorrentes sobre 454 hinos, na abertura) passaram a CEDER A VEZ à cena; o `configChanges` ganhou as sete chaves que faltavam; e o `SessionService` deixou de cair numa recriação de Activity. **O décimo achado é MEDIÇÃO e continua aberto de propósito** — se o `shouldInterceptRequest` do WebView serializa, o fragmento de áudio espera atrás do de vídeo (que tem 20 s de folga), o que explicaria os relatos antigos de áudio falhando no YouTube; a receita está no laudo. Quatro oráculos novos, 57/57 verdes. **PEDE RELEASE** (`shellTag: v1.4.19`).
 - **v1.4.18** — UMA RESOLUÇÃO DE LINK EM VOO PERDE A VEZ PARA A PROJEÇÃO SEGUINTE. Relato do operador: *"ao tocar em um item do tipo link, ele começa a carregar, em seguida eu toco em uma música normal nativa, a música começa a tocar, mas o link que estava carregando não é interrompido, e quando termina de carregar ele vem sobre a música que tocou na hora"*. REPRODUZIDO em arnês, com a ponte de mentira segurando as duas esperas. Resolver um `kind: 'youtube'` é a espera mais longa do app — uma extração de rede de SEGUNDOS (`ytStream`) e, falhando ela, um download de MINUTOS —, e o desfecho chegava sem perguntar a ninguém se ainda era esperado: `send` no fim, cena trocada, louvor cortado na frente da congregação. **É a TERCEIRA vez que esta base encontra a mesma classe**, e as duas anteriores já têm nome: o `lyricLoadSeq` (o download do áudio de uma letra avulsa) e o `projecaoSeq` (o capítulo da Bíblia que chega tarde). A senha usada é a MESMA daquele — quem projeta qualquer coisa a incrementa —, e não uma quarta contagem: duas réguas para "quem chegou por último" divergiriam. CINCO guardas, uma por lugar em que a espera termina em efeito, e cada uma provada por reversão: a transmissão que volta tarde, o download do item de link, o download do "Tocar agora" da BUSCA (a outra porta, que a v1.4.6 já tinha deixado de fora uma vez), o CARTÃO "Preparando" que ficava sobre a música já tocando, e a marca de "no ar" que acendia na linha do link abandonado. **E o desfecho do download é ASSIMÉTRICO de propósito:** o arquivo FICA e toma o lugar do link na lista (`trocarLinkPeloArquivo`) — é valor durável e foi o que o toque pediu; o que ele não pode é subir ao palco. Já a transmissão abandonada **não escorrega para o download**: seriam minutos de rede por um toque que o operador substituiu. OTA PURO.
@@ -293,6 +294,102 @@ na nota que a revoga, não apagada da que a criou.
 - **v5.156** — é METADE OTA e METADE APK, de novo.
 
 ---
+
+## v1.4.21 — o "carregando" na própria linha
+
+> *"ao carregar um link do YouTube, no caso escolher para tocar, o item na lista
+> do cronograma ou onde for, só entra em modo 'no ar' quando o vídeo realmente
+> está visível na tela, e isso está correto, mas o item deve ter também um
+> 'carregando' no próprio item da lista, para representação visual e percepção
+> correta de que está carregando aquele item… semelhante à ideia de como já
+> fazemos para representar visualmente downloads e etc."*
+
+### Duas perguntas, e só uma tinha resposta
+
+```
+  o cartão sobre a preview  →  "o que vai entrar em cena?"     ✓ existia
+  a linha da lista          →  "o que este toque está fazendo?"  ✗ nada
+```
+
+O `.no-ar` só acende quando há projeção — e isso está certo, o operador diz que
+está certo, e o lote não mexe nisso. O que faltava é o intervalo ANTES: resolver
+um `kind: 'youtube'` custa **segundos** (a extração) ou **minutos** (o download
+que vem depois dela), e nesse tempo o toque não deixava marca nenhuma no lugar
+onde ele nasceu.
+
+### A anatomia é a do `.baixando`, e as duas diferenças são o conteúdo
+
+Duas formas para a mesma espera fariam o operador perguntar se são coisas
+diferentes — então: mesmo aro, mesma miniatura, mesmo tamanho. O que muda:
+
+| | `.baixando` | `.carregando` |
+|---|---|---|
+| a **seta** do `.dl-ring` | sim — bytes chegando | **não** |
+| a **linha** esmaece | sim | **não** |
+
+- **A seta sai pela regra da v1.4.20**, aplicada num lugar novo: o `.dl-ring`
+  são dois desenhos, o aro diz "espere" e a seta diz "bytes chegando", e numa
+  extração não há bytes. Ela não é escondida por CSS aqui — o nó nasce sem o
+  `<svg>` dentro (`aroDeEspera`), que é a forma que não pode divergir.
+- **A linha não esmaece** porque os dois estados dizem coisas OPOSTAS sobre ela.
+  No `.baixando` a linha é PROVISÓRIA (o item ainda não existe — o cinza é
+  literal), e aqui ela é o item de verdade, o que está prestes a entrar no ar:
+  apagá-la seria dizer o contrário do que o estado significa. Só a miniatura
+  escurece, para não competir com o aro.
+
+### O estado vive num `Set`, e as metades são as do `.no-ar`
+
+```js
+const linhasCarregando = new Set();
+function porCarregando(li, thumb, id) { … }   // CONSTRUÇÃO
+function pintarCarregando() { … }             // REPINTURA
+```
+
+A lista é reconstruída no meio da espera (o `load()` do caminho do download), e
+uma classe escrita no nó sumiria no redesenho seguinte — é a razão do
+`songRowBusy`. E a repintura existe porque o toque acontece com a lista já na
+tela: refazê-la inteira reconstruiria dezenas de linhas com object URLs de
+miniatura só para acender um aro.
+
+- **A construção entra nos DOIS montadores** (`renderLibrary` e `linhaDeItem`).
+  Um link também mora nos Favoritos, e um estado que aparecesse só numa das
+  listas seria pior que estado nenhum: o operador aprenderia a não confiar nele.
+  É a mesma razão do `porParar` — a reversão F prova que a segunda chamada não é
+  decoração.
+- **`data-espera` marca o aro que a repintura pôs**, para ela nunca remover o de
+  um download que esteja na mesma miniatura.
+
+### Liga e desliga em `resolverLinkYoutube`, ao lado do cartão
+
+Pelo mesmo motivo que o cartão: é o ponto por onde TODOS os caminhos do link
+passam — o toque na linha, o avanço da playlist, o ⏮/⏭ do transporte, a
+notificação nativa.
+
+**E ele sobrevive a perder a vez** (v1.4.18). Tocar noutra coisa no meio da
+espera abandona a PROJEÇÃO, não o trabalho: a extração em voo não tem como ser
+cancelada, e o aro na linha continua descrevendo um fato. Apagá-lo ali faria a
+linha dizer que parou o que continua acontecendo.
+
+### O oráculo
+
+Seis asserções novas em `tools/link-perde-a-vez.test.mjs` — o aro aparece; ele
+**não** tem seta; o `no-ar` não se antecipa; a linha dos FAVORITOS (outro
+montador) mostra o mesmo aro; o aro **sobrevive a um redesenho** da lista; e ele
+some quando a resolução termina.
+
+Seis reversões, todas reprovando o que deviam:
+
+| reversão | o que reprova |
+|---|---|
+| A · sem a regra de CSS | o aro existe no DOM e não aparece |
+| B · sem `marcarCarregando(…, true)` | nada acende |
+| C · sem o `porCarregando` do Cronograma | o aro não sobrevive ao redesenho |
+| D · sem o `marcarCarregando(…, false)` do `finally` | o aro fica para sempre |
+| E · com a seta de volta no aro | o desenho volta a prometer bytes |
+| F · sem o `porCarregando` do `linhaDeItem` | os Favoritos ficam sem estado |
+
+**57/57 verdes.** Só web — nada de `java/`, `res/` ou manifest, logo **não pede
+Release**.
 
 ## v1.4.20 — o ícone do cartão de espera segue a legenda
 

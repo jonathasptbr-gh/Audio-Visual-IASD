@@ -204,6 +204,23 @@ try {
       type: 'audio/wav', height: 0, seconds: 20 };
   }, base);
 
+  // O ESTADO DA LINHA daquele item, medido no RENDERIZADO: a classe sem a regra
+  // de CSS passaria num teste de classe e não desenharia aro nenhum na tela.
+  const linha = (id) => pg.evaluate((x) => {
+    const el = document.querySelector('.lib-item[data-id="' + x + '"]');
+    if (!el) return { achou: false };
+    const aro = el.querySelector('.thumb .dl-ring[data-espera]');
+    return {
+      achou: true,
+      carregando: el.classList.contains('carregando'),
+      noAr: el.classList.contains('no-ar'),
+      aro: !!(aro && aro.getClientRects().length),
+      // A SETA não pode estar ali: é preparação, não download (a regra da
+      // v1.4.20, aplicada à linha).
+      seta: !!(aro && aro.querySelector('svg')),
+    };
+  }, id);
+
   const estado = () => pg.evaluate(() => {
     const v = document.querySelector('#preview video') || document.querySelector('video');
     const c = document.getElementById('pvBusy');
@@ -233,6 +250,52 @@ try {
   checar((await pg.evaluate(() => window.__streamPedido)) === 1 && /Preparando/.test(carregando.cartao || ''),
     'o toque no LINK começa a extração e anuncia "Preparando" (o cenário)', carregando);
 
+  // ---- "CARREGANDO" NA PRÓPRIA LINHA (v1.4.21) ---------------------------
+  //
+  // Pedido do operador: *"o item deve ter também um 'carregando' no próprio item
+  // da lista, para representação visual e percepção correta de que está
+  // carregando aquele item"*. O cartão sobre a preview responde "o que vai
+  // entrar em cena?"; a linha responde "o que este toque está fazendo?", e sem
+  // ela o toque não deixava marca nenhuma no lugar onde nasceu.
+  const l1Durante = await linha(ids.l1);
+  checar(l1Durante.carregando && l1Durante.aro,
+    '[relato] a LINHA do link mostra o aro de espera enquanto ele resolve', l1Durante);
+  checar(!l1Durante.seta,
+    'e o aro vai SEM a seta: é preparação, não download — a regra da v1.4.20 na linha',
+    l1Durante);
+  // A METADE QUE O OPERADOR DISSE ESTAR CERTA, e que a nova não pode estragar:
+  // o "no ar" continua esperando a cena aparecer de verdade.
+  checar(!l1Durante.noAr,
+    'e o "no ar" NÃO antecipa: durante a espera nada está no ar', l1Durante);
+
+  // E A OUTRA LISTA TAMBÉM. Um link mora nos Favoritos, e aquela linha sai de
+  // OUTRO montador (`linhaDeItem`) — um estado que aparecesse só numa das duas
+  // seria pior que nenhum: o operador aprenderia a não confiar nele. O montador
+  // é exercitado DIRETO, e não pela coreografia de abrir a Biblioteca com a
+  // seção de favoritos aberta: o que se afirma aqui é que ELE lê o estado, e
+  // essa pergunta não precisa da folha na tela para ser feita.
+  const favLinha = await pg.evaluate((x) => {
+    const li = linhaDeItem({ id: x, name: 'Link do YouTube', kind: 'youtube' }, { lista: 'favs' });
+    document.body.appendChild(li);
+    const aro = li.querySelector('.thumb .dl-ring[data-espera]');
+    const r = { carregando: li.classList.contains('carregando'),
+      aro: !!(aro && aro.getClientRects().length) };
+    li.remove();
+    return r;
+  }, ids.l1);
+  checar(favLinha.carregando && favLinha.aro,
+    'e a linha dos FAVORITOS, que sai de outro montador, mostra o mesmo aro', favLinha);
+
+  // E ELE SOBREVIVE A UM REDESENHO. A lista é reconstruída no meio da espera (o
+  // `load()` do caminho do download faz isso), e uma classe escrita no nó teria
+  // sumido ali — sem sintoma nenhum além do aro desaparecer sozinho.
+  await pg.evaluate(() => load());
+  await pg.waitForTimeout(300);
+  const l1Redesenho = await linha(ids.l1);
+  checar(l1Redesenho.carregando && l1Redesenho.aro,
+    'e o aro SOBREVIVE a um redesenho da lista — o estado mora num Set, não na classe do nó',
+    l1Redesenho);
+
   await pg.evaluate((id) => send(id), ids.audio);
   await pg.waitForTimeout(1200);
   const comMusica = await estado();
@@ -261,6 +324,11 @@ try {
   // (`midiaNoArOrigem`) assim que a transmissão dizia ter dado certo, então a
   // linha do LINK acendia como "no ar" sobre uma música que estava tocando.
   // Duas linhas contando histórias diferentes na mesma tela.
+  const l1Depois = await linha(ids.l1);
+  checar(!l1Depois.carregando && !l1Depois.aro,
+    'e o aro SAI quando a resolução termina — a espera acabou, com ou sem palco',
+    l1Depois);
+
   checar(depois.noAr.includes(ids.audio) && !depois.noAr.includes(ids.l1),
     'e a linha marcada como "no ar" é a da MÚSICA — o link abandonado não se '
     + 'declara em cena', { noAr: depois.noAr, musica: ids.audio, link: ids.l1 });

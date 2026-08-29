@@ -258,7 +258,7 @@ const appVersionEl = document.getElementById('appVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.4.20';
+const WEB_VERSION = '1.4.21';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -6614,6 +6614,9 @@ function renderLibrary() {
 
     // Item que JÁ existe e está sendo baixado (converter um link em arquivo):
     // o aviso vai nele mesmo, não na preview.
+    // A ESPERA DE UMA RESOLUÇÃO DE LINK (v1.4.21), antes do download: as duas
+    // usam a mesma miniatura, e só uma pode estar em curso para o mesmo item.
+    porCarregando(li, thumb, item.id);
     const dl = libBaixando.get(item.id);
     if (dl) {
       li.classList.add('baixando');
@@ -9041,6 +9044,11 @@ function linhaDeItem(item, opts) {
   // pode custar uma gaveta.
   const miniatura = isCue(item) ? cueThumb(item) : thumbEl(item);
   porParar(miniatura, item);
+  // A ESPERA DE UMA RESOLUÇÃO DE LINK (v1.4.21) — a mesma da linha do
+  // Cronograma. Um link também mora nos Favoritos, e um estado que aparecesse
+  // só numa das listas seria pior que nenhum: o operador aprenderia a não
+  // confiar nele.
+  porCarregando(li, miniatura, item.id);
   row.append(miniatura, textWrap);
   li.appendChild(row);
 
@@ -12389,6 +12397,76 @@ async function retirarDoAr(item) {
  * vista a única linha em que o segundo toque tinha efeito. Duas camadas, dois
  * realces — é o mesmo modelo que a independência áudio × texto já descreve.
  */
+// ===== "CARREGANDO" NA PRÓPRIA LINHA (v1.4.21) =====
+//
+// Pedido do operador: *"ao carregar um link do YouTube… o item só entra em modo
+// 'no ar' quando o vídeo realmente está visível na tela, e isso está correto,
+// mas o item deve ter também um 'carregando' no próprio item da lista, para
+// representação visual e percepção correta de que está carregando aquele item…
+// semelhante à ideia de como já fazemos para representar visualmente
+// downloads"*.
+//
+// **O cartão sobre a preview responde "o que vai entrar em cena?"; a linha
+// responde "o que este toque está fazendo?"** — e são perguntas diferentes.
+// Resolver um link leva segundos (a extração) ou minutos (o download); nesse
+// intervalo o "no ar" ainda não pode acender, porque nada está no ar, e sem
+// nada na linha o toque não deixou marca nenhuma no lugar onde ele nasceu.
+//
+// A ANATOMIA É A DO `.baixando`, de propósito: o mesmo aro, na mesma miniatura,
+// no mesmo tamanho. Duas formas para a mesma espera fariam o operador perguntar
+// se são coisas diferentes. O que muda é o DESENHO — aqui o aro vai SEM a seta,
+// pela regra da v1.4.20: não há bytes chegando, e prometê-los é o que aquele
+// lote acabou de tirar do cartão.
+//
+// E o estado vive num SET, não na classe do nó: a lista é reconstruída no meio
+// da espera (o `load()` do caminho do download), e uma classe escrita no nó
+// sumiria no redesenho seguinte. É a mesma razão do `songRowBusy`.
+const linhasCarregando = new Set();
+
+function linhaCarregando(id) {
+  return !!id && linhasCarregando.has(id);
+}
+
+// O aro SEM seta. `data-espera` o distingue do aro de um download que esteja na
+// mesma miniatura — a repintura só pode remover o que ela mesma pôs.
+function aroDeEspera() {
+  const a = document.createElement('span');
+  a.className = 'dl-ring';
+  a.dataset.espera = '1';
+  a.setAttribute('aria-hidden', 'true');
+  return a;
+}
+
+// A METADE DE CONSTRUÇÃO: chamada pelos montadores de linha, para o estado
+// sobreviver a um redesenho. Espelha o `linhaNoAr(item.id)` que eles já leem.
+function porCarregando(li, thumb, id) {
+  if (!linhaCarregando(id)) return;
+  li.classList.add('carregando');
+  if (thumb) thumb.appendChild(aroDeEspera());
+}
+
+// A METADE DE REPINTURA, irmã do `marcarNoAr`: o toque acontece com a lista já
+// na tela, e refazê-la inteira (como o `libBusy` faz) reconstruiria dezenas de
+// linhas com object URLs de miniatura só para acender um aro.
+function pintarCarregando() {
+  document.querySelectorAll('.lib-item,.row-item').forEach((el) => {
+    const on = linhaCarregando(el.dataset.id);
+    if (on === el.classList.contains('carregando')) return;
+    el.classList.toggle('carregando', on);
+    const thumb = el.querySelector('.thumb');
+    if (!thumb) return;
+    const meu = thumb.querySelector('.dl-ring[data-espera]');
+    if (on) { if (!meu) thumb.appendChild(aroDeEspera()); }
+    else if (meu) meu.remove();
+  });
+}
+
+function marcarCarregando(id, on) {
+  if (!id) return;
+  if (on) linhasCarregando.add(id); else linhasCarregando.delete(id);
+  pintarCarregando();
+}
+
 function marcarNoAr() {
   // O SELO DE CAMADAS responde a DUAS coisas, e esta função é a que sabe da
   // segunda: a mídia entrando ou saindo do ar muda a resposta dele tanto quanto
@@ -15553,9 +15631,20 @@ async function trocarLinkPeloArquivo(velhoId, novoId) {
 // aqui, e um sem a liberação prenderia o cartão sobre a preview para sempre.
 async function resolverLinkYoutube(rec) {
   const cartao = cederOPalco((rec && rec.name) || 'o vídeo');
+  // O "CARREGANDO" NA PRÓPRIA LINHA (v1.4.21), ao lado do cartão. Ele mora aqui
+  // pelo mesmo motivo que o cartão: `resolverLinkYoutube` é o ponto por onde
+  // TODOS os caminhos do link passam — o toque na linha, o avanço da playlist,
+  // o ⏮/⏭ do transporte, a notificação nativa.
+  //
+  // E ele SOBREVIVE a perder a vez (v1.4.18): quem toca noutra coisa no meio da
+  // espera não interrompe o trabalho, só a projeção dele. Apagar o aro ali
+  // faria a linha dizer que parou o que continua acontecendo.
+  const idDaLinha = rec && rec.id;
+  marcarCarregando(idDaLinha, true);
   try {
     return await resolverLinkInterno(rec);
   } finally {
+    marcarCarregando(idDaLinha, false);
     cartao.soltar();
   }
 }
