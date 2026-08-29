@@ -1,5 +1,12 @@
 [
   {
+    "versao": "1.4.14",
+    "itens": [
+      "Um vídeo que não toca deixou de falhar em silêncio.",
+      "E o app diz quando o vídeo não está disponível no YouTube."
+    ]
+  },
+  {
     "versao": "1.4.13",
     "itens": [
       "O Registro conta, por sessão, quantas vezes o vídeo caiu no download.",

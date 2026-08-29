@@ -258,7 +258,7 @@ const appVersionEl = document.getElementById('appVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.4.13';
+const WEB_VERSION = '1.4.14';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -15456,17 +15456,63 @@ async function resolverLinkYoutube(rec) {
   }
 }
 
+// ===== A RECUSA FALA NOS DOIS LUGARES (v1.4.14) =====
+//
+// Relato do operador, num episódio de série: *"ele carrega um tempo, mas ele não
+// toca nada e nem dá nenhuma mensagem de erro nem nada"*. REPRODUZIDO: o
+// caminho da BUSCA falava pelo cartão da preview (`previewBusy(…).falhar`) e
+// este aqui não — a única saída era o `notaNoItem`, que escreve na LINHA do
+// item.
+//
+// **E a linha some justamente neste caso.** Um episódio de série mora dentro do
+// álbum, na Biblioteca, e o "Tocar agora" a FECHA (`closeHymnSearch`) antes de
+// começar. A nota era escrita num lugar que já tinha saído da tela: silêncio
+// completo, depois de segundos de espera.
+//
+// O cartão é a resposta certa pela régua de sempre — **o aviso mora onde o
+// resultado ia aparecer**, e o resultado ia para a projeção. A nota FICA: ela é
+// o certo quando a linha está à vista (o item de link do Cronograma), e as duas
+// não disputam nada.
+function recusarLink(rec, frase) {
+  notaNoItem(rec.id, frase);
+  // Cartão PRÓPRIO, e não o do `cederOPalco`: o do invólucro é solto no
+  // `finally` logo a seguir, e `falhar()` precisa de um dono que segure a
+  // mensagem pelo prazo de leitura. É o mesmo padrão do `ytAcaoInterno`, e a
+  // carência de saída (`PV_BUSY_SAIDA_MS`) faz a troca não piscar.
+  previewBusy('Preparando', (rec && rec.name) || 'o vídeo').falhar(frase);
+  return false;
+}
+
+// A CAUSA, quando o shell a nomeia (v1.4.14).
+//
+// "Não foi possível transmitir nem baixar" e "este vídeo não está disponível"
+// mandam fazer coisas OPOSTAS: a primeira convida a tentar de novo, a segunda a
+// escolher outro. MEDIDO em campo — o Registro trouxe
+// `extração falhou: ContentNotAvailableException` nas duas linhas, e o app
+// dizia a frase genérica.
+//
+// Lê o diagnóstico do shell e procura a MARCA. É acoplamento a uma string do
+// Kotlin, e por isso ele só ESPECIALIZA: não achando a marca, a frase genérica
+// vale como sempre. O dia em que o nome da exceção mudar, isto volta ao
+// comportamento de hoje — nunca a uma afirmação errada. (Mesmo raciocínio do
+// `recuperarStream`, que reconhece a URL expirada pela mensagem.)
+const YT_INDISPONIVEL = /ContentNotAvailable/i;
+async function motivoDaRecusa(padrao) {
+  if (!window.__NATIVE__) return padrao;
+  let diag = '';
+  try { diag = String((await AVNative.ytDiag()) || ''); } catch (_) { return padrao; }
+  return YT_INDISPONIVEL.test(diag)
+    ? 'este vídeo não está disponível no YouTube — pode ser privado, só para membros ou removido'
+    : padrao;
+}
+
 async function resolverLinkInterno(rec) {
   const vid = (rec && rec.youtubeId) || extractYouTubeId((rec && rec.url) || '');
-  if (!vid) {
-    notaNoItem(rec.id, 'Sem o vídeo de origem — não há o que projetar.');
-    return false;
-  }
+  if (!vid) return recusarLink(rec, 'Sem o vídeo de origem — não há o que projetar.');
   if (!window.__NATIVE__) {
     // No navegador não há ponte: nem transmissão, nem download. Dizer isso é
     // melhor que projetar nada em silêncio.
-    notaNoItem(rec.id, 'Este link só toca pelo app — o navegador não baixa vídeo.');
-    return false;
+    return recusarLink(rec, 'Este link só toca pelo app — o navegador não baixa vídeo.');
   }
   const link = 'https://www.youtube.com/watch?v=' + vid;
   // SEM GENÉRICO AQUI. O `name` deste alvo vira o nome do registro nos dois
@@ -15494,8 +15540,7 @@ async function resolverLinkInterno(rec) {
   }
   const novo = await ytArquivo(alvo, { lista: 'avulsos', aviso: 'preview', somenteAudio: soAudio });
   if (!novo) {
-    notaNoItem(rec.id, 'Não foi possível transmitir nem baixar este vídeo.');
-    return false;
+    return recusarLink(rec, await motivoDaRecusa('Não foi possível transmitir nem baixar este vídeo.'));
   }
   await fixarAvulso(novo.id);
   await trocarLinkPeloArquivo(rec.id, novo.id);
@@ -15776,7 +15821,12 @@ async function ytAcaoInterno(r, destinos, btn, somenteAudio, altura) {
     // A FRASE DA JANELA DE ANTECEDÊNCIA vem na frente de "não foi possível
     // baixar" quando ela existe (v5.256): as duas descrevem o mesmo desfecho, e
     // só uma delas diz o que fazer a respeito.
-    const porque = r.avisoSeFalhar || 'não foi possível baixar';
+    // A JANELA DE ANTECEDÊNCIA continua vencendo: ela é mais específica que
+    // qualquer coisa que o shell saiba, e é a única das três que diz o que
+    // fazer ("tente mais perto de 22/Ago"). Abaixo dela, o motivo do shell
+    // quando ele nomeia um (v1.4.14) — o mesmo do caminho do item de link,
+    // senão o MESMO vídeo conta duas histórias conforme onde foi tocado.
+    const porque = r.avisoSeFalhar || await motivoDaRecusa('não foi possível baixar');
     if (r.avisoOnde) setCollStatus(r.avisoOnde, porque, 8000);
     if (!ytLinhaVisivel(r.id)) previewBusy('Baixando', r.name || 'o vídeo').falhar(porque);
     return;

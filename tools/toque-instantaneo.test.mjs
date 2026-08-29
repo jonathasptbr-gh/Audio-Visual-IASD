@@ -64,6 +64,11 @@ const PONTE = `(() => {
     takeShare: () => '',
     busPost: () => {},
     otaConfirm: () => {},
+    // O DIAGNOSTICO DO SHELL, controlavel: e dele que sai a causa nomeada
+    // (ContentNotAvailableException). Vazio por padrao — o caminho generico.
+    ytDiag: (id) => {
+      setTimeout(() => { try { window.__avResolve(id, window.__ytDiag || ''); } catch (_) {} }, 0);
+    },
     ytStream: (id) => {
       window.__streamPedido++;
       const espera = () => {
@@ -85,7 +90,7 @@ const PONTE = `(() => {
     'espelhoLigar','espelhoLigarEm','espelhoDerrubar','farolContar','farolEstado','keepAlive',
     'listFolder','micDiag','nowPlaying','openCast','openExternal','otaApply','otaCheck','otaDiag',
     'otaPending','pickDoc','pickFolder','requestMic','salvarTexto','systemVolume','temaClaro',
-    'ytCancel','ytCanalPlaylists','ytDiag','ytDiscard','ytFetch','ytFetchAte','ytFetchAudio',
+    'ytCancel','ytCanalPlaylists','ytDiscard','ytFetch','ytFetchAte','ytFetchAudio',
     'ytPlaylist','ytSearch','areaTransferencia','atualizacaoEstado'];
   for (const n of nomes) {
     if (B[n]) continue;
@@ -560,6 +565,52 @@ try {
   checar(censo.comLimitadas.menor === 360,
     'e o MENOR valor é guardado, não o último: é ele que diz se foi um degrau '
     + 'ou o fundo do poço', censo.comLimitadas.menor);
+  // ── 11. A RECUSA DE UM ITEM DE LINK FALA (v1.4.14) ──────────────────────
+  //
+  // Relato do operador: *"ele carrega um tempo, mas ele não toca nada e nem dá
+  // nenhuma mensagem de erro nem nada"*. REPRODUZIDO: o caminho da BUSCA falava
+  // pelo cartão e o do ITEM DE LINK não — a única saída era o `notaNoItem`, na
+  // LINHA do item. E a linha some justamente aqui: um episódio de série mora no
+  // álbum, e o "Tocar agora" fecha a Biblioteca antes de começar.
+  //
+  // Mede o CARTÃO, que é o que sobrevive ao fechamento da lista. A nota
+  // continua sendo escrita — ela é o certo quando a linha está à vista —, e as
+  // duas asserções abaixo são as duas metades: fala, e diz a CAUSA quando o
+  // shell a nomeia.
+  const recusa = await pg.evaluate(async () => {
+    window.__soltarStream = true;
+    window.__manifesto = null;
+    const rodar = async (diag, nome, id) => {
+      window.__ytDiag = diag;
+      pvBusyEl.classList.remove('on', 'falhou', 'avisou');
+      const link = await AVDB.addUrlMedia('https://www.youtube.com/watch?v=' + id, {
+        kind: 'youtube', type: 'video/youtube', name: nome, youtubeId: id });
+      await AVDB.listAdd('imports', link.id);
+      await load();
+      await send(link.id).catch(() => {});
+      return {
+        falou: pvBusyEl.classList.contains('on') && pvBusyEl.classList.contains('falhou'),
+        cap: pvBusyCapEl.textContent, texto: pvBusyLabelEl.textContent,
+      };
+    };
+    const generico = await rodar('', 'Sem causa', 'recA');
+    const nomeada = await rodar(
+      'transmissão: extração falhou: ContentNotAvailableException · https://x',
+      'Com causa', 'recB');
+    window.__ytDiag = '';
+    return { generico, nomeada };
+  });
+  checar(recusa.generico.falou && /Não deu/i.test(recusa.generico.cap),
+    'um item de link que NÃO resolve fala pelo cartão da preview — a nota vai '
+    + 'para a linha, e a linha some justamente neste caso (o "Tocar agora" de um '
+    + 'episódio fecha a Biblioteca antes de começar)', recusa.generico);
+  checar(/não foi possível/i.test(recusa.generico.texto),
+    'e sem causa nomeada pelo shell a frase genérica continua valendo',
+    recusa.generico);
+  checar(/não está disponível/i.test(recusa.nomeada.texto),
+    'com o shell nomeando a causa, o cartão diz que o VÍDEO não está disponível '
+    + '— "não deu, tente de novo" e "escolha outro" mandam fazer coisas opostas',
+    recusa.nomeada);
 } finally {
   await navegador.close();
   await new Promise((r) => servidor.close(r));
