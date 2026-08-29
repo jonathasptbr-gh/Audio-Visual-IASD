@@ -132,7 +132,7 @@ try {
       img: !!(im && !im.hidden && im.getAttribute('src')),
       kind: currentItem ? currentItem.kind : null,
       currentId,
-      sessao: imgSobreProjetando(),
+      sessao: visualSobreProjetando(),
       eixo: slideTarget(),
     };
   });
@@ -231,7 +231,7 @@ try {
   // (e esvaziada) a cada troca de aba. Horas depois do toque, uma tela que dá
   // F5 pede a cena de volta: o `text/mode:image` saía SEM `__rec`, e a tela
   // pintava um cartão PRETO por cima da projeção até alguém tocar em outra
-  // coisa. O registro passou a viajar na PRÓPRIA sessão (`imgSession.rec`), o
+  // coisa. O registro passou a viajar na PRÓPRIA sessão (`visualSession.rec`), o
   // único lugar que sobrevive à troca de aba.
   //
   // E ele falha calado nas duas pontas: no celular nada muda (o telão de
@@ -303,7 +303,7 @@ try {
     await new Promise((r) => setTimeout(r, 300));
     await send(o.imagem, true);
     await new Promise((r) => setTimeout(r, 300));
-    return { kind: currentItem ? currentItem.kind : null, sessao: imgSobreProjetando() };
+    return { kind: currentItem ? currentItem.kind : null, sessao: visualSobreProjetando() };
   }, ids);
   checar(fila.kind === 'image' && !fila.sessao,
     'o avanço automático da fila SUBSTITUI, nunca sobrepõe', fila);
@@ -333,7 +333,7 @@ try {
     await send(o.audio);
     await new Promise((r) => setTimeout(r, 400));
     const medir = () => ({
-      id: currentId, kind: currentItem ? currentItem.kind : null, sessao: imgSobreProjetando(),
+      id: currentId, kind: currentItem ? currentItem.kind : null, sessao: visualSobreProjetando(),
     });
     const partida = medir();
     step(1);

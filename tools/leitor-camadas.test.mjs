@@ -171,6 +171,9 @@ try {
       fontes: lyricsViewSources(),
       ativa: lvActiveSource(),
       linhas: document.querySelectorAll('#lyricsViewBody .lv-row').length,
+      // NA ORDEM DO DOM, que é a que o operador vê. A lista de fontes já estava
+      // certa quando a tela estava errada — é por isso que ela não prova nada
+      // sobre a ordem, e que este campo existe separado dela.
       botoes: [...seg.querySelectorAll('.fit-opt')].filter((b) => !b.hidden)
         .map((b) => b.dataset.lvsrc),
       segEscondido: seg.hidden,
@@ -199,6 +202,20 @@ try {
   checar(!sobreposta.segEscondido && sobreposta.botoes.length === 3,
     '  ↳ e o SELETOR aparece com as três: sem ele a disponibilidade existe só '
     + 'para quem lê o código', sobreposta.botoes);
+  // ===== A ORDEM DAS ABAS NA TELA (v1.4.28) =====
+  //
+  // Pedido do operador: *"a aba da bíblia está entre a letra e a cifra, coloque
+  // ela à esquerda, pois letra e cifra são irmãs, sempre juntas quando ambas
+  // existem"*. A ordem certa JÁ EXISTIA — é a pilha, medida acima. O que havia
+  // era uma SEGUNDA ordem, a do HTML estático ("Letra, Bíblia, Cifra"), que
+  // divergiu em silêncio: a folha continuava funcionando, com a Bíblia
+  // separando duas abas que são irmãs.
+  //
+  // Por isso a asserção é sobre o DOM e não sobre a lista: a lista passava.
+  checar(sobreposta.botoes.join(',') === 'bible,lyrics,cifra',
+    '  ↳ A BÍBLIA FICA À ESQUERDA e LETRA E CIFRA ficam JUNTAS: a ordem NA TELA '
+    + 'é a da pilha. No HTML estático ela é "Letra, Bíblia, Cifra" — a segunda '
+    + 'lista, e a que o pedido nomeia', sobreposta.botoes);
   checar(sobreposta.linhas === 3,
     '  ↳ e o corpo é o do versículo, não o da letra', sobreposta.linhas);
 

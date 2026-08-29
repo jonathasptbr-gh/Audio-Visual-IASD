@@ -1327,7 +1327,7 @@
              pedir ajuda"), e agora ocupam a mesma faixa: a versão à esquerda, o
              Registro à direita, no espaço que já estava sobrando. -->
         <div class="footer-diag">
-          <span id="appVersion" class="app-version">Controle v1.4.27</span>
+          <span id="appVersion" class="app-version">Controle v1.4.28</span>
           <span class="footer-diag-rot">Registro</span>
           <!-- SALVAR EM ARQUIVO (v1.2.16). Com o acervo inteiro varrido o
                Registro passa de setenta linhas só na seção de cifras, e copiar
@@ -1625,12 +1625,12 @@
           <button type="button" class="fit-opt" data-lvsrc="lyrics">Letra</button>
           <button type="button" class="fit-opt" data-lvsrc="bible">Bíblia</button>
           <button type="button" class="fit-opt" data-lvsrc="cifra">Cifra</button>
-          <!-- A APRESENTAÇÃO é EXCLUSIVA (ver `lyricsViewSources`), então este
-               botão nunca chega a aparecer hoje: com uma fonte só o seletor
-               inteiro fica `hidden`. Ele existe porque a visibilidade sai da
-               MESMA lista que governa a precedência — e uma fonte na lista sem
-               botão no documento é o estado que ninguém veria: um seletor com
-               uma aba faltando, sem erro em lugar nenhum. -->
+          <!-- A ORDEM DESTES BOTÕES NÃO É A DAQUI: quem a decide é a PILHA
+               (`lyricsViewSources`), e o `renderLyricsView` reordena os que
+               estão à vista para segui-la. A ordem do documento é só a de
+               partida — mantê-la em dia à mão seria a segunda lista que
+               divergiu uma vez (a Bíblia separando Letra e Cifra, que são
+               irmãs). -->
           <button type="button" class="fit-opt" data-lvsrc="deck">Páginas</button>
         </div>
       </div>

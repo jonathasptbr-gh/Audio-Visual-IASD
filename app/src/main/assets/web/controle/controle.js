@@ -261,7 +261,7 @@ const appVersionEl = document.getElementById('appVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.4.27';
+const WEB_VERSION = '1.4.28';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -2512,6 +2512,17 @@ async function pintarPvTextImg(obj) {
   let rec = null;
   if (obj.mediaId) { try { rec = await AVDB.getMedia(obj.mediaId); } catch (_) { rec = null; } }
   if (seq !== pvTextImgSeq || !rec) return;
+  // A PÁGINA DA APRESENTAÇÃO, aqui também (v1.4.28) — e o "também" é o ponto.
+  // Esta é a metade PREVIEW do `pintarTextImg` do telão, e as duas escolhem o
+  // blob por conta própria: sem esta linha a preview mostraria a página 1 para
+  // sempre enquanto o telão passa slides, e SEM TV ela É a projeção. É a
+  // armadilha que o `fundo-da-letra` já pagou uma vez — *ler cada lado isolado
+  // aprova os dois*.
+  if (Array.isArray(rec.pages) && rec.pages.length) {
+    const pg = rec.pages[Math.min(Math.max(obj.page | 0, 0), rec.pages.length - 1)];
+    if (!pg) return;
+    rec = (typeof pg === 'string') ? { url: pg } : { blob: pg };
+  }
   let src = '';
   if (rec.blob) { pvTextImgUrl = URL.createObjectURL(rec.blob); src = pvTextImgUrl; }
   else if (rec.opfsPath) {
@@ -3143,7 +3154,13 @@ function pushNowPlaying() {
   // A IMAGEM não vira `who` (ela não tem eixo de ⏮/⏭ — ver `slideTarget`),
   // mas o cartão que ela põe na tela é a informação que falta no título: ali
   // continua o nome do ÁUDIO, que é o que o ▶ e a barra de fato controlam.
-  const subtitle = imgSobreProjetando() ? 'Imagem em cena'
+  // A APRESENTAÇÃO SOBREPOSTA diz a PÁGINA aqui, e não no título: o título
+  // continua sendo o do ÁUDIO (é ele que o ▶ e a barra controlam), e sem o
+  // número duas páginas seguidas dariam o mesmo cabeçalho — a mesma razão pela
+  // qual o deck-como-mídia leva a página no nome.
+  const subtitle = deckSobreProjetando()
+      ? 'Apresentação · ' + (deckPagina + 1) + '/' + visualSession.rec.pages.length
+    : visualSobreProjetando() ? 'Imagem em cena'
     : who === 'bible' ? 'Bíblia'
     : who === 'songlyrics' ? 'Letra (sem música)'
     : who === 'message' ? 'Mensagem'
@@ -3949,7 +3966,7 @@ function hideBibleVerse() {
   // `marcarNoAr` é o `display-status`, que o telão só emite com MÍDIA — e a
   // cena de roteiro que mais usa estes `hide*` (cronômetro, sorteio) é
   // justamente a que não tem mídia nenhuma por baixo. Todo `hide*` precisa
-  // dela; `hideImagemSobre` já a tinha.
+  // dela; `hideVisualSobre` já a tinha.
   marcarNoAr();
   bibleRenderReading();
 }
@@ -4905,11 +4922,23 @@ function lyricStep(delta) {
   projectLyricStanza(t);
 }
 
-// ===== A IMAGEM SOBRE O ÁUDIO (v5.312) =====
+// ===== A MÍDIA VISUAL SOBRE O ÁUDIO (v5.312 · a apresentação na v1.4.28) =====
 //
 // Pedido do operador: *"preciso que imagens, ou arquivos unicamente visuais,
 // possam ser apresentados sobre uma mídia de áudio, sem interromper o áudio,
-// semelhante ao que já temos com elementos de texto sobre áudio"*.
+// semelhante ao que já temos com elementos de texto sobre áudio"* — e, na
+// v1.4.28, *"adicione a possibilidade de música atrás dos slides. Atualmente
+// são concorrentes, mas os slides devem ser tratados como camada, assim como
+// as imagens ou os textos e mensagens"*.
+//
+// A APRESENTAÇÃO ENTROU NESTA CAMADA, e não numa segunda. Uma página de deck é
+// UMA imagem opaca ocupando a tela — exatamente o que este cartão já pinta —, e
+// o que muda entre as duas é só QUAL blob do registro sai: `rec.blob` na imagem,
+// `rec.pages[page]` na apresentação. Por isso o comando continua sendo
+// `mode: 'image'` com um campo `page` a mais: o `display.js` ganha uma escolha
+// de blob e nenhum ramo novo, nenhuma classe nova, nenhum caminho novo de
+// reenvio nem de `text-hide`. O motor de projeção continua sem mudar uma linha,
+// que é o mesmo argumento que tornou a v5.312 segura.
 //
 // **Não era um defeito: era uma capacidade que nunca existiu.** Medido num
 // navegador de verdade — com um áudio tocando, projetar uma imagem deixava o
@@ -4925,14 +4954,42 @@ function lyricStep(delta) {
 //
 // A sessão tem a mesma forma das outras cinco (`{ id, projecting }`), e por isso
 // entra de graça em `cenaDeRoteiroNoAr`, no rodízio do `soUmProvedorDeTexto` e
-// na escada do botão voltar.
+// na escada do botão voltar. **O NOME É `visual` e não `imagem`** desde que a
+// apresentação entrou: um `imgSession` guardando um deck é a armadilha que este
+// projeto nomeia — quem o lesse procuraria uma imagem que não está lá.
 // O `rec` viaja DENTRO da sessão porque ele é o único lugar que sobrevive à
 // troca de aba: a imagem sobreposta costuma vir de `libItems`, e essa lista é
 // zerada a cada troca. Sem ele, um reenvio de cena (uma tela da rede que deu F5)
 // mandava `{type:'text',mode:'image'}` sem `__rec` e a tela pintava um cartão
 // PRETO sobre a projeção. Ver `await0Rec`.
-let imgSession = null;   // { id, nome, rec, projecting } | null
-function imgSobreProjetando() { return !!(imgSession && imgSession.projecting); }
+let visualSession = null;   // { id, nome, rec, projecting } | null
+function visualSobreProjetando() { return !!(visualSession && visualSession.projecting); }
+
+// A CAMADA DE CIMA É UMA APRESENTAÇÃO? É a única pergunta que separa os dois
+// conteúdos deste cartão, e ela existe porque um deck tem o que uma imagem não
+// tem: PÁGINAS. É ela que devolve o eixo de ⏮/⏭ ao `slideTarget` (onde a imagem
+// devolve `null`, por não ter para onde ir) e que põe a aba "Páginas" no
+// auxiliar de leitura enquanto a música de fundo mantém as dela.
+function deckSobreProjetando() {
+  return visualSobreProjetando() && isDeck(visualSession.rec);
+}
+
+/**
+ * A APRESENTAÇÃO QUE ESTÁ NO AR — pela camada, ou como a própria mídia.
+ *
+ * São os dois jeitos de um deck estar projetando, e todo o resto do app precisa
+ * de UMA resposta: os limites do ⏮/⏭, o número da página no transporte, a
+ * coluna do auxiliar de leitura e o reenvio de cena. Duas leituras espalhadas
+ * pelo arquivo divergiriam no primeiro caminho novo — é a mesma razão pela qual
+ * `slideTarget` é um lugar só.
+ *
+ * A CAMADA VENCE, e não é empate: com as duas coisas de pé, o que a congregação
+ * vê é o cartão de cima.
+ */
+function deckNoAr() {
+  if (deckSobreProjetando()) return visualSession.rec;
+  return isDeck(currentItem) ? currentItem : null;
+}
 
 // ESTA LINHA DA LISTA É A IMAGEM QUE ESTÁ POR CIMA? A pergunta existe porque a
 // sobreposição rompe a premissa das quatro funções de realce: elas dividem o
@@ -4942,12 +4999,12 @@ function imgSobreProjetando() { return !!(imgSession && imgSession.projecting); 
 // selo, não ficava ativa, e o segundo toque caía no `pararMidia` do ramo de
 // mídia: o operador tocava na IMAGEM para tirá-la e o que saía era o ÁUDIO,
 // com a imagem seguindo na tela.
-function imagemSobreNaLinha(id) {
-  return !!(id && imgSobreProjetando() && imgSession.id === id);
+function visualSobreNaLinha(id) {
+  return !!(id && visualSobreProjetando() && visualSession.id === id);
 }
-function clearImgSession() {
-  if (!imgSession) return;
-  imgSession = null;
+function clearVisualSession() {
+  if (!visualSession) return;
+  visualSession = null;
   renderSlideNav();
   renderNowPlaying();
 }
@@ -4993,7 +5050,7 @@ function soUmProvedorDeTexto(quem) {
   // lista), então com o cartão escondido o segundo devolveria `''`, a troca
   // seria falsa, e reexibir O PRÓPRIO cue apagaria o selo dele.
   if (cueNoArId && provedorDoCartao() !== quem) cueNoArId = '';
-  if (quem !== 'imagem') clearImgSession();
+  if (quem !== 'visual') clearVisualSession();
   if (quem !== 'bible') clearBibleSession();
   if (quem !== 'message') clearMsgSession();
   if (quem !== 'songlyrics') clearLyricSession();
@@ -5008,7 +5065,7 @@ function soUmProvedorDeTexto(quem) {
 
 function clearManualText() {
   clearBibleSession(); clearMsgSession(); clearLyricSession();
-  clearChronoSession(); clearDrawSession(); clearImgSession();
+  clearChronoSession(); clearDrawSession(); clearVisualSession();
   textoAvulsoNoAr = false;
   // A Camada de Texto saiu: nenhuma cena de roteiro está mais no ar, venha ela
   // de onde vier. Ver `cueNoArId`.
@@ -5028,7 +5085,7 @@ function provedorDoCartao() {
   if (lyricSession) return 'songlyrics';
   if (chronoSession) return 'chrono';
   if (drawSession) return 'draw';
-  if (imgSession) return 'imagem';
+  if (visualSession) return 'visual';
   if (textoAvulsoNoAr) return 'avulso';
   return '';
 }
@@ -5041,7 +5098,7 @@ function provedorDeTextoNoAr() {
   if (lyricProjecting()) return 'songlyrics';
   if (chronoProjecting()) return 'chrono';
   if (drawProjecting()) return 'draw';
-  if (imgSobreProjetando()) return 'imagem';
+  if (visualSobreProjetando()) return 'visual';
   if (textoAvulsoNoAr) return 'avulso';
   return '';
 }
@@ -5090,7 +5147,7 @@ function renderCamadaBtn() {
 function encerrarCamadaDeCima() {
   const quem = provedorDeTextoNoAr();
   if (!quem) return;
-  if (quem === 'imagem') return hideImagemSobre();
+  if (quem === 'visual') return hideVisualSobre();
   if (quem === 'bible') return hideBibleVerse();
   if (quem === 'message') return hideMessage();
   if (quem === 'chrono') return hideChrono();
@@ -5120,7 +5177,7 @@ function encerrarCamadaDeCima() {
 function cenaDeRoteiroNoAr() {
   return !!((bibleSession && bibleSession.projecting) || msgProjecting()
     || lyricProjecting() || chronoProjecting() || drawProjecting()
-    || imgSobreProjetando() || textoAvulsoNoAr);
+    || visualSobreProjetando() || textoAvulsoNoAr);
 }
 
 // Projeta a mensagem de índice `idx` (Display + preview). Encerra a Bíblia (só
@@ -5140,23 +5197,28 @@ function projectMessage(idx) {
 
 // PROJETAR UMA IMAGEM POR CIMA. Nenhum `load` sai daqui — é essa a diferença
 // inteira, e é o que preserva o áudio por baixo.
-function projetarImagemSobre(rec) {
+function projetarVisualSobre(rec) {
   if (!rec) return;
-  soUmProvedorDeTexto('imagem');
-  imgSession = { id: rec.id, nome: rec.name || '', rec, projecting: true };
+  soUmProvedorDeTexto('visual');
+  visualSession = { id: rec.id, nome: rec.name || '', rec, projecting: true };
+  // A APRESENTAÇÃO ENTRA SEMPRE PELA PRIMEIRA PÁGINA, e a linha mora AQUI
+  // porque o caminho da camada volta antes do `deckPagina = 0` do `send`. Sem
+  // ela, sobrepor um deck ao louvor abriria na página em que o deck ANTERIOR
+  // parou — um slide aleatório no telão.
+  deckPagina = 0;
   // `view` volta a 'visual' porque a cortina esconderia o cartão que acabou de
   // ser pedido — a mesma linha que `projectMessage` tem, pela mesma razão.
   view = 'visual';
   persistCurrent();
-  cmd({ type: 'text', mode: 'image', mediaId: rec.id, sub: '', view: 'visual' });
+  cmd({ type: 'text', mode: 'image', mediaId: rec.id, page: 0, sub: '', view: 'visual' });
   renderControls();
   renderNowPlaying();
   renderSlideNav();
   marcarNoAr();
 }
-function hideImagemSobre() {
-  if (!imgSobreProjetando()) return;
-  imgSession.projecting = false;
+function hideVisualSobre() {
+  if (!visualSobreProjetando()) return;
+  visualSession.projecting = false;
   cmd({ type: 'text-hide' });
   renderControls();
   renderNowPlaying();
@@ -10165,8 +10227,21 @@ async function send(id, daFila, retomarEm) {
   // imagem é o PRÓXIMO item da sequência, não um cartão que alguém pediu por
   // cima do atual — sobrepor faria a fila parar de andar sozinha, com o áudio
   // anterior tocando para sempre sob a imagem nova.
-  if (!daFila && alvo && alvo.kind === 'image' && audioNoAr()) {
-    projetarImagemSobre(alvo);
+  //
+  // A APRESENTAÇÃO ENTROU NA MESMA GUARDA (v1.4.28), a pedido do operador:
+  // *"adicione a possibilidade de música atrás dos slides… os slides devem ser
+  // tratados como camada, assim como as imagens ou os textos e mensagens"*. Um
+  // deck e uma imagem respondem à mesma pergunta — conteúdo que só ocupa a
+  // TELA —, e responder a ela em dois lugares diferentes seria a divergência
+  // de sempre.
+  //
+  // O GESTO É O MESMO DA IMAGEM, e por isso é assimétrico: a música vem
+  // PRIMEIRO, e o toque na apresentação a cobre. O contrário (deck no ar, e o
+  // toque numa música) SUBSTITUI, como sempre substituiu — inventar uma segunda
+  // regra para a mesma pergunta é o que este arquivo recusa em toda parte, e o
+  // operador já conhece esta.
+  if (!daFila && alvo && (alvo.kind === 'image' || isDeck(alvo)) && audioNoAr()) {
+    projetarVisualSobre(alvo);
     return;
   }
   currentId = id;
@@ -10325,7 +10400,12 @@ function slideTarget() {
   // A IMAGEM SOBREPOSTA entra nesta guarda pela razão que o parágrafo acima
   // descreve, ao pé da letra: ela é um cartão opaco, e a letra do áudio de
   // fundo está atrás dele.
-  if (chronoProjecting() || drawProjecting() || imgSobreProjetando()) return null;
+  // A APRESENTAÇÃO SOBRE O ÁUDIO É A EXCEÇÃO DA GUARDA ABAIXO, e vem antes
+  // dela: o argumento daquela é "este cartão não tem para onde ir", e um deck
+  // TEM — cada toque passa uma página. Com o eixo devolvido, o ⏮/⏭ passa slide
+  // enquanto o louvor de fundo continua andando por baixo, que é o pedido.
+  if (deckSobreProjetando()) return 'deck';
+  if (chronoProjecting() || drawProjecting() || visualSobreProjetando()) return null;
   if (lyricProjecting()) return 'songlyrics';
   if (msgSession && msgSession.projecting) return 'message';
   if (bibleSession && bibleSession.projecting) return 'bible';
@@ -10396,8 +10476,9 @@ function applySlideLimits(who) {
     return;
   }
   if (who === 'deck') {
-    slidePrevBtnEl.disabled = deckPagina <= 0;
-    slideNextBtnEl.disabled = deckPagina >= currentItem.pages.length - 1;
+    const d = deckNoAr();
+    slidePrevBtnEl.disabled = !d || deckPagina <= 0;
+    slideNextBtnEl.disabled = !d || deckPagina >= d.pages.length - 1;
     return;
   }
   if (who !== 'lyrics') {
@@ -10504,10 +10585,13 @@ function lyricsViewSources() {
   // 1. A CAMADA DE TEXTO, se estiver projetando: é o que está na frente.
   if (lvNaCena() && bibleSession && bibleSession.projecting
       && bibleSession.verses && bibleSession.verses.length) list.push('bible');
-  // 2. A MÍDIA embaixo dela. Uma apresentação e uma música nunca coexistem
-  //    (`currentItem` é uma coisa só), então estes dois são exclusivos ENTRE SI
-  //    por construção — e não por regra.
-  if (isDeck(alvo)) list.push('deck');
+  // 2. A MÍDIA embaixo dela, e ela pode ser DUAS CAMADAS desde a v1.4.28: uma
+  //    apresentação sobreposta a um louvor de fundo devolve `deck` E `lyrics`,
+  //    nessa ordem, porque é essa a ordem no telão — o cartão do slide por cima,
+  //    a música tocando por baixo. Antes eram exclusivos por `currentItem` ser
+  //    uma coisa só; hoje o deck pode estar na CAMADA, e aí `currentItem` é a
+  //    música.
+  if (lvDeckRec()) list.push('deck');
   const lyrics = alvo && Array.isArray(alvo.lyrics) ? alvo.lyrics : null;
   if (lyrics && lyrics.length) list.push('lyrics');
   // 3. O auxiliar de quem toca a mídia de cima.
@@ -10545,6 +10629,20 @@ let lvAlvo = null;
 
 /** A música que a FOLHA mostra: o alvo escolhido, ou o que está em cena. */
 function lvItem() { return lvAlvo || currentItem; }
+
+/**
+ * A APRESENTAÇÃO que a FOLHA mostra — e ela não sai do `lvItem()`.
+ *
+ * São dois casos que o `lvItem` não distingue: um deck da BIBLIOTECA (o alvo, e
+ * aí só ele conta — nada da cena entra numa folha de ensaio) e o deck que está
+ * NO AR, que desde a v1.4.28 pode ser a CAMADA por cima de um louvor. Neste
+ * segundo caso `lvItem()` é a MÚSICA, e perguntar a ela por páginas devolveria
+ * nada: a aba "Páginas" sumiria justamente na cena que o pedido criou.
+ */
+function lvDeckRec() {
+  if (lvAlvo) return isDeck(lvAlvo) ? lvAlvo : null;
+  return deckNoAr();
+}
 
 /**
  * A folha está mostrando o que está NO AR?
@@ -10613,9 +10711,12 @@ function lvSignature(src) {
   // faria cada toque no ⏭ remontar as dezenas de miniaturas (e revogar e
   // recriar as URLs delas) em vez de mover uma classe.
   if (src === 'deck') {
-    const a = lvItem();
-    return avail + '|deck|' + (lvAlvo ? 'alvo:' + (a.id || a.name) : currentId)
-      + '|' + a.pages.length;
+    const a = lvDeckRec();
+    if (!a) return avail + '|deck|';
+    // A CHAVE É DO DECK, não de `currentId`: sobreposto a um louvor, quem está
+    // no ar é a MÚSICA, e chavear por ela deixaria a coluna de páginas de pé
+    // depois de o operador trocar a apresentação sem trocar o áudio.
+    return avail + '|deck|' + (a.id || a.name) + '|' + a.pages.length;
   }
   // A CIFRA muda de conteúdo por CHEGADA e por TRANSPOSIÇÃO, e as duas precisam
   // entrar aqui: a primeira porque a resposta da rede vem depois do desenho, a
@@ -10734,6 +10835,32 @@ function renderLyricsView() {
     btn.hidden = !avail.includes(btn.dataset.lvsrc);
     btn.classList.toggle('active', btn.dataset.lvsrc === src);
   });
+  // ===== A ORDEM DAS ABAS É A DA PILHA (v1.4.28) =====
+  //
+  // Pedido do operador: *"a aba da bíblia está entre a letra e a cifra, coloque
+  // ela à esquerda, pois letra e cifra são irmãs, sempre juntas quando ambas
+  // existem. E é claro, a bíblia acaba sempre ficando por cima quando os três
+  // são exibidos."*
+  //
+  // A ordem que ele descreve JÁ EXISTIA — é a de `lyricsViewSources`, a pilha
+  // do que está em exibição. O que estava errado era haver uma SEGUNDA ordem: a
+  // do HTML estático, escrita meses antes, que ninguém tinha razão para manter
+  // em dia. Duas listas com a mesma pergunta divergem no primeiro esquecimento,
+  // e esta divergiu em silêncio — a folha continuava funcionando, com a Bíblia
+  // separando duas abas que são irmãs.
+  //
+  // Por isso a correção não é reordenar o HTML: é a tela passar a LER a única
+  // ordem que existe. Reordenar só o que está à vista basta e é o que mantém a
+  // regra viva — uma fonte nova entra no lugar certo por ter entrado na pilha,
+  // e não por alguém lembrar de mover um `<button>`.
+  //
+  // `appendChild` MOVE um nó que já está no pai (não copia), então isto é uma
+  // reordenação no lugar; e ela é idempotente — reanexar na ordem em que já
+  // estão não muda nada na tela.
+  for (const nome of avail) {
+    const btn = lyricsViewSegEl.querySelector('.fit-opt[data-lvsrc="' + nome + '"]');
+    if (btn) lyricsViewSegEl.appendChild(btn);
+  }
 
   lyricsViewBodyEl.innerHTML = '';
   // AS URLS DAS MINIATURAS MORREM AQUI, no MESMO ponto em que o corpo é
@@ -12434,7 +12561,8 @@ function lvDeckSoltarUrls() {
 }
 
 function lvBuildDeck(el, cur) {
-  const pages = (lvItem() && lvItem().pages) || [];
+  const rec = lvDeckRec();
+  const pages = (rec && rec.pages) || [];
   // O TOQUE PULA PARA A PÁGINA (v1.4.26), a pedido do operador: *"preciso da
   // capacidade de tocar nos slides para passar ou pular diretamente para um
   // slide em específico"*.
@@ -12444,7 +12572,7 @@ function lvBuildDeck(el, cur) {
   // leitura pura: *nada ali projeta* é a regra do `lvAlvo`, e um toque que
   // mandasse um `page` a partir dela romperia justamente a promessa de abrir
   // uma mídia sem que a congregação veja.
-  const tocavel = lvNaCena() && isDeck(currentItem);
+  const tocavel = lvNaCena() && !!deckNoAr();
   pages.forEach((p, i) => {
     const row = document.createElement('div');
     row.className = 'lv-row lv-row--slide' + (tocavel ? ' lv-row--tocavel' : '');
@@ -12889,7 +13017,7 @@ async function retirarDoAr(item) {
   // encerra o ÁUDIO: o operador toca na imagem para tirá-la e o louvor é que
   // some, com a imagem de pé. É o simétrico exato do `text-hide` do ramo de
   // cue, aplicado ao único item de mídia que projeta por aquela porta.
-  if (item && imagemSobreNaLinha(item.id)) { hideImagemSobre(); return; }
+  if (item && visualSobreNaLinha(item.id)) { hideVisualSobre(); return; }
   if (isCue(item)) {
     // O `text-hide` É O QUE TIRA DA TELA — e ele faltava.
     //
@@ -13036,7 +13164,7 @@ function marcarNoAr() {
  */
 function linhaNoAr(id) {
   if (!id) return false;
-  if (imagemSobreNaLinha(id)) return true;
+  if (visualSobreNaLinha(id)) return true;
   if (midiaNoAr && (id === midiaNoArId || id === midiaNoArOrigem)) return true;
   return !!cueNoArId && id === cueNoArId && cenaDeRoteiroNoAr();
 }
@@ -13131,7 +13259,7 @@ function pintarSubNoAr(sub, noAr) {
  */
 function linhaAtiva(id) {
   if (!id) return false;
-  if (imagemSobreNaLinha(id)) return true;
+  if (visualSobreNaLinha(id)) return true;
   if (id === currentId) return true;
   // A linha que RESOLVEU um link é a atual enquanto a mídia dela estiver no ar
   // (ver `midiaNoArOrigem`). Sem isto ela alternaria entre "no ar" e nada,
@@ -13151,7 +13279,7 @@ function linhaAtiva(id) {
  */
 function noArAgora(item) {
   if (!item) return false;
-  if (imagemSobreNaLinha(item.id)) return true;
+  if (visualSobreNaLinha(item.id)) return true;
   if (isCue(item)) return !!cueNoArId && item.id === cueNoArId && cenaDeRoteiroNoAr();
   // A ORIGEM entra aqui pelo mesmo motivo que entra no `linhaNoAr`: sem ela a
   // linha do link ganhava o selo "● No ar" e o segundo toque continuava
@@ -20969,17 +21097,29 @@ function isDeck(rec) {
  * mesmo salto divergiriam no primeiro campo novo do comando `page`.
  */
 function deckIr(alvo) {
-  if (!isDeck(currentItem)) return;
-  const n = Math.min(Math.max(alvo | 0, 0), currentItem.pages.length - 1);
+  const d = deckNoAr();
+  if (!d) return;
+  const n = Math.min(Math.max(alvo | 0, 0), d.pages.length - 1);
   if (n === deckPagina) return;
   deckPagina = n;
-  cmd({ type: 'page', page: deckPagina });
+  // DOIS CAMINHOS, PORQUE SÃO DUAS CENAS — e a escolha é do ponto único, não
+  // dos chamadores. Como MÍDIA a apresentação está no slot do `stage.js` e a
+  // página anda por `page`; como CAMADA ela é o cartão de texto, e a página
+  // anda reenviando o mesmo `text` com o número novo (é o que o `showText` já
+  // faz numa troca de versículo: repinta e faz o fade no lugar). Um `page`
+  // mandado para a camada não acharia deck nenhum no motor e não faria NADA —
+  // sem erro, com o operador apertando o botão na frente da congregação.
+  if (deckSobreProjetando()) {
+    cmd({ type: 'text', mode: 'image', mediaId: visualSession.id, page: deckPagina, sub: '', view: 'visual' });
+  } else {
+    cmd({ type: 'page', page: deckPagina });
+  }
   renderSlideNav();
   renderNowPlaying();
 }
 
 function deckStep(delta) {
-  if (!isDeck(currentItem)) return;
+  if (!deckNoAr()) return;
   deckIr(deckPagina + delta);
 }
 
@@ -25252,14 +25392,21 @@ function resendSceneToDisplay(para) {
     if (m) enviar({ type: 'text', mode: 'message', main: m.text, sub: '', view });
   } else if (lyricProjecting()) {
     enviar({ type: 'text', mode: 'message', main: lyricSession.stanzas[lyricSession.idx], sub: '', view });
-  } else if (imgSobreProjetando()) {
+  } else if (visualSobreProjetando()) {
     // A IMAGEM SOBRE O ÁUDIO volta como as outras cinco, e precisa: ela é
     // justamente o caso que este reenvio existe para cobrir — um cartão de
     // aviso ESTÁTICO, sem `playing`, que sumia para sempre depois de um blip do
     // dongle enquanto o Controle seguia dizendo "● No ar". Ela vai por
     // `mediaId`, e não pelos bytes: o telão resolve pelo mesmo IndexedDB
     // compartilhado, e a tela da rede pelo `__rec` que o `telaEnriquecer` põe.
-    enviar({ type: 'text', mode: 'image', mediaId: imgSession.id, sub: '', view });
+    // E A APRESENTAÇÃO VOLTA NA PÁGINA EM QUE ESTAVA, pelo mesmo motivo do
+    // tempo da mídia logo acima: um telão que reconecta no meio da pregação não
+    // pode voltar ao primeiro slide na frente de todo mundo. Numa imagem o
+    // campo é zero e não significa nada.
+    enviar({
+      type: 'text', mode: 'image', mediaId: visualSession.id, sub: '', view,
+      page: deckSobreProjetando() ? deckPagina : 0,
+    });
   }
 }
 
@@ -26384,7 +26531,7 @@ function await0Rec(id) {
   // A SESSÃO ANTES DAS LISTAS: a imagem sobreposta quase sempre vem de
   // `libItems`, que a troca de aba zera — e é justamente numa reconexão (a tela
   // que deu F5) que este registro é pedido de novo, horas depois do toque.
-  if (imgSession && imgSession.id === id && imgSession.rec) return imgSession.rec;
+  if (visualSession && visualSession.id === id && visualSession.rec) return visualSession.rec;
   return [...plItems, ...libItems, ...favItems].find((m) => m.id === id) || null;
 }
 
@@ -26446,7 +26593,23 @@ function telaEnriquecer(cmd) {
     const token = telaTokenDe(it.id);
     if (!token) return;
     cmd.__rec = telaSanearRec(it, token);
-    telaGarantirEnvio(it);
+    // A APRESENTAÇÃO SOBREPOSTA empurra as PÁGINAS, não o item (v1.4.28) — o
+    // mesmo par que o ramo do `load` já faz, e pela mesma razão: um deck não
+    // tem arquivo único, e o `telaGarantirEnvio` dele sairia sem `blob` nem
+    // `opfsPath` e morreria calado dentro do `telaEmpurrarAgora`, gastando um
+    // giro da fila. Sem token para todas as páginas o `telaSanearRec` não põe
+    // `pages`, e o cartão cai no `url` — que aqui nunca recebe bytes: seria um
+    // retângulo PRETO por cima da projeção, que é o desfecho que este ramo
+    // inteiro existe para impedir.
+    if (isDeck(it)) {
+      if (!telaDeckUrls(it)) {
+        setTimeout(() => {
+          try { AVDB.sendCommand({ type: 'tela-aviso', texto: 'Esta cena não aparece nas telas da rede.' }); } catch (_) { /* nada */ }
+        }, 0);
+        return;
+      }
+      telaEmpurrarPaginasDeck(it);
+    } else telaGarantirEnvio(it);
   } else if (cmd.type === 'wallpaper') {
     // Um comando que JÁ CHEGA com `__wp` é a segunda etapa (abaixo) ou o
     // reenvio de conexão (`telaReenviarPreferencias`): o token dele já está

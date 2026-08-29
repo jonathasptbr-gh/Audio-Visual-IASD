@@ -1469,9 +1469,24 @@ mixer (`#lyricsViewBtn`, folha com linhas) abre um bottom-sheet **com scroll**
 
   - **A ORDEM É A DO `slideTarget()`** — a Camada de Texto por cima da mídia —, e
     não é escrita duas vezes: as duas fazem a mesma pergunta sobre o
-    empilhamento do telão e divergiriam no primeiro recurso novo. `deck` e
-    `lyrics` são exclusivos ENTRE SI por construção (`currentItem` é uma coisa
-    só), não por regra.
+    empilhamento do telão e divergiriam no primeiro recurso novo.
+  - **E A ORDEM DAS ABAS NA TELA É ESSA MESMA** (v1.4.28), a pedido do operador:
+    *"a aba da bíblia está entre a letra e a cifra, coloque ela à esquerda, pois
+    letra e cifra são irmãs, sempre juntas quando ambas existem"*. A ordem certa
+    já existia — o que havia era uma SEGUNDA ordem, a do HTML estático, que
+    ninguém tinha razão para manter em dia e que divergiu em silêncio: a folha
+    continuava funcionando, com a Bíblia separando duas abas que são irmãs. Hoje
+    `renderLyricsView` **reordena os botões visíveis por `avail`** (`appendChild`
+    MOVE um nó que já está no pai, então é reordenação no lugar, e é
+    idempotente). Uma fonte nova entra no lugar certo por ter entrado na pilha, e
+    não por alguém lembrar de mover um `<button>`.
+  - **`deck` e `lyrics` DEIXARAM DE SER EXCLUSIVOS** (v1.4.28). Eram-no por
+    construção — `currentItem` é uma coisa só —, e deixaram de ser quando a
+    apresentação virou CAMADA: com um deck sobre um louvor de fundo, quem está
+    em `currentItem` é a MÚSICA. Por isso a fonte `deck` sai de `lvDeckRec()`, e
+    não de `lvItem()`: perguntar páginas à música devolveria nada, e a aba
+    sumiria justamente na cena que o pedido criou. Ver "Mídia visual sobre o
+    áudio" em [`CAMADA-DE-TEXTO.md`](CAMADA-DE-TEXTO.md).
   - **A CIFRA continua por ÚLTIMA**, e é a única precedência que não vem de
     camada nenhuma: ela não é projetada — é o auxiliar de quem TOCA o que está
     no ar —, e por isso nunca abre sozinha enquanto houver o que está sendo
@@ -1494,10 +1509,11 @@ mixer (`#lyricsViewBtn`, folha com linhas) abre um bottom-sheet **com scroll**
     Biblioteca nada da cena entra**: quem abriu a folha de uma música pediu
     AQUELA música.
 
-  **A apresentação continua sozinha**, e o pedido da v1.4.24 (*"durante uma
-  apresentação, não quero botões de letra, ou de cifras nessa tela"*) segue
+  **A apresentação SOZINHA continua sozinha**, e o pedido da v1.4.24 (*"durante
+  uma apresentação, não quero botões de letra, ou de cifras nessa tela"*) segue
   cumprido — agora **por construção**, não por uma regra que cale as outras: um
-  deck não tem letra nem acorde. Com uma fonte só, o seletor inteiro some sem
+  deck não tem letra nem acorde. Com um louvor de fundo por baixo dele (v1.4.28)
+  a resposta muda, e muda **porque a cena mudou**: ali a letra está em exibição. Com uma fonte só, o seletor inteiro some sem
   nenhum caso especial no desenho. Oráculo: `tools/leitor-camadas.test.mjs`.
 
   **A lista é o MOLDE VERTICAL do capítulo bíblico**, também a pedido: número na

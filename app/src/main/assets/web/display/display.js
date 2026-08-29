@@ -688,6 +688,23 @@ async function pintarTextImg(cmd) {
   if (!rec && cmd.mediaId) { try { rec = await AVDB.getMedia(cmd.mediaId); } catch (_) { rec = null; } }
   if (seq !== textImgSeq) return;
   if (!rec) return;
+  // ===== A APRESENTAÇÃO É UMA PÁGINA DESTE MESMO CARTÃO (v1.4.28) =====
+  //
+  // Um deck sobre o áudio entra por `mode: 'image'` com um `page` a mais, e é
+  // esta escolha de blob — e SÓ ela — que o telão ganhou. A alternativa era um
+  // modo próprio, com classe, ramo no `showText`, caminho de reenvio e de
+  // `text-hide` próprios: mais código no arquivo que roda na frente da
+  // congregação para pintar exatamente o mesmo retângulo opaco.
+  //
+  // STRING ou BLOB, como o `pages` do `stage.js`: no aparelho as páginas são
+  // Blob; numa tela da rede a mesma lista chega como `/m/<token>`, e aí ela cai
+  // no ramo `rec.url` lá embaixo — com a ladeira de retentativa que ele já tem,
+  // porque os bytes podem ainda estar na fila do empurrão.
+  if (Array.isArray(rec.pages) && rec.pages.length) {
+    const pg = rec.pages[Math.min(Math.max(cmd.page | 0, 0), rec.pages.length - 1)];
+    rec = (typeof pg === 'string') ? { url: pg } : { blob: pg };
+    if (!pg) return;
+  }
   let src = '';
   if (rec.blob) { textImgUrl = URL.createObjectURL(rec.blob); src = textImgUrl; }
   else if (rec.opfsPath) {
