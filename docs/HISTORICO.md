@@ -24,6 +24,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
+- **v1.4.10** — O NOME DO APP VENCE O TÍTULO DO YOUTUBE. Relato do operador: *"o nome no card de preparação está se alterando na segunda metade do processo (provavelmente pois ele pega o nome real do vídeo online); deixe apenas o primeiro nome, que ao que parece é o nome do item ou renomeação que temos já no app"*. A leitura dele estava certa e o defeito era mais fundo que o cartão: o registro nascia com `man.name || r.name` (transmissão) e `r.name || rotulo` com o `r.name` do SHELL (download) — **o título extraído do YouTube vencendo o nome que o app já tinha**, nos DOIS caminhos. Ele chega segundos depois do toque, e nesse instante trocava o nome debaixo de tudo: o cartão (que abre com o nome do item), a barra do que está tocando, a notificação de mídia, a linha da lista. **Pior no caminho que mais importa** — um item de link do Cronograma ou dos Favoritos leva o nome que o OPERADOR deu, e o título do canal o apagava. A correção é a ordem invertida nos dois pontos, mais o genérico `'Vídeo'` que o `resolverLinkInterno` fabricava saindo da frente (ele venceria um título de verdade — justamente o caso em que o título DEVE valer). **A correção é do REGISTRO, e não do cartão**, e isso é o ponto: com a legenda certa e o registro errado a troca só mudaria de lugar. Oráculo novo no `toque-instantaneo.test.mjs`, e ele mede a SEQUÊNCIA de nomes e não o estado final — um teste do fim passa nas duas versões enquanto o segundo dono não escreveu, e passa por acidente quando os dois nomes coincidem; o que o operador viu foi a TROCA. Espionar o `previewBusy` colhe todo nome que chega ao cartão, venha do dono que vier. A segunda metade espiona o `addStreamMedia` NO PONTO DA DECISÃO, e não relê o banco depois: o `recuperarStream` troca o registro quando as URLs de mentira falham, e procurá-lo no fim mediria o desfecho do arnês. **De passagem, uma MEDIÇÃO que não virou código**: um Registro de aparelho mostrou um "Tocar agora" saindo em **360p** numa TV 3840×2160 — `clientes ANDROID 1`, o visionOS devolveu ZERO faixas, e sem par DASH o app caiu no progressivo legado; a rede mediu 12,6 Mbps. Não é a tela, não é a rede e não é a regra de escolha. Está em `docs/ACHADOS-EM-ABERTO.md` §3 com o passo que separa "este vídeo" de "o extrator". OTA PURO.
 - **v1.4.9** — O CARTÃO DE ESPERA ESTAVA 15px À ESQUERDA DO CENTRO, E ENTRAVA POR BAIXO DOS BOTÕES. Pergunta do operador sobre o lote anterior: *"verifique se esse cartão de preparação está centralizado no preview"*. Não estava, e MEDIR respondeu duas coisas em vez de uma. O `#pvBusy` cobre a preview inteira e centra o cartão com `justify-content: center` — que centra no CONTEÚDO, não na caixa. A folga que mantém o cartão fora das colunas de `.pv-fab` era **só à direita**, de quando só existia a coluna do player, então o centro do conteúdo não era o centro da preview: 15px à esquerda, MEDIDO em 430px e em 360px, com nome curto e com nome longo — invariante, o que explica por que ninguém relata (lê-se como desalinho, e não se sabe de quê). **E a folga que faltava do outro lado é literalmente o que ela existe para impedir:** a coluna de OPERAÇÃO entrou à esquerda na v1.3.5 e ninguém refez a conta — MEDIDO a 360px com um nome longo, o cartão entrava 28px sob ela, e como as colunas são `z-index: 5` contra 4 o botão da cortina era desenhado POR CIMA do aro de espera. A correção é a folga IGUAL dos dois lados (38px = os 34px de um `.pv-fab` + os 2px que a coluna recua do canto + 2 de folga), que responde às duas de uma vez: a caixa de conteúdo fica simétrica, logo o centro dela É o centro da preview, e a largura reservada mantém o cartão fora das duas colunas. O `.simple-stage` leva a mesma simetria pelo motivo do centro — lá a coluna da esquerda nem existe. DUAS asserções novas no `controles-layout.test.mjs`, e são duas porque **uma folga simétrica grande demais centra e afasta, e uma pequena demais centra e deixa invadir**: só a de centro aprovaria a segunda. Provado por reversão nas duas frentes (a folga de um lado só reprova as duas; `padding: .5rem` reprova só a de invasão). OTA PURO.
 - **v1.4.8** — UM AVISO DE CARREGAMENTO SÓ, E ELE FICA NO CONTROLE. Terceira volta do mesmo pedido, e a que o fecha: *"ainda está tendo os dois modelos de loading, eu gostaria que houvesse apenas o 'preparando…' no controle, vamos abandonar o spinner no telão. Enquanto não houver imagem e/ou som propriamente do vídeo, então não mostre nada além do wallpaper… no telão não vai mensagens de preparação. E nos controles já temos a mensagem de preparando, não precisamos de um spinner exclusivo"*. A v1.4.7 tornou o aro do palco uma OPÇÃO do dono (`espera: true`) e **isso não bastou**: os dois indicadores continuavam existindo, e na preview eles se REVEZAVAM — o cartão "Preparando…" cobria a extração de rede, saía, e o aro assumia a carga do stream. Duas caixas para uma espera só, e a de baixo aparecendo e sumindo no meio dela. **O aro saiu inteiro, e com ele a folha `shared/stage.css`** (o último consumidor dela) e os dois `<link>` que a puxavam. O que fica no lugar não é uma flag a menos: é uma INVERSÃO de quem manda — o palco deixou de DESENHAR a espera e passou a ANUNCIÁ-LA (`opts.onEspera(ligado)`), que é a invariante 5 aplicada ao motor (ele diz o FATO, não a forma). As duas RAZÕES ficam onde estavam (`esperaCarga` · `esperaBuffer`, que não se apagam uma à outra) e o censo de fome do Registro segue intacto — o que mudou é o consumidor. No Controle o anúncio abre e solta o MESMO cartão do toque, de modo que a espera inteira vira um estado só; por BORDA (`pvEsperaSolta`), porque `previewBusy` conta donos e um `onEspera(true)` repetido sem o `false` do meio deixaria um dono pendurado e o cartão nunca sairia — daí o oráculo medir também as BORDAS, e não só o estado. **E juntar as duas metades no mesmo cartão revelou o que a versão de dois indicadores escondia:** entre os dois donos o contador passa por ZERO (o `finally` do toque solta antes de o palco acender), e o cartão saía e voltava no meio da MESMA espera; `PV_BUSY_SAIDA_MS` (700 ms) adia a retirada e um dono novo a cancela — o botão de cancelar, esse, sai na hora, porque uma ação sem dono não pode ficar tocável. A asserção é a CONTINUIDADE amostrada a cada quadro, porque um teste do estado FINAL passa nas duas versões. O NOME vem do ITEM que está entrando (`pvEsperaNome`, gravado por `aplicarNaPreview`) e nunca do rótulo já desenhado: `renderNowPlaying` roda em pontos diferentes de cada caminho, e um nome atrasado é o cartão anunciando o louvor ANTERIOR enquanto o novo carrega. **O telão e as telas da rede não passam `onEspera`**, e é só isso que os separa da preview — continua sendo opção do dono, e não `__AV_ROLE__` lido dentro do `stage.js`. O `espera-do-stream.test.mjs` mudou de sujeito junto: ele media o DOM (o `hidden` do aro) e passou a medir o ANÚNCIO, que é o contrato de verdade — medir o DOM ali seria medir a UI do Controle a partir do motor. A metade da projeção ficou mais forte no caminho: ela pergunta se o palco sem `onEspera` LANÇA (uma exceção ali derrubaria o `load` no meio do culto) e se ele acrescenta algum nó à caixa dele — provada por reversão, devolvendo o aro ao palco. OTA PURO.
 - **v1.4.7** — O CARREGAMENTO É TODO DO CONTROLE, E O TELÃO SÓ MOSTRA O QUE ESTÁ NO AR. Três pedidos do operador no mesmo relato, e o segundo é a correção de um desenho meio-termo da v1.4.6: *"nem coloca todo o carregamento e espera antes de jogar algo no telão e nem deixa o loading inteiramente no telão, você deixa carregar um pouco no controle e um pouco na tela… revise para que todo o loading aconteça no controle, e para o telão, literalmente só apareça quando o vídeo estiver realmente sendo reproduzido"*. **O telão passa a ter DOIS estados e nenhum intermediário**: o wallpaper em repouso, ou o conteúdo de fato no ar. O aro (`.av-stage-busy`) virou OPÇÃO do dono do palco (`espera: true`) e só a preview a liga — e é opção, e não `__AV_ROLE__` lido dentro do `stage.js`, porque a pergunta é *"este palco é uma ILUSTRAÇÃO?"* e a tela da rede é papel `tela` e é PROJEÇÃO: a leitura de papel acertaria por acidente. Mais: **sem quadro, a cortina FICA** — o `mediaReady` passou a devolver se houve dado, e num stream o prazo deixou de REVELAR, porque o que ele socorria era revelar o PRETO; o wallpaper é a resposta certa a "não há o que mostrar" (só no stream: o socorro de 2,5 s do arquivo local não é assunto deste lote). O primeiro pedido: **a reação instantânea valia só para a folha da BUSCA** — *"tocar em um item de link que esteja no cronograma ou dos favoritos"* passa por `resolverLinkYoutube`, que é a MESMA espera por outro caminho; a guarda entra lá dentro, com saída única, porque é o ponto por onde todos os caminhos do link passam. O terceiro: **o CONFIRMAR é sempre o último da faixa** — o lado era escolha de quem fornecia o irmão (`data-antes`), e quem não a fizesse caía do outro lado, que era a divergência entre os Favoritos e o resto da Biblioteca; a escolha por chamador SAIU junto, e com ela o que um chamador novo poderia esquecer. Oráculo estendido para sete metades, provado por reversão em três frentes. OTA PURO.
@@ -282,6 +283,74 @@ na nota que a revoga, não apagada da que a criou.
 - **v5.156** — é METADE OTA e METADE APK, de novo.
 
 ---
+
+## v1.4.10 — o nome do app vence o título do YouTube
+
+> *"o nome no card de preparação está se alterando na segunda metade do processo
+> (provavelmente pois ele pega o nome real do vídeo online); deixe apenas o
+> primeiro nome, que ao que parece é o nome do item ou renomeação que temos já no
+> app"*
+
+A leitura estava certa, e o defeito era mais fundo que o cartão.
+
+### Os dois caminhos concordavam no erro
+
+```js
+// transmissão
+name: man.name || r.name || 'Vídeo'          // man.name = título do YouTube
+// download
+name: (r.name || rotulo) + …                 // r.name  = do ytFetch, o do shell
+```
+
+Nos dois, **o título que o shell extraiu vencia o nome que o app já tinha**. Ele
+chega segundos depois do toque, e nesse instante trocava o nome debaixo de tudo:
+o cartão de espera (que abre com o nome do item, via `cederOPalco`), a barra do
+que está tocando, a notificação de mídia, a linha da lista.
+
+**Pior no caminho que mais importa:** um item de link do Cronograma ou dos
+Favoritos leva o nome que o OPERADOR deu, e o título do canal o apagava.
+
+### A correção é do REGISTRO, não do cartão
+
+Esse é o ponto. Manter a legenda e deixar o registro errado só mudaria a troca de
+lugar — ela reapareceria na barra, na notificação e na lista, e o cartão passaria
+a divergir do que está tocando.
+
+- `tentarTransmitir`: `r.name || man.name || 'Vídeo'`.
+- `ytBaixarNativo`: `nome || r.name || rotulo` — o `nome` cru de quem pediu na
+  frente, e o genérico do `rotulo` por último, senão ele venceria o título de
+  verdade quando não temos nome.
+- `resolverLinkInterno`: o `'Vídeo'` fabricado saiu (`rec.name || ''`). Ele
+  venceria um título de verdade — justamente o caso em que o título DEVE valer.
+
+### O oráculo mede a SEQUÊNCIA, não o fim
+
+Um teste do estado final passa nas duas versões enquanto o segundo dono não
+escreveu, e passa **por acidente** quando os dois nomes coincidem. O que o
+operador viu foi a TROCA. Espionar o `previewBusy` (declaração de topo, logo uma
+propriedade do global — é por ela que `cederOPalco` e o `onEspera` resolvem a
+chamada) colhe todo nome que chega ao cartão, venha do dono que vier, inclusive
+de um terceiro que alguém acrescente depois.
+
+A segunda metade espiona o `addStreamMedia` **no ponto da decisão**, e não relê o
+banco depois: o `recuperarStream` troca o registro quando as URLs de mentira
+falham e o coletor apaga o que ficou sem lista — procurá-lo no fim mediria o
+desfecho do arnês, não a regra. (O manifesto de mentira usa VP9/Opus e não
+H.264/AAC: o Chromium do Playwright não traz codecs proprietários, e com mp4 o
+`AVStream.suportado` recusava — o fluxo caía no download e o oráculo passava pelo
+motivo errado.)
+
+### E uma MEDIÇÃO que não virou código
+
+Um Registro de aparelho (SM-S928B, TV 3840×2160) mostrou um "Tocar agora" saindo
+em **360p**: `clientes ANDROID 1`, o visionOS devolveu ZERO faixas, sem par DASH
+o app caiu no progressivo legado — e a rede mediu 12,6 Mbps. Não é a tela, não é
+a rede e não é a regra de escolha. Está em `docs/ACHADOS-EM-ABERTO.md` §3, com o
+passo que separa *"este vídeo"* de *"o extrator"* — e com a observação de que a
+correção proposta ali **não alcançaria este caso**, onde não há segundo cliente
+com faixa alguma para admitir.
+
+OTA PURO — nenhuma linha de Kotlin, `SHELL_VERSION` segue 60.
 
 ## v1.4.9 — o cartão de espera não estava centrado, e o que faltava era o outro lado
 

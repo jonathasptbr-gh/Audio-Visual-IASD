@@ -4465,6 +4465,26 @@ resultados e eles entram **na mesma lista**, abaixo do acervo, com miniatura
   `youtubeId` desde que nasce, então "já tenho isto?" é uma leitura do índice
   (`AVDB.mediaByYoutube`). Só vale para quem tem **blob** — um item de LINK
   carrega o mesmo `youtubeId` e é o que o download existe para substituir.
+- **O NOME DO APP VENCE O TÍTULO DO YOUTUBE** (v1.4.10), nos DOIS caminhos —
+  `tentarTransmitir` (`r.name || man.name`) e `ytBaixarNativo`
+  (`nome || r.name || rotulo`, com o `r.name` do SHELL no meio). A ordem era a
+  inversa, e o título extraído chega **segundos depois do toque**: nesse instante
+  ele trocava o nome debaixo de tudo — o cartão de espera, a barra do que está
+  tocando, a notificação de mídia, a linha da lista. Pior no caminho que mais
+  importa: um item de link do Cronograma ou dos Favoritos leva o nome que o
+  OPERADOR deu, e o título do canal o apagava. O título fica sendo o que ele
+  sempre deveria ter sido — **a resposta para quando não temos nome**, e não uma
+  correção do nosso.
+  - **Os dois caminhos têm de concordar**, senão o mesmo link renomeia o item ou
+    não conforme dê para transmitir.
+  - **Nenhum genérico entra antes do título**: o `'Vídeo'` que o
+    `resolverLinkInterno` fabricava venceria um título de verdade, que é
+    justamente o caso em que ele deve valer. Quem precisa de algo para MOSTRAR
+    põe o genérico dele (o `rotulo` do `ytBaixarNativo`).
+  - **A correção é do REGISTRO, não do cartão.** Com a legenda certa e o registro
+    errado a troca só muda de lugar. Oráculo: as duas últimas metades do
+    `tools/toque-instantaneo.test.mjs`, que medem a SEQUÊNCIA de nomes (um teste
+    do estado final passa nas duas versões) e o nome NO PONTO DA DECISÃO.
 - **O resultado que já está no aparelho nasce marcado** (`marcarYtProntos`): o ✓
   diz as duas coisas. É assíncrono, e o estado mora no `ytEstado`, logo sobrevive
   ao render.

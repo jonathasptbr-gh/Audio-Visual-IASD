@@ -68,7 +68,10 @@ const PONTE = `(() => {
       window.__streamPedido++;
       const espera = () => {
         if (window.__soltarStream) {
-          try { window.__avResolve(id, null); } catch (_) {}
+          // window.__manifesto e opcional e existe para UM caso: o do NOME.
+          // Sem ele o ytStream devolve null e o fluxo cai no download, que e o
+          // que as outras metades deste arquivo medem.
+          try { window.__avResolve(id, window.__manifesto || null); } catch (_) {}
           return;
         }
         setTimeout(espera, 20);
@@ -347,6 +350,73 @@ try {
   checar(ordem.marcado.total === 2 && ordem.marcado.iConfirmar === 1,
     'e o antigo `data-antes` não muda mais nada: a escolha por chamador SAIU, que '
     + 'é o que impede a divergência de voltar por esquecimento', ordem.marcado);
+
+  // ── 8. O NOME NÃO TROCA NO MEIO DA ESPERA (v1.4.10) ─────────────────────
+  //
+  // Relato do operador: *"o nome no card de preparação está se alterando na
+  // segunda metade do processo… deixe apenas o primeiro nome, que ao que parece
+  // é o nome do item ou renomeação que temos já no app"*.
+  //
+  // A espera tem dois donos em sequência e cada um escreve a legenda: o toque
+  // (`cederOPalco`, com o nome do ITEM) e a carga do stream (o `onEspera`, com o
+  // nome do REGISTRO recém-criado). O registro nascia com `man.name || r.name`
+  // — o título que o shell extraiu do YouTube VENCENDO o nome que o app já
+  // tinha —, então na segunda metade a legenda trocava sozinha. No caminho que
+  // mais importa, um item de link do Cronograma, o que era apagado é o nome que
+  // o OPERADOR deu.
+  //
+  // A MEDIDA É A SEQUÊNCIA DE NOMES, não o estado final. Um teste do fim passa
+  // nas duas versões enquanto o segundo dono não tiver escrito ainda, e passa
+  // "por acidente" quando os dois nomes coincidem; o que o operador viu foi a
+  // TROCA. Espionar o `previewBusy` colhe todo nome que chega ao cartão, venha
+  // de que dono vier — inclusive de um terceiro que alguém acrescente depois.
+  const nomeDoCartao = await pg.evaluate(async () => {
+    window.__soltarStream = false;
+    window.__manifesto = {
+      name: 'TITULO CRU DO YOUTUBE',
+      seconds: 100, height: 720,
+      video: { url: 'https://x/v', mime: 'video/webm; codecs="vp9"', size: 10 },
+      videos: [], audio: { url: 'https://x/a', mime: 'audio/webm; codecs="opus"', size: 10 },
+    };
+    // O ESPIÃO: `previewBusy` é uma declaração de topo, logo uma propriedade do
+    // objeto global — e é por ela que `cederOPalco` e o `onEspera` resolvem a
+    // chamada. Trocá-la aqui alcança os dois sem tocar no código deles.
+    const vistos = [];
+    const orig = window.previewBusy;
+    window.previewBusy = (acao, nome, cancelar) => { vistos.push(nome); return orig(acao, nome, cancelar); };
+    // O NOME DO REGISTRO é colhido NO PONTO DA DECISÃO, e não relido do banco
+    // depois: o `recuperarStream` troca o registro quando as URLs de mentira
+    // falham, e o coletor apaga o que ficou sem lista. Procurá-lo no fim mede o
+    // desfecho do arnês, não a regra.
+    const batizados = [];
+    const origAdd = AVDB.addStreamMedia;
+    AVDB.addStreamMedia = (man, meta) => { batizados.push(meta && meta.name); return origAdd(man, meta); };
+    const link = await AVDB.addUrlMedia('https://www.youtube.com/watch?v=vidN', {
+      kind: 'youtube', type: 'video/youtube', name: 'O NOME QUE O OPERADOR DEU', youtubeId: 'vidN',
+    });
+    await AVDB.listAdd('imports', link.id);
+    await load();
+    const acao = send(link.id);
+    await new Promise((r) => setTimeout(r, 300));   // a extração ainda pendente
+    window.__soltarStream = true;
+    await acao.catch(() => {});
+    window.previewBusy = orig;
+    AVDB.addStreamMedia = origAdd;
+    window.__manifesto = null;
+    return { vistos, batizados };
+  });
+  const distintos = [...new Set(nomeDoCartao.vistos)];
+  checar(nomeDoCartao.vistos.length > 0 && distintos.length === 1
+    && distintos[0] === 'O NOME QUE O OPERADOR DEU',
+    'o cartão de espera mostra UM nome do começo ao fim, e é o que o app já tinha '
+    + '— o título extraído do YouTube chega segundos depois e trocava a legenda '
+    + 'debaixo do operador', nomeDoCartao);
+  checar(nomeDoCartao.batizados.length === 1
+    && nomeDoCartao.batizados[0] === 'O NOME QUE O OPERADOR DEU',
+    'e o REGISTRO nasce com o mesmo nome, mesmo com o manifesto trazendo outro: '
+    + 'com a legenda certa e o registro errado a troca só muda de lugar — vai '
+    + 'para a barra do que está tocando, a notificação de mídia e a linha da '
+    + 'lista', nomeDoCartao);
 } finally {
   await navegador.close();
   await new Promise((r) => servidor.close(r));

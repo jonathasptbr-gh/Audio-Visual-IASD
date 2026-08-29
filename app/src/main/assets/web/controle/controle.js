@@ -258,7 +258,7 @@ const appVersionEl = document.getElementById('appVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.4.9';
+const WEB_VERSION = '1.4.10';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -15247,7 +15247,25 @@ async function tentarTransmitir(r, altura, somenteAudio) {
     return false;
   }
   const rec = await AVDB.addStreamMedia(man, {
-    name: man.name || r.name || 'Vídeo',
+    // ===== O NOME DO APP VENCE O TÍTULO DO YOUTUBE (v1.4.10) =====
+    //
+    // Relato do operador: *"o nome no card de preparação está se alterando na
+    // segunda metade do processo… deixe apenas o primeiro nome, que ao que
+    // parece é o nome do item ou renomeação que temos já no app"*.
+    //
+    // A ordem era `man.name || r.name`, e `man.name` é o título que o shell
+    // extraiu do YouTube. Ele chega SEGUNDOS depois do toque, e nesse instante
+    // trocava o nome debaixo de tudo: o cartão de espera (que abre com
+    // `r.name`), a barra do que está tocando, a notificação de mídia, a linha
+    // da lista. Pior no caminho que mais importa — um item de link do
+    // Cronograma ou dos Favoritos leva o nome que o OPERADOR deu, e o título do
+    // canal o apagava.
+    //
+    // `r.name` é o que o app já tem: o resultado da busca (já com o
+    // `tituloLimpo` do shell) ou o nome guardado do item, rename incluído.
+    // `man.name` fica como o que ele sempre deveria ter sido — a resposta para
+    // quando NÃO temos nome, e não uma correção do nosso.
+    name: r.name || man.name || 'Vídeo',
     youtubeId: r.id || null,
     height: man.height || null,
     seconds: man.seconds || null,
@@ -15344,7 +15362,11 @@ async function resolverLinkInterno(rec) {
     return false;
   }
   const link = 'https://www.youtube.com/watch?v=' + vid;
-  const alvo = { id: vid, url: link, name: rec.name || 'Vídeo' };
+  // SEM GENÉRICO AQUI. O `name` deste alvo vira o nome do registro nos dois
+  // caminhos abaixo, e um "Vídeo" fabricado venceria o título de verdade que o
+  // shell traz — que é justamente o caso em que ele deve valer. Quem precisa de
+  // algo para MOSTRAR põe o genérico dele (ver o `rotulo` do `ytBaixarNativo`).
+  const alvo = { id: vid, url: link, name: rec.name || '' };
   // A FORMA do registro manda: quem guardou só o áudio não pode receber o vídeo
   // de volta. (Um item de link nasce como `youtube`; a leitura fica dita para o
   // dia em que houver um link só de áudio.)
@@ -19534,6 +19556,10 @@ async function ytBaixarNativo(link, nome, opts) {
   // que o padrão. Nenhuma guarda de shell aqui, portanto — quem não pode
   // escolher simplesmente não escolhe, e baixa como sempre.
   const altura = (opts && opts.altura) | 0;
+  // O nome CRU de quem pediu, sem o genérico: é ele que decide o nome do
+  // registro (ver o `addMedia` lá embaixo), e ali um genérico venceria o título
+  // de verdade. O `rotulo` é a mesma coisa já pronta para APARECER, onde uma
+  // string vazia não serve.
   const rotulo = nome || 'Vídeo do YouTube';
   const rotuloBaixando = soAudio ? 'Baixando áudio' : 'Baixando vídeo';
   const naPreview = !!(opts && opts.naPreview);
@@ -19638,7 +19664,14 @@ async function ytBaixarNativo(link, nome, opts) {
           // O sufixo é a MESMA convenção das músicas do acervo, que já se
           // chamam "(Cantado)"/"(Playback)": sem ele, o vídeo e o áudio do
           // mesmo link viram duas linhas com o nome idêntico na lista.
-          name: (r.name || rotulo) + (soAudio ? ' (áudio)' : ''),
+          // O NOME DO APP VENCE O TÍTULO DO YOUTUBE — a mesma regra do
+          // `tentarTransmitir`, e os dois caminhos têm de concordar: o mesmo
+          // link renomearia o item ou não conforme desse para transmitir.
+          // `r.name` aqui é o do SHELL (o `ytFetch` devolve o título extraído);
+          // `nome` é o que o app já tem, e é ele que manda. O genérico do
+          // `rotulo` fica por último, senão ele venceria o título de verdade
+          // quando não temos nome nenhum.
+          name: (nome || r.name || rotulo) + (soAudio ? ' (áudio)' : ''),
           type: r.type || (soAudio ? 'audio/mp4' : 'video/mp4'),
           kind: soAudio ? 'audio' : 'video',
           thumb,

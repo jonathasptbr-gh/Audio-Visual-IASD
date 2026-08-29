@@ -1,5 +1,11 @@
 [
   {
+    "versao": "1.4.10",
+    "itens": [
+      "O NOME DEIXOU DE TROCAR NO MEIO DO CARREGAMENTO. O aviso de \"Preparando\" começava com o nome que o app tem para o item e, alguns segundos depois, passava a mostrar o título do vídeo no YouTube — e o mesmo acontecia com a barra do que está tocando, com a notificação e com a linha da lista. Agora o nome do app vale do começo ao fim: se você renomeou o item, o nome que você deu é o que fica. O título do YouTube só entra quando não temos nome nenhum."
+    ]
+  },
+  {
     "versao": "1.4.9",
     "itens": [
       "O AVISO DE \"PREPARANDO\" FICOU CENTRALIZADO NA PREVIEW. Ele nascia um pouco à esquerda do meio — sempre, em qualquer tamanho de tela e com qualquer nome —, e com um nome comprido chegava a entrar por baixo dos botões da lateral esquerda: o botão da cortina aparecia desenhado sobre o aro que gira."
