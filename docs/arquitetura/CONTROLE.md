@@ -1102,17 +1102,20 @@ neutro. É **assíncrono** (retorna uma Promise): `appConfirm({title, message,
 okText, cancelText})` → `true`/`false`; `appPrompt({title, message, value,
 placeholder, okText})` → string (OK) ou `null` (cancelar/fora/Esc). Um só
 diálogo reutilizável (o DOM é estático no `index.html`); abrir um novo enquanto
-outro está aberto resolve o anterior como cancelado. Usam isto: **renomear**,
-excluir uma **pasta do aparelho** ou o que foi baixado de um **álbum** (as duas
-apagam BYTES, e a frase é o que diz quantos), o aviso de "sem Wi-Fi" da
-sincronização em massa, o cancelamento de um download em curso e a pergunta do
-OTA.
+outro está aberto resolve o anterior como cancelado. Usam isto: **renomear em
+LOTE** (o botão do rodapé da seleção múltipla), excluir uma **pasta do
+aparelho** ou o que foi baixado de um **álbum** (as duas apagam BYTES, e a frase
+é o que diz quantos), o aviso de "sem Wi-Fi" da sincronização em massa, o
+cancelamento de um download em curso e a pergunta do OTA.
 
 **O QUE SAIU DELE NA v5.301: a exclusão de um ITEM de lista.** Ela vale para as
 três (Cronograma, Favoritos e a fila da playlist) e agora pergunta na PRÓPRIA
-LINHA — ver "A confirmação de excluir mora na linha", abaixo. A régua que ficou:
-o modal é para o que **apaga bytes** e precisa dizer QUANTOS; sair de uma lista
-se confirma onde a lista está.
+LINHA — ver "A confirmação de excluir mora na linha", abaixo. **E NA v1.4.25
+saiu o RENOMEAR de uma linha**, pela mesma porta e pelo mesmo argumento.
+
+A régua que ficou: o modal é para o que **apaga bytes** e precisa dizer QUANTOS,
+ou para o que age sobre um CONJUNTO (a seleção múltipla, onde não há uma linha
+sob o dedo); o que age sobre UMA linha se resolve onde a linha está.
 
 ### Deslocamento com o teclado virtual
 
@@ -2821,6 +2824,44 @@ nasce com a confirmação certa.
   estiver guardado em mais nenhuma lista"), no botão da linha e no "Limpar" da
   fila inteira. Um gesto que PARECE reversível e não é custa, num episódio de
   série, ~300 MB baixados em rede de celular.
+
+#### E renomear mora na linha também (v1.4.25)
+
+Pedido do operador: *"coloque o processo de renomear também dentro do item na
+lista do cronograma, não como um popup de tela inteira, assim como já é feito no
+processo de excluir"*.
+
+É o argumento acima aplicado onde vale **mais**: renomear é a única ação do app
+em que o nome VELHO precisa continuar à vista enquanto o novo é escrito, e a
+linha logo acima do campo é a única coisa da tela que diz qual dos trinta nomes
+parecidos está sendo trocado. O `appPrompt` punha o nome antigo dentro do campo
+e era só isso — o instante em que ele é apagado para digitar é o instante em que
+a referência some da tela inteira.
+
+**A troca de conteúdo da faixa virou MECANISMO** (`abrirNaFaixaDaLinha`): fechar
+o que estava aberto, marcar a faixa (`.confirmando`), marcar o `li`, publicar o
+desfazer e devolver a caixa vazia. `pedirConfirmacaoNaLinha` e
+`pedirRenomearNaLinha` entram os dois por ela — escrever o segundo por cópia do
+primeiro era garantir que um dos dois esquecesse uma das cinco coisas.
+
+- **O campo nasce com o nome atual e SELECIONADO**: trocar a frase inteira é o
+  caso comum de um arquivo importado, e ajustar uma palavra continua a um toque.
+- **`Enter` confirma e `Esc` cancela** (`enterkeyhint="done"`), e o ✓ é um botão
+  à vista de qualquer jeito: nem todo teclado honra a dica, e um campo cuja
+  única saída pode não estar lá é um campo sem saída.
+- **A miniatura NÃO vira nada**, ao contrário da exclusão: renomear não é
+  destrutivo e não precisa da segunda afirmação; a capa intocada continua
+  dizendo de qual item é o campo.
+- **O ✓ é QUADRADO** (`--hit`) e não meia faixa como o par Cancelar/Excluir: ali
+  os dois rótulos disputam a decisão e a régua é o dedo não errar por 8px; aqui
+  há um desfecho só, e o resto da largura vale mais no campo.
+- **Nome vazio ou igual ao atual não é renomear**: os dois fecham sem gravar.
+- **Tudo que fecha a gaveta CANCELA.** O erro possível é o seguro: perder o
+  texto custa redigitar, gravar um nome que ninguém confirmou não tem volta.
+- **O `linha-renome-ok` está em `ACOES_QUE_NAO_FECHAM`**, e não por simetria: ele
+  fecha a faixa SOZINHO antes de gravar, e deixar o ouvinte da caixa fechá-la
+  também faria `fecharAcoesDaLinha` desmontar o campo ANTES de o `gravar()` ler
+  o valor — o nome digitado se perderia.
 | `⋮` → 🗑 | **Excluir da lista.** É o PRIMEIRO botão da faixa desde a v5.289 — o mais longe do `⋮`, que fica colado na ponta direita e é o alvo tocado repetidamente (abre e fecha): errá-lo por alguns pixels caía no destrutivo. Do outro lado o vizinho é o VAZIO da caixa, que também fecha, mas é uma área larga em que ninguém mira a borda. Desde a v5.301 ele **pergunta na própria faixa**, e por isso não a fecha |
 
 > **ELE NÃO TIRA DO AR** (v1.3.13). Havia aqui um `retirarDoAr`, e era ele — não
@@ -2836,8 +2877,20 @@ nasce com a confirmação certa.
 > os bytes de baixo da projeção. Isso não teria sintoma na hora — o `<video>` já
 > os tem —, e só apareceria numa queda de dongle, quando o `resendSceneToDisplay`
 > chamasse `getMedia` e não achasse nada. Oráculo: `tools/excluir-em-cena.test.mjs`.
-| `⋮` → ✏️ | **Renomear** o item, um toque (v5.288). Ele existia só para UM item de cada vez e atrás de quatro gestos (toque longo → seleção → botão do rodapé → diálogo). **Não entra na pasta do aparelho**, com a mesma guarda do excluir: ali o nome vem do arquivo, e um nome só no registro seria desfeito na varredura seguinte. O lápis é SVG inline — `edit` não está no subset da fonte, e codepoint ausente desenha um retângulo vazio |
-| `⋮` → ♫+ | **A fila, com ESTADO** (v5.301, alternador desde a v5.302). Ele diz se o item **está** na playlist — `+` apagado em `--line`, `✓` aceso em `--accent` —, e o segundo toque TIRA. ACRESCENTA, nunca substitui: quem substitui é o toque no corpo da linha (`onTap` → `replacePlaylistWith`), e são ações opostas. **Não aparece numa cena de roteiro** — o `onTap` já desvia um cue para longe da fila (*"um versículo não é uma fila de reprodução"*), e o Cronograma é justamente a lista cheia de cues. **Não fecha a caixa**, como a estrela: o desfecho dele é o próprio botão mudando sob o dedo |
+| `⋮` → ✏️ | **Renomear** o item, um toque (v5.288). Ele existia só para UM item de cada vez e atrás de quatro gestos (toque longo → seleção → botão do rodapé → diálogo). Desde a v1.4.25 o CAMPO abre **na própria faixa**, como a pergunta do excluir — ver "E renomear mora na linha também". **Não entra na pasta do aparelho**, com a mesma guarda do excluir: ali o nome vem do arquivo, e um nome só no registro seria desfeito na varredura seguinte. O lápis é SVG inline — `edit` não está no subset da fonte, e codepoint ausente desenha um retângulo vazio |
+| `⋮` → ♫+ | **A fila, com ESTADO** (v5.301, alternador desde a v5.302). Ele diz se o item **está** na playlist — `+` apagado, `✓` aceso em `--btn-accent` + `--accent` —, e o segundo toque TIRA. ACRESCENTA, nunca substitui: quem substitui é o toque no corpo da linha (`onTap` → `replacePlaylistWith`), e são ações opostas. **Não aparece numa cena de roteiro** — o `onTap` já desvia um cue para longe da fila (*"um versículo não é uma fila de reprodução"*), e o Cronograma é justamente a lista cheia de cues. **Não fecha a caixa**, como a estrela: o desfecho dele é o próprio botão mudando sob o dedo |
+
+> **APAGADO ELE É UM BOTÃO NORMAL** (v1.4.25). Ele e a estrela vestiam `--line`
+> — a cor de LINHA, que neste app só o `↑↓` INERTE usa —, e o operador os lia
+> como indisponíveis: *"ao invés de modificar o ícone do botão e seus efeitos,
+> foi simplesmente ofuscado o botão inteiro"*. Hoje apagado é o `.row-btn` de
+> sempre (`--surface` + `--text`) e LIGADO é a linguagem que `tokens.css` já
+> escrevia para um interruptor: `--btn-accent` + `--accent`. **O ÍCONE continua
+> carregando o estado sozinho** (vazado × cheio, `+` × `✓`, relógio com `+` ×
+> com `✓`) — a cor e a superfície são reforço, não a mensagem.
+>
+> A régua: *ofuscar não diz "desligado", diz "indisponível"* — e o app já tem
+> uma linguagem para isso (`opacity: .3` + `disabled`, no `↑↓` das pontas).
 | Pressionar e segurar | Entra no modo de seleção múltipla |
 
 **O ARRASTAR SAIU NA v5.285**, das três listas de uma vez (Cronograma,
@@ -2912,6 +2965,46 @@ indicados **só pelo realce** (`.lib-item.selected` — borda `--accent` + fundo
 ícone de check; a miniatura fica sempre encostada à esquerda (não há coluna
 reservada). Excluir dentro de pasta virtual só remove da pasta; nas demais abas
 usa `listRemove` (com gc).
+
+#### A linha da fila tem os DOIS destinos (v1.4.25)
+
+Pedido do operador: *"na lista da playlist, pode adicionar opções como:
+adicionar aos favoritos e adicionar ao cronograma"*.
+
+Ela era a única das três listas sem caminho para as outras duas — da linha daqui
+só se saía tirando da fila —, e é o pior lugar para esse buraco: a fila é onde o
+bloco de louvores é montado, e *"esta faixa merece ficar guardada"* é a decisão
+que se toma justamente aí. (As outras duas já se alcançavam: a estrela e o `♫+`
+estão na gaveta do Cronograma, e a folha de destinos na gaveta de um Favorito.)
+
+A fileira do `⋮` da fila passou a ser **tirar da fila · favoritar · ao
+Cronograma · ↑ · ↓** — a ordem que o operador ditou na v5.302, sem os que não
+existem nesta lista (o `♫+`, porque esta LINHA é a playlist, e o renomear, que
+nunca esteve aqui).
+
+- **Os dois são ALTERNADORES com estado à vista**, pela régua da v5.302: a
+  pergunta que se faz montando o culto não é "eu mandei?", é "**está lá?**". Um
+  botão que só acende nunca se apaga, e desfazer custaria trocar de tela.
+- **O ícone do Cronograma é o RELÓGIO** (`cronogramaIconSvg`), a família que
+  `ICON.cronoAdd` já escolheu para essa lista: ele diz o que ela é — a ORDEM do
+  culto — e é o que o separa à primeira vista da pilha de linhas do `♫+`. SVG
+  inline nos dois estados: `more_time` está no subset da fonte, mas a variante
+  com `✓` não existe, e um par em que um lado é glifo e o outro é desenho sai
+  com dois pesos de traço no mesmo botão.
+- **`cronoSet` é o espelho em memória da lista `imports`**, irmão do `favSet`, e
+  ele não é ornamento: `libItems` só carrega a ABA ATIVA, e a fila é uma folha
+  que se abre por cima da Biblioteca ou da Bíblia. Sem ele o botão nasceria
+  apagado sobre um item que já está no Cronograma. Só os IDS — quem precisa dos
+  registros é o `renderLibrary`, e ele já os tem quando a aba é a do Cronograma.
+- **Dois repintores novos**, irmãos do `marcarNaPlaylist` e pelo motivo dele: a
+  lista muda por portas que não redesenham a fila. `marcarNoCronograma` mora no
+  `toggleCronograma` e no `adicionarNasListas`; `marcarFavoritos` mora no
+  `recarregarFavoritos`, que é o ÚNICO ponto que reconstrói `favSet` — o
+  `renderLibrary` adiado do `toggleFav` só alcança a lista de baixo.
+- **Tirar daqui não apaga bytes**, e não é sorte: esta linha existe porque o
+  item está NA FILA, e a fila é detentora de referência como qualquer outra
+  lista — o `listRemove('imports')` roda o coletor na mesma transação e encontra
+  a `playlist` segurando o registro.
 
 #### O rodapé da folha da playlist: guardar e LIMPAR (v5.309)
 

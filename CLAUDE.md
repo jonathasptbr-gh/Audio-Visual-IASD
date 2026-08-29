@@ -2798,6 +2798,13 @@ resto desta seção.
   área**: uma barra de 3px em `--accent` na borda de cima da aba, mais o glifo
   na mesma cor (v1.3.15). Duas manchas cheias na mesma faixa disputam, e a que
   menos deve disputar é a que só diz "você está aqui".
+  **E UM INTERRUPTOR APAGADO É UM BOTÃO NORMAL** (v1.4.25): a estrela e o
+  "à playlist" vestiam `--line` — a cor de LINHA, que neste app só o `↑↓`
+  INERTE usa —, e o operador os lia como indisponíveis (*"foi simplesmente
+  ofuscado o botão inteiro"*). Apagado é o `.row-btn` de sempre; quem carrega o
+  estado é o ÍCONE (vazado × cheio, `+` × `✓`), com a superfície `--btn-accent`
+  como reforço. **Ofuscar não é dizer "desligado": é dizer "indisponível", e o
+  app já tem uma linguagem para isso** (`opacity: .3` + `disabled`).
 - **Nem todo token é valor oficial, e os derivados estão marcados.** Os dezoito
   oficiais foram desenhados para fundo BRANCO — todos passam AA sobre branco, e
   **nenhum** passa AA como texto sobre o quase-preto do tema escuro (bluejay dá
@@ -2844,6 +2851,17 @@ vazado da aba).
 guardas suprimem as DUAS partes (`transform` e `filter`), senão o bloco inteiro
 acende por um toque de 40px, que é o mesmo defeito por outra propriedade. Antes
 de pôr uma classe na lista, pergunte se um ancestral dela já está lá.
+
+**E A LISTA DE GUARDAS É O QUE ENVELHECE**, não a regra: a `.row-acoes` — a
+faixa de opções da linha, que é onde o operador de fato toca — ficou de fora
+dela até a v1.4.25, e o cartão do Cronograma balançava 2px a cada toque no
+excluir. A dos FAVORITOS já estava coberta (ela mora numa `.hymn-gaveta`), e era
+só isso que fazia o defeito aparecer numa lista e não na outra. **Bloco novo que
+hospede controles entra na lista no MESMO lote em que nasce**; a régua é a do
+parágrafo acima, e ali a resposta ao toque nem é o botão afundando — é a faixa
+TROCANDO DE CONTEÚDO (a pergunta do excluir, o campo do renomear). Oráculo:
+`smoke.mjs`, medindo `transform` E `filter` do cartão durante uma pressão de
+verdade.
 
 ### A escada de camadas
 
@@ -3824,7 +3842,7 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: v1.4.24** (base web) · **v1.4.22** (APK) · `SHELL_VERSION` **60** · bundle com
+**Versão atual: v1.4.25** (base web) · **v1.4.22** (APK) · `SHELL_VERSION` **60** · bundle com
 `minShell: 60` — o shell 60 é o **PISO**: todo método da ponte existe, e não há
 guarda de versão no lado web. O que continua valendo é que `java/`, `res/`, o
 manifest e os workflows **só chegam instalando o APK**.

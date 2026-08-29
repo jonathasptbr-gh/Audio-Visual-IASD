@@ -3178,8 +3178,34 @@ try {
     //    que valia quando ela morava NA LINHA e expirou quando ela desceu para
     //    a gaveta do `⋮` (v5.258). A régua é a dos VIZINHOS, e não um valor
     //    escrito: um token novo do dia seguinte não pode reprovar isto.
-    r.fundosDaFaixa = [...caixa.querySelectorAll('.row-btn')]
+    //
+    //    E DESDE A v1.4.25 A MEDIDA SEPARA APAGADO DE LIGADO. Relato do
+    //    operador: *"ao invés de modificar o ícone do botão e seus efeitos, foi
+    //    simplesmente ofuscado o botão inteiro, o que dá a impressão de que não
+    //    está disponível a opção"*. A resposta foi a linguagem de estado que
+    //    `tokens.css` já escreve — LIGADO é `--btn-accent`, apagado é o
+    //    `.row-btn` de sempre —, e com ela "todos os fundos iguais" deixou de
+    //    ser a régua certa: ela reprovaria justamente o desenho pedido.
+    //
+    //    O que continua sendo régua são DUAS coisas, e as duas caem por motivos
+    //    diferentes: nenhum botão da fileira é TRANSPARENTE (o defeito original,
+    //    a estrela sem caixa), e os APAGADOS vestem todos a MESMA caixa — um
+    //    alternador apagado com tinta própria é o "ofuscado" voltando por outra
+    //    porta.
+    const daFaixa = [...caixa.querySelectorAll('.row-btn')];
+    r.fundosDaFaixa = daFaixa.map((b) => getComputedStyle(b).backgroundColor);
+    r.fundosApagados = daFaixa.filter((b) => !b.classList.contains('on'))
       .map((b) => getComputedStyle(b).backgroundColor);
+    r.fundosLigados = daFaixa.filter((b) => b.classList.contains('on'))
+      .map((b) => getComputedStyle(b).backgroundColor);
+    // E A COR DO TRAÇO de um alternador APAGADO é a dos vizinhos, não a de um
+    // botão morto: era `--line` (a cor de LINHA, que neste app só o ↑↓ INERTE
+    // veste) contra o `--text` de toda a fileira.
+    const apagado = daFaixa.find((b) => /fav-btn|row-playlist|row-crono/.test(b.className)
+      && !b.classList.contains('on'));
+    const vizinho = daFaixa.find((b) => !/fav-btn|row-playlist|row-crono/.test(b.className));
+    r.tracoApagado = apagado ? getComputedStyle(apagado).color : null;
+    r.tracoVizinho = vizinho ? getComputedStyle(vizinho).color : null;
     r.temEstrela = !!caixa.querySelector('.fav-btn');
     return r;
   });
@@ -3231,23 +3257,44 @@ try {
       // E a marca de fato pegou — sem isto, "a gaveta continua aberta" poderia
       // significar apenas que o toque não fez nada.
       favoritou: !!(alvo2 && alvo2.querySelector('.fav-btn.on')),
-      // A METADE NEGATIVA: um botão que TERMINA a conversa continua fechando.
-      // Sem ela, calar o ouvinte inteiro passaria.
-      renomearFecha: null,
+      // A METADE NEGATIVA — ver abaixo. Sem ela, calar o ouvinte inteiro
+      // passaria.
+      vazioFecha: null,
+      renomearAbreNaFaixa: null,
     };
     const li2 = document.querySelector('#library .lib-item[data-id="' + m.id + '"]');
     if (li2 && !li2.classList.contains('acoes-abertas')) li2.querySelector('.row-mais').click();
     await new Promise((res) => setTimeout(res, 150));
-    const add = document.querySelector('#library .lib-item.acoes-abertas .row-acoes .row-renomear');
-    if (add) {
-      // O renomear abre um diálogo; o que se mede é só o FECHO da gaveta, e ele
-      // acontece no clique, antes de o diálogo responder.
-      add.click();
-      await new Promise((res) => setTimeout(res, 120));
-      r.renomearFecha = !document.querySelector('#library .lib-item.acoes-abertas');
-      const cancel = document.getElementById('appDialogCancel');
-      if (cancel) cancel.click();
+    // ===== O RENOMEAR DEIXOU DE FECHAR (v1.4.25) =====
+    // Ele era a metade negativa deste bloco: o botão que TERMINA a conversa,
+    // provando que o ouvinte da caixa não tinha sido calado inteiro. Desde a
+    // v1.4.25 ele não termina nada — abre o CAMPO dentro da própria faixa, como
+    // o excluir abre a pergunta —, e continuar cobrando o fecho seria cobrar o
+    // popup que o operador pediu para tirar.
+    const lapis = document.querySelector('#library .lib-item.acoes-abertas .row-acoes .row-renomear');
+    if (lapis) {
+      lapis.click();
       await new Promise((res) => setTimeout(res, 150));
+      const abertaAinda = document.querySelector('#library .lib-item.acoes-abertas');
+      r.renomearAbreNaFaixa = !!abertaAinda
+        && !!abertaAinda.querySelector(
+          '.row-acoes.confirmando > .linha-renome > .linha-renome-campo');
+      // Esc devolve a fileira — e é ele que devolve a faixa ao estado em que o
+      // resto deste bloco a mede.
+      const campo = abertaAinda && abertaAinda.querySelector('.linha-renome-campo');
+      if (campo) campo.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+      await new Promise((res) => setTimeout(res, 120));
+    }
+    // A METADE NEGATIVA, no que sobrou dela: o VAZIO da caixa fecha. Toda AÇÃO
+    // da fileira do Cronograma é hoje uma exceção (as três alternam, as duas
+    // que sobram abrem algo dentro da própria faixa), então é ele — o `alvo ===
+    // caixa` do mesmo ouvinte — que prova que o ouvinte continua vivo.
+    const abertaPraVazio = document.querySelector('#library .lib-item.acoes-abertas');
+    if (abertaPraVazio) {
+      const cxa = abertaPraVazio.querySelector('.row-acoes');
+      cxa.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      await new Promise((res) => setTimeout(res, 150));
+      r.vazioFecha = !document.querySelector('#library .lib-item.acoes-abertas');
     }
     await AVDB.listRemove('favs', m.id);
     await AVDB.listRemove('imports', m.id);
@@ -3265,12 +3312,198 @@ try {
     'FAVORITAR NÃO FECHA A GAVETA (v5.288), nem no ato nem depois do redesenho '
     + 'que `toggleFav` agenda — e a estrela de fato acendeu',
     JSON.stringify([gav.logoDepois, gav.depoisDoRedesenho, gav.favoritou]));
-  checar(!gav.erro && gav.renomearFecha === true,
-    'mas um botão que TERMINA a conversa continua fechando (o renomear) — a '
-    + 'exceção é da estrela e do par ↑↓, não do ouvinte inteiro',
-    'renomear fechou: ' + gav.renomearFecha);
+  checar(!gav.erro && gav.renomearAbreNaFaixa === true,
+    'e o RENOMEAR abre o campo DENTRO da faixa (v1.4.25), em vez de fechar a '
+    + 'gaveta e subir um popup de tela cheia — a mesma correção que o excluir '
+    + 'recebeu na v5.301', 'campo na faixa: ' + gav.renomearAbreNaFaixa);
+  checar(!gav.erro && gav.vazioFecha === true,
+    'mas o VAZIO da caixa continua fechando — com toda AÇÃO da fileira virada '
+    + 'exceção, é ele que prova que o ouvinte não foi calado inteiro',
+    'vazio fechou: ' + gav.vazioFecha);
 } catch (e) {
   checar(false, 'a medição da gaveta da linha terminou sem exceção ('
+    + (e && e.message) + ')');
+}
+
+// ── O CARTÃO NÃO BALANÇA POR UM TOQUE NA GAVETA (v1.4.25) ────────────────
+//
+// Relato do operador: *"há um bug de deslocamento, um pequeno movimento
+// vertical do card da lista no cronograma ao selecionar a opção de excluir…
+// essa movimentação não faz sentido, já que essas opções surgem deslizando
+// dentro do próprio card"*.
+//
+// `:active` casa nos ANCESTRAIS: o `.lib-item` já era poupado por um toque no
+// `⋮`, na `.hymn-gaveta` e numa `.lib-item` aninhada — e a `.row-acoes`, que é
+// justamente a faixa em que o operador toca, não estava na lista. A gaveta dos
+// FAVORITOS mora numa `.hymn-gaveta` e por isso já estava coberta: era só isso
+// que fazia o defeito aparecer numa lista e não na outra.
+//
+// A ASSERÇÃO MEDE O RENDERIZADO, e nas DUAS partes do feedback (v1.3.14):
+// suprimir só a geometria deixaria o cartão inteiro ACENDENDO por um toque de
+// 40px — o mesmo relato, por outra propriedade. E ela tem a metade que impede
+// a correção de virar "o feedback sumiu": o BOTÃO tocado continua respondendo.
+try {
+  const balanco = await (async () => {
+    const pos = await pg.evaluate(async () => {
+      setAppMode('full');
+      activeTab = 'imports';
+      const m = await AVDB.addMedia(new Blob([new Uint8Array(8)], { type: 'audio/mpeg' }),
+        { name: 'Item que não balança', type: 'audio/mpeg', kind: 'audio', list: 'imports' });
+      await load();
+      const li = document.querySelector('#library .lib-item[data-id="' + m.id + '"]');
+      if (!li) return { erro: 'a linha não foi desenhada' };
+      li.querySelector('.row-mais').click();
+      await new Promise((f) => setTimeout(f, 320));
+      const b = li.querySelector('.row-acoes .row-excluir');
+      if (!b) return { erro: 'a faixa não tem o excluir' };
+      window.__balanco = { id: m.id, li };
+      // A LINHA PRECISA ESTAR À VISTA: a lista tem o rodapé FIXO do "Importar
+      // arquivos" por cima do fim dela, e um `mouse.down` sobre a coordenada de
+      // um botão coberto pousa no rodapé — o `:active` nunca chega ao botão e a
+      // medição reprova um app que está certo (ver "um oráculo não pode medir o
+      // runner"). Confirmado pelo `elementFromPoint`, que é o que separa "o
+      // toque não respondeu" de "o toque foi para outro lugar".
+      li.scrollIntoView({ block: 'center' });
+      await new Promise((f) => setTimeout(f, 120));
+      const r = b.getBoundingClientRect();
+      const x = Math.round(r.left + r.width / 2);
+      const y = Math.round(r.top + r.height / 2);
+      const topo = document.elementFromPoint(x, y);
+      if (!topo || !topo.closest('.row-excluir')) {
+        return { erro: 'o botão está coberto por ' + (topo ? topo.className : 'nada') };
+      }
+      return { x, y };
+    });
+    if (pos.erro) return pos;
+    await pg.mouse.move(pos.x, pos.y);
+    await pg.mouse.down();
+    const durante = await pg.evaluate(() => {
+      const li = window.__balanco.li;
+      const b = li.querySelector('.row-acoes .row-excluir');
+      return {
+        cartaoMoveu: getComputedStyle(li).transform,
+        cartaoAcendeu: getComputedStyle(li).filter,
+        botaoMoveu: getComputedStyle(b).transform,
+        botaoAcendeu: getComputedStyle(b).filter,
+      };
+    });
+    await pg.mouse.up();
+    await pg.evaluate(async () => {
+      // O `mouseup` acabou de abrir a pergunta: desfaz e limpa o fixture.
+      fecharAcoesDaLinha();
+      await AVDB.listRemove('imports', window.__balanco.id);
+      delete window.__balanco;
+      await load();
+    });
+    return durante;
+  })();
+  checar(!balanco.erro && balanco.cartaoMoveu === 'none'
+    && balanco.cartaoAcendeu === 'none',
+    'O CARTÃO NÃO SE MEXE nem ACENDE por um toque na faixa de ações (v1.4.25): '
+    + 'a resposta ali é a faixa trocando de conteúdo, e mover o cartão junto é '
+    + 'uma segunda resposta ao mesmo dedo, no quadro em que a primeira entra',
+    JSON.stringify(balanco));
+  // A METADE QUE IMPEDE A CORREÇÃO DE VIRAR "o feedback sumiu". Ela cobra a LUZ
+  // e não a geometria, e isso é MEDIDO, não preferência: dentro da gaveta quem
+  // manda no `transform` dos filhos é a animação de entrada da própria faixa
+  // (`.acoes-abertas .row-acoes > * { transform: none }`, 0,3,0), que vence o
+  // `:active` da lista de controles (0,2,0). Ali o recuo nunca existiu — a
+  // resposta do botão sempre foi a luz, como na `.coll-bar` e nos outros
+  // BLOCOS. Cobrar `transform` aqui seria reprovar o app que está no ar.
+  checar(!balanco.erro && balanco.botaoAcendeu !== 'none',
+    'e o BOTÃO tocado continua respondendo (pela LUZ, que é a resposta de quem '
+    + 'vive dentro da faixa) — sem esta metade, apagar o feedback inteiro '
+    + 'passaria pela asserção de cima', JSON.stringify(balanco));
+} catch (e) {
+  checar(false, 'a medição do balanço do cartão terminou sem exceção ('
+    + (e && e.message) + ')');
+}
+
+// ── A FILA GANHOU OS DOIS DESTINOS (v1.4.25) ─────────────────────────────
+//
+// Pedido do operador: *"na lista da playlist, pode adicionar opções como:
+// adicionar aos favoritos e adicionar ao cronograma"*. Ela era a única das três
+// listas sem caminho para as outras duas — e é o pior lugar para esse buraco: a
+// fila é onde o bloco de louvores é montado.
+//
+// TRÊS metades, e cada uma cai por um motivo próprio:
+//  1. os dois botões EXISTEM na faixa da fila;
+//  2. eles ALTERNAM de verdade (o id entra e sai da lista no banco) — sem isso
+//     seriam dois desenhos;
+//  3. eles NASCEM com o estado certo, que é o que o pedido pede e o que falha
+//     calado: um botão que só acende no toque não responde "está lá?" para o
+//     item que já estava.
+try {
+  const dest = await pg.evaluate(async () => {
+    setAppMode('full');
+    const ate = async (cond, ms) => {
+      const fim = Date.now() + (ms || 4000);
+      while (Date.now() < fim) {
+        if (cond()) return true;
+        await new Promise((f) => setTimeout(f, 30));
+      }
+      return false;
+    };
+    const m = await AVDB.addMedia(new Blob([new Uint8Array(8)], { type: 'audio/mpeg' }),
+      { name: 'Faixa da fila', type: 'audio/mpeg', kind: 'audio', list: 'playlist' });
+    await load();
+    openPlPopup();
+    await new Promise((f) => setTimeout(f, 220));
+    const li = document.querySelector('#playlist .row-item[data-id="' + m.id + '"]');
+    if (!li) return { erro: 'a linha da fila não foi desenhada' };
+    li.querySelector('.row-mais').click();
+    await new Promise((f) => setTimeout(f, 320));
+    const estrela = li.querySelector('.row-acoes .fav-btn');
+    const crono = li.querySelector('.row-acoes .row-crono');
+    const r = { temEstrela: !!estrela, temCrono: !!crono };
+    if (!estrela || !crono) return r;
+    // A ORDEM é a do Cronograma, sem os que não existem nesta lista.
+    r.ordem = [...li.querySelectorAll('.row-acoes .row-btn')]
+      .map((b) => (b.className.match(/row-(excluir|crono|ordem)|fav-btn/) || [''])[0]);
+    // ---- 2. eles ALTERNAM ----
+    r.cronoAntes = crono.classList.contains('on');
+    crono.click();
+    await ate(() => crono.classList.contains('on'));
+    r.cronoDepois = crono.classList.contains('on');
+    r.noBancoCrono = await AVDB.listHas('imports', m.id);
+    estrela.click();
+    await ate(() => estrela.classList.contains('on'));
+    r.favDepois = estrela.classList.contains('on');
+    r.noBancoFav = await AVDB.listHas('favs', m.id);
+    // ---- 3. e o estado SOBREVIVE ao redesenho da fila ----
+    renderPlaylist();
+    await new Promise((f) => setTimeout(f, 120));
+    const li2 = document.querySelector('#playlist .row-item[data-id="' + m.id + '"]');
+    if (li2 && !li2.classList.contains('acoes-abertas')) li2.querySelector('.row-mais').click();
+    await new Promise((f) => setTimeout(f, 320));
+    r.nasceLigado = !!li2 && !!li2.querySelector('.row-crono.on')
+      && !!li2.querySelector('.fav-btn.on');
+    // ---- e o segundo toque DESFAZ (é isso que o torna um estado) ----
+    li2.querySelector('.row-crono').click();
+    await ate(async () => !(await AVDB.listHas('imports', m.id)));
+    r.cronoSaiu = !(await AVDB.listHas('imports', m.id));
+    closePlPopup();
+    for (const l of ['playlist', 'imports', 'favs']) await AVDB.listRemove(l, m.id);
+    await load();
+    return r;
+  });
+  checar(!dest.erro && dest.temEstrela === true && dest.temCrono === true
+    && JSON.stringify(dest.ordem.slice(0, 3))
+      === JSON.stringify(['row-excluir', 'fav-btn', 'row-crono'])
+    && dest.ordem.slice(3).every((c) => c === 'row-ordem'),
+    'A FILA DA PLAYLIST GANHOU OS DOIS DESTINOS (v1.4.25), na ordem do '
+    + 'Cronograma sem os que não existem nela: tirar da fila · favoritar · ao '
+    + 'Cronograma', JSON.stringify(dest.ordem));
+  checar(!dest.erro && dest.cronoAntes === false && dest.cronoDepois === true
+    && dest.noBancoCrono === true && dest.favDepois === true && dest.noBancoFav === true,
+    'e eles ALTERNAM de verdade — o id entra nas listas do BANCO, não só o '
+    + 'desenho acende', JSON.stringify(dest));
+  checar(!dest.erro && dest.nasceLigado === true && dest.cronoSaiu === true,
+    'e o estado NASCE com a linha e o segundo toque DESFAZ: a pergunta que o '
+    + 'operador faz montando o culto é "está lá?", não "eu mandei?" — um botão '
+    + 'que só acende nunca se apaga', JSON.stringify(dest));
+} catch (e) {
+  checar(false, 'a medição dos destinos da fila terminou sem exceção ('
     + (e && e.message) + ')');
 }
 
@@ -3501,12 +3734,24 @@ try {
   checar(!!geo && geo.thumbInteira,
     'a faixa de ações começa DEPOIS da miniatura — ela não corta a capa',
     JSON.stringify(geo));
-  checar(!!geo && geo.temEstrela && geo.fundosDaFaixa.length > 1
-    && new Set(geo.fundosDaFaixa).size === 1
-    && !/rgba\([^)]*,\s*0\)/.test(geo.fundosDaFaixa[0]),
+  checar(!!geo && geo.temEstrela && geo.fundosApagados.length > 1
+    && new Set(geo.fundosApagados).size === 1
+    && !geo.fundosDaFaixa.some((c) => /rgba\([^)]*,\s*0\)/.test(c)),
     'e a ESTRELA é um botão preenchido como os vizinhos dela (v5.288) — chapada '
-    + 'ela era a única peça da fileira sem caixa',
+    + 'ela era a única peça da fileira sem caixa. Os APAGADOS vestem TODOS a '
+    + 'mesma caixa (v1.4.25): um alternador apagado com tinta própria é o '
+    + '"botão ofuscado" voltando por outra porta',
     JSON.stringify(geo && geo.fundosDaFaixa));
+  checar(!!geo && !!geo.tracoApagado && geo.tracoApagado === geo.tracoVizinho,
+    'e o TRAÇO de um alternador apagado é o dos vizinhos (v1.4.25) — era '
+    + '`--line`, que neste app só o ↑↓ INERTE veste, e o operador lia o botão '
+    + 'como indisponível',
+    JSON.stringify(geo && [geo.tracoApagado, geo.tracoVizinho]));
+  checar(!!geo && geo.fundosLigados.length > 0
+    && !geo.fundosApagados.includes(geo.fundosLigados[0]),
+    'e um alternador LIGADO tem superfície PRÓPRIA — a linguagem de estado de '
+    + '`tokens.css` (`--btn-accent` + `--accent`), que é o que substituiu o '
+    + 'botão ofuscado', JSON.stringify(geo && [geo.fundosLigados, geo.fundosApagados[0]]));
   checar(!!geo && geo.mesmaCaixa && geo.alvo >= 40,
     'e a miniatura e TODOS os botões da linha medem o mesmo (' + (geo ? geo.alvo : 0)
     + 'px) — o alvo cresceu junto', JSON.stringify(geo));

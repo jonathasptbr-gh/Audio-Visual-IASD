@@ -232,6 +232,23 @@ Fora de `tokens.css`, no `:root` do Controle (não são cor):
   **Um ANCESTRAL não responde ao toque que foi para um filho** — e as guardas
   suprimem as DUAS partes: matar só a geometria deixaria o bloco inteiro
   acendendo por um toque de 40px, o mesmo defeito por outra propriedade.
+
+  **A LISTA DE GUARDAS É O QUE ENVELHECE, não a regra.** A `.row-acoes` — a
+  faixa de opções da linha, que é onde o operador de fato toca — ficou de fora
+  dela até a v1.4.25, e o cartão do Cronograma balançava 2px a cada toque no
+  excluir (*"um pequeno movimento vertical do card… essa movimentação não faz
+  sentido, já que essas opções surgem deslizando dentro do próprio card"*). A
+  gaveta dos FAVORITOS já estava coberta por `.hymn-gaveta`, e era só isso que
+  fazia o defeito aparecer numa lista e não na outra. **Bloco novo que hospede
+  controles entra na lista no MESMO lote em que nasce** — e o caso da faixa é o
+  mais forte da regra: ali a resposta ao toque nem é o botão afundando, é a
+  faixa TROCANDO DE CONTEÚDO (a pergunta do excluir, o campo do renomear).
+
+  **E DENTRO DA FAIXA O BOTÃO RESPONDE PELA LUZ, não pela geometria** — MEDIDO:
+  `.acoes-abertas .row-acoes > * { transform: none }` (0,3,0) vence o `:active`
+  da lista de controles (0,2,0), porque ali o `transform` é da animação de
+  entrada da própria faixa. É o mesmo arranjo dos outros BLOCOS, e um oráculo
+  que cobrasse `transform` ali reprovaria o app que está no ar.
 - **Tamanho de ícone:** três degraus — `--icon-sm` (20px, botões de
   linha/cabeçalho/popup), `--icon-md` (22px, abas e transporte) e `--icon-lg`
   (24px, miniatura-ícone, dicas de deslize e barras largas de ação). Antes havia
@@ -404,6 +421,16 @@ A regra, e ela responde a QUATRO perguntas diferentes com quatro respostas:
   ali o glifo não pode mudar, porque ele CICLA por quatro modos e já está
   ocupado dizendo qual está valendo. MEDIDO: o fundo não mudava (1,00:1 entre
   ligado e desligado); hoje são 1,73:1, com o traço a 5,37:1.
+
+  **E DESDE A v1.4.25 A ESTRELA E O `♫+` SEGUEM ESTA LINHA INTEIRA**, não só a
+  metade do desenho. Eles diziam "apagado" com `--line` — a cor de LINHA, que
+  neste app só o `↑↓` INERTE veste —, e o operador lia o botão como
+  indisponível: *"ao invés de modificar o ícone do botão e seus efeitos, foi
+  simplesmente ofuscado o botão inteiro, o que dá a impressão de que não está
+  disponível a opção"*. Hoje **apagado é o botão de sempre** (`--surface` +
+  `--text`) e ligado é `--btn-accent` + `--accent`, com o desenho continuando a
+  carregar o estado sozinho. A régua que fica: **ofuscar não diz "desligado",
+  diz "indisponível"** — e para isso o app já tem `opacity: .3` + `disabled`.
 - **SELECIONADO numa lista** → `--sel-fill`, opaco.
 - **ABERTO** → **não é cor.** A seta que gira, o corpo à vista e a sombra da
   tampa já dizem, e gastar a cor de seleção nisso faz o mesmo estado sair de

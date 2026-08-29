@@ -311,9 +311,23 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
    só a geometria deixaria o bloco inteiro ACENDENDO por um toque de 40px — o
    mesmo defeito relatado, por outra propriedade.
    A terceira linha é o caso ANINHADO: um arquivo dentro de uma pasta é uma
-   `.lib-item` dentro de outra, e sem ela as duas respondiam ao mesmo dedo. */
+   `.lib-item` dentro de outra, e sem ela as duas respondiam ao mesmo dedo.
+
+   E A FAIXA DE AÇÕES (`.row-acoes`) ENTROU NA LISTA na v1.4.25, relato do
+   operador: *"há um bug de deslocamento… ao tocar em excluir ele balança e dá
+   as opções de confirmar ou cancelar. Essa movimentação não faz sentido, já
+   que essas opções surgem deslizando dentro do próprio card"*. A gaveta dos
+   FAVORITOS já estava coberta (ela mora numa `.hymn-gaveta`), e era só por
+   isso que o defeito aparecia numa lista e não na outra — a régua do parágrafo
+   acima sempre valeu para as duas.
+
+   O caso é o mais forte da regra: aqui a resposta ao toque não é só o botão
+   afundando, é a faixa TROCANDO DE CONTEÚDO por baixo dele (o par
+   Cancelar/Excluir, o campo de renomear). Mover o cartão junto é uma segunda
+   resposta a um gesto que já tem a sua, e ela chega no exato quadro em que a
+   outra está entrando. */
 .lib-item:has(.row-mais:active),
-.lib-item:has(:is(.hymn-gaveta, .folder-itens) :active),
+.lib-item:has(:is(.hymn-gaveta, .folder-itens, .row-acoes) :active),
 .lib-item:has(.lib-item:active) { transform: none; filter: none; }
 /* A BARRA de um card ou de uma seção hospeda os botões da coluna da direita
    (baixar, remover, atualizar) e a seta do acordeão: o dedo pousa num deles e
@@ -2124,6 +2138,59 @@ main {
 .lib-item.excluindo > .row > .thumb > .row-lixo { display: flex; }
 .lib-item.excluindo > .row > .thumb > :not(.row-lixo) { display: none; }
 
+/* ---------- E RENOMEAR TAMBÉM MORA NA FAIXA (v1.4.25) ----------
+   Pedido do operador: *"coloque o processo de renomear também dentro do item na
+   lista do cronograma, não como um popup de tela inteira, assim como já é feito
+   no processo de excluir"*. Ver `pedirRenomearNaLinha` em `controle.js`.
+
+   MESMA CAIXA, MESMA ALTURA, MESMO NADA DE PULO: ela reusa a `.linha-confirma`
+   inteira (o `display: flex; flex: 1` da regra logo acima) e só troca os
+   filhos. A MINIATURA NÃO VIRA NADA aqui, ao contrário da exclusão: renomear
+   não é destrutivo e não precisa da segunda afirmação — o que a capa
+   intocada faz é continuar dizendo de qual item é o campo.
+
+   ELE VESTE A RECEITA DA `.lib-search`, e não a do campo da Biblioteca. As duas
+   existem, e a diferença é o tamanho da luz: `--field-bg` é BRANCO LITERAL — uma
+   das duas exceções declaradas em `tokens.css` —, justificado por ser um campo
+   que só existe com a Biblioteca aberta, uma tela inteira em que o operador já
+   está. Este aqui abre DENTRO da lista do culto, no meio do salão escuro, e um
+   retângulo branco na altura de uma linha é a maior fonte de luz da tela por um
+   nome que se troca em dez segundos. `--surface-2` + `--text` é o que o app já
+   usa para "aqui se digita" sobre uma lista.
+
+   `outline: none` pela mesma razão da `.lib-search`: este app não desenha
+   contorno em lugar nenhum, e o anel de foco do navegador seria o único. O que
+   diz que o campo está pronto para receber texto é ele ser a única coisa da
+   faixa, com o nome inteiro já selecionado.
+
+   `min-width: 0` pela razão de sempre: um item flex se recusa a encolher abaixo
+   do conteúdo, e sem ele um nome longo estouraria a faixa em vez de rolar
+   dentro do campo. */
+.linha-renome-campo {
+  flex: 1 1 auto; min-width: 0; min-height: var(--hit);
+  padding: 0 .5rem;
+  border: none; outline: none; border-radius: var(--radius-btn);
+  appearance: none; -webkit-appearance: none;
+  font-family: inherit; font-size: .85rem;
+  background: var(--surface-2); color: var(--text);
+}
+.linha-renome-campo::placeholder { color: var(--muted); }
+/* O ✓ é QUADRADO como todo botão da fileira, e não meia faixa como o par da
+   exclusão: ali os dois rótulos disputam a decisão e a régua é o dedo não errar
+   de botão por 8px; aqui só existe um desfecho, e o resto da largura vale mais
+   no campo — é o texto que se está lendo enquanto se digita.
+   `flex-shrink: 0` porque o vizinho é elástico: sem ele o botão encolheria
+   abaixo do piso de toque num nome longo. */
+.linha-renome-ok {
+  flex: 0 0 auto; width: var(--hit); height: var(--hit);
+  display: flex; align-items: center; justify-content: center;
+  border: none; border-radius: var(--radius-btn);
+  appearance: none; -webkit-appearance: none;
+  cursor: pointer;
+  background: var(--btn-accent); color: var(--accent);
+}
+.linha-renome-ok svg { display: block; width: 20px; height: 20px; }
+
 /* ---------- O MENU DA LINHA ----------
    Caixa ABSOLUTA sobre a `.row` (que já é `position: relative`), da MINIATURA
    até o `⋮`. A thumb fica de fora de propósito: com o nome coberto, ela é a
@@ -2341,22 +2408,39 @@ main {
    tem miniatura, nome e selo, mais um fundo sólido viraria ruído", valia quando
    ela morava NA LINHA.)
 
-   O ESTADO continua sendo o desenho (preenchida × vazada) mais a cor.
-   Desmarcada fica em `--line`, não em `--muted`: discreta o bastante para o
-   olho passar batido pela lista e forte o bastante para ser achada. */
-.fav-btn { color: var(--line); }
-.fav-btn.on { color: var(--brand); }
+   ===== E APAGADO ELE É UM BOTÃO NORMAL (v1.4.25) =====
+
+   Relato do operador: *"há um tempo eles foram modificados para refletir melhor
+   a identificação de está ou não está o item naquela referida lista, mas ao
+   invés de modificar o ícone do botão e seus efeitos, foi simplesmente ofuscado
+   o botão inteiro, o que dá a impressão de que não está disponível a opção"*.
+
+   Ele está certo, e o defeito tem nome nesta folha: `--line` é a cor de LINHA
+   (2,65:1 contra o fundo), e o único outro `.row-btn` que a veste é o `↑`/`↓`
+   INERTE das pontas da lista — aquele por `opacity: .3`, que é literalmente
+   como este app desenha "desabilitado". Dois alternadores VIVOS estavam com a
+   tinta de um botão morto, numa fileira em que todos os vizinhos vestem
+   `--text`.
+
+   A linguagem de estado deste app já respondia, e está escrita em `tokens.css`:
+   **LIGADO (interruptor) = `--btn-accent` + `--accent`**. Apagado é só o
+   `.row-btn` de sempre (`--surface` + `--text`), que é o que "disponível"
+   parece aqui.
+
+   E O ÍCONE CONTINUA CARREGANDO O ESTADO SOZINHO, que é a metade que o pedido
+   nomeia: estrela vazada × cheia, `+` × `✓`, relógio com `+` × com `✓`. A cor
+   e a superfície são reforço — num salão escuro, e para quem não separa os dois
+   tons, quem responde é o desenho. */
+.fav-btn, .row-playlist, .row-crono { color: var(--text); }
+.fav-btn.on { background: var(--btn-accent); color: var(--brand); }
 /* ---------- A FILA TAMBÉM É UM ESTADO (v5.302) ----------
-   O mesmo par da estrela, e de propósito: são os dois alternadores da fileira, e
-   dois vocabulários de "ligado" na mesma linha fariam o operador aprender duas
-   vezes. Apagado é `--line` (o mesmo cinza de "cabe aqui"), aceso é o accent —
+   O mesmo par da estrela, e de propósito: são os alternadores da fileira, e dois
+   vocabulários de "ligado" na mesma linha fariam o operador aprender duas vezes.
    `--accent` e não `--brand` porque aqui a marca não tem nada a dizer: é estado
    de navegação, e os dois tokens têm o mesmo valor de propósito.
-   A COR NÃO ESTÁ SOZINHA: o desenho troca `+` por `✓` (ver `playlistIconSvg`).
-   Num salão escuro, e para quem não separa os dois tons, é o símbolo que
-   responde. */
-.row-playlist { color: var(--line); }
-.row-playlist.on { color: var(--accent); }
+   A COR NÃO ESTÁ SOZINHA: o desenho troca `+` por `✓` (ver `playlistIconSvg` e
+   `cronogramaIconSvg`). */
+.row-playlist.on, .row-crono.on { background: var(--btn-accent); color: var(--accent); }
 
 /* A miniatura da CENA DE ROTEIRO em ouro: ela diz "isto não é mídia, é uma
    cena" numa lista onde todo o resto tem bytes. (O selo `.cue-badge` saiu com
