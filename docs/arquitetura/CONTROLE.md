@@ -1449,19 +1449,56 @@ vem depois, e a preview só espelha o que já está no ar. O botão do meio do
 mixer (`#lyricsViewBtn`, folha com linhas) abre um bottom-sheet **com scroll**
 (`#lyricsPopup`) com a íntegra do que está em cena.
 
-- **Quatro fontes possíveis, nunca todas de uma vez**: a **letra** da música em
-  cena (`currentItem.lyrics`, os mesmos slides que o Display projeta — o slide de
+- **Quatro fontes possíveis**: a **letra** da música em cena
+  (`currentItem.lyrics`, os mesmos slides que o Display projeta — o slide de
   capa vira a linha "Início"), o **capítulo** da leitura bíblica
   (`bibleSession.verses`, numerados como numa Bíblia impressa), a **cifra**, e as
   **páginas** de uma apresentação.
-- **A APRESENTAÇÃO É EXCLUSIVA** (v1.4.24), pela mesma razão da Bíblia no ar e
-  ao pé do pedido do operador: *"durante uma apresentação, não quero botões de
-  letra, ou de cifras nessa tela"*. Quando o que está no telão é o deck, não há
-  segunda leitura possível — ele não tem letra nem acorde, e o que sobraria no
-  seletor seriam abas de OUTRA mídia. `lyricsViewSources` faz `return ['deck']`,
-  e é o `return` (e não um `push`) que impede um louvor de fundo pausado atrás
-  da apresentação de continuar oferecendo Letra e Cifra. Com uma fonte só, o
-  seletor inteiro some sem nenhum caso especial no desenho.
+- **A LISTA É A PILHA DO QUE ESTÁ EM EXIBIÇÃO, DA FRENTE PARA TRÁS** (v1.4.26).
+  Pedido do operador: *"o auxiliar de leitura deve deixar disponível os
+  auxiliares de tudo que estiver em exibição, seja uma música de fundo e uma
+  bíblia sobrepondo… devo ter a opção da letra, da cifra e da bíblia, pois todos
+  estes estão em exibição. É claro, o elemento na camada mais a frente de tudo é
+  o que aparece na abertura"*. Uma música de fundo com o versículo por cima
+  oferece **Bíblia, Letra e Cifra**, e abre na **Bíblia**.
+
+  Ele **REVOGA duas exclusividades** que este arquivo defendeu — a da Bíblia
+  (v1.1.11) e a da apresentação (v1.4.24). O que as duas acertavam era a
+  PRECEDÊNCIA; o que erravam era tirar as outras da mesa: a camada de baixo
+  continua no ar, e quem opera pode precisar dela no minuto seguinte.
+
+  - **A ORDEM É A DO `slideTarget()`** — a Camada de Texto por cima da mídia —, e
+    não é escrita duas vezes: as duas fazem a mesma pergunta sobre o
+    empilhamento do telão e divergiriam no primeiro recurso novo. `deck` e
+    `lyrics` são exclusivos ENTRE SI por construção (`currentItem` é uma coisa
+    só), não por regra.
+  - **A CIFRA continua por ÚLTIMA**, e é a única precedência que não vem de
+    camada nenhuma: ela não é projetada — é o auxiliar de quem TOCA o que está
+    no ar —, e por isso nunca abre sozinha enquanto houver o que está sendo
+    visto.
+  - **A frente vence a ESCOLHA GUARDADA quando ela muda** (`lvFrenteVista`, em
+    `openLyricsPopup`). A aba escolhida sobrevive à reabertura desde a v1.2.x, e
+    com a pilha essa memória passa a poder contradizer o pedido: quem tocou
+    "Cifra" com o louvor sozinho no ar não pediu cifra para o instante em que o
+    versículo subir por cima dele. *Mudou a frente, mudou a pergunta* — e dentro
+    da mesma frente a escolha continua sobrevivendo. **O `null` de
+    `lvFrenteVista` significa "nenhuma frente vista ainda", nunca "a frente
+    mudou"**: na primeira abertura não houve cena anterior, logo não há escolha
+    de antes a invalidar — e uma fonte pedida antes dela é um PEDIDO, não uma
+    sobra.
+  - **Com a folha ABERTA a frente que muda não troca a aba.** A regra mora na
+    ABERTURA: trocar a leitura embaixo do dedo de quem está lendo é pior que uma
+    aba desatualizada, e o seletor está a um toque dali.
+  - **É PROJEÇÃO que põe alguém na pilha**, nunca a existência da sessão — um
+    capítulo aberto e fora do ar volta lá embaixo, na RESERVA. E **com um alvo da
+    Biblioteca nada da cena entra**: quem abriu a folha de uma música pediu
+    AQUELA música.
+
+  **A apresentação continua sozinha**, e o pedido da v1.4.24 (*"durante uma
+  apresentação, não quero botões de letra, ou de cifras nessa tela"*) segue
+  cumprido — agora **por construção**, não por uma regra que cale as outras: um
+  deck não tem letra nem acorde. Com uma fonte só, o seletor inteiro some sem
+  nenhum caso especial no desenho. Oráculo: `tools/leitor-camadas.test.mjs`.
 
   **A lista é o MOLDE VERTICAL do capítulo bíblico**, também a pedido: número na
   margem, corpo à direita, a página em cena marcada e centralizada pelo
@@ -1490,16 +1527,16 @@ mixer (`#lyricsViewBtn`, folha com linhas) abre um bottom-sheet **com scroll**
   **E o A+/A− some nesta aba.** Ele dimensiona TEXTO, e a miniatura ocupa a
   largura da coluna: um par de botões que continua ali e não muda nada na tela é
   a mesma coisa que o microfone sem TV — não oferecer é melhor que explicar.
-- **A BÍBLIA NO AR É EXCLUSIVA** (v1.1.11). Projetando, ela é a única fonte
-  oferecida; fora do ar, ela não disputa com a música e volta só como RESERVA —
-  quando não há letra nem cifra para mostrar. Com música em cena, portanto, as
-  fontes são **Letra e Cifra**, e nada mais.
+- **A BÍBLIA NO AR ABRE A FOLHA, e não a esvazia** (v1.1.11, revogada em
+  parte na v1.4.26). Projetando, ela é a camada da FRENTE: a folha abre nela, e
+  a letra e a cifra do louvor de fundo continuam a um toque no seletor. Fora do
+  ar ela não disputa com a música e volta só como RESERVA — quando não há letra
+  nem cifra para mostrar.
 
-  A regra é sobre **projeção**, nunca sobre a sessão existir. O que ela resolve é
-  concreto: com um louvor de fundo durante a leitura, as três coexistiam e o
-  seletor virava três abas — mas quem lê a Bíblia em voz alta não vai consultar a
-  cifra do louvor de fundo no mesmo minuto. A folha responde *"o que está em cena
-  AGORA?"*, e com a Bíblia projetando a resposta é uma só.
+  A regra é sobre **projeção**, nunca sobre a sessão existir. O que a v1.1.11
+  leu como "quem lê a Bíblia em voz alta não vai consultar a cifra do louvor de
+  fundo no mesmo minuto" era uma resposta de PRECEDÊNCIA escrita como silêncio;
+  a precedência ficou, o silêncio saiu.
 - **O seletor do topo (`#lyricsViewSeg`) só aparece quando há mais de uma** fonte
   — com uma só, ela abre direto, sem um seletor de uma opção. **E a visibilidade
   de CADA botão sai da mesma lista** (v1.1.18): os três são HTML estático, então
@@ -1514,9 +1551,10 @@ mixer (`#lyricsViewBtn`, folha com linhas) abre um bottom-sheet **com scroll**
   que dentro da `.popup-sheet` já resolve para o afundado; preenchimento, nunca
   contorno.
 - **A CIFRA é a ÚLTIMA da lista** (`lyricsViewSources`), e isso é a precedência
-  inteira: sem escolha do operador, `lvActiveSource` devolve a primeira — e a que
-  abre sozinha tem de ser a letra, que é o que quem opera o culto está lendo.
-  Quem toca escolhe a cifra uma vez. Ela **não existe no navegador** (a busca
+  inteira: sem escolha do operador, `lvActiveSource` devolve a primeira — que é
+  a camada mais à frente do que está sendo VISTO. A cifra nunca abre sozinha
+  enquanto houver isso, porque ela não é uma camada: é o auxiliar de quem toca a
+  mídia que está no ar. Quem toca escolhe a cifra uma vez. Ela **não existe no navegador** (a busca
   precisa da ponte — CORS) e **nunca vai ao telão**: é para quem toca, e o que a
   congregação vê continua sendo a letra.
 

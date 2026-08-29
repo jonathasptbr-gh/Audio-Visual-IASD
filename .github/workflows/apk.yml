@@ -845,6 +845,21 @@ jobs:
           # o sintoma seria só "a folha pisca"). As duas metades de VOLTA — a
           # letra e o A+/A− retornando — impedem que "esconder tudo" passe.
           rodar tools/leitor-apresentacao.test.mjs
+          # E O AUXILIAR OFERECE TUDO O QUE ESTÁ EM EXIBIÇÃO (v1.4.26). O pedido
+          # do operador REVOGA duas exclusividades que este app tinha escrito e
+          # defendido — a da Bíblia (v1.1.11) e a da apresentação (v1.4.24):
+          # elas acertavam a PRECEDÊNCIA e erravam em tirar as outras da mesa (a
+          # música de fundo continua tocando sob o versículo). As duas metades
+          # falham CALADAS e em direções opostas: de MENOS, a aba não está lá e
+          # o operador conclui que o recurso não existe; de MAIS — o caro —, a
+          # lista certa com a ABERTURA errada mostra a letra do louvor de fundo
+          # com o versículo no telão, e parece certo. A terceira é a ESCOLHA
+          # GUARDADA, que com a pilha passa a poder contradizer o pedido: quem
+          # tocou "Cifra" com o louvor sozinho no ar não pediu cifra para o
+          # instante em que o versículo subir por cima. A regra é *mudou a
+          # frente, mudou a pergunta*, e ela só está certa com as DUAS metades
+          # medidas — zerar sempre passa numa, apagar o recurso passa na outra.
+          rodar tools/leitor-camadas.test.mjs
           # E O TOQUE QUE RESPONDE NA HORA. "Tocar agora" num vídeo comeca por uma
           # EXTRACAO DE REDE de segundos, e ate a v1.4.6 nada mudava na tela
           # nesse intervalo — nem o aro de carregamento. O caminho do DOWNLOAD ja

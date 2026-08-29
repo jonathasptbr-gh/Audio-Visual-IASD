@@ -16,6 +16,18 @@
 // OUTRA mídia — nada quebra, nada aparece no console, e o operador lê o hino de
 // antes durante o sermão.
 //
+// > **A v1.4.26 mudou o MECANISMO dessa segunda metade, não o resultado.** Ela
+// > era um `return ['deck']` que excluía todo o resto; hoje a lista é a PILHA
+// > do que está em exibição, e uma apresentação continua sozinha porque um deck
+// > não tem letra nem acorde — não porque a regra cale os outros. A asserção
+// > continua valendo ao pé da letra do pedido, e quem mede a pilha em si é o
+// > `leitor-camadas.test.mjs`.
+//
+// E a v1.4.26 acrescentou o TOQUE: *"preciso da capacidade de tocar nos slides
+// para passar ou pular diretamente para um slide em específico"*. A metade que
+// falha calada ali é a OUTRA — um toque numa folha aberta da Biblioteca não
+// pode projetar nada, e "nada aqui projeta" é a promessa inteira do `lvAlvo`.
+//
 // ## As três coisas que este oráculo mede e um teste de comportamento não pega
 //
 //  - **A EXCLUSIVIDADE**, medida na transição que o operador de fato faz: com
@@ -114,6 +126,14 @@ try {
       && !!document.querySelector('#playlist li'),
     null, { timeout: 30000 },
   );
+  // O BARRAMENTO, gravado: o que prova um salto de página é o COMANDO que sai,
+  // não a classe que mudou — a classe é o que a folha desenha, e o telão só
+  // sabe do `page`.
+  await pg.evaluate(() => {
+    window.__cmds = [];
+    const real = AVDB.sendCommand.bind(AVDB);
+    AVDB.sendCommand = (o) => { window.__cmds.push(o); return real(o); };
+  });
 
   // ── 1. A MÚSICA PRIMEIRO — é dela que a exclusividade tem de tirar as abas ──
   const comMusica = await pg.evaluate(() => {
@@ -231,6 +251,61 @@ try {
     + 'Com a página na assinatura, cada toque no ⏭ revogaria e recriaria dezenas '
     + 'de URLs — e o sintoma seria só "a folha pisca"',
     { antes: dado.urlPrimeira, depois: depois.urlPrimeira });
+
+  // ── 3b. O TOQUE PULA DIRETO PARA A PÁGINA ─────────────────────────────────
+  const tocou = await pg.evaluate(() => {
+    window.__cmds = [];
+    const linhas = [...document.querySelectorAll('#lyricsViewBody .lv-row')];
+    linhas[6].click();
+    return {
+      pagina: deckPagina,
+      atual: [...document.querySelectorAll('#lyricsViewBody .lv-row')]
+        .findIndex((l) => l.classList.contains('current')),
+      cmds: window.__cmds.filter((c) => c.type === 'page'),
+      tocavel: linhas.every((l) => l.classList.contains('lv-row--tocavel')),
+    };
+  });
+  checar(tocou.pagina === 6 && tocou.atual === 6,
+    'O TOQUE NUMA PÁGINA PULA DIRETO PARA ELA — o pedido, e o salto é para '
+    + 'FRENTE e para trás sem passar pelas do meio', tocou);
+  checar(tocou.cmds.length === 1 && tocou.cmds[0].page === 6,
+    '  ↳ e o que sai é UM comando `page` para o telão, pelo mesmo caminho do '
+    + '⏮/⏭ (`deckIr`) — não um segundo jeito de saltar', tocou.cmds);
+  checar(tocou.tocavel,
+    '  ↳ com a apresentação em cena TODA linha é tocável', tocou.tocavel);
+
+  // ── 3c. E UMA FOLHA DA BIBLIOTECA NÃO PROJETA NADA ────────────────────────
+  // É a promessa inteira do `lvAlvo`: abrir uma mídia para ler sem que a
+  // congregação veja. Um toque que mandasse `page` a partir dali a romperia — e
+  // em silêncio, porque quem está lendo não olha o telão.
+  const daBiblioteca = await pg.evaluate(async () => {
+    closeLyricsPopup();
+    const pages = [];
+    for (let i = 0; i < 3; i++) {
+      const cv = document.createElement('canvas');
+      cv.width = 160; cv.height = 90;
+      cv.getContext('2d').fillRect(0, 0, 160, 90);
+      pages.push(await new Promise((r) => cv.toBlob(r, 'image/png')));
+    }
+    const outra = { id: 'outra', name: 'Outra apresentação', kind: 'deck', pages };
+    openLyricsPopup(outra);
+    window.__cmds = [];
+    const linhas = [...document.querySelectorAll('#lyricsViewBody .lv-row')];
+    linhas[2].click();
+    return {
+      tocavel: linhas.some((l) => l.classList.contains('lv-row--tocavel')),
+      cmds: window.__cmds.length,
+      pagina: deckPagina,
+      marcada: linhas.findIndex((l) => l.classList.contains('current')),
+    };
+  });
+  checar(!daBiblioteca.tocavel && daBiblioteca.cmds === 0 && daBiblioteca.pagina === 6,
+    'e a folha de uma apresentação da BIBLIOTECA não projeta nada: as linhas '
+    + 'não são tocáveis, o toque não emite comando e a página em cena não se '
+    + 'mexe — "nada aqui projeta" é a promessa do `lvAlvo`', daBiblioteca);
+  checar(daBiblioteca.marcada === -1,
+    '  ↳ e nenhuma página é marcada nela: aquela apresentação não está no ar, e '
+    + 'destacar uma seria inventar uma referência', daBiblioteca.marcada);
 
   // ── 4. AS URLS MORREM COM A FOLHA ─────────────────────────────────────────
   const soltou = await pg.evaluate(async (url) => {
