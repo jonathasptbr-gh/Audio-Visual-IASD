@@ -229,6 +229,15 @@ jobs:
           # meio de um culto. O passo já existe para impedir que o canal OTA
           # publique um bundle que não carrega; isto é da mesma natureza.
           node tools/sidx.test.mjs
+          # E A ESCOLHA DO DEGRAU da transmissão. O `mse.js` não faz ABR, então
+          # a escolha e feita UMA vez e vale o louvor inteiro — e enquanto ela
+          # foi cega (sempre o teto), uma rede que não a sustenta produzia
+          # TRAVAMENTO, nunca imagem menor. A regra é pura: banda medida +
+          # escada + duração → índice. Ele cobra o topo com rede sobrando, o
+          # degrau QUE CABE com rede apertada (recuar demais é o mesmo defeito
+          # do outro lado), o piso em vez de uma recusa, a margem, o áudio na
+          # conta, e a MONOTONIA — que nenhum caso isolado pega.
+          node tools/degrau-de-banda.test.mjs
           # O CONTRATO do `shouldInterceptRequest`: o `InputStream` devolvido é
           # o recurso INTEIRO a partir do byte 0, e quem aplica o `Range` é o
           # WebView. Violar isso custou três rodadas de APK (v1.52 → v1.54) com

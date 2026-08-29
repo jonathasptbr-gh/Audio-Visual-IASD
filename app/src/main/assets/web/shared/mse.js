@@ -208,6 +208,48 @@
     return segs;
   }
 
+  // ===== A ESCOLHA DO DEGRAU — a regra, PURA e com oráculo =====
+  //
+  // Este player **não faz ABR** (está no cabeçalho), e é exatamente por isso
+  // que a escolha importa: ela é feita UMA vez e vale o louvor inteiro.
+  // Enquanto o manifesto trouxe uma faixa só, ela era feita CEGA — sempre o
+  // teto —, e uma rede que não a sustenta produz TRAVAMENTO, nunca imagem
+  // menor. Relato do operador: *"veio som, porém ficou travando e qualidade de
+  // vídeo baixa"*.
+  //
+  // A conta é a de sustentação: uma faixa de `tamanho` bytes ao longo de
+  // `segundos` precisa de `tamanho × 8 / segundos` bits por segundo, e o áudio
+  // viaja junto — somá-lo não é zelo, é metade do problema num louvor, onde a
+  // faixa de áudio pesa perto de um décimo do vídeo.
+  //
+  // A MARGEM não é conservadorismo: a medida sai dos primeiros bytes, isto é,
+  // durante o slow start do TCP, e por isso ela SUBESTIMA. Daí a regra só poder
+  // DESCER — uma medida que subestima nunca pode ser usada para justificar um
+  // degrau mais alto, e não é: quem chama já começou no topo.
+  //
+  // **Sem escada, sem degrau**: um manifesto de shell antigo (sem `videos`)
+  // devolve o índice 0 e nada muda — a degradação declarada.
+  const MARGEM_BANDA = 1.35;
+  function escolherDegrau(medidoBps, escada, audio, segundos) {
+    if (!Array.isArray(escada) || escada.length < 2) return 0;
+    if (!(medidoBps > 0) || !(segundos > 0)) return 0;
+    const bytesAudio = (audio && audio.size) || 0;
+    const cabe = (v) => {
+      const bytes = ((v && v.size) || 0) + bytesAudio;
+      // Faixa sem `size` (o `contentLength` do YouTube nasce em -1 quando ele
+      // não o informa) não tem como ser julgada: aceitá-la é o certo — o
+      // desfecho é o comportamento de antes desta regra, e não uma recusa por
+      // um campo ausente. Ver o `dash` do Kotlin, que já paga esta lição.
+      if (!(bytes > 0)) return true;
+      return (bytes * 8 / segundos) * MARGEM_BANDA <= medidoBps;
+    };
+    for (let i = 0; i < escada.length; i++) if (cabe(escada[i])) return i;
+    // Nada cabe: o degrau mais BAIXO, que é o mais próximo de caber. Recusar a
+    // transmissão aqui mandaria a cena ao download de centenas de MB — pior em
+    // toda leitura, e por uma rede que talvez sustente o menor.
+    return escada.length - 1;
+  }
+
   // A MARCA de "vale a pena tentar de novo", carregada no próprio erro. Ela
   // viaja no objeto e não numa tabela de mensagens porque quem SABE se o
   // tropeço foi acidente é quem o produziu — casar strings de erro depois é a
@@ -223,6 +265,25 @@
   function criar(video, man, opts) {
     const onErro = (opts && opts.onErro) || function () {};
     let morto = false;
+    // ===== O MEDIDOR: bytes ÷ tempo do que JÁ É BUSCADO =====
+    //
+    // Nenhuma requisição a mais. O init, o índice e o primeiro fragmento têm de
+    // ser buscados de qualquer jeito, e são eles que dizem quanto esta rede
+    // entrega — pelo caminho REAL (o nosso proxy até o googlevideo), não por um
+    // endpoint de teste que mede outra coisa.
+    //
+    // Um teste de velocidade sintético seria pior nas três pontas: gastaria uma
+    // requisição, mediria o mesmo slow start, e ainda assim mediria um INSTANTE.
+    let medBytes = 0;
+    let medMs = 0;
+    // O DEGRAU SÓ TROCA ANTES DO PRIMEIRO QUADRO, e é isso que dispensa toda a
+    // costura de tempo: nada foi mostrado (o `stage` segura o aro de espera até
+    // `PRONTO_STREAM_MS`), o `currentTime` é zero, e trocar é recomeçar do
+    // início em vez de emendar no meio. Depois disso a bandeira fecha para
+    // sempre — uma troca com o louvor no ar é gagueira, e este projeto já
+    // decidiu que gagueira é pior que uma escolha imperfeita.
+    let degrauFeito = false;
+    const escada = (man && Array.isArray(man.videos) && man.videos.length > 1) ? man.videos : null;
     let tick = null;
     // Os ouvintes de `EVENTOS_DO_COMPASSO` já estão no `<video>`? A bandeira
     // existe porque `morrer` pode ser chamado ANTES de `iniciar()` chegar a
@@ -336,6 +397,7 @@
 
     async function pegarUmaVez(url, ini, fim, passo) {
       const alvo = pedido(url, ini, fim);
+      const t0 = Date.now();
       // Abortável: o controller entra no conjunto `emVoo` enquanto a
       // requisição vive, e `morrer` derruba todos de uma vez. O finally o
       // tira do conjunto em QUALQUER desfecho — sucesso, erro HTTP, abort.
@@ -391,6 +453,11 @@
           throw marcar(new Error(passo + ': resposta vazia (HTTP ' + r.status + ', pedidos '
             + (fim - ini + 1) + ' bytes)'), true);
         }
+        // SÓ O QUE DEU CERTO ENTRA NA CONTA. Uma tentativa que falhou mediu o
+        // tempo até o erro, não a entrega — e um 403 rápido inflaria a banda
+        // exatamente no caso em que nada foi entregue.
+        medBytes += buf.byteLength;
+        medMs += Math.max(1, Date.now() - t0);
         return buf;
       } finally {
         if (ctl) emVoo.delete(ctl);
@@ -470,6 +537,30 @@
           reposicionada = true;
           return;
         }
+        // A AVALIAÇÃO DO DEGRAU vem DEPOIS do fetch e ANTES do append, e as duas
+        // metades da posição importam: depois, porque é o fetch que produz a
+        // medida (o primeiro fragmento é o maior pedaço que este player busca, e
+        // o único grande o bastante para a conta não ser puro RTT); antes,
+        // porque um append que a troca vai apagar em seguida é trabalho jogado
+        // fora — e, pior, faria o `f.i++` andar sobre um índice que a troca
+        // acabou de substituir.
+        //
+        // Ela roda DENTRO do `f.ocupada`, então nenhum outro compasso alimenta
+        // esta faixa enquanto o degrau é trocado.
+        if (!degrauFeito) {
+          const trocou = await talvezTrocarDegrau(f);
+          if (morto || ms.readyState !== 'open') return;
+          // A troca aconteceu: este `buf` é do degrau ANTIGO e o índice voltou a
+          // zero. Descartá-lo é o certo — o próximo compasso pede o segmento
+          // certo, do degrau novo.
+          //
+          // O DESFECHO É O RETORNO, e não uma comparação de `f.i`: o caso comum
+          // é a troca no PRIMEIRO fragmento, e ali `idx` e o `f.i` novo valem
+          // ZERO os dois — a comparação aprovaria o append do buffer velho por
+          // cima do init novo, que é a corrupção mais silenciosa que este
+          // caminho sabe produzir.
+          if (trocou) { reposicionada = true; return; }
+        }
         try {
           f.sb.appendBuffer(buf);
           f.pendenteBuf = null;
@@ -539,6 +630,114 @@
       iniciar();
     }
 
+    // ===== A TROCA DE DEGRAU, e a guarda que a torna segura =====
+    //
+    // Ela só corre antes do primeiro quadro, então o `remove(0, Infinity)` apaga
+    // exatamente o que foi appendado até aqui (o init e um ou dois fragmentos do
+    // segundo zero) e o índice recomeça em 0 — sem alinhamento de tempo, que é a
+    // parte de um player DASH que este arquivo não tem e não vai ter.
+    //
+    // **QUALQUER FALHA AQUI MANTÉM O DEGRAU ATUAL.** É a propriedade que torna
+    // esta função aceitável num culto: no pior caso a transmissão continua
+    // exatamente como continuaria sem ela. Por isso o `catch` não chama
+    // `morrer()` — uma otimização que derruba a projeção é pior que a projeção
+    // sem otimização.
+    const AMOSTRA_MIN = 192 * 1024;   // bytes antes de a medida valer alguma coisa
+    async function talvezTrocarDegrau(f) {
+      if (degrauFeito || !escada || f.papel !== 'vídeo') return false;
+      // JÁ COMEÇOU A TOCAR: tarde demais, e a bandeira fecha para sempre.
+      if (video.currentTime > 0.01) { degrauFeito = true; return false; }
+      if (medBytes < AMOSTRA_MIN || medMs <= 0) return false;
+      const medido = medBytes * 8000 / medMs;
+      global.AVStream.banda = Math.round(medido);
+      const i = escolherDegrau(medido, escada, man.audio, man.seconds);
+      const novo = escada[i];
+      // O topo continua servindo: nada a fazer, e a bandeira fecha para não
+      // remedir a cada fragmento.
+      if (!novo || novo.url === f.url) { degrauFeito = true; return false; }
+      degrauFeito = true;
+      try {
+        await esperarSbLivre(f.sb);
+        if (morto) return false;
+        try {
+          f.sb.remove(0, Infinity);
+          await esperarSbLivre(f.sb);
+        } catch (_) { /* nada a remover ainda */ }
+        if (morto) return false;
+        // `changeType` quando o navegador o tem E o mime mudou: dois perfis de
+        // AVC no mesmo SourceBuffer é o caso que ele existe para cobrir. Sem
+        // ele o append do init novo costuma passar assim mesmo — daí o `try`.
+        if (novo.mime && novo.mime !== f.meta.mime && typeof f.sb.changeType === 'function') {
+          try { f.sb.changeType(novo.mime); } catch (_) { /* segue com o antigo */ }
+        }
+        const init = await pegar(novo.url, novo.initStart, novo.initEnd, 'init vídeo (degrau)');
+        if (morto) return false;
+        await aplicar(f, init);
+        const idx = await pegar(novo.url, novo.indexStart, novo.indexEnd, 'índice vídeo (degrau)');
+        if (morto) return false;
+        const segs = lerSidx(idx, novo.indexEnd + 1);
+        // FICA NO DEGRAU QUE JÁ FUNCIONAVA — mas o init NOVO já foi appendado,
+        // e a partir dele o `SourceBuffer` passou a descrever a faixa nova. Os
+        // fragmentos antigos seriam decodificados contra a descrição errada.
+        // `iniciar()` não roda uma segunda vez, então repor o init antigo é
+        // trabalho DESTE ponto — e só depois dele se devolve `false`.
+        if (!segs || !segs.length) { await reporInit(f); return false; }
+        f.meta = novo;
+        f.url = novo.url;
+        f.segs = segs;
+        f.i = 0;
+        f.pendenteBuf = null;
+        f.initBuf = init;
+        global.AVStream.degrau = (novo.altura ? novo.altura + 'p' : '?')
+          + ' (medido ' + Math.round(medido / 1000) + ' kbps)';
+        return true;
+      } catch (_) {
+        // O DEGRAU ANTIGO CONTINUA DE PÉ — mas se a falha veio DEPOIS do append
+        // do init novo, o `SourceBuffer` está descrito por ele e os fragmentos
+        // antigos seriam decodificados errado. Repor o init antigo fecha essa
+        // janela; falhando também isso, não há o que fazer além de deixar o
+        // `onErro` de sempre agir no compasso seguinte.
+        await reporInit(f);
+        return false;
+      }
+    }
+
+    // Devolve o `SourceBuffer` ao init do degrau que `f.meta` descreve. Sem
+    // rede quando dá para evitar: o init do degrau em uso é guardado na entrada.
+    async function reporInit(f) {
+      try {
+        await esperarSbLivre(f.sb);
+        if (morto) return;
+        const init = f.initBuf
+          || await pegar(f.url, f.meta.initStart, f.meta.initEnd, 'init ' + f.papel + ' (volta)');
+        if (morto) return;
+        await aplicar(f, init);
+      } catch (_) { /* o `onErro` do compasso seguinte cobre o que sobrar */ }
+    }
+
+    // `updateend` como Promise — o `remove` e o `appendBuffer` são assíncronos e
+    // só UM por SourceBuffer por vez.
+    //
+    // **COM PRAZO, e ele não é zelo.** Esta espera roda com `f.ocupada` segurado
+    // (a troca de degrau acontece dentro do `alimentar`), e um `updateend` que
+    // nunca venha — o `SourceBuffer` desanexado por um `endOfStream`, a
+    // `MediaSource` fechada no meio — deixaria a faixa de vídeo travada PARA
+    // SEMPRE, sem erro em lugar nenhum: exatamente o modo de falhar que o
+    // `CALL_TIMEOUT_MS` da ponte existe para não ter. Vencido o prazo a Promise
+    // resolve mesmo assim; o `remove`/`appendBuffer` seguinte lança sobre um
+    // `sb` ocupado, e o `catch` da troca devolve o degrau antigo — que é o
+    // desfecho seguro desta função inteira.
+    const SB_PRAZO_MS = 5000;
+    function esperarSbLivre(sb) {
+      return new Promise((r) => {
+        if (!sb.updating) { r(); return; }
+        let pronto = false;
+        const fim = () => { if (!pronto) { pronto = true; clearTimeout(t); r(); } };
+        const t = setTimeout(fim, SB_PRAZO_MS);
+        sb.addEventListener('updateend', fim, { once: true });
+      });
+    }
+
     async function iniciar() {
       try {
         for (const f of faixas) {
@@ -546,6 +745,10 @@
           // a faixa, e um fragmento de mídia entregue antes dele é rejeitado.
           const init = await pegar(f.url, f.meta.initStart, f.meta.initEnd, 'init ' + f.papel);
           if (morto) return;
+          // GUARDADO para a volta de uma troca de degrau que não deu certo (ver
+          // `reporInit`). São alguns kB, e é a diferença entre desfazer sem rede
+          // e depender dela justamente quando ela acabou de falhar.
+          f.initBuf = init;
           try {
             await aplicar(f, init);
           } catch (e2) {
@@ -665,7 +868,13 @@
   // `playing` e que já acende o indicador de espera) — este módulo é o dono do
   // BALCÃO, para o Registro ter um lugar só onde perguntar pela transmissão.
   global.AVStream = {
-    suportado, criar, lerSidx, ultimoErro: '',
+    suportado, criar, lerSidx, escolherDegrau, ultimoErro: '',
     fome: { quantas: 0, segundos: 0 },
+    // A BANDA MEDIDA na última transmissão, em bits por segundo, e o degrau em
+    // que ela parou. Ela sobrevive ao item: o segundo louvor do culto começa
+    // sabendo o que o primeiro descobriu, em vez de repetir a mesma medição
+    // atrás do mesmo travamento. Zerada só pela morte da página.
+    banda: 0,
+    degrau: '',
   };
 })(window);
