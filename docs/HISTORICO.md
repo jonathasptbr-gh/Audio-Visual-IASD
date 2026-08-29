@@ -24,6 +24,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
+- **v1.4.11** — O AVISO DE QUALIDADE LIMITADA. Pedido do operador depois de projetar 360p numa TV 4K sem nada na tela dizendo isso: *"coloque o aviso sobre a resolução estar limitada"*. **O app SEMPRE soube a altura** — ela vem do shell e vira o subtítulo da linha ("Vídeo · 1080p"); o buraco é que o "Tocar agora" põe o item na prateleira `avulsos`, **que não tem lista visível**, então a informação existia e não tinha onde aparecer. O aviso sai no cartão que já dizia "Preparando", e para isso o cartão ganhou um TERCEIRO desfecho que fala: `avisar(cap, texto)`, irmão do `falhar` (mesma mecânica, extraída para `encerrarCom`) e **âmbar, não vermelho** — neste app o vermelho é ação destrutiva ou o que está no ar, e uma ressalva não é nenhum dos dois; chamar isto de "Não deu" mandaria investigar o que funcionou. **A REGRA É DUAS CONDIÇÕES** (abaixo do pedido **e** abaixo de 720p), e uma só erra para os dois lados: só a primeira faz quem escolheu 480p receber um aviso a cada toque dizendo o que acabou de pedir; só a segunda transforma um teto baixo escolhido à mão em alarme. O piso é 720p porque é o degrau em que a imagem ainda se sustenta num telão de salão — 360p é o que produziu a queixa. Altura DESCONHECIDA não vira aviso: sem número, "qualidade limitada" é uma afirmação que ninguém pode conferir. E ele **só sai onde o resultado vai aparecer** (`aviso === 'preview'`): guardar um vídeo numa lista já mostra a altura no subtítulo dela, e um cartão sobre a preview ali insinuaria que ele vai ao telão a seguir. **O aviso não conserta nada** — a causa é o SABR e não tem conserto nosso (`ACHADOS-EM-ABERTO.md` §3) —, ele impede que a falta de resolução seja lida como defeito do app, que é a única coisa que ainda estava ao nosso alcance. Oráculo: a metade 9 do `toque-instantaneo.test.mjs`, provada por reversão nas TRÊS frentes (sem aviso; só a primeira condição; só a segunda). OTA PURO.
 - **v1.4.10** — O NOME DO APP VENCE O TÍTULO DO YOUTUBE. Relato do operador: *"o nome no card de preparação está se alterando na segunda metade do processo (provavelmente pois ele pega o nome real do vídeo online); deixe apenas o primeiro nome, que ao que parece é o nome do item ou renomeação que temos já no app"*. A leitura dele estava certa e o defeito era mais fundo que o cartão: o registro nascia com `man.name || r.name` (transmissão) e `r.name || rotulo` com o `r.name` do SHELL (download) — **o título extraído do YouTube vencendo o nome que o app já tinha**, nos DOIS caminhos. Ele chega segundos depois do toque, e nesse instante trocava o nome debaixo de tudo: o cartão (que abre com o nome do item), a barra do que está tocando, a notificação de mídia, a linha da lista. **Pior no caminho que mais importa** — um item de link do Cronograma ou dos Favoritos leva o nome que o OPERADOR deu, e o título do canal o apagava. A correção é a ordem invertida nos dois pontos, mais o genérico `'Vídeo'` que o `resolverLinkInterno` fabricava saindo da frente (ele venceria um título de verdade — justamente o caso em que o título DEVE valer). **A correção é do REGISTRO, e não do cartão**, e isso é o ponto: com a legenda certa e o registro errado a troca só mudaria de lugar. Oráculo novo no `toque-instantaneo.test.mjs`, e ele mede a SEQUÊNCIA de nomes e não o estado final — um teste do fim passa nas duas versões enquanto o segundo dono não escreveu, e passa por acidente quando os dois nomes coincidem; o que o operador viu foi a TROCA. Espionar o `previewBusy` colhe todo nome que chega ao cartão, venha do dono que vier. A segunda metade espiona o `addStreamMedia` NO PONTO DA DECISÃO, e não relê o banco depois: o `recuperarStream` troca o registro quando as URLs de mentira falham, e procurá-lo no fim mediria o desfecho do arnês. **De passagem, uma MEDIÇÃO que não virou código**: um Registro de aparelho mostrou um "Tocar agora" saindo em **360p** numa TV 3840×2160 — `clientes ANDROID 1`, o visionOS devolveu ZERO faixas, e sem par DASH o app caiu no progressivo legado; a rede mediu 12,6 Mbps. Não é a tela, não é a rede e não é a regra de escolha. Está em `docs/ACHADOS-EM-ABERTO.md` §3 com o passo que separa "este vídeo" de "o extrator". OTA PURO.
 - **v1.4.9** — O CARTÃO DE ESPERA ESTAVA 15px À ESQUERDA DO CENTRO, E ENTRAVA POR BAIXO DOS BOTÕES. Pergunta do operador sobre o lote anterior: *"verifique se esse cartão de preparação está centralizado no preview"*. Não estava, e MEDIR respondeu duas coisas em vez de uma. O `#pvBusy` cobre a preview inteira e centra o cartão com `justify-content: center` — que centra no CONTEÚDO, não na caixa. A folga que mantém o cartão fora das colunas de `.pv-fab` era **só à direita**, de quando só existia a coluna do player, então o centro do conteúdo não era o centro da preview: 15px à esquerda, MEDIDO em 430px e em 360px, com nome curto e com nome longo — invariante, o que explica por que ninguém relata (lê-se como desalinho, e não se sabe de quê). **E a folga que faltava do outro lado é literalmente o que ela existe para impedir:** a coluna de OPERAÇÃO entrou à esquerda na v1.3.5 e ninguém refez a conta — MEDIDO a 360px com um nome longo, o cartão entrava 28px sob ela, e como as colunas são `z-index: 5` contra 4 o botão da cortina era desenhado POR CIMA do aro de espera. A correção é a folga IGUAL dos dois lados (38px = os 34px de um `.pv-fab` + os 2px que a coluna recua do canto + 2 de folga), que responde às duas de uma vez: a caixa de conteúdo fica simétrica, logo o centro dela É o centro da preview, e a largura reservada mantém o cartão fora das duas colunas. O `.simple-stage` leva a mesma simetria pelo motivo do centro — lá a coluna da esquerda nem existe. DUAS asserções novas no `controles-layout.test.mjs`, e são duas porque **uma folga simétrica grande demais centra e afasta, e uma pequena demais centra e deixa invadir**: só a de centro aprovaria a segunda. Provado por reversão nas duas frentes (a folga de um lado só reprova as duas; `padding: .5rem` reprova só a de invasão). OTA PURO.
 - **v1.4.8** — UM AVISO DE CARREGAMENTO SÓ, E ELE FICA NO CONTROLE. Terceira volta do mesmo pedido, e a que o fecha: *"ainda está tendo os dois modelos de loading, eu gostaria que houvesse apenas o 'preparando…' no controle, vamos abandonar o spinner no telão. Enquanto não houver imagem e/ou som propriamente do vídeo, então não mostre nada além do wallpaper… no telão não vai mensagens de preparação. E nos controles já temos a mensagem de preparando, não precisamos de um spinner exclusivo"*. A v1.4.7 tornou o aro do palco uma OPÇÃO do dono (`espera: true`) e **isso não bastou**: os dois indicadores continuavam existindo, e na preview eles se REVEZAVAM — o cartão "Preparando…" cobria a extração de rede, saía, e o aro assumia a carga do stream. Duas caixas para uma espera só, e a de baixo aparecendo e sumindo no meio dela. **O aro saiu inteiro, e com ele a folha `shared/stage.css`** (o último consumidor dela) e os dois `<link>` que a puxavam. O que fica no lugar não é uma flag a menos: é uma INVERSÃO de quem manda — o palco deixou de DESENHAR a espera e passou a ANUNCIÁ-LA (`opts.onEspera(ligado)`), que é a invariante 5 aplicada ao motor (ele diz o FATO, não a forma). As duas RAZÕES ficam onde estavam (`esperaCarga` · `esperaBuffer`, que não se apagam uma à outra) e o censo de fome do Registro segue intacto — o que mudou é o consumidor. No Controle o anúncio abre e solta o MESMO cartão do toque, de modo que a espera inteira vira um estado só; por BORDA (`pvEsperaSolta`), porque `previewBusy` conta donos e um `onEspera(true)` repetido sem o `false` do meio deixaria um dono pendurado e o cartão nunca sairia — daí o oráculo medir também as BORDAS, e não só o estado. **E juntar as duas metades no mesmo cartão revelou o que a versão de dois indicadores escondia:** entre os dois donos o contador passa por ZERO (o `finally` do toque solta antes de o palco acender), e o cartão saía e voltava no meio da MESMA espera; `PV_BUSY_SAIDA_MS` (700 ms) adia a retirada e um dono novo a cancela — o botão de cancelar, esse, sai na hora, porque uma ação sem dono não pode ficar tocável. A asserção é a CONTINUIDADE amostrada a cada quadro, porque um teste do estado FINAL passa nas duas versões. O NOME vem do ITEM que está entrando (`pvEsperaNome`, gravado por `aplicarNaPreview`) e nunca do rótulo já desenhado: `renderNowPlaying` roda em pontos diferentes de cada caminho, e um nome atrasado é o cartão anunciando o louvor ANTERIOR enquanto o novo carrega. **O telão e as telas da rede não passam `onEspera`**, e é só isso que os separa da preview — continua sendo opção do dono, e não `__AV_ROLE__` lido dentro do `stage.js`. O `espera-do-stream.test.mjs` mudou de sujeito junto: ele media o DOM (o `hidden` do aro) e passou a medir o ANÚNCIO, que é o contrato de verdade — medir o DOM ali seria medir a UI do Controle a partir do motor. A metade da projeção ficou mais forte no caminho: ela pergunta se o palco sem `onEspera` LANÇA (uma exceção ali derrubaria o `load` no meio do culto) e se ele acrescenta algum nó à caixa dele — provada por reversão, devolvendo o aro ao palco. OTA PURO.
@@ -283,6 +284,78 @@ na nota que a revoga, não apagada da que a criou.
 - **v5.156** — é METADE OTA e METADE APK, de novo.
 
 ---
+
+## v1.4.11 — o aviso de qualidade limitada
+
+> *"coloque o aviso sobre a resolução estar limitada"*
+
+Depois de projetar 360p numa TV 3840×2160 sem nada na tela dizendo isso.
+
+### O app sempre soube; a informação é que não tinha onde aparecer
+
+A altura vem do shell e já é o subtítulo da linha ("Vídeo · 1080p"). Só que o
+"Tocar agora" põe o item na prateleira `avulsos`, **que não tem lista visível** —
+então o operador projetava 360p e a leitura possível voltava a ser *"o app está
+ruim"*.
+
+### Um terceiro desfecho do cartão
+
+Ele tinha dois que falam: `soltar()` (acabou, nada a dizer) e `falhar(motivo)`
+("Não deu", vermelho). Faltava o caso em que **deu certo, com ressalva**.
+`avisar(cap, texto)` é o irmão do `falhar` — mesma mecânica, agora extraída para
+um `encerrarCom` só —, e **âmbar, não vermelho**: neste app o vermelho é ação
+destrutiva ou o que está NO AR, e uma ressalva não é nenhum dos dois. Chamar isto
+de "Não deu" seria falso nas duas pontas: manda investigar o que funcionou, e
+some com a informação que interessa.
+
+### A regra é DUAS condições, e uma só erra para os dois lados
+
+```js
+if (h <= 0) return;                                     // sem número, sem frase
+if (h >= tetoEfetivo(teto) || h >= YT_ALTURA_BAIXA) return;
+```
+
+- **só "abaixo do pedido"**: escolher 480p de propósito passa a render um aviso a
+  cada toque, dizendo ao operador o que ele acabou de pedir;
+- **só "abaixo do piso"**: um teto de 480p escolhido à mão vira alarme.
+
+O piso é **720p** porque é o degrau em que a imagem ainda se sustenta num telão
+de salão; 360p é o que produziu a queixa. Entre 720p e o teto o Registro continua
+contando a diferença e a tela fica quieta. **Altura desconhecida não vira aviso**
+— sem número, "qualidade limitada" é uma afirmação que ninguém pode conferir.
+
+### E ele só sai onde o resultado vai aparecer
+
+`aviso === 'preview'`, a régua da v5.84. Guardar um vídeo numa lista já mostra a
+altura no subtítulo dela; um cartão sobre a preview ali insinuaria que ele vai ao
+telão a seguir. No caminho da transmissão a condição não é necessária —
+`tentarTransmitir` só é chamado para pôr no ar.
+
+### O que ele NÃO faz
+
+Não conserta a resolução. A causa é o SABR do YouTube e não tem conserto nosso
+(ver `ACHADOS-EM-ABERTO.md` §3: o extrator está em v0.26.5, cujo diff não toca no
+YouTube, e a issue #1528 segue aberta). O aviso impede que a falta de resolução
+seja lida como defeito do app — que é a única coisa que ainda estava ao nosso
+alcance.
+
+### O texto é curto porque a caixa é pequena, e isso foi MEDIDO
+
+O rótulo do cartão tem `-webkit-line-clamp: 2`, e com a folga simétrica da
+v1.4.9 ele mede ~163px de conteúdo a 360px de tela. A primeira redação — *"só
+havia 360p neste vídeo — o YouTube não liberou as melhores"* — **cortava ali**
+(49px de texto numa caixa de 32), e o que sobrava era a metade sem a causa,
+que é justamente a que impede o operador de procurar um ajuste inexistente.
+Cinco redações medidas nas duas larguras; a escolhida cabe em ambas com as duas
+informações inteiras.
+
+Oráculo: a metade 9 do `toque-instantaneo.test.mjs`, provada por reversão nas
+TRÊS frentes (sem aviso; só a primeira condição; só a segunda). De passagem, o
+manifesto de mentira da metade do NOME subiu para 1080p: a 720p ele ficava na
+borda do piso, e um aviso ali abriria um cartão com outra legenda — que a
+asserção de nome leria como a troca que ela existe para proibir.
+
+OTA PURO — nenhuma linha de Kotlin, `SHELL_VERSION` segue 60.
 
 ## v1.4.10 — o nome do app vence o título do YouTube
 

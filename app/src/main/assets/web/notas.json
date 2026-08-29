@@ -1,5 +1,12 @@
 [
   {
+    "versao": "1.4.11",
+    "itens": [
+      "O APP AGORA AVISA QUANDO SÓ HÁ QUALIDADE BAIXA. Ao tocar um vídeo do YouTube, se a única resolução disponível for muito abaixo da pedida, o mesmo aviso que dizia \"Preparando\" passa a dizer \"Qualidade limitada — o YouTube só liberou 360p\". A resolução em si o app não tem como melhorar: o YouTube apertou as regras e vem entregando só a faixa antiga. O que muda é você saber disso na hora, em vez de olhar para um vídeo borrado no telão sem saber se o problema é o app, a internet ou a TV.",
+      "Ele só aparece quando há o que dizer: se você escolheu 480p e recebeu 480p, ou se veio 720p, nada é mostrado."
+    ]
+  },
+  {
     "versao": "1.4.10",
     "itens": [
       "O NOME DEIXOU DE TROCAR NO MEIO DO CARREGAMENTO. O aviso de \"Preparando\" começava com o nome que o app tem para o item e, alguns segundos depois, passava a mostrar o título do vídeo no YouTube — e o mesmo acontecia com a barra do que está tocando, com a notificação e com a linha da lista. Agora o nome do app vale do começo ao fim: se você renomeou o item, o nome que você deu é o que fica. O título do YouTube só entra quando não temos nome nenhum."

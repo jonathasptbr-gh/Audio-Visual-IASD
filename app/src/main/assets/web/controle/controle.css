@@ -1026,7 +1026,14 @@ body {
    continuação da frase que ele já dizia, não como coisa nova. O anel some
    porque não há progresso. */
 .pv-busy.falhou .pv-busy-cap { color: var(--danger-text); }
-.pv-busy.falhou .dl-ring { display: none; }
+/* O TERCEIRO DESFECHO (v1.4.11): deu certo, com uma ressalva que quem opera
+   precisa saber — hoje, que só havia uma resolução muito baixa. Âmbar e não
+   vermelho: neste app o vermelho é ação destrutiva ou o que está NO AR, e este
+   aviso não é nenhum dos dois. O aro sai pelo mesmo motivo do `.falhou` — não
+   há progresso a mostrar, o trabalho acabou. */
+.pv-busy.avisou .pv-busy-cap { color: var(--warn-text); }
+.pv-busy.falhou .dl-ring,
+.pv-busy.avisou .dl-ring { display: none; }
 /* Duas linhas no máximo: a miniatura tem ~150px de altura, e o nome de um hino
    longo tomaria a caixa inteira. */
 .pv-busy-label {

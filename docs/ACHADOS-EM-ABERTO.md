@@ -159,19 +159,24 @@ não é a regra de escolha e não é o pin. Reabrir isto quando sair uma versão
 extrator com commits de YouTube — e a linha `porCliente` do Registro é o
 oráculo de campo que diz, em um toque, se ela resolveu.
 
-### O QUE FICA REALMENTE EM ABERTO DO NOSSO LADO
+### O SILÊNCIO SOBRE ELA — RESOLVIDO na v1.4.11
 
-Não é a resolução — é o **SILÊNCIO** sobre ela. Um download comum diz a altura
-no subtítulo da linha ("Vídeo · 360p"), mas o "Tocar agora" põe o item na
-prateleira `avulsos`, **que não tem lista visível**: o operador projeta 360p sem
-nada na tela dizendo isso, e a leitura possível volta a ser *"o app está
-ruim"*. O Registro responde, mas só para quem for procurar.
+O que ficava do nosso lado não era a resolução: era **não dizer**. Um download
+comum mostra a altura no subtítulo da linha ("Vídeo · 360p"), mas o "Tocar
+agora" põe o item na prateleira `avulsos`, **que não tem lista visível** — o
+operador projetava 360p sem nada na tela dizendo isso, e a leitura possível
+voltava a ser *"o app está ruim"*.
 
-**Não foi feito porque a decisão é do operador, e ela tem preço nos dois
-sentidos:** um aviso a cada "Tocar agora" degradado é ruído no meio do culto;
-não avisar é o app sabendo de uma coisa que quem opera precisa saber. A forma
-barata, se for para existir, é a que o app já usa — o `notaNoItem`/cartão da
-preview, uma vez, com a altura real.
+O operador pediu o aviso, e ele saiu no cartão que já dizia "Preparando"
+(`avisarResolucaoLimitada` → `previewBusy().avisar`). A regra é **duas
+condições** — abaixo do pedido **e** abaixo de 720p —, porque uma só erra para
+os dois lados: só a primeira faz quem escolheu 480p receber um aviso a cada
+toque dizendo o que acabou de pedir; só a segunda transforma um teto baixo
+escolhido à mão em alarme. Oráculo: a metade 9 do `toque-instantaneo.test.mjs`,
+provada por reversão nas três frentes (sem aviso; só a primeira condição; só a
+segunda).
+
+**A resolução em si continua sem conserto nosso** — ver acima.
 
 **Correção proposta, e só com a nota na mão:** admitir o cliente seguinte quando
 o primeiro não tiver nada acima de um piso. **Não foi feita de propósito:**
