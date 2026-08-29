@@ -24,6 +24,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
+- **v1.4.25** — QUATRO AJUSTES NAS LISTAS, E O QUE OS LIGA É *"a resposta mora onde o toque nasceu"*. **1) O CARTÃO BALANÇAVA** — relato: *"há um bug de deslocamento, um pequeno movimento vertical do card da lista no cronograma ao selecionar a opção de excluir… essa movimentação não faz sentido, já que essas opções surgem deslizando dentro do próprio card"*. `:active` casa nos ANCESTRAIS, e a lista de guardas do `--press` cobria o `⋮`, a `.hymn-gaveta` e a `.lib-item` aninhada — **e não a `.row-acoes`**, que é justamente a faixa em que se toca. A gaveta dos FAVORITOS mora numa `.hymn-gaveta` e por isso já estava coberta: era só isso que fazia o defeito aparecer numa lista e não na outra. **2) RENOMEAR SAIU DO POPUP** e virou um campo na própria faixa (*"coloque o processo de renomear também dentro do item na lista do cronograma, não como um popup de tela inteira, assim como já é feito no processo de excluir"*) — é a correção da v5.301 aplicada onde ela vale MAIS: um modal tira o alvo de cena, e renomear é a única ação do app em que o nome VELHO precisa continuar à vista enquanto o novo é escrito. A troca de conteúdo da faixa virou mecanismo (`abrirNaFaixaDaLinha`), com a pergunta da exclusão e o campo entrando pela mesma porta. **3) OS ALTERNADORES DEIXARAM DE PARECER DESABILITADOS** (*"ao invés de modificar o ícone do botão e seus efeitos, foi simplesmente ofuscado o botão inteiro, o que dá a impressão de que não está disponível a opção"*): apagados eles vestiam `--line`, a cor de LINHA que neste app só o `↑↓` INERTE usa. Hoje apagado é o `.row-btn` de sempre e LIGADO é a linguagem que `tokens.css` já escrevia — `--btn-accent` + `--accent` —, com o ÍCONE continuando a carregar o estado sozinho. **4) A FILA DA PLAYLIST GANHOU OS DOIS DESTINOS** (*"na lista da playlist, pode adicionar opções como: adicionar aos favoritos e adicionar ao cronograma"*): ela era a única das três listas sem caminho para as outras duas, e é o pior lugar para esse buraco — a fila é onde o bloco de louvores é montado. Cinco asserções novas no `smoke.mjs`, duas reescritas no `boot-nativo`, todas provadas por reversão. OTA PURO.
 - **v1.4.24** — O AUXILIAR DE LEITURA DE UMA APRESENTAÇÃO. Pedido do operador, em duas metades: *"preciso de um visualizador futuro dos slides de toda a apresentação e a referência do slide atual (do mesmo molde vertical que já temos nos versos da bíblia na aba da bíblia)"* e *"durante uma apresentação, não quero botões de letra, ou de cifras nessa tela"*. A folha ganha a fonte `deck` — a coluna de páginas numeradas, com a que está no telão marcada e centralizada pelo `lvScroll` que já existe — e ela é EXCLUSIVA (`return ['deck']`, não `push`: sem isso um louvor de fundo pausado atrás da apresentação continuaria oferecendo Letra e Cifra). Quatro regras estruturais: `lazy` nas miniaturas, altura RESERVADA por `aspect-ratio` (uma imagem `lazy` tem altura zero e o `lvScroll` mede `offsetTop`), a página FORA da assinatura (senão cada ⏭ remonta a lista) e as URLs de objeto revogadas. O A+/A− some na aba — ele dimensiona texto. Oráculo novo, com as duas metades de VOLTA. **SÓ BASE WEB.**
 - **v1.4.23** — A NOTIFICAÇÃO DE "PREPARANDO APRESENTAÇÃO" NÃO ANDAVA, e o defeito é o mesmo que o download de vídeo teve até a v5.117. Relato do operador: *"verifique a notificação do preparando apresentação, pois não está marcando progresso"*. `pptxImportar` e `deckImportar` abriam a tarefa com `bgTaskStart(…, 1)` e **nunca chamavam `bgTaskStep`** — o `onProgresso` alimentava só o cartão da tela. Barra em `0 de 1` do começo ao fim, estimativa em ZERO (`bgTaskEta` precisa de um passo para ter média) e nenhum nome na linha. Junto saiu a fase de CÓPIA do PDF, que era silenciosa: silêncio ali não é neutro — `idleMs` cresce e a notificação passa a dizer "sem resposta há X" justamente enquanto tudo vai bem. `bgTaskStep` ganhou um `total` opcional (o de uma apresentação só existe depois que o arquivo abre, como o do `bgTaskBytes`), e a troca de rótulo passou a ir com `force`. Oráculo novo, com a REVERSÃO ao lado. **SÓ BASE WEB**: sem degrau de ponte, sem `shellTag`, sem Release.
 - **v1.4.22** — A APRESENTAÇÃO CHEGAVA AO TELÃO SEM AS IMAGENS, e a causa não emite erro em lugar nenhum. Relato do operador, sobre um `.pptx` de 27 slides: *"ele não está herdando imagens e pelo que parece nem fontes"* — mais *"ao importar um pptx, após confirmar o direcionamento para o cronograma, a tela piscou e ocultou o cronograma, subindo os controles para o topo da tela"*. MEDIDO no arquivo dele: o deck não tem **um** `<img>` — todo fundo é `background-image: url(blob:…)`, e a rasterização só convertia `<img>`, logo não convertia NADA. O `<foreignObject>` é um documento à parte e nada disso falha: saem 27 páginas de 1920×1080, brancas. Consertar as imagens obriga a consertar o FORMATO junto (100,4 MB em PNG contra 12,3 MB em WebP, MEDIDO), e o palco de 1920×29.700 px pendurado no `<body>` durante a importação vira uma caixa 0×0. A tradução saiu do `controle.js` para `controle/deck.js`, com oráculo que mede PIXEL e traz a REVERSÃO ao lado de cada asserção. Lote **APK + web**: o `SlideDeck.kt` ganha a mesma regra de formato para o leitor de PDF.
@@ -296,6 +297,165 @@ na nota que a revoga, não apagada da que a criou.
 - **v5.155** — é OTA PURO
 - **v5.156** — é METADE OTA e METADE APK, de novo.
 
+---
+
+## v1.4.25 — a resposta mora onde o toque nasceu
+
+Quatro pedidos do operador, num lote só. O que os liga não é a tela em que
+caem: é a mesma régua que a v5.207 e a v5.301 já aplicaram duas vezes — *o
+feedback (e a pergunta) moram na interface de origem*.
+
+### 1. O cartão balançava por um toque na gaveta
+
+> *"há um bug de deslocamento, um pequeno movimento vertical do card da lista
+> no cronograma ao selecionar a opção de excluir. Ao tocar em excluir ele
+> balança e dá as opções de confirmar ou cancelar. No caso essa movimentação
+> não faz sentido, já que essas opções surgem deslizando dentro do próprio
+> card. Não precisamos desse feedback tátil nessas situações onde a ação é do
+> botão e não do card."*
+
+`:active` casa também nos **ancestrais**, e a folha já tinha a régua escrita
+("uma linha NÃO dá feedback por um toque dentro de um bloco que ela apenas
+HOSPEDA"). O que faltava era um nome na lista: as guardas cobriam o `⋮`, a
+`.hymn-gaveta`, a `.folder-itens` e a `.lib-item` aninhada — **e não a
+`.row-acoes`**, que é a faixa em que o operador de fato toca.
+
+Foi isso que fez o defeito aparecer numa lista e não na outra: a faixa dos
+FAVORITOS vive dentro de uma `.hymn-gaveta` e já estava coberta pela segunda
+linha; a do Cronograma e a da fila não estavam cobertas por nenhuma.
+
+O caso é o mais forte da regra que a folha já enunciava: ali a resposta ao
+toque não é só o botão afundando, é a faixa **trocando de conteúdo** por baixo
+dele. Mover o cartão junto é uma segunda resposta ao mesmo dedo, e ela chega no
+exato quadro em que a primeira está entrando.
+
+**A supressão é das DUAS partes** (`transform` **e** `filter`), pela regra da
+v1.3.14: matar só a geometria deixaria o cartão inteiro ACENDENDO por um toque
+de 40px — o mesmo relato, por outra propriedade.
+
+MEDIDO ao reverter: `matrix(1, 0, 0, 1, 0, 2)` e `brightness(1.35)` no
+`.lib-item` — os 2px do relato, exatos.
+
+### 2. Renomear saiu do popup
+
+> *"coloque o processo de renomear também dentro do item na lista do
+> cronograma, não como um popup de tela inteira. Assim como já é feito no
+> processo de excluir."*
+
+É a correção da v5.301 aplicada onde ela vale **mais**. Um modal faz o que todo
+modal faz — tira o alvo de cena —, e renomear é a única ação do app em que o
+nome VELHO precisa continuar à vista enquanto o novo é escrito: a linha logo
+acima do campo é a única coisa da tela que diz qual dos trinta nomes parecidos
+está sendo trocado. O `appPrompt` mostrava o nome antigo dentro do campo, e era
+só isso: o instante em que o operador o apaga para digitar é o instante em que
+a referência some da tela inteira.
+
+**A troca de conteúdo da faixa virou MECANISMO** (`abrirNaFaixaDaLinha`): a
+pergunta da exclusão e o campo de renomear entram pela mesma porta e saem pela
+mesma. Escrever a segunda por cópia da primeira era garantir que uma das duas
+esquecesse uma das cinco coisas que ambas fazem — fechar a anterior, marcar a
+faixa, marcar o `li`, publicar o desfazer e devolvê-lo.
+
+Decisões:
+
+- o campo nasce com o nome atual e **selecionado**: trocar a frase inteira é o
+  caso comum de um arquivo importado, e ajustar uma palavra continua a um toque;
+- `Enter` confirma e `Esc` cancela, com `enterkeyhint="done"` — e o ✓ é um botão
+  à vista de qualquer jeito, porque nem todo teclado honra a dica e um campo
+  cuja única saída pode não estar lá é um campo sem saída;
+- a **miniatura não vira nada** (ao contrário da exclusão): renomear não é
+  destrutivo e não precisa da segunda afirmação; o que a capa intocada faz é
+  continuar dizendo de qual item é o campo;
+- tudo que fecha a gaveta CANCELA, como a pergunta. O erro possível é o seguro:
+  perder o texto custa redigitar, gravar um nome que ninguém confirmou não tem
+  volta.
+
+O `renameSelected` do rodapé da seleção múltipla **continua no diálogo**, e
+está certo que continue: ali o alvo é o conjunto e a linha não está sob o dedo.
+
+### 3. Os alternadores pareciam desabilitados
+
+> *"ajuste o esquema de cores dos botões de favoritar e de adicionar a
+> playlist, para que pareçam botão funcionais. Pois há um tempo eles foram
+> modificados para refletir melhor a identificação de está ou não está o item
+> naquela referida lista, mas ao invés de modificar o ícone do botão e seus
+> efeitos, foi simplesmente ofuscado o botão inteiro, o que dá a impressão de
+> que não está disponível a opção. Deixe o botão normal e trabalhe com o ícone
+> para esses destaques."*
+
+Ele está certo, e o defeito tem nome na folha: apagados, os dois vestiam
+`--line` — a cor de **linha** (2,65:1 contra o fundo), e o único outro
+`.row-btn` que a usa é o `↑`/`↓` INERTE das pontas da lista, aquele por
+`opacity: .3`, que é literalmente como este app desenha "desabilitado". Dois
+alternadores vivos com a tinta de um botão morto, numa fileira em que todos os
+vizinhos vestem `--text`.
+
+A resposta já estava escrita em `tokens.css` e não precisou de token novo:
+**LIGADO (interruptor) = `--btn-accent` + `--accent`**; apagado é o `.row-btn`
+de sempre. E o ÍCONE continua carregando o estado sozinho, que é a metade que o
+pedido nomeia — estrela vazada × cheia, `+` × `✓` —, com a cor e a superfície
+como reforço.
+
+O oráculo mudou de régua junto: "todos os fundos da fileira iguais" reprovaria
+justamente o desenho pedido. Hoje ele cobra três coisas separadas — nenhum
+botão TRANSPARENTE (o defeito de v5.288, que continua travado), os APAGADOS
+todos com a MESMA caixa e o MESMO traço dos vizinhos (é aqui que o "ofuscado"
+voltaria), e um LIGADO com superfície própria.
+
+### 4. A fila da playlist ganhou os dois destinos
+
+> *"na lista da playlist, pode adicionar opções como: adicionar aos favoritos e
+> adicionar ao cronograma."*
+
+Ela era a única das três listas sem caminho para as outras duas: da linha daqui
+só se saía tirando da fila. E é o pior lugar para esse buraco — a fila é onde o
+bloco de louvores é montado, e *"esta faixa merece ficar guardada"* é a decisão
+que se toma justamente aí.
+
+Os dois são ALTERNADORES com estado à vista, pela régua da v5.302: a pergunta
+que se faz montando o culto não é "eu mandei?", é "**está lá?**". A ordem é a
+que o operador ditou na v5.302, sem os que não existem nesta lista — tirar da
+fila · favoritar · ao Cronograma · ↑ · ↓.
+
+**O `cronoSet` nasceu com isto**, e não é ornamento: `libItems` só carrega a ABA
+ATIVA, e a fila é uma folha que se abre por cima da Biblioteca ou da Bíblia —
+sem o espelho, o botão nasceria apagado sobre um item que já está no Cronograma.
+Junto vieram os dois repintores irmãos do `marcarNaPlaylist` (`marcarNoCronograma`
+e `marcarFavoritos`), pelo motivo dele: a lista muda por portas que não
+redesenham a fila, e um botão que promete um estado antigo é pior que um que não
+promete nada.
+
+Tirar daqui não apaga bytes, e não é sorte: esta linha existe porque o item está
+NA FILA, e a fila é detentora de referência como qualquer outra lista — o
+`listRemove('imports')` roda o coletor na mesma transação e encontra a
+`playlist` segurando o registro.
+
+### Os oráculos
+
+Cinco asserções novas no `smoke.mjs` (o balanço do cartão, com a metade que
+impede a correção de virar "o feedback sumiu"; o renomear abrindo na faixa; o
+VAZIO da caixa continuando a fechá-la; e as três da fila), duas reescritas no
+`boot-nativo.test.mjs` (as duas que clicavam no `#appDialogOk`), e a régua dos
+fundos da fileira refeita. Todas provadas por reversão.
+
+**Duas coisas ficaram registradas ao escrevê-las**, e as duas são da classe "um
+oráculo não pode medir o runner":
+
+- o `mouse.down` sobre a coordenada de um botão no fim da lista pousava no
+  **rodapé fixo** do "Importar arquivos", que fica por cima. O `:active` nunca
+  chegava ao botão e a medição reprovava um app correto. A guarda é o
+  `elementFromPoint` antes de medir — é ele que separa *"o toque não
+  respondeu"* de *"o toque foi para outro lugar"*;
+- dentro da gaveta o botão responde pela **LUZ e não pela geometria**, e isso é
+  MEDIDO: `.acoes-abertas .row-acoes > * { transform: none }` (0,3,0) vence o
+  `:active` da lista de controles (0,2,0). Ali o recuo nunca existiu — é o mesmo
+  arranjo dos outros BLOCOS —, e cobrar `transform` reprovaria o app que está no
+  ar.
+
+**OTA PURO**: nada de `java/`, `res/` ou manifest; sem degrau de `SHELL_VERSION`,
+sem `shellTag`, sem Release.
+
+---
 ---
 
 ## v1.4.24 — o auxiliar de leitura de uma apresentação

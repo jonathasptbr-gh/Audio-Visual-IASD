@@ -3910,13 +3910,21 @@ try {
     if (!b) return { erro: 'sem o lápis na faixa de ações' };
     b.click();
     await new Promise((f) => setTimeout(f, 200));
-    const campo = document.getElementById('appDialogInput');
+    // O CAMPO MORA NA PRÓPRIA FAIXA desde a v1.4.25 — e a asserção que carrega
+    // isto é a NEGATIVA: um diálogo aberto por baixo continuaria renomeando
+    // certo, e o pedido do operador era justamente sobre onde a pergunta mora.
+    const campo = li.querySelector('.fav-acoes.confirmando > .linha-renome > .linha-renome-campo');
+    const dlg = document.getElementById('appDialog');
+    const semModal = !dlg || !dlg.classList.contains('open');
+    if (!campo) return { erro: 'o campo não abriu na faixa', semModal };
+    const valorInicial = campo.value;
     campo.value = 'Nome de favorito novo';
-    document.getElementById('appDialogOk').click();
+    li.querySelector('.linha-renome-ok').click();
     await new Promise((f) => setTimeout(f, 500));
     const rec = await AVDB.getMedia(alvo);
     const li2 = document.querySelector('[data-fav-corpo] .lib-item[data-id="' + alvo + '"]');
     return {
+      semModal, valorInicial,
       noBanco: rec && rec.name,
       naTela: li2 ? li2.querySelector('.row-name').textContent : null,
     };
@@ -3924,6 +3932,10 @@ try {
   checar(renFav.noBanco === 'Nome de favorito novo' && renFav.naTela === 'Nome de favorito novo',
     'e a faixa de ações dos Favoritos ganhou o RENOMEAR (v5.301): o nome muda '
     + 'no banco E na linha', JSON.stringify(renFav));
+  checar(renFav.semModal === true,
+    'e o campo mora NA FAIXA, sem diálogo de tela cheia (v1.4.25) — renomear é '
+    + 'a única ação em que o nome VELHO precisa continuar à vista enquanto o '
+    + 'novo é escrito', JSON.stringify(renFav));
 
   // ===== A FAIXA DIVIDE A LINHA COM O CONFIRMAR (v5.302) =====
   //
@@ -4254,15 +4266,29 @@ try {
     if (!temLapis) return { erro: 'sem o botão de renomear', temLapis, svg };
     lapis.click();
     await new Promise((r) => setTimeout(r, 250));
-    const campo = document.getElementById('appDialogInput');
+    // ===== O CAMPO MORA NA PRÓPRIA FAIXA (v1.4.25) =====
+    // Pedido do operador: *"coloque o processo de renomear também dentro do
+    // item na lista do cronograma, não como um popup de tela inteira, assim
+    // como já é feito no processo de excluir"*. As duas metades caem por
+    // motivos diferentes: o campo que não abre na faixa deixa o lápis morto; o
+    // MODAL que continua abrindo renomeia certo e desfaz o pedido em silêncio.
+    const campo = li.querySelector('.row-acoes.confirmando > .linha-renome > .linha-renome-campo');
+    const dlgRen = document.getElementById('appDialog');
+    const semModal = !dlgRen || !dlgRen.classList.contains('open');
+    if (!campo) return { erro: 'o campo não abriu na faixa da linha', temLapis, svg, semModal };
+    // E A LINHA CONTINUA À VISTA enquanto se digita: é a única coisa da tela que
+    // diz QUAL dos trinta nomes parecidos está sendo trocado, e era exatamente
+    // o que o modal tirava de cena.
+    const cx = li.getBoundingClientRect();
+    const linhaAVista = cx.height > 0 && cx.width > 0;
     const valorInicial = campo.value;
     campo.value = 'Nome novo';
-    document.getElementById('appDialogOk').click();
+    li.querySelector('.linha-renome-ok').click();
     await new Promise((r) => setTimeout(r, 450));
     const rec = await AVDB.getMedia(m.id);
     const linha = document.querySelector('#library .lib-item[data-id="' + m.id + '"] .row-name');
     const r = {
-      temLapis, svg, valorInicial,
+      temLapis, svg, valorInicial, semModal, linhaAVista,
       noBanco: rec ? rec.name : null,
       naTela: linha ? linha.textContent : null,
       // E NA PASTA DO APARELHO ELE NÃO ENTRA: ali o nome vem do arquivo, e um
@@ -4319,8 +4345,12 @@ try {
     + 'DESENHO — `edit` não está no subset da fonte, e um codepoint ausente sai '
     + 'como retângulo vazio', JSON.stringify(ren));
   checar(ren.valorInicial === 'Nome antigo',
-    'e o diálogo abre com o nome ATUAL, para trocar uma palavra não custar '
+    'e o campo abre com o nome ATUAL, para trocar uma palavra não custar '
     + 'redigitar a frase', 'campo: ' + JSON.stringify(ren.valorInicial));
+  checar(ren.semModal === true && ren.linhaAVista === true,
+    'e ele abre NA PRÓPRIA FAIXA, sem popup de tela cheia (v1.4.25): a linha '
+    + 'continua à vista, que é a única coisa que diz qual dos trinta nomes '
+    + 'parecidos está sendo trocado', JSON.stringify(ren));
   checar(ren.noBanco === 'Nome novo' && ren.naTela === 'Nome novo',
     'e o nome muda NO BANCO e NA TELA — sem a segunda metade a lista mentiria '
     + 'até o próximo redesenho', JSON.stringify([ren.noBanco, ren.naTela]));

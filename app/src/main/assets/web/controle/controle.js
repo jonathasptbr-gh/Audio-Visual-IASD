@@ -261,7 +261,7 @@ const appVersionEl = document.getElementById('appVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.4.24';
+const WEB_VERSION = '1.4.25';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -552,6 +552,13 @@ let thumbUrlsAtual = [];            // o balde do render em curso
 // `LISTS` em db.js), e é ela que faz a estrela segurar o blob contra o gc.
 let favSet = new Set();
 let favItems = [];         // os registros, para a seção de Favoritos da gaveta
+// O CRONOGRAMA, só os ids (v1.4.25). Ele é o irmão do `favSet`, e existe porque
+// `libItems` só carrega a ABA ATIVA: com a Biblioteca ou a Bíblia na tela, a
+// lista do culto não está em memória nenhuma — e a fila da playlist, que agora
+// pergunta "este item já está no Cronograma?", é uma folha que se abre por cima
+// de qualquer uma delas. Só os IDS: quem precisa dos registros é `renderLibrary`,
+// e ele já os tem quando a aba é a do Cronograma.
+let cronoSet = new Set();
 let opfsFolders = [];      // [{id, name, count, syncedAt, handle?}] — pastas sincronizadas no OPFS
 // ===== OS GRUPOS DA BIBLIOTECA NASCEM FECHADOS, e só UM abre por vez =====
 // A primeira tela é o ÍNDICE (meia dúzia de linhas com nome e contagem) e cada
@@ -2765,6 +2772,11 @@ async function load(opts) {
   // depois faria a primeira pintura sair com todas as estrelas apagadas.
   const favIdsV = await AVDB.listIds('favs');
   const favItemsV = await AVDB.listItems('favs');
+  // O CRONOGRAMA em ids (v1.4.25), e SEMPRE — não só quando ele é a aba ativa.
+  // `libItemsV` logo abaixo é a lista da aba, e a fila da playlist é desenhada
+  // com a Biblioteca aberta: sem esta leitura o botão "ao Cronograma" da fila
+  // nasceria apagado sobre um item que já está lá.
+  const cronoIdsV = await AVDB.listIds('imports');
   const messagesV = (await AVDB.getState('messages')) || [];
   const chronoPrefsV = (await AVDB.getState('chronoPrefs')) || null;
   const drawPrefsV = (await AVDB.getState('drawPrefs')) || null;
@@ -2802,6 +2814,7 @@ async function load(opts) {
   opfsFolders = opfsFoldersV;
   favSet = new Set(favIdsV);
   favItems = favItemsV;
+  cronoSet = new Set(cronoIdsV);
   messages = messagesV;
   applyChronoPrefs(chronoPrefsV);
   applyDrawPrefs(drawPrefsV);
@@ -3384,8 +3397,33 @@ function renderPlaylist() {
     // possível nesta lista: até então a fila era a única com alça de arrastar e
     // sem botão de opções. Tirar o gesto sem dar a gaveta deixaria a fila como a
     // única lista do app sem como reordenar.
+    //
+    // ===== E A FILA GANHOU OS DOIS DESTINOS (v1.4.25) =====
+    //
+    // Pedido do operador: *"na lista da playlist, pode adicionar opções como:
+    // adicionar aos favoritos e adicionar ao cronograma"*.
+    //
+    // Ela era a única das três listas sem caminho para as outras duas: da linha
+    // daqui só se saía tirando da fila. E é o pior lugar para esse buraco — a
+    // fila é onde o bloco de louvores é montado, e "esta faixa merece ficar
+    // guardada" é a decisão que se toma justamente aí.
+    //
+    // A ORDEM É A DO CRONOGRAMA (v5.302), com a ressalva de não contar com o
+    // que não existe nesta lista: o que mexe no ITEM (tirar da fila), o que
+    // mexe em ONDE ele está (favoritar, Cronograma) e o que mexe na POSIÇÃO
+    // (↑↓). Falta o botão da PLAYLIST — esta LINHA é a playlist —, e o
+    // renomear, que nunca esteve aqui.
+    //
+    // OS DOIS SÃO ALTERNADORES COM ESTADO À VISTA, como no Cronograma: a
+    // pergunta que se faz montando o culto é "está lá?", não "eu mandei?".
+    // UMA CENA DE ROTEIRO NÃO GANHA O DA FILA no Cronograma (*"um versículo não
+    // é uma fila de reprodução"*), e aqui a guarda não é necessária pelo motivo
+    // oposto — um cue não entra na playlist, então esta linha nunca é um.
     row.append(name, ...montarAcoesDaLinha(li, [
-      rm, ...botoesDeOrdem('playlist', item.id, i, plItems.length),
+      rm,
+      favBtn(item.id, item.name),
+      cronoBtnDaLinha(item),
+      ...botoesDeOrdem('playlist', item.id, i, plItems.length),
     ], 'playlist:' + item.id));
     li.appendChild(row);
     // O SEGUNDO TOQUE RETIRA DO AR (ver `retirarDoAr`) — mas o item da
@@ -4527,7 +4565,15 @@ async function adicionarNasListas(listas, id, nome, btn) {
   // redesenho por outro motivo: do lado de quem opera, "adicionei e não
   // apareceu". Um funil que cuida de dois dos três destinos é um convite a
   // isto no terceiro chamador que aparecer.
-  if (alvos.includes('imports') && activeTab === 'imports') await load();
+  if (alvos.includes('imports')) {
+    // O ESPELHO DO CRONOGRAMA (v1.4.25) anda ANTES do `load()` condicional: ele
+    // é o que responde ao botão da fila, e ele existe justamente para o caso em
+    // que a aba de trás NÃO é o Cronograma — que é o caso em que aquele `load()`
+    // não roda.
+    cronoSet.add(id);
+    marcarNoCronograma();
+    if (activeTab === 'imports') await load();
+  }
   return novas.length;
 }
 
@@ -6891,6 +6937,10 @@ function pencilIconSvg() {
  * NA PASTA DO APARELHO ELE NÃO ENTRA, como o excluir: ali a lista é derivada do
  * sistema de arquivos a cada sincronização, e um nome escrito só no registro
  * seria desfeito na próxima varredura — sem erro, e sem nada que o explicasse.
+ *
+ * E O CAMPO MORA NA PRÓPRIA FAIXA desde a v1.4.25 (`pedirRenomearNaLinha`), e
+ * não num diálogo de tela cheia: renomear é a única ação do app em que o nome
+ * VELHO precisa continuar à vista enquanto o novo é escrito.
  */
 function botaoRenomearDaLinha(item, depois) {
   const b = document.createElement('button');
@@ -6898,19 +6948,9 @@ function botaoRenomearDaLinha(item, depois) {
   b.title = 'Renomear';
   b.setAttribute('aria-label', 'Renomear');
   b.innerHTML = pencilIconSvg();
-  b.addEventListener('click', async (e) => {
+  b.addEventListener('click', (e) => {
     e.stopPropagation();
-    const nome = await appPrompt({
-      title: 'Renomear',
-      message: 'Novo nome:',
-      value: item.name || '',
-      okText: 'Renomear',
-    });
-    // Cancelou, ou apagou tudo: o nome VAZIO não é um nome. Deixar passar
-    // devolveria uma linha em branco no meio da lista do culto.
-    if (!nome || !nome.trim() || nome.trim() === item.name) return;
-    await AVDB.renameMedia(item.id, nome.trim());
-    await depois();
+    pedirRenomearNaLinha(b, item, depois);
   });
   return b;
 }
@@ -7059,10 +7099,75 @@ document.addEventListener('pointerdown', (e) => {
  *    ela é o `title`/`aria-label` do botão que a executa, que é onde o toque
  *    longo e o leitor de tela a procuram.
  */
+// FECHA O QUE ESTIVER ABERTO NA FAIXA, e desde a v1.4.25 isso é mais que a
+// pergunta da exclusão: o campo de renomear entra pela mesma porta e sai por
+// esta. O nome ficou — os treze chamadores dizem "desfaz o que a faixa está
+// mostrando", que continua sendo exatamente o que ele faz.
 function fecharConfirmacaoNaLinha() {
   const desfazer = desfazerConfirmacao;
   desfazerConfirmacao = null;
   if (desfazer) desfazer();
+}
+
+/**
+ * ===== A FAIXA TROCA DE CONTEÚDO, E ISSO É UM MECANISMO (v1.4.25) =====
+ *
+ * A pergunta da exclusão (v5.301) e o campo de renomear (v1.4.25) fazem a MESMA
+ * coisa com a mesma caixa: escondem os botões de opção, põem outro bloco no
+ * lugar deles e devolvem tudo ao fim. Escrever a segunda por cópia da primeira
+ * era garantir que uma delas esquecesse uma das cinco coisas que as duas têm de
+ * fazer — fechar a anterior, marcar a faixa, marcar o `li`, publicar o desfazer
+ * e devolvê-lo.
+ *
+ * Ele devolve a CAIXA VAZIA, para quem chamou preencher — ou `null` quando o
+ * botão não tem faixa (uma linha remontada sob o dedo).
+ *
+ * `opts`:
+ *  · `classe`  — a classe extra da caixa, para o CSS distinguir os dois usos.
+ *  · `marca`   — a classe que vai no `li` enquanto ela está aberta. OPCIONAL, e
+ *    é o que separa os dois usos: a exclusão precisa dela (é ela que troca a
+ *    miniatura pela lixeira), o renomear não pinta nada na linha.
+ *  · `lixeira` — troca a miniatura pela lixeira. Só a exclusão faz isso: é a
+ *    única parte da linha que a faixa não cobre, logo a única que ainda pode
+ *    dizer de QUAL item é a pergunta — e renomear não é destrutivo, não precisa
+ *    da segunda afirmação.
+ */
+function abrirNaFaixaDaLinha(botao, opts) {
+  const faixa = botao.parentElement;
+  if (!faixa) return null;
+  // Uma segunda abertura desfaz a primeira — inclusive a DESTA mesma linha, que
+  // é o caso do toque repetido na lixeira ou no lápis.
+  fecharConfirmacaoNaLinha();
+  const li = botao.closest('.lib-item,.row-item');
+
+  let lixeira = null;
+  const thumb = (opts.lixeira && li) ? li.querySelector(':scope > .row > .thumb') : null;
+  if (thumb) {
+    lixeira = document.createElement('span');
+    lixeira.className = 'row-lixo';
+    lixeira.setAttribute('aria-hidden', 'true');
+    lixeira.appendChild(msym(ICON.del));
+    thumb.appendChild(lixeira);
+  }
+
+  const cx = document.createElement('div');
+  cx.className = 'linha-confirma' + (opts.classe ? ' ' + opts.classe : '');
+  // NO COMEÇO da faixa, não no fim: a `.row-acoes` escalona a entrada dos botões
+  // por `nth-last-child` (v5.269), que conta a partir do FIM — um irmão
+  // acrescentado depois deles deslocaria o índice de todos.
+  faixa.insertBefore(cx, faixa.firstChild);
+  faixa.classList.add('confirmando');
+  const marca = opts.marca || '';
+  if (li && marca) li.classList.add(marca);
+
+  desfazerConfirmacao = () => {
+    cx.remove();
+    if (lixeira) lixeira.remove();
+    faixa.classList.remove('confirmando');
+    if (li && marca) li.classList.remove(marca);
+  };
+
+  return cx;
 }
 
 /**
@@ -7075,25 +7180,8 @@ function fecharConfirmacaoNaLinha() {
  *    montada deixaria o par pendurado num nó fora do documento.
  */
 function pedirConfirmacaoNaLinha(botao, opts) {
-  const faixa = botao.parentElement;
-  if (!faixa) return;
-  // Uma segunda pergunta desfaz a primeira — inclusive a DESTA mesma linha, que
-  // é o caso do toque repetido na lixeira.
-  fecharConfirmacaoNaLinha();
-  const li = botao.closest('.lib-item,.row-item');
-  const thumb = li ? li.querySelector(':scope > .row > .thumb') : null;
-
-  let lixeira = null;
-  if (thumb) {
-    lixeira = document.createElement('span');
-    lixeira.className = 'row-lixo';
-    lixeira.setAttribute('aria-hidden', 'true');
-    lixeira.appendChild(msym(ICON.del));
-    thumb.appendChild(lixeira);
-  }
-
-  const cx = document.createElement('div');
-  cx.className = 'linha-confirma';
+  const cx = abrirNaFaixaDaLinha(botao, { marca: 'excluindo', lixeira: true });
+  if (!cx) return;
   const nao = document.createElement('button');
   nao.type = 'button';
   nao.className = 'linha-confirma-btn linha-nao';
@@ -7104,16 +7192,6 @@ function pedirConfirmacaoNaLinha(botao, opts) {
   sim.textContent = opts.ok;
   if (opts.dica) { sim.title = opts.dica; sim.setAttribute('aria-label', opts.dica); }
   cx.append(nao, sim);
-  faixa.insertBefore(cx, faixa.firstChild);
-  faixa.classList.add('confirmando');
-  if (li) li.classList.add('excluindo');
-
-  desfazerConfirmacao = () => {
-    cx.remove();
-    if (lixeira) lixeira.remove();
-    faixa.classList.remove('confirmando');
-    if (li) li.classList.remove('excluindo');
-  };
 
   nao.addEventListener('click', (e) => { e.stopPropagation(); fecharConfirmacaoNaLinha(); });
   sim.addEventListener('click', async (e) => {
@@ -7124,6 +7202,93 @@ function pedirConfirmacaoNaLinha(botao, opts) {
     sim.disabled = true;
     fecharConfirmacaoNaLinha();
     await opts.aoConfirmar();
+  });
+}
+
+/**
+ * ===== RENOMEAR TAMBÉM MORA NA PRÓPRIA LINHA (v1.4.25) =====
+ *
+ * Pedido do operador: *"coloque o processo de renomear também dentro do item na
+ * lista do cronograma, não como um popup de tela inteira, assim como já é feito
+ * no processo de excluir"*.
+ *
+ * É o mesmo argumento da v5.301, e ele vale AQUI COM MAIS FORÇA que na
+ * exclusão: um modal TIRA O ALVO DE CENA, e renomear é a única ação do app em
+ * que o operador precisa ver o nome VELHO enquanto escreve o novo — a linha
+ * logo acima do campo é a única coisa que diz qual dos trinta nomes parecidos
+ * está sendo trocado. O `appPrompt` mostrava o nome antigo dentro do campo, e
+ * era só isso: o instante em que ele o apaga para digitar é o instante em que a
+ * referência some da tela inteira.
+ *
+ * DECISÕES QUE PRECISAM ESTAR DITAS:
+ *
+ *  · **O campo nasce com o nome atual e SELECIONADO** (`select()`), não com o
+ *    cursor no fim: trocar a frase inteira é o caso comum de um arquivo
+ *    importado, e ajustar uma palavra continua a um toque de distância.
+ *  · **`Enter` confirma e `Esc` cancela.** O teclado do Android mostra "OK" na
+ *    tecla de ação (`enterkeyhint`), e sem o atalho o dedo teria de sair do
+ *    teclado para achar um botão de 40px atrás dele.
+ *  · **O ✓ é um BOTÃO À VISTA de qualquer jeito**: nem todo teclado honra o
+ *    `enterkeyhint`, e um campo cuja única saída é uma tecla que pode não estar
+ *    lá é um campo sem saída.
+ *  · **Nome vazio ou igual ao atual não é renomear**: os dois desfecham em
+ *    fechar sem gravar, que é o que o modal já fazia.
+ *  · **Tudo que fecha a gaveta CANCELA**, como a pergunta da exclusão — o `⋮`
+ *    outra vez, o toque fora, o redesenho da lista. O erro possível aqui é o
+ *    seguro: perder o texto digitado custa redigitar; gravar um nome que
+ *    ninguém confirmou não tem volta.
+ */
+function pedirRenomearNaLinha(botao, item, aoGravar) {
+  const cx = abrirNaFaixaDaLinha(botao, { classe: 'linha-renome' });
+  if (!cx) return;
+
+  const campo = document.createElement('input');
+  campo.type = 'text';
+  campo.className = 'linha-renome-campo';
+  campo.value = item.name || '';
+  campo.setAttribute('aria-label', 'Novo nome');
+  campo.enterKeyHint = 'done';
+  // O teclado do Android sugere a primeira maiúscula e a correção automática num
+  // campo de texto comum — os dois atrapalham um nome de arquivo, que é o que
+  // está aqui na maior parte das vezes.
+  campo.autocapitalize = 'off';
+  campo.autocomplete = 'off';
+  campo.spellcheck = false;
+
+  const ok = document.createElement('button');
+  ok.type = 'button';
+  ok.className = 'linha-renome-ok';
+  ok.title = 'Salvar o nome';
+  ok.setAttribute('aria-label', 'Salvar o nome');
+  ok.innerHTML = checkIconSvg();
+  cx.append(campo, ok);
+
+  const gravar = async () => {
+    if (ok.disabled) return;
+    const nome = (campo.value || '').trim();
+    fecharConfirmacaoNaLinha();
+    // Cancelou, apagou tudo, ou não mudou nada: o nome VAZIO não é um nome, e
+    // gravar o mesmo nome gastaria uma transação e um redesenho para nada.
+    if (!nome || nome === item.name) return;
+    ok.disabled = true;
+    await AVDB.renameMedia(item.id, nome);
+    await aoGravar();
+  };
+
+  ok.addEventListener('click', (e) => { e.stopPropagation(); gravar(); });
+  campo.addEventListener('click', (e) => e.stopPropagation());
+  campo.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); gravar(); }
+    else if (e.key === 'Escape') { e.preventDefault(); fecharConfirmacaoNaLinha(); }
+  });
+  // O FOCO É ADIADO UM QUADRO: a caixa acabou de entrar no documento e a faixa
+  // ainda está com a transição de `visibility` da gaveta em curso — focar um
+  // elemento que o navegador ainda não pintou não abre o teclado em todos os
+  // aparelhos.
+  requestAnimationFrame(() => {
+    if (!campo.isConnected) return;
+    campo.focus();
+    campo.select();
   });
 }
 
@@ -7266,7 +7431,20 @@ async function moverNaLista(listName, id, delta) {
 // O `linha-nao` (o Cancelar da confirmação) entra pelo primeiro motivo, ao
 // contrário: cancelar devolve a fileira de opções, e fechar a caixa junto
 // cobraria dois toques de quem só desistiu.
-const ACOES_QUE_NAO_FECHAM = ['row-ordem', 'fav-btn', 'row-excluir', 'row-playlist', 'linha-nao'];
+//
+// E DESDE A v1.4.25 três nomes a mais, pela mesma régua:
+//
+//  · `row-renomear` — como o excluir, ele não renomeia: ABRE O CAMPO, e o campo
+//    nasce dentro desta caixa. Fechá-la levaria junto o que o toque acabou de
+//    pedir;
+//  · `linha-renome-ok` — o ✓ do campo. Ele fecha a caixa SOZINHO (por
+//    `fecharConfirmacaoNaLinha`, antes de gravar), e deixar o ouvinte fechá-la
+//    também não é redundância inofensiva: `fecharAcoesDaLinha` desfaz a
+//    pergunta ANTES de o `gravar()` ler o campo, e o nome digitado se perderia;
+//  · `row-crono` — como a estrela e a playlist, é ALTERNADOR (v1.4.25): o
+//    desfecho dele é o próprio botão trocando `+` por `✓` sob o dedo.
+const ACOES_QUE_NAO_FECHAM = ['row-ordem', 'fav-btn', 'row-excluir', 'row-playlist',
+  'row-crono', 'row-renomear', 'linha-nao', 'linha-renome-ok'];
 
 /**
  * Os botões de uma linha, guardados atrás do `⋮`.
@@ -9404,8 +9582,9 @@ async function toggleFav(id, nome, btn) {
   // agora arrancaria da tela justamente o botão que está confirmando.
   // O redesenho continua sendo necessário — a estrela do mesmo item aparece no
   // Cronograma, dentro de um atalho e na gaveta, e na gaveta a linha até some
-  // ao ser desmarcada. (A playlist não tem estrela: ela é a fila do momento,
-  // não uma coleção.)
+  // ao ser desmarcada. A DA FILA DA PLAYLIST (v1.4.25) não vem por aqui: ela
+  // mora numa folha por cima desta lista, e quem a repinta é o `marcarFavoritos`
+  // do `recarregarFavoritos`, chamado logo acima.
   if (btn) {
     btn.classList.toggle('on', marcado);
     btn.title = marcado ? 'Remover dos favoritos' : 'Favoritar';
@@ -9441,6 +9620,10 @@ async function recarregarFavoritos(atrasoMs) {
   const ids = await AVDB.listIds('favs');
   favSet = new Set(ids);
   favItems = await AVDB.listItems('favs');
+  // AS ESTRELAS QUE ESTÃO À VISTA (v1.4.25) — ver `marcarFavoritos`. Aqui, e não
+  // em cada porta que favorita: este é o único ponto que reconstrói `favSet`, e
+  // o `renderLibrary` adiado do `toggleFav` só alcança a lista de baixo.
+  marcarFavoritos();
   if (atrasoMs) setTimeout(redesenharFavoritosNaBiblioteca, atrasoMs);
   else redesenharFavoritosNaBiblioteca();
 }
@@ -9663,6 +9846,143 @@ function playlistIconSvg(dentro) {
       ? '<polyline points="13.2 17.4 15.8 20 20.8 14.6"/>'
       : '<line x1="17.5" y1="13.5" x2="17.5" y2="21"/><line x1="13.75" y1="17.25" x2="21.25" y2="17.25"/>')
     + '</svg>';
+}
+
+/**
+ * ===== O CRONOGRAMA GANHOU O IRMÃO DO BOTÃO DA PLAYLIST (v1.4.25) =====
+ *
+ * Pedido do operador: *"na lista da playlist, pode adicionar opções como:
+ * adicionar aos favoritos e adicionar ao cronograma"*.
+ *
+ * A fila era a única das três listas sem caminho curto para as outras duas: da
+ * linha dela só se saía tirando da fila. As outras duas já se alcançam
+ * mutuamente (a estrela e o botão da playlist estão na gaveta do Cronograma; a
+ * folha de destinos está na gaveta de um Favorito), e o buraco era exatamente
+ * o lugar em que o operador monta o bloco de louvores — descobrir ali que uma
+ * faixa merece ficar guardada é o caso normal.
+ *
+ * ALTERNADOR, como a estrela e o botão da fila, e pelo mesmo argumento da
+ * v5.302: a pergunta que se faz montando o culto não é "eu mandei?", é "**está
+ * lá?**". Um botão que só acende nunca se apaga, e desfazer custaria trocar de
+ * tela.
+ *
+ * TIRAR DAQUI NÃO APAGA BYTES, e isso não é sorte: esta linha existe porque o
+ * item está NA FILA, e a fila é detentora de referência como qualquer outra
+ * lista (ver LISTS em `db.js`) — o `listRemove('imports')` roda o coletor na
+ * mesma transação e encontra a `playlist` segurando o registro.
+ */
+function cronoBtnDaLinha(item) {
+  const b = document.createElement('button');
+  b.className = 'row-btn row-crono';
+  vestirCronoBtn(b, noCronograma(item.id));
+  b.addEventListener('click', (e) => { e.stopPropagation(); toggleCronograma(item, b); });
+  return b;
+}
+
+// "Este id está no Cronograma AGORA?" — lido de `cronoSet`, o espelho em memória
+// da lista `imports`. Ele existe porque `libItems` só tem a ABA ATIVA: com a
+// Biblioteca aberta ou a Bíblia na tela, a lista do culto não está em memória
+// nenhuma, e a fila da playlist é justamente uma folha que se abre por cima de
+// qualquer uma delas.
+function noCronograma(id) { return !!id && cronoSet.has(id); }
+
+// Ícone e rótulo NUM LUGAR SÓ, como em `vestirPlBtn`: ele é escrito na
+// construção da linha e outra vez no toque, e duas cópias divergiriam no
+// primeiro ajuste de texto.
+function vestirCronoBtn(b, dentro) {
+  b.classList.toggle('on', dentro);
+  const t = dentro ? 'Tirar do Cronograma' : 'Adicionar ao Cronograma';
+  b.title = t;
+  b.setAttribute('aria-label', t);
+  b.setAttribute('aria-pressed', dentro ? 'true' : 'false');
+  b.innerHTML = cronogramaIconSvg(dentro);
+}
+
+/**
+ * O CRONOGRAMA, em dois estados. SVG inline e NUNCA um glifo — a razão é a de
+ * sempre (subset estático, codepoint ausente desenha retângulo vazio), e aqui
+ * ela é dupla: `more_time` está no subset, mas a variante com `✓` não existe, e
+ * um par de estados em que um lado é glifo e o outro é desenho sairia com dois
+ * pesos de traço no mesmo botão.
+ *
+ * O RELÓGIO é a família que este app já escolheu para o Cronograma (ver
+ * `ICON.cronoAdd`): ele diz o que a lista é — a ORDEM do culto —, e é o que o
+ * separa à primeira vista da pilha de linhas da playlist, que é o vizinho dele
+ * na fileira. A diferença entre os estados é o SÍMBOLO, não só a cor: `+` =
+ * "cabe aqui", `✓` = "já está".
+ */
+function cronogramaIconSvg(dentro) {
+  return '<svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor"'
+    + ' stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
+    + '<path d="M20.4 13.2A8.6 8.6 0 1 0 12.4 20.4"/>'
+    + '<polyline points="11.4 6.4 11.4 12 15 13.8"/>'
+    + (dentro
+      ? '<polyline points="14.6 18.4 17 20.8 21.4 16.2"/>'
+      : '<line x1="18.2" y1="15" x2="18.2" y2="21.4"/><line x1="15" y1="18.2" x2="21.4" y2="18.2"/>')
+    + '</svg>';
+}
+
+/**
+ * Entra ou sai do Cronograma, com o desfecho no próprio botão — o espelho do
+ * `togglePlaylist`.
+ *
+ * `renderLibrary()` só é chamado quando a lista de trás É o Cronograma: fora
+ * disso ela não está na tela, e refazê-la seria trabalho de DOM para ninguém.
+ * `marcarNoCronograma()` repinta os botões que ESTÃO à vista, e é ele que faz o
+ * estado continuar honesto na fila enquanto a lista de baixo mostra outra aba.
+ */
+async function toggleCronograma(item, btn) {
+  if (!item || !item.id) return;
+  const dentro = noCronograma(item.id);
+  if (dentro) { await AVDB.listRemove('imports', item.id); cronoSet.delete(item.id); }
+  else { await AVDB.listAdd('imports', item.id); cronoSet.add(item.id); }
+  const agora = noCronograma(item.id);
+  // `'ok'` NAS DUAS DIREÇÕES, como em `toggleFav` e `togglePlaylist`: o pulso diz
+  // que o toque valeu, e QUAL das duas coisas aconteceu quem diz é o ícone que
+  // fica.
+  responder(btn, 'ok');
+  vestirCronoBtn(btn, agora);
+  marcarNoCronograma();
+  if (activeTab === 'imports') { libItems = await AVDB.listItems('imports'); renderLibrary(); }
+}
+
+/**
+ * O ESTADO DOS BOTÕES DO CRONOGRAMA, repintado no lugar — o irmão do
+ * `marcarNaPlaylist`, e ele existe pelo mesmo motivo: a lista `imports` muda por
+ * portas que não redesenham a fila (a folha de destinos, a gaveta de um
+ * favorito, o excluir de uma linha), e um botão que promete um estado antigo é
+ * pior que um que não promete nada.
+ *
+ * Só mexe no que MUDOU, como o irmão: reescrever o `innerHTML` de botões que já
+ * estão certos é trabalho de DOM à toa.
+ */
+function marcarNoCronograma() {
+  document.querySelectorAll('.row-crono').forEach((b) => {
+    const li = b.closest('.lib-item,.row-item');
+    const dentro = noCronograma(li && li.dataset.id);
+    if (dentro !== b.classList.contains('on')) vestirCronoBtn(b, dentro);
+  });
+}
+
+/**
+ * O ESTADO DAS ESTRELAS, repintado no lugar — o terceiro irmão (v1.4.25).
+ *
+ * Ele mora em `recarregarFavoritos`, que é o ÚNICO ponto que reconstrói
+ * `favSet`: toda porta que favorita passa por lá, então a próxima que aparecer
+ * já nasce coberta. O `renderLibrary` adiado do `toggleFav` cobria só a lista de
+ * baixo; a estrela da fila da playlist (v1.4.25) mora numa folha por cima dela,
+ * que aquele redesenho não alcança.
+ */
+function marcarFavoritos() {
+  document.querySelectorAll('.fav-btn').forEach((b) => {
+    const li = b.closest('.lib-item,.row-item');
+    if (!li) return;   // a estrela de uma MENSAGEM não mora numa linha de mídia
+    const marcado = isFav(li.dataset.id);
+    if (marcado === b.classList.contains('on')) return;
+    b.classList.toggle('on', marcado);
+    b.title = marcado ? 'Remover dos favoritos' : 'Favoritar';
+    b.innerHTML = starSvg(marcado);
+  });
 }
 
 /**

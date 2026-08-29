@@ -1,5 +1,15 @@
 [
   {
+    "versao": "1.4.25",
+    "itens": [
+      "O card da lista parou de balançar ao tocar nas opções do item.",
+      "Renomear passou a acontecer dentro do próprio item, sem abrir outra tela.",
+      "Favoritar e adicionar à playlist voltaram a parecer botões disponíveis.",
+      "O ícone deles é que mostra agora se o item já está na lista.",
+      "A playlist ganhou os botões de favoritar e de mandar ao Cronograma."
+    ]
+  },
+  {
     "versao": "1.4.24",
     "itens": [
       "O auxiliar de leitura passou a mostrar todos os slides da apresentação.",
