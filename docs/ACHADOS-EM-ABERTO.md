@@ -121,7 +121,54 @@ motivos:** o de sempre (reordenar por altura entre clientes troca imagem ruim
 por 403 na frente da congregação) e um novo — **ela não alcançaria este caso**,
 onde não há segundo cliente com faixa alguma para admitir.
 
-### A SEGUNDA MEDIÇÃO fechou: é o EXTRATOR, e o conserto não é nosso
+### A TERCEIRA MEDIÇÃO REABRE: a falha é INTERMITENTE
+
+**Isto corrige o que estava escrito abaixo.** Registro de 29/08/2026 às 07:59
+(web v1.4.11 · shell v1.4.5), seis vídeos tocados em sequência com TV conectada:
+
+```
+transmissão: áudio 5 [m4a 2, webm 3] · vídeo-só 14 [mp4 6 (1080p), webm 8 (2160p)]
+             · prog 1 [mp4 1 (360p)] · clientes VISIONOS 19, ANDROID 1
+             · teto 1080p → transmitindo 1080p (137@VISIONOS + 140@VISIONOS)
+Transmissão direta: transmitindo 1080p · a rede mediu 13607 kbps
+                    ficou sem dados 1× nesta sessão (0.1s parada no total)
+```
+
+**O visionOS devolveu 19 faixas e a projeção saiu em 1080p.** O contador de fome
+tendo se mexido é a prova independente de que houve TRANSMISSÃO — ele só conta
+stream —, e a linha do tempo mostra os seis vídeos entrando em cena no ato, sem
+a espera de um download.
+
+**Duas linhas, duas extrações — e é aqui que a leitura anterior errou.** O
+`download:` do mesmo Registro continua degenerado (`clientes ANDROID 1`,
+360p), mas os dois campos são SLOTS INDEPENDENTES: `diagnostico` é escrito só
+pelo caminho do download e `diagnosticoStream` só pelo do manifesto (é por isso
+que eles são dois). Nesta sessão não houve download nenhum, então aquela linha é
+o resto da sessão anterior — descrevendo outra extração, de horas antes.
+
+**O que isso derruba:** *"dois vídeos independentes, duas sessões, o mesmo
+resultado — o visionOS não está devolvendo faixa nenhuma"*. Duas amostras
+negativas não sustentavam "sempre", e a terceira é positiva. **A falha é
+INTERMITENTE**, e as duas hipóteses de antes voltam à mesa sem que nenhuma
+medição as separe: pode ser por VÍDEO, por JANELA DE TEMPO, ou por estado do
+processo.
+
+**O que NÃO muda:** a issue #1528 segue aberta, o extrator segue em v0.26.5 sem
+commits de YouTube, e quando a extração degenera o desfecho continua sendo 360p.
+O aviso da v1.4.11 continua certo — ele descreve a extração que aconteceu, não
+um estado permanente do app, e passar a aparecer só às vezes é o comportamento
+correto de um sintoma que só às vezes existe.
+
+**O INSTRUMENTO É QUE NÃO ALCANÇA, e este é o achado que sobra.** O Registro
+guarda a ÚLTIMA extração de cada tipo, então ele responde *"o que aconteceu da
+última vez?"* e nunca *"com que frequência?"* — que é exatamente a pergunta de
+uma falha intermitente. Três Registros deram três respostas e nenhuma conta.
+**Correção proposta:** um contador de sessão ao lado da linha da extração
+(quantas extrações, quantas sem par DASH), na forma do `AVStream.fome`, que já
+resolve este mesmo problema para os travamentos. Barato, sem log, e transforma
+"impressão" em número.
+
+### A segunda medição (SUPERADA pela de cima): parecia o extrator, sistêmico
 
 O passo que faltava era um "Tocar agora" noutro vídeo. Registro de 29/08/2026
 (web v1.4.10 · shell v1.4.5), sessão com **três** vídeos e canais diferentes —
@@ -135,10 +182,12 @@ download:    … → veio mp4 18@ANDROID (360p)
 a rede mediu 4969 kbps (coube no teto)
 ```
 
-Dois vídeos independentes, duas sessões, o mesmo resultado degenerado: **o
-visionOS não está devolvendo faixa nenhuma.** É exatamente a pergunta que a
-linha `porCliente` nasceu para responder (*"o visionOS chegou a este
-aparelho?"*), e a resposta é não.
+Dois vídeos independentes, duas sessões, o mesmo resultado degenerado. A
+conclusão escrita aqui foi *"o visionOS não está devolvendo faixa nenhuma"* —
+**e ela estava errada por generalizar duas amostras negativas em "sempre"**. A
+terceira medição, acima, mostra o visionOS devolvendo 19 faixas e a projeção
+saindo em 1080p. O que estas duas provam continua de pé: a degeneração ACONTECE,
+e quando acontece o desfecho é 360p.
 
 **E o conserto não existe hoje.** Conferido no repositório do extrator em
 29/08/2026:
@@ -153,11 +202,12 @@ aparelho?"*), e a resposta é não.
 **Subir o pin para a v0.26.5 não muda nada** — e isso é MEDIÇÃO, não suposição:
 o diff entre as duas tags não toca no YouTube.
 
-**Portanto:** enquanto o extrator não resolver o SABR, todo "Tocar agora" cai no
-progressivo legado, que é **360p por construção**. Não é a tela, não é a rede,
-não é a regra de escolha e não é o pin. Reabrir isto quando sair uma versão do
-extrator com commits de YouTube — e a linha `porCliente` do Registro é o
-oráculo de campo que diz, em um toque, se ela resolveu.
+**Portanto** — corrigido pela terceira medição: **quando** a extração degenera,
+o "Tocar agora" cai no progressivo legado, que é 360p por construção. Não é a
+tela, não é a rede, não é a regra de escolha e não é o pin. O que esta seção
+errou foi o "sempre"; o "quando acontece" segue valendo, e a linha `porCliente`
+do Registro continua sendo o oráculo de campo que diz, em um toque, de que lado
+aquela extração caiu.
 
 ### O SILÊNCIO SOBRE ELA — RESOLVIDO na v1.4.11
 
