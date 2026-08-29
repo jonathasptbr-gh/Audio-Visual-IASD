@@ -177,93 +177,59 @@
     let coveredNow = true;
     let coverSeq = 0; // descarta fades de cortina obsoletos (interrompidos por outro)
 
-    // ===== "ESTÁ CARREGANDO", na TRANSMISSÃO DIRETA (v5.142) =====
+    // ===== O PALCO NÃO DESENHA ESPERA; ELE A ANUNCIA (v1.4.8) =====
     //
     // Um stream leva segundos entre o comando e o primeiro quadro (init, índice
-    // e primeiro fragmento vêm da REDE). Vindo do wallpaper isso já está
-    // resolvido — a cortina fica de pé até haver quadro (`coverOut` abaixo). O
-    // caso que sobrava é MÍDIA → MÍDIA: o fade de saída já levou a anterior ao
-    // preto e não há cortina, então são segundos de tela preta sem nada dizendo
-    // que o app trabalha — indistinguível de uma projeção que morreu.
+    // e primeiro fragmento vêm da REDE), e é essa janela que se anuncia.
     //
-    // O NÓ é criado AQUI e não nos dois `index.html`: ele é do motor e só existe
-    // enquanto um stream espera; duplicá-lo em dois arquivos seria a divergência
-    // que a cortina compartilhada já evita.
+    // Pedido do operador: *"vamos abandonar o spinner no telão… enquanto não
+    // houver imagem e/ou som propriamente do vídeo, então não mostre nada além
+    // do wallpaper… e nos controles já temos a mensagem de preparando, não
+    // precisamos de um spinner exclusivo"*.
     //
-    // AS REGRAS, NÃO (v5.205): eram um `<style>` injetado, e a CSP das telas da
-    // rede (`default-src 'self'`, sem `style-src`) BLOQUEIA estilo embutido — o
-    // elemento era anexado, as regras não valiam, e o indicador virava uma `div`
-    // vazia. Hoje moram em `shared/stage.css`.
-    // ===== A MAQUINARIA DE CARREGAMENTO NÃO APARECE NA PROJEÇÃO =====
+    // Havia DOIS indicadores para o mesmo fato — o cartão "Preparando…" sobre a
+    // preview e um aro girando dentro do palco —, e o segundo aparecia também na
+    // PROJEÇÃO. O aro saiu inteiro (com ele, o `.av-stage-busy` do
+    // `shared/stage.css`): o telão fica com dois estados e nenhum
+    // intermediário — o wallpaper em repouso, ou o conteúdo no ar.
     //
-    // Pedido do operador: *"revise para que todo o loading aconteça no controle,
-    // e para o telão, literalmente só apareça quando o vídeo estiver realmente
-    // sendo reproduzido"*.
+    // O que fica é o ANÚNCIO: `opts.onEspera(ligado)`, que o dono do palco usa
+    // como quiser. O Controle o liga ao cartão que já existe; o telão não passa
+    // a função, e por isso não tem o que mostrar. **Quem decide a UI é o dono**
+    // — é a invariante 5 aplicada ao motor: ele diz o FATO, não a forma.
     //
-    // O telão tem DOIS estados, e nenhum deles é "trabalhando": o wallpaper em
-    // repouso, ou o conteúdo de fato no ar. Um aro girando na frente da
-    // congregação é o app contando como ele funciona a quem não perguntou — e
-    // era metade do carregamento aparecendo lá e metade aqui.
-    //
-    // Quem liga é o DONO, por opção explícita, e só a preview do Controle liga
-    // (ver `createStage` em `controle.js`). Um booleano, e não `__AV_ROLE__`
-    // lido aqui dentro: `stage.js` é compartilhado, e a pergunta que ele
-    // responde é "este palco é uma ILUSTRAÇÃO?", não "que papel é este" — a
-    // tela da rede é papel `tela` e é PROJEÇÃO, então uma leitura de papel
-    // acertaria por acidente e erraria no dia em que aparecesse um quarto.
-    const mostraEspera = !!opts.espera;
-    let girando = null;
-    function spinner() {
-      if (!mostraEspera) return null;
-      if (girando) return girando;
-      const casa = (video && video.parentElement) || null;
-      if (!casa) return null;
-      girando = document.createElement('div');
-      girando.className = 'av-stage-busy';
-      girando.hidden = true;
-      casa.appendChild(girando);
-      return girando;
-    }
-    // ===== O INDICADOR DE ESPERA TEM DUAS RAZÕES, e elas não podem se apagar
-    // ===== uma à outra
-    //
-    // A primeira é a CARGA de um stream (do comando ao primeiro quadro, ver
-    // `PRONTO_STREAM_MS`); a segunda é a FOME DE BUFFER depois de já estar
-    // tocando. Com um dono só, um `mostrarEspera(false)` do fim da carga
-    // apagaria um giro aceso por falta de dados, e vice-versa.
+    // DUAS RAZÕES, e elas não podem se apagar uma à outra: a CARGA de um stream
+    // (do comando ao primeiro quadro) e a FOME DE BUFFER depois de já estar
+    // tocando. O anúncio é o OU delas.
+    const onEspera = typeof opts.onEspera === 'function' ? opts.onEspera : null;
     let esperaCarga = false;
     let esperaBuffer = false;
+    let esperaDita = false;
     function pintarEspera() {
-      const el = spinner();
-      if (el) el.hidden = !(esperaCarga || esperaBuffer);
+      const alvo = esperaCarga || esperaBuffer;
+      if (alvo === esperaDita) return;
+      esperaDita = alvo;
+      if (onEspera) { try { onEspera(alvo); } catch (_) { /* o dono que se vire */ } }
     }
     function mostrarEspera(on) { esperaCarga = !!on; pintarEspera(); }
 
-    // ===== O TRAVAMENTO DO MEIO DA MÍDIA NÃO TINHA SINAL NENHUM =====
+    // ===== O TRAVAMENTO DO MEIO DA MÍDIA =====
     //
-    // Relato do operador sobre um vídeo transmitido direto do YouTube: *"veio
-    // som, porém ficou travando e qualidade de vídeo baixa"*. O giro só existia
-    // na CARGA — do comando ao primeiro quadro —, e uma parada por falta de
-    // buffer no meio do louvor congelava o quadro sem nada na tela. **Um app
-    // travado e uma rede ruim produzem exatamente a mesma imagem**, e a única
-    // leitura possível é a pior das duas.
+    // Uma parada por falta de buffer no meio do louvor congela o quadro, e **um
+    // app travado e uma rede ruim produzem exatamente a mesma imagem**. Ela é
+    // anunciada pelo mesmo caminho da carga — uma indicação só, no Controle.
     //
-    // SÓ NO STREAM, e a razão é a mesma do giro da carga: um arquivo local não
-    // fica sem dados, e um `waiting` de um seek em disco vira um giro que pisca.
-    // O atraso (`ESPERA_BUFFER_MS`) é o que separa um soluço de um travamento —
-    // sem ele, todo seek acenderia o indicador na frente da congregação.
+    // SÓ NO STREAM: um arquivo local não fica sem dados, e o `waiting` de um
+    // seek em disco viraria um aviso piscando. O atraso (`ESPERA_BUFFER_MS`) é o
+    // que separa um soluço de um travamento.
     //
-    // O CENSO vai para o `AVStream.fome`, que o Registro lê: contar os
-    // episódios E somar o tempo parado é o que troca *"deve ser a internet"* por
-    // um número. Dois travamentos de meio segundo e dez de cinco segundos pedem
-    // respostas opostas, e uma contagem sozinha não os distingue.
-    //
-    // E ELA SÓ VALE DEPOIS QUE A MÍDIA COMEÇOU A TOCAR — MEDIDO: um stream
-    // dispara `waiting` no instante da carga, sempre, porque o `MediaSource`
-    // nasce vazio e o primeiro fragmento vem da rede. Sem `streamComecou`, TODA
-    // transmissão registrava um travamento antes do primeiro quadro, e o número
-    // do Registro passava a dizer "≥1 sempre" — que é o mesmo que não dizer
-    // nada. Essa espera já tem dono (`esperaCarga`) e nome próprio na tela.
+    // O CENSO vai para o `AVStream.fome`, que o Registro lê: contar os episódios
+    // E somar o tempo parado é o que troca *"deve ser a internet"* por um
+    // número. E ela só vale DEPOIS que a mídia começou a tocar — MEDIDO: um
+    // stream dispara `waiting` no instante da carga, sempre, porque o
+    // `MediaSource` nasce vazio; sem `streamComecou`, TODA transmissão
+    // registraria um travamento antes do primeiro quadro, e o número passaria a
+    // dizer "≥1 sempre".
     const ESPERA_BUFFER_MS = 600;
     let esperaTimer = null;
     let fomeDesde = 0;
@@ -272,9 +238,8 @@
       if (!stream || !streamComecou || esperaTimer || esperaBuffer) return;
       esperaTimer = setTimeout(() => {
         esperaTimer = null;
-        // A CONFERÊNCIA É NA HORA DE ACENDER, não na de armar: entre o `waiting`
-        // e o prazo cabem um `clear` e um `load` inteiros, e um giro aceso sobre
-        // a cena seguinte não teria quem o apagasse.
+        // A CONFERÊNCIA É NA HORA DE ANUNCIAR, não na de armar: entre o
+        // `waiting` e o prazo cabem um `clear` e um `load` inteiros.
         if (!stream || video.paused || video.ended) return;
         esperaBuffer = true;
         fomeDesde = Date.now();
@@ -288,27 +253,24 @@
       const censo = global.AVStream && global.AVStream.fome;
       if (censo && fomeDesde) {
         censo.quantas++;
-        // Arredondado NA SOMA, não a cada parcela: somar décimos em ponto
-        // flutuante rende "1.7000000000000002" no Registro, que é um artefato
-        // que ninguém sabe ler e que faz o número parecer instrumentação
-        // quebrada.
+        // Arredondado NA SOMA: somar décimos em ponto flutuante rende
+        // "1.7000000000000002" no Registro, que faz o número parecer
+        // instrumentação quebrada.
         censo.segundos = Math.round((censo.segundos + (Date.now() - fomeDesde) / 1000) * 10) / 10;
       }
       fomeDesde = 0;
       pintarEspera();
     }
     // `waiting`/`stalled` são os DOIS anúncios de fome que o `<video>` faz, e
-    // eles são os mesmos que alimentam o compasso do `mse.js`
-    // (`EVENTOS_DO_COMPASSO`) — a mesma fome, dois consumidores. `playing` é o
-    // fim; `pause` e `emptied` entram porque uma parada COMANDADA não é fome, e
-    // deixar o giro aceso sobre uma cena pausada seria mentir na direção oposta.
+    // são os mesmos que alimentam o compasso do `mse.js` — a mesma fome, dois
+    // consumidores. `pause` e `emptied` entram porque uma parada COMANDADA não é
+    // fome, e anunciar espera sobre uma cena pausada seria mentir ao contrário.
     ['waiting', 'stalled'].forEach((ev) => video.addEventListener(ev, armarEsperaBuffer));
     ['playing', 'pause', 'emptied', 'ended'].forEach(
       (ev) => video.addEventListener(ev, desarmarEsperaBuffer),
     );
-    // `playing` é o que ABRE a vigília, e ele é o mesmo evento que a fecha: o
-    // primeiro diz "começou", os seguintes dizem "voltou". Um só ouvinte para
-    // as duas coisas seria mais curto e erraria a primeira vez.
+    // `playing` ABRE a vigília, e é o mesmo evento que a fecha: o primeiro diz
+    // "começou", os seguintes dizem "voltou".
     video.addEventListener('playing', () => { if (stream) streamComecou = true; });
 
     function setFade(cfg) {
@@ -791,12 +753,12 @@
       clearInterval(rampTimer);
       clearTimeout(muteApplyTimer);
       // Limpar a fonte é o fim de qualquer espera. O `load` NÃO passa por
-      // aqui: lá quem apaga o giro é o próprio load, depois do `mediaReady` e
-      // sob a guarda do `loadSeq`.
+      // aqui: lá quem desliga o anúncio é o próprio load, depois do
+      // `mediaReady` e sob a guarda do `loadSeq`.
       mostrarEspera(false);
-      // E DAS DUAS ESPERAS: `mostrarEspera` é dono só da carga, e um giro aceso
-      // por fome não pode sobreviver ao `clear` — ficaria girando sobre o
-      // wallpaper, que é a tela do repouso.
+      // E DAS DUAS RAZÕES: `mostrarEspera` é dona só da carga, e uma espera
+      // acesa por fome não pode sobreviver ao `clear` — o Controle continuaria
+      // dizendo "Preparando" sobre um palco que voltou ao repouso.
       //
       // MEDIDO: hoje quem chega primeiro é o `emptied` que o
       // `removeAttribute('src')` logo abaixo dispara, e o oráculo passa sem
@@ -847,13 +809,13 @@
       // Guarda sequencial: se outra chamada load() começar antes desta terminar
       // o fade/getMedia(), descartamos esta para evitar race de URL/current.
       const seq = ++loadSeq;
-      // O GIRO É APAGADO POR QUEM ASSUME, e é a única saída que ele tem. Quem
-      // o acendeu volta do `mediaReady` já descartado pelo `loadSeq` e retorna
-      // ANTES do `mostrarEspera(false)` — de propósito: apagar depois de perder
-      // a corrida levaria junto o giro do load que assumiu. Sem esta linha o
-      // aro ficava girando sobre a projeção para sempre quando quem assume não
-      // é um stream — e o caso mais comum do culto é esse (áudio SEM LETRA, que
-      // não passa por nenhum dos dois ramos que apagam o giro).
+      // O ANÚNCIO É DESLIGADO POR QUEM ASSUME, e é a única saída que ele tem.
+      // Quem o acendeu volta do `mediaReady` já descartado pelo `loadSeq` e
+      // retorna ANTES do `mostrarEspera(false)` — de propósito: desligar depois
+      // de perder a corrida levaria junto a espera do load que assumiu. Sem
+      // esta linha o cartão ficava de pé para sempre quando quem assume não é
+      // um stream — e o caso mais comum do culto é esse (áudio SEM LETRA, que
+      // não passa por nenhum dos dois ramos que o desligam).
       mostrarEspera(false);
       // A fome é da mídia que SAI, e ela acaba aqui: o `<video>` só troca de
       // fonte depois, e um `waiting` pendente dela não é da que entra. E a
@@ -1071,13 +1033,14 @@
         //
         // É AQUI que a transmissão direta deixava o preto na tela: sem cortina
         // para segurar, os segundos de rede entre o comando e o primeiro quadro
-        // são preto puro. O giro diz que o app está trabalhando; ele só aparece
-        // no stream, porque um arquivo local vira quadro em milissegundos e um
-        // spinner que pisca é pior que nenhum (ver mostrarEspera/PRONTO_STREAM_MS).
+        // são preto puro. O AVISO diz que o app está trabalhando, e ele sai no
+        // Controle — nunca aqui: o palco pode ser a projeção. Só no stream,
+        // porque um arquivo local vira quadro em milissegundos e um aviso que
+        // pisca é pior que nenhum (ver `onEspera`/`PRONTO_STREAM_MS`).
         if (ehStream) mostrarEspera(true);
         const revelou = await mediaReady(alvo, ehStream ? PRONTO_STREAM_MS : 0);
-        // A ORDEM É ESTA: um load mais novo já acendeu o giro dele, e esconder
-        // depois de perder a corrida apagaria o spinner do load que ASSUMIU.
+        // A ORDEM É ESTA: um load mais novo já acendeu o aviso dele, e apagá-lo
+        // depois de perder a corrida calaria o load que ASSUMIU.
         if (seq !== loadSeq) return;
         mostrarEspera(false);
         // Sem quadro, nada a revelar — ver o ramo da cortina acima. Aqui o

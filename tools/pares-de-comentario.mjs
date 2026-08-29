@@ -63,7 +63,11 @@ if (!ref) {
   process.exit(0);
 }
 
-const antes = paresDe(execFileSync('git', ['show', `${ref}:${arquivo}`], { encoding: 'utf8' }));
+// `maxBuffer` explícito: o padrão do Node (1 MB) é MENOR que o `controle.js`, e
+// o que sai é um `ENOBUFS` — a prova simplesmente não roda no maior arquivo do
+// repositório, que é justamente onde ela mais importa.
+const antes = paresDe(execFileSync('git', ['show', `${ref}:${arquivo}`],
+  { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 }));
 const porCab = new Map();
 for (const p of antes) {
   const k = p.cab.slice(0, 46);

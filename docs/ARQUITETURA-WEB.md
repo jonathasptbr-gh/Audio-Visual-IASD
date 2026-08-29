@@ -181,9 +181,6 @@ app/src/main/assets/web/
 │   ├── mse.js                  # Player DASH mínimo (window.AVStream): a
 │   │                           # TRANSMISSÃO DIRETA do YouTube sem baixar
 │   ├── wallpaper-padrao.svg    # O wallpaper padrão: o símbolo oficial IASD
-│   ├── stage.css               # CSS do motor (o indicador de espera) — FOLHA e
-│   │                           # não `<style>` em runtime: a CSP das telas da
-│   │                           # rede bloqueia estilo embutido (v5.205)
 │   ├── material-symbols.css    # Font-face da fonte de ícones (subset offline; só o Controle usa)
 │   └── fonts/
 │       └── material-symbols.woff2  # 2.220 B — subset de 31 codepoints, dos
@@ -208,8 +205,9 @@ app/src/main/assets/web/
 │   └── bible.js                # Cliente da parte bíblica do banco LouvorJA (livros/versões/capítulos — ver seção "Bíblia")
 ├── espelho/                    # o papel `tela` (telão nas telas da rede)
 │   ├── tela.js                 # a casca: SSE, dreno de subida, entrada, relógio
-│   └── tela.css                # o CSS da ENTRADA — folha pelo mesmo motivo do
-│                               # stage.css (ver o cabeçalho do arquivo)
+│   └── tela.css                # o CSS da ENTRADA — folha, e não `<style>` em
+│                               # runtime: a CSP das telas da rede bloqueia
+│                               # estilo embutido (v5.205)
 └── display/
     ├── index.html              # UI do Display (SEM iframe: o embed do YouTube
     │                           # saiu na v5.212 — ver CLAUDE.md)

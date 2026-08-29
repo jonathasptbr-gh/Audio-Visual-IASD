@@ -144,9 +144,10 @@ checar(orfaos.length === 0,
 // heurística — uma heurística deixaria a próxima borda entrar chamando-se
 // "desenho":
 //
-//   · o aro do `.dl-ring` (o anel que gira enquanto um download corre) e o do
-//     `.av-stage-busy` (o mesmo, no palco) — eles SÃO círculos, não a moldura
-//     de um elemento;
+//   · o aro do `.dl-ring` (o anel que gira enquanto um download corre) — ele É
+//     um círculo, não a moldura de um elemento. O irmão dele no palco
+//     (`.av-stage-busy`) saiu na v1.4.8, junto com a folha `shared/stage.css`:
+//     o telão não anuncia mais preparo nenhum;
 //   · o ✓ do `.song-menu-check` (duas bordas em L, giradas 45°) — é o glifo que
 //     falta no subset da fonte de ícones.
 //
@@ -157,7 +158,6 @@ checar(orfaos.length === 0,
   // borda entrar chamando-se desenho.
   const recortar = (s) => s
     .replace(/\.dl-ring::before\s*\{[^}]*\}/g, '')
-    .replace(/\.av-stage-busy::after\s*\{[^}]*\}/g, '')
     .replace(/\.song-menu-check\.on::after\s*\{[^}]*\}/g, '')
     .replace(/@media[^{]*\{\s*\.dl-ring::before[^}]*\}/g, '');
   const contornos = [];

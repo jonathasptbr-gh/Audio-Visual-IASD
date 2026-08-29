@@ -258,7 +258,7 @@ const appVersionEl = document.getElementById('appVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.4.7';
+const WEB_VERSION = '1.4.8';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -1362,6 +1362,14 @@ let gateTinhaTela = false;
 let displayAudioBlocked = false; // Display reportou áudio bloqueado pelo navegador
 const scrollPos = {};      // posição de scroll por aba/pasta (sessão)
 
+// O dono do cartão que o `onEspera` da preview abriu (`null` = nenhum), e o NOME
+// que ele escreve. O nome é gravado por `aplicarNaPreview` a partir do item que
+// está entrando — nunca lido do rótulo já desenhado: `renderNowPlaying` roda em
+// pontos diferentes de cada caminho, e um nome atrasado é o cartão anunciando o
+// louvor ANTERIOR enquanto o novo carrega.
+let pvEsperaSolta = null;
+let pvEsperaNome = '';
+
 // ===== preview (espelho do display) =====
 // Mostra exatamente o que o display mostra. Recebe os MESMOS comandos enviados
 // ao display e ainda comanda a barra de progresso/avanço.
@@ -1372,15 +1380,33 @@ const scrollPos = {};      // posição de scroll por aba/pasta (sessão)
 // `acertarSaidaDeAudio`, que é o único ponto que mexe nisso.
 const preview = createStage({
   wallpaper: pvWallEl, img: pvImgEl, video: pvVideoEl, forceMuted: true,
-  // ===== TODO O CARREGAMENTO APARECE AQUI, e só aqui (v1.4.7) =====
+  // ===== TODO O CARREGAMENTO APARECE AQUI, NUM INDICADOR SÓ (v1.4.8) =====
   //
-  // Pedido do operador: *"revise para que todo o loading aconteça no controle, e
-  // para o telão, literalmente só apareça quando o vídeo estiver realmente sendo
-  // reproduzido"*. O aro de espera do `stage` é a maquinaria, e maquinaria é
-  // assunto de quem OPERA — na projeção ela é o app contando como funciona a
-  // quem não perguntou. O telão fica com dois estados e nenhum intermediário: o
-  // wallpaper em repouso, ou o conteúdo de fato no ar.
-  espera: true,
+  // Pedido do operador: *"vamos abandonar o spinner no telão… e nos controles já
+  // temos a mensagem de preparando, não precisamos de um spinner exclusivo"*.
+  //
+  // O palco não desenha mais nada: ele ANUNCIA (`onEspera`), e quem mostra é o
+  // cartão que já existe sobre a preview — o mesmo do "Preparando" do toque, de
+  // modo que a espera INTEIRA (a extração de rede, e depois a carga do stream)
+  // se lê como um estado só, e não como dois avisos se revezando.
+  //
+  // O TELÃO NÃO PASSA `onEspera`, e é assim que ele fica com dois estados e
+  // nenhum intermediário: o wallpaper em repouso, ou o conteúdo no ar.
+  //
+  // O cartão é aberto e solto por BORDA, e o `pvEsperaSolta` é a memória disso:
+  // `previewBusy` conta donos (`pvBusyCount`), então um `onEspera(true)` repetido
+  // sem o `false` do meio deixaria um dono pendurado — e o cartão nunca sairia.
+  onEspera: (ligado) => {
+    if (ligado) {
+      if (pvEsperaSolta) return;
+      pvEsperaSolta = previewBusy('Preparando', pvEsperaNome || 'a mídia').soltar;
+      return;
+    }
+    if (!pvEsperaSolta) return;
+    const soltar = pvEsperaSolta;
+    pvEsperaSolta = null;
+    soltar();
+  },
   onTime: previewTick,
   // O NAVEGADOR RECUSOU O SOM — e a resposta é voltar a tocar MUDO, na hora.
   //
@@ -1965,6 +1991,10 @@ function aplicarNaPreview(obj, item) {
   if (obj.type === 'text') { showPvText(obj); return; }
   if (obj.type === 'text-hide') { hidePvText(); return; }
   if (obj.type === 'load') {
+    // O nome que o cartão de espera vai escrever, gravado ANTES do `handle`:
+    // é dentro dele que o palco pode anunciar a espera, e o `onEspera` não
+    // recebe o item.
+    pvEsperaNome = (item && item.name) || '';
     // Esconde a letra incondicionalmente (como o Display). O texto manual é um
     // overlay independente: só some ao carregar VISUAL; ÁUDIO toca por baixo e
     // mantém o texto (independência áudio × texto).
@@ -16839,8 +16869,29 @@ const PV_BUSY_DELAY_MS = 180;
 // Generoso de propósito: "Baixando…" o operador vê de relance, mas "sem
 // internet para baixar" ele precisa LER — e é a única resposta que ele vai ter.
 const PV_FALHA_MS = 5000;
+// ===== A SAÍDA TAMBÉM ESPERA UM RESPIRO — pela PASSAGEM DE BASTÃO (v1.4.8) =====
+//
+// O `PV_BUSY_DELAY_MS` acima existe para o cartão não PISCAR ao entrar. Este é o
+// mesmo problema na outra ponta, e ele nasceu quando o aro do palco saiu e as
+// DUAS metades da mesma espera viraram o MESMO cartão.
+//
+// Uma espera de transmissão tem dois donos em sequência: o toque (`cederOPalco`,
+// que cobre a extração de rede) e a carga do stream (o `onEspera` do palco). O
+// primeiro solta no `finally`, assim que `tentarTransmitir` volta; o segundo só
+// acende lá dentro do `load`, depois do fade de saída e do `getMedia`. Entre os
+// dois o contador passa por ZERO — e sem esta carência o cartão sai e volta no
+// meio da mesma espera, que é exatamente o "dois modelos de carregamento" que
+// este lote existe para acabar, com outra roupa.
+//
+// **A carência cobre o pior caso do vão**, que é o `FADE.time` (0,6 s) mais a
+// leitura do IndexedDB. **O preço está dito:** um cartão que de fato acabou fica
+// esse tanto a mais na tela — e ele é um indicador de estado, não um modal.
+const PV_BUSY_SAIDA_MS = 700;
 let pvBusyCount = 0;
 let pvBusyTimer = null;
+// A saída adiada em voo (`null` = nenhuma). Um dono novo a CANCELA: é isso que
+// transforma "sai e volta" em "continua".
+let pvBusySaidaTimer = null;
 // As liberações que `falhar()` adiou pelo prazo de leitura e que ainda não
 // venceram. Um trabalho NOVO as consome ao nascer: ver o topo de `previewBusy`.
 const pvFalhasPendentes = [];
@@ -16959,6 +17010,10 @@ function previewBusy(acao, nome, aoCancelar) {
   // já segue no `liberar` ("sai com o DONO dele"), aplicada à legenda.
   // ANTES do `pvBusyCount++`, para o contador do falho sair sem cruzar com o novo.
   pvFalhasPendentes.splice(0).forEach((f) => f());
+  // A PASSAGEM DE BASTÃO: um dono novo dentro da carência cancela a saída, e o
+  // cartão nunca chega a piscar. Antes do `pvBusyCount++`, para a carência de um
+  // ciclo anterior não sobreviver a este.
+  clearTimeout(pvBusySaidaTimer); pvBusySaidaTimer = null;
   pvBusyCount++;
   // Sem tirar a marca, `.falhou` esconderia o aro que gira e pintaria
   // "Baixando…" em vermelho — o cartão dizendo duas coisas opostas.
@@ -16995,10 +17050,23 @@ function previewBusy(acao, nome, aoCancelar) {
     pvBusyCount = Math.max(0, pvBusyCount - 1);
     if (pvBusyCount) return;
     clearTimeout(pvBusyTimer); pvBusyTimer = null;
-    pvBusyEl.classList.remove('on');
-    pvBusyEl.classList.remove('falhou');
+    // A RETIRADA É ADIADA (ver `PV_BUSY_SAIDA_MS`): quem assumir dentro da
+    // carência a cancela, e a espera se lê como um estado só. O que sai AGORA é
+    // só o botão de cancelar — ele é uma AÇÃO, e uma ação sem dono não pode
+    // ficar tocável nem por meio segundo.
     pvBusyCancelar = null;
     pintarPvBusyCancelar();
+    clearTimeout(pvBusySaidaTimer);
+    pvBusySaidaTimer = setTimeout(() => {
+      pvBusySaidaTimer = null;
+      // Redundância DECLARADA, não guarda órfã: hoje todo caminho que cria um
+      // dono cancela este relógio, então ele não deveria achar contador nenhum
+      // de pé. Ela fica porque o custo de errar aqui é o cartão sumir DEBAIXO de
+      // um trabalho vivo, e o de acertar é uma comparação.
+      if (pvBusyCount > 0) return;
+      pvBusyEl.classList.remove('on');
+      pvBusyEl.classList.remove('falhou');
+    }, PV_BUSY_SAIDA_MS);
   };
   return {
     visivel: true,

@@ -100,10 +100,11 @@ app/src/main/
 │   ├── shared/stage.js          #   motor de mídia (compartilhado Controle/Display)
 │   ├── vendor/                  #   ÚNICO código de terceiro do lado web:
 │   │                            #   o renderizador de .pptx (ver o LEIA-ME de lá)
-│   ├── shared/stage.css         #   o CSS do motor (o indicador de espera)
 │   ├── espelho/tela.css         #   o CSS da ENTRADA da tela da rede
-│   │                            #   (os dois eram `<style>` em runtime, e a CSP
-│   │                            #    das telas da rede os bloqueava — v5.205)
+│   │                            #   (era `<style>` em runtime, e a CSP das
+│   │                            #    telas da rede o bloqueava — v5.205. O
+│   │                            #    irmão dele, `shared/stage.css`, saiu na
+│   │                            #    v1.4.8 com o aro de espera do palco)
 │   ├── espelho/tela.js          #   O TELÃO POR COMANDOS: a casca do papel
 │   │                            #   `tela` sobre o próprio /display/ (SSE)
 │   ├── controle/serie.js        #   as SÉRIES do YouTube: a REGRA que decide o
@@ -957,27 +958,43 @@ está em segundo plano"*):
   expirada é conserto do `recuperarStream`, que a reconhece pela mensagem).
 
 - **UM TRAVAMENTO NO MEIO TEM DE APARECER, e ser CONTADO.** O indicador de
-  espera (`.av-stage-busy`) só existia na CARGA — do comando ao primeiro quadro
-  —, e uma parada por falta de buffer no meio do louvor congelava o quadro sem
-  nada na tela: **um app quebrado e uma rede ruim produzem a mesma imagem**, e a
-  leitura possível é a pior das duas. Hoje o giro tem **duas razões**
-  (`esperaCarga` · `esperaBuffer`) que não se apagam uma à outra, e a fome vira
-  número no Registro (`AVStream.fome`: episódios **e** segundos parados — dois
-  travamentos de meio segundo e dez de cinco pedem respostas opostas, e só a
-  segunda tem conserto: baixar em vez de transmitir).
+  espera só existia na CARGA — do comando ao primeiro quadro —, e uma parada por
+  falta de buffer no meio do louvor congelava o quadro sem nada na tela: **um
+  app quebrado e uma rede ruim produzem a mesma imagem**, e a leitura possível é
+  a pior das duas. Hoje a espera tem **duas razões** (`esperaCarga` ·
+  `esperaBuffer`) que não se apagam uma à outra, e a fome vira número no Registro
+  (`AVStream.fome`: episódios **e** segundos parados — dois travamentos de meio
+  segundo e dez de cinco pedem respostas opostas, e só a segunda tem conserto:
+  baixar em vez de transmitir).
   - **A vigília só abre no primeiro `playing`.** MEDIDO: um `MediaSource` nasce
     vazio e dispara `waiting` em TODA transmissão, então contar a carga faria o
     número dizer *"≥1 sempre"* — o mesmo que não dizer nada.
-  - **Atraso de 600 ms antes de acender**, e **só no stream**: um arquivo local
-    não fica sem dados, e um aro piscando a cada seek na frente da congregação é
-    pior que aro nenhum. Oráculo: `tools/espera-do-stream.test.mjs`.
-  - **E O ARO SÓ EXISTE NA PREVIEW** (`espera: true`, v1.4.7). O telão tem DOIS
-    estados e nenhum intermediário: o wallpaper em repouso, ou o conteúdo de
-    fato no ar. Maquinaria de carregamento é assunto de quem OPERA — na
-    projeção ela é o app contando como funciona a quem não perguntou. **É opção
-    do dono, e não `__AV_ROLE__` lido dentro do `stage.js`**: a pergunta é
-    *"este palco é uma ILUSTRAÇÃO?"*, e a tela da rede é papel `tela` e é
-    PROJEÇÃO — uma leitura de papel acertaria por acidente.
+  - **Atraso de 600 ms antes de anunciar**, e **só no stream**: um arquivo local
+    não fica sem dados, e um cartão piscando a cada seek é pior que cartão
+    nenhum. Oráculo: `tools/espera-do-stream.test.mjs`.
+  - **O PALCO NÃO DESENHA ESPERA; ELE A ANUNCIA** (`opts.onEspera(ligado)`,
+    v1.4.8). Havia DOIS indicadores para o mesmo fato — o cartão "Preparando…"
+    sobre a preview e um aro dentro do palco —, e o segundo aparecia também na
+    PROJEÇÃO. O aro saiu inteiro, e com ele a folha `shared/stage.css`: o telão
+    fica com DOIS estados e nenhum intermediário — o wallpaper em repouso, ou o
+    conteúdo de fato no ar. Maquinaria de carregamento é assunto de quem OPERA;
+    na projeção ela é o app contando como funciona a quem não perguntou.
+    **Quem desenha é o DONO do palco** — invariante 5 aplicada ao motor: ele diz
+    o FATO, não a forma. O Controle liga o anúncio ao cartão que já existe (uma
+    espera só, do toque ao primeiro quadro); o telão e as telas da rede não
+    passam a função, e por isso não têm o que mostrar. **É opção do dono, e não
+    `__AV_ROLE__` lido dentro do `stage.js`**: a pergunta é *"este palco é uma
+    ILUSTRAÇÃO?"*, e a tela da rede é papel `tela` e é PROJEÇÃO — uma leitura de
+    papel acertaria por acidente.
+  - **E A SAÍDA DO CARTÃO TEM CARÊNCIA** (`PV_BUSY_SAIDA_MS`, 700 ms). A espera
+    tem DOIS donos em sequência — o toque (`cederOPalco`) e a carga do stream (o
+    `onEspera`) — e **entre eles o contador passa por ZERO**: o primeiro solta no
+    `finally`, o segundo só acende depois do fade de saída e do `getMedia`. Sem
+    a carência o cartão sai e volta no meio da MESMA espera. Um dono novo dentro
+    dela CANCELA a saída; o botão de cancelar, esse, sai na hora — uma ação sem
+    dono não pode ficar tocável. Oráculo: a passagem de bastão no
+    `gaveta-e-cartao.test.mjs`, amostrada a cada quadro (um teste do estado
+    FINAL passa nas duas versões).
   - **SEM QUADRO, A CORTINA FICA.** `mediaReady` passou a devolver se houve
     dado, e num stream o prazo deixou de REVELAR: ele socorria a transição de
     pendurar, mas o que revelava era o PRETO. O wallpaper é a resposta certa a
@@ -2601,8 +2618,8 @@ completo (cada par medido, os pisos, os ladrilhos da Bíblia) está na seção d
 paleta de `docs/arquitetura/DESIGN-SYSTEM.md`.
 
 **NÃO HÁ CONTORNO EM LUGAR NENHUM.** Nenhuma regra desenha `border`/`outline`;
-sobrevivem dois DESENHOS (os aros que giram — `.dl-ring`, `.av-stage-busy`) e o
-✓ do seletor de destinos, nomeados um a um no oráculo
+sobrevivem dois DESENHOS (o aro que gira — `.dl-ring` — e o ✓ do seletor de
+destinos), nomeados um a um no oráculo
 (`tools/tokens.test.mjs`, sem `continue-on-error`). É ele que faz a regra durar:
 uma borda é a coisa mais fácil de acrescentar quando duas caixas não estão se
 separando o bastante, e ela não quebra nada, não erra alto e não aparece em teste
@@ -3677,7 +3694,7 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: v1.4.7** (base web) · **v1.4.5** (APK) · `SHELL_VERSION` **60** · bundle com
+**Versão atual: v1.4.8** (base web) · **v1.4.5** (APK) · `SHELL_VERSION` **60** · bundle com
 `minShell: 60` — o shell 60 é o **PISO**: todo método da ponte existe, e não há
 guarda de versão no lado web. O que continua valendo é que `java/`, `res/`, o
 manifest e os workflows **só chegam instalando o APK**.

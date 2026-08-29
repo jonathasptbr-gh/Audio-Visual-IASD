@@ -1175,21 +1175,20 @@ anterior ao preto e não há cortina para segurar — segundos de tela preta, se
 nada dizendo que o app está trabalhando. Do lado de quem opera isso é
 indistinguível de uma projeção que morreu.
 
-Agora um **giro** entra enquanto se espera (`mostrarEspera`), nos dois caminhos:
-sobre o preto, e também sobre o wallpaper — porque ali o operador vê exatamente a
-mesma tela de quando nada foi pedido, por vários segundos, depois de ter pedido
-um vídeo. Detalhes que não são decoração:
+Agora a espera é **anunciada** enquanto ela dura (`mostrarEspera` →
+`opts.onEspera`), nos dois caminhos: sobre o preto, e também sobre o wallpaper —
+porque ali o operador vê exatamente a mesma tela de quando nada foi pedido, por
+vários segundos, depois de ter pedido um vídeo. Detalhes que não são decoração:
 
-- **Só no stream.** Um arquivo local vira quadro em milissegundos, e um spinner
+- **Só no stream.** Um arquivo local vira quadro em milissegundos, e um aviso
   que pisca é pior que nenhum.
-- **O nó é do MOTOR**, criado por ele no mesmo pai do `<video>`, com o
-  `@keyframes` injetado uma vez — não está nos dois `index.html`, pela mesma
-  razão que a cortina é compartilhada: duas cópias divergem no primeiro ajuste.
-- **`resetMediaDom` o apaga**, então ele nunca sobrevive à cena que o acendeu
+- **O PALCO NÃO DESENHA** (v1.4.8): ele chama `opts.onEspera(ligado)` e quem
+  mostra é o dono. Ver *"Todo o carregamento é do Controle"*, abaixo.
+- **`resetMediaDom` o desliga**, então ele nunca sobrevive à cena que o acendeu
   (stop, clear e o começo de todo load passam por lá); e a ordem depois do
-  `mediaReady` é conferir o `loadSeq` **antes** de esconder — um load mais novo
-  já acendeu o giro dele, e apagá-lo depois de perder a corrida apagaria o
-  spinner do load que assumiu.
+  `mediaReady` é conferir o `loadSeq` **antes** de desligar — um load mais novo
+  já acendeu a espera dele, e desligá-la depois de perder a corrida levaria junto
+  a do load que assumiu.
 
 ### Girar a mídia (v5.142)
 
@@ -1274,25 +1273,63 @@ defeito**.
   caminhos do link passam — o toque na linha, o avanço da playlist, o ⏮/⏭, a
   notificação nativa. Pôr no `send` seria escolher um deles.
 
-### Todo o carregamento é do Controle; o telão só mostra o que está no ar (v1.4.7)
+### Todo o carregamento é do Controle; o telão só mostra o que está no ar (v1.4.7, fechado na v1.4.8)
 
 Pedido do operador: *"revise para que todo o loading aconteça no controle, e
 para o telão, literalmente só apareça quando o vídeo estiver realmente sendo
 reproduzido"*. O desenho anterior era meio-termo — parte da espera na preview,
 parte na projeção.
 
-- **O aro (`.av-stage-busy`) é OPÇÃO do dono do palco** (`espera: true`), e só a
-  preview a liga. Não é `__AV_ROLE__` lido dentro do `stage.js`: a pergunta é
-  *"este palco é uma ILUSTRAÇÃO?"*, e a tela da rede é papel `tela` e é
-  PROJEÇÃO — a leitura de papel acertaria por acidente e erraria no quarto papel.
+A v1.4.7 tornou o aro do palco uma OPÇÃO do dono (`espera: true`, só a preview),
+e isso não bastou: **continuavam existindo dois modelos de carregamento**, o
+cartão "Preparando…" e o aro, se revezando na mesma tela. *"eu gostaria que
+houvesse apenas o 'preparando…' no controle, vamos abandonar o spinner no telão…
+nos controles já temos a mensagem de preparando, não precisamos de um spinner
+exclusivo"*. Na v1.4.8 o aro saiu inteiro, e com ele a folha `shared/stage.css`.
+
+- **O palco ANUNCIA; ele não desenha** (`opts.onEspera(ligado)`). Invariante 5
+  aplicada ao motor: ele diz o FATO, não a forma. Quem desenha é o dono.
+- **Um indicador só, no Controle.** O `onEspera` da preview abre e solta o
+  MESMO cartão do "Preparando" do toque (`previewBusy`), de modo que a espera
+  inteira — a extração de rede, e depois a carga do stream — se lê como um
+  estado só, e não como dois avisos se revezando. Ele é aberto e solto por
+  BORDA (`pvEsperaSolta`): `previewBusy` conta donos, e um `onEspera(true)`
+  repetido sem o `false` do meio deixaria um dono pendurado e o cartão nunca
+  sairia.
+- **O nome vem do ITEM, não do rótulo já desenhado** (`pvEsperaNome`, gravado
+  por `aplicarNaPreview`): `renderNowPlaying` roda em pontos diferentes de cada
+  caminho, e um nome atrasado é o cartão anunciando o louvor ANTERIOR enquanto o
+  novo carrega.
+- **A SAÍDA DO CARTÃO GANHOU UMA CARÊNCIA** (`PV_BUSY_SAIDA_MS`, 700 ms), e ela
+  é o que faz a promessa acima ser verdade. A espera tem DOIS donos em sequência
+  — o toque (`cederOPalco`, que cobre a extração de rede) e a carga do stream (o
+  `onEspera`) —, e o primeiro solta no `finally` assim que `tentarTransmitir`
+  volta, enquanto o segundo só acende lá dentro do `load`, depois do fade de
+  saída e do `getMedia`: **entre os dois o contador passa por ZERO**. Sem a
+  carência o cartão sai e volta no meio da MESMA espera, que é o "dois modelos
+  de carregamento" com outra roupa. Um dono novo dentro dela CANCELA a saída. É
+  o irmão do `PV_BUSY_DELAY_MS` na outra ponta, e cobre o pior caso do vão (o
+  `FADE.time` de 0,6 s mais a leitura do IndexedDB). **O preço está dito:** um
+  cartão que de fato acabou fica esse tanto a mais na tela — e ele é um
+  indicador de estado, não um modal. O que sai NA HORA é o botão de cancelar:
+  ele é uma AÇÃO, e uma ação sem dono não pode ficar tocável nem por meio
+  segundo.
+- **O telão não passa `onEspera`**, e é só isso que o separa da preview. Não é
+  `__AV_ROLE__` lido dentro do `stage.js`: a pergunta é *"este palco é uma
+  ILUSTRAÇÃO?"*, e a tela da rede é papel `tela` e é PROJEÇÃO — a leitura de
+  papel acertaria por acidente e erraria no quarto papel.
 - **Sem quadro, a cortina fica.** `mediaReady` devolve se houve dado, e num
   stream o prazo deixou de revelar: ele socorria a transição de pendurar, mas o
   que revelava era o preto. O wallpaper é o repouso da projeção e a resposta
   certa a "não há o que mostrar". **Só no stream** — o socorro de 2,5 s do
   arquivo local não é assunto deste lote.
 
-Oráculo: `tools/toque-instantaneo.test.mjs` e a última metade do
-`tools/espera-do-stream.test.mjs`.
+Oráculo: `tools/toque-instantaneo.test.mjs`, a última metade do
+`tools/espera-do-stream.test.mjs` (provada por REVERSÃO: um palco sem `onEspera`
+que volte a criar um nó reprova) e a **passagem de bastão** no
+`tools/gaveta-e-cartao.test.mjs` — esta amostrada a cada quadro, porque um teste
+do estado FINAL passa nas duas versões (no fim o cartão está de pé de qualquer
+jeito); com a carência em zero ela devolve `{"apagou":true,"on":true}`.
 
 ### A saída de áudio: os displays, ou ESTE APARELHO (v5.215)
 
