@@ -644,6 +644,63 @@ try {
     'e a coluna de operação NÃO foi junto — lá o mudo já é uma tecla grande própria', facil);
   checar(facil.selo,
     'o SELO de camadas fica: ele é a única saída da camada de cima, e não há gêmeo dele lá', facil);
+
+  // ---- O CARTÃO DE ESPERA É CENTRADO NA PREVIEW (v1.4.9) --------------------
+  //
+  // Duas coisas que falham CALADAS, e a segunda saiu de dentro da primeira.
+  //
+  // O `#pvBusy` cobre a preview inteira (`inset: 0`) e centra o cartão com
+  // `justify-content: center` — que centra no CONTEÚDO, não na caixa. A folga
+  // que mantém o cartão fora das colunas de `.pv-fab` era só à DIREITA (de
+  // quando só existia a coluna do player), então o centro do conteúdo não era o
+  // centro da preview: MEDIDO, 15px à esquerda, em toda largura e com todo nome.
+  // Ninguém relata 15px; lê-se como desalinho e não se sabe de quê.
+  //
+  // E a folga que faltava do outro lado é literalmente o que ela existe para
+  // impedir: a coluna de OPERAÇÃO entrou à esquerda na v1.3.5 e ninguém refez a
+  // conta. MEDIDO a 360px com um nome longo, o cartão entrava 28px sob ela — e
+  // as colunas são `z-index: 5` contra 4, então o botão da cortina era desenhado
+  // POR CIMA do aro de espera.
+  //
+  // As DUAS asserções são necessárias: uma folga simétrica GRANDE demais centra
+  // e afasta, uma PEQUENA demais centra e deixa invadir — só a de centro
+  // aprovaria a segunda.
+  const cartao = await pg.evaluate(async () => {
+    const el = document.getElementById('pvBusy');
+    // Sem `previewBusy` de propósito: o que se mede é a CAIXA, e o cartão pode
+    // nascer no modo em que aquela função devolve o stub.
+    el.classList.add('on');
+    document.getElementById('pvBusyLabel').textContent =
+      'Provai e Vede 2026 — o episódio de sábado, com um nome bem comprido';
+    await new Promise((r) => requestAnimationFrame(r));
+    const cx = (b) => b.left + b.width / 2;
+    const pv = document.querySelector('.preview').getBoundingClientRect();
+    const card = document.querySelector('.pv-busy-card').getBoundingClientRect();
+    const col = (sel) => {
+      const c = document.querySelector(sel);
+      if (!c || getComputedStyle(c).display === 'none') return null;
+      return c.getBoundingClientRect();
+    };
+    const esq = col('.pv-fabs--esq');
+    const dir = col('.pv-fabs:not(.pv-fabs--esq):not(.pv-fabs--base)');
+    el.classList.remove('on');
+    document.getElementById('pvBusyLabel').textContent = '';
+    return {
+      desvio: +(cx(card) - cx(pv)).toFixed(1),
+      sobEsq: esq ? +(esq.right - card.left).toFixed(1) : null,
+      sobDir: dir ? +(card.right - dir.left).toFixed(1) : null,
+    };
+  });
+  // Um pixel de tolerância: a preview tem largura fracionária (a proporção do
+  // telão manda nela), e meio pixel de arredondamento não é descentralização.
+  checar(Math.abs(cartao.desvio) <= 1,
+    'o cartão de espera é CENTRADO na preview — `justify-content: center` centra '
+    + 'no conteúdo, e uma folga só de um lado o desloca em toda largura e com '
+    + 'todo nome', cartao);
+  checar(cartao.sobEsq !== null && cartao.sobEsq <= 0 && cartao.sobDir <= 0,
+    'e ele não passa por baixo de NENHUMA das duas colunas de `.pv-fab` — elas '
+    + 'são `z-index: 5` contra 4, então o que invade não é coberto: é coberto '
+    + 'POR ELAS', cartao);
 } finally {
   await navegador.close();
   servidor.close();

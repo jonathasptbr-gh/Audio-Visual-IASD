@@ -267,8 +267,11 @@ duas vezes num aparelho que já roda dois WebViews.
 **O cartão de "Baixando…" aparece aqui também** — é a mesma preview, logo o mesmo
 `previewBusy`. Ele volta `visivel: false` no simplificado **sem tela conectada**,
 quando a preview não está na tela. As medidas são reduzidas por `.simple-stage`
-(anel de 22px, fontes menores) e reservam à direita os 38px do `.pv-fab`, senão
-ele transborda a miniatura e passa por baixo do ícone de cast.
+(anel de 22px, fontes menores) e reservam os 38px do `.pv-fab` **dos dois
+lados** — à direita porque senão ele transborda a miniatura e passa por baixo do
+ícone de cast, à esquerda porque a folga de um lado só o tirava do centro (ver
+abaixo). Aqui a coluna da esquerda nem existe, então o que a simetria compra é
+só o centro.
 
 **A única parte que muda por contexto é quem responde "há tela?"** No app são as
 telas de apresentação que a ponte lista (`AVNative.displays()` +
@@ -4625,8 +4628,22 @@ segundos, e o toque precisa mudar a tela AGORA. Duas metades:
   simultâneos, e o primeiro a terminar não pode apagar o indicador do outro.
 - **A ação e o nome são campos separados** (`Baixando` em caixa alta miúda, o
   nome embaixo): numa caixa de ~250px a frase inteira estoura a linha.
-- **O cartão desvia dos `.pv-fab`** (padding-right 38px) e **não aparece na tela
-  cheia**, onde a preview É a projeção e ele iria para o telão.
+- **O cartão desvia das DUAS colunas de `.pv-fab`** (38px de folga de cada lado,
+  v1.4.9) e **não aparece na tela cheia**, onde a preview É a projeção e ele iria
+  para o telão. A folga é simétrica por duas razões que uma só não atende:
+  - **CLAREZA.** As colunas são `z-index: 5` contra 4 — o que invade não é
+    coberto, é coberto POR ELAS. A folga existia só à direita, de quando só havia
+    a coluna do player; a de OPERAÇÃO entrou à esquerda na v1.3.5 e ninguém refez
+    a conta. MEDIDO a 360px com um nome longo: 28px sob ela, com o botão da
+    cortina desenhado sobre o aro de espera.
+  - **CENTRO.** `justify-content: center` centra no CONTEÚDO, não na caixa: com
+    8px de um lado e 38px do outro o cartão nascia **15px à esquerda** do centro
+    da preview, em toda largura e com todo nome. Ninguém relata 15px — lê-se como
+    desalinho, e não se sabe de quê.
+
+  Oráculo: as duas últimas metades do `tools/controles-layout.test.mjs`, e são
+  DUAS porque uma folga simétrica grande demais centra e afasta, e uma pequena
+  demais centra e deixa invadir — só a de centro aprovaria a segunda.
 - **No simplificado sem tela conectada ele não existe** — a preview não está na
   tela —, e por isso `previewBusy` devolve `{ visivel, soltar }`.
 

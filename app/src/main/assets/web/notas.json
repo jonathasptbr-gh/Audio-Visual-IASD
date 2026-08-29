@@ -1,5 +1,11 @@
 [
   {
+    "versao": "1.4.9",
+    "itens": [
+      "O AVISO DE \"PREPARANDO\" FICOU CENTRALIZADO NA PREVIEW. Ele nascia um pouco à esquerda do meio — sempre, em qualquer tamanho de tela e com qualquer nome —, e com um nome comprido chegava a entrar por baixo dos botões da lateral esquerda: o botão da cortina aparecia desenhado sobre o aro que gira."
+    ]
+  },
+  {
     "versao": "1.4.8",
     "itens": [
       "AGORA HÁ UM ÚNICO AVISO DE CARREGAMENTO, e ele fica no celular. Havia dois — o cartão \"Preparando…\" sobre a preview e um aro girando dentro da projeção —, e eles se revezavam: parte da espera aparecia num, parte no outro. O aro saiu inteiro. Enquanto o vídeo não estiver de fato tocando, o telão mostra o papel de parede e mais nada; quem diz que o app está trabalhando é o cartão, no celular, do toque ao primeiro quadro.",
