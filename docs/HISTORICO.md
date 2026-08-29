@@ -24,6 +24,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
+- **v1.4.29** — AS ALTURAS DA FAIXA, E O TECLADO QUE ESPREMIA O CULTO. Dois relatos, e cada um tem uma causa própria. **1) A ALTURA**: *"a altura dos botões de cancelar ou confirmar exclusão, como também a altura da caixa de renomear, estão desalinhadas com as alturas dos botões padrões de tudo dentro da gaveta, como o próprio botão de confirmar renomeação"*. MEDIDO a 430px: no Cronograma TODO quadrado da linha mede `--thumb` (40px, desde a v5.259) e o par e o campo nasceram com `--hit` (34px) — **6px** de diferença, e o ✓ do renomear era a régua que denunciava, porque ele é um `.row-slot` da v1.4.27 e já media 40. O escopo da correção é `.row-acoes` e não `.lib-item`, porque **a régua é o VIZINHO e não a lista**: na FILA os quadrados já medem `--hit` (nunca esteve desalinhada) e na faixa dos FAVORITOS o vizinho é o confirmar da folha, que ESTICA. **2) UM TERCEIRO CASO, achado pela mesma medição e que o operador ainda não tinha visto**: nos Favoritos o campo de renomear media 34px contra os 53,2px do confirmar ao lado — o MESMO pulo de 19px sob o dedo que a v5.309 já tinha corrigido para a pergunta da exclusão, num caminho (o renomear, v1.4.25) que nasceu depois daquela regra e ficou de fora dela. **3) O TECLADO**: *"o teclado está arrastando e encolhendo a tela com o controle ao invés de sobrepor o controle/tela como já faz na biblioteca"*. A régua já estava escrita no CSS do `.popup-backdrop` — *"O TECLADO SOBREPÕE, NÃO DESLOCA… quem rola é a LISTA"* — e vale aqui com um motivo a mais: o que o app encolhe para caber é a PREVIEW e o TRANSPORTE, isto é, a projeção e os controles do culto, comprimidos para revelar um campo que já está à vista numa lista que rola sozinha. A declaração é do CAMPO (`data-teclado="sobrepoe"`), não uma classe que o handler conheça, e o padrão continua sendo DESLOCAR — que é o que o `appPrompt` precisa. Cinco asserções novas, todas provadas por reversão. OTA PURO.
 - **v1.4.28** — A APRESENTAÇÃO VIROU CAMADA (música atrás dos slides), E AS ABAS DO AUXILIAR SEGUEM A PILHA. Dois pedidos do operador: *"adicione a possibilidade de música atrás dos slides. Atualmente são concorrentes, mas os slides devem ser tratados como camada, assim como as imagens ou os textos e mensagens"* e *"a aba da bíblia está entre a letra e a cifra, coloque ela à esquerda, pois letra e cifra são irmãs, sempre juntas quando ambas existem"*. **O primeiro é a v5.312 aplicada de novo:** o motor tem UM slot de mídia (`loadInner` faz `video.pause()` + `removeAttribute('src')` sem condição), então todo `load` mata o louvor — e o que sobrevive a isso é a Camada de Texto, que não emite `load` nenhum. Uma página de deck é UMA imagem opaca ocupando a tela, que é exatamente o que aquele cartão já pinta, então a apresentação entrou no modo `image` com um campo `page` a mais: o telão ganhou uma **escolha de blob** e nenhum ramo novo, nenhuma classe, nenhum caminho novo de reenvio nem de `text-hide`. O que um deck tem e uma imagem não tem são PÁGINAS, e daí as três peças próprias: `slideTarget` devolve `'deck'` ANTES da guarda que devolve `null` para a imagem (o argumento dela é *"este cartão não tem para onde ir"*, e um deck tem); `deckIr` ganhou DOIS caminhos num ponto só (como mídia a página anda por `page`, na camada ela reenvia o `text` — um `page` mandado para a camada não acha deck nenhum no motor e **não faz NADA**, sem erro, com o operador apertando o botão); e `deckNoAr()` é a resposta ÚNICA para *"qual apresentação está no ar"*. **A metade que quase passou é a PREVIEW**: ela pinta este cartão por conta própria (`pintarPvTextImg`) e ficaria na página 1 para sempre enquanto o telão passa slides — sem TV a preview É a projeção, e é a armadilha do `fundo-da-letra` outra vez (*ler cada lado isolado aprova os dois*). **O segundo pedido era uma SEGUNDA LISTA**: a ordem certa já existia (a pilha do `lyricsViewSources`), e a errada era a do HTML estático — que divergiu em silêncio, com a folha funcionando e a Bíblia separando duas abas irmãs. Hoje a tela REORDENA os botões por `avail`. `imgSession` virou `visualSession` no mesmo lote: um nome que guardasse um deck seria a armadilha que este projeto nomeia. Oráculo novo (`slides-sobre-audio.test.mjs`, 24 asserções, com a COR do pixel provando a página), cinco reversões, 62/62 verdes. **SÓ BASE WEB.**
 - **v1.4.27** — O `⋮` CEDE A COLUNA AO PROCESSO, E A CAPA SAI JUNTO. Pedido do operador: *"durante a renomeação e durante a confirmação de exclusão, pode remover (no caso da exclusão) e utilizar (no caso de renomear) o botão que abre a gaveta de opções do item. Pois hoje durante um desses processos o botão fica visível, mas ele contradiz o fluxo dos botões, pois o processo de exclusão e o de renomear já devem ter métodos de retorno/cancelamento… inclusive, pode padronizar, ocultar também a thumbnail, para ter mais espaço tanto para a gaveta de opções como para a barra de renomeação… use o próprio botão de abrir gaveta de opções como botão indicativo"*. O defeito é de FLUXO, não de pintura: um `⋮` aceso ao lado de "Cancelar/Excluir" é uma **terceira saída** para uma pergunta que já tem duas — e as três fazem coisas diferentes, porque fechar a gaveta desfaz a pergunta, isto é, cancela POR ACIDENTE. **A capa saía pelo mesmo argumento, já vencido de dentro:** o que a mantinha era *"com o nome coberto, ela é a única coisa que ainda diz de QUAL linha é este menu"*, e na exclusão ela virava uma LIXEIRA — parava de identificar coisa nenhuma. Fora do processo o argumento continua inteiro e as duas colunas continuam lá. **A terceira parte é a que amarra as outras duas:** as duas primeiras abrem ~48px na faixa (MEDIDO: 292px → 340px a 430px), e a coluna do `⋮` passa a ser ocupada pelo SÍMBOLO do processo — a lixeira na exclusão, o ✓ no renomear —, na caixa exata que o `⋮` ocupava; sem ocupante a linha encolheria e a faixa dançaria de largura no meio de um destrutivo. O slot mede o `⋮` **por construção** (entra nas mesmas regras de caixa e de escala de ícone), então segue `--hit` na fila e `--thumb` no Cronograma sem ninguém precisar lembrar. **O CAMINHO B está medido e é o que o lote pode quebrar sem sintoma:** a gaveta dos FAVORITOS não tem `⋮` (ela abre pelo corpo da linha e a faixa fica ABAIXO, sem cobrir nada), e lá o ✓ volta para dentro da faixa e a lixeira para a capa — cada um para a casa de onde saiu, e são destinos diferentes de propósito, porque um DECIDE e o outro ILUSTRA. Quatro asserções novas no `smoke.mjs` e uma no `boot-nativo`, todas provadas por reversão. OTA PURO.
 - **v1.4.26** — O AUXILIAR DE LEITURA OFERECE TUDO O QUE ESTÁ EM EXIBIÇÃO, e o TOQUE PULA PARA O SLIDE. Pedido do operador, em duas partes: *"o auxiliar de leitura deve deixar disponível os auxiliares de tudo que estiver em exibição, seja uma música de fundo e uma bíblia sobrepondo… devo ter a opção da letra, da cifra e da bíblia, pois todos estes estão em exibição. É claro, o elemento na camada mais a frente de tudo é o que aparece na abertura"* e *"preciso da capacidade de tocar nos slides para passar ou pular diretamente para um slide em específico"*. A primeira **REVOGA duas exclusividades que este projeto escreveu e defendeu** — a da Bíblia (v1.1.11) e a da apresentação (v1.4.24): as duas acertavam a PRECEDÊNCIA e erravam em tirar as outras da mesa, porque a camada de baixo continua no ar (o louvor de fundo segue tocando sob o versículo) e quem opera pode precisar dela no minuto seguinte. `lyricsViewSources` virou a PILHA, na ordem do `slideTarget()` — e não numa segunda escrita dela, que divergiria no primeiro recurso novo. **A cifra continua por último e agora é a única precedência que não vem de camada nenhuma:** ela não é projetada, é o auxiliar de quem TOCA o que está no ar. A apresentação continua sozinha, e agora **por construção** (um deck não tem letra nem acorde), não por uma regra que cale as outras. **A parte não óbvia é a ESCOLHA GUARDADA:** a aba escolhida sobrevive à reabertura desde a v1.2.x, e com a pilha essa memória passa a poder contradizer o pedido — quem tocou "Cifra" com o louvor sozinho no ar não pediu cifra para o instante em que o versículo subir por cima dele. `lvFrenteVista` guarda a camada da frente vista na última abertura, e a regra é *mudou a frente, mudou a pergunta*; DENTRO da mesma frente ela sobrevive, e com a folha ABERTA nada troca a aba embaixo do dedo de quem está lendo. A segunda parte é `deckIr(alvo)`, extraída do `deckStep` para que o toque e o ⏮/⏭ sejam o MESMO caminho — não um segundo jeito de saltar —, e ela é **tocável só com a apresentação em cena**: uma folha da Biblioteca não projeta nada, que é a promessa inteira do `lvAlvo`. Oráculo novo com as duas metades da escolha guardada, provado por três reversões. **SÓ BASE WEB.**
@@ -300,6 +301,91 @@ na nota que a revoga, não apagada da que a criou.
 - **v5.155** — é OTA PURO
 - **v5.156** — é METADE OTA e METADE APK, de novo.
 
+---
+
+## v1.4.29 — as alturas da faixa, e o teclado que espremia o culto
+
+Dois relatos do operador, logo depois da v1.4.27. Cada um tem causa própria, e a
+medição do primeiro achou um terceiro caso que ele ainda não tinha visto.
+
+### 1. As alturas
+
+> *"A altura dos botões de cancelar ou confirmar exclusão, como também a altura
+> da caixa de renomear, estão desalinhadas com as alturas dos botões padrões de
+> tudo dentro da gaveta, como o próprio botão de confirmar renomeação."*
+
+MEDIDO a 430px, e a conta é exata:
+
+| | quadrados da linha | par / campo |
+|---|---|---|
+| Cronograma | **40px** (`--thumb`) | **34px** (`--hit`) ❌ |
+| fila da playlist | 34px | 34px ✓ |
+| rodapé da folha | 42,4px | 42,4px ✓ |
+
+A v5.259 unificou a medida dos quadrados de uma linha de lista em `--thumb` — a
+capa, os botões da fileira, o `⋮` e, desde a v1.4.27, os dois `.row-slot`. O par
+e o campo nasceram com `min-height: var(--hit)`, que é o PISO DE TOQUE do app e a
+medida certa em qualquer outro lugar. **E o ✓ do renomear era a régua que
+denunciava**: ele é um `.row-slot`, então já media 40 ao lado de um campo de 34.
+
+**O ESCOPO É `.row-acoes`, e não `.lib-item`** — a régua é o VIZINHO, não a
+lista. Na FILA os quadrados já medem `--hit`, que é o que o par mede: aquela
+lista nunca esteve desalinhada. Pendurar a regra em `.lib-item`, ou escrever
+`40px` à mão, quebraria uma das duas.
+
+### 2. O terceiro caso, que a medição achou
+
+Nos **Favoritos** o campo de renomear media **34px** contra os **53,2px** do
+confirmar da folha ao lado. É o MESMO pulo de 19px sob o dedo que a v5.309 já
+tinha corrigido para a pergunta da exclusão — e o comentário dela está no
+código, dizendo por quê: *"sem isto a linha ENCOLHE ao perguntar… a gaveta dava
+um pulo de 19px sob o dedo no exato instante em que o operador mira um
+destrutivo"*.
+
+O renomear na faixa nasceu na v1.4.25, **depois** daquela regra, e ficou de fora
+dela. O ✓ não precisou ser nomeado: ele é um `.row-slot` e já estica, então
+segue a caixa assim que o campo a levanta.
+
+> E a regra da v5.309 tinha um parêntese que a v1.4.28 tornou falso — *"na
+> fileira do `⋮` o par continua nos 34px"*. Corrigido no mesmo lote: um
+> comentário que descreve o que deixou de valer não envelhece calado, ele passa
+> a afirmar o contrário do código.
+
+### 3. O teclado
+
+> *"O teclado está arrastando e encolhendo a tela com o controle ao invés de
+> sobrepor o controle/tela como já faz na biblioteca."*
+
+A régua já estava escrita, no CSS do `.popup-backdrop`: **"O TECLADO SOBREPÕE,
+NÃO DESLOCA… nada aqui embaixo precisa ser revelado e quem rola é a LISTA"**.
+Ela vale igual aqui, e com um motivo a mais: o que o app encolhe para caber é
+justamente a **preview** e o **transporte** — a projeção e os controles do
+culto —, comprimidos para revelar um campo que já está à vista, dentro de uma
+lista que rola sozinha.
+
+- **A declaração é do CAMPO** (`data-teclado="sobrepoe"`), não uma classe que o
+  `keyboardShift` conheça: o próximo campo que nascer dentro de uma lista já diz
+  o que quer sem ninguém voltar lá.
+- **O padrão continua sendo DESLOCAR**, e isso tem asserção própria: o
+  `appPrompt` é um cartão CENTRADO, e ali a metade de baixo é exatamente onde o
+  teclado sobe. Sem essa metade, desligar o mecanismo inteiro passaria.
+- **O QUE ISTO ALCANÇA, dito:** só o mundo em que o hint
+  `interactive-widget=resizes-content` é IGNORADO — a viewport de layout não
+  muda e quem encolhe o `<body>` é o `--kb`. É o WebView em edge-to-edge do
+  Android 15+, e o `smoke.mjs` já o documentava como *"o caso do aparelho do
+  operador"*. Onde o hint é HONRADO quem encolhe é o próprio navegador (o
+  `100svh` passa a valer menos) e não há daqui como impedir.
+
+### Os oráculos
+
+Cinco asserções novas — as alturas do Cronograma (medidas como IGUALDADE contra
+o botão da própria fileira, nunca contra um número: um piso em pixel reprovaria
+a fila, que está certa), a altura do campo nos Favoritos (contra o confirmar ao
+lado), e as duas do teclado. Todas provadas por reversão; a primeira devolve
+exatamente o relato — `[40, [34,34], 34]`.
+
+**OTA PURO**: nada de `java/`, `res/` ou manifest; sem degrau de
+`SHELL_VERSION`, sem `shellTag`, sem Release.
 ---
 
 ## v1.4.28 — a apresentação virou camada, e as abas seguem a pilha

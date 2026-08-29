@@ -4053,6 +4053,19 @@ try {
     await new Promise((f) => setTimeout(f, 250));
     const go3 = li.querySelector('.song-menu-go-row .song-menu-go');
     r.confirmarVolta = !!go3 && getComputedStyle(go3).display !== 'none';
+    // 7. E O CAMPO DE RENOMEAR TEM A MESMA ALTURA (v1.4.29). Ele nasceu na
+    //    v1.4.25 e ficou de fora da regra que a v5.309 escreveu para o par:
+    //    MEDIDO, 34px contra os 53,2px do confirmar ao lado — o MESMO pulo de
+    //    19px sob o dedo, no caminho que nasceu depois. Medido como IGUALDADE
+    //    contra o confirmar, nunca contra um número escrito aqui.
+    li.querySelector('.fav-acoes .row-renomear').click();
+    await new Promise((f) => setTimeout(f, 250));
+    const campoFav = li.querySelector('.linha-renome-campo');
+    const okFavAlt = li.querySelector('.row-slot--ok');
+    r.alturaCampo = campoFav ? Math.round(campoFav.getBoundingClientRect().height) : null;
+    r.alturaOk = okFavAlt ? Math.round(okFavAlt.getBoundingClientRect().height) : null;
+    fecharConfirmacaoNaLinha();
+    await new Promise((f) => setTimeout(f, 200));
     return r;
   }, fav.ids);
   checar(!faixa.erro && faixa.mesmaLinha && faixa.soltaNaGaveta === false,
@@ -4086,6 +4099,12 @@ try {
     'e enquanto a linha PERGUNTA o confirmar da folha sai de cena: dois botões '
     + 'de confirmar lado a lado diriam coisas opostas (volta inteiro no Cancelar)',
     JSON.stringify(faixa));
+  checar(!faixa.erro && faixa.alturaCampo === faixa.alturaGo
+      && faixa.alturaOk === faixa.alturaGo,
+    'e o CAMPO DE RENOMEAR também (v1.4.29) — ele nasceu na v1.4.25 fora desta '
+    + 'regra, com o MESMO pulo de 19px sob o dedo que a v5.309 tinha corrigido '
+    + 'para a pergunta da exclusão (' + faixa.alturaCampo + 'px contra '
+    + faixa.alturaGo + 'px do confirmar)', JSON.stringify(faixa));
   checar(!faixa.erro && (faixa.alturasDoPar || []).length === 2
       && faixa.alturasDoPar.every((h) => h === faixa.alturaGo),
     'com o par Cancelar/Excluir na altura do botão que ele substitui — sem isso '

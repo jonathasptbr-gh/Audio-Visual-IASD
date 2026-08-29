@@ -3370,6 +3370,10 @@ try {
       capaAntes: vis(':scope > .row > .thumb'),
       maisAntes: vis(':scope > .row > .row-mais'),
       faixaAntes: larguraDaFaixa(),
+      // A ALTURA DOS QUADRADOS DA LINHA, medida com a gaveta comum aberta: é
+      // contra ela que o par e o campo têm de bater (v1.4.29).
+      alturaDoBotao: Math.round(
+        li.querySelector('.row-acoes .row-btn').getBoundingClientRect().height),
     };
     // A CAIXA DO `⋮` MEDIDA AGORA, enquanto ele ainda está na tela: durante o
     // processo ele é `display: none` e o `getBoundingClientRect` dele é todo
@@ -3390,6 +3394,8 @@ try {
     r.delMais = vis(':scope > .row > .row-mais');
     r.delSimbolo = vis(':scope > .row > .row-slot--del');
     r.delFaixa = larguraDaFaixa();
+    r.alturaPar = [...li.querySelectorAll('.linha-confirma-btn')]
+      .map((b) => Math.round(b.getBoundingClientRect().height));
     // E O SÍMBOLO OCUPA A CAIXA QUE ERA DO `⋮`, não um lugar qualquer: a prova
     // é GEOMÉTRICA, porque "existe no DOM" não diz onde ele foi desenhado.
     r.delNaColuna = mesmaCaixa(li.querySelector(':scope > .row > .row-slot--del'));
@@ -3431,6 +3437,8 @@ try {
     r.renOk = vis(':scope > .row > .row-slot--ok');
     r.renNaColuna = mesmaCaixa(li.querySelector(':scope > .row > .row-slot--ok'));
     r.renFaixa = larguraDaFaixa();
+    r.alturaCampo = Math.round(
+      li.querySelector('.linha-renome-campo').getBoundingClientRect().height);
     // O CAMPO É O ÚNICO FILHO DA FAIXA — o ✓ saiu dela para a coluna.
     const caixa = li.querySelector('.row-acoes .linha-renome');
     r.renSoCampo = !!caixa && caixa.children.length === 1
@@ -3498,6 +3506,23 @@ try {
     + 'da faixa, e por baixo está a `.row`, cujo toque põe o item NO AR — pôr '
     + 'no ar a mídia que se está perguntando se apaga é o pior desfecho deste '
     + 'desenho, e ele não deixa rastro na faixa', JSON.stringify(slot));
+  // ===== E A ALTURA DELES É A DOS QUADRADOS DA LINHA (v1.4.29) =====
+  // Relato do operador: *"a altura dos botões de cancelar ou confirmar
+  // exclusão, como também a altura da caixa de renomear, estão desalinhadas com
+  // as alturas dos botões padrões de tudo dentro da gaveta, como o próprio
+  // botão de confirmar renomeação"*. MEDIDO: 34px (`--hit`, o piso de toque do
+  // app) contra os 40px (`--thumb`) de todo quadrado da linha — e o ✓ do
+  // renomear era a régua que denunciava, porque ele é um `.row-slot` e já media
+  // 40. Medido como IGUALDADE contra o botão da própria fileira, nunca contra
+  // um número escrito aqui: a FILA usa `--hit` nos dois lados e está certa; um
+  // piso em pixel reprovaria a lista certa e aprovaria a errada.
+  checar(!slot.erro && (slot.alturaPar || []).length === 2
+    && slot.alturaPar.every((h) => h === slot.alturaDoBotao)
+    && slot.alturaCampo === slot.alturaDoBotao,
+    'e o par e o campo têm a ALTURA dos quadrados da linha (v1.4.29): '
+    + slot.alturaDoBotao + 'px, a mesma do botão da fileira e do símbolo da '
+    + 'coluna — eram 34 contra 40, e o ✓ ao lado denunciava os 6px',
+    JSON.stringify([slot.alturaDoBotao, slot.alturaPar, slot.alturaCampo]));
   checar(!slot.erro && slot.renSoCampo === true && slot.renGravou === true,
     'e o campo fica SOZINHO na faixa, com o ✓ gravando da coluna — um botão '
     + 'que muda de casa e perde o ouvinte é o defeito que esta mudança sabe '
@@ -4397,6 +4422,86 @@ try {
     'e a ordem de cima continua colada: folha → barra → lista');
 } catch (e) {
   checar(false, 'a medição da busca com teclado terminou sem exceção (' + (e && e.message) + ')');
+}
+
+// ── O TECLADO SOBREPÕE O RENOMEAR DA LINHA, TAMBÉM (v1.4.29) ─────────────
+//
+// Relato do operador: *"o teclado está arrastando e encolhendo a tela com o
+// controle ao invés de sobrepor o controle/tela como já faz na biblioteca"*.
+//
+// É a mesma régua do bloco acima, e ela já estava escrita no CSS do
+// `.popup-backdrop`: *"O TECLADO SOBREPÕE, NÃO DESLOCA… quem rola é a LISTA"*.
+// O campo do renomear vive DENTRO da lista, que rola sozinha — e o que o app
+// encolhe para revelá-lo é justamente a PREVIEW e o TRANSPORTE, isto é, a
+// projeção e os controles do culto.
+//
+// O MUNDO MEDIDO É O DO APARELHO DO OPERADOR: o hint
+// `interactive-widget=resizes-content` IGNORADO, a viewport de layout intacta e
+// só a visual encolhendo — que é o que o `__teclado` deste arquivo simula. Onde
+// o hint é honrado quem encolhe é o navegador, e não há daqui como impedir.
+//
+// DUAS METADES, e a segunda é a que impede a correção de virar um defeito
+// maior: o campo MARCADO não encolhe o app, e um campo SEM a marca continua
+// encolhendo — o `appPrompt` é um cartão CENTRADO, e ali a metade de baixo é
+// exatamente onde o teclado sobe.
+try {
+  const tec = await pg.evaluate(async () => {
+    const alturaDoBody = () => Math.round(document.body.getBoundingClientRect().height);
+    const kb = () => getComputedStyle(document.documentElement)
+      .getPropertyValue('--kb').trim();
+    setAppMode('full');
+    activeTab = 'imports';
+    const m = await AVDB.addMedia(new Blob([new Uint8Array(8)], { type: 'audio/mpeg' }),
+      { name: 'Teclado', type: 'audio/mpeg', kind: 'audio', list: 'imports' });
+    await load();
+    const li = document.querySelector('#library .lib-item[data-id="' + m.id + '"]');
+    if (!li) return { erro: 'a linha não foi desenhada' };
+    li.scrollIntoView({ block: 'center' });
+    li.querySelector('.row-mais').click();
+    await new Promise((f) => setTimeout(f, 320));
+    li.querySelector('.row-renomear').click();
+    await new Promise((f) => setTimeout(f, 300));
+    const r = { semTeclado: alturaDoBody() };
+    // O campo do renomear está em foco (`pedirRenomearNaLinha` o foca).
+    r.focado = document.activeElement === li.querySelector('.linha-renome-campo');
+    window.__teclado(380, 0);
+    await new Promise((f) => setTimeout(f, 150));
+    r.comTeclado = alturaDoBody();
+    r.kbNoRenomear = kb();
+    window.__teclado(0);
+    fecharConfirmacaoNaLinha();
+    fecharAcoesDaLinha();
+    await new Promise((f) => setTimeout(f, 200));
+    // ---- A METADE DE CONTRASTE: o `appPrompt` continua DESLOCANDO ----
+    appPrompt({ title: 'Medição', message: 'campo sem a marca' });
+    await new Promise((f) => setTimeout(f, 280));
+    document.getElementById('appDialogInput').focus();
+    window.__teclado(380, 0);
+    await new Promise((f) => setTimeout(f, 150));
+    r.comTecladoNoPrompt = alturaDoBody();
+    r.kbNoPrompt = kb();
+    document.getElementById('appDialogCancel').click();
+    window.__teclado(0);
+    await new Promise((f) => setTimeout(f, 200));
+    await AVDB.listRemove('imports', m.id);
+    await load();
+    return r;
+  });
+  checar(!tec.erro && tec.focado === true && tec.comTeclado === tec.semTeclado
+    && tec.kbNoRenomear === '0px',
+    'O TECLADO SOBREPÕE no renomear da linha (v1.4.29): o app NÃO encolhe ('
+    + tec.semTeclado + 'px → ' + tec.comTeclado + 'px) — encolher comprime a '
+    + 'preview e o transporte para revelar um campo que já está à vista, dentro '
+    + 'de uma lista que rola sozinha', JSON.stringify(tec));
+  checar(!tec.erro && tec.comTecladoNoPrompt < tec.semTeclado
+    && tec.kbNoPrompt !== '0px',
+    'mas um campo SEM a marca continua DESLOCANDO — o `appPrompt` é um cartão '
+    + 'CENTRADO, e ali a metade de baixo é onde o teclado sobe ('
+    + tec.semTeclado + 'px → ' + tec.comTecladoNoPrompt + 'px). Sem esta '
+    + 'metade, desligar o mecanismo inteiro passaria', JSON.stringify(tec));
+} catch (e) {
+  checar(false, 'a medição do teclado no renomear terminou sem exceção ('
+    + (e && e.message) + ')');
 }
 
 checar(erros.length === 0, 'nenhum erro de console' + (erros.length ? ':\n        ' + erros.join('\n        ') : ''));

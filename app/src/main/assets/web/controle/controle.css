@@ -2102,6 +2102,7 @@ main {
    quem escrever um longo verá reticências em vez de texto por cima do vizinho. */
 .linha-confirma-btn {
   flex: 1 1 0; min-width: 0; min-height: var(--hit); padding: 0 .5rem;
+  /* (a altura DENTRO de uma linha de lista é outra — ver a regra logo abaixo) */
   border: none; border-radius: var(--radius-btn);
   appearance: none; -webkit-appearance: none;
   font-family: inherit; font-size: .82rem; font-weight: 600;
@@ -2117,6 +2118,30 @@ main {
    afundar sobre o poço (já o tom mais escuro do app) não produz degrau nenhum —
    a mesma correção que `.fav-acoes .row-btn` recebeu na v5.287. */
 .fav-acoes .linha-nao { background: var(--gaveta-btn); }
+
+/* ---------- E A ALTURA DELES É A DOS QUADRADOS DA LINHA (v1.4.29) ----------
+   Relato do operador: *"a altura dos botões de cancelar ou confirmar exclusão,
+   como também a altura da caixa de renomear, estão desalinhadas com as alturas
+   dos botões padrões de tudo dentro da gaveta, como o próprio botão de
+   confirmar renomeação"*.
+
+   MEDIDO a 430px, e a conta é exata: no Cronograma TODO quadrado da linha mede
+   `--thumb` (40px) — a capa, os botões da fileira, o `⋮` e os dois `.row-slot`
+   da v1.4.27 —, porque a v5.259 unificou essa medida ali. O par e o campo
+   nasceram com `min-height: var(--hit)` (34px), que é o PISO de toque do app e
+   a medida certa em qualquer outro lugar. Sobravam **6px** de diferença contra
+   os vizinhos, e o ✓ do renomear era a régua que denunciava: ele mede 40 (é um
+   `.row-slot`) ao lado de um campo de 34.
+
+   O ESCOPO É `.row-acoes`, e não `.lib-item`, porque a régua é O VIZINHO e não
+   a lista: na faixa dos FAVORITOS (`.fav-acoes`) quem está ao lado é o
+   confirmar da folha, que ESTICA (`align-self: stretch`) — ali a altura certa é
+   a dele, não 40px. E na FILA (`.row-item`) os quadrados já medem `--hit`, que
+   é o que o par mede: aquela lista nunca esteve desalinhada. Escrever `40px` à
+   mão, ou pendurar a regra em `.lib-item`, quebraria uma das duas. */
+.lib-item .row-acoes :is(.linha-confirma-btn, .linha-renome-campo) {
+  min-height: var(--thumb);
+}
 
 /* ---------- E A MINIATURA VIRA A LIXEIRA ----------
    O MESMO mecanismo do "Tirar do ar": o conteúdo da capa é escondido e o
@@ -4929,12 +4954,21 @@ main {
    Sem isto a linha ENCOLHE ao perguntar: com o confirmar fora de cena nada mais
    segura os 53px, e a gaveta dava um pulo de 19px sob o dedo no exato instante
    em que o operador mira um destrutivo.
-   (Na fileira do `⋮` o par continua nos 34px: lá quem dita a altura é a caixa,
-   que é a da linha, e os vizinhos são quadrados de `--thumb`.)
+   (Na fileira do `⋮` a régua é OUTRA e mora noutro lugar: lá os vizinhos são os
+   quadrados da linha, e desde a v1.4.29 o par mede `--thumb` como eles — ver
+   "E A ALTURA DELES É A DOS QUADRADOS DA LINHA".)
+
+   E O CAMPO DE RENOMEAR ENTROU AQUI NA v1.4.29. Ele nasceu na v1.4.25 e ficou
+   de fora desta regra: MEDIDO, 34px contra os 53,2px do confirmar ao lado — o
+   MESMO pulo de 19px que a v5.309 corrigiu para a pergunta da exclusão, no
+   caminho que nasceu depois dela. O ✓ não precisa ser nomeado: ele é um
+   `.row-slot` e já estica (`align-self: stretch`), então segue a caixa assim
+   que o campo a levanta.
+
    Quem centra os dois verticalmente continua sendo a regra de `.confirmando` lá
    em cima — um `align-items` repetido aqui seria letra morta, porque aquela é
    mais específica. */
-.fav-acoes > .linha-confirma > .linha-confirma-btn {
+.fav-acoes > .linha-confirma > :is(.linha-confirma-btn, .linha-renome-campo) {
   min-height: calc(var(--hit) + 1.2rem);
 }
 /* A METADE DE BAIXO da gaveta só aparece com `vendo-letra` (v5.286) — ver o

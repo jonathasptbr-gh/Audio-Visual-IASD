@@ -2971,6 +2971,19 @@ primeiro era garantir que um dos dois esquecesse uma das cinco coisas.
   desfecho só, e o resto da largura vale mais no campo. **Desde a v1.4.27 ele
   mora na COLUNA DO `⋮`** (`.row-slot--ok`), que já é essa caixa — o campo fica
   sozinho na faixa.
+- **E A ALTURA DO CAMPO É A DOS QUADRADOS DA LINHA** (v1.4.29). Ele nasceu com
+  `--hit` (34px), o piso de toque do app, contra os `--thumb` (40px) que todo
+  quadrado de uma linha de lista mede desde a v5.259 — e o ✓ ao lado, que já era
+  um `.row-slot`, denunciava os 6px. **Na gaveta dos FAVORITOS a régua é outra**:
+  lá o vizinho é o confirmar da folha, que estica, e o campo entrou na regra da
+  v5.309 (`.fav-acoes > .linha-confirma > …`) para a gaveta não dar o pulo de
+  19px sob o dedo.
+- **O TECLADO SOBREPÕE, não desloca** (v1.4.29): o campo declara
+  `data-teclado="sobrepoe"` e o `keyboardShift` deixa de descontar `--kb` por
+  ele. É a régua que o `.popup-backdrop` já escrevia para a Biblioteca — *quem
+  rola é a LISTA* —, e aqui o que o app encolhia para caber era a preview e o
+  transporte. O padrão continua sendo deslocar, que é o que o `appPrompt`
+  precisa.
 - **A capa saiu de cena na v1.4.27**, junto com o `⋮` — ver a seção acima. Até
   lá ela ficava intocada aqui (ao contrário da exclusão, que a virava lixeira),
   com o argumento de continuar dizendo de qual item era o campo.
