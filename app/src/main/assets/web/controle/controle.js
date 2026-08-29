@@ -258,7 +258,7 @@ const appVersionEl = document.getElementById('appVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.4.5';
+const WEB_VERSION = '1.4.6';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -12077,6 +12077,45 @@ async function stopClear() {
   await persistCurrent();
 }
 
+/**
+ * ===== O PALCO SAI DE CENA NO INSTANTE DO TOQUE (v1.4.6) =====
+ *
+ * "Tocar agora" num vídeo do YouTube leva SEGUNDOS até a primeira mudança na
+ * tela (a extração de rede do `ytStream`), e nesse intervalo o app não dizia
+ * nada. **A interrupção é o reconhecimento do toque**: o comando não tem
+ * ambiguidade — a cena atual vai sair de qualquer jeito —, então tirá-la no ato
+ * não antecipa nada, apenas para de esconder o que já foi decidido.
+ *
+ * É o mesmo protocolo visual que o `stage.load` já usa (esmaece o que está no
+ * ar e segura o aro de espera até `PRONTO_STREAM_MS`); o que muda é COMEÇAR no
+ * instante do comando, e não no instante em que os bytes são conhecidos.
+ *
+ * **NÃO É `stopClear`**, e a diferença é o `clearManualText`: aquele encerra as
+ * seis sessões de texto, e aqui não há razão para isso — a mídia é que está
+ * sendo trocada. Um versículo projetado sobre o louvor continua projetado, como
+ * continuaria numa troca de faixa qualquer. A escolha da camada é a MESMA
+ * (`media-clear` com cena de roteiro no ar, `clear` sem ela): duas réguas para
+ * a mesma pergunta divergiriam no primeiro ajuste.
+ *
+ * **NÃO ESPERA A GRAVAÇÃO.** O efeito visível de `pararMidia` é síncrono (o
+ * `cmd` sai na hora, e chega ao telão e às telas da rede); o que ele aguarda é
+ * o `persistCurrent`, um `await` de IndexedDB. Segurar o toque nele seria
+ * trocar uma espera de rede por uma de disco — menor, e igualmente sem motivo.
+ *
+ * **O preço está dito:** falhando a transmissão, a cena cai no download, que
+ * leva minutos, e o telão passa esses minutos no wallpaper com o cartão
+ * explicando. É a leitura honesta de *"pedi outra mídia e ela está vindo"* —
+ * devolver a anterior seria o app decidir por cima do operador.
+ */
+function cederOPalco(nome) {
+  if (midiaNoAr) {
+    pararMidia(cenaDeRoteiroNoAr() ? 'media-clear' : 'clear')
+      .then(() => { marcarNoAr(); renderNowPlaying(); })
+      .catch(() => { /* o `finally` do chamador solta o cartão de qualquer jeito */ });
+  }
+  return previewBusy('Preparando', nome);
+}
+
 
 
 // ===== gestos da biblioteca =====
@@ -15063,8 +15102,21 @@ function openYtMenu(r, alvoDado) {
   // não diz — daí ele manter subtítulo enquanto os três destinos perderam o
   // deles. No caminho de só-áudio o que ele não diz é outra coisa: o telão não
   // muda (o kind `audio` mantém o wallpaper).
-  alvo.appendChild(songMenuItem(msym(ICON.play), 'Tocar agora',
-    soAudio ? 'Sem mexer no telão' : 'Sem entrar em lista nenhuma',
+  //
+  // E COM "ONLINE" ELE DIZ OUTRA COISA AINDA, pedido do operador: **este toque
+  // toca direto da internet, e a qualidade depende dela**. A frase é sobre a
+  // CONEXÃO e não sobre o teto, porque desde o shell 60 é a banda medida que
+  // escolhe o degrau — e porque o modo de errar aqui é o de sempre neste app:
+  // uma imagem pior que a esperada, sem nada na tela dizendo por quê. Ela
+  // substitui "Sem entrar em lista nenhuma" em vez de somar-se a ela: com
+  // "Online" nada é guardado de qualquer forma (o item é o link), então aquela
+  // frase deixa de ser a informação que falta.
+  const subTocar = soAudio
+    ? 'Sem mexer no telão'
+    : (altura === YT_ONLINE
+      ? 'Toca direto da internet — a qualidade varia bastante conforme a conexão'
+      : 'Sem entrar em lista nenhuma');
+  alvo.appendChild(songMenuItem(msym(ICON.play), 'Tocar agora', subTocar,
     (vr, btn, alvos) => ytAcao(r, alvos, null, soAudio, altura), 'tocar', remontar));
   // COM "ONLINE" os três destinos guardam o LINK, e isso precisa estar dito:
   // eles são as três linhas que, em toda outra qualidade, significam "espere o
@@ -15326,7 +15378,43 @@ async function recuperarStream(rec, porque) {
 // solta continua valendo: os chamadores de fora da folha (o link já no
 // Cronograma) mandam um destino só, e escrever `['cronograma']` neles seria
 // ruído.
+// ===== O TOQUE RESPONDE NA HORA, e não quando os bytes chegam =====
+//
+// Relato do operador: *"após a seleção, ele leva algum tempo para reagir e
+// sequer aparecer o spinner do carregamento do vídeo… nem que tenha mais tempo
+// de carregamento, mas o feedback deve ser instantâneo"*.
+//
+// A janela era real e longa: `tentarTransmitir` começa por um `ytStream`, que é
+// uma EXTRAÇÃO DE REDE de segundos, e só depois dela vem o `send` que muda
+// alguma coisa na tela. No meio-tempo o único sinal era o `setYtEstado` — que
+// acende uma LINHA da Biblioteca que o `closeHymnSearch` acabou de fechar. Do
+// lado do operador: nada. E o caminho do DOWNLOAD já tinha o cartão (`ytArquivo`
+// chama `previewBusy`); o da TRANSMISSÃO nunca teve. **A assimetria era o
+// defeito.**
+//
+// ESTE INVÓLUCRO EXISTE PELA SAÍDA ÚNICA. `ytAcaoInterno` tem meia dúzia de
+// `return` — transmitiu, guardou o link, já estava na lista, o download falhou
+// — e um deles sem a liberação prenderia o cartão sobre a preview para sempre.
+// Um `finally` cobre todos, e é por isso que a chamada não foi enfiada no corpo.
+//
+// Só no `tocar`: os outros destinos não vão ao telão, e interromper a cena para
+// guardar um vídeo numa lista seria o oposto do que o toque pediu.
 async function ytAcao(r, destinos, btn, somenteAudio, altura) {
+  const alvos = typeof destinos === 'string' ? [destinos] : (destinos || []);
+  if (!alvos.includes('tocar')) return ytAcaoInterno(r, destinos, btn, somenteAudio, altura);
+  closeHymnSearch();
+  const cartao = cederOPalco(r.name || 'o vídeo');
+  try {
+    return await ytAcaoInterno(r, destinos, btn, somenteAudio, altura);
+  } finally {
+    // O cartão do DOWNLOAD (aberto por `ytArquivo` no meio do caminho) segura o
+    // próprio contador, então soltar o meu não apaga a legenda dele — nem a
+    // mensagem de falha, que `falhar()` trava sem liberar. Ver `previewBusy`.
+    cartao.soltar();
+  }
+}
+
+async function ytAcaoInterno(r, destinos, btn, somenteAudio, altura) {
   const escolhas = [...new Set(typeof destinos === 'string' ? [destinos] : (destinos || []))];
   // Sem destino nenhum o download não teria dono e o item ficaria pendurado no
   // slot avulso, invisível — pior que o Cronograma, que é a lista à vista e de
