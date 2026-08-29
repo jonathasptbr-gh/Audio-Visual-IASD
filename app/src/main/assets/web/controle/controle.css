@@ -4694,10 +4694,10 @@ main {
 /* ---------- E ELA FICA À ESQUERDA DELE (v5.307) ----------
    Pedido do operador: *"o botão de confirmar as opções de play fica à esquerda
    dos botões; deixe-o à direita, com as outras opções à esquerda"*. Quem inverte
-   é o DOM (`data-antes`, ver `destConfirmRow`), não um `order`/`row-reverse`: a
-   ordem visual e a de foco precisam concordar numa faixa que tem um destrutivo,
-   e o "Ver a letra" da Biblioteca continua depois do confirmar pela mesma linha
-   de CSS — a decisão é de quem fornece o irmão, não da faixa.
+   é o DOM (`destConfirmRow` insere o irmão ANTES do botão), não um
+   `order`/`row-reverse`: a ordem visual e a de foco precisam concordar numa
+   faixa que tem um destrutivo. Desde a v1.4.7 vale para TODA lista — o lado
+   deixou de ser escolha de quem fornece o irmão.
    `justify-content` não pesa aqui: com `flex: none` a caixa huga o conteúdo, e
    com `.confirmando` quem a preenche é a `.linha-confirma` (`flex: 1`), cujo par
    divide a faixa ao meio desde a v5.309. */
@@ -4877,9 +4877,10 @@ main {
 /* A FAIXA DE FECHO. Ela era o confirmar sozinho; desde a v5.286 pode ter um
    IRMÃO no corpo da linha (a folha não o fornece, e ali o flex de um filho só é
    um no-op). O confirmar CRESCE e o irmão fica com o que precisa: a decisão
-   principal é a que se acha sem mirar, e o outro é uma conferência. DE QUE LADO
-   ele entra é decisão de quem o fornece (`data-antes`): o "Ver a letra" da
-   Biblioteca vem depois, a faixa de ações de um Favorito vem ANTES. */
+   principal é a que se acha sem mirar, e o outro é uma conferência. O IRMÃO VEM
+   SEMPRE ANTES (v1.4.7): o confirmar é o último da faixa em toda lista, e não há
+   mais o lado por chamador que fazia os Favoritos e o resto da Biblioteca
+   discordarem. */
 .song-menu-go-row { padding-top: .35rem; display: flex; gap: .4rem; }
 .song-menu-go { flex: 1; min-width: 0; }
 /* O IRMÃO é SECUNDÁRIO por construção: recesso em vez do preenchimento em

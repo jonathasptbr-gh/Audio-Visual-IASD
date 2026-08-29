@@ -24,6 +24,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
+- **v1.4.7** — O CARREGAMENTO É TODO DO CONTROLE, E O TELÃO SÓ MOSTRA O QUE ESTÁ NO AR. Três pedidos do operador no mesmo relato, e o segundo é a correção de um desenho meio-termo da v1.4.6: *"nem coloca todo o carregamento e espera antes de jogar algo no telão e nem deixa o loading inteiramente no telão, você deixa carregar um pouco no controle e um pouco na tela… revise para que todo o loading aconteça no controle, e para o telão, literalmente só apareça quando o vídeo estiver realmente sendo reproduzido"*. **O telão passa a ter DOIS estados e nenhum intermediário**: o wallpaper em repouso, ou o conteúdo de fato no ar. O aro (`.av-stage-busy`) virou OPÇÃO do dono do palco (`espera: true`) e só a preview a liga — e é opção, e não `__AV_ROLE__` lido dentro do `stage.js`, porque a pergunta é *"este palco é uma ILUSTRAÇÃO?"* e a tela da rede é papel `tela` e é PROJEÇÃO: a leitura de papel acertaria por acidente. Mais: **sem quadro, a cortina FICA** — o `mediaReady` passou a devolver se houve dado, e num stream o prazo deixou de REVELAR, porque o que ele socorria era revelar o PRETO; o wallpaper é a resposta certa a "não há o que mostrar" (só no stream: o socorro de 2,5 s do arquivo local não é assunto deste lote). O primeiro pedido: **a reação instantânea valia só para a folha da BUSCA** — *"tocar em um item de link que esteja no cronograma ou dos favoritos"* passa por `resolverLinkYoutube`, que é a MESMA espera por outro caminho; a guarda entra lá dentro, com saída única, porque é o ponto por onde todos os caminhos do link passam. O terceiro: **o CONFIRMAR é sempre o último da faixa** — o lado era escolha de quem fornecia o irmão (`data-antes`), e quem não a fizesse caía do outro lado, que era a divergência entre os Favoritos e o resto da Biblioteca; a escolha por chamador SAIU junto, e com ela o que um chamador novo poderia esquecer. Oráculo estendido para sete metades, provado por reversão em três frentes. OTA PURO.
 - **v1.4.6** — O TOQUE RESPONDE NA HORA. Relato do operador: *"após a seleção, ele leva algum tempo para reagir e sequer aparecer o spinner do carregamento do vídeo… nem que tenha mais tempo de carregamento, mas o feedback deve ser instantâneo. Por exemplo, a mídia atual deve ser instantaneamente interrompida"*. A janela era real e longa: `tentarTransmitir` começa por um `ytStream`, que é uma EXTRAÇÃO DE REDE de segundos, e só depois dela vem o `send` que muda alguma coisa na tela. No meio-tempo o único sinal era o `setYtEstado`, que acende uma LINHA da Biblioteca — **a mesma que o `closeHymnSearch` acabou de fechar**. E o caminho do DOWNLOAD já tinha o cartão de espera sobre a preview (`ytArquivo` → `previewBusy`); o da TRANSMISSÃO nunca teve: **a assimetria era o defeito**. Agora `cederOPalco` interrompe a cena no ATO e abre o cartão com o nome do que está vindo. A INTERRUPÇÃO É O RECONHECIMENTO DO TOQUE — "Tocar agora" é um comando sem ambiguidade, a cena atual vai sair de qualquer jeito, então tirá-la no ato não antecipa nada; é o mesmo protocolo visual do `stage.load`, começando no instante do comando em vez do instante em que os bytes são conhecidos. NÃO é o `stopClear` (o `clearManualText` fica de fora: a mídia é que está sendo trocada, e um versículo projetado continua projetado), NÃO espera a gravação (o `cmd` do `pararMidia` é síncrono; o que ele aguarda é o `persistCurrent`), e SÓ no `tocar` — guardar numa lista não vai ao telão, e essa é a metade que impede a correção de virar um defeito maior. O invólucro do `ytAcao` existe pela SAÍDA ÚNICA: `ytAcaoInterno` tem meia dúzia de `return`, e um sem a liberação prenderia o cartão para sempre. Mais o subtexto pedido: com "Online", o "Tocar agora" diz que toca direto da internet e que a qualidade varia conforme a conexão. Oráculo novo que mede o MEIO (a ponte de mentira SEGURA o `ytStream` — um teste do desfecho passa nas duas versões), provado por reversão nas duas frentes. **O preço está dito:** falhando a transmissão, a cena cai no download e o telão passa esses minutos no wallpaper com o cartão explicando. OTA PURO.
 - **v1.4.5** — O APP PASSOU A MEDIR A REDE E ESCOLHER A RESOLUÇÃO. Pergunta do operador, e ela é a pergunta certa: *"não temos como fazer o teste ultra rápido sobre a velocidade da internet para escolher melhor a resolução, já que ela não muda no meio do caminho, não sendo adaptável?"*. **É justamente porque não há ABR que a escolha importa** — ela é feita UMA vez e vale o louvor inteiro —, e enquanto o manifesto trouxe uma faixa só ela era feita CEGA: sempre o teto, e uma rede que não o sustenta produz travamento, nunca imagem menor. O shell passa a entregar a **ESCADA** (`man.videos`, uma faixa por altura, `video` continua sendo o topo — aditivo de propósito) e quem escolhe é o web, por três razões e a terceira decide: é a invariante 5; a escolha depende da MEDIÇÃO, que só existe depois dos primeiros bytes; e uma regra de escolha erra, e no web ela se conserta por OTA em minutos. **A medição não custa uma requisição:** o init, o índice e o primeiro fragmento têm de ser buscados de qualquer jeito, e são eles que dizem quanto esta rede entrega — pelo caminho REAL do CDN. Um teste sintético seria pior nas três pontas (gastaria uma requisição, mediria o mesmo slow start, e ainda assim mediria um INSTANTE). **A troca só acontece ANTES DO PRIMEIRO QUADRO**, e é isso que a dispensa de todo alinhamento de tempo — nada foi mostrado, o `currentTime` é zero, trocar é recomeçar; depois disso a bandeira fecha para sempre, porque uma troca com o louvor no ar é gagueira e este projeto já decidiu que gagueira é pior que uma escolha imperfeita. **QUALQUER FALHA NA TROCA MANTÉM O DEGRAU ATUAL**, inclusive repondo o init antigo se o novo já tinha sido appendado: é a propriedade que torna a otimização aceitável num culto. A margem (1,35) existe porque a medida SUBESTIMA — ela sai do slow start —, e por isso a regra só pode DESCER. A banda medida sobrevive ao item, então o segundo louvor do culto já começa sabendo. Mais dois consertos do mesmo relato: o seletor da folha virou **TETO e diz isso na tela** (ele sempre valeu para o "Tocar agora" e nada dizia — a escala começa em "Online", que é armazenamento), e o Registro passou a imprimir a conta inteira (banda medida, degrau em que parou, e as paradas por fome). Oráculo novo, PURO, provado por reversão em três frentes; a asserção que carrega o arquivo é a MONOTONIA, que nenhum caso isolado pega. `SHELL_VERSION` 60 (`videos` + `altura` na faixa — forma de retorno). EXIGE RELEASE v1.4.5
 - **v1.4.4** — "HÁ TELA" NUNCA FOI "HÁ TELÃO". Relato do operador sobre uma smart TV: *"o volume não vinha independente de aumentar o volume ou não… fechei tudo e abri do zero e daí veio som"*. A frase do meio é o diagnóstico inteiro — **só o relançamento do app recuperava**, e é exatamente o que o código previa: `AVNative.displays()` responde pelo `DisplayManager` e quem projeta é a `Presentation`, e as duas divergem numa negociação de Miracast (`show()` LANÇA com o dongle instável; o sistema derruba a janela sozinho numa oscilação) — nos dois casos **a tela continua listada**. Enquanto o web perguntou `lastDisplays.length > 0`, esse estado calava a preview (havia "para onde mandar o som") sem ninguém tocando do outro lado: SILÊNCIO NOS DOIS LADOS, sem erro no console e com o Registro dizendo "conectado". E não passava sozinho: `syncPresentation` só voltava a rodar por um evento do `DisplayManager` — que numa tela que continua listada não vem — ou por um `onResume`, e num culto o celular fica no suporte. A correção tem TRÊS metades e nenhuma basta: (1) o campo **`telao`** por tela, que passa a responder às três perguntas cuja resposta honesta é a JANELA e não a tela — quem toca o som, se o microfone é oferecido (quem capta é o `/display/` DENTRO dela) e se o Modo Fácil destrava; a tela **continua na lista**, porque *"não há TV"* e *"a TV está aí e o telão não subiu"* pedem frases diferentes, e um filtro diria a primeira, que é falsa; (2) a **escada de retomada** (0,4 s → 8 s, cinco degraus, cancelada quando a tela some de verdade e não reagendada com um pedido em voo — `onDisplayChanged` chega em rajada); (3) enquanto o telão está no chão **o som volta para o celular**, que no espelhamento continua chegando às caixas pelo `REMOTE_SUBMIX`. O MESMO relato trazia uma segunda queixa, e ela é outro caminho: *"veio som, porém ficou travando e qualidade de vídeo baixa"*, num vídeo do YouTube tocado direto do online. O giro de espera só existia na CARGA, então uma parada por falta de buffer **congelava o quadro sem nada na tela** — e um app quebrado produz a MESMA imagem, o que deixava a única leitura possível sendo um palpite ("deve ser a internet"). Agora o giro tem DUAS razões que não se apagam uma à outra, e a fome vira NÚMERO no Registro (episódios **e** segundos parados). Uma coisa foi medida escrevendo o oráculo e mudou o desenho: **um `MediaSource` nasce vazio e dispara `waiting` em TODA transmissão**, então a primeira versão do censo contava a carga e o número passava a dizer "≥1 sempre" — a vigília só abre no primeiro `playing`. Sobre a RESOLUÇÃO baixa, a hipótese da internet está **DESCARTADA POR CONSTRUÇÃO**: o `mse.js` **não faz ABR** (está no cabeçalho dele), então aqui rede fraca produz TRAVAMENTO e nunca imagem menor — o inverso da intuição vinda do app do YouTube. O app também não escolhe baixo (teto 1080p, padrão 1080p, e MEDIDO em aparelho na v5.127: `transmitindo 1080p (137@VISIONOS + 140@VISIONOS)`). Sobram três causas e o Registro passou a separá-las (`teto Xp → transmitindo Yp` mais a nota `HAVIA Zp transmissível (outro cliente)`, que só sai quando deixamos resolução na mesa); a resposta operacional numa rede fraca é PEDIR MENOS no seletor 720p/480p, que é como se troca travamento por imagem menor num app sem ABR. Dois oráculos novos, provados por reversão. `SHELL_VERSION` 59 (o campo `telao` — **forma de retorno**, não método novo). EXIGE RELEASE v1.4.4
@@ -277,6 +278,84 @@ na nota que a revoga, não apagada da que a criou.
 - **v5.154** — é METADE OTA e METADE APK, e a divisão importa para quem for testar em aparelho.
 - **v5.155** — é OTA PURO
 - **v5.156** — é METADE OTA e METADE APK, de novo.
+
+---
+
+## v1.4.7 — o carregamento é do Controle; o telão só mostra o que está no ar
+
+Três pedidos no mesmo relato, e o do meio é a correção de um desenho que a
+v1.4.6 deixou pela metade.
+
+### 1. A reação instantânea valia só para a folha da busca
+
+> *"o tocar agora tem o sistema de reação instantânea, mas o resto não. Por
+> exemplo, tocar em um item de link que esteja no cronograma ou dos favoritos e
+> outras fontes"*
+
+A v1.4.6 pôs o reconhecimento do toque no `ytAcao` — a porta da BUSCA — e deixou
+de fora a outra porta do MESMO trabalho: um item `kind: 'youtube'` já guardado
+numa lista. Ele passa por `send` → `resolverLinkYoutube`, e ali começa a mesma
+extração de rede de segundos, sem sinal nenhum.
+
+A guarda entra **dentro do `resolverLinkYoutube`**, e não no chamador: ele é o
+ponto por onde TODOS os caminhos do link passam — o toque na linha, o avanço da
+playlist, o ⏮/⏭ do transporte, a notificação nativa. Pôr no `send` seria escolher
+um deles. Saída única pelo mesmo motivo do invólucro do `ytAcao`: são quatro
+`return`, e um sem a liberação prenderia o cartão para sempre.
+
+### 2. O desenho era indeciso — e o operador nomeou isso
+
+> *"nem coloca todo o carregamento e espera antes de jogar algo no telão e nem
+> deixa o loading inteiramente no telão, você deixa carregar um pouco no controle
+> e um pouco na tela… revise para que todo o loading aconteça no controle, e para
+> o telão, literalmente só apareça quando o vídeo estiver realmente sendo
+> reproduzido"*
+
+**O telão passa a ter dois estados e nenhum intermediário:** o wallpaper em
+repouso, ou o conteúdo de fato no ar.
+
+| peça | mudança | por quê |
+|---|---|---|
+| o aro `.av-stage-busy` | OPÇÃO do dono (`espera: true`), só a preview liga | maquinaria de carregamento é assunto de quem OPERA; na projeção ela é o app contando como funciona a quem não perguntou |
+| `mediaReady` | devolve SE houve dado | é o que separa "revelar o conteúdo" de "revelar o preto" |
+| o prazo do stream | deixou de REVELAR | ele socorria a transição de pendurar, mas o que revelava era um retângulo vazio. O wallpaper é a resposta certa a "não há o que mostrar" |
+
+**É opção, e não `__AV_ROLE__` lido dentro do `stage.js`** — e essa é a decisão
+que vale escrita: a pergunta é *"este palco é uma ILUSTRAÇÃO?"*, não *"que papel
+é este"*. A tela da rede é papel `tela` e é PROJEÇÃO, então uma leitura de papel
+acertaria por acidente e erraria no dia em que aparecesse um quarto.
+
+**Só no stream.** O socorro de 2,5 s do arquivo local é o caso de borda que ele
+sempre cobriu, e trocar aquele comportamento não é o pedido deste lote.
+
+### 3. O confirmar, à direita em toda lista
+
+> *"nos favoritos o botão de confirmar play está na direita, mas no resto da
+> biblioteca está na esquerda; pode padronizar na direita?"*
+
+O lado era **decisão de quem fornecia o irmão** (`data-antes`, v5.307), e um
+irmão que não a tomasse caía no `appendChild` — isto é, do lado oposto. Era essa
+a divergência: a faixa de ações de um Favorito pedia o lado, o "Ver a letra" da
+Biblioteca não.
+
+**A escolha some junto com a inconsistência**: o irmão entra sempre antes, o
+confirmar fica sempre por último, e não há mais o que um chamador novo possa
+esquecer. Continua sendo o DOM, e não `order`/`row-reverse` — a ordem visual e a
+de foco precisam concordar numa faixa que hospeda um destrutivo. O `data-antes`
+saiu de todos os lugares que o descreviam, no mesmo lote.
+
+### O oráculo
+
+`toque-instantaneo.test.mjs` foi de quatro para sete metades, e duas delas
+cobrem armadilhas do próprio teste: a asserção do botão mede o `destConfirmRow`
+DIRETO com um irmão de mentira (montar as duas listas de verdade seria medir dois
+renderizadores para afirmar uma coisa de um), e prova que o antigo `data-antes`
+não muda mais nada — que é o que impede a divergência de voltar por esquecimento.
+O `espera-do-stream.test.mjs` ganhou a metade da projeção, e ela precisou de uma
+CAIXA PRÓPRIA: o aro é irmão do `<video>`, e com os dois palcos soltos no `body`
+o oráculo achava o aro do primeiro e reprovava um app correto.
+
+Provado por reversão em três frentes. **OTA PURO.**
 
 ---
 

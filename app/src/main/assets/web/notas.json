@@ -1,5 +1,13 @@
 [
   {
+    "versao": "1.4.7",
+    "itens": [
+      "TODO O CARREGAMENTO ACONTECE AGORA NO CELULAR, e o telão só mostra o vídeo quando ele está de fato tocando. Antes o aro de espera aparecia também na projeção, e numa rede ruim o telão chegava a revelar uma tela vazia quando o vídeo não carregava. Agora ele tem dois estados e nenhum meio-termo: o papel de parede em repouso, ou o conteúdo no ar.",
+      "E A REAÇÃO INSTANTÂNEA AO TOQUE VALE PARA TODAS AS LISTAS. Na v1.4.6 ela cobria só o \"Tocar agora\" da busca; agora tocar num item de link guardado no Cronograma, nos Favoritos ou na playlist responde do mesmo jeito — a cena sai na hora e o aviso aparece sobre a preview.",
+      "O BOTÃO DE CONFIRMAR FICOU À DIREITA EM TODA A BIBLIOTECA. Nos Favoritos ele já estava; no resto das listas ficava à esquerda dos outros botões. Agora é sempre o último da faixa."
+    ]
+  },
+  {
     "versao": "1.4.6",
     "itens": [
       "O \"TOCAR AGORA\" DE UM VÍDEO RESPONDE NA HORA. Antes, entre o toque e a primeira mudança na tela havia vários segundos — o app estava buscando o vídeo na internet e não dizia nada, nem mostrava o carregando. Agora a mídia que está no ar é interrompida no ATO, e um aviso aparece sobre a preview com o nome do que está vindo. O carregamento continua levando o tempo que leva; o que muda é você saber, desde o primeiro instante, que o toque foi recebido.",

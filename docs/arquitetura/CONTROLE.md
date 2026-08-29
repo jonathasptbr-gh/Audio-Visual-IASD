@@ -1269,7 +1269,30 @@ defeito**.
   minutos, e o telão passa esses minutos no wallpaper com o cartão explicando.
   Devolver a mídia anterior seria o app decidir por cima do operador.
 
-Oráculo: `tools/toque-instantaneo.test.mjs`.
+- **E VALE PARA O ITEM DE LINK JÁ GUARDADO** (v1.4.7). A guarda mora dentro do
+  `resolverLinkYoutube`, não no chamador: ele é o ponto por onde TODOS os
+  caminhos do link passam — o toque na linha, o avanço da playlist, o ⏮/⏭, a
+  notificação nativa. Pôr no `send` seria escolher um deles.
+
+### Todo o carregamento é do Controle; o telão só mostra o que está no ar (v1.4.7)
+
+Pedido do operador: *"revise para que todo o loading aconteça no controle, e
+para o telão, literalmente só apareça quando o vídeo estiver realmente sendo
+reproduzido"*. O desenho anterior era meio-termo — parte da espera na preview,
+parte na projeção.
+
+- **O aro (`.av-stage-busy`) é OPÇÃO do dono do palco** (`espera: true`), e só a
+  preview a liga. Não é `__AV_ROLE__` lido dentro do `stage.js`: a pergunta é
+  *"este palco é uma ILUSTRAÇÃO?"*, e a tela da rede é papel `tela` e é
+  PROJEÇÃO — a leitura de papel acertaria por acidente e erraria no quarto papel.
+- **Sem quadro, a cortina fica.** `mediaReady` devolve se houve dado, e num
+  stream o prazo deixou de revelar: ele socorria a transição de pendurar, mas o
+  que revelava era o preto. O wallpaper é o repouso da projeção e a resposta
+  certa a "não há o que mostrar". **Só no stream** — o socorro de 2,5 s do
+  arquivo local não é assunto deste lote.
+
+Oráculo: `tools/toque-instantaneo.test.mjs` e a última metade do
+`tools/espera-do-stream.test.mjs`.
 
 ### A saída de áudio: os displays, ou ESTE APARELHO (v5.215)
 

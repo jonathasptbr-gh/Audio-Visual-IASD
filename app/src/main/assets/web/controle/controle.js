@@ -258,7 +258,7 @@ const appVersionEl = document.getElementById('appVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.4.6';
+const WEB_VERSION = '1.4.7';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -1372,6 +1372,15 @@ const scrollPos = {};      // posição de scroll por aba/pasta (sessão)
 // `acertarSaidaDeAudio`, que é o único ponto que mexe nisso.
 const preview = createStage({
   wallpaper: pvWallEl, img: pvImgEl, video: pvVideoEl, forceMuted: true,
+  // ===== TODO O CARREGAMENTO APARECE AQUI, e só aqui (v1.4.7) =====
+  //
+  // Pedido do operador: *"revise para que todo o loading aconteça no controle, e
+  // para o telão, literalmente só apareça quando o vídeo estiver realmente sendo
+  // reproduzido"*. O aro de espera do `stage` é a maquinaria, e maquinaria é
+  // assunto de quem OPERA — na projeção ela é o app contando como funciona a
+  // quem não perguntou. O telão fica com dois estados e nenhum intermediário: o
+  // wallpaper em repouso, ou o conteúdo de fato no ar.
+  espera: true,
   onTime: previewTick,
   // O NAVEGADOR RECUSOU O SOM — e a resposta é voltar a tocar MUDO, na hora.
   //
@@ -9014,15 +9023,10 @@ function linhaDeItem(item, opts) {
   const depoisDeMexer = cfg.depoisDeExcluir || (() => load());
   const acoes = document.createElement('div');
   acoes.className = 'fav-acoes';
-  // ELA FICA À ESQUERDA DO CONFIRMAR (v5.307). Pedido do operador: *"o botão de
-  // confirmar as opções de play fica à esquerda dos botões; deixe-o à direita,
-  // com as outras opções à esquerda"*. Quem escolhe o lado é o DONO da faixa, e
-  // não o `destConfirmRow`: a mesma linha serve o "Ver a letra" da Biblioteca,
-  // que continua à direita porque ali o confirmar é o que se acha sem mirar. O
-  // sinal viaja no próprio nó (`data-antes`) porque é ele que atravessa as
-  // remontagens da lista — um segundo argumento no hook seria estado a mais para
-  // manter em sincronia com um nó que já diz tudo.
-  acoes.dataset.antes = '1';
+  // ELA FICA À ESQUERDA DO CONFIRMAR, que é onde TODO irmão fica desde a v1.4.7
+  // — ver `destConfirmRow`. Até lá o lado era escolha do dono da faixa
+  // (`data-antes`), e um irmão que não a fizesse caía do outro lado: era essa a
+  // divergência entre os Favoritos e o resto da Biblioteca.
   acoes.append(...(lista ? [
     botaoExcluirDaLinha(item, lista, depoisDeMexer),
     botaoRenomearDaLinha(item, depoisDeMexer),
@@ -9033,7 +9037,8 @@ function linhaDeItem(item, opts) {
   //
   // Pedido do operador: *"ponha o botão de confirmar as escolhas do play dos
   // favoritos para que ele fique lado a lado … ajustado com a altura dos
-  // botões"*. (O LADO se inverteu na v5.307 — ver `data-antes` acima.)
+  // botões"*. (O LADO se inverteu na v5.307 e virou regra única na v1.4.7 —
+  // ver `destConfirmRow`.)
   //
   // Ela era um bloco PRÓPRIO no pé da gaveta, logo abaixo da linha do confirmar
   // — duas faixas empilhadas para o que cabe numa, e a gaveta inteira mais alta
@@ -15269,7 +15274,34 @@ async function trocarLinkPeloArquivo(velhoId, novoId) {
  * nasceu (a régua da v5.207). Um link que não resolve e não diz nada é
  * indistinguível de um toque que não pegou, e o operador toca de novo.
  */
+// ===== E ELE VALE PARA TODO CAMINHO QUE PÕE UM LINK NO AR (v1.4.7) =====
+//
+// Relato do operador: *"o tocar agora tem o sistema de reação instantânea, mas
+// o resto não. Por exemplo, tocar em um item de link que esteja no cronograma ou
+// dos favoritos e outras fontes"*.
+//
+// A v1.4.6 pôs o reconhecimento do toque no `ytAcao` — a folha da BUSCA —, e
+// deixou de fora a outra porta do mesmo trabalho: um item `kind: 'youtube'` já
+// guardado numa lista. Ele é a MESMA espera (o `tentarTransmitir` abaixo começa
+// pela mesma extração de rede de segundos) e não tinha sinal nenhum.
+//
+// A guarda mora AQUI, e não no `send`, pelo motivo que este arquivo já aplica
+// duas vezes: `resolverLinkYoutube` é o ponto por onde TODOS os caminhos do link
+// passam — o toque na linha, o avanço da playlist, o ⏮/⏭ do transporte, a
+// notificação nativa. Pôr no chamador seria escolher um deles.
+//
+// SAÍDA ÚNICA pelo mesmo motivo do invólucro do `ytAcao`: são quatro `return`
+// aqui, e um sem a liberação prenderia o cartão sobre a preview para sempre.
 async function resolverLinkYoutube(rec) {
+  const cartao = cederOPalco((rec && rec.name) || 'o vídeo');
+  try {
+    return await resolverLinkInterno(rec);
+  } finally {
+    cartao.soltar();
+  }
+}
+
+async function resolverLinkInterno(rec) {
   const vid = (rec && rec.youtubeId) || extractYouTubeId((rec && rec.url) || '');
   if (!vid) {
     notaNoItem(rec.id, 'Sem o vídeo de origem — não há o que projetar.');
@@ -16432,13 +16464,23 @@ function destConfirmRow(aoLado) {
     : (songMenuFor && typeof songMenuFor.aoLado === 'function' ? songMenuFor.aoLado : null);
   if (dono) {
     const irmao = dono();
-    // O LADO É DECISÃO DO IRMÃO (v5.307), dita em `data-antes`: a faixa de ações
-    // de um Favorito entra ANTES do confirmar, o "Ver a letra" da Biblioteca
-    // continua depois. Esta função não conhece nenhum dos dois — pergunta.
-    if (irmao) {
-      if (irmao.dataset && irmao.dataset.antes) li.insertBefore(irmao, btn);
-      else li.appendChild(irmao);
-    }
+    // ===== O CONFIRMAR É SEMPRE O ÚLTIMO, e isso deixou de ser negociável =====
+    //
+    // Relato do operador (v1.4.7): *"nos favoritos o botão de confirmar play
+    // está na direita, mas no resto da biblioteca está na esquerda; pode
+    // padronizar na direita?"*.
+    //
+    // O lado era DECISÃO DO IRMÃO (v5.307, `data-antes`), e um irmão que não a
+    // tomava caía no `appendChild` — isto é, no lado oposto. Duas portas para o
+    // mesmo botão primário, e a divergência era o padrão de quem esquecesse a
+    // marca. **A escolha some junto com a inconsistência**: quem entra antes é
+    // sempre o irmão, quem decide fica sempre na direita, e não há mais o que
+    // um chamador novo possa esquecer.
+    //
+    // Continua sendo o DOM, e não `order`/`row-reverse`: a ordem visual e a de
+    // foco precisam concordar numa faixa que hospeda um destrutivo (a lixeira da
+    // `.fav-acoes`).
+    if (irmao) li.insertBefore(irmao, btn);
   }
   return li;
 }
