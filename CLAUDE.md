@@ -3583,6 +3583,18 @@ Rodar local: `./gradlew assembleDebug` (exige Android SDK).
   crescendo mesmo SEM TELÃO — caso em que o `diag-ask` nem chega a sair.
   Montá-la no `juntarDiag` congelava a lista no instante da última resposta do
   telão, e ela seguia parecendo completa.
+- **UM NÚMERO RESPONDE "COM QUE FREQUÊNCIA?"; UMA LINHA RESPONDE "DA ÚLTIMA
+  VEZ?"** (v1.4.13). São perguntas diferentes, e um diagnóstico que só guarda a
+  última ocorrência não alcança uma falha INTERMITENTE — MEDIDO: três Registros
+  da mesma semana deram três respostas sobre a extração do YouTube, e a leitura
+  que saiu delas ("é sempre") foi uma generalização de duas amostras que a
+  terceira derrubou. Onde o desfecho pode variar entre uma vez e outra, o bloco
+  leva CONTADOR DE SESSÃO ao lado da linha: `AVStream.fome` (episódios e
+  segundos parados) e `ytCenso` (pedidos, transmitidos, qualidade limitada) são
+  os dois de hoje. **Contador, não log:** guardar QUAIS vídeos responderia mais
+  e custaria tamanho, privacidade do que se copia e uma segunda fonte de
+  verdade. E **só sai depois de acontecer** — uma linha de zeros é mais uma para
+  ler em toda cópia.
 - **O REGISTRO É SOBRE O CULTO, não sobre o catálogo** (v1.1.19). Ele responde a
   quatro perguntas, e é por elas que se decide o que entra: *o que eu toquei
   antes disso?* (ações do operador) · *quando a conexão mudou?* (TV e telas, em
@@ -3714,7 +3726,7 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: v1.4.12** (base web) · **v1.4.5** (APK) · `SHELL_VERSION` **60** · bundle com
+**Versão atual: v1.4.13** (base web) · **v1.4.5** (APK) · `SHELL_VERSION` **60** · bundle com
 `minShell: 60` — o shell 60 é o **PISO**: todo método da ponte existe, e não há
 guarda de versão no lado web. O que continua valendo é que `java/`, `res/`, o
 manifest e os workflows **só chegam instalando o APK**.

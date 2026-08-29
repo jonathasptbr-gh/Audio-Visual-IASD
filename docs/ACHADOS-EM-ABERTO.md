@@ -159,14 +159,36 @@ O aviso da v1.4.11 continua certo — ele descreve a extração que aconteceu, n
 um estado permanente do app, e passar a aparecer só às vezes é o comportamento
 correto de um sintoma que só às vezes existe.
 
-**O INSTRUMENTO É QUE NÃO ALCANÇA, e este é o achado que sobra.** O Registro
-guarda a ÚLTIMA extração de cada tipo, então ele responde *"o que aconteceu da
-última vez?"* e nunca *"com que frequência?"* — que é exatamente a pergunta de
-uma falha intermitente. Três Registros deram três respostas e nenhuma conta.
-**Correção proposta:** um contador de sessão ao lado da linha da extração
-(quantas extrações, quantas sem par DASH), na forma do `AVStream.fome`, que já
-resolve este mesmo problema para os travamentos. Barato, sem log, e transforma
-"impressão" em número.
+**O INSTRUMENTO NÃO ALCANÇAVA — FEITO na v1.4.13.** O Registro guardava a ÚLTIMA
+extração de cada tipo, então respondia *"o que aconteceu da última vez?"* e
+nunca *"com que frequência?"* — a pergunta de uma falha intermitente. Três
+Registros deram três respostas e nenhuma contava.
+
+O `ytCenso` é a forma do `AVStream.fome` aplicada a este caminho: contadores de
+sessão, sem log e sem disco. Duas linhas novas no bloco da transmissão:
+
+```
+nesta sessão: 7 pedido(s) de transmissão · 5 transmitiu(ram) · 2 caiu(ram) no download
+e 2× a projeção saiu em qualidade limitada (a menor: 360p)
+```
+
+Três decisões que o oráculo trava (metade 10 do `toque-instantaneo.test.mjs`,
+provada por reversão nas três):
+
+- **O pedido conta no ponto em que o shell é PERGUNTADO**, não na entrada da
+  função: acima dela há recusas (sem ponte, sem `mse.js`, sem URL) que nunca
+  chegam a extrair nada, e contá-las inflaria o denominador com o que não foi
+  tentado.
+- **A qualidade limitada é contada À PARTE**: um pedido pode transmitir e ainda
+  assim sair abaixo do pedido, então somá-la aos outros dois responderia uma
+  pergunta que ninguém fez.
+- **Guarda o MENOR valor, não o último** — é ele que diz se foi um degrau ou o
+  fundo do poço.
+
+**O que ele ainda não responde:** se a degeneração é por VÍDEO, por JANELA DE
+TEMPO ou por estado do processo. Para isso seria preciso guardar quais vídeos, e
+isso é um log — outra coisa, com outro preço. O censo responde a pergunta que o
+operador faz.
 
 ### A segunda medição (SUPERADA pela de cima): parecia o extrator, sistêmico
 

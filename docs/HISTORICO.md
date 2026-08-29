@@ -24,6 +24,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
+- **v1.4.13** — O REGISTRO PASSOU A CONTAR, E NÃO SÓ A DESCREVER A ÚLTIMA VEZ. Pedido do operador depois que a terceira medição derrubou a segunda: *"adicione esse contador ao registro"*. O bloco da transmissão guardava a ÚLTIMA extração e só ela — responde *"o que aconteceu da última vez?"* e nunca *"com que frequência?"*, que é a pergunta de uma falha INTERMITENTE. MEDIDO: três Registros da mesma semana deram três respostas (duas extrações degeneradas em 360p, uma com o visionOS entregando 19 faixas e 1080p no ar), e a leitura que saiu delas — *"é sempre"* — foi uma generalização de duas amostras que a terceira derrubou. O `ytCenso` é a forma do `AVStream.fome` aplicada a este caminho: contadores de sessão, sem log e sem disco, em duas linhas novas (`nesta sessão: N pedido(s) · N transmitiu(ram) · N caiu(ram) no download` e `e N× a projeção saiu em qualidade limitada (a menor: Xp)`). Três decisões, e as três provadas por reversão: **o pedido conta no ponto em que o shell é PERGUNTADO** e não na entrada da função (acima dela há recusas que nunca extraem nada, e contá-las inflaria o denominador com o que não foi tentado); **a qualidade limitada é contada À PARTE**, porque um pedido pode transmitir e ainda assim sair abaixo do pedido; e ele **guarda o MENOR valor, não o último**. A primeira asserção não existia na primeira escrita — a reversão que movia o contador para a entrada passava —, e o caso que a fecha é um alvo SEM URL, que recua antes de perguntar. CONTADOR E NÃO LOG: guardar quais vídeos responderia mais e custaria tamanho, privacidade do que se copia e uma segunda fonte de verdade. OTA PURO.
 - **v1.4.12** — AS NOVIDADES VIRARAM TÓPICOS. Pedido do operador: *"está muito texto e muito agressivo. Use apenas tópicos e não precisa entrar em detalhes… a intenção desses textos não é explicar os problemas, mas nomear eles o suficiente para o usuário entender o que foi atacado naquela atualização, e não exatamente o COMO"*. As 29 versões do `notas.json` foram reescritas: **99 itens e 24,3 kB viraram 80 e 6,8 kB**, com a média de 220 caracteres por item caindo para 55 — e o arquivo viaja em TODO bundle do OTA. Três regras, e a terceira é a que o pedido nomeia: NOMEIA, não explica (o mecanismo e a medição vão para este arquivo, que é onde alguém os procura); UMA LINHA CURTA; e SEM CAIXA ALTA de ênfase — ela era o abre de todo item (*"O APP AGORA AVISA QUE…"*) e numa lista de seis é a tela gritando. **O CI passou a cobrar as duas que são mecânicas** (teto de 120 caracteres, no máximo uma palavra em caixa alta), porque uma regra só na prosa erode item a item e ninguém percebe até o arquivo estar em 24 kB de novo. MEDIDO no diálogo real: um tópico de ~55 chars ocupa 2 linhas a 430px e 3 a 320px, então o `OTA_MAX_LINHAS` de 6 continua descrevendo o que descrevia. OTA PURO.
 - **v1.4.11** — O AVISO DE QUALIDADE LIMITADA. Pedido do operador depois de projetar 360p numa TV 4K sem nada na tela dizendo isso: *"coloque o aviso sobre a resolução estar limitada"*. **O app SEMPRE soube a altura** — ela vem do shell e vira o subtítulo da linha ("Vídeo · 1080p"); o buraco é que o "Tocar agora" põe o item na prateleira `avulsos`, **que não tem lista visível**, então a informação existia e não tinha onde aparecer. O aviso sai no cartão que já dizia "Preparando", e para isso o cartão ganhou um TERCEIRO desfecho que fala: `avisar(cap, texto)`, irmão do `falhar` (mesma mecânica, extraída para `encerrarCom`) e **âmbar, não vermelho** — neste app o vermelho é ação destrutiva ou o que está no ar, e uma ressalva não é nenhum dos dois; chamar isto de "Não deu" mandaria investigar o que funcionou. **A REGRA É DUAS CONDIÇÕES** (abaixo do pedido **e** abaixo de 720p), e uma só erra para os dois lados: só a primeira faz quem escolheu 480p receber um aviso a cada toque dizendo o que acabou de pedir; só a segunda transforma um teto baixo escolhido à mão em alarme. O piso é 720p porque é o degrau em que a imagem ainda se sustenta num telão de salão — 360p é o que produziu a queixa. Altura DESCONHECIDA não vira aviso: sem número, "qualidade limitada" é uma afirmação que ninguém pode conferir. E ele **só sai onde o resultado vai aparecer** (`aviso === 'preview'`): guardar um vídeo numa lista já mostra a altura no subtítulo dela, e um cartão sobre a preview ali insinuaria que ele vai ao telão a seguir. **O aviso não conserta nada** — a causa é o SABR e não tem conserto nosso (`ACHADOS-EM-ABERTO.md` §3) —, ele impede que a falta de resolução seja lida como defeito do app, que é a única coisa que ainda estava ao nosso alcance. Oráculo: a metade 9 do `toque-instantaneo.test.mjs`, provada por reversão nas TRÊS frentes (sem aviso; só a primeira condição; só a segunda). OTA PURO.
 - **v1.4.10** — O NOME DO APP VENCE O TÍTULO DO YOUTUBE. Relato do operador: *"o nome no card de preparação está se alterando na segunda metade do processo (provavelmente pois ele pega o nome real do vídeo online); deixe apenas o primeiro nome, que ao que parece é o nome do item ou renomeação que temos já no app"*. A leitura dele estava certa e o defeito era mais fundo que o cartão: o registro nascia com `man.name || r.name` (transmissão) e `r.name || rotulo` com o `r.name` do SHELL (download) — **o título extraído do YouTube vencendo o nome que o app já tinha**, nos DOIS caminhos. Ele chega segundos depois do toque, e nesse instante trocava o nome debaixo de tudo: o cartão (que abre com o nome do item), a barra do que está tocando, a notificação de mídia, a linha da lista. **Pior no caminho que mais importa** — um item de link do Cronograma ou dos Favoritos leva o nome que o OPERADOR deu, e o título do canal o apagava. A correção é a ordem invertida nos dois pontos, mais o genérico `'Vídeo'` que o `resolverLinkInterno` fabricava saindo da frente (ele venceria um título de verdade — justamente o caso em que o título DEVE valer). **A correção é do REGISTRO, e não do cartão**, e isso é o ponto: com a legenda certa e o registro errado a troca só mudaria de lugar. Oráculo novo no `toque-instantaneo.test.mjs`, e ele mede a SEQUÊNCIA de nomes e não o estado final — um teste do fim passa nas duas versões enquanto o segundo dono não escreveu, e passa por acidente quando os dois nomes coincidem; o que o operador viu foi a TROCA. Espionar o `previewBusy` colhe todo nome que chega ao cartão, venha do dono que vier. A segunda metade espiona o `addStreamMedia` NO PONTO DA DECISÃO, e não relê o banco depois: o `recuperarStream` troca o registro quando as URLs de mentira falham, e procurá-lo no fim mediria o desfecho do arnês. **De passagem, uma MEDIÇÃO que não virou código**: um Registro de aparelho mostrou um "Tocar agora" saindo em **360p** numa TV 3840×2160 — `clientes ANDROID 1`, o visionOS devolveu ZERO faixas, e sem par DASH o app caiu no progressivo legado; a rede mediu 12,6 Mbps. Não é a tela, não é a rede e não é a regra de escolha. Está em `docs/ACHADOS-EM-ABERTO.md` §3 com o passo que separa "este vídeo" de "o extrator". OTA PURO.
@@ -285,6 +286,67 @@ na nota que a revoga, não apagada da que a criou.
 - **v5.156** — é METADE OTA e METADE APK, de novo.
 
 ---
+
+## v1.4.13 — o Registro passou a contar, e não só a descrever a última vez
+
+> *"adicione esse contador ao registro"*
+
+### A pergunta que o bloco não respondia
+
+Ele guardava a ÚLTIMA extração e só ela — *"o que aconteceu da última vez?"*. A
+pergunta de uma falha **intermitente** é outra, e a diferença custou uma
+conclusão errada nesta mesma semana:
+
+| Registro | extração | leitura |
+|---|---|---|
+| 29/08 00:00 | 360p, `clientes ANDROID 1` | "é o extrator" |
+| 29/08 00:36 | 360p, `clientes ANDROID 1` | "confirmado, é sempre" |
+| 29/08 07:59 | **1080p**, `clientes VISIONOS 19` | **a segunda estava errada** |
+
+Três respostas, nenhuma contando. *"É sempre"* foi uma generalização de duas
+amostras.
+
+### O censo
+
+`ytCenso` é a forma do `AVStream.fome` aplicada a este caminho — contadores de
+sessão, sem log e sem disco. Duas linhas novas no bloco:
+
+```
+nesta sessão: 7 pedido(s) de transmissão · 5 transmitiu(ram) · 2 caiu(ram) no download
+e 2× a projeção saiu em qualidade limitada (a menor: 360p)
+```
+
+Três decisões, as três provadas por reversão:
+
+- **O pedido conta onde o shell é PERGUNTADO**, não na entrada da função. Acima
+  dela há recusas (sem ponte, sem `mse.js`, sem URL) que nunca chegam a extrair
+  nada; contá-las inflaria o denominador com o que não foi tentado.
+- **A qualidade limitada é contada À PARTE.** Um pedido pode transmitir e ainda
+  assim sair abaixo do pedido — somá-la aos outros dois responderia uma pergunta
+  que ninguém fez.
+- **Guarda o MENOR valor, não o último.** É ele que diz se foi um degrau ou o
+  fundo do poço.
+
+### A asserção que faltava, e como ela apareceu
+
+A primeira escrita do oráculo tinha três asserções, e a **reversão que movia o
+contador para a entrada da função PASSAVA** — as duas chamadas do teste tinham
+URL válida, então as duas posições eram equivalentes ali. O comentário afirmava
+que a posição importa e nada provava isso.
+
+O caso que fecha é um alvo **sem URL**, que recua antes de perguntar ao shell:
+com o contador no lugar certo `pedidos` não anda, com ele na entrada anda. Foi
+a reversão que apontou o buraco, não a leitura.
+
+### Contador, não log
+
+Guardar QUAIS vídeos responderia mais — se a degeneração é por vídeo, por janela
+de tempo ou por estado do processo — e custaria tamanho, privacidade do que se
+copia (o Registro existe para ser repassado) e uma segunda fonte de verdade. O
+censo responde a pergunta que o operador faz; o resto fica dito como não
+respondido em `ACHADOS-EM-ABERTO.md` §3.
+
+OTA PURO — nenhuma linha de Kotlin, `SHELL_VERSION` segue 60.
 
 ## v1.4.12 — as novidades da atualização viraram tópicos
 

@@ -258,7 +258,7 @@ const appVersionEl = document.getElementById('appVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.4.12';
+const WEB_VERSION = '1.4.13';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -15041,6 +15041,30 @@ const YT_ONLINE = -1;
 // continua contando a diferença; a tela fica quieta.
 const YT_ALTURA_BAIXA = 720;
 
+// ===== O CENSO DA SESSÃO: "com que frequência?", não "da última vez?" (v1.4.13) =====
+//
+// O Registro guardava a ÚLTIMA extração de cada tipo, e só ela. Isso responde
+// *"o que aconteceu da última vez?"* — e a pergunta de uma falha INTERMITENTE é
+// outra. MEDIDO em campo: três Registros deram três respostas (duas extrações
+// degeneradas em 360p, uma com o visionOS entregando 19 faixas e 1080p no ar),
+// e nenhuma delas contava. A leitura que saiu disso — *"é sempre"* — foi uma
+// generalização de duas amostras, e ela estava errada.
+//
+// É o mesmo problema que o `AVStream.fome` já resolve para os travamentos, e a
+// forma é a mesma: CONTADORES de sessão, sem log e sem disco. Um log
+// responderia mais e custaria o que este projeto não paga (tamanho, privacidade
+// do que se copia, uma segunda fonte de verdade); dois números respondem a
+// pergunta que o operador faz.
+//
+// MORRE COM A PÁGINA, de propósito — "nesta sessão" é o que a linha diz, e é o
+// que ela pode honrar sem gravar nada.
+const ytCenso = {
+  pedidos: 0,      // quantas vezes pedimos um manifesto ao shell
+  transmitiu: 0,   // …e quantas de fato viraram transmissão
+  limitadas: 0,    // quantas projeções saíram abaixo do pedido (ver `avisarResolucaoLimitada`)
+  menor: 0,        // a MENOR altura que chegou a ir ao ar limitada
+};
+
 // O TETO EFETIVO de um pedido. `0` e o `YT_ONLINE` significam "o padrão do
 // shell" (ver `ytBaixarNativo`), que é o primeiro da escada — só um teto
 // EXPLÍCITO vale por si, e é ele que o operador escolheu na folha.
@@ -15074,6 +15098,12 @@ function avisarResolucaoLimitada(entregue, teto) {
   // não liberou as melhores" corta ali (49px de texto numa caixa de 32), e o que
   // sobra é a metade sem a causa. Esta cabe nas duas larguras, com as duas
   // informações inteiras.
+  // O CENSO É CONTADO AQUI, e não em quem chama: esta função é o único ponto
+  // que já sabe que a altura entregue é baixa, e os dois caminhos (transmissão
+  // e download) passam por ela. Contar do lado de fora seria escrever a regra
+  // duas vezes, e as duas divergiriam no primeiro ajuste.
+  ytCenso.limitadas++;
+  if (!ytCenso.menor || h < ytCenso.menor) ytCenso.menor = h;
   const cap = 'Qualidade limitada';
   const texto = 'o YouTube só liberou ' + h + 'p';
   previewBusy(cap, texto).avisar(cap, texto);
@@ -15286,6 +15316,10 @@ async function tentarTransmitir(r, altura, somenteAudio) {
   if (!window.AVStream) { motivoStream = 'shared/mse.js não carregou'; return false; }
   if (!r || !r.url) { motivoStream = 'resultado sem URL'; return false; }
   let man = null;
+  // O PEDIDO conta AQUI, e não na entrada da função: acima dela há quatro
+  // recusas (sem ponte, sem `mse.js`, sem URL) que nunca chegam a perguntar
+  // nada ao shell. Contá-las inflaria o denominador com o que não é extração.
+  ytCenso.pedidos++;
   try {
     man = await AVNative.ytStream(r.url, altura | 0);
   } catch (e) {
@@ -15346,6 +15380,7 @@ async function tentarTransmitir(r, altura, somenteAudio) {
   // SÓ NO VÍDEO: num "só áudio" a resolução não existe, e avisar sobre ela ali
   // seria o app falando de uma coisa que o operador acabou de dispensar.
   if (!soAudio) avisarResolucaoLimitada(man.height, altura);
+  ytCenso.transmitiu++;
   setYtEstado(r.id, null);
   await fixarAvulso(rec.id);
   await load();
@@ -19339,8 +19374,31 @@ async function renderDiag() {
       ? '\nficou sem dados ' + fome.quantas + '\u00d7 nesta sessão ('
         + fome.segundos + 's parada no total)'
       : '';
+    // O CENSO DA SESSÃO, e ele responde a pergunta que as linhas acima não
+    // respondem: elas descrevem a ÚLTIMA vez, e numa falha intermitente o que
+    // importa é a proporção. Só sai quando houve pedido — num Registro tirado
+    // antes de tocar qualquer coisa, "0 de 0" é ruído.
+    //
+    // Os dois moram DENTRO do `if (motivoStream)`, e isso não deixa contagem
+    // órfã: todo caminho que pode avisar qualidade limitada passa antes por
+    // `tentarTransmitir` (o "Tocar agora", o item de link e o share), e ele
+    // escreve o `motivoStream` em toda saída. O download que NÃO passa por ali
+    // é o que guarda numa lista, e esse não avisa (ver `aviso === 'preview'`).
+    const censo = ytCenso.pedidos
+      ? '\nnesta sessão: ' + ytCenso.pedidos + ' pedido(s) de transmissão · '
+        + ytCenso.transmitiu + ' transmitiu(ram) · '
+        + (ytCenso.pedidos - ytCenso.transmitiu) + ' caiu(ram) no download'
+      : '';
+    // A qualidade limitada é contada à parte porque ela NÃO é a mesma pergunta:
+    // um pedido pode transmitir e ainda assim sair abaixo do pedido. O MENOR
+    // valor vai junto — é ele que diz se foi um degrau ou o fundo do poço.
+    const limitadas = ytCenso.limitadas
+      ? '\ne ' + ytCenso.limitadas + '\u00d7 a projeção saiu em qualidade limitada'
+        + (ytCenso.menor ? ' (a menor: ' + ytCenso.menor + 'p)' : '')
+      : '';
     blocos.push('Transmissão direta (último "Tocar agora")\n' + motivoStream
-      + linhaDeg + parou + (falha ? '\nfalhou ao tocar: ' + falha : ''));
+      + linhaDeg + parou + censo + limitadas
+      + (falha ? '\nfalhou ao tocar: ' + falha : ''));
   }
   // A TRANSMISSÃO PARA NAVEGADOR: mais um BLOCO desta caixa, nunca uma faixa
   // nova em outro canto (regra do projeto). É o único lugar em que o estado do

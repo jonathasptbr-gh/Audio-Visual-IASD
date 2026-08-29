@@ -1,5 +1,12 @@
 [
   {
+    "versao": "1.4.13",
+    "itens": [
+      "O Registro conta, por sessão, quantas vezes o vídeo caiu no download.",
+      "E quantas vezes a projeção saiu em qualidade limitada."
+    ]
+  },
+  {
     "versao": "1.4.12",
     "itens": [
       "Esta lista de novidades virou tópicos curtos, em vez de textos."
