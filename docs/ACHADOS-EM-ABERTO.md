@@ -92,6 +92,43 @@ transmissível mais alta, sob o mesmo teto, fora da escada escolhida. **MEDIDO e
 aparelho na v5.127**, o caso normal é `137@VISIONOS`, que é 1080p — a nota deve
 ser rara.
 
+### MEDIDO em 29/08/2026, e é OUTRO caso — o visionOS veio VAZIO
+
+Registro de aparelho (SM-S928B, Android 16, web v1.4.8 · shell v1.4.5), num
+"Tocar agora" que o operador leu como *"parecendo o vídeo com pouca
+resolução"* numa TV 3840×2160:
+
+```
+transmissão: … prog 1 [mp4 1 (360p)] · clientes ANDROID 1 · vídeo mp4 0 · áudio m4a 0
+             → SEM PAR DASH, caindo no download
+download:    … sem vídeo-só acima de 360p → veio mp4 18@ANDROID (360p)
+a rede mediu 12599 kbps (coube no teto)
+```
+
+**O que isso fecha:** não é a TELA (360p ampliado ~6× é a imagem descrita; 1080p
+num 4K pequeno não fica assim), não é a REDE (12,6 Mbps sustentam 1080p com
+folga, e a medição da v1.4.5 nem chegou a ter degrau para escolher), e não é a
+regra de escolha.
+
+**O que isso ABRE, e é diferente da hipótese acima:** ali o visionOS estava
+presente e sem faixa alta; aqui ele **não devolveu nada** — a extração inteira
+deu UM formato, do cliente ANDROID, e o progressivo legado é 360p por
+construção. A nota `HAVIA Zp` não sai neste caso, porque não havia faixa
+nenhuma em cliente nenhum.
+
+**O que falta para decidir, e é UM passo:** o Registro guarda só a ÚLTIMA
+extração, então uma amostra não separa *"este vídeo está degradado no YouTube"*
+de *"o cliente visionOS parou de funcionar"* — o segundo já aconteceu (o SABR,
+resolvido no extrator e recebido aqui como um bump de versão; o pin é
+`v0.26.4`). Um "Tocar agora" num vídeo de outro canal, com o Registro na mão,
+responde: `clientes ANDROID 1` de novo é o extrator (conserto upstream mais uma
+Release); `clientes VISIONOS …` é daquele vídeo, e o app está certo.
+
+**Enquanto isso a correção proposta acima segue NÃO FEITA, e agora por dois
+motivos:** o de sempre (reordenar por altura entre clientes troca imagem ruim
+por 403 na frente da congregação) e um novo — **ela não alcançaria este caso**,
+onde não há segundo cliente com faixa alguma para admitir.
+
 **Correção proposta, e só com a nota na mão:** admitir o cliente seguinte quando
 o primeiro não tiver nada acima de um piso. **Não foi feita de propósito:**
 reordenar por altura entre clientes troca uma imagem pior por um **403 na frente
