@@ -1,5 +1,13 @@
 [
   {
+    "versao": "1.4.23",
+    "itens": [
+      "A notificação de preparar apresentação voltou a mostrar o progresso.",
+      "E ela passou a dizer o nome da apresentação e quantas páginas faltam.",
+      "A cópia das páginas deixou de parecer travada no fim da importação."
+    ]
+  },
+  {
     "versao": "1.4.22",
     "itens": [
       "Os fundos e as fotos de um PowerPoint deixaram de sumir na importação.",

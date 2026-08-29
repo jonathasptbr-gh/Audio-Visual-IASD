@@ -24,6 +24,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
+- **v1.4.23** — A NOTIFICAÇÃO DE "PREPARANDO APRESENTAÇÃO" NÃO ANDAVA, e o defeito é o mesmo que o download de vídeo teve até a v5.117. Relato do operador: *"verifique a notificação do preparando apresentação, pois não está marcando progresso"*. `pptxImportar` e `deckImportar` abriam a tarefa com `bgTaskStart(…, 1)` e **nunca chamavam `bgTaskStep`** — o `onProgresso` alimentava só o cartão da tela. Barra em `0 de 1` do começo ao fim, estimativa em ZERO (`bgTaskEta` precisa de um passo para ter média) e nenhum nome na linha. Junto saiu a fase de CÓPIA do PDF, que era silenciosa: silêncio ali não é neutro — `idleMs` cresce e a notificação passa a dizer "sem resposta há X" justamente enquanto tudo vai bem. `bgTaskStep` ganhou um `total` opcional (o de uma apresentação só existe depois que o arquivo abre, como o do `bgTaskBytes`), e a troca de rótulo passou a ir com `force`. Oráculo novo, com a REVERSÃO ao lado. **SÓ BASE WEB**: sem degrau de ponte, sem `shellTag`, sem Release.
 - **v1.4.22** — A APRESENTAÇÃO CHEGAVA AO TELÃO SEM AS IMAGENS, e a causa não emite erro em lugar nenhum. Relato do operador, sobre um `.pptx` de 27 slides: *"ele não está herdando imagens e pelo que parece nem fontes"* — mais *"ao importar um pptx, após confirmar o direcionamento para o cronograma, a tela piscou e ocultou o cronograma, subindo os controles para o topo da tela"*. MEDIDO no arquivo dele: o deck não tem **um** `<img>` — todo fundo é `background-image: url(blob:…)`, e a rasterização só convertia `<img>`, logo não convertia NADA. O `<foreignObject>` é um documento à parte e nada disso falha: saem 27 páginas de 1920×1080, brancas. Consertar as imagens obriga a consertar o FORMATO junto (100,4 MB em PNG contra 12,3 MB em WebP, MEDIDO), e o palco de 1920×29.700 px pendurado no `<body>` durante a importação vira uma caixa 0×0. A tradução saiu do `controle.js` para `controle/deck.js`, com oráculo que mede PIXEL e traz a REVERSÃO ao lado de cada asserção. Lote **APK + web**: o `SlideDeck.kt` ganha a mesma regra de formato para o leitor de PDF.
 - **v1.4.21** — O "CARREGANDO" NA PRÓPRIA LINHA. Pedido do operador: *"ao carregar um link do YouTube… o item só entra em modo 'no ar' quando o vídeo realmente está visível na tela, e isso está correto, mas o item deve ter também um 'carregando' no próprio item da lista… semelhante à ideia de como já fazemos para representar visualmente downloads"*. Resolver um link leva **segundos** (a extração) ou **minutos** (o download), e nesse intervalo o `.no-ar` não pode acender — nada está no ar. O cartão sobre a preview responde *"o que vai entrar em cena?"*; a linha responde *"o que este toque está fazendo?"*, e sem ela o toque não deixava marca no lugar onde nasceu. A anatomia é a do `.baixando` de propósito (o mesmo aro, na mesma miniatura, no mesmo tamanho), com DUAS diferenças que carregam significado: o aro vai **sem a seta** (a regra da v1.4.20 aplicada de novo — não há bytes chegando) e a linha **não esmaece** (no download ela é PROVISÓRIA, o item ainda não existe; aqui ela é o item de verdade, prestes a entrar no ar). O estado vive num `Set`, não na classe do nó — a lista é reconstruída no meio da espera —, com as MESMAS duas metades do `.no-ar`: `porCarregando` na construção, nos DOIS montadores, e `pintarCarregando` na repintura. Liga e desliga em `resolverLinkYoutube`, o ponto por onde todos os caminhos do link passam, e **sobrevive a perder a vez** (v1.4.18): tocar noutra coisa abandona a projeção, não o trabalho — apagar o aro ali faria a linha dizer que parou o que continua acontecendo. Seis asserções novas no `link-perde-a-vez.test.mjs`, seis reversões, 57/57 verdes. Só web.
 - **v1.4.20** — O ÍCONE DO CARTÃO DE ESPERA SEGUE A LEGENDA. Pedido do operador, sobre o cartão de um link do YouTube: *"seu ícone segue sendo um ícone de download, enquanto que deveria ser só o spinner, sem um ícone de download nesse tipo de preparação, já que não está realmente baixando algo, para diferenciar do download em si"*. O `.dl-ring` são **DOIS desenhos** — o aro que gira (`::before`) e a SETA parada (`svg`) —, e só a segunda afirma "bytes chegando". Numa PREPARAÇÃO ela prometia o que não estava acontecendo, e isso vale para MAIS casos do que o relato nomeia: a extração de um link, a montagem de uma playlist, a rasterização de um PDF **e a própria fase pré-bytes de um download**, que nasce em "Preparando vídeo" e só vira "Baixando vídeo · 12%" no primeiro progresso. **A regra é "o ícone segue a LEGENDA"**, e não uma bandeira a mais na assinatura do `previewBusy`: a legenda já carrega essa distinção na tela, em português, e é escrita em DOIS pontos (a criação do cartão e o `atualizar` do progresso) — derivá-la ali faz o desenho e a palavra nunca discordarem, que é o defeito que o pedido nomeia. Ela **falha para o lado certo**: uma legenda nova escrita de outro jeito perde a seta e vira um spinner puro, nunca o contrário. O aro FICA, porque a espera continua sendo verdade. Oráculo no `gaveta-e-cartao.test.mjs`, medindo o RENDERIZADO (`getClientRects`) e não a classe — a classe sem a regra de CSS passaria num teste de classe e continuaria desenhando a seta na tela do operador, que é exatamente o que ele relatou. Quatro reversões, uma por peça. OTA PURO.
@@ -295,6 +296,86 @@ na nota que a revoga, não apagada da que a criou.
 - **v5.156** — é METADE OTA e METADE APK, de novo.
 
 ---
+
+## v1.4.23 — a notificação da apresentação não andava
+
+Relato do operador, logo depois da v1.4.22:
+
+> *"verifique a notificação do preparando apresentação, pois não está marcando
+> progresso"*
+
+### O defeito
+
+`pptxImportar` e `deckImportar` abriam a tarefa com `bgTaskStart(…, 1)` e
+**nunca chamavam `bgTaskStep`**. O `onProgresso` existia e era usado — mas só
+para o cartão da tela (`bg.atualizar`). Do lado da notificação a tarefa nascia
+em `0 de 1` e ficava ali até o `bgTaskEnd`:
+
+- **barra parada em 0%** do começo ao fim;
+- **estimativa em ZERO**, porque `bgTaskEta` precisa de pelo menos um passo
+  para ter média;
+- **sem nome na linha** — "Preparando apresentação" não diz QUAL.
+
+É o mesmo defeito que o download de vídeo teve até a v5.117 (e que o
+`bgTaskBytes` corrigiu **lá**), sobrevivendo neste caminho porque a unidade
+aqui é PÁGINA e não byte, e ninguém abriu a via equivalente. E ele é mudo por
+construção: nada lança, nada aparece no console, e a apresentação fica correta
+no fim. O que falha é **a única janela que existe com o app minimizado** — e o
+caso em que ela importa é o longo, de dezenas de páginas, que é exatamente
+quando ninguém está olhando a tela.
+
+### O conserto
+
+**`bgTaskStep(id, done, label, total)`** — o `total` é opcional e chega depois,
+pela mesma razão do `bgTaskBytes`: quantas páginas uma apresentação tem só se
+sabe quando o arquivo abre, e até lá a tarefa precisa existir (é ela que segura
+o processo vivo). Ele só SOBE de 1 — um total que encolhesse faria a barra andar
+para trás. Os callers antigos passam três argumentos e não mudam de
+comportamento.
+
+**Os dois caminhos passaram a nomear e a contar:** `bgItemOnly(notif, rotulo)`
+para a linha do nome, e `bgTaskStep` a cada página.
+
+**E A FASE DE CÓPIA DO PDF FALAVA COM NINGUÉM.** Entre a rasterização (no
+shell) e o registro na biblioteca há um laço que busca as N páginas do cache.
+Ele não reportava nada, e parar de reportar não é neutro: `idleMs` cresce, e
+passado `BG_STALL_MS` (90 s) a notificação troca a estimativa por *"sem resposta
+há X"* — o trecho em que tudo está indo bem era o único capaz de anunciar que
+travou. Hoje ele mantém a tarefa viva e diz "Guardando as páginas".
+
+**O total do PDF é `N + 1`, e o +1 é a cópia.** Somar as duas fases inteiras
+(`2N`) seria pior no outro sentido: a rasterização leva segundos por página e a
+cópia lê o cache local, então a barra passaria metade da vida numa fase que
+custa uma fração do tempo. É a mesma escolha do download em duas faixas — a
+barra nunca recomeça e nunca anda para trás.
+
+**A TROCA DE RÓTULO VAI COM `force`**, e isso foi o oráculo que pegou. O piso de
+envio (`BG_NOTIF_MIN_MS`, 700 ms) existe para segurar CONTADOR, não estado: uma
+cópia rápida cabe inteira dentro do piso, e sem o forçar a importação terminava
+com a notificação ainda dizendo "Preparando apresentação" — o rótulo da fase
+anterior. É a regra que o primeiro nome já seguia, aplicada a mais um caso.
+
+### O oráculo
+
+`tools/notificacao-apresentacao.test.mjs`. Um teste do DESFECHO passa nas duas
+versões (a apresentação nasce igual), então ele mede **o que a ponte recebeu** —
+a string do `bgProgress`, a mesma que o `SyncService` lê — e traz a **REVERSÃO**
+ao lado: com o `bgTaskStep` neutralizado, o mesmo import tem de produzir a
+corrente degenerada de antes (`0 de 1`, sempre).
+
+Duas coisas que escrevê-lo ensinou, e que ficam:
+
+- **O `page.evaluate` entrega UM argumento.** A primeira versão do fixture
+  declarava `(passo, paginas)` e recebia um array: o segundo parâmetro ficava
+  `undefined`, o laço não rodava e o oráculo media uma apresentação de ZERO
+  páginas — passando por engano na asserção de monotonia.
+- **O espaçamento do fixture tem de ser MAIOR que o piso de envio.** Com as
+  páginas mais juntas que os 700 ms, o que o teste mediria seria o freio, e não
+  o defeito.
+
+**SÓ BASE WEB**: nada em `java/`, `res/`, no manifest ou no build. Sem degrau de
+`SHELL_VERSION`, sem `shellTag` e sem Release — o `bgProgress` já entrega
+`label`, `done` e `total` desde sempre; o que faltava era alguém preenchê-los.
 
 ## v1.4.22 — a apresentação chegava ao telão sem as imagens
 
