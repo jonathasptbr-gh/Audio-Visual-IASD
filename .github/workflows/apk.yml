@@ -816,6 +816,21 @@ jobs:
           # em PNG contra 12,3 MB) e o PALCO não mexer no layout do documento,
           # que é o relato do operador — o app encolhendo no meio da importação.
           rodar tools/apresentacao.test.mjs
+          # E A NOTIFICAÇÃO DESSA IMPORTAÇÃO TEM DE ANDAR. `pptxImportar` e
+          # `deckImportar` abriam a tarefa com `bgTaskStart(…, 1)` e NUNCA
+          # chamavam `bgTaskStep`: o `onProgresso` alimentava só o cartão da
+          # tela, e a notificação ficava em "0 de 1" do começo ao fim, com a
+          # estimativa em zero (`bgTaskEta` precisa de um passo para ter
+          # média). É o mesmo defeito que o download de vídeo teve até a
+          # v5.117, sobrevivendo neste caminho — e mudo: nada lança, nada
+          # aparece no console, e a apresentação fica correta no fim. O que
+          # falha é a ÚNICA janela que existe com o app minimizado, no caso
+          # longo, que é quando ninguém está olhando a tela. Um teste do
+          # desfecho passa nas duas versões, então ele mede o que a PONTE
+          # recebeu (a string do `bgProgress`, a mesma que o `SyncService` lê)
+          # e traz a REVERSÃO ao lado. Ele entra no workflow no MESMO commit em
+          # que nasce — a lição da v5.145.
+          rodar tools/notificacao-apresentacao.test.mjs
           # E O TOQUE QUE RESPONDE NA HORA. "Tocar agora" num vídeo comeca por uma
           # EXTRACAO DE REDE de segundos, e ate a v1.4.6 nada mudava na tela
           # nesse intervalo — nem o aro de carregamento. O caminho do DOWNLOAD ja

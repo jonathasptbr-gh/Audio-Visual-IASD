@@ -258,7 +258,7 @@ const appVersionEl = document.getElementById('appVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.4.22';
+const WEB_VERSION = '1.4.23';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -20454,11 +20454,23 @@ async function pptxImportar(file, nome, opts) {
     ? previewBusy('Preparando apresentação', rotulo)
     : libBusy(rotulo, opts && opts.chave);
   const notif = bgTaskStart('Preparando apresentação', 1);
+  // O NOME DA APRESENTAÇÃO na linha da notificação, pela mesma razão do vídeo
+  // (ver `ytArquivo`): "Preparando apresentação" sozinho não diz QUAL, e com o
+  // app minimizado esta é a única tela que existe.
+  bgItemOnly(notif, rotulo);
   try {
     return await withBgWork(async () => {
       const feito = await AVDeck.paginasDoPptx(file, (feitas, total) => {
         const pct = total ? Math.floor((feitas / total) * 100) : -1;
         bg.atualizar('Preparando página ' + feitas + (total ? ' de ' + total : '') + '…', null, pct);
+        // E OS MESMOS NÚMEROS VÃO PARA A NOTIFICAÇÃO. Até aqui só o cartão na
+        // tela andava: a tarefa nascia com `total = 1` e ninguém a fazia
+        // avançar, então a barra ficava em 0% do começo ao fim e a estimativa
+        // em zero — exatamente o defeito que o download de vídeo teve até a
+        // v5.117, e no caso em que a notificação MAIS importa (app minimizado,
+        // dezenas de páginas, minutos de espera). A página é a unidade certa
+        // aqui, e o total só existe depois que o arquivo abre.
+        bgTaskStep(notif, feitas, null, total);
       });
       if (!feito) { deckUltimoErro = 'pptx: nenhuma página desenhada'; return null; }
       const thumb = await makeThumb(feito.pages[0], 'image');
@@ -20496,12 +20508,24 @@ async function deckImportar(origem, nome, opts) {
     ? previewBusy('Preparando apresentação', rotulo)
     : libBusy(rotulo, opts && opts.chave);
   const notif = bgTaskStart('Preparando apresentação', 1);
+  bgItemOnly(notif, rotulo);
   let primeira = null;   // uma página basta para o descarte: ele apaga a pasta
   try {
     return await withBgWork(async () => {
       const r = await AVNative.deckPages(origem, rotulo, (feitas, total) => {
         const pct = total ? Math.floor((feitas / total) * 100) : -1;
         bg.atualizar('Preparando página ' + feitas + (total ? ' de ' + total : '') + '…', null, pct);
+        // A NOTIFICAÇÃO ANDA JUNTO — ver o mesmo ponto em `pptxImportar`.
+        //
+        // O total é `N + 1`, e o +1 é a CÓPIA das páginas para a biblioteca,
+        // logo abaixo: ela é a última fatia de trabalho desta importação, e
+        // sem ela na conta a barra fecharia em 100% com o operador ainda
+        // esperando. Somar as duas fases inteiras (2N) seria pior no outro
+        // sentido — a rasterização é o que leva segundos por página e a cópia
+        // lê o cache local, então a barra passaria metade da vida numa fase
+        // que custa uma fração do tempo. É a mesma escolha do download em duas
+        // faixas: a barra nunca recomeça e nunca anda para trás.
+        bgTaskStep(notif, feitas, null, total + 1);
       });
       if (!r || !Array.isArray(r.pages) || !r.pages.length) {
         // Num shell < 22 não vem `erro` nenhum: o aviso sai sem detalhe, que é
@@ -20522,13 +20546,35 @@ async function deckImportar(origem, nome, opts) {
       truncadaEm = r.truncado ? r.pages.length : 0;
       // Uma página de cada vez: as imagens já estão no cache do aparelho, e
       // buscar as dezenas de uma vez só encheria a memória sem ganhar tempo.
+      //
+      // E ESTA FASE FALAVA COM NINGUÉM. O cartão da tela ficava na última
+      // mensagem da rasterização e a notificação parava de receber eventos —
+      // e parar de receber eventos não é neutro: `idleMs` cresce, e passado
+      // `BG_STALL_MS` a notificação troca a estimativa por "sem resposta há
+      // X". Ou seja, o trecho em que tudo está indo bem era o único capaz de
+      // anunciar que travou.
       const pages = [];
+      bg.atualizar('Guardando as páginas…', null, -1);
+      // A TROCA DE RÓTULO VAI COM `force`, pela regra que o primeiro nome já
+      // segue: o piso de envio (`BG_NOTIF_MIN_MS`) existe para segurar
+      // contador, não estado. Uma cópia rápida cabe inteira dentro do piso, e
+      // sem o forçar a notificação terminaria a importação ainda dizendo
+      // "Preparando apresentação" — o rótulo da fase anterior.
+      bgTaskStep(notif, r.pages.length, 'Guardando as páginas');
+      bgTaskSend(true);
       for (const u of r.pages) {
         const res = await fetch(u);
         if (!res.ok) { deckUltimoErro = 'página ' + (pages.length + 1) + ': HTTP ' + res.status; return null; }
         const b = await res.blob();
         if (!b.size) { deckUltimoErro = 'página ' + (pages.length + 1) + ' veio vazia'; return null; }
         pages.push(b);
+        // O `done` fica onde a rasterização o deixou: a cópia inteira é o
+        // ÚLTIMO passo do total (ver o `total + 1` acima), e não N passos. O
+        // que estes envios fazem é manter a tarefa VIVA — sem eles o relógio de
+        // ociosidade corre durante toda a cópia, e passado `BG_STALL_MS` a
+        // notificação troca a estimativa por "sem resposta há X" no trecho em
+        // que tudo está indo bem.
+        bgTaskStep(notif, r.pages.length);
       }
       const thumb = await makeThumb(pages[0], 'image');
       const criado = await AVDB.addDeck(pages, {
@@ -21566,11 +21612,21 @@ function bgPacerTick() {
   if (mudou || (now - bgLastSentAt) >= BG_REENVIO_MS) bgTaskSend(true);
 }
 
-function bgTaskStep(id, done, label) {
+// O `total` é OPCIONAL e chega DEPOIS, pela mesma razão do `bgTaskBytes`: há
+// trabalho cujo tamanho só se conhece depois de começar. Uma apresentação é o
+// caso — quantas páginas ela tem só se sabe quando o arquivo abre, e até lá a
+// tarefa precisa existir (é ela que segura o processo vivo). Sem esta via a
+// alternativa era abrir com `total = 1`, e aí os dois números que a notificação
+// existe para dar não existem: barra em 0% do começo ao fim e ETA ZERO, porque
+// `bgTaskEta` precisa de pelo menos um item concluído para ter média.
+//
+// Ele só SOBE de 1: um total que encolhesse faria a barra andar para trás.
+function bgTaskStep(id, done, label, total) {
   if (!window.__NATIVE__) return;
   const t = bgTasks.get(id);
   if (!t) return;
   if (!t.firstStepAt) t.firstStepAt = Date.now();
+  if (total > 1) t.total = total;
   t.done = done;
   t.lastEventAt = Date.now();
   if (label) t.label = label;
