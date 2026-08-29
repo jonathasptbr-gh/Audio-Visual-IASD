@@ -250,6 +250,13 @@ jobs:
           # do outro lado), o piso em vez de uma recusa, a margem, o áudio na
           # conta, e a MONOTONIA — que nenhum caso isolado pega.
           node tools/degrau-de-banda.test.mjs
+          # E AS DUAS REGRAS PURAS QUE A v1.4.19 acrescentou ao mesmo arquivo:
+          # QUAL degrau pode ser escolhido (o `suportado` validava so o TOPO da
+          # escada, e mp4 hoje carrega AV1) e QUANTO TEMPO se espera por um
+          # pedaco. A segunda tem uma propriedade RELATIVA: no vencimento a taxa
+          # implicita ja e no maximo um terco da que aquele fragmento exige — o
+          # prazo nunca alcanca uma transferencia que ainda podia dar certo.
+          node tools/degrau-e-prazo.test.mjs
           # O CONTRATO do `shouldInterceptRequest`: o `InputStream` devolvido é
           # o recurso INTEIRO a partir do byte 0, e quem aplica o `Range` é o
           # WebView. Violar isso custou três rodadas de APK (v1.52 → v1.54) com
@@ -544,6 +551,26 @@ jobs:
           # dispara `waiting` em TODA transmissão, então contar a carga faria o
           # número do Registro dizer "≥1 sempre".
           rodar tools/espera-do-stream.test.mjs
+          # E A TRANSMISSAO FAMINTA QUE DESISTE (v1.4.19). O `AVStream.fome` era
+          # o unico lugar do app que SABIA que a projecao estava parada, e so
+          # escrevia no Registro: nada agia. Um CDN que goteja congelava a cena
+          # para sempre — sem erro, sem queda para o download, com o cartao
+          # "Preparando" aceso. O RELOGIO E MOCKADO (`page.clock`): o teto sao
+          # 25 s, e espera-los de verdade daria um oraculo de dois minutos cuja
+          # reprovacao sob carga nao distinguiria defeito de agendador.
+          rodar tools/fome-que-desiste.test.mjs
+          # E O STREAM QUE NAO TEM IMAGEM. Um `kind:'audio'` sem letra — o que o
+          # "Tocar agora · So audio" produz — nao entrava em nenhum dos dois
+          # ramos que acendem o aviso e disparam a rampa: os dois pedem
+          # `!semVisual()`. A tela ficava muda por segundos e o som entrava no
+          # talo. A prova da rampa e a ESCRITA de um volume intermediario: um
+          # teste do valor final passa nas duas versoes.
+          rodar tools/stream-so-audio.test.mjs
+          # E A ROTINA DE ACERVO QUE CEDE A VEZ. `syncLyrics` e
+          # `syncCifrasAcervo` saiam da abertura sem `await`, 6 workers cada,
+          # sobre o acervo inteiro, sem olhar a cena — e a medida de banda que
+          # escolhe o degrau do louvor e feita durante essa disputa.
+          rodar tools/rotina-cede-a-vez.test.mjs
           # E o COLETOR DE LIXO do banco, que é o único código do app que apaga
           # mídia do operador. Um erro ali não dá tela branca: some com o vídeo
           # do domingo, em silêncio e sem desfazer.

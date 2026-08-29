@@ -1,27 +1,45 @@
 # Auditoria de estabilidade de ÁUDIO e VÍDEO (2026-08-29)
 
+> **ESTADO: nove dos dez achados foram CORRIGIDOS na v1.4.19**, no mesmo dia.
+> O décimo (**D1**) é MEDIÇÃO e não conserto — ele continua aberto de propósito,
+> e a receita está no lugar dele, mais abaixo. O que cada correção fez, e o
+> oráculo de cada uma, está em [`HISTORICO.md`](HISTORICO.md); este arquivo
+> continua sendo o LAUDO — o cenário, o raciocínio e a ressalva —, que é o que
+> não cabe numa nota de versão.
+>
+> A tabela abaixo guarda o estado de cada um.
+
 **A pergunta:** *o que pode INTERROMPER a transmissão, ou a mídia que está no ar
 agora?* Não "o que está feio" nem "o que é lento" — o que **para**.
 
 Varredura do caminho inteiro da mídia: `shared/mse.js`, `shared/stage.js`,
 `display/display.js`, o transporte de `controle/controle.js`, e do lado do shell
 `StreamProxy.kt`, `YoutubeGrab.manifesto`, `MainActivity`, `SessionService`,
-`EspelhoServidor`. **Nada foi corrigido neste lote** — é laudo, não conserto.
+`EspelhoServidor`. Ele nasceu como LAUDO — e as correções vieram no lote
+seguinte, no mesmo dia; ver o estado de cada achado logo abaixo.
 
 ## O placar
 
-| # | achado | onde | severidade | confiança |
+| # | achado | severidade | estado | oráculo |
 |---|---|---|---|---|
-| A1 | **um fragmento sem prazo de parede congela a transmissão PARA SEMPRE** | `mse.js` · `StreamProxy.kt` | **alta** | confirmado por leitura |
-| A2 | o degrau escolhido nunca é perguntado ao decodificador | `mse.js:233` | média | confirmado |
-| A3 | a segunda expiração do MESMO vídeo não re-extrai | `controle.js:15563` | **alta** | confirmado |
-| A4 | stream de SÓ ÁUDIO entra sem aviso e sem rampa | `stage.js:911` | baixa | confirmado |
-| B1 | `configChanges` incompleto — a projeção cai por preferência do sistema | `AndroidManifest.xml:152` | **alta** | confirmado |
-| B2 | o FGS de mídia cai numa recriação de Activity | `MainActivity.kt:668` | média | confirmado |
-| C1 | toda abertura dispara 12 requisições concorrentes, sem olhar a cena | `controle.js:13653` | **alta** | confirmado |
-| C2 | o empurrão para as telas da rede compete com o renderer | `controle.js:25443` | baixa | confirmado |
-| D1 | `shouldInterceptRequest` serializa as duas faixas? | `WebViewFactory`/`StreamProxy` | **alta, se** | **A MEDIR** |
-| D2 | o som segue a PRESENÇA de uma tela, não a capacidade dela de soar | `controle.js:1820` | média | confirmado |
+| A1 | **um fragmento sem prazo de parede congela a transmissão PARA SEMPRE** | **alta** | **corrigido v1.4.19** | `degrau-e-prazo` · `fome-que-desiste` |
+| A2 | o degrau escolhido nunca é perguntado ao decodificador | média | **corrigido v1.4.19** | `degrau-e-prazo` |
+| A3 | a segunda expiração do MESMO vídeo não re-extrai | **alta** | **corrigido v1.4.19** | — (ver a ressalva) |
+| A4 | stream de SÓ ÁUDIO entra sem aviso e sem rampa | baixa | **corrigido v1.4.19** | `stream-so-audio` |
+| A5 | o stream velho morre depois de a fonte ser puxada | mínima | **corrigido v1.4.19** | — |
+| B1 | `configChanges` incompleto — a projeção cai por preferência do sistema | **alta** | **corrigido v1.4.19** | — (manifest) |
+| B2 | o FGS de mídia cai numa recriação de Activity | média | **corrigido v1.4.19** | — (Kotlin) |
+| C1 | toda abertura dispara 12 requisições concorrentes, sem olhar a cena | **alta** | **corrigido v1.4.19** | `rotina-cede-a-vez` |
+| C2 | o empurrão para as telas da rede compete com o renderer | baixa | **medir antes de mexer** | — |
+| D1 | `shouldInterceptRequest` serializa as duas faixas? | **alta, se** | **A MEDIR** | — |
+| D2 | o som segue a PRESENÇA de uma tela, não a capacidade dela de soar | média | **corrigido em parte** | — (ver a ressalva) |
+
+**AS TRÊS CORREÇÕES SEM ORÁCULO ESTÃO DITAS, e o motivo de cada uma:** A3 e D2
+vivem no `controle.js` e exigiriam semear um acervo e um estado de espelho
+inteiros para alcançar uma linha; B1 é uma linha do manifest, que nenhum
+oráculo deste projeto lê; B2 é Kotlin de ciclo de vida, que só um aparelho
+exercita. Onde não há oráculo, o que sobra é a REVERSÃO na revisão e esta nota —
+não a impressão de que há rede de segurança.
 
 ---
 
@@ -354,7 +372,43 @@ Estes caminhos foram lidos linha a linha procurando interrupção, e estão cobe
 
 ---
 
-## A ordem que eu proporia
+## A ordem que foi seguida (v1.4.19)
+
+Nove dos dez entraram num lote só, nesta ordem — a mesma proposta abaixo, com
+B1+B2 subindo porque o lote já ia exigir Release por causa do A1 do Kotlin:
+
+1. **A3** — `streamRetentado` virou um `Map` com janela de 5 min. A janela é o
+   que mantém as duas propriedades: uma falha SEGUIDA continua caindo no
+   download (ela chega em segundos), e um episódio NOVO horas depois volta a ter
+   direito à sua tentativa.
+2. **A1**, em três metades: o prazo de parede por fragmento no `mse.js`
+   (proporcional ao que foi pedido, alimentando a escada de 4 tentativas que já
+   existia), o prazo TOTAL no `StreamProxy.readBytes` (que é onde o
+   `readTimeout` por leitura falhava), e o **watchdog de fome** no `stage.js` —
+   a última linha, que transforma 25 s de quadro congelado no `onStreamErro` de
+   sempre.
+3. **C1** — as duas rotinas de acervo consultam `midiaNoAr` na porta **e dentro
+   do laço**. Cedem a vez e SAEM, em vez de esperar: esperar seguraria o serviço
+   em primeiro plano (cota de 6 h/24 h) parado por um culto inteiro. É seguro
+   porque as duas são retomáveis e `autoRefreshCollections` roda em todo
+   `visibilitychange`.
+4. **B1 + B2** — as sete chaves que faltavam no `configChanges`, e a guarda
+   `!isChangingConfigurations` sobre o `SessionService.stop`.
+5. **A2, A4, A5, D2** — no mesmo lote, porque nenhum deles custava Release
+   própria.
+
+**D2 saiu diferente do que este laudo propunha**, e vale dito: a proposta era o
+`tela-status` carregar se aquela tela tem som. Escrevendo a correção ficou claro
+que isso seria um no-op — **parear É o gesto que libera o som** (o toque em
+"Ativar esta tela" chama `__telaSom(true)` antes do `POST /par`), então uma tela
+pareada praticamente sempre tem som. O que de fato faltava era o irmão do campo
+`telao`: `telasDaRede()` passou a exigir `pronta` (o `__de` do `display-ready`
+tendo voltado), que é a diferença entre "pareou" e "o `/display/` dela subiu".
+**A janela do socket morto continua aberta** — uma tela cujo navegador dormiu
+sem FIN segura o mudo do celular até a escrita falhar (o vigia corta em 20 s), e
+fechar isso é mexer na detecção de liveness do servidor, que é outro lote.
+
+## A ordem que eu proporia (registro do laudo original)
 
 1. **A3** (uma linha, web, sem Release) — é o achado com o pior desfecho por
    linha de código: download de centenas de MB no meio do culto.

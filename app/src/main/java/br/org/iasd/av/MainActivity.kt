@@ -331,9 +331,10 @@ class MainActivity : ComponentActivity(), BridgeHost {
 
         // SÓ na primeira criação. A única saída do app é `moveTaskToBack`, então
         // a Activity nunca é finalizada e `getIntent()` continua devolvendo o
-        // mesmo ACTION_SEND para sempre: qualquer recriação (mudar o tamanho da
-        // fonte ou o idioma — nenhum dos dois está em `android:configChanges` —,
-        // ou voltar pelo Recentes depois de o processo ser morto) reparsearia o
+        // mesmo ACTION_SEND para sempre: qualquer recriação (uma configuração
+        // fora do `android:configChanges` — que a v1.4.19 encheu, mas que nunca
+        // cobre tudo —, ou voltar pelo Recentes depois de o processo ser morto)
+        // reparsearia o
         // MESMO compartilhamento e o lado web importaria uma segunda cópia
         // integral do arquivo, sem aviso e sem desfazer. `savedInstanceState`
         // não-nulo é exatamente "isto é uma recriação".
@@ -665,22 +666,47 @@ class MainActivity : ComponentActivity(), BridgeHost {
         // E o empurrão do OTA, pelo mesmo motivo dos dois acima: ele captura
         // esta Activity, e a ronda do `WebUpdater` sobrevive à tela.
         WebUpdater.aoChegar = null
-        try { SessionService.stop(this) } catch (_: Exception) { }
+        // A SESSÃO DE MÍDIA NÃO CAI NUMA RECRIAÇÃO (v1.4.19) — a mesma guarda do
+        // espelho, logo abaixo, e pelo mesmo motivo, que só tinha sido aplicado a
+        // ele.
+        //
+        // Parar o serviço aqui numa mudança de configuração custa mais que a
+        // notificação: ele é o único serviço em PRIMEIRO PLANO de um culto
+        // normal, e é o que impede o Android de congelar (12+) ou matar o
+        // processo — o dos dois WebViews e da `Presentation`. Derrubado, o
+        // `onCreate` seguinte precisa reerguê-lo, e `SessionService.iniciar`
+        // ENGOLE a `ForegroundServiceStartNotAllowedException` (com razão: não há
+        // o que fazer com ela). O desfecho seria um app minimizado durante o
+        // culto de volta a ser descartável — exatamente o defeito que este
+        // serviço foi criado para resolver.
+        //
+        // Numa recriação quem mantém a cena é o próprio serviço, que sobrevive à
+        // Activity; o `onCreate` seguinte republica por cima quando o web voltar
+        // a chamar `nowPlaying`.
+        if (!isChangingConfigurations) {
+            try { SessionService.stop(this) } catch (_: Exception) { }
+        }
         // A TRANSMISSÃO NÃO SOBREVIVE AO FECHAMENTO DO APP — ela é auxiliar e
         // nasceu de um toque do operador. Deixá-la servindo com a Activity morta
         // manteria um `ServerSocket` na rede da igreja sem ninguém capaz de
         // desligá-lo, e as telas ficariam com a última cena congelada na frente
         // da congregação.
         //
-        // `!isChangingConfigurations` NÃO É ZELO: `android:configChanges` não
-        // cobre `fontScale` nem `locale`, e mudar o tamanho da fonte RECRIA esta
-        // Activity. Sem a guarda, este `onDestroy` derrubaria a transmissão no
-        // meio do culto por uma preferência do sistema — e o `onCreate` seguinte
+        // `!isChangingConfigurations` NÃO É ZELO. Uma recriação de Activity
+        // derrubaria a transmissão no meio do culto — e o `onCreate` seguinte
         // NÃO a traria de volta (nada aqui religa um servidor que o operador não
         // mandou religar, e o `ligar()` zera o pareamento: as três telas
         // voltariam ao botão de entrada). Numa recriação quem mantém tudo vivo é
         // o serviço em primeiro plano, e a referência do servidor está no
         // COMPANION por isto.
+        //
+        // ELA CONTINUA VALENDO DEPOIS DA v1.4.19, que encheu o `configChanges`
+        // do manifest com as sete chaves que faltavam (`keyboard`, `fontScale`,
+        // `locale`, `colorMode`…). Aquilo torna a recriação RARA; não a torna
+        // impossível — sobram as configurações que nenhuma lista cobre e as
+        // recriações que não vêm de configuração nenhuma. Esta guarda é o que
+        // decide o desfecho quando uma acontece, e o mesmo raciocínio passou a
+        // valer para o `SessionService`, logo acima.
         if (!isChangingConfigurations) {
             try {
                 desmontarEspelho()
