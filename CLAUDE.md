@@ -48,9 +48,13 @@ saiu do plano e virou código na v1.4.1), `docs/FONTE-DE-DADOS-LOUVORJA.md` (hin
 o que nunca é, por que o uso próprio sai por construção, e a MEDIÇÃO ainda
 pendente de que o farol depende), `docs/HISTORICO.md`
 (**apêndice**: a nota de cada versão, para consultar por `grep`, nunca por
-leitura integral) e `docs/AUDITORIA-2026-08.md` (**apêndice**: a varredura de
+leitura integral), `docs/AUDITORIA-2026-08.md` (**apêndice**: a varredura de
 ~60.000 linhas da v1.4, com os 75 achados, o método de refutação e os 26 que
-ficaram por aplicar — consultar por `grep`).
+ficaram por aplicar — consultar por `grep`) e
+`docs/AUDITORIA-ESTABILIDADE-AV.md` (**apêndice**: a varredura de 2026-08-29
+focada em ESTABILIDADE — o que pode interromper a transmissão ou a mídia no ar:
+dez achados, cada um com cenário, correção proposta e ressalva; um deles é
+MEDIÇÃO, não conserto).
 
 ---
 
@@ -195,6 +199,7 @@ docs/
 ├── TELAO-POR-COMANDOS.md        # o CONTRATO do telão por comandos — ler antes de mexer nele
 ├── FONTE-DE-DADOS-LOUVORJA.md   # referência do banco LouvorJA (hinos/Bíblia)
 ├── HISTORICO.md                 # APÊNDICE: as notas de todas as versões — usar por grep
+├── AUDITORIA-ESTABILIDADE-AV.md # APÊNDICE: o que pode INTERROMPER áudio/vídeo
 └── ESPELHO-DE-PIXELS.md         # ARQUIVO: recurso removido (v5.187); só §2.3, §2.4 e §10-A
 ```
 
