@@ -261,7 +261,7 @@ const appVersionEl = document.getElementById('appVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.4.28';
+const WEB_VERSION = '1.4.29';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -7373,6 +7373,10 @@ function pedirRenomearNaLinha(botao, item, aoGravar) {
   campo.autocapitalize = 'off';
   campo.autocomplete = 'off';
   campo.spellcheck = false;
+  // O TECLADO SOBREPÕE (v1.4.29) — ver `keyboardShift`. Este campo vive DENTRO
+  // da lista, que rola sozinha; encolher o app para revelá-lo comprime a
+  // preview e o transporte, que é o que o operador está olhando.
+  campo.dataset.teclado = 'sobrepoe';
 
   // O CAMPO É O ÚNICO FILHO DA FAIXA — o ✓ já foi para a coluna do `⋮`.
   // `prepend` e não `append`: no CAMINHO B o ✓ já está aqui dentro (o `semSlot`
@@ -23205,10 +23209,39 @@ window.addEventListener('resize', () => {
     const t = (a.tagName || '').toLowerCase();
     return t === 'input' || t === 'textarea' || a.isContentEditable === true;
   };
+  // ===== E HÁ CAMPO QUE PEDE O TECLADO POR CIMA, NÃO O APP ENCOLHIDO =====
+  //
+  // Relato do operador, sobre o renomear na linha: *"o teclado está arrastando
+  // e encolhendo a tela com o controle ao invés de sobrepor o controle/tela
+  // como já faz na biblioteca"*.
+  //
+  // A régua já estava escrita — no `.popup-backdrop` do CSS, para a Biblioteca:
+  // *"O TECLADO SOBREPÕE, NÃO DESLOCA… nada aqui embaixo precisa ser revelado e
+  // quem rola é a LISTA"*. Ela vale igual aqui, e por um motivo a mais: o que o
+  // app encolhe para caber é justamente a PREVIEW e o TRANSPORTE, isto é, a
+  // projeção e os controles do culto — comprimidos para revelar um campo que
+  // já está à vista, dentro de uma lista que rola sozinha.
+  //
+  // A DECLARAÇÃO É DO CAMPO (`data-teclado="sobrepoe"`), não uma classe que
+  // este handler conheça: o próximo campo que nascer dentro de uma lista já diz
+  // o que quer, sem ninguém precisar voltar aqui. O padrão continua sendo
+  // DESLOCAR — é o que o `appPrompt` precisa, um cartão CENTRADO cuja metade de
+  // baixo é exatamente onde o teclado sobe.
+  //
+  // O QUE ISTO ALCANÇA, dito: só o mundo em que o hint
+  // `interactive-widget=resizes-content` é IGNORADO — a viewport de LAYOUT não
+  // muda e quem encolhe o `<body>` é este `--kb`. É o WebView em edge-to-edge
+  // do Android 15+, o aparelho do operador. Onde o hint é HONRADO quem encolhe
+  // é o próprio navegador (o `100svh` do `body` passa a valer menos) e não há
+  // daqui como impedir.
+  const campoSobrepoe = () => {
+    const a = document.activeElement;
+    return !!a && !!a.dataset && a.dataset.teclado === 'sobrepoe';
+  };
   const apply = () => {
     raf = 0;
     // Altura coberta pelo teclado = o que sobra abaixo da viewport visual.
-    const kb = temCampoEmFoco()
+    const kb = (temCampoEmFoco() && !campoSobrepoe())
       ? Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop))
       : 0;
     document.documentElement.style.setProperty('--kb', kb + 'px');

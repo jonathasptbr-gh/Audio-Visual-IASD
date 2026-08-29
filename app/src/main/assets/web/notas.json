@@ -1,5 +1,13 @@
 [
   {
+    "versao": "1.4.29",
+    "itens": [
+      "Os botões de confirmar exclusão e a caixa de renomear voltaram a alinhar com a linha.",
+      "O teclado passou a cobrir a tela ao renomear, em vez de espremer os controles.",
+      "A gaveta dos favoritos parou de encolher ao abrir o campo de renomear."
+    ]
+  },
+  {
     "versao": "1.4.28",
     "itens": [
       "Uma música agora pode tocar por trás dos slides, sem ser interrompida.",
