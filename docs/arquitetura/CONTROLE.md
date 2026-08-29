@@ -2830,10 +2830,11 @@ nasce com a confirmação certa.
   acrescentado depois deles deslocaria o índice de todos.
 - **A miniatura vira uma LIXEIRA** (`.row-lixo`), pelo mesmo mecanismo do "Tirar
   do ar": o conteúdo da capa é escondido por CSS e o desenho novo entra por cima,
-  na mesma caixa. É a única parte da linha que a faixa não cobre, logo a única
-  que ainda diz de QUAL item é a pergunta. Ele VENCE o `.row-stop` — uma linha no
-  ar também pode ser excluída. A fila da playlist não tem miniatura, e o código
-  cobre isso.
+  na mesma caixa. Ele VENCE o `.row-stop` — uma linha no ar também pode ser
+  excluída. **Desde a v1.4.27 isto é o CAMINHO B**: onde a linha tem `⋮` o
+  símbolo mora na coluna dele e a capa sai de cena — ver "O `⋮` cede a coluna ao
+  processo". A capa continua sendo a casa do símbolo onde não há `⋮`: a gaveta
+  dos Favoritos.
 - **UMA por vez**, como a gaveta. E **tudo que fecha a gaveta CANCELA**: o `⋮`
   outra vez, o toque fora, o redesenho da lista (todos passam por
   `fecharAcoesDaLinha`) e o fechamento da gaveta de um favorito. O erro possível
@@ -2863,6 +2864,68 @@ nasce com a confirmação certa.
   fila inteira. Um gesto que PARECE reversível e não é custa, num episódio de
   série, ~300 MB baixados em rede de celular.
 
+#### O `⋮` cede a coluna ao processo, e a capa sai junto (v1.4.27)
+
+Pedido do operador: durante os dois processos o `⋮` *"contradiz o fluxo dos
+botões, pois o processo de exclusão e o de renomear já devem ter métodos de
+retorno/cancelamento"*; a capa sai junto *"para ter mais espaço tanto para a
+gaveta de opções como para a barra de renomeação"*; e a coluna do `⋮` vira o
+*"botão indicativo"* do processo.
+
+**O defeito é de FLUXO.** Um `⋮` aceso ao lado de "Cancelar / Excluir" é uma
+terceira saída para uma pergunta que já tem duas — e as três fazem coisas
+diferentes: uma cancela, uma executa, e a terceira cancela **por acidente**,
+porque fechar a gaveta desfaz a pergunta.
+
+**A capa saiu pelo argumento que já estava vencido por dentro.** O que a mantinha
+fora da faixa (*"com o nome coberto, ela é a única coisa que ainda diz de QUAL
+linha é este menu"*) não valia DENTRO de um processo: na exclusão ela virava uma
+lixeira, isto é, parava de identificar o item. Fora do processo o argumento
+continua inteiro, e a gaveta comum segue com a capa e o `⋮` na tela.
+
+**E a terceira parte amarra as outras duas.** Esconder duas colunas é fácil; o
+que o operador pediu foi o ESPAÇO, e o que impede que ele seja comprado com o
+sumiço do símbolo é a coluna continuar ocupada. MEDIDO a 430px: a faixa vai de
+**292px a 340px**, e a coluna passa a hospedar o símbolo do processo.
+
+| processo | símbolo na coluna | o que ele é |
+|---|---|---|
+| exclusão | a LIXEIRA (`.row-slot--del`) | `<span>` inerte, `pointer-events: none` — ilustra, não decide; quem decide são os dois rótulos |
+| renomear | o ✓ (`.row-slot--ok`) | botão de verdade, que grava de onde está |
+
+- **Quem esconde as duas colunas é o CSS** (`:has(> .row-acoes.confirmando)`), e
+  não o JS: o estado já está no DOM, e uma segunda escrita divergiria dele.
+- **O `right` da faixa NÃO muda** — a coluna da direita continua ocupada. Só o
+  `left` desce para a borda do conteúdo.
+- **O slot mede o `⋮` por CONSTRUÇÃO**: ele entra nas MESMAS regras de caixa e de
+  escala de ícone que o `.row-btn`, então segue `--hit` na fila e `--thumb` no
+  Cronograma sem um segundo número para alguém esquecer.
+- **O slot entra na guarda do `--press`** (v1.4.25): ele vive FORA da
+  `.row-acoes`, e a guarda daquele lote cobre a faixa — sem acrescentá-lo,
+  tocar no ✓ traria de volta o balanço do cartão.
+- **E NA GUARDA DOS GESTOS DA LINHA**, que é a mais cara das duas: por baixo da
+  coluna está a `.row`, cujo toque PROJETA. Sem `.row-slot` no
+  `closest('.row-btn,.row-acoes,.row-slot')` do `attachRowGestures` (Cronograma)
+  e do `click` da fila, tocar na lixeira poria no ar a mídia que se está
+  perguntando se apaga. **`pointer-events: none` no símbolo não resolve** — o
+  toque cai na linha do mesmo jeito, só que sem ninguém para barrá-lo; por isso
+  o que a lixeira tem é `cursor: default`, não a saída do hit-test.
+
+**O CAMINHO B, e é o que este desenho pode quebrar sem sintoma.** A gaveta dos
+**Favoritos não tem `⋮`** — ela abre pelo corpo da linha e a faixa fica ABAIXO
+dela, sem cobrir nada. Lá não há coluna a tomar emprestada, e cada símbolo volta
+para a casa de onde saiu: o ✓ para dentro da faixa (à direita do campo), a
+lixeira para a capa. **Os dois destinos são diferentes de propósito** — o ✓
+DECIDE e precisa continuar alcançável (um botão que some por não achar coluna
+deixa o renomear dos Favoritos sem confirmação); a lixeira ILUSTRA, e ali a capa
+continua visível o tempo todo.
+
+> **A ordem importa no caminho B**: o `semSlot` roda DENTRO do
+> `abrirNaFaixaDaLinha`, antes de o campo ser anexado — daí o `prepend` do campo
+> em `pedirRenomearNaLinha`, sem o qual a faixa sairia com o botão na FRENTE do
+> texto que se está digitando. Com a faixa vazia (o caminho normal) os dois são
+> a mesma coisa.
+
 #### E renomear mora na linha também (v1.4.25)
 
 Pedido do operador: *"coloque o processo de renomear também dentro do item na
@@ -2887,19 +2950,23 @@ primeiro era garantir que um dos dois esquecesse uma das cinco coisas.
 - **`Enter` confirma e `Esc` cancela** (`enterkeyhint="done"`), e o ✓ é um botão
   à vista de qualquer jeito: nem todo teclado honra a dica, e um campo cuja
   única saída pode não estar lá é um campo sem saída.
-- **A miniatura NÃO vira nada**, ao contrário da exclusão: renomear não é
-  destrutivo e não precisa da segunda afirmação; a capa intocada continua
-  dizendo de qual item é o campo.
-- **O ✓ é QUADRADO** (`--hit`) e não meia faixa como o par Cancelar/Excluir: ali
-  os dois rótulos disputam a decisão e a régua é o dedo não errar por 8px; aqui
-  há um desfecho só, e o resto da largura vale mais no campo.
+- **O ✓ é QUADRADO** e não meia faixa como o par Cancelar/Excluir: ali os dois
+  rótulos disputam a decisão e a régua é o dedo não errar por 8px; aqui há um
+  desfecho só, e o resto da largura vale mais no campo. **Desde a v1.4.27 ele
+  mora na COLUNA DO `⋮`** (`.row-slot--ok`), que já é essa caixa — o campo fica
+  sozinho na faixa.
+- **A capa saiu de cena na v1.4.27**, junto com o `⋮` — ver a seção acima. Até
+  lá ela ficava intocada aqui (ao contrário da exclusão, que a virava lixeira),
+  com o argumento de continuar dizendo de qual item era o campo.
 - **Nome vazio ou igual ao atual não é renomear**: os dois fecham sem gravar.
 - **Tudo que fecha a gaveta CANCELA.** O erro possível é o seguro: perder o
   texto custa redigitar, gravar um nome que ninguém confirmou não tem volta.
-- **O `linha-renome-ok` está em `ACOES_QUE_NAO_FECHAM`**, e não por simetria: ele
-  fecha a faixa SOZINHO antes de gravar, e deixar o ouvinte da caixa fechá-la
-  também faria `fecharAcoesDaLinha` desmontar o campo ANTES de o `gravar()` ler
-  o valor — o nome digitado se perderia.
+- **O ✓ saiu de `ACOES_QUE_NAO_FECHAM` na v1.4.27**, e não porque a razão dele
+  mudou: ele deixou de morar DENTRO da caixa (foi para a coluna do `⋮`), e
+  aquele ouvinte só enxerga o que está dentro dela. A razão continua de pé no
+  código — ele fecha a pergunta SOZINHO, DEPOIS de ler o campo, e o inverso
+  faria `fecharAcoesDaLinha` desmontar o campo antes do `gravar()` e o nome
+  digitado se perderia.
 | `⋮` → 🗑 | **Excluir da lista.** É o PRIMEIRO botão da faixa desde a v5.289 — o mais longe do `⋮`, que fica colado na ponta direita e é o alvo tocado repetidamente (abre e fecha): errá-lo por alguns pixels caía no destrutivo. Do outro lado o vizinho é o VAZIO da caixa, que também fecha, mas é uma área larga em que ninguém mira a borda. Desde a v5.301 ele **pergunta na própria faixa**, e por isso não a fecha |
 
 > **ELE NÃO TIRA DO AR** (v1.3.13). Havia aqui um `retirarDoAr`, e era ele — não

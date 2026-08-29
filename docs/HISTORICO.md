@@ -24,6 +24,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
+- **v1.4.27** — O `⋮` CEDE A COLUNA AO PROCESSO, E A CAPA SAI JUNTO. Pedido do operador: *"durante a renomeação e durante a confirmação de exclusão, pode remover (no caso da exclusão) e utilizar (no caso de renomear) o botão que abre a gaveta de opções do item. Pois hoje durante um desses processos o botão fica visível, mas ele contradiz o fluxo dos botões, pois o processo de exclusão e o de renomear já devem ter métodos de retorno/cancelamento… inclusive, pode padronizar, ocultar também a thumbnail, para ter mais espaço tanto para a gaveta de opções como para a barra de renomeação… use o próprio botão de abrir gaveta de opções como botão indicativo"*. O defeito é de FLUXO, não de pintura: um `⋮` aceso ao lado de "Cancelar/Excluir" é uma **terceira saída** para uma pergunta que já tem duas — e as três fazem coisas diferentes, porque fechar a gaveta desfaz a pergunta, isto é, cancela POR ACIDENTE. **A capa saía pelo mesmo argumento, já vencido de dentro:** o que a mantinha era *"com o nome coberto, ela é a única coisa que ainda diz de QUAL linha é este menu"*, e na exclusão ela virava uma LIXEIRA — parava de identificar coisa nenhuma. Fora do processo o argumento continua inteiro e as duas colunas continuam lá. **A terceira parte é a que amarra as outras duas:** as duas primeiras abrem ~48px na faixa (MEDIDO: 292px → 340px a 430px), e a coluna do `⋮` passa a ser ocupada pelo SÍMBOLO do processo — a lixeira na exclusão, o ✓ no renomear —, na caixa exata que o `⋮` ocupava; sem ocupante a linha encolheria e a faixa dançaria de largura no meio de um destrutivo. O slot mede o `⋮` **por construção** (entra nas mesmas regras de caixa e de escala de ícone), então segue `--hit` na fila e `--thumb` no Cronograma sem ninguém precisar lembrar. **O CAMINHO B está medido e é o que o lote pode quebrar sem sintoma:** a gaveta dos FAVORITOS não tem `⋮` (ela abre pelo corpo da linha e a faixa fica ABAIXO, sem cobrir nada), e lá o ✓ volta para dentro da faixa e a lixeira para a capa — cada um para a casa de onde saiu, e são destinos diferentes de propósito, porque um DECIDE e o outro ILUSTRA. Quatro asserções novas no `smoke.mjs` e uma no `boot-nativo`, todas provadas por reversão. OTA PURO.
 - **v1.4.26** — O AUXILIAR DE LEITURA OFERECE TUDO O QUE ESTÁ EM EXIBIÇÃO, e o TOQUE PULA PARA O SLIDE. Pedido do operador, em duas partes: *"o auxiliar de leitura deve deixar disponível os auxiliares de tudo que estiver em exibição, seja uma música de fundo e uma bíblia sobrepondo… devo ter a opção da letra, da cifra e da bíblia, pois todos estes estão em exibição. É claro, o elemento na camada mais a frente de tudo é o que aparece na abertura"* e *"preciso da capacidade de tocar nos slides para passar ou pular diretamente para um slide em específico"*. A primeira **REVOGA duas exclusividades que este projeto escreveu e defendeu** — a da Bíblia (v1.1.11) e a da apresentação (v1.4.24): as duas acertavam a PRECEDÊNCIA e erravam em tirar as outras da mesa, porque a camada de baixo continua no ar (o louvor de fundo segue tocando sob o versículo) e quem opera pode precisar dela no minuto seguinte. `lyricsViewSources` virou a PILHA, na ordem do `slideTarget()` — e não numa segunda escrita dela, que divergiria no primeiro recurso novo. **A cifra continua por último e agora é a única precedência que não vem de camada nenhuma:** ela não é projetada, é o auxiliar de quem TOCA o que está no ar. A apresentação continua sozinha, e agora **por construção** (um deck não tem letra nem acorde), não por uma regra que cale as outras. **A parte não óbvia é a ESCOLHA GUARDADA:** a aba escolhida sobrevive à reabertura desde a v1.2.x, e com a pilha essa memória passa a poder contradizer o pedido — quem tocou "Cifra" com o louvor sozinho no ar não pediu cifra para o instante em que o versículo subir por cima dele. `lvFrenteVista` guarda a camada da frente vista na última abertura, e a regra é *mudou a frente, mudou a pergunta*; DENTRO da mesma frente ela sobrevive, e com a folha ABERTA nada troca a aba embaixo do dedo de quem está lendo. A segunda parte é `deckIr(alvo)`, extraída do `deckStep` para que o toque e o ⏮/⏭ sejam o MESMO caminho — não um segundo jeito de saltar —, e ela é **tocável só com a apresentação em cena**: uma folha da Biblioteca não projeta nada, que é a promessa inteira do `lvAlvo`. Oráculo novo com as duas metades da escolha guardada, provado por três reversões. **SÓ BASE WEB.**
 - **v1.4.25** — QUATRO AJUSTES NAS LISTAS, E O QUE OS LIGA É *"a resposta mora onde o toque nasceu"*. **1) O CARTÃO BALANÇAVA** — relato: *"há um bug de deslocamento, um pequeno movimento vertical do card da lista no cronograma ao selecionar a opção de excluir… essa movimentação não faz sentido, já que essas opções surgem deslizando dentro do próprio card"*. `:active` casa nos ANCESTRAIS, e a lista de guardas do `--press` cobria o `⋮`, a `.hymn-gaveta` e a `.lib-item` aninhada — **e não a `.row-acoes`**, que é justamente a faixa em que se toca. A gaveta dos FAVORITOS mora numa `.hymn-gaveta` e por isso já estava coberta: era só isso que fazia o defeito aparecer numa lista e não na outra. **2) RENOMEAR SAIU DO POPUP** e virou um campo na própria faixa (*"coloque o processo de renomear também dentro do item na lista do cronograma, não como um popup de tela inteira, assim como já é feito no processo de excluir"*) — é a correção da v5.301 aplicada onde ela vale MAIS: um modal tira o alvo de cena, e renomear é a única ação do app em que o nome VELHO precisa continuar à vista enquanto o novo é escrito. A troca de conteúdo da faixa virou mecanismo (`abrirNaFaixaDaLinha`), com a pergunta da exclusão e o campo entrando pela mesma porta. **3) OS ALTERNADORES DEIXARAM DE PARECER DESABILITADOS** (*"ao invés de modificar o ícone do botão e seus efeitos, foi simplesmente ofuscado o botão inteiro, o que dá a impressão de que não está disponível a opção"*): apagados eles vestiam `--line`, a cor de LINHA que neste app só o `↑↓` INERTE usa. Hoje apagado é o `.row-btn` de sempre e LIGADO é a linguagem que `tokens.css` já escrevia — `--btn-accent` + `--accent` —, com o ÍCONE continuando a carregar o estado sozinho. **4) A FILA DA PLAYLIST GANHOU OS DOIS DESTINOS** (*"na lista da playlist, pode adicionar opções como: adicionar aos favoritos e adicionar ao cronograma"*): ela era a única das três listas sem caminho para as outras duas, e é o pior lugar para esse buraco — a fila é onde o bloco de louvores é montado. Cinco asserções novas no `smoke.mjs`, duas reescritas no `boot-nativo`, todas provadas por reversão. OTA PURO.
 - **v1.4.24** — O AUXILIAR DE LEITURA DE UMA APRESENTAÇÃO. Pedido do operador, em duas metades: *"preciso de um visualizador futuro dos slides de toda a apresentação e a referência do slide atual (do mesmo molde vertical que já temos nos versos da bíblia na aba da bíblia)"* e *"durante uma apresentação, não quero botões de letra, ou de cifras nessa tela"*. A folha ganha a fonte `deck` — a coluna de páginas numeradas, com a que está no telão marcada e centralizada pelo `lvScroll` que já existe — e ela é EXCLUSIVA (`return ['deck']`, não `push`: sem isso um louvor de fundo pausado atrás da apresentação continuaria oferecendo Letra e Cifra). Quatro regras estruturais: `lazy` nas miniaturas, altura RESERVADA por `aspect-ratio` (uma imagem `lazy` tem altura zero e o `lvScroll` mede `offsetTop`), a página FORA da assinatura (senão cada ⏭ remonta a lista) e as URLs de objeto revogadas. O A+/A− some na aba — ele dimensiona texto. Oráculo novo, com as duas metades de VOLTA. **SÓ BASE WEB.**
@@ -298,6 +299,118 @@ na nota que a revoga, não apagada da que a criou.
 - **v5.155** — é OTA PURO
 - **v5.156** — é METADE OTA e METADE APK, de novo.
 
+---
+
+## v1.4.27 — o `⋮` cede a coluna ao processo
+
+> *"Durante a renomeação e durante a confirmação de exclusão, pode remover (no
+> caso da exclusão) e utilizar (no caso de renomear) o botão que abre a gaveta
+> de opções do item. Pois hoje durante um desses processos, o botão fica
+> visível, mas ele contradiz o fluxo dos botões, pois o processo de exclusão e o
+> de renomear já devem ter métodos de retorno/cancelamento.*
+>
+> *Inclusive, pode padronizar, ocultar também a thumbnail, para ter mais espaço
+> tanto para a gaveta de opções, como para a barra de renomeação. E no caso em
+> que nesses processos das opções houver algum ícone demonstrativo, como o ícone
+> de excluir durante a confirmação, ou os dois botões de confirmar e cancelar
+> durante renomear… use o próprio botão de abrir gaveta de opções como botão
+> indicativo."*
+
+### O defeito é de FLUXO, não de pintura
+
+Um `⋮` aceso ao lado de "Cancelar / Excluir" é uma **terceira saída** para uma
+pergunta que já tem duas — e as três fazem coisas diferentes: uma cancela, uma
+executa, e a terceira cancela **por acidente**, porque fechar a gaveta desfaz a
+pergunta. O mesmo no renomear, onde o campo já tem `Esc`, o toque fora e o ✓.
+
+### A capa saiu pelo argumento que já estava vencido por dentro
+
+O que a mantinha fora da faixa está escrito desde a v5.259: *"com o nome
+coberto, ela é a única coisa que ainda diz de QUAL linha é este menu"*. Só que
+**dentro de um processo ela já não dizia isso**: na confirmação de exclusão a
+capa virava uma LIXEIRA (v5.301), isto é, parava de identificar o item. O
+argumento continua inteiro FORA do processo, e é por isso que a gaveta comum
+segue com a capa e com o `⋮` na tela — a mudança é só dos dois processos.
+
+### E a terceira parte é a que amarra as outras duas
+
+Esconder duas colunas é fácil; o que o operador pediu foi o **espaço**, e o que
+impede que ele seja comprado com o sumiço do símbolo é a coluna continuar
+ocupada. MEDIDO a 430px: a faixa vai de **292px a 340px**, e a coluna do `⋮`
+passa a hospedar o símbolo do processo — a lixeira na exclusão (um `<span>`
+inerte: ilustra, não decide), o ✓ no renomear (um botão de verdade, que grava
+de onde está).
+
+**O slot mede o `⋮` por construção**, e isso não é detalhe: ele entra nas MESMAS
+regras de caixa e de escala de ícone que o botão que substitui, então segue
+`--hit` na fila da playlist e `--thumb` no Cronograma sem que ninguém precise
+lembrar de um segundo número. Sem isso a linha mudaria de ritmo no meio de uma
+pergunta destrutiva.
+
+### O caminho B, que é o que este lote pode quebrar sem sintoma
+
+A gaveta dos **Favoritos não tem `⋮`**: ela abre pelo corpo da linha e a faixa
+fica ABAIXO dela, sem cobrir nada. Lá não há coluna a tomar emprestada, e cada
+símbolo volta para a casa de onde saiu — o ✓ para dentro da faixa (à direita do
+campo), a lixeira para a capa.
+
+**Os dois destinos são diferentes de propósito**, e é a distinção que os
+justifica: o ✓ **decide** e precisa continuar alcançável (um botão que some por
+não achar coluna deixaria o renomear dos Favoritos sem confirmação); a lixeira
+**ilustra**, e a capa ali continua visível o tempo todo.
+
+### Duas armadilhas que a escrita encontrou
+
+- **A guarda do `--press`.** O ✓ passou a viver FORA da `.row-acoes`, e a lista
+  de guardas da v1.4.25 cobre a faixa, não a linha inteira: sem acrescentar o
+  slot, tocar no ✓ traria de volta o balanço do cartão que aquele lote acabou de
+  corrigir. É a regra do próprio `CLAUDE.md` — *bloco novo que hospede controles
+  entra na lista no MESMO lote em que nasce* — cobrada uma versão depois de
+  escrita.
+- **A ordem no caminho B.** O `semSlot` roda DENTRO do `abrirNaFaixaDaLinha`,
+  antes de o campo ser anexado; com `append` a faixa dos Favoritos sairia com o
+  botão na FRENTE do texto que se está digitando. Daí o `prepend` do campo, que
+  é no-op quando a faixa está vazia (o caminho normal).
+- **E A TERCEIRA É A QUE MAIS DOÍA, achada na revisão do próprio diff.** A
+  coluna do `⋮` fica **fora da faixa**, e o que existe por baixo dela é a
+  `.row` — cujo toque PROJETA o item. Um toque na lixeira da pergunta poria no
+  ar a mídia que se está perguntando se apaga, sem deixar rastro nenhum na
+  faixa. E `pointer-events: none` no símbolo **não resolve**: o toque cai na
+  linha do mesmo jeito, só que sem ninguém para barrá-lo. O que resolve é
+  `.row-slot` entrar na guarda dos gestos das duas listas que têm `⋮` — o span
+  RECEBE o toque e ninguém faz nada com ele.
+
+  **E o oráculo disso passou com a guarda REMOVIDA na primeira escrita**, o que
+  é a classe "um oráculo não pode medir o runner" aplicada ao contrário: ele
+  disparava um `MouseEvent('click')`, e quem projeta uma linha do Cronograma é
+  o par `pointerdown`/`pointerup` do `attachRowGestures`. Um oráculo que não
+  toca no caminho que mede aprova os dois lados da mudança.
+- **E uma QUARTA, no oráculo e não no app, achada pela campanha de
+  determinismo.** O bloco novo terminava com um prazo fixo depois do `click` do
+  ✓, e aquele clique dispara uma continuação assíncrona que ele não esperava
+  (`renameMedia` e, atrás dela, o `load()` do `aoGravar`). Sob carga essa
+  continuação ATRAVESSAVA a saída do bloco, e o `load()` dela refazia o
+  `innerHTML` da lista no meio do bloco SEGUINTE — que ficava medindo um `li`
+  já destacado do documento: todos os retângulos ZERO, e a reprovação aparecendo
+  no bloco dos 360px, que não tem nada a ver com esta mudança. MEDIDO: 1 em 3
+  rodadas a 2× de carga aqui, contra **0 em 6 a 3×** na árvore sem o lote — o
+  experimento que separa "eu quebrei" de "sempre foi frágil". A correção é a
+  regra que o `CLAUDE.md` já escreve: **esperar pela INGESTÃO** (o nome no banco
+  E na tela), nunca por um relógio.
+
+### Os oráculos
+
+Cinco asserções novas no `smoke.mjs` — as colunas somem, a faixa GANHA a
+largura, a coluna continua ocupada (medida contra a caixa do `⋮` **capturada
+antes** do processo: durante ele o `⋮` é `display: none` e o retângulo dele é
+todo zero, então comparar contra o nó escondido aprovaria qualquer coisa), um
+toque na lixeira NÃO projeta, e o ✓ grava de onde está — mais uma no
+`boot-nativo` para o caminho B. Todas provadas por reversão; a do símbolo ganhou
+uma guarda para a ausência dele sair como VEREDITO e não como "terminou com
+exceção".
+
+**OTA PURO**: nada de `java/`, `res/` ou manifest; sem degrau de
+`SHELL_VERSION`, sem `shellTag`, sem Release.
 ---
 
 ## v1.4.26 — o auxiliar de leitura oferece tudo o que está em exibição

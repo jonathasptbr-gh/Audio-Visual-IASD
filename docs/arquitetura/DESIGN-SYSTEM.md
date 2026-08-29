@@ -244,6 +244,12 @@ Fora de `tokens.css`, no `:root` do Controle (não são cor):
   mais forte da regra: ali a resposta ao toque nem é o botão afundando, é a
   faixa TROCANDO DE CONTEÚDO (a pergunta do excluir, o campo do renomear).
 
+  **A regra foi cobrada uma versão depois de escrita**, e vale como exemplo do
+  que ela pega: o `.row-slot` da v1.4.27 — a coluna do `⋮` emprestada ao
+  processo, que hospeda o ✓ do renomear — vive FORA da `.row-acoes`, e a guarda
+  acima cobre a FAIXA. Sem acrescentá-lo à lista, o balanço voltava pelo botão
+  novo, no mesmo cartão e pelo mesmo caminho.
+
   **E DENTRO DA FAIXA O BOTÃO RESPONDE PELA LUZ, não pela geometria** — MEDIDO:
   `.acoes-abertas .row-acoes > * { transform: none }` (0,3,0) vence o `:active`
   da lista de controles (0,2,0), porque ali o `transform` é da animação de

@@ -326,7 +326,7 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
    Cancelar/Excluir, o campo de renomear). Mover o cartão junto é uma segunda
    resposta a um gesto que já tem a sua, e ela chega no exato quadro em que a
    outra está entrando. */
-.lib-item:has(.row-mais:active),
+.lib-item:has(:is(.row-mais, .row-slot):active),
 .lib-item:has(:is(.hymn-gaveta, .folder-itens, .row-acoes) :active),
 .lib-item:has(.lib-item:active) { transform: none; filter: none; }
 /* A BARRA de um card ou de uma seção hospeda os botões da coluna da direita
@@ -373,7 +373,13 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
   .fit-opt, .dialog-btn, .lib-item, .coll-group-acao,
   .cue-save-btn, .pl-pack, .yt-search-btn, .log-copy, .hino-indice-chip,
   .simple-key, .simple-action, .simple-key--big, .simple-key--vol,
+<<<<<<< HEAD
   .lv-row--tocavel
+=======
+  /* O ✓ do renomear, na coluna do `⋮` (v1.4.27). A LIXEIRA fica de fora: ela é
+     um `<span>` que ilustra, e um recuo diria que há o que apertar ali. */
+  .row-slot--ok
+>>>>>>> 80e61aa (v1.4.27: o `⋮` cede a coluna ao processo, e a capa sai junto)
 ):active { transform: var(--press); filter: var(--press-luz); }
 
 
@@ -386,7 +392,7 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
    `display: block` entra aqui de uma vez — sem ele o SVG é inline, ganha a
    folga de linha de base e descentraliza o ícone dentro do botão flex. */
 :is(
-  .row-btn, .back-btn, .sel-btn, .popup-close,
+  .row-btn, .row-slot, .back-btn, .sel-btn, .popup-close,
   .coll-bar-dl, .coll-group-btn,
   .import-btn, .song-menu-icon
 ) svg { display: block; width: var(--icon-sm); height: var(--icon-sm); }
@@ -1494,7 +1500,7 @@ main {
    (fundo, cor e, no `.cue-save-btn`, a borda). O voltar tinha só ~20×20 px —
    o menor alvo do app inteiro, e é a única saída da gaveta de pasta e da
    navegação da Bíblia. */
-.back-btn, .sel-btn, .row-btn,
+.back-btn, .sel-btn, .row-btn, .row-slot,
 .cue-save-btn, .popup-close, .log-copy {
   flex-shrink: 0; width: var(--hit); height: var(--hit); padding: 0;
   border: none; border-radius: var(--radius-btn);
@@ -1507,7 +1513,7 @@ main {
    densa que ele tem — o relato foi tocar no corpo do item em vez do botão.
    Vale para os botões que vivem na linha, nas duas listas, e para o `⋮`. A
    linha não fica um pixel mais alta: quem já ditava a altura era a capa. */
-.lib-item .row-btn {
+.lib-item :is(.row-btn, .row-slot) {
   width: var(--thumb); height: var(--thumb);
 }
 /* ---------- A engrenagem, nos cabeçalhos dos DOIS modos ----------
@@ -2128,7 +2134,13 @@ main {
    não depende do estado da linha. MEDIDO: **6,50:1** no tema escuro e
    **4,18:1** no claro, acima do piso de 3:1 de um ícone que carrega informação.
 
-   Sem `pointer-events`: é um `<span>`, não um botão — ilustra, não decide. */
+   Sem `pointer-events`: é um `<span>`, não um botão — ilustra, não decide.
+
+   ELE VIROU O CAMINHO B NA v1.4.27. Onde a linha tem `⋮` (o Cronograma e a
+   fila) o símbolo passou a morar NA COLUNA DELE — ver `.row-slot` logo abaixo.
+   A miniatura continua sendo a casa do símbolo onde não há `⋮` para
+   reaproveitar: a gaveta dos FAVORITOS, cuja faixa fica ABAIXO da linha e não a
+   cobre, então lá a capa nunca foi o que a faixa ia esconder. */
 .row-lixo {
   display: none; position: absolute; inset: 0;
   align-items: center; justify-content: center;
@@ -2138,6 +2150,64 @@ main {
 .row-lixo .msym { font-size: var(--icon-lg); }
 .lib-item.excluindo > .row > .thumb > .row-lixo { display: flex; }
 .lib-item.excluindo > .row > .thumb > :not(.row-lixo) { display: none; }
+
+/* ---------- O `⋮` CEDE A COLUNA AO PROCESSO (v1.4.27) ----------
+   Pedido do operador: *"durante a renomeação e durante a confirmação de
+   exclusão, pode remover (no caso da exclusão) e utilizar (no caso de renomear)
+   o botão que abre a gaveta de opções do item, pois hoje durante um desses
+   processos o botão fica visível, mas ele contradiz o fluxo dos botões, já que
+   o processo de exclusão e o de renomear já devem ter métodos de
+   retorno/cancelamento… inclusive, pode padronizar, ocultar também a
+   thumbnail, para ter mais espaço tanto para a gaveta de opções como para a
+   barra de renomeação… use o próprio botão de abrir gaveta de opções como
+   botão indicativo"*.
+
+   Ele está certo, e o defeito é de FLUXO, não de pintura: um `⋮` aceso ao lado
+   de "Cancelar/Excluir" oferece uma terceira saída para uma pergunta que já tem
+   duas, e as três fazem coisas diferentes (uma cancela, uma executa, e a
+   terceira cancela POR ACIDENTE, porque fechar a gaveta desfaz a pergunta).
+
+   TRÊS COISAS, e a terceira é a que as amarra:
+
+   1. **A CAPA SAI DE CENA.** O argumento que a mantinha — *"com o nome coberto,
+      ela é a única coisa que ainda diz de QUAL linha é este menu"* — já não
+      valia DENTRO de um processo: na exclusão ela virava uma LIXEIRA, isto é,
+      parava de identificar coisa nenhuma. Fora do processo o argumento continua
+      inteiro, e a capa continua lá com a gaveta comum aberta.
+   2. **O `⋮` SAI DE CENA** pelo motivo do operador: o processo traz a própria
+      saída.
+   3. **E A COLUNA DELE PASSA A DIZER QUAL PROCESSO É.** As duas primeiras
+      abrem ~96px na faixa (a capa mais o vão dela); a terceira é o que impede
+      que esse espaço seja comprado com o sumiço do símbolo — o `.row-slot`
+      ocupa exatamente a caixa que o `⋮` ocupava, então a linha não muda de
+      ritmo e nada dança de posição.
+
+   O SLOT MEDE O `⋮` POR CONSTRUÇÃO, não por um número repetido aqui: ele entra
+   nas MESMAS regras de caixa e de escala de ícone (ver `.row-btn`), então segue
+   `--hit` na fila e `--thumb` no Cronograma sem que ninguém precise lembrar. */
+.row:has(> .row-acoes.confirmando) > :is(.thumb, .row-mais) { display: none; }
+/* Com as duas colunas fora, a faixa começa na borda do conteúdo da linha. O
+   `right` NÃO muda: a coluna da direita continua ocupada — pelo slot, que tem a
+   caixa do `⋮` que ele substituiu. */
+.row-acoes.confirmando {
+  left: .5rem; width: auto; min-width: 0; max-width: none;
+}
+/* O DESTRUTIVO é o par da paleta (`--danger-soft` + `--danger-strong`), o mesmo
+   que a lixeira vestia na capa; o ✓ do renomear é a superfície de AÇÃO.
+
+   O PRIMEIRO É INERTE — ilustra, não decide —, e isso NÃO se escreve com
+   `pointer-events: none`: a coluna dele fica FORA da faixa, e o que existe por
+   baixo é a `.row`, cujo toque PROJETA o item. Tirá-lo do hit-test não faz o
+   toque não acontecer; faz ele acontecer na linha, isto é, põe no ar a mídia
+   que se está perguntando se apaga. Quem o neutraliza é a guarda dos gestos da
+   linha (`.row-slot` entrou nela junto com este bloco): o span RECEBE o toque e
+   ninguém faz nada com ele. O `cursor` diz a mesma coisa para quem usa mouse. */
+.row-slot--del { background: var(--btn-danger); color: var(--danger-strong); cursor: default; }
+.row-slot--del .msym { font-size: var(--icon-sm); }
+.row-slot--ok { background: var(--btn-accent); color: var(--accent); }
+/* O CAMINHO B do ✓ (a gaveta dos Favoritos, que não tem `⋮`): dentro da faixa
+   ele acompanha a altura dela, como todo irmão ali. */
+.linha-confirma > .row-slot { height: auto; align-self: stretch; }
 
 /* ---------- E RENOMEAR TAMBÉM MORA NA FAIXA (v1.4.25) ----------
    Pedido do operador: *"coloque o processo de renomear também dentro do item na
@@ -2176,21 +2246,11 @@ main {
   background: var(--surface-2); color: var(--text);
 }
 .linha-renome-campo::placeholder { color: var(--muted); }
-/* O ✓ é QUADRADO como todo botão da fileira, e não meia faixa como o par da
-   exclusão: ali os dois rótulos disputam a decisão e a régua é o dedo não errar
-   de botão por 8px; aqui só existe um desfecho, e o resto da largura vale mais
-   no campo — é o texto que se está lendo enquanto se digita.
-   `flex-shrink: 0` porque o vizinho é elástico: sem ele o botão encolheria
-   abaixo do piso de toque num nome longo. */
-.linha-renome-ok {
-  flex: 0 0 auto; width: var(--hit); height: var(--hit);
-  display: flex; align-items: center; justify-content: center;
-  border: none; border-radius: var(--radius-btn);
-  appearance: none; -webkit-appearance: none;
-  cursor: pointer;
-  background: var(--btn-accent); color: var(--accent);
-}
-.linha-renome-ok svg { display: block; width: 20px; height: 20px; }
+/* (O `.linha-renome-ok` saiu na v1.4.27: o ✓ é QUADRADO como todo botão da
+   fileira — e agora ele mora na COLUNA DO `⋮`, vestindo `.row-slot--ok`, que já
+   é essa caixa. O argumento que o desenhou continua valendo e mudou de lugar:
+   ali só existe um desfecho, e a largura vale mais no campo, que é o texto que
+   se está lendo enquanto se digita.) */
 
 /* ---------- O MENU DA LINHA ----------
    Caixa ABSOLUTA sobre a `.row` (que já é `position: relative`), da MINIATURA

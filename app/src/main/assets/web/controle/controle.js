@@ -261,7 +261,7 @@ const appVersionEl = document.getElementById('appVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.4.26';
+const WEB_VERSION = '1.4.27';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -3432,7 +3432,11 @@ function renderPlaylist() {
     // é o que `onTap` faz para a biblioteca. Só a metade do desligamento é
     // compartilhada.
     row.addEventListener('click', (e) => {
-      if (e.target.closest('.row-btn,.row-acoes')) return;
+      // `.row-slot` entrou na guarda na v1.4.27: a coluna do `⋮` emprestada ao
+      // processo fica FORA da faixa, e sem ela um toque na lixeira da pergunta
+      // cairia aqui — isto é, poria no ar a mídia que se está perguntando se
+      // apaga.
+      if (e.target.closest('.row-btn,.row-acoes,.row-slot')) return;
       if (noArAgora(item)) { retirarDoAr(item); return; }
       send(item.id);
     });
@@ -7122,15 +7126,31 @@ function fecharConfirmacaoNaLinha() {
  * Ele devolve a CAIXA VAZIA, para quem chamou preencher — ou `null` quando o
  * botão não tem faixa (uma linha remontada sob o dedo).
  *
+ * ===== E A COLUNA DO `⋮` É DO PROCESSO ENQUANTO ELE DURA (v1.4.27) =====
+ *
+ * Pedido do operador: o `⋮` *"contradiz o fluxo dos botões, pois o processo de
+ * exclusão e o de renomear já devem ter métodos de retorno/cancelamento"*, e a
+ * capa deve sair junto *"para ter mais espaço tanto para a gaveta de opções
+ * como para a barra de renomeação"* — com a coluna dele virando o *"botão
+ * indicativo"* do processo.
+ *
+ * Quem esconde as duas colunas é o CSS, por `:has(> .row-acoes.confirmando)`;
+ * daqui sai só o ELEMENTO que ocupa a que sobrou. E ele não é enfeite: sem um
+ * ocupante, esconder o `⋮` encolheria a linha e a faixa dançaria de largura no
+ * meio de uma pergunta destrutiva.
+ *
  * `opts`:
  *  · `classe`  — a classe extra da caixa, para o CSS distinguir os dois usos.
  *  · `marca`   — a classe que vai no `li` enquanto ela está aberta. OPCIONAL, e
- *    é o que separa os dois usos: a exclusão precisa dela (é ela que troca a
- *    miniatura pela lixeira), o renomear não pinta nada na linha.
- *  · `lixeira` — troca a miniatura pela lixeira. Só a exclusão faz isso: é a
- *    única parte da linha que a faixa não cobre, logo a única que ainda pode
- *    dizer de QUAL item é a pergunta — e renomear não é destrutivo, não precisa
- *    da segunda afirmação.
+ *    hoje só a exclusão a usa: é ela que troca a miniatura pela lixeira no
+ *    CAMINHO B (ver abaixo).
+ *  · `simbolo` — o elemento que ocupa a coluna do `⋮`.
+ *  · `semSlot(simbolo, cx)` — o CAMINHO B, para a linha que não tem `⋮`: a
+ *    gaveta dos FAVORITOS, cuja faixa fica abaixo da linha em vez de cobri-la.
+ *    Cada processo escolhe o dele, e são destinos diferentes de propósito — o
+ *    ✓ do renomear é um BOTÃO e precisa continuar alcançável (volta para dentro
+ *    da faixa), a lixeira é um INDICADOR (volta para a capa, que ali continua
+ *    visível o tempo todo).
  */
 function abrirNaFaixaDaLinha(botao, opts) {
   const faixa = botao.parentElement;
@@ -7139,16 +7159,6 @@ function abrirNaFaixaDaLinha(botao, opts) {
   // é o caso do toque repetido na lixeira ou no lápis.
   fecharConfirmacaoNaLinha();
   const li = botao.closest('.lib-item,.row-item');
-
-  let lixeira = null;
-  const thumb = (opts.lixeira && li) ? li.querySelector(':scope > .row > .thumb') : null;
-  if (thumb) {
-    lixeira = document.createElement('span');
-    lixeira.className = 'row-lixo';
-    lixeira.setAttribute('aria-hidden', 'true');
-    lixeira.appendChild(msym(ICON.del));
-    thumb.appendChild(lixeira);
-  }
 
   const cx = document.createElement('div');
   cx.className = 'linha-confirma' + (opts.classe ? ' ' + opts.classe : '');
@@ -7160,9 +7170,22 @@ function abrirNaFaixaDaLinha(botao, opts) {
   const marca = opts.marca || '';
   if (li && marca) li.classList.add(marca);
 
+  // O SÍMBOLO ENTRA DEPOIS DA CAIXA porque o caminho B de um dos dois é ela
+  // mesma — e ela precisa existir para receber o hóspede.
+  const simbolo = opts.simbolo || null;
+  const mais = li ? li.querySelector(':scope > .row > .row-mais') : null;
+  if (simbolo && mais) {
+    simbolo.classList.add('row-slot');
+    mais.insertAdjacentElement('afterend', simbolo);
+  } else if (simbolo && opts.semSlot) {
+    opts.semSlot(simbolo, cx);
+  }
+
   desfazerConfirmacao = () => {
     cx.remove();
-    if (lixeira) lixeira.remove();
+    // `remove()` de um nó que nunca entrou no documento é no-op — é o caso do
+    // símbolo cujo caminho B não achou onde pousar.
+    if (simbolo) simbolo.remove();
     faixa.classList.remove('confirmando');
     if (li && marca) li.classList.remove(marca);
   };
@@ -7180,7 +7203,25 @@ function abrirNaFaixaDaLinha(botao, opts) {
  *    montada deixaria o par pendurado num nó fora do documento.
  */
 function pedirConfirmacaoNaLinha(botao, opts) {
-  const cx = abrirNaFaixaDaLinha(botao, { marca: 'excluindo', lixeira: true });
+  // A LIXEIRA É O SÍMBOLO DA PERGUNTA, e não um botão: `<span>` sem ponteiro,
+  // fora da árvore de acessibilidade. Quem decide são os dois rótulos.
+  const lixo = document.createElement('span');
+  lixo.className = 'row-slot--del';
+  lixo.setAttribute('aria-hidden', 'true');
+  lixo.appendChild(msym(ICON.del));
+  const cx = abrirNaFaixaDaLinha(botao, {
+    marca: 'excluindo',
+    simbolo: lixo,
+    // CAMINHO B (a gaveta dos Favoritos): de volta à capa, o lugar de onde ela
+    // saiu na v1.4.27 — ali a faixa não cobre a linha e não há `⋮` a ceder.
+    semSlot: (sim) => {
+      const li = botao.closest('.lib-item,.row-item');
+      const thumb = li && li.querySelector(':scope > .row > .thumb');
+      if (!thumb) return;
+      sim.className = 'row-lixo';
+      thumb.appendChild(sim);
+    },
+  });
   if (!cx) return;
   const nao = document.createElement('button');
   nao.type = 'button';
@@ -7230,7 +7271,9 @@ function pedirConfirmacaoNaLinha(botao, opts) {
  *    teclado para achar um botão de 40px atrás dele.
  *  · **O ✓ é um BOTÃO À VISTA de qualquer jeito**: nem todo teclado honra o
  *    `enterkeyhint`, e um campo cuja única saída é uma tecla que pode não estar
- *    lá é um campo sem saída.
+ *    lá é um campo sem saída. Desde a v1.4.27 ele mora na COLUNA DO `⋮`, que o
+ *    processo toma emprestada — o campo fica com a faixa inteira, e a coluna
+ *    deixa de oferecer uma terceira saída para algo que já tem duas.
  *  · **Nome vazio ou igual ao atual não é renomear**: os dois desfecham em
  *    fechar sem gravar, que é o que o modal já fazia.
  *  · **Tudo que fecha a gaveta CANCELA**, como a pergunta da exclusão — o `⋮`
@@ -7239,7 +7282,21 @@ function pedirConfirmacaoNaLinha(botao, opts) {
  *    ninguém confirmou não tem volta.
  */
 function pedirRenomearNaLinha(botao, item, aoGravar) {
-  const cx = abrirNaFaixaDaLinha(botao, { classe: 'linha-renome' });
+  const ok = document.createElement('button');
+  ok.type = 'button';
+  ok.className = 'row-slot--ok';
+  ok.title = 'Salvar o nome';
+  ok.setAttribute('aria-label', 'Salvar o nome');
+  ok.innerHTML = checkIconSvg();
+  const cx = abrirNaFaixaDaLinha(botao, {
+    classe: 'linha-renome',
+    simbolo: ok,
+    // CAMINHO B (a gaveta dos Favoritos, sem `⋮`): ele volta para DENTRO da
+    // faixa, ao lado do campo, que é onde morou até a v1.4.27. A lixeira tem
+    // outro caminho B de propósito — ela ilustra e ele decide, e um botão que
+    // desaparece por não achar coluna deixa o campo sem confirmação.
+    semSlot: (sim, caixa) => { sim.classList.add('row-slot'); caixa.appendChild(sim); },
+  });
   if (!cx) return;
 
   const campo = document.createElement('input');
@@ -7255,13 +7312,12 @@ function pedirRenomearNaLinha(botao, item, aoGravar) {
   campo.autocomplete = 'off';
   campo.spellcheck = false;
 
-  const ok = document.createElement('button');
-  ok.type = 'button';
-  ok.className = 'linha-renome-ok';
-  ok.title = 'Salvar o nome';
-  ok.setAttribute('aria-label', 'Salvar o nome');
-  ok.innerHTML = checkIconSvg();
-  cx.append(campo, ok);
+  // O CAMPO É O ÚNICO FILHO DA FAIXA — o ✓ já foi para a coluna do `⋮`.
+  // `prepend` e não `append`: no CAMINHO B o ✓ já está aqui dentro (o `semSlot`
+  // roda DENTRO do `abrirNaFaixaDaLinha`, antes desta linha), e com `append` o
+  // campo entraria à DIREITA dele — a faixa sairia com o botão na frente do
+  // texto que se está digitando. Com a faixa vazia os dois são a mesma coisa.
+  cx.prepend(campo);
 
   const gravar = async () => {
     if (ok.disabled) return;
@@ -7437,14 +7493,16 @@ async function moverNaLista(listName, id, delta) {
 //  · `row-renomear` — como o excluir, ele não renomeia: ABRE O CAMPO, e o campo
 //    nasce dentro desta caixa. Fechá-la levaria junto o que o toque acabou de
 //    pedir;
-//  · `linha-renome-ok` — o ✓ do campo. Ele fecha a caixa SOZINHO (por
-//    `fecharConfirmacaoNaLinha`, antes de gravar), e deixar o ouvinte fechá-la
-//    também não é redundância inofensiva: `fecharAcoesDaLinha` desfaz a
-//    pergunta ANTES de o `gravar()` ler o campo, e o nome digitado se perderia;
 //  · `row-crono` — como a estrela e a playlist, é ALTERNADOR (v1.4.25): o
 //    desfecho dele é o próprio botão trocando `+` por `✓` sob o dedo.
+//
+// (O ✓ do renomear saiu desta lista na v1.4.27, e não porque a razão dele
+// mudou: ele deixou de morar DENTRO da caixa — foi para a coluna do `⋮` —, e
+// este ouvinte só enxerga o que está dentro dela. A razão em si continua de pé
+// no código: ele fecha a pergunta SOZINHO, depois de ler o campo, e o inverso
+// perderia o nome digitado.)
 const ACOES_QUE_NAO_FECHAM = ['row-ordem', 'fav-btn', 'row-excluir', 'row-playlist',
-  'row-crono', 'row-renomear', 'linha-nao', 'linha-renome-ok'];
+  'row-crono', 'row-renomear', 'linha-nao'];
 
 /**
  * Os botões de uma linha, guardados atrás do `⋮`.
@@ -12760,7 +12818,12 @@ function attachRowGestures(row, item) {
   // e um toque um pouco mais demorado que 450 ms passou a não fazer NADA.
 
   row.addEventListener('pointerdown', (e) => {
-    if (e.target.closest('.row-btn') || e.target.closest('.row-acoes')) return;
+    // `.row-slot` (v1.4.27): a coluna do `⋮` emprestada ao processo fica FORA
+    // da faixa, e o que existe por baixo dela é esta linha — cujo toque
+    // PROJETA. Sem a guarda, tocar na lixeira da pergunta poria no ar a mídia
+    // que se está perguntando se apaga; e o toque longo abriria a seleção
+    // múltipla por cima de uma confirmação aberta.
+    if (e.target.closest('.row-btn,.row-acoes,.row-slot')) return;
     pid = e.pointerId; startX = e.clientX; startY = e.clientY; startT = Date.now(); longFired = false;
     lp = setTimeout(() => { longFired = true; enterSelection(item.id); }, LONGPRESS);
   });
