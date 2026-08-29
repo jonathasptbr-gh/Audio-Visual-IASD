@@ -1382,6 +1382,26 @@ O job `web-ota` (todo push em `main`) empacota `assets/web/` num
   caminho de rede, logo nada de novo pode falhar nele. **O preço, dito: um lote
   SÓ de APK não tem linha do tempo** — não há bundle novo de onde lê-la, e o
   desfecho é a pergunta sem a lista, nunca uma lista errada.
+- **CADA ITEM É UM TÓPICO, e o padrão é esse** (v1.4.12). Pedido do operador:
+  *"está muito texto e muito agressivo. Use apenas tópicos e não precisa entrar
+  em detalhes… a intenção desses textos não é explicar os problemas, mas nomear
+  eles o suficiente para o usuário entender o que foi atacado naquela
+  atualização, e não exatamente o COMO."* Três regras, e o CI cobra as duas que
+  são mecânicas:
+  - **NOMEIA, não explica.** *"O som deixou de sumir ao conectar numa smart
+    TV."* — e ponto. O mecanismo, a causa e a medição vão para
+    `docs/HISTORICO.md`, que é onde alguém os procura.
+  - **Uma linha curta** (teto de 120 caracteres no CI; MEDIDO, os 80 tópicos de
+    hoje têm 55 em média e 79 no maior). A régua não é o arquivo — é o cartão:
+    a lista do diálogo tem `.88rem` numa caixa estreita, e MEDIDO um tópico de
+    ~55 chars já ocupa 2 linhas a 430px e 3 a 320px. Um parágrafo ali vira sete.
+  - **Sem CAIXA ALTA de ênfase** (o CI aceita no máximo uma palavra de três
+    letras ou mais). Era o abre de todo item — *"O APP AGORA AVISA QUE…"* — e
+    numa lista de seis isso é a tela gritando. Ela continua servindo no
+    `HISTORICO.md` e nos comentários, onde há prosa em volta para contrastar.
+
+  **A conta do que isso vale:** o arquivo caiu de 99 itens e 24,3 kB para 80 e
+  6,8 kB — e ele viaja em TODO bundle do OTA.
 - **O ARQUIVO GUARDA A SÉRIE ATUAL E A ANTERIOR, e nada mais** (v1.4.3). Ele
   chegou a 87 entradas — 51 kB em TODO bundle, com linhas descrevendo a v1.0.1.
   A regra de poda é `MAIOR.INCREMENTAL`: hoje 1.4.x e 1.3.x, 20 entradas e
@@ -3694,7 +3714,7 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: v1.4.11** (base web) · **v1.4.5** (APK) · `SHELL_VERSION` **60** · bundle com
+**Versão atual: v1.4.12** (base web) · **v1.4.5** (APK) · `SHELL_VERSION` **60** · bundle com
 `minShell: 60` — o shell 60 é o **PISO**: todo método da ponte existe, e não há
 guarda de versão no lado web. O que continua valendo é que `java/`, `res/`, o
 manifest e os workflows **só chegam instalando o APK**.

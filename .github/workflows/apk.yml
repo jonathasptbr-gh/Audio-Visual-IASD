@@ -214,6 +214,18 @@ jobs:
               assert isinstance(itens, list) and itens, f'v{v} sem itens'
               for t in itens:
                   assert isinstance(t, str) and t.strip(), f'v{v} tem item vazio'
+                  # CADA ITEM É UM TÓPICO (v1.4.12) — ver o CLAUDE.md, "As notas
+                  # viajam DENTRO do bundle". As duas regras abaixo são as
+                  # mecânicas do padrão; a terceira ("nomeia, não explica") é de
+                  # julgamento e fica na prosa. Sem elas o estilo erode item a
+                  # item, e ninguém percebe até o arquivo estar em 24 kB de novo.
+                  assert len(t) <= 120, (
+                      f'v{v}: item de {len(t)} caracteres, teto 120 — a lista do '
+                      f'diálogo é uma linha do tempo, não um texto: {t[:60]}…')
+                  caixa = re.findall(r'\b[A-ZÁÂÃÀÉÊÍÓÔÕÚÇ]{3,}\b', t)
+                  assert len(caixa) <= 1, (
+                      f'v{v}: {len(caixa)} palavras em CAIXA ALTA ({caixa}) — numa '
+                      f'lista de seis isso é a tela gritando: {t[:60]}…')
           # ESTE LOTE PRECISA ESTAR DESCRITO. É o esquecimento provável — se
           # publica-se uma versão e não se escreve o que ela mudou, o operador
           # recebe a pergunta sem a lista e nada avisa ninguém.
