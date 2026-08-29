@@ -1,5 +1,16 @@
 [
   {
+    "versao": "1.4.22",
+    "itens": [
+      "Os fundos e as fotos de um PowerPoint deixaram de sumir na importação.",
+      "Gráficos do PowerPoint deixaram de sair em branco.",
+      "Os marcadores de tópico deixaram de virar letras soltas no telão.",
+      "Uma apresentação com fotos passou a ocupar dez vezes menos espaço.",
+      "A tela deixou de piscar e encolher ao importar uma apresentação.",
+      "O leitor de PDF passou a gravar as páginas fotográficas em formato menor."
+    ]
+  },
+  {
     "versao": "1.4.21",
     "itens": [
       "A linha do item agora mostra quando ele está carregando."

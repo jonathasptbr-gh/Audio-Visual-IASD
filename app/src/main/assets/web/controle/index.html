@@ -1327,7 +1327,7 @@
              pedir ajuda"), e agora ocupam a mesma faixa: a versão à esquerda, o
              Registro à direita, no espaço que já estava sobrando. -->
         <div class="footer-diag">
-          <span id="appVersion" class="app-version">Controle v1.4.21</span>
+          <span id="appVersion" class="app-version">Controle v1.4.22</span>
           <span class="footer-diag-rot">Registro</span>
           <!-- SALVAR EM ARQUIVO (v1.2.16). Com o acervo inteiro varrido o
                Registro passa de setenta linhas só na seção de cifras, e copiar
@@ -1844,6 +1844,14 @@
        faixas, com oráculo em `tools/hinario.test.mjs`). ANTES do controle.js —
        a lista do álbum a consulta uma vez por linha desenhada. -->
   <script src="hinario.js"></script>
+  <!-- A TRADUÇÃO DA APRESENTAÇÃO: `.pptx` → uma imagem por página. ANTES do
+       controle.js pela regra dos irmãos acima, e num arquivo próprio porque os
+       três modos de falhar dela são CALADOS (a mídia que não atravessa o
+       `<foreignObject>`, o `<canvas>` que o clone não copia, a fonte de
+       símbolo que o aparelho não tem) — oráculo em
+       `tools/apresentacao.test.mjs`. A biblioteca de 1,5 MB continua entrando
+       por `import()` dinâmico DENTRO dele: aqui não entra byte nenhum. -->
+  <script src="deck.js"></script>
   <script src="controle.js"></script>
 </body>
 </html>

@@ -258,7 +258,7 @@ const appVersionEl = document.getElementById('appVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.4.21';
+const WEB_VERSION = '1.4.22';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -20436,87 +20436,15 @@ function deckStep(delta) {
 // O Android não desenha PowerPoint: a plataforma só traz o `PdfRenderer` (que
 // é o caminho do PDF). As bibliotecas nativas que fazem isso são comerciais, e
 // converter num servidor exigiria conta, chave e mandar o material do culto
-// para fora do aparelho. Sobrou uma saída, e ela roda AQUI: um renderizador de
-// OOXML em JavaScript (`vendor/pptx-renderer.js`, Apache-2.0 — ver o LEIA-ME
-// daquela pasta para o levantamento inteiro).
+// para fora do aparelho. Sobrou uma saída, e ela roda AQUI.
 //
-// O que ele produz é DOM. O que o app projeta é IMAGEM — então cada slide é
-// rasterizado logo em seguida, e daí para a frente a apresentação é a MESMA
-// mídia `deck` que um PDF vira: fade, cortina, telão, ⏮/⏭ e reconexão, tudo
-// sem uma linha nova.
-//
-// A biblioteca entra por `import()` DINÂMICO: é 1,5 MB que só interessa a quem
-// importar um `.pptx`, e carregá-la no boot custaria isso a todo culto.
-const PPTX_LARGURA = 1920;   // o telão é 1080p; renderizar acima disso só engorda o IDB
-
-async function pptxParaPaginas(file, onProgresso) {
-  const { PptxViewer, RECOMMENDED_ZIP_LIMITS } = await import('../vendor/pptx-renderer.js');
-  // Fora da tela, mas MEDIDO: um contêiner `display:none` não tem layout, e
-  // sem layout não há o que rasterizar. Daí `position:fixed` + `left:-99999px`.
-  const palco = document.createElement('div');
-  palco.style.cssText = 'position:fixed;left:-99999px;top:0;width:' + PPTX_LARGURA
-    + 'px;pointer-events:none;opacity:0;';
-  document.body.appendChild(palco);
-  try {
-    await PptxViewer.open(await file.arrayBuffer(), palco, { zipLimits: RECOMMENDED_ZIP_LIMITS });
-    // Um quadro para o layout assentar antes de medir/serializar.
-    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
-    const slides = [...palco.children];
-    const pages = [];
-    for (let i = 0; i < slides.length; i++) {
-      const blob = await elementoParaPng(slides[i]);
-      if (!blob) return null;
-      pages.push(blob);
-      if (onProgresso) onProgresso(i + 1, slides.length);
-    }
-    return pages.length ? pages : null;
-  } finally {
-    palco.remove();
-  }
-}
-
-// DOM → PNG sem biblioteca nenhuma: o elemento vai para dentro de um
-// `<foreignObject>` de SVG, que o navegador desenha como imagem.
-//
-// As `<img>` do slide são blob: — e uma URL blob NÃO carrega dentro do
-// foreignObject (o SVG é um documento à parte). Por isso cada uma é redesenhada
-// num canvas e vira `data:` antes da serialização: sem esse passo, a foto do
-// slide simplesmente não aparece na página gerada, e o defeito é silencioso.
-async function elementoParaPng(el) {
-  const r = el.getBoundingClientRect();
-  const w = Math.max(1, Math.round(r.width));
-  const h = Math.max(1, Math.round(r.height));
-  const clone = el.cloneNode(true);
-  const origens = [...el.querySelectorAll('img')];
-  const copias = [...clone.querySelectorAll('img')];
-  for (let i = 0; i < origens.length; i++) {
-    try {
-      const cv = document.createElement('canvas');
-      cv.width = origens[i].naturalWidth || 1;
-      cv.height = origens[i].naturalHeight || 1;
-      cv.getContext('2d').drawImage(origens[i], 0, 0);
-      copias[i].setAttribute('src', cv.toDataURL('image/png'));
-    } catch (_) { /* imagem que não carregou: o slide sai sem ela */ }
-  }
-  const html = new XMLSerializer().serializeToString(clone);
-  const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="' + w + '" height="' + h + '">'
-    + '<foreignObject width="100%" height="100%">'
-    + '<div xmlns="http://www.w3.org/1999/xhtml">' + html + '</div>'
-    + '</foreignObject></svg>';
-  const img = new Image();
-  img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
-  try { await img.decode(); } catch (_) { return null; }
-  const cv = document.createElement('canvas');
-  cv.width = w; cv.height = h;
-  const ctx = cv.getContext('2d');
-  // FUNDO BRANCO antes de desenhar, como no lado nativo (ver SlideDeck.kt): o
-  // slide pode não pintar o próprio papel, e transparente, no telão, é o preto
-  // do palco — o texto escuro sumiria.
-  ctx.fillStyle = '#ffffff';
-  ctx.fillRect(0, 0, w, h);
-  ctx.drawImage(img, 0, 0, w, h);
-  return new Promise((res) => cv.toBlob(res, 'image/png'));
-}
+// A TRADUÇÃO MORA EM `controle/deck.js` (`AVDeck`), ao lado das outras regras
+// próprias do Controle e pelo mesmo motivo: ela tem três modos de falhar
+// CALADOS — a mídia `blob:` que não atravessa o `<foreignObject>`, os pixels de
+// um `<canvas>` que o `cloneNode` não copia, e a fonte de símbolo que o
+// aparelho não tem — e um oráculo (`tools/apresentacao.test.mjs`) só alcança o
+// que tem porta de entrada. Aqui fica só o que é do APP: a lista de destino, o
+// aviso e a linha que nasce.
 
 // Importa um `.pptx` já lido como File/Blob.
 async function pptxImportar(file, nome, opts) {
@@ -20528,15 +20456,24 @@ async function pptxImportar(file, nome, opts) {
   const notif = bgTaskStart('Preparando apresentação', 1);
   try {
     return await withBgWork(async () => {
-      const pages = await pptxParaPaginas(file, (feitas, total) => {
+      const feito = await AVDeck.paginasDoPptx(file, (feitas, total) => {
         const pct = total ? Math.floor((feitas / total) * 100) : -1;
         bg.atualizar('Preparando página ' + feitas + (total ? ' de ' + total : '') + '…', null, pct);
       });
-      if (!pages) { deckUltimoErro = 'pptx: nenhuma página desenhada'; return null; }
-      const thumb = await makeThumb(pages[0], 'image');
-      return await AVDB.addDeck(pages, {
+      if (!feito) { deckUltimoErro = 'pptx: nenhuma página desenhada'; return null; }
+      const thumb = await makeThumb(feito.pages[0], 'image');
+      const criado = await AVDB.addDeck(feito.pages, {
         name: rotulo, thumb, list: (opts && opts.lista) || 'imports',
       });
+      // O CORTE É DITO, e pela mesma porta do PDF (ver `deckImportar`): uma
+      // apresentação cortada sem aviso leria como "o arquivo era assim", e o
+      // operador só descobriria na frente da congregação, na página que não
+      // existe. A nota vai para a LINHA DO ITEM, que é onde mora um fato sobre
+      // aquele item.
+      if (feito.truncado && criado) {
+        falharNoItem(criado.id, 'truncada em ' + feito.pages.length + ' páginas');
+      }
+      return criado;
     });
   } catch (e) {
     console.warn('[pptx] falhou:', e && e.message);
@@ -20897,7 +20834,7 @@ async function importShare(pending) {
           naPreview: simplificado(), lista: destinoDoShare(),
         });
       } else if (ehPptx(item)) {
-        // PPTX: quem desenha é o próprio WebView (ver `pptxParaPaginas`), então
+        // PPTX: quem desenha é o próprio WebView (ver `controle/deck.js`), então
         // aqui os bytes SERVEM — e é o único caminho que existe para ele.
         let arquivo = item instanceof File ? item : null;
         if (!arquivo && item.url) {
@@ -22500,16 +22437,44 @@ window.addEventListener('resize', () => {
   const vv = window.visualViewport;
   if (!vv) return;
   let raf = 0;
+  // O TECLADO EXIGE UM CAMPO EM FOCO, e sem esta pergunta a conta acima é uma
+  // porta aberta para o app inteiro encolher por um motivo que não é teclado
+  // nenhum. `--kb` desconta altura do `<body>`, `main` é `flex: 1`: qualquer
+  // encolhimento espúrio da viewport VISUAL — e o WebView do Android tem mais
+  // de um caminho para produzir um, do redimensionamento da janela ao
+  // reajuste de escala diante de conteúdo novo — some com a lista e sobe a
+  // caixa de controles até o topo. É o relato do operador na importação de um
+  // `.pptx` (o palco de rasterização, hoje uma caixa 0×0 — ver `deck.js`).
+  //
+  // A pergunta é EXATA, não uma heurística de tamanho: um teclado só existe
+  // sobre um campo editável, e nenhum limiar em pixels distingue teclado de
+  // acidente (num aparelho pequeno em paisagem o teclado passa de metade da
+  // tela). Fechar o campo antes de o teclado terminar de sair devolve o layout
+  // um quadro mais cedo, que é o que ele faria de qualquer jeito.
+  const temCampoEmFoco = () => {
+    const a = document.activeElement;
+    if (!a) return false;
+    const t = (a.tagName || '').toLowerCase();
+    return t === 'input' || t === 'textarea' || a.isContentEditable === true;
+  };
   const apply = () => {
     raf = 0;
     // Altura coberta pelo teclado = o que sobra abaixo da viewport visual.
-    const kb = Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop));
+    const kb = temCampoEmFoco()
+      ? Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop))
+      : 0;
     document.documentElement.style.setProperty('--kb', kb + 'px');
     document.documentElement.style.setProperty('--vv-top', Math.max(0, Math.round(vv.offsetTop)) + 'px');
   };
   const schedule = () => { if (!raf) raf = requestAnimationFrame(apply); };
   vv.addEventListener('resize', schedule);
   vv.addEventListener('scroll', schedule);
+  // O FOCO entra na conta, então ele também tem de reagendá-la: o caminho
+  // normal (teclado abre/fecha) sempre traz um evento da viewport junto, mas um
+  // campo que perde o foco sem que a viewport mexa deixaria `--kb` parado no
+  // último valor — o app encolhido, sem teclado nenhum na tela.
+  document.addEventListener('focusin', schedule);
+  document.addEventListener('focusout', schedule);
   apply();
 })();
 
