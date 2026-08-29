@@ -1236,6 +1236,41 @@ notificava ninguém; e o `setOnDismissListener` — o caminho da queda por dist�
 a frente**, porque um evento perdido não se recupera sozinho e este WebView é
 estrangulado justamente enquanto o app está minimizado.
 
+### O toque responde no instante, não quando os bytes chegam (v1.4.6)
+
+**"Tocar agora" num vídeo do YouTube começa por uma EXTRAÇÃO DE REDE** — o
+`ytStream` do `tentarTransmitir` — e só depois dela vem o `send` que muda alguma
+coisa na tela. Nesse intervalo de segundos o app não dizia nada: o único sinal
+era o `setYtEstado`, que acende uma linha da Biblioteca que o `closeHymnSearch`
+acabara de fechar. E o caminho do DOWNLOAD já tinha o cartão de espera
+(`ytArquivo` → `previewBusy`); o da TRANSMISSÃO nunca teve — **a assimetria era o
+defeito**.
+
+- **A INTERRUPÇÃO É O RECONHECIMENTO DO TOQUE** (`cederOPalco`). "Tocar agora"
+  é um comando sem ambiguidade: a cena atual vai sair de qualquer jeito, então
+  tirá-la no ato não antecipa nada — apenas para de esconder o que já foi
+  decidido. É o mesmo protocolo visual do `stage.load` (esmaece o que está no ar
+  e segura o aro de espera); o que muda é COMEÇAR no instante do comando.
+- **Não é `stopClear`**, e a diferença é o `clearManualText`: aqui a mídia é que
+  está sendo trocada, então um versículo projetado continua projetado. A escolha
+  da camada é a MESMA (`media-clear` com cena de roteiro no ar, `clear` sem ela)
+  — duas réguas para a mesma pergunta divergiriam no primeiro ajuste.
+- **Não espera a gravação**: o efeito visível de `pararMidia` é síncrono (o `cmd`
+  sai na hora e chega ao telão e às telas), e o que ele aguarda é o
+  `persistCurrent`. Segurar o toque nele trocaria uma espera de rede por uma de
+  disco.
+- **O invólucro do `ytAcao` existe pela SAÍDA ÚNICA**: `ytAcaoInterno` tem meia
+  dúzia de `return`, e um deles sem a liberação prenderia o cartão sobre a
+  preview para sempre.
+- **Só no `tocar`.** Guardar um vídeo numa lista não vai ao telão, e interromper
+  a cena para isso seria o oposto do que o toque pediu — é a metade que impede a
+  correção de virar um defeito maior que o que ela conserta.
+- **O preço está dito:** falhando a transmissão, a cena cai no download, que leva
+  minutos, e o telão passa esses minutos no wallpaper com o cartão explicando.
+  Devolver a mídia anterior seria o app decidir por cima do operador.
+
+Oráculo: `tools/toque-instantaneo.test.mjs`.
+
 ### A saída de áudio: os displays, ou ESTE APARELHO (v5.215)
 
 **Sem tela nenhuma conectada, quem toca o som é a preview do Controle** — isto

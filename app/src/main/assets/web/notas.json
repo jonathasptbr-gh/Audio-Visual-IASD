@@ -1,5 +1,12 @@
 [
   {
+    "versao": "1.4.6",
+    "itens": [
+      "O \"TOCAR AGORA\" DE UM VÍDEO RESPONDE NA HORA. Antes, entre o toque e a primeira mudança na tela havia vários segundos — o app estava buscando o vídeo na internet e não dizia nada, nem mostrava o carregando. Agora a mídia que está no ar é interrompida no ATO, e um aviso aparece sobre a preview com o nome do que está vindo. O carregamento continua levando o tempo que leva; o que muda é você saber, desde o primeiro instante, que o toque foi recebido.",
+      "E NO MENU DO VÍDEO, A OPÇÃO \"ONLINE\" AGORA AVISA que o vídeo toca direto da internet e que a qualidade varia bastante conforme a conexão."
+    ]
+  },
+  {
     "versao": "1.4.5",
     "itens": [
       "O APP PASSOU A MEDIR A INTERNET E ESCOLHER A RESOLUÇÃO DO VÍDEO ONLINE. Antes ele pedia sempre a maior qualidade e, se a rede não desse conta, o vídeo travava — a qualidade nunca baixava sozinha, porque a escolha era feita antes de começar e valia até o fim. Agora ele mede quanto a rede entregou nos primeiros pedaços do vídeo (sem baixar nada a mais para isso) e, se a maior qualidade não couber, desce um degrau ANTES de a imagem aparecer. Você não vê a troca: ela acontece atrás do aro de espera.",

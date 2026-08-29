@@ -748,6 +748,14 @@ jobs:
           # `finally` — os `continue` do laço são a razão dele, e sem ele um
           # arquivo ilegível deixa um aro girando na lista para sempre.
           rodar tools/aviso-de-importacao.test.mjs
+          # E O TOQUE QUE RESPONDE NA HORA. "Tocar agora" num vídeo comeca por uma
+          # EXTRACAO DE REDE de segundos, e ate a v1.4.6 nada mudava na tela
+          # nesse intervalo — nem o aro de carregamento. O caminho do DOWNLOAD ja
+          # tinha o cartao de espera; o da TRANSMISSAO nunca teve. Ele mede o
+          # MEIO (a ponte de mentira SEGURA o `ytStream`), porque um teste do
+          # desfecho passa nas duas versoes: o video entra em cena quando os
+          # bytes chegam, com ou sem a correcao.
+          rodar tools/toque-instantaneo.test.mjs
 
           # EXCLUIR DE UMA LISTA NÃO PODE DERRUBAR A CENA, e eram DOIS defeitos.
           # O primeiro tem sintoma (o louvor parava); o SEGUNDO não tem nenhum:
