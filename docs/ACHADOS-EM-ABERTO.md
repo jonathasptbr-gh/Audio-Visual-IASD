@@ -116,18 +116,62 @@ deu UM formato, do cliente ANDROID, e o progressivo legado é 360p por
 construção. A nota `HAVIA Zp` não sai neste caso, porque não havia faixa
 nenhuma em cliente nenhum.
 
-**O que falta para decidir, e é UM passo:** o Registro guarda só a ÚLTIMA
-extração, então uma amostra não separa *"este vídeo está degradado no YouTube"*
-de *"o cliente visionOS parou de funcionar"* — o segundo já aconteceu (o SABR,
-resolvido no extrator e recebido aqui como um bump de versão; o pin é
-`v0.26.4`). Um "Tocar agora" num vídeo de outro canal, com o Registro na mão,
-responde: `clientes ANDROID 1` de novo é o extrator (conserto upstream mais uma
-Release); `clientes VISIONOS …` é daquele vídeo, e o app está certo.
-
 **Enquanto isso a correção proposta acima segue NÃO FEITA, e agora por dois
 motivos:** o de sempre (reordenar por altura entre clientes troca imagem ruim
 por 403 na frente da congregação) e um novo — **ela não alcançaria este caso**,
 onde não há segundo cliente com faixa alguma para admitir.
+
+### A SEGUNDA MEDIÇÃO fechou: é o EXTRATOR, e o conserto não é nosso
+
+O passo que faltava era um "Tocar agora" noutro vídeo. Registro de 29/08/2026
+(web v1.4.10 · shell v1.4.5), sessão com **três** vídeos e canais diferentes —
+"MINHA VIDA É UMA VIAGEM", "ARAUTOS DO REI - TENHO PAZ" e "QUEM TEM JESUS -
+Minha Vida é uma Viagem (OFICIAL)" —, e a última extração saiu **idêntica** à
+da véspera, num vídeo diferente:
+
+```
+transmissão: … prog 1 [mp4 1 (360p)] · clientes ANDROID 1 · … → SEM PAR DASH
+download:    … → veio mp4 18@ANDROID (360p)
+a rede mediu 4969 kbps (coube no teto)
+```
+
+Dois vídeos independentes, duas sessões, o mesmo resultado degenerado: **o
+visionOS não está devolvendo faixa nenhuma.** É exatamente a pergunta que a
+linha `porCliente` nasceu para responder (*"o visionOS chegou a este
+aparelho?"*), e a resposta é não.
+
+**E o conserto não existe hoje.** Conferido no repositório do extrator em
+29/08/2026:
+
+| verificação | resultado |
+|---|---|
+| tag mais nova | **v0.26.5** (o pin é `v0.26.4`) |
+| `v0.26.4..v0.26.5` | 3 commits, todos *"Fix media.ccc.de live streams"* — **nada de YouTube** |
+| `master` | está EM `v0.26.5`; nenhum commit de YouTube depois dela |
+| issue aberta | **#1528**, 03/08/2026 — *"Video quality capped at 360p despite bg-helper (PO token) correctly configured"*: é o **SABR**, e o redesenho upstream que o trata como conceito de primeira classe **ainda não compila** |
+
+**Subir o pin para a v0.26.5 não muda nada** — e isso é MEDIÇÃO, não suposição:
+o diff entre as duas tags não toca no YouTube.
+
+**Portanto:** enquanto o extrator não resolver o SABR, todo "Tocar agora" cai no
+progressivo legado, que é **360p por construção**. Não é a tela, não é a rede,
+não é a regra de escolha e não é o pin. Reabrir isto quando sair uma versão do
+extrator com commits de YouTube — e a linha `porCliente` do Registro é o
+oráculo de campo que diz, em um toque, se ela resolveu.
+
+### O QUE FICA REALMENTE EM ABERTO DO NOSSO LADO
+
+Não é a resolução — é o **SILÊNCIO** sobre ela. Um download comum diz a altura
+no subtítulo da linha ("Vídeo · 360p"), mas o "Tocar agora" põe o item na
+prateleira `avulsos`, **que não tem lista visível**: o operador projeta 360p sem
+nada na tela dizendo isso, e a leitura possível volta a ser *"o app está
+ruim"*. O Registro responde, mas só para quem for procurar.
+
+**Não foi feito porque a decisão é do operador, e ela tem preço nos dois
+sentidos:** um aviso a cada "Tocar agora" degradado é ruído no meio do culto;
+não avisar é o app sabendo de uma coisa que quem opera precisa saber. A forma
+barata, se for para existir, é a que o app já usa — o `notaNoItem`/cartão da
+preview, uma vez, com a altura real.
 
 **Correção proposta, e só com a nota na mão:** admitir o cliente seguinte quando
 o primeiro não tiver nada acima de um piso. **Não foi feita de propósito:**
