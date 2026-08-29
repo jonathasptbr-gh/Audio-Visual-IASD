@@ -24,6 +24,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
+- **v1.4.14** — UM VÍDEO QUE NÃO TOCA DEIXOU DE FALHAR EM SILÊNCIO. Relato do operador, num episódio de série: *"ele carrega um tempo, mas ele não toca nada e nem dá nenhuma mensagem de erro nem nada"*. REPRODUZIDO em arnês: o caminho da BUSCA falava pelo cartão da preview (`previewBusy(…).falhar`) e o do ITEM DE LINK não — a única saída era o `notaNoItem`, que escreve na LINHA do item. **E a linha some justamente neste caso:** um episódio de série mora dentro do álbum, e o "Tocar agora" FECHA a Biblioteca antes de começar, então a nota ia para um lugar que já tinha saído da tela. A assimetria era o defeito, e o cartão é a régua de sempre — o aviso mora onde o resultado ia aparecer, e ele ia para a projeção. **E A CAUSA passou a ser dita:** o Registro do campo trouxe `extração falhou: ContentNotAvailableException` nas duas linhas enquanto o app dizia a frase genérica, e *"não foi possível baixar"* × *"este vídeo não está disponível"* mandam fazer coisas OPOSTAS (tentar de novo × escolher outro). `motivoDaRecusa` lê o `ytDiag()` e procura a marca; é acoplamento a uma string do Kotlin e por isso ele **só ESPECIALIZA** — não achando, a genérica vale como sempre, e o dia em que o nome da exceção mudar isto volta ao comportamento de hoje, nunca a uma afirmação errada. Vale nos DOIS caminhos, senão o mesmo vídeo conta duas histórias conforme onde foi tocado; a janela de antecedência da série continua vencendo as duas, porque é a única que diz o que fazer. Três asserções novas, provadas por reversão nas três frentes (sem cartão; sem a causa; a causa invadindo o caso genérico). OTA PURO.
 - **v1.4.13** — O REGISTRO PASSOU A CONTAR, E NÃO SÓ A DESCREVER A ÚLTIMA VEZ. Pedido do operador depois que a terceira medição derrubou a segunda: *"adicione esse contador ao registro"*. O bloco da transmissão guardava a ÚLTIMA extração e só ela — responde *"o que aconteceu da última vez?"* e nunca *"com que frequência?"*, que é a pergunta de uma falha INTERMITENTE. MEDIDO: três Registros da mesma semana deram três respostas (duas extrações degeneradas em 360p, uma com o visionOS entregando 19 faixas e 1080p no ar), e a leitura que saiu delas — *"é sempre"* — foi uma generalização de duas amostras que a terceira derrubou. O `ytCenso` é a forma do `AVStream.fome` aplicada a este caminho: contadores de sessão, sem log e sem disco, em duas linhas novas (`nesta sessão: N pedido(s) · N transmitiu(ram) · N caiu(ram) no download` e `e N× a projeção saiu em qualidade limitada (a menor: Xp)`). Três decisões, e as três provadas por reversão: **o pedido conta no ponto em que o shell é PERGUNTADO** e não na entrada da função (acima dela há recusas que nunca extraem nada, e contá-las inflaria o denominador com o que não foi tentado); **a qualidade limitada é contada À PARTE**, porque um pedido pode transmitir e ainda assim sair abaixo do pedido; e ele **guarda o MENOR valor, não o último**. A primeira asserção não existia na primeira escrita — a reversão que movia o contador para a entrada passava —, e o caso que a fecha é um alvo SEM URL, que recua antes de perguntar. CONTADOR E NÃO LOG: guardar quais vídeos responderia mais e custaria tamanho, privacidade do que se copia e uma segunda fonte de verdade. OTA PURO.
 - **v1.4.12** — AS NOVIDADES VIRARAM TÓPICOS. Pedido do operador: *"está muito texto e muito agressivo. Use apenas tópicos e não precisa entrar em detalhes… a intenção desses textos não é explicar os problemas, mas nomear eles o suficiente para o usuário entender o que foi atacado naquela atualização, e não exatamente o COMO"*. As 29 versões do `notas.json` foram reescritas: **99 itens e 24,3 kB viraram 80 e 6,8 kB**, com a média de 220 caracteres por item caindo para 55 — e o arquivo viaja em TODO bundle do OTA. Três regras, e a terceira é a que o pedido nomeia: NOMEIA, não explica (o mecanismo e a medição vão para este arquivo, que é onde alguém os procura); UMA LINHA CURTA; e SEM CAIXA ALTA de ênfase — ela era o abre de todo item (*"O APP AGORA AVISA QUE…"*) e numa lista de seis é a tela gritando. **O CI passou a cobrar as duas que são mecânicas** (teto de 120 caracteres, no máximo uma palavra em caixa alta), porque uma regra só na prosa erode item a item e ninguém percebe até o arquivo estar em 24 kB de novo. MEDIDO no diálogo real: um tópico de ~55 chars ocupa 2 linhas a 430px e 3 a 320px, então o `OTA_MAX_LINHAS` de 6 continua descrevendo o que descrevia. OTA PURO.
 - **v1.4.11** — O AVISO DE QUALIDADE LIMITADA. Pedido do operador depois de projetar 360p numa TV 4K sem nada na tela dizendo isso: *"coloque o aviso sobre a resolução estar limitada"*. **O app SEMPRE soube a altura** — ela vem do shell e vira o subtítulo da linha ("Vídeo · 1080p"); o buraco é que o "Tocar agora" põe o item na prateleira `avulsos`, **que não tem lista visível**, então a informação existia e não tinha onde aparecer. O aviso sai no cartão que já dizia "Preparando", e para isso o cartão ganhou um TERCEIRO desfecho que fala: `avisar(cap, texto)`, irmão do `falhar` (mesma mecânica, extraída para `encerrarCom`) e **âmbar, não vermelho** — neste app o vermelho é ação destrutiva ou o que está no ar, e uma ressalva não é nenhum dos dois; chamar isto de "Não deu" mandaria investigar o que funcionou. **A REGRA É DUAS CONDIÇÕES** (abaixo do pedido **e** abaixo de 720p), e uma só erra para os dois lados: só a primeira faz quem escolheu 480p receber um aviso a cada toque dizendo o que acabou de pedir; só a segunda transforma um teto baixo escolhido à mão em alarme. O piso é 720p porque é o degrau em que a imagem ainda se sustenta num telão de salão — 360p é o que produziu a queixa. Altura DESCONHECIDA não vira aviso: sem número, "qualidade limitada" é uma afirmação que ninguém pode conferir. E ele **só sai onde o resultado vai aparecer** (`aviso === 'preview'`): guardar um vídeo numa lista já mostra a altura no subtítulo dela, e um cartão sobre a preview ali insinuaria que ele vai ao telão a seguir. **O aviso não conserta nada** — a causa é o SABR e não tem conserto nosso (`ACHADOS-EM-ABERTO.md` §3) —, ele impede que a falta de resolução seja lida como defeito do app, que é a única coisa que ainda estava ao nosso alcance. Oráculo: a metade 9 do `toque-instantaneo.test.mjs`, provada por reversão nas TRÊS frentes (sem aviso; só a primeira condição; só a segunda). OTA PURO.
@@ -286,6 +287,70 @@ na nota que a revoga, não apagada da que a criou.
 - **v5.156** — é METADE OTA e METADE APK, de novo.
 
 ---
+
+## v1.4.14 — um vídeo que não toca deixou de falhar em silêncio
+
+> *"eu tentei tocar um dos vídeos de 22 de set do provai e vede, ele carrega um
+> tempo, mas ele não toca nada e nem dá nenhuma mensagem de erro nem nada"*
+
+### O que o arnês mostrou
+
+Os dois caminhos que resolvem um vídeo do YouTube tratavam a recusa de formas
+diferentes:
+
+| caminho | o que o operador vê |
+|---|---|
+| resultado da BUSCA | cartão sobre a preview: **"Não deu · não foi possível baixar"** |
+| ITEM DE LINK numa lista | `cartao: false` — o cartão sai sem dizer nada |
+
+No segundo a única saída era o `notaNoItem`, que escreve no subtítulo da LINHA
+do item. **E a linha some justamente aqui:** um episódio de série mora dentro do
+álbum, na Biblioteca, e o "Tocar agora" a fecha (`closeHymnSearch`) antes de
+começar. A nota era escrita num lugar que já tinha saído da tela — silêncio
+completo, depois de segundos de espera.
+
+A assimetria era o defeito. O cartão é a régua de sempre: **o aviso mora onde o
+resultado ia aparecer**, e ele ia para a projeção. A nota fica — ela é o certo
+quando a linha está à vista (o item de link do Cronograma), e as duas não
+disputam nada.
+
+O cartão do `recusarLink` é PRÓPRIO, e não o do `cederOPalco`: aquele é solto no
+`finally` logo a seguir, e `falhar()` precisa de um dono que segure a mensagem
+pelo prazo de leitura. É o mesmo padrão do `ytAcaoInterno`, e a carência de saída
+da v1.4.8 faz a troca não piscar.
+
+### E a causa passou a ser dita
+
+O Registro do campo trouxe, nas duas linhas:
+
+```
+transmissão: extração falhou: ContentNotAvailableException · https://www.youtube.com/watch?v=PDe8kLdEFfI
+download:    extração falhou: ContentNotAvailableException · https://www.youtube.com/watch?v=PDe8kLdEFfI
+```
+
+O app sabia disso e dizia *"não foi possível baixar"*. As duas frases mandam
+fazer coisas **opostas**: a genérica convida a tentar de novo — e vai falhar
+igual, na frente da congregação —, a específica manda escolher outro vídeo.
+
+`motivoDaRecusa` lê o `ytDiag()` e procura a marca. **É acoplamento a uma string
+do Kotlin, e por isso ele só ESPECIALIZA:** não achando, a frase genérica vale
+como sempre. No dia em que o nome da exceção mudar, isto volta ao comportamento
+de hoje — nunca a uma afirmação errada. É o mesmo raciocínio do
+`recuperarStream`, que reconhece a URL expirada pela mensagem.
+
+Vale nos **dois** caminhos, senão o mesmo vídeo conta duas histórias conforme
+onde foi tocado. A janela de antecedência da série (`avisoSeFalhar`) continua
+vencendo as duas: ela é a única das três que diz o que fazer.
+
+### Provado por reversão nas três frentes
+
+| reversão | quem reprova |
+|---|---|
+| sem o cartão (só `notaNoItem`) | as **três** asserções |
+| sem a causa nomeada | a da causa |
+| a causa invadindo o caso genérico | a da frase genérica |
+
+OTA PURO — nenhuma linha de Kotlin, `SHELL_VERSION` segue 60.
 
 ## v1.4.13 — o Registro passou a contar, e não só a descrever a última vez
 

@@ -4666,6 +4666,27 @@ segundos, e o toque precisa mudar a tela AGORA. Duas metades:
   demais centra e deixa invadir — só a de centro aprovaria a segunda.
 - **No simplificado sem tela conectada ele não existe** — a preview não está na
   tela —, e por isso `previewBusy` devolve `{ visivel, soltar }`.
+- **A RECUSA DE UM ITEM DE LINK FALA PELO CARTÃO** (`recusarLink`, v1.4.14), e
+  não só pela linha. O `notaNoItem` escreve no subtítulo do item — o certo
+  quando a linha está à vista —, mas **ela some justamente no caso que mais
+  importa**: um episódio de série mora dentro do álbum, e o "Tocar agora" fecha
+  a Biblioteca (`closeHymnSearch`) antes de começar. O desfecho era silêncio
+  completo depois de segundos de espera, com o relato *"carrega um tempo, não
+  toca nada e nem dá mensagem"*. O cartão é a régua de sempre — **o aviso mora
+  onde o resultado ia aparecer** —, e o caminho da BUSCA já fazia isso: a
+  assimetria era o defeito. O cartão é PRÓPRIO e não o do `cederOPalco`: aquele
+  é solto no `finally` logo a seguir, e `falhar()` precisa de um dono que segure
+  a mensagem pelo prazo de leitura.
+- **E A CAUSA É DITA quando o shell a nomeia** (`motivoDaRecusa`). *"Não foi
+  possível baixar"* e *"este vídeo não está disponível"* mandam fazer coisas
+  OPOSTAS — tentar de novo × escolher outro. MEDIDO em campo: o Registro trouxe
+  `extração falhou: ContentNotAvailableException` e o app dizia a frase
+  genérica. Ele lê o `ytDiag()` e procura a marca; **só ESPECIALIZA**, nunca
+  inventa — não achando, a frase genérica vale como sempre, e o dia em que o
+  nome da exceção mudar isto volta ao comportamento de hoje. Vale nos DOIS
+  caminhos (link e busca), senão o mesmo vídeo conta duas histórias conforme
+  onde foi tocado. A janela de antecedência da série (`avisoSeFalhar`) continua
+  vencendo as duas: ela é a única que diz o que fazer.
 - **O cartão tem TRÊS desfechos que falam, não dois** (v1.4.11): `soltar()` (o
   trabalho acabou e não há o que dizer), `falhar(motivo)` (não deu — âmbito
   vermelho, "Não deu") e **`avisar(cap, texto)`** — deu certo, COM uma ressalva.
