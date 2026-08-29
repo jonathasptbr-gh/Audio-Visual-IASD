@@ -104,33 +104,6 @@
   const FUTUROS_MOSTRAR = 'mostrar';      // o padrão: a playlist só tem o que saiu
   const FUTUROS_ESCONDER = 'esconder';    // o canal sobe o trimestre e libera aos poucos
 
-  /**
-   * O PISO da antecedência: quantos dias antes de um sábado FUTURO o episódio
-   * dele já aparece na lista (v5.256).
-   *
-   * Três, isto é: **a quarta-feira antes daquele sábado**, que foi o pedido do
-   * operador — *"a data de corte não pode ser o próprio dia, pois muitos
-   * aproveitam para fazer a organização antes"*. O roteiro do culto é montado
-   * durante a semana, e uma lista que só mostra o episódio no sábado de manhã
-   * chega tarde para quem prepara.
-   *
-   * É uma contagem de DIAS e não um dia da semana, e é ela que sobrevive ao dia
-   * em que o canal publicar num domingo.
-   *
-   * **É PISO, e não a régua inteira:** o episódio da SEMANA CORRENTE nunca é
-   * escondido, venha ele daqui a seis dias — ver [aindaNaoSaiu], onde as duas
-   * metades se juntam, e [sabadoDaSemana], de onde sai a semana. Enquanto esta
-   * contagem foi a régua inteira, o domingo, a segunda e a terça escondiam o
-   * episódio do sábado que vem enquanto o destaque do topo o declarava o desta
-   * semana.
-   *
-   * **O preço está dito e tem remédio:** enquanto o sábado não chega o vídeo
-   * pode ainda não estar público, e o download falha. Quem explica isso é o
-   * `controle.js`, com a frase que manda esperar chegar mais perto — ver
-   * `serieComoYoutube`.
-   */
-  const DIAS_DE_ANTECEDENCIA = 3;
-
   // O CATÁLOGO. Uma linha por série; o `id` é o `coll.id` do card e por isso
   // não pode mudar depois de publicado (é ele que nomeia a pasta no OPFS e
   // liga os downloads já feitos ao card). Ele começa com `serie-` porque é
@@ -469,9 +442,9 @@
    * o preço, e ele é assimétrico — ver o campo [futuros] no catálogo.
    *
    * **A comparação é por DIA, nunca por instante.** O episódio de hoje É de
-   * hoje, e um `>` sobre milissegundos o esconderia até a meia-noite. As três
-   * partes viram um inteiro (`AAAAMMDD`) e a ordem lexicográfica é a
-   * cronológica, sem fuso, sem horário de verão e sem `Date` no meio.
+   * hoje, e um `>` sobre milissegundos o esconderia até a meia-noite. Quem
+   * conta é [diasAte], com `Date.UTC` nas duas pontas — sem fuso e sem horário
+   * de verão.
    *
    * **Sem data no título, o vídeo NUNCA é escondido.** Ele é o achado da regra
    * de ouro (entra sem rótulo, no fim do mês) e esconder o que não se sabe
@@ -495,16 +468,43 @@
     // razão do [mesDaPlaylist] — duas contas de calendário escritas à parte
     // divergem, e foi a divergência que produziu o defeito.
     if (ehDoSabadoAtual(data, serie, hoje)) return false;
-    return diasAte(data, serie, hoje) > DIAS_DE_ANTECEDENCIA;
+    // E A SEMANA É A RÉGUA INTEIRA — não há antecedência sobre a seguinte
+    // (v1.4.16). Houve um PISO de três dias aqui (`DIAS_DE_ANTECEDENCIA`, da
+    // v5.256), e ele saiu quando o operador enunciou a data de corte do canal:
+    // *"a liberação começa na virada da meia noite de sábado para domingo… e
+    // quando acaba aquela semana, na virada do sábado para o domingo, já libera
+    // a próxima"*.
+    //
+    // **Tirá-lo é um no-op para os dois canais, e isso foi MEDIDO**, não
+    // suposto: sobre os 365×365 pares dia-do-ano × episódio de 2026, o piso
+    // mudava o veredito em 312 — e em ZERO deles o episódio era de um SÁBADO,
+    // que é o único dia em que estes dois canais publicam. Ele só alcançava
+    // episódios datados de domingo, segunda ou terça DA SEMANA SEGUINTE, vistos
+    // de quinta em diante.
+    //
+    // Que é justamente o que a data de corte proíbe. O piso não era uma reserva
+    // inofensiva: era a única coisa neste arquivo capaz de mostrar um episódio
+    // antes de a semana dele começar — e mostrar o que o canal não liberou é o
+    // defeito que o campo [futuros] existe para impedir.
+    //
+    // **E o pedido que o criou não regride:** *"a data de corte não pode ser o
+    // próprio dia, pois muitos aproveitam para fazer a organização antes"*. A
+    // semana dá SEIS dias de antecedência (o episódio do sábado está na lista
+    // desde o domingo), contra os três que o piso dava.
+    return diasAte(data, serie, hoje) > 0;
   }
 
   /**
    * QUANTOS DIAS FALTAM para o sábado deste episódio — negativo se já passou.
    *
-   * Ela é o primitivo dos dois consumidores, e é por isso que existe separada:
-   * [aindaNaoSaiu] a compara com [DIAS_DE_ANTECEDENCIA] (o que a lista mostra) e
-   * o `controle.js` a compara com ZERO (o que já saiu de fato, para explicar uma
-   * falha de download). Duas contas de calendário escritas à mão divergiriam.
+   * Ela é o primitivo de três consumidores, e é por isso que existe separada:
+   * [aindaNaoSaiu] e [ehDoSabadoAtual] (o que a lista mostra) e o `controle.js`,
+   * que a compara com ZERO para explicar uma falha de download. Duas contas de
+   * calendário escritas à mão divergiriam.
+   *
+   * Desde a v1.4.16 os três a comparam com o MESMO marco — a semana corrente,
+   * ou o próprio dia. Enquanto um deles usava um piso de dias, esta função
+   * respondia a duas réguas ao mesmo tempo.
    *
    * **`Date.UTC` nas duas pontas, e não subtração de `Date` local.** A conta é
    * de DIAS DE CALENDÁRIO, e um `getTime()` local atravessa o horário de verão:
@@ -703,11 +703,15 @@
    *
    * **A pergunta é pela SEMANA, não pelo dia exato**, e isso é defesa e não
    * frouxidão: a régua deste módulo inteiro é a data do TÍTULO, e o canal
-   * escreve a data que quiser — o `DIAS_DE_ANTECEDENCIA` já existe porque
-   * "publica no sábado" não é promessa que se possa cobrar. Exigir
-   * `diasAte === diasAteSábado` faria um episódio datado de sexta desaparecer
-   * do destaque e a tela dizer "Aguardando lançamento" sobre um vídeo que está
-   * na lista logo abaixo — a pior das duas mentiras possíveis aqui.
+   * escreve a data que quiser — "publica no sábado" não é promessa que se possa
+   * cobrar. Exigir `diasAte === diasAteSábado` faria um episódio datado de
+   * sexta desaparecer do destaque e a tela dizer "Aguardando lançamento" sobre
+   * um vídeo que está na lista logo abaixo — a pior das duas mentiras possíveis
+   * aqui.
+   *
+   * **E desde a v1.4.16 ela é a régua INTEIRA da lista**, não mais a metade
+   * generosa de um par: [aindaNaoSaiu] delega tudo nela, e o que sobra daquela
+   * função é só "está no futuro?".
    *
    * A janela é a semana corrente inteira: de domingo (`-getDay()`) a sábado
    * (`6 - getDay()`). Numa série SEMANAL cai no máximo um item nela.
@@ -889,13 +893,17 @@
       // guardado sobreviveria à correção, que é o defeito da v5.233 por
       // inteiro.
       String(ehOutroIdioma), String(ESCRITAS_DE_FORA), String(IDIOMAS_DE_FORA),
-      // E PELO MESMO ARGUMENTO, os NOMES DOS MESES e a antecedência: eles
-      // decidem o que a regra produz tanto quanto uma função. `dataDoVideo`
-      // casa o mês pelo nome (`MESES`), `rotuloData` o escreve (`MES_CURTO`), e
-      // `aindaNaoSaiu` corta pela `DIAS_DE_ANTECEDENCIA` — mudar qualquer um
-      // muda a lista, e sem eles aqui o índice guardado sobreviveria à
-      // correção. (`MESES_ABREV` é derivado de `MESES` e vem de graça.)
-      JSON.stringify(MESES), JSON.stringify(MES_CURTO), String(DIAS_DE_ANTECEDENCIA),
+      // E PELO MESMO ARGUMENTO, os NOMES DOS MESES: eles decidem o que a regra
+      // produz tanto quanto uma função. `dataDoVideo` casa o mês pelo nome
+      // (`MESES`) e `rotuloData` o escreve (`MES_CURTO`) — mudar um muda a
+      // lista, e sem eles aqui o índice guardado sobreviveria à correção.
+      // (`MESES_ABREV` é derivado de `MESES` e vem de graça.)
+      //
+      // A antecedência esteve aqui até a v1.4.16, pelo mesmo motivo; ela saiu
+      // junto com a constante. O que a substitui não é uma entrada nova: o
+      // corte agora mora inteiro no par `aindaNaoSaiu`/`ehDoSabadoAtual`, e os
+      // dois já entram acima pelo código.
+      JSON.stringify(MESES), JSON.stringify(MES_CURTO),
       extra == null ? '' : String(extra),
     ].join('\u0000');
     let h = 0x811c9dc5;
@@ -909,7 +917,7 @@
   global.AVSerie = {
     SERIES,
     PERIODO_MES, PERIODO_TRIMESTRE, TITULO_ESQUERDA, TITULO_SERIE,
-    FUTUROS_MOSTRAR, FUTUROS_ESCONDER, DIAS_DE_ANTECEDENCIA,
+    FUTUROS_MOSTRAR, FUTUROS_ESCONDER,
     MOTIVO_VAZIO, MOTIVO_PREFIXO, MOTIVO_LIBRAS, MOTIVO_IDIOMA,
     MOTIVO_ANO, MOTIVO_PERIODO, MOTIVO_SEM_ID, MOTIVO_FUTURO,
     normalizar, ehLibras, ehOutroIdioma, aindaNaoSaiu, diasAte,

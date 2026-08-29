@@ -1,5 +1,12 @@
 [
   {
+    "versao": "1.4.16",
+    "itens": [
+      "A lista das séries vai até o sábado da semana, e a próxima entra no domingo.",
+      "O Registro passou a dizer a data de corte, em vez de um número de dias."
+    ]
+  },
+  {
     "versao": "1.4.15",
     "itens": [
       "O Provai e Vede deixou de listar episódios que o canal ainda não liberou.",

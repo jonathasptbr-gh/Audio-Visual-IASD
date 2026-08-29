@@ -258,7 +258,7 @@ const appVersionEl = document.getElementById('appVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.4.15';
+const WEB_VERSION = '1.4.16';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -18749,6 +18749,21 @@ function serieDiaBr(dia) {
     + String(d.getMonth() + 1).padStart(2, '0') : '?';
 }
 
+// O SÁBADO da semana de um dia guardado ("2026-08-19" → "22/Ago"). Ele existe
+// para o Registro poder dizer a data de corte em vez de um número de dias, e a
+// conta é do `AVSerie` — a mesma que a lista usou. Uma segunda conta de
+// calendário aqui divergiria dela, e o log passaria a discordar do aparelho.
+//
+// O dia guardado é o da VARREDURA, não o de hoje: foi o corte DELE que produziu
+// a lista de futuros que esta linha descreve.
+function serieSabadoDoCorte(dia) {
+  const m = String(dia || '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!m) return '';
+  const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+  if (isNaN(d.getTime())) return '';
+  return AVSerie.rotuloData(AVSerie.sabadoDaSemana(d));
+}
+
 function serieHa(quando) {
   return quando ? 'há ' + mirrorDur(Date.now() - quando) : '';
 }
@@ -18983,9 +18998,17 @@ async function blocoSeries() {
       .sort((a, b) => (a.mes - b.mes) || (a.dia - b.dia));
     if (fut.length) {
       const p = fut[0];
-      linhas.push('    (' + fut.length + ' ainda não liberado(s) pelo canal — a lista alcança '
-        + AVSerie.DIAS_DE_ANTECEDENCIA + ' dia(s) além de '
-        + serieDiaBr(d.serieDiaEm || d.quandoVideos)
+      // A DATA DE CORTE, dita como ela é (v1.4.16). Esta linha anunciava "a
+      // lista alcança 3 dia(s) além de <dia>", e esse número era o piso que
+      // saiu — e que, MEDIDO, nunca decidiu nada para estes dois canais. Um
+      // Registro é lido A DISTÂNCIA por quem não tem como conferir: uma linha
+      // que descreve um corte que o app não aplica é o pior artefato que este
+      // projeto sabe produzir. O corte é o SÁBADO DA SEMANA da varredura, e é
+      // ele que o nome do mais próximo permite conferir.
+      const sab = serieSabadoDoCorte(d.serieDiaEm);
+      linhas.push('    (' + fut.length + ' ainda não liberado(s) pelo canal — a lista vai até o '
+        + 'sábado da semana da varredura' + (sab ? ' (' + sab + ')' : '')
+        + ', que foi ' + serieDiaBr(d.serieDiaEm || d.quandoVideos)
         + '; o mais próximo é "' + p.nome + '")');
     }
     // O ACHADO que não é recusa, e o mais valioso dos dois: o vídeo ENTROU (a
