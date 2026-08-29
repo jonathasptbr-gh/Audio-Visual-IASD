@@ -4705,6 +4705,20 @@ e nada vai para a preview. O indicador vai para o quadrado da própria linha.
 - **É o MESMO anel** (`.dl-ring`, com `--dl-ring` dando o tamanho): dois
   spinners para a mesma espera fariam o operador perguntar se são coisas
   diferentes.
+- **Mas ele são DOIS desenhos, e no cartão da preview a SETA é condicional**
+  (v1.4.19). O aro diz *"espere"*; a seta diz *"bytes chegando"*, e só uma delas
+  é verdade numa PREPARAÇÃO — a extração de um link, a montagem de uma playlist,
+  a rasterização de um PDF, e a própria fase pré-bytes de um download (que nasce
+  em "Preparando vídeo" e vira "Baixando vídeo · N%" no primeiro progresso).
+  **O ícone segue a LEGENDA** (`pintarSetaDoCartao`), e não uma bandeira a mais
+  na assinatura do `previewBusy`: a legenda já carrega a distinção na tela, é
+  escrita em DOIS pontos (a criação e o `atualizar`), e derivá-la ali faz o
+  desenho e a palavra nunca discordarem. Falha para o lado certo — uma legenda
+  nova escrita de outro jeito vira um spinner puro, nunca uma promessa de
+  download que não existe. Oráculo: `gaveta-e-cartao.test.mjs`, medindo o
+  RENDERIZADO (a classe sem a regra de CSS continuaria desenhando a seta).
+  Na miniatura da LINHA a seta fica sempre: ali o indicador só acende com
+  download de verdade.
 - **Quem acende é `ensureSongDownloaded`**, logo DEPOIS da checagem
   `needsFull || needsPlayback` — o único ponto que já sabe que há download de
   verdade. Acender no chamador exigiria repetir a checagem e piscaria em toda

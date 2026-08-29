@@ -24,6 +24,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
+- **v1.4.19** — O ÍCONE DO CARTÃO DE ESPERA SEGUE A LEGENDA. Pedido do operador, sobre o cartão de um link do YouTube: *"seu ícone segue sendo um ícone de download, enquanto que deveria ser só o spinner, sem um ícone de download nesse tipo de preparação, já que não está realmente baixando algo, para diferenciar do download em si"*. O `.dl-ring` são **DOIS desenhos** — o aro que gira (`::before`) e a SETA parada (`svg`) —, e só a segunda afirma "bytes chegando". Numa PREPARAÇÃO ela prometia o que não estava acontecendo, e isso vale para MAIS casos do que o relato nomeia: a extração de um link, a montagem de uma playlist, a rasterização de um PDF **e a própria fase pré-bytes de um download**, que nasce em "Preparando vídeo" e só vira "Baixando vídeo · 12%" no primeiro progresso. **A regra é "o ícone segue a LEGENDA"**, e não uma bandeira a mais na assinatura do `previewBusy`: a legenda já carrega essa distinção na tela, em português, e é escrita em DOIS pontos (a criação do cartão e o `atualizar` do progresso) — derivá-la ali faz o desenho e a palavra nunca discordarem, que é o defeito que o pedido nomeia. Ela **falha para o lado certo**: uma legenda nova escrita de outro jeito perde a seta e vira um spinner puro, nunca o contrário. O aro FICA, porque a espera continua sendo verdade. Oráculo no `gaveta-e-cartao.test.mjs`, medindo o RENDERIZADO (`getClientRects`) e não a classe — a classe sem a regra de CSS passaria num teste de classe e continuaria desenhando a seta na tela do operador, que é exatamente o que ele relatou. Quatro reversões, uma por peça. OTA PURO.
 - **v1.4.18** — UMA RESOLUÇÃO DE LINK EM VOO PERDE A VEZ PARA A PROJEÇÃO SEGUINTE. Relato do operador: *"ao tocar em um item do tipo link, ele começa a carregar, em seguida eu toco em uma música normal nativa, a música começa a tocar, mas o link que estava carregando não é interrompido, e quando termina de carregar ele vem sobre a música que tocou na hora"*. REPRODUZIDO em arnês, com a ponte de mentira segurando as duas esperas. Resolver um `kind: 'youtube'` é a espera mais longa do app — uma extração de rede de SEGUNDOS (`ytStream`) e, falhando ela, um download de MINUTOS —, e o desfecho chegava sem perguntar a ninguém se ainda era esperado: `send` no fim, cena trocada, louvor cortado na frente da congregação. **É a TERCEIRA vez que esta base encontra a mesma classe**, e as duas anteriores já têm nome: o `lyricLoadSeq` (o download do áudio de uma letra avulsa) e o `projecaoSeq` (o capítulo da Bíblia que chega tarde). A senha usada é a MESMA daquele — quem projeta qualquer coisa a incrementa —, e não uma quarta contagem: duas réguas para "quem chegou por último" divergiriam. CINCO guardas, uma por lugar em que a espera termina em efeito, e cada uma provada por reversão: a transmissão que volta tarde, o download do item de link, o download do "Tocar agora" da BUSCA (a outra porta, que a v1.4.6 já tinha deixado de fora uma vez), o CARTÃO "Preparando" que ficava sobre a música já tocando, e a marca de "no ar" que acendia na linha do link abandonado. **E o desfecho do download é ASSIMÉTRICO de propósito:** o arquivo FICA e toma o lugar do link na lista (`trocarLinkPeloArquivo`) — é valor durável e foi o que o toque pediu; o que ele não pode é subir ao palco. Já a transmissão abandonada **não escorrega para o download**: seriam minutos de rede por um toque que o operador substituiu. OTA PURO.
 - **v1.4.17** — O ESTALO NO SOM AO NAVEGAR ENTRE AS ABAS. Relato do operador, com o Registro do campo (sem TV — a preview É a projeção e o som sai do aparelho): *"o áudio demonstra um ruído no exato momento em que eu interajo com as abas do cronograma e bíblia, quando navego entre elas"*. REPRODUZIDO EM ARNÊS, e a causa é uma linha: `stage.setMute` é uma função de **declarar** estado, e quem a chama no Controle é o `load()` — que reaplica a cena inteira a cada troca de aba, a cada redesenho da lista, a cada importação. Mas o ramo de desmutar se comportava como uma função de **animar** a mudança: começava por `rampVolume(0, …)`, que ZERA o volume antes de subir. Com o som já ligado, cada reafirmação escrevia `volume 1 → 0 → 1` num `<video>` que estava tocando. **Em JS o par é atômico e nada se ouve; no aparelho não é** — cada escrita atravessa o renderer até o `AudioRendererImpl`, e o retorno de chamada do áudio roda a cada ~10 ms: caindo entre as duas, ele rende UM buffer em silêncio. E a janela se abre justamente na troca de aba, que é quando a thread principal está mais ocupada (a lista nova, o fantasma e as duas animações do carrossel). A correção é a rampa PARTIR DE ONDE O VOLUME ESTÁ — zero saindo do mudo, onde não há o que preservar; o valor corrente em todo o resto —, o espelho exato do que o ramo de mutar já fazia. De quebra ela conserta o TOQUE DUPLO no botão de mudo (desmutar no meio da rampa de mutar passava por zero). Oráculo novo, no portão: ele mede as ESCRITAS e não o som, porque o artefato é uma corrida com a thread de áudio (um teste do desfecho audível seria intermitente por construção) e o estado final é idêntico nas duas versões. **E uma GUARDA que eu tinha escrito junto SAIU antes de publicar:** ela também apagava o degrau, mas a reversão parcial passava — as duas se cobriam —, e a segunda hipótese que a justificava (uma rampa inútil armada a cada `load()`) foi MEDIDA e é falsa: o `setVolume` da linha seguinte a cancela no mesmo tique. Código que nenhuma reversão reprova não entra. OTA PURO.
 - **v1.4.16** — A DATA DE CORTE, DITA PELO OPERADOR — E O REGISTRO QUE A DESCREVIA ERRADO. Enunciado do operador: *"a liberação começa na virada da meia noite de sábado para domingo, no caso o domingo é o primeiro dia da semana e já oferece a mídia para o sábado de sua semana, e quando acaba aquela semana, na virada do sábado para o domingo, já libera a próxima"*. **O app JÁ FAZIA exatamente isso desde a v1.2.19** — `ehDoSabadoAtual` é a semana adventista inteira, de domingo a sábado, e não o dia —, e o oráculo já travava a virada (`sáb 15` esconde 22/Ago, `dom 16` mostra). O que o lote corrige são as DUAS coisas que discordavam disso. **1) O PISO DE TRÊS DIAS SAIU** (`DIAS_DE_ANTECEDENCIA`, da v5.256). MEDIDO antes de tirar: sobre os 365×365 pares dia × episódio de 2026 ele mudava o veredito em **312**, e em **zero** deles o episódio caía num SÁBADO — o único dia em que os dois canais publicam. Ele só alcançava episódios datados de domingo, segunda ou terça DA SEMANA SEGUINTE, vistos de quinta em diante: era a única coisa do módulo capaz de mostrar um episódio antes de a semana dele abrir, isto é, de contrariar a data de corte. O pedido que o criou não regride — a semana dá SEIS dias de antecedência contra os três dele. **2) O REGISTRO PAROU DE MENTIR:** a linha dos retidos dizia *"a lista alcança 3 dia(s) além de <dia>"*, um corte que o app não aplicava; hoje diz o SÁBADO da semana da varredura, e a conta é a mesma do `AVSerie` (uma segunda conta de calendário no `controle.js` divergiria, e um log que discorda do aparelho é o pior artefato deste projeto). O oráculo ganhou a PROPRIEDADE exaustiva, escrita **por fora** da implementação — o domingo que abre a semana sai da data do EPISÓDIO, não da janela que o `aindaNaoSaiu` usa —, provada por reversão: quem reintroduzir o piso vê os 312 pares reprovarem. OTA PURO.
@@ -289,6 +290,81 @@ na nota que a revoga, não apagada da que a criou.
 - **v5.154** — é METADE OTA e METADE APK, e a divisão importa para quem for testar em aparelho.
 - **v5.155** — é OTA PURO
 - **v5.156** — é METADE OTA e METADE APK, de novo.
+
+---
+
+## v1.4.19 — o ícone do cartão de espera segue a legenda
+
+> *"verifique o cartão de preparando o link do YouTube, pois seu ícone segue
+> sendo um ícone de download, enquanto que deveria ser só o spinner, sem um
+> ícone de download nesse tipo de preparação, já que não está realmente baixando
+> algo, para diferenciar do download em si."*
+
+### O `.dl-ring` são dois desenhos, e só um deles era verdade
+
+```
+  ::before   o aro que gira        → "espere"
+  svg        a seta para baixo     → "bytes chegando"
+```
+
+O comentário do CSS já dizia a intenção — *"o aro gira, a SETA fica parada — um
+spinner puro diria só 'espere'"* —, e ela está certa **para um download**. O que
+faltava era notar que o mesmo cartão serve esperas que não transferem nada.
+
+### E são mais casos do que o relato nomeia
+
+| legenda | o que está acontecendo | seta |
+|---|---|---|
+| `Preparando` | a extração de um link do YouTube | **não** |
+| `Preparando vídeo` | a fase PRÉ-BYTES de um download | **não** |
+| `Preparando apresentação` | a rasterização de um PDF | **não** |
+| `Montando` | a playlist sendo montada | **não** |
+| `Baixando` · `Baixando a letra` | bytes chegando | sim |
+| `Baixando vídeo · 37%` | idem, com progresso | sim |
+
+A quarta linha é a que o relato não pedia e que a regra corrige de graça: o
+download da preview **nasce** em "Preparando vídeo" (`ytBaixarNativo`) e só vira
+"Baixando vídeo · N%" no primeiro progresso. Naqueles segundos a seta chegava
+cedo demais.
+
+### A regra: o ícone segue a legenda
+
+```js
+const CARTAO_BAIXANDO = /^\s*baixando/i;
+function pintarSetaDoCartao(acao) {
+  pvBusyEl.classList.toggle('sem-seta', !CARTAO_BAIXANDO.test(String(acao || '')));
+}
+```
+
+**E não uma bandeira a mais na assinatura do `previewBusy`.** A legenda já
+carrega a distinção na tela, em português, e é escrita em exatamente DOIS pontos
+— a criação do cartão e o `atualizar` do progresso. Derivar o ícone dali é o que
+faz o desenho e a palavra nunca discordarem, que é o defeito que o pedido nomeia;
+uma bandeira à parte seria uma segunda fonte para a mesma verdade, e este
+arquivo já sabe o que acontece com duas.
+
+**Ela falha para o lado certo.** Uma legenda nova escrita de outro jeito perde a
+seta e vira um spinner puro — nunca o contrário. Um cartão que promete download
+sem download é a queixa; um que não promete é apenas menos específico.
+
+**O aro fica**, porque a espera continua sendo verdade: sem ele o cartão vira
+texto parado, e a espera deixa de se ler como espera.
+
+### O oráculo mede o RENDERIZADO, não a classe
+
+A classe sem a regra de CSS passaria num teste de classe e continuaria
+desenhando a seta na tela do operador — que é exatamente o que ele relatou. A
+asserção pergunta `getClientRects()`.
+
+Duas metades: as quatro preparações sem seta (e **com** o aro), e os três
+downloads com ela — incluindo o que começa como preparação e vira download no
+`atualizar`. Sem a segunda, apagar a seta de todo cartão passaria na primeira, e
+o desenho perderia a distinção que o pedido existe para criar.
+
+Quatro reversões, uma por peça: a regra de CSS, a decisão na criação, a decisão
+no `atualizar`, e a seta apagada em todos os casos.
+
+**OTA PURO** — nada em `java/`, `res/` ou no manifest.
 
 ---
 

@@ -1,5 +1,11 @@
 [
   {
+    "versao": "1.4.19",
+    "itens": [
+      "O aviso de preparação deixou de mostrar o ícone de download."
+    ]
+  },
+  {
     "versao": "1.4.18",
     "itens": [
       "Tocar outra coisa agora interrompe o link que estava carregando."
