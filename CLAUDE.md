@@ -2866,6 +2866,10 @@ TROCANDO DE CONTEÚDO (a pergunta do excluir, o campo do renomear). Oráculo:
 `smoke.mjs`, medindo `transform` E `filter` do cartão durante uma pressão de
 verdade.
 
+**E ELA FOI COBRADA UMA VERSÃO DEPOIS DE ESCRITA:** o `.row-slot` da v1.4.27 (o
+✓ do renomear, que mora na coluna do `⋮`) vive FORA da `.row-acoes`, e a guarda
+acima cobre a FAIXA — sem acrescentá-lo, o balanço voltava pelo botão novo.
+
 ### A escada de camadas
 
 - **A superfície AFUNDA dentro de um cartão** (regra no topo de `controle.css`).
@@ -3846,7 +3850,7 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: v1.4.26** (base web) · **v1.4.22** (APK) · `SHELL_VERSION` **60** · bundle com
+**Versão atual: v1.4.27** (base web) · **v1.4.22** (APK) · `SHELL_VERSION` **60** · bundle com
 `minShell: 60` — o shell 60 é o **PISO**: todo método da ponte existe, e não há
 guarda de versão no lado web. O que continua valendo é que `java/`, `res/`, o
 manifest e os workflows **só chegam instalando o APK**.

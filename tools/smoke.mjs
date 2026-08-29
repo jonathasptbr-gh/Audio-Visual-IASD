@@ -3325,6 +3325,188 @@ try {
     + (e && e.message) + ')');
 }
 
+// ── O `⋮` CEDE A COLUNA AO PROCESSO, E A CAPA SAI JUNTO (v1.4.27) ────────
+//
+// Pedido do operador: durante o renomear e a confirmação de exclusão o `⋮`
+// *"contradiz o fluxo dos botões, pois o processo de exclusão e o de renomear
+// já devem ter métodos de retorno/cancelamento"*; a capa sai junto *"para ter
+// mais espaço"*; e a coluna do `⋮` vira o *"botão indicativo"* do processo.
+//
+// TRÊS METADES, e cada uma cai por um motivo próprio:
+//  1. as duas colunas SOMEM (um `⋮` aceso ao lado de "Cancelar/Excluir" é uma
+//     terceira saída para uma pergunta que já tem duas);
+//  2. a faixa de fato GANHA a largura (sem isto o item 1 seria só uma remoção:
+//     o operador pediu o espaço, não o sumiço);
+//  3. a coluna continua OCUPADA, pelo símbolo do processo — sem ele a linha
+//     encolheria e a faixa dançaria de largura no meio de um destrutivo.
+//
+// Medido no RENDERIZADO (`getClientRects`), e não pela classe: as duas colunas
+// somem por uma regra de CSS (`:has(> .row-acoes.confirmando)`), e um teste de
+// classe passaria com a regra ausente e a capa desenhada na tela.
+try {
+  const slot = await pg.evaluate(async () => {
+    setAppMode('full');
+    activeTab = 'imports';
+    const m = await AVDB.addMedia(new Blob([new Uint8Array(8)], { type: 'audio/mpeg' }),
+      { name: 'Item do slot', type: 'audio/mpeg', kind: 'audio', list: 'imports' });
+    await load();
+    const li = document.querySelector('#library .lib-item[data-id="' + m.id + '"]');
+    if (!li) return { erro: 'a linha não foi desenhada' };
+    li.scrollIntoView({ block: 'center' });
+    li.querySelector('.row-mais').click();
+    await new Promise((f) => setTimeout(f, 320));
+    const vis = (sel) => {
+      const el = li.querySelector(sel);
+      return !!el && el.getClientRects().length > 0;
+    };
+    const larguraDaFaixa = () => {
+      const c = li.querySelector('.row-acoes');
+      return c ? Math.round(c.getBoundingClientRect().width) : 0;
+    };
+    const r = {
+      // O ESTADO DE PARTIDA: com a gaveta comum aberta, as duas colunas ESTÃO
+      // na tela. Sem esta metade, um seletor errado nas asserções de baixo
+      // passaria por "sumiu".
+      capaAntes: vis(':scope > .row > .thumb'),
+      maisAntes: vis(':scope > .row > .row-mais'),
+      faixaAntes: larguraDaFaixa(),
+    };
+    // A CAIXA DO `⋮` MEDIDA AGORA, enquanto ele ainda está na tela: durante o
+    // processo ele é `display: none` e o `getBoundingClientRect` dele é todo
+    // zero — comparar contra um nó escondido aprovaria qualquer coisa.
+    const caixaDoMais = li.querySelector(':scope > .row > .row-mais')
+      .getBoundingClientRect();
+    const mesmaCaixa = (el) => {
+      if (!el) return false;
+      const b = el.getBoundingClientRect();
+      return Math.abs(b.right - caixaDoMais.right) <= 1
+        && Math.abs(b.width - caixaDoMais.width) <= 1
+        && Math.abs(b.height - caixaDoMais.height) <= 1;
+    };
+    // ---- a confirmação de exclusão ----
+    li.querySelector('.row-excluir').click();
+    await new Promise((f) => setTimeout(f, 260));
+    r.delCapa = vis(':scope > .row > .thumb');
+    r.delMais = vis(':scope > .row > .row-mais');
+    r.delSimbolo = vis(':scope > .row > .row-slot--del');
+    r.delFaixa = larguraDaFaixa();
+    // E O SÍMBOLO OCUPA A CAIXA QUE ERA DO `⋮`, não um lugar qualquer: a prova
+    // é GEOMÉTRICA, porque "existe no DOM" não diz onde ele foi desenhado.
+    r.delNaColuna = mesmaCaixa(li.querySelector(':scope > .row > .row-slot--del'));
+    // ===== E UM TOQUE NELA NÃO PROJETA =====
+    // A coluna fica FORA da faixa, e o que existe por baixo é a `.row`, cujo
+    // toque põe o item NO AR. Tirar o símbolo do hit-test não resolveria: o
+    // toque cairia na linha do mesmo jeito. Este é o pior desfecho que o
+    // desenho da v1.4.27 sabe produzir — projetar a mídia que se está
+    // perguntando se apaga —, e ele não deixa rastro nenhum na faixa.
+    //
+    // O TOQUE É DE PONTEIRO, e não um `click`: quem projeta uma linha do
+    // Cronograma é o par `pointerdown`/`pointerup` do `attachRowGestures` (é
+    // ele que também hospeda o toque longo), e um `MouseEvent('click')` não o
+    // alcança — MEDIDO ao escrever esta asserção, que passava com a guarda
+    // REMOVIDA. Um oráculo que não toca no caminho que mede aprova os dois
+    // lados da mudança.
+    const antesDoAr = currentId;
+    const alvoLixo = li.querySelector(':scope > .row > .row-slot--del');
+    const caixaLixo = alvoLixo.getBoundingClientRect();
+    const ponto = {
+      clientX: Math.round(caixaLixo.left + caixaLixo.width / 2),
+      clientY: Math.round(caixaLixo.top + caixaLixo.height / 2),
+      pointerId: 1, bubbles: true,
+    };
+    alvoLixo.dispatchEvent(new PointerEvent('pointerdown', ponto));
+    await new Promise((f) => setTimeout(f, 60));
+    alvoLixo.dispatchEvent(new PointerEvent('pointerup', ponto));
+    alvoLixo.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    await new Promise((f) => setTimeout(f, 260));
+    r.slotNaoProjeta = currentId === antesDoAr;
+    r.perguntaFicou = !!li.querySelector('.row-acoes.confirmando > .linha-confirma');
+    fecharConfirmacaoNaLinha();
+    await new Promise((f) => setTimeout(f, 120));
+    // ---- o renomear ----
+    li.querySelector('.row-renomear').click();
+    await new Promise((f) => setTimeout(f, 260));
+    r.renCapa = vis(':scope > .row > .thumb');
+    r.renMais = vis(':scope > .row > .row-mais');
+    r.renOk = vis(':scope > .row > .row-slot--ok');
+    r.renNaColuna = mesmaCaixa(li.querySelector(':scope > .row > .row-slot--ok'));
+    r.renFaixa = larguraDaFaixa();
+    // O CAMPO É O ÚNICO FILHO DA FAIXA — o ✓ saiu dela para a coluna.
+    const caixa = li.querySelector('.row-acoes .linha-renome');
+    r.renSoCampo = !!caixa && caixa.children.length === 1
+      && caixa.children[0].classList.contains('linha-renome-campo');
+    // E O ✓ CONTINUA GRAVANDO de onde está: um botão que muda de casa e perde o
+    // ouvinte é o defeito exato que esta mudança pode produzir.
+    const campo = li.querySelector('.linha-renome-campo');
+    campo.value = 'Nome pelo slot';
+    // O ✓ é procurado NA COLUNA, e a ausência dele é um veredito e não uma
+    // exceção: com o símbolo caindo no caminho B (o defeito que a asserção de
+    // baixo pega) o `click` de um `null` derrubaria o bloco inteiro, e a
+    // reprovação sairia como "terminou com exceção" em vez de dizer o que era.
+    const okEl = li.querySelector(':scope > .row > .row-slot--ok');
+    if (okEl) okEl.click();
+    // ===== ESPERAR O FATO, E NÃO O RELÓGIO =====
+    // O `click` do ✓ dispara uma continuação ASSÍNCRONA que este bloco não
+    // espera: `renameMedia` e, depois dela, o `load()` do `aoGravar`. Com um
+    // prazo fixo essa continuação ATRAVESSA a saída do bloco sob carga — e o
+    // `load()` dela refaz o `innerHTML` da lista no meio do bloco SEGUINTE,
+    // que fica medindo um `li` já destacado do documento: todos os retângulos
+    // saem ZERO e a reprovação aparece no oráculo errado.
+    //
+    // MEDIDO: com o prazo fixo, 1 reprovação em 3 rodadas a 2× de carga, no
+    // bloco dos 360px — que não tem nada a ver com esta mudança. É a classe "o
+    // oráculo correndo contra o app" do `CLAUDE.md`, e a correção é a de lá:
+    // esperar pela INGESTÃO (o nome no banco E na tela), nunca por um relógio.
+    const ate = async (cond, ms) => {
+      const fim = Date.now() + (ms || 5000);
+      while (Date.now() < fim) {
+        if (await cond()) return true;
+        await new Promise((f) => setTimeout(f, 30));
+      }
+      return false;
+    };
+    const linhaNova = () => document
+      .querySelector('#library .lib-item[data-id="' + m.id + '"] .row-name');
+    r.renGravou = await ate(async () => {
+      const rec = await AVDB.getMedia(m.id);
+      const linha = linhaNova();
+      return !!rec && rec.name === 'Nome pelo slot'
+        && !!linha && linha.textContent === 'Nome pelo slot';
+    });
+    await AVDB.listRemove('imports', m.id);
+    await load();
+    return r;
+  });
+  checar(!slot.erro && slot.capaAntes === true && slot.maisAntes === true
+    && slot.delCapa === false && slot.delMais === false
+    && slot.renCapa === false && slot.renMais === false,
+    'A CAPA E O `⋮` SAEM DE CENA durante os dois processos (v1.4.27) — o `⋮` é '
+    + 'uma terceira saída para uma pergunta que já tem duas, e a capa já não '
+    + 'identificava nada (na exclusão ela virava uma lixeira). Com a gaveta '
+    + 'COMUM aberta os dois continuam lá', JSON.stringify(slot));
+  checar(!slot.erro && slot.delFaixa > slot.faixaAntes && slot.renFaixa > slot.faixaAntes,
+    'e a faixa GANHA a largura das duas colunas (' + slot.faixaAntes + 'px → '
+    + slot.delFaixa + 'px) — o operador pediu o espaço, não o sumiço: sem esta '
+    + 'metade, esconder as colunas seria só uma remoção', JSON.stringify(slot));
+  checar(!slot.erro && slot.delSimbolo === true && slot.renOk === true
+    && slot.delNaColuna === true && slot.renNaColuna === true,
+    'e a COLUNA continua ocupada pelo símbolo do processo, na caixa exata do '
+    + '`⋮` que ele substituiu — sem ocupante a linha encolheria e a faixa '
+    + 'dançaria de largura no meio de um destrutivo', JSON.stringify(slot));
+  checar(!slot.erro && slot.slotNaoProjeta === true && slot.perguntaFicou === true,
+    'e um toque na LIXEIRA da coluna não projeta nada (v1.4.27): ela fica fora '
+    + 'da faixa, e por baixo está a `.row`, cujo toque põe o item NO AR — pôr '
+    + 'no ar a mídia que se está perguntando se apaga é o pior desfecho deste '
+    + 'desenho, e ele não deixa rastro na faixa', JSON.stringify(slot));
+  checar(!slot.erro && slot.renSoCampo === true && slot.renGravou === true,
+    'e o campo fica SOZINHO na faixa, com o ✓ gravando da coluna — um botão '
+    + 'que muda de casa e perde o ouvinte é o defeito que esta mudança sabe '
+    + 'produzir', JSON.stringify(slot));
+} catch (e) {
+  checar(false, 'a medição do slot do `⋮` terminou sem exceção ('
+    + (e && e.message) + ')');
+}
+
 // ── O CARTÃO NÃO BALANÇA POR UM TOQUE NA GAVETA (v1.4.25) ────────────────
 //
 // Relato do operador: *"há um bug de deslocamento, um pequeno movimento

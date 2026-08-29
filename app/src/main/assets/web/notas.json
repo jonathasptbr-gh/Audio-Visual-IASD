@@ -1,5 +1,13 @@
 [
   {
+    "versao": "1.4.27",
+    "itens": [
+      "A capa e o botão de opções saem de cena ao renomear ou excluir um item.",
+      "Com eles fora, o campo de nome e o par cancelar/excluir ocupam a linha toda.",
+      "E a coluna do botão de opções passa a mostrar de qual processo se trata."
+    ]
+  },
+  {
     "versao": "1.4.26",
     "itens": [
       "A folha de leitura passou a oferecer a letra, a cifra e a bíblia ao mesmo tempo.",

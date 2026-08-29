@@ -3846,6 +3846,11 @@ try {
       perguntouNaFaixa: !!li.querySelector('.fav-acoes.confirmando > .linha-confirma'),
       semModal: !dlg || !dlg.classList.contains('open'),
       // 2. A MINIATURA VIROU A LIXEIRA, e a capa saiu de baixo dela.
+      //    ESTE É O CAMINHO B DO SÍMBOLO (v1.4.27): no Cronograma e na fila ele
+      //    passou a morar na COLUNA DO `⋮`, e a capa sai de cena junto. Aqui
+      //    não há `⋮` — a gaveta abre pelo corpo da linha e a faixa fica ABAIXO
+      //    dela, sem cobrir nada —, então a capa continua sendo a casa dele.
+      semMais: !li.querySelector(':scope > .row > .row-mais'),
       lixeiraNaCapa: !!lixo && getComputedStyle(lixo).display !== 'none',
       capaEscondida: capa === 0,
       // 3. As opções da faixa cedem o lugar — sem isto o par apareceria ao lado
@@ -3877,9 +3882,12 @@ try {
     'o excluir da gaveta PERGUNTA na própria faixa (v5.301), e não abre popup '
     + 'nenhum — a pergunta "excluir este item?" feita por cima de uma tela sem '
     + 'o item era respondida de memória', JSON.stringify(saiu));
-  checar(saiu.lixeiraNaCapa && saiu.capaEscondida && saiu.opcoesEscondidas,
-    'e a MINIATURA vira a lixeira enquanto ela pergunta: é a única parte da '
-    + 'linha que a faixa não cobre, logo a única que ainda diz de qual item é',
+  checar(saiu.semMais === true && saiu.lixeiraNaCapa && saiu.capaEscondida
+    && saiu.opcoesEscondidas,
+    'e aqui a MINIATURA vira a lixeira — o CAMINHO B do símbolo (v1.4.27): '
+    + 'esta gaveta não tem `⋮` para o processo tomar emprestado, e a faixa fica '
+    + 'ABAIXO da linha em vez de cobri-la, então a capa continua sendo a casa '
+    + 'dele. No Cronograma e na fila os dois saem de cena juntos',
     JSON.stringify(saiu));
   checar(saiu.antesDoSim === true && saiu.cancelouVoltou === true,
     'o primeiro toque não tira nada e o Cancelar devolve a faixa inteira — sem '
@@ -3918,13 +3926,29 @@ try {
     const semModal = !dlg || !dlg.classList.contains('open');
     if (!campo) return { erro: 'o campo não abriu na faixa', semModal };
     const valorInicial = campo.value;
+    // ===== O CAMINHO B DO SÍMBOLO (v1.4.27) =====
+    // Na v1.4.27 o ✓ do renomear e a lixeira da exclusão mudaram de casa: vão
+    // para a COLUNA DO `⋮`, que o processo toma emprestada. **Esta gaveta não
+    // tem `⋮`** — ela abre pelo corpo da linha e a faixa fica ABAIXO dela, sem
+    // cobrir nada —, e é por isso que o caminho B existe e é medido aqui: sem
+    // ele o ✓ simplesmente não seria desenhado, e o campo ficaria sem
+    // confirmação em toda a lista dos Favoritos.
+    //
+    // E ELE VOLTA PARA DENTRO DA FAIXA, à DIREITA do campo. As duas metades
+    // caem por motivos diferentes: fora da faixa o botão some da tela; à
+    // ESQUERDA ele entra na frente do texto que se está digitando (o `append`
+    // do `semSlot` roda ANTES do campo — daí o `prepend` do lado do app).
+    const semMais = !li.querySelector(':scope > .row > .row-mais');
+    const okFav = li.querySelector('.fav-acoes.confirmando > .linha-renome > .row-slot--ok');
+    const okDepoisDoCampo = !!okFav && !!campo
+      && (campo.compareDocumentPosition(okFav) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0;
     campo.value = 'Nome de favorito novo';
-    li.querySelector('.linha-renome-ok').click();
+    li.querySelector('.row-slot--ok').click();
     await new Promise((f) => setTimeout(f, 500));
     const rec = await AVDB.getMedia(alvo);
     const li2 = document.querySelector('[data-fav-corpo] .lib-item[data-id="' + alvo + '"]');
     return {
-      semModal, valorInicial,
+      semModal, valorInicial, semMais, okNaFaixa: !!okFav, okDepoisDoCampo,
       noBanco: rec && rec.name,
       naTela: li2 ? li2.querySelector('.row-name').textContent : null,
     };
@@ -3932,6 +3956,12 @@ try {
   checar(renFav.noBanco === 'Nome de favorito novo' && renFav.naTela === 'Nome de favorito novo',
     'e a faixa de ações dos Favoritos ganhou o RENOMEAR (v5.301): o nome muda '
     + 'no banco E na linha', JSON.stringify(renFav));
+  checar(renFav.semMais === true && renFav.okNaFaixa === true
+    && renFav.okDepoisDoCampo === true,
+    'e o CAMINHO B do ✓ (v1.4.27): esta gaveta não tem `⋮` para o processo '
+    + 'tomar emprestado, então ele volta para DENTRO da faixa, à direita do '
+    + 'campo — sem isso o renomear dos Favoritos ficaria sem confirmação',
+    JSON.stringify(renFav));
   checar(renFav.semModal === true,
     'e o campo mora NA FAIXA, sem diálogo de tela cheia (v1.4.25) — renomear é '
     + 'a única ação em que o nome VELHO precisa continuar à vista enquanto o '
@@ -4283,7 +4313,7 @@ try {
     const linhaAVista = cx.height > 0 && cx.width > 0;
     const valorInicial = campo.value;
     campo.value = 'Nome novo';
-    li.querySelector('.linha-renome-ok').click();
+    li.querySelector('.row-slot--ok').click();
     await new Promise((r) => setTimeout(r, 450));
     const rec = await AVDB.getMedia(m.id);
     const linha = document.querySelector('#library .lib-item[data-id="' + m.id + '"] .row-name');
