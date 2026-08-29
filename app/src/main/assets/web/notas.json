@@ -1,5 +1,13 @@
 [
   {
+    "versao": "1.4.5",
+    "itens": [
+      "O APP PASSOU A MEDIR A INTERNET E ESCOLHER A RESOLUÇÃO DO VÍDEO ONLINE. Antes ele pedia sempre a maior qualidade e, se a rede não desse conta, o vídeo travava — a qualidade nunca baixava sozinha, porque a escolha era feita antes de começar e valia até o fim. Agora ele mede quanto a rede entregou nos primeiros pedaços do vídeo (sem baixar nada a mais para isso) e, se a maior qualidade não couber, desce um degrau ANTES de a imagem aparecer. Você não vê a troca: ela acontece atrás do aro de espera.",
+      "E A LINHA DE QUALIDADE DO MENU DO VÍDEO AGORA DIZ O QUE ELA FAZ. Ela sempre valeu também para o \"Tocar agora\", e nada na tela dizia isso — ela começa em \"Online\", que é sobre onde guardar, e o resto parecia ser só do download. Agora ela se apresenta como TETO: o app escolhe abaixo dele sozinho, conforme a rede.",
+      "O REGISTRO DIZ A CONTA INTEIRA: quanto a rede mediu, em que degrau o app parou e quantas vezes a transmissão ficou sem dados. É o que separa \"a internet oscilou\" de \"a internet não sustenta essa qualidade\"."
+    ]
+  },
+  {
     "versao": "1.4.4",
     "itens": [
       "O SOM DEIXOU DE SUMIR AO CONECTAR NUMA SMART TV. Numa conexão instável a TV podia aparecer na lista do Android sem que a projeção chegasse a subir nela — e nesse estado o app calava o celular (por achar que havia para onde mandar o som) sem ter ninguém tocando do outro lado. Ficava mudo dos dois lados, sem erro nenhum na tela.",

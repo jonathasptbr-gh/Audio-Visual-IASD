@@ -4800,6 +4800,17 @@ main {
    dobrar a lista de destinos (ver renderSongMenu). */
 .song-menu-seg-row { padding-bottom: .2rem; }
 .song-menu-seg { width: 100%; }
+/* A NOTA DA LINHA: o que aquela escala governa. Só a de qualidade a usa, e ela
+   precisa — a escala começa em "Online", que é armazenamento, e o resto se lia
+   como "qualidade do download". `--muted` porque ela é legenda, não escolha: o
+   olho tem de cair nos botões primeiro. */
+.song-menu-seg-nota {
+  display: block;
+  color: var(--muted);
+  font-size: .74rem;
+  line-height: 1.25;
+  padding: 0 .1rem .28rem;
+}
 
 /* ---------- MAIS DE UM DESTINO NA MESMA FOLHA (v5.141) ---------- */
 /* A caixa de marcação vive DENTRO do botão da linha e à direita dele: o corpo

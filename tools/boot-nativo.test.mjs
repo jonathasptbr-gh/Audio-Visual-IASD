@@ -3226,6 +3226,51 @@ try {
     'a lista REAPROVEITA a linha que já estava lá — a enquete não a recria a cada 2,5 s');
   checar(anim.entrou, 'uma tela nova entra MARCADA para animar');
   checar(anim.saiu, 'e uma que saiu se recolhe antes de ser removida do documento');
+
+  // ===== O MANIFESTO REESCRITO PARA A REDE LEVA A ESCADA JUNTO (shell 60) =====
+  //
+  // `telaManifestoDaRede` troca `/stream/<token>` (o origin do WebView) por
+  // `/s/<token>` (o servidor do celular, relativo). A escada nasceu DEPOIS dessa
+  // função, e um `Object.assign` a carregaria adiante INTACTA — com URLs de um
+  // host que o navegador da rede não alcança.
+  //
+  // O desfecho seria pior que não ter escada: a tela mede, decide descer, o
+  // fetch do init novo falha quatro vezes e `morrer()` derruba a transmissão.
+  // **Uma otimização matando a projeção, e só nas telas** — que é onde ninguém
+  // do lado do operador veria o erro.
+  const rede = await pg2.evaluate(() => {
+    const faixa = (n) => ({
+      url: 'https://appassets.androidplatform.net/stream/tok' + n,
+      altura: n, size: n * 1000, mime: 'video/mp4; codecs="avc1.4d401f"',
+    });
+    const cheio = telaManifestoDaRede({
+      seconds: 200, video: faixa(1080), audio: faixa(0),
+      videos: [faixa(1080), faixa(720), faixa(480)],
+    });
+    // Um degrau que NÃO se deixa reescrever (URL de outra forma) tem de SAIR da
+    // escada, nunca ficar nela: a regra escolheria justamente ele numa rede
+    // ruim, que é quando ele importa.
+    const torto = telaManifestoDaRede({
+      seconds: 200, video: faixa(1080), audio: faixa(0),
+      videos: [faixa(1080), { url: 'https://outro.exemplo/x', altura: 720, size: 1 }],
+    });
+    return {
+      urls: (cheio.videos || []).map((v) => v.url),
+      alturas: (cheio.videos || []).map((v) => v.altura),
+      video: cheio.video.url,
+      tortoTemEscada: !!(torto && torto.videos),
+    };
+  });
+  checar(rede.urls.length === 3 && rede.urls.every((u) => u.startsWith('/s/')),
+    'a ESCADA é reescrita para `/s/<token>` como o `video` e o `audio` — sem isso '
+    + 'a tela da rede busca um host que ela não alcança e a transmissão MORRE por '
+    + 'causa da otimização', rede.urls);
+  checar(rede.alturas.join(',') === '1080,720,480' && rede.video.startsWith('/s/'),
+    'a ordem e as alturas atravessam intactas, e o `video` (o topo) continua '
+    + 'reescrito como sempre', rede);
+  checar(rede.tortoTemEscada === false,
+    'e uma escada que perdeu degraus a ponto de sobrar um só SOME: uma escada com '
+    + 'um degrau inalcançável é pior que escada nenhuma', rede.tortoTemEscada);
   checar(erros2.length === 0,
     'nenhum erro de console no percurso com a transmissão ligada'
     + (erros2.length ? ':\n        ' + erros2.join('\n        ') : ''));

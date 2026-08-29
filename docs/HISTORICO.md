@@ -24,6 +24,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
+- **v1.4.5** — O APP PASSOU A MEDIR A REDE E ESCOLHER A RESOLUÇÃO. Pergunta do operador, e ela é a pergunta certa: *"não temos como fazer o teste ultra rápido sobre a velocidade da internet para escolher melhor a resolução, já que ela não muda no meio do caminho, não sendo adaptável?"*. **É justamente porque não há ABR que a escolha importa** — ela é feita UMA vez e vale o louvor inteiro —, e enquanto o manifesto trouxe uma faixa só ela era feita CEGA: sempre o teto, e uma rede que não o sustenta produz travamento, nunca imagem menor. O shell passa a entregar a **ESCADA** (`man.videos`, uma faixa por altura, `video` continua sendo o topo — aditivo de propósito) e quem escolhe é o web, por três razões e a terceira decide: é a invariante 5; a escolha depende da MEDIÇÃO, que só existe depois dos primeiros bytes; e uma regra de escolha erra, e no web ela se conserta por OTA em minutos. **A medição não custa uma requisição:** o init, o índice e o primeiro fragmento têm de ser buscados de qualquer jeito, e são eles que dizem quanto esta rede entrega — pelo caminho REAL do CDN. Um teste sintético seria pior nas três pontas (gastaria uma requisição, mediria o mesmo slow start, e ainda assim mediria um INSTANTE). **A troca só acontece ANTES DO PRIMEIRO QUADRO**, e é isso que a dispensa de todo alinhamento de tempo — nada foi mostrado, o `currentTime` é zero, trocar é recomeçar; depois disso a bandeira fecha para sempre, porque uma troca com o louvor no ar é gagueira e este projeto já decidiu que gagueira é pior que uma escolha imperfeita. **QUALQUER FALHA NA TROCA MANTÉM O DEGRAU ATUAL**, inclusive repondo o init antigo se o novo já tinha sido appendado: é a propriedade que torna a otimização aceitável num culto. A margem (1,35) existe porque a medida SUBESTIMA — ela sai do slow start —, e por isso a regra só pode DESCER. A banda medida sobrevive ao item, então o segundo louvor do culto já começa sabendo. Mais dois consertos do mesmo relato: o seletor da folha virou **TETO e diz isso na tela** (ele sempre valeu para o "Tocar agora" e nada dizia — a escala começa em "Online", que é armazenamento), e o Registro passou a imprimir a conta inteira (banda medida, degrau em que parou, e as paradas por fome). Oráculo novo, PURO, provado por reversão em três frentes; a asserção que carrega o arquivo é a MONOTONIA, que nenhum caso isolado pega. `SHELL_VERSION` 60 (`videos` + `altura` na faixa — forma de retorno). EXIGE RELEASE v1.4.5
 - **v1.4.4** — "HÁ TELA" NUNCA FOI "HÁ TELÃO". Relato do operador sobre uma smart TV: *"o volume não vinha independente de aumentar o volume ou não… fechei tudo e abri do zero e daí veio som"*. A frase do meio é o diagnóstico inteiro — **só o relançamento do app recuperava**, e é exatamente o que o código previa: `AVNative.displays()` responde pelo `DisplayManager` e quem projeta é a `Presentation`, e as duas divergem numa negociação de Miracast (`show()` LANÇA com o dongle instável; o sistema derruba a janela sozinho numa oscilação) — nos dois casos **a tela continua listada**. Enquanto o web perguntou `lastDisplays.length > 0`, esse estado calava a preview (havia "para onde mandar o som") sem ninguém tocando do outro lado: SILÊNCIO NOS DOIS LADOS, sem erro no console e com o Registro dizendo "conectado". E não passava sozinho: `syncPresentation` só voltava a rodar por um evento do `DisplayManager` — que numa tela que continua listada não vem — ou por um `onResume`, e num culto o celular fica no suporte. A correção tem TRÊS metades e nenhuma basta: (1) o campo **`telao`** por tela, que passa a responder às três perguntas cuja resposta honesta é a JANELA e não a tela — quem toca o som, se o microfone é oferecido (quem capta é o `/display/` DENTRO dela) e se o Modo Fácil destrava; a tela **continua na lista**, porque *"não há TV"* e *"a TV está aí e o telão não subiu"* pedem frases diferentes, e um filtro diria a primeira, que é falsa; (2) a **escada de retomada** (0,4 s → 8 s, cinco degraus, cancelada quando a tela some de verdade e não reagendada com um pedido em voo — `onDisplayChanged` chega em rajada); (3) enquanto o telão está no chão **o som volta para o celular**, que no espelhamento continua chegando às caixas pelo `REMOTE_SUBMIX`. O MESMO relato trazia uma segunda queixa, e ela é outro caminho: *"veio som, porém ficou travando e qualidade de vídeo baixa"*, num vídeo do YouTube tocado direto do online. O giro de espera só existia na CARGA, então uma parada por falta de buffer **congelava o quadro sem nada na tela** — e um app quebrado produz a MESMA imagem, o que deixava a única leitura possível sendo um palpite ("deve ser a internet"). Agora o giro tem DUAS razões que não se apagam uma à outra, e a fome vira NÚMERO no Registro (episódios **e** segundos parados). Uma coisa foi medida escrevendo o oráculo e mudou o desenho: **um `MediaSource` nasce vazio e dispara `waiting` em TODA transmissão**, então a primeira versão do censo contava a carga e o número passava a dizer "≥1 sempre" — a vigília só abre no primeiro `playing`. Sobre a RESOLUÇÃO baixa, a hipótese da internet está **DESCARTADA POR CONSTRUÇÃO**: o `mse.js` **não faz ABR** (está no cabeçalho dele), então aqui rede fraca produz TRAVAMENTO e nunca imagem menor — o inverso da intuição vinda do app do YouTube. O app também não escolhe baixo (teto 1080p, padrão 1080p, e MEDIDO em aparelho na v5.127: `transmitindo 1080p (137@VISIONOS + 140@VISIONOS)`). Sobram três causas e o Registro passou a separá-las (`teto Xp → transmitindo Yp` mais a nota `HAVIA Zp transmissível (outro cliente)`, que só sai quando deixamos resolução na mesa); a resposta operacional numa rede fraca é PEDIR MENOS no seletor 720p/480p, que é como se troca travamento por imagem menor num app sem ABR. Dois oráculos novos, provados por reversão. `SHELL_VERSION` 59 (o campo `telao` — **forma de retorno**, não método novo). EXIGE RELEASE v1.4.4
 - **v1.4.2** — A MEDIÇÃO DE ALCANCE. O app e o site passaram a contar **quantos aparelhos usam isto**, e nada além disso: uma busca por dia a um asset de Release cujo `download_count` o GitHub já mantém — sem id, sem corpo, sem nada que distinga um aparelho de outro, e sem uma requisição a domínio que o app já não usasse. O uso próprio sai **por construção** (contador separado: `b-dev.txt` para o aparelho marcado em Configurações e para todo build debuggável), nunca por subtração de uma estimativa — *subtrair um palpite do próprio uso é como se produz um painel confiável e falso*. Três achados MEDIDOS moldaram o desenho, e o segundo inverteu a escolha óbvia: (1) o alcance de hoje é de **um dígito** (v1.0 com 5 downloads, v1.4 com 1), então o instrumento barato vale mais que o preciso; (2) o `web-ota` **não tem filtro de caminho**, então gravar a série em `main` republicaria o bundle de hora em hora e ZERARIA o `version.json` — o instrumento destruiria a própria medida —, daí a branch órfã `dados`; (3) asset de Release não manda `Access-Control-Allow-Origin` (o `pages.yml` já registrava a medição), então o painel lê de `raw.githubusercontent.com`. A seção fica em `site/registro/` atrás de `#alcance`, e **a própria página diz que isso é obscuridade e não segredo** — `download_count` é API pública de um repositório público. Fecha com um oráculo novo (`registro-alcance.test.mjs`, o único que roda sobre o `site/`), provado por reversão contra um gráfico que desenhava 12, 5, 3 e 1 do mesmo tamanho: `.barra-c`/`.barra-f` eram `<span>`, e `width` não faz nada em elemento inline. **Uma suposição segue sem medir**, e o farol inteiro depende dela — ver o aviso no topo de `docs/MEDICAO-DE-ALCANCE.md`.
 - **v1.4.1** — O CELULAR COMO PONTO DE ACESSO. A transmissão nunca precisou de internet — ela precisava que o celular fosse CLIENTE de uma Wi-Fi, e numa igreja sem rede isso não existe: o operador lia *"sem Wi-Fi — o espelho só liga em Wi-Fi"* com o hotspot ligado na frente dele. A causa é uma só, e não são "dois portões": `redeDaWifi` pergunta ao `ConnectivityManager`, e **o downstream do tethering não é um `Network`** (é montado no netd sem `NetworkAgent`, e sempre viveu no eixo que devolve NOME DE INTERFACE). Nasce o `EspelhoInterfaces.kt` — PURO, com JUnit em pares —, cujo discriminador **não é o nome**: *no ar, com IPv4 RFC1918, e que NENHUM `Network` reivindica*, porque a do soft AP é a única com essa forma — não é uma rede que o aparelho USA, é uma que ele SERVE. O nome entra só na CLASSIFICAÇÃO, depois de três filtros, porque isto é Kotlin e quando a regra errar num aparelho não há OTA que conserte. O par que carrega o arquivo é o `p2p-wlan0-0`/`192.168.49.1` do Wi-Fi Direct: privado, no ar, sem `Network` que o reivindique — **a forma EXATA que a regra procura**, e no ar durante todo culto com Miracast; sem a família `p2p` na denylist o servidor subiria no fio do dongle. O bind **não mudou uma letra**: continua explícito num IPv4, nunca `0.0.0.0`. Mais três coisas que o lote descobriu de passagem: o callback de rede **nunca dispara** em modo AP puro (não há morte errada em 6 s — há coisa pior, nada vigiaria o AP caindo, daí a enquete de 5 s); `ipAindaEDaWifi` virou `ipAindaEServivel` com um segundo degrau, sem o qual a transmissão morreria na primeira suspeita; e o **AP ISOLATION**, a falha muda deste recurso, praticamente DESAPARECE no hotspot — isolamento bloqueia cliente↔cliente e ali o celular é o GATEWAY. A recusa passou a DIZER O QUE FAZER, num nó próprio e só quando é de rede. `SHELL_VERSION` 57 (`espelhoLigarEm`, ADITIVO).
@@ -275,6 +276,94 @@ na nota que a revoga, não apagada da que a criou.
 - **v5.154** — é METADE OTA e METADE APK, e a divisão importa para quem for testar em aparelho.
 - **v5.155** — é OTA PURO
 - **v5.156** — é METADE OTA e METADE APK, de novo.
+
+---
+
+## v1.4.5 — medir a rede para escolher a resolução
+
+> *"não temos como fazer o teste ultra rápido sobre a velocidade da internet
+> para escolher melhor a resolução, já que ela não muda no meio do caminho, não
+> sendo adaptável?"*
+
+A pergunta contém o argumento: **é porque não há ABR que a escolha importa.**
+Ela é feita uma vez e vale o louvor inteiro — e enquanto o manifesto trouxe uma
+faixa só, era feita CEGA (sempre o teto). Uma rede que não sustenta o teto
+produz **travamento**, nunca imagem menor.
+
+### O desenho, e por que ele não é um teste de velocidade
+
+Um teste sintético seria pior nas três pontas: gastaria uma requisição, mediria
+o mesmo slow start do TCP, e ainda assim mediria um INSTANTE. O que este lote faz
+custa **zero requisições**: o init, o índice e o primeiro fragmento têm de ser
+buscados de qualquer jeito, e são eles que dizem quanto esta rede entrega — pelo
+caminho REAL (nosso proxy até o googlevideo), não por um endpoint que mede outra
+coisa.
+
+| peça | onde | por quê |
+|---|---|---|
+| a ESCADA (`man.videos`) | `YoutubeGrab.manifesto` | uma faixa por altura, na ordem do cliente. `video` continua sendo o topo: **aditivo**, e tudo que já lia `man.video` segue lendo o mesmo |
+| o MEDIDOR | `pegarUmaVez` | bytes ÷ tempo, só do que DEU CERTO — um 403 rápido inflaria a banda exatamente onde nada foi entregue |
+| a REGRA | `AVStream.escolherDegrau` | PURA, com oráculo. `(vídeo + áudio) × 8 / segundos × margem ≤ medido` |
+| a TROCA | `talvezTrocarDegrau` | só antes do primeiro quadro |
+
+**A decisão fica no web por três razões, e a terceira decide:** é a invariante 5;
+ela depende da MEDIÇÃO, que só existe depois dos primeiros bytes; e uma regra de
+escolha erra — no web ela se conserta por OTA em minutos, em Kotlin custa uma
+Release.
+
+### As duas propriedades que tornam isto aceitável num culto
+
+1. **A troca só acontece ANTES DO PRIMEIRO QUADRO.** É isso que a dispensa de
+   todo alinhamento de tempo: nada foi mostrado (o `stage` segura o aro de espera
+   até `PRONTO_STREAM_MS`), o `currentTime` é zero, e trocar é recomeçar em vez
+   de emendar no meio. Depois disso a bandeira fecha para sempre — uma troca com
+   o louvor no ar é gagueira, e este projeto já decidiu que gagueira é pior que
+   uma escolha imperfeita.
+2. **Qualquer falha na troca MANTÉM O DEGRAU ATUAL**, inclusive repondo o init
+   antigo quando o novo já tinha sido appendado (a partir dali o `SourceBuffer`
+   descreve a faixa errada, e os fragmentos antigos seriam decodificados contra
+   ela). No pior caso a transmissão segue exatamente como seguiria sem esta
+   otimização. Por isso o `catch` **não** chama `morrer()`.
+
+**A margem (1,35) não é conservadorismo:** a medida sai dos primeiros bytes, isto
+é, durante o slow start, e por isso SUBESTIMA. Daí a regra só poder DESCER — uma
+medida que subestima nunca pode justificar um degrau mais alto, e não justifica:
+quem chama já começou no topo.
+
+**A banda sobrevive ao item** (`AVStream.banda`): o segundo louvor do culto
+começa sabendo o que o primeiro descobriu.
+
+### Os dois consertos que vieram do mesmo relato
+
+- **O seletor virou TETO, e diz isso na tela.** Ele sempre valeu para o "Tocar
+  agora" (o `altura` viaja até o `ytStream`) e **nada dizia** — a escala começa
+  em "Online", que é escolha de ARMAZENAMENTO, e o resto lia como "qualidade do
+  download". A instrução "escolha 480p numa rede ruim" era, por isso,
+  tecnicamente certa e praticamente inútil.
+- **O Registro imprime a conta inteira:** banda medida, degrau em que o app
+  parou, e as paradas por fome. É o que separa "a internet oscilou" de "a
+  internet não sustenta essa qualidade".
+
+### O oráculo
+
+`tools/degrau-de-banda.test.mjs`, PURO (a IIFE do `mse.js` roda sobre um `window`
+de mentira). Cada caso decide alguma coisa: o topo com rede sobrando — senão a
+regra vira um jeito elaborado de projetar 480p numa igreja com fibra —, o degrau
+QUE CABE com rede apertada (recuar demais é o mesmo defeito do outro lado, e
+ninguém reclamaria dele), o PISO em vez de uma recusa (recusar mandaria a cena ao
+download de centenas de MB), a MARGEM, o ÁUDIO na conta, e a **MONOTONIA**: mais
+banda nunca devolve degrau pior — a propriedade que nenhum caso isolado pega e
+que uma tabela de limiares quebra no primeiro ajuste. Provado por reversão em
+três frentes (margem, áudio, piso).
+
+**O que NÃO foi feito, e está dito:** a escada herda a ordem por CLIENTE
+(`ordemCliente`, visionOS na frente), então ela é a escada daquele cliente. Se um
+vídeo tiver faixa alta só em outro, a medição não ajuda — ela escolhe dentro do
+que recebeu. Quem vai dizer é a nota `HAVIA Zp transmissível` da v1.4.4. Ver
+`ACHADOS-EM-ABERTO.md` §3.
+
+`SHELL_VERSION` 60 (`videos` na resposta e `altura` na faixa — **forma de
+retorno**). **EXIGE RELEASE v1.4.5.**
 
 ---
 

@@ -35,8 +35,8 @@ espelhar o celular.
 
 **Fora daqui:** `docs/ACHADOS-EM-ABERTO.md` (os defeitos CONFIRMADOS e ainda não
 corrigidos, com cenário e correção proposta — **leia antes de mexer no que ele
-nomeia**; hoje tem TRÊS — os dois do áudio do espelhamento e a resolução da
-transmissão direta —, e é arquivo para esvaziar, não para crescer),
+nomeia**; hoje tem TRÊS — os dois do áudio do espelhamento e o CLIENTE de onde
+sai a escada da transmissão —, e é arquivo para esvaziar, não para crescer),
 `docs/shell/README.md`
 (o HUB do **Kotlin**: um capítulo por
 subsistema do shell, mais a tabela que diz onde cada um dos 29 arquivos é
@@ -445,8 +445,17 @@ window.AVNative = {
                        //    achado da última `apkProcurar`)
   ytDiag(),            // → string: o que o extrator recebeu na última extração
                        //   (diagnóstico do rodapé de Configurações)
-  ytStream(url, altura), // → manifesto DASH { video, audio, seconds, height } ou null
-                       //   TRANSMITIR sem baixar
+  ytStream(url, altura), // → manifesto DASH ou null: TRANSMITIR sem baixar
+                       //   `{ video, videos, audio, seconds, height }`.
+                       //   `videos` é a ESCADA (shell 60): as faixas mp4
+                       //   transmissíveis sob o teto, UMA POR ALTURA, da mais
+                       //   alta para a mais baixa. `video` continua sendo o
+                       //   TOPO — a mudança é ADITIVA de propósito, e tudo que
+                       //   já lia `man.video` segue lendo o mesmo. Quem ESCOLHE
+                       //   é o web (`AVStream.escolherDegrau`), porque a escolha
+                       //   depende da BANDA MEDIDA, que só existe depois dos
+                       //   primeiros bytes — e porque uma regra de escolha erra,
+                       //   e no web ela se conserta por OTA
   ytSearch(termo),     // → [{ id, url, name, author, seconds, thumb }] do YouTube
   ytCanalPlaylists(canalUrl), // → [{ name, url, count }] da ABA do canal
   ytPlaylist(url),     // → { name, author, items:[{id,url,name,seconds,thumb}] }
@@ -610,7 +619,7 @@ prazo (um timeout ali resolveria null com o operador ainda escolhendo a pasta).
 
 ### `SHELL_VERSION` — subir SEMPRE que a superfície mudar
 
-Hoje vale **59**, e ele é o **PISO**: o bundle declara `minShell: 59`, então
+Hoje vale **60**, e ele é o **PISO**: o bundle declara `minShell: 60`, então
 todo método da ponte existe sempre e **não há guarda de versão no lado web**.
 "Superfície" inclui **forma de retorno** e **comportamento**, não só assinatura:
 um campo que some, um contrato de URL que muda ou um método que passa a fazer
@@ -623,7 +632,7 @@ escondia. Sem guardas, o web chama um método que o APK instalado não tem: o
 existe, é tocável e não faz nada. Por isso mudança de ponte é um lote
 **APK + web publicado JUNTO**, com `shellTag` no `version.json`.
 
-> A tabela dos 59 degraus está em `docs/HISTORICO.md` — ela é história do
+> A tabela dos 60 degraus está em `docs/HISTORICO.md` — ela é história do
 > contrato, e história mora lá.
 
 ### As QUATRO filas da ponte — escolher a errada é uma regressão muda
@@ -685,7 +694,7 @@ E duas regras que ficam de fora das filas:
   e volta; quem responde é o laço de cópia do `YoutubeGrab`, a cada bloco de
   64 kB.
 
-**O bundle declara `minShell: 59`, e é a VÁLVULA que resolve.** Um bundle que
+**O bundle declara `minShell: 60`, e é a VÁLVULA que resolve.** Um bundle que
 exija ponte mais nova que o `SHELL_VERSION` instalado é recusado inteiro
 (`WebUpdater.kt`), e o app segue no que tinha — a recusa acontece no shell, e
 não em runtime no meio de um culto. **Guarda de versão no lado web é proibida:**
@@ -962,16 +971,42 @@ está em segundo plano"*):
   - **Atraso de 600 ms antes de acender**, e **só no stream**: um arquivo local
     não fica sem dados, e um aro piscando a cada seek na frente da congregação é
     pior que aro nenhum. Oráculo: `tools/espera-do-stream.test.mjs`.
-- **A RESOLUÇÃO É ESCOLHIDA UMA VEZ e NÃO SE ADAPTA — logo a REDE não pode
-  baixá-la.** `YoutubeGrab.manifesto` pega a faixa mais alta do PRIMEIRO cliente
-  da ordem (`ordemCliente`, visionOS na frente) sob o teto, e o `mse.js` a serve
-  até o fim: **não há ABR**, e está escrito no cabeçalho dele. Isto inverte a
-  intuição vinda do app do YouTube e precisa estar dito: aqui uma rede fraca
-  produz **travamento**, nunca imagem menor. Quem conta os travamentos é o
-  `AVStream.fome`; quem baixa a resolução é o OPERADOR, no seletor **Online ·
-  1080p · 720p · 480p** da folha, que vale para "Tocar agora" (o `altura` viaja
-  até o `ytStream`) — é assim que se troca travamento por imagem menor num app
-  que não faz isso sozinho.
+- **A RESOLUÇÃO É MEDIDA, e não adivinhada (shell 60).** O player continua sem
+  ABR — a escolha é feita UMA vez e vale o louvor inteiro —, e é justamente por
+  isso que ela não pode ser cega. O shell entrega a ESCADA (`man.videos`); o
+  `mse.js` mede **bytes ÷ tempo do que já é buscado** (init, índice e primeiro
+  fragmento: zero requisição a mais, pelo caminho real do CDN) e
+  `AVStream.escolherDegrau` — PURA, com oráculo — devolve o degrau que a banda
+  sustenta, contando o ÁUDIO junto.
+  - **A troca só acontece ANTES DO PRIMEIRO QUADRO**, e é isso que a dispensa de
+    qualquer alinhamento de tempo: nada foi mostrado (o aro de espera cobre até
+    `PRONTO_STREAM_MS`), o `currentTime` é zero, e trocar é recomeçar. Depois
+    disso a bandeira fecha para sempre — uma troca com o louvor no ar é
+    gagueira, e este projeto já decidiu que gagueira é pior que uma escolha
+    imperfeita.
+  - **QUALQUER FALHA NA TROCA MANTÉM O DEGRAU ATUAL** (inclusive repondo o init
+    antigo, se o novo já tinha sido appendado). É a propriedade que torna a
+    otimização aceitável num culto: no pior caso a transmissão segue como
+    seguiria sem ela.
+  - **A margem existe porque a medida SUBESTIMA**: ela sai dos primeiros bytes,
+    durante o slow start do TCP. Daí a regra só poder DESCER — uma medida que
+    subestima nunca justifica um degrau mais alto.
+  - **A banda medida sobrevive ao item** (`AVStream.banda`): o segundo louvor do
+    culto começa sabendo o que o primeiro descobriu.
+  - O seletor da folha virou **TETO** e diz isso na tela. Ele sempre valeu para
+    o "Tocar agora" e nada dizia — a escala começa em "Online", que é
+    armazenamento, e o resto lia como "qualidade do download".
+- **A REDE NUNCA BAIXA A RESOLUÇÃO NO MEIO, e isso inverte a intuição vinda do
+  app do YouTube.** Não há ABR: escolhido o degrau, ele vale até o fim. Uma rede
+  que piora DEPOIS do primeiro quadro produz **travamento**, nunca imagem menor
+  — e quem os conta é o `AVStream.fome`. A janela de decisão é a carga, e só
+  ela; passada, o desfecho de uma rede insuficiente é a fome, que o Registro
+  reporta para o degrau da PRÓXIMA vez sair certo.
+  - **A ordem do shell continua sendo por CLIENTE antes de altura**
+    (`ordemCliente`, visionOS na frente — é dele que vêm as URLs que o CDN
+    serve). A escada herda essa ordem, então ela é a escada DAQUELE cliente. Se
+    um dia um vídeo tiver faixa alta só em outro, a nota `HAVIA Zp transmissível`
+    do Registro é quem vai dizer.
   - **O Registro separa as três causas de uma imagem ruim**: `teto Xp` (o que o
     operador pediu), `transmitindo Yp` (o que foi escolhido) e a nota
     `HAVIA Zp transmissível (outro cliente)`, que só sai quando deixamos
@@ -3212,6 +3247,7 @@ mundo anterior por outro caminho.
 | `acervo.test.mjs` | as contas da Biblioteca ("completa?" e "quanto ocupa?"), que já foram respondidas por fórmulas diferentes na mesma tela |
 | `mse.test.mjs` · `stage-fade.test.mjs` | mensagens de falha da transmissão direta · a transição de entrada do palco |
 | `espera-do-stream.test.mjs` | **o travamento no meio da transmissão** — o giro só existia na CARGA, e uma parada por falta de buffer congelava o quadro sem nada na tela; um app quebrado produz a MESMA imagem. Quatro metades (aparece · não pisca · só no stream · é CONTADO) mais a que foi MEDIDA escrevendo o arquivo: um `MediaSource` nasce vazio e dispara `waiting` em toda transmissão, então contar a carga faria o número do Registro dizer "≥1 sempre" |
+| `degrau-de-banda.test.mjs` | **a escolha do degrau da transmissão** — a regra é PURA (banda medida + escada + duração → índice) e cada caso decide uma coisa: o topo com rede sobrando (senão a regra vira um jeito elaborado de projetar 480p numa igreja com fibra), o degrau QUE CABE com rede apertada (recuar demais é o mesmo defeito do outro lado, e ninguém reclamaria dele), o PISO em vez de uma recusa, a MARGEM (a medida sai do slow start e subestima), o ÁUDIO na conta, e a MONOTONIA — mais banda nunca devolve degrau pior, a propriedade que nenhum caso isolado pega |
 | `registro-alcance.test.mjs` | **a MEDIÇÃO DE ALCANCE**, um dos dois que rodam sobre o `site/`. Duas coisas falham CALADAS ali. Um gráfico que desenha todos os valores iguais: `.barra-c`/`.barra-f` eram `<span>`, que é INLINE, e `width` não faz nada num elemento inline — 12, 5, 3 e 1 saíam idênticos, sem erro em lugar nenhum (provado por REVERSÃO). E o ROTEAMENTO do farol de visita, que é o requisito inteiro: se ele parar, os números continuam subindo e passam a incluir quem mede — **e contador não se corrige depois** |
 | `plataforma.test.mjs` | **o FILTRO DE PLATAFORMA da página**: o `.apk` só instala em Android, então quem chega de iPhone, iPad ou computador não vê o guia de instalação — vê a frase que diz que este é um app Android e que a página deve ser aberta por um. Falha CALADO nos dois sentidos: de MENOS, o download volta a aparecer num iPhone e a pessoa conclui que o app está quebrado (ninguém relata isso); de MAIS — o caro —, a classificação recusa um Android de verdade e o que sai é uma página que abre, rola e não oferece nada. Daí o desenho FALHAR ABERTO (sem classe no `<html>` nada é escondido) e essa propriedade ter asserção própria: um desenho fail-CLOSED deixa a suíte inteira verde e reprova só ali. `userAgent` VERBATIM, **o iPad entre eles sem código próprio** — o iPadOS 13+ se anuncia como Macintosh e cai no lado certo por construção, então a asserção guarda a PROPRIEDADE e não o mecanismo |
 
@@ -3629,8 +3665,8 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: v1.4.4** (base web) · **v1.4.4** (APK) · `SHELL_VERSION` **59** · bundle com
-`minShell: 59` — o shell 59 é o **PISO**: todo método da ponte existe, e não há
+**Versão atual: v1.4.5** (base web) · **v1.4.5** (APK) · `SHELL_VERSION` **60** · bundle com
+`minShell: 60` — o shell 60 é o **PISO**: todo método da ponte existe, e não há
 guarda de versão no lado web. O que continua valendo é que `java/`, `res/`, o
 manifest e os workflows **só chegam instalando o APK**.
 

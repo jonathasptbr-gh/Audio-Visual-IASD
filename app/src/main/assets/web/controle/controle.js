@@ -258,7 +258,7 @@ const appVersionEl = document.getElementById('appVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.4.4';
+const WEB_VERSION = '1.4.5';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -14940,8 +14940,19 @@ const YT_ONLINE = -1;
 // Cantada/Playback das músicas do acervo. Duas perguntas usam este formato
 // (forma e qualidade), e escrevê-lo duas vezes era garantir que a segunda
 // divergisse da primeira no primeiro ajuste de estilo.
-function ytSegRow(opcoes, atual, onPick) {
+function ytSegRow(opcoes, atual, onPick, nota) {
   const li = document.createElement('li'); li.className = 'song-menu-seg-row';
+  // A LINHA PODE DIZER O QUE ELA GOVERNA, e uma delas precisa: a escala de
+  // qualidade começa em "Online", que é escolha de ARMAZENAMENTO, e o resto lê
+  // como "qualidade do download". O operador não tinha como saber que os três
+  // últimos degraus também valem para o "Tocar agora" — e a instrução "escolha
+  // 480p numa rede ruim" era, por isso, tecnicamente certa e inútil.
+  if (nota) {
+    const n = document.createElement('small');
+    n.className = 'song-menu-seg-nota';
+    n.textContent = nota;
+    li.appendChild(n);
+  }
   const wrap = document.createElement('div'); wrap.className = 'fit-seg song-menu-seg';
   opcoes.forEach(([valor, rotulo]) => {
     const b = document.createElement('button');
@@ -15014,6 +15025,11 @@ function openYtMenu(r, alvoDado) {
       [[YT_ONLINE, 'Online']].concat(YT_ALTURAS.map((h) => [h, h + 'p'])),
       songMenuFor.alt | 0,
       (v) => { songMenuFor.alt = v; openYtMenu(r); },
+      // TETO, e não escolha fixa: desde o shell 60 o app MEDE a rede nos
+      // primeiros bytes e desce sozinho o que não couber. O que o operador
+      // escolhe aqui é o limite de cima, e ele vale para o "Tocar agora"
+      // também — que é justamente o que a escala não dizia.
+      'Teto de qualidade — vale para o "Tocar agora" também',
     ));
   }
   // O subtítulo do "Tocar agora" DIZ que o Cronograma fica de fora: é a
@@ -19001,6 +19017,14 @@ async function renderDiag() {
     //
     // SÓ APARECE DEPOIS DE ACONTECER: a ausência da linha é "não travou", e uma
     // linha com zeros seria mais uma para o operador ler em toda cópia.
+    // O DEGRAU, quando a medição desceu um. Sem esta linha o Registro diria
+    // "transmitindo 1080p" (a decisão do shell) sobre uma cena que está em 720p
+    // — a divergência que este projeto chama de log que discorda do aparelho.
+    const deg = (window.AVStream && window.AVStream.degrau) || '';
+    const banda = (window.AVStream && window.AVStream.banda) || 0;
+    const linhaDeg = deg
+      ? '\na rede mediu ' + Math.round(banda / 1000) + ' kbps e o app DESCEU para ' + deg
+      : (banda ? '\na rede mediu ' + Math.round(banda / 1000) + ' kbps (coube no teto)' : '');
     const fome = (window.AVStream && window.AVStream.fome) || null;
     // "NESTA SESSÃO" está escrito porque o censo é CUMULATIVO e o título do
     // bloco diz "último Tocar agora": sem a palavra, um número de cinco
@@ -19010,7 +19034,7 @@ async function renderDiag() {
         + fome.segundos + 's parada no total)'
       : '';
     blocos.push('Transmissão direta (último "Tocar agora")\n' + motivoStream
-      + parou + (falha ? '\nfalhou ao tocar: ' + falha : ''));
+      + linhaDeg + parou + (falha ? '\nfalhou ao tocar: ' + falha : ''));
   }
   // A TRANSMISSÃO PARA NAVEGADOR: mais um BLOCO desta caixa, nunca uma faixa
   // nova em outro canto (regra do projeto). É o único lugar em que o estado do
@@ -24826,7 +24850,26 @@ function telaManifestoDaRede(man) {
   // O áudio é o que não pode faltar: um manifesto sem ele não toca em lugar
   // nenhum, e a tela sem som é justamente o que a rede existe para evitar.
   if (!audio) return null;
-  return Object.assign({}, man, { video: video, audio: audio });
+  // ===== A ESCADA TAMBÉM (shell 60), e ELA NÃO PODE PASSAR INTACTA =====
+  //
+  // `Object.assign` carrega `videos` adiante sem tocar nele, e as URLs de lá
+  // apontam para `appassets.androidplatform.net` — um host que o navegador da
+  // rede NÃO alcança. A tela mediria a banda, decidiria descer um degrau, e o
+  // fetch do init novo falharia quatro vezes até `morrer()`: a transmissão
+  // MORRE por causa de uma otimização, e só nas telas.
+  //
+  // O que não se deixa reescrever SAI da escada — uma escada com um degrau
+  // quebrado é pior que escada nenhuma, porque a regra escolheria justamente
+  // ele numa rede ruim. Sobrando menos de dois, ela some inteira e a tela volta
+  // ao comportamento de antes: uma faixa só, sem medição.
+  const escada = Array.isArray(man.videos)
+    ? man.videos.map(refazer).filter(Boolean)
+    : null;
+  return Object.assign({}, man, {
+    video: video,
+    audio: audio,
+    videos: (escada && escada.length > 1) ? escada : undefined,
+  });
 }
 
 // Token estável por imagem de letra; devolve a URL /m/ dela (ou undefined).

@@ -1,7 +1,8 @@
 # Achados em aberto
 
-**Três** — os dois do áudio do espelhamento, mais a resolução da transmissão
-direta (v1.4.4). (Um quarto — *"mídia baixada pausa
+**Três** — os dois do áudio do espelhamento, mais o CLIENTE de onde sai a escada
+da transmissão direta (v1.4.5; as outras duas hipóteses daquele relato morreram,
+uma por construção e a outra por correção). (Um quarto — *"mídia baixada pausa
 quando eu minimizo"* — durou um lote: o operador deu a cena que faltava
 (*"ocorre quando não há telas conectadas"*), e ela era a segunda das três
 hipóteses. Corrigido na v1.3.12, com a resposta que `DISPLAY.md` já tinha
@@ -70,45 +71,35 @@ dois celulares. Só teste em aparelho decide se o veto é necessário.
 
 ---
 
-## 3. A resolução baixa da transmissão direta — a REDE está DESCARTADA
+## 3. Só o CLIENTE pode fazer o app escolher baixo (NÃO MEDIDO)
 
-**Cenário.** Relato do operador (v1.4.4), sobre um vídeo do YouTube tocado direto
-do online numa TV por espelhamento: *"veio som, porém ficou travando e qualidade
-de vídeo baixa"*. A leitura na hora foi *"a resolução estava baixa por questão da
-internet, ou por garantia do vídeo não travar"* — a explicação certa para o **app
-do YouTube**, e **falsa para este app**.
+**O que já foi respondido, e saiu deste arquivo:** a rede **não** baixa a
+resolução (não há ABR — v1.4.4), e desde a **v1.4.5** o app **mede** a banda nos
+primeiros bytes e desce o degrau que não couber, antes do primeiro quadro. As
+duas hipóteses que estavam aqui morreram: a da internet por construção, a do
+"app escolhe cego" por correção.
 
-**O QUE ESTÁ RESPONDIDO, e por construção:**
+**O que sobra é uma só, e é estrutural.** `candidatosVideo` ordena por
+`ordemCliente` **antes** da altura — o visionOS vem primeiro porque é dele que
+vêm as URLs que o CDN serve sem PO Token. A escada que o manifesto entrega é,
+portanto, a escada **daquele cliente**. Num vídeo cujo visionOS não tenha faixa
+alta, o teto real fica abaixo do disponível, e a medição não ajuda: ela escolhe
+dentro da escada que recebeu.
 
-| hipótese | veredito |
-|---|---|
-| a internet lenta baixou a qualidade | **IMPOSSÍVEL.** `shared/mse.js` **não faz ABR** — está no cabeçalho dele. O manifesto traz UMA faixa de vídeo, escolhida antes do primeiro byte, e ela é servida até o fim. Rede fraca aqui produz **travamento**, nunca imagem menor (e o travamento é o outro relato do mesmo sábado, contado agora pelo `AVStream.fome`) |
-| o app escolhe uma faixa baixa de propósito | **NÃO.** O teto é 1080p (`TETO_ALTURA`) e o padrão do seletor é 1080p, rearmado a cada item. **MEDIDO em aparelho** (S24 Ultra, v5.127): `transmitindo 1080p (137@VISIONOS + 140@VISIONOS)` — o itag 137 É 1080p AVC |
+**Como isso aparece:** a nota `HAVIA Zp transmissível (outro cliente)` na linha
+de transmissão do Registro (v1.4.4). Ela só sai quando existe faixa mp4
+transmissível mais alta, sob o mesmo teto, fora da escada escolhida. **MEDIDO em
+aparelho na v5.127**, o caso normal é `137@VISIONOS`, que é 1080p — a nota deve
+ser rara.
 
-**O QUE FALTA MEDIR** são as três causas que sobram, e o Registro passou a
-separar as duas primeiras:
-
-| causa | como aparece no Registro |
-|---|---|
-| o **vídeo** não tem faixa alta | `teto 1080p → transmitindo 360p` sem a nota `HAVIA` |
-| o **operador** pediu menos no seletor | `teto 480p → transmitindo 480p` |
-| **nós** deixamos resolução na mesa | `transmitindo 360p · HAVIA 1080p transmissível (outro cliente)` |
-| o **encoder do Miracast** baixou a taxa | o Registro diz 1080p e a TV continua ruim — aí o gargalo não é nada disto, e o app não tem o que fazer |
-
-**A terceira linha é a única que seria defeito nosso**, e ela existe porque
-`candidatosVideo` ordena por `ordemCliente` **antes** da altura: o visionOS vem
-primeiro porque é dele que vêm as URLs que o CDN de fato serve (sem PO Token).
-Num vídeo cujo visionOS não tenha faixa alta, sairia menos que o disponível.
-
-**Correção proposta, e só depois da medição:** admitir o cliente seguinte quando
-o primeiro não tiver nada acima de um piso. **Não foi feito de propósito** —
+**Correção proposta, e só com a nota na mão:** admitir o cliente seguinte quando
+o primeiro não tiver nada acima de um piso. **Não foi feita de propósito:**
 reordenar por altura entre clientes troca uma imagem pior por um **403 na frente
 da congregação**, e o modo de falhar da aposta errada é pior que o defeito que
-ela conserta. A linha `HAVIA` existe justamente para que essa decisão seja
-tomada com um número, não com uma suposição.
+ela conserta.
 
-**O que já é resposta hoje**, e o operador precisa saber: numa rede fraca o
-conserto é **pedir menos**, no seletor **Online · 1080p · 720p · 480p** da folha
-do vídeo, que vale para "Tocar agora" (o `altura` viaja até o `ytStream`). Menos
-resolução são menos bytes por segundo — é assim que se troca travamento por
-imagem menor num app que não faz isso sozinho.
+**Ressalva do cético:** "resolução baixa" numa TV por espelhamento é observação
+sobre o que saiu na TELA, e entre a faixa escolhida e a tela há o encoder do
+Miracast. Se o Registro disser 1080p e a imagem continuar ruim, o gargalo não é
+nada disto — e o app não tem o que fazer. O teste que separa os dois custa cinco
+minutos: projetar na mesma TV um vídeo **já baixado** em 1080p.

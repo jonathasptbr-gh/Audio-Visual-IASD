@@ -787,11 +787,40 @@ object YoutubeGrab {
                 " → transmitindo ${v.altura}p (${v.etiqueta} + ${a.etiqueta})" +
                 (if (possivel > v.altura) " · HAVIA ${possivel}p transmissível (outro cliente)" else "") +
                 " · v=${v.mime};${v.codec} a=${a.mime};${a.codec}"
+            // ===== A ESCADA, e não uma faixa só =====
+            //
+            // O `mse.js` NÃO faz ABR, e é justamente por isso que a escolha tem
+            // de ser boa: ela é feita uma vez e vale o louvor inteiro. Enquanto
+            // o manifesto trouxe UMA faixa, ela era feita CEGA — sempre o teto —
+            // e uma rede que não a sustenta produz travamento, nunca imagem
+            // menor. Com a escada, quem escolhe é o lado web, que é o único que
+            // sabe quanto a rede de FATO entregou (ver `AVStream.escolherDegrau`).
+            //
+            // A decisão fica no JS por três razões, e a terceira é a que decide:
+            // é a invariante 5; ela precisa da MEDIÇÃO, que só existe depois dos
+            // primeiros bytes; e uma regra de escolha erra — no web ela se
+            // conserta por OTA em minutos, em Kotlin custa uma Release.
+            //
+            // `video` CONTINUA sendo o topo, e isso é o que mantém a mudança
+            // aditiva: tudo que já lia `man.video` (o `suportado`, o descarte do
+            // "só áudio", o `telaEnriquecer`) segue lendo a mesma coisa.
+            //
+            // UMA POR ALTURA: o YouTube publica 1080p e 1080p60 como faixas
+            // distintas, e dois degraus da mesma altura não são degraus — são a
+            // mesma escolha duas vezes, ocupando a vaga da que estava abaixo.
+            val escada = JSONArray()
+            val alturasVistas = HashSet<Int>()
+            for (f in videos) {
+                if (!f.dash) continue
+                if (!alturasVistas.add(f.altura)) continue
+                escada.put(faixaJson(f))
+            }
             JSONObject()
                 .put("name", tituloLimpo(info.name, info.uploaderName))
                 .put("seconds", info.duration)
                 .put("height", v.altura)
                 .put("video", faixaJson(v))
+                .put("videos", escada)
                 .put("audio", faixaJson(a))
         } catch (e: Exception) {
             Log.w(TAG, "não deu para montar o manifesto de $link", e)
@@ -849,6 +878,10 @@ object YoutubeGrab {
      */
     private fun faixaJson(f: Faixa): JSONObject = JSONObject()
         .put("url", StreamProxy.urlFor(f.url))
+        // A ALTURA VIAJA (shell 60): é ela que o lado web imprime ao dizer em
+        // que degrau parou, e sem ela o Registro teria de deduzir a resolução do
+        // itag — uma segunda tabela para envelhecer à parte.
+        .put("altura", f.altura)
         .put("mime", f.mime + "; codecs=\"" + f.codec + "\"")
         .put("initStart", f.initIni)
         .put("initEnd", f.initFim)
