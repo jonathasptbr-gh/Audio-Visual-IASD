@@ -24,6 +24,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
+- **v1.4.26** — O AUXILIAR DE LEITURA OFERECE TUDO O QUE ESTÁ EM EXIBIÇÃO, e o TOQUE PULA PARA O SLIDE. Pedido do operador, em duas partes: *"o auxiliar de leitura deve deixar disponível os auxiliares de tudo que estiver em exibição, seja uma música de fundo e uma bíblia sobrepondo… devo ter a opção da letra, da cifra e da bíblia, pois todos estes estão em exibição. É claro, o elemento na camada mais a frente de tudo é o que aparece na abertura"* e *"preciso da capacidade de tocar nos slides para passar ou pular diretamente para um slide em específico"*. A primeira **REVOGA duas exclusividades que este projeto escreveu e defendeu** — a da Bíblia (v1.1.11) e a da apresentação (v1.4.24): as duas acertavam a PRECEDÊNCIA e erravam em tirar as outras da mesa, porque a camada de baixo continua no ar (o louvor de fundo segue tocando sob o versículo) e quem opera pode precisar dela no minuto seguinte. `lyricsViewSources` virou a PILHA, na ordem do `slideTarget()` — e não numa segunda escrita dela, que divergiria no primeiro recurso novo. **A cifra continua por último e agora é a única precedência que não vem de camada nenhuma:** ela não é projetada, é o auxiliar de quem TOCA o que está no ar. A apresentação continua sozinha, e agora **por construção** (um deck não tem letra nem acorde), não por uma regra que cale as outras. **A parte não óbvia é a ESCOLHA GUARDADA:** a aba escolhida sobrevive à reabertura desde a v1.2.x, e com a pilha essa memória passa a poder contradizer o pedido — quem tocou "Cifra" com o louvor sozinho no ar não pediu cifra para o instante em que o versículo subir por cima dele. `lvFrenteVista` guarda a camada da frente vista na última abertura, e a regra é *mudou a frente, mudou a pergunta*; DENTRO da mesma frente ela sobrevive, e com a folha ABERTA nada troca a aba embaixo do dedo de quem está lendo. A segunda parte é `deckIr(alvo)`, extraída do `deckStep` para que o toque e o ⏮/⏭ sejam o MESMO caminho — não um segundo jeito de saltar —, e ela é **tocável só com a apresentação em cena**: uma folha da Biblioteca não projeta nada, que é a promessa inteira do `lvAlvo`. Oráculo novo com as duas metades da escolha guardada, provado por três reversões. **SÓ BASE WEB.**
 - **v1.4.25** — QUATRO AJUSTES NAS LISTAS, E O QUE OS LIGA É *"a resposta mora onde o toque nasceu"*. **1) O CARTÃO BALANÇAVA** — relato: *"há um bug de deslocamento, um pequeno movimento vertical do card da lista no cronograma ao selecionar a opção de excluir… essa movimentação não faz sentido, já que essas opções surgem deslizando dentro do próprio card"*. `:active` casa nos ANCESTRAIS, e a lista de guardas do `--press` cobria o `⋮`, a `.hymn-gaveta` e a `.lib-item` aninhada — **e não a `.row-acoes`**, que é justamente a faixa em que se toca. A gaveta dos FAVORITOS mora numa `.hymn-gaveta` e por isso já estava coberta: era só isso que fazia o defeito aparecer numa lista e não na outra. **2) RENOMEAR SAIU DO POPUP** e virou um campo na própria faixa (*"coloque o processo de renomear também dentro do item na lista do cronograma, não como um popup de tela inteira, assim como já é feito no processo de excluir"*) — é a correção da v5.301 aplicada onde ela vale MAIS: um modal tira o alvo de cena, e renomear é a única ação do app em que o nome VELHO precisa continuar à vista enquanto o novo é escrito. A troca de conteúdo da faixa virou mecanismo (`abrirNaFaixaDaLinha`), com a pergunta da exclusão e o campo entrando pela mesma porta. **3) OS ALTERNADORES DEIXARAM DE PARECER DESABILITADOS** (*"ao invés de modificar o ícone do botão e seus efeitos, foi simplesmente ofuscado o botão inteiro, o que dá a impressão de que não está disponível a opção"*): apagados eles vestiam `--line`, a cor de LINHA que neste app só o `↑↓` INERTE usa. Hoje apagado é o `.row-btn` de sempre e LIGADO é a linguagem que `tokens.css` já escrevia — `--btn-accent` + `--accent` —, com o ÍCONE continuando a carregar o estado sozinho. **4) A FILA DA PLAYLIST GANHOU OS DOIS DESTINOS** (*"na lista da playlist, pode adicionar opções como: adicionar aos favoritos e adicionar ao cronograma"*): ela era a única das três listas sem caminho para as outras duas, e é o pior lugar para esse buraco — a fila é onde o bloco de louvores é montado. Cinco asserções novas no `smoke.mjs`, duas reescritas no `boot-nativo`, todas provadas por reversão. OTA PURO.
 - **v1.4.24** — O AUXILIAR DE LEITURA DE UMA APRESENTAÇÃO. Pedido do operador, em duas metades: *"preciso de um visualizador futuro dos slides de toda a apresentação e a referência do slide atual (do mesmo molde vertical que já temos nos versos da bíblia na aba da bíblia)"* e *"durante uma apresentação, não quero botões de letra, ou de cifras nessa tela"*. A folha ganha a fonte `deck` — a coluna de páginas numeradas, com a que está no telão marcada e centralizada pelo `lvScroll` que já existe — e ela é EXCLUSIVA (`return ['deck']`, não `push`: sem isso um louvor de fundo pausado atrás da apresentação continuaria oferecendo Letra e Cifra). Quatro regras estruturais: `lazy` nas miniaturas, altura RESERVADA por `aspect-ratio` (uma imagem `lazy` tem altura zero e o `lvScroll` mede `offsetTop`), a página FORA da assinatura (senão cada ⏭ remonta a lista) e as URLs de objeto revogadas. O A+/A− some na aba — ele dimensiona texto. Oráculo novo, com as duas metades de VOLTA. **SÓ BASE WEB.**
 - **v1.4.23** — A NOTIFICAÇÃO DE "PREPARANDO APRESENTAÇÃO" NÃO ANDAVA, e o defeito é o mesmo que o download de vídeo teve até a v5.117. Relato do operador: *"verifique a notificação do preparando apresentação, pois não está marcando progresso"*. `pptxImportar` e `deckImportar` abriam a tarefa com `bgTaskStart(…, 1)` e **nunca chamavam `bgTaskStep`** — o `onProgresso` alimentava só o cartão da tela. Barra em `0 de 1` do começo ao fim, estimativa em ZERO (`bgTaskEta` precisa de um passo para ter média) e nenhum nome na linha. Junto saiu a fase de CÓPIA do PDF, que era silenciosa: silêncio ali não é neutro — `idleMs` cresce e a notificação passa a dizer "sem resposta há X" justamente enquanto tudo vai bem. `bgTaskStep` ganhou um `total` opcional (o de uma apresentação só existe depois que o arquivo abre, como o do `bgTaskBytes`), e a troca de rótulo passou a ir com `force`. Oráculo novo, com a REVERSÃO ao lado. **SÓ BASE WEB**: sem degrau de ponte, sem `shellTag`, sem Release.
@@ -299,6 +300,124 @@ na nota que a revoga, não apagada da que a criou.
 
 ---
 
+## v1.4.26 — o auxiliar de leitura oferece tudo o que está em exibição
+
+Pedido do operador, em duas partes:
+
+> *"1. o auxiliar de leitura deve deixar disponível os auxiliares de tudo que
+> estiver em exibição, seja uma música de fundo e uma bíblia sobrepondo… devo
+> ter a opção da letra, da cifra e da bíblia, pois todos estes estão em
+> exibição. É claro, o elemento na camada mais a frente de tudo é o que aparece
+> na abertura da seção de auxiliar de leitura. Por exemplo, se houver uma música
+> de fundo e a bíblia por cima, então a bíblia aparece na abertura da seção de
+> auxiliar de leitura como aba principal. Isso vale para todas as variações de
+> opções do auxiliar de leitura. 2. no auxiliar de leitura dos slides, eu
+> preciso da capacidade de tocar nos slides para passar ou pular diretamente
+> para um slide em específico. O resto da visualização do auxiliar de leitura de
+> slides está aparentemente correto em seu design."*
+
+### A pilha, e as duas exclusividades revogadas
+
+Este projeto escreveu e defendeu **duas** regras de exclusividade nesta folha, e
+o pedido revoga as duas:
+
+- **a da Bíblia** (v1.1.11): *"projetando, ela é a única fonte oferecida"*, com o
+  argumento de que *"quem lê a Bíblia em voz alta não vai consultar a cifra do
+  louvor de fundo no mesmo minuto"*;
+- **a da apresentação** (v1.4.24): `lyricsViewSources` fazia `return ['deck']`, e
+  o comentário de lá dizia que era o `return` (e não um `push`) que impedia um
+  louvor de fundo pausado de continuar oferecendo Letra e Cifra.
+
+**As duas acertavam a PRECEDÊNCIA e erravam ao escrevê-la como silêncio.** A
+camada de baixo continua no ar — o louvor de fundo segue tocando sob o
+versículo —, e quem opera pode precisar dela no minuto seguinte. O argumento da
+v1.1.11 previa o comportamento de quem lê em voz alta; ele não previa o operador,
+que é outra pessoa e opera o culto inteiro.
+
+Hoje a lista é a **PILHA do que está em exibição, da frente para trás**, e quem
+decide a aba que abre é a ORDEM (`lvActiveSource` devolve a primeira). Uma música
+de fundo com o versículo por cima oferece **Bíblia, Letra e Cifra**, e abre na
+Bíblia — o exemplo do pedido, ao pé da letra.
+
+- **A ORDEM É A DO `slideTarget()`** — a Camada de Texto por cima da mídia — e
+  não uma segunda escrita dela: as duas fazem a mesma pergunta sobre o
+  empilhamento do telão e divergiriam no primeiro recurso novo. `deck` e `lyrics`
+  são exclusivos ENTRE SI por construção (`currentItem` é uma coisa só), não por
+  regra.
+- **A CIFRA continua por último, e agora é a única precedência que não vem de
+  camada nenhuma:** ela não é projetada — é o auxiliar de quem TOCA o que está no
+  ar —, e por isso nunca abre sozinha enquanto houver o que está sendo visto.
+- **A apresentação continua sozinha, e agora POR CONSTRUÇÃO.** O pedido da
+  v1.4.24 (*"durante uma apresentação, não quero botões de letra, ou de cifras
+  nessa tela"*) segue cumprido porque um deck não tem letra nem acorde — não
+  porque uma regra cale os outros. É a mesma resposta com uma causa melhor: ela
+  não precisa ser lembrada quando um kind novo aparecer.
+- **É PROJEÇÃO que põe alguém na pilha**, nunca a existência da sessão: um
+  capítulo aberto e fora do ar volta lá embaixo, na RESERVA — a última linha da
+  função, que sobrevive à revogação porque responde a outra pergunta (*"e quando
+  não há nada no ar?"*).
+- **Com um alvo da Biblioteca nada da cena entra.** Quem abriu a folha de uma
+  música pediu AQUELA música; o versículo no telão roubando a aba de um ensaio é
+  o irmão do relógio da cena governando a rolagem de outra música (v1.2.14).
+
+### A parte não óbvia: a escolha guardada podia contradizer o pedido
+
+A aba escolhida sobrevive à reabertura desde a v1.2.x, e é a preferência de quem
+toca o culto inteiro na cifra. Com a pilha, essa memória passa a poder
+**contradizer o pedido**: quem tocou "Cifra" com o louvor sozinho no ar não pediu
+cifra para o instante em que o versículo subir por cima dele.
+
+`lvFrenteVista` guarda a camada da frente vista na ÚLTIMA abertura, e a regra é
+*mudou a frente, mudou a pergunta*. As três metades, e nenhuma basta:
+
+1. **Muda a frente → a escolha cai** e a folha abre na camada nova;
+2. **Dentro da mesma frente ela sobrevive** — sem esta, zerar sempre passaria na
+   primeira e o recurso da v1.2.x desapareceria em silêncio;
+3. **Com a folha ABERTA nada troca a aba** embaixo do dedo de quem está lendo. A
+   regra mora na ABERTURA; uma aba desatualizada é melhor que a leitura trocada
+   sozinha, e o seletor está a um toque dali.
+
+E o que a frente vence é a ABERTURA, nunca a disponibilidade: um toque no seletor
+volta para a cifra na hora.
+
+**E o sentinela diz "nenhuma frente vista ainda", nunca "a frente mudou".**
+`lvFrenteVista` nasce `null`, e a primeira escrita da regra leu esse `null` como
+troca: na PRIMEIRA abertura da sessão a fonte pedida por um chamador era
+derrubada, embora não houvesse cena anterior nem, portanto, escolha de antes a
+invalidar. **Quem pegou foi o `cifra-rolagem.test.mjs`**, que não sabe nada de
+camadas — o cenário dele é `lvSource = 'cifra'` seguido de `openLyricsPopup()`, e
+a folha abriu na letra. O sentinela ganhou a guarda que o faz significar o que
+diz, e a propriedade virou asserção também no oráculo novo, que é o dono da
+regra. Um oráculo que reprova por um lote que não fala dele é o achado, não o
+ruído.
+
+### O toque que pula para o slide
+
+`deckIr(alvo)` saiu de dentro do `deckStep`, e o toque e o ⏮/⏭ passaram a ser o
+MESMO caminho — não um segundo jeito de saltar, que divergiria no primeiro
+ajuste. A linha ganha `lv-row--tocavel` (cursor e o `--press` de sempre) **só com
+a apresentação em cena**: numa folha da Biblioteca as linhas não são tocáveis, o
+toque não emite comando e a página em cena não se mexe. É a promessa inteira do
+`lvAlvo`, e ela falha calada — quem está lendo não olha o telão.
+
+### O oráculo
+
+`tools/leitor-camadas.test.mjs`, 15 asserções, no portão. As metades falham
+CALADAS e em direções opostas: de MENOS a aba não está lá e o operador conclui
+que o recurso não existe; de MAIS — o caro — a lista certa com a ABERTURA errada
+mostra a letra do louvor de fundo com o versículo no telão, e **parece certo**.
+
+Provado por **três reversões**: a exclusividade da Bíblia de volta reprova 7
+asserções; `else if (trocouAlvo)` sem a frente reprova exatamente a 8b; e
+`else lvSource = null` (zerar sempre) reprova exatamente a 8a. O
+`leitor-apresentacao.test.mjs` ganhou o toque e a folha da Biblioteca que não
+projeta, e a nota de que o MECANISMO da exclusividade mudou sem que o resultado
+dela mude.
+
+**SÓ BASE WEB** — sem degrau de ponte, sem `shellTag`, sem Release.
+
+---
+
 ## v1.4.25 — a resposta mora onde o toque nasceu
 
 Quatro pedidos do operador, num lote só. O que os liga não é a tela em que
@@ -455,7 +574,6 @@ oráculo não pode medir o runner":
 **OTA PURO**: nada de `java/`, `res/` ou manifest; sem degrau de `SHELL_VERSION`,
 sem `shellTag`, sem Release.
 
----
 ---
 
 ## v1.4.24 — o auxiliar de leitura de uma apresentação

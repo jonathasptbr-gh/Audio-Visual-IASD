@@ -372,7 +372,8 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
   .misc-tab, .misc-seg, .misc-chip, .chrono-btn, .misc-project, .draw-go,
   .fit-opt, .dialog-btn, .lib-item, .coll-group-acao,
   .cue-save-btn, .pl-pack, .yt-search-btn, .log-copy, .hino-indice-chip,
-  .simple-key, .simple-action, .simple-key--big, .simple-key--vol
+  .simple-key, .simple-action, .simple-key--big, .simple-key--vol,
+  .lv-row--tocavel
 ):active { transform: var(--press); filter: var(--press-luz); }
 
 
@@ -5400,6 +5401,12 @@ main {
   aspect-ratio: 16 / 9; object-fit: contain;
   display: block; border-radius: 4px;
 }
+/* A PÁGINA É TOCÁVEL quando a apresentação está EM CENA (ver `lvBuildDeck`): o
+   toque pula direto para ela. Com um alvo da Biblioteca a classe não é posta e
+   a linha volta a ser leitura pura — a folha de um ensaio não projeta nada.
+   O feedback do toque é o do app inteiro, pela lista única lá em cima. */
+.lv-row--tocavel { cursor: pointer; }
+
 /* A PÁGINA NO AR: a barra na margem que toda `.lv-row.current` já pinta, mais o
    número PREENCHIDO. O segundo é necessário porque o corpo da linha é uma
    IMAGEM — o que marca um versículo é a cor do texto, e ela não alcança um

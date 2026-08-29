@@ -261,7 +261,7 @@ const appVersionEl = document.getElementById('appVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.4.25';
+const WEB_VERSION = '1.4.26';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -10400,69 +10400,69 @@ function renderTransportAxis(who) {
 // letra E capítulo disponíveis ao mesmo tempo, e aí o seletor do topo escolhe.
 // Sem essa disputa, a única fonte disponível abre direto, sem seletor.
 let lvSource = null;      // escolha manual do operador ('lyrics' | 'bible' | null = automática)
+// A CAMADA DA FRENTE vista na ÚLTIMA abertura da folha — ver `openLyricsPopup`.
+let lvFrenteVista = null;
 let lvCurIdx = -1;        // índice destacado (estrofe/versículo no ar)
 let lvFollow = true;      // acompanhar sozinho? Desliga ao primeiro scroll manual
 let lvSig = '';           // assinatura do conteúdo já renderizado (ver lvSignature)
 
 // Fontes disponíveis AGORA, na mesma ordem de precedência da tela.
 function lyricsViewSources() {
-  // ===== A BÍBLIA NO AR É EXCLUSIVA (v1.1.11) =====
+  // É PROJEÇÃO que põe uma camada na lista, nunca a existência da sessão: um
+  // capítulo aberto e fora do ar não está em exibição — ele volta lá embaixo, na
+  // RESERVA, que é o caso da última linha desta função.
   //
-  // Pedido do operador: *"quando temos uma música, termos apenas letra e cifra
-  // disponível, e quando está no ar a bíblia, automaticamente fica só a
-  // bíblia"*.
+  // COM UM ALVO DA BIBLIOTECA nada de cena entra: quem abriu a folha de uma
+  // música pediu AQUELA música, e o que está no telão não tem por que roubar a
+  // folha de um ensaio.
   //
-  // Com um louvor de fundo durante a leitura, as três fontes coexistiam e o
-  // seletor virava três abas — mas quem está lendo a Bíblia em voz alta não vai
-  // consultar a cifra do louvor de fundo no mesmo minuto. A pergunta que o
-  // leitor auxiliar responde é "o que está em cena AGORA?", e com a Bíblia
-  // projetando a resposta é uma só.
+  // ===== TUDO O QUE ESTÁ EM EXIBIÇÃO, DA FRENTE PARA TRÁS (v1.4.26) =====
   //
-  // É PROJEÇÃO, nunca a existência da sessão: um capítulo aberto e fora do ar
-  // não rouba a folha da música que está tocando — ele volta lá embaixo, na
-  // reserva, que é o caso da última linha desta função.
-  // COM UM ALVO DA BIBLIOTECA a Bíblia sai de cena: quem abriu a folha de uma
-  // música pediu AQUELA música, e o capítulo aberto no Controle não tem por que
-  // roubar a folha de um ensaio.
-  if (lvNaCena() && bibleSession && bibleSession.projecting
-      && bibleSession.verses && bibleSession.verses.length) return ['bible'];
-
-  const alvo = lvItem();
-  // ===== A APRESENTAÇÃO É EXCLUSIVA (v1.4.24) =====
+  // Pedido do operador, que REVOGA a exclusividade da Bíblia (v1.1.11) e a da
+  // apresentação (v1.4.24): *"o auxiliar de leitura deve deixar disponível os
+  // auxiliares de tudo que estiver em exibição, seja uma música de fundo e uma
+  // bíblia sobrepondo… devo ter a opção da letra, da cifra e da bíblia, pois
+  // todos estes estão em exibição. É claro, o elemento na camada mais a frente
+  // de tudo é o que aparece na abertura"*.
   //
-  // Pedido do operador: *"assim como o resto do sistema do auxiliar de leitura,
-  // ele deve mostrar apenas o auxiliar referente à mídia em exibição, ou seja,
-  // durante uma apresentação, não quero botões de letra, ou de cifras nessa
-  // tela"*.
+  // O que as duas regras revogadas acertavam era a PRECEDÊNCIA; o que elas
+  // erravam era tirar as outras da mesa. Uma camada por baixo continua no ar —
+  // o louvor de fundo continua tocando sob o versículo —, e quem opera pode
+  // precisar da letra dele no minuto seguinte. Hoje a lista é a PILHA, e quem
+  // decide a aba que abre é a ORDEM: `lvActiveSource` devolve a primeira.
   //
-  // É a MESMA regra da Bíblia projetando, logo acima, aplicada ao outro tipo de
-  // mídia que É o que se está lendo: quando o que está no telão é a
-  // apresentação, não há segunda leitura possível — um deck não tem letra nem
-  // acorde, e o que sobraria no seletor seriam abas de outra mídia.
+  // A ORDEM É A DO `slideTarget()`, e é ela que já descreve o empilhamento do
+  // telão — a Camada de Texto por cima da mídia. Duas listas com a mesma
+  // pergunta divergiriam no primeiro recurso novo, e é por isso que esta ordem
+  // não é escrita duas vezes: o que muda entre as duas é só o que cada uma sabe
+  // fazer com a resposta.
   //
-  // `return` e não `push`: sem ele um louvor de fundo pausado atrás da
-  // apresentação continuaria oferecendo Letra e Cifra, que é exatamente o que o
-  // pedido recusa. E é o `return` que faz o seletor SUMIR (`avail.length < 2`),
-  // sem nenhum caso especial no desenho.
-  if (isDeck(alvo)) return ['deck'];
-
+  // A CIFRA continua por ÚLTIMA, e agora ela é a única precedência que não vem
+  // de camada nenhuma: ela não é projetada, é o auxiliar de quem TOCA a mídia
+  // que está no ar. Por isso ela nunca abre sozinha enquanto houver o que está
+  // sendo visto.
   const list = [];
+  const alvo = lvItem();
+  // 1. A CAMADA DE TEXTO, se estiver projetando: é o que está na frente.
+  if (lvNaCena() && bibleSession && bibleSession.projecting
+      && bibleSession.verses && bibleSession.verses.length) list.push('bible');
+  // 2. A MÍDIA embaixo dela. Uma apresentação e uma música nunca coexistem
+  //    (`currentItem` é uma coisa só), então estes dois são exclusivos ENTRE SI
+  //    por construção — e não por regra.
+  if (isDeck(alvo)) list.push('deck');
   const lyrics = alvo && Array.isArray(alvo.lyrics) ? alvo.lyrics : null;
   if (lyrics && lyrics.length) list.push('lyrics');
-  // A CIFRA vem por ÚLTIMA, e isso é a precedência inteira: `lvActiveSource`
-  // devolve a primeira da lista quando o operador não escolheu, e a aba que
-  // abre sozinha tem de ser a letra — quem opera o culto está lendo a letra, e
-  // quem toca escolhe a cifra uma vez.
+  // 3. O auxiliar de quem toca a mídia de cima.
   //
   // SÓ NO APP. No navegador não há ponte, e sem ela não há como buscar a página
   // (CORS — ver `AVNative.cifraHtml`). Oferecer uma aba que só sabe explicar por
-  // que não funciona é pior que não oferecê-la: o seletor do topo só aparece com
-  // duas fontes, e esta apareceria sempre, empurrando um botão morto para a
-  // frente do operador em toda música.
+  // que não funciona é pior que não oferecê-la.
   if (cifraCabe(alvo)) list.push('cifra');
-  // A RESERVA: sem música em cena, um capítulo aberto (mesmo fora do ar) ainda
+  // A RESERVA: sem NADA em exibição, um capítulo aberto (mesmo fora do ar) ainda
   // é o que o operador tem para ler — e é o que ele foi buscar ao abrir esta
-  // folha. Só não disputa com a música, que é o ponto da regra acima.
+  // folha. Ela sobrevive à revogação acima porque responde a outra pergunta: as
+  // regras de cima listam o que ESTÁ no ar, e esta cobre o caso em que não há
+  // nada no ar.
   if (!list.length && lvNaCena() && bibleSession && bibleSession.verses
       && bibleSession.verses.length) list.push('bible');
   return list;
@@ -10581,6 +10581,12 @@ function openLyricsPopup(item, fonte) {
   // não é desvio nenhum, e guardá-lo faria a folha parar de acompanhar o culto
   // por uma coincidência.
   const novo = (item && item !== currentItem) ? item : null;
+  const trocouAlvo = novo !== lvAlvo;
+  // O ALVO É FIXADO ANTES DE PERGUNTAR QUAL É A FRENTE: `lyricsViewSources` lê
+  // `lvItem()`, e com o alvo antigo ainda de pé ela responderia sobre a folha
+  // anterior.
+  lvAlvo = novo;
+  const frente = lyricsViewSources()[0] || null;
   // A ABA ESCOLHIDA SOBREVIVE À REABERTURA, e só não sobrevive à TROCA DE
   // ALVO. São duas coisas diferentes: quem escolheu "cifra" no transporte quer
   // continuar na cifra na próxima abertura (é a preferência de quem toca o
@@ -10592,9 +10598,27 @@ function openLyricsPopup(item, fonte) {
   // `lvActiveSource` só a honra enquanto a fonte existir, e sem ponte
   // (navegador) a cifra nem entra na lista, então a folha abre na letra sem
   // nenhum caso especial.
+  // E A CAMADA DA FRENTE VENCE A ESCOLHA GUARDADA QUANDO ELA MUDA (v1.4.26).
+  //
+  // "O elemento na camada mais a frente de tudo é o que aparece na abertura" —
+  // e uma escolha feita numa cena não pode responder pela seguinte: quem tocou
+  // "Cifra" com o louvor sozinho no ar não pediu cifra para o momento em que o
+  // versículo subir por cima dele. Mudou a frente, mudou a pergunta.
+  //
+  // DENTRO da mesma frente a escolha SOBREVIVE, e é o que o músico pediu na
+  // v1.2.x: reabrir a folha no meio do mesmo louvor devolve a cifra. E ela
+  // também não é derrubada com a folha ABERTA — trocar a aba embaixo do dedo de
+  // quem está lendo é pior que uma aba desatualizada, e o seletor está a um
+  // toque dali.
+  //
+  // `lvFrenteVista` nasce `null` e isso significa *"nenhuma frente vista ainda"*,
+  // nunca *"a frente mudou"*: na PRIMEIRA abertura não houve cena anterior, logo
+  // não há escolha de antes a invalidar. Ler o sentinela como troca derruba uma
+  // fonte pedida antes da primeira abertura — que é o que um chamador
+  // programático faz, e o que o `cifra-rolagem.test.mjs` faz.
   if (fonte) lvSource = fonte;
-  else if (novo !== lvAlvo) lvSource = null;
-  lvAlvo = novo;
+  else if (trocouAlvo || (lvFrenteVista !== null && frente !== lvFrenteVista)) lvSource = null;
+  lvFrenteVista = frente;
   lvFollow = true; // toda abertura começa acompanhando o que está no ar
   renderLyricsView();
   lyricsPopupEl.classList.add('open');
@@ -12353,9 +12377,19 @@ function lvDeckSoltarUrls() {
 
 function lvBuildDeck(el, cur) {
   const pages = (lvItem() && lvItem().pages) || [];
+  // O TOQUE PULA PARA A PÁGINA (v1.4.26), a pedido do operador: *"preciso da
+  // capacidade de tocar nos slides para passar ou pular diretamente para um
+  // slide em específico"*.
+  //
+  // SÓ COM A APRESENTAÇÃO EM CENA. Com um alvo da Biblioteca não há para onde
+  // pular — aquela apresentação não está projetando —, e a folha de um alvo é
+  // leitura pura: *nada ali projeta* é a regra do `lvAlvo`, e um toque que
+  // mandasse um `page` a partir dela romperia justamente a promessa de abrir
+  // uma mídia sem que a congregação veja.
+  const tocavel = lvNaCena() && isDeck(currentItem);
   pages.forEach((p, i) => {
     const row = document.createElement('div');
-    row.className = 'lv-row lv-row--slide';
+    row.className = 'lv-row lv-row--slide' + (tocavel ? ' lv-row--tocavel' : '');
     row.dataset.i = String(i);
     const n = document.createElement('span');
     n.className = 'lv-num';
@@ -12371,6 +12405,10 @@ function lvBuildDeck(el, cur) {
     else if (p) { const u = URL.createObjectURL(p); lvDeckUrls.push(u); img.src = u; }
     row.append(n, img);
     if (i === cur) row.classList.add('current');
+    // O MESMO CAMINHO DO ⏮/⏭ (`deckIr`), e não um comando próprio: quem já está
+    // na página não emite nada (a guarda mora lá dentro), e o destaque volta
+    // pelo `renderSlideNav` como em qualquer outra troca.
+    if (tocavel) row.addEventListener('click', () => deckIr(i));
     el.appendChild(row);
   });
 }
@@ -20859,14 +20897,27 @@ function isDeck(rec) {
   return !!(rec && rec.kind === 'deck' && Array.isArray(rec.pages) && rec.pages.length);
 }
 
-function deckStep(delta) {
+/**
+ * Vai para uma página da apresentação em cena.
+ *
+ * UM ponto só, e o ⏮/⏭ passou a ser um caso dele: o toque numa página do
+ * auxiliar de leitura precisa fazer exatamente o que o par de botões faz — o
+ * mesmo comando, o mesmo redesenho do eixo e do cabeçalho. Duas escritas do
+ * mesmo salto divergiriam no primeiro campo novo do comando `page`.
+ */
+function deckIr(alvo) {
   if (!isDeck(currentItem)) return;
-  const alvo = Math.min(Math.max(deckPagina + delta, 0), currentItem.pages.length - 1);
-  if (alvo === deckPagina) return;
-  deckPagina = alvo;
+  const n = Math.min(Math.max(alvo | 0, 0), currentItem.pages.length - 1);
+  if (n === deckPagina) return;
+  deckPagina = n;
   cmd({ type: 'page', page: deckPagina });
   renderSlideNav();
   renderNowPlaying();
+}
+
+function deckStep(delta) {
+  if (!isDeck(currentItem)) return;
+  deckIr(deckPagina + delta);
 }
 
 // ===== .pptx → páginas, DENTRO do WebView =====

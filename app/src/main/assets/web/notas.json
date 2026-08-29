@@ -1,5 +1,13 @@
 [
   {
+    "versao": "1.4.26",
+    "itens": [
+      "A folha de leitura passou a oferecer a letra, a cifra e a bíblia ao mesmo tempo.",
+      "Ela abre no que está na frente: com o versículo sobre um louvor, abre na bíblia.",
+      "Tocar num slide da lista pula direto para ele."
+    ]
+  },
+  {
     "versao": "1.4.25",
     "itens": [
       "O card da lista parou de balançar ao tocar nas opções do item.",
