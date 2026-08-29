@@ -2095,6 +2095,42 @@ preenchido — vermelho preenchido é "está no ar agora". Some sozinho em 4 s e
 linha volta a aceitar o toque, porque tentar de novo é o que se quer depois de
 uma falha de rede.
 
+#### E a ESPERA DE UM LINK responde no mesmo lugar (v1.4.21)
+
+Resolver um `kind: 'youtube'` leva **segundos** (a extração) ou **minutos** (o
+download que vem depois dela), e nesse intervalo o `.no-ar` ainda não pode
+acender — nada está no ar, e acendê-lo cedo é a mentira que o operador pediu
+para não ter. O que faltava era o outro lado: sem nada na linha, o toque não
+deixava marca no lugar onde ele nasceu, e o único sinal era o cartão sobre a
+preview. **São perguntas diferentes** — o cartão responde *"o que vai entrar em
+cena?"*, a linha responde *"o que este toque está fazendo?"* — e por isso as
+duas existem ao mesmo tempo.
+
+A anatomia é a do `.baixando`: o mesmo aro, na mesma miniatura, no mesmo
+tamanho. Duas formas para a mesma espera fariam perguntar se são coisas
+diferentes. **O que muda são duas coisas:**
+
+| | `.baixando` | `.carregando` |
+|---|---|---|
+| a seta do `.dl-ring` | **sim** — bytes chegando | **não** (a regra da v1.4.20: o desenho segue o que está acontecendo) |
+| a linha esmaece | **sim** — ali ela é PROVISÓRIA, o item ainda não existe | **não** — aqui ela é o item de verdade, prestes a entrar no ar |
+
+**O estado vive num `Set`, não na classe do nó** (`linhasCarregando`) — a lista é
+reconstruída no meio da espera (o `load()` do caminho do download), e uma classe
+escrita no nó sumiria no redesenho seguinte. É a razão do `songRowBusy`, e é o
+mesmo par de metades do `.no-ar`: `porCarregando` na CONSTRUÇÃO (nos dois
+montadores — `renderLibrary` e `linhaDeItem`, senão um link nos Favoritos não
+teria estado nenhum) e `pintarCarregando` na REPINTURA, que só troca classes.
+`data-espera` marca o aro que a repintura pôs, para ela nunca remover o aro de um
+download que esteja na mesma miniatura.
+
+**Liga e desliga em `resolverLinkYoutube`**, ao lado do cartão e pelo mesmo
+motivo: é o ponto por onde TODOS os caminhos do link passam — o toque na linha,
+o avanço da playlist, o ⏮/⏭ do transporte, a notificação nativa. E ele
+**sobrevive a perder a vez** (v1.4.18): tocar noutra coisa no meio da espera
+abandona a PROJEÇÃO, não o trabalho em voo; apagar o aro ali faria a linha dizer
+que parou o que continua acontecendo.
+
 #### A linha da lista: nome + SUBTÍTULO
 
 O tipo era um **selo** irmão do nome num `flex` em que o nome tem `flex: 1` —

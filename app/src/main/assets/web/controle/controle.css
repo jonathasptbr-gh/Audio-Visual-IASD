@@ -905,6 +905,29 @@ body {
 }
 /* A miniatura de verdade escurece atrás do anel, senão as duas competem. */
 .lib-item.baixando .thumb img, .lib-item.baixando .thumb .msym { opacity: .25; }
+/* ---------- "CARREGANDO" NA LINHA (v1.4.21) ----------
+   A resolução de um link leva segundos (a extração) ou minutos (o download), e
+   nesse intervalo o "no ar" ainda não pode acender — nada está no ar. O aro na
+   miniatura é o que diz que o toque pegou, no lugar onde ele nasceu.
+
+   MESMA ANATOMIA DO `.baixando` (mesmo aro, mesma miniatura, mesmo tamanho):
+   duas formas para a mesma espera fariam perguntar se são coisas diferentes. O
+   que muda é o DESENHO — o aro vai SEM a seta, e por isso o nó é criado sem
+   `<svg>` dentro (ver `aroDeEspera`): não há bytes chegando, e prometê-los é o
+   que a v1.4.20 acabou de tirar do cartão.
+
+   E A LINHA NÃO ESMAECE, ao contrário do `.baixando`. Ali a linha é PROVISÓRIA
+   — o item ainda não existe —, e o cinza diz isso. Aqui ela é o item de
+   verdade, o que está prestes a entrar no ar: apagá-la seria dizer o oposto do
+   que o estado significa. Só a miniatura escurece, para não competir com o aro. */
+.lib-item.carregando .thumb { position: relative; }
+.lib-item.carregando .thumb .dl-ring[data-espera] {
+  --dl-ring: 30px;
+  position: absolute; inset: 0; margin: auto;
+}
+.lib-item.carregando .thumb img,
+.lib-item.carregando .thumb .msym { opacity: .25; }
+
 /* CANCELAR na linha: um download mandado ao Cronograma com a busca já fechada
    não tinha nenhuma outra superfície onde ser parado. */
 .dl-cancel {

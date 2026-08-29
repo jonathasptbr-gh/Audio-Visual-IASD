@@ -1,5 +1,11 @@
 [
   {
+    "versao": "1.4.21",
+    "itens": [
+      "A linha do item agora mostra quando ele está carregando."
+    ]
+  },
+  {
     "versao": "1.4.20",
     "itens": [
       "O aviso de preparação deixou de mostrar o ícone de download."
