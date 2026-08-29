@@ -24,6 +24,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
+- **v1.4.9** — O CARTÃO DE ESPERA ESTAVA 15px À ESQUERDA DO CENTRO, E ENTRAVA POR BAIXO DOS BOTÕES. Pergunta do operador sobre o lote anterior: *"verifique se esse cartão de preparação está centralizado no preview"*. Não estava, e MEDIR respondeu duas coisas em vez de uma. O `#pvBusy` cobre a preview inteira e centra o cartão com `justify-content: center` — que centra no CONTEÚDO, não na caixa. A folga que mantém o cartão fora das colunas de `.pv-fab` era **só à direita**, de quando só existia a coluna do player, então o centro do conteúdo não era o centro da preview: 15px à esquerda, MEDIDO em 430px e em 360px, com nome curto e com nome longo — invariante, o que explica por que ninguém relata (lê-se como desalinho, e não se sabe de quê). **E a folga que faltava do outro lado é literalmente o que ela existe para impedir:** a coluna de OPERAÇÃO entrou à esquerda na v1.3.5 e ninguém refez a conta — MEDIDO a 360px com um nome longo, o cartão entrava 28px sob ela, e como as colunas são `z-index: 5` contra 4 o botão da cortina era desenhado POR CIMA do aro de espera. A correção é a folga IGUAL dos dois lados (38px = os 34px de um `.pv-fab` + os 2px que a coluna recua do canto + 2 de folga), que responde às duas de uma vez: a caixa de conteúdo fica simétrica, logo o centro dela É o centro da preview, e a largura reservada mantém o cartão fora das duas colunas. O `.simple-stage` leva a mesma simetria pelo motivo do centro — lá a coluna da esquerda nem existe. DUAS asserções novas no `controles-layout.test.mjs`, e são duas porque **uma folga simétrica grande demais centra e afasta, e uma pequena demais centra e deixa invadir**: só a de centro aprovaria a segunda. Provado por reversão nas duas frentes (a folga de um lado só reprova as duas; `padding: .5rem` reprova só a de invasão). OTA PURO.
 - **v1.4.8** — UM AVISO DE CARREGAMENTO SÓ, E ELE FICA NO CONTROLE. Terceira volta do mesmo pedido, e a que o fecha: *"ainda está tendo os dois modelos de loading, eu gostaria que houvesse apenas o 'preparando…' no controle, vamos abandonar o spinner no telão. Enquanto não houver imagem e/ou som propriamente do vídeo, então não mostre nada além do wallpaper… no telão não vai mensagens de preparação. E nos controles já temos a mensagem de preparando, não precisamos de um spinner exclusivo"*. A v1.4.7 tornou o aro do palco uma OPÇÃO do dono (`espera: true`) e **isso não bastou**: os dois indicadores continuavam existindo, e na preview eles se REVEZAVAM — o cartão "Preparando…" cobria a extração de rede, saía, e o aro assumia a carga do stream. Duas caixas para uma espera só, e a de baixo aparecendo e sumindo no meio dela. **O aro saiu inteiro, e com ele a folha `shared/stage.css`** (o último consumidor dela) e os dois `<link>` que a puxavam. O que fica no lugar não é uma flag a menos: é uma INVERSÃO de quem manda — o palco deixou de DESENHAR a espera e passou a ANUNCIÁ-LA (`opts.onEspera(ligado)`), que é a invariante 5 aplicada ao motor (ele diz o FATO, não a forma). As duas RAZÕES ficam onde estavam (`esperaCarga` · `esperaBuffer`, que não se apagam uma à outra) e o censo de fome do Registro segue intacto — o que mudou é o consumidor. No Controle o anúncio abre e solta o MESMO cartão do toque, de modo que a espera inteira vira um estado só; por BORDA (`pvEsperaSolta`), porque `previewBusy` conta donos e um `onEspera(true)` repetido sem o `false` do meio deixaria um dono pendurado e o cartão nunca sairia — daí o oráculo medir também as BORDAS, e não só o estado. **E juntar as duas metades no mesmo cartão revelou o que a versão de dois indicadores escondia:** entre os dois donos o contador passa por ZERO (o `finally` do toque solta antes de o palco acender), e o cartão saía e voltava no meio da MESMA espera; `PV_BUSY_SAIDA_MS` (700 ms) adia a retirada e um dono novo a cancela — o botão de cancelar, esse, sai na hora, porque uma ação sem dono não pode ficar tocável. A asserção é a CONTINUIDADE amostrada a cada quadro, porque um teste do estado FINAL passa nas duas versões. O NOME vem do ITEM que está entrando (`pvEsperaNome`, gravado por `aplicarNaPreview`) e nunca do rótulo já desenhado: `renderNowPlaying` roda em pontos diferentes de cada caminho, e um nome atrasado é o cartão anunciando o louvor ANTERIOR enquanto o novo carrega. **O telão e as telas da rede não passam `onEspera`**, e é só isso que os separa da preview — continua sendo opção do dono, e não `__AV_ROLE__` lido dentro do `stage.js`. O `espera-do-stream.test.mjs` mudou de sujeito junto: ele media o DOM (o `hidden` do aro) e passou a medir o ANÚNCIO, que é o contrato de verdade — medir o DOM ali seria medir a UI do Controle a partir do motor. A metade da projeção ficou mais forte no caminho: ela pergunta se o palco sem `onEspera` LANÇA (uma exceção ali derrubaria o `load` no meio do culto) e se ele acrescenta algum nó à caixa dele — provada por reversão, devolvendo o aro ao palco. OTA PURO.
 - **v1.4.7** — O CARREGAMENTO É TODO DO CONTROLE, E O TELÃO SÓ MOSTRA O QUE ESTÁ NO AR. Três pedidos do operador no mesmo relato, e o segundo é a correção de um desenho meio-termo da v1.4.6: *"nem coloca todo o carregamento e espera antes de jogar algo no telão e nem deixa o loading inteiramente no telão, você deixa carregar um pouco no controle e um pouco na tela… revise para que todo o loading aconteça no controle, e para o telão, literalmente só apareça quando o vídeo estiver realmente sendo reproduzido"*. **O telão passa a ter DOIS estados e nenhum intermediário**: o wallpaper em repouso, ou o conteúdo de fato no ar. O aro (`.av-stage-busy`) virou OPÇÃO do dono do palco (`espera: true`) e só a preview a liga — e é opção, e não `__AV_ROLE__` lido dentro do `stage.js`, porque a pergunta é *"este palco é uma ILUSTRAÇÃO?"* e a tela da rede é papel `tela` e é PROJEÇÃO: a leitura de papel acertaria por acidente. Mais: **sem quadro, a cortina FICA** — o `mediaReady` passou a devolver se houve dado, e num stream o prazo deixou de REVELAR, porque o que ele socorria era revelar o PRETO; o wallpaper é a resposta certa a "não há o que mostrar" (só no stream: o socorro de 2,5 s do arquivo local não é assunto deste lote). O primeiro pedido: **a reação instantânea valia só para a folha da BUSCA** — *"tocar em um item de link que esteja no cronograma ou dos favoritos"* passa por `resolverLinkYoutube`, que é a MESMA espera por outro caminho; a guarda entra lá dentro, com saída única, porque é o ponto por onde todos os caminhos do link passam. O terceiro: **o CONFIRMAR é sempre o último da faixa** — o lado era escolha de quem fornecia o irmão (`data-antes`), e quem não a fizesse caía do outro lado, que era a divergência entre os Favoritos e o resto da Biblioteca; a escolha por chamador SAIU junto, e com ela o que um chamador novo poderia esquecer. Oráculo estendido para sete metades, provado por reversão em três frentes. OTA PURO.
 - **v1.4.6** — O TOQUE RESPONDE NA HORA. Relato do operador: *"após a seleção, ele leva algum tempo para reagir e sequer aparecer o spinner do carregamento do vídeo… nem que tenha mais tempo de carregamento, mas o feedback deve ser instantâneo. Por exemplo, a mídia atual deve ser instantaneamente interrompida"*. A janela era real e longa: `tentarTransmitir` começa por um `ytStream`, que é uma EXTRAÇÃO DE REDE de segundos, e só depois dela vem o `send` que muda alguma coisa na tela. No meio-tempo o único sinal era o `setYtEstado`, que acende uma LINHA da Biblioteca — **a mesma que o `closeHymnSearch` acabou de fechar**. E o caminho do DOWNLOAD já tinha o cartão de espera sobre a preview (`ytArquivo` → `previewBusy`); o da TRANSMISSÃO nunca teve: **a assimetria era o defeito**. Agora `cederOPalco` interrompe a cena no ATO e abre o cartão com o nome do que está vindo. A INTERRUPÇÃO É O RECONHECIMENTO DO TOQUE — "Tocar agora" é um comando sem ambiguidade, a cena atual vai sair de qualquer jeito, então tirá-la no ato não antecipa nada; é o mesmo protocolo visual do `stage.load`, começando no instante do comando em vez do instante em que os bytes são conhecidos. NÃO é o `stopClear` (o `clearManualText` fica de fora: a mídia é que está sendo trocada, e um versículo projetado continua projetado), NÃO espera a gravação (o `cmd` do `pararMidia` é síncrono; o que ele aguarda é o `persistCurrent`), e SÓ no `tocar` — guardar numa lista não vai ao telão, e essa é a metade que impede a correção de virar um defeito maior. O invólucro do `ytAcao` existe pela SAÍDA ÚNICA: `ytAcaoInterno` tem meia dúzia de `return`, e um sem a liberação prenderia o cartão para sempre. Mais o subtexto pedido: com "Online", o "Tocar agora" diz que toca direto da internet e que a qualidade varia conforme a conexão. Oráculo novo que mede o MEIO (a ponte de mentira SEGURA o `ytStream` — um teste do desfecho passa nas duas versões), provado por reversão nas duas frentes. **O preço está dito:** falhando a transmissão, a cena cai no download e o telão passa esses minutos no wallpaper com o cartão explicando. OTA PURO.
@@ -281,6 +282,68 @@ na nota que a revoga, não apagada da que a criou.
 - **v5.156** — é METADE OTA e METADE APK, de novo.
 
 ---
+
+## v1.4.9 — o cartão de espera não estava centrado, e o que faltava era o outro lado
+
+Pergunta do operador sobre o lote anterior:
+
+> *"verifique se esse cartão de preparação está centralizado no preview"*
+
+Não estava. E medir respondeu **duas** coisas em vez de uma.
+
+### O centro
+
+O `#pvBusy` cobre a preview inteira (`inset: 0`) e centra o cartão com
+`justify-content: center` — que centra no **conteúdo**, não na caixa. A folga que
+mantém o cartão fora das colunas de `.pv-fab` era `.5rem 38px .5rem .5rem`: 8px de
+um lado, 38px do outro. O centro do conteúdo ficava 15px à esquerda do centro da
+preview.
+
+MEDIDO em 430px e em 360px, com nome curto e com nome longo: **−15px nos quatro
+casos**. Invariante, e é isso que explica por que ninguém relata — não pisca, não
+depende de nada, não tem um "às vezes" que dê uma pista. Lê-se como desalinho, e
+não se sabe de quê.
+
+### E a folga que faltava é o que ela existe para impedir
+
+A folga da direita nasceu quando só havia **uma** coluna, a do player. A coluna de
+OPERAÇÃO (leitura auxiliar, cortina, mudo) entrou à esquerda na v1.3.5 e ninguém
+refez esta conta.
+
+MEDIDO a 360px com um nome longo: o cartão entrava **28px sob ela** — e as colunas
+são `z-index: 5` contra os 4 do cartão, então o que invade não é coberto, é coberto
+POR ELAS. O botão da cortina aparecia desenhado sobre o aro de espera.
+
+### A correção é uma linha, e ela responde às duas
+
+```css
+padding: .5rem 38px;   /* era: .5rem 38px .5rem .5rem */
+```
+
+38px = os 34px de um `.pv-fab` + os 2px que a coluna recua do canto + 2 de folga.
+Iguais dos dois lados, a caixa de conteúdo fica simétrica — logo o centro dela É o
+centro da preview — e a largura reservada mantém o cartão fora das duas colunas.
+O `.simple-stage` leva a mesma simetria pelo motivo do centro: lá a coluna da
+esquerda nem existe (`display: none`), então o que ela compra é só o centro, que é
+justamente o que precisava ser comprado.
+
+O preço, dito: a largura máxima do cartão cai 30px no modo avançado. A 360px isso
+é 193,6 → 163,6px, e o nome já clampa em duas linhas com reticências — a
+alternativa era o texto correndo por baixo dos botões.
+
+### Duas asserções, e a segunda não é redundante
+
+No `controles-layout.test.mjs`, que é quem já é dono da geometria do deck. Elas são
+duas porque **uma folga simétrica grande demais centra e afasta, e uma pequena
+demais centra e deixa invadir** — só a de centro aprovaria a segunda. Provado por
+reversão nas duas frentes:
+
+| reversão | desvio | sob a coluna esquerda | veredito |
+|---|---|---|---|
+| a folga volta a ser só da direita | −15px | 28px | as DUAS reprovam |
+| `padding: .5rem` (simétrica, pequena) | 0px | 28px | só a de invasão reprova |
+
+OTA PURO — nenhuma linha de Kotlin, `SHELL_VERSION` segue 60.
 
 ## v1.4.8 — um aviso de carregamento só, e ele fica no Controle
 

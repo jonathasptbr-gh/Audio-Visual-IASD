@@ -930,9 +930,22 @@ body {
 .pv-busy {
   position: absolute; inset: 0; z-index: 4;
   display: flex; align-items: center; justify-content: center;
-  /* A folga da direita é a largura dos `.pv-fab`, que ficam ACIMA e seguem
-     alcançáveis — o cartão não pode passar por baixo deles. */
-  padding: .5rem 38px .5rem .5rem;
+  /* A FOLGA É IGUAL DOS DOIS LADOS, e ela responde a duas coisas de uma vez.
+     38px = os 34px de um `.pv-fab` + os 2px que a coluna recua do canto + 2 de
+     folga.
+
+     CLAREZA: as colunas de `.pv-fab` ficam ACIMA (z-index 5 contra 4) e seguem
+     alcançáveis, então o cartão não pode passar por baixo delas. A folga existia
+     só à direita, de quando só havia a coluna do player; a de OPERAÇÃO entrou à
+     esquerda na v1.3.5 e ninguém refez esta conta. MEDIDO a 360px: um nome longo
+     enfiava o cartão 28px sob ela, com o botão da cortina desenhado POR CIMA do
+     aro de espera.
+
+     CENTRO: `justify-content: center` centra no CONTEÚDO, não na caixa — com
+     8px de um lado e 38px do outro o cartão nascia 15px à esquerda do centro da
+     preview, em toda largura e com todo nome (MEDIDO em 430px e 360px). Iguais,
+     a caixa de conteúdo é simétrica e o centro dela É o centro da preview. */
+  padding: .5rem 38px;
   pointer-events: none;
   opacity: 0; visibility: hidden;
   transition: opacity .18s ease, visibility .18s;
@@ -5552,9 +5565,11 @@ body.mode-simple .bottombar { display: none; }
    de cast. Mesmo cartão, medidas menores — a folga da direita continua sendo a
    largura do `.pv-fab`, porque o cartão é centrado e o ícone fica no canto de
    cima, mas numa caixa de ~83px de altura os dois se cruzam na vertical. */
-/* 38px = os 34px do `.pv-fab` + os 2px que a coluna dele recua do canto + 2 de
-   folga. Com 34 o cartão encostava nele por 2px. */
-.simple-stage .pv-busy { padding: .3rem 38px .3rem .3rem; }
+/* Os mesmos 38px da regra base, e IGUAIS DOS DOIS LADOS pelo motivo de lá: a
+   folga assimétrica descentrava o cartão. Aqui a coluna da esquerda nem existe
+   (`.pv-fabs--esq` é `display: none` neste modo), então o que a simetria compra
+   é só o centro — que é justamente o que ela precisa comprar. */
+.simple-stage .pv-busy { padding: .3rem 38px; }
 .simple-stage .pv-busy-card { gap: .35rem; padding: .3rem .45rem .3rem .35rem; }
 .simple-stage .pv-busy-card .dl-ring { --dl-ring: 22px; }
 .simple-stage .pv-busy-cap { font-size: .55rem; letter-spacing: .06em; }
