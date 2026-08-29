@@ -629,18 +629,33 @@ checar(S.itensDaPlaylist(trimestreQ3, 7, INFO, new Date(2027, 0, 1)).length === 
 checar(S.itensDaPlaylist(trimestreQ3, 7, INFO, new Date(2026, 7, 26)).length === 3,
   'o mês entra na conta: 26/Set continua no futuro em 26/Ago');
 
-// A METADE NEGATIVA, e ela é a que impede isto de virar um apagador: a REGRA É
-// POR SÉRIE. O Provai e Vede libera o mês inteiro de uma vez — medido no
-// registro do aparelho, em 15 de agosto ele já tinha até 26 de setembro, e
-// aqueles episódios TOCAM. Ligar o corte lá apagaria um mês de vídeos que
-// existem, que é o erro que este arquivo mais teme.
+// O PROVAI E VEDE PASSOU A ESCONDER TAMBÉM (v1.4.15), e a medição que o mantinha
+// mostrando estava ERRADA. Ela dizia "em 15/Ago a playlist já tinha até 26/Set, e
+// aqueles episódios TOCAM": a primeira metade era verdade, a segunda nunca foi
+// verificada — o que se olhou foi a LISTA, não a reprodução. O campo desmentiu em
+// 29/08/2026, com o Registro devolvendo `ContentNotAvailableException` para um
+// episódio de 22/Set.
 const pvSetembro = S.itensDaPlaylist(
   [{ id: 's1', url: 'y/s1', name: 'Uma decisão difícil | Provai e Vede 2026 (05/Set)', seconds: 300 }],
   9, SERIE, SABADO_15);
-checar(pvSetembro.length === 1,
-  'o Provai e Vede NÃO esconde nada: em 15/Ago o episódio de 05/Set continua na lista');
-checar(SERIE.futuros === S.FUTUROS_MOSTRAR && INFO.futuros === S.FUTUROS_ESCONDER,
-  'e a diferença é um CAMPO declarado no catálogo, não um `if` por série');
+checar(pvSetembro.length === 0,
+  'o Provai e Vede esconde o que não saiu: em 15/Ago o episódio de 05/Set fica fora');
+
+// E A METADE QUE IMPEDE ISTO DE VIRAR UM APAGADOR: o corte é do CAMPO, não de uma
+// regra global. Provado com uma série SINTÉTICA — os dois valores exercitados
+// sobre a MESMA entrada, no mesmo dia. Amarrar a asserção aos valores que o
+// catálogo tem hoje mediria a POLÍTICA (que muda quando um canal muda) em vez do
+// MECANISMO (que é o que não pode quebrar).
+const comoMostrar = Object.assign({}, SERIE, { futuros: S.FUTUROS_MOSTRAR });
+const pvMostrando = S.itensDaPlaylist(
+  [{ id: 's1', url: 'y/s1', name: 'Uma decisão difícil | Provai e Vede 2026 (05/Set)', seconds: 300 }],
+  9, comoMostrar, SABADO_15);
+checar(pvMostrando.length === 1,
+  'e com `FUTUROS_MOSTRAR` a MESMA entrada, no MESMO dia, continua na lista — a '
+  + 'diferença é um CAMPO declarado no catálogo, não um `if` por série');
+checar(SERIE.futuros === S.FUTUROS_ESCONDER && INFO.futuros === S.FUTUROS_ESCONDER,
+  'hoje as duas séries cortam o futuro: os dois canais sobem o período inteiro e '
+  + 'liberam um sábado por vez, e agora isso está MEDIDO nos dois');
 
 // SEM DATA NO TÍTULO, NUNCA É ESCONDIDO. Ele é o achado da regra de ouro, e
 // esconder o que não se sabe julgar trocaria um item feio por um item ausente.

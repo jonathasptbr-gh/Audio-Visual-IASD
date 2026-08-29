@@ -156,11 +156,23 @@
       ano: 2026,
       periodo: PERIODO_MES,
       titulo: TITULO_ESQUERDA,
-      // A playlist do mês só traz o que já saiu — nada a esconder, e a medição
-      // é do registro do aparelho: em 15 de agosto ela tinha até 26 de
-      // setembro, e aqueles episódios TOCAM. Ligar isto aqui apagaria da
-      // Biblioteca um mês inteiro de vídeos que existem.
-      futuros: FUTUROS_MOSTRAR,
+      // LIGADO na v1.4.15, e a medição que o mantinha desligado estava ERRADA.
+      //
+      // Ela dizia: *"em 15 de agosto a playlist já tinha até 26 de setembro, e
+      // aqueles episódios TOCAM"*. A primeira metade era verdade; a segunda
+      // nunca foi verificada — o que se olhou foi a LISTA, não a reprodução.
+      //
+      // O campo desmentiu: 29/08/2026, o operador toca um episódio de 22/Set e
+      // o Registro devolve `extração falhou: ContentNotAvailableException` nas
+      // duas linhas. Ele é uma promessa que a lista não pode cumprir, e a mais
+      // cara delas no meio de um culto — exatamente o que o `futuros` existe
+      // para impedir.
+      //
+      // **Os dois canais fazem a mesma coisa**, e agora está medido nos dois:
+      // sobem o período inteiro e liberam um sábado por vez. O campo FICA — ele
+      // é o que separa a política do mecanismo, e um canal que um dia publique
+      // de verdade o mês inteiro volta a `FUTUROS_MOSTRAR` numa linha.
+      futuros: FUTUROS_ESCONDER,
     },
     {
       id: 'serie-informativo-missoes-2026',
