@@ -1,5 +1,11 @@
 [
   {
+    "versao": "1.4.17",
+    "itens": [
+      "O ruído no som ao navegar entre as abas com uma música tocando."
+    ]
+  },
+  {
     "versao": "1.4.16",
     "itens": [
       "A lista das séries vai até o sábado da semana, e a próxima entra no domingo.",
