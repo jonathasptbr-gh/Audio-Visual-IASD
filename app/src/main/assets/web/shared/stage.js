@@ -591,7 +591,7 @@
     // cortar o áudio na hora — evita o "pop" de um corte abrupto. Ao mutar,
     // a rampa desce até 0 e só então a mídia é de fato marcada como muda
     // (video.muted=true); ao desmutar, desmuta já (senão volume=0 não seria
-    // ouvido) e a rampa sobe de 0 até o volume alvo. Usa o mesmo rampTimer
+    // ouvido) e a rampa sobe até o volume alvo. Usa o mesmo rampTimer
     // compartilhado das outras rampas (fade de conteúdo/cortina) — mutuamente
     // exclusivas no tempo, a mais recente sempre cancela a anterior.
     function setMute(m) {
@@ -606,8 +606,42 @@
         // pode ter mudado a intenção enquanto a rampa corria.
         muteApplyTimer = setTimeout(() => { if (muted) video.muted = true; }, MUTE_RAMP_TIME * 1000);
       } else {
+        // A RAMPA PARTE DE ONDE O VOLUME ESTÁ, e não do silêncio (v1.4.17).
+        //
+        // Ela partia de ZERO sempre — certo saindo do mudo, onde não há o que
+        // preservar, e ERRADO em todo o resto, porque escrever zero num
+        // elemento que está tocando é o degrau que esta rampa existe para
+        // evitar. É o espelho do que o ramo de cima já fazia
+        // (`video.muted ? 0 : video.volume`).
+        //
+        // O caso comum é a REAFIRMAÇÃO: esta é uma função de DECLARAR estado, e
+        // quem a chama no Controle é o `load()`, que reaplica a cena inteira a
+        // cada troca de aba, a cada redesenho da lista, a cada importação. Com
+        // o som já ligado, o que saía no elemento era, MEDIDO no arnês a cada
+        // navegação entre o Cronograma e a Bíblia:
+        //
+        //     volume 1 → 0
+        //     volume 0 → 1     (o `setVolume` da linha seguinte cancela a rampa)
+        //
+        // Em JS o par é atômico e nada se ouve. No aparelho não é: cada escrita
+        // atravessa o renderer até o `AudioRendererImpl`, e o retorno de chamada
+        // do áudio roda a cada ~10 ms. Caindo entre as duas, ele rende UM buffer
+        // em silêncio — o ESTALO que o operador ouviu ao navegar entre as abas
+        // com um louvor no ar. A janela se abre justamente na troca de aba, que
+        // é quando a thread principal está mais ocupada (a lista nova, o
+        // fantasma e as duas animações do carrossel).
+        //
+        // O outro caso é o TOQUE DUPLO no botão de mudo: desmutar no meio da
+        // rampa de mutar, com o volume a meio caminho. É o mesmo degrau por
+        // outra porta, e é o que se faz quando se muta por engano.
+        //
+        // A pergunta é feita ao ELEMENTO, nunca à variável do módulo: `muted`
+        // pode estar certa com o `<video>` errado (um elemento recém-montado
+        // pelo `resetMediaDom`, uma rampa interrompida), e aí a rampa é
+        // legítima e tem de correr.
+        const de = video.muted ? 0 : video.volume;
         video.muted = false;
-        rampVolume(0, volume, MUTE_RAMP_TIME);
+        rampVolume(de, volume, MUTE_RAMP_TIME);
       }
     }
     function setVolume(vol) {

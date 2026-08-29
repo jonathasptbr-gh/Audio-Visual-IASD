@@ -24,6 +24,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
+- **v1.4.17** — O ESTALO NO SOM AO NAVEGAR ENTRE AS ABAS. Relato do operador, com o Registro do campo (sem TV — a preview É a projeção e o som sai do aparelho): *"o áudio demonstra um ruído no exato momento em que eu interajo com as abas do cronograma e bíblia, quando navego entre elas"*. REPRODUZIDO EM ARNÊS, e a causa é uma linha: `stage.setMute` é uma função de **declarar** estado, e quem a chama no Controle é o `load()` — que reaplica a cena inteira a cada troca de aba, a cada redesenho da lista, a cada importação. Mas o ramo de desmutar se comportava como uma função de **animar** a mudança: começava por `rampVolume(0, …)`, que ZERA o volume antes de subir. Com o som já ligado, cada reafirmação escrevia `volume 1 → 0 → 1` num `<video>` que estava tocando. **Em JS o par é atômico e nada se ouve; no aparelho não é** — cada escrita atravessa o renderer até o `AudioRendererImpl`, e o retorno de chamada do áudio roda a cada ~10 ms: caindo entre as duas, ele rende UM buffer em silêncio. E a janela se abre justamente na troca de aba, que é quando a thread principal está mais ocupada (a lista nova, o fantasma e as duas animações do carrossel). A correção é a rampa PARTIR DE ONDE O VOLUME ESTÁ — zero saindo do mudo, onde não há o que preservar; o valor corrente em todo o resto —, o espelho exato do que o ramo de mutar já fazia. De quebra ela conserta o TOQUE DUPLO no botão de mudo (desmutar no meio da rampa de mutar passava por zero). Oráculo novo, no portão: ele mede as ESCRITAS e não o som, porque o artefato é uma corrida com a thread de áudio (um teste do desfecho audível seria intermitente por construção) e o estado final é idêntico nas duas versões. **E uma GUARDA que eu tinha escrito junto SAIU antes de publicar:** ela também apagava o degrau, mas a reversão parcial passava — as duas se cobriam —, e a segunda hipótese que a justificava (uma rampa inútil armada a cada `load()`) foi MEDIDA e é falsa: o `setVolume` da linha seguinte a cancela no mesmo tique. Código que nenhuma reversão reprova não entra. OTA PURO.
 - **v1.4.16** — A DATA DE CORTE, DITA PELO OPERADOR — E O REGISTRO QUE A DESCREVIA ERRADO. Enunciado do operador: *"a liberação começa na virada da meia noite de sábado para domingo, no caso o domingo é o primeiro dia da semana e já oferece a mídia para o sábado de sua semana, e quando acaba aquela semana, na virada do sábado para o domingo, já libera a próxima"*. **O app JÁ FAZIA exatamente isso desde a v1.2.19** — `ehDoSabadoAtual` é a semana adventista inteira, de domingo a sábado, e não o dia —, e o oráculo já travava a virada (`sáb 15` esconde 22/Ago, `dom 16` mostra). O que o lote corrige são as DUAS coisas que discordavam disso. **1) O PISO DE TRÊS DIAS SAIU** (`DIAS_DE_ANTECEDENCIA`, da v5.256). MEDIDO antes de tirar: sobre os 365×365 pares dia × episódio de 2026 ele mudava o veredito em **312**, e em **zero** deles o episódio caía num SÁBADO — o único dia em que os dois canais publicam. Ele só alcançava episódios datados de domingo, segunda ou terça DA SEMANA SEGUINTE, vistos de quinta em diante: era a única coisa do módulo capaz de mostrar um episódio antes de a semana dele abrir, isto é, de contrariar a data de corte. O pedido que o criou não regride — a semana dá SEIS dias de antecedência contra os três dele. **2) O REGISTRO PAROU DE MENTIR:** a linha dos retidos dizia *"a lista alcança 3 dia(s) além de <dia>"*, um corte que o app não aplicava; hoje diz o SÁBADO da semana da varredura, e a conta é a mesma do `AVSerie` (uma segunda conta de calendário no `controle.js` divergiria, e um log que discorda do aparelho é o pior artefato deste projeto). O oráculo ganhou a PROPRIEDADE exaustiva, escrita **por fora** da implementação — o domingo que abre a semana sai da data do EPISÓDIO, não da janela que o `aindaNaoSaiu` usa —, provada por reversão: quem reintroduzir o piso vê os 312 pares reprovarem. OTA PURO.
 - **v1.4.15** — O PROVAI E VEDE ENTROU NA REGRA DO QUE AINDA NÃO SAIU. Pedido do operador, depois de a v1.4.14 nomear a causa da recusa: *"acredito que possa ser por o vídeo ainda não estar liberado, e ir liberando uma semana de cada vez, então ajuste para que tenha o mesmo filtro e organização do informativo mundial das missões. no caso a lista só vai até o sábado da semana atual"*. Uma linha do catálogo: `futuros: FUTUROS_MOSTRAR` → `FUTUROS_ESCONDER`. **A MEDIÇÃO QUE O MANTINHA DE FORA ESTAVA ERRADA**, e isso é o que este lote de fato corrige: ela dizia *"em 15/ago já tinha até 26/set, e aqueles episódios TOCAM"* — a primeira metade era verdade, a segunda **nunca foi verificada**. O que se olhou foi a LISTA, não a reprodução, e o campo desmentiu: `ContentNotAvailableException` num episódio de 22/Set. O erro de método vale mais que o defeito: *uma playlist que mostra um item não prova que ele toca, e as duas perguntas se parecem o bastante para uma responder pela outra*. **O CAMPO FICA, embora hoje os dois valores sejam iguais** — ele separa a política do mecanismo, e um canal que um dia publique de verdade o mês inteiro volta a `mostrar` numa linha; o oráculo passou a provar o MECANISMO com uma série SINTÉTICA (os dois valores sobre a mesma entrada, no mesmo dia) em vez de fixar os valores que o catálogo tem hoje, que mudam quando um canal muda. **E o `boot-nativo` ganhou a metade que faltava**: a ligação entre o campo e o provedor de coleção nunca tinha sido afirmada para esta série, e o relógio congelado do bloco do corte passou de 10/Jul para 26/Jul — em 10/Jul os três episódios do stub estão no futuro, a lista nasce vazia e a espera da varredura não volta nunca. As datas do stub passaram a sustentar peso, e está escrito onde. Quatro asserções novas, com a que FECHA (passado o sábado dele, o episódio VOLTA à lista — sem ela as outras aprovariam uma lista que só encolhe), provadas por reversão. OTA PURO.
 - **v1.4.14** — UM VÍDEO QUE NÃO TOCA DEIXOU DE FALHAR EM SILÊNCIO. Relato do operador, num episódio de série: *"ele carrega um tempo, mas ele não toca nada e nem dá nenhuma mensagem de erro nem nada"*. REPRODUZIDO em arnês: o caminho da BUSCA falava pelo cartão da preview (`previewBusy(…).falhar`) e o do ITEM DE LINK não — a única saída era o `notaNoItem`, que escreve na LINHA do item. **E a linha some justamente neste caso:** um episódio de série mora dentro do álbum, e o "Tocar agora" FECHA a Biblioteca antes de começar, então a nota ia para um lugar que já tinha saído da tela. A assimetria era o defeito, e o cartão é a régua de sempre — o aviso mora onde o resultado ia aparecer, e ele ia para a projeção. **E A CAUSA passou a ser dita:** o Registro do campo trouxe `extração falhou: ContentNotAvailableException` nas duas linhas enquanto o app dizia a frase genérica, e *"não foi possível baixar"* × *"este vídeo não está disponível"* mandam fazer coisas OPOSTAS (tentar de novo × escolher outro). `motivoDaRecusa` lê o `ytDiag()` e procura a marca; é acoplamento a uma string do Kotlin e por isso ele **só ESPECIALIZA** — não achando, a genérica vale como sempre, e o dia em que o nome da exceção mudar isto volta ao comportamento de hoje, nunca a uma afirmação errada. Vale nos DOIS caminhos, senão o mesmo vídeo conta duas histórias conforme onde foi tocado; a janela de antecedência da série continua vencendo as duas, porque é a única que diz o que fazer. Três asserções novas, provadas por reversão nas três frentes (sem cartão; sem a causa; a causa invadindo o caso genérico). OTA PURO.
@@ -287,6 +288,117 @@ na nota que a revoga, não apagada da que a criou.
 - **v5.154** — é METADE OTA e METADE APK, e a divisão importa para quem for testar em aparelho.
 - **v5.155** — é OTA PURO
 - **v5.156** — é METADE OTA e METADE APK, de novo.
+
+---
+
+## v1.4.17 — o estalo no som ao navegar entre as abas
+
+> *"verifique uma interferência na saída de áudio quando eu navego na interface
+> do app. o áudio demonstra um ruído no exato momento em que eu interajo com as
+> abas do cronograma e bíblia, quando navego entre elas."*
+
+Registro do campo: **sem TV conectada** — isto é, a preview É a projeção e o som
+sai do aparelho.
+
+### O que o arnês mostrou
+
+Uma espiã sobre os setters do `HTMLMediaElement`, instalada antes de o app
+carregar, com um louvor tocando na preview. A cada troca de aba:
+
+```
+volume  1 → 0     (t = 1885.6 ms)
+volume  0 → 1     (t = 1885.7 ms)
+```
+
+E o mesmo par num `load()` avulso — o redesenho da lista.
+
+### A causa é a distância entre DECLARAR e ANIMAR
+
+`stage.setMute(m)` declara estado. Quem a chama no Controle é o `load()`:
+
+```js
+preview.setMute(muted); preview.setVolume(volume);
+```
+
+que reaplica a cena inteira a cada troca de aba, a cada redesenho da lista, a
+cada importação. O ramo de desmutar, porém, animava a mudança:
+
+```js
+video.muted = false;
+rampVolume(0, volume, MUTE_RAMP_TIME);   // ← escreve volume = 0 e ramp a partir dali
+```
+
+Com o som já ligado não havia transição nenhuma a animar, e o que sobrava era o
+degrau. O `setVolume` da linha seguinte cancela a rampa, então em JS o par é
+atômico e **nada se ouve no navegador**.
+
+No aparelho não é atômico. Cada escrita atravessa o renderer até o
+`AudioRendererImpl`, e o retorno de chamada do áudio roda a cada ~10 ms — caindo
+entre as duas, ele rende um buffer em silêncio. É o estalo. E a janela se abre
+justamente na troca de aba, que é quando a thread principal está mais ocupada: a
+lista nova, o fantasma do carrossel e as duas animações.
+
+### A correção: a rampa parte de onde o volume está
+
+```diff
+-        video.muted = false;
+-        rampVolume(0, volume, MUTE_RAMP_TIME);
++        const de = video.muted ? 0 : video.volume;
++        video.muted = false;
++        rampVolume(de, volume, MUTE_RAMP_TIME);
+```
+
+Zero saindo do mudo (ali não há o que preservar); o valor corrente em todo o
+resto. É o espelho exato do que o ramo de MUTAR já fazia
+(`video.muted ? 0 : video.volume`), e a pergunta é feita ao ELEMENTO e nunca à
+variável do módulo — `muted` pode estar certa com o `<video>` errado.
+
+De quebra ela conserta o **toque duplo no botão de mudo**: desmutar no meio da
+rampa de mutar, com o volume a meio caminho, passava por zero. Mesmo degrau,
+outra porta — e é o que se faz quando se muta por engano.
+
+### O oráculo mede as ESCRITAS, não o som
+
+O artefato é uma **corrida** com a thread de áudio: um teste do desfecho audível
+seria intermitente por construção, e um teste do estado final passa nas duas
+versões (o volume termina em 1 de qualquer jeito). O que é determinístico — e o
+que de fato causa o estalo — é o degrau ter sido escrito.
+
+Três metades, porque cada uma sozinha aprovaria um app errado:
+
+1. **reafirmar não escreve degrau** — quatro trocas de aba **e** um `load()`
+   avulso, com a prova de que o louvor ANDOU o tempo todo ("não pausou" é
+   fraco);
+2. **a rampa parte de onde o volume está** — o toque duplo, com o cenário
+   MONTADO e não cronometrado (o estado do meio é conhecido e medido: a rampa de
+   mutar escreve 0.8 · 0.6 · 0.4 · 0.2 · 0). Um `waitForTimeout(110)` contra uma
+   rampa de 250 ms é um prazo contra a cadência do app: sob carga ele passa
+   vazio, com o elemento já mudo e a partida em zero legítima;
+3. **a transição de verdade continua rampando** — sem ela, esvaziar o `setMute`
+   passaria nas duas primeiras, e o "pop" que a rampa existe para evitar voltaria
+   em cada toque no botão de mudo.
+
+Reversão: o `stage.js` inteiro da versão anterior reprova as três primeiras
+asserções, com o par `1 → 0 → 1` em cada uma das quatro trocas.
+
+### O que NÃO entrou, e por quê
+
+O lote começou com **duas** correções: a de cima e uma guarda de reafirmação
+(`if (video.muted === muted && …) return;`). A guarda saiu antes de publicar,
+por duas medições:
+
+- **a reversão parcial passava.** Removendo só a guarda, o oráculo ficava verde —
+  as duas se cobriam, e cada uma sozinha já apaga o degrau. Código que nenhuma
+  reversão reprova não é rede de segurança, é peso;
+- **a segunda razão que a justificava é falsa.** Escrevi que sem ela a
+  reafirmação armaria um `setInterval` de 250 ms a cada `load()`. MEDIDO: o
+  `setVolume` da linha seguinte faz `clearInterval` no mesmo tique, e nada chega
+  atrasado. A asserção que eu tinha escrito para prová-la passava com e sem a
+  guarda — isto é, não provava nada.
+
+**OTA PURO** — nada em `java/`, `res/` ou no manifest. O `apk.yml` ganha a linha
+do oráculo novo, e ele roda no runner a partir de `main`: não chega a aparelho
+nenhum e não pede Release.
 
 ---
 
