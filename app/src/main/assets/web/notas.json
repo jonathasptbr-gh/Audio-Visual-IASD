@@ -1,5 +1,13 @@
 [
   {
+    "versao": "1.4.24",
+    "itens": [
+      "O auxiliar de leitura passou a mostrar todos os slides da apresentação.",
+      "A página que está no telão fica marcada, e a lista acompanha o avanço.",
+      "Durante uma apresentação a folha não oferece mais letra nem cifra."
+    ]
+  },
+  {
     "versao": "1.4.23",
     "itens": [
       "A notificação de preparar apresentação voltou a mostrar o progresso.",

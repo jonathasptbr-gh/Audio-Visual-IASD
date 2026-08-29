@@ -1446,10 +1446,47 @@ vem depois, e a preview só espelha o que já está no ar. O botão do meio do
 mixer (`#lyricsViewBtn`, folha com linhas) abre um bottom-sheet **com scroll**
 (`#lyricsPopup`) com a íntegra do que está em cena.
 
-- **Três fontes possíveis, nunca as três de uma vez**: a **letra** da música em
+- **Quatro fontes possíveis, nunca todas de uma vez**: a **letra** da música em
   cena (`currentItem.lyrics`, os mesmos slides que o Display projeta — o slide de
   capa vira a linha "Início"), o **capítulo** da leitura bíblica
-  (`bibleSession.verses`, numerados como numa Bíblia impressa) e a **cifra**.
+  (`bibleSession.verses`, numerados como numa Bíblia impressa), a **cifra**, e as
+  **páginas** de uma apresentação.
+- **A APRESENTAÇÃO É EXCLUSIVA** (v1.4.24), pela mesma razão da Bíblia no ar e
+  ao pé do pedido do operador: *"durante uma apresentação, não quero botões de
+  letra, ou de cifras nessa tela"*. Quando o que está no telão é o deck, não há
+  segunda leitura possível — ele não tem letra nem acorde, e o que sobraria no
+  seletor seriam abas de OUTRA mídia. `lyricsViewSources` faz `return ['deck']`,
+  e é o `return` (e não um `push`) que impede um louvor de fundo pausado atrás
+  da apresentação de continuar oferecendo Letra e Cifra. Com uma fonte só, o
+  seletor inteiro some sem nenhum caso especial no desenho.
+
+  **A lista é o MOLDE VERTICAL do capítulo bíblico**, também a pedido: número na
+  margem, corpo à direita, a página em cena marcada e centralizada pelo
+  `lvScroll` que já existe. O que muda é o corpo — onde o versículo tem texto, a
+  página tem a própria imagem, ocupando a largura da coluna (num chip pequeno o
+  texto do slide não se reconhece, e o que o operador foi ver é **o que vem a
+  seguir**).
+
+  Quatro coisas que este desenho não pode perder:
+
+  - **`loading="lazy"`**: uma apresentação de centenas de páginas decodificada
+    de uma vez são centenas de bitmaps no renderer que hospeda os dois WebViews
+    e a `Presentation`.
+  - **A ALTURA RESERVADA** (`aspect-ratio` no CSS), que é o que torna o `lazy`
+    seguro: uma imagem fora da tela tem altura ZERO, e o `lvScroll` mede
+    `offsetTop` — sem a reserva a coluna cresceria à medida que as imagens
+    entrassem e a página no ar apareceria fora da tela.
+  - **A PÁGINA FICA FORA DA ASSINATURA** (`lvSignature`): o destaque anda por
+    classe (`lvMarkCurrent`). Com a página lá dentro, cada toque no ⏭ remontaria
+    a lista — revogando e recriando dezenas de URLs de objeto no meio do sermão,
+    com "a folha pisca" como único sintoma.
+  - **AS URLS SÃO REVOGADAS** (`lvDeckSoltarUrls`), no ponto único em que o corpo
+    é esvaziado e ao fechar a folha. Uma `createObjectURL` sem revogação segura o
+    Blob da página enquanto o documento existir.
+
+  **E o A+/A− some nesta aba.** Ele dimensiona TEXTO, e a miniatura ocupa a
+  largura da coluna: um par de botões que continua ali e não muda nada na tela é
+  a mesma coisa que o microfone sem TV — não oferecer é melhor que explicar.
 - **A BÍBLIA NO AR É EXCLUSIVA** (v1.1.11). Projetando, ela é a única fonte
   oferecida; fora do ar, ela não disputa com a música e volta só como RESERVA —
   quando não há letra nem cifra para mostrar. Com música em cena, portanto, as

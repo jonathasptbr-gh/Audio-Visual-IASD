@@ -831,6 +831,20 @@ jobs:
           # e traz a REVERSÃO ao lado. Ele entra no workflow no MESMO commit em
           # que nasce — a lição da v5.145.
           rodar tools/notificacao-apresentacao.test.mjs
+          # E O AUXILIAR DE LEITURA DE UMA APRESENTAÇÃO. Duas metades, e a
+          # segunda falha CALADA: a folha abre, mostra as páginas, e um botão
+          # "Letra" sobrando ao lado abre a leitura de OUTRA mídia — nada
+          # quebra, nada aparece no console, e o operador lê o hino de antes
+          # durante o sermão. Ele mede a EXCLUSIVIDADE na transição que o
+          # operador faz de verdade (música em cena → apresentação), a ALTURA
+          # RESERVADA da miniatura no RENDERIZADO (as imagens são `lazy`, e uma
+          # imagem sem altura faz o `lvScroll` mirar o lugar errado — um teste
+          # de classe passaria), e que virar a página NÃO remonta a lista (a
+          # mesma URL de objeto na primeira miniatura: com a página na
+          # assinatura, cada toque no ⏭ revogaria e recriaria dezenas de URLs, e
+          # o sintoma seria só "a folha pisca"). As duas metades de VOLTA — a
+          # letra e o A+/A− retornando — impedem que "esconder tudo" passe.
+          rodar tools/leitor-apresentacao.test.mjs
           # E O TOQUE QUE RESPONDE NA HORA. "Tocar agora" num vídeo comeca por uma
           # EXTRACAO DE REDE de segundos, e ate a v1.4.6 nada mudava na tela
           # nesse intervalo — nem o aro de carregamento. O caminho do DOWNLOAD ja

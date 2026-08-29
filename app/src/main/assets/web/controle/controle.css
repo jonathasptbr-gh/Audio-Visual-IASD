@@ -5280,6 +5280,52 @@ main {
    isso ele é o que mais fica abaixo do corpo: ali dentro ele é a marca, não o
    texto. */
 .lv-row--verse .lv-num { font-size: 1.1rem; font-weight: 700; color: var(--accent); margin-right: .3rem; }
+/* ===== A PÁGINA DA APRESENTAÇÃO (v1.4.24) ===== */
+/* O molde vertical do versículo — número na margem, corpo à direita —, com a
+   imagem no lugar do texto. */
+.lv-row--slide { display: flex; align-items: flex-start; gap: .5rem; }
+/* O respiro é FIXO e não o `--lv-estrofe-gap`: aquele é uma LINHA da letra, e
+   com o corpo grande ele abria um vão maior que a própria miniatura. Aqui o que
+   separa duas páginas é a borda da imagem, que já é um limite duro. */
+.lv-row--slide + .lv-row--slide { margin-top: .5rem; }
+/* O número é RÓTULO — fica um degrau abaixo do corpo, como o `.lv-aux` — e
+   nasce em `--muted`: em `--accent` ele seria acento em toda linha, e o acento
+   aqui é o que marca a página no ar. */
+.lv-row--slide .lv-num {
+  flex: none; min-width: 2.4ch; text-align: center;
+  font-size: 1rem; font-weight: 700; line-height: 1.4;
+  color: var(--muted); font-variant-numeric: tabular-nums;
+  padding: .1rem .25rem; border-radius: var(--radius-btn);
+}
+/* A MINIATURA OCUPA A LARGURA. Ela é o conteúdo da linha — o que o operador
+   veio ver é o que vem a seguir —, e num chip de 140px o texto do slide não se
+   reconhece.
+   `aspect-ratio` é o que RESERVA A ALTURA, e isso é estrutural: com
+   `loading="lazy"` a imagem fora da tela não tem altura própria, e o `lvScroll`
+   mede `offsetTop` para centralizar a página em cena. Sem a reserva a coluna
+   cresceria à medida que as imagens entrassem e a rolagem miraria o lugar
+   errado. 16/9 porque é o formato de praticamente toda apresentação e é o que a
+   rasterização produz a 1920 de largura; `contain` cuida do resto — uma página
+   4:3 aparece inteira e mais estreita, que é a verdade sobre ela.
+   SEM COR DE FUNDO: as duas rasterizações já pintam o papel branco atrás de
+   cada página (ver `deck.js` e `SlideDeck.kt`), então não há transparência a
+   cobrir — e inventar uma cor de papel aqui seria um branco literal fora do
+   palco, que é o que a paleta proíbe. */
+.lv-slide {
+  flex: 1; min-width: 0; width: 100%;
+  aspect-ratio: 16 / 9; object-fit: contain;
+  display: block; border-radius: 4px;
+}
+/* A PÁGINA NO AR: a barra na margem que toda `.lv-row.current` já pinta, mais o
+   número PREENCHIDO. O segundo é necessário porque o corpo da linha é uma
+   IMAGEM — o que marca um versículo é a cor do texto, e ela não alcança um
+   pixel de fotografia. É a linguagem de estado do app (fundo `--accent-fill` +
+   `--on-accent`), e é PREENCHIMENTO: um contorno aqui seria a exceção que a
+   regra existe para não ter, e o `tokens.test.mjs` reprova. */
+.lv-row--slide.current .lv-num {
+  background: var(--accent-fill); color: var(--on-accent);
+}
+
 /* No ar agora: barra na margem + texto em acento. Sem cartão, o contraste da
    cor é o que separa — e continua legível de relance. */
 .lv-row.current {

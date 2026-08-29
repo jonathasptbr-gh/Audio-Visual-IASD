@@ -24,6 +24,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
+- **v1.4.24** — O AUXILIAR DE LEITURA DE UMA APRESENTAÇÃO. Pedido do operador, em duas metades: *"preciso de um visualizador futuro dos slides de toda a apresentação e a referência do slide atual (do mesmo molde vertical que já temos nos versos da bíblia na aba da bíblia)"* e *"durante uma apresentação, não quero botões de letra, ou de cifras nessa tela"*. A folha ganha a fonte `deck` — a coluna de páginas numeradas, com a que está no telão marcada e centralizada pelo `lvScroll` que já existe — e ela é EXCLUSIVA (`return ['deck']`, não `push`: sem isso um louvor de fundo pausado atrás da apresentação continuaria oferecendo Letra e Cifra). Quatro regras estruturais: `lazy` nas miniaturas, altura RESERVADA por `aspect-ratio` (uma imagem `lazy` tem altura zero e o `lvScroll` mede `offsetTop`), a página FORA da assinatura (senão cada ⏭ remonta a lista) e as URLs de objeto revogadas. O A+/A− some na aba — ele dimensiona texto. Oráculo novo, com as duas metades de VOLTA. **SÓ BASE WEB.**
 - **v1.4.23** — A NOTIFICAÇÃO DE "PREPARANDO APRESENTAÇÃO" NÃO ANDAVA, e o defeito é o mesmo que o download de vídeo teve até a v5.117. Relato do operador: *"verifique a notificação do preparando apresentação, pois não está marcando progresso"*. `pptxImportar` e `deckImportar` abriam a tarefa com `bgTaskStart(…, 1)` e **nunca chamavam `bgTaskStep`** — o `onProgresso` alimentava só o cartão da tela. Barra em `0 de 1` do começo ao fim, estimativa em ZERO (`bgTaskEta` precisa de um passo para ter média) e nenhum nome na linha. Junto saiu a fase de CÓPIA do PDF, que era silenciosa: silêncio ali não é neutro — `idleMs` cresce e a notificação passa a dizer "sem resposta há X" justamente enquanto tudo vai bem. `bgTaskStep` ganhou um `total` opcional (o de uma apresentação só existe depois que o arquivo abre, como o do `bgTaskBytes`), e a troca de rótulo passou a ir com `force`. Oráculo novo, com a REVERSÃO ao lado. **SÓ BASE WEB**: sem degrau de ponte, sem `shellTag`, sem Release.
 - **v1.4.22** — A APRESENTAÇÃO CHEGAVA AO TELÃO SEM AS IMAGENS, e a causa não emite erro em lugar nenhum. Relato do operador, sobre um `.pptx` de 27 slides: *"ele não está herdando imagens e pelo que parece nem fontes"* — mais *"ao importar um pptx, após confirmar o direcionamento para o cronograma, a tela piscou e ocultou o cronograma, subindo os controles para o topo da tela"*. MEDIDO no arquivo dele: o deck não tem **um** `<img>` — todo fundo é `background-image: url(blob:…)`, e a rasterização só convertia `<img>`, logo não convertia NADA. O `<foreignObject>` é um documento à parte e nada disso falha: saem 27 páginas de 1920×1080, brancas. Consertar as imagens obriga a consertar o FORMATO junto (100,4 MB em PNG contra 12,3 MB em WebP, MEDIDO), e o palco de 1920×29.700 px pendurado no `<body>` durante a importação vira uma caixa 0×0. A tradução saiu do `controle.js` para `controle/deck.js`, com oráculo que mede PIXEL e traz a REVERSÃO ao lado de cada asserção. Lote **APK + web**: o `SlideDeck.kt` ganha a mesma regra de formato para o leitor de PDF.
 - **v1.4.21** — O "CARREGANDO" NA PRÓPRIA LINHA. Pedido do operador: *"ao carregar um link do YouTube… o item só entra em modo 'no ar' quando o vídeo realmente está visível na tela, e isso está correto, mas o item deve ter também um 'carregando' no próprio item da lista… semelhante à ideia de como já fazemos para representar visualmente downloads"*. Resolver um link leva **segundos** (a extração) ou **minutos** (o download), e nesse intervalo o `.no-ar` não pode acender — nada está no ar. O cartão sobre a preview responde *"o que vai entrar em cena?"*; a linha responde *"o que este toque está fazendo?"*, e sem ela o toque não deixava marca no lugar onde nasceu. A anatomia é a do `.baixando` de propósito (o mesmo aro, na mesma miniatura, no mesmo tamanho), com DUAS diferenças que carregam significado: o aro vai **sem a seta** (a regra da v1.4.20 aplicada de novo — não há bytes chegando) e a linha **não esmaece** (no download ela é PROVISÓRIA, o item ainda não existe; aqui ela é o item de verdade, prestes a entrar no ar). O estado vive num `Set`, não na classe do nó — a lista é reconstruída no meio da espera —, com as MESMAS duas metades do `.no-ar`: `porCarregando` na construção, nos DOIS montadores, e `pintarCarregando` na repintura. Liga e desliga em `resolverLinkYoutube`, o ponto por onde todos os caminhos do link passam, e **sobrevive a perder a vez** (v1.4.18): tocar noutra coisa abandona a projeção, não o trabalho — apagar o aro ali faria a linha dizer que parou o que continua acontecendo. Seis asserções novas no `link-perde-a-vez.test.mjs`, seis reversões, 57/57 verdes. Só web.
@@ -296,6 +297,102 @@ na nota que a revoga, não apagada da que a criou.
 - **v5.156** — é METADE OTA e METADE APK, de novo.
 
 ---
+
+## v1.4.24 — o auxiliar de leitura de uma apresentação
+
+Pedido do operador, em duas metades que se sustentam:
+
+> *"gostaria que você ajustasse um visualizador da apresentação completa de
+> slides dentro do nosso auxiliar de leitura, pois sua função é dar mais
+> contexto e informações sobre o que está sendo transmitido. Nesse caso de
+> 'apresentações' eu preciso de um visualizador futuro dos slides de toda a
+> apresentação e a referência do slide atual (do mesmo molde vertical que já
+> temos nos versos da bíblia na aba da bíblia)."*
+
+> *"assim como o resto do sistema do auxiliar de leitura, ele deve mostrar
+> apenas o auxiliar referente à mídia em exibição, ou seja, durante uma
+> apresentação, não quero botões de letra, ou de cifras nessa tela"*
+
+Até aqui a folha abria VAZIA numa apresentação: `lyricsViewSources` só conhecia
+letra, Bíblia e cifra, e um deck não tem nenhuma das três. O botão do transporte
+existia, era tocável, e respondia *"Nada em exibição com letra ou texto
+bíblico."*
+
+### 1. A fonte `deck`, e por que ela é EXCLUSIVA
+
+`return ['deck']`, e não `push`. É a MESMA regra da Bíblia projetando, aplicada
+ao outro tipo de mídia que É o que se está lendo — e o `return` é o que faz a
+segunda metade do pedido: um louvor de fundo pausado atrás da apresentação
+continuaria oferecendo Letra e Cifra, que é exatamente o que o operador recusa.
+Com uma fonte só, o seletor inteiro fica `hidden` sem nenhum caso especial no
+desenho.
+
+O botão `data-lvsrc="deck"` entra no HTML mesmo não podendo aparecer hoje: a
+visibilidade de cada botão sai da MESMA lista que governa a precedência (v1.1.18),
+e uma fonte na lista sem botão no documento é o estado que ninguém veria — um
+seletor com uma aba faltando, sem erro em lugar nenhum.
+
+### 2. O molde é o do capítulo bíblico, e o corpo é a imagem
+
+`lvBuildDeck` é o irmão do `lvBuildBible`: número na margem, corpo à direita, a
+linha em cena com `.current`, e o `lvScroll` que já existia centralizando. **A
+miniatura ocupa a largura da coluna** — num chip de 140px o texto do slide não se
+reconhece, e o que o operador foi ver é o que vem A SEGUIR.
+
+Quatro coisas estruturais, e nenhuma é estilo:
+
+- **`loading="lazy"`.** Uma apresentação de centenas de páginas decodificada de
+  uma vez são centenas de bitmaps no renderer que hospeda os dois WebViews e a
+  `Presentation`.
+- **A ALTURA RESERVADA por `aspect-ratio`**, que é o que torna o `lazy` seguro:
+  uma imagem fora da tela tem altura ZERO, e o `lvScroll` mede `offsetTop`. Sem
+  a reserva a coluna cresceria à medida que as imagens entrassem, e a página no
+  ar apareceria fora da tela. 16/9 porque é o que a rasterização produz a 1920
+  de largura; `contain` cuida do 4:3, que aparece inteiro e mais estreito.
+- **A PÁGINA FICA FORA DA ASSINATURA.** O destaque anda por classe
+  (`lvMarkCurrent`), como o versículo. Com a página em `lvSignature`, cada toque
+  no ⏭ remontaria a lista — revogando e recriando dezenas de URLs de objeto no
+  meio do sermão, e o sintoma seria só *"a folha pisca"*.
+- **AS URLS SÃO REVOGADAS** (`lvDeckSoltarUrls`), no ponto único em que o corpo
+  é esvaziado e também ao fechar a folha — o `renderLyricsView` só solta quando
+  desenha outra coisa, e uma folha fechada nunca chega lá.
+
+**SEM COR DE FUNDO na miniatura**, e isso é a paleta e não descuido: as duas
+rasterizações já pintam o papel branco atrás de cada página (`deck.js` e
+`SlideDeck.kt`), então não há transparência a cobrir — e inventar uma cor de
+papel aqui seria um branco literal fora do palco.
+
+**A MARCA DA PÁGINA NO AR É PREENCHIMENTO.** A primeira versão usou um
+`outline` no thumbnail, e o `tokens.test.mjs` reprovou — no app tudo se separa
+por fill. O que ficou: a barra na margem que toda `.lv-row.current` já pinta,
+mais o NÚMERO preenchido (`--accent-fill` + `--on-accent`). O segundo é
+necessário porque o corpo da linha é uma IMAGEM: o que marca um versículo é a
+cor do texto, e ela não alcança um pixel de fotografia.
+
+### 3. O A+/A− some nesta aba
+
+Ele dimensiona TEXTO, e a miniatura ocupa a largura da coluna — o par ficaria
+ali sem mudar nada na tela. É a regra do microfone sem TV (v1.2.21): explicar é
+melhor que mentir, e não oferecer é melhor que explicar. Só a instância desta
+folha; a do Modo Fácil é outro nó e fica.
+
+### 4. O oráculo
+
+`tools/leitor-apresentacao.test.mjs`. A segunda metade do pedido é a que falha
+CALADA — a folha abre, mostra páginas, e um botão "Letra" sobrando abre a
+leitura de outra mídia; nada quebra e o operador lê o hino de antes durante o
+sermão. Por isso a exclusividade é medida na TRANSIÇÃO que ele de fato faz
+(música em cena → apresentação): medir só o estado final aprovaria uma folha que
+nunca tivesse tido as outras abas.
+
+Três medidas que um teste de comportamento não pega: a altura da miniatura no
+RENDERIZADO (um teste de classe passaria com altura zero), a URL da primeira
+miniatura ser a MESMA depois de virar a página (a prova de que a lista não
+remontou) e o `fetch` de uma URL revogada REJEITAR depois de fechar a folha —
+prova do descarte, e não uma leitura de variável interna. As duas metades de
+VOLTA (a letra e o A+/A− retornando) impedem que "esconder tudo" passe.
+
+**SÓ BASE WEB**: nada em `java/`, `res/`, no manifest ou no build.
 
 ## v1.4.23 — a notificação da apresentação não andava
 

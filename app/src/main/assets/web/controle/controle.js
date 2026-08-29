@@ -115,6 +115,9 @@ pintarTema();
 
 const settingsBtnEl = document.getElementById('settingsBtn');
 const lyricsViewBtnEl = document.getElementById('lyricsViewBtn');
+// O A+/A− DESTA FOLHA (o do Modo Fácil é outro nó, e fica): ele some na aba
+// da apresentação, onde não há texto para dimensionar — ver `renderLyricsView`.
+const lyricsFonteCtlEl = document.getElementById('lyricsPopup').querySelector('.lv-fonte-ctl');
 const lyricsPopupEl = document.getElementById('lyricsPopup');
 const lyricsPopupTitleEl = document.getElementById('lyricsPopupTitle');
 const lyricsPopupCloseEl = document.getElementById('lyricsPopupClose');
@@ -258,7 +261,7 @@ const appVersionEl = document.getElementById('appVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.4.23';
+const WEB_VERSION = '1.4.24';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -10104,8 +10107,26 @@ function lyricsViewSources() {
   if (lvNaCena() && bibleSession && bibleSession.projecting
       && bibleSession.verses && bibleSession.verses.length) return ['bible'];
 
-  const list = [];
   const alvo = lvItem();
+  // ===== A APRESENTAÇÃO É EXCLUSIVA (v1.4.24) =====
+  //
+  // Pedido do operador: *"assim como o resto do sistema do auxiliar de leitura,
+  // ele deve mostrar apenas o auxiliar referente à mídia em exibição, ou seja,
+  // durante uma apresentação, não quero botões de letra, ou de cifras nessa
+  // tela"*.
+  //
+  // É a MESMA regra da Bíblia projetando, logo acima, aplicada ao outro tipo de
+  // mídia que É o que se está lendo: quando o que está no telão é a
+  // apresentação, não há segunda leitura possível — um deck não tem letra nem
+  // acorde, e o que sobraria no seletor seriam abas de outra mídia.
+  //
+  // `return` e não `push`: sem ele um louvor de fundo pausado atrás da
+  // apresentação continuaria oferecendo Letra e Cifra, que é exatamente o que o
+  // pedido recusa. E é o `return` que faz o seletor SUMIR (`avail.length < 2`),
+  // sem nenhum caso especial no desenho.
+  if (isDeck(alvo)) return ['deck'];
+
+  const list = [];
   const lyrics = alvo && Array.isArray(alvo.lyrics) ? alvo.lyrics : null;
   if (lyrics && lyrics.length) list.push('lyrics');
   // A CIFRA vem por ÚLTIMA, e isso é a precedência inteira: `lvActiveSource`
@@ -10175,6 +10196,11 @@ function lvCurrentIndex(src) {
     return lvNaCena() ? findSlideIndex(lvItem().lyrics, authoritativeTime()) : -1;
   }
   if (src === 'bible') return bibleSession.idx;
+  // A APRESENTAÇÃO tem posição, e ela é a MESMA do telão: `deckPagina` é a
+  // página que o ⏮/⏭ está passando. Fora da cena não há posição nenhuma, pela
+  // razão da letra logo acima — uma apresentação aberta da Biblioteca não está
+  // projetando, e destacar uma página dela seria inventar uma referência.
+  if (src === 'deck') return lvNaCena() ? deckPagina : -1;
   // A CIFRA NÃO TEM POSIÇÃO. Ela é uma folha para ler, não uma sequência de
   // slides — não há "estrofe no ar" a destacar, e o `-1` faz o `lvScroll` sair
   // sem achar `.lv-row.current`, que é o comportamento certo: rolar sozinho
@@ -10203,6 +10229,15 @@ function lvSignature(src) {
   if (src === 'bible') {
     const s = bibleSession;
     return avail + '|bible|' + s.versionId + '|' + s.bookIdx + '|' + s.chapter + '|' + s.verses.length;
+  }
+  // A APRESENTAÇÃO muda de conteúdo por ITEM e por número de páginas — a
+  // PÁGINA corrente fica de fora de propósito: ela é o DESTAQUE, e entrar aqui
+  // faria cada toque no ⏭ remontar as dezenas de miniaturas (e revogar e
+  // recriar as URLs delas) em vez de mover uma classe.
+  if (src === 'deck') {
+    const a = lvItem();
+    return avail + '|deck|' + (lvAlvo ? 'alvo:' + (a.id || a.name) : currentId)
+      + '|' + a.pages.length;
   }
   // A CIFRA muda de conteúdo por CHEGADA e por TRANSPOSIÇÃO, e as duas precisam
   // entrar aqui: a primeira porque a resposta da rede vem depois do desenho, a
@@ -10255,6 +10290,9 @@ function closeLyricsPopup() {
   // fechamento, a próxima abertura pelo transporte mostraria a música do ensaio
   // em vez da que está no ar — e nada na tela explicaria por quê.
   lvAlvo = null;
+  // E AS MINIATURAS DA APRESENTAÇÃO SAEM COM ELA: o `renderLyricsView` só as
+  // solta quando desenha outra coisa, e uma folha fechada nunca chega lá.
+  lvDeckSoltarUrls();
   // Sem folha na tela não há o que rolar, e um rAF vivo atrás de um popup
   // fechado é trabalho por quadro para ninguém ver.
   cifraRolarParar();
@@ -10283,6 +10321,12 @@ function renderLyricsView() {
   //
   // O container ainda some inteiro com menos de duas: um seletor de uma opção
   // não é um seletor.
+  // O A+/A− É DO TEXTO, e a apresentação não tem nenhum: a miniatura ocupa a
+  // largura da coluna e não responde ao token. Um par de botões que continua ali
+  // e não muda nada na tela é a coisa que este app não deixa acontecer — a mesma
+  // regra do microfone sem TV: explicar é melhor que mentir, e não oferecer é
+  // melhor que explicar. Só ESTA instância; a do Modo Fácil é outro nó.
+  lyricsFonteCtlEl.hidden = src === 'deck';
   lyricsViewSegEl.hidden = avail.length < 2;
   lyricsViewSegEl.querySelectorAll('.fit-opt').forEach((btn) => {
     btn.hidden = !avail.includes(btn.dataset.lvsrc);
@@ -10290,6 +10334,13 @@ function renderLyricsView() {
   });
 
   lyricsViewBodyEl.innerHTML = '';
+  // AS URLS DAS MINIATURAS MORREM AQUI, no MESMO ponto em que o corpo é
+  // esvaziado — é o único lugar por onde toda troca de conteúdo passa. Uma
+  // `createObjectURL` que ninguém revoga segura o Blob da página VIVO enquanto
+  // o documento existir, e uma apresentação são dezenas deles: a folha aberta e
+  // fechada meia dúzia de vezes num culto seguraria a memória de meia dúzia de
+  // apresentações num processo que já hospeda os dois WebViews e a Presentation.
+  lvDeckSoltarUrls();
   // A BARRA é da cifra e de mais ninguém: limpar aqui, num ponto só, evita que
   // trocar de fonte deixe os controles da folha anterior de pé sobre a Bíblia.
   lyricsViewBarEl.innerHTML = '';
@@ -10307,6 +10358,15 @@ function renderLyricsView() {
     const track = a.hymnTrack ? a.hymnTrack + '. ' : '';
     lyricsPopupTitleEl.textContent = track + (a.hymnName || a.name || 'Letra');
     lvBuildSong(lyricsViewBodyEl, lvCurIdx);
+  } else if (src === 'deck') {
+    const a = lvItem();
+    // O TÍTULO É O NOME, e a posição NÃO entra nele: quem diz qual página está
+    // no ar é o destaque da linha, e o cabeçalho do transporte logo acima já
+    // escreve "· 3/27". Repetir o número num terceiro lugar é criar mais uma
+    // fonte para divergir — a mesma razão pela qual o título da Bíblia é o
+    // CAPÍTULO e não o versículo corrente.
+    lyricsPopupTitleEl.textContent = a.name || 'Apresentação';
+    lvBuildDeck(lyricsViewBodyEl, lvCurIdx);
   } else if (src === 'cifra') {
     lyricsPopupTitleEl.textContent = cifraNomeDoItem(lvItem()) || 'Cifra';
     lvBuildCifra(lyricsViewBodyEl, lyricsViewBarEl);
@@ -11932,6 +11992,64 @@ function lvBuildBible(el, cur) {
     txt.className = 'lv-text';
     txt.textContent = v.text;
     row.append(n, txt);
+    if (i === cur) row.classList.add('current');
+    el.appendChild(row);
+  });
+}
+
+// ===== A APRESENTAÇÃO INTEIRA, EM PÁGINAS (v1.4.24) =====
+//
+// Pedido do operador: *"preciso de um visualizador futuro dos slides de toda a
+// apresentação e a referência do slide atual (do mesmo molde vertical que já
+// temos nos versos da bíblia na aba da bíblia)"*.
+//
+// É o MESMO molde do `lvBuildBible`, e de propósito: uma coluna de linhas
+// numeradas, com a que está no ar marcada e centralizada pelo `lvScroll` que já
+// existe. O que muda é o corpo da linha — ali onde o versículo tem texto, a
+// página tem a própria imagem.
+//
+// **O valor está no que vem DEPOIS.** Quem opera não precisa da página que já
+// está projetada (ela está no telão, e na preview): precisa saber o que vem a
+// seguir para anunciar, para acompanhar o pregador e para não passar de duas.
+//
+// TRÊS coisas que este desenho não pode perder:
+//
+//  - **`loading="lazy"`**: uma apresentação de 300 páginas decodificada de uma
+//    vez são centenas de bitmaps de 1920×1080 na memória do renderer — o mesmo
+//    processo dos dois WebViews e da Presentation. Só o que entra na tela é
+//    decodificado.
+//  - **A ALTURA É RESERVADA NO CSS** (`aspect-ratio`), e é o que torna o `lazy`
+//    seguro: uma imagem ainda não carregada tem altura ZERO, e `lvScroll` mede
+//    `offsetTop` — sem a reserva a coluna cresceria à medida que as imagens
+//    entrassem e a página em cena apareceria fora da tela.
+//  - **As URLs são REVOGADAS** (ver `lvDeckSoltarUrls`, chamado no ponto único
+//    em que o corpo é esvaziado).
+let lvDeckUrls = [];
+
+function lvDeckSoltarUrls() {
+  for (const u of lvDeckUrls) { try { URL.revokeObjectURL(u); } catch (_) { /* já foi */ } }
+  lvDeckUrls = [];
+}
+
+function lvBuildDeck(el, cur) {
+  const pages = (lvItem() && lvItem().pages) || [];
+  pages.forEach((p, i) => {
+    const row = document.createElement('div');
+    row.className = 'lv-row lv-row--slide';
+    row.dataset.i = String(i);
+    const n = document.createElement('span');
+    n.className = 'lv-num';
+    n.textContent = String(i + 1);
+    const img = document.createElement('img');
+    img.className = 'lv-slide';
+    img.alt = '';
+    img.loading = 'lazy';
+    img.decoding = 'async';
+    // STRING ou BLOB, como o `pages` do `stage.js`: no registro do aparelho as
+    // páginas são Blob, e a mesma lista chega como URL quando ela vem de fora.
+    if (typeof p === 'string') img.src = p;
+    else if (p) { const u = URL.createObjectURL(p); lvDeckUrls.push(u); img.src = u; }
+    row.append(n, img);
     if (i === cur) row.classList.add('current');
     el.appendChild(row);
   });
