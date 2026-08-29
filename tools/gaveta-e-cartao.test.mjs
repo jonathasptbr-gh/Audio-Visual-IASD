@@ -110,6 +110,13 @@ try {
   // W1 falha (segura o cartão pelo prazo de leitura) → W2 nasce e termina
   // DENTRO da janela. O cartão tem de sair com o fim de W2, não esperar o prazo
   // de W1: a mensagem de W1 já foi sobrescrita pela legenda de W2.
+  //
+  // ESPERA PELO FATO, não por um instante (v1.4.8). A saída do cartão passou a
+  // ter uma carência (`PV_BUSY_SAIDA_MS`, a passagem de bastão), e uma leitura
+  // num instante fixo mediria essa constante em vez da propriedade. O que se
+  // afirma é a DISTÂNCIA entre as duas: o cartão sai MUITO antes do prazo de
+  // leitura de W1, e o teto abaixo é a metade de `PV_FALHA_MS` — com o defeito
+  // de volta ele não sairia dentro dele.
   const cartao = await pg.evaluate(async () => {
     const w1 = previewBusy('Baixando', 'MUSICA 1');
     w1.falhar('sem internet para baixar');
@@ -117,18 +124,52 @@ try {
     await new Promise((r) => setTimeout(r, 300));
     const w2 = previewBusy('Baixando', 'MUSICA 2');
     await new Promise((r) => setTimeout(r, 100));
+    const legenda = document.getElementById('pvBusyLabel').textContent;
     w2.soltar();
-    await new Promise((r) => setTimeout(r, 400));   // bem antes do PV_FALHA_MS
     const el = document.getElementById('pvBusy');
-    return {
-      on: el.classList.contains('on'),
-      legenda: document.getElementById('pvBusyLabel').textContent,
-      contador: pvBusyCount,
-    };
+    const teto = Date.now() + PV_FALHA_MS / 2;
+    while (el.classList.contains('on') && Date.now() < teto) {
+      await new Promise((r) => setTimeout(r, 50));
+    }
+    return { on: el.classList.contains('on'), legenda, contador: pvBusyCount };
   });
   checar(!cartao.on && cartao.contador === 0,
     'o cartao sai quando o trabalho NOVO termina, sem esperar o prazo do que falhou',
     cartao);
+
+  // ---- A PASSAGEM DE BASTÃO NÃO PISCA (v1.4.8) ---------------------------
+  // Uma espera de transmissão tem DOIS donos em sequência — o toque
+  // (`cederOPalco`) e a carga do stream (o `onEspera` do palco) —, e entre eles
+  // o contador passa por ZERO. Sem a carência da saída o cartão sumia e voltava
+  // no meio da MESMA espera: o "dois modelos de carregamento" que a v1.4.8
+  // existe para acabar, com outra roupa.
+  //
+  // A asserção é a CONTINUIDADE, amostrada a cada quadro: um teste do estado
+  // final passa nas duas versões, porque no fim o cartão está de pé de qualquer
+  // jeito. O vão encenado (250 ms) é menor que o pior caso real, que é o
+  // `FADE.time` de 0,6 s.
+  const passagem = await pg.evaluate(async () => {
+    const a1 = previewBusy('Preparando', 'O VIDEO');
+    await new Promise((r) => setTimeout(r, 300));   // passa o PV_BUSY_DELAY_MS
+    const el = document.getElementById('pvBusy');
+    if (!el.classList.contains('on')) return { erro: 'o cartao nem chegou a abrir' };
+    let apagou = false;
+    const olho = setInterval(() => {
+      if (!el.classList.contains('on')) apagou = true;
+    }, 16);
+    a1.soltar();                                   // o `finally` do chamador
+    await new Promise((r) => setTimeout(r, 250));   // o vão entre os dois donos
+    const a2 = previewBusy('Preparando', 'O VIDEO');
+    await new Promise((r) => setTimeout(r, 200));
+    clearInterval(olho);
+    const fim = { apagou, on: el.classList.contains('on') };
+    a2.soltar();
+    return fim;
+  });
+  checar(passagem.apagou === false && passagem.on === true,
+    'a PASSAGEM DE BASTÃO entre os dois donos da mesma espera não pisca — o '
+    + 'cartão do toque e o da carga do stream são o mesmo cartão, e o contador '
+    + 'passando por zero entre eles não pode aparecer na tela', passagem);
 
   // A OUTRA METADE, sem a qual a de cima seria a volta do defeito que o prazo
   // existe para impedir: falhando SOZINHO, o cartao FICA para ser lido.

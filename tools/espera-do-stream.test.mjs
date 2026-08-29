@@ -11,30 +11,39 @@
 // exatamente a mesma tela**: um quadro congelado, sem erro no console, sem nada
 // que diga que alguém está esperando.
 //
-// O giro (`.av-stage-busy`) existia, e só na CARGA: do comando ao primeiro
-// quadro. Depois disso a transmissão ficava sem rede de segurança nenhuma —
-// justamente ela, a única mídia do app que precisa de JS rodando enquanto toca.
+// O aviso existia, e só na CARGA: do comando ao primeiro quadro. Depois disso a
+// transmissão ficava sem rede de segurança nenhuma — justamente ela, a única
+// mídia do app que precisa de JS rodando enquanto toca.
+//
+// ## O QUE ELE MEDE, e por que mudou na v1.4.8
+//
+// O palco DESENHAVA a espera (um aro, `.av-stage-busy`), e havia dois
+// indicadores para o mesmo fato: aquele aro e o cartão "Preparando…" sobre a
+// preview. O operador pediu um só — *"vamos abandonar o spinner no telão… e nos
+// controles já temos a mensagem de preparando"*. Hoje o palco **anuncia**
+// (`opts.onEspera(ligado)`) e quem desenha é o dono; a asserção passou a ser o
+// ANÚNCIO, que é o contrato de verdade. Medir o DOM aqui seria medir a UI do
+// Controle a partir do motor.
 //
 // ## As quatro metades, e por que nenhuma sozinha resolve
 //
-//  1. **APARECE**: um `waiting` que dura acende o giro no meio da reprodução.
-//  2. **NÃO PISCA**: um soluço mais curto que `ESPERA_BUFFER_MS` não acende
-//     nada. Sem esta metade a correção seria pior que o defeito — um aro
-//     piscando a cada seek, na frente da congregação.
+//  1. **APARECE**: um `waiting` que dura anuncia espera no meio da reprodução.
+//  2. **NÃO PISCA**: um soluço mais curto que `ESPERA_BUFFER_MS` não anuncia
+//     nada. Sem esta metade a correção seria pior que o defeito — um cartão
+//     piscando a cada seek.
 //  3. **SÓ NO STREAM**: um arquivo local não fica sem dados, e o `waiting` de
-//     um seek em disco não é fome. É a mesma regra que já governa o giro da
-//     carga.
+//     um seek em disco não é fome. É a mesma regra que já governa a carga.
 //  4. **É CONTADO**: `AVStream.fome` guarda episódios E segundos parados. Dois
 //     travamentos de meio segundo é uma rede que oscila; dez de cinco segundos
 //     é uma rede que não sustenta a faixa escolhida — e só a segunda tem
 //     resposta (baixar em vez de transmitir). Uma contagem sozinha não as
 //     distingue, e é por isso que são dois números.
 //
-// ## E a quinta: as DUAS esperas não podem se apagar uma à outra
+// ## E a quinta: as DUAS razões não podem se apagar uma à outra
 //
-// `mostrarEspera` é dono só da CARGA. Com um dono único, o `mostrarEspera(false)`
-// do fim da carga apagaria um giro aceso por fome — e o `clear` de uma cena
-// deixaria girando um aro sobre o wallpaper, que é a tela do repouso.
+// `mostrarEspera` é dona só da CARGA. Com uma dona única, o `mostrarEspera(false)`
+// do fim da carga desligaria um anúncio aceso por fome — e o `clear` de uma cena
+// deixaria o Controle dizendo "Preparando" sobre o wallpaper, que é o repouso.
 //
 // ## A sexta, e ela foi MEDIDA escrevendo este arquivo
 //
@@ -44,6 +53,14 @@
 // do primeiro quadro, e o número do Registro passava a dizer "≥1 sempre", que é
 // o mesmo que não dizer nada. Daí a vigília só abrir no primeiro `playing` — e
 // daí esta asserção existir antes das outras.
+//
+// ## A sétima: O PALCO NÃO DESENHA NADA (v1.4.8)
+//
+// *"enquanto não houver imagem e/ou som propriamente do vídeo, então não mostre
+// nada além do wallpaper… no telão não vai mensagens de preparação"*. O telão
+// não passa `onEspera` — e é preciso provar que a ausência dele não é uma
+// exceção engolida nem um elemento que voltou por conveniência: um palco sem a
+// opção fica com dois estados e nenhum intermediário.
 //
 //   node tools/espera-do-stream.test.mjs
 // ============================================================================
@@ -75,8 +92,8 @@ const pg = await ctx.newPage();
 
 try {
   // O palco mínimo, como no `stage-fade`: as três camadas que o `createStage`
-  // recebe, sem uma linha do CSS do app. O que se mede é o `hidden` que o
-  // próprio stage escreve no `.av-stage-busy`.
+  // recebe, sem uma linha do CSS do app. O que se mede é o `onEspera` que o
+  // próprio stage chama.
   await pg.setContent(`<!doctype html><meta charset="utf-8">
     <div id="w"></div><img id="i" hidden><video id="v" playsinline muted hidden></video>
     <script>${STAGE}</script>`);
@@ -104,30 +121,32 @@ try {
         : { id: 'arq', kind: 'video', name: 'Louvor baixado', url: 'data:video/mp4,' }),
       opfsGetFile: async () => null,
     };
+    // O ESTADO ANUNCIADO, e o número de BORDAS. O primeiro é o que o Controle
+    // desenha; o segundo é o que impede a correção de virar um cartão piscando
+    // — um anúncio repetido do mesmo valor não pode sair daqui, porque do outro
+    // lado ele abriria um dono a mais no `previewBusy`.
+    window.espera = { ligado: false, bordas: 0 };
     window.palco = createStage({
       wallpaper: document.getElementById('w'),
       img: document.getElementById('i'),
       video: document.getElementById('v'),
-      // `espera: true` é o que a PREVIEW do Controle passa (v1.4.7). O aro é
-      // maquinaria, e maquinaria é assunto de quem opera: o telão não a mostra.
-      // Sem esta linha este arquivo inteiro mediria o palco da PROJEÇÃO, onde a
-      // resposta certa é justamente não haver aro nenhum — ver a última metade.
-      espera: true,
+      // O QUE A PREVIEW DO CONTROLE PASSA (v1.4.8). O telão NÃO passa — e é só
+      // isso que os separa. Sem esta linha este arquivo inteiro mediria o palco
+      // da PROJEÇÃO, onde a resposta certa é justamente não haver anúncio
+      // nenhum — ver a última metade.
+      onEspera: (on) => { window.espera.ligado = !!on; window.espera.bordas++; },
     });
     // OS FADES NASCEM DESLIGADOS no `createStage` e o app os LIGA (`FADE`, via
-    // `setFade`) — e é só com eles ligados que o giro da CARGA existe: ele mora
-    // dentro do `if (fadeIn && alvo)`. Um palco de mentira sem esta linha mede
-    // uma configuração que nenhum dos dois donos reais usa.
+    // `setFade`) — e é só com eles ligados que o anúncio da CARGA existe: ele
+    // mora dentro do `if (fadeIn && alvo)`. Um palco de mentira sem esta linha
+    // mede uma configuração que nenhum dos dois donos reais usa.
     palco.setFade({ fadeIn: true, fadeOut: true, time: 0.3 });
   });
 
-  const giro = () => pg.evaluate(() => {
-    const el = document.querySelector('.av-stage-busy');
-    return { existe: !!el, visivel: !!el && !el.hidden };
-  });
+  const aviso = () => pg.evaluate(() => Object.assign({}, window.espera));
   const censo = () => pg.evaluate(() => Object.assign({}, window.AVStream.fome));
   // O `<video>` deste palco nunca chega a tocar de verdade (não há fMP4), então
-  // `paused` é true e a guarda de "parada COMANDADA" recusaria o giro com toda
+  // `paused` é true e a guarda de "parada COMANDADA" recusaria o aviso com toda
   // a razão. Aqui se força o fato que o navegador não pode produzir: a mídia
   // ESTÁ tocando. É o mesmo espírito do blob vazio — encenar o que o Chromium
   // não entrega, nunca a decisão que se quer medir.
@@ -139,22 +158,16 @@ try {
     }
   });
 
-  // ── 1. A CARGA de um stream acende o giro ───────────────────────────────
+  // ── 1. A CARGA de um stream anuncia espera ──────────────────────────────
   // A linha de base, e ela também prova que o palco de mentira chegou ao ramo
   // certo: sem `stream` não-nulo nada abaixo mediria coisa nenhuma.
   await pg.evaluate(() => { palco.handle({ type: 'load', mediaId: 'st', view: 'visual' }); });
-  await pg.waitForFunction(() => {
-    const el = document.querySelector('.av-stage-busy');
-    return !!el && !el.hidden;
-  }, null, { timeout: 5000 });
-  checar(true, 'a CARGA de um stream acende o giro — a linha de base do recurso');
+  await pg.waitForFunction(() => window.espera.ligado === true, null, { timeout: 5000 });
+  checar(true, 'a CARGA de um stream ANUNCIA espera — a linha de base do recurso');
 
-  // O fim da carga apaga. Esperado pelo FATO (o giro sumindo), nunca por um
+  // O fim da carga desliga. Esperado pelo FATO (o anúncio caindo), nunca por um
   // prazo: `PRONTO_STREAM_MS` são 15 s e quem responde é o `mediaReady`.
-  await pg.waitForFunction(() => {
-    const el = document.querySelector('.av-stage-busy');
-    return !!el && el.hidden;
-  }, null, { timeout: 25000 });
+  await pg.waitForFunction(() => window.espera.ligado === false, null, { timeout: 25000 });
   await fingirTocando();
   checar((await censo()).quantas === 0,
     'e a CARGA não entra no censo de fome — MEDIDO: um `MediaSource` nasce vazio '
@@ -162,111 +175,113 @@ try {
     + 'Registro dizer "≥1 sempre"', await censo());
 
   // A VIGÍLIA ABRE AQUI. Antes do primeiro `playing` a mídia ainda não começou,
-  // e o que houver de espera é carga — que já tem dono e nome próprio.
+  // e o que houver de espera é carga — que já tem dona e nome próprio.
   await pg.evaluate(() => { document.getElementById('v').dispatchEvent(new Event('playing')); });
 
-  // ── 2. NÃO PISCA: um soluço curto não acende nada ───────────────────────
+  // ── 2. NÃO PISCA: um soluço curto não anuncia nada ──────────────────────
+  const bordasAntes = (await aviso()).bordas;
   await pg.evaluate(() => {
     const v = document.getElementById('v');
     v.dispatchEvent(new Event('waiting'));
     setTimeout(() => v.dispatchEvent(new Event('playing')), 120);
   });
   await pg.waitForTimeout(900);
-  checar((await giro()).visivel === false,
-    'um soluço mais curto que `ESPERA_BUFFER_MS` NÃO acende o giro — um aro '
-    + 'piscando a cada seek é pior que aro nenhum, e aparece na projeção',
-    await giro());
+  checar((await aviso()).ligado === false && (await aviso()).bordas === bordasAntes,
+    'um soluço mais curto que `ESPERA_BUFFER_MS` NÃO anuncia espera — e não emite '
+    + 'borda nenhuma: um cartão piscando a cada seek é pior que cartão nenhum',
+    await aviso());
   checar((await censo()).quantas === 0,
     'e não conta episódio: o que não foi travamento não vira número no Registro',
     await censo());
 
-  // ── 3. APARECE: um `waiting` que dura acende ────────────────────────────
+  // ── 3. APARECE: um `waiting` que dura anuncia ───────────────────────────
   await pg.evaluate(() => {
     document.getElementById('v').dispatchEvent(new Event('waiting'));
   });
-  await pg.waitForFunction(() => {
-    const el = document.querySelector('.av-stage-busy');
-    return !!el && !el.hidden;
-  }, null, { timeout: 5000 });
+  await pg.waitForFunction(() => window.espera.ligado === true, null, { timeout: 5000 });
   checar(true,
-    'um `waiting` QUE DURA acende o giro no meio da reprodução — era este o '
+    'um `waiting` QUE DURA anuncia espera no meio da reprodução — era este o '
     + 'quadro congelado sem explicação nenhuma');
 
   // ── 4. É CONTADO, nos DOIS números ──────────────────────────────────────
   await pg.waitForTimeout(700);
   await pg.evaluate(() => { document.getElementById('v').dispatchEvent(new Event('playing')); });
   const depois = await censo();
-  checar((await giro()).visivel === false, 'e `playing` o apaga', await giro());
+  checar((await aviso()).ligado === false, 'e `playing` o desliga', await aviso());
   checar(depois.quantas === 1 && depois.segundos > 0,
     'o episódio entra no censo COM O TEMPO PARADO: dois travamentos de meio '
     + 'segundo e dez de cinco segundos pedem respostas opostas, e uma contagem '
     + 'sozinha não os distingue', depois);
 
-  // ── 5. O `clear` não deixa o aro girando sobre o wallpaper ──────────────
+  // ── 5. O `clear` não deixa o aviso de pé sobre o wallpaper ──────────────
   // Esta metade é de DESFECHO, não de mecanismo, e isso está dito porque a
-  // diferença importa para quem editar depois: MEDIDO, quem apaga o giro no
+  // diferença importa para quem editar depois: MEDIDO, quem desliga o anúncio no
   // `clear` é hoje o `emptied` do `removeAttribute('src')`, e removendo as duas
   // linhas do `resetMediaDom` o oráculo continua verde. O que ele garante é que
-  // o aro NÃO sobrevive à cena — por qualquer dos dois caminhos.
+  // o aviso NÃO sobrevive à cena — por qualquer dos dois caminhos.
   await pg.evaluate(() => {
     document.getElementById('v').dispatchEvent(new Event('waiting'));
   });
-  await pg.waitForFunction(() => {
-    const el = document.querySelector('.av-stage-busy');
-    return !!el && !el.hidden;
-  }, null, { timeout: 5000 });
+  await pg.waitForFunction(() => window.espera.ligado === true, null, { timeout: 5000 });
   await pg.evaluate(() => { palco.handle({ type: 'clear' }); });
   await pg.waitForTimeout(300);
-  checar((await giro()).visivel === false,
-    'o `clear` não deixa o giro da FOME de pé — um aro girando sobre o wallpaper '
-    + 'é o telão dizendo que trabalha quando não há cena nenhuma', await giro());
+  checar((await aviso()).ligado === false,
+    'o `clear` não deixa o aviso da FOME de pé — o Controle dizendo "Preparando" '
+    + 'sobre o wallpaper é o app afirmando que trabalha sem cena nenhuma',
+    await aviso());
 
   // ── 6. SÓ NO STREAM ─────────────────────────────────────────────────────
-  // Um arquivo local não fica sem dados. Sem esta metade a correção acenderia o
-  // aro no `waiting` de todo seek em disco — a mesma regra que já governa o
-  // giro da carga, e a que impede este recurso de virar ruído.
+  // Um arquivo local não fica sem dados. Sem esta metade a correção anunciaria
+  // espera no `waiting` de todo seek em disco — a mesma regra que já governa a
+  // carga, e a que impede este recurso de virar ruído.
   await pg.evaluate(() => { palco.handle({ type: 'load', mediaId: 'arq', view: 'visual' }); });
   await pg.waitForTimeout(600);
   await fingirTocando();
   await pg.evaluate(() => { document.getElementById('v').dispatchEvent(new Event('waiting')); });
   await pg.waitForTimeout(1200);
-  checar((await giro()).visivel === false,
-    'num ARQUIVO LOCAL o `waiting` não acende nada — ali não há fome de rede, e '
-    + 'um seek em disco viraria um aro piscando na projeção', await giro());
+  checar((await aviso()).ligado === false,
+    'num ARQUIVO LOCAL o `waiting` não anuncia nada — ali não há fome de rede, e '
+    + 'um seek em disco viraria um cartão piscando', await aviso());
   checar((await censo()).quantas === 2,
     'e o censo continua contando só a transmissão — os dois episódios são os do '
     + 'stream (o `clear` do passo anterior FECHA a fome que interrompeu, e conta: '
     + 'a projeção esteve parada até ele)', await censo());
-  // ── 7. NA PROJEÇÃO NÃO HÁ ARO NENHUM ────────────────────────────────────
-  // Pedido do operador: *"para o telão, literalmente só apareça quando o vídeo
-  // estiver realmente sendo reproduzido"*. O mesmo `stage.js` roda no telão e
-  // nas telas da rede; o que os separa da preview é ESTA opção. Sem esta
-  // metade, o aro voltaria à projeção no dia em que alguém desse um `true` de
-  // conveniência ao criar um palco novo.
-  const semAro = await pg.evaluate(async () => {
-    // NUMA CAIXA PRÓPRIA, e isso não é arrumação: o `.av-stage-busy` é criado
-    // como IRMÃO do `<video>`, e com os dois palcos soltos no `body` o irmão do
-    // segundo seria o aro do PRIMEIRO — o oráculo reprovaria um app correto.
+
+  // ── 7. NA PROJEÇÃO NÃO HÁ NADA ──────────────────────────────────────────
+  // Pedido do operador: *"no telão não vai mensagens de preparação… enquanto não
+  // houver imagem e/ou som propriamente do vídeo, então não mostre nada além do
+  // wallpaper"*. O mesmo `stage.js` roda no telão e nas telas da rede; o que os
+  // separa da preview é ESTA opção. Duas coisas se medem, e são diferentes: o
+  // palco sem `onEspera` não pode LANÇAR (uma exceção ali derrubaria o `load` no
+  // meio do culto) e não pode DESENHAR — nenhum elemento novo dentro da caixa
+  // dele além das três camadas que ele recebeu.
+  const projecao = await pg.evaluate(async () => {
+    // NUMA CAIXA PRÓPRIA, e isso não é arrumação: qualquer elemento que o palco
+    // criasse nasceria IRMÃO do `<video>`, e com os dois palcos soltos no `body`
+    // o irmão do segundo seria o do PRIMEIRO — o oráculo reprovaria um app
+    // correto.
     document.body.insertAdjacentHTML('beforeend',
       '<div id="caixa2"><div id="w2"></div><img id="i2" hidden>'
       + '<video id="v2" playsinline muted hidden></video></div>');
-    const p2 = createStage({
-      wallpaper: document.getElementById('w2'),
-      img: document.getElementById('i2'),
-      video: document.getElementById('v2'),
-    });
-    p2.setFade({ fadeIn: true, fadeOut: true, time: 0.3 });
-    p2.handle({ type: 'load', mediaId: 'st', view: 'visual' });
-    await new Promise((f) => setTimeout(f, 800));
-    const v2 = document.getElementById('v2');
-    // O `.av-stage-busy` é criado como IRMÃO do `<video>`: procurá-lo no
-    // documento inteiro acharia o da preview, que está aceso com toda a razão.
-    return !!(v2.parentElement && v2.parentElement.querySelector('.av-stage-busy'));
+    const caixa = document.getElementById('caixa2');
+    const antes = caixa.children.length;
+    let erro = '';
+    try {
+      const p2 = createStage({
+        wallpaper: document.getElementById('w2'),
+        img: document.getElementById('i2'),
+        video: document.getElementById('v2'),
+      });
+      p2.setFade({ fadeIn: true, fadeOut: true, time: 0.3 });
+      p2.handle({ type: 'load', mediaId: 'st', view: 'visual' });
+      await new Promise((f) => setTimeout(f, 800));
+    } catch (e) { erro = String((e && e.message) || e); }
+    return { erro, antes, depois: caixa.children.length };
   });
-  checar(semAro === false,
-    'um palco SEM `espera` (o telão e as telas da rede) não desenha aro nenhum — '
-    + 'a maquinaria de carregamento é assunto de quem opera, e na projeção ela é '
-    + 'o app contando como funciona a quem não perguntou', semAro);
+  checar(projecao.erro === '' && projecao.depois === projecao.antes,
+    'um palco SEM `onEspera` (o telão e as telas da rede) não desenha nada e não '
+    + 'lança — a projeção tem dois estados e nenhum intermediário: o wallpaper '
+    + 'em repouso, ou o conteúdo no ar', projecao);
 } finally {
   await navegador.close();
 }

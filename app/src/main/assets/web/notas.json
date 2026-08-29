@@ -1,5 +1,12 @@
 [
   {
+    "versao": "1.4.8",
+    "itens": [
+      "AGORA HÁ UM ÚNICO AVISO DE CARREGAMENTO, e ele fica no celular. Havia dois — o cartão \"Preparando…\" sobre a preview e um aro girando dentro da projeção —, e eles se revezavam: parte da espera aparecia num, parte no outro. O aro saiu inteiro. Enquanto o vídeo não estiver de fato tocando, o telão mostra o papel de parede e mais nada; quem diz que o app está trabalhando é o cartão, no celular, do toque ao primeiro quadro.",
+      "E O CARTÃO COBRE A ESPERA INTEIRA, sem sumir e voltar no meio: a busca do vídeo na internet e o carregamento da transmissão eram dois avisos em sequência e passaram a se ler como um estado só."
+    ]
+  },
+  {
     "versao": "1.4.7",
     "itens": [
       "TODO O CARREGAMENTO ACONTECE AGORA NO CELULAR, e o telão só mostra o vídeo quando ele está de fato tocando. Antes o aro de espera aparecia também na projeção, e numa rede ruim o telão chegava a revelar uma tela vazia quando o vídeo não carregava. Agora ele tem dois estados e nenhum meio-termo: o papel de parede em repouso, ou o conteúdo no ar.",

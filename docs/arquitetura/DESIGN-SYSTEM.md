@@ -456,8 +456,9 @@ Nenhuma regra do app desenha `border`/`outline`. O que sobrevive são dois
 DESENHOS, nomeados um a um no oráculo — nunca detectados por heurística, porque
 uma heurística deixaria a próxima borda entrar chamando-se desenho:
 
-- o aro do `.dl-ring` e o do `.av-stage-busy` — eles **são** círculos, não a
-  moldura de um elemento;
+- o aro do `.dl-ring` — ele **é** um círculo, não a moldura de um elemento. O
+  irmão dele no palco (`.av-stage-busy`) saiu na v1.4.8, com a folha
+  `shared/stage.css`: o palco anuncia a espera e não a desenha mais;
 - o ✓ do `.song-menu-check` (duas bordas em L, giradas 45°) — é o glifo que falta
   no subset da fonte de ícones.
 

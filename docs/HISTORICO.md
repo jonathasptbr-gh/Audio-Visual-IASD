@@ -24,6 +24,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
+- **v1.4.8** — UM AVISO DE CARREGAMENTO SÓ, E ELE FICA NO CONTROLE. Terceira volta do mesmo pedido, e a que o fecha: *"ainda está tendo os dois modelos de loading, eu gostaria que houvesse apenas o 'preparando…' no controle, vamos abandonar o spinner no telão. Enquanto não houver imagem e/ou som propriamente do vídeo, então não mostre nada além do wallpaper… no telão não vai mensagens de preparação. E nos controles já temos a mensagem de preparando, não precisamos de um spinner exclusivo"*. A v1.4.7 tornou o aro do palco uma OPÇÃO do dono (`espera: true`) e **isso não bastou**: os dois indicadores continuavam existindo, e na preview eles se REVEZAVAM — o cartão "Preparando…" cobria a extração de rede, saía, e o aro assumia a carga do stream. Duas caixas para uma espera só, e a de baixo aparecendo e sumindo no meio dela. **O aro saiu inteiro, e com ele a folha `shared/stage.css`** (o último consumidor dela) e os dois `<link>` que a puxavam. O que fica no lugar não é uma flag a menos: é uma INVERSÃO de quem manda — o palco deixou de DESENHAR a espera e passou a ANUNCIÁ-LA (`opts.onEspera(ligado)`), que é a invariante 5 aplicada ao motor (ele diz o FATO, não a forma). As duas RAZÕES ficam onde estavam (`esperaCarga` · `esperaBuffer`, que não se apagam uma à outra) e o censo de fome do Registro segue intacto — o que mudou é o consumidor. No Controle o anúncio abre e solta o MESMO cartão do toque, de modo que a espera inteira vira um estado só; por BORDA (`pvEsperaSolta`), porque `previewBusy` conta donos e um `onEspera(true)` repetido sem o `false` do meio deixaria um dono pendurado e o cartão nunca sairia — daí o oráculo medir também as BORDAS, e não só o estado. **E juntar as duas metades no mesmo cartão revelou o que a versão de dois indicadores escondia:** entre os dois donos o contador passa por ZERO (o `finally` do toque solta antes de o palco acender), e o cartão saía e voltava no meio da MESMA espera; `PV_BUSY_SAIDA_MS` (700 ms) adia a retirada e um dono novo a cancela — o botão de cancelar, esse, sai na hora, porque uma ação sem dono não pode ficar tocável. A asserção é a CONTINUIDADE amostrada a cada quadro, porque um teste do estado FINAL passa nas duas versões. O NOME vem do ITEM que está entrando (`pvEsperaNome`, gravado por `aplicarNaPreview`) e nunca do rótulo já desenhado: `renderNowPlaying` roda em pontos diferentes de cada caminho, e um nome atrasado é o cartão anunciando o louvor ANTERIOR enquanto o novo carrega. **O telão e as telas da rede não passam `onEspera`**, e é só isso que os separa da preview — continua sendo opção do dono, e não `__AV_ROLE__` lido dentro do `stage.js`. O `espera-do-stream.test.mjs` mudou de sujeito junto: ele media o DOM (o `hidden` do aro) e passou a medir o ANÚNCIO, que é o contrato de verdade — medir o DOM ali seria medir a UI do Controle a partir do motor. A metade da projeção ficou mais forte no caminho: ela pergunta se o palco sem `onEspera` LANÇA (uma exceção ali derrubaria o `load` no meio do culto) e se ele acrescenta algum nó à caixa dele — provada por reversão, devolvendo o aro ao palco. OTA PURO.
 - **v1.4.7** — O CARREGAMENTO É TODO DO CONTROLE, E O TELÃO SÓ MOSTRA O QUE ESTÁ NO AR. Três pedidos do operador no mesmo relato, e o segundo é a correção de um desenho meio-termo da v1.4.6: *"nem coloca todo o carregamento e espera antes de jogar algo no telão e nem deixa o loading inteiramente no telão, você deixa carregar um pouco no controle e um pouco na tela… revise para que todo o loading aconteça no controle, e para o telão, literalmente só apareça quando o vídeo estiver realmente sendo reproduzido"*. **O telão passa a ter DOIS estados e nenhum intermediário**: o wallpaper em repouso, ou o conteúdo de fato no ar. O aro (`.av-stage-busy`) virou OPÇÃO do dono do palco (`espera: true`) e só a preview a liga — e é opção, e não `__AV_ROLE__` lido dentro do `stage.js`, porque a pergunta é *"este palco é uma ILUSTRAÇÃO?"* e a tela da rede é papel `tela` e é PROJEÇÃO: a leitura de papel acertaria por acidente. Mais: **sem quadro, a cortina FICA** — o `mediaReady` passou a devolver se houve dado, e num stream o prazo deixou de REVELAR, porque o que ele socorria era revelar o PRETO; o wallpaper é a resposta certa a "não há o que mostrar" (só no stream: o socorro de 2,5 s do arquivo local não é assunto deste lote). O primeiro pedido: **a reação instantânea valia só para a folha da BUSCA** — *"tocar em um item de link que esteja no cronograma ou dos favoritos"* passa por `resolverLinkYoutube`, que é a MESMA espera por outro caminho; a guarda entra lá dentro, com saída única, porque é o ponto por onde todos os caminhos do link passam. O terceiro: **o CONFIRMAR é sempre o último da faixa** — o lado era escolha de quem fornecia o irmão (`data-antes`), e quem não a fizesse caía do outro lado, que era a divergência entre os Favoritos e o resto da Biblioteca; a escolha por chamador SAIU junto, e com ela o que um chamador novo poderia esquecer. Oráculo estendido para sete metades, provado por reversão em três frentes. OTA PURO.
 - **v1.4.6** — O TOQUE RESPONDE NA HORA. Relato do operador: *"após a seleção, ele leva algum tempo para reagir e sequer aparecer o spinner do carregamento do vídeo… nem que tenha mais tempo de carregamento, mas o feedback deve ser instantâneo. Por exemplo, a mídia atual deve ser instantaneamente interrompida"*. A janela era real e longa: `tentarTransmitir` começa por um `ytStream`, que é uma EXTRAÇÃO DE REDE de segundos, e só depois dela vem o `send` que muda alguma coisa na tela. No meio-tempo o único sinal era o `setYtEstado`, que acende uma LINHA da Biblioteca — **a mesma que o `closeHymnSearch` acabou de fechar**. E o caminho do DOWNLOAD já tinha o cartão de espera sobre a preview (`ytArquivo` → `previewBusy`); o da TRANSMISSÃO nunca teve: **a assimetria era o defeito**. Agora `cederOPalco` interrompe a cena no ATO e abre o cartão com o nome do que está vindo. A INTERRUPÇÃO É O RECONHECIMENTO DO TOQUE — "Tocar agora" é um comando sem ambiguidade, a cena atual vai sair de qualquer jeito, então tirá-la no ato não antecipa nada; é o mesmo protocolo visual do `stage.load`, começando no instante do comando em vez do instante em que os bytes são conhecidos. NÃO é o `stopClear` (o `clearManualText` fica de fora: a mídia é que está sendo trocada, e um versículo projetado continua projetado), NÃO espera a gravação (o `cmd` do `pararMidia` é síncrono; o que ele aguarda é o `persistCurrent`), e SÓ no `tocar` — guardar numa lista não vai ao telão, e essa é a metade que impede a correção de virar um defeito maior. O invólucro do `ytAcao` existe pela SAÍDA ÚNICA: `ytAcaoInterno` tem meia dúzia de `return`, e um sem a liberação prenderia o cartão para sempre. Mais o subtexto pedido: com "Online", o "Tocar agora" diz que toca direto da internet e que a qualidade varia conforme a conexão. Oráculo novo que mede o MEIO (a ponte de mentira SEGURA o `ytStream` — um teste do desfecho passa nas duas versões), provado por reversão nas duas frentes. **O preço está dito:** falhando a transmissão, a cena cai no download e o telão passa esses minutos no wallpaper com o cartão explicando. OTA PURO.
 - **v1.4.5** — O APP PASSOU A MEDIR A REDE E ESCOLHER A RESOLUÇÃO. Pergunta do operador, e ela é a pergunta certa: *"não temos como fazer o teste ultra rápido sobre a velocidade da internet para escolher melhor a resolução, já que ela não muda no meio do caminho, não sendo adaptável?"*. **É justamente porque não há ABR que a escolha importa** — ela é feita UMA vez e vale o louvor inteiro —, e enquanto o manifesto trouxe uma faixa só ela era feita CEGA: sempre o teto, e uma rede que não o sustenta produz travamento, nunca imagem menor. O shell passa a entregar a **ESCADA** (`man.videos`, uma faixa por altura, `video` continua sendo o topo — aditivo de propósito) e quem escolhe é o web, por três razões e a terceira decide: é a invariante 5; a escolha depende da MEDIÇÃO, que só existe depois dos primeiros bytes; e uma regra de escolha erra, e no web ela se conserta por OTA em minutos. **A medição não custa uma requisição:** o init, o índice e o primeiro fragmento têm de ser buscados de qualquer jeito, e são eles que dizem quanto esta rede entrega — pelo caminho REAL do CDN. Um teste sintético seria pior nas três pontas (gastaria uma requisição, mediria o mesmo slow start, e ainda assim mediria um INSTANTE). **A troca só acontece ANTES DO PRIMEIRO QUADRO**, e é isso que a dispensa de todo alinhamento de tempo — nada foi mostrado, o `currentTime` é zero, trocar é recomeçar; depois disso a bandeira fecha para sempre, porque uma troca com o louvor no ar é gagueira e este projeto já decidiu que gagueira é pior que uma escolha imperfeita. **QUALQUER FALHA NA TROCA MANTÉM O DEGRAU ATUAL**, inclusive repondo o init antigo se o novo já tinha sido appendado: é a propriedade que torna a otimização aceitável num culto. A margem (1,35) existe porque a medida SUBESTIMA — ela sai do slow start —, e por isso a regra só pode DESCER. A banda medida sobrevive ao item, então o segundo louvor do culto já começa sabendo. Mais dois consertos do mesmo relato: o seletor da folha virou **TETO e diz isso na tela** (ele sempre valeu para o "Tocar agora" e nada dizia — a escala começa em "Online", que é armazenamento), e o Registro passou a imprimir a conta inteira (banda medida, degrau em que parou, e as paradas por fome). Oráculo novo, PURO, provado por reversão em três frentes; a asserção que carrega o arquivo é a MONOTONIA, que nenhum caso isolado pega. `SHELL_VERSION` 60 (`videos` + `altura` na faixa — forma de retorno). EXIGE RELEASE v1.4.5
@@ -280,6 +281,106 @@ na nota que a revoga, não apagada da que a criou.
 - **v5.156** — é METADE OTA e METADE APK, de novo.
 
 ---
+
+## v1.4.8 — um aviso de carregamento só, e ele fica no Controle
+
+Terceira volta do mesmo pedido, e a que o fecha:
+
+> *"ainda está tendo os dois modelos de loading, eu gostaria que houvesse apenas
+> o 'preparando…' no controle, vamos abandonar o spinner no telão. Enquanto não
+> houver imagem e/ou som propriamente do vídeo, então não mostre nada além do
+> wallpaper, pois ainda não há mídia pronta a ser exibida. No telão não vai
+> mensagens de preparação. E nos controles já temos a mensagem de preparando,
+> não precisamos de um spinner exclusivo."*
+
+### O que a v1.4.7 não resolveu
+
+Ela tornou o aro do palco uma OPÇÃO do dono (`espera: true`, só a preview), e o
+telão ficou certo. **O Controle não.** Os dois indicadores continuavam
+existindo, e ali eles se REVEZAVAM: o cartão "Preparando…" cobria a extração de
+rede, era solto quando o `send` saía, e o aro assumia a carga do stream. Duas
+caixas para uma espera só, com a de baixo aparecendo e sumindo no meio dela —
+que é literalmente "os dois modelos de loading".
+
+### A inversão
+
+O aro saiu inteiro, e com ele a folha `shared/stage.css` (ele era o último
+consumidor dela) e os dois `<link>` que a puxavam. **O que fica no lugar não é
+uma flag a menos: é uma inversão de quem manda.** O palco deixou de DESENHAR a
+espera e passou a ANUNCIÁ-LA:
+
+```js
+const onEspera = typeof opts.onEspera === 'function' ? opts.onEspera : null;
+function pintarEspera() {
+  const alvo = esperaCarga || esperaBuffer;
+  if (alvo === esperaDita) return;
+  esperaDita = alvo;
+  if (onEspera) { try { onEspera(alvo); } catch (_) { /* o dono que se vire */ } }
+}
+```
+
+É a invariante 5 aplicada ao motor: **ele diz o FATO, não a forma.** As duas
+RAZÕES ficam exatamente onde estavam (`esperaCarga` · `esperaBuffer`, que não se
+apagam uma à outra) e o censo de fome do Registro segue intacto — o que mudou é
+o consumidor.
+
+### O consumidor, e as duas armadilhas dele
+
+- **Uma espera só, do toque ao primeiro quadro.** O `onEspera` da preview abre e
+  solta o MESMO cartão do "Preparando" do toque (`previewBusy`), de modo que a
+  extração de rede e a carga do stream se leiam como um estado, não como dois
+  avisos se revezando.
+- **Por BORDA** (`pvEsperaSolta`): `previewBusy` conta donos, e um
+  `onEspera(true)` repetido sem o `false` do meio deixaria um dono pendurado — o
+  cartão nunca sairia. Daí o oráculo medir também as BORDAS, e não só o estado.
+- **O nome vem do ITEM que está entrando** (`pvEsperaNome`, gravado por
+  `aplicarNaPreview` antes do `handle`), nunca do rótulo já desenhado:
+  `renderNowPlaying` roda em pontos diferentes de cada caminho, e um nome
+  atrasado é o cartão anunciando o louvor ANTERIOR enquanto o novo carrega.
+
+### A passagem de bastão, que só apareceu depois
+
+Juntar as duas metades no mesmo cartão criou um problema que a versão de dois
+indicadores escondia: **entre os dois donos o contador passa por ZERO.** O
+`cederOPalco` solta no `finally`, assim que `tentarTransmitir` volta; o
+`onEspera` do palco só acende lá dentro do `load`, depois do fade de saída e do
+`getMedia`. O cartão saía e voltava no meio da MESMA espera — o "dois modelos de
+carregamento" com outra roupa.
+
+`PV_BUSY_SAIDA_MS` (700 ms) é o irmão do `PV_BUSY_DELAY_MS` na outra ponta: a
+retirada do cartão é adiada, e um dono novo dentro da carência a CANCELA. O que
+sai NA HORA é o botão de cancelar — ele é uma AÇÃO, e uma ação sem dono não pode
+ficar tocável nem por meio segundo. **O preço está dito:** um cartão que de fato
+acabou fica esse tanto a mais na tela, e ele é um indicador de estado, não um
+modal.
+
+A asserção é a CONTINUIDADE, amostrada a cada quadro, e isso é o ponto: **um
+teste do estado final passa nas duas versões**, porque no fim o cartão está de pé
+de qualquer jeito. Com a carência em zero ela devolve `{"apagou":true,"on":true}`
+— o "on" é o final certo, e o "apagou" é o defeito. De passagem, a asserção
+vizinha (o cartão de falha não prende o trabalho seguinte) deixou de ler um
+INSTANTE fixo e passou a esperar pelo FATO, com teto na metade do `PV_FALHA_MS`:
+uma leitura em 400 ms mediria a constante nova em vez da propriedade.
+
+O telão e as telas da rede **não passam `onEspera`**, e é só isso que os separa
+da preview — continua sendo opção do dono, e não `__AV_ROLE__` lido dentro do
+`stage.js`: a pergunta é *"este palco é uma ILUSTRAÇÃO?"*, e a tela da rede é
+papel `tela` e é PROJEÇÃO.
+
+### O oráculo mudou de sujeito
+
+`espera-do-stream.test.mjs` media o DOM (o `hidden` do aro) e passou a medir o
+ANÚNCIO, que é o contrato de verdade — **medir o DOM ali seria medir a UI do
+Controle a partir do motor.** A metade da projeção ficou mais forte no caminho:
+ela pergunta se um palco sem `onEspera` LANÇA (uma exceção ali derrubaria o
+`load` no meio do culto) e se ele acrescenta algum nó à caixa dele. Provada por
+reversão: devolvendo ao palco um aro criado incondicionalmente, ela reprova
+(`{"erro":"","antes":3,"depois":4}`).
+
+O `tokens.test.mjs` perdeu o recorte do `.av-stage-busy::after` junto — a paleta
+volta a ter **um** desenho de borda (o `.dl-ring`) mais o ✓ do seletor.
+
+OTA PURO — nenhuma linha de Kotlin mudou, `SHELL_VERSION` segue 60.
 
 ## v1.4.7 — o carregamento é do Controle; o telão só mostra o que está no ar
 

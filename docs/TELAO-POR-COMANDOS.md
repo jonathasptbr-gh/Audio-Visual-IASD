@@ -685,7 +685,9 @@ foi um erro visível: o overlay era criado, recebia `display:flex` pelo CSSOM (q
 a CSP não barra) e virava um bloco sem posição no fim do `<body>` — **debaixo da
 camada fixa do wallpaper**. Invisível e inclicável, com o papel `tela` ativo e
 tudo mais funcionando. O `shared/stage.js` tinha o mesmo defeito no indicador de
-espera. Os dois viraram folhas (`espelho/tela.css`, `shared/stage.css`).
+espera. Os dois viraram folhas (`espelho/tela.css`, `shared/stage.css`); a
+segunda saiu na v1.4.8, quando o palco deixou de DESENHAR a espera e passou a
+apenas anunciá-la ao dono.
 
 > **A REGRA: nas telas da rede não existe estilo embutido.**
 > `element.style.x = y` (CSSOM) continua valendo — a CSP não o alcança.
