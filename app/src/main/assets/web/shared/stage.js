@@ -231,8 +231,50 @@
     // registraria um travamento antes do primeiro quadro, e o número passaria a
     // dizer "≥1 sempre".
     const ESPERA_BUFFER_MS = 600;
+    // ===== O WATCHDOG DE FOME: A ÚLTIMA LINHA (v1.4.19) =====
+    //
+    // O censo (`AVStream.fome`) era o ÚNICO lugar do app que sabia que a
+    // projeção estava parada — e ele só escrevia no Registro. Nada agia.
+    //
+    // Com o prazo de parede do `mse.js` a maior parte das paradas já vira erro e
+    // desce pelo `onErro`; este teto cobre o que sobrar, venha de onde vier: um
+    // `SourceBuffer` que parou de aceitar, o decodificador travado, uma volta do
+    // segundo plano que não reengata. A pergunta aqui não é "de quem é a culpa?"
+    // — é *"faz quanto tempo que a congregação está olhando um quadro
+    // congelado?"*.
+    //
+    // O TETO É MAIOR QUE `ALVO_S` (20 s de buffer) de propósito: abaixo dele o
+    // watchdog dispararia em cima de uma reposição que ainda ia chegar. Passado
+    // ele, quem estava para chegar já não chega.
+    //
+    // O desfecho é o `onStreamErro` de sempre — o caminho que já existe e já
+    // sabe cair no download. **Uma vez por cena** (`fomeAvisada`): a queda leva
+    // segundos e um segundo aviso no meio dela derrubaria a recuperação.
+    //
+    // ===== ELE PODE INTERROMPER UMA RETENTATIVA QUE AINDA IA DAR CERTO =====
+    //
+    // A tensão é real e a escolha é deliberada. A escada do `mse.js` são quatro
+    // tentativas, cada uma com o próprio prazo de parede: um fragmento grande
+    // pode legitimamente levar minutos para vencer por ali. Este teto o
+    // atropela.
+    //
+    // **Porque as duas medem coisas diferentes.** A escada mede a esperança da
+    // REDE; este teto mede o que a CONGREGAÇÃO está vendo — e vinte e cinco
+    // segundos de quadro congelado na frente dela já é o desfecho ruim,
+    // independentemente de o quinto fragmento estar prestes a chegar. Passado
+    // ele, o certo é sair para o caminho que sempre funciona.
+    //
+    // Nada fica em voo: o `onStreamErro` leva ao `stopClear`, que esvazia o
+    // palco, que chama `destruir()`, que aborta os fetches pendentes.
+    //
+    // E ele **não arma durante a CARGA** (`streamComecou`): ali não há quadro
+    // congelado para ninguém ver, e a escada do `mse.js` tem a paciência
+    // inteira dela.
+    const FOME_TETO_MS = 25000;
     let esperaTimer = null;
+    let fomeTimer = null;
     let fomeDesde = 0;
+    let fomeAvisada = false;
     let streamComecou = false;
     function armarEsperaBuffer() {
       if (!stream || !streamComecou || esperaTimer || esperaBuffer) return;
@@ -244,10 +286,32 @@
         esperaBuffer = true;
         fomeDesde = Date.now();
         pintarEspera();
+        armarFome();
       }, ESPERA_BUFFER_MS);
+    }
+    function armarFome() {
+      if (fomeTimer || fomeAvisada) return;
+      const alvo = current;
+      fomeTimer = setTimeout(() => {
+        fomeTimer = null;
+        // As MESMAS conferências do anúncio, pelo mesmo motivo: 25 s cabem uma
+        // cena inteira, e avisar sobre a fome de uma mídia que já saiu mandaria
+        // o dono derrubar a que entrou.
+        if (!stream || !esperaBuffer || video.paused || video.ended) return;
+        if (current !== alvo) return;
+        fomeAvisada = true;
+        try {
+          opts.onStreamErro && opts.onStreamErro(alvo,
+            'a transmissão ficou ' + (FOME_TETO_MS / 1000) + ' s sem dados');
+        } catch (_) { /* o dono que se vire */ }
+      }, FOME_TETO_MS);
+    }
+    function desarmarFome() {
+      if (fomeTimer) { clearTimeout(fomeTimer); fomeTimer = null; }
     }
     function desarmarEsperaBuffer() {
       if (esperaTimer) { clearTimeout(esperaTimer); esperaTimer = null; }
+      desarmarFome();
       if (!esperaBuffer) return;
       esperaBuffer = false;
       const censo = global.AVStream && global.AVStream.fome;
@@ -801,6 +865,7 @@
       // nem sempre a trocou. É redundância DECLARADA, não guarda órfã.
       desarmarEsperaBuffer();
       streamComecou = false;
+      fomeAvisada = false;
       img.hidden = true; img.removeAttribute('src');
       // Idem: esconder o <video> faz parte de limpar a fonte, não é detalhe
       // do applyMedia() que vem depois. Entre esta linha e ele há repaint
@@ -858,6 +923,7 @@
       // de CARGA dela viraria um travamento no censo.
       desarmarEsperaBuffer();
       streamComecou = false;
+      fomeAvisada = false;
       // Troca de CONTEÚDO (item já visível dando lugar a outro): esmaece o
       // atual até o preto: sem relação com a cortina do wallpaper, que já
       // está fora de cena nesse caso (visibleEl() só retorna algo se não
@@ -876,6 +942,15 @@
         // logo abaixo são assíncronos, essa janela dura o suficiente para o
         // placeholder piscar na tela a cada troca de mídia.
         video.hidden = true;
+        // O MOTOR DE STREAM MORRE ANTES DA FONTE (v1.4.19). O `_revokeUrl` de
+        // baixo só roda DEPOIS do `getMedia`, e nesse vão o `AVStream` anterior
+        // continuava vivo sobre um `MediaSource` que este `load()` acabou de
+        // desanexar: um `appendBuffer` que sobrasse ali chama `morrer(mensagem)`,
+        // que escreve em `AVStream.ultimoErro` SEM passar pela guarda do
+        // `loadSeq` — e o Registro acabava com o erro fantasma de uma cena que o
+        // operador trocou de propósito. `destruir()` chama `morrer(null)`, que
+        // não escreve nada.
+        _revokeUrl();
         video.pause(); video.removeAttribute('src'); video.load(); video.poster = POSTER_VAZIO;
         clearFadeStyle(video); clearFadeStyle(img);
       }
@@ -1017,6 +1092,35 @@
         alvo.style.opacity = '0';
       }
       applyMedia();
+      // ===== O STREAM QUE NÃO TEM IMAGEM (v1.4.19) =====
+      //
+      // `semVisual()` (um `kind: 'audio'` sem letra) é exatamente o que o
+      // "Tocar agora · Só áudio" de um link do YouTube produz — e com ele
+      // verdadeiro o load NÃO ENTRA em nenhum dos dois ramos abaixo: o da
+      // cortina pede `!semVisual()`, e `entrada` também. Os dois eram os únicos
+      // pontos que acendiam o aviso de espera e que disparavam a rampa de
+      // entrada de um stream (a rampa comum, logo acima, exclui streams pelo
+      // `!ehStream` justamente porque foi movida para dentro deles).
+      //
+      // O desfecho eram os dois defeitos que os lotes v1.4.6 e v1.4.8
+      // corrigiram para o vídeo, ainda de pé para o áudio: a tela não dizia mais
+      // nada por vários segundos (a rede inteira entre o comando e o primeiro
+      // byte), e então o som entrava NO TALO.
+      //
+      // Ele é um TERCEIRO ramo e não uma condição a mais nos outros dois: a
+      // pergunta aqui é *"este stream ainda não começou?"*, e ela não tem nada a
+      // ver com haver ou não imagem. Sem `return` no fracasso — a cortina já é o
+      // estado certo para um áudio sem letra, e o `coverIn` do fim deste load
+      // precisa rodar.
+      if (ehStream && alvo && semVisual()) {
+        mostrarEspera(true);
+        const soou = await mediaReady(alvo, PRONTO_STREAM_MS);
+        if (seq !== loadSeq) return;
+        mostrarEspera(false);
+        if (soou && fadeIn && !forceMuted && !video.muted && volume > 0) {
+          rampVolume(0, volume, fadeTime);
+        }
+      }
       // Revela (esconde a cortina) se a view pedir e ainda estiver coberto —
       // primeiro conteúdo depois do wallpaper, ou depois de ended/stop/clear.
       // Se nada estava cobrindo (já em cena, só trocando de item), coverOut()

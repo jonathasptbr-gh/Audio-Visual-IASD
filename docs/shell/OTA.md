@@ -196,7 +196,8 @@ cobre a `Presentation`.
 ## As outras defesas do download
 
 - **Uma verificação por vez** (`checking`, `AtomicBoolean`). `checkAsync` roda em
-  todo `onCreate` e `android:configChanges` não cobre `fontScale` nem `locale`:
+  todo `onCreate`, e uma recriação de Activity continua possível (a v1.4.19
+  encheu o `android:configChanges` — RARA, não impossível):
   mudar o tamanho da fonte durante um download disparava um segundo `check()`
   escrevendo nos MESMOS temporários. Os temporários levam sufixo único por
   execução.

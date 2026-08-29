@@ -258,7 +258,7 @@ const appVersionEl = document.getElementById('appVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.4.18';
+const WEB_VERSION = '1.4.19';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -10968,14 +10968,46 @@ function cifraGuardavel(coll) {
  * operador nunca trouxe para o aparelho não é acervo dele, e varrer o catálogo
  * inteiro seria pagar rede por música que ninguém vai tocar.
  */
+// ===== A ROTINA DE ACERVO CEDE A VEZ AO QUE ESTÁ NO AR (v1.4.19) =====
+//
+// `syncLyrics` e `syncCifrasAcervo` saem da abertura SEM `await`, portanto
+// correm juntas: `NET_CONCURRENCY` é 6, então são até **12 requisições
+// concorrentes** a dois hosts de terceiros, sobre o acervo inteiro (MEDIDO:
+// 309 + 145 hinos numa passada). O único freio era `networkType() ===
+// 'cellular'` — nada consultava a cena.
+//
+// **Por que isto é estabilidade e não desempenho.** O uso normal é abrir o app
+// minutos antes do culto e tocar o primeiro item. Nesse instante os fragmentos
+// do MSE disputam a Wi-Fi da igreja com as 12 requisições — e a MEDIDA DE BANDA
+// que escolhe o degrau do louvor inteiro é feita justamente durante a disputa
+// (`talvezTrocarDegrau` roda antes do primeiro quadro, uma vez, para sempre).
+// A varredura do acervo podia rebaixar a resolução do louvor, e numa rede
+// apertada empurrar o fragmento seguinte para a fome.
+//
+// **CEDE A VEZ E SAI, não cede a vez e espera.** Esperar seguraria o
+// `withBgRotina` — e com ele o serviço em primeiro plano, cuja cota de
+// `dataSync` é de 6 h em 24 h — parado por um culto inteiro, sem baixar nada.
+// Sair é seguro porque as duas rotinas são RETOMÁVEIS POR CONSTRUÇÃO (o que já
+// foi gravado não é pedido de novo) e porque quem as rearma já existe:
+// `autoRefreshCollections` roda na abertura **e em todo `visibilitychange`**, e
+// o operador troca de app dezenas de vezes durante um culto.
+//
+// A pergunta é `midiaNoAr` e não `currentId`: aquele sobrevive ao Parar de
+// propósito (é o que o ▶ repete), e uma varredura adiada para sempre por uma
+// cena que já saiu seria o mesmo defeito com o sinal trocado.
+function rotinaDeAcervoPodeCorrer() { return !midiaNoAr; }
+
 async function syncCifrasAcervo() {
   for (const c of allCollections().filter((c) => cifraGuardavel(c) && countDownloaded(c.id) > 0)) {
+    if (!rotinaDeAcervoPodeCorrer()) return;
     await syncCifrasColecao(c).catch(() => {});
   }
 }
 
 async function syncCifrasColecao(coll) {
   if (!window.__NATIVE__ || !cifraGuardavel(coll) || cifraSyncRodando) return;
+  // Ver `rotinaDeAcervoPodeCorrer`: a varredura é adiável, o louvor não.
+  if (!rotinaDeAcervoPodeCorrer()) return;
   // A MESMA REGRA DO `syncLyrics`: são centenas de requisições a um site que
   // não é nosso, e o plano de dados do operador não é o lugar delas.
   if (networkType() === 'cellular') return;
@@ -11020,6 +11052,9 @@ async function syncCifrasColecao(coll) {
     await withBgRotina(async () => {
       try {
         await runLimited(faltam, NET_CONCURRENCY, async (h) => {
+          // O gêmeo do `syncLyrics`, e pelo mesmo motivo — ver
+          // `rotinaDeAcervoPodeCorrer`.
+          if (!rotinaDeAcervoPodeCorrer()) return;
           bgItemStart(notifId, h.nome);
           try {
             // A CADEIA INTEIRA, e não só o catálogo (v1.2.14). É ela que faz o
@@ -14513,6 +14548,8 @@ function songsMissingLyric(coll) {
 async function syncLyrics() {
   if (lyricSyncRunning) return;
   if (networkType() === 'cellular') return;
+  // Ver `rotinaDeAcervoPodeCorrer`: a varredura é adiável, o louvor não.
+  if (!rotinaDeAcervoPodeCorrer()) return;
 
   // Hinários antes dos álbuns (ver acima). Dentro de cada grupo, a ordem do
   // acervo.
@@ -14556,6 +14593,13 @@ async function syncLyrics() {
     await withBgRotina(async () => {
      try {
       await runLimited(pendentes, NET_CONCURRENCY, async (item) => {
+      // A CENA ENTROU NO MEIO DA VARREDURA. A guarda da porta cobre "começar
+      // com cena no ar"; esta cobre o caso NORMAL do culto — o app é aberto
+      // vazio, a varredura parte, e só então o operador toca o primeiro item.
+      // Sem ela, as 12 requisições continuavam até o fim do acervo. Sair aqui
+      // drena a fila sem rede; o que já foi gravado fica, e a próxima passada
+      // continua de onde parou. Ver `rotinaDeAcervoPodeCorrer`.
+      if (!rotinaDeAcervoPodeCorrer()) return;
       bgItemStart(notifId, item.nome);
       try {
         const meta = await Louvorja.fetchList('music_' + item.id);
@@ -15638,7 +15682,28 @@ async function resolverLinkInterno(rec) {
 // rede, codec ou um vídeo que ficou restrito —, e insistir num laço em cima de
 // uma projeção morta é pior que parar. Aí a mídia é substituída pelo DOWNLOAD,
 // que é o caminho que sempre funcionou.
-const streamRetentado = new Set();
+// ===== A RETENTATIVA É POR EPISÓDIO, NÃO POR SESSÃO (v1.4.19) =====
+//
+// Isto era um `Set` que nunca era limpo. A intenção escrita é *"uma tentativa
+// só"* por episódio de falha; o que o código fazia era *"uma tentativa por item,
+// para o resto da sessão"* — e a sessão é o PROCESSO, que neste app quase nunca
+// morre (os serviços em primeiro plano o mantêm vivo).
+//
+// **O cenário que morde é o do sábado.** Ensaio de manhã: o vídeo é transmitido,
+// a URL expira no meio, isto re-extrai e conserta — invisível, como deve ser.
+// Culto: o MESMO vídeo, o mesmo `rec.id`, a URL guardada expirada de novo. O
+// conjunto já tinha o id, então NÃO havia re-extração: a cena saía do telão e o
+// app começava a baixar centenas de MB na frente da congregação, por um conserto
+// de dois segundos que ele sabe fazer e se proibiu de tentar.
+//
+// A JANELA é o que mantém as duas propriedades ao mesmo tempo: uma falha
+// SEGUIDA (o manifesto novo que também não presta) continua caindo no download,
+// porque ela chega em segundos; e um episódio NOVO horas depois volta a ter
+// direito à sua tentativa. Cinco minutos é folgadamente mais que a duração de um
+// laço de falha (cada volta custa uma extração, ~2 s) e folgadamente menos que
+// qualquer intervalo real entre um ensaio e um culto.
+const STREAM_RETENTAR_MS = 5 * 60 * 1000;
+const streamRetentado = new Map();   // id → carimbo da última re-extração
 async function recuperarStream(rec, porque) {
   console.warn('[stream] falhou:', porque);
   if (!rec || !rec.youtubeId) {
@@ -15660,8 +15725,9 @@ async function recuperarStream(rec, porque) {
   // do fim da linha. É o mesmo reaproveitamento por forma do `ytArquivo`, e o
   // `kind` é o que separa as duas.
   const soAudio = rec.kind === 'audio';
-  if (expirou && !streamRetentado.has(rec.id)) {
-    streamRetentado.add(rec.id);
+  const ultima = streamRetentado.get(rec.id) || 0;
+  if (expirou && Date.now() - ultima > STREAM_RETENTAR_MS) {
+    streamRetentado.set(rec.id, Date.now());
     let man = null;
     try { man = await AVNative.ytStream(link, rec.height | 0); } catch (_) {}
     if (man && soAudio) man = Object.assign({}, man, { video: null, height: null });
@@ -22713,7 +22779,24 @@ function simpleDisplay() {
 // e para o fechamento da folha — ver `renderSimpleGate`.
 function telasDaRede() {
   const e = mirrorEstado || {};
-  return espelhoLigado() && Array.isArray(e.telas) ? e.telas : [];
+  if (!espelhoLigado() || !Array.isArray(e.telas)) return [];
+  // ===== "HÁ TELA" NUNCA FOI "HÁ PROJEÇÃO" — o irmão do `telaoNoAr` (v1.4.19) =====
+  //
+  // O telão de verdade já tinha esta distinção (o campo `telao`: a tela CONTINUA
+  // listada com a `Presentation` no chão, e as três perguntas que dependem de
+  // haver projeção leem a janela, não a lista). As telas da rede não tinham
+  // equivalente: bastava PAREAR para o `somLocalDeveEstar` calar este aparelho.
+  //
+  // `pronta` é o `__de` do `display-ready` chegando de volta pelo `POST /r` —
+  // isto é, o `/display/` daquela tela subiu e se anunciou. Entre o `POST /par`
+  // (que já cria a sessão e o fio SSE) e esse anúncio, a tela não está
+  // projetando nada; e sem TV a tela É a projeção, então o celular ficava mudo
+  // com ninguém tocando do outro lado — silêncio nos dois lados, que é o
+  // desfecho exato que o campo `telao` existe para não ter.
+  //
+  // `!== false` e não `=== true`: é o idioma deste projeto para "nasce ligado".
+  // Um shell que não mande o campo não pode perder a tela por isso.
+  return e.telas.filter((t) => t && t.pronta !== false);
 }
 
 // O PORTÃO DO MODO FÁCIL: sem tela conectada, a cortina bloqueia e o cartão de
