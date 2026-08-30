@@ -896,17 +896,24 @@ body {
    ao lado — isto é, sem dizer nada. Medido. */
 .pv-fab--camada { color: var(--stage-alert); }
 /* ---------- O DESFAZER DO GIRO, na mesma faixa (v1.4.43) ----------
-   Ele é o SEGUNDO morador da base da preview, e o que o separa do vizinho é a
-   COR — a mesma disciplina que separa o selo de camadas dos botões de player.
-   `--stage-accent` (o denim do PALCO, que não tem tema) porque vermelho neste
-   app quer dizer "está no ar agora", e um giro é uma preferência de
-   enquadramento: nomeá-lo de vermelho tiraria o vermelho de quem precisa dele
-   na mesma faixa, a dois centímetros dali.
+   Ele é o SEGUNDO morador da base da preview, e desde a v1.4.45 veste a MESMA
+   COR do vizinho, a pedido do operador (*"ele deve ser vermelho e ter em seu
+   design o 'x' indicando que o toque destroi tal configuração atual"*).
+
+   A v1.4.43 o pintou de denim, com o argumento de que vermelho neste app quer
+   dizer "está no ar agora". O argumento lia o token estreito demais: o que o
+   `--stage-alert` do selo de camadas diz não é "no ar", é *"o toque daqui TIRA
+   alguma coisa"* — e a faixa inteira é a região do que está fora do padrão e o
+   toque desfaz. Duas promessas iguais em cores diferentes ensinavam que a cor
+   ali significa outra coisa, e não significa. **O que separa os dois é o
+   DESENHO** (ver o `index.html`): a pilha de folhas × a seta de giro, com o
+   MESMO ✕ nos dois.
 
    ELE É O ÚNICO `.pv-fab` MAIS LARGO QUE `--hit`, e a exceção é o número: o
-   ângulo É o estado (uma seta circular sozinha sobre a projeção leria "girar
-   mais 90°", o oposto do que o toque faz). `min-width` e não `width`, para o
-   alvo de toque continuar sendo o piso do app; a altura não muda.
+   ângulo É o estado, e é ele que diz o que este ✕ destrói — sem o número, a
+   faixa teria duas marcas vermelhas de destruição e nenhuma dizendo de quê.
+   `min-width` e não `width`, para o alvo de toque continuar sendo o piso do
+   app; a altura não muda.
 
    VEM DEPOIS DA `.pv-fab` pela razão medida no vizinho: as duas medem 0,1,0 e
    quem vence é a última do arquivo — escrita antes, o `color: var(--stage-text)`
@@ -914,7 +921,7 @@ body {
 .pv-fab--giro {
   width: auto; min-width: var(--hit);
   gap: .15rem; padding: 0 .25rem;
-  color: var(--stage-accent);
+  color: var(--stage-alert);
 }
 /* O NÚMERO GANHA O MESMO CONTORNO DO TRAÇO. A `drop-shadow` do `.pv-fab svg`
    acompanha o desenho do SVG e não alcança um `<span>`; sem o `text-shadow`
