@@ -1011,7 +1011,8 @@ olhar; um tile só diz o que a pintura escreveu. O da **Medição** fica de fora
 dessa regra — ele é uma ida à ponte, e `load()` roda dezenas de vezes por culto.
 
 **O MODO DO APP É UM INTERRUPTOR QUE DESLIZA** (`#appModeSeg`, `.qs-modo`
-dentro da `.fade-row--modo`, v1.4.43). Ele continua sendo um SELETOR e não um
+dentro da `.fade-row--modo`, v1.4.43), com o rótulo CENTRADO por cima e o
+trilho medindo exatamente a grade de tiles (v1.4.44). Ele continua sendo um SELETOR e não um
 tile — as duas opções ficam à vista, com ícone e palavra —, mas o desenho mudou
 a pedido do operador: *"simplifique o design do agrupamento e botões de fácil e
 avançado, eles estão com muitas camadas e tons de grupos. faça eles do tipo
@@ -1055,6 +1056,28 @@ dentro do `<main>` mantém a classe `open` e apaga a folha da tela, sem erro em
 lugar nenhum — daí o `smoke.mjs` medir a CAIXA dela antes e depois, e não só a
 classe.
 
+##### O cartão invisível, e o rótulo que era o único texto solto (v1.4.44)
+
+**MEDIDO** numa viewport de 430: o trilho ia de 27,2 a 402,8 (375,6px) e a grade
+de tiles, de 14,4 a 415,6 (401,2px) — **12,8px de recuo de cada lado**. Foi o
+relato do operador (*"parece não estar alinhado com os outros botões abaixo"*), e
+o culpado **não desenha nada**: a `.fade-row` pinta `--panel`, o MESMO tom da
+folha, então o cartão é invisível e o que se vê é só o `padding` dele.
+
+**Um cartão invisível que só desalinha não é um cartão: é padding.** A linha
+virou o que já parecia ser — uma legenda e um trilho.
+
+- **`background: none` E o `padding` zerado**, os dois. Só o padding deixaria a
+  regra de R1 (a `.fade-row` está na lista) descrevendo um bloco que não pinta
+  mais nada. Ela **continua na lista**, e isso está certo: a lista é o que AFUNDA
+  a superfície dos filhos, e quem afunda aqui é a folha — o que a linha não faz
+  mais é pintar por cima dela.
+- **O rótulo é CENTRADO.** Ele encabeça um controle de duas metades simétricas e
+  é o único texto solto desta folha; à esquerda ele apontava para a metade
+  "Fácil", que é uma das duas escolhas. O oráculo mede o TEXTO PINTADO (um
+  `Range` sobre o nó de texto), nunca a caixa do `<span>`: `.fade-row--fit` é
+  `align-items: stretch`, então ela ocupa a linha inteira nas duas versões.
+
 **O WALLPAPER É UM `<label>`** sobre o `<input type="file">`: é a ativação
 nativa do rótulo que abre o seletor do aparelho (invariante 6 — sem o
 `onShowFileChooser` do `ControleChromeClient` o toque não faria nada, sem erro
@@ -1065,32 +1088,54 @@ tile como os outros.
 
 O rodapé: **estado do telão**, a **versão** e o **Registro**.
 
-#### O rodapé tem UM desenho (v1.4.43)
+#### O rodapé é UMA barra (v1.4.43 o desenho, v1.4.44 a barra)
 
-Pedido do operador: *"faça uma unificação do design do rodapé das configurações,
-atualmente cada elemento tem um design e tamanho único, como a versão, o
-registro e seus botões… padronize e unifique, pois são basicamente o mesmo
-tema"*.
+Pedido do operador, em duas rodadas: *"faça uma unificação do design do rodapé
+das configurações, atualmente cada elemento tem um design e tamanho único"* e,
+depois, *"ficou duas seções, a versão e o registro em grupos separados. pode
+deixar tudo em uma barra horizontal única"*.
 
-Eram três peças com três desenhos: a versão como texto solto, o rótulo
-"Registro" como legenda e os dois botões como pastilhas de outra altura. Hoje
-são **DUAS pastilhas** na `.footer-diag`, uma em cada ponta:
+Eram três peças com três desenhos: a versão como texto solto, o rótulo "Registro"
+como legenda e os botões como pastilhas de outra altura. A v1.4.43 as unificou em
+duas pastilhas iguais — e **parou no meio**: duas caixas com a mesma cor e um vão
+entre elas continuam se lendo como dois assuntos, e o assunto é UM. Hoje a
+**superfície é a faixa** (`.footer-diag`), e o que mora nela é texto e um alvo:
 
-| pastilha | o quê |
+| na faixa | o quê |
 |---|---|
-| `.app-version` | `Web vX · Shell vY` |
-| `.footer-log` | o rótulo "Registro" + `#diagSave` + `#diagCopy` |
+| esquerda | `Web vX · Shell vY` |
+| direita | o rótulo "Registro" + `#diagSave` |
 
-- **Mesmo tom (`--surface-2`), mesma altura (`--hit`) e mesmo corpo** — o
-  `--fs-diag` é declarado uma vez na `.footer-diag` e herdado pelas duas.
-- **O rótulo e os botões são UM bloco** porque são uma coisa: o nome do que se
-  copia e as duas formas de copiar.
-- **`flex: 0 0 auto` nas duas, `margin-left: auto` na segunda**: elas encostam
-  nas pontas e nenhuma estica. `flex: 1` daria duas caixas do tamanho da tela
-  com o texto perdido no meio.
-- **O `.log-copy` perde o fundo próprio ali dentro** (a pastilha já é o fundo) e
-  guarda o `--btn-ok` do estado **copiado**, que é o único momento em que ele
-  precisa se destacar de dentro dela.
+- **O respiro da esquerda é `padding`; o da direita é o ALVO.** A versão é texto
+  e precisa de folga; o `.log-copy` é um quadrado de `--hit` e a folga dele já
+  está dentro do alvo — um padding à direita empurraria o botão para dentro e
+  deixaria uma borda morta na faixa.
+- **O botão perde o fundo próprio** e herda o da faixa: um fundo dentro de um
+  fundo é a camada a mais que as duas rodadas existem para tirar.
+- **`--text` e não `--muted` na versão**, e é MEDIDO: a faixa afunda
+  `--surface-2` dentro da folha, e no tema CLARO isso é preto a 20% sobre branco
+  (204,204,204) — `--muted` ali dá **4,15:1**, abaixo do piso de 4,5. Com
+  `--text`: **5,52:1** no claro e 10,55:1 no escuro.
+
+##### O COPIAR do Registro saiu (v1.4.44)
+
+*"pode remover o sistema de copiar registro. o registro está cada vez maior e
+mais completo e acaba por ele ficar longo de mais para compartilhar via chat de
+texto."*
+
+A área de transferência é o caminho que **corta o texto no meio sem avisar** —
+foi esse relato que criou o salvar em arquivo na v1.2.16 —, e o Registro só
+cresceu desde então. Ficou a porta que não corta.
+
+- **O `copiarTexto`, o `.log-copy` e o `#icoCopiar` FICAM**, com o consumidor que
+  os justifica: o `#castUrlCopy`, o endereço da transmissão — curto, e feito para
+  ser digitado noutro aparelho. A regra geral mudou de forma e não de intenção:
+  todo campo de log continua nascendo com uma porta de saída, e **qual porta
+  depende do TAMANHO**.
+- **CONSEQUÊNCIA DECLARADA:** num navegador o rodapé não tem mais como exportar
+  o Registro (o salvar depende da ponte, e é `hidden` fora do app). É o certo —
+  ali metade dos blocos dele nem existe. O rótulo acompanha o botão pelo mesmo
+  motivo: uma palavra sozinha, sem alvo ao lado, é um controle que não existe.
 
 #### A contagem de uso NÃO TEM MAIS CHAVE (v1.4.42)
 

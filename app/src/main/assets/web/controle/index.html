@@ -1621,58 +1621,54 @@
         <button id="openDisplayBtn" class="display-status" hidden>
           <span class="msym" aria-hidden="true">&#xe251;</span> <span id="displayStatusText">Telão</span>
         </button>
-        <!-- Versão da base web (e do shell, no app). Morava no cabeçalho da
-             lista, ao lado do título do Cronograma; veio para cá porque é
-             METADADO de diagnóstico e o lugar onde se procura diagnóstico é
-             junto do estado do telão e do alvo de espelhamento, não numa faixa
-             de navegação. Preenchido por `renderVersionLabel`. -->
-        <!-- ===== O RODAPÉ É UMA FAIXA DE DOIS BLOCOS IGUAIS (v1.4.43) =====
-             Relato do operador: *"cada elemento tem um design e tamanho único,
-             como a versão, o registro e seus botões… padronize e unifique, pois
-             são basicamente o mesmo tema"*.
+        <!-- ===== O RODAPÉ É UMA BARRA SÓ (v1.4.44) =====
+             Pedido do operador: *"no rodapé de versão e etc… ficou duas seções,
+             a versão e o registro em grupos separados. pode deixar tudo em uma
+             barra horizontal única"*.
 
-             MEDIDO no que havia: a versão era uma pílula de ~20px de altura com
-             raio de CÁPSULA e fonte .7rem; "Registro" era texto solto, sem
-             superfície nenhuma, a .8rem; e os dois botões eram quadrados de
-             34px com raio de BOTÃO. Quatro formas, três alturas, dois raios e
-             duas fontes — para dizer UMA coisa só: *"o que eu mando para quem
-             vai me ajudar?"*.
+             A v1.4.43 já tinha unificado o DESENHO (mesma altura, mesmo raio,
+             mesma superfície, mesma fonte) e parou no meio: duas pastilhas com
+             um vão entre elas ainda se leem como dois assuntos, e o assunto é
+             UM — *"que versão eu tenho, e o que eu mando para quem vai me
+             ajudar?"*. Agora a superfície é a FAIXA, e o que mora dentro dela é
+             texto e um alvo: a versão à esquerda (o fato), o Registro à direita
+             (o rótulo e a ação).
 
-             Agora são DOIS BLOCOS com a mesma altura (`--hit`), o mesmo raio, a
-             mesma superfície e a mesma fonte: a VERSÃO à esquerda (o fato) e o
-             REGISTRO à direita (o rótulo mais as duas ações que o levam para
-             fora). Agrupar o rótulo com os botões é o que fecha a conta — solto,
-             ele era o único elemento da faixa sem caixa, e a distância entre a
-             palavra e o botão dela era maior que a que os separava da versão.
+             O COPIAR SAIU (v1.4.44), a pedido: *"pode remover o sistema de
+             copiar registro. o registro está cada vez maior e mais completo e
+             acaba por ele ficar longo de mais para compartilhar via chat de
+             texto"*. A área de transferência era o caminho que CORTA o texto no
+             meio sem avisar — foi o relato que criou o salvar em arquivo na
+             v1.2.16 —, e o Registro só cresceu desde então. Fica a porta que não
+             corta.
 
-             OS BOTÕES PERDEM A SUPERFÍCIE PRÓPRIA e herdam a do bloco: dois
-             fundos dentro de um fundo é a "camada a mais" que o resto deste lote
-             está tirando. O alvo continua sendo `--hit` inteiro, e o pulso de
-             confirmação (`.btn-pulso`) continua pintando o BOTÃO tocado — que é
-             o que diz em qual dos dois se tocou. -->
+             CONSEQUÊNCIA DECLARADA: num NAVEGADOR o rodapé não tem mais como
+             exportar o Registro (o salvar depende da ponte, e é `hidden` fora do
+             app — quem o revela é `renderVersionLabel`). É o certo: o Registro
+             descreve um culto num aparelho, e no navegador metade dos blocos
+             dele nem existe. O rótulo acompanha o botão pelo mesmo motivo — uma
+             palavra sozinha, sem alvo ao lado, é um controle que não existe.
+
+             O `copiarTexto`, o `.log-copy` e o `#icoCopiar` FICAM: quem os usa
+             agora é o `#castUrlCopy`, o endereço da transmissão — que é curto,
+             é para digitar noutro aparelho, e é o caso em que a área de
+             transferência é exatamente a ferramenta certa. -->
         <div class="footer-diag">
           <!-- Versão da base web (e do shell, no app). Morava no cabeçalho da
                lista, ao lado do título do Cronograma; veio para cá porque é
                METADADO de diagnóstico e o lugar onde se procura diagnóstico é
                junto do estado do telão e do alvo de espelhamento, não numa faixa
                de navegação. Preenchido por `renderVersionLabel`. -->
-          <span id="appVersion" class="app-version">Controle v1.4.43</span>
-          <div class="footer-log">
-            <span class="footer-diag-rot">Registro</span>
-            <!-- SALVAR EM ARQUIVO (v1.2.16). Com o acervo inteiro varrido o
-                 Registro passa de setenta linhas só na seção de cifras, e copiar
-                 e colar é o caminho que corta o texto no meio SEM AVISAR — foi o
-                 relato que abriu aquele lote. Um arquivo não corta. Fica ao lado
-                 do copiar porque os dois respondem à mesma intenção ("levar isto
-                 para fora"); `hidden` fora do app, onde não há ponte para gravar
-                 (quem o revela é `renderVersionLabel`). -->
-            <button id="diagSave" class="log-copy" title="Salvar o registro num arquivo" aria-label="Salvar o registro num arquivo" hidden>
-              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoSalvar"/></svg>
-            </button>
-            <button id="diagCopy" class="log-copy" title="Copiar o registro" aria-label="Copiar o registro">
-              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoCopiar"/></svg>
-            </button>
-          </div>
+          <span id="appVersion" class="app-version">Controle v1.4.44</span>
+          <!-- SALVAR EM ARQUIVO (v1.2.16). Com o acervo inteiro varrido o
+               Registro passa de setenta linhas só na seção de cifras, e copiar e
+               colar é o caminho que corta o texto no meio SEM AVISAR — foi o
+               relato que abriu aquele lote. Um arquivo não corta. Desde a
+               v1.4.44 ele é a ÚNICA porta, e o rótulo viaja com ele. -->
+          <span class="footer-diag-rot" id="diagRot" hidden>Registro</span>
+          <button id="diagSave" class="log-copy" title="Salvar o registro num arquivo" aria-label="Salvar o registro num arquivo" hidden>
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoSalvar"/></svg>
+          </button>
         </div>
         <!-- A ATUALIZAÇÃO (v5.245). Ele mora ao lado do rótulo de versão
              porque é a MESMA conversa ("que versão eu tenho?" / "tem uma mais

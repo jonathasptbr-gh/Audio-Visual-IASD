@@ -267,7 +267,7 @@ const appVersionEl = document.getElementById('appVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.4.43';
+const WEB_VERSION = '1.4.44';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -451,7 +451,7 @@ const rotBtnEl = document.getElementById('rotBtn');
 const lyricsBgTileEl = document.getElementById('lyricsBgTile');
 const wallFileEl = document.getElementById('wallFile');
 const wallTileEl = document.getElementById('wallTile');
-const diagCopyEl = document.getElementById('diagCopy');
+const diagRotEl = document.getElementById('diagRot');
 const diagSaveEl = document.getElementById('diagSave');
 // "Conectar uma tela": a linha em Configurações e a folha que ela abre.
 const castPopupEl = document.getElementById('castPopup');
@@ -20765,18 +20765,19 @@ async function copiarTexto(texto, btn) {
   return ok;
 }
 
-// O botão de copiar do registro. O `diagCopyEl` já existia lá em cima como
-// referência PENDURADA — apontava para um `#diagCopy` que o HTML não tinha e
-// não escutava nada. Agora o elemento existe e ele tem função.
+// (O BOTÃO DE COPIAR O REGISTRO SAIU na v1.4.44, a pedido do operador: *"pode
+//  remover o sistema de copiar registro. o registro está cada vez maior e mais
+//  completo e acaba por ele ficar longo de mais para compartilhar via chat de
+//  texto"*. A área de transferência era o caminho que CORTA o texto no meio sem
+//  avisar — foi esse relato que criou o salvar em arquivo na v1.2.16 —, e o
+//  Registro só cresceu desde então. Ficou a porta que não corta.)
 //
-// Copia o registro MONTADO. Até a v5.206 havia um `|| diagBoxEl.textContent`
-// atrás desta leitura, e ele existia porque a caixa ROLAVA: copiar o que estava
-// à vista entregaria um pedaço do meio. Sem o visor, a variável é a única fonte
-// — e é a completa.
-// O ENDEREÇO DA TRANSMISSÃO se copia pelo mesmo caminho do Registro. Ele é
-// lido do NÓ e não de uma variável à parte: quem o escreve é `mirrorEstado`, a
-// cada volta da enquete, e uma segunda cópia guardada aqui ficaria para trás
-// no dia em que o IP mudasse (o Wi-Fi caindo e voltando é o caso normal).
+// O ENDEREÇO DA TRANSMISSÃO continua se copiando, e agora é o ÚNICO consumidor
+// do `copiarTexto`. Ele é o caso em que a área de transferência é a ferramenta
+// certa: é curto e existe para ser digitado noutro aparelho. Lido do NÓ e não
+// de uma variável à parte: quem o escreve é `mirrorEstado`, a cada volta da
+// enquete, e uma segunda cópia guardada aqui ficaria para trás no dia em que o
+// IP mudasse (o Wi-Fi caindo e voltando é o caso normal).
 if (castUrlCopyEl) {
   castUrlCopyEl.addEventListener('click', () => {
     const url = (castUrlEl && castUrlEl.textContent || '').trim();
@@ -20784,9 +20785,6 @@ if (castUrlCopyEl) {
   });
 }
 
-if (diagCopyEl) {
-  diagCopyEl.addEventListener('click', () => copiarTexto(diagTexto, diagCopyEl));
-}
 
 /**
  * O REGISTRO EM ARQUIVO (v1.2.16).
@@ -20813,6 +20811,10 @@ if (diagSaveEl) {
   // `controle.js` inteiro, e o watchdog do OTA rejeita o bundle sem que nada
   // na tela diga por quê. Medido: o app não subiu.
   diagSaveEl.hidden = !window.__NATIVE__;
+  // O RÓTULO VIAJA COM O BOTÃO (v1.4.44). Com o copiar fora, ele é o único
+  // alvo da faixa: uma palavra sozinha, sem nada ao lado, é um controle que
+  // não existe — e num navegador o Registro não tem como sair do rodapé.
+  if (diagRotEl) diagRotEl.hidden = !window.__NATIVE__;
   diagSaveEl.addEventListener('click', async () => {
     if (!window.__NATIVE__) return;
     const d = new Date();

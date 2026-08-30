@@ -1,5 +1,13 @@
 [
   {
+    "versao": "1.4.44",
+    "itens": [
+      "O título “Modo do app” ficou centrado, e o seletor alinhou com os botões abaixo.",
+      "O rodapé de Configurações virou uma barra só: a versão e o registro juntos.",
+      "O botão de copiar o registro saiu; salvar em arquivo continua, e não corta o texto."
+    ]
+  },
+  {
     "versao": "1.4.43",
     "itens": [
       "O rodapé de Configurações ficou com um desenho só: a versão e o registro no mesmo tamanho.",
