@@ -1409,7 +1409,21 @@
              com o título mais longo desta lista ("Preenchimento") numa linha
              só, e é o número que faz sete opções fecharem em três fileiras.
              Quem pinta cada tile é `pintarTile()` — o `data-estado` é escrito
-             lá e é por ele que os oráculos perguntam, nunca pela classe. -->
+             lá e é por ele que os oráculos perguntam, nunca pela classe.
+
+             A ORDEM É POR NATUREZA (v1.4.39), e foi pedida: *"ajuste para que
+             esses itens que não se ativam fiquem no topo da listagem e deixe os
+             outros mais em baixo"*. Primeiro os que NÃO têm desligado — tema,
+             preenchimento, wallpaper, histórico —, sempre acesos; depois os que
+             LIGAM E DESLIGAM — fundo da letra, girar, medição —, que apagam
+             quando a função está desligada.
+
+             UMA GRADE SÓ, e não duas com um respiro entre elas: o primeiro
+             grupo tem QUATRO itens e três colunas, então uma grade própria para
+             ele deixaria dois buracos no meio do painel — que se leem como
+             defeito, não como separação. Numa grade só a ordem já responde ao
+             pedido, e quem desenha o grupo é a própria COR: os quatro primeiros
+             são azuis, e o bloco azul se lê mesmo virando a linha. -->
         <div class="qs-grade">
           <!-- TEMA (v5.192, tile na v1.4.38). Primeiro da grade porque é a
                mesma classe de decisão do modo do app logo acima — "como este
@@ -1434,30 +1448,6 @@
             </svg>
             <span class="qs-titulo">Preenchimento</span>
             <span class="qs-estado">Ajustar</span>
-          </button>
-          <!-- GIRAR: a mesma AÇÃO de sempre, que avança 90° por toque e dá a
-               volta. Ninguém pensa em "270°", pensa em "gira mais uma vez até
-               ficar de pé" — e o rótulo mostra o ângulo vigente para o estado
-               ser legível sem contar toques. Ele já era um botão de avanço
-               dentro da folha antiga (`.fit-opt--rot`); aqui ele deixou de ser
-               a exceção ao lado de um seletor e virou o que sempre foi: um
-               tile igual aos outros. -->
-          <button type="button" class="qs-tile" id="rotBtn" title="Girar 90° no telão">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoGirar"/></svg>
-            <span class="qs-titulo">Girar</span>
-            <span class="qs-estado">0°</span>
-          </button>
-          <!-- IMAGENS DOS SLIDES DA MÚSICA: cada estrofe do hino traz uma
-               imagem de fundo baixada com ele. Removê-las deixa a letra sobre
-               preto. O título encolheu de "Imagens dos slides (músicas)" para
-               "Fundo da letra", que é o que aquilo é — e o parêntese explicava
-               justamente o que o tile não precisa explicar. -->
-          <button type="button" class="qs-tile" id="lyricsBgTile" title="Mostrar ou remover a imagem de fundo das estrofes">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <use class="ico-base" href="#icoImagem"/><use class="ico-alt" href="#icoImagemOff"/>
-            </svg>
-            <span class="qs-titulo">Fundo da letra</span>
-            <span class="qs-estado">Mostrar</span>
           </button>
           <!-- WALLPAPER: a cortina que cobre o telão fora das mídias. Uma
                imagem própria substitui o gradiente padrão (e a marca).
@@ -1484,11 +1474,47 @@
                linha de transporte, e aquela fileira é o que se opera DURANTE o
                culto — o histórico é o que se consulta ANTES ou DEPOIS ("o que
                eu já toquei?", "o que tocamos no sábado passado?"). Quem herdou
-               a célula foi o auxiliar de leitura (ver `#lyricsViewBtn`). -->
-          <button type="button" class="qs-tile" id="histOpenRow" title="O que já foi ao telão">
+               a célula foi o auxiliar de leitura (ver `#lyricsViewBtn`).
+
+               É O ÚNICO TILE COM `qs-on` ESCRITO NO HTML, e o motivo é que ele
+               é o único que nenhuma função pinta: ele não tem estado nenhum —
+               abre uma folha e pronto. Os outros três "sempre acesos" recebem
+               a classe de `pintarTile()`, porque eles TÊM um estado para
+               escrever (a palavra e, em dois deles, o desenho). -->
+          <button type="button" class="qs-tile qs-on" id="histOpenRow" title="O que já foi ao telão">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoHistorico"/></svg>
             <span class="qs-titulo">Histórico</span>
             <span class="qs-estado">Abrir</span>
+          </button>
+          <!-- ===== DAQUI PARA BAIXO, OS QUE LIGAM E DESLIGAM =====
+               IMAGENS DOS SLIDES DA MÚSICA: cada estrofe do hino traz uma
+               imagem de fundo baixada com ele. Removê-las deixa a letra sobre
+               preto. O título encolheu de "Imagens dos slides (músicas)" para
+               "Fundo da letra", que é o que aquilo é — e o parêntese explicava
+               justamente o que o tile não precisa explicar.
+               ACESO É "Mostrar": a função ligada é a imagem aparecer, e é assim
+               que o desenho (imagem inteira × imagem riscada) e a luz dizem a
+               mesma coisa. -->
+          <button type="button" class="qs-tile" id="lyricsBgTile" title="Mostrar ou remover a imagem de fundo das estrofes">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <use class="ico-base" href="#icoImagem"/><use class="ico-alt" href="#icoImagemOff"/>
+            </svg>
+            <span class="qs-titulo">Fundo da letra</span>
+            <span class="qs-estado">Mostrar</span>
+          </button>
+          <!-- GIRAR: a mesma AÇÃO de sempre, que avança 90° por toque e dá a
+               volta. Ninguém pensa em "270°", pensa em "gira mais uma vez até
+               ficar de pé" — e o rótulo mostra o ângulo vigente para o estado
+               ser legível sem contar toques. Ele já era um botão de avanço
+               dentro da folha antiga (`.fit-opt--rot`); aqui ele deixou de ser
+               a exceção ao lado de um seletor e virou o que sempre foi: um
+               tile igual aos outros.
+               É dos que APAGAM: `0°` é o giro desligado, e essa é a única
+               posição em que a mídia sai como veio. -->
+          <button type="button" class="qs-tile" id="rotBtn" title="Girar 90° no telão">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoGirar"/></svg>
+            <span class="qs-titulo">Girar</span>
+            <span class="qs-estado">0°</span>
           </button>
           <!-- ESTE APARELHO NA MEDIÇÃO DE ALCANCE (v1.4.1).
                O app conta, uma vez por dia, quantos APARELHOS o usaram — um
@@ -1567,7 +1593,7 @@
              pedir ajuda"), e agora ocupam a mesma faixa: a versão à esquerda, o
              Registro à direita, no espaço que já estava sobrando. -->
         <div class="footer-diag">
-          <span id="appVersion" class="app-version">Controle v1.4.38</span>
+          <span id="appVersion" class="app-version">Controle v1.4.39</span>
           <span class="footer-diag-rot">Registro</span>
           <!-- SALVAR EM ARQUIVO (v1.2.16). Com o acervo inteiro varrido o
                Registro passa de setenta linhas só na seção de cifras, e copiar

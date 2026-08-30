@@ -897,15 +897,22 @@ altura. Hoje é uma **grade de três colunas** de tiles: **ícone, título curto
 palavra do estado**, e o toque **alterna** — o painel rápido de um celular.
 As mesmas sete opções ocupam ~230px.
 
-| tile | id | estado (`data-estado`) | ícone |
-|---|---|---|---|
-| Tema | `#temaTile` | `escuro` · `claro` | `#icoLua` / `#icoSol` |
-| Preenchimento | `#fitTile` | `contain` · `cover` (ver `stage.setFit()`) | `#icoAjustar` / `#icoPreencher` |
-| Girar | `#rotBtn` | `0` `90` `180` `270` | `#icoGirar` |
-| Fundo da letra | `#lyricsBgTile` | `image` · `black` (ver "Fundo preto vs. imagens dos slides") | `#icoImagem` / `#icoImagemOff` |
-| Wallpaper | `#wallTile` | `padrao` · `propria` | `#icoWallpaper` |
-| Histórico | `#histOpenRow` | — (abre a folha) | `#icoHistorico` |
-| Medição | `#farolTile` | `sim` · `nao` (`hidden` fora do app) | `#icoMedicao` / `#icoMedicaoOff` |
+**A ORDEM DA GRADE É POR NATUREZA** (v1.4.39), e ela é a tabela abaixo, de cima
+para baixo: primeiro os tiles que **não têm "desligado"** — sempre acesos —,
+depois os que **ligam e desligam**. Numa grade só, e não em duas com um respiro
+entre elas: o primeiro grupo tem QUATRO itens em três colunas, e uma grade
+própria para ele deixaria dois buracos no meio do painel. Quem desenha o grupo é
+a própria cor.
+
+| tile | id | estado (`data-estado`) | aceso | ícone |
+|---|---|---|---|---|
+| Tema | `#temaTile` | `escuro` · `claro` | **sempre** | `#icoLua` / `#icoSol` |
+| Preenchimento | `#fitTile` | `contain` · `cover` (ver `stage.setFit()`) | **sempre** | `#icoAjustar` / `#icoPreencher` |
+| Wallpaper | `#wallTile` | `padrao` · `propria` | **sempre** | `#icoWallpaper` |
+| Histórico | `#histOpenRow` | — (abre a folha) | **sempre** (classe no HTML) | `#icoHistorico` |
+| Fundo da letra | `#lyricsBgTile` | `image` · `black` (ver "Fundo preto vs. imagens dos slides") | em `image` | `#icoImagem` / `#icoImagemOff` |
+| Girar | `#rotBtn` | `0` `90` `180` `270` | ≠ `0` | `#icoGirar` |
+| Medição | `#farolTile` | `sim` · `nao` (`hidden` fora do app) | em `sim` | `#icoMedicao` / `#icoMedicaoOff` |
 
 As três regras do tile, escritas por inteiro no `index.html`:
 
@@ -915,17 +922,35 @@ As três regras do tile, escritas por inteiro no `index.html`:
    árvore-sombra de um `<use>`. Onde dois desenhos não se distinguiriam a 22px
    (o giro, que é um NÚMERO; o wallpaper, cujo par viraria o `#icoImagem` do
    vizinho) há um ícone só, e isso está dito no comentário de cada símbolo.
+   **Quem troca o desenho é `.qs-alt`, e não `.qs-on`** (v1.4.39): são duas
+   perguntas — *"qual desenho?"* e *"está ligado?"* — e enquanto foram a mesma
+   classe um tile sempre aceso ficaria preso no desenho alternativo.
 2. **A PALAVRA DO ESTADO FICA** (`.qs-estado`). Um ícone sozinho responde por
    CONVENÇÃO, e convenção é o que se erra num app aberto três vezes por semana.
-3. **ACESO (`qs-on`) = O ESTADO NÃO É O PADRÃO** — `--btn-accent` + `--accent`,
-   a gramática de INTERRUPTOR LIGADO da paleta, nunca o `--accent-fill` de
-   ESCOLHA ENTRE ALTERNATIVAS. Ele responde à pergunta que se faz olhando a
-   grade de longe: *"o que eu deixei mexido aqui?"*. Com tudo no padrão a grade
-   fica apagada.
+3. **ACESO (`qs-on`) = A FUNÇÃO ESTÁ LIGADA — e num tile sem "desligado",
+   SEMPRE** (v1.4.39). `--btn-accent` + `--accent`, a gramática de INTERRUPTOR
+   LIGADO da paleta, nunca o `--accent-fill` de ESCOLHA ENTRE ALTERNATIVAS.
 
-**Quem pinta é `pintarTile(el, estado, rotulo, ligado)`, e é um ponto só** — o
-`data-estado`, a palavra e o aceso saem da mesma chamada, e é pelo `data-estado`
-que os oráculos perguntam (nunca pela classe, que é aparência). Os tiles são
+   A v1.4.38 lia o aceso como *"o estado não é o padrão"*, e o operador
+   desmentiu: *"a maioria dos botões das configurações não tem estado de ativo e
+   inativo… então pode deixar eles no estado azul de 'sempre ativo' o tempo
+   todo"*. Escolher "Ajustar" não desliga nada, e apagado ali dizia
+   INDISPONÍVEL — a queixa exata da v1.4.25, com o app já tendo uma linguagem
+   para isso (`opacity: .3` + `disabled`). **O que se perde está dito:** a grade
+   deixou de responder *"o que eu deixei mexido aqui?"* de relance; quem
+   responde isso é a palavra do estado, que sempre esteve lá.
+
+   No mesmo lote o aceso do **fundo da letra** e o da **medição** foram
+   INVERTIDOS: eles marcavam o estado que não é o padrão (`Remover`,
+   `De fora`), e agora marcam a função ligada (`Mostrar`, `Entra`) — com isso o
+   desenho e a luz passam a dizer a mesma coisa, em vez de coisas opostas no
+   mesmo botão.
+
+**Quem pinta é `pintarTile(el, estado, rotulo, aceso, alt)`, e é um ponto só** —
+o `data-estado`, a palavra, o aceso e o desenho saem da mesma chamada, e é pelo
+`data-estado` que os oráculos perguntam (nunca pela classe, que é aparência).
+O **histórico** é o único que recebe o `qs-on` no HTML, porque é o único que
+nenhuma função pinta: ele não tem estado — abre uma folha e pronto. Os tiles são
 pintados **no `load()`**, não só ao abrir a folha: um segmentado carregava o
 valor de cada opção no HTML (`data-fit`) e já dizia a verdade antes de alguém
 olhar; um tile só diz o que a pintura escreveu. O da **Medição** fica de fora

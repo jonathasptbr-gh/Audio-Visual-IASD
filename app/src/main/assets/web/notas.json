@@ -1,5 +1,13 @@
 [
   {
+    "versao": "1.4.39",
+    "itens": [
+      "Em Configurações, os botões que não ligam nem desligam ficam sempre azuis.",
+      "Eles subiram para o topo da grade; os que ligam e desligam ficam abaixo.",
+      "O fundo da letra e a medição passaram a acender quando estão ligados."
+    ]
+  },
+  {
     "versao": "1.4.38",
     "itens": [
       "Configurações virou um painel rápido: botões com ícone, em grade, sem rolar.",

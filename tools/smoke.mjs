@@ -255,27 +255,29 @@ try {
     JSON.stringify(corpo));
 
   // ---- A GRADE É UMA GRADE, e os tiles alternam ----
-  // Três metades, e cada uma pega um defeito diferente: a GEOMETRIA (três
-  // colunas — uma grade de uma coluna é a pilha de faixas de volta, com outro
-  // nome e o mesmo scroll), o ESTADO ESCRITO (`data-estado`, que é o que a
-  // pintura promete e o que os outros oráculos leem) e o ACESO seguindo o
-  // estado (a classe sozinha passaria num teste de classe e continuaria sem
-  // regra de CSS por trás — daí medir a cor RENDERIZADA).
+  // A GEOMETRIA (três colunas — uma grade de uma coluna é a pilha de faixas de
+  // volta, com outro nome e o mesmo scroll) e o ESTADO ESCRITO (`data-estado`,
+  // que é o que a pintura promete e o que os outros oráculos leem).
   const grade = await pg.evaluate(async () => {
     const g = document.querySelector('.qs-grade');
     const cols = g ? getComputedStyle(g).gridTemplateColumns.trim().split(/\s+/).length : 0;
     const tile = document.getElementById('fitTile');
-    const fundo = () => getComputedStyle(tile).backgroundColor;
+    const sonda = () => ({
+      estado: tile.dataset.estado,
+      aceso: tile.classList.contains('qs-on'),
+      alt: tile.classList.contains('qs-alt'),
+      cor: getComputedStyle(tile).backgroundColor,
+    });
     // SEM PRAZO NENHUM, e isso é a regra ("um oráculo não pode medir o runner"):
     // `pintarTile` roda SÍNCRONO dentro do ouvinte, antes do primeiro `await` do
     // `applyFit` — a gravação no banco vem depois e não é o que se mede aqui.
     // Um `setTimeout` no meio disto seria uma aposta na carga da máquina para
     // observar um efeito que já aconteceu.
-    const antes = { estado: tile.dataset.estado, aceso: tile.classList.contains('qs-on'), cor: fundo() };
+    const antes = sonda();
     tile.click();
-    const depois = { estado: tile.dataset.estado, aceso: tile.classList.contains('qs-on'), cor: fundo() };
+    const depois = sonda();
     tile.click();
-    const volta = { estado: tile.dataset.estado, aceso: tile.classList.contains('qs-on'), cor: fundo() };
+    const volta = sonda();
     // E O QUE FICOU GRAVADO. Duas coisas de uma vez, e a segunda é higiene do
     // próprio oráculo: prova que o tile PERSISTE o que mostra (`applyFit`
     // grava, e uma pintura que não gravasse voltaria ao abrir o app), e ASSENTA
@@ -295,14 +297,71 @@ try {
     && grade.volta.estado === 'contain',
     'o tile ALTERNA e volta — é um interruptor, não um segmento de um par',
     JSON.stringify([grade.antes.estado, grade.depois.estado, grade.volta.estado]));
-  checar(!grade.antes.aceso && grade.depois.aceso && grade.antes.cor !== grade.depois.cor,
-    'e o ACESO segue o estado, na cor RENDERIZADA: a classe sem a regra de CSS '
-    + 'passaria num teste de classe e continuaria invisível na tela',
-    JSON.stringify([grade.antes.cor, grade.depois.cor]));
   checar(grade.guardado === 'contain',
     'e o que ele mostra é o que fica GRAVADO — uma pintura sem gravação voltaria '
     + 'ao padrão na abertura seguinte',
     'state.fit: ' + JSON.stringify(grade.guardado));
+
+  // ---- QUEM NÃO TEM "DESLIGADO" FICA SEMPRE ACESO (v1.4.39) ----
+  // Pedido do operador: *"a maioria dos botões das configurações não tem estado
+  // de ativo e inativo… então pode deixar eles no estado azul de 'sempre ativo'
+  // o tempo todo"*. Apagado, no vocabulário deste app, quer dizer
+  // INDISPONÍVEL — é a queixa da v1.4.25 (*"foi simplesmente ofuscado o botão
+  // inteiro"*), e escolher "Ajustar" não desliga coisa nenhuma.
+  //
+  // DUAS METADES QUE SÓ JUNTAS DIZEM A REGRA, e a segunda é a que impede o
+  // conserto preguiçoso (acender TUDO, sempre): o preenchimento fica aceso nos
+  // dois estados **e troca de desenho**, e o fundo da letra continua APAGANDO
+  // quando a função está desligada. Sem a primeira, o pedido não foi atendido;
+  // sem a segunda, o painel perde a única linguagem de ligado/desligado que
+  // sobrou.
+  checar(grade.antes.aceso && grade.depois.aceso && grade.antes.cor === grade.depois.cor,
+    'o PREENCHIMENTO fica aceso nos dois estados — ele não tem "desligado", e '
+    + 'apagado ali se lê como indisponível',
+    JSON.stringify([grade.antes.cor, grade.depois.cor]));
+  checar(!grade.antes.alt && grade.depois.alt,
+    'e mesmo aceso o tempo todo ele TROCA DE DESENHO: `qs-alt` responde "qual '
+    + 'desenho?" e `qs-on` responde "está ligado?" — enquanto foram a mesma '
+    + 'classe, um tile sempre aceso ficava preso no desenho alternativo',
+    JSON.stringify([grade.antes.alt, grade.depois.alt]));
+  const liga = await pg.evaluate(() => {
+    const t = document.getElementById('lyricsBgTile');
+    const sonda = () => ({
+      estado: t.dataset.estado,
+      aceso: t.classList.contains('qs-on'),
+      alt: t.classList.contains('qs-alt'),
+      cor: getComputedStyle(t).backgroundColor,
+    });
+    const antes = sonda();
+    t.click();
+    const depois = sonda();
+    t.click();
+    return { antes, depois, volta: sonda() };
+  });
+  checar(liga.antes.estado === 'image' && liga.antes.aceso && !liga.antes.alt
+    && liga.depois.estado === 'black' && !liga.depois.aceso && liga.depois.alt,
+    'e o FUNDO DA LETRA continua apagando — ele TEM desligado, e o desenho '
+    + 'riscado e a luz apagada dizem a mesma coisa',
+    JSON.stringify([liga.antes, liga.depois]));
+  checar(liga.antes.cor !== liga.depois.cor,
+    'na cor RENDERIZADA: a classe sem a regra de CSS passaria num teste de '
+    + 'classe e continuaria invisível na tela',
+    JSON.stringify([liga.antes.cor, liga.depois.cor]));
+  checar(liga.volta.estado === 'image' && liga.volta.aceso,
+    'e ele volta com o segundo toque, sem deixar o acervo com a letra sobre preto');
+
+  // ---- E A ORDEM É POR NATUREZA: os sempre-acesos no topo (v1.4.39) ----
+  // *"ajuste para que esses itens que não se ativam fiquem no topo da listagem
+  // e deixe os outros mais em baixo"*. A asserção é sobre a ORDEM DO DOCUMENTO,
+  // que numa grade row-major é a ordem que se lê — e não sobre a posição em
+  // pixels, que mediria a largura da tela junto.
+  const ordem = await pg.$eval('.qs-grade',
+    (g) => [...g.children].map((e) => e.id));
+  const fixos = ['temaTile', 'fitTile', 'wallTile', 'histOpenRow'];
+  const alterna = ['lyricsBgTile', 'rotBtn', 'farolTile'];
+  checar(JSON.stringify(ordem) === JSON.stringify(fixos.concat(alterna)),
+    'os tiles SEM "desligado" vêm primeiro e os que ligam e desligam depois',
+    JSON.stringify(ordem));
 
   // O QUE A v5.121 QUEBROU: o clique chamava uma função apagada. Um handler que
   // estoura não muda nada na tela — daí conferir o efeito (o pulso de

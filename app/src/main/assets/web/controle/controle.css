@@ -5497,10 +5497,26 @@ main {
      dança meio caractere a cada toque. */
   font-variant-numeric: tabular-nums;
 }
-/* ACESO = O ESTADO NÃO É O PADRÃO — ver as três regras do tile no `index.html`.
-   `--btn-accent` + `--accent` é a gramática de INTERRUPTOR LIGADO da paleta, e
-   não o `--accent-fill` de ESCOLHA ENTRE ALTERNATIVAS: um tile é um botão que
-   alterna, e o seletor de modo logo acima é que é o par de alternativas.
+/* ACESO = A FUNÇÃO ESTÁ LIGADA (v1.4.39) — e num tile que não tem "desligado",
+   SEMPRE. `--btn-accent` + `--accent` é a gramática de INTERRUPTOR LIGADO da
+   paleta, e não o `--accent-fill` de ESCOLHA ENTRE ALTERNATIVAS: um tile é um
+   botão que alterna, e o seletor de modo logo acima é que é o par de
+   alternativas.
+
+   A v1.4.38 leu o aceso como *"o estado não é o padrão"*, e o operador
+   desmentiu: *"a maioria dos botões das configurações não tem estado de ativo e
+   inativo… então pode deixar eles no estado azul de 'sempre ativo' o tempo
+   todo"*. Tema, preenchimento, wallpaper e histórico não têm função para
+   ligar — escolher "Ajustar" não é desligar coisa nenhuma —, e apagados eles
+   diziam INDISPONÍVEL, que é a queixa exata da v1.4.25 (*"foi simplesmente
+   ofuscado o botão inteiro, o que dá a impressão de que não está disponível"*).
+   O app já tem uma linguagem para indisponível (`opacity: .3` + `disabled`), e
+   ela não pode ser a mesma de "você está no padrão".
+
+   O que se perde está dito: a grade deixou de responder *"o que eu deixei
+   mexido aqui?"* de relance. Quem responde isso agora é a palavra do estado,
+   que sempre esteve lá.
+
    Os dois textos vão junto: `color` no botão não alcança um filho que declara
    a própria cor, e um título em `--text` sobre o denim claro do tema claro
    perderia o contraste que a linha acima mediu. */
@@ -5510,11 +5526,17 @@ main {
    cortina (`.pv-fab`), e pelo mesmo motivo: o conteúdo de um `<use>` mora numa
    árvore-sombra que a folha do documento não alcança, então cada estado é um
    `<symbol>` e o consumidor pendura dois `<use>` na árvore de LUZ.
+
+   QUEM O TROCA É `.qs-alt`, E NÃO `.qs-on` (v1.4.39). Enquanto os dois eram a
+   mesma classe, um tile "sempre aceso" ficaria preso no desenho ALTERNATIVO
+   para sempre — o tema mostraria o sol no escuro, o preenchimento mostraria o
+   corte com a mídia ajustada. São duas perguntas diferentes (*"qual desenho?"*
+   e *"está ligado?"*) e a partir daqui elas têm duas classes.
    Tile sem par (o giro, o wallpaper, o histórico) não tem `.ico-alt` e passa
    por estas três regras sem efeito nenhum. */
 .qs-tile .ico-alt { display: none; }
-.qs-tile.qs-on .ico-base { display: none; }
-.qs-tile.qs-on .ico-alt { display: block; }
+.qs-tile.qs-alt .ico-base { display: none; }
+.qs-tile.qs-alt .ico-alt { display: block; }
 
 /* ---------- Leitura auxiliar (letra completa / capítulo inteiro) ---------- */
 /* Bottom-sheet de LEITURA, aberto pelo botão do mixer: a íntegra do que está
