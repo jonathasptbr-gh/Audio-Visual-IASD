@@ -185,14 +185,21 @@ try {
   checar(d2.nextOff && !d2.prevOff,
     '  ↳ e na última o ⏭ apaga', d2);
 
-  // ── 5. A APRESENTAÇÃO SOBRE UM LOUVOR (v1.4.28) ───────────────────────────
-  // A pilha vale aqui também: há UMA zona neste modo, e mostrar a camada de
-  // trás seria descrever o que a congregação não está vendo.
+  // ── 5. UMA CAMADA VINDA DO MODO AVANÇADO CONTINUA OPERÁVEL ────────────────
+  //
+  // O Modo Fácil não CRIA sobreposição (v1.4.32, `modo-facil-um-elemento`) —
+  // mas uma cena composta montada no avançado sobrevive à troca de modo, porque
+  // colapsá-la ali mudaria a projeção como efeito colateral de um toque em
+  // Configurações. Ela dura só até o próximo `send`, e enquanto dura tem de ser
+  // OPERÁVEL: a zona mostra as PÁGINAS (quem está na frente vence — a camada de
+  // trás é o que a congregação não está vendo) e as teclas funcionam.
   const camada = await pg.evaluate(async (o) => {
+    setAppMode('full');
     await send(o.audio);
     currentItem.lyrics = [{ cover: true }, { time: 0, text: 'primeira' }];
-    await send(o.deck);
-    await new Promise((r) => setTimeout(r, 200));
+    await send(o.deck);          // no AVANÇADO isto sobrepõe
+    setAppMode('simple');        // e a cena composta atravessa a troca
+    await new Promise((r) => setTimeout(r, 250));
     return {
       camada: deckSobreProjetando(),
       emCena: currentId === o.audio,
@@ -202,9 +209,9 @@ try {
     };
   }, ids);
   checar(camada.camada && camada.emCena && camada.slides === PAGINAS && camada.rowVisivel,
-    'COM A APRESENTAÇÃO SOBRE UM LOUVOR a zona mostra as PÁGINAS e as teclas '
-    + 'ficam: é a mesma pilha do auxiliar do modo avançado — quem está na frente '
-    + 'vence, e a camada de trás é o que a congregação não está vendo', camada);
+    'UMA CAMADA VINDA DO MODO AVANÇADO continua operável aqui: a zona mostra as '
+    + 'PÁGINAS e as teclas ficam. Colapsá-la na troca de modo mudaria a projeção '
+    + 'por causa de um toque em Configurações', camada);
   checar(camada.num === '1/' + PAGINAS,
     '  ↳ e aqui o número da página é o ÚNICO lugar do modo que o mostra: o '
     + 'título é o do ÁUDIO, que é o que o ▶ controla', camada.num);

@@ -271,7 +271,7 @@ const appVersionEl = document.getElementById('appVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.4.31';
+const WEB_VERSION = '1.4.32';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -10297,7 +10297,29 @@ async function send(id, daFila, retomarEm) {
   // toque numa música) SUBSTITUI, como sempre substituiu — inventar uma segunda
   // regra para a mesma pergunta é o que este arquivo recusa em toda parte, e o
   // operador já conhece esta.
-  if (!daFila && alvo && (alvo.kind === 'image' || isDeck(alvo)) && audioNoAr()) {
+  //
+  // ===== E O MODO FÁCIL NÃO SOBREPÕE (v1.4.32) =====
+  //
+  // Pedido do operador: *"no modo simples, coloque a limitação de apenas um
+  // elemento ativo na mídia, assim no modo simples não há sobreposição e nem
+  // necessidade de multicontroles"*.
+  //
+  // A sobreposição é uma CENA COMPOSTA — duas coisas no ar ao mesmo tempo —, e
+  // operá-la exige saber qual das duas cada controle governa: o ▶ é do áudio de
+  // baixo, o ⏭ é da apresentação de cima, o Parar tira uma só. Esse é o
+  // vocabulário do modo avançado, e é exatamente o que o Modo Fácil existe para
+  // não pedir de quem opera. Ali o toque tem UM significado: *isto vai para o
+  // telão* — e o que estava vai embora.
+  //
+  // A GUARDA MORA AQUI, e não em cada porta: `send` é o ponto por onde TODOS os
+  // caminhos passam, inclusive o compartilhamento (que no Modo Fácil projeta na
+  // hora, sem perguntar nada). Uma limitação escrita nas portas seria a lista
+  // que envelhece no primeiro caminho novo.
+  //
+  // **É `appMode`, e não "há tela?" nem o Modo Fácil bloqueado.** A pergunta é
+  // sobre o VOCABULÁRIO daquele modo, não sobre o estado da conexão.
+  if (!daFila && appMode !== 'simple' && alvo
+      && (alvo.kind === 'image' || isDeck(alvo)) && audioNoAr()) {
     projetarVisualSobre(alvo);
     return;
   }

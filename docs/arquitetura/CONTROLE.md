@@ -173,6 +173,14 @@ projeta na hora neste modo), projeta, e ficava **presa na página 1** até o
 operador ir ao modo avançado — que é justamente o modo que este existe para não
 exigir.
 
+**E AQUI SÓ HÁ UM ELEMENTO NO AR** (v1.4.32): *"coloque a limitação de apenas um
+elemento ativo na mídia, assim no modo simples não há sobreposição e nem
+necessidade de multicontroles"*. Este modo **não cria sobreposição** — um toque
+numa apresentação com um louvor tocando SUBSTITUI, e o mesmo vale para uma
+imagem. A regra mora numa guarda `appMode !== 'simple'` dentro do `send`; o
+porquê e o caso da cena composta que atravessa a troca de modo estão em
+[`CAMADA-DE-TEXTO.md`](CAMADA-DE-TEXTO.md).
+
 **A ASSIMETRIA COM A LETRA É O PONTO.** A letra anda sozinha, pelo relógio da
 música: ali a zona ILUSTRA e mais nada. Um deck não tem relógio — alguém precisa
 passar a página —, e por isso aqui ela é também CONTROLE: o toque numa página

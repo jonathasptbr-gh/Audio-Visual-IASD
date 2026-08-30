@@ -24,6 +24,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
+- **v1.4.32** — NO MODO FÁCIL SÓ HÁ UM ELEMENTO NO AR. Pedido do operador: *"no modo simples, coloque a limitação de apenas um elemento ativo na mídia, assim no modo simples não há sobreposição e nem necessidade de multicontroles"*. A sobreposição (v5.312 para a imagem, v1.4.28 para a apresentação) é uma CENA COMPOSTA: duas coisas no ar ao mesmo tempo. Operá-la exige saber qual das duas cada controle governa — o ▶ é do áudio de baixo, o ⏭ é da apresentação de cima, o Parar tira uma só —, e esse é o vocabulário do modo AVANÇADO, exatamente o que o Modo Fácil existe para não pedir de quem opera: ali o toque tem UM significado, *isto vai para o telão*, e o que estava vai embora. **UMA guarda, num ponto só:** `appMode !== 'simple'` dentro do `send` — no `send` porque é por onde TODOS os caminhos passam (inclusive o compartilhamento, que naquele modo projeta na hora sem perguntar nada, e é por ali que uma apresentação de fato entra), e por `appMode` porque a pergunta é sobre o VOCABULÁRIO do modo e não sobre a conexão — ela continua valendo com o Modo Fácil destravado por "Tocar neste celular", que é quando ele mais se parece com o avançado. **A limitação é sobre CRIAR, e o preço está dito:** uma cena composta montada no avançado sobrevive à troca de modo, porque colapsá-la ali mudaria a projeção como efeito colateral de um toque em Configurações — devolvendo o slide à página 1 ou calando a música, os dois na frente da congregação. Ela dura até o próximo `send` e, enquanto dura, é operável (v1.4.30). O oráculo novo tem a REVERSÃO como metade que fecha o lote — **o avançado continua sobrepondo** —, sem a qual apagar a sobreposição do app inteiro passaria em tudo o mais e o recurso da v1.4.28 morreria em silêncio, num modo que este pedido nem nomeia. Três reversões, 64/64 verdes. **SÓ BASE WEB.**
 - **v1.4.31** — O HISTÓRICO ATRAVESSA SESSÕES, E OS DOIS BOTÕES TROCAM DE CASA. Pedido do operador, em três partes: *"coloque a função do histórico de mídias tocadas dentro das configurações. E adicione um sistema extra, armazene os dados entre sessões, separando as sessões. Mantenha os itens usáveis apenas na categoria da sessão atual; para as sessões antigas, deixe usáveis apenas itens padrões do sistema, como músicas, textos, links e etc… que não dependem de um arquivo que pode já ter sido excluído, para não ser obrigado a manter aquele arquivo… pode colocar a opção de limpar todo o histórico ou por sessões"*, mais *"no lugar que é atualmente o botão do histórico, mova o botão do auxiliar de leitura… crie uma badge nesse botão para indicar que ele está com alguma função disponível"* e *"na preview, suba o botão do controle do wallpaper para que ele ocupe o canto superior esquerdo que ficará livre"*. **O QUE ESTE LOTE REVOGA está escrito na v1.2.0**: *"apagada a cada nova sessão"*, com um argumento que não era pintura — persistir custaria **uma escrita por projeção, no `send`, o caminho mais quente do culto**. Ele continua de pé e é atendido de outro jeito: `historicoRegistrar` mexe só na memória e AGENDA a gravação (2 s), coalescendo a rajada de um culto inteiro; o `visibilitychange` força a pendente ao sair da frente, que é quando o processo passa a ser descartável; e a escrita é `updateState`, a única que espera o COMMIT. **A separação substitui o apagamento:** uma sessão é uma carga do documento, nasce na PRIMEIRA projeção (um app aberto e fechado sem projetar nada não deixa cabeçalho sobre nada) e a folha ganha cabeçalhos com dia e janela de horas. **A regra da sessão antiga é uma RECEITA gravada no instante da projeção**: cena/link se REMONTAM sem tocar em byte nenhum, item de acervo se PROCURA por `folder` + `srcName` (o `id` não serve — um hino reapagado e rebaixado ganha id novo), e o que só existe porque um arquivo foi importado fica **`· só registro`** — uma linha inerte que não explica é indistinguível de um app quebrado. **Os dois botões trocam de casa pelo mesmo critério:** a coluna sobre a preview passou a ser só o que muda o que a congregação vê e ouve (cortina e mudo), e o que abre uma folha desceu para a fileira das folhas, ao lado da playlist — onde ganhou a badge, porque sobre a preview a ausência de conteúdo se lia no palco a dois centímetros dali. **E O LOTE CONSERTA UM DEFEITO MUDO QUE ELE MESMO INTRODUZIU**: a v1.4.27 subiu com uma marca de conflito de merge por resolver DENTRO do `:is()` do `--press`. `:is()` é FORGIVING — descarta o inválido e aplica o resto —, então as ~40 classes seguiram recuando ao toque e o CI seguiu verde por três lotes; o que se perdeu foram os DOIS seletores em disputa (`.row-slot--ok` e `.lv-row--tocavel`), que pararam de responder ao dedo sem nada na tela dizer por quê. MEDIDO por comparação das duas árvores. Um oráculo de COMPORTAMENTO não pega isto — ele mede um seletor que sobreviveu —, então a asserção nova varre o arquivo CRU. **E o `waitForFunction` do Playwright NÃO espera a promise de um predicado `async`**: ela é truthy e a espera passa no primeiro quadro, aprovando o que veio verificar (medido escrevendo o oráculo) — quem pergunta ao IndexedDB usa laço do lado do Node. Vinte asserções novas, seis reversões, 62/62 verdes. OTA PURO.
 - **v1.4.30** — O MODO FÁCIL PASSOU A OPERAR UMA APRESENTAÇÃO. Pedido do operador: *"verifique o modo simples e seu auxiliar de leitura. Ele deve adquirir as funções para controle de slides também"*. **MEDIDO antes de mexer, e o achado é maior que o pedido:** com uma apresentação em cena aquele modo não a operava de jeito NENHUM. A zona de leitura dizia *"A letra da música aparece aqui."* — a projeção no ar negada pela única superfície do modo que deveria descrevê-la — e as teclas eram play · parar · mudo mais o volume, sem nada que virasse página. O eixo já existia (`slideTarget()` respondia `'deck'`); faltava alguém ali ligado a ele. Uma apresentação entra por compartilhamento (`focarImportado` projeta na hora neste modo), projeta, e ficava **presa na página 1** até o operador ir ao modo avançado — que é justamente o modo que este existe para não exigir. **A assimetria com a letra é o ponto:** a letra anda sozinha pelo relógio da música e ali a zona ILUSTRA; um deck não tem relógio, e por isso aqui ela é também CONTROLE — o toque numa página pula para ela (o mesmo `deckIr`), e a linha `‹ · N/M · ›` nasceu com a GEOMETRIA DA LINHA DE VOLUME, que é a forma já provada do *"teclas grandes, nada de arrastar"*. Ela **espelha** os limites (`renderSimpleSlides` lê o `disabled` que `applySlideLimits` acabou de escrever, a técnica do `renderTransportAxis`) e as teclas acionam as ÂNCORAS do avançado por `.click()`, como o play/parar/mudo já faziam. Duas armadilhas caladas apareceram ao escrever: as MINIATURAS revogadas pela outra coluna (dois desenhistas de páginas dividiam uma lista de URLs, e uma `<img>` com `src` revogado não pinta e não reclama — daí `lvSoltarUrls(lista)` receber a lista) e a PÁGINA na assinatura, que remontaria dezenas de miniaturas a cada ⏭. `--vol` do mostrador virou `--curso`: a caixa passou a ter dois donos. Oráculo novo (`modo-facil-slides.test.mjs`, 14 asserções), cinco reversões, 63/63 verdes. **SÓ BASE WEB.**
 - **v1.4.29** — AS ALTURAS DA FAIXA, E O TECLADO QUE ESPREMIA O CULTO. Dois relatos, e cada um tem uma causa própria. **1) A ALTURA**: *"a altura dos botões de cancelar ou confirmar exclusão, como também a altura da caixa de renomear, estão desalinhadas com as alturas dos botões padrões de tudo dentro da gaveta, como o próprio botão de confirmar renomeação"*. MEDIDO a 430px: no Cronograma TODO quadrado da linha mede `--thumb` (40px, desde a v5.259) e o par e o campo nasceram com `--hit` (34px) — **6px** de diferença, e o ✓ do renomear era a régua que denunciava, porque ele é um `.row-slot` da v1.4.27 e já media 40. O escopo da correção é `.row-acoes` e não `.lib-item`, porque **a régua é o VIZINHO e não a lista**: na FILA os quadrados já medem `--hit` (nunca esteve desalinhada) e na faixa dos FAVORITOS o vizinho é o confirmar da folha, que ESTICA. **2) UM TERCEIRO CASO, achado pela mesma medição e que o operador ainda não tinha visto**: nos Favoritos o campo de renomear media 34px contra os 53,2px do confirmar ao lado — o MESMO pulo de 19px sob o dedo que a v5.309 já tinha corrigido para a pergunta da exclusão, num caminho (o renomear, v1.4.25) que nasceu depois daquela regra e ficou de fora dela. **3) O TECLADO**: *"o teclado está arrastando e encolhendo a tela com o controle ao invés de sobrepor o controle/tela como já faz na biblioteca"*. A régua já estava escrita no CSS do `.popup-backdrop` — *"O TECLADO SOBREPÕE, NÃO DESLOCA… quem rola é a LISTA"* — e vale aqui com um motivo a mais: o que o app encolhe para caber é a PREVIEW e o TRANSPORTE, isto é, a projeção e os controles do culto, comprimidos para revelar um campo que já está à vista numa lista que rola sozinha. A declaração é do CAMPO (`data-teclado="sobrepoe"`), não uma classe que o handler conheça, e o padrão continua sendo DESLOCAR — que é o que o `appPrompt` precisa. Cinco asserções novas, todas provadas por reversão. OTA PURO.
@@ -302,6 +303,74 @@ na nota que a revoga, não apagada da que a criou.
 - **v5.154** — é METADE OTA e METADE APK, e a divisão importa para quem for testar em aparelho.
 - **v5.155** — é OTA PURO
 - **v5.156** — é METADE OTA e METADE APK, de novo.
+
+---
+
+## v1.4.32 — no Modo Fácil só há um elemento no ar
+
+> *"no modo simples, coloque a limitação de apenas um elemento ativo na mídia,
+> assim no modo simples não há sobreposição e nem necessidade de
+> multicontroles"*
+
+### Por que a sobreposição não cabe naquele modo
+
+A sobreposição chegou em duas etapas — a imagem sobre o áudio (v5.312) e a
+apresentação sobre o áudio (v1.4.28) — e as duas produzem a mesma coisa: uma
+**cena composta**, com duas coisas no ar ao mesmo tempo.
+
+Operar uma cena composta exige saber **qual das duas cada controle governa**: o ▶
+é do áudio de baixo, o ⏭ é da apresentação de cima, o Parar tira uma camada só (a
+regra da v1.2.0). Esse é o vocabulário do modo AVANÇADO — e é exatamente o que o
+Modo Fácil existe para não pedir de quem opera. Ali o toque tem **um** significado:
+*isto vai para o telão*, e o que estava vai embora.
+
+O pedido não tira nada do avançado: tira a composição de onde ela cobra um
+vocabulário que aquele modo não ensina.
+
+### Uma guarda, num ponto só
+
+`appMode !== 'simple'`, dentro do `send`. As duas metades importam:
+
+- **no `send`** porque é o ponto por onde TODOS os caminhos passam — o toque na
+  lista, a busca, o ⏮/⏭, a notificação nativa e o **compartilhamento**, que
+  naquele modo projeta na hora sem perguntar nada e é por onde uma apresentação
+  de fato entra ali. Uma limitação escrita nas telas seria a lista que envelhece
+  no primeiro caminho novo;
+- **por `appMode`** porque a pergunta é sobre o vocabulário do MODO, não sobre o
+  estado da conexão. Ela continua valendo com o Modo Fácil destravado por
+  "Tocar neste celular", que é quando ele mais se parece com o avançado.
+
+### A limitação é sobre CRIAR, e o preço está dito
+
+Uma cena composta montada no modo avançado **sobrevive à troca de modo**. É o
+único caso em que o Modo Fácil tem duas camadas no ar, e ele fica assim de
+propósito: colapsá-la na entrada mudaria a projeção como **efeito colateral de um
+toque em Configurações** — ou devolvendo o slide à página 1 (o `send` reseta
+`deckPagina`), ou calando a música que está tocando. Os dois na frente da
+congregação, por causa de uma troca de modo.
+
+Ela dura até o próximo `send`, que substitui como qualquer outro. E enquanto dura
+é **operável**: a zona de leitura mostra as páginas e as teclas de virar
+funcionam (v1.4.30) — o oráculo daquele lote foi reescrito para medir a cena
+composta chegando de fora, que é o único jeito de ela existir ali agora.
+
+### O oráculo
+
+`tools/modo-facil-um-elemento.test.mjs`, no portão. A metade que fecha o lote é a
+**reversão**: *o avançado continua sobrepondo*. Sem ela, apagar a sobreposição do
+app inteiro passaria em tudo o mais — e o recurso que o operador pediu na v1.4.28
+(música atrás dos slides) morreria em silêncio, num modo que este pedido nem
+nomeia.
+
+Cobre as DUAS portas do cartão visual (a imagem e a apresentação: a guarda é uma
+só, e uma regra que valesse para metade delas seria a divergência de sempre), o
+modo destravado, e o caminho do compartilhamento.
+
+Três reversões: a guarda de modo removida (reprova 4), a sobreposição apagada do
+app inteiro (reprova 2), e a guarda valendo só para o deck (reprova 1). 64/64
+verdes.
+
+**SÓ BASE WEB** — sem degrau de ponte, sem `shellTag`, sem Release.
 
 ---
 
