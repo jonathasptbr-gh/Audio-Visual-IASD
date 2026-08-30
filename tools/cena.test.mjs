@@ -710,9 +710,22 @@ try {
   await pg.evaluate(() => applyRotate(0));
 
   // ---- "ESTICAR" saiu, e o valor guardado é migrado ----
-  const fitDepois = await pg.evaluate(() => [...document.querySelectorAll('#fitSeg .fit-opt')].map((b) => b.dataset.fit));
-  checar(JSON.stringify(fitDepois) === JSON.stringify(['contain', 'cover']),
-    'o seletor de preenchimento ficou com duas opções — "Esticar" distorcia a proporção');
+  // O SELETOR VIROU UM TILE que alterna (v1.4.38), e a propriedade que importa é
+  // a mesma de antes: há DUAS posições, e nenhuma delas distorce. Um tile que
+  // alterna prova isso ANDANDO — dar a volta em dois toques é o que garante que
+  // não há um terceiro estado escondido no ciclo.
+  // Sem prazo: `pintarTile` roda síncrono dentro do ouvinte, antes do primeiro
+  // `await` do `applyFit` — esperar aqui seria medir a carga da máquina.
+  const fitDepois = await pg.evaluate(() => {
+    const t = document.getElementById('fitTile');
+    const passos = [t.dataset.estado];
+    for (let i = 0; i < 3; i++) { t.click(); passos.push(t.dataset.estado); }
+    return passos;
+  });
+  checar(JSON.stringify(fitDepois) === JSON.stringify(['contain', 'cover', 'contain', 'cover']),
+    'o preenchimento tem duas posições e alterna entre elas — "Esticar" saiu porque distorcia a proporção',
+    JSON.stringify(fitDepois));
+  await pg.evaluate(() => applyFit('contain'));
   const migrou = await pg.evaluate(async () => {
     await AVDB.setState('fit', 'fill');
     await load();

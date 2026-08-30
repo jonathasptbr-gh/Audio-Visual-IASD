@@ -18,13 +18,12 @@ const muteToggleEl = document.getElementById('muteToggle');
 
 // Modo de uso (ver "Modos de uso" mais abaixo)
 const appModeSegEl = document.getElementById('appModeSeg');
-const temaSegEl = document.getElementById('temaSeg');
-// A chave "este aparelho na medição de alcance" (v1.4.1) — ver `renderFarolSeg`.
+const temaTileEl = document.getElementById('temaTile');
+// A chave "este aparelho na medição de alcance" (v1.4.1) — ver `renderFarolTile`.
 // Aqui em cima, com os irmãos, e não junto da função que a usa: o estado deste
 // arquivo mora no fim e as funções são alcançadas de cima, então um `const`
 // declarado lá embaixo é uma zona morta esperando a ordem de chamada mudar.
-const farolRowEl = document.getElementById('farolRow');
-const farolSegEl = document.getElementById('farolSeg');
+const farolTileEl = document.getElementById('farolTile');
 const simpleModeEl = document.getElementById('simpleMode');
 const simpleSettingsBtnEl = document.getElementById('simpleSettingsBtn');
 const simpleSearchBtnEl = document.getElementById('simpleSearchBtn');
@@ -271,7 +270,7 @@ const appVersionEl = document.getElementById('appVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.4.37';
+const WEB_VERSION = '1.4.38';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -450,13 +449,11 @@ const selDeleteEl = document.getElementById('selDelete');
 const backBtnEl = document.getElementById('backBtn');
 const fadePopupEl = document.getElementById('fadePopup');
 const fadePopupCloseEl = document.getElementById('fadePopupClose');
-const fitSegEl = document.getElementById('fitSeg');
+const fitTileEl = document.getElementById('fitTile');
 const rotBtnEl = document.getElementById('rotBtn');
-const rotLabelEl = document.getElementById('rotLabel');
-const lyricsBgSegEl = document.getElementById('lyricsBgSeg');
+const lyricsBgTileEl = document.getElementById('lyricsBgTile');
 const wallFileEl = document.getElementById('wallFile');
-const wallPickEl = document.getElementById('wallPick');
-const wallResetEl = document.getElementById('wallReset');
+const wallTileEl = document.getElementById('wallTile');
 const diagCopyEl = document.getElementById('diagCopy');
 const diagSaveEl = document.getElementById('diagSave');
 // "Conectar uma tela": a linha em Configurações e a folha que ela abre.
@@ -1959,13 +1956,11 @@ async function setLyricsBg(mode) {
   if (lyricsBg === mode) return;
   lyricsBg = mode;
   await AVDB.setState('lyricsBg', lyricsBg);
-  renderLyricsBgSeg();
+  renderLyricsBgTile();
   cmd({ type: 'lyricsbg', mode: lyricsBg });
 }
-function renderLyricsBgSeg() {
-  lyricsBgSegEl.querySelectorAll('.fit-opt').forEach((btn) => {
-    btn.classList.toggle('active', btn.dataset.lyricsbg === lyricsBg);
-  });
+function renderLyricsBgTile() {
+  pintarTile(lyricsBgTileEl, lyricsBg, lyricsBg === 'image' ? 'Mostrar' : 'Remover', lyricsBg !== 'image');
 }
 
 // Envia o comando ao display E aplica na preview. YouTube usa o player pequeno
@@ -2857,7 +2852,7 @@ async function load(opts) {
   libItems = libItemsV;
   currentItem = currentItemV;
 
-  renderLyricsBgSeg();
+  renderLyricsBgTile();
   renderControls();
   renderNowPlaying();
   renderRepeat();
@@ -2882,7 +2877,18 @@ async function load(opts) {
   preview.setFade({ fadeIn: fadeCfg.in, fadeOut: fadeCfg.out, time: fadeCfg.time });
   preview.setFit(mediaFit);
   preview.setRotate(mediaRot);
+  // OS TILES DO PAINEL SÃO PINTADOS AQUI, e não só ao abrir a folha (v1.4.38).
+  // Um segmentado carregava o valor de cada opção no HTML (`data-fit`), então
+  // ele já dizia a verdade antes de alguém olhar; um tile só diz o que a
+  // pintura escreveu — sem esta linha o `data-estado` fica `null` até a
+  // primeira abertura de Configurações, e um estado ausente lido como "não
+  // está preenchendo" é o tipo de mentira que não erra alto.
+  // O da MEDIÇÃO fica de fora: ele é uma ida à ponte, e `load()` roda dezenas
+  // de vezes por culto. Quem o pinta é o `openFadePopup`, que é o único
+  // instante em que alguém olha para ele.
   renderRotBtn();
+  renderFitTile();
+  renderTemaTile();
 
   // A posição: a GUARDADA quando isto é navegação, a de ANTES quando é um
   // redesenho no lugar.
@@ -19361,15 +19367,15 @@ async function montarFilaSorteada(escolhidos) {
 // ===== transições (fade in/out) =====
 function openFadePopup() {
   renderAppModeSeg();
-  renderTemaSeg();
-  renderFitSeg();
+  renderTemaTile();
+  renderFitTile();
   renderRotBtn();
-  renderLyricsBgSeg();
-  renderWallSeg();
+  renderLyricsBgTile();
+  renderWallTile();
   // O FAROL é RELIDO ao abrir, e não pintado de uma cópia guardada: a chave
   // vive em `SharedPreferences` do shell, e o app pode ter sido reinstalado ou
   // restaurado de um backup desde a última vez que esta folha esteve aberta.
-  renderFarolSeg();
+  renderFarolTile();
   // O estado do espelho é relido ao ABRIR (e depois só enquanto a folha dele
   // estiver aberta): a linha precisa dizer a verdade no instante em que o
   // operador olha para ela, e o espelho pode ter saído do ar sozinho por uma
@@ -20786,21 +20792,37 @@ if (diagSaveEl) {
   });
 }
 
-function renderFitSeg() {
-  fitSegEl.querySelectorAll('.fit-opt').forEach((btn) => {
-    btn.classList.toggle('active', btn.dataset.fit === mediaFit);
-  });
+// ===== PINTAR UM TILE DO PAINEL RÁPIDO (v1.4.38) =====
+//
+// Um ponto só escreve as TRÊS coisas que um tile mostra, e é isso que impede
+// que elas divirjam: o `data-estado` (o valor em vigor — é por ele que os
+// oráculos perguntam, e nunca pela classe, que é aparência), a palavra do
+// estado, e o aceso.
+//
+// `ligado` é "o estado NÃO é o padrão", nunca "está selecionado": o tile é um
+// interruptor, e o que ele responde de longe é *"o que eu deixei mexido
+// aqui?"*. Ver as três regras do tile no `index.html`.
+function pintarTile(el, estado, rotulo, ligado) {
+  if (!el) return;
+  el.dataset.estado = String(estado);
+  const alvo = el.querySelector('.qs-estado');
+  if (alvo) alvo.textContent = rotulo;
+  el.classList.toggle('qs-on', !!ligado);
 }
-// O seletor do wallpaper é o MESMO componente visual do preenchimento, então
-// precisa acender o segmento vigente igual a ele: "Escolher imagem…" quando há
-// uma imagem, "Padrão" quando é o gradiente.
-function renderWallSeg() {
-  wallPickEl.classList.toggle('active', customWallpaper);
-  wallResetEl.classList.toggle('active', !customWallpaper);
+
+function renderFitTile() {
+  pintarTile(fitTileEl, mediaFit, mediaFit === 'cover' ? 'Preencher' : 'Ajustar', mediaFit === 'cover');
+}
+// O WALLPAPER TEM UM ÍCONE SÓ, e o estado sai da palavra mais o aceso — o par
+// de desenhos que distinguiria "padrão" de "própria" viraria o `icoImagem` do
+// tile vizinho (ver o comentário do símbolo no `index.html`).
+function renderWallTile() {
+  pintarTile(wallTileEl, customWallpaper ? 'propria' : 'padrao',
+    customWallpaper ? 'Própria' : 'Padrão', customWallpaper);
 }
 async function applyFit(mode) {
   mediaFit = mode;
-  renderFitSeg();
+  renderFitTile();
   await AVDB.setState('fit', mediaFit);
   cmd({ type: 'fit', fit: mediaFit });
 }
@@ -20823,10 +20845,14 @@ async function applyFit(mode) {
 const ROTACOES = [0, 90, 180, 270];
 let mediaRot = 0;
 function renderRotBtn() {
-  if (!rotBtnEl) return;
-  rotBtnEl.classList.toggle('active', mediaRot !== 0);
-  if (rotLabelEl) rotLabelEl.textContent = mediaRot + '°';
-  rotBtnEl.title = mediaRot ? 'Girada ' + mediaRot + '° — tocar gira mais 90°' : 'Girar 90° no telão';
+  // O ÂNGULO É A PALAVRA DO ESTADO deste tile — não há par de ícones para um
+  // valor de quatro posições (quatro desenhos que só diferem pelo próprio
+  // ângulo não se distinguem a 22px), então quem responde "como está?" é o
+  // rótulo, e o aceso diz que o giro não está no padrão.
+  pintarTile(rotBtnEl, mediaRot, mediaRot + '°', mediaRot !== 0);
+  if (rotBtnEl) {
+    rotBtnEl.title = mediaRot ? 'Girada ' + mediaRot + '° — tocar gira mais 90°' : 'Girar 90° no telão';
+  }
 }
 async function applyRotate(graus) {
   mediaRot = ((graus | 0) % 360 + 360) % 360;
@@ -22268,7 +22294,7 @@ async function applyPvWallpaper() {
   let blob = null;
   try { blob = await AVDB.getState('wallpaper'); } catch (_) { /* segue no padrão */ }
   customWallpaper = blob instanceof Blob;
-  renderWallSeg();
+  renderWallTile();
   if (pvWallpaperUrl) { URL.revokeObjectURL(pvWallpaperUrl); pvWallpaperUrl = null; }
   if (blob instanceof Blob) {
     pvWallpaperUrl = URL.createObjectURL(blob);
@@ -22312,7 +22338,7 @@ async function setWallpaper(file) {
   const blob = file ? await fitWallpaperImage(file) : null;
   await AVDB.setState('wallpaper', blob);
   customWallpaper = blob instanceof Blob;
-  renderWallSeg();
+  renderWallTile();
   await applyPvWallpaper();
   // O Display lê o mesmo state — o comando só avisa que mudou.
   AVDB.sendCommand({ type: 'wallpaper' });
@@ -23641,10 +23667,10 @@ lyricsViewBodyEl.addEventListener('pointerdown', () => { cifraSegurando = true; 
 for (const ev of ['pointerup', 'pointercancel', 'pointerleave']) {
   lyricsViewBodyEl.addEventListener(ev, () => { cifraSegurando = false; });
 }
-// Imagens dos slides: segmento do popup de Exibição (Mostrar / Remover).
-lyricsBgSegEl.addEventListener('click', (e) => {
-  const btn = e.target.closest('.fit-opt');
-  if (btn) setLyricsBg(btn.dataset.lyricsbg);
+// FUNDO DA LETRA: as imagens que vêm baixadas com cada estrofe, mostradas ou
+// removidas (o telão deixa a letra sobre preto). Um tile, dois estados.
+lyricsBgTileEl.addEventListener('click', () => {
+  setLyricsBg(lyricsBg === 'image' ? 'black' : 'image');
 });
 // ===== O FADER É UMA ESPIADA, E SÓ (v1.3.9) =====
 // Ele não tem mais botão que o abra: a ÚNICA porta é a tecla física de volume,
@@ -23897,13 +23923,11 @@ function setTema(t) {
   tema = novo;
   try { localStorage.setItem(TEMA_KEY, tema); } catch (_) { /* storage bloqueado */ }
   pintarTema();
-  renderTemaSeg();
+  renderTemaTile();
 }
 
-function renderTemaSeg() {
-  temaSegEl.querySelectorAll('.fit-opt').forEach((btn) => {
-    btn.classList.toggle('active', btn.dataset.tema === tema);
-  });
+function renderTemaTile() {
+  pintarTile(temaTileEl, tema, tema === 'claro' ? 'Claro' : 'Escuro', tema === 'claro');
 }
 
 // ===== ESTE APARELHO NA MEDIÇÃO DE ALCANCE (v1.4.1) =====
@@ -23919,31 +23943,36 @@ function renderTemaSeg() {
 // o contrário — a divergência exata que este projeto trata como o pior
 // artefato possível, porque ela é lida a distância e não tem como ser
 // conferida.
-async function renderFarolSeg() {
-  if (!farolRowEl || !farolSegEl) return;
-  if (!window.__NATIVE__) { farolRowEl.hidden = true; return; }
+async function renderFarolTile() {
+  if (!farolTileEl) return;
+  if (!window.__NATIVE__) { farolTileEl.hidden = true; return; }
   let est = null;
   try { est = await AVNative.farolEstado(); } catch (_) { est = null; }
   // Sem resposta a linha não aparece: uma chave desenhada sobre um estado
   // desconhecido convida a tocá-la, e o toque gravaria por cima do que o shell
   // de fato tem.
-  if (!est) { farolRowEl.hidden = true; return; }
-  farolRowEl.hidden = false;
-  farolSegEl.querySelectorAll('.fit-opt').forEach((btn) => {
-    btn.classList.toggle('active', (btn.dataset.farol === 'sim') === !!est.conta);
-  });
+  if (!est) { farolTileEl.hidden = true; return; }
+  farolTileEl.hidden = false;
+  // ACESO É "FICA DE FORA", que é a regra do painel inteiro: o padrão deste
+  // aparelho é ENTRAR na contagem, e o tile acende no estado que não é o
+  // padrão. É a leitura certa também pelo conteúdo — "este aparelho está fora
+  // do contador comum" é justamente o que alguém precisa ver de relance.
+  pintarTile(farolTileEl, est.conta ? 'sim' : 'nao', est.conta ? 'Entra' : 'De fora', !est.conta);
 }
 
-if (farolSegEl) {
-  farolSegEl.addEventListener('click', (e) => {
-    const btn = e.target.closest('.fit-opt');
-    if (!btn) return;
-    AVNative.farolContar(btn.dataset.farol === 'sim');
+if (farolTileEl) {
+  farolTileEl.addEventListener('click', () => {
+    // O ALVO SAI DO `data-estado`, que é a última resposta DO SHELL — não uma
+    // cópia local do valor. Sem estado conhecido (o tile ainda nem foi pintado)
+    // não há o que alternar: reler é a resposta, e o toque seguinte decide.
+    const atual = farolTileEl.dataset.estado;
+    if (atual !== 'sim' && atual !== 'nao') { renderFarolTile(); return; }
+    AVNative.farolContar(atual !== 'sim');
     // RELER, e não pintar o que se acabou de pedir: o shell é quem responde, e
     // um build debuggável continua fora da contagem por mais que a chave diga
     // "entra". Pintar o pedido faria a tela mentir exatamente no aparelho em
     // que a pergunta importa.
-    renderFarolSeg();
+    renderFarolTile();
   });
 }
 
@@ -24436,10 +24465,9 @@ appModeSegEl.addEventListener('click', (e) => {
   setAppMode(btn.dataset.mode);
   closeFadePopup();   // a escolha já mudou a tela inteira atrás do popup
 });
-temaSegEl.addEventListener('click', (e) => {
-  const btn = e.target.closest('.fit-opt');
-  if (btn) setTema(btn.dataset.tema);
-});
+// O TEMA ALTERNA (v1.4.38): o par escuro/claro virou um tile, e um tile de dois
+// estados não escolhe — ele vai para o outro.
+temaTileEl.addEventListener('click', () => { setTema(tema === 'claro' ? 'escuro' : 'claro'); });
 simpleSearchBtnEl.addEventListener('click', openHymnSearch);
 // Os controles do simplificado são os do modo completo, acionados por click():
 // um botão `disabled` continua sendo um no-op natural, e as bordas ficam num
@@ -25033,10 +25061,9 @@ function renderFsCtl() {
     vis.title = viewToggleEl.title;
   }
 }
-fitSegEl.addEventListener('click', (e) => {
-  const btn = e.target.closest('.fit-opt');
-  if (btn) applyFit(btn.dataset.fit);
-});
+// PREENCHIMENTO: o mesmo par de sempre (Ajustar × Preencher — "Esticar" saiu na
+// v5.142 porque distorcia a proporção), agora alternado por um tile.
+fitTileEl.addEventListener('click', () => { applyFit(mediaFit === 'cover' ? 'contain' : 'cover'); });
 // Girar: AVANÇA 90° por toque, dando a volta. Ver `applyRotate`.
 if (rotBtnEl) rotBtnEl.addEventListener('click', () => applyRotate(mediaRot + 90));
 // Wallpaper: escolher imagem / voltar ao padrão.
@@ -25045,7 +25072,16 @@ wallFileEl.addEventListener('change', async () => {
   wallFileEl.value = '';
   if (file) await setWallpaper(file);
 });
-wallResetEl.addEventListener('click', () => { setWallpaper(null); });
+// O TILE DO WALLPAPER É UM `<label>` sobre o `<input type="file">`, e é a
+// ATIVAÇÃO NATIVA dele que abre o seletor do aparelho (invariante 6). Com uma
+// imagem própria no ar o toque faz o contrário — volta ao padrão —, e para isso
+// a ativação do rótulo precisa ser CANCELADA: sem o `preventDefault()` o
+// seletor de arquivos abriria por cima do reset que acabou de acontecer.
+wallTileEl.addEventListener('click', (e) => {
+  if (!customWallpaper) return;   // padrão: deixa o rótulo abrir o seletor
+  e.preventDefault();
+  setWallpaper(null);
+});
 // Estado do telão, no rodapé do popup de Exibição.
 //
 // O Display NÃO é mais um app que se "abre": é a `Presentation` que o shell

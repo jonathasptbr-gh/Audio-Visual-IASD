@@ -24,6 +24,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
+- **v1.4.38** — CONFIGURAÇÕES VIROU UM PAINEL RÁPIDO. Pedido do operador: *"quero que ela seja mais compacta e visualmente mais ágil, assim como o painel rápido de um smartphone. botões com ícones, que alteram seus estados e ícones, apenas títulos. uma disposição de grade, para que tenha mais opções e não precise de scroll… pode manter o seletor de fácil e avançado em destaque, mas atualize seu design para o modelo de painel rápido"*. Ela era sete FAIXAS de largura inteira — rótulo por extenso à esquerda (*"Este aparelho na medição de alcance"*, *"Imagens dos slides (músicas)"*), segmentado de duas opções à direita, ~64px cada. Virou uma GRADE de três colunas de tiles: ícone, título curto, a palavra do estado, e o toque alterna. MEDIDO: o corpo caiu de ~450px para ~230px. **O ORÁCULO ANTIGO APROVAVA AS DUAS VERSÕES** — o `smoke.mjs` cobrava *"cabe sem rolar"* sobre a FOLHA, e a folha nunca rolou: quem tem `overflow-y: auto` é o `.fade-opts`, e é ele que crescia por baixo. A asserção nova mede o CORPO, que é a queixa. **As três regras do tile:** o ÍCONE diz o estado (par `.ico-base`/`.ico-alt`, a mecânica da cortina — a folha do documento não atravessa a árvore-sombra de um `<use>`) e o TÍTULO diz o assunto; a PALAVRA do estado fica, porque um ícone sozinho responde por CONVENÇÃO e convenção é o que se erra num app aberto três vezes por semana; e ACESO é `--btn-accent` + `--accent` — a gramática de INTERRUPTOR LIGADO da paleta, nunca o `--accent-fill` de ESCOLHA ENTRE ALTERNATIVAS —, marcando o estado que NÃO é o padrão, que é a pergunta que se faz olhando a grade de longe. Dois tiles ficaram com um desenho só e isso está dito: o GIRO, cujo estado é um NÚMERO (quatro desenhos que só diferem pelo próprio ângulo não se distinguem a 22px), e o WALLPAPER, cujo par viraria o `icoImagem` do tile vizinho. **A armadilha que o lote pagou:** `display: flex` no tile ATROPELA o `[hidden]` da folha do agente — sem `.qs-tile[hidden] { display: none }` o tile da Medição, que nasce escondido e só o shell revela, apareceria no NAVEGADOR, onde não há farol para ele ligar. **E um estado que ninguém pinta é `null`:** um segmentado carregava o valor de cada opção no HTML (`data-fit`) e já dizia a verdade antes de alguém olhar; um tile só diz o que `pintarTile()` escreveu, então os tiles passaram a ser pintados no `load()` e não só ao abrir a folha (a Medição fica de fora — ela é uma ida à ponte, e `load()` roda dezenas de vezes por culto). O MODO DO APP continua sendo um seletor, com o desenho do painel: os tiles alternam entre estados equivalentes e voltam com um toque; ele troca a tela inteira e fecha a folha. O WALLPAPER continua sendo um `<label>` sobre o `<input type="file">` — é a ativação nativa que abre o seletor do aparelho (invariante 6) —, e o `preventDefault()` é o que deixa o toque voltar ao padrão sem abrir o seletor por cima. Nove asserções novas, `.qs-tile` na lista do `--press` no MESMO lote em que nasce. OTA PURO.
 - **v1.4.37** — A BARRA DE ROLAGEM DO AUXILIAR DE LEITURA NO MODO FÁCIL. Relato do operador: *"o auxiliar de leitura no modo simples está sem a barra lateral do scroll para visualizar a rolagem da lista"*. MEDIDO: naquela zona `scrollbar-width` e `scrollbar-color` computavam **`auto`**, contra `thin` e o acento na `.lyricsview-body` do modo avançado. A receita nasceu lá com a razão escrita — *"a caixa diz que há um dentro, a barra diz ONDE se está nele"* — e esta zona, que faz o mesmo trabalho, nunca a recebeu; com a coluna de PÁGINAS da v1.4.35, saber a posição na lista passou a ser o recurso inteiro. A pista fica `transparent` como na irmã: o fundo daqui já é `--panel`, e uma pista da cor do próprio fundo não é pista nenhuma. **A asserção é a PARIDADE com a folha do avançado, e não um valor** — ela sobrevive a uma troca de paleta e diz a coisa certa: duas listas que fazem o mesmo trabalho mostram a mesma barra. E ela **não mede a largura desenhada**: o Chromium usa barra em OVERLAY, `offsetWidth - clientWidth` é ZERO nos dois, e uma asserção de largura mediria a plataforma em vez da nossa folha. Também não pergunta se ESTE deck transborda — com poucas páginas ele cabe, e a régua viraria o tamanho da fixture em vez da regra. Uma reversão, 64/64 verdes. **SÓ BASE WEB.**
 - **v1.4.36** — O AZUL ERA O ECO, E ELE É REDUNDANTE EM QUEM TROCA O DESENHO. O operador identificou o efeito que sobrava depois da v1.4.34: *"é um realce de toque, um efeito após o toque… uma onda azul a partir da borda do botão… mesmo formato dos botões, retangulares com bordas arredondadas… uma linha azul de borda que se expande e vai desaparecendo. é animação"*. É o `.btn-eco` — `box-shadow: 0 0 0 2px var(--accent)` sobre um `::before` de `inset: 0`, animando `scale(1) → 1.35` com `opacity .9 → 0` —, e ele entrou na cortina e no mudo na v1.3.14. **As duas versões anteriores atacaram o alvo errado** e isso está dito: a v1.4.33 tirou o recuo da tecla (certo, e não era isto) e a v1.4.34 fechou os dois caminhos do UA (corretos por mérito próprio, e também não eram — o Chromium de mesa nunca os desenhou, e a reversão provou que aquela asserção era tautológica). O que faltava era procurar no NOSSO código um efeito com a FORMA que ele descreveu: retangular, arredondado, expandindo da borda. **Duas razões independentes o tiram dali, e cada uma bastaria.** É REDUNDANTE: a cortina e o mudo são alternadores — o ícone vira o oposto no mesmo instante do toque, e a cor vai para `--stage-alert`; isso já É "o comando saiu", dito pelo próprio botão. E ele desenha uma CAIXA QUE NÃO EXISTE: o anel é `inset: 0` + `border-radius: inherit`, ou seja, a caixa do botão — um `.t-btn` tem uma, um `.pv-fab` tem `background: none` e é só o traço sobre a projeção —, em `--accent`, um token de CROMO por cima do palco, que é a classe de erro que a família `--stage-*` existe para impedir. **O TRANSPORTE FICA**, e a assimetria é a razão de o eco existir: os ⏮/▶/⏭ não trocam de desenho, e com as telas da rede a resposta real está a ~1 s — um botão que fica um segundo mudo é tocado de novo, e o comando vai duas vezes. A coluna da TELA CHEIA fica pelo mesmo motivo. Duas asserções, duas reversões (os dois de volta à lista; e o eco apagado do transporte junto, o conserto largo demais). OTA PURO.
 - **v1.4.35** — O DESENHO DO VISUALIZADOR DE SLIDES: RÓTULO SOBREPOSTO, "● No ar" NA PÁGINA EM CENA, E DUAS COLUNAS NO MODO FÁCIL. Dois pedidos do operador: *"coloque o número da página sobreposto ao slide, para o slide poder ficar centralizado, e use um 'no ar', ao lado do indicador de página para indicar a página atual, assim como já usamos em diversos elementos no app"* e *"para o modo simples faça um ajuste extra… coloque os slides em duas colunas, pois temos menos altura vertical, portanto manter os slides de mesmo tamanho acaba impedindo de ver mais que dois slides corretamente, deixando de ser uma lista e competindo com o próprio preview"*. **O que tirava a miniatura do centro eram DUAS coisas, não uma:** a coluna do número (MEDIDO: 27px de 408) e o `padding-left` da `.lv-row` — o recuo que existe para a FAIXA do versículo no ar, que numa linha de slide não é desenhada. Fora do fluxo, a miniatura ocupa a largura inteira e uma página 4:3 aparece centrada pelo `object-fit`. O selo pousa SOBRE a imagem, então precisa de fundo OPACO — `--panel`, e é o único tom opaco em que o número passa AA (MEDIDO: `--muted` dá 4,88:1 sobre `--panel` e 3,66:1 sobre `--panel-2`, então trocar de token para escapar da regra R1 custaria a legibilidade que ela defende; ele entra como exceção NOMEADA no `tokens.test.mjs`, pela razão da barra de rolagem — é rótulo, com `pointer-events: none`, e não hospeda controle). A página no ar troca para `--live-fill` + `--live-strong` e ganha o `● No ar`: a troca de matiz é a regra da paleta, não gosto — acento é ESCOLHA entre alternativas, vermelho saturado é *está no ar agora*. **O `● No ar` nasce em TODA linha e quem o revela é o CSS**, porque `lvMarkCurrent` move a classe sem redesenhar. No Modo Fácil, MEDIDO antes: numa zona de 552px cabiam DOIS slides inteiros (linha de 194px) — e os dois eram a página no ar e a seguinte, que é o que a preview e o telão já dão; em duas colunas a linha cai para ~102px e cabem OITO. A grade é do CONTAINER e só do deck (a letra é texto, e duas colunas estreitas quebram mais do que economizam); a folha do avançado não a herda. Seis reversões, 64/64 verdes. **SÓ BASE WEB.**
@@ -308,6 +309,136 @@ na nota que a revoga, não apagada da que a criou.
 - **v5.154** — é METADE OTA e METADE APK, e a divisão importa para quem for testar em aparelho.
 - **v5.155** — é OTA PURO
 - **v5.156** — é METADE OTA e METADE APK, de novo.
+
+---
+
+## v1.4.38 — Configurações virou um painel rápido
+
+> *"faça um ajuste no design da aba de configurações do app. quero que ela seja
+> mais compacta e visualmente mais ágil, assim como o painel rápido de um
+> smartphone. botões com ícones, que alteram seus estados e ícones, apenas
+> títulos. uma disposição de grade, para que tenha mais opções e não precise de
+> scroll. pode manter o seletor de fácil e avançado em destaque, mas atualize
+> seu design para o modelo de painel rápido."*
+
+### O que ela era, e a conta
+
+Sete **faixas** de largura inteira, uma opção por faixa: rótulo por extenso à
+esquerda (*"Este aparelho na medição de alcance"*, *"Imagens dos slides
+(músicas)"*, *"Preenchimento e giro"*), segmentado de duas opções à direita,
+~64px cada. MEDIDO: o corpo passava dos 450px, e num aparelho de 640px de altura
+a folha rolava — com o `#otaRow` e o rodapé de diagnóstico abaixo dela.
+
+Hoje é uma **grade de três colunas**. Cada tile é ícone, título curto e a
+palavra do estado; o toque **alterna**. As mesmas sete opções ocupam ~230px.
+
+**Três colunas FIXAS, e não `auto-fit`:** um `minmax` decidiria o número de
+colunas pela largura do aparelho, e a MESMA folha teria duas colunas num
+celular estreito e quatro num tablet. Quem opera este app o opera sempre no
+mesmo aparelho, e o que ele memoriza é ONDE cada tile fica. Três é o que cabe
+com o título mais longo da lista ("Preenchimento") numa linha só a 360px, e é o
+que fecha sete opções em três fileiras.
+
+### O oráculo antigo aprovava as duas versões
+
+`smoke.mjs` cobrava *"Configurações cabe sem rolar"* desde a v5.207 — medindo o
+`scrollHeight` da **FOLHA**. E a folha nunca rolou: ela é um flex em coluna, e
+quem tem `overflow-y: auto` é o `.fade-opts`, que é o que crescia por baixo. A
+asserção nova mede o CORPO, que é a queixa que o operador de fato tinha.
+
+É a mesma família do `.fade-row` sem `--press`: uma medição que responde perto
+do defeito, mas não sobre ele.
+
+### As três regras do tile
+
+1. **O ÍCONE DIZ O ESTADO; o TÍTULO diz o assunto.** É a regra da cortina na
+   notificação de mídia, e por isso quem tem dois estados tem DOIS desenhos —
+   `.ico-base`/`.ico-alt`, dois `<use>` na árvore de LUZ, porque a folha do
+   documento não atravessa a árvore-sombra de um `<use>`. Dois tiles ficaram
+   com um desenho só, e está dito no comentário de cada símbolo: o **giro**,
+   cujo estado é um NÚMERO (quatro desenhos que só diferem pelo próprio ângulo
+   não se distinguem a 22px), e o **wallpaper**, cujo par viraria o `icoImagem`
+   do tile vizinho — dois desenhos gêmeos a dois centímetros um do outro
+   prometendo coisas diferentes é o defeito que nenhuma legenda conserta.
+2. **A PALAVRA DO ESTADO FICA** (`.qs-estado`). Um ícone sozinho responde "o que
+   está ligado?" por CONVENÇÃO, e convenção é o que se erra num app aberto três
+   vezes por semana. É a mesma palavra que o segmentado mostrava.
+3. **ACESO (`qs-on`) = O ESTADO NÃO É O PADRÃO.** `--btn-accent` + `--accent`, a
+   gramática de INTERRUPTOR LIGADO da paleta — nunca o `--accent-fill` de
+   ESCOLHA ENTRE ALTERNATIVAS, que continua sendo do seletor de modo. Ele
+   responde à pergunta que se faz olhando a grade de longe: *"o que eu deixei
+   mexido aqui?"* — tema claro, mídia preenchendo, telão girado, letra sem
+   imagem, wallpaper próprio, aparelho fora da contagem. Com tudo no padrão a
+   grade fica apagada, que é a resposta certa.
+
+### A armadilha que o lote pagou
+
+**`display: flex` no tile ATROPELA o `[hidden]`.** O atributo só esconde porque
+a folha do agente diz `[hidden] { display: none }`, e qualquer `display`
+declarado depois vence. Sem `.qs-tile[hidden] { display: none }` o tile da
+**Medição** — que nasce escondido e só o shell revela — apareceria no
+NAVEGADOR, onde não há farol nenhum para ele ligar. Uma chave que não liga nada
+é pior que chave nenhuma, e o defeito é mudo: nada quebra, o botão só existe.
+
+### Um estado que ninguém pinta é `null`
+
+Um segmentado carregava o valor de cada opção **no HTML** (`data-fit="contain"`,
+`data-fit="cover"`), então ele já dizia a verdade antes de alguém olhar. Um tile
+só diz o que `pintarTile()` escreveu — e as pinturas moravam todas no
+`openFadePopup`. MEDIDO pelo `cena.test.mjs`: o `data-estado` do preenchimento
+ficava `null` até a primeira abertura de Configurações. Não erra alto — um
+estado ausente lido como "não está preenchendo" é a mentira que ninguém
+investiga.
+
+Os tiles passaram a ser pintados no **`load()`**. O da Medição fica de fora
+dessa regra e está escrito no lugar: ele é uma ida à ponte, e `load()` roda
+dezenas de vezes por culto — quem o pinta é o `openFadePopup`, que é o único
+instante em que alguém olha para ele.
+
+**`pintarTile(el, estado, rotulo, ligado)` é um ponto só**, e é isso que impede
+que as três coisas divirjam: o `data-estado` (o valor em vigor — é por ele que
+os oráculos perguntam, nunca pela classe, que é aparência), a palavra e o
+aceso.
+
+### O que NÃO virou tile
+
+**O modo do app continua sendo um SELETOR** (`#appModeSeg`), em destaque, agora
+com o desenho do painel: cada opção é ícone em cima, palavra embaixo, e a
+escolhida veste `--accent-fill`. A diferença com os tiles é real e é a razão de
+o resto ter virado grade — os seis alternam entre dois estados equivalentes e
+voltam com um toque; este troca a tela inteira e **fecha a folha**, e um toque
+por engano custa a viagem de volta no meio do culto.
+
+**O wallpaper continua sendo um `<label>`** sobre o `<input type="file">`: é a
+ativação nativa do rótulo que abre o seletor do aparelho (invariante 6 — sem o
+`onShowFileChooser` do `ControleChromeClient` o toque não faz NADA, sem erro no
+console). Com uma imagem própria no ar o toque volta ao padrão, e quem cancela
+a ativação é um `preventDefault()` no ouvinte — sem ele o seletor de arquivos
+abriria por cima do reset que acabou de acontecer. Trocar uma imagem por outra
+são dois toques, e esse é o preço declarado de o wallpaper caber num tile como
+os outros seis.
+
+**O rodapé não mudou:** estado do telão, versão, Registro e o `#otaRow`.
+
+### O que saiu
+
+`.fit-linha` e `.fit-opt--rot` (preenchimento e giro dividindo uma faixa,
+v5.169): os dois viraram tiles vizinhos, e a vizinhança passou a ser dita pelo
+layout em vez de por uma classe própria. `#fitSeg`, `#temaSeg`, `#lyricsBgSeg`,
+`#farolSeg`, `#wallPick` e `#wallReset` saíram com eles; `.fit-seg`/`.fit-opt`
+ficam, servindo o seletor de modo, o de destinos e o do auxiliar de leitura.
+
+`.qs-tile` entrou na lista do `--press` **no mesmo lote em que nasce**, que é a
+regra: uma lista de guardas é o que envelhece, e um bloco novo que hospede
+controle sem entrar nela fica mudo ao toque sem nada na tela dizer por quê.
+
+Nove asserções novas (`smoke.mjs`: o corpo que não rola, as três colunas, o
+tile que alterna e volta, o aceso medido na cor RENDERIZADA — a classe sem a
+regra de CSS passaria num teste de classe e continuaria invisível na tela;
+`cena.test.mjs` e `boot-nativo.test.mjs` reescritos para o `data-estado`).
+
+**SÓ BASE WEB**: nenhum arquivo de `java/`, `res/` ou do manifest foi tocado.
+Sem degrau de `SHELL_VERSION`, sem `shellTag`, sem Release.
 
 ---
 
