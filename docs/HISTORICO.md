@@ -24,6 +24,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
+- **v1.4.40** — O AZUL DO TILE PASSOU A DIZER *"ligado"*, E QUEM NÃO TEM DESLIGADO FICA SEMPRE AZUL. Pedido do operador: *"a maioria dos botões das configurações não tem estado de ativo e inativo, como o seletor de tema claro ou escuro, o preenchimento, o histórico e o wallpaper padrão… então pode deixar eles no estado azul de 'sempre ativo' o tempo todo. ajuste para que esses itens que não se ativam fiquem no topo da listagem e deixe os outros mais em baixo"*. **A v1.4.38 leu o aceso como *"o estado não é o padrão"*, e essa leitura não sobrevive ao contato com quem opera:** escolher "Ajustar" não desliga nada, e um tile apagado, no vocabulário deste app, diz INDISPONÍVEL — é a queixa da v1.4.25 palavra por palavra (*"foi simplesmente ofuscado o botão inteiro, o que dá a impressão de que não está disponível a opção"*), com o agravante de o app já ter uma linguagem para indisponível (`opacity: .3` + `disabled`). Hoje **aceso = a função está LIGADA**, e num tile que não tem desligado — tema, preenchimento, wallpaper, histórico — é SEMPRE. **A correção obrigou a PARTIR UMA CLASSE EM DUAS:** `qs-on` acendia o tile E trocava o desenho, então um tile sempre aceso ficaria preso no desenho alternativo para sempre (o tema mostrando o sol no escuro). São duas perguntas — *"qual desenho?"* e *"está ligado?"* — e a partir daqui `qs-alt` responde a primeira. **E DOIS ACESOS FORAM INVERTIDOS** no mesmo lote: fundo da letra e medição marcavam `Remover` e `De fora` (o que não é o padrão) e passaram a marcar `Mostrar` e `Entra` (a função ligada) — com isso o desenho e a luz dizem a mesma coisa, em vez de coisas opostas no mesmo botão. **A ordem virou POR NATUREZA**, numa grade só: os quatro sempre-acesos primeiro, os três que ligam e desligam depois. Duas grades com um respiro entre elas foram descartadas — o primeiro grupo tem QUATRO itens em três colunas, e a grade própria deixaria dois buracos no meio do painel, que se leem como defeito e não como separação; numa grade só quem desenha o grupo é a própria cor. **De quebra, um defeito de resposta ao toque:** `setLyricsBg` pintava o tile DEPOIS do `await` da gravação, então aquele botão só respondia ao dedo quando a transação do IndexedDB voltasse — os irmãos (`applyFit`, `applyRotate`) sempre pintaram antes. **O que se perde está dito:** a grade deixou de responder *"o que eu deixei mexido aqui?"* de relance, e quem responde isso agora é a palavra do estado, que sempre esteve lá. Cinco asserções novas no `smoke.mjs`, com a metade que impede o conserto preguiçoso (acender tudo sempre): o fundo da letra continua APAGANDO. OTA PURO.
 - **v1.4.39** — AS ABAS DO AUXILIAR DE LEITURA VOLTARAM A PREENCHER A FAIXA, e a causa era um REPARENTAMENTO. Relato do operador: elas *"estão com pouca largura, considerando que deveria ter a largura adaptável para preencher a largura total disponível… sendo reduzidos apenas nos casos em que haveria bíblia ou slides sendo exibidos juntos, que nesse caso o espaço disponível seria novamente distribuído igualmente"*. O `.fit-opt` já é `flex: 1` desde sempre, e o desenho que ele pede é exatamente o que o pedido descreve — o que faltava era o contêiner. A v1.4.28 passou a REORDENAR as abas pela pilha (`lyricsViewSources`) e anexava em `lyricsViewSegEl`, que é o `.lyricsview-seg`, o bloco com o respiro; os botões moram um nível abaixo, dentro da `.fit-seg`. `appendChild` num nó que NÃO é o pai não reordena: ele MOVE. Fora do contêiner flex o `flex: 1` fica inerte e cada aba volta a ser `inline-block` do tamanho do rótulo — MEDIDO a 430px, a faixa tem 401px e as duas abas saíam com 44,8 e 42,7, encostadas à esquerda. **A falha é CALADA por construção:** a ordem que o pedido da v1.4.28 queria continuou certa (o `appendChild` reordena do mesmo jeito, só que no lugar errado), nada lança e nada some — só a largura se perde, e o comentário que a acompanhava afirmava justamente o contrário (*"`appendChild` MOVE um nó que já está no pai"* — e ele não estava). Uma linha de conserto. MEDIDO depois: 2, 3 e 4 abas preenchem e ficam iguais a 430, 360 e 320px, numa linha só ("Páginas" não quebra nem estoura no pior caso). Quatro asserções por caso, duas reversões — o reparentamento de volta, e o `flex: 1` apagado com o pai certo: cada uma reprova o que a outra deixaria passar. OTA PURO.
 - **v1.4.38** — CONFIGURAÇÕES VIROU UM PAINEL RÁPIDO. Pedido do operador: *"quero que ela seja mais compacta e visualmente mais ágil, assim como o painel rápido de um smartphone. botões com ícones, que alteram seus estados e ícones, apenas títulos. uma disposição de grade, para que tenha mais opções e não precise de scroll… pode manter o seletor de fácil e avançado em destaque, mas atualize seu design para o modelo de painel rápido"*. Ela era sete FAIXAS de largura inteira — rótulo por extenso à esquerda (*"Este aparelho na medição de alcance"*, *"Imagens dos slides (músicas)"*), segmentado de duas opções à direita, ~64px cada. Virou uma GRADE de três colunas de tiles: ícone, título curto, a palavra do estado, e o toque alterna. MEDIDO: o corpo caiu de ~450px para ~230px. **O ORÁCULO ANTIGO APROVAVA AS DUAS VERSÕES** — o `smoke.mjs` cobrava *"cabe sem rolar"* sobre a FOLHA, e a folha nunca rolou: quem tem `overflow-y: auto` é o `.fade-opts`, e é ele que crescia por baixo. A asserção nova mede o CORPO, que é a queixa. **As três regras do tile:** o ÍCONE diz o estado (par `.ico-base`/`.ico-alt`, a mecânica da cortina — a folha do documento não atravessa a árvore-sombra de um `<use>`) e o TÍTULO diz o assunto; a PALAVRA do estado fica, porque um ícone sozinho responde por CONVENÇÃO e convenção é o que se erra num app aberto três vezes por semana; e ACESO é `--btn-accent` + `--accent` — a gramática de INTERRUPTOR LIGADO da paleta, nunca o `--accent-fill` de ESCOLHA ENTRE ALTERNATIVAS —, marcando o estado que NÃO é o padrão, que é a pergunta que se faz olhando a grade de longe. Dois tiles ficaram com um desenho só e isso está dito: o GIRO, cujo estado é um NÚMERO (quatro desenhos que só diferem pelo próprio ângulo não se distinguem a 22px), e o WALLPAPER, cujo par viraria o `icoImagem` do tile vizinho. **A armadilha que o lote pagou:** `display: flex` no tile ATROPELA o `[hidden]` da folha do agente — sem `.qs-tile[hidden] { display: none }` o tile da Medição, que nasce escondido e só o shell revela, apareceria no NAVEGADOR, onde não há farol para ele ligar. **E um estado que ninguém pinta é `null`:** um segmentado carregava o valor de cada opção no HTML (`data-fit`) e já dizia a verdade antes de alguém olhar; um tile só diz o que `pintarTile()` escreveu, então os tiles passaram a ser pintados no `load()` e não só ao abrir a folha (a Medição fica de fora — ela é uma ida à ponte, e `load()` roda dezenas de vezes por culto). O MODO DO APP continua sendo um seletor, com o desenho do painel: os tiles alternam entre estados equivalentes e voltam com um toque; ele troca a tela inteira e fecha a folha. O WALLPAPER continua sendo um `<label>` sobre o `<input type="file">` — é a ativação nativa que abre o seletor do aparelho (invariante 6) —, e o `preventDefault()` é o que deixa o toque voltar ao padrão sem abrir o seletor por cima. Nove asserções novas, `.qs-tile` na lista do `--press` no MESMO lote em que nasce. OTA PURO.
 - **v1.4.37** — A BARRA DE ROLAGEM DO AUXILIAR DE LEITURA NO MODO FÁCIL. Relato do operador: *"o auxiliar de leitura no modo simples está sem a barra lateral do scroll para visualizar a rolagem da lista"*. MEDIDO: naquela zona `scrollbar-width` e `scrollbar-color` computavam **`auto`**, contra `thin` e o acento na `.lyricsview-body` do modo avançado. A receita nasceu lá com a razão escrita — *"a caixa diz que há um dentro, a barra diz ONDE se está nele"* — e esta zona, que faz o mesmo trabalho, nunca a recebeu; com a coluna de PÁGINAS da v1.4.35, saber a posição na lista passou a ser o recurso inteiro. A pista fica `transparent` como na irmã: o fundo daqui já é `--panel`, e uma pista da cor do próprio fundo não é pista nenhuma. **A asserção é a PARIDADE com a folha do avançado, e não um valor** — ela sobrevive a uma troca de paleta e diz a coisa certa: duas listas que fazem o mesmo trabalho mostram a mesma barra. E ela **não mede a largura desenhada**: o Chromium usa barra em OVERLAY, `offsetWidth - clientWidth` é ZERO nos dois, e uma asserção de largura mediria a plataforma em vez da nossa folha. Também não pergunta se ESTE deck transborda — com poucas páginas ele cabe, e a régua viraria o tamanho da fixture em vez da regra. Uma reversão, 64/64 verdes. **SÓ BASE WEB.**
@@ -313,6 +314,91 @@ na nota que a revoga, não apagada da que a criou.
 
 ---
 
+## v1.4.40 — o azul do tile passou a dizer "ligado"
+
+> *"a maioria dos botões das configurações não tem estado de ativo e inativo,
+> como o seletor de tema claro ou escuro, o preenchimento, o histórico e o
+> wallpaper padrão… então pode deixar eles no estado azul de 'sempre ativo' o
+> tempo todo.*
+>
+> *ajuste para que esses itens que não se ativam fiquem no topo da listagem e
+> deixe os outros mais em baixo."*
+
+### A leitura da v1.4.38 não sobreviveu ao contato com quem opera
+
+Ela definiu **aceso = o estado NÃO é o padrão**, para a grade responder de
+relance *"o que eu deixei mexido aqui?"*. A regra é coerente e está errada onde
+o tile não tem um "desligado": escolher **Ajustar** não desliga coisa nenhuma,
+**Padrão** é um wallpaper tanto quanto uma imagem própria, e **Histórico** é uma
+porta.
+
+E o custo não é estético. Um tile apagado, no vocabulário deste app, diz
+**INDISPONÍVEL** — é a queixa da v1.4.25 palavra por palavra:
+
+> *"ao invés de modificar o ícone do botão e seus efeitos, foi simplesmente
+> ofuscado o botão inteiro, o que dá a impressão de que não está disponível a
+> opção"*
+
+com o agravante de o app já ter uma linguagem para indisponível (`opacity: .3` +
+`disabled`), e ela não pode ser a mesma de "você está no padrão".
+
+Hoje: **aceso = a função está LIGADA**, e num tile que não tem desligado,
+**sempre**.
+
+### A correção obrigou a partir uma classe em duas
+
+`qs-on` fazia duas coisas: acendia o tile **e** trocava o desenho
+(`.ico-base`/`.ico-alt`). Com o aceso permanente, um tile sempre aceso ficaria
+preso no desenho ALTERNATIVO para sempre — o tema mostrando o sol no tema
+escuro, o preenchimento mostrando o corte com a mídia ajustada.
+
+São duas perguntas — *"qual desenho?"* e *"está ligado?"* — e a partir daqui
+`qs-alt` responde a primeira. `pintarTile` passou a receber as duas.
+
+### Dois acesos foram invertidos
+
+**Fundo da letra** e **Medição** marcavam `Remover` e `De fora`, isto é, o
+estado que não é o padrão. Passaram a marcar `Mostrar` e `Entra` — a função
+ligada. Com a inversão o desenho e a luz dizem a mesma coisa (imagem inteira e
+aceso · imagem riscada e apagado), em vez de coisas opostas no mesmo botão.
+
+**Girar** já estava certo por acidente: `0°` é o giro desligado.
+
+### A ordem, e por que UMA grade só
+
+Os quatro sempre-acesos primeiro (tema, preenchimento, wallpaper, histórico), os
+três que ligam e desligam depois (fundo da letra, girar, medição).
+
+**Duas grades com um respiro entre elas foram descartadas:** o primeiro grupo
+tem QUATRO itens em três colunas, então uma grade própria para ele deixaria dois
+buracos no meio do painel — e um buraco no meio de uma grade se lê como defeito,
+não como separação. Numa grade só a ordem já responde ao pedido, e quem desenha
+o grupo é a própria COR: os quatro primeiros são azuis, e o bloco azul se lê
+mesmo virando a linha.
+
+### De quebra, um defeito de resposta ao toque
+
+`setLyricsBg` pintava o tile **depois** do `await` da gravação — então aquele
+botão só respondia ao dedo quando a transação do IndexedDB voltasse. Os irmãos
+(`applyFit`, `applyRotate`) sempre pintaram antes. Achado pelo oráculo, que leu
+o estado logo após o clique e viu o valor velho: o app estava medindo o banco no
+lugar da tela.
+
+### O que se perde, dito
+
+A grade deixou de responder *"o que eu deixei mexido aqui?"* de relance. Quem
+responde isso agora é a **palavra do estado**, que sempre esteve lá — e três dos
+sete tiles continuam apagando, que é a única linguagem de ligado/desligado que
+sobrou no painel.
+
+Cinco asserções novas no `smoke.mjs`, com a metade que impede o conserto
+preguiçoso (acender tudo, sempre): **o fundo da letra continua APAGANDO**. Sem
+ela, apagar a distinção inteira passaria em tudo o mais.
+
+**SÓ BASE WEB**: nenhum arquivo de `java/`, `res/` ou do manifest foi tocado.
+Sem degrau de `SHELL_VERSION`, sem `shellTag`, sem Release.
+
+---
 ## v1.4.39 — as abas do auxiliar voltaram a preencher a faixa
 
 Relato do operador:

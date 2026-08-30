@@ -270,7 +270,7 @@ const appVersionEl = document.getElementById('appVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.4.39';
+const WEB_VERSION = '1.4.40';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -1955,12 +1955,23 @@ async function setLyricsBg(mode) {
   mode = mode === 'image' ? 'image' : 'black';
   if (lyricsBg === mode) return;
   lyricsBg = mode;
-  await AVDB.setState('lyricsBg', lyricsBg);
+  // PINTAR ANTES DE GRAVAR, como o `applyFit` e o `applyRotate` já faziam
+  // (v1.4.40). Depois do `await` o tile só respondia ao toque quando a
+  // transação do IndexedDB voltasse — no aparelho isso é o botão parecendo não
+  // ter recebido o dedo, e no oráculo era uma leitura que media o banco em vez
+  // da tela. O valor já está em `lyricsBg`; a gravação é o que ele significa
+  // na abertura seguinte, não o que a tela mostra agora.
   renderLyricsBgTile();
+  await AVDB.setState('lyricsBg', lyricsBg);
   cmd({ type: 'lyricsbg', mode: lyricsBg });
 }
+// ESTE LIGA E DESLIGA, e a v1.4.40 INVERTEU o aceso dele: as imagens MOSTRADAS
+// são a função ligada, e antes o aceso marcava "Remover" (o que não é o padrão).
+// Com a inversão o desenho e a luz passam a concordar — imagem inteira e aceso,
+// imagem riscada e apagado —, em vez de dizerem coisas opostas no mesmo botão.
 function renderLyricsBgTile() {
-  pintarTile(lyricsBgTileEl, lyricsBg, lyricsBg === 'image' ? 'Mostrar' : 'Remover', lyricsBg !== 'image');
+  const mostra = lyricsBg === 'image';
+  pintarTile(lyricsBgTileEl, lyricsBg, mostra ? 'Mostrar' : 'Remover', mostra, !mostra);
 }
 
 // Envia o comando ao display E aplica na preview. YouTube usa o player pequeno
@@ -20812,31 +20823,41 @@ if (diagSaveEl) {
 
 // ===== PINTAR UM TILE DO PAINEL RÁPIDO (v1.4.38) =====
 //
-// Um ponto só escreve as TRÊS coisas que um tile mostra, e é isso que impede
+// Um ponto só escreve as QUATRO coisas que um tile mostra, e é isso que impede
 // que elas divirjam: o `data-estado` (o valor em vigor — é por ele que os
 // oráculos perguntam, e nunca pela classe, que é aparência), a palavra do
-// estado, e o aceso.
+// estado, o desenho e o aceso.
 //
-// `ligado` é "o estado NÃO é o padrão", nunca "está selecionado": o tile é um
-// interruptor, e o que ele responde de longe é *"o que eu deixei mexido
-// aqui?"*. Ver as três regras do tile no `index.html`.
-function pintarTile(el, estado, rotulo, ligado) {
+// `aceso` E `alt` SÃO DUAS PERGUNTAS, e não uma (v1.4.40). `aceso` é *"a função
+// está ligada?"* — e num tile que não tem "desligado" (tema, preenchimento,
+// wallpaper, histórico) ele é SEMPRE verdadeiro, porque apagado ali quer dizer
+// INDISPONÍVEL, que é a queixa da v1.4.25 aplicada a este painel. `alt` é
+// *"qual dos dois desenhos?"*. Enquanto as duas foram a mesma classe, um tile
+// sempre aceso ficava preso no desenho alternativo para sempre.
+// Ver as três regras do tile no `index.html`.
+function pintarTile(el, estado, rotulo, aceso, alt) {
   if (!el) return;
   el.dataset.estado = String(estado);
   const alvo = el.querySelector('.qs-estado');
   if (alvo) alvo.textContent = rotulo;
-  el.classList.toggle('qs-on', !!ligado);
+  el.classList.toggle('qs-on', !!aceso);
+  el.classList.toggle('qs-alt', !!alt);
 }
 
+// SEMPRE ACESO: escolher "Ajustar" não desliga nada — é a outra metade de um
+// par, e as duas são igualmente uma escolha em vigor. Quem diz QUAL é o desenho
+// mais a palavra.
 function renderFitTile() {
-  pintarTile(fitTileEl, mediaFit, mediaFit === 'cover' ? 'Preencher' : 'Ajustar', mediaFit === 'cover');
+  pintarTile(fitTileEl, mediaFit, mediaFit === 'cover' ? 'Preencher' : 'Ajustar',
+    true, mediaFit === 'cover');
 }
-// O WALLPAPER TEM UM ÍCONE SÓ, e o estado sai da palavra mais o aceso — o par
-// de desenhos que distinguiria "padrão" de "própria" viraria o `icoImagem` do
-// tile vizinho (ver o comentário do símbolo no `index.html`).
+// O WALLPAPER TEM UM ÍCONE SÓ — o par de desenhos que distinguiria "padrão" de
+// "própria" viraria o `icoImagem` do tile vizinho (ver o comentário do símbolo
+// no `index.html`) — e é SEMPRE ACESO: há um wallpaper no telão nos dois
+// estados, e "Padrão" não é o recurso desligado. Quem diz qual é a palavra.
 function renderWallTile() {
   pintarTile(wallTileEl, customWallpaper ? 'propria' : 'padrao',
-    customWallpaper ? 'Própria' : 'Padrão', customWallpaper);
+    customWallpaper ? 'Própria' : 'Padrão', true, false);
 }
 async function applyFit(mode) {
   mediaFit = mode;
@@ -20867,7 +20888,7 @@ function renderRotBtn() {
   // valor de quatro posições (quatro desenhos que só diferem pelo próprio
   // ângulo não se distinguem a 22px), então quem responde "como está?" é o
   // rótulo, e o aceso diz que o giro não está no padrão.
-  pintarTile(rotBtnEl, mediaRot, mediaRot + '°', mediaRot !== 0);
+  pintarTile(rotBtnEl, mediaRot, mediaRot + '°', mediaRot !== 0, false);
   if (rotBtnEl) {
     rotBtnEl.title = mediaRot ? 'Girada ' + mediaRot + '° — tocar gira mais 90°' : 'Girar 90° no telão';
   }
@@ -23944,8 +23965,11 @@ function setTema(t) {
   renderTemaTile();
 }
 
+// SEMPRE ACESO, pelo motivo do preenchimento: escuro e claro são as duas
+// metades de um par, e nenhuma delas é "o tema desligado".
 function renderTemaTile() {
-  pintarTile(temaTileEl, tema, tema === 'claro' ? 'Claro' : 'Escuro', tema === 'claro');
+  pintarTile(temaTileEl, tema, tema === 'claro' ? 'Claro' : 'Escuro',
+    true, tema === 'claro');
 }
 
 // ===== ESTE APARELHO NA MEDIÇÃO DE ALCANCE (v1.4.1) =====
@@ -23971,11 +23995,12 @@ async function renderFarolTile() {
   // de fato tem.
   if (!est) { farolTileEl.hidden = true; return; }
   farolTileEl.hidden = false;
-  // ACESO É "FICA DE FORA", que é a regra do painel inteiro: o padrão deste
-  // aparelho é ENTRAR na contagem, e o tile acende no estado que não é o
-  // padrão. É a leitura certa também pelo conteúdo — "este aparelho está fora
-  // do contador comum" é justamente o que alguém precisa ver de relance.
-  pintarTile(farolTileEl, est.conta ? 'sim' : 'nao', est.conta ? 'Entra' : 'De fora', !est.conta);
+  // ACESO É "ENTRA" (v1.4.40, invertido junto com o fundo da letra): este tile
+  // LIGA E DESLIGA uma função, e a função é contar. Aceso = este aparelho está
+  // na contagem; apagado, com as barras riscadas, é o aparelho fora dela — o
+  // desenho e a luz dizendo a mesma coisa.
+  pintarTile(farolTileEl, est.conta ? 'sim' : 'nao', est.conta ? 'Entra' : 'De fora',
+    !!est.conta, !est.conta);
 }
 
 if (farolTileEl) {
