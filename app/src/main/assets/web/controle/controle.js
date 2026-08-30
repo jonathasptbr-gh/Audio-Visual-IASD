@@ -19,11 +19,6 @@ const muteToggleEl = document.getElementById('muteToggle');
 // Modo de uso (ver "Modos de uso" mais abaixo)
 const appModeSegEl = document.getElementById('appModeSeg');
 const temaTileEl = document.getElementById('temaTile');
-// A chave "este aparelho na contagem de uso" (v1.4.1) — ver `renderFarolLinha`.
-// Aqui em cima, com os irmãos, e não junto da função que a usa: o estado deste
-// arquivo mora no fim e as funções são alcançadas de cima, então um `const`
-// declarado lá embaixo é uma zona morta esperando a ordem de chamada mudar.
-const farolRowEl = document.getElementById('farolRow');
 const simpleModeEl = document.getElementById('simpleMode');
 const simpleSettingsBtnEl = document.getElementById('simpleSettingsBtn');
 const simpleSearchBtnEl = document.getElementById('simpleSearchBtn');
@@ -270,7 +265,7 @@ const appVersionEl = document.getElementById('appVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.4.41';
+const WEB_VERSION = '1.4.42';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -19411,10 +19406,6 @@ function openFadePopup() {
   renderRotBtn();
   renderLyricsBgTile();
   renderWallTile();
-  // O FAROL é RELIDO ao abrir, e não pintado de uma cópia guardada: a chave
-  // vive em `SharedPreferences` do shell, e o app pode ter sido reinstalado ou
-  // restaurado de um backup desde a última vez que esta folha esteve aberta.
-  renderFarolLinha();
   // O estado do espelho é relido ao ABRIR (e depois só enquanto a folha dele
   // estiver aberta): a linha precisa dizer a verdade no instante em que o
   // operador olha para ela, e o espelho pode ter saído do ar sozinho por uma
@@ -19538,15 +19529,18 @@ function cabecalhoDiag() {
   // primeira pergunta é se o WebView deste aparelho aceita os codecs — e a
   // resposta não se descobre de fora.
   l.push('Transmissão: ' + diagMse());
-  // O ALCANCE (v1.4.1). Ele responde DUAS perguntas que a tela não separa, e a
-  // segunda é a que faz este Registro ser copiado: "este aparelho está sendo
-  // contado?" e "o farol chegou a acender?". Um aparelho marcado como de teste
-  // não deixa de acender — ele acende noutro contador —, e sem esta linha
-  // "marquei e continua contando" seria indistinguível de "marquei e o farol
-  // nunca saiu daqui".
+  // O ALCANCE (v1.4.1). Com a chave fora (v1.4.42) ele responde UMA pergunta, e
+  // é a que faz este Registro ser copiado: **o farol chegou a acender?** Sem
+  // esta linha, "o número não sobe" é indistinguível de "o farol nunca saiu
+  // daqui" — e as duas pedem consertos opostos.
+  //
+  // O `conta` FICA, e não é sobra: ele é o VEREDITO do shell, e num build
+  // debuggável ainda é `false` (o aceso vai para o contador de teste). Sem ele,
+  // um Registro tirado de um build de trabalho diria "acendeu" sobre um número
+  // que nunca vai aparecer no painel.
   if (farolDiag) {
     l.push('Alcance: este aparelho '
-      + (farolDiag.conta ? 'ENTRA na contagem' : 'fica de fora (conta à parte)')
+      + (farolDiag.conta ? 'ENTRA na contagem' : 'conta à parte (build de teste)')
       + ' · último aceso: '
       + (farolDiag.ultimo ? new Date(farolDiag.ultimo).toLocaleString() : 'nunca')
       + (farolDiag.diag ? ' · ' + farolDiag.diag : ''));
@@ -23986,67 +23980,14 @@ function renderTemaTile() {
     true, tema === 'claro');
 }
 
-// ===== ESTE APARELHO NA MEDIÇÃO DE ALCANCE (v1.4.1) =====
+// (A CHAVE "este aparelho entra na contagem" saiu na v1.4.42, a pedido do
+//  operador: *"descarte a opção de contagem de uso como opcional, deixe sempre
+//  ativo, não preciso do sistema de exclusividade"*. Ela foi um tile do painel
+//  rápido (v1.4.1–v1.4.40) e uma linha do rodapé do Registro (v1.4.41).
 //
-// A linha só existe no app: no navegador não há farol nenhum, e uma chave que
-// não liga nada é pior que chave nenhuma. Ela nasce `hidden` no HTML e é esta
-// função que a revela — sempre pelo mesmo caminho por que a pinta, senão os
-// dois estados podem discordar.
-//
-// O ESTADO VEM DO SHELL, e nunca de uma cópia local: `conta` é o VEREDITO (ele
-// já embute o build debuggável, que a tela não tem como saber). Guardar a
-// escolha aqui faria a tela afirmar "entra" num aparelho em que o shell decidiu
-// o contrário — a divergência exata que este projeto trata como o pior
-// artefato possível, porque ela é lida a distância e não tem como ser
-// conferida.
-// ELA SAIU DA GRADE na v1.4.41 e virou uma LINHA no rodapé do Registro. O
-// pedido do operador foi levá-la para a página de alcance do site, e a resposta
-// honesta é que **a página não alcança o app**: são origens diferentes no mesmo
-// aparelho, o armazenamento de uma não é lido pela outra, e o app não tem
-// intent-filter de URL. O que a página ganhou foi o interruptor do NAVEGADOR,
-// que ela de fato controla; a chave do APARELHO ficou aqui, no rodapé, que é a
-// vizinhança certa — metadado de manutenção, ao lado do Registro, longe do
-// painel que se opera durante o culto.
-//
-// O RÓTULO É A FRASE INTEIRA, e não um par rótulo/valor: a linha existe uma vez
-// por sessão, é lida por quem já sabe o que ela faz, e uma frase responde
-// "como está?" e "o que o toque faz?" sem custar uma segunda coluna no rodapé.
-async function renderFarolLinha() {
-  if (!farolRowEl) return;
-  if (!window.__NATIVE__) { farolRowEl.hidden = true; return; }
-  let est = null;
-  try { est = await AVNative.farolEstado(); } catch (_) { est = null; }
-  // Sem resposta a linha não aparece: uma chave desenhada sobre um estado
-  // desconhecido convida a tocá-la, e o toque gravaria por cima do que o shell
-  // de fato tem.
-  if (!est) { farolRowEl.hidden = true; return; }
-  farolRowEl.hidden = false;
-  farolRowEl.dataset.estado = est.conta ? 'sim' : 'nao';
-  farolRowEl.textContent = est.conta
-    ? 'Contagem de uso: este aparelho entra'
-    : 'Contagem de uso: este aparelho fica de fora';
-  farolRowEl.title = est.conta
-    ? 'Tocar tira este aparelho da contagem pública (ele passa a contar num contador separado)'
-    : 'Tocar devolve este aparelho à contagem pública';
-}
-
-if (farolRowEl) {
-  farolRowEl.addEventListener('click', () => {
-    // O ALVO SAI DO `data-estado`, que é a última resposta DO SHELL — não uma
-    // cópia local do valor. Sem estado conhecido (a linha ainda nem foi
-    // pintada) não há o que alternar: reler é a resposta, e o toque seguinte
-    // decide.
-    const atual = farolRowEl.dataset.estado;
-    if (atual !== 'sim' && atual !== 'nao') { renderFarolLinha(); return; }
-    AVNative.farolContar(atual !== 'sim');
-    // RELER, e não pintar o que se acabou de pedir: o shell é quem responde, e
-    // um build debuggável continua fora da contagem por mais que a chave diga
-    // "entra". Pintar o pedido faria a tela mentir exatamente no aparelho em
-    // que a pergunta importa.
-    renderFarolLinha();
-  });
-}
-
+//  O QUE SOBRA É LEITURA: `farolDiag` alimenta a linha "Alcance:" do Registro,
+//  que responde *"o farol chegou a acender?"* — e essa pergunta não tem nada a
+//  ver com haver ou não uma chave.)
 // A tela simplificada é um ESPELHO dos controles reais: copia o glifo e o
 // estado dos botões do mixer/transporte em vez de recalcular play/pause e
 // mudo por conta própria. Se a regra mudar lá, muda aqui junto.

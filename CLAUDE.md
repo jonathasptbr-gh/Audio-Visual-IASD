@@ -569,19 +569,15 @@ window.AVNative = {
                        //   uma pessoa no seletor
   cifraDiag(),         // → string: o que a última busca de cifra recebeu
   // ---- A MEDIÇÃO DE ALCANCE — ver `docs/MEDICAO-DE-ALCANCE.md` ----
-  farolEstado(),       // → { conta, ultimo, diag }: este aparelho entra na
-                       //   contagem? `conta` é o VEREDITO e não a chave — ele
-                       //   já embute o build debuggável, que a tela não tem
-                       //   como saber. `ultimo` é epoch em ms (0 = nunca)
-  farolContar(bool),   // a linha do rodapé do Registro, em Configurações (ela
-                       //   saiu do painel rápido na v1.4.41). Síncrona e sem resposta,
-                       //   como o `espelhoDesligar`: a gravação é local e o
-                       //   efeito é do PRÓXIMO acendimento. NÃO reacende nada —
-                       //   um aparelho nos dois contadores no mesmo dia é o
-                       //   duplo registro que o desenho existe para não ter
+  farolEstado(),       // → { conta, ultimo, diag }: SÓ LEITURA, e o consumidor
+                       //   é a linha "Alcance:" do Registro, que responde "o
+                       //   farol chegou a acender?". `conta` é o VEREDITO e não
+                       //   uma chave — desde o shell 61 o único motivo dele é o
+                       //   build debuggável. `ultimo` é epoch em ms (0 = nunca)
+                       //   (`farolContar` SAIU no shell 61 — ver abaixo)
 }
 ```
-São **51 métodos**, e essa é a superfície inteira que o resto do lado web tem
+São **50 métodos**, e essa é a superfície inteira que o resto do lado web tem
 direito de usar — fora do `native.js`, tocar em `__AVBridge` direto é
 acoplamento indevido. O próprio `native.js` chama mais oito coisas lá, e nenhuma
 é API para o app: `ytFetchAudio` e `ytFetchAte` (não são métodos a mais, são os
@@ -598,6 +594,15 @@ operador, que **não** se confunde com `__SHELL_VERSION__`: base web e shell
 atualizam por caminhos independentes, e o rodapé de Configurações mostra os dois
 via `renderVersionLabel`). Sem `appVersion()` a string vem vazia e a UI cai em só
 a versão web.
+
+> **O ÚNICO MÉTODO QUE JÁ SAIU** é o `farolContar` (shell 61, v1.4.42) — a chave
+> "este aparelho entra na contagem", descartada a pedido do operador:
+> *"descarte a opção de contagem de uso como opcional, deixe sempre ativo, não
+> preciso do sistema de exclusividade"*. Ele é o caso de ENCOLHER a ponte que a
+> regra abaixo descreve, e foi entregue como ela manda: APK + web no mesmo lote,
+> com `shellTag` segurando o bundle até a Release existir. O que sobra da
+> medição é uma exclusão sem chave nenhuma — o build debuggável, que acende num
+> contador separado por construção (`Farol.contar`).
 
 **Princípio: a ponte entrega URLs SERVÍVEIS, não bytes.** Arquivos do aparelho e
 compartilhamentos chegam como `https://appassets.androidplatform.net/saf/<token>`
@@ -639,7 +644,7 @@ prazo (um timeout ali resolveria null com o operador ainda escolhendo a pasta).
 
 ### `SHELL_VERSION` — subir SEMPRE que a superfície mudar
 
-Hoje vale **60**, e ele é o **PISO**: o bundle declara `minShell: 60`, então
+Hoje vale **61**, e ele é o **PISO**: o bundle declara `minShell: 61`, então
 todo método da ponte existe sempre e **não há guarda de versão no lado web**.
 "Superfície" inclui **forma de retorno** e **comportamento**, não só assinatura:
 um campo que some, um contrato de URL que muda ou um método que passa a fazer
@@ -652,7 +657,7 @@ escondia. Sem guardas, o web chama um método que o APK instalado não tem: o
 existe, é tocável e não faz nada. Por isso mudança de ponte é um lote
 **APK + web publicado JUNTO**, com `shellTag` no `version.json`.
 
-> A tabela dos 60 degraus está em `docs/HISTORICO.md` — ela é história do
+> A tabela dos 61 degraus está em `docs/HISTORICO.md` — ela é história do
 > contrato, e história mora lá.
 
 ### As QUATRO filas da ponte — escolher a errada é uma regressão muda
@@ -714,7 +719,7 @@ E duas regras que ficam de fora das filas:
   e volta; quem responde é o laço de cópia do `YoutubeGrab`, a cada bloco de
   64 kB.
 
-**O bundle declara `minShell: 60`, e é a VÁLVULA que resolve.** Um bundle que
+**O bundle declara `minShell: 61`, e é a VÁLVULA que resolve.** Um bundle que
 exija ponte mais nova que o `SHELL_VERSION` instalado é recusado inteiro
 (`WebUpdater.kt`), e o app segue no que tinha — a recusa acontece no shell, e
 não em runtime no meio de um culto. **Guarda de versão no lado web é proibida:**
@@ -3042,7 +3047,7 @@ que ela é desenvolvida e testada fora do aparelho.
 | Controles fora do app | — | `MediaSession`: notificação, tela de bloqueio, botões de mídia |
 | Download minimizado | a aba continua baixando | **foreground service + wake lock**; sem isso o processo é congelado |
 | Atualização da base web | recarregar a página | **OTA** |
-| Contagem de uso | **não existe** no app — e a linha do rodapé de Configurações nem é desenhada (uma chave que não liga nada é pior que chave nenhuma). Quem tem interruptor no navegador é a PÁGINA DE ALCANCE (`site/registro/`), e ele vale só para as visitas dela | **o farol** (shell 58): uma busca por dia a um asset de contagem, agregada e sem id. Pega carona na ronda do OTA. O aparelho marcado como de teste e o build debuggável acendem num contador **separado** — exclusão por CONSTRUÇÃO, nunca por subtração de uma estimativa |
+| Contagem de uso | **não existe** — nada é contado num navegador, e não há chave nenhuma a desenhar | **o farol** (shell 58): uma busca por dia a um asset de contagem, agregada e sem id. Pega carona na ronda do OTA. **SEMPRE ATIVO desde a v1.4.42**: a chave de exclusão saiu (com o `farolContar` da ponte), e o que sobra é o BUILD DEBUGGÁVEL, que acende num contador separado por construção. O preço está no painel — a página de alcance avisa que os números incluem o uso próprio |
 | Atualização do APP | — | **o app baixa e instala**; o diálogo do Android é obrigatório e está certo que seja |
 | Tema claro × escuro | CSS + `localStorage`; `theme-color` tinge a barra | idem **mais o cromo do sistema**: `temaClaro` vira os ÍCONES das barras e guarda a escolha para o `windowBackground` do PRÓXIMO lançamento (recurso de APK é resolvido antes de existir JS) |
 | **Telão nas telas da rede** | **não existe** (navegador não abre `ServerSocket`) | servidor HTTP no celular + SSE + `/m/<token>` — ver a seção do recurso. A rede é a Wi-Fi de que o celular é CLIENTE **ou o PONTO DE ACESSO dele mesmo** (v1.4.1): nenhuma das duas precisa de internet |
@@ -3454,7 +3459,7 @@ mundo anterior por outro caminho.
 | `fome-que-desiste.test.mjs` | **a transmissão faminta DESISTE.** O `AVStream.fome` era o único lugar do app que sabia que a projeção estava parada — e só escrevia no Registro. Cinco metades, e a que carrega o lote é *trocar de cena CANCELA*: o teto (25 s) é maior que uma cena inteira, e o aviso da mídia que SAIU chegaria em cima da que ENTROU. O **relógio é MOCKADO** (`page.clock`) — esperar 25 s quatro vezes daria um oráculo cuja reprovação sob carga não distinguiria defeito de agendador. MEDIDO escrevendo o arquivo: `fastForward` não reprocessa o temporizador que o callback agenda no meio do salto, e o tempo tem de andar em FATIAS |
 | `stream-so-audio.test.mjs` | **o stream que não tem imagem.** Um `kind:'audio'` sem letra — o que o "Tocar agora · Só áudio" produz — não entrava em nenhum dos dois ramos que acendem o aviso e disparam a rampa (os dois pedem `!semVisual()`). A prova da rampa é a ESCRITA de um volume intermediário: um teste do valor FINAL passa nas duas versões, porque nos dois o volume termina em 1. A terceira metade (o ARQUIVO local continua como era) impede a correção de virar um segundo dono da mesma rampa |
 | `rotina-cede-a-vez.test.mjs` | **a varredura de acervo cede a vez ao que está no ar.** Duas naturezas de asserção, e a segunda é declarada: o COMPORTAMENTO (com cena no ar nenhuma das duas abre tarefa) e a FORMA (o gate nos cinco pontos), porque o ponto que mais importa — o de DENTRO do `runLimited`, que cobre o caso normal do culto — é inalcançável sem semear um acervo inteiro |
-| `registro-alcance.test.mjs` | **a MEDIÇÃO DE ALCANCE**, um dos dois que rodam sobre o `site/`. Duas coisas falham CALADAS ali. Um gráfico que desenha todos os valores iguais: `.barra-c`/`.barra-f` eram `<span>`, que é INLINE, e `width` não faz nada num elemento inline — 12, 5, 3 e 1 saíam idênticos, sem erro em lugar nenhum (provado por REVERSÃO). E o ROTEAMENTO do farol de visita, que é o requisito inteiro: se ele parar, os números continuam subindo e passam a incluir quem mede — **e contador não se corrige depois** |
+| `registro-alcance.test.mjs` | **a MEDIÇÃO DE ALCANCE**, um dos dois que rodam sobre o `site/`. **E a AUSÊNCIA do sistema de exclusão** (v1.4.42), que falha calada nos dois sentidos: um resto do mecanismo deixaria o navegador do operador fora do número público para sempre e sem nada na tela dizendo por quê, e um painel SEM exclusão e SEM aviso vira o "confiável e falso" que `docs/MEDICAO-DE-ALCANCE.md` nomeia, pelo outro lado — daí a asserção sobre o TEXTO RENDERIZADO da nota, e não sobre a presença de um nó. Duas coisas falham CALADAS ali. Um gráfico que desenha todos os valores iguais: `.barra-c`/`.barra-f` eram `<span>`, que é INLINE, e `width` não faz nada num elemento inline — 12, 5, 3 e 1 saíam idênticos, sem erro em lugar nenhum (provado por REVERSÃO). E o ROTEAMENTO do farol de visita, que é o requisito inteiro: se ele parar, os números continuam subindo e passam a incluir quem mede — **e contador não se corrige depois** |
 | `plataforma.test.mjs` | **o FILTRO DE PLATAFORMA da página**: o `.apk` só instala em Android, então quem chega de iPhone, iPad ou computador não vê o guia de instalação — vê a frase que diz que este é um app Android e que a página deve ser aberta por um. Falha CALADO nos dois sentidos: de MENOS, o download volta a aparecer num iPhone e a pessoa conclui que o app está quebrado (ninguém relata isso); de MAIS — o caro —, a classificação recusa um Android de verdade e o que sai é uma página que abre, rola e não oferece nada. Daí o desenho FALHAR ABERTO (sem classe no `<html>` nada é escondido) e essa propriedade ter asserção própria: um desenho fail-CLOSED deixa a suíte inteira verde e reprova só ali. `userAgent` VERBATIM, **o iPad entre eles sem código próprio** — o iPadOS 13+ se anuncia como Macintosh e cai no lado certo por construção, então a asserção guarda a PROPRIEDADE e não o mecanismo |
 
 > **A REDE EXTERNA NÃO ENTRA NUM ORÁCULO** (`tools/sem-rede.mjs`,
@@ -3883,9 +3888,11 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: v1.4.41** (base web) · **v1.4.22** (APK) · `SHELL_VERSION` **60** · bundle com
-`minShell: 60` — o shell 60 é o **PISO**: todo método da ponte existe, e não há
-guarda de versão no lado web. O que continua valendo é que `java/`, `res/`, o
+**Versão atual: v1.4.42** (base web) · **v1.4.42** (APK) · `SHELL_VERSION` **61** · bundle com
+`minShell: 61` e `shellTag: "v1.4.42"` — o shell 61 é o **PISO**: todo método da
+ponte existe, e não há guarda de versão no lado web. **Este lote EXIGE a
+Release**: o `farolContar` saiu da ponte, e é o APK que faz o `Farol.contar`
+parar de ler a chave de exclusão que já está gravada em quem a usou. O que continua valendo é que `java/`, `res/`, o
 manifest e os workflows **só chegam instalando o APK**.
 
 ### Onde procurar

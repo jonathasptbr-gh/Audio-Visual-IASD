@@ -409,10 +409,7 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
      ao toque sem nada na tela dizer por quê. Nenhum ancestral deles está na
      lista (a `.fade-opts` e a `.qs-grade` não respondem a toque), então não há
      duplo recuo a suprimir. */
-  .qs-tile,
-  /* A linha da contagem de uso, no rodapé do Registro (v1.4.41) — mesma regra,
-     mesmo lote em que ela nasce. */
-  .farol-row
+  .qs-tile
 ):active { transform: var(--press); filter: var(--press-luz); }
 
 
@@ -4649,28 +4646,6 @@ main {
   margin-left: auto;
   font-size: .8rem; color: var(--muted);
 }
-/* ---------- A CONTAGEM DE USO, no rodapé do Registro (v1.4.41) ----------
-   Ela era um tile do painel rápido e saiu de lá: não é preferência de projeção,
-   é chave de MANUTENÇÃO — a única daquela folha que quem opera o culto nunca
-   toca. Aqui ela fica na vizinhança certa, ao lado da versão e do Registro, que
-   é o que se lê quando se está diagnosticando.
-
-   O DESENHO É DELIBERADAMENTE QUIETO: sem superfície de botão, sem acento, no
-   corpo do rodapé — a linha inteira é o alvo, e `--muted` a mantém abaixo da
-   versão e do Registro na hierarquia. Um `--btn-accent` aqui competiria com o
-   `#otaRow` logo abaixo, que é a única AÇÃO deste rodapé.
-
-   `text-align: left` explícito: `<button>` centraliza por padrão do agente, e
-   uma frase centrada no meio de um rodapé alinhado à esquerda se lê como outro
-   tipo de controle. */
-.farol-row {
-  display: block; width: 100%;
-  margin-top: .45rem; padding: 0;
-  border: none; background: none;
-  color: var(--muted); font-family: inherit; font-size: .8rem; text-align: left;
-  cursor: pointer;
-}
-.farol-row[hidden] { display: none; }
 
 /* (`.folder-pick-btn` saiu na v5.254, com o popup de seleção de pasta: os
    atalhos de pasta deixaram de existir, e uma pasta do APARELHO não recebe
@@ -5502,11 +5477,13 @@ main {
   background: var(--surface); color: var(--muted);
   font-family: inherit; text-align: center; cursor: pointer;
 }
-/* `display: flex` VENCE O `hidden`, e este é o modo de falhar mais bobo desta
-   grade: o atributo só esconde porque a folha do agente diz `[hidden] {
-   display: none }`, e qualquer `display` declarado depois o atropela. Sem esta
-   linha o tile da medição — que nasce `hidden` e só o shell revela — aparece no
-   NAVEGADOR, onde não há farol nenhum para ele ligar. */
+/* `display: flex` VENCE O `hidden`, e é uma GUARDA e não uma descrição: HOJE
+   nenhum tile nasce escondido (o da contagem de uso, que nascia, saiu na
+   v1.4.41 e o recurso inteiro na v1.4.42). Ela fica porque o modo de falhar é
+   dos mais bobos e dos mais fáceis de repetir — o atributo só esconde porque a
+   folha do agente diz `[hidden] { display: none }`, e qualquer `display`
+   declarado depois o atropela em silêncio: o tile aparece, tocável, num
+   contexto em que ele não liga nada. */
 .qs-tile[hidden] { display: none; }
 .qs-tile svg { display: block; width: var(--icon-md); height: var(--icon-md); }
 /* O TÍTULO em `--text` e o ESTADO em `--muted`: são duas perguntas diferentes

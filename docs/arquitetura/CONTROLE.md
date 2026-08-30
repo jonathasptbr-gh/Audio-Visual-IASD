@@ -914,10 +914,8 @@ a própria cor.
 | Girar no telão | `#rotBtn` | `0` `90` `180` `270` | ≠ `0` | `#icoGirar` |
 
 **SEIS TILES desde a v1.4.41** — a grade fecha em duas fileiras exatas. A
-**contagem de uso** (`#farolRow`) saiu daqui e virou uma **linha no rodapé do
-Registro**: ela não é preferência de projeção, é chave de manutenção, e era a
-única do painel que quem opera o culto nunca toca. Ver "A contagem de uso"
-abaixo.
+**contagem de uso** saiu daqui (era o sétimo tile) e, uma versão depois, saiu do
+app inteiro: ver "A contagem de uso" abaixo.
 
 **O TÍTULO DO GIRO DIZ ONDE** (v1.4.41): *"Girar no telão"*, e o `title`
 completa pela negativa (*"não gira o app nem a tela do celular"*). "Girar"
@@ -982,19 +980,35 @@ cancela a ativação é um `preventDefault()` no ouvinte. Trocar uma imagem por
 outra são **dois toques**, e esse é o preço declarado de o wallpaper caber num
 tile como os outros.
 
-O rodapé: **estado do telão**, a **versão**, o **Registro** e, desde a v1.4.41,
-a **contagem de uso**.
+O rodapé: **estado do telão**, a **versão** e o **Registro**.
 
-#### A contagem de uso, e por que ela NÃO mora no site (v1.4.41)
+#### A contagem de uso NÃO TEM MAIS CHAVE (v1.4.42)
 
-`#farolRow` é uma linha quieta do rodapé (sem superfície de botão, `--muted`, a
-frase inteira como alvo): *"Contagem de uso: este aparelho entra"* / *"…fica de
-fora"*, e o toque alterna. `hidden` fora do app, revelada por
-`renderFarolLinha` — o MESMO caminho que a pinta.
+Ela foi um tile do painel (v1.4.1–v1.4.40) e uma linha do rodapé do Registro
+(v1.4.41). Saiu inteira a pedido do operador: *"descarte a opção de contagem de
+uso como opcional, deixe sempre ativo, não preciso do sistema de
+exclusividade"*.
 
-O pedido do operador foi levá-la para a página de alcance do site, *"já que
-ambos serão acessados no mesmo aparelho"*. **A página não alcança o app**, e a
-razão é estrutural:
+**O que saiu:** a linha `#farolRow` e o `renderFarolLinha`, o `farolContar` da
+ponte (shell 61 — encolher a ponte é um lote APK + web publicado JUNTO, com
+`shellTag`), o `Farol.definirContar` e a leitura da preferência em
+`Farol.contar`. Os símbolos `#icoMedicao`/`#icoMedicaoOff` foram junto: um
+`<symbol>` sem consumidor viaja no bundle do OTA e não desenha nada em lugar
+nenhum.
+
+**O que fica:** `farolEstado`, agora **só leitura**, alimentando a linha
+*"Alcance:"* do Registro — que responde *"o farol chegou a acender?"*, a
+pergunta que faz aquele texto ser copiado. E a exclusão do **build debuggável**,
+que nunca foi opção de ninguém: emulador e `assembleDebug` acendem num contador
+separado por `FLAG_DEBUGGABLE`.
+
+**Por que o APK era obrigatório.** A chave já gravada em quem a usou continuaria
+sendo lida por um shell antigo: um aparelho marcado *"fica de fora"* ficaria fora
+da contagem **para sempre**, sem tela para desmarcar. É o `Farol.contar` do APK
+novo que o devolve — daí o `shellTag` segurando o bundle até a Release existir.
+
+**E o pedido anterior (v1.4.41), de a chave morar na página do site, não era
+possível** — fica registrado porque a pergunta volta:
 
 | | app | página de alcance |
 |---|---|---|
@@ -1006,14 +1020,6 @@ E não há terceira via: o app **não tem intent-filter de URL** (só `MAIN` e
 `SEND`/`SEND_MULTIPLE`, ver `AndroidManifest.xml`). Abrir uma porta de entrada
 EXPORTADA que troca uma chave de privacidade é pior que a linha — é a classe de
 risco que o KDoc do `ShareIntake` já nomeia.
-
-**O que a página ganhou foi o interruptor do NAVEGADOR**, que ela de fato
-controla (`#opContar`, em `site/registro/`): abrir `/registro/` com a chave
-sempre marcou aquele navegador para contar num contador separado, e a marca era
-escrita **em silêncio, para sempre e sem volta**. Hoje ela é visível e
-reversível — e o valor tem TRÊS estados (`'1'` operador · `'0'` decidiu que não
-· ausente nunca decidiu), porque com dois a página reescreveria a marca em toda
-abertura e o interruptor se desfaria sozinho.
 
 #### Os controles DENTRO do fullscreen: uma coluna, não gestos (v1.0.7)
 

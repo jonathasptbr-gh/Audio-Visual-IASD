@@ -217,7 +217,7 @@ class NativeBridge(
          *
          * O degrau a degrau está na tabela da seção "A ponte" do `CLAUDE.md`.
          */
-        const val SHELL_VERSION = 60
+        const val SHELL_VERSION = 61
 
         /**
          * O CONSUMIDOR DA LAN para o barramento (telão por comandos, E2 —
@@ -581,9 +581,14 @@ class NativeBridge(
      * sem rede. O farol EM SI nunca roda aqui: ele tem fila própria, e é a
      * ronda do OTA que o aciona.
      *
-     * Sem `host` devolve `{}` (invariante 9): a chave de exclusão é do
-     * Controle, e um script de terceiro no documento do telão não tem por que
-     * poder tirar aquele aparelho da contagem — nem descobrir que ele existe.
+     * ELE É SÓ LEITURA desde o shell 61, e o consumidor é o REGISTRO: a linha
+     * "Alcance:" responde *"o farol chegou a acender?"*, que é a pergunta que
+     * faz aquele texto ser copiado. A chave que ele acompanhava (`farolContar`)
+     * saiu — ver o bloco logo abaixo.
+     *
+     * Sem `host` devolve `{}` (invariante 9): é diagnóstico do Controle, e um
+     * script de terceiro no documento do telão não tem por que saber quando
+     * aquele aparelho acendeu — nem que o farol existe.
      */
     @JavascriptInterface
     fun farolEstado(callId: String) {
@@ -599,24 +604,19 @@ class NativeBridge(
         }
     }
 
-    /**
-     * A chave "este aparelho entra na contagem".
+    /*
+     * (`farolContar` saiu no shell 61. Era a chave "este aparelho entra na
+     *  contagem", e ela foi descartada a pedido do operador — *"descarte a
+     *  opção de contagem de uso como opcional, deixe sempre ativo, não preciso
+     *  do sistema de exclusividade"*. Ver o KDoc de [Farol]: o que sobra é a
+     *  exclusão do build debuggável, que nunca foi opção de ninguém.
      *
-     * Síncrona e sem resposta, como o [espelhoDesligar]: não há o que esperar —
-     * a gravação é local e o efeito é da PRÓXIMA vez que o farol acender. Um
-     * `callId` aqui prometeria um desfecho que não existe.
-     *
-     * **Ela não reacende nada, e isso é deliberado.** Marcar um aparelho como
-     * de teste no meio do dia não deve mandá-lo acender de novo no outro
-     * contador — o dia dele já foi contado, e um aparelho que aparecesse nos
-     * dois no mesmo dia é exatamente o duplo registro que este desenho existe
-     * para não ter.
+     *  ENCOLHER A PONTE É UM LOTE APK + WEB PUBLICADO JUNTO, e é por isso que
+     *  este lote leva `shellTag` no `version.json`: um bundle que já não desenha
+     *  a chave é inofensivo num shell 60, mas o `Farol.contar` que deixa de ler
+     *  a preferência só chega instalando o APK — e é ELE que devolve à contagem
+     *  um aparelho marcado "fica de fora" que ficaria sem tela para desmarcar.)
      */
-    @JavascriptInterface
-    fun farolContar(conta: Boolean) {
-        if (host == null) return
-        runCatching { Farol.definirContar(ctx, conta) }
-    }
 
     /**
      * OS DOIS CANAIS DE ATUALIZAÇÃO, numa fotografia só (shell 43).

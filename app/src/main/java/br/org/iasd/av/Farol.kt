@@ -45,27 +45,31 @@ import java.util.concurrent.Executors
  * dado é guardado com [KEY_ULTIMO] em epoch para o retrocesso ser detectável
  * (relógio para trás acende uma vez a mais, nunca deixa de acender).
  *
- * ## O USO PRÓPRIO SAI POR CONSTRUÇÃO, NUNCA POR SUBTRAÇÃO
+ * ## NÃO HÁ MAIS CHAVE DE EXCLUSÃO (v1.4.42)
  *
- * Um aparelho de teste não deixa de acender: ele acende **noutro contador**
- * ([ASSET_DEV]). Isso é o ponto do desenho, e não uma economia — subtrair uma
- * estimativa do próprio uso é como se produz um painel confiável e falso, e um
- * erro aqui aparece como um número óbvio no contador errado em vez de sumir
- * dentro do certo.
+ * Da v1.4.1 à v1.4.41 havia uma: uma linha de Configurações marcava o aparelho
+ * do operador, e ele passava a acender **noutro contador** ([ASSET_DEV]). Ela
+ * saiu a pedido dele — *"descarte a opção de contagem de uso como opcional,
+ * deixe sempre ativo, não preciso do sistema de exclusividade"* —, e com ela
+ * saíram a chave (`KEY_CONTA`), o `definirContar` e o `farolContar` da ponte.
  *
- * Duas fontes de uso próprio, e cada uma tem a sua resposta:
+ * **O que sobra é a única exclusão que NUNCA foi opção: o build debuggável.**
+ * Emulador e `assembleDebug` acendem no [ASSET_DEV] por
+ * [ApplicationInfo.FLAG_DEBUGGABLE], lido em runtime e sem exigir o
+ * `buildConfig` no Gradle. Ela fica porque não é uma preferência de ninguém —
+ * é higiene de construção, sem UI, sem custo, e sem ela toda sessão de trabalho
+ * entraria no número público como se fosse uma igreja.
  *
- *  - **o build debuggável** — emulador, `assembleDebug`, toda sessão de
- *    trabalho. Sai de graça por [ApplicationInfo.FLAG_DEBUGGABLE], que é lido
- *    em runtime e **não** exige ligar o `buildConfig` no Gradle;
- *  - **o aparelho do operador**, que roda o APK de Release como todo mundo e
- *    portanto não tem marca nenhuma que o distinga. Só uma pessoa sabe, então
- *    é ela quem marca: a chave de Configurações ([contar]).
+ * **O PREÇO ESTÁ DITO, e ele é do painel e não do código:** o aparelho de quem
+ * publica passa a contar em [ASSET] como qualquer outro, todo dia. O número de
+ * "aparelhos por dia" inclui o uso próprio a partir daqui, e é a página de
+ * alcance que precisa dizer isso — um painel que não avisa é o "confiável e
+ * falso" que este arquivo sempre nomeou, só que pelo outro lado.
  *
- * A marca mora em prefs PRÓPRIAS e não nas do OTA de propósito: `web-ota.xml`
- * está fora do backup (é ponteiro para código), e esta escolha **deve**
- * sobreviver à troca de aparelho — quem marcou o próprio celular uma vez não
- * deveria ter de descobrir, meses depois, que a contagem voltou a incluí-lo.
+ * A chave que sobrou em `SharedPreferences` de quem já a usou **deixa de ser
+ * lida**: [contar] não a consulta mais. Isso não é arrumação — é o ponto do
+ * lote. Um aparelho marcado "fica de fora" e sem tela para desmarcar ficaria
+ * fora da contagem para sempre, e contador não se corrige depois.
  *
  * ## E ELE FALHA CALADO, SEMPRE
  *
@@ -107,7 +111,10 @@ object Farol {
 
     private const val PREFS = "farol"
     private const val KEY_ULTIMO = "ultimo"
-    private const val KEY_CONTA = "conta"
+    // (`KEY_CONTA` saiu na v1.4.42 com a chave de exclusão. A entrada continua
+    //  gravada em quem já a usou e ninguém mais a lê — apagá-la exigiria uma
+    //  migração para devolver bytes que não fazem falta, a mesma decisão do
+    //  `cifraEscolhas` do lado web.)
 
     private const val UM_DIA_MS = 24L * 60 * 60 * 1000
 
@@ -165,17 +172,15 @@ object Farol {
     /**
      * O aparelho entra na contagem pública?
      *
-     * Nasce LIGADO: o aparelho normal é o de quem instalou o app, e um padrão
-     * desligado faria a métrica nascer vazia e parecer quebrada. Quem marca o
-     * contrário é uma pessoa, uma vez, em Configurações.
+     * **Sempre, exceto num build debuggável** (v1.4.42). A chave de
+     * Configurações que também respondia aqui saiu; ver o KDoc do arquivo.
+     *
+     * Ela continua sendo a resposta de UM lugar só, e é por isso que o
+     * `farolEstado` da ponte devolve o VEREDITO (`conta`) e não a chave: no dia
+     * em que aparecer um terceiro motivo, a tela não precisa saber que ele
+     * existe.
      */
-    fun contar(ctx: Context): Boolean =
-        prefs(ctx).getBoolean(KEY_CONTA, true) && !debuggavel(ctx)
-
-    /** A chave de Configurações. Vale da PRÓXIMA vez — não reacende agora. */
-    fun definirContar(ctx: Context, conta: Boolean) {
-        prefs(ctx).edit().putBoolean(KEY_CONTA, conta).apply()
-    }
+    fun contar(ctx: Context): Boolean = !debuggavel(ctx)
 
     fun ultimo(ctx: Context): Long = prefs(ctx).getLong(KEY_ULTIMO, 0L)
 

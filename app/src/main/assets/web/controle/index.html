@@ -319,19 +319,10 @@
       <path d="M16 6.25h3.4a1.6 1.6 0 0 1 1.6 1.6v2.9a1.6 1.6 0 0 1-1.6 1.6H12"/>
       <rect x="10" y="12.35" width="4" height="8.15" rx="1.4"/>
     </symbol>
-    <!-- MEDIÇÃO DE ALCANCE: as BARRAS de um gráfico, e a versão RISCADA. O
-         assunto é uma CONTAGEM — quantos aparelhos usaram o app —, e barras
-         dizem contagem sem dizer nem rede nem transmissão, que são o que as
-         ondas do `icoCast` já significam nesta mesma base. -->
-    <symbol id="icoMedicao" viewBox="0 0 24 24">
-      <path d="M5 20V13.5"/><path d="M12 20V6.5"/><path d="M19 20v-9.5"/>
-      <path d="M3 20h18"/>
-    </symbol>
-    <symbol id="icoMedicaoOff" viewBox="0 0 24 24">
-      <path d="M5 20V13.5"/><path d="M12 20v-6"/><path d="M19 20v-4"/>
-      <path d="M3 20h18"/>
-      <path d="M3.5 4 20.5 15"/>
-    </symbol>
+    <!-- (`icoMedicao`/`icoMedicaoOff` saíram na v1.4.42 com o sistema de
+         exclusão da contagem de uso. Um `<symbol>` sem consumidor não erra
+         alto — ele viaja no bundle do OTA em todo aparelho e não desenha nada
+         em lugar nenhum —, e este arquivo apaga o desenho junto com o recurso.) -->
     <!-- OS DOIS MODOS DO APP, no seletor em destaque. A diferença entre eles é
          a DENSIDADE de controles, e é isso que os dois desenhos mostram: o
          Fácil é uma tecla grande sozinha, o Avançado é a mesa de som (três
@@ -1583,7 +1574,7 @@
              pedir ajuda"), e agora ocupam a mesma faixa: a versão à esquerda, o
              Registro à direita, no espaço que já estava sobrando. -->
         <div class="footer-diag">
-          <span id="appVersion" class="app-version">Controle v1.4.41</span>
+          <span id="appVersion" class="app-version">Controle v1.4.42</span>
           <span class="footer-diag-rot">Registro</span>
           <!-- SALVAR EM ARQUIVO (v1.2.16). Com o acervo inteiro varrido o
                Registro passa de setenta linhas só na seção de cifras, e copiar
@@ -1599,36 +1590,6 @@
             <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoCopiar"/></svg>
           </button>
         </div>
-        <!-- ===== ESTE APARELHO NA CONTAGEM DE USO (v1.4.1; aqui desde a v1.4.41) =====
-             O app conta, uma vez por dia, quantos APARELHOS o usaram — um
-             contador agregado, sem id, sem corpo e sem nada que distinga um
-             aparelho de outro (ver `Farol.kt`). O que esta linha resolve é o
-             único caso que o agregado não resolve sozinho: o aparelho de quem
-             DESENVOLVE o app roda o mesmo APK de Release que todos os outros, e
-             portanto não tem marca nenhuma. Só uma pessoa sabe, então é ela
-             quem marca.
-
-             "Fica de fora" NÃO É "não manda nada": o aparelho passa a contar
-             num contador SEPARADO. Isso é o desenho e não uma economia —
-             subtrair depois uma estimativa do próprio uso é como se produz um
-             painel confiável e falso.
-
-             ELA SAIU DA GRADE e veio para cá a pedido do operador, junto com a
-             ideia de a chave morar na página de alcance do site. **A página não
-             alcança o app**, e isso é por construção: são origens diferentes no
-             mesmo aparelho (o app serve de `appassets.androidplatform.net`, a
-             página de `github.io`), o armazenamento de uma não é lido pela
-             outra, e o app não tem intent-filter de URL — só MAIN e SEND. O
-             único caminho seria abrir uma porta de entrada EXPORTADA que troca
-             uma chave de privacidade, que é pior que a linha. O que a página
-             ganhou foi o interruptor do NAVEGADOR, que ela de fato controla.
-
-             O LUGAR É O RODAPÉ DO REGISTRO porque é a mesma natureza: metadado
-             de manutenção, lido e mexido por quem diagnostica, nunca durante um
-             culto. `hidden` fora do app (quem a revela é `renderFarolLinha`,
-             pelo MESMO caminho por que a pinta): num navegador não há farol
-             nenhum, e uma chave que não liga nada é pior que chave nenhuma. -->
-        <button id="farolRow" class="farol-row" hidden></button>
         <!-- A ATUALIZAÇÃO (v5.245). Ele mora ao lado do rótulo de versão
              porque é a MESMA conversa ("que versão eu tenho?" / "tem uma mais
              nova?"), e porque é ali que o operador já procura isso.

@@ -1,5 +1,13 @@
 [
   {
+    "versao": "1.4.42",
+    "itens": [
+      "A contagem de uso passou a ser sempre ativa: a opção de ficar de fora saiu.",
+      "Ela some de Configurações; o registro segue dizendo quando o farol acendeu.",
+      "A página de alcance avisa que os números incluem o uso próprio."
+    ]
+  },
+  {
     "versao": "1.4.41",
     "itens": [
       "Preenchimento e giro passaram a valer também para a imagem ou os slides sobre uma música.",

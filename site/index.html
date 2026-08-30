@@ -487,21 +487,28 @@
   // "visitas" ao lado de vinte aparelhos de verdade. O preço, dito: navegador
   // anônimo ou com o armazenamento limpo conta de novo.
   //
-  // E QUEM AUDITA A PRÓPRIA PÁGINA CONTA NOUTRO LUGAR: abrir `/registro/` com
-  // a chave marca este navegador, e daí em diante ele acende o contador de
-  // teste. Exclusão por CONSTRUÇÃO, nunca por subtração de uma estimativa.
+  // TODA VISITA CONTA NO MESMO LUGAR (v1.4.42). Da v1.4.x até aqui, abrir
+  // `/registro/` com a chave marcava este navegador e ele passava a acender um
+  // contador de teste (`v-dev.txt`) — a exclusão de quem audita a própria
+  // página. O operador descartou o sistema inteiro: *"descarte a opção de
+  // contagem de uso como opcional, deixe sempre ativo, não preciso do sistema
+  // de exclusividade"*.
+  //
+  // O PREÇO ESTÁ DITO NO PAINEL, e é lá que ele precisa estar: as visitas de
+  // quem publica entram no número, e a página de alcance avisa isso por
+  // extenso. Um painel que não avisa é o "confiável e falso" que
+  // `docs/MEDICAO-DE-ALCANCE.md` nomeia — só que pelo outro lado.
   try {
     var HOJE = new Date().toISOString().slice(0, 10);
     if (localStorage.getItem('avVisitaDia') !== HOJE) {
       localStorage.setItem('avVisitaDia', HOJE);
-      var qual = localStorage.getItem('avRegistroOperador') === '1' ? 'v-dev' : 'v';
       // `no-cors` porque asset de release não manda `Access-Control-Allow-Origin`:
       // a requisição SAI e conta, e a resposta chega opaca — que é exatamente o
       // que se quer, já que ninguém aqui lê o corpo. O `?t=` é carimbo contra
       // cache (sem ele um intermediário responde sem tocar no contador), nunca
       // identidade: dois navegadores no mesmo milissegundo mandam a mesma URL.
       fetch('https://github.com/jonathasptbr-gh/Audio-Visual-IASD/releases/download/'
-            + 'dados-latest/' + qual + '.txt?t=' + Date.now(),
+            + 'dados-latest/v.txt?t=' + Date.now(),
             { mode: 'no-cors', cache: 'no-store' }).catch(function () {});
     }
   } catch (_) { /* armazenamento bloqueado: não conta, e não quebra nada */ }

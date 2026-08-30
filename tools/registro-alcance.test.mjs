@@ -101,10 +101,12 @@ try {
     await pg.goto(BASE + '/registro/', { waitUntil: 'domcontentloaded' });
     const txt = (await pg.locator('body').innerText()).trim();
     checar(txt === 'Não encontrado.', 'sem a chave a página não mostra NADA — nem os rótulos', txt);
-    const marcado = await pg.evaluate(() => localStorage.getItem('avRegistroOperador'));
-    // Sem esta guarda, quem chegasse por engano ao caminho seria marcado como
-    // operador e sairia da contagem de visitas para sempre.
-    checar(marcado === null, 'e não marca o navegador como o do operador', marcado);
+    // (A asserção "e não marca o navegador como o do operador" saiu na v1.4.42:
+    //  com o sistema de exclusão fora, NADA marca o navegador em lugar nenhum,
+    //  e ela virou uma tautologia — passaria com a página vazia. O que ela
+    //  defendia continua medido, e agora onde importa: a asserção da seção
+    //  seguinte pergunta a mesma coisa com a página ABERTA, que é o único
+    //  instante em que a marca chegou a ser escrita.)
     await ctx.close();
   }
 
@@ -178,83 +180,52 @@ try {
     checar(larguras[larguras.length - 1] <= maior + 1,
       'e a régua a comporta — a soma do passado não estoura a caixa', larguras);
 
-    // ---- a marca do operador ----
-    const marcado = await pg.evaluate(() => localStorage.getItem('avRegistroOperador'));
-    checar(marcado === '1', 'abrir o Registro marca ESTE navegador como o do operador', marcado);
-
     // ======================================================================
-    // O INTERRUPTOR "ESTE APARELHO" (v1.4.41)
+    // NÃO HÁ MAIS EXCLUSÃO — E O PAINEL DIZ ISSO (v1.4.42)
     //
-    // A marca sempre existiu e era ESCRITA EM SILÊNCIO, valia para sempre e não
-    // tinha volta: um navegador que a ganhasse por engano (um computador
-    // emprestado, uma aba aberta para mostrar o painel a alguém) saía da
-    // contagem pública sem que ninguém soubesse. Agora ela é visível e
-    // reversível.
+    // Da v1.4.1 até a v1.4.41 abrir esta página com a chave marcava o navegador
+    // (`avRegistroOperador`) e as visitas dele passavam a acender um contador de
+    // teste. O operador descartou o mecanismo inteiro: *"descarte a opção de
+    // contagem de uso como opcional, deixe sempre ativo, não preciso do sistema
+    // de exclusividade"*.
     //
-    // TRÊS METADES, e a terceira é a que carrega o lote:
+    // DUAS METADES, e a segunda é a que carrega o lote:
     //
-    //  1. a seção EXISTE e diz o estado — sem ela não há o que operar;
-    //  2. desmarcar GRAVA `'0'`, que é o que o farol de visita lê;
-    //  3. e a escolha SOBREVIVE À RECARGA. É a que falha calada e é a razão de
-    //     o valor ter três estados em vez de dois: com dois, a página reescreve
-    //     `'1'` em toda abertura e o interruptor se desfaz sozinho — pior que
-    //     não ter interruptor, porque ensina a não confiar na tela.
+    //  1. **a marca não é mais escrita.** Ela falha CALADA nos dois sentidos: um
+    //     resto do mecanismo deixaria este navegador fora do número público
+    //     para sempre, e nada na tela diria por quê;
+    //  2. **o painel AVISA que os números incluem o uso próprio.** Sem exclusão
+    //     e sem aviso, "aparelhos por dia" passa a contar o aparelho de quem
+    //     publica sem que a leitura mude — é o "confiável e falso" que
+    //     `docs/MEDICAO-DE-ALCANCE.md` nomeia, pelo outro lado. Com uma frota
+    //     pequena, um aparelho a mais por dia é uma fração que muda a conclusão.
     //
-    // E ela vive FORA do `#pag`: aquele nó é reescrito por inteiro pelo desenho
-    // da série e pelo `erro()` do 404, e esta chave não tem nada a ver com a
-    // série. A asserção mede a seção com a página JÁ desenhada, que é o estado
-    // em que ela some se alguém a prender lá dentro.
+    // A asserção da segunda é sobre o TEXTO RENDERIZADO e não sobre a presença
+    // de um nó: uma nota que existisse vazia passaria num teste de seletor.
     // ======================================================================
-    const chave = await pg.evaluate(() => {
-      const sec = document.getElementById('esteAparelho');
-      const cx = document.getElementById('opContar');
-      return {
-        secao: !!sec && !sec.hidden,
-        foraDoPag: !!sec && !document.getElementById('pag').contains(sec),
-        marcada: cx ? cx.checked : null,
-        // O RÓTULO É "CONTAR", o oposto da marca guardada: com o rótulo
-        // invertido a caixa mentiria sobre o próprio estado, e um teste que só
-        // olhasse o `localStorage` aprovaria isso.
-        descreve: (document.getElementById('opContarDesc') || {}).textContent || '',
-      };
-    });
-    checar(chave.secao && chave.foraDoPag,
-      'a seção "Este aparelho" está à vista e vive FORA do `#pag`, que o desenho '
-      + 'da série reescreve por inteiro', chave);
-    checar(chave.marcada === false && /contador separado|de teste/i.test(chave.descreve),
-      '  ↳ e ela mostra o estado atual: este navegador NÃO conta no número público',
-      chave);
-
-    const desmarcou = await pg.evaluate(() => {
-      const cx = document.getElementById('opContar');
-      cx.checked = true;
-      cx.dispatchEvent(new Event('change'));
-      return {
-        guardado: localStorage.getItem('avRegistroOperador'),
-        descreve: document.getElementById('opContarDesc').textContent,
-      };
-    });
-    checar(desmarcou.guardado === '0',
-      'marcar a caixa devolve este navegador à contagem pública (`\'0\'`, que é o '
-      + 'que o farol de visita lê)', desmarcou);
-    checar(/junto com as de todo mundo/i.test(desmarcou.descreve),
-      '  ↳ e a frase acompanha, em vez de descrever o estado anterior', desmarcou.descreve);
-
-    await pg.reload({ waitUntil: 'load' });
-    await pg.waitForFunction(() => {
-      const s2 = document.getElementById('esteAparelho');
-      return !!s2 && !s2.hidden;
-    }, null, { timeout: 10000 });
-    const apos = await pg.evaluate(() => ({
-      guardado: localStorage.getItem('avRegistroOperador'),
-      marcada: document.getElementById('opContar').checked,
+    const semMarca = await pg.evaluate(() => ({
+      marca: localStorage.getItem('avRegistroOperador'),
+      interruptor: !!document.getElementById('opContar'),
     }));
-    checar(apos.guardado === '0' && apos.marcada === true,
-      'e a escolha SOBREVIVE À RECARGA — com dois estados a página reescrevia a '
-      + 'marca em toda abertura e o interruptor se desfazia sozinho', apos);
-    // Devolve o cenário como ele estava: as asserções seguintes deste arquivo
-    // (e a metade do `site/index.html`) leem a marca do operador.
-    await pg.evaluate(() => localStorage.setItem('avRegistroOperador', '1'));
+    checar(semMarca.marca === null && !semMarca.interruptor,
+      'abrir o Registro NÃO marca mais este navegador, e não há interruptor: o '
+      + 'sistema de exclusão saiu inteiro', semMarca);
+
+    const aviso = await pg.evaluate(() => {
+      const notas = [...document.querySelectorAll('#pag .nota')].map((n) => n.textContent);
+      return {
+        // A ORDEM importa: a ressalva tem de vir antes dos gráficos, senão ela
+        // chega tarde para a leitura que existe para corrigir.
+        primeira: notas[0] || '',
+        quantas: notas.length,
+      };
+    });
+    checar(/inclu(em|i) o uso pr[óo]prio/i.test(aviso.primeira),
+      'e o painel AVISA, logo abaixo dos números, que eles incluem o uso próprio',
+      aviso);
+    checar(/build de teste|assembleDebug/i.test(aviso.primeira),
+      '  ↳ e nomeia a única exclusão que sobrou (o build debuggável), que nunca '
+      + 'foi opção de ninguém', aviso.primeira);
 
     // ---- o medidor de horas fica FORA quando as amostras são diárias ----
     // Intervalos maiores que 3 h são descartados: entre duas amostras de 24 h
@@ -292,7 +263,17 @@ try {
     await pg.goto(BASE + '/?de-novo', { waitUntil: 'networkidle' });
     checar(pedidos.length === 1, 'e a segunda visita do mesmo dia NÃO acende de novo', pedidos.slice());
 
-    // ---- depois de abrir o Registro, ele conta noutro lugar ----
+    // ---- E DEPOIS DE ABRIR O REGISTRO ELE CONTA NO MESMO LUGAR (v1.4.42) ----
+    // Este caso INVERTEU. Até a v1.4.41 ele provava a exclusão de quem audita a
+    // própria página (`v-dev.txt`); hoje prova que ela SAIU — e a asserção tem
+    // de continuar existindo justamente por isso: um resto do mecanismo (um
+    // `localStorage` esquecido, um ramo que ninguém apagou) deixaria o
+    // navegador do operador fora do número público **para sempre e em
+    // silêncio**, que é o desfecho que este arquivo nasceu para não ter.
+    //
+    // O percurso é o mesmo de antes de propósito: abrir o Registro, apagar o
+    // dia, revisitar. Um teste que só olhasse a home não passaria pelo ponto em
+    // que a marca era escrita.
     await pg.route('**raw.githubusercontent.com/**', (r) =>
       r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(SERIE) }));
     await pg.goto(BASE + '/registro/#alcance', { waitUntil: 'domcontentloaded' });
@@ -300,8 +281,9 @@ try {
     // o dia é apagado para forçar um novo acendimento, que é o que se quer medir
     await pg.evaluate(() => localStorage.removeItem('avVisitaDia'));
     await pg.goto(BASE + '/', { waitUntil: 'networkidle' });
-    checar(pedidos.join() === 'v.txt,v-dev.txt',
-      'quem auditou a página passa a contar no contador de TESTE — a exclusão é por construção',
+    checar(pedidos.join() === 'v.txt,v.txt',
+      'e quem AUDITOU a página continua contando no mesmo contador: a exclusão '
+      + 'saiu, e nenhum resto dela roteia este navegador para outro lugar',
       pedidos.slice());
     await ctx.close();
   }
