@@ -271,7 +271,7 @@ const appVersionEl = document.getElementById('appVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.4.35';
+const WEB_VERSION = '1.4.36';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -22173,8 +22173,27 @@ const ECO_MS = 420;
 const ECO_SELETOR = [
   '.transport .t-btn',        // repetir, playlist, ⏮, ▶, ■, ⏭
   '.slide-btn',               // os dois que flanqueiam a preview: passam slide NO telão
-  '.pv-fab--view',            // a cortina
-  '.pv-fab--mute',            // o mudo
+  // A CORTINA E O MUDO SAÍRAM DAQUI (v1.4.36) — eles entraram na v1.3.14 e o
+  // operador os devolveu: *"ainda estou vendo a onda azulada de feedback de
+  // toque tanto no botão de mudo quanto no botão da cortina"*. Duas razões
+  // independentes, e cada uma bastaria:
+  //
+  //  · **Eles TROCAM O DESENHO.** São alternadores: no mesmo instante do toque
+  //    o ícone vira o oposto (imagem ↔ imagem riscada, som ↔ som riscado) e a
+  //    cor vai para `--stage-alert`. Isso É "o comando saiu", dito pelo próprio
+  //    botão. O eco é a segunda vez que a mesma coisa é dita — e os ⏮/▶/⏭ do
+  //    transporte, que ficam, não têm esse sinal: é justamente por isso que ele
+  //    existe lá.
+  //  · **Eles não têm CAIXA.** O eco desenha `inset: 0` + `border-radius:
+  //    inherit` — a caixa do botão. Um `.t-btn` tem uma; um `.pv-fab` tem
+  //    `background: none` e é só o traço sobre a projeção. O que aparecia era um
+  //    retângulo AZUL (`--accent`, um token de cromo) materializando-se em volta
+  //    de um ícone solto, em cima da imagem no ar — a mesma classe de erro que a
+  //    família `--stage-*` existe para impedir (ver "O PALCO NÃO TEM TEMA").
+  //
+  // A COLUNA DA TELA CHEIA FICA, e a assimetria é deliberada: lá os ⏮/▶/⏭ não
+  // trocam de desenho e são a única superfície que existe — sem o eco eles não
+  // teriam como dizer que o comando saiu.
   '.pv-fsctl .pv-fab',        // a coluna da tela cheia (sem TV, ela É a projeção)
   '.misc-project',            // "Projetar no telão"
 ].join(', ');

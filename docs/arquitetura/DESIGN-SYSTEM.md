@@ -263,6 +263,17 @@ Fora de `tokens.css`, no `:root` do Controle (não são cor):
   mesmo em todo `.pv-fab`, inclusive o de 28px da tela cheia. Quem TEM tecla
   continua afundando os 2px.
 
+  **E O ECO NÃO É DE QUEM TROCA O DESENHO** (v1.4.36). O azul que sobrou não era
+  da plataforma: era o `.btn-eco`, o anel que diz *"o comando saiu"* — e ele
+  entrou na cortina e no mudo na v1.3.14. Duas razões o tiraram de lá, e cada uma
+  bastaria. **Ele é REDUNDANTE:** os dois são alternadores, o ícone vira o oposto
+  no mesmo instante do toque, e isso já é o comando saindo. **E ele desenha uma
+  CAIXA que não existe:** o anel é `inset: 0` + `border-radius: inherit`, isto é,
+  a caixa do botão — um `.t-btn` tem uma, um `.pv-fab` não —, em `--accent`, um
+  token de CROMO por cima do palco (a classe de erro que a família `--stage-*`
+  existe para impedir). O transporte fica: lá os ⏮/▶/⏭ não trocam de desenho, e é
+  por isso que o eco nasceu.
+
   **E O QUE A PLATAFORMA PINTA POR CIMA** (v1.4.34). Tirado o deslocamento, o
   operador relatou que ainda via *"a onda azulada de feedback de toque"* no mudo
   e na cortina. Nenhum token do app é azul ali — quem pinta é o UA, por dois

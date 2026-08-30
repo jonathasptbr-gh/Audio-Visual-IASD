@@ -24,6 +24,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
+- **v1.4.36** — O AZUL ERA O ECO, E ELE É REDUNDANTE EM QUEM TROCA O DESENHO. O operador identificou o efeito que sobrava depois da v1.4.34: *"é um realce de toque, um efeito após o toque… uma onda azul a partir da borda do botão… mesmo formato dos botões, retangulares com bordas arredondadas… uma linha azul de borda que se expande e vai desaparecendo. é animação"*. É o `.btn-eco` — `box-shadow: 0 0 0 2px var(--accent)` sobre um `::before` de `inset: 0`, animando `scale(1) → 1.35` com `opacity .9 → 0` —, e ele entrou na cortina e no mudo na v1.3.14. **As duas versões anteriores atacaram o alvo errado** e isso está dito: a v1.4.33 tirou o recuo da tecla (certo, e não era isto) e a v1.4.34 fechou os dois caminhos do UA (corretos por mérito próprio, e também não eram — o Chromium de mesa nunca os desenhou, e a reversão provou que aquela asserção era tautológica). O que faltava era procurar no NOSSO código um efeito com a FORMA que ele descreveu: retangular, arredondado, expandindo da borda. **Duas razões independentes o tiram dali, e cada uma bastaria.** É REDUNDANTE: a cortina e o mudo são alternadores — o ícone vira o oposto no mesmo instante do toque, e a cor vai para `--stage-alert`; isso já É "o comando saiu", dito pelo próprio botão. E ele desenha uma CAIXA QUE NÃO EXISTE: o anel é `inset: 0` + `border-radius: inherit`, ou seja, a caixa do botão — um `.t-btn` tem uma, um `.pv-fab` tem `background: none` e é só o traço sobre a projeção —, em `--accent`, um token de CROMO por cima do palco, que é a classe de erro que a família `--stage-*` existe para impedir. **O TRANSPORTE FICA**, e a assimetria é a razão de o eco existir: os ⏮/▶/⏭ não trocam de desenho, e com as telas da rede a resposta real está a ~1 s — um botão que fica um segundo mudo é tocado de novo, e o comando vai duas vezes. A coluna da TELA CHEIA fica pelo mesmo motivo. Duas asserções, duas reversões (os dois de volta à lista; e o eco apagado do transporte junto, o conserto largo demais). OTA PURO.
 - **v1.4.35** — O DESENHO DO VISUALIZADOR DE SLIDES: RÓTULO SOBREPOSTO, "● No ar" NA PÁGINA EM CENA, E DUAS COLUNAS NO MODO FÁCIL. Dois pedidos do operador: *"coloque o número da página sobreposto ao slide, para o slide poder ficar centralizado, e use um 'no ar', ao lado do indicador de página para indicar a página atual, assim como já usamos em diversos elementos no app"* e *"para o modo simples faça um ajuste extra… coloque os slides em duas colunas, pois temos menos altura vertical, portanto manter os slides de mesmo tamanho acaba impedindo de ver mais que dois slides corretamente, deixando de ser uma lista e competindo com o próprio preview"*. **O que tirava a miniatura do centro eram DUAS coisas, não uma:** a coluna do número (MEDIDO: 27px de 408) e o `padding-left` da `.lv-row` — o recuo que existe para a FAIXA do versículo no ar, que numa linha de slide não é desenhada. Fora do fluxo, a miniatura ocupa a largura inteira e uma página 4:3 aparece centrada pelo `object-fit`. O selo pousa SOBRE a imagem, então precisa de fundo OPACO — `--panel`, e é o único tom opaco em que o número passa AA (MEDIDO: `--muted` dá 4,88:1 sobre `--panel` e 3,66:1 sobre `--panel-2`, então trocar de token para escapar da regra R1 custaria a legibilidade que ela defende; ele entra como exceção NOMEADA no `tokens.test.mjs`, pela razão da barra de rolagem — é rótulo, com `pointer-events: none`, e não hospeda controle). A página no ar troca para `--live-fill` + `--live-strong` e ganha o `● No ar`: a troca de matiz é a regra da paleta, não gosto — acento é ESCOLHA entre alternativas, vermelho saturado é *está no ar agora*. **O `● No ar` nasce em TODA linha e quem o revela é o CSS**, porque `lvMarkCurrent` move a classe sem redesenhar. No Modo Fácil, MEDIDO antes: numa zona de 552px cabiam DOIS slides inteiros (linha de 194px) — e os dois eram a página no ar e a seguinte, que é o que a preview e o telão já dão; em duas colunas a linha cai para ~102px e cabem OITO. A grade é do CONTAINER e só do deck (a letra é texto, e duas colunas estreitas quebram mais do que economizam); a folha do avançado não a herda. Seis reversões, 64/64 verdes. **SÓ BASE WEB.**
 - **v1.4.34** — O AZUL QUE SOBROU NO TOQUE ERA DA PLATAFORMA, NÃO NOSSO. Relato do operador, depois da v1.4.33: *"ainda estou vendo a onda azulada de feedback de toque tanto no botão de mudo quanto no botão da cortina"*. Nenhum token do app é azul ali — não há `:hover` na folha, o `--stage-accent-glow` (o único azul-claro da paleta) só existe no Display, e o `--shadow-ink` do halo é preto puro. Quem pinta é o UA, por DOIS caminhos, e os dois estavam abertos: **o realce de toque** (`-webkit-tap-highlight-color`), que estava no `*` **sem `!important`** — e a declaração AO LADO dele documenta por que isso não basta (a folha do UA vence `*`; foi por isso que o `user-select` ganhou o dele) —, invisível sobre a superfície de um `.t-btn` e muito visível sobre um `.pv-fab`, que não tem fundo e mora em cima da imagem projetada; e **o anel de foco** (`outline-style: auto`, que o Chromium desenha do jeito dele, azul no WebView), que o `*` deixa de fora DE PROPÓSITO — só que a intenção escrita ali é *"é o anel de foco do teclado"*, e um `<button>` fica com `:focus` depois do toque: o anel não pisca, ele GRUDA até o foco sair. É por isso que o relato nomeia justamente estes dois — o mudo e a cortina ficam sob o dedo, enquanto o de tela cheia e o de cast saem da tela. `:focus:not(:focus-visible)` aplica a intenção que já estava escrita sem tirar o anel de quem navega por teclas. **E O QUE O ORÁCULO NÃO PROVA ESTÁ DITO:** a metade do PONTEIRO é inalcançável no Chromium de mesa — MEDIDO por reversão, ele já não desenha anel num foco de ponteiro, então a asserção passava COM e SEM a regra, uma tautologia; ficou a FORMA (a regra existe e é escopada) mais o comportamento alcançável (o anel do TECLADO sobrevive, e é ele que reprova o `outline: none` seco). Duas reversões. OTA PURO.
 - **v1.4.33** — O TOQUE SOBRE A PREVIEW ACENDE O TRAÇO; ELE NÃO AFUNDA. Relato do operador: os botões de mudo e da cortina *"ainda estão erroneamente com o feedback tátil de quando ainda estavam na barra, ajuste para ficarem no padrão dos botões sobre o preview"*. **A primeira medição desmentiu a leitura óbvia**: não havia inconsistência ENTRE os botões da preview — os três (`#viewToggle`, `#muteToggle`, `#pvFullBtn`) respondiam idêntico, `translateY(2px)` + `brightness(1.35)`. O que estava errado era o PADRÃO deles, e o operador nomeou de onde ele veio: `.pv-fab` entrou na lista do `--press` colado em `.ctl-btn` e `.t-btn`, isto é, herdou a resposta dos botões DA BARRA. E `--press` encena **a tecla que afunda** — uma metáfora que precisa de uma tecla. O `.pv-fab` não tem pastilha: ele É o traço branco sobre o que estiver projetado, e ali o recuo se lê como o ícone PULANDO por cima da imagem no ar (sem TV, essa imagem é a projeção). **A segunda medição fechou o diagnóstico e derrubou o conserto fácil** (tirar o recuo e ficar com a luz): no `#muteToggle`, `brightness(1.35)` leva o traço de **240,6 a 238,3** — branco já está no teto, então ela só DESBOTA o halo escuro — e o fundo de 14,3 a 14,5. Os dois deltas são invisíveis; sem o recuo o botão ficaria MUDO ao toque, que o próprio design system chama de defeito. Os `1,86:1` da v1.3.14 são de um glifo COLORIDO sem fundo, não de um traço branco. O que sobra, e é o que a preview sempre teve de próprio, é a **pena do traço** (`stroke-width`), com o halo engrossando junto: ela não depende da cor de trás, não move um pixel de alvo e é o "acender o próprio traço" que o `--press-luz` promete e não entrega num desenho sem fundo. MEDIDO nos dois extremos de fundo — sobre o wallpaper escuro, **+21%** de luminância média; sobre um slide BRANCO, **−10%** com +67px de contorno. NÃO é escala: a caixa não muda de tamanho e a regra do recuo absoluto segue intacta para quem tem tecla. Três asserções novas no `controles-layout.test.mjs`, três reversões (o recuo de volta, a resposta apagada, e o `--press` morto no app inteiro — o conserto preguiçoso). OTA PURO.
@@ -308,6 +309,63 @@ na nota que a revoga, não apagada da que a criou.
 - **v5.156** — é METADE OTA e METADE APK, de novo.
 
 ---
+
+## v1.4.36 — o azul era o eco, e ele é redundante em quem troca o desenho
+
+O operador identificou o efeito que sobrava depois da v1.4.34:
+
+> *"é um realce de toque, um efeito após o toque. ele cria uma onda azul a partir
+> da borda do botão… tem o mesmo formato dos botões, retangulares com bordas
+> arredondadas. uma linha azul de borda que se expande e vai desaparecendo. é
+> animação."*
+
+É o **`.btn-eco`**: um `::before` de `inset: 0` com `box-shadow: 0 0 0 2px
+var(--accent)` e `border-radius: inherit`, animando `scale(1) → 1.35` com
+`opacity .9 → 0` em .42 s. Ele entrou na cortina e no mudo na **v1.3.14**.
+
+### As duas versões anteriores atacaram o alvo errado
+
+Isto fica escrito porque é a lição do lote:
+
+- a **v1.4.33** tirou o recuo da tecla (`--press`) dos botões da preview. Está
+  certo pelo mérito dela — a metáfora da tecla que afunda precisa de uma tecla —
+  e **não era isto**;
+- a **v1.4.34** fechou os dois caminhos do UA (realce de toque sem `!important`,
+  anel de foco por ponteiro). Corretos por mérito próprio, e **também não eram**:
+  o Chromium de mesa nunca desenhou nenhum dos dois, e a reversão provou que a
+  asserção do ponteiro era **tautológica** — passava com e sem o conserto.
+
+O que faltava era a pergunta certa: **procurar no NOSSO código um efeito com a
+FORMA descrita** — retangular, arredondado, expandindo a partir da borda,
+animado. Uma varredura de `@keyframes` acha `eco-anel` na primeira leitura.
+
+### Por que ele sai da cortina e do mudo
+
+Duas razões independentes, e cada uma bastaria:
+
+1. **É REDUNDANTE.** Os dois são alternadores: o ícone vira o oposto no mesmo
+   instante do toque (imagem ↔ imagem riscada, som ↔ som riscado) e a cor vai
+   para `--stage-alert`. Isso já É *"o comando saiu"*, dito pelo próprio botão.
+2. **Ele desenha uma CAIXA QUE NÃO EXISTE.** O anel é `inset: 0` +
+   `border-radius: inherit` — a caixa do botão. Um `.t-btn` tem uma; um
+   `.pv-fab` tem `background: none` e é só o traço sobre a projeção. O que
+   aparecia era um retângulo em `--accent` — um token de **cromo** — se
+   materializando em volta de um ícone solto, **por cima da imagem no ar**. É a
+   mesma classe de erro que a família `--stage-*` existe para impedir.
+
+### O que FICA, e por quê
+
+**O transporte**, e a assimetria é a razão de o eco existir: os ⏮/▶/⏭ não trocam
+de desenho, e quando a projeção são as telas da rede a resposta real está a ~1 s
+— um botão que fica um segundo mudo é tocado de novo, e o comando vai duas vezes.
+A **coluna da tela cheia** fica pelo mesmo motivo: lá os ⏮/▶/⏭ também não trocam
+de desenho e são a única superfície que existe.
+
+Duas asserções no `controles-layout.test.mjs`, duas reversões: os dois de volta à
+lista (o defeito relatado) e o eco apagado do transporte junto (o conserto largo
+demais).
+
+OTA PURO — sem degrau de ponte, sem `shellTag`, sem Release.
 
 ## v1.4.35 — o desenho do visualizador de slides
 
