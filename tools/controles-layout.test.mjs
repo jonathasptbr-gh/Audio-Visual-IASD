@@ -326,6 +326,91 @@ try {
   checar(espalho.vao > (espalho.alturaPv - espalho.quantos * 34) / 2 - 4,
     'os dois estão ESPALHADOS pela altura, não agrupados num bloco', espalho);
 
+  // ── 2b. O TOQUE SOBRE A PREVIEW ACENDE O TRAÇO; ELE NÃO AFUNDA (v1.4.33) ─
+  //
+  // Relato do operador: os botões de mudo e da cortina *"ainda estão
+  // erroneamente com o feedback tátil de quando ainda estavam na barra"*.
+  //
+  // `--press` é `translateY(2px)` e encena **a tecla que afunda** — e aqui não
+  // há tecla: o `.pv-fab` não tem pastilha, ele É o traço branco sobre o que
+  // estiver projetado. E a LUZ que acompanha o recuo não salva o desenho:
+  // MEDIDO no `#muteToggle`, `brightness(1.35)` levava o traço de 240,6 a
+  // **238,3** (branco já está no teto, então ela só DESBOTA o halo) e o fundo
+  // de 14,3 a 14,5 — os dois invisíveis. Sobrava só o deslocamento.
+  //
+  // As TRÊS metades, e nenhuma basta sozinha:
+  //  · a caixa NÃO se move — é o que o operador relatou;
+  //  · mas ele RESPONDE, e a prova é o RENDERIZADO: uma regra que só trocasse
+  //    uma classe passaria num teste de classe e continuaria muda na tela, que
+  //    é o pior desfecho (o design system chama um controle mudo ao toque de
+  //    defeito, não de sobriedade);
+  //  · e o botão DA BARRA continua afundando — sem esta, apagar o `--press` do
+  //    app inteiro passaria nas duas primeiras.
+  const toque = await (async () => {
+    const alvos = ['#viewToggle', '#muteToggle', '#pvFullBtn'];
+    const out = {};
+    for (const sel of alvos) {
+      const caixa = (s2) => pg.evaluate((x) => {
+        const r = document.querySelector(x).getBoundingClientRect();
+        return [+r.x.toFixed(2), +r.y.toFixed(2), +r.width.toFixed(2), +r.height.toFixed(2)].join(',');
+      }, s2);
+      const c = await pg.evaluate((x) => {
+        const r = document.querySelector(x).getBoundingClientRect();
+        return { x: Math.round(r.x + r.width / 2), y: Math.round(r.y + r.height / 2) };
+      }, sel);
+      const antes = await caixa(sel);
+      const pena = (s2) => pg.evaluate((x) =>
+        getComputedStyle(document.querySelector(x).querySelector('svg')).strokeWidth, s2);
+      const penaAntes = await pena(sel);
+      const fotoAntes = await pg.locator(sel).screenshot();
+      await pg.mouse.move(c.x, c.y);
+      await pg.mouse.down();
+      const durante = await pg.evaluate((x) => getComputedStyle(document.querySelector(x)).transform, sel);
+      const depois = await caixa(sel);
+      const penaDepois = await pena(sel);
+      const fotoDepois = await pg.locator(sel).screenshot();
+      // SOLTAR FORA DO ALVO. Um `mouse.up()` em cima do botão dispara o CLIQUE,
+      // e estes três AGEM: o `#pvFullBtn` entra em tela cheia e o bloco 5 deste
+      // arquivo passa a clicar num botão que não está mais visível. O que se
+      // mede aqui é o `:active`, não o efeito — então o dedo sai antes de soltar.
+      await pg.mouse.move(1, 1);
+      await pg.mouse.up();
+      out[sel] = {
+        parado: durante === 'none' && antes === depois,
+        engrossou: parseFloat(penaDepois) > parseFloat(penaAntes),
+        // O RENDERIZADO mudou? Um botão que não muda um pixel é um botão mudo.
+        pintou: Buffer.compare(fotoAntes, fotoDepois) !== 0,
+        pena: penaAntes + ' → ' + penaDepois,
+      };
+    }
+    return out;
+  })();
+  for (const [sel, r] of Object.entries(toque)) {
+    checar(r.parado,
+      `o toque em ${sel} NÃO desloca a caixa: sobre a preview não há tecla para `
+      + 'afundar, e um ícone que pula por cima da imagem no ar não se lê como "apertei"', r);
+    checar(r.engrossou && r.pintou,
+      `e ${sel} RESPONDE mesmo assim — o traço ganha pena e o halo engrossa, que é `
+      + 'o que se vê sobre um fundo desconhecido (um slide branco, um wallpaper '
+      + 'escuro, um vídeo); a luz não servia: num traço branco ela não tem para onde subir', r);
+  }
+  // A METADE DE VOLTA: quem TEM tecla continua afundando.
+  const naBarra = await (async () => {
+    const c = await pg.evaluate(() => {
+      const r = document.querySelector('#next').getBoundingClientRect();
+      return { x: Math.round(r.x + r.width / 2), y: Math.round(r.y + r.height / 2) };
+    });
+    await pg.mouse.move(c.x, c.y);
+    await pg.mouse.down();
+    const t = await pg.evaluate(() => getComputedStyle(document.querySelector('#next')).transform);
+    await pg.mouse.move(1, 1);
+    await pg.mouse.up();
+    return t;
+  })();
+  checar(/matrix\(1,\s*0,\s*0,\s*1,\s*0,\s*2\)/.test(naBarra),
+    'e o botão DA BARRA continua afundando os 2px: o que mudou é o desenho SEM '
+    + 'pastilha, não a regra do app', naBarra);
+
   // ── 3-A. A COLUNA DA TELA CHEIA: NASCE ACESA, E O TOQUE É INTERRUPTOR ───
   //
   // Sem TV a preview em tela cheia É a projeção, então tudo o que se pinta aqui
