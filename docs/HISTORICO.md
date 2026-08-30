@@ -24,6 +24,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
+- **v1.4.35** — O DESENHO DO VISUALIZADOR DE SLIDES: RÓTULO SOBREPOSTO, "● No ar" NA PÁGINA EM CENA, E DUAS COLUNAS NO MODO FÁCIL. Dois pedidos do operador: *"coloque o número da página sobreposto ao slide, para o slide poder ficar centralizado, e use um 'no ar', ao lado do indicador de página para indicar a página atual, assim como já usamos em diversos elementos no app"* e *"para o modo simples faça um ajuste extra… coloque os slides em duas colunas, pois temos menos altura vertical, portanto manter os slides de mesmo tamanho acaba impedindo de ver mais que dois slides corretamente, deixando de ser uma lista e competindo com o próprio preview"*. **O que tirava a miniatura do centro eram DUAS coisas, não uma:** a coluna do número (MEDIDO: 27px de 408) e o `padding-left` da `.lv-row` — o recuo que existe para a FAIXA do versículo no ar, que numa linha de slide não é desenhada. Fora do fluxo, a miniatura ocupa a largura inteira e uma página 4:3 aparece centrada pelo `object-fit`. O selo pousa SOBRE a imagem, então precisa de fundo OPACO — `--panel`, e é o único tom opaco em que o número passa AA (MEDIDO: `--muted` dá 4,88:1 sobre `--panel` e 3,66:1 sobre `--panel-2`, então trocar de token para escapar da regra R1 custaria a legibilidade que ela defende; ele entra como exceção NOMEADA no `tokens.test.mjs`, pela razão da barra de rolagem — é rótulo, com `pointer-events: none`, e não hospeda controle). A página no ar troca para `--live-fill` + `--live-strong` e ganha o `● No ar`: a troca de matiz é a regra da paleta, não gosto — acento é ESCOLHA entre alternativas, vermelho saturado é *está no ar agora*. **O `● No ar` nasce em TODA linha e quem o revela é o CSS**, porque `lvMarkCurrent` move a classe sem redesenhar. No Modo Fácil, MEDIDO antes: numa zona de 552px cabiam DOIS slides inteiros (linha de 194px) — e os dois eram a página no ar e a seguinte, que é o que a preview e o telão já dão; em duas colunas a linha cai para ~102px e cabem OITO. A grade é do CONTAINER e só do deck (a letra é texto, e duas colunas estreitas quebram mais do que economizam); a folha do avançado não a herda. Seis reversões, 64/64 verdes. **SÓ BASE WEB.**
 - **v1.4.34** — O AZUL QUE SOBROU NO TOQUE ERA DA PLATAFORMA, NÃO NOSSO. Relato do operador, depois da v1.4.33: *"ainda estou vendo a onda azulada de feedback de toque tanto no botão de mudo quanto no botão da cortina"*. Nenhum token do app é azul ali — não há `:hover` na folha, o `--stage-accent-glow` (o único azul-claro da paleta) só existe no Display, e o `--shadow-ink` do halo é preto puro. Quem pinta é o UA, por DOIS caminhos, e os dois estavam abertos: **o realce de toque** (`-webkit-tap-highlight-color`), que estava no `*` **sem `!important`** — e a declaração AO LADO dele documenta por que isso não basta (a folha do UA vence `*`; foi por isso que o `user-select` ganhou o dele) —, invisível sobre a superfície de um `.t-btn` e muito visível sobre um `.pv-fab`, que não tem fundo e mora em cima da imagem projetada; e **o anel de foco** (`outline-style: auto`, que o Chromium desenha do jeito dele, azul no WebView), que o `*` deixa de fora DE PROPÓSITO — só que a intenção escrita ali é *"é o anel de foco do teclado"*, e um `<button>` fica com `:focus` depois do toque: o anel não pisca, ele GRUDA até o foco sair. É por isso que o relato nomeia justamente estes dois — o mudo e a cortina ficam sob o dedo, enquanto o de tela cheia e o de cast saem da tela. `:focus:not(:focus-visible)` aplica a intenção que já estava escrita sem tirar o anel de quem navega por teclas. **E O QUE O ORÁCULO NÃO PROVA ESTÁ DITO:** a metade do PONTEIRO é inalcançável no Chromium de mesa — MEDIDO por reversão, ele já não desenha anel num foco de ponteiro, então a asserção passava COM e SEM a regra, uma tautologia; ficou a FORMA (a regra existe e é escopada) mais o comportamento alcançável (o anel do TECLADO sobrevive, e é ele que reprova o `outline: none` seco). Duas reversões. OTA PURO.
 - **v1.4.33** — O TOQUE SOBRE A PREVIEW ACENDE O TRAÇO; ELE NÃO AFUNDA. Relato do operador: os botões de mudo e da cortina *"ainda estão erroneamente com o feedback tátil de quando ainda estavam na barra, ajuste para ficarem no padrão dos botões sobre o preview"*. **A primeira medição desmentiu a leitura óbvia**: não havia inconsistência ENTRE os botões da preview — os três (`#viewToggle`, `#muteToggle`, `#pvFullBtn`) respondiam idêntico, `translateY(2px)` + `brightness(1.35)`. O que estava errado era o PADRÃO deles, e o operador nomeou de onde ele veio: `.pv-fab` entrou na lista do `--press` colado em `.ctl-btn` e `.t-btn`, isto é, herdou a resposta dos botões DA BARRA. E `--press` encena **a tecla que afunda** — uma metáfora que precisa de uma tecla. O `.pv-fab` não tem pastilha: ele É o traço branco sobre o que estiver projetado, e ali o recuo se lê como o ícone PULANDO por cima da imagem no ar (sem TV, essa imagem é a projeção). **A segunda medição fechou o diagnóstico e derrubou o conserto fácil** (tirar o recuo e ficar com a luz): no `#muteToggle`, `brightness(1.35)` leva o traço de **240,6 a 238,3** — branco já está no teto, então ela só DESBOTA o halo escuro — e o fundo de 14,3 a 14,5. Os dois deltas são invisíveis; sem o recuo o botão ficaria MUDO ao toque, que o próprio design system chama de defeito. Os `1,86:1` da v1.3.14 são de um glifo COLORIDO sem fundo, não de um traço branco. O que sobra, e é o que a preview sempre teve de próprio, é a **pena do traço** (`stroke-width`), com o halo engrossando junto: ela não depende da cor de trás, não move um pixel de alvo e é o "acender o próprio traço" que o `--press-luz` promete e não entrega num desenho sem fundo. MEDIDO nos dois extremos de fundo — sobre o wallpaper escuro, **+21%** de luminância média; sobre um slide BRANCO, **−10%** com +67px de contorno. NÃO é escala: a caixa não muda de tamanho e a regra do recuo absoluto segue intacta para quem tem tecla. Três asserções novas no `controles-layout.test.mjs`, três reversões (o recuo de volta, a resposta apagada, e o `--press` morto no app inteiro — o conserto preguiçoso). OTA PURO.
 - **v1.4.32** — NO MODO FÁCIL SÓ HÁ UM ELEMENTO NO AR. Pedido do operador: *"no modo simples, coloque a limitação de apenas um elemento ativo na mídia, assim no modo simples não há sobreposição e nem necessidade de multicontroles"*. A sobreposição (v5.312 para a imagem, v1.4.28 para a apresentação) é uma CENA COMPOSTA: duas coisas no ar ao mesmo tempo. Operá-la exige saber qual das duas cada controle governa — o ▶ é do áudio de baixo, o ⏭ é da apresentação de cima, o Parar tira uma só —, e esse é o vocabulário do modo AVANÇADO, exatamente o que o Modo Fácil existe para não pedir de quem opera: ali o toque tem UM significado, *isto vai para o telão*, e o que estava vai embora. **UMA guarda, num ponto só:** `appMode !== 'simple'` dentro do `send` — no `send` porque é por onde TODOS os caminhos passam (inclusive o compartilhamento, que naquele modo projeta na hora sem perguntar nada, e é por ali que uma apresentação de fato entra), e por `appMode` porque a pergunta é sobre o VOCABULÁRIO do modo e não sobre a conexão — ela continua valendo com o Modo Fácil destravado por "Tocar neste celular", que é quando ele mais se parece com o avançado. **A limitação é sobre CRIAR, e o preço está dito:** uma cena composta montada no avançado sobrevive à troca de modo, porque colapsá-la ali mudaria a projeção como efeito colateral de um toque em Configurações — devolvendo o slide à página 1 ou calando a música, os dois na frente da congregação. Ela dura até o próximo `send` e, enquanto dura, é operável (v1.4.30). O oráculo novo tem a REVERSÃO como metade que fecha o lote — **o avançado continua sobrepondo** —, sem a qual apagar a sobreposição do app inteiro passaria em tudo o mais e o recurso da v1.4.28 morreria em silêncio, num modo que este pedido nem nomeia. Três reversões, 64/64 verdes. **SÓ BASE WEB.**
@@ -305,6 +306,93 @@ na nota que a revoga, não apagada da que a criou.
 - **v5.154** — é METADE OTA e METADE APK, e a divisão importa para quem for testar em aparelho.
 - **v5.155** — é OTA PURO
 - **v5.156** — é METADE OTA e METADE APK, de novo.
+
+---
+
+## v1.4.35 — o desenho do visualizador de slides
+
+> *"coloque o número da página sobreposto ao slide, para o slide poder ficar
+> centralizado, e use um 'no ar', ao lado do indicador de página para indicar a
+> página atual, assim como já usamos em diversos elementos no app.*
+>
+> *para o modo simples faça um ajuste extra, no auxiliar de leitura, coloque os
+> slides em duas colunas, pois temos menos altura vertical, portanto manter os
+> slides de mesmo tamanho acaba impedindo de ver mais que dois slides
+> corretamente, deixando de ser uma lista e competindo com o próprio preview"*
+
+### O que tirava a miniatura do centro eram DUAS coisas
+
+A primeira é a que o pedido nomeia: o número ocupava uma **coluna** à esquerda
+(MEDIDO: 27px de 408). A segunda só apareceu ao medir o resultado: o
+`padding-left` da `.lv-row`, o recuo de 9px que existe para a **faixa** do
+versículo no ar — que numa linha de slide não chega a ser desenhada, mas
+continuava reservando o espaço.
+
+Com as duas fora, a miniatura ocupa a largura inteira e uma página 4:3 aparece
+centrada pelo `object-fit`, sem nada a compensar. E o selo, que é absoluto contra
+a linha, passou a pousar de fato sobre a imagem — com o recuo ele ficava 4px à
+esquerda dela, que foi o que a primeira asserção reprovou.
+
+### O selo
+
+- **Fundo OPACO, porque o que está atrás é um pixel de apresentação** e pode ser
+  qualquer cor. É `--panel`, e a escolha do token é uma MEDIÇÃO: `--muted` dá
+  **4,88:1** sobre `--panel` e **3,66:1** sobre `--panel-2`. Trocar de token para
+  escapar da regra R1 do `tokens.test.mjs` custaria exatamente a legibilidade que
+  aquela regra existe para defender — então ele entra lá como **exceção nomeada**,
+  pela razão da barra de rolagem: é rótulo, com `pointer-events: none`, e não
+  hospeda controle nenhum.
+- **A página no ar troca para `--live-fill` + `--live-strong`** — o par de
+  `.row-item.no-ar` — e ganha o **`● No ar`** ao lado do número, a mesma palavra
+  que o operador já lê em toda parte do app. Ele substituiu o `--accent-fill` da
+  v1.4.24, e a troca de matiz é a regra da paleta e não gosto: acento é ESCOLHA
+  entre alternativas, vermelho saturado é *está no ar agora*.
+- **A barra de acento da `.lv-row.current` é suprimida aqui.** Ela ficaria atrás
+  da imagem, visível só pela faixa TRANSPARENTE que o `object-fit: contain` deixa
+  numa página 4:3 — um traço de acento ao lado de um selo vermelho, duas cores
+  dizendo a mesma coisa na mesma linha.
+- **O `● No ar` nasce em TODA linha e quem o revela é o CSS.** `lvMarkCurrent`
+  move a classe `.current` SEM redesenhar (é o que mantém as URLs de objeto vivas
+  a cada troca de página); criá-lo no JS obrigaria aquela função a mover um nó
+  também — um segundo lugar para divergir, e o defeito seria o selo ficando na
+  página anterior.
+
+### As duas colunas, e por que só no Modo Fácil
+
+**MEDIDO antes:** numa zona de 552px cabiam **DOIS** slides inteiros, com a linha
+em 194px. Uma lista que mostra dois itens não é uma lista — e os dois que ela
+mostrava eram a página no ar e a seguinte, que é exatamente o que a preview e o
+telão já dão. Era o que o operador descreve como *"competindo com o próprio
+preview"*.
+
+Em duas colunas a linha cai para **~102px** e a zona passa a caber **OITO**. Por
+isso a asserção que carrega o pedido é a CONTAGEM, não a grade: duas colunas são
+o meio, ver mais que dois slides é o fim.
+
+- A classe `.lv-grade` é posta no **container** por `refreshSimpleLyrics`, e **só
+  com um deck**: a letra continua em coluna única, porque ali o corpo é TEXTO e
+  duas colunas estreitas quebram cada estrofe em mais linhas do que economizam.
+- **A folha do modo avançado não herda nada disso** — lá a altura é a de um
+  bottom-sheet, e a miniatura larga é o que faz a página se reconhecer. Tem
+  asserção própria, senão aplicar a grade ao app inteiro passaria no oráculo do
+  outro modo e encolheria a folha que o pedido não menciona.
+- **A LINHA é a mesma `.lv-row--slide` nos dois modos**, e é isso que faz o selo,
+  o toque e o `lvScroll` valerem aqui sem um segundo desenho.
+
+### Os oráculos
+
+As duas metades são medidas no RENDERIZADO, e nenhuma tem teste de classe
+possível: um selo com a classe certa e sem a regra de CSS continua desenhando o
+número numa coluna, e um `.row-live` presente em toda linha (é assim que ele
+nasce) "existe" em todas elas se a pergunta for pelo nó em vez de pelo `display`.
+A cor é comparada contra o TOKEN por uma sonda, não contra um `rgb(...)` literal
+que envelheceria na primeira troca de paleta.
+
+Seis reversões: o selo voltando a ser coluna, o `● No ar` em toda linha, o
+`--accent-fill` de volta, a grade sumindo do Modo Fácil, a grade valendo para o
+app inteiro, e o `padding-left` da linha de volta. 64/64 verdes.
+
+**SÓ BASE WEB** — sem degrau de ponte, sem `shellTag`, sem Release.
 
 ---
 

@@ -268,7 +268,15 @@ checar(orfaos.length === 0,
   checar(naLista.size > 5, 'a lista de R1 (o que AFUNDA a superfície) foi encontrada',
     naLista.size + ' seletores');
   // Não é bloco de conteúdo: uma barra de rolagem não hospeda controle nenhum.
-  const excecoes = [/scrollbar/];
+  //
+  // `.lv-selo` (v1.4.35) entra pela MESMA razão, e ela está no CSS: o selo da
+  // página é um RÓTULO sobre a miniatura, com `pointer-events: none` — ele não
+  // hospeda controle e não pode hospedar. Ele pinta `--panel` porque pousa sobre
+  // um pixel de apresentação (precisa de fundo OPACO) e porque é o único tom
+  // opaco em que o número passa AA: MEDIDO em `tokens.css`, `--muted` dá 4,88:1
+  // sobre `--panel` e 3,66:1 sobre `--panel-2` — trocar de token para escapar
+  // desta asserção custaria a legibilidade que ela existe para defender.
+  const excecoes = [/scrollbar/, /^\.lv-selo$/];
   // A varredura é por BLOCO e não por regex de rua: entre um `}` e o seletor
   // seguinte cabe um comentário de trinta linhas (já em branco, mas ocupando
   // espaço), e um teto de caracteres no meio faz o oráculo pular exatamente as

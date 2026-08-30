@@ -271,7 +271,7 @@ const appVersionEl = document.getElementById('appVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.4.34';
+const WEB_VERSION = '1.4.35';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -12697,9 +12697,34 @@ function lvBuildDeck(el, cur, urls) {
     const row = document.createElement('div');
     row.className = 'lv-row lv-row--slide' + (tocavel ? ' lv-row--tocavel' : '');
     row.dataset.i = String(i);
+    // ===== O NÚMERO É SOBREPOSTO, E O "NO AR" MORA AO LADO DELE (v1.4.35) =====
+    //
+    // Pedido do operador: *"coloque o número da página sobreposto ao slide, para
+    // o slide poder ficar centralizado, e use um 'no ar', ao lado do indicador
+    // de página para indicar a página atual, assim como já usamos em diversos
+    // elementos no app"*.
+    //
+    // O número ocupava uma COLUNA à esquerda (MEDIDO: 27px + o respiro, de 408),
+    // e era ela que empurrava a miniatura para fora do centro da linha. Fora do
+    // fluxo, a miniatura passa a ocupar a largura inteira e uma página 4:3
+    // aparece centrada pelo `object-fit` — sem nada a compensar.
+    //
+    // **O SELO NASCE EM TODA LINHA, e quem o revela é o CSS.** `lvMarkCurrent`
+    // move a classe `.current` SEM redesenhar (é o que mantém as URLs de objeto
+    // vivas a cada troca de página); criar o "● No ar" no JS obrigaria aquela
+    // função a mover um nó também — um segundo lugar para divergir, e o defeito
+    // seria o selo ficando na página anterior.
+    const selo = document.createElement('span');
+    selo.className = 'lv-selo';
     const n = document.createElement('span');
     n.className = 'lv-num';
     n.textContent = String(i + 1);
+    // O MESMO texto e a MESMA classe do selo das listas (`pintarSubNoAr`): é o
+    // que o operador já lê como "isto está no telão" em toda parte do app.
+    const live = document.createElement('span');
+    live.className = 'row-live';
+    live.textContent = '● No ar';
+    selo.append(n, live);
     const img = document.createElement('img');
     img.className = 'lv-slide';
     img.alt = '';
@@ -12709,7 +12734,10 @@ function lvBuildDeck(el, cur, urls) {
     // páginas são Blob, e a mesma lista chega como URL quando ela vem de fora.
     if (typeof p === 'string') img.src = p;
     else if (p) { const u = URL.createObjectURL(p); (urls || lvDeckUrls).push(u); img.src = u; }
-    row.append(n, img);
+    // A IMAGEM PRIMEIRO: o selo é absoluto e pousa sobre ela sem `z-index`
+    // próprio — a ordem do documento basta, e uma pilha a menos é uma disputa a
+    // menos com o resto da folha.
+    row.append(img, selo);
     if (i === cur) row.classList.add('current');
     // O MESMO CAMINHO DO ⏮/⏭ (`deckIr`), e não um comando próprio: quem já está
     // na página não emite nada (a guarda mora lá dentro), e o destaque volta
@@ -12803,6 +12831,12 @@ function refreshSimpleLyrics() {
       simpleLyricsEl.appendChild(empty);
       return;
     }
+    // A GRADE DE DUAS COLUNAS é do DECK e só dele (v1.4.35) — ver `.lv-grade`.
+    // Ela mora numa classe do CONTAINER porque é o container que muda de eixo;
+    // a linha continua sendo a mesma `.lv-row--slide` dos dois modos, e é isso
+    // que faz o selo, o toque e o `lvScroll` valerem aqui sem um segundo
+    // desenho.
+    simpleLyricsEl.classList.toggle('lv-grade', !!deck);
     if (deck) lvBuildDeck(simpleLyricsEl, lvSimpleIdx, lvSimpleDeckUrls);
     else lvBuildSong(simpleLyricsEl, lvSimpleIdx);
     requestAnimationFrame(() => lvScroll(simpleLyricsEl, lvSimpleFollow, false));
@@ -23818,6 +23852,7 @@ function setAppMode(mode) {
   if (appMode === 'full' && lvSimpleDeckUrls.length) {
     lvSoltarUrls(lvSimpleDeckUrls);
     simpleLyricsEl.innerHTML = '';
+    simpleLyricsEl.classList.remove('lv-grade');
     lvSimpleSig = '';
   }
   // A caixa de controles fica oculta no simplificado, e medir um elemento

@@ -136,6 +136,13 @@ try {
     return null;
   }, ids.audio);
   const m0 = await olhar();
+  const letraEmColuna = await pg.evaluate(
+    () => getComputedStyle(document.getElementById('simpleLyrics')).display,
+  );
+  checar(letraEmColuna !== 'grid',
+    'e a LETRA continua em coluna única: a grade é do DECK. Ali o corpo é TEXTO, '
+    + 'e duas colunas estreitas quebram cada estrofe em mais linhas do que '
+    + 'economizam', letraEmColuna);
   checar(m0.slides === 0 && !m0.vazio && !m0.rowVisivel,
     'ponto de partida: com uma MÚSICA a zona é a letra e a linha de páginas não '
     + 'existe — neste modo a estrofe anda sozinha pelo relógio, e um par de '
@@ -157,6 +164,60 @@ try {
   checar(d0.prevOff && !d0.nextOff,
     '  ↳ e o LIMITE vem das âncoras do modo avançado (`applySlideLimits`), não '
     + 'de uma segunda conta: na página 1 o ⏮ está apagado', d0);
+
+  // ── 2b. DUAS COLUNAS, E É AQUI QUE ELAS EXISTEM (v1.4.35) ─────────────────
+  //
+  // Pedido do operador: *"para o modo simples faça um ajuste extra, no auxiliar
+  // de leitura, coloque os slides em duas colunas, pois temos menos altura
+  // vertical, portanto manter os slides de mesmo tamanho acaba impedindo de ver
+  // mais que dois slides corretamente, deixando de ser uma lista e competindo
+  // com o próprio preview"*.
+  //
+  // A asserção que carrega o pedido é a CONTAGEM, não a grade: "duas colunas" é
+  // o meio, e o fim é *ver mais que dois slides*. MEDIDO antes de mexer: numa
+  // zona de 552px cabiam DOIS inteiros, com a linha em 194px. Uma lista que
+  // mostra dois itens não é uma lista — e os dois que ela mostrava eram a página
+  // no ar e a seguinte, que é o que a preview e o telão já dão.
+  const grade = await pg.evaluate(() => {
+    const zona = document.getElementById('simpleLyrics');
+    const cz = zona.getBoundingClientRect();
+    const linhas = [...zona.querySelectorAll('.lv-row--slide')];
+    const inteiras = linhas.filter((l) => {
+      const r = l.getBoundingClientRect();
+      return r.top >= cz.top - 0.5 && r.bottom <= cz.bottom + 0.5;
+    }).length;
+    const colunas = getComputedStyle(zona).gridTemplateColumns.trim().split(/\s+/);
+    const cur = zona.querySelector('.lv-row--slide.current');
+    return {
+      colunas: colunas.length,
+      // Duas linhas lado a lado é o que prova a GRADE no renderizado — um
+      // `grid-template-columns` declarado num container que não é `grid` computa
+      // do mesmo jeito e não coloca nada ao lado de nada.
+      ladoALado: linhas.length > 1
+        && Math.abs(linhas[0].getBoundingClientRect().top - linhas[1].getBoundingClientRect().top) < 2,
+      inteiras,
+      alturaLinha: Math.round(linhas[0].getBoundingClientRect().height),
+      // O selo continua sendo o mesmo desenho aqui — a linha é a MESMA
+      // `.lv-row--slide` dos dois modos, e é isso que dispensa um segundo CSS.
+      seloNaImagem: (() => {
+        const img = cur.querySelector('.lv-slide').getBoundingClientRect();
+        const sel = cur.querySelector('.lv-selo').getBoundingClientRect();
+        return sel.left >= img.left - 0.5 && sel.right <= img.right + 0.5;
+      })(),
+      live: getComputedStyle(cur.querySelector('.row-live')).display,
+    };
+  });
+  checar(grade.colunas === 2 && grade.ladoALado,
+    'AS PÁGINAS FICAM EM DUAS COLUNAS no Modo Fácil — e a prova é duas linhas na '
+    + 'MESMA altura: um `grid-template-columns` declarado num container que não é '
+    + '`grid` computa igual e não põe nada ao lado de nada', grade);
+  checar(grade.inteiras > 2,
+    '  ↳ e o PEDIDO é a contagem, não a grade: MEDIDO antes, cabiam DOIS slides '
+    + 'inteiros (linha de 194px) — e os dois eram a página no ar e a seguinte, '
+    + 'que é o que a preview e o telão já dão', grade);
+  checar(grade.seloNaImagem && grade.live !== 'none',
+    '  ↳ e o SELO é o mesmo dos dois modos: a linha é a mesma `.lv-row--slide`, e '
+    + 'é isso que dispensa um segundo desenho para divergir', grade);
 
   // ── 3. A TECLA VIRA A PÁGINA ──────────────────────────────────────────────
   await pg.evaluate(() => document.getElementById('simpleSlideNext').click());

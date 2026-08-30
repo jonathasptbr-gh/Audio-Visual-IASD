@@ -1,5 +1,13 @@
 [
   {
+    "versao": "1.4.35",
+    "itens": [
+      "O número da página passou a ficar sobre o slide, que agora fica centralizado.",
+      "A página que está no telão ganhou o mesmo aviso de no ar do resto do app.",
+      "No modo fácil os slides ficaram em duas colunas: cabem oito no lugar de dois."
+    ]
+  },
+  {
     "versao": "1.4.34",
     "itens": [
       "O realce azulado do toque saiu dos botões sobre a preview.",

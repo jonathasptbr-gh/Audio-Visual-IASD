@@ -5577,22 +5577,44 @@ main {
    texto. */
 .lv-row--verse .lv-num { font-size: 1.1rem; font-weight: 700; color: var(--accent); margin-right: .3rem; }
 /* ===== A PÁGINA DA APRESENTAÇÃO (v1.4.24) ===== */
-/* O molde vertical do versículo — número na margem, corpo à direita —, com a
-   imagem no lugar do texto. */
-.lv-row--slide { display: flex; align-items: flex-start; gap: .5rem; }
+/* O molde vertical do versículo — mas com o RÓTULO SOBRE a imagem (v1.4.35), a
+   pedido do operador: *"coloque o número da página sobreposto ao slide, para o
+   slide poder ficar centralizado"*. O número ocupava uma coluna à esquerda
+   (MEDIDO: 27px de 408), e era ela que tirava a miniatura do centro da linha.
+   Fora do fluxo, a miniatura ocupa a largura inteira e uma página 4:3 aparece
+   centrada pelo `object-fit`, sem nada a compensar. */
+/* `padding-left: 0` desfaz o recuo que a `.lv-row` reserva para a FAIXA do
+   versículo no ar. Numa linha de slide ele fazia duas coisas erradas de uma vez:
+   deslocava a miniatura ~9px para a direita (ela não estava centrada na linha, e
+   centrar é metade do pedido) e tirava o selo de cima da imagem — ele é absoluto
+   contra a linha, e a imagem começava depois do recuo. A faixa não é desenhada
+   aqui de qualquer forma: quem marca a página no ar é o selo. */
+.lv-row--slide { position: relative; display: block; padding-left: 0; }
 /* O respiro é FIXO e não o `--lv-estrofe-gap`: aquele é uma LINHA da letra, e
    com o corpo grande ele abria um vão maior que a própria miniatura. Aqui o que
-   separa duas páginas é a borda da imagem, que já é um limite duro. */
+   separa duas páginas é a borda da imagem, que já é um limite duro.
+   (Na GRADE do Modo Fácil quem separa é o `gap` — ver `.lv-grade`.) */
 .lv-row--slide + .lv-row--slide { margin-top: .5rem; }
-/* O número é RÓTULO — fica um degrau abaixo do corpo, como o `.lv-aux` — e
-   nasce em `--muted`: em `--accent` ele seria acento em toda linha, e o acento
-   aqui é o que marca a página no ar. */
-.lv-row--slide .lv-num {
-  flex: none; min-width: 2.4ch; text-align: center;
-  font-size: 1rem; font-weight: 700; line-height: 1.4;
-  color: var(--muted); font-variant-numeric: tabular-nums;
-  padding: .1rem .25rem; border-radius: var(--radius-btn);
+/* O SELO: o número e, na página no ar, o "● No ar" ao lado dele.
+   Ele pousa SOBRE a imagem, então precisa de fundo OPACO — o que está atrás é
+   um pixel de apresentação, que pode ser qualquer cor. `--panel` é a superfície
+   sólida de sempre; preenchimento, nunca contorno. */
+.lv-selo {
+  position: absolute; top: .3rem; left: .3rem;
+  display: flex; align-items: center; gap: .3rem;
+  padding: .1rem .4rem; border-radius: var(--radius-pill);
+  background: var(--panel); color: var(--muted);
+  font-size: .8rem; font-weight: 700; line-height: 1.5;
+  font-variant-numeric: tabular-nums;
+  /* O selo é RÓTULO, não alvo: o toque na linha inteira é que pula a página. */
+  pointer-events: none;
 }
+.lv-row--slide .lv-num { color: inherit; }
+/* O "● No ar" NASCE EM TODA LINHA e é o CSS que o revela — ver `lvBuildDeck`:
+   `lvMarkCurrent` move a classe sem redesenhar, e criá-lo no JS obrigaria
+   aquela função a mover um nó também. `display: none` o tira também da árvore
+   de acessibilidade, que é o que separa "escondido" de "invisível". */
+.lv-row--slide .row-live { display: none; }
 /* A MINIATURA OCUPA A LARGURA. Ela é o conteúdo da linha — o que o operador
    veio ver é o que vem a seguir —, e num chip de 140px o texto do slide não se
    reconhece.
@@ -5608,7 +5630,7 @@ main {
    cobrir — e inventar uma cor de papel aqui seria um branco literal fora do
    palco, que é o que a paleta proíbe. */
 .lv-slide {
-  flex: 1; min-width: 0; width: 100%;
+  width: 100%;
   aspect-ratio: 16 / 9; object-fit: contain;
   display: block; border-radius: 4px;
 }
@@ -5618,15 +5640,27 @@ main {
    O feedback do toque é o do app inteiro, pela lista única lá em cima. */
 .lv-row--tocavel { cursor: pointer; }
 
-/* A PÁGINA NO AR: a barra na margem que toda `.lv-row.current` já pinta, mais o
-   número PREENCHIDO. O segundo é necessário porque o corpo da linha é uma
-   IMAGEM — o que marca um versículo é a cor do texto, e ela não alcança um
-   pixel de fotografia. É a linguagem de estado do app (fundo `--accent-fill` +
-   `--on-accent`), e é PREENCHIMENTO: um contorno aqui seria a exceção que a
-   regra existe para não ter, e o `tokens.test.mjs` reprova. */
-.lv-row--slide.current .lv-num {
-  background: var(--accent-fill); color: var(--on-accent);
+/* A PÁGINA NO AR: o SELO troca de cor e ganha o "● No ar" ao lado do número.
+   O par é o das listas — `--live-fill` no fundo e `--live-strong` no texto,
+   exatamente o que `.row-item.no-ar` pinta —, e é a mesma palavra que o operador
+   já lê em toda parte do app como "isto está no telão".
+   ELE SUBSTITUIU O `--accent-fill` da v1.4.24, e a troca de matiz é a regra da
+   paleta e não gosto: acento é ESCOLHA entre alternativas, vermelho saturado é
+   *está no ar agora* — e uma página projetada é o segundo caso.
+   O corpo da linha é uma IMAGEM, então a cor do texto que marca um versículo não
+   alcança nada aqui: quem carrega o estado é o preenchimento do selo. Um
+   contorno seria a exceção que a regra existe para não ter, e o
+   `tokens.test.mjs` reprova. */
+.lv-row--slide.current .lv-selo {
+  background: var(--live-fill); color: var(--live-strong);
 }
+.lv-row--slide.current .row-live { display: inline; }
+/* E A BARRA DE ACENTO DA `.lv-row.current` NÃO VALE AQUI. Ela marca o versículo
+   no ar, e numa linha de slide ficaria atrás da imagem — visível só pela faixa
+   TRANSPARENTE que o `object-fit: contain` deixa numa página 4:3. O que sairia é
+   um traço de acento ao lado de um selo vermelho: duas cores dizendo a mesma
+   coisa na mesma linha, que é o que a paleta deste app proíbe. */
+.lv-row--slide.current { background: none; }
 
 /* No ar agora: barra na margem + texto em acento. Sem cartão, o contraste da
    cor é o que separa — e continua legível de relance. */
@@ -6116,6 +6150,29 @@ body.mode-simple .bottombar { display: none; }
   background: var(--panel);
 }
 .simple-lyrics .lv-empty { margin: auto; color: var(--muted); font-size: .85rem; text-align: center; line-height: 1.5; }
+/* ===== AS PÁGINAS EM DUAS COLUNAS, SÓ AQUI (v1.4.35) =====
+   Pedido do operador: *"para o modo simples faça um ajuste extra… coloque os
+   slides em duas colunas, pois temos menos altura vertical, portanto manter os
+   slides de mesmo tamanho acaba impedindo de ver mais que dois slides
+   corretamente, deixando de ser uma lista e competindo com o próprio
+   preview"*.
+   MEDIDO antes: numa zona de 552px cabiam DOIS slides inteiros (cada linha com
+   194px). Uma lista que mostra dois itens não é uma lista — e o que ela mostra
+   é a página no ar e a seguinte, que é justamente o que a preview e o telão já
+   dão. Em duas colunas a miniatura cai para ~110px de altura e a zona passa a
+   caber OITO.
+   A classe é posta por `refreshSimpleLyrics` e SÓ com um deck: a letra continua
+   em coluna única, porque ali o corpo é TEXTO e duas colunas estreitas quebram
+   cada estrofe em mais linhas do que economizam.
+   A folha do modo avançado NÃO herda isto: lá a altura é a de um bottom-sheet,
+   e a miniatura larga é o que faz a página se reconhecer. */
+.simple-lyrics.lv-grade {
+  display: grid; grid-template-columns: 1fr 1fr; gap: .5rem;
+  align-content: start;
+}
+/* Na grade quem separa é o `gap` — o `margin-top` da lista abriria um vão a
+   mais entre as fileiras, e nenhum entre as colunas. */
+.simple-lyrics.lv-grade .lv-row--slide + .lv-row--slide { margin-top: 0; }
 
 /* Teclado do controle: transporte em cima, volume embaixo. */
 .simple-remote { flex: none; display: flex; flex-direction: column; gap: .6rem; }
