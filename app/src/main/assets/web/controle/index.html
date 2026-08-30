@@ -392,6 +392,32 @@
         <button type="button" id="simpleStop" class="simple-key simple-key--big" title="Parar e limpar"><span class="msym" aria-hidden="true">&#xe047;</span></button>
         <button type="button" id="simpleMute" class="simple-key simple-key--big" title="Mutar"><span class="msym" aria-hidden="true">&#xe050;</span></button>
       </div>
+      <!-- AS PÁGINAS DA APRESENTAÇÃO (v1.4.30), a pedido do operador. Só
+           aparece com um deck no ar — quem a mostra e a esconde é
+           `renderSlideNav`, pela MESMA resposta que governa o ⏮/⏭ do modo
+           avançado (`slideTarget()`), e não por uma segunda pergunta.
+
+           A GEOMETRIA É A DA LINHA DE VOLUME, de propósito: as mesmas três
+           células (`1fr 1.1fr 1fr`), a mesma altura de tecla e o mesmo mostrador
+           no meio. Este modo é "teclas grandes, nada de arrastar", e a linha de
+           volume é a forma já provada disso — o número no meio responde "onde
+           estou?" sem exigir mira, que é o que a página precisa responder.
+
+           O toque numa MINIATURA da zona de leitura pula direto para ela (o
+           mesmo `deckIr`); estas teclas são o passo a passo, que é o gesto do
+           sermão: repetido, sem olhar. -->
+      <div class="simple-slidesrow" id="simpleSlidesRow" hidden>
+        <button type="button" id="simpleSlidePrev" class="simple-key simple-key--vol" title="Página anterior" aria-label="Página anterior">
+          <svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoSlidePrev"/></svg>
+        </button>
+        <div class="simple-vol-read">
+          <span class="simple-vol-num" id="simpleSlideNum">1/1</span>
+          <span class="simple-vol-cap">página</span>
+        </div>
+        <button type="button" id="simpleSlideNext" class="simple-key simple-key--vol" title="Próxima página" aria-label="Próxima página">
+          <svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoSlideNext"/></svg>
+        </button>
+      </div>
       <!-- Volume por teclas (− / +) com o indicador no meio: num controle não
            se arrasta nada, e o número diz onde está sem precisar mirar. -->
       <div class="simple-volrow" id="simpleVolWrap">
@@ -1327,7 +1353,7 @@
              pedir ajuda"), e agora ocupam a mesma faixa: a versão à esquerda, o
              Registro à direita, no espaço que já estava sobrando. -->
         <div class="footer-diag">
-          <span id="appVersion" class="app-version">Controle v1.4.29</span>
+          <span id="appVersion" class="app-version">Controle v1.4.30</span>
           <span class="footer-diag-rot">Registro</span>
           <!-- SALVAR EM ARQUIVO (v1.2.16). Com o acervo inteiro varrido o
                Registro passa de setenta linhas só na seção de cifras, e copiar

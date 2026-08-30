@@ -53,6 +53,10 @@ const simpleTimeDurEl = document.getElementById('simpleTimeDur');
 const simpleTimeFillEl = document.getElementById('simpleTimeFill');
 const simpleTimeHitEl = document.getElementById('simpleTimeHit');
 const simpleVolWrapEl = document.getElementById('simpleVolWrap');
+const simpleSlidesRowEl = document.getElementById('simpleSlidesRow');
+const simpleSlidePrevEl = document.getElementById('simpleSlidePrev');
+const simpleSlideNextEl = document.getElementById('simpleSlideNext');
+const simpleSlideNumEl = document.getElementById('simpleSlideNum');
 const simpleVolUpEl = document.getElementById('simpleVolUp');
 const simpleVolDownEl = document.getElementById('simpleVolDown');
 const simpleVolValueEl = document.getElementById('simpleVolValue');
@@ -261,7 +265,7 @@ const appVersionEl = document.getElementById('appVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.4.29';
+const WEB_VERSION = '1.4.30';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -10450,6 +10454,33 @@ function renderSlideNav() {
   // O eixo do transporte é escrito DEPOIS dos limites: ele lê o `disabled` das
   // âncoras para dizer quando o toque curto não tem para onde ir.
   renderTransportAxis(who);
+  renderSimpleSlides(who);
+}
+
+/**
+ * AS TECLAS DE PÁGINA DO MODO FÁCIL (v1.4.30).
+ *
+ * Ela **espelha**, não recalcula: o `disabled` sai das âncoras que
+ * `applySlideLimits` acabou de escrever, e o `who` é o mesmo `slideTarget()` da
+ * linha acima. É a técnica do `renderTransportAxis`, e pelo motivo dele — uma
+ * segunda conta de "posso avançar?" divergiria no primeiro caminho novo, e
+ * divergiria CALADA: a tecla ficaria acesa num fim de apresentação, ou apagada
+ * no meio dela.
+ *
+ * **SÓ COM UM DECK NO AR.** Com uma letra em cena a linha nem existe: neste modo
+ * a estrofe anda sozinha pelo relógio da música, e um par de teclas oferecendo
+ * um controle que ninguém precisa exercer é o que este app não faz.
+ */
+function renderSimpleSlides(who) {
+  const d = who === 'deck' ? deckNoAr() : null;
+  simpleSlidesRowEl.hidden = !d;
+  if (!d) return;
+  simpleSlidePrevEl.disabled = slidePrevBtnEl.disabled;
+  simpleSlideNextEl.disabled = slideNextBtnEl.disabled;
+  simpleSlideNumEl.textContent = (deckPagina + 1) + '/' + d.pages.length;
+  // O mesmo traço de curso do volume, no mesmo nó — ver `--curso`.
+  simpleSlidesRowEl.style.setProperty('--curso',
+    String(d.pages.length > 1 ? deckPagina / (d.pages.length - 1) : 1));
 }
 
 // Onde as âncoras de estrofe podem ir a partir daqui (é isso que `disabled`
@@ -10899,7 +10930,7 @@ function renderLyricsView() {
     // fonte para divergir — a mesma razão pela qual o título da Bíblia é o
     // CAPÍTULO e não o versículo corrente.
     lyricsPopupTitleEl.textContent = a.name || 'Apresentação';
-    lvBuildDeck(lyricsViewBodyEl, lvCurIdx);
+    lvBuildDeck(lyricsViewBodyEl, lvCurIdx, lvDeckUrls);
   } else if (src === 'cifra') {
     lyricsPopupTitleEl.textContent = cifraNomeDoItem(lvItem()) || 'Cifra';
     lvBuildCifra(lyricsViewBodyEl, lyricsViewBarEl);
@@ -12559,12 +12590,23 @@ function lvBuildBible(el, cur) {
 //    em que o corpo é esvaziado).
 let lvDeckUrls = [];
 
-function lvDeckSoltarUrls() {
-  for (const u of lvDeckUrls) { try { URL.revokeObjectURL(u); } catch (_) { /* já foi */ } }
-  lvDeckUrls = [];
+/**
+ * Solta as URLs de UMA lista.
+ *
+ * A lista é PARÂMETRO porque há DOIS lugares que desenham a coluna de páginas —
+ * a folha do modo avançado e a zona de leitura do Modo Fácil (v1.4.30) —, e uma
+ * lista única faria o redesenho de um revogar as imagens do outro: a coluna
+ * ficaria com os quadros vazios, sem erro em lugar nenhum, porque uma `<img>`
+ * com `src` revogado simplesmente não pinta.
+ */
+function lvSoltarUrls(lista) {
+  for (const u of lista) { try { URL.revokeObjectURL(u); } catch (_) { /* já foi */ } }
+  lista.length = 0;
 }
+function lvDeckSoltarUrls() { lvSoltarUrls(lvDeckUrls); }
 
-function lvBuildDeck(el, cur) {
+// `urls` é o SUMIDOURO das URLs de objeto criadas aqui — ver `lvSoltarUrls`.
+function lvBuildDeck(el, cur, urls) {
   const rec = lvDeckRec();
   const pages = (rec && rec.pages) || [];
   // O TOQUE PULA PARA A PÁGINA (v1.4.26), a pedido do operador: *"preciso da
@@ -12592,7 +12634,7 @@ function lvBuildDeck(el, cur) {
     // STRING ou BLOB, como o `pages` do `stage.js`: no registro do aparelho as
     // páginas são Blob, e a mesma lista chega como URL quando ela vem de fora.
     if (typeof p === 'string') img.src = p;
-    else if (p) { const u = URL.createObjectURL(p); lvDeckUrls.push(u); img.src = u; }
+    else if (p) { const u = URL.createObjectURL(p); (urls || lvDeckUrls).push(u); img.src = u; }
     row.append(n, img);
     if (i === cur) row.classList.add('current');
     // O MESMO CAMINHO DO ⏮/⏭ (`deckIr`), e não um comando próprio: quem já está
@@ -12626,37 +12668,74 @@ function refreshLyricsView() {
   lvScrollToCurrent(true);
 }
 
-// ===== Zona de letra do modo simplificado =====
-// A mesma letra do popup de leitura auxiliar, embutida na tela: ali o espaço
+// ===== Zona de leitura do Modo Fácil =====
+// A mesma coluna do popup de leitura auxiliar, embutida na tela: ali o espaço
 // entre as ações e as teclas estava vazio, e é justamente o que o operador
-// quer olhar enquanto a música toca. Só a MÚSICA (a Bíblia não existe neste
-// modo), e também só leitura.
+// quer olhar enquanto a música toca. Só leitura (a Bíblia não existe neste
+// modo)...
+//
+// ===== ...E A APRESENTAÇÃO, QUE AQUI NÃO É SÓ LEITURA (v1.4.30) =====
+//
+// Pedido do operador: *"verifique o modo simples e seu auxiliar de leitura. Ele
+// deve adquirir as funções para controle de slides também"*.
+//
+// MEDIDO antes de mexer: com uma apresentação em cena o Modo Fácil não a
+// operava de jeito NENHUM. A zona dizia *"A letra da música aparece aqui"* — a
+// projeção no ar negada pela única superfície que deveria descrevê-la —, e as
+// teclas eram play · parar · mudo, sem nada que virasse página. O eixo já
+// existia (`slideTarget()` respondia `'deck'`); o que faltava era alguém neste
+// modo ligado a ele. Uma apresentação entrava pelo compartilhamento, projetava,
+// e ficava presa na página 1 até o operador ir ao modo avançado.
+//
+// A ASSIMETRIA COM A LETRA É O PONTO. A letra anda sozinha, pelo relógio da
+// música: ali a zona ilustra e mais nada. Um deck não tem relógio — alguém
+// precisa passar a página —, e por isso aqui ela é também CONTROLE: o toque
+// numa página pula para ela (o mesmo `deckIr` do modo avançado), e o par de
+// teclas abaixo é o ⏮/⏭ em tamanho de dedo.
+//
+// QUEM ESTÁ NA FRENTE VENCE, e é a mesma pilha do auxiliar do modo avançado
+// (v1.4.26): com uma apresentação sobre um louvor de fundo (v1.4.28) a zona
+// mostra as PÁGINAS. Há UMA zona neste modo, e mostrar a camada de trás seria
+// descrever o que a congregação não está vendo.
 let lvSimpleSig = '';
 let lvSimpleIdx = -1;
 let lvSimpleFollow = true;
+// O SUMIDOURO PRÓPRIO das miniaturas desta zona — ver `lvSoltarUrls`. Partilhar
+// a lista com a folha do modo avançado faria o redesenho de uma revogar as
+// imagens da outra, e uma `<img>` com `src` revogado não pinta nem erra.
+const lvSimpleDeckUrls = [];
 
 function refreshSimpleLyrics() {
   if (appMode !== 'simple') return;
-  const has = !!(currentItem && Array.isArray(currentItem.lyrics) && currentItem.lyrics.length);
-  const sig = has ? (currentId + '|' + currentItem.lyrics.length) : 'none';
+  const deck = deckNoAr();
+  const lyrics = (!deck && currentItem && Array.isArray(currentItem.lyrics)
+    && currentItem.lyrics.length) ? currentItem.lyrics : null;
+  // A PÁGINA FICA FORA DA ASSINATURA, pela razão do `lvSignature`: o destaque
+  // anda por classe, e com ela aqui dentro cada toque no ⏭ revogaria e
+  // recriaria as miniaturas de uma apresentação inteira no meio do sermão.
+  const sig = deck ? ('deck|' + (deck.id || deck.name) + '|' + deck.pages.length)
+    : lyrics ? ('letra|' + currentId + '|' + lyrics.length) : 'none';
   if (sig !== lvSimpleSig) {
     lvSimpleSig = sig;
-    lvSimpleFollow = true;   // música nova: volta a acompanhar
+    lvSimpleFollow = true;   // cena nova: volta a acompanhar
     simpleLyricsEl.innerHTML = '';
-    lvSimpleIdx = has ? findSlideIndex(currentItem.lyrics, authoritativeTime()) : -1;
-    if (!has) {
+    lvSoltarUrls(lvSimpleDeckUrls);
+    lvSimpleIdx = deck ? deckPagina
+      : lyrics ? findSlideIndex(lyrics, authoritativeTime()) : -1;
+    if (!deck && !lyrics) {
       const empty = document.createElement('div');
       empty.className = 'lv-empty';
       empty.textContent = 'A letra da música aparece aqui.';
       simpleLyricsEl.appendChild(empty);
       return;
     }
-    lvBuildSong(simpleLyricsEl, lvSimpleIdx);
+    if (deck) lvBuildDeck(simpleLyricsEl, lvSimpleIdx, lvSimpleDeckUrls);
+    else lvBuildSong(simpleLyricsEl, lvSimpleIdx);
     requestAnimationFrame(() => lvScroll(simpleLyricsEl, lvSimpleFollow, false));
     return;
   }
-  if (!has) return;
-  const idx = findSlideIndex(currentItem.lyrics, authoritativeTime());
+  if (!deck && !lyrics) return;
+  const idx = deck ? deckPagina : findSlideIndex(lyrics, authoritativeTime());
   if (idx === lvSimpleIdx) return;
   lvSimpleIdx = idx;
   lvMarkCurrent(simpleLyricsEl, idx);
@@ -23316,6 +23395,17 @@ function setAppMode(mode) {
   // Sair do simplificado com a busca aberta deixaria o popup por cima da tela
   // completa sem nada que explicasse por quê.
   if (appMode === 'full') closeHymnSearch();
+  // E AS MINIATURAS DA APRESENTAÇÃO SAEM COM O MODO (v1.4.30). `refreshSimpleLyrics`
+  // volta cedo fora do simplificado, então ninguém mais passaria por elas: uma
+  // apresentação são dezenas de Blobs segurados pelo resto da sessão, num
+  // processo que já hospeda os dois WebViews. A assinatura é zerada junto,
+  // senão a volta ao modo encontraria o `sig` igual e não redesenharia nada —
+  // a zona ficaria com os quadros vazios.
+  if (appMode === 'full' && lvSimpleDeckUrls.length) {
+    lvSoltarUrls(lvSimpleDeckUrls);
+    simpleLyricsEl.innerHTML = '';
+    lvSimpleSig = '';
+  }
   // A caixa de controles fica oculta no simplificado, e medir um elemento
   // escondido dá 0 — o vazado da faixa só pode ser posicionado quando ela
   // aparece. Sem animação: aqui ele POUSA, não viaja.
@@ -23410,7 +23500,7 @@ function renderSimple() {
   // curso na base dele (ver .simple-vol-read::after).
   const pct = Math.round(volume * 100);
   simpleVolValueEl.textContent = String(pct);
-  simpleVolWrapEl.style.setProperty('--vol', String(pct / 100));
+  simpleVolWrapEl.style.setProperty('--curso', String(pct / 100));
   renderSimpleTime();
   refreshSimpleLyrics();
 }
@@ -23889,6 +23979,12 @@ simpleSearchBtnEl.addEventListener('click', openHymnSearch);
 simplePlayEl.addEventListener('click', () => playPauseEl.click());
 simpleStopEl.addEventListener('click', () => stopEl.click());
 simpleMuteEl.addEventListener('click', () => muteToggleEl.click());
+// AS PÁGINAS SEGUEM A MESMA REGRA (v1.4.30): elas acionam as âncoras do modo
+// completo, e não `stepSlide` direto. Um `.click()` num botão `disabled` é
+// no-op natural, e é o que faz o limite (que `applySlideLimits` já calculou uma
+// vez) valer aqui sem uma segunda guarda.
+simpleSlidePrevEl.addEventListener('click', () => slidePrevBtnEl.click());
+simpleSlideNextEl.addEventListener('click', () => slideNextBtnEl.click());
 holdRepeat(simpleVolUpEl, () => simpleVolStep(1));
 holdRepeat(simpleVolDownEl, () => simpleVolStep(-1));
 // (A LIBERAÇÃO DE TESTE — segurar 5 s — SAIU na v5.199. O alvo dela mudou duas

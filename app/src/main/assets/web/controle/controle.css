@@ -6018,6 +6018,13 @@ body.mode-simple .bottombar { display: none; }
    pálida não dava. */
 .simple-key--big.muted { background: var(--btn-danger); color: var(--danger-strong); }
 .simple-key--big.blocked { background: var(--btn-warn); color: var(--warn-text); animation: mute-blocked-pulse 1.2s ease-in-out infinite; }
+/* AS PÁGINAS DA APRESENTAÇÃO (v1.4.30): a MESMA geometria da linha de volume
+   logo abaixo, e é o ponto — este modo é "teclas grandes, nada de arrastar", e
+   aquela linha é a forma já provada disso. O mostrador do meio é o mesmo nó
+   (`.simple-vol-read`), então o número da página herda o corpo e o alinhamento
+   do número do volume sem uma regra própria para divergir.
+   Só existe com um deck no ar (`hidden`, escrito por `renderSlideNav`). */
+.simple-slidesrow { display: grid; grid-template-columns: 1fr 1.1fr 1fr; gap: .6rem; align-items: stretch; }
 /* Volume: − e + são teclas iguais às outras; o indicador no meio mostra o
    número e, embaixo, quanto do curso está usado. */
 .simple-volrow { display: grid; grid-template-columns: 1fr 1.1fr 1fr; gap: .6rem; align-items: stretch; }
@@ -6030,9 +6037,13 @@ body.mode-simple .bottombar { display: none; }
 }
 /* Barra fina de preenchimento na base do indicador: o número diz o valor, ela
    diz o curso, de relance. */
+/* `--curso` e não `--vol`: esta caixa passou a ter DOIS donos (o volume e a
+   página da apresentação), e o nome tem de descrever o que ela desenha — quanto
+   do curso está usado. O fader do modo avançado continua com `--vol`, que ali é
+   volume de verdade. */
 .simple-vol-read::after {
   content: ''; position: absolute; left: 0; bottom: 0; height: 4px;
-  width: calc(var(--vol, 1) * 100%);
+  width: calc(var(--curso, 1) * 100%);
   background: var(--accent);
 }
 .simple-vol-num { font-size: 1.6rem; font-weight: 800; color: var(--text); line-height: 1; }
