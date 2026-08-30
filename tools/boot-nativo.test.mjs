@@ -3396,8 +3396,8 @@ try {
   // assim que o `controle.js` é parseado, e quem marca o segmento é o `load()`,
   // que é assíncrono. Perguntar antes dele lê `.active` como `null` e reprova o
   // app por um relógio. Não é tautologia: dentro do `load()` o
-  // `renderLyricsBgSeg()` roda ANTES do `renderPlaylist()`, então o `<li>` só
-  // aparece depois de o segmento já estar marcado.
+  // `renderLyricsBgTile()` roda ANTES do `renderPlaylist()`, então o `<li>` só
+  // aparece depois de o tile já estar pintado.
   const dePe = () => pgP.waitForFunction(
     () => window.AVDB && typeof window.__avBack === 'function'
       && !!document.querySelector('#playlist li'),
@@ -3408,13 +3408,16 @@ try {
   // 1) APARELHO RECÉM-INSTALADO: nada gravado em `lyricsBg`.
   const zero = await pgP.evaluate(async () => ({
     gravado: await window.AVDB.getState('lyricsBg'),
-    marcado: document.querySelector('#lyricsBgSeg .fit-opt.active')?.dataset.lyricsbg || null,
+    // O `data-estado` do TILE (v1.4.36): a folha virou painel rápido, e quem
+    // escreve o estado é `pintarTile`. Perguntar pela CLASSE seria perguntar
+    // pela aparência; o `data-estado` é o valor em vigor.
+    marcado: document.getElementById('lyricsBgTile')?.dataset.estado || null,
   }));
   checar(zero.gravado === undefined || zero.gravado === null,
     'num aparelho recém-instalado nada está gravado em `lyricsBg`',
     JSON.stringify(zero));
   checar(zero.marcado === 'image',
-    'e o segmento "Imagens dos slides" nasce em MOSTRAR — as imagens já vieram '
+    'e o tile "Fundo da letra" nasce em MOSTRAR — as imagens já vieram '
     + 'baixadas com a música, e escondê-las era esconder material que o aparelho '
     + 'já tinha', 'marcado: ' + JSON.stringify(zero.marcado));
 
@@ -3423,7 +3426,7 @@ try {
   await pgP.reload({ waitUntil: 'domcontentloaded' });
   await dePe();
   const escolhido = await pgP.evaluate(() =>
-    document.querySelector('#lyricsBgSeg .fit-opt.active')?.dataset.lyricsbg || null);
+    document.getElementById('lyricsBgTile')?.dataset.estado || null);
   checar(escolhido === 'black',
     'e quem ESCOLHEU "Remover" continua em Remover na abertura seguinte — o '
     + 'padrão vale para o valor ausente, não por cima de uma escolha',

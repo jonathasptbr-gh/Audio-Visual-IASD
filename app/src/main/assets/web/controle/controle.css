@@ -402,7 +402,14 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
   .lv-row--tocavel,
   /* O ✓ do renomear, na coluna do `⋮` (v1.4.27). A LIXEIRA fica de fora: ela é
      um `<span>` que ilustra, e um recuo diria que há o que apertar ali. */
-  .row-slot--ok
+  .row-slot--ok,
+  /* Os tiles do painel rápido de Configurações (v1.4.36). Eles nascem no MESMO
+     lote em que entram aqui, que é a regra: uma lista de guardas é o que
+     envelhece, e um bloco novo que hospede controle sem entrar nela fica mudo
+     ao toque sem nada na tela dizer por quê. Nenhum ancestral deles está na
+     lista (a `.fade-opts` e a `.qs-grade` não respondem a toque), então não há
+     duplo recuo a suprimir. */
+  .qs-tile
 ):active { transform: var(--press); filter: var(--press-luz); }
 
 
@@ -5405,7 +5412,13 @@ main {
 }
 /* E OS BOTÕES CRESCEM. `--hit` é o piso de toque do app; aqui o alvo passa dele
    de propósito — é o único controle desta folha que o operador procura para
-   mudar o app de cara, e ele é tocado com o polegar, não com a ponta do dedo. */
+   mudar o app de cara, e ele é tocado com o polegar, não com a ponta do dedo.
+
+   A ANATOMIA É A DO TILE (v1.4.36): ícone em cima, palavra embaixo, tudo
+   centrado — a mesma pilha da `.qs-tile` logo abaixo. É o que o pedido chamou
+   de "atualizar o design para o modelo de painel rápido" sem transformar o
+   modo num tile: ele continua sendo um SELETOR de duas opções à vista (ver o
+   comentário no `index.html`), só que desenhado como o resto da folha. */
 .fit-seg--grande .fit-opt {
   /* `--text`, E NÃO `--muted` — é o QUARTO DEGRAU da escada, medido (v1.3.0).
      A `.fade-row--destaque` pinta `--camada` (o nível do `--panel-2`) e o
@@ -5415,14 +5428,19 @@ main {
      `--muted` sobre esse fundo (182,187,194) dá **3,47:1**, reprovando o piso
      de 4,5 para texto pequeno. `--text` devolve **4,61:1** no claro e 9,24:1 no
      escuro. A opção ATIVA não muda: `.fit-opt.active` vem depois, com a mesma
-     especificidade, e continua com `--on-accent` sobre o denim.
-     O degrau nasceu com a `--destaque` (v1.1.3) e passou despercebido porque as
-     medições à mão de `tokens.css` são de PARES DE TOKEN, e este fundo é uma
-     COMPOSIÇÃO — nenhum token tem esse valor. */
+     especificidade, e continua com `--on-accent` sobre o denim. */
   color: var(--text);
-  padding: .8rem .4rem;
-  font-size: .95rem;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: .3rem;
+  border-radius: var(--radius-card);
+  padding: .65rem .4rem;
+  font-size: .82rem;
 }
+/* O ícone do seletor de modo tem tamanho PRÓPRIO e não entra na regra geral de
+   `:is(.tab, .t-btn, …) svg`: ali o SVG é o botão inteiro, aqui ele divide a
+   caixa com uma palavra, e `--icon-md` sobre duas linhas de 0,82rem é a
+   proporção que o tile ao lado já usa. */
+.fit-seg--grande .fit-opt svg { display: block; width: var(--icon-md); height: var(--icon-md); }
 /* (A linha de diagnóstico `.fade-hint` saiu: o que ela dizia — o desfecho da
    última tentativa de download — consolidou-se no Registro (`#diagBox`) na
    v5.121, e nenhum JS a desenhava mais.) */
@@ -5433,16 +5451,70 @@ main {
   font-size: .82rem; font-weight: 600; cursor: pointer;
 }
 .fit-opt.active { background: var(--accent-fill); color: var(--on-accent); }
-/* GIRAR (v5.142): um botão só, no lugar que o "Esticar" deixou. Ele NÃO é um
-   segmento de um seletor — é uma ação que avança —, mas veste o mesmo `.fit-opt`
-   de propósito: está na mesma coluna das outras linhas do popup, e um botão de
-   outro formato ali leria como outro tipo de controle. `flex: none` porque não
-   divide largura com ninguém, e o ângulo entra ao lado do ícone. */
-.fit-opt--rot {
-  flex: none; display: inline-flex; align-items: center; gap: .35rem;
-  padding: .5rem .7rem; font-variant-numeric: tabular-nums;
+
+/* ---------- O PAINEL RÁPIDO DE CONFIGURAÇÕES (v1.4.36) ----------
+   A folha era uma pilha de sete FAIXAS de largura inteira, uma opção por
+   faixa. Ela virou uma GRADE de tiles — ícone, título curto e a palavra do
+   estado —, e a conta é o motivo: as mesmas sete opções passaram de ~450px de
+   corpo para ~230px, e a folha deixou de rolar num aparelho de 640px.
+
+   TRÊS COLUNAS FIXAS, e não `auto-fit`: o `minmax` decidiria o número de
+   colunas pela largura do aparelho, e com isso a MESMA folha teria duas
+   colunas num celular estreito e quatro num tablet — quem opera este app o
+   opera sempre no mesmo aparelho, e o que ele memoriza é ONDE cada tile fica.
+   Três é o que cabe com o título mais longo desta lista ("Preenchimento") numa
+   linha só a 360px de tela, e é o que fecha sete opções em três fileiras.
+
+   O TOM É `--surface`, o mesmo que o `.fit-opt` desta folha sempre teve: o
+   tile é um CONTROLE dentro de um cartão, e dentro de um cartão a superfície
+   AFUNDA (a inversão que a regra do topo deste arquivo descreve). Não é
+   `--panel`: sobre a folha, que já é `--panel`, ele desapareceria. */
+.qs-grade { display: grid; grid-template-columns: repeat(3, 1fr); gap: .4rem; }
+.qs-tile {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: .2rem; min-height: 4.4rem;
+  border: none; border-radius: var(--radius-card); padding: .55rem .3rem;
+  background: var(--surface); color: var(--muted);
+  font-family: inherit; text-align: center; cursor: pointer;
 }
-.fit-opt--rot svg { display: block; width: var(--icon-sm); height: var(--icon-sm); }
+/* `display: flex` VENCE O `hidden`, e este é o modo de falhar mais bobo desta
+   grade: o atributo só esconde porque a folha do agente diz `[hidden] {
+   display: none }`, e qualquer `display` declarado depois o atropela. Sem esta
+   linha o tile da medição — que nasce `hidden` e só o shell revela — aparece no
+   NAVEGADOR, onde não há farol nenhum para ele ligar. */
+.qs-tile[hidden] { display: none; }
+.qs-tile svg { display: block; width: var(--icon-md); height: var(--icon-md); }
+/* O TÍTULO em `--text` e o ESTADO em `--muted`: são duas perguntas diferentes
+   ("do que é este botão?" / "como ele está?") e a hierarquia entre elas é o que
+   faz a grade ser varrida de relance. MEDIDO no tema CLARO, que é o apertado:
+   sobre `--surface` afundada dentro da folha (219,219,219), `--text` dá
+   **6,40:1** e `--muted` **4,81:1** — os dois acima do piso de 4,5 para texto
+   pequeno, que é o tamanho de todo texto daqui. */
+.qs-titulo { font-size: .72rem; font-weight: 600; color: var(--text); line-height: 1.15; }
+.qs-estado {
+  font-size: .66rem; color: var(--muted); line-height: 1.15;
+  /* O ângulo do giro troca de largura (0° → 180°): sem isto o tile inteiro
+     dança meio caractere a cada toque. */
+  font-variant-numeric: tabular-nums;
+}
+/* ACESO = O ESTADO NÃO É O PADRÃO — ver as três regras do tile no `index.html`.
+   `--btn-accent` + `--accent` é a gramática de INTERRUPTOR LIGADO da paleta, e
+   não o `--accent-fill` de ESCOLHA ENTRE ALTERNATIVAS: um tile é um botão que
+   alterna, e o seletor de modo logo acima é que é o par de alternativas.
+   Os dois textos vão junto: `color` no botão não alcança um filho que declara
+   a própria cor, e um título em `--text` sobre o denim claro do tema claro
+   perderia o contraste que a linha acima mediu. */
+.qs-tile.qs-on { background: var(--btn-accent); color: var(--accent); }
+.qs-tile.qs-on .qs-titulo, .qs-tile.qs-on .qs-estado { color: var(--accent); }
+/* O PAR DE DESENHOS, trocado por CSS de documento — a mesma mecânica da
+   cortina (`.pv-fab`), e pelo mesmo motivo: o conteúdo de um `<use>` mora numa
+   árvore-sombra que a folha do documento não alcança, então cada estado é um
+   `<symbol>` e o consumidor pendura dois `<use>` na árvore de LUZ.
+   Tile sem par (o giro, o wallpaper, o histórico) não tem `.ico-alt` e passa
+   por estas três regras sem efeito nenhum. */
+.qs-tile .ico-alt { display: none; }
+.qs-tile.qs-on .ico-base { display: none; }
+.qs-tile.qs-on .ico-alt { display: block; }
 
 /* ---------- Leitura auxiliar (letra completa / capítulo inteiro) ---------- */
 /* Bottom-sheet de LEITURA, aberto pelo botão do mixer: a íntegra do que está
@@ -6493,12 +6565,9 @@ body.mode-simple .bottombar { display: none; }
   cursor: default;
 }
 
-/* Preenchimento + giro na mesma linha (v5.169). O seletor toma o espaço que
-   sobrar e o botão de girar mantém o tamanho do conteúdo: são duas coisas de
-   pesos diferentes — uma escolha de dois estados e uma ação que avança. */
-.fit-linha { display: flex; align-items: center; gap: .45rem; }
-.fit-linha .fit-seg { flex: 1 1 auto; }
-.fit-linha .fit-opt--rot { flex: 0 0 auto; }
+/* (A `.fit-linha` — preenchimento e giro dividindo uma faixa, v5.169 — saiu na
+   v1.4.36 com a folha em faixas: os dois viraram tiles vizinhos na grade, que é
+   a mesma vizinhança dita pelo layout em vez de por uma classe própria.) */
 
 /* ---------- A folha de conectar, num degrau só (v5.171) ----------
    ENDEREÇO E CÓDIGO são os dois maiores elementos da folha porque são os

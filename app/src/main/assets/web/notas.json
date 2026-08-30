@@ -1,5 +1,13 @@
 [
   {
+    "versao": "1.4.36",
+    "itens": [
+      "Configurações virou um painel rápido: botões com ícone, em grade, sem rolar.",
+      "Cada botão mostra o estado e troca com um toque.",
+      "O seletor de Fácil e Avançado ganhou ícones e continua em destaque."
+    ]
+  },
+  {
     "versao": "1.4.35",
     "itens": [
       "O número da página passou a ficar sobre o slide, que agora fica centralizado.",

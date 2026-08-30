@@ -235,6 +235,75 @@ try {
     (el) => el.scrollHeight > el.clientHeight + 1);
   checar(!precisaRolar, 'Configurações cabe sem rolar');
 
+  // ---- E O CORPO TAMBÉM NÃO ROLA (v1.4.36) ----
+  // A asserção acima mede a FOLHA, e a folha nunca rolou: quem tem
+  // `overflow-y: auto` é o `.fade-opts`, e é ele que crescia por baixo. Era
+  // isso que o operador via — *"uma disposição de grade, para que tenha mais
+  // opções e não precise de scroll"* —, e o oráculo antigo aprovava as duas
+  // versões. MEDIDO nesta viewport (430×900), com a grade: o corpo cabe.
+  //
+  // O TILE DA MEDIÇÃO fica de fora desta conta por construção (ele é `hidden`
+  // no navegador), e é o único — a folha do aparelho tem uma opção a mais, na
+  // mesma fileira que já existe.
+  const corpo = await pg.$eval('#fadePopup .fade-opts', (el) => ({
+    rola: el.scrollHeight > el.clientHeight + 1,
+    alto: Math.round(el.scrollHeight),
+    cabe: Math.round(el.clientHeight),
+  }));
+  checar(!corpo.rola,
+    'e o CORPO dela também cabe — quem rola é o `.fade-opts`, não a folha',
+    JSON.stringify(corpo));
+
+  // ---- A GRADE É UMA GRADE, e os tiles alternam ----
+  // Três metades, e cada uma pega um defeito diferente: a GEOMETRIA (três
+  // colunas — uma grade de uma coluna é a pilha de faixas de volta, com outro
+  // nome e o mesmo scroll), o ESTADO ESCRITO (`data-estado`, que é o que a
+  // pintura promete e o que os outros oráculos leem) e o ACESO seguindo o
+  // estado (a classe sozinha passaria num teste de classe e continuaria sem
+  // regra de CSS por trás — daí medir a cor RENDERIZADA).
+  const grade = await pg.evaluate(async () => {
+    const g = document.querySelector('.qs-grade');
+    const cols = g ? getComputedStyle(g).gridTemplateColumns.trim().split(/\s+/).length : 0;
+    const tile = document.getElementById('fitTile');
+    const fundo = () => getComputedStyle(tile).backgroundColor;
+    // SEM PRAZO NENHUM, e isso é a regra ("um oráculo não pode medir o runner"):
+    // `pintarTile` roda SÍNCRONO dentro do ouvinte, antes do primeiro `await` do
+    // `applyFit` — a gravação no banco vem depois e não é o que se mede aqui.
+    // Um `setTimeout` no meio disto seria uma aposta na carga da máquina para
+    // observar um efeito que já aconteceu.
+    const antes = { estado: tile.dataset.estado, aceso: tile.classList.contains('qs-on'), cor: fundo() };
+    tile.click();
+    const depois = { estado: tile.dataset.estado, aceso: tile.classList.contains('qs-on'), cor: fundo() };
+    tile.click();
+    const volta = { estado: tile.dataset.estado, aceso: tile.classList.contains('qs-on'), cor: fundo() };
+    // E O QUE FICOU GRAVADO. Duas coisas de uma vez, e a segunda é higiene do
+    // próprio oráculo: prova que o tile PERSISTE o que mostra (`applyFit`
+    // grava, e uma pintura que não gravasse voltaria ao abrir o app), e ASSENTA
+    // as duas transações que os cliques deixaram em voo — esta leitura entra na
+    // fila depois delas, então nada deste bloco escorre para as medições
+    // seguintes. É um sinal do app, não um prazo.
+    const guardado = await AVDB.getState('fit');
+    return { cols, tiles: document.querySelectorAll('.qs-tile').length, antes, depois, volta, guardado };
+  });
+  checar(grade.cols === 3,
+    'a grade tem TRÊS colunas — uma coluna só é a pilha de faixas de volta',
+    'colunas: ' + grade.cols);
+  checar(grade.tiles >= 6,
+    'e ela hospeda os tiles do painel (o da medição é `hidden` no navegador)',
+    'tiles: ' + grade.tiles);
+  checar(grade.antes.estado === 'contain' && grade.depois.estado === 'cover'
+    && grade.volta.estado === 'contain',
+    'o tile ALTERNA e volta — é um interruptor, não um segmento de um par',
+    JSON.stringify([grade.antes.estado, grade.depois.estado, grade.volta.estado]));
+  checar(!grade.antes.aceso && grade.depois.aceso && grade.antes.cor !== grade.depois.cor,
+    'e o ACESO segue o estado, na cor RENDERIZADA: a classe sem a regra de CSS '
+    + 'passaria num teste de classe e continuaria invisível na tela',
+    JSON.stringify([grade.antes.cor, grade.depois.cor]));
+  checar(grade.guardado === 'contain',
+    'e o que ele mostra é o que fica GRAVADO — uma pintura sem gravação voltaria '
+    + 'ao padrão na abertura seguinte',
+    'state.fit: ' + JSON.stringify(grade.guardado));
+
   // O QUE A v5.121 QUEBROU: o clique chamava uma função apagada. Um handler que
   // estoura não muda nada na tela — daí conferir o efeito (o pulso de
   // confirmação), e não só a ausência de erro.
@@ -748,7 +817,10 @@ try {
       };
     };
     const escuro = ler();
-    document.querySelector('#temaSeg .fit-opt[data-tema="claro"]').click();
+    // O TEMA VIROU UM TILE que ALTERNA (v1.4.36): não há mais dois segmentos
+    // para escolher um, há um botão que vai para o outro estado. O toque é o
+    // mesmo do operador, e o `data-estado` é o que a pintura escreve.
+    document.getElementById('temaTile').click();
     const claro = ler();
     return { escuro, claro, atributo: raiz.dataset.tema, guardado: localStorage.getItem('av.tema') };
   });

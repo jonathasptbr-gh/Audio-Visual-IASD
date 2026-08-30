@@ -259,6 +259,96 @@
       <path d="M18 6v12"/>
       <path d="M5 6.6 14.4 12 5 17.4z"/>
     </symbol>
+    <!-- ===== OS ÍCONES DO PAINEL RÁPIDO DE CONFIGURAÇÕES (v1.4.36) =====
+         Cada tile da grade tem UM desenho, e os que governam uma escolha de dois
+         estados têm DOIS — o par `.ico-base`/`.ico-alt`, a mesma mecânica da
+         cortina acima (dois `<use>` na árvore de LUZ, porque a folha do
+         documento não atravessa a árvore-sombra de um `<use>`).
+
+         Em SVG e não em glifo pelo motivo de sempre: o subset de
+         `shared/fonts/material-symbols.woff2` tem 31 codepoints, e um de fora
+         dele não desenha NADA — sem erro, sem requisição falhando, só um vão
+         (ver `tools/glifos.test.mjs`). -->
+    <!-- TEMA: a LUA (escuro, o padrão) e o SOL (claro). O par mais lido de
+         qualquer painel rápido, e o único aqui que não precisa de legenda para
+         ser entendido — a palavra do estado fica mesmo assim, porque é ela que
+         diz QUAL dos dois está em vigor sem depender de convenção. -->
+    <symbol id="icoLua" viewBox="0 0 24 24">
+      <path d="M20 14.4A8.6 8.6 0 0 1 9.6 4 8.6 8.6 0 1 0 20 14.4z"/>
+    </symbol>
+    <symbol id="icoSol" viewBox="0 0 24 24">
+      <circle cx="12" cy="12" r="4.2"/>
+      <path d="M12 2.6v2.2"/><path d="M12 19.2v2.2"/>
+      <path d="M2.6 12h2.2"/><path d="M19.2 12h2.2"/>
+      <path d="m5.4 5.4 1.6 1.6"/><path d="m17 17 1.6 1.6"/>
+      <path d="m18.6 5.4-1.6 1.6"/><path d="m7 17-1.6 1.6"/>
+    </symbol>
+    <!-- PREENCHIMENTO: o QUADRO é o telão, e o retângulo de dentro é a mídia.
+         AJUSTAR mostra a mídia INTEIRA com folga dos dois lados (as barras);
+         PREENCHER mostra a mídia passando das bordas — o corte. É a diferença
+         que as duas palavras nomeiam, desenhada em vez de escrita, e ela não se
+         confunde com nenhuma seta de "expandir": o quadro fixo é o que diz que
+         quem muda é o conteúdo, não a janela. -->
+    <symbol id="icoAjustar" viewBox="0 0 24 24">
+      <rect x="2.5" y="4.5" width="19" height="15" rx="2"/>
+      <rect x="7.2" y="8.2" width="9.6" height="7.6" rx="1.2"/>
+    </symbol>
+    <symbol id="icoPreencher" viewBox="0 0 24 24">
+      <rect x="2.5" y="4.5" width="19" height="15" rx="2"/>
+      <path d="M6.4 4.5v15"/><path d="M17.6 4.5v15"/>
+    </symbol>
+    <!-- GIRAR: a seta circular aberta com a ponta em L, o mesmo desenho que
+         morava solto dentro do `#rotBtn` até a v1.4.36. Ela virou símbolo quando
+         o botão virou tile — não porque haja dois consumidores hoje, mas porque
+         o corpo do tile é markup repetido sete vezes e um `<path>` de 200
+         caracteres no meio dele esconde a estrutura da grade.
+         NÃO tem par: o estado do giro é um NÚMERO (0°, 90°, 180°, 270°), e
+         quatro desenhos que só diferem pelo ângulo do próprio ícone não se
+         distinguem a 22px. Quem diz o estado é o rótulo. -->
+    <symbol id="icoGirar" viewBox="0 0 24 24">
+      <path d="M4 12a8 8 0 1 1 2.3 5.6"/><polyline points="4 7 4 12 9 12"/>
+    </symbol>
+    <!-- WALLPAPER: o ROLO DE PINTURA. Ele também não tem par, e a razão está
+         medida: "padrão" e "própria" são as duas uma IMAGEM de fundo, e todo
+         desenho que tentasse distingui-las (moldura com montanha, moldura com
+         foto) vira o `icoImagem` do tile vizinho — dois desenhos gêmeos a dois
+         centímetros um do outro prometendo coisas diferentes. Quem diz o estado
+         aqui é a palavra mais o aceso, e o rolo diz o assunto: a cor do fundo. -->
+    <symbol id="icoWallpaper" viewBox="0 0 24 24">
+      <rect x="3" y="3.5" width="13" height="5.5" rx="1.6"/>
+      <path d="M16 6.25h3.4a1.6 1.6 0 0 1 1.6 1.6v2.9a1.6 1.6 0 0 1-1.6 1.6H12"/>
+      <rect x="10" y="12.35" width="4" height="8.15" rx="1.4"/>
+    </symbol>
+    <!-- MEDIÇÃO DE ALCANCE: as BARRAS de um gráfico, e a versão RISCADA. O
+         assunto é uma CONTAGEM — quantos aparelhos usaram o app —, e barras
+         dizem contagem sem dizer nem rede nem transmissão, que são o que as
+         ondas do `icoCast` já significam nesta mesma base. -->
+    <symbol id="icoMedicao" viewBox="0 0 24 24">
+      <path d="M5 20V13.5"/><path d="M12 20V6.5"/><path d="M19 20v-9.5"/>
+      <path d="M3 20h18"/>
+    </symbol>
+    <symbol id="icoMedicaoOff" viewBox="0 0 24 24">
+      <path d="M5 20V13.5"/><path d="M12 20v-6"/><path d="M19 20v-4"/>
+      <path d="M3 20h18"/>
+      <path d="M3.5 4 20.5 15"/>
+    </symbol>
+    <!-- OS DOIS MODOS DO APP, no seletor em destaque. A diferença entre eles é
+         a DENSIDADE de controles, e é isso que os dois desenhos mostram: o
+         Fácil é uma tecla grande sozinha, o Avançado é a mesa de som (três
+         cursores) — que é literalmente o que aquele modo abre.
+         Descartada a lupa/engrenagem para o avançado: engrenagem é a porta
+         desta folha, e repeti-la aqui dentro diria que o botão abre de novo o
+         lugar em que já se está. -->
+    <symbol id="icoModoFacil" viewBox="0 0 24 24">
+      <rect x="3.5" y="4" width="17" height="16" rx="2.6"/>
+      <circle cx="12" cy="12" r="3.6"/>
+    </symbol>
+    <symbol id="icoModoAvancado" viewBox="0 0 24 24">
+      <path d="M4 7h16"/><path d="M4 12h16"/><path d="M4 17h16"/>
+      <path d="M9 7h.01" stroke-width="4.6"/>
+      <path d="M15.5 12h.01" stroke-width="4.6"/>
+      <path d="M7.5 17h.01" stroke-width="4.6"/>
+    </symbol>
   </svg>
   <!-- MODO SIMPLIFICADO: conectar a tela, buscar a música, tocar. Os controles
        são os mesmos botões do modo completo acionados por `.click()` (ver
@@ -1231,6 +1321,52 @@
         <span class="popup-title">Configurações</span>
         <button id="fadePopupClose" class="popup-close" title="Fechar"><span class="msym" aria-hidden="true">&#xe14c;</span></button>
       </div>
+      <!-- ===== O PAINEL RÁPIDO (v1.4.36) =====
+           Pedido do operador: *"quero que ela seja mais compacta e visualmente
+           mais ágil, assim como o painel rápido de um smartphone. botões com
+           ícones, que alteram seus estados e ícones, apenas títulos. uma
+           disposição de grade, para que tenha mais opções e não precise de
+           scroll."*
+
+           O que ela era: sete LINHAS de largura inteira, cada uma com um rótulo
+           por extenso ("Este aparelho na medição de alcance", "Imagens dos
+           slides (músicas)") e um segmentado de duas opções à direita. Uma
+           opção por faixa, ~64px por faixa — o corpo passava dos 480px e a
+           folha começava a rolar num aparelho de 640px de altura. O oráculo
+           (`smoke.mjs`) já cobrava "cabe sem rolar" para a FOLHA; o que ninguém
+           media era o CORPO, que é quem de fato rola.
+
+           O que ela é: uma GRADE de três colunas. Cada tile é um botão só, com
+           ÍCONE, TÍTULO curto e a palavra do ESTADO — e o toque avança para o
+           outro estado, como o interruptor de um painel rápido. Sete opções
+           passaram de ~450px para ~230px, e a folha sobra espaço.
+
+           AS TRÊS REGRAS DO TILE, e elas valem para o próximo que nascer:
+
+           1. **O ÍCONE DIZ O ESTADO; o TÍTULO diz o assunto.** É a mesma regra
+              da cortina na notificação de mídia ("o ícone mostra o ESTADO; o
+              rótulo, a AÇÃO"), e por isso quem tem dois estados tem DOIS
+              desenhos (`.ico-base`/`.ico-alt`, trocados por CSS). Onde dois
+              desenhos não se distinguem a 22px — o giro, que é um NÚMERO, e o
+              wallpaper, cujo par viraria o `icoImagem` do vizinho — há um
+              ícone só, e isso está dito no comentário de cada símbolo.
+           2. **A PALAVRA DO ESTADO FICA.** Um ícone sozinho responde "o que
+              está ligado?" por CONVENÇÃO, e convenção é o que se erra quando o
+              app é aberto três vezes por semana. A segunda linha do tile é o
+              estado por extenso — a mesma palavra que o segmentado mostrava.
+           3. **ACESO = NÃO É O PADRÃO.** `qs-on` é `--btn-accent` + `--accent`
+              (a gramática de INTERRUPTOR LIGADO da paleta, nunca o
+              `--accent-fill` de ESCOLHA ENTRE ALTERNATIVAS — este é um botão
+              que alterna, não um segmento de um par). O que ele responde é a
+              pergunta que se faz olhando a grade de longe: *"o que eu deixei
+              mexido aqui?"* — tema claro, mídia preenchendo, telão girado,
+              letra sem imagem, wallpaper próprio, aparelho fora da contagem.
+              Com tudo no padrão a grade fica apagada, que é a resposta certa.
+
+           O HISTÓRICO é o único tile que não alterna nada — ele ABRE uma folha.
+           Fica na grade mesmo assim porque o operador não procura "o botão que
+           alterna", procura "a coisa do histórico", e um sétimo formato para
+           uma linha só era o que a folha antiga fazia. -->
       <div class="fade-opts">
         <!-- Modo de uso, e desde a v5.250 este é o ÚNICO lugar em que ele se
              troca: os dois botões de cabeçalho que faziam a ida e a volta
@@ -1239,140 +1375,148 @@
              completo dos três, porque é ele que é LEMBRADO entre aberturas
              (v5.66) — escolher aqui é dizer como o app deve ABRIR, e os botões
              valiam só para a sessão. É a primeira linha da folha porque é a
-             decisão mais larga que ela contém: ela troca a tela inteira. -->
+             decisão mais larga que ela contém: ela troca a tela inteira.
+
+             ELE CONTINUA SENDO UM SEGMENTADO (v1.4.36), e é o único da folha.
+             O pedido foi manter o modo "em destaque" e atualizar o desenho
+             dele para o do painel rápido — não transformá-lo num tile. A
+             diferença é real e é a razão de o resto ter virado grade: os
+             outros seis alternam entre dois estados EQUIVALENTES e voltam com
+             um toque; este troca a tela inteira e fecha a folha, e um toque
+             por engano num tile de 106px custa a viagem de volta no meio do
+             culto. Duas opções à vista, cada uma com o próprio ícone, dizem
+             qual está em vigor sem depender de memória.
+
+             O DESENHO É O DO PAINEL: cada opção é ícone em cima, palavra
+             embaixo — a mesma anatomia dos tiles logo abaixo —, e a escolhida
+             veste `--accent-fill` (ESCOLHA ENTRE ALTERNATIVAS, e não o
+             `--btn-accent` de interruptor: aqui uma das duas está sempre em
+             vigor, e nenhuma delas é "o padrão mexido"). -->
         <div class="fade-row fade-row--fit fade-row--destaque">
           <span>Modo do app</span>
           <div class="fit-seg fit-seg--grande" id="appModeSeg">
-            <button type="button" class="fit-opt" data-mode="simple">Fácil</button>
-            <button type="button" class="fit-opt" data-mode="full">Avançado</button>
-          </div>
-        </div>
-        <!-- TEMA (v5.192). Mora logo abaixo do modo do app porque as duas são
-             a mesma classe de decisão — "como este app se apresenta" — e as
-             duas são LEMBRADAS entre aberturas.
-             O escuro vem primeiro por ser o padrão, e o segmentado segue a
-             leitura esquerda→direita dos demais (o estado de partida à
-             esquerda, como o "Padrão" do wallpaper desde a v5.188).
-             Trocar aqui NÃO fecha o popup, ao contrário do modo do app: é
-             olhando para esta folha, que acabou de mudar de cor, que o
-             operador decide se ficou bom. -->
-        <div class="fade-row fade-row--fit">
-          <span>Tema</span>
-          <div class="fit-seg" id="temaSeg">
-            <button type="button" class="fit-opt" data-tema="escuro">Escuro</button>
-            <button type="button" class="fit-opt" data-tema="claro">Claro</button>
-          </div>
-        </div>
-        <!-- (A "Mesa de som" saiu daqui na v5.82: virou o ícone de alto-falante
-             no canto inferior esquerdo da preview. É a única preferência desta
-             lista que se mexe DURANTE o culto, e o lugar de decidir se há som
-             no celular é olhando para a preview, não dentro de um popup.) -->
-        <!-- "ESTICAR" SAIU na v5.142. Ele distorcia a proporção, e distorção não
-             é uma escolha de exibição: é o defeito que as outras duas existem
-             para evitar — "Ajustar" mostra tudo com barras, "Preencher" corta o
-             excesso, e entre as duas não sobra caso para uma terceira que
-             deforma o rosto de quem está no vídeo. Nenhum operador escolhe
-             isso de propósito; escolhia por engano, e o telão inteiro pagava. -->
-        <!-- PREENCHIMENTO E GIRO NA MESMA LINHA (v5.169): são a mesma decisão
-             — "como esta mídia ocupa o telão" —, e separá-las em duas linhas
-             fazia o operador procurar em dois lugares por um ajuste só.
-             O giro é um BOTÃO que avança 90° por toque, e não quatro segmentos:
-             ninguém pensa em "270°", pensa em "gira mais uma vez até ficar de
-             pé". O rótulo mostra o ângulo vigente, para o estado ser legível
-             sem contar toques. -->
-        <div class="fade-row fade-row--fit">
-          <span>Preenchimento e giro</span>
-        <!-- O GIRO fica AO LADO do seletor, não DENTRO dele: `#fitSeg` é a
-             escolha de preenchimento e tem exatamente duas opções (o "Esticar"
-             saiu na v5.142 porque distorcia a proporção). Girar é uma AÇÃO que
-             divide a linha, não uma terceira opção — e `tools/cena.test.mjs`
-             trava essa contagem, que foi o que pegou a primeira tentativa. -->
-          <div class="fit-linha">
-            <div class="fit-seg" id="fitSeg">
-              <button type="button" class="fit-opt" data-fit="contain">Ajustar</button>
-              <button type="button" class="fit-opt" data-fit="cover">Preencher</button>
-            </div>
-            <button type="button" class="fit-opt fit-opt--rot" id="rotBtn" title="Girar 90° no telão">
-              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <path d="M4 12a8 8 0 1 1 2.3 5.6"/><polyline points="4 7 4 12 9 12"/>
-              </svg>
-              <span id="rotLabel">0°</span>
+            <button type="button" class="fit-opt" data-mode="simple">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoModoFacil"/></svg>
+              <span>Fácil</span>
+            </button>
+            <button type="button" class="fit-opt" data-mode="full">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoModoAvancado"/></svg>
+              <span>Avançado</span>
             </button>
           </div>
         </div>
-        <!-- Imagens dos slides da música: cada estrofe do hino traz uma imagem
-             de fundo baixada com ele. Removê-las deixa a letra sobre preto —
-             é preferência de exibição, então mora aqui e não mais num botão do
-             mixer (que passou a ser a leitura da letra completa). -->
-        <div class="fade-row fade-row--fit">
-          <span>Imagens dos slides (músicas)</span>
-          <div class="fit-seg" id="lyricsBgSeg">
-            <button type="button" class="fit-opt" data-lyricsbg="image">Mostrar</button>
-            <button type="button" class="fit-opt" data-lyricsbg="black">Remover</button>
-          </div>
-        </div>
-        <!-- Wallpaper: a cortina que cobre o telão fora das mídias. Uma
-             imagem própria substitui o gradiente padrão (e a marca). -->
-        <div class="fade-row fade-row--fit">
-          <span>Wallpaper do telão</span>
-          <!-- "Padrão" primeiro (v5.188): o estado de partida fica à esquerda
-               e a ação que escolhe uma imagem à direita — a mesma leitura
-               esquerda→direita dos demais segmentados. -->
-          <div class="fit-seg">
-            <button type="button" class="fit-opt" id="wallReset">Padrão</button>
-            <label class="fit-opt" id="wallPick">Escolher imagem
-              <input id="wallFile" type="file" accept="image/*" hidden>
-            </label>
-          </div>
-        </div>
-        <!-- ESTE APARELHO NA MEDIÇÃO DE ALCANCE (v1.4.1).
-             O app conta, uma vez por dia, quantos APARELHOS o usaram — um
-             contador agregado, sem id, sem corpo e sem nada que distinga um
-             aparelho de outro (ver `Farol.kt`). O que esta linha resolve é o
-             único caso que o agregado não resolve sozinho: o aparelho de quem
-             DESENVOLVE o app roda o mesmo APK de Release que todos os outros, e
-             portanto não tem marca nenhuma. Só uma pessoa sabe, então é ela
-             quem marca.
+        <!-- A GRADE. Três colunas fixas: é o que cabe num aparelho de 360px
+             com o título mais longo desta lista ("Preenchimento") numa linha
+             só, e é o número que faz sete opções fecharem em três fileiras.
+             Quem pinta cada tile é `pintarTile()` — o `data-estado` é escrito
+             lá e é por ele que os oráculos perguntam, nunca pela classe. -->
+        <div class="qs-grade">
+          <!-- TEMA (v5.192, tile na v1.4.36). Primeiro da grade porque é a
+               mesma classe de decisão do modo do app logo acima — "como este
+               app se apresenta" — e as duas são LEMBRADAS entre aberturas.
+               Trocar aqui NÃO fecha a folha, ao contrário do modo do app: é
+               olhando para esta folha, que acabou de mudar de cor, que o
+               operador decide se ficou bom. -->
+          <button type="button" class="qs-tile" id="temaTile" title="Alternar entre o tema escuro e o claro">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <use class="ico-base" href="#icoLua"/><use class="ico-alt" href="#icoSol"/>
+            </svg>
+            <span class="qs-titulo">Tema</span>
+            <span class="qs-estado">Escuro</span>
+          </button>
+          <!-- PREENCHIMENTO. "Esticar" saiu na v5.142 — ele distorcia a
+               proporção, e distorção não é uma escolha de exibição: é o defeito
+               que as outras duas existem para evitar. Sobraram DUAS, e duas é
+               exatamente o que um tile alterna. -->
+          <button type="button" class="qs-tile" id="fitTile" title="Como a mídia ocupa o telão">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <use class="ico-base" href="#icoAjustar"/><use class="ico-alt" href="#icoPreencher"/>
+            </svg>
+            <span class="qs-titulo">Preenchimento</span>
+            <span class="qs-estado">Ajustar</span>
+          </button>
+          <!-- GIRAR: a mesma AÇÃO de sempre, que avança 90° por toque e dá a
+               volta. Ninguém pensa em "270°", pensa em "gira mais uma vez até
+               ficar de pé" — e o rótulo mostra o ângulo vigente para o estado
+               ser legível sem contar toques. Ele já era um botão de avanço
+               dentro da folha antiga (`.fit-opt--rot`); aqui ele deixou de ser
+               a exceção ao lado de um seletor e virou o que sempre foi: um
+               tile igual aos outros. -->
+          <button type="button" class="qs-tile" id="rotBtn" title="Girar 90° no telão">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoGirar"/></svg>
+            <span class="qs-titulo">Girar</span>
+            <span class="qs-estado">0°</span>
+          </button>
+          <!-- IMAGENS DOS SLIDES DA MÚSICA: cada estrofe do hino traz uma
+               imagem de fundo baixada com ele. Removê-las deixa a letra sobre
+               preto. O título encolheu de "Imagens dos slides (músicas)" para
+               "Fundo da letra", que é o que aquilo é — e o parêntese explicava
+               justamente o que o tile não precisa explicar. -->
+          <button type="button" class="qs-tile" id="lyricsBgTile" title="Mostrar ou remover a imagem de fundo das estrofes">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <use class="ico-base" href="#icoImagem"/><use class="ico-alt" href="#icoImagemOff"/>
+            </svg>
+            <span class="qs-titulo">Fundo da letra</span>
+            <span class="qs-estado">Mostrar</span>
+          </button>
+          <!-- WALLPAPER: a cortina que cobre o telão fora das mídias. Uma
+               imagem própria substitui o gradiente padrão (e a marca).
 
-             "Fica de fora" NÃO É "não manda nada": o aparelho passa a contar
-             num contador SEPARADO. Isso é o desenho e não uma economia —
-             subtrair depois uma estimativa do próprio uso é como se produz um
-             painel confiável e falso, e assim um erro aparece como um número
-             óbvio no lugar errado em vez de sumir dentro do certo.
+               ELE É UM `<label>`, e isso não é enfeite: o seletor de arquivo do
+               WebView é aberto pela ATIVAÇÃO NATIVA do rótulo sobre o `<input
+               type="file">` que ele embrulha (invariante 6 — sem o
+               `onShowFileChooser` do `ControleChromeClient` o toque não faria
+               nada, sem erro no console). Com a imagem própria no ar o toque
+               VOLTA AO PADRÃO, e quem cancela a ativação do rótulo é um
+               `preventDefault()` no ouvinte — ver `wallTileEl` em controle.js.
+               Trocar uma imagem por outra são dois toques (voltar ao padrão,
+               escolher de novo), e esse é o preço declarado de o wallpaper
+               caber num tile como os outros seis. -->
+          <label class="qs-tile" id="wallTile" title="Escolher a imagem que cobre o telão">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoWallpaper"/></svg>
+            <span class="qs-titulo">Wallpaper</span>
+            <span class="qs-estado">Padrão</span>
+            <input id="wallFile" type="file" accept="image/*" hidden>
+          </label>
+          <!-- ===== O HISTÓRICO DO CULTO MORA AQUI (v1.4.31) =====
+               Pedido do operador: *"coloque a função do histórico de mídias
+               tocadas, dentro das configurações"*. Ele era a sétima célula da
+               linha de transporte, e aquela fileira é o que se opera DURANTE o
+               culto — o histórico é o que se consulta ANTES ou DEPOIS ("o que
+               eu já toquei?", "o que tocamos no sábado passado?"). Quem herdou
+               a célula foi o auxiliar de leitura (ver `#lyricsViewBtn`). -->
+          <button type="button" class="qs-tile" id="histOpenRow" title="O que já foi ao telão">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoHistorico"/></svg>
+            <span class="qs-titulo">Histórico</span>
+            <span class="qs-estado">Abrir</span>
+          </button>
+          <!-- ESTE APARELHO NA MEDIÇÃO DE ALCANCE (v1.4.1).
+               O app conta, uma vez por dia, quantos APARELHOS o usaram — um
+               contador agregado, sem id, sem corpo e sem nada que distinga um
+               aparelho de outro (ver `Farol.kt`). O que este tile resolve é o
+               único caso que o agregado não resolve sozinho: o aparelho de quem
+               DESENVOLVE o app roda o mesmo APK de Release que todos os outros,
+               e portanto não tem marca nenhuma. Só uma pessoa sabe, então é ela
+               quem marca.
 
-             `hidden` fora do app (quem o revela é `renderFarolSeg`, pelo
-             MESMO caminho por que a pinta): num navegador não há farol nenhum,
-             e uma chave que não liga nada é pior que chave nenhuma. -->
-        <!-- ===== O HISTÓRICO DO CULTO MORA AQUI (v1.4.31) =====
-             Pedido do operador: *"coloque a função do histórico de mídias
-             tocadas, dentro das configurações"*. Ele era a sétima célula da
-             linha de transporte, e aquela fileira é o que se opera DURANTE o
-             culto — o histórico é o que se consulta ANTES ou DEPOIS ("o que eu
-             já toquei?", "o que tocamos no sábado passado?"). Quem herdou a
-             célula foi o auxiliar de leitura (ver `#lyricsViewBtn`).
+               "Fica de fora" NÃO É "não manda nada": o aparelho passa a contar
+               num contador SEPARADO. Isso é o desenho e não uma economia —
+               subtrair depois uma estimativa do próprio uso é como se produz um
+               painel confiável e falso, e assim um erro aparece como um número
+               óbvio no lugar errado em vez de sumir dentro do certo.
 
-             UM BOTÃO SÓ numa `.fit-seg` é o desenho do `#rotBtn`: ele não é
-             segmento de seletor nenhum, mas veste `.fit-opt` porque está na
-             mesma coluna das outras linhas desta folha, e um botão de outro
-             formato aqui leria como outro tipo de controle.
-
-             O RÓTULO DO BOTÃO CONTA AS SESSÕES (`renderHistRow`), e é por isso
-             que ele não diz só "Abrir": o histórico agora atravessa sessões, e
-             quantas há é a única coisa que o operador não consegue supor. -->
-        <div class="fade-row fade-row--fit">
-          <span>Histórico do culto</span>
-          <div class="fit-seg">
-            <button type="button" class="fit-opt" id="histOpenRow">Abrir</button>
-          </div>
+               `hidden` fora do app (quem o revela é `renderFarolTile`, pelo
+               MESMO caminho por que o pinta): num navegador não há farol nenhum,
+               e uma chave que não liga nada é pior que chave nenhuma. -->
+          <button type="button" class="qs-tile" id="farolTile" title="Este aparelho na contagem de uso" hidden>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <use class="ico-base" href="#icoMedicao"/><use class="ico-alt" href="#icoMedicaoOff"/>
+            </svg>
+            <span class="qs-titulo">Medição</span>
+            <span class="qs-estado">Entra</span>
+          </button>
         </div>
-        <div class="fade-row fade-row--fit" id="farolRow" hidden>
-          <span>Este aparelho na medição de alcance</span>
-          <div class="fit-seg" id="farolSeg">
-            <button type="button" class="fit-opt" data-farol="sim">Entra</button>
-            <button type="button" class="fit-opt" data-farol="nao">Fica de fora</button>
-          </div>
-        </div>
-                <!-- O REGISTRO, e é UM só (v5.121). Ele nasceu como a caixa-preta do
+        <!-- O REGISTRO, e é UM só (v5.121). Ele nasceu como a caixa-preta do
              telão: três versões seguidas tentaram consertar "o vídeo para
              quando o app é minimizado" por hipótese e as três erraram, porque
              ninguém vê o que acontece com a projeção enquanto o celular está
@@ -1388,10 +1532,10 @@
              consumidor deste texto é um humano A DISTÂNCIA: ele não é lido
              aqui, é COPIADO e repassado.
 
-             Então ficou o que serve: a linha do Registro e o botão que o copia.
-             O texto continua sendo montado por `renderDiag()` a cada abertura
-             desta folha — quem o guarda é a variável `diagTexto`, e não mais um
-             nó do DOM. -->
+             Então ficou o que serve: a linha do Registro e o botão que o copia,
+             no rodapé. O texto continua sendo montado por `renderDiag()` a cada
+             abertura desta folha — quem o guarda é a variável `diagTexto`, e
+             não mais um nó do DOM. -->
       </div>
       <!-- QUEM ESTÁ CONECTADO NÃO MORA MAIS AQUI (v5.193). O rodapé desta
            folha dizia "Telão conectado: X" e "Espelhar abre: Y" — as duas
@@ -1423,7 +1567,7 @@
              pedir ajuda"), e agora ocupam a mesma faixa: a versão à esquerda, o
              Registro à direita, no espaço que já estava sobrando. -->
         <div class="footer-diag">
-          <span id="appVersion" class="app-version">Controle v1.4.35</span>
+          <span id="appVersion" class="app-version">Controle v1.4.36</span>
           <span class="footer-diag-rot">Registro</span>
           <!-- SALVAR EM ARQUIVO (v1.2.16). Com o acervo inteiro varrido o
                Registro passa de setenta linhas só na seção de cifras, e copiar

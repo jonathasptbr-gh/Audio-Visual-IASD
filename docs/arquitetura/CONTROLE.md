@@ -868,12 +868,8 @@ destravada no `fullscreenchange`) é a **projeção quando não há telão
 conectado**. CSS: `.preview:fullscreen` preenche a tela (cantos retos, sem
 borda, `touch-action:none`; as camadas internas já são `inset:0` +
 `object-fit`). O popup de **Configurações** (`#fadePopup`, aberto pelo
-`#settingsBtn` no cabeçalho da tela) guarda o **modo do app** (`#appModeSeg`), a
-o seletor de **preenchimento da mídia**
-(`#fitSeg` — Ajustar/Preencher/Esticar, ver `stage.setFit()`), as **imagens dos
-slides** das músicas (`#lyricsBgSeg` — Mostrar/Remover, ver "Fundo preto vs.
-imagens dos slides"), o **wallpaper do telão** e, no rodapé, o **estado do
-telão**, o alvo de espelhamento e a **versão**. Chamava-se "Exibição" enquanto
+`#settingsBtn` no cabeçalho da tela) é o **painel rápido** descrito logo abaixo.
+Chamava-se "Exibição" enquanto
 guardava só como o telão se PARECE; com a mesa de som vinda do mixer, o que
 reúne as linhas passou a ser "o que se decide uma vez, ao montar o culto" —
 aparência do telão E roteamento do áudio. Nenhuma delas se opera durante o
@@ -882,6 +878,66 @@ culto, que é o critério de estar aqui e não na coluna do mixer. O `id` segue
 versões): renomeá-lo tocaria dezenas de referências sem mudar nada visível. As
 transições (fade) **não têm controle ali** — são inerentes ao sistema (ver o
 state `fade`).
+
+#### Configurações é um PAINEL RÁPIDO (v1.4.36)
+
+Ela era uma pilha de sete **faixas** de largura inteira — rótulo por extenso à
+esquerda, segmentado de duas opções à direita, ~64px cada. Uma opção por faixa
+levava o corpo a passar dos 480px, e a folha rolava num aparelho de 640px de
+altura. Hoje é uma **grade de três colunas** de tiles: **ícone, título curto e a
+palavra do estado**, e o toque **alterna** — o painel rápido de um celular.
+As mesmas sete opções ocupam ~230px.
+
+| tile | id | estado (`data-estado`) | ícone |
+|---|---|---|---|
+| Tema | `#temaTile` | `escuro` · `claro` | `#icoLua` / `#icoSol` |
+| Preenchimento | `#fitTile` | `contain` · `cover` (ver `stage.setFit()`) | `#icoAjustar` / `#icoPreencher` |
+| Girar | `#rotBtn` | `0` `90` `180` `270` | `#icoGirar` |
+| Fundo da letra | `#lyricsBgTile` | `image` · `black` (ver "Fundo preto vs. imagens dos slides") | `#icoImagem` / `#icoImagemOff` |
+| Wallpaper | `#wallTile` | `padrao` · `propria` | `#icoWallpaper` |
+| Histórico | `#histOpenRow` | — (abre a folha) | `#icoHistorico` |
+| Medição | `#farolTile` | `sim` · `nao` (`hidden` fora do app) | `#icoMedicao` / `#icoMedicaoOff` |
+
+As três regras do tile, escritas por inteiro no `index.html`:
+
+1. **O ÍCONE DIZ O ESTADO; o TÍTULO diz o assunto.** Quem tem dois estados tem
+   dois desenhos, trocados por `.ico-base`/`.ico-alt` — a mecânica da cortina
+   (`.pv-fab`), e pelo mesmo motivo: a folha do documento não atravessa a
+   árvore-sombra de um `<use>`. Onde dois desenhos não se distinguiriam a 22px
+   (o giro, que é um NÚMERO; o wallpaper, cujo par viraria o `#icoImagem` do
+   vizinho) há um ícone só, e isso está dito no comentário de cada símbolo.
+2. **A PALAVRA DO ESTADO FICA** (`.qs-estado`). Um ícone sozinho responde por
+   CONVENÇÃO, e convenção é o que se erra num app aberto três vezes por semana.
+3. **ACESO (`qs-on`) = O ESTADO NÃO É O PADRÃO** — `--btn-accent` + `--accent`,
+   a gramática de INTERRUPTOR LIGADO da paleta, nunca o `--accent-fill` de
+   ESCOLHA ENTRE ALTERNATIVAS. Ele responde à pergunta que se faz olhando a
+   grade de longe: *"o que eu deixei mexido aqui?"*. Com tudo no padrão a grade
+   fica apagada.
+
+**Quem pinta é `pintarTile(el, estado, rotulo, ligado)`, e é um ponto só** — o
+`data-estado`, a palavra e o aceso saem da mesma chamada, e é pelo `data-estado`
+que os oráculos perguntam (nunca pela classe, que é aparência). Os tiles são
+pintados **no `load()`**, não só ao abrir a folha: um segmentado carregava o
+valor de cada opção no HTML (`data-fit`) e já dizia a verdade antes de alguém
+olhar; um tile só diz o que a pintura escreveu. O da **Medição** fica de fora
+dessa regra — ele é uma ida à ponte, e `load()` roda dezenas de vezes por culto.
+
+**O MODO DO APP continua sendo um SELETOR** (`#appModeSeg`, `.fit-seg--grande`
+dentro da `.fade-row--destaque`), com o desenho do painel — ícone em cima,
+palavra embaixo — e as duas opções à vista. A diferença é real: os tiles
+alternam entre dois estados equivalentes e voltam com um toque; este troca a
+tela inteira e **fecha a folha**, e um toque por engano custa a viagem de volta
+no meio do culto.
+
+**O WALLPAPER É UM `<label>`** sobre o `<input type="file">`: é a ativação
+nativa do rótulo que abre o seletor do aparelho (invariante 6 — sem o
+`onShowFileChooser` do `ControleChromeClient` o toque não faria nada, sem erro
+no console). Com uma imagem própria no ar o toque volta ao padrão, e quem
+cancela a ativação é um `preventDefault()` no ouvinte. Trocar uma imagem por
+outra são **dois toques**, e esse é o preço declarado de o wallpaper caber num
+tile como os outros.
+
+O rodapé não mudou: **estado do telão**, a **versão** e o **Registro**.
 
 #### Os controles DENTRO do fullscreen: uma coluna, não gestos (v1.0.7)
 
@@ -5517,8 +5573,10 @@ operador volta pra estrofe 0 depois de já ter avançado).
 **Fundo preto vs. imagens dos slides** (`lyricsBgMode`, state `lyricsBg`,
 comando `lyricsbg`): **as imagens são o padrão** — a de cada slide vem baixada
 com a música (`resolveImage`, ver acima, que não consulta preferência nenhuma),
-e o operador tira-as em **Remover**, no segmento **Imagens dos slides** do popup
-de **Exibição** (`#lyricsBgSeg` → `setLyricsBg`/`renderLyricsBgSeg`). **A leitura
+e o operador tira-as em **Remover**, no tile **Fundo da letra** do painel
+rápido de Configurações (`#lyricsBgTile` → `setLyricsBg`/`renderLyricsBgTile`;
+até a v1.4.35 era o segmento `#lyricsBgSeg`, com o rótulo por extenso "Imagens
+dos slides (músicas)"). **A leitura
 do banco pergunta `=== 'black'`, nunca `=== 'image'`**: ausente é quem nunca
 escolheu e cai no padrão; só o "Remover" grava um valor. Pela mesma razão o
 reenvio à tela da rede (`telaReenviarPreferencias`) manda o `lyricsbg` **sem
