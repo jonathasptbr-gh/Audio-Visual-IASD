@@ -749,21 +749,39 @@ fixo a ninguém. Com os dois no ar, **nenhum está centrado — o PAR está**.
 (`renderCamadaBtn`, `renderRotBtn`), nunca um render próprio: é a única
 disciplina que impede o botão de sobreviver ao fato que ele nomeia.
 
-| morador | quando aparece | cor |
+| morador | quando aparece | o que o ícone diz |
 |---|---|---|
-| `#pvCamadaBtn` | há Camada de Texto projetando | `--stage-alert` (está NO AR) |
-| `#pvGiroBtn` | `mediaRot !== 0` | `--stage-accent` (é uma PREFERÊNCIA) |
+| `#pvCamadaBtn` | há Camada de Texto projetando | uma pilha de folhas + ✕ |
+| `#pvGiroBtn` | `mediaRot !== 0` | uma seta de giro + ✕, e o ÂNGULO ao lado |
+
+**OS DOIS SÃO VERMELHOS** (`--stage-alert`) e **carregam o MESMO ✕** — os dois
+`<path>` verbatim, não um parecido. A v1.4.43 pintou o giro de denim com o
+argumento de que vermelho neste app quer dizer "está no ar agora"; a v1.4.45
+reverteu a pedido do operador (*"ele deve ser vermelho e ter em seu design o 'x'
+indicando que o toque destroi tal configuração atual"*), e o argumento antigo
+lia o token estreito demais: o que o `--stage-alert` diz aqui não é "no ar", é
+***"o toque daqui TIRA alguma coisa"*** — que é a definição da faixa. Duas
+promessas iguais em cores diferentes ensinavam que a cor ali significa outra
+coisa, e não significa.
+
+**O que os separa é o DESENHO**, que é a regra de sempre: o ícone mostra o
+ESTADO, o ✕ diz o que o toque FAZ. Um ✕ redesenhado dois pixels adiante seria
+uma segunda opinião sobre a mesma marca — daí o oráculo cobrar os traços
+comuns e os próprios, os dois.
 
 **O desfazer do giro** existe porque o giro era a única preferência que muda a
 projeção **e não tinha porta de volta onde se vê o efeito**: o tile de
 Configurações CICLA 90° por vez, então voltar de 90° custava abrir a folha e
 tocar três vezes — olhando para a folha, não para a projeção.
 
-- **O ÂNGULO é o estado**, e é ele que separa este botão do tile. O desenho é o
-  mesmo `#icoGirar` (o assunto não mudou), e uma seta circular sozinha sobre a
-  projeção leria *"girar mais 90°"* — o oposto do que o toque faz. Com o número
-  ao lado a frase fecha: *está a 90°* (estado) + *toque volta ao padrão*
-  (`title`).
+- **O ÂNGULO é o estado**, e é ele que separa este botão do tile. Com o número
+  ao lado a frase fecha: *está a 90°* (estado) + *toque volta ao padrão* (`title`)
+  — e, com a cor igual à do vizinho, é ele que diz o que ESTE ✕ destrói.
+- **A seta é INLINE, não o `#icoGirar` do sprite** (v1.4.45). Ela é o mesmo
+  desenho a 0,75 em torno de (10,10), ocupando 4→16 — o canto inferior direito,
+  de 16,4 a 21,5, é do ✕. O símbolo do sprite é o do TILE de Configurações, e o
+  dia em que um dos dois mudar de forma o outro não pode ir junto. O vizinho é
+  inline pela mesma razão.
 - **É o único `.pv-fab` mais largo que `--hit`** (`width: auto` +
   `min-width`), e a exceção é o número: mantido o `width` fixo dos irmãos,
   "180°" sai cortado sem erro nenhum. A altura não muda — o alvo continua no

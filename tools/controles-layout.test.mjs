@@ -635,11 +635,18 @@ try {
   //     telão que tem de girar de volta, e um `applyRotate` que só repintasse o
   //     tile deixaria a projeção girada com a preview dizendo que não está.
   //  3. E ELE SOME DEPOIS. Sem esta, um botão que só acende passaria na 1 e na 2.
-  //  4. A COR NÃO É A DO VIZINHO nem a dos botões de player, medida no
-  //     RENDERIZADO. É a armadilha que o `.pv-fab--camada` já pagou uma vez:
-  //     escrita ANTES da `.pv-fab` na folha, a regra perde para o
-  //     `color: var(--stage-text)` e o botão sai BRANCO — igual aos de player ao
+  //  4. A COR É A DO VIZINHO — e NÃO a dos botões de player —, medida no
+  //     RENDERIZADO (v1.4.45). Os dois moradores da faixa fazem a mesma promessa
+  //     (*"o toque daqui TIRA alguma coisa"*), então vestem o mesmo
+  //     `--stage-alert`; o que os separa é o DESENHO, e é a asserção 4-B. A
+  //     comparação com o branco fica: é a armadilha que o `.pv-fab--camada` já
+  //     pagou uma vez — escrita ANTES da `.pv-fab` na folha, a regra perde para o
+  //     `color: var(--stage-text)` e o botão sai BRANCO, igual aos de player ao
   //     lado, isto é, sem dizer nada. Um teste de classe aprova as duas versões.
+  //  4-B. O ✕ É O MESMO, VERBATIM, e o resto do desenho NÃO É. O ✕ é a marca de
+  //     destruição da faixa e tem de ser uma só — um redesenhado dois pixels
+  //     adiante é uma segunda opinião sobre a mesma coisa; e o que sobra depois
+  //     dele tem de diferir, senão os dois botões são o mesmo botão em vermelho.
   //  5. O NÚMERO CABE. Ele é o ESTADO (uma seta circular sozinha sobre a
   //     projeção leria "girar mais 90°", o oposto do que o toque faz), e é o
   //     único `.pv-fab` mais largo que `--hit`: mantido o `width` fixo dos
@@ -658,11 +665,21 @@ try {
     const cor = (el) => getComputedStyle(el).color;
     const antes = { escondido: btn.hidden };
     await applyRotate(90);
+    // Os traços de cada botão, na ordem do documento. `<polyline>` entra junto —
+    // o desenho é o conjunto de traços, não só o que é `<path>`.
+    const tracos = (el) => [...el.querySelectorAll('path, polyline')]
+      .map((n) => (n.getAttribute('d') || n.getAttribute('points') || '').trim());
+    const doSelo = tracos(document.getElementById('pvCamadaBtn'));
+    const doGiro = tracos(btn);
     const aceso = {
       escondido: btn.hidden,
       num: (document.getElementById('pvGiroNum') || {}).textContent,
       cor: cor(btn),
       corDoSelo: cor(document.getElementById('pvCamadaBtn')),
+      // A marca partilhada (o ✕) e o que é próprio de cada um (o assunto).
+      comuns: doGiro.filter((d) => doSelo.includes(d)),
+      soDoGiro: doGiro.filter((d) => !doSelo.includes(d)),
+      soDoSelo: doSelo.filter((d) => !doGiro.includes(d)),
       titulo: btn.title,
       cabe: btn.scrollWidth <= btn.clientWidth + 1,
       largura: Math.round(btn.getBoundingClientRect().width),
@@ -709,10 +726,22 @@ try {
     checar(giro.depois.rot === 0 && giro.depois.escondido,
       'e o botão SOME depois: um que só acende passaria nas duas de cima e ficaria '
       + 'oferecendo desfazer o que já não existe', giro.depois);
-    checar(giro.aceso.cor !== giro.aceso.corDoSelo && giro.aceso.cor !== giro.brancoDoPalco,
-      'a COR dele não é a do selo de camadas nem o branco dos botões de player — '
-      + 'medida no RENDERIZADO, porque uma regra escrita ANTES da `.pv-fab` perde '
-      + 'para o `--stage-text` e o botão sai branco, sem dizer nada', giro.aceso);
+    checar(giro.aceso.cor === giro.aceso.corDoSelo && giro.aceso.cor !== giro.brancoDoPalco,
+      'a COR dele é a MESMA do selo de camadas, e não o branco dos botões de '
+      + 'player: os dois moradores da faixa fazem a mesma promessa — o toque daqui '
+      + 'TIRA alguma coisa. Medida no RENDERIZADO, porque uma regra escrita ANTES '
+      + 'da `.pv-fab` perde para o `--stage-text` e o botão sai branco, sem dizer '
+      + 'nada', giro.aceso);
+    checar(giro.aceso.comuns.length === 2,
+      'e ele carrega o ✕ DO VIZINHO, verbatim (os dois traços) — a marca de '
+      + 'destruição da faixa é uma só, e um ✕ redesenhado dois pixels adiante é '
+      + 'uma segunda opinião sobre a mesma coisa',
+      JSON.stringify(giro.aceso.comuns));
+    checar(giro.aceso.soDoGiro.length > 0 && giro.aceso.soDoSelo.length > 0,
+      'e o resto do desenho é PRÓPRIO de cada um: com a cor igual, é o ícone que '
+      + 'diz o que o ✕ destrói — sem esta metade, dois botões idênticos em '
+      + 'vermelho passariam nas duas de cima',
+      JSON.stringify([giro.aceso.soDoGiro, giro.aceso.soDoSelo]));
     checar(giro.aceso.cabe && giro.aceso.largura > giro.aceso.alvo,
       'e o número CABE: ele é o único `.pv-fab` mais largo que `--hit`, e com a '
       + 'largura fixa dos irmãos "180°" sairia cortado sem erro nenhum', giro.aceso);

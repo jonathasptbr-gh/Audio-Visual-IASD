@@ -24,6 +24,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
+- **v1.4.45** — O DESFAZER DO GIRO FALA A LÍNGUA DO VIZINHO: VERMELHO, E COM O MESMO ✕. Pedido do operador: *"ele deve ser vermelho e ter em seu design o 'x' indicando que o toque destroi tal configuração atual"*. A v1.4.43 o pintou de DENIM com o argumento de que vermelho neste app quer dizer "está no ar agora" e a camada de cima já ocupava esse papel na mesma faixa — **e o argumento lia o token estreito demais**. O que o `--stage-alert` do selo de camadas diz não é "no ar": é *"o toque daqui TIRA alguma coisa"*, que é a definição da faixa inteira (a região do que está fora do padrão e o toque desfaz). Dois moradores com a mesma promessa pintados de cores diferentes ensinavam que a cor ali significa outra coisa, e não significa. **O que os separa passa a ser o DESENHO**, que é a regra de sempre: o ícone mostra o ESTADO (uma pilha de folhas · uma seta de giro) e o ✕ diz o que o toque FAZ. O ✕ é o do vizinho VERBATIM — uma marca de destruição redesenhada dois pixels adiante é uma segunda opinião sobre a mesma coisa — e a seta encolheu para 0,75 em torno de (10,10) para o canto do ✕ caber, o que a tirou do `#icoGirar` do sprite: aquele símbolo é o do TILE, e o dia em que um dos dois mudar de forma o outro não pode ir junto.
 - **v1.4.44** — O CARTÃO INVISÍVEL DA LINHA DO MODO, O TÍTULO CENTRADO, E O RODAPÉ EM UMA BARRA SÓ (com o copiar do Registro fora). Três acertos e uma remoção, todos do operador. O seletor de modo saía mais estreito que a grade de tiles logo abaixo (MEDIDO: 375,6px contra 401,2px numa viewport de 430) e o culpado não desenhava nada: a `.fade-row` pinta `--panel`, o MESMO tom da folha, então o cartão era invisível e o que se via era só o `padding` dele recuando o trilho 12,8px de cada lado — *um cartão invisível que só desalinha não é um cartão: é padding*. O título "Modo do app" era o único texto solto da folha e apontava para a metade "Fácil"; hoje é uma legenda centrada. O rodapé, que a v1.4.43 tinha unificado no DESENHO e parado no meio, virou UMA barra: duas caixas com a mesma cor e um vão entre elas ainda se leem como dois assuntos, e o assunto é um. E o COPIAR do Registro saiu — a área de transferência é o caminho que corta o texto no meio sem avisar, foi esse relato que criou o salvar em arquivo na v1.2.16, e o Registro só cresceu desde então. O `copiarTexto` e o `.log-copy` ficam com o consumidor que os justifica: o endereço da transmissão, que é curto e existe para ser digitado noutro aparelho.
 - **v1.4.43** — O RODAPÉ DE CONFIGURAÇÕES VIROU UM DESENHO SÓ, O MODO DO APP VIROU UM INTERRUPTOR QUE DESLIZA, E A BASE DA PREVIEW VIROU A REGIÃO DO QUE ESTÁ FORA DO PADRÃO. Quatro pedidos do operador num lote. O rodapé tinha três desenhos e três tamanhos para o mesmo assunto (a versão, o rótulo "Registro" e os dois botões dele): hoje são DUAS pastilhas do mesmo tom, da mesma altura (`--hit`) e do mesmo corpo, uma em cada ponta. O seletor Fácil × Avançado empilhava QUATRO tons para uma escolha de duas posições e virou um trilho com um polegar que anda por `transform` — o deslize é o que diz *"isto alterna"*, e é ele que o oráculo mede no RENDERIZADO, porque uma troca de classe passa num teste de classe e continua imóvel na tela. A folha de Configurações **deixou de fechar** ao trocar de modo (ela fechava por decisão, e quem trocava perdia o lugar e o caminho de volta — a engrenagem mora em outro canto no outro modo). E a base da preview, que hospedava só o selo de camadas, passou a ser a faixa do **que está fora do padrão AGORA**: entrou ali o desfazer do giro do telão, com o ÂNGULO à vista, porque voltar de 90° custava abrir a folha e ciclar o tile três vezes olhando para a folha e não para a projeção.
 - **v1.4.42** — A CONTAGEM DE USO PASSOU A SER SEMPRE ATIVA: O SISTEMA DE EXCLUSÃO SAIU INTEIRO. Pedido do operador: *"descarte a opção de contagem de uso como opcional, deixe sempre ativo, não preciso do sistema de exclusividade"*. Saíram a linha do rodapé do Registro e o `renderFarolLinha`, o **`farolContar` da ponte** (shell 60 → **61**, o PRIMEIRO método que este projeto remove), o `Farol.definirContar`, a leitura da preferência em `Farol.contar`, os símbolos `icoMedicao`/`icoMedicaoOff` (um `<symbol>` sem consumidor viaja no bundle do OTA e não desenha nada em lugar nenhum), o interruptor `#opContar` da página de alcance e o roteamento `avRegistroOperador` → `v-dev.txt` do site. **O QUE FICA é a única exclusão que nunca foi opção: o BUILD DEBUGGÁVEL**, que acende num contador separado por `FLAG_DEBUGGABLE` — higiene de construção, sem UI, e sem ela toda sessão de trabalho entraria no número público como se fosse uma igreja. `farolEstado` também fica, virou SÓ LEITURA, e alimenta a linha "Alcance:" do Registro, que responde a pergunta que faz aquele texto ser copiado: *o farol chegou a acender?* **O APK ERA OBRIGATÓRIO, e essa é a parte que não dava para adiar:** a chave já gravada continuaria sendo lida por um shell antigo, e um aparelho marcado *"fica de fora"* ficaria fora da contagem PARA SEMPRE, sem tela para desmarcar — contador não se corrige depois. É o `Farol.contar` do APK novo que o devolve, daí o `shellTag` segurando o bundle até a Release existir; e é o primeiro lote a exercitar de verdade a regra escrita há dezenas de versões (*"MUDAR A FORMA de um método que já existe é PIOR que acrescentar um"*). **O PREÇO ENTROU NO PAINEL, e é onde ele tinha de estar:** sem exclusão, "aparelhos por dia" e "visitas" passam a incluir o uso próprio — e um painel que não avisa é o *confiável e falso* que `docs/MEDICAO-DE-ALCANCE.md` nomeia, só que pelo outro lado. A página de alcance diz isso logo abaixo dos números, e o oráculo cobra a FRASE RENDERIZADA (uma nota vazia passaria num teste de seletor). O caso do roteamento no `registro-alcance` **inverteu em vez de sair**: ele prova agora que nenhum resto do mecanismo desvia o navegador de quem audita — um `localStorage` esquecido o deixaria fora do número público em silêncio, o desfecho que aquele arquivo nasceu para não ter. **EXIGE RELEASE v1.4.42.**
@@ -315,6 +316,56 @@ na nota que a revoga, não apagada da que a criou.
 - **v5.154** — é METADE OTA e METADE APK, e a divisão importa para quem for testar em aparelho.
 - **v5.155** — é OTA PURO
 - **v5.156** — é METADE OTA e METADE APK, de novo.
+
+---
+
+## v1.4.45 — o desfazer do giro fala a língua do vizinho
+
+*"também verifique o icone de rotação sobre o preview, ele deve ser vermelho e
+ter em seu design o 'x' indicando que o toque destroi tal configuração atual."*
+
+**Lote só de web** (nenhum `.kt`, nenhum `res/`, nenhum workflow — sem Release e
+sem `shellTag`).
+
+### O argumento da v1.4.43 estava errado, e está dito onde ele foi escrito
+
+Aquele lote pintou o `#pvGiroBtn` de **denim** (`--stage-accent`), com esta
+justificativa: *"vermelho neste app quer dizer 'está no ar agora', que a camada
+de cima já ocupa — um giro é uma preferência de enquadramento, não um alerta"*.
+
+**Ele lia o token estreito demais.** O que o `--stage-alert` do selo de camadas
+diz naquela faixa não é "no ar": é ***"o toque daqui TIRA alguma coisa"*** — e a
+faixa é, por definição escrita duas versões antes, *a região do que está fora do
+padrão e o toque desfaz*. Os dois moradores fazem exatamente a mesma promessa.
+
+Duas promessas iguais em cores diferentes não distinguem nada: **ensinam que a
+cor ali significa outra coisa**, e ela não significa. O operador leu o desenho
+antes de mim.
+
+### O que passa a separar os dois é o DESENHO
+
+Que é a regra de sempre neste app, a mesma dos botões da notificação de mídia: **o
+ícone mostra o ESTADO; o ✕ diz o que o toque FAZ.**
+
+| morador | ícone | o ✕ |
+|---|---|---|
+| `#pvCamadaBtn` | uma pilha de folhas | o mesmo |
+| `#pvGiroBtn` | uma seta de giro, mais o ÂNGULO ao lado | o mesmo |
+
+- **O ✕ é o do vizinho VERBATIM**, os dois `<path>` copiados, e não um parecido.
+  Uma marca de destruição redesenhada dois pixels adiante é uma segunda opinião
+  sobre a mesma coisa — e é o tipo de divergência que ninguém revisa, porque as
+  duas versões ficam certas na tela isoladamente. O oráculo cobra os traços
+  COMUNS (têm de ser exatamente 2) e os PRÓPRIOS (têm de existir dos dois lados):
+  sem a segunda metade, dois botões idênticos em vermelho passariam.
+- **A seta encolheu para o ✕ caber**: o mesmo desenho a 0,75 em torno de
+  (10,10), ocupando 4→16; o canto de 16,4 a 21,5 é do ✕.
+- **E com isso ela saiu do sprite.** O `#icoGirar` é o símbolo do TILE de
+  Configurações, e o dia em que um dos dois mudar de forma o outro não pode ir
+  junto. Aqui ela é INLINE, como o vizinho já era, e pela mesma razão.
+- **O NÚMERO fica, e agora ele carrega mais peso.** Com a cor igual, é ele que
+  diz o que ESTE ✕ destrói — sem ele a faixa teria duas marcas vermelhas de
+  destruição e nenhuma dizendo de quê.
 
 ---
 

@@ -1,5 +1,12 @@
 [
   {
+    "versao": "1.4.45",
+    "itens": [
+      "O botão de desfazer o giro ficou vermelho e ganhou o “x”, como o de encerrar a camada.",
+      "Os dois dizem a mesma coisa: o toque ali desfaz o que está fora do padrão."
+    ]
+  },
+  {
     "versao": "1.4.44",
     "itens": [
       "O título “Modo do app” ficou centrado, e o seletor alinhou com os botões abaixo.",

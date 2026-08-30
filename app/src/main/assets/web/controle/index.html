@@ -974,20 +974,46 @@
                  tocar três vezes, olhando para a folha e não para a projeção.
                  Aqui ele volta ao padrão num toque, com a preview à vista.
 
-                 O ÂNGULO É O ESTADO, e é ele que separa este botão do tile: o
-                 desenho é o mesmo `#icoGirar` (o assunto não mudou), e uma seta
-                 circular sozinha sobre a preview leria como "girar mais 90°",
-                 que é o oposto do que este toque faz. Com o número ao lado a
-                 frase fecha: *está a 90°* (estado) + *toque para voltar*
-                 (`title`), a mesma divisão dos botões da notificação de mídia.
+                 ELE FALA A LÍNGUA DO VIZINHO (v1.4.45), a pedido: *"ele deve ser
+                 vermelho e ter em seu design o 'x' indicando que o toque destroi
+                 tal configuração atual"*.
 
-                 DENIM (`--stage-accent`) e não o vermelho do vizinho: o palco
-                 não tem tema, então o token é o do PALCO; e vermelho aqui é "no
-                 ar agora", que a camada de cima já ocupa — um giro é uma
-                 preferência de enquadramento, não um alerta. -->
+                 A v1.4.43 o pintou de DENIM, com o argumento de que vermelho
+                 neste app quer dizer "está no ar agora" e a camada de cima já
+                 ocupava esse papel na mesma faixa. **O argumento lia o token
+                 estreito demais.** O que o `--stage-alert` do selo de camadas
+                 diz não é "no ar": é *"o toque daqui TIRA alguma coisa"* — e a
+                 faixa inteira é, por definição, a região do que está fora do
+                 padrão e o toque desfaz. Dois moradores com a mesma promessa
+                 pintados de cores diferentes ensinavam que a cor ali significa
+                 outra coisa, e não significa.
+
+                 ENTÃO O QUE OS SEPARA É O DESENHO, que é a regra de sempre: o
+                 ÍCONE mostra o ESTADO (uma pilha de folhas · uma seta de giro) e
+                 o ✕ diz o que o toque FAZ. O ✕ é o MESMO — os dois `<path>`
+                 verbatim do vizinho, e não um parecido: é a mesma marca de
+                 destruição, e um ✕ redesenhado dois pixels adiante é uma segunda
+                 opinião sobre a mesma coisa.
+
+                 A SETA ENCOLHEU para o ✕ caber. Ela era o `#icoGirar` do tile de
+                 Configurações (arco de raio 8 no centro da caixa, ocupando 4→20);
+                 aqui ela é o mesmo desenho a 0,75 em torno de (10,10), ocupando
+                 4→16 — o canto inferior direito, de 16,4 a 21,5, é do ✕. Por
+                 isso ela é INLINE e não um `<use>`: o símbolo do sprite é o do
+                 tile, e o dia em que um deles mudar de forma o outro não pode ir
+                 junto. O vizinho é inline pela mesma razão.
+
+                 E O NÚMERO FICA. Ele é o ESTADO (*está a 90°*), o ✕ é a AÇÃO, e
+                 sem ele a faixa teria duas marcas vermelhas de destruição sem
+                 dizer o que cada uma destrói. -->
             <button id="pvGiroBtn" class="pv-fab pv-fab--giro" type="button"
                     title="Desfazer o giro do telão" aria-label="Desfazer o giro do telão" hidden>
-              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoGirar"/></svg>
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M4 10a6 6 0 1 1 1.7 4.2"/>
+                <polyline points="4 6.3 4 10 7.8 10"/>
+                <path d="m16.4 16.4 5.1 5.1"/>
+                <path d="m21.5 16.4-5.1 5.1"/>
+              </svg>
               <span class="pv-fab-num" id="pvGiroNum">0°</span>
             </button>
           </div>
@@ -1659,7 +1685,7 @@
                METADADO de diagnóstico e o lugar onde se procura diagnóstico é
                junto do estado do telão e do alvo de espelhamento, não numa faixa
                de navegação. Preenchido por `renderVersionLabel`. -->
-          <span id="appVersion" class="app-version">Controle v1.4.44</span>
+          <span id="appVersion" class="app-version">Controle v1.4.45</span>
           <!-- SALVAR EM ARQUIVO (v1.2.16). Com o acervo inteiro varrido o
                Registro passa de setenta linhas só na seção de cifras, e copiar e
                colar é o caminho que corta o texto no meio SEM AVISAR — foi o
