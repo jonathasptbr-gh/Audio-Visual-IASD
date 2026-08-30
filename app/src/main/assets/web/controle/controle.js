@@ -270,7 +270,7 @@ const appVersionEl = document.getElementById('appVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.4.38';
+const WEB_VERSION = '1.4.39';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -10972,9 +10972,27 @@ function renderLyricsView() {
   // `appendChild` MOVE um nó que já está no pai (não copia), então isto é uma
   // reordenação no lugar; e ela é idempotente — reanexar na ordem em que já
   // estão não muda nada na tela.
+  //
+  // ===== E O PAI É A `.fit-seg`, NÃO O BLOCO DE FORA (v1.4.39) =====
+  //
+  // Relato do operador: as abas *"estão com pouca largura, considerando que
+  // deveria ter a largura adaptável para preencher a largura total
+  // disponível"*. A v1.4.28 anexava em `lyricsViewSegEl` — que é o
+  // `.lyricsview-seg`, o bloco com o respiro —, e os botões moram um nível
+  // abaixo, dentro da `.fit-seg`. Isso não era reordenar: era REPARENTAR.
+  //
+  // Fora do contêiner flex o `flex: 1` do `.fit-opt` fica INERTE: cada botão
+  // volta a ser `inline-block` do tamanho do próprio rótulo, encostado à
+  // esquerda. MEDIDO a 430px — a faixa tem 401px e as duas abas saíam com 44,8
+  // e 42,7, cada uma do tamanho da palavra.
+  //
+  // Falha CALADA por construção: a ordem que o pedido da v1.4.28 queria
+  // continuou certa (o `appendChild` reordena do mesmo jeito), e o que se
+  // perdeu foi só a largura — nada lança, nada some da tela.
+  const faixaDasAbas = lyricsViewSegEl.querySelector('.fit-seg');
   for (const nome of avail) {
     const btn = lyricsViewSegEl.querySelector('.fit-opt[data-lvsrc="' + nome + '"]');
-    if (btn) lyricsViewSegEl.appendChild(btn);
+    if (btn) faixaDasAbas.appendChild(btn);
   }
 
   lyricsViewBodyEl.innerHTML = '';

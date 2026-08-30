@@ -24,6 +24,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
+- **v1.4.39** — AS ABAS DO AUXILIAR DE LEITURA VOLTARAM A PREENCHER A FAIXA, e a causa era um REPARENTAMENTO. Relato do operador: elas *"estão com pouca largura, considerando que deveria ter a largura adaptável para preencher a largura total disponível… sendo reduzidos apenas nos casos em que haveria bíblia ou slides sendo exibidos juntos, que nesse caso o espaço disponível seria novamente distribuído igualmente"*. O `.fit-opt` já é `flex: 1` desde sempre, e o desenho que ele pede é exatamente o que o pedido descreve — o que faltava era o contêiner. A v1.4.28 passou a REORDENAR as abas pela pilha (`lyricsViewSources`) e anexava em `lyricsViewSegEl`, que é o `.lyricsview-seg`, o bloco com o respiro; os botões moram um nível abaixo, dentro da `.fit-seg`. `appendChild` num nó que NÃO é o pai não reordena: ele MOVE. Fora do contêiner flex o `flex: 1` fica inerte e cada aba volta a ser `inline-block` do tamanho do rótulo — MEDIDO a 430px, a faixa tem 401px e as duas abas saíam com 44,8 e 42,7, encostadas à esquerda. **A falha é CALADA por construção:** a ordem que o pedido da v1.4.28 queria continuou certa (o `appendChild` reordena do mesmo jeito, só que no lugar errado), nada lança e nada some — só a largura se perde, e o comentário que a acompanhava afirmava justamente o contrário (*"`appendChild` MOVE um nó que já está no pai"* — e ele não estava). Uma linha de conserto. MEDIDO depois: 2, 3 e 4 abas preenchem e ficam iguais a 430, 360 e 320px, numa linha só ("Páginas" não quebra nem estoura no pior caso). Quatro asserções por caso, duas reversões — o reparentamento de volta, e o `flex: 1` apagado com o pai certo: cada uma reprova o que a outra deixaria passar. OTA PURO.
 - **v1.4.38** — CONFIGURAÇÕES VIROU UM PAINEL RÁPIDO. Pedido do operador: *"quero que ela seja mais compacta e visualmente mais ágil, assim como o painel rápido de um smartphone. botões com ícones, que alteram seus estados e ícones, apenas títulos. uma disposição de grade, para que tenha mais opções e não precise de scroll… pode manter o seletor de fácil e avançado em destaque, mas atualize seu design para o modelo de painel rápido"*. Ela era sete FAIXAS de largura inteira — rótulo por extenso à esquerda (*"Este aparelho na medição de alcance"*, *"Imagens dos slides (músicas)"*), segmentado de duas opções à direita, ~64px cada. Virou uma GRADE de três colunas de tiles: ícone, título curto, a palavra do estado, e o toque alterna. MEDIDO: o corpo caiu de ~450px para ~230px. **O ORÁCULO ANTIGO APROVAVA AS DUAS VERSÕES** — o `smoke.mjs` cobrava *"cabe sem rolar"* sobre a FOLHA, e a folha nunca rolou: quem tem `overflow-y: auto` é o `.fade-opts`, e é ele que crescia por baixo. A asserção nova mede o CORPO, que é a queixa. **As três regras do tile:** o ÍCONE diz o estado (par `.ico-base`/`.ico-alt`, a mecânica da cortina — a folha do documento não atravessa a árvore-sombra de um `<use>`) e o TÍTULO diz o assunto; a PALAVRA do estado fica, porque um ícone sozinho responde por CONVENÇÃO e convenção é o que se erra num app aberto três vezes por semana; e ACESO é `--btn-accent` + `--accent` — a gramática de INTERRUPTOR LIGADO da paleta, nunca o `--accent-fill` de ESCOLHA ENTRE ALTERNATIVAS —, marcando o estado que NÃO é o padrão, que é a pergunta que se faz olhando a grade de longe. Dois tiles ficaram com um desenho só e isso está dito: o GIRO, cujo estado é um NÚMERO (quatro desenhos que só diferem pelo próprio ângulo não se distinguem a 22px), e o WALLPAPER, cujo par viraria o `icoImagem` do tile vizinho. **A armadilha que o lote pagou:** `display: flex` no tile ATROPELA o `[hidden]` da folha do agente — sem `.qs-tile[hidden] { display: none }` o tile da Medição, que nasce escondido e só o shell revela, apareceria no NAVEGADOR, onde não há farol para ele ligar. **E um estado que ninguém pinta é `null`:** um segmentado carregava o valor de cada opção no HTML (`data-fit`) e já dizia a verdade antes de alguém olhar; um tile só diz o que `pintarTile()` escreveu, então os tiles passaram a ser pintados no `load()` e não só ao abrir a folha (a Medição fica de fora — ela é uma ida à ponte, e `load()` roda dezenas de vezes por culto). O MODO DO APP continua sendo um seletor, com o desenho do painel: os tiles alternam entre estados equivalentes e voltam com um toque; ele troca a tela inteira e fecha a folha. O WALLPAPER continua sendo um `<label>` sobre o `<input type="file">` — é a ativação nativa que abre o seletor do aparelho (invariante 6) —, e o `preventDefault()` é o que deixa o toque voltar ao padrão sem abrir o seletor por cima. Nove asserções novas, `.qs-tile` na lista do `--press` no MESMO lote em que nasce. OTA PURO.
 - **v1.4.37** — A BARRA DE ROLAGEM DO AUXILIAR DE LEITURA NO MODO FÁCIL. Relato do operador: *"o auxiliar de leitura no modo simples está sem a barra lateral do scroll para visualizar a rolagem da lista"*. MEDIDO: naquela zona `scrollbar-width` e `scrollbar-color` computavam **`auto`**, contra `thin` e o acento na `.lyricsview-body` do modo avançado. A receita nasceu lá com a razão escrita — *"a caixa diz que há um dentro, a barra diz ONDE se está nele"* — e esta zona, que faz o mesmo trabalho, nunca a recebeu; com a coluna de PÁGINAS da v1.4.35, saber a posição na lista passou a ser o recurso inteiro. A pista fica `transparent` como na irmã: o fundo daqui já é `--panel`, e uma pista da cor do próprio fundo não é pista nenhuma. **A asserção é a PARIDADE com a folha do avançado, e não um valor** — ela sobrevive a uma troca de paleta e diz a coisa certa: duas listas que fazem o mesmo trabalho mostram a mesma barra. E ela **não mede a largura desenhada**: o Chromium usa barra em OVERLAY, `offsetWidth - clientWidth` é ZERO nos dois, e uma asserção de largura mediria a plataforma em vez da nossa folha. Também não pergunta se ESTE deck transborda — com poucas páginas ele cabe, e a régua viraria o tamanho da fixture em vez da regra. Uma reversão, 64/64 verdes. **SÓ BASE WEB.**
 - **v1.4.36** — O AZUL ERA O ECO, E ELE É REDUNDANTE EM QUEM TROCA O DESENHO. O operador identificou o efeito que sobrava depois da v1.4.34: *"é um realce de toque, um efeito após o toque… uma onda azul a partir da borda do botão… mesmo formato dos botões, retangulares com bordas arredondadas… uma linha azul de borda que se expande e vai desaparecendo. é animação"*. É o `.btn-eco` — `box-shadow: 0 0 0 2px var(--accent)` sobre um `::before` de `inset: 0`, animando `scale(1) → 1.35` com `opacity .9 → 0` —, e ele entrou na cortina e no mudo na v1.3.14. **As duas versões anteriores atacaram o alvo errado** e isso está dito: a v1.4.33 tirou o recuo da tecla (certo, e não era isto) e a v1.4.34 fechou os dois caminhos do UA (corretos por mérito próprio, e também não eram — o Chromium de mesa nunca os desenhou, e a reversão provou que aquela asserção era tautológica). O que faltava era procurar no NOSSO código um efeito com a FORMA que ele descreveu: retangular, arredondado, expandindo da borda. **Duas razões independentes o tiram dali, e cada uma bastaria.** É REDUNDANTE: a cortina e o mudo são alternadores — o ícone vira o oposto no mesmo instante do toque, e a cor vai para `--stage-alert`; isso já É "o comando saiu", dito pelo próprio botão. E ele desenha uma CAIXA QUE NÃO EXISTE: o anel é `inset: 0` + `border-radius: inherit`, ou seja, a caixa do botão — um `.t-btn` tem uma, um `.pv-fab` tem `background: none` e é só o traço sobre a projeção —, em `--accent`, um token de CROMO por cima do palco, que é a classe de erro que a família `--stage-*` existe para impedir. **O TRANSPORTE FICA**, e a assimetria é a razão de o eco existir: os ⏮/▶/⏭ não trocam de desenho, e com as telas da rede a resposta real está a ~1 s — um botão que fica um segundo mudo é tocado de novo, e o comando vai duas vezes. A coluna da TELA CHEIA fica pelo mesmo motivo. Duas asserções, duas reversões (os dois de volta à lista; e o eco apagado do transporte junto, o conserto largo demais). OTA PURO.
@@ -311,6 +312,74 @@ na nota que a revoga, não apagada da que a criou.
 - **v5.156** — é METADE OTA e METADE APK, de novo.
 
 ---
+
+## v1.4.39 — as abas do auxiliar voltaram a preencher a faixa
+
+Relato do operador:
+
+> *"verifique a largura dos botões de abas da seção de auxiliar de leitura, eles
+> estão com pouca largura, considerando que deveria ter a largura adaptável para
+> preencher a largura total disponível. sendo reduzidos apenas nos casos em que
+> haveria biblia ou slides sendo exibidos juntos, que nesse caso o espaço
+> disponível seria novamente distribuido igualmente"*
+
+### O desenho pedido já estava escrito; faltava o contêiner
+
+`.fit-opt` é `flex: 1` desde sempre — num contêiner flex isso É "preencher a
+largura, em partes iguais, redistribuindo quando uma entra ou sai". O que
+faltava era o contêiner.
+
+A **v1.4.28** passou a reordenar as abas pela pilha (`lyricsViewSources`), e
+anexava em `lyricsViewSegEl`:
+
+```js
+for (const nome of avail) {
+  const btn = lyricsViewSegEl.querySelector('.fit-opt[data-lvsrc="' + nome + '"]');
+  if (btn) lyricsViewSegEl.appendChild(btn);   // ← o bloco de FORA
+}
+```
+
+`lyricsViewSegEl` é o `.lyricsview-seg`, o bloco com o respiro; os botões moram
+um nível abaixo, dentro da `.fit-seg`. **`appendChild` num nó que não é o pai
+não reordena: ele MOVE.** Fora do contêiner flex o `flex: 1` fica inerte e cada
+aba volta a ser `inline-block` do tamanho do próprio rótulo.
+
+MEDIDO a 430px, antes: a faixa tem **401,2px** e as duas abas saíam com **44,8**
+e **42,7**, encostadas à esquerda.
+
+### A falha é calada por construção
+
+A ordem que o pedido da v1.4.28 queria **continuou certa** — o `appendChild`
+reordena do mesmo jeito, só que no lugar errado. Nada lança, nada some da tela,
+e o oráculo daquele lote media a ORDEM, que não regrediu. O que se perdeu foi só
+a largura.
+
+E o comentário que acompanhava o laço afirmava exatamente o contrário do que o
+código fazia: *"`appendChild` MOVE um nó que já está no pai, então isto é uma
+reordenação no lugar"* — e ele não estava no pai. É o caso que o `CLAUDE.md`
+nomeia: **um comentário errado não custa só leitura, produz a decisão errada.**
+
+### Depois
+
+| | faixa | abas |
+|---|---|---|
+| 430px · 2 | 401,2 | 197,8 · 197,8 |
+| 430px · 3 | 401,2 | 130 · 130 · 130 |
+| 430px · 4 | 401,2 | 96,1 × 4 |
+| 320px · 4 | 291,2 | 68,6 × 4 |
+
+Todas numa linha só — no pior caso (quatro abas a 320px) "Páginas" não quebra
+nem estoura a caixa.
+
+### O oráculo
+
+Quatro asserções por caso (2 e 3 abas), e as duas naturezas que só juntas dizem
+a regra: o **PAI** (o mecanismo, que é o que quebrou) e o **RENDERIZADO** (a
+largura, que é o que o operador vê). Provado por duas reversões — o
+reparentamento de volta, e o `flex: 1` apagado com o pai certo: **cada uma
+reprova o que a outra deixaria passar.**
+
+OTA PURO — sem degrau de ponte, sem `shellTag`, sem Release.
 
 ## v1.4.38 — Configurações virou um painel rápido
 
