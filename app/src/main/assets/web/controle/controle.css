@@ -6148,6 +6148,21 @@ body.mode-simple .bottombar { display: none; }
   /* Mesma regra das teclas: superfície sólida, sem contorno. */
   padding: .7rem .6rem; border: none; border-radius: var(--radius-card);
   background: var(--panel);
+  /* A BARRA VISÍVEL, a mesma da folha do modo avançado (v1.4.37). Ela nasceu lá
+     com a razão escrita — *"a caixa diz que há um dentro, a barra diz ONDE se
+     está nele"* — e esta zona, que faz o mesmo trabalho, ficou sem: MEDIDO,
+     `scrollbar-width` e `scrollbar-color` computavam `auto` aqui contra `thin` e
+     o acento lá. Sem ela a lista rola sem dizer onde está — e no Modo Fácil ela
+     agora é a coluna de PÁGINAS, onde saber a posição é o recurso inteiro.
+     A pista fica `transparent` como na `.lyricsview-body`: aqui o fundo já é
+     `--panel`, e uma pista da cor do próprio fundo não é pista nenhuma. */
+  scrollbar-width: thin;
+  scrollbar-color: var(--accent) transparent;
+}
+.simple-lyrics::-webkit-scrollbar { width: 7px; }
+.simple-lyrics::-webkit-scrollbar-track { background: transparent; }
+.simple-lyrics::-webkit-scrollbar-thumb {
+  background: var(--accent); border-radius: var(--radius-pill);
 }
 .simple-lyrics .lv-empty { margin: auto; color: var(--muted); font-size: .85rem; text-align: center; line-height: 1.5; }
 /* ===== AS PÁGINAS EM DUAS COLUNAS, SÓ AQUI (v1.4.35) =====

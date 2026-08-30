@@ -219,6 +219,49 @@ try {
     '  ↳ e o SELO é o mesmo dos dois modos: a linha é a mesma `.lv-row--slide`, e '
     + 'é isso que dispensa um segundo desenho para divergir', grade);
 
+  // ── 2c. A BARRA DE ROLAGEM VISÍVEL (v1.4.37) ──────────────────────────────
+  //
+  // Relato do operador: *"o auxiliar de leitura no modo simples está sem a barra
+  // lateral do scroll para visualizar a rolagem da lista"*. MEDIDO: aqui
+  // `scrollbar-width` e `scrollbar-color` computavam `auto`, contra `thin` e o
+  // acento na folha do modo avançado — a receita nasceu lá com a razão escrita
+  // (*"a caixa diz que há um dentro, a barra diz ONDE se está nele"*) e esta
+  // zona, que faz o mesmo trabalho, ficou sem ela.
+  //
+  // **A ASSERÇÃO É A PARIDADE, e não um valor.** Ela sobrevive a uma troca de
+  // paleta e diz a coisa certa: duas listas que fazem o mesmo trabalho mostram a
+  // mesma barra. Um `rgb(...)` literal aqui envelheceria no primeiro ajuste de
+  // cor e passaria a reprovar um app correto.
+  //
+  // **E NÃO SE MEDE A LARGURA DESENHADA.** Chromium usa barra em OVERLAY:
+  // `offsetWidth - clientWidth` é ZERO nos DOIS, então uma asserção de largura
+  // mediria a plataforma, não a nossa folha — a armadilha que o `CLAUDE.md`
+  // nomeia como "um oráculo não pode medir o runner".
+  //
+  // A asserção NÃO pergunta se ESTE deck transborda: com poucas páginas ele cabe,
+  // e a régua viraria o tamanho da fixture em vez da regra. O que se afirma é que
+  // a zona é um SCROLLER e que a barra dele é a do irmão — as duas metades da
+  // frase do operador, *"a barra lateral do scroll para visualizar a rolagem"*.
+  const barra = await pg.evaluate(() => {
+    const z = document.getElementById('simpleLyrics');
+    const cs = getComputedStyle(z);
+    // A folha do modo avançado é a REFERÊNCIA: ela já tinha a receita.
+    const ref = document.getElementById('lyricsViewBody');
+    const cr = getComputedStyle(ref);
+    return {
+      overflow: cs.overflowY, refOverflow: cr.overflowY,
+      w: cs.scrollbarWidth, c: cs.scrollbarColor,
+      refW: cr.scrollbarWidth, refC: cr.scrollbarColor,
+    };
+  });
+  checar(barra.overflow === 'auto' && barra.overflow === barra.refOverflow,
+    'a zona do Modo Fácil é um SCROLLER, como a folha do modo avançado', barra);
+  checar(barra.w === 'thin' && barra.w === barra.refW
+      && barra.c !== 'auto' && barra.c === barra.refC,
+    'A BARRA DE ROLAGEM É A MESMA DA FOLHA DO MODO AVANÇADO — a caixa diz que há '
+    + 'algo dentro, a barra diz ONDE se está nele. MEDIDO antes: aqui computava '
+    + '`auto`/`auto`, e a lista rolava sem dizer onde estava', barra);
+
   // ── 3. A TECLA VIRA A PÁGINA ──────────────────────────────────────────────
   await pg.evaluate(() => document.getElementById('simpleSlideNext').click());
   await pg.waitForTimeout(200);
