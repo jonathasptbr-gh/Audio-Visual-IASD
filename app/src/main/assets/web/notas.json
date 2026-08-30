@@ -1,5 +1,14 @@
 [
   {
+    "versao": "1.4.41",
+    "itens": [
+      "Preenchimento e giro passaram a valer também para a imagem ou os slides sobre uma música.",
+      "O botão agora se chama \u201cGirar no telão\u201d: ele gira a projeção, nunca o app.",
+      "A contagem de uso saiu do painel e virou uma linha no rodapé do registro.",
+      "A página de alcance ganhou um interruptor para as visitas deste navegador."
+    ]
+  },
+  {
     "versao": "1.4.40",
     "itens": [
       "Em Configurações, os botões que não ligam nem desligam ficam sempre azuis.",

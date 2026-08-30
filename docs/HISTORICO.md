@@ -24,6 +24,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
+- **v1.4.41** — O ENQUADRAMENTO NÃO ERA "SÓ PARA FOTOS": ERA "SÓ QUANDO A MÍDIA É A CENA". Pergunta do operador: *"faça uma verificação sobre os itens de preenchimento e girar. eles atualmente só servem para fotos? veja se consegue aplicar eles a todos os tipos de mídias na tela"*, mais o pedido de o título dizer que o giro é do telão e o de tirar a medição do app. **MEDIDO no `/display/`** com `cover` e 90° escolhidos: `#img` (imagem e apresentação como CENA) e `#video` seguiam os dois; `#textImg` — a MESMA foto e a MESMA página projetadas como CAMADA por cima de um louvor de fundo (v5.312 e v1.4.28) — ficava presa no `contain` da folha, sem giro nenhum. **É o pior formato de defeito que aquele painel pode ter:** o mesmo controle, o mesmo conteúdo, e funciona ou não conforme haja uma música tocando por baixo, que é a última coisa que alguém relacionaria com preenchimento. A correção entra no MOTOR e não no dono do palco (`camadaImg` no `createStage`), porque "como a mídia ocupa o telão" é decisão de um lugar só. **O giro precisou de mais que isso:** `aplicarGiro` desiste quando não consegue medir a caixa, e um elemento `hidden` não tem caixa — girar com o telão no wallpaper e só então projetar entregava a mídia sem giro, que é o irmão exato do que o `applyMedia` já resolvia para o `img`/`video`. Daí `reporGiro()`, PEDIDO nos dois lados; e MEDIDO por reversão, sem ele só a PREVIEW reprova — no telão o `showText` mexe na cortina e o `applyMedia` repõe de carona, um acidente de ordem que quem apagar a chamada "redundante" descobre no telão. **O FUNDO DA ESTROFE fica de fora**, e é a metade que impede o conserto largo demais: ele não é a mídia, é o fundo ATRÁS da letra — `cover` ali não é escolha de enquadramento, e girá-lo deitaria a imagem sob um texto que continua de pé. O tile virou **"Girar no telão"** porque "Girar" sozinho, numa folha de Configurações, se lê como o giro da INTERFACE. **E a MEDIÇÃO saiu da grade**: o pedido era levá-la para a página de alcance do site, e a resposta honesta é que a página NÃO alcança o app — origens diferentes no mesmo aparelho, armazenamento isolado, e o app sem intent-filter de URL (só MAIN e SEND); a única ponte possível seria uma porta EXPORTADA que troca uma chave de privacidade, pior que o botão. Ela virou uma linha quieta no rodapé do Registro, e a PÁGINA ganhou o interruptor que ela de fato controla: o do NAVEGADOR, que era escrito em silêncio, valia para sempre e não tinha volta — agora com TRÊS estados, porque com dois a marca era reescrita em toda abertura e o interruptor se desfazia sozinho. Oráculo novo (`enquadramento-da-camada.test.mjs`, 10 asserções), mais três metades no `boot-nativo` e quatro no `registro-alcance`; três reversões. OTA PURO.
 - **v1.4.40** — O AZUL DO TILE PASSOU A DIZER *"ligado"*, E QUEM NÃO TEM DESLIGADO FICA SEMPRE AZUL. Pedido do operador: *"a maioria dos botões das configurações não tem estado de ativo e inativo, como o seletor de tema claro ou escuro, o preenchimento, o histórico e o wallpaper padrão… então pode deixar eles no estado azul de 'sempre ativo' o tempo todo. ajuste para que esses itens que não se ativam fiquem no topo da listagem e deixe os outros mais em baixo"*. **A v1.4.38 leu o aceso como *"o estado não é o padrão"*, e essa leitura não sobrevive ao contato com quem opera:** escolher "Ajustar" não desliga nada, e um tile apagado, no vocabulário deste app, diz INDISPONÍVEL — é a queixa da v1.4.25 palavra por palavra (*"foi simplesmente ofuscado o botão inteiro, o que dá a impressão de que não está disponível a opção"*), com o agravante de o app já ter uma linguagem para indisponível (`opacity: .3` + `disabled`). Hoje **aceso = a função está LIGADA**, e num tile que não tem desligado — tema, preenchimento, wallpaper, histórico — é SEMPRE. **A correção obrigou a PARTIR UMA CLASSE EM DUAS:** `qs-on` acendia o tile E trocava o desenho, então um tile sempre aceso ficaria preso no desenho alternativo para sempre (o tema mostrando o sol no escuro). São duas perguntas — *"qual desenho?"* e *"está ligado?"* — e a partir daqui `qs-alt` responde a primeira. **E DOIS ACESOS FORAM INVERTIDOS** no mesmo lote: fundo da letra e medição marcavam `Remover` e `De fora` (o que não é o padrão) e passaram a marcar `Mostrar` e `Entra` (a função ligada) — com isso o desenho e a luz dizem a mesma coisa, em vez de coisas opostas no mesmo botão. **A ordem virou POR NATUREZA**, numa grade só: os quatro sempre-acesos primeiro, os três que ligam e desligam depois. Duas grades com um respiro entre elas foram descartadas — o primeiro grupo tem QUATRO itens em três colunas, e a grade própria deixaria dois buracos no meio do painel, que se leem como defeito e não como separação; numa grade só quem desenha o grupo é a própria cor. **De quebra, um defeito de resposta ao toque:** `setLyricsBg` pintava o tile DEPOIS do `await` da gravação, então aquele botão só respondia ao dedo quando a transação do IndexedDB voltasse — os irmãos (`applyFit`, `applyRotate`) sempre pintaram antes. **O que se perde está dito:** a grade deixou de responder *"o que eu deixei mexido aqui?"* de relance, e quem responde isso agora é a palavra do estado, que sempre esteve lá. Cinco asserções novas no `smoke.mjs`, com a metade que impede o conserto preguiçoso (acender tudo sempre): o fundo da letra continua APAGANDO. OTA PURO.
 - **v1.4.39** — AS ABAS DO AUXILIAR DE LEITURA VOLTARAM A PREENCHER A FAIXA, e a causa era um REPARENTAMENTO. Relato do operador: elas *"estão com pouca largura, considerando que deveria ter a largura adaptável para preencher a largura total disponível… sendo reduzidos apenas nos casos em que haveria bíblia ou slides sendo exibidos juntos, que nesse caso o espaço disponível seria novamente distribuído igualmente"*. O `.fit-opt` já é `flex: 1` desde sempre, e o desenho que ele pede é exatamente o que o pedido descreve — o que faltava era o contêiner. A v1.4.28 passou a REORDENAR as abas pela pilha (`lyricsViewSources`) e anexava em `lyricsViewSegEl`, que é o `.lyricsview-seg`, o bloco com o respiro; os botões moram um nível abaixo, dentro da `.fit-seg`. `appendChild` num nó que NÃO é o pai não reordena: ele MOVE. Fora do contêiner flex o `flex: 1` fica inerte e cada aba volta a ser `inline-block` do tamanho do rótulo — MEDIDO a 430px, a faixa tem 401px e as duas abas saíam com 44,8 e 42,7, encostadas à esquerda. **A falha é CALADA por construção:** a ordem que o pedido da v1.4.28 queria continuou certa (o `appendChild` reordena do mesmo jeito, só que no lugar errado), nada lança e nada some — só a largura se perde, e o comentário que a acompanhava afirmava justamente o contrário (*"`appendChild` MOVE um nó que já está no pai"* — e ele não estava). Uma linha de conserto. MEDIDO depois: 2, 3 e 4 abas preenchem e ficam iguais a 430, 360 e 320px, numa linha só ("Páginas" não quebra nem estoura no pior caso). Quatro asserções por caso, duas reversões — o reparentamento de volta, e o `flex: 1` apagado com o pai certo: cada uma reprova o que a outra deixaria passar. OTA PURO.
 - **v1.4.38** — CONFIGURAÇÕES VIROU UM PAINEL RÁPIDO. Pedido do operador: *"quero que ela seja mais compacta e visualmente mais ágil, assim como o painel rápido de um smartphone. botões com ícones, que alteram seus estados e ícones, apenas títulos. uma disposição de grade, para que tenha mais opções e não precise de scroll… pode manter o seletor de fácil e avançado em destaque, mas atualize seu design para o modelo de painel rápido"*. Ela era sete FAIXAS de largura inteira — rótulo por extenso à esquerda (*"Este aparelho na medição de alcance"*, *"Imagens dos slides (músicas)"*), segmentado de duas opções à direita, ~64px cada. Virou uma GRADE de três colunas de tiles: ícone, título curto, a palavra do estado, e o toque alterna. MEDIDO: o corpo caiu de ~450px para ~230px. **O ORÁCULO ANTIGO APROVAVA AS DUAS VERSÕES** — o `smoke.mjs` cobrava *"cabe sem rolar"* sobre a FOLHA, e a folha nunca rolou: quem tem `overflow-y: auto` é o `.fade-opts`, e é ele que crescia por baixo. A asserção nova mede o CORPO, que é a queixa. **As três regras do tile:** o ÍCONE diz o estado (par `.ico-base`/`.ico-alt`, a mecânica da cortina — a folha do documento não atravessa a árvore-sombra de um `<use>`) e o TÍTULO diz o assunto; a PALAVRA do estado fica, porque um ícone sozinho responde por CONVENÇÃO e convenção é o que se erra num app aberto três vezes por semana; e ACESO é `--btn-accent` + `--accent` — a gramática de INTERRUPTOR LIGADO da paleta, nunca o `--accent-fill` de ESCOLHA ENTRE ALTERNATIVAS —, marcando o estado que NÃO é o padrão, que é a pergunta que se faz olhando a grade de longe. Dois tiles ficaram com um desenho só e isso está dito: o GIRO, cujo estado é um NÚMERO (quatro desenhos que só diferem pelo próprio ângulo não se distinguem a 22px), e o WALLPAPER, cujo par viraria o `icoImagem` do tile vizinho. **A armadilha que o lote pagou:** `display: flex` no tile ATROPELA o `[hidden]` da folha do agente — sem `.qs-tile[hidden] { display: none }` o tile da Medição, que nasce escondido e só o shell revela, apareceria no NAVEGADOR, onde não há farol para ele ligar. **E um estado que ninguém pinta é `null`:** um segmentado carregava o valor de cada opção no HTML (`data-fit`) e já dizia a verdade antes de alguém olhar; um tile só diz o que `pintarTile()` escreveu, então os tiles passaram a ser pintados no `load()` e não só ao abrir a folha (a Medição fica de fora — ela é uma ida à ponte, e `load()` roda dezenas de vezes por culto). O MODO DO APP continua sendo um seletor, com o desenho do painel: os tiles alternam entre estados equivalentes e voltam com um toque; ele troca a tela inteira e fecha a folha. O WALLPAPER continua sendo um `<label>` sobre o `<input type="file">` — é a ativação nativa que abre o seletor do aparelho (invariante 6) —, e o `preventDefault()` é o que deixa o toque voltar ao padrão sem abrir o seletor por cima. Nove asserções novas, `.qs-tile` na lista do `--press` no MESMO lote em que nasce. OTA PURO.
@@ -311,6 +312,122 @@ na nota que a revoga, não apagada da que a criou.
 - **v5.154** — é METADE OTA e METADE APK, e a divisão importa para quem for testar em aparelho.
 - **v5.155** — é OTA PURO
 - **v5.156** — é METADE OTA e METADE APK, de novo.
+
+---
+
+## v1.4.41 — o enquadramento nos dois caminhos da mídia
+
+> *"faça uma verificação sobre os itens de preenchimento e girar. eles
+> atualmente só servem para fotos? veja se consegue aplicar eles a todos os
+> tipos de mídias na tela e também adicione no título 'girar' algo que deixe
+> claro que está girando a visualização do telão e não o aplicativo ou a tela do
+> celular… também pode remover o 'medição de fora' que tem no app. faça esse
+> botão ficar dentro da página de alcance do site se possível."*
+
+### A verificação, e o que ela achou
+
+Não era "só fotos". MEDIDO no `/display/`, com o operador tendo escolhido
+`cover` e 90°:
+
+| elemento | o que projeta | preenchimento | giro |
+|---|---|---|---|
+| `#img` | imagem e apresentação **como cena** | ✓ | ✓ |
+| `#video` | vídeo, áudio, transmissão direta | ✓ | ✓ |
+| `#textImg` | imagem e apresentação **como camada** | ✗ `contain` fixo | ✗ |
+| `#lyricsImg` | fundo da estrofe | ✗ `cover` fixo | ✗ |
+
+A MESMA foto e a MESMA página de apresentação chegam ao telão por **dois
+caminhos**: como cena, e como CAMADA por cima de um louvor de fundo (v5.312
+para a imagem, v1.4.28 para a apresentação). O segundo é desenhado pelo dono do
+palco, num `<img>` dele, e ficava fora da regra.
+
+**É o pior formato de defeito que aquele painel pode ter:** o mesmo controle, o
+mesmo conteúdo, e funciona ou não conforme haja uma música tocando por baixo —
+que é a última coisa que alguém relacionaria com "preenchimento".
+
+### A correção mora no MOTOR
+
+`createStage` passou a receber `camadaImg`, e `setFit`/`aplicarGiroTudo` o
+incluem. Não no dono do palco: *"como a mídia ocupa o telão"* é decisão de um
+lugar só, e dois lugares aplicando a mesma regra divergem no primeiro ajuste.
+
+**O giro precisou de mais que isso.** `aplicarGiro` desiste quando não consegue
+medir a caixa, e um elemento `hidden` não tem caixa — girar com o telão no
+wallpaper e só então projetar entregava a mídia sem giro. É o irmão exato do que
+o `applyMedia` já resolvia para o `img`/`video`, e a camada não passa por ele.
+Daí `reporGiro()`, chamado por quem REVELA a camada.
+
+**E ele é pedido nos DOIS lados mesmo o telão passando sem ele** (MEDIDO por
+reversão: sem as chamadas, só a PREVIEW reprova). No telão o `showText` mexe na
+cortina, o `applyMedia` roda por tabela e repõe o giro de carona — um acidente
+de ordem, não um contrato. Quem apagar a chamada do `display.js` por "estar
+sobrando" descobre isso no primeiro lote que mexer no caminho da cortina, e
+descobre no telão.
+
+### O que fica de fora, e por quê
+
+**O fundo da estrofe** (`#lyricsImg`). Ele não é a mídia: é o fundo ATRÁS da
+letra. `cover` ali não é uma escolha de enquadramento — uma letra sobre barras
+pretas é um defeito —, e girá-lo deitaria a imagem sob um texto que continua de
+pé. É a metade que impede o conserto largo demais ("aplicar a tudo que é
+`<img>`"), e ela tem asserção própria.
+
+**A camada de TEXTO** (letra, versículo, cronômetro) também fica: girar a
+projeção INTEIRA — o caso da TV montada de lado — é outro recurso, e este giro
+é o da MÍDIA, que nasceu para o vídeo gravado deitado (v5.142).
+
+### O título diz ONDE
+
+*"Girar"* → **"Girar no telão"**, com o `title` completando pela negativa
+(*"não gira o app nem a tela do celular"*). "Girar" sozinho, numa folha de
+Configurações, lê-se como o giro da INTERFACE — que é o que um controle com esse
+nome faz em quase todo app — e aqui é o oposto.
+
+### A medição saiu do painel — e a página do site NÃO pode substituí-la
+
+O pedido era levá-la para a página de alcance, *"já que ambos serão acessados no
+mesmo aparelho"*. **A página não alcança o app**, e é por construção:
+
+- origens diferentes no mesmo aparelho — `appassets.androidplatform.net` contra
+  `github.io` —, e o armazenamento de uma não é lido pela outra;
+- o app **não tem intent-filter de URL**: só `MAIN` e `SEND`/`SEND_MULTIPLE`;
+- a única ponte possível seria abrir uma porta de entrada **exportada** que
+  troca uma chave de privacidade — a classe de risco que o KDoc do `ShareIntake`
+  já nomeia, e pior que o botão que se queria tirar.
+
+O tile saiu da grade (que fecha em **duas fileiras exatas** com seis) e a chave
+virou uma **linha quieta no rodapé do Registro** — a vizinhança certa: metadado
+de manutenção, ao lado da versão e do log, longe do painel que se opera durante
+o culto. Sem ela, o aparelho de quem publica passaria a contar em `b.txt` todo
+dia, para sempre, e **contador não se corrige depois**.
+
+**A página ganhou o interruptor que ela de fato controla**, o do NAVEGADOR.
+Abrir `/registro/` com a chave sempre marcou aquele navegador para contar num
+contador separado — e a marca era escrita **em silêncio, valia para sempre e não
+tinha volta**: um navegador que a ganhasse por engano (um computador emprestado,
+uma aba aberta para mostrar o painel a alguém) saía da contagem pública sem que
+ninguém soubesse. Agora ela é visível e reversível, e o valor tem **três
+estados** (`'1'` · `'0'` · ausente): com dois, a página reescrevia a marca em
+toda abertura e o interruptor se desfazia sozinho — pior que não ter
+interruptor, porque ensina a não confiar na tela.
+
+### A armadilha de medição que este lote pagou
+
+`getBoundingClientRect` **não serve** para provar o giro: ele devolve a caixa
+alinhada aos eixos do elemento JÁ transformado, então um `<img>` de 540×961
+girado 90° responde 961×540 — exatamente o mesmo número de um que não girou
+nada. A sonda mede `offsetWidth`/`offsetHeight`, e compara com o palco DAQUELE
+elemento (o telão mede a janela, a preview mede a caixinha dela): um `540×961`
+escrito no oráculo provaria a regra no telão e reprovaria a preview com o app
+certo.
+
+Oráculo novo: `enquadramento-da-camada.test.mjs` (10 asserções, provado por
+reversão — 4 falhas sem a correção do motor, 1 sem o `reporGiro`), mais três
+metades no `boot-nativo.test.mjs` (a linha existe, saiu da grade, e o toque PEDE
+ao shell o valor oposto) e quatro no `registro-alcance.test.mjs`.
+
+**SÓ BASE WEB E SITE**: nenhum arquivo de `java/`, `res/` ou do manifest foi
+tocado. Sem degrau de `SHELL_VERSION`, sem `shellTag`, sem Release.
 
 ---
 

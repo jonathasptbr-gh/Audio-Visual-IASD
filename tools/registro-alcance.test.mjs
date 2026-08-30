@@ -182,6 +182,80 @@ try {
     const marcado = await pg.evaluate(() => localStorage.getItem('avRegistroOperador'));
     checar(marcado === '1', 'abrir o Registro marca ESTE navegador como o do operador', marcado);
 
+    // ======================================================================
+    // O INTERRUPTOR "ESTE APARELHO" (v1.4.41)
+    //
+    // A marca sempre existiu e era ESCRITA EM SILÊNCIO, valia para sempre e não
+    // tinha volta: um navegador que a ganhasse por engano (um computador
+    // emprestado, uma aba aberta para mostrar o painel a alguém) saía da
+    // contagem pública sem que ninguém soubesse. Agora ela é visível e
+    // reversível.
+    //
+    // TRÊS METADES, e a terceira é a que carrega o lote:
+    //
+    //  1. a seção EXISTE e diz o estado — sem ela não há o que operar;
+    //  2. desmarcar GRAVA `'0'`, que é o que o farol de visita lê;
+    //  3. e a escolha SOBREVIVE À RECARGA. É a que falha calada e é a razão de
+    //     o valor ter três estados em vez de dois: com dois, a página reescreve
+    //     `'1'` em toda abertura e o interruptor se desfaz sozinho — pior que
+    //     não ter interruptor, porque ensina a não confiar na tela.
+    //
+    // E ela vive FORA do `#pag`: aquele nó é reescrito por inteiro pelo desenho
+    // da série e pelo `erro()` do 404, e esta chave não tem nada a ver com a
+    // série. A asserção mede a seção com a página JÁ desenhada, que é o estado
+    // em que ela some se alguém a prender lá dentro.
+    // ======================================================================
+    const chave = await pg.evaluate(() => {
+      const sec = document.getElementById('esteAparelho');
+      const cx = document.getElementById('opContar');
+      return {
+        secao: !!sec && !sec.hidden,
+        foraDoPag: !!sec && !document.getElementById('pag').contains(sec),
+        marcada: cx ? cx.checked : null,
+        // O RÓTULO É "CONTAR", o oposto da marca guardada: com o rótulo
+        // invertido a caixa mentiria sobre o próprio estado, e um teste que só
+        // olhasse o `localStorage` aprovaria isso.
+        descreve: (document.getElementById('opContarDesc') || {}).textContent || '',
+      };
+    });
+    checar(chave.secao && chave.foraDoPag,
+      'a seção "Este aparelho" está à vista e vive FORA do `#pag`, que o desenho '
+      + 'da série reescreve por inteiro', chave);
+    checar(chave.marcada === false && /contador separado|de teste/i.test(chave.descreve),
+      '  ↳ e ela mostra o estado atual: este navegador NÃO conta no número público',
+      chave);
+
+    const desmarcou = await pg.evaluate(() => {
+      const cx = document.getElementById('opContar');
+      cx.checked = true;
+      cx.dispatchEvent(new Event('change'));
+      return {
+        guardado: localStorage.getItem('avRegistroOperador'),
+        descreve: document.getElementById('opContarDesc').textContent,
+      };
+    });
+    checar(desmarcou.guardado === '0',
+      'marcar a caixa devolve este navegador à contagem pública (`\'0\'`, que é o '
+      + 'que o farol de visita lê)', desmarcou);
+    checar(/junto com as de todo mundo/i.test(desmarcou.descreve),
+      '  ↳ e a frase acompanha, em vez de descrever o estado anterior', desmarcou.descreve);
+
+    await pg.reload({ waitUntil: 'load' });
+    await pg.waitForFunction(() => {
+      const s2 = document.getElementById('esteAparelho');
+      return !!s2 && !s2.hidden;
+    }, null, { timeout: 10000 });
+    const apos = await pg.evaluate(() => ({
+      guardado: localStorage.getItem('avRegistroOperador'),
+      marcada: document.getElementById('opContar').checked,
+    }));
+    checar(apos.guardado === '0' && apos.marcada === true,
+      'e a escolha SOBREVIVE À RECARGA — com dois estados a página reescrevia a '
+      + 'marca em toda abertura e o interruptor se desfazia sozinho', apos);
+    // Devolve o cenário como ele estava: as asserções seguintes deste arquivo
+    // (e a metade do `site/index.html`) leem a marca do operador.
+    await pg.evaluate(() => localStorage.setItem('avRegistroOperador', '1'));
+
     // ---- o medidor de horas fica FORA quando as amostras são diárias ----
     // Intervalos maiores que 3 h são descartados: entre duas amostras de 24 h
     // não há como saber quanto do contador veio de qual hora, e uma média

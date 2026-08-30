@@ -358,7 +358,11 @@ try {
   const ordem = await pg.$eval('.qs-grade',
     (g) => [...g.children].map((e) => e.id));
   const fixos = ['temaTile', 'fitTile', 'wallTile', 'histOpenRow'];
-  const alterna = ['lyricsBgTile', 'rotBtn', 'farolTile'];
+  // A CONTAGEM DE USO saiu da grade na v1.4.41 e virou uma linha do rodapé do
+  // Registro: ela é chave de MANUTENÇÃO, não preferência de projeção, e era a
+  // única do painel que quem opera o culto nunca toca. Com seis, a grade fecha
+  // em duas fileiras exatas.
+  const alterna = ['lyricsBgTile', 'rotBtn'];
   checar(JSON.stringify(ordem) === JSON.stringify(fixos.concat(alterna)),
     'os tiles SEM "desligado" vêm primeiro e os que ligam e desligam depois',
     JSON.stringify(ordem));
