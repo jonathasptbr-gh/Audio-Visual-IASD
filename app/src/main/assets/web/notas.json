@@ -1,5 +1,12 @@
 [
   {
+    "versao": "1.4.32",
+    "itens": [
+      "No modo fácil só fica uma coisa no ar: o que entra substitui o que estava.",
+      "Nada de imagem ou slides por cima da música ali — isso segue no avançado."
+    ]
+  },
+  {
     "versao": "1.4.31",
     "itens": [
       "O histórico do culto mudou para Configurações.",

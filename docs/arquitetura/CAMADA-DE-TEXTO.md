@@ -195,6 +195,33 @@ argumento que tornou a v5.312 segura, aplicado de novo.
   apresentação a cobre; o contrário (deck no ar, toque numa música) SUBSTITUI,
   como sempre substituiu. É a regra que a imagem já tinha, e inventar uma
   segunda para a mesma pergunta é o que este projeto recusa em toda parte.
+- **E NADA DISSO ACONTECE NO MODO FÁCIL** (v1.4.32). Pedido do operador:
+  *"coloque a limitação de apenas um elemento ativo na mídia, assim no modo
+  simples não há sobreposição e nem necessidade de multicontroles"*. A
+  sobreposição é uma **cena composta**, e operá-la exige saber qual das duas
+  coisas cada controle governa — o ▶ é do áudio de baixo, o ⏭ é da apresentação
+  de cima, o Parar tira uma só. Esse é o vocabulário do modo AVANÇADO, e é
+  exatamente o que o Modo Fácil existe para não pedir de quem opera: ali o toque
+  tem UM significado, *isto vai para o telão*, e o que estava vai embora.
+
+  A guarda é `appMode !== 'simple'` **dentro do `send`**, e as duas metades
+  importam: no `send` porque é o ponto por onde TODOS os caminhos passam
+  (inclusive o compartilhamento, que naquele modo projeta na hora sem perguntar
+  nada — é por ali que uma apresentação de fato entra); e por `appMode` porque a
+  pergunta é sobre o vocabulário do modo, não sobre o estado da conexão — ela
+  continua valendo com o Modo Fácil destravado por "Tocar neste celular", que é
+  quando ele mais se parece com o avançado.
+
+  **A limitação é sobre CRIAR.** Uma cena composta montada no avançado sobrevive
+  à troca de modo, e isso está dito porque é o único caso em que o Modo Fácil
+  tem duas camadas no ar: colapsá-la na troca mudaria a projeção como efeito
+  colateral de um toque em Configurações — ou devolvendo o slide à página 1, ou
+  calando a música, os dois na frente da congregação. Ela dura até o próximo
+  `send`, e enquanto dura é operável (a zona mostra as páginas e as teclas
+  funcionam — ver `modo-facil-slides.test.mjs`).
+
+  Oráculo: `tools/modo-facil-um-elemento.test.mjs`, cuja metade que fecha o lote
+  é a REVERSÃO — o avançado continua sobrepondo.
 
 **Oráculos: `tools/imagem-sobre-audio.test.mjs` e `tools/slides-sobre-audio.test.mjs`.**
 A regra é uma AUSÊNCIA (nenhum `load` sai deste caminho), e ausência não tem

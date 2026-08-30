@@ -701,6 +701,21 @@ jobs:
           # com `src` revogado não pinta e não reclama) e a página entrando na
           # assinatura, que remontaria dezenas de miniaturas a cada ⏭.
           rodar tools/modo-facil-slides.test.mjs
+          # E NO MODO FÁCIL SÓ HÁ UM ELEMENTO NO AR (v1.4.32): *"coloque a
+          # limitação de apenas um elemento ativo na mídia, assim no modo
+          # simples não há sobreposição e nem necessidade de multicontroles"*. A
+          # sobreposição é uma CENA COMPOSTA, e operá-la exige saber qual das
+          # duas coisas cada controle governa — o ▶ é do áudio de baixo, o ⏭ é
+          # da apresentação de cima. Esse é o vocabulário do modo AVANÇADO, e é
+          # o que o Modo Fácil existe para não pedir. A metade que fecha o lote
+          # é a REVERSÃO: o avançado CONTINUA sobrepondo — sem ela, apagar a
+          # sobreposição do app inteiro passaria em tudo o mais e o recurso da
+          # v1.4.28 morreria em silêncio, num modo que o pedido nem nomeia.
+          # Cobre as DUAS portas do cartão (imagem e apresentação), o Modo Fácil
+          # destravado por "Tocar neste celular" (a guarda é do MODO, não da
+          # conexão) e o COMPARTILHAMENTO, que é por onde uma apresentação de
+          # fato entra ali e o que uma guarda escrita nas telas deixaria de fora.
+          rodar tools/modo-facil-um-elemento.test.mjs
           # E A TELA DA REDE do telão por comandos (E3 — ver
           # docs/TELAO-POR-COMANDOS.md): o /display/ servido pelo celular
           # rodando num navegador comum, com a entrada pelo código, o dreno de
