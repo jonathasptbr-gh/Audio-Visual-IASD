@@ -1,5 +1,13 @@
 [
   {
+    "versao": "1.4.30",
+    "itens": [
+      "O modo fácil passou a mostrar os slides da apresentação que está no ar.",
+      "E ganhou as teclas de passar página, do tamanho das de volume.",
+      "Tocar num slide da lista pula direto para ele, como no modo avançado."
+    ]
+  },
+  {
     "versao": "1.4.29",
     "itens": [
       "Os botões de confirmar exclusão e a caixa de renomear voltaram a alinhar com a linha.",

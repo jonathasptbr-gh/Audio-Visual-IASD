@@ -24,6 +24,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
+- **v1.4.30** — O MODO FÁCIL PASSOU A OPERAR UMA APRESENTAÇÃO. Pedido do operador: *"verifique o modo simples e seu auxiliar de leitura. Ele deve adquirir as funções para controle de slides também"*. **MEDIDO antes de mexer, e o achado é maior que o pedido:** com uma apresentação em cena aquele modo não a operava de jeito NENHUM. A zona de leitura dizia *"A letra da música aparece aqui."* — a projeção no ar negada pela única superfície do modo que deveria descrevê-la — e as teclas eram play · parar · mudo mais o volume, sem nada que virasse página. O eixo já existia (`slideTarget()` respondia `'deck'`); faltava alguém ali ligado a ele. Uma apresentação entra por compartilhamento (`focarImportado` projeta na hora neste modo), projeta, e ficava **presa na página 1** até o operador ir ao modo avançado — que é justamente o modo que este existe para não exigir. **A assimetria com a letra é o ponto:** a letra anda sozinha pelo relógio da música e ali a zona ILUSTRA; um deck não tem relógio, e por isso aqui ela é também CONTROLE — o toque numa página pula para ela (o mesmo `deckIr`), e a linha `‹ · N/M · ›` nasceu com a GEOMETRIA DA LINHA DE VOLUME, que é a forma já provada do *"teclas grandes, nada de arrastar"*. Ela **espelha** os limites (`renderSimpleSlides` lê o `disabled` que `applySlideLimits` acabou de escrever, a técnica do `renderTransportAxis`) e as teclas acionam as ÂNCORAS do avançado por `.click()`, como o play/parar/mudo já faziam. Duas armadilhas caladas apareceram ao escrever: as MINIATURAS revogadas pela outra coluna (dois desenhistas de páginas dividiam uma lista de URLs, e uma `<img>` com `src` revogado não pinta e não reclama — daí `lvSoltarUrls(lista)` receber a lista) e a PÁGINA na assinatura, que remontaria dezenas de miniaturas a cada ⏭. `--vol` do mostrador virou `--curso`: a caixa passou a ter dois donos. Oráculo novo (`modo-facil-slides.test.mjs`, 14 asserções), cinco reversões, 63/63 verdes. **SÓ BASE WEB.**
 - **v1.4.29** — AS ALTURAS DA FAIXA, E O TECLADO QUE ESPREMIA O CULTO. Dois relatos, e cada um tem uma causa própria. **1) A ALTURA**: *"a altura dos botões de cancelar ou confirmar exclusão, como também a altura da caixa de renomear, estão desalinhadas com as alturas dos botões padrões de tudo dentro da gaveta, como o próprio botão de confirmar renomeação"*. MEDIDO a 430px: no Cronograma TODO quadrado da linha mede `--thumb` (40px, desde a v5.259) e o par e o campo nasceram com `--hit` (34px) — **6px** de diferença, e o ✓ do renomear era a régua que denunciava, porque ele é um `.row-slot` da v1.4.27 e já media 40. O escopo da correção é `.row-acoes` e não `.lib-item`, porque **a régua é o VIZINHO e não a lista**: na FILA os quadrados já medem `--hit` (nunca esteve desalinhada) e na faixa dos FAVORITOS o vizinho é o confirmar da folha, que ESTICA. **2) UM TERCEIRO CASO, achado pela mesma medição e que o operador ainda não tinha visto**: nos Favoritos o campo de renomear media 34px contra os 53,2px do confirmar ao lado — o MESMO pulo de 19px sob o dedo que a v5.309 já tinha corrigido para a pergunta da exclusão, num caminho (o renomear, v1.4.25) que nasceu depois daquela regra e ficou de fora dela. **3) O TECLADO**: *"o teclado está arrastando e encolhendo a tela com o controle ao invés de sobrepor o controle/tela como já faz na biblioteca"*. A régua já estava escrita no CSS do `.popup-backdrop` — *"O TECLADO SOBREPÕE, NÃO DESLOCA… quem rola é a LISTA"* — e vale aqui com um motivo a mais: o que o app encolhe para caber é a PREVIEW e o TRANSPORTE, isto é, a projeção e os controles do culto, comprimidos para revelar um campo que já está à vista numa lista que rola sozinha. A declaração é do CAMPO (`data-teclado="sobrepoe"`), não uma classe que o handler conheça, e o padrão continua sendo DESLOCAR — que é o que o `appPrompt` precisa. Cinco asserções novas, todas provadas por reversão. OTA PURO.
 - **v1.4.28** — A APRESENTAÇÃO VIROU CAMADA (música atrás dos slides), E AS ABAS DO AUXILIAR SEGUEM A PILHA. Dois pedidos do operador: *"adicione a possibilidade de música atrás dos slides. Atualmente são concorrentes, mas os slides devem ser tratados como camada, assim como as imagens ou os textos e mensagens"* e *"a aba da bíblia está entre a letra e a cifra, coloque ela à esquerda, pois letra e cifra são irmãs, sempre juntas quando ambas existem"*. **O primeiro é a v5.312 aplicada de novo:** o motor tem UM slot de mídia (`loadInner` faz `video.pause()` + `removeAttribute('src')` sem condição), então todo `load` mata o louvor — e o que sobrevive a isso é a Camada de Texto, que não emite `load` nenhum. Uma página de deck é UMA imagem opaca ocupando a tela, que é exatamente o que aquele cartão já pinta, então a apresentação entrou no modo `image` com um campo `page` a mais: o telão ganhou uma **escolha de blob** e nenhum ramo novo, nenhuma classe, nenhum caminho novo de reenvio nem de `text-hide`. O que um deck tem e uma imagem não tem são PÁGINAS, e daí as três peças próprias: `slideTarget` devolve `'deck'` ANTES da guarda que devolve `null` para a imagem (o argumento dela é *"este cartão não tem para onde ir"*, e um deck tem); `deckIr` ganhou DOIS caminhos num ponto só (como mídia a página anda por `page`, na camada ela reenvia o `text` — um `page` mandado para a camada não acha deck nenhum no motor e **não faz NADA**, sem erro, com o operador apertando o botão); e `deckNoAr()` é a resposta ÚNICA para *"qual apresentação está no ar"*. **A metade que quase passou é a PREVIEW**: ela pinta este cartão por conta própria (`pintarPvTextImg`) e ficaria na página 1 para sempre enquanto o telão passa slides — sem TV a preview É a projeção, e é a armadilha do `fundo-da-letra` outra vez (*ler cada lado isolado aprova os dois*). **O segundo pedido era uma SEGUNDA LISTA**: a ordem certa já existia (a pilha do `lyricsViewSources`), e a errada era a do HTML estático — que divergiu em silêncio, com a folha funcionando e a Bíblia separando duas abas irmãs. Hoje a tela REORDENA os botões por `avail`. `imgSession` virou `visualSession` no mesmo lote: um nome que guardasse um deck seria a armadilha que este projeto nomeia. Oráculo novo (`slides-sobre-audio.test.mjs`, 24 asserções, com a COR do pixel provando a página), cinco reversões, 62/62 verdes. **SÓ BASE WEB.**
 - **v1.4.27** — O `⋮` CEDE A COLUNA AO PROCESSO, E A CAPA SAI JUNTO. Pedido do operador: *"durante a renomeação e durante a confirmação de exclusão, pode remover (no caso da exclusão) e utilizar (no caso de renomear) o botão que abre a gaveta de opções do item. Pois hoje durante um desses processos o botão fica visível, mas ele contradiz o fluxo dos botões, pois o processo de exclusão e o de renomear já devem ter métodos de retorno/cancelamento… inclusive, pode padronizar, ocultar também a thumbnail, para ter mais espaço tanto para a gaveta de opções como para a barra de renomeação… use o próprio botão de abrir gaveta de opções como botão indicativo"*. O defeito é de FLUXO, não de pintura: um `⋮` aceso ao lado de "Cancelar/Excluir" é uma **terceira saída** para uma pergunta que já tem duas — e as três fazem coisas diferentes, porque fechar a gaveta desfaz a pergunta, isto é, cancela POR ACIDENTE. **A capa saía pelo mesmo argumento, já vencido de dentro:** o que a mantinha era *"com o nome coberto, ela é a única coisa que ainda diz de QUAL linha é este menu"*, e na exclusão ela virava uma LIXEIRA — parava de identificar coisa nenhuma. Fora do processo o argumento continua inteiro e as duas colunas continuam lá. **A terceira parte é a que amarra as outras duas:** as duas primeiras abrem ~48px na faixa (MEDIDO: 292px → 340px a 430px), e a coluna do `⋮` passa a ser ocupada pelo SÍMBOLO do processo — a lixeira na exclusão, o ✓ no renomear —, na caixa exata que o `⋮` ocupava; sem ocupante a linha encolheria e a faixa dançaria de largura no meio de um destrutivo. O slot mede o `⋮` **por construção** (entra nas mesmas regras de caixa e de escala de ícone), então segue `--hit` na fila e `--thumb` no Cronograma sem ninguém precisar lembrar. **O CAMINHO B está medido e é o que o lote pode quebrar sem sintoma:** a gaveta dos FAVORITOS não tem `⋮` (ela abre pelo corpo da linha e a faixa fica ABAIXO, sem cobrir nada), e lá o ✓ volta para dentro da faixa e a lixeira para a capa — cada um para a casa de onde saiu, e são destinos diferentes de propósito, porque um DECIDE e o outro ILUSTRA. Quatro asserções novas no `smoke.mjs` e uma no `boot-nativo`, todas provadas por reversão. OTA PURO.
@@ -300,6 +301,94 @@ na nota que a revoga, não apagada da que a criou.
 - **v5.154** — é METADE OTA e METADE APK, e a divisão importa para quem for testar em aparelho.
 - **v5.155** — é OTA PURO
 - **v5.156** — é METADE OTA e METADE APK, de novo.
+
+---
+
+## v1.4.30 — o Modo Fácil passou a operar uma apresentação
+
+> *"verifique o modo simples e seu auxiliar de leitura. Ele deve adquirir as
+> funções para controle de slides também"*
+
+### O que a verificação achou
+
+**MEDIDO antes de mexer**, e o achado é maior que o pedido: com uma apresentação
+em cena o Modo Fácil **não a operava de jeito nenhum**.
+
+- A zona de leitura dizia *"A letra da música aparece aqui."* — a projeção no ar
+  negada pela única superfície daquele modo que deveria descrevê-la.
+- As teclas eram `play · parar · mudo` mais as de volume. **Nada virava página.**
+
+O eixo já existia — `slideTarget()` respondia `'deck'` e `stepSlide` funcionava —;
+o que faltava era alguém neste modo ligado a ele. Uma apresentação entra ali por
+compartilhamento (`focarImportado` projeta na hora no simplificado), projeta, e
+ficava **presa na página 1** até o operador ir ao modo avançado. Que é
+justamente o modo que este existe para não exigir.
+
+### A assimetria com a letra é o ponto
+
+A letra anda sozinha, pelo relógio da música: ali a zona **ilustra** e mais nada.
+Um deck não tem relógio — alguém precisa passar a página —, e por isso aqui ela é
+também **controle**:
+
+- **o toque numa página pula para ela**, pelo mesmo `deckIr` do modo avançado
+  (não um segundo jeito de saltar, que divergiria no primeiro ajuste);
+- **a linha `‹ · N/M · ›`** é o passo a passo, que é o gesto do sermão: repetido,
+  sem olhar.
+
+**A geometria da linha é a da linha de volume**, e isso é escolha: este modo é
+*"teclas grandes, nada de arrastar"*, e aquela linha é a forma já provada disso —
+as mesmas três células (`1fr 1.1fr 1fr`), a mesma altura de tecla, o mesmo
+mostrador no meio. O número responde *"onde estou?"* sem exigir mira, que é
+exatamente o que a página precisa responder. Com uma LETRA em cena a linha nem
+existe: oferecer um controle que ninguém precisa exercer é o que este app não
+faz.
+
+**E ela ESPELHA, não recalcula.** `renderSimpleSlides` lê o `disabled` que
+`applySlideLimits` acabou de escrever nas âncoras do modo avançado — a técnica do
+`renderTransportAxis`, e pelo motivo dele: uma segunda conta de *"posso
+avançar?"* divergiria calada, com a tecla acesa no fim da apresentação ou apagada
+no meio dela. As teclas acionam as âncoras por `.click()`, como o play/parar/mudo
+já faziam, e assim o limite vale aqui sem uma segunda guarda.
+
+**Quem está na frente vence**, que é a pilha do auxiliar do modo avançado
+(v1.4.26): com uma apresentação sobre um louvor de fundo (v1.4.28) a zona mostra
+as PÁGINAS. Há UMA zona neste modo, e mostrar a camada de trás seria descrever o
+que a congregação não está vendo. Nesse caso o número da página é o **único**
+lugar do modo que o mostra — o título é o do áudio, que é o que o ▶ controla.
+
+### As duas armadilhas caladas que apareceram ao escrever
+
+- **AS MINIATURAS REVOGADAS PELA OUTRA COLUNA.** Passaram a existir DOIS
+  desenhistas de páginas (esta zona e a folha do modo avançado), e enquanto a
+  lista de URLs de objeto foi uma só, redesenhar um **revogava as imagens do
+  outro**: a coluna fica com os quadros vazios, sem erro em lugar nenhum, porque
+  uma `<img>` com `src` revogado não pinta e não reclama. Daí `lvSoltarUrls`
+  receber a LISTA como parâmetro e cada zona ter o sumidouro dela.
+- **A PÁGINA NA ASSINATURA.** É a regra do `lvSignature` num lugar novo: o
+  destaque anda por classe, e com a página lá dentro cada toque no ⏭ revogaria e
+  recriaria as miniaturas de uma apresentação inteira no meio do sermão.
+
+E uma terceira, menor: **sair do modo tinha de soltar os Blobs** —
+`refreshSimpleLyrics` volta cedo fora do simplificado, então ninguém mais
+passaria por elas — **e zerar a assinatura junto**, senão a volta ao modo acharia
+tudo igual e deixaria a zona vazia para sempre. As duas metades têm asserção, e
+só juntas provam que a limpeza não apagou o recurso.
+
+### `--vol` virou `--curso`
+
+O mostrador do meio (`.simple-vol-read`) passou a ter dois donos, e o nome tinha
+de descrever o que ele desenha — *quanto do curso está usado*, que é o que o
+comentário dele já dizia. O fader do modo avançado continua com `--vol`, que ali
+é volume de verdade.
+
+### O oráculo
+
+`tools/modo-facil-slides.test.mjs`, 14 asserções, no portão. Cinco reversões: a
+zona ignorando o deck (reprova 3), a linha nunca aparecendo (reprova 3), a lista
+de URLs voltando a ser uma, a página na assinatura, e a assinatura não zerada ao
+sair do modo. 63/63 verdes.
+
+**SÓ BASE WEB** — sem degrau de ponte, sem `shellTag`, sem Release.
 
 ---
 

@@ -151,10 +151,56 @@ botões físicos (`VOL_KEY_STEP`) e a mesma `applyVolume()`. `holdRepeat()` faz 
 tecla repetir enquanto segurada: o primeiro passo sai no `pointerdown` e a
 repetição só começa depois de uma pausa, senão um toque comum viraria dois.
 
-**A zona de letra reusa o renderizador da leitura auxiliar**: `lvBuildSong()` e
-`lvMarkCurrent()` recebem o CONTAINER como parâmetro, e `refreshSimpleLyrics()`
-entra no mesmo pulso de `renderSlideNav()`, sem timer próprio. Rolar com o dedo
-desliga o acompanhamento até a próxima música, como no popup.
+**A zona de leitura reusa o renderizador da leitura auxiliar**: `lvBuildSong()`,
+`lvBuildDeck()` e `lvMarkCurrent()` recebem o CONTAINER como parâmetro, e
+`refreshSimpleLyrics()` entra no mesmo pulso de `renderSlideNav()`, sem timer
+próprio. Rolar com o dedo desliga o acompanhamento até a próxima cena, como no
+popup.
+
+#### A zona vira a coluna de PÁGINAS, e aqui ela também CONTROLA (v1.4.30)
+
+Pedido do operador: *"verifique o modo simples e seu auxiliar de leitura. Ele
+deve adquirir as funções para controle de slides também"*.
+
+**MEDIDO antes de mexer:** com uma apresentação em cena este modo não a operava
+**de jeito nenhum**. A zona dizia *"A letra da música aparece aqui."* — a
+projeção no ar negada pela única superfície do modo que deveria descrevê-la — e
+as teclas eram `play · parar · mudo` mais o volume, sem nada que virasse página.
+O eixo já existia (`slideTarget()` respondia `'deck'`); faltava alguém aqui
+ligado a ele. Uma apresentação entra por compartilhamento (`focarImportado`
+projeta na hora neste modo), projeta, e ficava **presa na página 1** até o
+operador ir ao modo avançado — que é justamente o modo que este existe para não
+exigir.
+
+**A ASSIMETRIA COM A LETRA É O PONTO.** A letra anda sozinha, pelo relógio da
+música: ali a zona ILUSTRA e mais nada. Um deck não tem relógio — alguém precisa
+passar a página —, e por isso aqui ela é também CONTROLE: o toque numa página
+pula para ela (o mesmo `deckIr` do modo avançado, não um segundo jeito de
+saltar).
+
+| peça | o quê |
+|---|---|
+| `refreshSimpleLyrics` | pergunta `deckNoAr()` primeiro. **Quem está na frente vence** — é a pilha do auxiliar do modo avançado (v1.4.26): há UMA zona neste modo, e mostrar a camada de trás seria descrever o que a congregação não está vendo. Com uma apresentação sobre um louvor (v1.4.28) ela mostra as PÁGINAS |
+| `#simpleSlidesRow` | as teclas `‹ · N/M · ›`, com a **geometria da linha de volume** (`1fr 1.1fr 1fr`, teclas de 76px, o mesmo `.simple-vol-read` no meio). Este modo é *"teclas grandes, nada de arrastar"*, e aquela linha é a forma já provada disso — o número responde *"onde estou?"* sem exigir mira. Só existe com um deck no ar |
+| `renderSimpleSlides(who)` | **espelha, não recalcula**: o `disabled` sai das âncoras que `applySlideLimits` acabou de escrever, e o `who` é o mesmo `slideTarget()`. É a técnica do `renderTransportAxis`, e pelo motivo dele — uma segunda conta de *"posso avançar?"* divergiria CALADA (a tecla acesa no fim da apresentação, ou apagada no meio) |
+| as teclas | acionam as ÂNCORAS do modo avançado por `.click()`, como o play/parar/mudo: um botão `disabled` é no-op natural, e o limite vale aqui sem uma segunda guarda |
+| `lvSimpleDeckUrls` | o sumidouro **próprio** das miniaturas. Há dois desenhistas de páginas (esta zona e a folha do avançado), e uma lista única fazia o redesenho de um revogar as imagens do outro — quadros vazios, **sem erro em lugar nenhum**, porque uma `<img>` com `src` revogado não pinta e não reclama. Daí `lvSoltarUrls(lista)` receber a lista |
+
+- **A PÁGINA FICA FORA DA ASSINATURA**, pela razão do `lvSignature`: o destaque
+  anda por classe, e com ela lá dentro cada toque no ⏭ revogaria e recriaria as
+  miniaturas de uma apresentação inteira no meio do sermão.
+- **Sair do modo solta os Blobs**, e zera a assinatura junto: `refreshSimpleLyrics`
+  volta cedo fora do simplificado, então ninguém mais passaria por elas — e sem
+  zerar o `sig` a volta ao modo acharia tudo igual e deixaria a zona vazia para
+  sempre.
+- **`--curso` e não `--vol`**: o mostrador do meio passou a ter dois donos (o
+  volume e a página), e o nome tem de descrever o que ele desenha. O fader do
+  modo avançado continua com `--vol`, que ali é volume de verdade.
+- **Com uma LETRA em cena a linha nem existe.** A estrofe anda sozinha pelo
+  relógio da música, e um par de teclas oferecendo um controle que ninguém
+  precisa exercer é o que este app não faz.
+
+Oráculo: `tools/modo-facil-slides.test.mjs`.
 
 A espiada do volume pelos botões físicos (`peekVolume`) **não roda aqui**: as
 teclas de volume já estão na tela, com o número ao lado — e as duas passam pelo

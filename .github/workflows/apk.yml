@@ -685,6 +685,22 @@ jobs:
           # apresentação continua entrando como MÍDIA" — sem ela, sobrepor
           # sempre passaria em tudo o mais.
           rodar tools/slides-sobre-audio.test.mjs
+          # E O MODO FÁCIL OPERA UMA APRESENTAÇÃO (v1.4.30): *"verifique o modo
+          # simples e seu auxiliar de leitura. Ele deve adquirir as funções para
+          # controle de slides também"*. MEDIDO antes de mexer: com uma
+          # apresentação em cena aquele modo não a operava de jeito nenhum — a
+          # zona de leitura dizia "A letra da música aparece aqui" (a projeção
+          # no ar negada pela única superfície que deveria descrevê-la) e não
+          # havia tecla que virasse página. O eixo já existia
+          # (`slideTarget()` respondia 'deck'); faltava alguém ali ligado a ele,
+          # e uma apresentação compartilhada ficava presa na página 1 até o
+          # operador ir ao modo avançado — o modo que este existe para não
+          # exigir. As metades que falham CALADAS: o limite das teclas (elas
+          # ESPELHAM o `disabled` das âncoras, e uma segunda conta divergiria
+          # sem sintoma), as miniaturas revogadas pela OUTRA coluna (uma `<img>`
+          # com `src` revogado não pinta e não reclama) e a página entrando na
+          # assinatura, que remontaria dezenas de miniaturas a cada ⏭.
+          rodar tools/modo-facil-slides.test.mjs
           # E A TELA DA REDE do telão por comandos (E3 — ver
           # docs/TELAO-POR-COMANDOS.md): o /display/ servido pelo celular
           # rodando num navegador comum, com a entrada pelo código, o dreno de
