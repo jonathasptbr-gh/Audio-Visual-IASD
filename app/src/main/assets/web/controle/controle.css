@@ -14,8 +14,33 @@
      deve abrir menu de seleção. `!important` porque a folha do UA tem
      especificidade maior que `*`. */
   user-select: none !important; -webkit-user-select: none !important;
-  -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent;
+  /* E O REALCE DE TOQUE LEVA O MESMO `!important` (v1.4.34). Ele estava aqui
+     sem ele desde sempre, e a declaração AO LADO documenta por que isso não
+     basta: a folha do UA vence `*`. No Chromium de mesa ele é zerado e nada
+     aparece — no WebView do aparelho o realce é um retângulo AZULADO, invisível
+     sobre a superfície de um `.t-btn` e muito visível sobre um `.pv-fab`, que
+     não tem fundo nenhum e mora em cima da imagem projetada. */
+  -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent !important;
 }
+/* ---------- O ANEL DE FOCO É DO TECLADO, E SÓ DELE (v1.4.34) ----------
+   Relato do operador, depois da v1.4.33: *"ainda estou vendo a onda azulada de
+   feedback de toque tanto no botão de mudo quanto no botão da cortina"*.
+
+   O `*` acima deixa `outline` de fora **de propósito** — é o anel de foco do
+   teclado, e tirá-lo cegamente deixaria quem navega por teclas sem saber onde
+   está. Mas `outline-style: auto` faz o Chromium desenhar o anel DELE, que no
+   WebView do Android é AZUL; e um `<button>` fica com `:focus` depois do toque,
+   então o anel não é um piscar: ele GRUDA até o foco sair.
+
+   É por isso que o relato nomeia justamente estes dois: o mudo e a cortina são
+   os que ficam sob o dedo. O `#pvFullBtn` entra em tela cheia e o `#pvCastBtn`
+   abre o seletor do sistema — o anel deles ninguém vê.
+
+   `:focus-visible` é exatamente a pergunta "o foco veio do teclado?", então
+   esta regra não decide nada de novo: ela APLICA o que o comentário acima já
+   diz. Ela vale para o app inteiro porque o mecanismo é do app inteiro; sobre a
+   preview ele só é o mais visível, por ser desenhado em cima da projeção. */
+:focus:not(:focus-visible) { outline: none; }
 /* Exceção: os campos de busca são o único texto que faz sentido editar. */
 input, textarea { user-select: text !important; -webkit-user-select: text !important; }
 [hidden] { display: none !important; }

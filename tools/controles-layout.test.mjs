@@ -411,6 +411,70 @@ try {
     'e o botão DA BARRA continua afundando os 2px: o que mudou é o desenho SEM '
     + 'pastilha, não a regra do app', naBarra);
 
+  // ── 2c. O ANEL DE FOCO É DO TECLADO, E SÓ DELE (v1.4.34) ────────────────
+  //
+  // Relato do operador, DEPOIS da v1.4.33: *"ainda estou vendo a onda azulada
+  // de feedback de toque tanto no botão de mudo quanto no botão da cortina"*.
+  //
+  // `outline-style: auto` faz o Chromium desenhar o anel DELE — azul no WebView
+  // do Android —, e um `<button>` fica com `:focus` depois do toque: ele não
+  // pisca, GRUDA até o foco sair. Daí o relato nomear justamente estes dois
+  // (são os que ficam sob o dedo; o de tela cheia e o de cast saem da tela).
+  //
+  // ===== O QUE ESTE ORÁCULO **NÃO** PROVA, e está dito porque importa =====
+  //
+  // A metade do PONTEIRO é INALCANÇÁVEL aqui: MEDIDO por reversão, o Chromium
+  // de mesa já não desenha anel num foco de ponteiro (o `:focus-visible` dele é
+  // falso), então a asserção passava COM e SEM a regra — uma tautologia. Quem
+  // desenha o anel azul é o WebView do aparelho, e este arnês não é ele.
+  //
+  // Fica então a natureza que o `rotina-cede-a-vez.test.mjs` já declara: a
+  // FORMA (a regra existe e é ESCOPADA a `:not(:focus-visible)`) mais o
+  // COMPORTAMENTO que é alcançável — o anel do TECLADO sobrevive. É essa
+  // segunda que impede o conserto de virar outro defeito: um `outline: none`
+  // seco deixaria quem navega por teclas sem saber onde está, e ela reprova
+  // exatamente isso.
+  const regraDoAnel = await pg.evaluate(() => {
+    for (const folha of document.styleSheets) {
+      let regras; try { regras = folha.cssRules; } catch (_) { continue; }
+      for (const r of regras) {
+        if (r.selectorText && /:focus\b/.test(r.selectorText) && /outline/.test(r.style.cssText || '')) {
+          return { seletor: r.selectorText, corpo: r.style.cssText };
+        }
+      }
+    }
+    return null;
+  });
+  checar(!!regraDoAnel && /:not\(:focus-visible\)/.test(regraDoAnel.seletor)
+    && /outline:\s*none/.test(regraDoAnel.corpo),
+    'o anel de foco é apagado SÓ fora do teclado (`:focus:not(:focus-visible)`) — '
+    + 'no aparelho ele é AZUL e GRUDA depois que o dedo sai, e não é feedback de '
+    + 'toque: é um estado pendurado', regraDoAnel);
+  const anel = { ponteiro: 'inalcançável no Chromium de mesa — ver o comentário' };
+  await pg.evaluate(() => {
+    const e = document.querySelector('#muteToggle');
+    e.blur();
+    window.__lerAnel = () => {
+      const cs = getComputedStyle(e);
+      return { visivel: e.matches(':focus-visible'), estilo: cs.outlineStyle, largura: cs.outlineWidth };
+    };
+    e.focus({ preventScroll: true });
+  });
+  // TECLADO DE VERDADE: `focus({focusVisible:true})` NÃO é honrado (medido — o
+  // `:focus-visible` continuou falso), e uma asserção por cima dele reprovaria
+  // um app que está certo. Quem decide é a heurística do navegador, e ela lê a
+  // navegação por Tab.
+  await pg.keyboard.press('Tab');
+  await pg.keyboard.press('Shift+Tab');
+  anel.teclado = await pg.evaluate(() => ({
+    foco: document.activeElement === document.querySelector('#muteToggle'),
+    ...window.__lerAnel(),
+  }));
+  await pg.evaluate(() => { document.querySelector('#muteToggle').blur(); delete window.__lerAnel; });
+  checar(anel.teclado.visivel && anel.teclado.estilo !== 'none',
+    'e o foco vindo do TECLADO continua com anel: a folha deixa `outline` de fora '
+    + 'do reset de propósito, e quem navega por teclas precisa saber onde está', anel);
+
   // ── 3-A. A COLUNA DA TELA CHEIA: NASCE ACESA, E O TOQUE É INTERRUPTOR ───
   //
   // Sem TV a preview em tela cheia É a projeção, então tudo o que se pinta aqui
