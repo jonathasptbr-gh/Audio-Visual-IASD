@@ -1,5 +1,12 @@
 [
   {
+    "versao": "1.4.34",
+    "itens": [
+      "O realce azulado do toque saiu dos botões sobre a preview.",
+      "O anel de foco voltou a ser só de quem navega por teclado."
+    ]
+  },
+  {
     "versao": "1.4.33",
     "itens": [
       "Os botões sobre a preview pararam de escorregar ao toque.",

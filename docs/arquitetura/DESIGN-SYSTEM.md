@@ -263,6 +263,29 @@ Fora de `tokens.css`, no `:root` do Controle (não são cor):
   mesmo em todo `.pv-fab`, inclusive o de 28px da tela cheia. Quem TEM tecla
   continua afundando os 2px.
 
+  **E O QUE A PLATAFORMA PINTA POR CIMA** (v1.4.34). Tirado o deslocamento, o
+  operador relatou que ainda via *"a onda azulada de feedback de toque"* no mudo
+  e na cortina. Nenhum token do app é azul ali — quem pinta é o UA, por dois
+  caminhos, e os dois foram fechados:
+
+  - **o realce de toque** (`-webkit-tap-highlight-color`) estava no `*` **sem
+    `!important`**, e a declaração AO LADO dele documenta por que isso não basta
+    (a folha do UA vence `*` — foi por isso que `user-select` ganhou o seu).
+    Invisível sobre a superfície de um `.t-btn`, muito visível sobre um
+    `.pv-fab`, que não tem fundo e mora em cima da imagem projetada.
+  - **o anel de foco** (`outline-style: auto`, que o Chromium desenha do jeito
+    dele — azul no WebView). O `*` deixa `outline` de fora **de propósito**, mas
+    a intenção escrita ali é *"é o anel de foco do teclado"*; um `<button>` fica
+    com `:focus` depois do toque, então o anel não pisca: ele GRUDA até o foco
+    sair. `:focus:not(:focus-visible) { outline: none }` aplica a intenção que já
+    estava escrita, sem tirar o anel de quem navega por teclas.
+
+  **O que o oráculo NÃO prova, e está dito:** a metade do PONTEIRO é inalcançável
+  no Chromium de mesa — MEDIDO por reversão, ele já não desenha anel num foco de
+  ponteiro, então a asserção passava com e sem a regra. Ficou a FORMA (a regra
+  existe e é escopada) mais o comportamento alcançável (o anel do TECLADO
+  sobrevive), na natureza que o `rotina-cede-a-vez.test.mjs` já declara.
+
   **Um ANCESTRAL não responde ao toque que foi para um filho** — e as guardas
   suprimem as DUAS partes: matar só a geometria deixaria o bloco inteiro
   acendendo por um toque de 40px, o mesmo defeito por outra propriedade.

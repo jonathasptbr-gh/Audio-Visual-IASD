@@ -24,6 +24,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
+- **v1.4.34** — O AZUL QUE SOBROU NO TOQUE ERA DA PLATAFORMA, NÃO NOSSO. Relato do operador, depois da v1.4.33: *"ainda estou vendo a onda azulada de feedback de toque tanto no botão de mudo quanto no botão da cortina"*. Nenhum token do app é azul ali — não há `:hover` na folha, o `--stage-accent-glow` (o único azul-claro da paleta) só existe no Display, e o `--shadow-ink` do halo é preto puro. Quem pinta é o UA, por DOIS caminhos, e os dois estavam abertos: **o realce de toque** (`-webkit-tap-highlight-color`), que estava no `*` **sem `!important`** — e a declaração AO LADO dele documenta por que isso não basta (a folha do UA vence `*`; foi por isso que o `user-select` ganhou o dele) —, invisível sobre a superfície de um `.t-btn` e muito visível sobre um `.pv-fab`, que não tem fundo e mora em cima da imagem projetada; e **o anel de foco** (`outline-style: auto`, que o Chromium desenha do jeito dele, azul no WebView), que o `*` deixa de fora DE PROPÓSITO — só que a intenção escrita ali é *"é o anel de foco do teclado"*, e um `<button>` fica com `:focus` depois do toque: o anel não pisca, ele GRUDA até o foco sair. É por isso que o relato nomeia justamente estes dois — o mudo e a cortina ficam sob o dedo, enquanto o de tela cheia e o de cast saem da tela. `:focus:not(:focus-visible)` aplica a intenção que já estava escrita sem tirar o anel de quem navega por teclas. **E O QUE O ORÁCULO NÃO PROVA ESTÁ DITO:** a metade do PONTEIRO é inalcançável no Chromium de mesa — MEDIDO por reversão, ele já não desenha anel num foco de ponteiro, então a asserção passava COM e SEM a regra, uma tautologia; ficou a FORMA (a regra existe e é escopada) mais o comportamento alcançável (o anel do TECLADO sobrevive, e é ele que reprova o `outline: none` seco). Duas reversões. OTA PURO.
 - **v1.4.33** — O TOQUE SOBRE A PREVIEW ACENDE O TRAÇO; ELE NÃO AFUNDA. Relato do operador: os botões de mudo e da cortina *"ainda estão erroneamente com o feedback tátil de quando ainda estavam na barra, ajuste para ficarem no padrão dos botões sobre o preview"*. **A primeira medição desmentiu a leitura óbvia**: não havia inconsistência ENTRE os botões da preview — os três (`#viewToggle`, `#muteToggle`, `#pvFullBtn`) respondiam idêntico, `translateY(2px)` + `brightness(1.35)`. O que estava errado era o PADRÃO deles, e o operador nomeou de onde ele veio: `.pv-fab` entrou na lista do `--press` colado em `.ctl-btn` e `.t-btn`, isto é, herdou a resposta dos botões DA BARRA. E `--press` encena **a tecla que afunda** — uma metáfora que precisa de uma tecla. O `.pv-fab` não tem pastilha: ele É o traço branco sobre o que estiver projetado, e ali o recuo se lê como o ícone PULANDO por cima da imagem no ar (sem TV, essa imagem é a projeção). **A segunda medição fechou o diagnóstico e derrubou o conserto fácil** (tirar o recuo e ficar com a luz): no `#muteToggle`, `brightness(1.35)` leva o traço de **240,6 a 238,3** — branco já está no teto, então ela só DESBOTA o halo escuro — e o fundo de 14,3 a 14,5. Os dois deltas são invisíveis; sem o recuo o botão ficaria MUDO ao toque, que o próprio design system chama de defeito. Os `1,86:1` da v1.3.14 são de um glifo COLORIDO sem fundo, não de um traço branco. O que sobra, e é o que a preview sempre teve de próprio, é a **pena do traço** (`stroke-width`), com o halo engrossando junto: ela não depende da cor de trás, não move um pixel de alvo e é o "acender o próprio traço" que o `--press-luz` promete e não entrega num desenho sem fundo. MEDIDO nos dois extremos de fundo — sobre o wallpaper escuro, **+21%** de luminância média; sobre um slide BRANCO, **−10%** com +67px de contorno. NÃO é escala: a caixa não muda de tamanho e a regra do recuo absoluto segue intacta para quem tem tecla. Três asserções novas no `controles-layout.test.mjs`, três reversões (o recuo de volta, a resposta apagada, e o `--press` morto no app inteiro — o conserto preguiçoso). OTA PURO.
 - **v1.4.32** — NO MODO FÁCIL SÓ HÁ UM ELEMENTO NO AR. Pedido do operador: *"no modo simples, coloque a limitação de apenas um elemento ativo na mídia, assim no modo simples não há sobreposição e nem necessidade de multicontroles"*. A sobreposição (v5.312 para a imagem, v1.4.28 para a apresentação) é uma CENA COMPOSTA: duas coisas no ar ao mesmo tempo. Operá-la exige saber qual das duas cada controle governa — o ▶ é do áudio de baixo, o ⏭ é da apresentação de cima, o Parar tira uma só —, e esse é o vocabulário do modo AVANÇADO, exatamente o que o Modo Fácil existe para não pedir de quem opera: ali o toque tem UM significado, *isto vai para o telão*, e o que estava vai embora. **UMA guarda, num ponto só:** `appMode !== 'simple'` dentro do `send` — no `send` porque é por onde TODOS os caminhos passam (inclusive o compartilhamento, que naquele modo projeta na hora sem perguntar nada, e é por ali que uma apresentação de fato entra), e por `appMode` porque a pergunta é sobre o VOCABULÁRIO do modo e não sobre a conexão — ela continua valendo com o Modo Fácil destravado por "Tocar neste celular", que é quando ele mais se parece com o avançado. **A limitação é sobre CRIAR, e o preço está dito:** uma cena composta montada no avançado sobrevive à troca de modo, porque colapsá-la ali mudaria a projeção como efeito colateral de um toque em Configurações — devolvendo o slide à página 1 ou calando a música, os dois na frente da congregação. Ela dura até o próximo `send` e, enquanto dura, é operável (v1.4.30). O oráculo novo tem a REVERSÃO como metade que fecha o lote — **o avançado continua sobrepondo** —, sem a qual apagar a sobreposição do app inteiro passaria em tudo o mais e o recurso da v1.4.28 morreria em silêncio, num modo que este pedido nem nomeia. Três reversões, 64/64 verdes. **SÓ BASE WEB.**
 - **v1.4.31** — O HISTÓRICO ATRAVESSA SESSÕES, E OS DOIS BOTÕES TROCAM DE CASA. Pedido do operador, em três partes: *"coloque a função do histórico de mídias tocadas dentro das configurações. E adicione um sistema extra, armazene os dados entre sessões, separando as sessões. Mantenha os itens usáveis apenas na categoria da sessão atual; para as sessões antigas, deixe usáveis apenas itens padrões do sistema, como músicas, textos, links e etc… que não dependem de um arquivo que pode já ter sido excluído, para não ser obrigado a manter aquele arquivo… pode colocar a opção de limpar todo o histórico ou por sessões"*, mais *"no lugar que é atualmente o botão do histórico, mova o botão do auxiliar de leitura… crie uma badge nesse botão para indicar que ele está com alguma função disponível"* e *"na preview, suba o botão do controle do wallpaper para que ele ocupe o canto superior esquerdo que ficará livre"*. **O QUE ESTE LOTE REVOGA está escrito na v1.2.0**: *"apagada a cada nova sessão"*, com um argumento que não era pintura — persistir custaria **uma escrita por projeção, no `send`, o caminho mais quente do culto**. Ele continua de pé e é atendido de outro jeito: `historicoRegistrar` mexe só na memória e AGENDA a gravação (2 s), coalescendo a rajada de um culto inteiro; o `visibilitychange` força a pendente ao sair da frente, que é quando o processo passa a ser descartável; e a escrita é `updateState`, a única que espera o COMMIT. **A separação substitui o apagamento:** uma sessão é uma carga do documento, nasce na PRIMEIRA projeção (um app aberto e fechado sem projetar nada não deixa cabeçalho sobre nada) e a folha ganha cabeçalhos com dia e janela de horas. **A regra da sessão antiga é uma RECEITA gravada no instante da projeção**: cena/link se REMONTAM sem tocar em byte nenhum, item de acervo se PROCURA por `folder` + `srcName` (o `id` não serve — um hino reapagado e rebaixado ganha id novo), e o que só existe porque um arquivo foi importado fica **`· só registro`** — uma linha inerte que não explica é indistinguível de um app quebrado. **Os dois botões trocam de casa pelo mesmo critério:** a coluna sobre a preview passou a ser só o que muda o que a congregação vê e ouve (cortina e mudo), e o que abre uma folha desceu para a fileira das folhas, ao lado da playlist — onde ganhou a badge, porque sobre a preview a ausência de conteúdo se lia no palco a dois centímetros dali. **E O LOTE CONSERTA UM DEFEITO MUDO QUE ELE MESMO INTRODUZIU**: a v1.4.27 subiu com uma marca de conflito de merge por resolver DENTRO do `:is()` do `--press`. `:is()` é FORGIVING — descarta o inválido e aplica o resto —, então as ~40 classes seguiram recuando ao toque e o CI seguiu verde por três lotes; o que se perdeu foram os DOIS seletores em disputa (`.row-slot--ok` e `.lv-row--tocavel`), que pararam de responder ao dedo sem nada na tela dizer por quê. MEDIDO por comparação das duas árvores. Um oráculo de COMPORTAMENTO não pega isto — ele mede um seletor que sobreviveu —, então a asserção nova varre o arquivo CRU. **E o `waitForFunction` do Playwright NÃO espera a promise de um predicado `async`**: ela é truthy e a espera passa no primeiro quadro, aprovando o que veio verificar (medido escrevendo o oráculo) — quem pergunta ao IndexedDB usa laço do lado do Node. Vinte asserções novas, seis reversões, 62/62 verdes. OTA PURO.
@@ -306,6 +307,69 @@ na nota que a revoga, não apagada da que a criou.
 - **v5.156** — é METADE OTA e METADE APK, de novo.
 
 ---
+
+## v1.4.34 — o azul que sobrou no toque era da plataforma, não nosso
+
+Relato do operador, depois da v1.4.33:
+
+> *"ainda estou vendo a onda azulada de feedback de toque tanto no botão de mudo
+> quanto no botão da cortina"*
+
+### Nenhum azul ali é nosso
+
+Varrido antes de mexer: **não há uma regra `:hover` na folha do Controle**; o
+`--stage-accent-glow` (`rgba(143,177,243,.32)`, o único azul-claro da paleta) é
+usado num lugar só, e é no `display.css`; e o `--shadow-ink` do halo que a
+v1.4.33 engrossou é `rgba(0,0,0,.9)` — preto puro. Os estados destes dois
+botões são `--stage-alert` (vermelho) e `--warn-text` (âmbar).
+
+Quem pinta é o **UA**, por dois caminhos — e os dois estavam abertos.
+
+### 1. O realce de toque, sem `!important`
+
+`-webkit-tap-highlight-color: transparent` estava no `*` desde sempre, sem
+`!important`. E a declaração **ao lado dele, no mesmo bloco**, documenta por que
+isso pode não bastar:
+
+> `user-select: none !important` … *"`!important` porque a folha do UA tem
+> especificidade maior que `*`"*.
+
+Ele é invisível sobre a superfície de um `.t-btn` e muito visível sobre um
+`.pv-fab`, que não tem fundo nenhum e mora em cima da imagem projetada.
+
+### 2. O anel de foco, que GRUDA
+
+`outline-style: auto` faz o Chromium desenhar o anel dele — azul no WebView do
+Android. O `*` deixa `outline` de fora **de propósito**, e o comentário diz a
+razão: *"é o anel de foco do teclado"*. Mas um `<button>` fica com `:focus`
+**depois** do toque, então ali o anel não é um piscar de feedback: é um estado
+pendurado, que fica até o foco sair.
+
+É isso que explica o relato nomear **exatamente estes dois**: o mudo e a cortina
+são os que ficam sob o dedo; o `#pvFullBtn` entra em tela cheia e o `#pvCastBtn`
+abre o seletor do sistema — o anel deles ninguém vê.
+
+`:focus:not(:focus-visible) { outline: none }` não decide nada de novo: ela
+**aplica a intenção que já estava escrita**, e quem navega por teclas continua
+sabendo onde está.
+
+### O que o oráculo NÃO prova, e por que está dito
+
+A metade do PONTEIRO é **inalcançável neste arnês**. MEDIDO por reversão: o
+Chromium de mesa já não desenha anel num foco de ponteiro (o `:focus-visible`
+dele é falso), então a asserção passava **com e sem** a regra — uma tautologia,
+que é o defeito de oráculo que este repositório mais persegue. Ela saiu.
+
+Ficou a natureza que o `rotina-cede-a-vez.test.mjs` já declara: a **FORMA** (a
+regra existe e é escopada a `:not(:focus-visible)`) mais o **comportamento
+alcançável** (o anel do TECLADO sobrevive) — e é este segundo que reprova o
+`outline: none` seco, o conserto que consertaria o relato e cegaria o teclado.
+
+**E o lote é honesto sobre o que ele é:** os dois mecanismos são os únicos que a
+plataforma tem para pintar um azul que fica num botão sem fundo, e os dois foram
+fechados; qual dos dois era o do aparelho, este arnês não distingue.
+
+OTA PURO — sem degrau de ponte, sem `shellTag`, sem Release.
 
 ## v1.4.33 — o toque sobre a preview acende o traço; ele não afunda
 
