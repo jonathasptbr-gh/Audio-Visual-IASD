@@ -119,6 +119,8 @@ pintarTema();
 
 const settingsBtnEl = document.getElementById('settingsBtn');
 const lyricsViewBtnEl = document.getElementById('lyricsViewBtn');
+// O ponto de "há o que ler" (v1.4.31) — ver `renderLeitorBadge`.
+const lvBadgeEl = document.getElementById('lvBadge');
 // O A+/A− DESTA FOLHA (o do Modo Fácil é outro nó, e fica): ele some na aba
 // da apresentação, onde não há texto para dimensionar — ver `renderLyricsView`.
 const lyricsFonteCtlEl = document.getElementById('lyricsPopup').querySelector('.lv-fonte-ctl');
@@ -231,10 +233,14 @@ const plClearFaixaEl = document.getElementById('plClearFaixa');
 
 // O HISTÓRICO DO CULTO (v1.2.0) — a folha irmã da playlist, e por isso vizinha
 // dela aqui: mesma anatomia de bottom-sheet, mesma `.popup-list`, mesma linha.
-const historyBtnEl = document.getElementById('historyBtn');
+// Quem a ABRE mudou na v1.4.31: era a sétima célula do transporte, hoje é uma
+// linha de Configurações (`#histOpenRow`).
+const histOpenRowEl = document.getElementById('histOpenRow');
 const histPopupEl = document.getElementById('histPopup');
 const histListEl = document.getElementById('histList');
 const histPopupCloseEl = document.getElementById('histPopupClose');
+const histClearEl = document.getElementById('histClear');
+const histClearFaixaEl = document.getElementById('histClearFaixa');
 
 const fileEl = document.getElementById('file');
 const mainEl = document.querySelector('main');
@@ -265,7 +271,7 @@ const appVersionEl = document.getElementById('appVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.4.30';
+const WEB_VERSION = '1.4.31';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -2977,11 +2983,54 @@ function renderRepeat() {
   repeatEl.classList.toggle('active', repeat !== 'off');
 }
 
+/**
+ * ===== A BADGE DO AUXILIAR DE LEITURA (v1.4.31) =====
+ *
+ * Pedido do operador: *"crie uma badge nesse botão de auxiliar de leitura para
+ * indicar que ele está com alguma função disponível quando houver alguma mídia
+ * que disponibiliza uma das funções dele"*.
+ *
+ * Ela nasce com a mudança de casa do botão. Sobre a preview, "não há o que ler"
+ * se lia no próprio palco, a dois centímetros dali — o wallpaper no ar responde
+ * a pergunta sozinho. Na sétima célula do deck não há esse contexto: sem a
+ * badge, a única forma de descobrir que não há letra é abrir a folha e ler
+ * "Nada em exibição".
+ *
+ * **A FONTE É `lyricsViewSources`, a MESMA que a folha usa.** Uma segunda conta
+ * de "o que está disponível" divergiria no primeiro recurso novo, e esta é a
+ * que ninguém confere: a folha denuncia o erro dela ao abrir, a badge não
+ * denuncia nada — ela só acende errado.
+ *
+ * **E OS RÓTULOS SAEM DAS PRÓPRIAS ABAS** (`data-lvsrc`), pelo mesmo motivo:
+ * uma tabela de nomes aqui seria a terceira lista da mesma pergunta.
+ *
+ * O `title` diz O QUE há, e a badge diz SE há — o ícone continua sendo a ação.
+ * Com a folha ABERTA ela pode descrever o alvo de um ensaio (`lvAlvo`) em vez
+ * da cena, e isso é inofensivo: o botão está coberto pela folha, e
+ * `closeLyricsPopup` a reescreve ao sair.
+ */
+function renderLeitorBadge() {
+  if (!lvBadgeEl) return;
+  const fontes = lyricsViewSources();
+  lvBadgeEl.hidden = !fontes.length;
+  const nomes = fontes.map((f) => {
+    const btn = lyricsViewSegEl.querySelector('.fit-opt[data-lvsrc="' + f + '"]');
+    return btn ? (btn.textContent || '').trim().toLowerCase() : f;
+  }).join(', ');
+  lyricsViewBtnEl.title = nomes
+    ? 'Auxiliar de leitura: ' + nomes
+    : 'Auxiliar de leitura — nada em exibição';
+  lyricsViewBtnEl.setAttribute('aria-label', lyricsViewBtnEl.title);
+}
+
 function renderNowPlaying() {
   // O SELO DE CAMADAS PRIMEIRO, e é por isso que ele está no TOPO: esta função
   // tem um `return` por ramo de cena, e qualquer linha no fim dela só rodaria
   // para o último caso.
   renderCamadaBtn();
+  // A BADGE do auxiliar de leitura, pelo MESMO motivo e no mesmo lugar: ela
+  // depende da pilha de camadas, que muda em todo ramo abaixo.
+  renderLeitorBadge();
   // Sorteio EM EXIBIÇÃO.
   if (drawProjecting()) {
     npNameInnerEl.textContent = 'Sorteio';
@@ -10834,6 +10883,9 @@ function closeLyricsPopup() {
   // Sem folha na tela não há o que rolar, e um rAF vivo atrás de um popup
   // fechado é trabalho por quadro para ninguém ver.
   cifraRolarParar();
+  // E A BADGE VOLTA A FALAR DA CENA: com a folha aberta ela podia estar
+  // descrevendo o alvo de um ensaio (`lvAlvo`), que acabou de morrer.
+  renderLeitorBadge();
 }
 
 function renderLyricsView() {
@@ -22785,23 +22837,86 @@ async function limparPlaylist() {
 // copiados NO INSTANTE da projeção — o histórico é um registro do que aconteceu,
 // e um registro não pode depender de o objeto ainda estar lá.
 //
-// ## EM MEMÓRIA, e é isso que o "apagada a cada nova sessão" significa aqui
+// ## ELE ATRAVESSA SESSÕES, E ELAS NÃO SE MISTURAM (v1.4.31)
 //
-// É a mesma escolha (e o mesmo modo de falhar) do `diarioC`, o outro artefato
-// deste app que responde "o que aconteceu neste culto?": ele morre com a
-// página. Uma sessão do app é uma carga do documento — fechar e reabrir zera as
-// duas listas, minimizar não zera nenhuma. Persistir no IndexedDB custaria uma
-// escrita por projeção (o caminho mais quente do culto) para proteger um dado
-// que perde o sentido no domingo seguinte, e ainda precisaria de uma definição
-// de "sessão" que o lado web não tem como observar.
+// Pedido do operador: *"adicione um sistema extra, armazene os dados entre
+// sessões, separando as sessões. mantenha os itens usáveis apenas na categoria
+// da sessão atual. para as sessões antigas, deixe usáveis apenas itens padrões
+// do sistema, como músicas, textos, links e etc... que não dependem de um
+// arquivo que pode já ter sido excluído, para não ser obrigado a manter aquele
+// arquivo"*.
 //
-// **O preço, dito:** uma morte do renderer (`onRendererGone`) leva o histórico
-// junto, como já leva a linha do tempo do Registro.
+// Isto REVOGA o "apagada a cada nova sessão" do pedido original, e as duas
+// coisas não se contradizem porque o que substitui o apagamento é a SEPARAÇÃO:
+// a sessão de hoje continua sozinha no topo da folha, e as antigas ficam abaixo
+// dela, com cabeçalho próprio (ver `renderHistorico`).
+//
+// **Uma SESSÃO é uma carga do documento**, e essa continua sendo a única
+// definição que o lado web tem como observar — minimizar não abre sessão nova,
+// fechar e reabrir abre. Ela nasce na PRIMEIRA projeção, não na carga: um app
+// aberto e fechado sem projetar nada não deixa uma sessão vazia na lista de
+// quem for consultá-la no sábado seguinte.
+//
+// **A GRAVAÇÃO SAI DO CAMINHO QUENTE.** O `send` é o ponto por onde todo
+// caminho de projeção passa, e uma escrita no IndexedDB ali era o argumento
+// que manteve este artefato em memória por vinte e nove versões. Ela continua
+// fora: `historicoRegistrar` mexe só na memória e AGENDA a gravação
+// (`HIST_GRAVA_MS`), que coalesce a rajada de um culto inteiro em uma escrita a
+// cada dois segundos de silêncio. O preço, dito: os últimos segundos podem se
+// perder numa morte do renderer — e é por isso que a saída de cena
+// (`visibilitychange`) força a gravação pendente.
+//
+// **`updateState`, nunca `setState`**: só ela espera o COMMIT (ver o KDoc dela
+// em `db.js`). Um histórico que perde a última projeção porque a transação
+// ficou em voo é o defeito exato que este lote existe para não ter.
 const HIST_MAX = 300;
-// A LISTA, do mais RECENTE para o mais antigo — a ordem em que ela é lida. Uma
-// lista de culto cresce para trás: o que interessa é o que acabou de sair de
-// cena, e rolar até o fim para achá-lo seria a lista errada.
+// QUANTAS SESSÕES FICAM. Um culto por sábado, mais dois menores na semana: doze
+// cobrem cerca de um mês de programação, que é o alcance da pergunta ("o que
+// tocamos no sábado passado?"). Acima disso o custo não é tela — a folha rola —,
+// é a leitura na abertura e o tamanho da chave de `state`.
+const HIST_SESSOES_MAX = 12;
+// O SILÊNCIO que fecha a rajada. Dois segundos: mais curto devolve uma escrita
+// por item numa sequência de toques, mais longo alarga a janela que uma morte
+// do renderer leva junto.
+const HIST_GRAVA_MS = 2000;
+
+// AS SESSÕES, da mais RECENTE para a mais antiga — e cada uma com os itens na
+// mesma ordem, pelo mesmo motivo: uma lista de culto cresce para trás, e o que
+// interessa é o que acabou de sair de cena.
 let historico = [];
+// A SESSÃO DESTA CARGA. `null` até a primeira projeção — ver acima.
+let histSessao = null;
+let histGravaTimer = 0;
+
+/**
+ * A RECEITA: o mínimo para trazer o item de volta SEM depender de um arquivo.
+ * É ela que decide o que uma sessão antiga ainda oferece (ver `histAcionavel`),
+ * e por isso ela nasce no instante da projeção — o registro pode não existir
+ * mais quando alguém abrir a folha.
+ *
+ * Três formas, e cada uma responde a uma das coisas que o operador nomeou:
+ *
+ *  · **cena** (`textos`) — a cena de roteiro inteira cabe no descritor
+ *    (versículo, mensagem, cronômetro). Ela se remonta sem tocar em byte nenhum.
+ *  · **link** (`links`) — o endereço, e o id do YouTube para reaproveitar um
+ *    registro que já exista em vez de criar o segundo.
+ *  · **acervo** (`músicas`) — `folder` + `srcName`, a chave NATURAL de tudo que
+ *    vem de uma coleção ou de uma pasta do aparelho. O `id` não serve: um hino
+ *    reapagado e rebaixado ganha id novo, e é justamente esse o caso.
+ *
+ * SEM RECEITA fica o que só existe porque um arquivo foi importado ou
+ * compartilhado — exatamente o que o coletor recolhe, e exatamente o que o
+ * operador não quer ser obrigado a manter.
+ */
+function histReceita(item) {
+  if (!item) return null;
+  if (isCue(item)) return { t: 'cena', c: item.cue, d: item.data || {} };
+  if (item.kind === 'youtube' && item.url) {
+    return { t: 'link', u: item.url, y: item.youtubeId || null };
+  }
+  if (item.folder && item.srcName) return { t: 'acervo', f: item.folder, s: item.srcName };
+  return null;
+}
 
 /**
  * REGISTRA UMA PROJEÇÃO. Chamado de UM lugar só: o `send`, que é o ponto por
@@ -22817,9 +22932,16 @@ let historico = [];
  */
 function historicoRegistrar(id, item) {
   if (!id) return;
-  const topo = historico[0];
-  if (topo && topo.id === id) { topo.hora = Date.now(); topo.vezes++; return; }
-  historico.unshift({
+  // A SESSÃO NASCE AQUI, na primeira projeção desta carga — ver o cabeçalho.
+  if (!histSessao) {
+    histSessao = { inicio: Date.now(), itens: [] };
+    historico.unshift(histSessao);
+    if (historico.length > HIST_SESSOES_MAX) historico.length = HIST_SESSOES_MAX;
+  }
+  const itens = histSessao.itens;
+  const topo = itens[0];
+  if (topo && topo.id === id) { topo.hora = Date.now(); topo.vezes++; histAgendarGravacao(); return; }
+  itens.unshift({
     id,
     // O NOME E O SUBTÍTULO SÃO CÓPIAS, não ponteiros — ver o cabeçalho: o
     // registro pode não existir mais quando alguém abrir a folha.
@@ -22827,10 +22949,50 @@ function historicoRegistrar(id, item) {
     sub: subtituloItem(item),
     hora: Date.now(),
     vezes: 1,
+    rec: histReceita(item),
   });
   // Um culto não passa de algumas dezenas de projeções; o teto existe para o
   // caso patológico (o app aberto a semana inteira), não para o uso normal.
-  if (historico.length > HIST_MAX) historico.length = HIST_MAX;
+  if (itens.length > HIST_MAX) itens.length = HIST_MAX;
+  histAgendarGravacao();
+}
+
+// A GRAVAÇÃO, COALESCIDA. Um só temporizador: cada projeção o reagenda, e a
+// rajada de uma sequência de toques rende uma escrita.
+function histAgendarGravacao() {
+  clearTimeout(histGravaTimer);
+  histGravaTimer = setTimeout(histGravar, HIST_GRAVA_MS);
+}
+
+// GRAVA O QUE ESTÁ NA MEMÓRIA. A `fn` é SÍNCRONA e devolve o retrato inteiro —
+// este documento é o único escritor desta chave (o Display não registra
+// projeção nenhuma), então não há metade de ninguém a preservar; o que
+// `updateState` compra aqui é o COMMIT confirmado.
+async function histGravar() {
+  clearTimeout(histGravaTimer);
+  histGravaTimer = 0;
+  const retrato = historico.map((s) => ({ inicio: s.inicio, itens: s.itens.slice() }));
+  try { await AVDB.updateState('historico', () => retrato); } catch (_) { /* o culto não para por isto */ }
+}
+
+/**
+ * LÊ O QUE FICOU DAS SESSÕES ANTERIORES. Chamado na abertura, ANTES de qualquer
+ * projeção — se rodasse depois, o `unshift` da sessão nova seria sobrescrito
+ * pela lista lida do disco.
+ *
+ * Saneia por FORMA, e não por confiança: a chave é gravada por este app, mas
+ * uma versão antiga (ou um bundle interrompido no meio de uma escrita) pode
+ * deixar qualquer coisa ali, e uma folha que lança no `forEach` é uma folha que
+ * não abre.
+ */
+async function histCarregar() {
+  let bruto = null;
+  try { bruto = await AVDB.getState('historico'); } catch (_) { return; }
+  if (!Array.isArray(bruto)) return;
+  historico = bruto
+    .filter((s) => s && Array.isArray(s.itens) && s.inicio)
+    .map((s) => ({ inicio: s.inicio, itens: s.itens.filter((h) => h && h.id).slice(0, HIST_MAX) }))
+    .slice(0, HIST_SESSOES_MAX);
 }
 
 // HH:MM, que é a precisão da pergunta ("antes ou depois do sermão?"). Segundos
@@ -22841,111 +23003,289 @@ function histHora(t) {
   return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
 }
 
+// O DIA de uma sessão, para o cabeçalho dela. Escrito à mão e não por
+// `toLocaleDateString`: os nomes de dia e a ordem dos campos saem dos dados de
+// locale do navegador, que variam entre um aparelho e o Chromium do oráculo —
+// e o que se ganharia com isso é zero, porque as duas formas que interessam
+// ("Hoje", "Ontem") não vêm de locale nenhum.
+const HIST_DIAS = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
+function histDia(t) {
+  const d = new Date(t);
+  const hoje = new Date();
+  const dia = (x) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+  const passados = Math.round((dia(hoje) - dia(d)) / 86400000);
+  if (passados <= 0) return 'Hoje';
+  if (passados === 1) return 'Ontem';
+  return HIST_DIAS[d.getDay()] + ', ' + String(d.getDate()).padStart(2, '0')
+    + '/' + String(d.getMonth() + 1).padStart(2, '0');
+}
+
+/**
+ * ESTE ITEM AINDA FAZ ALGUMA COISA? Na sessão ATUAL, tudo faz — é o culto que
+ * está acontecendo, e o registro que acabou de tocar está vivo por construção.
+ * Numa sessão antiga, só o que tem RECEITA: é a linha exata do pedido — nada
+ * aqui pode obrigar o aparelho a guardar um arquivo para o histórico continuar
+ * funcionando.
+ */
+function histAcionavel(h, atual) { return atual || !!h.rec; }
+
+/**
+ * ACHA (ou REMONTA) O ITEM. A ordem é o que importa:
+ *
+ *  1. **pelo id**, que é de graça e devolve o registro ORIGINAL — o caso normal
+ *     dentro do culto de hoje;
+ *  2. **pela receita**, e só aí. `acervo` PROCURA (folder + srcName é a chave
+ *     natural; o id de um hino rebaixado é outro); `cena` e `link` CRIAM, que é
+ *     o que os torna independentes de qualquer arquivo.
+ *
+ * `destino` é a lista em que um item CRIADO nasce — `avulsos` quando o toque é
+ * para projetar (a prateleira volátil, com o teto de três que `fixarAvulso`
+ * mantém) e `imports` quando o operador mandou ao Cronograma. Sem lista, o
+ * registro nasceria órfão e o `gcOrfaos` da abertura seguinte o apagaria.
+ *
+ * DEVOLVE `{ rec, criado }`, e o segundo campo não é enfeite: **ACHAR e CRIAR
+ * terminam em lugares diferentes**. Um item criado já NASCE no destino; um
+ * achado (pelo id, ou pelo par `folder`/`srcName` de uma coleção) está onde
+ * sempre esteve, e ainda precisa entrar na lista. Sem a distinção, o "ao
+ * Cronograma" de um hino reapagado responderia "adicionado" sem adicionar nada
+ * — o pior desfecho desta folha, porque ele é indistinguível do certo até o
+ * sábado seguinte.
+ */
+async function histResolver(h, destino) {
+  const vivo = await AVDB.getMedia(h.id);
+  if (vivo) return { rec: vivo, criado: false };
+  const r = h.rec;
+  if (!r) return null;
+  if (r.t === 'acervo') {
+    let irmaos = [];
+    try { irmaos = await AVDB.filesByFolder(r.f); } catch (_) { return null; }
+    const achado = irmaos.find((x) => x.srcName === r.s);
+    return achado ? { rec: achado, criado: false } : null;
+  }
+  if (r.t === 'cena') {
+    return { rec: await AVDB.addCue(r.c, r.d, { name: h.nome, list: destino }), criado: true };
+  }
+  if (r.t === 'link') {
+    // Um link do MESMO vídeo já guardado é reaproveitado: dois registros para o
+    // mesmo endereço seriam duas linhas iguais na lista, e o segundo não
+    // acrescenta nada (não há bytes que os distingam). É a mesma regra do
+    // caminho "Online" da busca.
+    const pronto = r.y ? await AVDB.mediaByYoutube(r.y, 'youtube') : null;
+    if (pronto) return { rec: pronto, criado: false };
+    return { rec: await AVDB.addUrlMedia(r.u, {
+      kind: 'youtube', type: 'video/youtube', name: h.nome,
+      thumb: r.y ? 'https://img.youtube.com/vi/' + r.y + '/hqdefault.jpg' : null,
+      youtubeId: r.y || null, list: destino,
+    }), criado: true };
+  }
+  return null;
+}
+
 /**
  * A FOLHA. Linha do Cronograma, com duas subtrações e uma soma.
  *
  *  - **sem excluir e sem reordenar**: o histórico é o que JÁ aconteceu, e um
  *    fato não se edita. (Foi o pedido, e ele é o certo: um destrutivo aqui
- *    apagaria o registro sem apagar nada do aparelho.)
- *  - **sem tocar na linha**: o toque numa linha do Cronograma PROJETA, e uma
- *    lista consultada durante o culto não pode mandar coisa ao telão por um
- *    toque de rolagem. Quem quer tocar de novo manda ao Cronograma e toca lá.
+ *    apagaria o registro sem apagar nada do aparelho.) O que se apaga é a
+ *    SESSÃO inteira, ou o histórico todo — ver `histLimpar`.
+ *  - **sem tocar na linha** quando ela não tem o que oferecer (ver
+ *    `histAcionavel`): num culto antigo, um arquivo importado é só o registro
+ *    de que ele tocou.
  *  - **mais a HORA**, que é a coluna pela qual esta lista se lê.
+ *
+ * OS CABEÇALHOS DE SESSÃO SÃO `<li>` DA MESMA LISTA (v1.4.31), e não um bloco
+ * por fora: a folha rola inteira, e um cabeçalho fora do `<ul>` ficaria parado
+ * sobre o conteúdo errado.
  */
 function renderHistorico() {
   histListEl.innerHTML = '';
+  // A faixa do "limpar tudo" some com a lista vazia, e cancela uma pergunta
+  // pendente ao sumir — a mesma regra do `#plClearFaixa`.
+  if (!historico.length && histClearFaixaEl.classList.contains('confirmando')) fecharConfirmacaoNaLinha();
+  histClearFaixaEl.hidden = !historico.length;
   if (!historico.length) {
-    histListEl.innerHTML = '<li class="empty">Nada projetado ainda nesta sessão.'
-      + '<br>Cada item que for ao telão aparece aqui, com a hora.</li>';
+    histListEl.innerHTML = '<li class="empty">Nada projetado ainda.'
+      + '<br>Cada item que for ao telão aparece aqui, com a hora — e o histórico'
+      + ' fica guardado, separado por sessão.</li>';
     return;
   }
-  historico.forEach((h) => {
-    const li = document.createElement('li');
-    li.className = 'row-item';
-
-    const row = document.createElement('div');
-    row.className = 'row';
-
-    const hora = document.createElement('span');
-    hora.className = 'hist-hora';
-    hora.textContent = histHora(h.hora);
-
-    const texto = document.createElement('div');
-    texto.className = 'row-text';
-    const nome = document.createElement('span');
-    nome.className = 'row-name'; nome.textContent = h.nome;
-    const sub = document.createElement('span');
-    sub.className = 'row-sub';
-    // "×3" é a repetição consecutiva colapsada (ver `historicoRegistrar`) — o
-    // mesmo recurso que a linha do tempo do Registro usa, e pela mesma razão:
-    // ele encurta sem apagar nada.
-    sub.textContent = (h.vezes > 1 ? '×' + h.vezes + ' · ' : '') + (h.sub || '');
-    texto.append(nome, sub);
-    row.append(hora, texto);
-
-    // AO CRONOGRAMA — a única ação da linha, e a que o pedido nomeia. Ela é
-    // ASSÍNCRONA na decisão de existir: só o banco sabe se o item ainda está
-    // lá, e perguntar a ele por linha, a cada render, é barato (a folha é
-    // desenhada quando alguém a abre, não a 400 ms como o acervo).
-    const add = document.createElement('button');
-    add.type = 'button';
-    add.className = 'row-btn';
-    add.title = 'Adicionar ao Cronograma';
-    add.setAttribute('aria-label', 'Adicionar ao Cronograma');
-    add.appendChild(msym(ICON.cronoAdd));
-    add.addEventListener('click', async (e) => {
-      e.stopPropagation();
-      // A CONFERÊNCIA SE REPETE NO TOQUE, e não só no desenho: entre abrir a
-      // folha e tocar o botão o item pode ter saído (o coletor roda em TODA
-      // remoção de lista, e a prateleira `avulsos` despeja sozinha). Sem ela,
-      // `adicionarNasListas` gravaria um id órfão e o Cronograma ganharia uma
-      // linha que não abre nada — pior que o botão ter falhado.
-      const vivo = await AVDB.getMedia(h.id);
-      if (!vivo) { histMarcarSumido(li, add, true); return; }
-      await adicionarNasListas(['imports'], h.id, h.nome, add);
-    });
-    row.appendChild(add);
-
-    // ===== E O TOQUE NA LINHA PROJETA (v1.2.3) =====
-    //
-    // Pedido do operador: *"pode fazer o item do histórico ser executável
-    // diretamente no toque"*. A v1.2.0 tinha recusado isto — o argumento era
-    // que uma lista consultada durante o culto não podia mandar coisa ao telão
-    // por um toque de rolagem —, e ele **não se sustenta**: um `click` não sai
-    // de um gesto que rolou a lista (o navegador o cancela), que é a mesma
-    // proteção sob a qual a folha da playlist já projeta desde sempre.
-    //
-    // O que sobra é a razão de o histórico existir: ele é a lista de onde se
-    // repete um louvor que entrou de improviso e não ficou guardado em lista
-    // nenhuma. Obrigar a passar pelo Cronograma para tocá-lo de novo é cobrar
-    // dois toques e uma linha permanente por uma repetição.
-    //
-    // **`projetarItem`, e não um `send` cru:** é a mesma porta do toque numa
-    // linha da Biblioteca, e é ela que distingue CENA de MÍDIA (uma cena vai
-    // direto ao `send`; uma mídia redefine a fila para si antes). Duplicar essa
-    // decisão aqui era garantir que as duas divergissem no primeiro ajuste.
-    //
-    // **E A FOLHA FECHA.** Ela cobre a preview e o transporte, que é onde a
-    // resposta ao toque aparece — projetar por trás dela seria o operador
-    // tocando e não vendo nada acontecer. É o mesmo desfecho do "Guardar como
-    // pacote" da playlist, pela mesma razão.
-    row.addEventListener('click', async (e) => {
-      if (e.target.closest('.row-btn')) return;
-      const vivo = await AVDB.getMedia(h.id);
-      if (!vivo) { histMarcarSumido(li, add, false); return; }
-      closeHistPopup();
-      await projetarItem(vivo);
-    });
-
-    li.appendChild(row);
-    li.dataset.histId = h.id;
-    histListEl.appendChild(li);
+  historico.forEach((ses) => {
+    const atual = ses === histSessao;
+    histListEl.appendChild(histCabecalho(ses, atual));
+    ses.itens.forEach((h) => histListEl.appendChild(histLinha(h, atual)));
   });
   // E A CONFERÊNCIA DE TODAS AS LINHAS VEM DEPOIS DO DESENHO, nunca antes: a
   // folha abre com a lista JÁ na tela e as linhas mortas esmaecem no quadro
   // seguinte. Perguntar ao banco antes de desenhar trocaria uma marca que
   // chega tarde por uma folha que abre vazia, que é o defeito pior.
   histConferirVivos();
+}
+
+/**
+ * O CABEÇALHO DE UMA SESSÃO — o rótulo do dia e a saída dela.
+ *
+ * O SUBTÍTULO É A JANELA DE HORAS, e ela sai das pontas da própria lista (que
+ * é do mais novo para o mais antigo, daí o último item ser o primeiro fato).
+ * Ela responde o que o rótulo do dia não responde: se a sessão de sábado é a
+ * do culto da manhã ou a do ensaio da noite.
+ */
+function histCabecalho(ses, atual) {
+  const li = document.createElement('li');
+  li.className = 'hist-sessao';
+  li.dataset.histSessao = String(ses.inicio);
+
+  const txt = document.createElement('div');
+  txt.className = 'hist-sessao-txt';
+  const tit = document.createElement('span');
+  tit.className = 'hist-sessao-tit';
+  tit.textContent = atual ? 'Esta sessão' : histDia(ses.inicio);
+  const sub = document.createElement('span');
+  sub.className = 'hist-sessao-sub';
+  const n = ses.itens.length;
+  const ultimo = ses.itens[n - 1];
+  const primeiro = ses.itens[0];
+  const janela = ultimo
+    ? histHora(ultimo.hora) + (primeiro !== ultimo ? '–' + histHora(primeiro.hora) : '')
+    : histHora(ses.inicio);
+  sub.textContent = n + (n === 1 ? ' item' : ' itens') + ' · ' + janela;
+  txt.append(tit, sub);
+
+  const acoes = document.createElement('div');
+  acoes.className = 'hist-sessao-acoes';
+  const limpar = document.createElement('button');
+  limpar.type = 'button';
+  limpar.className = 'row-btn';
+  limpar.title = 'Limpar esta sessão do histórico';
+  limpar.setAttribute('aria-label', limpar.title);
+  limpar.appendChild(msym(ICON.del));
+  limpar.addEventListener('click', (e) => {
+    e.stopPropagation();
+    pedirConfirmacaoNaLinha(limpar, {
+      ok: 'Limpar',
+      dica: 'Apaga só o registro desta sessão — nenhum arquivo do aparelho é tocado',
+      aoConfirmar: () => histLimpar(ses.inicio),
+    });
+  });
+  acoes.appendChild(limpar);
+
+  li.append(txt, acoes);
+  return li;
+}
+
+// UMA LINHA. `atual` decide o que ela oferece — ver `histAcionavel`.
+function histLinha(h, atual) {
+  const li = document.createElement('li');
+  li.className = 'row-item';
+  const acionavel = histAcionavel(h, atual);
+
+  const row = document.createElement('div');
+  row.className = 'row';
+
+  const hora = document.createElement('span');
+  hora.className = 'hist-hora';
+  hora.textContent = histHora(h.hora);
+
+  const texto = document.createElement('div');
+  texto.className = 'row-text';
+  const nome = document.createElement('span');
+  nome.className = 'row-name'; nome.textContent = h.nome;
+  const sub = document.createElement('span');
+  sub.className = 'row-sub';
+  // "×3" é a repetição consecutiva colapsada (ver `historicoRegistrar`) — o
+  // mesmo recurso que a linha do tempo do Registro usa, e pela mesma razão:
+  // ele encurta sem apagar nada.
+  //
+  // "só registro" É A EXPLICAÇÃO DA LINHA INERTE, e ela é obrigatória: uma
+  // linha que não responde ao toque e não diz por quê é indistinguível de um
+  // app quebrado. Duas palavras, no fim do subtítulo, onde o que se lê antes
+  // continua sendo o que identifica o item.
+  sub.textContent = (h.vezes > 1 ? '×' + h.vezes + ' · ' : '') + (h.sub || '')
+    + (acionavel ? '' : (h.sub ? ' · ' : '') + 'só registro');
+  texto.append(nome, sub);
+  row.append(hora, texto);
+
+  if (!acionavel) {
+    li.classList.add('hist-arquivada');
+    li.appendChild(row);
+    return li;
+  }
+
+  // AO CRONOGRAMA — a única ação da linha, e a que o pedido nomeia. Ela é
+  // ASSÍNCRONA na decisão de existir: só o banco sabe se o item ainda está
+  // lá, e perguntar a ele por linha, a cada render, é barato (a folha é
+  // desenhada quando alguém a abre, não a 400 ms como o acervo).
+  const add = document.createElement('button');
+  add.type = 'button';
+  add.className = 'row-btn';
+  add.title = 'Adicionar ao Cronograma';
+  add.setAttribute('aria-label', 'Adicionar ao Cronograma');
+  add.appendChild(msym(ICON.cronoAdd));
+  add.addEventListener('click', async (e) => {
+    e.stopPropagation();
+    // A CONFERÊNCIA SE REPETE NO TOQUE, e não só no desenho: entre abrir a
+    // folha e tocar o botão o item pode ter saído (o coletor roda em TODA
+    // remoção de lista, e a prateleira `avulsos` despeja sozinha). Sem ela,
+    // `adicionarNasListas` gravaria um id órfão e o Cronograma ganharia uma
+    // linha que não abre nada — pior que o botão ter falhado.
+    //
+    // NUMA SESSÃO ANTIGA a resolução pode CRIAR o item, e aí ele já nasce no
+    // Cronograma (`destino`) — chamar `adicionarNasListas` depois disso seria
+    // a segunda gravação do mesmo id, com o aviso dizendo "já está lá" sobre
+    // algo que acabou de chegar. Um item ACHADO segue o caminho de sempre: ele
+    // está onde sempre esteve, e ainda precisa entrar na lista.
+    const alvo = await histResolver(h, 'imports');
+    if (!alvo) { histMarcarSumido(li, add, true); return; }
+    if (alvo.criado) {
+      responder(add, 'ok', rotuloItem(h.nome) + 'adicionado ao Cronograma');
+      if (activeTab === 'imports') await load();
+      return;
+    }
+    await adicionarNasListas(['imports'], alvo.rec.id, h.nome, add);
+  });
+  row.appendChild(add);
+
+  // ===== E O TOQUE NA LINHA PROJETA (v1.2.3) =====
+  //
+  // Pedido do operador: *"pode fazer o item do histórico ser executável
+  // diretamente no toque"*. A v1.2.0 tinha recusado isto — o argumento era
+  // que uma lista consultada durante o culto não podia mandar coisa ao telão
+  // por um toque de rolagem —, e ele **não se sustenta**: um `click` não sai
+  // de um gesto que rolou a lista (o navegador o cancela), que é a mesma
+  // proteção sob a qual a folha da playlist já projeta desde sempre.
+  //
+  // O que sobra é a razão de o histórico existir: ele é a lista de onde se
+  // repete um louvor que entrou de improviso e não ficou guardado em lista
+  // nenhuma. Obrigar a passar pelo Cronograma para tocá-lo de novo é cobrar
+  // dois toques e uma linha permanente por uma repetição.
+  //
+  // **`projetarItem`, e não um `send` cru:** é a mesma porta do toque numa
+  // linha da Biblioteca, e é ela que distingue CENA de MÍDIA (uma cena vai
+  // direto ao `send`; uma mídia redefine a fila para si antes). Duplicar essa
+  // decisão aqui era garantir que as duas divergissem no primeiro ajuste.
+  //
+  // **E A FOLHA FECHA.** Ela cobre a preview e o transporte, que é onde a
+  // resposta ao toque aparece — projetar por trás dela seria o operador
+  // tocando e não vendo nada acontecer. É o mesmo desfecho do "Guardar como
+  // pacote" da playlist, pela mesma razão.
+  //
+  // **NUMA SESSÃO ANTIGA o item pode ser CRIADO agora**, e ele nasce em
+  // `avulsos`: a prateleira volátil é o destino certo de quem só quer projetar
+  // — quem quiser guardar tem o botão ao lado, que nasce em `imports`.
+  row.addEventListener('click', async (e) => {
+    if (e.target.closest('.row-btn')) return;
+    const alvo = await histResolver(h, 'avulsos');
+    if (!alvo) { histMarcarSumido(li, add, false); return; }
+    // O CRIADO passa pelo teto da prateleira; o ACHADO já tem dono e não entra
+    // nela — pô-lo ali despejaria um avulso de verdade por um item que não
+    // precisa de abrigo.
+    if (alvo.criado) await fixarAvulso(alvo.rec.id);
+    closeHistPopup();
+    await projetarItem(alvo.rec);
+  });
+
+  li.appendChild(row);
+  li.dataset.histId = h.id;
+  return li;
 }
 
 /**
@@ -22974,8 +23314,18 @@ function histMarcarSumido(li, add, tocado) {
 // independentes, e em série uma folha de quarenta linhas pagaria quarenta idas
 // ao IndexedDB uma atrás da outra — a mesma razão do `Promise.all` de
 // `ensureBibleMeta`).
+//
+// SÓ A SESSÃO ATUAL (v1.4.31), e não é economia: numa sessão antiga a linha sem
+// receita já nasce inerte, e a linha COM receita não depende do id — perguntar
+// por ela marcaria como "sumida" justamente o item que a receita traz de volta.
 async function histConferirVivos() {
-  const linhas = Array.from(histListEl.querySelectorAll('li[data-hist-id]'));
+  const cab = histListEl.querySelector('.hist-sessao');
+  const atual = histSessao && cab && cab.dataset.histSessao === String(histSessao.inicio);
+  if (!atual) return;
+  const linhas = [];
+  for (let no = cab.nextElementSibling; no && !no.classList.contains('hist-sessao'); no = no.nextElementSibling) {
+    if (no.dataset.histId) linhas.push(no);
+  }
   await Promise.all(linhas.map(async (li) => {
     const vivo = await AVDB.getMedia(li.dataset.histId);
     // A FOLHA PODE TER SIDO REDESENHADA no meio (outra abertura): mexer num
@@ -22984,11 +23334,39 @@ async function histConferirVivos() {
   }));
 }
 
+/**
+ * LIMPA. `inicio` é a sessão; sem ele, tudo — as duas metades do pedido
+ * *"limpar todo o histórico ou por sessões"*.
+ *
+ * Limpar a sessão ATUAL a REMOVE, e não a esvazia: `histSessao` volta a `null`
+ * e a próxima projeção abre uma sessão nova, com o `inicio` da hora em que ela
+ * de fato recomeçou. Uma sessão esvaziada guardaria um cabeçalho dizendo
+ * "0 itens" com a hora de um culto que o operador acabou de mandar apagar.
+ *
+ * NENHUM ARQUIVO É TOCADO — daqui não sai `listRemove` nenhum, e por isso o
+ * coletor não roda: o que se apaga é o registro do que aconteceu.
+ */
+async function histLimpar(inicio) {
+  if (inicio == null) { historico = []; histSessao = null; }
+  else {
+    historico = historico.filter((s) => s.inicio !== inicio);
+    if (histSessao && histSessao.inicio === inicio) histSessao = null;
+  }
+  await histGravar();
+  renderHistorico();
+}
+
 function openHistPopup() {
   renderHistorico();
   histPopupEl.classList.add('open');
 }
-function closeHistPopup() { histPopupEl.classList.remove('open'); }
+function closeHistPopup() {
+  // FECHAR CANCELA A PERGUNTA — a mesma regra da gaveta da linha e da folha da
+  // playlist: perder a pergunta custa um toque, herdar um "sim" pendente
+  // apagaria um histórico na abertura seguinte.
+  fecharConfirmacaoNaLinha();
+  histPopupEl.classList.remove('open');
+}
 
 function openPlPopup() {
   renderPlaylist();
@@ -23127,8 +23505,22 @@ muteToggleEl.addEventListener('click', toggleMute);
 // miniatura, e uma configuração escondida atrás de um estado de UI é a que
 // ninguém acha.
 settingsBtnEl.addEventListener('click', openFadePopup);
-// E o HISTÓRICO, que herdou a fatia do topo do mixer que ela deixou vaga.
-historyBtnEl.addEventListener('click', openHistPopup);
+// O HISTÓRICO abre de DENTRO de Configurações (v1.4.31) — a folha de cima
+// FICA aberta atrás dele, e é o `z-index` de `#histPopup` que garante a ordem.
+// Fechá-la aqui devolveria o operador à tela principal ao fechar o histórico,
+// e não à folha de onde ele saiu.
+histOpenRowEl.addEventListener('click', openHistPopup);
+// LIMPAR TUDO. A pergunta mora na faixa do próprio botão — mesma porta do
+// "Limpar a playlist", e por isso o `#histClearFaixa` existe (a confirmação
+// substitui os IRMÃOS de quem a pediu).
+histClearEl.addEventListener('click', (e) => {
+  e.stopPropagation();
+  pedirConfirmacaoNaLinha(histClearEl, {
+    ok: 'Limpar',
+    dica: 'Apaga o registro de todas as sessões — nenhum arquivo do aparelho é tocado',
+    aoConfirmar: () => histLimpar(null),
+  });
+});
 // O CANCELAR do cartão sobre a preview (v5.191). A preview inteira tem gestos
 // próprios (arrastar o volume, tocar para tela cheia): sem o `stopPropagation`,
 // cancelar um download dispararia também o de baixo.
@@ -25339,13 +25731,16 @@ if (castMirrorBtnEl) {
 // mesmo toque na engrenagem que o abriu, ou o toque na barra que fecha o card.)
 const POPUPS = [
   [plPopupEl, plPopupCloseEl, closePlPopup],
-  // O HISTÓRICO abre da mesma barra que a playlist e não abre nada por cima de
-  // si — vizinho dela aqui, e pela mesma razão que a ordem desta tabela existe:
-  // o voltar a percorre de trás para a frente.
-  [histPopupEl, histPopupCloseEl, closeHistPopup],
   [hymnSearchPopupEl, hymnSearchCloseEl, closeHymnSearch],
   [bibleVerPopupEl, bibleVerCloseEl, closeBibleVerPopup],
   [fadePopupEl, fadePopupCloseEl, closeFadePopup],
+  // O HISTÓRICO abre DE DENTRO de Configurações (v1.4.31 — era vizinho da
+  // playlist, de onde ele abria antes), então vem DEPOIS dela: o voltar
+  // percorre esta tabela de trás para a frente, e fechar o histórico tem de
+  // devolver o operador à folha de onde ele saiu. O `z-index` de `#histPopup`
+  // diz a MESMA ordem, e mudar uma sem a outra é o acaso que já cobriu um
+  // popup por inteiro aqui.
+  [histPopupEl, histPopupCloseEl, closeHistPopup],
   // A folha de CONECTAR UMA TELA abre da tela principal (o botão de cast), e
   // vem antes das duas que nascem dela — o voltar percorre esta tabela de trás
   // para a frente.
@@ -25732,6 +26127,12 @@ document.addEventListener('visibilitychange', () => {
     // o microfone não pode continuar aberto. Push-to-talk que sobrevive ao
     // app sair da frente vira um microfone esquecido ligado.
     if (micPressed || micOn) sendMic(false);
+    // E O HISTÓRICO PENDENTE VAI AO DISCO (v1.4.31). Sair da frente é o
+    // instante em que o processo passa a ser descartável — congelamento,
+    // pressão de memória, morte do renderer —, e a gravação coalescida
+    // (`HIST_GRAVA_MS`) pode ter até dois segundos de culto na memória.
+    // Barato: sem nada agendado, o `if` devolve na primeira linha.
+    if (histGravaTimer) histGravar();
     return;
   }
   autoRefreshCollections();
@@ -25778,6 +26179,11 @@ document.addEventListener('visibilitychange', () => {
   // `varrerRestos()` lá embaixo, que é quem apagaria o que ficasse sem dono.
   // Uma vez por aparelho: sem `folders` no banco ela devolve na primeira linha.
   await migrarPastasParaFavoritos();
+  // O HISTÓRICO DAS SESSÕES ANTERIORES (v1.4.31). ANTES de qualquer projeção,
+  // e por isso antes do `load()`: `historicoRegistrar` faz `unshift` da sessão
+  // nova na lista em memória, e uma leitura que chegasse depois a sobrescreveria
+  // com o que estava no disco — apagando, em silêncio, o que acabou de tocar.
+  await histCarregar();
   // ANTES do load(): é ele que lê `current` e monta a tela a partir dela.
   await clearCurrentSelection();
   await load();

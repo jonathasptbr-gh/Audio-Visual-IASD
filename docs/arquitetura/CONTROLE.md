@@ -22,6 +22,7 @@
 | [A saída de áudio](#a-saída-de-áudio-os-displays-ou-este-aparelho-v5215) | quando o som sai do celular |
 | [Feedback](#feedback-sem-alerta-flutuante--e-a-exceção-do-salvamento) | a resposta nasce onde o toque nasceu |
 | [Compartilhamento](#compartilhamento) · [Diálogo padrão](#diálogo-padrão-do-app-confirmações--prompts) | entradas e confirmações |
+| [O histórico do culto](#o-histórico-do-culto-em-configurações-v120--v1430) | o que já foi ao telão, por sessão |
 | [O que o telão retoma](#o-que-o-telão-retoma-ao-reconectar-midianoar-v5142) | reconexão |
 
 
@@ -367,8 +368,10 @@ em frente — a regra do app é que navegação/acesso é chapado e em accent).
 
 O lugar já estava reservado: esta é a trilha 3, aberta pela v5.309 como um VÃO só
 para o título não sair do eixo, e que previa este dia por escrito. O que ficou
-vago virou o `#historyBtn` (ver "O histórico do culto") — que na v1.3.8 desceu
-para a linha do transporte, liberando a barra de progresso.
+vago virou o `#historyBtn` — que na v1.3.8 desceu para a linha do transporte,
+liberando a barra de progresso, e na **v1.4.31** saiu de lá para dentro de
+Configurações (ver "O histórico do culto"). Quem herdou a sétima célula foi o
+**auxiliar de leitura**, que morava sobre a preview.
 
 O título é `.84rem` (em .72rem o único texto que responde "onde eu estou" era
 menor que o subtítulo de qualquer linha).
@@ -513,8 +516,15 @@ também só abre uma lista e sempre teve fundo. Um único chapado numa fileira d
 seis com fundo não se lê como distinção: lê-se como um botão que ficou de fora.
 
 **A ORDEM da linha** (v1.3.9, pedida): repetir → playlist → anterior → play →
-parar → próximo → histórico. Os dois que ABREM uma lista ficam nas pontas do
-grupo, e o miolo é o transporte contínuo.
+parar → próximo → a sétima célula. Os dois que ABREM uma folha ficam nas pontas
+do grupo, e o miolo é o transporte contínuo.
+
+**A SÉTIMA CÉLULA TROCOU DE OCUPANTE na v1.4.31**, e a regra que a governa não
+mudou: quem ocupa a ponta é o que abre uma folha, não o que opera a cena. Era o
+**histórico** (que foi para Configurações); hoje é o **auxiliar de leitura**,
+vindo da coluna sobre a preview. O motivo é o mesmo dos dois lados — a coluna da
+preview passou a ser só o que muda o que a congregação vê e ouve (cortina e
+mudo), e o que abre uma leitura no celular desceu para a fileira das folhas.
 
 #### O fader ficou; o BOTÃO que o abria é que saiu (v1.3.8 → v1.3.9)
 
@@ -555,7 +565,7 @@ aparecer e ser controlado pelas teclas físicas do volume."*
 | `#seek` | a preview |
 | `#durTime` | o botão de passar slide |
 
-Ela parava na coluna 2 porque a 3 era do histórico: a barra não batia com a
+Ela parava na coluna 2 porque a 3 era da sétima célula: a barra não batia com a
 miniatura logo abaixo, e o título nascia descentrado — centrado numa caixa que
 não era a do deck. Era um `flex` com `gap: .5rem` e `min-width: 32px` nos
 tempos, números que não vinham de lugar nenhum.
@@ -1491,9 +1501,39 @@ o que se protege é o `<video>` inteiro — a imagem parava junto.
 
 O telão mostra **uma** estrofe (ou **um** versículo) por vez — o formato certo
 para quem assiste, e o errado para quem opera: o operador precisa saber o que
-vem depois, e a preview só espelha o que já está no ar. O botão do meio do
-mixer (`#lyricsViewBtn`, folha com linhas) abre um bottom-sheet **com scroll**
+vem depois, e a preview só espelha o que já está no ar. O botão
+(`#lyricsViewBtn`, folha com linhas) abre um bottom-sheet **com scroll**
 (`#lyricsPopup`) com a íntegra do que está em cena.
+
+**ELE É A SÉTIMA CÉLULA DA LINHA DE TRANSPORTE desde a v1.4.31**, a pedido do
+operador. Ele morava SOBRE a preview, no topo da coluna de operação, e era o
+único dos três de lá que não opera a cena — a cortina e o mudo mudam o que a
+congregação vê e ouve, este abre uma leitura no celular. Na fileira de baixo ele
+fica ao lado da playlist, o outro botão que só abre uma folha, e veste a mesma
+`.t-btn` dos vizinhos: um chapado sozinho numa fileira de seis com fundo não se
+lê como distinção. O canto que ele deixou vago voltou a ser da **cortina**, que
+o ocupava até a v5.50.
+
+**E ELE GANHOU UMA BADGE** (`#lvBadge`), pedida no mesmo lote: *"para indicar
+que ele está com alguma função disponível quando houver alguma mídia que
+disponibiliza uma das funções dele"*. Ela nasce da mudança de casa — sobre a
+preview, "não há o que ler" se lia no próprio palco, a dois centímetros do
+botão: o wallpaper no ar responde sozinho. Na sétima célula não há esse
+contexto, e sem ela a única forma de descobrir que não há letra é abrir a folha
+e ler *"Nada em exibição"*.
+
+- **É um PONTO, não um número:** o que ela responde é sim/não. As fontes do
+  auxiliar são abas, não itens de fila — um "3" ali prometeria uma contagem que
+  a folha não usa.
+- **A fonte é `lyricsViewSources`, a MESMA da folha** (`renderLeitorBadge`). Uma
+  segunda conta de "o que está disponível" divergiria no primeiro recurso novo, e
+  esta é a que ninguém confere: a folha denuncia o erro dela ao abrir, a badge
+  não denuncia nada — ela só acende errado.
+- **Os rótulos saem das PRÓPRIAS abas** (`data-lvsrc`), pelo mesmo motivo. O
+  `title` diz O QUE há ("Auxiliar de leitura: letra, cifra"); a badge diz SE há.
+- **Quem a acende é `renderNowPlaying`**, ao lado do selo de camadas e pela mesma
+  razão que ele: aquela função tem um `return` por ramo de cena, e qualquer linha
+  no fim dela só rodaria para o último caso.
 
 - **Quatro fontes possíveis**: a **letra** da música em cena
   (`currentItem.lyrics`, os mesmos slides que o Display projeta — o slide de
@@ -1770,6 +1810,128 @@ tempo): o que se divide é a apresentação do texto, não a unidade de projeç�
 dividir a unidade quebraria o realce da estrofe em cena e o ⏮/⏭. Vale para os
 dois lugares que desenham letra, porque os dois chamam a mesma função (o popup de
 leitura e o painel do modo simplificado).
+
+### O histórico do culto, em Configurações (v1.2.0 · v1.4.31)
+
+A lista do que **já foi ao telão** — a pergunta que nenhuma outra lista do app
+responde. O Cronograma é o que se PRETENDE tocar, a playlist é o que vem A
+SEGUIR, e as duas são voláteis (um toque numa mídia da Biblioteca redefine a
+fila inteira). O histórico é para quem monta o culto seguinte, ou precisa
+repetir um louvor que entrou de improviso e não ficou guardado em lista nenhuma.
+
+**ELE MORA EM CONFIGURAÇÕES desde a v1.4.31** (`#histOpenRow`). Era a sétima
+célula da linha de transporte, e aquela fileira é o que se opera DURANTE o
+culto; o histórico é o que se consulta ANTES ou DEPOIS. A folha (`#histPopup`)
+abre por cima de Configurações — daí ela vir DEPOIS na tabela `POPUPS` **e** um
+degrau acima no `z-index`: as duas dizem a mesma ordem, e mudar uma sem a outra
+é o acaso que já cobriu um popup por inteiro aqui.
+
+#### O que cada linha guarda
+
+Nome e subtítulo são **cópias**, feitas no instante da projeção — um item pode
+deixar de existir entre tocar e ser consultado (a prateleira `avulsos` tem teto
+de três, e o coletor recolhe os bytes de quem sai da última lista). Guardar só o
+id daria uma lista de linhas em branco no fim de um culto normal.
+
+**Repetição consecutiva não abre linha nova**: `repeat: 'one'` reenvia o mesmo id
+a cada fim de faixa, e um louvor em laço durante a oração encheria a lista com
+trinta cópias do mesmo nome. O que se atualiza é a HORA, e o `×3` do subtítulo
+diz quantas voltas — o mesmo colapso da linha do tempo do Registro.
+
+#### As SESSÕES (v1.4.31)
+
+Pedido do operador: *"armazene os dados entre sessões, separando as sessões.
+mantenha os itens usáveis apenas na categoria da sessão atual. para as sessões
+antigas, deixe usáveis apenas itens padrões do sistema, como músicas, textos,
+links e etc... que não dependem de um arquivo que pode já ter sido excluído,
+para não ser obrigado a manter aquele arquivo"*.
+
+Isto **revoga** o *"apagada a cada nova sessão"* do pedido de v1.2.0, e as duas
+coisas não se contradizem porque o que substitui o apagamento é a **separação**:
+a sessão de hoje fica sozinha no topo, com cabeçalho próprio, e as antigas
+abaixo dela.
+
+- **Uma sessão é uma carga do documento** — a única definição que o lado web tem
+  como observar. Minimizar não abre sessão nova; fechar e reabrir abre.
+- **Ela nasce na PRIMEIRA projeção**, não na carga: um app aberto e fechado sem
+  projetar nada não deixa um cabeçalho sobre nada na lista de quem a consultar
+  no sábado seguinte.
+- **O cabeçalho diz o DIA e a JANELA DE HORAS** (`14 itens · 09:12–10:40`). O dia
+  é escrito à mão ("Hoje", "Ontem", `sáb, 23/08`) e não por
+  `toLocaleDateString`: os nomes e a ordem dos campos saem dos dados de locale
+  do navegador, que variam entre o aparelho e o Chromium do oráculo — e as duas
+  formas que mais importam não vêm de locale nenhum. A janela responde o que o
+  dia não responde: se a sessão de sábado é o culto da manhã ou o ensaio da
+  noite.
+- **Guardadas: 12 sessões** (`HIST_SESSOES_MAX`). Um culto por sábado mais dois
+  menores na semana dá cerca de um mês, que é o alcance da pergunta.
+
+#### A gravação sai do caminho quente
+
+Foi este o argumento que manteve o histórico em memória por vinte e nove
+versões: o `send` é o ponto por onde toda projeção passa, e uma escrita no
+IndexedDB ali é o caminho mais quente do culto.
+
+Ela continua fora dele. `historicoRegistrar` mexe só na memória e **agenda** a
+gravação (`HIST_GRAVA_MS`, 2 s), que coalesce a rajada de um culto inteiro numa
+escrita a cada dois segundos de silêncio. **`AVDB.updateState`, nunca
+`setState`:** só ela espera o COMMIT, e um histórico que perde a última projeção
+porque a transação ficou em voo é o defeito que este lote existe para não ter.
+
+**O preço, dito:** os últimos segundos podem se perder numa morte do renderer.
+Daí a saída de cena (`visibilitychange`) forçar a gravação pendente — sair da
+frente é o instante em que o processo passa a ser descartável.
+
+#### A RECEITA: o que uma sessão antiga ainda oferece
+
+Cada linha guarda, além do registro do fato, o **mínimo para trazer o item de
+volta sem depender de um arquivo** (`histReceita`, gravada no instante da
+projeção). Três formas, e cada uma responde a uma das coisas que o pedido nomeia:
+
+| forma | o que guarda | como volta |
+|---|---|---|
+| **cena** (`textos`) | o descritor inteiro (versículo, mensagem, cronômetro) | remontada, sem tocar em byte nenhum |
+| **link** (`links`) | o endereço e o id do YouTube | reaproveita um registro que já exista, ou cria |
+| **acervo** (`músicas`) | `folder` + `srcName` | PROCURA na coleção — o `id` não serve, um hino reapagado e rebaixado ganha id novo |
+
+**Sem receita** fica o que só existe porque um arquivo foi importado ou
+compartilhado — exatamente o que o coletor recolhe, e exatamente o que o
+operador não quer ser obrigado a manter.
+
+- **Na sessão ATUAL tudo é usável**, como sempre foi: o registro que acabou de
+  tocar está vivo por construção, e a linha cujo arquivo sumiu no meio do culto
+  continua sendo marcada com *"Não está mais no aparelho"*.
+- **Numa sessão ANTIGA, só o que tem receita** (`histAcionavel`). O que sobra é
+  a linha do fato, esmaecida e com **`· só registro`** no fim do subtítulo — uma
+  linha que não responde ao toque e não diz por quê é indistinguível de um app
+  quebrado.
+- **A resolução tenta o ID PRIMEIRO** (`histResolver`): ele é de graça e devolve
+  o registro original, que é o caso normal dentro do culto de hoje. Só então
+  entra a receita. Um item CRIADO nasce em `avulsos` quando o toque é para
+  projetar (a prateleira volátil, com o teto de três) e em `imports` quando o
+  operador mandou ao Cronograma — sem lista ele nasceria órfão e o `gcOrfaos`
+  da abertura seguinte o apagaria.
+
+#### Limpar
+
+Pedido: *"limpar todo o histórico ou por sessões"*. São dois lugares, e a
+distância entre eles é deliberada: o **por sessão** mora no cabeçalho dela, o
+**tudo** no rodapé da folha (`#histClear`, na faixa própria que a confirmação
+exige — ver `pedirConfirmacaoNaLinha`). Os dois perguntam antes.
+
+**Nenhum arquivo é tocado** — daqui não sai `listRemove` nenhum, e por isso o
+coletor não roda: o que se apaga é o registro do que aconteceu. Limpar a sessão
+ATUAL a REMOVE em vez de esvaziá-la, e a próxima projeção abre uma sessão nova
+com a hora em que ela de fato recomeçou; uma sessão esvaziada guardaria um
+cabeçalho dizendo "0 itens" com a hora de um culto que o operador acabou de
+mandar apagar.
+
+#### O que a folha NÃO tem
+
+- **Sem excluir e sem reordenar linha:** um fato não se edita, e um destrutivo
+  ali apagaria o registro sem apagar nada do aparelho.
+- **Sem contador no cabeçalho** (o `.popup-count` da playlist): ali o número é o
+  que falta tocar; aqui a lista inteira já o mostra.
 
 ### Onde o Display roda
 
