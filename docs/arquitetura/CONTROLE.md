@@ -195,6 +195,20 @@ saltar).
 | as teclas | acionam as ÂNCORAS do modo avançado por `.click()`, como o play/parar/mudo: um botão `disabled` é no-op natural, e o limite vale aqui sem uma segunda guarda |
 | `lvSimpleDeckUrls` | o sumidouro **próprio** das miniaturas. Há dois desenhistas de páginas (esta zona e a folha do avançado), e uma lista única fazia o redesenho de um revogar as imagens do outro — quadros vazios, **sem erro em lugar nenhum**, porque uma `<img>` com `src` revogado não pinta e não reclama. Daí `lvSoltarUrls(lista)` receber a lista |
 
+- **DUAS COLUNAS, E SÓ AQUI** (v1.4.35): *"coloque os slides em duas colunas,
+  pois temos menos altura vertical, portanto manter os slides de mesmo tamanho
+  acaba impedindo de ver mais que dois slides corretamente, deixando de ser uma
+  lista e competindo com o próprio preview"*. MEDIDO antes: numa zona de 552px
+  cabiam **DOIS** slides inteiros, com a linha em 194px — e os dois eram a página
+  no ar e a seguinte, que é o que a preview e o telão já dão. Em duas colunas a
+  linha cai para ~102px e a zona passa a caber **OITO**.
+  A classe `.lv-grade` é posta no CONTAINER por `refreshSimpleLyrics`, e **só com
+  um deck**: a letra continua em coluna única, porque ali o corpo é TEXTO e duas
+  colunas estreitas quebram cada estrofe em mais linhas do que economizam. A
+  folha do modo avançado não herda nada disso — lá a altura é a de um
+  bottom-sheet, e a miniatura larga é o que faz a página se reconhecer. A LINHA é
+  a mesma `.lv-row--slide` dos dois modos, e é isso que faz o selo, o toque e o
+  `lvScroll` valerem aqui sem um segundo desenho.
 - **A PÁGINA FICA FORA DA ASSINATURA**, pela razão do `lvSignature`: o destaque
   anda por classe, e com ela lá dentro cada toque no ⏭ revogaria e recriaria as
   miniaturas de uma apresentação inteira no meio do sermão.
@@ -1610,12 +1624,41 @@ e ler *"Nada em exibição"*.
   a resposta muda, e muda **porque a cena mudou**: ali a letra está em exibição. Com uma fonte só, o seletor inteiro some sem
   nenhum caso especial no desenho. Oráculo: `tools/leitor-camadas.test.mjs`.
 
-  **A lista é o MOLDE VERTICAL do capítulo bíblico**, também a pedido: número na
-  margem, corpo à direita, a página em cena marcada e centralizada pelo
-  `lvScroll` que já existe. O que muda é o corpo — onde o versículo tem texto, a
-  página tem a própria imagem, ocupando a largura da coluna (num chip pequeno o
-  texto do slide não se reconhece, e o que o operador foi ver é **o que vem a
-  seguir**).
+  **A lista é o MOLDE VERTICAL do capítulo bíblico**, também a pedido: a página
+  em cena marcada e centralizada pelo `lvScroll` que já existe. O que muda é o
+  corpo — onde o versículo tem texto, a página tem a própria imagem, ocupando a
+  largura da coluna (num chip pequeno o texto do slide não se reconhece, e o que
+  o operador foi ver é **o que vem a seguir**).
+
+  **E O RÓTULO É SOBREPOSTO** (v1.4.35): *"coloque o número da página sobreposto
+  ao slide, para o slide poder ficar centralizado, e use um 'no ar', ao lado do
+  indicador de página para indicar a página atual, assim como já usamos em
+  diversos elementos no app"*.
+
+  - **O número ocupava uma COLUNA à esquerda** (MEDIDO: 27px de 408), e com ela
+    o `padding-left` da `.lv-row` — o recuo que existe para a FAIXA do versículo
+    no ar. Os dois juntos tiravam a miniatura do centro da linha. Fora do fluxo,
+    ela ocupa a largura inteira e uma página 4:3 aparece centrada pelo
+    `object-fit`, sem nada a compensar.
+  - **O selo pousa SOBRE a imagem, então precisa de fundo OPACO** — o que está
+    atrás é um pixel de apresentação, que pode ser qualquer cor. É `--panel`, e é
+    o único tom opaco em que o número passa AA (MEDIDO em `tokens.css`: `--muted`
+    dá 4,88:1 sobre `--panel` e 3,66:1 sobre `--panel-2`). Ele é a única exceção
+    nomeada da regra R1 no `tokens.test.mjs`, pela razão da barra de rolagem: é
+    RÓTULO, com `pointer-events: none`, e não hospeda controle nenhum.
+  - **A página no ar troca o par para `--live-fill` + `--live-strong`**, o mesmo
+    de `.row-item.no-ar`, e ganha o **`● No ar`** ao lado do número. Ele
+    substituiu o `--accent-fill` da v1.4.24, e a troca de matiz é a regra da
+    paleta: acento é ESCOLHA entre alternativas, vermelho saturado é *está no ar
+    agora* — e uma página projetada é o segundo caso. A barra de acento da
+    `.lv-row.current` é suprimida aqui, senão ela apareceria pela faixa
+    transparente de uma página 4:3: duas cores dizendo a mesma coisa na mesma
+    linha.
+  - **O `● No ar` nasce em TODA linha e quem o revela é o CSS.** `lvMarkCurrent`
+    move a classe `.current` SEM redesenhar (é o que mantém as URLs de objeto
+    vivas a cada troca de página); criá-lo no JS obrigaria aquela função a mover
+    um nó também — um segundo lugar para divergir, e o defeito seria o selo
+    ficando na página anterior.
 
   Quatro coisas que este desenho não pode perder:
 

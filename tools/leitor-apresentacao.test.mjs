@@ -232,6 +232,90 @@ try {
     + 'coluna — um par de botões que fica ali sem mudar nada na tela é o que '
     + 'este app não deixa acontecer', dado.fonteCtl);
 
+  // ── 2b. O SELO SOBRE A MINIATURA, E O "● NO AR" NA PÁGINA EM CENA ─────────
+  //
+  // Pedido do operador (v1.4.35): *"coloque o número da página sobreposto ao
+  // slide, para o slide poder ficar centralizado, e use um 'no ar', ao lado do
+  // indicador de página para indicar a página atual, assim como já usamos em
+  // diversos elementos no app"*.
+  //
+  // As duas metades são MEDIDAS NO RENDERIZADO, e nenhuma delas tem teste de
+  // classe possível: um selo com a classe certa e sem a regra de CSS continua
+  // desenhando o número numa coluna à esquerda, e um `.row-live` presente em
+  // toda linha (é assim que ele nasce — ver `lvBuildDeck`) "existe" em todas
+  // elas se a pergunta for pelo nó em vez de pelo `display`.
+  const selo = await pg.evaluate(() => {
+    const linhas = [...document.querySelectorAll('#lyricsViewBody .lv-row--slide')];
+    const cur = document.querySelector('#lyricsViewBody .lv-row--slide.current');
+    const cr = cur.getBoundingClientRect();
+    const img = cur.querySelector('.lv-slide').getBoundingClientRect();
+    const sel = cur.querySelector('.lv-selo').getBoundingClientRect();
+    const cs = getComputedStyle(cur.querySelector('.lv-selo'));
+    // A COR MEDIDA CONTRA O TOKEN, e não contra um literal: um `rgb(...)` escrito
+    // aqui envelhece na primeira troca de paleta e passa a reprovar um app certo.
+    const sonda = document.createElement('span');
+    document.body.appendChild(sonda);
+    sonda.style.background = 'var(--live-fill)';
+    const live = getComputedStyle(sonda).backgroundColor;
+    sonda.style.background = 'var(--accent-fill)';
+    const accent = getComputedStyle(sonda).backgroundColor;
+    sonda.remove();
+    const outra = linhas.find((l) => !l.classList.contains('current'));
+    return {
+      // SOBREPOSTO: a caixa do selo cabe dentro da caixa da imagem.
+      dentroDaImagem: sel.left >= img.left - 0.5 && sel.top >= img.top - 0.5
+        && sel.right <= img.right + 0.5 && sel.bottom <= img.bottom + 0.5,
+      // CENTRALIZADO: a miniatura ocupa a linha inteira — nenhuma coluna de
+      // número roubando largura à esquerda.
+      imgLargura: Math.round(img.width), linhaLargura: Math.round(cr.width),
+      fundo: cs.backgroundColor, live, accent,
+      liveNaAtual: getComputedStyle(cur.querySelector('.row-live')).display,
+      liveNaOutra: getComputedStyle(outra.querySelector('.row-live')).display,
+      textoAtual: cur.querySelector('.lv-selo').textContent.replace(/\s+/g, ' ').trim(),
+      // O selo não pode roubar o toque da linha.
+      cliques: cs.pointerEvents,
+    };
+  });
+  checar(selo.dentroDaImagem,
+    'O NÚMERO É SOBREPOSTO À MINIATURA — a caixa do selo cabe dentro da caixa da '
+    + 'imagem, e não numa coluna ao lado dela', selo);
+  checar(selo.imgLargura >= selo.linhaLargura - 20,
+    '  ↳ e por isso a MINIATURA ocupa a linha: sem a coluna do número não há o '
+    + 'que compensar, e uma página 4:3 aparece centrada pelo `object-fit`',
+    { img: selo.imgLargura, linha: selo.linhaLargura });
+  checar(selo.liveNaAtual !== 'none' && selo.liveNaOutra === 'none'
+    && /No ar/.test(selo.textoAtual),
+    'O "● NO AR" APARECE AO LADO DO NÚMERO, e só na página em cena. Ele nasce em '
+    + 'TODA linha e quem o revela é o CSS — `lvMarkCurrent` move a classe sem '
+    + 'redesenhar, e criá-lo no JS seria um segundo lugar para divergir', selo);
+  checar(selo.fundo === selo.live && selo.fundo !== selo.accent,
+    '  ↳ e o selo em cena veste o par das LISTAS (`--live-fill`), não o '
+    + '`--accent-fill` da v1.4.24: acento é ESCOLHA entre alternativas, vermelho '
+    + 'saturado é *está no ar agora* — e uma página projetada é o segundo caso',
+    selo);
+  checar(selo.cliques === 'none',
+    '  ↳ e o selo não rouba o toque da linha: ele é RÓTULO, e quem pula a página '
+    + 'é o toque na linha inteira', selo.cliques);
+
+  // A GRADE DE DUAS COLUNAS É DO MODO FÁCIL, E SÓ DELE. Aqui a altura é a de um
+  // bottom-sheet, e a miniatura larga é o que faz a página se reconhecer — foi
+  // por isso que ela ocupa a largura desde a v1.4.24. Sem esta metade, aplicar a
+  // grade ao app inteiro passaria no oráculo do outro modo e encolheria a folha
+  // que o pedido não menciona.
+  const umaColuna = await pg.evaluate(() => {
+    const zona = document.getElementById('lyricsViewBody');
+    const linhas = [...zona.querySelectorAll('.lv-row--slide')];
+    return {
+      display: getComputedStyle(zona).display,
+      ladoALado: Math.abs(linhas[0].getBoundingClientRect().top
+        - linhas[1].getBoundingClientRect().top) < 2,
+    };
+  });
+  checar(umaColuna.display !== 'grid' && !umaColuna.ladoALado,
+    '  ↳ e AQUI as páginas continuam em UMA coluna: a grade de duas é do Modo '
+    + 'Fácil, onde a altura é curta. Nesta folha a miniatura larga é o que faz a '
+    + 'página se reconhecer', umaColuna);
+
   // ── 3. VIRAR A PÁGINA MOVE O DESTAQUE, E NÃO REMONTA A LISTA ───────────────
   const depois = await pg.evaluate(() => {
     document.getElementById('slideNextBtn').click();
