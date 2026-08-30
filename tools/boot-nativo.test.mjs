@@ -3408,7 +3408,7 @@ try {
   // 1) APARELHO RECÉM-INSTALADO: nada gravado em `lyricsBg`.
   const zero = await pgP.evaluate(async () => ({
     gravado: await window.AVDB.getState('lyricsBg'),
-    // O `data-estado` do TILE (v1.4.36): a folha virou painel rápido, e quem
+    // O `data-estado` do TILE (v1.4.38): a folha virou painel rápido, e quem
     // escreve o estado é `pintarTile`. Perguntar pela CLASSE seria perguntar
     // pela aparência; o `data-estado` é o valor em vigor.
     marcado: document.getElementById('lyricsBgTile')?.dataset.estado || null,

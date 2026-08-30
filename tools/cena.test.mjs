@@ -710,7 +710,7 @@ try {
   await pg.evaluate(() => applyRotate(0));
 
   // ---- "ESTICAR" saiu, e o valor guardado é migrado ----
-  // O SELETOR VIROU UM TILE que alterna (v1.4.36), e a propriedade que importa é
+  // O SELETOR VIROU UM TILE que alterna (v1.4.38), e a propriedade que importa é
   // a mesma de antes: há DUAS posições, e nenhuma delas distorce. Um tile que
   // alterna prova isso ANDANDO — dar a volta em dois toques é o que garante que
   // não há um terceiro estado escondido no ciclo.

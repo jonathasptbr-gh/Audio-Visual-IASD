@@ -235,7 +235,7 @@ try {
     (el) => el.scrollHeight > el.clientHeight + 1);
   checar(!precisaRolar, 'Configurações cabe sem rolar');
 
-  // ---- E O CORPO TAMBÉM NÃO ROLA (v1.4.36) ----
+  // ---- E O CORPO TAMBÉM NÃO ROLA (v1.4.38) ----
   // A asserção acima mede a FOLHA, e a folha nunca rolou: quem tem
   // `overflow-y: auto` é o `.fade-opts`, e é ele que crescia por baixo. Era
   // isso que o operador via — *"uma disposição de grade, para que tenha mais
@@ -817,7 +817,7 @@ try {
       };
     };
     const escuro = ler();
-    // O TEMA VIROU UM TILE que ALTERNA (v1.4.36): não há mais dois segmentos
+    // O TEMA VIROU UM TILE que ALTERNA (v1.4.38): não há mais dois segmentos
     // para escolher um, há um botão que vai para o outro estado. O toque é o
     // mesmo do operador, e o `data-estado` é o que a pintura escreve.
     document.getElementById('temaTile').click();

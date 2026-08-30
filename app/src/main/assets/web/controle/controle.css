@@ -403,7 +403,7 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
   /* O ✓ do renomear, na coluna do `⋮` (v1.4.27). A LIXEIRA fica de fora: ela é
      um `<span>` que ilustra, e um recuo diria que há o que apertar ali. */
   .row-slot--ok,
-  /* Os tiles do painel rápido de Configurações (v1.4.36). Eles nascem no MESMO
+  /* Os tiles do painel rápido de Configurações (v1.4.38). Eles nascem no MESMO
      lote em que entram aqui, que é a regra: uma lista de guardas é o que
      envelhece, e um bloco novo que hospede controle sem entrar nela fica mudo
      ao toque sem nada na tela dizer por quê. Nenhum ancestral deles está na
@@ -5414,7 +5414,7 @@ main {
    de propósito — é o único controle desta folha que o operador procura para
    mudar o app de cara, e ele é tocado com o polegar, não com a ponta do dedo.
 
-   A ANATOMIA É A DO TILE (v1.4.36): ícone em cima, palavra embaixo, tudo
+   A ANATOMIA É A DO TILE (v1.4.38): ícone em cima, palavra embaixo, tudo
    centrado — a mesma pilha da `.qs-tile` logo abaixo. É o que o pedido chamou
    de "atualizar o design para o modelo de painel rápido" sem transformar o
    modo num tile: ele continua sendo um SELETOR de duas opções à vista (ver o
@@ -5452,7 +5452,7 @@ main {
 }
 .fit-opt.active { background: var(--accent-fill); color: var(--on-accent); }
 
-/* ---------- O PAINEL RÁPIDO DE CONFIGURAÇÕES (v1.4.36) ----------
+/* ---------- O PAINEL RÁPIDO DE CONFIGURAÇÕES (v1.4.38) ----------
    A folha era uma pilha de sete FAIXAS de largura inteira, uma opção por
    faixa. Ela virou uma GRADE de tiles — ícone, título curto e a palavra do
    estado —, e a conta é o motivo: as mesmas sete opções passaram de ~450px de
@@ -6220,6 +6220,21 @@ body.mode-simple .bottombar { display: none; }
   /* Mesma regra das teclas: superfície sólida, sem contorno. */
   padding: .7rem .6rem; border: none; border-radius: var(--radius-card);
   background: var(--panel);
+  /* A BARRA VISÍVEL, a mesma da folha do modo avançado (v1.4.37). Ela nasceu lá
+     com a razão escrita — *"a caixa diz que há um dentro, a barra diz ONDE se
+     está nele"* — e esta zona, que faz o mesmo trabalho, ficou sem: MEDIDO,
+     `scrollbar-width` e `scrollbar-color` computavam `auto` aqui contra `thin` e
+     o acento lá. Sem ela a lista rola sem dizer onde está — e no Modo Fácil ela
+     agora é a coluna de PÁGINAS, onde saber a posição é o recurso inteiro.
+     A pista fica `transparent` como na `.lyricsview-body`: aqui o fundo já é
+     `--panel`, e uma pista da cor do próprio fundo não é pista nenhuma. */
+  scrollbar-width: thin;
+  scrollbar-color: var(--accent) transparent;
+}
+.simple-lyrics::-webkit-scrollbar { width: 7px; }
+.simple-lyrics::-webkit-scrollbar-track { background: transparent; }
+.simple-lyrics::-webkit-scrollbar-thumb {
+  background: var(--accent); border-radius: var(--radius-pill);
 }
 .simple-lyrics .lv-empty { margin: auto; color: var(--muted); font-size: .85rem; text-align: center; line-height: 1.5; }
 /* ===== AS PÁGINAS EM DUAS COLUNAS, SÓ AQUI (v1.4.35) =====
@@ -6358,12 +6373,19 @@ body.mode-simple .bottombar { display: none; }
    "o comando saiu" e vale só para quem manda algo à projeção. Duas mensagens,
    dois sinais — e é por isso que os dois convivem no mesmo botão.
 
-   QUEM O RECEBE está em `ECO_SELETOR` (v1.3.14): o transporte, os dois botões de
-   slide, a cortina, o mudo, a coluna da tela cheia e o "Projetar no telão".
-   Antes eram só os seis do transporte — o segundo seletor da lista
-   (`.mixer-mid button`) apontava para um bloco removido na v1.3.8 —, e um anel
-   que aparece em seis botões e em nenhum outro se lê como enfeite daqueles
-   seis, que foi como o operador o leu.
+   QUEM O RECEBE está em `ECO_SELETOR`: o transporte, os dois botões de slide, a
+   coluna da tela cheia e o "Projetar no telão". Antes da v1.3.14 eram só os seis
+   do transporte — o segundo seletor da lista (`.mixer-mid button`) apontava para
+   um bloco removido na v1.3.8 —, e um anel que aparece em seis botões e em
+   nenhum outro se lê como enfeite daqueles seis, que foi como o operador o leu.
+
+   A CORTINA E O MUDO SAÍRAM na v1.4.36, e o motivo está no `ECO_SELETOR`: eles
+   TROCAM O DESENHO ao toque (o eco é a segunda vez que a mesma coisa é dita) e
+   não têm CAIXA — este anel é `inset: 0` + `border-radius: inherit`, isto é, a
+   caixa do botão, e um `.pv-fab` não desenha nenhuma. O que aparecia era um
+   retângulo em `--accent` materializando-se em volta de um ícone solto, POR CIMA
+   da projeção: um token de cromo sobre o palco, a classe de erro que a família
+   `--stage-*` existe para impedir.
 
    `::before` e não `::after`: é a metade livre do par, e o `.btn-pulso` usa o
    `::after` para o ✓/✕. (O contorno de eixo do `.t-btn` que ocupava o `::after`
@@ -6566,7 +6588,7 @@ body.mode-simple .bottombar { display: none; }
 }
 
 /* (A `.fit-linha` — preenchimento e giro dividindo uma faixa, v5.169 — saiu na
-   v1.4.36 com a folha em faixas: os dois viraram tiles vizinhos na grade, que é
+   v1.4.38 com a folha em faixas: os dois viraram tiles vizinhos na grade, que é
    a mesma vizinhança dita pelo layout em vez de por uma classe própria.) */
 
 /* ---------- A folha de conectar, num degrau só (v5.171) ----------

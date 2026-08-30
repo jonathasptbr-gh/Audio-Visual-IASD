@@ -1,10 +1,23 @@
 [
   {
-    "versao": "1.4.36",
+    "versao": "1.4.38",
     "itens": [
       "Configurações virou um painel rápido: botões com ícone, em grade, sem rolar.",
       "Cada botão mostra o estado e troca com um toque.",
       "O seletor de Fácil e Avançado ganhou ícones e continua em destaque."
+    ]
+  },
+  {
+    "versao": "1.4.37",
+    "itens": [
+      "A lista do auxiliar de leitura no modo fácil voltou a mostrar a barra de rolagem."
+    ]
+  },
+  {
+    "versao": "1.4.36",
+    "itens": [
+      "A onda azul do toque saiu dos botões de mudo e da cortina.",
+      "Neles o próprio ícone já vira o oposto, que é o aviso de que o comando saiu."
     ]
   },
   {

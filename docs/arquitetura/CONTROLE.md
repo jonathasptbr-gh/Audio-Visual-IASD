@@ -195,6 +195,15 @@ saltar).
 | as teclas | acionam as ÂNCORAS do modo avançado por `.click()`, como o play/parar/mudo: um botão `disabled` é no-op natural, e o limite vale aqui sem uma segunda guarda |
 | `lvSimpleDeckUrls` | o sumidouro **próprio** das miniaturas. Há dois desenhistas de páginas (esta zona e a folha do avançado), e uma lista única fazia o redesenho de um revogar as imagens do outro — quadros vazios, **sem erro em lugar nenhum**, porque uma `<img>` com `src` revogado não pinta e não reclama. Daí `lvSoltarUrls(lista)` receber a lista |
 
+- **A BARRA DE ROLAGEM É A DA FOLHA DO MODO AVANÇADO** (v1.4.37). Relato do
+  operador: *"o auxiliar de leitura no modo simples está sem a barra lateral do
+  scroll para visualizar a rolagem da lista"*. MEDIDO: aqui `scrollbar-width` e
+  `scrollbar-color` computavam **`auto`**, contra `thin` e o acento na
+  `.lyricsview-body`. A receita nasceu lá com a razão escrita — *"a caixa diz que
+  há um dentro, a barra diz ONDE se está nele"* — e esta zona, que faz o mesmo
+  trabalho, ficou sem ela; com a coluna de PÁGINAS, saber a posição na lista é o
+  recurso inteiro. A pista fica `transparent`: o fundo daqui já é `--panel`, e uma
+  pista da cor do próprio fundo não é pista nenhuma.
 - **DUAS COLUNAS, E SÓ AQUI** (v1.4.35): *"coloque os slides em duas colunas,
   pois temos menos altura vertical, portanto manter os slides de mesmo tamanho
   acaba impedindo de ver mais que dois slides corretamente, deixando de ser uma
@@ -879,7 +888,7 @@ versões): renomeá-lo tocaria dezenas de referências sem mudar nada visível. 
 transições (fade) **não têm controle ali** — são inerentes ao sistema (ver o
 state `fade`).
 
-#### Configurações é um PAINEL RÁPIDO (v1.4.36)
+#### Configurações é um PAINEL RÁPIDO (v1.4.38)
 
 Ela era uma pilha de sete **faixas** de largura inteira — rótulo por extenso à
 esquerda, segmentado de duas opções à direita, ~64px cada. Uma opção por faixa

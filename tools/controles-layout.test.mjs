@@ -475,6 +475,53 @@ try {
     'e o foco vindo do TECLADO continua com anel: a folha deixa `outline` de fora '
     + 'do reset de propósito, e quem navega por teclas precisa saber onde está', anel);
 
+  // ── 2d. O ECO NÃO É DE QUEM TROCA O DESENHO (v1.4.36) ───────────────────
+  //
+  // Relato do operador, identificando o que sobrava: *"é um realce de toque, um
+  // efeito após o toque… uma onda azul a partir da borda do botão… mesmo formato
+  // dos botões, retangulares com bordas arredondadas… uma linha azul de borda
+  // que se expande e vai desaparecendo. é animação"*. É o `.btn-eco`, entrado
+  // nestes dois na v1.3.14.
+  //
+  // Ele desenha `inset: 0` + `border-radius: inherit` — **a caixa do botão**. Um
+  // `.t-btn` tem uma; um `.pv-fab` tem `background: none` e é só o traço sobre a
+  // projeção, então o eco materializa um retângulo AZUL (`--accent`, um token de
+  // cromo) em volta de um ícone solto, em cima da imagem no ar.
+  //
+  // E ele era REDUNDANTE ali: a cortina e o mudo são alternadores — o ícone vira
+  // o oposto no mesmo instante do toque. Isso já É "o comando saiu".
+  //
+  // A METADE DE VOLTA é o que impede o conserto de virar outro defeito: o
+  // TRANSPORTE continua ecoando, e é lá que o eco não tem substituto — os ⏮/▶/⏭
+  // não trocam de desenho, e com as telas da rede a resposta real está a ~1 s.
+  const eco = await pg.evaluate(async () => {
+    const bater = (sel) => {
+      const b = document.querySelector(sel);
+      b.click();
+      const tem = b.classList.contains('btn-eco');
+      const anelDesenhado = tem ? getComputedStyle(b, '::before').boxShadow : '';
+      return { tem, anelDesenhado };
+    };
+    const r = {
+      cortina: bater('#viewToggle'),
+      mudo: bater('#muteToggle'),
+      transporte: bater('#next'),
+    };
+    // DESFAZ os dois alternadores — este bloco mede o eco, não muda a cena para
+    // quem vier depois.
+    document.querySelector('#viewToggle').click();
+    document.querySelector('#muteToggle').click();
+    return r;
+  });
+  checar(eco.cortina.tem === false && eco.mudo.tem === false,
+    'a cortina e o mudo NÃO ecoam: o eco desenha a CAIXA do botão, e um `.pv-fab` '
+    + 'não tem caixa — o que aparecia era um retângulo azul em volta de um ícone '
+    + 'solto, por cima da projeção', eco);
+  checar(eco.transporte.tem === true && !!eco.transporte.anelDesenhado
+    && eco.transporte.anelDesenhado !== 'none',
+    'e o TRANSPORTE continua ecoando: lá o eco não tem substituto — os ⏮/▶/⏭ não '
+    + 'trocam de desenho, e com as telas da rede a resposta real está a ~1 s', eco);
+
   // ── 3-A. A COLUNA DA TELA CHEIA: NASCE ACESA, E O TOQUE É INTERRUPTOR ───
   //
   // Sem TV a preview em tela cheia É a projeção, então tudo o que se pinta aqui
