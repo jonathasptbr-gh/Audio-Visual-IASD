@@ -1,5 +1,11 @@
 [
   {
+    "versao": "1.4.37",
+    "itens": [
+      "A lista do auxiliar de leitura no modo fácil voltou a mostrar a barra de rolagem."
+    ]
+  },
+  {
     "versao": "1.4.36",
     "itens": [
       "A onda azul do toque saiu dos botões de mudo e da cortina.",
