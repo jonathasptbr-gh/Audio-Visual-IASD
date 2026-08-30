@@ -2839,6 +2839,21 @@ traço. `filter` e não overlay de fundo porque não disputa propriedade com que
 já usa `background-image` (a faixa da célula da Bíblia, a pílula do livro, o
 vazado da aba).
 
+**E ELE PEDE UMA TECLA — sobre a PREVIEW não há nenhuma** (v1.4.33). Relato do
+operador: os botões de mudo e da cortina *"ainda estão erroneamente com o
+feedback tátil de quando ainda estavam na barra"*. O `.pv-fab` não tem pastilha:
+ele É o traço branco sobre o que estiver projetado, e um recuo ali não se lê
+como "apertei" — lê-se como o ícone PULANDO por cima da imagem no ar (sem TV,
+essa imagem é a projeção). A LUZ também não salva: MEDIDO no `#muteToggle`, o
+`brightness(1.35)` leva o traço de **240,6 a 238,3** (branco já está no teto,
+então ela só DESBOTA o halo escuro) e o fundo de 14,3 a 14,5 — os dois
+invisíveis, e o que sobrava era só o deslocamento. Por isso o `.pv-fab` saiu da
+lista e tem resposta PRÓPRIA: a **pena do traço** (mais o halo, que engrossa
+junto). É o que responde sobre um fundo DESCONHECIDO — MEDIDO, +21% de
+luminância média sobre o wallpaper escuro e −10% com +67px de contorno sobre um
+slide branco. Não é escala: a caixa não muda de tamanho e a regra do recuo
+absoluto segue intacta para quem TEM tecla.
+
 **As duas armadilhas que a escala criava morreram com ela:**
 
 - **O HIT-TEST.** A `.coll-bar` do card tem 408px: 4% recuavam a borda direita
@@ -2874,7 +2889,9 @@ hospede controles entra na lista no MESMO lote em que nasce**; a régua é a do
 parágrafo acima, e ali a resposta ao toque nem é o botão afundando — é a faixa
 TROCANDO DE CONTEÚDO (a pergunta do excluir, o campo do renomear). Oráculo:
 `smoke.mjs`, medindo `transform` E `filter` do cartão durante uma pressão de
-verdade.
+verdade. O `controles-layout.test.mjs` guarda a exceção da
+preview, nas três metades: a caixa não anda, o traço responde no RENDERIZADO, e
+o botão da BARRA continua afundando.
 
 **E ELA FOI COBRADA UMA VERSÃO DEPOIS DE ESCRITA:** o `.row-slot` da v1.4.27 (o
 ✓ do renomear, que mora na coluna do `⋮`) vive FORA da `.row-acoes`, e a guarda
@@ -3402,7 +3419,7 @@ mundo anterior por outro caminho.
 | `parar-por-camada.test.mjs` | **o Parar do transporte, que fala de UMA camada só.** A regra é CONDICIONAL (mídia + Camada de Texto → sai só a mídia; uma das duas sozinha → sai a cena inteira), e uma condicional errada é muda nos DOIS sentidos: ou a Camada de Texto fica presa no telão sem saída no transporte, ou o louvor de fundo volta a levar o versículo junto. Mede as TRÊS cenas, e a prova é o `currentTime` do `<video>` mais o TIPO do comando — `clear` e `media-clear` apagam o mesmo vídeo da preview |
 | `cifra-rolagem.test.mjs` | **a rolagem `auto` da cifra precisa de um relógio ANDANDO.** A barra de progresso responde "este ITEM tem linha do tempo?", e `currentItem` sobrevive ao Parar, ao fim da faixa e a uma letra avulsa — a barra ficava habilitada sobre um telão vazio, e o `auto` ancorava a folha em `fracaoDaRolagem(0, dur)`. O desfecho não é um erro, é uma folha PARADA. TRÊS metades: sem mídia no ar ela anda (o livre assumiu), com mídia no ar ela não anda sozinha — "cair sempre no livre" apagaria o recurso —, e a folha de uma música da BIBLIOTECA (`lvAlvo`) continua rolando depois de um redesenho. Esta terceira trava a divergência que a v1.2.14 abriu: `cifraRolarAlternar` gravava a chave de `currentItem` e a guarda de `lvBuildCifra` compara com `lvItem()`, então no ensaio a rolagem morria no primeiro `renderLyricsView` (transpor, A+/A−, girar). A terceira asserção prova que a guarda "música nova é folha nova" não foi apagada para as outras duas passarem |
 | `leitor-do-transporte.test.mjs` | **o BOTÃO que abre o auxiliar de leitura.** `openLyricsPopup` ganhou `(item, fonte)` e o ouvinte continuou registrado por REFERÊNCIA — `addEventListener` chama com o EVENTO, o `PointerEvent` virou o `lvAlvo`, e as três fontes (letra, cifra e a reserva da Bíblia) sumiam de uma vez: a folha abria dizendo "Nada em exibição" para TODA música, com o console limpo. Os três oráculos que já abriam esta folha chamam `openLyricsPopup()` direto — o único caminho que continuava funcionando —, e é por isso que este CLICA. A segunda metade (a Biblioteca continua desviando o alvo) impede que apagar os parâmetros "conserte" a primeira. **E A BADGE** (v1.4.31): apagada sem nada em exibição, acesa com o que ler, pintada de verdade (uma classe sem a regra de CSS passa num teste de classe e continua invisível), e acesa pelo caminho REAL (`renderNowPlaying`) — o defeito provável não é ela calcular errado, é ninguém a chamar quando a cena muda |
-| `controles-layout.test.mjs` | **o DECK dos controles** (v1.3.5): os dois botões de slide que voltaram a flanquear a preview, a coluna de operação que subiu para cima dela, e o ⏮/⏭ do transporte que perdeu o eixo de estrofe. As quatro mudanças falham CALADAS, e a mais cara é a última — se a troca não pegar, "próxima mídia" continua passando ESTROFE com uma letra no ar, no meio de um louvor, sem nada no console; a prova é o COMANDO que sai no barramento (`seek` é a estrofe andando). Trava também a **ARMADILHA DO `<use>`**: a folha do documento NÃO atravessa a árvore-sombra de um `<use>`, então um `<symbol>` único com os dois desenhos dentro carrega, não erra e desenha os DOIS empilhados para sempre. As duas asserções mais óbvias contra ela — contar nós visíveis e fotografar o botão — **aprovam a armadilha** (medido), e por isso ele pergunta qual SÍMBOLO está no ar. Cobre também a COLUNA DA TELA CHEIA (v1.3.10): ela nasce ACESA e o toque é INTERRUPTOR. Ele espera pelo EVENTO `fullscreenchange`, nunca por `document.fullscreenElement` — MEDIDO, o Chromium publica a propriedade ANTES de despachar o evento e a enquete do Playwright cai no vão, reprovando um app que está certo |
+| `controles-layout.test.mjs` | **o DECK dos controles** (v1.3.5) — e o FEEDBACK DE TOQUE sobre a preview (v1.4.33), em três metades que só juntas dizem a regra: a caixa do `.pv-fab` NÃO anda (era o relato), ele RESPONDE mesmo assim no RENDERIZADO (uma regra que só trocasse classe passaria num teste de classe e continuaria muda na tela) e o botão DA BARRA continua afundando os 2px (sem esta, apagar o `--press` do app inteiro passaria nas outras duas): os dois botões de slide que voltaram a flanquear a preview, a coluna de operação que subiu para cima dela, e o ⏮/⏭ do transporte que perdeu o eixo de estrofe. As quatro mudanças falham CALADAS, e a mais cara é a última — se a troca não pegar, "próxima mídia" continua passando ESTROFE com uma letra no ar, no meio de um louvor, sem nada no console; a prova é o COMANDO que sai no barramento (`seek` é a estrofe andando). Trava também a **ARMADILHA DO `<use>`**: a folha do documento NÃO atravessa a árvore-sombra de um `<use>`, então um `<symbol>` único com os dois desenhos dentro carrega, não erra e desenha os DOIS empilhados para sempre. As duas asserções mais óbvias contra ela — contar nós visíveis e fotografar o botão — **aprovam a armadilha** (medido), e por isso ele pergunta qual SÍMBOLO está no ar. Cobre também a COLUNA DA TELA CHEIA (v1.3.10): ela nasce ACESA e o toque é INTERRUPTOR. Ele espera pelo EVENTO `fullscreenchange`, nunca por `document.fullscreenElement` — MEDIDO, o Chromium publica a propriedade ANTES de despachar o evento e a enquete do Playwright cai no vão, reprovando um app que está certo |
 | `fundo-da-letra.test.mjs` | **o fundo da estrofe na PREVIEW**, que sumia ao trocar de música. A `<img>` é filha da camada da letra, então o desmonte é ADIADO — e quando a letra volta antes do prazo (todo `load` de música faz isso) alguém precisa CANCELAR o desmonte. A guarda de sequência não cancela: ela não anda quando a estrofe que volta usa a MESMA imagem, que é o caso NORMAL (o fallback grudento do sync dá uma imagem por hino). O telão tinha as três proteções e a preview não tinha — **e a documentação já as descrevia como se fossem de ambos**: é a armadilha do `__tela`, em que ler cada lado isolado aprova os dois. Sem TV a preview É a projeção |
 | `excluir-em-cena.test.mjs` | **excluir de uma lista não pode derrubar a cena**, e eram DOIS defeitos. O primeiro tem sintoma (o louvor parava, por um `retirarDoAr` no caminho de excluir); o SEGUNDO não tem nenhum — o coletor só conhecia LISTAS, então sair da última apagava os bytes por baixo de uma projeção que seguia tocando, e só uma queda de dongle revelaria. Mede que a cena continua ANDANDO (não só "não pausou") **e** que o registro sobrevive. A terceira metade impede a correção de virar outro defeito: um item que JÁ TOCOU e não está mais em cena tem de morrer de verdade |
 | `aviso-de-importacao.test.mjs` | **o aviso de que um arquivo está entrando.** A ausência dele NÃO É UM ERRO: nada quebra, nada aparece no console, e o item chega ao fim — só chega em silêncio, e "importei e não aconteceu nada" é indistinguível de travar. Um teste do desfecho passa nas duas versões, então ele mede o MEIO, com o arquivo servido AOS PEDAÇOS para a janela existir |
@@ -3864,7 +3881,7 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: v1.4.32** (base web) · **v1.4.22** (APK) · `SHELL_VERSION` **60** · bundle com
+**Versão atual: v1.4.33** (base web) · **v1.4.22** (APK) · `SHELL_VERSION` **60** · bundle com
 `minShell: 60` — o shell 60 é o **PISO**: todo método da ponte existe, e não há
 guarda de versão no lado web. O que continua valendo é que `java/`, `res/`, o
 manifest e os workflows **só chegam instalando o APK**.

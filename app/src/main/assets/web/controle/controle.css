@@ -357,7 +357,7 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
    e continuou dando resposta de toque — um terceiro encolhimento, de uma peça
    que não recebe o dedo. */
 :is(
-  .ctl-btn, .t-btn, .pv-fab, .settings-btn,
+  .ctl-btn, .t-btn, .settings-btn,
   .tab, .tab-add, .import-btn, .back-btn, .sel-btn,
   .row-btn, .popup-close,
   .coll-bar-dl, .coll-group-btn, .coll-more-btn,
@@ -820,6 +820,37 @@ body {
     drop-shadow(0 0 1px rgba(0, 0, 0, .95))
     drop-shadow(0 0 2px var(--shadow-ink))
     drop-shadow(0 1px 5px rgba(0, 0, 0, .65));
+}
+/* ===== O TOQUE SOBRE A PREVIEW ACENDE O TRAÇO; ELE NÃO AFUNDA (v1.4.33) =====
+   Relato do operador: os botões de mudo e da cortina *"ainda estão erroneamente
+   com o feedback tátil de quando ainda estavam na barra"*.
+
+   `--press` é `translateY(2px)`, e o que ele encena é **a tecla que afunda**.
+   Aqui não há tecla: o `.pv-fab` não tem pastilha — ele É o traço branco sobre
+   o que estiver projetado. Um recuo ali não se lê como "apertei", lê-se como o
+   ícone PULANDO por cima da imagem no ar (e sem TV essa imagem é a projeção).
+
+   E a LUZ que acompanharia o recuo não salva: MEDIDO no `#muteToggle`, o
+   `brightness(1.35)` deixa o traço em **240,6 → 238,3** (branco já está no
+   teto, então ele só DESBOTA o halo escuro) e o fundo em 14,3 → 14,5. Os dois
+   deltas são invisíveis — sobrava só o deslocamento.
+
+   O que responde sobre um fundo DESCONHECIDO (um slide branco, um wallpaper
+   escuro, um vídeo) é a **espessura do próprio traço**: ela não depende da cor
+   de trás, não move nada (nenhum pixel de alvo, nenhum risco de hit-test) e é o
+   "acender o próprio traço" que o `--press-luz` promete e não entrega num
+   desenho sem fundo. O halo engrossa junto — sobre um slide claro é ele que
+   sustenta o contorno do traço mais gordo.
+
+   NÃO é uma escala: a caixa e o desenho não mudam de tamanho, e a regra de
+   `--press` ("recuo ABSOLUTO, nunca uma fração") segue intacta — o que muda é a
+   PENA, o mesmo valor em todo `.pv-fab`, inclusive o de 28px da tela cheia. */
+.pv-fab:active svg {
+  stroke-width: 2.7;
+  filter:
+    drop-shadow(0 0 2px rgba(0, 0, 0, 1))
+    drop-shadow(0 0 4px var(--shadow-ink))
+    drop-shadow(0 1px 7px rgba(0, 0, 0, .8));
 }
 /* ---------- O SELO DE CAMADAS: MESMO DESENHO DOS VIZINHOS, OUTRA COR --------
    Ícone solto e sem moldura, como o de conectar e o de tela cheia: os três

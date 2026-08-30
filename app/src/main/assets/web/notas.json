@@ -1,5 +1,12 @@
 [
   {
+    "versao": "1.4.33",
+    "itens": [
+      "Os botões sobre a preview pararam de escorregar ao toque.",
+      "Agora o traço deles acende, que é o que se vê sobre um slide claro ou escuro."
+    ]
+  },
+  {
     "versao": "1.4.32",
     "itens": [
       "No modo fácil só fica uma coisa no ar: o que entra substitui o que estava.",

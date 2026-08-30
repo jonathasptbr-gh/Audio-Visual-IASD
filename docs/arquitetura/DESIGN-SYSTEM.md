@@ -229,6 +229,40 @@ Fora de `tokens.css`, no `:root` do Controle (não são cor):
   da aba. MEDIDO no escuro: 1,27:1 sobre a superfície de um botão, 1,56:1 sobre
   o preenchido, 1,86:1 num glifo sem fundo.
 
+  **E ELE PEDE UMA TECLA — sobre a PREVIEW não há nenhuma** (v1.4.33). Relato do
+  operador: os botões de mudo e da cortina *"ainda estão erroneamente com o
+  feedback tátil de quando ainda estavam na barra"*. O `.pv-fab` não tem
+  pastilha — ele É o traço branco sobre o que estiver projetado (ver "os ícones
+  nos cantos da preview") —, e a metáfora da tecla que afunda precisa de uma
+  tecla: ali o recuo se lê como o ícone PULANDO por cima da imagem no ar, e sem
+  TV essa imagem é a projeção.
+
+  **E a LUZ não cobre por ele.** MEDIDO no `#muteToggle` sobre o wallpaper:
+
+  | | repouso | pressionado | Δ |
+  |---|---|---|---|
+  | traço (px claros) | 240,6 | 238,3 | **−2,3** |
+  | fundo | 14,3 | 14,5 | +0,26 |
+
+  Um traço BRANCO já está no teto — `brightness` não tem para onde subir, e o
+  que ela move é o halo ESCURO, desbotando o contorno. Os `1,86:1` medidos na
+  v1.3.14 são de um glifo colorido sem fundo, não de um traço branco.
+
+  Por isso o `.pv-fab` **saiu da lista** e tem resposta própria: a **pena do
+  traço** (`stroke-width`), com o halo engrossando junto. É a única coisa que
+  responde sobre um fundo DESCONHECIDO — um slide branco, um wallpaper escuro,
+  um vídeo. MEDIDO nos dois extremos:
+
+  | fundo | mudo | tela cheia |
+  |---|---|---|
+  | escuro | média 32,9 → 39,7 (**+21%**) | 28,1 → 33,0 (+17%) |
+  | slide branco | 215,0 → 192,9 (**−10%**), +67px de contorno | 212,8 → 183,9 (−14%), +107px |
+
+  **Não é uma escala**, e a regra do recuo absoluto segue intacta: a caixa não
+  muda de tamanho (nenhum pixel de alvo, nenhum risco de hit-test) e o valor é o
+  mesmo em todo `.pv-fab`, inclusive o de 28px da tela cheia. Quem TEM tecla
+  continua afundando os 2px.
+
   **Um ANCESTRAL não responde ao toque que foi para um filho** — e as guardas
   suprimem as DUAS partes: matar só a geometria deixaria o bloco inteiro
   acendendo por um toque de 40px, o mesmo defeito por outra propriedade.
