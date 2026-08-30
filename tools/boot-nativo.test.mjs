@@ -138,11 +138,10 @@ const ponteCom = (espelho, telas) => `(() => {
   const vazio = { displays: ${JSON.stringify(telas || [])}, listFolder: [], pickDoc: [], ytSearch: [],
     espelhoEstado: ${JSON.stringify(espelho)}, espelhoDiag: {},
     espelhoCertEstado: { temCert: false }, castTarget: { label: 'Tela de teste' },
-    // O FAROL (v1.4.41). Ele entra aqui porque a chave dele saiu do painel
-    // rápido e virou uma linha do rodapé do Registro — e a linha só existe COM
-    // ponte, então este é o único arquivo que pode vê-la. Sem a entrada, o
-    // genérico devolve \`null\`, o \`renderFarolLinha\` esconde a linha com toda
-    // a razão, e o teste mediria a ponte de mentira em vez do app.
+    // O FAROL. Ele é SÓ LEITURA desde o shell 61 (a chave saiu na v1.4.42), e
+    // quem o consome é a linha "Alcance:" do Registro — que é o único bloco que
+    // responde *"o farol chegou a acender?"*. Sem a entrada aqui, o genérico
+    // devolve \`null\` e o Registro perderia a linha em silêncio.
     farolEstado: { conta: true, ultimo: 0, diag: 'de teste' } };
   const comCallId = new Set(['displays','listFolder','pickDoc','pickFolder','ytSearch','ytFetch',
     'ytFetchAte','ytFetchAudio','ytStream','deckPages','deckExportUrl','requestMic','castTarget',
@@ -266,9 +265,6 @@ const ponteCom = (espelho, telas) => `(() => {
     'otaCheck','otaDiag','otaPending','pickDoc','pickFolder','requestMic','systemVolume',
     'temaClaro','ytCancel','ytCanalPlaylists','ytDiag','ytDiscard','ytFetch','ytFetchAte',
     'ytFetchAudio','ytPlaylist','ytSearch','ytStream','farolEstado'];
-  // O \`farolContar\` é SÍNCRONO e sem resposta (como o \`espelhoDesligar\`), então
-  // ele não passa pelo genérico: o que interessa é o que foi PEDIDO ao shell.
-  B.farolContar = (v) => { window.__farolPedidos = (window.__farolPedidos || []).concat(!!v); };
   for (const n of nomes) {
     if (B[n]) continue;
     B[n] = (...args) => {
@@ -4760,76 +4756,6 @@ try {
   await pgM.close();
 } catch (e) {
   checar(false, 'o percurso do microfone sem telão terminou sem exceção (' + (e && e.message) + ')');
-}
-
-// ============================================================================
-// A CONTAGEM DE USO SAIU DO PAINEL E VIROU LINHA DO RODAPÉ (v1.4.41)
-//
-// Pedido do operador: *"pode remover o 'medição de fora' que tem no app. faça
-// esse botão ficar dentro da página de alcance do site se possível"*. A metade
-// da PÁGINA foi feita (o interruptor do navegador, em `registro-alcance`); a do
-// APP não pode ser: são origens diferentes no mesmo aparelho, o armazenamento
-// de uma não é lido pela outra, e o app não tem intent-filter de URL. A chave
-// do APARELHO ficou, fora do painel, no rodapé do Registro.
-//
-// ESTE É O ÚNICO ARQUIVO QUE PODE VÊ-LA: `renderFarolLinha` devolve cedo sem
-// `window.__NATIVE__`, e no `smoke.mjs` não há ponte. Três metades:
-//
-//  1. a linha EXISTE, à vista, e diz o estado — mover uma chave para um rodapé
-//     é a forma mais fácil de perdê-la em silêncio;
-//  2. ela NÃO está mais na grade — sem esta, "mover" viraria "duplicar", e duas
-//     chaves para o mesmo `SharedPreferences` divergem na tela;
-//  3. o toque PEDE AO SHELL o valor oposto. O que se mede é o pedido, e não a
-//     pintura: quem responde "este aparelho conta?" é o Kotlin (um build
-//     debuggável fica fora por mais que a chave diga "entra"), e pintar o
-//     pedido faria a tela mentir exatamente no aparelho em que a pergunta
-//     importa.
-// ============================================================================
-try {
-  const pgF = await ctx.newPage();
-  await pgF.addInitScript(PONTE);
-  await pgF.goto(`http://127.0.0.1:${porta}/controle/`, { waitUntil: 'load' });
-  await pgF.waitForFunction(() => window.AVDB && typeof window.__avBack === 'function'
-    && !!document.querySelector('#playlist li'), null, { timeout: 25000 });
-
-  const linha = await pgF.evaluate(async () => {
-    document.getElementById('settingsBtn').click();
-    const el = document.getElementById('farolRow');
-    // ESPERA PELO FATO (a linha aparecendo), e não por um prazo: o
-    // `renderFarolLinha` é assíncrono — ele pergunta à ponte — e um
-    // `setTimeout` fixo aqui seria uma aposta na carga da máquina.
-    for (let i = 0; i < 80; i++) {
-      if (el && !el.hidden) break;
-      await new Promise((r) => setTimeout(r, 50));
-    }
-    return {
-      aVista: !!el && !el.hidden && !!el.offsetParent,
-      texto: el ? el.textContent : '',
-      estado: el ? el.dataset.estado : null,
-      naGrade: !!document.querySelector('.qs-grade #farolRow, .qs-grade #farolTile'),
-      noRodape: !!(el && el.closest('.popup-footer')),
-    };
-  });
-  checar(linha.aVista && /contagem de uso/i.test(linha.texto) && linha.estado === 'sim',
-    'a contagem de uso é uma LINHA à vista no rodapé de Configurações, e ela diz '
-    + 'o estado por extenso', linha);
-  checar(linha.noRodape && !linha.naGrade,
-    '  ↳ e ela saiu da GRADE — mover uma chave sem tirar a antiga é duplicá-la, '
-    + 'e duas chaves para o mesmo `SharedPreferences` divergem na tela', linha);
-
-  const pedido = await pgF.evaluate(async () => {
-    window.__farolPedidos = [];
-    document.getElementById('farolRow').click();
-    await new Promise((r) => setTimeout(r, 250));
-    return { pedidos: window.__farolPedidos };
-  });
-  checar(JSON.stringify(pedido.pedidos) === JSON.stringify([false]),
-    '  ↳ e o toque PEDE AO SHELL o valor oposto (uma vez, e só ele) — quem '
-    + 'responde "este aparelho conta?" é o Kotlin, não a tela', pedido);
-
-  await pgF.close();
-} catch (e) {
-  checar(false, 'o percurso da contagem de uso terminou sem exceção (' + (e && e.message) + ')');
 }
 
 checar(erros.length === 0, 'nenhum erro de console' + (erros.length ? ':\n        ' + erros.join('\n        ') : ''));

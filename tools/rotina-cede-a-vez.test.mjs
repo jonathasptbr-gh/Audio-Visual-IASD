@@ -69,7 +69,7 @@ const PONTE = `(() => {
     'otaApply','otaCheck','otaDiag','otaPending','pickDoc','pickFolder','requestMic','systemVolume',
     'temaClaro','ytCancel','ytCanalPlaylists','ytDiag','ytDiscard','ytFetch','ytFetchAte',
     'ytFetchAudio','ytPlaylist','ytSearch','ytStream','areaTransferencia','atualizacaoEstado',
-    'farolEstado','farolContar','micDiag','salvarTexto','espelhoDerrubar'];
+    'farolEstado','micDiag','salvarTexto','espelhoDerrubar'];
   for (const n of nomes) {
     if (B[n]) continue;
     B[n] = (...args) => {

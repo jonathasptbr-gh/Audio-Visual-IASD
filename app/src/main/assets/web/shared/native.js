@@ -546,8 +546,9 @@
     // ausente como `false`/`0`, que são valores legítimos. `tools/ponte.test.mjs`
     // prende isso.
     //
-    // `conta` é o VEREDITO e não a chave: ele já embute o build debuggável, e é
-    // por isso que a tela nunca calcula essa resposta por conta própria.
+    // `conta` é o VEREDITO, e desde o shell 61 o único motivo dele é o build
+    // debuggável — a tela continua sem calcular essa resposta por conta
+    // própria, para o dia em que aparecer um segundo motivo.
     // `ultimo` é epoch em ms, com `0` significando "nunca acendeu" — quem
     // escreve a frase é o `controle.js`.
     farolEstado: () => call((id) => B.farolEstado(id), CALL_TIMEOUT_MS)
@@ -557,10 +558,11 @@
         diag: r.diag || '',
       } : null)),
 
-    // A CHAVE "este aparelho entra na contagem". Síncrona e sem resposta, como
-    // o `espelhoDesligar`: a gravação é local e o efeito é do próximo
-    // acendimento. Ela NÃO reacende nada — ver o KDoc do `farolContar`.
-    farolContar(conta) { try { B.farolContar(!!conta); } catch (_) { /* ponte indisponível */ } },
+    // (`farolContar` saiu no shell 61 com o sistema de exclusão. Era a chave
+    //  "este aparelho entra na contagem", e o operador a descartou: a contagem
+    //  passou a ser SEMPRE ativa, e a única exclusão que sobrou é a do build
+    //  debuggável, que não tem chave nenhuma. O `farolEstado` acima FICA — ele
+    //  virou só leitura, e quem o consome é a linha "Alcance:" do Registro.)
 
     // DIAGNÓSTICO da última extração do YouTube: uma linha dizendo quantas
     // faixas de cada tipo o extrator recebeu e qual venceu. Vazio num shell

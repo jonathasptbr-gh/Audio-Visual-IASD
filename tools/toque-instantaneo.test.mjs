@@ -87,7 +87,7 @@ const PONTE = `(() => {
   const nomes = ['apkInstalar','apkProcurar','bgProgress','captureVolumeKeys','projecaoLocal','castTarget',
     'cifraDiag','cifraHtml','deckDiscard','deckExportUrl','deckPages','displays','espelhoCertApagar',
     'espelhoCertEstado','espelhoCertImportar','espelhoDesligar','espelhoDiag','espelhoEstado',
-    'espelhoLigar','espelhoLigarEm','espelhoDerrubar','farolContar','farolEstado','keepAlive',
+    'espelhoLigar','espelhoLigarEm','espelhoDerrubar','farolEstado','keepAlive',
     'listFolder','micDiag','nowPlaying','openCast','openExternal','otaApply','otaCheck','otaDiag',
     'otaPending','pickDoc','pickFolder','requestMic','salvarTexto','systemVolume','temaClaro',
     'ytCancel','ytCanalPlaylists','ytDiscard','ytFetch','ytFetchAte','ytFetchAudio',

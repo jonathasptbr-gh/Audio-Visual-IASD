@@ -24,6 +24,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
+- **v1.4.42** — A CONTAGEM DE USO PASSOU A SER SEMPRE ATIVA: O SISTEMA DE EXCLUSÃO SAIU INTEIRO. Pedido do operador: *"descarte a opção de contagem de uso como opcional, deixe sempre ativo, não preciso do sistema de exclusividade"*. Saíram a linha do rodapé do Registro e o `renderFarolLinha`, o **`farolContar` da ponte** (shell 60 → **61**, o PRIMEIRO método que este projeto remove), o `Farol.definirContar`, a leitura da preferência em `Farol.contar`, os símbolos `icoMedicao`/`icoMedicaoOff` (um `<symbol>` sem consumidor viaja no bundle do OTA e não desenha nada em lugar nenhum), o interruptor `#opContar` da página de alcance e o roteamento `avRegistroOperador` → `v-dev.txt` do site. **O QUE FICA é a única exclusão que nunca foi opção: o BUILD DEBUGGÁVEL**, que acende num contador separado por `FLAG_DEBUGGABLE` — higiene de construção, sem UI, e sem ela toda sessão de trabalho entraria no número público como se fosse uma igreja. `farolEstado` também fica, virou SÓ LEITURA, e alimenta a linha "Alcance:" do Registro, que responde a pergunta que faz aquele texto ser copiado: *o farol chegou a acender?* **O APK ERA OBRIGATÓRIO, e essa é a parte que não dava para adiar:** a chave já gravada continuaria sendo lida por um shell antigo, e um aparelho marcado *"fica de fora"* ficaria fora da contagem PARA SEMPRE, sem tela para desmarcar — contador não se corrige depois. É o `Farol.contar` do APK novo que o devolve, daí o `shellTag` segurando o bundle até a Release existir; e é o primeiro lote a exercitar de verdade a regra escrita há dezenas de versões (*"MUDAR A FORMA de um método que já existe é PIOR que acrescentar um"*). **O PREÇO ENTROU NO PAINEL, e é onde ele tinha de estar:** sem exclusão, "aparelhos por dia" e "visitas" passam a incluir o uso próprio — e um painel que não avisa é o *confiável e falso* que `docs/MEDICAO-DE-ALCANCE.md` nomeia, só que pelo outro lado. A página de alcance diz isso logo abaixo dos números, e o oráculo cobra a FRASE RENDERIZADA (uma nota vazia passaria num teste de seletor). O caso do roteamento no `registro-alcance` **inverteu em vez de sair**: ele prova agora que nenhum resto do mecanismo desvia o navegador de quem audita — um `localStorage` esquecido o deixaria fora do número público em silêncio, o desfecho que aquele arquivo nasceu para não ter. **EXIGE RELEASE v1.4.42.**
 - **v1.4.41** — O ENQUADRAMENTO NÃO ERA "SÓ PARA FOTOS": ERA "SÓ QUANDO A MÍDIA É A CENA". Pergunta do operador: *"faça uma verificação sobre os itens de preenchimento e girar. eles atualmente só servem para fotos? veja se consegue aplicar eles a todos os tipos de mídias na tela"*, mais o pedido de o título dizer que o giro é do telão e o de tirar a medição do app. **MEDIDO no `/display/`** com `cover` e 90° escolhidos: `#img` (imagem e apresentação como CENA) e `#video` seguiam os dois; `#textImg` — a MESMA foto e a MESMA página projetadas como CAMADA por cima de um louvor de fundo (v5.312 e v1.4.28) — ficava presa no `contain` da folha, sem giro nenhum. **É o pior formato de defeito que aquele painel pode ter:** o mesmo controle, o mesmo conteúdo, e funciona ou não conforme haja uma música tocando por baixo, que é a última coisa que alguém relacionaria com preenchimento. A correção entra no MOTOR e não no dono do palco (`camadaImg` no `createStage`), porque "como a mídia ocupa o telão" é decisão de um lugar só. **O giro precisou de mais que isso:** `aplicarGiro` desiste quando não consegue medir a caixa, e um elemento `hidden` não tem caixa — girar com o telão no wallpaper e só então projetar entregava a mídia sem giro, que é o irmão exato do que o `applyMedia` já resolvia para o `img`/`video`. Daí `reporGiro()`, PEDIDO nos dois lados; e MEDIDO por reversão, sem ele só a PREVIEW reprova — no telão o `showText` mexe na cortina e o `applyMedia` repõe de carona, um acidente de ordem que quem apagar a chamada "redundante" descobre no telão. **O FUNDO DA ESTROFE fica de fora**, e é a metade que impede o conserto largo demais: ele não é a mídia, é o fundo ATRÁS da letra — `cover` ali não é escolha de enquadramento, e girá-lo deitaria a imagem sob um texto que continua de pé. O tile virou **"Girar no telão"** porque "Girar" sozinho, numa folha de Configurações, se lê como o giro da INTERFACE. **E a MEDIÇÃO saiu da grade**: o pedido era levá-la para a página de alcance do site, e a resposta honesta é que a página NÃO alcança o app — origens diferentes no mesmo aparelho, armazenamento isolado, e o app sem intent-filter de URL (só MAIN e SEND); a única ponte possível seria uma porta EXPORTADA que troca uma chave de privacidade, pior que o botão. Ela virou uma linha quieta no rodapé do Registro, e a PÁGINA ganhou o interruptor que ela de fato controla: o do NAVEGADOR, que era escrito em silêncio, valia para sempre e não tinha volta — agora com TRÊS estados, porque com dois a marca era reescrita em toda abertura e o interruptor se desfazia sozinho. Oráculo novo (`enquadramento-da-camada.test.mjs`, 10 asserções), mais três metades no `boot-nativo` e quatro no `registro-alcance`; três reversões. OTA PURO.
 - **v1.4.40** — O AZUL DO TILE PASSOU A DIZER *"ligado"*, E QUEM NÃO TEM DESLIGADO FICA SEMPRE AZUL. Pedido do operador: *"a maioria dos botões das configurações não tem estado de ativo e inativo, como o seletor de tema claro ou escuro, o preenchimento, o histórico e o wallpaper padrão… então pode deixar eles no estado azul de 'sempre ativo' o tempo todo. ajuste para que esses itens que não se ativam fiquem no topo da listagem e deixe os outros mais em baixo"*. **A v1.4.38 leu o aceso como *"o estado não é o padrão"*, e essa leitura não sobrevive ao contato com quem opera:** escolher "Ajustar" não desliga nada, e um tile apagado, no vocabulário deste app, diz INDISPONÍVEL — é a queixa da v1.4.25 palavra por palavra (*"foi simplesmente ofuscado o botão inteiro, o que dá a impressão de que não está disponível a opção"*), com o agravante de o app já ter uma linguagem para indisponível (`opacity: .3` + `disabled`). Hoje **aceso = a função está LIGADA**, e num tile que não tem desligado — tema, preenchimento, wallpaper, histórico — é SEMPRE. **A correção obrigou a PARTIR UMA CLASSE EM DUAS:** `qs-on` acendia o tile E trocava o desenho, então um tile sempre aceso ficaria preso no desenho alternativo para sempre (o tema mostrando o sol no escuro). São duas perguntas — *"qual desenho?"* e *"está ligado?"* — e a partir daqui `qs-alt` responde a primeira. **E DOIS ACESOS FORAM INVERTIDOS** no mesmo lote: fundo da letra e medição marcavam `Remover` e `De fora` (o que não é o padrão) e passaram a marcar `Mostrar` e `Entra` (a função ligada) — com isso o desenho e a luz dizem a mesma coisa, em vez de coisas opostas no mesmo botão. **A ordem virou POR NATUREZA**, numa grade só: os quatro sempre-acesos primeiro, os três que ligam e desligam depois. Duas grades com um respiro entre elas foram descartadas — o primeiro grupo tem QUATRO itens em três colunas, e a grade própria deixaria dois buracos no meio do painel, que se leem como defeito e não como separação; numa grade só quem desenha o grupo é a própria cor. **De quebra, um defeito de resposta ao toque:** `setLyricsBg` pintava o tile DEPOIS do `await` da gravação, então aquele botão só respondia ao dedo quando a transação do IndexedDB voltasse — os irmãos (`applyFit`, `applyRotate`) sempre pintaram antes. **O que se perde está dito:** a grade deixou de responder *"o que eu deixei mexido aqui?"* de relance, e quem responde isso agora é a palavra do estado, que sempre esteve lá. Cinco asserções novas no `smoke.mjs`, com a metade que impede o conserto preguiçoso (acender tudo sempre): o fundo da letra continua APAGANDO. OTA PURO.
 - **v1.4.39** — AS ABAS DO AUXILIAR DE LEITURA VOLTARAM A PREENCHER A FAIXA, e a causa era um REPARENTAMENTO. Relato do operador: elas *"estão com pouca largura, considerando que deveria ter a largura adaptável para preencher a largura total disponível… sendo reduzidos apenas nos casos em que haveria bíblia ou slides sendo exibidos juntos, que nesse caso o espaço disponível seria novamente distribuído igualmente"*. O `.fit-opt` já é `flex: 1` desde sempre, e o desenho que ele pede é exatamente o que o pedido descreve — o que faltava era o contêiner. A v1.4.28 passou a REORDENAR as abas pela pilha (`lyricsViewSources`) e anexava em `lyricsViewSegEl`, que é o `.lyricsview-seg`, o bloco com o respiro; os botões moram um nível abaixo, dentro da `.fit-seg`. `appendChild` num nó que NÃO é o pai não reordena: ele MOVE. Fora do contêiner flex o `flex: 1` fica inerte e cada aba volta a ser `inline-block` do tamanho do rótulo — MEDIDO a 430px, a faixa tem 401px e as duas abas saíam com 44,8 e 42,7, encostadas à esquerda. **A falha é CALADA por construção:** a ordem que o pedido da v1.4.28 queria continuou certa (o `appendChild` reordena do mesmo jeito, só que no lugar errado), nada lança e nada some — só a largura se perde, e o comentário que a acompanhava afirmava justamente o contrário (*"`appendChild` MOVE um nó que já está no pai"* — e ele não estava). Uma linha de conserto. MEDIDO depois: 2, 3 e 4 abas preenchem e ficam iguais a 430, 360 e 320px, numa linha só ("Páginas" não quebra nem estoura no pior caso). Quatro asserções por caso, duas reversões — o reparentamento de volta, e o `flex: 1` apagado com o pai certo: cada uma reprova o que a outra deixaria passar. OTA PURO.
@@ -312,6 +313,92 @@ na nota que a revoga, não apagada da que a criou.
 - **v5.154** — é METADE OTA e METADE APK, e a divisão importa para quem for testar em aparelho.
 - **v5.155** — é OTA PURO
 - **v5.156** — é METADE OTA e METADE APK, de novo.
+
+---
+
+## v1.4.42 — a contagem de uso sem chave nenhuma
+
+> *"descarte a opção de contagem de uso como opcional, deixe sempre ativo, não
+> preciso do sistema de exclusividade."*
+
+### O que saiu
+
+| peça | onde |
+|---|---|
+| a linha *"Contagem de uso"* e o `renderFarolLinha` | `controle/index.html`, `controle.js`, `controle.css` |
+| **`farolContar`** — o primeiro método que este projeto REMOVE da ponte | `NativeBridge.kt`, `shared/native.js` (shell 60 → **61**) |
+| `Farol.definirContar` e a leitura de `KEY_CONTA` em `Farol.contar` | `Farol.kt` |
+| `icoMedicao` / `icoMedicaoOff` | `controle/index.html` |
+| o interruptor `#opContar` | `site/registro/` |
+| o roteamento `avRegistroOperador` → `v-dev.txt` | `site/index.html` |
+
+### O que fica, e por quê
+
+**A exclusão do BUILD DEBUGGÁVEL.** Ela nunca foi opção de ninguém: é
+`FLAG_DEBUGGABLE` lido em runtime, sem UI e sem custo, e sem ela toda sessão de
+trabalho entraria no número público como se fosse uma igreja. Emulador e
+`assembleDebug` continuam acendendo em `b-dev.txt`.
+
+**`farolEstado`, agora só LEITURA.** O consumidor é a linha *"Alcance:"* do
+Registro, que responde *"o farol chegou a acender?"* — e essa pergunta não tem
+nada a ver com haver ou não uma chave. Sem ela, "o número não sobe" seria
+indistinguível de "o farol nunca saiu daqui", e as duas pedem consertos opostos.
+O campo `conta` fica junto, e não é sobra: num build de trabalho ele ainda é
+`false`, e sem ele um Registro tirado dali diria "acendeu" sobre um número que
+nunca vai aparecer no painel.
+
+### Por que o APK era obrigatório
+
+Esta é a parte que não dava para adiar, e é o motivo de o lote levar `shellTag`.
+
+A chave já gravada em `SharedPreferences` **continuaria sendo lida por um shell
+antigo**. Um bundle sem a linha, servido a um aparelho marcado *"fica de fora"*,
+o deixaria fora da contagem **para sempre e sem tela para desmarcar** — e
+contador não se corrige depois. Quem o devolve é o `Farol.contar` do APK novo.
+
+É também o primeiro lote a exercitar de verdade a regra escrita há dezenas de
+versões: *"MUDAR A FORMA de um método que já existe é PIOR que acrescentar um"*.
+Encolher a ponte é um lote **APK + web publicado JUNTO**, com o `shellTag`
+segurando o bundle até a Release existir. `minShell` sobe para 61 junto com o
+`SHELL_VERSION`, como a convenção manda.
+
+### O preço, e onde ele foi escrito
+
+Sem exclusão, **"aparelhos por dia" e "visitas" passam a incluir o uso
+próprio**. Isso foi uma escolha, não um defeito — mas um painel que não diz o
+que conta é exatamente o *confiável e falso* que `docs/MEDICAO-DE-ALCANCE.md`
+nomeia, só que pelo outro lado. Com uma frota pequena, um aparelho a mais por
+dia é uma fração que muda a conclusão.
+
+A página de alcance passou a dizer isso **logo abaixo da fileira de números** —
+e não no rodapé: o desenho dela existe para ser lido de relance, e uma ressalva
+que só aparece depois de três gráficos chega tarde para a leitura que ela
+corrige. O oráculo cobra a **frase renderizada**; uma nota vazia passaria num
+teste de seletor.
+
+### O oráculo do roteamento INVERTEU em vez de sair
+
+`registro-alcance.test.mjs` provava que quem audita a própria página passa a
+contar em `v-dev.txt`. O caso continua ali, com o mesmo percurso (abrir o
+Registro, apagar o dia, revisitar) e a asserção virada: **`v.txt,v.txt`**.
+
+Ele fica porque o modo de falhar continua existindo pelo avesso — um resto do
+mecanismo (um `localStorage` esquecido, um ramo que ninguém apagou) deixaria o
+navegador do operador fora do número público **para sempre e em silêncio**, que
+é o desfecho que aquele arquivo nasceu para não ter.
+
+### Restos declarados
+
+`KEY_CONTA` e `avRegistroOperador` **continuam gravados** em quem já os usou, e
+ninguém mais os lê. Apagá-los exigiria uma migração para devolver bytes que não
+fazem falta — a mesma decisão do `cifraEscolhas` na v1.3.3.
+
+`b-dev.txt` e `v-dev.txt` continuam existindo e o `dados.yml` continua
+fotografando os quatro: o `b-dev` segue recebendo os builds de trabalho, o
+`v-dev` congela onde parou, e tirar um campo da série reescreveria o passado.
+
+**EXIGE RELEASE v1.4.42** — `shellTag` no `version.json`, e o `web-ota` segura o
+bundle até ela existir.
 
 ---
 
