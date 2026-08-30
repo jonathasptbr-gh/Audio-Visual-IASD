@@ -452,13 +452,141 @@ try {
       + 'rótulo sobre o polegar, e três oráculos a leem');
   }
 
+  // ---- O TRILHO MEDE A GRADE, E O RÓTULO É CENTRADO (v1.4.44) ----
+  //
+  // Relato do operador: *"verifique a largura total do seletor do modo, parece
+  // não estar alinhado com os outros botões abaixo"* e *"centralize o título
+  // 'modo do app'"*.
+  //
+  // A causa era um CARTÃO INVISÍVEL: a `.fade-row` pinta `--panel`, o mesmo tom
+  // da folha, então ela não se via — o que se via era o `padding` dela recuando
+  // o trilho 12,8px de cada lado (MEDIDO: 375,6px contra os 401,2px da grade,
+  // numa viewport de 430). É a forma mais silenciosa deste defeito: nada está
+  // errado na tela, só desalinhado, e o culpado não desenha nada.
+  //
+  // A CENTRALIZAÇÃO é medida no TEXTO PINTADO, por um `Range` sobre o nó de
+  // texto — não na caixa do `<span>`, que é `stretch` e ocupa a linha inteira
+  // nas duas versões: um teste da caixa passa com o rótulo colado à esquerda.
+  // E não em `text-align`, que é ler de volta a regra que se acabou de escrever.
+  const alinhamento = await pg.evaluate(() => {
+    const linha = document.querySelector('.fade-row--modo');
+    const trilho = document.getElementById('appModeSeg');
+    const grade = document.querySelector('.qs-grade');
+    if (!linha || !trilho || !grade) return null;
+    const cx = (el) => { const r = el.getBoundingClientRect();
+      return { l: Math.round(r.left), r: Math.round(r.right), w: Math.round(r.width) }; };
+    const rot = linha.querySelector('span');
+    const faixa = document.createRange();
+    faixa.selectNodeContents(rot);
+    const t = faixa.getBoundingClientRect();
+    const c = rot.getBoundingClientRect();
+    return {
+      trilho: cx(trilho), grade: cx(grade),
+      desvio: Math.round(((t.left + t.right) / 2 - (c.left + c.right) / 2) * 10) / 10,
+      largoParaCentrar: t.width < c.width - 8,
+    };
+  });
+  if (!alinhamento) {
+    checar(false, 'a linha do modo do app e a grade existem na folha');
+  } else {
+    checar(alinhamento.trilho.l === alinhamento.grade.l
+      && alinhamento.trilho.r === alinhamento.grade.r,
+      'o trilho do modo mede EXATAMENTE a grade de tiles — um cartão invisível o '
+      + 'recuava 12,8px de cada lado, e o que se via era só o desalinhamento',
+      JSON.stringify([alinhamento.trilho, alinhamento.grade]));
+    checar(alinhamento.largoParaCentrar,
+      'e o rótulo é mais estreito que a linha (senão centrar não teria efeito e a '
+      + 'asserção abaixo passaria sozinha)');
+    checar(Math.abs(alinhamento.desvio) <= 1,
+      'o TÍTULO "Modo do app" é centrado — medido no texto PINTADO (um `Range`), '
+      + 'porque a caixa do `<span>` é `stretch` e ocupa a linha inteira nas duas '
+      + 'versões', 'desvio: ' + alinhamento.desvio + 'px');
+  }
+
+  // ---- O RODAPÉ É UMA BARRA SÓ, E O COPIAR SAIU (v1.4.44) ----
+  //
+  // Pedido do operador: *"ficou duas seções, a versão e o registro em grupos
+  // separados. pode deixar tudo em uma barra horizontal única"* e *"pode
+  // remover o sistema de copiar registro… fica longo demais para compartilhar
+  // via chat de texto"*.
+  //
+  // A asserção da BARRA é o número de SUPERFÍCIES pintadas dentro do rodapé, e
+  // não a contagem de filhos: a v1.4.43 já tinha dois blocos com o mesmo
+  // desenho — mesma altura, mesmo raio, mesma superfície — e o que o operador
+  // via eram duas caixas. Um teste de "mesmo tom" aprova as duas versões; o que
+  // as separa é haver UM fundo ou DOIS. Medida na cor RENDERIZADA, porque uma
+  // regra de fundo que não pegasse passaria num teste de classe.
+  const rodape = await pg.evaluate(() => {
+    const faixa = document.querySelector('.footer-diag');
+    if (!faixa) return null;
+    const opaco = (el) => !/,\s*0\)$/.test(getComputedStyle(el).backgroundColor);
+    const cx = (el) => { const r = el.getBoundingClientRect(); return { l: Math.round(r.left), r: Math.round(r.right) }; };
+    const grade = document.querySelector('.qs-grade');
+    return {
+      faixaPinta: opaco(faixa),
+      filhosQuePintam: [...faixa.querySelectorAll('*')].filter(opaco).map((e) => e.id || e.className),
+      copiar: !!document.getElementById('diagCopy'),
+      // O `copiarTexto` FICA, e o consumidor dele também: o endereço da
+      // transmissão é curto e existe para ser digitado noutro aparelho.
+      copiarSobrevive: !!document.getElementById('castUrlCopy') && typeof copiarTexto === 'function',
+      versaoDentro: faixa.contains(document.getElementById('appVersion')),
+      salvarDentro: faixa.contains(document.getElementById('diagSave')),
+      // A faixa mede a mesma coisa que a grade — ela é a última linha da folha.
+      faixa: cx(faixa), grade: grade ? cx(grade) : null,
+    };
+  });
+  checar(rodape && rodape.faixaPinta && rodape.filhosQuePintam.length === 0,
+    'o rodapé é UMA barra: a superfície é a faixa, e nada dentro dela pinta um '
+    + 'segundo fundo — duas caixas com a mesma cor ainda se leem como dois assuntos',
+    rodape && JSON.stringify(rodape.filhosQuePintam));
+  checar(rodape && rodape.versaoDentro && rodape.salvarDentro,
+    'e a versão e o salvar do Registro moram os dois nela');
+  checar(rodape && rodape.faixa.l === rodape.grade.l && rodape.faixa.r === rodape.grade.r,
+    'e ela mede a mesma coisa que a grade — o rodapé é a última linha da folha, '
+    + 'não um bloco com recuo próprio',
+    rodape && JSON.stringify([rodape.faixa, rodape.grade]));
+  checar(rodape && !rodape.copiar,
+    'o botão de COPIAR o Registro não existe mais — a área de transferência é o '
+    + 'caminho que corta o texto no meio sem avisar, e o Registro só cresce');
+  checar(rodape && rodape.copiarSobrevive,
+    'mas o `copiarTexto` e o `.log-copy` FICAM, com o consumidor que os justifica: '
+    + 'o endereço da transmissão, que é curto e existe para ser digitado noutro '
+    + 'aparelho. Sem esta metade, apagar a função inteira passaria na de cima');
+
   // O QUE A v5.121 QUEBROU: o clique chamava uma função apagada. Um handler que
   // estoura não muda nada na tela — daí conferir o efeito (o pulso de
-  // confirmação), e não só a ausência de erro.
-  await pg.evaluate(() => document.getElementById('diagCopy').click());
+  // confirmação), e não só a ausência de erro. O alvo era o `#diagCopy` até a
+  // v1.4.44; com ele fora, quem exerce o mesmo caminho é o outro `.log-copy`.
+  //
+  // O ENDEREÇO É SEMEADO no nó: quem o escreve no app é a enquete do
+  // `mirrorEstado`, e sem transmissão no ar ele nasce vazio — o ouvinte volta
+  // cedo, nada pulsa, e o oráculo culparia o botão pelo que é a ausência de um
+  // cenário.
+  //
+  // E A FOLHA DELE É ABERTA: `pulsar` volta cedo em botão fora da tela
+  // (`visivelNaTela`, que recusa o que está dentro de um `.popup-backdrop` sem
+  // `.open`), e o bloco da transmissão mora no `#castPopup`. Sem isto o oráculo
+  // mediria a AUSÊNCIA do cenário e culparia o botão. Ela é fechada logo depois
+  // — as medições seguintes contam com a tela limpa.
+  await pg.evaluate(() => {
+    const folha = document.getElementById('castPopup');
+    folha.classList.add('open');
+    for (let el = document.getElementById('castUrlCopy'); el && el !== folha; el = el.parentElement) {
+      el.hidden = false;
+      if (getComputedStyle(el).display === 'none') el.style.removeProperty('display');
+    }
+    document.getElementById('castUrl').textContent = 'http://192.168.0.9:8080';
+    document.getElementById('castUrlCopy').click();
+  });
   await pg.waitForTimeout(300);
-  const pulsou = await pg.$eval('#diagCopy', (el) => el.classList.contains('btn-pulso'));
-  checar(pulsou, 'o botão de copiar o Registro responde ao toque');
+  const pulsou = await pg.$eval('#castUrlCopy', (el) => el.classList.contains('btn-pulso'));
+  checar(pulsou, 'o botão de copiar do app responde ao toque (o endereço da transmissão)');
+  const copiado = await pg.evaluate(() => navigator.clipboard.readText().catch(() => ''));
+  checar(copiado.includes('192.168.0.9'),
+    'e o texto foi de fato para a área de transferência — o pulso é a resposta na '
+    + 'tela, e sozinho ele passaria com o `copiarTexto` sem efeito nenhum');
+  await pg.evaluate(() => document.getElementById('castPopup').classList.remove('open'));
+  await pg.waitForTimeout(250);
 
   // ==========================================================================
   // NÃO EXISTE ALERTA FLUTUANTE (v5.207) — e este é o oráculo da regra.
@@ -596,8 +724,6 @@ try {
   checar(canais.linha && canais.botao && canais.pasta && canais.ota,
     'e os canais que responderam no lugar dela estão de pé (linha, botão, pasta, botão de atualização)');
 
-  const copiado = await pg.evaluate(() => navigator.clipboard.readText().catch(() => ''));
-  checar(copiado.includes('Linha do tempo'), 'e o texto do Registro foi para a área de transferência');
 
   // ---- O EMPILHAMENTO DOS POPUPS ANINHADOS -------------------------------
   //

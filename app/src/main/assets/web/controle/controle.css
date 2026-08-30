@@ -4653,61 +4653,50 @@ main {
 /* A versão desceu do cabeçalho da lista para cá (ver o comentário no HTML): no
    rodapé ela fica na mesma coluna do estado do telão e do alvo de
    espelhamento — as três coisas que se olha quando algo não está certo. */
-/* ===== A FAIXA DE DIAGNÓSTICO DO RODAPÉ, EM DOIS BLOCOS IGUAIS (v1.4.43) =====
-   Versão à esquerda (o FATO), Registro à direita (o rótulo mais as duas ações
-   que o levam para fora). As duas metades respondem à mesma pergunta — *"o que
-   eu mando para quem vai me ajudar?"* — e agora têm a MESMA forma.
+/* ===== A FAIXA DE DIAGNÓSTICO DO RODAPÉ É UMA BARRA SÓ (v1.4.44) =====
+   Pedido do operador: *"ficou duas seções, a versão e o registro em grupos
+   separados. pode deixar tudo em uma barra horizontal única"*.
 
-   MEDIDO no que havia, e é o relato do operador (*"cada elemento tem um design
-   e tamanho único"*): a versão era uma pílula de ~20px com raio de CÁPSULA a
-   .7rem, o "Registro" era texto solto sem superfície a .8rem, e os botões eram
-   quadrados de 34px com raio de BOTÃO. Quatro formas, três alturas, dois raios,
-   duas fontes.
+   A v1.4.43 unificou o DESENHO das duas pastilhas (mesma altura, mesmo raio,
+   mesma superfície, mesma fonte) e parou no meio: duas caixas com um vão entre
+   elas continuam se lendo como dois assuntos, e o assunto é UM — *"que versão
+   eu tenho, e o que eu mando para quem vai me ajudar?"*. Hoje a SUPERFÍCIE É A
+   FAIXA, e o que mora nela é texto e um alvo.
 
-   A UNIFICAÇÃO É UMA MEDIDA SÓ REPETIDA: altura `--hit`, raio `--radius-btn`,
-   superfície `--surface-2`, fonte `--fs-diag`. O que sobra de diferente entre
-   os dois blocos é só o que eles SÃO — um mostra texto, o outro hospeda alvos.
+   MEDIDO no que havia antes das duas rodadas: a versão era uma pílula de ~20px
+   com raio de CÁPSULA a .7rem, o "Registro" era texto solto sem superfície a
+   .8rem, e os botões eram quadrados de 34px com raio de BOTÃO. Quatro formas,
+   três alturas, dois raios, duas fontes.
 
-   O `margin: auto` da versão saiu há versões: aqui ela não está sozinha na
-   linha, e centralizá-la empurraria o par da direita para fora do lugar. */
+   O RESPIRO DA ESQUERDA É PADDING; O DA DIREITA É O ALVO. A versão é texto e
+   precisa de folga; o `.log-copy` é um quadrado de `--hit` e a folga dele já
+   está dentro do alvo — um padding à direita empurraria o botão para dentro e
+   deixaria uma borda morta na faixa. */
 .footer-diag {
   --fs-diag: .74rem;
-  display: flex; align-items: center; gap: .5rem;
+  display: flex; align-items: center; gap: .35rem;
   margin-top: .45rem;
-}
-/* O ESQUELETO DAS DUAS PASTILHAS, escrito uma vez — é ele o "mesmo tema" do
-   pedido: mesmo tom, mesma altura (`--hit`, o piso de alvo do app) e mesmo
-   corpo. Um seletor por bloco e não uma classe comum: a `.app-version` nasceu
-   no cabeçalho da lista, e o dia em que voltar a ter dois lugares esta regra
-   não pode segui-la. */
-.footer-diag > .app-version,
-.footer-diag > .footer-log {
-  flex: 0 0 auto;
   min-height: var(--hit);
-  display: flex; align-items: center;
+  padding-left: .6rem;
   background: var(--surface-2); border-radius: var(--radius-btn);
   font-size: var(--fs-diag);
 }
-/* A versão é só texto: o respiro dela é o padding.
-   `--text` E NÃO `--muted`, e é MEDIDO: a pastilha afunda `--surface-2` dentro
-   da folha, e no tema CLARO isso é preto a 20% sobre branco (204,204,204) —
+/* `--text` E NÃO `--muted`, e é MEDIDO: a faixa afunda `--surface-2` dentro da
+   folha, e no tema CLARO isso é preto a 20% sobre branco (204,204,204) —
    `--muted` ali dá **4,15:1**, abaixo do piso de 4,5. Com `--text`: **5,52:1**
    no claro e 10,55:1 no escuro. Esta linha em particular não pode ser difícil
    de ler: é ela que responde "o OTA chegou e o APK ainda não?" (ver
    `renderVersionLabel`), lida de relance por quem está diagnosticando. */
-.footer-diag > .app-version { padding: 0 .6rem; color: var(--text); }
-/* O bloco do Registro: o rótulo e os dois alvos dividem UMA superfície. */
-.footer-diag > .footer-log { margin-left: auto; padding-left: .6rem; gap: .1rem; }
-.footer-diag-rot { color: var(--text); }
-/* OS BOTÕES PERDEM O FUNDO PRÓPRIO e herdam o do bloco — dois fundos dentro de
-   um fundo é a camada a mais que este lote existe para tirar. O ALVO não muda:
-   o esqueleto de `--hit` do `.log-copy` continua valendo, e é ele que garante
-   o piso de toque.
-   O `.btn-pulso` (a confirmação do copiar) FICA por cima: ele pinta o botão
-   TOCADO, que é o que diz em qual dos dois se tocou — e é a única coisa que
-   precisa se destacar dentro do bloco. */
-.footer-log .log-copy { background: none; }
-.footer-log .log-copy.copiado { background: var(--btn-ok); color: var(--ok); }
+.footer-diag > .app-version { flex: 0 0 auto; color: var(--text); }
+/* O rótulo empurra a si mesmo e ao botão para a outra ponta. Ele é `hidden`
+   junto com o botão (ver o HTML): uma palavra sozinha, sem alvo ao lado, é um
+   controle que não existe. */
+.footer-diag-rot { margin-left: auto; color: var(--text); }
+/* O BOTÃO PERDE O FUNDO PRÓPRIO e herda o da faixa — um fundo dentro de um
+   fundo é a camada a mais que estas duas rodadas existem para tirar. O ALVO não
+   muda: o esqueleto de `--hit` do `.log-copy` continua valendo, e é ele que
+   garante o piso de toque. */
+.footer-diag .log-copy { background: none; }
 
 /* (`.folder-pick-btn` saiu na v5.254, com o popup de seleção de pasta: os
    atalhos de pasta deixaram de existir, e uma pasta do APARELHO não recebe
@@ -5503,11 +5492,37 @@ main {
    exata do trilho, as duas metades do conteúdo têm de medir a mesma coisa por
    CONSTRUÇÃO — `flex: 1` distribui a SOBRA, e um rótulo mais longo ("Avançado")
    deslocaria o par contra um polegar que não sabe disso. */
-.fade-row--modo { gap: .35rem; }
-/* O rótulo virou LEGENDA: sem o cartão em destaque, ele não é mais o título de
-   um bloco — é o nome do que o interruptor governa, e quem carrega o peso da
-   linha é o próprio interruptor. */
-.fade-row--modo > span:first-child { color: var(--muted); font-size: .82rem; }
+/* A LINHA PERDEU O CARTÃO DE VERDADE (v1.4.44). A v1.4.43 tirou o `--camada`
+   do destaque e deixou de pé o `.fade-row` por baixo — que pinta `--panel`, o
+   MESMO tom da folha, e por isso não se via. O que se via era o efeito dele: o
+   `padding` de .8rem recuava o trilho 12,8px de cada lado, e ele saía mais
+   estreito que a grade logo abaixo (MEDIDO: 375,6px contra 401,2px, numa
+   viewport de 430). Foi o relato do operador — *"verifique a largura total do
+   seletor do modo, parece não estar alinhado com os outros botões abaixo"*.
+
+   Um cartão invisível que só desalinha não é um cartão: é padding. A linha
+   virou o que ela já parecia ser — uma legenda e um trilho —, e o trilho passou
+   a medir exatamente a grade.
+
+   `background: none` E o `padding` zerado, os dois: só o padding deixaria a
+   regra de R1 (a `.fade-row` está na lista) descrevendo um bloco que não pinta
+   mais nada. Ela CONTINUA na lista, e isso está certo — a lista é o que AFUNDA
+   a superfície dos filhos, e quem afunda aqui é a folha; o que a linha não faz
+   mais é pintar por cima dela. */
+.fade-row--modo {
+  gap: .35rem;
+  background: none;
+  padding: 0;
+}
+/* O RÓTULO É UMA LEGENDA CENTRADA (v1.4.44), a pedido: *"centralize o título
+   'modo do app', que hoje está para a esquerda nas configurações"*. Ele encabeça
+   um controle de duas metades simétricas e é o único texto solto desta folha —
+   à esquerda ele apontava para a metade "Fácil", que é uma das duas escolhas.
+   `.fade-row--fit` é `align-items: stretch`, então o `<span>` já ocupa a linha
+   inteira e quem posiciona é o `text-align`. */
+.fade-row--modo > span:first-child {
+  color: var(--muted); font-size: .82rem; text-align: center;
+}
 .qs-modo {
   --modo-folga: 3px;
   position: relative;

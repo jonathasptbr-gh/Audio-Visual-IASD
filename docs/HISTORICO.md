@@ -24,6 +24,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
+- **v1.4.44** — O CARTÃO INVISÍVEL DA LINHA DO MODO, O TÍTULO CENTRADO, E O RODAPÉ EM UMA BARRA SÓ (com o copiar do Registro fora). Três acertos e uma remoção, todos do operador. O seletor de modo saía mais estreito que a grade de tiles logo abaixo (MEDIDO: 375,6px contra 401,2px numa viewport de 430) e o culpado não desenhava nada: a `.fade-row` pinta `--panel`, o MESMO tom da folha, então o cartão era invisível e o que se via era só o `padding` dele recuando o trilho 12,8px de cada lado — *um cartão invisível que só desalinha não é um cartão: é padding*. O título "Modo do app" era o único texto solto da folha e apontava para a metade "Fácil"; hoje é uma legenda centrada. O rodapé, que a v1.4.43 tinha unificado no DESENHO e parado no meio, virou UMA barra: duas caixas com a mesma cor e um vão entre elas ainda se leem como dois assuntos, e o assunto é um. E o COPIAR do Registro saiu — a área de transferência é o caminho que corta o texto no meio sem avisar, foi esse relato que criou o salvar em arquivo na v1.2.16, e o Registro só cresceu desde então. O `copiarTexto` e o `.log-copy` ficam com o consumidor que os justifica: o endereço da transmissão, que é curto e existe para ser digitado noutro aparelho.
 - **v1.4.43** — O RODAPÉ DE CONFIGURAÇÕES VIROU UM DESENHO SÓ, O MODO DO APP VIROU UM INTERRUPTOR QUE DESLIZA, E A BASE DA PREVIEW VIROU A REGIÃO DO QUE ESTÁ FORA DO PADRÃO. Quatro pedidos do operador num lote. O rodapé tinha três desenhos e três tamanhos para o mesmo assunto (a versão, o rótulo "Registro" e os dois botões dele): hoje são DUAS pastilhas do mesmo tom, da mesma altura (`--hit`) e do mesmo corpo, uma em cada ponta. O seletor Fácil × Avançado empilhava QUATRO tons para uma escolha de duas posições e virou um trilho com um polegar que anda por `transform` — o deslize é o que diz *"isto alterna"*, e é ele que o oráculo mede no RENDERIZADO, porque uma troca de classe passa num teste de classe e continua imóvel na tela. A folha de Configurações **deixou de fechar** ao trocar de modo (ela fechava por decisão, e quem trocava perdia o lugar e o caminho de volta — a engrenagem mora em outro canto no outro modo). E a base da preview, que hospedava só o selo de camadas, passou a ser a faixa do **que está fora do padrão AGORA**: entrou ali o desfazer do giro do telão, com o ÂNGULO à vista, porque voltar de 90° custava abrir a folha e ciclar o tile três vezes olhando para a folha e não para a projeção.
 - **v1.4.42** — A CONTAGEM DE USO PASSOU A SER SEMPRE ATIVA: O SISTEMA DE EXCLUSÃO SAIU INTEIRO. Pedido do operador: *"descarte a opção de contagem de uso como opcional, deixe sempre ativo, não preciso do sistema de exclusividade"*. Saíram a linha do rodapé do Registro e o `renderFarolLinha`, o **`farolContar` da ponte** (shell 60 → **61**, o PRIMEIRO método que este projeto remove), o `Farol.definirContar`, a leitura da preferência em `Farol.contar`, os símbolos `icoMedicao`/`icoMedicaoOff` (um `<symbol>` sem consumidor viaja no bundle do OTA e não desenha nada em lugar nenhum), o interruptor `#opContar` da página de alcance e o roteamento `avRegistroOperador` → `v-dev.txt` do site. **O QUE FICA é a única exclusão que nunca foi opção: o BUILD DEBUGGÁVEL**, que acende num contador separado por `FLAG_DEBUGGABLE` — higiene de construção, sem UI, e sem ela toda sessão de trabalho entraria no número público como se fosse uma igreja. `farolEstado` também fica, virou SÓ LEITURA, e alimenta a linha "Alcance:" do Registro, que responde a pergunta que faz aquele texto ser copiado: *o farol chegou a acender?* **O APK ERA OBRIGATÓRIO, e essa é a parte que não dava para adiar:** a chave já gravada continuaria sendo lida por um shell antigo, e um aparelho marcado *"fica de fora"* ficaria fora da contagem PARA SEMPRE, sem tela para desmarcar — contador não se corrige depois. É o `Farol.contar` do APK novo que o devolve, daí o `shellTag` segurando o bundle até a Release existir; e é o primeiro lote a exercitar de verdade a regra escrita há dezenas de versões (*"MUDAR A FORMA de um método que já existe é PIOR que acrescentar um"*). **O PREÇO ENTROU NO PAINEL, e é onde ele tinha de estar:** sem exclusão, "aparelhos por dia" e "visitas" passam a incluir o uso próprio — e um painel que não avisa é o *confiável e falso* que `docs/MEDICAO-DE-ALCANCE.md` nomeia, só que pelo outro lado. A página de alcance diz isso logo abaixo dos números, e o oráculo cobra a FRASE RENDERIZADA (uma nota vazia passaria num teste de seletor). O caso do roteamento no `registro-alcance` **inverteu em vez de sair**: ele prova agora que nenhum resto do mecanismo desvia o navegador de quem audita — um `localStorage` esquecido o deixaria fora do número público em silêncio, o desfecho que aquele arquivo nasceu para não ter. **EXIGE RELEASE v1.4.42.**
 - **v1.4.41** — O ENQUADRAMENTO NÃO ERA "SÓ PARA FOTOS": ERA "SÓ QUANDO A MÍDIA É A CENA". Pergunta do operador: *"faça uma verificação sobre os itens de preenchimento e girar. eles atualmente só servem para fotos? veja se consegue aplicar eles a todos os tipos de mídias na tela"*, mais o pedido de o título dizer que o giro é do telão e o de tirar a medição do app. **MEDIDO no `/display/`** com `cover` e 90° escolhidos: `#img` (imagem e apresentação como CENA) e `#video` seguiam os dois; `#textImg` — a MESMA foto e a MESMA página projetadas como CAMADA por cima de um louvor de fundo (v5.312 e v1.4.28) — ficava presa no `contain` da folha, sem giro nenhum. **É o pior formato de defeito que aquele painel pode ter:** o mesmo controle, o mesmo conteúdo, e funciona ou não conforme haja uma música tocando por baixo, que é a última coisa que alguém relacionaria com preenchimento. A correção entra no MOTOR e não no dono do palco (`camadaImg` no `createStage`), porque "como a mídia ocupa o telão" é decisão de um lugar só. **O giro precisou de mais que isso:** `aplicarGiro` desiste quando não consegue medir a caixa, e um elemento `hidden` não tem caixa — girar com o telão no wallpaper e só então projetar entregava a mídia sem giro, que é o irmão exato do que o `applyMedia` já resolvia para o `img`/`video`. Daí `reporGiro()`, PEDIDO nos dois lados; e MEDIDO por reversão, sem ele só a PREVIEW reprova — no telão o `showText` mexe na cortina e o `applyMedia` repõe de carona, um acidente de ordem que quem apagar a chamada "redundante" descobre no telão. **O FUNDO DA ESTROFE fica de fora**, e é a metade que impede o conserto largo demais: ele não é a mídia, é o fundo ATRÁS da letra — `cover` ali não é escolha de enquadramento, e girá-lo deitaria a imagem sob um texto que continua de pé. O tile virou **"Girar no telão"** porque "Girar" sozinho, numa folha de Configurações, se lê como o giro da INTERFACE. **E a MEDIÇÃO saiu da grade**: o pedido era levá-la para a página de alcance do site, e a resposta honesta é que a página NÃO alcança o app — origens diferentes no mesmo aparelho, armazenamento isolado, e o app sem intent-filter de URL (só MAIN e SEND); a única ponte possível seria uma porta EXPORTADA que troca uma chave de privacidade, pior que o botão. Ela virou uma linha quieta no rodapé do Registro, e a PÁGINA ganhou o interruptor que ela de fato controla: o do NAVEGADOR, que era escrito em silêncio, valia para sempre e não tinha volta — agora com TRÊS estados, porque com dois a marca era reescrita em toda abertura e o interruptor se desfazia sozinho. Oráculo novo (`enquadramento-da-camada.test.mjs`, 10 asserções), mais três metades no `boot-nativo` e quatro no `registro-alcance`; três reversões. OTA PURO.
@@ -314,6 +315,111 @@ na nota que a revoga, não apagada da que a criou.
 - **v5.154** — é METADE OTA e METADE APK, e a divisão importa para quem for testar em aparelho.
 - **v5.155** — é OTA PURO
 - **v5.156** — é METADE OTA e METADE APK, de novo.
+
+---
+
+## v1.4.44 — o cartão invisível, o título centrado, e o rodapé em uma barra só
+
+**Quatro pedidos do operador, num lote só de web** (nenhum `.kt`, nenhum
+`res/`, nenhum workflow — sem Release e sem `shellTag`).
+
+### 1. O seletor de modo não media a mesma coisa que a grade
+
+*"verifique a largura total do seletor do modo, parece não estar alinhado com os
+outros botões abaixo."*
+
+**MEDIDO** numa viewport de 430: o trilho ia de 27,2 a 402,8 (375,6px) e a grade
+de tiles, de 14,4 a 415,6 (401,2px). **12,8px de recuo de cada lado**, e o
+culpado não desenha nada: a `.fade-row` pinta `--panel`, que é o MESMO tom da
+folha — o cartão era invisível, e o que se via era só o efeito do `padding`
+dele.
+
+A v1.4.43 tinha tirado o `--camada` do destaque e deixado a `.fade-row` de pé por
+baixo. **Um cartão invisível que só desalinha não é um cartão: é padding.** A
+linha virou o que ela já parecia ser — uma legenda e um trilho —, e o trilho
+passou a medir exatamente a grade.
+
+`background: none` **e** o `padding` zerado, os dois: só o padding deixaria a
+regra de R1 (a `.fade-row` está na lista) descrevendo um bloco que não pinta mais
+nada. Ela **continua** na lista, e isso está certo — a lista é o que AFUNDA a
+superfície dos filhos, e quem afunda aqui é a folha; o que a linha não faz mais é
+pintar por cima dela.
+
+### 2. O título "Modo do app" é centrado
+
+*"centralize o título 'modo do app', que hoje está para a esquerda nas
+configurações."*
+
+Ele encabeça um controle de duas metades simétricas e é o único texto solto desta
+folha — à esquerda ele apontava para a metade "Fácil", que é uma das duas
+escolhas.
+
+**A asserção mede o TEXTO PINTADO**, por um `Range` sobre o nó de texto, e não a
+caixa do `<span>`: `.fade-row--fit` é `align-items: stretch`, então o span ocupa
+a linha inteira nas DUAS versões — medi-la aprova o rótulo colado à esquerda. E
+não `text-align`, que seria ler de volta a regra que se acabou de escrever.
+Provado por reversão: sem a regra, o desvio é de **158,1px**.
+
+### 3. O rodapé é UMA barra
+
+*"ficou duas seções, a versão e o registro em grupos separados. pode deixar tudo
+em uma barra horizontal única."*
+
+A v1.4.43 unificou o DESENHO (mesma altura, mesmo raio, mesma superfície, mesma
+fonte) e **parou no meio**: duas caixas com a mesma cor e um vão entre elas
+continuam se lendo como dois assuntos, e o assunto é UM — *"que versão eu tenho,
+e o que eu mando para quem vai me ajudar?"*. Hoje a **superfície é a faixa**, e o
+que mora nela é texto e um alvo.
+
+- **O respiro da esquerda é `padding`; o da direita é o ALVO.** A versão é texto
+  e precisa de folga; o `.log-copy` é um quadrado de `--hit` e a folga dele já
+  está dentro do alvo — um padding à direita empurraria o botão para dentro e
+  deixaria uma borda morta na faixa.
+- **A asserção é o número de SUPERFÍCIES pintadas dentro do rodapé**, e não a
+  contagem de filhos: um teste de "mesmo tom" aprovaria a v1.4.43, que é
+  justamente o que o operador viu como duas caixas. O que separa as duas versões
+  é haver UM fundo ou DOIS, medido na cor renderizada.
+
+### 4. O copiar do Registro saiu
+
+*"pode remover o sistema de copiar registro. o registro está cada vez maior e
+mais completo e acaba por ele ficar longo de mais para compartilhar via chat de
+texto."*
+
+A área de transferência é o caminho que **corta o texto no meio sem avisar** —
+foi esse relato que criou o salvar em arquivo na v1.2.16 —, e o Registro só
+cresceu desde então. Ficou a porta que não corta.
+
+- **O `copiarTexto`, o `.log-copy` e o `#icoCopiar` FICAM**, com o consumidor que
+  os justifica: o `#castUrlCopy`, o endereço da transmissão — curto, e feito para
+  ser digitado noutro aparelho. É o caso em que a área de transferência é
+  exatamente a ferramenta certa. O oráculo cobra as duas metades, e a segunda é a
+  que impede a remoção de virar "apagar a função inteira".
+- **A regra do `CLAUDE.md` mudou de forma, não de intenção:** todo campo de log
+  continua nascendo com uma porta de saída; **qual porta depende do TAMANHO**.
+- **CONSEQUÊNCIA DECLARADA:** num NAVEGADOR o rodapé não tem mais como exportar o
+  Registro (o salvar depende da ponte). É o certo — ali metade dos blocos dele
+  nem existe. O rótulo "Registro" acompanha o botão pelo mesmo motivo: uma palavra
+  sozinha, sem alvo ao lado, é um controle que não existe.
+
+### O oráculo do copiar mudou de alvo, e o cenário dele agora é montado
+
+A guarda da v5.121 (*o clique chamava uma função apagada; um handler que estoura
+não muda nada na tela*) apontava para o `#diagCopy`. Com ele fora, quem exerce o
+mesmo caminho é o outro `.log-copy` — e ele exigiu duas coisas que o antigo não
+exigia, as duas MEDIDAS ao escrever:
+
+- **o endereço tem de ser semeado no nó**: quem o escreve no app é a enquete do
+  `mirrorEstado`, e sem transmissão no ar o ouvinte volta cedo — nada pulsa, e o
+  oráculo culparia o botão pela ausência do cenário;
+- **a folha dele tem de estar aberta**: `pulsar` volta cedo em botão fora da tela
+  (`visivelNaTela` recusa o que está dentro de um `.popup-backdrop` sem `.open`),
+  e o bloco da transmissão mora no `#castPopup`. Ela é fechada logo depois — as
+  medições seguintes contam com a tela limpa, a mesma higiene que a folha de
+  Configurações passou a exigir na v1.4.43.
+
+E a asserção do CONTEÚDO ficou colada à do pulso: o pulso é a resposta na tela e,
+sozinho, passaria com o `copiarTexto` sem efeito nenhum.
 
 ---
 
