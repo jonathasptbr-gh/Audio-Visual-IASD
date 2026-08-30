@@ -911,8 +911,19 @@ a própria cor.
 | Wallpaper | `#wallTile` | `padrao` · `propria` | **sempre** | `#icoWallpaper` |
 | Histórico | `#histOpenRow` | — (abre a folha) | **sempre** (classe no HTML) | `#icoHistorico` |
 | Fundo da letra | `#lyricsBgTile` | `image` · `black` (ver "Fundo preto vs. imagens dos slides") | em `image` | `#icoImagem` / `#icoImagemOff` |
-| Girar | `#rotBtn` | `0` `90` `180` `270` | ≠ `0` | `#icoGirar` |
-| Medição | `#farolTile` | `sim` · `nao` (`hidden` fora do app) | em `sim` | `#icoMedicao` / `#icoMedicaoOff` |
+| Girar no telão | `#rotBtn` | `0` `90` `180` `270` | ≠ `0` | `#icoGirar` |
+
+**SEIS TILES desde a v1.4.41** — a grade fecha em duas fileiras exatas. A
+**contagem de uso** (`#farolRow`) saiu daqui e virou uma **linha no rodapé do
+Registro**: ela não é preferência de projeção, é chave de manutenção, e era a
+única do painel que quem opera o culto nunca toca. Ver "A contagem de uso"
+abaixo.
+
+**O TÍTULO DO GIRO DIZ ONDE** (v1.4.41): *"Girar no telão"*, e o `title`
+completa pela negativa (*"não gira o app nem a tela do celular"*). "Girar"
+sozinho, numa folha de Configurações, lê-se como o giro da INTERFACE — que é o
+que um controle com esse nome faz em quase todo app — e aqui é o oposto: a tela
+do celular fica como está e quem gira é a mídia projetada.
 
 As três regras do tile, escritas por inteiro no `index.html`:
 
@@ -971,7 +982,38 @@ cancela a ativação é um `preventDefault()` no ouvinte. Trocar uma imagem por
 outra são **dois toques**, e esse é o preço declarado de o wallpaper caber num
 tile como os outros.
 
-O rodapé não mudou: **estado do telão**, a **versão** e o **Registro**.
+O rodapé: **estado do telão**, a **versão**, o **Registro** e, desde a v1.4.41,
+a **contagem de uso**.
+
+#### A contagem de uso, e por que ela NÃO mora no site (v1.4.41)
+
+`#farolRow` é uma linha quieta do rodapé (sem superfície de botão, `--muted`, a
+frase inteira como alvo): *"Contagem de uso: este aparelho entra"* / *"…fica de
+fora"*, e o toque alterna. `hidden` fora do app, revelada por
+`renderFarolLinha` — o MESMO caminho que a pinta.
+
+O pedido do operador foi levá-la para a página de alcance do site, *"já que
+ambos serão acessados no mesmo aparelho"*. **A página não alcança o app**, e a
+razão é estrutural:
+
+| | app | página de alcance |
+|---|---|---|
+| origem | `appassets.androidplatform.net` | `jonathasptbr-gh.github.io` |
+| onde a chave mora | `SharedPreferences` (`Farol.kt`) | `localStorage` do navegador |
+| quem lê a do outro | ninguém | ninguém |
+
+E não há terceira via: o app **não tem intent-filter de URL** (só `MAIN` e
+`SEND`/`SEND_MULTIPLE`, ver `AndroidManifest.xml`). Abrir uma porta de entrada
+EXPORTADA que troca uma chave de privacidade é pior que a linha — é a classe de
+risco que o KDoc do `ShareIntake` já nomeia.
+
+**O que a página ganhou foi o interruptor do NAVEGADOR**, que ela de fato
+controla (`#opContar`, em `site/registro/`): abrir `/registro/` com a chave
+sempre marcou aquele navegador para contar num contador separado, e a marca era
+escrita **em silêncio, para sempre e sem volta**. Hoje ela é visível e
+reversível — e o valor tem TRÊS estados (`'1'` operador · `'0'` decidiu que não
+· ausente nunca decidiu), porque com dois a página reescreveria a marca em toda
+abertura e o interruptor se desfaria sozinho.
 
 #### Os controles DENTRO do fullscreen: uma coluna, não gestos (v1.0.7)
 

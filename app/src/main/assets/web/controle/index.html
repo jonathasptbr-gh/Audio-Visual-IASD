@@ -1415,15 +1415,21 @@
              esses itens que não se ativam fiquem no topo da listagem e deixe os
              outros mais em baixo"*. Primeiro os que NÃO têm desligado — tema,
              preenchimento, wallpaper, histórico —, sempre acesos; depois os que
-             LIGAM E DESLIGAM — fundo da letra, girar, medição —, que apagam
-             quando a função está desligada.
+             LIGAM E DESLIGAM — fundo da letra e girar —, que apagam quando a
+             função está desligada.
 
              UMA GRADE SÓ, e não duas com um respiro entre elas: o primeiro
              grupo tem QUATRO itens e três colunas, então uma grade própria para
              ele deixaria dois buracos no meio do painel — que se leem como
              defeito, não como separação. Numa grade só a ordem já responde ao
              pedido, e quem desenha o grupo é a própria COR: os quatro primeiros
-             são azuis, e o bloco azul se lê mesmo virando a linha. -->
+             são azuis, e o bloco azul se lê mesmo virando a linha.
+
+             SEIS TILES desde a v1.4.41, e é por isso que a grade fecha em DUAS
+             fileiras exatas: a MEDIÇÃO DE ALCANCE saiu daqui a pedido do
+             operador e virou uma linha no rodapé do Registro, logo abaixo —
+             ela não é uma preferência de projeção, é uma chave de manutenção,
+             e a única do painel que quem opera o culto nunca toca. -->
         <div class="qs-grade">
           <!-- TEMA (v5.192, tile na v1.4.38). Primeiro da grade porque é a
                mesma classe de decisão do modo do app logo acima — "como este
@@ -1510,36 +1516,20 @@
                a exceção ao lado de um seletor e virou o que sempre foi: um
                tile igual aos outros.
                É dos que APAGAM: `0°` é o giro desligado, e essa é a única
-               posição em que a mídia sai como veio. -->
-          <button type="button" class="qs-tile" id="rotBtn" title="Girar 90° no telão">
+               posição em que a mídia sai como veio.
+
+               O TÍTULO DIZ ONDE (v1.4.41), a pedido do operador: *"adicione no
+               título 'girar' algo que deixe claro que está girando a
+               visualização do telão e não o aplicativo ou a tela do celular"*.
+               "Girar" sozinho, numa folha de Configurações, se lê como o giro
+               da INTERFACE — que é o que um seletor com esse nome faz em quase
+               todo app —, e o que ele faz é o oposto: a tela do celular fica
+               como está e quem gira é a mídia projetada. O `title` completa,
+               dizendo pela negativa o que o rótulo não tem espaço para dizer. -->
+          <button type="button" class="qs-tile" id="rotBtn" title="Girar a mídia no telão — não gira o app nem a tela do celular">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoGirar"/></svg>
-            <span class="qs-titulo">Girar</span>
+            <span class="qs-titulo">Girar no telão</span>
             <span class="qs-estado">0°</span>
-          </button>
-          <!-- ESTE APARELHO NA MEDIÇÃO DE ALCANCE (v1.4.1).
-               O app conta, uma vez por dia, quantos APARELHOS o usaram — um
-               contador agregado, sem id, sem corpo e sem nada que distinga um
-               aparelho de outro (ver `Farol.kt`). O que este tile resolve é o
-               único caso que o agregado não resolve sozinho: o aparelho de quem
-               DESENVOLVE o app roda o mesmo APK de Release que todos os outros,
-               e portanto não tem marca nenhuma. Só uma pessoa sabe, então é ela
-               quem marca.
-
-               "Fica de fora" NÃO É "não manda nada": o aparelho passa a contar
-               num contador SEPARADO. Isso é o desenho e não uma economia —
-               subtrair depois uma estimativa do próprio uso é como se produz um
-               painel confiável e falso, e assim um erro aparece como um número
-               óbvio no lugar errado em vez de sumir dentro do certo.
-
-               `hidden` fora do app (quem o revela é `renderFarolTile`, pelo
-               MESMO caminho por que o pinta): num navegador não há farol nenhum,
-               e uma chave que não liga nada é pior que chave nenhuma. -->
-          <button type="button" class="qs-tile" id="farolTile" title="Este aparelho na contagem de uso" hidden>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <use class="ico-base" href="#icoMedicao"/><use class="ico-alt" href="#icoMedicaoOff"/>
-            </svg>
-            <span class="qs-titulo">Medição</span>
-            <span class="qs-estado">Entra</span>
           </button>
         </div>
         <!-- O REGISTRO, e é UM só (v5.121). Ele nasceu como a caixa-preta do
@@ -1593,7 +1583,7 @@
              pedir ajuda"), e agora ocupam a mesma faixa: a versão à esquerda, o
              Registro à direita, no espaço que já estava sobrando. -->
         <div class="footer-diag">
-          <span id="appVersion" class="app-version">Controle v1.4.40</span>
+          <span id="appVersion" class="app-version">Controle v1.4.41</span>
           <span class="footer-diag-rot">Registro</span>
           <!-- SALVAR EM ARQUIVO (v1.2.16). Com o acervo inteiro varrido o
                Registro passa de setenta linhas só na seção de cifras, e copiar
@@ -1609,6 +1599,36 @@
             <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoCopiar"/></svg>
           </button>
         </div>
+        <!-- ===== ESTE APARELHO NA CONTAGEM DE USO (v1.4.1; aqui desde a v1.4.41) =====
+             O app conta, uma vez por dia, quantos APARELHOS o usaram — um
+             contador agregado, sem id, sem corpo e sem nada que distinga um
+             aparelho de outro (ver `Farol.kt`). O que esta linha resolve é o
+             único caso que o agregado não resolve sozinho: o aparelho de quem
+             DESENVOLVE o app roda o mesmo APK de Release que todos os outros, e
+             portanto não tem marca nenhuma. Só uma pessoa sabe, então é ela
+             quem marca.
+
+             "Fica de fora" NÃO É "não manda nada": o aparelho passa a contar
+             num contador SEPARADO. Isso é o desenho e não uma economia —
+             subtrair depois uma estimativa do próprio uso é como se produz um
+             painel confiável e falso.
+
+             ELA SAIU DA GRADE e veio para cá a pedido do operador, junto com a
+             ideia de a chave morar na página de alcance do site. **A página não
+             alcança o app**, e isso é por construção: são origens diferentes no
+             mesmo aparelho (o app serve de `appassets.androidplatform.net`, a
+             página de `github.io`), o armazenamento de uma não é lido pela
+             outra, e o app não tem intent-filter de URL — só MAIN e SEND. O
+             único caminho seria abrir uma porta de entrada EXPORTADA que troca
+             uma chave de privacidade, que é pior que a linha. O que a página
+             ganhou foi o interruptor do NAVEGADOR, que ela de fato controla.
+
+             O LUGAR É O RODAPÉ DO REGISTRO porque é a mesma natureza: metadado
+             de manutenção, lido e mexido por quem diagnostica, nunca durante um
+             culto. `hidden` fora do app (quem a revela é `renderFarolLinha`,
+             pelo MESMO caminho por que a pinta): num navegador não há farol
+             nenhum, e uma chave que não liga nada é pior que chave nenhuma. -->
+        <button id="farolRow" class="farol-row" hidden></button>
         <!-- A ATUALIZAÇÃO (v5.245). Ele mora ao lado do rótulo de versão
              porque é a MESMA conversa ("que versão eu tenho?" / "tem uma mais
              nova?"), e porque é ali que o operador já procura isso.

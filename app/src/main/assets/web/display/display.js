@@ -150,6 +150,12 @@ const stage = createStage({
   wallpaper: wallpaperEl,
   img: imgEl,
   video: videoEl,
+  // A IMAGEM E A APRESENTAÇÃO COMO CAMADA (v1.4.41). Elas são a MESMA mídia do
+  // `imgEl`, projetadas por cima de um louvor de fundo em vez de no lugar dele
+  // — e até este lote ficavam de fora do preenchimento e do giro, presas no
+  // `contain` da folha. Entregar o elemento ao palco põe as duas sob a mesma
+  // regra; quem repõe o giro ao revelá-lo é o `mostrarTextImg`, logo abaixo.
+  camadaImg: textImgEl,
   // A TELA DA REDE NASCE MUDA, e isso é a falha segura — não uma preferência.
   //
   // O som é OPT-IN POR TELA (invariante 10 do espelho): nenhum navegador toca
@@ -731,6 +737,7 @@ async function pintarTextImg(cmd) {
         if (seq !== textImgSeq) return;
         textImgEl.src = rec.url;
         textImgEl.hidden = false;
+        stage.reporGiro();
       };
       img.onerror = () => {
         if (seq !== textImgSeq || Date.now() >= prazoFinal) return;
@@ -745,6 +752,13 @@ async function pintarTextImg(cmd) {
   if (!src) return;
   textImgEl.src = src;
   textImgEl.hidden = false;
+  // O GIRO É REPOSTO NO INSTANTE EM QUE A CAMADA DEIXA DE ESTAR ESCONDIDA — um
+  // elemento `hidden` não tem caixa medível, e `aplicarGiro` desiste sem ela.
+  // É a mesma linha que o `applyMedia` do palco tem para o `img`/`video`; a
+  // camada não passa por ele, então a reposição dela é pedida aqui. Os DOIS
+  // pontos que revelam a camada precisam da chamada, e o de cima (a ladeira da
+  // tela da rede) é o que se esquece.
+  stage.reporGiro();
 }
 
 function showText(cmd) {

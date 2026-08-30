@@ -2,7 +2,7 @@
 // preview do Controle, garantindo que mostrem a mesma coisa (wallpaper / imagem
 // / vídeo + view + mudo + volume + play/seek).
 //
-// Uso: const stage = createStage({ wallpaper, img, video, forceMuted, onEnded, onTime, onBlocked });
+// Uso: const stage = createStage({ wallpaper, img, video, camadaImg, forceMuted, onEnded, onTime, onBlocked });
 // e depois stage.handle(cmd) para cada comando.
 // Suporta blobs locais, OPFS (opfsPath), URL direta (blob=null, url=string) e
 // itens youtube (kind='youtube').
@@ -121,6 +121,30 @@
     const wallpaper = opts.wallpaper;
     const img = opts.img;
     const video = opts.video;
+    // ===== A MÍDIA TEM DOIS ELEMENTOS, E O ENQUADRAMENTO VALE PARA OS DOIS =====
+    //
+    // A MESMA foto e a MESMA página de apresentação chegam ao telão por dois
+    // caminhos: como CENA (o `img` acima) e como CAMADA por cima de um louvor
+    // de fundo (v5.312 para a imagem, v1.4.28 para a apresentação) — e a camada
+    // é desenhada pelo DONO do palco, num `<img>` dele (`#textImg` no telão,
+    // `#pvTextImg` na preview).
+    //
+    // MEDIDO na v1.4.41, com o operador tendo escolhido "Preencher" e 90°: o
+    // `img` respondia aos dois e a camada ficava presa no `contain` do CSS, sem
+    // giro nenhum. É o pior formato de defeito que este painel pode ter — o
+    // mesmo controle, o mesmo conteúdo, e funciona ou não conforme haja uma
+    // música tocando por baixo, que é a última coisa que alguém relacionaria
+    // com o preenchimento.
+    //
+    // Ele entra AQUI, e não no dono do palco, porque "como a mídia ocupa o
+    // telão" é uma decisão só: dois lugares aplicando a mesma regra divergem no
+    // primeiro ajuste, e este arquivo já é o dono dela.
+    //
+    // FICA DE FORA o fundo da estrofe (`#lyricsImg`): ele não é a mídia, é o
+    // FUNDO atrás da letra — `cover` sempre, porque uma letra sobre barras
+    // pretas não é uma escolha de enquadramento, é um defeito. E fica de fora
+    // o wallpaper, pela mesma razão.
+    const camadaImg = opts.camadaImg || null;
     // Não é const, e os DOIS papéis que o alternam em tempo real são: o
     // Controle, quando não há tela nenhuma conectada e a preview passa a tocar
     // o som do próprio aparelho (`acertarSaidaDeAudio`), e a tela da rede, que
@@ -734,6 +758,10 @@
       fit = (v === 'cover' || v === 'fill') ? v : 'contain';
       img.style.objectFit = fit;
       video.style.objectFit = fit;
+      // A CAMADA NÃO PRECISA DE REPOSIÇÃO como o giro: `object-fit` é estilo
+      // simples e gruda no elemento esteja ele visível ou não. Quem escreve
+      // aqui vence o `contain` da folha, que passa a ser só o valor de partida.
+      if (camadaImg) camadaImg.style.objectFit = fit;
     }
 
     // ===== GIRAR A MÍDIA (v5.142) =====
@@ -781,7 +809,7 @@
       el.style.top = '50%';
       el.style.transform = 'translate(-50%, -50%) rotate(' + rot + 'deg)';
     }
-    function aplicarGiroTudo() { aplicarGiro(img); aplicarGiro(video); }
+    function aplicarGiroTudo() { aplicarGiro(img); aplicarGiro(video); aplicarGiro(camadaImg); }
     function setRotate(v) {
       const n = ((v | 0) % 360 + 360) % 360;
       rot = (n === 90 || n === 180 || n === 270) ? n : 0;
@@ -1382,6 +1410,20 @@
     return {
       handle, load, clear, play, pause, seek, page, setView, setMute, setVolume, setFade, setFit,
       setRotate, getRotate: () => rot,
+      // REPOR O GIRO NA CAMADA, e quem chama é o dono do palco no instante em
+      // que ele REVELA o `camadaImg`.
+      //
+      // Não é cerimônia: `aplicarGiro` desiste quando não consegue medir a
+      // caixa (`clientWidth` 0), e um elemento escondido não tem caixa — é a
+      // mesma razão pela qual `applyMedia` repõe o giro ao tirar o `hidden` do
+      // `img`/`video`. A camada não passa por `applyMedia` (quem a mostra é o
+      // `showText`/`pintarPvTextImg`), então a reposição dela é PEDIDA.
+      //
+      // Sem prazo e sem observer: um `ResizeObserver` na própria camada
+      // resolveria sozinho, e foi descartado porque `aplicarGiro` MEXE na caixa
+      // que ele observaria — um laço que converge, mas cujo aviso do Chromium
+      // ("ResizeObserver loop") o `smoke.mjs` lê como erro de console.
+      reporGiro: () => { if (rot) aplicarGiroTudo(); },
       setForceMuted,
       coverIn, coverOut, instantCover, fadeOutToBlack, setOverlay,
       getCurrent: () => current,

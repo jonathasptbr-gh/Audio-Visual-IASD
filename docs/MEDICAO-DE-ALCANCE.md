@@ -144,7 +144,7 @@ São **três** fontes de contaminação própria, e cada uma tem resposta própr
 | fonte | resposta |
 |---|---|
 | **o CI** — os workflows buscam o `version.json` a cada publicação (§5) | o farol é um asset que **nenhum workflow toca**. E o `dados.yml` lê os contadores pela **API**, que não os incrementa |
-| **o aparelho do operador** — ele roda o APK de Release, como todo mundo, e portanto não tem marca nenhuma que o distinga. Só uma pessoa sabe | o tile *"Medição"* (`#farolTile`) do painel rápido de Configurações → `Farol.definirContar`, em `SharedPreferences` **próprias** (as do OTA estão fora do backup, e esta escolha deve sobreviver à troca de aparelho). Ela ROTEIA o farol para `b-dev.txt` |
+| **o aparelho do operador** — ele roda o APK de Release, como todo mundo, e portanto não tem marca nenhuma que o distinga. Só uma pessoa sabe | a linha *"Contagem de uso"* (`#farolRow`) do rodapé do Registro, em Configurações (ela saiu do painel rápido na v1.4.41 — e **a página de alcance do site não pode substituí-la**: origens diferentes no mesmo aparelho, e o app sem intent-filter de URL; ver `docs/arquitetura/CONTROLE.md`) → `Farol.definirContar`, em `SharedPreferences` **próprias** (as do OTA estão fora do backup, e esta escolha deve sobreviver à troca de aparelho). Ela ROTEIA o farol para `b-dev.txt` |
 | **o build de debug** — emulador, `assembleDebug`, cada sessão de trabalho | `ApplicationInfo.FLAG_DEBUGGABLE`, lido em runtime — e **não** `BuildConfig.DEBUG`, que custaria ligar `buildFeatures { buildConfig = true }` no Gradle para um booleano que a plataforma já entrega |
 
 **E a mesma regra vale para as VISITAS AO SITE:** abrir `site/registro/` com a

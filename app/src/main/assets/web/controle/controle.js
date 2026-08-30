@@ -19,11 +19,11 @@ const muteToggleEl = document.getElementById('muteToggle');
 // Modo de uso (ver "Modos de uso" mais abaixo)
 const appModeSegEl = document.getElementById('appModeSeg');
 const temaTileEl = document.getElementById('temaTile');
-// A chave "este aparelho na medição de alcance" (v1.4.1) — ver `renderFarolTile`.
+// A chave "este aparelho na contagem de uso" (v1.4.1) — ver `renderFarolLinha`.
 // Aqui em cima, com os irmãos, e não junto da função que a usa: o estado deste
 // arquivo mora no fim e as funções são alcançadas de cima, então um `const`
 // declarado lá embaixo é uma zona morta esperando a ordem de chamada mudar.
-const farolTileEl = document.getElementById('farolTile');
+const farolRowEl = document.getElementById('farolRow');
 const simpleModeEl = document.getElementById('simpleMode');
 const simpleSettingsBtnEl = document.getElementById('simpleSettingsBtn');
 const simpleSearchBtnEl = document.getElementById('simpleSearchBtn');
@@ -270,7 +270,7 @@ const appVersionEl = document.getElementById('appVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.4.40';
+const WEB_VERSION = '1.4.41';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -1441,6 +1441,12 @@ let pvEsperaNome = '';
 // `acertarSaidaDeAudio`, que é o único ponto que mexe nisso.
 const preview = createStage({
   wallpaper: pvWallEl, img: pvImgEl, video: pvVideoEl, forceMuted: true,
+  // A METADE PREVIEW DO `camadaImg` (v1.4.41). O telão tem a dele em
+  // `display.js`, e as duas precisam existir pelo motivo de sempre: SEM TV a
+  // preview É a projeção, e uma foto que preenche no telão e ajusta aqui faz a
+  // ilustração mentir sobre a cena. É a armadilha que o `fundo-da-letra` já
+  // pagou uma vez — *ler cada lado isolado aprova os dois*.
+  camadaImg: pvTextImgEl,
   // ===== TODO O CARREGAMENTO APARECE AQUI, NUM INDICADOR SÓ (v1.4.8) =====
   //
   // Pedido do operador: *"vamos abandonar o spinner no telão… e nos controles já
@@ -2550,6 +2556,9 @@ async function pintarPvTextImg(obj) {
   if (!src) return;
   pvTextImgEl.src = src;
   pvTextImgEl.hidden = false;
+  // Repõe o giro no instante em que a camada ganha caixa medível — ver
+  // `reporGiro` no `stage.js`.
+  preview.reporGiro();
 }
 
 function showPvText(obj) {
@@ -2894,9 +2903,10 @@ async function load(opts) {
   // pintura escreveu — sem esta linha o `data-estado` fica `null` até a
   // primeira abertura de Configurações, e um estado ausente lido como "não
   // está preenchendo" é o tipo de mentira que não erra alto.
-  // O da MEDIÇÃO fica de fora: ele é uma ida à ponte, e `load()` roda dezenas
-  // de vezes por culto. Quem o pinta é o `openFadePopup`, que é o único
-  // instante em que alguém olha para ele.
+  // A CONTAGEM DE USO não está aqui: ela saiu da grade na v1.4.41 (é uma linha
+  // do rodapé do Registro agora) e, mesmo antes, ficava de fora — é uma ida à
+  // ponte, e `load()` roda dezenas de vezes por culto. Quem a pinta é o
+  // `openFadePopup`, o único instante em que alguém olha para ela.
   renderRotBtn();
   renderFitTile();
   renderTemaTile();
@@ -19404,7 +19414,7 @@ function openFadePopup() {
   // O FAROL é RELIDO ao abrir, e não pintado de uma cópia guardada: a chave
   // vive em `SharedPreferences` do shell, e o app pode ter sido reinstalado ou
   // restaurado de um backup desde a última vez que esta folha esteve aberta.
-  renderFarolTile();
+  renderFarolLinha();
   // O estado do espelho é relido ao ABRIR (e depois só enquanto a folha dele
   // estiver aberta): a linha precisa dizer a verdade no instante em que o
   // operador olha para ela, e o espelho pode ter saído do ar sozinho por uma
@@ -20890,7 +20900,11 @@ function renderRotBtn() {
   // rótulo, e o aceso diz que o giro não está no padrão.
   pintarTile(rotBtnEl, mediaRot, mediaRot + '°', mediaRot !== 0, false);
   if (rotBtnEl) {
-    rotBtnEl.title = mediaRot ? 'Girada ' + mediaRot + '° — tocar gira mais 90°' : 'Girar 90° no telão';
+    // A FRASE DIZ ONDE, nas duas pontas: o rótulo do tile já diz "no telão", e
+    // o `title` fecha pela negativa — é o app inteiro que NÃO gira.
+    rotBtnEl.title = mediaRot
+      ? 'A mídia está girada ' + mediaRot + '° no telão — tocar gira mais 90°'
+      : 'Girar a mídia no telão — não gira o app nem a tela do celular';
   }
 }
 async function applyRotate(graus) {
@@ -23985,37 +23999,51 @@ function renderTemaTile() {
 // o contrário — a divergência exata que este projeto trata como o pior
 // artefato possível, porque ela é lida a distância e não tem como ser
 // conferida.
-async function renderFarolTile() {
-  if (!farolTileEl) return;
-  if (!window.__NATIVE__) { farolTileEl.hidden = true; return; }
+// ELA SAIU DA GRADE na v1.4.41 e virou uma LINHA no rodapé do Registro. O
+// pedido do operador foi levá-la para a página de alcance do site, e a resposta
+// honesta é que **a página não alcança o app**: são origens diferentes no mesmo
+// aparelho, o armazenamento de uma não é lido pela outra, e o app não tem
+// intent-filter de URL. O que a página ganhou foi o interruptor do NAVEGADOR,
+// que ela de fato controla; a chave do APARELHO ficou aqui, no rodapé, que é a
+// vizinhança certa — metadado de manutenção, ao lado do Registro, longe do
+// painel que se opera durante o culto.
+//
+// O RÓTULO É A FRASE INTEIRA, e não um par rótulo/valor: a linha existe uma vez
+// por sessão, é lida por quem já sabe o que ela faz, e uma frase responde
+// "como está?" e "o que o toque faz?" sem custar uma segunda coluna no rodapé.
+async function renderFarolLinha() {
+  if (!farolRowEl) return;
+  if (!window.__NATIVE__) { farolRowEl.hidden = true; return; }
   let est = null;
   try { est = await AVNative.farolEstado(); } catch (_) { est = null; }
   // Sem resposta a linha não aparece: uma chave desenhada sobre um estado
   // desconhecido convida a tocá-la, e o toque gravaria por cima do que o shell
   // de fato tem.
-  if (!est) { farolTileEl.hidden = true; return; }
-  farolTileEl.hidden = false;
-  // ACESO É "ENTRA" (v1.4.40, invertido junto com o fundo da letra): este tile
-  // LIGA E DESLIGA uma função, e a função é contar. Aceso = este aparelho está
-  // na contagem; apagado, com as barras riscadas, é o aparelho fora dela — o
-  // desenho e a luz dizendo a mesma coisa.
-  pintarTile(farolTileEl, est.conta ? 'sim' : 'nao', est.conta ? 'Entra' : 'De fora',
-    !!est.conta, !est.conta);
+  if (!est) { farolRowEl.hidden = true; return; }
+  farolRowEl.hidden = false;
+  farolRowEl.dataset.estado = est.conta ? 'sim' : 'nao';
+  farolRowEl.textContent = est.conta
+    ? 'Contagem de uso: este aparelho entra'
+    : 'Contagem de uso: este aparelho fica de fora';
+  farolRowEl.title = est.conta
+    ? 'Tocar tira este aparelho da contagem pública (ele passa a contar num contador separado)'
+    : 'Tocar devolve este aparelho à contagem pública';
 }
 
-if (farolTileEl) {
-  farolTileEl.addEventListener('click', () => {
+if (farolRowEl) {
+  farolRowEl.addEventListener('click', () => {
     // O ALVO SAI DO `data-estado`, que é a última resposta DO SHELL — não uma
-    // cópia local do valor. Sem estado conhecido (o tile ainda nem foi pintado)
-    // não há o que alternar: reler é a resposta, e o toque seguinte decide.
-    const atual = farolTileEl.dataset.estado;
-    if (atual !== 'sim' && atual !== 'nao') { renderFarolTile(); return; }
+    // cópia local do valor. Sem estado conhecido (a linha ainda nem foi
+    // pintada) não há o que alternar: reler é a resposta, e o toque seguinte
+    // decide.
+    const atual = farolRowEl.dataset.estado;
+    if (atual !== 'sim' && atual !== 'nao') { renderFarolLinha(); return; }
     AVNative.farolContar(atual !== 'sim');
     // RELER, e não pintar o que se acabou de pedir: o shell é quem responde, e
     // um build debuggável continua fora da contagem por mais que a chave diga
     // "entra". Pintar o pedido faria a tela mentir exatamente no aparelho em
     // que a pergunta importa.
-    renderFarolTile();
+    renderFarolLinha();
   });
 }
 
