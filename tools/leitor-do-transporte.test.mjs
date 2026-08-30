@@ -237,6 +237,65 @@ try {
   checar(cena.titulo === 'Louvor Em Cena',
     'o título da folha é o da música em cena', cena.titulo);
 
+  // ── 1b. AS ABAS PREENCHEM A FAIXA, E EM PARTES IGUAIS (v1.4.39) ─────────
+  //
+  // Relato do operador: elas *"estão com pouca largura, considerando que
+  // deveria ter a largura adaptável para preencher a largura total
+  // disponível… sendo reduzidos apenas nos casos em que haveria bíblia ou
+  // slides sendo exibidos juntos, que nesse caso o espaço disponível seria
+  // novamente distribuído igualmente"*.
+  //
+  // A causa era um REPARENTAMENTO. A v1.4.28 reordena as abas pela pilha, e
+  // anexava em `lyricsViewSegEl` — que é o `.lyricsview-seg`, o bloco com o
+  // respiro; os botões moram um nível abaixo, dentro da `.fit-seg`. Fora do
+  // contêiner flex o `flex: 1` do `.fit-opt` fica INERTE, e cada botão volta a
+  // ser `inline-block` do tamanho do próprio rótulo. MEDIDO a 430px: a faixa
+  // tem 401px e as duas abas saíam com 44,8 e 42,7.
+  //
+  // Falha CALADA: a ordem que o pedido da v1.4.28 queria continuou certa (o
+  // `appendChild` reordena do mesmo jeito) e nada lança — só a largura se
+  // perdeu.
+  //
+  // As DUAS metades, e nenhuma basta: o PAI (o mecanismo, que é o que quebrou)
+  // e o RENDERIZADO (a largura, que é o que o operador vê). Sem a segunda, um
+  // `flex: 1` apagado do `.fit-opt` passaria; sem a primeira, larguras
+  // acertadas à mão passariam.
+  const abas = (n) => pg.evaluate((quantas) => {
+    bibleSession = quantas >= 3
+      ? { projecting: true, verses: [{ ref: 'Sl 23:1', text: 'O Senhor é o meu pastor' }], idx: 0 }
+      : null;
+    renderLyricsView();
+    const seg = document.getElementById('lyricsViewSeg');
+    const fit = seg.querySelector('.fit-seg');
+    const vis = [...seg.querySelectorAll('.fit-opt')].filter((b) => !b.hidden);
+    const larguras = vis.map((b) => +b.getBoundingClientRect().width.toFixed(1));
+    const vao = parseFloat(getComputedStyle(fit).gap) || 0;
+    return {
+      quantas: vis.length,
+      naFaixa: vis.every((b) => b.parentElement === fit),
+      faixa: +fit.getBoundingClientRect().width.toFixed(1),
+      larguras,
+      // Uma linha só: com quatro abas a 320px a mais comprida ("Páginas") não
+      // pode quebrar nem estourar a caixa.
+      umaLinha: vis.every((b) => b.getBoundingClientRect().height < 40
+        && b.scrollWidth <= b.clientWidth + 1),
+      soma: +(larguras.reduce((a, c) => a + c, 0) + (larguras.length - 1) * vao).toFixed(1),
+    };
+  }, n);
+  for (const n of [2, 3]) {
+    const a = await abas(n);
+    checar(a.quantas === n && a.naFaixa,
+      `com ${n} abas, todas estão DENTRO da \`.fit-seg\` — é o contêiner flex, e é `
+      + 'de lá que o reordenamento as tirava', a);
+    checar(Math.abs(a.soma - a.faixa) < 1.5,
+      `e elas PREENCHEM a largura disponível (${n} abas)`, a);
+    checar(Math.max(...a.larguras) - Math.min(...a.larguras) < 0.6,
+      `em partes IGUAIS — entrando ou saindo uma fonte, o espaço se redistribui `
+      + `sozinho (${n} abas)`, a);
+    checar(a.umaLinha, `e nenhuma quebra ou estoura a caixa (${n} abas)`, a);
+  }
+  await pg.evaluate(() => { bibleSession = null; renderLyricsView(); });
+
   // ── 2. A PORTA DA BIBLIOTECA CONTINUA DESVIANDO (v1.2.14) ───────────────
   // A metade que impede a correção acima de virar "a folha é sempre a cena" —
   // isto é, de desfazer o recurso que a v1.2.14 entregou a quem toca.

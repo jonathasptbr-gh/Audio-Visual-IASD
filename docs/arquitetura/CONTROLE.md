@@ -1640,6 +1640,15 @@ e ler *"Nada em exibição"*.
   PRECEDÊNCIA; o que erravam era tirar as outras da mesa: a camada de baixo
   continua no ar, e quem opera pode precisar dela no minuto seguinte.
 
+  - **E O REORDENAMENTO ACONTECE DENTRO DA `.fit-seg`** (v1.4.39). Ele anexava
+    em `#lyricsViewSeg` — o bloco com o respiro —, e os botões moram um nível
+    abaixo: isso não reordenava, **reparentava**. Fora do contêiner flex o
+    `flex: 1` do `.fit-opt` fica inerte e cada aba volta a ser `inline-block` do
+    tamanho do próprio rótulo (MEDIDO a 430px: faixa de 401px, abas de 44,8 e
+    42,7). Falha CALADA — a ordem que o pedido da v1.4.28 queria continuou
+    certa, e o que se perdeu foi só a largura. Com o pai certo as abas voltam a
+    dividir a faixa em partes iguais, e uma fonte que entra ou sai redistribui
+    o espaço sozinha (MEDIDO: 4 abas cabem numa linha até 320px).
   - **A ORDEM É A DO `slideTarget()`** — a Camada de Texto por cima da mídia —, e
     não é escrita duas vezes: as duas fazem a mesma pergunta sobre o
     empilhamento do telão e divergiriam no primeiro recurso novo.

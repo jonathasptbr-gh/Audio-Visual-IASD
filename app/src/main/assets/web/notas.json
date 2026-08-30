@@ -1,5 +1,12 @@
 [
   {
+    "versao": "1.4.39",
+    "itens": [
+      "As abas do auxiliar de leitura voltaram a ocupar a largura toda.",
+      "Entrando ou saindo uma aba, o espaço se divide igualmente entre elas."
+    ]
+  },
+  {
     "versao": "1.4.38",
     "itens": [
       "Configurações virou um painel rápido: botões com ícone, em grade, sem rolar.",
