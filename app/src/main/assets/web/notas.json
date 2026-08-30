@@ -1,5 +1,12 @@
 [
   {
+    "versao": "1.4.36",
+    "itens": [
+      "A onda azul do toque saiu dos botões de mudo e da cortina.",
+      "Neles o próprio ícone já vira o oposto, que é o aviso de que o comando saiu."
+    ]
+  },
+  {
     "versao": "1.4.35",
     "itens": [
       "O número da página passou a ficar sobre o slide, que agora fica centralizado.",

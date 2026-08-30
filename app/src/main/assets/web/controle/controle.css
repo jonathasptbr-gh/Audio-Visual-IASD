@@ -6286,12 +6286,19 @@ body.mode-simple .bottombar { display: none; }
    "o comando saiu" e vale só para quem manda algo à projeção. Duas mensagens,
    dois sinais — e é por isso que os dois convivem no mesmo botão.
 
-   QUEM O RECEBE está em `ECO_SELETOR` (v1.3.14): o transporte, os dois botões de
-   slide, a cortina, o mudo, a coluna da tela cheia e o "Projetar no telão".
-   Antes eram só os seis do transporte — o segundo seletor da lista
-   (`.mixer-mid button`) apontava para um bloco removido na v1.3.8 —, e um anel
-   que aparece em seis botões e em nenhum outro se lê como enfeite daqueles
-   seis, que foi como o operador o leu.
+   QUEM O RECEBE está em `ECO_SELETOR`: o transporte, os dois botões de slide, a
+   coluna da tela cheia e o "Projetar no telão". Antes da v1.3.14 eram só os seis
+   do transporte — o segundo seletor da lista (`.mixer-mid button`) apontava para
+   um bloco removido na v1.3.8 —, e um anel que aparece em seis botões e em
+   nenhum outro se lê como enfeite daqueles seis, que foi como o operador o leu.
+
+   A CORTINA E O MUDO SAÍRAM na v1.4.36, e o motivo está no `ECO_SELETOR`: eles
+   TROCAM O DESENHO ao toque (o eco é a segunda vez que a mesma coisa é dita) e
+   não têm CAIXA — este anel é `inset: 0` + `border-radius: inherit`, isto é, a
+   caixa do botão, e um `.pv-fab` não desenha nenhuma. O que aparecia era um
+   retângulo em `--accent` materializando-se em volta de um ícone solto, POR CIMA
+   da projeção: um token de cromo sobre o palco, a classe de erro que a família
+   `--stage-*` existe para impedir.
 
    `::before` e não `::after`: é a metade livre do par, e o `.btn-pulso` usa o
    `::after` para o ✓/✕. (O contorno de eixo do `.t-btn` que ocupava o `::after`
