@@ -1,5 +1,17 @@
 [
   {
+    "versao": "1.4.31",
+    "itens": [
+      "O histórico do culto mudou para Configurações.",
+      "O histórico passou a ficar guardado, separado por sessão.",
+      "Numa sessão antiga, músicas, textos e links continuam podendo ser reaproveitados.",
+      "Dá para limpar o histórico inteiro ou só uma sessão.",
+      "O auxiliar de leitura virou o último botão da barra de transporte.",
+      "Um ponto no botão avisa quando há letra, cifra ou texto para ler.",
+      "A cortina do telão subiu para o canto de cima da preview."
+    ]
+  },
+  {
     "versao": "1.4.30",
     "itens": [
       "O modo fácil passou a mostrar os slides da apresentação que está no ar.",
@@ -222,17 +234,6 @@
       "Com duas redes de pé, o app pergunta em qual servir.",
       "A recusa da transmissão passou a dizer o que fazer.",
       "Precisa do app novo (v1.4.1)."
-    ]
-  },
-  {
-    "versao": "1.4",
-    "itens": [
-      "Revisão do código inteiro: 75 defeitos corrigidos, quase todos silenciosos.",
-      "A letra do hino anterior não fica mais na projeção.",
-      "Confirmar numa linha passou a valer para aquela linha.",
-      "A transmissão para computador sobrevive à atualização automática.",
-      "Acordes com barra voltaram a transpor, e um capítulo da Bíblia não some mais.",
-      "Precisa do app novo (v1.4)."
     ]
   },
   {

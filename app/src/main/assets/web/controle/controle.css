@@ -373,13 +373,11 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
   .fit-opt, .dialog-btn, .lib-item, .coll-group-acao,
   .cue-save-btn, .pl-pack, .yt-search-btn, .log-copy, .hino-indice-chip,
   .simple-key, .simple-action, .simple-key--big, .simple-key--vol,
-<<<<<<< HEAD
-  .lv-row--tocavel
-=======
+  /* A linha de slide que PROJETA, no auxiliar de leitura (v1.4.26). */
+  .lv-row--tocavel,
   /* O ✓ do renomear, na coluna do `⋮` (v1.4.27). A LIXEIRA fica de fora: ela é
      um `<span>` que ilustra, e um recuo diria que há o que apertar ali. */
   .row-slot--ok
->>>>>>> 80e61aa (v1.4.27: o `⋮` cede a coluna ao processo, e a capa sai junto)
 ):active { transform: var(--press); filter: var(--press-luz); }
 
 
@@ -580,11 +578,29 @@ body {
 .deck .slide-side .slide-btn {
   flex: 1; width: 100%; min-height: 0; padding: .4rem 0;
 }
-/* O HISTÓRICO é a SÉTIMA célula da linha de baixo: mesma coluna do botão de
-   passar slide, mesma faixa do transporte, e desde a v1.3.9 a mesma CAIXA dos
-   seis vizinhos (`.t-btn`). Um único botão chapado numa fileira de seis com
-   fundo não se lê como distinção — lê-se como um que ficou de fora. */
-.deck > #historyBtn { grid-column: 3; grid-row: 3; min-width: 0; }
+/* O AUXILIAR DE LEITURA é a SÉTIMA célula da linha de baixo (v1.4.31 — era o
+   HISTÓRICO desde a v1.3.8, e ele foi para Configurações): mesma coluna do
+   botão de passar slide, mesma faixa do transporte, e a mesma CAIXA dos seis
+   vizinhos (`.t-btn`). Um único botão chapado numa fileira de seis com fundo
+   não se lê como distinção — lê-se como um que ficou de fora. */
+/* `position: relative` é o contexto da `.lv-badge`, que é absoluta — a mesma
+   razão do `.tab-pl` do botão da playlist, dois vizinhos à esquerda. */
+.deck > #lyricsViewBtn { grid-column: 3; grid-row: 3; min-width: 0; position: relative; }
+/* A BADGE de "há o que ler" (v1.4.31). Ela é um PONTO e não um número: o que
+   ela responde é sim/não ("este botão tem função agora?"), e escrever "3" ali
+   prometeria uma contagem que a folha não usa — as fontes do auxiliar não são
+   itens de fila, são abas.
+   Ela nasce da mesma caixa da `.pl-badge` (o mesmo canto, a mesma cor de
+   estado), com `--ok` no lugar do accent: aqui a mensagem é "está disponível",
+   e neste app o verde é o que diz concluído/pronto. `:empty` NÃO a esconde —
+   ela é vazia por construção; quem a esconde é o `hidden` que
+   `renderLeitorBadge` escreve. */
+.lv-badge {
+  position: absolute; top: 4px; right: 4px;
+  width: 7px; height: 7px; border-radius: var(--radius-pill);
+  background: var(--ok);
+  pointer-events: none;
+}
 
 /* ===== O FADER DE VOLUME: A MESMA CÉLULA DO PASSAR SLIDE =====
    Ele é item da grade do deck (a coluna 3, a faixa da preview) e só existe
@@ -748,9 +764,14 @@ body {
    Os botões daqui são ENCOLHÍVEIS (`flex: 0 1 var(--hit)` com um piso) porque a
    preview pode ficar baixa: a faixa é fixa, mas a proporção do telão manda na
    largura, e com um telão muito largo a miniatura encolhe junto. MEDIDO: 95px
-   de altura em 360px com uma TV 2,17:1, e 77px em 320px — três alvos de 34px
-   não cabem em nenhum dos dois, e sem o encolhimento o terceiro sairia por
+   de altura em 360px com uma TV 2,17:1, e 77px em 320px — TRÊS alvos de 34px
+   não cabiam em nenhum dos dois, e sem o encolhimento o terceiro saía por
    baixo da miniatura.
+
+   SÃO DOIS DESDE A v1.4.31 (a leitura auxiliar foi para o deck), e os dois
+   cabem inteiros até em 77px. O encolhimento FICA: ele é a regra que faz um
+   terceiro item futuro nascer certo, e com dois ele é no-op — `flex: 0 1` só
+   encolhe quando falta espaço.
 
    O PISO É O TAMANHO DO ÍCONE (24px, o `.pv-fab svg`), e não um número
    escolhido: abaixo dele a caixa ficaria menor que o desenho que ela contém, e
@@ -1527,7 +1548,8 @@ main {
    cabeçalho ela é vizinha do `#backBtn`, e o accent é o que este app usa para
    "isto leva a outro lugar" — era `--muted` na coluna do mixer porque lá o
    vizinho era o grupo que opera o culto, e a diferença de tom é que os
-   separava. Quem herdou o `--muted` de lá é o `#historyBtn`. */
+   separava. (Quem herdou o `--muted` de lá foi o `#historyBtn`, que saiu do
+   deck na v1.4.31 — o histórico virou uma linha de Configurações.) */
 .simple-head .settings-btn,
 .list-header .settings-btn {
   flex: 0 0 auto; margin-left: auto;
@@ -2076,11 +2098,11 @@ main {
    preservar (a caixa já está no ar) e um botão de 40px invisível continuaria
    reservando a largura que o par precisa. */
 .linha-confirma { display: none; }
-:is(.row-acoes, .fav-acoes, .pl-limpar-faixa).confirmando > .linha-confirma {
+:is(.row-acoes, .fav-acoes, .pl-limpar-faixa, .hist-sessao-acoes).confirmando > .linha-confirma {
   display: flex; flex: 1; min-width: 0;
   align-items: center; gap: .35rem;
 }
-:is(.row-acoes, .fav-acoes, .pl-limpar-faixa).confirmando > :not(.linha-confirma) { display: none; }
+:is(.row-acoes, .fav-acoes, .pl-limpar-faixa, .hist-sessao-acoes).confirmando > :not(.linha-confirma) { display: none; }
 /* O par é de TEXTO, não de ícone, e é a única exceção à regra dos quadrados da
    linha: um destrutivo confirmado por dois desenhos parecidos seria pior que o
    modal que ele substitui. Daí o reset completo aqui — ele não entra na lista
@@ -4268,6 +4290,13 @@ main {
    205 e não 210: ele fica ACIMA da Biblioteca e ABAIXO da folha da música,
    que é exatamente a ordem daquela tabela. */
 #lyricsPopup { z-index: 205; }
+/* O HISTÓRICO abre de DENTRO de Configurações (v1.4.31), que é um
+   `.popup-backdrop` comum (200). Com o mesmo degrau quem decidiria é a ordem
+   do documento, e a folha do histórico é declarada ANTES da de Configurações
+   — ela abriria ATRÁS de quem a chamou, que é o acaso que já cobriu um popup
+   por inteiro aqui. A tabela `POPUPS` diz a MESMA ordem, e mudar uma sem a
+   outra é o defeito. */
+#histPopup { z-index: 205; }
 /* A folha da PLAYLIST AUTOMÁTICA abre de dentro da Biblioteca, como a da música
    — daí o degrau que o comentário abaixo reservava. Ela NÃO abre a folha da
    música por cima de si, então é a última linha de POPUPS e o degrau mais alto
@@ -4392,6 +4421,38 @@ main {
    apagar a linha apagaria o fato —, mas diz que não há o que mandar adiante:
    o nome esmaece e o botão sai (ver `renderHistorico`). */
 .hist-sumiu .row-name { color: var(--muted); font-style: italic; }
+
+/* ===== O CABEÇALHO DE UMA SESSÃO (v1.4.31) =====
+   O histórico atravessa sessões, e sem uma marca no meio da lista o culto de
+   hoje e o de sábado passado viram uma corrida de horas que se repetem — "09:12"
+   aparece três vezes e nada diz de que dia é qual.
+   Ele é um `<li>` da MESMA `<ul>` das linhas (a lista rola inteira, e um
+   cabeçalho fora dela ficaria parado sobre o conteúdo errado), e é o degrau de
+   TOM que o separa: `--camada`, o mesmo recurso que a Biblioteca usa para dizer
+   "isto contém aquilo". Sem contorno, como tudo neste app. */
+.hist-sessao {
+  display: flex; align-items: center; gap: .5rem;
+  background: var(--camada); border-radius: var(--radius-card);
+  padding: .45rem .5rem .45rem .7rem;
+  margin: .55rem 0 .2rem;
+}
+/* O PRIMEIRO cabeçalho não empurra: ele já encosta no topo da lista, e a
+   margem de cima ali vira um vão sem nada acima dele. */
+.hist-sessao:first-child { margin-top: 0; }
+.hist-sessao-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.hist-sessao-tit {
+  font-size: .82rem; font-weight: 700; color: var(--text);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.hist-sessao-sub { font-size: .7rem; color: var(--muted); }
+/* A faixa do "limpar esta sessão": uma caixa só sua, pela razão da
+   `.pl-limpar-faixa` — a confirmação substitui os IRMÃOS do botão. */
+.hist-sessao-acoes { display: flex; align-items: center; gap: .35rem; flex: none; }
+.hist-sessao-acoes.confirmando { flex: 1; min-width: 0; }
+/* SESSÃO ANTIGA: só o que não depende de um arquivo continua acionável (ver
+   `histAcionavel`). O que sobra é a linha do fato, e ela se lê como o irmão
+   `.hist-sumiu` de propósito — as duas dizem "isto está aqui como registro". */
+.hist-arquivada .row-name { color: var(--muted); }
 
 /* GUARDAR A FILA COMO PACOTE (v5.103) — o rodapé da folha da playlist. Mesma
    receita tracejada de "Importar arquivos": as duas são a ação que a lista

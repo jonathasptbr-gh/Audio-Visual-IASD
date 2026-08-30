@@ -133,6 +133,44 @@ try {
     null, { timeout: 30000 },
   );
 
+  // ── 0. A BADGE DE "HÁ O QUE LER" (v1.4.31) ──────────────────────────────
+  //
+  // Pedido do operador: *"crie uma badge nesse botão de auxiliar de leitura
+  // para indicar que ele está com alguma função disponível quando houver alguma
+  // mídia que disponibiliza uma das funções dele"*.
+  //
+  // Ela nasce da mudança de casa do botão: sobre a preview, "não há o que ler"
+  // se lia no palco a dois centímetros dali — o wallpaper no ar responde
+  // sozinho. Na sétima célula do deck não há esse contexto.
+  //
+  // As duas metades falham CALADAS, em direções opostas: apagada com o que ler,
+  // o operador conclui que o recurso não existe para aquela música; acesa sem
+  // nada, ele abre a folha para achá-la vazia — e volta a não confiar nela,
+  // que é o estado anterior ao lote. Daí medir as DUAS, e medir o RENDERIZADO
+  // (`hidden`), não uma classe: a badge sem a regra de CSS passaria num teste
+  // de classe e continuaria invisível na tela.
+  //
+  // E QUEM A ACENDE É O CAMINHO REAL (`renderNowPlaying`), não a função da
+  // badge chamada à mão: o defeito provável não é ela calcular errado — é
+  // ninguém a chamar quando a cena muda.
+  const badgeVazia = await pg.evaluate(() => {
+    setAppMode('full');
+    currentItem = null;
+    renderNowPlaying();
+    return {
+      escondida: lvBadgeEl.hidden,
+      desenhada: getComputedStyle(lvBadgeEl).display,
+      titulo: lyricsViewBtnEl.title,
+      fontes: lyricsViewSources(),
+    };
+  });
+  checar(badgeVazia.escondida && badgeVazia.desenhada === 'none' && !badgeVazia.fontes.length,
+    'sem nada em exibição a badge fica APAGADA — um ponto aceso sobre uma folha '
+    + 'vazia ensina o operador a não olhar para ele', badgeVazia);
+  checar(/nada em exibição/i.test(badgeVazia.titulo),
+    'e o rótulo diz por quê: a badge responde SE há, o `title` responde O QUE há',
+    badgeVazia.titulo);
+
   // ── 1. O BOTÃO DO TRANSPORTE ────────────────────────────────────────────
   // SEM `window.`: `currentItem` e `lvSource` são `let` no topo de um script
   // clássico — vínculo léxico, não propriedade de `window`.
@@ -151,6 +189,29 @@ try {
     return lyricsPopupEl.classList.contains('open');
   });
   checar(preparado === false, 'o cenário começa com a folha FECHADA', preparado);
+
+  const badgeCheia = await pg.evaluate(() => {
+    renderNowPlaying();
+    return {
+      escondida: lvBadgeEl.hidden,
+      desenhada: getComputedStyle(lvBadgeEl).display,
+      cor: getComputedStyle(lvBadgeEl).backgroundColor,
+      titulo: lyricsViewBtnEl.title,
+      fontes: lyricsViewSources(),
+    };
+  });
+  checar(!badgeCheia.escondida && badgeCheia.desenhada !== 'none',
+    'com uma música com letra em cena a badge ACENDE — é o único sinal de que o '
+    + 'botão tem função agora, longe da preview que respondia isso sozinha',
+    badgeCheia);
+  checar(/rgb\(/.test(badgeCheia.cor) && !/rgba\(0, 0, 0, 0\)/.test(badgeCheia.cor),
+    'e ela é PINTADA de verdade: a classe sem a regra de CSS passaria numa '
+    + 'asserção de classe e continuaria invisível na tela', badgeCheia.cor);
+  checar(badgeCheia.fontes.every((f) => new RegExp(f === 'lyrics' ? 'letra' : f, 'i')
+    .test(badgeCheia.titulo)),
+    'o rótulo NOMEIA o que há, e os nomes saem das próprias abas (`data-lvsrc`) '
+    + '— uma tabela de nomes aqui seria a terceira lista da mesma pergunta',
+    badgeCheia);
 
   await pg.click('#lyricsViewBtn');
   await pg.waitForFunction(() => lyricsPopupEl.classList.contains('open'), null, { timeout: 5000 });

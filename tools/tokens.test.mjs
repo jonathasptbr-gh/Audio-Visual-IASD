@@ -211,6 +211,40 @@ checar(orfaos.length === 0,
     soft.join('\n        '));
 }
 
+// ---------- MARCA DE CONFLITO NA FOLHA (v1.4.31) ----------
+// MEDIDO, e é o defeito que criou esta asserção: a v1.4.27 subiu com um
+// conflito de merge por resolver DENTRO do `:is(...)` da lista do `--press` —
+// `<<<<<<< HEAD`, o par de selectores e o `>>>>>>> <sha>` inteiros no arquivo.
+//
+// **`:is()` é uma lista FORGIVING**, e é isso que torna a falha muda: o
+// navegador descarta os componentes inválidos e aplica o resto. As ~40 classes
+// da lista continuaram recuando ao toque, o CI seguiu verde por três lotes, e o
+// que se perdeu foram só os DOIS seletores em disputa — o `.row-slot--ok` (o ✓
+// do renomear) e o `.lv-row--tocavel` (a linha de slide que projeta), que
+// deixaram de responder ao dedo sem nada na tela dizer por quê. Um oráculo de
+// COMPORTAMENTO não pega isto: ele mede um seletor que sobreviveu.
+//
+// Em JS o `node --check` já reprova (a marca é erro de sintaxe); numa folha e
+// num HTML ela é texto que o parser engole. Daí a varredura ser aqui, e ser do
+// ARQUIVO CRU — a marca pode cair dentro de um comentário e continuar cortando
+// o que veio depois.
+{
+  // O ARQUIVO CRU, e não o de `fonte`: ali os comentários viraram espaço, e uma
+  // marca DENTRO de um comentário continua cortando o que vem depois dela.
+  const marcados = [];
+  for (const f of [...arquivos, path.join(RAIZ, 'controle', 'index.html'),
+    path.join(RAIZ, 'display', 'index.html')]) {
+    if (!fs.existsSync(f)) continue;
+    const linhas = fs.readFileSync(f, 'utf8').split('\n');
+    const i = linhas.findIndex((l) => /^(<{7}|={7}|>{7})(\s|$)/.test(l));
+    if (i >= 0) marcados.push(path.basename(f) + ':' + (i + 1) + ' → ' + linhas[i].slice(0, 60));
+  }
+  checar(marcados.length === 0,
+    'nenhuma folha nem HTML da base carrega marca de conflito de merge: `:is()` '
+    + 'descarta a inválida e leva junto, em silêncio, os seletores em disputa',
+    marcados.join('\n        '));
+}
+
 // ---------- QUEM PINTA `--panel` ENTRA NA REGRA R1 (v1.3.14) ----------
 // R1 diz que a superfície de um controle AFUNDA dentro de um cartão, e ela é
 // implementada por uma LISTA de seletores que redeclaram `--surface`. Uma lista

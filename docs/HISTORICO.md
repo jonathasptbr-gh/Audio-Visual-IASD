@@ -24,6 +24,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
+- **v1.4.31** — O HISTÓRICO ATRAVESSA SESSÕES, E OS DOIS BOTÕES TROCAM DE CASA. Pedido do operador, em três partes: *"coloque a função do histórico de mídias tocadas dentro das configurações. E adicione um sistema extra, armazene os dados entre sessões, separando as sessões. Mantenha os itens usáveis apenas na categoria da sessão atual; para as sessões antigas, deixe usáveis apenas itens padrões do sistema, como músicas, textos, links e etc… que não dependem de um arquivo que pode já ter sido excluído, para não ser obrigado a manter aquele arquivo… pode colocar a opção de limpar todo o histórico ou por sessões"*, mais *"no lugar que é atualmente o botão do histórico, mova o botão do auxiliar de leitura… crie uma badge nesse botão para indicar que ele está com alguma função disponível"* e *"na preview, suba o botão do controle do wallpaper para que ele ocupe o canto superior esquerdo que ficará livre"*. **O QUE ESTE LOTE REVOGA está escrito na v1.2.0**: *"apagada a cada nova sessão"*, com um argumento que não era pintura — persistir custaria **uma escrita por projeção, no `send`, o caminho mais quente do culto**. Ele continua de pé e é atendido de outro jeito: `historicoRegistrar` mexe só na memória e AGENDA a gravação (2 s), coalescendo a rajada de um culto inteiro; o `visibilitychange` força a pendente ao sair da frente, que é quando o processo passa a ser descartável; e a escrita é `updateState`, a única que espera o COMMIT. **A separação substitui o apagamento:** uma sessão é uma carga do documento, nasce na PRIMEIRA projeção (um app aberto e fechado sem projetar nada não deixa cabeçalho sobre nada) e a folha ganha cabeçalhos com dia e janela de horas. **A regra da sessão antiga é uma RECEITA gravada no instante da projeção**: cena/link se REMONTAM sem tocar em byte nenhum, item de acervo se PROCURA por `folder` + `srcName` (o `id` não serve — um hino reapagado e rebaixado ganha id novo), e o que só existe porque um arquivo foi importado fica **`· só registro`** — uma linha inerte que não explica é indistinguível de um app quebrado. **Os dois botões trocam de casa pelo mesmo critério:** a coluna sobre a preview passou a ser só o que muda o que a congregação vê e ouve (cortina e mudo), e o que abre uma folha desceu para a fileira das folhas, ao lado da playlist — onde ganhou a badge, porque sobre a preview a ausência de conteúdo se lia no palco a dois centímetros dali. **E O LOTE CONSERTA UM DEFEITO MUDO QUE ELE MESMO INTRODUZIU**: a v1.4.27 subiu com uma marca de conflito de merge por resolver DENTRO do `:is()` do `--press`. `:is()` é FORGIVING — descarta o inválido e aplica o resto —, então as ~40 classes seguiram recuando ao toque e o CI seguiu verde por três lotes; o que se perdeu foram os DOIS seletores em disputa (`.row-slot--ok` e `.lv-row--tocavel`), que pararam de responder ao dedo sem nada na tela dizer por quê. MEDIDO por comparação das duas árvores. Um oráculo de COMPORTAMENTO não pega isto — ele mede um seletor que sobreviveu —, então a asserção nova varre o arquivo CRU. **E o `waitForFunction` do Playwright NÃO espera a promise de um predicado `async`**: ela é truthy e a espera passa no primeiro quadro, aprovando o que veio verificar (medido escrevendo o oráculo) — quem pergunta ao IndexedDB usa laço do lado do Node. Vinte asserções novas, seis reversões, 62/62 verdes. OTA PURO.
 - **v1.4.30** — O MODO FÁCIL PASSOU A OPERAR UMA APRESENTAÇÃO. Pedido do operador: *"verifique o modo simples e seu auxiliar de leitura. Ele deve adquirir as funções para controle de slides também"*. **MEDIDO antes de mexer, e o achado é maior que o pedido:** com uma apresentação em cena aquele modo não a operava de jeito NENHUM. A zona de leitura dizia *"A letra da música aparece aqui."* — a projeção no ar negada pela única superfície do modo que deveria descrevê-la — e as teclas eram play · parar · mudo mais o volume, sem nada que virasse página. O eixo já existia (`slideTarget()` respondia `'deck'`); faltava alguém ali ligado a ele. Uma apresentação entra por compartilhamento (`focarImportado` projeta na hora neste modo), projeta, e ficava **presa na página 1** até o operador ir ao modo avançado — que é justamente o modo que este existe para não exigir. **A assimetria com a letra é o ponto:** a letra anda sozinha pelo relógio da música e ali a zona ILUSTRA; um deck não tem relógio, e por isso aqui ela é também CONTROLE — o toque numa página pula para ela (o mesmo `deckIr`), e a linha `‹ · N/M · ›` nasceu com a GEOMETRIA DA LINHA DE VOLUME, que é a forma já provada do *"teclas grandes, nada de arrastar"*. Ela **espelha** os limites (`renderSimpleSlides` lê o `disabled` que `applySlideLimits` acabou de escrever, a técnica do `renderTransportAxis`) e as teclas acionam as ÂNCORAS do avançado por `.click()`, como o play/parar/mudo já faziam. Duas armadilhas caladas apareceram ao escrever: as MINIATURAS revogadas pela outra coluna (dois desenhistas de páginas dividiam uma lista de URLs, e uma `<img>` com `src` revogado não pinta e não reclama — daí `lvSoltarUrls(lista)` receber a lista) e a PÁGINA na assinatura, que remontaria dezenas de miniaturas a cada ⏭. `--vol` do mostrador virou `--curso`: a caixa passou a ter dois donos. Oráculo novo (`modo-facil-slides.test.mjs`, 14 asserções), cinco reversões, 63/63 verdes. **SÓ BASE WEB.**
 - **v1.4.29** — AS ALTURAS DA FAIXA, E O TECLADO QUE ESPREMIA O CULTO. Dois relatos, e cada um tem uma causa própria. **1) A ALTURA**: *"a altura dos botões de cancelar ou confirmar exclusão, como também a altura da caixa de renomear, estão desalinhadas com as alturas dos botões padrões de tudo dentro da gaveta, como o próprio botão de confirmar renomeação"*. MEDIDO a 430px: no Cronograma TODO quadrado da linha mede `--thumb` (40px, desde a v5.259) e o par e o campo nasceram com `--hit` (34px) — **6px** de diferença, e o ✓ do renomear era a régua que denunciava, porque ele é um `.row-slot` da v1.4.27 e já media 40. O escopo da correção é `.row-acoes` e não `.lib-item`, porque **a régua é o VIZINHO e não a lista**: na FILA os quadrados já medem `--hit` (nunca esteve desalinhada) e na faixa dos FAVORITOS o vizinho é o confirmar da folha, que ESTICA. **2) UM TERCEIRO CASO, achado pela mesma medição e que o operador ainda não tinha visto**: nos Favoritos o campo de renomear media 34px contra os 53,2px do confirmar ao lado — o MESMO pulo de 19px sob o dedo que a v5.309 já tinha corrigido para a pergunta da exclusão, num caminho (o renomear, v1.4.25) que nasceu depois daquela regra e ficou de fora dela. **3) O TECLADO**: *"o teclado está arrastando e encolhendo a tela com o controle ao invés de sobrepor o controle/tela como já faz na biblioteca"*. A régua já estava escrita no CSS do `.popup-backdrop` — *"O TECLADO SOBREPÕE, NÃO DESLOCA… quem rola é a LISTA"* — e vale aqui com um motivo a mais: o que o app encolhe para caber é a PREVIEW e o TRANSPORTE, isto é, a projeção e os controles do culto, comprimidos para revelar um campo que já está à vista numa lista que rola sozinha. A declaração é do CAMPO (`data-teclado="sobrepoe"`), não uma classe que o handler conheça, e o padrão continua sendo DESLOCAR — que é o que o `appPrompt` precisa. Cinco asserções novas, todas provadas por reversão. OTA PURO.
 - **v1.4.28** — A APRESENTAÇÃO VIROU CAMADA (música atrás dos slides), E AS ABAS DO AUXILIAR SEGUEM A PILHA. Dois pedidos do operador: *"adicione a possibilidade de música atrás dos slides. Atualmente são concorrentes, mas os slides devem ser tratados como camada, assim como as imagens ou os textos e mensagens"* e *"a aba da bíblia está entre a letra e a cifra, coloque ela à esquerda, pois letra e cifra são irmãs, sempre juntas quando ambas existem"*. **O primeiro é a v5.312 aplicada de novo:** o motor tem UM slot de mídia (`loadInner` faz `video.pause()` + `removeAttribute('src')` sem condição), então todo `load` mata o louvor — e o que sobrevive a isso é a Camada de Texto, que não emite `load` nenhum. Uma página de deck é UMA imagem opaca ocupando a tela, que é exatamente o que aquele cartão já pinta, então a apresentação entrou no modo `image` com um campo `page` a mais: o telão ganhou uma **escolha de blob** e nenhum ramo novo, nenhuma classe, nenhum caminho novo de reenvio nem de `text-hide`. O que um deck tem e uma imagem não tem são PÁGINAS, e daí as três peças próprias: `slideTarget` devolve `'deck'` ANTES da guarda que devolve `null` para a imagem (o argumento dela é *"este cartão não tem para onde ir"*, e um deck tem); `deckIr` ganhou DOIS caminhos num ponto só (como mídia a página anda por `page`, na camada ela reenvia o `text` — um `page` mandado para a camada não acha deck nenhum no motor e **não faz NADA**, sem erro, com o operador apertando o botão); e `deckNoAr()` é a resposta ÚNICA para *"qual apresentação está no ar"*. **A metade que quase passou é a PREVIEW**: ela pinta este cartão por conta própria (`pintarPvTextImg`) e ficaria na página 1 para sempre enquanto o telão passa slides — sem TV a preview É a projeção, e é a armadilha do `fundo-da-letra` outra vez (*ler cada lado isolado aprova os dois*). **O segundo pedido era uma SEGUNDA LISTA**: a ordem certa já existia (a pilha do `lyricsViewSources`), e a errada era a do HTML estático — que divergiu em silêncio, com a folha funcionando e a Bíblia separando duas abas irmãs. Hoje a tela REORDENA os botões por `avail`. `imgSession` virou `visualSession` no mesmo lote: um nome que guardasse um deck seria a armadilha que este projeto nomeia. Oráculo novo (`slides-sobre-audio.test.mjs`, 24 asserções, com a COR do pixel provando a página), cinco reversões, 62/62 verdes. **SÓ BASE WEB.**
@@ -303,6 +304,180 @@ na nota que a revoga, não apagada da que a criou.
 - **v5.156** — é METADE OTA e METADE APK, de novo.
 
 ---
+
+## v1.4.31 — o histórico atravessa sessões, e os dois botões trocam de casa
+
+Pedido do operador, em três partes:
+
+> *"coloque a função do histórico de mídias tocadas, dentro das configurações. e
+> adicione um sistema extra, armazene os dados entre sessões, separando as
+> sessões. mantenha os itens usáveis apenas na categoria da sessão atual. para as
+> sessões antigas, deixe usáveis apenas itens padrões do sistema, como músicas,
+> textos, links e etc... que não dependem de um arquivo que pode já ter sido
+> excluído, para não ser obrigado a manter aquele arquivo. pode colocar a opção
+> de limpar todo o histórico ou por sessões. / no lugar que é atualmente o botão
+> do histórico, mova o botão do auxiliar de leitura, mantendo o padrão dos botões
+> dessa base. aproveite também para criar uma badge nesse botão de auxiliar de
+> leitura para indicar que ele está com alguma função disponível quando houver
+> alguma mídia que disponibiliza uma das funções dele. / na preview, pode subir o
+> botão do controle do wallpaper para que ele ocupe o canto superior esquerdo que
+> ficará livre do auxiliar de leitura."*
+
+### 1. O que este lote REVOGA, e por que a revogação não é gratuita
+
+A v1.2.0 escreveu, sobre o histórico: *"apagada a cada nova sessão"* — e o
+argumento dela **não era pintura**:
+
+> Persistir no IndexedDB custaria uma escrita por projeção (o caminho mais quente
+> do culto) para proteger um dado que perde o sentido no domingo seguinte, e
+> ainda precisaria de uma definição de "sessão" que o lado web não tem como
+> observar.
+
+As duas metades continuam de pé, e as duas são atendidas de outro jeito:
+
+- **A escrita saiu do caminho quente.** `historicoRegistrar` mexe só na memória e
+  **agenda** a gravação (`HIST_GRAVA_MS`, 2 s), que coalesce a rajada de um culto
+  inteiro numa escrita a cada dois segundos de silêncio. O `send` não paga nada.
+  **`AVDB.updateState`, nunca `setState`** — só ela espera o COMMIT, e um
+  histórico que perde a última projeção porque a transação ficou em voo é o
+  defeito que o lote existe para não ter. O preço está dito: os últimos segundos
+  se perdem numa morte do renderer, e por isso o `visibilitychange` força a
+  gravação pendente ao sair da frente — o instante em que o processo passa a ser
+  descartável.
+- **A definição de sessão continua sendo a carga do documento**, que é a única
+  que o lado web observa. O que mudou é que ela deixou de ser uma FRONTEIRA DE
+  APAGAMENTO e virou uma FRONTEIRA DE SEPARAÇÃO: a sessão de hoje fica sozinha no
+  topo, com cabeçalho próprio, e as antigas abaixo dela. **Ela nasce na PRIMEIRA
+  projeção**, não na carga — um app aberto e fechado sem projetar nada não deixa
+  um cabeçalho sobre nada na lista de quem a consultar no sábado seguinte.
+
+O cabeçalho diz o DIA e a JANELA DE HORAS (`14 itens · 09:12–10:40`). O dia é
+escrito à mão ("Hoje", "Ontem", `sáb, 23/08`) e não por `toLocaleDateString`: os
+nomes e a ordem dos campos saem dos dados de locale do navegador, que variam
+entre o aparelho e o Chromium do oráculo — e as duas formas que mais importam não
+vêm de locale nenhum. A janela responde o que o dia não responde: se a sessão de
+sábado é o culto da manhã ou o ensaio da noite.
+
+### 2. A RECEITA — o que uma sessão antiga ainda oferece
+
+A frase que carrega o requisito é *"para não ser obrigado a manter aquele
+arquivo"*. Ela não pede um filtro de tipo: pede que **o histórico nunca seja
+razão para o aparelho guardar bytes**.
+
+Cada linha passou a guardar, além do registro do fato, o mínimo para trazer o
+item de volta sem depender de um arquivo (`histReceita`, gravada no instante da
+projeção):
+
+| forma | o que guarda | como volta |
+|---|---|---|
+| **cena** (`textos`) | o descritor inteiro | remontada, sem tocar em byte nenhum |
+| **link** (`links`) | endereço + id do YouTube | reaproveita um registro que já exista, ou cria |
+| **acervo** (`músicas`) | `folder` + `srcName` | PROCURA na coleção |
+
+**O `id` não serve para o acervo**, e é esse o ponto: um hino apagado e rebaixado
+ganha id novo — o par `folder`/`srcName` é a chave natural de tudo que vem de uma
+coleção ou de uma pasta do aparelho, e é justamente o caso que a regra precisa
+alcançar.
+
+Sem receita fica o que só existe porque um arquivo foi importado ou
+compartilhado — exatamente o que o coletor recolhe. Numa sessão antiga a linha
+dele fica esmaecida e ganha **`· só registro`** no fim do subtítulo: *uma linha
+que não responde ao toque e não diz por quê é indistinguível de um app quebrado.*
+Na sessão ATUAL nada muda — tudo continua usável, e a linha cujo arquivo sumiu no
+meio do culto continua sendo marcada com "Não está mais no aparelho".
+
+A resolução tenta o **id primeiro** (de graça, devolve o registro ORIGINAL, o
+caso normal de hoje) e só então a receita. Um item CRIADO nasce em `avulsos`
+quando o toque é para projetar e em `imports` quando o operador mandou ao
+Cronograma — sem lista ele nasceria órfão e o `gcOrfaos` da abertura seguinte o
+apagaria.
+
+**Limpar** são dois lugares, e a distância é deliberada: por sessão no cabeçalho
+dela, tudo no rodapé da folha. Nenhum arquivo é tocado — daqui não sai
+`listRemove` nenhum. Limpar a sessão atual a REMOVE em vez de esvaziá-la: uma
+sessão esvaziada guardaria um cabeçalho dizendo "0 itens" com a hora de um culto
+que o operador acabou de mandar apagar.
+
+### 3. Os dois botões trocam de casa, pelo mesmo critério
+
+A coluna sobre a preview tinha três: leitura auxiliar, cortina e mudo. **Dois
+operam a CENA** — mudam o que a congregação vê e ouve — e **um abre uma folha no
+celular**. Ele desceu para a sétima célula da linha de transporte, ao lado da
+playlist, que é o outro botão que só abre uma folha; e a **cortina voltou ao
+canto superior esquerdo**, que ela ocupava até a v5.50.
+
+A regra da sétima célula não mudou com o ocupante: quem fica na ponta é o que
+abre uma folha, não o que opera a cena. O botão veste a `.t-btn` dos vizinhos
+pela razão de sempre — um chapado sozinho numa fileira de seis com fundo não se
+lê como distinção, lê-se como um que ficou de fora.
+
+**A badge nasce dessa mudança de casa.** Sobre a preview, "não há o que ler" se
+lia no próprio palco, a dois centímetros do botão: o wallpaper no ar responde
+sozinho. Na sétima célula não há esse contexto, e sem ela a única forma de
+descobrir que não há letra é abrir a folha e ler "Nada em exibição". É um PONTO e
+não um número (a pergunta é sim/não; as fontes são abas, não itens de fila), sai
+da MESMA lista que a folha usa (`lyricsViewSources`) e os rótulos do `title` saem
+das PRÓPRIAS abas — uma tabela de nomes aqui seria a terceira lista da mesma
+pergunta. Quem a acende é `renderNowPlaying`, ao lado do selo de camadas e pela
+mesma razão: aquela função tem um `return` por ramo de cena.
+
+### 4. E o lote conserta um defeito MUDO que ele mesmo introduziu
+
+A **v1.4.27** subiu com uma marca de conflito de merge por resolver, dentro do
+`:is(...)` da lista do `--press`:
+
+```css
+  .simple-key, .simple-action, .simple-key--big, .simple-key--vol,
+  «<<<<<<< HEAD»
+  .lv-row--tocavel
+  «=======»
+  .row-slot--ok
+  «>>>>>>> 80e61aa (v1.4.27: …)»
+):active { transform: var(--press); filter: var(--press-luz); }
+```
+
+(As três marcas estão entre aspas angulares e recuadas **de propósito**: no
+começo da linha elas seriam indistinguíveis de um conflito de verdade neste
+arquivo, para o `grep` de quem vier depois e para o oráculo que as varre.)
+
+**`:is()` é uma lista FORGIVING**, e é isso que torna a falha muda: o navegador
+descarta os componentes inválidos e aplica o resto. As ~40 classes seguiram
+recuando ao toque, o CI seguiu verde por três lotes, e o que se perdeu foram
+exatamente os DOIS seletores em disputa — `.row-slot--ok` (o ✓ do renomear) e
+`.lv-row--tocavel` (a linha de slide que projeta) —, que pararam de responder ao
+dedo sem nada na tela dizer por quê. MEDIDO comparando as duas árvores num
+navegador: `{".lib-item":true,".t-btn":true,".row-slot--ok":false,
+".lv-row--tocavel":false}` antes, os quatro `true` depois.
+
+**Um oráculo de COMPORTAMENTO não pega isto** — o `smoke.mjs` mede o `--press` de
+uma `.lib-item`, que é um dos seletores que sobreviveram. A asserção nova varre o
+ARQUIVO CRU (folhas e HTML da base) atrás de marca de conflito, e é provada por
+reversão contra a árvore de `origin/main`.
+
+### 5. E uma armadilha de oráculo, medida ao escrever este lote
+
+**`page.waitForFunction` do Playwright NÃO espera a promise devolvida por um
+predicado `async`.** Ela é um objeto Promise, que é *truthy*, e a espera passa no
+primeiro quadro — aprovando exatamente o que veio verificar. Medido: um predicado
+que só deveria passar depois de 1 s retornou em 32 ms. Quem precisa perguntar ao
+IndexedDB usa um laço do lado do Node (`esperar`, no `historico.test.mjs`), e o
+estouro dele devolve a FRASE ("PRAZO, não veredito"), como manda a regra de
+"um oráculo não pode medir o runner".
+
+### O que mudou
+
+- `controle/index.html` — o auxiliar de leitura na sétima célula com a
+  `#lvBadge`; a coluna da preview com dois; a linha do histórico em
+  Configurações (`#histOpenRow`); a faixa do "limpar tudo" (`#histClearFaixa`).
+- `controle/controle.js` — as sessões, a receita, a persistência coalescida, o
+  `renderLeitorBadge`, a ordem da tabela `POPUPS`.
+- `controle/controle.css` — a `.lv-badge`, o cabeçalho de sessão, o `z-index` da
+  folha, a nota de altura da coluna, **e a marca de conflito removida**.
+- `tools/tokens.test.mjs` · `tools/historico.test.mjs` ·
+  `tools/leitor-do-transporte.test.mjs` · `tools/controles-layout.test.mjs`.
+
+OTA PURO — nada de `java/`, `res/` ou manifest; sem degrau de ponte, sem
+`shellTag`, sem Release.
 
 ## v1.4.30 — o Modo Fácil passou a operar uma apresentação
 

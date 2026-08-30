@@ -158,7 +158,11 @@ try {
       seek: cx('#seek'), cur: cx('#curTime'), dur: cx('#durTime'),
       titulo: cx('#npNameInner'),
       pv: cx('.preview'), ant: cx('#slidePrevBtn'), prox: cx('#slideNextBtn'),
-      hist: cx('#historyBtn'), seis,
+      // A SÉTIMA CÉLULA. Ela mudou de ocupante na v1.4.31 (era o histórico,
+      // hoje é o auxiliar de leitura) e a REGRA que este bloco trava não
+      // mudou: a sétima é uma de sete células idênticas, e é ela que fecha a
+      // direita do deck junto com o botão de passar slide.
+      hist: cx('#lyricsViewBtn'), seis,
     };
   });
   const perto = (a, b) => Math.abs(a - b) < 0.6;
@@ -173,14 +177,14 @@ try {
       `a preview é FLANQUEADA pelos dois botões de slide (${nome})`, g);
 
     // TODO vão do deck é o mesmo — os cinco que cercam a preview mais o que
-    // separa o histórico do botão de voltar.
+    // separa a sétima célula do botão de voltar.
     const vaos = {
       'nowplaying→preview': g.pv.topo - g.np.base,
       'preview→transporte': g.tr.topo - g.pv.base,
       'voltar→preview': g.pv.esq - g.ant.dir,
       'preview→passar': g.prox.esq - g.pv.dir,
-      'passar→histórico': g.hist.topo - g.prox.base,
-      'transporte→histórico': g.hist.esq - g.seis[5].dir,
+      'passar→sétima': g.hist.topo - g.prox.base,
+      'transporte→sétima': g.hist.esq - g.seis[5].dir,
       'entre dois do transporte': g.seis[1].esq - g.seis[0].dir,
     };
     for (const [onde, v] of Object.entries(vaos)) {
@@ -211,7 +215,7 @@ try {
       `a borda ESQUERDA do deck é uma só: voltar, transporte e deck (${nome})`,
       { ant: g.ant.esq, t: g.seis[0].esq, deck: g.deck.esq });
     checar(perto(g.prox.dir, g.deck.dir) && perto(g.prox.dir, g.hist.dir),
-      `e a DIREITA: passar, histórico e deck (${nome})`,
+      `e a DIREITA: passar, a sétima célula e o deck (${nome})`,
       { prox: g.prox.dir, hist: g.hist.dir, deck: g.deck.dir });
 
     // A FAIXA É A PREVIEW: os três da linha do meio começam e terminam juntos.
@@ -222,7 +226,7 @@ try {
     }
 
     // ===== A BARRA DE PROGRESSO CAI NAS COLUNAS DO DECK (v1.3.8) =====
-    // Ela parava na coluna 2 (a 3 era do histórico), então não batia com a
+    // Ela parava na coluna 2 (a 3 era da sétima célula), então não batia com a
     // miniatura logo abaixo e o título nascia descentrado — centrado numa
     // caixa que não era a do deck. As três asserções são as três peças.
     checar(perto(g.seek.esq, g.pv.esq) && perto(g.seek.dir, g.pv.dir),
@@ -249,6 +253,11 @@ try {
   await pg.evaluate(() => document.documentElement.style.removeProperty('--pv-ar'));
 
   // ── 2. A COLUNA DE OPERAÇÃO, SOBRE a preview e à esquerda ───────────────
+  //
+  // SÃO DOIS DESDE A v1.4.31 — a leitura auxiliar saiu para a sétima célula do
+  // deck (ver o bloco 6). O que ficou é a metade que OPERA A CENA: a cortina
+  // muda o que a congregação vê, o mudo muda o que ela ouve. O que saiu abria
+  // uma folha no celular, e é essa a linha que separa os dois grupos.
   const col = await pg.evaluate(() => {
     const pv = document.querySelector('.preview').getBoundingClientRect();
     const um = (sel) => {
@@ -264,11 +273,17 @@ try {
       };
     };
     return {
-      letra: um('#lyricsViewBtn'), cortina: um('#viewToggle'), mudo: um('#muteToggle'),
+      cortina: um('#viewToggle'), mudo: um('#muteToggle'),
+      // A LEITURA AUXILIAR SAIU DAQUI, e a asserção é essa: ela não pode estar
+      // nas DUAS casas. Um botão duplicado continua funcionando nos dois
+      // lugares e não erra em teste de comportamento nenhum — o que se perde é
+      // a razão da mudança (a coluna homogênea), em silêncio.
+      leitura: um('#lyricsViewBtn'),
+      naColuna: !!document.querySelector('.pv-fabs--esq #lyricsViewBtn'),
       ordem: [...document.querySelectorAll('.pv-fabs--esq .pv-fab')].map((b) => b.id),
     };
   });
-  for (const [nome, b] of [['leitura auxiliar', col.letra], ['cortina', col.cortina], ['mudo', col.mudo]]) {
+  for (const [nome, b] of [['cortina', col.cortina], ['mudo', col.mudo]]) {
     checar(b.dentro && b.naEsquerda,
       `o botão de ${nome} está SOBRE a preview, na metade esquerda`, b);
     // "Sem botão, apenas ícones": o desenho da miniatura é o traço com as três
@@ -278,11 +293,15 @@ try {
     checar(b.temGlifo === false,
       `e o desenho é SVG, não glifo da fonte — um \`.msym\` não tem traço para as três sombras do \`.pv-fab\` (${nome})`, b);
   }
-  checar(col.ordem.join(',') === 'lyricsViewBtn,viewToggle,muteToggle',
-    'a ordem da coluna é leitura → cortina → mudo (o mais consultado no topo)', col.ordem);
+  checar(col.naColuna === false && col.leitura.dentro === false,
+    'e a leitura auxiliar NÃO está mais sobre a preview: ela mudou de casa, '
+    + 'não ganhou uma segunda', col);
+  checar(col.ordem.join(',') === 'viewToggle,muteToggle',
+    'a ordem da coluna é cortina → mudo, e a CORTINA está no topo — o canto que '
+    + 'a leitura auxiliar deixou vago (v1.4.31)', col.ordem);
 
-  // TOPO, MEIO e BASE — não um bloco no centro. É o alinhamento da coluna do
-  // player ao lado (cast em cima, tela cheia embaixo), e sem ele os três liam
+  // TOPO e BASE — não um bloco no centro. É o alinhamento da coluna do
+  // player ao lado (cast em cima, tela cheia embaixo), e sem ele os dois liam
   // como um agrupamento solto no meio da miniatura. Falha calada: eles
   // continuam ali, continuam funcionando, só param de ter relação com nada.
   const espalho = await pg.evaluate(() => {
@@ -290,10 +309,9 @@ try {
     const ic = [...document.querySelectorAll('.pv-fabs--esq .pv-fab')]
       .map((e) => e.getBoundingClientRect());
     return {
-      alturaPv: pv.height,
+      alturaPv: pv.height, quantos: ic.length,
       topo: ic[0].top - pv.top,
       base: pv.bottom - ic[ic.length - 1].bottom,
-      desvioDoMeio: ((ic[1].top + ic[1].bottom) / 2) - ((pv.top + pv.bottom) / 2),
       // O vão entre vizinhos: com `space-between` ele é o que sobra; num bloco
       // centrado é o `gap`, muito menor. É a assinatura das duas formas.
       vao: ic[1].top - ic[0].bottom,
@@ -303,12 +321,10 @@ try {
     'o primeiro ícone encosta no TOPO da preview', espalho);
   checar(espalho.base >= 0 && espalho.base <= 4,
     'o último encosta na BASE — e nenhum dos dois vaza para fora dela', espalho);
-  checar(Math.abs(espalho.desvioDoMeio) < 2,
-    'e o do meio fica no MEIO', espalho);
-  // A prova de que é `space-between` e não três botões colados no centro: o vão
+  // A prova de que é `space-between` e não dois botões colados no centro: o vão
   // entre vizinhos tem de ser o que SOBRA da altura, não um `gap` fixo.
-  checar(espalho.vao > (espalho.alturaPv - 3 * 34) / 2 - 4,
-    'os três estão ESPALHADOS pela altura, não agrupados num bloco', espalho);
+  checar(espalho.vao > (espalho.alturaPv - espalho.quantos * 34) / 2 - 4,
+    'os dois estão ESPALHADOS pela altura, não agrupados num bloco', espalho);
 
   // ── 3-A. A COLUNA DA TELA CHEIA: NASCE ACESA, E O TOQUE É INTERRUPTOR ───
   //
@@ -554,7 +570,7 @@ try {
     };
     return {
       fader: cx('.fader-wrap'), prox: cx('#slideNextBtn'), ant: cx('#slidePrevBtn'),
-      pv: cx('.preview'), hist: cx('#historyBtn'),
+      pv: cx('.preview'), hist: cx('#lyricsViewBtn'),
       // O BOTÃO que abria o fader — este sim tinha de sair.
       botoes: ['#volToggle', '#volClose'].filter((sel) => document.querySelector(sel)),
       temFader: !!document.querySelector('#volSlider'),
@@ -588,7 +604,7 @@ try {
   checar(aberto.ant.vis,
     'e o de VOLTAR slide FICA no ar — era o sumiço dele que o operador relatou', aberto.ant);
   checar(aberto.hist.vis,
-    'o histórico também fica: ele não tem nada a ver com volume', aberto.hist);
+    'a sétima célula também fica: ela não tem nada a ver com volume', aberto.hist);
 
   // E SOME SOZINHO. Sem botão que feche, o relógio é a única saída — se ele
   // falhar, o fader fica no lugar do botão de passar slide para sempre.
@@ -605,19 +621,19 @@ try {
 
   // ── 6b. A ORDEM DA LINHA DE BAIXO, E A CAIXA DO HISTÓRICO ──────────────
   const linha = await pg.evaluate(() => {
-    const ids = [...document.querySelectorAll('.transport .t-btn'), document.getElementById('historyBtn')]
+    const ids = [...document.querySelectorAll('.transport .t-btn'), document.getElementById('lyricsViewBtn')]
       .map((e) => e.id);
     const caixa = (sel) => {
       const cs = getComputedStyle(document.querySelector(sel));
       return { fundo: cs.backgroundColor, raio: cs.borderTopLeftRadius };
     };
-    return { ids, hist: caixa('#historyBtn'), vizinho: caixa('#next') };
+    return { ids, hist: caixa('#lyricsViewBtn'), vizinho: caixa('#next') };
   });
-  checar(linha.ids.join(',') === 'repeat,plBtn,prev,playpause,stop,next,historyBtn',
-    'a ordem é repetir → playlist → anterior → play → parar → próximo → histórico',
+  checar(linha.ids.join(',') === 'repeat,plBtn,prev,playpause,stop,next,lyricsViewBtn',
+    'a ordem é repetir → playlist → anterior → play → parar → próximo → auxiliar de leitura',
     linha.ids);
   checar(linha.hist.fundo === linha.vizinho.fundo && linha.hist.raio === linha.vizinho.raio,
-    'e o histórico veste a MESMA caixa dos vizinhos — um chapado sozinho numa fileira de seis com fundo lê como um que ficou de fora',
+    'e a sétima veste a MESMA caixa dos vizinhos — um chapado sozinho numa fileira de seis com fundo lê como um que ficou de fora',
     linha);
 
   // ── 7. O MODO FÁCIL NÃO HERDA A COLUNA DE OPERAÇÃO ──────────────────────

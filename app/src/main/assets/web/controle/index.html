@@ -505,7 +505,8 @@
            exatamente `--hit` — a mesma do voltar em frente e a mesma da
            engrenagem do Modo Fácil.
 
-           O que ficou vago no mixer virou o HISTÓRICO (ver `#historyBtn`). -->
+           O que ficou vago no mixer virou a sétima célula da linha de baixo,
+           hoje o AUXILIAR DE LEITURA (ver `#lyricsViewBtn`). -->
       <button id="settingsBtn" class="settings-btn" title="Configurações" aria-label="Configurações">
         <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoGear"/></svg>
       </button>
@@ -862,10 +863,15 @@
             </button>
           </div>
           <!-- ===== A COLUNA DE OPERAÇÃO (v1.3.5) =====
-               Leitura auxiliar, cortina do telão e mudo. Os três moravam na
-               fatia do meio da coluna do mixer, FORA da preview; vieram para
+               Cortina do telão e mudo — os DOIS que operam a CENA. Eles moravam
+               na fatia do meio da coluna do mixer, FORA da preview; vieram para
                cima dela a pedido do operador, e o espaço que deixaram virou o
                botão de PASSAR SLIDE (ver `.slide-side`).
+
+               ERAM TRÊS até a v1.4.31: a leitura auxiliar saiu para a sétima
+               célula do deck (ver `#lyricsViewBtn`), e o que ficou é
+               homogêneo — os dois restantes mudam o que a congregação vê e
+               ouve, e o que saiu abria uma folha no celular.
 
                SEM MOLDURA, COMO OS VIZINHOS: aqui o desenho da preview é o
                traço branco com as três `drop-shadow` do `.pv-fab`, e um dos
@@ -884,15 +890,19 @@
                (ver `hostPreview`), e lá o mudo já é uma tecla grande própria
                (`#simpleMute`). Quem a esconde é `.simple-stage .pv-fabs--esq`. -->
           <div class="pv-fabs pv-fabs--esq">
-            <!-- Leitura auxiliar: a letra INTEIRA da música em cena ou o
-                 capítulo INTEIRO da Bíblia em leitura, num popup com scroll.
-                 É o PRIMEIRO da coluna desde a v5.50 (trocou de lugar com a
-                 cortina): é o botão que se consulta o tempo todo enquanto o
-                 louvor corre, e a cortina é o que se usa em transições. -->
-            <button id="lyricsViewBtn" class="pv-fab" type="button" title="Ver a letra / o texto completo" aria-label="Ver a letra / o texto completo">
-              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoTexto"/></svg>
-            </button>
-            <!-- ESTADO INICIAL `view = 'visual'`: imagem INTEIRA, porque nada
+            <!-- ===== A CORTINA SUBIU PARA O CANTO (v1.4.31) =====
+                 Pedido do operador: *"na preview, pode subir o botão do
+                 controle do wallpaper para que ele ocupe o canto superior
+                 esquerdo que ficará livre do auxiliar de leitura"*. A leitura
+                 auxiliar era a PRIMEIRA da coluna desde a v5.50, quando trocou
+                 de lugar com a cortina; ela foi para a sétima célula do deck
+                 (ver `#lyricsViewBtn`) e a cortina volta ao canto de onde saiu.
+
+                 SÃO DOIS AGORA, e o `space-between` da coluna faz o resto: a
+                 cortina no topo, o mudo na base. Não há terceiro item a
+                 espremer — ver a nota de altura em `.pv-fabs--esq`.
+
+                 ESTADO INICIAL `view = 'visual'`: imagem INTEIRA, porque nada
                  está coberto. Quem alterna é `renderControls`, pela classe
                  `.alternado` — a mesma chave do `#fsView`. -->
             <button id="viewToggle" class="pv-fab pv-fab--view" type="button" title="Cobrir o telão" aria-label="Cobrir o telão">
@@ -992,11 +1002,13 @@
            leitor de tela anunciava o caractere PUA. Esconder a decoração é o
            que faz o title voltar a valer como nome. -->
       <!-- A ORDEM DA LINHA DE BAIXO (v1.3.9), a pedido do operador: repetir,
-           playlist, anterior, play, parar, próximo, histórico. Os dois que
-           ABREM uma lista ficam nas PONTAS — playlist logo depois do repetir,
-           histórico no fim —, e o miolo é o transporte contínuo. O histórico é
-           o sétimo, e mora fora desta caixa: ele é item da coluna 3 da grade
-           (ver `#historyBtn`). -->
+           playlist, anterior, play, parar, próximo, e a sétima célula. Os dois
+           que ABREM uma folha ficam nas PONTAS — playlist logo depois do
+           repetir, a sétima no fim —, e o miolo é o transporte contínuo. A
+           sétima mora fora desta caixa: ela é item da coluna 3 da grade.
+           Era o HISTÓRICO da v1.3.8 à v1.4.29; hoje é o AUXILIAR DE LEITURA
+           (ver `#lyricsViewBtn`), e a regra que a governa não mudou — o que
+           ocupa a ponta é o que abre uma folha, não o que opera a cena. -->
       <div class="transport">
         <button id="repeat" class="t-btn" title="Repetição"><span class="msym" aria-hidden="true">&#xe040;</span></button>
         <!-- Único botão do transporte com `aria-label`: o selo #plCount é
@@ -1064,30 +1076,42 @@
              `aria-hidden`: o valor já é anunciado pelo próprio range. -->
         <span id="volValue" class="fader-value" aria-hidden="true">100</span>
       </div>
-      <!-- ===== O HISTÓRICO DO CULTO (v1.2.0), NA SÉTIMA CÉLULA (v1.3.8) =====
-           Pedido do operador: *"no lugar do botão de configurações nos
-           controles do modo avançado, crie um botão de histórico, que lista
-           todos os itens que já tocaram naquela sessão"*.
+      <!-- ===== O AUXILIAR DE LEITURA, NA SÉTIMA CÉLULA (v1.4.31) =====
+           Pedido do operador: *"no lugar que é atualmente o botão do histórico,
+           mova o botão do auxiliar de leitura, mantendo o padrão dos botões
+           dessa base"*. O histórico foi para Configurações (ver `#histOpenRow`)
+           e deixou vaga a sétima célula da linha de baixo.
 
-           ELE MUDOU DE FATIA na v1.3.8, para a que era do volume: a linha de
-           baixo tem sete células iguais e a sétima ficou vaga quando o fader
-           saiu. Ele estava na fatia de CIMA, colado na barra de progresso — e
-           era ele que impedia a barra de usar a largura inteira do deck.
+           ELE VESTE A CAIXA DOS VIZINHOS (`.t-btn`) pela mesma razão que o
+           histórico vestia: aqui ele é a SÉTIMA de sete células iguais, e um
+           chapado numa fileira de seis com fundo não se lê como distinção,
+           lê-se como um botão que ficou de fora. Sobre a preview ele era
+           `.pv-fab` — sem moldura, traço branco com `drop-shadow` —, e aquele
+           desenho é do palco, não do deck.
 
-           ELE VESTE A MESMA CAIXA DOS VIZINHOS (`.t-btn`, v1.3.9), a pedido do
-           operador. Ele era CHAPADO (`.settings-btn`) enquanto morava na fatia
-           de cima, onde a distinção "abre uma lista" × "opera o culto" separava
-           dois grupos diferentes. Na linha de baixo ele é a SÉTIMA de sete
-           células iguais, ao lado da playlist — que também só abre uma lista e
-           sempre teve fundo. Um único chapado numa fileira de seis com fundo
-           não se lê como uma distinção: lê-se como um botão que ficou de fora.
+           POR QUE SAIU DA PREVIEW: ele é o único dos três da coluna esquerda
+           que NÃO opera a cena — a cortina e o mudo mudam o que a congregação
+           vê e ouve, este abre uma leitura no celular. Na fileira de baixo ele
+           fica ao lado da playlist, o outro botão que só abre uma folha.
 
-           O ícone é SVG e não glifo de fonte: o subset de
-           `material-symbols.woff2` tem 31 codepoints e `history` não está entre
-           eles — ver `tools/glifos.test.mjs`. A 22px para casar com o
+           A BADGE diz que HÁ o que ler (v1.4.31). Pedido do operador: *"crie
+           uma badge nesse botão de auxiliar de leitura para indicar que ele
+           está com alguma função disponível quando houver alguma mídia que
+           disponibiliza uma das funções dele"*. Sobre a preview a ausência de
+           conteúdo se lia no próprio palco, a dois centímetros do botão; aqui
+           embaixo não há esse contexto, e sem ela o operador só descobre que
+           não há letra depois de abrir a folha. Quem a acende é
+           `renderLeitorBadge`, pela MESMA lista que a folha usa
+           (`lyricsViewSources`) — duas contas divergiriam, e a badge é
+           justamente a que ninguém confere.
+
+           O ícone é o mesmo `#icoTexto` da preview, a 22px para casar com o
            `--icon-md` dos glifos ao lado. -->
-      <button id="historyBtn" class="t-btn" title="Histórico do culto" aria-label="Histórico do culto">
-        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoHistorico"/></svg>
+      <button id="lyricsViewBtn" class="t-btn" type="button" title="Auxiliar de leitura" aria-label="Auxiliar de leitura">
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoTexto"/></svg>
+        <!-- `aria-hidden`: a badge não tem texto e o que ela diz ("há o que
+             ler") já está no `title`, que `renderLeitorBadge` reescreve. -->
+        <span id="lvBadge" class="lv-badge" aria-hidden="true" hidden></span>
       </button>
       </div>
     </div>
@@ -1152,7 +1176,16 @@
        SEM CONTADOR no cabeçalho (o `.popup-count` da playlist): ali o número é
        o que falta tocar, e é por isso que ele fica ao lado do título. Aqui o
        número é quantas vezes se projetou alguma coisa — não pede ação nenhuma,
-       e a lista inteira já o mostra. -->
+       e a lista inteira já o mostra.
+
+       ELA ATRAVESSA SESSÕES desde a v1.4.31, e a folha passou a ter CABEÇALHOS
+       de sessão no meio da lista (ver `renderHistorico`). O pedido original
+       dizia *"apagada a cada nova sessão"*; o novo diz o contrário, e o que
+       resolve a contradição é a SEPARAÇÃO — a sessão de hoje continua sozinha
+       no topo, as antigas ficam abaixo dela e não se misturam.
+
+       ELA ABRE DE DENTRO DE CONFIGURAÇÕES (ver `#histOpenRow`), e por isso vem
+       DEPOIS dela na tabela `POPUPS` e um degrau acima no `z-index`. -->
   <div id="histPopup" class="popup-backdrop">
     <div class="popup-sheet">
       <div class="popup-header">
@@ -1163,6 +1196,21 @@
         <button id="histPopupClose" class="popup-close" title="Fechar"><span class="msym" aria-hidden="true">&#xe14c;</span></button>
       </div>
       <ul id="histList" class="popup-list"></ul>
+      <!-- LIMPAR TODO O HISTÓRICO (v1.4.31), a pedido do operador: *"pode
+           colocar a opção de limpar todo o histórico ou por sessões"*. O por
+           SESSÃO mora no cabeçalho de cada uma (ver `renderHistorico`); este é
+           o "tudo", e por isso mora no rodapé da folha — longe do de cada
+           sessão, que é o que se toca com frequência.
+
+           A FAIXA existe pela mesma razão que a da playlist: a confirmação
+           substitui os IRMÃOS do botão (ver `pedirConfirmacaoNaLinha`), então
+           ele precisa de uma caixa só sua. -->
+      <div id="histClearFaixa" class="pl-limpar-faixa">
+        <button type="button" id="histClear" class="pl-clear">
+          <span class="msym" aria-hidden="true">&#xe872;</span>
+          <span>Limpar todo o histórico</span>
+        </button>
+      </div>
     </div>
   </div>
 
@@ -1295,6 +1343,28 @@
              `hidden` fora do app (quem o revela é `renderFarolSeg`, pelo
              MESMO caminho por que a pinta): num navegador não há farol nenhum,
              e uma chave que não liga nada é pior que chave nenhuma. -->
+        <!-- ===== O HISTÓRICO DO CULTO MORA AQUI (v1.4.31) =====
+             Pedido do operador: *"coloque a função do histórico de mídias
+             tocadas, dentro das configurações"*. Ele era a sétima célula da
+             linha de transporte, e aquela fileira é o que se opera DURANTE o
+             culto — o histórico é o que se consulta ANTES ou DEPOIS ("o que eu
+             já toquei?", "o que tocamos no sábado passado?"). Quem herdou a
+             célula foi o auxiliar de leitura (ver `#lyricsViewBtn`).
+
+             UM BOTÃO SÓ numa `.fit-seg` é o desenho do `#rotBtn`: ele não é
+             segmento de seletor nenhum, mas veste `.fit-opt` porque está na
+             mesma coluna das outras linhas desta folha, e um botão de outro
+             formato aqui leria como outro tipo de controle.
+
+             O RÓTULO DO BOTÃO CONTA AS SESSÕES (`renderHistRow`), e é por isso
+             que ele não diz só "Abrir": o histórico agora atravessa sessões, e
+             quantas há é a única coisa que o operador não consegue supor. -->
+        <div class="fade-row fade-row--fit">
+          <span>Histórico do culto</span>
+          <div class="fit-seg">
+            <button type="button" class="fit-opt" id="histOpenRow">Abrir</button>
+          </div>
+        </div>
         <div class="fade-row fade-row--fit" id="farolRow" hidden>
           <span>Este aparelho na medição de alcance</span>
           <div class="fit-seg" id="farolSeg">
@@ -1353,7 +1423,7 @@
              pedir ajuda"), e agora ocupam a mesma faixa: a versão à esquerda, o
              Registro à direita, no espaço que já estava sobrando. -->
         <div class="footer-diag">
-          <span id="appVersion" class="app-version">Controle v1.4.30</span>
+          <span id="appVersion" class="app-version">Controle v1.4.31</span>
           <span class="footer-diag-rot">Registro</span>
           <!-- SALVAR EM ARQUIVO (v1.2.16). Com o acervo inteiro varrido o
                Registro passa de setenta linhas só na seção de cifras, e copiar
