@@ -908,19 +908,39 @@
                permanente: enquanto ele está lá, há duas camadas; sumindo, há
                uma só, e o Parar volta a ser a resposta certa.
 
-               ELE MORA NO TOPO, AO CENTRO (v1.3.5). Ele ocupava o canto
-               superior esquerdo, e aquela lateral passou a ser a COLUNA DE
-               OPERAÇÃO (letra, cortina, mudo) — um selo vermelho no topo
-               daquela pilha leria como mais um controle dela, que é
-               exatamente o que ele não é. No centro ele não faz coluna com
-               ninguém: é a única coisa que aparece ali, e aparecer já é
-               metade da mensagem.
+               ELE MORA NA BASE, AO CENTRO (v1.3.10 — era o topo desde a
+               v1.3.5, e o canto superior esquerdo antes disso). Ele ocupava
+               aquela lateral, que passou a ser a COLUNA DE OPERAÇÃO (letra,
+               cortina, mudo) — um selo vermelho no topo daquela pilha leria
+               como mais um controle dela, que é exatamente o que ele não é. No
+               centro ele não faz coluna com ninguém, e aparecer já é metade da
+               mensagem.
 
                O ÍCONE MOSTRA O ESTADO; O RÓTULO, A AÇÃO — a mesma regra dos
                botões da notificação de mídia. O desenho é a pilha de camadas
                (o que está acontecendo) e o `title` diz o que o toque faz.
                Vermelho `--live` porque é o vermelho de "está no ar agora"
                deste app, e a camada de cima é justamente isso. -->
+          <!-- ===== A BASE DA PREVIEW É A REGIÃO DO QUE ESTÁ FORA DO PADRÃO =====
+               Pedido do operador (v1.4.43): *"atualize o local onde hoje
+               sobrepomos o icone de remover camada na preview. essa região
+               inferior no centro da preview vai ser uma região flexível que vai
+               conter elementos passageiros"*.
+
+               O QUE ENTRA AQUI TEM UMA FORMA SÓ: alguma coisa saiu do padrão
+               AGORA, e o toque a desfaz. Não é uma barra de ferramentas — é o
+               contrário dela: as três lateriais OPERAM a cena e estão sempre
+               lá; estas aparecem porque há o que desfazer e somem quando não
+               há. É por isso que a faixa é `justify-content: center` e não uma
+               coluna: ela é uma FILA de zero, um ou dois itens, e o centro é o
+               único alinhamento que não promete um lugar fixo a ninguém.
+
+               DOIS HOJE, e a ordem é a do peso: a camada de cima (que está no
+               ar, e é vermelha) antes do giro (que é uma preferência de
+               enquadramento, e é denim). Item novo entra aqui e em
+               `renderCamadaBtn`/`renderRotBtn` — quem os mostra é o render do
+               ESTADO que eles desfazem, nunca um render próprio, senão o botão
+               sobrevive ao fato que ele nomeia. -->
           <div class="pv-fabs pv-fabs--base">
             <button id="pvCamadaBtn" class="pv-fab pv-fab--camada" type="button"
                     title="Encerrar a camada de cima" aria-label="Encerrar a camada de cima" hidden>
@@ -941,6 +961,34 @@
                 <path d="m16.4 16.4 5.1 5.1"/>
                 <path d="m21.5 16.4-5.1 5.1"/>
               </svg>
+            </button>
+            <!-- ===== O GIRO DO TELÃO, DESFEITO DE ONDE ELE APARECE (v1.4.43) =====
+                 Pedido do operador: *"agora quando o giro do telão estiver
+                 diferente de 0, adicione um botão ali nessa região para cancelar
+                 essa modificação, permitindo voltar a posição padrão"*.
+
+                 O giro é a única preferência do app que muda a projeção e NÃO
+                 tem porta de volta onde se vê o efeito: aplicá-lo é um toque no
+                 tile de Configurações, e desfazê-lo eram TRÊS — o mesmo tile
+                 cicla 90° por vez, então voltar de 90° custa abrir a folha e
+                 tocar três vezes, olhando para a folha e não para a projeção.
+                 Aqui ele volta ao padrão num toque, com a preview à vista.
+
+                 O ÂNGULO É O ESTADO, e é ele que separa este botão do tile: o
+                 desenho é o mesmo `#icoGirar` (o assunto não mudou), e uma seta
+                 circular sozinha sobre a preview leria como "girar mais 90°",
+                 que é o oposto do que este toque faz. Com o número ao lado a
+                 frase fecha: *está a 90°* (estado) + *toque para voltar*
+                 (`title`), a mesma divisão dos botões da notificação de mídia.
+
+                 DENIM (`--stage-accent`) e não o vermelho do vizinho: o palco
+                 não tem tema, então o token é o do PALCO; e vermelho aqui é "no
+                 ar agora", que a camada de cima já ocupa — um giro é uma
+                 preferência de enquadramento, não um alerta. -->
+            <button id="pvGiroBtn" class="pv-fab pv-fab--giro" type="button"
+                    title="Desfazer o giro do telão" aria-label="Desfazer o giro do telão" hidden>
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoGirar"/></svg>
+              <span class="pv-fab-num" id="pvGiroNum">0°</span>
             </button>
           </div>
           <!-- ===== A COLUNA DE OPERAÇÃO (v1.3.5) =====
@@ -1368,24 +1416,35 @@
              valiam só para a sessão. É a primeira linha da folha porque é a
              decisão mais larga que ela contém: ela troca a tela inteira.
 
-             ELE CONTINUA SENDO UM SEGMENTADO (v1.4.38), e é o único da folha.
-             O pedido foi manter o modo "em destaque" e atualizar o desenho
-             dele para o do painel rápido — não transformá-lo num tile. A
-             diferença é real e é a razão de o resto ter virado grade: os
-             outros seis alternam entre dois estados EQUIVALENTES e voltam com
-             um toque; este troca a tela inteira e fecha a folha, e um toque
-             por engano num tile de 106px custa a viagem de volta no meio do
-             culto. Duas opções à vista, cada uma com o próprio ícone, dizem
-             qual está em vigor sem depender de memória.
+             ELE VIROU UM INTERRUPTOR QUE DESLIZA (v1.4.43), a pedido do
+             operador: *"simplifique o design do agrupamento e botões de fácil e
+             avançado, eles estão com muitas camadas e tons de grupos. faça eles
+             do tipo toggle onde ele desliza de um lado para o outro, assim
+             deixando mais claro que está alternando de um para o outro"*.
 
-             O DESENHO É O DO PAINEL: cada opção é ícone em cima, palavra
-             embaixo — a mesma anatomia dos tiles logo abaixo —, e a escolhida
-             veste `--accent-fill` (ESCOLHA ENTRE ALTERNATIVAS, e não o
-             `--btn-accent` de interruptor: aqui uma das duas está sempre em
-             vigor, e nenhuma delas é "o padrão mexido"). -->
-        <div class="fade-row fade-row--fit fade-row--destaque">
+             ERAM QUATRO TONS EMPILHADOS para uma escolha de duas posições: a
+             folha (`--panel`), o cartão em destaque (`--camada`, isto é
+             `--panel-2`), a superfície afundada de cada botão (`--surface`) e o
+             `--accent-fill` do escolhido. Hoje são DOIS — o trilho e o polegar:
+             o cartão saiu (o rótulo "Modo do app" ficou como a legenda solta
+             que ele sempre foi) e os botões perderam o fundo próprio.
+
+             O POLEGAR É UM `::before` DO TRILHO, e não uma terceira caixa no
+             HTML: ele desliza por `transform`, que é o que o compositor anima
+             sem tocar no layout — e é o deslize que diz *"isto ALTERNA"*, que
+             era o pedido. Ele mede exatamente metade do trilho menos o respiro,
+             então `translateX(100%)` o encaixa na outra metade sem nenhuma
+             conta em runtime (ver `.qs-modo` no CSS).
+
+             O ESTADO VIVE NO `data-modo` do trilho, escrito por
+             `renderAppModeSeg` — a mesma disciplina do `data-estado` dos tiles:
+             a classe é aparência, o atributo é o valor em vigor, e é por ele
+             que o CSS e os oráculos perguntam. Os dois botões continuam sendo
+             `.fit-opt[data-mode]` porque é assim que o resto do app e os
+             oráculos os alcançam; o que eles perderam foi o fundo próprio. -->
+        <div class="fade-row fade-row--fit fade-row--modo">
           <span>Modo do app</span>
-          <div class="fit-seg fit-seg--grande" id="appModeSeg">
+          <div class="fit-seg qs-modo" id="appModeSeg" data-modo="full">
             <button type="button" class="fit-opt" data-mode="simple">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoModoFacil"/></svg>
               <span>Fácil</span>
@@ -1567,28 +1626,53 @@
              METADADO de diagnóstico e o lugar onde se procura diagnóstico é
              junto do estado do telão e do alvo de espelhamento, não numa faixa
              de navegação. Preenchido por `renderVersionLabel`. -->
-        <!-- ===== A VERSÃO E O REGISTRO DIVIDEM A LINHA =====
-             O Registro tinha uma `.fade-row` inteira para um rótulo e um botão
-             de 16px, com o meio vazio — e a versão tinha outra linha só para
-             si, centrada. As duas dizem a MESMA coisa ("o que eu preciso para
-             pedir ajuda"), e agora ocupam a mesma faixa: a versão à esquerda, o
-             Registro à direita, no espaço que já estava sobrando. -->
+        <!-- ===== O RODAPÉ É UMA FAIXA DE DOIS BLOCOS IGUAIS (v1.4.43) =====
+             Relato do operador: *"cada elemento tem um design e tamanho único,
+             como a versão, o registro e seus botões… padronize e unifique, pois
+             são basicamente o mesmo tema"*.
+
+             MEDIDO no que havia: a versão era uma pílula de ~20px de altura com
+             raio de CÁPSULA e fonte .7rem; "Registro" era texto solto, sem
+             superfície nenhuma, a .8rem; e os dois botões eram quadrados de
+             34px com raio de BOTÃO. Quatro formas, três alturas, dois raios e
+             duas fontes — para dizer UMA coisa só: *"o que eu mando para quem
+             vai me ajudar?"*.
+
+             Agora são DOIS BLOCOS com a mesma altura (`--hit`), o mesmo raio, a
+             mesma superfície e a mesma fonte: a VERSÃO à esquerda (o fato) e o
+             REGISTRO à direita (o rótulo mais as duas ações que o levam para
+             fora). Agrupar o rótulo com os botões é o que fecha a conta — solto,
+             ele era o único elemento da faixa sem caixa, e a distância entre a
+             palavra e o botão dela era maior que a que os separava da versão.
+
+             OS BOTÕES PERDEM A SUPERFÍCIE PRÓPRIA e herdam a do bloco: dois
+             fundos dentro de um fundo é a "camada a mais" que o resto deste lote
+             está tirando. O alvo continua sendo `--hit` inteiro, e o pulso de
+             confirmação (`.btn-pulso`) continua pintando o BOTÃO tocado — que é
+             o que diz em qual dos dois se tocou. -->
         <div class="footer-diag">
-          <span id="appVersion" class="app-version">Controle v1.4.42</span>
-          <span class="footer-diag-rot">Registro</span>
-          <!-- SALVAR EM ARQUIVO (v1.2.16). Com o acervo inteiro varrido o
-               Registro passa de setenta linhas só na seção de cifras, e copiar
-               e colar é o caminho que corta o texto no meio SEM AVISAR — foi o
-               relato que abriu este lote. Um arquivo não corta. Fica ao lado do
-               copiar porque os dois respondem à mesma intenção ("levar isto
-               para fora"); `hidden` fora do app, onde não há ponte para gravar
-               (quem o revela é `renderVersionLabel`). -->
-          <button id="diagSave" class="log-copy" title="Salvar o registro num arquivo" aria-label="Salvar o registro num arquivo" hidden>
-            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoSalvar"/></svg>
-          </button>
-          <button id="diagCopy" class="log-copy" title="Copiar o registro" aria-label="Copiar o registro">
-            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoCopiar"/></svg>
-          </button>
+          <!-- Versão da base web (e do shell, no app). Morava no cabeçalho da
+               lista, ao lado do título do Cronograma; veio para cá porque é
+               METADADO de diagnóstico e o lugar onde se procura diagnóstico é
+               junto do estado do telão e do alvo de espelhamento, não numa faixa
+               de navegação. Preenchido por `renderVersionLabel`. -->
+          <span id="appVersion" class="app-version">Controle v1.4.43</span>
+          <div class="footer-log">
+            <span class="footer-diag-rot">Registro</span>
+            <!-- SALVAR EM ARQUIVO (v1.2.16). Com o acervo inteiro varrido o
+                 Registro passa de setenta linhas só na seção de cifras, e copiar
+                 e colar é o caminho que corta o texto no meio SEM AVISAR — foi o
+                 relato que abriu aquele lote. Um arquivo não corta. Fica ao lado
+                 do copiar porque os dois respondem à mesma intenção ("levar isto
+                 para fora"); `hidden` fora do app, onde não há ponte para gravar
+                 (quem o revela é `renderVersionLabel`). -->
+            <button id="diagSave" class="log-copy" title="Salvar o registro num arquivo" aria-label="Salvar o registro num arquivo" hidden>
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoSalvar"/></svg>
+            </button>
+            <button id="diagCopy" class="log-copy" title="Copiar o registro" aria-label="Copiar o registro">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoCopiar"/></svg>
+            </button>
+          </div>
         </div>
         <!-- A ATUALIZAÇÃO (v5.245). Ele mora ao lado do rótulo de versão
              porque é a MESMA conversa ("que versão eu tenho?" / "tem uma mais

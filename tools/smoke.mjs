@@ -367,6 +367,91 @@ try {
     'os tiles SEM "desligado" vêm primeiro e os que ligam e desligam depois',
     JSON.stringify(ordem));
 
+  // ---- O MODO DO APP É UM INTERRUPTOR QUE DESLIZA (v1.4.43) ----
+  //
+  // Pedido do operador: *"simplifique o design do agrupamento e botões de fácil
+  // e avançado, eles estão com muitas camadas e tons de grupos. faça eles do
+  // tipo toggle onde ele desliza de um lado para o outro, assim deixando mais
+  // claro que está alternando de um para o outro"*.
+  //
+  // TRÊS METADES, e nenhuma basta sozinha:
+  //
+  // 1. O POLEGAR ANDA, medido no RENDERIZADO. É a metade que carrega o pedido —
+  //    "desliza de um lado para o outro" — e é a que uma troca de classe passa
+  //    sem cumprir: um `.active` novo aprova num teste de classe e continua
+  //    imóvel na tela. Quem responde é a `transform` do `::before` do trilho,
+  //    porque é ela que o compositor anima; ler a posição do BOTÃO não serviria,
+  //    o botão nunca se mexe.
+  // 2. OS BOTÕES NÃO TÊM FUNDO PRÓPRIO. Era essa a queixa das "camadas e tons":
+  //    quatro tons empilhados (folha, cartão em destaque, superfície do botão,
+  //    polegar) para uma escolha de duas posições. Sem esta asserção, acrescentar
+  //    o polegar por cima do desenho antigo passaria na primeira e deixaria a
+  //    pilha inteira de pé — com uma camada A MAIS.
+  // 3. O `data-modo` SEGUE O MODO. É o estado que o CSS lê para decidir o lado;
+  //    escrito só na abertura, o polegar ficaria parado no modo de ontem enquanto
+  //    o `.active` (que o app já escrevia) diria o certo — as duas metades
+  //    discordando, e só a errada visível.
+  //
+  // A caixa e a `transform` são lidas DEPOIS de assentar: a transição é de
+  // 0,22 s, e um prazo fixo mediria o meio dela — prazo lido como veredito.
+  const toggle = await pg.evaluate(async () => {
+    const quadro = () => new Promise((r) => requestAnimationFrame(() => r()));
+    const trilho = document.getElementById('appModeSeg');
+    if (!trilho) return null;
+    const polegar = () => getComputedStyle(trilho, '::before').transform;
+    // Mesma disciplina do bloco da troca de modo: quem diz que a transição
+    // acabou é `getAnimations()`, não um prazo nem duas amostras iguais — o
+    // polegar fica PARADO no ponto de partida entre o clique e o primeiro
+    // quadro da animação, e ali duas amostras iguais aprovam o lado de antes.
+    const assentar = async () => {
+      for (let volta = 0; volta < 8; volta++) {
+        const anims = trilho.getAnimations ? trilho.getAnimations({ subtree: true }) : [];
+        if (!anims.length) break;
+        await Promise.all(anims.map((a) => a.finished.catch(() => {})));
+        await quadro();
+      }
+      let ant = '', at = polegar();
+      for (let i = 0; i < 30 && ant !== at; i++) { ant = at; await quadro(); at = polegar(); }
+      return at;
+    };
+    const sonda = async (modo) => {
+      trilho.querySelector('.fit-opt[data-mode="' + modo + '"]').click();
+      const t = await assentar();
+      const btns = [...trilho.querySelectorAll('.fit-opt')].map((b) => ({
+        modo: b.dataset.mode,
+        ativo: b.classList.contains('active'),
+        // `backgroundColor` RENDERIZADO, e o teste é pelo ALFA: `none` computa
+        // para `rgba(0, 0, 0, 0)`, e é a ausência de tinta que se quer provar —
+        // um nome de token não diria se ele resolve para transparente.
+        pintado: !/,\s*0\)$/.test(getComputedStyle(b).backgroundColor),
+      }));
+      return { modo: trilho.dataset.modo, polegar: t, btns };
+    };
+    const facil = await sonda('simple');
+    const avancado = await sonda('full');
+    return { facil, avancado };
+  });
+  if (!toggle) {
+    checar(false, 'o seletor de modo do app existe na folha de Configurações');
+  } else {
+    checar(toggle.facil.polegar !== toggle.avancado.polegar,
+      'o POLEGAR do seletor de modo ANDA de um lado para o outro — medido no '
+      + '`transform` renderizado, que é o que uma troca de classe não cumpre',
+      JSON.stringify([toggle.facil.polegar, toggle.avancado.polegar]));
+    checar(!toggle.facil.btns.some((b) => b.pintado)
+      && !toggle.avancado.btns.some((b) => b.pintado),
+      'e os dois botões NÃO têm fundo próprio: o polegar é a única tinta do '
+      + 'interruptor — eram quatro tons empilhados para uma escolha de duas posições');
+    checar(toggle.facil.modo === 'simple' && toggle.avancado.modo === 'full',
+      'e o `data-modo` do trilho SEGUE o modo em vigor — é por ele que o CSS '
+      + 'decide o lado, e escrevê-lo só na abertura deixaria o polegar no modo de ontem',
+      JSON.stringify([toggle.facil.modo, toggle.avancado.modo]));
+    checar(toggle.facil.btns.find((b) => b.modo === 'simple').ativo
+      && toggle.avancado.btns.find((b) => b.modo === 'full').ativo,
+      'e a classe `.active` continua marcando o escolhido — ela carrega a COR do '
+      + 'rótulo sobre o polegar, e três oráculos a leem');
+  }
+
   // O QUE A v5.121 QUEBROU: o clique chamava uma função apagada. Um handler que
   // estoura não muda nada na tela — daí conferir o efeito (o pulso de
   // confirmação), e não só a ausência de erro.
@@ -2741,32 +2826,89 @@ try {
   // O CAMINHO DE SAÍDA, exercitado: no Modo Fácil, a engrenagem abre a folha e
   // a folha troca o modo. Sem esta metade, apagar o botão passaria nas de cima
   // e trancaria o operador — que é exatamente o risco desta sequência.
+  //
+  // E A FOLHA FICA (v1.4.43). Ela fechava ao trocar de modo, e o pedido foi o
+  // contrário: *"verifique para que a aba de configurações permaneça na tela
+  // imóvel ao alternar entre fácil e avançado, para não se perder a localização
+  // atual na visão do usuário"*. São DUAS asserções e não uma, porque elas
+  // falham por caminhos diferentes: a folha ABERTA responde ao `closeFadePopup`
+  // que saiu do ouvinte, e a folha IMÓVEL responde ao `<main>` — a caixa dela é
+  // `position: fixed` e mora FORA dele, e é isso que a faz sobreviver ao
+  // `body.mode-simple main { display: none }`. Mover o `#fadePopup` para dentro
+  // do `<main>` mantém a primeira e apaga a segunda, sem erro em lugar nenhum:
+  // o operador toca "Fácil" e a folha some com o modo antigo.
+  //
+  // A caixa é lida DEPOIS de assentar (duas amostras iguais em quadros
+  // seguidos), nunca por prazo fixo: a folha entra por transição, e um
+  // `setTimeout` curto mediria o meio dela — prazo lido como veredito.
   const saida = await pg.evaluate(async () => {
+    const quadro = () => new Promise((r) => requestAnimationFrame(() => r()));
+    const caixa = (el) => { const r = el.getBoundingClientRect();
+      return [r.left, r.top, r.width, r.height].map((n) => Math.round(n)).join(','); };
+    // ASSENTAR É ESPERAR TODAS AS TRANSIÇÕES TERMINAREM, e as duas formas mais
+    // óbvias de fazer isso reprovam um app que está certo:
+    //   · duas amostras iguais em quadros seguidos aprovam o PONTO DE PARTIDA —
+    //     entre a classe `open` e o primeiro quadro da animação a caixa fica
+    //     parada (MEDIDO: `top: -449`, a folha ainda no teto);
+    //   · o primeiro `transitionend` é o da propriedade que acabar primeiro, e
+    //     não o da que interessa (MEDIDO: `top: -7`, a `transform` a sete pixels
+    //     do fim quando a opacidade já tinha chegado).
+    // `getAnimations()` responde pelas transições EM CURSO — todas, sem que o
+    // oráculo precise saber quais são —, e `finished` é o sinal do navegador, não
+    // um prazo nosso. O laço externo cobre a transição que uma outra dispara.
+    const assentar = async (el) => {
+      for (let volta = 0; volta < 8; volta++) {
+        const anims = el.getAnimations ? el.getAnimations() : [];
+        if (!anims.length) break;
+        await Promise.all(anims.map((a) => a.finished.catch(() => {})));
+        await quadro();
+      }
+      let ant = '', at = caixa(el);
+      for (let i = 0; i < 30 && ant !== at; i++) { ant = at; await quadro(); at = caixa(el); }
+      return at;
+    };
     setAppMode('simple');
     const eng = document.getElementById('simpleSettingsBtn');
     const folha = document.getElementById('fadePopup');
+    const caixaDaFolha = folha.querySelector('.popup-sheet');
     // Null-safe pela disciplina do `ota.test.mjs`: num bundle sem a engrenagem
     // isto é um RESULTADO, não um acidente — e um `evaluate` que lança aqui
     // levaria junto as asserções seguintes, escondendo o que elas mediriam.
-    if (!eng) { setAppMode('full'); return { visivel: false, abriu: false, saiu: false }; }
+    if (!eng) { setAppMode('full'); return { visivel: false, abriu: false, saiu: false, ficou: false, imovel: false }; }
     // O toque é o do operador: a engrenagem tem de estar VISÍVEL e por cima da
     // tela do Modo Fácil (a folha é z-index 200; o modo, 90).
     const cs = getComputedStyle(eng);
     const visivel = cs.display !== 'none' && cs.visibility !== 'hidden' && eng.offsetParent !== null;
     eng.click();
-    await new Promise((r) => setTimeout(r, 60));
+    const antes = await assentar(caixaDaFolha);
     const abriu = folha.classList.contains('open');
     document.querySelector('#appModeSeg .fit-opt[data-mode="full"]').click();
-    await new Promise((r) => setTimeout(r, 60));
-    const saiu = !document.body.classList.contains('mode-simple')
-      && !folha.classList.contains('open');
+    const depois = await assentar(caixaDaFolha);
+    const saiu = !document.body.classList.contains('mode-simple');
+    const ficou = folha.classList.contains('open')
+      && getComputedStyle(caixaDaFolha).display !== 'none'
+      && caixaDaFolha.getBoundingClientRect().height > 0;
     setAppMode('full');
-    return { visivel, abriu, saiu };
+    // HIGIENE DO ORÁCULO, e ela virou obrigatória com a folha que FICA: até a
+    // v1.4.42 quem a fechava era o próprio ouvinte da troca de modo, e as
+    // dezenas de medições seguintes herdavam a tela limpa por acidente. Com a
+    // folha aberta por cima, um `elementFromPoint` de qualquer toque adiante
+    // acha a cortina — e o que reprova é uma asserção do Cronograma, a três mil
+    // linhas daqui, sem nada apontando para cá.
+    closeFadePopup();
+    await new Promise((r) => setTimeout(r, 300));
+    return { visivel, abriu, saiu, ficou, imovel: antes === depois, antes, depois };
   });
   checar(saida.visivel, 'e ela está à vista no Modo Fácil, não escondida atrás dele');
   checar(saida.abriu, 'o toque nela ABRE Configurações');
   checar(saida.saiu,
     'e de lá o operador SAI do Modo Fácil — o caminho que a engrenagem precisava existir para dar');
+  checar(saida.ficou,
+    'e a folha CONTINUA ABERTA depois da troca — ela fechava, e reabri-la é achar de novo '
+    + 'uma engrenagem que no outro modo mora em outro canto');
+  checar(saida.imovel,
+    'e ela não se mexe: a caixa é a mesma antes e depois ('
+    + saida.antes + ' → ' + saida.depois + ')');
 } catch (e) {
   checar(false, 'a medição da troca de modo terminou sem exceção (' + (e && e.message) + ')');
 }
@@ -3884,14 +4026,46 @@ try {
     const li = document.querySelector('#library .lib-item[data-id="' + ids[1] + '"]');
     if (!li) return { erro: 'a linha não foi desenhada' };
     li.querySelector('.row-mais').click();
-    await new Promise((f) => setTimeout(f, 260));
-    const caixa = li.querySelector('.row-acoes');
+    // ESPERA PELO FATO, não por 260 ms de relógio. REPRODUZIDO sob carga 2×
+    // (uma reprovação em doze): o `evaluate` media a faixa ANTES de a gaveta
+    // abrir e devolvia `caixa: 0` e `menorAlvo: 0` — a asserção então falava do
+    // PISO DE TOQUE quando o que estourou foi o relógio.
+    //
+    // São DOIS fatos em sequência, e é pular o primeiro que fazia o prazo
+    // parecer suficiente: a gaveta ABRE por um ouvinte ASSÍNCRONO (há um
+    // `await` do IndexedDB entre o toque e a classe `acoes-abertas`), e só
+    // então a faixa REVELA os botões por `transform` — logo depois do clique não
+    // há sequer o que animar. O sinal do primeiro é a CLASSE; o do segundo é
+    // `getAnimations()`, o mesmo do helper `gaveta()` lá em cima.
+    //
+    // A enquete é por `setTimeout` e NÃO por `requestAnimationFrame`: MEDIDO,
+    // um laço de rAF aqui gira as voltas todas sem que a gaveta chegue a abrir —
+    // ele não cede a vez às tarefas do ouvinte, e o oráculo passa a reprovar um
+    // app que está certo nas DUAS cargas. `setTimeout` é macrotarefa e deixa a
+    // fila do documento andar.
+    // E A LINHA É REPROCURADA A CADA VOLTA. MEDIDO: uma espera longa aqui
+    // atravessa um redesenho da lista, o `li` da mão vira órfão e tudo que se
+    // meça nele devolve zero — o mesmo zero de "a gaveta não abriu", com a
+    // asserção culpando o piso de toque nos dois casos. Foi o que o prazo de
+    // 260 ms nunca alcançou: ele era curto demais para o redesenho e longo
+    // demais para a máquina carregada.
+    const respirar = () => new Promise((f) => setTimeout(f, 16));
+    const linha = () => document.querySelector('#library .lib-item[data-id="' + ids[1] + '"]');
+    const faixaDe = (el) => (el ? el.querySelector('.row-acoes') : null);
+    const assentada = () => {
+      const cx = faixaDe(linha());
+      return !!cx && cx.getBoundingClientRect().width > 0
+        && cx.getAnimations({ subtree: true }).every((a) => a.playState !== 'running');
+    };
+    for (let i = 0; i < 200 && !assentada(); i++) await respirar();
+    const li2 = linha() || li;
+    const caixa = faixaDe(li2);
     const botoes = [...caixa.querySelectorAll('.row-btn')];
     const gap = parseFloat(getComputedStyle(caixa).gap) || 0;
     const soma = botoes.reduce((t, b) => t + b.getBoundingClientRect().width, 0)
       + Math.max(0, botoes.length - 1) * gap;
     const cb = caixa.getBoundingClientRect();
-    const mais = li.querySelector('.row-mais').getBoundingClientRect();
+    const mais = li2.querySelector('.row-mais').getBoundingClientRect();
     const r = {
       n: botoes.length,
       classes: botoes.map((b) => b.className.replace('row-btn ', '')),

@@ -617,6 +617,110 @@ try {
   checar(selo.colideComOperacao === false,
     'e ele não encosta na coluna de operação — é por não fazer coluna com ninguém que ele continua se lendo como estado, e não como controle', selo);
 
+  // ── 3-B. A BASE DA PREVIEW É A REGIÃO DO QUE ESTÁ FORA DO PADRÃO (v1.4.43) ──
+  //
+  // Pedido do operador: *"essa região inferior no centro da preview vai ser uma
+  // região flexível que vai conter elementos passageiros. no caso, agora quando
+  // o giro do telão estiver diferente de 0, adicione um botão ali nessa região
+  // para cancelar essa modificação, permitindo voltar a posição padrão"*.
+  //
+  // CINCO METADES, e cada uma falha CALADA por um caminho próprio:
+  //
+  //  1. ELE APARECE PELO CAMINHO REAL. Quem o mostra é `renderRotBtn`, o render
+  //     do ESTADO que ele desfaz — um render próprio, chamado de um lugar só,
+  //     deixaria o botão de pé depois de o giro voltar a zero, oferecendo
+  //     desfazer o que já não existe. O oráculo aplica o giro por `applyRotate`,
+  //     que é a porta única, e não escrevendo `hidden` à mão.
+  //  2. O TOQUE VOLTA AO PADRÃO, medido no COMANDO que sai no barramento: é o
+  //     telão que tem de girar de volta, e um `applyRotate` que só repintasse o
+  //     tile deixaria a projeção girada com a preview dizendo que não está.
+  //  3. E ELE SOME DEPOIS. Sem esta, um botão que só acende passaria na 1 e na 2.
+  //  4. A COR NÃO É A DO VIZINHO nem a dos botões de player, medida no
+  //     RENDERIZADO. É a armadilha que o `.pv-fab--camada` já pagou uma vez:
+  //     escrita ANTES da `.pv-fab` na folha, a regra perde para o
+  //     `color: var(--stage-text)` e o botão sai BRANCO — igual aos de player ao
+  //     lado, isto é, sem dizer nada. Um teste de classe aprova as duas versões.
+  //  5. O NÚMERO CABE. Ele é o ESTADO (uma seta circular sozinha sobre a
+  //     projeção leria "girar mais 90°", o oposto do que o toque faz), e é o
+  //     único `.pv-fab` mais largo que `--hit`: mantido o `width` fixo dos
+  //     irmãos, "180°" sai cortado sem erro em lugar nenhum.
+  const giro = await pg.evaluate(async () => {
+    const btn = document.getElementById('pvGiroBtn');
+    if (!btn) return null;
+    // A RÉGUA DO BRANCO É UM VIZINHO RENDERIZADO, nunca o valor do token: o
+    // `--stage-text` sai de `getPropertyValue` como `#fff` e a cor computada
+    // sai como `rgb(255, 255, 255)` — duas escritas da mesma cor que nunca são
+    // iguais como string, e a comparação passa SEMPRE. MEDIDO por reversão: com
+    // o `.pv-fab--giro` pintado de `--stage-text` de propósito, a asserção
+    // continuava verde. Quem responde é o botão de tela cheia, que é um
+    // `.pv-fab` sem cor própria e mora na mesma miniatura.
+    const brancoDoPalco = getComputedStyle(document.getElementById('pvFullBtn')).color;
+    const cor = (el) => getComputedStyle(el).color;
+    const antes = { escondido: btn.hidden };
+    await applyRotate(90);
+    const aceso = {
+      escondido: btn.hidden,
+      num: (document.getElementById('pvGiroNum') || {}).textContent,
+      cor: cor(btn),
+      corDoSelo: cor(document.getElementById('pvCamadaBtn')),
+      titulo: btn.title,
+      cabe: btn.scrollWidth <= btn.clientWidth + 1,
+      largura: Math.round(btn.getBoundingClientRect().width),
+      alvo: Math.round(btn.getBoundingClientRect().height),
+    };
+    // O espião entra no ponto por onde TODO comando passa.
+    const vistos = [];
+    const original = window.cmd;
+    window.cmd = (c) => { vistos.push(c); };
+    btn.click();
+    // ESPERA PELO FATO, não por um prazo: `applyRotate` grava no banco ANTES de
+    // mandar o comando, então o `cmd` sai depois de uma volta ao IndexedDB —
+    // um `setTimeout(0)` restaura o espião antes de ele ver alguma coisa, e o
+    // que sobra é uma lista vazia lida como "o app não mandou nada".
+    for (let i = 0; i < 200 && !vistos.length; i++) {
+      await new Promise((r) => requestAnimationFrame(() => r()));
+    }
+    window.cmd = original;
+    return {
+      antes, aceso, brancoDoPalco,
+      comandos: vistos.map((c) => c.type + ':' + c.rotate),
+      depois: { escondido: btn.hidden, rot: mediaRot },
+      naBase: (() => {
+        const faixa = btn.closest('.pv-fabs--base');
+        return !!faixa && faixa.contains(document.getElementById('pvCamadaBtn'));
+      })(),
+    };
+  });
+  if (!giro) {
+    checar(false, 'a base da preview tem o botão de desfazer o giro do telão');
+  } else {
+    checar(giro.antes.escondido && !giro.aceso.escondido,
+      'o DESFAZER DO GIRO nasce escondido e aparece quando o giro sai de 0 — pelo '
+      + 'render do estado que ele desfaz, não por um `hidden` escrito à mão', giro.antes);
+    checar(giro.aceso.num === '90°',
+      'e ele diz o ÂNGULO: o número é o estado, sem o qual a seta circular sobre a '
+      + 'projeção se leria como "girar mais 90°"', giro.aceso.num);
+    checar(/volta à posição padrão/.test(giro.aceso.titulo || ''),
+      'e o `title` diz a AÇÃO — a divisão de sempre: o desenho mostra o estado, a frase diz o toque',
+      giro.aceso.titulo);
+    checar(giro.comandos.includes('rotate:0'),
+      'o toque manda o TELÃO de volta ao padrão (um `rotate: 0` no barramento) — '
+      + 'repintar só o tile deixaria a projeção girada', giro.comandos);
+    checar(giro.depois.rot === 0 && giro.depois.escondido,
+      'e o botão SOME depois: um que só acende passaria nas duas de cima e ficaria '
+      + 'oferecendo desfazer o que já não existe', giro.depois);
+    checar(giro.aceso.cor !== giro.aceso.corDoSelo && giro.aceso.cor !== giro.brancoDoPalco,
+      'a COR dele não é a do selo de camadas nem o branco dos botões de player — '
+      + 'medida no RENDERIZADO, porque uma regra escrita ANTES da `.pv-fab` perde '
+      + 'para o `--stage-text` e o botão sai branco, sem dizer nada', giro.aceso);
+    checar(giro.aceso.cabe && giro.aceso.largura > giro.aceso.alvo,
+      'e o número CABE: ele é o único `.pv-fab` mais largo que `--hit`, e com a '
+      + 'largura fixa dos irmãos "180°" sairia cortado sem erro nenhum', giro.aceso);
+    checar(giro.naBase,
+      'e ele mora na MESMA faixa do selo de camadas — a base ao centro é a região '
+      + 'do que está fora do padrão, não uma barra de ferramentas nova');
+  }
+
   // ── 4. A ARMADILHA DO `<use>`: o desenho tem de TROCAR ─────────────────
   //
   // A asserção é QUAL desenho está no ar em cada estado, e não a contagem de

@@ -24,6 +24,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
+- **v1.4.43** — O RODAPÉ DE CONFIGURAÇÕES VIROU UM DESENHO SÓ, O MODO DO APP VIROU UM INTERRUPTOR QUE DESLIZA, E A BASE DA PREVIEW VIROU A REGIÃO DO QUE ESTÁ FORA DO PADRÃO. Quatro pedidos do operador num lote. O rodapé tinha três desenhos e três tamanhos para o mesmo assunto (a versão, o rótulo "Registro" e os dois botões dele): hoje são DUAS pastilhas do mesmo tom, da mesma altura (`--hit`) e do mesmo corpo, uma em cada ponta. O seletor Fácil × Avançado empilhava QUATRO tons para uma escolha de duas posições e virou um trilho com um polegar que anda por `transform` — o deslize é o que diz *"isto alterna"*, e é ele que o oráculo mede no RENDERIZADO, porque uma troca de classe passa num teste de classe e continua imóvel na tela. A folha de Configurações **deixou de fechar** ao trocar de modo (ela fechava por decisão, e quem trocava perdia o lugar e o caminho de volta — a engrenagem mora em outro canto no outro modo). E a base da preview, que hospedava só o selo de camadas, passou a ser a faixa do **que está fora do padrão AGORA**: entrou ali o desfazer do giro do telão, com o ÂNGULO à vista, porque voltar de 90° custava abrir a folha e ciclar o tile três vezes olhando para a folha e não para a projeção.
 - **v1.4.42** — A CONTAGEM DE USO PASSOU A SER SEMPRE ATIVA: O SISTEMA DE EXCLUSÃO SAIU INTEIRO. Pedido do operador: *"descarte a opção de contagem de uso como opcional, deixe sempre ativo, não preciso do sistema de exclusividade"*. Saíram a linha do rodapé do Registro e o `renderFarolLinha`, o **`farolContar` da ponte** (shell 60 → **61**, o PRIMEIRO método que este projeto remove), o `Farol.definirContar`, a leitura da preferência em `Farol.contar`, os símbolos `icoMedicao`/`icoMedicaoOff` (um `<symbol>` sem consumidor viaja no bundle do OTA e não desenha nada em lugar nenhum), o interruptor `#opContar` da página de alcance e o roteamento `avRegistroOperador` → `v-dev.txt` do site. **O QUE FICA é a única exclusão que nunca foi opção: o BUILD DEBUGGÁVEL**, que acende num contador separado por `FLAG_DEBUGGABLE` — higiene de construção, sem UI, e sem ela toda sessão de trabalho entraria no número público como se fosse uma igreja. `farolEstado` também fica, virou SÓ LEITURA, e alimenta a linha "Alcance:" do Registro, que responde a pergunta que faz aquele texto ser copiado: *o farol chegou a acender?* **O APK ERA OBRIGATÓRIO, e essa é a parte que não dava para adiar:** a chave já gravada continuaria sendo lida por um shell antigo, e um aparelho marcado *"fica de fora"* ficaria fora da contagem PARA SEMPRE, sem tela para desmarcar — contador não se corrige depois. É o `Farol.contar` do APK novo que o devolve, daí o `shellTag` segurando o bundle até a Release existir; e é o primeiro lote a exercitar de verdade a regra escrita há dezenas de versões (*"MUDAR A FORMA de um método que já existe é PIOR que acrescentar um"*). **O PREÇO ENTROU NO PAINEL, e é onde ele tinha de estar:** sem exclusão, "aparelhos por dia" e "visitas" passam a incluir o uso próprio — e um painel que não avisa é o *confiável e falso* que `docs/MEDICAO-DE-ALCANCE.md` nomeia, só que pelo outro lado. A página de alcance diz isso logo abaixo dos números, e o oráculo cobra a FRASE RENDERIZADA (uma nota vazia passaria num teste de seletor). O caso do roteamento no `registro-alcance` **inverteu em vez de sair**: ele prova agora que nenhum resto do mecanismo desvia o navegador de quem audita — um `localStorage` esquecido o deixaria fora do número público em silêncio, o desfecho que aquele arquivo nasceu para não ter. **EXIGE RELEASE v1.4.42.**
 - **v1.4.41** — O ENQUADRAMENTO NÃO ERA "SÓ PARA FOTOS": ERA "SÓ QUANDO A MÍDIA É A CENA". Pergunta do operador: *"faça uma verificação sobre os itens de preenchimento e girar. eles atualmente só servem para fotos? veja se consegue aplicar eles a todos os tipos de mídias na tela"*, mais o pedido de o título dizer que o giro é do telão e o de tirar a medição do app. **MEDIDO no `/display/`** com `cover` e 90° escolhidos: `#img` (imagem e apresentação como CENA) e `#video` seguiam os dois; `#textImg` — a MESMA foto e a MESMA página projetadas como CAMADA por cima de um louvor de fundo (v5.312 e v1.4.28) — ficava presa no `contain` da folha, sem giro nenhum. **É o pior formato de defeito que aquele painel pode ter:** o mesmo controle, o mesmo conteúdo, e funciona ou não conforme haja uma música tocando por baixo, que é a última coisa que alguém relacionaria com preenchimento. A correção entra no MOTOR e não no dono do palco (`camadaImg` no `createStage`), porque "como a mídia ocupa o telão" é decisão de um lugar só. **O giro precisou de mais que isso:** `aplicarGiro` desiste quando não consegue medir a caixa, e um elemento `hidden` não tem caixa — girar com o telão no wallpaper e só então projetar entregava a mídia sem giro, que é o irmão exato do que o `applyMedia` já resolvia para o `img`/`video`. Daí `reporGiro()`, PEDIDO nos dois lados; e MEDIDO por reversão, sem ele só a PREVIEW reprova — no telão o `showText` mexe na cortina e o `applyMedia` repõe de carona, um acidente de ordem que quem apagar a chamada "redundante" descobre no telão. **O FUNDO DA ESTROFE fica de fora**, e é a metade que impede o conserto largo demais: ele não é a mídia, é o fundo ATRÁS da letra — `cover` ali não é escolha de enquadramento, e girá-lo deitaria a imagem sob um texto que continua de pé. O tile virou **"Girar no telão"** porque "Girar" sozinho, numa folha de Configurações, se lê como o giro da INTERFACE. **E a MEDIÇÃO saiu da grade**: o pedido era levá-la para a página de alcance do site, e a resposta honesta é que a página NÃO alcança o app — origens diferentes no mesmo aparelho, armazenamento isolado, e o app sem intent-filter de URL (só MAIN e SEND); a única ponte possível seria uma porta EXPORTADA que troca uma chave de privacidade, pior que o botão. Ela virou uma linha quieta no rodapé do Registro, e a PÁGINA ganhou o interruptor que ela de fato controla: o do NAVEGADOR, que era escrito em silêncio, valia para sempre e não tinha volta — agora com TRÊS estados, porque com dois a marca era reescrita em toda abertura e o interruptor se desfazia sozinho. Oráculo novo (`enquadramento-da-camada.test.mjs`, 10 asserções), mais três metades no `boot-nativo` e quatro no `registro-alcance`; três reversões. OTA PURO.
 - **v1.4.40** — O AZUL DO TILE PASSOU A DIZER *"ligado"*, E QUEM NÃO TEM DESLIGADO FICA SEMPRE AZUL. Pedido do operador: *"a maioria dos botões das configurações não tem estado de ativo e inativo, como o seletor de tema claro ou escuro, o preenchimento, o histórico e o wallpaper padrão… então pode deixar eles no estado azul de 'sempre ativo' o tempo todo. ajuste para que esses itens que não se ativam fiquem no topo da listagem e deixe os outros mais em baixo"*. **A v1.4.38 leu o aceso como *"o estado não é o padrão"*, e essa leitura não sobrevive ao contato com quem opera:** escolher "Ajustar" não desliga nada, e um tile apagado, no vocabulário deste app, diz INDISPONÍVEL — é a queixa da v1.4.25 palavra por palavra (*"foi simplesmente ofuscado o botão inteiro, o que dá a impressão de que não está disponível a opção"*), com o agravante de o app já ter uma linguagem para indisponível (`opacity: .3` + `disabled`). Hoje **aceso = a função está LIGADA**, e num tile que não tem desligado — tema, preenchimento, wallpaper, histórico — é SEMPRE. **A correção obrigou a PARTIR UMA CLASSE EM DUAS:** `qs-on` acendia o tile E trocava o desenho, então um tile sempre aceso ficaria preso no desenho alternativo para sempre (o tema mostrando o sol no escuro). São duas perguntas — *"qual desenho?"* e *"está ligado?"* — e a partir daqui `qs-alt` responde a primeira. **E DOIS ACESOS FORAM INVERTIDOS** no mesmo lote: fundo da letra e medição marcavam `Remover` e `De fora` (o que não é o padrão) e passaram a marcar `Mostrar` e `Entra` (a função ligada) — com isso o desenho e a luz dizem a mesma coisa, em vez de coisas opostas no mesmo botão. **A ordem virou POR NATUREZA**, numa grade só: os quatro sempre-acesos primeiro, os três que ligam e desligam depois. Duas grades com um respiro entre elas foram descartadas — o primeiro grupo tem QUATRO itens em três colunas, e a grade própria deixaria dois buracos no meio do painel, que se leem como defeito e não como separação; numa grade só quem desenha o grupo é a própria cor. **De quebra, um defeito de resposta ao toque:** `setLyricsBg` pintava o tile DEPOIS do `await` da gravação, então aquele botão só respondia ao dedo quando a transação do IndexedDB voltasse — os irmãos (`applyFit`, `applyRotate`) sempre pintaram antes. **O que se perde está dito:** a grade deixou de responder *"o que eu deixei mexido aqui?"* de relance, e quem responde isso agora é a palavra do estado, que sempre esteve lá. Cinco asserções novas no `smoke.mjs`, com a metade que impede o conserto preguiçoso (acender tudo sempre): o fundo da letra continua APAGANDO. OTA PURO.
@@ -313,6 +314,168 @@ na nota que a revoga, não apagada da que a criou.
 - **v5.154** — é METADE OTA e METADE APK, e a divisão importa para quem for testar em aparelho.
 - **v5.155** — é OTA PURO
 - **v5.156** — é METADE OTA e METADE APK, de novo.
+
+---
+
+## v1.4.43 — o rodapé unificado, o modo que desliza, e a base da preview
+
+**Quatro pedidos do operador, num lote só de web** (nenhum `.kt`, nenhum `res/`,
+nenhum workflow — não há Release nem `shellTag`).
+
+### 1. O rodapé de Configurações tem UM desenho
+
+*"faça uma unificação do design do rodapé das configurações, atualmente cada
+elemento tem um design e tamanho único, como a versão, o registro e seus
+botões… padronize e unifique, pois são basicamente o mesmo tema."*
+
+Eram três peças com três desenhos: a versão como texto solto, o rótulo
+"Registro" como legenda e os dois botões como pastilhas de outra altura. Hoje
+são **DUAS pastilhas**, e a regra é uma: mesmo tom (`--surface-2`), mesma altura
+(`--hit`, o piso de alvo do app) e mesmo corpo (`--fs-diag`, declarado uma vez
+na `.footer-diag` e herdado pelas duas). O rótulo e os botões viraram um bloco
+só (`.footer-log`) porque eles são **uma coisa**: o nome do que se copia e as
+duas formas de copiar.
+
+`margin-left: auto` na segunda e `flex: 0 0 auto` nas duas: as pastilhas
+encostam nas pontas e nenhuma estica. Um `flex: 1` daria duas caixas do tamanho
+da tela com o texto perdido no meio delas.
+
+O `.log-copy` dentro do rodapé perde o fundo próprio (a pastilha já é o fundo) e
+guarda o `--btn-ok` do estado **copiado** — que é o único momento em que ele
+precisa se destacar de dentro dela.
+
+### 2. O modo do app é um interruptor que DESLIZA
+
+*"simplifique o design do agrupamento e botões de fácil e avançado, eles estão
+com muitas camadas e tons de grupos. faça eles do tipo toggle onde ele desliza
+de um lado para o outro, assim deixando mais claro que está alternando de um
+para o outro."*
+
+**Eram QUATRO tons empilhados** para uma escolha de duas posições: a folha
+(`--panel`), o cartão em destaque (`--camada`, o nível do `--panel-2`), a
+superfície afundada de cada botão (`--surface`) e o `--accent-fill` do
+escolhido. Hoje são **DOIS**: o trilho afundado e o polegar aceso. O cartão de
+destaque (`.fade-row--destaque` + `.fit-seg--grande`) saiu inteiro — aquela
+linha tinha peso por TOM e por TAMANHO, e passou a ter peso por **movimento**,
+que nenhuma das irmãs tem e que não gasta degrau da escada de camadas.
+
+- **O polegar é um `::before` do trilho**, não uma terceira caixa no HTML. Ele
+  mede metade do trilho menos o respiro, então `translateX(100%)` o encaixa na
+  outra metade **sem conta nenhuma em runtime** — uma largura em porcentagem se
+  resolve contra o trilho (errado) e o `translateX` de um elemento posicionado
+  se resolve contra a largura DELE (certo). Animar `transform` e não `left`:
+  `left` devolve a animação ao layout, que é onde ela engasga.
+- **`grid` de duas colunas iguais, não `flex: 1`.** Com o polegar medindo metade
+  exata, as duas metades do conteúdo têm de medir a mesma coisa **por
+  construção**: `flex: 1` distribui a SOBRA, e "Avançado" é mais longo que
+  "Fácil".
+- **O estado vive no `data-modo` do trilho**, escrito por `renderAppModeSeg` — a
+  mesma disciplina do `data-estado` dos tiles: a classe é aparência, o atributo
+  é o valor em vigor. Escrito só na abertura, o polegar ficaria parado no modo
+  de ontem enquanto o `.active` (que o app já escrevia) diria o certo: as duas
+  metades discordando, e só a errada visível.
+- **`--text` e não `--muted` no rótulo apagado.** O trilho é `--surface` sobre a
+  folha, e `--muted` ali dá **3,47:1** no tema claro — reprova o piso de 4,5:1
+  para texto pequeno. É a mesma medição que o seletor em destaque carregava. O
+  que separa as duas metades é o POLEGAR; esmaecer o não escolhido diria
+  "indisponível", que nesta paleta é outra palavra.
+- Os botões perderam o fundo próprio: `background: none` nos dois estados. Sem
+  isso, acrescentar o polegar por cima do desenho antigo deixaria a pilha
+  inteira de pé — com uma camada A MAIS.
+
+### 3. Configurações não fecha mais ao trocar de modo
+
+*"verifique para que a aba de configurações permaneça na tela imóvel ao alternar
+entre fácil e avançado, para não se perder a localização atual na visão do
+usuário."*
+
+O ouvinte chamava `closeFadePopup()`, com a justificativa *"a escolha já mudou a
+tela inteira atrás do popup"* — e é justamente esse o problema: **quem trocava
+de modo perdia a folha, o lugar dela e o caminho de volta**, porque a engrenagem
+que a abre mora em outro canto em cada modo. Com o interruptor que desliza, o
+que responde ao toque está DENTRO da folha, à vista.
+
+**A folha fica IMÓVEL por onde ela mora, e isso não é acidente:** o `#fadePopup`
+é `position: fixed` e vive **fora do `<main>`**, que é o que o
+`body.mode-simple main { display: none }` esconde. Mover o `#fadePopup` para
+dentro do `<main>` mantém a folha "aberta" pela classe e a apaga da tela, sem
+erro em lugar nenhum — daí o oráculo medir a CAIXA dela antes e depois, e não só
+a classe.
+
+### 4. A base da preview é a região do que está FORA DO PADRÃO
+
+*"atualize o local onde hoje sobrepomos o icone de remover camada na preview.
+essa região inferior no centro da preview vai ser uma região flexível que vai
+conter elementos passageiros. no caso, agora quando o giro do telão estiver
+diferente de 0, adicione um botão ali nessa região para cancelar essa
+modificação, permitindo voltar a posição padrão."*
+
+A faixa hospedava um item só (o selo de camadas) e ganhou uma **regra de
+admissão**: entra aqui o que **saiu do padrão AGORA e o toque desfaz**. Não é
+uma barra de ferramentas — é o contrário dela: as três laterais OPERAM a cena e
+estão sempre lá; estas aparecem porque há o que desfazer e somem quando não há.
+`justify-content: center` porque a faixa é uma FILA de zero, um ou dois itens, e
+o centro é o único alinhamento que não promete lugar fixo a ninguém.
+
+**O primeiro morador novo é o desfazer do giro** (`#pvGiroBtn`). O giro era a
+única preferência que muda a projeção e não tinha porta de volta onde se vê o
+efeito: o tile de Configurações CICLA 90° por vez, então voltar de 90° custava
+abrir a folha e tocar três vezes — olhando para a folha, não para a projeção.
+
+- **O ângulo é o estado**, e é ele que separa este botão do tile. O desenho é o
+  mesmo `#icoGirar` (o assunto não mudou), e uma seta circular sozinha sobre a
+  projeção leria *"girar mais 90°"* — o oposto do que o toque faz. Com o número
+  ao lado a frase fecha: *está a 90°* (estado) + *toque volta ao padrão*
+  (`title`), a mesma divisão dos botões da notificação de mídia.
+- **Denim (`--stage-accent`), não o vermelho do vizinho.** O palco não tem tema,
+  então o token é o do PALCO; e vermelho neste app quer dizer "está no ar
+  agora", que a camada de cima já ocupa a dois centímetros dali. A regra vem
+  **depois** da `.pv-fab` na folha pela razão que o selo de camadas já mediu: as
+  duas medem 0,1,0 e quem vence é a última do arquivo — escrita antes, o
+  `color: var(--stage-text)` ganha e o botão sai BRANCO, isto é, sem dizer nada.
+- **É o único `.pv-fab` mais largo que `--hit`** (`width: auto` com
+  `min-width`), e a exceção é o número. A altura não muda, o alvo continua no
+  piso do app, e mantido o `width` fixo dos irmãos "180°" sairia cortado sem
+  erro nenhum.
+- **O `<span>` do número ganha o `text-shadow` irmão das três `drop-shadow`.**
+  A `drop-shadow` do `.pv-fab svg` acompanha o traço do SVG e não alcança um
+  `<span>`: sem o irmão, o ângulo sumiria sobre um slide claro exatamente onde o
+  ícone ao lado continua legível.
+- **Quem o mostra é `renderRotBtn`** — o render do ESTADO que ele desfaz, nunca
+  um render próprio. É a única disciplina que impede o botão de sobreviver ao
+  fato que ele nomeia.
+
+### Os oráculos, e as duas armadilhas que eles pagaram
+
+`smoke.mjs` ganhou o bloco do interruptor (o polegar ANDA, medido na
+`transform` renderizada; os botões sem fundo próprio; o `data-modo` seguindo o
+modo) e duas asserções na troca de modo (a folha FICA, e a caixa dela é a mesma
+antes e depois). `controles-layout.test.mjs` ganhou as sete metades do desfazer
+do giro. Todas provadas por **reversão**.
+
+Duas medições que ficam, porque as duas aprovavam um app quebrado:
+
+- **Assentar não é "duas amostras iguais em quadros seguidos".** Entre a classe
+  `open` e o primeiro quadro da animação a caixa fica PARADA no ponto de
+  partida: MEDIDO, a primeira leitura saía em `top: -449` — a folha ainda no
+  teto — e o oráculo a tomava por assentada. **Nem é o primeiro
+  `transitionend`**, que é o da propriedade que acabar primeiro: MEDIDO,
+  `top: -7`, a `transform` a sete pixels do fim com a opacidade já pronta. Quem
+  responde é `getAnimations()` + `finished` — todas as transições em curso, sem
+  o oráculo precisar saber quais são, e com o sinal vindo do navegador em vez de
+  um prazo nosso.
+- **A régua do branco tem de ser um vizinho RENDERIZADO.** `--stage-text` sai de
+  `getPropertyValue` como `#fff` e a cor computada sai como
+  `rgb(255, 255, 255)`: duas escritas da mesma cor que nunca são iguais como
+  string, e a comparação passa SEMPRE. Provado por reversão — com o
+  `.pv-fab--giro` pintado de `--stage-text` de propósito, a asserção continuava
+  verde.
+
+E uma higiene que virou obrigatória com a folha que fica: o bloco da troca de
+modo do `smoke` agora **fecha a folha ao terminar**. Até aqui quem a fechava era
+o próprio ouvinte, e as dezenas de medições seguintes herdavam a tela limpa por
+acidente; com a folha aberta por cima, o que reprovava era uma asserção do
+Cronograma a três mil linhas dali, sem nada apontando para a causa.
 
 ---
 
