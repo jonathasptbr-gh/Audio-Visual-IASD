@@ -224,11 +224,19 @@ try {
   });
   await pg.waitForFunction(() => window.espera.ligado === true, null, { timeout: 5000 });
   await pg.evaluate(() => { palco.handle({ type: 'clear' }); });
-  await pg.waitForTimeout(300);
-  checar((await aviso()).ligado === false,
+  // ESPERAR PELO FATO, NÃO POR UM PRAZO. Quem desliga o anúncio aqui é um evento
+  // ASSÍNCRONO do próprio `<video>` (o `emptied` que o `removeAttribute('src')`
+  // dispara), e um `waitForTimeout` fixo é uma aposta na máquina: sob carga o
+  // evento chega depois do prazo, o oráculo reprova um app que está CERTO, e
+  // quem lê o log conclui que a projeção ficou com o cartão de pé.
+  // MEDIDO: foi assim que a v1.4.30 reprovou no runner (48/49) e não publicou
+  // o bundle — o portão do `web-ota` fecha com o `verificar`.
+  const apagou = await pg.waitForFunction(() => window.espera.ligado === false,
+    null, { timeout: 5000 }).then(() => true).catch(() => false);
+  checar(apagou,
     'o `clear` não deixa o aviso da FOME de pé — o Controle dizendo "Preparando" '
     + 'sobre o wallpaper é o app afirmando que trabalha sem cena nenhuma',
-    await aviso());
+    apagou ? undefined : 'PRAZO, não veredito: o aviso continuava ligado 5 s depois do `clear`');
 
   // ── 6. SÓ NO STREAM ─────────────────────────────────────────────────────
   // Um arquivo local não fica sem dados. Sem esta metade a correção anunciaria
