@@ -725,13 +725,57 @@ tamanho do ícone vem do CSS (`24px`), não do atributo do `<svg>`.
 |---|---|---|---|
 | `.pv-fabs` | coluna DIREITA | cast em cima, tela cheia embaixo | *para onde eu mando isto?* |
 | `.pv-fabs--esq` | coluna ESQUERDA (v1.3.5) | letra → cortina → mudo | *como eu opero a cena?* |
-| `.pv-fabs--base` | BASE, ao centro (v1.3.10) | o selo de camadas (`#pvCamadaBtn`) | *o que está no ar por cima do quê?* |
+| `.pv-fabs--base` | BASE, ao centro (v1.3.10) | o que está FORA DO PADRÃO agora: o selo de camadas (`#pvCamadaBtn`) e o desfazer do giro (`#pvGiroBtn`) | *o que eu desfaço daqui?* |
 
 > O selo já morou no canto superior esquerdo, e no topo ao centro (v1.3.5).
 > Desceu para a base a pedido do operador. Em qualquer das três posições a regra
 > é a mesma: **ele não faz coluna com ninguém** — a faixa horizontal que ocupa
 > existe só para centrá-lo, e é isso que o separa dos três da esquerda (os três
 > OPERAM a cena; este DIZ um estado dela).
+
+##### A base é a REGIÃO DO QUE ESTÁ FORA DO PADRÃO (v1.4.43)
+
+Pedido do operador: *"essa região inferior no centro da preview vai ser uma
+região flexível que vai conter elementos passageiros"*.
+
+**A regra de admissão é uma:** entra aqui o que **saiu do padrão AGORA e o toque
+desfaz**. É o contrário de uma barra de ferramentas — as três laterais OPERAM a
+cena e estão sempre lá; estas aparecem porque há o que desfazer e somem quando
+não há. Daí `justify-content: center` e não uma coluna: a faixa é uma FILA de
+zero, um ou dois itens, e o centro é o único alinhamento que não promete lugar
+fixo a ninguém. Com os dois no ar, **nenhum está centrado — o PAR está**.
+
+**Quem mostra cada um é o render do ESTADO que ele desfaz**
+(`renderCamadaBtn`, `renderRotBtn`), nunca um render próprio: é a única
+disciplina que impede o botão de sobreviver ao fato que ele nomeia.
+
+| morador | quando aparece | cor |
+|---|---|---|
+| `#pvCamadaBtn` | há Camada de Texto projetando | `--stage-alert` (está NO AR) |
+| `#pvGiroBtn` | `mediaRot !== 0` | `--stage-accent` (é uma PREFERÊNCIA) |
+
+**O desfazer do giro** existe porque o giro era a única preferência que muda a
+projeção **e não tinha porta de volta onde se vê o efeito**: o tile de
+Configurações CICLA 90° por vez, então voltar de 90° custava abrir a folha e
+tocar três vezes — olhando para a folha, não para a projeção.
+
+- **O ÂNGULO é o estado**, e é ele que separa este botão do tile. O desenho é o
+  mesmo `#icoGirar` (o assunto não mudou), e uma seta circular sozinha sobre a
+  projeção leria *"girar mais 90°"* — o oposto do que o toque faz. Com o número
+  ao lado a frase fecha: *está a 90°* (estado) + *toque volta ao padrão*
+  (`title`).
+- **É o único `.pv-fab` mais largo que `--hit`** (`width: auto` +
+  `min-width`), e a exceção é o número: mantido o `width` fixo dos irmãos,
+  "180°" sai cortado sem erro nenhum. A altura não muda — o alvo continua no
+  piso do app.
+- **O `<span>` do número tem `text-shadow` próprio**, irmão das três
+  `drop-shadow` do `.pv-fab svg`: aquelas acompanham o TRAÇO do SVG e não
+  alcançam um `<span>`. Sem ele o ângulo sumiria sobre um slide claro
+  exatamente onde o ícone ao lado continua legível.
+- **A regra da cor vem DEPOIS da `.pv-fab`** na folha, pela razão que o selo de
+  camadas já mediu: as duas medem 0,1,0 e quem vence é a última do arquivo —
+  escrita antes, o `color: var(--stage-text)` ganha e o botão sai BRANCO, igual
+  aos de player ao lado, isto é, sem dizer nada.
 
 ##### A coluna de operação (v1.3.5)
 
@@ -778,13 +822,14 @@ símbolos, e o consumidor pendura dois `<use>` — que são elementos da árvore
 LUZ, e é neles que o seletor pega. `#fsView` passou a usar o mesmo par, matando
 a cópia byte a byte que ele mantinha do desenho da cortina.
 
-##### O selo de camadas foi para o topo ao centro (v1.3.5)
+##### O selo de camadas foi para o centro (v1.3.5 no topo, v1.3.10 na base)
 
 Ele ocupava o canto superior esquerdo, e aquela lateral virou a coluna de
 operação: no alto daquela pilha, um selo vermelho leria como mais um controle
 dela — que é exatamente o que ele não é (os três operam a cena; este DIZ um
 estado dela). No centro ele não faz coluna com ninguém, e aparecer já é metade
-da mensagem.
+da mensagem. Desceu para a BASE na v1.3.10, pelo alcance do polegar — e é essa
+faixa que virou a região do que está fora do padrão (ver acima).
 
 Oráculo das três coisas: **`tools/controles-layout.test.mjs`**. As duas
 asserções mais óbvias para a armadilha do `<use>` — contar nós visíveis e
@@ -965,12 +1010,50 @@ valor de cada opção no HTML (`data-fit`) e já dizia a verdade antes de algué
 olhar; um tile só diz o que a pintura escreveu. O da **Medição** fica de fora
 dessa regra — ele é uma ida à ponte, e `load()` roda dezenas de vezes por culto.
 
-**O MODO DO APP continua sendo um SELETOR** (`#appModeSeg`, `.fit-seg--grande`
-dentro da `.fade-row--destaque`), com o desenho do painel — ícone em cima,
-palavra embaixo — e as duas opções à vista. A diferença é real: os tiles
-alternam entre dois estados equivalentes e voltam com um toque; este troca a
-tela inteira e **fecha a folha**, e um toque por engano custa a viagem de volta
-no meio do culto.
+**O MODO DO APP É UM INTERRUPTOR QUE DESLIZA** (`#appModeSeg`, `.qs-modo`
+dentro da `.fade-row--modo`, v1.4.43). Ele continua sendo um SELETOR e não um
+tile — as duas opções ficam à vista, com ícone e palavra —, mas o desenho mudou
+a pedido do operador: *"simplifique o design do agrupamento e botões de fácil e
+avançado, eles estão com muitas camadas e tons de grupos. faça eles do tipo
+toggle onde ele desliza de um lado para o outro"*.
+
+**Eram QUATRO tons empilhados** para uma escolha de duas posições: a folha
+(`--panel`), o cartão em destaque (`--camada`), a superfície afundada de cada
+botão (`--surface`) e o `--accent-fill` do escolhido. Hoje são **DOIS**: o
+trilho e o polegar. O cartão saiu — aquela linha tinha peso por TOM e por
+TAMANHO, e passou a ter peso por **movimento**, que nenhuma das irmãs tem e que
+não gasta degrau da escada de camadas.
+
+- **O polegar é um `::before` do trilho**, não uma terceira caixa no HTML. Ele
+  mede metade do trilho menos o respiro, então `translateX(100%)` o encaixa na
+  outra metade **sem conta nenhuma em runtime**: uma largura em porcentagem se
+  resolveria contra o trilho, e o `translateX` de um elemento posicionado se
+  resolve contra a largura DELE. `transform` e não `left` — `left` devolve a
+  animação ao layout.
+- **`grid` de duas colunas iguais, não `flex: 1`.** Com o polegar medindo metade
+  exata, as duas metades do conteúdo têm de medir a mesma coisa por CONSTRUÇÃO;
+  `flex: 1` distribui a SOBRA, e "Avançado" é mais longo que "Fácil".
+- **O estado vive no `data-modo`** do trilho, escrito por `renderAppModeSeg` — a
+  mesma disciplina do `data-estado` dos tiles. Escrito só na abertura, o polegar
+  ficaria parado no modo de ontem enquanto o `.active` diria o certo.
+- **`--text` e não `--muted` no rótulo apagado**: `--muted` sobre o trilho dá
+  3,47:1 no tema claro, abaixo do piso de 4,5:1. O que separa as metades é o
+  POLEGAR; esmaecer o não escolhido diria "indisponível", que nesta paleta é
+  outra palavra.
+
+**E A FOLHA NÃO FECHA MAIS** (v1.4.43): *"verifique para que a aba de
+configurações permaneça na tela imóvel ao alternar entre fácil e avançado, para
+não se perder a localização atual na visão do usuário"*. Ela fechava por decisão
+— *"a escolha já mudou a tela inteira atrás do popup"* —, e é justamente esse o
+problema: quem trocava perdia a folha, o lugar dela e o caminho de volta, porque
+a engrenagem que a abre mora em outro canto em cada modo.
+
+**Ela fica IMÓVEL por onde MORA**, e isso não é acidente: o `#fadePopup` é
+`position: fixed` e vive **fora do `<main>`**, que é o que o
+`body.mode-simple main { display: none }` esconde. Mover o `#fadePopup` para
+dentro do `<main>` mantém a classe `open` e apaga a folha da tela, sem erro em
+lugar nenhum — daí o `smoke.mjs` medir a CAIXA dela antes e depois, e não só a
+classe.
 
 **O WALLPAPER É UM `<label>`** sobre o `<input type="file">`: é a ativação
 nativa do rótulo que abre o seletor do aparelho (invariante 6 — sem o
@@ -981,6 +1064,33 @@ outra são **dois toques**, e esse é o preço declarado de o wallpaper caber nu
 tile como os outros.
 
 O rodapé: **estado do telão**, a **versão** e o **Registro**.
+
+#### O rodapé tem UM desenho (v1.4.43)
+
+Pedido do operador: *"faça uma unificação do design do rodapé das configurações,
+atualmente cada elemento tem um design e tamanho único, como a versão, o
+registro e seus botões… padronize e unifique, pois são basicamente o mesmo
+tema"*.
+
+Eram três peças com três desenhos: a versão como texto solto, o rótulo
+"Registro" como legenda e os dois botões como pastilhas de outra altura. Hoje
+são **DUAS pastilhas** na `.footer-diag`, uma em cada ponta:
+
+| pastilha | o quê |
+|---|---|
+| `.app-version` | `Web vX · Shell vY` |
+| `.footer-log` | o rótulo "Registro" + `#diagSave` + `#diagCopy` |
+
+- **Mesmo tom (`--surface-2`), mesma altura (`--hit`) e mesmo corpo** — o
+  `--fs-diag` é declarado uma vez na `.footer-diag` e herdado pelas duas.
+- **O rótulo e os botões são UM bloco** porque são uma coisa: o nome do que se
+  copia e as duas formas de copiar.
+- **`flex: 0 0 auto` nas duas, `margin-left: auto` na segunda**: elas encostam
+  nas pontas e nenhuma estica. `flex: 1` daria duas caixas do tamanho da tela
+  com o texto perdido no meio.
+- **O `.log-copy` perde o fundo próprio ali dentro** (a pastilha já é o fundo) e
+  guarda o `--btn-ok` do estado **copiado**, que é o único momento em que ele
+  precisa se destacar de dentro dela.
 
 #### A contagem de uso NÃO TEM MAIS CHAVE (v1.4.42)
 

@@ -453,19 +453,11 @@ body {
   overflow: hidden;
 }
 
-/* ---------- Indicador de versão (no cabeçalho da lista) ---------- */
-.app-version {
-  /* `--text` pelo mesmo motivo do `.fit-seg--grande` acima, e MEDIDO: a pílula
-     afunda `--surface-2` dentro da folha, e no tema CLARO isso é preto a 20%
-     sobre branco (204,204,204) — `--muted` ali dá **4,15:1** a 11,2px, abaixo
-     do piso de 4,5. Com `--text`: **5,52:1** no claro e 10,55:1 no escuro.
-     Esta linha em particular não pode ser difícil de ler: é ela que responde
-     "o OTA chegou e o APK ainda não?" (ver `renderVersionLabel`), e é lida de
-     relance, no rodapé, por quem está diagnosticando. */
-  flex-shrink: 0;
-  font-size: .7rem; color: var(--text);
-  background: var(--surface-2); border-radius: var(--radius-pill); padding: 2px .55rem;
-}
+/* (O indicador de versão perdeu a regra própria na v1.4.43. Ele tinha uma
+   pílula com corpo, raio e respiro DELE, e o rodapé de Configurações — o único
+   lugar onde ele vive — passou a desenhar as duas pastilhas com uma régua só:
+   ver `.footer-diag`. Uma regra base cujas declarações eram todas sobrescritas
+   a dois seletores de distância não é herança, é uma segunda opinião.) */
 /* ---------- Barra de controles (base) ---------- */
 /* Desde a v5.54 ela começa na FAIXA DE ABAS e termina no transporte: um bloco
    só. A faixa era o último elemento do `<main>` e flutuava sobre o fundo do
@@ -903,6 +895,39 @@ body {
    `color: var(--stage-text)` e o selo saía BRANCO, igual aos botões de player
    ao lado — isto é, sem dizer nada. Medido. */
 .pv-fab--camada { color: var(--stage-alert); }
+/* ---------- O DESFAZER DO GIRO, na mesma faixa (v1.4.43) ----------
+   Ele é o SEGUNDO morador da base da preview, e o que o separa do vizinho é a
+   COR — a mesma disciplina que separa o selo de camadas dos botões de player.
+   `--stage-accent` (o denim do PALCO, que não tem tema) porque vermelho neste
+   app quer dizer "está no ar agora", e um giro é uma preferência de
+   enquadramento: nomeá-lo de vermelho tiraria o vermelho de quem precisa dele
+   na mesma faixa, a dois centímetros dali.
+
+   ELE É O ÚNICO `.pv-fab` MAIS LARGO QUE `--hit`, e a exceção é o número: o
+   ângulo É o estado (uma seta circular sozinha sobre a projeção leria "girar
+   mais 90°", o oposto do que o toque faz). `min-width` e não `width`, para o
+   alvo de toque continuar sendo o piso do app; a altura não muda.
+
+   VEM DEPOIS DA `.pv-fab` pela razão medida no vizinho: as duas medem 0,1,0 e
+   quem vence é a última do arquivo — escrita antes, o `color: var(--stage-text)`
+   ganharia e o botão sairia branco, isto é, sem dizer nada. */
+.pv-fab--giro {
+  width: auto; min-width: var(--hit);
+  gap: .15rem; padding: 0 .25rem;
+  color: var(--stage-accent);
+}
+/* O NÚMERO GANHA O MESMO CONTORNO DO TRAÇO. A `drop-shadow` do `.pv-fab svg`
+   acompanha o desenho do SVG e não alcança um `<span>`; sem o `text-shadow`
+   irmão dela, o ângulo sumiria sobre um slide claro exatamente onde o ícone ao
+   lado continua legível — o mesmo defeito que as três sombras existem para
+   impedir, num nó que elas não cobrem. */
+.pv-fab-num {
+  font-size: .72rem; font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums;
+  text-shadow:
+    0 0 1px rgba(0, 0, 0, .95),
+    0 0 2px var(--shadow-ink),
+    0 1px 5px rgba(0, 0, 0, .65);
+}
 /* ---------- OS DOIS ESTADOS QUE SUBIRAM PARA A PREVIEW (v1.3.5) ----------
    Sem moldura não há o que pintar de `--danger-soft`: com moldura o estado era o
    FUNDO do botão, e aqui o botão não tem fundo. O estado passa a ser a COR DO
@@ -4628,24 +4653,61 @@ main {
 /* A versão desceu do cabeçalho da lista para cá (ver o comentário no HTML): no
    rodapé ela fica na mesma coluna do estado do telão e do alvo de
    espelhamento — as três coisas que se olha quando algo não está certo. */
-/* ===== A FAIXA DE DIAGNÓSTICO DO RODAPÉ =====
-   Versão à esquerda, "Registro" e o botão de copiar à direita. As duas metades
-   respondem à mesma pergunta — "o que eu mando para quem vai me ajudar?" —, e
-   antes ocupavam duas linhas: a versão centrada numa e o Registro numa
-   `.fade-row` inteira, com o meio vazio.
-   O `margin: auto` da versão SAIU junto: aqui ela não está mais sozinha na
+/* ===== A FAIXA DE DIAGNÓSTICO DO RODAPÉ, EM DOIS BLOCOS IGUAIS (v1.4.43) =====
+   Versão à esquerda (o FATO), Registro à direita (o rótulo mais as duas ações
+   que o levam para fora). As duas metades respondem à mesma pergunta — *"o que
+   eu mando para quem vai me ajudar?"* — e agora têm a MESMA forma.
+
+   MEDIDO no que havia, e é o relato do operador (*"cada elemento tem um design
+   e tamanho único"*): a versão era uma pílula de ~20px com raio de CÁPSULA a
+   .7rem, o "Registro" era texto solto sem superfície a .8rem, e os botões eram
+   quadrados de 34px com raio de BOTÃO. Quatro formas, três alturas, dois raios,
+   duas fontes.
+
+   A UNIFICAÇÃO É UMA MEDIDA SÓ REPETIDA: altura `--hit`, raio `--radius-btn`,
+   superfície `--surface-2`, fonte `--fs-diag`. O que sobra de diferente entre
+   os dois blocos é só o que eles SÃO — um mostra texto, o outro hospeda alvos.
+
+   O `margin: auto` da versão saiu há versões: aqui ela não está sozinha na
    linha, e centralizá-la empurraria o par da direita para fora do lugar. */
 .footer-diag {
+  --fs-diag: .74rem;
   display: flex; align-items: center; gap: .5rem;
   margin-top: .45rem;
 }
-.popup-footer .app-version { flex: 0 0 auto; }
-/* `margin-left: auto` no RÓTULO, e não no botão: os dois são um par, e empurrar
-   só o botão deixaria a palavra "Registro" colada na versão. */
-.footer-diag-rot {
-  margin-left: auto;
-  font-size: .8rem; color: var(--muted);
+/* O ESQUELETO DAS DUAS PASTILHAS, escrito uma vez — é ele o "mesmo tema" do
+   pedido: mesmo tom, mesma altura (`--hit`, o piso de alvo do app) e mesmo
+   corpo. Um seletor por bloco e não uma classe comum: a `.app-version` nasceu
+   no cabeçalho da lista, e o dia em que voltar a ter dois lugares esta regra
+   não pode segui-la. */
+.footer-diag > .app-version,
+.footer-diag > .footer-log {
+  flex: 0 0 auto;
+  min-height: var(--hit);
+  display: flex; align-items: center;
+  background: var(--surface-2); border-radius: var(--radius-btn);
+  font-size: var(--fs-diag);
 }
+/* A versão é só texto: o respiro dela é o padding.
+   `--text` E NÃO `--muted`, e é MEDIDO: a pastilha afunda `--surface-2` dentro
+   da folha, e no tema CLARO isso é preto a 20% sobre branco (204,204,204) —
+   `--muted` ali dá **4,15:1**, abaixo do piso de 4,5. Com `--text`: **5,52:1**
+   no claro e 10,55:1 no escuro. Esta linha em particular não pode ser difícil
+   de ler: é ela que responde "o OTA chegou e o APK ainda não?" (ver
+   `renderVersionLabel`), lida de relance por quem está diagnosticando. */
+.footer-diag > .app-version { padding: 0 .6rem; color: var(--text); }
+/* O bloco do Registro: o rótulo e os dois alvos dividem UMA superfície. */
+.footer-diag > .footer-log { margin-left: auto; padding-left: .6rem; gap: .1rem; }
+.footer-diag-rot { color: var(--text); }
+/* OS BOTÕES PERDEM O FUNDO PRÓPRIO e herdam o do bloco — dois fundos dentro de
+   um fundo é a camada a mais que este lote existe para tirar. O ALVO não muda:
+   o esqueleto de `--hit` do `.log-copy` continua valendo, e é ele que garante
+   o piso de toque.
+   O `.btn-pulso` (a confirmação do copiar) FICA por cima: ele pinta o botão
+   TOCADO, que é o que diz em qual dos dois se tocou — e é a única coisa que
+   precisa se destacar dentro do bloco. */
+.footer-log .log-copy { background: none; }
+.footer-log .log-copy.copiado { background: var(--btn-ok); color: var(--ok); }
 
 /* (`.folder-pick-btn` saiu na v5.254, com o popup de seleção de pasta: os
    atalhos de pasta deixaram de existir, e uma pasta do APARELHO não recebe
@@ -5397,50 +5459,6 @@ main {
    par cujo irmão, `--fit`, é o único que o `index.html` usa. Uma classe que só
    existe na folha é uma regra que ninguém revisa contra o que a tela mostra.) */
 .fade-row--fit { flex-direction: column; align-items: stretch; gap: .5rem; cursor: default; }
-/* ===== A LINHA DO MODO DO APP TEM PESO PRÓPRIO =====
-   Ela troca a TELA INTEIRA — é a decisão mais larga desta folha, e estava
-   desenhada igual ao seletor de preenchimento logo abaixo. O destaque é por
-   TOM e por TAMANHO, nunca por contorno (a paleta não desenha nenhum):
-   `--camada` a levanta um degrau acima das irmãs, e o rótulo ganha o peso que
-   as outras não têm. */
-.fade-row--destaque {
-  background: var(--camada);
-  padding: .85rem .8rem;
-}
-.fade-row--destaque > span:first-child {
-  font-weight: 700; color: var(--text);
-}
-/* E OS BOTÕES CRESCEM. `--hit` é o piso de toque do app; aqui o alvo passa dele
-   de propósito — é o único controle desta folha que o operador procura para
-   mudar o app de cara, e ele é tocado com o polegar, não com a ponta do dedo.
-
-   A ANATOMIA É A DO TILE (v1.4.38): ícone em cima, palavra embaixo, tudo
-   centrado — a mesma pilha da `.qs-tile` logo abaixo. É o que o pedido chamou
-   de "atualizar o design para o modelo de painel rápido" sem transformar o
-   modo num tile: ele continua sendo um SELETOR de duas opções à vista (ver o
-   comentário no `index.html`), só que desenhado como o resto da folha. */
-.fit-seg--grande .fit-opt {
-  /* `--text`, E NÃO `--muted` — é o QUARTO DEGRAU da escada, medido (v1.3.0).
-     A `.fade-row--destaque` pinta `--camada` (o nível do `--panel-2`) e o
-     `.fit-opt` afunda `--surface` DENTRO dela: fundo → folha → destaque →
-     botão. É o caso que o DESIGN-SYSTEM já nomeia ("a escada tem três degraus,
-     e o quarto é o ESPAÇO"), e a conta bate com o aviso de lá — no tema CLARO
-     `--muted` sobre esse fundo (182,187,194) dá **3,47:1**, reprovando o piso
-     de 4,5 para texto pequeno. `--text` devolve **4,61:1** no claro e 9,24:1 no
-     escuro. A opção ATIVA não muda: `.fit-opt.active` vem depois, com a mesma
-     especificidade, e continua com `--on-accent` sobre o denim. */
-  color: var(--text);
-  display: flex; flex-direction: column; align-items: center; justify-content: center;
-  gap: .3rem;
-  border-radius: var(--radius-card);
-  padding: .65rem .4rem;
-  font-size: .82rem;
-}
-/* O ícone do seletor de modo tem tamanho PRÓPRIO e não entra na regra geral de
-   `:is(.tab, .t-btn, …) svg`: ali o SVG é o botão inteiro, aqui ele divide a
-   caixa com uma palavra, e `--icon-md` sobre duas linhas de 0,82rem é a
-   proporção que o tile ao lado já usa. */
-.fit-seg--grande .fit-opt svg { display: block; width: var(--icon-md); height: var(--icon-md); }
 /* (A linha de diagnóstico `.fade-hint` saiu: o que ela dizia — o desfecho da
    última tentativa de download — consolidou-se no Registro (`#diagBox`) na
    v5.121, e nenhum JS a desenhava mais.) */
@@ -5451,6 +5469,88 @@ main {
   font-size: .82rem; font-weight: 600; cursor: pointer;
 }
 .fit-opt.active { background: var(--accent-fill); color: var(--on-accent); }
+
+/* ===== O MODO DO APP É UM INTERRUPTOR QUE DESLIZA (v1.4.43) =====
+   Pedido do operador: *"simplifique o design do agrupamento e botões de fácil e
+   avançado, eles estão com muitas camadas e tons de grupos. faça eles do tipo
+   toggle onde ele desliza de um lado para o outro, assim deixando mais claro
+   que está alternando de um para o outro"*.
+
+   ERAM QUATRO TONS EMPILHADOS para uma escolha de duas posições: a folha
+   (`--panel`), o cartão em destaque (`--camada`, o nível do `--panel-2`), a
+   superfície afundada de cada botão (`--surface`) e o `--accent-fill` do
+   escolhido. Hoje são DOIS: o trilho afundado e o polegar aceso. O cartão de
+   destaque saiu inteiro — o peso daquela linha passou a ser o MOVIMENTO, que
+   nenhuma das irmãs tem, e movimento não custa degrau de escada.
+
+   O POLEGAR É UM `::before` DO TRILHO, e não uma terceira caixa no HTML: ele
+   anda por `transform`, a única propriedade que o compositor anima sem tocar no
+   layout — e é o deslize que diz *"isto ALTERNA"*, que era o pedido. Ele mede
+   metade do trilho menos o respiro, então `translateX(100%)` o encaixa na outra
+   metade sem nenhuma conta em runtime: uma largura em porcentagem se resolveria
+   contra o trilho (errado), e `translateX` de um elemento posicionado se resolve
+   contra a LARGURA DELE MESMO (certo). Trocar a `width` por uma conta e a
+   `transform` por `left` devolveria a animação ao layout, que é onde ela
+   engasga.
+
+   O ESTADO VIVE NO `data-modo` do trilho, escrito por `renderAppModeSeg` — a
+   mesma disciplina do `data-estado` dos tiles: a classe é aparência, o atributo
+   é o valor em vigor, e é por ele que o CSS e os oráculos perguntam. A classe
+   `.active` dos botões FICA: ela é o que o resto do app e três oráculos já
+   usam, e aqui ela carrega a COR do rótulo sobre o polegar.
+
+   `grid` de duas colunas iguais e não `flex: 1`: com o polegar medindo metade
+   exata do trilho, as duas metades do conteúdo têm de medir a mesma coisa por
+   CONSTRUÇÃO — `flex: 1` distribui a SOBRA, e um rótulo mais longo ("Avançado")
+   deslocaria o par contra um polegar que não sabe disso. */
+.fade-row--modo { gap: .35rem; }
+/* O rótulo virou LEGENDA: sem o cartão em destaque, ele não é mais o título de
+   um bloco — é o nome do que o interruptor governa, e quem carrega o peso da
+   linha é o próprio interruptor. */
+.fade-row--modo > span:first-child { color: var(--muted); font-size: .82rem; }
+.qs-modo {
+  --modo-folga: 3px;
+  position: relative;
+  display: grid; grid-template-columns: 1fr 1fr; gap: 0;
+  background: var(--surface); border-radius: var(--radius-card);
+  padding: var(--modo-folga);
+}
+.qs-modo::before {
+  content: ''; position: absolute; z-index: 0;
+  top: var(--modo-folga); bottom: var(--modo-folga); left: var(--modo-folga);
+  width: calc(50% - var(--modo-folga));
+  background: var(--accent-fill);
+  border-radius: calc(var(--radius-card) - var(--modo-folga));
+  transition: transform .22s ease;
+}
+.qs-modo[data-modo="full"]::before { transform: translateX(100%); }
+.qs-modo .fit-opt {
+  /* SEM FUNDO PRÓPRIO. Era ele o quarto tom, e o polegar já é o fundo do
+     escolhido — dois fundos na mesma caixa fazem a metade não escolhida
+     parecer um segundo estado ligado. `z-index: 1` os põe SOBRE o polegar:
+     sem ele o `::before`, que vem depois na ordem de pintura do mesmo
+     contexto, cobriria o rótulo que ele existe para destacar. */
+  position: relative; z-index: 1;
+  background: none; color: var(--text);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: .3rem;
+  border-radius: calc(var(--radius-card) - var(--modo-folga));
+  padding: .6rem .4rem;
+  font-size: .82rem;
+  transition: color .22s ease;
+}
+/* `--text` e não `--muted` no APAGADO: o trilho é `--surface` sobre a folha, e
+   `--muted` ali reprova o piso de 4,5:1 para texto pequeno no tema claro — a
+   mesma medição que o seletor em destaque carregava (3,47:1). O que separa as
+   duas metades é o POLEGAR, não o esmaecimento do rótulo; apagar o não
+   escolhido diria "indisponível", que é a outra palavra desta paleta. */
+.qs-modo .fit-opt.active { background: none; color: var(--on-accent); }
+.qs-modo .fit-opt svg { display: block; width: var(--icon-md); height: var(--icon-md); }
+/* Menos movimento: o polegar troca de lado NO LUGAR. O que ele comunica é
+   ONDE está a escolha, e isso o `data-modo` já entrega sem animar. */
+@media (prefers-reduced-motion: reduce) {
+  .qs-modo::before, .qs-modo .fit-opt { transition: none; }
+}
 
 /* ---------- O PAINEL RÁPIDO DE CONFIGURAÇÕES (v1.4.38) ----------
    A folha era uma pilha de sete FAIXAS de largura inteira, uma opção por

@@ -208,6 +208,8 @@ const pvLyricsAuxEl = document.getElementById('pvLyricsAux');
 const pvLyricsNumEl = document.getElementById('pvLyricsNum');
 const pvTextEl = document.getElementById('pvText');
 const pvCamadaBtnEl = document.getElementById('pvCamadaBtn');
+const pvGiroBtnEl = document.getElementById('pvGiroBtn');
+const pvGiroNumEl = document.getElementById('pvGiroNum');
 const pvTextContentEl = document.getElementById('pvTextContent');
 const pvTextMainEl = document.getElementById('pvTextMain');
 const pvTextSubEl = document.getElementById('pvTextSub');
@@ -265,7 +267,7 @@ const appVersionEl = document.getElementById('appVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.4.42';
+const WEB_VERSION = '1.4.43';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -20900,6 +20902,21 @@ function renderRotBtn() {
       ? 'A mídia está girada ' + mediaRot + '° no telão — tocar gira mais 90°'
       : 'Girar a mídia no telão — não gira o app nem a tela do celular';
   }
+  // ---- E O DESFAZER APARECE NA PREVIEW (v1.4.43) ----
+  // Quem o mostra é o render do ESTADO que ele desfaz, e não um render próprio:
+  // é a única disciplina que impede o botão de sobreviver ao fato que ele
+  // nomeia — `applyRotate` passa por aqui SEMPRE, inclusive na carga (`load`) e
+  // na volta ao padrão que o próprio botão dispara.
+  if (pvGiroBtnEl) {
+    pvGiroBtnEl.hidden = !mediaRot;
+    if (pvGiroNumEl) pvGiroNumEl.textContent = mediaRot + '°';
+    // O ÂNGULO é o estado (está no número, à vista); o `title` é a AÇÃO — a
+    // mesma divisão dos botões da notificação de mídia. Sem ele o ícone de
+    // girar sobre a projeção se leria como "girar mais 90°".
+    pvGiroBtnEl.title = 'A mídia está girada ' + mediaRot
+      + '° no telão — tocar volta à posição padrão';
+    pvGiroBtnEl.setAttribute('aria-label', pvGiroBtnEl.title);
+  }
 }
 async function applyRotate(graus) {
   mediaRot = ((graus | 0) % 360 + 360) % 360;
@@ -23954,6 +23971,12 @@ function setAppMode(mode) {
 }
 
 function renderAppModeSeg() {
+  // O `data-modo` É O ESTADO (v1.4.43), e a classe é aparência — a mesma
+  // disciplina do `data-estado` dos tiles. É por ele que o CSS desliza o
+  // polegar do interruptor e por ele que os oráculos perguntam qual modo está
+  // em vigor; a classe `.active` de cada botão continua carregando só a COR do
+  // rótulo sobre o polegar.
+  appModeSegEl.dataset.modo = appMode;
   appModeSegEl.querySelectorAll('.fit-opt').forEach((btn) => {
     btn.classList.toggle('active', btn.dataset.mode === appMode);
   });
@@ -24471,11 +24494,18 @@ function openWebDisplay() {
 // A engrenagem do Modo Fácil (v5.250) — o MESMO destino do gearbox do
 // avançado, e desde a v5.247 o único caminho para a troca de modo nos dois.
 simpleSettingsBtnEl.addEventListener('click', openFadePopup);
+// A FOLHA FICA ABERTA E PARADA (v1.4.43), a pedido do operador: *"verifique
+// para que a aba de configurações permaneça na tela imóvel ao alternar entre
+// fácil e avançado, para não se perder a localização atual na visão do
+// usuário"*. Ela fechava — a justificativa era "a escolha já mudou a tela
+// inteira atrás do popup", e é justamente esse o problema: quem trocou de modo
+// perdia a folha, o lugar dela e o caminho de volta, e reabri-la é achar de
+// novo a engrenagem, que no outro modo mora em outro canto. Com o interruptor
+// que desliza, o que responde ao toque está DENTRO da folha, à vista.
 appModeSegEl.addEventListener('click', (e) => {
   const btn = e.target.closest('.fit-opt');
   if (!btn) return;
   setAppMode(btn.dataset.mode);
-  closeFadePopup();   // a escolha já mudou a tela inteira atrás do popup
 });
 // O TEMA ALTERNA (v1.4.38): o par escuro/claro virou um tile, e um tile de dois
 // estados não escolhe — ele vai para o outro.
@@ -24958,6 +24988,15 @@ hymnSearchInputEl.addEventListener('input', debounce(() => renderSearchResults(h
     pvCamadaBtnEl.addEventListener('click', (e) => {
       e.stopPropagation();
       encerrarCamadaDeCima();
+    });
+  }
+  // O DESFAZER DO GIRO (v1.4.43) — mesma faixa, mesmo `stopPropagation`: a
+  // preview inteira é o reconhecedor de gestos (dentro da tela cheia ele é o
+  // transporte), e um toque que subisse daqui viraria comando de cena.
+  if (pvGiroBtnEl) {
+    pvGiroBtnEl.addEventListener('click', (e) => {
+      e.stopPropagation();
+      applyRotate(0);
     });
   }
 

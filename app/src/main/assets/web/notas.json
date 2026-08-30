@@ -1,5 +1,14 @@
 [
   {
+    "versao": "1.4.43",
+    "itens": [
+      "O rodapé de Configurações ficou com um desenho só: a versão e o registro no mesmo tamanho.",
+      "O seletor de Fácil e Avançado virou um interruptor que desliza de um lado para o outro.",
+      "Configurações não fecha mais ao trocar de modo: a folha fica aberta e parada.",
+      "Com o telão girado, a preview mostra o ângulo e um toque volta à posição padrão."
+    ]
+  },
+  {
     "versao": "1.4.42",
     "itens": [
       "A contagem de uso passou a ser sempre ativa: a opção de ficar de fora saiu.",
@@ -11,7 +20,7 @@
     "versao": "1.4.41",
     "itens": [
       "Preenchimento e giro passaram a valer também para a imagem ou os slides sobre uma música.",
-      "O botão agora se chama \u201cGirar no telão\u201d: ele gira a projeção, nunca o app.",
+      "O botão agora se chama “Girar no telão”: ele gira a projeção, nunca o app.",
       "A contagem de uso saiu do painel e virou uma linha no rodapé do registro.",
       "A página de alcance ganhou um interruptor para as visitas deste navegador."
     ]
