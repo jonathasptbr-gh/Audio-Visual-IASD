@@ -3043,7 +3043,7 @@ que ela é desenvolvida e testada fora do aparelho.
 | Botões físicos de volume | o navegador não os recebe | **interceptados**, ligados ao fader do deck — e é isso que mantém o painel de volume do Android FORA da projeção (ver abaixo) |
 | Microfone AO VIVO | o navegador pergunta | `MicChromeClient` + `RECORD_AUDIO` (ver abaixo). **Só com TV**: quem capta é o `/display/`, que só existe dentro da `Presentation` — e sem TV o botão **não é desenhado** (v1.2.21) |
 | Câmera | o navegador pergunta | **negada, sempre**. O `onPermissionRequest` do `ControleChromeClient` FICOU, negando **com log**: um WebView sem ele nega em silêncio, e o próximo que precisar de mídia aqui descobriria a armadilha do zero |
-| Navegação | idem (uma tela e duas folhas) | **UMA TELA e DUAS FOLHAS** (v1.5.0): o Cronograma é a tela única; a Bíblia e as Ferramentas são folhas dele, abertas pelas portas do rodapé (Bíblia · Importar · Ferramentas); a Biblioteca é uma JANELA que sobe da barra de busca, que ocupa o lugar da antiga faixa de abas na caixa de controles. Saíram a faixa, o vazado deslizante, o carrossel horizontal e o `switchTab` |
+| Navegação | idem (uma tela e duas folhas) | **UMA TELA e DUAS FOLHAS** (v1.5.0): o Cronograma é a tela única; a Bíblia e as Ferramentas são folhas dele, abertas pelas portas do rodapé (Bíblia · Importar · Ferramentas); a Biblioteca é uma JANELA DE TELA CHEIA que sobe da base levando a barra de busca junto, e a barra é a CABEÇA dela — fechada, ela é a faixa de lado a lado que pousa embaixo dos controles (v1.5.1), e é por o campo terminar no TOPO que o teclado deixou de cobri-lo. Saíram a faixa de abas, o vazado deslizante, o carrossel horizontal e o `switchTab` |
 | Botão voltar | — | **fecha o que estiver aberto** antes de minimizar (ver abaixo) |
 | Controles fora do app | — | `MediaSession`: notificação, tela de bloqueio, botões de mídia |
 | Download minimizado | a aba continua baixando | **foreground service + wake lock**; sem isso o processo é congelado |
@@ -3897,11 +3897,11 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: v1.5.0** (base web) · **v1.4.42** (APK) · `SHELL_VERSION` **61** · bundle com
+**Versão atual: v1.5.1** (base web) · **v1.4.42** (APK) · `SHELL_VERSION` **61** · bundle com
 `minShell: 61` e **sem `shellTag`** — o shell 61 é o **PISO**: todo método da
 ponte existe, e não há guarda de versão no lado web. **Este lote é SÓ WEB**:
 nenhum `.kt`, nenhum `res/`, nenhum workflow, logo nada de Release e nada a
-segurar — o bundle sai na hora. O rodapé mostra `Web v1.4.43 · Shell v1.4.42`, e
+segurar — o bundle sai na hora. O rodapé mostra `Web v1.5.1 · Shell v1.4.42`, e
 isso não é divergência: é a resposta exata a *"o OTA chegou e o APK ainda
 não?"*. O que continua valendo é que `java/`, `res/`, o manifest e os workflows
 **só chegam instalando o APK**.

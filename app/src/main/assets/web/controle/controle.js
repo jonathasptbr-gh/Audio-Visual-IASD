@@ -273,7 +273,7 @@ const appVersionEl = document.getElementById('appVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.5.0';
+const WEB_VERSION = '1.5.1';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -15762,26 +15762,42 @@ function openHymnSearch(comFoco) {
 }
 
 /**
- * A BASE DA JANELA É MEDIDA (v1.5.0).
+ * A MEDIDA DA JANELA (v1.5.1): a ALTURA DA BARRA, e nada mais.
  *
- * A Biblioteca encosta no TOPO da barra que a abriu, e essa barra vive na caixa
- * de controles — que muda de altura com o teclado, com a barra de seleção e com
- * o corpo de fonte do sistema. Um valor fixo no CSS erraria nos três, e o erro
- * seria a lista passando por baixo da barra: as últimas linhas do hinário
- * ficariam inalcançáveis, sem nada na tela dizendo por quê.
+ * A Biblioteca é uma coluna `[barra][lista]` de tela cheia, e fechá-la é
+ * descê-la de `100% - barra` — a porcentagem é da própria caixa dela, então o
+ * único número que vem de fora é este. Ele responde a DUAS perguntas de uma vez:
+ * onde a janela para quando fechada, e quanto a caixa de controles precisa
+ * RESERVAR embaixo (a janela é `fixed` e a barra pousa por cima da base do app;
+ * sem a reserva ela cobriria a última linha de controles).
  *
- * É a mesma técnica do `--tab-x` que o vazado das abas usava, e é o que sobrou
- * dela — medir a caixa e escrever no CSS, em vez de repetir a conta lá.
+ * MEDIDA e não escrita no CSS: a barra muda de altura com a área segura, com o
+ * corpo de fonte do sistema e com o teclado. É a mesma técnica do `--tab-x` que
+ * o vazado das abas usava, e é o que sobrou dela.
+ *
+ * ELA ANIMA, ENTÃO O PALPITE DO CSS TEM DE ERRAR POUCO. Enquanto o que se
+ * media era o DESLOCAMENTO INTEIRO (60px de palpite contra 847px medidos), a
+ * primeira escrita desta função disparava a transição e a Biblioteca varria a
+ * tela de cima a baixo na abertura do app, com tudo por baixo dela intocável no
+ * caminho. Medindo só a barra, o palpite erra por pixels.
+ *
+ * PELO `offsetHeight`, nunca pelo `getBoundingClientRect`: a janela está
+ * TRANSLADADA quando fechada e a caixa do cliente vem transformada junto — a
+ * conta se alimentaria do próprio resultado. O `offsetHeight` é do layout, que é
+ * o que a translação não move.
+ *
+ * NA RAIZ e não no popup: quem lê `--lib-bar-h` é a `.bottombar`, que não é
+ * descendente dele.
  */
 function medirBarraDaBiblioteca() {
-  if (!libBarEl || !hymnSearchPopupEl) return;
-  const r = libBarEl.getBoundingClientRect();
-  // Barra oculta (o Modo Fácil esconde a caixa de controles) mede 0, e escrever
-  // 0 encostaria a janela na base da tela — por cima do transporte. Ali não há
-  // Biblioteca para abrir, então a medida boa que já está lá é a resposta certa.
-  if (!r.height) return;
-  hymnSearchPopupEl.style.setProperty('--lib-base',
-    Math.max(0, Math.round(window.innerHeight - r.top)) + 'px');
+  if (!libBarEl) return;
+  const alturaDaBarra = libBarEl.offsetHeight;
+  // Barra sem altura = folha ainda não montada, ou o app escondido. Escrever 0
+  // encostaria a janela inteira na tela e tiraria a reserva da caixa de
+  // controles; a medida boa que já está lá é a resposta certa.
+  if (!alturaDaBarra) return;
+  document.documentElement.style.setProperty('--lib-bar-h',
+    Math.round(alturaDaBarra) + 'px');
 }
 
 /**
@@ -24646,7 +24662,12 @@ appModeSegEl.addEventListener('click', (e) => {
 // O TEMA ALTERNA (v1.4.38): o par escuro/claro virou um tile, e um tile de dois
 // estados não escolhe — ele vai para o outro.
 temaTileEl.addEventListener('click', () => { setTema(tema === 'claro' ? 'escuro' : 'claro'); });
-simpleSearchBtnEl.addEventListener('click', openHymnSearch);
+// SEM FOCO, e o `() =>` é o ponto: registrado por REFERÊNCIA, o ouvinte chama
+// `openHymnSearch(evento)` — e um `PointerEvent` é truthy, então a lupa do Modo
+// Fácil abria com o teclado por cima da lista. É um BOTÃO, e a regra das duas
+// portas (v1.5.0) diz que botão abre sem foco: *"ver o que eu tenho"*. Mesma
+// armadilha que a v1.4.31 pagou no `openLyricsPopup`.
+simpleSearchBtnEl.addEventListener('click', () => openHymnSearch(false));
 // Os controles do simplificado são os do modo completo, acionados por click():
 // um botão `disabled` continua sendo um no-op natural, e as bordas ficam num
 // lugar só.
@@ -24812,6 +24833,22 @@ if (hymnSearchToggleEl) {
 // enquete — é a régua de uma caixa que só se mexe quando algo a empurra.
 window.addEventListener('resize', medirBarraDaBiblioteca);
 window.addEventListener('orientationchange', medirBarraDaBiblioteca);
+// NA CARGA, e não só na abertura (v1.5.1): a barra fica à vista com a Biblioteca
+// FECHADA, e a caixa de controles reserva a altura dela desde o primeiro quadro.
+// Sem esta linha o app abria com a última fileira de botões coberta pela barra
+// até alguém abrir a Biblioteca uma vez.
+medirBarraDaBiblioteca();
+// E A TRANSIÇÃO SÓ LIGA DEPOIS (v1.5.1). A posição de REPOUSO da janela depende
+// desta medida, e toda medida chega depois do primeiro layout — MEDIDO, a barra
+// mede 28,6px no primeiro quadro e 53px quando a folha assenta. Com o tempo
+// ligado desde o início, a correção vira a janela deslizando sozinha na abertura
+// do app. Dois quadros: a medida entra num, o tempo no seguinte (uma transição
+// usa a duração do estilo DEPOIS da mudança, então ligar as duas no mesmo quadro
+// produz exatamente a animação que a guarda existe para impedir).
+requestAnimationFrame(() => {
+  medirBarraDaBiblioteca();
+  requestAnimationFrame(() => document.body.classList.add('lib-pronta'));
+});
 sorteioBtnEl.addEventListener('click', abrirSorteio);
 hymnSearchInputEl.addEventListener('input', debounce(() => renderSearchResults(hymnSearchInputEl.value), SEARCH_DEBOUNCE_MS));
 
