@@ -264,21 +264,40 @@ try {
     'e o símbolo tem geometria e é pintado com tamanho de ícone', desenho);
 
   // ---- E ELE TEM CONTRASTE, NOS DOIS TEMAS ---------------------------------
-  // O botão vive sobre o CAMPO, que é branco literal e SEM TEMA. Pintá-lo com
-  // um token redeclarado por tema (`--accent`) dava 2,06:1 no escuro — abaixo
-  // do piso de 3:1 de componente, e o relato do operador foi exatamente esse.
-  // A conta é feita sobre a cor COMPUTADA, não sobre o nome do token: comparar
-  // nomes deixaria o defeito passar por baixo (a lição do `smoke.mjs`).
+  // O relato que abriu o caso (v5.303) foi um ícone ilegível: o botão vivia
+  // sobre o CAMPO, branco literal e SEM TEMA, e `--accent` — que é redeclarado
+  // por tema — dava 2,06:1 no escuro, abaixo do piso de 3:1 de componente.
+  //
+  // A v1.5.2 desfez a premissa e manteve a propriedade: o botão deixou de viver
+  // sobre um campo branco e passou a vestir `--surface`, o tom dos botões do
+  // transporte (*"vamos usar apenas os botões e a caixa de texto do mesmo tom
+  // que os botões do controle"*). A superfície voltou a ter tema, e `--accent`
+  // voltou a ser o token certo — o que NÃO muda é que o glifo precisa ser
+  // legível nos dois.
+  //
+  // A CONTA COMPÕE O ALFA (v1.5.2), e essa metade é nova: `--surface` é branco
+  // (ou preto) COM ALFA, e medir a luminância da cor crua trata rgba(255,255,
+  // 255,.12) como branco — o número sai errado nos dois sentidos. A composição é
+  // sobre a caixa de controles, que é onde a barra de fato pousa. É a mesma
+  // conta do `smoke.mjs`, e continua sendo sobre a cor COMPUTADA: comparar
+  // nomes de token deixaria o defeito passar por baixo.
   const contraste = await pg.evaluate(async () => {
+    const rgb = (v) => (Array.isArray(v) ? v : (v.match(/[\d.]+/g) || []).map(Number));
+    const sobre = (frente, base) => {
+      const f = rgb(frente); const b = rgb(base);
+      const a = f.length > 3 ? f[3] : 1;
+      return [0, 1, 2].map((i) => f[i] * a + b[i] * (1 - a));
+    };
     const lum = (cor) => {
-      const [r, g, b] = cor.match(/[\d.]+/g).slice(0, 3).map(Number).map((c) => c / 255);
+      const [r, g, b] = rgb(cor).slice(0, 3).map((c) => c / 255);
       const f = (c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
       return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b);
     };
     const medir = () => {
-      const b = document.getElementById('sorteioBtn');
-      const cs = getComputedStyle(b);
-      const a = lum(cs.color); const f = lum(cs.backgroundColor);
+      const cs = getComputedStyle(document.getElementById('sorteioBtn'));
+      const caixa = getComputedStyle(document.querySelector('.bottombar')).backgroundColor;
+      const fundo = sobre(cs.backgroundColor, caixa);
+      const a = lum(sobre(cs.color, fundo)); const f = lum(fundo);
       return Math.round(((Math.max(a, f) + 0.05) / (Math.min(a, f) + 0.05)) * 100) / 100;
     };
     const fora = {};
@@ -290,9 +309,9 @@ try {
     return fora;
   });
   checar(contraste.escuro >= 3 && contraste.claro >= 3,
-    'o ícone tem contraste de COMPONENTE (≥3:1) sobre o campo NOS DOIS TEMAS — '
-    + 'o campo é branco literal e não segue o tema, então um token que siga o '
-    + 'tema erra num deles', contraste);
+    'o ícone tem contraste de COMPONENTE (≥3:1) sobre o fundo dele NOS DOIS '
+    + 'TEMAS — a conta compõe o alfa da superfície sobre a caixa de controles, '
+    + 'senão ela mede um branco que não existe', contraste);
 
   await pg.click('#sorteioBtn');
   await assentada('#sorteioPopup');

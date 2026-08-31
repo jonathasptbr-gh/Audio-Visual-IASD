@@ -2337,10 +2337,9 @@ cronograma vai ser a tela padrão e única."*
  │ └─────────────────────────────────────┘ │
  │  [ Bíblia ]  [ Importar ]  [ Ferram. ]  │  ← as três portas
  ├─────────────────────────────────────────┤
- │  transporte · preview · mixer           │
- ├─────────────────────────────────────────┤
  │  🎲  [ buscar…            ]   ↑ / ✕     │  ← a .lib-bar: a CABEÇA da janela,
- └─────────────────────────────────────────┘    pousada na base do app
+ │  transporte · preview · mixer           │    pousada no TOPO desta caixa
+ └─────────────────────────────────────────┘
    A Biblioteca é a janela INTEIRA: fechada, só a barra dela aparece; aberta,
    ela sobe de tela cheia e a barra para no topo.
 ```
@@ -2361,8 +2360,8 @@ no fim da animação de saída.
 |---|---|
 | `#toolsSheet` · `#bibleSheet` | as duas folhas, filhas do `.list-body`, cobrindo só a lista |
 | `.import-row` | as três portas: `#bibleBtn` · `.import-btn` · `#toolsBtn` |
-| `.lib-bar` | a barra da Biblioteca — a CABEÇA da janela, à vista na base do app |
-| `#hymnSearchPopup` | a JANELA da Biblioteca — `fixed`, de tela cheia, sobe da base |
+| `.lib-bar` | a barra da Biblioteca — a CABEÇA da janela, à vista no topo da caixa de controles |
+| `#hymnSearchPopup` | a JANELA da Biblioteca — `fixed`, de tela cheia, sobe da barra |
 
 #### As três portas do rodapé
 
@@ -2407,28 +2406,48 @@ outra teria dois títulos e dois ✕ na mesma caixa.
 #### A barra da Biblioteca, e as duas portas dela
 
 *"a barra de buscas e playlist automática como um todo, deve ser uma barra de
-lado a lado da tela, sem estar dentro de um card de bordas arredondadas … vamos
-mover essa barra para a base do app, abaixo da linha dos botões dos controles."*
+lado a lado da tela, sem estar dentro de um card de bordas arredondadas"*
+(v1.5.1) · *"vamos mover essa barra de volta para o topo da seção de controles,
+onde estava, acima do nome da mídia em exibição"* (v1.5.2).
 
 Os mesmos três elementos, na ordem que a v5.305 fixou — *sortear* · *procurar* ·
 *sair*. Uma barra só: duas seriam duas verdades sobre o mesmo campo, e a de
 dentro sumiria atrás da de fora no instante em que a Biblioteca abrisse.
 
-**Ela é uma FAIXA, não um cartão** (v1.5.1): sem raio, sem margem, de lado a
-lado. A v1.5.0 a desenhou como cartão dentro da caixa de controles, e cartão é o
-que ela nunca foi — ela é a cabeça de uma janela, e cabeça encosta nas bordas do
-que ela encabeça.
+**Ela é uma FAIXA, não um cartão**: sem raio, sem margem, de lado a lado. A
+v1.5.0 a desenhou como cartão dentro da caixa de controles, e cartão é o que ela
+nunca foi — ela é a cabeça de uma janela, e cabeça encosta nas bordas do que ela
+encabeça.
 
-**A caixa de controles RESERVA a altura dela** (`--lib-bar-h` no
-`padding-bottom` da `.bottombar`): a janela é `fixed` e a barra pousa por cima da
-base do app. A ÁREA SEGURA saiu da caixa e virou padding da barra, que é quem
-encosta na base agora — somadas, as duas deixavam uma faixa morta do tamanho da
-barra de gestos.
+**E ELA NÃO PINTA NADA** (v1.5.2): *"vamos remover esse zoneamento de tom
+cinza/azul que tem atrás da barra de buscas"*. A superfície própria
+(`--field-bar`, v5.270) existia porque o campo era BRANCO nos dois temas — e
+campo branco sobre a caixa de controles branca do tema claro dá **1,00:1**. O
+conserto de agora resolve o mesmo problema pelo outro lado: **o campo deixou de
+ser branco.** Ele e os quadrados vestem `--surface`, o tom exato do `.t-btn` do
+transporte, e duas peças da mesma caixa com a mesma receita não precisam de uma
+faixa que as separe do resto. O token `--field-bar` saiu do `tokens.css` com o
+último consumidor.
 
-**Ela mantém a superfície própria** (`--field-bar`), pela medida da v5.270: o
-campo é branco nos dois temas e no tema CLARO a caixa de controles também é —
-campo branco sobre caixa branca dá **1,00:1**. O que ela perdeu é a SOMBRA:
-aquela dizia de que lado o conteúdo passava, e aqui não passa nada atrás dela.
+- **`--surface` e não `--surface-2`** (a receita de campo que a `.lib-search`
+  declara para a folha do sorteio): MEDIDO, o placeholder sobre ela dá 4,21:1 no
+  escuro e 4,15:1 no claro — abaixo de AA nos dois; sobre `--surface` dá 5,15:1 e
+  4,82:1. *O tom que o pedido escolheu é também o que passa.*
+- **O ALTERNADOR fica de fora da regra**: ele é a AÇÃO da linha
+  (`--btn-accent`/`--accent`), a mesma gramática do `#repeat.active` — a fileira
+  do transporte também tem um botão aceso entre seis do tom comum. A regra que o
+  pinta mora DEPOIS da receita compartilhada dos dois quadrados: as duas são
+  seletores de ID, e enquanto a dele era uma classe ela perdia em silêncio.
+- **No tema CLARO ela AFUNDA a superfície dos filhos**, espelhando a regra da
+  `.bottombar` e pela mesma aritmética: lá `--bar` é branco, e um controle em
+  branco-com-alfa sobre ele é 1,00:1. A barra mora na janela, que devolve a
+  superfície flutuante — sem essa linha ela seria a única peça da caixa com um
+  tom que não é o das vizinhas.
+
+**A caixa de controles RESERVA o lugar dela** (`padding-top` da `.bottombar`, de
+`--lib-bar-h` mais o respiro): a janela é `fixed` e a barra pousa por cima. A
+ÁREA SEGURA de baixo voltou para a caixa, que é quem encosta na barra de gestos
+outra vez.
 
 **SÃO DUAS PORTAS, e a diferença é o TECLADO** (`openHymnSearch(comFoco)`):
 
@@ -2455,11 +2474,43 @@ buscas acabe no topo da biblioteca. (isso resolve o problema que temos
 atualmente da caixa de texto ficar escondida pelo teclado)"*
 
 **A MECÂNICA NÃO TEM MECANISMO.** A janela é uma coluna `[barra][lista]` de tela
-cheia. Fechada, ela está descida de `100% - a barra`, o que deixa só a barra à
-vista, encostada na base; aberta, `translateY(0)` — e a barra para no topo
-porque é onde ela sempre esteve dentro desta caixa. Não há nó transportado entre
-dois pais, não há segunda barra, e a porcentagem é da PRÓPRIA caixa: o único
-número que vem de fora é a altura da barra.
+cheia. Aberta, `translateY(0)` — a barra para no topo da tela porque é onde ela
+sempre esteve dentro desta caixa. Fechada, a coluna desce até a barra pousar no
+lugar dela: o topo da caixa de controles. Não há nó transportado entre dois pais
+e não há segunda barra — a barra que se toca na caixa é a mesma que encabeça a
+janela.
+
+**O QUE A v1.5.2 MUDOU É SÓ ONDE ELA REPOUSA.** Era a base da TELA (`100% - a
+barra`, uma conta que não pedia medida de posição nenhuma); é o topo da caixa de
+controles, que é uma posição do layout — daí `--lib-desce`, medido. A abertura, o
+movimento e o destino não mudaram uma linha.
+
+**E É POR ISSO QUE A FOLHA RECORTA.** Com a barra a meia tela, tudo que vem
+ABAIXO dela na coluna — a lista e o fundo da própria folha — cairia por cima da
+caixa de controles: o transporte coberto por uma tela de `--bg` que ninguém
+abriu. O `clip-path` apaga exatamente essa parte, e apaga também o TOQUE nela —
+ele recorta hit-test junto, que é o que mantém os botões alcançáveis com a
+Biblioteca fechada. **Ele volta só DEPOIS do fechamento**: um recorte que
+voltasse no instante do toque faria a lista sumir de uma vez em vez de descer
+junto com a barra. O FUNDO da folha segue o mesmo relógio, pelo motivo espelhado
+— fechada ela não pinta nada, senão a faixa da barra ficaria com um retângulo
+`--bg` por trás, que é o "zoneamento" que o operador mandou tirar.
+
+- **O RECORTE É MEDIDO NO ESPAÇO DA PRÓPRIA FOLHA** (`100% - a barra`), e não na
+  tela: um `clip-path` é aplicado ANTES do `transform`, então recortar "tudo
+  abaixo da barra" vale onde quer que a coluna esteja. A alternativa — recortar a
+  CAMADA na posição do lugar da barra — parecia mais direta e tinha um defeito de
+  mecanismo: aquele valor depende de uma MEDIDA que muda em runtime, e o atraso
+  que o recorte precisa ter atrasa TODA mudança do valor, remedição inclusive.
+  MEDIDO no `controles-layout.test.mjs`, que não desenha quadros: o recorte ficou
+  preso no valor de partida e a janela FECHADA cobria a preview inteira.
+- **E UMA REMEDIÇÃO NÃO É UMA ANIMAÇÃO** (`semAnimarAJanela`). A janela anima
+  entre dois lugares e o segundo é uma medida; uma transição não distingue as
+  duas razões de o valor mudar. Com o tempo ligado, remedir vira a barra
+  deslizando até o lugar novo enquanto a caixa já saltou para lá — a barra
+  correndo atrás da caixa. A medida desliga o tempo no quadro em que escreve e o
+  rearma no seguinte, e é o MESMO mecanismo da carga: a primeira medida também é
+  uma mudança de valor.
 
 - **E ISSO RESOLVE O TECLADO.** Com o campo no topo da tela, o teclado — que
   sobe da base — não tem como cobri-lo. Era o defeito que quatro lotes da era da
@@ -2468,9 +2519,18 @@ número que vem de fora é a altura da barra.
   **Isto revoga a v5.263** pelo outro lado: aquele lote tirou o slide porque a
   barra morava dentro da folha e `transform` torna a folha o bloco-contêiner dos
   descendentes fixos; aqui a dívida é paga pela geometria, não pela remoção.
-- **A MEDIDA É UMA SÓ** (`--lib-bar-h`, por `medirBarraDaBiblioteca`), e ela
-  responde às duas perguntas: onde a janela para fechada, e quanto a caixa de
-  controles reserva. É a técnica do `--tab-x`, e é o que sobrou dela.
+- **SÃO TRÊS MEDIDAS, de uma leitura só** (`medirBarraDaBiblioteca`):
+  `--lib-bar-h` (a altura da barra, que é o que a caixa reserva), `--lib-desce`
+  (o quanto a coluna desce para a barra cair no lugar) e `--lib-abaixo` (o que
+  fica abaixo desse lugar, que é o quanto a camada recorta). É a técnica do
+  `--tab-x`, e é o que sobrou dela.
+- **E A CAIXA DE CONTROLES É VIGIADA** (`ResizeObserver`). O lugar da barra é o
+  topo dela, e ela muda de altura por caminhos que não passam pela medida: a
+  proporção da preview, o nome da mídia em duas linhas, a seleção múltipla, o
+  modo do app. Enumerá-los seria uma lista para envelhecer, e o modo de falhar é
+  a barra pousando fora do lugar. O laço que o observador poderia criar (a medida
+  muda o `padding-top`, que muda a caixa) é fechado do outro lado: a função só
+  escreve **o que mudou**.
 - **UMA MEDIDA QUE ANIMA PRECISA NASCER QUASE CERTA.** A translação transiciona.
   Enquanto o que se media era o deslocamento INTEIRO (60px de palpite contra
   847px medidos), a primeira escrita do JS varria a Biblioteca tela abaixo na
@@ -2510,7 +2570,8 @@ número que vem de fora é a altura da barra.
 e a janela subindo de trás dela até uma folga do topo, para se anunciar como
 janela. A folga custava duas coisas — o campo de texto atrás do teclado e a
 lista caindo de ~880px para **576** (medido em 430×900). Hoje a lista é a tela
-menos a barra (**847px**, medido), e quem diz "isto é uma janela" é o movimento.
+menos a barra (**849px**, medido), e quem diz "isto é uma janela" é o movimento.
+A barra voltou ao lugar da v1.5.0; o que não voltou é ela ficar parada lá.
 
 ### Abas e biblioteca
 
@@ -5666,8 +5727,10 @@ aritmética:
 - **claro** — só dá para SUBIR. Descer para `--bg` deixaria a gaveta a 1,09:1 do
   card. Par: `--panel` (branco) × `--panel-2`.
 
-É o precedente do `--field-bar` num lugar novo: **uma superfície cuja direção não
-acompanha a escada precisa de um token próprio em cada tema.** E os BLOCOS que
+É o precedente que o `--field-bar` abriu num lugar novo (aquele token saiu na
+v1.5.2 com a faixa da barra de busca, mas a regra que ele provou fica): **uma
+superfície cuja direção não acompanha a escada precisa de um token próprio em
+cada tema.** E os BLOCOS que
 descansam nela vestem `--gaveta-btn` em vez do `--surface` de fábrica, porque
 aquele é um OVERLAY — dentro de uma seção da Biblioteca ele resolve para o par
 SUNK, e preto sobre um poço que já é o tom mais escuro do app não produz degrau.

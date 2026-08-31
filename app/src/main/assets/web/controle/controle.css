@@ -475,20 +475,26 @@ body {
   flex-shrink: 0;
   display: flex; flex-direction: column; gap: .5rem;
   background: var(--bar);
-  /* Sem padding em CIMA: a faixa de abas precisa encostar na borda para o
-     vazado da aba ativa emendar com o corpo da seção (ver `.tab.active`). O
-     respiro que ela perdeu aqui está no `gap` até o `.deck`. */
   padding: 0 .7rem .5rem;
-  /* margem extra na base para não conflitar com navegação por gestos
-     — E A ALTURA DA BARRA DA BIBLIOTECA (v1.5.1). Ela é a cabeça de uma janela
-     `fixed`, então pousa POR CIMA da base do app; sem esta reserva ela cobriria
-     a última linha de controles. `--lib-bar-h` é medida em runtime
-     (`medirBarraDaBiblioteca`), e é a MESMA medida que fecha a janela: a barra muda
-     de altura com a área segura e com o corpo de fonte do sistema.
-     A ÁREA SEGURA SAI DAQUI quando a barra existe: ela passou a ser padding da
-     BARRA, que é quem encosta na base agora. Somadas, as duas deixavam uma faixa
-     morta do tamanho da barra de gestos. */
-  padding-bottom: calc(.6rem + var(--lib-bar-h, 60px));
+  /* ===== O LUGAR DA BARRA DA BIBLIOTECA (v1.5.2) =====
+     Pedido do operador: *"vamos mover essa barra de volta para o topo da seção
+     de controles, onde estava, acima do nome da mídia em exibição"*.
+
+     A barra MORA na janela (é a cabeça dela, e é por isso que sobe junto), mas
+     repousa AQUI. O padding é o lugar dela: a caixa abre no topo exatamente a
+     altura da barra, mais o respiro até a primeira linha de controles.
+
+     `--lib-bar-h` é MEDIDA (`medirBarraDaBiblioteca`) — a barra muda de altura
+     com o corpo de fonte do sistema —, e é a borda de cima DESTA caixa que a
+     mesma função lê para saber até onde descer a janela. Um número escrito aqui
+     e outro no JS seriam dois donos da mesma medida.
+
+     E A ÁREA SEGURA DE BAIXO VOLTOU (v1.5.1 a tinha passado para a barra, que
+     encostava na base da tela): quem encosta na barra de gestos do Android é de
+     novo esta caixa. */
+  padding-top: calc(var(--lib-bar-h, 52px) + .35rem);
+  /* margem extra na base para não conflitar com navegação por gestos */
+  padding-bottom: calc(.6rem + max(env(safe-area-inset-bottom), 12px));
   /* SEM `border-top` e SEM sombra. As duas existiam para marcar onde a caixa
      começa, e as duas passaram a atrapalhar quando a faixa de abas encostou no
      topo (v5.54-55): a linha cortava o vazado da aba ativa e a sombra
@@ -1685,33 +1691,46 @@ main {
    faixa o anulava com `margin: 0 -.7rem` porque as células iam de borda a
    borda; aqui o campo tem forma própria e precisa da folga.
 
-   ELA É UMA FAIXA DE LADO A LADO, sem raio e sem margem (v1.5.1, pedido do
-   operador: *"deve ser uma barra de lado a lado da tela, sem estar dentro de um
-   card de bordas arredondadas … assim como já era na versão antiga da
-   biblioteca"*). A v1.5.0 a desenhou como um cartão dentro da caixa de
-   controles, e um cartão é o que ela nunca foi: ela é a CABEÇA de uma janela —
-   o irmão da `.hymn-search-bar` que morava no topo da Biblioteca —, e uma
-   cabeça encosta nas bordas do que ela encabeça.
+   ELA NÃO PINTA NADA (v1.5.2). Pedido do operador: *"vamos remover esse
+   zoneamento de tom cinza/azul que tem atrás da barra de buscas. vamos usar
+   apenas os botões e a caixa de texto do mesmo tom que os botões do
+   controle"*.
 
-   ELA TEM SUPERFÍCIE PRÓPRIA (`--field-bar`), e a razão é MEDIDA — a mesma da
-   v5.270. O campo é BRANCO nos dois temas (decisão declarada: ele é a única
-   peça da tela em que se digita, e veste os tokens `--field-*`, sem tema, como
-   o palco), e no tema CLARO a caixa de controles também é branca: campo branco
-   sobre caixa branca dá **1,00:1**, e o campo simplesmente não existe. A
-   elevação sozinha não paga — foi o meio-conserto que a v5.268 tentou e o
-   operador recusou.
+   A superfície própria (`--field-bar`) existia porque o campo era BRANCO nos
+   dois temas — e campo branco sobre a caixa de controles branca do tema claro
+   dá **1,00:1**. A resposta de agora resolve o mesmo problema pelo outro lado:
+   **o campo deixou de ser branco.** Ele e os quadrados vestem `--surface-2` e
+   `--surface`, que é o que os botões do transporte logo abaixo já vestem — e
+   duas peças da mesma caixa com a mesma receita não precisam de uma faixa que
+   as separe do resto.
 
-   O RESPIRO DE BAIXO É A ÁREA SEGURA. Fechada, ela encosta na base da TELA — é
-   ali que mora a barra de gestos do Android, e o `max()` é o que impede o campo
-   de nascer debaixo dela. Aberta, esse mesmo respiro é a folga entre a barra e a
-   lista, que ela precisa ter de qualquer jeito.
-   O DE CIMA é a área segura do TOPO, pelo motivo espelhado: aberta, a barra é o
-   primeiro pixel da tela. */
+   **O que se perde, dito:** a barra deixa de se anunciar como uma peça à parte
+   da caixa de controles. É exatamente o que o pedido quer — ela é uma linha da
+   caixa, como o transporte é outra.
+
+   O RESPIRO É O DA CAIXA. Vertical `.35rem` (a altura dela é o que a
+   `.bottombar` reserva no `padding-top`), lateral `.7rem` — o MESMO recuo do
+   conteúdo da caixa, porque ela é um overlay de largura inteira e precisa
+   alinhar com os botões que ficam embaixo dela. A área segura NÃO entra aqui:
+   fechada, quem encosta na base da tela é a caixa; aberta, quem desconta o
+   topo é a folha (`padding-top` da `.popup-sheet--lib`). */
 .lib-bar {
   display: flex; align-items: center; gap: .5rem; flex-shrink: 0;
-  padding: calc(.4rem + env(safe-area-inset-top)) .55rem
-           max(.4rem, env(safe-area-inset-bottom)) .55rem;
-  background: var(--field-bar);
+  padding: .35rem .7rem;
+  background: none;
+}
+/* ---------- E ELA VESTE A SUPERFÍCIE DA CAIXA DE CONTROLES ----------
+   O espelho da regra da `.bottombar` lá em cima, e pela MESMA aritmética: no
+   tema claro `--bar` é branco, e um controle em `--surface` (branco com alfa)
+   sobre ele é 1,00:1. A barra mora na janela — que devolve a superfície
+   FLUTUANTE (`.popup-sheet--lib`) —, então sem esta linha ela seria a única
+   peça da caixa de controles com um tom que não é o das vizinhas, que é
+   literalmente o que o pedido veio corrigir.
+   ABERTA ela fica sobre `--bg`, onde o recesso continua legível: um chip mais
+   escuro que o fundo da janela é a mesma gramática do resto do app. */
+:root[data-tema="claro"] .lib-bar {
+  --surface: var(--surface-sunk);
+  --surface-2: var(--surface-2-sunk);
 }
 /* O ALTERNADOR DA BIBLIOTECA: um botão, dois desenhos (v1.5.0).
    SETA quando fechada (ele abre), ✕ quando aberta (ele fecha). Os dois vivem na
@@ -1721,9 +1740,20 @@ main {
    que já pagou essa armadilha uma vez).
 
    E ELE VESTE `--btn-accent`, que era do `.tab-add`: numa linha em que o resto
-   é um campo e um botão sem fundo, ele é a única superfície de AÇÃO — e é a
-   porta que o operador procura sem olhar. */
-.lib-toggle { background: var(--btn-accent); color: var(--accent); }
+   é um campo e um quadrado do tom da caixa, ele é a única superfície de AÇÃO —
+   e é a porta que o operador procura sem olhar. É a MESMA gramática da fileira
+   logo abaixo, que também tem um botão aceso entre seis do tom comum (o
+   `#repeat.active`), então isto não contradiz o pedido do tom: o par
+   `--btn-accent`/`--accent` É um dos tons dos botões do controle.
+
+   A REGRA QUE O PINTA MORA LÁ EMBAIXO (v1.5.2), ao lado da cor do `#sorteioBtn`
+   — as duas coisas que distinguem os dois quadrados, no mesmo lugar. Ela era
+   `.lib-toggle`, uma classe, e a receita compartilhada dos quadrados é
+   `#hymnSearchToggle, #sorteioBtn`, um seletor de ID: enquanto os dois eram
+   brancos ambos pintavam a mesma coisa e a derrota passava despercebida; no
+   instante em que a receita comum passou a pintar `--surface`, ela venceu por
+   especificidade e o alternador virou mais um quadrado igual, **sem nada na
+   tela dizendo que a porta tinha sumido**. */
 .lib-toggle .ico-alt { display: none; }
 .lib-toggle.alt .ico-base { display: none; }
 .lib-toggle.alt .ico-alt { display: block; }
@@ -4357,43 +4387,42 @@ main {
    música e por isso pedia mais um degrau (220) — saiu na v5.254 com os atalhos
    de pasta. O 220 fica LIVRE: é o degrau do próximo popup que abrir de dentro
    do `#songMenuPopup`.) */
-/* ===== A BIBLIOTECA É UMA JANELA DE TELA CHEIA QUE SOBE DA BASE (v1.5.1) =====
-   Pedido do operador: *"ela não é restrita a zona do cronograma, ela é um popup
-   de tela inteira, ela surge da base da tela e vai levantando a barra de
-   buscas, de modo que a barra de buscas acabe no topo da biblioteca"*.
-
-   A v1.5.0 a fez subir até uma folga do topo, com a barra parada na caixa de
-   controles. O que mudou é QUEM sobe: a barra virou a CABEÇA da janela e sobe
-   com ela.
+/* ===== A BIBLIOTECA É UMA JANELA DE TELA CHEIA QUE SOBE (v1.5.1 → v1.5.2) =====
+   Pedidos do operador, nesta ordem: *"ela é um popup de tela inteira, ela surge
+   da base da tela e vai levantando a barra de buscas, de modo que a barra de
+   buscas acabe no topo da biblioteca"* (v1.5.1) e *"vamos mover essa barra de
+   volta para o topo da seção de controles, onde estava … mas mantenha todo o
+   sistema de abertura e posição relativa da aba da biblioteca"* (v1.5.2).
 
    ===== A MECÂNICA, e ela não tem mecanismo =====
-   A janela é uma coluna `[barra][lista]` que ocupa a tela inteira. Fechada, ela
-   está transladada para baixo o bastante para deixar SÓ A BARRA à vista,
-   encostada na base; aberta, `translateY(0)` — e a barra para no topo porque é
-   onde ela sempre esteve dentro desta caixa. Não há nó transportado entre dois
-   pais, não há segunda barra e não há posição calculada em runtime além de UMA
-   medida.
+   A janela é uma coluna `[barra][lista]` que ocupa a tela inteira. Aberta,
+   `translateY(0)`: a barra para no TOPO da tela porque é onde ela sempre esteve
+   dentro desta caixa. Fechada, a coluna desce até a barra pousar no lugar dela
+   — o topo da caixa de controles. Não há nó transportado entre dois pais e não
+   há segunda barra: a barra que se toca na caixa é a mesma que encabeça a
+   janela.
 
-   O deslocamento fechado é `100% - var(--lib-bar-h)`: a janela mede a tela
-   inteira, então descê-la da própria altura MENOS a barra deixa a barra pousada
-   na base. A porcentagem é da PRÓPRIA CAIXA, então o único número que vem de
-   fora é a altura da barra — que é medida (`medirBarraDaBiblioteca`) porque
-   muda com a área segura, com o corpo de fonte do sistema e com o teclado.
+   ===== O QUE MUDOU NA v1.5.2 É SÓ ONDE ELA REPOUSA =====
+   Era a base da TELA (`100% - a barra`, uma conta que não precisava de medida
+   nenhuma além da altura dela). É o topo da CAIXA DE CONTROLES, que é uma
+   posição do layout — daí `--lib-desce`, medido. A abertura, o movimento e o
+   destino não mudaram uma linha.
 
-   ===== E O ERRO DO PALPITE TEM DE SER PEQUENO, PORQUE ELE ANIMA =====
-   A translação TRANSICIONA. Enquanto a medida foi o deslocamento inteiro
-   (`--lib-desce`, com 60px de palpite contra 847px medidos), a primeira escrita
-   do JS animava a janela inteira tela abaixo na abertura do app — a Biblioteca
-   varrendo a tela por 0,28 s, com tudo por baixo dela intocável no caminho.
-   Escrita como `100% - barra`, o palpite erra por pixels e a correção é
-   invisível. *Uma medida que anima é uma medida que precisa nascer quase
-   certa.*
+   ===== E É POR ISSO QUE A FOLHA RECORTA =====
+   Com a barra a meia tela, tudo que vem ABAIXO dela na coluna — a lista e o
+   fundo da própria folha — cairia por cima da caixa de controles: o transporte
+   coberto por uma tela de `--bg` que ninguém abriu. O recorte apaga essa parte,
+   e apaga o TOQUE junto — `clip-path` recorta hit-test —, que é o que mantém os
+   botões do transporte alcançáveis com a Biblioteca fechada. Ele vale só depois
+   do fechamento, e o FUNDO da folha anda no mesmo relógio: fechada ela não pinta
+   nada, senão a faixa da barra ficaria com um retângulo `--bg` por trás — o
+   "zoneamento" que o operador mandou tirar. Ver `.popup-sheet--lib`.
 
    ===== E É ISSO QUE RESOLVE O TECLADO =====
    Com o campo no TOPO da tela, o teclado — que sobe da base — não tem como
    cobri-lo. Era o defeito que quatro lotes da era da barra-na-base tentaram
    consertar por fora (v5.261, v5.264, v5.266, v5.270), e ele volta a existir no
-   instante em que alguém puser a barra embaixo de novo.
+   instante em que alguém fizer a barra parar embaixo.
 
    ===== A CAMADA NÃO SOME, e é aqui que ela sai do molde =====
    Todo `.popup-backdrop` deste app é `opacity: 0` fechado. Este não pode ser: a
@@ -4405,7 +4434,6 @@ main {
   align-items: stretch;
   opacity: 1;
   background: none;
-  transition: none;
   /* FECHADA ELA NÃO EXISTE PARA O DEDO: o app inteiro por baixo continua
      alcançável, e quem recebe o toque é só a janela (a barra). */
   pointer-events: none;
@@ -4427,37 +4455,73 @@ main {
      lado. */
   border-radius: 0;
   /* ---------- ELA É UMA TELA POR DENTRO, ENTÃO É O NÍVEL 0 (v5.267) ----------
-     O fundo é `--bg` e não `--panel`: a Biblioteca abre a escada inteira lá
-     dentro — página → seção → álbum —, e começá-la no nível 1 gastaria na raiz
-     o degrau que falta três níveis adiante. Era literalmente o relato do
-     operador naquele lote (*"dificultando discernir se estou em uma camada ou
-     subcamada"*). */
-  background: var(--bg);
+     Aberta ela pinta `--bg` (ver a regra `.open` abaixo) e não `--panel`: a
+     Biblioteca abre a escada inteira lá dentro — página → seção → álbum —, e
+     começá-la no nível 1 gastaria na raiz o degrau que falta três níveis
+     adiante. Era literalmente o relato do operador naquele lote
+     (*"dificultando discernir se estou em uma camada ou subcamada"*).
+     FECHADA ela não pinta nada: o que fica à vista é só a barra, e ela é uma
+     linha da caixa de controles — um retângulo `--bg` atrás dela seria o
+     "zoneamento" que a v1.5.2 veio tirar. */
+  background: none;
   display: flex; flex-direction: column;
   /* Ela recebe toque SEMPRE, inclusive fechada: a barra é o que fica à vista, e
-     é por ela que a Biblioteca abre. */
+     é por ela que a Biblioteca abre. (Fechada, o recorte da camada reduz isso à
+     faixa da barra.) */
   pointer-events: auto;
-  /* O `padding-bottom` da `.popup-sheet` (a área segura de baixo) sai: aqui
-     quem encosta na base é a BARRA, e a área segura dela está no padding dela.
-     Somados, os dois deixavam uma faixa morta abaixo da barra. */
+  /* A ÁREA SEGURA DE CIMA É DAQUI (v1.5.2), e não da barra: aberta, a barra é o
+     primeiro pixel da tela e precisa do desconto; fechada, ela está no meio do
+     app e não precisa. Pondo o desconto na FOLHA, a altura da barra fica a mesma
+     nos dois estados — e é essa altura que a caixa de controles reserva. */
+  padding-top: env(safe-area-inset-top);
+  /* O `padding-bottom` da `.popup-sheet` (a área segura de baixo) sai: quem
+     encosta na base da tela é a caixa de controles, com a conta dela. */
   padding-bottom: 0;
-  transform: translateY(calc(100% - var(--lib-bar-h, 53px)));
-  /* ---------- A TRANSIÇÃO SÓ NASCE DEPOIS DE O APP ASSENTAR ----------
+  transform: translateY(var(--lib-desce, 100vh));
+  /* ---------- O RECORTE: FECHADA, SÓ A BARRA EXISTE ----------
+     Nem pixel, nem toque — `clip-path` recorta hit-test junto, e é isso que
+     mantém o transporte alcançável por baixo de uma janela de tela cheia.
+
+     ELE É MEDIDO NO ESPAÇO DA PRÓPRIA FOLHA (`100% - a barra`), e não na tela:
+     um `clip-path` é aplicado ANTES do `transform`, então recortar "tudo abaixo
+     da barra" aqui vale onde quer que a coluna esteja. A alternativa — recortar
+     a CAMADA na posição do lugar da barra — parecia mais direta e tinha um
+     defeito de mecanismo: aquele valor depende de uma MEDIDA que muda em
+     runtime, e a transição com atraso (abaixo) atrasa TODA mudança do valor,
+     inclusive a de uma remedição. MEDIDO num oráculo: o recorte ficou preso no
+     valor de partida (`inset(0px)`, isto é, nenhum) e a janela fechada cobria a
+     preview inteira. Aqui o único número é a altura da barra, que praticamente
+     não muda — e quando muda, 0,28 s de atraso não custam nada.
+
+     E ELE VOLTA SÓ DEPOIS DO FECHAMENTO (duração ZERO, atraso de uma animação):
+     um recorte que voltasse no instante do toque faria a lista sumir de uma vez
+     em vez de descer junto com a barra. Abrindo, a regra `.open` zera o atraso —
+     a janela precisa da tela inteira já no primeiro quadro da subida. */
+  clip-path: inset(0 0 calc(100% - var(--lib-bar-h, 52px)) 0);
+  /* ---------- A TRANSIÇÃO SÓ EXISTE FORA DE UMA REMEDIÇÃO ----------
      Zero por padrão, e `--lib-anim` só vira tempo com a classe `lib-pronta`,
-     posta dois quadros depois da carga (ver `medirBarraDaBiblioteca`). A janela
-     é a única peça deste app cuja POSIÇÃO DE REPOUSO depende de uma medida, e
-     toda medida chega depois do primeiro layout: MEDIDO, a barra mede 28,6px no
-     primeiro quadro (antes de a folha assentar) e 53px depois — com a transição
-     ligada desde o início, isso é a janela deslizando sozinha na abertura do
-     app, com tudo por baixo dela intocável no caminho (ela é de tela cheia e
-     recebe toque também fechada).
-     DOIS QUADROS, e não um: uma transição usa a duração do estilo DEPOIS da
-     mudança, então ligar o tempo no MESMO quadro em que a medida entra faria
-     justamente a animação que a guarda existe para impedir. */
-  transition: transform var(--lib-anim, 0s) cubic-bezier(.2, .7, .3, 1);
+     que a própria medida arma um quadro depois de escrever (ver
+     `semAnimarAJanela`). A janela é a única peça deste app cuja POSIÇÃO DE
+     REPOUSO depende de uma medida, e uma transição não distingue as duas razões
+     de o valor mudar — abrir/fechar, que ANIMA, e remedir, que não pode animar
+     (a caixa de controles salta para a altura nova e a barra ficaria correndo
+     atrás dela). Na carga é o mesmo caso: MEDIDO, a barra mede 28,6px no
+     primeiro quadro e 51px depois, e com o tempo ligado isso é a janela varrendo
+     a tela na abertura do app.
+     O FUNDO ANDA NO MESMO RELÓGIO DO RECORTE (0s de duração, atraso de uma
+     animação): fechada a folha não pinta, senão sobraria um retângulo `--bg`
+     atrás da faixa da barra — o "zoneamento" que a v1.5.2 veio tirar. */
+  transition: transform var(--lib-anim, 0s) cubic-bezier(.2, .7, .3, 1),
+              background-color 0s linear var(--lib-anim, 0s),
+              clip-path 0s linear var(--lib-anim, 0s);
 }
 body.lib-pronta { --lib-anim: var(--pop-anim); }
-.popup-backdrop--lib.open .popup-sheet--lib { transform: none; }
+.popup-backdrop--lib.open .popup-sheet--lib {
+  transform: none;
+  background: var(--bg);
+  clip-path: inset(0);
+  transition-delay: 0s, 0s, 0s;
+}
 /* NO MODO FÁCIL A BARRA NÃO FICA À VISTA, e a razão é a mesma que esconde a
    caixa de controles inteira lá (`body.mode-simple .bottombar`): aquele modo não
    tem cromo de operação na base — a porta da Biblioteca é a LUPA da zona de
@@ -4793,20 +4857,11 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
 /* Barra de busca do Hinário ocupando toda a largura da bandeja: display:flex faz
    o input (.lib-search, flex:1) esticar de lado a lado (sem isso o input ficava
    no tamanho nativo, pequeno). Campo mais alto/legível que o de busca da pasta. */
-/* ---------- O CABEÇALHO E A BARRA SÃO UMA PEÇA SÓ ----------
-   Duas faixas fixas empilhadas sobre a mesma lista são UMA barra, e pintá-las
-   igual (`--field-bar`) é dizer isso. O que as separava era só a cor; a
-   distinção que interessa — o que é rótulo e o que se toca — é dita pelo
-   conteúdo.
-   O TÍTULO CENTRA: o cabeçalho não tem mais nada além dele (o ✕ desceu para a
-   barra, o "Baixar tudo" e o ícone saíram). Filho único num flex centrado já
-   fica no meio; o que precisa ser desfeito é o `flex: 1` do `.popup-title`, que
-   o encostaria à esquerda. */
-#hymnSearchPopup .popup-header {
-  background: var(--field-bar);
-  justify-content: center;
-}
-#hymnSearchPopup .popup-title { flex: 0 1 auto; text-align: center; }
+/* (O CABEÇALHO DA BIBLIOTECA saiu na v5.258 — ele tinha virado uma faixa
+   repetindo o nome do botão que abre a tela —, e as duas regras que o pintavam
+   e centravam o título dele sobreviveram sem alvo até a v1.5.2. Com elas foi o
+   último consumidor do `--field-bar`, o tom que a barra de busca usava como
+   faixa própria: hoje a barra não pinta nada. O token saiu do `tokens.css`.) */
 /* ---------- A BARRA DA BIBLIOTECA FICA NO TOPO ----------
    Ela já morou na BASE, por ALCANCE (no topo, corrigir a busca com o teclado
    aberto custa a tela inteira de percurso do polegar). O que desmentiu esse
@@ -4884,41 +4939,61 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
      este projeto recusa; um valor para as duas é a medida da linha. */
   width: var(--campo-alt); height: var(--campo-alt); flex-shrink: 0;
   border-radius: var(--radius-btn);
-  background: var(--field-bg); color: var(--field-text);
-  box-shadow: 0 1px 3px -1px var(--shadow-ink);
+  /* O TOM DOS BOTÕES DO CONTROLE (v1.5.2): `--surface`, o mesmo do `.t-btn` e
+     do `.ctl-btn` que ficam logo abaixo. Eles vestiam `--field-bg` (branco
+     literal) com elevação, e isso era consequência da faixa `--field-bar` que
+     saiu: sobre uma faixa escura um botão em `--surface` daria 2,09:1 no glifo.
+     Sem faixa, o argumento inverte — o que separa a peça do fundo é o mesmo
+     degrau que separa os botões do transporte. A SOMBRA sai junto: ela existia
+     para separar branco de branco no tema claro, e não há mais branco. */
+  background: var(--surface); color: var(--text);
 }
 /* O ✕ FECHA e a playlist automática FAZ: numa barra de quadrados iguais o que
    os distingue é a cor, e é essa a distinção que importa.
 
-   `--field-accent`, NUNCA `--accent`: o campo é uma superfície SEM TEMA (branco
-   literal nos dois), e `--accent` é redeclarado por tema — no escuro ele é o
-   azul claro desenhado para o fundo quase-preto do app, e sobre este branco
-   mede 2,06:1. É a mesma armadilha que o `--field-text` e o `--field-muted` já
-   resolviam para o texto e o placeholder; o acento era o terceiro consumidor
-   que faltava. Medido: 7,70:1. Ver o bloco `--field-*` em tokens.css. */
-#sorteioBtn { color: var(--field-accent); }
-/* ---------- E O CAMPO É BRANCO NOS DOIS TEMAS ----------
-   Como `--surface-2` ele era um OVERLAY, e dentro da folha a superfície se
-   INVERTE (a regra no topo deste arquivo): saía como recesso preto a 14%/16% —
-   o desenho de um botão afundado, para a única peça da tela em que se DIGITA.
+   `--accent` DE VOLTA (v1.5.2): ele foi `--field-accent` enquanto o botão era
+   branco literal — uma superfície SEM TEMA, sobre a qual o acento do tema
+   escuro mede 2,06:1. Com o botão vestindo `--surface`, a superfície TEM tema
+   outra vez, e o acento do tema é o token certo. */
+#sorteioBtn { color: var(--accent); }
+/* E O ALTERNADOR É A AÇÃO DA LINHA: `--btn-accent` sob o traço `--accent`, o
+   mesmo par do `#repeat.active` do transporte. Ele vem DEPOIS da receita
+   compartilhada de propósito — mesma especificidade (um ID), disputa resolvida
+   pela ordem. Ver o bloco do `.lib-toggle` lá em cima. */
+#hymnSearchToggle { background: var(--btn-accent); color: var(--accent); }
+/* ---------- E O CAMPO DEIXOU DE SER BRANCO (v1.5.2) ----------
+   `--surface`, o MESMO tom dos quadrados ao lado e dos botões do transporte
+   logo abaixo — que é o pedido ao pé da letra (*"apenas os botões e a caixa de
+   texto do mesmo tom que os botões do controle"*). O que separa o campo dos
+   botões deixa de ser o tom e passa a ser a forma: ele é o largo da linha, e
+   tem a lupa dentro.
 
-   AS TRÊS CORES ANDAM JUNTAS, e essa é a metade que não se percebe pedindo "o
-   campo branco": texto, placeholder e lupa moram DENTRO dele, e no tema escuro
-   `--text` sobre branco dá 1,17:1. Os três vêm dos tokens SEM TEMA (`--field-*`
-   em tokens.css). Trocar só o fundo apaga o que se digita.
+   E NÃO `--surface-2`, que é a receita de campo que a `.lib-search` declara
+   para a folha do sorteio: MEDIDO, o placeholder (`--muted`) sobre ela dá
+   **4,21:1** no escuro e **4,15:1** no claro — abaixo de AA nos dois. Sobre
+   `--surface` ele dá **5,15:1** e **4,82:1**. O tom que o pedido escolheu é
+   também o que passa, e essa coincidência é a razão de a medida estar
+   escrita aqui: quem trocar de volta vai ver os dois números.
+   (O texto digitado dá 7,36:1 e 6,42:1; o acento do glifo sobre o `--btn-accent`
+   do alternador, 5,37:1 e 6,37:1.)
 
-   E ELE PRECISA DE ELEVAÇÃO, porque no tema CLARO a barra também é branca:
-   campo branco sobre barra branca dá 1,00:1. Não há tom que resolva sem desfazer
-   uma das duas decisões, e contorno está fora do app inteiro — sobra a
-   PROFUNDIDADE, o mesmo argumento que a sombra da barra e a da tampa do álbum
-   já usam nesta tela. Duas superfícies do mesmo tom se separam por elevação. No
-   escuro ela é invisível (o campo já contrasta 12,6:1) e não custa nada. */
-#hymnSearchInput {
-  background: var(--field-bg); color: var(--field-text);
-  box-shadow: 0 1px 3px -1px var(--shadow-ink);
-}
-#hymnSearchInput::placeholder { color: var(--field-muted); }
-.lib-bar .lib-search-lupa { color: var(--field-muted); }
+   Ele foi branco literal (`--field-*`, os tokens SEM TEMA) da v5.267 até aqui, e
+   a razão morreu com a faixa: era a única peça em que se DIGITA, sobre uma
+   superfície própria que a destacava. As três cores de dentro (texto,
+   placeholder e lupa) voltam junto ao tema — elas eram `--field-*` porque o
+   fundo era.
+
+   E A ELEVAÇÃO SAI COM ELE: a sombra existia para separar branco de branco no
+   tema claro. O que separa agora é o degrau de tom, que é o mesmo que separa os
+   botões do transporte da caixa em que eles moram.
+
+   **O que se perde, dito:** num salão escuro o campo deixa de ser o retângulo
+   mais luminoso da tela — o que, para uma peça que fica à vista o culto inteiro
+   na base do app, é ganho, não perda. O argumento do branco continua de pé onde
+   ele nasceu (o `.sorteio-campo`, que só existe com a folha aberta). */
+#hymnSearchInput { background: var(--surface); }
+#hymnSearchInput::placeholder { color: var(--muted); }
+.lib-bar .lib-search-lupa { color: var(--muted); }
 /* Resultado: linha compacta [▶] [nome / subtítulo] [+]. Dois botões, cada um
    abrindo a folha com as três coisas que ele faz (ver hymnResultRow); o toque
    na linha continua abrindo a letra. A lista precisa ser legível de relance no

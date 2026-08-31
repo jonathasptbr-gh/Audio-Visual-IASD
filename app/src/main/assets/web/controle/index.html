@@ -706,11 +706,16 @@
 
   <!-- controles multimídia fixados na base -->
   <footer class="bottombar">
-    <!-- (A `.lib-bar` MOROU AQUI na v1.5.0, no lugar da faixa de abas, e mudou
-         de casa na v1.5.1: ela é a CABEÇA da janela da Biblioteca agora, e por
-         isso vive dentro dela — ver `#hymnSearchPopup`. O que a caixa de
-         controles reserva para ela é só a altura (`--lib-bar-h`), porque a
-         janela é `fixed` e a barra pousa por cima da base do app.) -->
+    <!-- ===== O LUGAR DA BARRA DA BIBLIOTECA (v1.5.2) =====
+         Ela MORA na janela (`#hymnSearchPopup`) — é a cabeça dela, e é por isso
+         que sobe junto —, mas o LUGAR de repouso dela é aqui, no topo desta
+         caixa, onde a faixa de abas ficava. Quem o reserva é o `padding-top` da
+         `.bottombar` (`--lib-bar-h`, medido em runtime), e é a borda de cima
+         desta caixa que o JS lê para saber até onde descer a janela.
+
+         SEM ELEMENTO FANTASMA de propósito: um `<div>` vazio só para marcar o
+         lugar seria um segundo dono da mesma medida, e ele divergiria da barra
+         no primeiro ajuste de padding. O padding reserva e a borda mede. -->
 
   <!-- selbar substitui as abas durante a seleção múltipla -->
   <div id="selbar" class="selbar" hidden>
@@ -1664,7 +1669,7 @@
                METADADO de diagnóstico e o lugar onde se procura diagnóstico é
                junto do estado do telão e do alvo de espelhamento, não numa faixa
                de navegação. Preenchido por `renderVersionLabel`. -->
-          <span id="appVersion" class="app-version">Controle v1.5.1</span>
+          <span id="appVersion" class="app-version">Controle v1.5.2</span>
           <!-- SALVAR EM ARQUIVO (v1.2.16). Com o acervo inteiro varrido o
                Registro passa de setenta linhas só na seção de cifras, e copiar e
                colar é o caminho que corta o texto no meio SEM AVISAR — foi o

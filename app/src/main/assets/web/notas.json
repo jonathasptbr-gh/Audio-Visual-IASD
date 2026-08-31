@@ -1,5 +1,14 @@
 [
   {
+    "versao": "1.5.2",
+    "itens": [
+      "A faixa cinza atrás da barra de busca saiu.",
+      "O campo e os botões dela ficaram do mesmo tom dos botões do controle.",
+      "A barra voltou para o topo dos controles, acima do nome da mídia.",
+      "A Biblioteca continua subindo dali e levando a barra até o topo da tela."
+    ]
+  },
+  {
     "versao": "1.5.1",
     "itens": [
       "A barra de busca virou uma faixa de lado a lado, na base do app.",
