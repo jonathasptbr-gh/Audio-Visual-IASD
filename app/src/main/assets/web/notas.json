@@ -1,5 +1,13 @@
 [
   {
+    "versao": "1.5.4",
+    "itens": [
+      "A Biblioteca deixou de cobrir os controles: ela abre até a linha da barra de busca.",
+      "O louvor pode ser pausado sem fechar a Biblioteca.",
+      "Sumiu a faixa que aparecia acima da barra ao fechar a Biblioteca."
+    ]
+  },
+  {
     "versao": "1.5.3",
     "itens": [
       "A barra de busca deixou de aparecer cortada em telas com entalhe.",
@@ -376,141 +384,6 @@
       "Com duas redes de pé, o app pergunta em qual servir.",
       "A recusa da transmissão passou a dizer o que fazer.",
       "Precisa do app novo (v1.4.1)."
-    ]
-  },
-  {
-    "versao": "1.3.16",
-    "itens": [
-      "Nome da tela (Cronograma, Bíblia) maior, sem crescer a barra do topo."
-    ]
-  },
-  {
-    "versao": "1.3.15",
-    "itens": [
-      "Uma cor por livro na Bíblia, em vez de duas faixas.",
-      "A aba em que você está ficou marcada de forma mais discreta.",
-      "O ✕ das Ferramentas virou o mesmo botão quadrado dos outros."
-    ]
-  },
-  {
-    "versao": "1.3.14",
-    "itens": [
-      "Revisão de tema do app inteiro: um botão, uma cor, em qualquer tela.",
-      "O botão de repetição acende quando está ligado.",
-      "Confirmar uma exclusão ficou vermelho.",
-      "O toque responde igual em todo botão, grande ou pequeno.",
-      "Na Bíblia, cada pílula veste a cor da grade que ela abre.",
-      "Microfone invisível no tema claro, corrigido."
-    ]
-  },
-  {
-    "versao": "1.3.13",
-    "itens": [
-      "Apagar um item do Cronograma não interrompe mais o que está tocando.",
-      "O item no ar passou a segurar os próprios arquivos.",
-      "A folha de Ferramentas desce por onde subiu."
-    ]
-  },
-  {
-    "versao": "1.3.12",
-    "itens": [
-      "Importar um arquivo mostra que está importando.",
-      "O louvor não cala mais ao minimizar sem tela conectada.",
-      "Precisa do app novo (v1.3.12)."
-    ]
-  },
-  {
-    "versao": "1.3.11",
-    "itens": [
-      "Ao deslizar entre as abas, a tela passava por cima do cabeçalho."
-    ]
-  },
-  {
-    "versao": "1.3.10",
-    "itens": [
-      "O fundo da letra parou de sumir ao trocar de música.",
-      "Na tela cheia os controles aparecem ao entrar, e o toque virou interruptor.",
-      "As Ferramentas viraram uma folha do Cronograma.",
-      "\"Transmitir para navegador\" virou \"Conectar um computador\".",
-      "O selo da camada de cima desceu para a base da preview."
-    ]
-  },
-  {
-    "versao": "1.3.9",
-    "itens": [
-      "O slide de volume voltou, acionado pelas teclas físicas.",
-      "O botão de voltar slide não some mais junto com ele.",
-      "Botão de histórico com a mesma caixa dos vizinhos.",
-      "Linha de baixo reordenada."
-    ]
-  },
-  {
-    "versao": "1.3.8",
-    "itens": [
-      "O ajuste manual de volume saiu do painel: vale o do próprio aparelho.",
-      "Barra de progresso na largura inteira, com o título centralizado.",
-      "Botão de histórico na última célula da linha de baixo."
-    ]
-  },
-  {
-    "versao": "1.3.7",
-    "itens": [
-      "Espaçamentos do painel de controles iguais em todo lugar.",
-      "Os sete botões da linha de baixo ficaram idênticos.",
-      "A preview passou a preencher a coluna inteira."
-    ]
-  },
-  {
-    "versao": "1.3.6",
-    "itens": [
-      "Botões de slide com a altura exata da preview.",
-      "Os três ícones sobre a preview espalhados em topo, meio e base."
-    ]
-  },
-  {
-    "versao": "1.3.5",
-    "itens": [
-      "Passar e voltar slide passaram a ladear a preview, em altura inteira.",
-      "Ver a letra, cobrir o telão e mudo subiram para uma coluna à esquerda.",
-      "⏮/⏭ da barra de transporte passam mídia e mais nada.",
-      "O selo da camada de cima foi para o topo, ao centro."
-    ]
-  },
-  {
-    "versao": "1.3.4",
-    "itens": [
-      "Mais respiro entre os pares de acorde e letra da cifra.",
-      "A quebra de estrofe ficou distinguível da quebra de par."
-    ]
-  },
-  {
-    "versao": "1.3.3",
-    "itens": [
-      "A busca manual de cifra saiu: a aba é só automática.",
-      "Não achando, a aba mostra o motivo e nada mais."
-    ]
-  },
-  {
-    "versao": "1.3.2",
-    "itens": [
-      "O botão \"Trocar\" saiu do rodapé da cifra."
-    ]
-  },
-  {
-    "versao": "1.3.1",
-    "itens": [
-      "\"Trocar\" e \"Ver no Cifra Club\" deixaram de ficar colados.",
-      "A linha do tom e da rolagem da cifra ganhou respiro.",
-      "Versão e Registro seguem a margem do resto da tela."
-    ]
-  },
-  {
-    "versao": "1.3.0",
-    "itens": [
-      "A rolagem automática da cifra parava numa música aberta pela Biblioteca.",
-      "\"Salvar Registro\" não respondia ao toque.",
-      "A conta de cifras do Registro dizia \"0 por varrer\" indevidamente.",
-      "Contraste corrigido no tema claro."
     ]
   }
 ]

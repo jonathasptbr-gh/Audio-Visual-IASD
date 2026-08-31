@@ -2408,17 +2408,25 @@ try {
     // do piso) fica verdadeira por vacuidade — num fixture com duas seções
     // sobra tela à vontade e a lista nunca alcança o piso.
     //
-    // SÃO SEIS CATEGORIAS: oito blocos, os prints do operador. Elas caíram para
-    // duas na v1.5.0, quando a janela parava numa folga do topo e terminava no
-    // topo da barra — a lista media 576px ali, e oito blocos não deixavam vão
-    // NENHUM (piso zero), o que fazia a primeira metade falar de um desenho que
-    // a tela não tinha. Com a janela de TELA CHEIA da v1.5.1 a lista voltou a
-    // ser a tela menos a barra (847px nesta viewport) e os oito blocos cabem de
-    // novo, com 218px de vão (MEDIDO). **O número nunca foi o assunto: a
-    // PROPRIEDADE é** — o vão pequeno o bastante para a lista de favoritos
-    // passar dele.
-    albumCatalog.categories = ['CDs oficiais/ano', 'Adoradores', 'Missão',
-      'Salmos', 'Infantis', 'Instrumentais'].map((nome, i) => ({
+    // QUANTAS CATEGORIAS depende de QUANTO A JANELA MEDE, e esse número já mudou
+    // três vezes — **o número nunca foi o assunto: a PROPRIEDADE é**, o vão
+    // pequeno o bastante para a lista de favoritos passar dele, e grande o
+    // bastante para existir. Seis categorias (oito blocos) valiam com a janela
+    // de TELA CHEIA da v1.5.1 (lista de 847px, 218px de vão MEDIDOS); com a
+    // janela da v1.5.4, que termina na LINHA DA BARRA para os controles ficarem
+    // à vista, a lista voltou a medir ~602px e os oito blocos não deixavam vão
+    // NENHUM (piso zero) — a primeira metade passava a falar de um desenho que a
+    // tela não tinha. São TRÊS, e o vão volta a 157px (MEDIDO).
+    //
+    // A RÉGUA NÃO É "vão > 0": é **vão maior que a seção VAZIA**, que tem altura
+    // própria (136px aqui — cabeçalho mais a linha de "Nenhum favorito ainda").
+    // Com quatro categorias o vão dá 96px e a seção mede os 136 dela: a primeira
+    // metade reprova dizendo "136px para um vão de 96px", e a leitura fácil
+    // (*"a seção não respeita o piso"*) é falsa — o piso é que ficou menor que o
+    // conteúdo mínimo. Quem mexer na altura da janela remede aqui; o sinal é
+    // esta linha reprovando com os dois números diferentes.
+    albumCatalog.categories = ['CDs oficiais/ano', 'Adoradores', 'Missão']
+      .map((nome, i) => ({
       name: nome,
       albums: [{ id_album: 500 + i, name: 'Álbum ' + nome }],
     }));

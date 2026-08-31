@@ -2341,7 +2341,8 @@ cronograma vai ser a tela padrão e única."*
  │  transporte · preview · mixer           │    pousada no TOPO desta caixa
  └─────────────────────────────────────────┘
    A Biblioteca é a janela INTEIRA: fechada, só a barra dela aparece; aberta,
-   ela sobe de tela cheia e a barra para no topo.
+   ela sobe até o topo e a barra vira a cabeça dela — e para na LINHA DA BARRA,
+   com a caixa de controles à vista por baixo (v1.5.4).
 ```
 
 **A FAIXA DE ABAS SAIU INTEIRA**, e com ela o vazado deslizante (`.tab-ind` e o
@@ -2361,7 +2362,7 @@ no fim da animação de saída.
 | `#toolsSheet` · `#bibleSheet` | as duas folhas, filhas do `.list-body`, cobrindo só a lista |
 | `.import-row` | as três portas: `#bibleBtn` · `.import-btn` · `#toolsBtn` |
 | `.lib-bar` | a barra da Biblioteca — a CABEÇA da janela, à vista no topo da caixa de controles |
-| `#hymnSearchPopup` | a JANELA da Biblioteca — `fixed`, de tela cheia, sobe da barra |
+| `#hymnSearchPopup` | a JANELA da Biblioteca — `fixed`, do topo até a LINHA DA BARRA, sobe da barra |
 
 #### As três portas do rodapé
 
@@ -2473,37 +2474,65 @@ surge da base da tela e vai levantando a barra de buscas, de modo que a barra de
 buscas acabe no topo da biblioteca. (isso resolve o problema que temos
 atualmente da caixa de texto ficar escondida pelo teclado)"*
 
-**A MECÂNICA NÃO TEM MECANISMO.** A janela é uma coluna `[barra][lista]` de tela
-cheia. Aberta, `translateY(0)` — a barra para no topo da tela porque é onde ela
-sempre esteve dentro desta caixa. Fechada, a coluna desce até a barra pousar no
-lugar dela: o topo da caixa de controles. Não há nó transportado entre dois pais
-e não há segunda barra — a barra que se toca na caixa é a mesma que encabeça a
-janela.
+**A MECÂNICA NÃO TEM MECANISMO.** A janela é uma coluna `[barra][lista]`. Aberta,
+`translateY(var(--sa-topo))` — a barra para no alto porque é onde ela sempre
+esteve dentro desta coluna, e o único desvio é a faixa da barra de status.
+Fechada, a coluna desce até a barra pousar no lugar dela: o topo da caixa de
+controles. Não há nó transportado entre dois pais e não há segunda barra — a
+barra que se toca na caixa é a mesma que encabeça a janela.
 
 **O QUE A v1.5.2 MUDOU É SÓ ONDE ELA REPOUSA.** Era a base da TELA (`100% - a
 barra`, uma conta que não pedia medida de posição nenhuma); é o topo da caixa de
-controles, que é uma posição do layout — daí `--lib-desce`, medido. A abertura, o
-movimento e o destino não mudaram uma linha.
+controles, que é uma posição do layout — daí um `--lib-desce` medido, que a
+v1.5.3 substituiu por alturas (ver abaixo: uma coordenada envelhece). A abertura,
+o movimento e o destino não mudaram uma linha.
 
-**E É POR ISSO QUE A FOLHA RECORTA.** Com a barra a meia tela, tudo que vem
-ABAIXO dela na coluna — a lista e o fundo da própria folha — cairia por cima da
-caixa de controles: o transporte coberto por uma tela de `--bg` que ninguém
-abriu. O `clip-path` apaga exatamente essa parte, e apaga também o TOQUE nela —
-ele recorta hit-test junto, que é o que mantém os botões alcançáveis com a
-Biblioteca fechada. **Ele volta só DEPOIS do fechamento**: um recorte que
-voltasse no instante do toque faria a lista sumir de uma vez em vez de descer
-junto com a barra. O FUNDO da folha segue o mesmo relógio, pelo motivo espelhado
-— fechada ela não pinta nada, senão a faixa da barra ficaria com um retângulo
-`--bg` por trás, que é o "zoneamento" que o operador mandou tirar.
+**E É POR ISSO QUE A JANELA TERMINA NA LINHA DA BARRA (v1.5.4).** Pedido do
+operador: *"ajuste para que ela use a área abaixo da barra de buscas, até o topo.
+seu deslizamento surge e se corta ali. mantendo sempre os controles visíveis"*.
+Com a barra a meia tela, tudo que vem ABAIXO dela na coluna — a lista e o fundo
+da própria folha — cairia por cima da caixa de controles: o transporte coberto
+por uma tela de `--bg` que ninguém abriu.
 
-- **O RECORTE É MEDIDO NO ESPAÇO DA PRÓPRIA FOLHA** (`100% - a barra`), e não na
-  tela: um `clip-path` é aplicado ANTES do `transform`, então recortar "tudo
-  abaixo da barra" vale onde quer que a coluna esteja. A alternativa — recortar a
-  CAMADA na posição do lugar da barra — parecia mais direta e tinha um defeito de
-  mecanismo: aquele valor depende de uma MEDIDA que muda em runtime, e o atraso
-  que o recorte precisa ter atrasa TODA mudança do valor, remedição inclusive.
-  MEDIDO no `controles-layout.test.mjs`, que não desenha quadros: o recorte ficou
-  preso no valor de partida e a janela FECHADA cobria a preview inteira.
+A CAMADA passou a ir do topo até a linha em que a barra repousa: `bottom` é a
+caixa de controles MENOS a barra (a caixa já reserva a altura dela no
+`padding-top`, e é essa faixa que a janela ocupa quando a barra sobe), mais
+`overflow: hidden` — sem ele o `bottom` só encolhe a caixa da camada e um filho
+`absolute` transborda dela. Duas alturas medidas, nenhuma coordenada: a mesma
+conta que põe a barra no lugar.
+
+- **ELA É A MESMA ABERTA OU FECHADA, e é isso que a torna segura.** Não há
+  estado: o recorte não anima, não tem atraso e não pode ficar preso num valor de
+  partida. Abrir é a COLUNA subindo dentro de uma janela que não se mexe —
+  *"surge e se corta ali"*.
+- **E OS CONTROLES CONTINUAM VIVOS.** Fora do recorte não há camada: nem pixel,
+  nem scrim, nem toque. Com a Biblioteca ABERTA o operador vê e ALCANÇA o
+  transporte — pausar o louvor enquanto procura o próximo deixou de exigir fechar
+  a janela.
+- **AS DUAS TENTATIVAS ANTERIORES, e por que as duas caíram.** A v1.5.1 recortou
+  a CAMADA na posição do lugar da barra: aquele valor depende de uma MEDIDA que
+  muda em runtime, e o atraso que o recorte precisava ter atrasava TODA mudança
+  do valor, remedição inclusive — MEDIDO no `controles-layout.test.mjs`, que não
+  desenha quadros, o recorte ficou preso no valor de partida e a janela FECHADA
+  cobria a preview inteira. A v1.5.2 mudou-o para o espaço da própria FOLHA
+  (`clip-path` é aplicado ANTES do `transform`, então "tudo abaixo da barra" vale
+  onde quer que a coluna esteja), o que resolveu o atraso e trouxe a segunda
+  metade do defeito do aparelho: o recorte revelava `[0, altura da barra]` de uma
+  folha em que a barra começava DEPOIS do recuo da área segura. **Sem recorte
+  nenhum as duas classes somem** — a janela acaba onde a camada acaba.
+- **A ÁREA SEGURA É O DESTINO, NÃO UM RECUO** (v1.5.4). Relato do operador: *"a
+  barra superior acima da barra de buscas … quando é animada para fechamento, se
+  torna uma margem saliente durante o movimento"*. Ele estava vendo o
+  `padding-top` da folha: como RECUO ele existe nos DOIS estados — aberta é a
+  faixa da barra de status, que é o certo; fechada e em movimento é uma faixa a
+  mais VIAJANDO ACIMA da barra, que nada explica. Hoje a barra é o primeiro pixel
+  da folha e abrir leva a coluna até `--sa-topo` em vez de zero: não há estado a
+  trocar, logo não há o que aparecer no meio do caminho. A `height` da folha
+  desconta o mesmo tanto, senão a última linha da lista terminaria fora do
+  recorte.
+- **O FUNDO da folha continua com relógio próprio** — fechada ela não pinta nada,
+  senão a faixa da barra ficaria com um retângulo `--bg` por trás, que é o
+  "zoneamento" que o operador mandou tirar.
 - **E UMA REMEDIÇÃO NÃO É UMA ANIMAÇÃO** (`semAnimarAJanela`). A janela anima
   entre dois lugares e o segundo é uma medida; uma transição não distingue as
   duas razões de o valor mudar. Com o tempo ligado, remedir vira a barra
@@ -2582,15 +2611,24 @@ junto com a barra. O FUNDO da folha segue o mesmo relógio, pelo motivo espelhad
   ABERTA (para o toque no fundo fechar) e a janela o recebe SEMPRE (para a barra
   funcionar fechada).
 - **`transform`, não `height`**: altura anima no layout.
-- **Ela NÃO é a folha das Ferramentas**: aquelas são filhas do `.list-body`; esta
-  é `fixed` e cobre o app inteiro. Era o pedido literal da v1.5.0.
+- **Ela NÃO é a folha das Ferramentas**: aquelas são filhas do `.list-body` e
+  cobrem só a lista; esta é `fixed`, sai do fluxo e come o cabeçalho junto. O que
+  ela DEIXA de fora é só a caixa de controles (v1.5.4) — e por baixo, não por
+  molde: quem a limita é o recorte da camada, não um pai.
 
 **O QUE A v1.5.0 TENTOU, e por que saiu:** a barra parada na caixa de controles
 e a janela subindo de trás dela até uma folga do topo, para se anunciar como
 janela. A folga custava duas coisas — o campo de texto atrás do teclado e a
-lista caindo de ~880px para **576** (medido em 430×900). Hoje a lista é a tela
-menos a barra (**849px**, medido), e quem diz "isto é uma janela" é o movimento.
-A barra voltou ao lugar da v1.5.0; o que não voltou é ela ficar parada lá.
+lista caindo de ~880px para **576** (medido em 430×900). Hoje a lista vai da
+barra até a linha dela (**602px**, medido em 430×900), e quem diz "isto é uma
+janela" é o movimento. A barra voltou ao lugar da v1.5.0; o que não voltou é ela
+ficar parada lá.
+
+> **A ALTURA DA LISTA É FIXTURE DE ORÁCULO**, e já mudou três vezes. O caso do
+> vão dos favoritos (`boot-nativo.test.mjs`) precisa de uma Biblioteca com
+> categorias bastante para o vão ser PEQUENO — e maior que a seção vazia, que tem
+> altura própria. Mexer nesta altura remede aquele fixture; o sinal é a primeira
+> metade daquele caso reprovando com dois números diferentes.
 
 ### Abas e biblioteca
 
