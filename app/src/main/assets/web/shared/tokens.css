@@ -191,20 +191,11 @@
      nome diz a que superfície ele pertence, e é isso que impede o próximo
      controle sobre o campo de repetir a conta errada. */
   --field-accent: #2f557f;
-  /* A BARRA QUE HOSPEDA O CAMPO (v5.270, pedido do operador: *"faça com que o
-     fundo atrás da caixa de texto fique mais escuro no tema claro"*).
-
-     Ela era `--camada`, isto é, o nível 1 da escada — e no tema CLARO esse
-     nível É o branco, exatamente a cor do campo que ela contém. A v5.268
-     contornou isso com elevação (uma sombra), e o operador está pedindo o
-     conserto de verdade: **o degrau de tom**. A barra é o único bloco de nível 1
-     do app que hospeda uma superfície SEM TEMA, então ela é o único que não pode
-     ler o tom do nível — é a exceção declarada à escada, e por isso o token vive
-     nesta família e não naquela.
-
-     No ESCURO ela mantém o valor de hoje (o `--panel` do nível 1): ali o campo
-     branco já contrasta 12,6:1 e não havia nada a consertar. */
-  --field-bar: #2c343c;
+  /* (`--field-bar` SAIU na v1.5.2, nos dois temas. Era a faixa que hospedava o
+     campo de busca, e ela existia por causa de uma peça que também saiu: o campo
+     BRANCO. Pedido do operador: *"vamos remover esse zoneamento de tom
+     cinza/azul que tem atrás da barra de buscas"*. Sem campo branco não há
+     branco-sobre-branco a resolver, e a barra deixou de pintar.) */
 }
 
 /* ======================================================================
@@ -599,16 +590,6 @@
   --panel-2: #d4dae2;
   /* (`--fav-bg` saiu na v5.282, nos dois temas — ver o bloco do escuro.) */
   --line: #97a5b4;                       /* 1,95:1 contra o fundo · 2,51:1 contra o painel */
-  /* A BARRA DA BUSCA, mais escura que o nível 1 (v5.270) — ver o bloco
-     compartilhado. Medido: o campo BRANCO dá **2,51:1** contra ela (era 1,00:1,
-     isto é, a mesma cor), e ela dá 1,95:1 contra a página, então a faixa se lê
-     como uma peça própria e não como um pedaço do corpo. É o mesmo valor de
-     `--line`, e isso é reuso e não coincidência: é o cinza estrutural que esta
-     paleta já calibrou para separar coisas no tema claro.
-     Ela é escura o bastante para EXIGIR que o que pousa nela seja claro — o
-     campo já era, e o ✕ passou a ser (`--field-bg`), que é a outra metade do
-     mesmo pedido. Um ícone em `--muted` ali daria 2,09:1 e reprovaria. */
-  --field-bar: #97a5b4;
   /* O SINAL é o mesmo do tema escuro: o controle FLUTUA sobre a página e
      AFUNDA dentro do cartão. O que muda é o lado do branco em que cada um
      está — sobre a página cinza o overlay é branco (o botão sobe até quase o

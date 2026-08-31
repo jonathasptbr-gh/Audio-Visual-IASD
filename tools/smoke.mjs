@@ -1391,6 +1391,16 @@ for (const tema of ['escuro', 'claro']) {
       // A LISTA PRECISA MORAR NA FOLHA DE VERDADE (v5.267): o tom de cada nível
       // é herdado do contêiner (`--camada`), então medir a árvore num `<ul>`
       // solto no `<body>` mediria uma árvore que não existe no app.
+      //
+      // E A FOLHA PRECISA ESTAR ABERTA (v1.5.2): o CHÃO da escada — o `--bg`
+      // dela — só é pintado com a janela no ar. Fechada ela não pinta nada, e
+      // isso não é economia: o que sobra à vista fechada é só a barra, que é uma
+      // linha da caixa de controles, e um retângulo `--bg` atrás dela seria o
+      // "zoneamento" que o operador mandou tirar. Medir a escada fechada é medir
+      // uma tela que ninguém vê.
+      const camada = document.getElementById('hymnSearchPopup');
+      const estavaAberta = camada.classList.contains('open');
+      camada.classList.add('open');
       const folha = document.querySelector('#hymnSearchPopup .popup-sheet--lib');
       const lista = document.createElement('ul');
       lista.className = 'popup-list';
@@ -1495,6 +1505,7 @@ for (const tema of ['escuro', 'claro']) {
         })(),
       };
       lista.remove(); delete collState[c.id]; grupoAberto = ''; favAberto = true;
+      if (!estavaAberta) camada.classList.remove('open');
       document.documentElement.setAttribute('data-tema', 'escuro');
       return r;
     }, tema);
@@ -2182,6 +2193,17 @@ try {
     ui(c.id).expanded = true; ui(c.id).shown = 100;
     const lista = document.createElement('ul');
     lista.className = 'hymnal-list'; lista.style.width = '390px';
+    // ELA SAI DO FLUXO (v1.5.2), e a razão é o que este bloco faz depois: ele
+    // PRESSIONA de verdade, com o mouse, em coordenadas da tela. Solta no
+    // `<body>`, a fixture cai onde o layout a puser — e uma delas é a faixa em
+    // que a barra da Biblioteca repousa, que é um overlay e recebe o toque. No
+    // app essa faixa é o `padding-top` da caixa de controles e não hospeda nada;
+    // aqui ela engolia a pressão, e o que reprovava era o `:active` que nunca
+    // aconteceu. Fixada no topo e acima da camada da janela, a fixture é sempre
+    // quem o dedo encontra. Os tons medidos não mudam: o pai continua sendo o
+    // `<body>`, isto é, o nível da página.
+    lista.style.position = 'fixed'; lista.style.top = '0'; lista.style.left = '0';
+    lista.style.zIndex = '250';
     document.body.appendChild(lista);
     window.__semearSecao();   // o `setAppMode` acima passou pelo reset (v1.1.4)
     grupoAberto = 'Álbuns de exemplo';
@@ -4521,11 +4543,20 @@ try {
       faixa: (() => {
         const r = barra.getBoundingClientRect();
         const cs = getComputedStyle(barra);
+        const caixa = document.querySelector('.bottombar');
+        const rc = caixa.getBoundingClientRect();
+        const cc = getComputedStyle(caixa);
         return { esq: Math.round(r.left), dir: Math.round(window.innerWidth - r.right),
           raio: cs.borderTopLeftRadius + ' ' + cs.borderTopRightRadius,
-          // O FUNDO É OPACO e é o dela: um cartão sem raio ainda seria um
-          // cartão se a faixa não pintasse de ponta a ponta.
-          fundo: cs.backgroundColor };
+          margem: cs.marginLeft + ' ' + cs.marginRight,
+          // O RECUO DO CONTEÚDO bate com o da caixa de controles: ela é um
+          // overlay de largura inteira, e o que precisa alinhar com os botões
+          // de baixo é o que ela põe DENTRO.
+          recuo: cs.paddingLeft, recuoDaCaixa: cc.paddingLeft,
+          // O LUGAR: a borda de cima da caixa de controles, que é o que o
+          // `padding-top` dela reserva.
+          topoDaBarra: Math.round(r.top), topoDaCaixa: Math.round(rc.top),
+          reserva: cc.paddingTop, altura: Math.round(r.height) };
       })(),
     };
   });
@@ -4539,11 +4570,66 @@ try {
     'e ela é UMA só no app inteiro, com as três peças na ordem de sempre — duas '
     + 'barras seriam duas verdades sobre o mesmo campo', JSON.stringify(bib.ordem));
   checar(bib.faixa.esq === 0 && bib.faixa.dir === 0
-    && /^0px 0px$/.test(bib.faixa.raio)
-    && !/rgba\(0, 0, 0, 0\)/.test(bib.faixa.fundo),
-    'e ela é uma FAIXA de lado a lado, não um cartão: sem raio, sem margem e '
-    + 'com fundo próprio — cartão é o que ela nunca foi (v1.5.1)',
-    JSON.stringify(bib.faixa));
+    && /^0px 0px$/.test(bib.faixa.raio) && /^0px 0px$/.test(bib.faixa.margem),
+    'e ela é uma FAIXA de lado a lado, não um cartão: sem raio e sem margem '
+    + '(v1.5.1)', JSON.stringify(bib.faixa));
+  // ===== E ELA REPOUSA NO TOPO DA CAIXA DE CONTROLES (v1.5.2) =====
+  // Pedido do operador: *"vamos mover essa barra de volta para o topo da seção
+  // de controles, onde estava, acima do nome da mídia em exibição"*.
+  //
+  // DUAS metades, e a segunda é a queixa das margens: *"tome cuidado com os
+  // espaçamentos de margens verticais dessa barra, estavam errados nesse último
+  // update"*. A barra é um OVERLAY (ela vive na janela, para subir com ela), e
+  // o lugar dela na caixa é um `padding-top` — dois números que precisam
+  // concordar, e que não concordam sozinhos: reservar de menos deixa a barra por
+  // cima da primeira linha de controles, reservar de mais abre uma faixa de
+  // caixa vazia por baixo dela.
+  checar(bib.faixa.topoDaBarra === bib.faixa.topoDaCaixa,
+    'e ela REPOUSA no topo da caixa de controles, acima do nome da mídia em '
+    + 'exibição (v1.5.2)',
+    bib.faixa.topoDaBarra + ' contra ' + bib.faixa.topoDaCaixa);
+  checar(parseFloat(bib.faixa.reserva) >= bib.faixa.altura
+    && parseFloat(bib.faixa.reserva) <= bib.faixa.altura + 8,
+    'e a caixa RESERVA exatamente a altura dela, com o respiro até a primeira '
+    + 'linha de controles e nada mais',
+    'reserva ' + bib.faixa.reserva + ' para uma barra de ' + bib.faixa.altura + 'px');
+  checar(bib.faixa.recuo === bib.faixa.recuoDaCaixa,
+    'e o conteúdo dela alinha com o da caixa: o mesmo recuo lateral dos botões '
+    + 'que ficam embaixo', bib.faixa.recuo + ' contra ' + bib.faixa.recuoDaCaixa);
+  // ===== E ELA SEGUE A CAIXA QUANDO A CAIXA MUDA DE ALTURA (v1.5.2) =====
+  // O lugar da barra é o TOPO da caixa de controles, e a barra é um OVERLAY: as
+  // duas coisas só continuam juntas porque alguém remede. A caixa muda de altura
+  // por caminhos que não passam pela medida — a proporção da preview, o nome da
+  // mídia em duas linhas, a seleção múltipla, o modo do app —, e enumerá-los
+  // seria uma lista para envelhecer; quem responde é um `ResizeObserver`.
+  //
+  // O MODO DE FALHAR É MUDO: a barra fica flutuando fora do lugar, com uma faixa
+  // de caixa aparecendo por baixo dela ou por cima da primeira linha de
+  // controles, sem erro em lugar nenhum. Aqui a caixa é empurrada pela PREVIEW,
+  // que é o caminho real (`applyPreviewAspect`).
+  try {
+    const seguiu = await pg.evaluate(async () => {
+      const bar = () => document.querySelector('.lib-bar').getBoundingClientRect().top;
+      const caixa = () => document.querySelector('.bottombar');
+      const deck = document.querySelector('.deck') || caixa().firstElementChild;
+      const antes = { barra: Math.round(bar()), caixa: Math.round(caixa().getBoundingClientRect().top) };
+      const aspecto = deck.style.aspectRatio;
+      deck.style.aspectRatio = '1 / 1';
+      await new Promise((r) => setTimeout(r, 300));
+      const depois = { barra: Math.round(bar()), caixa: Math.round(caixa().getBoundingClientRect().top) };
+      deck.style.aspectRatio = aspecto;
+      await new Promise((r) => setTimeout(r, 300));
+      return { antes, depois };
+    });
+    checar(seguiu.depois.caixa !== seguiu.antes.caixa
+      && seguiu.depois.barra === seguiu.depois.caixa,
+      'e ela SEGUE a caixa quando a caixa muda de altura — a barra é um overlay, '
+      + 'e sem o `ResizeObserver` ela ficaria flutuando fora do lugar sem erro '
+      + 'em lugar nenhum (v1.5.2)', JSON.stringify(seguiu));
+  } catch (e) {
+    checar(false, 'a medição do lugar da barra terminou sem exceção ('
+      + (e && e.message) + ')');
+  }
 } catch (e) {
   checar(false, 'a medição da Biblioteca terminou sem exceção (' + (e && e.message) + ')');
 }
@@ -4561,7 +4647,9 @@ try {
 //
 // QUATRO metades, e a última é a razão de ser do desenho:
 //
-//  1. FECHADA, só a barra aparece — encostada na BASE da tela.
+//  1. FECHADA, só a barra aparece — no LUGAR dela, o topo da caixa de controles
+//     (v1.5.2; era a base da tela na v1.5.1). E nada da janela existe abaixo
+//     disso: quem apaga é o recorte da camada.
 //  2. ABERTA, a janela é a tela inteira: do topo à base, sem folga.
 //  3. E A BARRA SUBIU COM ELA, parando no TOPO — é o mesmo nó, não uma segunda
 //     barra: um transporte entre dois pais no meio de um `transform` é o que
@@ -4589,17 +4677,30 @@ try {
     setAppMode('full');
     closeHymnSearch();
     await pousar();
-    const fechada = { barra: cx(barra), folha: cx(folha) };
+    const caixa = document.querySelector('.bottombar');
+    const fechada = { barra: cx(barra), folha: cx(folha), caixa: cx(caixa),
+      // O QUE O DEDO ENCONTRA logo abaixo da barra: tem de ser o app, e não a
+      // janela. A folha é de tela cheia e recebe toque também fechada; sem o
+      // recorte da camada, o transporte inteiro ficava atrás dela — sem nada na
+      // tela dizendo por quê, porque fechada ela também não pinta.
+      dedoAbaixo: (() => {
+        const e = document.elementFromPoint(window.innerWidth / 2,
+          barra.getBoundingClientRect().bottom + 12);
+        return e && folha.contains(e) ? 'a janela' : 'o app';
+      })() };
     openHymnSearch(false);
     await pousar();
     const aberta = { barra: cx(barra), folha: cx(folha), campo: cx(campo) };
     closeHymnSearch();
     return { fechada, aberta, altura: Math.round(window.innerHeight) };
   });
-  checar(!!tela && Math.abs(tela.fechada.barra.b - tela.altura) <= 2
-    && tela.fechada.barra.t > tela.altura / 2,
-    'FECHADA, só a barra aparece — encostada na BASE da tela',
+  checar(!!tela && tela.fechada.barra.t === tela.fechada.caixa.t,
+    'FECHADA, a barra repousa no topo da caixa de controles (v1.5.2)',
     tela ? JSON.stringify(tela.fechada) : 'sem folha');
+  checar(!!tela && tela.fechada.dedoAbaixo === 'o app',
+    'e nada da janela existe abaixo dela: o recorte da camada apaga o pixel E o '
+    + 'toque, senão a folha de tela cheia ficaria por cima do transporte',
+    tela ? tela.fechada.dedoAbaixo : '?');
   checar(!!tela && tela.aberta.folha.t <= 1
     && Math.abs(tela.aberta.folha.b - tela.altura) <= 2,
     'ABERTA, ela é a tela INTEIRA: do topo à base, sem folga — era o pedido '
@@ -4712,23 +4813,23 @@ try {
     null, { timeout: 30000 },
   );
   const arranque = await pg2.evaluate(() => {
-    const folha = document.querySelector('.popup-sheet--lib');
     const barra = document.querySelector('.lib-bar');
-    const r = folha.getBoundingClientRect();
-    const rb = barra.getBoundingClientRect();
+    const caixa = document.querySelector('.bottombar');
     return { transicoes: window.__libTransicoes,
-      // E ela nasce NO LUGAR: a barra encostada na base, sem ter andado até lá.
-      barraNaBase: Math.round(window.innerHeight - rb.bottom),
-      folhaTopo: Math.round(r.top), altura: window.innerHeight };
+      // E ela nasce NO LUGAR: no topo da caixa de controles, sem ter andado até
+      // lá. O `--lib-desce` é MEDIDO, e uma medida que chega depois do primeiro
+      // layout é uma medida que anima se ninguém a segurar.
+      barra: Math.round(barra.getBoundingClientRect().top),
+      caixa: Math.round(caixa.getBoundingClientRect().top) };
   });
   await pg2.close();
   checar(arranque.transicoes === 0,
     'a janela da Biblioteca NÃO SE MEXE na abertura do app: a medida da barra '
     + 'entra sem disparar a transição — uma medida que anima precisa nascer '
     + 'quase certa (v1.5.1)', arranque.transicoes + ' transição(ões)');
-  checar(Math.abs(arranque.barraNaBase) <= 2 && arranque.folhaTopo > 0,
-    'e ela nasce NO LUGAR: a barra já está encostada na base no primeiro quadro',
-    JSON.stringify(arranque));
+  checar(arranque.barra === arranque.caixa,
+    'e ela nasce NO LUGAR: no primeiro quadro a barra já está no topo da caixa '
+    + 'de controles', JSON.stringify(arranque));
 } catch (e) {
   checar(false, 'a medição do arranque da Biblioteca terminou sem exceção ('
     + (e && e.message) + ')');
@@ -4858,140 +4959,133 @@ try {
   checar(false, 'a medição da lupa terminou sem exceção (' + (e && e.message) + ')');
 }
 
-// ---------- A BARRA DE BUSCA SE DESTACA DO CORPO (v5.266) ----------
-// Pedido do operador: *"crie um contraste melhor entre a barra de buscas e o
-// corpo da tela de biblioteca, pois agora que ela é 'flutuante' ela precisa se
-// destacar."* Até aqui ela não tinha fundo nenhum — herdava a cor da folha.
+// ---------- A BARRA NÃO PINTA; AS PEÇAS DELA VESTEM O TOM DO CONTROLE (v1.5.2) ----------
+// Pedido do operador: *"vamos remover esse zoneamento de tom cinza/azul que tem
+// atrás da barra de buscas. vamos usar apenas os botões e a caixa de texto do
+// mesmo tom que os botões do controle"*.
 //
-// A régua NÃO é um número escrito aqui: é a `.bottombar` da tela principal, que
-// é a resposta que este app já deu para "separar duas caixas empilhadas" e cujo
-// comentário declara o degrau como o único separador (sem borda, sem sombra).
-// Ancorar nela mantém o caso verdadeiro se os tokens mudarem — e é o que
-// reprova o caminho errado óbvio, usar `--bar` aqui: no tema CLARO aquele token
-// é branco puro, a mesma cor da folha.
+// **Isto REVOGA a v5.266 e a v5.270**, que pediam o contrário — *"crie um
+// contraste melhor entre a barra de buscas e o corpo"* e *"faça com que o fundo
+// atrás da caixa de texto fique mais escuro no tema claro"*. As duas valiam
+// enquanto a barra flutuava DENTRO da Biblioteca, sobre uma lista que rolava por
+// baixo, com um campo BRANCO em cima. Na caixa de controles ela é uma linha
+// entre outras, e o campo deixou de ser branco: sem branco não há
+// branco-sobre-branco a resolver, e o que sobrava da faixa era uma caixa em
+// volta de peças que já se separam sozinhas.
 //
-// NOS DOIS TEMAS, porque é justamente no claro que o atalho falharia.
+// A RÉGUA É O `.t-btn`, não um número: o pedido nomeia uma peça do app (*"os
+// botões do controle"*), e é a superfície COMPUTADA dela que este caso compara.
+// Um literal aqui envelheceria na primeira troca de paleta — e envelheceria
+// parecendo certo.
+//
+// NOS DOIS TEMAS, porque é no claro que o atalho falha: lá `--bar` é branco
+// puro, e foi por isso que a faixa existiu.
 for (const tema of ['escuro', 'claro']) {
   try {
     const c = await pg.evaluate(async (tema) => {
       document.documentElement.setAttribute('data-tema', tema);
       setAppMode('full');
-      openHymnSearch(false);
-      await new Promise((r) => setTimeout(r, 500));
-      const fundo = (s) => {
-        const e = document.querySelector(s);
-        return e ? getComputedStyle(e).backgroundColor : '';
-      };
-      const barra = document.querySelector('.lib-bar');
-      const r = {
-        folha: fundo('#hymnSearchPopup .popup-sheet'),
-        barra: fundo('.lib-bar'),
-        campo: getComputedStyle(document.getElementById('hymnSearchInput')).backgroundColor,
-        sombra: getComputedStyle(barra).boxShadow,
-        // A RÉGUA do próprio app: o degrau da barra de baixo contra o fundo.
-        corpoPrincipal: fundo('body'),
-        barraPrincipal: fundo('.bottombar'),
-        // O que mora DENTRO do campo (v5.267).
-        texto: getComputedStyle(document.getElementById('hymnSearchInput')).color,
-        ph: getComputedStyle(document.getElementById('hymnSearchInput'), '::placeholder').color,
-        lupa: getComputedStyle(document.querySelector('.lib-bar .lib-search-lupa')).color,
-        sombraCampo: getComputedStyle(document.getElementById('hymnSearchInput')).boxShadow,
-        // O ✕ da barra (v5.270): altura, fundo e glifo.
-        hCampo: document.getElementById('hymnSearchInput').getBoundingClientRect().height,
-        hBtn: document.getElementById('hymnSearchToggle').getBoundingClientRect().height,
-        btn: getComputedStyle(document.getElementById('hymnSearchToggle')).backgroundColor,
-        glifo: getComputedStyle(document.getElementById('hymnSearchToggle')).color,
-      };
       closeHymnSearch();
-      return r;
+      await new Promise((r) => setTimeout(r, 400));
+      const cs = (s2) => getComputedStyle(document.querySelector(s2));
+      const campo = document.getElementById('hymnSearchInput');
+      return {
+        // FECHADA, que é o estado em que ela vive na caixa de controles — o
+        // estado do relato. (Aberta ela é a cabeça da janela e o fundo é o
+        // `--bg` da folha, que outro caso mede.)
+        barra: cs('.lib-bar').backgroundColor,
+        sombraBarra: cs('.lib-bar').boxShadow,
+        folha: cs('.popup-sheet--lib').backgroundColor,
+        caixa: cs('.bottombar').backgroundColor,
+        // A RÉGUA: o botão de transporte, a peça que o pedido nomeia.
+        transporte: cs('.t-btn').backgroundColor,
+        campo: getComputedStyle(campo).backgroundColor,
+        sombraCampo: getComputedStyle(campo).boxShadow,
+        sorteio: cs('#sorteioBtn').backgroundColor,
+        texto: getComputedStyle(campo).color,
+        ph: getComputedStyle(campo, '::placeholder').color,
+        lupa: cs('.lib-bar .lib-search-lupa').color,
+        hCampo: campo.getBoundingClientRect().height,
+        hBtn: document.getElementById('hymnSearchToggle').getBoundingClientRect().height,
+        glifo: cs('#hymnSearchToggle').color,
+        fundoAlternador: cs('#hymnSearchToggle').backgroundColor,
+      };
     }, tema);
-    // Compõe alfa sobre a base (o campo é um overlay) e devolve a razão de
-    // contraste — a mesma conta do `display-smoke.mjs`.
-    const rgb = (s) => (s.match(/[\d.]+/g) || []).map(Number);
+    // Aceita string do `getComputedStyle` OU uma cor já composta (as
+    // composições encadeiam: um glifo sobre um botão sobre a caixa).
+    const rgb = (v) => (Array.isArray(v) ? v : (v.match(/[\d.]+/g) || []).map(Number));
     const sobre = (frente, base) => {
       const f = rgb(frente); const b = rgb(base);
       const a = f.length > 3 ? f[3] : 1;
       return [0, 1, 2].map((i) => f[i] * a + b[i] * (1 - a));
     };
     const lum = (v) => {
-      const l = v.map((x) => { const c = x / 255; return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4; });
+      const l = v.map((x) => { const y = x / 255; return y <= 0.04045 ? y / 12.92 : ((y + 0.055) / 1.055) ** 2.4; });
       return 0.2126 * l[0] + 0.7152 * l[1] + 0.0722 * l[2];
     };
     const razao = (a, b) => {
       const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p);
       return (x + 0.05) / (y + 0.05);
     };
-    // ===== A BASE DO CAMPO MUDOU DE CASA (v1.5.0) =====
-    // A barra saiu da Biblioteca e virou a `.lib-bar` da caixa de controles.
-    // Com isso as três asserções que a v5.270 escreveu aqui foram REVOGADAS
-    // pelo lugar, não pelo argumento:
-    //
-    //  · *"a barra tem fundo PRÓPRIO"* valia porque, dentro da folha, ela
-    //    flutuava sobre uma lista que rolava por baixo. Na caixa de controles
-    //    quem tem superfície é a CAIXA, e uma segunda pintura ali dentro é a
-    //    camada a mais que este lote existe para tirar.
-    //  · *"a sombra para BAIXO"* dizia de que lado o conteúdo passava. Não
-    //    passa nada atrás dela agora.
-    //
-    // O que NÃO foi revogado é o que aquelas duas serviam: **o campo tem de se
-    // separar do que está atrás dele**. Só que o "atrás" passou a ser a
-    // `.bottombar` — e é contra ela que a medida vale.
-    // ===== A BASE DO CAMPO MUDOU DE CASA, E A MEDIDA SOBREVIVEU (v1.5.0) =====
-    // A barra saiu da Biblioteca e virou a `.lib-bar` da caixa de controles. Do
-    // que a v5.270 escreveu aqui, UMA asserção foi revogada pelo lugar e a
-    // outra continua inteira:
-    //
-    //  · A SOMBRA saiu: ela dizia de que lado o conteúdo passava por baixo, e
-    //    na caixa de controles não passa nada atrás dela.
-    //  · A SUPERFÍCIE PRÓPRIA fica, e pela razão MEDIDA de sempre: o campo é
-    //    branco nos dois temas (ele veste os `--field-*`, sem tema, como o
-    //    palco) e no tema CLARO a caixa de controles também é branca — campo
-    //    branco sobre caixa branca dá 1,00:1, e o campo não existe. A elevação
-    //    sozinha foi o meio-conserto que a v5.268 tentou e o operador recusou.
-    const barra = sobre(c.barra, c.barraPrincipal);
-    const campo = sobre(c.campo, c.barra === 'rgba(0, 0, 0, 0)' ? c.barraPrincipal : c.barra);
-    checar(c.barra !== 'rgba(0, 0, 0, 0)' && c.barra !== c.barraPrincipal,
-      '[' + tema + '] a barra da Biblioteca tem superfície PRÓPRIA na caixa de '
-      + 'controles — sem ela o campo branco fica sobre uma caixa branca no tema '
-      + 'claro', c.barra + ' contra ' + c.barraPrincipal);
-    checar(!c.sombra || c.sombra === 'none',
-      '[' + tema + '] mas SEM sombra: ela dizia de que lado o conteúdo passava, '
-      + 'e não passa nada atrás dela aqui embaixo', c.sombra);
-    checar(razao(campo, barra) > 1.5,
-      '[' + tema + '] e o campo se separa dela POR TOM ('
-      + razao(campo, barra).toFixed(2) + ':1)');
-    // ── O CAMPO É BRANCO NOS DOIS TEMAS (v5.268) ─────────────────────────
-    // Pedido do operador. A primeira metade é o fundo; a SEGUNDA é a que não se
-    // percebe pedindo "o campo branco" e que reprovaria calada: as três coisas
-    // que moram dentro dele (o texto, o placeholder e a lupa) precisam parar de
-    // seguir o tema junto com ele — no escuro, `--text` sobre branco dá 1,17:1.
-    checar(campo.every((v) => Math.round(v) === 255),
-      '[' + tema + '] o CAMPO é branco — o mesmo nos dois temas, como o palco',
-      c.campo);
-    checar(!!c.sombraCampo && c.sombraCampo !== 'none',
-      '[' + tema + '] e a elevação FICA, agora como reforço: ele é uma folha de '
-      + 'papel pousada na faixa, não um recorte dela', c.sombraCampo);
-    // ── O ✕ TEM A ALTURA DO CAMPO, E É CLARO COMO ELE (v5.270) ───────────
-    // As duas metades do pedido. A altura vinha do esqueleto de botão de ícone
-    // (`--hit`, 34px) contra os 40 do campo — dois vizinhos na mesma linha com
-    // sete pixels de diferença que ninguém decidiu. E a cor: com a barra
-    // escurecida, um botão em `--surface-2`/`--muted` daria 2,09:1 no glifo.
-    checar(Math.abs(c.hBtn - c.hCampo) <= 1,
-      '[' + tema + '] o ✕ tem a MESMA altura do campo (' + Math.round(c.hBtn)
-      + 'px contra ' + Math.round(c.hCampo) + 'px)');
-    checar(c.btn === c.campo,
-      '[' + tema + '] e o mesmo fundo CLARO dele — as duas peças claras sobre a '
-      + 'faixa, não um chip translúcido ao lado de uma folha de papel', c.btn);
-    checar(razao(sobre(c.glifo, c.btn), sobre(c.btn, c.barra)) >= 4.5,
-      '[' + tema + '] com o glifo legível sobre ele ('
-      + razao(sobre(c.glifo, c.btn), sobre(c.btn, c.barra)).toFixed(2) + ':1)');
+    const transparente = (v) => /rgba\(0, 0, 0, 0\)/.test(v) || v === 'transparent';
+    // ── 1 · A BARRA NÃO PINTA, E A FOLHA TAMBÉM NÃO ──────────────────────
+    // As duas metades, porque o "zoneamento" volta por qualquer uma delas: um
+    // fundo na barra é a faixa de novo, e um fundo na FOLHA é o mesmo retângulo
+    // por trás dela — a folha é de tela cheia e o recorte deixa à vista
+    // exatamente a faixa da barra.
+    checar(transparente(c.barra) && transparente(c.folha),
+      '[' + tema + '] FECHADA, a barra não pinta NADA — nem ela, nem a folha '
+      + 'atrás dela: o "zoneamento" de tom saiu (v1.5.2)',
+      'barra ' + c.barra + ' · folha ' + c.folha);
+    checar(!c.sombraBarra || c.sombraBarra === 'none',
+      '[' + tema + '] e sem sombra: ela dizia de que lado o conteúdo passava, e '
+      + 'não passa nada atrás dela', c.sombraBarra);
+    // ── 2 · AS PEÇAS VESTEM O TOM DOS BOTÕES DO CONTROLE ─────────────────
+    // O pedido ao pé da letra, e a régua é a peça que ele nomeia.
+    checar(c.campo === c.transporte && c.sorteio === c.transporte,
+      '[' + tema + '] e o campo e o dado vestem o MESMO tom dos botões do '
+      + 'transporte — a régua é o `.t-btn` computado, não um número escrito aqui',
+      'campo ' + c.campo + ' · dado ' + c.sorteio + ' · t-btn ' + c.transporte);
+    checar(!c.sombraCampo || c.sombraCampo === 'none',
+      '[' + tema + '] e a elevação saiu com o branco: ela existia para separar '
+      + 'branco de branco no tema claro', c.sombraCampo);
+    // ── 3 · E ELAS AINDA SE SEPARAM DA CAIXA ─────────────────────────────
+    // O degrau é o mesmo que o transporte tem, porque é a mesma superfície — e
+    // é isso que se afirma: não um número, mas que a peça não sumiu na caixa.
+    const campo = sobre(c.campo, c.caixa);
+    const grau = razao(campo, rgb(c.caixa));
+    checar(grau > 1.15,
+      '[' + tema + '] e o campo continua se separando da caixa por TOM ('
+      + grau.toFixed(2) + ':1) — o degrau do botão de transporte, que é o que '
+      + 'ele agora é');
+    // ── 4 · O QUE MORA DENTRO DO CAMPO CONTINUA LEGÍVEL ──────────────────
+    // A metade que reprovaria calada: o campo trocou de fundo, e texto,
+    // placeholder e lupa moram nele. MEDIDO na escolha do tom — sobre
+    // `--surface-2` (a receita de campo da folha do sorteio) o placeholder dá
+    // 4,21:1 no escuro e 4,15:1 no claro, abaixo de AA nos dois; sobre
+    // `--surface`, o tom que o pedido escolheu, ele passa.
     for (const [nome, cor] of [['texto', c.texto], ['placeholder', c.ph], ['lupa', c.lupa]]) {
-      const r = razao(sobre(cor, c.campo), campo);
+      const r = razao(sobre(cor, campo), campo);
       checar(r >= 4.5,
         '[' + tema + '] e o ' + nome + ' é legível sobre ele (' + r.toFixed(2) + ':1)');
     }
+    // ── 5 · O ALTERNADOR CONTINUA SENDO A AÇÃO DA LINHA ──────────────────
+    // Ele NÃO entra na regra do tom: numa linha de peças iguais ele é a porta, e
+    // a superfície de ação é a mesma gramática do `#shuffleBtn`, que é o botão
+    // aceso da fileira logo abaixo. O que se mede é o glifo em cima dela.
+    const alternador = sobre(c.fundoAlternador, c.caixa);
+    const rGlifo = razao(sobre(c.glifo, alternador), alternador);
+    checar(c.fundoAlternador !== c.transporte && !transparente(c.fundoAlternador)
+      && rGlifo >= 4.5,
+      '[' + tema + '] e o alternador NÃO entra na regra do tom: ele é a AÇÃO da '
+      + 'linha, com superfície própria e o glifo legível sobre ela ('
+      + rGlifo.toFixed(2) + ':1)',
+      c.fundoAlternador + ' contra ' + c.transporte);
+    checar(Math.abs(c.hBtn - c.hCampo) <= 1,
+      '[' + tema + '] os quadrados têm a MESMA altura do campo ('
+      + Math.round(c.hBtn) + 'px contra ' + Math.round(c.hCampo) + 'px)');
   } catch (e) {
-    checar(false, '[' + tema + '] a medição do contraste da barra terminou sem exceção ('
+    checar(false, '[' + tema + '] a medição do tom da barra terminou sem exceção ('
       + (e && e.message) + ')');
   }
 }

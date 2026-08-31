@@ -242,6 +242,10 @@ const fileEl = document.getElementById('file');
 const mainEl = document.querySelector('main');
 // (`tabsEl` saiu na v1.5.0 com a faixa de abas — ver `.lib-bar` no `index.html`.)
 const libBarEl = document.getElementById('libBar');
+// A CAIXA DE CONTROLES: é o `padding-top` dela que reserva o lugar da barra da
+// Biblioteca, e é a borda de cima dela que diz onde esse lugar está na tela
+// (ver `medirBarraDaBiblioteca`).
+const bottombarEl = document.querySelector('.bottombar');
 const hymnSearchToggleEl = document.getElementById('hymnSearchToggle');
 const bibleSheetEl = document.getElementById('bibleSheet');
 const bibleBodyEl = document.getElementById('bibleBody');
@@ -273,7 +277,7 @@ const appVersionEl = document.getElementById('appVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.5.1';
+const WEB_VERSION = '1.5.2';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -15762,42 +15766,108 @@ function openHymnSearch(comFoco) {
 }
 
 /**
- * A MEDIDA DA JANELA (v1.5.1): a ALTURA DA BARRA, e nada mais.
+ * AS DUAS MEDIDAS DA JANELA (v1.5.2), e as duas saem de uma leitura só.
  *
- * A Biblioteca é uma coluna `[barra][lista]` de tela cheia, e fechá-la é
- * descê-la de `100% - barra` — a porcentagem é da própria caixa dela, então o
- * único número que vem de fora é este. Ele responde a DUAS perguntas de uma vez:
- * onde a janela para quando fechada, e quanto a caixa de controles precisa
- * RESERVAR embaixo (a janela é `fixed` e a barra pousa por cima da base do app;
- * sem a reserva ela cobriria a última linha de controles).
+ * A Biblioteca é uma coluna `[barra][lista]` de tela cheia. Aberta, ela é
+ * `translateY(0)` — a barra no topo da tela. Fechada, ela desce até a barra
+ * pousar no LUGAR dela: o topo da caixa de controles, acima do nome da mídia em
+ * exibição (pedido do operador na v1.5.2 — na v1.5.1 o lugar era a base da
+ * tela, e ali a conta era `100% - a barra`, sem medida nenhuma de posição).
  *
- * MEDIDA e não escrita no CSS: a barra muda de altura com a área segura, com o
- * corpo de fonte do sistema e com o teclado. É a mesma técnica do `--tab-x` que
- * o vazado das abas usava, e é o que sobrou dela.
+ *  · **`--lib-bar-h`** — a altura da barra. É o que a `.bottombar` RESERVA no
+ *    `padding-top`, isto é, o lugar em que a barra pousa.
+ *  · **`--lib-desce`** — o quanto a coluna desce para a barra cair nesse lugar.
  *
- * ELA ANIMA, ENTÃO O PALPITE DO CSS TEM DE ERRAR POUCO. Enquanto o que se
- * media era o DESLOCAMENTO INTEIRO (60px de palpite contra 847px medidos), a
- * primeira escrita desta função disparava a transição e a Biblioteca varria a
- * tela de cima a baixo na abertura do app, com tudo por baixo dela intocável no
- * caminho. Medindo só a barra, o palpite erra por pixels.
+ * (O RECORTE da folha fechada — o que impede a lista e o fundo dela de caírem
+ * por cima do transporte, em pixel e em toque — NÃO entra aqui: ele é medido no
+ * espaço da própria folha, `100% - a barra`, e o único número que ele pede é a
+ * altura dela. Uma versão anterior o media na tela, e a transição com atraso que
+ * ele precisa ter prendia toda REMEDIÇÃO por 0,28 s — num oráculo sem quadros
+ * desenhados, para sempre. Ver `.popup-sheet--lib`.)
  *
- * PELO `offsetHeight`, nunca pelo `getBoundingClientRect`: a janela está
- * TRANSLADADA quando fechada e a caixa do cliente vem transformada junto — a
- * conta se alimentaria do próprio resultado. O `offsetHeight` é do layout, que é
- * o que a translação não move.
+ * MEDIDAS e não escritas no CSS: a barra muda de altura com o corpo de fonte do
+ * sistema, e a posição dela é o topo de uma caixa que muda de altura com a
+ * proporção da preview, com o título em duas linhas e com o modo do app. É a
+ * mesma técnica do `--tab-x` que o vazado das abas usava, e é o que sobrou dela.
+ *
+ * PELO `offsetHeight` da barra, nunca pelo `getBoundingClientRect`: a janela
+ * está TRANSLADADA quando fechada e a caixa do cliente vem transformada junto —
+ * a conta se alimentaria do próprio resultado. A CAIXA DE CONTROLES pode ser
+ * lida pelo `rect`, que é o que se quer dela: onde ela está na tela, e ela não
+ * é transformada.
+ *
+ * ELAS ANIMAM, ENTÃO SÓ SE ESCREVE O QUE MUDOU. A translação transiciona (e o
+ * recorte, com atraso), e um `ResizeObserver` que reescreve o mesmo valor
+ * dispara outra passada — o laço que o navegador denuncia como
+ * "ResizeObserver loop". Escrever só a mudança fecha isso na origem.
  *
  * NA RAIZ e não no popup: quem lê `--lib-bar-h` é a `.bottombar`, que não é
  * descendente dele.
  */
 function medirBarraDaBiblioteca() {
-  if (!libBarEl) return;
+  if (!libBarEl || !bottombarEl) return;
   const alturaDaBarra = libBarEl.offsetHeight;
   // Barra sem altura = folha ainda não montada, ou o app escondido. Escrever 0
   // encostaria a janela inteira na tela e tiraria a reserva da caixa de
   // controles; a medida boa que já está lá é a resposta certa.
   if (!alturaDaBarra) return;
-  document.documentElement.style.setProperty('--lib-bar-h',
-    Math.round(alturaDaBarra) + 'px');
+  const raiz = document.documentElement;
+  let mudou = false;
+  const escrever = (nome, px) => {
+    const valor = Math.round(px) + 'px';
+    // SÓ O QUE MUDOU: ver o bloco acima — reescrever o mesmo valor num
+    // `ResizeObserver` é o laço que o navegador denuncia.
+    if (raiz.style.getPropertyValue(nome) === valor) return;
+    raiz.style.setProperty(nome, valor);
+    mudou = true;
+  };
+  escrever('--lib-bar-h', alturaDaBarra);
+  // A RESERVA ENTRA ANTES DA POSIÇÃO SER LIDA: o `padding-top` da caixa sai
+  // desta altura, então ler a borda dela antes de escrevê-la mediria o layout
+  // de uma barra que ainda não tem lugar.
+  const caixa = bottombarEl.getBoundingClientRect();
+  // Caixa sem altura é o Modo Fácil, que a esconde. `rect.top` de um elemento
+  // sem caixa é ZERO, e escrever isso levaria a barra ao topo da tela; lá ela
+  // nem é oferecida (o CSS a tira de cena), então a medida boa que já está no
+  // lugar é a resposta certa para quando o operador voltar ao avançado.
+  if (!caixa.height) return;
+  escrever('--lib-desce', caixa.top - libBarEl.offsetTop);
+  if (mudou) semAnimarAJanela();
+}
+
+/**
+ * UMA REMEDIÇÃO NÃO É UMA ANIMAÇÃO (v1.5.2).
+ *
+ * A janela ANIMA entre dois lugares — o topo da tela e o lugar da barra —, e o
+ * segundo é uma MEDIDA. Uma transição não distingue as duas razões de o valor
+ * mudar: com o tempo ligado, remedir vira a barra DESLIZANDO até o lugar novo
+ * enquanto a caixa de controles já saltou para lá, e o que se vê é a barra
+ * correndo atrás da caixa.
+ *
+ * FOI MEDIDO ANTES DE CHEGAR AO APARELHO, e num lugar que não desenha quadros:
+ * no `controles-layout.test.mjs` a transição atrasada ficou PARADA no valor de
+ * partida, e a janela FECHADA cobria a preview inteira — o toque na cortina
+ * caindo na lista da Biblioteca, com a Biblioteca fechada.
+ *
+ * A resposta é desligar o tempo no quadro em que a medida entra: a classe sai
+ * (e com ela `--lib-anim`), o valor novo é aplicado no mesmo recálculo — uma
+ * transição usa a duração do estilo DEPOIS da mudança —, e a classe volta no
+ * quadro seguinte, quando já não há nada a animar.
+ *
+ * É O MESMO MECANISMO DA CARGA, e por isso não há dois: a primeira medida
+ * também é uma mudança de valor, e é ela que arma a animação pela primeira vez.
+ * MEDIDO: a barra mede 28,6px no primeiro quadro (antes de a folha assentar) e
+ * 51px depois — sem isto, a correção seria a janela varrendo a tela na abertura
+ * do app.
+ */
+let libRearmar = 0;
+function semAnimarAJanela() {
+  document.body.classList.remove('lib-pronta');
+  cancelAnimationFrame(libRearmar);
+  libRearmar = requestAnimationFrame(() => {
+    libRearmar = requestAnimationFrame(
+      () => document.body.classList.add('lib-pronta'));
+  });
 }
 
 /**
@@ -24838,17 +24908,22 @@ window.addEventListener('orientationchange', medirBarraDaBiblioteca);
 // Sem esta linha o app abria com a última fileira de botões coberta pela barra
 // até alguém abrir a Biblioteca uma vez.
 medirBarraDaBiblioteca();
-// E A TRANSIÇÃO SÓ LIGA DEPOIS (v1.5.1). A posição de REPOUSO da janela depende
-// desta medida, e toda medida chega depois do primeiro layout — MEDIDO, a barra
-// mede 28,6px no primeiro quadro e 53px quando a folha assenta. Com o tempo
-// ligado desde o início, a correção vira a janela deslizando sozinha na abertura
-// do app. Dois quadros: a medida entra num, o tempo no seguinte (uma transição
-// usa a duração do estilo DEPOIS da mudança, então ligar as duas no mesmo quadro
-// produz exatamente a animação que a guarda existe para impedir).
-requestAnimationFrame(() => {
-  medirBarraDaBiblioteca();
-  requestAnimationFrame(() => document.body.classList.add('lib-pronta'));
-});
+// A SEGUNDA PASSADA é o que pega a barra já assentada (MEDIDO: 28,6px no
+// primeiro quadro, 51px depois). Quem arma a animação é a própria medida — ver
+// `semAnimarAJanela`, que é o mesmo mecanismo da carga e da remedição.
+requestAnimationFrame(medirBarraDaBiblioteca);
+// ---- E A CAIXA DE CONTROLES É VIGIADA (v1.5.2) ----
+// O lugar da barra é o TOPO dessa caixa, e ela muda de altura por caminhos que
+// não passam por aqui: a proporção da preview, o nome da mídia em duas linhas, a
+// barra de seleção múltipla, o modo do app. Enumerá-los seria uma lista para
+// envelhecer — e o modo de falhar é a barra pousando fora do lugar dela, com uma
+// faixa de caixa aparecendo por baixo ou o transporte coberto.
+// `ResizeObserver` responde à MUDANÇA, seja qual for a causa. O laço que ele
+// poderia criar (a medida muda o `padding-top`, que muda a caixa) é fechado do
+// outro lado: `medirBarraDaBiblioteca` só escreve o que mudou.
+if (window.ResizeObserver && bottombarEl) {
+  new ResizeObserver(medirBarraDaBiblioteca).observe(bottombarEl);
+}
 sorteioBtnEl.addEventListener('click', abrirSorteio);
 hymnSearchInputEl.addEventListener('input', debounce(() => renderSearchResults(hymnSearchInputEl.value), SEARCH_DEBOUNCE_MS));
 

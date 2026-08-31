@@ -24,6 +24,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
+- **v1.5.2** — A FAIXA ATRÁS DA BARRA DE BUSCA SAIU, E A BARRA VOLTOU PARA O TOPO DOS CONTROLES. Três ajustes do operador sobre a v1.5.1: *"vamos remover esse zoneamento de tom cinza/azul que tem atrás da barra de buscas. vamos usar apenas os botões e a caixa de texto do mesmo tom que os botões do controle"* · *"vamos mover essa barra de volta para o topo da seção de controles, onde estava, acima do nome da mídia em exibição"* · *"mantenha todo o sistema de abertura e posição relativa da aba da biblioteca, dessa vez a abertura está correta"*, mais *"tome cuidado com os espaçamentos de margens verticais dessa barra, estavam errados nesse último update"*. **A FAIXA EXISTIA POR CAUSA DE UMA PEÇA QUE TAMBÉM SAIU: o campo BRANCO.** O `--field-bar` nasceu na v5.270 porque o campo vestia os tokens SEM TEMA (`--field-*`) e campo branco sobre a caixa de controles branca do tema claro dá **1,00:1**; sem o branco não há branco-sobre-branco a resolver, e o que sobrava da faixa era uma caixa em volta de peças que já se separam sozinhas. Hoje o campo e o dado vestem **`--surface`, o tom exato do `.t-btn`** — e a régua do oráculo é a superfície COMPUTADA daquele botão, não um número escrito no teste, porque o pedido nomeia uma peça do app. **A escolha do tom é MEDIDA e não literal:** sobre `--surface-2` (a receita de campo da folha do sorteio) o placeholder dá 4,21:1 no escuro e 4,15:1 no claro — abaixo de AA nos dois —, e sobre `--surface` dá 5,15:1 e 4,82:1; *o tom que o pedido escolheu é também o que passa*. O `--field-bar` saiu do `tokens.css` com o último consumidor, que era uma regra órfã do cabeçalho removido na v5.258. **O ALTERNADOR FICA DE FORA DA REGRA DO TOM** — ele é a AÇÃO da linha, a mesma gramática do `#repeat.active`, e a fileira do transporte também tem um botão aceso entre seis do tom comum. Ele quase morreu calado neste lote: a regra que o pintava era uma CLASSE (`.lib-toggle`) e a receita compartilhada dos dois quadrados é um seletor de ID — enquanto os dois eram brancos ambos pintavam a mesma coisa, e no instante em que a receita comum passou a pintar `--surface` ela venceu por especificidade e a porta virou mais um quadrado igual. **O LUGAR DA BARRA VOLTOU, O MECANISMO NÃO:** ela repousa no topo da caixa de controles (o lugar da v1.5.0), mas continua sendo a CABEÇA da janela e sobe com ela até o topo da tela — o que muda é uma medida de posição (`--lib-desce`), e a abertura não mudou uma linha. **E É POR ISSO QUE A FOLHA PASSOU A RECORTAR:** com a barra a meia tela, a lista e o fundo dela cairiam por cima do transporte, e o `clip-path` apaga o pixel E o toque (ele recorta hit-test junto). Ele volta só DEPOIS do fechamento, senão a lista sumiria de uma vez em vez de descer junto com a barra — e o FUNDO da folha anda no mesmo relógio, porque fechada ela não pode pintar nada: um retângulo `--bg` atrás da faixa é o mesmo "zoneamento" por outro caminho. **E O RECORTE É MEDIDO NO ESPAÇO DA PRÓPRIA FOLHA** (`100% - a barra`): a primeira versão o media na TELA, e o atraso que ele precisa ter prendia toda REMEDIÇÃO — MEDIDO num oráculo que não desenha quadros, o recorte ficou preso em `inset(0px)` e a janela fechada cobria a preview inteira. **E UMA REMEDIÇÃO NÃO É UMA ANIMAÇÃO:** o `transform` tinha o mesmo defeito pelo outro lado (a barra deslizando atrás de uma caixa que já saltou), e a medida passou a desligar o tempo no quadro em que escreve — o MESMO mecanismo que a carga usa, porque a primeira medida também é uma mudança de valor. **AS MARGENS VIRARAM DOIS NÚMEROS QUE PRECISAM CONCORDAR:** a barra é um overlay, e o lugar dela na caixa é um `padding-top` — reservar de menos a põe por cima da primeira linha de controles, de mais abre uma faixa vazia por baixo. O oráculo mede os dois (`REPOUSA no topo` e `RESERVA exatamente a altura dela`), mais o recuo lateral batendo com o da caixa. A área segura de baixo voltou para a caixa, que é quem encosta na barra de gestos outra vez. **E A CAIXA DE CONTROLES É VIGIADA** (`ResizeObserver`): o lugar da barra é o topo dela, e ela muda de altura pela proporção da preview, pelo título em duas linhas, pela seleção múltipla e pelo modo do app — enumerar isso seria uma lista para envelhecer. O laço que o observador poderia criar é fechado do outro lado: a medida só escreve o que MUDOU.
 - **v1.5.1** — A BIBLIOTECA VIROU UMA JANELA DE TELA CHEIA QUE SOBE DA BASE LEVANTANDO A PRÓPRIA BARRA. Três ajustes do operador sobre a v1.5.0, e os três são a mesma decisão: *"a barra de buscas e playlist automática como um todo, deve ser uma barra de lado a lado da tela, sem estar dentro de um card de bordas arredondadas … vamos mover essa barra para a base do app, abaixo da linha dos botões dos controles … ela é um popup de tela inteira, ela surge da base da tela e vai levantando a barra de buscas, de modo que a barra de buscas acabe no topo da biblioteca (isso resolve o problema que temos atualmente da caixa de texto ficar escondida pelo teclado)"*. **A BARRA VOLTOU PARA DENTRO DA JANELA, e virou a CABEÇA dela.** A v1.5.0 tinha a barra parada na caixa de controles e a janela subindo de trás dela até uma folga do topo; agora a janela é uma coluna `[barra][lista]` de tela cheia, e **fechá-la é descê-la de `100% - a barra`** — só a barra fica à vista, encostada na base. Abrir é `translateY(0)`, e a barra para no topo porque é onde ela sempre esteve dentro daquela caixa: **nenhum nó é transportado entre dois pais, não há segunda barra e não há posição calculada em runtime além de UMA medida.** **E É ISSO QUE RESOLVE O TECLADO:** com o campo no topo da tela, o teclado — que sobe da base — não tem como cobri-lo; era o defeito que quatro lotes da era da barra-na-base tentaram consertar por fora (v5.261, v5.264, v5.266, v5.270), e isto REVOGA a v5.263 pelo outro lado — aquele lote tirou o slide porque a barra morava na folha e `transform` a torna o bloco-contêiner dos fixos; aqui a dívida é paga pela geometria, não pela remoção. **UMA MEDIDA QUE ANIMA PRECISA NASCER QUASE CERTA**, e foi o oráculo que encontrou o defeito: enquanto o que se media era o DESLOCAMENTO INTEIRO (`--lib-desce`, 60px de palpite contra 847px medidos), a primeira escrita do JS disparava a transição e a Biblioteca **varria a tela de cima a baixo na abertura do app**, com tudo por baixo dela intocável no caminho — o `smoke.mjs` reprovou com todo ponto de uma linha do acervo respondendo `LI.coll-group`, que é o conteúdo da janela em queda. Escrita como `100% - var(--lib-bar-h)`, a porcentagem é da própria caixa e o palpite erra por pixels. **A CAMADA SAIU DO MOLDE, e tinha de sair:** todo `.popup-backdrop` deste app é `opacity: 0` fechado, e este não pode ser — a barra vive nele e está à vista o tempo todo. A camada fica opaca e sem fundo, o scrim vira um `::before` que esmaece, e o toque é roteado à mão: a camada só o recebe ABERTA (para o toque no fundo fechar) e a janela o recebe SEMPRE (para a barra funcionar fechada). **A BARRA É UMA FAIXA, NÃO UM CARTÃO** — sem raio e sem margem, de lado a lado, como na Biblioteca antiga: cartão é o que ela nunca foi. A caixa de controles reserva a altura dela (`--lib-bar-h` no `padding-bottom` da `.bottombar`, porque a janela é `fixed` e a barra pousa por cima da base do app), a ÁREA SEGURA de baixo migrou para o padding da BARRA (somadas, as duas deixavam uma faixa morta do tamanho da barra de gestos) e a de baixo da LISTA passou a ser dela — aberta, quem termina a janela é a lista. **O QUE A LISTA GANHOU DE VOLTA:** ela caiu de ~880px para 576 na v1.5.0 e voltou a **847px** (a tela menos a barra, medido em 430×900) — e com isso o caso do vão dos favoritos no `boot-nativo` voltou às SEIS categorias dos prints do operador, que a v1.5.0 tivera de encolher para duas. **E CORRIGIR O PALPITE NÃO BASTOU:** MEDIDO, a barra mede **28,6px no primeiro quadro** e 53px quando a folha assenta, e essa correção também animava (a campanha de determinismo a pegou na primeira volta) — a translação passou a ter tempo ZERO até a classe `lib-pronta`, posta DOIS quadros depois da carga, porque uma transição usa a duração do estilo DEPOIS da mudança e ligar as duas no mesmo quadro produz a animação que a guarda existe para impedir. **E NO MODO FÁCIL A BARRA NÃO FICA À VISTA:** aquele modo esconde a caixa de controles inteira, e enquanto a barra morava lá dentro ela sumia DE CARONA — dentro da janela, sumir virou regra escrita, e fechada ela sai INTEIRA (uma faixa transparente engolindo o dedo na base é pior que a faixa à vista); a LUPA de lá passou a abrir SEM foco, porque o ouvinte estava registrado por REFERÊNCIA e passava o `PointerEvent` como `comFoco` (truthy), a mesma armadilha que a v1.4.31 pagou no `openLyricsPopup`. **E o oráculo do hit-test ganhou uma espera pelo FATO:** a janela de tela cheia recebe toque também fechada, então medir o que o dedo encontra antes de ela pousar responde sobre a janela em queda — `getAnimations()` + `finished`, a técnica do `gaveta()`.
 - **v1.5.0** — O CRONOGRAMA VIROU A TELA ÚNICA: A FAIXA DE ABAS SAIU, A BÍBLIA VIROU FOLHA E A BIBLIOTECA VIROU UMA JANELA QUE SOBE DA BARRA. A maior mudança de navegação desde que o app existe, e ela é UMA decisão em quatro pedidos. **A faixa de abas saiu inteira** — com ela, o vazado deslizante (`.tab-ind` e o `moveTabIndicator` que o media), o carrossel horizontal (quatro correções do mesmo mecanismo, a última reescrevendo o ciclo de toque porque o navegador cancelava o fluxo de `pointer*` no primeiro scroller do caminho), o fantasma da troca de tela e o `switchTab`. **A Bíblia virou uma folha do Cronograma**, no molde da de Ferramentas: com host PRÓPRIO (ela desenhava dentro do `#library`, o mesmo `<ul>` do Cronograma, e é por isso que `renderLibrary` tinha um desvio por aba no topo) e com o VOLTAR dela na barra da folha — o do cabeçalho só servia a ela. **O rodapé virou a navegação**: Bíblia · Importar · Ferramentas, três portas de mesmo peso e as três com rótulo (pedido: *"coloque um texto no botão de ferramentas"*), ícone em cima e nome embaixo porque MEDIDO em 360px três rótulos em linha não cabem. **A barra de busca da Biblioteca saiu de dentro dela** e ocupa o lugar da faixa, na caixa de controles; a Biblioteca ficou só com a LISTA, e por isso a folga do topo passou a ter o que dizer. **Duas portas, e a diferença é o teclado**: o FOCO no campo abre digitando, a SETA ao lado abre sem foco. E `activeTab` deixou de existir: um estado com dois valores para uma tela só é uma variável que responde uma pergunta que ninguém faz mais.
 - **v1.4.45** — O DESFAZER DO GIRO FALA A LÍNGUA DO VIZINHO: VERMELHO, E COM O MESMO ✕. Pedido do operador: *"ele deve ser vermelho e ter em seu design o 'x' indicando que o toque destroi tal configuração atual"*. A v1.4.43 o pintou de DENIM com o argumento de que vermelho neste app quer dizer "está no ar agora" e a camada de cima já ocupava esse papel na mesma faixa — **e o argumento lia o token estreito demais**. O que o `--stage-alert` do selo de camadas diz não é "no ar": é *"o toque daqui TIRA alguma coisa"*, que é a definição da faixa inteira (a região do que está fora do padrão e o toque desfaz). Dois moradores com a mesma promessa pintados de cores diferentes ensinavam que a cor ali significa outra coisa, e não significa. **O que os separa passa a ser o DESENHO**, que é a regra de sempre: o ícone mostra o ESTADO (uma pilha de folhas · uma seta de giro) e o ✕ diz o que o toque FAZ. O ✕ é o do vizinho VERBATIM — uma marca de destruição redesenhada dois pixels adiante é uma segunda opinião sobre a mesma coisa — e a seta encolheu para 0,75 em torno de (10,10) para o canto do ✕ caber, o que a tirou do `#icoGirar` do sprite: aquele símbolo é o do TILE, e o dia em que um dos dois mudar de forma o outro não pode ir junto.
@@ -318,6 +319,125 @@ na nota que a revoga, não apagada da que a criou.
 - **v5.154** — é METADE OTA e METADE APK, e a divisão importa para quem for testar em aparelho.
 - **v5.155** — é OTA PURO
 - **v5.156** — é METADE OTA e METADE APK, de novo.
+
+---
+
+## v1.5.2 — a faixa sai, e a barra volta para o topo dos controles
+
+*"vamos remover esse zoneamento de tom cinza/azul que tem atrás da barra de
+buscas. vamos usar apenas os botões e a caixa de texto do mesmo tom que os
+botões do controle. … vamos mover essa barra de volta para o topo da seção de
+controles, onde estava, acima do nome da mídia em exibição. … mas mantenha todo
+o sistema de abertura e posição relativa da aba da biblioteca, dessa vez a
+abertura está correta. … tome cuidado com os espaçamentos de margens verticais
+dessa barra, estavam errados nesse último update."*
+
+**Lote só de web** (nenhum `.kt`, nenhum `res/`, nenhum workflow — sem Release e
+sem `shellTag`).
+
+### A faixa existia por causa de uma peça que também saiu
+
+O `--field-bar` nasceu na v5.270, e a razão era MEDIDA: o campo vestia os tokens
+SEM TEMA (`--field-*`, branco literal nos dois temas) e **campo branco sobre a
+caixa de controles branca do tema claro dá 1,00:1**. A faixa era o degrau que
+fazia o campo existir.
+
+Sem o branco não há branco-sobre-branco a resolver. O campo e o dado vestem
+`--surface` — o tom exato do `.t-btn` do transporte —, e duas peças da mesma
+caixa com a mesma receita não precisam de uma caixa em volta que as separe do
+resto. Com o último consumidor foi o token: `--field-bar` saiu do `tokens.css`
+nos dois temas, junto com uma regra órfã que ainda pintava o cabeçalho da
+Biblioteca removido na v5.258.
+
+- **A escolha do tom é MEDIDA, não literal.** Sobre `--surface-2` — a receita de
+  campo que a `.lib-search` declara para a folha do sorteio — o placeholder dá
+  **4,21:1** no escuro e **4,15:1** no claro, abaixo de AA nos dois; sobre
+  `--surface` dá **5,15:1** e **4,82:1**. *O tom que o pedido escolheu é também o
+  que passa*, e é por isso que os dois números estão escritos no CSS: quem
+  trocar de volta vai vê-los.
+- **A régua do oráculo é o `.t-btn` COMPUTADO**, não um número no teste: o pedido
+  nomeia uma peça do app, e um literal envelheceria na primeira troca de paleta —
+  envelhecendo parecendo certo.
+
+### O alternador quase morreu calado
+
+Ele fica FORA da regra do tom: é a AÇÃO da linha (`--btn-accent`/`--accent`), a
+mesma gramática do `#repeat.active` — a fileira do transporte também tem um botão
+aceso entre seis do tom comum, então isto não contradiz o pedido.
+
+Só que a regra que o pintava era uma CLASSE (`.lib-toggle`) e a receita
+compartilhada dos dois quadrados é um seletor de **ID**. Enquanto os dois eram
+brancos, ambos pintavam a mesma coisa e a derrota passava despercebida; no
+instante em que a receita comum passou a pintar `--surface`, ela venceu por
+especificidade e a porta virou mais um quadrado igual — **sem nada na tela
+dizendo que ela tinha sumido**. Hoje as duas são ID e a disputa se resolve pela
+ordem.
+
+### O lugar voltou; o mecanismo não
+
+A barra repousa no topo da caixa de controles — o lugar da v1.5.0 —, mas continua
+sendo a CABEÇA da janela e sobe com ela até o topo da tela. O que mudou é uma
+medida de posição (`--lib-desce`); a abertura, o movimento e o destino não
+mudaram uma linha, que era o pedido.
+
+**E é por isso que a folha passou a RECORTAR.** Com a barra a meia tela, tudo
+que vem abaixo dela na coluna — a lista e o fundo da própria folha — cairia por
+cima da caixa de controles: o transporte coberto por uma tela de `--bg` que
+ninguém abriu. O `clip-path` apaga essa parte, e apaga o TOQUE junto (ele recorta
+hit-test), que é o que mantém os botões alcançáveis com a Biblioteca fechada.
+
+- **Ele volta só DEPOIS do fechamento** (duração zero, atraso de uma animação):
+  um recorte que voltasse no instante do toque faria a lista sumir de uma vez em
+  vez de descer junto com a barra.
+- **O FUNDO da folha anda no mesmo relógio**, pelo motivo espelhado: fechada ela
+  não pode pintar nada, senão a faixa da barra fica com um retângulo `--bg` por
+  trás — o mesmo "zoneamento" por outro caminho.
+- **E ELE É MEDIDO NO ESPAÇO DA PRÓPRIA FOLHA** (`100% - a barra`), não na tela.
+  A primeira versão recortava a CAMADA na posição do lugar da barra, e isso é um
+  defeito de mecanismo: aquele valor depende de uma medida que muda em runtime, e
+  o atraso que o recorte precisa ter atrasa TODA mudança do valor — remedição
+  inclusive. MEDIDO no `controles-layout.test.mjs`, que não desenha quadros: o
+  recorte ficou preso no valor de partida (`inset(0px)`, isto é, nenhum) e a
+  janela FECHADA cobria a preview inteira — o toque na cortina caindo na lista da
+  Biblioteca. Um `clip-path` é aplicado antes do `transform`, então recortar
+  "tudo abaixo da barra" no espaço da folha vale onde quer que ela esteja.
+
+### E uma remedição não é uma animação
+
+O mesmo defeito pelo outro lado, e o `transform` o tinha também: a janela anima
+entre dois lugares — o topo da tela e o lugar da barra — e o segundo é uma
+MEDIDA. Uma transição não distingue as duas razões de o valor mudar. Com o tempo
+ligado, remedir vira a barra **deslizando** até o lugar novo enquanto a caixa de
+controles já saltou para lá: a barra correndo atrás da caixa.
+
+`semAnimarAJanela` desliga o tempo no quadro em que a medida escreve — a classe
+sai, o valor entra no mesmo recálculo (uma transição usa a duração do estilo
+DEPOIS da mudança), a classe volta no quadro seguinte. **É o mesmo mecanismo da
+carga, e por isso não há dois**: a primeira medida também é uma mudança de valor,
+e é ela que arma a animação pela primeira vez. MEDIDO: a barra mede 28,6px no
+primeiro quadro, antes de a folha assentar, e 51px depois.
+
+### As margens são dois números que precisam concordar
+
+A queixa era *"os espaçamentos de margens verticais dessa barra estavam
+errados"*. A barra é um OVERLAY (ela vive na janela, para subir com ela) e o
+lugar dela na caixa é um `padding-top`: reservar de menos a põe por cima da
+primeira linha de controles, reservar de mais abre uma faixa de caixa vazia por
+baixo dela. O oráculo mede os dois lados — a barra pousando exatamente na borda
+de cima da caixa, e a reserva sendo a altura dela mais o respiro e nada mais —,
+além do recuo lateral batendo com o da caixa, que é o que alinha o campo com os
+botões de baixo. A área segura de baixo voltou para a caixa, que é quem encosta
+na barra de gestos outra vez.
+
+### E a caixa de controles é vigiada
+
+O lugar da barra é o TOPO dela, e ela muda de altura por caminhos que não passam
+pela medida: a proporção da preview, o nome da mídia em duas linhas, a barra de
+seleção múltipla, o modo do app. Enumerá-los seria uma lista para envelhecer, e o
+modo de falhar é a barra pousando fora do lugar. `ResizeObserver` responde à
+MUDANÇA, seja qual for a causa; o laço que ele poderia criar (a medida muda o
+`padding-top`, que muda a caixa) é fechado do outro lado — a função só escreve o
+que mudou.
 
 ---
 
