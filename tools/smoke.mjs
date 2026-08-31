@@ -4614,11 +4614,23 @@ try {
       const deck = document.querySelector('.deck') || caixa().firstElementChild;
       const antes = { barra: Math.round(bar()), caixa: Math.round(caixa().getBoundingClientRect().top) };
       const aspecto = deck.style.aspectRatio;
+      // ESPERA PELO FATO, nunca por um prazo: o que se afirma é que a barra
+      // ACOMPANHA a caixa, e um `setTimeout` aqui mediria o agendador do runner.
+      // O laço desiste depois de 60 quadros e devolve o que viu — a asserção
+      // reprova com os números à vista, em vez de falar do desenho quando o que
+      // estourou foi o relógio.
+      const assentar = async (alvo) => {
+        for (let i = 0; i < 60; i++) {
+          if (Math.round(caixa().getBoundingClientRect().top) !== alvo
+            && Math.round(bar()) === Math.round(caixa().getBoundingClientRect().top)) break;
+          await new Promise((r) => requestAnimationFrame(r));
+        }
+      };
       deck.style.aspectRatio = '1 / 1';
-      await new Promise((r) => setTimeout(r, 300));
+      await assentar(antes.caixa);
       const depois = { barra: Math.round(bar()), caixa: Math.round(caixa().getBoundingClientRect().top) };
       deck.style.aspectRatio = aspecto;
-      await new Promise((r) => setTimeout(r, 300));
+      await assentar(depois.caixa);
       return { antes, depois };
     });
     checar(seguiu.depois.caixa !== seguiu.antes.caixa
