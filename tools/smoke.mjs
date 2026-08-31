@@ -689,12 +689,18 @@ try {
     // o operador viu (transporte, mixer) e os que só existem numa aba
     // (segmentados, chips, campos das Ferramentas) nunca estão na mesma tela.
     setAppMode('full'); varrer();
-    for (const aba of ['bible', 'misc', 'playlist']) {
-      try { switchTab(aba); } catch (e) { /* aba que não existe neste bundle */ }
+    // AS TELAS VIRARAM FOLHAS (v1.5.0): o app tem um lugar — o Cronograma — e
+    // duas janelas sobre ele. A varredura abre as duas, porque os controles que
+    // só existem numa delas (a grade da Bíblia, os segmentados e campos das
+    // Ferramentas) continuam sendo a cobertura que este caso existe para ter.
+    for (const abrir of [abrirBiblia, abrirFerramentas]) {
+      try { abrir(); } catch (e) { /* porta que não existe neste bundle */ }
       await new Promise((r) => setTimeout(r, 60));
       varrer();
+      try { fecharBiblia(); fecharFerramentas(); } catch (e) { /* idem */ }
+      await new Promise((r) => setTimeout(r, 260));
     }
-    openHymnSearch(); await new Promise((r) => setTimeout(r, 200)); varrer();
+    openHymnSearch(false); await new Promise((r) => setTimeout(r, 400)); varrer();
     closeHymnSearch(); await new Promise((r) => setTimeout(r, 100));
     openFadePopup(); await new Promise((r) => setTimeout(r, 150)); varrer();
     setAppMode('simple'); await new Promise((r) => setTimeout(r, 100)); varrer();
@@ -940,19 +946,19 @@ try {
   checar(!!eco.anel && eco.anel !== 'none', 'o anel do eco é de fato desenhado', eco.anel);
   checar(eco.sumiu, 'e ele sai sozinho, sem deixar o botão marcado');
 
-  // ---- O CARROSSEL VALE DENTRO DA NAVEGAÇÃO INTERNA (v5.193) ------------
+  // ---- O CARROSSEL DE ABAS SAIU, E A AUSÊNCIA É A ASSERÇÃO (v1.5.0) ------
   //
-  // Quarta correção do mesmo mecanismo, e as três anteriores mantinham à mão a
-  // lista do que o eixo horizontal não podia atravessar. A guarda mais larga
-  // era "qualquer sub-tela" (botão voltar visível): com um capítulo da Bíblia
-  // aberto — o estado normal de quem usa a Bíblia num culto — o gesto morria
-  // calado, e NADA ali disputa o eixo horizontal (`.bible-half` rola só na
-  // vertical, e a própria folha declara `touch-action: pan-y`).
+  // Ele existiu da v5.193 até aqui, e custou QUATRO correções do mesmo
+  // mecanismo — a última reescreveu o ciclo de toque inteiro porque o
+  // navegador cancelava o fluxo de `pointer*` no primeiro scroller do caminho.
+  // Com o Cronograma virando a tela única não há para onde deslizar: a Bíblia
+  // é uma FOLHA, e abrir uma janela não é um passo lateral.
   //
-  // O teste é o COMPORTAMENTO, com toque de verdade (CDP): um deslize sobre o
-  // conteúdo de uma sub-tela tem de trocar de aba, e um deslize sobre um
-  // trilho que ROLA de verdade na horizontal não pode. As duas metades
-  // importam — sem a segunda, "libera tudo" passaria no teste.
+  // A asserção é uma AUSÊNCIA, e ausência não tem sintoma de tela: o que ela
+  // pega é o mecanismo voltando por engano — um ouvinte de `touchmove` que
+  // sobrevivesse a esta limpeza roubaria o eixo horizontal da lista inteira,
+  // e o que se veria é a rolagem vertical falhando de vez em quando. Daí medir
+  // o COMPORTAMENTO com um toque de verdade (CDP), e não a ausência do símbolo.
   const cdp = await ctx.newCDPSession(pg);
   const deslizar = async (x0, y0, dx) => {
     const p = (x, y) => [{ x, y, radiusX: 6, radiusY: 6, force: 1, id: 1 }];
@@ -964,60 +970,30 @@ try {
     await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
     await pg.waitForTimeout(120);
   };
-
-  // O CENÁRIO É MONTADO À MÃO, e de propósito: o runner do CI não tem rede,
-  // então não há livro da Bíblia para abrir nem sorteio com histórico. O que
-  // mudou na v5.193 é a REGRA — "quem é dono do eixo horizontal?" —, e ela se
-  // exercita com um botão voltar visível (o que caracteriza uma sub-tela) e um
-  // trilho que de fato rola. Testar a regra é testar o que quebrou.
-  const cenario = await pg.evaluate(() => {
-    // O MODO AVANÇADO PRIMEIRO: o app abre no Modo Fácil, e ali o `<main>` está
-    // atrás da tela simplificada — sem esta linha o gesto cai no vazio e o
-    // teste "passa" por não medir nada.
+  const semCarrossel = await pg.evaluate(() => {
     setAppMode('full');
-    // E A FOLHA DE CONFIGURAÇÕES SAI DA FRENTE: ela foi aberta lá em cima e
-    // ninguém a fechou. Com ela no ar o toque pousa no popup, o `<main>` nem
-    // vê o gesto, e o caso falha por um motivo que não é o que ele mede.
     closeFadePopup();
-    switchTab('imports');
-    // Sub-tela: era ESTA condição, sozinha, que matava o gesto no conteúdo.
-    document.getElementById('backBtn').hidden = false;
+    fecharBiblia(); fecharFerramentas();
     const m = document.querySelector('main');
     const r = m.getBoundingClientRect();
-    return { aba: activeTab, x: r.x + r.width / 2, y: r.y + Math.min(r.height / 2, 160) };
-  });
-  await deslizar(cenario.x + 90, cenario.y, -160);
-  const depoisDoDeslize = await pg.evaluate(() => activeTab);
-  checar(depoisDoDeslize !== cenario.aba,
-    'com uma sub-tela aberta (voltar visível), deslizar no conteúdo TROCA de aba'
-    + ' (' + cenario.aba + ' → ' + depoisDoDeslize + ')');
-
-  // E o outro lado, que é o que impede a correção de virar "libera tudo": um
-  // elemento que ROLA de verdade na horizontal fica com o gesto.
-  const trilho = await pg.evaluate(() => {
-    const m = document.querySelector('main');
-    const t = document.createElement('div');
-    t.id = 'trilhoDeTeste';
-    t.style.cssText = 'overflow-x:auto;display:flex;white-space:nowrap;height:80px';
-    t.innerHTML = '<div style="min-width:3000px;height:60px"></div>';
-    m.insertBefore(t, m.firstChild);
-    const r = t.getBoundingClientRect();
     return {
-      rola: t.scrollWidth > t.clientWidth + 1,
-      x: r.x + r.width / 2, y: r.y + r.height / 2, aba: activeTab,
+      // A máquina de abas não existe mais em lugar nenhum do módulo.
+      sobrouSwitch: typeof switchTab !== 'undefined',
+      sobrouFaixa: !!document.querySelector('.tabs'),
+      x: r.x + r.width / 2, y: r.y + Math.min(r.height / 2, 160),
     };
   });
-  checar(trilho.rola, 'o trilho do contra-teste de fato rola na horizontal');
-  await deslizar(trilho.x + 60, trilho.y, -160);
-  const depoisDoTrilho = await pg.evaluate(() => {
-    const t = document.getElementById('trilhoDeTeste');
-    const a = activeTab;
-    if (t) t.remove();
-    document.getElementById('backBtn').hidden = true;
-    return a;
-  });
-  checar(depoisDoTrilho === trilho.aba,
-    'e um elemento que ROLA na horizontal fica com o gesto (' + depoisDoTrilho + ')');
+  checar(!semCarrossel.sobrouSwitch && !semCarrossel.sobrouFaixa,
+    'a faixa de abas e o `switchTab` que ela movia não existem mais — o app tem '
+    + 'UM lugar e duas folhas', JSON.stringify(semCarrossel));
+  await deslizar(semCarrossel.x + 90, semCarrossel.y, -160);
+  const depoisDoDeslize = await pg.evaluate(() => ({
+    biblia: bibliaAberta(), ferramentas: ferramentasAbertas(),
+    biblioteca: document.getElementById('hymnSearchPopup').classList.contains('open'),
+  }));
+  checar(!depoisDoDeslize.biblia && !depoisDoDeslize.ferramentas && !depoisDoDeslize.biblioteca,
+    'e deslizar sobre a lista não abre NADA: o eixo horizontal voltou a ser da '
+    + 'lista, que é de quem ele sempre foi', JSON.stringify(depoisDoDeslize));
 
   // ---- OS DOIS TEMAS, E O PALCO QUE NÃO SEGUE NENHUM (v5.192) ------------
   //
@@ -1415,7 +1391,7 @@ for (const tema of ['escuro', 'claro']) {
       // A LISTA PRECISA MORAR NA FOLHA DE VERDADE (v5.267): o tom de cada nível
       // é herdado do contêiner (`--camada`), então medir a árvore num `<ul>`
       // solto no `<body>` mediria uma árvore que não existe no app.
-      const folha = document.querySelector('#hymnSearchPopup .popup-sheet--full');
+      const folha = document.querySelector('#hymnSearchPopup .popup-sheet--lib');
       const lista = document.createElement('ul');
       lista.className = 'popup-list';
       lista.style.width = '390px';
@@ -1682,7 +1658,11 @@ for (const tema of ['escuro', 'claro']) {
     const v = await pg.evaluate(async (tema) => {
       document.documentElement.setAttribute('data-tema', tema);
       setAppMode('full');
-      openHymnSearch();
+      openHymnSearch(false);
+      // A JANELA ASSENTA ANTES DE SER MEDIDA (v1.5.0): ela SOBE agora, e este
+      // caso mede caixas — a barra abaixo dela, a base da lista. Medida no meio
+      // da subida, a folha responde o ponto de partida.
+      await new Promise((r) => setTimeout(r, 500));
       grupoAberto = ''; favAberto = true;
       // TUDO FECHADO É A PRECONDIÇÃO, e desde a v1.0.1 `grupoAberto = ''` não
       // basta para dizê-la: as coleções fixas moram na RAIZ, então um card que
@@ -1866,7 +1846,16 @@ for (const tema of ['escuro', 'claro']) {
       await recarregarFavoritos();
       // `album-77` fica ABERTO: é o estado declarado do fixture da seção (ver
       // `SECAO`, no topo), e os casos seguintes contam com ele.
-    // ===== A BARRA É O TOPO DA FOLHA (v5.280/v5.281) =====
+    // ===== A BARRA SAIU DA FOLHA (v1.5.0) =====
+    // Ela era o topo da Biblioteca (v5.280/v5.281) e virou a `.lib-bar` da caixa
+    // de controles — o pedido do operador foi *"vamos trazer toda a barra de
+    // buscas da biblioteca, ela vai ficar agora ali fora da biblioteca"*. O que
+    // se mede aqui muda de lugar mas não de natureza: a lista continua sendo a
+    // única coisa que rola, e a barra continua parada enquanto ela rola. A
+    // diferença é que agora a barra está FORA — e é isso que a asserção da
+    // ausência (`semBarraDentro`) prende: duas barras seriam duas verdades sobre
+    // o mesmo campo, e a de dentro sumiria atrás da de fora.
+    //
     // MEDIDA DEPOIS do bloco acima, e de propósito: a rolagem só existe com
     // uma COLEÇÃO ABERTA — com tudo colapsado o vão dos favoritos é
     // justamente o que sobra, a lista cabe inteira e não haveria rolagem a
@@ -1874,8 +1863,8 @@ for (const tema of ['escuro', 'claro']) {
     // Biblioteca já tinha encontrado).
     r.barra = (() => {
         const folha = document.querySelector('#hymnSearchPopup .popup-sheet');
-        const bar = document.querySelector('#hymnSearchPopup .hymn-search-bar');
-        const fechar = document.getElementById('hymnSearchClose');
+        const bar = document.querySelector('.lib-bar');
+        const fechar = document.getElementById('hymnSearchToggle');
         const campo = document.getElementById('hymnSearchInput');
         const cx2 = (el) => el.getBoundingClientRect();
         // Uma rolagem de VERDADE na lista, com o conteúdo que este caso já
@@ -1889,7 +1878,12 @@ for (const tema of ['escuro', 'claro']) {
         return {
           semCabecalho: !document.querySelector('#hymnSearchPopup .popup-header'),
           semTitulo: !document.getElementById('hymnSearchTitle'),
-          primeira: folha.firstElementChild === bar,
+          // A BARRA NÃO ESTÁ MAIS DENTRO, e a lista é o único filho da janela.
+          semBarraDentro: !folha.querySelector('.lib-bar, .hymn-search-bar'),
+          soALista: folha.firstElementChild === document.getElementById('hymnResults'),
+          // E ELA ESTÁ FORA, na caixa de controles — logo, ABAIXO da janela.
+          barraNaCaixa: !!bar.closest('.bottombar'),
+          barraAbaixo: Math.round(cx2(bar).top) >= Math.round(cx2(folha).bottom) - 1,
           fecharL: cx2(fechar).width, fecharA: cx2(fechar).height,
           campoA: cx2(campo).height,
           barraAntes, barraDepois, rolou,
@@ -1993,11 +1987,17 @@ for (const tema of ['escuro', 'claro']) {
     checar(v.outra.sobraColecao >= 0 && v.outra.sobraColecao < v.altOutra,
       '[' + tema + '] e a COLEÇÃO aberta mede o conteúdo dela, sem inchar ('
       + Math.round(v.outra.sobraColecao) + 'px de vazio dentro dela)');
-    // O CABEÇALHO SAIU (v5.280): a barra é o primeiro elemento da folha, e é
-    // isso — e não um mecanismo de posicionamento — que a mantém no topo.
-    checar(v.barra.semCabecalho && v.barra.semTitulo && v.barra.primeira,
-      '[' + tema + '] a barra de busca é o TOPO da folha: sem cabeçalho, sem '
-      + 'título, nada acima dela');
+    // A JANELA FICOU SÓ COM A LISTA (v1.5.0): sem cabeçalho, sem título e sem
+    // barra — a barra virou a `.lib-bar` da caixa de controles, e é por a
+    // Biblioteca ter ficado só com a lista que a folga do topo passou a ter o
+    // que dizer.
+    checar(v.barra.semCabecalho && v.barra.semTitulo
+      && v.barra.semBarraDentro && v.barra.soALista,
+      '[' + tema + '] a janela da Biblioteca é SÓ A LISTA: sem cabeçalho, sem '
+      + 'título e sem barra de busca dentro dela');
+    checar(v.barra.barraNaCaixa && v.barra.barraAbaixo,
+      '[' + tema + '] e a barra mora na caixa de controles, ABAIXO da janela — '
+      + 'ela é de onde a janela sobe, não o topo dela');
     // ===== E A LISTA ROLA SEM LEVAR A BARRA JUNTO (v5.281) =====
     // O relato do operador era que a barra não fica fixa durante a rolagem. A
     // estrutura sempre esteve certa — e é isso que a primeira metade mede, com
@@ -3164,10 +3164,14 @@ try {
     await load();                       // um redesenho no LUGAR
     await new Promise((f) => setTimeout(f, 150));
     const r = { antes, depoisDoRedesenho: libraryEl.scrollTop };
-    // …e a NAVEGAÇÃO continua restaurando a posição daquela aba.
-    await switchTab('bible');
+    // …E A FOLHA DA BÍBLIA NÃO A MEXE (v1.5.0). Era a navegação ENTRE ABAS que
+    // restaurava a posição guardada; com uma tela só, a pergunta mudou: abrir e
+    // fechar uma janela por cima da lista não pode mover a lista de baixo. É
+    // uma propriedade mais forte que a antiga — ali a posição era restaurada
+    // DEPOIS de perdida, aqui ela nunca se perde.
+    abrirBiblia();
     await new Promise((f) => setTimeout(f, 400));
-    await switchTab('imports');
+    fecharBiblia();
     await new Promise((f) => setTimeout(f, 400));
     r.depoisDaVolta = libraryEl.scrollTop;
     return r;
@@ -3228,12 +3232,15 @@ try {
         faixaH: Math.round(h.height), listaY: Math.round(l.y),
       };
     };
-    await switchTab('imports');
+    fecharBiblia();
     if (!await ate(() => document.getElementById('listTitle').textContent === 'Cronograma')) {
-      return { erro: 'a aba Cronograma não foi desenhada' };
+      return { erro: 'o Cronograma não foi desenhado' };
     }
     const crono = onde();
-    await switchTab('bible');
+    // A BÍBLIA VIROU FOLHA (v1.5.0), e com ela o VOLTAR mudou de casa: o do
+    // cabeçalho só servia a ela e hoje nasce sempre oculto; quem sobe
+    // leitura→capítulos→livros é o `#bibleBack`, dentro da barra da folha.
+    abrirBiblia();
     if (!await ate(() => !!document.querySelector('.bible-grid--books .bible-cell'))) {
       return { erro: 'a grade de livros não foi desenhada' };
     }
@@ -3243,18 +3250,27 @@ try {
       return { erro: 'a tela de capítulo+versículo não foi desenhada' };
     }
     const capitulos = onde();
-    const voltarAparece = !document.getElementById('backBtn').hidden;
-    await switchTab('imports');
+    const voltarDaFolha = !document.getElementById('bibleBack').hidden;
+    const voltarDoApp = document.getElementById('backBtn').hidden;
+    const tituloDaFolha = document.getElementById('bibleTitle').textContent;
+    fecharBiblia();
     await ate(() => document.getElementById('listTitle').textContent === 'Cronograma');
-    return { crono, livros, capitulos, voltarAparece };
+    return { crono, livros, capitulos, voltarDaFolha, voltarDoApp, tituloDaFolha };
   });
   const emX = (a) => a.map((t) => t.x);
   const emY = (a) => a.map((t) => t.y);
   const telas = eixo.erro ? [] : [eixo.crono, eixo.livros, eixo.capitulos];
   const igual = (v) => v.every((n) => n === v[0]);
-  checar(!eixo.erro && eixo.voltarAparece === true && igual(emX(telas)),
-    'o nome da tela não anda PARA O LADO quando o voltar aparece — a coluna '
-    + 'dele é reservada mesmo `hidden` (x: ' + emX(telas).join(' · ') + ')',
+  checar(!eixo.erro && eixo.voltarDaFolha === true && eixo.voltarDoApp === true,
+    'o VOLTAR da Bíblia mora na barra da FOLHA, e o do cabeçalho fica oculto: '
+    + 'um voltar na faixa do app apontando para dentro de uma janela é o app '
+    + 'dizendo que a janela é ele', JSON.stringify(eixo));
+  checar(!eixo.erro && eixo.tituloDaFolha === 'Bíblia',
+    'e é a FOLHA que diz o nome dela — o cabeçalho do app diz "Cronograma" '
+    + 'sempre, porque é a tela única', eixo.tituloDaFolha);
+  checar(!eixo.erro && igual(emX(telas)),
+    'o nome da tela não anda PARA O LADO com a folha aberta — a coluna do '
+    + 'voltar é reservada mesmo `hidden` (x: ' + emX(telas).join(' · ') + ')',
     JSON.stringify(eixo));
   checar(!eixo.erro && igual(emY(telas)) && igual(telas.map((t) => t.faixaH))
     && igual(telas.map((t) => t.listaY)),
@@ -4462,75 +4478,92 @@ try {
 try {
   const bib = await pg.evaluate(() => {
     const sheet = document.querySelector('#hymnSearchPopup .popup-sheet');
-    const barra = sheet.querySelector('.hymn-search-bar');
+    const barra = document.querySelector('.lib-bar');
     const lista = sheet.querySelector('#hymnResults');
     return {
       semTotal: !document.getElementById('hymnSearchTotal'),
       semBotaoNoCabecalho: !sheet.querySelector('.popup-header .coll-group-btn'),
-      // A ORDEM da folha (v5.275): cabeçalho, barra, lista. A lista é o último
-      // filho e é ela que rola; a barra é a faixa fixa acima dela.
-      listaPorUltimo: sheet.lastElementChild === lista,
-      acimaDaLista: !!barra && !!lista
-        && [...sheet.children].indexOf(barra) < [...sheet.children].indexOf(lista),
-      fecharNaBarra: !!barra && !!barra.querySelector('#hymnSearchClose'),
+      // A JANELA É SÓ A LISTA (v1.5.0): a barra saiu para a caixa de controles.
+      soALista: sheet.firstElementChild === lista && sheet.lastElementChild === lista,
+      // E A BARRA ESTÁ INTEIRA lá fora — os três elementos, na ordem que a
+      // v5.305 fixou: *sortear* · *procurar* · *sair*.
+      barraForaDaJanela: !!barra && !sheet.contains(barra),
       campoNaBarra: !!barra && !!barra.querySelector('#hymnSearchInput'),
+      alternadorNaBarra: !!barra && !!barra.querySelector('#hymnSearchToggle'),
+      sorteioNaBarra: !!barra && !!barra.querySelector('#sorteioBtn'),
+      ordem: barra ? [...barra.children].map((e) => e.id || e.className) : [],
     };
   });
   checar(bib.semTotal && bib.semBotaoNoCabecalho,
     'o "Baixar toda a biblioteca" e o peso total SAÍRAM do cabeçalho', JSON.stringify(bib));
-  checar(bib.listaPorUltimo && bib.acimaDaLista,
-    'e a barra de busca voltou ao TOPO (v5.275): quem termina a folha é a lista, '
-    + 'que rola por baixo dela');
-  checar(bib.campoNaBarra && bib.fecharNaBarra,
-    'com o campo E o fechar juntos nela, que é o pedido inteiro');
+  checar(bib.soALista,
+    'a janela da Biblioteca é SÓ A LISTA (v1.5.0) — a barra de busca saiu dela');
+  checar(bib.barraForaDaJanela && bib.campoNaBarra
+    && bib.alternadorNaBarra && bib.sorteioNaBarra,
+    'e ela está inteira FORA, na caixa de controles: o dado, o campo e o '
+    + 'alternador — duas barras seriam duas verdades sobre o mesmo campo, e a de '
+    + 'dentro sumiria atrás da de fora', JSON.stringify(bib.ordem));
 } catch (e) {
   checar(false, 'a medição da Biblioteca terminou sem exceção (' + (e && e.message) + ')');
 }
 
-// ---------- A BIBLIOTECA É UMA TELA, E ELA SÓ ESMAECE (v5.263) ----------
-// Pedido do operador: *"troque a animação de slide vertical, há muitos
-// problemas com ela por causa do teclado, então faça apenas um fade in e out
-// para a biblioteca, e faça dela uma tela inteira e não um tipo de pop up."*
+// ---------- A BIBLIOTECA VOLTOU A SER UMA JANELA, E ELA SOBE (v1.5.0) -------
 //
-// São TRÊS metades, e nenhuma basta: não há deslocamento em nenhum dos dois
-// estados (tirar só o `translateY(100%)` do fechado deixaria a folha entrar com
-// um salto), o que muda entre eles é a OPACIDADE, e a camada não tem scrim —
-// que é o último tique de popup que sobrava.
+// **Isto REVOGA a v5.263**, que tinha tirado o slide (*"faça apenas um fade in
+// e out para a biblioteca, e faça dela uma tela inteira e não um tipo de pop
+// up"*). O pedido de agora é o oposto, e a razão mudou junto: lá a barra de
+// busca morava DENTRO dela, e um campo de texto numa folha que desliza briga com
+// o teclado — foram três lotes consertando o entorno daquela animação. Aqui a
+// barra ficou FORA, na caixa de controles: a janela não tem campo nenhum, e o
+// que sobe é uma lista.
 //
-// (Ele REVOGA a v5.262, que tinha invertido o sentido do slide. O diagnóstico
-// de lá continua correto e é a razão desta: três lotes seguidos corrigindo o
-// entorno de uma animação são a animação dizendo que não vale o preço.)
+// *"a biblioteca agora vai abrir abaixo dessa barra de buscas de forma animada,
+// fazendo ela subir até o topo da tela … com uma ligeira folga do topo da tela
+// quando aberta, para deixar claro que a biblioteca é apenas uma janela dentro
+// do app."*
+//
+// TRÊS metades, e a terceira é a que separa "janela" de "tela": ela SOBE (o
+// deslocamento existe e é vertical), ela PARA antes do topo (a folga), e ela
+// para ANTES DA BARRA embaixo — é de lá que ela saiu.
 try {
   const tela = await pg.evaluate(async () => {
     const camada = document.getElementById('hymnSearchPopup');
     const folha = camada && camada.querySelector('.popup-sheet');
-    if (!folha) return null;
-    // `matrix(a,b,c,d,tx,ty)`: qualquer deslocamento aparece em tx/ty.
-    const desloc = (el) => {
+    const barra = document.querySelector('.lib-bar');
+    if (!folha || !barra) return null;
+    // `matrix(a,b,c,d,tx,ty)`: o deslocamento vertical é o `ty`.
+    const ty = (el) => {
       const m = /matrix\(([^)]+)\)/.exec(getComputedStyle(el).transform);
-      if (!m) return 0;   // 'none'
-      const n = m[1].split(',');
-      return Math.abs(parseFloat(n[4])) + Math.abs(parseFloat(n[5]));
+      return m ? Math.abs(parseFloat(m[1].split(',')[5])) : 0;
+    };
+    setAppMode('full');
+    closeHymnSearch();
+    await new Promise((r) => setTimeout(r, 500));
+    const fechada = ty(folha);
+    openHymnSearch(false);
+    await new Promise((r) => setTimeout(r, 600));
+    const cf = folha.getBoundingClientRect();
+    const cb = barra.getBoundingClientRect();
+    const r = {
+      fechada, aberta: ty(folha),
+      folgaTopo: Math.round(cf.top),
+      // A base da janela encosta no TOPO da barra, medida em runtime.
+      vaoAteABarra: Math.round(cb.top - cf.bottom),
+      alturaDaTela: Math.round(window.innerHeight),
     };
     closeHymnSearch();
-    await new Promise((r) => setTimeout(r, 350));
-    const fechada = { desloc: desloc(folha), opacidade: parseFloat(getComputedStyle(camada).opacity) };
-    setAppMode('full');
-    openHymnSearch();
-    await new Promise((r) => setTimeout(r, 350));
-    const aberta = { desloc: desloc(folha), opacidade: parseFloat(getComputedStyle(camada).opacity) };
-    const scrim = getComputedStyle(camada).backgroundColor;
-    closeHymnSearch();
-    return { fechada, aberta, scrim };
+    return r;
   });
-  checar(!!tela && tela.fechada.desloc === 0 && tela.aberta.desloc === 0,
-    'a Biblioteca não DESLIZA em estado nenhum — fechada e aberta ela está no '
-    + 'mesmo lugar', tela ? tela.fechada.desloc + ' / ' + tela.aberta.desloc : 'sem folha');
-  checar(!!tela && tela.fechada.opacidade === 0 && tela.aberta.opacidade === 1,
-    'o que a abre e a fecha é a OPACIDADE, e só ela');
-  checar(!!tela && /rgba\(0, 0, 0, 0\)|transparent/.test(tela.scrim),
-    'e ela não tem SCRIM: é uma tela, não um popup desenhado por cima de outra '
-    + 'escurecida', tela ? tela.scrim : '?');
+  checar(!!tela && tela.fechada > 0 && tela.aberta === 0,
+    'a Biblioteca SOBE: fechada ela está deslocada para baixo (atrás da barra) e '
+    + 'aberta ela está no lugar', tela ? tela.fechada + ' → ' + tela.aberta : 'sem folha');
+  checar(!!tela && tela.folgaTopo > 4 && tela.folgaTopo < tela.alturaDaTela / 4,
+    'e ela PARA antes do topo — a folga é o que diz que ela é uma janela dentro '
+    + 'do app, e não a tela inteira', tela ? tela.folgaTopo + 'px' : '?');
+  checar(!!tela && Math.abs(tela.vaoAteABarra) <= 2,
+    'e a base dela encosta no TOPO da barra que a abriu — é de lá que ela sai, e '
+    + 'a medida é feita em runtime porque a caixa de controles muda de altura',
+    tela ? tela.vaoAteABarra + 'px' : '?');
 } catch (e) {
   checar(false, 'a medição da abertura da Biblioteca terminou sem exceção (' + (e && e.message) + ')');
 }
@@ -4556,7 +4589,7 @@ try {
     // sem `tabindex`, então aquilo era um no-op e o `activeElement` continuava
     // sendo o campo de um caso anterior — a medição aprovaria os dois desenhos.
     campo.blur();
-    openHymnSearch();
+    openHymnSearch(true);
     // MESMO TURNO: se o `focus()` tivesse ficado síncrono, ele já teria
     // acontecido aqui — é esta leitura que distingue os dois desenhos.
     const naHora = document.activeElement === campo;
@@ -4565,11 +4598,34 @@ try {
     closeHymnSearch();
     // E o cancelamento: abrir e fechar dentro da janela não pode focar nada.
     campo.blur();
-    openHymnSearch();
+    openHymnSearch(true);
     closeHymnSearch();
     await new Promise((r) => setTimeout(r, 500));
     const orfao = document.activeElement === campo;
-    return { naHora, depois, orfao };
+    // ===== A OUTRA PORTA NÃO FOCA (v1.5.0) =====
+    // *"no caso de abrir pelo foco, já abre o teclado junto, se abrir pelo botão
+    // de abrir, ela abre sem o foco de digitação."* São duas intenções — "procurar
+    // o hino 37" e "ver o que eu tenho" —, e a segunda não quer metade da tela
+    // ocupada por um teclado que ninguém pediu.
+    await new Promise((r) => setTimeout(r, 400));
+    campo.blur();
+    openHymnSearch(false);
+    await new Promise((r) => setTimeout(r, 500));
+    const pelaSeta = document.activeElement === campo;
+    closeHymnSearch();
+    await new Promise((r) => setTimeout(r, 400));
+    // E O TOQUE NO CAMPO ABRE, que é a porta do teclado: `focus`, e não `click`
+    // — o campo é alcançável por teclado físico e pelo `Tab`, e ali a intenção
+    // é a mesma.
+    campo.focus();
+    await new Promise((r) => setTimeout(r, 100));
+    const focoAbre = document.getElementById('hymnSearchPopup').classList.contains('open');
+    closeHymnSearch();
+    // E FECHAR TIRA O FOCO: sem isto o teclado fica de pé sobre o app com a
+    // janela já fora de cena — a mesma classe do foco órfão, pelo outro caminho.
+    await new Promise((r) => setTimeout(r, 200));
+    const focoDepoisDeFechar = document.activeElement === campo;
+    return { naHora, depois, orfao, pelaSeta, focoAbre, focoDepoisDeFechar };
   });
   checar(!foco.naHora,
     'a Biblioteca abre SEM tomar o campo no mesmo tempo — a tela vem primeiro');
@@ -4579,6 +4635,14 @@ try {
   checar(!foco.orfao,
     'fechar dentro da janela CANCELA o foco adiado — senão o teclado subiria '
     + 'sobre o app com a Biblioteca já fora de cena');
+  checar(foco.focoAbre,
+    'o FOCO no campo ABRE a Biblioteca — é a porta de quem já sabe o que procura');
+  checar(!foco.pelaSeta,
+    'e a porta da SETA abre SEM foco: são duas intenções diferentes, e a segunda '
+    + 'não quer metade da tela ocupada por um teclado que ninguém pediu');
+  checar(!foco.focoDepoisDeFechar,
+    'e fechar TIRA o foco do campo — senão o teclado fica de pé sobre o app com a '
+    + 'janela já fora de cena');
 } catch (e) {
   checar(false, 'a medição do foco adiado terminou sem exceção (' + (e && e.message) + ')');
 }
@@ -4594,10 +4658,10 @@ try {
 try {
   const lupa = await pg.evaluate(async () => {
     setAppMode('full');
-    openHymnSearch();
-    await new Promise((r) => setTimeout(r, 400));
+    openHymnSearch(false);
+    await new Promise((r) => setTimeout(r, 500));
     const campo = document.getElementById('hymnSearchInput');
-    const ico = document.querySelector('#hymnSearchPopup .lib-search-lupa');
+    const ico = document.querySelector('.lib-bar .lib-search-lupa');
     if (!ico) { closeHymnSearch(); return null; }
     const ri = ico.getBoundingClientRect();
     const rc = campo.getBoundingClientRect();
@@ -4646,16 +4710,16 @@ for (const tema of ['escuro', 'claro']) {
     const c = await pg.evaluate(async (tema) => {
       document.documentElement.setAttribute('data-tema', tema);
       setAppMode('full');
-      openHymnSearch();
-      await new Promise((r) => setTimeout(r, 400));
+      openHymnSearch(false);
+      await new Promise((r) => setTimeout(r, 500));
       const fundo = (s) => {
         const e = document.querySelector(s);
         return e ? getComputedStyle(e).backgroundColor : '';
       };
-      const barra = document.querySelector('#hymnSearchPopup .hymn-search-bar');
+      const barra = document.querySelector('.lib-bar');
       const r = {
         folha: fundo('#hymnSearchPopup .popup-sheet'),
-        barra: fundo('#hymnSearchPopup .hymn-search-bar'),
+        barra: fundo('.lib-bar'),
         campo: getComputedStyle(document.getElementById('hymnSearchInput')).backgroundColor,
         sombra: getComputedStyle(barra).boxShadow,
         // A RÉGUA do próprio app: o degrau da barra de baixo contra o fundo.
@@ -4664,13 +4728,13 @@ for (const tema of ['escuro', 'claro']) {
         // O que mora DENTRO do campo (v5.267).
         texto: getComputedStyle(document.getElementById('hymnSearchInput')).color,
         ph: getComputedStyle(document.getElementById('hymnSearchInput'), '::placeholder').color,
-        lupa: getComputedStyle(document.querySelector('#hymnSearchPopup .lib-search-lupa')).color,
+        lupa: getComputedStyle(document.querySelector('.lib-bar .lib-search-lupa')).color,
         sombraCampo: getComputedStyle(document.getElementById('hymnSearchInput')).boxShadow,
         // O ✕ da barra (v5.270): altura, fundo e glifo.
         hCampo: document.getElementById('hymnSearchInput').getBoundingClientRect().height,
-        hBtn: document.getElementById('hymnSearchClose').getBoundingClientRect().height,
-        btn: getComputedStyle(document.getElementById('hymnSearchClose')).backgroundColor,
-        glifo: getComputedStyle(document.getElementById('hymnSearchClose')).color,
+        hBtn: document.getElementById('hymnSearchToggle').getBoundingClientRect().height,
+        btn: getComputedStyle(document.getElementById('hymnSearchToggle')).backgroundColor,
+        glifo: getComputedStyle(document.getElementById('hymnSearchToggle')).color,
       };
       closeHymnSearch();
       return r;
@@ -4691,31 +4755,44 @@ for (const tema of ['escuro', 'claro']) {
       const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p);
       return (x + 0.05) / (y + 0.05);
     };
-    const folha = rgb(c.folha);
-    const barra = sobre(c.barra, c.folha);
-    const campo = sobre(c.campo, c.barra.includes('rgba(0, 0, 0, 0)') ? c.folha : c.barra);
-    const regua = razao(sobre(c.barraPrincipal, c.corpoPrincipal), rgb(c.corpoPrincipal));
-    const passo = razao(barra, folha);
-    checar(c.barra !== c.folha && c.barra !== 'rgba(0, 0, 0, 0)',
-      '[' + tema + '] a barra de busca tem fundo PRÓPRIO — ela herdava a cor da folha',
-      c.barra + ' contra ' + c.folha);
-    checar(passo >= regua - 0.05,
-      '[' + tema + '] e o degrau é o do próprio app para separar duas caixas: '
-      + passo.toFixed(2) + ':1, contra os ' + regua.toFixed(2) + ':1 da barra de baixo');
-    // A SOMBRA APONTA PARA BAIXO desde a v5.275, e a direção é a afirmação: ela
-    // diz de que lado o conteúdo passa, e com a barra de volta ao topo a lista
-    // rola por baixo dela em vez de por cima. Uma sombra que ficasse apontando
-    // para cima é a marca de quem moveu a barra e esqueceu o que ela dizia.
-    checar(/(^|\s)0px 6px/.test(c.sombra) && c.sombra !== 'none',
-      '[' + tema + '] com a sombra para BAIXO, que é o que o tom não diz: a lista '
-      + 'passa por baixo dela', c.sombra);
-    // E o CAMPO se separa da barra POR TOM (v5.270). Até aqui, no tema claro,
-    // ele não se separava de jeito nenhum — barra e campo eram os dois brancos
-    // (1,00:1), e a v5.268 sustentou a distinção só pela elevação. O operador
-    // pediu o conserto de verdade: a barra escureceu, e o degrau passou a ser a
-    // primeira linha de defesa nos DOIS temas.
+    // ===== A BASE DO CAMPO MUDOU DE CASA (v1.5.0) =====
+    // A barra saiu da Biblioteca e virou a `.lib-bar` da caixa de controles.
+    // Com isso as três asserções que a v5.270 escreveu aqui foram REVOGADAS
+    // pelo lugar, não pelo argumento:
+    //
+    //  · *"a barra tem fundo PRÓPRIO"* valia porque, dentro da folha, ela
+    //    flutuava sobre uma lista que rolava por baixo. Na caixa de controles
+    //    quem tem superfície é a CAIXA, e uma segunda pintura ali dentro é a
+    //    camada a mais que este lote existe para tirar.
+    //  · *"a sombra para BAIXO"* dizia de que lado o conteúdo passava. Não
+    //    passa nada atrás dela agora.
+    //
+    // O que NÃO foi revogado é o que aquelas duas serviam: **o campo tem de se
+    // separar do que está atrás dele**. Só que o "atrás" passou a ser a
+    // `.bottombar` — e é contra ela que a medida vale.
+    // ===== A BASE DO CAMPO MUDOU DE CASA, E A MEDIDA SOBREVIVEU (v1.5.0) =====
+    // A barra saiu da Biblioteca e virou a `.lib-bar` da caixa de controles. Do
+    // que a v5.270 escreveu aqui, UMA asserção foi revogada pelo lugar e a
+    // outra continua inteira:
+    //
+    //  · A SOMBRA saiu: ela dizia de que lado o conteúdo passava por baixo, e
+    //    na caixa de controles não passa nada atrás dela.
+    //  · A SUPERFÍCIE PRÓPRIA fica, e pela razão MEDIDA de sempre: o campo é
+    //    branco nos dois temas (ele veste os `--field-*`, sem tema, como o
+    //    palco) e no tema CLARO a caixa de controles também é branca — campo
+    //    branco sobre caixa branca dá 1,00:1, e o campo não existe. A elevação
+    //    sozinha foi o meio-conserto que a v5.268 tentou e o operador recusou.
+    const barra = sobre(c.barra, c.barraPrincipal);
+    const campo = sobre(c.campo, c.barra === 'rgba(0, 0, 0, 0)' ? c.barraPrincipal : c.barra);
+    checar(c.barra !== 'rgba(0, 0, 0, 0)' && c.barra !== c.barraPrincipal,
+      '[' + tema + '] a barra da Biblioteca tem superfície PRÓPRIA na caixa de '
+      + 'controles — sem ela o campo branco fica sobre uma caixa branca no tema '
+      + 'claro', c.barra + ' contra ' + c.barraPrincipal);
+    checar(!c.sombra || c.sombra === 'none',
+      '[' + tema + '] mas SEM sombra: ela dizia de que lado o conteúdo passava, '
+      + 'e não passa nada atrás dela aqui embaixo', c.sombra);
     checar(razao(campo, barra) > 1.5,
-      '[' + tema + '] o campo se separa da barra POR TOM ('
+      '[' + tema + '] e o campo se separa dela POR TOM ('
       + razao(campo, barra).toFixed(2) + ':1)');
     // ── O CAMPO É BRANCO NOS DOIS TEMAS (v5.268) ─────────────────────────
     // Pedido do operador. A primeira metade é o fundo; a SEGUNDA é a que não se
@@ -4811,12 +4888,12 @@ try {
     const caixa = (s) => { const e = document.querySelector(s); return e ? e.getBoundingClientRect() : null; };
     const ler = () => ({
       folha: caixa('#hymnSearchPopup .popup-sheet'),
-      barra: caixa('#hymnSearchPopup .hymn-search-bar'),
+      barra: caixa('.lib-bar'),
       lista: caixa('#hymnResults'),
     });
     setAppMode('full');
-    openHymnSearch();
-    await new Promise((r) => setTimeout(r, 350));
+    openHymnSearch(false);
+    await new Promise((r) => setTimeout(r, 600));
     const sem = ler();
     // O teclado do aparelho, com a viewport de layout INALTERADA — e rolada,
     // que é o mecanismo pelo qual o que é fixo sai pelo topo da tela.
@@ -4832,15 +4909,15 @@ try {
     return { sem, com, visivelTopo, visivelBase };
   });
   const perto = (a, b) => Math.abs(a - b) <= 1;
-  // A BARRA VOLTOU AO TOPO (v5.275) e, desde a v5.280, ela É o topo: o
-  // cabeçalho saiu. As duas primeiras asserções são a ORDEM da folha — barra,
-  // lista —; sem elas, uma barra que voltasse para a base passaria pelo resto
-  // do caso sem reprovar nada.
-  checar(!!geo.sem.barra && !!geo.sem.folha && perto(geo.sem.barra.top, geo.sem.folha.top),
-    'sem teclado, a barra de busca É o topo da folha');
-  checar(!!geo.sem.lista && perto(geo.sem.lista.top, geo.sem.barra.bottom)
-    && geo.sem.lista.bottom > geo.sem.barra.bottom,
-    'e a lista começa onde ela termina — a rolagem passa por BAIXO dela');
+  // A BARRA DESCEU PARA A CAIXA DE CONTROLES (v1.5.0), e a ORDEM inverteu: a
+  // janela termina onde a barra começa, e é de lá que ela sobe. Sem estas duas,
+  // uma barra que voltasse para dentro da folha passaria pelo resto do caso sem
+  // reprovar nada.
+  checar(!!geo.sem.barra && !!geo.sem.folha && perto(geo.sem.barra.top, geo.sem.folha.bottom),
+    'sem teclado, a janela termina onde a BARRA começa — ela é de onde a janela sobe');
+  checar(!!geo.sem.lista && perto(geo.sem.lista.top, geo.sem.folha.top)
+    && perto(geo.sem.lista.bottom, geo.sem.folha.bottom),
+    'e a lista É a janela: ela ocupa a folha inteira, porque não há mais nada dentro dela');
   // O TECLADO SOBREPÕE E A CAMADA NÃO PERSEGUE NADA (v5.280). A v5.278 fazia a
   // folha descer junto com a viewport visual para a barra não sair pelo topo; o
   // operador recusou o mecanismo e nomeou o certo — quem rola é a LISTA, e a
@@ -4852,9 +4929,10 @@ try {
     'e ela NÃO ENCOLHE: o teclado não reflui a lista ('
     + Math.round(geo.sem.folha.height) + 'px → ' + Math.round(geo.com.folha.height) + 'px)');
   checar(!!geo.com.barra && !!geo.com.lista
-    && perto(geo.com.barra.top, geo.com.folha.top)
-    && perto(geo.com.lista.top, geo.com.barra.bottom),
-    'e a ordem de cima continua colada: folha → barra → lista');
+    && perto(geo.com.lista.top, geo.com.folha.top)
+    && geo.com.barra.top >= geo.com.folha.bottom - 1,
+    'e a ordem continua colada, agora de baixo para cima: lista = janela, e a '
+    + 'barra logo abaixo dela');
 } catch (e) {
   checar(false, 'a medição da busca com teclado terminou sem exceção (' + (e && e.message) + ')');
 }

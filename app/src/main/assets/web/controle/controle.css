@@ -194,12 +194,9 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
      superfícies são claras e não há para onde subir. */
   --press-luz: brightness(1.35);
 
-  /* Movimento da troca de aba — UM valor para os DOIS movimentos que ela produz:
-     o vazado deslizando na faixa (`.tab-ind`) e a lista entrando pelo lado
-     (`animateTabSwitch`, que lê a duração em `TAB_MOVE_MS`). Divergindo, o que
-     era um gesto vira dois eventos. Curva de SAÍDA: é algo que já estava em
-     movimento — o dedo — e vem parar. */
-  --tab-move: .26s cubic-bezier(.22, .61, .36, 1);
+  /* (`--tab-move` saiu na v1.5.0 com a faixa de abas: ele sincronizava o vazado
+     deslizante — uma transição CSS — com a lista que entrava pelo lado, uma Web
+     Animation. Nenhum dos dois existe.) */
 
   /* Escala de ícones, três degraus. Governa os GLIFOS (`.msym`, por
      `font-size`) E os SVGs inline (ver a regra logo abaixo do feedback de
@@ -288,12 +285,12 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
 .popup-sheet, .dialog-card, .simple-conn { --camada: var(--panel-2); }
 .coll-group-corpo { --camada: var(--panel-2); }
 .coll-songs { --camada: transparent; }
-/* A folha de TELA CHEIA é uma TELA, não um cartão: ela pinta `--bg` (ver
-   `.popup-sheet--full`), então o nível de dentro volta a ser o 1 e os controles
-   voltam a FLUTUAR, desfazendo a inversão que `.popup-sheet` acabou de aplicar.
-   Sem esta segunda metade, um botão da Biblioteca ficaria com recesso de cartão
-   sobre fundo de página. */
-.popup-sheet--full {
+/* A JANELA DA BIBLIOTECA pinta `--bg` por dentro (ver `.popup-sheet--lib`): ela
+   é uma tela por dentro, mesmo sendo uma janela por fora. Logo o nível de
+   dentro volta a ser o 1 e os controles voltam a FLUTUAR, desfazendo a inversão
+   que `.popup-sheet` acabou de aplicar. Sem esta segunda metade, um botão da
+   Biblioteca ficaria com recesso de cartão sobre fundo de página. */
+.popup-sheet--lib {
   --camada: var(--panel);
   --surface: var(--surface-alta);
   --surface-2: var(--surface-2-alta);
@@ -383,7 +380,7 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
    que não recebe o dedo. */
 :is(
   .ctl-btn, .t-btn, .settings-btn,
-  .tab, .tab-add, .import-btn, .back-btn, .sel-btn,
+  .import-btn, .tools-btn, .lib-foot-btn, .back-btn, .sel-btn,
   .row-btn, .popup-close,
   .coll-bar-dl, .coll-group-btn, .coll-more-btn,
   /* AS DUAS BARRAS QUE ABREM UM BLOCO (v1.3.14). A `.coll-bar` respondia por um
@@ -426,7 +423,7 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
   .coll-bar-dl, .coll-group-btn,
   .import-btn, .song-menu-icon
 ) svg { display: block; width: var(--icon-sm); height: var(--icon-sm); }
-:is(.tab, .tab-add, .t-btn, .ctl-btn, .misc-tab, .settings-btn) svg {
+:is(.lib-toggle, .t-btn, .ctl-btn, .misc-tab, .settings-btn) svg {
   display: block; width: var(--icon-md); height: var(--icon-md);
 }
 /* Barras largas de ação (microfone, projetar): o ícone acompanha o alvo. */
@@ -1661,141 +1658,47 @@ main {
    era literalmente a da troca de modo — a declaração era uma só, na regra
    agrupada acima —, e o que os distinguia era a cor do ícone.) */
 
-/* ---------- Abas (ícones) ---------- */
-/* A faixa tem TRÊS abas em `flex:1` (Cronograma é o 1º filho) e, à direita, o
-   botão de busca do acervo (`.tab-add`), hoje do MESMO tamanho delas. O botão
-   de importar NÃO mora mais aqui: desceu para o fim da lista do Cronograma,
-   junto de "Pastas" (ver `.import-row`). Quem contar filhos por posição
-   (`:first-child`, `order`) precisa saber disso. */
-/* ABAS DE VERDADE: a ativa é um VAZADO na cor do corpo.
-   Quatro formas anteriores desenhavam uma CAIXA em volta da navegação (trilho
-   de cartão, fundos próprios, segmentado, segmentado dentro da caixa de
-   controles), e é sempre o mesmo defeito: quatro retângulos com fundo próprio
-   se leem como quatro AÇÕES, e um trilho por cima é uma segunda caixa dizendo
-   "isto é um grupo" — coisa que quatro ícones lado a lado já dizem.
-   O que sobra é o que a palavra "aba" significa: células encostadas na borda de
-   cima da caixa, e a ESCOLHIDA marcada por uma BARRA de 3px nessa borda
-   (v1.3.15 — ver o `.tab-ind`, que é quem a desenha e a desliza). Ela já foi um
-   vazado em `--bg` e já foi a célula inteira preenchida; a barra é o que marca
-   sem ocupar área, que é o que uma faixa com uma AÇÃO ao lado precisa.
-   `margin: 0 -.7rem` desfaz o padding da caixa — uma faixa recuada volta a
-   parecer um componente pousado em cima. */
-.tabs {
-  display: flex; align-items: stretch; flex-shrink: 0;
-  /* Encostada no topo da caixa (o `.bottombar` zera o padding de cima só por
-     causa dela) e sem trilho nenhum: quem tem forma aqui é o segmento
-     ESCOLHIDO, não a faixa. */
-  margin: 0 -.7rem;
-  /* offsetParent do indicador e das células (é dele que `moveTabIndicator` lê
-     `offsetLeft`). */
-  position: relative;
+/* ===== A BARRA DA BIBLIOTECA, no lugar da faixa de abas (v1.5.0) =====
+   A faixa saiu inteira, e com ela o vazado deslizante (`.tab-ind`, a transição
+   `--tab-move` e o `--tab-x`/`--tab-w` que o JS media), o `.tab`, o `.tab-add`
+   e o `.tab-pl`. Sobrou o que a barra da Biblioteca já era lá dentro: três
+   elementos numa linha, na ordem que a v5.305 fixou — *sortear* · *procurar* ·
+   *sair*.
+
+   ELA ENCOSTA NO TOPO DA CAIXA, como a faixa encostava (o `.bottombar` zera o
+   padding de cima só por causa disto), e ganha o respiro lateral de volta: a
+   faixa o anulava com `margin: 0 -.7rem` porque as células iam de borda a
+   borda; aqui o campo tem forma própria e precisa da folga.
+
+   ELA TEM SUPERFÍCIE PRÓPRIA (`--field-bar`), e a razão é MEDIDA — a mesma da
+   v5.270, que continua valendo no lugar novo. O campo é BRANCO nos dois temas
+   (decisão declarada: ele é a única peça da tela em que se digita, e veste os
+   tokens `--field-*`, sem tema, como o palco). No tema CLARO a caixa de
+   controles também é branca: campo branco sobre caixa branca dá **1,00:1**, e
+   o campo simplesmente não existe. A elevação sozinha não paga — foi o
+   meio-conserto que a v5.268 tentou e o operador recusou.
+   O que ela NÃO traz da versão antiga é a SOMBRA: aquela dizia de que lado o
+   conteúdo passava por baixo, e aqui não passa nada atrás dela. */
+.lib-bar {
+  display: flex; align-items: center; gap: .5rem; flex-shrink: 0;
+  padding: .35rem .45rem;
+  margin: 0 -.25rem .35rem;
+  background: var(--field-bar); border-radius: var(--radius-btn);
 }
+/* O ALTERNADOR DA BIBLIOTECA: um botão, dois desenhos (v1.5.0).
+   SETA quando fechada (ele abre), ✕ quando aberta (ele fecha). Os dois vivem na
+   árvore CLARA e a classe escolhe — a folha do documento não atravessa a
+   árvore-sombra de um `<use>`, então um `<symbol>` com os dois dentro
+   desenharia os dois, empilhados, para sempre (ver `controles-layout.test.mjs`,
+   que já pagou essa armadilha uma vez).
 
-/* ---------- O vazado que DESLIZA ----------
-   A tinta da aba ativa é ESTE elemento, e não o `background` do botão: um
-   elemento pode se MOVER entre as abas, um fundo que troca de dono só pisca de
-   lugar — e é o movimento que liga a aba nova à antiga.
-   Posição e largura vêm MEDIDAS do JS (`--tab-x`/`--tab-w`, em px) e não de uma
-   fração fixa: a fração dependeria de as células terem sempre o mesmo tamanho,
-   que é verdade hoje e quebra calada quando alguém acrescenta ou esconde um
-   alvo. `--tab-move` é compartilhado com a animação da LISTA
-   (`animateTabSwitch`): os dois movimentos são o mesmo gesto. */
-.tab-ind {
-  position: absolute; left: 0; top: 0;
-  width: var(--tab-w, 0px);
-  transform: translateX(var(--tab-x, 0px));
-  /* ---------- UMA BARRA, NÃO UMA CÉLULA PINTADA (v1.3.15) ----------
-     Ele já foi duas coisas, e as duas erravam para lados opostos:
-
-       · até a v1.3.13, um VAZADO em `--bg` — a célula recortada na cor do corpo
-         da seção. MEDIDO, o degrau `--bg` × `--bar` é 1,32:1, e o texto que o
-         defendia já admitia que "num salão escuro isso é pouco": o que
-         carregava o estado era a cor do ícone, sozinha;
-       · na v1.3.14 virou a célula PREENCHIDA em `--accent-fill`, o que resolveu
-         a leitura e criou outro problema — pedido do operador: *"use um método
-         visual de seleção que seja mais discreto, menos volumoso, para não
-         disputar a presença visual com o botão de pesquisa; não pinte todo o
-         botão da aba"*. Ele está certo: numa faixa de três células, duas
-         manchas cheias de azul disputam, e a que MENOS deveria disputar é a
-         que só diz "você está aqui".
-
-     Agora é o que uma aba sempre foi: uma BARRA de 3px encostada na borda de
-     cima da célula ativa, em `--accent`. Ela liga a aba à tela que desce dela,
-     não gasta área nenhuma, e não compete com o preenchimento suave da busca —
-     que passa a ser a única superfície da faixa.
-
-     A COR NÃO CARREGA O ESTADO SOZINHA, e é isso que a torna suficiente:
-     `--accent` é saturado (contra o cinza quase neutro do trilho) e vem com o
-     GLIFO na mesma cor. Duas marcas de traço, nenhuma de área.
-
-     E O MOVIMENTO FICA — ele é o que ele sempre foi, um elemento que DESLIZA
-     entre as células, e uma barra que corre de uma aba à outra é o gesto mais
-     legível que este trilho já teve. */
-  height: 3px;
-  background: var(--accent);
-  border-radius: 0 0 var(--radius-xs) var(--radius-xs);
-  transition: transform var(--tab-move), width var(--tab-move);
-  pointer-events: none;
-}
-/* A primeira medição (e a de um `resize`) precisa POUSAR, não viajar: sem isto
-   o vazado sairia da borda esquerda com 0 de largura toda vez que a tela
-   avançada aparece. */
-.tabs.no-anim .tab-ind { transition: none; }
-@media (prefers-reduced-motion: reduce) { .tab-ind { transition: none; } }
-
-/* Botão de playlist: mora na linha de transporte (.transport), à direita dos
-   demais — reaproveita o tamanho/estilo de .t-btn, só ganha posição relativa
-   para o badge de contagem. */
-.tab-pl { position: relative; }
-/* Só ganha o accent quando há de fato uma fila além da mídia atual (mesmo
-   critério do badge — 1 item não conta como "playlist" de verdade). Dizia
-   "azul", da paleta anterior: o token é que carrega a cor, e nomeá-la no
-   comentário é o que faz ele envelhecer a cada troca de paleta. */
-.tab-pl.has-items { color: var(--accent); }
-
-.pl-badge {
-  position: absolute; top: 2px; right: 2px;
-  background: var(--accent-fill); color: var(--on-accent);
-  font-size: .58rem; font-weight: 700;
-  border-radius: var(--radius-pill); padding: 1px .3rem;
-  min-width: 14px; text-align: center; line-height: 1.4;
-  pointer-events: none;
-}
-.pl-badge:empty { display: none; }
-
-/* Aba e botão do acervo dividem a MESMA caixa: `flex:1`, `--hit-nav` de altura.
-   Eram duas receitas (a aba em `flex:1`, o acervo fixo em 42×38 com margem
-   própria), e a diferença não dizia nada — o acervo é o quarto alvo da mesma
-   fileira e se lia como um apêndice colado nela.
-   Fundo TRANSPARENTE: no estado inativo a célula é só o ícone sobre a caixa de
-   controles. O raio de baixo é de quem está preenchido (ver
-   `.tab.active`/`.tab-add`) — é ele que faz o bloco "descer" do conteúdo. */
-.tab, .tab-add {
-  /* `position: relative` NÃO é enfeite: o `.tab-ind` é absoluto e, sem isto, os
-     botões (estáticos) seriam pintados ABAIXO dele — o vazado cobriria o ícone
-     da aba ativa. Posicionados e depois dele no DOM, eles ficam por cima. */
-  position: relative;
-  flex: 1; min-width: 0; height: var(--hit-nav);
-  border: none; border-radius: 0 0 var(--radius-btn) var(--radius-btn);
-  background: none; color: var(--muted); cursor: pointer;
-  display: flex; align-items: center; justify-content: center;
-  appearance: none; -webkit-appearance: none;
-}
-.tab .msym { font-size: var(--icon-md); }
-/* ---------- Preenchido = AÇÃO; contornado = ONDE EU ESTOU ----------
-   Nesta faixa convivem um ESTADO ("estou no Cronograma") e uma AÇÃO ("abrir o
-   acervo"), e sólido é o que se lê como "toque aqui e o app faz algo" — como
-   `.misc-project`, `.dialog-btn.primary` e `#volToggle`. Marcar posição não é
-   agir: para isso basta o contorno em accent, o mesmo de `.lib-item.active` e
-   `.hymnal-card.expanded`.
-   Os segmentados de CONFIGURAÇÃO (`.fit-opt`, `.misc-tab`) seguem com a seleção
-   preenchida, e não é incoerência: lá não há ação competindo pela mesma faixa —
-   a escolha É a única coisa que aquele trilho comunica. */
-/* A aba ativa não tem fundo: quem a marca é a BARRA de 3px do `.tab-ind` mais
-   este glifo, os dois em `--accent` (v1.3.15). O `--on-accent` que esteve aqui
-   era o par do preenchido que saiu — sobre a faixa sem pintura ele seria um
-   quase-branco sem contraste de matiz nenhum contra a aba inativa. */
-.tab.active { color: var(--accent); }
+   E ELE VESTE `--btn-accent`, que era do `.tab-add`: numa linha em que o resto
+   é um campo e um botão sem fundo, ele é a única superfície de AÇÃO — e é a
+   porta que o operador procura sem olhar. */
+.lib-toggle { background: var(--btn-accent); color: var(--accent); }
+.lib-toggle .ico-alt { display: none; }
+.lib-toggle.alt .ico-base { display: none; }
+.lib-toggle.alt .ico-alt { display: block; }
 
 /* ---------- Rodapé FIXO da caixa da lista (v5.107) ---------- */
 /* Fora do `<ul>` rolável: o que está aqui não some de vista, e é isso que o
@@ -1817,19 +1720,46 @@ main {
    A margem de cima só vale DENTRO de uma lista, onde ele precisa se separar da
    última mídia; no rodapé quem dá o respiro é o `gap` do `<main>`. */
 .import-row { flex-shrink: 0; display: flex; gap: .5rem; margin-top: .85rem; }
-/* A PORTA DAS FERRAMENTAS, à direita da importação (v1.3.10). Ela é quadrada e
-   só de ícone: "Importar arquivos" fica com o rótulo e com a linha, e dois nomes
-   lado a lado numa faixa de celular empurrariam o primeiro para reticências
-   justamente na tela mais estreita. A caixa é a do irmão — quem manda na altura
-   é a linha, não este botão. */
-.tools-btn {
-  flex-shrink: 0; width: 44px;
-  display: flex; align-items: center; justify-content: center;
+/* ===== AS TRÊS PORTAS DO CRONOGRAMA, EM PARTES IGUAIS (v1.5.0) =====
+   Bíblia · Importar arquivos · Ferramentas, e as três com RÓTULO — o pedido do
+   operador foi *"coloque um texto no botão de ferramentas"*, e o argumento que
+   as mantinha mudas (*"dois nomes lado a lado numa faixa de celular empurrariam
+   o primeiro para reticências"*) valia para uma linha em que a do meio era
+   `flex: 1` e as laterais eram quadrados de 44px. Com TRÊS portas de mesmo
+   peso, `flex: 1 1 0` reparte a faixa em três partes IGUAIS e cada rótulo
+   encolhe por conta própria — a caixa de nenhum depende do nome do vizinho.
+
+   `1 1 0` e não `flex: 1` sozinho: a base `auto` mede o CONTEÚDO, e ali
+   "Importar arquivos" começaria maior que "Bíblia" e ficaria maior depois de
+   repartida a sobra. Com base zero as três partem do mesmo lugar.
+
+   AS LATERAIS SÃO `--surface` e a do meio é `--btn-accent`: quem ENTRA com
+   conteúdo na lista é a do meio, e ela é a única ação desta faixa — as outras
+   duas abrem um lugar. É a mesma distinção que a faixa de abas fazia entre o
+   `.tab-add` e as `.tab`, e é o que sobrou dela. */
+.tools-btn, .lib-foot-btn {
+  flex: 1 1 0; min-width: 0; min-height: var(--hit-foot); padding: .45rem .3rem;
+  /* ÍCONE EM CIMA, RÓTULO EMBAIXO — a pilha do `.qs-tile` do painel rápido, e
+     ela entra aqui pela mesma razão que entrou lá: numa faixa de celular, três
+     rótulos LADO A LADO com o ícone não cabem. MEDIDO em 360px, "Ferramentas"
+     saía com reticências na linha; empilhado, a palavra tem a largura inteira
+     do terço e cabe até em 320. */
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: .15rem;
   border: 0; border-radius: var(--radius-btn);
   background: var(--surface); color: var(--accent);
+  /* `.82rem` e não `.9`: são TRÊS rótulos onde havia um, e MEDIDO em 430px o
+     terço de cada um não paga "Ferramentas" no corpo antigo — o nome saía com
+     reticências, que é pior que a palavra curta porque não diz qual palavra
+     foi cortada. */
+  font-size: .82rem; font-family: inherit;
   cursor: pointer; appearance: none; -webkit-appearance: none;
 }
-.tools-btn:active { transform: var(--press); filter: var(--press-luz); }
+.tools-btn svg, .lib-foot-btn svg { flex-shrink: 0; }
+.tools-btn span, .lib-foot-btn span {
+  min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.tools-btn:active, .lib-foot-btn:active { transform: var(--press); filter: var(--press-luz); }
 .list-foot > .import-row { margin-top: 0; }
 /* (`.fav-section` saiu na v5.254: os favoritos são UMA lista, na ordem que o
    operador der a ela. Os cabeçalhos por tipo eram doze rótulos disputando a
@@ -1871,12 +1801,17 @@ main {
    fatia do rodapé, para a barra de seleção poder ocupar exatamente a mesma
    caixa quando toma o lugar dele. */
 .import-btn {
-  flex: 1; min-width: 0; min-height: var(--hit-foot); padding: .5rem;
+  /* `1 1 0` desde a v1.5.0: são TRÊS portas de mesmo peso, e a base `auto`
+     mediria o conteúdo — "Importar arquivos" partiria maior que as vizinhas e
+     ficaria maior ainda depois de repartida a sobra. */
+  flex: 1 1 0; min-width: 0; min-height: var(--hit-foot); padding: .45rem .3rem;
   /* O PREENCHIMENTO VEM DA REGRA AGRUPADA (v5.267). Estava `transparent` aqui
      porque quem desenhava a caixa era o tracejado; sem contorno, isso deixaria
      o botão como uma frase solta no meio da tela — verificado no renderizado. */
-  color: var(--accent); font-size: .9rem;
-  display: flex; align-items: center; justify-content: center; gap: .45rem;
+  color: var(--accent); font-size: .82rem;
+  /* A MESMA PILHA das irmãs (v1.5.0): ícone em cima, rótulo embaixo. */
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: .15rem;
   cursor: pointer;
 }
 .import-btn svg { flex-shrink: 0; }
@@ -1886,30 +1821,13 @@ main {
 .import-btn .msym { flex-shrink: 0; font-size: var(--icon-sm); }
 .import-btn span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-/* ---------- Buscar no acervo: AÇÃO numa faixa de ESCOLHAS (v1.3.14) ----------
-   (Único `.tab-add` que restou — o de importar desceu para o fim do
-   Cronograma.) A caixa vem da regra compartilhada com `.tab`; aqui fica só o
-   que o distingue.
-
-   NESTA FAIXA CONVIVEM DUAS COISAS — um ESTADO ("estou no Cronograma") e uma
-   AÇÃO ("abrir o acervo") —, e o accent CHEIO do app serve às duas em toda
-   parte: ele é o botão primário (`.cast-acao`, `.dialog-btn.primary`) e é o
-   segmento escolhido (`.misc-tab.active`, `.bible-cell.active`). Fora daqui
-   isso nunca colide, porque as duas não dividem a mesma faixa. Aqui dividiam,
-   e o desempate estava invertido: o cheio ficava com a AÇÃO e a ESCOLHA caía
-   num vazado de 1,32:1.
-
-   A REGRA, e ela é geral: quando ação e escolha dividem a MESMA faixa, o CHEIO
-   fica com a ESCOLHA — ela é o que muda, e o que precisa ser lido de relance no
-   meio do culto. A ação desce para a superfície de ação da paleta
-   (`--btn-accent` + `--accent`), a mesma dos botões de baixar da Biblioteca e
-   do "Importar arquivos" logo acima dela na tela.
-
-   E ELE CONTINUA DESTACADO, que é o ponto: numa fileira em que a aba inativa
-   não tem fundo nenhum, ele é a única outra célula com superfície. MEDIDO: o
-   par se distingue por 1,44:1 de superfície MAIS a troca de traço (o glifo
-   quase-branco da escolhida contra o azul da ação). */
-.tab-add { background: var(--btn-accent); color: var(--accent); }
+/* (A regra do `.tab-add` — a porta do acervo na faixa de abas — saiu na v1.5.0
+   com a faixa. O que ela dizia sobrevive na `.lib-toggle`: numa linha em que o
+   resto não tem fundo, a porta da Biblioteca é a única superfície de AÇÃO, e o
+   tom dela é `--btn-accent` + `--accent`, o mesmo do "Importar arquivos".
+   A regra geral que ela criou também sobrevive, e mora no DESIGN-SYSTEM:
+   *quando ação e escolha dividem a mesma faixa, o CHEIO fica com a ESCOLHA* —
+   é ela que desenha o trilho do modo do app em Configurações.) */
 
 /* ---------- Barra de seleção múltipla ---------- */
 /* SEM PREENCHIMENTO PRÓPRIO. Ela já foi um bloco em `--accent-soft` com
@@ -4411,43 +4329,70 @@ main {
    música e por isso pedia mais um degrau (220) — saiu na v5.254 com os atalhos
    de pasta. O 220 fica LIVRE: é o degrau do próximo popup que abrir de dentro
    do `#songMenuPopup`.) */
-/* Folha de TELA CHEIA (o acervo). É a tela em que o operador passa mais tempo
-   antes do culto — folhear álbuns, abrir letras, decidir o que baixar — e uma
-   folha de 80vh deixava uma faixa morta no topo enquanto a lista rolava
-   apertada embaixo. Sem cantos arredondados: eles anunciam "há algo atrás", e
-   aqui não há. */
-.popup-sheet--full {
-  max-height: 100%; height: 100%;
-  border-radius: 0;
-  /* ---------- ELA É UMA TELA, ENTÃO É O NÍVEL 0 (v5.267) ----------
-     A v5.263 já tinha decidido isto por fora ("uma tela inteira e não um tipo
-     de pop up") e parado no meio do caminho: o fundo continuou `--panel`, o
-     mesmo tom de um cartão. Com isso a Biblioteca começava a árvore no nível 1
-     e gastava, logo na raiz, o degrau que faltaria três níveis adiante — a
-     seção e o card de álbum acabavam no MESMO tom, que é literalmente o relato
-     do operador ("dificultando discernir se estou em uma camada ou subcamada").
+/* ===== A BIBLIOTECA É UMA JANELA QUE SOBE DA BARRA (v1.5.0) =====
+   Pedido do operador: *"a biblioteca agora vai abrir abaixo dessa barra de
+   buscas de forma animada, fazendo ela subir até o topo da tela … com uma
+   ligeira folga do topo da tela quando aberta, para deixar claro que a
+   biblioteca é apenas uma janela dentro do app"*.
 
-     Pintá-la de `--bg` devolve o degrau inteiro: página → seção → álbum, e a
-     faixa do álbum separada por espaço. É a mesma escada da tela principal, e é
-     por isso que uma linha de busca aqui e uma linha do Cronograma lá pintam a
-     mesma cor sem nenhuma regra que as ligue.
+   ELA ERA `--full`: 100% de altura, raio zero, encostada nas quatro bordas. O
+   argumento era que ela É uma tela — e era verdade enquanto a barra de busca
+   morava dentro dela. Hoje a barra ficou de fora e a Biblioteca é só a LISTA:
+   uma folha que ocupa tudo não tem como se anunciar como janela, e a folga do
+   topo é o que diz isso sem uma palavra.
 
-     A v5.263 recusou esta troca com um argumento MEDIDO, e ele expirou junto com
-     a paleta: *"no tema CLARO `--bg` (#dfe3e7) e `--panel-2` (#dee2e8) diferem
-     em um ponto por canal, então as barras de seção e os cards de álbum sumiriam
-     dentro da tela."* Verdade naquela paleta. Hoje a seção veste `--panel`
-     (branco, 1,29:1 contra a página) e o álbum, `--panel-2` (#d4dae2, 1,41:1
-     contra ela) — os dois tons daquela frase deixaram de se encostar. */
+   A BASE É MEDIDA (`--lib-base`, escrito por `medirBarraDaBiblioteca`): a janela
+   encosta no TOPO da `.lib-bar`, que muda de altura com o teclado, com a barra
+   de seleção e com o corpo de fonte do sistema. O fallback de `56px` cobre o
+   único instante em que ela ainda não foi medida — a primeira abertura, antes
+   do primeiro `resize`.
+
+   ELA SOBE POR `transform`, não por `height`: altura anima no LAYOUT e reflui a
+   lista inteira a cada quadro; `transform` anima no compositor. O ponto de
+   partida é `translateY(100%)` — ela sai de trás da barra — e o de chegada é o
+   lugar dela. O `.popup-backdrop` já cuida da opacidade; o que esta regra
+   acrescenta é o movimento.
+
+   ELA NÃO É A FOLHA DAS FERRAMENTAS, e a diferença está no pedido: *"a janela da
+   biblioteca não é igual as ferramentas, ela ocupa a tela inteira e não apenas
+   o corpo do cronograma"*. Aquelas são filhas do `.list-body` e cobrem só a
+   lista; esta é `fixed` e cobre o app inteiro, do topo até a barra que a abriu. */
+.popup-backdrop--lib { align-items: stretch; }
+.popup-sheet--lib {
+  --lib-folga: 1.1rem;
+  position: absolute;
+  left: .55rem; right: .55rem;
+  top: calc(env(safe-area-inset-top) + var(--lib-folga));
+  /* ZERO, e não `--lib-base` outra vez: quem já para no topo da barra é a
+     CAMADA (o `inset` do `#hymnSearchPopup`), e esta folha é `absolute` dentro
+     dela. Descontar a barra duas vezes deixava a janela terminando no meio da
+     tela — MEDIDO: base em 304 numa camada que ia até 602. */
+  bottom: 0;
+  max-height: none; height: auto;
+  border-radius: var(--radius-card);
+  /* ---------- ELA É UMA TELA POR DENTRO, ENTÃO É O NÍVEL 0 (v5.267) ----------
+     O fundo continua `--bg` e não `--panel`: a Biblioteca abre a escada inteira
+     lá dentro — página → seção → álbum —, e começá-la no nível 1 gastaria na
+     raiz o degrau que falta três níveis adiante. Era literalmente o relato do
+     operador naquele lote (*"dificultando discernir se estou em uma camada ou
+     subcamada"*). O que mudou na v1.5.0 é a MOLDURA, não o conteúdo. */
   background: var(--bg);
-  /* A área segura do topo. A conta com `--vv-top` que esteve aqui (v5.261,
-     v5.278) existia enquanto a camada fixa descia junto com a viewport visual;
-     com ela parada (v5.280), a folha encosta no topo da tela sempre. Declarado
-     UMA vez aqui: as duas folhas de tela cheia repetiam esta linha à mão, que
-     é a sincronização manual que este projeto recusa em toda parte. (Uma delas,
-     a gaveta `#favPopup`, saiu na v5.294 — sobrou o `#hymnSearchPopup`.) */
-  padding-top: env(safe-area-inset-top);
+  /* A ELEVAÇÃO É O QUE A FAZ JANELA. Sem ela, uma caixa `--bg` sobre um app
+     `--bg` só se separa pelo scrim — e o scrim some no tema claro, onde os dois
+     tons quase se encostam. A sombra é a mesma família das outras folhas. */
+  box-shadow: 0 -10px 30px -12px var(--shadow-ink);
+  transform: translateY(100%);
+  transition: transform var(--pop-anim, .28s) cubic-bezier(.2,.7,.3,1);
 }
-.popup-backdrop--full { align-items: stretch; }
+.popup-backdrop--lib.open .popup-sheet--lib { transform: none; }
+@media (prefers-reduced-motion: reduce) {
+  .popup-sheet--lib { transition: none; }
+}
+/* A LISTA É QUEM ROLA, e o raio da janela recorta as pontas dela: sem o
+   `overflow: hidden` na folha, a primeira linha do acervo passaria por cima do
+   canto arredondado que acabou de ser desenhado. */
+.popup-sheet--lib { overflow: hidden; }
+.popup-sheet--lib .popup-list { border-radius: inherit; }
 
 /* O CABEÇALHO NÃO TEM FILETE (v5.267). Ele tinha um `border-bottom` em `--line`
    e o rodapé (`.popup-footer`), um `border-top` — os dois eram a moldura de uma
@@ -4736,35 +4681,29 @@ main {
    caminho até lá. Ver o bloco no topo do `controle.js`.) */
 
 /* ---------- A BIBLIOTECA É UMA TELA, NÃO UM POPUP (v5.263) ---------- */
-/* A Biblioteca é uma TELA, e ela entra por FADE — sem slide e sem scrim.
-   Quatro correções seguidas foram gastas em volta de um movimento que só
-   existia para dizer "isto é uma folha", e ele nunca foi de graça: um
-   `transform` na folha a torna o bloco-contêiner de tudo que for
-   `position: fixed` lá dentro, e ela é a ÚNICA superfície do app que hospeda um
-   campo de texto colado no teclado. Sem deslocamento não há o que brigar com o
-   teclado. O scrim sai porque uma tela não é desenhada por cima de outra
-   escurecida. O que fica é a opacidade do `.popup-backdrop`, que já é o fade de
-   todas as camadas deste app.
+/* ===== A JANELA DA BIBLIOTECA VOLTOU A DESLIZAR (v1.5.0) =====
+   Isto REVOGA a v5.263, que tirou o slide inteiro (*"faça apenas um fade in e
+   out para a biblioteca, e faça dela uma tela inteira e não um tipo de pop
+   up"*). A razão daquele lote era o TECLADO: a barra de busca morava dentro da
+   folha, `transform` a torna o bloco-contêiner de tudo que for `position:
+   fixed` lá dentro, e três lotes seguidos consertaram o entorno daquela
+   animação.
 
-   O FUNDO CONTINUA SENDO `--panel`, e isso é medido: no tema CLARO `--bg`
-   (#dfe3e7) e `--panel-2` (#dee2e8) diferem em UM ponto por canal, então
-   pintar esta tela com a cor da PÁGINA faria as barras de seção e os cards de
-   álbum — que são `--panel-2` — sumirem dentro dela. A escala de tons da
-   Biblioteca é relativa à folha, e a folha precisa ser um tom acima do que
-   contém. */
-#hymnSearchPopup { background: none; }
-#hymnSearchPopup .popup-sheet {
-  /* `none`, não `translateY(0)`: sem transform a folha deixa de ser o
-     bloco-contêiner dos descendentes fixos, que é a metade da armadilha que
-     este lote está removendo. Uma declaração só cobre os dois estados — ela
-     ganha do `.popup-backdrop.open .popup-sheet` por especificidade. */
-  transform: none;
-  /* O `padding-bottom: 0` que estava aqui SAIU na v5.275, e ele era da era da
-     barra na base: quem terminava a folha era ela, e a área segura já estava
-     no `padding-bottom` DELA (zerar aqui evitava contá-la duas vezes). Com a
-     barra de volta ao topo, quem termina a folha é a LISTA — e sem a conta do
-     `.popup-sheet` o último item dela ficaria debaixo da barra de gestos do
-     Android. */
+   Aqui a barra ficou FORA, na caixa de controles. A janela não hospeda campo
+   nenhum, logo não há o que brigar com o teclado — e o pedido de agora é o
+   movimento: *"fazendo ela subir até o topo da tela"*. O `transform: none` que
+   morava aqui saiu com a razão dele; quem desenha a subida é a
+   `.popup-sheet--lib`.
+
+   O SCRIM VOLTA, e volta reduzido: ele é o que diz "isto é uma janela sobre o
+   app", que é justamente o que o pedido quer. Ele NÃO cobre a barra — ver o
+   `inset` abaixo. */
+#hymnSearchPopup {
+  /* A CAMADA PARA NO TOPO DA BARRA, e isto não é estética: com `inset: 0` o
+     scrim cobriria a `.lib-bar`, e o primeiro toque a ser engolido seria o do
+     próprio botão que fecha a Biblioteca. A barra é parte da Biblioteca agora —
+     ela não é o app por baixo, e não se escurece. */
+  inset: 0 0 var(--lib-base, 56px) 0;
 }
 
 /* Barra de busca do Hinário ocupando toda a largura da bandeja: display:flex faz
@@ -4805,33 +4744,10 @@ main {
    O ESCOPO EM `#hymnSearchPopup` FICA mesmo com uma barra só: a classe é o nome
    de "barra de busca de uma folha", e escopar impede a próxima de nascer
    herdando esta geometria. */
-.hymn-search-bar {
-  display: flex; align-items: center; gap: .5rem;
-  padding: .5rem .9rem .6rem; flex-shrink: 0;
-}
-#hymnSearchPopup .hymn-search-bar {
-  /* ---------- ELA PRECISA SE DESTACAR ----------
-     DOIS sinais, os dois já existentes no app:
-
-     · O TOM: `--field-bar`, nunca `--camada`. Como bloco de nível 1 ela seria,
-       no tema CLARO, exatamente a cor do campo que contém (1,00:1 — o campo
-       sumia). Ela é o único bloco de nível 1 do app que hospeda uma superfície
-       SEM TEMA, logo o único que não pode vestir o tom do nível; a exceção está
-       declarada no token, em tokens.css. Medido: 1,49:1 contra o corpo no
-       escuro e 1,95:1 no claro.
-
-     · A SOMBRA, que é o que o tom sozinho não diz: *conteúdo passa por baixo
-       daqui*. Mesma receita da tampa do álbum aberto
-       (`.hymnal-card.expanded .coll-bar`), invertida. Ela continua necessária
-       porque as seções vestem o MESMO nível 1: uma delas encostando na barra
-       sem a sombra leria como uma peça só. */
-  background: var(--field-bar);
-  /* PARA BAIXO desde a v5.275: a sombra diz de que lado o conteúdo passa, e a
-     lista deixou de rolar por cima da barra para rolar por baixo dela. Mesma
-     receita da tampa do álbum aberto (`.hymnal-card.expanded .coll-bar`), que é
-     o precedente deste app para uma faixa fixa sobre uma lista que rola. */
-  box-shadow: 0 6px 12px -8px var(--shadow-ink);
-}
+/* (`.hymn-search-bar` SAIU na v1.5.0: a barra da Biblioteca virou a `.lib-bar`
+   da caixa de controles, fora dela. Com ela saíram o `--field-bar` de fundo e a
+   sombra para baixo, que existiam porque ali a barra flutuava sobre uma lista
+   que rola por baixo — na caixa de controles não passa nada atrás dela.) */
 /* ---------- A LUPA DENTRO DO CAMPO (v5.264) ----------
    Ela é o rótulo do campo: o placeholder é a única outra coisa que diz o que
    aquela caixa faz, e ele some no primeiro caractere digitado. (Ela nasceu com
@@ -4869,7 +4785,7 @@ main {
    quadrados da mesma linha, ao lado do mesmo campo, e uma segunda declaração de
    `--campo-alt` divergiria da primeira no próximo ajuste do campo. O que os
    separa é a COR do glifo, três linhas abaixo. */
-#hymnSearchClose, #sorteioBtn {
+#hymnSearchToggle, #sorteioBtn {
   /* QUADRADO (v5.277, pedido do operador: *"ele deve ser um botão quadrado"*).
      A v5.270 lhe deu a ALTURA do campo (`align-self: stretch`) e deixou a
      largura em `--hit` — 34px contra os 40 do campo, isto é, um retângulo em pé
@@ -4918,7 +4834,7 @@ main {
   box-shadow: 0 1px 3px -1px var(--shadow-ink);
 }
 #hymnSearchInput::placeholder { color: var(--field-muted); }
-#hymnSearchPopup .lib-search-lupa { color: var(--field-muted); }
+.lib-bar .lib-search-lupa { color: var(--field-muted); }
 /* Resultado: linha compacta [▶] [nome / subtítulo] [+]. Dois botões, cada um
    abrindo a folha com as três coisas que ele faz (ver hymnResultRow); o toque
    na linha continua abrindo a letra. A lista precisa ser legível de relance no

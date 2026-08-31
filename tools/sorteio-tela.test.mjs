@@ -221,8 +221,11 @@ try {
   // de flex acrescentado por engano divorciaria as duas sem que nada reclamasse.
   const barra = await pg.evaluate(() => {
     const b = document.getElementById('sorteioBtn');
-    const campo = document.querySelector('.hymn-search-bar .lib-search');
-    const x = document.getElementById('hymnSearchClose');
+    // A BARRA MUDOU DE CASA na v1.5.0 (a `.lib-bar` da caixa de controles), e o
+    // ✕ virou um ALTERNADOR — seta quando a Biblioteca está fechada. A ORDEM
+    // que este caso mede é a mesma: *sortear* · *procurar* · *sair*.
+    const campo = document.querySelector('.lib-bar .lib-search');
+    const x = document.getElementById('hymnSearchToggle');
     if (!b || !campo || !x) return { erro: 'a barra não tem as três peças' };
     const esq = (el) => Math.round(el.getBoundingClientRect().left);
     return { sorteio: esq(b), campo: esq(campo), fechar: esq(x) };

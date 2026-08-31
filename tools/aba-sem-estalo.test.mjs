@@ -174,12 +174,16 @@ try {
   //
   // A ida E a volta, porque são dois `load()` diferentes (listas diferentes) e
   // o defeito estava no caminho comum: um só mediria metade da navegação.
+  // (A NAVEGAÇÃO ENTRE ABAS SAIU na v1.5.0: o Cronograma é a tela única e a
+  //  Bíblia virou uma FOLHA. O caminho que este caso mede continua o mesmo — o
+  //  `load()` que reaplica o mudo —, e quem o dispara agora é abrir e fechar a
+  //  folha, que é a navegação que sobrou.)
   const passos = [];
-  for (const aba of ['bible', 'imports', 'bible', 'imports']) {
+  for (const onde of ['bible', 'imports', 'bible', 'imports']) {
     await zerar();
-    await pg.evaluate((t) => switchTab(t), aba);
+    await pg.evaluate((t) => { if (t === 'bible') abrirBiblia(); else fecharBiblia(); }, onde);
     await pg.waitForTimeout(700);
-    passos.push({ aba, ev: await colher(), estado: await estado() });
+    passos.push({ aba: onde, ev: await colher(), estado: await estado() });
   }
 
   // O DEGRAU é uma escrita de `volume` para um valor DIFERENTE do alvo com a

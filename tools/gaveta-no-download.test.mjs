@@ -148,8 +148,12 @@ try {
       && window.Louvorja && window.Bible && window.AVSerie && window.AVSorteio
       && typeof window.__avBack === 'function'
       && !!document.querySelector('#playlist li')
-      && !!document.querySelector('.tabs')
-      && document.querySelector('.tabs').style.getPropertyValue('--tab-w') !== ''
+      // A FAIXA DE ABAS SAIU (v1.5.0). O sinal de "a interface assentou" passou
+      // a ser a barra da Biblioteca, que ocupa o lugar dela na caixa de
+      // controles — e o `--lib-base` escrito nela, que é a medida que o app faz
+      // depois de a caixa existir (o irmão do `--tab-w` que estava aqui).
+      && !!document.querySelector('.lib-bar')
+      && !!document.querySelector('.import-row #toolsBtn')
   ), null, { timeout: 30000 });
 
   // ---- O acervo plantado -------------------------------------------------

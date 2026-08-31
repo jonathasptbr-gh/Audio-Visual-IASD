@@ -112,8 +112,20 @@ const SERIES = ['serie-provai-vede-2026', 'serie-informativo-missoes-2026'];
 // anterior, e reabri-la passaria pelo `closeHymnSearch` de quem fechou — que
 // agora zera o estado.
 const instalarCenarioFav = (pagina) => pagina.evaluate(() => {
-  window.__bibliotecaComFavoritos = () => {
-    if (!hymnSearchPopupEl.classList.contains('open')) openHymnSearch();
+  // ELA ESPERA A JANELA ASSENTAR (v1.5.0). A Biblioteca voltou a SUBIR — ela
+  // abre de trás da barra e para com uma folga do topo —, e o vão dos favoritos
+  // é uma consequência da ALTURA da lista: medido no meio da subida, o piso sai
+  // zero e a asserção fala do desenho quando o que estourou foi o relógio.
+  // `getAnimations()` + `finished` é o sinal do navegador, não um prazo nosso.
+  window.__bibliotecaComFavoritos = async () => {
+    if (!hymnSearchPopupEl.classList.contains('open')) openHymnSearch(false);
+    const folha = hymnSearchPopupEl.querySelector('.popup-sheet');
+    for (let volta = 0; volta < 8 && folha; volta++) {
+      const anims = folha.getAnimations ? folha.getAnimations() : [];
+      if (!anims.length) break;
+      await Promise.all(anims.map((a) => a.finished.catch(() => {})));
+      await new Promise((r) => requestAnimationFrame(() => r()));
+    }
     favAberto = true;
     renderSearchResults('');
   };
@@ -2007,7 +2019,7 @@ try {
     }
     await AVDB.setState('opfs-folders', [{ id: 'pasta-inline', name: 'Vídeos do culto', count: 2 }]);
     await load();
-    window.__bibliotecaComFavoritos();
+    await window.__bibliotecaComFavoritos();
     await new Promise((r) => setTimeout(r, 400));
     const corpo = document.querySelector('[data-fav-corpo]');
     const li = corpo && corpo.querySelector('.folder-opfs');
@@ -2245,7 +2257,7 @@ try {
       { name: 'Favorito solto', type: 'audio/mpeg', kind: 'audio', list: 'favs' });
     await AVDB.setState('opfs-folders', [{ id: 'pw1', name: 'Pasta W', count: 1 }]);
     await load();
-    window.__bibliotecaComFavoritos();
+    await window.__bibliotecaComFavoritos();
     await new Promise((r) => setTimeout(r, 450));
     const corpo = () => document.querySelector('[data-fav-corpo]');
     const nomes = () => [...corpo().querySelectorAll('.fav-itens > .lib-item .row-name')]
@@ -2339,7 +2351,7 @@ try {
     // tela no modo em que ela não vive.
     const modoAntes = appMode;
     setAppMode('full');
-    window.__bibliotecaComFavoritos();
+    await window.__bibliotecaComFavoritos();
     await new Promise((r) => setTimeout(r, 250));
     const secao = () => document.querySelector('#hymnResults [data-fav-corpo]');
     const antes = !!secao() && /Favorito ao vivo/.test(secao().textContent);
@@ -2389,15 +2401,22 @@ try {
   const vao = await pg.evaluate(async () => {
     const modoAntes = appMode;
     setAppMode('full');
-    window.__bibliotecaComFavoritos();
+    await window.__bibliotecaComFavoritos();
     await new Promise((r) => setTimeout(r, 250));
-    // A BIBLIOTECA DO OPERADOR, e a fidelidade aqui é o caso inteiro: são OITO
-    // seções nos prints dele, e é isso que torna o vão pequeno o bastante para
-    // uma lista de favoritos passar dele. Num fixture com duas seções sobra
-    // tela à vontade, a lista nunca alcança o piso, e a metade que importa
-    // deste caso seria verdadeira por vacuidade.
-    albumCatalog.categories = ['CDs oficiais/ano', 'Adoradores', 'Cantores',
-      'Celebra SP', 'Diversas', 'Especiais'].map((nome, i) => ({
+    // A BIBLIOTECA DO OPERADOR, e a fidelidade aqui é o caso inteiro: o vão tem
+    // de ser PEQUENO, senão a metade que importa deste caso (a lista passando
+    // do piso) fica verdadeira por vacuidade — num fixture com duas seções
+    // sobra tela à vontade e a lista nunca alcança o piso.
+    //
+    // ERAM SEIS CATEGORIAS (oito blocos, os prints dele) até a v1.5.0, quando a
+    // Biblioteca virou uma JANELA: ela para com uma folga do topo e termina no
+    // topo da barra, e a lista caiu de ~880px para 576 (MEDIDO nesta viewport).
+    // Ali oito blocos não deixam vão NENHUM (piso zero), e com quatro o vão sai
+    // MENOR que a altura própria da seção (70px contra 136) — nos dois a
+    // primeira metade fala de um desenho que a tela não tem. Com duas
+    // categorias o vão volta a ser o que a seção ocupa (192px, medido), que é a
+    // condição do relato. **O número nunca foi o assunto: a PROPRIEDADE é.**
+    albumCatalog.categories = ['CDs oficiais/ano', 'Adoradores'].map((nome, i) => ({
       name: nome,
       albums: [{ id_album: 500 + i, name: 'Álbum ' + nome }],
     }));
@@ -2479,9 +2498,9 @@ try {
     setAppMode(modoAntes);
     return { vazio, muitos };
   });
-  checar(vao.vazio.blocos >= 8,
-    'a Biblioteca do caso tem os OITO blocos do relato — é o que torna o vão '
-    + 'pequeno e a lista de favoritos capaz de passar dele',
+  checar(vao.vazio.blocos >= 6,
+    'a Biblioteca do caso tem blocos bastante para o vão ser PEQUENO — é o que '
+    + 'torna a lista de favoritos capaz de passar dele',
     vao.vazio.blocos + ' bloco(s)');
   // A PRIMEIRA METADE: vazia, ela RESERVA o vão. É o desenho de abertura da
   // Biblioteca — coleções empilhadas na base, o que sobra em cima é dos
@@ -3583,9 +3602,10 @@ try {
     'A BÍBLIA BAIXA SOZINHA NA ABERTURA — sem ninguém abrir a aba (' + veio + ' capítulo(s))');
   checar(pedidos.length > 0 && pedidos.every((p) => p.versao === ARA),
     'e ela é a versão que o app garante (Almeida Revista e Atualizada), não a primeira da lista');
-  // A aba nunca foi tocada: é isso que separa este caminho do `enterBibleTab`.
-  checar(await pg4.evaluate(() => activeTab !== 'bible'),
-    'e nada disso passou pela aba Bíblia — ela continua fechada');
+  // A FOLHA nunca foi aberta: é isso que separa este caminho do `enterBibleTab`.
+  // (Era a ABA até a v1.5.0, quando a Bíblia virou uma folha do Cronograma.)
+  checar(await pg4.evaluate(() => !bibliaAberta()),
+    'e nada disso passou pela folha da Bíblia — ela continua fechada');
 
   // A ESCOLHA DO OPERADOR NÃO É A BASE. Ele troca de versão; a base continua
   // sendo garantida, e a dele só desce quando ele abrir a aba.
@@ -3754,7 +3774,7 @@ try {
       ids.push(m.id);
     }
     await load();
-    window.__bibliotecaComFavoritos();
+    await window.__bibliotecaComFavoritos();
     await new Promise((r) => setTimeout(r, 400));
     const corpo = document.querySelector('[data-fav-corpo]');
     const li = corpo && corpo.querySelector('.lib-item[data-id="' + ids[0] + '"]');
@@ -4237,7 +4257,6 @@ try {
   // dela — para não a partir ao meio.
   const linkYt = await pg6.evaluate(async () => {
     setAppMode('full');
-    activeTab = 'imports';
     const ids = [];
     for (let i = 0; i < 2; i++) {
       const m = await AVDB.addMedia(new Blob([new Uint8Array(8)], { type: 'audio/mpeg' }),
@@ -4301,7 +4320,7 @@ try {
   // gestos (toque longo → seleção → botão do rodapé → diálogo), que é a mesma
   // correção que o excluir recebeu na v5.272.
   //
-  // Medido no CRONOGRAMA (`activeTab = 'imports'`), que é a lista do pedido, e
+  // Medido no CRONOGRAMA, que é a lista do pedido (e desde a v1.5.0 a única), e
   // pelo caminho de verdade: abrir a gaveta, tocar no lápis, escrever e
   // confirmar. As duas metades — o nome muda no BANCO e a linha o mostra —,
   // porque um rename que só reescrevesse o registro deixaria a tela mentindo
@@ -4309,7 +4328,6 @@ try {
   const ren = await pg6.evaluate(async () => {
     const m = await AVDB.addMedia(new Blob([new Uint8Array(8)], { type: 'audio/mpeg' }),
       { name: 'Nome antigo', type: 'audio/mpeg', kind: 'audio', list: 'imports' });
-    activeTab = 'imports';
     await load();
     const li = document.querySelector('#library .lib-item[data-id="' + m.id + '"]');
     if (!li) return { erro: 'a linha não foi desenhada no Cronograma' };
@@ -4359,7 +4377,7 @@ try {
     // nada, que é o pior artefato que este repositório sabe produzir. Daí o
     // fixture.
     //
-    // PELO CAMINHO DE VERDADE (v5.294). Até aqui ele escrevia `activeTab =
+    // PELO CAMINHO DE VERDADE (v5.294). Até aqui ele escrevia o estado da aba
     // 'folders'` e um `currentFolder` à mão — um estado que o app não alcança
     // desde a v5.290 e que deixou de existir na v5.294. Um oráculo que monta um
     // estado impossível prova o comportamento de um app que não existe: agora
@@ -4374,7 +4392,7 @@ try {
     await AVDB.setState('opfs-folders',
       [{ id: 'pasta-renomear', name: 'Vídeos do culto', count: 2 }]);
     await load();
-    window.__bibliotecaComFavoritos();
+    await window.__bibliotecaComFavoritos();
     await new Promise((res) => setTimeout(res, 400));
     const corpoFav = document.querySelector('[data-fav-corpo]');
     const liPasta = corpoFav && corpoFav.querySelector('.folder-opfs');
@@ -4731,8 +4749,7 @@ try {
     return {
       temMic: !!document.getElementById('micBtn'),
       irmaos: row ? row.children.length : 0,
-      abaAtiva: !!document.querySelector('[data-tab="mic"].active')
-        || !!document.getElementById('miscProjectBtn'),
+      naFolha: !!document.getElementById('miscProjectBtn'),
     };
   });
   checar(comTv.temMic === true,
