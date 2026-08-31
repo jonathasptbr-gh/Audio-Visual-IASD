@@ -1,5 +1,12 @@
 [
   {
+    "versao": "1.5.3",
+    "itens": [
+      "A barra de busca deixou de aparecer cortada em telas com entalhe.",
+      "E deixou de ficar fora do lugar depois que o teclado some."
+    ]
+  },
+  {
     "versao": "1.5.2",
     "itens": [
       "A faixa cinza atrás da barra de busca saiu.",

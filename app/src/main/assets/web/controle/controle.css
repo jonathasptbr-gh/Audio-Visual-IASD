@@ -127,6 +127,17 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
      descrevem o MESMO movimento, e tempos diferentes fariam a camada escurecer
      antes ou depois de a janela chegar. */
   --pop-anim: .28s;
+  /* ---------- A ÁREA SEGURA DO TOPO, COM NOME (v1.5.3) ----------
+     O app é `viewport-fit=cover`, então a barra de status É área do app e
+     `env(safe-area-inset-top)` vale de verdade no aparelho — e ZERO em todo
+     navegador de mesa, que é onde os oráculos rodam. Enquanto ela apareceu
+     LITERAL em duas fórmulas da janela da Biblioteca (o `padding` da folha e o
+     RECORTE dela), as duas podiam discordar sem que nada aqui reprovasse: no
+     aparelho o recorte revelava a faixa [0, altura da barra] de uma folha em que
+     a barra começa DEPOIS do recuo — a barra saía CORTADA embaixo, com uma
+     faixa vazia por cima. Um nome faz as duas lerem o mesmo valor, e faz um
+     oráculo poder FINGIR um aparelho com entalhe. */
+  --sa-topo: env(safe-area-inset-top);
   /* A CAIXA DA LINHA DE LISTA: uma medida para a miniatura, os botões da linha
      e o `⋮`, e é ela que a faixa de ações usa nas duas bordas — são as mesmas
      colunas, então errar uma é errar a outra. `--hit` segue sendo o piso do
@@ -4403,10 +4414,10 @@ main {
    janela.
 
    ===== O QUE MUDOU NA v1.5.2 É SÓ ONDE ELA REPOUSA =====
-   Era a base da TELA (`100% - a barra`, uma conta que não precisava de medida
-   nenhuma além da altura dela). É o topo da CAIXA DE CONTROLES, que é uma
-   posição do layout — daí `--lib-desce`, medido. A abertura, o movimento e o
-   destino não mudaram uma linha.
+   Era a base da TELA (`100% - a barra`). É o topo da CAIXA DE CONTROLES, que a
+   v1.5.2 escreveu como uma COORDENADA medida e a v1.5.3 refez como uma CONTA —
+   a altura do app menos a altura da caixa. A abertura, o movimento e o destino
+   não mudaram uma linha em nenhuma das duas.
 
    ===== E É POR ISSO QUE A FOLHA RECORTA =====
    Com a barra a meia tela, tudo que vem ABAIXO dela na coluna — a lista e o
@@ -4473,11 +4484,32 @@ main {
      primeiro pixel da tela e precisa do desconto; fechada, ela está no meio do
      app e não precisa. Pondo o desconto na FOLHA, a altura da barra fica a mesma
      nos dois estados — e é essa altura que a caixa de controles reserva. */
-  padding-top: env(safe-area-inset-top);
+  padding-top: var(--sa-topo);
   /* O `padding-bottom` da `.popup-sheet` (a área segura de baixo) sai: quem
      encosta na base da tela é a caixa de controles, com a conta dela. */
   padding-bottom: 0;
-  transform: translateY(var(--lib-desce, 100vh));
+  /* ===== ONDE ELA REPOUSA: A CONTA DA CAIXA, NÃO UMA COORDENADA (v1.5.3) =====
+     Relato do operador: *"o alinhamento da barra está completamente errado, está
+     sendo cortado e deslocado em suas animações. a possível causa: você pode
+     estar usando números fixos considerando a sua tela de testes, mas a tela do
+     smartphone tem variação de tamanho, pixels e espaços variáveis"*.
+
+     Ele está certo sobre a classe do defeito, e a peça culpada não era um número
+     fixo: era uma COORDENADA DE TELA medida uma vez (`--lib-desce`, o topo da
+     caixa de controles). Uma coordenada envelhece por caminhos que ninguém
+     observa — o teclado encolhendo o corpo do app, a área segura entrando depois
+     do primeiro layout, a viewport mudando de altura sem a caixa mudar de
+     tamanho. O `ResizeObserver` vigia TAMANHO, e nada disso muda o tamanho da
+     caixa: muda o lugar dela.
+
+     A conta de agora não tem coordenada nenhuma. Ela é a MESMA que o `body` usa
+     para a própria altura (`100svh - var(--kb)`), menos a altura da caixa: é
+     assim que se diz *"o topo da caixa de controles"* sem perguntar onde ele
+     está. O único número medido é a ALTURA da caixa — que é exatamente o que um
+     `ResizeObserver` responde bem, e que muda junto com o que o CSS já sabe.
+     Some `--sa-topo` porque a barra começa depois do recuo dentro da folha. */
+  transform: translateY(calc(100svh - var(--kb, 0px)
+             - var(--lib-caixa-h, 0px) - var(--sa-topo)));
   /* ---------- O RECORTE: FECHADA, SÓ A BARRA EXISTE ----------
      Nem pixel, nem toque — `clip-path` recorta hit-test junto, e é isso que
      mantém o transporte alcançável por baixo de uma janela de tela cheia.
@@ -4496,8 +4528,15 @@ main {
      E ELE VOLTA SÓ DEPOIS DO FECHAMENTO (duração ZERO, atraso de uma animação):
      um recorte que voltasse no instante do toque faria a lista sumir de uma vez
      em vez de descer junto com a barra. Abrindo, a regra `.open` zera o atraso —
-     a janela precisa da tela inteira já no primeiro quadro da subida. */
-  clip-path: inset(0 0 calc(100% - var(--lib-bar-h, 52px)) 0);
+     a janela precisa da tela inteira já no primeiro quadro da subida.
+
+     E ELE COMEÇA NO RECUO, não no zero (v1.5.3): a barra é o primeiro FILHO da
+     folha, mas a folha tem `padding-top` — no aparelho, revelar [0, altura da
+     barra] mostrava o recuo vazio e cortava a barra embaixo, exatamente o que o
+     operador viu. As duas pontas leem `--sa-topo`, que é o token que existe
+     para elas não discordarem. */
+  clip-path: inset(var(--sa-topo) 0
+             calc(100% - var(--sa-topo) - var(--lib-bar-h, 52px)) 0);
   /* ---------- A TRANSIÇÃO SÓ EXISTE FORA DE UMA REMEDIÇÃO ----------
      Zero por padrão, e `--lib-anim` só vira tempo com a classe `lib-pronta`,
      que a própria medida arma um quadro depois de escrever (ver
