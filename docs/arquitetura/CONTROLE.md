@@ -2519,11 +2519,30 @@ junto com a barra. O FUNDO da folha segue o mesmo relógio, pelo motivo espelhad
   **Isto revoga a v5.263** pelo outro lado: aquele lote tirou o slide porque a
   barra morava dentro da folha e `transform` torna a folha o bloco-contêiner dos
   descendentes fixos; aqui a dívida é paga pela geometria, não pela remoção.
-- **SÃO TRÊS MEDIDAS, de uma leitura só** (`medirBarraDaBiblioteca`):
-  `--lib-bar-h` (a altura da barra, que é o que a caixa reserva), `--lib-desce`
-  (o quanto a coluna desce para a barra cair no lugar) e `--lib-abaixo` (o que
-  fica abaixo desse lugar, que é o quanto a camada recorta). É a técnica do
-  `--tab-x`, e é o que sobrou dela.
+- **SÃO DUAS ALTURAS, e nenhuma POSIÇÃO** (`medirBarraDaBiblioteca`, v1.5.3):
+  `--lib-bar-h` (a altura da barra, que é o que a caixa reserva) e
+  `--lib-caixa-h` (a altura da caixa de controles). Onde a barra pousa é uma
+  CONTA do CSS — `100svh - var(--kb) - var(--lib-caixa-h) - var(--sa-topo)`, a
+  mesma que o `body` usa para a própria altura, menos a caixa: é assim que se diz
+  *"o topo da caixa de controles"* sem perguntar onde ele está.
+- **E MEDIR A POSIÇÃO ERA O DEFEITO** (v1.5.2 → v1.5.3). Relato do operador:
+  *"o alinhamento da barra está completamente errado, está sendo cortado e
+  deslocado em suas animações … você pode estar usando números fixos considerando
+  a sua tela de testes"*. Uma COORDENADA DE TELA envelhece por caminhos que
+  ninguém observa — **o `ResizeObserver` vigia TAMANHO, e o que move a caixa não
+  muda o tamanho dela**. MEDIDO: o teclado sobe (no modo em que o navegador não
+  reflui o layout, quem compensa é `--kb`), o app remede com ele no ar, o teclado
+  some — e a barra fica **290px acima do lugar, flutuando sobre a lista**.
+  Medindo só alturas, o instrumento e a grandeza passam a ser a mesma coisa.
+- **E A ÁREA SEGURA DO TOPO TEM NOME** (`--sa-topo`). O app é
+  `viewport-fit=cover`, então `env(safe-area-inset-top)` vale no aparelho e é
+  ZERO em todo navegador de mesa. Enquanto ela apareceu LITERAL nas duas fórmulas
+  que dependem dela — o `padding` da folha e o RECORTE —, as duas podiam
+  discordar sem nada reprovar: o recorte revelava `[0, altura da barra]` de uma
+  folha em que a barra começa DEPOIS do recuo, e no aparelho saía uma faixa vazia
+  em cima com a barra cortada embaixo. O nome faz as duas lerem o mesmo valor **e
+  faz um oráculo poder fingir um aparelho com entalhe**
+  (`barra-em-qualquer-tela.test.mjs`).
 - **E A CAIXA DE CONTROLES É VIGIADA** (`ResizeObserver`). O lugar da barra é o
   topo dela, e ela muda de altura por caminhos que não passam pela medida: a
   proporção da preview, o nome da mídia em duas linhas, a seleção múltipla, o

@@ -840,6 +840,20 @@ jobs:
           # deixaria de ser desenhado, e nada disso dá erro.
           rodar tools/ferramentas-folha.test.mjs
 
+          # A BARRA DA BIBLIOTECA NUMA TELA QUE NÃO É A DESTE RUNNER (v1.5.3).
+          # Ela é a única peça do app que é um OVERLAY alinhado a uma caixa do
+          # LAYOUT — logo a única cujo desenho depende do que um Chromium de mesa
+          # a 430×900 não tem. DOIS defeitos chegaram ao aparelho passando por
+          # toda esta lista: a barra CORTADA (o app é `viewport-fit=cover`, então
+          # `env(safe-area-inset-top)` vale lá e é ZERO aqui) e a barra
+          # DESLOCADA 290px (o lugar de repouso era uma COORDENADA DE TELA
+          # medida uma vez, e o teclado a envelhece sem mudar o TAMANHO de nada,
+          # que é o único eixo que um `ResizeObserver` observa). Ele roda a mesma
+          # medição em QUATRO configurações, e a primeira é a tela dos outros
+          # oráculos DE PROPÓSITO: ela é o controle do experimento, e nas duas
+          # reversões ela passa.
+          rodar tools/barra-em-qualquer-tela.test.mjs
+
           # O AVISO DE QUE UM ARQUIVO ESTÁ ENTRANDO. A ausência dele NÃO É UM
           # ERRO: nada quebra, nada aparece no console, e o item chega ao fim —
           # só chega em silêncio, e do lado de quem opera "importei e não

@@ -277,7 +277,7 @@ const appVersionEl = document.getElementById('appVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.5.2';
+const WEB_VERSION = '1.5.3';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -15776,7 +15776,8 @@ function openHymnSearch(comFoco) {
  *
  *  · **`--lib-bar-h`** — a altura da barra. É o que a `.bottombar` RESERVA no
  *    `padding-top`, isto é, o lugar em que a barra pousa.
- *  · **`--lib-desce`** — o quanto a coluna desce para a barra cair nesse lugar.
+ *  · **`--lib-caixa-h`** — a altura da CAIXA DE CONTROLES, de onde o CSS deduz o
+ *    topo dela sem perguntar onde ele está (ver `.popup-sheet--lib`).
  *
  * (O RECORTE da folha fechada — o que impede a lista e o fundo dela de caírem
  * por cima do transporte, em pixel e em toque — NÃO entra aqui: ele é medido no
@@ -15785,16 +15786,27 @@ function openHymnSearch(comFoco) {
  * ele precisa ter prendia toda REMEDIÇÃO por 0,28 s — num oráculo sem quadros
  * desenhados, para sempre. Ver `.popup-sheet--lib`.)
  *
- * MEDIDAS e não escritas no CSS: a barra muda de altura com o corpo de fonte do
- * sistema, e a posição dela é o topo de uma caixa que muda de altura com a
- * proporção da preview, com o título em duas linhas e com o modo do app. É a
- * mesma técnica do `--tab-x` que o vazado das abas usava, e é o que sobrou dela.
+ * SÃO AS DUAS ALTURAS, e nenhuma POSIÇÃO — é a correção da v1.5.3, e ela veio de
+ * um relato: *"o alinhamento da barra está completamente errado, está sendo
+ * cortado e deslocado em suas animações … você pode estar usando números fixos
+ * considerando a sua tela de testes, mas a tela do smartphone tem variação de
+ * tamanho, pixels e espaços variáveis"*. O que se media era o TOPO da caixa, uma
+ * coordenada de tela — e uma coordenada envelhece por caminhos que ninguém
+ * observa: o teclado encolhendo o corpo do app, a área segura entrando depois do
+ * primeiro layout, a viewport mudando de altura sem a caixa mudar de tamanho.
+ * **O `ResizeObserver` vigia TAMANHO, e nada disso muda o tamanho da caixa: muda
+ * o lugar dela.** Medindo só alturas, o instrumento e a grandeza passam a ser a
+ * mesma coisa, e quem sabe onde a caixa está é o CSS, que refaz a conta a cada
+ * quadro.
  *
- * PELO `offsetHeight` da barra, nunca pelo `getBoundingClientRect`: a janela
- * está TRANSLADADA quando fechada e a caixa do cliente vem transformada junto —
- * a conta se alimentaria do próprio resultado. A CAIXA DE CONTROLES pode ser
- * lida pelo `rect`, que é o que se quer dela: onde ela está na tela, e ela não
- * é transformada.
+ * MEDIDAS e não escritas no CSS: a barra muda de altura com o corpo de fonte do
+ * sistema, e a caixa muda de altura com a proporção da preview, com o título em
+ * duas linhas e com o modo do app.
+ *
+ * PELO `offsetHeight`, nunca pelo `getBoundingClientRect`: a janela está
+ * TRANSLADADA quando fechada e a caixa do cliente vem transformada junto — a
+ * conta se alimentaria do próprio resultado. Os `offset*` são do layout, que é o
+ * que a translação não move.
  *
  * ELAS ANIMAM, ENTÃO SÓ SE ESCREVE O QUE MUDOU. A translação transiciona (e o
  * recorte, com atraso), e um `ResizeObserver` que reescreve o mesmo valor
@@ -15822,16 +15834,16 @@ function medirBarraDaBiblioteca() {
     mudou = true;
   };
   escrever('--lib-bar-h', alturaDaBarra);
-  // A RESERVA ENTRA ANTES DA POSIÇÃO SER LIDA: o `padding-top` da caixa sai
-  // desta altura, então ler a borda dela antes de escrevê-la mediria o layout
-  // de uma barra que ainda não tem lugar.
-  const caixa = bottombarEl.getBoundingClientRect();
-  // Caixa sem altura é o Modo Fácil, que a esconde. `rect.top` de um elemento
-  // sem caixa é ZERO, e escrever isso levaria a barra ao topo da tela; lá ela
-  // nem é oferecida (o CSS a tira de cena), então a medida boa que já está no
-  // lugar é a resposta certa para quando o operador voltar ao avançado.
-  if (!caixa.height) return;
-  escrever('--lib-desce', caixa.top - libBarEl.offsetTop);
+  // A RESERVA ENTRA ANTES DA ALTURA SER LIDA: o `padding-top` da caixa sai desta
+  // altura, então medi-la antes de escrevê-la mediria uma caixa que ainda não
+  // reservou o lugar da barra.
+  const alturaDaCaixa = bottombarEl.offsetHeight;
+  // Caixa sem altura é o Modo Fácil, que a esconde. Escrever 0 levaria a barra à
+  // base da tela; lá ela nem é oferecida (o CSS a tira de cena), então a medida
+  // boa que já está no lugar é a resposta certa para quando o operador voltar ao
+  // avançado.
+  if (!alturaDaCaixa) return;
+  escrever('--lib-caixa-h', alturaDaCaixa);
   if (mudou) semAnimarAJanela();
 }
 
