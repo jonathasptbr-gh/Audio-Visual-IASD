@@ -112,9 +112,9 @@ const SERIES = ['serie-provai-vede-2026', 'serie-informativo-missoes-2026'];
 // anterior, e reabri-la passaria pelo `closeHymnSearch` de quem fechou — que
 // agora zera o estado.
 const instalarCenarioFav = (pagina) => pagina.evaluate(() => {
-  // ELA ESPERA A JANELA ASSENTAR (v1.5.0). A Biblioteca voltou a SUBIR — ela
-  // abre de trás da barra e para com uma folga do topo —, e o vão dos favoritos
-  // é uma consequência da ALTURA da lista: medido no meio da subida, o piso sai
+  // ELA ESPERA A JANELA ASSENTAR (v1.5.0). A Biblioteca SOBE — da base da tela
+  // até o topo, levantando a barra de busca junto —, e o vão dos favoritos é
+  // uma consequência da ALTURA da lista: medido no meio da subida, o piso sai
   // zero e a asserção fala do desenho quando o que estourou foi o relógio.
   // `getAnimations()` + `finished` é o sinal do navegador, não um prazo nosso.
   window.__bibliotecaComFavoritos = async () => {
@@ -2408,15 +2408,17 @@ try {
     // do piso) fica verdadeira por vacuidade — num fixture com duas seções
     // sobra tela à vontade e a lista nunca alcança o piso.
     //
-    // ERAM SEIS CATEGORIAS (oito blocos, os prints dele) até a v1.5.0, quando a
-    // Biblioteca virou uma JANELA: ela para com uma folga do topo e termina no
-    // topo da barra, e a lista caiu de ~880px para 576 (MEDIDO nesta viewport).
-    // Ali oito blocos não deixam vão NENHUM (piso zero), e com quatro o vão sai
-    // MENOR que a altura própria da seção (70px contra 136) — nos dois a
-    // primeira metade fala de um desenho que a tela não tem. Com duas
-    // categorias o vão volta a ser o que a seção ocupa (192px, medido), que é a
-    // condição do relato. **O número nunca foi o assunto: a PROPRIEDADE é.**
-    albumCatalog.categories = ['CDs oficiais/ano', 'Adoradores'].map((nome, i) => ({
+    // SÃO SEIS CATEGORIAS: oito blocos, os prints do operador. Elas caíram para
+    // duas na v1.5.0, quando a janela parava numa folga do topo e terminava no
+    // topo da barra — a lista media 576px ali, e oito blocos não deixavam vão
+    // NENHUM (piso zero), o que fazia a primeira metade falar de um desenho que
+    // a tela não tinha. Com a janela de TELA CHEIA da v1.5.1 a lista voltou a
+    // ser a tela menos a barra (847px nesta viewport) e os oito blocos cabem de
+    // novo, com 218px de vão (MEDIDO). **O número nunca foi o assunto: a
+    // PROPRIEDADE é** — o vão pequeno o bastante para a lista de favoritos
+    // passar dele.
+    albumCatalog.categories = ['CDs oficiais/ano', 'Adoradores', 'Missão',
+      'Salmos', 'Infantis', 'Instrumentais'].map((nome, i) => ({
       name: nome,
       albums: [{ id_album: 500 + i, name: 'Álbum ' + nome }],
     }));

@@ -706,67 +706,11 @@
 
   <!-- controles multimídia fixados na base -->
   <footer class="bottombar">
-    <!-- ===== A BARRA DA BIBLIOTECA OCUPA O LUGAR DA FAIXA DE ABAS (v1.5.0) =====
-         Pedido do operador: *"onde hoje é a barra de abas com o botão de
-         buscas, vamos trazer toda a barra de buscas da biblioteca, ela vai
-         ficar agora ali fora da biblioteca, na barra de abas"*.
-
-         A FAIXA DE ABAS SAIU INTEIRA. Ela tinha dois lugares (Cronograma e
-         Bíblia) mais a porta da Biblioteca; o Cronograma virou a tela única, a
-         Bíblia virou folha (`#bibleSheet`), e o que sobrou daquela faixa é
-         justamente esta barra. Com ela saíram o vazado deslizante (`.tab-ind` e
-         o `moveTabIndicator` que o media), o carrossel horizontal e o fantasma
-         da troca de aba — todos mecanismos de uma navegação que não existe
-         mais.
-
-         A BARRA É A MESMA da Biblioteca, movida para cá: os mesmos três
-         elementos, na mesma ordem que a v5.305 fixou — *sortear* · *procurar* ·
-         *sair* —, e a folha lá dentro ficou só com a lista. Duas barras (uma
-         aqui e outra lá) seriam duas verdades sobre o mesmo campo, e a de
-         dentro sumiria atrás da de fora no instante em que a Biblioteca
-         abrisse.
-
-         ELA MORA NA CAIXA DE CONTROLES pelo motivo que pôs a faixa de abas aqui
-         na v5.54: o polegar usa as duas no mesmo movimento, e uma superfície
-         solta em cima da barra seria um degrau de cor entre elas.
-
-         SÃO DUAS PORTAS PARA A BIBLIOTECA, e a diferença entre elas é o
-         TECLADO (ver `openHymnSearch`): o FOCO no campo abre já digitando, e o
-         botão da direita abre sem foco. É a distinção que o operador pediu, e
-         ela existe porque as duas intenções são diferentes — *"procurar o hino
-         37"* e *"ver o que eu tenho"*.
-
-         E O BOTÃO DA DIREITA É UM SÓ, que troca de desenho: SETA quando a
-         Biblioteca está fechada (ele abre) e ✕ quando está aberta (ele fecha).
-         Dois botões no mesmo canto, um por estado, seriam duas caixas para uma
-         alternância — a mesma regra do tile de painel rápido. Quem troca o
-         desenho é `renderLibToggle`, e são dois `<use>` na árvore CLARA: a
-         folha do documento não atravessa a árvore-sombra de um `<use>`, então
-         um `<symbol>` com os dois desenhos dentro carregaria os dois, sempre
-         (ver `controles-layout.test.mjs`). -->
-  <div class="lib-bar" id="libBar">
-    <!-- PLAYLIST AUTOMÁTICA (v5.303; à ESQUERDA desde a v5.305, pedido do
-         operador). Ela ABRE A LINHA, e o botão de fechar continua encerrando-a:
-         a barra se lê como uma frase — *sortear* · *procurar* · *sair*. -->
-    <button id="sorteioBtn" class="popup-close" title="Playlist automática — sortear por tema" aria-label="Playlist automática"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoSorteio"/></svg></button>
-    <div class="lib-search-campo">
-      <!-- A LUPA DENTRO DO CAMPO (v5.264, pedido do operador: *"isso vai
-           indicar melhor o objetivo da barra"*). Ela é DECORAÇÃO — o toque nela
-           cai no campo (`pointer-events: none` no CSS), porque um ícone que
-           engole o toque no meio de um campo de texto é um ponto morto
-           exatamente onde o dedo mira. -->
-      <svg class="lib-search-lupa" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoLupa"/></svg>
-      <input id="hymnSearchInput" class="lib-search" type="search" placeholder="Buscar por nome ou número…">
-    </div>
-    <button id="hymnSearchToggle" class="popup-close lib-toggle" type="button" title="Abrir a Biblioteca" aria-label="Abrir a Biblioteca">
-      <svg class="ico-base" viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-        <path d="M12 19V5"/><path d="m5 12 7-7 7 7"/>
-      </svg>
-      <svg class="ico-alt" viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-        <path d="M6 6l12 12"/><path d="M18 6 6 18"/>
-      </svg>
-    </button>
-  </div>
+    <!-- (A `.lib-bar` MOROU AQUI na v1.5.0, no lugar da faixa de abas, e mudou
+         de casa na v1.5.1: ela é a CABEÇA da janela da Biblioteca agora, e por
+         isso vive dentro dela — ver `#hymnSearchPopup`. O que a caixa de
+         controles reserva para ela é só a altura (`--lib-bar-h`), porque a
+         janela é `fixed` e a barra pousa por cima da base do app.) -->
 
   <!-- selbar substitui as abas durante a seleção múltipla -->
   <div id="selbar" class="selbar" hidden>
@@ -1720,7 +1664,7 @@
                METADADO de diagnóstico e o lugar onde se procura diagnóstico é
                junto do estado do telão e do alvo de espelhamento, não numa faixa
                de navegação. Preenchido por `renderVersionLabel`. -->
-          <span id="appVersion" class="app-version">Controle v1.5.0</span>
+          <span id="appVersion" class="app-version">Controle v1.5.1</span>
           <!-- SALVAR EM ARQUIVO (v1.2.16). Com o acervo inteiro varrido o
                Registro passa de setenta linhas só na seção de cifras, e copiar e
                colar é o caminho que corta o texto no meio SEM AVISAR — foi o
@@ -2050,45 +1994,74 @@
 
   <!-- O ACERVO: hinários e álbuns por categoria, com as músicas de cada um
        dentro do próprio acordeão, e a busca por nome/número/trecho no mesmo
-       campo. Ocupa a TELA TODA (.popup-sheet--full): é a tela em que o
-       operador passa mais tempo antes do culto, e uma folha de 80% deixava
-       uma faixa morta no topo. -->
-  <!-- ===== A BIBLIOTECA É UMA JANELA QUE SOBE DA BARRA (v1.5.0) =====
-       Pedido do operador: *"a biblioteca agora vai abrir abaixo dessa barra de
-       buscas de forma animada, fazendo ela subir até o topo da tela … faça um
-       pequeno ajuste para que essa biblioteca seja no design de popup/janela,
-       com uma ligeira folga do topo da tela quando aberta, para deixar claro
-       que a biblioteca é apenas uma janela dentro do app"*.
+       campo. É a tela em que o operador passa mais tempo antes do culto. -->
+  <!-- ===== A BIBLIOTECA É UMA JANELA DE TELA CHEIA QUE SOBE DA BASE (v1.5.1) =====
+       Pedido do operador: *"ela não é restrita a zona do cronograma, ela é um
+       popup de tela inteira, ela surge da base da tela e vai levantando a barra
+       de buscas, de modo que a barra de buscas acabe no topo da biblioteca"*.
 
-       ELA JÁ FOI UMA TELA CHEIA (`--full`), sem folga e sem borda: com a barra
-       de busca dentro dela, ela ERA a tela, e uma folha que ocupa tudo não tem
-       como se anunciar como janela. Hoje a barra ficou de fora — logo, a
-       Biblioteca é só a LISTA —, e a folga no topo é o que diz isso sem uma
-       palavra.
-
-       ELA NÃO É A FOLHA DAS FERRAMENTAS, e a diferença está no pedido: *"a
-       janela da biblioteca não é igual as ferramentas, ela ocupa a tela inteira
-       e não apenas o corpo do cronograma"*. O `#toolsSheet` e o `#bibleSheet`
-       são filhos do `.list-body` e cobrem só a lista; esta é `position: fixed`
-       e cobre o app inteiro, do topo até a barra que a abriu.
-
-       A BASE DELA É MEDIDA (`--lib-base`, escrito por `medirBarraDaBiblioteca`):
-       ela encosta no topo da `.lib-bar`, que vive na caixa de controles e muda
-       de altura com o teclado, com a barra de seleção e com a fonte do sistema.
-       Um valor fixo em CSS erraria em todos os três, e o erro seria a lista
-       passando por baixo da barra que a abriu. É a mesma técnica do `--tab-x`
-       que o vazado das abas usava, e é o que sobrou dela.
+       ELA NÃO É A FOLHA DAS FERRAMENTAS, e a diferença é o pedido da v1.5.0:
+       *"a janela da biblioteca não é igual as ferramentas, ela ocupa a tela
+       inteira e não apenas o corpo do cronograma"*. O `#toolsSheet` e o
+       `#bibleSheet` são filhos do `.list-body` e cobrem só a lista; esta é
+       `position: fixed` e cobre o app inteiro.
 
        ELA SOBE, e o movimento é `transform` e não `height`: altura anima no
        layout (reflui a lista inteira a cada quadro) e `transform` anima no
-       compositor. O ponto de partida é `translateY(100%)` — ela sai de trás da
-       barra — e o de chegada é o lugar dela, com a folga do topo. -->
+       compositor. O ponto de partida é `100% - a barra` — a janela fechada
+       deixa só a barra à vista, encostada na base — e o de chegada é
+       `translateY(0)`, com a barra parada no topo. Ver `.popup-sheet--lib`.
+
+       (A v1.5.0 tentou o inverso: a barra parada na caixa de controles e a
+       janela subindo de trás dela até uma folga do topo. A folga anunciava
+       "isto é uma janela" e custava o campo de texto atrás do teclado, que é o
+       defeito que este lote existe para fechar.) -->
   <div id="hymnSearchPopup" class="popup-backdrop popup-backdrop--lib">
     <div class="popup-sheet popup-sheet--lib">
-      <!-- (A `.hymn-search-bar` SAIU daqui na v1.5.0: ela virou a `.lib-bar` da
-           caixa de controles, fora da Biblioteca. O que fica é a lista, que é o
-           que a janela mostra — e é por ela ter ficado só com a lista que a
-           folga do topo passou a ter o que dizer.) -->
+      <!-- ===== A BARRA É A CABEÇA DA JANELA (v1.5.1) =====
+           Pedido do operador: *"ela surge da base da tela e vai levantando a
+           barra de buscas, de modo que a barra de buscas acabe no topo da
+           biblioteca. (isso resolve o problema que temos atualmente da caixa de
+           texto ficar escondida pelo teclado)"*.
+
+           ELA VIVE AQUI DENTRO, e é isso que faz a animação existir sem nenhum
+           mecanismo: a janela é uma coluna `[barra][lista]` que ocupa a tela
+           inteira, e o que a fecha é uma translação para baixo que deixa
+           APENAS a barra à vista, encostada na base. Abrir é `translateY(0)` —
+           a barra sobe junto e para no topo, porque é onde ela sempre esteve
+           dentro desta caixa.
+
+           Duas cópias da barra (uma na caixa de controles e outra aqui) seriam
+           duas verdades sobre o mesmo campo, e a animação viraria um transporte
+           de nó entre dois pais no meio de um `transform`.
+
+           E É ISSO QUE RESOLVE O TECLADO: com o campo no TOPO da tela, o
+           teclado — que sobe da base — não tem como cobri-lo. Era o defeito que
+           quatro lotes da era da barra-na-base tentaram consertar por fora
+           (v5.261, v5.264, v5.266, v5.270). -->
+      <div class="lib-bar" id="libBar">
+        <!-- PLAYLIST AUTOMÁTICA (v5.303; à ESQUERDA desde a v5.305, pedido do
+             operador). Ela ABRE A LINHA, e o botão de fechar continua encerrando-a:
+             a barra se lê como uma frase — *sortear* · *procurar* · *sair*. -->
+        <button id="sorteioBtn" class="popup-close" title="Playlist automática — sortear por tema" aria-label="Playlist automática"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoSorteio"/></svg></button>
+        <div class="lib-search-campo">
+          <!-- A LUPA DENTRO DO CAMPO (v5.264, pedido do operador: *"isso vai
+               indicar melhor o objetivo da barra"*). Ela é DECORAÇÃO — o toque nela
+               cai no campo (`pointer-events: none` no CSS), porque um ícone que
+               engole o toque no meio de um campo de texto é um ponto morto
+               exatamente onde o dedo mira. -->
+          <svg class="lib-search-lupa" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoLupa"/></svg>
+          <input id="hymnSearchInput" class="lib-search" type="search" placeholder="Buscar por nome ou número…">
+        </div>
+        <button id="hymnSearchToggle" class="popup-close lib-toggle" type="button" title="Abrir a Biblioteca" aria-label="Abrir a Biblioteca">
+          <svg class="ico-base" viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M12 19V5"/><path d="m5 12 7-7 7 7"/>
+          </svg>
+          <svg class="ico-alt" viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M6 6l12 12"/><path d="M18 6 6 18"/>
+          </svg>
+        </button>
+      </div>
       <ul id="hymnResults" class="popup-list"></ul>
     </div>
   </div>

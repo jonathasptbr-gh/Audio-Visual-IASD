@@ -120,6 +120,13 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
      fechar, que é quadrado. Um número para as duas peças — ver
      `#hymnSearchClose` para por que `aspect-ratio` não serve dentro de um flex. */
   --campo-alt: 40px;
+  /* O TEMPO DA JANELA DA BIBLIOTECA (v1.5.0). Ele viajava como `var(--pop-anim,
+     .28s)` em dois lugares e NUNCA foi definido — um `var()` que só existe pelo
+     fallback é um número escrito duas vezes com a aparência de um botão de
+     ajuste. Aqui ele é um só, e é o que a subida e o scrim compartilham: os dois
+     descrevem o MESMO movimento, e tempos diferentes fariam a camada escurecer
+     antes ou depois de a janela chegar. */
+  --pop-anim: .28s;
   /* A CAIXA DA LINHA DE LISTA: uma medida para a miniatura, os botões da linha
      e o `⋮`, e é ela que a faixa de ações usa nas duas bordas — são as mesmas
      colunas, então errar uma é errar a outra. `--hit` segue sendo o piso do
@@ -472,8 +479,16 @@ body {
      vazado da aba ativa emendar com o corpo da seção (ver `.tab.active`). O
      respiro que ela perdeu aqui está no `gap` até o `.deck`. */
   padding: 0 .7rem .5rem;
-  /* margem extra na base para não conflitar com navegação por gestos */
-  padding-bottom: calc(.6rem + max(env(safe-area-inset-bottom), 12px));
+  /* margem extra na base para não conflitar com navegação por gestos
+     — E A ALTURA DA BARRA DA BIBLIOTECA (v1.5.1). Ela é a cabeça de uma janela
+     `fixed`, então pousa POR CIMA da base do app; sem esta reserva ela cobriria
+     a última linha de controles. `--lib-bar-h` é medida em runtime
+     (`medirBarraDaBiblioteca`), e é a MESMA medida que fecha a janela: a barra muda
+     de altura com a área segura e com o corpo de fonte do sistema.
+     A ÁREA SEGURA SAI DAQUI quando a barra existe: ela passou a ser padding da
+     BARRA, que é quem encosta na base agora. Somadas, as duas deixavam uma faixa
+     morta do tamanho da barra de gestos. */
+  padding-bottom: calc(.6rem + var(--lib-bar-h, 60px));
   /* SEM `border-top` e SEM sombra. As duas existiam para marcar onde a caixa
      começa, e as duas passaram a atrapalhar quando a faixa de abas encostou no
      topo (v5.54-55): a linha cortava o vazado da aba ativa e a sombra
@@ -1670,20 +1685,33 @@ main {
    faixa o anulava com `margin: 0 -.7rem` porque as células iam de borda a
    borda; aqui o campo tem forma própria e precisa da folga.
 
+   ELA É UMA FAIXA DE LADO A LADO, sem raio e sem margem (v1.5.1, pedido do
+   operador: *"deve ser uma barra de lado a lado da tela, sem estar dentro de um
+   card de bordas arredondadas … assim como já era na versão antiga da
+   biblioteca"*). A v1.5.0 a desenhou como um cartão dentro da caixa de
+   controles, e um cartão é o que ela nunca foi: ela é a CABEÇA de uma janela —
+   o irmão da `.hymn-search-bar` que morava no topo da Biblioteca —, e uma
+   cabeça encosta nas bordas do que ela encabeça.
+
    ELA TEM SUPERFÍCIE PRÓPRIA (`--field-bar`), e a razão é MEDIDA — a mesma da
-   v5.270, que continua valendo no lugar novo. O campo é BRANCO nos dois temas
-   (decisão declarada: ele é a única peça da tela em que se digita, e veste os
-   tokens `--field-*`, sem tema, como o palco). No tema CLARO a caixa de
-   controles também é branca: campo branco sobre caixa branca dá **1,00:1**, e
-   o campo simplesmente não existe. A elevação sozinha não paga — foi o
-   meio-conserto que a v5.268 tentou e o operador recusou.
-   O que ela NÃO traz da versão antiga é a SOMBRA: aquela dizia de que lado o
-   conteúdo passava por baixo, e aqui não passa nada atrás dela. */
+   v5.270. O campo é BRANCO nos dois temas (decisão declarada: ele é a única
+   peça da tela em que se digita, e veste os tokens `--field-*`, sem tema, como
+   o palco), e no tema CLARO a caixa de controles também é branca: campo branco
+   sobre caixa branca dá **1,00:1**, e o campo simplesmente não existe. A
+   elevação sozinha não paga — foi o meio-conserto que a v5.268 tentou e o
+   operador recusou.
+
+   O RESPIRO DE BAIXO É A ÁREA SEGURA. Fechada, ela encosta na base da TELA — é
+   ali que mora a barra de gestos do Android, e o `max()` é o que impede o campo
+   de nascer debaixo dela. Aberta, esse mesmo respiro é a folga entre a barra e a
+   lista, que ela precisa ter de qualquer jeito.
+   O DE CIMA é a área segura do TOPO, pelo motivo espelhado: aberta, a barra é o
+   primeiro pixel da tela. */
 .lib-bar {
   display: flex; align-items: center; gap: .5rem; flex-shrink: 0;
-  padding: .35rem .45rem;
-  margin: 0 -.25rem .35rem;
-  background: var(--field-bar); border-radius: var(--radius-btn);
+  padding: calc(.4rem + env(safe-area-inset-top)) .55rem
+           max(.4rem, env(safe-area-inset-bottom)) .55rem;
+  background: var(--field-bar);
 }
 /* O ALTERNADOR DA BIBLIOTECA: um botão, dois desenhos (v1.5.0).
    SETA quando fechada (ele abre), ✕ quando aberta (ele fecha). Os dois vivem na
@@ -4329,70 +4357,133 @@ main {
    música e por isso pedia mais um degrau (220) — saiu na v5.254 com os atalhos
    de pasta. O 220 fica LIVRE: é o degrau do próximo popup que abrir de dentro
    do `#songMenuPopup`.) */
-/* ===== A BIBLIOTECA É UMA JANELA QUE SOBE DA BARRA (v1.5.0) =====
-   Pedido do operador: *"a biblioteca agora vai abrir abaixo dessa barra de
-   buscas de forma animada, fazendo ela subir até o topo da tela … com uma
-   ligeira folga do topo da tela quando aberta, para deixar claro que a
-   biblioteca é apenas uma janela dentro do app"*.
+/* ===== A BIBLIOTECA É UMA JANELA DE TELA CHEIA QUE SOBE DA BASE (v1.5.1) =====
+   Pedido do operador: *"ela não é restrita a zona do cronograma, ela é um popup
+   de tela inteira, ela surge da base da tela e vai levantando a barra de
+   buscas, de modo que a barra de buscas acabe no topo da biblioteca"*.
 
-   ELA ERA `--full`: 100% de altura, raio zero, encostada nas quatro bordas. O
-   argumento era que ela É uma tela — e era verdade enquanto a barra de busca
-   morava dentro dela. Hoje a barra ficou de fora e a Biblioteca é só a LISTA:
-   uma folha que ocupa tudo não tem como se anunciar como janela, e a folga do
-   topo é o que diz isso sem uma palavra.
+   A v1.5.0 a fez subir até uma folga do topo, com a barra parada na caixa de
+   controles. O que mudou é QUEM sobe: a barra virou a CABEÇA da janela e sobe
+   com ela.
 
-   A BASE É MEDIDA (`--lib-base`, escrito por `medirBarraDaBiblioteca`): a janela
-   encosta no TOPO da `.lib-bar`, que muda de altura com o teclado, com a barra
-   de seleção e com o corpo de fonte do sistema. O fallback de `56px` cobre o
-   único instante em que ela ainda não foi medida — a primeira abertura, antes
-   do primeiro `resize`.
+   ===== A MECÂNICA, e ela não tem mecanismo =====
+   A janela é uma coluna `[barra][lista]` que ocupa a tela inteira. Fechada, ela
+   está transladada para baixo o bastante para deixar SÓ A BARRA à vista,
+   encostada na base; aberta, `translateY(0)` — e a barra para no topo porque é
+   onde ela sempre esteve dentro desta caixa. Não há nó transportado entre dois
+   pais, não há segunda barra e não há posição calculada em runtime além de UMA
+   medida.
 
-   ELA SOBE POR `transform`, não por `height`: altura anima no LAYOUT e reflui a
-   lista inteira a cada quadro; `transform` anima no compositor. O ponto de
-   partida é `translateY(100%)` — ela sai de trás da barra — e o de chegada é o
-   lugar dela. O `.popup-backdrop` já cuida da opacidade; o que esta regra
-   acrescenta é o movimento.
+   O deslocamento fechado é `100% - var(--lib-bar-h)`: a janela mede a tela
+   inteira, então descê-la da própria altura MENOS a barra deixa a barra pousada
+   na base. A porcentagem é da PRÓPRIA CAIXA, então o único número que vem de
+   fora é a altura da barra — que é medida (`medirBarraDaBiblioteca`) porque
+   muda com a área segura, com o corpo de fonte do sistema e com o teclado.
 
-   ELA NÃO É A FOLHA DAS FERRAMENTAS, e a diferença está no pedido: *"a janela da
-   biblioteca não é igual as ferramentas, ela ocupa a tela inteira e não apenas
-   o corpo do cronograma"*. Aquelas são filhas do `.list-body` e cobrem só a
-   lista; esta é `fixed` e cobre o app inteiro, do topo até a barra que a abriu. */
-.popup-backdrop--lib { align-items: stretch; }
-.popup-sheet--lib {
-  --lib-folga: 1.1rem;
-  position: absolute;
-  left: .55rem; right: .55rem;
-  top: calc(env(safe-area-inset-top) + var(--lib-folga));
-  /* ZERO, e não `--lib-base` outra vez: quem já para no topo da barra é a
-     CAMADA (o `inset` do `#hymnSearchPopup`), e esta folha é `absolute` dentro
-     dela. Descontar a barra duas vezes deixava a janela terminando no meio da
-     tela — MEDIDO: base em 304 numa camada que ia até 602. */
-  bottom: 0;
-  max-height: none; height: auto;
-  border-radius: var(--radius-card);
-  /* ---------- ELA É UMA TELA POR DENTRO, ENTÃO É O NÍVEL 0 (v5.267) ----------
-     O fundo continua `--bg` e não `--panel`: a Biblioteca abre a escada inteira
-     lá dentro — página → seção → álbum —, e começá-la no nível 1 gastaria na
-     raiz o degrau que falta três níveis adiante. Era literalmente o relato do
-     operador naquele lote (*"dificultando discernir se estou em uma camada ou
-     subcamada"*). O que mudou na v1.5.0 é a MOLDURA, não o conteúdo. */
-  background: var(--bg);
-  /* A ELEVAÇÃO É O QUE A FAZ JANELA. Sem ela, uma caixa `--bg` sobre um app
-     `--bg` só se separa pelo scrim — e o scrim some no tema claro, onde os dois
-     tons quase se encostam. A sombra é a mesma família das outras folhas. */
-  box-shadow: 0 -10px 30px -12px var(--shadow-ink);
-  transform: translateY(100%);
-  transition: transform var(--pop-anim, .28s) cubic-bezier(.2,.7,.3,1);
+   ===== E O ERRO DO PALPITE TEM DE SER PEQUENO, PORQUE ELE ANIMA =====
+   A translação TRANSICIONA. Enquanto a medida foi o deslocamento inteiro
+   (`--lib-desce`, com 60px de palpite contra 847px medidos), a primeira escrita
+   do JS animava a janela inteira tela abaixo na abertura do app — a Biblioteca
+   varrendo a tela por 0,28 s, com tudo por baixo dela intocável no caminho.
+   Escrita como `100% - barra`, o palpite erra por pixels e a correção é
+   invisível. *Uma medida que anima é uma medida que precisa nascer quase
+   certa.*
+
+   ===== E É ISSO QUE RESOLVE O TECLADO =====
+   Com o campo no TOPO da tela, o teclado — que sobe da base — não tem como
+   cobri-lo. Era o defeito que quatro lotes da era da barra-na-base tentaram
+   consertar por fora (v5.261, v5.264, v5.266, v5.270), e ele volta a existir no
+   instante em que alguém puser a barra embaixo de novo.
+
+   ===== A CAMADA NÃO SOME, e é aqui que ela sai do molde =====
+   Todo `.popup-backdrop` deste app é `opacity: 0` fechado. Este não pode ser: a
+   BARRA vive nele e está à vista o tempo todo. Então a camada fica sempre opaca
+   e sem fundo, o SCRIM vira um `::before` que esmaece, e os toques são roteados
+   à mão — a camada só recebe toque ABERTA (para o toque no fundo fechar), e a
+   janela recebe sempre (para a barra funcionar fechada). */
+.popup-backdrop--lib {
+  align-items: stretch;
+  opacity: 1;
+  background: none;
+  transition: none;
+  /* FECHADA ELA NÃO EXISTE PARA O DEDO: o app inteiro por baixo continua
+     alcançável, e quem recebe o toque é só a janela (a barra). */
+  pointer-events: none;
 }
+.popup-backdrop--lib.open { pointer-events: auto; }
+/* O SCRIM, que era o `background` da camada. Ele esmaece; ela não. */
+.popup-backdrop--lib::before {
+  content: ''; position: absolute; inset: 0;
+  background: var(--scrim);
+  opacity: 0; transition: opacity var(--pop-anim) ease;
+  pointer-events: none;
+}
+.popup-backdrop--lib.open::before { opacity: 1; }
+.popup-sheet--lib {
+  position: absolute; inset: 0;
+  max-height: none; height: auto;
+  /* SEM RAIO: ela é uma tela cheia, e cantos arredondados anunciam "há algo
+     atrás". Aqui não há — e a barra, que é a cabeça dela, é uma faixa de lado a
+     lado. */
+  border-radius: 0;
+  /* ---------- ELA É UMA TELA POR DENTRO, ENTÃO É O NÍVEL 0 (v5.267) ----------
+     O fundo é `--bg` e não `--panel`: a Biblioteca abre a escada inteira lá
+     dentro — página → seção → álbum —, e começá-la no nível 1 gastaria na raiz
+     o degrau que falta três níveis adiante. Era literalmente o relato do
+     operador naquele lote (*"dificultando discernir se estou em uma camada ou
+     subcamada"*). */
+  background: var(--bg);
+  display: flex; flex-direction: column;
+  /* Ela recebe toque SEMPRE, inclusive fechada: a barra é o que fica à vista, e
+     é por ela que a Biblioteca abre. */
+  pointer-events: auto;
+  /* O `padding-bottom` da `.popup-sheet` (a área segura de baixo) sai: aqui
+     quem encosta na base é a BARRA, e a área segura dela está no padding dela.
+     Somados, os dois deixavam uma faixa morta abaixo da barra. */
+  padding-bottom: 0;
+  transform: translateY(calc(100% - var(--lib-bar-h, 53px)));
+  /* ---------- A TRANSIÇÃO SÓ NASCE DEPOIS DE O APP ASSENTAR ----------
+     Zero por padrão, e `--lib-anim` só vira tempo com a classe `lib-pronta`,
+     posta dois quadros depois da carga (ver `medirBarraDaBiblioteca`). A janela
+     é a única peça deste app cuja POSIÇÃO DE REPOUSO depende de uma medida, e
+     toda medida chega depois do primeiro layout: MEDIDO, a barra mede 28,6px no
+     primeiro quadro (antes de a folha assentar) e 53px depois — com a transição
+     ligada desde o início, isso é a janela deslizando sozinha na abertura do
+     app, com tudo por baixo dela intocável no caminho (ela é de tela cheia e
+     recebe toque também fechada).
+     DOIS QUADROS, e não um: uma transição usa a duração do estilo DEPOIS da
+     mudança, então ligar o tempo no MESMO quadro em que a medida entra faria
+     justamente a animação que a guarda existe para impedir. */
+  transition: transform var(--lib-anim, 0s) cubic-bezier(.2, .7, .3, 1);
+}
+body.lib-pronta { --lib-anim: var(--pop-anim); }
 .popup-backdrop--lib.open .popup-sheet--lib { transform: none; }
+/* NO MODO FÁCIL A BARRA NÃO FICA À VISTA, e a razão é a mesma que esconde a
+   caixa de controles inteira lá (`body.mode-simple .bottombar`): aquele modo não
+   tem cromo de operação na base — a porta da Biblioteca é a LUPA da zona de
+   leitura. Com a barra dentro da janela, ela deixou de ser escondida de carona
+   pela caixa, e sem esta regra a faixa de busca aparecia na base do modo que
+   existe para não ter faixa nenhuma.
+   FECHADA ela sai INTEIRA (`translateY(100%)`), e não só invisível: a janela
+   recebe toque também fechada, e uma faixa transparente engolindo o dedo na base
+   da tela é pior que a faixa à vista. Aberta, a barra continua sendo a cabeça da
+   janela — o seletor é `:not(.open)`, então as duas regras nunca disputam. */
+body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
+  transform: translateY(100%);
+}
 @media (prefers-reduced-motion: reduce) {
   .popup-sheet--lib { transition: none; }
+  .popup-backdrop--lib::before { transition: none; }
 }
-/* A LISTA É QUEM ROLA, e o raio da janela recorta as pontas dela: sem o
-   `overflow: hidden` na folha, a primeira linha do acervo passaria por cima do
-   canto arredondado que acabou de ser desenhado. */
-.popup-sheet--lib { overflow: hidden; }
-.popup-sheet--lib .popup-list { border-radius: inherit; }
+/* A LISTA É QUEM ROLA, e ela ocupa o que sobra da coluna.
+   A ÁREA SEGURA DE BAIXO É DELA, e não da folha (que aqui é `padding-bottom: 0`):
+   ABERTA, quem termina a janela é a lista, e sem esta folga o último item do
+   acervo fica sob a barra de gestos do Android. FECHADA ela não custa nada — a
+   lista está inteira fora da tela. */
+.popup-sheet--lib .popup-list {
+  flex: 1; min-height: 0;
+  padding-bottom: calc(.8rem + env(safe-area-inset-bottom));
+}
 
 /* O CABEÇALHO NÃO TEM FILETE (v5.267). Ele tinha um `border-bottom` em `--line`
    e o rodapé (`.popup-footer`), um `border-top` — os dois eram a moldura de uma
@@ -4681,7 +4772,7 @@ main {
    caminho até lá. Ver o bloco no topo do `controle.js`.) */
 
 /* ---------- A BIBLIOTECA É UMA TELA, NÃO UM POPUP (v5.263) ---------- */
-/* ===== A JANELA DA BIBLIOTECA VOLTOU A DESLIZAR (v1.5.0) =====
+/* ===== A JANELA DA BIBLIOTECA VOLTOU A DESLIZAR (v1.5.0 → v1.5.1) =====
    Isto REVOGA a v5.263, que tirou o slide inteiro (*"faça apenas um fade in e
    out para a biblioteca, e faça dela uma tela inteira e não um tipo de pop
    up"*). A razão daquele lote era o TECLADO: a barra de busca morava dentro da
@@ -4689,22 +4780,15 @@ main {
    fixed` lá dentro, e três lotes seguidos consertaram o entorno daquela
    animação.
 
-   Aqui a barra ficou FORA, na caixa de controles. A janela não hospeda campo
-   nenhum, logo não há o que brigar com o teclado — e o pedido de agora é o
-   movimento: *"fazendo ela subir até o topo da tela"*. O `transform: none` que
-   morava aqui saiu com a razão dele; quem desenha a subida é a
-   `.popup-sheet--lib`.
+   A BARRA VOLTOU PARA DENTRO na v1.5.1, e o teclado deixou de ser um problema
+   por outro caminho: o campo termina no TOPO da tela, e o teclado sobe da base.
+   Não é o mesmo desenho de antes com a mesma dívida — é a dívida paga pela
+   geometria. Quem desenha a subida é a `.popup-sheet--lib`.
 
-   O SCRIM VOLTA, e volta reduzido: ele é o que diz "isto é uma janela sobre o
-   app", que é justamente o que o pedido quer. Ele NÃO cobre a barra — ver o
-   `inset` abaixo. */
-#hymnSearchPopup {
-  /* A CAMADA PARA NO TOPO DA BARRA, e isto não é estética: com `inset: 0` o
-     scrim cobriria a `.lib-bar`, e o primeiro toque a ser engolido seria o do
-     próprio botão que fecha a Biblioteca. A barra é parte da Biblioteca agora —
-     ela não é o app por baixo, e não se escurece. */
-  inset: 0 0 var(--lib-base, 56px) 0;
-}
+   A CAMADA É A TELA INTEIRA, que é o pedido (*"ela é um popup de tela
+   inteira"*); o scrim dela esmaece num `::before` e o toque é roteado à mão,
+   porque a barra fica à vista com a janela fechada. Ver `.popup-backdrop--lib`
+   acima. */
 
 /* Barra de busca do Hinário ocupando toda a largura da bandeja: display:flex faz
    o input (.lib-search, flex:1) esticar de lado a lado (sem isso o input ficava

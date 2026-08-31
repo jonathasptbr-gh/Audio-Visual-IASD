@@ -1878,12 +1878,14 @@ for (const tema of ['escuro', 'claro']) {
         return {
           semCabecalho: !document.querySelector('#hymnSearchPopup .popup-header'),
           semTitulo: !document.getElementById('hymnSearchTitle'),
-          // A BARRA NÃO ESTÁ MAIS DENTRO, e a lista é o único filho da janela.
-          semBarraDentro: !folha.querySelector('.lib-bar, .hymn-search-bar'),
-          soALista: folha.firstElementChild === document.getElementById('hymnResults'),
-          // E ELA ESTÁ FORA, na caixa de controles — logo, ABAIXO da janela.
-          barraNaCaixa: !!bar.closest('.bottombar'),
-          barraAbaixo: Math.round(cx2(bar).top) >= Math.round(cx2(folha).bottom) - 1,
+          // A BARRA É A CABEÇA DA JANELA (v1.5.1): ela vive DENTRO dela, e é o
+          // primeiro filho — é isso que a faz subir junto e parar no topo.
+          barraDentro: folha.firstElementChild === bar,
+          listaDepois: folha.lastElementChild === document.getElementById('hymnResults'),
+          // E ELA É O TOPO da janela quando aberta: com o campo ali, o teclado
+          // — que sobe da base — não tem como cobri-lo.
+          barraNoTopo: Math.abs(cx2(bar).top - cx2(folha).top) <= 1,
+          listaAbaixo: Math.round(cx2(hymnResultsEl).top) >= Math.round(cx2(bar).bottom) - 1,
           fecharL: cx2(fechar).width, fecharA: cx2(fechar).height,
           campoA: cx2(campo).height,
           barraAntes, barraDepois, rolou,
@@ -1987,17 +1989,18 @@ for (const tema of ['escuro', 'claro']) {
     checar(v.outra.sobraColecao >= 0 && v.outra.sobraColecao < v.altOutra,
       '[' + tema + '] e a COLEÇÃO aberta mede o conteúdo dela, sem inchar ('
       + Math.round(v.outra.sobraColecao) + 'px de vazio dentro dela)');
-    // A JANELA FICOU SÓ COM A LISTA (v1.5.0): sem cabeçalho, sem título e sem
-    // barra — a barra virou a `.lib-bar` da caixa de controles, e é por a
-    // Biblioteca ter ficado só com a lista que a folga do topo passou a ter o
-    // que dizer.
+    // A JANELA É UMA COLUNA `[barra][lista]` (v1.5.1): sem cabeçalho e sem
+    // título, com a barra como CABEÇA dela. O cabeçalho saiu na v5.258 (era uma
+    // faixa repetindo o nome do botão que abre a tela), e o que ocupa o topo
+    // desde então é a barra de busca — que é o que faz o teclado, que sobe da
+    // base, não ter como cobrir o campo.
     checar(v.barra.semCabecalho && v.barra.semTitulo
-      && v.barra.semBarraDentro && v.barra.soALista,
-      '[' + tema + '] a janela da Biblioteca é SÓ A LISTA: sem cabeçalho, sem '
-      + 'título e sem barra de busca dentro dela');
-    checar(v.barra.barraNaCaixa && v.barra.barraAbaixo,
-      '[' + tema + '] e a barra mora na caixa de controles, ABAIXO da janela — '
-      + 'ela é de onde a janela sobe, não o topo dela');
+      && v.barra.barraDentro && v.barra.listaDepois,
+      '[' + tema + '] a janela é uma coluna `[barra][lista]`: sem cabeçalho e sem '
+      + 'título — a barra É a cabeça dela');
+    checar(v.barra.barraNoTopo && v.barra.listaAbaixo,
+      '[' + tema + '] e ela é o TOPO da janela aberta: com o campo ali, o teclado '
+      + '— que sobe da base — não tem como cobri-lo');
     // ===== E A LISTA ROLA SEM LEVAR A BARRA JUNTO (v5.281) =====
     // O relato do operador era que a barra não fica fixa durante a rolagem. A
     // estrutura sempre esteve certa — e é isso que a primeira metade mede, com
@@ -2042,6 +2045,21 @@ for (const tema of ['escuro', 'claro']) {
 // afirmação ficou mais forte: TODO ponto da linha — os quatro cantos, as
 // bordas e o meio — leva ao mesmo lugar. Um botão que voltasse a aparecer ali
 // reprova aqui, que é exatamente o que este caso existe para impedir.
+//
+// ELE ESPERA A JANELA DA BIBLIOTECA POUSAR (v1.5.1), e isto é sobre o que o
+// dedo encontra, não zelo de oráculo. A janela é de tela cheia e recebe toque
+// SEMPRE — fechada inclusive, porque a barra vive nela —, então enquanto ela
+// desce ela cobre o que está por baixo. Medido aqui: o bloco anterior a fechou,
+// nenhum quadro foi desenhado desde então, e a transição continuava no primeiro
+// instante dela (`currentTime: 0`, transform IDENTIDADE) — todo ponto da linha
+// respondia `LI.coll-group`, o conteúdo da janela em queda. Esperar pelo FIM da
+// animação é a técnica do `gaveta()` lá em cima, e pelo mesmo motivo: esperar
+// pelo FATO, nunca pelo valor que se vai afirmar.
+await pg.evaluate(() => closeHymnSearch());
+await pg.waitForFunction(() => {
+  const el = document.querySelector('#hymnSearchPopup .popup-sheet');
+  return !!el && el.getAnimations().every((a) => a.playState !== 'running');
+}, null, { timeout: 5000 });
 try {
   const alvo = await pg.evaluate(() => {
     setAppMode('full');
@@ -4483,89 +4501,237 @@ try {
     return {
       semTotal: !document.getElementById('hymnSearchTotal'),
       semBotaoNoCabecalho: !sheet.querySelector('.popup-header .coll-group-btn'),
-      // A JANELA É SÓ A LISTA (v1.5.0): a barra saiu para a caixa de controles.
-      soALista: sheet.firstElementChild === lista && sheet.lastElementChild === lista,
-      // E A BARRA ESTÁ INTEIRA lá fora — os três elementos, na ordem que a
-      // v5.305 fixou: *sortear* · *procurar* · *sair*.
-      barraForaDaJanela: !!barra && !sheet.contains(barra),
+      // A JANELA É UMA COLUNA `[barra][lista]` (v1.5.1), e nada mais: a barra é
+      // a CABEÇA dela — é isso que a faz subir junto e parar no topo.
+      colunaDeDois: sheet.children.length === 2
+        && sheet.firstElementChild === barra && sheet.lastElementChild === lista,
+      // UMA barra só no app inteiro: duas seriam duas verdades sobre o mesmo
+      // campo, e a de fora sumiria atrás da de dentro no instante em que a
+      // Biblioteca abrisse.
+      quantasBarras: document.querySelectorAll('.lib-bar, .hymn-search-bar').length,
       campoNaBarra: !!barra && !!barra.querySelector('#hymnSearchInput'),
       alternadorNaBarra: !!barra && !!barra.querySelector('#hymnSearchToggle'),
       sorteioNaBarra: !!barra && !!barra.querySelector('#sorteioBtn'),
       ordem: barra ? [...barra.children].map((e) => e.id || e.className) : [],
+      // ELA É UMA FAIXA, NÃO UM CARTÃO (v1.5.1). Pedido do operador: *"deve ser
+      // uma barra de lado a lado da tela, sem estar dentro de um card de bordas
+      // arredondadas … toda essa faixa azul/cinza deve ser sólida de lado a
+      // lado"*. Medido no RENDERIZADO e nas duas metades que fazem um cartão:
+      // as bordas encostam nas da tela, e não há raio nenhum.
+      faixa: (() => {
+        const r = barra.getBoundingClientRect();
+        const cs = getComputedStyle(barra);
+        return { esq: Math.round(r.left), dir: Math.round(window.innerWidth - r.right),
+          raio: cs.borderTopLeftRadius + ' ' + cs.borderTopRightRadius,
+          // O FUNDO É OPACO e é o dela: um cartão sem raio ainda seria um
+          // cartão se a faixa não pintasse de ponta a ponta.
+          fundo: cs.backgroundColor };
+      })(),
     };
   });
   checar(bib.semTotal && bib.semBotaoNoCabecalho,
     'o "Baixar toda a biblioteca" e o peso total SAÍRAM do cabeçalho', JSON.stringify(bib));
-  checar(bib.soALista,
-    'a janela da Biblioteca é SÓ A LISTA (v1.5.0) — a barra de busca saiu dela');
-  checar(bib.barraForaDaJanela && bib.campoNaBarra
+  checar(bib.colunaDeDois,
+    'a janela da Biblioteca é uma coluna `[barra][lista]` e nada mais (v1.5.1) — '
+    + 'a barra é a CABEÇA dela, e é por isso que ela sobe junto');
+  checar(bib.quantasBarras === 1 && bib.campoNaBarra
     && bib.alternadorNaBarra && bib.sorteioNaBarra,
-    'e ela está inteira FORA, na caixa de controles: o dado, o campo e o '
-    + 'alternador — duas barras seriam duas verdades sobre o mesmo campo, e a de '
-    + 'dentro sumiria atrás da de fora', JSON.stringify(bib.ordem));
+    'e ela é UMA só no app inteiro, com as três peças na ordem de sempre — duas '
+    + 'barras seriam duas verdades sobre o mesmo campo', JSON.stringify(bib.ordem));
+  checar(bib.faixa.esq === 0 && bib.faixa.dir === 0
+    && /^0px 0px$/.test(bib.faixa.raio)
+    && !/rgba\(0, 0, 0, 0\)/.test(bib.faixa.fundo),
+    'e ela é uma FAIXA de lado a lado, não um cartão: sem raio, sem margem e '
+    + 'com fundo próprio — cartão é o que ela nunca foi (v1.5.1)',
+    JSON.stringify(bib.faixa));
 } catch (e) {
   checar(false, 'a medição da Biblioteca terminou sem exceção (' + (e && e.message) + ')');
 }
 
-// ---------- A BIBLIOTECA VOLTOU A SER UMA JANELA, E ELA SOBE (v1.5.0) -------
+// ---------- A BIBLIOTECA SOBE DA BASE, LEVANTANDO A BARRA (v1.5.1) ---------
 //
-// **Isto REVOGA a v5.263**, que tinha tirado o slide (*"faça apenas um fade in
-// e out para a biblioteca, e faça dela uma tela inteira e não um tipo de pop
-// up"*). O pedido de agora é o oposto, e a razão mudou junto: lá a barra de
-// busca morava DENTRO dela, e um campo de texto numa folha que desliza briga com
-// o teclado — foram três lotes consertando o entorno daquela animação. Aqui a
-// barra ficou FORA, na caixa de controles: a janela não tem campo nenhum, e o
-// que sobe é uma lista.
+// **Isto REVOGA a v5.263** (*"faça apenas um fade in e out … e faça dela uma
+// tela inteira e não um tipo de pop up"*) e AJUSTA a v1.5.0, que a fez subir até
+// uma folga do topo com a barra parada na caixa de controles.
 //
-// *"a biblioteca agora vai abrir abaixo dessa barra de buscas de forma animada,
-// fazendo ela subir até o topo da tela … com uma ligeira folga do topo da tela
-// quando aberta, para deixar claro que a biblioteca é apenas uma janela dentro
-// do app."*
+// *"ela é um popup de tela inteira, ela surge da base da tela e vai levantando a
+// barra de buscas, de modo que a barra de buscas acabe no topo da biblioteca.
+// (isso resolve o problema que temos atualmente da caixa de texto ficar
+// escondida pelo teclado)"*
 //
-// TRÊS metades, e a terceira é a que separa "janela" de "tela": ela SOBE (o
-// deslocamento existe e é vertical), ela PARA antes do topo (a folga), e ela
-// para ANTES DA BARRA embaixo — é de lá que ela saiu.
+// QUATRO metades, e a última é a razão de ser do desenho:
+//
+//  1. FECHADA, só a barra aparece — encostada na BASE da tela.
+//  2. ABERTA, a janela é a tela inteira: do topo à base, sem folga.
+//  3. E A BARRA SUBIU COM ELA, parando no TOPO — é o mesmo nó, não uma segunda
+//     barra: um transporte entre dois pais no meio de um `transform` é o que
+//     este desenho existe para não precisar.
+//  4. **O CAMPO FICA ACIMA DA METADE DE CIMA DA TELA.** É a asserção que carrega
+//     o pedido: o teclado sobe da base, e quatro lotes da era da barra-na-base
+//     (v5.261, v5.264, v5.266, v5.270) tentaram consertar por fora o campo que
+//     ele cobria. Medir "está no topo da janela" não bastaria — a janela poderia
+//     estar em qualquer lugar; o que importa é onde o campo está NA TELA.
 try {
   const tela = await pg.evaluate(async () => {
     const camada = document.getElementById('hymnSearchPopup');
     const folha = camada && camada.querySelector('.popup-sheet');
     const barra = document.querySelector('.lib-bar');
+    const campo = document.getElementById('hymnSearchInput');
     if (!folha || !barra) return null;
-    // `matrix(a,b,c,d,tx,ty)`: o deslocamento vertical é o `ty`.
-    const ty = (el) => {
-      const m = /matrix\(([^)]+)\)/.exec(getComputedStyle(el).transform);
-      return m ? Math.abs(parseFloat(m[1].split(',')[5])) : 0;
-    };
+    const cx = (el) => { const r = el.getBoundingClientRect();
+      return { t: Math.round(r.top), b: Math.round(r.bottom) }; };
+    // ELE ESPERA A JANELA POUSAR, e espera pelo FATO: a translação leva
+    // `--pop-anim` (0,28 s) e medida no meio ela responde o ponto de partida.
+    // `getAnimations()` + `finished` é o sinal do navegador — um prazo nosso
+    // aqui mediria o agendador do runner, não o desenho.
+    const pousar = () => Promise.all(folha.getAnimations().map((a) => a.finished))
+      .catch(() => {});
     setAppMode('full');
     closeHymnSearch();
-    await new Promise((r) => setTimeout(r, 500));
-    const fechada = ty(folha);
+    await pousar();
+    const fechada = { barra: cx(barra), folha: cx(folha) };
     openHymnSearch(false);
-    await new Promise((r) => setTimeout(r, 600));
-    const cf = folha.getBoundingClientRect();
-    const cb = barra.getBoundingClientRect();
-    const r = {
-      fechada, aberta: ty(folha),
-      folgaTopo: Math.round(cf.top),
-      // A base da janela encosta no TOPO da barra, medida em runtime.
-      vaoAteABarra: Math.round(cb.top - cf.bottom),
-      alturaDaTela: Math.round(window.innerHeight),
-    };
+    await pousar();
+    const aberta = { barra: cx(barra), folha: cx(folha), campo: cx(campo) };
     closeHymnSearch();
-    return r;
+    return { fechada, aberta, altura: Math.round(window.innerHeight) };
   });
-  checar(!!tela && tela.fechada > 0 && tela.aberta === 0,
-    'a Biblioteca SOBE: fechada ela está deslocada para baixo (atrás da barra) e '
-    + 'aberta ela está no lugar', tela ? tela.fechada + ' → ' + tela.aberta : 'sem folha');
-  checar(!!tela && tela.folgaTopo > 4 && tela.folgaTopo < tela.alturaDaTela / 4,
-    'e ela PARA antes do topo — a folga é o que diz que ela é uma janela dentro '
-    + 'do app, e não a tela inteira', tela ? tela.folgaTopo + 'px' : '?');
-  checar(!!tela && Math.abs(tela.vaoAteABarra) <= 2,
-    'e a base dela encosta no TOPO da barra que a abriu — é de lá que ela sai, e '
-    + 'a medida é feita em runtime porque a caixa de controles muda de altura',
-    tela ? tela.vaoAteABarra + 'px' : '?');
+  checar(!!tela && Math.abs(tela.fechada.barra.b - tela.altura) <= 2
+    && tela.fechada.barra.t > tela.altura / 2,
+    'FECHADA, só a barra aparece — encostada na BASE da tela',
+    tela ? JSON.stringify(tela.fechada) : 'sem folha');
+  checar(!!tela && tela.aberta.folha.t <= 1
+    && Math.abs(tela.aberta.folha.b - tela.altura) <= 2,
+    'ABERTA, ela é a tela INTEIRA: do topo à base, sem folga — era o pedido '
+    + '("ela é um popup de tela inteira")',
+    tela ? JSON.stringify(tela.aberta.folha) : '?');
+  checar(!!tela && tela.aberta.barra.t <= 1,
+    'e a BARRA subiu com ela, parando no topo — é o mesmo nó, não uma segunda '
+    + 'barra', tela ? JSON.stringify([tela.fechada.barra, tela.aberta.barra]) : '?');
+  checar(!!tela && tela.aberta.campo.b < tela.altura / 2,
+    'com o CAMPO na metade de cima da tela: o teclado sobe da base, e é isso que '
+    + 'resolve o que quatro lotes tentaram consertar por fora',
+    tela ? tela.aberta.campo.b + 'px de ' + tela.altura : '?');
 } catch (e) {
   checar(false, 'a medição da abertura da Biblioteca terminou sem exceção (' + (e && e.message) + ')');
+}
+
+// ---- NO MODO FÁCIL A BARRA NÃO FICA À VISTA (v1.5.1) ----
+//
+// Aquele modo esconde a caixa de controles inteira (`body.mode-simple
+// .bottombar`) porque ele não tem cromo de operação na base — a porta da
+// Biblioteca lá é a LUPA da zona de leitura. Enquanto a barra morava DENTRO da
+// caixa (v1.5.0) ela sumia de carona; com ela dentro da janela, sumir virou uma
+// regra que alguém precisa escrever — e a falha é visível mas MUDA: uma faixa de
+// busca na base do modo que existe para não ter faixa nenhuma, sem erro em lugar
+// nenhum.
+//
+// TRÊS metades: ela sai INTEIRA (a janela recebe toque também fechada, e uma
+// faixa transparente engolindo o dedo na base é pior que a faixa à vista), a
+// LUPA continua abrindo a janela de tela cheia com a barra no topo — sem esta,
+// esconder a janela no modo fácil apagaria a Biblioteca de lá —, e ela abre SEM
+// FOCO, porque é um BOTÃO (a regra das duas portas da v1.5.0; o ouvinte
+// registrado por REFERÊNCIA passava o `PointerEvent` como `comFoco`, e um evento
+// é truthy).
+try {
+  const facil = await pg.evaluate(async () => {
+    const camada = document.getElementById('hymnSearchPopup');
+    const folha = camada.querySelector('.popup-sheet');
+    const barra = document.querySelector('.lib-bar');
+    const campo = document.getElementById('hymnSearchInput');
+    const pousar = () => Promise.all(folha.getAnimations().map((a) => a.finished))
+      .catch(() => {});
+    const modoAntes = appMode;
+    closeHymnSearch();
+    setAppMode('simple');
+    await pousar();
+    const fechada = Math.round(barra.getBoundingClientRect().top);
+    campo.blur();
+    document.getElementById('simpleSearchBtn').click();
+    await pousar();
+    const aberta = {
+      barra: Math.round(barra.getBoundingClientRect().top),
+      folha: Math.round(folha.getBoundingClientRect().top),
+      // NO MESMO TURNO da espera: o foco da porta com teclado é adiado
+      // (`ABRIR_TECLADO_MS`), então a leitura depois do pouso já o pegaria.
+      focado: document.activeElement === campo,
+    };
+    closeHymnSearch();
+    setAppMode(modoAntes);
+    await pousar();
+    return { fechada, aberta, altura: window.innerHeight };
+  });
+  checar(facil.fechada >= facil.altura - 1,
+    'no MODO FÁCIL a barra de busca sai INTEIRA da tela com a Biblioteca '
+    + 'fechada: aquele modo não tem cromo de operação na base',
+    facil.fechada + 'px de ' + facil.altura);
+  checar(facil.aberta.folha <= 1 && facil.aberta.barra <= 1,
+    'e a LUPA de lá continua abrindo a janela inteira, com a barra no topo — '
+    + 'esconder a barra não pode apagar a Biblioteca do Modo Fácil',
+    JSON.stringify(facil.aberta));
+  checar(facil.aberta.focado === false,
+    'e ela abre SEM foco: é um BOTÃO, e botão abre sem teclado ("ver o que eu '
+    + 'tenho")');
+} catch (e) {
+  checar(false, 'a medição da Biblioteca no Modo Fácil terminou sem exceção ('
+    + (e && e.message) + ')');
+}
+
+// ---- A JANELA NÃO SE MEXE NA ABERTURA DO APP (v1.5.1) ----
+//
+// A translação que fecha a Biblioteca TRANSICIONA, e a altura da barra é MEDIDA
+// em runtime. Enquanto o que se media era o deslocamento INTEIRO (60px de
+// palpite no CSS contra 847px medidos), a primeira escrita do JS disparava essa
+// transição: **a Biblioteca varria a tela de cima a baixo na abertura do app**,
+// por 0,28 s, com tudo por baixo dela intocável no caminho — ela é de tela cheia
+// e recebe toque também fechada, porque a barra é dela.
+//
+// *Uma medida que anima é uma medida que precisa nascer quase certa.* Escrita
+// como `100% - var(--lib-bar-h)`, a porcentagem é da própria caixa e o palpite
+// erra por pixels.
+//
+// ELE MEDE A AUSÊNCIA, e por isso precisa de uma PÁGINA NOVA e de um ouvinte
+// instalado ANTES dela: o defeito acontece nos primeiros quadros e não deixa
+// rastro nenhum depois — medir o estado final aprova as duas versões. O sinal é
+// o `transitionrun` do próprio navegador (ele dispara mesmo com atraso, e mesmo
+// que ninguém desenhe quadro), capturado no `document` porque o nó ainda não
+// existe quando o ouvinte é posto.
+try {
+  const pg2 = await ctx.newPage();
+  await pg2.addInitScript(() => {
+    window.__libTransicoes = 0;
+    document.addEventListener('transitionrun', (e) => {
+      if (e.propertyName === 'transform' && e.target instanceof Element
+        && e.target.classList.contains('popup-sheet--lib')) window.__libTransicoes++;
+    }, true);
+  });
+  await pg2.goto(base + '/controle/', { waitUntil: 'domcontentloaded' });
+  await pg2.waitForFunction(
+    () => window.AVDB && typeof window.__avBack === 'function'
+      && !!document.querySelector('#playlist li'),
+    null, { timeout: 30000 },
+  );
+  const arranque = await pg2.evaluate(() => {
+    const folha = document.querySelector('.popup-sheet--lib');
+    const barra = document.querySelector('.lib-bar');
+    const r = folha.getBoundingClientRect();
+    const rb = barra.getBoundingClientRect();
+    return { transicoes: window.__libTransicoes,
+      // E ela nasce NO LUGAR: a barra encostada na base, sem ter andado até lá.
+      barraNaBase: Math.round(window.innerHeight - rb.bottom),
+      folhaTopo: Math.round(r.top), altura: window.innerHeight };
+  });
+  await pg2.close();
+  checar(arranque.transicoes === 0,
+    'a janela da Biblioteca NÃO SE MEXE na abertura do app: a medida da barra '
+    + 'entra sem disparar a transição — uma medida que anima precisa nascer '
+    + 'quase certa (v1.5.1)', arranque.transicoes + ' transição(ões)');
+  checar(Math.abs(arranque.barraNaBase) <= 2 && arranque.folhaTopo > 0,
+    'e ela nasce NO LUGAR: a barra já está encostada na base no primeiro quadro',
+    JSON.stringify(arranque));
+} catch (e) {
+  checar(false, 'a medição do arranque da Biblioteca terminou sem exceção ('
+    + (e && e.message) + ')');
 }
 
 // ---------- A TELA VEM NUM TEMPO, O TECLADO NO SEGUINTE (v5.264) ----------
@@ -4913,11 +5079,12 @@ try {
   // janela termina onde a barra começa, e é de lá que ela sobe. Sem estas duas,
   // uma barra que voltasse para dentro da folha passaria pelo resto do caso sem
   // reprovar nada.
-  checar(!!geo.sem.barra && !!geo.sem.folha && perto(geo.sem.barra.top, geo.sem.folha.bottom),
-    'sem teclado, a janela termina onde a BARRA começa — ela é de onde a janela sobe');
-  checar(!!geo.sem.lista && perto(geo.sem.lista.top, geo.sem.folha.top)
+  checar(!!geo.sem.barra && !!geo.sem.folha && perto(geo.sem.barra.top, geo.sem.folha.top),
+    'sem teclado, a BARRA é o topo da janela — ela subiu com ela');
+  checar(!!geo.sem.lista && perto(geo.sem.lista.top, geo.sem.barra.bottom)
     && perto(geo.sem.lista.bottom, geo.sem.folha.bottom),
-    'e a lista É a janela: ela ocupa a folha inteira, porque não há mais nada dentro dela');
+    'e a lista começa onde a barra termina e vai até a base — a rolagem passa por '
+    + 'BAIXO dela');
   // O TECLADO SOBREPÕE E A CAMADA NÃO PERSEGUE NADA (v5.280). A v5.278 fazia a
   // folha descer junto com a viewport visual para a barra não sair pelo topo; o
   // operador recusou o mecanismo e nomeou o certo — quem rola é a LISTA, e a
@@ -4929,10 +5096,9 @@ try {
     'e ela NÃO ENCOLHE: o teclado não reflui a lista ('
     + Math.round(geo.sem.folha.height) + 'px → ' + Math.round(geo.com.folha.height) + 'px)');
   checar(!!geo.com.barra && !!geo.com.lista
-    && perto(geo.com.lista.top, geo.com.folha.top)
-    && geo.com.barra.top >= geo.com.folha.bottom - 1,
-    'e a ordem continua colada, agora de baixo para cima: lista = janela, e a '
-    + 'barra logo abaixo dela');
+    && perto(geo.com.barra.top, geo.com.folha.top)
+    && perto(geo.com.lista.top, geo.com.barra.bottom),
+    'e a ordem de cima continua colada: janela → barra → lista');
 } catch (e) {
   checar(false, 'a medição da busca com teclado terminou sem exceção (' + (e && e.message) + ')');
 }

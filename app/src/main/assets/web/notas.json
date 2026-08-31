@@ -1,5 +1,14 @@
 [
   {
+    "versao": "1.5.1",
+    "itens": [
+      "A barra de busca virou uma faixa de lado a lado, na base do app.",
+      "A Biblioteca agora é uma janela de tela cheia, que sobe da base.",
+      "Ela leva a barra de busca junto: o campo termina no topo da tela.",
+      "Com isso o teclado deixou de cobrir o campo de busca."
+    ]
+  },
+  {
     "versao": "1.5.0",
     "itens": [
       "O Cronograma virou a tela única: a barra de abas saiu.",
