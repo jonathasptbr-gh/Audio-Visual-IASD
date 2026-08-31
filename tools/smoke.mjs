@@ -4662,7 +4662,11 @@ try {
 //  1. FECHADA, só a barra aparece — no LUGAR dela, o topo da caixa de controles
 //     (v1.5.2; era a base da tela na v1.5.1). E nada da janela existe abaixo
 //     disso: quem apaga é o recorte da camada.
-//  2. ABERTA, a janela é a tela inteira: do topo à base, sem folga.
+//  2. ABERTA, a janela vai do topo à LINHA DA BARRA, e não mais até a base
+//     (v1.5.4, pedido do operador: *"ajuste para que ela use a área … até o
+//     topo … mantendo sempre os controles visíveis"*). O que ela deixa de fora
+//     é a caixa de controles, que continua VISÍVEL e alcançável — pausar o
+//     louvor enquanto se procura o próximo deixou de exigir fechar a janela.
 //  3. E A BARRA SUBIU COM ELA, parando no TOPO — é o mesmo nó, não uma segunda
 //     barra: um transporte entre dois pais no meio de um `transform` é o que
 //     este desenho existe para não precisar.
@@ -4702,7 +4706,16 @@ try {
       })() };
     openHymnSearch(false);
     await pousar();
-    const aberta = { barra: cx(barra), folha: cx(folha), campo: cx(campo) };
+    const aberta = { barra: cx(barra), folha: cx(folha), campo: cx(campo),
+      camada: cx(camada),
+      // O QUE O DEDO ENCONTRA no meio da caixa de controles, com a janela
+      // ABERTA: tem de ser o app. É a metade que prova que a janela não cobre
+      // mais os controles — e ela é sobre o TOQUE, não sobre o pixel.
+      controles: (() => {
+        const r = caixa.getBoundingClientRect();
+        const e = document.elementFromPoint(window.innerWidth / 2, r.top + r.height / 2);
+        return e && camada.contains(e) ? 'a janela' : 'o app';
+      })() };
     closeHymnSearch();
     return { fechada, aberta, altura: Math.round(window.innerHeight) };
   });
@@ -4713,11 +4726,14 @@ try {
     'e nada da janela existe abaixo dela: o recorte da camada apaga o pixel E o '
     + 'toque, senão a folha de tela cheia ficaria por cima do transporte',
     tela ? tela.fechada.dedoAbaixo : '?');
-  checar(!!tela && tela.aberta.folha.t <= 1
-    && Math.abs(tela.aberta.folha.b - tela.altura) <= 2,
-    'ABERTA, ela é a tela INTEIRA: do topo à base, sem folga — era o pedido '
-    + '("ela é um popup de tela inteira")',
-    tela ? JSON.stringify(tela.aberta.folha) : '?');
+  checar(!!tela && tela.aberta.camada.t <= 1
+    && Math.abs(tela.aberta.camada.b - (tela.fechada.barra.b)) <= 2,
+    'ABERTA, ela vai do topo até a LINHA DA BARRA — e não mais até a base '
+    + '(v1.5.4)', tela ? JSON.stringify(tela.aberta) : '?');
+  checar(!!tela && tela.aberta.controles === 'o app',
+    'e os CONTROLES continuam visíveis E alcançáveis por baixo dela: fora do '
+    + 'recorte não há camada nenhuma — nem pixel, nem scrim, nem toque',
+    tela ? tela.aberta.controles : '?');
   checar(!!tela && tela.aberta.barra.t <= 1,
     'e a BARRA subiu com ela, parando no topo — é o mesmo nó, não uma segunda '
     + 'barra', tela ? JSON.stringify([tela.fechada.barra, tela.aberta.barra]) : '?');

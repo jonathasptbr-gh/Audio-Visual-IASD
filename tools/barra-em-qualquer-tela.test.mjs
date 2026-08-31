@@ -27,12 +27,25 @@
 //     app remede com ele no ar, o teclado some — e a barra fica parada onde a
 //     caixa estava. MEDIDO aqui: 290px acima do lugar, flutuando sobre a lista.
 //
-// ## O que ele afirma, e por que essas três coisas
+// ## O que ele afirma
 //
-// Em CADA configuração de tela: a barra pousa EXATAMENTE na borda de cima da
-// caixa de controles; ela aparece INTEIRA (o topo e a base dela recebem o dedo);
-// e logo abaixo dela não existe nada da janela — que é a metade que mantém o
-// transporte alcançável com a Biblioteca fechada.
+// Em CADA configuração de tela, com a Biblioteca FECHADA: a barra pousa
+// EXATAMENTE na borda de cima da caixa de controles; ela aparece INTEIRA (o topo
+// e a base dela recebem o dedo); e logo abaixo dela não existe nada da janela.
+//
+// E DUAS COISAS SOBRE O MOVIMENTO (v1.5.4), que são o segundo relato do
+// operador: *"a barra superior acima da barra de buscas … quando é animada para
+// fechamento, se torna uma margem saliente durante o movimento"*.
+//
+//  · **NADA VIAJA ACIMA DA BARRA.** Aquela margem era o `padding-top` da folha —
+//    a área segura escrita como RECUO, que existe nos dois estados e portanto
+//    acompanha a coluna no meio do caminho. Hoje a barra é o primeiro pixel da
+//    folha e a área segura é o DESTINO da abertura. A asserção é medida NO MEIO
+//    da animação, que é o único instante em que ela falha.
+//  · **OS CONTROLES CONTINUAM ALCANÇÁVEIS COM A JANELA ABERTA.** A janela
+//    terminou de ir da base ao topo e passou a ir do topo até a linha da barra
+//    (*"mantendo sempre os controles visíveis"*), e fora do recorte não há
+//    camada nenhuma.
 //
 // A medida do recorte é por HIT-TEST, e não pela string do `clip-path`: o que
 // importa é o que o dedo encontra, e uma string com `calc()` não resolvido
@@ -152,8 +165,53 @@ try {
       }
       const bar = document.querySelector('.lib-bar');
       const caixa = document.querySelector('.bottombar');
+      const camada = document.getElementById('hymnSearchPopup');
       const rb = bar.getBoundingClientRect();
       const rc = caixa.getBoundingClientRect();
+      const daJanela = (x, y) => {
+        const e = document.elementFromPoint(Math.round(x), Math.round(y));
+        return !!e && camada.contains(e);
+      };
+      // A COLUNA, não a camada. A camada ocupa legitimamente toda a região acima
+      // da linha da barra (é dentro dela que a coluna desliza), então perguntar
+      // por ela responde "sim" em todo ponto do percurso — e aprovaria a margem
+      // saliente. Quem viaja é a coluna, e a barra é o primeiro pixel dela.
+      const daColuna = (x, y) => {
+        const e = document.elementFromPoint(Math.round(x), Math.round(y));
+        return !!e && folha.contains(e);
+      };
+      // ===== O MEIO DO MOVIMENTO, que é onde a margem saliente aparecia =====
+      // Abre, espera a coluna estar A CAMINHO (nem no lugar de partida, nem no
+      // de chegada) e pergunta o que existe LOGO ACIMA da barra. A resposta certa
+      // é "nada da janela": a barra é o primeiro pixel dela.
+      const noMeio = await (async () => {
+        openHymnSearch(false);
+        for (let i = 0; i < 90; i++) {
+          await new Promise((r) => requestAnimationFrame(r));
+          const t = bar.getBoundingClientRect().top;
+          if (t < rb.top - 24 && t > 24) {
+            return { topo: Math.round(t), acima: daColuna(rb.left + rb.width / 2, t - 6) };
+          }
+        }
+        return { topo: -1, acima: false };
+      })();
+      // ===== E A JANELA ABERTA NÃO COBRE OS CONTROLES =====
+      const folha2 = document.querySelector('.popup-sheet--lib');
+      for (let i = 0; i < 90; i++) {
+        const anims = folha2.getAnimations ? folha2.getAnimations() : [];
+        if (!anims.some((a) => a.playState === 'running')) break;
+        await new Promise((r) => requestAnimationFrame(r));
+      }
+      const aberta = {
+        barra: Math.round(bar.getBoundingClientRect().top),
+        controles: daJanela(window.innerWidth / 2, rc.top + rc.height / 2) ? 'a janela' : 'o app',
+      };
+      closeHymnSearch();
+      for (let i = 0; i < 90; i++) {
+        const anims = folha2.getAnimations ? folha2.getAnimations() : [];
+        if (!anims.some((a) => a.playState === 'running')) break;
+        await new Promise((r) => requestAnimationFrame(r));
+      }
       // O QUE O DEDO ENCONTRA. Três pontos: dentro do topo da barra, dentro da
       // base dela, e logo abaixo — o recorte tem de deixar passar os dois
       // primeiros e apagar o terceiro.
@@ -169,6 +227,8 @@ try {
         baseDaBarra: naJanela(rb.bottom - 3),
         abaixoDaBarra: naJanela(rb.bottom + 12),
         alturaDaBarra: Math.round(rb.height),
+        noMeio,
+        aberta,
       };
     }, tela);
 
@@ -183,6 +243,14 @@ try {
       '[' + tela.nome + '] e logo abaixo dela não existe nada da janela: o '
       + 'transporte continua alcançável com a Biblioteca fechada',
       JSON.stringify(m));
+    checar(m.noMeio.topo > 0 && !m.noMeio.acima,
+      '[' + tela.nome + '] NO MEIO do movimento nada viaja acima da barra — a '
+      + 'área segura é o DESTINO da abertura, não um recuo que acompanha a '
+      + 'coluna (v1.5.4)', JSON.stringify(m.noMeio));
+    checar(m.aberta.controles === 'o app',
+      '[' + tela.nome + '] e ABERTA ela não cobre os controles: a janela vai do '
+      + 'topo até a linha da barra, e fora do recorte não há camada',
+      JSON.stringify(m.aberta));
 
     await ctx.close();
   }
