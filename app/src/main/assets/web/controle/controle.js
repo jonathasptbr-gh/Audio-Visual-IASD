@@ -240,7 +240,13 @@ const histClearFaixaEl = document.getElementById('histClearFaixa');
 
 const fileEl = document.getElementById('file');
 const mainEl = document.querySelector('main');
-const tabsEl = document.querySelector('.tabs');
+// (`tabsEl` saiu na v1.5.0 com a faixa de abas — ver `.lib-bar` no `index.html`.)
+const libBarEl = document.getElementById('libBar');
+const hymnSearchToggleEl = document.getElementById('hymnSearchToggle');
+const bibleSheetEl = document.getElementById('bibleSheet');
+const bibleBodyEl = document.getElementById('bibleBody');
+const bibleBackEl = document.getElementById('bibleBack');
+const bibleCloseEl = document.getElementById('bibleClose');
 const libraryEl = document.getElementById('library');
 // O rodapé FIXO da caixa da lista: fora do `<ul>` rolável, e por isso sempre à
 // vista. Hospeda "Importar arquivos" e, durante a seleção múltipla, a `#selbar`
@@ -267,7 +273,7 @@ const appVersionEl = document.getElementById('appVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.4.45';
+const WEB_VERSION = '1.5.0';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -481,9 +487,11 @@ const songMenuTitleEl = document.getElementById('songMenuTitle');
 const songMenuListEl = document.getElementById('songMenuList');
 const songMenuCloseEl = document.getElementById('songMenuClose');
 
-const hymnSearchBtnEl = document.getElementById('hymnSearchBtn');
+// (`#hymnSearchBtn` e `#hymnSearchClose` saíram na v1.5.0: a lupa da faixa de
+//  abas e o ✕ de dentro da folha viraram UM botão só, o `#hymnSearchToggle` da
+//  `.lib-bar`, que troca de desenho conforme a Biblioteca esteja aberta ou
+//  fechada. Ver `renderLibToggle`.)
 const hymnSearchPopupEl = document.getElementById('hymnSearchPopup');
-const hymnSearchCloseEl = document.getElementById('hymnSearchClose');
 const hymnSearchInputEl = document.getElementById('hymnSearchInput');
 const hymnResultsEl = document.getElementById('hymnResults');
 const bibleVerPopupEl = document.getElementById('bibleVerPopup');
@@ -543,7 +551,22 @@ let playing = false;
 // `pushNowPlaying` retorna antes de chegar nele).
 let seeking = false;      // operador arrastando a barra de progresso
 let repeat = 'all';
-let activeTab = 'imports';
+// ===== A BÍBLIA ESTÁ NO AR? (v1.5.0) =====
+// Era `activeTab`, com dois valores ('imports' e 'bible'), porque havia DUAS
+// telas de lista e uma faixa de abas para escolher entre elas. Com o Cronograma
+// virando a tela única, "qual aba" deixou de ser uma pergunta: o que sobra é se
+// a FOLHA da Bíblia está aberta por cima dele.
+//
+// O nome mudou porque o conceito mudou. Um `activeTab` que só pode valer
+// 'imports' é uma variável que responde uma pergunta que ninguém faz mais — e
+// as duas dúzias de `activeTab === 'imports'` que ela sustentava eram, todas,
+// "o Cronograma está à vista?", que hoje é sempre verdade (a folha cobre a
+// lista, não a substitui).
+//
+// É um BOOLEANO e não `!bibleSheetEl.hidden`: o `hidden` só cai no FIM da
+// animação de saída (ver `fecharBiblia`), e durante esses 220 ms os redesenhos
+// da Bíblia continuariam sendo pedidos para uma folha que já saiu de cena.
+let bibliaNoAr = false;
 let selectionMode = false;
 const selected = new Set();
 // Miniaturas blob→object URL, POR HOST de lista: com um balde único, redesenhar
@@ -2819,18 +2842,13 @@ async function load(opts) {
   const cifraVelV = await AVDB.getState('cifraVelocidade');
   const lyricsBgV = (await AVDB.getState('lyricsBg')) === 'black' ? 'black' : 'image';
   const downloadOkV = !!(await AVDB.getState('downloadOk'));
-  let libItemsV;
-  if (activeTab === 'imports') {
-    // Só a aba que é de fato lista de IDs de mídia. 'bible' e 'messages'
-    // NÃO são listas de mídia — e 'messages' guarda
-    // objetos {id,text} no mesmo state key, então passar isso por listItems
-    // (getMedia por id) lançaria DataError e quebraria o load() inteiro.
-    // ('playlist' saiu da comparação: nenhum caminho produz esse activeTab —
-    // a playlist é popup desde que virou `#plPopup`.)
-    libItemsV = await AVDB.listItems(activeTab);
-  } else {
-    libItemsV = [];
-  }
+  // A LISTA DA TELA É SEMPRE O CRONOGRAMA (v1.5.0). Ela era `listItems(activeTab)`
+  // dentro de uma guarda, porque a aba podia ser a Bíblia — e ali a leitura
+  // tinha de ser pulada: `'bible'` não é lista de mídia, e passá-la por
+  // `listItems` (um `getMedia` por id) lançaria `DataError` e derrubaria o
+  // `load()` inteiro. Com a Bíblia virando FOLHA, a lista de baixo não muda
+  // nunca, e a guarda deixou de ter o que guardar.
+  const libItemsV = await AVDB.listItems('imports');
   const curMediaId = cur && cur.mediaId ? cur.mediaId : null;
   const currentItemV = curMediaId ? (await AVDB.getMedia(curMediaId)) || null : null;
 
@@ -2873,7 +2891,7 @@ async function load(opts) {
   renderControls();
   renderNowPlaying();
   renderRepeat();
-  renderTabs();
+  renderLibToggle();
   renderListTitle();
   renderPlaylist();
   renderLibrary();
@@ -2913,9 +2931,12 @@ async function load(opts) {
   libraryEl.scrollTop = restaurar ? (scrollPos[scrollKey()] || 0) : topoAntes;
 }
 
-// chave de posição de scroll: aba (+ pasta aberta, se houver)
+// Chave de posição de scroll. Ela era a ABA; com o Cronograma virando a tela
+// única sobrou uma chave só — o mapa fica porque `rememberScroll`/`load` o
+// consultam em pontos espalhados, e um nome constante custa menos que
+// desmontá-los.
 function scrollKey() {
-  return activeTab;
+  return 'imports';
 }
 function rememberScroll() {
   scrollPos[scrollKey()] = libraryEl.scrollTop;
@@ -3324,41 +3345,19 @@ function resyncScene() {
   pushNowPlaying();
 }
 
-function renderTabs() {
-  tabsEl.querySelectorAll('.tab').forEach((t) => t.classList.toggle('active', t.dataset.tab === activeTab));
-  moveTabIndicator();
-}
-
-// Põe o vazado (`.tab-ind`) sobre a aba ativa. Ele é UM elemento para os três
-// alvos justamente para poder DESLIZAR entre eles — a transição está no CSS;
-// aqui só se escreve para onde ir.
-//
-// Medido, não calculado por fração: `offsetLeft`/`offsetWidth` da célula ativa
-// valem para qualquer arranjo da faixa, enquanto um "25% por aba" seria uma
-// suposição sobre a contagem de alvos que quebraria calada no dia em que um
-// deles mudasse de tamanho ou sumisse.
-//
-// `animar = false` para POUSAR em vez de viajar: na primeira medição e num
-// `resize`, uma transição faria o vazado atravessar a tela vindo da borda
-// esquerda (onde ele nasce, com largura 0).
-function moveTabIndicator(animar) {
-  const alvo = tabsEl.querySelector('.tab.active');
-  // Sem largura = faixa oculta (modo simplificado esconde a caixa de
-  // controles). Medir ali daria 0 e apagaria a posição boa que já está lá.
-  if (!alvo || !alvo.offsetWidth) return;
-  if (animar === false) {
-    tabsEl.classList.add('no-anim');
-    // Força o reflow ANTES de escrever a posição nova: sem isto o navegador
-    // agrupa a classe e o valor na mesma passada e a transição roda mesmo
-    // assim.
-    void tabsEl.offsetWidth;
-  }
-  tabsEl.style.setProperty('--tab-x', alvo.offsetLeft + 'px');
-  tabsEl.style.setProperty('--tab-w', alvo.offsetWidth + 'px');
-  if (animar === false) {
-    void tabsEl.offsetWidth;
-    tabsEl.classList.remove('no-anim');
-  }
+// (`renderTabs` era o realce da aba ativa mais o vazado deslizante. Com a faixa
+//  fora, o que ocupa o lugar dela é o desenho do botão da Biblioteca — SETA
+//  quando ela está fechada, ✕ quando aberta.)
+function renderLibToggle() {
+  if (!hymnSearchToggleEl) return;
+  const aberta = !!hymnSearchPopupEl && hymnSearchPopupEl.classList.contains('open');
+  // `ico-alt` é a mesma gramática dos tiles do painel rápido: os dois desenhos
+  // vivem na árvore CLARA e a classe escolhe qual aparece. Um `<symbol>` com os
+  // dois dentro carregaria os dois para sempre — a folha do documento não
+  // atravessa a árvore-sombra de um `<use>`.
+  hymnSearchToggleEl.classList.toggle('alt', aberta);
+  hymnSearchToggleEl.title = aberta ? 'Fechar a Biblioteca' : 'Abrir a Biblioteca';
+  hymnSearchToggleEl.setAttribute('aria-label', hymnSearchToggleEl.title);
 }
 
 // O cabeçalho da LISTA (a faixa de cima da tela avançada). Desde a v5.247 ele
@@ -3374,15 +3373,9 @@ function renderListTitle() {
   //  continua dizendo "Cronograma", que é onde o operador de fato está.
   //  As funções seguem `renderDiversos`/`refreshDiversos` e o `miscTool` segue
   //  com os ids de sempre — renomeá-las não mudaria nada visível.)
-  if (activeTab === 'bible') {
-    backBtnEl.hidden = bibleScreen === 'books';
-    // A aba Bíblia era a ÚNICA sem título: ele saíra para liberar espaço numa
-    // faixa que também carregava o indicador de versão. A versão desceu para
-    // Configurações (v5.49) e a faixa passou a sobrar — e uma tela sem nome é
-    // a única do app em que "onde eu estou" depende de reconhecer a grade.
-    listTitleEl.hidden = false; listTitleEl.textContent = 'Bíblia';
-    return;
-  }
+  // (O ramo da BÍBLIA saiu na v1.5.0, com a aba. O cabeçalho do app diz sempre
+  //  "Cronograma" porque é a tela única; o nome da Bíblia e o voltar DELA moram
+  //  na barra da folha, que é o lugar de quem está dentro de uma janela.)
   backBtnEl.hidden = true;
   listTitleEl.hidden = false;
   listTitleEl.textContent = 'Cronograma';
@@ -3581,7 +3574,7 @@ async function ensureBibleMeta(force) {
     .map(async (v) => {
       if (await AVDB.getState('bibleComplete:' + v.id)) bibleCompleteVersions.add(v.id);
     }));
-  if (activeTab === 'bible') renderLibrary();
+  if (bibliaAberta()) renderBible();
 }
 
 // Versão padrão: Almeida Revista e Atualizada (RA/ARA) quando existir no banco,
@@ -3799,10 +3792,13 @@ const BIBLE_SCREENS = ['books', 'chapters', 'reading'];
 function gotoBibleScreen(screen) {
   const dir = BIBLE_SCREENS.indexOf(screen) >= BIBLE_SCREENS.indexOf(bibleScreen) ? 1 : -1;
   bibleScreen = screen;
-  renderLibrary();
-  renderListTitle();
-  libraryEl.scrollTop = 0;
-  animateTabSwitch(dir); // mesma animação de deslize das abas (genérica em #library)
+  renderBible();
+  bibleBodyEl.scrollTop = 0;
+  // O DESLIZE FICOU, e agora ele é da FOLHA (v1.5.0). Ele nasceu como a
+  // animação genérica da troca de ABA e a Bíblia pegou carona nela; com a faixa
+  // de abas fora, o único movimento lateral que sobrou no app é este — a
+  // navegação DENTRO da Bíblia, que é para onde ele sempre apontou.
+  deslizarNaFolha(bibleBodyEl, dir);
 }
 
 function renderBible() {
@@ -3815,7 +3811,15 @@ function renderBible() {
   if (bibleScreen === 'chapters') renderBibleChapters(wrap);
   else if (bibleScreen === 'reading') renderBibleReading(wrap);
   else renderBibleBooks(wrap);
-  libraryEl.appendChild(wrap);
+  // O HOST É O DA FOLHA desde a v1.5.0 — era o `#library`, o mesmo `<ul>` do
+  // Cronograma, e por isso `renderLibrary` tinha um desvio por aba no topo. Com
+  // host próprio, as duas listas deixam de disputar um nó.
+  bibleBodyEl.innerHTML = '';
+  bibleBodyEl.appendChild(wrap);
+  // O voltar é da NAVEGAÇÃO INTERNA (livros → capítulos → leitura), e por isso
+  // ele mora na barra da folha e não no cabeçalho do app: na raiz não há para
+  // onde voltar que não seja fechar, e fechar é o ✕ ao lado.
+  if (bibleBackEl) bibleBackEl.hidden = bibleScreen === 'books';
 }
 
 function bibleCell(sym, opts) {
@@ -3938,14 +3942,14 @@ function bibleVersesPane() {
 async function loadBibleChapter() {
   const seq = ++bibleLoadSeq;
   bibleChapterData = null; bibleChapterError = ''; bibleChapterLoading = true;
-  if (activeTab === 'bible') renderLibrary();
+  if (bibliaAberta()) renderBible();
   await ensureBibleMeta(false);
   if (seq !== bibleLoadSeq) return;
   const vId = bibleVersionId;
   if (vId == null) {
     bibleChapterLoading = false;
     bibleChapterError = 'Nenhuma versão da Bíblia disponível. Conecte-se à internet uma vez para baixá-la.';
-    if (activeTab === 'bible') renderLibrary();
+    if (bibliaAberta()) renderBible();
     return;
   }
   const bId = bibleBookId(bibleSel.bookIdx);
@@ -3963,14 +3967,14 @@ async function loadBibleChapter() {
       bibleChapterError = (navigator.onLine === false)
         ? 'Sem internet — não foi possível baixar este capítulo.'
         : 'Não foi possível baixar este capítulo. Tente novamente.';
-      if (activeTab === 'bible') renderLibrary();
+      if (bibliaAberta()) renderBible();
       return;
     }
   }
   if (seq !== bibleLoadSeq) return;
   bibleChapterData = cached;
   bibleChapterLoading = false;
-  if (activeTab === 'bible' && bibleScreen === 'chapters') renderLibrary();
+  if (bibliaAberta() && bibleScreen === 'chapters') renderBible();
 }
 
 // Inicia a leitura a partir do versículo `i` (índice na lista do capítulo):
@@ -3994,7 +3998,7 @@ function startBibleReading(i) {
   bibleScreen = 'reading';
   renderListTitle();
   bibleRenderReading();
-  animateTabSwitch(1); // desliza pra frente (verses → reading)
+  deslizarNaFolha(bibleBodyEl, 1); // desliza pra frente (verses → reading)
 }
 
 // Define o versículo central da leitura. Se a visualização já estiver ativa,
@@ -4071,10 +4075,10 @@ function projectBibleVerse(idx) {
 // Re-render só da tela de leitura (destaque do versículo central), preservando
 // o scroll — usado tanto ao projetar quanto ao só mover o central.
 function bibleRenderReading() {
-  if (activeTab === 'bible' && (bibleScreen === 'reading' || bibleScreen === 'chapters')) {
-    const sp = libraryEl.scrollTop;
-    renderLibrary();
-    libraryEl.scrollTop = sp;
+  if (bibliaAberta() && (bibleScreen === 'reading' || bibleScreen === 'chapters')) {
+    const sp = bibleBodyEl.scrollTop;
+    renderBible();
+    bibleBodyEl.scrollTop = sp;
   }
 }
 
@@ -4291,7 +4295,7 @@ async function ensureAdjLoaded(ref) {
       // mesmo tick não veria nem o voo nem o cache e pediria de novo.
       bibleAdjEmVoo.delete(key);
     }
-    if (seq === bibleAdjSeq && bibleSession && activeTab === 'bible' && bibleScreen === 'reading') {
+    if (seq === bibleAdjSeq && bibleSession && bibliaAberta() && bibleScreen === 'reading') {
       bibleRenderReading();
     }
   })();
@@ -4450,7 +4454,7 @@ function clearBibleSession() {
   if (bibleScreen === 'reading') bibleScreen = 'chapters';
   renderSlideNav();
   renderNowPlaying();
-  if (activeTab === 'bible') { renderLibrary(); renderListTitle(); }
+  if (bibliaAberta()) renderBible();
 }
 
 // ===== Mensagens: lista, projeção e navegação =====
@@ -4670,7 +4674,7 @@ async function adicionarNasListas(listas, id, nome, btn) {
     // não roda.
     cronoSet.add(id);
     marcarNoCronograma();
-    if (activeTab === 'imports') await load();
+    await load();
   }
   return novas.length;
 }
@@ -4761,7 +4765,7 @@ async function criarCue(cue, data, nome, destino, btn) {
   // Redesenha só quando a tela em cena é justamente a que acabou de receber o
   // item — guardar um versículo estando na aba da Bíblia não precisa remontar
   // o Cronograma, que ainda vai ser carregado ao voltar para ele.
-  if (lista === 'imports' && activeTab === 'imports') await load();
+  if (lista === 'imports') await load();
   return rec;
 }
 
@@ -6585,15 +6589,10 @@ function refreshDiversos() {
 // culto). Ser uma extensão do Cronograma é o que essa relação já era; a aba só a
 // escondia atrás de um passo lateral.
 //
-// A FAIXA VOLTOU A TER SÓ OS DOIS LUGARES DO CULTO — o roteiro e a Bíblia —
-// mais a porta da Biblioteca. Um quarto alvo ali competia com eles sem ser um
-// lugar: ninguém "está nas Ferramentas", ninguém volta para elas.
-//
-// `activeTab` CONTINUA 'imports' com a folha aberta, e isso é o recurso, não um
-// detalhe: o Cronograma segue sendo a tela em que se está, o rodapé dele
-// continua desenhado, o carrossel continua sabendo para onde ir e o voltar
-// continua tendo para onde voltar. O estado 'mic' de `activeTab` SAIU — ele
-// existia porque as ferramentas ocupavam a lista, e não ocupam mais.
+// (A faixa de abas que hospedava a porta delas saiu na v1.5.0, e com ela a
+//  última razão de haver "aba" alguma. O argumento que valia aqui — *a folha
+//  cobre a lista, não a substitui, então o Cronograma continua sendo a tela em
+//  que se está* — virou a regra do app inteiro: ele tem uma tela e duas folhas.)
 function ferramentasAbertas() { return !!toolsSheetEl && !toolsSheetEl.hidden; }
 
 // A DURAÇÃO DA ENTRADA E DA SAÍDA, e ela é UMA — lida do `--tools-anim` do CSS,
@@ -6654,6 +6653,52 @@ function fecharFerramentas() {
   }, TOOLS_ANIM_MS);
 }
 
+// ===== A FOLHA DA BÍBLIA (v1.5.0) =====
+//
+// Irmã da de Ferramentas, no mesmo molde e com a mesma mecânica de entrada e
+// saída — o que ela tem a mais é o ESTADO. As ~9 guardas espalhadas pelo
+// arquivo (o download da versão, o realce do versículo no ar, o redesenho
+// quando a leitura chega) continuam valendo: o que era `activeTab === 'bible'`
+// é hoje `bibliaAberta()`, e o que era `activeTab === 'imports'` deixou de ser
+// uma pergunta — a folha COBRE a lista, não a substitui, então o Cronograma
+// está sempre à vista por baixo.
+let bibleSaindoTimer = null;
+
+function bibliaAberta() { return !!bibleSheetEl && !bibleSheetEl.hidden; }
+
+function abrirBiblia() {
+  if (!bibleSheetEl || bibliaAberta()) return;
+  clearTimeout(bibleSaindoTimer);
+  bibleSaindoTimer = null;
+  bibleSheetEl.classList.remove('saindo');
+  // AS DUAS FOLHAS NÃO SE EMPILHAM. Elas são as duas portas do mesmo rodapé, e
+  // uma sobre a outra teria duas barras de título na mesma caixa — e dois ✕
+  // dizendo coisas diferentes.
+  fecharFerramentas();
+  bibleSheetEl.hidden = false;
+  bibliaNoAr = true;
+  // A tela de LIVROS é a raiz: entrar pela porta é começar do começo. Sem isto
+  // a Bíblia reabriria no capítulo de uma consulta de meia hora atrás — a mesma
+  // razão do `resetarBiblioteca` do acervo.
+  bibleScreen = 'books';
+  renderBible();
+  // Versões/livros e o download da versão INTEIRA na 1ª vez (em segundo plano).
+  enterBibleTab();
+}
+
+function fecharBiblia() {
+  if (!bibliaAberta()) return;
+  bibliaNoAr = false;
+  clearTimeout(bibleSaindoTimer);
+  bibleSheetEl.classList.add('saindo');
+  bibleSaindoTimer = setTimeout(() => {
+    bibleSaindoTimer = null;
+    bibleSheetEl.classList.remove('saindo');
+    bibleSheetEl.hidden = true;
+    bibleBodyEl.innerHTML = '';
+  }, TOOLS_ANIM_MS);
+}
+
 // A mensagem está NO AR? Pela PROJEÇÃO, nunca pela existência da sessão — a
 // mesma pergunta dos outros cinco provedores de Camada de Texto.
 function msgProjecting() { return !!(msgSession && msgSession.projecting); }
@@ -6675,20 +6720,17 @@ function renderLibrary() {
   // embaixo da grade de livros da Bíblia.
   renderListFoot();
 
-  if (activeTab === 'bible') {
-    renderBible();
-    return;
-  }
-
+  // (O DESVIO POR ABA saiu na v1.5.0: a Bíblia deixou de disputar este `<ul>` e
+  //  passou a desenhar no `#bibleBody` da folha dela. `renderLibrary` voltou a
+  //  ser o que o nome diz — o Cronograma, e só ele.)
   const items = libItems;
 
   // Lista vazia MAS com download em curso: a linha provisória é a única coisa
   // que existe, e ela precisa aparecer — é justamente o primeiro item chegando.
   // Sem isto o operador via "Cronograma vazio" durante todo o download do
   // primeiro vídeo, que é o pior momento possível para essa frase.
-  const provisorias = activeTab === 'imports'
-    ? [...libBaixando.entries()].filter(([chave]) => !libItems.some((m) => m.id === chave))
-    : [];
+  const provisorias = [...libBaixando.entries()]
+    .filter(([chave]) => !libItems.some((m) => m.id === chave));
 
   if (items.length === 0 && !provisorias.length) {
     host.innerHTML = '<li class="empty">Cronograma vazio.</li>';
@@ -6731,7 +6773,7 @@ function renderLibrary() {
     let ytDl = null;
     if (item.kind === 'youtube') {
       const podeBaixar = !!window.__NATIVE__;
-      if (podeBaixar && item.url && activeTab === 'imports') {
+      if (podeBaixar && item.url) {
         ytDl = document.createElement('button');
         ytDl.className = 'row-btn';
         ytDl.title = 'Baixar o vídeo e usar o arquivo no lugar do player';
@@ -6865,7 +6907,7 @@ function renderLibrary() {
         // (favoritar, playlist) e o que mexe na POSIÇÃO dele (↑↓). Antes o
         // renomear caía entre a playlist e o par de ordem, separando os dois
         // pares que se parecem.
-        botaoExcluirDaLinha(item, activeTab, () => load()),
+        botaoExcluirDaLinha(item, 'imports', () => load()),
         // RENOMEAR (v5.288), com a mesma guarda do excluir: na pasta do aparelho
         // o nome vem do arquivo, e um nome só no registro seria desfeito na
         // varredura seguinte.
@@ -6878,14 +6920,14 @@ function renderLibrary() {
         (ytDl && !dl) ? ytDl : null,
         // O PAR ↑↓ (v5.285), no lugar da alça de arrastar. Só onde há ordem a
         // mexer: a pasta do aparelho não é uma lista reordenável.
-        ...botoesDeOrdem(activeTab, item.id, i, items.length),
+        ...botoesDeOrdem('imports', item.id, i, items.length),
         // (O EXCLUIR subiu para o começo desta lista na v5.288 — ver a nota lá.
         // NA PASTA DO APARELHO ELE NÃO ENTRA, desde a v5.271: ali "excluir"
         // apaga o ARQUIVO físico, e essa limpeza tem donos próprios
         // (`deleteSelected`, com o `opfsDeleteFile` e o `purgeCatalogRecords`).
         // Um mesmo ícone com dois alcances conforme a tela é a pior forma de
         // oferecer um destrutivo.)
-      ], activeTab + ':' + item.id));
+      ], 'imports:' + item.id));
     }
     row.append(...parts);
     li.appendChild(row);
@@ -6909,6 +6951,25 @@ function renderLibrary() {
 // A função reconstrói só o que é DELA: o rodapé é dividido com a barra de
 // seleção (ver `hostSelbar`), e um `innerHTML = ''` aqui tiraria a `#selbar` do
 // documento — o nó é um só, movido, e perdê-lo significa perder os listeners.
+// O MOLDE DAS DUAS PORTAS LATERAIS do rodapé (v1.5.0): ícone em cima da caixa,
+// rótulo ao lado, `title` igual ao `aria-label`. Uma função e não duas cópias —
+// elas nasceram iguais e a terceira porta que aparecer nasce igual também.
+function botaoDoRodape(id, cls, titulo, rotulo, desenho) {
+  const b = document.createElement('button');
+  b.type = 'button';
+  b.id = id;
+  b.className = cls;
+  b.title = titulo;
+  b.setAttribute('aria-label', titulo);
+  b.innerHTML = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor"'
+    + ' stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
+    + desenho + '</svg>';
+  const t = document.createElement('span');
+  t.textContent = rotulo;
+  b.appendChild(t);
+  return b;
+}
+
 function renderListFoot() {
   const antiga = listFootEl.querySelector('.import-row');
   // O seletor de arquivos mora DENTRO da linha antiga; tirá-lo antes de
@@ -6921,7 +6982,7 @@ function renderListFoot() {
   // pelo `hidden`), então o rodapé nunca fica de fato vazio — e um filho de
   // altura zero ainda consome o `gap` do `<main>`, que viraria uma faixa de ar
   // acima da caixa de controles em toda aba sem rodapé.
-  const temImport = activeTab === 'imports' && !selectionMode;
+  const temImport = !selectionMode;
   const temSelbar = selectionMode && selbarEl.parentElement === listFootEl;
   listFootEl.hidden = !temImport && !temSelbar;
   if (!temImport) return;
@@ -6954,7 +7015,12 @@ function renderListFoot() {
     + '<line x1="12" y1="12" x2="12" y2="17.6"/>'
     + '<line x1="9.2" y1="14.8" x2="14.8" y2="14.8"/></svg>';
   const txt = document.createElement('span');
-  txt.textContent = 'Importar arquivos';
+  // "Importar", e não "Importar arquivos" (v1.5.0): a faixa passou a ter TRÊS
+  // portas em partes iguais, e MEDIDO em 430px o nome inteiro saía com
+  // reticências — que é pior que a palavra curta, porque as reticências não
+  // dizem qual palavra foi cortada. O `title` guarda a frase completa (e o que
+  // ela inclui: mídia, PDF ou PowerPoint).
+  txt.textContent = 'Importar';
   label.appendChild(txt);
   if (usaSeletorNativo) label.addEventListener('click', importarPeloSistema);
   else label.appendChild(fileEl); // o MESMO input de sempre, só reposicionado
@@ -6966,28 +7032,43 @@ function renderListFoot() {
   // Agora ela mora no cabeçalho FIXO, com rótulo, alcançável de qualquer aba.
   li.appendChild(label);
 
-  // AS FERRAMENTAS, À DIREITA DA IMPORTAÇÃO (v1.3.10). Elas eram uma aba; o
-  // lugar delas é aqui porque o que produzem — mensagem, cronômetro, sorteio —
-  // é CENA que entra no roteiro. Este rodapé é o único ponto do Cronograma que
-  // fica sempre à vista (fora do `<ul>` rolável), então é o único onde uma
-  // porta com trinta itens na lista continua sendo acesso rápido.
+  // ===== AS TRÊS PORTAS DO CRONOGRAMA (v1.5.0) =====
   //
-  // SÓ ÍCONE: "Importar arquivos" fica com o rótulo e com a linha, que é o que
-  // ele sempre quis (o nome cabe sem reticências em qualquer tela). Dois nomes
-  // lado a lado numa faixa de celular empurrariam o primeiro para reticências
-  // justamente na tela mais estreita.
-  const ferr = document.createElement('button');
-  ferr.type = 'button';
-  ferr.id = 'toolsBtn';
-  ferr.className = 'tools-btn';
-  ferr.title = 'Ferramentas: mensagens, tempo, sorteio e microfone';
-  ferr.setAttribute('aria-label', ferr.title);
-  ferr.innerHTML = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor"'
-    + ' stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
-    + '<rect x="3.5" y="3.5" width="7" height="7" rx="1.6"/>'
+  // Pedido do operador: *"na base dela se mantém o botão de importar arquivos
+  // no centro, a esquerda o botão de bíblia e a direita o botão de
+  // ferramentas"*.
+  //
+  // Com o Cronograma virando a tela ÚNICA, este rodapé passou a ser a
+  // navegação inteira do app: é o único ponto que fica sempre à vista (fora do
+  // `<ul>` rolável), e é dele que saem os dois lugares que não são a lista. A
+  // Biblioteca não entra aqui — ela tem a barra própria na caixa de controles.
+  //
+  // OS TRÊS TÊM RÓTULO desde a v1.5.0, a pedido (*"coloque um texto no botão de
+  // ferramentas"*). O argumento anterior contra o texto — *"dois nomes lado a
+  // lado numa faixa de celular empurrariam o primeiro para reticências"* —
+  // valia para uma linha em que "Importar arquivos" era `flex: 1` e os irmãos
+  // eram quadrados; com TRÊS portas de mesmo peso, deixar duas mudas faria a
+  // faixa dizer que a do meio é a única que importa, e ela não é. Quem paga a
+  // conta da largura é o `.import-row`, que reparte as três em partes iguais e
+  // deixa cada rótulo encolher com reticências por conta própria.
+  //
+  // A ORDEM É A DO PEDIDO, e ela é a da leitura: o que se CONSULTA à esquerda,
+  // o que ENTRA no roteiro no centro, o que se PRODUZ à direita.
+  const bib = botaoDoRodape('bibleBtn', 'lib-foot-btn',
+    'Bíblia: livros, capítulos e versículos', 'Bíblia',
+    '<path d="M4 4.5A1.5 1.5 0 0 1 5.5 3H19v15H5.5A1.5 1.5 0 0 0 4 19.5z"/>'
+    + '<path d="M4 19.5A1.5 1.5 0 0 0 5.5 21H19"/>'
+    + '<line x1="11.5" y1="6.4" x2="11.5" y2="11.6"/>'
+    + '<line x1="9.2" y1="8.4" x2="13.8" y2="8.4"/>');
+  bib.addEventListener('click', abrirBiblia);
+  li.insertBefore(bib, label);
+
+  const ferr = botaoDoRodape('toolsBtn', 'tools-btn',
+    'Ferramentas: mensagens, tempo, sorteio e microfone', 'Ferramentas',
+    '<rect x="3.5" y="3.5" width="7" height="7" rx="1.6"/>'
     + '<rect x="13.5" y="3.5" width="7" height="7" rx="1.6"/>'
     + '<rect x="3.5" y="13.5" width="7" height="7" rx="1.6"/>'
-    + '<rect x="13.5" y="13.5" width="7" height="7" rx="1.6"/></svg>';
+    + '<rect x="13.5" y="13.5" width="7" height="7" rx="1.6"/>');
   ferr.addEventListener('click', abrirFerramentas);
   li.appendChild(ferr);
 
@@ -10144,7 +10225,7 @@ async function toggleCronograma(item, btn) {
   responder(btn, 'ok');
   vestirCronoBtn(btn, agora);
   marcarNoCronograma();
-  if (activeTab === 'imports') { libItems = await AVDB.listItems('imports'); renderLibrary(); }
+  libItems = await AVDB.listItems('imports'); renderLibrary();
 }
 
 /**
@@ -13666,7 +13747,7 @@ async function deleteSelected() {
   // arquivos de uma pasta hoje é o "Excluir pasta e arquivos sincronizados" da
   // linha da própria pasta.)
   {
-    for (const id of selected) { await AVDB.listRemove(activeTab, id); await soltarAvulso(id); }
+    for (const id of selected) { await AVDB.listRemove('imports', id); await soltarAvulso(id); }
   }
   exitSelection(); load();
 }
@@ -13731,7 +13812,7 @@ function hostSelbar() {
 }
 
 function navigateBack() {
-  if (activeTab === 'bible') {
+  if (bibliaAberta()) {
     if (bibleScreen === 'reading') gotoBibleScreen('chapters');
     else if (bibleScreen === 'chapters') gotoBibleScreen('books');
     return;
@@ -15617,11 +15698,32 @@ async function syncLyrics() {
 }
 
 // Busca GLOBAL (botão de lupa): escopo null = varre todas as coleções.
-function openHymnSearch() {
+/**
+ * ===== AS DUAS PORTAS DA BIBLIOTECA (v1.5.0) =====
+ *
+ * Pedido do operador: *"sua forma de abertura da biblioteca agora vai ser
+ * através do foco na barra de texto, ou no toque do que seria o botão de fechar
+ * a biblioteca (que quando fechado seria uma seta) … no caso de abrir pelo
+ * foco, já abre o teclado junto, se abrir pelo botão de abrir, ela abre sem o
+ * foco de digitação"*.
+ *
+ * São duas INTENÇÕES diferentes, e é por isso que elas abrem diferente:
+ * *"procurar o hino 37"* chega pelo campo e quer o teclado; *"ver o que eu
+ * tenho"* chega pela seta e quer a lista inteira à vista, sem metade da tela
+ * ocupada por um teclado que ninguém pediu.
+ *
+ * `comFoco` é explícito e não derivado de `document.activeElement`: quando o
+ * ouvinte de `focus` chama esta função o campo JÁ está focado, e quando o botão
+ * a chama ele pode estar focado por um toque anterior — as duas leituras dariam
+ * a mesma resposta e ela seria a errada em um dos dois casos.
+ */
+function openHymnSearch(comFoco) {
   hymnSearchInputEl.placeholder = 'Nome, número ou trecho da letra…';
   hymnSearchInputEl.value = '';
   renderSearchResults('');
   hymnSearchPopupEl.classList.add('open');
+  renderLibToggle();
+  medirBarraDaBiblioteca();
   // ===== A LISTA ABRE NO TOPO (v5.280) =====
   //
   // Decisão do operador: *"ao invés de ter um scroll de tela inteira, deixar
@@ -15647,10 +15749,39 @@ function openHymnSearch() {
   // de segundos. Se o teclado parar de subir no aparelho, a causa é esta linha
   // e a volta é uma só: `hymnSearchInputEl.focus()` aqui, síncrono.
   clearTimeout(hymnFocoTimer);
+  hymnFocoTimer = null;
+  // SEM FOCO NA PORTA DA SETA. O adiamento continua valendo para a outra porta
+  // — e só para ela, porque ali o campo já está focado e o que o `focus()`
+  // atrasado faz é reafirmar o foco depois de a janela ter subido, que é o que
+  // impede o teclado de encolher a tela no meio da animação.
+  if (!comFoco) return;
   hymnFocoTimer = setTimeout(() => {
     hymnFocoTimer = null;
     hymnSearchInputEl.focus();
   }, ABRIR_TECLADO_MS);
+}
+
+/**
+ * A BASE DA JANELA É MEDIDA (v1.5.0).
+ *
+ * A Biblioteca encosta no TOPO da barra que a abriu, e essa barra vive na caixa
+ * de controles — que muda de altura com o teclado, com a barra de seleção e com
+ * o corpo de fonte do sistema. Um valor fixo no CSS erraria nos três, e o erro
+ * seria a lista passando por baixo da barra: as últimas linhas do hinário
+ * ficariam inalcançáveis, sem nada na tela dizendo por quê.
+ *
+ * É a mesma técnica do `--tab-x` que o vazado das abas usava, e é o que sobrou
+ * dela — medir a caixa e escrever no CSS, em vez de repetir a conta lá.
+ */
+function medirBarraDaBiblioteca() {
+  if (!libBarEl || !hymnSearchPopupEl) return;
+  const r = libBarEl.getBoundingClientRect();
+  // Barra oculta (o Modo Fácil esconde a caixa de controles) mede 0, e escrever
+  // 0 encostaria a janela na base da tela — por cima do transporte. Ali não há
+  // Biblioteca para abrir, então a medida boa que já está lá é a resposta certa.
+  if (!r.height) return;
+  hymnSearchPopupEl.style.setProperty('--lib-base',
+    Math.max(0, Math.round(window.innerHeight - r.top)) + 'px');
 }
 
 /**
@@ -15701,6 +15832,11 @@ function closeHymnSearch() {
   clearTimeout(hymnFocoTimer);
   hymnFocoTimer = null;
   hymnSearchPopupEl.classList.remove('open');
+  renderLibToggle();
+  // O CAMPO PERDE O FOCO ao fechar: sem isto o teclado fica de pé sobre o app
+  // com a janela já fora de cena — a mesma classe de defeito do foco pendente
+  // logo acima, pelo outro caminho.
+  try { hymnSearchInputEl.blur(); } catch (_) {}
   // FECHAR é o momento certo, e não abrir: aqui a tela já saiu de cena, então
   // nada do que se colapsa é visto colapsando. No `openHymnSearch` o mesmo
   // trabalho apareceria como a Biblioteca se desmontando na frente do operador.
@@ -18237,7 +18373,7 @@ const libBaixando = new Map();
 function libBusy(nome, chaveExistente, aoCancelar) {
   const chave = chaveExistente || ('dl:' + Math.random().toString(36).slice(2, 9));
   libBaixando.set(chave, { nome: nome || 'Baixando…', pct: -1, cancelar: aoCancelar || null });
-  if (activeTab === 'imports') load();
+  load();
   let solto = false;
   return {
     visivel: true,
@@ -18258,7 +18394,7 @@ function libBusy(nome, chaveExistente, aoCancelar) {
       if (solto) return;
       solto = true;
       libBaixando.delete(chave);
-      if (activeTab === 'imports') load();
+      load();
     },
   };
 }
@@ -18536,7 +18672,7 @@ async function addSongToDestinos(coll, s, variant, destinos, btn) {
   // estrela de cada linha do acervo, e o Cronograma só precisa ser remontado se
   // ele for a lista em cena.
   if (alvos.includes('favoritos')) renderLibrary();
-  if (alvos.includes('cronograma') && activeTab === 'imports') load();
+  if (alvos.includes('cronograma')) load();
 }
 
 // (`addSongToFavorites` e `addSongToPlaylist` saíram na v5.141: eram três
@@ -22030,7 +22166,7 @@ async function sairDasCamadas() {
 
   // 3. Fora do Cronograma, volta para ele. No simplificado não há abas: basta
   //    redesenhar.
-  if (appMode !== 'simple' && activeTab !== 'imports') await switchTab('imports');
+  if (appMode !== 'simple') fecharBiblia();
   else await load();
 }
 
@@ -23404,7 +23540,7 @@ function histLinha(h, atual) {
     if (!alvo) { histMarcarSumido(li, add, true); return; }
     if (alvo.criado) {
       responder(add, 'ok', rotuloItem(h.nome) + 'adicionado ao Cronograma');
-      if (activeTab === 'imports') await load();
+      await load();
       return;
     }
     await adicionarNasListas(['imports'], alvo.rec.id, h.nome, add);
@@ -23579,9 +23715,9 @@ fileEl.addEventListener('change', async () => {
     });
   }
   fileEl.value = '';
-  // Importar sempre cai no Cronograma (lista `imports`, via addMedia) — a aba
-  // acompanha para o operador ver o que acabou de entrar.
-  if (activeTab !== 'imports') activeTab = 'imports';
+  // Importar sempre cai no Cronograma (lista `imports`, via addMedia), e a
+  // folha da Bíblia sai da frente para o operador ver o que acabou de entrar.
+  fecharBiblia();
   load();
   if (naoAbriu) await avisarNaoAbriu(naoAbriu);
 });
@@ -23800,7 +23936,6 @@ volSliderEl.addEventListener('change', () => { volArrastando = false; persistCur
 // não é uma troca de aba: é a mesma aba num tamanho novo.
 let titleResizeTimer = null;
 window.addEventListener('resize', () => {
-  moveTabIndicator(false);
   clearTimeout(titleResizeTimer);
   titleResizeTimer = setTimeout(applyTitleMarquee, 150);
 });
@@ -23969,7 +24104,6 @@ function setAppMode(mode) {
   // A caixa de controles fica oculta no simplificado, e medir um elemento
   // escondido dá 0 — o vazado da faixa só pode ser posicionado quando ela
   // aparece. Sem animação: aqui ele POUSA, não viaja.
-  if (appMode === 'full') moveTabIndicator(false);
 }
 
 function renderAppModeSeg() {
@@ -24610,297 +24744,31 @@ plBtnEl.addEventListener('click', openPlPopup);
 // de troca de aba (ir pra uma aba à direita desliza a lista entrando pela
 // direita, e vice-versa).
 //
-// (Havia um `'folders'` entre `imports` e `bible`, a posição reservada para a
-// gaveta de Favoritos. Ela saiu na v5.294 com a gaveta: uma posição fantasma
-// numa lista que só serve para comparar índices não muda a direção de nada,
-// mas manda quem lê procurar uma aba que não existe.)
-const TAB_ORDER = ['imports', 'bible'];
 const prefersReducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-// Duração e curva da troca de aba. Vivem em DOIS lugares por necessidade — o
-// vazado da faixa é uma transição CSS (`--tab-move`) e a lista é Web Animations
-// —, mas são o mesmo movimento e precisam bater. Quem mexer num mexe no outro.
-const TAB_MOVE_MS = 260;
-const TAB_MOVE_EASE = 'cubic-bezier(.22,.61,.36,1)';
-
-// Anima a entrada da lista ao trocar de aba: leve deslize direcional + fade.
-// Usa a Web Animations API na PRÓPRIA `#library` — como o `load()` reconstrói o
-// conteúdo em poucos ms (leituras IDB em memória), animar já a partir de
-// opacity:0 esconde a troca e revela o conteúdo novo entrando. Sai cedo se o
-// usuário prefere menos movimento.
-// ===== A troca de aba é um DESLIZE INTEIRO =====
-// Até a v5.58 só o conteúdo NOVO se mexia: entrava de 44px com um fade, e o
-// antigo simplesmente sumia. Isso é um sinal de direção, não um deslize — a
-// tela nunca saía do lugar, e o gesto (arrastar a lista para o lado) prometia
-// exatamente que ela sairia.
+// ===== O DESLIZE LATERAL, o que sobrou do carrossel de abas (v1.5.0) =====
 //
-// Agora as duas telas se movem juntas, larguras inteiras, como um carrossel de
-// verdade: a que sai vai para `-100%`, a que entra vem de `+100%`, e em nenhum
-// instante elas se sobrepõem — são vizinhas, coladas, empurrando-se.
+// A FAIXA DE ABAS SAIU e levou junto o mecanismo inteiro: o carrossel
+// horizontal (`setupTabCarousel`, com o ciclo próprio de `touch*` que três
+// tentativas custaram), o fantasma que segurava os nós da tela que saía
+// (`makeTabGhost`) e o `switchTab` que os orquestrava. Nada disso tem para onde
+// apontar: o Cronograma é a tela única, e a Bíblia virou uma FOLHA — deslizar
+// para uma folha não é navegação, é abrir uma janela.
 //
-// O truque está em ter as DUAS ao mesmo tempo com uma lista só no DOM: os nós
-// antigos são MOVIDOS para um fantasma posicionado exatamente sobre a área da
-// lista (`makeTabGhost`), e a `#library` de verdade fica livre para receber o
-// conteúdo novo. Mover, e não CLONAR: um clone reinicia o download de cada
-// miniatura por um `blob:` que o render seguinte revoga — as fotos sumiriam no
-// meio do deslize. Movidos, os mesmos elementos seguem pintados.
-let tabGhost = null;
+// O QUE FICA é o deslize DENTRO da Bíblia (livros → capítulos → leitura), que é
+// o único movimento lateral que sobrou no app. Ele nunca precisou do fantasma:
+// ali as duas telas são o mesmo host redesenhado, e o que se anima é a ENTRADA
+// da nova — a antiga já não existe quando a animação começa.
+//
+// `dir` = +1 quando a tela nova está à DIREITA (avançar), -1 ao voltar.
+const TAB_MOVE_MS = 220;
+const TAB_MOVE_EASE = 'cubic-bezier(.2,.7,.3,1)';
 
-function makeTabGhost() {
-  // Um deslize ainda em curso perdeu a vez: tira o fantasma velho na hora, ou
-  // dois deslizes rápidos deixariam dois retângulos empilhados sobre a lista.
-  if (tabGhost) { tabGhost.remove(); tabGhost = null; }
-  const g = document.createElement('ul');
-  g.className = 'lib-list lib-ghost' + (libraryEl.classList.contains('lib-misc') ? ' lib-misc' : '');
-  g.style.top = libraryEl.offsetTop + 'px';
-  g.style.left = libraryEl.offsetLeft + 'px';
-  g.style.width = libraryEl.offsetWidth + 'px';
-  g.style.height = libraryEl.offsetHeight + 'px';
-  const topo = libraryEl.scrollTop;
-  // Desde a v5.107 o seletor de arquivos mora no RODAPÉ (`#listFoot`), que fica
-  // fora do `<ul>` e portanto fora do fantasma — mas a guarda continua: se um
-  // dia algo voltar a pendurá-lo dentro da lista, ele iria junto para o
-  // fantasma, sairia do documento quando este fosse descartado, e o `change`
-  // que importa arquivos deixaria de acontecer sem erro nenhum no console.
-  if (fileEl.parentElement && fileEl.parentElement.closest('#library')) mainEl.appendChild(fileEl);
-  while (libraryEl.firstChild) g.appendChild(libraryEl.firstChild);
-  // NO `.list-body`, e não no `<main>` (v1.3.10). As medidas acima são
-  // `offsetTop`/`offsetLeft`, isto é, coordenadas do OFFSETPARENT da lista — e
-  // desde que o `.list-body` nasceu (posicionado, para a folha de Ferramentas
-  // ancorar nele) esse pai é ele, não o `<main>`. Pendurar o fantasma no
-  // `<main>` com as coordenadas do filho o subia a altura inteira do cabeçalho:
-  // o deslize passaria por cima do nome da tela e da engrenagem, por 220 ms, sem
-  // erro em lugar nenhum. Quem RECORTA continua sendo o `overflow: hidden` do
-  // `<main>`, que é ancestral dos dois.
-  listBodyEl.appendChild(g);
-  g.scrollTop = topo;   // o fantasma tem de começar onde o olho estava
-  tabGhost = g;
-  return g;
+function deslizarNaFolha(host, dir) {
+  if (!host || prefersReducedMotion || !host.animate) return;
+  host.animate(
+    [{ transform: 'translateX(' + (dir * 100) + '%)' }, { transform: 'none' }],
+    { duration: TAB_MOVE_MS, easing: TAB_MOVE_EASE, fill: 'both' });
 }
-
-// `dir` = +1 quando a tela nova está à DIREITA (o dedo foi para a esquerda):
-// a nova vem de +100% e a velha sai por -100%.
-function animateTabSwitch(dir, ghost) {
-  const opts = { duration: TAB_MOVE_MS, easing: TAB_MOVE_EASE, fill: 'both' };
-  if (ghost) {
-    const saida = ghost.animate(
-      [{ transform: 'none' }, { transform: 'translateX(' + (-dir * 100) + '%)' }], opts);
-    const limpar = () => { ghost.remove(); if (tabGhost === ghost) tabGhost = null; };
-    saida.onfinish = limpar;
-    saida.oncancel = limpar;
-  }
-  libraryEl.animate(
-    [{ transform: 'translateX(' + (dir * 100) + '%)' }, { transform: 'none' }], opts);
-}
-
-// Troca de tela da lista. `semAnim` para as trocas que NÃO são um passo lateral
-// entre abas — ali o carrossel contaria uma história que o operador não fez.
-async function switchTab(tab, semAnim) {
-  if (tab === activeTab) return;
-  // Direção do deslize: +1 se a tela nova está à direita da atual, -1 se à esquerda.
-  const dir = TAB_ORDER.indexOf(tab) > TAB_ORDER.indexOf(activeTab) ? 1 : -1;
-  // Mantém a posição: guarda o scroll da aba atual e NÃO reseta a pasta
-  // aberta — voltar para os Favoritos retorna exatamente onde estava.
-  rememberScroll();
-  // Trocar de aba fecha a folha de Ferramentas: ela é uma extensão do
-  // CRONOGRAMA, e deixá-la de pé sobre a Bíblia seria a folha de uma tela
-  // flutuando sobre outra. É ela que desliga o microfone e os laços dos painéis
-  // (ver `fecharFerramentas`).
-  fecharFerramentas();
-  const anima = !semAnim && !prefersReducedMotion && !!libraryEl.animate;
-  // O fantasma é feito ANTES do render: ele leva embora os nós que ainda estão
-  // na tela, e é ele que o operador continua vendo enquanto o `load()` monta a
-  // lista nova (leituras de IndexedDB — poucos ms, mas não zero).
-  const fantasma = anima ? makeTabGhost() : null;
-  activeTab = tab;
-  if (selectionMode) exitSelection();
-  try {
-    // NAVEGAÇÃO: aqui a posição guardada daquela aba é a resposta certa.
-    await load({ restaurarScroll: true });
-  } finally {
-    // No `finally` porque um `load()` que falhe não pode deixar o fantasma
-    // congelado sobre a lista para sempre.
-    if (anima) animateTabSwitch(dir, fantasma);
-  }
-  // Ao entrar na Bíblia: garante versões/livros e baixa a versão INTEIRA na
-  // 1ª vez (em segundo plano — ver ensureBibleVersionDownloaded).
-  if (activeTab === 'bible') enterBibleTab();
-}
-
-tabsEl.addEventListener('click', (e) => {
-  const tab = e.target.closest('.tab');
-  if (tab) switchTab(tab.dataset.tab);
-});
-
-// ===== Carrossel: deslizar horizontalmente troca de aba =====
-// A ordem é a da FAIXA (`SWIPE_TABS`), não a do `TAB_ORDER`: este inclui os
-// Favoritos, que não têm botão na faixa — deslizar até uma tela que não aparece
-// na navegação deixaria o operador sem indicação de onde está.
-//
-// Vale SOBRE A LISTA, inclusive sobre as linhas (o Cronograma inteiro é feito
-// de linhas — excluí-las mata o gesto na aba em que ele mais é tentado).
-//
-// A GUARDA PERGUNTA AO DOM, nunca a uma lista de classes. Quatro consertos
-// deste carrossel erraram mantendo à mão a lista do que o eixo horizontal não
-// pode atravessar — e a última chegou a proibir `.bible-half`, que declara
-// `touch-action: pan-y` e libera o gesto. A pergunta certa é MEDIDA: existe,
-// entre o alvo e a superfície que escuta, alguém que de fato ROLE na
-// horizontal? Um trilho de pílulas cheio responde sim; o mesmo trilho com três
-// pílulas responde não. Campos de texto ficam fora por outro motivo (ali o eixo
-// é do cursor), e são nomeáveis por serem conceito do HTML, não classe do app.
-const SWIPE_TABS = ['imports', 'bible'];
-const TAB_SWIPE_MIN = 60;     // px — para TROCAR de aba
-const TAB_CLAIM_MIN = 12;     // px — para REIVINDICAR o gesto do navegador
-const TAB_SWIPE_RATIO = 1.5;  // quanto o eixo X precisa dominar o Y
-
-(function setupTabCarousel() {
-  // DUAS superfícies escutam: a área de conteúdo e a própria faixa de abas —
-  // que desde a v5.54 mora na caixa de controles, fora do `<main>`. Deslizar
-  // sobre a fileira de abas é o gesto mais óbvio de todos, e ele deixaria de
-  // existir se o carrossel continuasse ouvindo só o `<main>`. O estado é
-  // compartilhado de propósito: é UM gesto, não dois.
-  const superficies = [mainEl, tabsEl];
-  const ouvir = (ev, fn, opts) => superficies.forEach((el) => el.addEventListener(ev, fn, opts));
-
-  // ===== O gesto de TOQUE não depende dos eventos de ponteiro =====
-  // Esta é a terceira tentativa de destravar o carrossel na aba Ferramentas, e
-  // as duas primeiras erraram pelo mesmo motivo: confiaram no fluxo de
-  // `pointer*`. O navegador CANCELA esse fluxo (`pointercancel`) assim que
-  // decide que o gesto é dele — e basta um scroller no caminho para ele
-  // decidir. Quando isso acontece o `pid` some, e o `touchmove` que deveria
-  // reivindicar o gesto volta cedo porque não havia gesto armado: o carrossel
-  // morre antes de nascer.
-  //
-  // Agora o toque tem o ciclo INTEIRO próprio — `touchstart` arma,
-  // `touchmove` decide o eixo, reivindica (`preventDefault`) e troca a aba,
-  // `touchend`/`touchcancel` encerram. Um `pointercancel` não tem mais o que
-  // matar. Os `pointer*` ficam só para o MOUSE (é assim que se desenvolve no
-  // navegador de mesa), filtrados por `pointerType` para os dois caminhos não
-  // tratarem o mesmo dedo duas vezes.
-  let x0 = 0, y0 = 0;
-  let ativo = false;         // gesto armado e ainda elegível
-  let reivindicado = false;  // eixo já decidido como horizontal
-  let done = false;          // aba já trocada neste gesto
-  let engolirClique = false;
-
-  // ROLA MESMO NA HORIZONTAL? Três condições, e as três são necessárias: o
-  // elemento precisa TER conteúdo excedente (`scrollWidth`), precisa estar
-  // configurado para rolar nesse eixo (`overflow-x`) e precisa ter para onde
-  // ir. A última é o que impede um trilho já no fim de engolir o gesto de
-  // volta — mas ela é medida com folga de 1px, porque uma largura fracionária
-  // deixa `scrollLeft` a meio pixel do fim e nenhum trilho real precisa desse
-  // último meio pixel.
-  function rolaNoEixoX(el) {
-    if (!el || el.nodeType !== 1) return false;
-    if (el.scrollWidth <= el.clientWidth + 1) return false;
-    const ov = getComputedStyle(el).overflowX;
-    return ov === 'auto' || ov === 'scroll';
-  }
-
-  function elegivel(target) {
-    if (selectionMode) return false;
-    if (SWIPE_TABS.indexOf(activeTab) < 0) return false;
-    if (!target || !target.closest) return false;
-    // A FAIXA DE ABAS é sempre território do carrossel (v5.188): deslizar sobre
-    // a própria fileira de abas é o gesto mais óbvio de todos, e ela não tem
-    // conteúdo que dispute o eixo.
-    if (tabsEl.contains(target)) return true;
-    // O CURSOR manda dentro de um campo de texto.
-    if (target.closest('input, textarea')) return false;
-    // E o resto é medido: sobe do alvo até a superfície que escuta procurando
-    // alguém que role de verdade na horizontal. Parar em `mainEl` importa —
-    // acima dele estão o `<body>` e o `<html>`, que num app de tela cheia
-    // podem responder qualquer coisa e não são de ninguém.
-    for (let el = target; el && el !== mainEl && el !== tabsEl; el = el.parentElement) {
-      if (rolaNoEixoX(el)) return false;
-    }
-    return true;
-  }
-
-  function comecar(target, x, y) {
-    // Todo toque legítimo começa aqui, então é aqui que a trava do clique é
-    // desarmada — ver `engolirClique`.
-    engolirClique = false;
-    ativo = elegivel(target);
-    reivindicado = false;
-    done = false;
-    x0 = x; y0 = y;
-  }
-
-  // Devolve `true` quando o gesto é NOSSO (o chamador do toque usa isso para
-  // decidir o `preventDefault`). Duas decisões, com limiares diferentes:
-  //   • EIXO, aos 12px (`TAB_CLAIM_MIN`) — precisa ser cedo, antes de o
-  //     navegador tomar a decisão dele;
-  //   • TROCAR de aba, aos 60px (`TAB_SWIPE_MIN`) — precisa de intenção.
-  // Uma vez reivindicado, o gesto continua nosso até o dedo levantar: soltar o
-  // controle no meio deixaria a página rolar de lado no fim do movimento.
-  function mover(x, y) {
-    if (!ativo) return reivindicado;
-    const dx = x - x0, dy = y - y0;
-    if (!reivindicado) {
-      if (Math.abs(dx) < TAB_CLAIM_MIN || Math.abs(dx) < Math.abs(dy) * TAB_SWIPE_RATIO) return false;
-      reivindicado = true;
-    }
-    if (!done && Math.abs(dx) >= TAB_SWIPE_MIN) {
-      // Age no meio do gesto (não ao soltar): a aba entra deslizando enquanto o
-      // dedo ainda se move, que é o que faz o gesto parecer arrastar a tela.
-      done = true;
-      // O clique é engolido SEMPRE que o gesto se completa, inclusive na ponta
-      // do carrossel (deslizar para além da última aba). Ali não há troca de
-      // aba, mas o dedo percorreu 60px sobre a tela e o `click` sairia mesmo
-      // assim: deslizar sobre "+ Nova mensagem" na última aba abria o diálogo
-      // de mensagem nova — um gesto de navegação virando uma ação de conteúdo,
-      // que é o pior defeito possível num controle de culto.
-      engolirClique = true;
-      const i = SWIPE_TABS.indexOf(activeTab) + (dx < 0 ? 1 : -1);
-      if (i >= 0 && i < SWIPE_TABS.length) switchTab(SWIPE_TABS[i]);
-    }
-    return true;
-  }
-
-  function terminar() { ativo = false; }
-
-  // ---- toque (o caminho do aparelho) ----
-  ouvir('touchstart', (e) => {
-    // Dois dedos não é deslize de aba (é zoom, ou o operador segurando a tela).
-    if (e.touches.length !== 1) { terminar(); return; }
-    comecar(e.target, e.touches[0].clientX, e.touches[0].clientY);
-  }, { passive: true });
-  ouvir('touchmove', (e) => {
-    const t = e.touches && e.touches[0];
-    if (!t) return;
-    // NÃO passivo: enquanto este listener existe o navegador espera a decisão
-    // dele antes de rolar, e é essa espera que dá ao app a chance de dizer "o
-    // eixo horizontal é meu". Um movimento vertical nunca é tocado.
-    if (mover(t.clientX, t.clientY) && e.cancelable) e.preventDefault();
-  }, { passive: false });
-  ['touchend', 'touchcancel'].forEach((ev) => ouvir(ev, terminar, { passive: true }));
-
-  // ---- mouse (só para desenvolver no navegador de mesa) ----
-  ouvir('pointerdown', (e) => { if (e.pointerType === 'mouse') comecar(e.target, e.clientX, e.clientY); });
-  ouvir('pointermove', (e) => { if (e.pointerType === 'mouse') mover(e.clientX, e.clientY); });
-  ['pointerup', 'pointercancel'].forEach((ev) => ouvir(ev, (e) => { if (e.pointerType === 'mouse') terminar(); }));
-
-  // Todo deslize termina num `click` sobre o que estava sob o dedo. Sem engolir
-  // esse clique, deslizar sobre a grade de livros trocava de aba **e** abria um
-  // livro; sobre a faixa de abas, trocava de aba e voltava para a do ícone que
-  // o dedo cruzou; e na ponta do carrossel, um deslize sobre "+ Nova mensagem"
-  // abria o diálogo de mensagem. Um listener de CAPTURA, que roda antes de
-  // qualquer handler do alvo.
-  //
-  // A trava é uma FLAG desarmada no toque seguinte, e não um listener com
-  // prazo. O prazo (350 ms) parecia bastar — num aparelho o clique vem um
-  // quadro depois do dedo levantar —, mas ele mede o tempo errado: numa página
-  // em segundo plano (com a janela do Display aberta ao lado, no navegador) o
-  // resto do gesto levava mais que isso e a trava expirava antes do clique
-  // chegar, que é exatamente o defeito que ela existe para impedir. A flag não
-  // depende de tempo nenhum: só um toque novo a limpa, e um toque novo é
-  // justamente quando ela deixa de valer.
-  ouvir('click', (e) => {
-    if (!engolirClique) return;
-    engolirClique = false;
-    e.stopPropagation(); e.preventDefault();
-  }, true);
-})();
 
 selCancelEl.addEventListener('click', exitSelection);
 selPlaylistEl.addEventListener('click', addSelectedToPlaylist);
@@ -24920,9 +24788,30 @@ plClearEl.addEventListener('click', (e) => {
 selDeleteEl.addEventListener('click', deleteSelected);
 selRenameEl.addEventListener('click', renameSelected);
 
-backBtnEl.addEventListener('click', navigateBack);
+// (O `#backBtn` do cabeçalho perdeu o dono na v1.5.0: ele só servia à Bíblia,
+//  que virou folha e levou o voltar dela junto. O nó fica no HTML, sempre
+//  oculto, porque `renderListTitle` ainda o esconde explicitamente — e é essa
+//  linha que impede um bundle futuro de o revelar por acidente.)
+if (bibleBackEl) bibleBackEl.addEventListener('click', navigateBack);
+if (bibleCloseEl) bibleCloseEl.addEventListener('click', fecharBiblia);
 
-hymnSearchBtnEl.addEventListener('click', openHymnSearch);
+// ===== AS DUAS PORTAS, ligadas (v1.5.0) =====
+// O FOCO abre com teclado. `focus` e não `click`: o campo é alcançável também
+// por teclado físico e pelo `Tab`, e nos dois a intenção é a mesma.
+hymnSearchInputEl.addEventListener('focus', () => {
+  if (!hymnSearchPopupEl.classList.contains('open')) openHymnSearch(true);
+});
+// A SETA abre sem foco; o ✕ (o mesmo botão, outro desenho) fecha.
+if (hymnSearchToggleEl) {
+  hymnSearchToggleEl.addEventListener('click', () => {
+    if (hymnSearchPopupEl.classList.contains('open')) closeHymnSearch();
+    else openHymnSearch(false);
+  });
+}
+// A base da janela muda com o teclado e com a rotação. Por EVENTO e não por
+// enquete — é a régua de uma caixa que só se mexe quando algo a empurra.
+window.addEventListener('resize', medirBarraDaBiblioteca);
+window.addEventListener('orientationchange', medirBarraDaBiblioteca);
 sorteioBtnEl.addEventListener('click', abrirSorteio);
 hymnSearchInputEl.addEventListener('input', debounce(() => renderSearchResults(hymnSearchInputEl.value), SEARCH_DEBOUNCE_MS));
 
@@ -25896,7 +25785,13 @@ if (castMirrorBtnEl) {
 // mesmo toque na engrenagem que o abriu, ou o toque na barra que fecha o card.)
 const POPUPS = [
   [plPopupEl, plPopupCloseEl, closePlPopup],
-  [hymnSearchPopupEl, hymnSearchCloseEl, closeHymnSearch],
+  // O BOTÃO DA BIBLIOTECA ENTRA COMO `null`, e isso é o recurso: ele é um
+  // ALTERNADOR (seta abre, ✕ fecha) e tem ouvinte próprio. Registrado aqui
+  // também, o toque com a janela fechada abriria pelo ouvinte dele e fecharia
+  // pelo desta tabela, no mesmo clique — a janela pisca e nada acontece. O que
+  // a linha continua entregando é o resto do contrato: o toque no fundo e o
+  // degrau do voltar.
+  [hymnSearchPopupEl, null, closeHymnSearch],
   [bibleVerPopupEl, bibleVerCloseEl, closeBibleVerPopup],
   [fadePopupEl, fadePopupCloseEl, closeFadePopup],
   // O HISTÓRICO abre DE DENTRO de Configurações (v1.4.31 — era vizinho da
@@ -25932,7 +25827,7 @@ const POPUPS = [
 if (toolsCloseEl) toolsCloseEl.addEventListener('click', fecharFerramentas);
 
 POPUPS.forEach(([backdrop, closeBtn, close]) => {
-  closeBtn.addEventListener('click', close);
+  if (closeBtn) closeBtn.addEventListener('click', close);
   // Só o próprio backdrop: um clique dentro da folha não fecha.
   backdrop.addEventListener('click', (e) => { if (e.target === backdrop) close(); });
 });
@@ -25970,6 +25865,17 @@ window.__avBack = function () {
   //    abrir DE DENTRO dela (a folha da música, pelo sorteio), e antes da tela
   //    cheia porque ela é mais efêmera: é uma camada da lista, não a projeção.
   if (ferramentasAbertas()) { fecharFerramentas(); return true; }
+  // 2.6. A folha da BÍBLIA, irmã da de Ferramentas — e com um degrau a mais: ela
+  //    tem navegação DENTRO (livros → capítulos → leitura), e o voltar sobe por
+  //    ela antes de fechar a folha. É a hierarquia que o `#backBtn` do cabeçalho
+  //    carregava enquanto a Bíblia era uma aba; o botão mudou de casa, a regra
+  //    não. `navigateBack` continua sendo a dona dela — reimplementá-la aqui
+  //    seria uma segunda opinião sobre a mesma subida.
+  if (bibliaAberta()) {
+    if (bibleBackEl && !bibleBackEl.hidden) navigateBack();
+    else fecharBiblia();
+    return true;
+  }
   // 3. Preview em tela cheia — que, sem telão conectado, É a projeção. Sair
   //    dela é exatamente o que o voltar significa aqui.
   if (document.fullscreenElement) {
@@ -25980,15 +25886,10 @@ window.__avBack = function () {
   //  v1.3.8 com o fader; a numeração dos degraus abaixo é a original.)
   // 5. Seleção múltipla: o voltar cancela a seleção, não o app.
   if (selectionMode) { exitSelection(); return true; }
-  // 6. Sub-tela com voltar próprio (pasta aberta, Favoritos, telas da Bíblia).
-  //    Reusa `navigateBack` em vez de reimplementar a hierarquia: ela já sabe
-  //    que a Bíblia sobe leitura→capítulos→livros e que a raiz dos Favoritos
-  //    volta ao Cronograma.
-  if (!backBtnEl.hidden) { navigateBack(); return true; }
-  // 7. Fora do Cronograma: volta para ele. É a tela inicial da biblioteca, e
-  //    sem este degrau o voltar pularia de "estou na Bíblia" direto para
-  //    minimizar o app.
-  if (activeTab !== 'imports') { switchTab('imports'); return true; }
+  // (Os degraus 6 e 7 subiram para o 2.6 na v1.5.0. O 6 era o `#backBtn` do
+  //  cabeçalho, que só servia à Bíblia e hoje nasce sempre oculto; o 7 era
+  //  "fora do Cronograma, volta para ele", e não há mais fora — há uma tela e
+  //  duas folhas, e cada folha se fecha no degrau dela.)
   // Nada aberto: a Activity minimiza (a projeção segue viva).
   return false;
 };

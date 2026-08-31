@@ -1,5 +1,16 @@
 [
   {
+    "versao": "1.5.0",
+    "itens": [
+      "O Cronograma virou a tela única: a barra de abas saiu.",
+      "Na base dele: Bíblia à esquerda, Importar no centro e Ferramentas à direita, com nome.",
+      "A Bíblia virou uma janela do Cronograma, como as Ferramentas.",
+      "A barra de busca da Biblioteca saiu de dentro dela e ficou sempre à mão.",
+      "Tocar no campo abre a Biblioteca com o teclado; a seta ao lado abre sem ele.",
+      "A Biblioteca agora sobe da barra e para um pouco abaixo do topo, como uma janela."
+    ]
+  },
+  {
     "versao": "1.4.45",
     "itens": [
       "O botão de desfazer o giro ficou vermelho e ganhou o “x”, como o de encerrar a camada.",

@@ -24,6 +24,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
+- **v1.5.0** — O CRONOGRAMA VIROU A TELA ÚNICA: A FAIXA DE ABAS SAIU, A BÍBLIA VIROU FOLHA E A BIBLIOTECA VIROU UMA JANELA QUE SOBE DA BARRA. A maior mudança de navegação desde que o app existe, e ela é UMA decisão em quatro pedidos. **A faixa de abas saiu inteira** — com ela, o vazado deslizante (`.tab-ind` e o `moveTabIndicator` que o media), o carrossel horizontal (quatro correções do mesmo mecanismo, a última reescrevendo o ciclo de toque porque o navegador cancelava o fluxo de `pointer*` no primeiro scroller do caminho), o fantasma da troca de tela e o `switchTab`. **A Bíblia virou uma folha do Cronograma**, no molde da de Ferramentas: com host PRÓPRIO (ela desenhava dentro do `#library`, o mesmo `<ul>` do Cronograma, e é por isso que `renderLibrary` tinha um desvio por aba no topo) e com o VOLTAR dela na barra da folha — o do cabeçalho só servia a ela. **O rodapé virou a navegação**: Bíblia · Importar · Ferramentas, três portas de mesmo peso e as três com rótulo (pedido: *"coloque um texto no botão de ferramentas"*), ícone em cima e nome embaixo porque MEDIDO em 360px três rótulos em linha não cabem. **A barra de busca da Biblioteca saiu de dentro dela** e ocupa o lugar da faixa, na caixa de controles; a Biblioteca ficou só com a LISTA, e por isso a folga do topo passou a ter o que dizer. **Duas portas, e a diferença é o teclado**: o FOCO no campo abre digitando, a SETA ao lado abre sem foco. E `activeTab` deixou de existir: um estado com dois valores para uma tela só é uma variável que responde uma pergunta que ninguém faz mais.
 - **v1.4.45** — O DESFAZER DO GIRO FALA A LÍNGUA DO VIZINHO: VERMELHO, E COM O MESMO ✕. Pedido do operador: *"ele deve ser vermelho e ter em seu design o 'x' indicando que o toque destroi tal configuração atual"*. A v1.4.43 o pintou de DENIM com o argumento de que vermelho neste app quer dizer "está no ar agora" e a camada de cima já ocupava esse papel na mesma faixa — **e o argumento lia o token estreito demais**. O que o `--stage-alert` do selo de camadas diz não é "no ar": é *"o toque daqui TIRA alguma coisa"*, que é a definição da faixa inteira (a região do que está fora do padrão e o toque desfaz). Dois moradores com a mesma promessa pintados de cores diferentes ensinavam que a cor ali significa outra coisa, e não significa. **O que os separa passa a ser o DESENHO**, que é a regra de sempre: o ícone mostra o ESTADO (uma pilha de folhas · uma seta de giro) e o ✕ diz o que o toque FAZ. O ✕ é o do vizinho VERBATIM — uma marca de destruição redesenhada dois pixels adiante é uma segunda opinião sobre a mesma coisa — e a seta encolheu para 0,75 em torno de (10,10) para o canto do ✕ caber, o que a tirou do `#icoGirar` do sprite: aquele símbolo é o do TILE, e o dia em que um dos dois mudar de forma o outro não pode ir junto.
 - **v1.4.44** — O CARTÃO INVISÍVEL DA LINHA DO MODO, O TÍTULO CENTRADO, E O RODAPÉ EM UMA BARRA SÓ (com o copiar do Registro fora). Três acertos e uma remoção, todos do operador. O seletor de modo saía mais estreito que a grade de tiles logo abaixo (MEDIDO: 375,6px contra 401,2px numa viewport de 430) e o culpado não desenhava nada: a `.fade-row` pinta `--panel`, o MESMO tom da folha, então o cartão era invisível e o que se via era só o `padding` dele recuando o trilho 12,8px de cada lado — *um cartão invisível que só desalinha não é um cartão: é padding*. O título "Modo do app" era o único texto solto da folha e apontava para a metade "Fácil"; hoje é uma legenda centrada. O rodapé, que a v1.4.43 tinha unificado no DESENHO e parado no meio, virou UMA barra: duas caixas com a mesma cor e um vão entre elas ainda se leem como dois assuntos, e o assunto é um. E o COPIAR do Registro saiu — a área de transferência é o caminho que corta o texto no meio sem avisar, foi esse relato que criou o salvar em arquivo na v1.2.16, e o Registro só cresceu desde então. O `copiarTexto` e o `.log-copy` ficam com o consumidor que os justifica: o endereço da transmissão, que é curto e existe para ser digitado noutro aparelho.
 - **v1.4.43** — O RODAPÉ DE CONFIGURAÇÕES VIROU UM DESENHO SÓ, O MODO DO APP VIROU UM INTERRUPTOR QUE DESLIZA, E A BASE DA PREVIEW VIROU A REGIÃO DO QUE ESTÁ FORA DO PADRÃO. Quatro pedidos do operador num lote. O rodapé tinha três desenhos e três tamanhos para o mesmo assunto (a versão, o rótulo "Registro" e os dois botões dele): hoje são DUAS pastilhas do mesmo tom, da mesma altura (`--hit`) e do mesmo corpo, uma em cada ponta. O seletor Fácil × Avançado empilhava QUATRO tons para uma escolha de duas posições e virou um trilho com um polegar que anda por `transform` — o deslize é o que diz *"isto alterna"*, e é ele que o oráculo mede no RENDERIZADO, porque uma troca de classe passa num teste de classe e continua imóvel na tela. A folha de Configurações **deixou de fechar** ao trocar de modo (ela fechava por decisão, e quem trocava perdia o lugar e o caminho de volta — a engrenagem mora em outro canto no outro modo). E a base da preview, que hospedava só o selo de camadas, passou a ser a faixa do **que está fora do padrão AGORA**: entrou ali o desfazer do giro do telão, com o ÂNGULO à vista, porque voltar de 90° custava abrir a folha e ciclar o tile três vezes olhando para a folha e não para a projeção.
@@ -316,6 +317,185 @@ na nota que a revoga, não apagada da que a criou.
 - **v5.154** — é METADE OTA e METADE APK, e a divisão importa para quem for testar em aparelho.
 - **v5.155** — é OTA PURO
 - **v5.156** — é METADE OTA e METADE APK, de novo.
+
+---
+
+## v1.5.0 — uma tela e duas folhas
+
+*"vamos fazer uma alteração grande de design: agora o cronograma vai ser a tela
+padrão e única."*
+
+**Lote só de web** (nenhum `.kt`, nenhum `res/`, nenhum workflow — sem Release e
+sem `shellTag`). É o primeiro degrau INCREMENTAL desde a v1.4: o app não ganhou
+um lugar novo, mas a navegação inteira mudou de conceito.
+
+### O que saiu
+
+A **faixa de abas** — e ela não saiu sozinha. Foram junto:
+
+| peça | o que ela fazia |
+|---|---|
+| `.tab` · `.tab-add` · `.tab-pl` | as células da faixa |
+| `.tab-ind` + `moveTabIndicator` | o vazado que DESLIZAVA entre as abas, com posição e largura medidas em JS |
+| `setupTabCarousel` | o deslize horizontal entre telas — **quatro correções do mesmo mecanismo**, a última reescrevendo o ciclo de toque inteiro porque o navegador cancela o fluxo de `pointer*` no primeiro scroller do caminho |
+| `makeTabGhost` + `animateTabSwitch` | o fantasma que segurava os nós da tela que saía, para as duas se moverem juntas |
+| `switchTab` · `TAB_ORDER` · `SWIPE_TABS` · `--tab-move` | a máquina que orquestrava tudo isso |
+
+**E `activeTab` foi junto.** Ela tinha dois valores (`'imports'` e `'bible'`)
+porque havia duas telas de lista; com uma só, "qual aba" deixou de ser uma
+pergunta. O que sobrou é `bibliaNoAr` — *a folha está aberta?* —, e as duas
+dúzias de `activeTab === 'imports'` que ela sustentava eram, todas, *"o
+Cronograma está à vista?"*, que hoje é sempre verdade: **a folha COBRE a lista,
+não a substitui.**
+
+`bibliaNoAr` é um BOOLEANO e não `!bibleSheetEl.hidden`: o `hidden` só cai no
+fim da animação de saída, e durante esses 220 ms os redesenhos da Bíblia
+continuariam sendo pedidos para uma folha que já saiu de cena.
+
+### A Bíblia virou uma folha
+
+*"a bíblia vai ser uma janela igual o que é hoje a seção de ferramentas, no
+mesmo molde."*
+
+Mesmo molde, medido: não invade o cabeçalho nem a caixa de controles, cobre a
+lista inteira, mesma entrada e mesma saída. O que ela tem A MAIS:
+
+- **HOST PRÓPRIO.** Ela desenhava dentro do `#library` — o mesmo `<ul>` do
+  Cronograma —, e era por isso que `renderLibrary` tinha um desvio por aba no
+  topo. Com `#bibleBody`, as duas listas deixam de disputar um nó, e o
+  Cronograma continua desenhado por baixo: é isso que faz a folha ser uma folha.
+- **O VOLTAR DELA.** A Bíblia tem navegação dentro (livros → capítulos →
+  leitura), e o `#backBtn` do cabeçalho só servia a ela. Ele mudou de casa: um
+  voltar na faixa do app apontando para dentro de uma janela é o app dizendo que
+  a janela é ele. O degrau do voltar do Android acompanhou — ele SOBE dentro da
+  folha antes de fechá-la.
+- **O DESLIZE ficou, e agora é dela.** Ele nasceu como a animação genérica da
+  troca de aba e a Bíblia pegava carona; com a faixa fora, o único movimento
+  lateral que sobrou no app é a navegação DENTRO dela — que é para onde ele
+  sempre apontou. Sem fantasma: ali as duas telas são o mesmo host redesenhado,
+  e o que se anima é a ENTRADA da nova.
+
+### O rodapé virou a navegação
+
+*"na base dela se mantém o botão de importar arquivos no centro, a esquerda o
+botão de bíblia e a direita o botão de ferramentas"* + *"coloque um texto no
+botão de ferramentas"*.
+
+Três portas de mesmo peso, `flex: 1 1 0` (base zero: com `auto` a do meio
+partiria maior e ficaria maior depois de repartida a sobra). A ordem é a da
+leitura: o que se CONSULTA à esquerda, o que ENTRA no roteiro no centro, o que
+se PRODUZ à direita.
+
+**Ícone em cima, rótulo embaixo** — a pilha do `.qs-tile` do painel rápido, e
+ela entra aqui pelo mesmo motivo: MEDIDO em 360px, três rótulos em LINHA não
+cabem ("Ferramentas" saía com reticências; em 320px, dois dos três). Empilhado,
+a palavra tem a largura inteira do terço e cabe até em 320.
+
+E **"Importar"**, não "Importar arquivos": o nome inteiro não paga um terço em
+nenhuma largura. O `title` guarda a frase completa.
+
+### A barra de busca saiu da Biblioteca
+
+*"onde hoje é a barra de abas com o botão de buscas, vamos trazer toda a barra
+de buscas da biblioteca, ela vai ficar agora ali fora da biblioteca."*
+
+Os mesmos três elementos, na ordem que a v5.305 fixou — *sortear* · *procurar* ·
+*sair* —, na caixa de controles, onde a faixa morava. Duas barras seriam duas
+verdades sobre o mesmo campo, e a de dentro sumiria atrás da de fora no instante
+em que a Biblioteca abrisse.
+
+**Ela mantém a superfície própria** (`--field-bar`), e a razão é a mesma medida
+da v5.270 no lugar novo: o campo é BRANCO nos dois temas (decisão declarada — é
+a única peça da tela em que se digita, e veste os tokens `--field-*`, sem tema,
+como o palco), e no tema CLARO a caixa de controles também é branca. Campo
+branco sobre caixa branca dá **1,00:1**. A elevação sozinha foi o meio-conserto
+que a v5.268 tentou e o operador recusou. **O que ela perdeu é a SOMBRA**: aquela
+dizia de que lado o conteúdo passava por baixo, e aqui não passa nada atrás dela.
+
+### Duas portas, e a diferença é o TECLADO
+
+*"sua forma de abertura da biblioteca agora vai ser através do foco na barra de
+texto, ou no toque do que seria o botão de fechar a biblioteca (que quando
+fechado seria uma seta) … no caso de abrir pelo foco, já abre o teclado junto,
+se abrir pelo botão de abrir, ela abre sem o foco de digitação."*
+
+São duas INTENÇÕES: *"procurar o hino 37"* chega pelo campo e quer o teclado;
+*"ver o que eu tenho"* chega pela seta e quer a lista inteira à vista.
+`openHymnSearch(comFoco)` — explícito, e não derivado de `document.activeElement`:
+quando o ouvinte de `focus` chama a função o campo JÁ está focado, e quando o
+botão a chama ele pode estar focado por um toque anterior; as duas leituras
+dariam a mesma resposta, e ela seria a errada num dos dois casos.
+
+**O botão é UM, com dois desenhos**: seta quando fechada, ✕ quando aberta. Os
+dois vivem na árvore CLARA e a classe escolhe — a folha do documento não
+atravessa a árvore-sombra de um `<use>`, então um `<symbol>` com os dois dentro
+desenharia os dois, empilhados, para sempre. É a armadilha que o
+`controles-layout.test.mjs` já pagou uma vez.
+
+**E o `POPUPS` registra o botão como `null`.** Ele é um ALTERNADOR e tem ouvinte
+próprio; registrado na tabela também, o toque com a janela fechada abriria pelo
+ouvinte dele e fecharia pelo da tabela, no mesmo clique — a janela pisca e nada
+acontece. O que a linha continua entregando é o resto do contrato: o toque no
+fundo e o degrau do voltar.
+
+### A Biblioteca virou uma janela que SOBE
+
+*"a biblioteca agora vai abrir abaixo dessa barra de buscas de forma animada,
+fazendo ela subir até o topo da tela … com uma ligeira folga do topo da tela
+quando aberta, para deixar claro que a biblioteca é apenas uma janela dentro do
+app."*
+
+**Isto REVOGA a v5.263**, que tinha tirado o slide inteiro (*"faça apenas um fade
+in e out … e faça dela uma tela inteira e não um tipo de pop up"*). A razão
+daquele lote era o TECLADO: a barra de busca morava dentro da folha, `transform`
+a torna o bloco-contêiner de tudo que for `position: fixed` lá dentro, e três
+lotes seguidos consertaram o entorno daquela animação. **Aqui a barra ficou
+FORA**: a janela não hospeda campo nenhum, e o que sobe é uma lista.
+
+- **A base é MEDIDA** (`--lib-base`, escrito por `medirBarraDaBiblioteca`): ela
+  encosta no TOPO da barra, que muda de altura com o teclado, com a barra de
+  seleção e com o corpo de fonte do sistema. É a mesma técnica do `--tab-x` que o
+  vazado das abas usava, e é o que sobrou dela.
+- **A CAMADA para no topo da barra** (`inset: 0 0 var(--lib-base) 0`), e isso não
+  é estética: com `inset: 0` o scrim cobriria a `.lib-bar`, e o primeiro toque a
+  ser engolido seria o do próprio botão que fecha a Biblioteca.
+- **A folha é `bottom: 0`, não `--lib-base` outra vez.** Quem já para no topo da
+  barra é a camada; descontar duas vezes deixava a janela terminando no meio da
+  tela — MEDIDO: base em 304 numa camada que ia até 602.
+- **`transform`, não `height`**: altura anima no layout e reflui a lista a cada
+  quadro.
+- **A janela NÃO é a folha das Ferramentas**, e a diferença está no pedido: *"a
+  janela da biblioteca não é igual as ferramentas, ela ocupa a tela inteira e não
+  apenas o corpo do cronograma"*. Aquelas são filhas do `.list-body`; esta é
+  `fixed` e cobre o app inteiro, do topo até a barra.
+
+**O PREÇO ESTÁ DITO:** a Biblioteca encolheu de ~880px para **576** (medido em
+430×900). Ela mostra menos itens de uma vez, e é a troca que o pedido escolheu —
+uma janela que ocupa tudo não tem como se anunciar como janela.
+
+### Os oráculos
+
+Quinze blocos reescritos, em seis arquivos. Os que mudaram de natureza:
+
+- **`ferramentas-folha.test.mjs` virou o oráculo da NAVEGAÇÃO** — as três coisas
+  se medem juntas porque são uma decisão só. Ganhou o alternador de dois
+  desenhos (medido no renderizado) e o voltar subindo dentro da Bíblia.
+- **O carrossel virou uma AUSÊNCIA no `smoke.mjs`**, medida com toque de verdade
+  (CDP): um ouvinte de `touchmove` que sobrevivesse à limpeza roubaria o eixo
+  horizontal da lista, e o que se veria é a rolagem vertical falhando de vez em
+  quando.
+- **O fixture do vão dos favoritos encolheu de seis categorias para duas.** Com a
+  janela mais baixa, oito blocos não deixam vão NENHUM (piso zero) e quatro
+  deixam um vão MENOR que a altura própria da seção (70px contra 136) — nos dois
+  a asserção falaria de um desenho que a tela não tem. O número nunca foi o
+  assunto; a propriedade é.
+- **`.popup-sheet--full` virou `--lib`** em toda parte, e a regra de R1 que
+  apontava para ela seguiu junto.
+
+Quatro reversões provam as decisões novas: sem `if (!comFoco) return` as duas
+portas viram uma; sem a folga e o `translateY` a janela volta a ser tela; sem o
+`.ico-alt` o alternador mostra os dois desenhos; sem o degrau 2.6 o voltar fecha
+a Bíblia com um capítulo aberto.
 
 ---
 

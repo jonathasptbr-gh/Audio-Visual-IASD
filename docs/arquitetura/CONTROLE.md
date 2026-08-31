@@ -2324,6 +2324,141 @@ No **navegador** não há Presentation: o mesmo rodapé volta a ser um atalho
 (`window.open('../display/', '_blank')`) para abrir a tela do Display numa
 janela à parte — útil para desenvolver a base web fora do app, e nada mais.
 
+### A navegação: uma tela e duas folhas (v1.5.0)
+
+Pedido do operador: *"vamos fazer uma alteração grande de design: agora o
+cronograma vai ser a tela padrão e única."*
+
+```
+ ┌─────────────────────────────────────────┐
+ │  Cronograma  (a lista, sempre)      ⚙   │
+ │ ┌─────────────────────────────────────┐ │  ← #toolsSheet · #bibleSheet
+ │ │  folha (Ferramentas | Bíblia)       │ │    cobrem SÓ o corpo da lista
+ │ └─────────────────────────────────────┘ │
+ │  [ Bíblia ]  [ Importar ]  [ Ferram. ]  │  ← as três portas
+ ├─────────────────────────────────────────┤
+ │  🎲  [ buscar…            ]   ↑ / ✕     │  ← a .lib-bar, onde eram as abas
+ │  transporte · preview · mixer           │
+ └─────────────────────────────────────────┘
+   A Biblioteca SOBE daqui e cobre o app inteiro, com folga do topo.
+```
+
+**A FAIXA DE ABAS SAIU INTEIRA**, e com ela o vazado deslizante (`.tab-ind` e o
+`moveTabIndicator` que o media), o carrossel horizontal, o fantasma da troca de
+tela e o `switchTab`. Nada disso tem para onde apontar: há um lugar e duas
+janelas, e abrir uma janela não é um passo lateral.
+
+**`activeTab` deixou de existir.** Ela tinha dois valores porque havia duas telas
+de lista; o que sobrou é `bibliaNoAr` — *a folha está aberta?* Todos os
+`activeTab === 'imports'` que ela sustentava eram, na verdade, *"o Cronograma
+está à vista?"*, que hoje é sempre verdade: **a folha COBRE a lista, não a
+substitui.** É um booleano e não `!bibleSheetEl.hidden` porque o `hidden` só cai
+no fim da animação de saída.
+
+| peça | o que é |
+|---|---|
+| `#toolsSheet` · `#bibleSheet` | as duas folhas, filhas do `.list-body`, cobrindo só a lista |
+| `.import-row` | as três portas: `#bibleBtn` · `.import-btn` · `#toolsBtn` |
+| `.lib-bar` | a barra da Biblioteca, na caixa de controles, onde a faixa morava |
+| `#hymnSearchPopup` | a JANELA da Biblioteca — `fixed`, cobre o app, sobe da barra |
+
+#### As três portas do rodapé
+
+*"na base dela se mantém o botão de importar arquivos no centro, a esquerda o
+botão de bíblia e a direita o botão de ferramentas"* + *"coloque um texto no
+botão de ferramentas"*.
+
+A ordem é a da leitura: o que se **consulta** à esquerda, o que **entra** no
+roteiro no centro, o que se **produz** à direita. `flex: 1 1 0` — base ZERO,
+porque com `auto` a do meio partiria maior e ficaria maior depois de repartida a
+sobra.
+
+**Ícone em cima, rótulo embaixo**, a pilha do `.qs-tile`: MEDIDO em 360px, três
+rótulos em LINHA não cabem ("Ferramentas" sai com reticências; em 320px, dois dos
+três). E **"Importar"**, não "Importar arquivos" — o nome inteiro não paga um
+terço em largura nenhuma; o `title` guarda a frase completa.
+
+As laterais vestem `--surface` e a do meio, `--btn-accent`: quem ENTRA com
+conteúdo é a do meio, e ela é a única AÇÃO da faixa — as outras duas abrem um
+lugar. É a distinção que a faixa de abas fazia entre o `.tab-add` e as `.tab`.
+
+#### A folha da Bíblia
+
+*"a bíblia vai ser uma janela igual o que é hoje a seção de ferramentas, no mesmo
+molde."* Mesmo molde, medido: não invade o cabeçalho nem a caixa de controles,
+cobre a lista inteira, mesma entrada e mesma saída. O que ela tem a mais:
+
+- **HOST PRÓPRIO** (`#bibleBody`). Ela desenhava dentro do `#library` — o mesmo
+  `<ul>` do Cronograma —, e era por isso que `renderLibrary` tinha um desvio por
+  aba no topo. Com host próprio as duas listas deixam de disputar um nó, e o
+  Cronograma continua desenhado por baixo.
+- **O VOLTAR DELA** (`#bibleBack`), na barra da folha. O `#backBtn` do cabeçalho
+  só servia à Bíblia e hoje nasce sempre oculto: um voltar na faixa do app
+  apontando para dentro de uma janela é o app dizendo que a janela é ele. O
+  degrau 2.6 do `__avBack` acompanha — ele SOBE dentro da folha antes de fechar.
+- **O DESLIZE** (`deslizarNaFolha`), o que sobrou do carrossel: a navegação
+  DENTRO dela é o único movimento lateral que restou no app.
+
+**As duas folhas não se empilham:** são as portas do MESMO rodapé, e uma sobre a
+outra teria dois títulos e dois ✕ na mesma caixa.
+
+#### A barra da Biblioteca, e as duas portas dela
+
+*"onde hoje é a barra de abas com o botão de buscas, vamos trazer toda a barra de
+buscas da biblioteca, ela vai ficar agora ali fora da biblioteca."*
+
+Os mesmos três elementos, na ordem que a v5.305 fixou — *sortear* · *procurar* ·
+*sair*. Duas barras seriam duas verdades sobre o mesmo campo, e a de dentro
+sumiria atrás da de fora no instante em que a Biblioteca abrisse.
+
+**Ela mantém a superfície própria** (`--field-bar`), pela medida da v5.270 no
+lugar novo: o campo é branco nos dois temas e no tema CLARO a caixa de controles
+também é — campo branco sobre caixa branca dá **1,00:1**. O que ela perdeu é a
+SOMBRA: aquela dizia de que lado o conteúdo passava, e aqui não passa nada atrás
+dela.
+
+**SÃO DUAS PORTAS, e a diferença é o TECLADO** (`openHymnSearch(comFoco)`):
+
+| porta | como | por quê |
+|---|---|---|
+| o FOCO no campo | abre **com** teclado | *"procurar o hino 37"* |
+| a SETA ao lado | abre **sem** foco | *"ver o que eu tenho"* — a lista inteira à vista |
+
+`comFoco` é explícito e não derivado de `document.activeElement`: quando o
+ouvinte de `focus` chama a função o campo já está focado, e quando o botão a
+chama ele pode estar focado por um toque anterior.
+
+**O botão é UM, com dois desenhos** — seta fechada, ✕ aberta —, os dois na
+árvore CLARA: a folha do documento não atravessa a árvore-sombra de um `<use>`.
+E ele entra na tabela `POPUPS` como `null`: registrado lá também, o toque com a
+janela fechada abriria pelo ouvinte dele e fecharia pelo da tabela, no mesmo
+clique.
+
+#### A janela que sobe
+
+*"a biblioteca agora vai abrir abaixo dessa barra de buscas de forma animada,
+fazendo ela subir até o topo da tela … com uma ligeira folga do topo."*
+
+**Isto revoga a v5.263**, que tirou o slide. A razão daquele lote era o TECLADO —
+a barra morava dentro da folha e `transform` a torna o bloco-contêiner dos
+descendentes fixos. Hoje a barra está fora e a janela não hospeda campo nenhum.
+
+- **A base é MEDIDA** (`--lib-base`, por `medirBarraDaBiblioteca`): ela encosta no
+  topo da barra, que muda de altura com o teclado, com a barra de seleção e com o
+  corpo de fonte do sistema. É a técnica do `--tab-x`, e é o que sobrou dela.
+- **A CAMADA para no topo da barra** (`inset: 0 0 var(--lib-base) 0`): com
+  `inset: 0` o scrim cobriria a `.lib-bar`, e o primeiro toque engolido seria o do
+  botão que fecha a Biblioteca.
+- **A folha é `bottom: 0`**, não `--lib-base` outra vez — quem já para na barra é
+  a camada. MEDIDO: descontar duas vezes deixava a base em 304 numa camada de 602.
+- **`transform`, não `height`**: altura anima no layout.
+- **Ela NÃO é a folha das Ferramentas**: aquelas são filhas do `.list-body`; esta
+  é `fixed` e cobre o app inteiro. Era o pedido literal.
+
+**O PREÇO ESTÁ DITO:** a Biblioteca caiu de ~880px para **576** (medido em
+430×900). Ela mostra menos itens de uma vez — é a troca que o pedido escolheu,
+porque uma janela que ocupa tudo não tem como se anunciar como janela.
+
 ### Abas e biblioteca
 
 #### Como um item ENTRA no Cronograma
