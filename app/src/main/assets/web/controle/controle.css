@@ -3220,15 +3220,22 @@ main {
 #hymnResults > .coll-group--fav.aberto .fav-itens {
   list-style: none; margin: 0; padding: .4rem;
   display: flex; flex-direction: column; gap: var(--sp-3);
-  background: var(--camada);
+  /* PAPEL, e não `--camada` (v1.5.14). A placa é o NÍVEL 2 da seção dos
+     Favoritos — a irmã do `.folder-opfs` que fica ao lado dela e o análogo do
+     card de álbum —, e o nível 2 volta ao tom da janela. Lendo `--camada` ela
+     pegava o POÇO que a seção reserva aos filhos e media 1,00:1 contra ele: a
+     placa sumia dentro da própria seção, e as linhas dela ficavam num degrau
+     que nenhuma outra lista do acervo tem. */
+  background: var(--panel);
   border-radius: var(--radius-card);
 }
 #hymnResults > .coll-group--fav.aberto .fav-itens > .lib-item {
   /* A MESMA RECEITA da faixa do álbum, e é o ponto da v5.283 — os dois são
-     "um item", não "um contêiner". Trocaram `--surface` por `--item-fill`
-     JUNTOS (v5.297): separá-los aqui devolveria as duas cores diferentes para o
-     mesmo papel, que é o defeito que aquela versão fechou. */
-  --linha: var(--item-fill);
+     "um item", não "um contêiner". Andaram JUNTOS quando trocaram `--surface`
+     por `--item-fill` (v5.297) e andam juntos agora que o nível 3 deixou de ter
+     preenchimento (v1.5.14): separá-los devolveria duas receitas para o mesmo
+     papel, que é o defeito que aquela versão fechou. */
+  --linha: transparent;
   --camada: transparent;
 }
 /* ---------- AS SEÇÕES RESPIRAM (v5.273) ----------
@@ -3295,7 +3302,13 @@ main {
      e tampa, e quem diz "isto contém aquilo" é o desenho, não a tipografia.
      `letter-spacing` sai junto: tracking sem caixa alta é um rótulo pela
      metade. */
-  font-size: var(--fs-lg); font-weight: var(--fw-forte);
+  /* UM DEGRAU ACIMA DO CARD (v1.5.14). A seção era `.9rem` e o card `.88rem` —
+     dois centésimos, que é ruído e não hierarquia; a migração para a escala
+     tipográfica achatou os dois no mesmo degrau e o oráculo pegou. Com a
+     moldura fora, o RANK passou a ser um dos três mecanismos que carregam a
+     profundidade (com o sticky e o recuo), então ele tem de ser um degrau de
+     verdade: seção `--fs-xl`, card `--fs-lg`, faixa `--fs-md`. */
+  font-size: var(--fs-xl); font-weight: var(--fw-forte);
   color: var(--muted);
   /* O VÃO é o do card (`.55rem`), pela mesma razão do recuo abaixo: com `.5rem`
      o nome da seção começava 1px antes do nome do card. */
