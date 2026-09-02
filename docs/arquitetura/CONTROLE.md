@@ -2588,12 +2588,44 @@ de uma vez — está em `tokens.css`; aqui ficam as decisões de estrutura.
   duas se leem como um cartão quando fechadas, que é o estado normal. Tingir só
   os cards deixava dois coloridos entre cinco cinzas: lê-se como acidente, não
   como desenho.
-- **A TINTA É SEMPRE A TAMPA, nunca o bloco**, e isso vale para as duas formas.
-  Tudo que vive DENTRO de um bloco da Biblioteca — o card aninhado numa seção, a
-  faixa e a gaveta dentro de um card — foi medido contra `--panel-2`, e uma tinta
-  que descesse até lá apaga essas medições: MEDIDO com o card inteiro tingido, a
-  gaveta caiu a **1,05:1** da faixa no tema escuro, que é a queixa da v5.287 de
-  volta.
+- **CADA COLEÇÃO TEM TRÊS TONS, E ELES SÃO AS TRÊS ALTURAS DA ESCADA** (v1.5.8).
+  Pedido do operador: *"ajuste para que a cor da caixa não se altere para cinza
+  como é hoje, ela mantenha o corpo com a cor da mãe"* — a tinta era só da tampa,
+  e abrir uma seção apagava a cor que a identificava.
+
+  | token | o quê | altura |
+  |---|---|---|
+  | `--col-N` | a TAMPA | o recesso, abaixo da base |
+  | `--col-N-corpo` | o BLOCO de uma seção | a base da janela |
+  | `--col-N-card` | um CARD | o `--panel-2` |
+
+  **É a altura que faz a cor caber sem mexer em nada:** MEDIDO, cada
+  `--col-N-card` fica a 1,00–1,01:1 do `--panel-2` que substitui, então tudo o
+  que foi medido DENTRO do card (a faixa, a gaveta) continua valendo ao pé da
+  letra. A primeira tentativa tingia o card INTEIRO com o tom da tampa e a gaveta
+  caiu a 1,05:1 da faixa no escuro — a queixa da v5.287 de volta.
+
+  **A HERANÇA faz o resto.** A classe entra no `<li>` da linha de topo e as três
+  custom properties descem por toda a subárvore: um card ANINHADO veste o tom da
+  mãe sem o JS dizer nada, e a `.coll-group-corpo` troca `--col` e `--camada`
+  pelo tom de card para que a tampa de um card aninhado não se anuncie como uma
+  segunda seção e para que o conteúdo da seção não saia cinza sobre a mãe (MEDIDO
+  antes dessa segunda metade: a linha de um favorito a 1,03:1 do corpo, contra os
+  1,29:1 da faixa dentro de um álbum).
+
+  **O CORPO É UM SUSSURRO, e isso está dito:** ele fica a 1,00–1,02:1 da base da
+  janela, porque a altura dele É a da base — o que o distingue é a MATIZ, não o
+  tom. No tema claro a base é branco puro, e ali um wash só pode ser quase
+  branco; a alternativa (um corpo escuro o bastante para se ver) derrubaria o
+  degrau até o card, que é o que sustenta a lista.
+- **AS MATIZES ESTÃO EM ORDEM DE ESPECTRO** (v1.5.8): *"coloque as cores em ordem
+  de graduação, os verdes perto dos verdes, como as cores do arco íris que tem
+  ordem"*. Elas eram espalhadas de propósito, para duas linhas vizinhas ficarem o
+  mais diferentes possível — e a troca **não custa separação nenhuma**: oito
+  matizes distribuídas em 360° ficam a 45° uma da outra ordenadas ou espalhadas.
+  O que muda é só qual vizinha cada uma tem. A ordem tem oráculo PRÓPRIO porque
+  ela some sem sintoma: as oito continuam sendo as mesmas oito, então nenhum caso
+  de contraste, separação ou legibilidade nota que alguém as embaralhou.
 - **ISTO REVOGA "a seção é UM bloco, não três peças costuradas"** (v5.267): uma
   tampa colorida É uma peça própria, e a regra antiga proibia exatamente o que o
   pedido pede. O que ela protegia continua protegido, e por medição MAIOR — o

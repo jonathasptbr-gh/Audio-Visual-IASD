@@ -191,25 +191,14 @@
      nome diz a que superfície ele pertence, e é isso que impede o próximo
      controle sobre o campo de repetir a conta errada. */
   --field-accent: #2f557f;
-  /* ---------- E A BORDA: A ÚNICA EXCEÇÃO À REGRA DO "SEM CONTORNO" (v1.5.5) ----------
-     Pedido do operador: *"abra uma única exceção ao conceito de sem bordas do
-     app, para poder fazer a caixa de texto da busca para que seja branca com a
-     borda em cinza"*.
-
-     A regra do app é que tudo se separa por PREENCHIMENTO, e ela continua de pé
-     em toda a outra parte — o `tokens.test.mjs` varre a fonte e nomeia os
-     sobreviventes um a um; este entra como o terceiro nome dessa lista, não como
-     um precedente. **O que abre a exceção é o TEMA CLARO:** ali `--bar` é
-     BRANCO e o campo é branco, isto é, **1,00:1** — sem a borda não há nada
-     separando a caixa de texto da barra em que ela mora. No escuro o campo já se
-     separa sozinho (14,27:1 contra a barra) e a borda é reforço.
-
-     O VALOR sai da mesma cozinha de `--field-text`: é o `--line` do tema CLARO
-     (#97a5b4, onde a cor de linha foi calibrada contra branco), escurecido até
-     passar o piso de 3:1 de componente — MEDIDO, o `--line` cru dá **2,51:1**
-     sobre branco e não serve justamente no caso que criou a exceção. Este dá
-     **3,13:1** sobre o campo e **4,55:1** sobre a barra escura. */
-  --field-borda: #8593a3;
+  /* (`--field-borda` SAIU na v1.5.8. A borda do campo de busca CONTINUA sendo a
+     única exceção declarada à regra do "sem contorno" — o que mudou é de onde
+     sai a cor dela: `var(--surface)`, o MESMO token que os botões ao lado
+     pintam, composto sobre a MESMA base por um `background-clip: padding-box`.
+     Pedido do operador: *"ele deve ser o mesmo cinza dos botões a sua volta"*.
+     Este token era um valor calculado — o `--line` do tema claro escurecido até
+     passar o piso de 3:1 — e existia porque a borda não tinha como ler o tom dos
+     botões; hoje ela lê, e um valor à parte só teria como divergir dele.) */
   /* (`--field-bar` SAIU na v1.5.2, nos dois temas. Era a faixa que hospedava o
      campo de busca, e ela existia por causa de uma peça que também saiu: o campo
      BRANCO. Pedido do operador: *"vamos remover esse zoneamento de tom
@@ -617,6 +606,40 @@
      essas medições: MEDIDO com o card inteiro tingido, a gaveta caiu a 1,05:1 da
      faixa no tema escuro, que é a queixa da v5.287 de volta.
 
+     ===== AS MATIZES ESTÃO EM ORDEM DE ESPECTRO (v1.5.8) =====
+     Pedido do operador: *"coloque as cores em ordem de graduação, os verdes
+     perto dos verdes, como as cores do arco íris que tem ordem"*. Elas eram
+     ESPALHADAS de propósito, para duas linhas vizinhas ficarem o mais diferentes
+     possível; hoje são laranja → amarelo → verde → ciano → azul → violeta →
+     rosa, e **isso não custa separação nenhuma**: oito matizes distribuídas em
+     360° ficam a 45° uma da outra tanto espalhadas quanto ordenadas. O que muda
+     é só QUAL vizinha cada uma tem.
+
+     ===== E CADA COLEÇÃO TEM TRÊS TONS, NÃO UM (v1.5.8) =====
+     Pedido do operador: *"ajuste para que a cor da caixa não se altere para
+     cinza como é hoje, ela mantenha o corpo com a cor da mãe"*. A tinta era só
+     da tampa, e o corpo do bloco caía no cinza da escada — abrir uma seção
+     apagava a cor que a identificava.
+
+       `--col-N`        a TAMPA. O recesso, o tom forte.
+       `--col-N-corpo`  o CORPO de uma SEÇÃO, na altura da base da janela.
+       `--col-N-card`   o corpo de um CARD, na altura do `--panel-2`.
+
+     As três alturas são as da escada, e é isso que faz a cor caber nela sem
+     mexer em nada: MEDIDO, cada `--col-N-card` fica a **1,00–1,01:1** do
+     `--panel-2` que ele substitui, então toda a medição de DENTRO do card
+     (a faixa, a gaveta) continua valendo ao pé da letra.
+
+     A HERANÇA faz o resto: a classe entra no `<li>` da linha de topo e as três
+     custom properties descem por toda a subárvore, então um card ANINHADO veste
+     o tom da mãe sem o JS precisar dizer nada. É a mesma mecânica do `--camada`.
+
+     **O CORPO É UM SUSSURRO, e isso está dito:** ele fica a 1,00–1,02:1 da base
+     da janela nos dois temas, porque a altura dele é a da base — o que o
+     distingue é a MATIZ, não o tom. No tema claro a base é branco puro, e ali um
+     wash só pode ser quase branco: a alternativa (um corpo escuro o bastante
+     para se ver) derrubaria o degrau até o card, que é o que sustenta a lista.
+
      Oito e não dez: 45° de separação entre matizes vizinhas contra os 18° que a
      Bíblia precisou espremer para caber dez divisões canônicas. Aqui o número é
      escolha nossa, e menos tons bem separados dizem mais que muitos parecidos.
@@ -625,14 +648,14 @@
      saiu na v5.71 por ser "mais uma linha vertical repetida em toda a lista". Na
      Bíblia ela carrega a informação porque o ladrilho é pequeno e a tinta é
      sutil; aqui a tampa é uma barra larga e a tinta cobre tudo. */
-  --col-1: #131e2d;
-  --col-2: #0e2218;
-  --col-3: #271b11;
-  --col-4: #241634;
-  --col-5: #102025;
-  --col-6: #15210e;
-  --col-7: #301422;
-  --col-8: #211e0e;
+  --col-1: #261b10;  --col-1-corpo: #413020;  --col-1-card: #554332;
+  --col-2: #211d0e;  --col-2-corpo: #38341c;  --col-2-card: #4b462c;
+  --col-3: #15210e;  --col-3-corpo: #27381b;  --col-3-card: #394b2c;
+  --col-4: #0e2218;  --col-4-corpo: #1c392a;  --col-4-card: #2d4d3d;
+  --col-5: #102025;  --col-5-corpo: #1f373f;  --col-5-card: #314953;
+  --col-6: #131e2c;  --col-6-corpo: #243449;  --col-6-card: #36475d;
+  --col-7: #251735;  --col-7-corpo: #3e2a54;  --col-7-card: #513d69;
+  --col-8: #301522;  --col-8-corpo: #4d263a;  --col-8-card: #62394e;
 
 
   /* Células de número da Bíblia (capítulo × versículo). Tons DISTINTOS por tela
@@ -821,14 +844,14 @@
   /* Os oito tons das coleções, no tema CLARO — a mesma busca binária, agora
      contra o `--panel` branco e o `--panel-2` daqui. Ver o bloco do tema
      escuro. */
-  --col-1: #d4e3f5;
-  --col-2: #b4edd1;
-  --col-3: #f3ddcb;
-  --col-4: #e8dcf7;
-  --col-5: #c7e7f2;
-  --col-6: #c7ecaf;
-  --col-7: #f6d9e8;
-  --col-8: #ece2ae;
+  --col-1: #f3ddcb;  --col-1-corpo: #fefdfb;  --col-1-card: #e8d6c7;
+  --col-2: #ece1ae;  --col-2-corpo: #fdfdfa;  --col-2-card: #e1dab7;
+  --col-3: #c7ecae;  --col-3-corpo: #fbfdfa;  --col-3-card: #c8e1b7;
+  --col-4: #b4eed1;  --col-4-corpo: #fafdfc;  --col-4-card: #b9e3ce;
+  --col-5: #c7e7f2;  --col-5-corpo: #fcfdfe;  --col-5-card: #c4dde7;
+  --col-6: #d4e2f5;  --col-6-corpo: #fcfdfe;  --col-6-card: #cedbeb;
+  --col-7: #e9dcf7;  --col-7-corpo: #fdfcfe;  --col-7-card: #e1d5ee;
+  --col-8: #f6dae8;  --col-8-corpo: #fefcfd;  --col-8-card: #edd2e0;
 
 
   --cell-chapter: #cedff3;      --cell-chapter-text: #183d67;   /* 8,13:1 */
