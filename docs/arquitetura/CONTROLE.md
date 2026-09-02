@@ -2610,15 +2610,28 @@ lilás com cinco álbuns lilás soltos dentro dela.
   diferente de como ocorre corretamente com o card dos albuns"*. O card sempre
   teve caixa — o corpo dele fica dentro do bloco pintado; a seção pintava o mesmo
   tom nos dois e o agrupamento sumia.
-- **OS DOIS NÍVEIS DE AGRUPAMENTO DIVIDEM O TOM** (`--panel-2` sobre a janela
+- **OS DOIS NÍVEIS DE AGRUPAMENTO DIVIDEM O TOM** (`--btn-accent` sobre a janela
   `--panel`): um degrau de verdade contra a base e NENHUM entre si, porque entre
   eles há sempre a linha e o recuo do corpo. Um degrau ali seria a escada de
   volta, competindo com a moldura.
+- **E O TOM É O AZUL FRACO, NÃO UM CINZA** (v1.5.10): *"essa predominância cinza
+  escura está muito ruim em especial no tema claro. porque não usou o azul fraco
+  como cor principal dos cards?"* — e, sobre o cinza que sobra, *"também pode ser
+  interessante usar apenas o cinza que se usa nos botões, não sei porque foi
+  usado um cinza bem mais escuro"*. As duas frases são a MESMA troca: a caixa
+  vira `--btn-accent` e o único cinza da lista passa a ser o `--surface` das
+  tampas, que É o dos botões. **`--panel-2` sai da Biblioteca inteira**, inclusive
+  da placa dos favoritos, que o lia por `--camada` e sairia como um retângulo
+  cinza dentro de uma seção azul (`.acervo .coll-group-corpo`).
 - **QUEM DECIDE O TOM DAS CAIXAS É O NÍVEL 3**, e isso é medição: `--item-fill` é
   branco a 80% no tema CLARO — desenhado para pousar num card acinzentado. MEDIDO
-  com as caixas em `--panel`, a faixa ficava a **1,00:1** do card que a contém.
-  Manter `--panel-2` devolve à faixa a base para a qual ela foi calibrada e
-  preserva tudo o que a v1.3.14 mediu dentro do card.
+  com as caixas em `--panel`, a faixa ficava a **1,00:1** do card que a contém;
+  sobre `--btn-accent` ela mede **1,17:1** no claro e **1,35:1** no escuro. É
+  menos que os 1,32:1 do cinza escuro, e é essa a pressão que o oráculo guarda:
+  quem for apertar aquele número encontra `--panel-2` como resposta óbvia e
+  desfaz o pedido sem saber. A régua do `smoke.mjs` é um VIZINHO RENDERIZADO — o
+  botão de ação da própria barra veste `--btn-accent` —, nunca o token lido de
+  volta.
 - **O NÍVEL 3 NÃO GANHA MOLDURA**: uma faixa é conteúdo, não agrupamento —
   emoldurá-la faria a lista virar uma grade de caixinhas.
 - **A PASTA SINCRONIZADA ganha moldura de CARD**, pela regra da v5.284 (ela é um
@@ -2635,6 +2648,25 @@ lilás com cinco álbuns lilás soltos dentro dela.
   fechada passou a ser a barra MAIS 2px de linha. MEDIDO com seis seções: a
   última terminava 7px abaixo do fim da lista. O `medirVaoDosFavoritos` soma a
   moldura junto.
+- **E ELA TEM UM SEGUNDO CUSTO, do mesmo feitio** (v1.5.10): *"verifique o
+  tamanho e espaçamento dos favoritos, pois está deslocado o seu card de topo em
+  relação a caixa dele"*. `.coll-group:first-child` dá `padding-top: .2rem`
+  (0,2,0, vencendo o `padding: 0` da regra do `--drop`, que é 0,1,0) para a lista
+  não começar colada no topo — e com a caixa desenhada aquilo virou uma faixa de
+  3,2px DENTRO dela, acima da barra (MEDIDO: caixa em 59,2 e barra em 63,4).
+  **E ele sai sem virar margem, de propósito:** margem fica FORA do retângulo, e
+  o `medirVaoDosFavoritos` fecha a conta em `clientHeight − padding − gaps −
+  barras`, onde margem nenhuma entra — a lista somaria 3,2px a mais que a tela e
+  a última seção fechada terminaria abaixo do fim dela, o defeito do item acima
+  por outro caminho.
+- **E O PRIMEIRO CARD NÃO NASCE COLADO NA TAMPA** (v1.5.10): *"verifique o
+  espaçamento entre o card de titulo da coleção e o primeiro item desta coleção,
+  parece estar sem espaçamento correto"*. O corpo aberto era `padding: 0 .4rem
+  .45rem` — sem recuo em cima —, então o primeiro card começava EXATAMENTE onde a
+  barra acaba (MEDIDO: vão de 0px) enquanto os seguintes eram separados por
+  `.35rem`: a primeira vizinha da coluna valia menos que as outras. O recuo é o
+  MESMO valor do `gap`, e a régua do oráculo é a COMPARAÇÃO com ele — o número é
+  decisão de desenho, o que não pode é a desigualdade.
 
 #### O campo se limpa AO FECHAR (v1.5.6)
 
@@ -3670,21 +3702,24 @@ aqui são ITENS — e sem regra própria a linha de favorito e o card de álbum
 pintavam **1,00:1**, a mesma cor literalmente.
 
 ```
- seção (--panel)                    seção (--panel)
-   └ card do álbum (--panel-2)        ├ placa dos itens (--panel-2)
+ seção (--btn-accent)               seção (--btn-accent)
+   └ card do álbum (--btn-accent)     ├ placa dos itens (--btn-accent)
        └ faixa: RECESSO ─────────┐    │   └ favorito: RECESSO ─────┘
                                  └────┤        a MESMA cor, por construção
-                                      └ pasta sincronizada (--panel-2)
+                                      └ pasta sincronizada (--btn-accent)
                                           IRMÃ da placa: cor de ÁLBUM
 ```
 
 A receita é a da faixa (`.coll-songs > .hymn-result`): um recesso (`--surface`,
 que dentro de uma seção da Biblioteca é o par `sunk`) sobre uma base de nível de
-card. **As duas metades são inseparáveis, e a segunda foi imposta pela medição:**
-só o recesso, sobre o tom da SEÇÃO, resolve no escuro (1,58:1 contra o card) e
-FALHA no claro, onde a seção é BRANCA e o recesso compõe `#dbdbdb`, a 1,02:1 do
-card. Com a base de card por baixo a composição é a mesma da faixa:
-`rgb(46,54,63)` no escuro, `rgb(182,188,194)` no claro, a 1,29:1 e 1,37:1.
+card. **As duas metades são inseparáveis, e a segunda foi imposta pela medição** —
+feita quando a seção ainda pintava `--panel` (antes de a v1.5.9 lhe dar caixa
+própria) e é ela que explica por que a PLACA existe: só o recesso, sobre o tom da
+seção, resolvia no escuro (1,58:1 contra o card) e FALHAVA no claro, onde a seção
+era BRANCA e o recesso compunha `#dbdbdb`, a 1,02:1 do card. Com a base de card
+por baixo a composição vira a MESMA da faixa dentro de um álbum, que é a
+propriedade que continua valendo hoje: MEDIDO sobre `--btn-accent`, 1,24:1 no
+escuro e 1,17:1 no claro nos DOIS lugares.
 
 **A PASTA SINCRONIZADA CONTINUA SENDO UM ÁLBUM** — ela guarda muitos arquivos, é
 um CONTÊINER. Os dois níveis querem bases DIFERENTES e uma `<ul>` só não oferece
@@ -3694,8 +3729,9 @@ mede 1,00:1. Daí a **placa dos itens** (`.fav-itens`, criada em
 contêiner de nível 2 desta seção — o lugar que num hinário é do card de álbum.
 Com ela o par volta a ser o MESMO do álbum, em dois elementos: `.hymnal-card`
 pinta e `.coll-songs` zera o degrau seguinte. **As pastas não ganharam regra
-nenhuma**: são filhas diretas do corpo, que já reserva `--panel-2` para os filhos
-dele — a cor de álbum é o PADRÃO ali.
+nenhuma**: são filhas diretas do corpo, que já reserva o tom de card para os
+filhos dele — a cor de álbum é o PADRÃO ali. (Desde a v1.5.10 esse tom é
+`--btn-accent`, e a Biblioteca não tem mais `--panel-2` em lugar nenhum.)
 
 *(Acumular os dois papéis numa peça só obriga o reset de `--camada` a morar na
 regra da LINHA, senão ele vence na hora de o corpo resolver o próprio

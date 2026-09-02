@@ -1,5 +1,13 @@
 [
   {
+    "versao": "1.5.10",
+    "itens": [
+      "Os cards da Biblioteca trocaram o cinza escuro pelo azul claro do app.",
+      "A caixa dos Favoritos deixou de nascer com o cabeçalho deslocado.",
+      "E o primeiro item de uma coleção ganhou o mesmo respiro dos outros."
+    ]
+  },
+  {
     "versao": "1.5.9",
     "itens": [
       "As cores das coleções saíram: a Biblioteca voltou ao branco e azul do app.",

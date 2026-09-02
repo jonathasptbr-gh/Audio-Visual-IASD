@@ -2952,6 +2952,23 @@ main {
   background: var(--camada);
   border-radius: var(--radius-card);
 }
+/* ---------- E O RECUO DO PRIMEIRO NÃO ENTRA NA CAIXA (v1.5.10) ----------
+   Relato do operador: *"verifique o tamanho e espaçamento dos favoritos, pois
+   está deslocado o seu card de topo em relação a caixa dele"*.
+
+   `.coll-group:first-child` acrescenta `padding-top: .2rem` para a lista não
+   começar colada no topo, e ele é 0,2,0 — vence o `padding: 0` desta regra, que
+   é 0,1,0. Enquanto a seção não tinha caixa isso era o respiro da LISTA; com a
+   moldura da v1.5.9 ele virou uma FAIXA DE 3,2px DENTRO da caixa, acima da
+   barra, e é ela que o relato descreve.
+
+   **E ele sai sem virar margem, de propósito.** Uma `margin-top` aqui fica FORA
+   do retângulo da caixa, e `medirVaoDosFavoritos` fecha a conta do vão em cima
+   de `clientHeight − padding − gaps − barras`: margem nenhuma entra ali, então
+   a lista passaria a somar 3,2px a mais que a tela e a última seção fechada
+   terminaria ABAIXO do fim dela — o mesmo defeito que a moldura da v1.5.9 já
+   produziu uma vez, por outro caminho. O respiro que sobra é o do contêiner. */
+.coll-group--drop:first-child { padding-top: 0; }
 /* ---------- QUEM OCUPA O VÃO É A SEÇÃO DOS FAVORITOS (v5.273/v5.276) --------
    Pedido do operador: *"a visão comum inicial vai ser as listas de coleções
    empilhadas na base, e quando elas acabam, toda a parte da tela que sobrou
@@ -3207,8 +3224,15 @@ main {
    mesmo plano da barra da seção, não dentro dela. Agora o card sobe um degrau
    (`--camada` = `--panel-2`) sobre o tom da seção, e o aninhamento se lê sem
    nenhuma linha. */
+/* O RECUO DE CIMA É O MESMO `gap` DAS LINHAS (v1.5.10). Relato: *"verifique o
+   espaçamento entre o card de titulo da coleção e o primeiro item desta
+   coleção, parece estar sem espaçamento correto"* — MEDIDO, o primeiro card
+   começava EXATAMENTE onde a barra da seção acaba (vão de 0px), enquanto os
+   cards seguintes eram separados por .35rem. O primeiro parecia grudado na
+   tampa, e a lista parecia começar antes de a seção começar. Com o mesmo valor
+   do `gap`, a barra passa a ser mais uma vizinha na coluna. */
 .coll-group--drop.aberto > .coll-group-corpo {
-  padding: 0 .4rem .45rem;
+  padding: .35rem .4rem .45rem;
   gap: .35rem;
 }
 /* FECHADO ELE NÃO OCUPA NADA. O corpo é sempre montado (é ele que a animação
@@ -3900,20 +3924,42 @@ main {
    e o agrupamento sumia. Com moldura os dois têm caixa, e a de dentro se vê
    dentro da de fora.
 
-   **E TUDO VOLTA AO BRANCO E AZUL DO SISTEMA:** as caixas são `--panel`, as
-   tampas são `--surface` (o cinza dos botões) e o azul continua onde ele sempre
-   esteve neste app — no glifo que abre e nos estados. */
+   **E TUDO VOLTA AO BRANCO E AZUL DO SISTEMA:** a janela é `--panel`, as caixas
+   são `--btn-accent` (v1.5.10) e as tampas são `--surface` — o cinza dos
+   botões, e o único cinza que a lista tem. */
 /* OS DOIS NÍVEIS DE AGRUPAMENTO DIVIDEM O TOM, E É A MOLDURA QUE OS SEPARA — que
-   é exatamente para isso que a autoridade foi dada. Os dois pintam `--panel-2`
+   é exatamente para isso que a autoridade foi dada. Os dois pintam o MESMO tom
    sobre a janela `--panel`: um degrau de verdade contra a base, e nenhum entre
    si, porque entre eles há sempre a linha e o recuo do corpo.
 
-   **`--panel-2` E NÃO `--panel`, e isso é medição e não gosto.** O nível 3 usa
-   `--item-fill`, que no tema CLARO é branco a 80% — ele foi desenhado para
-   pousar num card acinzentado. Com as caixas em branco, MEDIDO: a faixa ficava a
-   **1,00:1** do card que a contém, isto é, sumia. Manter as caixas em `--panel-2`
-   devolve à faixa a base para a qual ela foi calibrada, e de quebra preserva
-   tudo o que a v1.3.14 mediu dentro do card. */
+   ---------- E O TOM É O AZUL FRACO, NÃO UM CINZA (v1.5.10) ----------
+   Pedido do operador, com as duas capturas: *"essa predominância cinza escura
+   está muito ruim em especial no tema claro. porque não usou o azul fraco como
+   cor principal dos cards?"* — e, sobre o cinza que sobra: *"também pode ser
+   interessante usar apenas o cinza que se usa nos botões, não sei porque foi
+   usado um cinza bem mais escuro"*.
+
+   As duas frases são a MESMA correção vista dos dois lados, e é por isso que
+   elas cabem numa troca só: a caixa passa a ser `--btn-accent` (o azul fraco,
+   a superfície de ação deste app) e o único cinza que sobra na lista é o
+   `--surface` das tampas, que É o cinza dos botões. **O `--panel-2` sai da
+   Biblioteca inteira** — ele é o cinza escuro que o relato nomeia, e ocupava a
+   área de duas caixas aninhadas em cada seção.
+
+   **A MEDIÇÃO QUE OBRIGAVA O `--panel-2` CONTINUA VALENDO, e é ela que decide
+   entre os dois candidatos.** O nível 3 usa `--item-fill`, que no tema CLARO é
+   branco a 80%: sobre uma caixa BRANCA ele mede 1,00:1 e some (foi o que
+   reprovou o primeiro corte da v1.5.9). Sobre `--btn-accent` ele mede 1,17:1 no
+   claro e 1,35:1 no escuro — menos que o 1,32:1 que o cinza escuro dava no
+   claro, e ainda assim a faixa se lê, porque o que a separa da vizinha nunca
+   foi só o degrau: é o degrau MAIS o espaço, e o espaço agora mostra AZUL entre
+   as faixas em vez de mais cinza. O que não se podia aceitar era o 1,00:1, e
+   nenhum dos dois temas chega perto dele.
+
+   **E o `--surface` das tampas não vira o mesmo tom por acidente:** ele é alfa,
+   então compõe sobre o azul e sai um cinza-azulado — um degrau de verdade
+   contra a caixa nos dois temas, que é o que faz a tampa continuar sendo a
+   linha que se toca. */
 .acervo > .coll-group--drop,
 .acervo .hymnal-card,
 /* A PASTA SINCRONIZADA entra aqui pela regra da v5.284 (*"mantenha apenas as
@@ -3922,10 +3968,16 @@ main {
    moldura. Sem ela a pasta ficaria com o tom da ÁREA em que mora e sumiria
    dentro dela — MEDIDO, 1,00:1. */
 .acervo .folder-opfs {
-  background: var(--panel-2);
+  background: var(--btn-accent);
   border: 1px solid var(--line);
 }
-.acervo .hymnal-card.expanded { --camada: var(--panel-2); }
+.acervo .hymnal-card.expanded { --camada: var(--btn-accent); }
+/* E O QUE O CORPO DE UMA SEÇÃO RESERVA AOS FILHOS É O MESMO TOM. Quem lê isso é
+   a PLACA dos favoritos (`.fav-itens`, que não é um card e por isso não pinta
+   sozinha): sem esta linha ela continuaria em `--panel-2` e sairia um retângulo
+   cinza escuro dentro de uma seção azul — o defeito do relato, sobrevivendo no
+   único lugar em que a caixa não se pinta. */
+.acervo .coll-group-corpo { --camada: var(--btn-accent); }
 /* A TAMPA DE CADA CAIXA — o mesmo tom nos dois níveis, porque o que os distingue
    é o ANINHAMENTO e não a cor. Ela some quando a caixa está aberta? Não: a tampa
    é a linha que se toca, e ela existe igual nos dois estados. */

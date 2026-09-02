@@ -2976,11 +2976,27 @@ acima cobre a FAIXA — sem acrescentá-lo, o balanço voltava pelo botão novo.
   capturas): oito matizes por coleção, em ordem de espectro, com três famílias de
   tom cada. *Cor sólida não diz o que está dentro do quê.* **A resposta que
   ficou é MOLDURA** (v1.5.9), com autoridade explícita e escopada à Biblioteca —
-  ver "A paleta", acima. Os dois níveis de agrupamento pintam `--panel-2` e a
-  LINHA os separa; a janela continua `--panel`, um degrau acima. **Quem decide o
-  tom das caixas é o NÍVEL 3:** `--item-fill` é branco a 80% no tema claro,
-  desenhado para pousar num card acinzentado — MEDIDO com as caixas em `--panel`,
-  a faixa ficava a 1,00:1 do card, isto é, sumia.
+  ver "A paleta", acima. Os dois níveis de agrupamento pintam o MESMO tom e a
+  LINHA os separa; a janela continua `--panel`, um degrau acima.
+
+  **E O TOM DAS CAIXAS É `--btn-accent`, o azul fraco** (v1.5.10). Ele foi
+  `--panel-2` por uma versão e o operador recusou: *"essa predominância cinza
+  escura está muito ruim em especial no tema claro. porque não usou o azul fraco
+  como cor principal dos cards?"* — e, sobre o cinza que sobra, *"também pode ser
+  interessante usar apenas o cinza que se usa nos botões, não sei porque foi
+  usado um cinza bem mais escuro"*. As duas frases são uma troca só: a caixa vira
+  a superfície de ação e o único cinza da lista passa a ser o `--surface` das
+  tampas, que É o dos botões. **`--panel-2` sai da Biblioteca inteira.**
+
+  **A MEDIÇÃO QUE OBRIGAVA O CINZA CONTINUA VALENDO, e é ela que escolhe entre os
+  dois candidatos.** O nível 3 usa `--item-fill`, branco a 80% no tema claro:
+  sobre uma caixa BRANCA ele mede **1,00:1** e some (foi o que reprovou o
+  primeiro corte da v1.5.9), sobre `--btn-accent` mede 1,17:1 no claro e 1,35:1
+  no escuro. Menos que os 1,32:1 do cinza — e é essa a pressão que o oráculo
+  guarda: quem for apertar aquele número encontra `--panel-2` como resposta
+  óbvia e desfaz o pedido sem saber. A régua do `smoke.mjs` é um VIZINHO
+  RENDERIZADO (o botão de ação da própria barra veste `--btn-accent`), nunca o
+  token lido de volta.
 - **A ESCADA TEM TRÊS DEGRAUS, E O QUARTO É O ESPAÇO.** Um quarto tom levaria o
   nível mais interno a ~`#4c5865` no escuro, onde `--muted` mede 3,59:1 e
   `--accent` 3,37:1 — os dois reprovam AA para texto pequeno, que é o tamanho do
@@ -3970,12 +3986,12 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: v1.5.9** (base web) · **v1.4.42** (APK) · `SHELL_VERSION` **61** · bundle com
+**Versão atual: v1.5.10** (base web) · **v1.4.42** (APK) · `SHELL_VERSION` **61** · bundle com
 `minShell: 61` e **sem `shellTag`** — o shell 61 é o **PISO**: todo método da
 ponte existe, e não há guarda de versão no lado web. **Este lote não pede
 Release**: mexe em `assets/web/` e em `tools/`, e nada disso chega ao aparelho
 por APK — nenhum `.kt`, nenhum `res/`, nenhum manifest. O bundle sai na hora.
-O rodapé mostra `Web v1.5.9 · Shell v1.4.42`, e
+O rodapé mostra `Web v1.5.10 · Shell v1.4.42`, e
 isso não é divergência: é a resposta exata a *"o OTA chegou e o APK ainda
 não?"*. O que continua valendo é que `java/`, `res/`, o manifest e os workflows
 **só chegam instalando o APK**.
