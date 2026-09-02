@@ -1,5 +1,16 @@
 [
   {
+    "versao": "1.5.14",
+    "itens": [
+      "A Biblioteca não usa mais linhas finas: o que separa os grupos passou a ser o tom das caixas.",
+      "E o nome de uma coleção fica preso no topo enquanto se rola a lista dela.",
+      "O tema escuro ficou azul-denim, a cor oficial da igreja, no lugar de um cinza quase preto.",
+      "A seta que abre e fecha as coleções voltou a responder ao toque, e ficou maior.",
+      "Os tamanhos de texto, os espaços e as animações ficaram uniformes no app inteiro.",
+      "No Modo Fácil, com uma apresentação no ar sobram só os controles que fazem alguma coisa."
+    ]
+  },
+  {
     "versao": "1.5.13",
     "itens": [
       "O título e a barra de progresso ganharam um cartão, como o resto dos controles."

@@ -3082,6 +3082,10 @@ main {
    logo abaixo dele. Sem isso, uma lista fechada seria uma pilha de rótulos que
    não se anunciam como tocáveis — e é justamente esse o único gesto da tela. */
 /* ---------- A SEÇÃO É UM BLOCO SÓ ----------
+   (v1.5.14: e voltou a ser verdade ao pé da letra. A v1.5.9 deu à barra um tom
+   próprio (`--surface`) e este texto passou a descrever um desenho que já não
+   existia; com as tampas transparentes, barra e corpo voltaram a ser faixas do
+   mesmo bloco, e o que as fixa é o `position: sticky`.)
    O `<li>` inteiro é a caixa: um preenchimento, um raio, e barra e corpo por
    dentro sem fundo próprio. Nada troca de cor com o estado — o que abre e fecha
    é a seta e o corpo aparecendo.
@@ -3255,26 +3259,20 @@ main {
    Escopado em `#hymnResults`, nunca no `.popup-list`: a mesma classe é a fila
    da playlist e os itens de uma pasta, onde .35rem é a medida certa. */
 #hymnResults { gap: var(--sp-5); }
-/* ---------- A ESCALA DE TONS DA BIBLIOTECA ----------
-   REGRA, uma só e verificável: dentro da folha há DOIS tons, e o aninhamento
-   NUNCA inverte a direção. `--panel-2` é o tom de CONTÊINER (a barra da seção e
-   o card do álbum — o token já muda de direção sozinho entre os temas). Dentro
-   de um contêiner o conteúdo não ganha caixa: a faixa é uma LINHA. Estado
-   (aberto, no ar, selecionado) é overlay, nunca um tom novo.
+/* ---------- A ESCALA DE TONS DA BIBLIOTECA SAIU (v1.5.14) ----------
+   O bloco que morava aqui descrevia a regra da v5.241/v5.267: DOIS tons, com
+   `--panel-2` como "o tom de CONTÊINER" e o aninhamento nunca invertendo a
+   direção. Ele já não descrevia o app desde a v1.5.10 (quando `--panel-2` saiu
+   da Biblioteca inteira) e continuava afirmando a receita antiga com a medição
+   dela ao lado — o formato de comentário que este projeto proíbe, porque ele
+   não envelhece calado: ele responde, e responde errado.
 
-   Antes, medido no escuro do fundo para dentro: folha 44,52,60 → barra FECHADA
-   ~69,76,84 (o objeto mais claro da tela, sendo o contêiner mais externo) → a
-   mesma barra ABERTA 44,52,60 (a peça trocava de cor com o estado) → card
-   59,69,80 → faixa 44,52,60. A elevação subia, descia, subia e descia em cinco
-   níveis aninhados: não havia regra a aprender.
-
-   Dois tons e não uma escada de quatro porque só o overlay (`--surface-sunk`)
-   preserva a direção nos dois temas, e uma escada de overlays levaria o nível
-   mais interno a 180 no claro — mais escuro que a própria página. */
-/* A barra não tem fundo NEM moldura própria: ela é a primeira faixa do bloco da
-   seção (acima), e o que a separa do corpo é o corpo ter conteúdo. A COR NÃO
-   MUDA com o estado — quem diz "isto está aberto" é a seta e o que apareceu
-   embaixo dela. */
+   A regra que vale hoje é a ALTERNÂNCIA papel → poço → papel, e ela está
+   escrita uma vez só, no bloco `.acervo` (procure "A HIERARQUIA DA BIBLIOTECA").
+   O que sobrevive daquele texto é a metade que nunca dependeu do número de
+   tons: dentro de um contêiner o conteúdo NÃO ganha caixa — a faixa é uma
+   linha —, e estado (aberto, no ar, selecionado) é preenchimento, nunca um tom
+   novo na escada. */
 .coll-group-bar {
   /* ---------- O RÓTULO INTEIRO MORA AQUI ----------
      Estas quatro linhas e a cor viviam na `.coll-group`, que é o BLOCO — e o
@@ -3405,9 +3403,11 @@ main {
 /* O CORPO NÃO TEM FUNDO PRÓPRIO: ele é a segunda faixa do bloco da seção, então
    fica com o tom DELA — e é essa a correção da v5.267. Ele ficava com a cor da
    FOLHA (`--panel`), e um card de álbum pousado ali estava, para o olho, no
-   mesmo plano da barra da seção, não dentro dela. Agora o card sobe um degrau
-   (`--camada` = `--panel-2`) sobre o tom da seção, e o aninhamento se lê sem
-   nenhuma linha. */
+   mesmo plano da barra da seção, não dentro dela. O card passou a ocupar um
+   degrau próprio sobre o tom da seção, e o aninhamento se lê sem nenhuma linha.
+   (v1.5.14: o degrau continua, com o sinal INVERTIDO — dentro do poço da seção
+   o card volta ao PAPEL em vez de subir mais um tom. É a alternância, e é ela
+   que faz o quarto nível não precisar de um quarto tom.) */
 /* O RECUO DE CIMA É O MESMO `gap` DAS LINHAS (v1.5.10). Relato: *"verifique o
    espaçamento entre o card de titulo da coleção e o primeiro item desta
    coleção, parece estar sem espaçamento correto"* — MEDIDO, o primeiro card
@@ -3548,7 +3548,12 @@ main {
    alcance, e o nome da coleção junto — que é a outra metade da pergunta "onde
    eu estou?". */
 /* ABERTO A PLACA SOBE (v1.3.14) — ver o bloco do `.hymnal-card`. É aqui que ele
-   declara o degrau, e é a tampa logo abaixo quem o lê. */
+   declara o degrau, e é a tampa logo abaixo quem o lê.
+   DENTRO DA BIBLIOTECA as duas linhas abaixo são sobrescritas pelo bloco
+   `.acervo` (o `--camada` vira PAPEL e a tampa fica transparente e grudada
+   ABAIXO da barra da seção). O que fica aqui é a receita de um card fora do
+   acervo — a folha da playlist, o resultado de busca —, onde não há seção
+   nenhuma e a escada de tons segue valendo. */
 .hymnal-card.expanded { --camada: var(--panel-2); }
 .hymnal-card.expanded .coll-bar {
   position: sticky; top: 0; z-index: 3;
