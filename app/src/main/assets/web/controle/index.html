@@ -1165,8 +1165,14 @@
              slide — a coluna da tela cheia e a notificação. -->
         <button id="prev" class="t-btn" title="Mídia anterior"><span class="msym" aria-hidden="true">&#xe045;</span></button>
         <button id="playpause" class="t-btn" title="Play/Pause"><span class="msym" aria-hidden="true">&#xe037;</span></button>
-        <button id="stop" class="t-btn" title="Parar e limpar"><span class="msym" aria-hidden="true">&#xe047;</span></button>
         <button id="next" class="t-btn" title="Próxima mídia"><span class="msym" aria-hidden="true">&#xe044;</span></button>
+        <!-- O PARAR VEM DEPOIS DO ⏭ (v1.5.6, pedido do operador: *"coloque o
+             stop após o 'próxima música'"*). Ele estava ENTRE o ▶ e o ⏭, isto é,
+             no meio do trio de navegação — o dedo que vai do play para a próxima
+             passa por cima do único botão da fileira que ENCERRA a cena. Fora do
+             trio, ⏮ ▶ ⏭ ficam contíguos e o parar é o fim da linha, que é onde
+             uma ação de encerramento se lê. -->
+        <button id="stop" class="t-btn" title="Parar e limpar"><span class="msym" aria-hidden="true">&#xe047;</span></button>
       </div>
 
       <!-- ===== A COLUNA DA DIREITA, EM DUAS PEÇAS SOLTAS (v1.3.8) =====
@@ -1669,7 +1675,7 @@
                METADADO de diagnóstico e o lugar onde se procura diagnóstico é
                junto do estado do telão e do alvo de espelhamento, não numa faixa
                de navegação. Preenchido por `renderVersionLabel`. -->
-          <span id="appVersion" class="app-version">Controle v1.5.5</span>
+          <span id="appVersion" class="app-version">Controle v1.5.6</span>
           <!-- SALVAR EM ARQUIVO (v1.2.16). Com o acervo inteiro varrido o
                Registro passa de setenta linhas só na seção de cifras, e copiar e
                colar é o caminho que corta o texto no meio SEM AVISAR — foi o

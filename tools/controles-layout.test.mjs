@@ -958,8 +958,14 @@ try {
     };
     return { ids, hist: caixa('#lyricsViewBtn'), vizinho: caixa('#next') };
   });
-  checar(linha.ids.join(',') === 'repeat,plBtn,prev,playpause,stop,next,lyricsViewBtn',
-    'a ordem é repetir → playlist → anterior → play → parar → próximo → auxiliar de leitura',
+  // A ORDEM MUDOU NA v1.5.6, a pedido do operador: *"ajuste a ordem dos controles
+  // da mídia na linha abaixo do preview. Está: …, música anterior, play/pause,
+  // stop, próxima música. Coloque o stop após o 'próxima música'"*. O parar
+  // estava ENTRE o ▶ e o ⏭, isto é, no meio do trio de navegação — o dedo que vai
+  // do play para a próxima passa por cima do único botão da fileira que ENCERRA a
+  // cena. Fora do trio, ⏮ ▶ ⏭ ficam contíguos e o parar é o fim da linha.
+  checar(linha.ids.join(',') === 'repeat,plBtn,prev,playpause,next,stop,lyricsViewBtn',
+    'a ordem é repetir → playlist → anterior → play → próximo → parar → auxiliar de leitura',
     linha.ids);
   checar(linha.hist.fundo === linha.vizinho.fundo && linha.hist.raio === linha.vizinho.raio,
     'e a sétima veste a MESMA caixa dos vizinhos — um chapado sozinho numa fileira de seis com fundo lê como um que ficou de fora',

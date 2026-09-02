@@ -4486,6 +4486,33 @@ main {
    que faz o recorte valer para o DEDO também: `bottom` sozinho só encolhe a
    caixa da camada, e um filho `absolute` transbordaria dela. */
 .popup-backdrop--lib {
+  /* ===== ELA É O CHÃO DA PILHA DE CAMADAS, NÃO O TETO (v1.5.6) =====
+     Relato do operador: *"a barra de buscas está se sobrepondo a diversos
+     elementos, como as configurações, aba da playlist e etc… Muito
+     inconsistente. Erros como por exemplo, em aberto a aba da biblioteca,
+     quando toco em abrir a aba da playlist a playlist tocando fica por
+     baixo"*.
+
+     **A causa é a camada existir SEMPRE.** Todo `.popup-backdrop` deste app
+     está em `z-index: 200` e é criado e destruído com o uso, então quem se
+     sobrepõe a quem é a ORDEM DO DOCUMENTO — um acaso que já cobriu um popup
+     por inteiro aqui. Esta é a única que NUNCA sai de cena (a barra vive nela),
+     e está declarada DEPOIS do `#plPopup`, do `#fadePopup` e do `#castPopup`:
+     ela ganhava de todos os três, fechada, pintando a faixa da barra por cima
+     de folhas que o operador acabara de abrir.
+
+     A correção não é um degrau a mais — é o degrau CERTO. **Esta camada não é
+     um modal sobre o app: é MOBÍLIA do app**, a cabeça de uma janela cujo
+     repouso é uma linha da caixa de controles. Logo ela fica ABAIXO de toda
+     folha, e a regra passa a valer nos dois estados de uma vez: fechada, a
+     barra não pinta sobre nada; ABERTA, a Biblioteca é coberta pelo que quer
+     que se abra a partir dos controles — que continuam alcançáveis desde a
+     v1.5.4, e é isso que tornou a colisão possível.
+
+     A ordem de `POPUPS` diz o MESMO (a Biblioteca é a PRIMEIRA linha, e o
+     voltar percorre a tabela de trás para a frente), e mudar uma sem a outra é
+     o acaso que esta regra veio tirar da mesa. */
+  z-index: 190;
   align-items: stretch;
   opacity: 1;
   background: none;
@@ -4612,6 +4639,41 @@ body.lib-pronta { --lib-anim: var(--pop-anim); }
    recebe toque também fechada, e uma faixa transparente engolindo o dedo na base
    da tela é pior que a faixa à vista. Aberta, a barra continua sendo a cabeça da
    janela — o seletor é `:not(.open)`, então as duas regras nunca disputam. */
+/* ===== SEM CAIXA DE CONTROLES NA TELA, A JANELA VAI ATÉ A BASE (v1.5.6) =====
+   Uma regra, dois relatos, e eles são o mesmo caso:
+
+   *"ajuste também para que a zona dos controles seja ocultada quando a
+   biblioteca estiver aberta e o teclado também estiver visível. Pois ocupar
+   espaço com os controles e o teclado, deixa muito comprimido a área para a
+   listagem da biblioteca"* · *"no modo simples, a aba de buscas pode usar a tela
+   inteira, pois agora ela está cortando aleatoriamente em algum pedaço da
+   tela"*.
+
+   A camada termina na LINHA DA BARRA (v1.5.4) para os controles ficarem à vista.
+   **Quando não há controles na tela, esse recorte não protege nada** — e no Modo
+   Fácil ele fazia pior: a `.bottombar` é `display: none` lá, então
+   `--lib-caixa-h` guarda a última medida boa do modo AVANÇADO (que é o certo,
+   ver `medirBarraDaBiblioteca`), e a janela era cortada numa altura que não
+   corresponde a nada do que está na tela. Era o "cortando aleatoriamente" do
+   relato: o número não é aleatório, é de outro modo.
+
+   O teclado é o mesmo caso criado de propósito: com a Biblioteca aberta e o
+   teclado no ar, a caixa de controles SAI (a regra logo abaixo) e a lista fica
+   com a tela menos o teclado, em vez de menos o teclado E os controles.
+
+   `var(--kb)` e não `0`: a janela para onde o teclado começa, que é o que ela já
+   fazia por dentro da conta antiga. */
+body.mode-simple .popup-backdrop--lib,
+body.lib-aberta.teclado .popup-backdrop--lib {
+  bottom: var(--kb, 0px);
+}
+/* E A CAIXA DE CONTROLES SAI DE CENA — só com a Biblioteca ABERTA e o teclado no
+   ar. As duas condições são necessárias: sozinho, o teclado não justifica tirar
+   o transporte de quem está operando o culto (ele sobe pela Bíblia, pelo
+   renomear, pelo campo do sorteio), e sozinha, a Biblioteca aberta é justamente
+   o caso em que a v1.5.4 mandou MANTER os controles à vista.
+   `display: none` e não `visibility`: o que se quer é o espaço, não o pixel. */
+body.lib-aberta.teclado .bottombar { display: none; }
 body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
   /* `100svh` e não `100%` (v1.5.4): a camada passou a terminar na linha da barra,
      e a folha mede a altura DELA — descê-la da própria altura a deixaria
