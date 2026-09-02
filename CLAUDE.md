@@ -4050,8 +4050,8 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: v1.5.14** (base web) · **v1.4.43** (APK) · `SHELL_VERSION` **61** · bundle com
-`minShell: 61` e **`shellTag: "v1.4.43"`** — o shell 61 é o **PISO**: todo método
+**Versão atual: v1.5.14** (base web e APK) · `SHELL_VERSION` **61** · bundle com
+`minShell: 61` e **`shellTag: "v1.5.14"`** — o shell 61 é o **PISO**: todo método
 da ponte existe, e não há guarda de versão no lado web. **`SHELL_VERSION` NÃO
 sobe neste lote**: a superfície da ponte não mudou (nenhum método novo, nenhuma
 forma de retorno diferente).
@@ -4061,7 +4061,10 @@ DENIM PROFUNDO, e `--bg` é espelhado à mão em `res/values/colors.xml` (`app_b
 o fundo do ícone adaptativo). `res/` só chega instalando um APK — publicar só a
 base web deixaria o `windowBackground` do primeiro quadro e o ícone da gaveta no
 preto antigo, contra um app inteiro em azul. Daí o `shellTag`, que SEGURA o
-bundle até a Release `v1.4.43` existir. Desde este lote a igualdade dos dois
+bundle até a Release `v1.5.14` existir. **A tag da Release é `v` + a versão da
+BASE WEB, não um número próprio do APK** — o CI cobra a igualdade
+(`shellTag == 'v' + version`), e é ela que impede um manifesto em que a base diz
+uma coisa e o APK anunciado diz outra. Desde este lote a igualdade dos dois
 valores é cobrada por oráculo (`tokens.test.mjs`) — o comentário do `colors.xml`
 dizia que *"nada no build detecta a divergência"*, e isso foi verdade por vinte e
 duas versões.
