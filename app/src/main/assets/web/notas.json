@@ -1,5 +1,15 @@
 [
   {
+    "versao": "1.5.15",
+    "itens": [
+      "As faixas de um hinário ou de uma série voltaram a pousar em fundo claro, e não no azul do grupo.",
+      "O bloco do episódio deste sábado voltou a se destacar da caixa em volta.",
+      "A lista deixou de aparecer acima do nome da coleção preso no topo.",
+      "E esse nome deixou de ficar no topo depois que a lista dele acabou.",
+      "O cartão do título e do tempo ficou no cinza claro dos botões de slide apagados."
+    ]
+  },
+  {
     "versao": "1.5.14",
     "itens": [
       "A Biblioteca não usa mais linhas finas: o que separa os grupos passou a ser o tom das caixas.",

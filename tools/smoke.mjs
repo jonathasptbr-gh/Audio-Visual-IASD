@@ -1550,7 +1550,51 @@ for (const tema of ['escuro', 'claro']) {
             top: parseFloat(getComputedStyle(el).top),
             alt: Math.round(el.getBoundingClientRect().height * 10) / 10,
           } : null);
-          return { secao: ler(sec), card: ler(card) };
+          // E O DA RAIZ (v1.5.15): um hinário ou uma série é NÍVEL 1, irmão das
+          // seções, e não tem barra nenhuma acima — o `top` dele é zero.
+          const raiz = lista.querySelector(':scope > .hymnal-card.expanded > .coll-bar');
+          return { secao: ler(sec), card: ler(card), raiz: ler(raiz) };
+        })(),
+        // ===== A PLACA DE PAPEL DE UMA COLEÇÃO DA RAIZ (v1.5.15) =====
+        // A cor EFETIVA (composta) de: o bloco de uma coleção da raiz, a placa
+        // dentro dele, e a faixa que pousa na placa. Ver a asserção.
+        raizPlaca: (() => {
+          const efetiva = (el) => {
+            if (!el) return 'AUSENTE';
+            const pilha = [];
+            for (let n = el; n; n = n.parentElement) {
+              const m = (getComputedStyle(n).backgroundColor.match(/[\d.]+/g) || []).map(Number);
+              if (m.length < 3) continue;
+              const a = m.length > 3 ? m[3] : 1;
+              if (a === 0) continue;
+              pilha.push([m[0], m[1], m[2], a]);
+              if (a === 1) break;
+            }
+            let c = [255, 255, 255];
+            for (let k = pilha.length - 1; k >= 0; k--) {
+              const [vr, vg, vb, va] = pilha[k];
+              c = [vr * va + c[0] * (1 - va), vg * va + c[1] * (1 - va), vb * va + c[2] * (1 - va)];
+            }
+            return 'rgb(' + c.map(Math.round).join(', ') + ')';
+          };
+          const q = (sel) => lista.querySelector(':scope > .hymnal-card.expanded ' + sel);
+          return {
+            bloco: efetiva(lista.querySelector(':scope > .hymnal-card.expanded')),
+            placa: efetiva(q('> .coll-open')),
+            faixa: efetiva(q('> .coll-open > .coll-songs > .hymn-result')),
+          };
+        })(),
+        // ===== O RESPIRO DE CIMA DO SCROLLER (v1.5.15) =====
+        // O que sobra ENTRE o topo do scrollport e o primeiro bloco. Ele é
+        // scrollport: a lista rola por ali à vista, e uma tampa grudada em
+        // `top: 0` não o alcança (ela para no topo do CONTEÚDO). A régua é a
+        // GEOMETRIA, e não `paddingTop` lido de volta — o vão pode voltar por
+        // qualquer caminho, e o que importa é que ele não exista aqui dentro.
+        respiroDoTopo: (() => {
+          const p1 = lista.firstElementChild;
+          if (!p1) return null;
+          return Math.round((p1.getBoundingClientRect().top
+            - lista.getBoundingClientRect().top) * 10) / 10;
         })(),
         // A COR da moldura — desde a v1.5.10 é ela que separa a caixa da base,
         // e não mais o degrau de tom (ver a asserção da escada, mais abaixo).
@@ -1724,6 +1768,62 @@ for (const tema of ['escuro', 'claro']) {
       + 'a folga é a altura RENDERIZADA da barra de fora',
       'seção top ' + (g.secao && g.secao.top) + ' alt ' + (g.secao && g.secao.alt)
       + ' · álbum top ' + (g.card && g.card.top));
+    // ===== E O `top` É A PROFUNDIDADE, NUNCA O TIPO DO BLOCO (v1.5.15) =====
+    // A v1.5.14 deu a TODO `.hymnal-card.expanded` o `top` do segundo degrau —
+    // inclusive aos hinários e às séries, que moram na RAIZ e não têm barra
+    // nenhuma acima. O vão que sobrava não é neutro: ele É o scrollport, então
+    // a lista rolava por ali À VISTA. Os DOIS relatos do operador saem dele —
+    // *"a lista está vazando acima"* (as faixas do próprio card aparecendo por
+    // cima da barra que as encabeça) e *"essa sobreposição também permanece,
+    // mesmo após terminar a lista de um álbum… parecendo que um álbum está
+    // pertencendo a outro"* (a barra DESGRUDANDO: ela sobe do slot dela até
+    // sumir, e nesse trecho continua inteira no topo, pintada por cima das
+    // coleções seguintes, que já estão à vista).
+    //
+    // A régua é a COMPARAÇÃO com o álbum aninhado, medida na mesma passada: as
+    // duas são a mesma classe e o que as separa é onde elas moram. Um `top`
+    // escrito por TIPO passa numa das duas e reprova na outra.
+    checar(g.raiz && g.raiz.pos === 'sticky' && g.raiz.top === 0,
+      '[' + tema + '] e a coleção da RAIZ gruda no topo do scrollport: ela é '
+      + 'nível 1 como a seção, e não há barra nenhuma acima dela',
+      'raiz top ' + (g.raiz && g.raiz.top) + ' · álbum aninhado top '
+      + (g.card && g.card.top));
+    // ===== E NADA DA LISTA ROLA ACIMA DE UMA TAMPA COLADA (v1.5.15) =====
+    // A metade FINA do mesmo relato: o `padding` de um scroller fica DENTRO do
+    // scrollport, então as faixas apareciam por .5rem acima da barra que as
+    // encabeça — em qualquer nível, inclusive na seção. Como MARGEM o vão é o
+    // mesmo e fica FORA, e nada rola por ali.
+    checar(t.respiroDoTopo !== null && Math.abs(t.respiroDoTopo) <= 0.6,
+      '[' + tema + '] e o primeiro bloco começa NO TOPO do scrollport: o respiro '
+      + 'de cima é margem, não padding — padding é scrollport, e a lista rola '
+      + 'por ele à vista', t.respiroDoTopo + 'px dentro do scrollport');
+    // ===== E A FAIXA DE UMA COLEÇÃO DA RAIZ POUSA EM PAPEL (v1.5.15) =====
+    // Relato do operador sobre a v1.5.14: *"isso era pra ser assim? fundo azul
+    // nos itens do provai e vede? e etc...?"*.
+    //
+    // A árvore da Biblioteca não tem profundidade uniforme: uma seção contém
+    // CARDS, uma coleção da raiz contém FAIXAS. Sem fundo próprio, a MESMA
+    // `.hymn-result` pousava em duas bases — papel dentro de uma seção, POÇO
+    // num hinário ou numa série da raiz, que é nível 1. A regra completa é que
+    // o poço é a MOLDURA de um agrupamento e o papel é onde o conteúdo pousa,
+    // e a placa é o degrau de baixo que faltava.
+    //
+    // AS DUAS METADES: a placa tem degrau de VERDADE contra o poço em volta
+    // (senão ela não existe), e ela vale o MESMO que o card de álbum de dentro
+    // de uma seção (senão a faixa continua pousando em duas cores conforme onde
+    // a coleção calha de morar, que é o relato).
+    const rp = t.raizPlaca || {};
+    const dPoçoPlaca = razao(rp.bloco, rp.placa);
+    checar(ehOpaco(rp.bloco) && ehOpaco(rp.placa) && dPoçoPlaca >= 1.28,
+      '[' + tema + '] a lista de uma coleção da RAIZ pousa numa placa com degrau '
+      + 'de verdade contra o poço em volta', dPoçoPlaca.toFixed(2) + ':1');
+    checar(ehOpaco(t.card) && razao(rp.placa, t.card) < 1.05,
+      '[' + tema + '] e essa placa vale o MESMO que o card de álbum: a faixa '
+      + 'pousa na mesma cor em qualquer lugar do acervo, que é o relato',
+      'placa ' + rp.placa + ' · card de álbum ' + t.card);
+    checar(razao(rp.faixa, rp.placa) < 1.05,
+      '[' + tema + '] e a faixa continua sem fundo próprio dentro dela — a placa '
+      + 'é do agrupamento, não da linha', 'faixa ' + rp.faixa + ' · placa ' + rp.placa);
     // ===== E A MOLDURA NÃO PODE TER NADA DENTRO DELA ANTES DA BARRA (v1.5.10) =====
     // Relato do operador: *"verifique o tamanho e espaçamento dos favoritos,
     // pois está deslocado o seu card de topo em relação a caixa dele"*.

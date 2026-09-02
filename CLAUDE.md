@@ -3016,10 +3016,13 @@ acima cobre a FAIXA — sem acrescentá-lo, o balanço voltava pelo botão novo.
   Uma escada ACUMULA e acaba; uma alternância não:
 
 ```
-janela              PAPEL  (--panel)   cabeçalho GRUDENTO
-  └ seção           POÇO   (--poco)    cabeçalho GRUDENTO
-      └ álbum       PAPEL  (--panel)   ← volta ao tom da janela
-          └ faixa   —                  sem fundo: preenchimento é ESTADO
+janela              PAPEL  (--panel)   cabeçalho GRUDENTO, top 0
+  ├ seção           POÇO   (--poco)    cabeçalho GRUDENTO, top 0
+  │   └ álbum       PAPEL  (--panel)   cabeçalho GRUDENTO, top --bar-secao-h
+  │       └ faixa   —                  sem fundo: preenchimento é ESTADO
+  └ hinário/série   POÇO   (--poco)    cabeçalho GRUDENTO, top 0
+      └ a PLACA     PAPEL  (--panel)   o `.coll-open`, o nível 2 desta perna
+          └ faixa   —                  a MESMA base da faixa de álbum
 ```
 
   Duas superfícies, profundidade ilimitada, zero traços. MEDIDO no renderizado:
@@ -3029,6 +3032,29 @@ janela              PAPEL  (--panel)   cabeçalho GRUDENTO
   poço; o mesmo `.hymnal-card` dentro de uma seção é nível 2 e veste papel.
   Escrevê-la por tipo (`.hymnal-card { papel }`) foi o primeiro corte do lote e
   MEDIU 1,00:1 — os hinários da raiz sumiam sobre a janela branca.
+
+  **E A ÁRVORE NÃO TEM PROFUNDIDADE UNIFORME — daí a PLACA** (v1.5.15). Uma
+  seção contém CARDS; uma coleção da raiz contém FAIXAS. Sem fundo próprio a
+  faixa pousa no que o bloco pinta, então a MESMA `.hymn-result` saía em duas
+  cores conforme onde a coleção calha de morar — papel dentro de uma seção,
+  AZUL num hinário ou numa série da raiz. Relato do operador: *"isso era pra ser
+  assim? fundo azul nos itens do provai e vede? e etc...?"*.
+
+  A alternância não estava errada: faltava o degrau de baixo dela. A regra
+  completa é **o poço é a MOLDURA de um agrupamento; o papel é onde o conteúdo
+  pousa** — e o `.coll-open` de uma coleção da raiz é o nível 2 daquela perna, a
+  irmã exata da placa dos Favoritos (`.fav-itens`), que já fazia isto no mesmo
+  lote. A GEOMETRIA copia a da seção número por número (a `margin` da placa é o
+  que o `.coll-group-corpo` reserva a um card), então a faixa continua onde
+  estava.
+
+  **A placa é o CORPO ABERTO INTEIRO, e não só a lista.** O DESTAQUE do sábado e
+  o ÍNDICE de temas são os dois únicos blocos do acervo que só existem na raiz, e
+  os dois pintam contando com papel embaixo: MEDIDO, `--sel-fill` (o bloco do
+  destaque) dá **1,31:1** sobre o papel — o par para que ele foi desenhado — e
+  **1,03:1** sobre o poço no tema claro. Deixá-los fora da placa consertaria a
+  lista e deixaria o "ESTE SÁBADO" invisível, que é o mesmo defeito um bloco
+  acima.
 
   **E A PROFUNDIDADE É DITA POR TRÊS MECANISMOS NÃO-TONAIS**, que é o que os
   torna ilimitados:
@@ -3042,6 +3068,23 @@ janela              PAPEL  (--panel)   cabeçalho GRUDENTO
      (`--bar-secao-h`) porque DUAS regras precisam do mesmo número, e é
      determinística (nome `nowrap` + recuo fixo) — nada de medição em JS, que a
      v1.5.3 ensinou a desconfiar.
+
+     **E O `top` DE UMA TAMPA É A PROFUNDIDADE DELA, nunca o tipo do bloco**
+     (v1.5.15). A v1.5.14 deu a TODO `.hymnal-card.expanded` o `top` do segundo
+     degrau, hinários e séries da RAIZ inclusive — que não têm barra nenhuma
+     acima. **O vão que sobrava não é neutro: ele É o scrollport**, e a lista
+     rolava por ali À VISTA. Os dois relatos do operador saem dele: *"a lista
+     está vazando acima"* (as faixas do próprio card por cima da barra que as
+     encabeça) e *"essa sobreposição também permanece, mesmo após terminar a
+     lista de um álbum… parecendo que um álbum está pertencendo a outro"* — a
+     barra DESGRUDANDO, que sobe do slot dela até sumir e nesse trecho continua
+     inteira no topo, pintada por cima das coleções seguintes.
+
+     **E O SCROLLER NÃO PODE TER `padding-top`, pela mesma razão** — padding de
+     um scroller é scrollport. Era a metade FINA do mesmo relato (.5rem de
+     faixas à mostra acima de QUALQUER tampa colada). Ele foi a zero e não virou
+     margem: a caixa da lista tem de começar exatamente onde a barra de busca
+     acaba, que é o contrato geométrico da janela e tem oráculo.
   2. **RECUO**, sem traço na coluna vazia.
   3. **RANK TIPOGRÁFICO**: seção `--fs-xl`, card `--fs-lg`, faixa `--fs-md`. Eram
      `.9`/`.88`/`.82` — dois centésimos entre os dois primeiros, que é ruído e
@@ -3563,7 +3606,7 @@ mundo anterior por outro caminho.
 
 | oráculo | o que cobre, e por que existe |
 |---|---|
-| `smoke.mjs` | sobe a base e usa a tela; mede o RENDERIZADO nos dois temas (palco sem tema, escada de camadas, contorno). **E A HIERARQUIA DA BIBLIOTECA** (v1.5.14): ele foi escrito para proteger o desenho da v1.5.9 e por isso APROVAVA o defeito — exigia que seção e card dividissem o tom (1,00:1), exigia a moldura nos dois níveis, e nunca comparava tampa × faixa, o par que valia 1,00:1 no escuro. Hoje afirma a ALTERNÂNCIA (degrau real contra o pai, e o card VOLTANDO ao tom da janela — sem essa segunda metade um terceiro tom passaria e a escada de quatro voltaria pela porta dos fundos), a AUSÊNCIA de moldura nos três níveis, e os DOIS cabeçalhos grudentos empilhados, com a folga do de dentro medida na altura RENDERIZADA do de fora. **E o PAINEL RÁPIDO de Configurações** (v1.4.38): que o CORPO dela não rola — a asserção antiga media a FOLHA, e a folha nunca rolou (quem tem `overflow-y: auto` é o `.fade-opts`), então ela aprovava as duas versões —, que a grade tem três colunas, e que o tile ALTERNA e volta. **E o que o AZUL quer dizer** (v1.4.40): quem não tem "desligado" fica aceso o tempo todo (apagado, neste app, quer dizer INDISPONÍVEL) **e mesmo assim troca de desenho** — `qs-alt` responde "qual desenho?" e `qs-on` responde "está ligado?", e enquanto foram a mesma classe um tile sempre aceso ficava preso no desenho alternativo. A metade que impede o conserto preguiçoso (acender tudo, sempre) é o fundo da letra continuar APAGANDO, medido na cor RENDERIZADA: uma classe sem a regra de CSS passa num teste de classe e continua invisível na tela. **E o MODO DO APP como interruptor que desliza** (v1.4.43): o polegar ANDA, medido na `transform` RENDERIZADA do `::before` do trilho — uma troca de classe passa num teste de classe e continua imóvel na tela, e ler a posição do BOTÃO não serviria porque o botão nunca se mexe; os dois botões SEM fundo próprio (sem esta, acrescentar o polegar por cima do desenho antigo deixaria a pilha de quatro tons de pé, com uma camada A MAIS); e o `data-modo` seguindo o modo, que é por onde o CSS decide o lado. Mais a folha que **FICA ABERTA e IMÓVEL** ao trocar de modo — duas asserções e não uma, porque a primeira responde ao `closeFadePopup` que saiu do ouvinte e a segunda responde ao `<main>`: a caixa é `fixed` e mora FORA dele, e movê-la para dentro mantém a classe `open` e apaga a folha da tela. **Assentar é `getAnimations()` + `finished`**, nunca duas amostras iguais em quadros seguidos (MEDIDO: `top: -449`, a folha ainda no teto, aprovada como assentada) nem o primeiro `transitionend` (MEDIDO: `top: -7`, a `transform` a sete pixels do fim com a opacidade já pronta). **E o que a v1.4.44 corrigiu nele**: o trilho medindo EXATAMENTE a grade de tiles (um `.fade-row` pintando `--panel` sobre uma folha que já é `--panel` é um CARTÃO INVISÍVEL — não se via, mas o `padding` dele recuava o trilho 12,8px de cada lado, e o relato foi o desalinhamento), o TÍTULO centrado medido no texto PINTADO por um `Range` (a caixa do `<span>` é `stretch` e ocupa a linha inteira nas duas versões, então medi-la aprova o rótulo colado à esquerda), e o RODAPÉ como UMA barra — a asserção é o número de SUPERFÍCIES pintadas dentro dele, porque a v1.4.43 já tinha dois blocos com o mesmo tom e o que se via eram duas caixas |
+| `smoke.mjs` | sobe a base e usa a tela; mede o RENDERIZADO nos dois temas (palco sem tema, escada de camadas, contorno). **E A HIERARQUIA DA BIBLIOTECA** (v1.5.14): ele foi escrito para proteger o desenho da v1.5.9 e por isso APROVAVA o defeito — exigia que seção e card dividissem o tom (1,00:1), exigia a moldura nos dois níveis, e nunca comparava tampa × faixa, o par que valia 1,00:1 no escuro. Hoje afirma a ALTERNÂNCIA (degrau real contra o pai, e o card VOLTANDO ao tom da janela — sem essa segunda metade um terceiro tom passaria e a escada de quatro voltaria pela porta dos fundos), a AUSÊNCIA de moldura nos três níveis, e os DOIS cabeçalhos grudentos empilhados, com a folga do de dentro medida na altura RENDERIZADA do de fora. **E A PERNA DA RAIZ** (v1.5.15), que a v1.5.14 não media e por isso deixou passar dois defeitos: a PLACA de uma coleção da raiz tem degrau de verdade contra o poço em volta **e vale o MESMO que o card de álbum de dentro de uma seção** — sem essa segunda metade a faixa continua pousando em duas cores conforme onde a coleção mora, que é o relato; o `top` da tampa da raiz é ZERO, medido ao lado do da tampa aninhada na mesma passada (um `top` escrito por TIPO passa numa das duas e reprova na outra); e o primeiro bloco começa NO TOPO do scrollport, porque `padding` de um scroller é scrollport e a lista rola por ele à vista. A régua desta última é a GEOMETRIA, nunca `paddingTop` lido de volta: o vão pode voltar por qualquer caminho. **E o PAINEL RÁPIDO de Configurações** (v1.4.38): que o CORPO dela não rola — a asserção antiga media a FOLHA, e a folha nunca rolou (quem tem `overflow-y: auto` é o `.fade-opts`), então ela aprovava as duas versões —, que a grade tem três colunas, e que o tile ALTERNA e volta. **E o que o AZUL quer dizer** (v1.4.40): quem não tem "desligado" fica aceso o tempo todo (apagado, neste app, quer dizer INDISPONÍVEL) **e mesmo assim troca de desenho** — `qs-alt` responde "qual desenho?" e `qs-on` responde "está ligado?", e enquanto foram a mesma classe um tile sempre aceso ficava preso no desenho alternativo. A metade que impede o conserto preguiçoso (acender tudo, sempre) é o fundo da letra continuar APAGANDO, medido na cor RENDERIZADA: uma classe sem a regra de CSS passa num teste de classe e continua invisível na tela. **E o MODO DO APP como interruptor que desliza** (v1.4.43): o polegar ANDA, medido na `transform` RENDERIZADA do `::before` do trilho — uma troca de classe passa num teste de classe e continua imóvel na tela, e ler a posição do BOTÃO não serviria porque o botão nunca se mexe; os dois botões SEM fundo próprio (sem esta, acrescentar o polegar por cima do desenho antigo deixaria a pilha de quatro tons de pé, com uma camada A MAIS); e o `data-modo` seguindo o modo, que é por onde o CSS decide o lado. Mais a folha que **FICA ABERTA e IMÓVEL** ao trocar de modo — duas asserções e não uma, porque a primeira responde ao `closeFadePopup` que saiu do ouvinte e a segunda responde ao `<main>`: a caixa é `fixed` e mora FORA dele, e movê-la para dentro mantém a classe `open` e apaga a folha da tela. **Assentar é `getAnimations()` + `finished`**, nunca duas amostras iguais em quadros seguidos (MEDIDO: `top: -449`, a folha ainda no teto, aprovada como assentada) nem o primeiro `transitionend` (MEDIDO: `top: -7`, a `transform` a sete pixels do fim com a opacidade já pronta). **E o que a v1.4.44 corrigiu nele**: o trilho medindo EXATAMENTE a grade de tiles (um `.fade-row` pintando `--panel` sobre uma folha que já é `--panel` é um CARTÃO INVISÍVEL — não se via, mas o `padding` dele recuava o trilho 12,8px de cada lado, e o relato foi o desalinhamento), o TÍTULO centrado medido no texto PINTADO por um `Range` (a caixa do `<span>` é `stretch` e ocupa a linha inteira nas duas versões, então medi-la aprova o rótulo colado à esquerda), e o RODAPÉ como UMA barra — a asserção é o número de SUPERFÍCIES pintadas dentro dele, porque a v1.4.43 já tinha dois blocos com o mesmo tom e o que se via eram duas caixas |
 | `boot-nativo.test.mjs` | **o boot COM a ponte presente** — o `smoke` sobe SEM `__AVBridge`, então todo caminho `window.__NATIVE__` (justamente os que só rodam no aparelho) nunca era executado. Injeta uma ponte de mentira e pergunta o que o watchdog pergunta: o app ficou de pé? |
 | `display-smoke.mjs` | **o TELÃO** — a metade que roda na frente da congregação, e a que menos rede de segurança tem (o watchdog do OTA não a valida). Viewport fixo em 961×540, explicitamente. Trava o endereçamento do reenvio de cena |
 | `ota.test.mjs` | **o fluxo de atualização** — o único caminho cujo defeito NÃO TEM SINTOMA: nada quebra, o operador só continua na versão de anteontem. Afirma a pergunta com e sem Release, o "depois", e a INTENÇÃO atravessando a MORTE DO DOCUMENTO (semeada numa página que só tem o banco, porque semeá-la no Controle é uma corrida contra o `retomarAtualizacao` da abertura — e uma que o app ganha com razão) |
@@ -3580,7 +3623,7 @@ mundo anterior por outro caminho.
 | `parar-por-camada.test.mjs` | **o Parar do transporte, que fala de UMA camada só.** A regra é CONDICIONAL (mídia + Camada de Texto → sai só a mídia; uma das duas sozinha → sai a cena inteira), e uma condicional errada é muda nos DOIS sentidos: ou a Camada de Texto fica presa no telão sem saída no transporte, ou o louvor de fundo volta a levar o versículo junto. Mede as TRÊS cenas, e a prova é o `currentTime` do `<video>` mais o TIPO do comando — `clear` e `media-clear` apagam o mesmo vídeo da preview |
 | `cifra-rolagem.test.mjs` | **a rolagem `auto` da cifra precisa de um relógio ANDANDO.** A barra de progresso responde "este ITEM tem linha do tempo?", e `currentItem` sobrevive ao Parar, ao fim da faixa e a uma letra avulsa — a barra ficava habilitada sobre um telão vazio, e o `auto` ancorava a folha em `fracaoDaRolagem(0, dur)`. O desfecho não é um erro, é uma folha PARADA. TRÊS metades: sem mídia no ar ela anda (o livre assumiu), com mídia no ar ela não anda sozinha — "cair sempre no livre" apagaria o recurso —, e a folha de uma música da BIBLIOTECA (`lvAlvo`) continua rolando depois de um redesenho. Esta terceira trava a divergência que a v1.2.14 abriu: `cifraRolarAlternar` gravava a chave de `currentItem` e a guarda de `lvBuildCifra` compara com `lvItem()`, então no ensaio a rolagem morria no primeiro `renderLyricsView` (transpor, A+/A−, girar). A terceira asserção prova que a guarda "música nova é folha nova" não foi apagada para as outras duas passarem |
 | `leitor-do-transporte.test.mjs` | **o BOTÃO que abre o auxiliar de leitura.** `openLyricsPopup` ganhou `(item, fonte)` e o ouvinte continuou registrado por REFERÊNCIA — `addEventListener` chama com o EVENTO, o `PointerEvent` virou o `lvAlvo`, e as três fontes (letra, cifra e a reserva da Bíblia) sumiam de uma vez: a folha abria dizendo "Nada em exibição" para TODA música, com o console limpo. Os três oráculos que já abriam esta folha chamam `openLyricsPopup()` direto — o único caminho que continuava funcionando —, e é por isso que este CLICA. A segunda metade (a Biblioteca continua desviando o alvo) impede que apagar os parâmetros "conserte" a primeira. **E A BADGE** (v1.4.31): apagada sem nada em exibição, acesa com o que ler, pintada de verdade (uma classe sem a regra de CSS passa num teste de classe e continua invisível), e acesa pelo caminho REAL (`renderNowPlaying`) — o defeito provável não é ela calcular errado, é ninguém a chamar quando a cena muda |
-| `controles-layout.test.mjs` | **o DECK dos controles** (v1.3.5) — e o FEEDBACK DE TOQUE sobre a preview (v1.4.33), em três metades que só juntas dizem a regra: a caixa do `.pv-fab` NÃO anda (era o relato), ele RESPONDE mesmo assim no RENDERIZADO (uma regra que só trocasse classe passaria num teste de classe e continuaria muda na tela) e o botão DA BARRA continua afundando os 2px (sem esta, apagar o `--press` do app inteiro passaria nas outras duas): os dois botões de slide que voltaram a flanquear a preview, a coluna de operação que subiu para cima dela, e o ⏮/⏭ do transporte que perdeu o eixo de estrofe. As quatro mudanças falham CALADAS, e a mais cara é a última — se a troca não pegar, "próxima mídia" continua passando ESTROFE com uma letra no ar, no meio de um louvor, sem nada no console; a prova é o COMANDO que sai no barramento (`seek` é a estrofe andando). Trava também a **ARMADILHA DO `<use>`**: a folha do documento NÃO atravessa a árvore-sombra de um `<use>`, então um `<symbol>` único com os dois desenhos dentro carrega, não erra e desenha os DOIS empilhados para sempre. As duas asserções mais óbvias contra ela — contar nós visíveis e fotografar o botão — **aprovam a armadilha** (medido), e por isso ele pergunta qual SÍMBOLO está no ar. Cobre também a COLUNA DA TELA CHEIA (v1.3.10): ela nasce ACESA e o toque é INTERRUPTOR. Ele espera pelo EVENTO `fullscreenchange`, nunca por `document.fullscreenElement` — MEDIDO, o Chromium publica a propriedade ANTES de despachar o evento e a enquete do Playwright cai no vão, reprovando um app que está certo. **E A BASE DA PREVIEW como REGIÃO DO QUE ESTÁ FORA DO PADRÃO** (v1.4.43), nas sete metades do desfazer do giro: ele aparece pelo caminho REAL (`applyRotate`, não um `hidden` escrito à mão — um render próprio deixaria o botão de pé depois de o giro voltar a zero), diz o ÂNGULO, o `title` diz a AÇÃO, o toque manda um `rotate: 0` ao BARRAMENTO (repintar só o tile deixaria a projeção girada), ele SOME depois, a COR é a MESMA do selo (v1.4.45 — os dois moradores da faixa fazem a mesma promessa, *"o toque daqui TIRA alguma coisa"*, e o que os separa é o DESENHO) e NÃO é o branco dos botões de player — e a régua do branco é um vizinho RENDERIZADO, nunca o token: `--stage-text` sai como `#fff` e a cor computada como `rgb(255, 255, 255)`, duas escritas da mesma cor que nunca são iguais como string, e a comparação passa SEMPRE (provado por reversão) —, o ✕ é o do vizinho VERBATIM (uma marca de destruição redesenhada dois pixels adiante é uma segunda opinião sobre a mesma coisa) com o resto do desenho PRÓPRIO de cada um, e o número CABE, porque ele é o único `.pv-fab` mais largo que `--hit` e com o `width` fixo dos irmãos "180°" sai cortado sem erro nenhum |
+| `controles-layout.test.mjs` | **o DECK dos controles** (v1.3.5) — e o FEEDBACK DE TOQUE sobre a preview (v1.4.33), em três metades que só juntas dizem a regra: a caixa do `.pv-fab` NÃO anda (era o relato), ele RESPONDE mesmo assim no RENDERIZADO (uma regra que só trocasse classe passaria num teste de classe e continuaria muda na tela) e o botão DA BARRA continua afundando os 2px (sem esta, apagar o `--press` do app inteiro passaria nas outras duas): os dois botões de slide que voltaram a flanquear a preview, a coluna de operação que subiu para cima dela, e o ⏮/⏭ do transporte que perdeu o eixo de estrofe. As quatro mudanças falham CALADAS, e a mais cara é a última — se a troca não pegar, "próxima mídia" continua passando ESTROFE com uma letra no ar, no meio de um louvor, sem nada no console; a prova é o COMANDO que sai no barramento (`seek` é a estrofe andando). Trava também a **ARMADILHA DO `<use>`**: a folha do documento NÃO atravessa a árvore-sombra de um `<use>`, então um `<symbol>` único com os dois desenhos dentro carrega, não erra e desenha os DOIS empilhados para sempre. As duas asserções mais óbvias contra ela — contar nós visíveis e fotografar o botão — **aprovam a armadilha** (medido), e por isso ele pergunta qual SÍMBOLO está no ar. Cobre também a COLUNA DA TELA CHEIA (v1.3.10): ela nasce ACESA e o toque é INTERRUPTOR. Ele espera pelo EVENTO `fullscreenchange`, nunca por `document.fullscreenElement` — MEDIDO, o Chromium publica a propriedade ANTES de despachar o evento e a enquete do Playwright cai no vão, reprovando um app que está certo. **E A BASE DA PREVIEW como REGIÃO DO QUE ESTÁ FORA DO PADRÃO** (v1.4.43), nas sete metades do desfazer do giro: ele aparece pelo caminho REAL (`applyRotate`, não um `hidden` escrito à mão — um render próprio deixaria o botão de pé depois de o giro voltar a zero), diz o ÂNGULO, o `title` diz a AÇÃO, o toque manda um `rotate: 0` ao BARRAMENTO (repintar só o tile deixaria a projeção girada), ele SOME depois, a COR é a MESMA do selo (v1.4.45 — os dois moradores da faixa fazem a mesma promessa, *"o toque daqui TIRA alguma coisa"*, e o que os separa é o DESENHO) e NÃO é o branco dos botões de player — e a régua do branco é um vizinho RENDERIZADO, nunca o token: `--stage-text` sai como `#fff` e a cor computada como `rgb(255, 255, 255)`, duas escritas da mesma cor que nunca são iguais como string, e a comparação passa SEMPRE (provado por reversão) —, o ✕ é o do vizinho VERBATIM (uma marca de destruição redesenhada dois pixels adiante é uma segunda opinião sobre a mesma coisa) com o resto do desenho PRÓPRIO de cada um, e o número CABE, porque ele é o único `.pv-fab` mais largo que `--hit` e com o `width` fixo dos irmãos "180°" sai cortado sem erro nenhum. **E O TOM DO CARTÃO DA LINHA DO TEMPO** (v1.5.13, refeito na v1.5.15): ele veste o cinza de um controle INATIVO, medido contra o botão de slide APAGADO com o véu de `--op-inativo` composto — os dois lados saem do MESMO caminho de medição, então um véu que mude num lugar só reprova aqui em vez de sair na tela. Com a REVERSÃO ao lado (o botão ACESO é outro tom): sem ela, um véu apagado por engano devolveria a v1.5.13 e a asserção passaria, porque os dois lados voltariam a ser a mesma superfície cheia. O parse de cor é por CANVAS e não por regex (`color-mix` computa como `color(srgb 1 1 1 / .04)`, e uma regex de números lê (1,1,1) — o oráculo reprova com um número plausível e quem lê o log conclui que o app quebrou) |
 | `fundo-da-letra.test.mjs` | **o fundo da estrofe na PREVIEW**, que sumia ao trocar de música. A `<img>` é filha da camada da letra, então o desmonte é ADIADO — e quando a letra volta antes do prazo (todo `load` de música faz isso) alguém precisa CANCELAR o desmonte. A guarda de sequência não cancela: ela não anda quando a estrofe que volta usa a MESMA imagem, que é o caso NORMAL (o fallback grudento do sync dá uma imagem por hino). O telão tinha as três proteções e a preview não tinha — **e a documentação já as descrevia como se fossem de ambos**: é a armadilha do `__tela`, em que ler cada lado isolado aprova os dois. Sem TV a preview É a projeção |
 | `excluir-em-cena.test.mjs` | **excluir de uma lista não pode derrubar a cena**, e eram DOIS defeitos. O primeiro tem sintoma (o louvor parava, por um `retirarDoAr` no caminho de excluir); o SEGUNDO não tem nenhum — o coletor só conhecia LISTAS, então sair da última apagava os bytes por baixo de uma projeção que seguia tocando, e só uma queda de dongle revelaria. Mede que a cena continua ANDANDO (não só "não pausou") **e** que o registro sobrevive. A terceira metade impede a correção de virar outro defeito: um item que JÁ TOCOU e não está mais em cena tem de morrer de verdade |
 | `aviso-de-importacao.test.mjs` | **o aviso de que um arquivo está entrando.** A ausência dele NÃO É UM ERRO: nada quebra, nada aparece no console, e o item chega ao fim — só chega em silêncio, e "importei e não aconteceu nada" é indistinguível de travar. Um teste do desfecho passa nas duas versões, então ele mede o MEIO, com o arquivo servido AOS PEDAÇOS para a janela existir |
@@ -4050,24 +4093,27 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: v1.5.14** (base web e APK) · `SHELL_VERSION` **61** · bundle com
-`minShell: 61` e **`shellTag: "v1.5.14"`** — o shell 61 é o **PISO**: todo método
-da ponte existe, e não há guarda de versão no lado web. **`SHELL_VERSION` NÃO
-sobe neste lote**: a superfície da ponte não mudou (nenhum método novo, nenhuma
-forma de retorno diferente).
+**Versão atual: base web v1.5.15 · APK v1.5.14** · `SHELL_VERSION` **61** ·
+bundle com `minShell: 61` e **SEM `shellTag`** — o shell 61 é o **PISO**: todo
+método da ponte existe, e não há guarda de versão no lado web. **`SHELL_VERSION`
+NÃO sobe neste lote**: a superfície da ponte não mudou (nenhum método novo,
+nenhuma forma de retorno diferente).
 
-**MAS ESTE LOTE PEDE RELEASE**, e é o `res/` que a obriga: o tema escuro virou
-DENIM PROFUNDO, e `--bg` é espelhado à mão em `res/values/colors.xml` (`app_bg` e
-o fundo do ícone adaptativo). `res/` só chega instalando um APK — publicar só a
-base web deixaria o `windowBackground` do primeiro quadro e o ícone da gaveta no
-preto antigo, contra um app inteiro em azul. Daí o `shellTag`, que SEGURA o
-bundle até a Release `v1.5.14` existir. **A tag da Release é `v` + a versão da
-BASE WEB, não um número próprio do APK** — o CI cobra a igualdade
-(`shellTag == 'v' + version`), e é ela que impede um manifesto em que a base diz
-uma coisa e o APK anunciado diz outra. Desde este lote a igualdade dos dois
-valores é cobrada por oráculo (`tokens.test.mjs`) — o comentário do `colors.xml`
-dizia que *"nada no build detecta a divergência"*, e isso foi verdade por vinte e
-duas versões.
+**E ESTE LOTE NÃO PEDE RELEASE.** Ele é só base web — `controle.css`,
+`controle.js` e os dois oráculos —, e nada em `java/`, `res/` ou no manifesto foi
+tocado. Por isso o `shellTag` SAI do `version.json`: declará-lo faria o `web-ota`
+segurar o bundle esperando uma Release `v1.5.15` que não tem o que carregar, em
+silêncio e para sempre. O rodapé fica com `Web v1.5.15 · Shell v1.5.14`, que é a
+resposta exata a *"o OTA chegou e o APK ainda não?"*.
+
+> A v1.5.14 PEDIU Release, e o motivo fica registrado porque ele se repete: o
+> tema escuro virou DENIM PROFUNDO e `--bg` é espelhado à mão em
+> `res/values/colors.xml` (`app_bg` e o fundo do ícone adaptativo), que só chega
+> instalando um APK. **A tag da Release é `v` + a versão da BASE WEB, não um
+> número próprio do APK** — o CI cobra a igualdade (`shellTag == 'v' + version`).
+> A igualdade `colors.xml` × `tokens.css` passou a ser cobrada por oráculo
+> naquele lote (`tokens.test.mjs`); o comentário do `colors.xml` dizia que *"nada
+> no build detecta a divergência"*, e isso foi verdade por vinte e duas versões.
 
 ### Onde procurar
 

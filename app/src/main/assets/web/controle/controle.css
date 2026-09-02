@@ -94,6 +94,14 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
   --tools-anim: .22s;
   --radius-btn: 8px;
   --radius-card: 10px;
+  /* ---------- O VÉU DE INATIVO (v1.5.15) ----------
+     `opacity: .35` estava escrito em TRÊS `:disabled` (`.slide-btn`, `.t-btn`,
+     `.sel-btn`) e passou a ter um quarto consumidor que não é um controle: o
+     cartão da linha do tempo, que o operador mandou vestir *"o mesmo cinza
+     claro dos botões inativos de próximo e anterior slide"*. Quatro escritas
+     do mesmo número, uma delas em outra parte do arquivo, é a receita de o
+     cartão deixar de casar com os botões sem ninguém notar. */
+  --op-inativo: .35;
   --radius-pill: 999px;
   /* Bottom-sheet: MAIOR que o de cartão e só nos cantos que ficam para dentro
      da tela — é o que lê como "folha que deslizou de fora". */
@@ -862,7 +870,7 @@ body {
   box-shadow: 0 1px 4px var(--shadow-cap);
   cursor: pointer;
 }
-.slide-btn:disabled { opacity: .35; cursor: default; }
+.slide-btn:disabled { opacity: var(--op-inativo); cursor: default; }
 /* (O `.deck.vol-open .slide-side` — que escondia o botão de VOLTAR slide
    enquanto o fader cobria o de PASSAR — saiu na v1.3.8 e NÃO voltou com o
    fader. Era exatamente esse sumiço que o operador via, e o par não some mais:
@@ -1576,9 +1584,32 @@ body {
    Quem PODE recuar é o TÍTULO, porque ele é o único que ignora as colunas (ele
    é centrado na largura inteira) — e ele precisa, senão a reticência de um nome
    longo encosta na borda do cartão. */
+/* ---------- O TOM É O DE UM CONTROLE INATIVO (v1.5.15) ----------
+   Pedido do operador: *"ajuste o cinza da seção de barra de progresso da mídia
+   em exibição… para o mesmo cinza claro dos botões inativos de próximo e
+   anterior slide"*.
+
+   `--surface` cheio é o tom do botão de slide ATIVO — MEDIDO, os dois pintavam
+   exatamente a mesma cor. O que o operador aponta é o INATIVO, que é a mesma
+   superfície sob o véu de `--op-inativo`: rgb(242,242,242) contra rgb(219,219,219)
+   no tema claro, onde a diferença é a que ele descreve como "o tom claro".
+
+   ---------- E ELE É DERIVADO, NÃO UM TOKEN NOVO ----------
+   `--surface` NÃO tem um valor só: a regra R1 troca a superfície flutuante pela
+   afundada dentro de um bloco que pinta `--panel`, e a caixa de controles é um
+   deles — MEDIDO, ela resolve `rgba(255,255,255,.12)` no escuro e
+   `rgba(0,0,0,.14)` no claro. Um token novo teria de repetir essa bifurcação
+   inteira (e o override do R1 junto) para dizer a mesma coisa; o `color-mix`
+   lê o valor JÁ RESOLVIDO aqui, que é o único correto nos quatro casos.
+
+   O PISO É A LINHA DE CIMA: um WebView sem `color-mix` descarta a segunda
+   declaração e fica com o tom da v1.5.13 — o cartão continua existindo, só não
+   fica mais claro. Falhar assim é a mesma escolha do filtro de plataforma da
+   página: para o lado que devolve o desenho anterior. */
 .nowplaying {
   display: flex; flex-direction: column; gap: var(--sp-2);
   background: var(--surface);
+  background: color-mix(in srgb, var(--surface) calc(var(--op-inativo) * 100%), transparent);
   border-radius: var(--radius-card);
   padding: .4rem 0;
 }
@@ -1632,7 +1663,7 @@ body {
   display: flex; align-items: center; justify-content: center;
 }
 .t-btn .msym { font-size: var(--icon-md); }
-.t-btn:disabled { opacity: .35; }
+.t-btn:disabled { opacity: var(--op-inativo); }
 /* ---------- LIGADO É SUPERFÍCIE, NUNCA SÓ COR DE TEXTO (v1.3.14) ----------
    Relato do operador: *"o botão de selecionar repetição altera apenas sua cor
    interna quando ativo, sendo pouco visível a identificação de ativo ou não"*.
@@ -2114,7 +2145,7 @@ main {
 .sel-count { font-weight: var(--fw-forte); color: var(--accent); }
 .sel-spacer { flex: 1; }
 .sel-btn { background: var(--surface-2); color: var(--text); }
-.sel-btn:disabled { opacity: .35; }
+.sel-btn:disabled { opacity: var(--op-inativo); }
 .sel-btn.danger { color: var(--danger-strong); }
 .sel-btn .msym { font-size: var(--icon-sm); }
 
@@ -4207,7 +4238,30 @@ main {
 /* E O DO ÁLBUM GRUDA LOGO ABAIXO DELE, nunca em `top: 0`: empatados, o de
    dentro cobriria o de fora e a pergunta "dentro de quê?" ficaria sem resposta
    exatamente quando ela é feita. */
-.acervo .hymnal-card.expanded > .coll-bar { top: var(--bar-secao-h); z-index: 3; }
+.acervo .coll-group-corpo .hymnal-card.expanded > .coll-bar { top: var(--bar-secao-h); z-index: 3; }
+/* ---------- MAS UM CARD DA RAIZ NÃO TEM BARRA DE SEÇÃO ACIMA (v1.5.15) -------
+   Ele é NÍVEL 1, irmão das seções, e a v1.5.14 deu a TODO card aberto o `top`
+   do segundo degrau — inclusive aos hinários e às séries, que não têm nada
+   acima. O que sobrava eram `--bar-secao-h` de vão ENTRE o topo da lista e a
+   barra grudada, e esse vão não é neutro: ele é o próprio scrollport, então a
+   lista passava por ali À VISTA. Os dois relatos do operador são esse vão, dos
+   dois lados dele:
+
+   · *"a lista está vazando acima [da sobreposição], oque está estranho"* — as
+     faixas do PRÓPRIO card aparecendo por cima da barra que as encabeça;
+   · *"essa sobreposição também permanece, mesmo após terminar a lista de um
+     álbum e começar a ver os outros álbuns… parecendo que um álbum está
+     pertencendo a outro"* — a barra DESGRUDANDO: ela sobe do slot dela até
+     sumir, e nesses `--bar-secao-h` de rolagem ela continua inteira no topo,
+     pintada por cima (z-index 3) das coleções seguintes, que já estão à vista.
+
+   MEDIDO na v1.5.14: barra do hinário da raiz colada em 110,8px com o
+   scrollport começando em 59,2 — 51,6px de lista à mostra acima dela.
+
+   A regra é a mesma que ordena o resto do bloco: o `top` de uma tampa é a
+   PROFUNDIDADE dela, não o tipo do bloco. Na raiz o degrau é zero; dentro de
+   uma seção é a altura da barra dela. */
+.acervo > .hymnal-card.expanded > .coll-bar { top: 0; z-index: 4; }
 /* ---------- O NÍVEL 3 NÃO TEM FUNDO ----------
    A faixa é CONTEÚDO do card, não um agrupamento: o que a separa da vizinha é o
    espaço, que é a regra R0 do projeto (*"o quarto degrau é o espaço"*) — agora
@@ -4215,6 +4269,54 @@ main {
    fica reservado ao ESTADO (no ar, selecionado), e é isso que faz o estado
    saltar: numa lista sem fundo nenhum, a única mancha de cor é a que importa. */
 .acervo .coll-songs > .hymn-result { --linha: transparent; }
+/* ---------- E A LISTA DE UM AGRUPAMENTO DA RAIZ POUSA NUMA PLACA (v1.5.15) ---
+   Relato do operador sobre a v1.5.14: *"isso era pra ser assim? fundo azul nos
+   itens do provai e vede? e etc...?"*.
+
+   Ele está certo, e o defeito é de CONSISTÊNCIA: sem fundo próprio, a faixa
+   pousa no que o bloco pinta — e o mesmo `.hymn-result` pousava em DUAS bases
+   conforme a profundidade do agrupamento que o contém. Dentro de uma seção o
+   álbum é nível 2 e veste PAPEL (a faixa fica cinza, como sempre); na RAIZ um
+   hinário ou uma série é nível 1 e veste o POÇO (a faixa fica AZUL). A mesma
+   linha, duas cores, conforme onde a coleção calha de morar.
+
+   A alternância não estava errada — faltava o degrau de baixo dela. A árvore da
+   Biblioteca não tem profundidade uniforme: uma seção contém CARDS, uma coleção
+   da raiz contém FAIXAS. Onde a seção põe cards de papel dentro do poço, a
+   coleção da raiz põe UMA PLACA de papel, e a faixa volta a pousar em papel em
+   qualquer lugar do acervo.
+
+   A regra completa passa a ser: **o poço é a MOLDURA de um agrupamento; o papel
+   é onde o conteúdo pousa** — e ela já tinha precedente no mesmo lote, na placa
+   dos Favoritos (`.fav-itens`), que é a irmã exata desta.
+
+   A PLACA É O CORPO ABERTO INTEIRO, e não só a lista de faixas. O DESTAQUE do
+   sábado e o ÍNDICE de temas são os dois únicos blocos do acervo que só existem
+   na raiz, e os dois pintam contando com PAPEL embaixo: MEDIDO, `--sel-fill` (o
+   bloco do destaque) dá **1,31:1** sobre o papel — o par para que ele foi
+   desenhado — e **1,03:1** sobre o poço no tema claro, isto é, ele desaparece
+   dentro da própria caixa. Deixá-los fora da placa consertaria a lista e
+   deixaria o "ESTE SÁBADO" invisível, que é o mesmo defeito um bloco acima.
+
+   A GEOMETRIA COPIA A DA SEÇÃO, número por número: a `margin` é o que o
+   `.coll-group-corpo` reserva a um card (`.35rem .4rem .45rem`), e o que sobra
+   do `.7rem` original do `.coll-open` vira o `padding` da placa — a faixa
+   continua a `.7rem` da borda do bloco, exatamente onde estava.
+
+   A ANIMAÇÃO DO ACORDEÃO NÃO SOFRE: `expandAccordion` anima altura E opacidade
+   juntas, então na altura zero a placa está transparente — sem isso o padding
+   que sobra ali piscaria como uma lasca de papel. */
+.acervo > .hymnal-card.expanded > .coll-open {
+  background: var(--panel);
+  border-radius: var(--radius-card);
+  margin: .35rem .4rem .45rem;
+  padding: 0 .3rem .45rem;
+  /* R1 NA PRÓPRIA REGRA, e não na lista (o caminho da `.simple-conn`): quem
+     pinta `--panel` afunda a superfície dos filhos, e os filhos daqui são os
+     `.row-btn` de cada faixa e a barra do índice de temas. */
+  --surface: var(--surface-sunk);
+  --surface-2: var(--surface-2-sunk);
+}
 /* O raio da tampa acompanha o do bloco enquanto ela é a única faixa à vista. */
 .coll-group-bar,
 .hymnal-card > .coll-bar { border-radius: var(--radius-card) var(--radius-card) 0 0; }
@@ -5137,6 +5239,23 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
 .popup-sheet--lib .popup-list {
   flex: 1; min-height: 0;
   padding-bottom: calc(.8rem + env(safe-area-inset-bottom));
+  /* ---------- E ELA NÃO TEM RESPIRO DE CIMA (v1.5.15) ----------
+     O `padding` de um scroller fica DENTRO do scrollport: a lista rola por
+     baixo dele À VISTA, e uma tampa `sticky` em `top: 0` não o alcança — ela
+     para no topo do CONTEÚDO, que é o padding abaixo. O que sobrava era uma
+     fresta de .5rem em que as faixas apareciam ACIMA da barra que as encabeça,
+     e é a metade fina do relato do operador (*"a lista está vazando acima"*) —
+     a grossa era o `top` de um card da raiz, corrigido no bloco `.acervo`.
+
+     Zero, e NÃO uma margem: a caixa da lista tem de começar exatamente onde a
+     barra de busca acaba (é o contrato geométrico da janela, medido no
+     `smoke.mjs`), então o vão não tem para onde ir — ele só pode deixar de
+     existir. O que se perde é .5rem de respiro no repouso; o que se ganha é a
+     tampa docando RENTE à barra, que é o que um cabeçalho grudento promete.
+
+     A conta de `medirVaoDosFavoritos` não muda de forma: ela é
+     `clientHeight − padding − gaps`, e um dos termos passa a ser zero. */
+  padding-top: 0;
 }
 
 /* O CABEÇALHO NÃO TEM FILETE (v5.267). Ele tinha um `border-bottom` em `--line`

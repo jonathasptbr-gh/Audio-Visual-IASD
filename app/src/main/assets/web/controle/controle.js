@@ -278,7 +278,7 @@ const appVersionEl = document.getElementById('appVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.5.14';
+const WEB_VERSION = '1.5.15';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -10038,18 +10038,13 @@ function medirVaoDosFavoritos(lista) {
   let fechadas = 0;
   for (const s of vizinhos) {
     if (s === fav) continue;
-    // A BARRA MAIS A MOLDURA DA CAIXA (v1.5.9). Fechada, a caixa é a barra —
-    // era, até a Biblioteca ganhar moldura: agora ela é a barra MAIS as duas
-    // linhas de 1px, e somar só a barra subestima o empilhamento em 2px por
-    // seção. MEDIDO com seis seções fechadas: a última terminava 7px abaixo do
-    // fim da lista, isto é, o vão dos favoritos comia o que não era dele.
-    // (Medir o `<li>` direto não serve: a seção ABERTA tem corpo, e é a altura
-    // FECHADA que esta soma quer.)
+    // FECHADA, A CAIXA É A BARRA. (Medir o `<li>` direto não serve: a seção
+    // ABERTA tem corpo, e é a altura FECHADA que esta soma quer.)
+    // A v1.5.9 somava aqui as duas linhas de 1px da moldura da Biblioteca; ela
+    // saiu na v1.5.14 e a parcela ia junto — um termo que hoje é sempre zero,
+    // com cinco linhas de comentário explicando um desenho que não existe.
     const barra = s.querySelector('.coll-group-bar, .coll-bar');
-    const cb = getComputedStyle(s);
-    const moldura = (parseFloat(cb.borderTopWidth) || 0)
-      + (parseFloat(cb.borderBottomWidth) || 0);
-    fechadas += (barra ? barra.getBoundingClientRect().height + moldura
+    fechadas += (barra ? barra.getBoundingClientRect().height
       : s.getBoundingClientRect().height);
   }
   const vao = Math.max(0, Math.round(util - fechadas));
