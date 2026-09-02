@@ -24,6 +24,8 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
+- **v1.5.15** — A PERNA DA RAIZ DA BIBLIOTECA, E O CINZA DO CARTÃO DA LINHA DO TEMPO. Três relatos do operador sobre a v1.5.14 e um pedido. **(1)** *"isso era pra ser assim? fundo azul nos itens do provai e vede?"* — a árvore da Biblioteca não tem profundidade uniforme: uma seção contém CARDS e uma coleção da RAIZ contém FAIXAS, então a MESMA `.hymn-result` pousava em duas cores conforme onde a coleção mora. A alternância não estava errada; faltava o degrau de baixo dela — o `.coll-open` de uma coleção da raiz vira PLACA de papel, irmã exata da `.fav-itens`, e a faixa volta a pousar na mesma base em qualquer lugar do acervo (MEDIDO: 1,43:1 e 1,35:1 contra o poço, e 1,00:1 contra o card de álbum). A placa é o corpo aberto INTEIRO e não só a lista: o DESTAQUE do sábado pinta `--sel-fill`, que dá 1,31:1 sobre o papel (o par para que ele foi desenhado) e 1,03:1 sobre o poço — deixá-lo de fora consertaria a lista e deixaria o "ESTE SÁBADO" invisível, que é o mesmo defeito um bloco acima e está numa das capturas. **(2 e 3)** *"a lista está vazando acima"* e *"essa sobreposição também permanece… parecendo que um álbum está pertencendo a outro"* são o MESMO defeito pelas duas faces: a v1.5.14 deu a todo card aberto o `top` do segundo degrau, os da raiz inclusive — que não têm barra acima —, e **o vão que sobrava É o scrollport** (MEDIDO: 51,6px de lista à mostra acima da tampa colada, e a tampa inteira ainda no topo enquanto desgruda, pintada por cima das coleções seguintes). O `top` de uma tampa passa a ser a PROFUNDIDADE dela, e pela mesma aritmética o `padding-top` do scroller foi a zero — padding de um scroller é scrollport. **(4)** *"ajuste o cinza dela para o mesmo cinza claro dos botões inativos de próximo e anterior slide"*: o cartão vestia `--surface` cheio, que é o tom do botão ATIVO; passa a ser a mesma superfície sob o véu de `--op-inativo`, por `color-mix` sobre o valor JÁ RESOLVIDO ali (um token novo teria de repetir a bifurcação do R1). Os dois oráculos aprendem a ler `color-mix` — que computa como `color(srgb 1 1 1 / .04)`, e uma regex de números lê (1,1,1).
+
 - **v1.5.14** — A HIERARQUIA DA BIBLIOTECA DEIXOU DE SER UMA ESCADA, O TEMA ESCURO VIROU DENIM E O APP GANHOU QUATRO ESCALAS. Pedido do operador: *"chegamos a um pico de eficiência, que pequenas variações não mudam muito o resultado, e para achar um resultado melhor, devemos ir um pouco mais longe"* · *"poucas bordas, sem traços finos, ou designs visualmente poluídos"* · *"busque consistência maior dentro do app"*. **O pico era local, e a prova é aritmética:** quatro níveis sobre uma escada de três degraus, e quatro degraus no piso de 1,28:1 partindo do branco põem o nível mais interno em #b3b3b3 — o cinza que ele recusou na v1.5.10. MEDIDO no renderizado, o desenho anterior não cumpria o piso em NENHUM par (7/7 reprovando no escuro) e três pares valiam 1,00:1: no escuro a tampa de um álbum e as faixas dentro dele eram pixel-idênticas. A saída é ALTERNAR em vez de empilhar (papel → poço → papel: duas superfícies, profundidade ilimitada, zero traços — 1,43:1 e 1,35:1 em cada degrau), com a profundidade dita por cabeçalho GRUDENTO nos dois níveis, recuo e rank tipográfico. Mais: o tema escuro ganha a saturação do `denim` (a identidade vivia só no claro), quatro escalas novas (31 corpos de fonte → 9+2, 16 gaps → 6, 10 durações → 3, 5 pesos → 4), o chevron da Biblioteca volta a responder ao toque, e o Modo Fácil passa a mostrar o transporte DA CENA. Os oráculos APROVAVAM o defeito (o `smoke` exigia que seção e card fossem iguais e nunca comparava tampa × faixa): oito asserções invertidas e três casos novos, mais o oráculo que fecha a lacuna de vinte e duas versões entre `colors.xml` e `tokens.css`.
 - **v1.5.13** — A LINHA DO TEMPO VIROU UM CARTÃO. Pedido do operador: *"coloque a seção da barra de progresso da mídia, que tem o título, barra de progresso e tempo atual e total… coloque isso tudo dentro de um card, pois é o único elemento visual do controle que não está dentro de um elemento visual. por causa da barra de buscas, ali se tornou um buraco no design"*. **O "por causa da barra de buscas" é a parte que explica por que isto virou defeito AGORA**, e é ela que faz deste lote uma correção e não um enfeite: até a v1.5.2 o topo da caixa de controles era a faixa de abas, e o título nascia logo abaixo de uma peça pintada. Com a barra da Biblioteca repousando ali — e ela não pinta NADA fechada, que foi decisão da própria v1.5.2 —, o que ficou acima do título passou a ser o `--bar` cru, e a `.nowplaying` virou a única peça daquela caixa pousada direto no fundo: preview, botões de slide e os sete do transporte todos têm superfície. **Um recurso não regrediu; o vizinho dele saiu.** **O TOM É `--surface`, o MESMO dos botões ao lado, e não `--panel`.** No tema CLARO `--bar` é branco e `--panel` também: um cartão em `--panel` mediria **1,00:1** contra a caixa e simplesmente não existiria — é a mesma aritmética que obrigou a borda do campo de busca na v1.5.5, chegando pelo outro lado. Com o tom dos vizinhos o cartão entra no sistema da caixa em vez de inaugurar um degrau que a escada não tem. **E O RECUO É SÓ VERTICAL, que é a parte que se erra sem perceber.** `.np-seek` repete as TRÊS colunas do `.deck` desde a v1.3.8 — decorrido sobre o botão de voltar slide, barra sobre a preview, total sobre o de passar —, e um `padding` horizontal no cartão comprime essa grade: a barra deixa de bater com a miniatura logo abaixo, que é o defeito EXATO que a v1.3.8 corrigiu. O respiro lateral já existe por construção (os tempos são centrados em colunas de ~56px, então o texto nasce a meia coluna da borda), e quem PODE recuar é o TÍTULO, o único que ignora as colunas — e ele precisa, senão a reticência de um nome longo encosta na borda. **O `controles-layout.test.mjs` ganhou TRÊS metades, e nenhuma basta sozinha:** ela PINTA (uma regra que só trocasse classe passaria num teste de classe e continuaria sendo um buraco na tela, então a régua é o fundo EFETIVO contra o da caixa), ela pinta o TOM DOS VIZINHOS (a régua é um botão do transporte RENDERIZADO — `--surface` lido de volta provaria só que a folha declara o que declara) e o recuo é só vertical. A terceira existe para dar a CAUSA: sem ela um recuo horizontal reprova nas três asserções de coluna que já existiam, que falam de alinhamento e não do que o produziu. Três reversões provadas, e a terceira confirmou o mecanismo — com `padding: .4rem .6rem` a barra de fato sai de cima da preview.
 - **v1.5.12** — O TEXTO DO TEMA CLARO FICOU PRETO — O ÚNICO DESVIO DECLARADO DA PALETA OFICIAL. Terceira rodada do operador sobre a legibilidade da Biblioteca: *"então use a cor preta pra os textos e não cinza como me parece ser hoje"*. **`--text` era `#4a4a4a`, o `night` OFICIAL** — não um cinza escolhido em algum lote, mas A cor de texto da identidade IASD, um dos dezoito valores da paleta. O operador o leu como cinza duas vezes, e a leitura está certa: `night` É um cinza escuro, e num app operado sob a luz de um salão ele se lê como texto apagado. O preço está dito e é pequeno — o `night` continua na identidade e volta com uma linha. **O GANHO É MEDIDO:** 6,87:1 → **16,28:1** sobre a página, 8,86:1 → **21:1** sobre o painel branco, e 5,33:1 → **12,62:1** sobre a tampa azul da Biblioteca, que é a superfície onde a queixa nasceu (a v1.5.11 já tinha subido esse par de 4,00 para 5,33 tirando o texto de `--muted`; esta rodada é a resposta ao "ainda parece cinza"). **`--muted` NÃO ACOMPANHA, e é essa a metade que mantém a regra da v1.5.11:** NOME é `--text`, NÚMERO é `--muted`. O par abriu de 1,33:1 para 3,15:1 — a hierarquia ficou MAIS legível, não menos. **O `--field-text` acompanhou**, e por um motivo próprio: aquela superfície não tem tema (o campo é BRANCO nos dois), então a pergunta "qual tema?" não se aplica a ela — e sem a troca o campo da barra da Biblioteca ficaria com o cinza recusado a dois centímetros dos nomes que deixaram de usá-lo. **OS LADRILHOS DA BÍBLIA NÃO FORAM RETOCADOS, e não podiam precisar:** eles foram escolhidos com um alvo de 6,5:1 para o rótulo contra o `night`, e escurecer o texto só AFASTA o rótulo do ladrilho — MEDIDO, o pior caso foi de 6,46:1 para 15,31:1. Duas justificativas que dependiam do `night` viraram lápides e foram reescritas no mesmo lote: a do alvo dos ladrilhos e a da opacidade .9 do rótulo (*"a .72 ele cai a 3,42:1"* — a razão morreu, o valor fica porque nada pede que mude). **O `smoke` guarda o desvio com um LITERAL, de propósito.** É a exceção à regra deste projeto de medir contra vizinhos renderizados: a decisão É um valor escolhido CONTRA a paleta, e não há vizinho que a carregue. Sem o caso, quem conferir a paleta contra a marca encontra o preto, conclui que é um deslize e o desfaz de boa-fé, em silêncio. Só no tema claro — no escuro o texto é o off-white de sempre, e preto ali seria invisível. Uma reversão provada.
@@ -331,6 +333,135 @@ na nota que a revoga, não apagada da que a criou.
 - **v5.154** — é METADE OTA e METADE APK, e a divisão importa para quem for testar em aparelho.
 - **v5.155** — é OTA PURO
 - **v5.156** — é METADE OTA e METADE APK, de novo.
+
+---
+
+## v1.5.15 — a perna da raiz da Biblioteca
+
+Três relatos sobre a v1.5.14 e um pedido, todos do operador, todos sobre a mesma
+tela: *"isso era pra ser assim? fundo azul nos itens do provai e vede? e etc...?
+/ e está tendo a sobreposição do topo/titulo do grupo, oque está ok, mas a lista
+está vazando acima, depois dessa sobreposição, oque está estranho. e essa
+sobreposição também permanece, mesmo após terminar a lista de um álbum e começar
+a ver os outros albuns, ficando com ela no topo, parecendo que um álbum está
+pertencendo a outro... / aliás, aproveite para ajustar a cor do cinza da seção de
+barra de progresso da midia em exibição… para o mesmo cinza claro dos botões
+inativos de próximo e anterior slide"*.
+
+### A PLACA — a alternância não estava errada, faltava o degrau de baixo dela
+
+**A árvore da Biblioteca não tem profundidade uniforme, e é isso que a v1.5.14
+não viu.** Uma seção contém CARDS; uma coleção da raiz (um hinário, uma série)
+contém FAIXAS. Como a v1.5.14 tirou o preenchimento do nível 3, a faixa pousa no
+que o bloco pinta — e o bloco veste POÇO ou PAPEL conforme a profundidade. Logo
+a MESMA `.hymn-result` saía em duas cores conforme onde a coleção calha de
+morar: cinza dentro de uma seção, AZUL num álbum da raiz.
+
+A correção não é uma exceção: é a regra dita por inteiro — **o poço é a MOLDURA
+de um agrupamento; o papel é onde o conteúdo pousa.** O `.coll-open` de uma
+coleção da raiz é o nível 2 daquela perna, a irmã exata da placa dos Favoritos
+(`.fav-itens`), que já fazia isto no mesmo lote e serviu de precedente. MEDIDO
+no renderizado, nos dois temas: a placa a **1,43:1** (escuro) e **1,35:1**
+(claro) do poço em volta, e a **1,00:1** do card de álbum de dentro de uma seção
+— que é a metade que importa, porque é ela que faz a faixa pousar na mesma cor
+em qualquer lugar do acervo.
+
+**A placa é o CORPO ABERTO INTEIRO, e não só a lista de faixas.** O primeiro
+corte a pôs na `.coll-songs`, deixando de fora o DESTAQUE do sábado e o ÍNDICE
+de temas — os dois únicos blocos do acervo que só existem na raiz. Os dois
+pintam contando com PAPEL embaixo: MEDIDO, `--sel-fill` (o bloco do destaque)
+dá **1,31:1** sobre o papel, o par para que ele foi desenhado, e **1,03:1**
+sobre o poço no tema claro. Aquele corte consertaria a lista e deixaria o
+"ESTE SÁBADO" invisível dentro da própria caixa — o mesmo defeito um bloco
+acima, e ele está numa das capturas que o operador mandou.
+
+**A geometria copia a da seção, número por número:** a `margin` da placa é o que
+o `.coll-group-corpo` reserva a um card (`.35rem .4rem .45rem`) e o que sobra do
+`.7rem` do `.coll-open` vira o `padding` dela, então a faixa continua a `.7rem`
+da borda do bloco, exatamente onde estava. A animação do acordeão não sofre:
+`expandAccordion` anima altura E opacidade juntas, então na altura zero a placa
+está transparente.
+
+### O `top` DE UMA TAMPA É A PROFUNDIDADE DELA, e os dois outros relatos são um
+
+A v1.5.14 escreveu `.acervo .hymnal-card.expanded > .coll-bar { top:
+var(--bar-secao-h) }` — **por tipo de bloco**, quando toda a regra em volta é por
+PROFUNDIDADE. Um hinário ou uma série mora na RAIZ e não tem barra nenhuma acima;
+o que sobrava era `--bar-secao-h` de vão entre o topo da lista e a tampa colada.
+
+**Esse vão não é neutro: ele É o scrollport.** A lista rola por ali À VISTA, e os
+dois relatos são as duas faces disso:
+
+- **por cima** — as faixas do PRÓPRIO card aparecendo acima da barra que as
+  encabeça (MEDIDO: tampa colada em 110,8px com o scrollport começando em
+  59,2 — 51,6px de lista à mostra);
+- **enquanto ela sai** — a tampa DESGRUDANDO sobe do slot dela até sumir, e nesse
+  trecho continua inteira no topo, pintada por cima (`z-index: 3`) das coleções
+  seguintes, que já estão à vista. É literalmente *"um álbum pertencendo a
+  outro"*.
+
+Na raiz o degrau é zero; dentro de uma seção é a altura da barra dela. O oráculo
+mede as DUAS na mesma passada, porque um `top` escrito por tipo passa numa e
+reprova na outra.
+
+**E O SCROLLER NÃO PODE TER `padding-top`, pela mesma aritmética.** Padding de um
+scroller fica DENTRO do scrollport, e uma tampa em `top: 0` para no topo do
+CONTEÚDO — que fica abaixo dele. Era a metade fina do mesmo relato: `.5rem` de
+faixas à mostra acima de QUALQUER tampa colada, seção inclusive. Ele foi a zero e
+**não virou margem**: a caixa da lista tem de começar exatamente onde a barra de
+busca acaba, que é o contrato geométrico da janela e já tinha oráculo (o
+`margin-top` foi a primeira tentativa e reprovou nele). O que se perde é `.5rem`
+de respiro no repouso; o que se ganha é a tampa docando RENTE à barra.
+
+### O cartão da linha do tempo veste o tom de um controle INATIVO
+
+`--surface` cheio é o tom do botão de slide **ATIVO** — MEDIDO, os dois pintavam
+exatamente a mesma cor desde a v1.5.13. O que o operador aponta é o inativo, que
+é a mesma superfície sob o véu de `opacity: .35`: **rgb(242,242,242) contra
+rgb(219,219,219)** no tema claro, que é a diferença que ele descreve como "o tom
+claro".
+
+**Ele é DERIVADO, e não um token de cor novo.** `--surface` não tem um valor só:
+a regra R1 troca a superfície flutuante pela afundada dentro de um bloco que
+pinta `--panel`, e a caixa de controles é um deles — MEDIDO, ela resolve
+`rgba(255,255,255,.12)` no escuro e `rgba(0,0,0,.14)` no claro. Um token teria de
+repetir essa bifurcação inteira (e o override do R1 junto); o `color-mix` lê o
+valor JÁ RESOLVIDO no ponto de uso, que é o único correto nos quatro casos. O
+piso é a declaração de cima: um WebView sem `color-mix` descarta a segunda e fica
+com o tom da v1.5.13.
+
+O número saiu para um token, `--op-inativo`: ele estava escrito em três
+`:disabled` e ganhou um quarto consumidor que não é um controle.
+
+### O que os oráculos aprenderam
+
+- **`smoke.mjs`** ganha a perna da RAIZ, que a v1.5.14 não media — e é por não
+  medi-la que ela deixou passar os dois defeitos: a placa com degrau de verdade
+  contra o poço **e valendo o mesmo que o card de álbum** (sem a segunda metade
+  a faixa continua em duas cores), o `top` zero da tampa da raiz medido ao lado
+  do da tampa aninhada, e o primeiro bloco começando NO TOPO do scrollport. A
+  régua desta última é a GEOMETRIA e nunca `paddingTop` lido de volta: o vão
+  pode voltar por qualquer caminho.
+- **`controles-layout.test.mjs`** troca a régua do cartão (do botão ATIVO para o
+  APAGADO, com o véu composto) e ganha a REVERSÃO ao lado — sem ela, um véu
+  apagado por engano devolveria a v1.5.13 e a asserção passaria, porque os dois
+  lados voltariam a ser a mesma superfície cheia. **E o parse de cor passou a ser
+  por CANVAS**: `color-mix` computa como `color(srgb 1 1 1 / 0.042)`, cujos
+  canais vão de 0 a 1 — uma regex de números devolve (1,1,1), e o oráculo reprova
+  com um número plausível que faz quem lê o log concluir que o app quebrou.
+
+### Limpeza
+
+`medirVaoDosFavoritos` somava a MOLDURA de cada seção fechada, com cinco linhas
+de comentário explicando por quê. A moldura saiu na v1.5.14: o termo era zero e o
+comentário descrevia um desenho que não existe.
+
+### Entrega
+
+**Só base web** — nada em `java/`, `res/` ou no manifesto. Por isso o `shellTag`
+sai do `version.json`: declará-lo faria o `web-ota` segurar o bundle esperando
+uma Release que não tem o que carregar, em silêncio e para sempre. O rodapé fica
+com `Web v1.5.15 · Shell v1.5.14`.
 
 ---
 

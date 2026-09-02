@@ -169,23 +169,56 @@ try {
       // devolve o alfa, então quem responde "que cor o navegador pintou?" é a
       // pilha composta até o primeiro fundo opaco.
       ...(() => {
-        const rgba = (c) => { const n = c.match(/[\d.]+/g).map(Number);
-          return [n[0], n[1], n[2], n.length > 3 ? n[3] : 1]; };
-        const efetivo = (el) => { const pil = []; let e = el;
-          while (e) { const v = rgba(getComputedStyle(e).backgroundColor);
+        // ===== O PARSE É POR CANVAS, E NÃO POR REGEX (v1.5.15) =====
+        // `color-mix` COMPUTA como `color(srgb 1 1 1 / 0.042)`, cujos canais vão
+        // de 0 a 1 — uma regex de números sobre essa string devolve (1, 1, 1) e
+        // o oráculo passa a medir preto quase puro. Não erra alto: ele reprova
+        // com um número plausível, e quem lê o log conclui que o app quebrou.
+        // O canvas resolve QUALQUER sintaxe de cor que o navegador aceite, que
+        // é exatamente a pergunta ("o que o navegador pintou?").
+        const cv = document.createElement('canvas'); cv.width = cv.height = 1;
+        const g2 = cv.getContext('2d', { willReadFrequently: true });
+        const rgba = (c) => { g2.globalCompositeOperation = 'copy';
+          g2.fillStyle = c; g2.fillRect(0, 0, 1, 1);
+          const d = g2.getImageData(0, 0, 1, 1).data;
+          return [d[0], d[1], d[2], d[3] / 255]; };
+        // O VÉU DO PRÓPRIO ELEMENTO entra na conta (v1.5.15): um `:disabled`
+        // deste app é `opacity: var(--op-inativo)`, e o que ele PINTA é a
+        // superfície dele composta contra o pai. Sem isto o oráculo leria a
+        // superfície CHEIA de um botão apagado — a cor que ele não tem na tela.
+        const empilhar = (el, comVeu) => { const pil = []; let e = el; let veu = 1;
+          while (e) { const cs = getComputedStyle(e);
+            if (comVeu && e === el) veu = parseFloat(cs.opacity) || 1;
+            const v = rgba(cs.backgroundColor);
             if (v[3] > 0) pil.push(v); if (v[3] === 1) break; e = e.parentElement; }
           let o = pil.pop() || [255, 255, 255, 1];
           while (pil.length) { const t = pil.pop();
             o = [0, 1, 2].map((i) => t[3] * t[i] + (1 - t[3]) * o[i]).concat([1]); }
-          return 'rgb(' + o.slice(0, 3).map(Math.round).join(', ') + ')'; };
+          return [o, veu]; };
+        const efetivo = (el) => {
+          if (!el) return null;
+          const [o, veu] = empilhar(el, true);
+          let cor = o;
+          if (veu < 1 && el.parentElement) {
+            const pai = empilhar(el.parentElement, false)[0];
+            cor = [0, 1, 2].map((i) => o[i] * veu + pai[i] * (1 - veu));
+          }
+          return 'rgb(' + cor.slice(0, 3).map(Math.round).join(', ') + ')'; };
         const np = document.querySelector('.nowplaying');
         const btn = document.querySelector('.transport .t-btn');
+        const slide = document.getElementById('slidePrevBtn');
         return {
           npFundo: efetivo(np),
           npFundoCru: getComputedStyle(np).backgroundColor,
           npRaio: getComputedStyle(np).borderRadius,
           npPadX: [getComputedStyle(np).paddingLeft, getComputedStyle(np).paddingRight],
           btnFundo: btn ? efetivo(btn) : null,
+          // O botão de slide APAGADO — a régua que o operador nomeou — e o mesmo
+          // botão sem o véu, que é o tom que o cartão tinha até a v1.5.14.
+          slideOff: slide && slide.disabled ? efetivo(slide) : null,
+          slideCheio: slide ? (() => {
+            const antes = slide.disabled; slide.disabled = false;
+            const c = efetivo(slide); slide.disabled = antes; return c; })() : null,
           barFundo: efetivo(document.querySelector('.bottombar')),
         };
       })(),
@@ -282,16 +315,31 @@ try {
     checar(g.npFundo !== g.barFundo,
       `a linha do tempo PINTA: ela não é mais a única peça da caixa pousada `
       + `direto no fundo (${nome})`, { cartao: g.npFundo, caixa: g.barFundo });
-    // 2. E ELA PINTA O TOM DOS VIZINHOS, não um tom novo. A régua é um botão do
-    //    transporte RENDERIZADO — `--surface` lido de volta provaria só que a
-    //    folha declara o que declara —, e ela é o que impede a correção de
-    //    inaugurar um degrau: no tema CLARO `--bar` é branco e `--panel`
-    //    também, então um cartão em `--panel` mediria 1,00:1 contra a caixa e
-    //    não existiria (a mesma aritmética da borda do campo, na v1.5.5).
-    checar(g.btnFundo !== null && g.npFundo === g.btnFundo,
-      `e ela veste o MESMO fundo dos botões ao lado — o cartão entra no sistema `
-      + `da caixa em vez de inaugurar um tom (${nome})`,
-      { cartao: g.npFundo, botao: g.btnFundo });
+    // 2. E ELA PINTA O TOM DE UM CONTROLE INATIVO (v1.5.15), não um tom novo.
+    //    A v1.5.13 cobrava o tom de um botão ATIVO e o operador apontou a
+    //    diferença: *"ajuste o cinza dela para o mesmo cinza claro dos botões
+    //    inativos de próximo e anterior slide"*. A régua continua sendo um
+    //    botão RENDERIZADO — `--surface` lido de volta provaria só que a folha
+    //    declara o que declara —, e é ela que impede a correção de inaugurar um
+    //    degrau: no tema CLARO `--bar` é branco e `--panel` também, então um
+    //    cartão em `--panel` mediria 1,00:1 contra a caixa e não existiria (a
+    //    mesma aritmética da borda do campo, na v1.5.5).
+    //
+    //    A RÉGUA É O BOTÃO APAGADO, com o véu de `--op-inativo` composto: os
+    //    dois lados do `===` saem do MESMO caminho de medição, então um véu que
+    //    mude num lugar só reprova aqui em vez de sair na tela.
+    checar(g.slideOff !== null && g.npFundo === g.slideOff,
+      `e ela veste o tom de um controle INATIVO — o cinza dos botões de slide `
+      + `apagados, e não o do botão aceso (${nome})`,
+      { cartao: g.npFundo, slideApagado: g.slideOff, slideAceso: g.slideCheio });
+    // 2-bis. E A REVERSÃO: o tom do botão ACESO é outro. Sem esta metade, um
+    //    `--op-inativo` que fosse a 1 (ou o véu apagado por engano) devolveria
+    //    a v1.5.13 e a asserção acima continuaria passando — os dois lados
+    //    voltariam a ser a mesma superfície cheia, concordando em silêncio.
+    checar(g.slideCheio !== null && g.slideOff !== g.slideCheio
+      && g.npFundo !== g.slideCheio,
+      `e o INATIVO é de fato outro tom que o ATIVO — o véu existe (${nome})`,
+      { cartao: g.npFundo, slideApagado: g.slideOff, slideAceso: g.slideCheio });
     // 3. E O RECUO É SÓ VERTICAL. Um `padding` horizontal aqui comprime a grade
     //    do `.np-seek`, e as três asserções logo acima deixam de bater — mas
     //    elas reprovam DEPOIS do estrago, com três mensagens que falam de

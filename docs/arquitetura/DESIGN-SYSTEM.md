@@ -189,6 +189,7 @@ Fora de `tokens.css`, no `:root` do Controle (não são cor):
 | `--dur-rapida` / `--dur-media` / `--dur-lenta` | `.14s` / `.2s` / `.3s` | **a escala de movimento** (v1.5.14). Eram dez durações de transição entre .12s e .3s — faixa em que o olho não distingue os degraus, mas em que peças VIZINHAS animam em tempos diferentes, e isso se nota. As ANIMAÇÕES ficam de fora e mantêm o tempo delas: um pulso de 1,2s não é uma transição de interface |
 | `--fw-normal` / `--fw-medio` / `--fw-forte` / `--fw-max` | `400` / `600` / `700` / `800` | **os quatro pesos** (v1.5.14). Eram cinco valores para quatro papéis — o `500`, com três usos, não se distinguia do `600`. Nomeados, a escolha deixa de ser um número e passa a ser um papel |
 | `--bar-secao-h` | `calc(var(--hit) + 1.1rem)` | a altura da barra de uma seção da Biblioteca. É token porque DUAS regras precisam do mesmo número (a barra gruda em `top: 0`, a do álbum logo abaixo dela); escrito duas vezes divergiria, e o sintoma seria o cabeçalho de dentro cobrindo o de fora. Determinístico: o nome é `nowrap` e o recuo é fixo — nada de medição em JS, que a v1.5.3 ensinou a desconfiar |
+| `--op-inativo` | `.35` | **o véu de INATIVO** (v1.5.15). Ele estava escrito em três `:disabled` (`.slide-btn`, `.t-btn`, `.sel-btn`) e ganhou um quarto consumidor que não é um controle: o cartão da linha do tempo, que o operador mandou vestir *"o mesmo cinza claro dos botões inativos de próximo e anterior slide"*. O cartão o consome por `color-mix` sobre `--surface` JÁ RESOLVIDO ali — um token de cor novo teria de repetir a bifurcação inteira do R1 para dizer a mesma coisa |
 | `--kb` | `0px` | altura coberta pelo teclado virtual, escrita pelo JS (ver "Deslocamento com o teclado virtual") |
 
 ### Métodos/convenções visuais padronizados
@@ -884,10 +885,12 @@ Uma escada ACUMULA e acaba. Uma alternância não:
 
 ```
 janela da Biblioteca  --panel   nível 0   PAPEL   · cabeçalho GRUDENTO em top:0
-  ├ seção             --poco    nível 1   POÇO    · cabeçalho GRUDENTO abaixo dele
-  │   └ card do álbum --panel   nível 2   PAPEL   ← volta ao tom da janela
+  ├ seção             --poco    nível 1   POÇO    · cabeçalho GRUDENTO em top:0
+  │   └ card do álbum --panel   nível 2   PAPEL   · cabeçalho em --bar-secao-h
   │       └ faixa     —         nível 3   sem fundo: preenchimento é ESTADO
-  └ coleção fixa      --poco    nível 1   NA RAIZ: é agrupamento, logo é poço
+  └ hinário/série     --poco    nível 1   NA RAIZ: é agrupamento, logo é poço
+      └ a PLACA       --panel   nível 2   o `.coll-open`, o papel desta perna
+          └ faixa     —         nível 3   a MESMA base da faixa de álbum
 ```
 
 **Duas superfícies, profundidade ilimitada, zero traços.** MEDIDO no
@@ -898,6 +901,34 @@ sete de sete pares reprovando o piso no desenho anterior.
 é nível 1 na raiz (poço) e nível 2 dentro de uma seção (papel); escrevê-la por
 tipo foi o primeiro corte do lote e mediu 1,00:1 — os hinários da raiz sumiam
 sobre a janela branca.
+
+**E A ÁRVORE NÃO TEM PROFUNDIDADE UNIFORME — daí a PLACA** (v1.5.15). Uma seção
+contém CARDS; uma coleção da raiz contém FAIXAS. Sem fundo próprio a faixa pousa
+no que o bloco pinta, então a MESMA `.hymn-result` saía em duas cores conforme
+onde a coleção calha de morar — papel dentro de uma seção, AZUL num hinário ou
+numa série da raiz. Relato: *"isso era pra ser assim? fundo azul nos itens do
+provai e vede?"*.
+
+A alternância não estava errada; faltava o degrau de baixo dela. A regra
+completa é **o poço é a MOLDURA de um agrupamento e o papel é onde o conteúdo
+pousa** — e o `.coll-open` de uma coleção da raiz é o nível 2 daquela perna, a
+irmã exata da placa dos Favoritos (`.fav-itens`), que já fazia isto no mesmo
+lote. A geometria copia a da seção número por número, então a faixa continua
+onde estava.
+
+**A placa é o corpo aberto INTEIRO**, e não só a lista: o DESTAQUE do sábado e o
+ÍNDICE de temas são os dois únicos blocos do acervo que só existem na raiz, e os
+dois pintam contando com papel embaixo — MEDIDO, `--sel-fill` dá **1,31:1** sobre
+o papel (o par para que foi desenhado) e **1,03:1** sobre o poço no tema claro.
+
+**E o `top` de uma tampa GRUDENTA é a profundidade dela, nunca o tipo do bloco**
+(v1.5.15, a mesma correção pela outra face). A v1.5.14 deu a todo card aberto o
+`top` do segundo degrau, os da raiz inclusive — que não têm barra nenhuma acima.
+O vão que sobrava não é neutro: **ele É o scrollport**, e a lista rolava por ali
+à vista, tanto acima da tampa quanto embaixo dela enquanto a tampa DESGRUDAVA.
+Pela mesma aritmética o scroller do acervo não pode ter `padding-top`: padding
+de um scroller é scrollport, e uma tampa em `top: 0` para no topo do CONTEÚDO,
+que fica abaixo dele.
 
 **E o que carrega a profundidade são três mecanismos NÃO-TONAIS**, que é o que
 os torna ilimitados: o cabeçalho GRUDENTO nos dois níveis (o único que continua
