@@ -846,21 +846,39 @@ botões de baixar têm o mesmo alvo de propósito: alinhados na mesma coluna"): 
 ALVO era igual (34px), a COLUNA não. Um recuo só (`.55rem .7rem`, o do card) e
 um vão só (`.55rem`), e as três batem.
 
-O que continua RANQUEANDO os dois é a escala de rótulo — caixa alta, espaçamento
-e a cor de metadado no nome da seção. Nivelá-la com o `--text` do título do card
-foi tentado e revertido: apagaria a distinção que a v5.296 estabeleceu depois de
-um relato (cor de RÓTULO e cor de CONTEÚDO são duas coisas), e `smoke.mjs`
-reprovou com razão.
+**E DESDE A v1.5.11 OS DOIS SE ESCREVEM IGUAL.** O que os ranqueava era a escala
+de rótulo — caixa alta, espaçamento e a cor de metadado no nome da seção —, e
+nivelá-la foi tentado e revertido na v1.3.14, com razão: apagaria a distinção que
+a v5.296 estabeleceu depois de um relato (cor de RÓTULO e cor de CONTEÚDO são
+duas coisas). **O que mudou desde então é que o RANQUEAMENTO saiu da tipografia:**
+a v1.5.9 deu MOLDURA ao grupo, e quem diz "isto contém aquilo" passou a ser o
+desenho. Pedido do operador: *"Nessas coleções, padronize em caixa alta, ou em
+formatação normal"*, e a escolha é a normal pela medição da v5.297 (caixa alta a
+14px é mais lenta de ler e mais larga, e os nomes desta lista são longos).
 
-A árvore da Biblioteca fica assim, e é a mesma da tela principal um nível acima:
+A distinção da v5.296 **não morre, muda de peça**: o `--muted` da barra continua
+existindo no CONTADOR, e continua sem alcançar as linhas. A regra que sobra é
+mais simples que a que ela substitui — **NOME é `--text`, NÚMERO é `--muted`** —,
+e as duas metades têm caso no `smoke.mjs`, medidas contra VIZINHOS RENDERIZADOS
+(o título do card ao lado, o contador da própria barra).
+
+*(Branco sobre a tampa foi pedido no mesmo lote e é impossível: MEDIDO, `#bdcada`
+no tema claro dá **1,66:1** contra os 4,5:1 de AA. Afastar o texto do azul, ali,
+só se faz escurecendo — 4,00:1 em `--muted` para 5,33:1 em `--text`.)*
+
+A árvore da Biblioteca fica assim — **e ela deixou de ser uma escada de TOM na
+v1.5.9**, quando o operador deu autoridade para a MOLDURA (ver "A paleta", no
+CLAUDE.md): os dois níveis de agrupamento pintam o MESMO, e quem os separa é a
+linha. O tom deles é `--btn-accent` desde a v1.5.10, a pedido do operador
+(*"porque não usou o azul fraco como cor principal dos cards?"*), e `--panel-2`
+não existe mais em lugar nenhum da Biblioteca.
 
 ```
-folha de tela cheia   --bg          nível 0   (era --panel até a v5.267)
-  ├ seção             --panel       nível 1   (barra + corpo, UM bloco sólido)
-  │   └ card do álbum --panel-2     nível 2   (fechado: o pai reserva; aberto: idem)
-  │       └ faixa     (sem fundo)   separada da vizinha pelo ESPAÇO
-  └ coleção fixa      --panel       nível 1   NA RAIZ, fechada: o MESMO tom da seção
-      └ (aberta)      --panel-2     nível 2   a placa sobe, e a escada interna nasce
+janela da Biblioteca  --panel       nível 0   (era --bg até a v1.5.7)
+  ├ seção             --btn-accent  nível 1   caixa com MOLDURA + tampa --surface
+  │   └ card do álbum --btn-accent  nível 2   caixa com MOLDURA + tampa --surface
+  │       └ faixa     --item-fill   nível 3   sem moldura: preenchimento e ESPAÇO
+  └ coleção fixa      --btn-accent  nível 1   NA RAIZ: a mesma caixa da seção
 ```
 
 **O preço, medido e assumido:** o degrau recuado contra o cartão cai para

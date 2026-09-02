@@ -1483,16 +1483,31 @@ for (const tema of ['escuro', 'claro']) {
           }
           return 'rgb(' + c.map(Math.round).join(', ') + ')';
         })(),
-        // A METADE NEGATIVA: o RÓTULO da seção continua sendo um RÓTULO — cor
-        // `--muted`, caixa alta, espaçamento. Sem ela, apagar a regra do rótulo
-        // (em vez de tirá-la do bloco) passaria, e a Biblioteca perderia a
-        // distinção entre um cabeçalho e uma linha.
+        // A METADE NEGATIVA: a barra da seção continua tendo cor de RÓTULO em
+        // ALGUMA peça (desde a v1.5.11, no CONTADOR — o nome subiu para
+        // `--text`). Sem ela, apagar a regra do rótulo em vez de tirá-la do
+        // bloco passaria, e a Biblioteca perderia a distinção entre um
+        // cabeçalho e uma linha.
         rotulo: (() => {
           const el = lista.querySelector('.coll-group--drop.aberto:not(.coll-group--fav) '
             + '> .coll-group-bar .coll-group-name');
           if (!el) return null;
           const c = getComputedStyle(el);
           return { cor: c.color, tt: c.textTransform, ls: c.letterSpacing };
+        })(),
+        // O CONTADOR da mesma barra — o METADADO que continua em `--muted`
+        // depois de o NOME subir para `--text` (v1.5.11). Sem ele, nivelar a
+        // barra inteira passaria.
+        rotuloNumero: (() => {
+          const el = lista.querySelector('.coll-group--drop.aberto:not(.coll-group--fav) '
+            + '> .coll-group-bar .coll-group-count');
+          return el ? getComputedStyle(el).color : null;
+        })(),
+        // E o TÍTULO de um card, que é o vizinho contra o qual o nome da seção
+        // se padroniza — a régua é ele, nunca um valor escrito aqui.
+        tituloCor: (() => {
+          const el = lista.querySelector('.hymnal-card .coll-bar-name');
+          return el ? getComputedStyle(el).color : null;
         })(),
         // E A TIPOGRAFIA do que a seção CONTÉM (v5.297): o vazamento não era só
         // de cor. `text-transform` e `letter-spacing` também herdam, e ninguém
@@ -1828,12 +1843,19 @@ for (const tema of ['escuro', 'claro']) {
       + dTexto.toFixed(2) + ':1 a ' + t.nomeTam + 'px (era 3,45:1 no claro — a '
       + 'linha herdava a cor do RÓTULO da seção)');
     // O outro lado, e ele é o que impede a correção de virar "tudo virou
-    // `--text`": o cabeçalho da seção CONTINUA em `--muted`. Cor de rótulo e
-    // cor de conteúdo são duas coisas, e o defeito era exatamente uma valendo
-    // pela outra.
-    checar(!!t.rotulo && t.rotulo.cor !== t.nomeCor,
-      '[' + tema + '] mas o RÓTULO da seção continua sendo um rótulo, com cor '
-      + 'própria (' + (t.rotulo ? t.rotulo.cor : '?') + ' contra ' + t.nomeCor
+    // `--text`": a cor de RÓTULO da barra continua existindo e continua sem
+    // alcançar as linhas. Cor de rótulo e cor de conteúdo são duas coisas, e o
+    // defeito da v5.296 era exatamente uma valendo pela outra.
+    //
+    // **A PEÇA MEDIDA MUDOU na v1.5.11, e a regra não.** Era o NOME da seção,
+    // que subiu para `--text` junto com o título do card (*"padronize em caixa
+    // alta, ou em formatação normal"*, mais o pedido de afastar o texto do
+    // azul). Quem carrega o `--muted` da barra hoje é o CONTADOR, e é contra
+    // ele que a não-contaminação se afirma — nivelar a barra inteira continua
+    // reprovando aqui.
+    checar(!!t.rotuloNumero && t.rotuloNumero !== t.nomeCor,
+      '[' + tema + '] mas a cor de RÓTULO da barra continua existindo e não '
+      + 'alcança as linhas (' + (t.rotuloNumero || '?') + ' contra ' + t.nomeCor
       + ' da linha)');
     // ===== A LINHA DE CONTEÚDO SE AFASTA DO TEXTO (v5.297) =====
     //
@@ -1867,12 +1889,45 @@ for (const tema of ['escuro', 'claro']) {
       '[' + tema + '] e nem o nome da faixa nem o título do álbum são desenhados '
       + 'como RÓTULO — sem caixa alta e sem espaçamento de cabeçalho ('
       + (t.nomeTipo ? t.nomeTipo.tt + '/' + t.nomeTipo.ls : '?') + ')');
-    // A metade negativa dela: a barra CONTINUA em caixa alta. Sem esta linha,
-    // apagar a regra do rótulo passaria nas duas de cima.
-    checar(!!t.rotulo && t.rotulo.tt === 'uppercase' && t.rotulo.ls !== 'normal',
-      '[' + tema + '] mas a BARRA da seção continua em caixa alta e espaçada — é '
-      + 'ela que o rótulo sempre descreveu (' + (t.rotulo ? t.rotulo.tt + '/'
-      + t.rotulo.ls : '?') + ')');
+    // ===== E A BARRA DA SEÇÃO ENTROU NA MESMA REGRA (v1.5.11) =====
+    // Este caso era a metade NEGATIVA do de cima — *"mas a BARRA da seção
+    // continua em caixa alta e espaçada"* —, e o pedido do operador o revoga:
+    // *"Nessas coleções, padronize em caixa alta, ou em formatação normal"*. Na
+    // raiz da Biblioteca uma seção e um card fixo são LINHAS IRMÃS, e saíam em
+    // caixas diferentes ("CDS OFICIAIS" ao lado de "Hinário Adventista 2022").
+    //
+    // A escolha é a normal pela medição que o caso acima já cita: caixa alta a
+    // 14px é mais lenta de ler e mais LARGA, e os nomes desta lista são longos.
+    // O que ela carregava — o ranqueamento da seção sobre o card (v1.3.14) —
+    // passou para a MOLDURA na v1.5.9, que é o que torna a remoção segura.
+    //
+    // A metade que impede o nivelamento largo demais vem logo abaixo: o NÚMERO
+    // continua sendo metadado.
+    checar(!!t.rotulo && t.rotulo.tt === 'none' && t.rotulo.ls === 'normal',
+      '[' + tema + '] e a BARRA da seção entrou na MESMA formatação: uma seção e '
+      + 'um card fixo são linhas irmãs na raiz, e agora se escrevem igual',
+      (t.rotulo ? t.rotulo.tt + '/' + t.rotulo.ls : '?'));
+    // ===== O NOME DA SEÇÃO VESTE A COR DE NOME, E O NÚMERO NÃO (v1.5.11) =====
+    // Pedido: *"aproveite para pôr o texto em branco no tema claro para os
+    // textos sobre o azul"*. **Branco não é possível** — MEDIDO, sobre a tampa
+    // (`#bdcada` no claro) ele dá 1,66:1, e AA pede 4,5:1. O que o pedido
+    // alcança é o outro lado: o texto tem de se AFASTAR do azul, e no tema
+    // claro isso só se faz escurecendo. O nome herdava `--muted` (4,00:1,
+    // abaixo de AA) e passou a `--text` (5,33:1).
+    //
+    // A régua é o TÍTULO DO CARD ao lado — o vizinho renderizado com que ele se
+    // padroniza —, e a segunda metade é o que impede a correção de virar um
+    // nivelamento da barra inteira: o CONTADOR continua em metadado. Sem ela,
+    // pintar tudo de `--text` passaria.
+    checar(!!t.rotulo && !!t.tituloCor && t.rotulo.cor === t.tituloCor,
+      '[' + tema + '] e o NOME dela veste a cor do título do card ao lado — o '
+      + 'branco que o pedido nomeia mede 1,66:1 sobre a tampa, e o caminho '
+      + 'legível é o oposto dele',
+      'seção ' + (t.rotulo ? t.rotulo.cor : '?') + ' · card ' + t.tituloCor);
+    checar(!!t.rotuloNumero && !!t.tituloCor && t.rotuloNumero !== t.tituloCor,
+      '[' + tema + '] mas o CONTADOR continua sendo metadado: a regra é NOME em '
+      + '`--text` e NÚMERO em `--muted`, não a barra inteira nivelada',
+      t.rotuloNumero);
   } catch (e) {
     checar(false, 'a medição da escada de camadas (' + tema + ') terminou sem exceção ('
       + (e && e.message) + ')');

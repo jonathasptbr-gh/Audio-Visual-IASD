@@ -1,5 +1,12 @@
 [
   {
+    "versao": "1.5.11",
+    "itens": [
+      "Os nomes das coleções deixaram de sair em maiúsculas na Biblioteca.",
+      "E o nome de uma seção ficou tão escuro quanto o título de um álbum."
+    ]
+  },
+  {
     "versao": "1.5.10",
     "itens": [
       "Os cards da Biblioteca trocaram o cinza escuro pelo azul claro do app.",

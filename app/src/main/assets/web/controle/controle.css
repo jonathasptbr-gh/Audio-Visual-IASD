@@ -2899,7 +2899,25 @@ main {
    nivela a seção e o card na raiz é o TOM DO BLOCO e as COLUNAS (acima); o que
    os RANQUEIA continua sendo a escala de rótulo — caixa alta, espaçamento e a
    cor de metadado. `smoke.mjs` trava as duas metades. */
-.coll-group-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* ---------- O NOME DA SEÇÃO É UM NOME, E VESTE A COR DE NOME (v1.5.11) ----------
+   Pedido do operador: *"aproveite para pôr o texto em branco no tema claro para
+   os textos sobre o azul"*. **Branco não é possível aqui, e a medição é
+   inequívoca:** a tampa compõe `#bdcada` no tema claro, e branco sobre ela dá
+   **1,66:1** — AA pede 4,5:1 para texto pequeno. É a mesma conta que já estava
+   escrita na regra da `.coll-group` desde a v5.296 ("o remédio óbvio seria
+   pior"), agora sobre a tampa azul.
+
+   O que o pedido alcança é o outro lado: o texto sobre o azul tem de se
+   AFASTAR do fundo, e no tema claro só há um jeito de fazer isso — escurecer.
+   O nome herdava `--muted` da barra (a cor de METADADO) e media **4,00:1**,
+   abaixo de AA; em `--text` ele mede **5,33:1**, exatamente o do título do card
+   ao lado — que é a outra metade do "padronize".
+
+   **`--muted` FICA no que é metadado**: o contador da seção, o peso do card, a
+   linha secundária. A regra que sai daqui é mais simples que a que ela
+   substitui — NOME é `--text`, NÚMERO é `--muted` —, e ela não perde o
+   ranqueamento da v1.3.14 porque quem o carrega desde a v1.5.9 é a moldura. */
+.coll-group-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); }
 /* Resumo do grupo (baixados/total) ou o progresso do lote. Sem o nome (filtro
    ativo) ele é que ocupa a linha. */
 .coll-group-count {
@@ -3134,8 +3152,29 @@ main {
      `font-size` e `font-weight` vêm junto porque a regra é uma só: isto é a
      tipografia de um RÓTULO, e um rótulo é a barra. O card e a faixa já
      declaram os seus; quem muda de verdade é o nome de um favorito
-     (`.row-name` não declara peso), que volta ao 400 das outras listas. */
-  font-size: .9rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+     (`.row-name` não declara peso), que volta ao 400 das outras listas.
+
+     ---------- E A CAIXA ALTA SAIU (v1.5.11) ----------
+     Pedido do operador: *"Nessas coleções, padronize em caixa alta, ou em
+     formatação normal"*. Na RAIZ da Biblioteca uma seção e um card fixo são
+     LINHAS IRMÃS (ver as colunas, logo abaixo), e saíam em caixas diferentes:
+     "CDS OFICIAIS" ao lado de "Hinário Adventista 2022".
+
+     **A escolha é a formatação normal, e ela é medida, não gosto.** Caixa alta
+     a 14px é mais lenta de ler e mais LARGA — é a medição que já está escrita
+     três parágrafos acima, onde ela truncava "001. SANTO, SANTO, SANTO!
+     (CANTAD…" numa linha que cabia. Os nomes desta lista são longos
+     ("Informativo Mundial das Missões 2026"), então padronizar para cima
+     cobraria esse preço em toda seção. E é a mesma regra que o `notas.json`
+     já segue desde a v1.4.12: caixa alta numa LISTA é a tela gritando.
+
+     **O que a caixa alta carregava, a MOLDURA carrega agora.** Ela era o
+     RANQUEAMENTO da seção sobre o card (v1.3.14), num tempo em que a seção era
+     um rótulo solto sobre uma lista chapada; desde a v1.5.9 o grupo tem caixa
+     e tampa, e quem diz "isto contém aquilo" é o desenho, não a tipografia.
+     `letter-spacing` sai junto: tracking sem caixa alta é um rótulo pela
+     metade. */
+  font-size: .9rem; font-weight: 700;
   color: var(--muted);
   /* O VÃO é o do card (`.55rem`), pela mesma razão do recuo abaixo: com `.5rem`
      o nome da seção começava 1px antes do nome do card. */
