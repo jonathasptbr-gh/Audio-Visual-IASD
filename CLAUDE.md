@@ -2736,9 +2736,19 @@ em **DOIS TEMAS**, com o denim `#2F557F` (PMS 302) como núcleo. O raciocínio
 completo (cada par medido, os pisos, os ladrilhos da Bíblia) está na seção de
 paleta de `docs/arquitetura/DESIGN-SYSTEM.md`.
 
-**NÃO HÁ CONTORNO EM LUGAR NENHUM.** Nenhuma regra desenha `border`/`outline`;
-sobrevivem dois DESENHOS (o aro que gira — `.dl-ring` — e o ✓ do seletor de
-destinos), nomeados um a um no oráculo
+**NÃO HÁ CONTORNO EM LUGAR NENHUM — E UMA EXCEÇÃO, PEDIDA E NOMEADA.**
+Nenhuma regra desenha `border`/`outline`; sobrevivem dois DESENHOS (o aro que
+gira — `.dl-ring` — e o ✓ do seletor de destinos) **e o CAMPO DE BUSCA da
+Biblioteca** (v1.5.5, pedido do operador: *"abra uma única exceção ao conceito de
+sem bordas do app, para poder fazer a caixa de texto da busca … branca com a
+borda em cinza"*). O que a autoriza é aritmético: no tema CLARO `--bar` é BRANCO
+e o campo é branco — **1,00:1** —, e sem contorno a caixa de texto não existe na
+tela; foi a mesma conta que criou a faixa `--field-bar` na v5.270, e a borda a
+resolve sem trazer a faixa de volta. O valor é `--field-borda`, o `--line` do
+tema claro escurecido até passar o piso de 3:1 (o `--line` cru dá 2,51:1 sobre
+branco e não serve justamente aqui). **É o NOME que a mantém única** — a lista
+não tem regra que a próxima borda possa alegar cumprir. Os três são nomeados um a
+um no oráculo
 (`tools/tokens.test.mjs`, sem `continue-on-error`). É ele que faz a regra durar:
 uma borda é a coisa mais fácil de acrescentar quando duas caixas não estão se
 separando o bastante, e ela não quebra nada, não erra alto e não aparece em teste
@@ -2949,12 +2959,14 @@ acima cobre a FAIXA — sem acrescentá-lo, o balanço voltava pelo botão novo.
   explícita de quem opera; num salão escuro é o retângulo mais luminoso da
   tela). No tema CLARO o `--panel` é branco pleno e a regra não se aplica pelo
   motivo dela.
-  **O campo da BARRA DE BUSCA saiu dessa lista na v1.5.2**, e o argumento é o
-  motivo dela: ele fica à vista o culto inteiro na base do app, então ser o
-  retângulo mais luminoso da tela é o oposto do que se quer. Ele veste
-  `--surface`, o tom dos botões do transporte — pedido do operador, e MEDIDO
-  também: o placeholder passa AA ali (5,15:1 · 4,82:1) e não passava sobre
-  `--surface-2` (4,21:1 · 4,15:1).
+  **E o campo da BARRA DE BUSCA é a terceira** — ele saiu da lista na v1.5.2 e
+  VOLTOU na v1.5.5, a pedido do operador, agora com a borda que o torna possível
+  no tema claro. O preço da v1.5.2 continua dito e continua sendo pago: ao
+  contrário do campo do sorteio, este fica à vista o culto inteiro na base do
+  app. **O que muda a conta é a BORDA:** com ela o branco deixa de ser a única
+  coisa que separa o campo da barra, então a escolha passou a ser sobre o que se
+  quer ver, não sobre o que é legível. As três cores de dentro voltam aos
+  `--field-*` junto com o fundo — ver a regra logo abaixo.
 - **Uma superfície sem tema arrasta o que vive DENTRO dela** — a regra do palco
   num lugar novo. `--field-bg` vem com `--field-text`, `--field-muted` **e
   `--field-accent`**, no bloco compartilhado: no tema escuro `--text` sobre
@@ -3051,7 +3063,7 @@ que ela é desenvolvida e testada fora do aparelho.
 | Botões físicos de volume | o navegador não os recebe | **interceptados**, ligados ao fader do deck — e é isso que mantém o painel de volume do Android FORA da projeção (ver abaixo) |
 | Microfone AO VIVO | o navegador pergunta | `MicChromeClient` + `RECORD_AUDIO` (ver abaixo). **Só com TV**: quem capta é o `/display/`, que só existe dentro da `Presentation` — e sem TV o botão **não é desenhado** (v1.2.21) |
 | Câmera | o navegador pergunta | **negada, sempre**. O `onPermissionRequest` do `ControleChromeClient` FICOU, negando **com log**: um WebView sem ele nega em silêncio, e o próximo que precisar de mídia aqui descobriria a armadilha do zero |
-| Navegação | idem (uma tela e duas folhas) | **UMA TELA e DUAS FOLHAS** (v1.5.0): o Cronograma é a tela única; a Bíblia e as Ferramentas são folhas dele, abertas pelas portas do rodapé (Bíblia · Importar · Ferramentas); a Biblioteca é uma JANELA DE TELA CHEIA que sobe levando a barra de busca junto, e a barra é a CABEÇA dela — fechada, ela repousa no TOPO da caixa de controles (v1.5.2), sem pintar nada, com o campo e os quadrados no tom dos botões do transporte; aberta, ela para no topo da TELA, e é por isso que o teclado deixou de cobrir o campo. A janela vai do topo até a LINHA DA BARRA (v1.5.4): fora disso não há camada — nem pixel, nem scrim, nem toque —, então os controles continuam à vista e alcançáveis com a Biblioteca aberta, e a barra de status é o DESTINO da abertura, não um recuo que viaja acima da barra ao fechar. Saíram a faixa de abas, o vazado deslizante, o carrossel horizontal e o `switchTab` |
+| Navegação | idem (uma tela e duas folhas) | **UMA TELA e DUAS FOLHAS** (v1.5.0): o Cronograma é a tela única; a Bíblia e as Ferramentas são folhas dele, abertas pelas portas do rodapé (Bíblia · Importar · Ferramentas); a Biblioteca é uma JANELA DE TELA CHEIA que sobe levando a barra de busca junto, e a barra é a CABEÇA dela — fechada, ela repousa no TOPO da caixa de controles (v1.5.2), sem pintar nada, com os dois quadrados no tom E na largura dos botões do transporte (v1.5.5) e o campo branco com borda entre eles; aberta, ela para no topo da TELA, e é por isso que o teclado deixou de cobrir o campo. A janela vai do topo até a LINHA DA BARRA (v1.5.4): fora disso não há camada — nem pixel, nem scrim, nem toque —, então os controles continuam à vista e alcançáveis com a Biblioteca aberta, e a barra de status é o DESTINO da abertura, não um recuo que viaja acima da barra ao fechar. Saíram a faixa de abas, o vazado deslizante, o carrossel horizontal e o `switchTab` |
 | Botão voltar | — | **fecha o que estiver aberto** antes de minimizar (ver abaixo) |
 | Controles fora do app | — | `MediaSession`: notificação, tela de bloqueio, botões de mídia |
 | Download minimizado | a aba continua baixando | **foreground service + wake lock**; sem isso o processo é congelado |
@@ -3906,12 +3918,12 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: v1.5.4** (base web) · **v1.4.42** (APK) · `SHELL_VERSION` **61** · bundle com
+**Versão atual: v1.5.5** (base web) · **v1.4.42** (APK) · `SHELL_VERSION` **61** · bundle com
 `minShell: 61` e **sem `shellTag`** — o shell 61 é o **PISO**: todo método da
 ponte existe, e não há guarda de versão no lado web. **Este lote não pede
 Release**: mexe em `assets/web/` e em `tools/`, e nada disso chega ao aparelho
 por APK — nenhum `.kt`, nenhum `res/`, nenhum manifest. O bundle sai na hora.
-O rodapé mostra `Web v1.5.4 · Shell v1.4.42`, e
+O rodapé mostra `Web v1.5.5 · Shell v1.4.42`, e
 isso não é divergência: é a resposta exata a *"o OTA chegou e o APK ainda
 não?"*. O que continua valendo é que `java/`, `res/`, o manifest e os workflows
 **só chegam instalando o APK**.

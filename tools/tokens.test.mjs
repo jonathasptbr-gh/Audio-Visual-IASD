@@ -151,6 +151,20 @@ checar(orfaos.length === 0,
 //   · o ✓ do `.song-menu-check` (duas bordas em L, giradas 45°) — é o glifo que
 //     falta no subset da fonte de ícones.
 //
+// ## E A ÚNICA BORDA QUE É BORDA (v1.5.5)
+//
+// O campo de busca da Biblioteca, e ele é EXCEÇÃO PEDIDA, não desenho: *"abra
+// uma única exceção ao conceito de sem bordas do app, para poder fazer a caixa
+// de texto da busca para que seja branca com a borda em cinza"*.
+//
+// Ela entra pelo mesmo mecanismo dos dois de cima — um nome, escrito à mão — e
+// **é o nome que a mantém única**: a lista não tem regra que a próxima borda
+// possa alegar cumprir. O argumento é aritmético e não estético: no tema claro
+// `--bar` é BRANCO e o campo é branco, isto é 1,00:1, e sem contorno a caixa de
+// texto não existe na tela. Foi essa mesma conta que criou a faixa `--field-bar`
+// na v5.270; a borda resolve sem trazer a faixa de volta, que é o que o operador
+// recusou na v1.5.2.
+//
 // Largura zero e cor transparente também passam: os dois não desenham nada.
 {
   // As regras dos DESENHOS, recortadas da fonte antes da varredura. Nomeadas
@@ -159,6 +173,7 @@ checar(orfaos.length === 0,
   const recortar = (s) => s
     .replace(/\.dl-ring::before\s*\{[^}]*\}/g, '')
     .replace(/\.song-menu-check\.on::after\s*\{[^}]*\}/g, '')
+    .replace(/#hymnSearchInput\s*\{[^}]*\}/g, '')
     .replace(/@media[^{]*\{\s*\.dl-ring::before[^}]*\}/g, '');
   const contornos = [];
   for (const f of arquivos) {

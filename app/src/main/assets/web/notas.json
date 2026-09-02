@@ -1,5 +1,13 @@
 [
   {
+    "versao": "1.5.5",
+    "itens": [
+      "Os botões de playlist automática e de abrir a Biblioteca ficaram iguais aos do controle.",
+      "E do mesmo tamanho dos botões logo abaixo deles.",
+      "A caixa de busca voltou a ser branca, agora com borda."
+    ]
+  },
+  {
     "versao": "1.5.4",
     "itens": [
       "A Biblioteca deixou de cobrir os controles: ela abre até a linha da barra de busca.",

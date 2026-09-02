@@ -671,11 +671,20 @@ try {
 // borda do app são pseudo-elementos (`.dl-ring::before`, o ✓ do seletor), e
 // `querySelectorAll` não os alcança — eles ficam de fora sem precisar de
 // exceção.
+//
+// A ÚNICA EXCEÇÃO NOMEADA é o campo de busca (v1.5.5), pedido do operador:
+// *"abra uma única exceção ao conceito de sem bordas do app, para poder fazer a
+// caixa de texto da busca … branca com a borda em cinza"*. Ela é nomeada aqui e
+// no `tokens.test.mjs`, pelo ID, e é o NOME que a mantém única — não há regra
+// que a próxima borda possa alegar cumprir. O que a borda faz e por que ela é
+// necessária tem asserção PRÓPRIA no bloco do tom desta folha; aqui ela só sai
+// da varredura.
 try {
   const contornos = await pg.evaluate(async () => {
     const achados = new Set();
     const varrer = () => {
       for (const el of document.querySelectorAll('*')) {
+        if (el.id === 'hymnSearchInput') continue;
         const c = getComputedStyle(el);
         const w = ['Top', 'Right', 'Bottom', 'Left'].map((s) => parseFloat(c['border' + s + 'Width']) || 0);
         if (!w.some((x) => x > 0)) continue;
@@ -2028,12 +2037,13 @@ for (const tema of ['escuro', 'claro']) {
       '[' + tema + '] e a rolagem PARA na lista: sem o encadeamento, o stretch '
       + 'do Android não desloca a camada inteira',
       'lista ' + v.barra.overscroll + ' · raiz ' + v.barra.overscrollRaiz);
-    // QUADRADO. `aspect-ratio` não resolve isto dentro de um flex (a largura é
-    // resolvida antes de o `stretch` dar altura), e a primeira versão colapsou
-    // o botão na largura do glifo — 20px, medidos.
-    checar(v.barra.fecharL > 0 && Math.abs(v.barra.fecharL - v.barra.fecharA) <= 1
-      && Math.abs(v.barra.fecharA - v.barra.campoA) <= 1,
-      '[' + tema + '] o ✕ é QUADRADO e do tamanho do campo ('
+    // A ALTURA é a do CAMPO — quem manda na linha é ele. **A LARGURA saiu daqui
+    // na v1.5.5**: ela virou a da coluna do transporte (pedido do operador), o
+    // que revogou o QUADRADO da v5.277, e é o `barra-em-qualquer-tela.test.mjs`
+    // que a mede — em QUATRO larguras de tela, porque uma medida fixa alinha com
+    // uma grade proporcional numa largura e erra em todas as outras.
+    checar(v.barra.fecharL > 0 && Math.abs(v.barra.fecharA - v.barra.campoA) <= 1,
+      '[' + tema + '] o ✕ tem a ALTURA do campo ('
       + Math.round(v.barra.fecharL) + '×' + Math.round(v.barra.fecharA)
       + ', campo ' + Math.round(v.barra.campoA) + 'px de altura)');
     checar(v.gapSecoes > v.gapLista,
@@ -5037,6 +5047,14 @@ for (const tema of ['escuro', 'claro']) {
         hBtn: document.getElementById('hymnSearchToggle').getBoundingClientRect().height,
         glifo: cs('#hymnSearchToggle').color,
         fundoAlternador: cs('#hymnSearchToggle').backgroundColor,
+        // O TRAÇO dos três, que é a metade do relato que o fundo não cobre.
+        corTransporte: cs('.t-btn').color,
+        corSorteio: cs('#sorteioBtn').color,
+        // A BORDA do campo — a exceção pedida, medida onde ela é a única
+        // separação que existe (o tema claro).
+        borda: getComputedStyle(campo).borderTopColor,
+        bordaLargura: getComputedStyle(campo).borderTopWidth,
+        bordaEstilo: getComputedStyle(campo).borderTopStyle,
       };
     }, tema);
     // Aceita string do `getComputedStyle` OU uma cor já composta (as
@@ -5068,47 +5086,66 @@ for (const tema of ['escuro', 'claro']) {
     checar(!c.sombraBarra || c.sombraBarra === 'none',
       '[' + tema + '] e sem sombra: ela dizia de que lado o conteúdo passava, e '
       + 'não passa nada atrás dela', c.sombraBarra);
-    // ── 2 · AS PEÇAS VESTEM O TOM DOS BOTÕES DO CONTROLE ─────────────────
-    // O pedido ao pé da letra, e a régua é a peça que ele nomeia.
-    checar(c.campo === c.transporte && c.sorteio === c.transporte,
-      '[' + tema + '] e o campo e o dado vestem o MESMO tom dos botões do '
+    // ── 2 · OS DOIS QUADRADOS SÃO BOTÕES DO CONTROLE (v1.5.5) ────────────
+    // Relato do operador: *"o botão de playlist automática está com botão cinza
+    // e ícone azulado, mas os botões dessa seção de controles são cinzas com
+    // preto … o mesmo para o botão de abrir biblioteca, que está um botão
+    // azul"*. A régua é o `.t-btn` COMPUTADO, e são as DUAS metades — fundo e
+    // GLIFO —, porque o relato nomeia as duas e um acerto só some calado: o
+    // fundo certo com o traço azul é exatamente o estado de que ele reclamou.
+    checar(c.sorteio === c.transporte && c.fundoAlternador === c.transporte,
+      '[' + tema + '] os dois quadrados vestem o MESMO fundo dos botões do '
       + 'transporte — a régua é o `.t-btn` computado, não um número escrito aqui',
-      'campo ' + c.campo + ' · dado ' + c.sorteio + ' · t-btn ' + c.transporte);
-    checar(!c.sombraCampo || c.sombraCampo === 'none',
-      '[' + tema + '] e a elevação saiu com o branco: ela existia para separar '
-      + 'branco de branco no tema claro', c.sombraCampo);
-    // ── 3 · E ELAS AINDA SE SEPARAM DA CAIXA ─────────────────────────────
-    // O degrau é o mesmo que o transporte tem, porque é a mesma superfície — e
-    // é isso que se afirma: não um número, mas que a peça não sumiu na caixa.
+      'dado ' + c.sorteio + ' · alternador ' + c.fundoAlternador
+      + ' · t-btn ' + c.transporte);
+    checar(c.corSorteio === c.corTransporte && c.glifo === c.corTransporte,
+      '[' + tema + '] e o MESMO traço: nenhum dos dois fica azul numa fileira em '
+      + 'que aceso quer dizer LIGADO',
+      'dado ' + c.corSorteio + ' · alternador ' + c.glifo
+      + ' · t-btn ' + c.corTransporte);
+    // ── 3 · O CAMPO É BRANCO, E QUEM O SEPARA É A BORDA (v1.5.5) ─────────
+    // Pedido do operador: *"a caixa de texto da busca … branca com a borda em
+    // cinza"*. **A borda não é enfeite, é a única coisa que separa a caixa de
+    // texto da barra no tema CLARO** — lá `--bar` é branco puro e o campo é
+    // branco, isto é 1,00:1. Daí a asserção ser a razão da BORDA contra as duas
+    // superfícies que ela divide, nos dois temas, e com o piso de 3:1 de
+    // componente: é ele que o `--line` cru não passa (2,51:1 sobre branco), e é
+    // por isso que a exceção tem token próprio em vez de citar a cor de linha.
     const campo = sobre(c.campo, c.caixa);
-    const grau = razao(campo, rgb(c.caixa));
-    checar(grau > 1.15,
-      '[' + tema + '] e o campo continua se separando da caixa por TOM ('
-      + grau.toFixed(2) + ':1) — o degrau do botão de transporte, que é o que '
-      + 'ele agora é');
+    checar(razao(rgb(c.campo), [255, 255, 255]) < 1.05,
+      '[' + tema + '] o campo é BRANCO nos dois temas — superfície SEM tema, '
+      + 'como o palco', c.campo);
+    const rBordaCampo = razao(sobre(c.borda, campo), campo);
+    const rBordaCaixa = razao(sobre(c.borda, rgb(c.caixa)), rgb(c.caixa));
+    checar(rBordaCampo >= 3 && rBordaCaixa >= 3,
+      '[' + tema + '] e a BORDA separa das duas ('
+      + rBordaCampo.toFixed(2) + ':1 do campo · ' + rBordaCaixa.toFixed(2)
+      + ':1 da caixa) — no claro ela é a ÚNICA separação que existe');
+    checar(c.bordaEstilo === 'solid' && parseFloat(c.bordaLargura) > 0,
+      '[' + tema + '] e ela é DESENHADA: a exceção pedida é uma borda de verdade, '
+      + 'nomeada no `tokens.test.mjs`',
+      c.bordaLargura + ' ' + c.bordaEstilo);
     // ── 4 · O QUE MORA DENTRO DO CAMPO CONTINUA LEGÍVEL ──────────────────
-    // A metade que reprovaria calada: o campo trocou de fundo, e texto,
-    // placeholder e lupa moram nele. MEDIDO na escolha do tom — sobre
-    // `--surface-2` (a receita de campo da folha do sorteio) o placeholder dá
-    // 4,21:1 no escuro e 4,15:1 no claro, abaixo de AA nos dois; sobre
-    // `--surface`, o tom que o pedido escolheu, ele passa.
+    // A metade que reprovaria calada: **uma superfície sem tema arrasta o que
+    // vive DENTRO dela**, e o meio-conserto é trocar só o fundo. No escuro
+    // `--text` sobre branco dá 1,17:1 e `--muted`, 1,74:1 — o campo ficaria
+    // branco e o que se digita, apagado. As três voltam para os `--field-*`
+    // junto com o fundo, que é a regra do palco num lugar pequeno.
     for (const [nome, cor] of [['texto', c.texto], ['placeholder', c.ph], ['lupa', c.lupa]]) {
       const r = razao(sobre(cor, campo), campo);
       checar(r >= 4.5,
         '[' + tema + '] e o ' + nome + ' é legível sobre ele (' + r.toFixed(2) + ':1)');
     }
-    // ── 5 · O ALTERNADOR CONTINUA SENDO A AÇÃO DA LINHA ──────────────────
-    // Ele NÃO entra na regra do tom: numa linha de peças iguais ele é a porta, e
-    // a superfície de ação é a mesma gramática do `#shuffleBtn`, que é o botão
-    // aceso da fileira logo abaixo. O que se mede é o glifo em cima dela.
+    // ── 5 · E O GLIFO DELES CONTINUA LEGÍVEL ─────────────────────────────
+    // A conta que o bloco 2 não faz: ele compara com o `.t-btn` e passaria com
+    // os três igualmente ilegíveis. (O alternador foi a AÇÃO da linha da v1.5.2
+    // à v1.5.4 — `--btn-accent` sob `--accent`. Saiu a pedido: ele mora colado
+    // numa fileira em que aceso quer dizer LIGADO.)
     const alternador = sobre(c.fundoAlternador, c.caixa);
     const rGlifo = razao(sobre(c.glifo, alternador), alternador);
-    checar(c.fundoAlternador !== c.transporte && !transparente(c.fundoAlternador)
-      && rGlifo >= 4.5,
-      '[' + tema + '] e o alternador NÃO entra na regra do tom: ele é a AÇÃO da '
-      + 'linha, com superfície própria e o glifo legível sobre ela ('
-      + rGlifo.toFixed(2) + ':1)',
-      c.fundoAlternador + ' contra ' + c.transporte);
+    checar(rGlifo >= 4.5,
+      '[' + tema + '] e o glifo do alternador é legível sobre ele ('
+      + rGlifo.toFixed(2) + ':1)');
     checar(Math.abs(c.hBtn - c.hCampo) <= 1,
       '[' + tema + '] os quadrados têm a MESMA altura do campo ('
       + Math.round(c.hBtn) + 'px contra ' + Math.round(c.hCampo) + 'px)');
