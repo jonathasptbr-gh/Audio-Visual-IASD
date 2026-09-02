@@ -2769,8 +2769,22 @@ e sumiria no tema escuro. **Isto revoga o piso de 3:1 da v1.5.5**, que vinha de 
 valor calculado (`--field-borda`, hoje removido): no claro esse cinza dá 1,38:1
 contra o campo, que é o MESMO degrau em que os botões vivem contra a mesma barra
 — a borda não ficou menos visível que eles, ficou igual a eles. **É o NOME que a mantém única** — a lista
-não tem regra que a próxima borda possa alegar cumprir. Os três são nomeados um a
-um no oráculo
+não tem regra que a próxima borda possa alegar cumprir.
+
+**E A BIBLIOTECA TEM UM ESCOPO, não um nome** (v1.5.9). Autoridade explícita do
+operador: *"vou lhe dar autoridade para usar sistemas visuais de design e
+organização usando bordas, mas apenas para a biblioteca. pois temos 3 niveis de
+listagens na biblioteca e o sistema de separação apenas por cor sólida de cards
+está limitando nossas opções"*. **O "apenas" é o que a torna verificável:** a
+exceção não é "bordas agora podem", é a lista do acervo (`.acervo`, marca posta
+pelo `renderCollectionsList`) — uma borda em qualquer outro seletor continua
+reprovando, na FONTE e no RENDERIZADO. O que a autoriza é aritmético como as
+outras: são TRÊS níveis de lista aninhados, e a escada tem três degraus dos quais
+a janela já gastou o de cima (v1.5.7). A v1.5.7 e a v1.5.8 tentaram resolver com
+COR SÓLIDA e o operador reprovou com três capturas — cor sólida não diz o que
+está dentro do quê.
+
+Os três nomes e o escopo são cobrados um a um no oráculo
 (`tools/tokens.test.mjs`, sem `continue-on-error`). É ele que faz a regra durar:
 uma borda é a coisa mais fácil de acrescentar quando duas caixas não estão se
 separando o bastante, e ela não quebra nada, não erra alto e não aparece em teste
@@ -2954,21 +2968,19 @@ acima cobre a FAIXA — sem acrescentá-lo, o balanço voltava pelo botão novo.
   ciclo que o CSS descarta).
 - **E A JANELA DA BIBLIOTECA GASTOU O DEGRAU DE CIMA** (v1.5.7). Ela pintava
   `--bg` e passou a pintar `--panel`, a pedido do operador (*"bordas curvas e tom
-  branco como base"*) — e com isso sobraram DOIS degraus para TRÊS coisas
-  (janela, seção, card). Qualquer arranjo deixava duas com o mesmo tom: MEDIDO no
-  primeiro corte, seção e card a **1,00:1**, que é o defeito da v5.241 de volta.
-  A saída foi tirar a SEÇÃO da escada — o corpo dela é a base da janela, e quem a
-  identifica é a TINTA. **Cada coleção tem TRÊS tons, e eles são as três alturas
-  da escada** (v1.5.8): `--col-N` é a TAMPA (o recesso), `--col-N-corpo` é o
-  BLOCO (na altura da base da janela) e `--col-N-card` é um CARD (na altura do
-  `--panel-2`). É isso que faz a cor caber na escada sem mexer em nada — MEDIDO,
-  cada `--col-N-card` fica a 1,00–1,01:1 do `--panel-2` que substitui, então toda
-  a medição de DENTRO do card continua valendo. A classe entra no `<li>` da linha
-  de topo e a HERANÇA leva os três tons à subárvore inteira, então um card
-  aninhado veste o tom da mãe sem o JS dizer nada. **As matizes estão em ordem de
-  espectro** (pedido: *"como as cores do arco íris que tem ordem"*), e isso não
-  custa separação: oito matizes em 360° ficam a 45° uma da outra ordenadas ou
-  espalhadas.
+  branco como base"*) — e com isso sobraram DOIS degraus para TRÊS níveis de
+  lista. Qualquer arranjo deixava dois com o mesmo tom: MEDIDO, seção e card a
+  **1,00:1**, que é o defeito da v5.241 de volta.
+
+  **A v1.5.7 e a v1.5.8 responderam com COR e o operador reprovou** (três
+  capturas): oito matizes por coleção, em ordem de espectro, com três famílias de
+  tom cada. *Cor sólida não diz o que está dentro do quê.* **A resposta que
+  ficou é MOLDURA** (v1.5.9), com autoridade explícita e escopada à Biblioteca —
+  ver "A paleta", acima. Os dois níveis de agrupamento pintam `--panel-2` e a
+  LINHA os separa; a janela continua `--panel`, um degrau acima. **Quem decide o
+  tom das caixas é o NÍVEL 3:** `--item-fill` é branco a 80% no tema claro,
+  desenhado para pousar num card acinzentado — MEDIDO com as caixas em `--panel`,
+  a faixa ficava a 1,00:1 do card, isto é, sumia.
 - **A ESCADA TEM TRÊS DEGRAUS, E O QUARTO É O ESPAÇO.** Um quarto tom levaria o
   nível mais interno a ~`#4c5865` no escuro, onde `--muted` mede 3,59:1 e
   `--accent` 3,37:1 — os dois reprovam AA para texto pequeno, que é o tamanho do
@@ -3958,12 +3970,12 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: v1.5.8** (base web) · **v1.4.42** (APK) · `SHELL_VERSION` **61** · bundle com
+**Versão atual: v1.5.9** (base web) · **v1.4.42** (APK) · `SHELL_VERSION` **61** · bundle com
 `minShell: 61` e **sem `shellTag`** — o shell 61 é o **PISO**: todo método da
 ponte existe, e não há guarda de versão no lado web. **Este lote não pede
 Release**: mexe em `assets/web/` e em `tools/`, e nada disso chega ao aparelho
 por APK — nenhum `.kt`, nenhum `res/`, nenhum manifest. O bundle sai na hora.
-O rodapé mostra `Web v1.5.8 · Shell v1.4.42`, e
+O rodapé mostra `Web v1.5.9 · Shell v1.4.42`, e
 isso não é divergência: é a resposta exata a *"o OTA chegou e o APK ainda
 não?"*. O que continua valendo é que `java/`, `res/`, o manifest e os workflows
 **só chegam instalando o APK**.

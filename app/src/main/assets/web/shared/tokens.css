@@ -566,96 +566,15 @@
   --b-gerais:#283e1f;
   --b-apocalipse:#3f391f;
 
-  /* ===== AS COLEÇÕES DA BIBLIOTECA: OITO TONS EM ORDEM (v1.5.7) =====
-     Pedido do operador: *"pode usar tons de cores em ordem para colorir os cards
-     das coleções, considerando que estarão em fundo branco… semelhante ao que já
-     é feito na janela da bíblia"*.
-
-     É a MESMA gramática dos ladrilhos da Bíblia — tinta, nunca o bloco saturado
-     —, e os dois motivos daquela escolha valem aqui inteiros: esta tela se abre
-     no escuro no meio do culto, e um bloco saturado emite muito mais luz que uma
-     lista comum. A diferença é o EIXO: lá a cor é semântica (a divisão canônica
-     do livro), aqui é POSICIONAL — a ordem em que as linhas aparecem. Por isso
-     os valores são PRÓPRIOS e não um apelido dos `--b-*`: um dia mudar a matiz
-     de Atos não pode trocar a cor de um álbum.
-
-     ===== A LUMINÂNCIA RESOLVE QUATRO RESTRIÇÕES DE UMA VEZ =====
-     Ela não foi escolhida: foi CALCULADA, por busca binária, contra as quatro
-     coisas que a tinta precisa fazer ao mesmo tempo. Nos dois temas:
-
-       1. um degrau de verdade da BASE da janela (`--panel`), ≥ 1,28:1 — senão a
-          tampa some no fundo;
-       2. não coincidir com o CARD que a seção abre (`--panel-2`), ≥ 1,05:1 — o
-          piso dos pares que NÃO se encostam (entre a tampa e o card há sempre a
-          base). Este é o que mordeu primeiro: um tom na luminância do
-          `--panel-2` dava **1,00:1**, e o oráculo o pegou;
-       3. `--text` acima de AA;
-       4. `--muted` acima de AA — o resumo da seção mora nele, e é ele que fecha
-          a janela de luminância pelo outro lado.
-
-     MEDIDO: escuro 1,32–1,34 · 1,76–1,79 · 12,56–12,78 · 8,79–8,94; claro
-     1,30–1,31 · 1,07–1,08 · 6,74–6,81 · 5,07–5,12.
-
-     **A tinta é um RECESSO**, e nos dois temas. É a mesma inversão que a regra
-     R1 já aplica a um controle dentro de um cartão: a janela é o cartão, e a
-     seção mora dentro dela.
-
-     **E ELA É SEMPRE A TAMPA, nunca o bloco.** Tudo que vive DENTRO de um bloco
-     da Biblioteca — o card aninhado numa seção, a faixa e a gaveta dentro de um
-     card — foi medido contra `--panel-2`, e uma tinta que descesse até lá apaga
-     essas medições: MEDIDO com o card inteiro tingido, a gaveta caiu a 1,05:1 da
-     faixa no tema escuro, que é a queixa da v5.287 de volta.
-
-     ===== AS MATIZES ESTÃO EM ORDEM DE ESPECTRO (v1.5.8) =====
-     Pedido do operador: *"coloque as cores em ordem de graduação, os verdes
-     perto dos verdes, como as cores do arco íris que tem ordem"*. Elas eram
-     ESPALHADAS de propósito, para duas linhas vizinhas ficarem o mais diferentes
-     possível; hoje são laranja → amarelo → verde → ciano → azul → violeta →
-     rosa, e **isso não custa separação nenhuma**: oito matizes distribuídas em
-     360° ficam a 45° uma da outra tanto espalhadas quanto ordenadas. O que muda
-     é só QUAL vizinha cada uma tem.
-
-     ===== E CADA COLEÇÃO TEM TRÊS TONS, NÃO UM (v1.5.8) =====
-     Pedido do operador: *"ajuste para que a cor da caixa não se altere para
-     cinza como é hoje, ela mantenha o corpo com a cor da mãe"*. A tinta era só
-     da tampa, e o corpo do bloco caía no cinza da escada — abrir uma seção
-     apagava a cor que a identificava.
-
-       `--col-N`        a TAMPA. O recesso, o tom forte.
-       `--col-N-corpo`  o CORPO de uma SEÇÃO, na altura da base da janela.
-       `--col-N-card`   o corpo de um CARD, na altura do `--panel-2`.
-
-     As três alturas são as da escada, e é isso que faz a cor caber nela sem
-     mexer em nada: MEDIDO, cada `--col-N-card` fica a **1,00–1,01:1** do
-     `--panel-2` que ele substitui, então toda a medição de DENTRO do card
-     (a faixa, a gaveta) continua valendo ao pé da letra.
-
-     A HERANÇA faz o resto: a classe entra no `<li>` da linha de topo e as três
-     custom properties descem por toda a subárvore, então um card ANINHADO veste
-     o tom da mãe sem o JS precisar dizer nada. É a mesma mecânica do `--camada`.
-
-     **O CORPO É UM SUSSURRO, e isso está dito:** ele fica a 1,00–1,02:1 da base
-     da janela nos dois temas, porque a altura dele é a da base — o que o
-     distingue é a MATIZ, não o tom. No tema claro a base é branco puro, e ali um
-     wash só pode ser quase branco: a alternativa (um corpo escuro o bastante
-     para se ver) derrubaria o degrau até o card, que é o que sustenta a lista.
-
-     Oito e não dez: 45° de separação entre matizes vizinhas contra os 18° que a
-     Bíblia precisou espremer para caber dez divisões canônicas. Aqui o número é
-     escolha nossa, e menos tons bem separados dizem mais que muitos parecidos.
-
-     E NÃO VOLTA A FAIXA LATERAL de 3px: ela existiu no card (`coll.color`) e
-     saiu na v5.71 por ser "mais uma linha vertical repetida em toda a lista". Na
-     Bíblia ela carrega a informação porque o ladrilho é pequeno e a tinta é
-     sutil; aqui a tampa é uma barra larga e a tinta cobre tudo. */
-  --col-1: #261b10;  --col-1-corpo: #413020;  --col-1-card: #554332;
-  --col-2: #211d0e;  --col-2-corpo: #38341c;  --col-2-card: #4b462c;
-  --col-3: #15210e;  --col-3-corpo: #27381b;  --col-3-card: #394b2c;
-  --col-4: #0e2218;  --col-4-corpo: #1c392a;  --col-4-card: #2d4d3d;
-  --col-5: #102025;  --col-5-corpo: #1f373f;  --col-5-card: #314953;
-  --col-6: #131e2c;  --col-6-corpo: #243449;  --col-6-card: #36475d;
-  --col-7: #251735;  --col-7-corpo: #3e2a54;  --col-7-card: #513d69;
-  --col-8: #301522;  --col-8-corpo: #4d263a;  --col-8-card: #62394e;
+  /* (A PALETA DAS COLEÇÕES — `--col-1`…`--col-8` e as famílias `-corpo`/`-card`
+     — SAIU na v1.5.9, com a v1.5.7 e a v1.5.8 inteiras. Ela dava a cada coleção
+     uma matiz própria, e o operador reprovou o resultado: *"está errado,
+     reformule o sistema de coloração e organização de grupos e subgrupos …
+     vamos usar o padrão branco e azul padrão do sistema"*. **O que ela tentava
+     resolver era hierarquia, e cor sólida não resolve hierarquia** — nas três
+     capturas que vieram com o pedido, oito matizes pastel não diziam qual bloco
+     estava dentro de qual. O que a substitui é MOLDURA, e isso é dito no
+     `controle.css`.) */
 
 
   /* Células de número da Bíblia (capítulo × versículo). Tons DISTINTOS por tela
@@ -841,17 +760,6 @@
   --b-gerais:#bdeaa9;
   --b-apocalipse:#eadda9;
 
-  /* Os oito tons das coleções, no tema CLARO — a mesma busca binária, agora
-     contra o `--panel` branco e o `--panel-2` daqui. Ver o bloco do tema
-     escuro. */
-  --col-1: #f3ddcb;  --col-1-corpo: #fefdfb;  --col-1-card: #e8d6c7;
-  --col-2: #ece1ae;  --col-2-corpo: #fdfdfa;  --col-2-card: #e1dab7;
-  --col-3: #c7ecae;  --col-3-corpo: #fbfdfa;  --col-3-card: #c8e1b7;
-  --col-4: #b4eed1;  --col-4-corpo: #fafdfc;  --col-4-card: #b9e3ce;
-  --col-5: #c7e7f2;  --col-5-corpo: #fcfdfe;  --col-5-card: #c4dde7;
-  --col-6: #d4e2f5;  --col-6-corpo: #fcfdfe;  --col-6-card: #cedbeb;
-  --col-7: #e9dcf7;  --col-7-corpo: #fdfcfe;  --col-7-card: #e1d5ee;
-  --col-8: #f6dae8;  --col-8-corpo: #fefcfd;  --col-8-card: #edd2e0;
 
 
   --cell-chapter: #cedff3;      --cell-chapter-text: #183d67;   /* 8,13:1 */

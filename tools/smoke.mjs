@@ -685,6 +685,11 @@ try {
     const varrer = () => {
       for (const el of document.querySelectorAll('*')) {
         if (el.id === 'hymnSearchInput') continue;
+        // A MOLDURA DA BIBLIOTECA (v1.5.9): a autoridade que o operador deu é
+        // um ESCOPO, e é ele que sai da varredura — a lista do acervo e o que
+        // vive dentro dela. Uma borda em qualquer outro lugar continua
+        // reprovando. (O `tokens.test.mjs` cobra o mesmo escopo na FONTE.)
+        if (el.closest('.acervo')) continue;
         const c = getComputedStyle(el);
         const w = ['Top', 'Right', 'Bottom', 'Left'].map((s) => parseFloat(c['border' + s + 'Width']) || 0);
         if (!w.some((x) => x > 0)) continue;
@@ -1507,29 +1512,35 @@ for (const tema of ['escuro', 'claro']) {
         // A cor do TEXTO da folha, para a regra de direção abaixo. Ela é a
         // pergunta inteira: "de que lado a linha tem de ficar?".
         textoCor: getComputedStyle(folha).color,
-        // OS OITO TONS das coleções, lidos do CSS de verdade: um caso que só
-        // medisse a tinta da vez aprovaria sete tons errados. A leitura é por um
-        // nó de mentira que veste cada classe, porque a lista da fixture não tem
-        // as oito linhas.
-        tons: (() => {
-          // A CLASSE NÃO PINTA desde a v1.5.8: ela ABRE a família, e quem
-          // pinta são as três peças, cada uma lendo a sua. A sonda passou a
-          // vestir a classe num pai e a LER a tampa num filho que pinta `--col`
-          // — o mesmo caminho que a tela usa, e não uma segunda leitura da
-          // regra. (Ler `backgroundColor` da própria classe devolvia
-          // transparente, e a asserção passava a medir preto contra a base.)
-          const pai = document.createElement('div');
-          const filho = document.createElement('div');
-          filho.style.backgroundColor = 'var(--col)';
-          pai.appendChild(filho);
-          folha.appendChild(pai);
-          const fora = [];
-          for (let i = 1; i <= 8; i++) {
-            pai.className = 'col-' + i;
-            fora.push(getComputedStyle(filho).backgroundColor);
-          }
-          pai.remove();
-          return fora;
+        // ===== AS MOLDURAS (v1.5.9) =====
+        // A largura da borda de cada nível — é ela que carrega a hierarquia
+        // desde que a paleta saiu. Zero no nível 3 é asserção, não ausência.
+        molduraSecao: (() => {
+          const el = lista.querySelector('.coll-group--drop');
+          return el ? getComputedStyle(el).borderTopWidth : 'AUSENTE';
+        })(),
+        molduraCard: (() => {
+          const el = lista.querySelector('.hymnal-card');
+          return el ? getComputedStyle(el).borderTopWidth : 'AUSENTE';
+        })(),
+        molduraFaixa: (() => {
+          const el = lista.querySelector('.coll-songs > .hymn-result');
+          return el ? getComputedStyle(el).borderTopWidth : 'AUSENTE';
+        })(),
+        // A TAMPA DE UM CARD nos DOIS estados — a régua do "abrir não troca a
+        // cor de nada". A leitura é do MESMO card, alternando a classe: dois
+        // cards diferentes poderiam divergir por outro motivo.
+        ...(() => {
+          const card = lista.querySelector('.hymnal-card');
+          const tampa = card && card.querySelector(':scope > .coll-bar');
+          if (!tampa) return { tampaFechada: 'AUSENTE', tampaAberta: 'AUSENTE' };
+          const estava = card.classList.contains('expanded');
+          card.classList.remove('expanded');
+          const fechada = getComputedStyle(tampa).backgroundColor;
+          card.classList.add('expanded');
+          const aberta = getComputedStyle(tampa).backgroundColor;
+          card.classList.toggle('expanded', estava);
+          return { tampaFechada: fechada, tampaAberta: aberta };
         })(),
         // O espaço entre duas faixas — é ele que substitui o filete.
         faixaGap: (() => {
@@ -1574,114 +1585,86 @@ for (const tema of ['escuro', 'claro']) {
     checar(t.secaoFechada === null || t.secaoFechada === t.secao,
       '[' + tema + '] a seção tem UM fundo só, aberta ou fechada — a peça não '
       + 'troca de cor com o estado (' + t.secao + ')');
-    // ===== A SEÇÃO É UM CABEÇALHO TINGIDO, E NÃO UM RETÂNGULO (v1.5.7) =====
+    // ===== A HIERARQUIA DA BIBLIOTECA É DESENHADA COM MOLDURA (v1.5.9) =====
     //
-    // Isto REVOGA "a seção é UM bloco, não três peças costuradas" (v5.267), e a
-    // revogação é do operador: *"pode usar tons de cores em ordem para colorir
-    // os cards das coleções, considerando que estarão em fundo branco…
-    // semelhante ao que já é feito na janela da bíblia"*. Uma tampa colorida É
-    // uma peça própria — a regra antiga proibia exatamente o que o pedido pede.
+    // **Isto REVOGA a paleta da v1.5.7/v1.5.8 inteira** — a tampa tingida, os
+    // oito tons em ordem de espectro, as três famílias por coleção. Pedido do
+    // operador, com três capturas do defeito: *"está errado, reformule o sistema
+    // de coloração e organização de grupos e subgrupos … vou lhe dar autoridade
+    // para usar sistemas visuais de design e organização usando bordas, mas
+    // apenas para a biblioteca. pois temos 3 niveis de listagens na biblioteca e
+    // o sistema de separação apenas por cor sólida de cards está limitando
+    // nossas opções"*.
     //
-    // **O que a regra antiga protegia continua protegido, e por medição maior:**
-    // ela existia contra a v5.267, em que "a seção não tinha fundo próprio e o
-    // card tinha a cor da barra dela" — peças que não se separavam. O que entra
-    // no lugar afirma a separação DIRETAMENTE, e nos OITO tons: cada um é opaco
-    // e está a um degrau de verdade da base da janela. Uma tinta que
-    // coincidisse com a base, ou uma que não pintasse, reprova aqui.
-    checar(!transparente(t.barra) && razao(t.barra, t.folha) >= 1.28,
-      '[' + tema + '] a seção é um CABEÇALHO TINGIDO, a um degrau de verdade da '
-      + 'base da janela (' + razao(t.barra, t.folha).toFixed(2) + ':1)',
-      t.barra + ' sobre ' + t.folha);
-    // OS OITO, E CONTRA AS DUAS COISAS QUE ELES PRECISAM SEPARAR: a base da
-    // janela (≥1,28, senão a tampa some no fundo) e o CARD que a seção abre
-    // (≥1,05 — o piso dos pares que não se encostam; entre a tampa e o card há
-    // sempre a base). A segunda metade é a que a paleta errou primeiro: um tom
-    // na luminância do `--panel-2` dá 1,00:1 contra o card, e um caso que só
-    // medisse o degrau da base aprovaria a paleta inteira assim.
-    checar(t.tons && t.tons.length === 8
-      && t.tons.every((c) => !transparente(c) && razao(c, t.folha) >= 1.28),
-      '[' + tema + '] e os OITO tons passam pelo mesmo degrau da base — um caso '
-      + 'que só medisse a tinta da vez aprovaria sete tons errados',
-      JSON.stringify((t.tons || []).map((c) => razao(c, t.folha).toFixed(2))));
-    checar(t.tons && t.tons.every((c) => razao(c, t.card) >= 1.05),
-      '[' + tema + '] e nenhum dos OITO coincide com o card que a seção abre',
-      JSON.stringify((t.tons || []).map((c) => razao(c, t.card).toFixed(2))));
-    // ===== E ELES ESTÃO EM ORDEM DE ESPECTRO (v1.5.8) =====
-    // Pedido do operador: *"coloque as cores em ordem de graduação, os verdes
-    // perto dos verdes, como as cores do arco íris que tem ordem"*.
+    // O que se afirma agora são as TRÊS metades do desenho novo, e nenhuma basta
+    // sozinha: cada nível de agrupamento tem MOLDURA (era o relato — *"a
+    // primeira camada de lista de coleções não está criando uma caixa ou moldura
+    // ao redor do seu agrupamento"*), a seção é uma ÁREA e o card uma FICHA
+    // dentro dela (sem esse degrau a moldura sozinha não fecha o grupo: foi o
+    // corte anterior deste lote, medido), e o nível 3 NÃO ganha moldura — senão
+    // a lista inteira vira uma grade de caixinhas.
+    // `opaco` mora mais abaixo neste bloco (junto da escada); aqui a pergunta é a
+    // mesma e precisa vir antes.
+    const ehOpaco = (v) => !transparente(v) && v !== 'AUSENTE';
+    const molduraDe = (v) => (v && v !== 'AUSENTE' && parseFloat(v) > 0);
+    checar(molduraDe(t.molduraSecao) && molduraDe(t.molduraCard),
+      '[' + tema + '] os DOIS níveis de agrupamento têm moldura: a seção fecha o '
+      + 'grupo dela como o card sempre fechou o dele',
+      'seção ' + t.molduraSecao + ' · card ' + t.molduraCard);
+    checar(!molduraDe(t.molduraFaixa),
+      '[' + tema + '] e o NÍVEL 3 não tem: uma faixa é conteúdo, não agrupamento '
+      + '— emoldurá-la faria a lista virar uma grade de caixinhas',
+      t.molduraFaixa);
+    // ===== E OS DOIS DIVIDEM O TOM: quem os separa é a LINHA =====
+    // É a troca inteira dita como asserção — antes o degrau de tom era o único
+    // separador e não havia degrau para três níveis; agora os dois níveis de
+    // agrupamento pintam o MESMO e a moldura faz o trabalho. Um degrau entre
+    // eles não seria erro, mas seria a escada de volta competindo com a linha.
     //
-    // A afirmação é sobre a SEQUÊNCIA, e é preciso medi-la: as oito matizes
-    // continuam sendo as mesmas oito, então nenhum caso de contraste, separação
-    // ou legibilidade muda quando alguém as embaralha — a ordem só existe para o
-    // olho, e some sem sintoma nenhum.
+    // **A metade que importa é a de BAIXO**: a faixa (nível 3) tem de se ver
+    // dentro do card, e é ela que decide o tom das caixas. `--item-fill` é
+    // branco a 80% no tema claro — desenhado para pousar num card acinzentado.
+    // MEDIDO com as caixas em `--panel`: a faixa a **1,00:1** do card, isto é,
+    // sumida.
+    checar(ehOpaco(t.secao) && ehOpaco(t.card) && razao(t.secao, t.card) < 1.05,
+      '[' + tema + '] a seção e o card dividem o TOM — quem os separa é a '
+      + 'moldura, e não um degrau que a escada não tem',
+      razao(t.secao, t.card).toFixed(2) + ':1');
+    checar(t.faixa && ehOpaco(t.faixa) && razao(t.faixa, t.card) >= 1.15,
+      '[' + tema + '] e a FAIXA se vê dentro do card ('
+      + (t.faixa ? razao(t.faixa, t.card).toFixed(2) : '?') + ':1) — é ela que '
+      + 'decide o tom das caixas, porque `--item-fill` foi calibrado para pousar '
+      + 'num card acinzentado', t.faixa + ' sobre ' + t.card);
+    // ===== E ABRIR NÃO TROCA A COR DE NADA (v1.5.9) =====
+    // Relato do operador: *"verifique também a mudança para tons cinzas ao
+    // selecionar o item, pois está sendo inconsistente com sua cor real"*. A
+    // tampa de um card ABERTO lia `--camada`, que o `.expanded` redeclarava —
+    // então abrir trocava o tom dela, e sobre um card tingido isso saía CINZA.
     //
-    // A régua é a matiz avançar sempre no MESMO sentido dando UMA volta: é isso
-    // que "em ordem" quer dizer num círculo de cores. A tolerância de 12° absorve
-    // o arredondamento para 8 bits; o que ela não absorve é uma matiz fora de
-    // lugar, que vale ao menos 45° aqui.
-    const hs = (t.tons || []).map(matiz);
-    let voltas = 0;
-    let ordenado = hs.length === 8 && hs.every((h) => h >= 0);
-    for (let i = 1; ordenado && i < hs.length; i++) {
-      const passo = hs[i] - hs[i - 1];
-      if (passo < -12) voltas++;          // deu a volta no círculo
-      else if (passo < 12) ordenado = false;
-    }
-    checar(ordenado && voltas <= 1,
-      '[' + tema + '] e as OITO matizes estão em ORDEM DE ESPECTRO, dando uma '
-      + 'volta só — os verdes perto dos verdes (v1.5.8)',
-      hs.map((h) => Math.round(h)).join('° · ') + '°');
-    // E O CORPO CONTINUA SEM FUNDO PRÓPRIO: quem paga o degrau da tampa é ela,
-    // não o bloco inteiro. Sem esta metade, pintar a seção toda passaria na de
-    // cima e apagaria o card aninhado, que É o degrau seguinte.
-    checar(transparente(t.corpo),
-      '[' + tema + '] e o CORPO dela não pinta: o degrau é da tampa, e o que o '
-      + 'corpo hospeda é o card, que paga o seu', t.corpo);
-    // ===== E O BLOCO CARREGA A MATIZ DA MÃE (v1.5.8) =====
-    // Pedido do operador: *"ajuste para que a cor da caixa não se altere para
-    // cinza como é hoje, ela mantenha o corpo com a cor da mãe"*. A tinta era só
-    // da tampa, e abrir uma seção apagava a cor que a identificava.
+    // **ISTO É UMA GUARDA, e não a prova da correção — dito porque a diferença
+    // importa.** O defeito morreu com a paleta: sem matiz, o `--panel-2` que o
+    // `.expanded` reservava deixou de contradizer o que o card pinta, e hoje a
+    // tampa tem tom PRÓPRIO nos dois estados (a regra `> .coll-bar` do
+    // `.acervo`), o que a torna imune por construção. Nenhuma reversão pequena
+    // reprova aqui — verificado. O que este caso faz é impedir que a
+    // dependência volte: quem reintroduzir uma tampa que lê `--camada` num
+    // estado e não no outro encontra esta linha.
+    // A régua é a IGUALDADE entre os dois estados, porque quem diz que a caixa
+    // abriu é o corpo à vista e a seta girada (*"ABERTO = não é cor"*).
+    checar(t.tampaFechada !== 'AUSENTE' && t.tampaFechada === t.tampaAberta,
+      '[' + tema + '] e a tampa de um card tem o MESMO tom fechada e aberta: '
+      + 'abrir não troca a cor de nada',
+      'fechada ' + t.tampaFechada + ' · aberta ' + t.tampaAberta);
+    // ===== E A ESCADA CONTINUA VALENDO ONDE ELA AINDA DECIDE =====
     //
-    // **A régua é a MATIZ, e não o tom**, porque o corpo mora na altura da base
-    // da janela de propósito (é o degrau que sustenta o card lá dentro): ele fica
-    // a 1,00–1,02:1 dela, e um caso de luminância não teria o que medir. O que se
-    // afirma é que ele NÃO é neutro e que a matiz é a mesma da tampa.
-    const dMatiz = (a, b) => {
-      const x = matiz(a); const y = matiz(b);
-      if (x < 0 || y < 0) return 999;
-      return Math.min(Math.abs(x - y), 360 - Math.abs(x - y));
-    };
-    checar(matiz(t.secao) >= 0 && dMatiz(t.secao, t.barra) <= 25,
-      '[' + tema + '] e o BLOCO dela carrega a matiz da tampa: abrir uma seção '
-      + 'não apaga a cor que a identifica (v1.5.8)',
-      'bloco ' + t.secao + ' · tampa ' + t.barra);
-    // O piso é o mesmo do projeto para duas superfícies grandes encostadas.
-    //
-    // A GUARDA DE OPACIDADE NÃO É ZELO: `lum()` lê "rgba(0, 0, 0, 0)" como
-    // PRETO, então um nível que não pinta nada entra na conta como o fundo mais
-    // escuro possível e produz um degrau enorme. Verificado — sem ela, este caso
-    // APROVAVA a folha anterior à v5.267, em que a seção não tinha fundo próprio
-    // e o card tinha a cor da barra dela. Um teste que aprova o defeito que ele
-    // existe para pegar é pior que teste nenhum.
-    const opaco = (v) => !transparente(v) && v !== 'AUSENTE';
-    // ===== A ESCADA TEM DOIS NÍVEIS AQUI, E O TERCEIRO É A TINTA (v1.5.7) =====
-    //
-    // A janela passou a pintar `--panel` (pedido: *"tom branco como base"*), e
-    // com isso tomou o degrau de cima da escada — que tem TRÊS. Sobravam dois
-    // para três coisas (janela, seção, card), e qualquer arranjo deixava duas
-    // com o mesmo tom: MEDIDO no primeiro corte deste lote, seção e card a
-    // **1,00:1**, que é o defeito da v5.241 de volta.
-    //
-    // A saída foi tirar a SEÇÃO da conta: o corpo dela é a base da janela e
-    // quem a identifica é a tampa tingida (a asserção acima). Sobram os dois
-    // níveis que de fato pintam um degrau, e é o que se mede aqui — mais o
-    // card, que continua em `--panel-2` e por isso mantém intacta toda a
-    // medição de DENTRO dele (a v1.3.14 registra o que acontece quando ele
-    // sobe: a gaveta cai a 1,26:1, abaixo do piso).
-    const d2 = razao(t.folha, t.card);
-    checar(opaco(t.folha) && opaco(t.card) && d2 >= 1.28,
-      '[' + tema + '] a base da janela e o card PINTAM, com degrau de verdade '
-      + 'entre eles', d2.toFixed(2) + ':1');
+    // A janela pinta `--panel` (v1.5.7) e a seção pinta `--panel-2`: é o degrau
+    // que sobrou, e ele é o que separa a ÁREA da base em que ela pousa. O card
+    // volta a `--panel` e não coincide com a janela por acidente — entre os dois
+    // há sempre a área da seção, ou a moldura, quando ele está na raiz.
+    const d2 = razao(t.folha, t.secao);
+    checar(ehOpaco(t.folha) && ehOpaco(t.secao) && d2 >= 1.28,
+      '[' + tema + '] a base da janela e a ÁREA da seção PINTAM, com degrau de '
+      + 'verdade entre elas', d2.toFixed(2) + ':1');
     // ...e NENHUM par de níveis pode coincidir, adjacente ou não — o "avô com a
     // cor do neto" é o defeito que a alternância de dois tons produzia por
     // construção, e ele reapareceria numa refatoração que voltasse a ela.
@@ -1699,8 +1682,8 @@ for (const tema of ['escuro', 'claro']) {
     // dois blocos que de fato aparecem juntos numa seção aberta. (Era folha ×
     // card, que com a seção fora da conta virou o par medido logo acima.)
     const dPula = razao(t.barra, t.card);
-    checar(opaco(t.card) && dPula >= 1.05,
-      '[' + tema + '] e a tampa não coincide com o card que ela abre',
+    checar(ehOpaco(t.card) && dPula >= 1.05,
+      '[' + tema + '] e a tampa da seção não coincide com o card que ela abre',
       'tampa × card ' + dPula.toFixed(2) + ':1');
     // v5.271: a faixa GANHOU preenchimento. A v5.267 tirou o filete e pôs o
     // espaço no lugar, mas deixou a faixa sem fundo — e um vão da mesma cor dos
@@ -1758,7 +1741,7 @@ for (const tema of ['escuro', 'claro']) {
     // continua passando no escuro, que é exatamente a assimetria do defeito.
     const dLinha = t.textoCor && t.faixaEfetiva !== 'AUSENTE'
       ? razao(t.textoCor, t.faixaEfetiva) : 0;
-    const dCartao = t.textoCor && opaco(t.card) ? razao(t.textoCor, t.card) : 0;
+    const dCartao = t.textoCor && ehOpaco(t.card) ? razao(t.textoCor, t.card) : 0;
     checar(dLinha > dCartao,
       '[' + tema + '] e ela se AFASTA do texto, não do fundo: a linha contrasta '
       + 'mais que o card que a contém (' + dLinha.toFixed(2) + ':1 contra '
@@ -2012,6 +1995,16 @@ for (const tema of ['escuro', 'claro']) {
           '.coll-group--drop.aberto:not(.coll-group--fav) .hymnal-card')),
         maeCard: efetiva(hymnResultsEl.querySelector(
           '.coll-group--drop.aberto:not(.coll-group--fav)')),
+        // AS MOLDURAS do par pasta × item (v1.5.9): é a linha que os separa
+        // desde que os dois passaram a pousar na mesma área.
+        molduraPasta: (() => {
+          const el = favCorpo && favCorpo.querySelector('.folder-opfs');
+          return el ? getComputedStyle(el).borderTopWidth : 'AUSENTE';
+        })(),
+        molduraFavLinha: (() => {
+          const el = favCorpo && favCorpo.querySelector('.fav-itens > .lib-item');
+          return el ? getComputedStyle(el).borderTopWidth : 'AUSENTE';
+        })(),
       };
       opfsFolders.length = 0;
       await AVDB.listRemove('favs', favRec.id);
@@ -2138,15 +2131,28 @@ for (const tema of ['escuro', 'claro']) {
       '[' + tema + '] mas a PASTA sincronizada ocupa o degrau de um ÁLBUM ('
       + gPasta.toFixed(2) + ':1 contra ' + gCard.toFixed(2) + ':1)',
       it.pasta + ' sobre ' + it.maeFav + ' · ' + it.cardAlbum + ' sobre ' + it.maeCard);
-    const dPasta = it.pasta && it.favLinha
-      ? razao('rgb(' + it.pasta + ')', 'rgb(' + it.favLinha + ')') : 0;
-    checar(dPasta >= 1.28 && it.pastaSolta && it.itemNaPlaca,
+    // ===== E O QUE A SEPARA DO ITEM PASSOU A SER A MOLDURA (v1.5.9) =====
+    // A pasta é um CONTÊINER e o item ao lado é conteúdo, e o degrau de tom que
+    // os separava não existe mais: os dois pousam na mesma área. Quem responde
+    // agora é a linha — a pasta tem moldura, o item não —, que é o desenho
+    // inteiro deste lote num par pequeno. A ESTRUTURA continua sendo afirmada
+    // junto (a pasta solta, o item na placa): sem ela, uma pasta empurrada para
+    // dentro da placa passaria na medida de borda.
+    const temMoldura = (x) => (x && x !== 'AUSENTE' && parseFloat(x) > 0);
+    checar(temMoldura(it.molduraPasta) && !temMoldura(it.molduraFavLinha)
+      && it.pastaSolta && it.itemNaPlaca,
       '[' + tema + '] e ela se separa do ITEM ao lado — a pasta é IRMÃ da placa '
-      + 'e o item mora DENTRO dela (' + dPasta.toFixed(2) + ':1'
+      + 'e o item mora DENTRO dela (moldura ' + it.molduraPasta + ' contra '
+      + it.molduraFavLinha
       + (it.pastaSolta ? '' : ', mas a pasta está dentro da placa')
       + (it.itemNaPlaca ? '' : ', mas o item está fora dela') + ')');
     const L = v.larguras;
-    checar(!!L && Math.abs(L.barra - L.secao) <= 1 && Math.abs(L.corpo - L.secao) <= 1,
+    // A TOLERÂNCIA É A MOLDURA (v1.5.9): a caixa da seção ganhou 1px de linha de
+    // cada lado, e a barra e o corpo preenchem a caixa de CONTEÚDO — que é 2px
+    // mais estreita que a de borda, e é a de borda que `offsetWidth` devolve.
+    // Isso é a linha existindo, não uma peça encolhida ao próprio texto (que é o
+    // defeito que este caso pega, e que vale dezenas de pixels).
+    checar(!!L && Math.abs(L.barra - L.secao) <= 3 && Math.abs(L.corpo - L.secao) <= 3,
       '[' + tema + '] a barra e o corpo PREENCHEM a seção aberta — nada é centrado '
       + 'nem encolhido ao próprio texto (' + (L ? Math.round(L.barra) + '/'
       + Math.round(L.corpo) + ' de ' + Math.round(L.secao) : '?') + 'px)');

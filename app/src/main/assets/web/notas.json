@@ -1,5 +1,13 @@
 [
   {
+    "versao": "1.5.9",
+    "itens": [
+      "As cores das coleções saíram: a Biblioteca voltou ao branco e azul do app.",
+      "Cada grupo passou a ter uma moldura, e dá para ver onde ele começa e acaba.",
+      "Abrir uma coleção não muda mais a cor dela."
+    ]
+  },
+  {
     "versao": "1.5.8",
     "itens": [
       "A borda da caixa de busca ficou do mesmo cinza dos botões ao lado.",
