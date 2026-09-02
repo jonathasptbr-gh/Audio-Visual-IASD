@@ -165,6 +165,27 @@ checar(orfaos.length === 0,
 // na v5.270; a borda resolve sem trazer a faixa de volta, que é o que o operador
 // recusou na v1.5.2.
 //
+// ## E A MOLDURA DA BIBLIOTECA (v1.5.9), que é uma AUTORIDADE, não uma brecha
+//
+// Pedido do operador, palavra por palavra: *"vou lhe dar autoridade para usar
+// sistemas visuais de design e organização usando bordas, **mas apenas para a
+// biblioteca**. pois temos 3 niveis de listagens na biblioteca e o sistema de
+// separação apenas por cor sólida de cards está limitando nossas opções"*.
+//
+// **O "apenas" é o que a torna verificável, e é ele que este oráculo passa a
+// cobrar.** A exceção não é "bordas agora podem": é um ESCOPO, e o escopo é um
+// seletor — tudo dentro de `.acervo`, a lista da Biblioteca (a marca é posta
+// pelo `renderCollectionsList`, então ela vale onde quer que a lista seja
+// desenhada, e não onde ela calha de estar). Uma borda escrita em qualquer
+// outro lugar da folha continua reprovando aqui, exatamente como antes.
+//
+// Por que a Biblioteca e só ela: são TRÊS níveis de lista aninhados (seção →
+// card → faixa), e a escada de tons do app tem três degraus dos quais a janela
+// já gastou o de cima (v1.5.7). Três níveis dentro de dois degraus não cabem —
+// a v1.5.7 e a v1.5.8 tentaram resolver com COR SÓLIDA, e o resultado é o que o
+// operador reprovou com três capturas: uma lista colorida em que não se via o
+// que estava dentro do quê.
+//
 // Largura zero e cor transparente também passam: os dois não desenham nada.
 {
   // As regras dos DESENHOS, recortadas da fonte antes da varredura. Nomeadas
@@ -174,6 +195,17 @@ checar(orfaos.length === 0,
     .replace(/\.dl-ring::before\s*\{[^}]*\}/g, '')
     .replace(/\.song-menu-check\.on::after\s*\{[^}]*\}/g, '')
     .replace(/#hymnSearchInput\s*\{[^}]*\}/g, '')
+    // A MOLDURA DA BIBLIOTECA: o recorte é pelo ESCOPO, e é isso que faz a
+    // autoridade dada ser uma exceção e não um portão aberto. Só regras cujos
+    // seletores TODOS vivem dentro de `.acervo` saem da varredura — uma
+    // regra que sirva a Biblioteca e a mais alguém continua reprovando.
+    .replace(/[^{}]+\{[^{}]*\}/g, (bloco) => {
+      const sel = bloco.slice(0, bloco.indexOf('{')).trim();
+      if (!sel || sel.startsWith('@')) return bloco;
+      const partes = sel.split(',').map((x) => x.trim()).filter(Boolean);
+      return partes.length && partes.every((x) => x.includes('.acervo'))
+        ? '' : bloco;
+    })
     .replace(/@media[^{]*\{\s*\.dl-ring::before[^}]*\}/g, '');
   const contornos = [];
   for (const f of arquivos) {

@@ -2573,72 +2573,68 @@ envelheceria na primeira troca de paleta, e envelheceria parecendo certo).
   sai quadrada por baixo dos cantos curvos. Seguro porque quem rola é a
   `.popup-list`.
 
-#### As coleções ganharam cor, e a cor é da TAMPA (v1.5.7)
+#### A hierarquia é desenhada com MOLDURA (v1.5.9)
 
-*"pode usar tons de cores em ordem para colorir os cards das coleções,
-considerando que estarão em fundo branco… semelhante ao que já é feito na janela
-da bíblia"*.
+*"está errado, reformule o sistema de coloração e organização de grupos e
+subgrupos. vamos usar o padrão branco e azul padrão do sistema, e vou lhe dar
+autoridade para usar sistemas visuais de design e organização usando bordas, mas
+apenas para a biblioteca. pois temos 3 niveis de listagens na biblioteca e o
+sistema de separação apenas por cor sólida de cards está limitando nossas
+opções"* — com três capturas do defeito.
 
-Oito tons (`--col-1`…`--col-8`), carimbados na ORDEM de inserção das linhas de
-topo. O raciocínio da paleta — as quatro restrições de luminância que ela resolve
-de uma vez — está em `tokens.css`; aqui ficam as decisões de estrutura.
+**Isto REVOGA a paleta da v1.5.7/v1.5.8 inteira**: a tampa tingida, os oito tons
+em ordem de espectro, as três famílias por coleção. O diagnóstico do operador é
+exato: **cor sólida não diz o que está dentro do quê.** Nas capturas, oito
+matizes pastel produziam uma lista bonita e ilegível — a seção "ADORADORES" em
+lilás com cinco álbuns lilás soltos dentro dela.
 
-- **QUEM RECEBE É A LINHA DE TOPO**, e não "os cards". A lista tem duas formas
-  ali — a SEÇÃO, que abre e contém cards, e a COLEÇÃO FIXA, que é folha —, e as
-  duas se leem como um cartão quando fechadas, que é o estado normal. Tingir só
-  os cards deixava dois coloridos entre cinco cinzas: lê-se como acidente, não
-  como desenho.
-- **CADA COLEÇÃO TEM TRÊS TONS, E ELES SÃO AS TRÊS ALTURAS DA ESCADA** (v1.5.8).
-  Pedido do operador: *"ajuste para que a cor da caixa não se altere para cinza
-  como é hoje, ela mantenha o corpo com a cor da mãe"* — a tinta era só da tampa,
-  e abrir uma seção apagava a cor que a identificava.
+```
+┌ NÍVEL 1 — a SEÇÃO ────────────────────────────────┐  moldura + tampa
+│ ▸ CDS OFICIAIS/ANO                        2,4 GB  │
+│ ┌ NÍVEL 2 — o CARD ────────────────────────────┐  │  moldura + tampa
+│ │ ▸ Eu Vou                        2022 · 55 MB │  │
+│ │   NÍVEL 3 — as LINHAS                        │  │  sem moldura
+│ │   ▸ Eu Vou                                   │  │
+│ └──────────────────────────────────────────────┘  │
+└───────────────────────────────────────────────────┘
+```
 
-  | token | o quê | altura |
-  |---|---|---|
-  | `--col-N` | a TAMPA | o recesso, abaixo da base |
-  | `--col-N-corpo` | o BLOCO de uma seção | a base da janela |
-  | `--col-N-card` | um CARD | o `--panel-2` |
-
-  **É a altura que faz a cor caber sem mexer em nada:** MEDIDO, cada
-  `--col-N-card` fica a 1,00–1,01:1 do `--panel-2` que substitui, então tudo o
-  que foi medido DENTRO do card (a faixa, a gaveta) continua valendo ao pé da
-  letra. A primeira tentativa tingia o card INTEIRO com o tom da tampa e a gaveta
-  caiu a 1,05:1 da faixa no escuro — a queixa da v5.287 de volta.
-
-  **A HERANÇA faz o resto.** A classe entra no `<li>` da linha de topo e as três
-  custom properties descem por toda a subárvore: um card ANINHADO veste o tom da
-  mãe sem o JS dizer nada, e a `.coll-group-corpo` troca `--col` e `--camada`
-  pelo tom de card para que a tampa de um card aninhado não se anuncie como uma
-  segunda seção e para que o conteúdo da seção não saia cinza sobre a mãe (MEDIDO
-  antes dessa segunda metade: a linha de um favorito a 1,03:1 do corpo, contra os
-  1,29:1 da faixa dentro de um álbum).
-
-  **O CORPO É UM SUSSURRO, e isso está dito:** ele fica a 1,00–1,02:1 da base da
-  janela, porque a altura dele É a da base — o que o distingue é a MATIZ, não o
-  tom. No tema claro a base é branco puro, e ali um wash só pode ser quase
-  branco; a alternativa (um corpo escuro o bastante para se ver) derrubaria o
-  degrau até o card, que é o que sustenta a lista.
-- **AS MATIZES ESTÃO EM ORDEM DE ESPECTRO** (v1.5.8): *"coloque as cores em ordem
-  de graduação, os verdes perto dos verdes, como as cores do arco íris que tem
-  ordem"*. Elas eram espalhadas de propósito, para duas linhas vizinhas ficarem o
-  mais diferentes possível — e a troca **não custa separação nenhuma**: oito
-  matizes distribuídas em 360° ficam a 45° uma da outra ordenadas ou espalhadas.
-  O que muda é só qual vizinha cada uma tem. A ordem tem oráculo PRÓPRIO porque
-  ela some sem sintoma: as oito continuam sendo as mesmas oito, então nenhum caso
-  de contraste, separação ou legibilidade nota que alguém as embaralhou.
-- **ISTO REVOGA "a seção é UM bloco, não três peças costuradas"** (v5.267): uma
-  tampa colorida É uma peça própria, e a regra antiga proibia exatamente o que o
-  pedido pede. O que ela protegia continua protegido, e por medição MAIOR — o
-  oráculo afirma a separação diretamente, nos oito tons e contra as duas coisas
-  que eles precisam separar (a base e o card).
-- **POSICIONAL, e o preço está dito:** a cor de uma linha muda quando alguém é
-  acrescentado acima dela. Derivar de um id daria cor fixa para sempre, e foi
-  recusado porque o pedido é literalmente *"em ordem"* — o que se vê descendo a
-  lista é uma progressão, não um mosaico.
-- **O contador é da PASSADA** (zerado em `renderCollectionsList`, junto do cache):
-  a lista é redesenhada a cada 400 ms durante um download, e um contador que
-  atravessasse passadas faria a mesma coleção piscar de cor duas vezes e meia por
-  segundo.
+- **A AUTORIDADE É ESCOPADA, e o escopo é o que a torna verificável.** Ela vale
+  em `.acervo` — a lista da Biblioteca, marcada pelo `renderCollectionsList` — e
+  em lugar nenhum mais. A marca é uma CLASSE e não um id porque ela diz O QUE é,
+  não onde calha de estar: a lista do acervo é a Biblioteca em qualquer lugar em
+  que alguém a desenhe, inclusive num oráculo. O `tokens.test.mjs` cobra o escopo
+  na FONTE e o `smoke.mjs` no RENDERIZADO.
+- **A MOLDURA É A CAIXA QUE FALTAVA NO NÍVEL 1**: *"a primeira camada de lista de
+  coleções não está criando uma caixa ou moldura ao redor do seu agrupamento,
+  diferente de como ocorre corretamente com o card dos albuns"*. O card sempre
+  teve caixa — o corpo dele fica dentro do bloco pintado; a seção pintava o mesmo
+  tom nos dois e o agrupamento sumia.
+- **OS DOIS NÍVEIS DE AGRUPAMENTO DIVIDEM O TOM** (`--panel-2` sobre a janela
+  `--panel`): um degrau de verdade contra a base e NENHUM entre si, porque entre
+  eles há sempre a linha e o recuo do corpo. Um degrau ali seria a escada de
+  volta, competindo com a moldura.
+- **QUEM DECIDE O TOM DAS CAIXAS É O NÍVEL 3**, e isso é medição: `--item-fill` é
+  branco a 80% no tema CLARO — desenhado para pousar num card acinzentado. MEDIDO
+  com as caixas em `--panel`, a faixa ficava a **1,00:1** do card que a contém.
+  Manter `--panel-2` devolve à faixa a base para a qual ela foi calibrada e
+  preserva tudo o que a v1.3.14 mediu dentro do card.
+- **O NÍVEL 3 NÃO GANHA MOLDURA**: uma faixa é conteúdo, não agrupamento —
+  emoldurá-la faria a lista virar uma grade de caixinhas.
+- **A PASTA SINCRONIZADA ganha moldura de CARD**, pela regra da v5.284 (ela é um
+  contêiner). E o que a separa do item ao lado deixou de ser tom e passou a ser a
+  linha: os dois pousam na mesma área.
+- **ABRIR NÃO TROCA A COR DE NADA**: *"verifique também a mudança para tons
+  cinzas ao selecionar o item, pois está sendo inconsistente com sua cor real"*.
+  A tampa de um card aberto lia `--camada`, que o `.expanded` redeclarava — sobre
+  um card tingido, ela saía cinza. Hoje a tampa tem tom próprio nos dois estados;
+  quem diz que a caixa abriu é o corpo à vista e a seta girada, que é o que a
+  doutrina do app já manda (*"ABERTO = não é cor"*).
+- **E A MOLDURA TEM CUSTO DE LAYOUT, que o oráculo cobrou.** O vão dos favoritos
+  soma a altura das seções FECHADAS medindo a barra de cada uma — e uma caixa
+  fechada passou a ser a barra MAIS 2px de linha. MEDIDO com seis seções: a
+  última terminava 7px abaixo do fim da lista. O `medirVaoDosFavoritos` soma a
+  moldura junto.
 
 #### O campo se limpa AO FECHAR (v1.5.6)
 

@@ -334,20 +334,20 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
    2, e a superfície de um controle AFUNDA — que é a regra R1, e o
    `tokens.test.mjs` a cobra de todo bloco que pinta `--panel`. */
 .popup-sheet--lib {
-  /* ===== E A JANELA NÃO GASTA UM DEGRAU (v1.5.7) =====
+  /* ===== E A JANELA NÃO GASTA UM DEGRAU (v1.5.7 → v1.5.9) =====
      `--camada: var(--panel)` — o MESMO tom que ela pinta, e isso é deliberado:
      um bloco filho dela some contra o fundo, **e é assim que a lista passou a
-     ser desenhada**. Com os cabeçalhos das seções TINGIDOS (ver `--col-*`), o
-     que identifica uma seção deixou de ser o retângulo dela e passou a ser a
-     cor da tampa; o corpo é a base da janela, e os cards dentro dele são os
-     únicos blocos que ainda pintam um degrau (`--panel-2`).
+     ser desenhada**. A escada tem três degraus e a janela tomou o de cima (era
+     `--bg`, virou `--panel` a pedido do operador): sobravam dois para três
+     coisas — janela, seção e card —, e qualquer arranjo deixava duas com o mesmo
+     tom. Foi o que a asserção da escada mediu na v1.5.7: seção e card a
+     **1,00:1**.
 
-     **A alternativa era impossível, e vale escrita:** a escada tem três degraus
-     e a janela acabou de tomar o de cima (era `--bg`, virou `--panel` a pedido
-     do operador). Sobravam dois para três coisas — janela, seção e card —, e
-     qualquer arranjo deixava duas delas com o mesmo tom. Foi o que a asserção da
-     escada mediu no primeiro corte deste lote: seção e card a **1,00:1**. Tirar
-     a seção da conta devolve os dois degraus para quem precisa deles. */
+     A v1.5.7 respondeu tingindo as seções, e o operador reprovou (ver "A
+     HIERARQUIA DA BIBLIOTECA É DESENHADA COM MOLDURA", mais abaixo nesta
+     folha). A resposta de agora é a que resolve o problema em vez de contorná-lo:
+     **os três níveis dividem o MESMO tom e o que os separa é a moldura.** Um
+     degrau de tom que não existe deixou de ser preciso. */
   --camada: var(--panel);
   --surface: var(--surface-sunk);
   --surface-2: var(--surface-2-sunk);
@@ -3857,46 +3857,99 @@ main {
    ELES VENCEM O `--camada` do card por ESPECIFICIDADE (duas classes contra
    uma), e é assim que a regra de tom do `.hymnal-card` continua de pé para quem
    nasce fora da Biblioteca — um card sem `col-N` cai no `--panel-2` de sempre. */
-/* A CLASSE NÃO PINTA: ela ABRE A FAMÍLIA (v1.5.8). As três custom properties
-   descem por toda a subárvore da linha, e é a herança que faz um card ANINHADO
-   vestir o tom da mãe sem o JS dizer nada — a mesma mecânica do `--camada`. */
-.col-1 { --col: var(--col-1); --col-corpo: var(--col-1-corpo); --col-card: var(--col-1-card); }
-.col-2 { --col: var(--col-2); --col-corpo: var(--col-2-corpo); --col-card: var(--col-2-card); }
-.col-3 { --col: var(--col-3); --col-corpo: var(--col-3-corpo); --col-card: var(--col-3-card); }
-.col-4 { --col: var(--col-4); --col-corpo: var(--col-4-corpo); --col-card: var(--col-4-card); }
-.col-5 { --col: var(--col-5); --col-corpo: var(--col-5-corpo); --col-card: var(--col-5-card); }
-.col-6 { --col: var(--col-6); --col-corpo: var(--col-6-corpo); --col-card: var(--col-6-card); }
-.col-7 { --col: var(--col-7); --col-corpo: var(--col-7-corpo); --col-card: var(--col-7-card); }
-.col-8 { --col: var(--col-8); --col-corpo: var(--col-8-corpo); --col-card: var(--col-8-card); }
-/* ---------- E QUEM PINTA SÃO AS TRÊS PEÇAS, cada uma com a sua altura ----------
-   O fallback de cada `var()` é o que valia antes da cor: um bloco sem família
-   (fora da Biblioteca, ou numa lista que não carimba tom) continua exatamente
-   como era. */
-.coll-group--drop { background: var(--col-corpo, var(--camada)); }
-.coll-group-bar,
-.hymnal-card > .coll-bar { background-color: var(--col); }
-.hymnal-card { background: var(--col-card, var(--camada)); }
-/* DENTRO DE UMA SEÇÃO, `--col` PASSA A SER O TOM DO CARD. Sem esta linha o card
-   aninhado herdaria a tampa da MÃE e se anunciaria como uma segunda seção — a
-   herança é boa para o corpo e péssima para a tampa. Assim ele fica com tampa e
-   corpo no mesmo tom, que é como ele sempre foi.
+/* =====================================================================
+   A HIERARQUIA DA BIBLIOTECA É DESENHADA COM MOLDURA (v1.5.9)
+   =====================================================================
+   Pedido do operador, com as três capturas do defeito: *"está errado, reformule
+   o sistema de coloração e organização de grupos e subgrupos. vamos usar o
+   padrão branco e azul padrão do sistema, e vou lhe dar autoridade para usar
+   sistemas visuais de design e organização usando bordas, mas apenas para a
+   biblioteca. pois temos 3 niveis de listagens na biblioteca e o sistema de
+   separação apenas por cor sólida de cards está limitando nossas opções"*.
 
-   E `--camada` VAI JUNTO: é ela que o resto da subárvore lê (a linha de um
-   favorito, a pasta sincronizada, qualquer bloco que não seja card). Sem esta
-   metade, o conteúdo de uma seção colorida saía CINZA sobre a mãe — MEDIDO, a
-   linha de um favorito ficava a 1,03:1 do corpo da seção contra os 1,29:1 que a
-   faixa dentro de um álbum tem, isto é, ela deixava de ocupar um degrau. O
-   fallback mantém intacto quem vive fora da Biblioteca. */
-.coll-group-corpo {
-  --col: var(--col-card);
-  --camada: var(--col-card, var(--panel-2));
+   **ISTO REVOGA A PALETA DA v1.5.7/v1.5.8 INTEIRA** (`--col-*`, as três
+   famílias, as oito matizes em ordem). Ela tentava resolver HIERARQUIA com COR
+   SÓLIDA, e o diagnóstico do operador é exato: **cor sólida não diz o que está
+   dentro do quê.** Nas capturas, oito matizes pastel produziam uma lista bonita
+   e ilegível — a seção "ADORADORES" em lilás com cinco álbuns lilás soltos
+   dentro dela, sem nada dizendo onde o grupo começava e acabava.
+
+   **A AUTORIDADE PARA A BORDA É EXPLÍCITA E É ESCOPADA.** Ela vale AQUI, dentro
+   da lista do ACERVO (`.acervo`), e em lugar nenhum mais: a regra do app continua sendo que
+   tudo se separa por preenchimento, e o `tokens.test.mjs` continua cobrando isso
+   de todo o resto. O que a autoriza aqui é o que o operador nomeou — **TRÊS
+   níveis de lista**, e três degraus de tom para separar três níveis aninhados é
+   exatamente o degrau que a escada não tem (ver "A ESCADA TEM TRÊS DEGRAUS" no
+   CLAUDE.md, e a v1.5.7, que gastou o de cima com a janela branca).
+
+   ┌ NÍVEL 1 — a SEÇÃO ────────────────────────────────┐  moldura + tampa
+   │ ▸ CDS OFICIAIS/ANO                        2,4 GB  │  `--surface`
+   │ ┌ NÍVEL 2 — o CARD ────────────────────────────┐  │  moldura + tampa
+   │ │ ▸ Eu Vou                        2022 · 55 MB │  │  `--surface`
+   │ │   NÍVEL 3 — as LINHAS                        │  │  sem moldura:
+   │ │   ▸ Eu Vou                                   │  │  preenchimento
+   │ │   ▸ O Amor Vive                              │  │  e espaço
+   │ └──────────────────────────────────────────────┘  │
+   └───────────────────────────────────────────────────┘
+
+   **A MOLDURA É A CAIXA QUE FALTAVA NO NÍVEL 1.** Relato: *"verifique a primeira
+   camada de lista de coleções, pois ela não está criando uma caixa ou moldura ao
+   redor do seu agrupamento, diferente de como ocorre corretamente com o card dos
+   albuns, que cria uma caixa para seus itens"*. O card sempre teve caixa — o
+   corpo dele fica DENTRO do bloco pintado; a seção pintava o mesmo tom nos dois
+   e o agrupamento sumia. Com moldura os dois têm caixa, e a de dentro se vê
+   dentro da de fora.
+
+   **E TUDO VOLTA AO BRANCO E AZUL DO SISTEMA:** as caixas são `--panel`, as
+   tampas são `--surface` (o cinza dos botões) e o azul continua onde ele sempre
+   esteve neste app — no glifo que abre e nos estados. */
+/* OS DOIS NÍVEIS DE AGRUPAMENTO DIVIDEM O TOM, E É A MOLDURA QUE OS SEPARA — que
+   é exatamente para isso que a autoridade foi dada. Os dois pintam `--panel-2`
+   sobre a janela `--panel`: um degrau de verdade contra a base, e nenhum entre
+   si, porque entre eles há sempre a linha e o recuo do corpo.
+
+   **`--panel-2` E NÃO `--panel`, e isso é medição e não gosto.** O nível 3 usa
+   `--item-fill`, que no tema CLARO é branco a 80% — ele foi desenhado para
+   pousar num card acinzentado. Com as caixas em branco, MEDIDO: a faixa ficava a
+   **1,00:1** do card que a contém, isto é, sumia. Manter as caixas em `--panel-2`
+   devolve à faixa a base para a qual ela foi calibrada, e de quebra preserva
+   tudo o que a v1.3.14 mediu dentro do card. */
+.acervo > .coll-group--drop,
+.acervo .hymnal-card,
+/* A PASTA SINCRONIZADA entra aqui pela regra da v5.284 (*"mantenha apenas as
+   pastas sincronizadas dos favoritos como cores de álbum"*): ela guarda muitos
+   arquivos, logo é um CONTÊINER, e no desenho novo um contêiner é uma ficha com
+   moldura. Sem ela a pasta ficaria com o tom da ÁREA em que mora e sumiria
+   dentro dela — MEDIDO, 1,00:1. */
+.acervo .folder-opfs {
+  background: var(--panel-2);
+  border: 1px solid var(--line);
 }
-/* ---------- E O CABEÇALHO DA SEÇÃO ACOMPANHA O RAIO DO BLOCO ----------
-   Ele é o primeiro filho de um `<li>` arredondado e vai de lado a lado: sem
-   isto, a tinta sai quadrada por baixo dos cantos curvos. FECHADA a barra É a
-   linha inteira, e o raio é dos quatro cantos; ABERTA ela é a tampa, e só os de
-   cima curvam. (`overflow: hidden` no `<li>` resolveria os dois de uma vez e
-   custaria caro: aquele bloco hospeda a lista que rola.) */
+.acervo .hymnal-card.expanded { --camada: var(--panel-2); }
+/* A TAMPA DE CADA CAIXA — o mesmo tom nos dois níveis, porque o que os distingue
+   é o ANINHAMENTO e não a cor. Ela some quando a caixa está aberta? Não: a tampa
+   é a linha que se toca, e ela existe igual nos dois estados. */
+.acervo > .coll-group--drop > .coll-group-bar,
+.acervo .hymnal-card > .coll-bar { background: var(--surface); }
+/* ---------- ABRIR NÃO TROCA A COR DE NADA (v1.5.9) ----------
+   Relato do operador: *"verifique também a mudança para tons cinzas ao
+   selecionar o item, pois está sendo inconsistente com sua cor real"*.
+
+   `.hymnal-card.expanded` declarava `--camada: var(--panel-2)` e a tampa lia
+   isso — então o card ABERTO trocava de tom, e nas capturas ele saía CINZA
+   dentro de uma seção colorida. Aquele degrau existia como sinal de "isto
+   levantou" (v1.3.14), num tempo em que não havia moldura; hoje quem diz que a
+   caixa abriu é o CORPO À VISTA e a seta girada, que é o que a doutrina do app
+   já manda (*"ABERTO = não é cor"*). A tampa fica com o tom dela nos dois
+   estados. */
+/* E A TAMPA DE UM CARD ABERTO É A MESMA TAMPA. Ela lia `--camada` para ficar
+   "do mesmo tom do cartão"; hoje o tom do cartão é a base, e a tampa tem tom
+   próprio nos dois estados. */
+.acervo .hymnal-card.expanded > .coll-bar { background: var(--surface); }
+/* ---------- O NÍVEL 3 NÃO GANHA MOLDURA ----------
+   Ele é o CONTEÚDO, não um agrupamento: uma faixa é a última folha da árvore, e
+   emoldurá-la faria a lista inteira virar uma grade de caixinhas. O que a separa
+   da vizinha é o preenchimento e o espaço, como em todo o resto do app. */
 .coll-group-bar,
 .hymnal-card > .coll-bar { border-radius: var(--radius-card) var(--radius-card) 0 0; }
 .coll-group--drop:not(.aberto) .coll-group-bar,

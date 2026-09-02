@@ -2196,8 +2196,15 @@ try {
     const fav = corpo.querySelector('.fav-itens > .lib-item');
     const cx = (e) => (e ? Math.round(e.getBoundingClientRect().left) : null);
     r.colunas = [cx(a), cx(fav)];
-    r.alinhado = !!fav && cx(a) === cx(fav)
-      && cx(a.querySelector('.thumb')) === cx(fav.querySelector('.thumb'));
+    // A TOLERÂNCIA É DE UM PIXEL, e ele tem nome (v1.5.9): a pasta ganhou
+    // MOLDURA, o favorito ao lado não tem, e a linha empurra o conteúdo dela 1px
+    // para dentro. O que este caso pega vale DEZENAS de pixels — o arquivo
+    // colado na borda do cartão, com a miniatura na coluna da pasta —, então um
+    // pixel de linha não é o defeito; exigir igualdade exata só faria o caso
+    // reprovar a moldura, que é o desenho.
+    const perto = (x, y) => x !== null && y !== null && Math.abs(x - y) <= 1;
+    r.alinhado = !!fav && perto(cx(a), cx(fav))
+      && perto(cx(a.querySelector('.thumb')), cx(fav.querySelector('.thumb')));
     // Limpeza: a tela volta como estava, para os casos do Modo Fácil que vêm
     // depois não reprovarem por um motivo que não é o deles.
     pastaAberta = null;
@@ -2416,7 +2423,10 @@ try {
     // janela da v1.5.4, que termina na LINHA DA BARRA para os controles ficarem
     // à vista, a lista voltou a medir ~602px e os oito blocos não deixavam vão
     // NENHUM (piso zero) — a primeira metade passava a falar de um desenho que a
-    // tela não tinha. São TRÊS, e o vão volta a 157px (MEDIDO).
+    // tela não tinha. São DUAS desde a v1.5.9, quando a Biblioteca ganhou
+    // MOLDURA: a linha de cada caixa acrescenta 2px por seção fechada ao
+    // empilhamento e 2px à altura da própria seção vazia, e os dois lados
+    // cruzaram (MEDIDO: seção de 138px para um vão de 135px).
     //
     // A RÉGUA NÃO É "vão > 0": é **vão maior que a seção VAZIA**, que tem altura
     // própria (136px aqui — cabeçalho mais a linha de "Nenhum favorito ainda").
@@ -2425,7 +2435,7 @@ try {
     // (*"a seção não respeita o piso"*) é falsa — o piso é que ficou menor que o
     // conteúdo mínimo. Quem mexer na altura da janela remede aqui; o sinal é
     // esta linha reprovando com os dois números diferentes.
-    albumCatalog.categories = ['CDs oficiais/ano', 'Adoradores', 'Missão']
+    albumCatalog.categories = ['CDs oficiais/ano', 'Adoradores']
       .map((nome, i) => ({
       name: nome,
       albums: [{ id_album: 500 + i, name: 'Álbum ' + nome }],
