@@ -1519,6 +1519,51 @@ for (const tema of ['escuro', 'claro']) {
           const el = lista.querySelector('.coll-group--drop');
           return el ? getComputedStyle(el).borderTopWidth : 'AUSENTE';
         })(),
+        // A COR da moldura — desde a v1.5.10 é ela que separa a caixa da base,
+        // e não mais o degrau de tom (ver a asserção da escada, mais abaixo).
+        molduraCor: (() => {
+          const el = lista.querySelector('.coll-group--drop');
+          return el ? getComputedStyle(el).borderTopColor : 'AUSENTE';
+        })(),
+        // A SUPERFÍCIE DE UM BOTÃO DE AÇÃO da própria barra — a régua do tom das
+        // caixas desde a v1.5.10. Ela é um VIZINHO RENDERIZADO e não o token
+        // escrito aqui: `--btn-accent` lido de volta provaria que a folha
+        // declara o que declara.
+        botaoAcao: (() => {
+          const el = lista.querySelector('.coll-group-acao, .coll-bar-dl');
+          return el ? getComputedStyle(el).backgroundColor : 'AUSENTE';
+        })(),
+        // ===== E O QUE A MOLDURA FEZ COM O ESPAÇO (v1.5.10) =====
+        // Os dois relatos de espaçamento deste lote, medidos em pixel. O
+        // primeiro é a FAIXA acima da barra da caixa: com a moldura, tudo o que
+        // sobra entre o topo do bloco e o topo da barra aparece DENTRO da caixa
+        // — e `.coll-group:first-child` deixava 3,2px ali.
+        faixaAcimaDaBarra: (() => {
+          const el = lista.querySelector('.coll-group--drop');
+          const barra = el && el.querySelector(':scope > .coll-group-bar');
+          if (!el || !barra) return null;
+          return Math.round((barra.getBoundingClientRect().top
+            - el.getBoundingClientRect().top) * 10) / 10;
+        })(),
+        molduraSecaoPx: (() => {
+          const el = lista.querySelector('.coll-group--drop');
+          return el ? Math.round(parseFloat(getComputedStyle(el).borderTopWidth) * 10) / 10 : null;
+        })(),
+        // O segundo é o vão entre a TAMPA de uma seção aberta e o primeiro card
+        // dela, contra o `gap` que separa dois cards — a régua do relato é a
+        // comparação, não um número.
+        ...(() => {
+          const sec = lista.querySelector('.coll-group--drop.aberto:not(.coll-group--fav)');
+          const barra = sec && sec.querySelector(':scope > .coll-group-bar');
+          const corpo = sec && sec.querySelector(':scope > .coll-group-corpo');
+          const cards = corpo ? [...corpo.querySelectorAll(':scope > .hymnal-card')] : [];
+          if (!barra || !cards.length) return { vaoTampaPrimeiro: null, gapEntreCards: null };
+          return {
+            vaoTampaPrimeiro: Math.round((cards[0].getBoundingClientRect().top
+              - barra.getBoundingClientRect().bottom) * 10) / 10,
+            gapEntreCards: Math.round((parseFloat(getComputedStyle(corpo).rowGap) || 0) * 10) / 10,
+          };
+        })(),
         molduraCard: (() => {
           const el = lista.querySelector('.hymnal-card');
           return el ? getComputedStyle(el).borderTopWidth : 'AUSENTE';
@@ -1615,6 +1660,36 @@ for (const tema of ['escuro', 'claro']) {
       '[' + tema + '] e o NÍVEL 3 não tem: uma faixa é conteúdo, não agrupamento '
       + '— emoldurá-la faria a lista virar uma grade de caixinhas',
       t.molduraFaixa);
+    // ===== E A MOLDURA NÃO PODE TER NADA DENTRO DELA ANTES DA BARRA (v1.5.10) =====
+    // Relato do operador: *"verifique o tamanho e espaçamento dos favoritos,
+    // pois está deslocado o seu card de topo em relação a caixa dele"*.
+    // `.coll-group:first-child` dá `padding-top: .2rem` (0,2,0, vencendo o
+    // `padding: 0` da regra do `--drop`, que é 0,1,0) para a lista não começar
+    // colada no topo. Enquanto a seção não tinha caixa aquilo era o respiro da
+    // LISTA; com a moldura da v1.5.9 ele virou uma faixa de 3,2px DENTRO da
+    // caixa — MEDIDO: caixa em 59,2 e barra em 63,4.
+    //
+    // A régua é a MOLDURA, e não zero: 1px de borda é exatamente o que tem de
+    // sobrar entre o topo do bloco e o topo da barra, e escrever "0" aqui
+    // reprovaria o desenho certo.
+    checar(t.faixaAcimaDaBarra !== null
+      && Math.abs(t.faixaAcimaDaBarra - t.molduraSecaoPx) <= 0.6,
+      '[' + tema + '] entre o topo da caixa e a barra só há a MOLDURA: nenhum '
+      + 'recuo da lista vaza para dentro do bloco',
+      t.faixaAcimaDaBarra + 'px acima da barra, moldura de ' + t.molduraSecaoPx + 'px');
+    // ===== E O PRIMEIRO CARD NÃO NASCE COLADO NA TAMPA (v1.5.10) =====
+    // Relato: *"verifique o espaçamento entre o card de titulo da coleção e o
+    // primeiro item desta coleção, parece estar sem espaçamento correto"*. O
+    // corpo aberto era `padding: 0 .4rem .45rem` — sem recuo em cima —, então o
+    // primeiro card começava EXATAMENTE onde a barra acaba (MEDIDO: vão de 0px)
+    // enquanto os seguintes eram separados por .35rem. A régua é a COMPARAÇÃO
+    // com esse `gap`: o número em si é decisão de desenho, o que não pode é a
+    // primeira vizinha da coluna valer menos que as outras.
+    checar(t.vaoTampaPrimeiro !== null && t.gapEntreCards > 0
+      && Math.abs(t.vaoTampaPrimeiro - t.gapEntreCards) <= 0.6,
+      '[' + tema + '] e o primeiro card respira da tampa o MESMO que os cards '
+      + 'respiram entre si',
+      t.vaoTampaPrimeiro + 'px contra um gap de ' + t.gapEntreCards + 'px');
     // ===== E OS DOIS DIVIDEM O TOM: quem os separa é a LINHA =====
     // É a troca inteira dita como asserção — antes o degrau de tom era o único
     // separador e não havia degrau para três níveis; agora os dois níveis de
@@ -1655,16 +1730,50 @@ for (const tema of ['escuro', 'claro']) {
       '[' + tema + '] e a tampa de um card tem o MESMO tom fechada e aberta: '
       + 'abrir não troca a cor de nada',
       'fechada ' + t.tampaFechada + ' · aberta ' + t.tampaAberta);
-    // ===== E A ESCADA CONTINUA VALENDO ONDE ELA AINDA DECIDE =====
+    // ===== O TOM DA CAIXA É O AZUL FRACO, NUNCA O CINZA ESCURO (v1.5.10) =====
+    // Pedido do operador, com as duas capturas: *"essa predominância cinza
+    // escura está muito ruim em especial no tema claro. porque não usou o azul
+    // fraco como cor principal dos cards?"*.
     //
-    // A janela pinta `--panel` (v1.5.7) e a seção pinta `--panel-2`: é o degrau
-    // que sobrou, e ele é o que separa a ÁREA da base em que ela pousa. O card
-    // volta a `--panel` e não coincide com a janela por acidente — entre os dois
-    // há sempre a área da seção, ou a moldura, quando ele está na raiz.
+    // **A PRESSÃO PARA DESFAZER ISTO É REAL, e é por ela que o caso existe.** O
+    // nível 3 (`--item-fill`, branco a 80% no claro) se lê MELHOR sobre o cinza
+    // escuro — 1,32:1 contra 1,17:1 —, então quem for apertar aquele número
+    // encontra `--panel-2` como a resposta óbvia e desfaz o pedido sem saber que
+    // desfez. A régua é um VIZINHO RENDERIZADO: o botão de ação que mora na
+    // barra da própria seção veste `--btn-accent`, e a caixa tem de vestir a
+    // mesma superfície. Comparar com o token lido de volta provaria só que a
+    // folha declara o que declara.
+    checar(t.botaoAcao !== 'AUSENTE' && ehOpaco(t.secao)
+      && razao(t.secao, t.botaoAcao) < 1.03,
+      '[' + tema + '] a caixa veste a MESMA superfície do botão de ação da barra '
+      + 'dela — o azul fraco, e não o cinza escuro que o operador recusou',
+      'caixa ' + t.secao + ' · botão ' + t.botaoAcao);
+    // ===== A CAIXA SE VÊ SOBRE A JANELA — E QUEM A FECHA É A LINHA (v1.5.10) =====
+    //
+    // Este caso EXIGIA 1,28:1 entre a janela e a seção, isto é, o degrau da
+    // escada fazendo sozinho o trabalho. **Isso deixou de ser verdade quando o
+    // operador escolheu o tom:** *"essa predominância cinza escura está muito
+    // ruim em especial no tema claro. porque não usou o azul fraco como cor
+    // principal dos cards?"*. `--btn-accent` é uma superfície CLARA nos dois
+    // temas — MEDIDO, 1,21:1 contra a janela branca e 1,14:1 no escuro —, e
+    // exigir o degrau antigo aqui reprovaria o desenho que o operador pediu.
+    //
+    // A régua nova é a do desenho da v1.5.9, escrita por extenso: a caixa não
+    // pode COINCIDIR com a base (o 1,00:1 é o defeito da v5.241, e é o único
+    // desfecho inaceitável), e quem a FECHA é a moldura — que precisa de
+    // contraste de verdade contra a janela, senão a linha existe no CSS e não
+    // na tela. As duas metades são inseparáveis: sem a primeira, um tom igual
+    // ao da base passa "porque tem borda"; sem a segunda, uma borda da cor do
+    // fundo passa "porque o tom difere".
     const d2 = razao(t.folha, t.secao);
-    checar(ehOpaco(t.folha) && ehOpaco(t.secao) && d2 >= 1.28,
-      '[' + tema + '] a base da janela e a ÁREA da seção PINTAM, com degrau de '
-      + 'verdade entre elas', d2.toFixed(2) + ':1');
+    const dMoldura = razao(t.molduraCor, t.folha);
+    checar(ehOpaco(t.folha) && ehOpaco(t.secao) && d2 >= 1.10,
+      '[' + tema + '] a caixa da seção não coincide com a base da janela',
+      d2.toFixed(2) + ':1');
+    checar(t.molduraCor !== 'AUSENTE' && ehOpaco(t.molduraCor) && dMoldura >= 1.5,
+      '[' + tema + '] e quem FECHA a caixa é a moldura, com contraste de verdade '
+      + 'contra a janela — sem isso a linha existe no CSS e não na tela',
+      dMoldura.toFixed(2) + ':1');
     // ...e NENHUM par de níveis pode coincidir, adjacente ou não — o "avô com a
     // cor do neto" é o defeito que a alternância de dois tons produzia por
     // construção, e ele reapareceria numa refatoração que voltasse a ela.
