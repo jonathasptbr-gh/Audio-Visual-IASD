@@ -163,6 +163,32 @@ try {
       // mudou: a sétima é uma de sete células idênticas, e é ela que fecha a
       // direita do deck junto com o botão de passar slide.
       hist: cx('#lyricsViewBtn'), seis,
+      // ===== O CARTÃO DA LINHA DO TEMPO (v1.5.13) =====
+      // O fundo EFETIVO dela e o de um botão do transporte, para o par abaixo.
+      // Os dois são `--surface`, que é tinta com ALFA: `backgroundColor`
+      // devolve o alfa, então quem responde "que cor o navegador pintou?" é a
+      // pilha composta até o primeiro fundo opaco.
+      ...(() => {
+        const rgba = (c) => { const n = c.match(/[\d.]+/g).map(Number);
+          return [n[0], n[1], n[2], n.length > 3 ? n[3] : 1]; };
+        const efetivo = (el) => { const pil = []; let e = el;
+          while (e) { const v = rgba(getComputedStyle(e).backgroundColor);
+            if (v[3] > 0) pil.push(v); if (v[3] === 1) break; e = e.parentElement; }
+          let o = pil.pop() || [255, 255, 255, 1];
+          while (pil.length) { const t = pil.pop();
+            o = [0, 1, 2].map((i) => t[3] * t[i] + (1 - t[3]) * o[i]).concat([1]); }
+          return 'rgb(' + o.slice(0, 3).map(Math.round).join(', ') + ')'; };
+        const np = document.querySelector('.nowplaying');
+        const btn = document.querySelector('.transport .t-btn');
+        return {
+          npFundo: efetivo(np),
+          npFundoCru: getComputedStyle(np).backgroundColor,
+          npRaio: getComputedStyle(np).borderRadius,
+          npPadX: [getComputedStyle(np).paddingLeft, getComputedStyle(np).paddingRight],
+          btnFundo: btn ? efetivo(btn) : null,
+          barFundo: efetivo(document.querySelector('.bottombar')),
+        };
+      })(),
     };
   });
   const perto = (a, b) => Math.abs(a - b) < 0.6;
@@ -241,6 +267,39 @@ try {
     checar(perto((g.titulo.esq + g.titulo.dir) / 2, (g.deck.esq + g.deck.dir) / 2),
       `e o TÍTULO está centrado na largura inteira do deck (${nome})`,
       { titulo: (g.titulo.esq + g.titulo.dir) / 2, deck: (g.deck.esq + g.deck.dir) / 2 });
+
+    // ===== E ELA É UM CARTÃO (v1.5.13) =====
+    // Pedido do operador: *"coloque a seção da barra de progresso da mídia …
+    // dentro de um card, pois é o único elemento visual do controle que não
+    // está dentro de um elemento visual. por causa da barra de buscas, ali se
+    // tornou um buraco no design"*.
+    //
+    // TRÊS metades, e nenhuma basta sozinha:
+    //
+    // 1. ELA PINTA. Uma regra que só trocasse classe passaria num teste de
+    //    classe e continuaria sendo um buraco na tela, então a régua é o fundo
+    //    EFETIVO contra o da caixa que a hospeda.
+    checar(g.npFundo !== g.barFundo,
+      `a linha do tempo PINTA: ela não é mais a única peça da caixa pousada `
+      + `direto no fundo (${nome})`, { cartao: g.npFundo, caixa: g.barFundo });
+    // 2. E ELA PINTA O TOM DOS VIZINHOS, não um tom novo. A régua é um botão do
+    //    transporte RENDERIZADO — `--surface` lido de volta provaria só que a
+    //    folha declara o que declara —, e ela é o que impede a correção de
+    //    inaugurar um degrau: no tema CLARO `--bar` é branco e `--panel`
+    //    também, então um cartão em `--panel` mediria 1,00:1 contra a caixa e
+    //    não existiria (a mesma aritmética da borda do campo, na v1.5.5).
+    checar(g.btnFundo !== null && g.npFundo === g.btnFundo,
+      `e ela veste o MESMO fundo dos botões ao lado — o cartão entra no sistema `
+      + `da caixa em vez de inaugurar um tom (${nome})`,
+      { cartao: g.npFundo, botao: g.btnFundo });
+    // 3. E O RECUO É SÓ VERTICAL. Um `padding` horizontal aqui comprime a grade
+    //    do `.np-seek`, e as três asserções logo acima deixam de bater — mas
+    //    elas reprovam DEPOIS do estrago, com três mensagens que falam de
+    //    colunas e não da causa. Esta diz a causa.
+    checar(parseFloat(g.npPadX[0]) === 0 && parseFloat(g.npPadX[1]) === 0,
+      `e o recuo do cartão é só VERTICAL: na horizontal ele comprimiria as `
+      + `colunas do deck e a barra sairia de cima da preview (${nome})`,
+      g.npPadX);
 
     // E A PROPORÇÃO DO TELÃO SOBREVIVE A TUDO ISSO. É a única coisa que a
     // miniatura não pode falsear — ela existe para o operador conferir o que

@@ -1,5 +1,11 @@
 [
   {
+    "versao": "1.5.13",
+    "itens": [
+      "O título e a barra de progresso ganharam um cartão, como o resto dos controles."
+    ]
+  },
+  {
     "versao": "1.5.12",
     "itens": [
       "No tema claro os textos do app ficaram pretos, em vez de cinza escuro."
