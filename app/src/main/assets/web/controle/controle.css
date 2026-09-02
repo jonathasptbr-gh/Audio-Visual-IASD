@@ -1455,8 +1455,46 @@ body {
 
 
 /* Nome + barra de progresso */
-.nowplaying { display: flex; flex-direction: column; gap: .25rem; }
-.np-name { font-size: .85rem; font-weight: 600; text-align: center; overflow: hidden; }
+/* ===== ELA É UM CARTÃO (v1.5.13) =====
+   Pedido do operador: *"coloque a seção da barra de progresso da mídia, que tem
+   o título, barra de progresso e tempo atual e total… coloque isso tudo dentro
+   de um card, pois é o único elemento visual do controle que não está dentro de
+   um elemento visual. por causa da barra de buscas, ali se tornou um buraco no
+   design"*.
+
+   O diagnóstico é exato, e o "por causa da barra de buscas" é a parte que
+   explica POR QUE isto virou defeito agora: até a v1.5.2 o topo desta caixa era
+   a faixa de abas, e o título nascia logo abaixo de uma peça pintada. Com a
+   barra da Biblioteca repousando ali (e ela não pinta nada fechada — v1.5.2), o
+   que ficou acima do título passou a ser o próprio `--bar`, e a linha do tempo
+   virou a única coisa da caixa de controles pousada direto no fundo: preview,
+   botões de slide e transporte todos têm superfície.
+
+   **O tom é `--surface`, o MESMO dos botões ao lado, e não `--panel`.** No tema
+   CLARO `--bar` é branco e `--panel` também: um cartão em `--panel` mediria
+   1,00:1 contra a caixa e não existiria — é a mesma aritmética que obrigou a
+   borda do campo de busca na v1.5.5. `--surface` é a superfície que esta caixa
+   inteira já usa, então o cartão entra no sistema em vez de inaugurar um tom.
+
+   ---------- O RECUO É SÓ VERTICAL, E ISSO É INVARIANTE ----------
+   `.np-seek` repete as TRÊS colunas do `.deck` (v1.3.8): o tempo decorrido
+   sobre o botão de voltar slide, a barra sobre a preview, o tempo total sobre o
+   de passar. Um `padding` horizontal AQUI comprimiria essa grade e a barra
+   deixaria de bater com a miniatura logo abaixo — que é exatamente o defeito
+   que a v1.3.8 corrigiu. O respiro lateral já existe por construção: os tempos
+   são centrados em colunas de `--deck-col` (~56px), então o texto nasce a meia
+   coluna da borda.
+
+   Quem PODE recuar é o TÍTULO, porque ele é o único que ignora as colunas (ele
+   é centrado na largura inteira) — e ele precisa, senão a reticência de um nome
+   longo encosta na borda do cartão. */
+.nowplaying {
+  display: flex; flex-direction: column; gap: .25rem;
+  background: var(--surface);
+  border-radius: var(--radius-card);
+  padding: .4rem 0;
+}
+.np-name { font-size: .85rem; font-weight: 600; text-align: center; overflow: hidden; padding: 0 .5rem; }
 .np-name-inner {
   display: inline-block; max-width: 100%; white-space: nowrap;
   overflow: hidden; text-overflow: ellipsis; vertical-align: middle;

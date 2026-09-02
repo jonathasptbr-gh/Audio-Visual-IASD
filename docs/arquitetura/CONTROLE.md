@@ -615,6 +615,37 @@ largura da coluna lateral mudar, os tempos acompanham no mesmo lote.
 **O TÍTULO é o único que ignora as colunas**: `text-align: center` na largura
 inteira, que é onde o olho o procura.
 
+#### E ela é um CARTÃO (v1.5.13)
+
+*"coloque a seção da barra de progresso da mídia, que tem o título, barra de
+progresso e tempo atual e total… coloque isso tudo dentro de um card, pois é o
+único elemento visual do controle que não está dentro de um elemento visual. por
+causa da barra de buscas, ali se tornou um buraco no design"*.
+
+O diagnóstico é exato, e o **"por causa da barra de buscas"** é a parte que
+explica por que isto virou defeito agora: até a v1.5.2 o topo da caixa de
+controles era a faixa de abas, e o título nascia logo abaixo de uma peça
+pintada. Com a barra da Biblioteca repousando ali — e ela não pinta nada
+fechada —, o que ficou acima do título passou a ser o próprio `--bar`, e a linha
+do tempo virou a única peça da caixa pousada direto no fundo: preview, botões de
+slide e transporte todos têm superfície.
+
+- **O tom é `--surface`, o MESMO dos botões ao lado, e não `--panel`.** No tema
+  CLARO `--bar` é branco e `--panel` também: um cartão em `--panel` mediria
+  1,00:1 contra a caixa e não existiria — a mesma aritmética que obrigou a borda
+  do campo de busca na v1.5.5. Com o tom dos vizinhos o cartão entra no sistema
+  da caixa em vez de inaugurar um degrau.
+- **O RECUO É SÓ VERTICAL, e isso é invariante.** Um `padding` horizontal aqui
+  comprime a grade do `.np-seek` e a barra deixa de bater com a miniatura logo
+  abaixo — o defeito exato que esta seção descreve. O respiro lateral já existe
+  por construção: os tempos são centrados em colunas de `--deck-col` (~56px),
+  então o texto nasce a meia coluna da borda. Quem PODE recuar é o título, que é
+  o único que ignora as colunas — e ele precisa, senão a reticência de um nome
+  longo encosta na borda.
+- **O `controles-layout.test.mjs` trava as três metades**, e a terceira existe
+  para dar a CAUSA: sem ela, um recuo horizontal reprova nas três asserções de
+  coluna acima, que falam de alinhamento e não do que o produziu.
+
 
 **A linha da preview é só a preview**, e a partir da v1.3.5 ela é FLANQUEADA de
 novo — mas por fora, em colunas da grade, e não dentro da linha. Desde a v1.3.7
