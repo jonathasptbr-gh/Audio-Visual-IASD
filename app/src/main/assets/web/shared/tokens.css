@@ -167,11 +167,15 @@
      retângulo mais luminoso da tela. Ele é pequeno, existe só com a Biblioteca
      aberta, e é uma escolha explícita de quem opera.
 
-     O texto e o esmaecido são os valores do TEMA CLARO — `night` oficial e o
-     cinza dele —, que é onde eles foram calibrados contra branco: 8,86:1 e
-     6,08:1 medidos sobre `--panel` branco, isto é, exatamente esta base. */
+     O texto e o esmaecido são os valores do TEMA CLARO, que é onde eles foram
+     calibrados contra branco. **E o texto acompanhou o `--text` no PRETO da
+     v1.5.12**: sem isso o campo da barra da Biblioteca ficaria com o cinza que
+     o operador acabou de recusar, a dois centímetros dos nomes que deixaram de
+     usá-lo — e este campo é BRANCO nos dois temas, então a pergunta "qual
+     tema?" não se aplica a ele. 21:1 e 6,08:1 sobre `--panel` branco, isto é,
+     exatamente esta base. */
   --field-bg: #ffffff;
-  --field-text: #4a4a4a;
+  --field-text: #000000;
   --field-muted: #5c636c;
   /* E O ACENTO DELA TAMBÉM (v5.305). A regra acima tinha dois consumidores e
      ganhou o terceiro quando um botão de AÇÃO passou a morar sobre o campo (a
@@ -685,13 +689,34 @@
   --btn-warn:   #f8e7de;
   --btn-ok:     #d5f5c6;
 
-  /* texto: `night` e um derivado dele. O `winter` OFICIAL (#717171) seria o
-     secundário natural e dá 4,88:1 sobre BRANCO — mas sobre o cinza da página
-     cai para 3,81:1 e reprova AA, e `--muted` aparece nos dois lugares. O
-     derivado é o mesmo cinza com a matiz do denim e um degrau a menos de
-     luminância. Ele ESCURECEU mais um degrau na v5.267 (#5c636c → #565d66):
-     com o painel-2 mais fundo, o valor antigo dava 4,32:1 ali e reprovava. */
-  --text: #4a4a4a;                       /* night OFICIAL — 8,86:1 painel · 6,87:1 fundo */
+  /* ---------- O TEXTO DESTE TEMA É PRETO, E NÃO O `night` (v1.5.12) ----------
+     Pedido do operador, depois de duas rodadas sobre a legibilidade da
+     Biblioteca: *"então use a cor preta pra os textos e não cinza como me
+     parece ser hoje"*.
+
+     **ISTO É UM DESVIO DECLARADO DA PALETA OFICIAL**, e é o único do arquivo:
+     `#4a4a4a` é o `night`, um dos dezoito valores da identidade IASD e o texto
+     que ela prescreve. Ele não era um cinza escolhido — era A cor. O operador
+     o leu como cinza duas vezes ("me parece ser cinza hoje"), e a leitura está
+     certa: `night` É um cinza escuro, e num app operado sob a luz de um salão
+     ele se lê como texto apagado.
+
+     O preço está dito e é pequeno: o `night` continua na identidade e volta com
+     uma linha. O ganho é medido — 6,87:1 → 16,28:1 sobre a página, 8,86:1 →
+     21:1 sobre o painel branco, e sobre a tampa azul da Biblioteca (`#bdcada`,
+     a superfície onde a queixa nasceu) 5,33:1 → 12,62:1.
+
+     **`--muted` NÃO acompanha**, e essa é a metade que mantém a regra que a
+     v1.5.11 escreveu: NOME é `--text`, NÚMERO é `--muted`. O par abriu de
+     1,33:1 para 3,15:1, isto é, a hierarquia ficou MAIS legível, não menos.
+
+     Sobre o `--muted`: o `winter` OFICIAL (#717171) seria o secundário natural
+     e dá 4,88:1 sobre BRANCO — mas sobre o cinza da página cai para 3,81:1 e
+     reprova AA, e `--muted` aparece nos dois lugares. O derivado é o mesmo
+     cinza com a matiz do denim e um degrau a menos de luminância. Ele ESCURECEU
+     mais um degrau na v5.267 (#5c636c → #565d66): com o painel-2 mais fundo, o
+     valor antigo dava 4,32:1 ali e reprovava. */
+  --text: #000000;                       /* PRETO (v1.5.12) — 21:1 painel · 16,28:1 fundo */
   --muted: #565d66;                      /* 6,66:1 painel · 5,16:1 fundo · 4,73:1 painel-2 */
 
   /* denim OFICIAL nos três papéis do accent: como texto/borda ele dá 7,70:1
@@ -743,12 +768,16 @@
   --veil-solid: rgba(223, 227, 231, .92);
 
   /* Bíblia: as MESMAS dez matizes, com a tinta invertida — ladrilho claro e
-     rótulo em `--text`. O alvo do rótulo aqui é 6,5:1 e não os 8,7:1 do escuro,
-     e a razão é aritmética: o texto deste tema é o `night` (#4A4A4A), não um
-     off-white, então um ladrilho com 8,7:1 contra ele seria branco puro e a
-     matiz do grupo sumiria — que é o oposto do que a tela existe para fazer.
-     Pior rótulo 6,46:1; a separação de matiz é a mesma do escuro (≥19°), que é
-     o que dispensou a segunda banda (ver o bloco de lá). */
+     rótulo em `--text`. **Os ladrilhos NÃO foram retocados na v1.5.12**, e não
+     precisavam: o texto ESCURECEU, então todo rótulo se afastou do ladrilho
+     dele — o pior caso foi de 6,46:1 para 15,31:1. Escurecer o texto só pode
+     melhorar este par.
+
+     O alvo com que eles foram escolhidos era 6,5:1 (e não os 8,7:1 do escuro),
+     e a razão continua sendo a mesma: um ladrilho claro demais devolve a matiz
+     do grupo ao branco, que é o oposto do que a tela existe para fazer. A
+     separação de matiz é a mesma do escuro (≥19°), que é o que dispensou a
+     segunda banda (ver o bloco de lá). */
   --b-lei:#d2ddf4;
   --b-historicos:#f2d7c9;
   --b-poeticos:#a9eadd;

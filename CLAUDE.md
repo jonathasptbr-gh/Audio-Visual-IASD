@@ -2861,6 +2861,20 @@ resto desta seção.
   estado é o ÍCONE (vazado × cheio, `+` × `✓`), com a superfície `--btn-accent`
   como reforço. **Ofuscar não é dizer "desligado": é dizer "indisponível", e o
   app já tem uma linguagem para isso** (`opacity: .3` + `disabled`).
+- **E O TEXTO DO TEMA CLARO É PRETO — o ÚNICO desvio declarado da paleta**
+  (v1.5.12). Pedido do operador, na terceira rodada sobre a legibilidade da
+  Biblioteca: *"use a cor preta pra os textos e não cinza como me parece ser
+  hoje"*. `--text` era `#4a4a4a`, o **`night` OFICIAL** — não um cinza escolhido,
+  mas A cor de texto da identidade. O operador o leu como cinza duas vezes, e a
+  leitura está certa: `night` É um cinza escuro, e sob a luz de um salão ele se
+  lê como texto apagado. MEDIDO: 6,87:1 → **16,28:1** sobre a página, 8,86:1 →
+  **21:1** sobre o painel branco, 5,33:1 → **12,62:1** sobre a tampa azul da
+  Biblioteca. **`--muted` NÃO acompanha** — é ele que mantém a regra NOME ×
+  NÚMERO da v1.5.11, e o par abriu de 1,33:1 para 3,15:1. Os ladrilhos da Bíblia
+  não foram retocados e não podiam precisar: escurecer o texto só afasta o
+  rótulo do ladrilho (pior caso, 6,46:1 → 15,31:1). `smoke.mjs` guarda o desvio
+  com um LITERAL, de propósito: quem conferir a paleta contra a marca encontra o
+  preto, conclui que é um deslize e o desfaz de boa-fé.
 - **Nem todo token é valor oficial, e os derivados estão marcados.** Os dezoito
   oficiais foram desenhados para fundo BRANCO — todos passam AA sobre branco, e
   **nenhum** passa AA como texto sobre o quase-preto do tema escuro (bluejay dá
@@ -4001,12 +4015,12 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: v1.5.11** (base web) · **v1.4.42** (APK) · `SHELL_VERSION` **61** · bundle com
+**Versão atual: v1.5.12** (base web) · **v1.4.42** (APK) · `SHELL_VERSION` **61** · bundle com
 `minShell: 61` e **sem `shellTag`** — o shell 61 é o **PISO**: todo método da
 ponte existe, e não há guarda de versão no lado web. **Este lote não pede
 Release**: mexe em `assets/web/` e em `tools/`, e nada disso chega ao aparelho
 por APK — nenhum `.kt`, nenhum `res/`, nenhum manifest. O bundle sai na hora.
-O rodapé mostra `Web v1.5.11 · Shell v1.4.42`, e
+O rodapé mostra `Web v1.5.12 · Shell v1.4.42`, e
 isso não é divergência: é a resposta exata a *"o OTA chegou e o APK ainda
 não?"*. O que continua valendo é que `java/`, `res/`, o manifest e os workflows
 **só chegam instalando o APK**.

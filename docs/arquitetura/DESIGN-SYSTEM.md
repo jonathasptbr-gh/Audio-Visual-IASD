@@ -143,7 +143,7 @@ só uma, o token está no bloco COMPARTILHADO e vale nos dois.
 | `--line` | `#4f5966` | `#97a5b4` | **todas** as bordas e separadores — 2,65:1 contra o fundo no escuro, 1,95:1 no claro |
 | `--surface` / `--surface-2` | `rgba(255,255,255,.12)` / `.18` | `rgba(255,255,255,.70)` / `.92` | botão / chip-campo-badge **sobre o fundo do app** (ver R1). Branco com alfa nos DOIS temas: o controle FLUTUA sobre a página |
 | `--surface-sunk` / `--surface-2-sunk` | `rgba(0,0,0,.24)` / `.14` | `rgba(0,0,0,.06)` / `.10` | os mesmos dois **dentro de um cartão**, onde o sinal se inverte e o controle AFUNDA. Eram literais em `controle.css` até a v5.192 — os últimos pedaços de cor fora da fonte única, e o tema claro herdaria um recesso de 24% de preto sobre um cartão branco |
-| `--text` / `--muted` | `#dce0e5` / `#b0b7bf` | `#4a4a4a` / `#5c636c` | texto (14,19:1 sobre o fundo · 9,52:1 sobre painel no escuro; 6,87:1 · 8,86:1 no claro) / secundário. **No claro o `--text` é o `night` OFICIAL**; o `--muted` é derivado, porque o `winter` oficial (#717171) passa sobre branco (4,88:1) e cai para 3,81:1 sobre o cinza da página |
+| `--text` / `--muted` | `#dce0e5` / `#b0b7bf` | `#000000` / `#565d66` | texto (14,19:1 sobre o fundo · 9,52:1 sobre painel no escuro; 16,28:1 · 21:1 no claro) / secundário. **No claro o `--text` é PRETO desde a v1.5.12** — o ÚNICO desvio declarado da paleta oficial, a pedido do operador (*"use a cor preta pra os textos e não cinza como me parece ser hoje"*): ele era o `night` OFICIAL (#4a4a4a), que É um cinza escuro e se lia como texto apagado sob a luz de um salão. `--muted` NÃO acompanhou — é ele que mantém a regra NOME × NÚMERO da v1.5.11, e o par abriu de 1,33:1 para 3,15:1. Ele é derivado porque o `winter` oficial (#717171) passa sobre branco (4,88:1) e cai para 3,81:1 sobre o cinza da página |
 | `--accent` | `#8fb1f3` | `#2f557f` | o azul como **texto, ícone e borda**. No escuro é o `bluejay` CLAREADO (o oficial dá 3,97:1 sobre o fundo e reprova): 8,74:1 sobre o fundo, 5,86:1 sobre painel. No claro é o `denim` OFICIAL: 7,70:1 sobre painel, 5,97:1 sobre a página |
 | `--accent-fill` | `#2f557f` | `#2f557f` | o **`denim` OFICIAL** como fundo de elemento preenchido (aba ativa, botão primário), nos dois temas. 2,44:1 contra o fundo escuro — exatamente o peso que o preenchido âmbar tinha (2,59:1) |
 | `--on-accent` | `#e8edf3` | `#ffffff` | o que se escreve **em cima** de `--accent-fill` — 6,54:1 e 7,70:1. O par branco-sobre-denim é o que a própria identidade recomenda; no escuro vale a regra do off-white, e a folga sobra nos dois |
@@ -1063,14 +1063,18 @@ MÉTRICA (.56rem em caixa alta com espaçamento contra .86rem), não a cor — u
 `--accent` sobre a tinta quente do versículo não é a mesma leitura que sobre a
 fria do capítulo. MEDIDO, pior par entre os dez grupos e as duas grades: valor
 8,72:1 no escuro e 6,46:1 no claro; rótulo 6,16:1 e 5,05:1. A opacidade do
-rótulo é **.9** e não menos porque no claro o `--text` já é um cinza médio
-(`night`): a .72 ele cai a 3,42:1.
+rótulo é **.9**, e a razão que a prendia ali era o `--text` do claro ser um
+cinza médio (`night`, a .72 caía a 3,42:1). **Essa razão morreu na v1.5.12**,
+quando o texto virou PRETO; o valor fica porque nada pede que ele mude, e não
+mais porque uma medida o obriga.
 
-**No tema CLARO a tinta se inverte** — ladrilho claro, rótulo em `--text`. O
-alvo do rótulo lá é **6,5:1**, e não os 8,7:1 do escuro, por aritmética: o texto
-do tema claro é o `night` (#4A4A4A), não um off-white, então um ladrilho com
-8,7:1 contra ele seria branco puro e a matiz do grupo sumiria — que é o oposto
-do que a tela existe para fazer. Medido: pior rótulo 6,46:1.
+**No tema CLARO a tinta se inverte** — ladrilho claro, rótulo em `--text`. Os
+ladrilhos foram escolhidos com um alvo de **6,5:1** para o rótulo, contra o
+`night` (#4A4A4A) que era o texto do tema; um ladrilho mais claro que isso
+devolveria a matiz do grupo ao branco, que é o oposto do que a tela existe para
+fazer. **Com o PRETO da v1.5.12 nenhum ladrilho precisou ser retocado**, e não
+podia precisar: escurecer o texto só afasta o rótulo do ladrilho. Medido, o pior
+rótulo foi de 6,46:1 para **15,31:1**.
 
 ### Ao adicionar/alterar estilo
 

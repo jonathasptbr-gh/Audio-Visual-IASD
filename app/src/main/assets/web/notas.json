@@ -1,5 +1,11 @@
 [
   {
+    "versao": "1.5.12",
+    "itens": [
+      "No tema claro os textos do app ficaram pretos, em vez de cinza escuro."
+    ]
+  },
+  {
     "versao": "1.5.11",
     "itens": [
       "Os nomes das coleções deixaram de sair em maiúsculas na Biblioteca.",

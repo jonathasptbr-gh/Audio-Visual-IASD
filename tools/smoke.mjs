@@ -1928,6 +1928,27 @@ for (const tema of ['escuro', 'claro']) {
       '[' + tema + '] mas o CONTADOR continua sendo metadado: a regra é NOME em '
       + '`--text` e NÚMERO em `--muted`, não a barra inteira nivelada',
       t.rotuloNumero);
+    // ===== E NO TEMA CLARO ESSE TEXTO É PRETO, NÃO O `night` (v1.5.12) =====
+    // Terceira e última rodada do operador sobre a legibilidade desta tela:
+    // *"então use a cor preta pra os textos e não cinza como me parece ser
+    // hoje"*.
+    //
+    // **É UM DESVIO DECLARADO DA PALETA OFICIAL, e é por isso que ele precisa
+    // de caso.** `#4a4a4a` é o `night` — um dos dezoito valores da identidade
+    // IASD e o texto que ela prescreve —, então quem for conferir a paleta
+    // contra a marca encontra o preto, conclui que é um deslize e o "corrige"
+    // de volta, em silêncio e de boa-fé. A régua aqui é um LITERAL de
+    // propósito: a decisão É um valor escolhido contra a paleta, e não há
+    // vizinho renderizado que a carregue.
+    //
+    // Só no tema CLARO: no escuro o texto é o off-white de sempre, e preto ali
+    // seria invisível.
+    if (tema === 'claro') {
+      checar(t.tituloCor === 'rgb(0, 0, 0)',
+        '[claro] e o texto deste tema é PRETO, não o `night` oficial (#4a4a4a) — '
+        + 'desvio pedido pelo operador, com a identidade dizendo o contrário',
+        t.tituloCor);
+    }
   } catch (e) {
     checar(false, 'a medição da escada de camadas (' + tema + ') terminou sem exceção ('
       + (e && e.message) + ')');
