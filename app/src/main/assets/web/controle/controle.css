@@ -3371,6 +3371,23 @@ main {
    animar. */
 .coll-group--drop:not(.aberto) > .coll-group-bar > .coll-group-icon,
 .hymnal-card:not(.expanded) .coll-bar-fechar { transform: rotate(180deg); }
+/* ---------- E O RECUO DO TOQUE TEM DE COMPOR COM O GIRO (v1.5.14) ----------
+   `transform` é UMA propriedade: a lista `:is(...):active` do `--press` escreve
+   `translateY(2px)` e APAGARIA a rotação — a seta fechada daria um pulo de 180°
+   ao ser tocada. Aqui ela nem chegava a apagar, porque estas duas regras têm
+   especificidade maior (0,4,0 contra 0,2,0) e venciam em silêncio: a seta
+   recebia só a LUZ do `--press-luz`, e o recuo — a metade que o app inteiro usa
+   para dizer "apertei" — não acontecia em nenhum dos dois estados.
+   Compor é a única saída, e é por isso que estas duas linhas existem em vez de
+   uma exceção na lista. */
+:is(.coll-group-icon, .coll-bar-icon, .coll-bar-fechar):active { transform: var(--press); }
+/* A ORDEM IMPORTA: `var(--press)` vem ANTES do giro. Uma `transform` é aplicada
+   da direita para a esquerda, então `rotate(180deg) translateY(2px)` translada
+   no sistema JÁ GIRADO e a seta SOBE 2px ao ser tocada — o oposto do resto do
+   app, e o tipo de coisa que se lê como "o botão está errado" sem se saber por
+   quê. MEDIDO: `matrix(-1, 0, 0, -1, 0, -2)` contra o `(…, 0, 2)` desta ordem. */
+.coll-group--drop:not(.aberto) > .coll-group-bar > .coll-group-icon:active,
+.hymnal-card:not(.expanded) .coll-bar-fechar:active { transform: var(--press) rotate(180deg); }
 /* (`.coll-group-icon.vago` e `.coll-group--drop.fixo` saíram na v5.262: a seção
    dos Favoritos deixou de ser a única que não colapsa — ela nasce aberta por
    `grupoAberto`, e a partir daí é uma seção como as outras. Um lugar reservado

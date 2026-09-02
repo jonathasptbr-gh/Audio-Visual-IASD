@@ -470,6 +470,75 @@ try {
     'e o botão DA BARRA continua afundando os 2px: o que mudou é o desenho SEM '
     + 'pastilha, não a regra do app', naBarra);
 
+  // ── 2b-bis. A SETA DO ACORDEÃO DA BIBLIOTECA (v1.5.14) ──────────────────
+  //
+  // Ela estava nomeada nas GUARDAS do `--press` — as que zeram o recuo da barra
+  // quando o dedo pousa num botão dela — e NÃO estava na lista `:is()`, nem
+  // tinha `:active` próprio. Tocá-la CANCELAVA o feedback do vizinho sem dar
+  // nenhum no lugar, enquanto o comentário logo acima da guarda afirmava o
+  // contrário: *"o dedo pousa num deles e é ELE que responde, não a linha
+  // inteira por baixo"*. O efeito na mão é o pior tipo de inconsistência — o
+  // MESMO gesto responde ou não conforme onde o dedo cai: a barra afunda, a
+  // seta a dois milímetros dali não.
+  //
+  // DUAS COISAS FORAM MEDIDAS ESCREVENDO ESTE CASO, e nenhuma é óbvia:
+  // 1. O recuo tem de COMPOR com o giro. `transform` é uma propriedade só, e a
+  //    seta de uma seção FECHADA já gira 180° — a lista do `--press` a apagaria
+  //    (a seta daria um pulo de meia-volta ao ser tocada). E a ORDEM importa:
+  //    `rotate(180deg) translateY(2px)` translada no sistema JÁ GIRADO e a seta
+  //    SOBE — medido, `matrix(…, 0, -2)` contra o `(…, 0, 2)` que se quer.
+  // 2. A medição espera a TRANSIÇÃO. `.coll-group-icon` tem
+  //    `transition: transform`, então amostrar no instante do `mouse.down`
+  //    devolve o valor de PARTIDA e aprova uma regra que não existe — foi
+  //    exatamente o que a primeira escrita deste caso fez.
+  const seta = await (async () => {
+    const alvo = '#hymnResults > .coll-group--drop:not(.aberto) .coll-group-icon';
+    const p0 = await pg.evaluate(async (sel) => {
+      if (!hymnSearchPopupEl.classList.contains('open')) openHymnSearch();
+      await new Promise((r) => setTimeout(r, 250));
+      const el = document.querySelector(sel);
+      if (!el) return null;
+      const r = el.getBoundingClientRect();
+      return { x: Math.round(r.x + r.width / 2), y: Math.round(r.y + r.height / 2),
+        w: Math.round(r.width), h: Math.round(r.height),
+        t: getComputedStyle(el).transform };
+    }, alvo);
+    if (!p0) return null;
+    await pg.mouse.move(p0.x, p0.y);
+    await pg.mouse.down();
+    await pg.waitForTimeout(350);
+    const d = await pg.evaluate((sel) => {
+      const el = document.querySelector(sel);
+      return { t: getComputedStyle(el).transform, f: getComputedStyle(el).filter };
+    }, alvo);
+    await pg.mouse.move(1, 1);
+    await pg.mouse.up();
+    await pg.evaluate(() => { closeHymnSearch(); });
+    await pg.waitForTimeout(200);
+    return { antes: p0, durante: d };
+  })();
+  checar(!!seta, 'a seta de uma seção FECHADA da Biblioteca foi encontrada', seta);
+  if (seta) {
+    const m = /matrix\(([^)]+)\)/.exec(seta.durante.t);
+    const ty = m ? parseFloat(m[1].split(',')[5]) : 0;
+    const giradaAntes = seta.antes.t.startsWith('matrix(-1');
+    const giradaDurante = seta.durante.t.startsWith('matrix(-1');
+    checar(ty === 2 && seta.durante.f !== 'none',
+      'A SETA DO ACORDEÃO RESPONDE AO TOQUE: afunda os 2px e acende. Ela estava '
+      + 'nas guardas que zeram o recuo da barra e fora da lista do `--press` — '
+      + 'tocá-la apagava o feedback do vizinho sem dar nenhum',
+      'antes ' + seta.antes.t + ' · durante ' + seta.durante.t + ' · ' + seta.durante.f);
+    checar(giradaAntes === giradaDurante,
+      '  ↳ e o GIRO sobrevive ao recuo: `transform` é uma propriedade só, e a '
+      + 'seta de uma seção fechada aponta para baixo — o `--press` sozinho a '
+      + 'endireitaria no meio do toque',
+      'girada antes: ' + giradaAntes + ' · durante: ' + giradaDurante);
+    checar(seta.antes.w >= 34 && seta.antes.h >= 34,
+      '  ↳ e ela alcança o `--hit`: era 32×32, o único alvo da Biblioteca abaixo '
+      + 'do piso de toque do próprio app, no controle mais tocado daquela tela',
+      seta.antes.w + '×' + seta.antes.h);
+  }
+
   // ── 2c. O ANEL DE FOCO É DO TECLADO, E SÓ DELE (v1.4.34) ────────────────
   //
   // Relato do operador, DEPOIS da v1.4.33: *"ainda estou vendo a onda azulada
