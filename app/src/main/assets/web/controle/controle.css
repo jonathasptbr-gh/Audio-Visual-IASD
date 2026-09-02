@@ -3398,7 +3398,15 @@ main {
 .coll-group-corpo {
   list-style: none; margin: 0; padding: 0;
   display: flex; flex-direction: column;
-  overflow: hidden;
+  /* SEM `overflow: hidden` (v1.5.14), e é a mesma razão que o `.coll-group--drop`
+     já documentava: **um ancestral que recorta vira o SCROLLPORT de um
+     `position: sticky` descendente**, e a barra do álbum passa a grudar no topo
+     DELE em vez de no da lista. MEDIDO com o empilhamento da v1.5.14: a barra
+     era empurrada 52px para baixo do próprio slot e cobria a primeira faixa.
+     O recorte era REDUNDANTE: quem precisa dele é a animação do acordeão, e ela
+     já o escreve inline nas duas pontas (`el.style.overflow = 'hidden'` ao
+     começar, `= ''` ao terminar — ver `collapseAccordion`). Deixá-lo na folha
+     fazia a regra valer o tempo todo para servir a 220ms. */
 }
 /* O CORPO NÃO TEM FUNDO PRÓPRIO: ele é a segunda faixa do bloco da seção, então
    fica com o tom DELA — e é essa a correção da v5.267. Ele ficava com a cor da
@@ -4147,14 +4155,26 @@ main {
    `.lib-item` de dentro dela. */
 .acervo .coll-group-corpo { --camada: var(--poco); }
 .acervo .hymnal-card.expanded { --camada: var(--panel); }
-/* ---------- AS TAMPAS NÃO TÊM TOM PRÓPRIO ----------
-   Elas eram `--surface` (um recesso) para se separarem do bloco. Com o poço, o
+/* ---------- AS TAMPAS VESTEM O TOM DO PRÓPRIO BLOCO ----------
+   Elas eram `--surface` (um recesso) para se separarem dele. Com o poço, o
    bloco já se separa do que está em volta, e uma tampa tingida era um terceiro
    tom dentro de uma caixa de dois — o que fazia o cabeçalho competir com o
-   conteúdo em vez de encabeçá-lo. O que a fixa agora é o STICKY, não uma cor. */
+   conteúdo em vez de encabeçá-lo. O que a distingue agora é o STICKY.
+
+   **MAS ELA NÃO PODE SER TRANSPARENTE, e isso é sobre o sticky e não sobre a
+   cor.** Uma tampa grudada com fundo transparente deixa a lista passar POR
+   BAIXO dela à vista — o texto do cabeçalho por cima do texto das faixas. Foi o
+   primeiro corte deste lote e só apareceu ao rolar.
+
+   `background-color: inherit` e não o token: a tampa é a primeira faixa do
+   bloco, e o bloco veste POÇO ou PAPEL conforme a profundidade (ver acima).
+   Escrever o token aqui exigiria repetir a regra de profundidade numa segunda
+   escrita, que divergiria da primeira no dia em que um nível novo aparecesse;
+   `inherit` faz a tampa acompanhar o que o bloco de fato pinta, seja ele qual
+   for. */
 .acervo .coll-group-bar,
 .acervo .hymnal-card > .coll-bar,
-.acervo .hymnal-card.expanded > .coll-bar { background: transparent; }
+.acervo .hymnal-card.expanded > .coll-bar { background-color: inherit; }
 /* ---------- O CABEÇALHO DA SEÇÃO GRUDA (v1.5.14) ----------
    A ALTURA É DETERMINÍSTICA e por isso o `top` do álbum não precisa de medição
    em JS (que a v1.5.3 ensinou a desconfiar): o nome é `nowrap` + elipse
