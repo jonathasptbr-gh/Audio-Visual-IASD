@@ -111,6 +111,14 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
      mesmo, ou a caixa da lista muda de tamanho ao entrar na seleção e a lista
      pula debaixo do dedo. */
   --hit: 34px;
+  /* A ALTURA DA BARRA DE UMA SEÇÃO DA BIBLIOTECA (v1.5.14). Ela é token porque
+     DUAS regras precisam do mesmo número: a barra da seção, que gruda em
+     `top: 0`, e a do álbum, que gruda logo abaixo dela. Escrito duas vezes ele
+     divergiria no primeiro ajuste de recuo, e o sintoma seria o cabeçalho de
+     dentro cobrindo o de fora — exatamente a pergunta que o sticky existe para
+     responder. Determinístico: `--hit` mais o recuo vertical de `.55rem` dos
+     dois lados, com o nome em `nowrap` (ver `.coll-group-name`). */
+  --bar-secao-h: calc(var(--hit) + 1.1rem);
   /* Espessura do cap do fader de volume — ele atravessa a coluna inteira, como
      o cap de uma mesa de som de verdade. */
   --fader-cap: 26px;
@@ -278,11 +286,15 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
    preto sobre um cartão branco. */
 .row-item, .lib-item, .hymnal-card, .msg-item, .bible-vsec,
 .dialog-card, .popup-sheet, .fade-row, .simple-lyrics, .simple-key,
-/* Os dois blocos de nível 1 da Biblioteca: eles pintam `--camada`, que dentro
-   da folha de tela cheia resolve para `--panel` — são cartões pela definição
-   desta regra. Sem a barra de busca aqui, o campo dela ficava `--surface-2`
-   (branco a 92%) sobre um `--panel` que no tema CLARO é branco puro: 1,00:1. */
-.coll-group--drop, #hymnSearchPopup .hymn-search-bar,
+/* O bloco de nível 1 da Biblioteca: ele pinta uma superfície opaca, logo é um
+   cartão pela definição desta regra e o que estiver dentro dele afunda.
+   (`#hymnSearchPopup .hymn-search-bar` saiu daqui na v1.5.14: a peça morreu na
+   v1.5.0, quando a barra da Biblioteca virou a `.lib-bar` da caixa de controles
+   — fora deste popup. O seletor sobreviveu quatorze lotes sem casar com nada, e
+   o comentário que o justificava seguia descrevendo um campo que já não morava
+   aqui; quem o herdou foi a regra do tema claro em `:root[data-tema="claro"]
+   .lib-bar`.) */
+.coll-group--drop,
 /* A FOLHA DE FERRAMENTAS (v1.3.14). Ela pinta `--panel` desde que nasceu, na
    v1.3.10, e nunca entrou aqui — é o modo de falhar que esta regra existe para
    fechar, acontecendo de novo. MEDIDO no tema CLARO: o `.mic-btn` saía em
@@ -477,7 +489,15 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
      ao toque sem nada na tela dizer por quê. Nenhum ancestral deles está na
      lista (a `.fade-opts` e a `.qs-grade` não respondem a toque), então não há
      duplo recuo a suprimir. */
-  .qs-tile
+  .qs-tile,
+  /* AS SETAS DO ACORDEÃO DA BIBLIOTECA (v1.5.14). Elas estavam NAS GUARDAS logo
+     acima — que zeram o recuo da barra quando o dedo pousa nelas — e NÃO
+     estavam aqui: tocá-las cancelava o feedback do vizinho sem dar nenhum no
+     lugar. O comentário da guarda afirmava o contrário (*"o dedo pousa num
+     deles e é ELE que responde"*), e o efeito na mão era o mesmo gesto
+     respondendo ou não conforme onde o dedo caísse: a barra afunda, a seta a
+     dois milímetros dali não. É o modo de falhar que o texto da lista nomeia. */
+  .coll-group-icon, .coll-bar-icon, .coll-bar-fechar
 ):active { transform: var(--press); filter: var(--press-luz); }
 
 
@@ -1920,7 +1940,9 @@ main {
 .tools-btn span, .lib-foot-btn span {
   min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.tools-btn:active, .lib-foot-btn:active { transform: var(--press); filter: var(--press-luz); }
+/* (A regra `:active` própria destes dois saiu na v1.5.14: as duas classes já
+   estão na lista `:is()` do `--press`, com o mesmo valor e a mesma pseudo-classe.
+   Uma segunda escrita da mesma coisa só cria a chance de as duas divergirem.) */
 .list-foot > .import-row { margin-top: 0; }
 /* (`.fav-section` saiu na v5.254: os favoritos são UMA lista, na ordem que o
    operador der a ela. Os cabeçalhos por tipo eram doze rótulos disputando a
@@ -3250,7 +3272,11 @@ main {
    segunda arte para a mesma ideia era a divergência que a fonte única existe
    para não ter. */
 .coll-group-icon, .coll-bar-icon {
-  width: 32px; height: 32px; flex-shrink: 0;
+  /* `--hit` e não 32px (v1.5.14): estas duas eram os únicos alvos da Biblioteca
+     ABAIXO do piso de toque do próprio app, e são o controle que abre e fecha
+     cada seção e cada álbum. Dois pixels não se veem; num alvo que o polegar
+     procura sem olhar, eles são a diferença entre acertar e abrir outra coisa. */
+  width: var(--hit); height: var(--hit); flex-shrink: 0;
   border-radius: var(--radius-btn);
   background: var(--btn-accent); color: var(--accent);
   display: flex; align-items: center; justify-content: center;
@@ -3946,139 +3972,127 @@ main {
 .bg-gerais     { background-color: var(--b-gerais); }     /* Cartas Gerais   */
 .bg-apocalipse { background-color: var(--b-apocalipse); } /* Apocalipse      */
 
-/* ---------- E OS OITO TONS DAS COLEÇÕES (v1.5.7) ----------
-   A mesma gramática dos ladrilhos acima, num eixo diferente: lá a cor é
-   SEMÂNTICA (a divisão canônica), aqui é POSICIONAL — a ordem em que os cards
-   aparecem na Biblioteca. Os nomes são montados por concatenação no JS
-   (`'col-' + n`), então NÃO aparecem literais fora daqui: não são código morto.
-
-   `background-color` e não `background`, pela mesma razão do bloco acima: a
-   abreviação apagaria o que more no `background-image` do card.
-
-   ELES VENCEM O `--camada` do card por ESPECIFICIDADE (duas classes contra
-   uma), e é assim que a regra de tom do `.hymnal-card` continua de pé para quem
-   nasce fora da Biblioteca — um card sem `col-N` cai no `--panel-2` de sempre. */
+/* (O bloco que descrevia os OITO TONS DAS COLEÇÕES — `.col-1`…`.col-8`, v1.5.7 —
+   saiu na v1.5.14. As regras que ele explicava tinham sido revogadas na v1.5.9,
+   onze linhas ABAIXO dele, e o comentário sobreviveu à própria revogação
+   afirmando que os nomes "não são código morto". Eram: `grep '\.col-[0-9]'`
+   nesta folha não devolvia nada desde então. É a lápide que o CLAUDE.md proíbe —
+   um comentário que promete um mecanismo que não existe mais faz o próximo
+   leitor procurá-lo, ou reintroduzi-lo.) */
 /* =====================================================================
-   A HIERARQUIA DA BIBLIOTECA É DESENHADA COM MOLDURA (v1.5.9)
+   A HIERARQUIA DA BIBLIOTECA: PAPEL → POÇO → PAPEL (v1.5.14)
    =====================================================================
-   Pedido do operador, com as três capturas do defeito: *"está errado, reformule
-   o sistema de coloração e organização de grupos e subgrupos. vamos usar o
-   padrão branco e azul padrão do sistema, e vou lhe dar autoridade para usar
-   sistemas visuais de design e organização usando bordas, mas apenas para a
-   biblioteca. pois temos 3 niveis de listagens na biblioteca e o sistema de
-   separação apenas por cor sólida de cards está limitando nossas opções"*.
+   **ISTO REVOGA A MOLDURA DA v1.5.9 E A ESCADA DE TOM QUE VEIO ANTES DELA.**
+   Pedido do operador: *"poucas bordas, sem traços finos, ou designs visualmente
+   poluídos"* — e, sobre as nove rodadas que este arquivo já levou nesta tela,
+   *"chegamos a um pico de eficiência, que pequenas variações não mudam muito o
+   resultado; para achar um resultado melhor, devemos ir um pouco mais longe"*.
 
-   **ISTO REVOGA A PALETA DA v1.5.7/v1.5.8 INTEIRA** (`--col-*`, as três
-   famílias, as oito matizes em ordem). Ela tentava resolver HIERARQUIA com COR
-   SÓLIDA, e o diagnóstico do operador é exato: **cor sólida não diz o que está
-   dentro do quê.** Nas capturas, oito matizes pastel produziam uma lista bonita
-   e ilegível — a seção "ADORADORES" em lilás com cinco álbuns lilás soltos
-   dentro dela, sem nada dizendo onde o grupo começava e acabava.
+   ---------- POR QUE NENHUMA DAS NOVE RODADAS FECHOU ----------
+   A Biblioteca tem QUATRO níveis (janela → seção → álbum → faixa) e a paleta
+   tem TRÊS degraus. Isso não é falta de ajuste fino, é aritmética: partindo do
+   branco da janela (v1.5.7), quatro degraus no piso de 1,28:1 dão
 
-   **A AUTORIDADE PARA A BORDA É EXPLÍCITA E É ESCOPADA.** Ela vale AQUI, dentro
-   da lista do ACERVO (`.acervo`), e em lugar nenhum mais: a regra do app continua sendo que
-   tudo se separa por preenchimento, e o `tokens.test.mjs` continua cobrando isso
-   de todo o resto. O que a autoriza aqui é o que o operador nomeou — **TRÊS
-   níveis de lista**, e três degraus de tom para separar três níveis aninhados é
-   exatamente o degrau que a escada não tem (ver "A ESCADA TEM TRÊS DEGRAUS" no
-   CLAUDE.md, e a v1.5.7, que gastou o de cima com a janela branca).
+     nível 0 #ffffff → nível 1 #e3e3e3 → nível 2 #cacaca → nível 3 #b3b3b3
 
-   ┌ NÍVEL 1 — a SEÇÃO ────────────────────────────────┐  moldura + tampa
-   │ ▸ CDS OFICIAIS/ANO                        2,4 GB  │  `--surface`
-   │ ┌ NÍVEL 2 — o CARD ────────────────────────────┐  │  moldura + tampa
-   │ │ ▸ Eu Vou                        2022 · 55 MB │  │  `--surface`
-   │ │   NÍVEL 3 — as LINHAS                        │  │  sem moldura:
-   │ │   ▸ Eu Vou                                   │  │  preenchimento
-   │ │   ▸ O Amor Vive                              │  │  e espaço
-   │ └──────────────────────────────────────────────┘  │
-   └───────────────────────────────────────────────────┘
+   e o nível 3 é onde mora TODO o texto da lista. #b3b3b3 é literalmente a
+   *"predominância cinza escura"* recusada na v1.5.10. **Não existe escada de
+   TOM que resolva quatro níveis sobre base branca**, e é por isso que cada
+   rodada só conseguia escolher QUAL degrau sub-piso aceitar.
 
-   **A MOLDURA É A CAIXA QUE FALTAVA NO NÍVEL 1.** Relato: *"verifique a primeira
-   camada de lista de coleções, pois ela não está criando uma caixa ou moldura ao
-   redor do seu agrupamento, diferente de como ocorre corretamente com o card dos
-   albuns, que cria uma caixa para seus itens"*. O card sempre teve caixa — o
-   corpo dele fica DENTRO do bloco pintado; a seção pintava o mesmo tom nos dois
-   e o agrupamento sumia. Com moldura os dois têm caixa, e a de dentro se vê
-   dentro da de fora.
+   MEDIDO no renderizado, o estado que este bloco substitui — nenhum par
+   cumpria o piso de 1,28 que o próprio projeto declara:
 
-   **E TUDO VOLTA AO BRANCO E AZUL DO SISTEMA:** a janela é `--panel`, as caixas
-   são `--btn-accent` (v1.5.10) e as tampas são `--surface` — o cinza dos
-   botões, e o único cinza que a lista tem. */
-/* OS DOIS NÍVEIS DE AGRUPAMENTO DIVIDEM O TOM, E É A MOLDURA QUE OS SEPARA — que
-   é exatamente para isso que a autoridade foi dada. Os dois pintam o MESMO tom
-   sobre a janela `--panel`: um degrau de verdade contra a base, e nenhum entre
-   si, porque entre eles há sempre a linha e o recuo do corpo.
+     par                              escuro   claro
+     janela × seção                    1,14     1,21
+     seção × card                      1,00     1,00   (iguais por decisão)
+     card × faixa                      1,24     1,17
+     tampa da seção × tampa do card    1,00     1,00
+     tampa do card × faixa             1,00     1,60
 
-   ---------- E O TOM É O AZUL FRACO, NÃO UM CINZA (v1.5.10) ----------
-   Pedido do operador, com as duas capturas: *"essa predominância cinza escura
-   está muito ruim em especial no tema claro. porque não usou o azul fraco como
-   cor principal dos cards?"* — e, sobre o cinza que sobra: *"também pode ser
-   interessante usar apenas o cinza que se usa nos botões, não sei porque foi
-   usado um cinza bem mais escuro"*.
+   No escuro `--item-fill` É `var(--surface-sunk)`, o MESMO token da tampa e
+   sobre a MESMA base: a barra de título do álbum e as faixas dentro dele eram
+   pixel-idênticas. O que sobrava carregando a hierarquia era a moldura de 1px —
+   2,51:1 no claro, 1,78:1 no escuro —, isto é, o traço fino que o pedido recusa.
 
-   As duas frases são a MESMA correção vista dos dois lados, e é por isso que
-   elas cabem numa troca só: a caixa passa a ser `--btn-accent` (o azul fraco,
-   a superfície de ação deste app) e o único cinza que sobra na lista é o
-   `--surface` das tampas, que É o cinza dos botões. **O `--panel-2` sai da
-   Biblioteca inteira** — ele é o cinza escuro que o relato nomeia, e ocupava a
-   área de duas caixas aninhadas em cada seção.
+   ---------- A SAÍDA: PARAR DE EMPILHAR, PASSAR A ALTERNAR ----------
+   Uma escada ACUMULA e acaba. Uma alternância não:
 
-   **A MEDIÇÃO QUE OBRIGAVA O `--panel-2` CONTINUA VALENDO, e é ela que decide
-   entre os dois candidatos.** O nível 3 usa `--item-fill`, que no tema CLARO é
-   branco a 80%: sobre uma caixa BRANCA ele mede 1,00:1 e some (foi o que
-   reprovou o primeiro corte da v1.5.9). Sobre `--btn-accent` ele mede 1,17:1 no
-   claro e 1,35:1 no escuro — menos que o 1,32:1 que o cinza escuro dava no
-   claro, e ainda assim a faixa se lê, porque o que a separa da vizinha nunca
-   foi só o degrau: é o degrau MAIS o espaço, e o espaço agora mostra AZUL entre
-   as faixas em vez de mais cinza. O que não se podia aceitar era o 1,00:1, e
-   nenhum dos dois temas chega perto dele.
+     janela              PAPEL  (--panel)   cabeçalho GRUDENTO
+       └ seção           POÇO   (--poco)    cabeçalho GRUDENTO
+           └ álbum       PAPEL  (--panel)   ← volta ao tom da janela
+               └ faixa   —                  sem fundo: preenchimento é ESTADO
 
-   **E o `--surface` das tampas não vira o mesmo tom por acidente:** ele é alfa,
-   então compõe sobre o azul e sai um cinza-azulado — um degrau de verdade
-   contra a caixa nos dois temas, que é o que faz a tampa continuar sendo a
-   linha que se toca. */
+   Duas superfícies, profundidade ilimitada, ZERO traços. MEDIDO no renderizado:
+   **1,43:1 em cada degrau no escuro, 1,35:1 no claro** — todos acima do piso.
+
+   O poço É a caixa que o operador pediu na v1.5.9 (*"a primeira camada de lista
+   de coleções não está criando uma caixa ou moldura ao redor do seu
+   agrupamento"*), desenhada por um degrau de verdade em vez de um filete.
+
+   ---------- E A PROFUNDIDADE É DITA POR TRÊS MECANISMOS NÃO-TONAIS ----------
+   1. CABEÇALHO GRUDENTO NOS DOIS NÍVEIS. É o único mecanismo que continua
+      respondendo DEPOIS de a lista rolar — tom, cor e borda só falam enquanto o
+      topo do grupo está à vista, e a queixa do operador (*"dificultando
+      discernir se estou em uma camada ou subcamada"*, v5.267) é sobre estar no
+      MEIO de uma lista longa. O `.coll-bar` do álbum já era `sticky` desde a
+      v5.242, com o argumento escrito lá: *"a outra metade da pergunta 'onde eu
+      estou?'"*. Faltava no nível 1 — justamente o que ele não distinguia.
+   2. RECUO, sem traço na coluna vazia (o `padding` do corpo, que já existia).
+   3. RANK TIPOGRÁFICO (ver `--fs-*`, no `:root` desta folha).
+
+   ---------- A REGRA É POR PROFUNDIDADE, NUNCA POR TIPO DE BLOCO ----------
+   As coleções fixas (os dois hinários, as séries) e as pastas sincronizadas
+   nascem na RAIZ, irmãs das seções: são nível 1 e vestem o POÇO. O mesmo
+   `.hymnal-card` dentro de uma seção é nível 2 e veste o PAPEL. Escrever isto
+   por tipo de bloco (`.hymnal-card { papel }`) foi o primeiro corte deste lote
+   e MEDIU 1,00:1 — os hinários da raiz sumiam sobre a janela branca. */
+/* NÍVEL 1 — o que está na RAIZ da lista é um agrupamento, e agrupamento é poço. */
 .acervo > .coll-group--drop,
-.acervo .hymnal-card,
-/* A PASTA SINCRONIZADA entra aqui pela regra da v5.284 (*"mantenha apenas as
-   pastas sincronizadas dos favoritos como cores de álbum"*): ela guarda muitos
-   arquivos, logo é um CONTÊINER, e no desenho novo um contêiner é uma ficha com
-   moldura. Sem ela a pasta ficaria com o tom da ÁREA em que mora e sumiria
-   dentro dela — MEDIDO, 1,00:1. */
-.acervo .folder-opfs {
-  background: var(--btn-accent);
-  border: 1px solid var(--line);
+.acervo > .hymnal-card,
+.acervo > .folder-opfs { background: var(--poco); }
+/* NÍVEL 2 — dentro de uma seção, o bloco volta ao PAPEL. É a alternância, e é
+   ela que dispensa um quarto tom: o neto tem a cor do avô, e isso não confunde
+   porque entre eles há sempre o poço, que é a caixa do meio. */
+.acervo .coll-group-corpo .hymnal-card,
+.acervo .coll-group-corpo .folder-opfs { background: var(--panel); }
+/* E O QUE CADA CORPO RESERVA AOS FILHOS acompanha a alternância. Quem lê isto é
+   a PLACA dos favoritos (`.fav-itens`, que não é card e não pinta sozinha) e a
+   `.lib-item` de dentro dela. */
+.acervo .coll-group-corpo { --camada: var(--poco); }
+.acervo .hymnal-card.expanded { --camada: var(--panel); }
+/* ---------- AS TAMPAS NÃO TÊM TOM PRÓPRIO ----------
+   Elas eram `--surface` (um recesso) para se separarem do bloco. Com o poço, o
+   bloco já se separa do que está em volta, e uma tampa tingida era um terceiro
+   tom dentro de uma caixa de dois — o que fazia o cabeçalho competir com o
+   conteúdo em vez de encabeçá-lo. O que a fixa agora é o STICKY, não uma cor. */
+.acervo .coll-group-bar,
+.acervo .hymnal-card > .coll-bar,
+.acervo .hymnal-card.expanded > .coll-bar { background: transparent; }
+/* ---------- O CABEÇALHO DA SEÇÃO GRUDA (v1.5.14) ----------
+   A ALTURA É DETERMINÍSTICA e por isso o `top` do álbum não precisa de medição
+   em JS (que a v1.5.3 ensinou a desconfiar): o nome é `nowrap` + elipse
+   (`.coll-group-name`) e o recuo é fixo (`.55rem`), então a barra vale
+   exatamente `--hit` + 1,1rem. Declarar a altura aqui é o que impede as duas
+   escritas do mesmo número de divergirem.
+   Sem `overflow: hidden` em `.coll-group--drop` (deliberado desde a v5.267,
+   pelo sticky do álbum) o `position: sticky` funciona nos dois níveis. */
+.acervo > .coll-group--drop > .coll-group-bar {
+  position: sticky; top: 0; z-index: 4;
+  height: var(--bar-secao-h);
 }
-.acervo .hymnal-card.expanded { --camada: var(--btn-accent); }
-/* E O QUE O CORPO DE UMA SEÇÃO RESERVA AOS FILHOS É O MESMO TOM. Quem lê isso é
-   a PLACA dos favoritos (`.fav-itens`, que não é um card e por isso não pinta
-   sozinha): sem esta linha ela continuaria em `--panel-2` e sairia um retângulo
-   cinza escuro dentro de uma seção azul — o defeito do relato, sobrevivendo no
-   único lugar em que a caixa não se pinta. */
-.acervo .coll-group-corpo { --camada: var(--btn-accent); }
-/* A TAMPA DE CADA CAIXA — o mesmo tom nos dois níveis, porque o que os distingue
-   é o ANINHAMENTO e não a cor. Ela some quando a caixa está aberta? Não: a tampa
-   é a linha que se toca, e ela existe igual nos dois estados. */
-.acervo > .coll-group--drop > .coll-group-bar,
-.acervo .hymnal-card > .coll-bar { background: var(--surface); }
-/* ---------- ABRIR NÃO TROCA A COR DE NADA (v1.5.9) ----------
-   Relato do operador: *"verifique também a mudança para tons cinzas ao
-   selecionar o item, pois está sendo inconsistente com sua cor real"*.
-
-   `.hymnal-card.expanded` declarava `--camada: var(--panel-2)` e a tampa lia
-   isso — então o card ABERTO trocava de tom, e nas capturas ele saía CINZA
-   dentro de uma seção colorida. Aquele degrau existia como sinal de "isto
-   levantou" (v1.3.14), num tempo em que não havia moldura; hoje quem diz que a
-   caixa abriu é o CORPO À VISTA e a seta girada, que é o que a doutrina do app
-   já manda (*"ABERTO = não é cor"*). A tampa fica com o tom dela nos dois
-   estados. */
-/* E A TAMPA DE UM CARD ABERTO É A MESMA TAMPA. Ela lia `--camada` para ficar
-   "do mesmo tom do cartão"; hoje o tom do cartão é a base, e a tampa tem tom
-   próprio nos dois estados. */
-.acervo .hymnal-card.expanded > .coll-bar { background: var(--surface); }
-/* ---------- O NÍVEL 3 NÃO GANHA MOLDURA ----------
-   Ele é o CONTEÚDO, não um agrupamento: uma faixa é a última folha da árvore, e
-   emoldurá-la faria a lista inteira virar uma grade de caixinhas. O que a separa
-   da vizinha é o preenchimento e o espaço, como em todo o resto do app. */
+/* E O DO ÁLBUM GRUDA LOGO ABAIXO DELE, nunca em `top: 0`: empatados, o de
+   dentro cobriria o de fora e a pergunta "dentro de quê?" ficaria sem resposta
+   exatamente quando ela é feita. */
+.acervo .hymnal-card.expanded > .coll-bar { top: var(--bar-secao-h); z-index: 3; }
+/* ---------- O NÍVEL 3 NÃO TEM FUNDO ----------
+   A faixa é CONTEÚDO do card, não um agrupamento: o que a separa da vizinha é o
+   espaço, que é a regra R0 do projeto (*"o quarto degrau é o espaço"*) — agora
+   aplicada um nível acima, porque saiu uma camada de caixas. O preenchimento
+   fica reservado ao ESTADO (no ar, selecionado), e é isso que faz o estado
+   saltar: numa lista sem fundo nenhum, a única mancha de cor é a que importa. */
+.acervo .coll-songs > .hymn-result { --linha: transparent; }
+/* O raio da tampa acompanha o do bloco enquanto ela é a única faixa à vista. */
 .coll-group-bar,
 .hymnal-card > .coll-bar { border-radius: var(--radius-card) var(--radius-card) 0 0; }
 .coll-group--drop:not(.aberto) .coll-group-bar,
