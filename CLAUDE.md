@@ -2771,21 +2771,33 @@ contra o campo, que é o MESMO degrau em que os botões vivem contra a mesma bar
 — a borda não ficou menos visível que eles, ficou igual a eles. **É o NOME que a mantém única** — a lista
 não tem regra que a próxima borda possa alegar cumprir.
 
-**E A BIBLIOTECA TEM UM ESCOPO, não um nome** (v1.5.9). Autoridade explícita do
-operador: *"vou lhe dar autoridade para usar sistemas visuais de design e
-organização usando bordas, mas apenas para a biblioteca. pois temos 3 niveis de
-listagens na biblioteca e o sistema de separação apenas por cor sólida de cards
-está limitando nossas opções"*. **O "apenas" é o que a torna verificável:** a
-exceção não é "bordas agora podem", é a lista do acervo (`.acervo`, marca posta
-pelo `renderCollectionsList`) — uma borda em qualquer outro seletor continua
-reprovando, na FONTE e no RENDERIZADO. O que a autoriza é aritmético como as
-outras: são TRÊS níveis de lista aninhados, e a escada tem três degraus dos quais
-a janela já gastou o de cima (v1.5.7). A v1.5.7 e a v1.5.8 tentaram resolver com
-COR SÓLIDA e o operador reprovou com três capturas — cor sólida não diz o que
-está dentro do quê.
+**E A EXCEÇÃO DA BIBLIOTECA SAIU (v1.5.14).** Ela existiu da v1.5.9 à v1.5.13,
+por autoridade explícita do operador: *"vou lhe dar autoridade para usar sistemas
+visuais de design e organização usando bordas, mas apenas para a biblioteca. pois
+temos 3 niveis de listagens na biblioteca e o sistema de separação apenas por cor
+sólida de cards está limitando nossas opções"*.
 
-Os três nomes e o escopo são cobrados um a um no oráculo
-(`tools/tokens.test.mjs`, sem `continue-on-error`). É ele que faz a regra durar:
+**A autorização era para o PROBLEMA, e o problema tinha causa aritmética.** São
+QUATRO níveis (janela → seção → álbum → faixa) sobre uma escada de três degraus,
+com a janela tendo gastado o de cima na v1.5.7. MEDIDO no renderizado, o desenho
+que a moldura sustentava não cumpria o piso de 1,28:1 em **nenhum** par de
+superfícies — sete de sete reprovavam no tema escuro — e três pares valiam
+**1,00:1** (no escuro, a tampa de um álbum e as faixas dentro dele eram
+pixel-idênticas: `--item-fill` **é** `var(--surface-sunk)`, o mesmo token da
+tampa sobre a mesma base). O traço de 1px era a única coisa daquela tela com
+contraste de verdade, e era por isso que ele parecia funcionar.
+
+A v1.5.14 troca a **escada** pela **alternância** (ver "A hierarquia da
+Biblioteca", abaixo): sem escassez de degrau não há o que a borda resolva, e o
+pedido de então — *"poucas bordas, sem traços finos, ou designs visualmente
+poluídos"* — a dispensa. Com ela saiu o token `--line`, que tinha ficado com zero
+consumidores e cujo próprio comentário dizia que ele *"NÃO pode voltar a ser um
+filete"* enquanto era o único filete do app.
+
+Os três nomes são cobrados um a um no oráculo
+(`tools/tokens.test.mjs`, sem `continue-on-error`), e **não há mais recorte por
+escopo** — ele era a única exceção que não nomeava uma peça, e uma exceção por
+escopo é a que mais barato se alarga. É ele que faz a regra durar:
 uma borda é a coisa mais fácil de acrescentar quando duas caixas não estão se
 separando o bastante, e ela não quebra nada, não erra alto e não aparece em teste
 de comportamento nenhum.
@@ -2855,8 +2867,8 @@ resto desta seção.
   na mesma cor (v1.3.15). Duas manchas cheias na mesma faixa disputam, e a que
   menos deve disputar é a que só diz "você está aqui".
   **E UM INTERRUPTOR APAGADO É UM BOTÃO NORMAL** (v1.4.25): a estrela e o
-  "à playlist" vestiam `--line` — a cor de LINHA, que neste app só o `↑↓`
-  INERTE usa —, e o operador os lia como indisponíveis (*"foi simplesmente
+  "à playlist" vestiam `--line` — a cor de LINHA, que já então quase ninguém
+  usava e que saiu de vez na v1.5.14 —, e o operador os lia como indisponíveis (*"foi simplesmente
   ofuscado o botão inteiro"*). Apagado é o `.row-btn` de sempre; quem carrega o
   estado é o ÍCONE (vazado × cheio, `+` × `✓`), com a superfície `--btn-accent`
   como reforço. **Ofuscar não é dizer "desligado": é dizer "indisponível", e o
@@ -2988,55 +3000,78 @@ acima cobre a FAIXA — sem acrescentá-lo, o balanço voltava pelo botão novo.
 
   **A v1.5.7 e a v1.5.8 responderam com COR e o operador reprovou** (três
   capturas): oito matizes por coleção, em ordem de espectro, com três famílias de
-  tom cada. *Cor sólida não diz o que está dentro do quê.* **A resposta que
-  ficou é MOLDURA** (v1.5.9), com autoridade explícita e escopada à Biblioteca —
-  ver "A paleta", acima. Os dois níveis de agrupamento pintam o MESMO tom e a
-  LINHA os separa; a janela continua `--panel`, um degrau acima.
+  tom cada. *Cor sólida não diz o que está dentro do quê* — e a razão é que cor é
+  um encode **nominal** (categoria), não **ordinal** (profundidade). É por isso
+  que ela funciona nos ladrilhos da Bíblia, que são uma GRADE PLANA de irmãos
+  onde a cor diz *"que grupo de livros"*. A v1.5.9 respondeu com MOLDURA e durou
+  cinco lotes.
+
+  **E A v1.5.14 TROCOU A PREMISSA: papel → poço → papel.** A prova de que nenhuma
+  das nove tentativas podia fechar é aritmética — quatro degraus no piso de
+  1,28:1 partindo do branco dão `#ffffff → #e3e3e3 → #cacaca → #b3b3b3`, e o
+  nível 3, onde mora TODO o texto da lista, cairia no cinza médio que o operador
+  recusou na v1.5.10. **Não existe escada de TOM que resolva quatro níveis sobre
+  base branca.**
+
+  Uma escada ACUMULA e acaba; uma alternância não:
+
+```
+janela              PAPEL  (--panel)   cabeçalho GRUDENTO
+  └ seção           POÇO   (--poco)    cabeçalho GRUDENTO
+      └ álbum       PAPEL  (--panel)   ← volta ao tom da janela
+          └ faixa   —                  sem fundo: preenchimento é ESTADO
+```
+
+  Duas superfícies, profundidade ilimitada, zero traços. MEDIDO no renderizado:
+  **1,43:1** em cada degrau no escuro e **1,35:1** no claro, contra 7/7 e 4/7
+  reprovando o piso antes. **A regra é por PROFUNDIDADE, nunca por tipo de
+  bloco**: as coleções fixas e as pastas nascem na RAIZ, são nível 1 e vestem o
+  poço; o mesmo `.hymnal-card` dentro de uma seção é nível 2 e veste papel.
+  Escrevê-la por tipo (`.hymnal-card { papel }`) foi o primeiro corte do lote e
+  MEDIU 1,00:1 — os hinários da raiz sumiam sobre a janela branca.
+
+  **E A PROFUNDIDADE É DITA POR TRÊS MECANISMOS NÃO-TONAIS**, que é o que os
+  torna ilimitados:
+  1. **CABEÇALHO GRUDENTO NOS DOIS NÍVEIS.** É o único que continua respondendo
+     DEPOIS de a lista rolar — tom, cor e borda só falam enquanto o topo do grupo
+     está à vista, e a queixa do operador (*"dificultando discernir se estou em
+     uma camada ou subcamada"*, v5.267) é sobre estar no MEIO de uma lista longa.
+     O `.coll-bar` do álbum já grudava desde a v5.242, com o argumento escrito
+     lá: *"a outra metade da pergunta 'onde eu estou?'"*. Faltava no nível 1,
+     justamente o que ele não distinguia. A altura da barra da seção é token
+     (`--bar-secao-h`) porque DUAS regras precisam do mesmo número, e é
+     determinística (nome `nowrap` + recuo fixo) — nada de medição em JS, que a
+     v1.5.3 ensinou a desconfiar.
+  2. **RECUO**, sem traço na coluna vazia.
+  3. **RANK TIPOGRÁFICO**: seção `--fs-xl`, card `--fs-lg`, faixa `--fs-md`. Eram
+     `.9`/`.88`/`.82` — dois centésimos entre os dois primeiros, que é ruído e
+     não hierarquia. A migração para a escala achatou os dois no mesmo degrau e o
+     `smoke` pegou; com a moldura fora, o rank virou um dos três mecanismos e
+     tinha de ser um degrau de verdade.
 
   **E OS NOMES SE ESCREVEM TODOS IGUAL** (v1.5.11): a barra da seção perdeu a
-  caixa alta e o tracking, e o NOME dela veste `--text` como o título do card ao
-  lado. Pedido do operador: *"Nessas coleções, padronize em caixa alta, ou em
-  formatação normal"* · *"aproveite para pôr o texto em branco no tema claro
-  para os textos sobre o azul"*. **Branco é impossível aqui e a medição é
-  inequívoca** — sobre a tampa (`#bdcada` no claro) ele dá **1,66:1**, e AA pede
-  4,5:1; o que o pedido alcança é o outro lado, e no tema claro afastar o texto
-  do azul só se faz ESCURECENDO: o nome saiu de `--muted` (4,00:1, abaixo de AA)
-  para `--text` (5,33:1). **`--muted` fica no que é NÚMERO** — o contador da
-  seção, o peso do card —, e é essa metade que impede o nivelamento da barra
-  inteira. A caixa alta podia sair porque o que ela carregava — o ranqueamento
-  da seção sobre o card (v1.3.14) — passou para a MOLDURA na v1.5.9; e devia
-  sair porque caixa alta a 14px é mais larga e mais lenta de ler, a mesma
-  medição que a v5.297 usou para tirá-la das linhas.
-
-  **E O TOM DAS CAIXAS É `--btn-accent`, o azul fraco** (v1.5.10). Ele foi
-  `--panel-2` por uma versão e o operador recusou: *"essa predominância cinza
-  escura está muito ruim em especial no tema claro. porque não usou o azul fraco
-  como cor principal dos cards?"* — e, sobre o cinza que sobra, *"também pode ser
-  interessante usar apenas o cinza que se usa nos botões, não sei porque foi
-  usado um cinza bem mais escuro"*. As duas frases são uma troca só: a caixa vira
-  a superfície de ação e o único cinza da lista passa a ser o `--surface` das
-  tampas, que É o dos botões. **`--panel-2` sai da Biblioteca inteira.**
-
-  **A MEDIÇÃO QUE OBRIGAVA O CINZA CONTINUA VALENDO, e é ela que escolhe entre os
-  dois candidatos.** O nível 3 usa `--item-fill`, branco a 80% no tema claro:
-  sobre uma caixa BRANCA ele mede **1,00:1** e some (foi o que reprovou o
-  primeiro corte da v1.5.9), sobre `--btn-accent` mede 1,17:1 no claro e 1,35:1
-  no escuro. Menos que os 1,32:1 do cinza — e é essa a pressão que o oráculo
-  guarda: quem for apertar aquele número encontra `--panel-2` como resposta
-  óbvia e desfaz o pedido sem saber. A régua do `smoke.mjs` é um VIZINHO
-  RENDERIZADO (o botão de ação da própria barra veste `--btn-accent`), nunca o
-  token lido de volta.
+  caixa alta e o tracking. Pedido do operador: *"Nessas coleções, padronize em
+  caixa alta, ou em formatação normal"* · *"aproveite para pôr o texto em branco
+  no tema claro para os textos sobre o azul"*. **Branco era impossível sobre a
+  tampa da época** (`#bdcada` no claro dá 1,66:1 contra os 4,5:1 de AA), e o que
+  o pedido alcança é o outro lado: escurecer. **`--muted` fica no que é NÚMERO** —
+  o contador da seção, o peso do card. A caixa alta podia sair porque o
+  ranqueamento que ela carregava passou para o desenho; e devia sair porque caixa
+  alta a 14px é mais larga e mais lenta de ler.
 - **A ESCADA TEM TRÊS DEGRAUS, E O QUARTO É O ESPAÇO.** Um quarto tom levaria o
   nível mais interno a ~`#4c5865` no escuro, onde `--muted` mede 3,59:1 e
   `--accent` 3,37:1 — os dois reprovam AA para texto pequeno, que é o tamanho do
   texto de uma linha de lista. Quem carrega o quarto nível é o ESPAÇO: uma faixa
   dentro de um álbum não tem caixa, e o que a separa da vizinha é o tom do álbum
   aparecendo entre elas.
+  **E ONDE A ÁRVORE É MAIS FUNDA QUE TRÊS, NÃO SE ACRESCENTA DEGRAU: ALTERNA-SE**
+  (v1.5.14, a Biblioteca). O limite acima é real e não tem conserto por ajuste
+  fino — a saída é não empilhar.
 - **No tema CLARO a escada NÃO é monotônica**, e isso é aritmética: a página é
   cinza e o nível 1 é branco (convenção de toda UI clara), então o primeiro
   degrau sobe e os seguintes só podem descer. Folha e card ficam a 1,09:1 e isso
-  não se lê como ambiguidade porque **nunca se encostam** (entre eles há sempre a
-  moldura branca da seção). O oráculo mede pares **ADJACENTES** e exige só que
+  não se lê como ambiguidade porque **nunca se encostam** (entre eles há sempre o
+  poço da seção). O oráculo mede pares **ADJACENTES** e exige só que
   nenhum par coincida — a primeira versão exigia monotonia e reprovava um desenho
   correto.
 - **O TOM DE UM BLOCO É DECISÃO DO PAI** (`--camada`): o mesmo componente ocupa
@@ -3432,7 +3467,7 @@ Antes de publicar: `node --check` em todo `.js` de `assets/web`, validação do
 |---|---|
 | `webview-range.test.mjs` | a **invariante 8**: o `InputStream` de `shouldInterceptRequest` é o recurso INTEIRO |
 | `sombra.test.mjs` | nenhuma função da base pode redeclarar um nome de módulo — `node --check` APROVA um `const ms` que sombreia a `ms` do módulo, e o que sai é `ReferenceError` por zona morta temporal |
-| `tokens.test.mjs` | nenhum `var(--x)` **sem fallback** aponta para token inexistente (um `var()` inválido computa para o valor INICIAL, sem aviso); nenhum token só no tema claro; **nenhuma regra desenha contorno**. `var(--x, fallback)` é legítimo (valores que o JS entrega em runtime). **E nenhuma marca de conflito de merge** (v1.4.31): `:is()` é FORGIVING, descarta o inválido e aplica o resto — a v1.4.27 perdeu dois seletores do `--press` assim, com o CI verde por três lotes |
+| `tokens.test.mjs` | **`colors.xml` × `tokens.css`** (v1.5.14): `--bg` é a única cor que existe em dois lugares por necessidade (um recurso de Android não enxerga custom property), e nada verificava a igualdade — o comentário do próprio arquivo o admitia, e é o OTA que torna a divergência provável, porque a base web chega em minutos e o `res/` só por APK. Mais: nenhum `var(--x)` **sem fallback** aponta para token inexistente (um `var()` inválido computa para o valor INICIAL, sem aviso); nenhum token só no tema claro; **nenhuma regra desenha contorno**. `var(--x, fallback)` é legítimo (valores que o JS entrega em runtime). **E nenhuma marca de conflito de merge** (v1.4.31): `:is()` é FORGIVING, descarta o inválido e aplica o resto — a v1.4.27 perdeu dois seletores do `--press` assim, com o CI verde por três lotes |
 | `serie.test.mjs` | quais playlists e vídeos entram no álbum. **Entradas VERBATIM do canal** — nomenclatura imaginada prova só que o código concorda com quem o escreveu |
 | `hinario.test.mjs` | as **seções temáticas do Hinário 2022**: a cobertura é CONTÍGUA de 1 a 600, sem lacuna e sem sobreposição. É a única propriedade que pega um limite digitado errado — e esse erro é MUDO: a lista continua completa, na ordem certa, com um cabeçalho mentindo no meio. Confere também a faixa infantil contra o `sorteio.js` |
 | `cifra.test.mjs` | o que o app entende de uma página de cifra: slug, gramática do acorde, e a transposição PRESERVANDO A COLUNA. É a peça mais frágil do projeto — lê a marcação de um servidor que não é nosso. Fixtures **SINTÉTICAS** de propósito: nenhum conteúdo de terceiro entra neste repositório. Elas provam a GRAMÁTICA, não que ela case com o HTML de hoje — essa metade se conserta por OTA, e o Registro diz quando quebrou |
@@ -3528,7 +3563,7 @@ mundo anterior por outro caminho.
 
 | oráculo | o que cobre, e por que existe |
 |---|---|
-| `smoke.mjs` | sobe a base e usa a tela; mede o RENDERIZADO nos dois temas (palco sem tema, escada de camadas, contorno). **E o PAINEL RÁPIDO de Configurações** (v1.4.38): que o CORPO dela não rola — a asserção antiga media a FOLHA, e a folha nunca rolou (quem tem `overflow-y: auto` é o `.fade-opts`), então ela aprovava as duas versões —, que a grade tem três colunas, e que o tile ALTERNA e volta. **E o que o AZUL quer dizer** (v1.4.40): quem não tem "desligado" fica aceso o tempo todo (apagado, neste app, quer dizer INDISPONÍVEL) **e mesmo assim troca de desenho** — `qs-alt` responde "qual desenho?" e `qs-on` responde "está ligado?", e enquanto foram a mesma classe um tile sempre aceso ficava preso no desenho alternativo. A metade que impede o conserto preguiçoso (acender tudo, sempre) é o fundo da letra continuar APAGANDO, medido na cor RENDERIZADA: uma classe sem a regra de CSS passa num teste de classe e continua invisível na tela. **E o MODO DO APP como interruptor que desliza** (v1.4.43): o polegar ANDA, medido na `transform` RENDERIZADA do `::before` do trilho — uma troca de classe passa num teste de classe e continua imóvel na tela, e ler a posição do BOTÃO não serviria porque o botão nunca se mexe; os dois botões SEM fundo próprio (sem esta, acrescentar o polegar por cima do desenho antigo deixaria a pilha de quatro tons de pé, com uma camada A MAIS); e o `data-modo` seguindo o modo, que é por onde o CSS decide o lado. Mais a folha que **FICA ABERTA e IMÓVEL** ao trocar de modo — duas asserções e não uma, porque a primeira responde ao `closeFadePopup` que saiu do ouvinte e a segunda responde ao `<main>`: a caixa é `fixed` e mora FORA dele, e movê-la para dentro mantém a classe `open` e apaga a folha da tela. **Assentar é `getAnimations()` + `finished`**, nunca duas amostras iguais em quadros seguidos (MEDIDO: `top: -449`, a folha ainda no teto, aprovada como assentada) nem o primeiro `transitionend` (MEDIDO: `top: -7`, a `transform` a sete pixels do fim com a opacidade já pronta). **E o que a v1.4.44 corrigiu nele**: o trilho medindo EXATAMENTE a grade de tiles (um `.fade-row` pintando `--panel` sobre uma folha que já é `--panel` é um CARTÃO INVISÍVEL — não se via, mas o `padding` dele recuava o trilho 12,8px de cada lado, e o relato foi o desalinhamento), o TÍTULO centrado medido no texto PINTADO por um `Range` (a caixa do `<span>` é `stretch` e ocupa a linha inteira nas duas versões, então medi-la aprova o rótulo colado à esquerda), e o RODAPÉ como UMA barra — a asserção é o número de SUPERFÍCIES pintadas dentro dele, porque a v1.4.43 já tinha dois blocos com o mesmo tom e o que se via eram duas caixas |
+| `smoke.mjs` | sobe a base e usa a tela; mede o RENDERIZADO nos dois temas (palco sem tema, escada de camadas, contorno). **E A HIERARQUIA DA BIBLIOTECA** (v1.5.14): ele foi escrito para proteger o desenho da v1.5.9 e por isso APROVAVA o defeito — exigia que seção e card dividissem o tom (1,00:1), exigia a moldura nos dois níveis, e nunca comparava tampa × faixa, o par que valia 1,00:1 no escuro. Hoje afirma a ALTERNÂNCIA (degrau real contra o pai, e o card VOLTANDO ao tom da janela — sem essa segunda metade um terceiro tom passaria e a escada de quatro voltaria pela porta dos fundos), a AUSÊNCIA de moldura nos três níveis, e os DOIS cabeçalhos grudentos empilhados, com a folga do de dentro medida na altura RENDERIZADA do de fora. **E o PAINEL RÁPIDO de Configurações** (v1.4.38): que o CORPO dela não rola — a asserção antiga media a FOLHA, e a folha nunca rolou (quem tem `overflow-y: auto` é o `.fade-opts`), então ela aprovava as duas versões —, que a grade tem três colunas, e que o tile ALTERNA e volta. **E o que o AZUL quer dizer** (v1.4.40): quem não tem "desligado" fica aceso o tempo todo (apagado, neste app, quer dizer INDISPONÍVEL) **e mesmo assim troca de desenho** — `qs-alt` responde "qual desenho?" e `qs-on` responde "está ligado?", e enquanto foram a mesma classe um tile sempre aceso ficava preso no desenho alternativo. A metade que impede o conserto preguiçoso (acender tudo, sempre) é o fundo da letra continuar APAGANDO, medido na cor RENDERIZADA: uma classe sem a regra de CSS passa num teste de classe e continua invisível na tela. **E o MODO DO APP como interruptor que desliza** (v1.4.43): o polegar ANDA, medido na `transform` RENDERIZADA do `::before` do trilho — uma troca de classe passa num teste de classe e continua imóvel na tela, e ler a posição do BOTÃO não serviria porque o botão nunca se mexe; os dois botões SEM fundo próprio (sem esta, acrescentar o polegar por cima do desenho antigo deixaria a pilha de quatro tons de pé, com uma camada A MAIS); e o `data-modo` seguindo o modo, que é por onde o CSS decide o lado. Mais a folha que **FICA ABERTA e IMÓVEL** ao trocar de modo — duas asserções e não uma, porque a primeira responde ao `closeFadePopup` que saiu do ouvinte e a segunda responde ao `<main>`: a caixa é `fixed` e mora FORA dele, e movê-la para dentro mantém a classe `open` e apaga a folha da tela. **Assentar é `getAnimations()` + `finished`**, nunca duas amostras iguais em quadros seguidos (MEDIDO: `top: -449`, a folha ainda no teto, aprovada como assentada) nem o primeiro `transitionend` (MEDIDO: `top: -7`, a `transform` a sete pixels do fim com a opacidade já pronta). **E o que a v1.4.44 corrigiu nele**: o trilho medindo EXATAMENTE a grade de tiles (um `.fade-row` pintando `--panel` sobre uma folha que já é `--panel` é um CARTÃO INVISÍVEL — não se via, mas o `padding` dele recuava o trilho 12,8px de cada lado, e o relato foi o desalinhamento), o TÍTULO centrado medido no texto PINTADO por um `Range` (a caixa do `<span>` é `stretch` e ocupa a linha inteira nas duas versões, então medi-la aprova o rótulo colado à esquerda), e o RODAPÉ como UMA barra — a asserção é o número de SUPERFÍCIES pintadas dentro dele, porque a v1.4.43 já tinha dois blocos com o mesmo tom e o que se via eram duas caixas |
 | `boot-nativo.test.mjs` | **o boot COM a ponte presente** — o `smoke` sobe SEM `__AVBridge`, então todo caminho `window.__NATIVE__` (justamente os que só rodam no aparelho) nunca era executado. Injeta uma ponte de mentira e pergunta o que o watchdog pergunta: o app ficou de pé? |
 | `display-smoke.mjs` | **o TELÃO** — a metade que roda na frente da congregação, e a que menos rede de segurança tem (o watchdog do OTA não a valida). Viewport fixo em 961×540, explicitamente. Trava o endereçamento do reenvio de cena |
 | `ota.test.mjs` | **o fluxo de atualização** — o único caminho cujo defeito NÃO TEM SINTOMA: nada quebra, o operador só continua na versão de anteontem. Afirma a pergunta com e sem Release, o "depois", e a INTENÇÃO atravessando a MORTE DO DOCUMENTO (semeada numa página que só tem o banco, porque semeá-la no Controle é uma corrida contra o `retomarAtualizacao` da abertura — e uma que o app ganha com razão) |
@@ -4015,15 +4050,21 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: v1.5.13** (base web) · **v1.4.42** (APK) · `SHELL_VERSION` **61** · bundle com
-`minShell: 61` e **sem `shellTag`** — o shell 61 é o **PISO**: todo método da
-ponte existe, e não há guarda de versão no lado web. **Este lote não pede
-Release**: mexe em `assets/web/` e em `tools/`, e nada disso chega ao aparelho
-por APK — nenhum `.kt`, nenhum `res/`, nenhum manifest. O bundle sai na hora.
-O rodapé mostra `Web v1.5.13 · Shell v1.4.42`, e
-isso não é divergência: é a resposta exata a *"o OTA chegou e o APK ainda
-não?"*. O que continua valendo é que `java/`, `res/`, o manifest e os workflows
-**só chegam instalando o APK**.
+**Versão atual: v1.5.14** (base web) · **v1.4.43** (APK) · `SHELL_VERSION` **61** · bundle com
+`minShell: 61` e **`shellTag: "v1.4.43"`** — o shell 61 é o **PISO**: todo método
+da ponte existe, e não há guarda de versão no lado web. **`SHELL_VERSION` NÃO
+sobe neste lote**: a superfície da ponte não mudou (nenhum método novo, nenhuma
+forma de retorno diferente).
+
+**MAS ESTE LOTE PEDE RELEASE**, e é o `res/` que a obriga: o tema escuro virou
+DENIM PROFUNDO, e `--bg` é espelhado à mão em `res/values/colors.xml` (`app_bg` e
+o fundo do ícone adaptativo). `res/` só chega instalando um APK — publicar só a
+base web deixaria o `windowBackground` do primeiro quadro e o ícone da gaveta no
+preto antigo, contra um app inteiro em azul. Daí o `shellTag`, que SEGURA o
+bundle até a Release `v1.4.43` existir. Desde este lote a igualdade dos dois
+valores é cobrada por oráculo (`tokens.test.mjs`) — o comentário do `colors.xml`
+dizia que *"nada no build detecta a divergência"*, e isso foi verdade por vinte e
+duas versões.
 
 ### Onde procurar
 

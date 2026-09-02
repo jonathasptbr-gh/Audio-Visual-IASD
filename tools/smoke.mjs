@@ -1534,6 +1534,24 @@ for (const tema of ['escuro', 'claro']) {
           const el = lista.querySelector('.coll-group--drop');
           return el ? getComputedStyle(el).borderTopWidth : 'AUSENTE';
         })(),
+        // ===== O EMPILHAMENTO GRUDENTO (v1.5.14) =====
+        // As duas barras e o `top` de cada uma. É o mecanismo que substituiu a
+        // moldura como resposta a *"dentro de quê eu estou?"* — e o único que
+        // continua respondendo DEPOIS de a lista rolar, que é quando a pergunta
+        // é feita. Medido no RENDERIZADO: `position` declarado prova a intenção,
+        // o `top` resolvido prova que a conta fecha.
+        grudento: (() => {
+          const sec = lista.querySelector(
+            '.coll-group--drop.aberto:not(.coll-group--fav) > .coll-group-bar');
+          const card = lista.querySelector(
+            '.coll-group--drop.aberto:not(.coll-group--fav) .hymnal-card.expanded > .coll-bar');
+          const ler = (el) => (el ? {
+            pos: getComputedStyle(el).position,
+            top: parseFloat(getComputedStyle(el).top),
+            alt: Math.round(el.getBoundingClientRect().height * 10) / 10,
+          } : null);
+          return { secao: ler(sec), card: ler(card) };
+        })(),
         // A COR da moldura — desde a v1.5.10 é ela que separa a caixa da base,
         // e não mais o degrau de tom (ver a asserção da escada, mais abaixo).
         molduraCor: (() => {
@@ -1667,14 +1685,45 @@ for (const tema of ['escuro', 'claro']) {
     // mesma e precisa vir antes.
     const ehOpaco = (v) => !transparente(v) && v !== 'AUSENTE';
     const molduraDe = (v) => (v && v !== 'AUSENTE' && parseFloat(v) > 0);
-    checar(molduraDe(t.molduraSecao) && molduraDe(t.molduraCard),
-      '[' + tema + '] os DOIS níveis de agrupamento têm moldura: a seção fecha o '
-      + 'grupo dela como o card sempre fechou o dele',
+    // ===== NENHUM NÍVEL TEM MOLDURA (v1.5.14) =====
+    // Este caso EXIGIA a moldura nos dois níveis (v1.5.9) e agora exige a
+    // AUSÊNCIA dela nos três. A inversão é o pedido do operador — *"poucas
+    // bordas, sem traços finos"* —, e o que a torna possível é o degrau ter
+    // voltado a existir: a moldura de 1px era a única coisa da Biblioteca com
+    // contraste de verdade (2,51:1 no claro) porque TODOS os pares de
+    // superfície estavam abaixo do piso. Com papel → poço → papel eles medem
+    // 1,35:1 e 1,43:1, e o traço deixa de ter trabalho.
+    checar(!molduraDe(t.molduraSecao) && !molduraDe(t.molduraCard),
+      '[' + tema + '] NENHUM nível de agrupamento tem moldura: o que fecha a '
+      + 'caixa é o degrau de superfície, não um traço de 1px',
       'seção ' + t.molduraSecao + ' · card ' + t.molduraCard);
     checar(!molduraDe(t.molduraFaixa),
       '[' + tema + '] e o NÍVEL 3 não tem: uma faixa é conteúdo, não agrupamento '
       + '— emoldurá-la faria a lista virar uma grade de caixinhas',
       t.molduraFaixa);
+    // ===== E OS DOIS CABEÇALHOS GRUDAM, EMPILHADOS (v1.5.14) =====
+    // O que substituiu a moldura. A barra do álbum já era `sticky` desde a
+    // v5.242, com a razão escrita lá (*"a outra metade da pergunta 'onde eu
+    // estou?'"*); a da seção não era — e o nível 1 é justamente o que o
+    // operador relatava não distinguir (*"dificultando discernir se estou em
+    // uma camada ou subcamada"*, v5.267).
+    //
+    // A METADE QUE IMPORTA É O `top` DO ÁLBUM. Empatados em zero, o cabeçalho
+    // de dentro cobre o de fora e a pergunta fica sem resposta exatamente
+    // quando ela é feita — e isso não dá erro nenhum, só um cabeçalho a menos.
+    // A régua é a ALTURA RENDERIZADA da barra da seção, nunca o token: um
+    // número lido de volta provaria só que a folha declara o que declara.
+    const g = t.grudento || {};
+    checar(g.secao && g.secao.pos === 'sticky' && g.card && g.card.pos === 'sticky',
+      '[' + tema + '] os DOIS cabeçalhos grudam: é o mecanismo que responde '
+      + '"dentro de quê eu estou?" depois de a lista rolar, e nenhuma cor faz isso',
+      'seção ' + (g.secao && g.secao.pos) + ' · álbum ' + (g.card && g.card.pos));
+    checar(g.secao && g.card && g.secao.top === 0
+      && Math.abs(g.card.top - g.secao.alt) <= 1,
+      '[' + tema + '] e o do álbum gruda ABAIXO do da seção, não por cima dele — '
+      + 'a folga é a altura RENDERIZADA da barra de fora',
+      'seção top ' + (g.secao && g.secao.top) + ' alt ' + (g.secao && g.secao.alt)
+      + ' · álbum top ' + (g.card && g.card.top));
     // ===== E A MOLDURA NÃO PODE TER NADA DENTRO DELA ANTES DA BARRA (v1.5.10) =====
     // Relato do operador: *"verifique o tamanho e espaçamento dos favoritos,
     // pois está deslocado o seu card de topo em relação a caixa dele"*.
@@ -1716,15 +1765,37 @@ for (const tema of ['escuro', 'claro']) {
     // branco a 80% no tema claro — desenhado para pousar num card acinzentado.
     // MEDIDO com as caixas em `--panel`: a faixa a **1,00:1** do card, isto é,
     // sumida.
-    checar(ehOpaco(t.secao) && ehOpaco(t.card) && razao(t.secao, t.card) < 1.05,
-      '[' + tema + '] a seção e o card dividem o TOM — quem os separa é a '
-      + 'moldura, e não um degrau que a escada não tem',
-      razao(t.secao, t.card).toFixed(2) + ':1');
-    checar(t.faixa && ehOpaco(t.faixa) && razao(t.faixa, t.card) >= 1.15,
-      '[' + tema + '] e a FAIXA se vê dentro do card ('
-      + (t.faixa ? razao(t.faixa, t.card).toFixed(2) : '?') + ':1) — é ela que '
-      + 'decide o tom das caixas, porque `--item-fill` foi calibrado para pousar '
-      + 'num card acinzentado', t.faixa + ' sobre ' + t.card);
+    // ===== A ALTERNÂNCIA: PAPEL → POÇO → PAPEL (v1.5.14) =====
+    // Este caso EXIGIA que seção e card dividissem o tom (1,00:1), porque a
+    // moldura fazia o trabalho e a escada não tinha degrau para os dois. Hoje
+    // ele exige o oposto, e é a troca de premissa inteira dita como asserção:
+    // a escada ACUMULA e acaba (quatro níveis sobre branco põem o nível 3 em
+    // #b3b3b3, o cinza que o operador recusou); a alternância não acumula, e
+    // por isso não tem teto. O card volta ao tom da JANELA — é isso que
+    // dispensa um quarto tom — e o poço se destaca dos dois.
+    const dJanelaSecao = razao(t.folha, t.secao);
+    const dSecaoCard = razao(t.secao, t.card);
+    checar(ehOpaco(t.secao) && ehOpaco(t.card) && dSecaoCard >= 1.28,
+      '[' + tema + '] o card se destaca do poço da seção com degrau de VERDADE '
+      + '— é ele que substitui a moldura', dSecaoCard.toFixed(2) + ':1');
+    checar(ehOpaco(t.folha) && dJanelaSecao >= 1.28,
+      '[' + tema + '] e o poço se destaca da janela pelo mesmo degrau',
+      dJanelaSecao.toFixed(2) + ':1');
+    // E O CARD VOLTA AO TOM DA JANELA — a metade que prova que isto é
+    // ALTERNÂNCIA e não uma escada com um degrau a mais. Sem ela, um terceiro
+    // tom passaria aqui e o problema de 2026 voltaria pela porta dos fundos:
+    // uma escada de quatro é o que não cabe.
+    checar(ehOpaco(t.card) && razao(t.folha, t.card) < 1.05,
+      '[' + tema + '] e o card veste o MESMO tom da janela: a profundidade '
+      + 'alterna entre DUAS superfícies, nunca empilha uma terceira',
+      'janela ' + t.folha + ' · card ' + t.card);
+    // O NÍVEL 3 NÃO TEM PREENCHIMENTO. Ele é conteúdo do card, não um
+    // agrupamento: o que o separa da vizinha é o espaço (a regra R0), e o
+    // preenchimento fica reservado ao ESTADO — é isso que faz "no ar" saltar
+    // numa lista em que nada mais é pintado.
+    checar(transparente(t.faixa),
+      '[' + tema + '] e a FAIXA não tem fundo próprio: preenchimento na '
+      + 'Biblioteca passou a significar ESTADO, e nada mais', t.faixa);
     // ===== E ABRIR NÃO TROCA A COR DE NADA (v1.5.9) =====
     // Relato do operador: *"verifique também a mudança para tons cinzas ao
     // selecionar o item, pois está sendo inconsistente com sua cor real"*. A
@@ -1758,11 +1829,18 @@ for (const tema of ['escuro', 'claro']) {
     // barra da própria seção veste `--btn-accent`, e a caixa tem de vestir a
     // mesma superfície. Comparar com o token lido de volta provaria só que a
     // folha declara o que declara.
+    // O POÇO É PARENTE DO AZUL FRACO, NÃO IGUAL A ELE (v1.5.14). Este caso
+    // exigia igualdade com `--btn-accent` (a superfície do botão de ação da
+    // própria barra), e a igualdade era o defeito: `--btn-accent` mede 1,21:1
+    // contra a janela branca, abaixo do piso, e foi por isso que a caixa
+    // precisava de uma moldura para existir. O poço é o MESMO azul aprofundado
+    // até o degrau ser real — então ele tem de diferir do botão, e o botão
+    // continua se vendo DENTRO dele.
     checar(t.botaoAcao !== 'AUSENTE' && ehOpaco(t.secao)
-      && razao(t.secao, t.botaoAcao) < 1.03,
-      '[' + tema + '] a caixa veste a MESMA superfície do botão de ação da barra '
-      + 'dela — o azul fraco, e não o cinza escuro que o operador recusou',
-      'caixa ' + t.secao + ' · botão ' + t.botaoAcao);
+      && razao(t.secao, t.botaoAcao) > 1.03,
+      '[' + tema + '] o poço difere do botão de ação que mora na barra dele — '
+      + 'o azul fraco não tinha degrau contra a janela, e é essa a razão de o '
+      + 'poço existir', 'poço ' + t.secao + ' · botão ' + t.botaoAcao);
     // ===== A CAIXA SE VÊ SOBRE A JANELA — E QUEM A FECHA É A LINHA (v1.5.10) =====
     //
     // Este caso EXIGIA 1,28:1 entre a janela e a seção, isto é, o degrau da
@@ -1816,10 +1894,14 @@ for (const tema of ['escuro', 'claro']) {
     // toque"). O que este caso trava agora são as três metades: ela PINTA, ela
     // não desenha filete, e o espaço entre duas continua existindo — sem o
     // último, um bloco colado no outro volta a não ter área de toque legível.
-    checar(!transparente(t.faixa) && parseFloat(t.faixaFilete) === 0 && t.faixaGap > 0,
-      '[' + tema + '] a faixa dentro do álbum tem PREENCHIMENTO próprio e nenhum '
-      + 'filete: o que a separa da vizinha é o espaço entre dois blocos que se '
-      + 'veem (' + t.faixa + ', gap ' + t.faixaGap + 'px)');
+    // INVERTIDO na v1.5.14: a faixa NÃO tem preenchimento. Ela é conteúdo do
+    // card, não um agrupamento, e o que a separa da vizinha é o ESPAÇO — a
+    // regra R0 do projeto (*"o quarto degrau é o espaço"*), que subiu um nível
+    // porque saiu uma camada de caixas. O filete continua tendo de ser zero: o
+    // que mudou é que agora ele é zero em TODA a Biblioteca.
+    checar(transparente(t.faixa) && parseFloat(t.faixaFilete) === 0 && t.faixaGap > 0,
+      '[' + tema + '] a faixa não tem preenchimento NEM filete: o que a separa '
+      + 'da vizinha é o espaço (' + t.faixa + ', gap ' + t.faixaGap + 'px)');
     // ===== E O TEXTO DELA É LEGÍVEL SOBRE ESSE PREENCHIMENTO (v5.296) =====
     //
     // Relato do operador: *"a cor do texto dos itens dentro do álbum na
@@ -1873,10 +1955,16 @@ for (const tema of ['escuro', 'claro']) {
     const dLinha = t.textoCor && t.faixaEfetiva !== 'AUSENTE'
       ? razao(t.textoCor, t.faixaEfetiva) : 0;
     const dCartao = t.textoCor && ehOpaco(t.card) ? razao(t.textoCor, t.card) : 0;
-    checar(dLinha > dCartao,
-      '[' + tema + '] e ela se AFASTA do texto, não do fundo: a linha contrasta '
-      + 'mais que o card que a contém (' + dLinha.toFixed(2) + ':1 contra '
-      + dCartao.toFixed(2) + ':1)');
+    // O PISO PASSOU DE `>` PARA `>=` na v1.5.14, e a razão é que o defeito
+    // deixou de ser alcançável por este caminho: sem preenchimento na faixa, a
+    // superfície que carrega o texto É a do card, e as duas razões são iguais
+    // por construção. A guarda continua valendo e continua sendo a mesma regra
+    // — quem reintroduzir um recesso na faixa derruba `dLinha` abaixo de
+    // `dCartao` no tema claro (o meio-tom da v5.297) e reprova aqui.
+    checar(dLinha >= dCartao && dLinha >= 4.5,
+      '[' + tema + '] e a superfície que carrega o texto NUNCA o aproxima do '
+      + 'fundo: a faixa contrasta pelo menos tanto quanto o card que a contém ('
+      + dLinha.toFixed(2) + ':1 contra ' + dCartao.toFixed(2) + ':1)');
     // ===== E O CONTEÚDO NÃO É DESENHADO COMO UM RÓTULO (v5.297) =====
     //
     // A outra metade do mesmo vazamento, e a que o operador de fato via: a
@@ -2301,9 +2389,15 @@ for (const tema of ['escuro', 'claro']) {
     const grau = (a, b) => (a && b ? razao('rgb(' + a + ')', 'rgb(' + b + ')') : 0);
     const gFav = grau(it.favLinha, it.maeFav);
     const gFaixa = grau(it.faixa, it.maeFaixa);
-    checar(gFav > 1 && Math.abs(gFav - gFaixa) < 0.08,
-      '[' + tema + '] a linha de favorito ocupa o MESMO degrau que a faixa dentro '
-      + 'de um álbum (' + gFav.toFixed(2) + ':1 contra ' + gFaixa.toFixed(2) + ':1)',
+    // A RÉGUA MUDOU DE NOVO na v1.5.14, e o PROPÓSITO é o mesmo desde a v5.283:
+    // um item é um item nos dois lugares. Era "o mesmo degrau"; hoje o nível 3
+    // não tem degrau nenhum — nem aqui nem no álbum —, então a igualdade se
+    // afirma sobre a AUSÊNCIA. Separá-los devolveria duas receitas para o mesmo
+    // papel, que é o defeito que a v5.297 fechou.
+    checar(Math.abs(gFav - gFaixa) < 0.08,
+      '[' + tema + '] a linha de favorito e a faixa de um álbum têm o MESMO '
+      + 'tratamento — nenhuma das duas tem preenchimento próprio ('
+      + gFav.toFixed(2) + ':1 contra ' + gFaixa.toFixed(2) + ':1)',
       it.favLinha + ' sobre ' + it.maeFav + ' · ' + it.faixa + ' sobre ' + it.maeFaixa);
     // ===== MAS A PASTA SINCRONIZADA CONTINUA SENDO UM ÁLBUM (v5.284) =====
     // Pedido do operador: *"mantenha apenas as pastas sincronizadas dos
@@ -2316,19 +2410,24 @@ for (const tema of ['escuro', 'claro']) {
       '[' + tema + '] mas a PASTA sincronizada ocupa o degrau de um ÁLBUM ('
       + gPasta.toFixed(2) + ':1 contra ' + gCard.toFixed(2) + ':1)',
       it.pasta + ' sobre ' + it.maeFav + ' · ' + it.cardAlbum + ' sobre ' + it.maeCard);
-    // ===== E O QUE A SEPARA DO ITEM PASSOU A SER A MOLDURA (v1.5.9) =====
-    // A pasta é um CONTÊINER e o item ao lado é conteúdo, e o degrau de tom que
-    // os separava não existe mais: os dois pousam na mesma área. Quem responde
-    // agora é a linha — a pasta tem moldura, o item não —, que é o desenho
-    // inteiro deste lote num par pequeno. A ESTRUTURA continua sendo afirmada
-    // junto (a pasta solta, o item na placa): sem ela, uma pasta empurrada para
-    // dentro da placa passaria na medida de borda.
+    // ===== E O QUE A SEPARA DO ITEM VOLTOU A SER O DEGRAU (v1.5.14) =====
+    // Este par já foi afirmado por TOM (v5.284), depois por MOLDURA (v1.5.9) e
+    // agora por tom de novo — e a ida e volta não é indecisão: a moldura só
+    // entrou porque a escada tinha ficado sem degrau para gastar, e com o poço
+    // ela voltou a ter. A pasta é um CONTÊINER (nível 2, papel) e o item ao
+    // lado é conteúdo (nível 3, sem preenchimento), então o degrau existe de
+    // novo e não custa um traço.
+    // A ESTRUTURA continua sendo afirmada junto (a pasta solta, o item na
+    // placa): sem ela, uma pasta empurrada para dentro da placa passaria na
+    // medida de cor.
     const temMoldura = (x) => (x && x !== 'AUSENTE' && parseFloat(x) > 0);
-    checar(temMoldura(it.molduraPasta) && !temMoldura(it.molduraFavLinha)
+    checar(!temMoldura(it.molduraPasta) && !temMoldura(it.molduraFavLinha)
+      && gPasta >= 1.28 && gFav < 1.05
       && it.pastaSolta && it.itemNaPlaca,
-      '[' + tema + '] e ela se separa do ITEM ao lado — a pasta é IRMÃ da placa '
-      + 'e o item mora DENTRO dela (moldura ' + it.molduraPasta + ' contra '
-      + it.molduraFavLinha
+      '[' + tema + '] e ela se separa do ITEM ao lado por DEGRAU, sem traço — a '
+      + 'pasta é IRMÃ da placa e o item mora DENTRO dela (pasta '
+      + gPasta.toFixed(2) + ':1, item ' + gFav.toFixed(2) + ':1, molduras '
+      + it.molduraPasta + '/' + it.molduraFavLinha
       + (it.pastaSolta ? '' : ', mas a pasta está dentro da placa')
       + (it.itemNaPlaca ? '' : ', mas o item está fora dela') + ')');
     const L = v.larguras;

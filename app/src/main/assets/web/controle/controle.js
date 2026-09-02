@@ -48,6 +48,7 @@ const simpleTimeFillEl = document.getElementById('simpleTimeFill');
 const simpleTimeHitEl = document.getElementById('simpleTimeHit');
 const simpleVolWrapEl = document.getElementById('simpleVolWrap');
 const simpleSlidesRowEl = document.getElementById('simpleSlidesRow');
+const simpleRemoteEl = document.querySelector('.simple-remote');
 const simpleSlidePrevEl = document.getElementById('simpleSlidePrev');
 const simpleSlideNextEl = document.getElementById('simpleSlideNext');
 const simpleSlideNumEl = document.getElementById('simpleSlideNum');
@@ -277,7 +278,7 @@ const appVersionEl = document.getElementById('appVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.5.13';
+const WEB_VERSION = '1.5.14';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -10679,6 +10680,13 @@ function renderSlideNav() {
 function renderSimpleSlides(who) {
   const d = who === 'deck' ? deckNoAr() : null;
   simpleSlidesRowEl.hidden = !d;
+  // A ÁREA DE CONTROLE INTEIRA SEGUE A CENA (v1.5.14). A marca vai no
+  // `.simple-remote` e não em cada peça: quem decide o que existe é a CENA, e
+  // uma classe no contêiner deixa isso escrito num lugar só — as três regras
+  // que dependem dela (o play e o mudo somem, a linha de volume some, o parar
+  // fica sozinho e ganha rótulo) moram juntas na folha, onde se leem como um
+  // desenho e não como três exceções.
+  simpleRemoteEl.classList.toggle('deck', !!d);
   if (!d) return;
   simpleSlidePrevEl.disabled = slidePrevBtnEl.disabled;
   simpleSlideNextEl.disabled = slideNextBtnEl.disabled;

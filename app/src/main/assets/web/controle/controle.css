@@ -102,6 +102,67 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
      linha-guia de 3px): com `--radius-btn` viram cápsulas, sem raio viram
      cortes secos no meio do texto. */
   --radius-xs: 4px;
+  /* ===================== A ESCALA DE ESPAÇO (v1.5.14) =====================
+     MEDIDO antes: **16 valores distintos de `gap`** entre .1rem e 1.1rem, quase
+     contínuos em passos de .05 — isto é, nenhum ritmo. Seis degraus absorvem
+     as 110 declarações: 71 caem EXATAS num degrau e as outras se movem no
+     máximo 1,6px, que não se vê numa peça e se sente no conjunto, que é
+     exatamente o ponto.
+     `gap` de valor único e em `rem` foi o alvo; os que estão em `px`, em
+     unidade de container (`cqh`/`cqmin`) ou já em token continuam como estavam,
+     porque ali a medida responde a outra coisa que não o ritmo da página. */
+  --sp-1: .15rem;   /* dentro de uma peça (ícone e rótulo) */
+  --sp-2: .25rem;   /* entre irmãos de uma lista densa */
+  --sp-3: .35rem;   /* entre linhas de uma lista */
+  --sp-4: .5rem;    /* o padrão: entre controles de uma barra */
+  --sp-5: .6rem;    /* entre blocos */
+  --sp-6: .8rem;    /* entre seções de uma folha */
+  /* ===================== OS QUATRO PESOS (v1.5.14) =====================
+     Eram cinco valores (400, 500, 600, 700, 800) para quatro papéis, e o 500
+     tinha três usos soltos que ninguém distinguia do 600. Nomeados, a escolha
+     deixa de ser um número e passa a ser um papel. Os TRÊS de cima carregam
+     hierarquia de verdade — é com eles, e não com mais uma cor, que um nome de
+     seção se separa de um nome de faixa. */
+  --fw-normal: 400;   /* corpo de lista */
+  --fw-medio:  600;   /* rótulo secundário, metadado */
+  --fw-forte:  700;   /* nome de item, botão */
+  --fw-max:    800;   /* título, número, selo */
+  /* ===================== A ESCALA DE MOVIMENTO (v1.5.14) =====================
+     MEDIDO antes: **dez durações distintas** de transição, de .12s a .3s — uma
+     faixa em que o olho não distingue os degraus, mas em que peças VIZINHAS
+     acabam animando em tempos diferentes, e ISSO se nota (a gaveta abre num
+     tempo, o botão dentro dela responde noutro). Três degraus cobrem tudo.
+     As ANIMAÇÕES ficam de fora e continuam com o tempo delas: um pulso de 1,2s
+     e a marquise de 8s não são transições de interface, são a duração do que
+     elas representam. */
+  --dur-rapida: .14s;   /* resposta a toque, troca de ícone */
+  --dur-media:  .2s;    /* o padrão: abrir, fechar, revelar */
+  --dur-lenta:  .3s;    /* movimento de folha e de camada */
+  /* ===================== A ESCALA TIPOGRÁFICA (v1.5.14) =====================
+     Pedido do operador: *"busque consistência maior dentro do app"*. MEDIDO
+     antes: **31 corpos de fonte distintos** em 126 declarações, sem escala
+     nenhuma — raio e ícone já eram tokens desde sempre, tipografia não. Não é
+     um defeito que se vê apontando para um lugar; é o que faz duas telas que
+     deveriam falar igual falarem quase igual, e é essa a "inconsistência" que
+     não se sabe nomear.
+     Os degraus NÃO foram escolhidos por fórmula: eles saíram da distribuição
+     real de uso (o pico é .82rem, com 19 declarações — o corpo de uma linha de
+     lista). Entre cinco escalas candidatas esta é a que move MENOS pixel na
+     tela: das 126 declarações, sete mudam mais de 0,65px, e a maior mudança é
+     de 0,8px. Consolidar não podia custar um redesenho acidental.
+     Os dois últimos são de DISPLAY (cronômetro e sorteio na preview), não de
+     interface — por isso o salto. */
+  --fs-2xs: 0.6rem;
+  --fs-xs: 0.68rem;
+  --fs-sm: 0.74rem;
+  --fs-md: 0.82rem;
+  --fs-lg: 0.9rem;
+  --fs-xl: 0.95rem;
+  --fs-2xl: 1.05rem;
+  --fs-3xl: 1.15rem;
+  --fs-4xl: 1.25rem;
+  --fs-display-sm: 1.6rem;
+  --fs-display: 2.6rem;
 
   /* ---------- Alvos de toque ----------
      `--hit` é o piso de qualquer botão só-de-ícone; `--hit-nav` é a faixa de
@@ -111,6 +172,14 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
      mesmo, ou a caixa da lista muda de tamanho ao entrar na seleção e a lista
      pula debaixo do dedo. */
   --hit: 34px;
+  /* A ALTURA DA BARRA DE UMA SEÇÃO DA BIBLIOTECA (v1.5.14). Ela é token porque
+     DUAS regras precisam do mesmo número: a barra da seção, que gruda em
+     `top: 0`, e a do álbum, que gruda logo abaixo dela. Escrito duas vezes ele
+     divergiria no primeiro ajuste de recuo, e o sintoma seria o cabeçalho de
+     dentro cobrindo o de fora — exatamente a pergunta que o sticky existe para
+     responder. Determinístico: `--hit` mais o recuo vertical de `.55rem` dos
+     dois lados, com o nome em `nowrap` (ver `.coll-group-name`). */
+  --bar-secao-h: calc(var(--hit) + 1.1rem);
   /* Espessura do cap do fader de volume — ele atravessa a coluna inteira, como
      o cap de uma mesa de som de verdade. */
   --fader-cap: 26px;
@@ -278,11 +347,22 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
    preto sobre um cartão branco. */
 .row-item, .lib-item, .hymnal-card, .msg-item, .bible-vsec,
 .dialog-card, .popup-sheet, .fade-row, .simple-lyrics, .simple-key,
-/* Os dois blocos de nível 1 da Biblioteca: eles pintam `--camada`, que dentro
-   da folha de tela cheia resolve para `--panel` — são cartões pela definição
-   desta regra. Sem a barra de busca aqui, o campo dela ficava `--surface-2`
-   (branco a 92%) sobre um `--panel` que no tema CLARO é branco puro: 1,00:1. */
-.coll-group--drop, #hymnSearchPopup .hymn-search-bar,
+/* A PLACA DOS FAVORITOS entrou aqui na v1.5.14, no lote em que ela passou a
+   pintar `--panel` (ela é o nível 2 da seção, a irmã do `.folder-opfs`). É o
+   modo de falhar que esta lista existe para fechar, acontecendo pela terceira
+   vez — e desta vez o oráculo o pegou no mesmo lote em que nasceu: sem a
+   filiação, um controle dentro dela sairia em `--surface-2` FLUTUANTE sobre um
+   `--panel` que no tema CLARO é branco pleno, isto é, 1,00:1. */
+.fav-itens,
+/* O bloco de nível 1 da Biblioteca: ele pinta uma superfície opaca, logo é um
+   cartão pela definição desta regra e o que estiver dentro dele afunda.
+   (`#hymnSearchPopup .hymn-search-bar` saiu daqui na v1.5.14: a peça morreu na
+   v1.5.0, quando a barra da Biblioteca virou a `.lib-bar` da caixa de controles
+   — fora deste popup. O seletor sobreviveu quatorze lotes sem casar com nada, e
+   o comentário que o justificava seguia descrevendo um campo que já não morava
+   aqui; quem o herdou foi a regra do tema claro em `:root[data-tema="claro"]
+   .lib-bar`.) */
+.coll-group--drop,
 /* A FOLHA DE FERRAMENTAS (v1.3.14). Ela pinta `--panel` desde que nasceu, na
    v1.3.10, e nunca entrou aqui — é o modo de falhar que esta regra existe para
    fechar, acontecendo de novo. MEDIDO no tema CLARO: o `.mic-btn` saía em
@@ -477,7 +557,15 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
      ao toque sem nada na tela dizer por quê. Nenhum ancestral deles está na
      lista (a `.fade-opts` e a `.qs-grade` não respondem a toque), então não há
      duplo recuo a suprimir. */
-  .qs-tile
+  .qs-tile,
+  /* AS SETAS DO ACORDEÃO DA BIBLIOTECA (v1.5.14). Elas estavam NAS GUARDAS logo
+     acima — que zeram o recuo da barra quando o dedo pousa nelas — e NÃO
+     estavam aqui: tocá-las cancelava o feedback do vizinho sem dar nenhum no
+     lugar. O comentário da guarda afirmava o contrário (*"o dedo pousa num
+     deles e é ELE que responde"*), e o efeito na mão era o mesmo gesto
+     respondendo ou não conforme onde o dedo caísse: a barra afunda, a seta a
+     dois milímetros dali não. É o modo de falhar que o texto da lista nomeia. */
+  .coll-group-icon, .coll-bar-icon, .coll-bar-fechar
 ):active { transform: var(--press); filter: var(--press-luz); }
 
 
@@ -537,7 +625,7 @@ body {
    quando a faixa dá lugar à barra de seleção múltipla. */
 .bottombar {
   flex-shrink: 0;
-  display: flex; flex-direction: column; gap: .5rem;
+  display: flex; flex-direction: column; gap: var(--sp-4);
   background: var(--bar);
   padding: 0 .7rem .5rem;
   /* ===== O LUGAR DA BARRA DA BIBLIOTECA (v1.5.2) =====
@@ -658,7 +746,7 @@ body {
    `.slide-side--dir`), que é o que lhes dá a altura da faixa. E a faixa É a
    preview: desde a v1.3.7 ela é `auto` e a miniatura preenche a coluna, então
    os três medem o mesmo por construção. */
-.preview-row { display: flex; align-items: stretch; justify-content: center; gap: .4rem; }
+.preview-row { display: flex; align-items: stretch; justify-content: center; gap: var(--sp-3); }
 /* OS DOIS BOTÕES DE SLIDE (v1.3.5). Eles são o maior alvo do deck, e é o que o
    operador pediu ao trocar os três controles da direita por ele. Desabilitados
    quando não há slide para onde ir (`applySlideLimits`), que é a mesma condição
@@ -756,7 +844,7 @@ body {
   bottom: calc(var(--vol, 1) * (100% - var(--fader-cap)));
   height: var(--fader-cap);
   display: flex; align-items: center; justify-content: center;
-  font-size: .78rem; font-weight: 700; line-height: 1;
+  font-size: var(--fs-md); font-weight: var(--fw-forte); line-height: 1;
   color: var(--bg);
   pointer-events: none; user-select: none;
 }
@@ -1003,7 +1091,7 @@ body {
    ganharia e o botão sairia branco, isto é, sem dizer nada. */
 .pv-fab--giro {
   width: auto; min-width: var(--hit);
-  gap: .15rem; padding: 0 .25rem;
+  gap: var(--sp-1); padding: 0 .25rem;
   color: var(--stage-alert);
 }
 /* O NÚMERO GANHA O MESMO CONTORNO DO TRAÇO. A `drop-shadow` do `.pv-fab svg`
@@ -1012,7 +1100,7 @@ body {
    lado continua legível — o mesmo defeito que as três sombras existem para
    impedir, num nó que elas não cobrem. */
 .pv-fab-num {
-  font-size: .72rem; font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums;
+  font-size: var(--fs-sm); font-weight: var(--fw-max); line-height: 1; font-variant-numeric: tabular-nums;
   text-shadow:
     0 0 1px rgba(0, 0, 0, .95),
     0 0 2px var(--shadow-ink),
@@ -1083,7 +1171,7 @@ body {
   position: absolute; right: 10px; top: 10px; bottom: 10px;
   z-index: 6; display: none; flex-direction: column;
   justify-content: space-between; gap: 2px;
-  opacity: 0; pointer-events: none; transition: opacity .22s ease;
+  opacity: 0; pointer-events: none; transition: opacity var(--dur-media) ease;
 }
 .preview:fullscreen .pv-fsctl,
 .preview:-webkit-full-screen .pv-fsctl { display: flex; }
@@ -1158,10 +1246,10 @@ body {
   background: transparent; color: var(--muted);
   cursor: pointer;
 }
-.dl-cancel .msym { font-size: 1.15rem; }
+.dl-cancel .msym { font-size: var(--fs-3xl); }
 .dl-cancel:active { color: var(--danger-text); }
 .dl-pct {
-  flex-shrink: 0; font-size: .74rem; font-weight: 700;
+  flex-shrink: 0; font-size: var(--fs-sm); font-weight: var(--fw-forte);
   color: var(--accent); font-variant-numeric: tabular-nums;
 }
 
@@ -1191,7 +1279,7 @@ body {
   padding: .5rem 38px;
   pointer-events: none;
   opacity: 0; visibility: hidden;
-  transition: opacity .18s ease, visibility .18s;
+  transition: opacity var(--dur-media) ease, visibility var(--dur-media);
 }
 .pv-busy.on { opacity: 1; visibility: visible; }
 /* Um CARTÃO no meio, não uma cortina: a preview precisa continuar espelhando o
@@ -1199,7 +1287,7 @@ body {
    Opaco por conta própria: com véu translúcido a marca do wallpaper atravessa
    o texto. */
 .pv-busy-card {
-  display: flex; align-items: center; gap: .5rem;
+  display: flex; align-items: center; gap: var(--sp-4);
   /* `min-width: 0` além do `max-width`: sem ele o cartão herda a largura
      mínima-de-conteúdo do nome e transborda a miniatura, que corta o excesso. */
   max-width: 100%; min-width: 0;
@@ -1221,7 +1309,7 @@ body {
   background: var(--surface-2); color: var(--muted);
   cursor: pointer;
 }
-.pv-busy-cancel .msym { font-size: 1.1rem; }
+.pv-busy-cancel .msym { font-size: var(--fs-3xl); }
 .pv-busy-cancel:active { color: var(--text); }
 /* ---------- O ANEL DE DOWNLOAD (`.dl-ring`) ----------
    O aro gira, a SETA fica parada — um spinner puro diria só "espere". UM
@@ -1267,7 +1355,7 @@ body {
 /* AÇÃO em caixa alta miúda + NOME embaixo, e não uma frase só: numa caixa de
    ~250px a frase estoura, e separados a ação se lê de relance. */
 .pv-busy-cap {
-  font-size: .6rem; font-weight: 800; letter-spacing: .08em;
+  font-size: var(--fs-2xs); font-weight: var(--fw-max); letter-spacing: .08em;
   text-transform: uppercase; color: var(--accent);
 }
 /* O MESMO CARTÃO DIZENDO QUE NÃO DEU (`previewBusy().falhar`): só a cor da
@@ -1298,7 +1386,7 @@ body {
 /* Duas linhas no máximo: a miniatura tem ~150px de altura, e o nome de um hino
    longo tomaria a caixa inteira. */
 .pv-busy-label {
-  font-size: .78rem; font-weight: 600; line-height: 1.3; color: var(--text);
+  font-size: var(--fs-md); font-weight: var(--fw-medio); line-height: 1.3; color: var(--text);
   display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2;
   overflow: hidden;
 }
@@ -1376,7 +1464,7 @@ body {
   background: transparent;
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1.5cqh;
   text-align: center; overflow: hidden;
-  transition: opacity .3s ease;
+  transition: opacity var(--dur-lenta) ease;
 }
 .pv-lyrics-content.imgbg .pv-lyrics-box {
   background: var(--lyrics-frame-bg);
@@ -1388,12 +1476,12 @@ body {
 /* `pre-line` respeita as quebras já embutidas no texto (`normalizeLyricText`).
    Fonte em `cqmin`: encolhe pela dimensão mais apertada, nunca só pela altura. */
 .pv-lyrics-line {
-  color: var(--stage-text); font-weight: 700; text-transform: uppercase;
+  color: var(--stage-text); font-weight: var(--fw-forte); text-transform: uppercase;
   font-size: calc(8cqmin * var(--lyrics-escala, 1)); line-height: 1.2; white-space: pre-line;
   overflow-wrap: break-word;
 }
 .pv-lyrics-aux {
-  color: var(--stage-text-dim); font-weight: 600;
+  color: var(--stage-text-dim); font-weight: var(--fw-medio);
   font-size: calc(4.2cqmin * var(--lyrics-escala, 1)); line-height: 1.25; white-space: pre-line;
   overflow-wrap: break-word;
 }
@@ -1404,7 +1492,7 @@ body {
    era exatamente esta regra que pintava o título em denim escuro sobre o preto
    quando o operador estava no tema claro. */
 .pv-lyrics-content.cover .pv-lyrics-line {
-  color: var(--stage-text); font-size: calc(8.4cqmin * var(--lyrics-escala, 1)); font-weight: 800;
+  color: var(--stage-text); font-size: calc(8.4cqmin * var(--lyrics-escala, 1)); font-weight: var(--fw-max);
   letter-spacing: .01em;
   /* TRÊS linhas na capa (a estrofe segue com duas): um título de álbum passa
      fácil de duas — "Cristo, o Senhor, Ressuscitou Hoje na Manhã Gloriosa" — e
@@ -1428,7 +1516,7 @@ body {
 .pv-lyrics-num {
   display: flex; align-items: center; justify-content: center; gap: 2cqmin;
   align-self: stretch;
-  color: var(--stage-text); font-weight: 800;
+  color: var(--stage-text); font-weight: var(--fw-max);
   font-size: calc(5.8cqmin * var(--lyrics-escala, 1)); line-height: 1.2; letter-spacing: .14em;
   font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1;
 }
@@ -1437,7 +1525,7 @@ body {
   background: var(--stage-accent);
 }
 .pv-lyrics-content.cover .pv-lyrics-aux {
-  color: var(--stage-text-dim); font-weight: 600; text-transform: uppercase;
+  color: var(--stage-text-dim); font-weight: var(--fw-medio); text-transform: uppercase;
   font-size: calc(3.4cqmin * var(--lyrics-escala, 1)); letter-spacing: .14em;
 }
 /* A CAIXA DA CAPA CRESCE COM O CONTEÚDO — a única do sistema que faz isso. A
@@ -1489,12 +1577,12 @@ body {
    é centrado na largura inteira) — e ele precisa, senão a reticência de um nome
    longo encosta na borda do cartão. */
 .nowplaying {
-  display: flex; flex-direction: column; gap: .25rem;
+  display: flex; flex-direction: column; gap: var(--sp-2);
   background: var(--surface);
   border-radius: var(--radius-card);
   padding: .4rem 0;
 }
-.np-name { font-size: .85rem; font-weight: 600; text-align: center; overflow: hidden; padding: 0 .5rem; }
+.np-name { font-size: var(--fs-md); font-weight: var(--fw-medio); text-align: center; overflow: hidden; padding: 0 .5rem; }
 .np-name-inner {
   display: inline-block; max-width: 100%; white-space: nowrap;
   overflow: hidden; text-overflow: ellipsis; vertical-align: middle;
@@ -1524,7 +1612,7 @@ body {
   gap: var(--deck-gap);
   align-items: center;
 }
-.np-time { font-size: .7rem; color: var(--muted); text-align: center; min-width: 0; }
+.np-time { font-size: var(--fs-xs); color: var(--muted); text-align: center; min-width: 0; }
 #seek { width: 100%; min-width: 0; accent-color: var(--accent); height: 4px; }
 #seek:disabled { opacity: .4; }
 
@@ -1631,7 +1719,7 @@ main {
      abas, que mudou para dentro da caixa de controles (v5.54) — o resto é só a
      folga entre a última linha da lista e a borda de cima da caixa. */
   padding: calc(.6rem + env(safe-area-inset-top)) .8rem .35rem;
-  display: flex; flex-direction: column; gap: .7rem;
+  display: flex; flex-direction: column; gap: var(--sp-5);
 }
 
 /* ---------- Aviso de salvamento (v5.104) ---------- */
@@ -1684,7 +1772,7 @@ main {
    A REGRA, então, é uma só nos dois eixos: **a caixa da faixa não pode depender
    de quem está dentro dela.** */
 .list-header {
-  flex-shrink: 0; display: grid; align-items: center; gap: .3rem;
+  flex-shrink: 0; display: grid; align-items: center; gap: var(--sp-2);
   grid-template-columns: var(--hit) minmax(0, 1fr) var(--hit);
   grid-template-rows: var(--hit);
 }
@@ -1725,7 +1813,7 @@ main {
    e não como um cabeçalho de página. */
 .list-title {
   min-width: 0; text-align: center;
-  font-size: 1.05rem; font-weight: 700; color: var(--muted);
+  font-size: var(--fs-2xl); font-weight: var(--fw-forte); color: var(--muted);
   text-transform: uppercase; letter-spacing: .06em;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
@@ -1818,7 +1906,7 @@ main {
    fechada, quem encosta na base da tela é a caixa; aberta, quem desconta o
    topo é a folha (`padding-top` da `.popup-sheet--lib`). */
 .lib-bar {
-  display: flex; align-items: center; gap: .5rem; flex-shrink: 0;
+  display: flex; align-items: center; gap: var(--sp-4); flex-shrink: 0;
   padding: .35rem .7rem;
   background: none;
 }
@@ -1880,7 +1968,7 @@ main {
    daquela lista.)
    A margem de cima só vale DENTRO de uma lista, onde ele precisa se separar da
    última mídia; no rodapé quem dá o respiro é o `gap` do `<main>`. */
-.import-row { flex-shrink: 0; display: flex; gap: .5rem; margin-top: .85rem; }
+.import-row { flex-shrink: 0; display: flex; gap: var(--sp-4); margin-top: .85rem; }
 /* ===== AS TRÊS PORTAS DO CRONOGRAMA, EM PARTES IGUAIS (v1.5.0) =====
    Bíblia · Importar arquivos · Ferramentas, e as três com RÓTULO — o pedido do
    operador foi *"coloque um texto no botão de ferramentas"*, e o argumento que
@@ -1906,21 +1994,23 @@ main {
      saía com reticências na linha; empilhado, a palavra tem a largura inteira
      do terço e cabe até em 320. */
   display: flex; flex-direction: column; align-items: center; justify-content: center;
-  gap: .15rem;
+  gap: var(--sp-1);
   border: 0; border-radius: var(--radius-btn);
   background: var(--surface); color: var(--accent);
   /* `.82rem` e não `.9`: são TRÊS rótulos onde havia um, e MEDIDO em 430px o
      terço de cada um não paga "Ferramentas" no corpo antigo — o nome saía com
      reticências, que é pior que a palavra curta porque não diz qual palavra
      foi cortada. */
-  font-size: .82rem; font-family: inherit;
+  font-size: var(--fs-md); font-family: inherit;
   cursor: pointer; appearance: none; -webkit-appearance: none;
 }
 .tools-btn svg, .lib-foot-btn svg { flex-shrink: 0; }
 .tools-btn span, .lib-foot-btn span {
   min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.tools-btn:active, .lib-foot-btn:active { transform: var(--press); filter: var(--press-luz); }
+/* (A regra `:active` própria destes dois saiu na v1.5.14: as duas classes já
+   estão na lista `:is()` do `--press`, com o mesmo valor e a mesma pseudo-classe.
+   Uma segunda escrita da mesma coisa só cria a chance de as duas divergirem.) */
 .list-foot > .import-row { margin-top: 0; }
 /* (`.fav-section` saiu na v5.254: os favoritos são UMA lista, na ordem que o
    operador der a ela. Os cabeçalhos por tipo eram doze rótulos disputando a
@@ -1969,10 +2059,10 @@ main {
   /* O PREENCHIMENTO VEM DA REGRA AGRUPADA (v5.267). Estava `transparent` aqui
      porque quem desenhava a caixa era o tracejado; sem contorno, isso deixaria
      o botão como uma frase solta no meio da tela — verificado no renderizado. */
-  color: var(--accent); font-size: .82rem;
+  color: var(--accent); font-size: var(--fs-md);
   /* A MESMA PILHA das irmãs (v1.5.0): ícone em cima, rótulo embaixo. */
   display: flex; flex-direction: column; align-items: center; justify-content: center;
-  gap: .15rem;
+  gap: var(--sp-1);
   cursor: pointer;
 }
 .import-btn svg { flex-shrink: 0; }
@@ -2002,7 +2092,7 @@ main {
    O sinal de "você está em outro modo" é o CONTADOR em accent: cor de texto,
    não uma placa. */
 .selbar {
-  flex-shrink: 0; display: flex; align-items: center; gap: .6rem;
+  flex-shrink: 0; display: flex; align-items: center; gap: var(--sp-5);
   background: var(--bg); border-radius: var(--radius-card);
   padding: .35rem .6rem;
 }
@@ -2021,7 +2111,7 @@ main {
   min-height: var(--hit-foot);
   padding: 0 .5rem;
 }
-.sel-count { font-weight: 700; color: var(--accent); }
+.sel-count { font-weight: var(--fw-forte); color: var(--accent); }
 .sel-spacer { flex: 1; }
 .sel-btn { background: var(--surface-2); color: var(--text); }
 .sel-btn:disabled { opacity: .35; }
@@ -2068,7 +2158,7 @@ main {
    O `gap` repete o do `<main>`, de onde os dois filhos saíram. */
 .list-body {
   flex: 1; min-height: 0; position: relative;
-  display: flex; flex-direction: column; gap: .7rem;
+  display: flex; flex-direction: column; gap: var(--sp-5);
 }
 /* A FOLHA DE FERRAMENTAS (v1.3.10). Ela veste `--panel` porque é um bloco sobre
    a página, e declara `--camada` como todo contêiner que hospeda filhos: quem
@@ -2112,10 +2202,10 @@ main {
   .tools-sheet, .tools-sheet.saindo { animation: none; }
 }
 .tools-head {
-  flex-shrink: 0; display: flex; align-items: center; gap: .4rem;
+  flex-shrink: 0; display: flex; align-items: center; gap: var(--sp-3);
   margin-bottom: .5rem;
 }
-.tools-title { flex: 1; min-width: 0; font-size: .95rem; font-weight: 800; color: var(--text); }
+.tools-title { flex: 1; min-width: 0; font-size: var(--fs-xl); font-weight: var(--fw-max); color: var(--text); }
 /* O host das ferramentas ocupa o que sobra. Ele é o gêmeo da `.lib-list` no que
    importa (coluna que ocupa a altura), e o oposto no que a `.lib-misc` diz
    logo abaixo: aqui quem administra a altura é o painel ativo, não a rolagem. */
@@ -2124,10 +2214,10 @@ main {
 .lib-list { touch-action: pan-y; }
 .lib-list {
   flex: 1; min-height: 0; overflow-y: auto;
-  position: relative; list-style: none; display: flex; flex-direction: column; gap: .4rem;
+  position: relative; list-style: none; display: flex; flex-direction: column; gap: var(--sp-3);
   padding-bottom: .6rem;
 }
-.empty { color: var(--muted); text-align: center; padding: 1.6rem 0; line-height: 1.6; font-size: .9rem; }
+.empty { color: var(--muted); text-align: center; padding: 1.6rem 0; line-height: 1.6; font-size: var(--fs-lg); }
 
 /* ---------- A LINHA DE LISTA, e o ESTADO dela é um PREENCHIMENTO ----------
    `--linha` é o preenchimento DESTA linha, e é ele que os três estados
@@ -2149,7 +2239,7 @@ main {
 }
 .row-item.active, .lib-item.active, .lib-item.selected { --linha: var(--sel-fill); }
 
-.row { position: relative; z-index: 1; display: flex; align-items: center; gap: .5rem; padding: .35rem .5rem; background: var(--linha); touch-action: pan-y; }
+.row { position: relative; z-index: 1; display: flex; align-items: center; gap: var(--sp-4); padding: .35rem .5rem; background: var(--linha); touch-action: pan-y; }
 
 /* ---------- NO AR: a linha que está no telão AGORA ---------- */
 /* `.active` e `.no-ar` são coisas diferentes, e confundi-las é o defeito que
@@ -2174,10 +2264,10 @@ main {
    contorno vermelho já gritava por cima da linha inteira; sem ele, o nome —
    que é o maior texto da linha — era a única coisa que continuava neutra. */
 .row-item.no-ar, .lib-item.no-ar { --linha: var(--live-fill); }
-.lib-item.no-ar .row-name { color: var(--live-strong); font-weight: 600; }
+.lib-item.no-ar .row-name { color: var(--live-strong); font-weight: var(--fw-medio); }
 /* O selo mora na linha do subtítulo, prefixado — exatamente como a referência
    do versículo central da Bíblia (`● No ar · Salmo 23:1`). */
-.row-live { color: var(--live-strong); font-weight: 800; letter-spacing: .03em; }
+.row-live { color: var(--live-strong); font-weight: var(--fw-max); letter-spacing: .03em; }
 
 /* ---------- A NOTA DA LINHA (v5.207) ----------
    O canal que substituiu a faixa flutuante para tudo que é um fato SOBRE UM
@@ -2191,7 +2281,7 @@ main {
 
    Três leituras, três cores, o mesmo vocabulário do pulso do botão: verde
    entrou, âmbar já estava, vermelho não deu. */
-.row-nota { font-weight: 800; letter-spacing: .02em; }
+.row-nota { font-weight: var(--fw-max); letter-spacing: .02em; }
 .row-nota--ok { color: var(--ok); }
 .row-nota--dup { color: var(--warn-text); }
 .row-nota--erro { color: var(--danger-text); }
@@ -2201,7 +2291,7 @@ main {
    instante. (O JS já não põe `.no-ar` durante a seleção; esta linha é o
    cinto e suspensório de quem reordenar as classes um dia.) */
 .lib-item.selected.no-ar { --linha: var(--sel-fill); }
-.lib-item.selected.no-ar .row-name { color: var(--text); font-weight: 400; }
+.lib-item.selected.no-ar .row-name { color: var(--text); font-weight: var(--fw-normal); }
 
 /* ---------- e os BOTÕES DA LINHA trocam junto (v5.177) ----------
    No ar, a única decisão que aquela linha oferece é tirá-la do ar: o toque no
@@ -2274,7 +2364,7 @@ main {
 .linha-confirma { display: none; }
 :is(.row-acoes, .fav-acoes, .pl-limpar-faixa, .hist-sessao-acoes).confirmando > .linha-confirma {
   display: flex; flex: 1; min-width: 0;
-  align-items: center; gap: .35rem;
+  align-items: center; gap: var(--sp-3);
 }
 :is(.row-acoes, .fav-acoes, .pl-limpar-faixa, .hist-sessao-acoes).confirmando > :not(.linha-confirma) { display: none; }
 /* O par é de TEXTO, não de ícone, e é a única exceção à regra dos quadrados da
@@ -2301,7 +2391,7 @@ main {
   /* (a altura DENTRO de uma linha de lista é outra — ver a regra logo abaixo) */
   border: none; border-radius: var(--radius-btn);
   appearance: none; -webkit-appearance: none;
-  font-family: inherit; font-size: .82rem; font-weight: 600;
+  font-family: inherit; font-size: var(--fs-md); font-weight: var(--fw-medio);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   cursor: pointer;
   background: var(--surface); color: var(--text);
@@ -2463,7 +2553,7 @@ main {
   padding: 0 .5rem;
   border: none; outline: none; border-radius: var(--radius-btn);
   appearance: none; -webkit-appearance: none;
-  font-family: inherit; font-size: .85rem;
+  font-family: inherit; font-size: var(--fs-md);
   background: var(--surface-2); color: var(--text);
 }
 .linha-renome-campo::placeholder { color: var(--muted); }
@@ -2502,7 +2592,7 @@ main {
   width: max-content;
   min-width: calc(100% - 2 * var(--thumb) - 2rem);
   max-width: calc(100% - var(--thumb) - 1.5rem);
-  display: flex; align-items: center; justify-content: flex-end; gap: .35rem;
+  display: flex; align-items: center; justify-content: flex-end; gap: var(--sp-3);
   background: var(--linha);
   opacity: 0; visibility: hidden;
   /* `visibility` ENTRA na transição, e sem ela o fechamento nunca foi visto: a
@@ -2510,7 +2600,7 @@ main {
      quadro e a gaveta some antes de o `opacity` sair do lugar. O comentário
      acima já dizia que o `visibility` existe "para a transição de opacidade
      existir" — ele valia só para a ABERTURA. */
-  transition: opacity .14s ease, visibility .14s;
+  transition: opacity var(--dur-rapida) ease, visibility var(--dur-rapida);
 }
 /* ---------- E OS BOTÕES ENTRAM DA DIREITA (v5.269) ----------
    Pedido do operador: *"aplique uma animação de deslize para o surgimento dos
@@ -2526,7 +2616,7 @@ main {
    conforme o estado do item. */
 .row-acoes > * {
   transform: translateX(14px);
-  transition: transform .2s cubic-bezier(.22, .61, .36, 1);
+  transition: transform var(--dur-media) cubic-bezier(.22, .61, .36, 1);
 }
 /* ---------- A GAVETA É DE QUEM TEM A CLASSE, NÃO DE UMA LISTA ----------
    Keyadas em `.lib-item.acoes-abertas`, estas regras não alcançavam a linha da
@@ -2598,7 +2688,7 @@ main {
    A confirmação de exclusão não precisa de exceção nenhuma aqui: com dois
    filhos visíveis a caixa desce ao piso sozinha, e a lixeira da miniatura fica
    à vista. */
-.row-acoes:has(> :nth-child(7)) { gap: .25rem; }
+.row-acoes:has(> :nth-child(7)) { gap: var(--sp-2); }
 .lib-item .row-acoes:has(> :nth-child(7)) .row-btn {
   width: var(--hit); height: var(--hit);
 }
@@ -2638,9 +2728,9 @@ main {
    Dentro da coluna ele é desfeito, pela mesma razão já registrada em
    `.hymn-name`: num pai em coluna, crescer é esticar na VERTICAL — o nome
    descolaria do subtítulo. */
-.row-name { flex: 1; min-width: 0; font-size: .9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.row-name { flex: 1; min-width: 0; font-size: var(--fs-lg); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .row-text > .row-name { flex: none; }
-.row-sub { min-width: 0; font-size: .68rem; line-height: 1.25; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.row-sub { min-width: 0; font-size: var(--fs-xs); line-height: 1.25; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* (O `#favList .row-sub { display: none }` saiu na v5.254. Ele existia porque a
    gaveta agrupava por tipo em seções e o cabeçalho já dizia o que o subtítulo
    diria; sem as seções, ele é a única coisa da linha que distingue um vídeo de
@@ -2747,7 +2837,7 @@ main {
    conteúdo dentro mediria o conteúdo já visível. */
 .folder-itens {
   list-style: none; margin: 0; padding: 0;
-  display: none; flex-direction: column; gap: .2rem;
+  display: none; flex-direction: column; gap: var(--sp-2);
   --camada: transparent;
 }
 /* ---------- O CORPO É RECUADO, COMO O DO ÁLBUM (v5.291) ----------
@@ -2922,7 +3012,7 @@ main {
    tamanho e o peso são reescritos pelo card e pela faixa, a caixa alta não. */
 .coll-group {
   flex-shrink: 0;
-  display: flex; align-items: center; gap: .5rem;
+  display: flex; align-items: center; gap: var(--sp-4);
   /* A direita reserva o MESMO espaço que o card gasta depois do botão de
      baixar — hoje só o padding dele (.7rem), já que a moldura e a seta do
      acordeão saíram na v5.71. Sem isso os dois botões de baixar, que ficam um
@@ -2960,7 +3050,7 @@ main {
    ativo) ele é que ocupa a linha. */
 .coll-group-count {
   flex: 1; min-width: 0; text-align: right;
-  letter-spacing: normal; text-transform: none; font-weight: 600;
+  letter-spacing: normal; text-transform: none; font-weight: var(--fw-medio);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .coll-group-name + .coll-group-count { flex: 0 1 auto; }
@@ -2992,6 +3082,10 @@ main {
    logo abaixo dele. Sem isso, uma lista fechada seria uma pilha de rótulos que
    não se anunciam como tocáveis — e é justamente esse o único gesto da tela. */
 /* ---------- A SEÇÃO É UM BLOCO SÓ ----------
+   (v1.5.14: e voltou a ser verdade ao pé da letra. A v1.5.9 deu à barra um tom
+   próprio (`--surface`) e este texto passou a descrever um desenho que já não
+   existia; com as tampas transparentes, barra e corpo voltaram a ser faixas do
+   mesmo bloco, e o que as fixa é o `position: sticky`.)
    O `<li>` inteiro é a caixa: um preenchimento, um raio, e barra e corpo por
    dentro sem fundo próprio. Nada troca de cor com o estado — o que abre e fecha
    é a seta e o corpo aparecendo.
@@ -3136,16 +3230,23 @@ main {
    corpo resolver o próprio `background` e o bloco sai transparente. */
 #hymnResults > .coll-group--fav.aberto .fav-itens {
   list-style: none; margin: 0; padding: .4rem;
-  display: flex; flex-direction: column; gap: .35rem;
-  background: var(--camada);
+  display: flex; flex-direction: column; gap: var(--sp-3);
+  /* PAPEL, e não `--camada` (v1.5.14). A placa é o NÍVEL 2 da seção dos
+     Favoritos — a irmã do `.folder-opfs` que fica ao lado dela e o análogo do
+     card de álbum —, e o nível 2 volta ao tom da janela. Lendo `--camada` ela
+     pegava o POÇO que a seção reserva aos filhos e media 1,00:1 contra ele: a
+     placa sumia dentro da própria seção, e as linhas dela ficavam num degrau
+     que nenhuma outra lista do acervo tem. */
+  background: var(--panel);
   border-radius: var(--radius-card);
 }
 #hymnResults > .coll-group--fav.aberto .fav-itens > .lib-item {
   /* A MESMA RECEITA da faixa do álbum, e é o ponto da v5.283 — os dois são
-     "um item", não "um contêiner". Trocaram `--surface` por `--item-fill`
-     JUNTOS (v5.297): separá-los aqui devolveria as duas cores diferentes para o
-     mesmo papel, que é o defeito que aquela versão fechou. */
-  --linha: var(--item-fill);
+     "um item", não "um contêiner". Andaram JUNTOS quando trocaram `--surface`
+     por `--item-fill` (v5.297) e andam juntos agora que o nível 3 deixou de ter
+     preenchimento (v1.5.14): separá-los devolveria duas receitas para o mesmo
+     papel, que é o defeito que aquela versão fechou. */
+  --linha: transparent;
   --camada: transparent;
 }
 /* ---------- AS SEÇÕES RESPIRAM (v5.273) ----------
@@ -3157,27 +3258,21 @@ main {
 
    Escopado em `#hymnResults`, nunca no `.popup-list`: a mesma classe é a fila
    da playlist e os itens de uma pasta, onde .35rem é a medida certa. */
-#hymnResults { gap: .6rem; }
-/* ---------- A ESCALA DE TONS DA BIBLIOTECA ----------
-   REGRA, uma só e verificável: dentro da folha há DOIS tons, e o aninhamento
-   NUNCA inverte a direção. `--panel-2` é o tom de CONTÊINER (a barra da seção e
-   o card do álbum — o token já muda de direção sozinho entre os temas). Dentro
-   de um contêiner o conteúdo não ganha caixa: a faixa é uma LINHA. Estado
-   (aberto, no ar, selecionado) é overlay, nunca um tom novo.
+#hymnResults { gap: var(--sp-5); }
+/* ---------- A ESCALA DE TONS DA BIBLIOTECA SAIU (v1.5.14) ----------
+   O bloco que morava aqui descrevia a regra da v5.241/v5.267: DOIS tons, com
+   `--panel-2` como "o tom de CONTÊINER" e o aninhamento nunca invertendo a
+   direção. Ele já não descrevia o app desde a v1.5.10 (quando `--panel-2` saiu
+   da Biblioteca inteira) e continuava afirmando a receita antiga com a medição
+   dela ao lado — o formato de comentário que este projeto proíbe, porque ele
+   não envelhece calado: ele responde, e responde errado.
 
-   Antes, medido no escuro do fundo para dentro: folha 44,52,60 → barra FECHADA
-   ~69,76,84 (o objeto mais claro da tela, sendo o contêiner mais externo) → a
-   mesma barra ABERTA 44,52,60 (a peça trocava de cor com o estado) → card
-   59,69,80 → faixa 44,52,60. A elevação subia, descia, subia e descia em cinco
-   níveis aninhados: não havia regra a aprender.
-
-   Dois tons e não uma escada de quatro porque só o overlay (`--surface-sunk`)
-   preserva a direção nos dois temas, e uma escada de overlays levaria o nível
-   mais interno a 180 no claro — mais escuro que a própria página. */
-/* A barra não tem fundo NEM moldura própria: ela é a primeira faixa do bloco da
-   seção (acima), e o que a separa do corpo é o corpo ter conteúdo. A COR NÃO
-   MUDA com o estado — quem diz "isto está aberto" é a seta e o que apareceu
-   embaixo dela. */
+   A regra que vale hoje é a ALTERNÂNCIA papel → poço → papel, e ela está
+   escrita uma vez só, no bloco `.acervo` (procure "A HIERARQUIA DA BIBLIOTECA").
+   O que sobrevive daquele texto é a metade que nunca dependeu do número de
+   tons: dentro de um contêiner o conteúdo NÃO ganha caixa — a faixa é uma
+   linha —, e estado (aberto, no ar, selecionado) é preenchimento, nunca um tom
+   novo na escada. */
 .coll-group-bar {
   /* ---------- O RÓTULO INTEIRO MORA AQUI ----------
      Estas quatro linhas e a cor viviam na `.coll-group`, que é o BLOCO — e o
@@ -3212,11 +3307,17 @@ main {
      e tampa, e quem diz "isto contém aquilo" é o desenho, não a tipografia.
      `letter-spacing` sai junto: tracking sem caixa alta é um rótulo pela
      metade. */
-  font-size: .9rem; font-weight: 700;
+  /* UM DEGRAU ACIMA DO CARD (v1.5.14). A seção era `.9rem` e o card `.88rem` —
+     dois centésimos, que é ruído e não hierarquia; a migração para a escala
+     tipográfica achatou os dois no mesmo degrau e o oráculo pegou. Com a
+     moldura fora, o RANK passou a ser um dos três mecanismos que carregam a
+     profundidade (com o sticky e o recuo), então ele tem de ser um degrau de
+     verdade: seção `--fs-xl`, card `--fs-lg`, faixa `--fs-md`. */
+  font-size: var(--fs-xl); font-weight: var(--fw-forte);
   color: var(--muted);
   /* O VÃO é o do card (`.55rem`), pela mesma razão do recuo abaixo: com `.5rem`
      o nome da seção começava 1px antes do nome do card. */
-  display: flex; align-items: center; gap: .55rem;
+  display: flex; align-items: center; gap: var(--sp-5);
   /* ---------- AS MESMAS COLUNAS DA BARRA DO CARD (v1.3.14) ----------
      Na RAIZ da Biblioteca uma seção e um card fixo são LINHAS IRMÃS, e elas
      tinham recuos diferentes: `.5rem .45rem .5rem .55rem` aqui contra
@@ -3250,11 +3351,15 @@ main {
    segunda arte para a mesma ideia era a divergência que a fonte única existe
    para não ter. */
 .coll-group-icon, .coll-bar-icon {
-  width: 32px; height: 32px; flex-shrink: 0;
+  /* `--hit` e não 32px (v1.5.14): estas duas eram os únicos alvos da Biblioteca
+     ABAIXO do piso de toque do próprio app, e são o controle que abre e fecha
+     cada seção e cada álbum. Dois pixels não se veem; num alvo que o polegar
+     procura sem olhar, eles são a diferença entre acertar e abrir outra coisa. */
+  width: var(--hit); height: var(--hit); flex-shrink: 0;
   border-radius: var(--radius-btn);
   background: var(--btn-accent); color: var(--accent);
   display: flex; align-items: center; justify-content: center;
-  transition: transform .2s ease;
+  transition: transform var(--dur-media) ease;
 }
 .coll-group-icon, .coll-bar-fechar {
   border: none; appearance: none; -webkit-appearance: none;
@@ -3266,6 +3371,23 @@ main {
    animar. */
 .coll-group--drop:not(.aberto) > .coll-group-bar > .coll-group-icon,
 .hymnal-card:not(.expanded) .coll-bar-fechar { transform: rotate(180deg); }
+/* ---------- E O RECUO DO TOQUE TEM DE COMPOR COM O GIRO (v1.5.14) ----------
+   `transform` é UMA propriedade: a lista `:is(...):active` do `--press` escreve
+   `translateY(2px)` e APAGARIA a rotação — a seta fechada daria um pulo de 180°
+   ao ser tocada. Aqui ela nem chegava a apagar, porque estas duas regras têm
+   especificidade maior (0,4,0 contra 0,2,0) e venciam em silêncio: a seta
+   recebia só a LUZ do `--press-luz`, e o recuo — a metade que o app inteiro usa
+   para dizer "apertei" — não acontecia em nenhum dos dois estados.
+   Compor é a única saída, e é por isso que estas duas linhas existem em vez de
+   uma exceção na lista. */
+:is(.coll-group-icon, .coll-bar-icon, .coll-bar-fechar):active { transform: var(--press); }
+/* A ORDEM IMPORTA: `var(--press)` vem ANTES do giro. Uma `transform` é aplicada
+   da direita para a esquerda, então `rotate(180deg) translateY(2px)` translada
+   no sistema JÁ GIRADO e a seta SOBE 2px ao ser tocada — o oposto do resto do
+   app, e o tipo de coisa que se lê como "o botão está errado" sem se saber por
+   quê. MEDIDO: `matrix(-1, 0, 0, -1, 0, -2)` contra o `(…, 0, 2)` desta ordem. */
+.coll-group--drop:not(.aberto) > .coll-group-bar > .coll-group-icon:active,
+.hymnal-card:not(.expanded) .coll-bar-fechar:active { transform: var(--press) rotate(180deg); }
 /* (`.coll-group-icon.vago` e `.coll-group--drop.fixo` saíram na v5.262: a seção
    dos Favoritos deixou de ser a única que não colapsa — ela nasce aberta por
    `grupoAberto`, e a partir daí é uma seção como as outras. Um lugar reservado
@@ -3293,14 +3415,24 @@ main {
 .coll-group-corpo {
   list-style: none; margin: 0; padding: 0;
   display: flex; flex-direction: column;
-  overflow: hidden;
+  /* SEM `overflow: hidden` (v1.5.14), e é a mesma razão que o `.coll-group--drop`
+     já documentava: **um ancestral que recorta vira o SCROLLPORT de um
+     `position: sticky` descendente**, e a barra do álbum passa a grudar no topo
+     DELE em vez de no da lista. MEDIDO com o empilhamento da v1.5.14: a barra
+     era empurrada 52px para baixo do próprio slot e cobria a primeira faixa.
+     O recorte era REDUNDANTE: quem precisa dele é a animação do acordeão, e ela
+     já o escreve inline nas duas pontas (`el.style.overflow = 'hidden'` ao
+     começar, `= ''` ao terminar — ver `collapseAccordion`). Deixá-lo na folha
+     fazia a regra valer o tempo todo para servir a 220ms. */
 }
 /* O CORPO NÃO TEM FUNDO PRÓPRIO: ele é a segunda faixa do bloco da seção, então
    fica com o tom DELA — e é essa a correção da v5.267. Ele ficava com a cor da
    FOLHA (`--panel`), e um card de álbum pousado ali estava, para o olho, no
-   mesmo plano da barra da seção, não dentro dela. Agora o card sobe um degrau
-   (`--camada` = `--panel-2`) sobre o tom da seção, e o aninhamento se lê sem
-   nenhuma linha. */
+   mesmo plano da barra da seção, não dentro dela. O card passou a ocupar um
+   degrau próprio sobre o tom da seção, e o aninhamento se lê sem nenhuma linha.
+   (v1.5.14: o degrau continua, com o sinal INVERTIDO — dentro do poço da seção
+   o card volta ao PAPEL em vez de subir mais um tom. É a alternância, e é ela
+   que faz o quarto nível não precisar de um quarto tom.) */
 /* O RECUO DE CIMA É O MESMO `gap` DAS LINHAS (v1.5.10). Relato: *"verifique o
    espaçamento entre o card de titulo da coleção e o primeiro item desta
    coleção, parece estar sem espaçamento correto"* — MEDIDO, o primeiro card
@@ -3310,7 +3442,7 @@ main {
    do `gap`, a barra passa a ser mais uma vizinha na coluna. */
 .coll-group--drop.aberto > .coll-group-corpo {
   padding: .35rem .4rem .45rem;
-  gap: .35rem;
+  gap: var(--sp-3);
 }
 /* FECHADO ELE NÃO OCUPA NADA. O corpo é sempre montado (é ele que a animação
    de fechamento precisa medir), então sem isto todo grupo fechado deixaria uma
@@ -3319,7 +3451,7 @@ main {
 /* O RECUO É DA BARRA, e não do card (v5.288 — ver `.hymnal-card`): é o que faz
    a faixa em volta dela ser ALVO em vez de margem morta. */
 .coll-bar {
-  display: flex; align-items: center; gap: .55rem; cursor: pointer;
+  display: flex; align-items: center; gap: var(--sp-5); cursor: pointer;
   padding: .55rem .7rem;
 }
 /* ===== A BARRA NÃO ESCALA, E ESTA É A REGRA GERAL =====
@@ -3354,7 +3486,7 @@ main {
    sobre a coleção e dividem a linha, e meio ponto de diferença entre irmãos na
    mesma linha é a inconsistência que a auditoria da v5.241 existiu para tirar
    daqui — além de ser o meio ponto que fazia o par estourar a altura da thumb. */
-.coll-bar-sub { font-size: .7rem; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.coll-bar-sub { font-size: var(--fs-xs); color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* ---------- O METADADO DO CARD, EM UMA LINHA (v5.247) ----------
    O subtítulo do pivô e o peso dividem a SEGUNDA linha do card — ver a nota em
    `renderCollectionCard`. O ponto separador vem do CSS e não do dado: os dois
@@ -3365,7 +3497,7 @@ main {
    `min-width: 0` no subtítulo é o que faz as reticências caírem NELE: o peso é
    curto e não deve encolher, e sem isso o flex distribuiria o aperto entre os
    dois — cortando o número, que é a única coisa ali que não se adivinha. */
-.coll-bar-meta { display: flex; align-items: baseline; gap: .3rem; min-width: 0; }
+.coll-bar-meta { display: flex; align-items: baseline; gap: var(--sp-2); min-width: 0; }
 .coll-bar-meta > .coll-bar-sub { min-width: 0; }
 .coll-bar-meta > .coll-bar-sub + .coll-bar-sync::before {
   content: '·'; margin-right: .3rem; opacity: .65;
@@ -3383,12 +3515,12 @@ main {
    do card é a seta desde a v5.244.) */
 /* O DEGRAU DO MEIO da escala (ver "A escala de títulos da Biblioteca"): era
    .95rem, o mesmo do item que ele contém. */
-.coll-bar-name { font-size: .88rem; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.coll-bar-name { font-size: var(--fs-lg); font-weight: var(--fw-forte); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* O resumo passou a ser o PESO (v5.94), que é bem mais largo que o "2/4" de
    antes — e ele divide a linha com o NOME do álbum, que é a informação
    principal. Meio ponto de fonte a menos devolve um caractere de nome sem
    comprometer a leitura de um número secundário. */
-.coll-bar-sync { flex-shrink: 0; font-size: .7rem; font-weight: 700; color: var(--muted); font-variant-numeric: tabular-nums; }
+.coll-bar-sync { flex-shrink: 0; font-size: var(--fs-xs); font-weight: var(--fw-forte); color: var(--muted); font-variant-numeric: tabular-nums; }
 /* (`.coll-bar-sync.done` saiu na v5.70: com o álbum completo o resumo não é
    mais desenhado — ver renderCollectionCard. O verde de "concluído" continua
    nos CONTADORES DE GRUPO, que somam várias coleções e ali ainda respondem
@@ -3396,7 +3528,7 @@ main {
 /* Sincronizando: o resumo vira o progresso ao vivo. O teto de largura saiu com
    a coluna da direita (v5.247) — aqui ele tem a linha inteira, e quem cede
    espaço é o subtítulo ao lado. */
-.coll-bar-sync.busy { color: var(--accent); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.coll-bar-sync.busy { color: var(--accent); font-weight: var(--fw-medio); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* (`.coll-bar-peso` durou uma versão: na v5.94 o resumo da barra PASSOU A SER o
    peso em todos os estados — ver `fracaoPeso` —, e um segundo elemento só para
    o álbum completo virou a mesma coisa com outro nome.) */
@@ -3441,7 +3573,12 @@ main {
    alcance, e o nome da coleção junto — que é a outra metade da pergunta "onde
    eu estou?". */
 /* ABERTO A PLACA SOBE (v1.3.14) — ver o bloco do `.hymnal-card`. É aqui que ele
-   declara o degrau, e é a tampa logo abaixo quem o lê. */
+   declara o degrau, e é a tampa logo abaixo quem o lê.
+   DENTRO DA BIBLIOTECA as duas linhas abaixo são sobrescritas pelo bloco
+   `.acervo` (o `--camada` vira PAPEL e a tampa fica transparente e grudada
+   ABAIXO da barra da seção). O que fica aqui é a receita de um card fora do
+   acervo — a folha da playlist, o resultado de busca —, onde não há seção
+   nenhuma e a escada de tons segue valendo. */
 .hymnal-card.expanded { --camada: var(--panel-2); }
 .hymnal-card.expanded .coll-bar {
   position: sticky; top: 0; z-index: 3;
@@ -3520,7 +3657,7 @@ main {
    entre duas delas é o tom do PRÓPRIO álbum. É o mesmo recurso que separa duas
    seções na Biblioteca e dois itens no Cronograma, uma escala acima. Fundo só
    quando há ESTADO — e aí é `--linha`, como em qualquer outra linha do app. */
-.coll-songs { gap: .2rem; }
+.coll-songs { gap: var(--sp-2); }
 /* ---------- E CADA FAIXA TEM CORPO ----------
    Um espaço só separa quando os dois lados dele têm cor: sem fundo, o vão entre
    duas faixas era da MESMA cor que elas, isto é, nada.
@@ -3549,7 +3686,7 @@ main {
    vem DEPOIS dele, e um respiro simétrico o deixaria flutuando entre as duas
    seções sem dizer de qual é. */
 .hino-secao {
-  display: flex; align-items: baseline; gap: .5rem; flex-wrap: wrap;
+  display: flex; align-items: baseline; gap: var(--sp-4); flex-wrap: wrap;
   margin: .9rem 0 .15rem; padding: 0 .15rem;
 }
 .hino-secao:first-child { margin-top: .1rem; }
@@ -3558,15 +3695,15 @@ main {
    dizer a mesma coisa cinco vezes. */
 .hino-secao-bloco {
   flex: 1 0 100%;
-  font-size: .66rem; font-weight: 700; letter-spacing: .12em;
+  font-size: var(--fs-xs); font-weight: var(--fw-forte); letter-spacing: .12em;
   text-transform: uppercase; color: var(--accent);
 }
-.hino-secao-nome { flex: 1; min-width: 0; font-size: .82rem; font-weight: 700; color: var(--text); }
+.hino-secao-nome { flex: 1; min-width: 0; font-size: var(--fs-md); font-weight: var(--fw-forte); color: var(--text); }
 /* A FAIXA responde "estou perto?" durante a rolagem — que é como um hinário de
    papel é folheado. `tabular-nums` para os números não dançarem de largura
    entre um cabeçalho e o seguinte. */
 .hino-secao-faixa {
-  font-size: .7rem; color: var(--muted);
+  font-size: var(--fs-xs); color: var(--muted);
   font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1;
 }
 
@@ -3577,11 +3714,11 @@ main {
    um paredão, todas as vezes. */
 .hino-indice { margin: .4rem 0 0; }
 .hino-indice-bar {
-  width: 100%; display: flex; align-items: center; gap: .5rem;
+  width: 100%; display: flex; align-items: center; gap: var(--sp-4);
   min-height: var(--hit); padding: .35rem .55rem;
   border-radius: var(--radius-btn);
   background: var(--surface); color: var(--text);
-  font: inherit; font-size: .8rem; font-weight: 600; text-align: left; cursor: pointer;
+  font: inherit; font-size: var(--fs-md); font-weight: var(--fw-medio); text-align: left; cursor: pointer;
 }
 /* A seta é o ÚNICO desenho da barra, e ela gira — o estado é a direção dela,
    não uma cor. Pseudo-elemento porque a barra carrega texto e nada mais.
@@ -3593,14 +3730,14 @@ main {
   content: ""; flex: 0 0 auto; width: 9px; height: 6px;
   background: var(--muted);
   clip-path: polygon(0 0, 100% 0, 50% 100%);
-  transition: transform .18s ease;
+  transition: transform var(--dur-media) ease;
 }
 .hino-indice.aberto .hino-indice-bar::after { transform: rotate(180deg); }
 .hino-indice-rot { flex: 1; min-width: 0; }
-.hino-indice-cnt { font-size: .7rem; font-weight: 500; color: var(--muted); }
+.hino-indice-cnt { font-size: var(--fs-xs); font-weight: var(--fw-medio); color: var(--muted); }
 .hino-indice-corpo { padding: .35rem .1rem .1rem; }
 .hino-indice-bloco {
-  font-size: .66rem; font-weight: 700; letter-spacing: .12em;
+  font-size: var(--fs-xs); font-weight: var(--fw-forte); letter-spacing: .12em;
   text-transform: uppercase; color: var(--accent);
   margin: .5rem 0 .3rem;
 }
@@ -3609,7 +3746,7 @@ main {
    Cristo no Santuário Celestial", e uma contagem fixa de colunas ou espremeria
    os longos ou desperdiçaria a linha dos curtos. */
 .hino-indice-grade {
-  display: grid; gap: .25rem;
+  display: grid; gap: var(--sp-2);
   grid-template-columns: repeat(auto-fill, minmax(min(100%, 15ch), 1fr));
 }
 .hino-indice-chip {
@@ -3619,9 +3756,9 @@ main {
   background: var(--surface-2); color: var(--text);
   font: inherit; text-align: left; cursor: pointer;
 }
-.hino-indice-chip-nome { font-size: .74rem; font-weight: 600; line-height: 1.25; }
+.hino-indice-chip-nome { font-size: var(--fs-sm); font-weight: var(--fw-medio); line-height: 1.25; }
 .hino-indice-chip-faixa {
-  font-size: .66rem; color: var(--muted);
+  font-size: var(--fs-xs); color: var(--muted);
   font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1;
 }
 
@@ -3641,18 +3778,18 @@ main {
   background: var(--sel-fill);
 }
 .serie-destaque-cab {
-  display: flex; align-items: baseline; gap: .5rem;
+  display: flex; align-items: baseline; gap: var(--sp-4);
   padding: 0 .15rem .35rem;
 }
 .serie-destaque-rot {
   flex: 1; min-width: 0;
-  font-size: .66rem; font-weight: 700; letter-spacing: .12em;
+  font-size: var(--fs-xs); font-weight: var(--fw-forte); letter-spacing: .12em;
   text-transform: uppercase; color: var(--accent);
 }
 /* `tabular-nums` para a data não dançar de largura entre uma semana e a
    seguinte — o bloco é redesenhado a cada abertura do card. */
 .serie-destaque-data {
-  font-size: .72rem; font-weight: 600; color: var(--text);
+  font-size: var(--fs-sm); font-weight: var(--fw-medio); color: var(--text);
   font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1;
 }
 /* A lista de UM item: o `.coll-songs` ao lado já dá corpo, raio e alvo à linha;
@@ -3665,7 +3802,7 @@ main {
   display: flex; align-items: center;
   min-height: var(--hit);
   padding: 0 .15rem;
-  font-size: .82rem; color: var(--muted);
+  font-size: var(--fs-md); color: var(--muted);
 }
 
 /* A sentinela do fim da página (ver `fillSongList`). O objetivo é que ela NÃO
@@ -3684,10 +3821,10 @@ main {
   /* `--hit-foot`: o mesmo alvo de linha de rodapé do "Importar arquivos" — o
      44px literal repetia o token sem dizer que era ele. */
   width: 100%; min-height: var(--hit-foot);
-  display: flex; align-items: center; gap: .5rem;
+  display: flex; align-items: center; gap: var(--sp-4);
   border: none; border-radius: var(--radius-btn);
   background: var(--surface); color: var(--muted);
-  font-family: inherit; font-size: .82rem; text-align: left;
+  font-family: inherit; font-size: var(--fs-md); text-align: left;
   padding: .5rem .7rem; cursor: pointer;
   appearance: none; -webkit-appearance: none;
 }
@@ -3760,18 +3897,18 @@ main {
    fato entre as duas origens. */
 .yt-head {
   --dl-ring: 15px;
-  display: flex; align-items: center; gap: .45rem;
+  display: flex; align-items: center; gap: var(--sp-4);
   margin-top: .9rem; padding: .3rem .15rem .3rem;
-  color: var(--muted); font-size: .82rem; font-weight: 700;
+  color: var(--muted); font-size: var(--fs-md); font-weight: var(--fw-forte);
   text-align: left;
 }
 .coll-more-btn {
   --dl-ring: 15px;
   flex: 1; min-height: var(--hit);
-  display: flex; align-items: center; justify-content: center; gap: .45rem;
+  display: flex; align-items: center; justify-content: center; gap: var(--sp-4);
   border: none; border-radius: var(--radius-btn);
   background: var(--surface); color: var(--muted);
-  font-size: .74rem; cursor: pointer;
+  font-size: var(--fs-sm); cursor: pointer;
 }
 
 /* Conteúdo do bottom-sheet de mensagens. */
@@ -3796,16 +3933,16 @@ main {
 /* Todas as telas da Bíblia preenchem a altura disponível e cabem SEM SCROLL:
    livros (grade 6×11 em `1fr`), capítulo+versículo (duas metades que rolam por
    dentro) e a leitura (as quatro seções repartem a altura entre si). */
-.bible-wrap { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: .6rem; }
+.bible-wrap { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: var(--sp-5); }
 
 /* Nome do livro em destaque no topo da tela de capítulo+versículo: sem ele,
    uma tela só de números não diz em que livro o operador está. */
 .bible-book-head {
-  flex-shrink: 0; display: flex; align-items: baseline; gap: .5rem;
+  flex-shrink: 0; display: flex; align-items: baseline; gap: var(--sp-4);
   padding: .1rem .1rem .3rem;
 }
-.bible-book-name { font-size: 1.15rem; font-weight: 800; color: var(--text); }
-.bible-book-ref { font-size: .8rem; color: var(--muted); font-weight: 600; }
+.bible-book-name { font-size: var(--fs-3xl); font-weight: var(--fw-max); color: var(--text); }
+.bible-book-ref { font-size: var(--fs-md); color: var(--muted); font-weight: var(--fw-medio); }
 
 /* Capítulo e versículo dividem a área ao meio, na vertical: em cima a grade de
    capítulos, embaixo a de versículos. Cada metade ROLA por conta própria
@@ -3813,7 +3950,7 @@ main {
    de Salmos, esticaria a faixa e comeria a outra metade). */
 .bible-split {
   flex: 1; min-height: 0;
-  display: grid; grid-template-rows: minmax(0, 1fr) minmax(0, 1fr); gap: .5rem;
+  display: grid; grid-template-rows: minmax(0, 1fr) minmax(0, 1fr); gap: var(--sp-4);
 }
 /* `touch-action: pan-y` porque ESTE é o elemento que rola (a mesma lição da
    `.misc-panel`, v5.61): sem declarar o eixo, o WebView assume o gesto no
@@ -3846,13 +3983,13 @@ main {
    listas do mesmo app marcando a linha corrente de dois jeitos é a
    inconsistência que esta passada existe para fechar. */
 .bible-ver-row.selected { --linha: var(--sel-fill); color: var(--accent); }
-.bible-ver-row .row-name { font-weight: 600; }
-.bible-ver-status { font-size: .68rem; color: var(--muted); }
+.bible-ver-row .row-name { font-weight: var(--fw-medio); }
+.bible-ver-status { font-size: var(--fs-xs); color: var(--muted); }
 .bible-ver-status.done { color: var(--ok); }
-.bible-ver-check { color: var(--accent); font-weight: 700; flex-shrink: 0; }
+.bible-ver-check { color: var(--accent); font-weight: var(--fw-forte); flex-shrink: 0; }
 
 /* Aviso/estado (baixando versículos, sem rede etc.) */
-.bible-note { color: var(--muted); font-size: .82rem; line-height: 1.5; text-align: center; padding: .8rem .4rem; }
+.bible-note { color: var(--muted); font-size: var(--fs-md); line-height: 1.5; text-align: center; padding: .8rem .4rem; }
 /* Diagnóstico (sem rede, versão indisponível): é AVISO, não marca. Em
    `--brand-text` ele saía na mesma cor do rótulo de estrofe e do realce de
    busca — nada distinguia "algo falhou" de "metadado". */
@@ -3869,7 +4006,7 @@ main {
 .bible-grid--books { flex: 1; min-height: 0; gap: 4px; grid-template-rows: repeat(11, 1fr); }
 .bible-grid--books .bible-cell { aspect-ratio: auto; padding: 1px; }
 /* Só a abreviação (sem nome completo) — fonte maior, centralizada. */
-.bible-grid--books .bible-cell-sym { font-size: 1.25rem; }
+.bible-grid--books .bible-cell-sym { font-size: var(--fs-4xl); }
 
 /* Bloco de livro: a TINTA do grupo, e só ela (ver `.bg-<g>` abaixo e o campo
    `g` em `bible.js`) — sem número de índice. Capítulos e versículos
@@ -3915,11 +4052,11 @@ main {
 .bible-cell.active { background-color: var(--accent-fill); color: var(--on-accent); }
 .bible-cell--num.active {
   background-color: var(--accent-fill); color: var(--on-accent);
-  font-weight: 800;
+  font-weight: var(--fw-max);
 }
-.bible-cell-sym { font-size: 1.05rem; font-weight: 800; line-height: 1; }
-.bible-cell--num .bible-cell-sym { font-weight: 700; font-variant-numeric: tabular-nums; }
-.bible-cell-name { font-size: .5rem; opacity: .82; margin-top: 3px; max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bible-cell-sym { font-size: var(--fs-2xl); font-weight: var(--fw-max); line-height: 1; }
+.bible-cell--num .bible-cell-sym { font-weight: var(--fw-forte); font-variant-numeric: tabular-nums; }
+.bible-cell-name { font-size: var(--fs-2xs); opacity: .82; margin-top: 3px; max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 /* Cor por grupo/divisão canônica. Os nomes das classes são montados por
    concatenação no JS (`'bg-' + b.g`), então NÃO aparecem literais fora daqui —
@@ -3946,139 +4083,139 @@ main {
 .bg-gerais     { background-color: var(--b-gerais); }     /* Cartas Gerais   */
 .bg-apocalipse { background-color: var(--b-apocalipse); } /* Apocalipse      */
 
-/* ---------- E OS OITO TONS DAS COLEÇÕES (v1.5.7) ----------
-   A mesma gramática dos ladrilhos acima, num eixo diferente: lá a cor é
-   SEMÂNTICA (a divisão canônica), aqui é POSICIONAL — a ordem em que os cards
-   aparecem na Biblioteca. Os nomes são montados por concatenação no JS
-   (`'col-' + n`), então NÃO aparecem literais fora daqui: não são código morto.
-
-   `background-color` e não `background`, pela mesma razão do bloco acima: a
-   abreviação apagaria o que more no `background-image` do card.
-
-   ELES VENCEM O `--camada` do card por ESPECIFICIDADE (duas classes contra
-   uma), e é assim que a regra de tom do `.hymnal-card` continua de pé para quem
-   nasce fora da Biblioteca — um card sem `col-N` cai no `--panel-2` de sempre. */
+/* (O bloco que descrevia os OITO TONS DAS COLEÇÕES — `.col-1`…`.col-8`, v1.5.7 —
+   saiu na v1.5.14. As regras que ele explicava tinham sido revogadas na v1.5.9,
+   onze linhas ABAIXO dele, e o comentário sobreviveu à própria revogação
+   afirmando que os nomes "não são código morto". Eram: `grep '\.col-[0-9]'`
+   nesta folha não devolvia nada desde então. É a lápide que o CLAUDE.md proíbe —
+   um comentário que promete um mecanismo que não existe mais faz o próximo
+   leitor procurá-lo, ou reintroduzi-lo.) */
 /* =====================================================================
-   A HIERARQUIA DA BIBLIOTECA É DESENHADA COM MOLDURA (v1.5.9)
+   A HIERARQUIA DA BIBLIOTECA: PAPEL → POÇO → PAPEL (v1.5.14)
    =====================================================================
-   Pedido do operador, com as três capturas do defeito: *"está errado, reformule
-   o sistema de coloração e organização de grupos e subgrupos. vamos usar o
-   padrão branco e azul padrão do sistema, e vou lhe dar autoridade para usar
-   sistemas visuais de design e organização usando bordas, mas apenas para a
-   biblioteca. pois temos 3 niveis de listagens na biblioteca e o sistema de
-   separação apenas por cor sólida de cards está limitando nossas opções"*.
+   **ISTO REVOGA A MOLDURA DA v1.5.9 E A ESCADA DE TOM QUE VEIO ANTES DELA.**
+   Pedido do operador: *"poucas bordas, sem traços finos, ou designs visualmente
+   poluídos"* — e, sobre as nove rodadas que este arquivo já levou nesta tela,
+   *"chegamos a um pico de eficiência, que pequenas variações não mudam muito o
+   resultado; para achar um resultado melhor, devemos ir um pouco mais longe"*.
 
-   **ISTO REVOGA A PALETA DA v1.5.7/v1.5.8 INTEIRA** (`--col-*`, as três
-   famílias, as oito matizes em ordem). Ela tentava resolver HIERARQUIA com COR
-   SÓLIDA, e o diagnóstico do operador é exato: **cor sólida não diz o que está
-   dentro do quê.** Nas capturas, oito matizes pastel produziam uma lista bonita
-   e ilegível — a seção "ADORADORES" em lilás com cinco álbuns lilás soltos
-   dentro dela, sem nada dizendo onde o grupo começava e acabava.
+   ---------- POR QUE NENHUMA DAS NOVE RODADAS FECHOU ----------
+   A Biblioteca tem QUATRO níveis (janela → seção → álbum → faixa) e a paleta
+   tem TRÊS degraus. Isso não é falta de ajuste fino, é aritmética: partindo do
+   branco da janela (v1.5.7), quatro degraus no piso de 1,28:1 dão
 
-   **A AUTORIDADE PARA A BORDA É EXPLÍCITA E É ESCOPADA.** Ela vale AQUI, dentro
-   da lista do ACERVO (`.acervo`), e em lugar nenhum mais: a regra do app continua sendo que
-   tudo se separa por preenchimento, e o `tokens.test.mjs` continua cobrando isso
-   de todo o resto. O que a autoriza aqui é o que o operador nomeou — **TRÊS
-   níveis de lista**, e três degraus de tom para separar três níveis aninhados é
-   exatamente o degrau que a escada não tem (ver "A ESCADA TEM TRÊS DEGRAUS" no
-   CLAUDE.md, e a v1.5.7, que gastou o de cima com a janela branca).
+     nível 0 #ffffff → nível 1 #e3e3e3 → nível 2 #cacaca → nível 3 #b3b3b3
 
-   ┌ NÍVEL 1 — a SEÇÃO ────────────────────────────────┐  moldura + tampa
-   │ ▸ CDS OFICIAIS/ANO                        2,4 GB  │  `--surface`
-   │ ┌ NÍVEL 2 — o CARD ────────────────────────────┐  │  moldura + tampa
-   │ │ ▸ Eu Vou                        2022 · 55 MB │  │  `--surface`
-   │ │   NÍVEL 3 — as LINHAS                        │  │  sem moldura:
-   │ │   ▸ Eu Vou                                   │  │  preenchimento
-   │ │   ▸ O Amor Vive                              │  │  e espaço
-   │ └──────────────────────────────────────────────┘  │
-   └───────────────────────────────────────────────────┘
+   e o nível 3 é onde mora TODO o texto da lista. #b3b3b3 é literalmente a
+   *"predominância cinza escura"* recusada na v1.5.10. **Não existe escada de
+   TOM que resolva quatro níveis sobre base branca**, e é por isso que cada
+   rodada só conseguia escolher QUAL degrau sub-piso aceitar.
 
-   **A MOLDURA É A CAIXA QUE FALTAVA NO NÍVEL 1.** Relato: *"verifique a primeira
-   camada de lista de coleções, pois ela não está criando uma caixa ou moldura ao
-   redor do seu agrupamento, diferente de como ocorre corretamente com o card dos
-   albuns, que cria uma caixa para seus itens"*. O card sempre teve caixa — o
-   corpo dele fica DENTRO do bloco pintado; a seção pintava o mesmo tom nos dois
-   e o agrupamento sumia. Com moldura os dois têm caixa, e a de dentro se vê
-   dentro da de fora.
+   MEDIDO no renderizado, o estado que este bloco substitui — nenhum par
+   cumpria o piso de 1,28 que o próprio projeto declara:
 
-   **E TUDO VOLTA AO BRANCO E AZUL DO SISTEMA:** a janela é `--panel`, as caixas
-   são `--btn-accent` (v1.5.10) e as tampas são `--surface` — o cinza dos
-   botões, e o único cinza que a lista tem. */
-/* OS DOIS NÍVEIS DE AGRUPAMENTO DIVIDEM O TOM, E É A MOLDURA QUE OS SEPARA — que
-   é exatamente para isso que a autoridade foi dada. Os dois pintam o MESMO tom
-   sobre a janela `--panel`: um degrau de verdade contra a base, e nenhum entre
-   si, porque entre eles há sempre a linha e o recuo do corpo.
+     par                              escuro   claro
+     janela × seção                    1,14     1,21
+     seção × card                      1,00     1,00   (iguais por decisão)
+     card × faixa                      1,24     1,17
+     tampa da seção × tampa do card    1,00     1,00
+     tampa do card × faixa             1,00     1,60
 
-   ---------- E O TOM É O AZUL FRACO, NÃO UM CINZA (v1.5.10) ----------
-   Pedido do operador, com as duas capturas: *"essa predominância cinza escura
-   está muito ruim em especial no tema claro. porque não usou o azul fraco como
-   cor principal dos cards?"* — e, sobre o cinza que sobra: *"também pode ser
-   interessante usar apenas o cinza que se usa nos botões, não sei porque foi
-   usado um cinza bem mais escuro"*.
+   No escuro `--item-fill` É `var(--surface-sunk)`, o MESMO token da tampa e
+   sobre a MESMA base: a barra de título do álbum e as faixas dentro dele eram
+   pixel-idênticas. O que sobrava carregando a hierarquia era a moldura de 1px —
+   2,51:1 no claro, 1,78:1 no escuro —, isto é, o traço fino que o pedido recusa.
 
-   As duas frases são a MESMA correção vista dos dois lados, e é por isso que
-   elas cabem numa troca só: a caixa passa a ser `--btn-accent` (o azul fraco,
-   a superfície de ação deste app) e o único cinza que sobra na lista é o
-   `--surface` das tampas, que É o cinza dos botões. **O `--panel-2` sai da
-   Biblioteca inteira** — ele é o cinza escuro que o relato nomeia, e ocupava a
-   área de duas caixas aninhadas em cada seção.
+   ---------- A SAÍDA: PARAR DE EMPILHAR, PASSAR A ALTERNAR ----------
+   Uma escada ACUMULA e acaba. Uma alternância não:
 
-   **A MEDIÇÃO QUE OBRIGAVA O `--panel-2` CONTINUA VALENDO, e é ela que decide
-   entre os dois candidatos.** O nível 3 usa `--item-fill`, que no tema CLARO é
-   branco a 80%: sobre uma caixa BRANCA ele mede 1,00:1 e some (foi o que
-   reprovou o primeiro corte da v1.5.9). Sobre `--btn-accent` ele mede 1,17:1 no
-   claro e 1,35:1 no escuro — menos que o 1,32:1 que o cinza escuro dava no
-   claro, e ainda assim a faixa se lê, porque o que a separa da vizinha nunca
-   foi só o degrau: é o degrau MAIS o espaço, e o espaço agora mostra AZUL entre
-   as faixas em vez de mais cinza. O que não se podia aceitar era o 1,00:1, e
-   nenhum dos dois temas chega perto dele.
+     janela              PAPEL  (--panel)   cabeçalho GRUDENTO
+       └ seção           POÇO   (--poco)    cabeçalho GRUDENTO
+           └ álbum       PAPEL  (--panel)   ← volta ao tom da janela
+               └ faixa   —                  sem fundo: preenchimento é ESTADO
 
-   **E o `--surface` das tampas não vira o mesmo tom por acidente:** ele é alfa,
-   então compõe sobre o azul e sai um cinza-azulado — um degrau de verdade
-   contra a caixa nos dois temas, que é o que faz a tampa continuar sendo a
-   linha que se toca. */
+   Duas superfícies, profundidade ilimitada, ZERO traços. MEDIDO no renderizado:
+   **1,43:1 em cada degrau no escuro, 1,35:1 no claro** — todos acima do piso.
+
+   O poço É a caixa que o operador pediu na v1.5.9 (*"a primeira camada de lista
+   de coleções não está criando uma caixa ou moldura ao redor do seu
+   agrupamento"*), desenhada por um degrau de verdade em vez de um filete.
+
+   ---------- E A PROFUNDIDADE É DITA POR TRÊS MECANISMOS NÃO-TONAIS ----------
+   1. CABEÇALHO GRUDENTO NOS DOIS NÍVEIS. É o único mecanismo que continua
+      respondendo DEPOIS de a lista rolar — tom, cor e borda só falam enquanto o
+      topo do grupo está à vista, e a queixa do operador (*"dificultando
+      discernir se estou em uma camada ou subcamada"*, v5.267) é sobre estar no
+      MEIO de uma lista longa. O `.coll-bar` do álbum já era `sticky` desde a
+      v5.242, com o argumento escrito lá: *"a outra metade da pergunta 'onde eu
+      estou?'"*. Faltava no nível 1 — justamente o que ele não distinguia.
+   2. RECUO, sem traço na coluna vazia (o `padding` do corpo, que já existia).
+   3. RANK TIPOGRÁFICO (ver `--fs-*`, no `:root` desta folha).
+
+   ---------- A REGRA É POR PROFUNDIDADE, NUNCA POR TIPO DE BLOCO ----------
+   As coleções fixas (os dois hinários, as séries) e as pastas sincronizadas
+   nascem na RAIZ, irmãs das seções: são nível 1 e vestem o POÇO. O mesmo
+   `.hymnal-card` dentro de uma seção é nível 2 e veste o PAPEL. Escrever isto
+   por tipo de bloco (`.hymnal-card { papel }`) foi o primeiro corte deste lote
+   e MEDIU 1,00:1 — os hinários da raiz sumiam sobre a janela branca. */
+/* NÍVEL 1 — o que está na RAIZ da lista é um agrupamento, e agrupamento é poço. */
 .acervo > .coll-group--drop,
-.acervo .hymnal-card,
-/* A PASTA SINCRONIZADA entra aqui pela regra da v5.284 (*"mantenha apenas as
-   pastas sincronizadas dos favoritos como cores de álbum"*): ela guarda muitos
-   arquivos, logo é um CONTÊINER, e no desenho novo um contêiner é uma ficha com
-   moldura. Sem ela a pasta ficaria com o tom da ÁREA em que mora e sumiria
-   dentro dela — MEDIDO, 1,00:1. */
-.acervo .folder-opfs {
-  background: var(--btn-accent);
-  border: 1px solid var(--line);
-}
-.acervo .hymnal-card.expanded { --camada: var(--btn-accent); }
-/* E O QUE O CORPO DE UMA SEÇÃO RESERVA AOS FILHOS É O MESMO TOM. Quem lê isso é
-   a PLACA dos favoritos (`.fav-itens`, que não é um card e por isso não pinta
-   sozinha): sem esta linha ela continuaria em `--panel-2` e sairia um retângulo
-   cinza escuro dentro de uma seção azul — o defeito do relato, sobrevivendo no
-   único lugar em que a caixa não se pinta. */
-.acervo .coll-group-corpo { --camada: var(--btn-accent); }
-/* A TAMPA DE CADA CAIXA — o mesmo tom nos dois níveis, porque o que os distingue
-   é o ANINHAMENTO e não a cor. Ela some quando a caixa está aberta? Não: a tampa
-   é a linha que se toca, e ela existe igual nos dois estados. */
-.acervo > .coll-group--drop > .coll-group-bar,
-.acervo .hymnal-card > .coll-bar { background: var(--surface); }
-/* ---------- ABRIR NÃO TROCA A COR DE NADA (v1.5.9) ----------
-   Relato do operador: *"verifique também a mudança para tons cinzas ao
-   selecionar o item, pois está sendo inconsistente com sua cor real"*.
+.acervo > .hymnal-card,
+.acervo > .folder-opfs { background: var(--poco); }
+/* NÍVEL 2 — dentro de uma seção, o bloco volta ao PAPEL. É a alternância, e é
+   ela que dispensa um quarto tom: o neto tem a cor do avô, e isso não confunde
+   porque entre eles há sempre o poço, que é a caixa do meio. */
+.acervo .coll-group-corpo .hymnal-card,
+.acervo .coll-group-corpo .folder-opfs { background: var(--panel); }
+/* E O QUE CADA CORPO RESERVA AOS FILHOS acompanha a alternância. Quem lê isto é
+   a PLACA dos favoritos (`.fav-itens`, que não é card e não pinta sozinha) e a
+   `.lib-item` de dentro dela. */
+.acervo .coll-group-corpo { --camada: var(--poco); }
+.acervo .hymnal-card.expanded { --camada: var(--panel); }
+/* ---------- AS TAMPAS VESTEM O TOM DO PRÓPRIO BLOCO ----------
+   Elas eram `--surface` (um recesso) para se separarem dele. Com o poço, o
+   bloco já se separa do que está em volta, e uma tampa tingida era um terceiro
+   tom dentro de uma caixa de dois — o que fazia o cabeçalho competir com o
+   conteúdo em vez de encabeçá-lo. O que a distingue agora é o STICKY.
 
-   `.hymnal-card.expanded` declarava `--camada: var(--panel-2)` e a tampa lia
-   isso — então o card ABERTO trocava de tom, e nas capturas ele saía CINZA
-   dentro de uma seção colorida. Aquele degrau existia como sinal de "isto
-   levantou" (v1.3.14), num tempo em que não havia moldura; hoje quem diz que a
-   caixa abriu é o CORPO À VISTA e a seta girada, que é o que a doutrina do app
-   já manda (*"ABERTO = não é cor"*). A tampa fica com o tom dela nos dois
-   estados. */
-/* E A TAMPA DE UM CARD ABERTO É A MESMA TAMPA. Ela lia `--camada` para ficar
-   "do mesmo tom do cartão"; hoje o tom do cartão é a base, e a tampa tem tom
-   próprio nos dois estados. */
-.acervo .hymnal-card.expanded > .coll-bar { background: var(--surface); }
-/* ---------- O NÍVEL 3 NÃO GANHA MOLDURA ----------
-   Ele é o CONTEÚDO, não um agrupamento: uma faixa é a última folha da árvore, e
-   emoldurá-la faria a lista inteira virar uma grade de caixinhas. O que a separa
-   da vizinha é o preenchimento e o espaço, como em todo o resto do app. */
+   **MAS ELA NÃO PODE SER TRANSPARENTE, e isso é sobre o sticky e não sobre a
+   cor.** Uma tampa grudada com fundo transparente deixa a lista passar POR
+   BAIXO dela à vista — o texto do cabeçalho por cima do texto das faixas. Foi o
+   primeiro corte deste lote e só apareceu ao rolar.
+
+   `background-color: inherit` e não o token: a tampa é a primeira faixa do
+   bloco, e o bloco veste POÇO ou PAPEL conforme a profundidade (ver acima).
+   Escrever o token aqui exigiria repetir a regra de profundidade numa segunda
+   escrita, que divergiria da primeira no dia em que um nível novo aparecesse;
+   `inherit` faz a tampa acompanhar o que o bloco de fato pinta, seja ele qual
+   for. */
+.acervo .coll-group-bar,
+.acervo .hymnal-card > .coll-bar,
+.acervo .hymnal-card.expanded > .coll-bar { background-color: inherit; }
+/* ---------- O CABEÇALHO DA SEÇÃO GRUDA (v1.5.14) ----------
+   A ALTURA É DETERMINÍSTICA e por isso o `top` do álbum não precisa de medição
+   em JS (que a v1.5.3 ensinou a desconfiar): o nome é `nowrap` + elipse
+   (`.coll-group-name`) e o recuo é fixo (`.55rem`), então a barra vale
+   exatamente `--hit` + 1,1rem. Declarar a altura aqui é o que impede as duas
+   escritas do mesmo número de divergirem.
+   Sem `overflow: hidden` em `.coll-group--drop` (deliberado desde a v5.267,
+   pelo sticky do álbum) o `position: sticky` funciona nos dois níveis. */
+.acervo > .coll-group--drop > .coll-group-bar {
+  position: sticky; top: 0; z-index: 4;
+  height: var(--bar-secao-h);
+}
+/* E O DO ÁLBUM GRUDA LOGO ABAIXO DELE, nunca em `top: 0`: empatados, o de
+   dentro cobriria o de fora e a pergunta "dentro de quê?" ficaria sem resposta
+   exatamente quando ela é feita. */
+.acervo .hymnal-card.expanded > .coll-bar { top: var(--bar-secao-h); z-index: 3; }
+/* ---------- O NÍVEL 3 NÃO TEM FUNDO ----------
+   A faixa é CONTEÚDO do card, não um agrupamento: o que a separa da vizinha é o
+   espaço, que é a regra R0 do projeto (*"o quarto degrau é o espaço"*) — agora
+   aplicada um nível acima, porque saiu uma camada de caixas. O preenchimento
+   fica reservado ao ESTADO (no ar, selecionado), e é isso que faz o estado
+   saltar: numa lista sem fundo nenhum, a única mancha de cor é a que importa. */
+.acervo .coll-songs > .hymn-result { --linha: transparent; }
+/* O raio da tampa acompanha o do bloco enquanto ela é a única faixa à vista. */
 .coll-group-bar,
 .hymnal-card > .coll-bar { border-radius: var(--radius-card) var(--radius-card) 0 0; }
 .coll-group--drop:not(.aberto) .coll-group-bar,
@@ -4089,7 +4226,7 @@ main {
    altura que sobra depois do rodapé. Nada de altura fixa nem de rolagem — o
    operador precisa ver as quatro de uma vez para acompanhar a leitura, e
    rolar para achar o versículo central seria o oposto disso. */
-.bible-read { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: .4rem; }
+.bible-read { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: var(--sp-3); }
 /* Rodapé: um controle segmentado só, com as QUATRO coordenadas do que está
    sendo lido — versão · livro · capítulo · versículo. Emendados, continuam
    lendo como uma referência ("ARA · João · 3 · 16") em vez de quatro ações
@@ -4101,7 +4238,7 @@ main {
    da referência e a empurravam para reticências. Sem rótulo o par mede ~74px e
    cabe: o que a segunda faixa custava era altura, e altura aqui sai da LEITURA,
    que é o conteúdo da tela. */
-.bible-read-foot { flex-shrink: 0; display: flex; align-items: stretch; justify-content: center; gap: .5rem; padding-top: .1rem; }
+.bible-read-foot { flex-shrink: 0; display: flex; align-items: stretch; justify-content: center; gap: var(--sp-4); padding-top: .1rem; }
 /* `min-width: 0` porque agora ela divide a linha com os dois botões de guardar:
    sem isso o padrão `min-width: auto` a impediria de encolher, e o nome longo de
    um livro empurraria os botões para fora da tela em vez de virar reticências. */
@@ -4158,7 +4295,7 @@ main {
    altura vem do `stretch` — eles acompanham a referência seja qual for a altura
    dela, em vez de repetirem um número que teria de ser mantido à mão nos dois
    lugares. */
-.bible-read-acoes { display: flex; gap: .35rem; flex-shrink: 0; }
+.bible-read-acoes { display: flex; gap: var(--sp-3); flex-shrink: 0; }
 .bible-read-acoes .cue-save-btn { width: 46px; height: auto; }
 .bible-ref-part:first-child { border-radius: var(--radius-btn) 0 0 var(--radius-btn); }
 .bible-ref-part:last-child { border-radius: 0 var(--radius-btn) var(--radius-btn) 0; }
@@ -4171,11 +4308,11 @@ main {
    já é um cinza médio (`night`), e esmaecê-lo mais derruba o rótulo abaixo do
    piso (MEDIDO: a .72 ele cai a 3,42:1). */
 .bible-ref-label {
-  font-size: .56rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+  font-size: var(--fs-2xs); font-weight: var(--fw-forte); letter-spacing: .06em; text-transform: uppercase;
   color: currentColor; opacity: .9;
 }
 .bible-ref-value {
-  font-size: .86rem; font-weight: 700; color: currentColor;
+  font-size: var(--fs-md); font-weight: var(--fw-forte); color: currentColor;
   max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 
@@ -4186,13 +4323,13 @@ main {
    segunda ferramenta abaixo — com o microfone crescendo, ele engolia a altura
    toda e empurrava o cronômetro para fora da área visível. */
 /* Rodapé da aba: as duas ações que MANDAM ALGO PARA A TELA, lado a lado. */
-.misc-foot { display: flex; gap: .5rem; align-items: stretch; }
+.misc-foot { display: flex; gap: var(--sp-4); align-items: stretch; }
 .misc-foot .mic-btn { flex: 1; min-width: 0; }
 .misc-foot .misc-project { flex: 1; min-width: 0; }
 .mic-wrap {
   flex-shrink: 0;
   display: flex; flex-direction: column; align-items: stretch;
-  gap: .4rem; padding: .75rem 0 .1rem;
+  gap: var(--sp-3); padding: .75rem 0 .1rem;
 }
 /* BARRA, não mais disco. Fixa na base da aba, fora do acordeão: push-to-talk é
    o único controle daqui que pode ser preciso no meio de uma frase, e ter que
@@ -4217,14 +4354,14 @@ main {
      veste. MEDIDO: 1,33:1 contra a folha no escuro e 1,29:1 no claro — o
      degrau de superfície grande, nos dois. */
   background: var(--camada); color: var(--text);
-  display: flex; flex-direction: row; align-items: center; justify-content: center; gap: .6rem;
+  display: flex; flex-direction: row; align-items: center; justify-content: center; gap: var(--sp-5);
   cursor: pointer; appearance: none; -webkit-appearance: none;
   /* O dedo fica parado em cima: nada de rolagem ou menu de contexto durante
      o push-to-talk. */
   touch-action: none;
-  transition: background .12s ease, color .12s ease;
+  transition: background var(--dur-rapida) ease, color var(--dur-rapida) ease;
 }
-.mic-btn-label { font-size: .95rem; font-weight: 800; letter-spacing: .02em; }
+.mic-btn-label { font-size: var(--fs-xl); font-weight: var(--fw-max); letter-spacing: .02em; }
 /* NO AR: preenchido e pulsante — quem está falando precisa ver de longe que o
    microfone está aberto. É o caso preenchido de "está no telão agora", então
    usa o par `--live`/`--on-live` (o vermelho da paleta é escuro justamente
@@ -4247,7 +4384,7 @@ main {
 /* Só aparece com ERRO (permissão negada, sem microfone…) — é diagnóstico, e
    diagnóstico é AVISO: em `--brand-text` ficava idêntico ao rótulo "REFRÃO" da
    letra logo acima e ao realce da busca. */
-.mic-note { font-size: .84rem; font-weight: 600; color: var(--warn-text); text-align: center; max-width: 34ch; line-height: 1.45; }
+.mic-note { font-size: var(--fs-md); font-weight: var(--fw-medio); color: var(--warn-text); text-align: center; max-width: 34ch; line-height: 1.45; }
 
 /* ---------- Primitivos da aba Ferramentas (base comum) ---------- */
 /* `.misc-*` são os primitivos COMPARTILHADOS pelo cronômetro e pelo sorteio
@@ -4267,15 +4404,15 @@ main {
    Timer, Número/Texto), que usam contorno. São dois níveis de escolha, e
    parecidos demais eles leriam como um só. */
 .misc-switch {
-  flex-shrink: 0; display: flex; gap: .25rem;
+  flex-shrink: 0; display: flex; gap: var(--sp-2);
   background: var(--surface); border-radius: var(--radius-btn);
   padding: .25rem; margin-bottom: .55rem;
 }
 .misc-tab {
   flex: 1; min-width: 0; padding: .55rem .3rem;
-  display: flex; align-items: center; justify-content: center; gap: .38rem;
+  display: flex; align-items: center; justify-content: center; gap: var(--sp-3);
   border: 0; border-radius: var(--radius-btn); background: none; color: var(--muted);
-  font-size: .84rem; font-weight: 800; cursor: pointer;
+  font-size: var(--fs-md); font-weight: var(--fw-max); cursor: pointer;
   appearance: none; -webkit-appearance: none;
 }
 .misc-tab.active { background: var(--accent-fill); color: var(--on-accent); }
@@ -4305,7 +4442,7 @@ main {
    sorteio, só que lida do outro lado. */
 .misc-panel {
   flex: 1; min-height: 0; overflow-y: auto; touch-action: pan-y;
-  display: flex; flex-direction: column; align-items: stretch; gap: .6rem;
+  display: flex; flex-direction: column; align-items: stretch; gap: var(--sp-5);
   padding-bottom: .4rem;
 }
 /* Mensagens: quem rola é a LISTA, não o painel — senão "+ Nova mensagem" e
@@ -4313,15 +4450,15 @@ main {
 .misc-panel--msg { overflow: hidden; }
 /* Idem: com o painel de Mensagens em `overflow: hidden`, o scroller é ESTA
    lista — então é nela que o eixo precisa ser declarado. */
-.msg-list { flex: 1; min-height: 0; overflow-y: auto; touch-action: pan-y; display: flex; flex-direction: column; gap: .35rem; }
+.msg-list { flex: 1; min-height: 0; overflow-y: auto; touch-action: pan-y; display: flex; flex-direction: column; gap: var(--sp-3); }
 /* Segmentado de ferramenta — fora da regra "ícone = ação" por natureza (não
    alterna duas ações opostas; o segmento marcado é que diz o modo). */
-.misc-modes { display: flex; gap: .35rem; }
+.misc-modes { display: flex; gap: var(--sp-3); }
 .misc-seg {
   flex: 1; padding: .5rem .3rem;
   border-radius: var(--radius-btn);
   background: var(--surface); color: var(--muted);
-  font-size: .84rem; font-weight: 700; cursor: pointer;
+  font-size: var(--fs-md); font-weight: var(--fw-forte); cursor: pointer;
   appearance: none; -webkit-appearance: none;
 }
 .misc-seg.active { background: var(--accent-fill); color: var(--on-accent); }
@@ -4329,22 +4466,22 @@ main {
    linha se desloca a cada segundo e o número parece tremer. */
 .chrono-read {
   text-align: center; color: var(--text);
-  font-size: 2.6rem; font-weight: 700; line-height: 1.1;
+  font-size: var(--fs-display); font-weight: var(--fw-forte); line-height: 1.1;
   font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1;
   padding: .2rem 0;
 }
 .chrono-read.over { color: var(--danger-strong); }
-.chrono-presets, .misc-opts { display: flex; flex-wrap: wrap; gap: .35rem; justify-content: center; }
+.chrono-presets, .misc-opts { display: flex; flex-wrap: wrap; gap: var(--sp-3); justify-content: center; }
 .misc-chip {
   padding: .34rem .7rem;
   border-radius: var(--radius-pill);
   background: var(--surface-2); color: var(--muted);
-  font-size: .8rem; font-weight: 700; cursor: pointer;
+  font-size: var(--fs-md); font-weight: var(--fw-forte); cursor: pointer;
   appearance: none; -webkit-appearance: none;
 }
 .misc-chip.active { background: var(--accent-fill); color: var(--on-accent); }
-.misc-row { display: flex; align-items: center; gap: .55rem; }
-.misc-row-label { font-size: .82rem; font-weight: 700; color: var(--muted); flex-shrink: 0; }
+.misc-row { display: flex; align-items: center; gap: var(--sp-5); }
+.misc-row-label { font-size: var(--fs-md); font-weight: var(--fw-forte); color: var(--muted); flex-shrink: 0; }
 /* "Guardar esta contagem / este sorteio" (v5.103): o rótulo à esquerda e os
    dois destinos à direita, como as outras linhas de opção do painel. O
    `flex-wrap` existia para os chips com texto descerem numa tela estreita em vez
@@ -4352,20 +4489,20 @@ main {
    linha não aperta mais, mas a quebra fica: ela não custa nada e o rótulo é
    quem diz o que os dois botões guardam. */
 .misc-row--save { flex-wrap: wrap; }
-.misc-save-btns { display: flex; gap: .35rem; margin-left: auto; }
+.misc-save-btns { display: flex; gap: var(--sp-3); margin-left: auto; }
 .misc-num, .misc-text {
   flex: 1; min-width: 0; padding: .42rem .55rem;
   border-radius: var(--radius-btn);
   background: var(--surface-2); color: var(--text);
-  font-size: .9rem; font-family: inherit;
+  font-size: var(--fs-lg); font-family: inherit;
 }
 .misc-num { max-width: 6.5rem; }
-.chrono-actions { display: flex; gap: .45rem; }
+.chrono-actions { display: flex; gap: var(--sp-4); }
 .chrono-btn {
   flex: 1; padding: .6rem .4rem;
   border-radius: var(--radius-btn);
   background: var(--surface); color: var(--text);
-  font-size: .9rem; font-weight: 700; cursor: pointer;
+  font-size: var(--fs-lg); font-weight: var(--fw-forte); cursor: pointer;
   appearance: none; -webkit-appearance: none;
 }
 .chrono-btn.primary { background: var(--accent-fill); color: var(--on-accent); }
@@ -4375,7 +4512,7 @@ main {
   height: var(--misc-bar-h); padding: .4rem;
   border-radius: var(--radius-btn);
   background: var(--accent-fill); color: var(--on-accent);
-  font-size: .95rem; font-weight: 800; cursor: pointer;
+  font-size: var(--fs-xl); font-weight: var(--fw-max); cursor: pointer;
   appearance: none; -webkit-appearance: none;
 }
 /* No ar: a família do "está no telão agora", como PREENCHIMENTO (v5.267). É o
@@ -4394,40 +4531,40 @@ main {
    pode ser um nome, e a métrica tabular espaça mal as letras. */
 .draw-read {
   text-align: center; color: var(--text);
-  font-size: 2.6rem; font-weight: 800; line-height: 1.15;
+  font-size: var(--fs-display); font-weight: var(--fw-max); line-height: 1.15;
   padding: .2rem 0; min-height: 3.2rem;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  transition: opacity .18s ease, color .18s ease;
+  transition: opacity var(--dur-media) ease, color var(--dur-media) ease;
 }
 /* Rolando: esmaecido e no accent, como no telão — o contraste com o valor
    final é o que anuncia o resultado. */
 .draw-read.rolling { opacity: .55; color: var(--brand); }
-.draw-range { display: flex; gap: .6rem; }
+.draw-range { display: flex; gap: var(--sp-5); }
 /* `min-width: 0` nos DOIS níveis: o padrão de um item flex é `min-width: auto`,
    que o impede de encolher abaixo da largura intrínseca do conteúdo — e um
    `<input type="number">` sem `size` mede ~200px por conta própria. Dois campos
    de 200px + gap não cabem numa tela de 394px, e a aba inteira ganhava rolagem
    HORIZONTAL. É o vazamento clássico de flexbox, e some com esta linha. */
-.draw-range-field { flex: 1; min-width: 0; display: flex; align-items: center; gap: .5rem; }
+.draw-range-field { flex: 1; min-width: 0; display: flex; align-items: center; gap: var(--sp-4); }
 .draw-range-field .misc-num { flex: 1; min-width: 0; max-width: none; }
 .draw-pool {
   width: 100%; padding: .5rem .6rem; resize: vertical;
   border-radius: var(--radius-btn);
   background: var(--surface-2); color: var(--text);
-  font-size: .9rem; font-family: inherit; line-height: 1.5;
+  font-size: var(--fs-lg); font-family: inherit; line-height: 1.5;
 }
-.draw-info { font-size: .8rem; font-weight: 700; color: var(--muted); align-self: center; }
+.draw-info { font-size: var(--fs-md); font-weight: var(--fw-forte); color: var(--muted); align-self: center; }
 /* Já sorteados. Rola na horizontal em vez de quebrar em várias linhas: numa
    rifa longa a lista cresce sem limite e empurraria os botões para fora. */
 .draw-hist {
-  display: flex; gap: .3rem; overflow-x: auto; padding-bottom: .2rem;
+  display: flex; gap: var(--sp-2); overflow-x: auto; padding-bottom: .2rem;
   scrollbar-width: none;
 }
 .draw-hist::-webkit-scrollbar { display: none; }
 .draw-hist-chip {
   flex-shrink: 0; padding: .22rem .55rem;
   border-radius: var(--radius-pill); background: var(--surface-2);
-  color: var(--muted); font-size: .78rem; font-weight: 700;
+  color: var(--muted); font-size: var(--fs-md); font-weight: var(--fw-forte);
   max-width: 12ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 /* O ÚLTIMO sorteado em destaque: é o que acabou de ser anunciado, e a lista
@@ -4437,7 +4574,7 @@ main {
   padding: .8rem .4rem;
   border-radius: var(--radius-btn);
   background: var(--accent-fill); color: var(--on-accent);
-  font-size: 1rem; font-weight: 800; letter-spacing: .02em; cursor: pointer;
+  font-size: var(--fs-xl); font-weight: var(--fw-max); letter-spacing: .02em; cursor: pointer;
   appearance: none; -webkit-appearance: none;
 }
 .draw-go:disabled { opacity: .45; background: var(--surface); color: var(--muted); }
@@ -4451,11 +4588,11 @@ main {
      neutro que estava aqui — as três ações de "espaço a preencher" do app
      passaram a ter a MESMA caixa, que é o que aquela regra existe para dar. */
   align-self: stretch; color: var(--accent);
-  padding: .7rem; font-size: .9rem; font-weight: 700;
+  padding: .7rem; font-size: var(--fs-lg); font-weight: var(--fw-forte);
   cursor: pointer; appearance: none; -webkit-appearance: none;
 }
 .msg-item {
-  display: flex; align-items: center; gap: .5rem;
+  display: flex; align-items: center; gap: var(--sp-4);
   border-radius: var(--radius-card); background: var(--camada); padding: .5rem .6rem;
 }
 /* NO AR — e por isso vermelho, não verde. Até a v5.47 esta linha e o versículo
@@ -4471,7 +4608,7 @@ main {
 .msg-item.active { background: var(--live-fill); }
 .msg-item.active .msg-text { color: var(--live-strong); }
 .msg-text {
-  flex: 1; min-width: 0; font-size: .92rem; line-height: 1.4; cursor: pointer; white-space: pre-line;
+  flex: 1; min-width: 0; font-size: var(--fs-lg); line-height: 1.4; cursor: pointer; white-space: pre-line;
   overflow: hidden; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;
 }
 /* Indicador de salto pro capítulo/livro vizinho (preview anterior/próximo). A
@@ -4479,7 +4616,7 @@ main {
    capítulo é o rótulo `.bible-vsec-cross` em `--brand` — uma palavra, que é
    mais do que um estilo de linha jamais disse — somada ao `.adj`, que já
    esmaece as duas seções de contexto. */
-.bible-vsec-cross { font-size: .6rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--brand); }
+.bible-vsec-cross { font-size: var(--fs-2xs); font-weight: var(--fw-forte); letter-spacing: .04em; text-transform: uppercase; color: var(--brand); }
 /* `flex: 1 1 0` com `min-height: 0`: as seções dividem a altura disponível em
    vez de somarem a altura do próprio texto (que é imprevisível — um versículo
    pode ter duas linhas ou dez). O `min-height:0` é o que permite encolherem
@@ -4487,7 +4624,7 @@ main {
 .bible-vsec {
   flex: 1 1 0; min-height: 0; overflow: hidden;
   border-radius: var(--radius-card); background: var(--camada);
-  padding: .5rem .65rem; cursor: pointer; display: flex; flex-direction: column; gap: .15rem;
+  padding: .5rem .65rem; cursor: pointer; display: flex; flex-direction: column; gap: var(--sp-1);
 }
 /* O central é o que vai ao telão: recebe metade a mais de altura que os de
    contexto, então é o último a apertar quando o versículo é longo. */
@@ -4499,7 +4636,7 @@ main {
 .bible-vsec.cur.live { background: var(--live-fill); }
 .bible-vsec.cur.live .bible-vsec-ref { color: var(--live-strong); }
 .bible-vsec.empty { opacity: .4; cursor: default; font-style: italic; }
-.bible-vsec-ref { font-size: .64rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
+.bible-vsec-ref { font-size: var(--fs-2xs); font-weight: var(--fw-forte); letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
 .bible-vsec.cur .bible-vsec-ref { color: var(--accent); }
 /* dica enquanto a exibição não foi ativada */
 /* Fonte maior: os versículos são o que se lê nesta tela, e havia espaço
@@ -4507,10 +4644,10 @@ main {
 /* O texto ocupa o que sobra da seção e é cortado com reticências quando não
    cabe — a íntegra vai para o telão, aqui basta reconhecer o versículo. */
 .bible-vsec-text {
-  flex: 1; min-height: 0; font-size: 1.02rem; line-height: 1.42; color: var(--text);
+  flex: 1; min-height: 0; font-size: var(--fs-2xl); line-height: 1.42; color: var(--text);
   overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 6;
 }
-.bible-vsec.adj .bible-vsec-text { font-size: .92rem; -webkit-line-clamp: 4; }
+.bible-vsec.adj .bible-vsec-text { font-size: var(--fs-lg); -webkit-line-clamp: 4; }
 .bible-vsec-ref, .bible-vsec-cross { flex-shrink: 0; }
 
 /* ---------- Bíblia: camada de texto na preview (espelha o Display) ---------- */
@@ -4534,16 +4671,16 @@ main {
   gap: 2.4cqh; text-align: center; overflow: hidden;
 }
 .pv-text-main {
-  color: var(--stage-text); font-weight: 500; font-size: 6.4cqmin; line-height: 1.34; white-space: pre-line;
+  color: var(--stage-text); font-weight: var(--fw-medio); font-size: 6.4cqmin; line-height: 1.34; white-space: pre-line;
   display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 8; overflow: hidden;
 }
-.pv-text-sub { color: var(--stage-accent); font-weight: 700; font-size: 4.6cqmin; line-height: 1.2; letter-spacing: .02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
-.pv-text-content.mode-message .pv-text-main { font-size: 7.4cqmin; -webkit-line-clamp: 7; font-weight: 600; }
+.pv-text-sub { color: var(--stage-accent); font-weight: var(--fw-forte); font-size: 4.6cqmin; line-height: 1.2; letter-spacing: .02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.pv-text-content.mode-message .pv-text-main { font-size: 7.4cqmin; -webkit-line-clamp: 7; font-weight: var(--fw-medio); }
 /* Cronômetro/relógio/timer — espelha .mode-chrono do Display (display.css),
    inclusive o `tabular-nums`, sem o qual o número treme a cada segundo. */
 .pv-text-content.mode-chrono .pv-text-main {
   font-size: min(24cqmin, calc(86cqw / var(--ch, 8) / 0.66));
-  font-weight: 700; line-height: 1.05; letter-spacing: .01em;
+  font-weight: var(--fw-forte); line-height: 1.05; letter-spacing: .01em;
   font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1;
   white-space: nowrap; -webkit-line-clamp: 1;
 }
@@ -4559,9 +4696,9 @@ main {
    "rolando" (esmaecido, no acento do palco, até assentar). */
 .pv-text-content.mode-draw .pv-text-main {
   font-size: min(24cqmin, calc(86cqw / var(--ch, 8) / 0.66));
-  font-weight: 800; line-height: 1.05; letter-spacing: .01em;
+  font-weight: var(--fw-max); line-height: 1.05; letter-spacing: .01em;
   white-space: nowrap; -webkit-line-clamp: 1;
-  transition: opacity .18s ease, transform .18s cubic-bezier(.2,1.5,.4,1), color .18s ease;
+  transition: opacity var(--dur-media) ease, transform var(--dur-media) cubic-bezier(.2,1.5,.4,1), color var(--dur-media) ease;
 }
 .pv-text-content.mode-draw.draw-rolling .pv-text-main {
   opacity: .55; transform: scale(.94); color: var(--stage-accent);
@@ -4593,7 +4730,7 @@ main {
   background: var(--scrim);
   display: flex; align-items: flex-end;
   opacity: 0; pointer-events: none;
-  transition: opacity .25s ease;
+  transition: opacity var(--dur-lenta) ease;
 }
 .popup-backdrop.open {
   opacity: 1; pointer-events: auto;
@@ -4604,7 +4741,7 @@ main {
   border-radius: var(--radius-sheet) var(--radius-sheet) 0 0;
   display: flex; flex-direction: column;
   transform: translateY(100%);
-  transition: transform .3s ease;
+  transition: transform var(--dur-lenta) ease;
   /* A área segura de baixo é a barra de gestos do Android — e com o teclado
      aberto ela está ATRÁS dele, então descontar `--kb` a zera. Sem isso a folha
      ficaria com uma faixa morta de ~24px entre ela e o teclado. */
@@ -5009,15 +5146,15 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    fundo da folha é opaco, então o conteúdo desaparece na borda, que é a mesma
    coisa que o filete dizia — sem desenhar. */
 .popup-header {
-  display: flex; align-items: center; gap: .5rem;
+  display: flex; align-items: center; gap: var(--sp-4);
   padding: .8rem 1rem .7rem;
   flex-shrink: 0;
 }
 .popup-header-icon { font-size: var(--icon-sm); color: var(--accent); }
-.popup-title { font-size: .95rem; font-weight: 700; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.popup-title { font-size: var(--fs-xl); font-weight: var(--fw-forte); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .popup-count {
   background: var(--accent-fill); color: var(--on-accent);
-  font-size: .72rem; font-weight: 700;
+  font-size: var(--fs-sm); font-weight: var(--fw-forte);
   border-radius: var(--radius-pill); padding: 0 .45rem; min-width: 20px; text-align: center;
 }
 /* O `flex-shrink: 0` (que hoje vem do esqueleto de botão de ícone, no alto da
@@ -5046,7 +5183,7 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
 .popup-list {
   flex: 1; overflow-y: auto; overscroll-behavior: contain;
   list-style: none; padding: .5rem .7rem .8rem;
-  display: flex; flex-direction: column; gap: .35rem;
+  display: flex; flex-direction: column; gap: var(--sp-3);
 }
 .popup-list > li { flex-shrink: 0; }
 
@@ -5061,7 +5198,7 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    único de largura fixa da linha). Em `--muted`: ela é contexto, e o nome é o
    que se procura. */
 .hist-hora {
-  flex: none; font-size: .72rem; font-weight: 700; color: var(--muted);
+  flex: none; font-size: var(--fs-sm); font-weight: var(--fw-forte); color: var(--muted);
   font-variant-numeric: tabular-nums; letter-spacing: .02em;
 }
 /* A linha do item que SAIU do aparelho (o coletor recolheu os bytes quando ele
@@ -5079,7 +5216,7 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    TOM que o separa: `--camada`, o mesmo recurso que a Biblioteca usa para dizer
    "isto contém aquilo". Sem contorno, como tudo neste app. */
 .hist-sessao {
-  display: flex; align-items: center; gap: .5rem;
+  display: flex; align-items: center; gap: var(--sp-4);
   background: var(--camada); border-radius: var(--radius-card);
   padding: .45rem .5rem .45rem .7rem;
   margin: .55rem 0 .2rem;
@@ -5089,13 +5226,13 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
 .hist-sessao:first-child { margin-top: 0; }
 .hist-sessao-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .hist-sessao-tit {
-  font-size: .82rem; font-weight: 700; color: var(--text);
+  font-size: var(--fs-md); font-weight: var(--fw-forte); color: var(--text);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-.hist-sessao-sub { font-size: .7rem; color: var(--muted); }
+.hist-sessao-sub { font-size: var(--fs-xs); color: var(--muted); }
 /* A faixa do "limpar esta sessão": uma caixa só sua, pela razão da
    `.pl-limpar-faixa` — a confirmação substitui os IRMÃOS do botão. */
-.hist-sessao-acoes { display: flex; align-items: center; gap: .35rem; flex: none; }
+.hist-sessao-acoes { display: flex; align-items: center; gap: var(--sp-3); flex: none; }
 .hist-sessao-acoes.confirmando { flex: 1; min-width: 0; }
 /* SESSÃO ANTIGA: só o que não depende de um arquivo continua acionável (ver
    `histAcionavel`). O que sobra é a linha do fato, e ela se lê como o irmão
@@ -5109,10 +5246,10 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    guarda tem de continuar à vista. */
 .pl-pack {
   flex-shrink: 0; margin: 0 .7rem .8rem;
-  display: flex; align-items: center; justify-content: center; gap: .45rem;
+  display: flex; align-items: center; justify-content: center; gap: var(--sp-4);
   padding: .7rem .5rem;
   color: var(--accent);
-  font-size: .86rem; font-weight: 600; font-family: inherit; cursor: pointer;
+  font-size: var(--fs-md); font-weight: var(--fw-medio); font-family: inherit; cursor: pointer;
   appearance: none; -webkit-appearance: none;
 }
 .pl-pack .msym { font-size: var(--icon-sm); }
@@ -5146,11 +5283,11 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
 }
 .pl-clear {
   flex: 1; min-width: 0;
-  display: flex; align-items: center; justify-content: center; gap: .45rem;
+  display: flex; align-items: center; justify-content: center; gap: var(--sp-4);
   padding: 0 .5rem;
   border: none; border-radius: var(--radius-btn);
   background: var(--surface); color: var(--danger-text);
-  font-size: .86rem; font-weight: 600; font-family: inherit; cursor: pointer;
+  font-size: var(--fs-md); font-weight: var(--fw-medio); font-family: inherit; cursor: pointer;
   appearance: none; -webkit-appearance: none;
 }
 .pl-clear .msym { font-size: var(--icon-sm); }
@@ -5162,7 +5299,7 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
 
 /* ---------- Contador de itens de pasta ---------- */
 .folder-count {
-  font-size: .75rem; color: var(--muted);
+  font-size: var(--fs-sm); color: var(--muted);
   background: var(--surface-2); border-radius: var(--radius-pill);
   padding: 2px .5rem; flex-shrink: 0;
 }
@@ -5195,8 +5332,8 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
 .display-status {
   width: 100%; padding: .6rem;
   background: var(--surface);
-  border-radius: var(--radius-btn); color: var(--muted); font-size: .85rem;
-  display: flex; align-items: center; justify-content: center; gap: .4rem;
+  border-radius: var(--radius-btn); color: var(--muted); font-size: var(--fs-md);
+  display: flex; align-items: center; justify-content: center; gap: var(--sp-3);
   cursor: pointer; appearance: none; -webkit-appearance: none;
 }
 .display-status .msym { font-size: var(--icon-sm); }
@@ -5234,7 +5371,7 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    deixaria uma borda morta na faixa. */
 .footer-diag {
   --fs-diag: .74rem;
-  display: flex; align-items: center; gap: .35rem;
+  display: flex; align-items: center; gap: var(--sp-3);
   margin-top: .45rem;
   min-height: var(--hit);
   padding-left: .6rem;
@@ -5274,7 +5411,7 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
   border: none; outline: none;
   background: var(--surface-2); color: var(--text);
   border-radius: var(--radius-btn); padding: 6px 10px;
-  font-size: .85rem; font-family: inherit;
+  font-size: var(--fs-md); font-family: inherit;
 }
 .lib-search::placeholder { color: var(--muted); }
 .lib-search::-webkit-search-decoration,
@@ -5362,7 +5499,7 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
 /* O recuo à esquerda abre o lugar dela: 12 (margem) + 18 (ícone) + 8 (respiro).
    A ALTURA é `--campo-alt` (v5.277): ela era consequência do padding, e virou
    uma medida com nome porque o ✕ ao lado precisa dela para ser quadrado. */
-#hymnSearchInput { flex: 1; min-width: 0; height: var(--campo-alt); padding: 11px 14px 11px 38px; font-size: .95rem; }
+#hymnSearchInput { flex: 1; min-width: 0; height: var(--campo-alt); padding: 11px 14px 11px 38px; font-size: var(--fs-xl); }
 /* ---------- O ✕ TEM A ALTURA DO CAMPO ----------
    `align-self: stretch`, nunca uma altura escrita: quem manda na linha é o
    campo, e um número aqui divergiria dele no primeiro ajuste de padding ou de
@@ -5517,7 +5654,7 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    existe para proteger: encolher até o texto trocaria um problema de densidade
    por um de mira, no meio de um culto. Medido: linha de 50px, passo de 54px,
    16 itens na tela contra 12. */
-.hymn-row { align-items: center; gap: .5rem; padding: .3rem .5rem; cursor: pointer; }
+.hymn-row { align-items: center; gap: var(--sp-4); padding: .3rem .5rem; cursor: pointer; }
 /* O QUADRADO DA ESQUERDA DEIXOU DE SER UM BOTÃO (v5.285). Ele era o ▶, em
    `--accent-soft` — a marca que este app usa para "isto é ação, não conteúdo".
    Sem ação, a marca sai junto: ele volta ao recesso neutro das superfícies e
@@ -5554,17 +5691,17 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    oposto da hierarquia. O que separa os dois passa a ser o PESO (700 no álbum,
    500 aqui), que é a distinção certa: mesma altura de linha, quem manda é o
    título. */
-.hymn-name { flex: none; font-size: .82rem; font-weight: 500; line-height: 1.3; }
+.hymn-name { flex: none; font-size: var(--fs-md); font-weight: var(--fw-medio); line-height: 1.3; }
 /* UM VALOR SÓ para "subtítulo da Biblioteca": este era .78rem e o do card,
    .7rem — dois irmãos com meio ponto de diferença, que é a inconsistência que a
    v5.248 já tinha tirado de dentro da barra do álbum. */
-.hymn-sub { font-size: .7rem; color: var(--muted); }
+.hymn-sub { font-size: var(--fs-xs); color: var(--muted); }
 /* Trecho da letra que casou com a busca. Em itálico e com uma barra à esquerda
    para se ler como CITAÇÃO, não como mais um subtítulo do item — e assim não
    se confunde com o nome da coleção, que fica logo acima. Uma linha só: a
    lista é varrida de relance no meio do culto. */
 .hymn-lyric-hit {
-  font-size: .8rem; font-style: italic; color: var(--brand-text);
+  font-size: var(--fs-md); font-style: italic; color: var(--brand-text);
   /* A barra de citação é uma FAIXA PINTADA, não uma borda (v5.267): mesmos
      pixels, declarada como o preenchimento que ela sempre foi. */
   background: linear-gradient(to right, var(--brand) 0 2px, transparent 2px);
@@ -5644,7 +5781,7 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
 .hymn-opcoes {
   list-style: none; margin: 0;
   padding: .45rem .5rem .5rem;
-  display: flex; flex-direction: column; gap: .3rem;
+  display: flex; flex-direction: column; gap: var(--sp-2);
 }
 /* Os BLOCOS que descansam no poço — os botões de opção e a metade de baixo
    (letra ou detalhe) — vestem `--gaveta-btn`, e não o `--surface` da folha. A
@@ -5700,7 +5837,7 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    com `.confirmando` quem a preenche é a `.linha-confirma` (`flex: 1`), cujo par
    divide a faixa ao meio desde a v5.309. */
 .fav-acoes {
-  display: flex; align-items: stretch; justify-content: flex-end; gap: .35rem;
+  display: flex; align-items: stretch; justify-content: flex-end; gap: var(--sp-3);
   flex: none; min-width: 0;
 }
 .fav-acoes .row-btn { background: var(--gaveta-btn); height: auto; align-self: stretch; }
@@ -5753,7 +5890,7 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    respondem "é este mesmo?" e não há razão para parecerem coisas diferentes.
    O que muda é o conteúdo — miniatura + duração + estado no aparelho. */
 .item-detalhe {
-  display: flex; gap: .6rem; align-items: flex-start;
+  display: flex; gap: var(--sp-5); align-items: flex-start;
   margin: 0 .55rem .55rem; padding: .5rem .6rem;
   border-radius: var(--radius-btn);
   background: var(--bg);
@@ -5769,17 +5906,17 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
   object-fit: cover; border-radius: var(--radius-xs);
   background: var(--surface);
 }
-.item-detalhe-txt { display: flex; flex-direction: column; gap: .25rem; min-width: 0; }
-.item-detalhe-linha { font-size: .84rem; color: var(--muted); }
+.item-detalhe-txt { display: flex; flex-direction: column; gap: var(--sp-2); min-width: 0; }
+.item-detalhe-linha { font-size: var(--fs-md); color: var(--muted); }
 /* ---------- O VERDE SAI DOS INDICADORES ----------
    Régua: a mesma coisa dita duas vezes. "24/24" já diz que o álbum está inteiro
    e "Já no aparelho" já diz que os bytes estão aqui — o verde ao lado não
    acrescenta um bit e gasta a única cor que este app reserva para
    "concluído/conectado".
-   O que NÃO sai é a ÊNFASE (`font-weight: 600`), que distingue o resolvido do
+   O que NÃO sai é a ÊNFASE (`font-weight: var(--fw-medio)`), que distingue o resolvido do
    neutro sem pintar nada. E o verde continua onde é o único sinal: a linha de
    aviso (`.row-nota--ok`), o pulso de confirmação, a tela conectada. */
-.item-detalhe-estado.done { font-weight: 600; }
+.item-detalhe-estado.done { font-weight: var(--fw-medio); }
 
 /* ---------- A folha rápida de uma música (▶ e + da linha do acervo) ---------- */
 /* Linhas LARGAS e ROTULADAS, o oposto dos seis ícones mudos que substituíram:
@@ -5787,7 +5924,7 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    evita isso é o texto, não o desenho. */
 .song-menu-list { padding: .4rem .6rem .8rem; }
 .song-menu-btn {
-  width: 100%; display: flex; align-items: center; gap: .7rem; text-align: left;
+  width: 100%; display: flex; align-items: center; gap: var(--sp-5); text-align: left;
   border-radius: var(--radius-btn);
   background: var(--surface); color: var(--text);
   font-family: inherit; padding: .6rem .7rem; cursor: pointer;
@@ -5798,11 +5935,11 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
 }
 .song-menu-icon.msym { font-size: var(--icon-lg); }
 .song-menu-text { display: flex; flex-direction: column; min-width: 0; }
-.song-menu-label { font-size: .92rem; font-weight: 600; }
+.song-menu-label { font-size: var(--fs-lg); font-weight: var(--fw-medio); }
 /* A segunda linha diz o que a primeira não cabe dizer ("sem música e sem
    passagem automática de slides"). Em `--muted` para não competir com o
    rótulo, que é o que se lê de relance. */
-.song-menu-sub { font-size: .76rem; color: var(--muted); line-height: 1.35; }
+.song-menu-sub { font-size: var(--fs-sm); color: var(--muted); line-height: 1.35; }
 /* Cantada × Playback: um seletor no topo da folha de adicionar, em vez de
    dobrar a lista de destinos (ver renderSongMenu). */
 .song-menu-seg-row { padding-bottom: .2rem; }
@@ -5814,7 +5951,7 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
 .song-menu-seg-nota {
   display: block;
   color: var(--muted);
-  font-size: .74rem;
+  font-size: var(--fs-sm);
   line-height: 1.25;
   padding: 0 .1rem .28rem;
 }
@@ -5858,7 +5995,7 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
   content: ''; display: block;
   width: 20px; height: 20px; border-radius: var(--radius-xs);
   background: var(--check-vazio);
-  transition: background .12s ease;
+  transition: background var(--dur-rapida) ease;
 }
 /* Marcado = preenchido no accent com o ✓ desenhado por cima, a mesma convenção
    do accent em todo o app (navegação, seleção, progresso). O ✓ é uma máscara
@@ -5888,7 +6025,7 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    SEMPRE ANTES (v1.4.7): o confirmar é o último da faixa em toda lista, e não há
    mais o lado por chamador que fazia os Favoritos e o resto da Biblioteca
    discordarem. */
-.song-menu-go-row { padding-top: .35rem; display: flex; gap: .4rem; }
+.song-menu-go-row { padding-top: .35rem; display: flex; gap: var(--sp-3); }
 .song-menu-go { flex: 1; min-width: 0; }
 /* O IRMÃO é SECUNDÁRIO por construção: recesso em vez do preenchimento em
    accent, e sem crescer. Ele não decide nada — revela. */
@@ -5948,7 +6085,7 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    motivo do original: no tema claro o campo é branco sobre um cartão branco. */
 .sorteio-campo { padding: .1rem 0 .35rem; }
 .sorteio-campo .lib-search {
-  height: var(--campo-alt); padding: 11px 14px 11px 38px; font-size: .95rem;
+  height: var(--campo-alt); padding: 11px 14px 11px 38px; font-size: var(--fs-xl);
   background: var(--field-bg); color: var(--field-text);
   box-shadow: 0 1px 3px -1px var(--shadow-ink);
 }
@@ -5959,7 +6096,7 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    fica ao lado de UM campo, e aqui de uma fileira de pílulas que precisa poder
    quebrar numa tela estreita sem espremer o rótulo. */
 .sorteio-linha { display: flex; align-items: center; flex-wrap: wrap; gap: .4rem .55rem; padding: .15rem .1rem; }
-.sorteio-rotulo { font-size: .78rem; font-weight: 700; color: var(--muted); flex-shrink: 0; }
+.sorteio-rotulo { font-size: var(--fs-md); font-weight: var(--fw-forte); color: var(--muted); flex-shrink: 0; }
 .sorteio-linha .misc-opts { margin-left: auto; }
 /* A CONTA, e ela é o miolo do recurso: o botão dispara sem mais nenhuma tela,
    então ela é a ÚNICA chance de o operador ver o que vai acontecer antes de
@@ -5974,11 +6111,11 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    e sem altura fixa os botões de fecho subiriam e desceriam embaixo do dedo. */
 .sorteio-conta {
   min-height: 2.9em;
-  display: flex; flex-direction: column; justify-content: center; gap: .1rem;
+  display: flex; flex-direction: column; justify-content: center; gap: var(--sp-1);
   padding: .1rem .1rem .2rem;
-  font-size: .78rem; line-height: 1.35; color: var(--muted);
+  font-size: var(--fs-md); line-height: 1.35; color: var(--muted);
 }
-.sorteio-conta-forte { color: var(--text); font-weight: 600; }
+.sorteio-conta-forte { color: var(--text); font-weight: var(--fw-medio); }
 .sorteio-conta-fraca { color: var(--muted); }
 /* A NOTA DO SOM DE FUNDO (v5.311). Ela é uma AFIRMAÇÃO sobre o que o playback
    sorteado faz — não um controle —, então veste o tom do subtítulo e não o de um
@@ -5986,7 +6123,7 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    e ela só existe com o playback escolhido. */
 .sorteio-nota {
   padding: 0 .1rem .1rem;
-  font-size: .76rem; line-height: 1.35; color: var(--muted);
+  font-size: var(--fs-sm); line-height: 1.35; color: var(--muted);
 }
 /* VAZIA ELA GANHA ÊNFASE, NÃO ALARME. `--danger-strong` estava errado pela
    gramática de cor do próprio app: vermelho é "está no ar agora" (saturado) ou
@@ -5998,7 +6135,7 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
 /* Vazia ela é UMA linha só (não há custo a declarar), e o `.sorteio-conta-forte`
    dela já carrega a ênfase — a regra abaixo existe para o caso de a frase do
    motivo passar a ter uma segunda metade um dia. */
-.sorteio-conta.vazio .sorteio-conta-forte { font-weight: 600; }
+.sorteio-conta.vazio .sorteio-conta-forte { font-weight: var(--fw-medio); }
 /* A FAIXA DE FECHO TEM DOIS BOTÕES quando se monta a fila (v5.306): um TOCA e o
    outro GUARDA. O primário cresce e o secundário fica com o que precisa — a
    mesma divisão do par "Confirmar / Ver a letra" da gaveta, que é de onde as
@@ -6021,16 +6158,16 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    O `padding-bottom` soma a área segura do aparelho: sem ela a última linha
    fica sob a barra de gestos. */
 .fade-opts {
-  display: flex; flex-direction: column; gap: .4rem;
+  display: flex; flex-direction: column; gap: var(--sp-3);
   padding: .3rem .9rem calc(1rem + env(safe-area-inset-bottom));
   overflow-y: auto; min-height: 0;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
 }
 .fade-row {
-  display: flex; align-items: center; justify-content: space-between; gap: .8rem;
+  display: flex; align-items: center; justify-content: space-between; gap: var(--sp-6);
   background: var(--panel); border-radius: var(--radius-card); padding: .65rem .8rem;
-  font-size: .9rem; cursor: pointer;
+  font-size: var(--fs-lg); cursor: pointer;
 }
 /* As duas variantes em COLUNA da linha de opção — `--fit` (rótulo + segmentado)
    e `--col` (rótulo + campos/caixas de largura inteira, como o Registro: um
@@ -6039,15 +6176,15 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
 /* (`.fade-row--col` saiu: nenhum ponto do app a escrevia — era a metade de um
    par cujo irmão, `--fit`, é o único que o `index.html` usa. Uma classe que só
    existe na folha é uma regra que ninguém revisa contra o que a tela mostra.) */
-.fade-row--fit { flex-direction: column; align-items: stretch; gap: .5rem; cursor: default; }
+.fade-row--fit { flex-direction: column; align-items: stretch; gap: var(--sp-4); cursor: default; }
 /* (A linha de diagnóstico `.fade-hint` saiu: o que ela dizia — o desfecho da
    última tentativa de download — consolidou-se no Registro (`#diagBox`) na
    v5.121, e nenhum JS a desenhava mais.) */
-.fit-seg { display: flex; gap: .35rem; }
+.fit-seg { display: flex; gap: var(--sp-3); }
 .fit-opt {
   flex: 1; border: none; border-radius: var(--radius-btn); padding: .5rem .4rem;
   background: var(--surface); color: var(--muted);
-  font-size: .82rem; font-weight: 600; cursor: pointer;
+  font-size: var(--fs-md); font-weight: var(--fw-medio); cursor: pointer;
 }
 .fit-opt.active { background: var(--accent-fill); color: var(--on-accent); }
 
@@ -6102,7 +6239,7 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    a superfície dos filhos, e quem afunda aqui é a folha; o que a linha não faz
    mais é pintar por cima dela. */
 .fade-row--modo {
-  gap: .35rem;
+  gap: var(--sp-3);
   background: none;
   padding: 0;
 }
@@ -6113,7 +6250,7 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    `.fade-row--fit` é `align-items: stretch`, então o `<span>` já ocupa a linha
    inteira e quem posiciona é o `text-align`. */
 .fade-row--modo > span:first-child {
-  color: var(--muted); font-size: .82rem; text-align: center;
+  color: var(--muted); font-size: var(--fs-md); text-align: center;
 }
 .qs-modo {
   --modo-folga: 3px;
@@ -6128,7 +6265,7 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
   width: calc(50% - var(--modo-folga));
   background: var(--accent-fill);
   border-radius: calc(var(--radius-card) - var(--modo-folga));
-  transition: transform .22s ease;
+  transition: transform var(--dur-media) ease;
 }
 .qs-modo[data-modo="full"]::before { transform: translateX(100%); }
 .qs-modo .fit-opt {
@@ -6140,11 +6277,11 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
   position: relative; z-index: 1;
   background: none; color: var(--text);
   display: flex; flex-direction: column; align-items: center; justify-content: center;
-  gap: .3rem;
+  gap: var(--sp-2);
   border-radius: calc(var(--radius-card) - var(--modo-folga));
   padding: .6rem .4rem;
-  font-size: .82rem;
-  transition: color .22s ease;
+  font-size: var(--fs-md);
+  transition: color var(--dur-media) ease;
 }
 /* `--text` e não `--muted` no APAGADO: o trilho é `--surface` sobre a folha, e
    `--muted` ali reprova o piso de 4,5:1 para texto pequeno no tema claro — a
@@ -6176,10 +6313,10 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    tile é um CONTROLE dentro de um cartão, e dentro de um cartão a superfície
    AFUNDA (a inversão que a regra do topo deste arquivo descreve). Não é
    `--panel`: sobre a folha, que já é `--panel`, ele desapareceria. */
-.qs-grade { display: grid; grid-template-columns: repeat(3, 1fr); gap: .4rem; }
+.qs-grade { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--sp-3); }
 .qs-tile {
   display: flex; flex-direction: column; align-items: center; justify-content: center;
-  gap: .2rem; min-height: 4.4rem;
+  gap: var(--sp-2); min-height: 4.4rem;
   border: none; border-radius: var(--radius-card); padding: .55rem .3rem;
   background: var(--surface); color: var(--muted);
   font-family: inherit; text-align: center; cursor: pointer;
@@ -6199,9 +6336,9 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    sobre `--surface` afundada dentro da folha (219,219,219), `--text` dá
    **6,40:1** e `--muted` **4,81:1** — os dois acima do piso de 4,5 para texto
    pequeno, que é o tamanho de todo texto daqui. */
-.qs-titulo { font-size: .72rem; font-weight: 600; color: var(--text); line-height: 1.15; }
+.qs-titulo { font-size: var(--fs-sm); font-weight: var(--fw-medio); color: var(--text); line-height: 1.15; }
 .qs-estado {
-  font-size: .66rem; color: var(--muted); line-height: 1.15;
+  font-size: var(--fs-xs); color: var(--muted); line-height: 1.15;
   /* O ângulo do giro troca de largura (0° → 180°): sem isto o tile inteiro
      dança meio caractere a cada toque. */
   font-variant-numeric: tabular-nums;
@@ -6350,7 +6487,7 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
   width: var(--hit); height: var(--hit); flex: none; padding: 0;
   border: none; border-radius: var(--radius-btn);
   background: var(--surface); color: var(--text);
-  font-size: .82rem; font-weight: 700; font-variant-numeric: tabular-nums;
+  font-size: var(--fs-md); font-weight: var(--fw-forte); font-variant-numeric: tabular-nums;
   display: inline-flex; align-items: center; justify-content: center;
   cursor: pointer;
 }
@@ -6370,15 +6507,15 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    "Estrofe 2", o número do versículo —, e dobrá-los junto faria um metadado
    ficar maior que a letra que o campo existe para mostrar. Sobem o bastante para
    não virarem pó ao lado de 1.9rem, e ficam um degrau abaixo dela. */
-.lv-row--cover { color: var(--muted); font-size: 1.1rem; letter-spacing: .04em; text-transform: uppercase; }
+.lv-row--cover { color: var(--muted); font-size: var(--fs-3xl); letter-spacing: .04em; text-transform: uppercase; }
 .lv-aux {
-  font-size: 1.05rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
+  font-size: var(--fs-2xl); font-weight: var(--fw-forte); letter-spacing: .04em; text-transform: uppercase;
   color: var(--muted);
 }
 /* Versículo: o número entra na linha do texto, como numa Bíblia impressa — e por
    isso ele é o que mais fica abaixo do corpo: ali dentro ele é a marca, não o
    texto. */
-.lv-row--verse .lv-num { font-size: 1.1rem; font-weight: 700; color: var(--accent); margin-right: .3rem; }
+.lv-row--verse .lv-num { font-size: var(--fs-3xl); font-weight: var(--fw-forte); color: var(--accent); margin-right: .3rem; }
 /* ===== A PÁGINA DA APRESENTAÇÃO (v1.4.24) ===== */
 /* O molde vertical do versículo — mas com o RÓTULO SOBRE a imagem (v1.4.35), a
    pedido do operador: *"coloque o número da página sobreposto ao slide, para o
@@ -6404,10 +6541,10 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    sólida de sempre; preenchimento, nunca contorno. */
 .lv-selo {
   position: absolute; top: .3rem; left: .3rem;
-  display: flex; align-items: center; gap: .3rem;
+  display: flex; align-items: center; gap: var(--sp-2);
   padding: .1rem .4rem; border-radius: var(--radius-pill);
   background: var(--panel); color: var(--muted);
-  font-size: .8rem; font-weight: 700; line-height: 1.5;
+  font-size: var(--fs-md); font-weight: var(--fw-forte); line-height: 1.5;
   font-variant-numeric: tabular-nums;
   /* O selo é RÓTULO, não alvo: o toque na linha inteira é que pula a página. */
   pointer-events: none;
@@ -6469,7 +6606,7 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    cor é o que separa — e continua legível de relance. */
 .lv-row.current {
   background: linear-gradient(to right, var(--accent) 0 2px, transparent 2px);
-  color: var(--accent); font-weight: 600;
+  color: var(--accent); font-weight: var(--fw-medio);
 }
 .lv-row.current .lv-aux { color: var(--accent); }
 
@@ -6527,7 +6664,7 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
 /* O acorde em acento e o texto no tom normal: a mesma distinção que a folha
    impressa faz com negrito, feita com a cor que este app já usa para "isto é
    navegação". */
-.lv-cifra-acordes { color: var(--accent); font-weight: 700; }
+.lv-cifra-acordes { color: var(--accent); font-weight: var(--fw-forte); }
 .lv-cifra-letra { color: var(--text); }
 /* A linha vazia é RESPIRO entre estrofes e tem de ocupar altura — `pre` com
    string vazia colapsa, e as estrofes encostam umas nas outras. Ela soma com a
@@ -6554,13 +6691,13 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
 .lyricsview-bar { margin: .45rem .9rem .6rem; }
 .lyricsview-bar[hidden] { display: none; }
 .lv-cifra-topo {
-  display: flex; align-items: center; justify-content: space-between; gap: .6rem;
+  display: flex; align-items: center; justify-content: space-between; gap: var(--sp-5);
 }
 .lv-cifra-tom {
-  font-size: .92rem; font-weight: 700; color: var(--muted);
+  font-size: var(--fs-lg); font-weight: var(--fw-forte); color: var(--muted);
   font-variant-numeric: tabular-nums;
 }
-.lv-cifra-ctl { display: flex; gap: .3rem; flex: none; }
+.lv-cifra-ctl { display: flex; gap: var(--sp-2); flex: none; }
 /* A ROLAGEM AUTOMÁTICA (v1.1.20). Dois controles, e os dois com a aparência do
    A+/A− pelo mesmo motivo de sempre: é um passo por toque numa escada.
    O de velocidade CICLA (a escada volta ao começo), como o botão de girar a
@@ -6576,8 +6713,8 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
 }
 
 .lv-cifra-estado {
-  display: flex; align-items: center; gap: .55rem;
-  color: var(--muted); font-size: .95rem; padding: .8rem 0;
+  display: flex; align-items: center; gap: var(--sp-5);
+  color: var(--muted); font-size: var(--fs-xl); padding: .8rem 0;
 }
 .lv-cifra-erro { display: block; }
 
@@ -6601,11 +6738,11 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    que é exatamente o que faltava quando o defeito apareceu. */
 .lv-cifra-rodape {
   display: flex; justify-content: flex-end; align-items: baseline;
-  gap: 1.1rem; margin-top: .5rem;
+  gap: var(--sp-6); margin-top: .5rem;
 }
 .lv-cifra-link {
   border: none; background: none; padding: .15rem 0;
-  color: var(--accent); font-size: .82rem; font-weight: 600;
+  color: var(--accent); font-size: var(--fs-md); font-weight: var(--fw-medio);
   text-decoration: underline; text-underline-offset: 2px;
   cursor: pointer;
 }
@@ -6631,7 +6768,7 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
   padding: 1.2rem;
   /* .25s: a MESMA duração do scrim dos bottom-sheets (`.popup-backdrop`) — é o
      mesmo papel, e dois scrims com tempos diferentes leriam como dois apps. */
-  opacity: 0; pointer-events: none; transition: opacity .25s ease;
+  opacity: 0; pointer-events: none; transition: opacity var(--dur-lenta) ease;
 }
 .dialog-backdrop.open { opacity: 1; pointer-events: auto; }
 .dialog-card {
@@ -6639,8 +6776,8 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
   background: var(--panel);
   border-radius: var(--radius-card);
   padding: 1rem 1rem .8rem;
-  display: flex; flex-direction: column; gap: .7rem;
-  transform: translateY(8px) scale(.98); transition: transform .2s ease;
+  display: flex; flex-direction: column; gap: var(--sp-5);
+  transform: translateY(8px) scale(.98); transition: transform var(--dur-media) ease;
   /* QUEM TEM TETO É O CARTÃO, não a lista dentro dele — e a diferença foi
      MEDIDA. Com o teto na lista (`40vh`), num aparelho de 360×640 ela rolava
      enquanto o cartão ocupava 477px de 640: havia espaço de sobra na tela e a
@@ -6655,10 +6792,10 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
 .dialog-card > * { flex: 0 0 auto; }
 .dialog-card > .dialog-linha { flex: 0 1 auto; min-height: 0; }
 .dialog-backdrop.open .dialog-card { transform: none; }
-.dialog-title { font-size: 1rem; font-weight: 700; color: var(--text); }
+.dialog-title { font-size: var(--fs-xl); font-weight: var(--fw-forte); color: var(--text); }
 /* `pre-line`: as mensagens usam parágrafos (ex.: o aviso de dados móveis),
    e sem isto as quebras viravam um bloco único. */
-.dialog-msg { font-size: .88rem; color: var(--muted); line-height: 1.45; white-space: pre-line; }
+.dialog-msg { font-size: var(--fs-lg); color: var(--muted); line-height: 1.45; white-space: pre-line; }
 /* ===== A LINHA DO TEMPO da atualização =====
    Ela é um `<ul>` de verdade, então o que aqui se faz é tirar o marcador do
    navegador e pôr o nosso — um ponto em `--accent` desenhado por
@@ -6678,8 +6815,8 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    no meio de um culto é o pior desfecho possível. */
 .dialog-linha {
   margin: 0; padding: 0; list-style: none;
-  display: flex; flex-direction: column; gap: .38rem;
-  font-size: .88rem; line-height: 1.4; color: var(--text);
+  display: flex; flex-direction: column; gap: var(--sp-3);
+  font-size: var(--fs-lg); line-height: 1.4; color: var(--text);
   overflow-y: auto;
 }
 .dialog-linha li { position: relative; padding-left: .95rem; }
@@ -6691,21 +6828,21 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
 /* O rodapé é a MESMA `.dialog-msg` com um degrau a menos de peso: ele responde
    "o que acontece se eu tocar", que é contexto, e não pode competir com a lista
    logo acima — que é o conteúdo. */
-.dialog-rodape { font-size: .82rem; }
-.dialog-input { width: 100%; padding: 10px 12px; font-size: .95rem; }
+.dialog-rodape { font-size: var(--fs-md); }
+.dialog-input { width: 100%; padding: 10px 12px; font-size: var(--fs-xl); }
 /* O PAR DIVIDE A LARGURA (v1.1.8), em vez de medir o RÓTULO encostado à direita.
    Com a largura do texto, o alvo de cada botão dependia do TAMANHO DA PALAVRA —
    "OK" virava um alvo pequeno ao lado de um "Deixar para depois" três vezes
    maior, e num par de decisões OPOSTAS o alvo não pode dizer qual delas é a mais
    fácil de tocar. `flex: 1` nos dois; com o cancelar oculto (`cancelText: null`)
    o que sobra é UM botão ocupando a linha, que é o certo para um "Entendi". */
-.dialog-actions { display: flex; gap: .5rem; margin-top: .1rem; }
+.dialog-actions { display: flex; gap: var(--sp-4); margin-top: .1rem; }
 .dialog-btn {
   flex: 1; min-width: 0;
   border: none; appearance: none; -webkit-appearance: none;
   border-radius: var(--radius-btn); padding: .55rem 1.1rem;
   background: var(--surface-2); color: var(--text);
-  font-size: .9rem; font-weight: 600; cursor: pointer; font-family: inherit;
+  font-size: var(--fs-lg); font-weight: var(--fw-medio); cursor: pointer; font-family: inherit;
 }
 .dialog-btn.primary { background: var(--accent-fill); color: var(--on-accent); }
 /* ---------- CONFIRMAR UMA EXCLUSÃO NÃO É UMA AÇÃO PRIMÁRIA (v1.3.14) ----------
@@ -6736,13 +6873,13 @@ body.mode-simple main,
 body.mode-simple .bottombar { display: none; }
 .simple {
   position: fixed; inset: 0; z-index: 90;
-  display: none; flex-direction: column; gap: .6rem;
+  display: none; flex-direction: column; gap: var(--sp-5);
   background: var(--bg);
   padding: calc(env(safe-area-inset-top) + .7rem) calc(env(safe-area-inset-right) + .7rem) max(env(safe-area-inset-bottom), 12px) calc(env(safe-area-inset-left) + .7rem);
 }
 .simple.open { display: flex; }
-.simple-head { display: flex; align-items: center; gap: .5rem; flex: none; }
-.simple-brand { flex: 1; min-width: 0; font-size: .9rem; font-weight: 800; letter-spacing: .03em; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.simple-head { display: flex; align-items: center; gap: var(--sp-4); flex: none; }
+.simple-brand { flex: 1; min-width: 0; font-size: var(--fs-lg); font-weight: var(--fw-max); letter-spacing: .03em; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .simple-brand b { color: var(--brand); }
 
 /* Tecla: a peça única deste modo. Fundo próprio e alvo grande o bastante para
@@ -6756,11 +6893,11 @@ body.mode-simple .bottombar { display: none; }
 .simple-key {
   border: none; border-radius: var(--radius-card);
   background: var(--panel); color: var(--text);
-  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .25rem;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--sp-2);
   font-family: inherit; cursor: pointer; min-width: 0;
 }
 .simple-key svg { display: block; color: var(--accent); }
-.simple-key-label { font-size: .9rem; font-weight: 700; }
+.simple-key-label { font-size: var(--fs-lg); font-weight: var(--fw-forte); }
 /* (`.simple-key-sub` saiu na v5.206.) O subtítulo dos botões grandes deste modo
    foi removido na v5.195 — "Hinários e álbuns" embaixo de "Buscar música"
    nomeava onde a busca procura, e não há segunda busca aqui para escolher entre
@@ -6771,7 +6908,7 @@ body.mode-simple .bottombar { display: none; }
    topo da tela reservado à letra. Este é o estado DESTRAVADO, o único em que
    estas duas células existem: sem tela a faixa inteira é içada para o centro,
    com só o cartão de conexão dentro (ver `.simple.sem-tela`). */
-.simple-actions { flex: none; display: grid; grid-template-columns: 1fr 1fr; gap: .6rem; }
+.simple-actions { flex: none; display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-5); }
 .simple-action { padding: .8rem .5rem; }
 /* Telão conectado: o ícone confirma sem precisar ler o subtítulo. */
 
@@ -6803,10 +6940,10 @@ body.mode-simple .bottombar { display: none; }
    (`.pv-fabs--esq` é `display: none` neste modo), então o que a simetria compra
    é só o centro — que é justamente o que ela precisa comprar. */
 .simple-stage .pv-busy { padding: .3rem 38px; }
-.simple-stage .pv-busy-card { gap: .35rem; padding: .3rem .45rem .3rem .35rem; }
+.simple-stage .pv-busy-card { gap: var(--sp-3); padding: .3rem .45rem .3rem .35rem; }
 .simple-stage .pv-busy-card .dl-ring { --dl-ring: 22px; }
-.simple-stage .pv-busy-cap { font-size: .55rem; letter-spacing: .06em; }
-.simple-stage .pv-busy-label { font-size: .68rem; }
+.simple-stage .pv-busy-cap { font-size: var(--fs-2xs); letter-spacing: .06em; }
+.simple-stage .pv-busy-label { font-size: var(--fs-xs); }
 /* Só o cast. Tela cheia aqui não faz sentido: neste modo há um telão conectado
    (é o que faz esta faixa existir), e a projeção está nele. */
 .simple-stage #pvFullBtn { display: none; }
@@ -6921,16 +7058,16 @@ body.mode-simple .bottombar { display: none; }
 
 /* Letra da música em cena — ocupa o espaço que sobra entre as ações e as
    teclas. Mesmas linhas da leitura auxiliar do modo avançado (.lv-row). */
-.simple-song { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: .4rem; }
+.simple-song { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: var(--sp-3); }
 .simple-np {
-  flex: none; text-align: center; font-size: .95rem; font-weight: 700; color: var(--text);
+  flex: none; text-align: center; font-size: var(--fs-xl); font-weight: var(--fw-forte); color: var(--text);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 /* Linha do tempo: fina, sem alça e sem alvo de toque — é um indicador, não um
    controle (ver o comentário no index.html). Os números flanqueiam a barra
    para não roubarem altura da letra. */
-.simple-time { flex: none; display: flex; align-items: center; gap: .5rem; }
-.simple-time-num { font-size: .72rem; font-variant-numeric: tabular-nums; color: var(--muted); flex: none; }
+.simple-time { flex: none; display: flex; align-items: center; gap: var(--sp-4); }
+.simple-time-num { font-size: var(--fs-sm); font-variant-numeric: tabular-nums; color: var(--muted); flex: none; }
 /* O ALVO DE TOQUE é a faixa inteira, não o traço (v5.142). O traço tem 4px de
    altura porque é isso que se quer VER; 4px é metade do que um dedo acerta, e um
    controle de posição que exige mira não é um controle — era por isso que este
@@ -6967,7 +7104,7 @@ body.mode-simple .bottombar { display: none; }
 .simple-lyrics::-webkit-scrollbar-thumb {
   background: var(--accent); border-radius: var(--radius-pill);
 }
-.simple-lyrics .lv-empty { margin: auto; color: var(--muted); font-size: .85rem; text-align: center; line-height: 1.5; }
+.simple-lyrics .lv-empty { margin: auto; color: var(--muted); font-size: var(--fs-md); text-align: center; line-height: 1.5; }
 /* ===== AS PÁGINAS EM DUAS COLUNAS, SÓ AQUI (v1.4.35) =====
    Pedido do operador: *"para o modo simples faça um ajuste extra… coloque os
    slides em duas colunas, pois temos menos altura vertical, portanto manter os
@@ -6985,7 +7122,7 @@ body.mode-simple .bottombar { display: none; }
    A folha do modo avançado NÃO herda isto: lá a altura é a de um bottom-sheet,
    e a miniatura larga é o que faz a página se reconhecer. */
 .simple-lyrics.lv-grade {
-  display: grid; grid-template-columns: 1fr 1fr; gap: .5rem;
+  display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-4);
   align-content: start;
 }
 /* Na grade quem separa é o `gap` — o `margin-top` da lista abriria um vão a
@@ -6993,11 +7130,11 @@ body.mode-simple .bottombar { display: none; }
 .simple-lyrics.lv-grade .lv-row--slide + .lv-row--slide { margin-top: 0; }
 
 /* Teclado do controle: transporte em cima, volume embaixo. */
-.simple-remote { flex: none; display: flex; flex-direction: column; gap: .6rem; }
+.simple-remote { flex: none; display: flex; flex-direction: column; gap: var(--sp-5); }
 /* TRÊS teclas: play · parar · mudo. O parar entrou na v5.72 ao lado do play —
    é a outra metade do transporte, e sem ele tirar a mídia do telão exigia ir ao
    modo avançado. `1fr` cada, então as três dividem a largura sozinhas. */
-.simple-keys { display: grid; grid-template-columns: repeat(3, 1fr); gap: .6rem; }
+.simple-keys { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--sp-5); }
 .simple-key--big { height: 76px; }
 .simple-key--big .msym { font-size: 34px; }
 /* Os mesmos dois estados do mudo do modo avançado, na tecla grande. Aqui o
@@ -7016,14 +7153,45 @@ body.mode-simple .bottombar { display: none; }
    (`.simple-vol-read`), então o número da página herda o corpo e o alinhamento
    do número do volume sem uma regra própria para divergir.
    Só existe com um deck no ar (`hidden`, escrito por `renderSlideNav`). */
-.simple-slidesrow { display: grid; grid-template-columns: 1fr 1.1fr 1fr; gap: .6rem; align-items: stretch; }
+.simple-slidesrow { display: grid; grid-template-columns: 1fr 1.1fr 1fr; gap: var(--sp-5); align-items: stretch; }
+/* ===== A ÁREA DE CONTROLE MOSTRA O TRANSPORTE DA CENA (v1.5.14) =====
+   Relato do operador: *"no modo de slides fica bem estranha"*.
+
+   MEDIDO antes: com um deck no ar a tela empilhava TRÊS fileiras de 76px, e as
+   duas de baixo eram a MESMA peça — `.simple-slidesrow` e `.simple-volrow` têm
+   o mesmo grid (`1fr 1.1fr 1fr`), a mesma altura, a mesma classe de botão
+   (`.simple-key--vol`, nomeada por volume e usada por páginas) e o mesmo nó de
+   mostrador (`.simple-vol-read`) com a mesma barra de curso. O que as separava
+   era um rótulo de `--fs-2xs` em `--muted`: o elemento tipográfico mais fraco
+   da tela, num modo desenhado para quem está de pé com uma mão só.
+
+   E SEIS DAS NOVE TECLAS NÃO AGIAM SOBRE NADA. Com uma apresentação no ar não
+   há áudio — é a regra do "um elemento no ar" (v1.4.32) —, então play, mudo e a
+   linha inteira de volume governavam o silêncio. O modo que existe para não
+   pedir vocabulário mostrava seis controles inertes.
+
+   A correção é a doutrina do próprio modo aplicada: UM elemento no ar, UM jogo
+   de controles. Com um deck sobra o "Parar" (a única ação que ainda faz sentido
+   — é ela que tira a apresentação do telão) e as páginas. Some uma fileira
+   inteira, some a homonímia, e os ~140px que sobram vão para a grade de
+   miniaturas, que é o recurso desta tela. */
+.simple-remote.deck .simple-keys { grid-template-columns: 1fr; }
+.simple-remote.deck #simplePlay,
+.simple-remote.deck #simpleMute,
+.simple-remote.deck .simple-volrow { display: none; }
+/* Sozinha e larga, a tecla deixa de se explicar pelo contexto das vizinhas —
+   um quadrado com um ícone no meio da tela não diz o que ele para. O rótulo só
+   existe aqui: nas outras cenas as três teclas se explicam em conjunto. */
+.simple-key-label--parar { display: none; }
+.simple-remote.deck #simpleStop { flex-direction: row; gap: var(--sp-4); }
+.simple-remote.deck .simple-key-label--parar { display: block; }
 /* Volume: − e + são teclas iguais às outras; o indicador no meio mostra o
    número e, embaixo, quanto do curso está usado. */
-.simple-volrow { display: grid; grid-template-columns: 1fr 1.1fr 1fr; gap: .6rem; align-items: stretch; }
+.simple-volrow { display: grid; grid-template-columns: 1fr 1.1fr 1fr; gap: var(--sp-5); align-items: stretch; }
 .simple-key--vol { height: 76px; }
 .simple-key--vol svg { color: var(--text); }
 .simple-vol-read {
-  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .15rem;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--sp-1);
   border-radius: var(--radius-card); background: var(--surface);
   position: relative; overflow: hidden;
 }
@@ -7038,8 +7206,8 @@ body.mode-simple .bottombar { display: none; }
   width: calc(var(--curso, 1) * 100%);
   background: var(--accent);
 }
-.simple-vol-num { font-size: 1.6rem; font-weight: 800; color: var(--text); line-height: 1; }
-.simple-vol-cap { font-size: .62rem; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+.simple-vol-num { font-size: var(--fs-display-sm); font-weight: var(--fw-max); color: var(--text); line-height: 1; }
+.simple-vol-cap { font-size: var(--fs-2xs); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
 
 /* No simplificado a busca serve para TOCAR: um toque na linha (ou no ▶) já toca
    a versão CANTADA (ver simplePlaySong). O botão de adicionar some: playlist,
@@ -7064,7 +7232,7 @@ body.mode-simple .bottombar { display: none; }
    O conteúdo do botão é ESCONDIDO por `visibility` (que preserva a caixa) e a
    marca vem num `::after` absoluto: assim vale igual para um botão de ícone só
    e para um com texto, sem nenhum pular de largura durante o pulso. */
-.btn-pulso { position: relative; transition: background-color .15s ease, color .15s ease; }
+.btn-pulso { position: relative; transition: background-color var(--dur-rapida) ease, color var(--dur-rapida) ease; }
 .btn-pulso > * { visibility: hidden; }
 /* O ✓ e o ✕ vêm da FONTE DE ÍCONES, não do texto (v5.112). Os caracteres
    Unicode `✓`/`✕` são desenhados pela fonte do sistema, que num Android
@@ -7076,7 +7244,7 @@ body.mode-simple .bottombar { display: none; }
 .btn-pulso::after {
   content: '\e5ca';   /* check */
   font-family: 'Material Symbols Outlined';
-  font-weight: normal; font-variant: normal; text-transform: none;
+  font-weight: var(--fw-normal); font-variant: normal; text-transform: none;
   -webkit-font-smoothing: antialiased;
   position: absolute; inset: 0;
   display: flex; align-items: center; justify-content: center;
@@ -7175,7 +7343,7 @@ body.mode-simple .bottombar { display: none; }
    o piso (5,37:1). Escrever `--accent` num fundo cheio é o erro que a paleta
    descreve: aquele tom é claro porque é para ser TEXTO sobre fundo escuro. */
 .cast-acao {
-  display: flex; align-items: center; gap: .75rem; width: 100%;
+  display: flex; align-items: center; gap: var(--sp-6); width: 100%;
   padding: .85rem .9rem;
   text-align: left;
   color: var(--on-accent);
@@ -7207,13 +7375,13 @@ body.mode-simple .bottombar { display: none; }
   color: var(--on-accent);
 }
 .cast-acao-txt { min-width: 0; }
-.cast-acao-txt b { font-size: .92rem; }
+.cast-acao-txt b { font-size: var(--fs-lg); }
 /* A linha auxiliar herda o `--on-accent` com alfa em vez de virar `--muted`:
    o cinza da paleta é calibrado contra as superfícies escuras e some sobre o
    âmbar preenchido. Por alfa e não por token: ela existe nos DOIS fundos deste
    botão (o preenchido e o `.connected`), e cada um traz a própria cor de texto
    — herdar as duas é o que um token único não faria. */
-.cast-acao-txt small { display: block; margin-top: .12rem; font-size: .74rem; opacity: .82; }
+.cast-acao-txt small { display: block; margin-top: .12rem; font-size: var(--fs-sm); opacity: .82; }
 
 /* O INTERRUPTOR. Ele é uma LINHA de estado, não um botão: fundo de superfície
    comum, texto normal, e o sinal fica todo no trilho à direita. A linha inteira
@@ -7243,12 +7411,12 @@ body.mode-simple .bottombar { display: none; }
    classe porque as duas vivem em telas diferentes e um ajuste de uma não deve
    mexer na outra; o que se compartilha são os TOKENS, que é onde a linguagem
    de estado mora. */
-.cast-redes { display: flex; gap: .35rem; }
+.cast-redes { display: flex; gap: var(--sp-3); }
 .cast-rede {
   flex: 1; padding: .5rem .4rem;
   border-radius: var(--radius-btn);
   background: var(--surface); color: var(--muted);
-  font-size: .8rem; font-weight: 700; cursor: pointer;
+  font-size: var(--fs-md); font-weight: var(--fw-forte); cursor: pointer;
   appearance: none; -webkit-appearance: none;
 }
 .cast-rede.active { background: var(--accent-fill); color: var(--on-accent); }
@@ -7263,7 +7431,7 @@ body.mode-simple .bottombar { display: none; }
 .mirror-body {
   flex: 1; overflow-y: auto;
   padding: .6rem .7rem .8rem;
-  display: flex; flex-direction: column; gap: .55rem;
+  display: flex; flex-direction: column; gap: var(--sp-5);
 }
 /* A LINHA DE RECADO da folha de conectar (`#castMsg`). Ela fica VAZIA quase
    sempre — só fala durante um ligar/desligar e quando ele falha —, e um `<p>`
@@ -7273,7 +7441,7 @@ body.mode-simple .bottombar { display: none; }
    (O nome vem da folha de ajustes que saiu na v5.196, onde ela era o parágrafo
    de ressalvas; aqui ela é só o recado.) */
 .mirror-lead {
-  margin: 0; font-size: .78rem; line-height: 1.5; color: var(--muted);
+  margin: 0; font-size: var(--fs-md); line-height: 1.5; color: var(--muted);
   white-space: pre-line;
   /* ELA ENTRA E SAI ESMAECENDO (v5.226), e não com um `display: none`. Ela é o
      recado do ligar/desligar — o momento exato em que a folha inteira está se
@@ -7283,11 +7451,11 @@ body.mode-simple .bottombar { display: none; }
      enquanto ela está vazia, senão o vão continuaria lá com ela invisível
      (era o que o `:empty { display: none }` resolvia). */
   overflow: hidden; max-height: 4rem; opacity: 1;
-  transition: max-height .2s ease, opacity .16s ease .04s, margin-top .2s ease;
+  transition: max-height var(--dur-media) ease, opacity var(--dur-media) ease .04s, margin-top var(--dur-media) ease;
 }
 .mirror-lead:empty {
   max-height: 0; opacity: 0; margin-top: -.55rem;
-  transition: max-height .2s ease .04s, opacity .12s ease, margin-top .2s ease .04s;
+  transition: max-height var(--dur-media) ease .04s, opacity var(--dur-rapida) ease, margin-top var(--dur-media) ease .04s;
 }
 
 /* ---------- O botão de atualização (v5.245, `.apk-row` até a v5.244) ----------
@@ -7306,7 +7474,7 @@ body.mode-simple .bottombar { display: none; }
   margin-top: 6px; padding: 8px 10px;
   border-radius: var(--radius-btn);
   background: var(--btn-accent); color: var(--accent);
-  font-size: .82rem; font-weight: 600; text-align: center;
+  font-size: var(--fs-md); font-weight: var(--fw-medio); text-align: center;
   cursor: pointer;
 }
 .ota-row--agora {
@@ -7359,43 +7527,43 @@ body.mode-simple .bottombar { display: none; }
   /* Cancela o `gap` do corpo enquanto o bloco está recolhido: ele continua
      sendo um item do flex, e um item de altura zero ainda soma um vão. */
   margin-top: -.55rem;
-  transition: grid-template-rows .3s ease .14s, margin-top .3s ease .14s,
+  transition: grid-template-rows var(--dur-lenta) ease var(--dur-rapida), margin-top var(--dur-lenta) ease var(--dur-rapida),
               visibility 0s linear .44s;
 }
 #castLive.aberto {
   grid-template-rows: 1fr; visibility: visible; margin-top: 0;
-  transition: grid-template-rows .3s ease, margin-top .3s ease, visibility 0s;
+  transition: grid-template-rows var(--dur-lenta) ease, margin-top var(--dur-lenta) ease, visibility 0s;
 }
 .cast-live-in {
   min-height: 0; overflow: hidden;
   opacity: 0; transform: translateY(-6px);
-  transition: opacity .16s ease, transform .16s ease;
+  transition: opacity var(--dur-media) ease, transform var(--dur-media) ease;
 }
 #castLive.aberto .cast-live-in {
   opacity: 1; transform: none;
-  transition: opacity .18s ease .2s, transform .18s ease .2s;
+  transition: opacity var(--dur-media) ease var(--dur-media), transform var(--dur-media) ease var(--dur-media);
 }
 
 .cast-addr {
-  display: flex; flex-direction: column; align-items: center; gap: .15rem;
+  display: flex; flex-direction: column; align-items: center; gap: var(--sp-1);
   margin: .5rem 0 .2rem; padding: .6rem .6rem .7rem;
   background: var(--surface); border-radius: var(--radius-card);
 }
 .cast-addr + .cast-addr { margin-top: 0; }
 .cast-rot {
-  font-size: .7rem; font-weight: 600; letter-spacing: .06em;
+  font-size: var(--fs-xs); font-weight: var(--fw-medio); letter-spacing: .06em;
   text-transform: uppercase; color: var(--muted);
 }
 /* O ENDEREÇO E O BOTÃO DE COPIAR DIVIDEM UMA LINHA. `min-width: 0` no texto
    porque ele é `overflow-wrap: anywhere` dentro de um flex, e sem isso o item
    não encolhe abaixo do conteúdo — o botão sairia da caixa num IP longo. */
 .cast-url-linha {
-  display: flex; align-items: center; gap: .35rem; max-width: 100%;
+  display: flex; align-items: center; gap: var(--sp-3); max-width: 100%;
 }
 .cast-url-linha > .cast-url { min-width: 0; }
 .cast-url {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 1.05rem; font-weight: 700; color: var(--text);
+  font-size: var(--fs-2xl); font-weight: var(--fw-forte); color: var(--text);
   overflow-wrap: anywhere; text-align: center;
   -webkit-user-select: text; user-select: text;
 }
@@ -7404,11 +7572,11 @@ body.mode-simple .bottombar { display: none; }
    ativada, e o endereço não. Mesma anatomia do PIN que ele substitui. */
 /* Quem está vendo. Uma linha por tela, com a ação à direita — o padrão de
    lista do resto do app, não um cartão novo. */
-.cast-telas { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: .35rem; }
+.cast-telas { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--sp-3); }
 .cast-tela {
-  display: flex; align-items: center; justify-content: space-between; gap: .6rem;
+  display: flex; align-items: center; justify-content: space-between; gap: var(--sp-5);
   padding: .5rem .6rem; border-radius: var(--radius-card);
-  background: var(--surface); font-size: .82rem;
+  background: var(--surface); font-size: var(--fs-md);
 }
 .cast-tela--vazia { color: var(--muted); justify-content: center; }
 /* UMA TELA QUE ENTRA (ou sai) NÃO PODE EMPURRAR A LISTA DE UM QUADRO PARA O
@@ -7437,7 +7605,7 @@ body.mode-simple .bottombar { display: none; }
    "está no ar agora" (ver a paleta — a régua deixou de ser "preenchido ×
    contornado" na v5.267 e passou a ser a INTENSIDADE do mesmo preenchimento). */
 .cast-tela-fora {
-  flex: 0 0 auto; padding: .3rem .6rem; font-size: .75rem;
+  flex: 0 0 auto; padding: .3rem .6rem; font-size: var(--fs-sm);
   background: var(--btn-danger); color: var(--danger-text);
   border-radius: var(--radius-pill); cursor: pointer;
 }

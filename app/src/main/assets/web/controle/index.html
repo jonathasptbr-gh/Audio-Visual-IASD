@@ -470,7 +470,7 @@
              mídia do telão obrigava a ir ao modo avançado — e é justamente o
              que se faz no fim de cada louvor. O glifo é estático porque ele não
              tem estado: aciona o `#stop` de sempre por `.click()`. -->
-        <button type="button" id="simpleStop" class="simple-key simple-key--big" title="Parar e limpar"><span class="msym" aria-hidden="true">&#xe047;</span></button>
+        <button type="button" id="simpleStop" class="simple-key simple-key--big" title="Parar e limpar"><span class="msym" aria-hidden="true">&#xe047;</span><span class="simple-key-label simple-key-label--parar">Parar</span></button>
         <button type="button" id="simpleMute" class="simple-key simple-key--big" title="Mutar"><span class="msym" aria-hidden="true">&#xe050;</span></button>
       </div>
       <!-- AS PÁGINAS DA APRESENTAÇÃO (v1.4.30), a pedido do operador. Só
@@ -483,6 +483,19 @@
            no meio. Este modo é "teclas grandes, nada de arrastar", e a linha de
            volume é a forma já provada disso — o número no meio responde "onde
            estou?" sem exigir mira, que é o que a página precisa responder.
+
+           E POR ISSO AS DUAS NUNCA COEXISTEM (v1.5.14). Relato do operador:
+           *"no modo de slides fica bem estranha"*. MEDIDO: com um deck no ar a
+           tela empilhava TRÊS fileiras de 76px — play/parar/mudo, páginas e
+           volume —, e as duas de baixo eram a MESMA peça (mesmo grid, mesma
+           altura, a mesma classe `.simple-key--vol` e o mesmo nó de mostrador),
+           distinguidas só por um rótulo de .6rem em `--muted`, o elemento
+           tipográfico mais fraco de uma tela feita para quem está de pé.
+           Pior que a repetição: SEIS das nove teclas não agiam sobre nada. Com
+           um deck no ar não há áudio (é a regra do "um elemento no ar", da
+           v1.4.32), então play, mudo e a linha inteira de volume governavam o
+           silêncio. Agora a área de controle mostra o transporte DA CENA: com
+           uma apresentação sobram o "Parar" e as páginas, e mais nada.
 
            O toque numa MINIATURA da zona de leitura pula direto para ela (o
            mesmo `deckIr`); estas teclas são o passo a passo, que é o gesto do
@@ -1675,7 +1688,7 @@
                METADADO de diagnóstico e o lugar onde se procura diagnóstico é
                junto do estado do telão e do alvo de espelhamento, não numa faixa
                de navegação. Preenchido por `renderVersionLabel`. -->
-          <span id="appVersion" class="app-version">Controle v1.5.13</span>
+          <span id="appVersion" class="app-version">Controle v1.5.14</span>
           <!-- SALVAR EM ARQUIVO (v1.2.16). Com o acervo inteiro varrido o
                Registro passa de setenta linhas só na seção de cifras, e copiar e
                colar é o caminho que corta o texto no meio SEM AVISAR — foi o

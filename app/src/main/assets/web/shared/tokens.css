@@ -194,7 +194,6 @@
      Ele existe com NOME PRÓPRIO em vez de a folha citar `--accent-fill`: o
      nome diz a que superfície ele pertence, e é isso que impede o próximo
      controle sobre o campo de repetir a conta errada. */
-  --field-accent: #2f557f;
   /* (`--field-borda` SAIU na v1.5.8. A borda do campo de busca CONTINUA sendo a
      única exceção declarada à regra do "sem contorno" — o que mudou é de onde
      sai a cor dela: `var(--surface)`, o MESMO token que os botões ao lado
@@ -236,10 +235,37 @@
      "isto é navegação" sem inventar uma segunda matiz. Chamavam-se `--gold*`
      até a v5.192 — um token "gold" guardando um azul é a divergência que este
      arquivo existe para impedir. */
-  --bg: #0e1215;
-  --bar: #252b33;
-  --panel: #2c343c;
-  --panel-2: #3c4753;
+  /* ---------- DENIM PROFUNDO (v1.5.14) ----------
+     O escuro era um quase-preto NEUTRO (matiz 206°, saturação 20%): a
+     identidade vivia só no tema claro, porque os dezoito valores oficiais foram
+     desenhados para papel BRANCO e nenhum passa AA sobre um preto. A matiz
+     estava certa e a SATURAÇÃO é que faltava — subida para ~30% (o `denim`
+     oficial tem 46%), com a mesma luminância de antes, o app inteiro passa a
+     ler como IASD sem que um único par de contraste piore.
+     MEDIDO com a família de texto sobre as superfícies novas: `--text` 10,32:1
+     sobre o painel, `--muted` 7,22:1, `--accent` 6,64:1 — os três com folga
+     sobre AA, e todos MELHORES que os de antes, porque a base escureceu de
+     leve. Os degraus da escada ficam onde estavam (ver "Escada de elevação").
+     A matiz é 211°, a do `denim` (#2F557F), e não uma escolhida: é a mesma
+     âncora que `--accent` e `--btn-accent` já usavam. */
+  --bg: #0b1219;
+  --bar: #1b2632;
+  --panel: #212f3d;
+  --panel-2: #304254;
+  /* ---------- O POÇO — a segunda e ÚLTIMA superfície (v1.5.14) ----------
+     A Biblioteca tem QUATRO níveis (janela → seção → álbum → faixa) e a escada
+     de tom tem três degraus. Isso não é falta de ajuste fino: partindo do
+     branco do tema claro, quatro degraus no piso de 1,28:1 põem o nível mais
+     interno em #b3b3b3 — um cinza médio, exatamente a *"predominância cinza
+     escura"* que o operador recusou na v1.5.10. **Não existe escada de TOM que
+     resolva quatro níveis sobre base branca**, e é por isso que nove versões
+     seguidas (v1.5.5→v1.5.13) não fecharam a questão.
+     A saída é parar de EMPILHAR e passar a ALTERNAR: um agrupamento de nível 1
+     veste o POÇO, o de nível 2 volta ao PAPEL (o tom da janela), e a
+     profundidade é dita por cabeçalho grudento, recuo e tipografia — mecanismos
+     que não têm teto. Duas superfícies, profundidade ilimitada, ZERO traços.
+     MEDIDO no renderizado: 1,43:1 em cada degrau no escuro, 1,35:1 no claro. */
+  --poco: #34475b;
   /* (`--fav-bg`, o tom próprio da seção dos Favoritos, viveu da v5.273 à
      v5.281 e SAIU na v5.282: *"ajuste as cores dela para que ela fique igual
      as outras coleções"*. O argumento dele era que a seção não é uma coleção e
@@ -247,14 +273,15 @@
      como COR: o nome no cabeçalho diz a primeira e o vão reservado diz a
      segunda, sozinho. O que a cor acrescentava era um quarto tom numa escada
      de três, e a v5.267 já tinha medido o preço de um quarto degrau.) */
-  /* `--line` PERDEU O PAPEL QUE LHE DEU O NOME (v5.267): não há mais separador
-     nem contorno em lugar nenhum do app. Ele sobrevive como TINTA de um
-     desenho — a estrela vazada de favorito, que precisa ser discreta o
-     bastante para o olho passar batido pela lista e forte o bastante para ser
-     encontrada quando se procura por ela — e como cor da barra de rolagem das
-     grades da Bíblia. Renomeá-lo custaria mais do que o nome vale; o que ele
-     NÃO pode voltar a ser é um filete. */
-  --line: #4f5966;                       /* 2,65:1 contra o fundo */
+  /* (`--line` SAIU na v1.5.14, e a saída é o fecho de uma contradição.) A v5.267
+     tirou o contorno do app inteiro e o comentário deste token passou a dizer
+     que ele *"NÃO pode voltar a ser um filete"* — enquanto a v1.5.9 o punha de
+     volta como o único filete que existia, a moldura da Biblioteca. Removida a
+     moldura (a hierarquia virou POÇO + cabeçalho grudento), ele ficou com ZERO
+     consumidores: as duas outras tintas que o comentário reivindicava já não
+     eram dele (a estrela vazada foi para `--text` na v5.302; a barra de rolagem
+     das grades da Bíblia usa `--accent`/`--panel`). Um token que só existia
+     para o uso que ele mesmo proibia. */
   /* O par FLUTUANTE, com nome próprio (v5.267). `--surface` continua sendo "o
      valor que vale AQUI" — quem o troca por `--surface-sunk` é a regra do
      cartão, em controle.css. Estes dois existem para o caminho de VOLTA: a
@@ -492,11 +519,9 @@
      nenhum uso na folha, e isso é intencional, não esquecimento: pela regra
      acima, ação destrutiva é sempre CONTORNADA, e contorno/texto usam
      `--danger-strong`/`--danger-text`. */
-  --danger: #d0021b;
   --danger-text: #e98d83;                /* 5,17:1 sobre painel · 6,89:1 sobre o soft
                                             (o soft sobre a PÁGINA; dentro de um
                                             cartão, 5,03:1 — ver "como ler") */
-  --danger-soft: rgba(208, 2, 27, .22);
 
   /* ---------- LARANJA: aviso ----------
      DERIVADOS do `campfire` OFICIAL (#CD4900, matiz 21°), clareados — o oficial
@@ -506,7 +531,6 @@
      do app. */
   --warn: #ef853f;                       /* borda/ícone — 6,34:1 sobre --warn-soft */
   --warn-text: #e5a86c;                  /* texto — 7,95:1 sobre --warn-soft */
-  --warn-soft: rgba(205, 73, 0, .18);
 
   /* ---------- VERDE: concluído / conectado ----------
      E SÓ isso. Até a v5.47 o verde também dizia "está no ar" em dois lugares
@@ -516,7 +540,6 @@
      dessaturado — o oficial dá 4,02:1 sobre o fundo, e no talo ele vira um
      limão que grita mais que o accent. */
   --ok: #80bd64;                         /* 5,64:1 sobre painel · 8,41:1 sobre o fundo */
-  --ok-soft: rgba(43, 133, 0, .20);
 
   /* Cortina do bloqueio do modo simplificado. É o --bg com alfa; os dois têm de
      andar JUNTOS, senão o véu vira um retângulo mais escuro (ou mais claro) que
@@ -525,8 +548,8 @@
      (Eles saíram na v5.199, com o bloqueio, e VOLTARAM na v5.203 — o operador
      pediu a cortina de volta: sem tela este modo não projeta nada, e é ela que
      diz isso sem depender de ninguém ler um cartão.) */
-  --veil: rgba(14, 18, 21, .55);
-  --veil-solid: rgba(14, 18, 21, .92);
+  --veil: rgba(11, 18, 25, .55);
+  --veil-solid: rgba(11, 18, 25, .92);
 
   /* ---------- OS DOIS FUNDOS DE ESTADO, e eles são OPACOS (v5.267) ----------
      Uma linha tem dois estados lidos de relance: ESCOLHIDA (atual/marcada) e NO
@@ -611,15 +634,23 @@
      é acidente nem problema — os dois nunca se encostam, porque um nível 2 está
      sempre DENTRO de um nível 1, que é branco. */
   --panel-2: #d4dae2;
-  /* (`--fav-bg` saiu na v5.282, nos dois temas — ver o bloco do escuro.) */
-  --line: #97a5b4;                       /* 1,95:1 contra o fundo · 2,51:1 contra o painel */
+  /* (`--fav-bg` saiu na v5.282, nos dois temas — ver o bloco do escuro.)
+     (`--line` saiu na v1.5.14, nos dois temas — ver o bloco do escuro.) */
+  /* O POÇO do tema claro. É o MESMO "azul fraco" que o operador pediu na
+     v1.5.10 (*"porque não usou o azul fraco como cor principal dos cards?"*),
+     aprofundado até o degrau existir de verdade: `--btn-accent` (#dcebfe) mede
+     1,21:1 contra a janela branca — abaixo do piso —, e este mede **1,36:1**.
+     hsl(211, 70%, 88%), a matiz do `denim`.
+     MEDIDO sobre ele: preto 14,69:1 · `--muted` 4,66:1 · `--accent` 5,39:1 ·
+     `--live-strong` 4,79:1 — os quatro passam AA. */
+  --poco: #cbe0f6;
   /* O SINAL é o mesmo do tema escuro: o controle FLUTUA sobre a página e
      AFUNDA dentro do cartão. O que muda é o lado do branco em que cada um
      está — sobre a página cinza o overlay é branco (o botão sobe até quase o
      branco do cartão), e dentro do cartão branco ele é preto (o campo recua).
      Medido: 1,23:1 do botão contra a página e 1,14:1 / 1,25:1 dos afundados
-     contra o painel. São degraus pequenos, e é a linha em `--line` que anuncia
-     o controle aqui — ver a nota sobre o piso de 1,30:1, acima. */
+     contra o painel. São degraus pequenos, e o que anuncia o controle aqui é o
+     próprio degrau — desde a v1.5.14 não há linha nenhuma no app. */
   --surface-alta: rgba(255, 255, 255, .70);
   --surface-2-alta: rgba(255, 255, 255, .92);
   --surface: var(--surface-alta);
@@ -750,18 +781,14 @@
   --live-soft: rgba(208, 2, 27, .14);
   --live-strong: #b80419;
   --danger-strong: #b80419;
-  --danger: #d0021b;
   --danger-text: #93382e;                /* 5,73:1 sobre o soft · 7,38:1 sobre o painel */
-  --danger-soft: rgba(208, 2, 27, .14);
 
   /* campfire e treefrog escurecidos pelo mesmo motivo: o oficial passa sobre
      BRANCO (4,62:1 e 4,71:1) e reprova sobre a página cinza. Matizes 21° e 101°
      preservadas. `--warn` é ícone/borda e responde ao piso de 3:1. */
   --warn: #bd520a;                       /* 3,38:1 sobre --warn-soft · 3,72:1 sobre o fundo */
   --warn-text: #934410;                  /* 4,81:1 sobre --warn-soft */
-  --warn-soft: rgba(205, 73, 0, .08);
   --ok: #216900;                         /* 4,76:1 sobre --ok-soft · 6,81:1 sobre o painel */
-  --ok-soft: rgba(33, 105, 0, .08);
 
   /* o véu segue o --bg deste tema, pela mesma regra do escuro */
   --veil: rgba(223, 227, 231, .55);

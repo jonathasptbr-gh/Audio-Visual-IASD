@@ -137,27 +137,28 @@ só uma, o token está no bloco COMPARTILHADO e vale nos dois.
 
 | Token | Escuro | Claro | Uso |
 |---|---|---|---|
-| `--bg` | `#0e1215` | `#dfe3e7` | fundo do app. A matiz é a do denim (211°) em vez de um cinza puro: um cinza neutro ao lado de um accent azul lê como esverdeado |
-| `--bar` | `#252b33` | `#ffffff` | bottombar / trilho de abas |
-| `--panel` / `--panel-2` | `#2c343c` / `#3b4550` | `#ffffff` / `#dee2e8` | cartões e linhas de lista / o item ativo ou selecionado. **A direção se inverte no claro** (ver "A montagem dos dois temas") |
-| `--line` | `#4f5966` | `#97a5b4` | **todas** as bordas e separadores — 2,65:1 contra o fundo no escuro, 1,95:1 no claro |
+| `--bg` | `#0b1219` | `#dfe3e7` | fundo do app. A matiz é a do denim (211°) em vez de um cinza puro: um cinza neutro ao lado de um accent azul lê como esverdeado |
+| `--bar` | `#1b2632` | `#ffffff` | bottombar / trilho de abas |
+| `--panel` / `--panel-2` | `#212f3d` / `#304254` | `#ffffff` / `#dee2e8` | cartões e linhas de lista / o item ativo ou selecionado. **A direção se inverte no claro** (ver "A montagem dos dois temas") |
+| `--poco` | `#34475b` | `#cbe0f6` | **a segunda e última superfície** (v1.5.14). A Biblioteca tem quatro níveis e a escada tem três degraus; em vez de empilhar um quarto tom (impossível — ver "A escada"), o nível 1 veste o poço e o nível 2 volta ao PAPEL. Duas superfícies, profundidade ilimitada. 1,43:1 contra a janela no escuro, 1,36:1 no claro. No claro é o `--btn-accent` (o "azul fraco" pedido na v1.5.10) aprofundado até o degrau ser real — aquele mede só 1,21:1 |
+| ~~`--line`~~ | — | — | **SAIU na v1.5.14.** Removida a moldura da Biblioteca, ficou com zero consumidores. O comentário dele dizia que *"o que ele NÃO pode voltar a ser é um filete"* enquanto ele era o único filete do app |
 | `--surface` / `--surface-2` | `rgba(255,255,255,.12)` / `.18` | `rgba(255,255,255,.70)` / `.92` | botão / chip-campo-badge **sobre o fundo do app** (ver R1). Branco com alfa nos DOIS temas: o controle FLUTUA sobre a página |
-| `--surface-sunk` / `--surface-2-sunk` | `rgba(0,0,0,.24)` / `.14` | `rgba(0,0,0,.06)` / `.10` | os mesmos dois **dentro de um cartão**, onde o sinal se inverte e o controle AFUNDA. Eram literais em `controle.css` até a v5.192 — os últimos pedaços de cor fora da fonte única, e o tema claro herdaria um recesso de 24% de preto sobre um cartão branco |
-| `--text` / `--muted` | `#dce0e5` / `#b0b7bf` | `#000000` / `#565d66` | texto (14,19:1 sobre o fundo · 9,52:1 sobre painel no escuro; 16,28:1 · 21:1 no claro) / secundário. **No claro o `--text` é PRETO desde a v1.5.12** — o ÚNICO desvio declarado da paleta oficial, a pedido do operador (*"use a cor preta pra os textos e não cinza como me parece ser hoje"*): ele era o `night` OFICIAL (#4a4a4a), que É um cinza escuro e se lia como texto apagado sob a luz de um salão. `--muted` NÃO acompanhou — é ele que mantém a regra NOME × NÚMERO da v1.5.11, e o par abriu de 1,33:1 para 3,15:1. Ele é derivado porque o `winter` oficial (#717171) passa sobre branco (4,88:1) e cai para 3,81:1 sobre o cinza da página |
-| `--accent` | `#8fb1f3` | `#2f557f` | o azul como **texto, ícone e borda**. No escuro é o `bluejay` CLAREADO (o oficial dá 3,97:1 sobre o fundo e reprova): 8,74:1 sobre o fundo, 5,86:1 sobre painel. No claro é o `denim` OFICIAL: 7,70:1 sobre painel, 5,97:1 sobre a página |
+| `--surface-sunk` / `--surface-2-sunk` | `rgba(0,0,0,.24)` / `.14` | `rgba(0,0,0,.14)` / `.20` | os mesmos dois **dentro de um cartão**, onde o sinal se inverte e o controle AFUNDA. Eram literais em `controle.css` até a v5.192 — os últimos pedaços de cor fora da fonte única, e o tema claro herdaria um recesso de 24% de preto sobre um cartão branco |
+| `--text` / `--muted` | `#dce0e5` / `#b6bdc6` | `#000000` / `#565d66` | texto (14,19:1 sobre o fundo · 9,52:1 sobre painel no escuro; 16,28:1 · 21:1 no claro) / secundário. **No claro o `--text` é PRETO desde a v1.5.12** — o ÚNICO desvio declarado da paleta oficial, a pedido do operador (*"use a cor preta pra os textos e não cinza como me parece ser hoje"*): ele era o `night` OFICIAL (#4a4a4a), que É um cinza escuro e se lia como texto apagado sob a luz de um salão. `--muted` NÃO acompanhou — é ele que mantém a regra NOME × NÚMERO da v1.5.11, e o par abriu de 1,33:1 para 3,15:1. Ele é derivado porque o `winter` oficial (#717171) passa sobre branco (4,88:1) e cai para 3,81:1 sobre o cinza da página |
+| `--accent` | `#95b5f4` | `#2f557f` | o azul como **texto e ícone**. No escuro é o `bluejay` CLAREADO (o oficial dá 3,97:1 sobre o fundo e reprova): 9,17:1 sobre o fundo, 6,64:1 sobre painel (medidos contra o fundo DENIM PROFUNDO da v1.5.14). No claro é o `denim` OFICIAL: 7,70:1 sobre painel, 5,97:1 sobre a página |
 | `--accent-fill` | `#2f557f` | `#2f557f` | o **`denim` OFICIAL** como fundo de elemento preenchido (aba ativa, botão primário), nos dois temas. 2,44:1 contra o fundo escuro — exatamente o peso que o preenchido âmbar tinha (2,59:1) |
 | `--on-accent` | `#e8edf3` | `#ffffff` | o que se escreve **em cima** de `--accent-fill` — 6,54:1 e 7,70:1. O par branco-sobre-denim é o que a própria identidade recomenda; no escuro vale a regra do off-white, e a folga sobra nos dois |
 | `--accent-soft` | `rgba(143,177,243,.16)` | `rgba(47,85,127,.12)` | fundo suave de estado ativo |
-| `--accent-glow` | `rgba(143,177,243,.32)` | `rgba(47,85,127,.28)` | halo do `.start-pill` do Display. Segue a MATIZ do accent, não o `--accent-fill`: um halo na cor do preenchimento (escuro por definição) sobre o fundo escuro seria invisível. **Saiu do botão de conectar do simplificado bloqueado na v5.75** — ali quem separa o botão do fundo é a cortina embaçada |
-| `--brand` / `--brand-soft` / `--brand-text` | `#8fb1f3` / `rgba(143,177,243,.16)` / `#c2d4f8` | `#2f557f` / `rgba(47,85,127,.12)` / `#24446a` | marca ("IASD"): logo, capa da letra, pill "Ligar Sistema", rótulo de estrofe, destaque da busca por letra. Mesmo valor do accent — os dois nomes existem para distinguir marca de navegação na folha |
-| `--live` / `--danger` | `#d0021b` | `#d0021b` | o **`scarlett` OFICIAL**, e **só** como preenchimento/borda de "está no ar agora" (ou de superfície destrutiva, que hoje não existe). Como texto ele reprova: 3,32:1 sobre o fundo escuro |
+| `--stage-accent-glow` | `rgba(143,177,243,.32)` | *(idem — é do PALCO, logo sem tema)* | halo do `.start-pill` do Display. Segue a MATIZ do accent, não o `--accent-fill`: um halo na cor do preenchimento (escuro por definição) sobre o fundo escuro seria invisível. **Saiu do botão de conectar do simplificado bloqueado na v5.75** — ali quem separa o botão do fundo é a cortina embaçada |
+| `--brand` / `--brand-text` | `#95b5f4` / `#c2d4f8` | `#2f557f` / `#24446a` | marca ("IASD"): logo, capa da letra, pill "Ligar Sistema", rótulo de estrofe, destaque da busca por letra. Mesmo valor do accent — os dois nomes existem para distinguir marca de navegação na folha |
+| `--live` | `#d0021b` | `#d0021b` | o **`scarlett` OFICIAL**, e **só** como preenchimento de "está no ar agora". Como texto ele reprova: 3,32:1 sobre o fundo escuro. (O gêmeo `--danger` saiu na v1.5.14: zero consumidores, e a razão escrita para o não-uso — *"ação destrutiva é sempre CONTORNADA"* — tinha morrido com o contorno, na v5.267) |
 | `--on-live` | `#f6eeef` | `#ffffff` | o que se escreve sobre `--live` — 4,96:1 e 5,67:1 |
 | `--live-strong` / `--danger-strong` | `#f97a7e` | `#b80419` | **o vermelho que se lê como vermelho** (v5.76): ícone, borda e marca preenchida. Derivado do `scarlett` (matiz 358°/353°), clareado no escuro e escurecido no claro. Escuro: 7,27:1 sobre `--bg`, 6,59:1 sobre o soft, 4,88:1 sobre `--panel`, **3,77:1 sobre `--panel-2`** — este passa o piso de borda e reprova o de texto, e é por isso que quem veste este vermelho veste junto o fundo suave da própria família. Claro: 4,63:1 sobre o soft, 6,84:1 sobre o painel |
 | `--danger-text` | `#e98d83` | `#93382e` | o salmão, para os TRÊS casos em que o `-strong` não serve: a falha na miniatura do YouTube, o pulso de erro e o aviso de falha pousado direto no painel — 5,17:1 sobre `--panel` no escuro, 7,38:1 no claro |
-| `--live-soft` / `--danger-soft` | `rgba(208,2,27,.22)` | `rgba(208,2,27,.08)` | fundo suave de "no ar" / destrutivo. O alfa é MUITO menor no claro: qualquer tinta ali escurece a base e derruba o contraste do texto que pousa em cima. **É wash, nunca superfície de controle** — ver `--btn-*` |
+| `--live-soft` | `rgba(208,2,27,.22)` | `rgba(208,2,27,.14)` | wash de "no ar" — hoje só o `box-shadow` do pulso. **É wash, nunca superfície de controle** (ver `--btn-*`), e foi essa regra que esvaziou a família: dos seis `-soft`, só este tem consumidor. Os outros quatro (`--danger-soft`, `--warn-soft`, `--ok-soft`, e o `--accent-soft` que ficou) eram defendidos por "servem ao wash" — a v1.5.14 mediu e removeu os que não serviam a nenhum |
 | `--btn-accent` / `--btn-danger` / `--btn-warn` / `--btn-ok` | `#293d57` / `#5d282e` / `#533423` / `#2a431e` | `#dcebfe` / `#fde3e6` / `#f8e7de` / `#d5f5c6` | **a superfície OPACA de um botão ou chip** em cada família (v1.3.14). Recebem por cima o traço que a família já tinha (`--accent`, `--danger-strong`, `--warn`, `--ok`). Ver "A superfície de uma ação é opaca" |
-| `--warn` / `--warn-text` / `--warn-soft` | `#ef853f` / `#e5a86c` / `rgba(205,73,0,.18)` | `#bd520a` / `#934410` / `rgba(205,73,0,.08)` | aviso: borda/ícone, texto, fundo. Derivados do **`campfire` OFICIAL** (matiz 21°) — 6,34:1 e 7,95:1 sobre o próprio suave no escuro; 3,38:1 (piso de ícone) e 4,81:1 no claro |
-| `--ok` / `--ok-soft` | `#80bd64` / `rgba(43,133,0,.20)` | `#216900` / `rgba(33,105,0,.08)` | concluído/conectado. Derivado do **`treefrog` OFICIAL** (matiz 101°), clareado e DESSATURADO no escuro — no talo ele vira um limão que grita mais que o accent. 5,64:1 sobre painel · 8,41:1 sobre o fundo; no claro 6,81:1 sobre o painel |
+| `--warn` / `--warn-text` | `#ef853f` / `#e5a86c` | `#bd520a` / `#934410` | aviso: borda/ícone, texto, fundo. Derivados do **`campfire` OFICIAL** (matiz 21°) — 6,34:1 e 7,95:1 sobre o próprio suave no escuro; 3,38:1 (piso de ícone) e 4,81:1 no claro |
+| `--ok` | `#80bd64` | `#216900` | concluído/conectado. Derivado do **`treefrog` OFICIAL** (matiz 101°), clareado e DESSATURADO no escuro — no talo ele vira um limão que grita mais que o accent. 5,64:1 sobre painel · 8,41:1 sobre o fundo; no claro 6,81:1 sobre o painel |
 | `--stage-bg` / `--stage-text` | `#000` / `#fff` | *(idem)* | **o palco**, não a UI, e por isso NÃO tem tema: o preto é preto de verdade (as barras do letterbox têm de sumir na moldura da TV) e o texto projetado é branco pleno — num telão a legibilidade vem de luminância máxima, não de um off-white calibrado para uma tela a 30 cm do rosto |
 | `--stage-text-soft` / `--stage-text-dim` | `rgba(255,255,255,.9)` / `.72` | *(idem)* | marca sobre o wallpaper / linha auxiliar da letra |
 | `--scrim` | `rgba(0,0,0,.6)` | *(idem)* | cortina de modal (bottom-sheets e diálogo). Preta nos dois temas — é assim que um modal se destaca em qualquer UI, e no claro ela é o único elemento que precisa vencer uma página branca |
@@ -183,6 +184,11 @@ Fora de `tokens.css`, no `:root` do Controle (não são cor):
 | `--fader-cap` | `26px` | espessura do cap do fader — **dois** faders a usam (mixer e modo simplificado), e a posição do número sai dela |
 | `--icon-sm` / `--icon-md` / `--icon-lg` | `20` / `22` / `24px` | escala dos **glifos de fonte** (`.msym`). Os SVGs inline trazem `width`/`height` no próprio HTML e nunca estiveram sob ela; o modo simplificado tem escala própria, porque ali o alvo é o polegar de quem está de pé |
 | `--press` / `--press-luz` | `translateY(2px)` / `brightness(1.35)` · `.88` no claro | feedback de toque: recuo ABSOLUTO mais luz. Ver "Feedback de toque" |
+| `--fs-2xs`…`--fs-4xl` (9) + `--fs-display-sm` / `--fs-display` | `.60` `.68` `.74` `.82` `.90` `.95` `1.05` `1.15` `1.25` + `1.6` `2.6` rem | **a escala tipográfica** (v1.5.14). Eram 31 corpos distintos em 126 declarações. Os degraus saíram da DISTRIBUIÇÃO REAL de uso (o pico é `.82rem`, 19 declarações — o corpo de uma linha de lista), e não de uma fórmula: entre cinco escalas candidatas esta é a que move menos pixel — sete declarações mudam mais de 0,65px, e a maior mudança é 0,8px. Consolidar não podia custar um redesenho acidental |
+| `--sp-1`…`--sp-6` | `.15` `.25` `.35` `.5` `.6` `.8` rem | **a escala de espaço** (v1.5.14). Eram 16 valores de `gap` quase contínuos em passos de .05, isto é, nenhum ritmo. 71 das 110 declarações caem EXATAS num degrau; o resto se move no máximo 1,6px — o que não se vê numa peça e se sente no conjunto |
+| `--dur-rapida` / `--dur-media` / `--dur-lenta` | `.14s` / `.2s` / `.3s` | **a escala de movimento** (v1.5.14). Eram dez durações de transição entre .12s e .3s — faixa em que o olho não distingue os degraus, mas em que peças VIZINHAS animam em tempos diferentes, e isso se nota. As ANIMAÇÕES ficam de fora e mantêm o tempo delas: um pulso de 1,2s não é uma transição de interface |
+| `--fw-normal` / `--fw-medio` / `--fw-forte` / `--fw-max` | `400` / `600` / `700` / `800` | **os quatro pesos** (v1.5.14). Eram cinco valores para quatro papéis — o `500`, com três usos, não se distinguia do `600`. Nomeados, a escolha deixa de ser um número e passa a ser um papel |
+| `--bar-secao-h` | `calc(var(--hit) + 1.1rem)` | a altura da barra de uma seção da Biblioteca. É token porque DUAS regras precisam do mesmo número (a barra gruda em `top: 0`, a do álbum logo abaixo dela); escrito duas vezes divergiria, e o sintoma seria o cabeçalho de dentro cobrindo o de fora. Determinístico: o nome é `nowrap` e o recuo é fixo — nada de medição em JS, que a v1.5.3 ensinou a desconfiar |
 | `--kb` | `0px` | altura coberta pelo teclado virtual, escrita pelo JS (ver "Deslocamento com o teclado virtual") |
 
 ### Métodos/convenções visuais padronizados
@@ -866,25 +872,43 @@ e as duas metades têm caso no `smoke.mjs`, medidas contra VIZINHOS RENDERIZADOS
 no tema claro dá **1,66:1** contra os 4,5:1 de AA. Afastar o texto do azul, ali,
 só se faz escurecendo — 4,00:1 em `--muted` para 5,33:1 em `--text`.)*
 
-A árvore da Biblioteca fica assim — **e ela deixou de ser uma escada de TOM na
-v1.5.9**, quando o operador deu autoridade para a MOLDURA (ver "A paleta", no
-CLAUDE.md): os dois níveis de agrupamento pintam o MESMO, e quem os separa é a
-linha. O tom deles é `--btn-accent` desde a v1.5.10, a pedido do operador
-(*"porque não usou o azul fraco como cor principal dos cards?"*), e `--panel-2`
-não existe mais em lugar nenhum da Biblioteca.
+A árvore da Biblioteca **deixou de ser uma escada na v1.5.14**, e a razão é
+aritmética: quatro degraus no piso de 1,28:1 partindo do branco dão
+`#ffffff → #e3e3e3 → #cacaca → #b3b3b3`, e o nível 3 — onde mora todo o texto da
+lista — cairia no cinza médio que o operador recusou na v1.5.10. **Não existe
+escada de TOM que resolva quatro níveis sobre base branca**, e é por isso que
+nove lotes seguidos (v1.5.5→v1.5.13) não fecharam a questão: cada um escolhia
+qual degrau sub-piso aceitar.
+
+Uma escada ACUMULA e acaba. Uma alternância não:
 
 ```
-janela da Biblioteca  --panel       nível 0   (era --bg até a v1.5.7)
-  ├ seção             --btn-accent  nível 1   caixa com MOLDURA + tampa --surface
-  │   └ card do álbum --btn-accent  nível 2   caixa com MOLDURA + tampa --surface
-  │       └ faixa     --item-fill   nível 3   sem moldura: preenchimento e ESPAÇO
-  └ coleção fixa      --btn-accent  nível 1   NA RAIZ: a mesma caixa da seção
+janela da Biblioteca  --panel   nível 0   PAPEL   · cabeçalho GRUDENTO em top:0
+  ├ seção             --poco    nível 1   POÇO    · cabeçalho GRUDENTO abaixo dele
+  │   └ card do álbum --panel   nível 2   PAPEL   ← volta ao tom da janela
+  │       └ faixa     —         nível 3   sem fundo: preenchimento é ESTADO
+  └ coleção fixa      --poco    nível 1   NA RAIZ: é agrupamento, logo é poço
 ```
+
+**Duas superfícies, profundidade ilimitada, zero traços.** MEDIDO no
+renderizado: **1,43:1** em cada degrau no escuro e **1,35:1** no claro — contra
+sete de sete pares reprovando o piso no desenho anterior.
+
+**A regra é por PROFUNDIDADE, nunca por tipo de bloco.** O mesmo `.hymnal-card`
+é nível 1 na raiz (poço) e nível 2 dentro de uma seção (papel); escrevê-la por
+tipo foi o primeiro corte do lote e mediu 1,00:1 — os hinários da raiz sumiam
+sobre a janela branca.
+
+**E o que carrega a profundidade são três mecanismos NÃO-TONAIS**, que é o que
+os torna ilimitados: o cabeçalho GRUDENTO nos dois níveis (o único que continua
+respondendo depois de a lista rolar — tom, cor e borda só falam enquanto o topo
+do grupo está à vista), o RECUO, e o RANK tipográfico (`--fs-xl` / `--fs-lg` /
+`--fs-md`).
 
 **O preço, medido e assumido:** o degrau recuado contra o cartão cai para
 1,18:1 (botão) e 1,11:1 (chip). Ali, diferente do fundo do app, o degrau não é
-o que anuncia o controle — dentro de um cartão o botão tem ícone, e a linha em
-`--line` do próprio cartão já o separa do resto. O que **não** era negociável
+o que anuncia o controle — dentro de um cartão o botão tem ícone, e a própria
+superfície do cartão já o separa do resto. O que **não** era negociável
 era o texto: nenhum par colorido dentro de cartão reprova AA depois desta
 regra, e o ícone de cancelar download vai de 2,32:1 para **7,36:1**.
 

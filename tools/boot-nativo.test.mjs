@@ -2504,11 +2504,22 @@ try {
       // para baixo, que é o que qualquer outra seção aberta já faz. Sem isto,
       // uma seção que crescesse para fora da tela sem a lista rolar passaria.
       rola: hymnResultsEl.scrollHeight > hymnResultsEl.clientHeight + 1,
-      // O corpo continua sem rolagem PRÓPRIA (o `overflow: hidden` de que a
-      // animação de abertura depende). O operador recusou o scroll interno na
-      // v5.280, e a régua é o `overflow-y` COMPUTADO: uma caixa `hidden`
-      // continua rolando por SCRIPT, então medir `scrollTop` aprovaria os dois
-      // estados — quem não rola aqui é o DEDO.
+      // O corpo continua sem rolagem PRÓPRIA. O operador recusou o scroll
+      // interno na v5.280, e a régua é o `overflow-y` COMPUTADO: uma caixa
+      // `hidden` continua rolando por SCRIPT, então medir `scrollTop`
+      // aprovaria os dois estados — quem não rola aqui é o DEDO.
+      //
+      // **A RÉGUA DEIXOU DE SER O VALOR `hidden` na v1.5.14**, e a distinção é
+      // o achado: `hidden` não é a única forma de não rolar, e era a única
+      // forma de QUEBRAR OUTRA COISA. Um ancestral com overflow recortado vira
+      // o SCROLLPORT de um `position: sticky` descendente — então a barra do
+      // álbum grudava no topo do CORPO em vez do topo da lista, e com o
+      // empilhamento da v1.5.14 ela era empurrada 52px para baixo do próprio
+      // slot, cobrindo a primeira faixa. O `hidden` da folha era redundante: a
+      // animação do acordeão o escreve inline nas duas pontas
+      // (`collapseAccordion`). O que este caso sempre quis afirmar é a
+      // PROPRIEDADE — o corpo não é um contêiner de rolagem —, e é ela que
+      // passa a ser medida.
       overflow: corpo() ? getComputedStyle(corpo()).overflowY : 'AUSENTE',
     };
     albumCatalog.categories = []; albumCatalog.albums = [];
@@ -2544,7 +2555,8 @@ try {
   checar(!vao.vazio.temBotao && !vao.muitos.temBotao,
     'e não há mais "Ver todos" em estado nenhum: aberta, a seção mostra toda a '
     + 'listagem');
-  checar(vao.muitos.overflow === 'hidden',
+  checar(vao.muitos.overflow !== 'auto' && vao.muitos.overflow !== 'scroll'
+    && vao.muitos.overflow !== 'overlay' && vao.muitos.overflow !== 'AUSENTE',
     'o corpo continua sem rolagem própria — não há um segundo caminho para o '
     + 'fim da lista',
     'overflow-y ' + vao.muitos.overflow);
