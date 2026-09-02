@@ -1534,6 +1534,24 @@ for (const tema of ['escuro', 'claro']) {
           const el = lista.querySelector('.coll-group--drop');
           return el ? getComputedStyle(el).borderTopWidth : 'AUSENTE';
         })(),
+        // ===== O EMPILHAMENTO GRUDENTO (v1.5.14) =====
+        // As duas barras e o `top` de cada uma. É o mecanismo que substituiu a
+        // moldura como resposta a *"dentro de quê eu estou?"* — e o único que
+        // continua respondendo DEPOIS de a lista rolar, que é quando a pergunta
+        // é feita. Medido no RENDERIZADO: `position` declarado prova a intenção,
+        // o `top` resolvido prova que a conta fecha.
+        grudento: (() => {
+          const sec = lista.querySelector(
+            '.coll-group--drop.aberto:not(.coll-group--fav) > .coll-group-bar');
+          const card = lista.querySelector(
+            '.coll-group--drop.aberto:not(.coll-group--fav) .hymnal-card.expanded > .coll-bar');
+          const ler = (el) => (el ? {
+            pos: getComputedStyle(el).position,
+            top: parseFloat(getComputedStyle(el).top),
+            alt: Math.round(el.getBoundingClientRect().height * 10) / 10,
+          } : null);
+          return { secao: ler(sec), card: ler(card) };
+        })(),
         // A COR da moldura — desde a v1.5.10 é ela que separa a caixa da base,
         // e não mais o degrau de tom (ver a asserção da escada, mais abaixo).
         molduraCor: (() => {
@@ -1683,6 +1701,29 @@ for (const tema of ['escuro', 'claro']) {
       '[' + tema + '] e o NÍVEL 3 não tem: uma faixa é conteúdo, não agrupamento '
       + '— emoldurá-la faria a lista virar uma grade de caixinhas',
       t.molduraFaixa);
+    // ===== E OS DOIS CABEÇALHOS GRUDAM, EMPILHADOS (v1.5.14) =====
+    // O que substituiu a moldura. A barra do álbum já era `sticky` desde a
+    // v5.242, com a razão escrita lá (*"a outra metade da pergunta 'onde eu
+    // estou?'"*); a da seção não era — e o nível 1 é justamente o que o
+    // operador relatava não distinguir (*"dificultando discernir se estou em
+    // uma camada ou subcamada"*, v5.267).
+    //
+    // A METADE QUE IMPORTA É O `top` DO ÁLBUM. Empatados em zero, o cabeçalho
+    // de dentro cobre o de fora e a pergunta fica sem resposta exatamente
+    // quando ela é feita — e isso não dá erro nenhum, só um cabeçalho a menos.
+    // A régua é a ALTURA RENDERIZADA da barra da seção, nunca o token: um
+    // número lido de volta provaria só que a folha declara o que declara.
+    const g = t.grudento || {};
+    checar(g.secao && g.secao.pos === 'sticky' && g.card && g.card.pos === 'sticky',
+      '[' + tema + '] os DOIS cabeçalhos grudam: é o mecanismo que responde '
+      + '"dentro de quê eu estou?" depois de a lista rolar, e nenhuma cor faz isso',
+      'seção ' + (g.secao && g.secao.pos) + ' · álbum ' + (g.card && g.card.pos));
+    checar(g.secao && g.card && g.secao.top === 0
+      && Math.abs(g.card.top - g.secao.alt) <= 1,
+      '[' + tema + '] e o do álbum gruda ABAIXO do da seção, não por cima dele — '
+      + 'a folga é a altura RENDERIZADA da barra de fora',
+      'seção top ' + (g.secao && g.secao.top) + ' alt ' + (g.secao && g.secao.alt)
+      + ' · álbum top ' + (g.card && g.card.top));
     // ===== E A MOLDURA NÃO PODE TER NADA DENTRO DELA ANTES DA BARRA (v1.5.10) =====
     // Relato do operador: *"verifique o tamanho e espaçamento dos favoritos,
     // pois está deslocado o seu card de topo em relação a caixa dele"*.

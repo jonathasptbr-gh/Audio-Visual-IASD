@@ -347,6 +347,13 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
    preto sobre um cartão branco. */
 .row-item, .lib-item, .hymnal-card, .msg-item, .bible-vsec,
 .dialog-card, .popup-sheet, .fade-row, .simple-lyrics, .simple-key,
+/* A PLACA DOS FAVORITOS entrou aqui na v1.5.14, no lote em que ela passou a
+   pintar `--panel` (ela é o nível 2 da seção, a irmã do `.folder-opfs`). É o
+   modo de falhar que esta lista existe para fechar, acontecendo pela terceira
+   vez — e desta vez o oráculo o pegou no mesmo lote em que nasceu: sem a
+   filiação, um controle dentro dela sairia em `--surface-2` FLUTUANTE sobre um
+   `--panel` que no tema CLARO é branco pleno, isto é, 1,00:1. */
+.fav-itens,
 /* O bloco de nível 1 da Biblioteca: ele pinta uma superfície opaca, logo é um
    cartão pela definição desta regra e o que estiver dentro dele afunda.
    (`#hymnSearchPopup .hymn-search-bar` saiu daqui na v1.5.14: a peça morreu na

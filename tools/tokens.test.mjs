@@ -167,24 +167,27 @@ checar(orfaos.length === 0,
 //
 // ## E A MOLDURA DA BIBLIOTECA (v1.5.9), que é uma AUTORIDADE, não uma brecha
 //
-// Pedido do operador, palavra por palavra: *"vou lhe dar autoridade para usar
-// sistemas visuais de design e organização usando bordas, **mas apenas para a
-// biblioteca**. pois temos 3 niveis de listagens na biblioteca e o sistema de
-// separação apenas por cor sólida de cards está limitando nossas opções"*.
+// A EXCEÇÃO DA BIBLIOTECA SAIU NA v1.5.14, e o app voltou a ter ZERO contornos.
 //
-// **O "apenas" é o que a torna verificável, e é ele que este oráculo passa a
-// cobrar.** A exceção não é "bordas agora podem": é um ESCOPO, e o escopo é um
-// seletor — tudo dentro de `.acervo`, a lista da Biblioteca (a marca é posta
-// pelo `renderCollectionsList`, então ela vale onde quer que a lista seja
-// desenhada, e não onde ela calha de estar). Uma borda escrita em qualquer
-// outro lugar da folha continua reprovando aqui, exatamente como antes.
+// Ela foi dada na v1.5.9 e era explícita e escopada: *"vou lhe dar autoridade
+// para usar sistemas visuais de design e organização usando bordas, mas apenas
+// para a biblioteca. pois temos 3 niveis de listagens na biblioteca e o sistema
+// de separação apenas por cor sólida de cards está limitando nossas opções"*.
 //
-// Por que a Biblioteca e só ela: são TRÊS níveis de lista aninhados (seção →
-// card → faixa), e a escada de tons do app tem três degraus dos quais a janela
-// já gastou o de cima (v1.5.7). Três níveis dentro de dois degraus não cabem —
-// a v1.5.7 e a v1.5.8 tentaram resolver com COR SÓLIDA, e o resultado é o que o
-// operador reprovou com três capturas: uma lista colorida em que não se via o
-// que estava dentro do quê.
+// **A autorização era para o PROBLEMA, não para a solução**, e o problema tinha
+// causa aritmética: quatro níveis (janela → seção → álbum → faixa) sobre uma
+// escada de três degraus, com a janela tendo gastado o de cima na v1.5.7.
+// MEDIDO no renderizado, o desenho que a moldura sustentava não cumpria o piso
+// de 1,28:1 em NENHUM par de superfícies — sete de sete reprovavam no tema
+// escuro —, e três pares valiam 1,00:1. O traço de 1px era a única coisa da
+// tela com contraste de verdade, e por isso parecia funcionar.
+//
+// A v1.5.14 troca a ESCADA (que acumula e acaba) pela ALTERNÂNCIA papel → poço
+// → papel: duas superfícies, profundidade ilimitada, 1,35:1 e 1,43:1 em cada
+// degrau. Sem escassez de degrau não há o que a borda resolva, e o pedido de
+// hoje — *"poucas bordas, sem traços finos, ou designs visualmente poluídos"* —
+// a dispensa. Restam as TRÊS exceções nomeadas, que são DESENHOS e não
+// separadores.
 //
 // Largura zero e cor transparente também passam: os dois não desenham nada.
 {
@@ -195,17 +198,10 @@ checar(orfaos.length === 0,
     .replace(/\.dl-ring::before\s*\{[^}]*\}/g, '')
     .replace(/\.song-menu-check\.on::after\s*\{[^}]*\}/g, '')
     .replace(/#hymnSearchInput\s*\{[^}]*\}/g, '')
-    // A MOLDURA DA BIBLIOTECA: o recorte é pelo ESCOPO, e é isso que faz a
-    // autoridade dada ser uma exceção e não um portão aberto. Só regras cujos
-    // seletores TODOS vivem dentro de `.acervo` saem da varredura — uma
-    // regra que sirva a Biblioteca e a mais alguém continua reprovando.
-    .replace(/[^{}]+\{[^{}]*\}/g, (bloco) => {
-      const sel = bloco.slice(0, bloco.indexOf('{')).trim();
-      if (!sel || sel.startsWith('@')) return bloco;
-      const partes = sel.split(',').map((x) => x.trim()).filter(Boolean);
-      return partes.length && partes.every((x) => x.includes('.acervo'))
-        ? '' : bloco;
-    })
+    // (O RECORTE POR ESCOPO `.acervo` saiu na v1.5.14, com a moldura. Ele era a
+    // única exceção deste oráculo que não nomeava uma peça — e uma exceção por
+    // escopo é a que mais barato se alarga: bastava um seletor novo começar com
+    // `.acervo` para uma borda entrar sem ninguém decidir nada.)
     .replace(/@media[^{]*\{\s*\.dl-ring::before[^}]*\}/g, '');
   const contornos = [];
   for (const f of arquivos) {
@@ -371,6 +367,58 @@ checar(orfaos.length === 0,
     'todo bloco que pinta `--panel` está na lista de R1: sem isso os controles '
     + 'dentro dele usam a superfície FLUTUANTE e somem no tema claro',
     fora.join('\n        '));
+}
+
+// ===== O ESPELHO NATIVO: `colors.xml` × `tokens.css` (v1.5.14) =====
+//
+// `--bg` é a ÚNICA cor deste projeto que existe em dois lugares por
+// necessidade: um recurso de Android não enxerga custom property, e o
+// `windowBackground` (o que aparece ANTES de o WebView carregar) e os ícones
+// das barras de sistema só podem sair do XML. Os dois valores TÊM de ser
+// iguais — divergir é o "flash" de outro preto no primeiro quadro, e a faixa
+// de outra cor nas safe-areas com o edge-to-edge do Android 15+.
+//
+// **O comentário do próprio `colors.xml` admitia que nada verificava isso**
+// (*"nada no build detecta a divergência, e o OTA pode trocar a base web sem
+// trocar o APK"*) — e é justamente o OTA que torna a divergência provável: a
+// base web chega em minutos, o `res/` só chega instalando um APK. Este caso
+// existe para que a próxima troca de `--bg` não possa esquecer o outro lado.
+{
+  const xml = fs.readFileSync(path.join(RAIZ, '..', '..', 'res', 'values', 'colors.xml'), 'utf8');
+  const cor = (nome) => {
+    const m = new RegExp('<color name="' + nome + '">\\s*(#[0-9a-fA-F]{3,8})\\s*</color>').exec(xml);
+    return m ? m[1].toLowerCase() : null;
+  };
+  // `--bg` de cada tema, lido da FONTE (os dois blocos `:root` de tokens.css).
+  const tk = fonte.get(arquivos.find((f) => f.endsWith('tokens.css'))) || '';
+  const blocos = [...semComentarios(tk).matchAll(/:root([^{]*)\{([^}]*)\}/g)];
+  const bgDe = (claro) => {
+    for (const b of blocos) {
+      const ehClaro = b[1].includes('data-tema');
+      if (ehClaro !== claro) continue;
+      const m = /(?:^|;)\s*--bg:\s*([^;]+)/.exec(b[2]);
+      if (m) return m[1].trim().toLowerCase();
+    }
+    return null;
+  };
+  const escuro = bgDe(false);
+  const claro = bgDe(true);
+  checar(!!escuro && !!claro, 'o `--bg` dos dois temas foi encontrado em tokens.css',
+    'escuro ' + escuro + ' · claro ' + claro);
+  checar(cor('app_bg') === escuro,
+    '`app_bg` do colors.xml espelha o `--bg` do tema ESCURO: é o windowBackground '
+    + 'do primeiro quadro, e divergir devolve o flash de outro preto',
+    'xml ' + cor('app_bg') + ' · token ' + escuro);
+  checar(cor('app_bg_claro') === claro,
+    'e `app_bg_claro` espelha o do tema CLARO',
+    'xml ' + cor('app_bg_claro') + ' · token ' + claro);
+  // O ícone segue o tema ESCURO e não a escolha do operador: ele é desenhado
+  // pela gaveta do sistema com o app fechado, e abrir o app tem de expandir o
+  // fundo do próprio ícone.
+  checar(cor('ic_launcher_background') === escuro,
+    'e o fundo do ícone adaptativo é o mesmo do tema escuro: abrir o app expande '
+    + 'o fundo do próprio ícone',
+    'xml ' + cor('ic_launcher_background') + ' · token ' + escuro);
 }
 
 console.log(falhas.length ? '\n' + falhas.length + ' FALHA(S)' : '\nTodos passaram.');
