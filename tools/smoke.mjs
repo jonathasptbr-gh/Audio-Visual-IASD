@@ -1512,14 +1512,23 @@ for (const tema of ['escuro', 'claro']) {
         // nó de mentira que veste cada classe, porque a lista da fixture não tem
         // as oito linhas.
         tons: (() => {
-          const sonda = document.createElement('div');
-          folha.appendChild(sonda);
+          // A CLASSE NÃO PINTA desde a v1.5.8: ela ABRE a família, e quem
+          // pinta são as três peças, cada uma lendo a sua. A sonda passou a
+          // vestir a classe num pai e a LER a tampa num filho que pinta `--col`
+          // — o mesmo caminho que a tela usa, e não uma segunda leitura da
+          // regra. (Ler `backgroundColor` da própria classe devolvia
+          // transparente, e a asserção passava a medir preto contra a base.)
+          const pai = document.createElement('div');
+          const filho = document.createElement('div');
+          filho.style.backgroundColor = 'var(--col)';
+          pai.appendChild(filho);
+          folha.appendChild(pai);
           const fora = [];
           for (let i = 1; i <= 8; i++) {
-            sonda.className = 'col-' + i;
-            fora.push(getComputedStyle(sonda).backgroundColor);
+            pai.className = 'col-' + i;
+            fora.push(getComputedStyle(filho).backgroundColor);
           }
-          sonda.remove();
+          pai.remove();
           return fora;
         })(),
         // O espaço entre duas faixas — é ele que substitui o filete.
@@ -1534,6 +1543,19 @@ for (const tema of ['escuro', 'claro']) {
       return r;
     }, tema);
     const transparente = (v) => /rgba\(0, 0, 0, 0\)/.test(v) || v === 'transparent';
+    // A MATIZ de uma cor, em graus — ou -1 para um cinza (que não tem nenhuma).
+    // Ela é a régua das duas afirmações de COR desta seção: a ordem de espectro
+    // dos oito tons e o corpo carregando a matiz da mãe. Nenhuma das duas é
+    // dizível em luminância, que é o que todo o resto deste bloco mede.
+    const matiz = (v) => {
+      const [r, g, b] = (v.match(/\d+/g) || []).map(Number);
+      const mx = Math.max(r, g, b); const mn = Math.min(r, g, b);
+      if (mx === mn) return -1;
+      const d = mx - mn;
+      const h = mx === r ? ((g - b) / d + (g < b ? 6 : 0))
+        : mx === g ? ((b - r) / d + 2) : ((r - g) / d + 4);
+      return h * 60;
+    };
     // Luminância relativa, para afirmar a DIREÇÃO da escada sem escrever cor
     // nenhuma aqui: um literal copiado para o teste envelhece na primeira troca
     // de paleta, e envelhece parecendo correto.
@@ -1584,12 +1606,55 @@ for (const tema of ['escuro', 'claro']) {
     checar(t.tons && t.tons.every((c) => razao(c, t.card) >= 1.05),
       '[' + tema + '] e nenhum dos OITO coincide com o card que a seção abre',
       JSON.stringify((t.tons || []).map((c) => razao(c, t.card).toFixed(2))));
+    // ===== E ELES ESTÃO EM ORDEM DE ESPECTRO (v1.5.8) =====
+    // Pedido do operador: *"coloque as cores em ordem de graduação, os verdes
+    // perto dos verdes, como as cores do arco íris que tem ordem"*.
+    //
+    // A afirmação é sobre a SEQUÊNCIA, e é preciso medi-la: as oito matizes
+    // continuam sendo as mesmas oito, então nenhum caso de contraste, separação
+    // ou legibilidade muda quando alguém as embaralha — a ordem só existe para o
+    // olho, e some sem sintoma nenhum.
+    //
+    // A régua é a matiz avançar sempre no MESMO sentido dando UMA volta: é isso
+    // que "em ordem" quer dizer num círculo de cores. A tolerância de 12° absorve
+    // o arredondamento para 8 bits; o que ela não absorve é uma matiz fora de
+    // lugar, que vale ao menos 45° aqui.
+    const hs = (t.tons || []).map(matiz);
+    let voltas = 0;
+    let ordenado = hs.length === 8 && hs.every((h) => h >= 0);
+    for (let i = 1; ordenado && i < hs.length; i++) {
+      const passo = hs[i] - hs[i - 1];
+      if (passo < -12) voltas++;          // deu a volta no círculo
+      else if (passo < 12) ordenado = false;
+    }
+    checar(ordenado && voltas <= 1,
+      '[' + tema + '] e as OITO matizes estão em ORDEM DE ESPECTRO, dando uma '
+      + 'volta só — os verdes perto dos verdes (v1.5.8)',
+      hs.map((h) => Math.round(h)).join('° · ') + '°');
     // E O CORPO CONTINUA SEM FUNDO PRÓPRIO: quem paga o degrau da tampa é ela,
     // não o bloco inteiro. Sem esta metade, pintar a seção toda passaria na de
     // cima e apagaria o card aninhado, que É o degrau seguinte.
     checar(transparente(t.corpo),
       '[' + tema + '] e o CORPO dela não pinta: o degrau é da tampa, e o que o '
       + 'corpo hospeda é o card, que paga o seu', t.corpo);
+    // ===== E O BLOCO CARREGA A MATIZ DA MÃE (v1.5.8) =====
+    // Pedido do operador: *"ajuste para que a cor da caixa não se altere para
+    // cinza como é hoje, ela mantenha o corpo com a cor da mãe"*. A tinta era só
+    // da tampa, e abrir uma seção apagava a cor que a identificava.
+    //
+    // **A régua é a MATIZ, e não o tom**, porque o corpo mora na altura da base
+    // da janela de propósito (é o degrau que sustenta o card lá dentro): ele fica
+    // a 1,00–1,02:1 dela, e um caso de luminância não teria o que medir. O que se
+    // afirma é que ele NÃO é neutro e que a matiz é a mesma da tampa.
+    const dMatiz = (a, b) => {
+      const x = matiz(a); const y = matiz(b);
+      if (x < 0 || y < 0) return 999;
+      return Math.min(Math.abs(x - y), 360 - Math.abs(x - y));
+    };
+    checar(matiz(t.secao) >= 0 && dMatiz(t.secao, t.barra) <= 25,
+      '[' + tema + '] e o BLOCO dela carrega a matiz da tampa: abrir uma seção '
+      + 'não apaga a cor que a identifica (v1.5.8)',
+      'bloco ' + t.secao + ' · tampa ' + t.barra);
     // O piso é o mesmo do projeto para duas superfícies grandes encostadas.
     //
     // A GUARDA DE OPACIDADE NÃO É ZELO: `lum()` lê "rgba(0, 0, 0, 0)" como
@@ -1779,6 +1844,10 @@ for (const tema of ['escuro', 'claro']) {
         // que os dois são IGUAIS.
         corFav: fav ? cx(fav).backgroundColor : 'AUSENTE',
         corOutra: outras.length ? cx(outras[0]).backgroundColor : 'AUSENTE',
+        // A base da janela — é contra ela que o DEGRAU de uma seção é medido
+        // (v1.5.8): com cada coleção na própria matiz, "mesma cor" deixou de ser
+        // dizível e o que se afirma é "mesmo degrau".
+        baseJanela: cx(document.querySelector('.popup-sheet--lib')).backgroundColor,
         // (O par "linha dos favoritos × linha de uma coleção" foi medido aqui
         // na v5.282 e saiu na v5.283: a linha de favorito DEIXOU de vestir o
         // tom de card, que era o defeito seguinte. Quem afirma o degrau de
@@ -1927,6 +1996,22 @@ for (const tema of ['escuro', 'claro']) {
         // dia em que a placa e o corpo voltassem a ter o mesmo tom.
         itemNaPlaca: !!(favCorpo && favCorpo.querySelector('.fav-itens > .lib-item')),
         pastaSolta: !!(favCorpo && favCorpo.querySelector(':scope > .folder-opfs')),
+        // ===== AS MÃES (v1.5.8) =====
+        // Com cada coleção vestindo a própria matiz, comparar cores ABSOLUTAS
+        // entre duas seções deixou de significar alguma coisa: o que se quer
+        // afirmar nunca foi "estas duas peças são da mesma cor", era "estas duas
+        // peças ocupam o mesmo DEGRAU". Com as mães na mão, o degrau é uma razão
+        // — e ela sobrevive à cor.
+        // A MÃE DA LINHA É A PLACA (`.fav-itens`), não a seção: é ela que pinta
+        // e é sobre ela que a linha compõe. Medir contra a seção dá 1,03:1 e faz
+        // o caso reprovar um app que está certo — foi o primeiro corte.
+        maeFav: efetiva(favCorpo && favCorpo.querySelector('.fav-itens')),
+        // A da PASTA é a seção: ela é IRMÃ da placa, não filha dela.
+        maePasta: efetiva(favCorpo && favCorpo.closest('.coll-group--drop')),
+        maeFaixa: efetiva(hymnResultsEl.querySelector(
+          '.coll-group--drop.aberto:not(.coll-group--fav) .hymnal-card')),
+        maeCard: efetiva(hymnResultsEl.querySelector(
+          '.coll-group--drop.aberto:not(.coll-group--fav)')),
       };
       opfsFolders.length = 0;
       await AVDB.listRemove('favs', favRec.id);
@@ -2008,38 +2093,51 @@ for (const tema of ['escuro', 'claro']) {
       '[' + tema + '] e as fechadas ficam EMPILHADAS NA BASE — a última termina '
       + 'onde a lista termina (' + Math.round(v.fundoUltima) + ' contra '
       + Math.round(v.fundoLista) + ')');
-    // ===== ELA VESTE O TOM DAS OUTRAS (v5.282) =====
-    // A afirmação INVERTEU: da v5.273 à v5.281 este par era "distinto", com um
-    // piso de 1,15:1. A comparação é de STRING e não de razão de luminância —
-    // "igual" é igual, e uma razão com piso baixo aprovaria dois tons
-    // ligeiramente diferentes, que é exatamente a queixa ("não ficou bom").
-    checar(v.corFav !== 'AUSENTE' && v.corFav === v.corOutra,
+    // ===== ELA VESTE O TOM DAS OUTRAS (v5.282 → v1.5.8) =====
+    // A afirmação INVERTEU duas vezes. Da v5.273 à v5.281 este par era
+    // "distinto", com piso de 1,15:1; a v5.282 o fez IGUAL, por string, a pedido
+    // (*"ajuste as cores dela para que ela fique igual as outras coleções"*).
+    // A v1.5.8 deu a cada coleção a própria matiz — logo "igual" deixou de ser
+    // dizível, e o que sobrevive do pedido é o que ele queria: **a dos Favoritos
+    // não tem tom PRÓPRIO, ela é mais uma da fileira.** A régua passou a ser a
+    // ESCADA: ela está no mesmo degrau que as outras (mesma razão contra a base
+    // da janela), e não uma peça com regra só dela.
+    const degrauFav = v.corFav !== 'AUSENTE' ? razao(v.corFav, v.baseJanela) : 0;
+    const degrauOutra = v.corOutra !== 'AUSENTE' ? razao(v.corOutra, v.baseJanela) : 0;
+    checar(degrauFav > 0 && Math.abs(degrauFav - degrauOutra) < 0.06,
       '[' + tema + '] ela veste o MESMO tom das outras seções, sem cor própria ('
       + v.corFav + ' contra ' + v.corOutra + ')');
-    // ===== E A LINHA DE FAVORITO É UM ITEM, NÃO UM ÁLBUM (v5.283) =====
-    // A primeira metade é o pedido escrito como IGUALDADE de cor efetiva — de
-    // string, e não de razão de luminância, porque "igual" é igual. A segunda é
-    // o PROPÓSITO dele ("para diferenciar entre álbum e item"), e ela é o que
-    // impede a correção de passar sem resolver nada: era exatamente 1,00:1
-    // antes, e só a igualdade acima não teria como distinguir "virou faixa" de
-    // "continua card" no dia em que a faixa mudar de receita.
+    // ===== E A LINHA DE FAVORITO É UM ITEM, NÃO UM ÁLBUM (v5.283 → v1.5.8) =====
+    //
+    // **A RÉGUA DEIXOU DE SER A COR E PASSOU A SER O DEGRAU.** Os dois pares
+    // deste bloco comparavam cores ABSOLUTAS entre DUAS seções — a dos Favoritos
+    // e a de um álbum —, e isso funcionava enquanto todas as coleções eram
+    // cinzas. Com cada uma vestindo a própria matiz (v1.5.8), "estas duas peças
+    // são da mesma cor" deixou de ser dizível; o que os pedidos queriam dizer,
+    // e continua verdade, é **"estas duas peças ocupam o mesmo DEGRAU"** — a
+    // mesma razão contra o que as hospeda.
+    //
+    // A metade do PROPÓSITO fica, e migra para dentro de UMA seção: o item e a
+    // pasta moram nos Favoritos, e é ali que "um desce e o outro não" se vê.
     const it = v.item || {};
-    checar(!!it.favLinha && it.favLinha === it.faixa,
-      '[' + tema + '] a linha de favorito pinta a MESMA cor da faixa dentro de '
-      + 'um álbum (' + it.favLinha + ' contra ' + it.faixa + ')');
-    const dCard = it.favLinha && it.cardAlbum
-      ? razao('rgb(' + it.favLinha + ')', 'rgb(' + it.cardAlbum + ')') : 0;
-    checar(dCard >= 1.28,
-      '[' + tema + '] e ela se separa do CARD de álbum, que era a queixa: '
-      + dCard.toFixed(2) + ':1 (era 1,00:1 — a mesma cor)');
+    const grau = (a, b) => (a && b ? razao('rgb(' + a + ')', 'rgb(' + b + ')') : 0);
+    const gFav = grau(it.favLinha, it.maeFav);
+    const gFaixa = grau(it.faixa, it.maeFaixa);
+    checar(gFav > 1 && Math.abs(gFav - gFaixa) < 0.08,
+      '[' + tema + '] a linha de favorito ocupa o MESMO degrau que a faixa dentro '
+      + 'de um álbum (' + gFav.toFixed(2) + ':1 contra ' + gFaixa.toFixed(2) + ':1)',
+      it.favLinha + ' sobre ' + it.maeFav + ' · ' + it.faixa + ' sobre ' + it.maeFaixa);
     // ===== MAS A PASTA SINCRONIZADA CONTINUA SENDO UM ÁLBUM (v5.284) =====
     // Pedido do operador: *"mantenha apenas as pastas sincronizadas dos
     // favoritos como cores de álbum"*. Uma pasta guarda muitos arquivos — ela é
     // um contêiner —, e é o "apenas" que faz deste par uma REGRA em vez de duas
     // cores: o item desce, a pasta não.
-    checar(!!it.pasta && it.pasta === it.cardAlbum,
-      '[' + tema + '] mas a PASTA sincronizada continua com a cor de álbum ('
-      + it.pasta + ' contra ' + it.cardAlbum + ')');
+    const gPasta = grau(it.pasta, it.maePasta);
+    const gCard = grau(it.cardAlbum, it.maeCard);
+    checar(gPasta > 0 && Math.abs(gPasta - gCard) < 0.10,
+      '[' + tema + '] mas a PASTA sincronizada ocupa o degrau de um ÁLBUM ('
+      + gPasta.toFixed(2) + ':1 contra ' + gCard.toFixed(2) + ':1)',
+      it.pasta + ' sobre ' + it.maeFav + ' · ' + it.cardAlbum + ' sobre ' + it.maeCard);
     const dPasta = it.pasta && it.favLinha
       ? razao('rgb(' + it.pasta + ')', 'rgb(' + it.favLinha + ')') : 0;
     checar(dPasta >= 1.28 && it.pastaSolta && it.itemNaPlaca,
@@ -5120,6 +5218,7 @@ for (const tema of ['escuro', 'claro']) {
         // A BORDA do campo — a exceção pedida, medida onde ela é a única
         // separação que existe (o tema claro).
         borda: getComputedStyle(campo).borderTopColor,
+        clipe: getComputedStyle(campo).backgroundClip,
         bordaLargura: getComputedStyle(campo).borderTopWidth,
         bordaEstilo: getComputedStyle(campo).borderTopStyle,
       };
@@ -5182,12 +5281,44 @@ for (const tema of ['escuro', 'claro']) {
     checar(razao(rgb(c.campo), [255, 255, 255]) < 1.05,
       '[' + tema + '] o campo é BRANCO nos dois temas — superfície SEM tema, '
       + 'como o palco', c.campo);
-    const rBordaCampo = razao(sobre(c.borda, campo), campo);
-    const rBordaCaixa = razao(sobre(c.borda, rgb(c.caixa)), rgb(c.caixa));
-    checar(rBordaCampo >= 3 && rBordaCaixa >= 3,
-      '[' + tema + '] e a BORDA separa das duas ('
-      + rBordaCampo.toFixed(2) + ':1 do campo · ' + rBordaCaixa.toFixed(2)
-      + ':1 da caixa) — no claro ela é a ÚNICA separação que existe');
+    // ===== E A BORDA É O CINZA DOS BOTÕES, MEDIDO COMPOSTO (v1.5.8) =====
+    //
+    // **Isto REVOGA o piso de 3:1 da v1.5.5**, e a revogação é do operador:
+    // *"ajuste a cor da borda da caixa de texto de buscas, ele deve ser o mesmo
+    // cinza dos botões a sua volta"*. Aquele piso vinha de um valor CALCULADO
+    // (`--field-borda`, o `--line` do tema claro escurecido até passar 3:1), que
+    // existia porque a borda não tinha como ler o tom dos botões. Hoje ela lê:
+    // `var(--surface)`, o MESMO token, composto sobre a MESMA base por um
+    // `background-clip: padding-box`.
+    //
+    // **O que se afirma passou a ser uma IGUALDADE, e ela é mais forte que o
+    // piso:** um número aqui envelheceria na primeira troca de paleta; a
+    // igualdade não tem como envelhecer, porque os dois lados saem do mesmo
+    // token resolvido no mesmo lugar. Ela também pega o defeito que este caso
+    // existiria para pegar — sem o `padding-box` a borda compõe sobre o BRANCO
+    // do campo e, no tema escuro (onde `--surface` é branco a 12%), some.
+    //
+    // **O PREÇO ESTÁ DITO:** no tema claro esse cinza dá ~1,38:1 contra o campo
+    // branco, abaixo dos 3:1 que a v1.5.5 pedia. É o MESMO degrau em que os
+    // botões ao lado vivem contra a mesma barra — a borda não ficou menos
+    // visível que eles, ficou igual a eles, que é o pedido.
+    const bordaComposta = sobre(c.borda, rgb(c.caixa));
+    const botaoComposto = sobre(c.fundoAlternador, rgb(c.caixa));
+    const igual = (a, b) => a.every((x, i) => Math.abs(x - b[i]) <= 1);
+    checar(igual(bordaComposta, botaoComposto),
+      '[' + tema + '] a BORDA é o mesmo cinza dos botões ao lado — o mesmo token, '
+      + 'composto sobre a mesma base, e não um valor copiado',
+      bordaComposta.map(Math.round).join(',') + ' contra '
+      + botaoComposto.map(Math.round).join(','));
+    // O MECANISMO TEM ASSERÇÃO PRÓPRIA, e ele não é dedutível da igualdade
+    // acima: aquela COMPÕE a tinta contra a caixa por conta própria, então ela
+    // diz o que a borda DEVERIA ser e continuaria dizendo com o `background-clip`
+    // apagado — provado por reversão. Quem decide sobre o que a tinta compõe de
+    // verdade é esta linha, e é ela que faz a borda existir no tema escuro.
+    checar(c.clipe === 'padding-box',
+      '[' + tema + '] e o fundo do campo PARA na borda: é o `padding-box` que faz '
+      + 'a tinta compor sobre a barra (como o botão) em vez de sobre o próprio '
+      + 'campo branco, onde ela sumiria no tema escuro', c.clipe);
     checar(c.bordaEstilo === 'solid' && parseFloat(c.bordaLargura) > 0,
       '[' + tema + '] e ela é DESENHADA: a exceção pedida é uma borda de verdade, '
       + 'nomeada no `tokens.test.mjs`',

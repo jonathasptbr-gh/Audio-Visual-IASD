@@ -277,7 +277,7 @@ const appVersionEl = document.getElementById('appVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.5.7';
+const WEB_VERSION = '1.5.8';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -8248,8 +8248,9 @@ function renderCollectionsListMiolo(alvo, redesenhar, opts) {
     // borbulharia até a barra e alternaria duas vezes, isto é, não faria nada.
     seta.addEventListener('click', (e) => { e.stopPropagation(); alternar(); });
 
-    // A SEÇÃO ganha o tom no CABEÇALHO dela (ver `tomDaVez`).
-    tomDaVez(bar);
+    // A SEÇÃO ganha a FAMÍLIA no bloco, e a herança leva os três tons a tudo que
+    // vive dentro dela — a tampa, o corpo e os cards aninhados (ver `tomDaVez`).
+    tomDaVez(li);
     alvo.appendChild(li);
     if (!aberto) return null;
     if (gruposAnimar.has(text)) {
@@ -8351,17 +8352,11 @@ function renderCollectionsListMiolo(alvo, redesenhar, opts) {
     .filter((c) => byId.has(c.id));
   if (fixasNaRaiz.length) {
     any = true;
-    // A COLEÇÃO FIXA é uma folha no topo, e o tom é da TAMPA dela — nunca do
-    // card inteiro. Tingir o card leva a tinta para DENTRO dele, e o que vive lá
-    // (a faixa de uma faixa, a gaveta aberta) foi medido contra `--panel-2`:
-    // MEDIDO com o card tingido, a gaveta caía a 1,05:1 da faixa no tema escuro
-    // — a queixa que a v5.287 fechou, de volta. É a mesma regra da seção.
-    fixasNaRaiz.forEach((coll) => {
-      const card = renderCollectionCard(coll);
-      const tampa = card.querySelector('.coll-bar');
-      if (tampa) tomDaVez(tampa);
-      alvo.appendChild(card);
-    });
+    // A COLEÇÃO FIXA é uma folha no topo, e recebe a família inteira: a tampa
+    // veste `--col` e o corpo, `--col-card` — que está na altura EXATA do
+    // `--panel-2` que ele substitui (1,00–1,01:1, medido), e é isso que preserva
+    // tudo o que foi medido dentro do card.
+    fixasNaRaiz.forEach((coll) => alvo.appendChild(tomDaVez(renderCollectionCard(coll))));
   }
 
   for (const cat of albumCatalog.categories) {

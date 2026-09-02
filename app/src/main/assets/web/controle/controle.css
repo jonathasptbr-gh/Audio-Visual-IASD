@@ -3857,14 +3857,40 @@ main {
    ELES VENCEM O `--camada` do card por ESPECIFICIDADE (duas classes contra
    uma), e é assim que a regra de tom do `.hymnal-card` continua de pé para quem
    nasce fora da Biblioteca — um card sem `col-N` cai no `--panel-2` de sempre. */
-.col-1 { background-color: var(--col-1); }
-.col-2 { background-color: var(--col-2); }
-.col-3 { background-color: var(--col-3); }
-.col-4 { background-color: var(--col-4); }
-.col-5 { background-color: var(--col-5); }
-.col-6 { background-color: var(--col-6); }
-.col-7 { background-color: var(--col-7); }
-.col-8 { background-color: var(--col-8); }
+/* A CLASSE NÃO PINTA: ela ABRE A FAMÍLIA (v1.5.8). As três custom properties
+   descem por toda a subárvore da linha, e é a herança que faz um card ANINHADO
+   vestir o tom da mãe sem o JS dizer nada — a mesma mecânica do `--camada`. */
+.col-1 { --col: var(--col-1); --col-corpo: var(--col-1-corpo); --col-card: var(--col-1-card); }
+.col-2 { --col: var(--col-2); --col-corpo: var(--col-2-corpo); --col-card: var(--col-2-card); }
+.col-3 { --col: var(--col-3); --col-corpo: var(--col-3-corpo); --col-card: var(--col-3-card); }
+.col-4 { --col: var(--col-4); --col-corpo: var(--col-4-corpo); --col-card: var(--col-4-card); }
+.col-5 { --col: var(--col-5); --col-corpo: var(--col-5-corpo); --col-card: var(--col-5-card); }
+.col-6 { --col: var(--col-6); --col-corpo: var(--col-6-corpo); --col-card: var(--col-6-card); }
+.col-7 { --col: var(--col-7); --col-corpo: var(--col-7-corpo); --col-card: var(--col-7-card); }
+.col-8 { --col: var(--col-8); --col-corpo: var(--col-8-corpo); --col-card: var(--col-8-card); }
+/* ---------- E QUEM PINTA SÃO AS TRÊS PEÇAS, cada uma com a sua altura ----------
+   O fallback de cada `var()` é o que valia antes da cor: um bloco sem família
+   (fora da Biblioteca, ou numa lista que não carimba tom) continua exatamente
+   como era. */
+.coll-group--drop { background: var(--col-corpo, var(--camada)); }
+.coll-group-bar,
+.hymnal-card > .coll-bar { background-color: var(--col); }
+.hymnal-card { background: var(--col-card, var(--camada)); }
+/* DENTRO DE UMA SEÇÃO, `--col` PASSA A SER O TOM DO CARD. Sem esta linha o card
+   aninhado herdaria a tampa da MÃE e se anunciaria como uma segunda seção — a
+   herança é boa para o corpo e péssima para a tampa. Assim ele fica com tampa e
+   corpo no mesmo tom, que é como ele sempre foi.
+
+   E `--camada` VAI JUNTO: é ela que o resto da subárvore lê (a linha de um
+   favorito, a pasta sincronizada, qualquer bloco que não seja card). Sem esta
+   metade, o conteúdo de uma seção colorida saía CINZA sobre a mãe — MEDIDO, a
+   linha de um favorito ficava a 1,03:1 do corpo da seção contra os 1,29:1 que a
+   faixa dentro de um álbum tem, isto é, ela deixava de ocupar um degrau. O
+   fallback mantém intacto quem vive fora da Biblioteca. */
+.coll-group-corpo {
+  --col: var(--col-card);
+  --camada: var(--col-card, var(--panel-2));
+}
 /* ---------- E O CABEÇALHO DA SEÇÃO ACOMPANHA O RAIO DO BLOCO ----------
    Ele é o primeiro filho de um `<li>` arredondado e vai de lado a lado: sem
    isto, a tinta sai quadrada por baixo dos cantos curvos. FECHADA a barra É a
@@ -5263,8 +5289,32 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
      texto da busca, para ficar mais encorpado (não aumente as dimensões da
      caixa, só a área da borda internamente)"*. É o `border-box` logo abaixo que
      torna o pedido literal possível: a caixa continua medindo `--campo-alt`
-     cravado e o traço cresce PARA DENTRO, comendo do recuo do texto. */
-  border: 2px solid var(--field-borda);
+     cravado e o traço cresce PARA DENTRO, comendo do recuo do texto.
+
+     ===== E ELE É O CINZA DOS BOTÕES, PELO MESMO TOKEN (v1.5.8) =====
+     Pedido do operador: *"ajuste a cor da borda da caixa de texto de buscas, ele
+     deve ser o mesmo cinza dos botões a sua volta"*.
+
+     `var(--surface)` é LITERALMENTE o que os dois quadrados ao lado pintam, e
+     resolvido no mesmo lugar (dentro da `.lib-bar`, que declara o par flutuante
+     e afunda no tema claro). Não há valor copiado: se o tom dos botões mudar, a
+     borda muda junto, no mesmo lote.
+
+     **O `background-clip` é o que faz isso funcionar**, e sem ele a ideia se
+     inverte. `--surface` é uma tinta com ALFA, e alfa compõe sobre o que está
+     ATRÁS: por padrão o fundo do elemento se estende sob a borda, então ela
+     comporia sobre o BRANCO do campo — MEDIDO no tema escuro, onde `--surface`
+     é branco a 12%, o resultado é quase branco e a borda simplesmente some.
+     Com `padding-box` o fundo para na borda, e o que fica atrás dela é a mesma
+     barra sobre a qual os botões compõem. Mesma tinta, mesma base, mesmo cinza —
+     e continua valendo com a Biblioteca ABERTA, quando os dois passam a compor
+     sobre a folha em vez da caixa de controles.
+
+     (O `--field-borda` saiu com isto. Ele era um valor calculado — o `--line` do
+     tema claro escurecido até passar 3:1 — e existia porque a borda não tinha
+     como ler o tom dos botões. Agora tem.) */
+  border: 2px solid var(--surface);
+  background-clip: padding-box;
   /* O `border-box` é o que impede a borda de crescer a linha: sem ele o campo
      passa a medir `--campo-alt` + a borda e fica mais alto que os quadrados ao
      lado, que continuam vestindo a medida crua. */

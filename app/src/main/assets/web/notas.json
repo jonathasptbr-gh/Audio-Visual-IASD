@@ -1,5 +1,13 @@
 [
   {
+    "versao": "1.5.8",
+    "itens": [
+      "A borda da caixa de busca ficou do mesmo cinza dos botões ao lado.",
+      "As cores da Biblioteca ficaram em ordem, como um arco-íris.",
+      "E ao abrir uma coleção o corpo dela mantém a cor, em vez de virar cinza."
+    ]
+  },
+  {
     "versao": "1.5.7",
     "itens": [
       "A Biblioteca ganhou cantos curvos e fundo claro, como as janelas de Bíblia e Ferramentas.",
