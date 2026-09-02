@@ -191,18 +191,33 @@ try {
     + 'acontecendo', semAr.titulo);
 
   // ======================================================================
-  // METADE 2 — COM MÍDIA NO AR: quem manda é o RELÓGIO, não um px/s
+  // METADE 2 — COM MÍDIA NO AR: o `auto` tira da música o RITMO, não a POSIÇÃO
   // ======================================================================
   //
   // Sem ela, "cair sempre no livre" passaria na metade de cima e apagaria o
-  // recurso: a folha andaria em ritmo fixo por cima de uma música tocando.
-  // A ABERTURA da janela de rolagem segura o começo parado alguns segundos —
-  // é ela que faz a prova ser possível sem esperar a música inteira.
+  // recurso: a folha andaria no px/s de leitura por cima de uma música de
+  // duração conhecida, que é a coisa que o `auto` existe para não fazer.
+  //
+  // **A RÉGUA MUDOU NA v1.5.6** e a mudança é a doutrina inteira. Até a v1.5.5 a
+  // folha era uma FUNÇÃO da posição da música, e este caso media a ABERTURA
+  // daquela função: com a música no segundo zero, a folha NÃO andava. Relato do
+  // operador: *"se a música não está tocando, ele não anda. Ou se eu quiser tocar
+  // de um ponto específico em diante, ele fica voltando para onde a mídia
+  // estaria"*. Hoje o `auto` é um RITMO integrado do ponto em que a folha está —
+  // a música PARADA no zero e a folha ANDANDO é o recurso funcionando.
+  //
+  // A prova é o ritmo estar CERTO, e é ela que separa "andou" de "andou no
+  // compasso de outra coisa": com 200 s de música o rolável é percorrido em
+  // `t1 - t0` da janela (176 s aqui), o que dá um px/s cinco vezes menor que os
+  // 22 do modo livre. Um caso que só perguntasse "andou?" aprovaria o livre
+  // assumindo — que é exatamente a metade de cima deste arquivo.
   const comAr = await pg.evaluate(async () => {
     midiaNoAr = true;
     seekEl.disabled = false;
     seekEl.max = '200';
     const dur = cifraDuracaoNoAr();
+    const rolavel = lyricsViewBodyEl.scrollHeight - lyricsViewBodyEl.clientHeight;
+    // A MÚSICA FICA NO SEGUNDO ZERO E PARADA: é o cenário do relato.
     lyricsViewBodyEl.scrollTop = 0;
     cifraRolarAlternar();
     const t0 = lyricsViewBodyEl.scrollTop;
@@ -211,15 +226,102 @@ try {
     const titulo = cifraVelBtnEl ? cifraVelBtnEl.title : '';
     cifraRolarParar();
     midiaNoAr = false;
-    return { dur, t0, t1, titulo };
+    return { dur, t0, t1, titulo, rolavel, ritmo: AVCifra.ritmoDaRolagem(rolavel, dur) };
   });
   checar(comAr.dur === 200,
-    'com mídia no ar a duração da barra vale — é ela que o `auto` segue', comAr);
-  checar(comAr.t1 <= comAr.t0 + 2,
-    'e a folha NÃO anda sozinha: a música está no segundo zero, e a ABERTURA '
-    + 'segura o começo parado de propósito', { t0: comAr.t0, t1: comAr.t1 });
-  checar(/tempo da música/.test(comAr.titulo),
+    'com mídia no ar a duração da barra vale — é dela que o `auto` tira o ritmo',
+    comAr);
+  checar(comAr.t1 > comAr.t0,
+    'e a folha ANDA com a música PARADA no segundo zero (v1.5.6): o `auto` '
+    + 'integra o relógio de parede a partir de onde a folha está, e não persegue '
+    + 'a posição da mídia', { t0: comAr.t0, t1: comAr.t1 });
+  // O RITMO, e não só o movimento. Tolerância larga de propósito: o que se
+  // afirma é de QUAL fonte o px/s saiu, não a precisão do agendador de quadros.
+  checar(comAr.ritmo > 0 && Math.abs((comAr.t1 - comAr.t0) / 1.5 - comAr.ritmo)
+    < Math.max(2, comAr.ritmo * 0.6),
+    'e no RITMO da música, não no fixo do modo livre — o percurso inteiro cabe '
+    + 'na janela da duração', { andou: comAr.t1 - comAr.t0, ritmo: comAr.ritmo });
+  checar(/ritmo da música/.test(comAr.titulo),
     'e o botão diz que está seguindo a música', comAr.titulo);
+
+  // ======================================================================
+  // METADE 4 — O DEDO MANDA, E A MÚSICA NÃO O DESFAZ
+  // ======================================================================
+  //
+  // *"se eu rolar para baixo manualmente (mesmo durante o auto scroll), siga o
+  // tempo correto a partir de onde deixei o scroll. Vale tanto para volta como
+  // para avanços."*
+  //
+  // Era o defeito central do desenho antigo, e ele era MUDO: o alvo absoluto
+  // puxava a folha de volta ao ponto da música no status seguinte (~4 Hz), então
+  // um arrasto durava um quarto de segundo. O `cifraDesvio` existia para dar ao
+  // dedo um lugar naquela briga; hoje não há briga, e a asserção é a AUSÊNCIA de
+  // retorno: solto o dedo, a folha continua DAQUI.
+  //
+  // Nos DOIS sentidos, porque eles falham por caminhos diferentes: um salto para
+  // trás e um para frente eram, no alvo absoluto, um desvio negativo e um
+  // positivo.
+  for (const [nome, destino] of [['para FRENTE', 400], ['para TRÁS', 60]]) {
+    const dedo = await pg.evaluate(async (dest) => {
+      midiaNoAr = true;
+      seekEl.disabled = false;
+      seekEl.max = '200';
+      lyricsViewBodyEl.scrollTop = 0;
+      cifraRolarAlternar();
+      await new Promise((r) => setTimeout(r, 300));
+      // O ARRASTO: o elemento é escrito por fora, como um dedo escreveria.
+      lyricsViewBodyEl.scrollTop = dest;
+      const largou = lyricsViewBodyEl.scrollTop;
+      await new Promise((r) => setTimeout(r, 900));
+      const depois = lyricsViewBodyEl.scrollTop;
+      const rolavel = lyricsViewBodyEl.scrollHeight - lyricsViewBodyEl.clientHeight;
+      cifraRolarParar();
+      midiaNoAr = false;
+      return { largou, depois, ritmo: AVCifra.ritmoDaRolagem(rolavel, 200) };
+    }, destino);
+    // A TOLERÂNCIA É O RITMO, nunca um número de pixels: a folha do fixture não
+    // tem tamanho fixo, e o px/s do `auto` sai dele. O que se afirma é *continuou
+    // daqui, no ritmo* — a folha do desenho antigo teria voltado para o ponto da
+    // MÚSICA, que com ela no segundo zero é o topo.
+    checar(dedo.depois >= dedo.largou && dedo.depois - dedo.largou < dedo.ritmo * 1.5 + 10,
+      'arrastando a folha ' + nome + ', a rolagem CONTINUA dali — não volta '
+      + 'para onde a mídia estaria (v1.5.6)', dedo);
+  }
+
+  // ======================================================================
+  // METADE 5 — A FOLHA NUNCA MEXE NO TEMPO DA MÍDIA
+  // ======================================================================
+  //
+  // *"E esse scroll das cifras não altera o tempo, seja parado ou tocando, da
+  // mídia em exibição."*
+  //
+  // Sempre foi verdade e nunca teve oráculo — e é uma AUSÊNCIA, que não tem
+  // sintoma nenhum enquanto vale. O dia em que alguém ligar os dois eixos "para
+  // sincronizar", a folha passa a comandar a projeção no meio do culto: um
+  // arrasto para reler uma estrofe volta o louvor na frente da congregação.
+  //
+  // A prova é o BARRAMENTO, não o `<video>`: quem projeta é o telão, e o que
+  // chega lá é comando. Zero comandos é a afirmação inteira.
+  const semSeek = await pg.evaluate(async () => {
+    midiaNoAr = true;
+    seekEl.disabled = false;
+    seekEl.max = '200';
+    const vistos = [];
+    const espiao = AVDB.sendCommand;
+    AVDB.sendCommand = (c) => { vistos.push(c && c.type); return espiao.call(AVDB, c); };
+    lyricsViewBodyEl.scrollTop = 0;
+    cifraRolarAlternar();
+    await new Promise((r) => setTimeout(r, 500));
+    lyricsViewBodyEl.scrollTop = 300;   // o dedo, no meio da rolagem
+    await new Promise((r) => setTimeout(r, 500));
+    cifraRolarParar();
+    AVDB.sendCommand = espiao;
+    midiaNoAr = false;
+    return vistos;
+  });
+  checar(semSeek.length === 0,
+    'e a rolagem não manda comando NENHUM ao barramento: a folha não altera o '
+    + 'tempo da mídia, parada ou tocando', semSeek.join(', ') || '(nenhum)');
 
   // ======================================================================
   // METADE 3 — A FOLHA DA BIBLIOTECA: a rolagem tem de SOBREVIVER ao redesenho

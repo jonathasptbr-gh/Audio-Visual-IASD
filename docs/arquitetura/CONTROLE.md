@@ -546,9 +546,17 @@ linha de baixo ele é uma de sete células iguais, ao lado da **playlist** — q
 também só abre uma lista e sempre teve fundo. Um único chapado numa fileira de
 seis com fundo não se lê como distinção: lê-se como um botão que ficou de fora.
 
-**A ORDEM da linha** (v1.3.9, pedida): repetir → playlist → anterior → play →
-parar → próximo → a sétima célula. Os dois que ABREM uma folha ficam nas pontas
-do grupo, e o miolo é o transporte contínuo.
+**A ORDEM da linha** (v1.3.9 → v1.5.6, pedida nas duas vezes): repetir →
+playlist → anterior → play → **próximo → parar** → a sétima célula. Os dois que
+ABREM uma folha ficam nas pontas do grupo, e o miolo é o transporte contínuo.
+
+**O PARAR SAIU DE DENTRO DO TRIO** (v1.5.6): *"coloque o stop após o 'próxima
+música'"*. Ele estava entre o ▶ e o ⏭, isto é, no meio da navegação — o dedo que
+vai do play para a próxima passa por cima do único botão da fileira que ENCERRA a
+cena, e num culto isso é a projeção caindo por um alvo de 53px errado. Fora do
+trio, ⏮ ▶ ⏭ ficam contíguos e o parar é o fim da linha, que é onde uma ação de
+encerramento se lê. Oráculo: `controles-layout.test.mjs`, que trava a ordem
+inteira.
 
 **A SÉTIMA CÉLULA TROCOU DE OCUPANTE na v1.4.31**, e a regra que a governa não
 mudou: quem ocupa a ponta é o que abre uma folha, não o que opera a cena. Era o
@@ -2482,6 +2490,75 @@ levou a barra INTEIRA para o tom dos botões, e o campo não é um botão.
 `--lib-bar-h` mais o respiro): a janela é `fixed` e a barra pousa por cima. A
 ÁREA SEGURA de baixo voltou para a caixa, que é quem encosta na barra de gestos
 outra vez.
+
+#### A camada dela é o CHÃO da pilha, não o teto (v1.5.6)
+
+*"a barra de buscas está se sobrepondo a diversos elementos, como as
+configurações, aba da playlist e etc… Muito inconsistente"* · *"em aberto a aba
+da biblioteca, quando toco em abrir a aba da playlist a playlist tocando fica por
+baixo"*.
+
+**A causa é a camada existir SEMPRE.** Todo `.popup-backdrop` deste app está em
+`z-index: 200` e é criado e destruído com o uso, então quem se sobrepõe a quem é
+a ORDEM DO DOCUMENTO — um acaso que já cobriu um popup por inteiro aqui. Esta é
+a única que nunca sai de cena (a barra vive nela) e está declarada DEPOIS do
+`#plPopup`, do `#fadePopup` e do `#castPopup`: ganhava dos três, fechada,
+pintando a faixa da barra sobre folhas que o operador acabara de abrir.
+
+A correção não é um degrau a mais, é o degrau CERTO — `z-index: 190`. **Esta
+camada não é um modal sobre o app: é MOBÍLIA do app**, a cabeça de uma janela
+cujo repouso é uma linha da caixa de controles. Abaixo de toda folha, a regra
+vale nos dois estados de uma vez: fechada, a barra não pinta sobre nada; ABERTA,
+a Biblioteca é coberta pelo que se abrir a partir dos controles — que continuam
+alcançáveis desde a v1.5.4, e **é isso que tornou a colisão possível**.
+
+- **A tabela `POPUPS` diz o MESMO**, e por isso a Biblioteca virou a PRIMEIRA
+  linha dela: o voltar percorre de trás para a frente, então estar em primeiro é
+  estar embaixo. Com a Biblioteca aberta, abrir a playlist e tocar em voltar
+  fecha a playlist. Mudar uma sem a outra é o acaso que esta regra veio tirar da
+  mesa.
+- **O oráculo mede por HIT-TEST**, nunca por `z-index` computado: um número lido
+  de volta prova que a folha declara o que declara, e o defeito era o EMPATE.
+  `biblioteca-camadas.test.mjs`.
+
+#### Sem caixa de controles na tela, a janela vai até a base (v1.5.6)
+
+*"ajuste também para que a zona dos controles seja ocultada quando a biblioteca
+estiver aberta e o teclado também estiver visível. Pois ocupar espaço com os
+controles e o teclado, deixa muito comprimido a área para a listagem"* · *"no
+modo simples, a aba de buscas pode usar a tela inteira, pois agora ela está
+cortando aleatoriamente em algum pedaço da tela"*.
+
+Uma regra, dois relatos. A camada termina na LINHA DA BARRA (v1.5.4) para os
+controles ficarem à vista; **quando não há controles na tela, esse recorte não
+protege nada** — e no Modo Fácil ele fazia pior: a `.bottombar` é `display: none`
+lá, então `--lib-caixa-h` guarda a última medida boa do modo AVANÇADO (o que é o
+certo, ver `medirBarraDaBiblioteca`), e a janela era cortada numa altura que não
+corresponde a nada do que está na tela. **O número não é aleatório: é de outro
+modo.**
+
+- **O teclado é o mesmo caso, criado de propósito**: com a Biblioteca aberta e o
+  teclado no ar, a caixa de controles sai e a lista fica com a tela menos o
+  teclado, em vez de menos o teclado E os controles.
+- **AS DUAS CONDIÇÕES são necessárias** (`body.lib-aberta.teclado`): sozinho, o
+  teclado não justifica tirar o transporte de quem opera o culto (ele sobe pela
+  Bíblia, pelo renomear, pelo campo do sorteio), e sozinha, a Biblioteca aberta é
+  justamente o caso em que a v1.5.4 mandou MANTER os controles à vista.
+- **A classe do teclado é escrita no MESMO ponto que `--kb`**: o CSS não sabe
+  perguntar se uma medida é maior que zero, e um segundo dono seria um segundo
+  instante — os dois discordariam durante a subida do teclado, que é justamente
+  quando a regra vale.
+
+#### O campo se limpa AO FECHAR (v1.5.6)
+
+*"ela está mantendo a palavra de filtro após ser fechada e limpando apenas quando
+aberta"*. A limpeza na abertura era certa enquanto o campo VIVIA DENTRO da
+Biblioteca (até a v1.5.0): fechada, ninguém o via, e o texto velho morria antes
+de aparecer. **Hoje a barra fica à vista o culto inteiro** — o filtro da busca
+anterior é a primeira coisa que se lê ao voltar ao transporte, e ele descreve uma
+tela que não está mais lá. É a mesma razão que já trouxe o `resetarBiblioteca`
+para o fechamento, agora pelo motivo oposto: aquele se faz ali para não ser VISTO
+acontecendo, este para não ficar VISÍVEL depois.
 
 **SÃO DUAS PORTAS, e a diferença é o TECLADO** (`openHymnSearch(comFoco)`):
 

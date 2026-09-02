@@ -854,6 +854,16 @@ jobs:
           # reversões ela passa.
           rodar tools/barra-em-qualquer-tela.test.mjs
 
+          # A PILHA DE CAMADAS DA BIBLIOTECA (v1.5.6). A camada dela é a ÚNICA
+          # deste app que existe SEMPRE — a barra de busca vive nela —, e por
+          # isso toda regra escrita para camadas que vão e vêm precisa ser
+          # reexaminada aqui. A pergunta é de PILHA (quem fica na frente de
+          # quem), e ela só existe com DUAS camadas abertas ao mesmo tempo: um
+          # cenário que nenhum outro oráculo monta. A prova é HIT-TEST, nunca
+          # `z-index` computado — quem decide entre dois empatados é a ordem do
+          # documento, e foi esse acaso que produziu o relato.
+          rodar tools/biblioteca-camadas.test.mjs
+
           # O AVISO DE QUE UM ARQUIVO ESTÁ ENTRANDO. A ausência dele NÃO É UM
           # ERRO: nada quebra, nada aparece no console, e o item chega ao fim —
           # só chega em silêncio, e do lado de quem opera "importei e não

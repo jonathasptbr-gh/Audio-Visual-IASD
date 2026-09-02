@@ -1,5 +1,16 @@
 [
   {
+    "versao": "1.5.6",
+    "itens": [
+      "A barra de busca deixou de aparecer por cima das configurações e da playlist.",
+      "Com a Biblioteca aberta, o que se abre dos controles agora fica por cima dela.",
+      "A caixa de busca limpa o texto ao fechar.",
+      "Com o teclado aberto, a Biblioteca usa a tela toda — e no modo simples também.",
+      "O botão de parar passou para depois do de próxima mídia.",
+      "A rolagem da cifra anda com a música parada e não desfaz mais o que você rolou."
+    ]
+  },
+  {
     "versao": "1.5.5",
     "itens": [
       "Os botões de playlist automática e de abrir a Biblioteca ficaram iguais aos do controle.",

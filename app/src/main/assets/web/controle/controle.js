@@ -277,7 +277,7 @@ const appVersionEl = document.getElementById('appVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.5.5';
+const WEB_VERSION = '1.5.6';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -12175,49 +12175,71 @@ function cifraRemedir() {
 }
 
 
-// ===== A ROLAGEM AUTOMÁTICA DA FOLHA (v1.1.20) =====
+// ===== A ROLAGEM AUTOMÁTICA DA FOLHA (v1.1.20 → v1.5.6) =====
 //
 // Quem lê uma cifra está com as duas mãos no instrumento — e é justamente aí
 // que a folha precisa andar sozinha.
 //
-// ## O modo AUTO: quem manda é o RELÓGIO DA MÚSICA, não um cronômetro nosso
+// ## O modo AUTO é um RITMO tirado da música, não a POSIÇÃO dela
 //
-// Uma velocidade fixa em px/s não tem como estar certa: a mesma folha serve a
-// um hino de 2 min e a um de 6, e o que decide o ritmo da leitura é a MÚSICA.
-// No modo `auto` a posição da folha é uma FUNÇÃO da posição da música — não uma
-// velocidade integrada —, e isso resolve de graça três coisas que a integração
-// exigiria tratar uma a uma: pausar a música PARA a folha, um seek a leva ao
-// ponto certo, e um quadro perdido não acumula erro nenhum.
+// Uma velocidade fixa em px/s não tem como estar certa: a mesma folha serve a um
+// hino de 2 min e a um de 6, e o que decide o ritmo da leitura é a MÚSICA. Daí o
+// `auto` — mas o que ele toma da música é só a DURAÇÃO TOTAL, e o que ele
+// integra é o relógio de parede a partir de onde a folha está agora.
 //
-// A função não é a reta ingênua `f = t / duração`. Ela tem uma ABERTURA e um
-// FECHO, e mora no módulo PURO (`AVCifra.fracaoDaRolagem`, com oráculo em
-// `tools/cifra.test.mjs`) — daqui sai só o que é do DOM: a duração da barra e a
-// posição no ar. Os dois extremos são o pedido do operador:
+//   ritmo = percurso rolável ÷ (t1 − t0)          `AVCifra.ritmoDaRolagem`
+//
+// **Isto REVOGA o desenho da v1.1.20**, em que a posição da folha era uma FUNÇÃO
+// da posição da música. Pedido do operador: *"ajuste o sistema de rolagem
+// automática de cifra para que ele não siga o tempo da música atual em exibição,
+// pois se a música não está tocando, ele não anda. Ou se eu quiser tocar de um
+// ponto específico em diante, ele fica voltando para onde a mídia estaria… Eu
+// quero que siga o progresso levando em conta: o tempo total da música e a
+// posição atual do scroll"*.
+//
+// **As três vantagens daquele desenho eram os três defeitos do relato**, vistas
+// do outro lado — e é por isso que a correção é uma troca de premissa e não um
+// remendo:
+//
+// | a v1.1.20 dizia | o operador viu |
+// |---|---|
+// | pausar a música PARA a folha | *"se a música não está tocando, ele não anda"* |
+// | um seek LEVA a folha ao ponto | *"ele fica voltando para onde a mídia estaria"* |
+// | um quadro perdido não acumula erro | (só isto sobrevive — e o teto de delta cobre) |
+//
+// O `cifraDesvio` da v1.1.20 era o remendo sobre a premissa errada: um
+// deslocamento somado ao alvo para dar ao dedo um lugar na briga com a música.
+// Ele SAIU, e com ele o alvo teórico e a perseguição suave — não há mais briga.
+// **A folha era da MÚSICA; ela passou a ser de quem lê.**
 //
 //   ┌ topo                                                    fim da folha ┐
-//   │▔▔▔▔▔▔▔▔▔╲                                                            │
-//   │ abertura  ╲___ a folha desce ___                                     │
-//   │           t0                    ╲__________________▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁ │
-//   │                                 t1                       fecho       │
-//   └ 0 ────────────────── posição da música ─────────────────────── D ────┘
+//   │╲                                                                     │
+//   │  ╲___ ritmo constante, integrado do ponto em que a folha ESTÁ ___    │
+//   │                                                              ╲______ │
+//   └ o dedo pode mover a origem a qualquer momento, para frente ou para trás ┘
 //
-//  - **A ABERTURA** segura o começo parado por alguns segundos. Quem chega numa
-//    música quer VER o início — a introdução, o tom, a primeira estrofe — antes
-//    de a folha começar a fugir dele.
-//  - **O FECHO** faz a folha chegar ao fim BEM ANTES de a música acabar. O fim é
-//    a parte que mais se erra e a que mais precisa ser lida com antecedência:
-//    uma folha que só mostra o último acorde quando ele já passou não serve para
-//    nada. `t1` é o instante em que a folha está no fim, e dali até `D` ela
-//    fica parada com o final inteiro à vista.
+// **O que sobrevive da janela é o FECHO**, e sobrevive por construção: percorrer
+// o rolável em `t1 − t0` segundos põe a última linha na tela no instante `t1`,
+// que é o que o fecho sempre quis dizer — o fim da cifra lido bem antes do fim
+// da música, que é a parte que mais se erra. **A ABERTURA saiu**, e saiu porque
+// perdeu o referente: ela era *"a música acabou de começar"*, e não há mais
+// começo nenhum — a origem é onde o scroll está.
 //
+// **A FOLHA NUNCA MEXE NO TEMPO DA MÍDIA**, e o operador pediu isso por extenso:
+// *"esse scroll das cifras não altera o tempo, seja parado ou tocando, da mídia
+// em exibição"*. Sempre foi verdade e nunca teve oráculo; hoje tem
+// (`cifra-rolagem.test.mjs`), porque uma ausência não tem sintoma — o dia em que
+// alguém ligar os dois eixos "para sincronizar", a folha passa a comandar a
+// projeção no meio do culto.
 //
-// ## O modo LIVRE: px/s constante, para quando não há relógio
+// ## O modo LIVRE: px/s constante, para quando não há duração
 //
 // Ensaio sem tocar a gravação, um item sem linha do tempo (imagem, mensagem),
-// um vídeo cuja duração ainda não chegou. Ali `auto` não tem o que seguir e cai
-// no ritmo fixo — o botão continua dizendo `Auto`, que é a ESCOLHA, e o `title`
-// diz o que está de fato acontecendo. Os degraus numéricos são a escolha
-// explícita do mesmo ritmo fixo.
+// um vídeo cuja duração ainda não chegou. Ali `auto` não tem de onde tirar o
+// ritmo e cai no fixo — o botão continua dizendo `Auto`, que é a ESCOLHA, e o
+// `title` diz o que está de fato acontecendo. Os degraus numéricos são a escolha
+// explícita do mesmo ritmo fixo. **Os dois modos passaram a ser UM LAÇO**: a
+// única diferença é de onde sai o px/s.
 //
 // ## Por que `requestAnimationFrame`, e por que a posição é FRACIONÁRIA
 //
@@ -12230,26 +12252,24 @@ function cifraRemedir() {
 // defeito por outro caminho.
 //
 // O delta tem TETO ([CIFRA_DT_MAX]) porque a página estrangulada em segundo
-// plano voltaria dando um salto — no modo `auto` isso não é problema (a posição
-// é função do tempo da música), mas no livre é a diferença entre continuar e
-// pular meia folha.
+// plano voltaria dando um salto. **Com o `auto` integrando, isso passou a valer
+// para os DOIS modos** — no desenho antigo o `auto` era imune por ser função do
+// tempo da música, e essa imunidade foi embora junto com o resto dela.
 //
 // ## O dedo NÃO briga com a rolagem, e não a desliga
 //
 // Voltar uma linha para reler é a coisa mais comum aqui, e um sistema que se
-// desligasse a cada toque obrigaria a religá-lo o tempo todo. No modo livre o
-// avanço é relativo, então um arrasto só muda a origem. No modo `auto` o alvo é
-// ABSOLUTO e puxaria a folha de volta — por isso o arrasto vira um DESVIO
-// (`cifraDesvio`), somado ao alvo dali em diante: o operador desloca a folha e
-// ela continua seguindo a música a partir de onde ele a deixou.
+// desligasse a cada toque obrigaria a religá-lo o tempo todo. Como o avanço é
+// RELATIVO nos dois modos, um arrasto só muda a origem — para trás ou para
+// frente, *"vale tanto para volta como para avanços"* — e a rolagem continua
+// dali. É a mesma linha que já cobria o modo livre: `cifraPos` reassume o
+// `scrollTop` sempre que alguém que não fomos nós o escreveu.
 const CIFRA_VELOCIDADES = ['auto', 0.5, 0.75, 1, 1.5, 2, 3];
 const CIFRA_VEL_PADRAO = 0; // 'auto'
 /** Pixels por segundo no 1× do modo livre. Ritmo de leitura, não de lista. */
 const CIFRA_PX_POR_S = 22;
 /** Teto do delta de um quadro: acima disso houve pausa, e pausa não é avanço. */
 const CIFRA_DT_MAX = 250;
-/** Constante de tempo com que a folha persegue o alvo do modo `auto`. */
-const CIFRA_TAU_MS = 400;
 
 let cifraVelIdx = CIFRA_VEL_PADRAO;
 let cifraRolando = false;
@@ -12260,10 +12280,6 @@ let cifraRolarBtnEl = null;
 let cifraVelBtnEl = null;
 /** De QUAL música é a rolagem em curso — ver a guarda no `lvBuildCifra`. */
 let cifraRolandoChave = '';
-/** O quanto o operador deslocou a folha à mão, no modo `auto`. */
-let cifraDesvio = 0;
-/** O último alvo TEÓRICO (sem o desvio) — é dele que sai um desvio novo. */
-let cifraAlvoTeorico = 0;
 /**
  * A POSIÇÃO DA FOLHA EM FRAÇÃO DE PIXEL — a nossa, não a do elemento.
  *
@@ -12281,20 +12297,21 @@ let cifraPos = 0;
 let cifraEscrito = -1;
 
 /**
- * A posição que a folha DEVERIA ter agora, em pixels — ou `null` quando não há
- * relógio para seguir (e aí quem responde é o modo livre).
+ * O RITMO do modo `auto`, em pixels por segundo — ou 0 quando não há duração de
+ * onde tirá-lo (e aí quem responde é o ritmo fixo do modo livre).
  *
- * A duração e o "tem linha do tempo?" saem da BARRA DE PROGRESSO, não de um
- * cálculo paralelo: ela é a única fonte que cobre todos os tipos de mídia (o
- * `<video>` do stage não sabe nada de um vídeo do YouTube), e é a mesma escolha
- * que o `pushNowPlaying` já faz.
+ * **A POSIÇÃO DA MÍDIA NÃO ENTRA AQUI** (v1.5.6), e é essa ausência que é o
+ * recurso: a folha anda com a música parada, e um seek não a puxa de volta. O
+ * que se toma da música é a DURAÇÃO TOTAL, e mais nada.
+ *
+ * Ela sai da BARRA DE PROGRESSO, não de um cálculo paralelo: é a única fonte que
+ * cobre todos os tipos de mídia (o `<video>` do stage não sabe nada de um vídeo
+ * do YouTube), e é a mesma escolha que o `pushNowPlaying` já faz.
  */
-function cifraAlvoDoRelogio(rolavel) {
-  const dur = cifraDuracaoNoAr();
-  if (!(dur > 0)) return null;
-  // A REGRA é do módulo puro (abertura, fecho, os pisos e tetos): aqui só entra
-  // o que só existe no DOM — a duração da barra e a posição no ar.
-  return AVCifra.fracaoDaRolagem(authoritativeTime(), dur) * rolavel;
+function cifraRitmoDoRelogio(rolavel) {
+  // A REGRA é do módulo puro (o fecho, os pisos e tetos da janela): daqui sai só
+  // o que existe no DOM — a duração da barra e o percurso da folha.
+  return AVCifra.ritmoDaRolagem(rolavel, cifraDuracaoNoAr());
 }
 
 /**
@@ -12323,8 +12340,11 @@ function cifraAlvoDoRelogio(rolavel) {
  * modo LIVRE, que deveria ter assumido, nunca é alcançado.
  *
  * `midiaNoAr` é a pergunta certa, e é a mesma que o reenvio de cena e o Parar
- * por camada já fazem. Ela continua VERDADEIRA com a mídia pausada, que é o que
- * o `auto` quer: pausar a música PARA a folha, e isso é o recurso funcionando.
+ * por camada já fazem. Ela continua VERDADEIRA com a mídia PAUSADA, e desde a
+ * v1.5.6 é isso que faz a folha andar com a música parada: o que se lê daqui é a
+ * DURAÇÃO, não a posição. (Até a v1.5.5 pausar a música parava a folha, e o
+ * operador chamou isso de defeito: *"se a música não está tocando, ele não
+ * anda"*.)
  */
 function cifraDuracaoNoAr() {
   // E COM UM ALVO DA BIBLIOTECA NÃO HÁ RELÓGIO NENHUM (v1.2.14). A folha aberta
@@ -12355,7 +12375,7 @@ function cifraVelRotulo() {
 function cifraVelTitulo() {
   if (CIFRA_VELOCIDADES[cifraVelIdx] !== 'auto') return 'Velocidade da rolagem';
   return cifraDuracaoNoAr() > 0
-    ? 'Rolagem no tempo da música (toque para escolher uma velocidade fixa)'
+    ? 'Rolagem no ritmo da música (toque para escolher uma velocidade fixa)'
     : 'Sem duração da música: rolagem em ritmo fixo (toque para escolher a velocidade)';
 }
 
@@ -12386,7 +12406,6 @@ function cifraRolarParar() {
   cifraRolando = false;
   if (cifraRaf) cancelAnimationFrame(cifraRaf);
   cifraRaf = 0;
-  cifraDesvio = 0;
   cifraEscrito = -1;
   cifraPintarRolar();
 }
@@ -12404,53 +12423,47 @@ function cifraRolarQuadro(t) {
 
   const el = lyricsViewBodyEl;
   const rolavel = el.scrollHeight - el.clientHeight;
-  const alvo = CIFRA_VELOCIDADES[cifraVelIdx] === 'auto' && rolavel > 0
-    ? cifraAlvoDoRelogio(rolavel) : null;
 
   // OUTRO MEXEU NA FOLHA? Um arrasto, um `scrollIntoView`, o teclado do sistema
   // — qualquer coisa que não tenha sido a linha de escrita lá embaixo. O
   // `scrollTop` de volta vem arredondado, então a régua tem folga de um pixel:
   // sem ela, a nossa própria escrita fracionária se leria como intervenção
   // alheia a cada quadro, e a posição nunca sairia do lugar.
+  //
+  // **É ESTA LINHA que atende o "vale tanto para volta como para avanços"**: o
+  // avanço é relativo nos dois modos, então adotar o que o dedo deixou é adotar
+  // a origem nova — para trás ou para frente, sem nada a compensar.
   if (cifraEscrito < 0 || Math.abs(el.scrollTop - cifraEscrito) > 1) cifraPos = el.scrollTop;
 
   if (cifraSegurando || dt <= 0) {
-    // O DESVIO é medido ENQUANTO o dedo está na tela, não no `pointerup`: ali o
-    // alvo já andou, e a diferença sairia com o deslocamento de um quadro
-    // dentro. Aqui ela é sempre contra o alvo do MESMO instante.
-    if (cifraSegurando && alvo !== null) cifraDesvio = el.scrollTop - cifraAlvoTeorico;
     cifraEscrito = -1; // a folha é de quem está com o dedo nela
     cifraRaf = requestAnimationFrame(cifraRolarQuadro);
     return;
   }
 
-  if (alvo !== null) {
-    cifraAlvoTeorico = alvo;
-    const destino = Math.min(rolavel, Math.max(0, alvo + cifraDesvio));
-    const d = destino - cifraPos;
-    // UM SALTO GRANDE É UM SEEK, e um seek se obedece na hora: o operador
-    // arrastou a barra, e a folha chegar lá deslizando por segundos seria a
-    // folha discordando da música. Abaixo disso, perseguição suave — ela absorve
-    // o jitter do `display-status`, que chega a ~4 Hz.
-    cifraPos = Math.abs(d) > el.clientHeight
-      ? destino
-      : cifraPos + d * (1 - Math.exp(-dt / CIFRA_TAU_MS));
-    cifraAplicarPos(el);
-    cifraRaf = requestAnimationFrame(cifraRolarQuadro);
-    return;
-  }
+  // ---- UM LAÇO SÓ: o que muda entre os modos é DE ONDE SAI O px/s ----
+  // `auto` tira o ritmo da duração da música (e cai no fixo quando não há
+  // duração); os degraus numéricos multiplicam o fixo. Eram dois ramos — um por
+  // POSIÇÃO e outro por velocidade —, e virar um só é a mudança da v1.5.6 dita
+  // como código.
+  const ehAuto = CIFRA_VELOCIDADES[cifraVelIdx] === 'auto';
+  const ritmo = ehAuto ? cifraRitmoDoRelogio(rolavel) : 0;
+  const pxPorS = ritmo > 0
+    ? ritmo
+    : CIFRA_PX_POR_S * (ehAuto ? 1 : CIFRA_VELOCIDADES[cifraVelIdx]);
 
-  // ---- MODO LIVRE: px/s constante, avanço RELATIVO ----
-  const mult = CIFRA_VELOCIDADES[cifraVelIdx] === 'auto' ? 1 : CIFRA_VELOCIDADES[cifraVelIdx];
   const antes = el.scrollTop;
-  cifraPos = Math.min(rolavel, cifraPos + (CIFRA_PX_POR_S * mult * dt) / 1000);
+  cifraPos = Math.min(rolavel, cifraPos + (pxPorS * dt) / 1000);
   cifraAplicarPos(el);
   // Chegou ao fim? Continuar é pedir ao aparelho um quadro por segundo para não
   // fazer coisa nenhuma. A pergunta é pelo TETO (`rolavel`) e não por "o
   // scrollTop não andou": com fração de pixel, um quadro sem avanço visível é
-  // normal, e mediria "está lento", não "acabou". Esta parada é SÓ do modo
-  // livre: no `auto` a folha descansa no fim com a música ainda tocando, que é
-  // exatamente o que o FECHO existe para produzir.
+  // normal, e mediria "está lento", não "acabou".
+  //
+  // **Vale para os DOIS modos desde a v1.5.6.** No desenho antigo o `auto`
+  // seguia até o fim da música e "descansava" no fim da folha — o que ele
+  // descansava esperando era o relógio, e não há mais relógio a esperar: com a
+  // folha no fim, a rolagem cumpriu o que prometeu.
   if (cifraPos >= rolavel && antes >= rolavel - 1) { cifraRolarParar(); return; }
   cifraRaf = requestAnimationFrame(cifraRolarQuadro);
 }
@@ -12480,12 +12493,11 @@ function cifraRolarAlternar() {
   // coisa; quem responde "de que música é esta folha?" é `lvItem()`.
   cifraRolandoChave = cifraChave(lvItem());
   cifraQuadroT = 0;
-  // Começar do zero: ligar a rolagem é pedir para seguir a MÚSICA, não para
-  // manter o deslocamento com que a folha estava parada até agora.
-  cifraDesvio = 0;
+  // A ORIGEM É ONDE A FOLHA ESTÁ (v1.5.6): ligar a rolagem é pedir para andar
+  // DAQUI, e não para saltar ao ponto em que a música estaria — que era o que a
+  // v1.1.20 fazia, e é metade do relato que a trocou.
   cifraPos = lyricsViewBodyEl.scrollTop;
   cifraEscrito = -1;
-  cifraAlvoTeorico = cifraPos;
   // Rolar sozinho e ACOMPANHAR a estrofe no ar são dois donos do mesmo scroll.
   // Quem tocou no botão escolheu este.
   lvFollow = false;
@@ -12509,9 +12521,9 @@ function cifraAdotarVelocidade(v) {
 
 async function cifraVelPasso() {
   cifraVelIdx = (cifraVelIdx + 1) % CIFRA_VELOCIDADES.length;
-  // Trocar de modo zera o desvio: ele foi medido contra um alvo que o modo novo
-  // não calcula do mesmo jeito.
-  cifraDesvio = 0;
+  // Nada a zerar: os dois modos integram a partir da posição atual, e o degrau
+  // só troca o px/s do próximo quadro. (A v1.1.20 zerava aqui o `cifraDesvio`,
+  // que era medido contra um alvo absoluto — ele saiu com o alvo.)
   cifraPintarRolar();
   try { await AVDB.setState('cifraVelocidade', CIFRA_VELOCIDADES[cifraVelIdx]); }
   catch (_) { /* sem banco: vale a sessão */ }
@@ -13089,9 +13101,36 @@ async function toggleMute() {
     //  de mudo, que veste `.blocked` — ver `renderControls`.)
     return;
   }
-  muted = !muted; await persistCurrent();
+  // ===== O COMANDO VAI NA FRENTE DA GRAVAÇÃO (v1.5.6) =====
+  // Relato do operador: *"ativar o mudo durante a exibição de um vídeo online do
+  // YouTube está travando momentaneamente, engasgando a visualização"*.
+  //
+  // Este era o ÚNICO controle do app que punha uma transação de banco na frente
+  // do comando: `await persistCurrent()` é uma escrita no IndexedDB, e o `mute`
+  // só saía depois do commit dela. O irmão que mexe no mesmo áudio
+  // (`applyVolume`) sempre mandou primeiro — a assimetria não tinha razão.
+  //
+  // **Por que isto pesa numa TRANSMISSÃO e não num arquivo:** os dois WebViews
+  // dividem UM processo, e a transmissão direta é a única mídia do app que
+  // precisa de JavaScript rodando enquanto toca (o `shared/mse.js` repõe o
+  // buffer). Tudo que segura a thread principal entre o toque e o comando segura
+  // o abastecimento junto — um arquivo local não sente, porque o `<video>` lê do
+  // disco sem passar por JS nenhum.
+  //
+  // A gravação continua acontecendo, agora SEM prender o comando: o que ela
+  // guarda é o ajuste da mesa para a próxima sessão, e ninguém a espera.
+  // (`persistCurrent` já é usado assim em quatro outros pontos.)
+  //
+  // **O QUE ISTO NÃO PROVA, dito:** o engasgo do relato não foi reproduzido fora
+  // do aparelho — aqui a escrita mede ~2 ms num banco vazio. O que se corrige é
+  // uma latência REAL e mensurável no caminho exato do relato, não um defeito
+  // observado. Se o engasgo persistir, o próximo suspeito não é este arquivo: é
+  // o que o Chromium faz com um `<video>` de MediaSource ao trocar de estado de
+  // áudio.
+  muted = !muted;
   cmd({ type: 'mute', muted });
   renderControls();
+  persistCurrent();
 }
 
 /**
@@ -15723,9 +15762,15 @@ async function syncLyrics() {
  */
 function openHymnSearch(comFoco) {
   hymnSearchInputEl.placeholder = 'Nome, número ou trecho da letra…';
-  hymnSearchInputEl.value = '';
+  // (O CAMPO É LIMPO AO FECHAR, não aqui — ver `closeHymnSearch`. Continua
+  //  havendo um `renderSearchResults('')` nesta abertura porque o desenho do
+  //  acervo é o que a Biblioteca mostra, e ele depende de estado que o
+  //  `resetarBiblioteca` acabou de zerar.)
   renderSearchResults('');
   hymnSearchPopupEl.classList.add('open');
+  // NO `body`, e não só na camada: quem sai de cena com o teclado é a CAIXA DE
+  // CONTROLES, que não é descendente dela.
+  document.body.classList.add('lib-aberta');
   renderLibToggle();
   medirBarraDaBiblioteca();
   // ===== A LISTA ABRE NO TOPO (v5.280) =====
@@ -15838,12 +15883,16 @@ function medirBarraDaBiblioteca() {
   // altura, então medi-la antes de escrevê-la mediria uma caixa que ainda não
   // reservou o lugar da barra.
   const alturaDaCaixa = bottombarEl.offsetHeight;
-  // Caixa sem altura é o Modo Fácil, que a esconde. Escrever 0 levaria a barra à
-  // base da tela; lá ela nem é oferecida (o CSS a tira de cena), então a medida
-  // boa que já está no lugar é a resposta certa para quando o operador voltar ao
-  // avançado.
-  if (!alturaDaCaixa) return;
-  escrever('--lib-caixa-h', alturaDaCaixa);
+  // Caixa sem altura é ELA FORA DA TELA — o Modo Fácil a esconde, e desde a
+  // v1.5.6 o teclado com a Biblioteca aberta também. Zero não é uma medida, é a
+  // AUSÊNCIA de uma: escrevê-lo levaria a barra à base da tela, e a medida boa
+  // que já está no lugar é a resposta certa para quando a caixa voltar. Quem
+  // responde por esses dois estados é o CSS, que manda a janela até a base sem
+  // consultar este número.
+  if (alturaDaCaixa) escrever('--lib-caixa-h', alturaDaCaixa);
+  // FORA do `if`: uma mudança só na altura da BARRA também precisa desarmar a
+  // transição, e ficar presa atrás da caixa oculta era o mesmo defeito por outra
+  // porta.
   if (mudou) semAnimarAJanela();
 }
 
@@ -15930,11 +15979,27 @@ function closeHymnSearch() {
   clearTimeout(hymnFocoTimer);
   hymnFocoTimer = null;
   hymnSearchPopupEl.classList.remove('open');
+  document.body.classList.remove('lib-aberta');
   renderLibToggle();
   // O CAMPO PERDE O FOCO ao fechar: sem isto o teclado fica de pé sobre o app
   // com a janela já fora de cena — a mesma classe de defeito do foco pendente
   // logo acima, pelo outro caminho.
   try { hymnSearchInputEl.blur(); } catch (_) {}
+  // ===== E O CAMPO SE LIMPA AQUI, NÃO NA ABERTURA (v1.5.6) =====
+  // Relato do operador: *"ajuste a caixa de buscas para que ela resete seu texto
+  // quando for fechada, pois agora ela está mantendo a palavra de filtro após
+  // ser fechada e limpando apenas quando aberta"*.
+  //
+  // A limpeza na abertura era certa enquanto o campo VIVIA DENTRO da Biblioteca
+  // (até a v1.5.0): fechada, ninguém o via, e o texto velho morria antes de
+  // aparecer. **Hoje a barra fica à vista o culto inteiro**, na caixa de
+  // controles — o filtro da busca anterior é a primeira coisa que o operador lê
+  // quando volta ao transporte, e ele descreve uma tela que não está mais lá.
+  //
+  // É a mesma razão que já trouxe o `resetarBiblioteca` para cá, e agora vale
+  // para o texto pelo motivo oposto: aquele se faz no fechamento para não ser
+  // VISTO acontecendo, este para não ficar VISÍVEL depois.
+  hymnSearchInputEl.value = '';
   // FECHAR é o momento certo, e não abrir: aqui a tela já saiu de cena, então
   // nada do que se colapsa é visto colapsando. No `openHymnSearch` o mesmo
   // trabalho apareceria como a Biblioteca se desmontando na frente do operador.
@@ -24117,6 +24182,15 @@ window.addEventListener('resize', () => {
       : 0;
     document.documentElement.style.setProperty('--kb', kb + 'px');
     document.documentElement.style.setProperty('--vv-top', Math.max(0, Math.round(vv.offsetTop)) + 'px');
+    // ===== E O TECLADO GANHA NOME (v1.5.6) =====
+    // `--kb` é uma MEDIDA, e o CSS não sabe perguntar se uma medida é maior que
+    // zero. Quem precisa da pergunta é a caixa de controles, que sai de cena
+    // quando a Biblioteca está aberta E o teclado está no ar (ver `.bottombar`
+    // em controle.css). A classe é escrita AQUI, no mesmo ponto e no mesmo
+    // quadro que a medida: um segundo dono seria um segundo instante, e os dois
+    // discordariam durante a subida do teclado, que é justamente quando a regra
+    // vale.
+    document.body.classList.toggle('teclado', kb > 0);
   };
   const schedule = () => { if (!raf) raf = requestAnimationFrame(apply); };
   vv.addEventListener('resize', schedule);
@@ -25908,7 +25982,14 @@ if (castMirrorBtnEl) {
 // DENTRO do card do álbum, e um painel não é uma camada — quem o fecha é o
 // mesmo toque na engrenagem que o abriu, ou o toque na barra que fecha o card.)
 const POPUPS = [
-  [plPopupEl, plPopupCloseEl, closePlPopup],
+  // A BIBLIOTECA É A PRIMEIRA LINHA desde a v1.5.6, e a razão é a mesma do
+  // `z-index: 190` dela: **ela não é um modal sobre o app, é mobília do app** —
+  // a camada existe SEMPRE (a barra vive nela) e fica ABAIXO de toda folha.
+  // Como o voltar percorre esta tabela de trás para a frente, estar em primeiro
+  // é estar embaixo: com a Biblioteca aberta, abrir a playlist e tocar em voltar
+  // fecha a playlist, não a Biblioteca. As duas coisas dizem a mesma ordem, e
+  // mudar uma sem a outra é o acaso que já cobriu um popup por inteiro aqui.
+  //
   // O BOTÃO DA BIBLIOTECA ENTRA COMO `null`, e isso é o recurso: ele é um
   // ALTERNADOR (seta abre, ✕ fecha) e tem ouvinte próprio. Registrado aqui
   // também, o toque com a janela fechada abriria pelo ouvinte dele e fecharia
@@ -25916,6 +25997,7 @@ const POPUPS = [
   // a linha continua entregando é o resto do contrato: o toque no fundo e o
   // degrau do voltar.
   [hymnSearchPopupEl, null, closeHymnSearch],
+  [plPopupEl, plPopupCloseEl, closePlPopup],
   [bibleVerPopupEl, bibleVerCloseEl, closeBibleVerPopup],
   [fadePopupEl, fadePopupCloseEl, closeFadePopup],
   // O HISTÓRICO abre DE DENTRO de Configurações (v1.4.31 — era vizinho da

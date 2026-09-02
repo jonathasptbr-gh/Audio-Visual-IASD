@@ -2621,34 +2621,52 @@ a congregação vê continua sendo a letra, pelo caminho de sempre.
   a folha abrindo, o A+/A−, `resize` e `orientationchange`. O respiro vai ENTRE
   os pares (`.lv-cifra-letra + .lv-cifra-acordes`), nunca dentro deles: é a
   proximidade do acorde com a letra que diz a qual sílaba ele pertence.
-- **A ROLAGEM AUTOMÁTICA anda no RELÓGIO DA MÚSICA, não num cronômetro nosso.**
-  Velocidade fixa em px/s não tem como estar certa: a mesma folha serve a um
-  hino de 2 min e a um de 6, e quem decide o ritmo da leitura é a gravação. No
-  modo `auto` a posição da folha é uma **FUNÇÃO** da posição da música, não uma
-  velocidade integrada — e isso resolve de graça três coisas que a integração
-  trataria uma a uma: pausar a música PARA a folha, um seek a leva ao ponto
-  certo, e um quadro perdido não acumula erro nenhum.
+- **A ROLAGEM AUTOMÁTICA É UM RITMO TIRADO DA MÚSICA, e não a POSIÇÃO dela**
+  (v1.5.6). Velocidade fixa em px/s não tem como estar certa: a mesma folha serve
+  a um hino de 2 min e a um de 6, e quem decide o ritmo da leitura é a gravação.
+  Daí o `auto` — mas o que ele toma da música é só a **DURAÇÃO TOTAL**, e o que
+  ele integra é o relógio de parede a partir de onde a folha ESTÁ
+  (`AVCifra.ritmoDaRolagem`, PURA, com oráculo: `rolável ÷ (t1 − t0)`).
 
-  **A função não é `f = t/duração`: tem ABERTURA e FECHO** (`AVCifra.janelaDeRolagem`
-  / `fracaoDaRolagem`, PURAS, com oráculo). A abertura segura o começo parado
-  alguns segundos — quem chega numa música quer VER a introdução, o tom e a
-  primeira estrofe antes de a folha fugir deles; o fecho faz a folha chegar ao
-  fim **bem antes** de a música acabar, porque o final é a parte que mais se
-  erra e a que mais precisa ser lida com antecedência. Os dois são **fração da
-  música com piso e teto em segundos**, e é a combinação que os torna certos nos
-  dois extremos: fração pura daria 3 s de abertura num hino de 40 s (não dá
-  tempo de ler o tom) e meio minuto num de 6 (a folha parada com a primeira
-  estrofe já cantada). A regra é do módulo puro; do `controle.js` sai só o que é
-  do DOM — e a duração vem da **barra de progresso**, a única fonte que cobre
-  todos os tipos de mídia, pela mesma razão que o `pushNowPlaying`.
+  **Isto REVOGA o desenho da v1.1.20**, em que a folha era uma FUNÇÃO da posição
+  da música. Pedido do operador, e **as três vantagens daquele desenho eram os
+  três defeitos que ele relatou**, vistas do outro lado — é por isso que a
+  correção é uma troca de premissa e não um remendo:
 
-  **Sem relógio há o modo LIVRE** (ensaio sem tocar a gravação, item sem linha
+  | a v1.1.20 dizia | o operador viu |
+  |---|---|
+  | pausar a música PARA a folha | *"se a música não está tocando, ele não anda"* |
+  | um seek LEVA a folha ao ponto | *"ele fica voltando para onde a mídia estaria"* |
+  | um quadro perdido não acumula erro | (só isto sobrevive — e o teto de delta cobre) |
+
+  O `cifraDesvio` daquele lote era o remendo sobre a premissa errada: um
+  deslocamento somado ao alvo para dar ao dedo um lugar na briga com a música.
+  Saiu, com o alvo teórico e a perseguição suave — não há mais briga. **A folha
+  era da MÚSICA; ela passou a ser de quem lê.**
+
+  **O que sobrevive da janela é o FECHO** (`AVCifra.janelaDeRolagem`), e
+  sobrevive por construção: percorrer o rolável em `t1 − t0` segundos põe a
+  última linha na tela no instante `t1` — o fim da cifra lido bem antes do fim
+  da música, que é a parte que mais se erra. **A ABERTURA saiu**, e saiu porque
+  perdeu o referente: ela era *"a música acabou de começar"*, e não há mais
+  começo nenhum. A `fracaoDaRolagem` fica no módulo, **sem consumidor e com
+  oráculo**, para quem quiser reintroduzir o posicional ter a função e a razão da
+  saída. A duração vem da **barra de progresso**, a única fonte que cobre todos
+  os tipos de mídia, pela mesma razão que o `pushNowPlaying`.
+
+  **A FOLHA NUNCA MEXE NO TEMPO DA MÍDIA**, e o operador pediu isso por extenso.
+  Sempre foi verdade e nunca teve oráculo; hoje tem, porque uma ausência não tem
+  sintoma — o dia em que alguém ligar os dois eixos "para sincronizar", um
+  arrasto para reler uma estrofe volta o louvor na frente da congregação.
+
+  **Sem duração há o modo LIVRE** (ensaio sem tocar a gravação, item sem linha
   do tempo): px/s constante, `requestAnimationFrame` com delta REAL — no degrau
   mais lento são 11 px/s, menos de um pixel por quadro, e um passo fixo ou
   arredonda para zero (não anda) ou para um (voa); o acumulador de fração
   resolve os dois, e o delta tem TETO (250 ms) porque a página estrangulada em
-  segundo plano voltaria dando um salto. **`Auto` sem relógio cai no livre e DIZ
-  isso** no `title` do botão: o rótulo mostra a ESCOLHA, a frase mostra o que
+  segundo plano voltaria dando um salto. Os dois modos são **UM LAÇO SÓ**: a única
+  diferença é de onde sai o px/s. **`Auto` sem duração cai no fixo e DIZ isso**
+  no `title` do botão: o rótulo mostra a ESCOLHA, a frase mostra o que
   está acontecendo — sem ela, *"por que a folha não acompanha a música?"* não
   tem resposta em lugar nenhum.
 
@@ -2658,9 +2676,10 @@ a congregação vê continua sendo a letra, pelo caminho de sempre.
   `renderNowPlaying` termina em `seekEl.disabled = !isTimed`, com `isTimed`
   saindo do `kind` do item ATUAL — e `currentItem` sobrevive de propósito ao
   Parar, ao fim da faixa e a uma letra avulsa. A barra ficava habilitada, com o
-  `max` da faixa, sobre um telão vazio: com duração o `auto` ancora a folha em
-  `fracaoDaRolagem(0, dur)` e ela **não sai mais do lugar**, com o modo livre
-  nunca sendo alcançado. O desfecho não é um erro — é uma folha parada.
+  `max` da faixa, sobre um telão vazio, e o `auto` ancorava a folha no ponto
+  daquela música fantasma. **Com o ritmo da v1.5.6 o desfecho ficou mais brando**
+  — a folha anda, só que no compasso da duração errada —, e a pergunta continua
+  sendo a mesma: duração é da CENA, não do item que sobrou selecionado.
   Oráculo: `tools/cifra-rolagem.test.mjs`.
 
   **A posição é NOSSA, em fração de pixel** (`cifraPos`). No ritmo de leitura são
@@ -2683,20 +2702,18 @@ a congregação vê continua sendo a letra, pelo caminho de sempre.
   num ponto só (`renderLyricsView`), senão trocar de fonte deixaria os controles
   da folha de pé sobre a Bíblia.
 
-  **O dedo não briga e não desliga.** No livre o avanço é relativo, então um
-  arrasto só muda a origem. No `auto` o alvo é ABSOLUTO e puxaria a folha de
-  volta — por isso o arrasto vira um **DESVIO** somado ao alvo dali em diante, e
-  ele é medido ENQUANTO o dedo está na tela (no `pointerup` o alvo já andou, e a
-  diferença sairia com um quadro de deslocamento dentro). `pointercancel` entra
-  junto do `pointerup`: um arrasto que vira gesto do sistema não emite o
-  segundo, e sem ele a folha travaria para sempre com o botão dizendo que rola.
-  Salto maior que uma tela é um **seek** e se obedece na hora; abaixo disso a
-  perseguição é suave (constante de tempo de 400 ms), que é o que absorve o
-  jitter do `display-status` a ~4 Hz.
+  **O dedo não briga e não desliga.** O avanço é relativo nos DOIS modos desde a
+  v1.5.6, então um arrasto só muda a origem — para trás ou para frente, *"vale
+  tanto para volta como para avanços"* —, e a rolagem continua dali. É uma linha
+  só: `cifraPos` reassume o `scrollTop` sempre que alguém que não fomos nós o
+  escreveu. `pointercancel` entra junto do `pointerup`: um arrasto que vira gesto
+  do sistema não emite o segundo, e sem ele a folha travaria para sempre com o
+  botão dizendo que rola.
 
-  Ela para sozinha em quatro casos: o fim da folha (**só no livre** — no `auto`
-  a folha descansa no fim com a música tocando, que é o que o FECHO existe para
-  produzir), a aba deixando de ser a cifra, o popup fechando, e a MÚSICA
+  Ela para sozinha em quatro casos: o fim da folha (**nos dois modos** desde a
+  v1.5.6 — o `auto` "descansava" no fim esperando o relógio, e não há mais
+  relógio a esperar), a aba deixando de ser a cifra, o popup fechando, e a
+  MÚSICA
   TROCANDO — esta pela chave da rolagem, senão o louvor seguinte já entrava
   rolando do meio de uma folha que ninguém mandou andar. A escada tem sete
   degraus e CICLA (a forma do botão de girar a mídia) e é PERSISTIDA: depende de
@@ -3063,7 +3080,7 @@ que ela é desenvolvida e testada fora do aparelho.
 | Botões físicos de volume | o navegador não os recebe | **interceptados**, ligados ao fader do deck — e é isso que mantém o painel de volume do Android FORA da projeção (ver abaixo) |
 | Microfone AO VIVO | o navegador pergunta | `MicChromeClient` + `RECORD_AUDIO` (ver abaixo). **Só com TV**: quem capta é o `/display/`, que só existe dentro da `Presentation` — e sem TV o botão **não é desenhado** (v1.2.21) |
 | Câmera | o navegador pergunta | **negada, sempre**. O `onPermissionRequest` do `ControleChromeClient` FICOU, negando **com log**: um WebView sem ele nega em silêncio, e o próximo que precisar de mídia aqui descobriria a armadilha do zero |
-| Navegação | idem (uma tela e duas folhas) | **UMA TELA e DUAS FOLHAS** (v1.5.0): o Cronograma é a tela única; a Bíblia e as Ferramentas são folhas dele, abertas pelas portas do rodapé (Bíblia · Importar · Ferramentas); a Biblioteca é uma JANELA DE TELA CHEIA que sobe levando a barra de busca junto, e a barra é a CABEÇA dela — fechada, ela repousa no TOPO da caixa de controles (v1.5.2), sem pintar nada, com os dois quadrados no tom E na largura dos botões do transporte (v1.5.5) e o campo branco com borda entre eles; aberta, ela para no topo da TELA, e é por isso que o teclado deixou de cobrir o campo. A janela vai do topo até a LINHA DA BARRA (v1.5.4): fora disso não há camada — nem pixel, nem scrim, nem toque —, então os controles continuam à vista e alcançáveis com a Biblioteca aberta, e a barra de status é o DESTINO da abertura, não um recuo que viaja acima da barra ao fechar. Saíram a faixa de abas, o vazado deslizante, o carrossel horizontal e o `switchTab` |
+| Navegação | idem (uma tela e duas folhas) | **UMA TELA e DUAS FOLHAS** (v1.5.0): o Cronograma é a tela única; a Bíblia e as Ferramentas são folhas dele, abertas pelas portas do rodapé (Bíblia · Importar · Ferramentas); a Biblioteca é uma JANELA DE TELA CHEIA que sobe levando a barra de busca junto, e a barra é a CABEÇA dela — fechada, ela repousa no TOPO da caixa de controles (v1.5.2), sem pintar nada, com os dois quadrados no tom E na largura dos botões do transporte (v1.5.5) e o campo branco com borda entre eles; aberta, ela para no topo da TELA, e é por isso que o teclado deixou de cobrir o campo. A janela vai do topo até a LINHA DA BARRA (v1.5.4): fora disso não há camada — nem pixel, nem scrim, nem toque —, então os controles continuam à vista e alcançáveis com a Biblioteca aberta, e a barra de status é o DESTINO da abertura, não um recuo que viaja acima da barra ao fechar. **E a camada dela é o CHÃO da pilha, não o teto** (`z-index: 190`, v1.5.6): ela é a única deste app que existe SEMPRE, então empatada em 200 com as outras quem decidia era a ordem do documento — a barra pintava sobre Configurações e sobre a playlist, e o que se abrisse dos controles subia ATRÁS da Biblioteca. **Sem caixa de controles na tela a janela vai até a base** (o teclado com a Biblioteca aberta, e o Modo Fácil): o recorte protege os controles, e sem controles ele só corta. Saíram a faixa de abas, o vazado deslizante, o carrossel horizontal e o `switchTab` |
 | Botão voltar | — | **fecha o que estiver aberto** antes de minimizar (ver abaixo) |
 | Controles fora do app | — | `MediaSession`: notificação, tela de bloqueio, botões de mídia |
 | Download minimizado | a aba continua baixando | **foreground service + wake lock**; sem isso o processo é congelado |
@@ -3484,6 +3501,7 @@ mundo anterior por outro caminho.
 | `rotina-cede-a-vez.test.mjs` | **a varredura de acervo cede a vez ao que está no ar.** Duas naturezas de asserção, e a segunda é declarada: o COMPORTAMENTO (com cena no ar nenhuma das duas abre tarefa) e a FORMA (o gate nos cinco pontos), porque o ponto que mais importa — o de DENTRO do `runLimited`, que cobre o caso normal do culto — é inalcançável sem semear um acervo inteiro |
 | `registro-alcance.test.mjs` | **a MEDIÇÃO DE ALCANCE**, um dos dois que rodam sobre o `site/`. **E a AUSÊNCIA do sistema de exclusão** (v1.4.42), que falha calada nos dois sentidos: um resto do mecanismo deixaria o navegador do operador fora do número público para sempre e sem nada na tela dizendo por quê, e um painel SEM exclusão e SEM aviso vira o "confiável e falso" que `docs/MEDICAO-DE-ALCANCE.md` nomeia, pelo outro lado — daí a asserção sobre o TEXTO RENDERIZADO da nota, e não sobre a presença de um nó. Duas coisas falham CALADAS ali. Um gráfico que desenha todos os valores iguais: `.barra-c`/`.barra-f` eram `<span>`, que é INLINE, e `width` não faz nada num elemento inline — 12, 5, 3 e 1 saíam idênticos, sem erro em lugar nenhum (provado por REVERSÃO). E o ROTEAMENTO do farol de visita, que é o requisito inteiro: se ele parar, os números continuam subindo e passam a incluir quem mede — **e contador não se corrige depois** |
 | `barra-em-qualquer-tela.test.mjs` | **a barra da Biblioteca numa tela que NÃO é a do oráculo** (v1.5.3). Ela é a única peça do app que é um OVERLAY alinhado a uma caixa do layout — logo a única cujo desenho depende do que um Chromium de mesa a 430×900 não tem. DOIS defeitos chegaram ao aparelho passando pela suíte inteira: **CORTADA** (o app é `viewport-fit=cover`, então `env(safe-area-inset-top)` vale no aparelho e é ZERO aqui — o recorte revelava `[0, altura da barra]` de uma folha em que a barra começa DEPOIS do recuo) e **DESLOCADA** (o lugar de repouso era uma COORDENADA DE TELA medida uma vez, e ela envelhece por um caminho que ninguém observa: o teclado sobe, o app remede com ele no ar, o teclado some — MEDIDO, 290px acima do lugar). Ele roda a mesma medição em QUATRO configurações, e a primeira é a tela dos outros oráculos, de propósito: ela é o CONTROLE do experimento, e nas duas reversões ela PASSA. O entalhe é fingido por um token (`--sa-topo`), que é a razão de o token existir — um valor que só o aparelho conhece é um valor que nenhum oráculo alcança. A medida do recorte é por HIT-TEST, nunca pela string do `clip-path`: uma string com `calc()` não resolvido aprova qualquer leitura que se queira fazer dela. **E ele cresceu com a janela que para na linha da barra** (v1.5.4): NO MEIO do movimento nada da coluna viaja acima da barra (a pergunta é pela COLUNA, nunca pela camada — ela ocupa legitimamente toda a região acima daquela linha, e perguntar por ela aprova a margem saliente), e ABERTA a janela não cobre os controles |
+| `biblioteca-camadas.test.mjs` | **a PILHA da janela da Biblioteca** (v1.5.6) — a camada dela é a ÚNICA deste app que existe SEMPRE (a barra vive nela), e por isso toda regra escrita para camadas que vão e vêm precisa ser reexaminada aqui: empatada em `z-index: 200` com as outras, quem decidia era a ORDEM DO DOCUMENTO, e a barra pintava sobre Configurações e sobre a playlist enquanto o que se abrisse dos controles subia ATRÁS da Biblioteca. A pergunta é de pilha, e só existe com DUAS camadas abertas — um cenário que nenhum outro oráculo monta. A prova é HIT-TEST, nunca `z-index` computado: um número lido de volta prova que a folha declara o que declara, e o defeito era o empate. Cobre também as duas metades do voltar (a de cima fecha, a de baixo fica), a janela indo à base sem caixa de controles (teclado · Modo Fácil) e o campo limpando AO FECHAR. **O que ele não alcança está dito**: não há teclado virtual num Chromium de mesa, então a classe é posta à mão e o que se prova é a metade CSS |
 | `plataforma.test.mjs` | **o FILTRO DE PLATAFORMA da página**: o `.apk` só instala em Android, então quem chega de iPhone, iPad ou computador não vê o guia de instalação — vê a frase que diz que este é um app Android e que a página deve ser aberta por um. Falha CALADO nos dois sentidos: de MENOS, o download volta a aparecer num iPhone e a pessoa conclui que o app está quebrado (ninguém relata isso); de MAIS — o caro —, a classificação recusa um Android de verdade e o que sai é uma página que abre, rola e não oferece nada. Daí o desenho FALHAR ABERTO (sem classe no `<html>` nada é escondido) e essa propriedade ter asserção própria: um desenho fail-CLOSED deixa a suíte inteira verde e reprova só ali. `userAgent` VERBATIM, **o iPad entre eles sem código próprio** — o iPadOS 13+ se anuncia como Macintosh e cai no lado certo por construção, então a asserção guarda a PROPRIEDADE e não o mecanismo |
 
 > **A REDE EXTERNA NÃO ENTRA NUM ORÁCULO** (`tools/sem-rede.mjs`,
@@ -3918,12 +3936,13 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: v1.5.5** (base web) · **v1.4.42** (APK) · `SHELL_VERSION` **61** · bundle com
+**Versão atual: v1.5.6** (base web) · **v1.4.42** (APK) · `SHELL_VERSION` **61** · bundle com
 `minShell: 61` e **sem `shellTag`** — o shell 61 é o **PISO**: todo método da
 ponte existe, e não há guarda de versão no lado web. **Este lote não pede
-Release**: mexe em `assets/web/` e em `tools/`, e nada disso chega ao aparelho
-por APK — nenhum `.kt`, nenhum `res/`, nenhum manifest. O bundle sai na hora.
-O rodapé mostra `Web v1.5.5 · Shell v1.4.42`, e
+Release**: mexe em `assets/web/`, em `tools/` e no `apk.yml` (um oráculo novo
+entrando na lista), e nada disso chega ao aparelho por APK — nenhum `.kt`,
+nenhum `res/`, nenhum manifest. O bundle sai na hora.
+O rodapé mostra `Web v1.5.6 · Shell v1.4.42`, e
 isso não é divergência: é a resposta exata a *"o OTA chegou e o APK ainda
 não?"*. O que continua valendo é que `java/`, `res/`, o manifest e os workflows
 **só chegam instalando o APK**.
