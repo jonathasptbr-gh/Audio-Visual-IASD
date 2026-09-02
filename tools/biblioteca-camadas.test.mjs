@@ -274,6 +274,93 @@ try {
     'e a Biblioteca reabre no ACERVO — limpar só o texto deixaria os resultados '
     + 'de um termo que já não está escrito em lugar nenhum', campo);
 
+  // ======================================================================
+  // 5 · ELA PARECE UMA JANELA, E NÃO ENCOSTA NOS CONTROLES (v1.5.7)
+  // ======================================================================
+  //
+  // *"ajuste o design da janela da biblioteca para que ela se assemelhe ao
+  // design das janelas de bíblia e ferramentas. bordas curvas e tom branco como
+  // base"* · *"ajustando também para que haja uma pequena margem em relação aos
+  // controles quando no modo aberta, pois hoje ela fica com a base 'fundida'
+  // dificultando a percepção de até onde vai a lista da biblioteca"*.
+  //
+  // A RÉGUA É A `.tools-sheet`, não um número: o pedido nomeia uma peça do app,
+  // e um literal copiado para cá envelheceria na primeira troca de paleta —
+  // envelhecendo parecendo certo.
+  //
+  // **E o raio só vale ABERTA.** Fechada, o que fica à vista é a BARRA, que é
+  // uma linha da caixa de controles; um cartão em volta dela é o "zoneamento"
+  // que a v1.5.2 veio tirar. Sem esta segunda metade, arredondar a folha nos
+  // dois estados passaria na primeira e devolveria aquele defeito.
+  const janela = await pg.evaluate(async () => {
+    const folha = document.querySelector('.popup-sheet--lib');
+    const ler = () => {
+      const cs = getComputedStyle(folha);
+      return { fundo: cs.backgroundColor, raio: parseFloat(cs.borderTopLeftRadius) };
+    };
+    closeHymnSearch();
+    await new Promise((r) => setTimeout(r, 400));
+    const fechada = ler();
+    openHymnSearch(false);
+    await new Promise((r) => setTimeout(r, 500));
+    const aberta = ler();
+    // A FRESTA É CONTRA A BASE DA CAMADA, e não contra a caixa de controles —
+    // essa foi a primeira escrita, e ela APROVAVA a versão sem fresta: a
+    // `.bottombar` reserva a altura da barra mais um respiro no `padding-top`,
+    // então sobrava sempre um vão positivo que não era o que se queria medir. A
+    // camada termina exatamente na linha em que a barra repousa, que é até onde
+    // a janela PODERIA ir; a fresta é o que ela deixa de usar.
+    const b = folha.getBoundingClientRect();
+    const c = document.getElementById('hymnSearchPopup').getBoundingClientRect();
+    const molde = getComputedStyle(document.getElementById('toolsSheet'));
+    const r = {
+      fechada, aberta, fresta: Math.round(c.bottom - b.bottom),
+      moldeFundo: molde.backgroundColor, moldeRaio: parseFloat(molde.borderTopLeftRadius),
+    };
+    closeHymnSearch();
+    await new Promise((res) => setTimeout(res, 400));
+    return r;
+  });
+  checar(janela.aberta.fundo === janela.moldeFundo
+    && janela.aberta.raio === janela.moldeRaio && janela.aberta.raio > 0,
+    'ABERTA, a janela veste o MESMO tom e o MESMO raio da folha de Ferramentas '
+    + '— a régua é a peça que o pedido nomeia, não um número escrito aqui',
+    JSON.stringify(janela));
+  checar(janela.fechada.raio === 0,
+    'e FECHADA ela não tem raio: o que fica à vista é a barra, e um cartão em '
+    + 'volta dela é o "zoneamento" que a v1.5.2 tirou', JSON.stringify(janela.fechada));
+  checar(janela.fresta > 0 && janela.fresta < 24,
+    'e há uma FRESTA entre a base dela e o fim da camada: sem ela a lista se '
+    + 'funde com o transporte e não se vê onde a Biblioteca acaba',
+    janela.fresta + 'px');
+
+  // ======================================================================
+  // 6 · A BORDA DO CAMPO ENGROSSOU SEM CRESCER A CAIXA (v1.5.7)
+  // ======================================================================
+  //
+  // *"engrosse a borda da caixa de texto da busca, para ficar mais encorpado
+  // (não aumente as dimensões da caixa, só a área da borda internamente)"*.
+  //
+  // As DUAS metades, e a segunda é o pedido literal: um traço mais grosso sem
+  // `box-sizing: border-box` empurra a caixa para fora e a linha inteira cresce
+  // com ela — o campo fica mais alto que os quadrados ao lado, que continuam
+  // vestindo a medida crua.
+  const borda = await pg.evaluate(() => {
+    const c = document.getElementById('hymnSearchInput');
+    const cs = getComputedStyle(c);
+    return {
+      largura: parseFloat(cs.borderTopWidth),
+      caixa: cs.boxSizing,
+      alt: Math.round(c.getBoundingClientRect().height),
+      altBotao: Math.round(document.getElementById('hymnSearchToggle').getBoundingClientRect().height),
+    };
+  });
+  checar(borda.largura >= 2,
+    'a borda do campo tem corpo (' + borda.largura + 'px)', JSON.stringify(borda));
+  checar(borda.caixa === 'border-box' && Math.abs(borda.alt - borda.altBotao) <= 1,
+    'e ela cresceu PARA DENTRO: a caixa continua com a altura dos quadrados ao '
+    + 'lado', JSON.stringify(borda));
+
   await ctx.close();
   checar(erros.length === 0, 'nenhum erro de console', erros.join(' | '));
 } finally {

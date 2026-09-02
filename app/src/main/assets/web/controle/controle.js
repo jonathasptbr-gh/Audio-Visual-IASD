@@ -277,7 +277,7 @@ const appVersionEl = document.getElementById('appVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.5.6';
+const WEB_VERSION = '1.5.7';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -8013,12 +8013,57 @@ function montarResumoGrupo(host, key, text, colls, gOpts, aposClique) {
 // da busca (ver renderSearchResults). É uma função só de propósito — duas
 // cópias divergiriam no primeiro ajuste de categoria, e o operador veria dois
 // acervos diferentes conforme por onde entrou.
+// ===== OS TONS DAS LINHAS DE TOPO DA BIBLIOTECA (v1.5.7) =====
+//
+// Pedido do operador: *"pode usar tons de cores em ordem para colorir os cards
+// das coleções, considerando que estarão em fundo branco… semelhante ao que já é
+// feito na janela da bíblia"*. Os oito valores e a aritmética deles moram em
+// `tokens.css`; daqui sai só o ÍNDICE.
+//
+// **QUEM RECEBE É A LINHA DE TOPO**, e essa é a decisão de desenho. A lista tem
+// duas formas ali — a SEÇÃO, que abre e contém cards, e a COLEÇÃO FIXA, que é
+// uma folha —, e as duas se leem como um cartão quando fechadas, que é o estado
+// normal (*"a Biblioteca abre com tudo fechado"*). Tingir só os cards deixava
+// dois coloridos entre cinco cinzas: lê-se como acidente, não como desenho.
+//
+// **A TINTA É SEMPRE A TAMPA, nunca o bloco** — e isso vale para as duas formas.
+// É a mesma resposta da Bíblia, e aqui ela é aritmética: o que vive DENTRO de um
+// bloco da Biblioteca (o card aninhado numa seção; a faixa e a gaveta dentro de
+// um card) foi todo medido contra `--panel-2`, e uma tinta que descesse até lá
+// apaga essas medições. MEDIDO com o card inteiro tingido: a gaveta aberta caiu
+// a 1,05:1 da faixa no tema escuro, que é a queixa da v5.287 de volta.
+// Tampa colorida, corpo neutro: a hierarquia continua legível e a escada de
+// dentro não foi tocada.
+//
+// **POSICIONAL, e o preço está dito:** a cor de uma linha muda quando alguém é
+// acrescentado acima dela. A alternativa — derivar de um id, dando a cada
+// coleção uma cor fixa para sempre — foi recusada porque o pedido é literalmente
+// *"em ordem"*: o que se vê descendo a lista é uma progressão, não um mosaico.
+/** Quantos tons a escada de cores das coleções tem (`--col-1`…`--col-8`). */
+const COL_TONS = 8;
+/** O tom da PRÓXIMA linha de topo, na passada de render em curso. */
+let colTom = 0;
+/**
+ * Carimba o tom da vez e devolve o elemento — é ele que faz "em ordem" ser a
+ * ordem de INSERÇÃO, e não a de construção: um card montado e descartado não
+ * gasta um tom.
+ */
+function tomDaVez(el) {
+  el.classList.add('col-' + (colTom++ % COL_TONS + 1));
+  return el;
+}
+
 function renderCollectionsList(alvo, redesenhar, opts) {
   // A passada é síncrona: liga a memoização de `levantarColecao`/taxa global
   // (ver "Memoização por PASSADA de render"), zerada aqui a cada redesenho.
   // O `finally` desliga mesmo se um card lançar — cache ligado fora de uma
   // passada é dado velho em diálogo de confirmação.
   cacheLevantar.clear(); cacheBpsGlobal = 0;
+  // E O CONTADOR DE TOM ZERA JUNTO, pelo mesmo motivo do cache: uma passada é
+  // uma lista inteira, e um contador que atravessasse passadas faria o mesmo
+  // álbum trocar de cor a cada redesenho — que durante um download são dois e
+  // meio por segundo.
+  colTom = 0;
   cacheColecoesAtivo = true;
   try {
     renderCollectionsListMiolo(alvo, redesenhar, opts);
@@ -8203,6 +8248,8 @@ function renderCollectionsListMiolo(alvo, redesenhar, opts) {
     // borbulharia até a barra e alternaria duas vezes, isto é, não faria nada.
     seta.addEventListener('click', (e) => { e.stopPropagation(); alternar(); });
 
+    // A SEÇÃO ganha o tom no CABEÇALHO dela (ver `tomDaVez`).
+    tomDaVez(bar);
     alvo.appendChild(li);
     if (!aberto) return null;
     if (gruposAnimar.has(text)) {
@@ -8304,7 +8351,17 @@ function renderCollectionsListMiolo(alvo, redesenhar, opts) {
     .filter((c) => byId.has(c.id));
   if (fixasNaRaiz.length) {
     any = true;
-    fixasNaRaiz.forEach((coll) => alvo.appendChild(renderCollectionCard(coll)));
+    // A COLEÇÃO FIXA é uma folha no topo, e o tom é da TAMPA dela — nunca do
+    // card inteiro. Tingir o card leva a tinta para DENTRO dele, e o que vive lá
+    // (a faixa de uma faixa, a gaveta aberta) foi medido contra `--panel-2`:
+    // MEDIDO com o card tingido, a gaveta caía a 1,05:1 da faixa no tema escuro
+    // — a queixa que a v5.287 fechou, de volta. É a mesma regra da seção.
+    fixasNaRaiz.forEach((coll) => {
+      const card = renderCollectionCard(coll);
+      const tampa = card.querySelector('.coll-bar');
+      if (tampa) tomDaVez(tampa);
+      alvo.appendChild(card);
+    });
   }
 
   for (const cat of albumCatalog.categories) {
@@ -8364,8 +8421,9 @@ function renderCollectionCard(coll, ctx) {
   li.className = 'hymnal-card';
   // (A `coll.color` do banco desenhava uma faixa lateral de 3px no cartão. Ela
   // saiu na v5.71 com as molduras: era mais uma linha vertical repetida em toda
-  // a lista. O campo continua no catálogo, de graça, se um dia a cor voltar
-  // como tinta do ícone.)
+  // a lista. Ela NÃO volta com a tinta da v1.5.7: na Bíblia a faixa carrega a
+  // informação porque o ladrilho é pequeno e a tinta é sutil; aqui o card é uma
+  // barra larga e a tinta cobre tudo.)
 
   // Uma linha só: ícone + nome/subtítulo + resumo + a coluna de ações. O card
   // deixou de ser um acordeão de manutenção — TOCAR NELE ABRE A LISTA, que é o
