@@ -311,6 +311,21 @@ checar(orfaos.length === 0,
     if (!sel || sel.startsWith('@') || excecoes.some((r) => r.test(sel))) continue;
     // Um seletor composto entra se QUALQUER uma das partes dele estiver na lista.
     if (sel.split(',').map((x) => x.trim()).some((x) => naLista.has(x))) continue;
+    // ===== O SUJEITO DE UM DESCENDENTE É O ÚLTIMO SIMPLES (v1.5.7) =====
+    // `.popup-backdrop--lib.open .popup-sheet--lib` PINTA a folha, e é a folha
+    // que os filhos leem — o recesso dela mora numa regra da classe crua, como
+    // manda a doutrina (o estado troca a tinta, não a escada). Comparar a string
+    // INTEIRA fazia o oráculo reprovar uma regra correta, e a próxima regra de
+    // estado que pintasse um cartão cairia no mesmo lugar.
+    //
+    // Isto NÃO afrouxa a asserção: o sujeito é quem hospeda os filhos, e é a
+    // superfície DELE que a R1 governa. O que continua reprovando é pintar
+    // `--panel` num bloco que, ele mesmo, não afunda em lugar nenhum.
+    const sujeito = (x) => x.trim().split(/\s+/).pop();
+    if (sel.split(',').map(sujeito).some((x) => naLista.has(x))) continue;
+    if (sel.split(',').map(sujeito).some((x) => new RegExp(
+      x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+      + '\\s*\\{[^{}]*--surface:\\s*var\\(--surface-sunk\\)').test(css))) continue;
     // OU o bloco afunda a superfície POR CONTA PRÓPRIA, numa regra dele — é o
     // caso da `.simple-conn`. O que a asserção cobra é o EFEITO (o controle
     // dentro dele afunda), não a filiação a uma lista.

@@ -1507,6 +1507,21 @@ for (const tema of ['escuro', 'claro']) {
         // A cor do TEXTO da folha, para a regra de direção abaixo. Ela é a
         // pergunta inteira: "de que lado a linha tem de ficar?".
         textoCor: getComputedStyle(folha).color,
+        // OS OITO TONS das coleções, lidos do CSS de verdade: um caso que só
+        // medisse a tinta da vez aprovaria sete tons errados. A leitura é por um
+        // nó de mentira que veste cada classe, porque a lista da fixture não tem
+        // as oito linhas.
+        tons: (() => {
+          const sonda = document.createElement('div');
+          folha.appendChild(sonda);
+          const fora = [];
+          for (let i = 1; i <= 8; i++) {
+            sonda.className = 'col-' + i;
+            fora.push(getComputedStyle(sonda).backgroundColor);
+          }
+          sonda.remove();
+          return fora;
+        })(),
         // O espaço entre duas faixas — é ele que substitui o filete.
         faixaGap: (() => {
           const ul = lista.querySelector('.coll-songs');
@@ -1537,9 +1552,44 @@ for (const tema of ['escuro', 'claro']) {
     checar(t.secaoFechada === null || t.secaoFechada === t.secao,
       '[' + tema + '] a seção tem UM fundo só, aberta ou fechada — a peça não '
       + 'troca de cor com o estado (' + t.secao + ')');
-    checar(transparente(t.barra) && transparente(t.corpo),
-      '[' + tema + '] e a barra e o corpo dela não têm fundo próprio: a seção é '
-      + 'UM bloco, não três peças costuradas (' + t.barra + ' / ' + t.corpo + ')');
+    // ===== A SEÇÃO É UM CABEÇALHO TINGIDO, E NÃO UM RETÂNGULO (v1.5.7) =====
+    //
+    // Isto REVOGA "a seção é UM bloco, não três peças costuradas" (v5.267), e a
+    // revogação é do operador: *"pode usar tons de cores em ordem para colorir
+    // os cards das coleções, considerando que estarão em fundo branco…
+    // semelhante ao que já é feito na janela da bíblia"*. Uma tampa colorida É
+    // uma peça própria — a regra antiga proibia exatamente o que o pedido pede.
+    //
+    // **O que a regra antiga protegia continua protegido, e por medição maior:**
+    // ela existia contra a v5.267, em que "a seção não tinha fundo próprio e o
+    // card tinha a cor da barra dela" — peças que não se separavam. O que entra
+    // no lugar afirma a separação DIRETAMENTE, e nos OITO tons: cada um é opaco
+    // e está a um degrau de verdade da base da janela. Uma tinta que
+    // coincidisse com a base, ou uma que não pintasse, reprova aqui.
+    checar(!transparente(t.barra) && razao(t.barra, t.folha) >= 1.28,
+      '[' + tema + '] a seção é um CABEÇALHO TINGIDO, a um degrau de verdade da '
+      + 'base da janela (' + razao(t.barra, t.folha).toFixed(2) + ':1)',
+      t.barra + ' sobre ' + t.folha);
+    // OS OITO, E CONTRA AS DUAS COISAS QUE ELES PRECISAM SEPARAR: a base da
+    // janela (≥1,28, senão a tampa some no fundo) e o CARD que a seção abre
+    // (≥1,05 — o piso dos pares que não se encostam; entre a tampa e o card há
+    // sempre a base). A segunda metade é a que a paleta errou primeiro: um tom
+    // na luminância do `--panel-2` dá 1,00:1 contra o card, e um caso que só
+    // medisse o degrau da base aprovaria a paleta inteira assim.
+    checar(t.tons && t.tons.length === 8
+      && t.tons.every((c) => !transparente(c) && razao(c, t.folha) >= 1.28),
+      '[' + tema + '] e os OITO tons passam pelo mesmo degrau da base — um caso '
+      + 'que só medisse a tinta da vez aprovaria sete tons errados',
+      JSON.stringify((t.tons || []).map((c) => razao(c, t.folha).toFixed(2))));
+    checar(t.tons && t.tons.every((c) => razao(c, t.card) >= 1.05),
+      '[' + tema + '] e nenhum dos OITO coincide com o card que a seção abre',
+      JSON.stringify((t.tons || []).map((c) => razao(c, t.card).toFixed(2))));
+    // E O CORPO CONTINUA SEM FUNDO PRÓPRIO: quem paga o degrau da tampa é ela,
+    // não o bloco inteiro. Sem esta metade, pintar a seção toda passaria na de
+    // cima e apagaria o card aninhado, que É o degrau seguinte.
+    checar(transparente(t.corpo),
+      '[' + tema + '] e o CORPO dela não pinta: o degrau é da tampa, e o que o '
+      + 'corpo hospeda é o card, que paga o seu', t.corpo);
     // O piso é o mesmo do projeto para duas superfícies grandes encostadas.
     //
     // A GUARDA DE OPACIDADE NÃO É ZELO: `lum()` lê "rgba(0, 0, 0, 0)" como
@@ -1549,10 +1599,24 @@ for (const tema of ['escuro', 'claro']) {
     // e o card tinha a cor da barra dela. Um teste que aprova o defeito que ele
     // existe para pegar é pior que teste nenhum.
     const opaco = (v) => !transparente(v) && v !== 'AUSENTE';
-    const d1 = razao(t.folha, t.secao), d2 = razao(t.secao, t.card);
-    checar(opaco(t.folha) && opaco(t.secao) && opaco(t.card) && d1 >= 1.28 && d2 >= 1.28,
-      '[' + tema + '] os três níveis PINTAM, e a escada tem degrau de verdade nos '
-      + 'dois: folha → seção → card', d1.toFixed(2) + ':1 e ' + d2.toFixed(2) + ':1');
+    // ===== A ESCADA TEM DOIS NÍVEIS AQUI, E O TERCEIRO É A TINTA (v1.5.7) =====
+    //
+    // A janela passou a pintar `--panel` (pedido: *"tom branco como base"*), e
+    // com isso tomou o degrau de cima da escada — que tem TRÊS. Sobravam dois
+    // para três coisas (janela, seção, card), e qualquer arranjo deixava duas
+    // com o mesmo tom: MEDIDO no primeiro corte deste lote, seção e card a
+    // **1,00:1**, que é o defeito da v5.241 de volta.
+    //
+    // A saída foi tirar a SEÇÃO da conta: o corpo dela é a base da janela e
+    // quem a identifica é a tampa tingida (a asserção acima). Sobram os dois
+    // níveis que de fato pintam um degrau, e é o que se mede aqui — mais o
+    // card, que continua em `--panel-2` e por isso mantém intacta toda a
+    // medição de DENTRO dele (a v1.3.14 registra o que acontece quando ele
+    // sobe: a gaveta cai a 1,26:1, abaixo do piso).
+    const d2 = razao(t.folha, t.card);
+    checar(opaco(t.folha) && opaco(t.card) && d2 >= 1.28,
+      '[' + tema + '] a base da janela e o card PINTAM, com degrau de verdade '
+      + 'entre eles', d2.toFixed(2) + ':1');
     // ...e NENHUM par de níveis pode coincidir, adjacente ou não — o "avô com a
     // cor do neto" é o defeito que a alternância de dois tons produzia por
     // construção, e ele reapareceria numa refatoração que voltasse a ela.
@@ -1566,10 +1630,13 @@ for (const tema of ['escuro', 'claro']) {
     // NUNCA se encostam: entre eles há sempre a moldura branca da seção. Exigir
     // monotonia aqui reprovaria um desenho correto (verificado: foi o que a
     // primeira versão deste caso fez).
-    const dPula = razao(t.folha, t.card);
+    // E NENHUM PAR COINCIDE — agora o par que se pula é a TAMPA contra o CARD, os
+    // dois blocos que de fato aparecem juntos numa seção aberta. (Era folha ×
+    // card, que com a seção fora da conta virou o par medido logo acima.)
+    const dPula = razao(t.barra, t.card);
     checar(opaco(t.card) && dPula >= 1.05,
-      '[' + tema + '] e nenhum par de níveis coincide — nem os que se pulam',
-      'folha × card ' + dPula.toFixed(2) + ':1');
+      '[' + tema + '] e a tampa não coincide com o card que ela abre',
+      'tampa × card ' + dPula.toFixed(2) + ':1');
     // v5.271: a faixa GANHOU preenchimento. A v5.267 tirou o filete e pôs o
     // espaço no lugar, mas deixou a faixa sem fundo — e um vão da mesma cor dos
     // dois lados não separa nada, que foi o relato do operador ("os itens ficam

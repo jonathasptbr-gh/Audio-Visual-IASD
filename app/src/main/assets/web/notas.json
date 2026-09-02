@@ -1,5 +1,14 @@
 [
   {
+    "versao": "1.5.7",
+    "itens": [
+      "A Biblioteca ganhou cantos curvos e fundo claro, como as janelas de Bíblia e Ferramentas.",
+      "E deixou de encostar nos controles: dá para ver onde a lista acaba.",
+      "As coleções ganharam cores em ordem, como os livros da Bíblia.",
+      "A borda da caixa de busca ficou mais encorpada."
+    ]
+  },
+  {
     "versao": "1.5.6",
     "itens": [
       "A barra de busca deixou de aparecer por cima das configurações e da playlist.",

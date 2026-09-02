@@ -171,6 +171,11 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
      sobre a largura inteira da tela), logo a mesma largura de conteúdo. É o
      oráculo que prende essa condição, medindo o RENDERIZADO. */
   --deck-col: calc((100% - 6 * var(--deck-gap)) / 7);
+  /* A FRESTA ENTRE A JANELA DA BIBLIOTECA E OS CONTROLES (v1.5.7). Medida de
+     layout, então mora aqui e não em tokens.css (lá só entra cor). Pequena de
+     propósito: o que ela precisa fazer é dizer onde a lista ACABA, e uma faixa
+     larga viraria uma margem — a janela é grande e o que sobra dela é lista. */
+  --lib-fresta: 8px;
 
 
   /* Altura das duas barras de ação da aba Ferramentas (`.mic-btn` e
@@ -321,13 +326,43 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
 .popup-sheet, .dialog-card, .simple-conn { --camada: var(--panel-2); }
 .coll-group-corpo { --camada: var(--panel-2); }
 .coll-songs { --camada: transparent; }
-/* A JANELA DA BIBLIOTECA pinta `--bg` por dentro (ver `.popup-sheet--lib`): ela
-   é uma tela por dentro, mesmo sendo uma janela por fora. Logo o nível de
-   dentro volta a ser o 1 e os controles voltam a FLUTUAR, desfazendo a inversão
-   que `.popup-sheet` acabou de aplicar. Sem esta segunda metade, um botão da
-   Biblioteca ficaria com recesso de cartão sobre fundo de página. */
+/* ---------- A JANELA DA BIBLIOTECA PASSOU A SER UM CARTÃO (v1.5.7) ----------
+   Ela pintava `--bg` por dentro — "uma tela por dentro, mesmo sendo uma janela
+   por fora" —, e o nível de dentro voltava ao 1 com os controles FLUTUANDO. Com
+   `--panel` (pedido do operador: *"bordas curvas e tom branco como base"*) ela
+   virou o que a `.tools-sheet` sempre foi: um CARTÃO. Logo o nível de dentro é o
+   2, e a superfície de um controle AFUNDA — que é a regra R1, e o
+   `tokens.test.mjs` a cobra de todo bloco que pinta `--panel`. */
 .popup-sheet--lib {
+  /* ===== E A JANELA NÃO GASTA UM DEGRAU (v1.5.7) =====
+     `--camada: var(--panel)` — o MESMO tom que ela pinta, e isso é deliberado:
+     um bloco filho dela some contra o fundo, **e é assim que a lista passou a
+     ser desenhada**. Com os cabeçalhos das seções TINGIDOS (ver `--col-*`), o
+     que identifica uma seção deixou de ser o retângulo dela e passou a ser a
+     cor da tampa; o corpo é a base da janela, e os cards dentro dele são os
+     únicos blocos que ainda pintam um degrau (`--panel-2`).
+
+     **A alternativa era impossível, e vale escrita:** a escada tem três degraus
+     e a janela acabou de tomar o de cima (era `--bg`, virou `--panel` a pedido
+     do operador). Sobravam dois para três coisas — janela, seção e card —, e
+     qualquer arranjo deixava duas delas com o mesmo tom. Foi o que a asserção da
+     escada mediu no primeiro corte deste lote: seção e card a **1,00:1**. Tirar
+     a seção da conta devolve os dois degraus para quem precisa deles. */
   --camada: var(--panel);
+  --surface: var(--surface-sunk);
+  --surface-2: var(--surface-2-sunk);
+}
+/* ---------- MENOS A BARRA, QUE É DA CAIXA DE CONTROLES ----------
+   Ela mora DENTRO da folha e por isso herdaria o recesso acima — mas o lugar de
+   repouso dela é a `.bottombar`, e desde a v1.5.5 os dois quadrados dela têm de
+   vestir o tom EXATO do `.t-btn` que fica logo abaixo (relato do operador:
+   *"os botões dessa seção de controles são cinzas com preto"*). No tema escuro
+   aquele tom é a superfície FLUTUANTE, e o recesso a deixaria mais escura que a
+   caixa em que ela pousa — a barra seria a única linha da caixa com um tom que
+   não é o das vizinhas, que é literalmente o que a v1.5.2 veio corrigir.
+   No tema CLARO ela continua afundando, pela aritmética do `--bar` branco (a
+   regra logo abaixo, que agora reafirma o que a folha já dá). */
+.lib-bar {
   --surface: var(--surface-alta);
   --surface-2: var(--surface-2-alta);
 }
@@ -3810,6 +3845,37 @@ main {
 .bg-gerais     { background-color: var(--b-gerais); }     /* Cartas Gerais   */
 .bg-apocalipse { background-color: var(--b-apocalipse); } /* Apocalipse      */
 
+/* ---------- E OS OITO TONS DAS COLEÇÕES (v1.5.7) ----------
+   A mesma gramática dos ladrilhos acima, num eixo diferente: lá a cor é
+   SEMÂNTICA (a divisão canônica), aqui é POSICIONAL — a ordem em que os cards
+   aparecem na Biblioteca. Os nomes são montados por concatenação no JS
+   (`'col-' + n`), então NÃO aparecem literais fora daqui: não são código morto.
+
+   `background-color` e não `background`, pela mesma razão do bloco acima: a
+   abreviação apagaria o que more no `background-image` do card.
+
+   ELES VENCEM O `--camada` do card por ESPECIFICIDADE (duas classes contra
+   uma), e é assim que a regra de tom do `.hymnal-card` continua de pé para quem
+   nasce fora da Biblioteca — um card sem `col-N` cai no `--panel-2` de sempre. */
+.col-1 { background-color: var(--col-1); }
+.col-2 { background-color: var(--col-2); }
+.col-3 { background-color: var(--col-3); }
+.col-4 { background-color: var(--col-4); }
+.col-5 { background-color: var(--col-5); }
+.col-6 { background-color: var(--col-6); }
+.col-7 { background-color: var(--col-7); }
+.col-8 { background-color: var(--col-8); }
+/* ---------- E O CABEÇALHO DA SEÇÃO ACOMPANHA O RAIO DO BLOCO ----------
+   Ele é o primeiro filho de um `<li>` arredondado e vai de lado a lado: sem
+   isto, a tinta sai quadrada por baixo dos cantos curvos. FECHADA a barra É a
+   linha inteira, e o raio é dos quatro cantos; ABERTA ela é a tampa, e só os de
+   cima curvam. (`overflow: hidden` no `<li>` resolveria os dois de uma vez e
+   custaria caro: aquele bloco hospeda a lista que rola.) */
+.coll-group-bar,
+.hymnal-card > .coll-bar { border-radius: var(--radius-card) var(--radius-card) 0 0; }
+.coll-group--drop:not(.aberto) .coll-group-bar,
+.hymnal-card:not(.expanded) > .coll-bar { border-radius: var(--radius-card); }
+
 /* ---------- Bíblia: tela de leitura (versículo anterior/atual/próximo) ---------- */
 /* A leitura cabe na tela SEM SCROLL: as quatro seções repartem entre si a
    altura que sobra depois do rodapé. Nada de altura fixa nem de rolagem — o
@@ -4539,10 +4605,26 @@ main {
      sob a barra de status, e sem descontar o mesmo tanto da altura a última
      linha da lista terminaria fora do recorte. */
   height: calc(100% - var(--sa-topo));
-  /* SEM RAIO: ela é uma tela cheia, e cantos arredondados anunciam "há algo
-     atrás". Aqui não há — e a barra, que é a cabeça dela, é uma faixa de lado a
-     lado. */
+  /* ===== ELA É UMA JANELA, E PASSOU A PARECER UMA (v1.5.7) =====
+     Pedido do operador: *"ajuste o design da janela da biblioteca para que ela
+     se assemelhe ao design das janelas de bíblia e ferramentas. bordas curvas e
+     tom branco como base"*.
+
+     Ela nasceu SEM raio e sobre `--bg` porque se apresentava como uma tela
+     cheia, e cantos arredondados anunciam "há algo atrás". **Desde a v1.5.4 há**
+     — a janela termina na linha da barra e a caixa de controles fica à vista por
+     baixo —, então o raio deixou de mentir e passou a dizer a verdade que já
+     estava na tela. `--radius-card` e `--panel` são os mesmos valores da
+     `.tools-sheet`, que é o molde que o pedido nomeia.
+
+     O RAIO SÓ VALE ABERTA (ver a regra `.open`): fechada, o que fica à vista é a
+     BARRA, e ela é uma linha da caixa de controles — um cartão em volta dela é o
+     "zoneamento" que a v1.5.2 veio tirar. */
   border-radius: 0;
+  /* E O RECORTE DOS CANTOS. A barra é o primeiro filho e vai de lado a lado: sem
+     ele, os cantos de cima ficariam quadrados dentro de uma folha arredondada.
+     Seguro porque quem rola é a `.popup-list`, que tem `overflow-y` próprio. */
+  overflow: hidden;
   /* ---------- ELA É UMA TELA POR DENTRO, ENTÃO É O NÍVEL 0 (v5.267) ----------
      Aberta ela pinta `--bg` (ver a regra `.open` abaixo) e não `--panel`: a
      Biblioteca abre a escada inteira lá dentro — página → seção → álbum —, e
@@ -4626,7 +4708,24 @@ body.lib-pronta { --lib-anim: var(--pop-anim); }
   /* O DESTINO É A ÁREA SEGURA, não o zero: é ela que põe a barra logo abaixo
      da barra de status sem existir como recuo no meio da animação. */
   transform: translateY(var(--sa-topo));
-  background: var(--bg);
+  background: var(--panel);
+  border-radius: var(--radius-card);
+  /* ===== E ELA NÃO ENCOSTA NOS CONTROLES (v1.5.7) =====
+     Pedido do operador: *"ajustando também para que haja uma pequena margem em
+     relação aos controles quando no modo aberta, pois hoje ela fica com a base
+     'fundida' dificultando a percepção de até onde vai a lista da biblioteca"*.
+
+     A janela termina na LINHA DA BARRA desde a v1.5.4, e "termina na linha" é
+     literal: a última faixa da lista encostava na primeira linha de controles,
+     sem nada entre as duas. Encurtar a folha abre a fresta, e o que aparece nela
+     é o SCRIM da camada (o `::before`, que já cobre a região inteira) — não uma
+     cor nova, e é por isso que a fresta se lê como "aqui acaba a janela" em vez
+     de como mais uma faixa.
+
+     Ela sai da ALTURA e não de um `bottom`: a folha é ancorada no topo
+     (`inset: 0` + `height`), e é do topo que a barra parte. Um `bottom` moveria
+     a origem da translação junto. */
+  height: calc(100% - var(--sa-topo) - var(--lib-fresta));
   transition-delay: 0s, 0s;
 }
 /* NO MODO FÁCIL A BARRA NÃO FICA À VISTA, e a razão é a mesma que esconde a
@@ -5160,9 +5259,14 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
   /* A ÚNICA BORDA DO APP. Ela é NOMEADA no `tokens.test.mjs`, ao lado dos dois
      DESENHOS que já passavam — a lista de exceções é escrita à mão de propósito,
      porque uma heurística deixaria a próxima entrar chamando-se exceção. */
-  border: 1px solid var(--field-borda);
+  /* DOIS PIXELS (v1.5.7), a pedido do operador: *"engrosse a borda da caixa de
+     texto da busca, para ficar mais encorpado (não aumente as dimensões da
+     caixa, só a área da borda internamente)"*. É o `border-box` logo abaixo que
+     torna o pedido literal possível: a caixa continua medindo `--campo-alt`
+     cravado e o traço cresce PARA DENTRO, comendo do recuo do texto. */
+  border: 2px solid var(--field-borda);
   /* O `border-box` é o que impede a borda de crescer a linha: sem ele o campo
-     passa a medir `--campo-alt` + 2px e fica 1px mais alto que os quadrados ao
+     passa a medir `--campo-alt` + a borda e fica mais alto que os quadrados ao
      lado, que continuam vestindo a medida crua. */
   box-sizing: border-box;
 }

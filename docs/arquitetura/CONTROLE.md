@@ -2549,6 +2549,65 @@ modo.**
   instante — os dois discordariam durante a subida do teclado, que é justamente
   quando a regra vale.
 
+#### Ela é uma JANELA, e passou a parecer uma (v1.5.7)
+
+*"ajuste o design da janela da biblioteca para que ela se assemelhe ao design das
+janelas de bíblia e ferramentas. bordas curvas e tom branco como base"* ·
+*"ajustando também para que haja uma pequena margem em relação aos controles
+quando no modo aberta, pois hoje ela fica com a base 'fundida' dificultando a
+percepção de até onde vai a lista da biblioteca"*.
+
+`--panel` e `--radius-card`, os MESMOS valores da `.tools-sheet` — o molde que o
+pedido nomeia, e é contra ele que o oráculo mede (um literal copiado para o teste
+envelheceria na primeira troca de paleta, e envelheceria parecendo certo).
+
+- **O raio só vale ABERTA.** Fechada, o que fica à vista é a BARRA, e ela é uma
+  linha da caixa de controles: um cartão em volta dela é o "zoneamento" que a
+  v1.5.2 veio tirar. A folha nasceu sem raio porque se apresentava como tela
+  cheia, e cantos curvos anunciam "há algo atrás" — **desde a v1.5.4 há**, e o
+  raio deixou de mentir.
+- **A FRESTA sai da ALTURA**, não de um `bottom`: a folha é ancorada no topo, e é
+  do topo que a barra parte. O que aparece nela é o SCRIM da camada, e não uma
+  cor nova — é por isso que ela se lê como "aqui acaba a janela".
+- **`overflow: hidden` na folha**, senão a barra (primeiro filho, de lado a lado)
+  sai quadrada por baixo dos cantos curvos. Seguro porque quem rola é a
+  `.popup-list`.
+
+#### As coleções ganharam cor, e a cor é da TAMPA (v1.5.7)
+
+*"pode usar tons de cores em ordem para colorir os cards das coleções,
+considerando que estarão em fundo branco… semelhante ao que já é feito na janela
+da bíblia"*.
+
+Oito tons (`--col-1`…`--col-8`), carimbados na ORDEM de inserção das linhas de
+topo. O raciocínio da paleta — as quatro restrições de luminância que ela resolve
+de uma vez — está em `tokens.css`; aqui ficam as decisões de estrutura.
+
+- **QUEM RECEBE É A LINHA DE TOPO**, e não "os cards". A lista tem duas formas
+  ali — a SEÇÃO, que abre e contém cards, e a COLEÇÃO FIXA, que é folha —, e as
+  duas se leem como um cartão quando fechadas, que é o estado normal. Tingir só
+  os cards deixava dois coloridos entre cinco cinzas: lê-se como acidente, não
+  como desenho.
+- **A TINTA É SEMPRE A TAMPA, nunca o bloco**, e isso vale para as duas formas.
+  Tudo que vive DENTRO de um bloco da Biblioteca — o card aninhado numa seção, a
+  faixa e a gaveta dentro de um card — foi medido contra `--panel-2`, e uma tinta
+  que descesse até lá apaga essas medições: MEDIDO com o card inteiro tingido, a
+  gaveta caiu a **1,05:1** da faixa no tema escuro, que é a queixa da v5.287 de
+  volta.
+- **ISTO REVOGA "a seção é UM bloco, não três peças costuradas"** (v5.267): uma
+  tampa colorida É uma peça própria, e a regra antiga proibia exatamente o que o
+  pedido pede. O que ela protegia continua protegido, e por medição MAIOR — o
+  oráculo afirma a separação diretamente, nos oito tons e contra as duas coisas
+  que eles precisam separar (a base e o card).
+- **POSICIONAL, e o preço está dito:** a cor de uma linha muda quando alguém é
+  acrescentado acima dela. Derivar de um id daria cor fixa para sempre, e foi
+  recusado porque o pedido é literalmente *"em ordem"* — o que se vê descendo a
+  lista é uma progressão, não um mosaico.
+- **O contador é da PASSADA** (zerado em `renderCollectionsList`, junto do cache):
+  a lista é redesenhada a cada 400 ms durante um download, e um contador que
+  atravessasse passadas faria a mesma coleção piscar de cor duas vezes e meia por
+  segundo.
+
 #### O campo se limpa AO FECHAR (v1.5.6)
 
 *"ela está mantendo a palavra de filtro após ser fechada e limpando apenas quando
