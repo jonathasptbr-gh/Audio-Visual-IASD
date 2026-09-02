@@ -116,9 +116,14 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
   --fader-cap: 26px;
   --hit-nav: 38px;
   --hit-foot: 44px;
-  /* A LINHA DA BUSCA DA BIBLIOTECA: a altura do campo e o LADO do botão de
-     fechar, que é quadrado. Um número para as duas peças — ver
-     `#hymnSearchClose` para por que `aspect-ratio` não serve dentro de um flex. */
+  /* A LINHA DA BUSCA DA BIBLIOTECA: a ALTURA de tudo que mora nela — o campo e
+     os dois quadrados ao lado. Um número para as três peças, porque quem manda
+     na linha é o campo e uma altura por peça divergiria dele no primeiro ajuste
+     de padding ou de fonte.
+     Ela FOI TAMBÉM O LADO dos quadrados (v5.277 → v1.5.4). A LARGURA deles saiu
+     daqui na v1.5.5 e virou `--deck-col`, a coluna da grade do transporte:
+     pedido do operador, e as duas coisas não podiam valer juntas — um lado fixo
+     não alinha com uma grade proporcional. */
   --campo-alt: 40px;
   /* O TEMPO DA JANELA DA BIBLIOTECA (v1.5.0). Ele viajava como `var(--pop-anim,
      .28s)` em dois lugares e NUNCA foi definido — um `var()` que só existe pelo
@@ -153,6 +158,19 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
      que tinham três valores (.6rem, .45rem e .35rem), e o olho lia o resultado
      como um botão fora do lugar. Ver "Um vão só" em controle.css. */
   --deck-gap: .35rem;
+  /* ===== E A COLUNA DELE TAMBÉM MORA AQUI (v1.5.5) =====
+     Sete colunas com seis vãos. Ela era declarada no próprio `.deck` e subiu
+     porque ganhou um consumidor FORA dele: os dois quadrados da barra da
+     Biblioteca, que precisam da largura do botão de baixo (pedido do operador) e
+     não são descendentes do deck. Repetir a fórmula lá seria a sincronização
+     manual que este projeto recusa — e ela erraria calada, porque o desalinhamento
+     de dois pixels não aparece em teste de comportamento nenhum.
+
+     O `100%` resolve contra a caixa de CONTEÚDO de quem a usa, e é isso que a
+     torna transportável: os dois contêineres têm o mesmo recuo lateral (.7rem
+     sobre a largura inteira da tela), logo a mesma largura de conteúdo. É o
+     oráculo que prende essa condição, medindo o RENDERIZADO. */
+  --deck-col: calc((100% - 6 * var(--deck-gap)) / 7);
 
 
   /* Altura das duas barras de ação da aba Ferramentas (`.mic-btn` e
@@ -578,7 +596,8 @@ body {
   grid-template-columns: var(--deck-col) minmax(0, 1fr) var(--deck-col);
   grid-template-rows: auto auto auto;
   gap: var(--deck-gap);
-  --deck-col: calc((100% - 6 * var(--deck-gap)) / 7);
+  /* (`--deck-col` mora no `:root` desde a v1.5.5 — a barra da Biblioteca a usa
+     e não é descendente daqui. Nada muda para quem já a lia: ela inerte.) */
 }
 /* `min-width: 0` pelo mesmo motivo, agora nos itens: sem isso cada um deles
    se recusaria a encolher abaixo do próprio min-content dentro da faixa. */
@@ -5002,7 +5021,28 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
      `--campo-alt` é a altura do campo E o lado do quadrado, e é dele que as
      duas peças da linha partem. Um valor por peça é a sincronização manual que
      este projeto recusa; um valor para as duas é a medida da linha. */
-  width: var(--campo-alt); height: var(--campo-alt); flex-shrink: 0;
+  /* ===== A LARGURA É A DA GRADE DO DECK (v1.5.5) =====
+     Pedido do operador: *"verifique os botões de abrir biblioteca e playlist
+     automática, para que tenham suas larguras alinhadas a grade dos botões do
+     próprio controle logo abaixo"*.
+
+     **Isto revoga o QUADRADO da v5.277** (*"ele deve ser um botão quadrado"*), e
+     revoga porque as duas coisas não podem valer juntas: o lado do quadrado era
+     `--campo-alt`, um valor FIXO, e a coluna do transporte é PROPORCIONAL —
+     MEDIDO, 53,4px a 430px e 43,4px a 360px contra os 40 fixos. Uma medida fixa
+     não alinha com uma grade proporcional em largura nenhuma; ela acerta por
+     acidente numa e erra em todas as outras.
+
+     `--deck-col` é a MESMA conta que desenha as colunas do deck, e ela subiu
+     para o `:root` neste lote justamente para caber aqui — a barra não é
+     descendente do `.deck`, e repetir a fórmula seria a sincronização manual que
+     este projeto recusa. O `100%` dela resolve contra a caixa de conteúdo de
+     quem a usa, e as duas caixas têm a mesma largura por construção: a barra e a
+     `.bottombar` têm o MESMO recuo lateral (.7rem). O oráculo mede a largura
+     RENDERIZADA contra a do botão de baixo, nunca a fórmula.
+
+     A ALTURA continua sendo a do campo: quem manda na linha é ele. */
+  width: var(--deck-col); height: var(--campo-alt); flex-shrink: 0;
   border-radius: var(--radius-btn);
   /* O TOM DOS BOTÕES DO CONTROLE (v1.5.2): `--surface`, o mesmo do `.t-btn` e
      do `.ctl-btn` que ficam logo abaixo. Eles vestiam `--field-bg` (branco
@@ -5013,52 +5053,59 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
      para separar branco de branco no tema claro, e não há mais branco. */
   background: var(--surface); color: var(--text);
 }
-/* O ✕ FECHA e a playlist automática FAZ: numa barra de quadrados iguais o que
-   os distingue é a cor, e é essa a distinção que importa.
+/* ---------- OS DOIS SÃO BOTÕES DO CONTROLE, E MAIS NADA (v1.5.5) ----------
+   Relato do operador: *"o botão de playlist automática está com botão cinza e
+   ícone azulado, mas os botões dessa seção de controles são cinzas com preto …
+   o mesmo para o botão de abrir biblioteca, que está um botão azul, ele deve ser
+   o mesmo botão cinza dos controles"*.
 
-   `--accent` DE VOLTA (v1.5.2): ele foi `--field-accent` enquanto o botão era
-   branco literal — uma superfície SEM TEMA, sobre a qual o acento do tema
-   escuro mede 2,06:1. Com o botão vestindo `--surface`, a superfície TEM tema
-   outra vez, e o acento do tema é o token certo. */
-#sorteioBtn { color: var(--accent); }
-/* E O ALTERNADOR É A AÇÃO DA LINHA: `--btn-accent` sob o traço `--accent`, o
-   mesmo par do `#repeat.active` do transporte. Ele vem DEPOIS da receita
-   compartilhada de propósito — mesma especificidade (um ID), disputa resolvida
-   pela ordem. Ver o bloco do `.lib-toggle` lá em cima. */
-#hymnSearchToggle { background: var(--btn-accent); color: var(--accent); }
-/* ---------- E O CAMPO DEIXOU DE SER BRANCO (v1.5.2) ----------
-   `--surface`, o MESMO tom dos quadrados ao lado e dos botões do transporte
-   logo abaixo — que é o pedido ao pé da letra (*"apenas os botões e a caixa de
-   texto do mesmo tom que os botões do controle"*). O que separa o campo dos
-   botões deixa de ser o tom e passa a ser a forma: ele é o largo da linha, e
-   tem a lupa dentro.
+   Os dois PERDERAM a regra própria: o que vale é a receita compartilhada acima
+   (`--surface` sob `--text`), que é literalmente o `.t-btn` do transporte. A
+   linha deixa de ter cor nenhuma — o que distingue os dois é o DESENHO, que é a
+   gramática do resto do app (a estrela que enche, o `+` que vira `✓`).
 
-   E NÃO `--surface-2`, que é a receita de campo que a `.lib-search` declara
-   para a folha do sorteio: MEDIDO, o placeholder (`--muted`) sobre ela dá
-   **4,21:1** no escuro e **4,15:1** no claro — abaixo de AA nos dois. Sobre
-   `--surface` ele dá **5,15:1** e **4,82:1**. O tom que o pedido escolheu é
-   também o que passa, e essa coincidência é a razão de a medida estar
-   escrita aqui: quem trocar de volta vai ver os dois números.
-   (O texto digitado dá 7,36:1 e 6,42:1; o acento do glifo sobre o `--btn-accent`
-   do alternador, 5,37:1 e 6,37:1.)
+   **O que sai, e por que sair está certo:** o `#sorteioBtn` tinha `--accent`
+   desde a v5.303 (*"numa barra de quadrados iguais o que os distingue é a
+   cor"*) e o `#hymnSearchToggle` tinha `--btn-accent` desde a v1.5.2 (*"ele é a
+   AÇÃO da linha"*). O argumento dos dois era sobre a barra olhada SOZINHA; ela
+   não está sozinha — mora colada na caixa de controles, e ali seis botões
+   iguais dizem que aceso quer dizer LIGADO (o `#repeat.active`). Dois acesos em
+   permanência a dois centímetros deles ensinam a não confiar no sinal. */
+/* ---------- E O CAMPO VOLTOU A SER BRANCO, COM BORDA (v1.5.5) ----------
+   Pedido do operador: *"abra uma única exceção ao conceito de sem bordas do app,
+   para poder fazer a caixa de texto da busca para que seja branca com a borda em
+   cinza"*.
 
-   Ele foi branco literal (`--field-*`, os tokens SEM TEMA) da v5.267 até aqui, e
-   a razão morreu com a faixa: era a única peça em que se DIGITA, sobre uma
-   superfície própria que a destacava. As três cores de dentro (texto,
-   placeholder e lupa) voltam junto ao tema — elas eram `--field-*` porque o
-   fundo era.
+   Ele foi branco (`--field-*`, os tokens SEM TEMA) da v5.267 à v1.5.1, e a
+   v1.5.2 o trouxe para `--surface` junto com a saída da faixa `--field-bar` —
+   o pedido daquele lote era o TOM DOS BOTÕES para a barra inteira. Este lote
+   separa as duas coisas: os quadrados são botões e ficam no tom dos botões (a
+   regra logo acima); o campo é onde se DIGITA, e volta a ter superfície própria.
 
-   E A ELEVAÇÃO SAI COM ELE: a sombra existia para separar branco de branco no
-   tema claro. O que separa agora é o degrau de tom, que é o mesmo que separa os
-   botões do transporte da caixa em que eles moram.
+   **É A BORDA QUE TORNA O BRANCO POSSÍVEL OUTRA VEZ, e é por isso que o pedido
+   traz as duas juntas.** No tema CLARO `--bar` é branco: campo branco sobre
+   barra branca é **1,00:1**, e sem contorno a caixa de texto simplesmente não
+   existe. Foi essa aritmética que criou o `--field-bar` na v5.270 (uma FAIXA
+   atrás do campo) e foi ela que voltou quando a faixa saiu. A borda resolve o
+   mesmo problema sem trazer a faixa de volta — que é o que o operador recusou.
 
-   **O que se perde, dito:** num salão escuro o campo deixa de ser o retângulo
-   mais luminoso da tela — o que, para uma peça que fica à vista o culto inteiro
-   na base do app, é ganho, não perda. O argumento do branco continua de pé onde
-   ele nasceu (o `.sorteio-campo`, que só existe com a folha aberta). */
-#hymnSearchInput { background: var(--surface); }
-#hymnSearchInput::placeholder { color: var(--muted); }
-.lib-bar .lib-search-lupa { color: var(--muted); }
+   **UMA SUPERFÍCIE SEM TEMA ARRASTA O QUE VIVE DENTRO DELA**, e o meio-conserto
+   aqui é apagar o que se digita: no escuro `--text` sobre branco dá **1,17:1** e
+   `--muted`, 1,74:1. As três voltam para os `--field-*` junto com o fundo, que é
+   a mesma regra do palco num lugar pequeno. */
+#hymnSearchInput {
+  background: var(--field-bg); color: var(--field-text);
+  /* A ÚNICA BORDA DO APP. Ela é NOMEADA no `tokens.test.mjs`, ao lado dos dois
+     DESENHOS que já passavam — a lista de exceções é escrita à mão de propósito,
+     porque uma heurística deixaria a próxima entrar chamando-se exceção. */
+  border: 1px solid var(--field-borda);
+  /* O `border-box` é o que impede a borda de crescer a linha: sem ele o campo
+     passa a medir `--campo-alt` + 2px e fica 1px mais alto que os quadrados ao
+     lado, que continuam vestindo a medida crua. */
+  box-sizing: border-box;
+}
+#hymnSearchInput::placeholder { color: var(--field-muted); }
+.lib-bar .lib-search-lupa { color: var(--field-muted); }
 /* Resultado: linha compacta [▶] [nome / subtítulo] [+]. Dois botões, cada um
    abrindo a folha com as três coisas que ele faz (ver hymnResultRow); o toque
    na linha continua abrindo a letra. A lista precisa ser legível de relance no

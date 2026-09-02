@@ -219,7 +219,39 @@ try {
         const e = document.elementFromPoint(Math.round(rb.left + rb.width / 2), Math.round(y));
         return !!e && folha.contains(e);
       };
+      // ===== A LARGURA DOS DOIS QUADRADOS É A DA GRADE DE BAIXO (v1.5.5) =====
+      // Pedido do operador: *"verifique os botões de abrir biblioteca e playlist
+      // automática, para que tenham suas larguras alinhadas a grade dos botões
+      // do próprio controle logo abaixo"*.
+      //
+      // **É AQUI que este caso mora, e não no `smoke`:** a coluna do transporte
+      // é PROPORCIONAL (`--deck-col`, sete colunas da largura da caixa) e a
+      // largura antiga era FIXA (`--campo-alt`, 40px). Uma medida fixa alinha
+      // com uma grade proporcional em UMA largura de tela — por acidente — e
+      // erra em todas as outras: MEDIDO, a coluna dá 53,4px a 430px e 43,4px a
+      // 360px. Um oráculo de uma tela só não distingue as duas coisas.
+      //
+      // A régua é o botão RENDERIZADO, nunca a fórmula: as duas caixas resolvem
+      // o `100%` de `--deck-col` contra contêineres diferentes, e o que garante
+      // que dê no mesmo é o recuo lateral ser o mesmo — uma condição de layout,
+      // que só uma medida prende.
+      const btn = document.querySelector('.transport .t-btn');
+      const lb = btn.getBoundingClientRect();
+      const sorteio = document.getElementById('sorteioBtn').getBoundingClientRect();
+      const alternador = document.getElementById('hymnSearchToggle').getBoundingClientRect();
+      const ultimo = [...document.querySelectorAll('.deck > *')]
+        .map((e) => e.getBoundingClientRect())
+        .reduce((a, b) => (b.right > a.right ? b : a));
+      const grade = {
+        coluna: Math.round(lb.width * 10) / 10,
+        sorteio: Math.round(sorteio.width * 10) / 10,
+        alternador: Math.round(alternador.width * 10) / 10,
+        // E AS PONTAS: largura igual não basta se a linha começar noutro lugar.
+        esquerdas: Math.abs(sorteio.left - lb.left) <= 1,
+        direitas: Math.abs(alternador.right - ultimo.right) <= 1,
+      };
       return {
+        grade,
         barra: [Math.round(rb.top), Math.round(rb.bottom)],
         caixa: [Math.round(rc.top), Math.round(rc.bottom)],
         alinhada: Math.round(rb.top) === Math.round(rc.top),
@@ -247,6 +279,14 @@ try {
       '[' + tela.nome + '] NO MEIO do movimento nada viaja acima da barra — a '
       + 'área segura é o DESTINO da abertura, não um recuo que acompanha a '
       + 'coluna (v1.5.4)', JSON.stringify(m.noMeio));
+    checar(Math.abs(m.grade.sorteio - m.grade.coluna) <= 1
+      && Math.abs(m.grade.alternador - m.grade.coluna) <= 1,
+      '[' + tela.nome + '] os dois quadrados têm a LARGURA da coluna do '
+      + 'transporte — a grade é proporcional, e uma medida fixa só acerta numa '
+      + 'largura de tela (v1.5.5)', JSON.stringify(m.grade));
+    checar(m.grade.esquerdas && m.grade.direitas,
+      '[' + tela.nome + '] e as PONTAS batem: a linha começa e acaba onde a '
+      + 'fileira de baixo começa e acaba', JSON.stringify(m.grade));
     checar(m.aberta.controles === 'o app',
       '[' + tela.nome + '] e ABERTA ela não cobre os controles: a janela vai do '
       + 'topo até a linha da barra, e fora do recorte não há camada',

@@ -2424,21 +2424,54 @@ encabeça.
 cinza/azul que tem atrás da barra de buscas"*. A superfície própria
 (`--field-bar`, v5.270) existia porque o campo era BRANCO nos dois temas — e
 campo branco sobre a caixa de controles branca do tema claro dá **1,00:1**. O
-conserto de agora resolve o mesmo problema pelo outro lado: **o campo deixou de
-ser branco.** Ele e os quadrados vestem `--surface`, o tom exato do `.t-btn` do
-transporte, e duas peças da mesma caixa com a mesma receita não precisam de uma
-faixa que as separe do resto. O token `--field-bar` saiu do `tokens.css` com o
-último consumidor.
+token saiu do `tokens.css` com o último consumidor.
 
-- **`--surface` e não `--surface-2`** (a receita de campo que a `.lib-search`
-  declara para a folha do sorteio): MEDIDO, o placeholder sobre ela dá 4,21:1 no
-  escuro e 4,15:1 no claro — abaixo de AA nos dois; sobre `--surface` dá 5,15:1 e
-  4,82:1. *O tom que o pedido escolheu é também o que passa.*
-- **O ALTERNADOR fica de fora da regra**: ele é a AÇÃO da linha
-  (`--btn-accent`/`--accent`), a mesma gramática do `#repeat.active` — a fileira
-  do transporte também tem um botão aceso entre seis do tom comum. A regra que o
-  pinta mora DEPOIS da receita compartilhada dos dois quadrados: as duas são
-  seletores de ID, e enquanto a dele era uma classe ela perdia em silêncio.
+**E AS TRÊS PEÇAS DELA FORAM AJUSTADAS UMA VEZ MAIS** (v1.5.5). Os quadrados
+viraram botões do controle sem ressalva; o campo voltou a ser branco, agora com
+borda. É a mesma pergunta da v1.5.2 respondida com mais precisão: aquele lote
+levou a barra INTEIRA para o tom dos botões, e o campo não é um botão.
+
+- **OS DOIS QUADRADOS SÃO O `.t-btn`, E NADA ALÉM DELE.** Relato do operador:
+  *"o botão de playlist automática está com botão cinza e ícone azulado, mas os
+  botões dessa seção de controles são cinzas com preto … o mesmo para o botão de
+  abrir biblioteca, que está um botão azul"*. Os dois perderam a regra própria —
+  o `#sorteioBtn` tinha `--accent` desde a v5.303 (*"numa barra de quadrados
+  iguais o que os distingue é a cor"*) e o `#hymnSearchToggle` tinha
+  `--btn-accent` desde a v1.5.2 (*"ele é a AÇÃO da linha"*). **O argumento dos
+  dois era sobre a barra olhada SOZINHA, e ela não está sozinha:** mora colada na
+  caixa de controles, onde seis botões iguais ensinam que aceso quer dizer
+  LIGADO (o `#repeat.active`). Dois acesos em permanência a dois centímetros
+  deles ensinam a não confiar no sinal. O que distingue os dois passa a ser o
+  DESENHO, que é a gramática do resto do app.
+- **A LARGURA DELES É A COLUNA DO TRANSPORTE** (`--deck-col`): *"que tenham suas
+  larguras alinhadas a grade dos botões do próprio controle logo abaixo"*. **Isto
+  revoga o QUADRADO da v5.277**, e revoga porque as duas coisas não podem valer
+  juntas — o lado do quadrado era `--campo-alt`, FIXO, e a coluna é
+  PROPORCIONAL: MEDIDO, 53,4px a 430px e 43,4px a 360px contra os 40 fixos. Uma
+  medida fixa alinha com uma grade proporcional numa largura de tela, por
+  acidente, e erra em todas as outras. `--deck-col` subiu para o `:root` neste
+  lote porque a barra não é descendente do `.deck`, e repetir a fórmula seria a
+  sincronização manual que este projeto recusa; o `100%` dela resolve contra a
+  caixa de conteúdo de quem a usa, e as duas têm a mesma largura porque têm o
+  MESMO recuo lateral. A ALTURA continua sendo `--campo-alt`: quem manda na linha
+  é o campo.
+- **O CAMPO É BRANCO OUTRA VEZ, E A BORDA É O QUE O TORNA POSSÍVEL.** *"abra uma
+  única exceção ao conceito de sem bordas do app, para poder fazer a caixa de
+  texto da busca … branca com a borda em cinza"*. As duas metades do pedido são
+  uma só: no tema claro `--bar` é branco, campo branco sobre ele é **1,00:1**, e
+  sem contorno a caixa de texto não existe na tela. Era exatamente essa
+  aritmética que o `--field-bar` resolvia com uma FAIXA; a borda a resolve sem
+  trazer a faixa de volta, que é o que o operador recusou. O valor é
+  `--field-borda` — o `--line` do tema claro escurecido até passar o piso de 3:1
+  de componente (o `--line` cru dá 2,51:1 sobre branco e falha justamente aqui);
+  MEDIDO, **3,13:1** sobre o campo e **4,55:1** sobre a barra escura. A exceção é
+  NOMEADA nos dois oráculos de contorno (fonte e renderizado), pelo ID: é o nome
+  que a mantém única.
+- **E UMA SUPERFÍCIE SEM TEMA ARRASTA O QUE VIVE DENTRO DELA.** Texto,
+  placeholder e lupa voltam aos `--field-*` junto com o fundo. O meio-conserto —
+  trocar só o fundo — apaga o que se digita: no escuro `--text` sobre branco dá
+  **1,17:1** e `--muted`, 1,74:1. É a regra do palco num lugar pequeno, e o
+  `smoke.mjs` a reprova.
 - **No tema CLARO ela AFUNDA a superfície dos filhos**, espelhando a regra da
   `.bottombar` e pela mesma aritmética: lá `--bar` é branco, e um controle em
   branco-com-alfa sobre ele é 1,00:1. A barra mora na janela, que devolve a

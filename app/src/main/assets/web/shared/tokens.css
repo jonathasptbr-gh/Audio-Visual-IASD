@@ -191,6 +191,25 @@
      nome diz a que superfície ele pertence, e é isso que impede o próximo
      controle sobre o campo de repetir a conta errada. */
   --field-accent: #2f557f;
+  /* ---------- E A BORDA: A ÚNICA EXCEÇÃO À REGRA DO "SEM CONTORNO" (v1.5.5) ----------
+     Pedido do operador: *"abra uma única exceção ao conceito de sem bordas do
+     app, para poder fazer a caixa de texto da busca para que seja branca com a
+     borda em cinza"*.
+
+     A regra do app é que tudo se separa por PREENCHIMENTO, e ela continua de pé
+     em toda a outra parte — o `tokens.test.mjs` varre a fonte e nomeia os
+     sobreviventes um a um; este entra como o terceiro nome dessa lista, não como
+     um precedente. **O que abre a exceção é o TEMA CLARO:** ali `--bar` é
+     BRANCO e o campo é branco, isto é, **1,00:1** — sem a borda não há nada
+     separando a caixa de texto da barra em que ela mora. No escuro o campo já se
+     separa sozinho (14,27:1 contra a barra) e a borda é reforço.
+
+     O VALOR sai da mesma cozinha de `--field-text`: é o `--line` do tema CLARO
+     (#97a5b4, onde a cor de linha foi calibrada contra branco), escurecido até
+     passar o piso de 3:1 de componente — MEDIDO, o `--line` cru dá **2,51:1**
+     sobre branco e não serve justamente no caso que criou a exceção. Este dá
+     **3,13:1** sobre o campo e **4,55:1** sobre a barra escura. */
+  --field-borda: #8593a3;
   /* (`--field-bar` SAIU na v1.5.2, nos dois temas. Era a faixa que hospedava o
      campo de busca, e ela existia por causa de uma peça que também saiu: o campo
      BRANCO. Pedido do operador: *"vamos remover esse zoneamento de tom
