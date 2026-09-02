@@ -2979,6 +2979,21 @@ acima cobre a FAIXA — sem acrescentá-lo, o balanço voltava pelo botão novo.
   ver "A paleta", acima. Os dois níveis de agrupamento pintam o MESMO tom e a
   LINHA os separa; a janela continua `--panel`, um degrau acima.
 
+  **E OS NOMES SE ESCREVEM TODOS IGUAL** (v1.5.11): a barra da seção perdeu a
+  caixa alta e o tracking, e o NOME dela veste `--text` como o título do card ao
+  lado. Pedido do operador: *"Nessas coleções, padronize em caixa alta, ou em
+  formatação normal"* · *"aproveite para pôr o texto em branco no tema claro
+  para os textos sobre o azul"*. **Branco é impossível aqui e a medição é
+  inequívoca** — sobre a tampa (`#bdcada` no claro) ele dá **1,66:1**, e AA pede
+  4,5:1; o que o pedido alcança é o outro lado, e no tema claro afastar o texto
+  do azul só se faz ESCURECENDO: o nome saiu de `--muted` (4,00:1, abaixo de AA)
+  para `--text` (5,33:1). **`--muted` fica no que é NÚMERO** — o contador da
+  seção, o peso do card —, e é essa metade que impede o nivelamento da barra
+  inteira. A caixa alta podia sair porque o que ela carregava — o ranqueamento
+  da seção sobre o card (v1.3.14) — passou para a MOLDURA na v1.5.9; e devia
+  sair porque caixa alta a 14px é mais larga e mais lenta de ler, a mesma
+  medição que a v5.297 usou para tirá-la das linhas.
+
   **E O TOM DAS CAIXAS É `--btn-accent`, o azul fraco** (v1.5.10). Ele foi
   `--panel-2` por uma versão e o operador recusou: *"essa predominância cinza
   escura está muito ruim em especial no tema claro. porque não usou o azul fraco
@@ -3986,12 +4001,12 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: v1.5.10** (base web) · **v1.4.42** (APK) · `SHELL_VERSION` **61** · bundle com
+**Versão atual: v1.5.11** (base web) · **v1.4.42** (APK) · `SHELL_VERSION` **61** · bundle com
 `minShell: 61` e **sem `shellTag`** — o shell 61 é o **PISO**: todo método da
 ponte existe, e não há guarda de versão no lado web. **Este lote não pede
 Release**: mexe em `assets/web/` e em `tools/`, e nada disso chega ao aparelho
 por APK — nenhum `.kt`, nenhum `res/`, nenhum manifest. O bundle sai na hora.
-O rodapé mostra `Web v1.5.10 · Shell v1.4.42`, e
+O rodapé mostra `Web v1.5.11 · Shell v1.4.42`, e
 isso não é divergência: é a resposta exata a *"o OTA chegou e o APK ainda
 não?"*. O que continua valendo é que `java/`, `res/`, o manifest e os workflows
 **só chegam instalando o APK**.
