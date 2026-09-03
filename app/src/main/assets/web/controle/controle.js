@@ -278,7 +278,7 @@ const appVersionEl = document.getElementById('appVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.5.16';
+const WEB_VERSION = '1.5.17';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -8226,7 +8226,35 @@ function renderCollectionsListMiolo(alvo, redesenhar, opts) {
       // ainda não tinha crescido.
       if (!ehFav) setTimeout(() => alinharGrupoNoTopo(alvo, text), ACC_MS + 30);
     };
-    bar.addEventListener('click', alternar);
+    // ===== O ALVO É O BLOCO, E NÃO A BARRA (v1.5.17) =====
+    //
+    // O card já fazia isto ("O ALVO É O CARD, E NÃO A BARRA", mais abaixo); a
+    // seção não, e desde que o bloco de raiz passou a CRESCER para preencher a
+    // tela isso virou margem morta: MEDIDO, 4,75px acima e 4,77px abaixo da
+    // barra, 9,5px por seção, em que o toque não fazia nada. É exatamente o que
+    // o recuo da barra existe para impedir (v5.288: *"a faixa em volta dela ser
+    // ALVO em vez de margem morta"*).
+    //
+    // A GUARDA é o CORPO aberto, pelo mesmo motivo do card: sem ela um toque
+    // num álbum lá dentro borbulharia até aqui e fecharia a seção debaixo do
+    // dedo. Os três controles da barra já param a propagação por conta própria
+    // (a seta, o `.coll-group-acao` e o botão do `montarResumoGrupo`), então
+    // nenhum deles alterna duas vezes.
+    //
+    // O `keydown` FICA NA BARRA: ela é quem recebe foco (é ela que tem
+    // `role`/`tabindex`), e um `<li>` não entra na ordem de tabulação.
+    li.addEventListener('click', (e) => {
+      // A GUARDA É POSITIVA: alterna o toque na PRÓPRIA caixa do bloco (a faixa
+      // que sobra em volta da barra) ou dentro da BARRA. Escrita ao contrário —
+      // "tudo menos o corpo aberto" —, ela depende de o corpo ter sempre a
+      // mesma classe, e a seção dos FAVORITOS monta o dela por outro caminho:
+      // um toque numa linha de favorito borbulhava até aqui e FECHAVA a seção
+      // debaixo do dedo (o `boot-nativo` pegou, com o nó removido no meio do
+      // percurso).
+      const t = e.target;
+      if (t !== li && !(t && t.closest && t.closest('.coll-group-bar'))) return;
+      alternar();
+    });
     bar.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); alternar(); }
     });
@@ -10060,7 +10088,13 @@ function medirVaoDosFavoritos(lista) {
     // A v1.5.9 somava aqui as duas linhas de 1px da moldura da Biblioteca; ela
     // saiu na v1.5.14 e a parcela ia junto — um termo que hoje é sempre zero,
     // com cinco linhas de comentário explicando um desenho que não existe.
-    const barra = s.querySelector('.coll-group-bar, .coll-bar');
+    // `.row` NA LISTA desde a v1.5.17: com o `flex-grow` dos blocos de raiz, um
+    // bloco que caísse no ramo de baixo (o `<li>` inteiro) entraria nesta soma
+    // já CRESCIDO, e o vão dos Favoritos encolheria em silêncio. Hoje nenhum
+    // bloco da raiz é uma pasta — mas a fórmula não pode depender disso.
+    // `querySelector` devolve o primeiro em ordem de DOCUMENTO, não de seletor:
+    // numa seção a barra vem antes de qualquer `.row`.
+    const barra = s.querySelector('.coll-group-bar, .coll-bar, .row');
     fechadas += (barra ? barra.getBoundingClientRect().height
       : s.getBoundingClientRect().height);
   }
