@@ -8226,7 +8226,35 @@ function renderCollectionsListMiolo(alvo, redesenhar, opts) {
       // ainda não tinha crescido.
       if (!ehFav) setTimeout(() => alinharGrupoNoTopo(alvo, text), ACC_MS + 30);
     };
-    bar.addEventListener('click', alternar);
+    // ===== O ALVO É O BLOCO, E NÃO A BARRA (v1.5.17) =====
+    //
+    // O card já fazia isto ("O ALVO É O CARD, E NÃO A BARRA", mais abaixo); a
+    // seção não, e desde que o bloco de raiz passou a CRESCER para preencher a
+    // tela isso virou margem morta: MEDIDO, 4,75px acima e 4,77px abaixo da
+    // barra, 9,5px por seção, em que o toque não fazia nada. É exatamente o que
+    // o recuo da barra existe para impedir (v5.288: *"a faixa em volta dela ser
+    // ALVO em vez de margem morta"*).
+    //
+    // A GUARDA é o CORPO aberto, pelo mesmo motivo do card: sem ela um toque
+    // num álbum lá dentro borbulharia até aqui e fecharia a seção debaixo do
+    // dedo. Os três controles da barra já param a propagação por conta própria
+    // (a seta, o `.coll-group-acao` e o botão do `montarResumoGrupo`), então
+    // nenhum deles alterna duas vezes.
+    //
+    // O `keydown` FICA NA BARRA: ela é quem recebe foco (é ela que tem
+    // `role`/`tabindex`), e um `<li>` não entra na ordem de tabulação.
+    li.addEventListener('click', (e) => {
+      // A GUARDA É POSITIVA: alterna o toque na PRÓPRIA caixa do bloco (a faixa
+      // que sobra em volta da barra) ou dentro da BARRA. Escrita ao contrário —
+      // "tudo menos o corpo aberto" —, ela depende de o corpo ter sempre a
+      // mesma classe, e a seção dos FAVORITOS monta o dela por outro caminho:
+      // um toque numa linha de favorito borbulhava até aqui e FECHAVA a seção
+      // debaixo do dedo (o `boot-nativo` pegou, com o nó removido no meio do
+      // percurso).
+      const t = e.target;
+      if (t !== li && !(t && t.closest && t.closest('.coll-group-bar'))) return;
+      alternar();
+    });
     bar.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); alternar(); }
     });

@@ -24,7 +24,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
-- **v1.5.17** — OS QUATRO RELATOS DA BIBLIOTECA, E OS QUATRO SÃO REGRESSÕES DE PREMISSA. Todos do operador, todos no mesmo minuto, todos com o mesmo formato de falha: nada quebra, nada aparece no console. **(1)** *"o aproveitamento da altura não está correto, está sobrando … o tamanho deve ser ajustável para se encaixar a altura da tela"* — `#hymnResults` é uma `.popup-list` e os blocos de raiz caíam em `flex-shrink: 0` SEM `flex-grow`: o excedente inteiro se acumulava no pé (MEDIDO, 85,58px a 430×900, que a v1.5.16 tinha AUMENTADO de 27,92 ao apertar as barras). `flex-grow` nos blocos COLAPSADOS reparte a sobra quando o conteúdo cabe e é INERTE quando ele transborda — ajustável por construção, sem uma linha de JS (430×900: 54,70px e sobra zero; 360×740: idêntico a antes). A BARRA não cresce junto, e isso é invariante: `medirVaoDosFavoritos` soma as barras das vizinhas, e uma barra que cresce realimenta a conta até o vão deixar de ser dos Favoritos — o `smoke.mjs` reprova essa variante. **(2)** *"os cards que ficam no topo das listas … sem margem no topo"* — COLAPSO DE MARGEM: o `.coll-open` não tem `padding-top` nem borda, então a `margin-top` do primeiro filho saía para fora dele. Invisível enquanto a placa era transparente; a v1.5.15 lhe deu fundo e raio e o recuo passou a cair FORA (MEDIDO, 0,00px contra os 6,39px da placa irmã dos Favoritos). `display: flow-root` — que o `expandAccordion` já escrevia por 220ms como `overflow: hidden` —, e de quebra o acordeão passa a medir a altura de verdade (levava a 321px uma caixa que dentro do BFC pede 327). Mais `scroll-margin-top` no cabeçalho de seção do hinário, porque o `scrollIntoView` mirava o topo do scrollport e o cabeçalho pousava DEBAIXO da tampa grudada. **(3)** *"a zona do título e thumbnail está ficando diferente da cor do corpo desse item"* — o overlay `.lib-item.expanded` foi escrito na v5.271 sobre a faixa fechada JÁ recuada; a v1.5.14 tirou o preenchimento do nível 3 e ele virou o ÚNICO tom da faixa aberta, um 4º tom que a alternância não tem (1,15:1 no escuro, 1,39:1 no claro). O achado que decidiu o desenho: a MESMA gaveta já media 1,00:1 na lista de BUSCA, onde `--linha` é opaco e a `.row` esconde o overlay — **o app tinha duas leituras do mesmo objeto**. Removido, 1,00:1 nas três listas e o poço separa MAIS. **(4)** *"as linhas de divisão … estão ligeiramente descentralizadas para baixo"* — com o vão inteiro fora da caixa o traço pousava no limite INFERIOR (6,42px de branco acima, 1,37 abaixo). Não se move o traço, move-se a CAIXA: metade do `gap` entra como `padding-top` e um `margin-top` negativo devolve o conteúdo ao lugar, e a lista não muda de altura. **(5)** *"essa seção de opções manteve a altura dos elementos muito grande, pois ainda fazia referência a padrões antigos"* — e ele acertou a data: o commit das QUATRO ESCALAS converteu `gap`, `font-size` e `font-weight` da gaveta e nunca tocou em `padding`. Mais um achado de cascata: `.hymn-opcoes` e `.song-menu-list` moram no MESMO `<ul>` com a mesma especificidade, e a segunda vencia — a gaveta vestia o recuo do bottom-sheet que a v5.285 substituiu. A linha de destino vai de 53,19px para 42, a densidade da faixa ao lado, sem tocar no piso `--hit`.
+- **v1.5.17** — OS QUATRO RELATOS DA BIBLIOTECA, E OS QUATRO SÃO REGRESSÕES DE PREMISSA. Todos do operador, todos no mesmo minuto, todos com o mesmo formato de falha: nada quebra, nada aparece no console. **(1)** *"o aproveitamento da altura não está correto, está sobrando … o tamanho deve ser ajustável para se encaixar a altura da tela"* — `#hymnResults` é uma `.popup-list` e os blocos de raiz caíam em `flex-shrink: 0` SEM `flex-grow`: o excedente inteiro se acumulava no pé (MEDIDO, 85,58px a 430×900, que a v1.5.16 tinha AUMENTADO de 27,92 ao apertar as barras). `flex-grow` nos blocos COLAPSADOS reparte a sobra quando o conteúdo cabe e é INERTE quando ele transborda — ajustável por construção, sem uma linha de JS (430×900: 54,70px e sobra zero; 360×740: idêntico a antes). A BARRA não cresce junto, e isso é invariante: `medirVaoDosFavoritos` soma as barras das vizinhas, e uma barra que cresce realimenta a conta até o vão deixar de ser dos Favoritos — o `smoke.mjs` reprova essa variante. **(2)** *"os cards que ficam no topo das listas … sem margem no topo"* — COLAPSO DE MARGEM: o `.coll-open` não tem `padding-top` nem borda, então a `margin-top` do primeiro filho saía para fora dele. Invisível enquanto a placa era transparente; a v1.5.15 lhe deu fundo e raio e o recuo passou a cair FORA (MEDIDO, 0,00px contra os 6,39px da placa irmã dos Favoritos). `display: flow-root` — que o `expandAccordion` já escrevia por 220ms como `overflow: hidden` —, e de quebra o acordeão passa a medir a altura de verdade (levava a 321px uma caixa que dentro do BFC pede 327). Mais `scroll-margin-top` no cabeçalho de seção do hinário, porque o `scrollIntoView` mirava o topo do scrollport e o cabeçalho pousava DEBAIXO da tampa grudada. **(3)** *"a zona do título e thumbnail está ficando diferente da cor do corpo desse item"* — o overlay `.lib-item.expanded` foi escrito na v5.271 sobre a faixa fechada JÁ recuada; a v1.5.14 tirou o preenchimento do nível 3 e ele virou o ÚNICO tom da faixa aberta, um 4º tom que a alternância não tem (1,15:1 no escuro, 1,39:1 no claro). O achado que decidiu o desenho: a MESMA gaveta já media 1,00:1 na lista de BUSCA, onde `--linha` é opaco e a `.row` esconde o overlay — **o app tinha duas leituras do mesmo objeto**. Removido, 1,00:1 nas três listas e o poço separa MAIS. **(4)** *"as linhas de divisão … estão ligeiramente descentralizadas para baixo"* — com o vão inteiro fora da caixa o traço pousava no limite INFERIOR (6,42px de branco acima, 1,37 abaixo). Não se move o traço, move-se a CAIXA: metade do `gap` entra como `padding-top` e um `margin-top` negativo devolve o conteúdo ao lugar, e a lista não muda de altura. **(5)** *"essa seção de opções manteve a altura dos elementos muito grande, pois ainda fazia referência a padrões antigos"* — e ele acertou a data: o commit das QUATRO ESCALAS converteu `gap`, `font-size` e `font-weight` da gaveta e nunca tocou em `padding`. Mais um achado de cascata: `.hymn-opcoes` e `.song-menu-list` moram no MESMO `<ul>` com a mesma especificidade, e a segunda vencia — a gaveta vestia o recuo do bottom-sheet que a v5.285 substituiu. A linha de destino vai de 53,19px para 42, a densidade da faixa ao lado, sem tocar no piso `--hit` — e o recuo vira TOKEN sobrescrito pela gaveta, porque o mesmo botão é a linha de três folhas modais que não estão no relato. **E a REVISÃO do próprio lote achou mais quatro coisas antes de ele sair**, nenhuma delas pixel quebrado: a faixa que sobra em volta da barra crescida era MARGEM MORTA (9,5px por seção onde o toque não fazia nada, e num card o toque abria sem resposta nenhuma) — o oposto do que o recuo da `.coll-bar` existe para produzir, corrigido pondo o ALVO e o `--press` no bloco; três comentários que passaram a mentir no presente, um deles ensinando o número que reintroduziria os +11,19px de pulo sob o dedo; e um conflito de doutrina — *"aberto nunca foi um tom"* ao lado de uma regra que dá tom ao aberto da pasta do aparelho —, resolvido escrevendo a exceção ao lado da regra em vez de apagar qualquer uma das duas.
 - **v1.5.16** — A DIVISÓRIA, O VÉU E A COLETÂNEA DISSOLVIDA. Três pedidos do operador sobre a Biblioteca. **(1)** *"linha divisória (não borda inteira), na listagem do itens propriamente dos álbuns"* — desde a v1.5.14 a faixa é transparente sobre `--panel`, e o vão de 4px entre duas faixas mede **1,00:1** contra os dois lados: separação nenhuma. Nasce `--divisoria` (1,88:1 no escuro, 1,99:1 no claro), um `::before` de 1px RECUADO até a coluna do nome — não uma `border`, que cobre a caixa e não tem como ser recuada. É a QUARTA exceção nomeada da regra de contorno, e ela não é a moldura da v1.5.9 voltando: aquela eram quatro arestas por nível em três níveis carregando a HIERARQUIA, esta é uma aresta num nível só entre IRMÃS — o que a alternância por construção não separa. O `tokens.test.mjs` ganha o PAR que impede a brecha *"filete pode, desde que não se chame border"*: uma varredura NEGATIVA por qualquer bloco de 1px pintado e uma POSITIVA exigindo consumidor único. **(2)** *"um efeito de blur na borda interna superior ou inferior, quando algum elemento da tela ir para debaixo dessa borda"* — dois `sticky` DENTRO do scroller com `backdrop-filter`, e blur em vez de gradiente porque a alternância põe DUAS superfícies sob a mesma borda e um gradiente teria de escolher uma (MEDIDO: −60% de nitidez nos dois temas). A `z-index: 2` ele some sozinho sob uma tampa grudada (131/131 amostras). A especificidade mordeu uma vez: `#hymnResults:not(.tem-acima)` (1,1,0) perdia para `.popup-backdrop--lib.open #hymnResults` (1,2,0) e o véu ficava aceso no topo, onde ele mente. **(3)** *"os albuns do celebra SP, serão individualmente colocados na coleção de 'diversos' … fara com que todas as coleções caibam na tela"* — nasce `controle/coletanea.js`, regra PURA com oráculo Node, que DISSOLVE em vez de remover (MEDIDO: descartar a categoria deixa os álbuns órfãos e o app os recolhe em "Outros álbuns" — dez blocos de novo, com um nome pior). Roda no DESENHO e não no `fetchAlbumCatalog`, senão uma correção por OTA esperaria a próxima sincronização com rede. Destino ausente é IDENTIDADE e a origem FICA. A tabela aceita *"Diversas"* E *"Diversos"*: o operador escreveu o segundo e a seção chama-se o primeiro. O orçamento: a 430×900 a caixa da lista tem 582px, 10 blocos davam 615,1px e passam a dar 551,1px depois de apertar as duas barras — APERTAR e não ESTICAR, porque esticar levaria o vão dos Favoritos de 131px a 55px e desfaria a v5.273/v5.277. O segundo preço está dito: com os 9 blocos do acervo dissolvido sobram ~86px em vez de ~28, isto é, o aperto AFASTA do enchimento exato que a leitura literal do pedido cobra; e a promessa de caber sem rolar vale de 430px para cima (a 393×786 o aperto não compra bloco nenhum). **E um achado registrado, não corrigido**: a faixa de um álbum NUNCA é marcada como no ar (`hymnResultRow` escreve `dataset.song`, `marcarNoAr` lê `dataset.id`), e mesmo forçada a classe perderia para `.coll-songs > .hymn-result` por ordem de fonte — `docs/ACHADOS-EM-ABERTO.md` §4. O irmão dos FAVORITOS era alcançável e foi corrigido.
 - **v1.5.15** — A PERNA DA RAIZ DA BIBLIOTECA, E O CINZA DO CARTÃO DA LINHA DO TEMPO. Três relatos do operador sobre a v1.5.14 e um pedido. **(1)** *"isso era pra ser assim? fundo azul nos itens do provai e vede?"* — a árvore da Biblioteca não tem profundidade uniforme: uma seção contém CARDS e uma coleção da RAIZ contém FAIXAS, então a MESMA `.hymn-result` pousava em duas cores conforme onde a coleção mora. A alternância não estava errada; faltava o degrau de baixo dela — o `.coll-open` de uma coleção da raiz vira PLACA de papel, irmã exata da `.fav-itens`, e a faixa volta a pousar na mesma base em qualquer lugar do acervo (MEDIDO: 1,43:1 e 1,35:1 contra o poço, e 1,00:1 contra o card de álbum). A placa é o corpo aberto INTEIRO e não só a lista: o DESTAQUE do sábado pinta `--sel-fill`, que dá 1,31:1 sobre o papel (o par para que ele foi desenhado) e 1,03:1 sobre o poço — deixá-lo de fora consertaria a lista e deixaria o "ESTE SÁBADO" invisível, que é o mesmo defeito um bloco acima e está numa das capturas. **(2 e 3)** *"a lista está vazando acima"* e *"essa sobreposição também permanece… parecendo que um álbum está pertencendo a outro"* são o MESMO defeito pelas duas faces: a v1.5.14 deu a todo card aberto o `top` do segundo degrau, os da raiz inclusive — que não têm barra acima —, e **o vão que sobrava É o scrollport** (MEDIDO: 51,6px de lista à mostra acima da tampa colada, e a tampa inteira ainda no topo enquanto desgruda, pintada por cima das coleções seguintes). O `top` de uma tampa passa a ser a PROFUNDIDADE dela, e pela mesma aritmética o `padding-top` do scroller foi a zero — padding de um scroller é scrollport. **(4)** *"ajuste o cinza dela para o mesmo cinza claro dos botões inativos de próximo e anterior slide"*: o cartão vestia `--surface` cheio, que é o tom do botão ATIVO; passa a ser a mesma superfície sob o véu de `--op-inativo`, por `color-mix` sobre o valor JÁ RESOLVIDO ali (um token novo teria de repetir a bifurcação do R1). Os dois oráculos aprendem a ler `color-mix` — que computa como `color(srgb 1 1 1 / .04)`, e uma regex de números lê (1,1,1).
 
@@ -539,6 +539,67 @@ São DOIS defeitos, e o operador acertou o diagnóstico e a data.
   dedo ao perguntar *"excluir?"* — o defeito da v5.309 de volta, e MEDIDO. Hoje
   a soma é escrita como a soma: `calc(var(--hit) + 2 * var(--sp-2))`.
 
+### O que a REVISÃO do próprio lote achou
+
+Quatro revisores adversariais mediram o lote antes de ele ir para `main`, e o
+que eles acharam **não foi pixel quebrado** — oito telas fora da Biblioteca
+medem diferença ZERO elemento a elemento. Foi ALCANCE e COMENTÁRIO, que é o que
+faz o próximo lote desfazer o conserto de boa-fé.
+
+**A MARGEM MORTA (a mais cara).** O bloco cresce e a barra não, então sobram
+~4,8px de cada lado dela — e a faixa falhava de DOIS jeitos diferentes: numa
+SEÇÃO o ouvinte morava na barra e o toque ali não fazia NADA (9,5px por bloco,
+17% da pílula que o dedo vê); num `.hymnal-card` o ouvinte já é do `li`, então o
+toque ABRIA e nada respondia, porque quem estava na lista do `--press` era a
+barra. **É o oposto do que o recuo da `.coll-bar` existe para produzir**
+(v5.288: *"a faixa em volta dela ser ALVO em vez de margem morta"*), e o
+comentário do lote afirmava um preço único e falso para os dois casos. A
+correção é a do card, generalizada: o ALVO é o bloco e a RESPOSTA também.
+- A guarda do ouvinte é **POSITIVA** (o `li` ou a barra). Escrita ao contrário
+  — *"tudo menos o corpo aberto"* —, ela supõe que o corpo tem sempre a mesma
+  classe, e a seção dos FAVORITOS monta o dela por outro caminho: um toque numa
+  linha de favorito FECHAVA a seção debaixo do dedo. O `boot-nativo` pegou.
+- O `--press` do bloco é **regra separada**, e não mais um nome na lista: `:is()`
+  toma a especificidade do argumento mais específico, e um seletor com id ali
+  levaria as ~40 classes para (1,x,0) de uma vez.
+
+**O ALCANCE DA DENSIDADE.** O `.song-menu-btn` é a linha de TRÊS folhas modais
+além da gaveta, e apertar o seletor cru levava as três junto — MEDIDO, a folha
+de destinos caía de 312,30 para 267,55px e a do YouTube de 469,91 para 411,91.
+O relato nomeia a Biblioteca; as folhas não estavam nele, não têm régua (não há
+`.hymn-result` "logo acima" de um modal) e não tinham oráculo. O recuo virou o
+par `--opcao-recuo-v`/`-h` no `:root` e a `.hymn-gaveta` o sobrescreve — e o
+token **fecha a duplicação que a própria folha reclamava**: o `min-height` da
+faixa de confirmação era o número do botão COPIADO, e o comentário de lá dizia
+com todas as letras que era *"a única duplicação aqui"*.
+
+**TRÊS COMENTÁRIOS QUE PASSARAM A MENTIR**, e o formato dos três é o que este
+projeto nomeia como pior que a ausência:
+- o do `.linha-confirma` continuava ensinando `.6rem`/`1.2rem`/`53px`/`19px`
+  **no presente**, e quem o seguisse devolveria o número copiado — de boa-fé, e
+  de acordo com a documentação da própria regra — reintroduzindo os +11,19px de
+  pulo sob o dedo;
+- o cabeçalho *"E ESTA REGRA ESTAVA MORTA"* falava da REGRA quando só o
+  `padding` estava: apagar o `display: flex` ou o `gap` colapsa o vão entre as
+  opções de 4px para ZERO (MEDIDO por reversão), e nada mais dá layout àquela
+  `<ul>`;
+- e três escritas mandavam conferir o `smoke.mjs` sobre `--fav-vao`, que ele não
+  menciona: quem lê o token é o `boot-nativo.test.mjs`. Quem seguisse abriria o
+  maior arquivo da suíte, não acharia a asserção e concluiria que a invariante
+  não tem oráculo.
+
+**E UM CONFLITO DE DOUTRINA DENTRO DO MESMO LOTE.** O comentário novo fecha com
+*"aberto nunca foi um tom"*, e duzentas linhas antes o mesmo lote dá tom ao
+aberto de UMA lista — a pasta do aparelho. O valor fica (ele resolve um piso de
+contraste real: sem ele a linha aberta ficaria a 1,08:1 do poço da própria
+gaveta), e a exceção passou a estar escrita ao lado da regra, com o par medido
+(1,273:1 no escuro, 1,879:1 no claro), para não ser apagada por coerência.
+
+**E o `smoke.mjs` afirmava, sobre uma `<ul>` PRÓPRIA, uma propriedade que a
+regra nova quebra no host de verdade** (`faixaAcimaDaBarra` = 0 na lista dele,
+4,75px no `#hymnResults`). O caso fica — ele guarda o que nomeia, um recuo da
+LISTA vazando —, com o host escrito no comentário e o par novo (`D6`) apontado.
+
 ### Os oráculos
 
 O bloco `D` do `tools/lista-da-biblioteca.test.mjs`, com a reversão nomeada em
@@ -548,7 +609,11 @@ altura fixa maior"* são indistinguíveis — e a segunda destruiria justamente 
 aparelho pequeno, onde não há sobra a repartir. As réguas são o desenho que já
 existe, nunca um número escrito no teste: a placa IRMÃ dos Favoritos para o
 inset, a faixa VIZINHA para a densidade da gaveta, o vão de CONTEÚDO para a
-divisória.
+divisória. E o `D6`, que a revisão do lote acrescentou: o toque na faixa em
+volta da barra ALTERNA o bloco (medido pelo ESTADO, porque este cenário monta a
+lista com um `redesenhar` de mentira e o nó não é refeito), o `--press` é do
+bloco, e a barra fica calada dentro dele — as duas metades provadas por
+reversão.
 
 **Só base web.** `SHELL_VERSION` fica em 61 e o `version.json` sai sem
 `shellTag`.

@@ -263,6 +263,28 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
      segura 3, 5 e 6. Ele anda com `min-height: min-content`: sozinho, um teto
      RECORTA um bloco com subtítulo (MEDIDO, 45,19 → 40,00 com um teto de 40). */
   --bar-raiz-max: calc(var(--hit) + 2rem);
+  /* ---------- O RECUO DE UMA LINHA DE OPÇÃO (v1.5.17) ----------
+     Relato do operador: *"essa seção de opções manteve a altura dos elementos
+     muito grande, pois ainda fazia referência a padrões antigos … alinhando-se
+     ao padrão e densidade das listas que temos NA BIBLIOTECA"*.
+
+     ELE NOMEIA A BIBLIOTECA, e o `.song-menu-btn` é a linha de TRÊS folhas de
+     baixo do app além da gaveta (destinos, vídeo do YouTube, playlist
+     automática). Apertar o seletor cru levava as três junto — MEDIDO, a folha
+     de destinos caía de 312,30 para 267,55px e a do YouTube de 469,91 para
+     411,91 —, sem relato, sem régua (não há `.hymn-result` "logo acima" de um
+     modal) e sem oráculo. O recuo vira TOKEN e a GAVETA o sobrescreve: o alcance
+     passa a ser exatamente o que o pedido nomeia.
+
+     E ELE FECHA A DUPLICAÇÃO QUE A FOLHA JÁ RECLAMAVA. A faixa de confirmação
+     (`.fav-acoes > .linha-confirma`) precisa da MESMA altura da linha de opção,
+     e o número dela era o do botão COPIADO — o comentário de lá dizia, com
+     todas as letras, que era *"a única duplicação aqui"*. Com o token, a soma é
+     escrita como soma e as duas andam juntas por construção: sem isso, o
+     aperto da gaveta faria a linha PULAR +11,19px sob o dedo ao perguntar
+     "excluir?", que é o defeito da v5.309 de volta e MEDIDO. */
+  --opcao-recuo-v: .6rem;
+  --opcao-recuo-h: .7rem;
   /* ---------- ONDE O TEXTO DE UMA FAIXA COMEÇA (v1.5.16) ----------
      A divisória entre faixas é RECUADA — ela começa onde o NOME começa, e não
      por baixo da miniatura. Este token é a soma dos três termos que produzem
@@ -4388,32 +4410,78 @@ main {
 
    AS CINCO DECISÕES, cada uma provada por reversão:
 
-   · O SELETOR É O TRIO DO NÍVEL 1, nunca `> li`. `.acervo` está sempre no
-     `#hymnResults`, e as linhas da BUSCA são filhas diretas dele — MEDIDO, com
-     `> li` elas iam de 97,3 para 306,4px e de 44 para 253,1px.
+   · O SELETOR NOMEIA OS DOIS BLOCOS QUE EXISTEM NA RAIZ, nunca `> li`.
+     `.acervo` está sempre no `#hymnResults`, e as linhas da BUSCA são filhas
+     diretas dele — MEDIDO, com `> li` elas iam de 97,3 para 306,4px e de 44
+     para 253,1px.
+     E A PASTA DO APARELHO FICA DE FORA de propósito: ela não é bloco de raiz
+     (mora no corpo dos Favoritos), e o ouvinte de abrir dela é da `.row` — se um
+     dia ela subir para a raiz e crescer, a faixa em volta da `.row` seria
+     MARGEM MORTA, que é exatamente o que a regra logo abaixo existe para
+     impedir. Uma pasta que não cresce deixa a lista com um bloco fora do ritmo,
+     e isso se vê; uma faixa morta não.
    · `:not(.aberto)`/`:not(.expanded)`: uma seção ABERTA mede o conteúdo dela
      (v5.276), e sem a guarda o vão volta a ser repartido com quem abriu.
    · A BARRA NÃO CRESCE — nada de `height: 100%` nela. `medirVaoDosFavoritos`
      soma as BARRAS das vizinhas para escrever `--fav-vao`, e uma barra que
-     cresce realimenta a conta até o vão deixar de ser dos Favoritos: o
-     `smoke.mjs` REPROVA essa variante ("132px contra 136px" e "132 → 389").
-     Com a barra parada e o bloco centrado ele mede "405 contra 45" e "405 →
-     405". O preço, dito: ~4,8px acima e abaixo da barra ficam sem toque (o
-     ouvinte é da barra, não do `li`), e o alvo continua em 45,19px, acima do
-     piso `--hit`.
+     cresce realimenta a conta até o vão deixar de ser dos Favoritos: quem
+     REPROVA essa variante é o `boot-nativo.test.mjs` — é lá que `--fav-vao` é
+     lido e que estão as duas asserções na forma "…px para um vão de …px"; o
+     `smoke.mjs` não menciona o token e mede uma `<ul>` PRÓPRIA, em que a regra
+     do crescimento nem se aplica.
+     E O PREÇO DELE NÃO É "SEM TOQUE": a v1.5.17 pôs o ouvinte e o `--press` no
+     BLOCO, que é o que o card já fazia ("O ALVO É O CARD, E NÃO A BARRA"). Sem
+     isso, uma seção tinha 9,5px de MARGEM MORTA em volta da barra — o oposto do
+     que o recuo da `.coll-bar` existe para produzir — e um card recebia o toque
+     ali sem dar resposta nenhuma.
    · `max-height` E `min-height: min-content` ANDAM JUNTOS: sozinho, o teto
      RECORTA um card com subtítulo (MEDIDO, 45,19 → 40,00 com um teto de 40).
    · `align-items: stretch; gap: 0` neutralizam o `align-items: center` e o
      `gap` da `.coll-group` que o `display: flex` RESSUSCITA — a armadilha da
      v5.273, em que trocar o `display` ativa o que já estava escrito. */
 #hymnResults.acervo > .coll-group--drop:not(.aberto),
-#hymnResults.acervo > .hymnal-card:not(.expanded),
-#hymnResults.acervo > .folder-opfs:not(.expanded) {
+#hymnResults.acervo > .hymnal-card:not(.expanded) {
   flex-grow: 1;
   max-height: var(--bar-raiz-max);
   min-height: min-content;
   display: flex; flex-direction: column; justify-content: center;
   align-items: stretch; gap: 0;
+}
+/* ---------- E O BLOCO CRESCIDO RESPONDE POR INTEIRO (v1.5.17) ----------
+   O bloco cresce e a barra não, então em volta dela sobra uma faixa de ~4,8px
+   de cada lado. Deixá-la muda é o que a própria folha proíbe: o bloco da
+   `.coll-bar` diz, desde a v5.288, *"O RECUO É DA BARRA, e não do card: é o que
+   faz a faixa em volta dela ser ALVO em vez de margem morta"*. MEDIDO, eram
+   9,5px mortos por seção — 17% da pílula que o dedo vê.
+
+   E A FAIXA FALHAVA DE DOIS JEITOS DIFERENTES, o que é pior que falhar de um:
+   numa SEÇÃO o ouvinte morava na barra, e um toque ali não fazia NADA
+   (`elementFromPoint` devolve o `li`, o toque não abre); num `.hymnal-card` o
+   ouvinte já é do `li`, então o toque ABRIA o card e nada respondia, porque
+   quem está na lista do `--press` é a barra. Quatro blocos da raiz são cards.
+
+   A CORREÇÃO É A DO CARD, generalizada: o ALVO é o bloco (o ouvinte da seção
+   mudou para o `li`, em `controle.js`) e a RESPOSTA também. A barra deixa de
+   respondê-la aqui dentro — uma resposta por dedo, que é a regra escrita lá em
+   cima —, e os botões que ela hospeda continuam sendo quem responde ao toque
+   deles.
+
+   REGRA SEPARADA e não mais um nome na lista do `--press`: `:is()` toma a
+   especificidade do argumento MAIS específico, e um seletor com id ali dentro
+   levaria as ~40 classes da lista para (1,x,0) de uma vez. */
+#hymnResults.acervo > .coll-group--drop:not(.aberto):active,
+#hymnResults.acervo > .hymnal-card:not(.expanded):active {
+  transform: var(--press); filter: var(--press-luz);
+}
+#hymnResults.acervo > .coll-group--drop:not(.aberto) > .coll-group-bar:active,
+#hymnResults.acervo > .hymnal-card:not(.expanded) > .coll-bar:active {
+  transform: none; filter: none;
+}
+#hymnResults.acervo > .coll-group--drop:not(.aberto):has(
+  :is(.coll-group-btn, .coll-group-acao, .coll-group-icon):active),
+#hymnResults.acervo > .hymnal-card:not(.expanded):has(
+  :is(.coll-bar-dl, .coll-bar-icon, .coll-bar-fechar):active) {
+  transform: none; filter: none;
 }
 /* NÍVEL 2 — dentro de uma seção, o bloco volta ao PAPEL. É a alternância, e é
    ela que dispensa um quarto tom: o neto tem a cor do avô, e isso não confunde
@@ -4524,7 +4592,13 @@ main {
    de cima da caixa passe a SER o meio do vão.
 
    O `margin-top` NEGATIVO na mesma medida é o que devolve o conteúdo ao lugar:
-   a caixa cresce para cima e o que está dentro dela não anda. MEDIDO — os seis
+   a caixa cresce para cima e o que está dentro dela não anda.
+
+   O RESÍDUO ESTÁ DITO: a borda de cima da caixa passa a ser o meio do vão, e o
+   traço de 1px ocupa o primeiro pixel ABAIXO dela — MEDIDO, 4,39px de placa
+   acima contra 3,39 abaixo, contra os 6,39/1,39 de antes. Persegui-lo com meio
+   pixel trocaria uma regra que sai inteira do `gap` por um literal, para ganhar
+   0,5px numa banda de 8,78. MEDIDO — os seis
    `thumb.top` de um álbum, a altura da `<ul>` (276,69px) e o passo entre faixas
    (46,78px) ficam IDÊNTICOS, e a identidade não é do fixture:
    `N·(h+2) + (N−1)·4 − 2N` é `N·h + (N−1)·4` para qualquer N. O que muda é só a
@@ -6271,7 +6345,16 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    QUEM DIZ "ESTA É A QUE ESTÁ ABERTA" É A GAVETA — 250 a 345px de poço com os
    botões dentro. Neste app "aberto" nunca foi um tom: é a tampa que gruda no
    álbum e o nome em accent na pasta. Se um dia faltar sinal aqui, a resposta é
-   o nome em accent, e não o overlay de volta. */
+   o nome em accent, e não o overlay de volta.
+
+   E HÁ UMA EXCEÇÃO, ESCRITA AQUI PARA NÃO SER APAGADA POR COERÊNCIA: o arquivo
+   de uma PASTA DO APARELHO é a única das quatro listas em que a faixa FECHADA
+   tem preenchimento próprio (`--surface`, ver `.folder-itens > .lib-item`), e
+   por isso a aberta precisa de tom — sem ele ela ficaria a 1,08:1 do poço da
+   própria gaveta, abaixo do piso. MEDIDO com a regra: 1,273:1 no escuro e
+   1,879:1 no claro contra as irmãs fechadas. Nas outras três (acervo,
+   favoritos, busca) aberta e fechada saem PIXEL-IDÊNTICAS. A frase acima não é
+   absoluta: ela descreve as listas em que a faixa não tem corpo. */
 /* Letra completa, abaixo da linha aberta. Rola por DENTRO, com teto de altura:
    um hino tem 20-40 linhas e, solto, empurraria os resultados seguintes para
    fora da tela — o operador perderia de vista a lista que ele estava justamente
@@ -6323,13 +6406,20 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    do navegador (quadrados, por ser um `<ul>` aninhado em terceiro nível). Eles
    não vinham de regra nenhuma do app, e é por isso que não havia o que
    procurar: era a AUSÊNCIA de uma. */
-/* ---------- E ESTA REGRA ESTAVA MORTA (v1.5.17) ----------
-   `.hymn-opcoes` e `.song-menu-list` moram no MESMO `<ul>` (o montador escreve
-   `className = 'song-menu-list hymn-opcoes'`), têm a MESMA especificidade, e a
-   `.song-menu-list` vem DEPOIS na folha: o recuo desta aqui nunca chegou a
-   valer, e a gaveta vestia o recuo do BOTTOM-SHEET que a v5.285 substituiu.
-   MEDIDO por reversão — apagando o `padding` da `.song-menu-list` na folha
-   real, o computado cai de 6,4/9,6/12,8px para os 7,2/8/8 desta.
+/* ---------- E O `padding` DESTA REGRA ESTAVA MORTO (v1.5.17) ----------
+   O `padding`, e SÓ ele. `.hymn-opcoes` e `.song-menu-list` moram no MESMO
+   `<ul>` (o montador escreve `className = 'song-menu-list hymn-opcoes'`), têm a
+   MESMA especificidade, e a `.song-menu-list` vem DEPOIS na folha — mas ela
+   declara APENAS `padding`. As outras quatro declarações daqui
+   (`list-style`, `margin`, `display: flex`, `flex-direction`, `gap`) sempre
+   valeram e são a ÚNICA fonte do layout desta `<ul>`, que não é uma
+   `.popup-list` e não herda `display`/`gap` de lugar nenhum: MEDIDO por
+   reversão, apagar o `display: flex` OU o `gap` colapsa o vão entre as opções
+   de 4px para ZERO e a `<ul>` de 197,59 para 185,59px, sem erro em lugar
+   nenhum.
+   O que estava morto era o recuo: a gaveta vestia o do BOTTOM-SHEET que a
+   v5.285 substituiu — apagando o `padding` da `.song-menu-list` na folha real,
+   o computado cai de 6,4/9,6/12,8px para os 7,2/8/8 desta.
    O `>` é seguro e é o que resolve o empate: os dois montadores anexam a `<ul>`
    direto na `.hymn-gaveta`. */
 .hymn-gaveta > .hymn-opcoes {
@@ -6337,6 +6427,13 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
   padding: var(--sp-2) var(--sp-4) var(--sp-4);
   display: flex; flex-direction: column; gap: var(--sp-2);
 }
+/* ---------- E É AQUI QUE A DENSIDADE DA GAVETA É DECLARADA (v1.5.17) --------
+   Quem declara a medida dos filhos é o PAI — a mesma regra da casa que o
+   `--camada` já segue. O par `--opcao-recuo-*` herda daqui para dentro, então
+   a linha de opção, a faixa de confirmação e tudo o mais que o leia andam
+   juntos, e as TRÊS FOLHAS MODAIS que usam o mesmo `.song-menu-btn` ficam com o
+   recuo de sempre — que é o alcance que o relato nomeia. */
+.hymn-gaveta { --opcao-recuo-v: var(--sp-2); --opcao-recuo-h: var(--sp-5); }
 /* Os BLOCOS que descansam no poço — os botões de opção e a metade de baixo
    (letra ou detalhe) — vestem `--gaveta-btn`, e não o `--surface` da folha. A
    diferença é que `--surface` é um OVERLAY: no escuro ele afunda (a gaveta está
@@ -6374,9 +6471,13 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
      se acha sem mirar, e estas são o que se faz com a linha.
 
    E A ALTURA É UMA SÓ. A linha é um flex com `align-items: stretch`, e o
-   confirmar mede `--hit` mais o padding dele (53px); os botões traziam
-   `--thumb` fixo (40px) e ficariam boiando no meio, que é justamente o
-   desalinhamento que o pedido nomeia. `height: auto` desarma o valor fixo — sem
+   confirmar mede `--hit` mais o recuo de uma linha de opção (42px na gaveta
+   desde a v1.5.17, 53px onde o `--opcao-recuo-v` não é sobrescrito); os botões
+   traziam `--thumb` fixo (40px) e ficariam boiando no meio, que é justamente o
+   desalinhamento que o pedido nomeia. **A diferença encolheu com o aperto — de
+   13px para 2px —, e é por isso que a regra tem de continuar escrita:** o que a
+   justifica é o `stretch` valer, não o tamanho do desalinhamento que ele
+   corrige hoje. `height: auto` desarma o valor fixo — sem
    ele o `stretch` não tem efeito — e a faixa vira uma banda sólida. A LARGURA
    continua `--thumb`: o que se pediu foi a altura, e encolher o alvo horizontal
    seria trocar um acerto por um erro. */
@@ -6405,32 +6506,39 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
 .song-menu-go-row:has(> .fav-acoes.confirmando) > .song-menu-go { display: none; }
 .fav-acoes.confirmando { flex: 1; }
 /* E O PAR VESTE A RECEITA DE ALTURA DO BOTÃO QUE ELE SUBSTITUI, não um número:
-   `--hit` de conteúdo mais o `padding` vertical de um `.song-menu-btn`
-   (`.6rem` de cada lado — o `1.2rem` é a soma, e é a única duplicação aqui).
+   `--hit` de conteúdo mais o recuo vertical de uma linha de opção, que desde a
+   v1.5.17 é o token `--opcao-recuo-v` — o MESMO que o `.song-menu-btn` lê.
+   Enquanto foi um número copiado (o `1.2rem` do `.6rem` de cada lado), esta era
+   *"a única duplicação aqui"*, e foi ela que quase reintroduziu o pulo da
+   v5.309 quando a gaveta apertou: hoje as duas leem a mesma fonte e andam
+   juntas por construção, dentro da gaveta (recuo `--sp-2`) e fora dela (`.6rem`).
    Com `box-sizing: border-box` o `min-height` inclui o padding, então é ele que
    precisa carregar a conta inteira.
    Sem isto a linha ENCOLHE ao perguntar: com o confirmar fora de cena nada mais
-   segura os 53px, e a gaveta dava um pulo de 19px sob o dedo no exato instante
-   em que o operador mira um destrutivo.
+   segura a altura da linha, e a gaveta dava um pulo sob o dedo no exato
+   instante em que o operador mira um destrutivo. MEDIDO na gaveta de hoje: a
+   faixa fica em 47,59px com e sem a pergunta (pulo de 0,00px); com o número
+   copiado no lugar do token, ela iria a 58,78px — **+11,19px**.
    (Na fileira do `⋮` a régua é OUTRA e mora noutro lugar: lá os vizinhos são os
    quadrados da linha, e desde a v1.4.29 o par mede `--thumb` como eles — ver
    "E A ALTURA DELES É A DOS QUADRADOS DA LINHA".)
 
    E O CAMPO DE RENOMEAR ENTROU AQUI NA v1.4.29. Ele nasceu na v1.4.25 e ficou
-   de fora desta regra: MEDIDO, 34px contra os 53,2px do confirmar ao lado — o
-   MESMO pulo de 19px que a v5.309 corrigiu para a pergunta da exclusão, no
-   caminho que nasceu depois dela. O ✓ não precisa ser nomeado: ele é um
-   `.row-slot` e já estica (`align-self: stretch`), então segue a caixa assim
-   que o campo a levanta.
+   de fora desta regra, medindo `--hit` cru contra o confirmar ao lado — o MESMO
+   pulo que a v5.309 corrigiu para a pergunta da exclusão, no caminho que nasceu
+   depois dela. O ✓ não precisa ser nomeado: ele é um `.row-slot` e já estica
+   (`align-self: stretch`), então segue a caixa assim que o campo a levanta.
 
    Quem centra os dois verticalmente continua sendo a regra de `.confirmando` lá
    em cima — um `align-items` repetido aqui seria letra morta, porque aquela é
    mais específica. */
 .fav-acoes > .linha-confirma > :is(.linha-confirma-btn, .linha-renome-campo) {
-  /* v1.5.17: com o recuo do `.song-menu-btn` descendo para `--sp-2`, o número
-     COPIADO deixaria a linha PULAR +11,19px ao perguntar "excluir?" — o defeito
-     da v5.309 de volta, e MEDIDO. A soma passa a ser escrita como a soma. */
-  min-height: calc(var(--hit) + 2 * var(--sp-2));
+  /* v1.5.17: A DUPLICAÇÃO QUE O COMENTÁRIO ACIMA RECLAMAVA DEIXOU DE EXISTIR.
+     O número era o do `.song-menu-btn` COPIADO, e um aperto lá deixaria a linha
+     PULAR +11,19px sob o dedo ao perguntar "excluir?" — o defeito da v5.309 de
+     volta, e MEDIDO. Hoje os dois leem o MESMO token e andam juntos por
+     construção, dentro da gaveta e fora dela. */
+  min-height: calc(var(--hit) + 2 * var(--opcao-recuo-v));
 }
 /* A METADE DE BAIXO da gaveta só aparece com `vendo-letra` (v5.286) — ver o
    botão irmão do confirmar em `montarOpcoes`. Ela é a mais alta das duas, e
@@ -6485,22 +6593,22 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
   border-radius: var(--radius-btn);
   background: var(--surface); color: var(--text);
   /* ---------- A DENSIDADE É A DA LISTA EM QUE ELA VIVE (v1.5.17) ----------
-     Relato do operador: *"essa seção de opções manteve a altura dos elementos
-     muito grande, pois ainda fazia referência a padrões antigos … alinhando-se
-     ao padrão e densidade das listas que temos na biblioteca"*. Ele acertou o
-     diagnóstico e a data: o commit das QUATRO ESCALAS (v1.5.14) converteu
-     `gap`, `font-size` e `font-weight` destas regras e NUNCA tocou em
-     `padding` — os literais de recuo da gaveta são todos do commit-raiz, e
-     quatro deles não existem em degrau nenhum da escala.
+     O par de tokens (`--opcao-recuo-*`, no `:root`) é quem carrega o número, e
+     é a GAVETA que o sobrescreve — o pedido nomeia a Biblioteca, e este mesmo
+     botão é a linha de três folhas modais que não estão no relato. Ver a razão
+     inteira lá em cima, no `:root`.
 
-     MEDIDO a 430×900: a linha media 53,19px contra os 42,78px de uma
-     `.hymn-result` da lista logo acima (razão 1,243). Com `--sp-2` ela vai a
-     42px — a MESMA densidade —, e o alvo de toque continua sendo a caixa
-     inteira: `--hit` (34px) é o CONTEÚDO (o `.song-menu-check`) e não foi
-     tocado, então sobram 8px acima do piso. O horizontal desce de `.7rem`
-     (11,2px, fora de qualquer degrau) para `--sp-5` (9,6px, o degrau mais
-     próximo), para o relato ser sobre ALTURA e o lado quase não andar. */
-  font-family: inherit; padding: var(--sp-2) var(--sp-5); cursor: pointer;
+     O operador acertou o diagnóstico e a data: o commit das QUATRO ESCALAS
+     (v1.5.14) converteu `gap`, `font-size` e `font-weight` destas regras e
+     NUNCA tocou em `padding` — os literais de recuo eram todos do commit-raiz,
+     e quatro deles não existem em degrau nenhum da escala.
+
+     MEDIDO a 430×900, DENTRO da gaveta: a linha media 53,19px contra os
+     42,78px de uma `.hymn-result` da lista logo acima (razão 1,243); com
+     `--sp-2` ela vai a 42px, a MESMA densidade. O alvo de toque continua sendo
+     a caixa inteira: `--hit` (34px) é o CONTEÚDO (o `.song-menu-check`) e não
+     foi tocado, então sobram 8px acima do piso. */
+  font-family: inherit; padding: var(--opcao-recuo-v) var(--opcao-recuo-h); cursor: pointer;
 }
 .song-menu-icon {
   flex-shrink: 0; display: flex; align-items: center; justify-content: center;

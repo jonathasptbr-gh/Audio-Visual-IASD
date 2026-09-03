@@ -1836,6 +1836,16 @@ for (const tema of ['escuro', 'claro']) {
     // A régua é a MOLDURA, e não zero: 1px de borda é exatamente o que tem de
     // sobrar entre o topo do bloco e o topo da barra, e escrever "0" aqui
     // reprovaria o desenho certo.
+    //
+    // E O HOST DESTE CASO NÃO É O DO APP (v1.5.17). A lista medida aqui é uma
+    // `<ul class="popup-list">` PRÓPRIA, criada e anexada à folha (ver o
+    // `montarLista` lá em cima), e o que este caso guarda é o que ela nomeia:
+    // que nenhum RECUO DA LISTA vaze para dentro do bloco. No `#hymnResults` de
+    // verdade sobram ~4,8px acima da barra desde a v1.5.17 — mas eles não são
+    // recuo da lista: são o BLOCO crescendo para preencher a tela, e o alvo e o
+    // `--press` crescem com ele (o `lista-da-biblioteca.test.mjs`, bloco D6, é
+    // quem prova isso). Dois hosts, duas perguntas; medir aqui o `#hymnResults`
+    // faria este caso reprovar um desenho deliberado.
     checar(t.faixaAcimaDaBarra !== null
       && Math.abs(t.faixaAcimaDaBarra - t.molduraSecaoPx) <= 0.6,
       '[' + tema + '] entre o topo da caixa e a barra só há a MOLDURA: nenhum '

@@ -193,6 +193,7 @@ Fora de `tokens.css`, no `:root` do Controle (não são cor):
 | `--faixa-coluna-texto` | `calc(.5rem + 38px + var(--sp-4))` | onde a coluna do NOME de uma faixa começa — o recuo da linha, mais a miniatura, mais o vão. É token porque é o que RECUA a `--divisoria`, e é isso que a torna *"não borda inteira"*: ela começa no texto, nunca sob a miniatura. Aritmético, não medido — a miniatura tem lado fixo |
 | `--lib-fade-h` | `22px` | a altura de cada véu da borda do scroll da Biblioteca (v1.5.16) |
 | `--bar-raiz-max` | `calc(var(--hit) + 2rem)` | **o teto do bloco de raiz que cresce** (v1.5.17). Os blocos colapsados da Biblioteca ganharam `flex-grow` para preencher a altura da tela — o navegador reparte a sobra quando o conteúdo cabe e o crescimento é inerte quando ele transborda. O teto existe porque a lista pode ter POUCOS blocos: sem ele, três coleções dão 183,28px cada, que é o defeito oposto. Anda com `min-height: min-content`, senão um card com subtítulo é RECORTADO (MEDIDO, 45,19 → 40,00 com um teto de 40) |
+| `--opcao-recuo-v` / `--opcao-recuo-h` | `.6rem` / `.7rem`, e `--sp-2` / `--sp-5` dentro de `.hymn-gaveta` | **o recuo de uma linha de opção** (v1.5.17). O `.song-menu-btn` é a linha da gaveta E de três folhas modais (destinos, vídeo do YouTube, playlist automática); o operador pediu a densidade *"das listas que temos na biblioteca"*, e apertar o seletor cru levava as três folhas junto (MEDIDO: a de destinos caía de 312,30 para 267,55px). Com o par no `:root` e a GAVETA sobrescrevendo, o alcance é o que o pedido nomeia — quem declara a medida dos filhos é o PAI, a mesma regra da casa do `--camada`. Ele também fecha a duplicação que a folha reclamava: o `min-height` da faixa de confirmação lia o número do botão COPIADO, e um aperto fazia a linha PULAR +11,19px sob o dedo ao perguntar *"excluir?"* |
 | `--lib-lista-base` | `calc(.8rem + env(safe-area-inset-bottom))` | o recuo de baixo da lista da Biblioteca. É token porque o véu de baixo precisa ANULÁ-LO (`bottom: calc(-1 * var(--lib-lista-base))`): sem isso ele gruda acima do recuo e deixa uma faixa de conteúdo nítido embaixo dele — o defeito aparece só num aparelho com barra de gestos |
 | `--op-inativo` | `.35` | **o véu de INATIVO** (v1.5.15). Ele estava escrito em três `:disabled` (`.slide-btn`, `.t-btn`, `.sel-btn`) e ganhou um quarto consumidor que não é um controle: o cartão da linha do tempo, que o operador mandou vestir *"o mesmo cinza claro dos botões inativos de próximo e anterior slide"*. O cartão o consome por `color-mix` sobre `--surface` JÁ RESOLVIDO ali — um token de cor novo teria de repetir a bifurcação inteira do R1 para dizer a mesma coisa |
 | `--kb` | `0px` | altura coberta pelo teclado virtual, escrita pelo JS (ver "Deslocamento com o teclado virtual") |
@@ -539,6 +540,14 @@ A regra, e ela responde a QUATRO perguntas diferentes com quatro respostas:
   preenchimento próprio; e ela é escopada em `.folder-itens` de propósito — no
   acervo um `--linha` opaco esconderia o traço da `--divisoria`, que passa por
   baixo da faixa sem `z-index` (MEDIDO, Δ=39 → Δ=4).
+
+  **E ESSA METADE É A EXCEÇÃO DECLARADA À REGRA ACIMA.** A pasta do aparelho é a
+  única das quatro listas em que a faixa FECHADA tem corpo, e sem tom a aberta
+  ficaria a 1,08:1 do poço da própria gaveta — abaixo do piso. MEDIDO com a
+  regra: **1,273:1** no escuro e **1,879:1** no claro contra as irmãs fechadas;
+  nas outras três, aberta e fechada saem pixel-idênticas. *"Aberto não é cor"*
+  descreve as listas em que a faixa não tem corpo, e a exceção fica escrita ao
+  lado da regra para não ser apagada por coerência.
 
 **Cor de TEXTO nunca carrega estado sozinha.** Onde ela carregava, ou o estado
 ganha superfície, ou ele já é dito pela forma e a cor sai.

@@ -2914,7 +2914,11 @@ caixas** — daí o resto desta seção.
   a `.row` escondia o overlay: **o app tinha duas leituras do mesmo objeto**.
   Sem ele, 1,00:1 nas três listas e o poço da gaveta separa MAIS (1,196 → 1,380
   no escuro, 1,338 → 1,853 no claro). O arquivo de uma PASTA precisou da outra
-  metade, porque lá a linha tem preenchimento próprio.
+  metade, porque lá a linha tem preenchimento próprio — **e ela é a exceção
+  declarada à frase acima**: a pasta é a única das quatro listas em que a faixa
+  FECHADA tem corpo, e sem tom a aberta ficaria a 1,08:1 do poço da própria
+  gaveta. MEDIDO com a regra: 1,273:1 no escuro e 1,879:1 no claro contra as
+  irmãs. Nas outras três, aberta e fechada saem pixel-idênticas.
   E quando AÇÃO e ESCOLHA dividem a MESMA faixa — o trilho de navegação é o
   único caso — a ação desce para `--btn-accent` e a ESCOLHA é marcada **sem
   área**: uma barra de 3px em `--accent` na borda de cima da aba, mais o glifo
@@ -3195,16 +3199,28 @@ janela              PAPEL  (--panel)   cabeçalho GRUDENTO, top 0
   rolando). **Os dois mecanismos convivem e resolvem pontas diferentes:** o
   aperto decide QUANTOS blocos cabem (vale na tela pequena, onde não há sobra a
   repartir), o crescimento decide o que fazer com a sobra (vale na grande).
-  - **O seletor é o TRIO do nível 1, nunca `> li`**: `.acervo` está sempre no
-    `#hymnResults`, e as linhas da BUSCA são filhas diretas dele — MEDIDO, com
-    `> li` elas iam de 97,3 para 306,4px.
+  - **O seletor nomeia os DOIS blocos que existem na raiz, nunca `> li`**:
+    `.acervo` está sempre no `#hymnResults`, e as linhas da BUSCA são filhas
+    diretas dele — MEDIDO, com `> li` elas iam de 97,3 para 306,4px. A pasta do
+    aparelho fica de fora: ela não é bloco de raiz, e o ouvinte de abrir dela é
+    da `.row` — crescer sem mover o alvo devolveria a margem morta.
   - **A BARRA NÃO CRESCE JUNTO**, e isto é invariante e não estética:
     `medirVaoDosFavoritos` soma as BARRAS das vizinhas para escrever
     `--fav-vao`, e uma barra que cresce realimenta a conta até o vão deixar de
-    ser dos Favoritos — o `smoke.mjs` REPROVA essa variante. O bloco cresce, a
-    barra fica em `--bar-secao-h` e o rótulo é CENTRADO nela. O preço, dito:
-    ~4,8px acima e abaixo da barra ficam sem toque, com o alvo em 45,19px, bem
-    acima do piso `--hit`.
+    ser dos Favoritos — quem REPROVA essa variante é o `boot-nativo.test.mjs`,
+    o único oráculo que lê `--fav-vao`. O bloco cresce, a barra fica em
+    `--bar-secao-h` e o rótulo é CENTRADO nela.
+  - **E O BLOCO É O ALVO E A RESPOSTA** — senão a faixa de ~4,8px em volta da
+    barra vira MARGEM MORTA, que é o que o recuo da `.coll-bar` existe para
+    impedir desde a v5.288. Ela falhava de DOIS jeitos: numa SEÇÃO o ouvinte
+    morava na barra e o toque ali não fazia NADA (9,5px por bloco); num
+    `.hymnal-card` o ouvinte já é do `li`, o toque ABRIA e nada respondia,
+    porque quem estava na lista do `--press` era a barra. Hoje o ouvinte da
+    seção mora no `li` — com guarda POSITIVA (o `li` ou a barra), senão um toque
+    num favorito fecha a seção debaixo do dedo — e o `--press` é do bloco, com a
+    barra calada dentro dele. **Regra separada e não mais um nome na lista do
+    `--press`:** `:is()` toma a especificidade do argumento mais específico, e um
+    seletor com id ali levaria as ~40 classes da lista para (1,x,0) de uma vez.
   - **`--bar-raiz-max` é o TETO** (`--hit + 2rem` = 66px), porque a lista pode
     ter POUCOS blocos: sem teto, três coleções dão 183,28px cada — barras do
     tamanho de um cartão, o defeito oposto. Ele anda com `min-height:

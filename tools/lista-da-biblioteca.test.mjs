@@ -1021,6 +1021,90 @@ try {
     }
   }
 
+  // ---- D6 · O BLOCO CRESCIDO NÃO TEM MARGEM MORTA ---------------------
+  //
+  // O bloco cresce e a barra não, então em volta dela sobra uma faixa de ~4,8px
+  // de cada lado. Ela falhava de DOIS jeitos diferentes, e é isso que exige as
+  // duas metades abaixo: numa SEÇÃO o ouvinte morava na barra e o toque ali não
+  // fazia NADA; num `.hymnal-card` o ouvinte já é do `li`, então o toque ABRIA e
+  // nada respondia — quem estava na lista do `--press` era a barra.
+  //
+  // A régua é a doutrina da própria folha (v5.288): *"o recuo é da barra … é o
+  // que faz a faixa em volta dela ser ALVO em vez de margem morta"*.
+  //
+  // REVERSÃO: devolvendo o ouvinte da seção à barra, D6a reprova; tirando as
+  // regras de `--press` do bloco, D6b reprova.
+  // O cenário deste arquivo tem uma seção e dois cards ABERTOS (é o que os
+  // casos A e B precisam). A faixa em volta da barra só existe num bloco
+  // COLAPSADO — que é o estado em que a Biblioteca abre —, então este caso
+  // fecha tudo antes de medir. Fechar é o estado NORMAL, não uma conveniência:
+  // `resetarBiblioteca` o restaura a cada abertura (v1.1.4).
+  await pg.evaluate(async () => {
+    grupoAberto = ''; favAberto = false;
+    ui('album-77').expanded = false;
+    ui('hymnal-2022').expanded = false;
+    hymnResultsEl.innerHTML = '';
+    renderCollectionsList(hymnResultsEl, () => {}, { semTotal: true });
+    await new Promise((f) => requestAnimationFrame(() => requestAnimationFrame(f)));
+  });
+  const morta = await pg.evaluate(async () => {
+    const el = document.getElementById('hymnResults');
+    const blocos = [...el.children].filter((n) => n.nodeType === 1);
+    const sec = blocos.find((b) => b.classList.contains('coll-group--drop')
+      && !b.classList.contains('coll-group--fav') && !b.classList.contains('aberto'));
+    const card = blocos.find((b) => b.classList.contains('hymnal-card')
+      && !b.classList.contains('expanded'));
+    const noTopo = (bloco) => {
+      const r = bloco.getBoundingClientRect();
+      return document.elementFromPoint(Math.round(r.left + r.width / 2), Math.round(r.top + 1));
+    };
+    const out = { temSecao: !!sec, temCard: !!card };
+    if (!sec) return out;
+    const alvo = noTopo(sec);
+    out.foraDaBarra = !(alvo && alvo.closest('.coll-group-bar'));
+    out.alvoClasse = alvo ? (alvo.className || alvo.tagName) : 'nada';
+    out.alvoEhOli = alvo === sec;
+    out.alturaBloco = +sec.getBoundingClientRect().height.toFixed(2);
+    out.nome = (sec.querySelector('.coll-group-name') || {}).textContent || '';
+    // A RÉGUA É O ESTADO, e não a classe no DOM: este cenário monta a lista com
+    // um `redesenhar` de mentira (`() => {}`), então o toque muda `grupoAberto`
+    // e o nó não é refeito. O que se afirma aqui é que o toque CHEGA ao
+    // alternador — que é a propriedade —, não que o acordeão animou.
+    const antes = grupoAberto;
+    alvo.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    await new Promise((f) => setTimeout(f, 300));
+    out.antes = antes;
+    out.depois = grupoAberto;
+    out.alternou = grupoAberto !== antes;
+    grupoAberto = antes;
+    return out;
+  });
+  checar(morta.temSecao && morta.foraDaBarra && morta.alternou,
+    'D6a · o toque na faixa que sobra em volta da barra de uma SEÇÃO alterna o '
+    + 'bloco — ela cresceu e o alvo cresceu com ela, em vez de virar margem '
+    + 'morta (9,5px por seção, o oposto do que o recuo da barra existe para '
+    + 'produzir)', morta);
+
+  // A METADE DO CARD: aqui o toque sempre chegou; o que faltava era RESPOSTA.
+  const cardBox = await pg.locator('#hymnResults > .hymnal-card').first().boundingBox();
+  await pg.mouse.move(cardBox.x + cardBox.width / 2, cardBox.y + cardBox.height / 2);
+  await pg.mouse.down();
+  const resp = await pg.evaluate(() => {
+    const b = document.querySelector('#hymnResults > .hymnal-card');
+    const barra = b.querySelector('.coll-bar');
+    return {
+      bloco: getComputedStyle(b).transform, blocoLuz: getComputedStyle(b).filter,
+      barra: getComputedStyle(barra).transform, barraLuz: getComputedStyle(barra).filter,
+    };
+  });
+  await pg.mouse.up();
+  checar(resp.bloco !== 'none' && resp.blocoLuz !== 'none',
+    'D6b · e o `--press` é do BLOCO crescido: a pastilha inteira afunda e '
+    + 'acende, em vez de uma menor e descentrada dentro dela', resp);
+  checar(resp.barra === 'none' && resp.barraLuz === 'none',
+    'D6c · com a BARRA calada dentro dele — uma resposta por dedo, que é a '
+    + 'regra escrita na lista do `--press`', resp);
+
   checar(erros.length === 0, 'nenhum erro de console', erros.slice(0, 5));
 } catch (e) {
   checar(false, 'o oráculo rodou até o fim', String(e && e.stack ? e.stack : e));

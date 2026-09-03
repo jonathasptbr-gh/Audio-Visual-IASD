@@ -2935,7 +2935,9 @@ sem ouvinte. Desabilitado, o confirmar diz "Escolha uma opção".
 quem dita a altura de uma linha de opção não é o `padding` do `.song-menu-btn`
 (igual para todas), é o `.song-menu-check`, que reserva `--hit`. O confirmar não
 tem check — não há o que marcar nele — nem ícone, então sobrava só a linha de
-texto: 36px contra os 53px dos vizinhos. A correção é o MESMO número dito no
+texto: 36px contra os 53px dos vizinhos. (Os 53px são os da FOLHA; dentro da
+gaveta a linha mede 42px desde a v1.5.17, e a igualdade continua valendo porque
+os dois leem `--opcao-recuo-v`.) A correção é o MESMO número dito no
 mesmo lugar (o conteúdo dele reserva `--hit`), nunca um `min-height` na caixa que
 teria de somar o padding à mão. O irmão "Ver a letra" acompanha de graça — a
 faixa é um flex com `align-items: stretch`. `destinos.test.mjs` mede a IGUALDADE
@@ -3961,17 +3963,36 @@ nenhuma tela privilegiada. MEDIDO: 430×900 → bloco a **54,70px**, sobra
 **zero**; 393×786 e 360×740 com 9 blocos ficam idênticos a antes (45,19px,
 rolando).
 
-- **O seletor é o TRIO do nível 1, nunca `> li`.** `.acervo` está sempre no
-  `#hymnResults`, e as linhas da BUSCA são filhas diretas dele — MEDIDO, com
-  `> li` elas iam de 97,3 para 306,4px.
+- **O seletor nomeia os DOIS blocos que existem na raiz, nunca `> li`.**
+  `.acervo` está sempre no `#hymnResults`, e as linhas da BUSCA são filhas
+  diretas dele — MEDIDO, com `> li` elas iam de 97,3 para 306,4px. A pasta do
+  aparelho fica de fora de propósito: ela não é bloco de raiz (mora no corpo dos
+  Favoritos) e o ouvinte de abrir dela é da `.row`; crescer sem mover o alvo
+  devolveria a margem morta que a regra ao lado existe para impedir.
 - **`:not(.aberto)`/`:not(.expanded)`**: uma seção ABERTA mede o conteúdo dela
   (v5.276), e sem a guarda o vão volta a ser repartido com quem abriu.
 - **A BARRA NÃO CRESCE JUNTO**, e isto é invariante: `medirVaoDosFavoritos` soma
   as BARRAS das vizinhas para escrever `--fav-vao`, e uma barra que cresce
-  realimenta a conta até o vão deixar de ser dos Favoritos — o `smoke.mjs`
-  REPROVA essa variante ("132px contra 136px"). O bloco cresce, a barra fica em
-  `--bar-secao-h` e o rótulo é CENTRADO. O preço, dito: ~4,8px acima e abaixo da
-  barra ficam sem toque, com o alvo em 45,19px, acima do piso `--hit`.
+  realimenta a conta até o vão deixar de ser dos Favoritos — quem REPROVA essa
+  variante é o `boot-nativo.test.mjs`, o único oráculo que lê `--fav-vao`
+  ("132px contra 136px"). O bloco cresce, a barra fica em `--bar-secao-h` e o
+  rótulo é CENTRADO.
+- **E O BLOCO É O ALVO E A RESPOSTA.** A faixa de ~4,8px em volta da barra seria
+  MARGEM MORTA — o oposto do que o recuo da `.coll-bar` existe para produzir
+  (v5.288) —, e ela falhava de DOIS jeitos: numa SEÇÃO o ouvinte morava na barra
+  e o toque ali não fazia NADA (9,5px por bloco, 17% da pílula que o dedo vê);
+  num `.hymnal-card` o ouvinte já é do `li`, então o toque ABRIA o card e nada
+  respondia, porque quem estava na lista do `--press` era a barra. Hoje o
+  ouvinte da seção mora no `li`, como o do card, e o `--press` é do bloco, com a
+  barra calada dentro dele.
+  - **A guarda do ouvinte é POSITIVA** — alterna o toque no PRÓPRIO `li` ou
+    dentro da barra. Escrita ao contrário (*"tudo menos o corpo aberto"*) ela
+    depende de o corpo ter sempre a mesma classe, e a seção dos FAVORITOS monta
+    o dela por outro caminho: um toque numa linha de favorito borbulhava até o
+    `li` e FECHAVA a seção debaixo do dedo. O `boot-nativo.test.mjs` pegou.
+  - **O `--press` do bloco é uma REGRA SEPARADA**, e não mais um nome na lista
+    do `--press`: `:is()` toma a especificidade do argumento mais específico, e
+    um seletor com id ali dentro levaria as ~40 classes da lista para (1,x,0).
 - **`--bar-raiz-max` é o TETO** (66px), porque a lista pode ter poucos blocos:
   sem ele, três coleções dão 183,28px cada. E ele anda com `min-height:
   min-content`, senão um card com subtítulo é RECORTADO.
@@ -4045,6 +4066,13 @@ botões dentro. Neste app "aberto" nunca foi um tom: é a tampa que gruda no ál
 e o nome em accent na pasta. Se um dia faltar sinal aqui, a resposta é o nome em
 accent, não o overlay de volta.
 
+**E a PASTA é a exceção declarada a essa frase**: ela é a única das quatro
+listas em que a faixa FECHADA tem corpo próprio, e sem tom a aberta ficaria a
+1,08:1 do poço da própria gaveta. MEDIDO com a regra: 1,273:1 no escuro e
+1,879:1 no claro contra as irmãs fechadas; nas outras três, aberta e fechada
+saem pixel-idênticas. A exceção está escrita ao lado da regra para não ser
+apagada por coerência.
+
 **4. A divisória descentrada** — *"o alinhamento vertical das linhas de divisão
 entre os itens das listas … estão ligeiramente descentralizadas para baixo em
 relação aos itens e o vão entre eles."*
@@ -4075,6 +4103,18 @@ São DOIS defeitos, e o operador acertou o diagnóstico e a data.
   `.hymn-result` da lista logo acima — razão **1,243**. Com `--sp-2` a linha vai
   a 42px, a MESMA densidade; `--hit` (34px) é o CONTEÚDO e não foi tocado, então
   o alvo continua 8px acima do piso.
+- **E O ALCANCE É O QUE O PEDIDO NOMEIA.** O mesmo `.song-menu-btn` é a linha de
+  TRÊS folhas modais além da gaveta — destinos, vídeo do YouTube e playlist
+  automática —, e apertar o seletor cru levava as três junto: MEDIDO, a folha de
+  destinos caía de 312,30 para 267,55px e a do YouTube de 469,91 para 411,91.
+  Sem relato, sem régua (não há `.hymn-result` "logo acima" de um modal) e sem
+  oráculo. O recuo virou o par `--opcao-recuo-v`/`-h` no `:root`, e é a
+  `.hymn-gaveta` que o sobrescreve — quem declara a medida dos filhos é o PAI, a
+  mesma regra da casa do `--camada`. As três folhas ficam com o recuo de sempre.
+- **E o token FECHA A DUPLICAÇÃO que a folha já reclamava.** O `min-height` da
+  faixa de confirmação era o do botão COPIADO, e o comentário de lá dizia com
+  todas as letras que era *"a única duplicação aqui"*. Hoje os dois leem a mesma
+  fonte e andam juntos por construção, dentro e fora da gaveta.
 - **E a regra do recuo da gaveta estava MORTA.** `.hymn-opcoes` e
   `.song-menu-list` moram no MESMO `<ul>` (o montador escreve
   `className = 'song-menu-list hymn-opcoes'`), têm a mesma especificidade, e a
