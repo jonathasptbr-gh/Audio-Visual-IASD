@@ -4053,25 +4053,10 @@ media **1,00:1** — *o app tinha duas leituras da mesma gaveta, e o operador
 abriu a metade quebrada.* Sem o overlay: 1,00:1 nas três listas, e o poço ganha
 separação (1,196 → 1,380 no escuro, 1,338 → 1,853 no claro).
 
-O arquivo de uma PASTA precisou da outra metade
-(`.folder-itens > .lib-item.expanded:not(.no-ar):not(.active):not(.selected)
-{ --linha: var(--gaveta-btn) }`), porque lá a linha tem preenchimento próprio,
-pintado duas vezes. Os três `:not()` são a PRECEDÊNCIA DO ESTADO; e a regra é
-escopada em `.folder-itens` de propósito — no acervo um `--linha` opaco
-esconderia o traço da `--divisoria`, que passa por baixo da faixa sem `z-index`
-(MEDIDO, Δ=39 → Δ=4).
-
-**Quem diz "esta é a que está aberta" é a GAVETA** — 250 a 345px de poço com os
-botões dentro. Neste app "aberto" nunca foi um tom: é a tampa que gruda no álbum
-e o nome em accent na pasta. Se um dia faltar sinal aqui, a resposta é o nome em
-accent, não o overlay de volta.
-
-**E a PASTA é a exceção declarada a essa frase**: ela é a única das quatro
-listas em que a faixa FECHADA tem corpo próprio, e sem tom a aberta ficaria a
-1,08:1 do poço da própria gaveta. MEDIDO com a regra: 1,273:1 no escuro e
-1,879:1 no claro contra as irmãs fechadas; nas outras três, aberta e fechada
-saem pixel-idênticas. A exceção está escrita ao lado da regra para não ser
-apagada por coerência.
+A leitura estava certa; a ESCOLHA entre as duas era do operador, e ele a fez na
+volta seguinte — ver *"a tampa veste o poço"*, no capítulo da v1.5.18. O que
+sobrevive desta metade é o achado: **o app tinha duas leituras da mesma gaveta**,
+e nenhuma delas tinha sido decidida.
 
 **4. A divisória descentrada** — *"o alinhamento vertical das linhas de divisão
 entre os itens das listas … estão ligeiramente descentralizadas para baixo em
@@ -4131,6 +4116,87 @@ São DOIS defeitos, e o operador acertou o diagnóstico e a data.
   `.song-menu-btn` COPIADO. Deixado como estava, a linha PULARIA +11,19px sob o
   dedo ao perguntar *"excluir?"* — o defeito da v5.309 de volta, e MEDIDO. Hoje
   a soma é escrita como a soma (`--hit + 2 * --sp-2`).
+
+#### Os três relatos da v1.5.18
+
+Os três chegaram **depois** de o crescimento estar no aparelho, e é isso que os
+separa dos anteriores: nenhum deles é o recurso falhando — são o resto que ele
+deixou à mostra.
+
+**1. A margem de baixo** — *"o sistema de espaçamento das coleções ainda está
+ficando desregulado … há uma margem maior na parte de baixo. lembrando, a minha
+tela tem um tamanho de pixels, a sua tem outro e a dos usuários podem ter outro
+tamanho."*
+
+Ele está certo e o crescimento está funcionando: decodificados os pixels da
+captura (1440×2938), os blocos medem ~167 image px e os vãos ~30, mas embaixo do
+último sobram ~100. **O que restava não era espaço por repartir — era o
+`padding-bottom` do scroller**, `.8rem` MAIS `env(safe-area-inset-bottom)`.
+
+**A área segura só vale onde a janela ENCOSTA na base.** Desde a v1.5.4 ela para
+na linha da caixa de controles, e a barra de gestos do Android fica abaixo
+**dela** — o recuo estava reservando lugar para uma vizinha que não é vizinha. Ela
+volta a valer nos dois casos em que a janela vai mesmo até o fim (`body.mode-simple`
+e `body.lib-aberta.teclado`), declarada no `body` para herdar até o scroller **e**
+até o véu de baixo, que anula o mesmo número.
+
+**E o valor é `--sp-5`, o mesmo `gap` que separa dois blocos de raiz.** Esta é a
+régua, não um número escolhido: com o crescimento preenchendo o resto, qualquer
+outro põe o último bloco a uma distância da borda que nenhum par de vizinhos tem
+— que é literalmente o que o relato descreve. MEDIDO a 430×900: recuo 9,6px,
+`gap` 9,6px, sobra **0,04px**. O oráculo compara os DOIS computados, e por isso
+ele continua valendo em qualquer tela.
+
+**2. O card dono das opções sem cor** — *"as opções de play não estão colorindo
+o card dono daquelas opções, pois ali nos favoritos você pode ver que o card
+titular do item não ganhou a cor de seleção/cor do corpo da caixa de opções."*
+
+**Isto REVOGA a metade 3 da v1.5.17, a pedido de quem opera.** O achado daquele
+lote continua de pé — na lista de BUSCA a tampa já media 1,00:1 contra os BOTÕES
+da gaveta, e o app tinha duas leituras do mesmo objeto —, mas a escolha entre as
+duas nunca tinha sido feita por ninguém. Para quem opera, **o corpo de um item
+aberto é o POÇO**: a superfície grande que o toque abriu, e não o papel dos
+blocos que descansam nela.
+
+Hoje a tampa veste `--gaveta-bg`. MEDIDO: tampa e poço a 1,00:1 nos dois temas,
+com os botões flutuando dentro deles (1,196:1 no escuro, 1,338:1 no claro) — o
+item aberto é **um bloco só**, com a lista em volta continuando papel.
+
+- **`background` na `.row`, e não `--linha`.** As quatro listas resolvem esse
+  token de jeitos diferentes — transparente no acervo e nos favoritos,
+  `--camada` na busca, `--surface` na pasta do aparelho —, e uma delas é escopada
+  com id. Pintar a superfície direto atravessa as quatro com um seletor só, e foi
+  o que apagou a regra da PASTA que a v1.5.17 tinha escrito: aquela mexia em
+  `--linha`, que esta atravessa, e ficaria como um valor sem efeito explicando um
+  desenho que já não existe.
+- **Os três `:not()` são a precedência do estado.** Uma linha NO AR que o
+  operador abra continua vermelha.
+- **A divisória acima dela SOME, de propósito.** O traço mora sob a `.row`
+  (`z-index: 1`), e ali quem separa passa a ser o preenchimento — a regra já
+  escrita ao lado do `--divisoria`.
+- **A METADE que impede o conserto largo** é a irmã FECHADA continuar sem tom:
+  sem ela, pintar toda `.row` passaria na asserção de cima e o preenchimento
+  deixaria de dizer *"esta é a aberta"*.
+
+**3. A divisória que falta nos favoritos** — *"nessa lista de favoritos também
+não há a linha divisória que temos nas outras listas na biblioteca."*
+
+A v1.5.16 desenhou o traço para a faixa de um ÁLBUM, e os favoritos são outra
+`<ul>`. Ele entra pela MESMA declaração, com os dois seletores — continua sendo
+**um** consumidor do `--divisoria`, que é o que mantém de pé a asserção positiva
+do `tokens.test.mjs`; uma segunda regra pintando o mesmo token seria a porta
+larga que ela existe para fechar.
+
+**Dois números mudam, e nenhum pode ser copiado do álbum:**
+
+- **a coluna do texto** — aqui a miniatura é o `--thumb` de 40px e lá é a
+  `.hymn-play-thumb` de 38 —, então `--faixa-coluna-texto` é SOBRESCRITO na
+  `.fav-itens` em vez de duplicado. O traço continua começando onde o NOME
+  começa, que é a forma do pedido original (*"não borda inteira"*);
+- **a metade do vão** que a caixa reabsorve: o `gap` desta placa é `--sp-3` e o
+  do álbum é `--sp-2`. Copiar o número descentraria o traço — exatamente o
+  defeito que a v1.5.17 acabara de corrigir do outro lado. MEDIDO: desvio 0,00px
+  do centro da banda.
 
 #### Os favoritos se atualizam com a Biblioteca ABERTA (v5.258)
 

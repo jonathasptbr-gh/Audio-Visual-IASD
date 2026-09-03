@@ -311,7 +311,24 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
      um item flex é o CONTENT box, e o padding fica fora dele — MEDIDO, com
      `bottom: 0` a tira parava 13px acima da borda). */
   --lib-fade-h: 22px;
-  --lib-lista-base: calc(.8rem + env(safe-area-inset-bottom));
+  /* ---------- E O RECUO DE BAIXO É O MESMO VÃO DAS COLEÇÕES (v1.5.18) --------
+     Relato do operador, com os blocos JÁ crescendo: *"há uma margem maior na
+     parte de baixo … o ajuste ainda não ficou correto"*. Ele está certo, e o
+     que sobrava não era espaço por repartir — era ESTE recuo. MEDIDO na captura
+     dele: 30,4px entre dois blocos contra ~32px embaixo do último, dos quais
+     12,8 são o `.8rem` e o resto é `env(safe-area-inset-bottom)`.
+
+     A ÁREA SEGURA SÓ VALE ONDE A JANELA ENCOSTA NA BASE. Desde a v1.5.4 ela
+     para na linha da caixa de controles, e a barra de gestos do Android fica
+     abaixo DELA — o recuo estava reservando espaço para uma barra que não é
+     vizinha. Ele volta a valer nos DOIS casos em que a janela vai mesmo até o
+     fim (Modo Fácil e teclado no ar), e é lá que a regra o devolve.
+
+     E O VALOR É `--sp-5`, o MESMO `gap` que separa dois blocos de raiz: com o
+     crescimento preenchendo o resto, qualquer outro número faz o último bloco
+     ficar a uma distância da borda que nenhum par de vizinhos tem — que é
+     exatamente o que o relato descreve. */
+  --lib-lista-base: var(--sp-5);
   /* Espessura do cap do fader de volume — ele atravessa a coluna inteira, como
      o cap de uma mesa de som de verdade. */
   --fader-cap: 26px;
@@ -3014,26 +3031,11 @@ main {
    com o mesmo recurso que o app usa para marcar em toda parte. */
 .folder-opfs.expanded > .row .row-name { color: var(--accent); }
 .folder-itens > .lib-item { --linha: var(--surface); }
-/* ---------- E O ARQUIVO DE UMA PASTA PRECISA DA OUTRA METADE (v1.5.17) -------
-   Aqui a linha tem preenchimento PRÓPRIO (`--surface`, pintado DUAS vezes — na
-   `.lib-item` e na `.row`), então tirar o overlay do `.expanded` não basta:
-   MEDIDO, a linha aberta ficava em rgb(19,26,35) contra os rgb(33,47,61) do
-   botão da gaveta (**1,28:1**) e a **1,08:1** do poço — o título derretendo
-   dentro da própria gaveta. Aberta, ela veste o mesmo papel que a gaveta dá aos
-   blocos dela: 1,00:1 nos dois temas.
-
-   OS TRÊS `:not()` SÃO A PRECEDÊNCIA DO ESTADO, não decoração: `--linha` é o
-   preenchimento que `.no-ar`/`.active`/`.selected` trocam, e um seletor mais
-   específico que os deles apagaria o vermelho de uma linha NO AR que o operador
-   abrisse. É a mesma guarda de `.fav-itens > .lib-item`.
-
-   E É AQUI, E NÃO EM `.lib-item.expanded` INTEIRO: no acervo a faixa é
-   transparente e o traço da `--divisoria` passa por baixo dela SEM `z-index`.
-   Um `--linha` OPACO na faixa aberta o esconderia — MEDIDO, o traço acima dela
-   cai de Δ=39 para Δ=4 no escuro. */
-.folder-itens > .lib-item.expanded:not(.no-ar):not(.active):not(.selected) {
-  --linha: var(--gaveta-btn);
-}
+/* (A regra que dava tom PRÓPRIO ao arquivo de uma pasta aberta saiu na v1.5.18:
+   a tampa de TODA lista passou a vestir o poço da gaveta, por `background` na
+   `.row` — ver "UM ITEM ABERTO É UMA SUPERFÍCIE SÓ". Aquela regra escrevia
+   `--linha`, que a nova atravessa, e ficaria como um valor sem efeito
+   explicando um desenho que já não existe.) */
 .folder-itens > .empty { padding: .5rem .6rem; }
 
 /* (Não há mais indicador de rede em lugar nenhum do acervo: as regras
@@ -3414,8 +3416,26 @@ main {
      que nenhuma outra lista do acervo tem. */
   background: var(--panel);
   border-radius: var(--radius-card);
+  /* E A COLUNA DO TRAÇO É OUTRA AQUI (v1.5.18). A divisória entre faixas irmãs
+     passou a valer nesta lista, e ela começa onde o NOME começa — que é a forma
+     do pedido de então ("não borda inteira"). A miniatura de um favorito é o
+     `--thumb` de 40px e a de uma faixa de álbum é a `.hymn-play-thumb` de 38,
+     então o número entra SOBRESCREVENDO o token, por herança: uma segunda
+     regra com o valor calculado à mão divergiria no primeiro ajuste de
+     qualquer um dos três termos. */
+  --faixa-coluna-texto: calc(.5rem + var(--thumb) + var(--sp-4));
 }
 #hymnResults > .coll-group--fav.aberto .fav-itens > .lib-item {
+  /* E METADE DO VÃO MORA DENTRO DA CAIXA (v1.5.18), a mesma receita da faixa de
+     álbum e pelo mesmo motivo: `.lib-item` é `overflow: hidden`, então o traço
+     tem de ser desenhado em `top: 0` da faixa DE BAIXO, e com o vão inteiro
+     fora da caixa ele pousa no limite INFERIOR em vez do meio. O NÚMERO é o
+     desta lista (`gap: var(--sp-3)`, acima) e não o do álbum (`--sp-2`):
+     copiá-lo descentraria o traço, que é exatamente o defeito que a v1.5.17
+     corrigiu do outro lado. A lista não muda de altura — o `margin-top`
+     negativo devolve o conteúdo ao lugar. */
+  margin-top: calc(var(--sp-3) / -2);
+  padding-top: calc(var(--sp-3) / 2);
   /* A MESMA RECEITA da faixa do álbum, e é o ponto da v5.283 — os dois são
      "um item", não "um contêiner". Andaram JUNTOS quando trocaram `--surface`
      por `--item-fill` (v5.297) e andam juntos agora que o nível 3 deixou de ter
@@ -4644,7 +4664,8 @@ main {
    O RAIO APARA A PONTA DIREITA: com `border-radius: 8px` e `overflow: hidden`,
    os ~8px finais do traço somem no canto. É o mesmo canto que o preenchimento
    de estado já respeita, e o efeito é a divisória parando antes da curva. */
-.acervo .coll-songs > .hymn-result + .hymn-result::before {
+.acervo .coll-songs > .hymn-result + .hymn-result::before,
+#hymnResults > .coll-group--fav.aberto .fav-itens > .lib-item + .lib-item::before {
   content: ''; position: absolute; pointer-events: none;
   top: 0; left: var(--faixa-coluna-texto); right: 0; height: 1px;
   background: var(--divisoria);
@@ -5690,6 +5711,12 @@ body.mode-simple .popup-backdrop--lib,
 body.lib-aberta.teclado .popup-backdrop--lib {
   bottom: var(--kb, 0px);
 }
+/* E É AQUI QUE A ÁREA SEGURA DE BAIXO VOLTA (v1.5.18): nestes dois casos — e só
+   neles — a janela encosta na base da tela, e sem a folga o último item do
+   acervo fica sob a barra de gestos. Declarado no `body` para herdar até o
+   scroller E até o véu de baixo, que anula o mesmo número. */
+body.mode-simple,
+body.lib-aberta.teclado { --lib-lista-base: calc(var(--sp-5) + env(safe-area-inset-bottom)); }
 /* E A CAIXA DE CONTROLES SAI DE CENA — só com a Biblioteca ABERTA e o teclado no
    ar. As duas condições são necessárias: sozinho, o teclado não justifica tirar
    o transporte de quem está operando o culto (ele sobe pela Bíblia, pelo
@@ -5709,10 +5736,12 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
   .popup-backdrop--lib::before { transition: none; }
 }
 /* A LISTA É QUEM ROLA, e ela ocupa o que sobra da coluna.
-   A ÁREA SEGURA DE BAIXO É DELA, e não da folha (que aqui é `padding-bottom: 0`):
-   ABERTA, quem termina a janela é a lista, e sem esta folga o último item do
-   acervo fica sob a barra de gestos do Android. FECHADA ela não custa nada — a
-   lista está inteira fora da tela. */
+   O RECUO DE BAIXO É DELA, e não da folha (que aqui é `padding-bottom: 0`):
+   ABERTA, quem termina a janela é a lista. Ele vale o mesmo `gap` que separa
+   dois blocos de raiz, e a ÁREA SEGURA entra nele apenas nos dois casos em que
+   a janela encosta na base (ver `--lib-lista-base`) — desde a v1.5.4 ela para
+   na linha dos controles, e a barra de gestos fica abaixo DELES. FECHADA ele
+   não custa nada: a lista está inteira fora da tela. */
 .popup-sheet--lib .popup-list {
   flex: 1; min-height: 0;
   padding-bottom: var(--lib-lista-base);
@@ -6347,14 +6376,31 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    álbum e o nome em accent na pasta. Se um dia faltar sinal aqui, a resposta é
    o nome em accent, e não o overlay de volta.
 
-   E HÁ UMA EXCEÇÃO, ESCRITA AQUI PARA NÃO SER APAGADA POR COERÊNCIA: o arquivo
-   de uma PASTA DO APARELHO é a única das quatro listas em que a faixa FECHADA
-   tem preenchimento próprio (`--surface`, ver `.folder-itens > .lib-item`), e
-   por isso a aberta precisa de tom — sem ele ela ficaria a 1,08:1 do poço da
-   própria gaveta, abaixo do piso. MEDIDO com a regra: 1,273:1 no escuro e
-   1,879:1 no claro contra as irmãs fechadas. Nas outras três (acervo,
-   favoritos, busca) aberta e fechada saem PIXEL-IDÊNTICAS. A frase acima não é
-   absoluta: ela descreve as listas em que a faixa não tem corpo. */
+   E O OPERADOR DECIDIU O CONTRÁRIO, NA VOLTA SEGUINTE (v1.5.18): *"as opções de
+   play não estão colorindo o card dono daquelas opções … o card titular do item
+   não ganhou a cor de seleção/cor do corpo da caixa de opções"*.
+
+   A v1.5.17 tirou o tom da tampa porque a lista de BUSCA já media 1,00:1 contra
+   os BOTÕES da gaveta, e leu isso como "o app tem duas leituras do mesmo
+   objeto". A leitura estava certa e a escolha entre as duas era dele: o corpo
+   do item, para quem opera, é o POÇO — a superfície grande que a gaveta abre —,
+   e não o papel dos blocos que descansam nele. Hoje a TAMPA veste o poço, e
+   tampa e corpo são uma superfície só: o item aberto é um bloco, com os botões
+   flutuando dentro dele.
+
+   `background` na `.row`, e não `--linha`: as quatro listas resolvem `--linha`
+   de jeitos diferentes (transparente no acervo e nos favoritos, `--camada` na
+   busca, `--surface` na pasta), e uma delas é escopada com id — pintar a
+   superfície direto atravessa as quatro com um seletor só. Os três `:not()`
+   são a PRECEDÊNCIA DO ESTADO: uma linha NO AR que o operador abra continua
+   vermelha.
+
+   E A DIVISÓRIA ACIMA DELA SOME, de propósito: o traço mora sob a `.row`
+   (`z-index: 1`), e ali quem separa passa a ser o PREENCHIMENTO — que é a regra
+   já escrita ao lado do `--divisoria`. */
+.lib-item.expanded:not(.no-ar):not(.active):not(.selected) > .row {
+  background: var(--gaveta-bg);
+}
 /* Letra completa, abaixo da linha aberta. Rola por DENTRO, com teto de altura:
    um hino tem 20-40 linhas e, solto, empurraria os resultados seguintes para
    fora da tela — o operador perderia de vista a lista que ele estava justamente

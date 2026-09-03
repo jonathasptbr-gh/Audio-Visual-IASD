@@ -1480,9 +1480,9 @@ O job `web-ota` (todo push em `main`) empacota `assets/web/` num
   6,8 kB — e ele viaja em TODO bundle do OTA.
 - **O ARQUIVO GUARDA A SÉRIE ATUAL E A ANTERIOR, e nada mais** (v1.4.3). Ele
   chegou a 87 entradas — 51 kB em TODO bundle, com linhas descrevendo a v1.0.1.
-  A regra de poda é `MAIOR.INCREMENTAL`: hoje 1.5.x e 1.4.x, 50 entradas e
-  13,4 kB (a v1.3.x saiu na v1.5.4 — a série tinha virado e a poda ficara para
-  trás). **O preço está dito e é pequeno:** o "E mais N mudanças" do rodapé
+  A regra de poda é `MAIOR.INCREMENTAL`: hoje 1.5.x e 1.4.x (a v1.3.x saiu
+  na v1.5.4, que deixou o arquivo em 50 entradas e 13,4 kB — a série tinha
+  virado e a poda ficara para trás). **O preço está dito e é pequeno:** o "E mais N mudanças" do rodapé
   conta o que está NA LISTA, então um aparelho parado há meses vê um N
   subestimado. A lista visível tem seis linhas de qualquer jeito
   (`OTA_MAX_LINHAS`), e as podadas descrevem versões que não rodam em aparelho
@@ -2835,6 +2835,19 @@ ter ganhado o PAR — uma asserção NEGATIVA que varre a base por qualquer bloc
 `--divisoria` tenha **um** consumidor e que ele seja o seletor nomeado. As duas
 provadas por reversão.
 
+**E ELA VALE NAS DUAS LISTAS DE FAIXAS, não numa (v1.5.18).** Relato: *"nessa
+lista de favoritos também não há a linha divisória que temos nas outras listas na
+biblioteca"*. A v1.5.16 desenhou o traço para a faixa de um ÁLBUM, e os favoritos
+são outra `<ul>`. **Continua sendo UM consumidor** — a mesma declaração, com os
+dois seletores —, e é isso que mantém a asserção POSITIVA de pé: uma segunda
+regra pintando o mesmo token seria a porta larga que ela existe para fechar.
+**Os dois números que mudam entram por TOKEN, nunca copiados:** a coluna do nome
+(aqui a miniatura é `--thumb`, 40px, contra os 38 da `.hymn-play-thumb`) sai de
+um `--faixa-coluna-texto` sobrescrito na `.fav-itens`, e a metade do vão que a
+caixa reabsorve sai do `gap` DESTA lista (`--sp-3` contra `--sp-2`) — copiar o
+número do álbum descentraria o traço, que é exatamente o defeito que a v1.5.17
+tinha acabado de corrigir do outro lado.
+
 Os quatro nomes são cobrados um a um no oráculo
 (`tools/tokens.test.mjs`, sem `continue-on-error`), e **não há mais recorte por
 escopo** — ele era a única exceção que não nomeava uma peça, e uma exceção por
@@ -2902,23 +2915,31 @@ caixas** — daí o resto desta seção.
   **SELECIONADO** numa lista = `--sel-fill`; **ABERTO** = não é cor (a seta que
   gira, o corpo à vista, a tampa que gruda e o nome em accent da pasta já
   dizem). **Cor de texto nunca carrega estado sozinha.**
-  **E "ABERTO NÃO É COR" passou a ser verdade também na LINHA** (v1.5.17). O
-  `.lib-item.expanded` pintava um overlay de `--surface-sunk`, escrito na v5.271
-  quando a faixa FECHADA já vinha recuada — ele era MAIS UM degrau sobre um
-  degrau que existia. A v1.5.14 tirou o preenchimento do nível 3 e ele virou o
-  ÚNICO tom da faixa aberta, num lugar que a alternância não tem: MEDIDO,
-  **1,15:1** no escuro e **1,39:1** no claro entre o título e o corpo do MESMO
-  item — o relato do operador (*"a zona do título e thumbnail está ficando
-  diferente da cor do corpo desse item"*). O achado que decidiu o desenho é que
-  a MESMA gaveta já media **1,00:1** na lista de BUSCA, onde `--linha` é opaco e
-  a `.row` escondia o overlay: **o app tinha duas leituras do mesmo objeto**.
-  Sem ele, 1,00:1 nas três listas e o poço da gaveta separa MAIS (1,196 → 1,380
-  no escuro, 1,338 → 1,853 no claro). O arquivo de uma PASTA precisou da outra
-  metade, porque lá a linha tem preenchimento próprio — **e ela é a exceção
-  declarada à frase acima**: a pasta é a única das quatro listas em que a faixa
-  FECHADA tem corpo, e sem tom a aberta ficaria a 1,08:1 do poço da própria
-  gaveta. MEDIDO com a regra: 1,273:1 no escuro e 1,879:1 no claro contra as
-  irmãs. Nas outras três, aberta e fechada saem pixel-idênticas.
+  **E A LINHA COM GAVETA É A EXCEÇÃO NOMEADA, por decisão do operador**
+  (v1.5.17 → v1.5.18). O `.lib-item.expanded` pintava um overlay de
+  `--surface-sunk`, escrito na v5.271 quando a faixa FECHADA já vinha recuada —
+  ele era MAIS UM degrau sobre um degrau que existia. A v1.5.14 tirou o
+  preenchimento do nível 3 e ele virou o ÚNICO tom da faixa aberta, num lugar
+  que a alternância não tem: MEDIDO, **1,15:1** no escuro e **1,39:1** no claro
+  entre o título e o corpo do MESMO item — o relato (*"a zona do título e
+  thumbnail está ficando diferente da cor do corpo desse item"*). O achado foi
+  que a MESMA gaveta já media **1,00:1** na lista de BUSCA, onde `--linha` é
+  opaco e a `.row` escondia o overlay: **o app tinha duas leituras do mesmo
+  objeto**, e ninguém tinha escolhido entre elas.
+
+  **A v1.5.17 escolheu a de cima (a tampa vira o papel do item) e o operador
+  escolheu a de baixo:** *"as opções de play não estão colorindo o card dono
+  daquelas opções … o card titular do item não ganhou a cor de seleção/cor do
+  corpo da caixa de opções"*. Para quem opera, o corpo de um item aberto é o
+  POÇO — a superfície grande que a gaveta abre —, e não o papel dos blocos que
+  descansam nele. Hoje a TAMPA veste `--gaveta-bg`, tampa e corpo são uma
+  superfície só, e os botões flutuam dentro dela. Isto vale nas QUATRO listas
+  (acervo, favoritos, busca e pasta do aparelho), por `background` na `.row` e
+  não por `--linha`: as quatro resolvem esse token de jeitos diferentes, e uma
+  delas é escopada com id. Os três `:not()` são a precedência do estado — uma
+  linha NO AR que o operador abra continua vermelha. E a divisória acima dela
+  SOME, de propósito: o traço mora sob a `.row`, e ali quem separa é o
+  preenchimento.
   E quando AÇÃO e ESCOLHA dividem a MESMA faixa — o trilho de navegação é o
   único caso — a ação desce para `--btn-accent` e a ESCOLHA é marcada **sem
   área**: uma barra de 3px em `--accent` na borda de cima da aba, mais o glifo
@@ -3229,6 +3250,17 @@ janela              PAPEL  (--panel)   cabeçalho GRUDENTO, top 0
   - **A lista passa a RESPIRAR ao abrir uma seção** (uma irmã colapsada desce de
     54,28 para 48,64px acompanhando a curva do acordeão). É o recurso, não um
     defeito: evitá-lo com um `:has()` faria a lista PULAR num quadro.
+  - **E O QUE SOBROU DEPOIS DELE ERA O RECUO DE BAIXO** (v1.5.18). Relato, já
+    com os blocos crescendo: *"há uma margem maior na parte de baixo … o ajuste
+    ainda não ficou correto"*. Não havia mais sobra por repartir — o que restava
+    era o `padding-bottom` do scroller, `.8rem` MAIS `env(safe-area-inset-bottom)`.
+    **A ÁREA SEGURA SÓ VALE ONDE A JANELA ENCOSTA NA BASE**, e desde a v1.5.4 ela
+    para na linha dos controles: o recuo reservava lugar para uma barra de gestos
+    que não é vizinha dela. Ele volta a valer nos DOIS casos em que a janela vai
+    mesmo até o fim (Modo Fácil e teclado no ar). E o valor é **`--sp-5`, o mesmo
+    `gap` que separa dois blocos de raiz** — com o crescimento preenchendo o
+    resto, qualquer outro número põe o último bloco a uma distância da borda que
+    nenhum par de vizinhos tem, que é literalmente o que o relato descreve.
 
   **E A BORDA DO SCROLL DIZ QUE HÁ MAIS** (v1.5.16, o véu). Pedido do operador:
   *"que o scroll da biblioteca tenha um efeito de blur na borda interna superior
@@ -3878,7 +3910,7 @@ mundo anterior por outro caminho.
 | `barra-em-qualquer-tela.test.mjs` | **a barra da Biblioteca numa tela que NÃO é a do oráculo** (v1.5.3). Ela é a única peça do app que é um OVERLAY alinhado a uma caixa do layout — logo a única cujo desenho depende do que um Chromium de mesa a 430×900 não tem. DOIS defeitos chegaram ao aparelho passando pela suíte inteira: **CORTADA** (o app é `viewport-fit=cover`, então `env(safe-area-inset-top)` vale no aparelho e é ZERO aqui — o recorte revelava `[0, altura da barra]` de uma folha em que a barra começa DEPOIS do recuo) e **DESLOCADA** (o lugar de repouso era uma COORDENADA DE TELA medida uma vez, e ela envelhece por um caminho que ninguém observa: o teclado sobe, o app remede com ele no ar, o teclado some — MEDIDO, 290px acima do lugar). Ele roda a mesma medição em QUATRO configurações, e a primeira é a tela dos outros oráculos, de propósito: ela é o CONTROLE do experimento, e nas duas reversões ela PASSA. O entalhe é fingido por um token (`--sa-topo`), que é a razão de o token existir — um valor que só o aparelho conhece é um valor que nenhum oráculo alcança. A medida do recorte é por HIT-TEST, nunca pela string do `clip-path`: uma string com `calc()` não resolvido aprova qualquer leitura que se queira fazer dela. **E ele cresceu com a janela que para na linha da barra** (v1.5.4): NO MEIO do movimento nada da coluna viaja acima da barra (a pergunta é pela COLUNA, nunca pela camada — ela ocupa legitimamente toda a região acima daquela linha, e perguntar por ela aprova a margem saliente), e ABERTA a janela não cobre os controles |
 | `biblioteca-camadas.test.mjs` | **a PILHA da janela da Biblioteca** (v1.5.6) — e, desde a v1.5.7, o DESENHO dela: o tom e o raio medidos contra a `.tools-sheet` (a peça que o pedido nomeia, nunca um número escrito no teste), o raio só existindo ABERTA, a FRESTA acima dos controles — medida contra a base da CAMADA e não contra a caixa de controles, que reserva a altura da barra e por isso aprovava a versão sem fresta (pego por reversão) — e a borda do campo, que engrossou PARA DENTRO — — a camada dela é a ÚNICA deste app que existe SEMPRE (a barra vive nela), e por isso toda regra escrita para camadas que vão e vêm precisa ser reexaminada aqui: empatada em `z-index: 200` com as outras, quem decidia era a ORDEM DO DOCUMENTO, e a barra pintava sobre Configurações e sobre a playlist enquanto o que se abrisse dos controles subia ATRÁS da Biblioteca. A pergunta é de pilha, e só existe com DUAS camadas abertas — um cenário que nenhum outro oráculo monta. A prova é HIT-TEST, nunca `z-index` computado: um número lido de volta prova que a folha declara o que declara, e o defeito era o empate. Cobre também as duas metades do voltar (a de cima fecha, a de baixo fica), a janela indo à base sem caixa de controles (teclado · Modo Fácil) e o campo limpando AO FECHAR. **O que ele não alcança está dito**: não há teclado virtual num Chromium de mesa, então a classe é posta à mão e o que se prova é a metade CSS |
 | `plataforma.test.mjs` | **o FILTRO DE PLATAFORMA da página**: o `.apk` só instala em Android, então quem chega de iPhone, iPad ou computador não vê o guia de instalação — vê a frase que diz que este é um app Android e que a página deve ser aberta por um. Falha CALADO nos dois sentidos: de MENOS, o download volta a aparecer num iPhone e a pessoa conclui que o app está quebrado (ninguém relata isso); de MAIS — o caro —, a classificação recusa um Android de verdade e o que sai é uma página que abre, rola e não oferece nada. Daí o desenho FALHAR ABERTO (sem classe no `<html>` nada é escondido) e essa propriedade ter asserção própria: um desenho fail-CLOSED deixa a suíte inteira verde e reprova só ali. `userAgent` VERBATIM, **o iPad entre eles sem código próprio** — o iPadOS 13+ se anuncia como Macintosh e cai no lado certo por construção, então a asserção guarda a PROPRIEDADE e não o mecanismo |
-| `lista-da-biblioteca.test.mjs` | **as duas peças que a v1.5.16 pôs na lista, e as duas falham CALADAS.** A DIVISÓRIA: ela existe entre faixas irmãs, começa na coluna do NOME (não sob a miniatura) e **não** aparece antes da primeira — a prova é o PIXEL decodificado do PNG, porque uma regra `::before` sem a declaração de cor passa num teste de classe e continua invisível. E o VÉU: ele aparece com a lista rolada, **some sob uma tampa grudada** (a metade que a especificidade quebrou uma vez — 1,1,0 contra 1,2,0 deixava o véu aceso no topo, onde ele mente) e não existe com a lista curta. Guarda também a AUSÊNCIA que virou achado: a faixa de um álbum nunca recebe `no-ar`, porque `hymnResultRow` escreve `dataset.song` e `marcarNoAr` lê `dataset.id` — a asserção afirma o que o app FAZ, não a promessa que ele não cumpre (ver `docs/ACHADOS-EM-ABERTO.md` §4). **E os quatro relatos da v1.5.17** (bloco `D`), cada um com a REVERSÃO nomeada: a divisória no MEIO do vão de conteúdo (era o limite de baixo), o primeiro filho de uma placa aberta começando DENTRO dela — medido contra a placa IRMÃ dos Favoritos, nunca contra um número escrito aqui —, a faixa aberta sem overlay **com a gaveta continuando um poço** (sem essa segunda metade, apagar a gaveta inteira passaria na primeira), a linha de destino com a altura de uma faixa **sem descer do piso `--hit`**, e o crescimento do bloco de raiz em DUAS TELAS: preenche a 430×900 e é INERTE a 360×740 — numa tela só, *"preenche"* e *"tem altura fixa maior"* são indistinguíveis, e a segunda destruiria o aparelho pequeno |
+| `lista-da-biblioteca.test.mjs` | **as duas peças que a v1.5.16 pôs na lista, e as duas falham CALADAS.** A DIVISÓRIA: ela existe entre faixas irmãs, começa na coluna do NOME (não sob a miniatura) e **não** aparece antes da primeira — a prova é o PIXEL decodificado do PNG, porque uma regra `::before` sem a declaração de cor passa num teste de classe e continua invisível. E o VÉU: ele aparece com a lista rolada, **some sob uma tampa grudada** (a metade que a especificidade quebrou uma vez — 1,1,0 contra 1,2,0 deixava o véu aceso no topo, onde ele mente) e não existe com a lista curta. Guarda também a AUSÊNCIA que virou achado: a faixa de um álbum nunca recebe `no-ar`, porque `hymnResultRow` escreve `dataset.song` e `marcarNoAr` lê `dataset.id` — a asserção afirma o que o app FAZ, não a promessa que ele não cumpre (ver `docs/ACHADOS-EM-ABERTO.md` §4). **E os quatro relatos da v1.5.17** (bloco `D`), cada um com a REVERSÃO nomeada: a divisória no MEIO do vão de conteúdo (era o limite de baixo), o primeiro filho de uma placa aberta começando DENTRO dela — medido contra a placa IRMÃ dos Favoritos, nunca contra um número escrito aqui —, a faixa aberta sem overlay **com a gaveta continuando um poço** (sem essa segunda metade, apagar a gaveta inteira passaria na primeira), a linha de destino com a altura de uma faixa **sem descer do piso `--hit`**, e o crescimento do bloco de raiz em DUAS TELAS: preenche a 430×900 e é INERTE a 360×740 — numa tela só, *"preenche"* e *"tem altura fixa maior"* são indistinguíveis, e a segunda destruiria o aparelho pequeno. **E os três relatos da v1.5.18** (bloco `E`), que chegaram DEPOIS de o crescimento estar no aparelho e por isso não são o recurso falhando — são o resto que ele deixou à mostra: o recuo de baixo medido contra o `gap` das coleções e não contra um número (a régua é o desenho: o último bloco fica da borda à mesma distância que dois vizinhos ficam um do outro), a divisória dos FAVORITOS em quatro metades (existe · não antes da primeira · na coluna do nome DESTA lista, que não é a do álbum · no meio do vão DESTA lista, cujo `gap` também é outro) e a tampa do item aberto vestindo o poço da gaveta, **com a irmã fechada continuando sem tom** — sem essa segunda metade, pintar tudo passaria na primeira. Sete reversões nomeadas, uma por asserção |
 
 > **A REDE EXTERNA NÃO ENTRA NUM ORÁCULO** (`tools/sem-rede.mjs`,
 > `semRedeExterna(ctx)` logo depois de cada `newContext()`). A base web fala com
@@ -4312,17 +4344,17 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.5.17 · APK v1.5.14** · `SHELL_VERSION` **61** ·
+**Versão atual: base web v1.5.18 · APK v1.5.14** · `SHELL_VERSION` **61** ·
 bundle com `minShell: 61` e **SEM `shellTag`** — o shell 61 é o **PISO**: todo
 método da ponte existe, e não há guarda de versão no lado web. **`SHELL_VERSION`
 NÃO sobe neste lote**: a superfície da ponte não mudou (nenhum método novo,
 nenhuma forma de retorno diferente).
 
-**E ESTE LOTE NÃO PEDE RELEASE.** Ele é só base web — `controle.css`,
-`controle.js` e os oráculos —, e nada em `java/`, `res/` ou no manifesto foi
+**E ESTE LOTE NÃO PEDE RELEASE.** Ele é só base web — `controle.css`, as três
+casas da versão e os oráculos —, e nada em `java/`, `res/` ou no manifesto foi
 tocado. Por isso o `shellTag` SAI do `version.json`: declará-lo faria o `web-ota`
-segurar o bundle esperando uma Release `v1.5.17` que não tem o que carregar, em
-silêncio e para sempre. O rodapé fica com `Web v1.5.17 · Shell v1.5.14`, que é a
+segurar o bundle esperando uma Release `v1.5.18` que não tem o que carregar, em
+silêncio e para sempre. O rodapé fica com `Web v1.5.18 · Shell v1.5.14`, que é a
 resposta exata a *"o OTA chegou e o APK ainda não?"*.
 
 > A v1.5.16 trouxe `coletanea.js`, MÓDULO NOVO do Controle, e por isso ele
