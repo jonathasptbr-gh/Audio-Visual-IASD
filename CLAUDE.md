@@ -3250,6 +3250,53 @@ janela              PAPEL  (--panel)   cabeçalho GRUDENTO, top 0
   - **A lista passa a RESPIRAR ao abrir uma seção** (uma irmã colapsada desce de
     54,28 para 48,64px acompanhando a curva do acordeão). É o recurso, não um
     defeito: evitá-lo com um `:has()` faria a lista PULAR num quadro.
+  - **E A TAMPA PASSOU A SER MEDIDA, PARA NÃO ENCOLHER AO ABRIR** (v1.5.19).
+    Relato: *"o card do titulo … está encolhendo ou modificando seu tamanho ao
+    abrir sua listagem"*. É este crescimento visto pelo outro lado: colapsado o
+    bloco cresce até a altura de encaixe com a barra CENTRADA dentro; ao abrir
+    ele sai de `:not(.expanded)`, perde a repartição, e a tampa cai para a barra
+    nua. MEDIDO na captura do operador: **−11,2%** (51,00 → 45,01), em DOIS
+    quadros, enquanto o corpo desliza por 220 ms.
+    **O TEOREMA QUE FECHA AS SAÍDAS EM CSS PURO:** a tampa só pode ser CONSTANTE
+    no valor MÍNIMO dela — qualquer altura maior tem de caber em toda tela e em
+    todo número de blocos, e a "altura de encaixe" é função da TELA e do NÚMERO
+    de blocos. Ela **não existe como valor em CSS**. Logo, ou a pílula emagrece
+    para 45,19 sempre (e a sobra vai para os vãos, que sobem de 10 para 16–21px),
+    ou o número é MEDIDO. **O operador escolheu manter a pílula gorda**, e daí o
+    `--tampa-h`: a irmã exata do `--fav-vao` (`medirTampa`, no `controle.js`),
+    lida pelo CSS nos DOIS estados — `height` no fechado, `padding-top` acima da
+    barra no aberto. MEDIDO: Δ ≤ 0,02px em 24 cenários (4 telas × 2 temas ×
+    3/9/20 blocos).
+    - **A CLÁUSULA DOS FAVORITOS É OBRIGATÓRIA**, e sem ela o lote não sai: a
+      seção deles ABERTA nunca veste `--tampa-h` (ela tem
+      `min-height: var(--fav-vao)` e come a folga sozinha, v5.273), e contá-la na
+      divisão dá a cada irmã uma fatia da folga que ela já gastou — MEDIDO,
+      **81,5px** de transbordo a 430×900 e o `smoke.mjs` reprovando em *"as
+      fechadas ficam EMPILHADAS NA BASE"*. Como o `verificar` é `needs` do
+      `web-ota`, isso seria o bundle não chegando à frota.
+    - **E É SÓ A DELES.** Descontar TODO bloco aberto é a variante óbvia e está
+      ERRADA (MEDIDO): ela leva `--tampa-h` ao piso assim que alguém abre um
+      hinário, devolvendo o defeito original. Um bloco que o operador abriu
+      continua contando como FECHADO — é a hipótese "tudo fechado" que dá a
+      altura que a tampa dele tem de manter.
+    - **A ORDEM entre as duas medições é obrigatória**: `--tampa-h` lê a altura
+      RENDERIZADA dos Favoritos, governada por `--fav-vao`. Não há
+      realimentação (o `--fav-vao` soma BARRAS, que `--tampa-h` nunca muda —
+      MEDIDO, 1769px antes e depois), mas há ORDEM, e ela sai de graça do
+      agendamento: `acertarVaoDosFavoritos` registra o `rAF` DENTRO da passada e
+      `acertarTampa` no `finally` dela.
+    - **O `max-height` FICA**, inerte no regime normal (o JS já limita pelo mesmo
+      teto): é ele que segura o QUADRO PRÉ-MEDIDA — MEDIDO, sem ele três
+      coleções dão 184,34px por bloco antes de a medida chegar.
+    - **O QUE SAI JUNTO, dito:** a lista deixa de "RESPIRAR" ao abrir uma seção.
+      Aquele respiro nasceu como argumento para não combatê-lo com `:has()`,
+      nunca como pedido — e é a mesma repartição que produz o salto: em CSS puro
+      os dois não são separáveis.
+    - **O RESÍDUO, nomeado:** onde a lista JÁ transborda (393×786 e 360×740 com
+      9 blocos), abrir uma SEÇÃO ainda aumenta a tampa em **5,59px (+12,4%)**.
+      Não é regressão — é o número da própria base —, e a causa é assimétrica e
+      está na folha: o `box-shadow` existe na `.coll-bar` de um card aberto e
+      **não** na `.coll-group-bar`.
   - **E O QUE SOBROU DEPOIS DELE ERA O RECUO DE BAIXO** (v1.5.18). Relato, já
     com os blocos crescendo: *"há uma margem maior na parte de baixo … o ajuste
     ainda não ficou correto"*. Não havia mais sobra por repartir — o que restava
@@ -4344,7 +4391,7 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.5.18 · APK v1.5.14** · `SHELL_VERSION` **61** ·
+**Versão atual: base web v1.5.19 · APK v1.5.14** · `SHELL_VERSION` **61** ·
 bundle com `minShell: 61` e **SEM `shellTag`** — o shell 61 é o **PISO**: todo
 método da ponte existe, e não há guarda de versão no lado web. **`SHELL_VERSION`
 NÃO sobe neste lote**: a superfície da ponte não mudou (nenhum método novo,
@@ -4353,8 +4400,8 @@ nenhuma forma de retorno diferente).
 **E ESTE LOTE NÃO PEDE RELEASE.** Ele é só base web — `controle.css`, as três
 casas da versão e os oráculos —, e nada em `java/`, `res/` ou no manifesto foi
 tocado. Por isso o `shellTag` SAI do `version.json`: declará-lo faria o `web-ota`
-segurar o bundle esperando uma Release `v1.5.18` que não tem o que carregar, em
-silêncio e para sempre. O rodapé fica com `Web v1.5.18 · Shell v1.5.14`, que é a
+segurar o bundle esperando uma Release `v1.5.19` que não tem o que carregar, em
+silêncio e para sempre. O rodapé fica com `Web v1.5.19 · Shell v1.5.14`, que é a
 resposta exata a *"o OTA chegou e o APK ainda não?"*.
 
 > A v1.5.16 trouxe `coletanea.js`, MÓDULO NOVO do Controle, e por isso ele
