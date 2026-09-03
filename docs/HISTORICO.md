@@ -384,10 +384,12 @@ As cinco decisões, cada uma provada por reversão:
 - **A BARRA NÃO CRESCE**, e isto é invariante e não estética.
   `medirVaoDosFavoritos` soma as BARRAS das vizinhas para escrever `--fav-vao`,
   e uma barra que cresce realimenta a conta até o vão deixar de ser dos
-  Favoritos — o `smoke.mjs` REPROVA essa variante ("132px contra 136px" e
-  "132 → 389"); com a barra parada e o bloco centrado ele mede "405 contra 45" e
-  "405 → 405". O preço, dito: ~4,8px acima e abaixo da barra ficam sem toque,
-  com o alvo em 45,19px, acima do piso `--hit`;
+  Favoritos — quem REPROVA essa variante é o `boot-nativo.test.mjs`, o único
+  oráculo que lê o token ("132px contra 136px" e "132 → 389"); com a barra
+  parada e o bloco centrado ele mede "405 contra 45" e "405 → 405". **O preço
+  disso é a faixa em volta da barra, e ela NÃO fica sem toque** — ver "o que a
+  revisão do próprio lote achou", abaixo: o ALVO e o `--press` passaram a ser do
+  bloco, que é o que o card já fazia;
 - **`--bar-raiz-max` e `min-height: min-content` andam juntos** — o teto existe
   porque a lista pode ter POUCOS blocos (sem ele, três coleções dão 183,28px
   cada), e sozinho ele RECORTA um card com subtítulo (MEDIDO, 45,19 → 40,00 com
