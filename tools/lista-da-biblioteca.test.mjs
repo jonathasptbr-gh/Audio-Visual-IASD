@@ -238,6 +238,10 @@ try {
     const fav = await AVDB.addMedia(new Blob(['x'], { type: 'audio/mpeg' }),
       { name: 'Favorito de teste', list: 'favs' });
     window.__favId = fav.id;
+    // UM SEGUNDO FAVORITO: a divisória pertence ao PAR, e com um item só a
+    // lista não tem par nenhum (v1.5.18).
+    await AVDB.addMedia(new Blob(['y'], { type: 'audio/mpeg' }),
+      { name: 'Favorito vizinho', list: 'favs' });
     await recarregarFavoritos();
     grupoAberto = secao; favAberto = true;
     ui('album-77').expanded = true; ui('album-77').shown = 1000;
@@ -851,11 +855,17 @@ try {
   // duas fazem o mesmo trabalho um nível abaixo de blocos diferentes, e uma
   // mudança de escala tem de mover as duas juntas.
   const inset = await pg.evaluate(() => {
+    // O CONTEÚDO do primeiro filho, e não a caixa dele: desde a v1.5.17 (e nos
+    // favoritos desde a v1.5.18) metade do vão entre irmãs mora DENTRO da
+    // caixa, então a borda dela sangra meio vão para cima da placa — de
+    // propósito, e sem pintar nada enquanto a linha não tem estado. O inset que
+    // o relato do operador nomeia é o do que se VÊ.
     const um = (placa) => {
       if (!placa) return null;
       const f = [...placa.children].find((n) => n.nodeType === 1);
       if (!f) return null;
-      return +(f.getBoundingClientRect().top - placa.getBoundingClientRect().top).toFixed(2);
+      return +(f.getBoundingClientRect().top + parseFloat(getComputedStyle(f).paddingTop)
+        - placa.getBoundingClientRect().top).toFixed(2);
     };
     const placas = [...document.querySelectorAll('#hymnResults .coll-open')];
     return {
@@ -897,6 +907,11 @@ try {
       row: cor(row),
       item: cor(li),
       gaveta: gav ? cor(gav) : null,
+      botao: (() => {
+        const b = gav && gav.querySelector('.song-menu-btn:not(.song-menu-go):not(.song-menu-sel)')
+          || (gav && gav.querySelector('.hymn-opcoes .song-menu-btn:not(.song-menu-go)'));
+        return b ? cor(b) : null;
+      })(),
       // O papel em que a gaveta pousa os blocos dela.
       papel: getComputedStyle(document.documentElement).getPropertyValue('--gaveta-btn').trim(),
       alturaBotao: (() => {
@@ -917,10 +932,16 @@ try {
     'D3 · a faixa ABERTA não pinta overlay nenhum: ela volta ao papel em que a '
     + 'gaveta pousa os blocos dela, que é o que a lista de BUSCA já fazia',
     aberta);
-  checar(!!aberta.gaveta && aberta.gaveta !== aberta.row,
-    'D3b · e a gaveta CONTINUA sendo um poço: o item aberto não virou uma '
-    + 'mancha só — sem esta metade, apagar a gaveta inteira passaria na de cima',
-    aberta);
+  // A RÉGUA MUDOU NA v1.5.18, e o motivo é o relato do operador: a TAMPA passou
+  // a vestir o poço (*"o card titular do item não ganhou a cor … do corpo da
+  // caixa de opções"*), então comparar a tampa com o poço deixou de dizer
+  // alguma coisa — os dois são a mesma superfície de propósito. O que continua
+  // tendo de ser verdade é que a gaveta é um POÇO com BLOCOS dentro: se ela
+  // virasse uma mancha só, não haveria onde pousar os botões.
+  checar(!!aberta.gaveta && !!aberta.botao && aberta.gaveta !== aberta.botao,
+    'D3b · e a gaveta CONTINUA sendo um poço COM BLOCOS: os botões dela pousam '
+    + 'num papel que não é o do poço — sem esta metade, pintar tudo de uma cor '
+    + 'só passaria na de cima', aberta);
 
   // ---- D4 · A DENSIDADE DA GAVETA É A DA LISTA ------------------------
   //
@@ -1104,6 +1125,129 @@ try {
   checar(resp.barra === 'none' && resp.barraLuz === 'none',
     'D6c · com a BARRA calada dentro dele — uma resposta por dedo, que é a '
     + 'regra escrita na lista do `--press`', resp);
+
+  // ======================================================================
+  // E · OS TRÊS RELATOS DA v1.5.18
+  // ======================================================================
+  //
+  // Os três chegaram DEPOIS de o crescimento estar no aparelho, e é isso que os
+  // torna diferentes dos anteriores: nenhum deles é o recurso não funcionando —
+  // são o resto que o recurso passou a deixar à mostra.
+
+  // ---- E1 · O RECUO DE BAIXO É O MESMO VÃO DAS COLEÇÕES ---------------
+  //
+  // Relato: *"há uma margem maior na parte de baixo … o ajuste ainda não ficou
+  // correto"*. Com os blocos preenchendo o resto, o único espaço que sobra é o
+  // `padding-bottom` do scroller — e ele era `.8rem` MAIS a área segura, que
+  // desde a v1.5.4 reserva lugar para uma barra de gestos que não é vizinha da
+  // janela. A régua é o `gap` das coleções, e não um número: o último bloco tem
+  // de ficar da borda à mesma distância que dois vizinhos ficam um do outro.
+  // REVERSÃO: com `.8rem` no lugar, o par deixa de bater e este caso reprova.
+  await pg.evaluate(async ({ secao }) => {
+    grupoAberto = ''; favAberto = false;
+    ui('album-77').expanded = false; ui('hymnal-2022').expanded = false;
+    hymnResultsEl.innerHTML = '';
+    renderCollectionsList(hymnResultsEl, () => {}, { semTotal: true });
+    hymnResultsEl.scrollTop = 0;
+    await new Promise((f) => requestAnimationFrame(() => requestAnimationFrame(f)));
+  }, { secao: SECAO });
+  const base = await pg.evaluate(() => {
+    const el = document.getElementById('hymnResults');
+    const cs = getComputedStyle(el);
+    return {
+      padBase: Math.round(parseFloat(cs.paddingBottom) * 100) / 100,
+      gap: Math.round(parseFloat(cs.rowGap) * 100) / 100,
+    };
+  });
+  checar(Math.abs(base.padBase - base.gap) <= 0.5,
+    'E1 · o recuo de baixo da lista vale o MESMO vão que separa dois blocos de '
+    + 'raiz — com o crescimento preenchendo o resto, qualquer outro número faz o '
+    + 'último bloco ficar a uma distância da borda que nenhum par de vizinhos '
+    + 'tem, que foi o relato', base);
+
+  // ---- E2 · A DIVISÓRIA TAMBÉM NOS FAVORITOS --------------------------
+  //
+  // Relato: *"nessa lista de favoritos também não há a linha divisória que
+  // temos nas outras listas na biblioteca"*. A v1.5.16 desenhou o traço para a
+  // faixa de um ÁLBUM, e os favoritos são outra `<ul>` — com outra miniatura
+  // (`--thumb`, 40px, contra os 38 da `.hymn-play-thumb`) e outro `gap`
+  // (`--sp-3` contra `--sp-2`). Copiar os números do álbum descentraria o traço
+  // e o poria fora da coluna do nome; por isso os dois entram por TOKEN.
+  const favTraco = await pg.evaluate(async () => {
+    favAberto = true; grupoAberto = '';
+    hymnResultsEl.innerHTML = '';
+    renderCollectionsList(hymnResultsEl, () => {}, { semTotal: true });
+    await new Promise((f) => requestAnimationFrame(() => requestAnimationFrame(f)));
+    const itens = [...document.querySelectorAll(
+      '#hymnResults > .coll-group--fav.aberto .fav-itens > .lib-item')];
+    if (itens.length < 2) return { itens: itens.length };
+    const cs = getComputedStyle(itens[1], '::before');
+    const a = itens[0].getBoundingClientRect();
+    const b = itens[1].getBoundingClientRect();
+    const fimDeCima = a.bottom - parseFloat(getComputedStyle(itens[0]).paddingBottom);
+    const iniDeBaixo = b.top + parseFloat(getComputedStyle(itens[1]).paddingTop);
+    const m = (cs.backgroundColor.match(/[\d.]+/g) || []).map(Number);
+    return {
+      itens: itens.length,
+      pintado: cs.content !== 'none' && parseFloat(cs.height) > 0 && (m.length < 4 || m[3] > 0),
+      primeira: getComputedStyle(itens[0], '::before').content !== 'none',
+      // A coluna do NOME, pelos dois lados do mesmo desenho.
+      traco: Math.round((b.left + parseFloat(cs.left)) * 100) / 100,
+      nome: Math.round(itens[1].querySelector('.row-name').getBoundingClientRect().left * 100) / 100,
+      desvio: Math.round(((b.top + parseFloat(cs.top)) - (fimDeCima + iniDeBaixo) / 2) * 100) / 100,
+    };
+  });
+  checar(favTraco.itens >= 2 && favTraco.pintado,
+    'E2 · a linha de um FAVORITO tem divisória, como a faixa de um álbum — a '
+    + 'v1.5.16 desenhou o traço para uma `<ul>` só', favTraco);
+  checar(!favTraco.primeira,
+    'E2a · e nada acima da PRIMEIRA: o `+` vale aqui pelo mesmo motivo', favTraco);
+  checar(Math.abs(favTraco.traco - favTraco.nome) <= 1,
+    'E2b · e ele começa na COLUNA DO NOME desta lista (±1px), que não é a do '
+    + 'álbum: a miniatura aqui é `--thumb` (40px) e lá é 38 — o número entra por '
+    + 'TOKEN sobrescrito, nunca copiado', favTraco);
+  checar(Math.abs(favTraco.desvio) <= 0.6,
+    'E2c · e no MEIO do vão desta lista, cujo `gap` também é outro (`--sp-3` '
+    + 'contra `--sp-2`)', favTraco);
+
+  // ---- E3 · A TAMPA DO ITEM ABERTO VESTE O POÇO DA GAVETA -------------
+  //
+  // Relato: *"as opções de play não estão colorindo o card dono daquelas opções
+  // … o card titular do item não ganhou a cor de seleção/cor do corpo da caixa
+  // de opções"*. A v1.5.17 tirou o tom da tampa (ela media 1,00:1 contra os
+  // BOTÕES da gaveta na lista de busca, e o app tinha duas leituras); o operador
+  // escolheu a outra — o corpo do item é o POÇO, e tampa e corpo são uma
+  // superfície só. REVERSÃO: sem a regra, a tampa volta ao papel e este caso
+  // reprova.
+  const tampaAberta = await pg.evaluate(async () => {
+    const li = document.querySelector(
+      '#hymnResults > .coll-group--fav.aberto .fav-itens > .lib-item');
+    li.querySelector('.row').click();
+    await new Promise((f) => setTimeout(f, 600));
+    const aberta = document.querySelector('#hymnResults .fav-itens > .lib-item.expanded');
+    if (!aberta) return { abriu: false };
+    const gav = aberta.querySelector('.hymn-gaveta');
+    return {
+      abriu: true,
+      tampaAberta: getComputedStyle(aberta.querySelector('.row')).backgroundColor,
+      poco: gav ? getComputedStyle(gav).backgroundColor : null,
+      // A régua da METADE que impede o conserto largo: uma irmã FECHADA não
+      // pode ter ganho tom nenhum.
+      fechada: (() => {
+        const f = [...document.querySelectorAll(
+          '#hymnResults > .coll-group--fav.aberto .fav-itens > .lib-item')]
+          .find((n) => !n.classList.contains('expanded'));
+        return f ? getComputedStyle(f.querySelector('.row')).backgroundColor : null;
+      })(),
+    };
+  });
+  checar(tampaAberta.abriu && !!tampaAberta.poco && tampaAberta.tampaAberta === tampaAberta.poco,
+    'E3 · a tampa de um item ABERTO é a MESMA superfície do corpo da gaveta — '
+    + 'tampa e poço num bloco só, que é o que o operador pediu ao ver o card '
+    + 'titular sem cor', tampaAberta);
+  checar(tampaAberta.fechada !== tampaAberta.tampaAberta,
+    'E3a · e uma irmã FECHADA continua sem tom: o preenchimento diz "esta é a '
+    + 'aberta", e sem esta metade pintar tudo passaria na de cima', tampaAberta);
 
   checar(erros.length === 0, 'nenhum erro de console', erros.slice(0, 5));
 } catch (e) {

@@ -142,7 +142,7 @@ só uma, o token está no bloco COMPARTILHADO e vale nos dois.
 | `--panel` / `--panel-2` | `#212f3d` / `#304254` | `#ffffff` / `#dee2e8` | cartões e linhas de lista / o item ativo ou selecionado. **A direção se inverte no claro** (ver "A montagem dos dois temas") |
 | `--poco` | `#34475b` | `#cbe0f6` | **a segunda e última superfície** (v1.5.14). A Biblioteca tem quatro níveis e a escada tem três degraus; em vez de empilhar um quarto tom (impossível — ver "A escada"), o nível 1 veste o poço e o nível 2 volta ao PAPEL. Duas superfícies, profundidade ilimitada. 1,43:1 contra a janela no escuro, 1,36:1 no claro. No claro é o `--btn-accent` (o "azul fraco" pedido na v1.5.10) aprofundado até o degrau ser real — aquele mede só 1,21:1 |
 | ~~`--line`~~ | — | — | **SAIU na v1.5.14.** Removida a moldura da Biblioteca, ficou com zero consumidores. O comentário dele dizia que *"o que ele NÃO pode voltar a ser é um filete"* enquanto ele era o único filete do app |
-| `--divisoria` | `rgba(255,255,255,.20)` | `rgba(0,0,0,.28)` | **a divisória entre faixas IRMÃS** (v1.5.16), a quarta exceção nomeada da regra de contorno — e a única que é um traço. Desde a v1.5.14 a faixa é transparente sobre `--panel`: o vão de 4px entre duas faixas mede **1,00:1** contra os dois lados, que é separação nenhuma. Estes valores dão **1,88:1** e **1,99:1** sobre a placa, contra os 1,78:1 e 2,51:1 da moldura removida. Alfa e não valor fixo porque a placa muda de tom entre os temas; mais forte no claro porque sobre branco o mesmo alfa rende menos (.20 mediria 1,61:1). Consumidor ÚNICO, cobrado por oráculo nos dois sentidos |
+| `--divisoria` | `rgba(255,255,255,.20)` | `rgba(0,0,0,.28)` | **a divisória entre faixas IRMÃS** (v1.5.16), a quarta exceção nomeada da regra de contorno — e a única que é um traço. Desde a v1.5.14 a faixa é transparente sobre `--panel`: o vão de 4px entre duas faixas mede **1,00:1** contra os dois lados, que é separação nenhuma. Estes valores dão **1,88:1** e **1,99:1** sobre a placa, contra os 1,78:1 e 2,51:1 da moldura removida. Alfa e não valor fixo porque a placa muda de tom entre os temas; mais forte no claro porque sobre branco o mesmo alfa rende menos (.20 mediria 1,61:1). Consumidor ÚNICO, cobrado por oráculo nos dois sentidos — uma DECLARAÇÃO só, hoje com dois seletores (a faixa de um álbum e a linha de um favorito, v1.5.18) |
 | `--surface` / `--surface-2` | `rgba(255,255,255,.12)` / `.18` | `rgba(255,255,255,.70)` / `.92` | botão / chip-campo-badge **sobre o fundo do app** (ver R1). Branco com alfa nos DOIS temas: o controle FLUTUA sobre a página |
 | `--surface-sunk` / `--surface-2-sunk` | `rgba(0,0,0,.24)` / `.14` | `rgba(0,0,0,.14)` / `.20` | os mesmos dois **dentro de um cartão**, onde o sinal se inverte e o controle AFUNDA. Eram literais em `controle.css` até a v5.192 — os últimos pedaços de cor fora da fonte única, e o tema claro herdaria um recesso de 24% de preto sobre um cartão branco |
 | `--text` / `--muted` | `#dce0e5` / `#b6bdc6` | `#000000` / `#565d66` | texto (14,19:1 sobre o fundo · 9,52:1 sobre painel no escuro; 16,28:1 · 21:1 no claro) / secundário. **No claro o `--text` é PRETO desde a v1.5.12** — o ÚNICO desvio declarado da paleta oficial, a pedido do operador (*"use a cor preta pra os textos e não cinza como me parece ser hoje"*): ele era o `night` OFICIAL (#4a4a4a), que É um cinza escuro e se lia como texto apagado sob a luz de um salão. `--muted` NÃO acompanhou — é ele que mantém a regra NOME × NÚMERO da v1.5.11, e o par abriu de 1,33:1 para 3,15:1. Ele é derivado porque o `winter` oficial (#717171) passa sobre branco (4,88:1) e cai para 3,81:1 sobre o cinza da página |
@@ -190,11 +190,11 @@ Fora de `tokens.css`, no `:root` do Controle (não são cor):
 | `--dur-rapida` / `--dur-media` / `--dur-lenta` | `.14s` / `.2s` / `.3s` | **a escala de movimento** (v1.5.14). Eram dez durações de transição entre .12s e .3s — faixa em que o olho não distingue os degraus, mas em que peças VIZINHAS animam em tempos diferentes, e isso se nota. As ANIMAÇÕES ficam de fora e mantêm o tempo delas: um pulso de 1,2s não é uma transição de interface |
 | `--fw-normal` / `--fw-medio` / `--fw-forte` / `--fw-max` | `400` / `600` / `700` / `800` | **os quatro pesos** (v1.5.14). Eram cinco valores para quatro papéis — o `500`, com três usos, não se distinguia do `600`. Nomeados, a escolha deixa de ser um número e passa a ser um papel |
 | `--bar-secao-h` | `calc(var(--hit) + .7rem)` | a altura da barra de uma seção da Biblioteca. É token porque DUAS regras precisam do mesmo número (a barra gruda em `top: 0`, a do álbum logo abaixo dela); escrito duas vezes divergiria, e o sintoma seria o cabeçalho de dentro cobrindo o de fora. Determinístico: o nome é `nowrap` e o recuo é fixo — nada de medição em JS, que a v1.5.3 ensinou a desconfiar. **Era `+ 1.1rem` até a v1.5.16**, e quem o apertou foi o ORÇAMENTO da lista colapsada — não o desenho da barra |
-| `--faixa-coluna-texto` | `calc(.5rem + 38px + var(--sp-4))` | onde a coluna do NOME de uma faixa começa — o recuo da linha, mais a miniatura, mais o vão. É token porque é o que RECUA a `--divisoria`, e é isso que a torna *"não borda inteira"*: ela começa no texto, nunca sob a miniatura. Aritmético, não medido — a miniatura tem lado fixo |
+| `--faixa-coluna-texto` | `calc(.5rem + 38px + var(--sp-4))` | onde a coluna do NOME de uma faixa começa — o recuo da linha, mais a miniatura, mais o vão. É token porque é o que RECUA a `--divisoria`, e é isso que a torna *"não borda inteira"*: ela começa no texto, nunca sob a miniatura. Aritmético, não medido — a miniatura tem lado fixo. **SOBRESCRITO na `.fav-itens`** (v1.5.18): lá a miniatura é `--thumb` (40px) e não a `.hymn-play-thumb` de 38 — o valor entra por herança de custom property, nunca copiado para uma segunda regra |
 | `--lib-fade-h` | `22px` | a altura de cada véu da borda do scroll da Biblioteca (v1.5.16) |
 | `--bar-raiz-max` | `calc(var(--hit) + 2rem)` | **o teto do bloco de raiz que cresce** (v1.5.17). Os blocos colapsados da Biblioteca ganharam `flex-grow` para preencher a altura da tela — o navegador reparte a sobra quando o conteúdo cabe e o crescimento é inerte quando ele transborda. O teto existe porque a lista pode ter POUCOS blocos: sem ele, três coleções dão 183,28px cada, que é o defeito oposto. Anda com `min-height: min-content`, senão um card com subtítulo é RECORTADO (MEDIDO, 45,19 → 40,00 com um teto de 40) |
 | `--opcao-recuo-v` / `--opcao-recuo-h` | `.6rem` / `.7rem`, e `--sp-2` / `--sp-5` dentro de `.hymn-gaveta` | **o recuo de uma linha de opção** (v1.5.17). O `.song-menu-btn` é a linha da gaveta E de três folhas modais (destinos, vídeo do YouTube, playlist automática); o operador pediu a densidade *"das listas que temos na biblioteca"*, e apertar o seletor cru levava as três folhas junto (MEDIDO: a de destinos caía de 312,30 para 267,55px). Com o par no `:root` e a GAVETA sobrescrevendo, o alcance é o que o pedido nomeia — quem declara a medida dos filhos é o PAI, a mesma regra da casa do `--camada`. Ele também fecha a duplicação que a folha reclamava: o `min-height` da faixa de confirmação lia o número do botão COPIADO, e um aperto fazia a linha PULAR +11,19px sob o dedo ao perguntar *"excluir?"* |
-| `--lib-lista-base` | `calc(.8rem + env(safe-area-inset-bottom))` | o recuo de baixo da lista da Biblioteca. É token porque o véu de baixo precisa ANULÁ-LO (`bottom: calc(-1 * var(--lib-lista-base))`): sem isso ele gruda acima do recuo e deixa uma faixa de conteúdo nítido embaixo dele — o defeito aparece só num aparelho com barra de gestos |
+| `--lib-lista-base` | `var(--sp-5)` | o recuo de baixo da lista da Biblioteca — o MESMO `gap` que separa dois blocos de raiz (v1.5.18): com o crescimento preenchendo o resto, qualquer outro número põe o último bloco a uma distância da borda que nenhum par de vizinhos tem. É token porque o véu de baixo precisa ANULÁ-LO (`bottom: calc(-1 * var(--lib-lista-base))`): sem isso ele gruda acima do recuo e deixa uma faixa de conteúdo nítido embaixo dele. A `env(safe-area-inset-bottom)` entra **só** em `body.mode-simple` e `body.lib-aberta.teclado` — os dois casos em que a janela encosta na base; desde a v1.5.4 ela para na linha dos controles, e a barra de gestos fica abaixo DELES |
 | `--op-inativo` | `.35` | **o véu de INATIVO** (v1.5.15). Ele estava escrito em três `:disabled` (`.slide-btn`, `.t-btn`, `.sel-btn`) e ganhou um quarto consumidor que não é um controle: o cartão da linha do tempo, que o operador mandou vestir *"o mesmo cinza claro dos botões inativos de próximo e anterior slide"*. O cartão o consome por `color-mix` sobre `--surface` JÁ RESOLVIDO ali — um token de cor novo teria de repetir a bifurcação inteira do R1 para dizer a mesma coisa |
 | `--kb` | `0px` | altura coberta pelo teclado virtual, escrita pelo JS (ver "Deslocamento com o teclado virtual") |
 
@@ -524,30 +524,40 @@ A regra, e ela responde a QUATRO perguntas diferentes com quatro respostas:
   duas cores conforme o tipo do bloco (uma SEÇÃO aberta nunca pintou o nome
   dela). No card da Biblioteca quem diz "isto levantou" é o degrau de ELEVAÇÃO.
 
-  **E na LINHA isso só passou a ser verdade na v1.5.17.** O `.lib-item.expanded`
-  pintava um overlay de `--surface-sunk`, escrito na v5.271 quando a faixa
-  FECHADA já vinha recuada (`--item-fill`) — ele era MAIS UM degrau sobre um
-  degrau existente. A v1.5.14 tirou o preenchimento do nível 3 e a premissa
-  caiu: o overlay virou o ÚNICO tom da faixa aberta, num lugar que a alternância
-  não tem (`--panel` + `rgba(0,0,0,.24)` = rgb(25,36,46), o pixel medido).
-  MEDIDO entre o título e o corpo do MESMO item: **1,15:1** no escuro e
-  **1,39:1** no claro — o relato do operador. E o achado que decidiu o desenho:
-  na lista de BUSCA, onde `--linha` é OPACO e a `.row` esconde o overlay, o
-  mesmo par já media **1,00:1**. *O app tinha duas leituras da mesma gaveta.*
-  Removido o overlay, 1,00:1 nas três listas, e o poço da gaveta separa MAIS:
-  1,196 → 1,380 no escuro e 1,338 → 1,853 no claro. O arquivo de uma PASTA
-  precisou da outra metade (`--linha: var(--gaveta-btn)`), porque lá a linha tem
-  preenchimento próprio; e ela é escopada em `.folder-itens` de propósito — no
-  acervo um `--linha` opaco esconderia o traço da `--divisoria`, que passa por
-  baixo da faixa sem `z-index` (MEDIDO, Δ=39 → Δ=4).
+  **E A LINHA COM GAVETA É A EXCEÇÃO NOMEADA À FRASE ACIMA** (v1.5.17 →
+  v1.5.18). O `.lib-item.expanded` pintava um overlay de `--surface-sunk`,
+  escrito na v5.271 quando a faixa FECHADA já vinha recuada (`--item-fill`) —
+  ele era MAIS UM degrau sobre um degrau existente. A v1.5.14 tirou o
+  preenchimento do nível 3 e a premissa caiu: o overlay virou o ÚNICO tom da
+  faixa aberta, num lugar que a alternância não tem (`--panel` +
+  `rgba(0,0,0,.24)` = rgb(25,36,46), o pixel medido). MEDIDO entre o título e o
+  corpo do MESMO item: **1,15:1** no escuro e **1,39:1** no claro — o relato.
+  E o achado que decidiu o lote: na lista de BUSCA, onde `--linha` é OPACO e a
+  `.row` esconde o overlay, o mesmo par já media **1,00:1**. *O app tinha duas
+  leituras da mesma gaveta, e ninguém tinha escolhido entre elas.*
 
-  **E ESSA METADE É A EXCEÇÃO DECLARADA À REGRA ACIMA.** A pasta do aparelho é a
-  única das quatro listas em que a faixa FECHADA tem corpo, e sem tom a aberta
-  ficaria a 1,08:1 do poço da própria gaveta — abaixo do piso. MEDIDO com a
-  regra: **1,273:1** no escuro e **1,879:1** no claro contra as irmãs fechadas;
-  nas outras três, aberta e fechada saem pixel-idênticas. *"Aberto não é cor"*
-  descreve as listas em que a faixa não tem corpo, e a exceção fica escrita ao
-  lado da regra para não ser apagada por coerência.
+  **A v1.5.17 escolheu a de cima, o operador escolheu a de baixo.** Removido o
+  overlay, tampa e corpo do item ficavam os dois em `--panel` — e o relato
+  seguinte foi *"as opções de play não estão colorindo o card dono daquelas
+  opções … o card titular do item não ganhou a cor de seleção/cor do corpo da
+  caixa de opções"*. Para quem opera, o corpo de um item aberto é o POÇO da
+  gaveta, a superfície grande que o toque abriu — não o papel dos blocos que
+  descansam nela. Hoje a tampa veste **`--gaveta-bg`**: MEDIDO, tampa e poço a
+  1,00:1 nos dois temas, e os botões (`--gaveta-btn`) flutuando dentro deles a
+  1,196:1 no escuro e 1,338:1 no claro.
+
+  **`background` na `.row`, e não `--linha`.** As quatro listas resolvem esse
+  token de jeitos diferentes — transparente no acervo e nos favoritos,
+  `--camada` na busca, `--surface` na pasta do aparelho — e uma delas é escopada
+  com id; pintar a superfície direto atravessa as quatro com um seletor só. Os
+  três `:not()` são a PRECEDÊNCIA DO ESTADO: uma linha NO AR que o operador abra
+  continua vermelha. E a `--divisoria` acima dela SOME, de propósito — o traço
+  mora sob a `.row` (`z-index: 1`), e ali quem separa passa a ser o
+  PREENCHIMENTO, que é a regra já escrita ao lado do token.
+
+  *"Aberto não é cor"* continua descrevendo o ACORDEÃO — a seção, o álbum, a
+  pasta —, e a linha com gaveta é a exceção, escrita ao lado da regra para não
+  ser apagada por coerência.
 
 **Cor de TEXTO nunca carrega estado sozinha.** Onde ela carregava, ou o estado
 ganha superfície, ou ele já é dito pela forma e a cor sai.
@@ -622,6 +632,17 @@ chamando-se desenho.
   oráculo ganhou o PAR no mesmo lote: uma varredura NEGATIVA por qualquer bloco
   de 1px com fundo (reprova todos menos o seletor nomeado) e uma POSITIVA
   exigindo que `--divisoria` tenha um consumidor só.
+
+  **E ela vale nas DUAS listas de faixas desde a v1.5.18** (*"nessa lista de
+  favoritos também não há a linha divisória que temos nas outras listas"*): a
+  v1.5.16 desenhou o traço para uma `<ul>` só. Continua sendo **um** consumidor
+  — a mesma declaração com os dois seletores —, e é isso que mantém a asserção
+  positiva de pé. Os dois números que mudam entram por TOKEN: a coluna do nome
+  (`--faixa-coluna-texto` sobrescrito na `.fav-itens`, onde a miniatura é
+  `--thumb` e não os 38px do álbum) e a metade do vão que a caixa reabsorve (o
+  `gap` daquela lista é `--sp-3`, o do álbum é `--sp-2`) — copiar o número do
+  álbum descentraria o traço, que é o defeito que a v1.5.17 acabara de corrigir
+  do outro lado.
 
 **A diferença entre a divisória e a moldura removida é de OBJETO, não de
 espessura.** A moldura era um retângulo por nível, quatro arestas, em três
@@ -779,7 +800,9 @@ pousava no limite INFERIOR: MEDIDO, 6,42px de branco acima e 1,37px abaixo. Não
 se move o traço, move-se a CAIXA: metade do `gap` entra como `padding-top` e um
 `margin-top` negativo da mesma medida devolve o conteúdo ao lugar. A lista não
 muda de altura (`N·(h+2) + (N−1)·4 − 2N` é `N·h + (N−1)·4`), e a borda de cima
-da caixa passa a SER o meio do vão.
+da caixa passa a SER o meio do vão. **A conta é por LISTA, não uma constante**
+(v1.5.18): nos favoritos o `gap` é `--sp-3`, e a mesma receita entra com esse
+número — repetir o do álbum reintroduziria o desvio no outro lugar.
 
 No tema CLARO a escada **não é monotônica**, e isso é aritmética e não descuido:
 a página é cinza e o nível 1 é branco (a convenção de toda UI clara), então o

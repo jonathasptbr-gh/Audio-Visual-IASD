@@ -24,6 +24,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
+- **v1.5.18** — OS TRÊS RELATOS QUE O CRESCIMENTO DEIXOU À MOSTRA, e um deles REVOGA uma escolha da v1.5.17 — a pedido de quem opera. **(1)** *"o sistema de espaçamento das coleções ainda está ficando desregulado … há uma margem maior na parte de baixo … o ajuste ainda não ficou correto"* — e ele está certo com o recurso funcionando: decodificados os pixels da captura, os blocos crescem, e o que sobra embaixo do último é o `padding-bottom` do scroller, `.8rem` MAIS `env(safe-area-inset-bottom)`. A ÁREA SEGURA só vale onde a janela ENCOSTA na base, e desde a v1.5.4 ela para na linha dos controles — o recuo reservava lugar para uma barra de gestos que não é vizinha dela; volta a valer nos dois casos em que a janela vai até o fim (Modo Fácil e teclado). E o valor passa a ser `--sp-5`, o MESMO `gap` que separa dois blocos de raiz: com o crescimento preenchendo o resto, qualquer outro número põe o último bloco a uma distância da borda que nenhum par de vizinhos tem, que é literalmente o relato (MEDIDO: recuo 9,6px, `gap` 9,6px, sobra 0,04). **(2)** *"as opções de play não estão colorindo o card dono daquelas opções … o card titular do item não ganhou a cor de seleção/cor do corpo da caixa de opções"* — **isto REVOGA a metade 3 da v1.5.17**. O achado daquele lote continua de pé (na lista de BUSCA a tampa já media 1,00:1 contra os BOTÕES da gaveta, e o app tinha duas leituras do mesmo objeto), mas a ESCOLHA entre elas nunca tinha sido feita por ninguém: para quem opera, o corpo de um item aberto é o POÇO — a superfície grande que o toque abriu —, e não o papel dos blocos que descansam nela. A tampa passa a vestir `--gaveta-bg`, e tampa e corpo viram uma superfície só, com os botões flutuando dentro. `background` na `.row` e não `--linha`, porque as quatro listas resolvem esse token de jeitos diferentes e uma é escopada com id — o que apagou de quebra a regra da PASTA que a v1.5.17 tinha escrito, hoje um valor sem efeito explicando um desenho que não existe. **(3)** *"nessa lista de favoritos também não há a linha divisória que temos nas outras listas"* — a v1.5.16 desenhou o traço para uma `<ul>` só. Ele entra pela MESMA declaração, com os dois seletores: continua sendo UM consumidor do `--divisoria`, que é o que mantém de pé a asserção positiva do `tokens.test.mjs`. Os dois números que mudam entram por TOKEN e não copiados — a coluna do nome (aqui a miniatura é `--thumb`, 40px, contra 38) e a metade do vão (`gap` `--sp-3` contra `--sp-2`) —, porque copiar o do álbum descentraria o traço, o defeito que a v1.5.17 acabara de corrigir do outro lado. Sete reversões nomeadas, uma por asserção.
 - **v1.5.17** — OS QUATRO RELATOS DA BIBLIOTECA, E OS QUATRO SÃO REGRESSÕES DE PREMISSA. Todos do operador, todos no mesmo minuto, todos com o mesmo formato de falha: nada quebra, nada aparece no console. **(1)** *"o aproveitamento da altura não está correto, está sobrando … o tamanho deve ser ajustável para se encaixar a altura da tela"* — `#hymnResults` é uma `.popup-list` e os blocos de raiz caíam em `flex-shrink: 0` SEM `flex-grow`: o excedente inteiro se acumulava no pé (MEDIDO, 85,58px a 430×900, que a v1.5.16 tinha AUMENTADO de 27,92 ao apertar as barras). `flex-grow` nos blocos COLAPSADOS reparte a sobra quando o conteúdo cabe e é INERTE quando ele transborda — ajustável por construção, sem uma linha de JS (430×900: 54,70px e sobra zero; 360×740: idêntico a antes). A BARRA não cresce junto, e isso é invariante: `medirVaoDosFavoritos` soma as barras das vizinhas, e uma barra que cresce realimenta a conta até o vão deixar de ser dos Favoritos — o `smoke.mjs` reprova essa variante. **(2)** *"os cards que ficam no topo das listas … sem margem no topo"* — COLAPSO DE MARGEM: o `.coll-open` não tem `padding-top` nem borda, então a `margin-top` do primeiro filho saía para fora dele. Invisível enquanto a placa era transparente; a v1.5.15 lhe deu fundo e raio e o recuo passou a cair FORA (MEDIDO, 0,00px contra os 6,39px da placa irmã dos Favoritos). `display: flow-root` — que o `expandAccordion` já escrevia por 220ms como `overflow: hidden` —, e de quebra o acordeão passa a medir a altura de verdade (levava a 321px uma caixa que dentro do BFC pede 327). Mais `scroll-margin-top` no cabeçalho de seção do hinário, porque o `scrollIntoView` mirava o topo do scrollport e o cabeçalho pousava DEBAIXO da tampa grudada. **(3)** *"a zona do título e thumbnail está ficando diferente da cor do corpo desse item"* — o overlay `.lib-item.expanded` foi escrito na v5.271 sobre a faixa fechada JÁ recuada; a v1.5.14 tirou o preenchimento do nível 3 e ele virou o ÚNICO tom da faixa aberta, um 4º tom que a alternância não tem (1,15:1 no escuro, 1,39:1 no claro). O achado que decidiu o desenho: a MESMA gaveta já media 1,00:1 na lista de BUSCA, onde `--linha` é opaco e a `.row` esconde o overlay — **o app tinha duas leituras do mesmo objeto**. Removido, 1,00:1 nas três listas e o poço separa MAIS. **(4)** *"as linhas de divisão … estão ligeiramente descentralizadas para baixo"* — com o vão inteiro fora da caixa o traço pousava no limite INFERIOR (6,42px de branco acima, 1,37 abaixo). Não se move o traço, move-se a CAIXA: metade do `gap` entra como `padding-top` e um `margin-top` negativo devolve o conteúdo ao lugar, e a lista não muda de altura. **(5)** *"essa seção de opções manteve a altura dos elementos muito grande, pois ainda fazia referência a padrões antigos"* — e ele acertou a data: o commit das QUATRO ESCALAS converteu `gap`, `font-size` e `font-weight` da gaveta e nunca tocou em `padding`. Mais um achado de cascata: `.hymn-opcoes` e `.song-menu-list` moram no MESMO `<ul>` com a mesma especificidade, e a segunda vencia — a gaveta vestia o recuo do bottom-sheet que a v5.285 substituiu. A linha de destino vai de 53,19px para 42, a densidade da faixa ao lado, sem tocar no piso `--hit` — e o recuo vira TOKEN sobrescrito pela gaveta, porque o mesmo botão é a linha de três folhas modais que não estão no relato. **E a REVISÃO do próprio lote achou mais quatro coisas antes de ele sair**, nenhuma delas pixel quebrado: a faixa que sobra em volta da barra crescida era MARGEM MORTA (9,5px por seção onde o toque não fazia nada, e num card o toque abria sem resposta nenhuma) — o oposto do que o recuo da `.coll-bar` existe para produzir, corrigido pondo o ALVO e o `--press` no bloco; três comentários que passaram a mentir no presente, um deles ensinando o número que reintroduziria os +11,19px de pulo sob o dedo; e um conflito de doutrina — *"aberto nunca foi um tom"* ao lado de uma regra que dá tom ao aberto da pasta do aparelho —, resolvido escrevendo a exceção ao lado da regra em vez de apagar qualquer uma das duas.
 - **v1.5.16** — A DIVISÓRIA, O VÉU E A COLETÂNEA DISSOLVIDA. Três pedidos do operador sobre a Biblioteca. **(1)** *"linha divisória (não borda inteira), na listagem do itens propriamente dos álbuns"* — desde a v1.5.14 a faixa é transparente sobre `--panel`, e o vão de 4px entre duas faixas mede **1,00:1** contra os dois lados: separação nenhuma. Nasce `--divisoria` (1,88:1 no escuro, 1,99:1 no claro), um `::before` de 1px RECUADO até a coluna do nome — não uma `border`, que cobre a caixa e não tem como ser recuada. É a QUARTA exceção nomeada da regra de contorno, e ela não é a moldura da v1.5.9 voltando: aquela eram quatro arestas por nível em três níveis carregando a HIERARQUIA, esta é uma aresta num nível só entre IRMÃS — o que a alternância por construção não separa. O `tokens.test.mjs` ganha o PAR que impede a brecha *"filete pode, desde que não se chame border"*: uma varredura NEGATIVA por qualquer bloco de 1px pintado e uma POSITIVA exigindo consumidor único. **(2)** *"um efeito de blur na borda interna superior ou inferior, quando algum elemento da tela ir para debaixo dessa borda"* — dois `sticky` DENTRO do scroller com `backdrop-filter`, e blur em vez de gradiente porque a alternância põe DUAS superfícies sob a mesma borda e um gradiente teria de escolher uma (MEDIDO: −60% de nitidez nos dois temas). A `z-index: 2` ele some sozinho sob uma tampa grudada (131/131 amostras). A especificidade mordeu uma vez: `#hymnResults:not(.tem-acima)` (1,1,0) perdia para `.popup-backdrop--lib.open #hymnResults` (1,2,0) e o véu ficava aceso no topo, onde ele mente. **(3)** *"os albuns do celebra SP, serão individualmente colocados na coleção de 'diversos' … fara com que todas as coleções caibam na tela"* — nasce `controle/coletanea.js`, regra PURA com oráculo Node, que DISSOLVE em vez de remover (MEDIDO: descartar a categoria deixa os álbuns órfãos e o app os recolhe em "Outros álbuns" — dez blocos de novo, com um nome pior). Roda no DESENHO e não no `fetchAlbumCatalog`, senão uma correção por OTA esperaria a próxima sincronização com rede. Destino ausente é IDENTIDADE e a origem FICA. A tabela aceita *"Diversas"* E *"Diversos"*: o operador escreveu o segundo e a seção chama-se o primeiro. O orçamento: a 430×900 a caixa da lista tem 582px, 10 blocos davam 615,1px e passam a dar 551,1px depois de apertar as duas barras — APERTAR e não ESTICAR, porque esticar levaria o vão dos Favoritos de 131px a 55px e desfaria a v5.273/v5.277. O segundo preço está dito: com os 9 blocos do acervo dissolvido sobram ~86px em vez de ~28, isto é, o aperto AFASTA do enchimento exato que a leitura literal do pedido cobra; e a promessa de caber sem rolar vale de 430px para cima (a 393×786 o aperto não compra bloco nenhum). **E um achado registrado, não corrigido**: a faixa de um álbum NUNCA é marcada como no ar (`hymnResultRow` escreve `dataset.song`, `marcarNoAr` lê `dataset.id`), e mesmo forçada a classe perderia para `.coll-songs > .hymn-result` por ordem de fonte — `docs/ACHADOS-EM-ABERTO.md` §4. O irmão dos FAVORITOS era alcançável e foi corrigido.
 - **v1.5.15** — A PERNA DA RAIZ DA BIBLIOTECA, E O CINZA DO CARTÃO DA LINHA DO TEMPO. Três relatos do operador sobre a v1.5.14 e um pedido. **(1)** *"isso era pra ser assim? fundo azul nos itens do provai e vede?"* — a árvore da Biblioteca não tem profundidade uniforme: uma seção contém CARDS e uma coleção da RAIZ contém FAIXAS, então a MESMA `.hymn-result` pousava em duas cores conforme onde a coleção mora. A alternância não estava errada; faltava o degrau de baixo dela — o `.coll-open` de uma coleção da raiz vira PLACA de papel, irmã exata da `.fav-itens`, e a faixa volta a pousar na mesma base em qualquer lugar do acervo (MEDIDO: 1,43:1 e 1,35:1 contra o poço, e 1,00:1 contra o card de álbum). A placa é o corpo aberto INTEIRO e não só a lista: o DESTAQUE do sábado pinta `--sel-fill`, que dá 1,31:1 sobre o papel (o par para que ele foi desenhado) e 1,03:1 sobre o poço — deixá-lo de fora consertaria a lista e deixaria o "ESTE SÁBADO" invisível, que é o mesmo defeito um bloco acima e está numa das capturas. **(2 e 3)** *"a lista está vazando acima"* e *"essa sobreposição também permanece… parecendo que um álbum está pertencendo a outro"* são o MESMO defeito pelas duas faces: a v1.5.14 deu a todo card aberto o `top` do segundo degrau, os da raiz inclusive — que não têm barra acima —, e **o vão que sobrava É o scrollport** (MEDIDO: 51,6px de lista à mostra acima da tampa colada, e a tampa inteira ainda no topo enquanto desgruda, pintada por cima das coleções seguintes). O `top` de uma tampa passa a ser a PROFUNDIDADE dela, e pela mesma aritmética o `padding-top` do scroller foi a zero — padding de um scroller é scrollport. **(4)** *"ajuste o cinza dela para o mesmo cinza claro dos botões inativos de próximo e anterior slide"*: o cartão vestia `--surface` cheio, que é o tom do botão ATIVO; passa a ser a mesma superfície sob o véu de `--op-inativo`, por `color-mix` sobre o valor JÁ RESOLVIDO ali (um token novo teria de repetir a bifurcação do R1). Os dois oráculos aprendem a ler `color-mix` — que computa como `color(srgb 1 1 1 / .04)`, e uma regex de números lê (1,1,1).
@@ -335,6 +336,121 @@ na nota que a revoga, não apagada da que a criou.
 - **v5.154** — é METADE OTA e METADE APK, e a divisão importa para quem for testar em aparelho.
 - **v5.155** — é OTA PURO
 - **v5.156** — é METADE OTA e METADE APK, de novo.
+
+---
+
+## v1.5.18 — a margem de baixo, o card dono das opções e a divisória dos favoritos
+
+Três mensagens do operador, todas sobre a Biblioteca e todas **depois** de o
+crescimento da v1.5.17 estar no aparelho. É isso que as separa das anteriores:
+nenhuma delas é o recurso falhando — são o resto que ele deixou à mostra. E uma
+das três **revoga uma escolha do lote anterior**, que é o desfecho certo quando
+o que estava em jogo era uma preferência e não um número.
+
+### 1 · A margem de baixo — o que sobrou depois do crescimento
+
+*"o sistema de espaçamento das coleções ainda está ficando desregulados, pois se
+ver na imagem, há uma margem maior na parte de baixo. lembrando, a minha tela
+tem um tamanho de pixels, a sua tem outro e a dos usuários podem ter outro
+tamanho. mas o resultado ainda é oque está na foto, o ajuste ainda não ficou
+correto."*
+
+**A primeira coisa a estabelecer era se ele estava numa versão com o
+crescimento**, e a captura responde sozinha: decodificados os pixels (1440×2938),
+os blocos medem ~167 image px contra os ~136 que teriam sem `flex-grow`, e os
+vãos ~30. O recurso está no ar e funcionando. O que sobra embaixo do último
+bloco são ~100 image px — e não é espaço por repartir: **é o `padding-bottom` do
+scroller**, `.8rem` MAIS `env(safe-area-inset-bottom)`.
+
+**A ÁREA SEGURA SÓ VALE ONDE A JANELA ENCOSTA NA BASE.** Desde a v1.5.4 a
+janela da Biblioteca para na linha da caixa de controles, e a barra de gestos do
+Android fica abaixo **dela** — o recuo estava reservando lugar para uma vizinha
+que não é vizinha. Ela volta a valer nos dois casos em que a janela vai mesmo
+até o fim (`body.mode-simple` e `body.lib-aberta.teclado`), declarada no `body`
+para herdar até o scroller **e** até o véu de baixo, que anula o mesmo número.
+
+**E o valor é `--sp-5`, o MESMO `gap` que separa dois blocos de raiz.** Esta é a
+régua e não um número escolhido: com o crescimento preenchendo o resto, qualquer
+outro põe o último bloco a uma distância da borda que nenhum par de vizinhos tem
+— que é literalmente o que o relato descreve. O oráculo compara os dois
+COMPUTADOS, então ele continua valendo na tela dele, na minha e na de qualquer
+usuário, que é a preocupação que ele escreveu. MEDIDO a 430×900: recuo 9,6px,
+`gap` 9,6px, sobra **0,04px**.
+
+### 2 · O card dono das opções — a v1.5.17 revogada por quem opera
+
+*"também verifique aquele problema das opções de play, não estarem colorindo o
+card dono daquelas opções, pois ali nos favoritos você pode ver que o card
+titular do item não ganhou a cor de seleção/cor do corpo da caixa de opções."*
+
+A v1.5.17 tirou o overlay da tampa de um item aberto, e o argumento era um
+achado real: na lista de BUSCA, onde `--linha` é opaco e a `.row` esconde o
+overlay, a tampa já media **1,00:1** contra os botões da gaveta — **o app tinha
+duas leituras do mesmo objeto**. O que aquele lote fez foi escolher uma das
+duas; o que ele não viu é que a escolha não era técnica.
+
+**Para quem opera, o corpo de um item aberto é o POÇO** — a superfície grande
+que o toque abriu —, e não o papel dos blocos que descansam nela. Hoje a tampa
+veste `--gaveta-bg`: MEDIDO, tampa e poço a 1,00:1 nos dois temas, com os botões
+flutuando dentro deles (1,196:1 no escuro, 1,338:1 no claro). O item aberto é um
+bloco só.
+
+- **`background` na `.row`, e não `--linha`.** As quatro listas resolvem esse
+  token de jeitos diferentes — transparente no acervo e nos favoritos, `--camada`
+  na busca, `--surface` na pasta do aparelho — e uma delas é escopada com id;
+  pintar a superfície direto atravessa as quatro com um seletor só.
+- **E isso APAGOU a regra da PASTA que a v1.5.17 tinha escrito**, que mexia em
+  `--linha`: com esta por cima ela virou um valor sem efeito explicando um
+  desenho que já não existe, que é a definição de comentário-armadilha deste
+  repositório. Saiu no mesmo lote, com uma nota curta no lugar.
+- **Os três `:not()` são a precedência do estado**: uma linha NO AR que o
+  operador abra continua vermelha.
+- **A divisória acima dela some, de propósito.** O traço mora sob a `.row`
+  (`z-index: 1`), e ali quem separa passa a ser o preenchimento.
+
+### 3 · A divisória que faltava nos favoritos
+
+*"também veja que nessa lista de favoritos, também não há a linha divisória que
+temos nas outras listas na biblioteca, verifique isso."*
+
+A v1.5.16 desenhou o traço para a faixa de um ÁLBUM, e os favoritos são outra
+`<ul>`. Ele entra pela **mesma declaração**, com os dois seletores: continua
+sendo UM consumidor do `--divisoria`, e é isso que mantém de pé a asserção
+POSITIVA do `tokens.test.mjs` — uma segunda regra pintando o mesmo token seria a
+porta larga que ela existe para fechar.
+
+**Dois números mudam, e nenhum pode ser copiado do álbum:**
+
+- **a coluna do texto** — aqui a miniatura é o `--thumb` de 40px e lá é a
+  `.hymn-play-thumb` de 38 —, então `--faixa-coluna-texto` é SOBRESCRITO na
+  `.fav-itens`, por herança de custom property, em vez de duplicado numa segunda
+  regra. O traço continua começando onde o NOME começa, que é a forma do pedido
+  original (*"não borda inteira"*);
+- **a metade do vão** que a caixa reabsorve: o `gap` desta placa é `--sp-3` e o
+  do álbum é `--sp-2`. Copiar o número descentraria o traço — exatamente o
+  defeito que a v1.5.17 acabou de corrigir do outro lado. MEDIDO: desvio
+  **0,00px** do centro da banda, e o traço começando em 79,97px contra os
+  79,97px do nome.
+
+### O oráculo
+
+`tools/lista-da-biblioteca.test.mjs` ganhou o bloco **E**, com sete asserções e
+**sete reversões nomeadas**, cada uma provada: o recuo contra o `gap` (com
+`.8rem` de volta ele reprova), a divisória dos favoritos em quatro metades
+(existe · não antes da primeira · na coluna do nome DESTA lista · no meio do vão
+DESTA lista — cada uma com o patch que a derruba) e a tampa vestindo o poço
+**com a irmã fechada continuando sem tom**, que é a metade que impede o conserto
+largo: pintar toda `.row` passa na primeira e reprova nesta.
+
+Duas asserções do bloco D mudaram de RÉGUA no mesmo lote, e as duas por causa
+destas mudanças, não por conveniência: a D2b passou a medir o topo do CONTEÚDO
+da placa (o primeiro favorito agora sangra meia banda acima dela, de propósito)
+e a D3b passou a comparar a tampa com o BOTÃO da gaveta em vez de com a linha —
+a igualdade que ela guardava é hoje o desenho.
+
+O `tokens.test.mjs` ganhou o segundo seletor na constante da exceção, e a
+comparação passou a normalizar espaço em branco: a declaração agora ocupa duas
+linhas, e uma quebra de linha não pode ser o que decide se o traço é legítimo.
 
 ---
 

@@ -1,5 +1,13 @@
 [
   {
+    "versao": "1.5.18",
+    "itens": [
+      "O cartão dono das opções agora ganha a cor da caixa de opções.",
+      "A lista de favoritos ganhou as mesmas linhas divisórias das outras listas.",
+      "E as coleções deixaram de sobrar espaço no pé da lista."
+    ]
+  },
+  {
     "versao": "1.5.17",
     "itens": [
       "As coleções da Biblioteca agora preenchem a altura da tela, em vez de sobrar espaço no pé.",

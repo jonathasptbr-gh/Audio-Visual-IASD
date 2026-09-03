@@ -264,7 +264,14 @@ checar(orfaos.length === 0,
 // PROVADO POR REVERSÃO: trocar o seletor da exceção por outro qualquer, ou
 // acrescentar um segundo bloco de 1px pintado em qualquer lugar da base, reprova.
 {
-  const EXCECAO = '.acervo .coll-songs > .hymn-result + .hymn-result::before';
+  // A EXCEÇÃO É UMA REGRA SÓ, com DUAS listas na frente (v1.5.18): a faixa de um
+  // álbum e a linha de um favorito. O operador pediu a segunda ao ver que ela
+  // faltava, e ela entrou no MESMO bloco de declaração de propósito — é isso
+  // que mantém `--divisoria` com um consumidor único, que é a metade positiva
+  // logo abaixo. Uma segunda regra com o mesmo `background` passaria por esta
+  // varredura e reprovaria naquela, que é o desenho certo do par.
+  const EXCECAO = '.acervo .coll-songs > .hymn-result + .hymn-result::before,'
+    + ' #hymnResults > .coll-group--fav.aberto .fav-itens > .lib-item + .lib-item::before';
   const tracos = [];
   let consumidores = 0;
   for (const f of arquivos) {
@@ -289,7 +296,9 @@ checar(orfaos.length === 0,
       if (!m) continue;
       const valor = m[1].trim();
       if (/^(none|transparent)$/.test(valor)) continue;
-      if (sel === EXCECAO) continue;
+      // O seletor vem da FONTE, com a quebra de linha entre as duas listas — a
+      // comparação normaliza o espaço, senão a exceção nomeada nunca casaria.
+      if (sel.replace(/\s+/g, ' ').trim() === EXCECAO) continue;
       tracos.push(path.relative(RAIZ, f) + ':' + (s.slice(0, inicio).split('\n').length)
         + ' → ' + sel.replace(/\s+/g, ' ') + ' { ' + valor + ' }');
     }
