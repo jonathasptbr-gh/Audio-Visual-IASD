@@ -185,9 +185,88 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
      `top: 0`, e a do álbum, que gruda logo abaixo dela. Escrito duas vezes ele
      divergiria no primeiro ajuste de recuo, e o sintoma seria o cabeçalho de
      dentro cobrindo o de fora — exatamente a pergunta que o sticky existe para
-     responder. Determinístico: `--hit` mais o recuo vertical de `.55rem` dos
+     responder. Determinístico: `--hit` mais o recuo vertical de `.35rem` dos
      dois lados, com o nome em `nowrap` (ver `.coll-group-name`). */
-  --bar-secao-h: calc(var(--hit) + 1.1rem);
+  /* ---------- O RECUO DAS BARRAS APERTOU (v1.5.16) ----------
+     Pedido do operador, na mesma mensagem em que ele manda dissolver uma
+     coletânea: *"reajustar o tamanho dos cards das coletâneas e espaços, para
+     que eles aproveitem exatamente esse espaço, se encaixando exatamente nessa
+     primeira seção natural da biblioteca"*.
+
+     ESTICAR PARA PREENCHER FOI MEDIDO E RECUSADO. A 430×900 a caixa da lista
+     tem 582px, dos quais 569,2 sobram depois do recuo de base; a barra media
+     51,59px (passo de 61,19 com o `gap`): com uma coletânea a menos sobravam
+     28,09px, e a barra de enchimento EXATO seria 54,71px. Só que o vão dos Favoritos — MEDIDO com eles ABERTOS, que é quando
+     o `--fav-vao` é escrito — cairia de 131px para 55px, e a seção passaria a
+     ROLAR no instante em que alguém os abrisse.
+     Isso é a v5.273/v5.277 desfeita por baixo, e aquilo o operador pediu por
+     extenso duas vezes. Somem-se os `env(safe-area-inset-bottom)`, que valem
+     ZERO em todo oráculo e são positivos no aparelho: com 24px de inset a
+     sobra de hoje já é de 4px, e não há 28px para encher.
+
+     APERTAR resolve o pedido nos DOIS eixos ao mesmo tempo. Com `.35rem` a
+     barra vai a 45,19px e, MEDIDO a 430×900: cabem 10 blocos em vez de 9; com
+     cinco coletâneas (o acervo de hoje, antes da dissolução) a lista deixa de
+     rolar 33px e sobram 31; e o vão dos Favoritos volta a caber quando eles são
+     abertos. O preço, dito: 6,4px de respiro a menos por barra — 5,6px acima e
+     abaixo do chevron em vez de 8,8px, com o alvo de toque intacto (`--hit`
+     continua sendo o piso, pelo `min-height`).
+
+     E O SEGUNDO PREÇO, que é o que a leitura literal do pedido cobra: apertar
+     AFASTA do enchimento exato em vez de aproximar. Com os 9 blocos do acervo
+     dissolvido, MEDIDO a 430×900 com barras uniformes, a lista ocupa 496,3 dos
+     582px e sobram ~86 — contra os 28,09 que sobrariam sem o aperto. A troca é
+     essa, e ela é deliberada: *"cabem com folga"* em vez de *"preenchem"*, para
+     não pagar o vão dos Favoritos. (No aparelho a sobra é MENOR que 86: os
+     cards que trazem subtítulo — as duas séries, os hinários com peso — são
+     mais altos que a barra nua desta conta.)
+
+     E VALE PARA A SEÇÃO E PARA O CARD, com o MESMO número. Na raiz da
+     Biblioteca as duas são LINHAS IRMÃS (é o alinhamento das três colunas que a
+     v1.3.14 gastou um lote acertando) e medem 1,00:1 de altura de propósito —
+     quem ranqueia é a tipografia, o recuo e os dois cabeçalhos grudentos.
+     Apertar uma só devolveria o desalinhamento daquele lote.
+
+     A PROMESSA TEM TAMANHO DE TELA, e isto precisa estar escrito: "todas as
+     coleções cabem colapsadas" é uma promessa de 430px para cima. MEDIDO no
+     renderizado (caixa da lista, `gap` de 9,6px e recuo de base de 12,8px):
+     430×900 sem entalhe dá 582px de caixa e passa de 9 para 10 blocos;
+     393×786 com 39px de entalhe dá 436px e fica em 7 nos dois desenhos — ali o
+     aperto não compra bloco nenhum; 360×740 com 24px dá 420px e vai de 6 para
+     7. O acervo de hoje tem 9 blocos DEPOIS da dissolução, então um aparelho
+     pequeno CONTINUA rolando. O que faltaria para ele caber é a barra no piso
+     absoluto (`--hit`, 34px, recuo vertical ZERO): aí cabem 9 a 360×740 — e o
+     preço é a barra deixar de ter respiro nenhum em volta do chevron, num
+     aparelho grande, para resgatar um pequeno. Não é o desenho que este lote
+     escolheu, e está escrito aqui para que a escolha seja vista como escolha. */
+  --bar-secao-h: calc(var(--hit) + .7rem);
+  /* ---------- ONDE O TEXTO DE UMA FAIXA COMEÇA (v1.5.16) ----------
+     A divisória entre faixas é RECUADA — ela começa onde o NOME começa, e não
+     por baixo da miniatura. Este token é a soma dos três termos que produzem
+     essa coluna, cada um vindo de uma regra diferente: o recuo da `.row`
+     (`.5rem`), a largura da `.hymn-play-thumb` (38px) e o `gap` da `.row`
+     (`--sp-4`). Escrever `54px` aqui concordaria com a coluna hoje e divergiria
+     dela no próximo ajuste de qualquer um dos três, sem que nada reprovasse —
+     e o sintoma seria um traço dois pixels fora da coluna do texto em toda a
+     Biblioteca. Quem cobra o alinhamento é o `lista-da-biblioteca.test.mjs`,
+     medindo o traço contra o `.hymn-name` RENDERIZADO — os DOIS lados saem do
+     mesmo desenho, então uma fonte diferente move os dois juntos.
+     E O `calc()` NÃO É A DEFESA INTEIRA: dois dos três termos continuam sendo
+     literais (o `.5rem` da `.hymn-row` e os 38px da `.hymn-play-thumb`), porque
+     tokenizá-los custaria dois tokens novos consumidos em duas pontas cada.
+     Quem fecha a conta é o oráculo, que mede o RESULTADO. */
+  --faixa-coluna-texto: calc(.5rem + 38px + var(--sp-4));
+  /* ---------- O VÉU DAS BORDAS DA LISTA (v1.5.16) ----------
+     Pedido do operador: *"Ajuste para que o scroll da biblioteca tenha um
+     efeito de blur na borda interna superior ou inferior, quando algum elemento
+     da tela ir para debaixo dessa borda. Para melhor perceber que há mais itens
+     no scroll da lista."*
+     A altura das tiras, e o recuo de baixo do scroller como TOKEN porque a tira
+     de baixo precisa do MESMO número para se pousar rente (o bloco contêiner de
+     um item flex é o CONTENT box, e o padding fica fora dele — MEDIDO, com
+     `bottom: 0` a tira parava 13px acima da borda). */
+  --lib-fade-h: 22px;
+  --lib-lista-base: calc(.8rem + env(safe-area-inset-bottom));
   /* Espessura do cap do fader de volume — ele atravessa a coluna inteira, como
      o cap de uma mesa de som de verdade. */
   --fader-cap: 26px;
@@ -3277,9 +3356,19 @@ main {
      por `--item-fill` (v5.297) e andam juntos agora que o nível 3 deixou de ter
      preenchimento (v1.5.14): separá-los devolveria duas receitas para o mesmo
      papel, que é o defeito que aquela versão fechou. */
-  --linha: transparent;
+  /* ---------- E O `:not()` DEVOLVE O ESTADO A UM FAVORITO (v1.5.16) ----------
+     ACHADO POR MEDIÇÃO. Este seletor é (1,4,0) e `.lib-item.no-ar` é (0,2,0),
+     então um favorito NO TELÃO resolvia `transparent`: a linha que está sendo
+     projetada não pintava nada, e sobravam a cor do nome e o selo "● No ar". A
+     mesma `.lib-item.no-ar` fora dos Favoritos pinta `--live-fill`.
+     Ele é alcançável de verdade — a linha de favorito escreve `dataset.id`
+     (`linhaDeItem`) e o `marcarNoAr` a encontra —, ao contrário da faixa de
+     álbum, que nunca é marcada (ver o bloco `.acervo` e
+     `docs/ACHADOS-EM-ABERTO.md`). */
   --camada: transparent;
 }
+#hymnResults > .coll-group--fav.aberto .fav-itens
+  > .lib-item:not(.no-ar):not(.active):not(.selected) { --linha: transparent; }
 /* ---------- AS SEÇÕES RESPIRAM (v5.273) ----------
    Pedido do operador: *"aumentar ligeiramente o espaço entre as outras
    coleções, elas estão muito coladas entre si"*. Elas herdavam o `gap` de
@@ -3363,7 +3452,7 @@ main {
      mesmo alvo de propósito: alinhados na mesma coluna"). O alvo era igual
      (34px), a COLUNA não. Um recuo só, o do card, e a lista passa a ter três
      colunas de verdade. */
-  padding: .55rem .7rem;
+  padding: .35rem .7rem;
   min-height: var(--hit);
   cursor: pointer;
 }
@@ -3483,7 +3572,9 @@ main {
    a faixa em volta dela ser ALVO em vez de margem morta. */
 .coll-bar {
   display: flex; align-items: center; gap: var(--sp-5); cursor: pointer;
-  padding: .55rem .7rem;
+  /* `.35rem` e não `.55rem` desde a v1.5.16 — o MESMO número da barra de seção,
+     porque na raiz as duas são linhas irmãs. A razão está no `--bar-secao-h`. */
+  padding: .35rem .7rem;
 }
 /* ===== A BARRA NÃO ESCALA, E ESTA É A REGRA GERAL =====
    `--press` é `scale(.96)`, e uma escala num CONTÊINER arrasta tudo o que vive
@@ -3689,20 +3780,20 @@ main {
    seções na Biblioteca e dois itens no Cronograma, uma escala acima. Fundo só
    quando há ESTADO — e aí é `--linha`, como em qualquer outra linha do app. */
 .coll-songs { gap: var(--sp-2); }
-/* ---------- E CADA FAIXA TEM CORPO ----------
-   Um espaço só separa quando os dois lados dele têm cor: sem fundo, o vão entre
-   duas faixas era da MESMA cor que elas, isto é, nada.
-   O preenchimento é o RECESSO do cartão (`--surface`, que aqui dentro afunda) e
-   não um quarto tom da escada — um tom novo levaria o nível mais interno a onde
-   `--muted` reprova AA (a conta está em `tokens.css`), e um overlay preserva a
-   direção nos dois temas. Sem uma linha desenhada em lugar nenhum. */
+/* ---------- A FAIXA FORA DA BIBLIOTECA TEM CORPO ----------
+   `--item-fill` e não `--surface` (v5.297): recesso é uma regra sobre
+   PROFUNDIDADE, e esta linha responde a outra pergunta — de que lado fica o
+   texto. No escuro os dois dão no mesmo; no claro o recesso levava a faixa ao
+   meio-tom (50% de luminância) e nenhuma cor de texto resolvia.
+
+   DENTRO da Biblioteca ela é sobrescrita (ver "O NÍVEL 3 NÃO TEM FUNDO", no
+   bloco `.acervo`): lá o preenchimento é ESTADO e o que separa duas irmãs é o
+   espaço MAIS a divisória. O comentário da v5.272 que morava aqui — *"um espaço
+   só separa quando os dois lados dele têm cor"* — descrevia uma declaração que
+   deixou de ser alcançada na v1.5.14, e ele foi para o `tokens.css`, ao lado do
+   `--divisoria`, que é a peça que voltou a cumprir o que ele afirma. */
 .coll-songs > .hymn-result {
   border-radius: var(--radius-btn);
-  /* `--item-fill` e não `--surface` (v5.297): recesso é uma regra sobre
-     PROFUNDIDADE, e esta linha responde a outra pergunta — de que lado fica o
-     texto. No escuro os dois dão no mesmo; no claro o recesso levava a faixa ao
-     meio-tom (50% de luminância) e nenhuma cor de texto resolvia. A conta está
-     em `tokens.css`. */
   --linha: var(--item-fill);
 }
 
@@ -4226,8 +4317,8 @@ main {
 /* ---------- O CABEÇALHO DA SEÇÃO GRUDA (v1.5.14) ----------
    A ALTURA É DETERMINÍSTICA e por isso o `top` do álbum não precisa de medição
    em JS (que a v1.5.3 ensinou a desconfiar): o nome é `nowrap` + elipse
-   (`.coll-group-name`) e o recuo é fixo (`.55rem`), então a barra vale
-   exatamente `--hit` + 1,1rem. Declarar a altura aqui é o que impede as duas
+   (`.coll-group-name`) e o recuo é fixo (`.35rem` desde a v1.5.16), então a
+   barra vale exatamente `--hit` + .7rem — 45,19px MEDIDOS. Declarar a altura aqui é o que impede as duas
    escritas do mesmo número de divergirem.
    Sem `overflow: hidden` em `.coll-group--drop` (deliberado desde a v5.267,
    pelo sticky do álbum) o `position: sticky` funciona nos dois níveis. */
@@ -4268,7 +4359,152 @@ main {
    aplicada um nível acima, porque saiu uma camada de caixas. O preenchimento
    fica reservado ao ESTADO (no ar, selecionado), e é isso que faz o estado
    saltar: numa lista sem fundo nenhum, a única mancha de cor é a que importa. */
+/* ---------- O NÍVEL 3 NÃO TEM FUNDO, E ELE TAMBÉM NÃO TEM ESTADO ----------
+   (A segunda metade é da v1.5.16, e ela é uma AUSÊNCIA verificada, não um
+   desenho.) A faixa de um álbum NUNCA recebe `.no-ar`, `.active` ou
+   `.selected`: quem escreve essas classes é o `marcarNoAr`, que varre
+   `.lib-item,.row-item` e lê `el.dataset.id` — e o `hymnResultRow` escreve
+   `dataset.song`, nunca `dataset.id`. MEDIDO pelo caminho real (mídia no ar,
+   `marcarNoAr()`): a faixa do álbum sai sem classe e sem selo, enquanto o
+   FAVORITO da mesma passada sai marcado e pintado.
+
+   Um `:not(.no-ar):not(.active):not(.selected)` chegou a ser escrito aqui neste
+   lote e saiu na mesma revisão: ele era código morto por dois motivos
+   empilhados — a classe não chega, e mesmo forçada ela perderia para
+   `.coll-songs > .hymn-result { --linha: var(--item-fill) }`, que empata em
+   (0,2,0) com `.lib-item.no-ar` e vence por ordem de fonte. O conserto de
+   verdade tem DUAS metades e nenhuma serve sozinha; ele está descrito em
+   `docs/ACHADOS-EM-ABERTO.md`. O irmão dos FAVORITOS, esse, era alcançável e
+   foi corrigido (ver a regra da `.fav-itens`). */
 .acervo .coll-songs > .hymn-result { --linha: transparent; }
+/* ---------- A DIVISÓRIA ENTRE FAIXAS IRMÃS (v1.5.16) ----------
+   Pedido do operador: *"um elemento de linha divisória (não borda inteira), na
+   listagem do itens propriamente dos álbuns, para melhor distinção entre os
+   itens"*. O porquê e os números estão no `--divisoria`, em `tokens.css`.
+
+   `+` E NÃO `:not(:last-child)`: a divisória pertence ao PAR, e é ela que faz
+   as três ausências saírem de graça — nada acima da primeira faixa, nada abaixo
+   da última, e nada entre um `.hino-secao` e a faixa que ele encabeça (o
+   cabeçalho é um `<li>` irmão na MESMA `<ul>`, e `+` não casa através dele).
+   A paginação (`fillSongList`, de 100 em 100) também sai de graça: `+` é vivo e
+   a sentinela `.coll-more` é removida e recolocada no fim, nunca entre faixas.
+
+   `top: 0` E NÃO O VÃO. `.lib-item` é `overflow: hidden`, então um traço
+   desenhado no `gap` (em `top: -2.5px`) é RECORTADO — MEDIDO, o pixel volta
+   como a placa crua. Ele pousa na borda de cima da faixa DE BAIXO, que é onde
+   toda lista densa põe a divisória.
+
+   SEM `z-index`, e isso é a regra escrita: a `.row` é `z-index: 1` e pinta
+   `--linha`, então o traço some quando a `.row` daquela faixa pinta um `--linha`
+   OPACO — ali quem separa é o preenchimento. Dentro de um álbum isso não
+   acontece hoje: a faixa não recebe estado (ver o bloco do nível 3) e o único
+   `--linha` que ela pode ter é translúcido, que o traço atravessa.
+
+   O RAIO APARA A PONTA DIREITA: com `border-radius: 8px` e `overflow: hidden`,
+   os ~8px finais do traço somem no canto. É o mesmo canto que o preenchimento
+   de estado já respeita, e o efeito é a divisória parando antes da curva. */
+.acervo .coll-songs > .hymn-result + .hymn-result::before {
+  content: ''; position: absolute; pointer-events: none;
+  top: 0; left: var(--faixa-coluna-texto); right: 0; height: 1px;
+  background: var(--divisoria);
+}
+/* ---------- O VÉU DAS BORDAS DA LISTA (v1.5.16) ----------
+   Pedido do operador: *"um efeito de blur na borda interna superior ou
+   inferior, quando algum elemento da tela ir para debaixo dessa borda. Para
+   melhor perceber que há mais itens no scroll da lista."*
+
+   ---------- POR QUE UMA TIRA, E NÃO UMA MÁSCARA NO SCROLLER ----------
+   `mask-image` no `#hymnResults` é UMA declaração e é o caminho errado. MEDIDO:
+   ela não quebra o `position: sticky` dos descendentes (as tampas ficam nos
+   mesmos tops) e não cria bloco contêiner para `fixed` — mas APAGA A TAMPA
+   GRUDADA junto, e a tampa é justamente o objeto que já responde à pergunta do
+   pedido. A prova é a captura do `.coll-bar` de um hinário aberto: com as
+   tiras o CORPO OPACO dela sai byte a byte idêntico (os únicos 60 pixels de
+   18.360 que diferem são os cantos arredondados, que são transparentes); com a
+   máscara no scroller, não.
+
+   ---------- O `z-index: 2` É O DESENHO INTEIRO ----------
+   Ele põe o véu ACIMA do conteúdo (z auto) e ABAIXO das três tampas (z 3 e 4),
+   MEDIDO por `elementsFromPoint`. E é isso que torna a tira de CIMA
+   CONDICIONAL sem uma linha de JS: com uma coleção aberta, a tampa opaca de
+   45px cobre a tira de 22px por completo — MEDIDO varrendo 5232px de rolagem,
+   131 de 131 amostras têm tampa sobre a borda, ZERO têm conteúdo cru. O véu
+   fica calado exatamente onde ele estaria pintando por cima de quem já
+   responde, e aparece na lista PLANA da busca, onde não há tampa nenhuma
+   (250/250 amostras).
+
+   ---------- POR QUE BLUR E NÃO GRADIENTE ----------
+   NÃO EXISTE COR CERTA PARA UM VÉU AQUI. A alternância papel → poço → papel da
+   v1.5.14 faz a base sob a borda ser ora `--panel` ora `--poco`, e as faixas
+   não têm preenchimento — o que cruza a borda é TEXTO sobre base lisa. Um
+   gradiente pintado em `--panel` acerta sobre papel e lava o poço. O blur é
+   agnóstico de cor por construção, não precisa de token, e por isso não pode
+   divergir entre os temas: MEDIDO, ele derruba a nitidez do texto na borda em
+   ~60% nos DOIS (2516→1002 no escuro, 3410→1343 no claro) e não toca em nada a
+   120px dali.
+
+   ---------- PSEUDO-ELEMENTO, E `pointer-events: none` ----------
+   `renderSearchResults` faz `innerHTML = ''`, e a busca é justamente o estado
+   em que a tira é 100% visível: um `<li>` morreria ali. MEDIDO, os pseudos
+   sobrevivem, não afetam o `:first-child` de que a folha depende e custam ZERO
+   layout — `scrollHeight` 5814 → 5814 — desde que a margem negativa cancele a
+   altura E o `gap`.
+   E sem `pointer-events: none` são 22px MORTOS no topo e na base: MEDIDO,
+   `elementFromPoint` devolve o `#hymnResults` em vez da linha, exatamente onde
+   o cabeçalho grudento vive e onde o último item repousa.
+
+   ---------- E ELE SÓ EXISTE COM A BIBLIOTECA ABERTA ----------
+   O `.open` no seletor não é escopo: é custo. MEDIDO no app real, as tiras
+   somam 4 camadas compostas durante a rolagem (22 → 26) sem aumentar a
+   repintura (63 → 59 eventos). Fechada, a Biblioteca não compõe nada — e
+   fechada é o estado do culto, com dois WebViews e um vídeo no mesmo processo.
+   O que NÃO foi medido, e não se afirma: o custo de GPU no WebView do aparelho. */
+.popup-backdrop--lib.open #hymnResults::before,
+.popup-backdrop--lib.open #hymnResults::after {
+  content: ''; display: block; flex: none;
+  position: sticky; z-index: 2;
+  height: var(--lib-fade-h);
+  pointer-events: none;
+  -webkit-backdrop-filter: blur(5px);
+          backdrop-filter: blur(5px);
+}
+/* Rente à borda porque o `padding-top` do scroller é ZERO desde a v1.5.15 — sem
+   isso a tira pararia no topo do CONTEÚDO, o mesmo defeito que aquele lote
+   corrigiu para as tampas. A máscara faz o borrão MORRER para dentro da lista,
+   em vez de terminar num degrau. */
+.popup-backdrop--lib.open #hymnResults::before {
+  top: 0;
+  margin-bottom: calc(-1 * var(--lib-fade-h) - var(--sp-5));
+  -webkit-mask-image: linear-gradient(to bottom, #000, transparent);
+          mask-image: linear-gradient(to bottom, #000, transparent);
+}
+/* O `bottom` COMPENSA o recuo do scroller: o bloco contêiner de um item flex é
+   o CONTENT box, e o padding fica fora dele. MEDIDO com `bottom: 0`, a tira
+   pousava 13px acima da borda. A de cima não tem esse problema porque o
+   `padding-top` é zero. */
+.popup-backdrop--lib.open #hymnResults::after {
+  bottom: calc(-1 * var(--lib-lista-base));
+  margin-top: calc(-1 * var(--lib-fade-h) - var(--sp-5));
+  -webkit-mask-image: linear-gradient(to top, #000, transparent);
+          mask-image: linear-gradient(to top, #000, transparent);
+}
+/* NOS EXTREMOS ELE NÃO EXISTE, e as classes vêm do JS (`acertarVeuDaLista`).
+   O SELETOR REPETE `.popup-backdrop--lib.open` de propósito: sem ele esta regra
+   é (1,1,0) contra os (1,2,0) da que liga o véu, e o `display: none` PERDE —
+   MEDIDO, o véu ficava aceso no topo da lista, que é exatamente o estado em que
+   ele mente. O mesmo vale para o `@supports` logo abaixo.
+   No topo da lista não há nada escondido acima, e um borrão sobre a primeira
+   linha seria o app dizendo que há mais quando não há. `display: none` e não
+   `opacity: 0`: com opacidade zero a tira continua compondo, e o custo desta
+   peça é o argumento inteiro dela. */
+.popup-backdrop--lib.open #hymnResults:not(.tem-acima)::before,
+.popup-backdrop--lib.open #hymnResults:not(.tem-abaixo)::after { display: none; }
+/* A MESMA SAÍDA DO `.simple-veil`: sem `backdrop-filter` não há véu nenhum, e
+   isso é falhar ABERTO — o que sobra é a Biblioteca de antes deste lote. */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .popup-backdrop--lib.open #hymnResults::before,
+  .popup-backdrop--lib.open #hymnResults::after { display: none; }
+}
 /* ---------- E A LISTA DE UM AGRUPAMENTO DA RAIZ POUSA NUMA PLACA (v1.5.15) ---
    Relato do operador sobre a v1.5.14: *"isso era pra ser assim? fundo azul nos
    itens do provai e vede? e etc...?"*.
@@ -5238,7 +5474,7 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    lista está inteira fora da tela. */
 .popup-sheet--lib .popup-list {
   flex: 1; min-height: 0;
-  padding-bottom: calc(.8rem + env(safe-area-inset-bottom));
+  padding-bottom: var(--lib-lista-base);
   /* ---------- E ELA NÃO TEM RESPIRO DE CIMA (v1.5.15) ----------
      O `padding` de um scroller fica DENTRO do scrollport: a lista rola por
      baixo dele À VISTA, e uma tampa `sticky` em `top: 0` não o alcança — ela
@@ -5773,7 +6009,18 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    existe para proteger: encolher até o texto trocaria um problema de densidade
    por um de mira, no meio de um culto. Medido: linha de 50px, passo de 54px,
    16 itens na tela contra 12. */
-.hymn-row { align-items: center; gap: var(--sp-4); padding: .3rem .5rem; cursor: pointer; }
+/* ---------- O RECUO DA FAIXA ACOMPANHA O DA BARRA (v1.5.16) ----------
+   `.15rem` e não `.3rem`, e não é cosmético: o aperto das barras (ver
+   `--bar-secao-h`) as levou a 45,19px, e a faixa media 48px — MEDIDO, ela ficou
+   MAIS ALTA que a barra do álbum que a contém, e a hierarquia inverte. O
+   `smoke.mjs` já cobrava isso desde antes deste lote, e foi ele que pegou.
+
+   O QUE MANDA NA ALTURA AQUI É A MINIATURA (38px), não o texto: com `.15rem` a
+   faixa vai a 42,8px, ainda 8,8px acima do piso de toque (`--hit`, e a LINHA é
+   o alvo desde a v5.285). Apertar a miniatura em vez do recuo mexeria na coluna
+   que a lista inteira alinha (`--faixa-coluna-texto`), que é um preço maior por
+   um ganho menor. */
+.hymn-row { align-items: center; gap: var(--sp-4); padding: .15rem .5rem; cursor: pointer; }
 /* O QUADRADO DA ESQUERDA DEIXOU DE SER UM BOTÃO (v5.285). Ele era o ▶, em
    `--accent-soft` — a marca que este app usa para "isto é ação, não conteúdo".
    Sem ação, a marca sai junto: ele volta ao recesso neutro das superfícies e

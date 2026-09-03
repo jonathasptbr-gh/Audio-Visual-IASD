@@ -278,7 +278,7 @@ const appVersionEl = document.getElementById('appVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.5.15';
+const WEB_VERSION = '1.5.16';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -8037,6 +8037,9 @@ function renderCollectionsList(alvo, redesenhar, opts) {
   try {
     renderCollectionsListMiolo(alvo, redesenhar, opts);
   } finally {
+    // O véu das bordas: este redesenho roda a cada 400 ms durante um download e
+    // muda a altura da lista sem rolagem nenhuma.
+    acertarVeuDaLista();
     cacheColecoesAtivo = false;
   }
 }
@@ -8046,6 +8049,20 @@ function renderCollectionsListMiolo(alvo, redesenhar, opts) {
   redesenharAcervo = redesenhar;
   const byId = new Map(allCollections().map((c) => [c.id, c]));
   let any = false;
+  // ===== AS COLETÂNEAS DISSOLVIDAS (v1.5.16) =====
+  //
+  // A leitura EDITORIAL do catálogo, aplicada AQUI e não no `fetchAlbumCatalog`:
+  // o `state['albumCatalog']` continua cru, e a regra é reaplicada a cada
+  // desenho. É isso que faz um ajuste da tabela chegar por OTA e valer na
+  // abertura seguinte mesmo offline — gravada, a decisão viraria dado no
+  // aparelho e só sairia de lá com rede.
+  //
+  // UMA chamada, e os DOIS consumidores leem dela: o laço que desenha as seções
+  // e o `claimed` que decide o que é órfão. Chamar só num deles é o defeito
+  // MEDIDO desta mudança — a coletânea sai da tela e os álbuns dela voltam
+  // como "Outros álbuns", com a mesma contagem de blocos e o pedido não
+  // atendido.
+  const coletaneas = AVColetanea.aplicar(albumCatalog.categories);
 
   // ===== UM GRUPO COLAPSÁVEL =====
   //
@@ -8321,7 +8338,7 @@ function renderCollectionsListMiolo(alvo, redesenhar, opts) {
     fixasNaRaiz.forEach((coll) => alvo.appendChild(renderCollectionCard(coll)));
   }
 
-  for (const cat of albumCatalog.categories) {
+  for (const cat of coletaneas.categorias) {
     const cards = categoryCards(cat);
     if (!cards.length) continue;
     const corpo = grupo(cat.name, cards.map((x) => x.coll));
@@ -8331,12 +8348,12 @@ function renderCollectionsListMiolo(alvo, redesenhar, opts) {
   // Álbuns conhecidos que nenhuma categoria reivindicou (catálogo antigo,
   // migrado de uma versão sem categorias, ou álbum removido de todas elas).
   const claimed = new Set();
-  for (const cat of albumCatalog.categories) for (const a of cat.albums) claimed.add('album-' + a.id_album);
+  for (const cat of coletaneas.categorias) for (const a of cat.albums) claimed.add('album-' + a.id_album);
   const orphans = albumCatalog.albums
     .map((a) => byId.get('album-' + a.id_album))
     .filter((c) => c && !claimed.has(c.id) && !isHymnalAlbum(c));
   if (orphans.length) {
-    const corpo = grupo(albumCatalog.categories.length ? 'Outros álbuns' : 'Álbuns', orphans);
+    const corpo = grupo(coletaneas.categorias.length ? 'Outros álbuns' : 'Álbuns', orphans);
     if (corpo) orphans.forEach((coll) => corpo.appendChild(renderCollectionCard(coll)));
   }
 
@@ -15788,6 +15805,48 @@ async function syncLyrics() {
  * a chama ele pode estar focado por um toque anterior — as duas leituras dariam
  * a mesma resposta e ela seria a errada em um dos dois casos.
  */
+// ===== O VÉU DAS BORDAS DA LISTA (v1.5.16) =====
+//
+// Pedido do operador: *"um efeito de blur na borda interna superior ou
+// inferior, quando algum elemento da tela ir para debaixo dessa borda. Para
+// melhor perceber que há mais itens no scroll da lista."*
+//
+// O véu inteiro é CSS (ver "O VÉU DAS BORDAS DA LISTA" em `controle.css`); o
+// que o JS responde é a única coisa que a folha não sabe: **há conteúdo escondido
+// deste lado?** Nos extremos não há, e um borrão sobre a primeira linha com a
+// lista no topo é o app dizendo que há mais quando não há.
+//
+// ESCREVE SÓ QUANDO O BOOLEANO VIRA. `scroll` dispara dezenas de vezes por
+// gesto; `classList.toggle` com o mesmo valor é barato, mas a comparação
+// explícita é o que garante ZERO trabalho de estilo no caso comum (rolar no
+// meio da lista, onde os dois já estão ligados).
+//
+// A FOLGA DE 2px não é superstição: `scrollTop` é fracionário em telas de alta
+// densidade, e o fim da lista costuma dar `scrollHeight - scrollTop -
+// clientHeight` de 0,5px. Com zero, o véu de baixo piscava no último pixel.
+function acertarVeuDaLista() {
+  const el = hymnResultsEl;
+  if (!el) return;
+  const acima = el.scrollTop > 2;
+  const abaixo = el.scrollHeight - el.scrollTop - el.clientHeight > 2;
+  if (el.classList.contains('tem-acima') !== acima) el.classList.toggle('tem-acima', acima);
+  if (el.classList.contains('tem-abaixo') !== abaixo) el.classList.toggle('tem-abaixo', abaixo);
+}
+// Coalescido por quadro: o `scroll` de um gesto chega mais de uma vez por
+// quadro e a conta acima lê `scrollHeight`, que força layout.
+let veuPedido = false;
+function pedirVeuDaLista() {
+  if (veuPedido) return;
+  veuPedido = true;
+  requestAnimationFrame(() => { veuPedido = false; acertarVeuDaLista(); });
+}
+// UM ouvinte, no boot: `#hymnResults` é o MESMO nó entre uma abertura e a
+// seguinte (é a razão de o `openHymnSearch` precisar zerar o `scrollTop` à
+// mão), então registrar por abertura empilharia ouvintes para sempre.
+// `passive` porque ele não cancela nada — sem isso o Chromium não pode
+// adiantar a rolagem.
+if (hymnResultsEl) hymnResultsEl.addEventListener('scroll', pedirVeuDaLista, { passive: true });
+
 function openHymnSearch(comFoco) {
   hymnSearchInputEl.placeholder = 'Nome, número ou trecho da letra…';
   // (O CAMPO É LIMPO AO FECHAR, não aqui — ver `closeHymnSearch`. Continua
@@ -15814,6 +15873,9 @@ function openHymnSearch(comFoco) {
   // v5.278 (a camada fixa seguindo a viewport visual): com a barra no topo da
   // folha e nada rolando além da lista, não há o que acompanhar.
   hymnResultsEl.scrollTop = 0;
+  // O véu conferido AQUI e não só no `scroll`: um render muda o `scrollHeight`
+  // sem que nenhuma rolagem aconteça, e a Biblioteca abre com a lista parada.
+  acertarVeuDaLista();
   // O TECLADO SOBE NOS DOIS MODOS, um tempo DEPOIS da tela (260 ms: o fade de
   // .25s mais um quadro). Simultâneos, o teclado ENCOLHE a faixa visível
   // (`--kb`/`--vv-top`) enquanto a folha ainda aparece — dois movimentos sobre
@@ -16043,7 +16105,16 @@ function closeHymnSearch() {
 // visível em volta — o operador não perde onde estava para ver o que tem dentro.
 function searchIsBrowsing(q) { return !q; }
 
+// A casca do `renderSearchResults`, na forma que o `renderCollectionsList` já
+// usa: o miolo tem saídas antecipadas (índice vazio, zero resultados) e o véu
+// das bordas precisa ser reconferido depois de TODAS elas — um render muda o
+// `scrollHeight` sem que nenhuma rolagem aconteça. `finally` porque uma exceção
+// no miolo não pode deixar o véu descrevendo a lista anterior.
 function renderSearchResults(query) {
+  try { renderSearchResultsMiolo(query); } finally { acertarVeuDaLista(); }
+}
+
+function renderSearchResultsMiolo(query) {
   const q = normalizeForSearch(query).trim();
   // Digitou outra coisa: os resultados do YouTube da busca anterior saem de
   // cena. Deixá-los ali embaixo de um termo novo é oferecer a resposta errada.
@@ -20400,6 +20471,81 @@ function blocoSorteio() {
   return linhas.join('\n');
 }
 
+// ===== AS COLETÂNEAS: o que a regra dissolveu (v1.5.16) =====
+//
+// A regra do `coletanea.js` decide, a partir de NOMES que o banco renomeia sem
+// avisar, qual coletânea sai da tela e para onde vão os álbuns dela. Os dois
+// modos de errar são silenciosos: a origem que não casa mais fica na Biblioteca
+// como se nada tivesse sido pedido, e o destino que não casa mais faz a regra
+// desistir — o desfecho certo, e igualmente invisível. Este bloco é o que
+// distingue os dois a distância.
+//
+// MONTADO NA HORA, chamando a MESMA função que desenha. Ao contrário do diário
+// das séries — que registra um evento de REDE e por isso precisa sobreviver à
+// sessão —, aqui a regra é síncrona e pura: uma segunda leitura não pode
+// discordar da primeira, e persistir o veredito só criaria uma cópia para
+// divergir.
+//
+// E ELE IMPRIME AS CATEGORIAS VISTAS. É essa lista que permite consertar uma
+// grafia por OTA sem pedir captura ao operador — sem ela, "não dissolveu" e
+// "dissolveu e você não viu" chegam com a mesma cara.
+function blocoColetaneas() {
+  if (!window.AVColetanea) return '';
+  const cats = (albumCatalog && albumCatalog.categories) || [];
+  // SEM CATÁLOGO NÃO HÁ VEREDITO. O diário tem sempre uma entrada por linha da
+  // tabela, então sem esta guarda o bloco afirmaria *"a coletânea não existe
+  // neste banco"* num aparelho que simplesmente ainda não fez o
+  // `fetchAlbumCatalog` — instalação nova sem rede, ou o navegador. São duas
+  // causas com consertos opostos ("o banco renomeou, ajuste a tabela e publique"
+  // contra "não houve busca ainda") e uma frase só, e é justamente o aparelho
+  // que não conectou que produz o Registro que alguém copia.
+  if (!cats.length) return '';
+  const { diario } = AVColetanea.aplicar(cats);
+  if (!diario.length) return '';
+  const nomeDoAlbum = (id) => {
+    const a = (albumCatalog.albums || []).find((x) => x.id_album === id);
+    return a && a.name ? a.name : ('álbum ' + id);
+  };
+  const linhas = [];
+  for (const d of diario) {
+    if (d.motivo === AVColetanea.MOTIVO_MOVIDA) {
+      // O DADO CRU, e não só a contagem: é lendo o nome de um álbum que se
+      // descobre que a regra mexeu no grupo errado.
+      linhas.push('· "' + d.de + '" → "' + d.para + '": ' + d.movidos.length
+        + ' álbum(ns) movido(s) para o fim'
+        + (d.movidos.length ? ' — ' + d.movidos.map(nomeDoAlbum).join(' · ') : ''));
+      if (d.jaEstavam.length) {
+        // N:N — não é erro, é o banco. Dito porque a conta não fecha sem ele.
+        linhas.push('    ' + d.jaEstavam.length + ' já estava(m) no destino (a mesma '
+          + 'coletânea em duas): ' + d.jaEstavam.map(nomeDoAlbum).join(' · '));
+      }
+      if ((d.repetidosNaOrigem || []).length) {
+        // OUTRA COISA, e com outro conserto: o banco listou o mesmo álbum duas
+        // vezes DENTRO da coletânea de origem. Dizer "já estava no destino"
+        // mandaria procurá-lo onde ele não está.
+        linhas.push('    ' + d.repetidosNaOrigem.length + ' repetido(s) dentro da '
+          + 'própria "' + d.de + '": ' + d.repetidosNaOrigem.map(nomeDoAlbum).join(' · '));
+      }
+    } else if (d.motivo === AVColetanea.MOTIVO_SEM_DESTINO && d.de === d.para) {
+      // A LINHA DEGENERADA. A regra devolve `sem-destino` porque o desfecho é o
+      // mesmo (nada é feito), mas a FRASE de lá seria falsa aqui: o destino
+      // existe — ele é a própria origem. Quem escolhe a palavra é esta função,
+      // e é aqui que a linha da tabela aparece nomeada, que é a única coisa
+      // capaz de levar alguém ao erro de digitação que a produziu.
+      linhas.push('· "' + d.de + '" tem uma linha em que a ORIGEM e o DESTINO são '
+        + 'a mesma coletânea — nada foi feito (confira a tabela DISSOLVER)');
+    } else if (d.motivo === AVColetanea.MOTIVO_SEM_DESTINO) {
+      linhas.push('· "' + d.de + '" NÃO foi dissolvida: o destino "' + d.para
+        + '" não existe neste banco — a coletânea continua na tela, inteira');
+    } else {
+      linhas.push('· "' + d.de + '" não existe neste banco (nada a dissolver)');
+    }
+  }
+  linhas.push('  coletâneas do banco: '
+    + (cats.length ? cats.map((c) => c.name).join(' · ') : 'nenhuma'));
+  return 'Coletâneas (o que a regra dissolveu)\n' + linhas.join('\n');
+}
+
 async function blocoSeries() {
   if (!serieDisponivel()) return '';
   const linhas = [];
@@ -21006,6 +21152,13 @@ async function renderDiag() {
   // que abre o Registro depois de um sorteio estranho procura os dois juntos.
   const bso = blocoSorteio();
   if (bso) blocos.push(bso);
+  // AS COLETÂNEAS, ao lado das duas acima e pela mesma razão: as três respondem
+  // "o que a regra achou, e por que recusou o resto?". Esta é a única que
+  // decide o que a Biblioteca MOSTRA, então ela vai por último das três — quem
+  // abre o Registro por causa de uma coletânea que sumiu a encontra no fim de
+  // um bloco curto, e não no meio de oitenta linhas de playlist.
+  const bcol = blocoColetaneas();
+  if (bcol) blocos.push(bcol);
   if (meu !== diagSeq) return;   // outro render assumiu durante a espera
   // O TEXTO MORA NA VARIÁVEL, e não num nó do DOM (v5.207). O visor `<pre>`
   // saiu de Configurações — ver o comentário do bloco no `index.html`: ele
@@ -24219,6 +24372,15 @@ window.addEventListener('resize', () => {
     // discordariam durante a subida do teclado, que é justamente quando a regra
     // vale.
     document.body.classList.toggle('teclado', kb > 0);
+    // E O VÉU DAS BORDAS DA LISTA (v1.5.16). O teclado é a porta NORMAL da
+    // Biblioteca (`openHymnSearch(true)` põe o foco no campo) e ele muda a
+    // ALTURA da lista sem rolagem e sem render — `body.lib-aberta.teclado` tira
+    // a caixa de controles de cena e a camada passa a terminar em `var(--kb)`.
+    // Os outros três donos do véu (os dois renders e o `scroll`) não cobrem
+    // isso, e o erro é nos DOIS sentidos: o véu de baixo fica aceso sobre uma
+    // lista que passou a caber, ou apagado sobre uma que passou a não caber.
+    // Aqui, no mesmo ponto e no mesmo quadro em que a medida é escrita.
+    pedirVeuDaLista();
   };
   const schedule = () => { if (!raf) raf = requestAnimationFrame(apply); };
   vv.addEventListener('resize', schedule);

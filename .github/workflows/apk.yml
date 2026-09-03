@@ -329,6 +329,17 @@ jobs:
           # faixa infantil contra o `sorteio.js`, que tem os mesmos dois
           # números escritos nele. Node puro: sem `continue-on-error`.
           node tools/hinario.test.mjs
+          # E A DISSOLUÇÃO DE UMA COLETÂNEA (v1.5.16). O `coletanea.js` decide,
+          # a partir de NOMES que o banco renomeia sem avisar, o que a Biblioteca
+          # MOSTRA: qual coletânea sai da tela e para onde vão os álbuns dela. Os
+          # dois modos de errar são mudos e simétricos — uma fusão que DUPLICA
+          # devolve o mesmo card duas vezes numa lista plausível, e uma que PERDE
+          # devolve a mesma lista com um álbum a menos; ninguém conta álbuns. E
+          # há um terceiro que parece o desfecho certo: o DESTINO deixar de
+          # existir no banco e a regra dissolver a origem assim mesmo, com os
+          # álbuns sumindo do acervo inteiro. Node puro: sem `continue-on-error`.
+          # Entra no workflow no MESMO commit em que nasce (a lição da v5.145).
+          node tools/coletanea.test.mjs
           # TODO ÍCONE DE FONTE TEM DE EXISTIR NA FONTE. O woff2 é um SUBSET de
           # 31 codepoints, e um `.msym` fora dele não desenha nada: sem erro no
           # console, sem requisição falhando, só um vão do tamanho de um ícone.
@@ -1000,6 +1011,21 @@ jobs:
           # própria: um desenho fail-CLOSED deixa toda a suíte verde e reprova
           # só ali.
           rodar tools/plataforma.test.mjs
+          # A LISTA DA BIBLIOTECA (v1.5.16): a divisória recuada entre faixas
+          # irmãs, o véu das bordas do scroller e o estado de uma linha no ar.
+          # As três falham CALADAS. A divisória desalinhada da coluna do texto é
+          # "está bagunçado", não um erro; o véu sem `pointer-events: none` come
+          # 22px de toque no topo e na base sem nada no console; e a tinta de
+          # estado que perde na cascata deixa a linha PROJETADA indistinguível da
+          # vizinha — no tema claro, branco sobre branco. Entra no workflow no
+          # MESMO commit em que nasce.
+          rodar tools/lista-da-biblioteca.test.mjs
+          # E O ENQUADRAMENTO DA CAMADA, que estava na tabela do `CLAUDE.md` e
+          # nunca foi ligado aqui — um oráculo fora do workflow é documentação,
+          # não rede de segurança (a regra é do próprio CLAUDE.md). Ele guarda
+          # que o preenchimento e o giro valem para a mídia nos DOIS caminhos:
+          # como CENA e como CAMADA sobre um louvor de fundo.
+          rodar tools/enquadramento-da-camada.test.mjs
 
           # O PLACAR VAI PARA O RESUMO DO RUN, não só para o log — a queixa que
           # originou este lote foi precisamente que o desfecho só existia lá

@@ -3788,6 +3788,155 @@ já estava escrito e não fazia nada.**
 os .35rem do `.popup-list`): uma seção é um bloco que CONTÉM linhas, e a mesma
 medida nos dois níveis os faz se ler como uma pilha só. Escopado no id, nunca na
 classe — o mesmo `.popup-list` é a fila da playlist e o conteúdo de uma pasta.
+#### A coletânea que se DISSOLVE noutra (`controle/coletanea.js`, v1.5.16)
+
+Pedido do operador: *"os albuns do celebra SP, serão individualmente colocados
+na coleção de 'diversos'. Não identifiquei independência suficiente para que ele
+tenha uma coleção só para ele."*
+
+O catálogo de coletâneas vem do banco LouvorJA, e o nome das seções é decisão de
+quem publica lá. Este é o mesmo desenho das SÉRIES e do HINÁRIO: uma **regra
+PURA no web**, com oráculo em Node (`tools/coletanea.test.mjs`), sobre um dado
+cru que o app não controla — invariante 5. A tabela tem uma linha:
+
+```js
+const DISSOLVER = [ { de: ['Celebra SP'], para: ['Diversas', 'Diversos'] } ];
+```
+
+- **DISSOLVER, não remover.** MEDIDO: descartar a categoria deixa os álbuns
+  ÓRFÃOS, e `renderCollectionsListMiolo` os recolhe num bloco *"Outros álbuns"* —
+  o mesmo número de blocos, com um nome pior. `aplicar()` MOVE os álbuns para o
+  destino e só então a origem deixa de existir.
+- **A regra roda no DESENHO, nunca no `fetchAlbumCatalog`.** O catálogo fica
+  semanas no IndexedDB; aplicada na busca, uma correção por OTA só valeria depois
+  da próxima sincronização COM REDE. Aplicada no render, ela vale na abertura
+  seguinte, inclusive offline — e o catálogo cru continua cru no aparelho, que é
+  o que torna a tabela reversível numa linha.
+- **E ela tem DOIS consumidores no mesmo `render`**: o laço que desenha as
+  seções **e** o `claimed` que decide quais álbuns ficaram órfãos. Chamar só num
+  deles devolve *"Outros álbuns"* pela porta dos fundos — é a metade que o
+  `boot-nativo.test.mjs` prende, e que nenhum oráculo da regra pura alcança.
+- **Destino ausente é IDENTIDADE, e a origem FICA na tela.** É a única decisão do
+  arquivo que contraria o pedido, e é deliberada: um destino renomeado no banco
+  faria a origem sumir levando os álbuns dentro dela, e o desfecho seguro é o de
+  antes da regra. `sem-destino` sai no Registro.
+- **A comparação é por IGUALDADE sobre o `normalizar` do `serie.js`** (mesma
+  função, copiada verbatim), nunca `includes`: *"Diversas"* casaria com
+  *"Diversas Antigas"*. E a lista de aceitos do destino tem as DUAS grafias — o
+  operador escreveu *"diversos"*, a seção no aparelho chama-se **"Diversas"**
+  (conferido em `site/telas/biblioteca.webp`), e nenhuma normalização une as duas.
+- **Os movidos entram no FIM do destino, com o `order` reescrito**, e passam por
+  dedupe contra o que já estava lá (o conjunto de destino é congelado ANTES de
+  mover, senão dois álbuns iguais vindos da origem se anulariam entre si).
+- **O Registro tem o bloco** (`blocoColetaneas`), com o motivo de cada movimento:
+  uma coletânea que some da tela sem explicação é indistinguível de um catálogo
+  que veio menor.
+
+#### O orçamento da lista COLAPSADA, e o véu das bordas (v1.5.16)
+
+*"Remover esse grupo … fara com que todas as coleções caibam na tela enquanto
+estiverem colapsadas, sem a necessidade de rolar. Inclusive, aproveite para
+reajustar o tamanho dos cards das coletâneas e espaços, para que eles aproveitem
+exatamente esse espaço."*
+
+A metade editorial é a regra acima. A metade geométrica é uma CONTA, medida a
+430×900 com **582px** de caixa de lista:
+
+| blocos | antes | depois |
+|---|---|---|
+| 9 | 553,9px (cabia) | — |
+| 10 | 615,1px (rolava) | **551,1px (cabe)** |
+| 11 | — | 605,9px (rola) |
+
+O que apertou foram as DUAS barras — `padding` de `.55rem` para `.35rem`, e
+`--bar-secao-h` de `calc(var(--hit) + 1.1rem)` para `+ .7rem`.
+
+- **APERTAR e não ESTICAR, e a razão é o vão dos FAVORITOS.** Esticar os cards
+  até o encaixe exato levaria aquele vão de 131px a 55px, e a seção passaria a
+  rolar quando aberta — desfazendo a v5.273/v5.277, que o operador pediu duas
+  vezes.
+- **E o segundo preço, que é a leitura literal do pedido:** apertar AFASTA do
+  enchimento exato em vez de aproximar. Com os 9 blocos do acervo dissolvido a
+  lista ocupa 496,3 dos 582px e sobram **~86** — contra os ~28 que sobrariam sem
+  o aperto. *"Aproveitem exatamente esse espaço"* virou *"caibam com folga"*, e
+  preencher exigiria esticar. (No aparelho a sobra é MENOR: os cards com
+  subtítulo — as duas séries, os hinários com peso — são mais altos que a barra
+  nua desta conta.)
+- **E a promessa vale de 430px para cima.** MEDIDO: a 393×786 (entalhe de 39px,
+  caixa de 436px) cabem 7 blocos nos DOIS desenhos — ali o aperto não compra
+  bloco nenhum; a 360×740 (24px, 420px) ele vai de 6 para 7. Com 9 blocos, os
+  dois continuam rolando.
+
+**O VÉU DA BORDA** responde à outra metade do relato — *"um efeito de blur na
+borda interna superior ou inferior, quando algum elemento da tela ir para debaixo
+dessa borda"*. São dois pseudo-elementos `position: sticky` DENTRO do scroller
+(`#hymnResults::before` / `::after`), com `backdrop-filter: blur(5px)` e uma
+`mask-image` esmaecendo para transparente.
+
+- **BLUR e não gradiente, porque não existe cor certa para o véu.** A alternância
+  papel → poço → papel põe DUAS superfícies sob a mesma borda, e um gradiente
+  teria de escolher uma delas. Blur é agnóstico de cor: MEDIDO, −60% de nitidez
+  nos dois temas.
+- **Dentro do scroller e a `z-index: 2`, é o que o faz sumir sozinho sob uma
+  tampa grudada** — as tampas são opacas e moram acima (z 3 e 4). Medido em
+  131/131 amostras com uma coleção aberta, e em 250/250 de conteúdo cru na lista
+  plana da busca.
+- **Ele só existe quando MENTIRIA ao não existir.** `.tem-acima`/`.tem-abaixo`
+  saem de um ouvinte de `scroll` com `requestAnimationFrame`, reafirmados em todo
+  ponto que muda a lista (abrir a Biblioteca, redesenhar as coleções, redesenhar
+  a busca, o teclado subindo). E as regras que o DESLIGAM repetem
+  `.popup-backdrop--lib.open` — sem isso a especificidade (1,1,0 contra 1,2,0)
+  deixava o véu aceso no topo da lista, exatamente onde ele mente.
+- **Sem `backdrop-filter` ele não aparece** (`@supports not`): meio véu — a
+  máscara sem o borrão — seria uma sombra sem causa.
+- **O véu de baixo ANULA o recuo da lista** (`bottom: calc(-1 *
+  var(--lib-lista-base))`), e é por isso que aquele recuo virou token: sem a
+  anulação ele gruda acima do recuo e deixa uma faixa de conteúdo nítido embaixo
+  de si — um defeito que só aparece num aparelho com barra de gestos.
+
+#### A divisória entre faixas IRMÃS (v1.5.16)
+
+*"Verifique a criação de um elemento de linha divisória (não borda inteira), na
+listagem do itens propriamente dos álbuns, para melhor distinção entre os
+itens."*
+
+```css
+.acervo .coll-songs > .hymn-result + .hymn-result::before {
+  content: ''; position: absolute; pointer-events: none;
+  top: 0; left: var(--faixa-coluna-texto); right: 0; height: 1px;
+  background: var(--divisoria);
+}
+```
+
+- **É ARITMÉTICA, não gosto.** Desde a v1.5.14 a faixa é transparente e a placa
+  atrás dela é `--panel`: o vão de 4px entre duas faixas mede **1,00:1** contra
+  os dois lados — separação nenhuma. `--divisoria` dá **1,88:1** no escuro e
+  **1,99:1** no claro.
+- **Não é a moldura voltando.** A moldura eram quatro arestas por nível, em três
+  níveis, carregando a HIERARQUIA — o trabalho que a alternância faz hoje com
+  degrau real. Esta é UMA aresta, num nível só, entre irmãs, e faz o que a
+  alternância por construção não faz.
+- **O `+` é o recurso inteiro**: ela nunca aparece antes da PRIMEIRA faixa, onde
+  o que separa é a barra do álbum.
+- **O recuo é o *"não borda inteira"* do pedido.** Ela começa em
+  `--faixa-coluna-texto` (o recuo da linha + a miniatura + o vão), nunca sob a
+  miniatura — e é por isso que não pode ser uma `border-bottom`, que cobre a
+  caixa e não tem como ser recuada.
+- **O oráculo cobra a EXCEÇÃO nos dois sentidos** (`tools/tokens.test.mjs`): uma
+  varredura NEGATIVA por qualquer bloco de 1px pintado (reprova todos os outros)
+  e uma POSITIVA exigindo que `--divisoria` tenha um consumidor só. Sem elas o
+  precedente que entraria no repositório seria *"filete pode, desde que não se
+  chame border"*.
+- **Ela fica ABAIXO da linha, e isso é a regra escrita**: a `.row` é
+  `z-index: 1` e pinta `--linha`, então o traço SOME quando aquela faixa ganha um
+  preenchimento opaco de estado — ali quem separa é o preenchimento, e duas
+  linguagens sobre o mesmo par seriam ruído. Dentro de um álbum o caso não
+  acontece hoje: a faixa não recebe estado (ver `docs/ACHADOS-EM-ABERTO.md` §4) e
+  o único `--linha` possível é translúcido, que o traço atravessa.
+- **O raio apara a ponta direita**: com `border-radius: 8px` e
+  `overflow: hidden`, os ~8px finais somem na curva — o mesmo canto que o
+  preenchimento de estado já respeita.
+
 #### Os favoritos se atualizam com a Biblioteca ABERTA (v5.258)
 
 Relato: *"se estou na biblioteca e adiciono algo aos favoritos, ele só aparece

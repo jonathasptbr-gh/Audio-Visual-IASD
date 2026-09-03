@@ -352,6 +352,33 @@
      Medido: claro rgb(246,248,249) sobre card #d4dae2 — 1,32:1 de separação
      (piso 1,28) e 8,32:1 com o texto. Escuro rgb(46,54,63) e 9,23:1. */
   --item-fill: var(--surface-sunk);
+  /* ---------- A DIVISÓRIA ENTRE FAIXAS IRMÃS (v1.5.16) ----------
+     Pedido do operador: *"Verifique a criação de um elemento de linha
+     divisória (não borda inteira), na listagem do itens propriamente dos
+     álbuns, para melhor distinção entre os itens."*
+
+     Ele está certo por MEDIÇÃO, não por gosto: desde a v1.5.14 a faixa é
+     transparente e a placa atrás dela é `--panel`, então o vão de 4px que as
+     separa tem **1,00:1** contra os dois lados. Não é pouca separação — é
+     separação nenhuma, e o argumento estava escrito no próprio
+     `controle.css` desde a v5.272 (*"um espaço só separa quando os dois lados
+     dele têm cor"*), numa declaração que perdia por especificidade.
+
+     A RÉGUA NÃO É O PISO DE 1,28:1, que é de SUPERFÍCIE. Um traço de 1px sobre
+     uma faixa de 45px é ~2% dela, numa frequência espacial em que o limiar é
+     outro. A régua defensável aqui é o vizinho MEDIDO que já funcionou: a
+     moldura de 1px que a v1.5.14 removeu, **1,78:1 no escuro e 2,51:1 no
+     claro** — nas palavras daquele lote, *"a única coisa daquela tela com
+     contraste de verdade"*. Estes valores dão **1,88:1** e **1,99:1** sobre a
+     placa de papel.
+
+     E ELA NÃO É A MOLDURA DE VOLTA. A distinção é de OBJETO, não de espessura:
+     a moldura era um retângulo por nível, quatro arestas, em três níveis ao
+     mesmo tempo, e existia para carregar a HIERARQUIA — trabalho que a
+     alternância papel → poço → papel faz hoje com degrau real. Esta é UMA
+     aresta, num nível só, entre IRMÃS, e faz o que a alternância por construção
+     não faz: separar vizinhas do MESMO nível. */
+  --divisoria: rgba(255, 255, 255, .20);
 
   /* O VERMELHO QUE SE LÊ COMO VERMELHO (v5.76, matiz reancorada na v5.192).
      DERIVADO do `scarlett` (matiz 358°), clareado até passar como texto.
@@ -700,6 +727,11 @@
      números ao mesmo tempo: 1,32:1 de separação contra o card (piso 1,28) e
      8,32:1 com o `--text`. */
   --item-fill: rgba(255, 255, 255, .8);
+  /* A DIVISÓRIA no claro (ver o bloco do tema escuro). Preto a .28 sobre a
+     placa branca compõe #b7b7b7 — 1,99:1, o degrau da moldura que saiu. Ela é
+     mais forte que a do escuro de propósito: sobre branco o mesmo alfa rende
+     menos contraste, e .20 mediria 1,61:1. */
+  --divisoria: rgba(0, 0, 0, .28);
 
   /* Os dois fundos de ESTADO, espelhando o escuro (ver lá o porquê de serem
      opacos). `--sel-fill` dá 1,31:1 contra o painel branco, 6,76:1 com o texto e

@@ -1,5 +1,15 @@
 [
   {
+    "versao": "1.5.16",
+    "itens": [
+      "As faixas de um álbum ganharam uma linha divisória, para distinguir uma da outra.",
+      "As bordas da lista da Biblioteca borram o que passa por baixo, indicando que há mais itens.",
+      "Os álbuns do Celebra SP passaram a ficar dentro da coletânea Diversas.",
+      "As coleções ficaram mais compactas, para caberem todas na tela sem rolar.",
+      "E o favorito que está no telão voltou a ficar destacado na lista."
+    ]
+  },
+  {
     "versao": "1.5.15",
     "itens": [
       "As faixas de um hinário ou de uma série voltaram a pousar em fundo claro, e não no azul do grupo.",

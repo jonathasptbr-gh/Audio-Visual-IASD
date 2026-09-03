@@ -188,7 +188,11 @@ Fora de `tokens.css`, no `:root` do Controle (não são cor):
 | `--sp-1`…`--sp-6` | `.15` `.25` `.35` `.5` `.6` `.8` rem | **a escala de espaço** (v1.5.14). Eram 16 valores de `gap` quase contínuos em passos de .05, isto é, nenhum ritmo. 71 das 110 declarações caem EXATAS num degrau; o resto se move no máximo 1,6px — o que não se vê numa peça e se sente no conjunto |
 | `--dur-rapida` / `--dur-media` / `--dur-lenta` | `.14s` / `.2s` / `.3s` | **a escala de movimento** (v1.5.14). Eram dez durações de transição entre .12s e .3s — faixa em que o olho não distingue os degraus, mas em que peças VIZINHAS animam em tempos diferentes, e isso se nota. As ANIMAÇÕES ficam de fora e mantêm o tempo delas: um pulso de 1,2s não é uma transição de interface |
 | `--fw-normal` / `--fw-medio` / `--fw-forte` / `--fw-max` | `400` / `600` / `700` / `800` | **os quatro pesos** (v1.5.14). Eram cinco valores para quatro papéis — o `500`, com três usos, não se distinguia do `600`. Nomeados, a escolha deixa de ser um número e passa a ser um papel |
-| `--bar-secao-h` | `calc(var(--hit) + 1.1rem)` | a altura da barra de uma seção da Biblioteca. É token porque DUAS regras precisam do mesmo número (a barra gruda em `top: 0`, a do álbum logo abaixo dela); escrito duas vezes divergiria, e o sintoma seria o cabeçalho de dentro cobrindo o de fora. Determinístico: o nome é `nowrap` e o recuo é fixo — nada de medição em JS, que a v1.5.3 ensinou a desconfiar |
+| `--bar-secao-h` | `calc(var(--hit) + .7rem)` | a altura da barra de uma seção da Biblioteca. É token porque DUAS regras precisam do mesmo número (a barra gruda em `top: 0`, a do álbum logo abaixo dela); escrito duas vezes divergiria, e o sintoma seria o cabeçalho de dentro cobrindo o de fora. Determinístico: o nome é `nowrap` e o recuo é fixo — nada de medição em JS, que a v1.5.3 ensinou a desconfiar. **Era `+ 1.1rem` até a v1.5.16**, e quem o apertou foi o ORÇAMENTO da lista colapsada — não o desenho da barra |
+| `--divisoria` | `rgba(255,255,255,.20)` · `rgba(0,0,0,.28)` no claro | **a divisória entre faixas IRMÃS** (v1.5.16), a quarta exceção nomeada da regra de contorno. Desde a v1.5.14 a faixa é transparente sobre `--panel`: o vão de 4px entre duas faixas mede **1,00:1** contra os dois lados — separação nenhuma. Estes valores dão **1,88:1** e **1,99:1** sobre a placa, contra os 1,78:1 e 2,51:1 da moldura removida. Alfa e não valor fixo, porque a placa muda de tom entre os temas e o traço tem de compor sobre o que estiver lá. Consumidor ÚNICO, cobrado por oráculo |
+| `--faixa-coluna-texto` | `calc(.5rem + 38px + var(--sp-4))` | onde a coluna do NOME de uma faixa começa — o recuo da linha, mais a miniatura, mais o vão. É token porque é o que RECUA a `--divisoria`, e é isso que a torna *"não borda inteira"*: ela começa no texto, nunca sob a miniatura. Aritmético, não medido — a miniatura tem lado fixo |
+| `--lib-fade-h` | `22px` | a altura de cada véu da borda do scroll da Biblioteca (v1.5.16) |
+| `--lib-lista-base` | `calc(.8rem + env(safe-area-inset-bottom))` | o recuo de baixo da lista da Biblioteca. É token porque o véu de baixo precisa ANULÁ-LO (`bottom: calc(-1 * var(--lib-lista-base))`): sem isso ele gruda acima do recuo e deixa uma faixa de conteúdo nítido embaixo dele — o defeito aparece só num aparelho com barra de gestos |
 | `--op-inativo` | `.35` | **o véu de INATIVO** (v1.5.15). Ele estava escrito em três `:disabled` (`.slide-btn`, `.t-btn`, `.sel-btn`) e ganhou um quarto consumidor que não é um controle: o cartão da linha do tempo, que o operador mandou vestir *"o mesmo cinza claro dos botões inativos de próximo e anterior slide"*. O cartão o consome por `color-mix` sobre `--surface` JÁ RESOLVIDO ali — um token de cor novo teria de repetir a bifurcação inteira do R1 para dizer a mesma coisa |
 | `--kb` | `0px` | altura coberta pelo teclado virtual, escrita pelo JS (ver "Deslocamento com o teclado virtual") |
 
@@ -560,15 +564,43 @@ decisão é irreversível era a única em que a cor não dizia isso, enquanto
 
 ### Só preenchimento, nenhum contorno
 
-Nenhuma regra do app desenha `border`/`outline`. O que sobrevive são dois
-DESENHOS, nomeados um a um no oráculo — nunca detectados por heurística, porque
-uma heurística deixaria a próxima borda entrar chamando-se desenho:
+Nenhuma regra do app desenha `border`/`outline` para SEPARAR caixas. O que
+sobrevive são **quatro exceções, nomeadas uma a uma no oráculo** — nunca
+detectadas por heurística, porque uma heurística deixaria a próxima borda entrar
+chamando-se desenho.
+
+**Duas são DESENHO** — `border` é também a forma idiomática de desenhar em CSS:
 
 - o aro do `.dl-ring` — ele **é** um círculo, não a moldura de um elemento. O
   irmão dele no palco (`.av-stage-busy`) saiu na v1.4.8, com a folha
   `shared/stage.css`: o palco anuncia a espera e não a desenha mais;
 - o ✓ do `.song-menu-check` (duas bordas em L, giradas 45°) — é o glifo que falta
   no subset da fonte de ícones.
+
+**Duas foram PEDIDAS**, e as duas por aritmética, não por gosto:
+
+- **o campo de busca da Biblioteca** (`#hymnSearchInput`, v1.5.5): *"abra uma
+  única exceção ao conceito de sem bordas do app, para poder fazer a caixa de
+  texto da busca … branca com a borda em cinza"*. No tema claro `--bar` é BRANCO
+  e o campo é branco — **1,00:1** —, e sem contorno a caixa de texto não existe
+  na tela. A cor sai de `var(--surface)` (v1.5.8: *"o mesmo cinza dos botões a
+  sua volta"*), composta sobre a MESMA base por um `background-clip: padding-box`
+  — sem ele a tinta comporia sobre o branco do campo e sumiria no tema escuro;
+- **a divisória entre faixas irmãs** (v1.5.16): *"a criação de um elemento de
+  linha divisória (não borda inteira), na listagem do itens propriamente dos
+  álbuns"*. Ela **não é uma `border`** — é um `::before` de 1px pintado em
+  `--divisoria`, porque `border-bottom` cobre a caixa inteira e não tem como ser
+  RECUADA, e o recuo é literalmente o *"não borda inteira"* do pedido. Isso
+  abriria a brecha *"filete pode, desde que não se chame border"*, então o
+  oráculo ganhou o PAR no mesmo lote: uma varredura NEGATIVA por qualquer bloco
+  de 1px com fundo (reprova todos menos o seletor nomeado) e uma POSITIVA
+  exigindo que `--divisoria` tenha um consumidor só.
+
+**A diferença entre a divisória e a moldura removida é de OBJETO, não de
+espessura.** A moldura era um retângulo por nível, quatro arestas, em três
+níveis, e carregava a HIERARQUIA — trabalho que a alternância faz hoje com
+degrau real. Esta é uma aresta, num nível só, entre IRMÃS, e faz o que a
+alternância por construção não faz.
 
 **São DOIS oráculos, e nenhum basta sozinho.** `tools/tokens.test.mjs` varre a
 FONTE e prova que nenhuma regra NOSSA desenha contorno; `tools/smoke.mjs` mede o
@@ -691,9 +723,12 @@ uma seção da Biblioteca e o card de álbum dentro dela, e um piso não se cump
 "quase". `--muted` e `--accent` foram clareados um degrau na mesma conta — no
 valor antigo o accent caía a **4,40:1** sobre o painel-2 novo, e reprova AA.
 
-`--line` saiu da tabela porque saiu do papel: não há mais filete nem contorno em
-lugar nenhum. Ele sobrevive como TINTA de dois desenhos (a estrela vazada de
-favorito, a barra de rolagem das grades da Bíblia).
+`--line` **saiu do arquivo** na v1.5.14, e não só da tabela: com a moldura fora
+ele ficou com zero consumidores, e o comentário do próprio token dizia que ele
+*"NÃO pode voltar a ser um filete"* enquanto era o único filete do app. O que
+existe hoje é `--divisoria` (v1.5.16), com um consumidor único cobrado por
+oráculo — e ele é um traço PINTADO, entre irmãs, não uma cor de linha à
+disposição de quem precisar.
 
 #### R0 — a escada tem TRÊS degraus, e o quarto é o espaço
 
@@ -701,15 +736,21 @@ Um quarto tom obrigaria o nível mais interno a subir até ~`#4c5865` no tema
 escuro, onde `--muted` mede **3,59:1** e `--accent` **3,37:1** — os dois
 reprovam AA para texto pequeno, que é exatamente o tamanho do texto de uma linha
 de lista. Então a árvore para em três, e quem carrega o quarto nível é o
-ESPAÇO: uma faixa dentro de um álbum aberto não tem caixa nenhuma, e o que a
-separa da vizinha é o tom do próprio álbum aparecendo entre elas.
+ESPAÇO: uma faixa dentro de um álbum aberto não tem caixa nenhuma.
+
+**E o espaço sozinho não separa IRMÃS — desde a v1.5.14 isso é medível.**
+Enquanto a faixa teve fundo próprio, o que aparecia no vão era o tom do álbum, e
+o vão ERA um degrau. Com a alternância a faixa ficou transparente sobre a placa,
+e o vão passou a ser a mesma superfície dos dois lados: **1,00:1**. Daí o quarto
+degrau ser hoje espaço **mais** um traço recuado (`--divisoria`, v1.5.16) — a
+alternância separa NÍVEIS e por construção não separa vizinhas do mesmo.
 
 No tema CLARO a escada **não é monotônica**, e isso é aritmética e não descuido:
 a página é cinza e o nível 1 é branco (a convenção de toda UI clara), então o
 primeiro degrau sobe e os seguintes só podem descer — `#dfe3e7` → `#ffffff` →
 `#d4dae2`. Folha e card ficam a 1,09:1 um do outro e isso não se lê como
-ambiguidade, porque os dois **nunca se encostam**: entre eles há sempre a
-moldura branca da seção. `tools/smoke.mjs` mede os pares ADJACENTES (piso 1,28)
+ambiguidade, porque os dois **nunca se encostam**: entre eles há sempre o poço
+da seção. `tools/smoke.mjs` mede os pares ADJACENTES (piso 1,28)
 e exige apenas que nenhum par coincida (piso 1,05) — a primeira versão daquele
 caso exigia monotonia e reprovava um desenho correto.
 
@@ -888,14 +929,22 @@ janela da Biblioteca  --panel   nível 0   PAPEL   · cabeçalho GRUDENTO em top
   ├ seção             --poco    nível 1   POÇO    · cabeçalho GRUDENTO em top:0
   │   └ card do álbum --panel   nível 2   PAPEL   · cabeçalho em --bar-secao-h
   │       └ faixa     —         nível 3   sem fundo: preenchimento é ESTADO
+  │                                        irmãs separadas por `--divisoria`
   └ hinário/série     --poco    nível 1   NA RAIZ: é agrupamento, logo é poço
       └ a PLACA       --panel   nível 2   o `.coll-open`, o papel desta perna
           └ faixa     —         nível 3   a MESMA base da faixa de álbum
 ```
 
-**Duas superfícies, profundidade ilimitada, zero traços.** MEDIDO no
-renderizado: **1,43:1** em cada degrau no escuro e **1,35:1** no claro — contra
-sete de sete pares reprovando o piso no desenho anterior.
+**Duas superfícies e profundidade ilimitada.** MEDIDO no renderizado: **1,43:1**
+em cada degrau no escuro e **1,35:1** no claro — contra sete de sete pares
+reprovando o piso no desenho anterior.
+
+**O único traço da tela é a divisória entre faixas IRMÃS** (v1.5.16), e ela é
+ORTOGONAL a esta escada: a alternância separa NÍVEIS, e por construção não tem
+como separar vizinhas do mesmo nível. Enquanto a faixa teve fundo próprio o vão
+entre duas era um degrau (aparecia o tom do álbum); com a faixa transparente ele
+virou a MESMA placa dos dois lados — **1,00:1**. *"O quarto degrau é o espaço"*
+passou a ser espaço **mais** um traço recuado.
 
 **A regra é por PROFUNDIDADE, nunca por tipo de bloco.** O mesmo `.hymnal-card`
 é nível 1 na raiz (poço) e nível 2 dentro de uma seção (papel); escrevê-la por

@@ -1,8 +1,9 @@
 # Achados em aberto
 
-**Três** — os dois do áudio do espelhamento, mais o CLIENTE de onde sai a escada
+**Quatro** — os dois do áudio do espelhamento, o CLIENTE de onde sai a escada
 da transmissão direta (v1.4.5; as outras duas hipóteses daquele relato morreram,
-uma por construção e a outra por correção). (Um quarto — *"mídia baixada pausa
+uma por construção e a outra por correção), e a faixa da Biblioteca que nunca é
+marcada como no ar (v1.5.16). (Houve outro, e ele já saiu — *"mídia baixada pausa
 quando eu minimizo"* — durou um lote: o operador deu a cena que faltava
 (*"ocorre quando não há telas conectadas"*), e ela era a segunda das três
 hipóteses. Corrigido na v1.3.12, com a resposta que `DISPLAY.md` já tinha
@@ -261,3 +262,63 @@ sobre o que saiu na TELA, e entre a faixa escolhida e a tela há o encoder do
 Miracast. Se o Registro disser 1080p e a imagem continuar ruim, o gargalo não é
 nada disto — e o app não tem o que fazer. O teste que separa os dois custa cinco
 minutos: projetar na mesma TV um vídeo **já baixado** em 1080p.
+
+---
+
+## 4. A faixa de um álbum nunca é marcada como NO AR (MEDIDO, DUAS METADES)
+
+**O que foi medido (v1.5.16, três leituras independentes).** Dentro da
+Biblioteca, a linha que está sendo PROJETADA não se distingue das vizinhas. O
+Cronograma marca, os Favoritos marcam — a faixa de um álbum, não.
+
+**A causa tem DUAS metades, e nenhuma sozinha explica o desfecho:**
+
+1. **A CLASSE NÃO CHEGA.** Quem escreve `.no-ar`/`.active` é `marcarNoAr`
+   (`controle.js`), que varre `.lib-item,.row-item` e lê **`el.dataset.id`**. O
+   `hymnResultRow` escreve `li.dataset.song` e **nunca** `dataset.id` — MEDIDO
+   pelo caminho real (mídia no ar, `marcarNoAr()`): a faixa do álbum sai sem
+   classe e sem selo, enquanto o FAVORITO da mesma passada sai marcado.
+   `.selected` é escrito num ponto só, numa linha que também carrega
+   `dataset.id`.
+2. **E A COR ESTARIA ERRADA SE ELA CHEGASSE.** Forçando a classe, o que assume
+   NÃO é `--live-fill`: `.coll-songs > .hymn-result { --linha: var(--item-fill) }`
+   é (0,2,0), o MESMO peso de `.lib-item.no-ar`, e vem **depois** no arquivo —
+   ganha por ordem de fonte. MEDIDO: no escuro a faixa "no ar" fica byte a byte
+   igual à selecionada; no tema CLARO ela compõe branco sobre branco, **1,00:1**
+   contra a vizinha neutra.
+
+**Por que não foi corrigido na v1.5.16.** A metade (2) é uma linha; a metade (1)
+não é. Um item do Cronograma tem id de ITEM, e `linhaNoAr` compara contra
+`midiaNoArId`/`midiaNoArOrigem`/`cueNoArId` — que são ids de item. Uma faixa da
+Biblioteca é uma **música de catálogo**: ela não tem id de item até ser
+adicionada a alguma lista, e a mesma música pode estar em duas coleções ao mesmo
+tempo. Escolher o que marcar é uma decisão de IDENTIDADE, não um `dataset` a
+mais, e ela não foi pedida no lote em que o defeito apareceu.
+
+**Correção proposta, nas duas metades e no MESMO lote** (consertar só uma
+produz o desfecho pior — a marcação certa com a tinta errada, em silêncio):
+
+```css
+/* controle.css — a faixa NEUTRA tem corpo; a com ESTADO tem a cor do estado. */
+.coll-songs > .hymn-result { border-radius: var(--radius-btn); }
+.coll-songs > .hymn-result:not(.no-ar):not(.active):not(.selected) {
+  --linha: var(--item-fill);
+}
+```
+
+mais dar à faixa um `dataset.id` que `linhaNoAr` saiba responder — e definir
+antes o que ele identifica quando a mesma música está em dois álbuns.
+
+**O que já está no lugar:** o `lista-da-biblioteca.test.mjs` afirma a AUSÊNCIA
+(A5a/A5b) pelo caminho real, com o favorito marcado ao lado como par. Ele foi
+escrito assim de propósito: afirmar "a faixa no ar pinta" seria prometer um
+estado que o app não produz, e o oráculo passaria a **bloquear** o conserto em
+vez de guardá-lo. Quem fizer o conserto troca essas duas asserções pelas seis
+que a v1.5.16 chegou a escrever e removeu (estão no histórico do repositório).
+
+**Ressalva do cético:** vale perguntar se a faixa da Biblioteca DEVE mesmo
+mostrar "no ar". O argumento a favor é o mais simples: as outras duas listas do
+app mostram, e o operador abre a Biblioteca durante o culto. O argumento contra
+é que a Biblioteca é o ACERVO — um catálogo, não o que está em cena —, e que
+duas coleções acendendo a mesma música ao mesmo tempo pode confundir mais do que
+informa.

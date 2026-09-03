@@ -35,8 +35,9 @@ espelhar o celular.
 
 **Fora daqui:** `docs/ACHADOS-EM-ABERTO.md` (os defeitos CONFIRMADOS e ainda não
 corrigidos, com cenário e correção proposta — **leia antes de mexer no que ele
-nomeia**; hoje tem TRÊS — os dois do áudio do espelhamento e o CLIENTE de onde
-sai a escada da transmissão —, e é arquivo para esvaziar, não para crescer),
+nomeia**; hoje tem QUATRO — os dois do áudio do espelhamento, o CLIENTE de onde
+sai a escada da transmissão, e a faixa de álbum que nunca é marcada como NO AR
+—, e é arquivo para esvaziar, não para crescer),
 `docs/shell/README.md`
 (o HUB do **Kotlin**: um capítulo por
 subsistema do shell, mais a tabela que diz onde cada um dos 29 arquivos é
@@ -118,6 +119,11 @@ app/src/main/
 │   │                            #   blocos). PURA, com oráculo Node. O banco
 │   │                            #   NÃO tem esse campo — o que identifica a
 │   │                            #   seção é a POSIÇÃO do hino
+│   ├── controle/coletanea.js    #   as COLETÂNEAS: a leitura EDITORIAL do
+│   │                            #   catálogo do banco — qual coletânea não tem
+│   │                            #   independência e entra em outra. PURA, com
+│   │                            #   oráculo Node. Aplicada na LEITURA: o
+│   │                            #   catálogo cru continua cru no aparelho
 │   ├── controle/cifra.js        #   a CIFRA: a REGRA que lê uma página de cifra
 │   │                            #   (slug, folha, transposição). PURA, com
 │   │                            #   oráculo Node. Sob demanda: NADA é guardado
@@ -1644,9 +1650,9 @@ sintoma é "a atualização não chega".
 
 `window.AVDB` no `load` não bastava: a ordem dos scripts do Controle é
 `native.js` → `db.js` → `mse.js` → `stage.js` → `louvorja.js` → `bible.js` →
-`serie.js` → `cifra.js` → `sorteio.js` → `hinario.js` → `deck.js` →
-`controle.js`, e um erro
-em qualquer um dos **onze** últimos aborta só AQUELE script — o `load` dispara, `AVDB` continua lá, e o
+`serie.js` → `cifra.js` → `sorteio.js` → `hinario.js` → `coletanea.js` →
+`deck.js` → `controle.js`, e um erro
+em qualquer um dos **doze** últimos aborta só AQUELE script — o `load` dispara, `AVDB` continua lá, e o
 bundle quebrado era carimbado como bom **para sempre**. As cinco condições,
 cada uma cobrindo o que a anterior não cobre:
 
@@ -1664,7 +1670,7 @@ cada uma cobrindo o que a anterior não cobre:
    `loadCollections()`. Prova que a inicialização terminou.
 
 5. **`Louvorja` · `Bible` · `AVSerie` · `AVSorteio` · `AVCifra` · `AVHinario` ·
-   `AVDeck`** — os sete
+   `AVDeck` · `AVColetanea`** — os oito
    scripts do Controle, cada um publicando seu global na ÚLTIMA linha do arquivo. Eram o
    buraco declarado deste watchdog até a v5.315: todo uso de `AVSerie`/`AVSorteio`
    no `controle.js` está DENTRO de função, então um erro de topo num deles **não**
@@ -2753,12 +2759,14 @@ em **DOIS TEMAS**, com o denim `#2F557F` (PMS 302) como núcleo. O raciocínio
 completo (cada par medido, os pisos, os ladrilhos da Bíblia) está na seção de
 paleta de `docs/arquitetura/DESIGN-SYSTEM.md`.
 
-**NÃO HÁ CONTORNO EM LUGAR NENHUM — E UMA EXCEÇÃO, PEDIDA E NOMEADA.**
-Nenhuma regra desenha `border`/`outline`; sobrevivem dois DESENHOS (o aro que
-gira — `.dl-ring` — e o ✓ do seletor de destinos) **e o CAMPO DE BUSCA da
-Biblioteca** (v1.5.5, pedido do operador: *"abra uma única exceção ao conceito de
+**NÃO HÁ CONTORNO EM LUGAR NENHUM — E QUATRO EXCEÇÕES NOMEADAS, DUAS DELAS
+PEDIDAS.** Nenhuma regra separa caixas com `border`/`outline`; sobrevivem dois
+DESENHOS (o aro que gira — `.dl-ring` — e o ✓ do seletor de destinos) e duas
+peças que o operador pediu: **o CAMPO DE BUSCA da Biblioteca** e, mais abaixo, a
+**DIVISÓRIA entre faixas irmãs** (v1.5.16), que nem sequer é uma `border`. O
+campo de busca entrou na v1.5.5 (*"abra uma única exceção ao conceito de
 sem bordas do app, para poder fazer a caixa de texto da busca … branca com a
-borda em cinza"*). O que a autoriza é aritmético: no tema CLARO `--bar` é BRANCO
+borda em cinza"*), e o que o autoriza é aritmético: no tema CLARO `--bar` é BRANCO
 e o campo é branco — **1,00:1** —, e sem contorno a caixa de texto não existe na
 tela; foi a mesma conta que criou a faixa `--field-bar` na v5.270, e a borda a
 resolve sem trazer a faixa de volta. A COR sai de `var(--surface)` (v1.5.8, pedido do
@@ -2768,8 +2776,9 @@ que os dois quadrados ao lado pintam, composto sobre a MESMA base por um
 e sumiria no tema escuro. **Isto revoga o piso de 3:1 da v1.5.5**, que vinha de um
 valor calculado (`--field-borda`, hoje removido): no claro esse cinza dá 1,38:1
 contra o campo, que é o MESMO degrau em que os botões vivem contra a mesma barra
-— a borda não ficou menos visível que eles, ficou igual a eles. **É o NOME que a mantém única** — a lista
-não tem regra que a próxima borda possa alegar cumprir.
+— a borda não ficou menos visível que eles, ficou igual a eles. **É o NOME que
+segura a lista** — ela não tem regra que a próxima borda possa alegar cumprir,
+e é por isso que cada exceção entra escrita à mão no oráculo.
 
 **E A EXCEÇÃO DA BIBLIOTECA SAIU (v1.5.14).** Ela existiu da v1.5.9 à v1.5.13,
 por autoridade explícita do operador: *"vou lhe dar autoridade para usar sistemas
@@ -2794,7 +2803,39 @@ poluídos"* — a dispensa. Com ela saiu o token `--line`, que tinha ficado com 
 consumidores e cujo próprio comentário dizia que ele *"NÃO pode voltar a ser um
 filete"* enquanto era o único filete do app.
 
-Os três nomes são cobrados um a um no oráculo
+**E A DIVISÓRIA ENTRE FAIXAS IRMÃS ENTROU (v1.5.16) — a segunda PEDIDA, e a
+única que é um TRAÇO.** Pedido do operador: *"Verifique a criação de um elemento
+de linha divisória (não borda inteira), na listagem do itens propriamente dos
+álbuns, para melhor distinção entre os itens."*
+
+**Ela não é a moldura voltando, e a distinção é de OBJETO — não de espessura.**
+A moldura era um retângulo por nível, quatro arestas, em TRÊS níveis ao mesmo
+tempo, e carregava a HIERARQUIA, que é o trabalho que a alternância faz hoje com
+degrau de verdade. Esta é UMA aresta, num nível só, entre IRMÃS, e faz o que a
+alternância por construção não faz: **separar vizinhas do MESMO nível**. As três
+palavras que decidem estão no pedido — *"não borda inteira"*: o operador já sabe
+que o app aboliu contorno, e está nomeando a diferença.
+
+**E ela é ARITMÉTICA pela terceira vez nesta seção.** Desde a v1.5.14 a faixa é
+transparente e a placa atrás dela é `--panel`: o vão de 4px entre duas faixas
+mede **1,00:1** contra os dois lados. Não é pouca separação — é separação
+nenhuma. `--divisoria` dá **1,88:1** no escuro e **1,99:1** no claro sobre essa
+placa (contra os 1,78:1 e 2,51:1 da moldura removida): mesma ordem de grandeza,
+um vigésimo da tinta.
+
+**E ELA NÃO É UMA `border`, o que aqui é a parte perigosa.** `border-bottom`
+pinta a caixa inteira e não tem como ser RECUADA, que é literalmente o *"não
+borda inteira"* do pedido — a divisória começa na coluna do NOME
+(`--faixa-coluna-texto`), nunca sob a miniatura. **A forma sai do pedido; o
+precedente é que não podia sair de graça:** um traço pintado como bloco de 1px
+passaria pela varredura de contorno sem ninguém decidir nada, e o que entraria no
+repositório seria *"filete pode, desde que não se chame border"*. Daí o oráculo
+ter ganhado o PAR — uma asserção NEGATIVA que varre a base por qualquer bloco de
+1px com fundo e reprova todos os outros, e uma POSITIVA que exige que
+`--divisoria` tenha **um** consumidor e que ele seja o seletor nomeado. As duas
+provadas por reversão.
+
+Os quatro nomes são cobrados um a um no oráculo
 (`tools/tokens.test.mjs`, sem `continue-on-error`), e **não há mais recorte por
 escopo** — ele era a única exceção que não nomeava uma peça, e uma exceção por
 escopo é a que mais barato se alarga. É ele que faz a regra durar:
@@ -2802,8 +2843,8 @@ uma borda é a coisa mais fácil de acrescentar quando duas caixas não estão s
 separando o bastante, e ela não quebra nada, não erra alto e não aparece em teste
 de comportamento nenhum.
 
-Sem linha, **o degrau de tom é a ÚNICA coisa que separa duas caixas** — daí o
-resto desta seção.
+Fora dessa aresta, **o degrau de tom continua sendo a ÚNICA coisa que separa duas
+caixas** — daí o resto desta seção.
 
 ### As regras
 
@@ -3020,14 +3061,17 @@ janela              PAPEL  (--panel)   cabeçalho GRUDENTO, top 0
   ├ seção           POÇO   (--poco)    cabeçalho GRUDENTO, top 0
   │   └ álbum       PAPEL  (--panel)   cabeçalho GRUDENTO, top --bar-secao-h
   │       └ faixa   —                  sem fundo: preenchimento é ESTADO
+  │                                    (irmãs separadas por `--divisoria`)
   └ hinário/série   POÇO   (--poco)    cabeçalho GRUDENTO, top 0
       └ a PLACA     PAPEL  (--panel)   o `.coll-open`, o nível 2 desta perna
           └ faixa   —                  a MESMA base da faixa de álbum
 ```
 
-  Duas superfícies, profundidade ilimitada, zero traços. MEDIDO no renderizado:
-  **1,43:1** em cada degrau no escuro e **1,35:1** no claro, contra 7/7 e 4/7
-  reprovando o piso antes. **A regra é por PROFUNDIDADE, nunca por tipo de
+  Duas superfícies e profundidade ilimitada. MEDIDO no renderizado: **1,43:1**
+  em cada degrau no escuro e **1,35:1** no claro, contra 7/7 e 4/7 reprovando o
+  piso antes. O único traço da tela é a divisória entre faixas IRMÃS (v1.5.16),
+  e ela é ortogonal a esta escada: a alternância separa NÍVEIS e por construção
+  não separa vizinhas do mesmo. **A regra é por PROFUNDIDADE, nunca por tipo de
   bloco**: as coleções fixas e as pastas nascem na RAIZ, são nível 1 e vestem o
   poço; o mesmo `.hymnal-card` dentro de uma seção é nível 2 e veste papel.
   Escrevê-la por tipo (`.hymnal-card { papel }`) foi o primeiro corte do lote e
@@ -3067,7 +3111,9 @@ janela              PAPEL  (--panel)   cabeçalho GRUDENTO, top 0
      justamente o que ele não distinguia. A altura da barra da seção é token
      (`--bar-secao-h`) porque DUAS regras precisam do mesmo número, e é
      determinística (nome `nowrap` + recuo fixo) — nada de medição em JS, que a
-     v1.5.3 ensinou a desconfiar.
+     v1.5.3 ensinou a desconfiar. **O valor é `calc(var(--hit) + .7rem)` desde a
+     v1.5.16** (era `+ 1.1rem`), e quem o mudou foi o ORÇAMENTO da lista
+     colapsada, não o desenho da barra — ver abaixo.
 
      **E O `top` DE UMA TAMPA É A PROFUNDIDADE DELA, nunca o tipo do bloco**
      (v1.5.15). A v1.5.14 deu a TODO `.hymnal-card.expanded` o `top` do segundo
@@ -3101,15 +3147,93 @@ janela              PAPEL  (--panel)   cabeçalho GRUDENTO, top 0
   o contador da seção, o peso do card. A caixa alta podia sair porque o
   ranqueamento que ela carregava passou para o desenho; e devia sair porque caixa
   alta a 14px é mais larga e mais lenta de ler.
+
+  **E O ORÇAMENTO DA LISTA COLAPSADA É UMA CONTA, não uma sensação** (v1.5.16).
+  Pedido do operador: *"todas as coleções caibam na tela enquanto estiverem
+  colapsadas, sem a necessidade de rolar … reajustar o tamanho dos cards das
+  coletâneas e espaços, para que eles aproveitem exatamente esse espaço"*. Duas
+  metades, e a primeira é EDITORIAL (uma coletânea a menos — ver
+  `controle/coletanea.js`); a segunda é geométrica. MEDIDO a 430×900, com
+  **582px** de caixa de lista: antes, 9 blocos davam 553,9px (cabiam) e 10 davam
+  615,1px (rolava). Apertar as DUAS barras (`padding` de `.55rem` para `.35rem`,
+  e o `--bar-secao-h` acima) leva 10 blocos a 551,1px e 11 a 605,9px.
+  - **APERTAR e não ESTICAR, e a razão é o vão dos FAVORITOS.** Esticar até o
+    encaixe exato o levaria de 131px a 55px, e a seção passaria a rolar quando
+    aberta — desfazendo a v5.273/v5.277, que o operador pediu duas vezes.
+  - **E O SEGUNDO PREÇO, que é a leitura literal do pedido:** apertar AFASTA do
+    enchimento exato em vez de aproximar. Com os 9 blocos do acervo dissolvido,
+    a lista ocupa 496,3 dos 582px e sobram **~86** — contra os ~28 que sobrariam
+    sem o aperto. *"Aproveitem exatamente esse espaço"* virou *"caibam com
+    folga"*, e preencher exigiria esticar. (No aparelho a sobra é MENOR: os
+    cards com subtítulo — as duas séries, os hinários com peso — são mais altos
+    que a barra nua desta conta.)
+  - **E a promessa vale de 430px para cima.** MEDIDO: a 393×786 (entalhe de
+    39px, caixa de 436px) cabem 7 blocos nos DOIS desenhos — ali o aperto não
+    compra bloco nenhum; a 360×740 (24px, 420px) ele vai de 6 para 7. Com 9
+    blocos, os dois continuam rolando.
+
+  **E A BORDA DO SCROLL DIZ QUE HÁ MAIS** (v1.5.16, o véu). Pedido do operador:
+  *"que o scroll da biblioteca tenha um efeito de blur na borda interna superior
+  ou inferior, quando algum elemento da tela ir para debaixo dessa borda"*. São
+  dois `::before`/`::after` `position: sticky` DENTRO do scroller, com
+  `backdrop-filter: blur(5px)` e `mask-image` esmaecendo para transparente.
+  - **BLUR e não gradiente, porque não existe cor certa para o véu.** A
+    alternância papel → poço → papel põe DUAS superfícies sob a mesma borda, e
+    um gradiente teria de escolher uma. Blur é agnóstico de cor: MEDIDO,
+    −60% de nitidez nos dois temas.
+  - **DENTRO do scroller, a `z-index: 2`, é o que o faz sumir sozinho sob uma
+    tampa grudada** — a tampa é opaca e mora acima (z 3 e 4). Medido em 131/131
+    amostras com uma coleção aberta.
+  - **Ele só existe quando MENTIRIA ao não existir**: `.tem-acima`/`.tem-abaixo`
+    saem de um ouvinte de `scroll` com `requestAnimationFrame`, e as regras de
+    desligar REPETEM `.popup-backdrop--lib.open` — sem isso a especificidade
+    (1,1,0 contra 1,2,0) deixava o véu aceso no topo da lista, onde ele mente.
+  - **Sem `backdrop-filter` ele não aparece** (`@supports not`): meio véu — a
+    máscara sem o borrão — seria uma sombra sem causa.
+
+  **E A COLETÂNEA A MENOS É UMA REGRA, não uma linha apagada do catálogo**
+  (`controle/coletanea.js`, PURA, com oráculo Node). Pedido do operador: *"os
+  albuns do celebra SP, serão individualmente colocados na coleção de
+  'diversos'. Não identifiquei independência suficiente para que ele tenha uma
+  coleção só para ele."*
+  - **DISSOLVER, não remover.** MEDIDO: descartar a categoria deixa os álbuns
+    ÓRFÃOS, e o `controle.js` os recolhe em "Outros álbuns" — dez blocos de
+    novo, com um nome pior. A regra FUNDE: ela move os álbuns para o destino e
+    só então a origem deixa de existir.
+  - **Roda no DESENHO, nunca no `fetchAlbumCatalog`.** O catálogo fica no
+    IndexedDB por semanas; aplicada na busca, uma correção por OTA só valeria
+    depois da próxima sincronização com rede. Aplicada no render, ela vale na
+    próxima abertura, inclusive offline. E precisa ser aplicada nos DOIS
+    consumidores — o laço das categorias **e** o `claimed` dos órfãos: chamar só
+    num deles devolve "Outros álbuns" pela porta dos fundos.
+  - **Destino ausente é IDENTIDADE, e a origem FICA na tela.** É a única regra
+    do arquivo que decide contra o pedido, e de propósito: um destino renomeado
+    no banco faria a origem sumir com os álbuns dentro, e o desfecho seguro é o
+    de antes da regra.
+  - **A tabela aceita "Diversas" E "Diversos".** O operador escreveu *"diversos"*
+    e a seção no aparelho chama-se **"Diversas"** (conferido em
+    `site/telas/biblioteca.webp`); nenhuma normalização une as duas, então as
+    duas grafias entram na lista de aceitos — a comparação é por IGUALDADE sobre
+    o `normalizar` do `serie.js`, nunca `includes`, que casaria "Diversas" com
+    "Diversas Antigas".
+  - **O Registro tem o bloco** (`blocoColetaneas`), com o motivo de cada
+    movimento: uma coletânea que some da tela sem explicação é indistinguível de
+    um catálogo que veio menor.
 - **A ESCADA TEM TRÊS DEGRAUS, E O QUARTO É O ESPAÇO.** Um quarto tom levaria o
   nível mais interno a ~`#4c5865` no escuro, onde `--muted` mede 3,59:1 e
   `--accent` 3,37:1 — os dois reprovam AA para texto pequeno, que é o tamanho do
   texto de uma linha de lista. Quem carrega o quarto nível é o ESPAÇO: uma faixa
-  dentro de um álbum não tem caixa, e o que a separa da vizinha é o tom do álbum
-  aparecendo entre elas.
+  dentro de um álbum não tem caixa própria.
   **E ONDE A ÁRVORE É MAIS FUNDA QUE TRÊS, NÃO SE ACRESCENTA DEGRAU: ALTERNA-SE**
   (v1.5.14, a Biblioteca). O limite acima é real e não tem conserto por ajuste
   fino — a saída é não empilhar.
+  **MAS O ESPAÇO SOZINHO NÃO SEPARA IRMÃS, e desde a v1.5.14 isso é medível.**
+  Enquanto a faixa teve fundo próprio, o que aparecia no vão era o tom do álbum,
+  e o vão era um degrau; com a faixa transparente ele passou a ser a MESMA placa
+  dos dois lados — **1,00:1**, separação nenhuma. Daí o QUARTO DEGRAU ser hoje
+  espaço **mais** um traço recuado (`--divisoria`, v1.5.16, a quarta exceção
+  nomeada da regra de contorno). A alternância separa NÍVEIS; ela não tem como
+  separar VIZINHAS do mesmo nível, e nenhum ajuste de tom nela resolveria isso.
 - **No tema CLARO a escada NÃO é monotônica**, e isso é aritmética: a página é
   cinza e o nível 1 é branco (convenção de toda UI clara), então o primeiro
   degrau sobe e os seguintes só podem descer. Folha e card ficam a 1,09:1 e isso
@@ -3510,9 +3634,10 @@ Antes de publicar: `node --check` em todo `.js` de `assets/web`, validação do
 |---|---|
 | `webview-range.test.mjs` | a **invariante 8**: o `InputStream` de `shouldInterceptRequest` é o recurso INTEIRO |
 | `sombra.test.mjs` | nenhuma função da base pode redeclarar um nome de módulo — `node --check` APROVA um `const ms` que sombreia a `ms` do módulo, e o que sai é `ReferenceError` por zona morta temporal |
-| `tokens.test.mjs` | **`colors.xml` × `tokens.css`** (v1.5.14): `--bg` é a única cor que existe em dois lugares por necessidade (um recurso de Android não enxerga custom property), e nada verificava a igualdade — o comentário do próprio arquivo o admitia, e é o OTA que torna a divergência provável, porque a base web chega em minutos e o `res/` só por APK. Mais: nenhum `var(--x)` **sem fallback** aponta para token inexistente (um `var()` inválido computa para o valor INICIAL, sem aviso); nenhum token só no tema claro; **nenhuma regra desenha contorno**. `var(--x, fallback)` é legítimo (valores que o JS entrega em runtime). **E nenhuma marca de conflito de merge** (v1.4.31): `:is()` é FORGIVING, descarta o inválido e aplica o resto — a v1.4.27 perdeu dois seletores do `--press` assim, com o CI verde por três lotes |
+| `tokens.test.mjs` | **`colors.xml` × `tokens.css`** (v1.5.14): `--bg` é a única cor que existe em dois lugares por necessidade (um recurso de Android não enxerga custom property), e nada verificava a igualdade — o comentário do próprio arquivo o admitia, e é o OTA que torna a divergência provável, porque a base web chega em minutos e o `res/` só por APK. Mais: nenhum `var(--x)` **sem fallback** aponta para token inexistente (um `var()` inválido computa para o valor INICIAL, sem aviso); nenhum token só no tema claro; **nenhuma regra desenha contorno** e — desde a v1.5.16 — **nenhum TRAÇO PINTADO** além da divisória nomeada: a varredura de contorno casa a palavra `border`, e um filete escrito como bloco de 1px com fundo passava por ela sem ninguém decidir nada, deixando no repositório o precedente *"filete pode, desde que não se chame border"*. O par da negativa é POSITIVO — `--divisoria` tem de ter UM consumidor, e ser o seletor da exceção —, senão o token viraria a porta larga. `var(--x, fallback)` é legítimo (valores que o JS entrega em runtime). **E nenhuma marca de conflito de merge** (v1.4.31): `:is()` é FORGIVING, descarta o inválido e aplica o resto — a v1.4.27 perdeu dois seletores do `--press` assim, com o CI verde por três lotes |
 | `serie.test.mjs` | quais playlists e vídeos entram no álbum. **Entradas VERBATIM do canal** — nomenclatura imaginada prova só que o código concorda com quem o escreveu |
 | `hinario.test.mjs` | as **seções temáticas do Hinário 2022**: a cobertura é CONTÍGUA de 1 a 600, sem lacuna e sem sobreposição. É a única propriedade que pega um limite digitado errado — e esse erro é MUDO: a lista continua completa, na ordem certa, com um cabeçalho mentindo no meio. Confere também a faixa infantil contra o `sorteio.js` |
+| `coletanea.test.mjs` | **a leitura EDITORIAL das coletâneas**: qual coletânea se DISSOLVE em qual, e o que acontece quando a tabela deixa de bater com o banco. Os três modos de errar são silenciosos e apagam conteúdo da tela — dissolver sem destino (a origem some com os álbuns dentro), casar por `includes` ("Diversas" pegando "Diversas Antigas") e movidos DUPLICADOS quando o mesmo álbum já está no destino. Entradas VERBATIM da tela do aparelho (`site/telas/biblioteca.webp`): o operador escreveu *"diversos"* e a seção chama-se **"Diversas"**, e nenhuma normalização une as duas |
 | `cifra.test.mjs` | o que o app entende de uma página de cifra: slug, gramática do acorde, e a transposição PRESERVANDO A COLUNA. É a peça mais frágil do projeto — lê a marcação de um servidor que não é nosso. Fixtures **SINTÉTICAS** de propósito: nenhum conteúdo de terceiro entra neste repositório. Elas provam a GRAMÁTICA, não que ela case com o HTML de hoje — essa metade se conserta por OTA, e o Registro diz quando quebrou |
 | `sorteio.test.mjs` | quais faixas a **playlist automática** pode mandar ao telão. O operador toca UM botão e a faixa entra em cena, sem tela intermediária: os quatro modos de errar (série no lugar do louvor · faixa que casa e não aparece · PLAYBACK onde se esperava a voz · fila cheia do que falta baixar) são todos silenciosos |
 | `glifos.test.mjs` | **todo ícone de fonte existe na fonte.** O `.woff2` é um SUBSET de 31 codepoints, e um `.msym` fora dele não desenha NADA — sem erro, sem requisição falhando, só um vão: o botão existe, é tocável, faz o que promete e é invisível. Lê o `cmap` do próprio arquivo (`zlib.brotliDecompressSync`, zero dependência) |
@@ -3607,7 +3732,7 @@ mundo anterior por outro caminho.
 | oráculo | o que cobre, e por que existe |
 |---|---|
 | `smoke.mjs` | sobe a base e usa a tela; mede o RENDERIZADO nos dois temas (palco sem tema, escada de camadas, contorno). **E A HIERARQUIA DA BIBLIOTECA** (v1.5.14): ele foi escrito para proteger o desenho da v1.5.9 e por isso APROVAVA o defeito — exigia que seção e card dividissem o tom (1,00:1), exigia a moldura nos dois níveis, e nunca comparava tampa × faixa, o par que valia 1,00:1 no escuro. Hoje afirma a ALTERNÂNCIA (degrau real contra o pai, e o card VOLTANDO ao tom da janela — sem essa segunda metade um terceiro tom passaria e a escada de quatro voltaria pela porta dos fundos), a AUSÊNCIA de moldura nos três níveis, e os DOIS cabeçalhos grudentos empilhados, com a folga do de dentro medida na altura RENDERIZADA do de fora. **E A PERNA DA RAIZ** (v1.5.15), que a v1.5.14 não media e por isso deixou passar dois defeitos: a PLACA de uma coleção da raiz tem degrau de verdade contra o poço em volta **e vale o MESMO que o card de álbum de dentro de uma seção** — sem essa segunda metade a faixa continua pousando em duas cores conforme onde a coleção mora, que é o relato; o `top` da tampa da raiz é ZERO, medido ao lado do da tampa aninhada na mesma passada (um `top` escrito por TIPO passa numa das duas e reprova na outra); e o primeiro bloco começa NO TOPO do scrollport, porque `padding` de um scroller é scrollport e a lista rola por ele à vista. A régua desta última é a GEOMETRIA, nunca `paddingTop` lido de volta: o vão pode voltar por qualquer caminho. **E o PAINEL RÁPIDO de Configurações** (v1.4.38): que o CORPO dela não rola — a asserção antiga media a FOLHA, e a folha nunca rolou (quem tem `overflow-y: auto` é o `.fade-opts`), então ela aprovava as duas versões —, que a grade tem três colunas, e que o tile ALTERNA e volta. **E o que o AZUL quer dizer** (v1.4.40): quem não tem "desligado" fica aceso o tempo todo (apagado, neste app, quer dizer INDISPONÍVEL) **e mesmo assim troca de desenho** — `qs-alt` responde "qual desenho?" e `qs-on` responde "está ligado?", e enquanto foram a mesma classe um tile sempre aceso ficava preso no desenho alternativo. A metade que impede o conserto preguiçoso (acender tudo, sempre) é o fundo da letra continuar APAGANDO, medido na cor RENDERIZADA: uma classe sem a regra de CSS passa num teste de classe e continua invisível na tela. **E o MODO DO APP como interruptor que desliza** (v1.4.43): o polegar ANDA, medido na `transform` RENDERIZADA do `::before` do trilho — uma troca de classe passa num teste de classe e continua imóvel na tela, e ler a posição do BOTÃO não serviria porque o botão nunca se mexe; os dois botões SEM fundo próprio (sem esta, acrescentar o polegar por cima do desenho antigo deixaria a pilha de quatro tons de pé, com uma camada A MAIS); e o `data-modo` seguindo o modo, que é por onde o CSS decide o lado. Mais a folha que **FICA ABERTA e IMÓVEL** ao trocar de modo — duas asserções e não uma, porque a primeira responde ao `closeFadePopup` que saiu do ouvinte e a segunda responde ao `<main>`: a caixa é `fixed` e mora FORA dele, e movê-la para dentro mantém a classe `open` e apaga a folha da tela. **Assentar é `getAnimations()` + `finished`**, nunca duas amostras iguais em quadros seguidos (MEDIDO: `top: -449`, a folha ainda no teto, aprovada como assentada) nem o primeiro `transitionend` (MEDIDO: `top: -7`, a `transform` a sete pixels do fim com a opacidade já pronta). **E o que a v1.4.44 corrigiu nele**: o trilho medindo EXATAMENTE a grade de tiles (um `.fade-row` pintando `--panel` sobre uma folha que já é `--panel` é um CARTÃO INVISÍVEL — não se via, mas o `padding` dele recuava o trilho 12,8px de cada lado, e o relato foi o desalinhamento), o TÍTULO centrado medido no texto PINTADO por um `Range` (a caixa do `<span>` é `stretch` e ocupa a linha inteira nas duas versões, então medi-la aprova o rótulo colado à esquerda), e o RODAPÉ como UMA barra — a asserção é o número de SUPERFÍCIES pintadas dentro dele, porque a v1.4.43 já tinha dois blocos com o mesmo tom e o que se via eram duas caixas |
-| `boot-nativo.test.mjs` | **o boot COM a ponte presente** — o `smoke` sobe SEM `__AVBridge`, então todo caminho `window.__NATIVE__` (justamente os que só rodam no aparelho) nunca era executado. Injeta uma ponte de mentira e pergunta o que o watchdog pergunta: o app ficou de pé? |
+| `boot-nativo.test.mjs` | **o boot COM a ponte presente** — o `smoke` sobe SEM `__AVBridge`, então todo caminho `window.__NATIVE__` (justamente os que só rodam no aparelho) nunca era executado. Injeta uma ponte de mentira e pergunta o que o watchdog pergunta: o app ficou de pé? **E a LIGAÇÃO da regra das coletâneas** (v1.5.16): o `coletanea.test.mjs` prende a REGRA, este prende o fio até a tela, que falha de outro jeito — a regra continua certa e o recurso não faz nada. São DOIS consumidores do mesmo resultado (o laço que desenha as seções e o `claimed` dos órfãos), e ligar só um devolve *"Outros álbuns"*. **Os nomes das seções do fixture de rolagem viraram neutros no mesmo lote**: três eram os nomes REAIS do banco, e com a regra no ar aquele cenário montava CINCO seções onde o texto diz seis — MEDIDO, com a asserção VERDE, medindo outra coisa |
 | `display-smoke.mjs` | **o TELÃO** — a metade que roda na frente da congregação, e a que menos rede de segurança tem (o watchdog do OTA não a valida). Viewport fixo em 961×540, explicitamente. Trava o endereçamento do reenvio de cena |
 | `ota.test.mjs` | **o fluxo de atualização** — o único caminho cujo defeito NÃO TEM SINTOMA: nada quebra, o operador só continua na versão de anteontem. Afirma a pergunta com e sem Release, o "depois", e a INTENÇÃO atravessando a MORTE DO DOCUMENTO (semeada numa página que só tem o banco, porque semeá-la no Controle é uma corrida contra o `retomarAtualizacao` da abertura — e uma que o app ganha com razão) |
 | `registro.test.mjs` | **o Registro** — o único artefato cujo consumidor é um HUMANO A DISTÂNCIA: ele não falha calado, falha CONTINUANDO A RESPONDER com frase errada. Cobra as duas metades: nenhuma palavra de recurso aposentado **e** o que o operador foi buscar presente |
@@ -3660,6 +3785,7 @@ mundo anterior por outro caminho.
 | `barra-em-qualquer-tela.test.mjs` | **a barra da Biblioteca numa tela que NÃO é a do oráculo** (v1.5.3). Ela é a única peça do app que é um OVERLAY alinhado a uma caixa do layout — logo a única cujo desenho depende do que um Chromium de mesa a 430×900 não tem. DOIS defeitos chegaram ao aparelho passando pela suíte inteira: **CORTADA** (o app é `viewport-fit=cover`, então `env(safe-area-inset-top)` vale no aparelho e é ZERO aqui — o recorte revelava `[0, altura da barra]` de uma folha em que a barra começa DEPOIS do recuo) e **DESLOCADA** (o lugar de repouso era uma COORDENADA DE TELA medida uma vez, e ela envelhece por um caminho que ninguém observa: o teclado sobe, o app remede com ele no ar, o teclado some — MEDIDO, 290px acima do lugar). Ele roda a mesma medição em QUATRO configurações, e a primeira é a tela dos outros oráculos, de propósito: ela é o CONTROLE do experimento, e nas duas reversões ela PASSA. O entalhe é fingido por um token (`--sa-topo`), que é a razão de o token existir — um valor que só o aparelho conhece é um valor que nenhum oráculo alcança. A medida do recorte é por HIT-TEST, nunca pela string do `clip-path`: uma string com `calc()` não resolvido aprova qualquer leitura que se queira fazer dela. **E ele cresceu com a janela que para na linha da barra** (v1.5.4): NO MEIO do movimento nada da coluna viaja acima da barra (a pergunta é pela COLUNA, nunca pela camada — ela ocupa legitimamente toda a região acima daquela linha, e perguntar por ela aprova a margem saliente), e ABERTA a janela não cobre os controles |
 | `biblioteca-camadas.test.mjs` | **a PILHA da janela da Biblioteca** (v1.5.6) — e, desde a v1.5.7, o DESENHO dela: o tom e o raio medidos contra a `.tools-sheet` (a peça que o pedido nomeia, nunca um número escrito no teste), o raio só existindo ABERTA, a FRESTA acima dos controles — medida contra a base da CAMADA e não contra a caixa de controles, que reserva a altura da barra e por isso aprovava a versão sem fresta (pego por reversão) — e a borda do campo, que engrossou PARA DENTRO — — a camada dela é a ÚNICA deste app que existe SEMPRE (a barra vive nela), e por isso toda regra escrita para camadas que vão e vêm precisa ser reexaminada aqui: empatada em `z-index: 200` com as outras, quem decidia era a ORDEM DO DOCUMENTO, e a barra pintava sobre Configurações e sobre a playlist enquanto o que se abrisse dos controles subia ATRÁS da Biblioteca. A pergunta é de pilha, e só existe com DUAS camadas abertas — um cenário que nenhum outro oráculo monta. A prova é HIT-TEST, nunca `z-index` computado: um número lido de volta prova que a folha declara o que declara, e o defeito era o empate. Cobre também as duas metades do voltar (a de cima fecha, a de baixo fica), a janela indo à base sem caixa de controles (teclado · Modo Fácil) e o campo limpando AO FECHAR. **O que ele não alcança está dito**: não há teclado virtual num Chromium de mesa, então a classe é posta à mão e o que se prova é a metade CSS |
 | `plataforma.test.mjs` | **o FILTRO DE PLATAFORMA da página**: o `.apk` só instala em Android, então quem chega de iPhone, iPad ou computador não vê o guia de instalação — vê a frase que diz que este é um app Android e que a página deve ser aberta por um. Falha CALADO nos dois sentidos: de MENOS, o download volta a aparecer num iPhone e a pessoa conclui que o app está quebrado (ninguém relata isso); de MAIS — o caro —, a classificação recusa um Android de verdade e o que sai é uma página que abre, rola e não oferece nada. Daí o desenho FALHAR ABERTO (sem classe no `<html>` nada é escondido) e essa propriedade ter asserção própria: um desenho fail-CLOSED deixa a suíte inteira verde e reprova só ali. `userAgent` VERBATIM, **o iPad entre eles sem código próprio** — o iPadOS 13+ se anuncia como Macintosh e cai no lado certo por construção, então a asserção guarda a PROPRIEDADE e não o mecanismo |
+| `lista-da-biblioteca.test.mjs` | **as duas peças que a v1.5.16 pôs na lista, e as duas falham CALADAS.** A DIVISÓRIA: ela existe entre faixas irmãs, começa na coluna do NOME (não sob a miniatura) e **não** aparece antes da primeira — a prova é o PIXEL decodificado do PNG, porque uma regra `::before` sem a declaração de cor passa num teste de classe e continua invisível. E o VÉU: ele aparece com a lista rolada, **some sob uma tampa grudada** (a metade que a especificidade quebrou uma vez — 1,1,0 contra 1,2,0 deixava o véu aceso no topo, onde ele mente) e não existe com a lista curta. Guarda também a AUSÊNCIA que virou achado: a faixa de um álbum nunca recebe `no-ar`, porque `hymnResultRow` escreve `dataset.song` e `marcarNoAr` lê `dataset.id` — a asserção afirma o que o app FAZ, não a promessa que ele não cumpre (ver `docs/ACHADOS-EM-ABERTO.md` §4) |
 
 > **A REDE EXTERNA NÃO ENTRA NUM ORÁCULO** (`tools/sem-rede.mjs`,
 > `semRedeExterna(ctx)` logo depois de cada `newContext()`). A base web fala com
@@ -4093,18 +4219,25 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.5.15 · APK v1.5.14** · `SHELL_VERSION` **61** ·
+**Versão atual: base web v1.5.16 · APK v1.5.14** · `SHELL_VERSION` **61** ·
 bundle com `minShell: 61` e **SEM `shellTag`** — o shell 61 é o **PISO**: todo
 método da ponte existe, e não há guarda de versão no lado web. **`SHELL_VERSION`
 NÃO sobe neste lote**: a superfície da ponte não mudou (nenhum método novo,
 nenhuma forma de retorno diferente).
 
 **E ESTE LOTE NÃO PEDE RELEASE.** Ele é só base web — `controle.css`,
-`controle.js` e os dois oráculos —, e nada em `java/`, `res/` ou no manifesto foi
-tocado. Por isso o `shellTag` SAI do `version.json`: declará-lo faria o `web-ota`
-segurar o bundle esperando uma Release `v1.5.15` que não tem o que carregar, em
-silêncio e para sempre. O rodapé fica com `Web v1.5.15 · Shell v1.5.14`, que é a
-resposta exata a *"o OTA chegou e o APK ainda não?"*.
+`controle.js`, o `coletanea.js` novo, `tokens.css`, `native.js` e os oráculos —,
+e nada em `java/`, `res/` ou no manifesto foi tocado. Por isso o `shellTag` SAI
+do `version.json`: declará-lo faria o `web-ota` segurar o bundle esperando uma
+Release `v1.5.16` que não tem o que carregar, em silêncio e para sempre. O rodapé
+fica com `Web v1.5.16 · Shell v1.5.14`, que é a resposta exata a *"o OTA chegou e
+o APK ainda não?"*.
+
+> **`coletanea.js` é MÓDULO NOVO do Controle, e por isso entra no watchdog de
+> boot no MESMO lote** (`AVColetanea`, em `otaAppIsUp`). Sem isso, um erro de
+> topo nele deixaria a Biblioteca com a coletânea de pé e o bundle carimbado
+> como bom para sempre — o buraco declarado que a v5.315 fechou para os outros
+> sete.
 
 > A v1.5.14 PEDIU Release, e o motivo fica registrado porque ele se repete: o
 > tema escuro virou DENIM PROFUNDO e `--bg` é espelhado à mão em
