@@ -1,5 +1,13 @@
 [
   {
+    "versao": "1.5.19",
+    "itens": [
+      "Os botões de tamanho da letra do modo simples deixaram de encostar no que vem abaixo.",
+      "Os botões de Bíblia, Importar e Ferramentas ficaram mais baixos e discretos.",
+      "E o cartão de uma coleção parou de mudar de tamanho ao abrir a lista dela."
+    ]
+  },
+  {
     "versao": "1.5.18",
     "itens": [
       "O cartão dono das opções agora ganha a cor da caixa de opções.",

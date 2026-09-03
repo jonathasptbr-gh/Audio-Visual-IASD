@@ -2136,6 +2136,48 @@ e ler *"Nada em exibição"*.
   `boot-nativo.test.mjs` (uma página NOVA, porque o que se afirma é a ABERTURA
   seguinte). O ouvinte é UM, delegado por classe: uma terceira casa entra sem
   tocar no JS.
+
+  **E AS DUAS CASAS DIVERGIAM NUMA COISA, que custou o relato da v1.5.19:**
+  *"ajuste a margem dos botões de aumentar e diminuir a fonte no modo simples,
+  eles estão colados nos elementos abaixo dele."* No `#lyricsPopup` o
+  `.lv-fonte-ctl` é `position: static` — item de flex do cabeçalho, logo CONTA
+  para a altura dele. **No Modo Fácil ele é `absolute`**, e uma caixa absoluta
+  não conta: quem dava altura à `.simple-np-linha` era o `.simple-np` sozinho
+  (`--fs-xl`, MEDIDO 18,00px), e o botão mede `--hit` (34,00px). A linha continha
+  34 dentro de 18 e o par **transbordava 8,00px para cada lado**; os `gap` do
+  `.simple-song` (5,60) e do `.simple` (9,60) são medidos a partir da LINHA, e o
+  respiro real virava **−2,40px** embaixo e +1,59 em cima.
+
+  **E O SINAL NÃO ERA "APERTADO", ERA SOBREPOSIÇÃO.** O `.lv-fonte-ctl` e a
+  `.simple-lyrics` (`position: relative`, o offsetParent do `lvScroll`) são as
+  duas posicionadas, e a placa vem DEPOIS no documento: ela pintava POR CIMA de
+  **2,41px** da base do botão. MEDIDO, `elementFromPoint` devolvia
+  `simple-lyrics` em `bottom−1`, `−2` e `−3`. No tema CLARO isso é literalmente
+  sumir — a superfície do botão é branco a .70 e a placa é branco PLENO.
+
+  **E COM MÍDIA NO AR O VIZINHO É UM CONTROLE**, o que muda a natureza do
+  defeito: com a linha do tempo à vista, o A− encostava com ZERO pixel no
+  `#simpleTimeHit` — o scrubber que salta o louvor no ar —, sobrepondo
+  **35,44 × 2,41px** e comendo **27%** do `padding: .55rem` que aquele alvo tem
+  de propósito (*"4px é metade do que um dedo acerta"*). Ali o `absolute`
+  inverte quem ganha o hit-test: o botão de tamanho de fonte roubava alvo do
+  seek. O operador escreveu *"os elementos abaixo"* no PLURAL, e são três: a
+  placa da letra, o `#simpleTimeHit` e o número da duração.
+
+  `min-height: var(--hit)` na linha — ela passa a reservar o que contém, e os
+  DOIS lados voltam ao `gap` que a folha já declara (+5,60 e +9,59), **sem
+  inventar número de espaço nenhum**. O valor sai do MESMO token de que a altura
+  do botão sai, e por isso os dois não têm como divergir num lote futuro. O
+  `absolute` FICA: o desvio do nome continua 0,00px, e a folga reservada dos dois
+  lados continua sendo o que mantém o centro no centro. **CUSTO MEDIDO:** 16,00px
+  da zona de leitura, o mesmo em toda tela (−3,0% a 430×900, −7,4% a 320×568).
+
+  **DOIS ADJACENTES QUE O LOTE NÃO FECHA, e ficam ditos:** no estado PADRÃO do
+  Modo Fácil (`sem-tela`, sem TV) o par é **intocável** — o `#simpleVeil`
+  (`inset: 0; z-index: 1`) cobre a zona e só o `.simple-head` é içado —, e na
+  cena de APRESENTAÇÃO ele é **inerte** (a `.lv-grade` não lê `--lv-fonte`),
+  onde o leitor do avançado o esconde por regra. O `min-height` passa a cobrar
+  16px por ele nessa cena.
 - **O PADRÃO É `1.4rem`** (contra `.95rem` até a v1.1.3). Pedido do operador: *"pode dobrar o tamanho da fonte nos campos de
   leitura de letra das músicas que estão sendo transmitidas; atual está muito
   pequeno e só sobrando espaço lateral na linha"*. Ele descreve a MEDIDA: a
@@ -2419,9 +2461,87 @@ rótulos em LINHA não cabem ("Ferramentas" sai com reticências; em 320px, dois
 três). E **"Importar"**, não "Importar arquivos" — o nome inteiro não paga um
 terço em largura nenhuma; o `title` guarda a frase completa.
 
-As laterais vestem `--surface` e a do meio, `--btn-accent`: quem ENTRA com
-conteúdo é a do meio, e ela é a única AÇÃO da faixa — as outras duas abrem um
-lugar. É a distinção que a faixa de abas fazia entre o `.tab-add` e as `.tab`.
+##### E AS TRÊS FICARAM QUIETAS E BAIXAS (v1.5.19)
+
+*"padronize os botões de biblia, importar e ferramentas da aba de cronograma,
+para que tenham uma cor mais proxima a cor de fundo, para que não se destaquem …
+preciso que sejam opções discretas, mescladas ao fundo"* + *"veja se consegue
+alguma opção de deixar eles mais baixos. pois estão muito altos e volumosos."*
+
+**A DO MEIO SALTAVA POR CROMA, NÃO POR CLARIDADE — e isso decide a correção.**
+MEDIDO no tema CLARO, o da captura dele, o azul mede **1,07:1** contra o fundo,
+MENOS que as laterais (1,20:1): em luminância ele já era o mais mesclado dos
+três. O que o fazia saltar era o croma (ΔC* **+8,5** no claro, **+12,7** no
+escuro) — exatamente o que a paleta assinou em *"o separador aqui NÃO é a
+claridade: é o CROMA"*. O `--btn-accent` estava funcionando como projetado.
+Corolário operacional: **uma correção que só mexesse na luminância não
+resolveria o relato.**
+
+**E O ARGUMENTO QUE O PINTAVA DE AZUL CAIU SOZINHO.** Ele era *"quem ENTRA com
+conteúdo é a do meio, e ela é a única AÇÃO da faixa"* — escrito quando as
+laterais eram quadrados MUDOS de 44px. Desde a v1.5.0 as três têm RÓTULO, e a do
+meio é a única cuja palavra é um VERBO: *Importar* × *Bíblia* × *Ferramentas*.
+A redundância já existia, e é gramatical. Some um segundo argumento, MEDIDO: dos
+treze consumidores de `background: var(--btn-accent)` na folha, este era o ÚNICO
+a pintar uma porta de NAVEGAÇÃO permanente sobre a página — e o `CLAUDE.md`
+escreve que *"**LIGADO** (interruptor) = `--btn-accent` + `--accent`"*. O rodapé
+dizia "ligado" o culto inteiro, num idioma em que isso quer dizer outra coisa.
+
+**A COR: 70% de `--surface` nas três**, por `color-mix` sobre o valor JÁ
+RESOLVIDO (a receita do `.nowplaying` da v1.5.15) — `--surface` não tem valor
+único, porque a regra R1 o troca por `--surface-sunk` dentro de um bloco que
+pinta `--panel`, e um token novo teria de repetir a bifurcação inteira. MEDIDO:
+a faixa vai de 1,37/1,70 (escuro) e 1,20/1,07 (claro) para **1,23** e **1,14**
+nas TRÊS, com a soma de ΔE00 caindo 44% e 39%. **Falha ABERTA**: um WebView sem
+`color-mix` descarta a segunda declaração e fica com o desenho de ontem.
+
+**A ALTURA: 51,77 → 42,00px (−18,9%), e ela corrige um defeito LATENTE.** MEDIDO,
+o termo que mandava não era o `--hit-foot` (44px) e sim o `padding: .45rem` —
+varrer o token de 48 a 36px **não mudava um pixel**. Isto é: as duas inquilinas
+da fatia do rodapé **não mediam o mesmo**, e o `#listFoot` PULAVA **7,77px** ao
+entrar na seleção múltipla — exatamente o que o comentário do `--hit-foot`
+promete por escrito que não acontece (*"a lista dava um pulo debaixo do dedo"*).
+Com `padding: 0 .3rem` — a forma que a `.selbar` já tinha — o termo vertical
+passa a ser um só, e "mais baixo" vira **um número num lugar só**.
+
+**A `.selbar` NÃO ENTROU NA COR, e a razão é um nível abaixo.** Os `.sel-btn`
+que moram EM CIMA dela são `--surface-2` (branco a .92) e só são legíveis porque
+a barra debaixo é TINTA: sobre uma superfície quieta, o par habilitado ×
+desabilitado cai a ΔE **2,11** no tema claro — abaixo do limiar de percepção, e o
+app perderia a distinção entre disponível e INDISPONÍVEL na barra que hospeda o
+EXCLUIR. Entrar em seleção **é** trocar de modo, e a fatia trocar de tom ali é o
+desenho. (O `border-radius` continua UM SÓ para as quatro peças: a `.selbar` base
+declara `--radius-card` e é a regra agrupada que a põe em `--radius-btn` — tirá-la
+de lá junto com a cor devolveria 10px sem erro e sem oráculo.)
+
+**E "PADRONIZE" COBROU DOIS EIXOS QUE NINGUÉM TINHA OLHADO:**
+
+- **o ÍCONE não saía do mesmo lugar.** Só a do meio estava na lista `:is()` do
+  `svg`; o das laterais vivia do atributo `width="20"` do `botaoDoRodape`, e as
+  três coincidiam por acidente (`--icon-sm` é 20px). MEDIDO forçando 26px: a do
+  meio ia a 26 e as laterais ficavam em 20, **e a altura não denunciava** —
+  a `.import-row` é `align-items: stretch` e as três esticam para a mais alta.
+  Fechar custou dois nomes e é NO-OP hoje, de propósito;
+- **a do meio não herdava a fonte do app, e SÓ NO APP.** No navegador ela é um
+  `<label>` e herda do `body`; no app é um `<button>` (`usaSeletorNativo`), e a
+  folha do agente de usuário entrega a família — que o `font-size` sobrescreve e
+  a `font-family` não. MEDIDO criando o `<button>` que o app cria: `Arial` contra
+  `system-ui`, **14%** de diferença na largura do MESMO rótulo. **Nenhum oráculo
+  enxergava isto**, porque eles rodam no navegador: é a armadilha do `__tela`
+  num lugar novo.
+
+**OS PREÇOS, ditos.** No tema ESCURO o `--press-luz` fica INERTE nas três (Δ**1**
+nível contra os Δ30 que a do meio tinha), porque `brightness(1.35)` não move
+tinta branca — sobram os 2px de `translateY`, que é a metade que o `.pv-fab` da
+v1.4.33 não tinha quando saiu da lista. E o `--hit-foot` governa também o
+`.yt-search-btn`, alcançável DE DENTRO do Modo Fácil (44 → 42px), num habitat
+SUNK — o token passa a valer em dois habitats opostos.
+
+**O PISO, para quem for mexer no número:** abaixo de **mix 50%** a caixa deixa de
+ser encontrável no tema claro (ΔE 2,40, o limiar de percepção), e o tom do
+`--op-inativo` — a linguagem do INDISPONÍVEL — fica em 1,10:1 / 1,07:1. Se o
+pedido voltar por mais discrição, o parâmetro é o **mix** e nunca a altura:
+descer dos 42px reabre o pulo da fatia.
 
 #### A folha da Bíblia
 

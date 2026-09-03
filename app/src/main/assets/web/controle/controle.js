@@ -278,7 +278,7 @@ const appVersionEl = document.getElementById('appVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.5.18';
+const WEB_VERSION = '1.5.19';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -8040,6 +8040,10 @@ function renderCollectionsList(alvo, redesenhar, opts) {
     // O véu das bordas: este redesenho roda a cada 400 ms durante um download e
     // muda a altura da lista sem rolagem nenhuma.
     acertarVeuDaLista();
+    // A TAMPA (v1.5.19), e é aqui porque é aqui que a lista está COMPLETA: a
+    // conta divide a altura útil pelo número de blocos, e medi-la no meio da
+    // montagem leria uma tela com metade deles.
+    acertarTampa(alvo);
     cacheColecoesAtivo = false;
   }
 }
@@ -10104,6 +10108,86 @@ function medirVaoDosFavoritos(lista) {
   lista.style.setProperty('--fav-vao', vao + 'px');
 }
 
+// ===== A TAMPA DE UM BLOCO DE RAIZ NÃO MUDA DE ALTURA AO ABRIR (v1.5.19) =====
+//
+// Relato do operador: *"Ajuste o cartão das coleções, o card do titulo, pois ele
+// está encolhendo ou modificando seu tamanho ao abrir sua listagem."*
+//
+// A CAUSA é o crescimento da v1.5.17 visto pelo outro lado. Colapsado, o bloco
+// ganha `flex-grow` e cresce até a altura de encaixe (MEDIDO na captura dele,
+// 411×856 com 9 blocos: 51,00px) com a barra CENTRADA dentro; ao abrir, ele
+// deixa de casar `:not(.expanded)`, perde o crescimento, e a tampa cai para a
+// barra nua (45,01). SALTO MEDIDO NA PRÓPRIA CAPTURA: 20,0 device px = 5,71 CSS
+// = −11,2%. E ele é um SALTO, não um deslize: quadro a quadro, a tampa muda e o
+// bloco sobe 5,64px em DOIS quadros, enquanto o corpo desliza por 220 ms.
+//
+// O TEOREMA QUE FECHA AS SAÍDAS EM CSS PURO: a tampa só pode ser CONSTANTE no
+// valor MÍNIMO dela. Qualquer altura maior tem de caber em toda tela e em todo
+// número de blocos — e MEDIDO, a lista já transborda com 45,19 a 360×740/9 e com
+// 20 blocos em qualquer tela. A "altura de encaixe" é função da TELA e do NÚMERO
+// de blocos: ela não existe como valor em CSS. Logo, ou a pílula emagrece para
+// 45,19 sempre (e a sobra vai para os vãos, que sobem de 10 para 16–21px), ou o
+// número é MEDIDO uma vez. **O operador escolheu manter a pílula gorda**, e é
+// isso que esta função faz.
+//
+// ELA É A IRMÃ EXATA DO `--fav-vao`: mesma caixa, mesma régua (a BARRA de cada
+// vizinha é a altura fechada dela), mesmo lugar de chamada. Não é uma COORDENADA
+// guardada — é uma ALTURA recomposta a cada render —, e por isso a classe de
+// defeito da v1.5.3 (o valor que envelhece por um caminho que ninguém observa)
+// não se aplica.
+//
+// A CLÁUSULA DOS FAVORITOS É OBRIGATÓRIA, e sem ela o lote não sai: a seção dos
+// Favoritos ABERTA nunca veste `--tampa-h` — ela tem `min-height: var(--fav-vao)`
+// e come a folga por conta própria (v5.273). Contá-la na divisão dá a cada irmã
+// uma fatia da folga que ela JÁ gastou, e a lista COLAPSADA passa a ROLAR:
+// MEDIDO, 81,5px de transbordo a 430×900 com 9 blocos, e o `smoke.mjs` reprova
+// em *"as fechadas ficam EMPILHADAS NA BASE"*. Como o `verificar` é `needs` do
+// `web-ota`, isso seria o bundle não chegando à frota.
+//
+// E É SÓ A DOS FAVORITOS. Descontar TODO bloco aberto é a variante óbvia e está
+// ERRADA (MEDIDO): ela leva `--tampa-h` ao piso assim que alguém abre um hinário,
+// devolvendo o defeito original. Um bloco que o operador abriu continua contando
+// como FECHADO — é justamente a hipótese "tudo fechado" que dá a altura que a
+// tampa dele tem de manter.
+function medirTampa(lista) {
+  if (!lista || !lista.isConnected) return;
+  // Fora do acervo (a lista de BUSCA) não há bloco de raiz que cresça, e um
+  // valor de ontem herdado ali pintaria altura em linha de resultado.
+  if (!lista.classList.contains('acervo')) {
+    lista.style.removeProperty('--tampa-h');
+    return;
+  }
+  const blocos = [...lista.children].filter((n) => n.nodeType === 1);
+  if (!blocos.length) { lista.style.removeProperty('--tampa-h'); return; }
+  const cs = getComputedStyle(lista);
+  const gap = parseFloat(cs.rowGap) || 0;
+  const util = lista.clientHeight - (parseFloat(cs.paddingTop) || 0)
+    - (parseFloat(cs.paddingBottom) || 0) - gap * Math.max(0, blocos.length - 1);
+  let base = 0;
+  let n = 0;
+  let sobra = util;
+  for (const b of blocos) {
+    if (b.classList.contains('coll-group--fav')
+        && (b.classList.contains('aberto') || b.classList.contains('expanded'))) {
+      sobra -= b.getBoundingClientRect().height;
+      continue;
+    }
+    n++;
+    // A MESMA RÉGUA do `--fav-vao`, e pelo mesmo motivo: fechada, a caixa é a
+    // BARRA. Medir o `<li>` leria um bloco ABERTO com o corpo dele dentro.
+    const barra = b.querySelector('.coll-group-bar, .coll-bar, .row');
+    base += (barra ? barra.getBoundingClientRect().height
+      : b.getBoundingClientRect().height);
+  }
+  if (!n) { lista.style.removeProperty('--tampa-h'); return; }
+  // SÓ CRESCE, e nunca acima do teto de hoje: o `--bar-raiz-max` existe porque
+  // a lista pode ter POUCOS blocos (três coleções dariam 183px cada).
+  const teto = parseFloat(getComputedStyle(document.documentElement)
+    .getPropertyValue('--bar-raiz-max')) || 66;
+  const h = Math.max(base / n, Math.min(sobra / n, teto));
+  lista.style.setProperty('--tampa-h', h.toFixed(2) + 'px');
+}
+
 // A MEDIÇÃO É ADIADA UM QUADRO, e não é cerimônia: quem chama isto durante a
 // montagem da lista (o `renderCollectionsList`) ainda vai anexar as outras
 // seções na mesma passada síncrona, e a conta soma a barra de CADA uma delas —
@@ -10119,6 +10203,26 @@ function acertarVaoDosFavoritos(corpoDado) {
     if (!li.isConnected) return;
     medirVaoDosFavoritos(li.parentElement);
   });
+}
+
+// A tampa é agendada NO FIM DA PASSADA (ver o `finally` de
+// `renderCollectionsList`), e não aqui dentro: esta função só é chamada com a
+// seção dos Favoritos ABERTA — o `grupo()` só devolve o corpo nesse caso, e é o
+// que o comentário do `favCorpo` diz por extenso. Pendurar a tampa aqui a
+// deixava sem medida nenhuma no estado padrão (Favoritos FECHADOS), que é
+// exatamente o cenário do oráculo: MEDIDO, os blocos caíam para a barra nua
+// (45,19) e o D5/D5b reprovavam.
+//
+// A ORDEM ENTRE AS DUAS É OBRIGATÓRIA, e é o preço declarado da cláusula dos
+// Favoritos: `--tampa-h` lê a ALTURA RENDERIZADA daquela seção, que é governada
+// por `--fav-vao`. Não há realimentação — o `--fav-vao` soma BARRAS, que
+// `--tampa-h` nunca muda (MEDIDO, 1769px antes e depois) —, mas há ORDEM. Ela
+// sai de graça do agendamento: `acertarVaoDosFavoritos` registra o `rAF` DENTRO
+// da passada síncrona e este registra no `finally` dela, e os callbacks de
+// `requestAnimationFrame` rodam na ordem em que foram registrados.
+function acertarTampa(lista) {
+  if (!lista) return;
+  requestAnimationFrame(() => { if (lista.isConnected) medirTampa(lista); });
 }
 
 // O botão de estrela de uma linha. `.on` = favoritado (a cor faz o estado, como

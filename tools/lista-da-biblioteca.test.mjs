@@ -44,6 +44,12 @@
 //     scroller passaria no véu. É o outro lado que separa o desenho pedido do
 //     conserto preguiçoso que se parece com ele.
 //
+// A PRIMEIRA TEM UMA EXCEÇÃO, e ela é do caso F (a tampa da v1.5.19): ali a
+// pergunta é GEOMETRIA, e a `box-shadow` da tampa grudada escurece justamente o
+// vão que se quer medir — uma sonda de tela não separa "a placa começa aqui" de
+// "a sombra da barra chega até aqui". Onde a tinta é um degradê a régua é a
+// CAIXA, e a exceção está escrita no bloco em vez de deixada por conta.
+//
 //   node tools/lista-da-biblioteca.test.mjs
 // ============================================================================
 import { chromium } from 'playwright';
@@ -1248,6 +1254,366 @@ try {
   checar(tampaAberta.fechada !== tampaAberta.tampaAberta,
     'E3a · e uma irmã FECHADA continua sem tom: o preenchimento diz "esta é a '
     + 'aberta", e sem esta metade pintar tudo passaria na de cima', tampaAberta);
+
+  // ======================================================================
+  // F · A TAMPA DE UM BLOCO DE RAIZ NÃO MUDA DE ALTURA AO ABRIR (v1.5.19)
+  // ======================================================================
+  //
+  // Relato: *"o card do titulo … está encolhendo ou modificando seu tamanho ao
+  // abrir sua listagem"*. É o crescimento do D5 visto pelo outro lado: colapsado
+  // o bloco casa `:not(.expanded)` e cresce até a altura de encaixe; ao ABRIR
+  // ele sai da regra, perde a repartição, e a tampa cai para a barra nua. MEDIDO
+  // na captura do operador: 51,00 → 45,01 px CSS, −11,2%, em DOIS quadros —
+  // enquanto o corpo desliza por 220 ms, a pílula do título PULA.
+  //
+  // ELE FALHA CALADO, e no pior formato: nada lança, o card abre, a lista fica
+  // certa. O que se vê é a caixa que o dedo acabou de tocar mudando de tamanho
+  // debaixo dele, e não há número na tela para conferir.
+  //
+  // ## A RÉGUA, e por que ela NÃO é o pixel
+  //
+  // A tampa vai do topo do bloco até o topo da PRIMEIRA SUPERFÍCIE PINTADA DE
+  // OUTRO TOM — a placa (`.coll-open`) num card, o primeiro `.hymnal-card`
+  // numa seção. Ela NÃO é `getBoundingClientRect()` do `<li>`: aberto, o `<li>`
+  // contém o corpo inteiro (MEDIDO, 624px), e medi-lo responde outra pergunta.
+  //
+  // E não é o PIXEL, ao contrário do resto deste arquivo, porque a
+  // `box-shadow: 0 6px 12px -8px` da tampa grudada escurece justamente o vão
+  // logo abaixo da barra: uma sonda de tela não separa *"a placa começa aqui"*
+  // de *"a sombra da barra chega até aqui"*. Onde a pergunta é GEOMETRIA e a
+  // tinta é um degradê, a régua é a caixa.
+  //
+  // O que mora DENTRO DA BARRA é descartado: os botões dela são mobília da
+  // tampa, não a superfície debaixo dela. E a cor é resolvida por CANVAS, nunca
+  // por regex — `color-mix` computa como `color(srgb …)` e uma regex de números
+  // leria (1, 1, 1).
+  //
+  // ## Por que DOIS tipos de bloco e DUAS telas
+  //
+  // O CARD e a SEÇÃO falham diferente: a sombra existe na `.coll-bar` de um card
+  // aberto e NÃO na `.coll-group-bar`. É dessa assimetria que sai o RESÍDUO
+  // DECLARADO — onde a lista JÁ TRANSBORDA (`--tampa-h` no piso), abrir uma
+  // SEÇÃO ainda AUMENTA a tampa em 5,59px. É o número da própria linha de base,
+  // não regressão deste lote, e por isso o F1b só afirma a seção onde a lista
+  // cabe. Quem cobre a outra tela é o F1c, que é o relato ao pé da letra:
+  // a tampa não ENCOLHE.
+  //
+  // As telas são as do D5, e pela mesma razão: numa tela só, *"a tampa não
+  // muda"* e *"a tampa está sempre no piso"* são indistinguíveis.
+  const REGUA_TAMPA = () => {
+    const cv = document.createElement('canvas');
+    cv.width = 1; cv.height = 1;
+    const cx2 = cv.getContext('2d', { willReadFrequently: true });
+    const tinta = (cor) => {
+      cx2.clearRect(0, 0, 1, 1);
+      cx2.fillStyle = cor;
+      cx2.fillRect(0, 0, 1, 1);
+      return [...cx2.getImageData(0, 0, 1, 1).data];
+    };
+    const outroTom = (a, b) => a[3] > 0 && (Math.abs(a[3] - b[3]) > 2
+      || Math.abs(a[0] - b[0]) > 1 || Math.abs(a[1] - b[1]) > 1 || Math.abs(a[2] - b[2]) > 1);
+    window.__tampa = (b) => {
+      if (!b) return null;
+      const cx = b.getBoundingClientRect();
+      const meu = tinta(getComputedStyle(b).backgroundColor);
+      const barra = b.querySelector(':scope > .coll-group-bar, :scope > .coll-bar');
+      for (const n of b.querySelectorAll('*')) {
+        if (barra && (n === barra || barra.contains(n))) continue;
+        const r = n.getBoundingClientRect();
+        if (!r.width && !r.height) continue;
+        if (!outroTom(tinta(getComputedStyle(n).backgroundColor), meu)) continue;
+        return Math.round((r.top - cx.top) * 100) / 100;
+      }
+      // FECHADO não há superfície nenhuma lá dentro: o bloco INTEIRO é a tampa,
+      // que é exatamente o que o `height: var(--tampa-h)` faz dele.
+      return Math.round(cx.height * 100) / 100;
+    };
+  };
+
+  const TELAS_F = [
+    { nome: '430×900 (a lista CABE: há folga a repartir)', vp: { width: 430, height: 900 }, cabe: true },
+    { nome: '360×740 com 24px de entalhe (a lista JÁ TRANSBORDA)', vp: { width: 360, height: 740 }, sa: '24px', cabe: false },
+  ];
+  for (const tela of TELAS_F) {
+    const cF = await navegador.newContext({ viewport: tela.vp, hasTouch: true });
+    await semRedeExterna(cF);
+    await cF.addInitScript(() => {
+      try { localStorage.setItem('av.appMode', 'full'); } catch (_) { /* storage bloqueado */ }
+    });
+    await cF.addInitScript(REGUA_TAMPA);
+    const pF = await cF.newPage();
+    // Espera pelo FATO; estourando, devolve a FRASE e nunca um veredito sobre a
+    // tampa. Estas esperas são de MONTAGEM (o bloco abriu, a rolagem assentou),
+    // então só falam quando reprovam.
+    const ate = async (fn, oque, ms = 12000) => {
+      try { await pF.waitForFunction(fn, null, { timeout: ms }); return true; }
+      catch (_) {
+        checar(false, 'F · ' + tela.nome + ' — ' + oque,
+          'PRAZO, não veredito: a condição não chegou em ' + ms + 'ms');
+        return false;
+      }
+    };
+    const quadro = () => pF.evaluate(
+      () => new Promise((f) => requestAnimationFrame(() => requestAnimationFrame(f))),
+    );
+    await pF.goto(`http://localhost:${porta}/controle/`, { waitUntil: 'domcontentloaded' });
+    await pF.waitForFunction(
+      () => window.AVDB && typeof window.__avBack === 'function'
+        && !!document.querySelector('#playlist li'), null, { timeout: 30000 },
+    );
+    await pF.evaluate(async (tela) => {
+      if (tela.sa) document.documentElement.style.setProperty('--sa-topo', tela.sa);
+      setAppMode('full');
+      // NOVE blocos: o acervo real do operador depois da dissolução da v1.5.16.
+      const nomes = ['Coletânea A', 'Coletânea B', 'Coletânea C', 'Coletânea D',
+        'Coletânea E', 'Coletânea F'];
+      albumCatalog.categories = nomes.map((n, i) => ({
+        name: n, albums: [{ id_album: 800 + i, name: 'Álbum ' + n }],
+      }));
+      albumCatalog.albums = albumCatalog.categories.map((c) => c.albums[0]);
+      const faixas = (n, pre) => Array.from({ length: n }, (_, i) => ({
+        id_music: pre + (i + 1), track: i + 1, name: 'Faixa ' + (i + 1), duration: '3:00',
+      }));
+      for (const c of albumCatalog.categories) {
+        collState['album-' + c.albums[0].id_album] = { indexSyncedAt: Date.now(), songs: faixas(4, 'a') };
+      }
+      // OS DOIS HINÁRIOS semeados: o card medido é o PRIMEIRO `.hymnal-card` da
+      // raiz, e um card sem índice abriria numa placa vazia — o que se quer
+      // medir é a tampa de um bloco com corpo de verdade.
+      collState['hymnal-2022'] = { indexSyncedAt: Date.now(), isHymnal: true, songs: faixas(30, 'h') };
+      collState['hymnal-1996'] = { indexSyncedAt: Date.now(), isHymnal: true, songs: faixas(30, 'g') };
+      // UM favorito só, e o número é MEDIÇÃO: a seção dos Favoritos ABERTA come
+      // a folga por conta própria (`min-height: var(--fav-vao)`), e a partir de
+      // DOIS itens o conteúdo dela passa desse vão — MEDIDO, 178,72px para um
+      // vão de 134. A lista passaria a rolar pelo conteúdo DELA, e o F2 estaria
+      // medindo outra coisa.
+      await AVDB.addMedia(new Blob(['x'], { type: 'audio/mpeg' }),
+        { name: 'Favorito de teste', list: 'favs' });
+      await recarregarFavoritos();
+      // O ALINHAMENTO de uma seção sai de um `setTimeout(ACC_MS + 30)` e rola com
+      // `behavior: smooth`. É isso que PROÍBE medir a rolagem por estabilidade:
+      // entre o clique e o disparo o `scrollTop` fica parado, e "duas amostras
+      // iguais" aprovaria o quadro ANTERIOR ao movimento. Envolvemos a função do
+      // APP para saber que ela já RODOU, e só então esperamos o alvo dela.
+      const orig = window.alinharGrupoNoTopo;
+      window.__alinhou = false;
+      window.alinharGrupoNoTopo = function (...a) { orig.apply(this, a); window.__alinhou = true; };
+      openHymnSearch(false);
+    }, tela);
+    if (!await ate(() => {
+      const s = document.querySelector('.popup-sheet--lib');
+      const el = document.getElementById('hymnResults');
+      if (!s || !el) return false;
+      if (s.getAnimations().some((a) => a.playState === 'running')) return false;
+      if (s.getBoundingClientRect().bottom > window.innerHeight + 1) return false;
+      // O FATO que interessa: a lista está COMPLETA e o `medirTampa` já escreveu.
+      return [...el.children].filter((n) => n.nodeType === 1).length === 9
+        && !!getComputedStyle(el).getPropertyValue('--tampa-h').trim();
+    }, 'a Biblioteca assenta com os nove blocos e a tampa MEDIDA')) {
+      await cF.close();
+      continue;
+    }
+
+    const olhar = () => pF.evaluate(() => {
+      const el = document.getElementById('hymnResults');
+      const bl = [...el.children].filter((n) => n.nodeType === 1);
+      const card = bl.find((b) => b.classList.contains('hymnal-card'));
+      const sec = bl.find((b) => b.classList.contains('coll-group--drop')
+        && !b.classList.contains('coll-group--fav'));
+      const cs = getComputedStyle(el);
+      const ult = bl[bl.length - 1].getBoundingClientRect();
+      const cx = el.getBoundingClientRect();
+      return {
+        blocos: bl.length,
+        tampaH: Math.round((parseFloat(cs.getPropertyValue('--tampa-h')) || 0) * 100) / 100,
+        card: window.__tampa(card), sec: window.__tampa(sec),
+        rola: el.scrollHeight - el.clientHeight > 1,
+        transbordo: Math.round((el.scrollHeight - el.clientHeight) * 100) / 100,
+        sobra: Math.round((cx.bottom - parseFloat(cs.paddingBottom || 0) - ult.bottom) * 100) / 100,
+      };
+    });
+    const tocarBloco = (qual) => pF.evaluate((qual) => {
+      const el = document.getElementById('hymnResults');
+      const bl = [...el.children].filter((n) => n.nodeType === 1);
+      const alvo = qual === 'card'
+        ? bl.find((b) => b.classList.contains('hymnal-card'))
+        : (qual === 'fav'
+          ? bl.find((b) => b.classList.contains('coll-group--fav'))
+          : bl.find((b) => b.classList.contains('coll-group--drop')
+            && !b.classList.contains('coll-group--fav')));
+      window.__alinhou = false;
+      // O CAMINHO REAL: o toque na barra do bloco, nunca a classe escrita à mão.
+      alvo.querySelector('.coll-group-bar, .coll-bar').click();
+    }, qual);
+
+    const fechado = await olhar();
+
+    // ---- F1a · O CARD ---------------------------------------------------
+    await tocarBloco('card');
+    const abriuCard = await ate(() => {
+      const el = document.getElementById('hymnResults');
+      const c = [...el.children].find((b) => b.classList && b.classList.contains('hymnal-card'));
+      return !!c && c.classList.contains('expanded')
+        && !el.getAnimations({ subtree: true }).some((a) => a.playState === 'running');
+    }, 'o card abre pelo toque na barra e o acordeão TERMINA');
+    const cardAberto = abriuCard ? await olhar() : null;
+    const dCard = cardAberto ? Math.round((cardAberto.card - fechado.card) * 100) / 100 : null;
+
+    // ---- F3 · A CLÁUSULA É SÓ A DOS FAVORITOS ---------------------------
+    //
+    // Descontar TODO bloco aberto da divisão é a variante ÓBVIA — e é ela que
+    // devolve o defeito original: um bloco aberto tem o corpo inteiro dentro, a
+    // sobra some, e `--tampa-h` desaba para o piso assim que alguém abre um
+    // hinário. O que a regra diz é o contrário: um bloco que o operador abriu
+    // continua contando como FECHADO, porque é a hipótese "tudo fechado" que dá
+    // a altura que a tampa dele tem de MANTER.
+    //
+    // SÓ NA TELA QUE CABE: no piso as duas contas devolvem o mesmo número, e a
+    // asserção não separaria nada.
+    //
+    // E ELE PEDE UM REDESENHO, que é o do APP: `renderSearchResults` é o que
+    // roda a cada 400 ms durante um download, e é ele que reagenda o
+    // `medirTampa`. Sem ele a única medida de pé é a do instante do toque,
+    // tirada com o acordeão ainda em ZERO: ali o corpo aberto quase não ocupa
+    // nada, a variante ERRADA devolveria o mesmo número que a certa POR
+    // ACIDENTE, e a reversão não reprovaria. No código certo a medida é
+    // independente da animação por construção — `medirTampa` soma BARRAS, e a
+    // `.coll-bar` de um card aberto continua medindo o mesmo em qualquer fase.
+    // REVERSÃO: descontar todo bloco aberto no `medirTampa` leva `--tampa-h` ao
+    // piso (45,19) e a tampa volta a encolher.
+    if (tela.cabe && abriuCard) {
+      const comCard = await pF.evaluate(async () => {
+        // A EXPRESSÃO É A DO APP, verbatim, e não um `renderCollectionsList`
+        // com um callback de mentira: o segundo argumento dele vira o
+        // `redesenharAcervo`, e um `() => {}` ali deixa o card sem quem o
+        // redesenhe — ele não fecha mais, e o oráculo passa a medir a própria
+        // montagem.
+        renderSearchResults(hymnSearchInputEl.value);
+        await new Promise((f) => requestAnimationFrame(() => requestAnimationFrame(f)));
+        const el = document.getElementById('hymnResults');
+        const bl = [...el.children].filter((n) => n.nodeType === 1);
+        // A IRMÃ É UM `.hymnal-card`, e não "o primeiro bloco fechado". MEDIDO
+        // instrumentando esta asserção: o primeiro é a seção dos FAVORITOS —
+        // a ÚNICA peça da lista com regra de altura própria
+        // (`min-height: var(--fav-vao)`) e justamente a que a cláusula do
+        // `medirTampa` trata à parte. Hoje ela veste o mesmo `--tampa-h` e o
+        // número bate; no dia em que alguém lhe der altura própria colapsada —
+        // o tipo de coisa que esta área atrai — a asserção passaria a responder
+        // por ela sem dizer nada, e o segundo card, que é a irmã de verdade,
+        // ficaria sem oráculo.
+        const fechada = bl.find((b) => b.classList.contains('hymnal-card')
+          && !b.classList.contains('expanded'));
+        return {
+          tampaH: Math.round((parseFloat(getComputedStyle(el).getPropertyValue('--tampa-h')) || 0) * 100) / 100,
+          irma: window.__tampa(fechada),
+        };
+      });
+      checar(Math.abs(comCard.tampaH - fechado.tampaH) <= 0.05,
+        'F3 · com um CARD aberto, `--tampa-h` continua valendo o mesmo que valia '
+        + 'com tudo fechado (' + fechado.tampaH + 'px) — a cláusula do '
+        + '`medirTampa` é SÓ a dos Favoritos, e um bloco que o operador abriu '
+        + 'continua contando como fechado', comCard);
+      checar(comCard.irma !== null && Math.abs(comCard.irma - fechado.card) <= 0.5,
+        'F3a · e as IRMÃS colapsadas não encolheram — é isto que o operador vê, e '
+        + 'sem esta metade a asserção de cima seria sobre um token que ninguém lê',
+        { irma: comCard.irma, fechada: fechado.card });
+    }
+
+    // ---- F1b/F1c · A SEÇÃO ----------------------------------------------
+    if (abriuCard) {
+      await tocarBloco('card');
+      await ate(() => {
+        const el = document.getElementById('hymnResults');
+        const c = [...el.children].find((b) => b.classList && b.classList.contains('hymnal-card'));
+        return !!c && !c.classList.contains('expanded')
+          && !el.getAnimations({ subtree: true }).some((a) => a.playState === 'running');
+      }, 'o card fecha de volta antes de a seção ser medida');
+    }
+    await tocarBloco('secao');
+    const abriuSec = await ate(() => {
+      const el = document.getElementById('hymnResults');
+      const s = [...el.children].find((b) => b.classList
+        && b.classList.contains('coll-group--drop') && !b.classList.contains('coll-group--fav'));
+      if (!s || !s.classList.contains('aberto') || !window.__alinhou) return false;
+      if (el.getAnimations({ subtree: true }).some((a) => a.playState === 'running')) return false;
+      // A ROLAGEM ASSENTOU: ou o bloco chegou ao topo da lista (o alvo do
+      // `alinharGrupoNoTopo`), ou a lista chegou ao fim do que dá para rolar.
+      // Os dois são FATOS do app; o `scrollTop` parado, não.
+      const topo = el.getBoundingClientRect().top + parseFloat(getComputedStyle(el).paddingTop || 0);
+      const dy = s.getBoundingClientRect().top - topo;
+      const max = el.scrollHeight - el.clientHeight;
+      return Math.abs(dy) <= 1 || el.scrollTop >= max - 1 || el.scrollTop <= 1;
+    }, 'a seção abre pelo toque na barra, o acordeão termina e a ROLAGEM assenta');
+    const secAberta = abriuSec ? await olhar() : null;
+    const dSec = secAberta ? Math.round((secAberta.sec - fechado.sec) * 100) / 100 : null;
+
+    // A REVERSÃO DAS TRÊS, e ela é o mecanismo inteiro da v1.5.19 desfeito: o
+    // `height: var(--tampa-h)` do bloco colapsado de volta a `flex-grow: 1;
+    // height: auto` E os dois `padding-top` do estado aberto removidos — as duas
+    // metades são a MESMA regra (o número que sai da altura é o que volta como
+    // recuo), e desfazer só uma deixa a tampa constante por outro caminho.
+    // MEDIDO com ela: Δ −9,86 no card e −4,27 na seção a 430×900, que é o pulo
+    // do relato (a captura do operador dá −5,71 CSS num acervo de nove blocos a
+    // 411×856; o número muda com a tela, o SINAL não).
+    const medida = { tela: tela.nome, fechado, dCard, dSec, tampaH: fechado.tampaH };
+    checar(dCard !== null && Math.abs(dCard) <= 0.5,
+      'F1a · ' + tela.nome + ': a tampa de um CARD mede o mesmo fechada e aberta '
+      + '(Δ ' + dCard + 'px)', medida);
+    if (tela.cabe) {
+      checar(dSec !== null && Math.abs(dSec) <= 0.5,
+        'F1b · ' + tela.nome + ': e a tampa de uma SEÇÃO também (Δ ' + dSec + 'px) '
+        + '— os dois tipos falham diferente, porque a `box-shadow` existe na '
+        + '`.coll-bar` de um card aberto e NÃO na `.coll-group-bar`', medida);
+    }
+    checar(dCard !== null && dSec !== null && dCard >= -0.5 && dSec >= -0.5,
+      'F1c · ' + tela.nome + ': e em nenhum dos dois a tampa ENCOLHE ao abrir — é '
+      + 'o relato ao pé da letra, e é a metade que cobre a tela em que a lista JÁ '
+      + 'transborda, onde o RESÍDUO DECLARADO da base ainda faz a SEÇÃO CRESCER '
+      + '5,59px (Δ card ' + dCard + ' · Δ seção ' + dSec + ')', medida);
+
+    // ---- F2 · A LISTA COLAPSADA CABE COM OS FAVORITOS ABERTOS -----------
+    //
+    // É a metade que derrubaria a Release, e o D5 não a alcança: ele mede a
+    // lista com os Favoritos FECHADOS. A seção dos Favoritos ABERTA nunca veste
+    // `--tampa-h` — ela tem `min-height: var(--fav-vao)` e come a folga por
+    // conta própria (v5.273) —, então contá-la na divisão dá a cada irmã uma
+    // fatia da folga que ela JÁ gastou.
+    //
+    // E O F1 NÃO PEGARIA ISTO: ele mede a TAMPA, e o que quebra aqui é a LISTA
+    // COLAPSADA. MEDIDO sem a cláusula: 79px de transbordo a 430×900 com nove
+    // blocos, e o `smoke.mjs` reprova em *"as fechadas ficam EMPILHADAS NA
+    // BASE"* — como o `verificar` é `needs` do `web-ota`, é o bundle não
+    // chegando à frota.
+    // REVERSÃO: contar a seção dos Favoritos na divisão do `medirTampa`.
+    if (tela.cabe) {
+      if (abriuSec) {
+        await tocarBloco('secao');
+        await ate(() => {
+          const el = document.getElementById('hymnResults');
+          const s = [...el.children].find((b) => b.classList
+            && b.classList.contains('coll-group--drop') && !b.classList.contains('coll-group--fav'));
+          return !!s && !s.classList.contains('aberto')
+            && !el.getAnimations({ subtree: true }).some((a) => a.playState === 'running');
+        }, 'a seção fecha de volta antes dos Favoritos');
+      }
+      await tocarBloco('fav');
+      const abriuFav = await ate(() => {
+        const el = document.getElementById('hymnResults');
+        const f = [...el.children].find((b) => b.classList && b.classList.contains('coll-group--fav'));
+        return !!f && f.classList.contains('aberto')
+          && !!f.querySelector('.fav-itens > .lib-item')
+          && !el.getAnimations({ subtree: true }).some((a) => a.playState === 'running');
+      }, 'a seção dos Favoritos abre pelo toque na barra e o acordeão termina');
+      await quadro();
+      const comFav = abriuFav ? await olhar() : null;
+      checar(comFav !== null && !comFav.rola && comFav.transbordo <= 1,
+        'F2 · com os Favoritos ABERTOS a lista colapsada CONTINUA CABENDO '
+        + '(transbordo ' + (comFav && comFav.transbordo) + 'px) — a seção que come '
+        + 'a folga por conta própria sai da divisão do `medirTampa`. É o par do '
+        + 'D5, que mede a mesma lista com os Favoritos FECHADOS', comFav);
+    }
+    await cF.close();
+  }
 
   checar(erros.length === 0, 'nenhum erro de console', erros.slice(0, 5));
 } catch (e) {
