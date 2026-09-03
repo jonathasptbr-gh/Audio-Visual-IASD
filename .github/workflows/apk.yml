@@ -727,6 +727,27 @@ jobs:
           # conexão) e o COMPARTILHAMENTO, que é por onde uma apresentação de
           # fato entra ali e o que uma guarda escrita nas telas deixaria de fora.
           rodar tools/modo-facil-um-elemento.test.mjs
+          # E O A+/A− DAQUELE MODO NÃO ENCOSTA NO QUE VEM ABAIXO (v1.5.19):
+          # *"ajuste a margem dos botões de aumentar e diminuir a fonte no modo
+          # simples, eles estão colados nos elementos abaixo dele"*. O par é
+          # `position: absolute` — é assim que o nome continua CENTRADO com ele
+          # pendurado à direita —, e uma caixa fora de fluxo não conta para a
+          # altura do pai: a linha media o `.simple-np` sozinho (18px) e o botão
+          # mede `--hit` (34px), então o par transbordava 8px para cada lado.
+          # Respiro negativo não é aperto, é SOBREPOSIÇÃO: a `.simple-lyrics` é
+          # a outra posicionada da zona e vem depois no documento, então ela
+          # RECEBIA o toque na base do botão — e, com a linha do tempo à vista,
+          # quem era invadido era o `#simpleTimeHit`, o scrubber que salta o
+          # louvor no ar. Nada disso lança nem aparece no console: o que sai é
+          # uma tela que continua funcionando, com um alvo que responde na maior
+          # parte da área. A asserção que carrega o arquivo é a do ALVO — as
+          # quatro de espaço PASSAM com o botão encolhido a 18px, que é o
+          # conserto barato que a folha proíbe por escrito —, e ela vale nas
+          # DUAS casas do par (o Modo Fácil e o `#lyricsPopup`, que não se
+          # mexeu). O modo é destravado pelo caminho REAL
+          # (`setTocarNoCelular`): arrancar `.sem-tela` à mão daria um DOM que o
+          # app nunca gera.
+          rodar tools/modo-facil-fonte.test.mjs
           # E A TELA DA REDE do telão por comandos (E3 — ver
           # docs/TELAO-POR-COMANDOS.md): o /display/ servido pelo celular
           # rodando num navegador comum, com a entrada pelo código, o dreno de
