@@ -3937,6 +3937,161 @@ itens."*
   `overflow: hidden`, os ~8px finais somem na curva — o mesmo canto que o
   preenchimento de estado já respeita.
 
+#### Os quatro relatos da v1.5.17
+
+Quatro mensagens do operador sobre a mesma tela, no mesmo minuto, todas com o
+mesmo formato de falha: nada quebra, nada aparece no console, e o que sai é uma
+lista que parece certa a quem não a desenhou.
+
+**1. A altura sobrando** — *"o aproveitamento da altura não está correto, está
+sobrando. É claro que pode haver telas menores, por isso o tamanho deve ser
+ajustável para se encaixar a altura da tela."*
+
+`#hymnResults` é uma `.popup-list` (coluna flex) e os blocos de raiz caíam em
+`.popup-list > li { flex-shrink: 0 }` **sem `flex-grow`**: o excedente vertical
+inteiro se acumulava no fim da coluna. MEDIDO a 430×900 com os 9 blocos do
+acervo dissolvido — bloco em 45,19px e **85,58px** de faixa vazia no pé (16,9%
+da janela). A v1.5.16 aumentou essa sobra (27,92 → 85,58) ao apertar as barras,
+que era o preço declarado ali.
+
+`flex-grow: 1` nos blocos de raiz COLAPSADOS é a resposta inteira, e é ela que
+torna a altura *ajustável por construção*: o navegador reparte a sobra quando o
+conteúdo cabe, e o crescimento é **inerte** quando ele transborda. Zero JS,
+nenhuma tela privilegiada. MEDIDO: 430×900 → bloco a **54,70px**, sobra
+**zero**; 393×786 e 360×740 com 9 blocos ficam idênticos a antes (45,19px,
+rolando).
+
+- **O seletor é o TRIO do nível 1, nunca `> li`.** `.acervo` está sempre no
+  `#hymnResults`, e as linhas da BUSCA são filhas diretas dele — MEDIDO, com
+  `> li` elas iam de 97,3 para 306,4px.
+- **`:not(.aberto)`/`:not(.expanded)`**: uma seção ABERTA mede o conteúdo dela
+  (v5.276), e sem a guarda o vão volta a ser repartido com quem abriu.
+- **A BARRA NÃO CRESCE JUNTO**, e isto é invariante: `medirVaoDosFavoritos` soma
+  as BARRAS das vizinhas para escrever `--fav-vao`, e uma barra que cresce
+  realimenta a conta até o vão deixar de ser dos Favoritos — o `smoke.mjs`
+  REPROVA essa variante ("132px contra 136px"). O bloco cresce, a barra fica em
+  `--bar-secao-h` e o rótulo é CENTRADO. O preço, dito: ~4,8px acima e abaixo da
+  barra ficam sem toque, com o alvo em 45,19px, acima do piso `--hit`.
+- **`--bar-raiz-max` é o TETO** (66px), porque a lista pode ter poucos blocos:
+  sem ele, três coleções dão 183,28px cada. E ele anda com `min-height:
+  min-content`, senão um card com subtítulo é RECORTADO.
+- **A lista passa a RESPIRAR** ao abrir uma seção (uma irmã colapsada desce de
+  54,28 para 48,64px seguindo a curva do acordeão). É o recurso: evitá-lo com um
+  `:has()` faria a lista PULAR num quadro.
+- **`medirVaoDosFavoritos` ganhou `.row` no `querySelector`** no mesmo lote: um
+  bloco de raiz que caísse no ramo do `<li>` inteiro entraria na soma já
+  CRESCIDO, e o vão encolheria em silêncio. Hoje nenhum bloco da raiz é uma
+  pasta — mas a fórmula não pode depender disso.
+
+**2. Os cards do topo sem margem** — *"os cards que ficam no topo das listas,
+como o cards de este sábado do informativo, ou das seções do hinário … estão se
+sobrepondo de forma errada ao espaço em que deveriam ficar, ficando para cima do
+correto, sem margem no topo."*
+
+**COLAPSO DE MARGEM.** O `.coll-open` não tem `padding-top` nem borda de cima,
+então a `margin-top` de `.4rem` do primeiro filho — `.serie-destaque`,
+`.hino-indice` ou `.coll-songs` — é ADJACENTE à dele e sai para FORA. Enquanto a
+placa era transparente ninguém via: os 6,4px caíam entre a tampa e uma caixa
+invisível. A v1.5.15 deu a ela FUNDO e RAIO, e o recuo passou a cair fora —
+MEDIDO, o primeiro filho começava a **0,00px** do topo da placa, contra os
+6,39px da placa IRMÃ (`.fav-itens`), cobrindo por inteiro os cantos
+arredondados.
+
+- **`display: flow-root` e não `padding-top`.** Um recuo declarado ali impede o
+  colapso e ainda SOMA à margem do filho (5,6 + 6,4 = 12px); e zerar a margem
+  dos três filhos mudaria o vão ENTRE eles (MEDIDO, o destaque e a lista caem de
+  6,4 para 1,6px). O BFC não inventa número nenhum — mantém dentro o `.4rem` que
+  o filho já pede.
+- **Ele já era o desenho certo por 220ms:** `expandAccordion` escreve
+  `overflow: hidden`, que É um BFC. De quebra o acordeão passa a medir a altura
+  de verdade — `offsetHeight` é lido ANTES do `overflow`, e a animação levava a
+  321px uma caixa que dentro do BFC pede 327, recortando 6px da lista do começo
+  ao fim do movimento.
+- **E o salto do índice mira ABAIXO da tampa.** `irParaSecao` usa
+  `scrollIntoView({ block: 'start' })`, que mira o topo do SCROLLPORT — e o
+  scrollport começa debaixo da tampa grudada: MEDIDO, o cabeçalho pousava em
+  0,39px com a tampa ocupando até 45,19, isto é, desaparecia inteiro.
+  `.hino-secao { scroll-margin-top: var(--bar-secao-h) }` resolve, e
+  `scroll-margin-top` **não é `padding`**: o `padding-top` do scroller continua
+  ZERO (v1.5.15).
+
+**3. O tom do item aberto** — *"a zona do título e thumbnail está ficando
+diferente da cor do corpo desse item ao abrir as opções."*
+
+O `.lib-item.expanded` pintava `background-image: linear-gradient(--surface-sunk,
+--surface-sunk)`, escrito na v5.271 quando a faixa FECHADA já vinha recuada
+(`--item-fill`): era MAIS UM degrau sobre um degrau existente. A v1.5.14 tirou o
+preenchimento do nível 3 e a premissa caiu — o overlay virou o ÚNICO tom da
+faixa aberta, num lugar que a alternância não tem. `--panel` rgb(33,47,61) +
+rgba(0,0,0,.24) = rgb(25,36,46), que é o pixel MEDIDO.
+
+MEDIDO entre o título e o corpo do MESMO item: **1,15:1** no escuro e **1,39:1**
+no claro. **E o achado que decidiu o desenho:** na lista de BUSCA, onde
+`--linha` é OPACO e a `.row` (`z-index: 1`) esconde o overlay, o mesmo par já
+media **1,00:1** — *o app tinha duas leituras da mesma gaveta, e o operador
+abriu a metade quebrada.* Sem o overlay: 1,00:1 nas três listas, e o poço ganha
+separação (1,196 → 1,380 no escuro, 1,338 → 1,853 no claro).
+
+O arquivo de uma PASTA precisou da outra metade
+(`.folder-itens > .lib-item.expanded:not(.no-ar):not(.active):not(.selected)
+{ --linha: var(--gaveta-btn) }`), porque lá a linha tem preenchimento próprio,
+pintado duas vezes. Os três `:not()` são a PRECEDÊNCIA DO ESTADO; e a regra é
+escopada em `.folder-itens` de propósito — no acervo um `--linha` opaco
+esconderia o traço da `--divisoria`, que passa por baixo da faixa sem `z-index`
+(MEDIDO, Δ=39 → Δ=4).
+
+**Quem diz "esta é a que está aberta" é a GAVETA** — 250 a 345px de poço com os
+botões dentro. Neste app "aberto" nunca foi um tom: é a tampa que gruda no álbum
+e o nome em accent na pasta. Se um dia faltar sinal aqui, a resposta é o nome em
+accent, não o overlay de volta.
+
+**4. A divisória descentrada** — *"o alinhamento vertical das linhas de divisão
+entre os itens das listas … estão ligeiramente descentralizadas para baixo em
+relação aos itens e o vão entre eles."*
+
+O traço mora em `top: 0` da faixa DE BAIXO (`.lib-item` é `overflow: hidden` e
+um traço no `gap` é RECORTADO — MEDIDO, a força do pixel cai de 44 para ZERO),
+então com o vão INTEIRO fora da caixa ele pousava no limite INFERIOR: **6,42px
+de branco acima e 1,37px abaixo**, 73% contra 16% de uma banda de 8,78px.
+
+**Não se move o traço, move-se a CAIXA.** Metade do `gap` entra como
+`padding-top` e um `margin-top` negativo da mesma medida devolve o conteúdo ao
+lugar: a caixa cresce para cima e o que está dentro dela não anda. A identidade
+não é do fixture — `N·(h+2) + (N−1)·4 − 2N` é `N·h + (N−1)·4` para qualquer N —,
+então a altura da lista e o passo entre faixas ficam IDÊNTICOS. O que muda é só
+a caixa: 42,78 → 44,78px, ainda abaixo da barra do álbum que a contém (45,19px),
+que é o par que o `smoke.mjs` cobra. Vale para TODA faixa e não só para a que
+tem irmã acima: fosse `+`, a primeira ficaria 2px mais curta e o preenchimento
+de ESTADO mudaria de altura conforme a posição dela na lista.
+
+**5. A densidade da gaveta de opções** — *"essa seção de opções manteve a altura
+dos elementos muito grande, pois ainda fazia referência a padrões antigos …
+alinhando-se ao padrão e densidade das listas que temos na biblioteca."*
+
+São DOIS defeitos, e o operador acertou o diagnóstico e a data.
+
+- **A altura.** `.song-menu-btn { padding: .6rem .7rem }` sobre um
+  `.song-menu-check` de `--hit` dava 53,19px, contra os 42,78px de uma
+  `.hymn-result` da lista logo acima — razão **1,243**. Com `--sp-2` a linha vai
+  a 42px, a MESMA densidade; `--hit` (34px) é o CONTEÚDO e não foi tocado, então
+  o alvo continua 8px acima do piso.
+- **E a regra do recuo da gaveta estava MORTA.** `.hymn-opcoes` e
+  `.song-menu-list` moram no MESMO `<ul>` (o montador escreve
+  `className = 'song-menu-list hymn-opcoes'`), têm a mesma especificidade, e a
+  segunda vem DEPOIS na folha: a gaveta vestia o recuo do BOTTOM-SHEET que a
+  v5.285 substituiu. MEDIDO por reversão — apagando o `padding` da
+  `.song-menu-list`, o computado cai de 6,4/9,6/12,8px para 7,2/8/8. O `>` de
+  `.hymn-gaveta > .hymn-opcoes` desempata.
+- **"Padrões antigos" tem data:** o commit das QUATRO ESCALAS (v1.5.14)
+  converteu `gap`, `font-size` e `font-weight` dessas regras e NUNCA tocou em
+  `padding` — os literais de recuo da gaveta são todos do commit-raiz, e quatro
+  deles não existem em degrau nenhum da escala.
+- **O par do confirmar acompanha, obrigatoriamente:** o `min-height:
+  calc(var(--hit) + 1.2rem)` da faixa de confirmação era o número do
+  `.song-menu-btn` COPIADO. Deixado como estava, a linha PULARIA +11,19px sob o
+  dedo ao perguntar *"excluir?"* — o defeito da v5.309 de volta, e MEDIDO. Hoje
+  a soma é escrita como a soma (`--hit + 2 * --sp-2`).
+
 #### Os favoritos se atualizam com a Biblioteca ABERTA (v5.258)
 
 Relato: *"se estou na biblioteca e adiciono algo aos favoritos, ele só aparece

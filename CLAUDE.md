@@ -2900,8 +2900,21 @@ caixas** — daí o resto desta seção.
   repetição). Hoje: **ESCOLHIDO** entre alternativas = `--accent-fill` +
   `--on-accent`; **LIGADO** (interruptor) = `--btn-accent` + `--accent`;
   **SELECIONADO** numa lista = `--sel-fill`; **ABERTO** = não é cor (a seta que
-  gira e o corpo à vista já dizem; na Biblioteca quem diz é o degrau de
-  ELEVAÇÃO). **Cor de texto nunca carrega estado sozinha.**
+  gira, o corpo à vista, a tampa que gruda e o nome em accent da pasta já
+  dizem). **Cor de texto nunca carrega estado sozinha.**
+  **E "ABERTO NÃO É COR" passou a ser verdade também na LINHA** (v1.5.17). O
+  `.lib-item.expanded` pintava um overlay de `--surface-sunk`, escrito na v5.271
+  quando a faixa FECHADA já vinha recuada — ele era MAIS UM degrau sobre um
+  degrau que existia. A v1.5.14 tirou o preenchimento do nível 3 e ele virou o
+  ÚNICO tom da faixa aberta, num lugar que a alternância não tem: MEDIDO,
+  **1,15:1** no escuro e **1,39:1** no claro entre o título e o corpo do MESMO
+  item — o relato do operador (*"a zona do título e thumbnail está ficando
+  diferente da cor do corpo desse item"*). O achado que decidiu o desenho é que
+  a MESMA gaveta já media **1,00:1** na lista de BUSCA, onde `--linha` é opaco e
+  a `.row` escondia o overlay: **o app tinha duas leituras do mesmo objeto**.
+  Sem ele, 1,00:1 nas três listas e o poço da gaveta separa MAIS (1,196 → 1,380
+  no escuro, 1,338 → 1,853 no claro). O arquivo de uma PASTA precisou da outra
+  metade, porque lá a linha tem preenchimento próprio.
   E quando AÇÃO e ESCOLHA dividem a MESMA faixa — o trilho de navegação é o
   único caso — a ação desce para `--btn-accent` e a ESCOLHA é marcada **sem
   área**: uma barra de 3px em `--accent` na borda de cima da aba, mais o glifo
@@ -3160,17 +3173,46 @@ janela              PAPEL  (--panel)   cabeçalho GRUDENTO, top 0
   - **APERTAR e não ESTICAR, e a razão é o vão dos FAVORITOS.** Esticar até o
     encaixe exato o levaria de 131px a 55px, e a seção passaria a rolar quando
     aberta — desfazendo a v5.273/v5.277, que o operador pediu duas vezes.
-  - **E O SEGUNDO PREÇO, que é a leitura literal do pedido:** apertar AFASTA do
-    enchimento exato em vez de aproximar. Com os 9 blocos do acervo dissolvido,
-    a lista ocupa 496,3 dos 582px e sobram **~86** — contra os ~28 que sobrariam
-    sem o aperto. *"Aproveitem exatamente esse espaço"* virou *"caibam com
-    folga"*, e preencher exigiria esticar. (No aparelho a sobra é MENOR: os
-    cards com subtítulo — as duas séries, os hinários com peso — são mais altos
-    que a barra nua desta conta.)
+  - **O SEGUNDO PREÇO ERA A SOBRA, e ele foi pago na v1.5.17.** Apertar AFASTA
+    do enchimento exato em vez de aproximar: com os 9 blocos do acervo
+    dissolvido a lista ocupava 496,3 dos 582px e sobravam **~86**, contra os ~28
+    que sobrariam sem o aperto. O operador viu a faixa vazia e pediu o oposto —
+    *"o aproveitamento da altura não está correto, está sobrando … o tamanho
+    deve ser ajustável para se encaixar a altura da tela"*.
   - **E a promessa vale de 430px para cima.** MEDIDO: a 393×786 (entalhe de
     39px, caixa de 436px) cabem 7 blocos nos DOIS desenhos — ali o aperto não
     compra bloco nenhum; a 360×740 (24px, 420px) ele vai de 6 para 7. Com 9
     blocos, os dois continuam rolando.
+
+  **E A SOBRA VIROU CRESCIMENTO (v1.5.17), sem uma linha de JS.** `#hymnResults`
+  é uma `.popup-list` — coluna flex — e os blocos de raiz caíam em
+  `.popup-list > li { flex-shrink: 0 }` **sem `flex-grow`**: o excedente inteiro
+  se acumulava no fim da coluna. `flex-grow: 1` nos blocos de raiz COLAPSADOS é
+  a resposta inteira ao pedido, e é ela que torna a altura *ajustável por
+  construção* — o navegador reparte a sobra quando o conteúdo cabe e o
+  crescimento é **inerte** quando ele transborda. MEDIDO: a 430×900 o bloco vai
+  de 45,19px a **54,70px** e a sobra a **zero**; a 360×740 nada muda (45,19px,
+  rolando). **Os dois mecanismos convivem e resolvem pontas diferentes:** o
+  aperto decide QUANTOS blocos cabem (vale na tela pequena, onde não há sobra a
+  repartir), o crescimento decide o que fazer com a sobra (vale na grande).
+  - **O seletor é o TRIO do nível 1, nunca `> li`**: `.acervo` está sempre no
+    `#hymnResults`, e as linhas da BUSCA são filhas diretas dele — MEDIDO, com
+    `> li` elas iam de 97,3 para 306,4px.
+  - **A BARRA NÃO CRESCE JUNTO**, e isto é invariante e não estética:
+    `medirVaoDosFavoritos` soma as BARRAS das vizinhas para escrever
+    `--fav-vao`, e uma barra que cresce realimenta a conta até o vão deixar de
+    ser dos Favoritos — o `smoke.mjs` REPROVA essa variante. O bloco cresce, a
+    barra fica em `--bar-secao-h` e o rótulo é CENTRADO nela. O preço, dito:
+    ~4,8px acima e abaixo da barra ficam sem toque, com o alvo em 45,19px, bem
+    acima do piso `--hit`.
+  - **`--bar-raiz-max` é o TETO** (`--hit + 2rem` = 66px), porque a lista pode
+    ter POUCOS blocos: sem teto, três coleções dão 183,28px cada — barras do
+    tamanho de um cartão, o defeito oposto. Ele anda com `min-height:
+    min-content`, senão um card com subtítulo é RECORTADO (MEDIDO, 45,19 →
+    40,00 com um teto de 40).
+  - **A lista passa a RESPIRAR ao abrir uma seção** (uma irmã colapsada desce de
+    54,28 para 48,64px acompanhando a curva do acordeão). É o recurso, não um
+    defeito: evitá-lo com um `:has()` faria a lista PULAR num quadro.
 
   **E A BORDA DO SCROLL DIZ QUE HÁ MAIS** (v1.5.16, o véu). Pedido do operador:
   *"que o scroll da biblioteca tenha um efeito de blur na borda interna superior
@@ -3190,6 +3232,32 @@ janela              PAPEL  (--panel)   cabeçalho GRUDENTO, top 0
     (1,1,0 contra 1,2,0) deixava o véu aceso no topo da lista, onde ele mente.
   - **Sem `backdrop-filter` ele não aparece** (`@supports not`): meio véu — a
     máscara sem o borrão — seria uma sombra sem causa.
+
+  **E O RECUO DE CIMA DA PLACA ESCAPAVA (v1.5.17).** Relato: *"os cards que
+  ficam no topo das listas … estão se sobrepondo de forma errada ao espaço em
+  que deveriam ficar, ficando para cima do correto, sem margem no topo"*.
+  **COLAPSO DE MARGEM:** o `.coll-open` não tem `padding-top` nem borda de cima,
+  então a `margin-top` de `.4rem` do primeiro filho — o destaque do sábado, o
+  índice de temas ou a própria lista — é ADJACENTE à dele e sai para FORA.
+  Enquanto a placa era transparente ninguém via; a v1.5.15 deu a ela FUNDO e
+  RAIO, e o recuo passou a cair fora: MEDIDO, o primeiro filho começava a
+  **0,00px** do topo da placa (contra os 6,39px da placa irmã dos Favoritos),
+  cobrindo por inteiro os cantos arredondados.
+  - **`display: flow-root` e não `padding-top`.** Um recuo declarado ali impede
+    o colapso e ainda SOMA à margem do filho (5,6 + 6,4 = 12px); e zerar a
+    margem dos três filhos mudaria o vão ENTRE eles. O BFC não inventa número
+    nenhum — mantém dentro o `.4rem` que o filho já pede, e dá 6,39px, o MESMO
+    inset da placa irmã.
+  - **Ele já era o desenho certo por 220ms:** `expandAccordion` escreve
+    `overflow: hidden`, que É um BFC. De quebra o acordeão passa a medir a
+    altura de verdade — `offsetHeight` era lido ANTES do `overflow`, e a
+    animação levava a 321px uma caixa que dentro do BFC pede 327.
+  - **E o salto do índice mira ABAIXO da tampa** (`.hino-secao { scroll-margin-top:
+    var(--bar-secao-h) }`): `scrollIntoView({block:'start'})` mira o topo do
+    SCROLLPORT, e o scrollport começa debaixo da tampa grudada — MEDIDO, o
+    cabeçalho pousava em 0,39px com a tampa ocupando até 45,19, isto é,
+    desaparecia inteiro. `scroll-margin-top` **não é `padding`** e não cria
+    scrollport nenhum: o `padding-top` do scroller continua ZERO.
 
   **E A COLETÂNEA A MENOS É UMA REGRA, não uma linha apagada do catálogo**
   (`controle/coletanea.js`, PURA, com oráculo Node). Pedido do operador: *"os
@@ -3234,6 +3302,15 @@ janela              PAPEL  (--panel)   cabeçalho GRUDENTO, top 0
   espaço **mais** um traço recuado (`--divisoria`, v1.5.16, a quarta exceção
   nomeada da regra de contorno). A alternância separa NÍVEIS; ela não tem como
   separar VIZINHAS do mesmo nível, e nenhum ajuste de tom nela resolveria isso.
+  **E O TRAÇO PRECISA FICAR NO MEIO DO VÃO** (v1.5.17). Ele mora em `top: 0` da
+  faixa DE BAIXO — `.lib-item` é `overflow: hidden` e um traço desenhado no
+  `gap` é RECORTADO —, então com o vão inteiro fora da caixa ele pousava no
+  limite INFERIOR: MEDIDO, 6,42px de branco acima e 1,37px abaixo, que foi o
+  relato. **Não se move o traço, move-se a CAIXA:** metade do `gap` entra como
+  `padding-top` e um `margin-top` negativo da mesma medida devolve o conteúdo ao
+  lugar (`N·(h+2) + (N−1)·4 − 2N` é `N·h + (N−1)·4` para qualquer N — a lista
+  não muda de altura e o passo entre faixas não muda). A caixa vai de 42,78 a
+  44,78px, ainda abaixo da barra do álbum que a contém.
 - **No tema CLARO a escada NÃO é monotônica**, e isso é aritmética: a página é
   cinza e o nível 1 é branco (convenção de toda UI clara), então o primeiro
   degrau sobe e os seguintes só podem descer. Folha e card ficam a 1,09:1 e isso
@@ -3785,7 +3862,7 @@ mundo anterior por outro caminho.
 | `barra-em-qualquer-tela.test.mjs` | **a barra da Biblioteca numa tela que NÃO é a do oráculo** (v1.5.3). Ela é a única peça do app que é um OVERLAY alinhado a uma caixa do layout — logo a única cujo desenho depende do que um Chromium de mesa a 430×900 não tem. DOIS defeitos chegaram ao aparelho passando pela suíte inteira: **CORTADA** (o app é `viewport-fit=cover`, então `env(safe-area-inset-top)` vale no aparelho e é ZERO aqui — o recorte revelava `[0, altura da barra]` de uma folha em que a barra começa DEPOIS do recuo) e **DESLOCADA** (o lugar de repouso era uma COORDENADA DE TELA medida uma vez, e ela envelhece por um caminho que ninguém observa: o teclado sobe, o app remede com ele no ar, o teclado some — MEDIDO, 290px acima do lugar). Ele roda a mesma medição em QUATRO configurações, e a primeira é a tela dos outros oráculos, de propósito: ela é o CONTROLE do experimento, e nas duas reversões ela PASSA. O entalhe é fingido por um token (`--sa-topo`), que é a razão de o token existir — um valor que só o aparelho conhece é um valor que nenhum oráculo alcança. A medida do recorte é por HIT-TEST, nunca pela string do `clip-path`: uma string com `calc()` não resolvido aprova qualquer leitura que se queira fazer dela. **E ele cresceu com a janela que para na linha da barra** (v1.5.4): NO MEIO do movimento nada da coluna viaja acima da barra (a pergunta é pela COLUNA, nunca pela camada — ela ocupa legitimamente toda a região acima daquela linha, e perguntar por ela aprova a margem saliente), e ABERTA a janela não cobre os controles |
 | `biblioteca-camadas.test.mjs` | **a PILHA da janela da Biblioteca** (v1.5.6) — e, desde a v1.5.7, o DESENHO dela: o tom e o raio medidos contra a `.tools-sheet` (a peça que o pedido nomeia, nunca um número escrito no teste), o raio só existindo ABERTA, a FRESTA acima dos controles — medida contra a base da CAMADA e não contra a caixa de controles, que reserva a altura da barra e por isso aprovava a versão sem fresta (pego por reversão) — e a borda do campo, que engrossou PARA DENTRO — — a camada dela é a ÚNICA deste app que existe SEMPRE (a barra vive nela), e por isso toda regra escrita para camadas que vão e vêm precisa ser reexaminada aqui: empatada em `z-index: 200` com as outras, quem decidia era a ORDEM DO DOCUMENTO, e a barra pintava sobre Configurações e sobre a playlist enquanto o que se abrisse dos controles subia ATRÁS da Biblioteca. A pergunta é de pilha, e só existe com DUAS camadas abertas — um cenário que nenhum outro oráculo monta. A prova é HIT-TEST, nunca `z-index` computado: um número lido de volta prova que a folha declara o que declara, e o defeito era o empate. Cobre também as duas metades do voltar (a de cima fecha, a de baixo fica), a janela indo à base sem caixa de controles (teclado · Modo Fácil) e o campo limpando AO FECHAR. **O que ele não alcança está dito**: não há teclado virtual num Chromium de mesa, então a classe é posta à mão e o que se prova é a metade CSS |
 | `plataforma.test.mjs` | **o FILTRO DE PLATAFORMA da página**: o `.apk` só instala em Android, então quem chega de iPhone, iPad ou computador não vê o guia de instalação — vê a frase que diz que este é um app Android e que a página deve ser aberta por um. Falha CALADO nos dois sentidos: de MENOS, o download volta a aparecer num iPhone e a pessoa conclui que o app está quebrado (ninguém relata isso); de MAIS — o caro —, a classificação recusa um Android de verdade e o que sai é uma página que abre, rola e não oferece nada. Daí o desenho FALHAR ABERTO (sem classe no `<html>` nada é escondido) e essa propriedade ter asserção própria: um desenho fail-CLOSED deixa a suíte inteira verde e reprova só ali. `userAgent` VERBATIM, **o iPad entre eles sem código próprio** — o iPadOS 13+ se anuncia como Macintosh e cai no lado certo por construção, então a asserção guarda a PROPRIEDADE e não o mecanismo |
-| `lista-da-biblioteca.test.mjs` | **as duas peças que a v1.5.16 pôs na lista, e as duas falham CALADAS.** A DIVISÓRIA: ela existe entre faixas irmãs, começa na coluna do NOME (não sob a miniatura) e **não** aparece antes da primeira — a prova é o PIXEL decodificado do PNG, porque uma regra `::before` sem a declaração de cor passa num teste de classe e continua invisível. E o VÉU: ele aparece com a lista rolada, **some sob uma tampa grudada** (a metade que a especificidade quebrou uma vez — 1,1,0 contra 1,2,0 deixava o véu aceso no topo, onde ele mente) e não existe com a lista curta. Guarda também a AUSÊNCIA que virou achado: a faixa de um álbum nunca recebe `no-ar`, porque `hymnResultRow` escreve `dataset.song` e `marcarNoAr` lê `dataset.id` — a asserção afirma o que o app FAZ, não a promessa que ele não cumpre (ver `docs/ACHADOS-EM-ABERTO.md` §4) |
+| `lista-da-biblioteca.test.mjs` | **as duas peças que a v1.5.16 pôs na lista, e as duas falham CALADAS.** A DIVISÓRIA: ela existe entre faixas irmãs, começa na coluna do NOME (não sob a miniatura) e **não** aparece antes da primeira — a prova é o PIXEL decodificado do PNG, porque uma regra `::before` sem a declaração de cor passa num teste de classe e continua invisível. E o VÉU: ele aparece com a lista rolada, **some sob uma tampa grudada** (a metade que a especificidade quebrou uma vez — 1,1,0 contra 1,2,0 deixava o véu aceso no topo, onde ele mente) e não existe com a lista curta. Guarda também a AUSÊNCIA que virou achado: a faixa de um álbum nunca recebe `no-ar`, porque `hymnResultRow` escreve `dataset.song` e `marcarNoAr` lê `dataset.id` — a asserção afirma o que o app FAZ, não a promessa que ele não cumpre (ver `docs/ACHADOS-EM-ABERTO.md` §4). **E os quatro relatos da v1.5.17** (bloco `D`), cada um com a REVERSÃO nomeada: a divisória no MEIO do vão de conteúdo (era o limite de baixo), o primeiro filho de uma placa aberta começando DENTRO dela — medido contra a placa IRMÃ dos Favoritos, nunca contra um número escrito aqui —, a faixa aberta sem overlay **com a gaveta continuando um poço** (sem essa segunda metade, apagar a gaveta inteira passaria na primeira), a linha de destino com a altura de uma faixa **sem descer do piso `--hit`**, e o crescimento do bloco de raiz em DUAS TELAS: preenche a 430×900 e é INERTE a 360×740 — numa tela só, *"preenche"* e *"tem altura fixa maior"* são indistinguíveis, e a segunda destruiria o aparelho pequeno |
 
 > **A REDE EXTERNA NÃO ENTRA NUM ORÁCULO** (`tools/sem-rede.mjs`,
 > `semRedeExterna(ctx)` logo depois de cada `newContext()`). A base web fala com
@@ -4219,25 +4296,24 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.5.16 · APK v1.5.14** · `SHELL_VERSION` **61** ·
+**Versão atual: base web v1.5.17 · APK v1.5.14** · `SHELL_VERSION` **61** ·
 bundle com `minShell: 61` e **SEM `shellTag`** — o shell 61 é o **PISO**: todo
 método da ponte existe, e não há guarda de versão no lado web. **`SHELL_VERSION`
 NÃO sobe neste lote**: a superfície da ponte não mudou (nenhum método novo,
 nenhuma forma de retorno diferente).
 
 **E ESTE LOTE NÃO PEDE RELEASE.** Ele é só base web — `controle.css`,
-`controle.js`, o `coletanea.js` novo, `tokens.css`, `native.js` e os oráculos —,
-e nada em `java/`, `res/` ou no manifesto foi tocado. Por isso o `shellTag` SAI
-do `version.json`: declará-lo faria o `web-ota` segurar o bundle esperando uma
-Release `v1.5.16` que não tem o que carregar, em silêncio e para sempre. O rodapé
-fica com `Web v1.5.16 · Shell v1.5.14`, que é a resposta exata a *"o OTA chegou e
-o APK ainda não?"*.
+`controle.js` e os oráculos —, e nada em `java/`, `res/` ou no manifesto foi
+tocado. Por isso o `shellTag` SAI do `version.json`: declará-lo faria o `web-ota`
+segurar o bundle esperando uma Release `v1.5.17` que não tem o que carregar, em
+silêncio e para sempre. O rodapé fica com `Web v1.5.17 · Shell v1.5.14`, que é a
+resposta exata a *"o OTA chegou e o APK ainda não?"*.
 
-> **`coletanea.js` é MÓDULO NOVO do Controle, e por isso entra no watchdog de
-> boot no MESMO lote** (`AVColetanea`, em `otaAppIsUp`). Sem isso, um erro de
-> topo nele deixaria a Biblioteca com a coletânea de pé e o bundle carimbado
-> como bom para sempre — o buraco declarado que a v5.315 fechou para os outros
-> sete.
+> A v1.5.16 trouxe `coletanea.js`, MÓDULO NOVO do Controle, e por isso ele
+> entrou no watchdog de boot no MESMO lote (`AVColetanea`, em `otaAppIsUp`).
+> Sem isso, um erro de topo nele deixaria a Biblioteca com a coletânea de pé e o
+> bundle carimbado como bom para sempre — o buraco declarado que a v5.315
+> fechou para os outros sete.
 
 > A v1.5.14 PEDIU Release, e o motivo fica registrado porque ele se repete: o
 > tema escuro virou DENIM PROFUNDO e `--bg` é espelhado à mão em

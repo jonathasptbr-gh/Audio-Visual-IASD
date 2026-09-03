@@ -762,6 +762,265 @@ try {
     + 'entra na árvore, então ele não desloca o `:first-child` de que a folha '
     + 'depende', depoisDaBusca);
 
+  // ======================================================================
+  // D · O QUE A v1.5.17 CORRIGIU NESTA MESMA LISTA
+  // ======================================================================
+  //
+  // Quatro relatos do operador, todos sobre a Biblioteca, todos com o mesmo
+  // formato de falha: nada quebra, nada aparece no console, e o que sai é uma
+  // tela que PARECE certa a quem não a desenhou. Um teste de comportamento
+  // aprova as quatro versões defeituosas.
+  //
+  // A lista volta ao estado do cenário antes de medir: o caso C5 acima deixou
+  // uma BUSCA no campo, e a busca desmonta as coleções.
+  await pg.evaluate(async ({ secao }) => {
+    const campo = document.getElementById('hymnSearchInput');
+    campo.value = '';
+    campo.dispatchEvent(new Event('input', { bubbles: true }));
+    await new Promise((f) => setTimeout(f, 400));
+    grupoAberto = secao; favAberto = true;
+    ui('album-77').expanded = true; ui('album-77').shown = 1000;
+    ui('hymnal-2022').expanded = true; ui('hymnal-2022').shown = 1000;
+    hymnResultsEl.innerHTML = '';
+    renderCollectionsList(hymnResultsEl, () => {}, { semTotal: true });
+    hymnResultsEl.scrollTop = 0;
+    await new Promise((f) => requestAnimationFrame(() => requestAnimationFrame(f)));
+  }, { secao: SECAO });
+
+  // ---- D1 · A DIVISÓRIA NO MEIO DO VÃO --------------------------------
+  //
+  // Relato: *"o alinhamento vertical das linhas de divisão … estão ligeiramente
+  // descentralizadas para baixo em relação aos itens e o vão entre eles"*. Com o
+  // vão INTEIRO fora da caixa, o traço (que mora em `top: 0` da faixa de baixo,
+  // porque `overflow: hidden` recorta qualquer coisa no gap) pousava no limite
+  // INFERIOR: MEDIDO, 6,42px de branco acima e 1,37px abaixo.
+  //
+  // A correção não move o traço, move a CAIXA — metade do `gap` entra como
+  // `padding-top` e o `margin-top` negativo devolve o conteúdo ao lugar. A
+  // asserção é sobre a GEOMETRIA e não sobre o valor: o traço tem de ficar no
+  // meio do vão de CONTEÚDO, seja qual for o `gap`. REVERSÃO: apagando as duas
+  // declarações, o desvio vai a metade do gap (2px) e este caso reprova.
+  const centro = await pg.evaluate(({ nA }) => {
+    const listas = [...document.querySelectorAll('#hymnResults .coll-songs')];
+    const alb = listas.find((u) => u.querySelectorAll('.hymn-result').length === nA);
+    const lis = [...alb.querySelectorAll('.hymn-result')];
+    const cs = (el) => getComputedStyle(el);
+    const pares = [];
+    for (let i = 1; i < lis.length; i++) {
+      const a = lis[i - 1].getBoundingClientRect();
+      const b = lis[i].getBoundingClientRect();
+      // O CONTEÚDO, e não a caixa: é o padding de cima que mudou.
+      const fimDeCima = a.bottom - parseFloat(cs(lis[i - 1]).paddingBottom);
+      const iniDeBaixo = b.top + parseFloat(cs(lis[i]).paddingTop);
+      const traco = b.top + parseFloat(cs(lis[i], '::before').top);
+      pares.push(+(traco - (fimDeCima + iniDeBaixo) / 2).toFixed(2));
+    }
+    const barra = document.querySelector('#hymnResults .hymnal-card.expanded > .coll-bar')
+      || document.querySelector('#hymnResults .coll-bar');
+    return {
+      desvios: pares,
+      gapConteudo: +(lis[1].getBoundingClientRect().top
+        + parseFloat(cs(lis[1]).paddingTop)
+        - (lis[0].getBoundingClientRect().bottom - parseFloat(cs(lis[0]).paddingBottom))).toFixed(2),
+      caixa: +lis[0].getBoundingClientRect().height.toFixed(2),
+      barra: barra ? +barra.getBoundingClientRect().height.toFixed(2) : null,
+    };
+  }, { nA: FAIXAS_ALBUM });
+  checar(centro.desvios.length === FAIXAS_ALBUM - 1
+    && centro.desvios.every((d) => Math.abs(d) <= 0.6),
+    'D1 · a divisória fica no MEIO do vão de conteúdo entre duas faixas (±0,6px '
+    + 'em todos os pares) — com o vão inteiro fora da caixa ela pousava no '
+    + 'limite de baixo, que foi o relato', centro);
+  checar(centro.gapConteudo > 1,
+    'D1b · e o vão de CONTEÚDO continua existindo: a correção reparte o espaço, '
+    + 'não o consome', centro);
+  checar(centro.barra !== null && centro.caixa < centro.barra,
+    'D1c · a faixa cresceu 2px e CONTINUA mais baixa que a barra do álbum que a '
+    + 'contém — o mesmo par que o `smoke.mjs` cobra', centro);
+
+  // ---- D2 · O RECUO DE CIMA DA PLACA NÃO ESCAPA -----------------------
+  //
+  // Relato: *"os cards que ficam no topo das listas … sem margem no topo"*. O
+  // `.coll-open` não tem `padding-top` nem borda, então a `margin-top` do
+  // primeiro filho COLAPSAVA para fora dele — invisível enquanto a placa era
+  // transparente, e visível desde a v1.5.15, que lhe deu fundo e raio. MEDIDO:
+  // o primeiro filho começava a 0,00px do topo da placa. REVERSÃO: tirando o
+  // `display: flow-root` o inset volta a zero e este caso reprova.
+  //
+  // A régua é a placa IRMÃ (`.fav-itens`), e não um número escrito aqui: as
+  // duas fazem o mesmo trabalho um nível abaixo de blocos diferentes, e uma
+  // mudança de escala tem de mover as duas juntas.
+  const inset = await pg.evaluate(() => {
+    const um = (placa) => {
+      if (!placa) return null;
+      const f = [...placa.children].find((n) => n.nodeType === 1);
+      if (!f) return null;
+      return +(f.getBoundingClientRect().top - placa.getBoundingClientRect().top).toFixed(2);
+    };
+    const placas = [...document.querySelectorAll('#hymnResults .coll-open')];
+    return {
+      abertas: placas.map(um).filter((v) => v !== null),
+      fav: um(document.querySelector('#hymnResults .coll-group--fav.aberto .fav-itens')),
+    };
+  });
+  checar(inset.abertas.length >= 2 && inset.abertas.every((v) => v > 2),
+    'D2 · o primeiro filho de uma placa aberta começa DENTRO dela — o colapso '
+    + 'de margem levava o recuo para fora e o primeiro card cobria os cantos '
+    + 'arredondados da placa', inset);
+  checar(inset.fav !== null && inset.abertas.every((v) => Math.abs(v - inset.fav) <= 1),
+    'D2b · e o inset é o MESMO da placa irmã dos Favoritos (±1px): a régua é o '
+    + 'desenho que já existe, não um número escrito no oráculo', inset);
+
+  // ---- D3 · UM ITEM ABERTO É UMA SUPERFÍCIE SÓ ------------------------
+  //
+  // Relato: *"a zona do título e thumbnail está ficando diferente da cor do
+  // corpo desse item ao abrir as opções"*. O overlay da v5.271
+  // (`.lib-item.expanded { background-image: … --surface-sunk }`) supunha a
+  // faixa fechada JÁ recuada; a v1.5.14 tirou o preenchimento do nível 3 e ele
+  // virou o único tom da faixa aberta — um 4º tom que a alternância não tem.
+  //
+  // A asserção é sobre a COR RENDERIZADA da `.row` contra o papel em que a
+  // gaveta pousa os blocos dela, e a metade que a torna honesta é a SEGUNDA: a
+  // gaveta continua sendo um POÇO, isto é, o item aberto não virou uma mancha
+  // só. REVERSÃO: devolvendo o overlay, a primeira reprova.
+  const aberta = await pg.evaluate(async ({ nA }) => {
+    const listas = [...document.querySelectorAll('#hymnResults .coll-songs')];
+    const alb = listas.find((u) => u.querySelectorAll('.hymn-result').length === nA);
+    const li = alb.querySelector('.hymn-result');
+    li.querySelector('.row').click();
+    await new Promise((f) => setTimeout(f, 600));
+    const row = li.querySelector('.row');
+    const gav = li.querySelector('.hymn-gaveta');
+    const cor = (el) => getComputedStyle(el).backgroundColor;
+    return {
+      overlay: getComputedStyle(li).backgroundImage,
+      row: cor(row),
+      item: cor(li),
+      gaveta: gav ? cor(gav) : null,
+      // O papel em que a gaveta pousa os blocos dela.
+      papel: getComputedStyle(document.documentElement).getPropertyValue('--gaveta-btn').trim(),
+      alturaBotao: (() => {
+        const b = gav && gav.querySelector('.song-menu-btn:not(.song-menu-go)');
+        return b ? +b.getBoundingClientRect().height.toFixed(2) : null;
+      })(),
+      // A RÉGUA É UMA IRMÃ FECHADA, nunca o `<li>` aberto: aberto ele mede a
+      // gaveta inteira (325px), e a asserção passaria a comparar a linha com a
+      // caixa que a contém.
+      alturaFaixa: (() => {
+        const irma = [...alb.querySelectorAll('.hymn-result')]
+          .find((n) => n !== li && !n.classList.contains('expanded'));
+        return irma ? +irma.getBoundingClientRect().height.toFixed(2) : null;
+      })(),
+    };
+  }, { nA: FAIXAS_ALBUM });
+  checar(aberta.overlay === 'none',
+    'D3 · a faixa ABERTA não pinta overlay nenhum: ela volta ao papel em que a '
+    + 'gaveta pousa os blocos dela, que é o que a lista de BUSCA já fazia',
+    aberta);
+  checar(!!aberta.gaveta && aberta.gaveta !== aberta.row,
+    'D3b · e a gaveta CONTINUA sendo um poço: o item aberto não virou uma '
+    + 'mancha só — sem esta metade, apagar a gaveta inteira passaria na de cima',
+    aberta);
+
+  // ---- D4 · A DENSIDADE DA GAVETA É A DA LISTA ------------------------
+  //
+  // Relato: *"essa seção de opções manteve a altura dos elementos muito grande,
+  // pois ainda fazia referência a padrões antigos"*. MEDIDO: a linha de destino
+  // media 53,19px contra os 42,78px de uma faixa da lista logo acima (1,243).
+  // A régua é a FAIXA VIZINHA e não um número: as duas têm de andar juntas.
+  checar(aberta.alturaBotao !== null
+    && Math.abs(aberta.alturaBotao - aberta.alturaFaixa) <= 6,
+    'D4 · uma linha de destino da gaveta tem a altura de uma faixa da lista em '
+    + 'que ela vive (±6px) — era 1,24× mais alta, com literais anteriores às '
+    + 'escalas da v1.5.14', aberta);
+  checar(aberta.alturaBotao >= 34,
+    'D4b · e ela não desce abaixo do piso de toque `--hit`: o que encolheu foi '
+    + 'o RECUO, nunca o alvo', aberta);
+
+  // ---- D5 · O BLOCO DE RAIZ CRESCE PARA PREENCHER A TELA --------------
+  //
+  // Relato: *"o aproveitamento da altura não está correto, está sobrando. É
+  // claro que pode haver telas menores, por isso o tamanho deve ser ajustável
+  // para se encaixar a altura da tela"*.
+  //
+  // ESTE CASO PRECISA DE DUAS TELAS, e é essa a razão de ele abrir contextos
+  // próprios em vez de reusar o de cima: numa tela só, "preenche" e "tem uma
+  // altura fixa maior" são indistinguíveis, e o oráculo aprovaria o segundo —
+  // que destruiria justamente o aparelho pequeno, onde não há sobra a repartir.
+  // A técnica das telas é a do `barra-em-qualquer-tela.test.mjs`, com o entalhe
+  // fingido pelo token `--sa-topo` (um valor que só o aparelho conhece é um
+  // valor que nenhum oráculo alcança).
+  const TELAS_D5 = [
+    { nome: '430×900 sem entalhe (sobra a repartir)', vp: { width: 430, height: 900 }, cabe: true },
+    { nome: '360×740 com 24px de entalhe (transborda)', vp: { width: 360, height: 740 }, sa: '24px', cabe: false },
+  ];
+  for (const tela of TELAS_D5) {
+    const c2 = await navegador.newContext({ viewport: tela.vp, hasTouch: true });
+    await semRedeExterna(c2);
+    await c2.addInitScript(() => {
+      try { localStorage.setItem('av.appMode', 'full'); } catch (_) { /* storage bloqueado */ }
+    });
+    const p2 = await c2.newPage();
+    await p2.goto(`http://localhost:${porta}/controle/`, { waitUntil: 'domcontentloaded' });
+    await p2.waitForFunction(
+      () => window.AVDB && typeof window.__avBack === 'function'
+        && !!document.querySelector('#playlist li'), null, { timeout: 30000 },
+    );
+    const m = await p2.evaluate(async (tela) => {
+      if (tela.sa) document.documentElement.style.setProperty('--sa-topo', tela.sa);
+      setAppMode('full');
+      // NOVE blocos: o acervo real do operador depois da dissolução da v1.5.16.
+      const nomes = ['Coletânea A', 'Coletânea B', 'Coletânea C', 'Coletânea D',
+        'Coletânea E', 'Coletânea F'];
+      albumCatalog.categories = nomes.map((n, i) => ({
+        name: n, albums: [{ id_album: 800 + i, name: 'Álbum ' + n }],
+      }));
+      albumCatalog.albums = albumCatalog.categories.map((c) => c.albums[0]);
+      openHymnSearch(false);
+      await new Promise((f) => setTimeout(f, 400));
+      const el = document.getElementById('hymnResults');
+      const cs = getComputedStyle(el);
+      const blocos = [...el.children].filter((n) => n.nodeType === 1);
+      const ultimo = blocos[blocos.length - 1].getBoundingClientRect();
+      const cx = el.getBoundingClientRect();
+      const barra = blocos[1].querySelector('.coll-group-bar, .coll-bar');
+      const bb = barra && barra.getBoundingClientRect();
+      const cb = blocos[1].getBoundingClientRect();
+      return {
+        blocos: blocos.length,
+        alturas: blocos.map((b) => +b.getBoundingClientRect().height.toFixed(2)),
+        sobra: +(cx.bottom - parseFloat(cs.paddingBottom || 0) - ultimo.bottom).toFixed(2),
+        rola: el.scrollHeight - el.clientHeight > 1,
+        alturaBarra: bb ? +bb.height.toFixed(2) : null,
+        // O rótulo continua no meio do bloco esticado?
+        desvioRotulo: bb ? +(((bb.top + bb.bottom) / 2) - ((cb.top + cb.bottom) / 2)).toFixed(2) : null,
+      };
+    }, tela);
+    await c2.close();
+
+    if (tela.cabe) {
+      checar(!m.rola && Math.abs(m.sobra) <= 1.5,
+        'D5 · ' + tela.nome + ': os blocos colapsados PREENCHEM a caixa — a base '
+        + 'do último fica a ≤1,5px da base útil. REVERSÃO: sem `flex-grow` são '
+        + '85,6px de faixa vazia, que foi o relato', m);
+      checar(m.alturas.every((h) => h > 46),
+        'D5b · e todos cresceram: nenhum ficou na altura NUA da barra', m);
+      checar(m.desvioRotulo !== null && Math.abs(m.desvioRotulo) <= 1,
+        'D5c · o rótulo fica no MEIO do bloco esticado (±1px) — sem '
+        + '`justify-content: center` ele encosta no topo', m);
+      checar(m.alturaBarra !== null && m.alturaBarra < 46,
+        'D5d · e a BARRA não cresceu junto: é ela que `medirVaoDosFavoritos` '
+        + 'soma, e uma barra que cresce realimenta a conta até o vão deixar de '
+        + 'ser dos Favoritos (o `smoke.mjs` reprova essa variante)', m);
+    } else {
+      checar(m.rola && m.alturas.every((h) => h < 46),
+        'D5e · ' + tela.nome + ': o crescimento é INERTE quando a lista '
+        + 'transborda — toda altura volta à barra nua. Sem esta metade, uma '
+        + 'altura fixa maior passaria no caso de cima e estragaria o aparelho '
+        + 'pequeno', m);
+    }
+  }
+
   checar(erros.length === 0, 'nenhum erro de console', erros.slice(0, 5));
 } catch (e) {
   checar(false, 'o oráculo rodou até o fim', String(e && e.stack ? e.stack : e));

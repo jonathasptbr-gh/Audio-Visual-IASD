@@ -192,6 +192,7 @@ Fora de `tokens.css`, no `:root` do Controle (não são cor):
 | `--bar-secao-h` | `calc(var(--hit) + .7rem)` | a altura da barra de uma seção da Biblioteca. É token porque DUAS regras precisam do mesmo número (a barra gruda em `top: 0`, a do álbum logo abaixo dela); escrito duas vezes divergiria, e o sintoma seria o cabeçalho de dentro cobrindo o de fora. Determinístico: o nome é `nowrap` e o recuo é fixo — nada de medição em JS, que a v1.5.3 ensinou a desconfiar. **Era `+ 1.1rem` até a v1.5.16**, e quem o apertou foi o ORÇAMENTO da lista colapsada — não o desenho da barra |
 | `--faixa-coluna-texto` | `calc(.5rem + 38px + var(--sp-4))` | onde a coluna do NOME de uma faixa começa — o recuo da linha, mais a miniatura, mais o vão. É token porque é o que RECUA a `--divisoria`, e é isso que a torna *"não borda inteira"*: ela começa no texto, nunca sob a miniatura. Aritmético, não medido — a miniatura tem lado fixo |
 | `--lib-fade-h` | `22px` | a altura de cada véu da borda do scroll da Biblioteca (v1.5.16) |
+| `--bar-raiz-max` | `calc(var(--hit) + 2rem)` | **o teto do bloco de raiz que cresce** (v1.5.17). Os blocos colapsados da Biblioteca ganharam `flex-grow` para preencher a altura da tela — o navegador reparte a sobra quando o conteúdo cabe e o crescimento é inerte quando ele transborda. O teto existe porque a lista pode ter POUCOS blocos: sem ele, três coleções dão 183,28px cada, que é o defeito oposto. Anda com `min-height: min-content`, senão um card com subtítulo é RECORTADO (MEDIDO, 45,19 → 40,00 com um teto de 40) |
 | `--lib-lista-base` | `calc(.8rem + env(safe-area-inset-bottom))` | o recuo de baixo da lista da Biblioteca. É token porque o véu de baixo precisa ANULÁ-LO (`bottom: calc(-1 * var(--lib-lista-base))`): sem isso ele gruda acima do recuo e deixa uma faixa de conteúdo nítido embaixo dele — o defeito aparece só num aparelho com barra de gestos |
 | `--op-inativo` | `.35` | **o véu de INATIVO** (v1.5.15). Ele estava escrito em três `:disabled` (`.slide-btn`, `.t-btn`, `.sel-btn`) e ganhou um quarto consumidor que não é um controle: o cartão da linha do tempo, que o operador mandou vestir *"o mesmo cinza claro dos botões inativos de próximo e anterior slide"*. O cartão o consome por `color-mix` sobre `--surface` JÁ RESOLVIDO ali — um token de cor novo teria de repetir a bifurcação inteira do R1 para dizer a mesma coisa |
 | `--kb` | `0px` | altura coberta pelo teclado virtual, escrita pelo JS (ver "Deslocamento com o teclado virtual") |
@@ -522,6 +523,23 @@ A regra, e ela responde a QUATRO perguntas diferentes com quatro respostas:
   duas cores conforme o tipo do bloco (uma SEÇÃO aberta nunca pintou o nome
   dela). No card da Biblioteca quem diz "isto levantou" é o degrau de ELEVAÇÃO.
 
+  **E na LINHA isso só passou a ser verdade na v1.5.17.** O `.lib-item.expanded`
+  pintava um overlay de `--surface-sunk`, escrito na v5.271 quando a faixa
+  FECHADA já vinha recuada (`--item-fill`) — ele era MAIS UM degrau sobre um
+  degrau existente. A v1.5.14 tirou o preenchimento do nível 3 e a premissa
+  caiu: o overlay virou o ÚNICO tom da faixa aberta, num lugar que a alternância
+  não tem (`--panel` + `rgba(0,0,0,.24)` = rgb(25,36,46), o pixel medido).
+  MEDIDO entre o título e o corpo do MESMO item: **1,15:1** no escuro e
+  **1,39:1** no claro — o relato do operador. E o achado que decidiu o desenho:
+  na lista de BUSCA, onde `--linha` é OPACO e a `.row` esconde o overlay, o
+  mesmo par já media **1,00:1**. *O app tinha duas leituras da mesma gaveta.*
+  Removido o overlay, 1,00:1 nas três listas, e o poço da gaveta separa MAIS:
+  1,196 → 1,380 no escuro e 1,338 → 1,853 no claro. O arquivo de uma PASTA
+  precisou da outra metade (`--linha: var(--gaveta-btn)`), porque lá a linha tem
+  preenchimento próprio; e ela é escopada em `.folder-itens` de propósito — no
+  acervo um `--linha` opaco esconderia o traço da `--divisoria`, que passa por
+  baixo da faixa sem `z-index` (MEDIDO, Δ=39 → Δ=4).
+
 **Cor de TEXTO nunca carrega estado sozinha.** Onde ela carregava, ou o estado
 ganha superfície, ou ele já é dito pela forma e a cor sai.
 
@@ -744,6 +762,15 @@ o vão ERA um degrau. Com a alternância a faixa ficou transparente sobre a plac
 e o vão passou a ser a mesma superfície dos dois lados: **1,00:1**. Daí o quarto
 degrau ser hoje espaço **mais** um traço recuado (`--divisoria`, v1.5.16) — a
 alternância separa NÍVEIS e por construção não separa vizinhas do mesmo.
+
+**E metade do vão mora DENTRO da caixa** (v1.5.17). O traço tem de ficar em
+`top: 0` da faixa de baixo — `.lib-item` é `overflow: hidden` e um traço
+desenhado no `gap` é RECORTADO —, então com o vão inteiro fora da caixa ele
+pousava no limite INFERIOR: MEDIDO, 6,42px de branco acima e 1,37px abaixo. Não
+se move o traço, move-se a CAIXA: metade do `gap` entra como `padding-top` e um
+`margin-top` negativo da mesma medida devolve o conteúdo ao lugar. A lista não
+muda de altura (`N·(h+2) + (N−1)·4 − 2N` é `N·h + (N−1)·4`), e a borda de cima
+da caixa passa a SER o meio do vão.
 
 No tema CLARO a escada **não é monotônica**, e isso é aritmética e não descuido:
 a página é cinza e o nível 1 é branco (a convenção de toda UI clara), então o

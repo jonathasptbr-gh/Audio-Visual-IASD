@@ -1,5 +1,15 @@
 [
   {
+    "versao": "1.5.17",
+    "itens": [
+      "As coleções da Biblioteca agora preenchem a altura da tela, em vez de sobrar espaço no pé.",
+      "O primeiro cartão de uma coleção aberta ganhou o respiro que faltava sob o título.",
+      "O item aberto voltou a ter a mesma cor do corpo dele.",
+      "As linhas divisórias ficaram centradas entre as faixas.",
+      "E as opções de uma faixa ficaram mais compactas, no ritmo da lista."
+    ]
+  },
+  {
     "versao": "1.5.16",
     "itens": [
       "As faixas de um álbum ganharam uma linha divisória, para distinguir uma da outra.",

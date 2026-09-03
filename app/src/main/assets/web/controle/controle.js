@@ -278,7 +278,7 @@ const appVersionEl = document.getElementById('appVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.5.16';
+const WEB_VERSION = '1.5.17';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -10060,7 +10060,13 @@ function medirVaoDosFavoritos(lista) {
     // A v1.5.9 somava aqui as duas linhas de 1px da moldura da Biblioteca; ela
     // saiu na v1.5.14 e a parcela ia junto — um termo que hoje é sempre zero,
     // com cinco linhas de comentário explicando um desenho que não existe.
-    const barra = s.querySelector('.coll-group-bar, .coll-bar');
+    // `.row` NA LISTA desde a v1.5.17: com o `flex-grow` dos blocos de raiz, um
+    // bloco que caísse no ramo de baixo (o `<li>` inteiro) entraria nesta soma
+    // já CRESCIDO, e o vão dos Favoritos encolheria em silêncio. Hoje nenhum
+    // bloco da raiz é uma pasta — mas a fórmula não pode depender disso.
+    // `querySelector` devolve o primeiro em ordem de DOCUMENTO, não de seletor:
+    // numa seção a barra vem antes de qualquer `.row`.
+    const barra = s.querySelector('.coll-group-bar, .coll-bar, .row');
     fechadas += (barra ? barra.getBoundingClientRect().height
       : s.getBoundingClientRect().height);
   }
