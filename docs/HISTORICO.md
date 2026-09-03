@@ -24,6 +24,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
+- **v1.5.16** — A DIVISÓRIA, O VÉU E A COLETÂNEA DISSOLVIDA. Três pedidos do operador sobre a Biblioteca. **(1)** *"linha divisória (não borda inteira), na listagem do itens propriamente dos álbuns"* — desde a v1.5.14 a faixa é transparente sobre `--panel`, e o vão de 4px entre duas faixas mede **1,00:1** contra os dois lados: separação nenhuma. Nasce `--divisoria` (1,88:1 no escuro, 1,99:1 no claro), um `::before` de 1px RECUADO até a coluna do nome — não uma `border`, que cobre a caixa e não tem como ser recuada. É a QUARTA exceção nomeada da regra de contorno, e ela não é a moldura da v1.5.9 voltando: aquela eram quatro arestas por nível em três níveis carregando a HIERARQUIA, esta é uma aresta num nível só entre IRMÃS — o que a alternância por construção não separa. O `tokens.test.mjs` ganha o PAR que impede a brecha *"filete pode, desde que não se chame border"*: uma varredura NEGATIVA por qualquer bloco de 1px pintado e uma POSITIVA exigindo consumidor único. **(2)** *"um efeito de blur na borda interna superior ou inferior, quando algum elemento da tela ir para debaixo dessa borda"* — dois `sticky` DENTRO do scroller com `backdrop-filter`, e blur em vez de gradiente porque a alternância põe DUAS superfícies sob a mesma borda e um gradiente teria de escolher uma (MEDIDO: −60% de nitidez nos dois temas). A `z-index: 2` ele some sozinho sob uma tampa grudada (131/131 amostras). A especificidade mordeu uma vez: `#hymnResults:not(.tem-acima)` (1,1,0) perdia para `.popup-backdrop--lib.open #hymnResults` (1,2,0) e o véu ficava aceso no topo, onde ele mente. **(3)** *"os albuns do celebra SP, serão individualmente colocados na coleção de 'diversos' … fara com que todas as coleções caibam na tela"* — nasce `controle/coletanea.js`, regra PURA com oráculo Node, que DISSOLVE em vez de remover (MEDIDO: descartar a categoria deixa os álbuns órfãos e o app os recolhe em "Outros álbuns" — dez blocos de novo, com um nome pior). Roda no DESENHO e não no `fetchAlbumCatalog`, senão uma correção por OTA esperaria a próxima sincronização com rede. Destino ausente é IDENTIDADE e a origem FICA. A tabela aceita *"Diversas"* E *"Diversos"*: o operador escreveu o segundo e a seção chama-se o primeiro. O orçamento: a 430×900 a caixa da lista tem 582px, 10 blocos davam 615,1px e passam a dar 551,1px depois de apertar as duas barras — APERTAR e não ESTICAR, porque esticar levaria o vão dos Favoritos de 131px a 55px e desfaria a v5.273/v5.277. O segundo preço está dito: com os 9 blocos do acervo dissolvido sobram ~86px em vez de ~28, isto é, o aperto AFASTA do enchimento exato que a leitura literal do pedido cobra; e a promessa de caber sem rolar vale de 430px para cima (a 393×786 o aperto não compra bloco nenhum). **E um achado registrado, não corrigido**: a faixa de um álbum NUNCA é marcada como no ar (`hymnResultRow` escreve `dataset.song`, `marcarNoAr` lê `dataset.id`), e mesmo forçada a classe perderia para `.coll-songs > .hymn-result` por ordem de fonte — `docs/ACHADOS-EM-ABERTO.md` §4. O irmão dos FAVORITOS era alcançável e foi corrigido.
 - **v1.5.15** — A PERNA DA RAIZ DA BIBLIOTECA, E O CINZA DO CARTÃO DA LINHA DO TEMPO. Três relatos do operador sobre a v1.5.14 e um pedido. **(1)** *"isso era pra ser assim? fundo azul nos itens do provai e vede?"* — a árvore da Biblioteca não tem profundidade uniforme: uma seção contém CARDS e uma coleção da RAIZ contém FAIXAS, então a MESMA `.hymn-result` pousava em duas cores conforme onde a coleção mora. A alternância não estava errada; faltava o degrau de baixo dela — o `.coll-open` de uma coleção da raiz vira PLACA de papel, irmã exata da `.fav-itens`, e a faixa volta a pousar na mesma base em qualquer lugar do acervo (MEDIDO: 1,43:1 e 1,35:1 contra o poço, e 1,00:1 contra o card de álbum). A placa é o corpo aberto INTEIRO e não só a lista: o DESTAQUE do sábado pinta `--sel-fill`, que dá 1,31:1 sobre o papel (o par para que ele foi desenhado) e 1,03:1 sobre o poço — deixá-lo de fora consertaria a lista e deixaria o "ESTE SÁBADO" invisível, que é o mesmo defeito um bloco acima e está numa das capturas. **(2 e 3)** *"a lista está vazando acima"* e *"essa sobreposição também permanece… parecendo que um álbum está pertencendo a outro"* são o MESMO defeito pelas duas faces: a v1.5.14 deu a todo card aberto o `top` do segundo degrau, os da raiz inclusive — que não têm barra acima —, e **o vão que sobrava É o scrollport** (MEDIDO: 51,6px de lista à mostra acima da tampa colada, e a tampa inteira ainda no topo enquanto desgruda, pintada por cima das coleções seguintes). O `top` de uma tampa passa a ser a PROFUNDIDADE dela, e pela mesma aritmética o `padding-top` do scroller foi a zero — padding de um scroller é scrollport. **(4)** *"ajuste o cinza dela para o mesmo cinza claro dos botões inativos de próximo e anterior slide"*: o cartão vestia `--surface` cheio, que é o tom do botão ATIVO; passa a ser a mesma superfície sob o véu de `--op-inativo`, por `color-mix` sobre o valor JÁ RESOLVIDO ali (um token novo teria de repetir a bifurcação do R1). Os dois oráculos aprendem a ler `color-mix` — que computa como `color(srgb 1 1 1 / .04)`, e uma regex de números lê (1,1,1).
 
 - **v1.5.14** — A HIERARQUIA DA BIBLIOTECA DEIXOU DE SER UMA ESCADA, O TEMA ESCURO VIROU DENIM E O APP GANHOU QUATRO ESCALAS. Pedido do operador: *"chegamos a um pico de eficiência, que pequenas variações não mudam muito o resultado, e para achar um resultado melhor, devemos ir um pouco mais longe"* · *"poucas bordas, sem traços finos, ou designs visualmente poluídos"* · *"busque consistência maior dentro do app"*. **O pico era local, e a prova é aritmética:** quatro níveis sobre uma escada de três degraus, e quatro degraus no piso de 1,28:1 partindo do branco põem o nível mais interno em #b3b3b3 — o cinza que ele recusou na v1.5.10. MEDIDO no renderizado, o desenho anterior não cumpria o piso em NENHUM par (7/7 reprovando no escuro) e três pares valiam 1,00:1: no escuro a tampa de um álbum e as faixas dentro dele eram pixel-idênticas. A saída é ALTERNAR em vez de empilhar (papel → poço → papel: duas superfícies, profundidade ilimitada, zero traços — 1,43:1 e 1,35:1 em cada degrau), com a profundidade dita por cabeçalho GRUDENTO nos dois níveis, recuo e rank tipográfico. Mais: o tema escuro ganha a saturação do `denim` (a identidade vivia só no claro), quatro escalas novas (31 corpos de fonte → 9+2, 16 gaps → 6, 10 durações → 3, 5 pesos → 4), o chevron da Biblioteca volta a responder ao toque, e o Modo Fácil passa a mostrar o transporte DA CENA. Os oráculos APROVAVAM o defeito (o `smoke` exigia que seção e card fossem iguais e nunca comparava tampa × faixa): oito asserções invertidas e três casos novos, mais o oráculo que fecha a lacuna de vinte e duas versões entre `colors.xml` e `tokens.css`.
@@ -333,6 +334,209 @@ na nota que a revoga, não apagada da que a criou.
 - **v5.154** — é METADE OTA e METADE APK, e a divisão importa para quem for testar em aparelho.
 - **v5.155** — é OTA PURO
 - **v5.156** — é METADE OTA e METADE APK, de novo.
+
+---
+
+## v1.5.16 — a divisória, o véu e a coletânea dissolvida
+
+Três pedidos do operador, todos sobre a Biblioteca, todos no mesmo minuto:
+*"Ajuste para que o scroll da biblioteca tenha um efeito de blur na borda interna
+superior ou inferior, quando algum elemento da tela ir para debaixo dessa borda.
+Para melhor perceber que há mais itens no scroll da lista. / Verifique a criação
+de um elemento de linha divisória (não borda inteira), na listagem do itens
+propriamente dos álbuns, para melhor distinção entre os itens. / Ajuste as
+coletâneas, agora os albuns do celebra SP, serão individualmente colocados na
+coleção de "diversos". Não identifiquei independência suficiente para que ele
+tenha uma coleção só para ele. Remover esse grupo em específico das coleções,
+fara com que todas as coleções caibam na tela enquanto estiverem colapsadas, sem
+a necessidade de rolar. Inclusive, aproveite para reajustar o tamanho dos cards
+das coletâneas e espaços, para que eles aproveitem exatamente esse espaço … Talvez
+precise ajustar um pouco o tamanho dos subgrupos para manter uma certa
+proporcionalidade."*
+
+### A DIVISÓRIA — e por que ela não é a moldura da v1.5.9 voltando
+
+**O pedido tem causa aritmética, e ela nasceu na v1.5.14.** Enquanto a faixa teve
+fundo próprio (`--item-fill`), o que aparecia no vão de 4px entre duas faixas era
+o tom do álbum, e o vão ERA um degrau. Com a alternância a faixa ficou
+transparente sobre a placa de papel, e o vão passou a ser a MESMA superfície dos
+dois lados: **1,00:1**. Não é pouca separação — é separação nenhuma. O comentário
+da v5.272 que morava no `.coll-songs` (*"um espaço só separa quando os dois lados
+dele têm cor"*) descrevia exatamente a condição que a v1.5.14 removeu, e
+continuou de pé descrevendo uma declaração já inalcançável.
+
+`--divisoria` mede **1,88:1** no escuro e **1,99:1** no claro sobre a placa —
+contra os 1,78:1 e 2,51:1 da moldura removida. Mesma ordem de grandeza, um
+vigésimo da tinta. Alfa e não valor fixo, porque a placa muda de tom entre os
+temas e o traço tem de compor sobre o que estiver lá.
+
+**A distinção entre esta linha e a moldura é de OBJETO, não de espessura.** A
+moldura era um retângulo por nível — quatro arestas, em TRÊS níveis ao mesmo
+tempo — e carregava a HIERARQUIA, que é o trabalho que a alternância faz hoje com
+degrau de verdade. Esta é UMA aresta, num nível só, entre IRMÃS, e faz o que a
+alternância por construção não faz: separar vizinhas do MESMO nível. As três
+palavras que decidem estão no pedido — *"não borda inteira"*: o operador já sabe
+que o app aboliu contorno, e está nomeando a diferença.
+
+**E ela não é uma `border`, o que aqui é a parte perigosa.** `border-bottom`
+pinta a caixa inteira e não tem como ser RECUADA — e o recuo é literalmente o
+*"não borda inteira"*: a divisória começa na coluna do NOME
+(`--faixa-coluna-texto`), nunca sob a miniatura. A forma sai do pedido; o
+PRECEDENTE é que não podia sair de graça. Um traço pintado como bloco de 1px
+passaria pela varredura de contorno sem ninguém decidir nada, e o que entraria no
+repositório seria *"filete pode, desde que não se chame border"* — a heurística
+exata contra a qual o `tokens.test.mjs` avisa. Daí o oráculo ganhar o PAR, os
+dois provados por reversão:
+
+- **a NEGATIVA** varre a base por qualquer regra com `height: 1px` (ou `width`) e
+  um `background` não-transparente, e reprova todas menos o seletor nomeado;
+- **a POSITIVA** exige que `--divisoria` tenha exatamente UM consumidor e que ele
+  seja esse seletor — senão o token viraria a porta larga e a negativa o deixaria
+  passar pelo nome.
+
+Três detalhes de implementação que não são detalhe:
+
+- **`+` e não `:not(:last-child)`.** A divisória pertence ao PAR, e é o
+  combinador que faz três ausências saírem de graça: nada acima da primeira
+  faixa, nada abaixo da última, e nada entre um `.hino-secao` e a faixa que ele
+  encabeça (o cabeçalho é um `<li>` irmão na MESMA `<ul>`, e `+` não casa através
+  dele). A paginação de 100 em 100 também sai de graça: `+` é vivo e a sentinela
+  `.coll-more` é removida e recolocada no fim.
+- **`top: 0` e não o vão.** `.lib-item` é `overflow: hidden`, então um traço
+  desenhado no `gap` é RECORTADO — MEDIDO, o pixel volta como a placa crua.
+- **Sem `z-index`.** A `.row` é `z-index: 1` e pinta `--linha`, então o traço
+  some quando a faixa ganha preenchimento opaco de estado: ali quem separa é o
+  preenchimento, e duas linguagens sobre o mesmo par seriam ruído.
+
+### O VÉU — blur porque não existe cor certa para ele
+
+Dois pseudo-elementos `position: sticky` DENTRO do scroller, com
+`backdrop-filter: blur(5px)` e uma `mask-image` esmaecendo para transparente.
+
+**Blur e não gradiente, e a razão é a alternância.** Papel → poço → papel põe
+DUAS superfícies sob a mesma borda, e um gradiente teria de escolher uma delas —
+sobre a outra ele seria uma faixa de cor errada. Blur é agnóstico de cor: MEDIDO,
+−60% de nitidez nos dois temas, com o conteúdo por baixo de qualquer tom.
+
+**Dentro do scroller, a `z-index: 2`, é o que o faz sumir sozinho sob uma tampa
+grudada.** As tampas são opacas e moram acima (z 3 e 4), então o véu desaparece
+exatamente onde não tem o que dizer — não há regra a escrever para isso. MEDIDO
+em 131/131 amostras com uma coleção aberta, e em 250/250 de conteúdo cru na lista
+plana da busca.
+
+**Ele só existe quando MENTIRIA ao não existir.** `.tem-acima`/`.tem-abaixo` saem
+de um ouvinte de `scroll` com `requestAnimationFrame`, reafirmados em todo ponto
+que muda a lista (abrir a Biblioteca, redesenhar as coleções, redesenhar a busca,
+o teclado subindo). **A especificidade mordeu uma vez:**
+`#hymnResults:not(.tem-acima)::before` é (1,1,0) e perdia para
+`.popup-backdrop--lib.open #hymnResults::before`, que é (1,2,0) — o véu ficava
+aceso no topo da lista, que é o único lugar onde ele mente. As regras de desligar
+repetem o prefixo.
+
+**Sem `backdrop-filter` ele não aparece** (`@supports not`): meio véu — a máscara
+sem o borrão — seria uma sombra sem causa. E o véu de baixo ANULA o recuo da
+lista (`bottom: calc(-1 * var(--lib-lista-base))`), que é por isso que aquele
+recuo virou token: sem a anulação ele gruda acima do recuo e deixa uma faixa de
+conteúdo nítido embaixo de si — defeito que só aparece num aparelho com barra de
+gestos.
+
+### A COLETÂNEA DISSOLVIDA — uma regra, não uma linha apagada do catálogo
+
+Nasce `app/src/main/assets/web/controle/coletanea.js`: uma regra **PURA**, com
+oráculo em Node, sobre o catálogo cru do banco LouvorJA. É o mesmo desenho das
+SÉRIES e do HINÁRIO, e pelo mesmo motivo — o nome das seções é decisão de quem
+publica lá, e um ajuste tem de chegar por OTA em minutos.
+
+- **DISSOLVER, não remover.** MEDIDO: descartar a categoria deixa os álbuns
+  ÓRFÃOS, e `renderCollectionsListMiolo` os recolhe num bloco *"Outros álbuns"* —
+  o mesmo número de blocos, com um nome pior. `aplicar()` MOVE os álbuns para o
+  destino e só então a origem deixa de existir.
+- **Roda no DESENHO, nunca no `fetchAlbumCatalog`.** O catálogo fica semanas no
+  IndexedDB; aplicada na busca, uma correção por OTA só valeria depois da próxima
+  sincronização COM REDE. E precisa ser aplicada nos DOIS consumidores do mesmo
+  render — o laço das seções **e** o `claimed` dos órfãos: ligar só um devolve
+  "Outros álbuns" pela porta dos fundos. Essa metade é a que o
+  `boot-nativo.test.mjs` prende; nenhum oráculo da regra pura a alcança.
+- **Destino ausente é IDENTIDADE, e a origem FICA na tela.** É a única decisão do
+  arquivo que contraria o pedido, e é deliberada: um destino renomeado no banco
+  faria a origem sumir levando os álbuns dentro dela.
+- **A comparação é por IGUALDADE** sobre o `normalizar` do `serie.js` (copiado
+  verbatim), nunca `includes` — *"Diversas"* casaria com *"Diversas Antigas"*. E
+  a lista de aceitos tem as DUAS grafias: o operador escreveu *"diversos"*, a
+  seção no aparelho chama-se **"Diversas"** (conferido em
+  `site/telas/biblioteca.webp`), e nenhuma normalização une as duas.
+- **O Registro tem o bloco** (`blocoColetaneas`), com o motivo de cada
+  movimento: uma coletânea que some da tela sem explicação é indistinguível de um
+  catálogo que veio menor.
+
+### O ORÇAMENTO DA LISTA COLAPSADA — apertar, não esticar
+
+MEDIDO a 430×900, com **582px** de caixa de lista:
+
+| blocos | antes | depois |
+|---|---|---|
+| 9 | 553,9px (cabia) | — |
+| 10 | 615,1px (rolava) | **551,1px (cabe)** |
+| 11 | — | 605,9px (rola) |
+
+O que apertou foram as DUAS barras: `padding` de `.55rem` para `.35rem`, e
+`--bar-secao-h` de `calc(var(--hit) + 1.1rem)` para `+ .7rem`.
+
+- **APERTAR e não ESTICAR, e a razão é o vão dos FAVORITOS.** Esticar os cards
+  até o encaixe exato levaria aquele vão de 131px a 55px, e a seção passaria a
+  rolar quando aberta — desfazendo a v5.273/v5.277, que o operador pediu duas
+  vezes.
+- **E o segundo preço, que é a leitura literal do pedido:** apertar AFASTA do
+  enchimento exato em vez de aproximar. Com os 9 blocos do acervo dissolvido a
+  lista ocupa 496,3 dos 582px e sobram **~86** — contra os ~28 que sobrariam sem
+  o aperto. *"Aproveitem exatamente esse espaço"* virou *"caibam com folga"*, e
+  preencher exigiria esticar. (No aparelho a sobra é MENOR: os cards com
+  subtítulo — as duas séries, os hinários com peso — são mais altos que a barra
+  nua desta conta.)
+- **A promessa vale de 430px para cima.** MEDIDO: a 393×786 (entalhe de 39px,
+  caixa de 436px) cabem 7 blocos nos DOIS desenhos — ali o aperto não compra
+  bloco nenhum; a 360×740 (24px, 420px) ele vai de 6 para 7. Com 9 blocos, os
+  dois continuam rolando.
+- O aperto teve consequência medida: a linha de uma faixa passou a ser mais alta
+  que a barra do álbum que a contém (48px contra 45px), e o `smoke.mjs` pegou. O
+  `padding` da `.hymn-row` foi de `.3rem` para `.15rem` (48 → 42,8px); encolher a
+  miniatura moveria `--faixa-coluna-texto` e com ele a divisória.
+
+### O ACHADO QUE FICOU REGISTRADO, E NÃO CORRIGIDO
+
+Um `:not(.no-ar):not(.active):not(.selected)` chegou a ser escrito no nível 3 e
+saiu na mesma revisão: era código morto por dois motivos EMPILHADOS.
+`hymnResultRow` escreve `dataset.song` e `marcarNoAr` lê `dataset.id`, então a
+classe nunca chega; e mesmo forçada ela perderia para
+`.coll-songs > .hymn-result { --linha: var(--item-fill) }`, que empata em (0,2,0)
+com `.lib-item.no-ar` e vence por ordem de fonte — no tema claro isso compõe
+branco sobre branco, **1,000:1**. O conserto tem DUAS metades e nenhuma serve
+sozinha; ele está em `docs/ACHADOS-EM-ABERTO.md` §4, e o
+`lista-da-biblioteca.test.mjs` afirma a AUSÊNCIA — o que o app faz — em vez da
+promessa que ele não cumpre. **O irmão dos FAVORITOS era alcançável e foi
+corrigido no mesmo lote** (`.fav-itens > .lib-item:not(...)`), e é isso que
+explica o item *"o favorito que está no telão voltou a ficar destacado"* das
+notas.
+
+### Os oráculos
+
+- **`tools/coletanea.test.mjs`** (novo, Node puro): a regra, com entradas
+  VERBATIM da tela do aparelho, e as duas reversões que a provam — casar por
+  `includes` reprova, dissolver sem destino reprova.
+- **`tools/lista-da-biblioteca.test.mjs`** (novo, Chromium): a divisória e o véu,
+  medidos no PIXEL do PNG — uma regra `::before` sem a declaração de cor passa num
+  teste de classe e continua invisível na tela.
+- **`tools/boot-nativo.test.mjs`**: a LIGAÇÃO da regra até a tela. E os nomes das
+  seções do fixture de rolagem viraram neutros: três eram os nomes REAIS do
+  banco, e com a regra no ar aquele cenário montava CINCO seções onde o texto diz
+  seis — MEDIDO, com a asserção VERDE, medindo outra coisa.
+- **`tools/tokens.test.mjs`**: o par negativo/positivo da exceção.
+- **`.github/workflows/apk.yml`**: os dois novos entram na lista, e uma conferência
+  do lote achou que o `enquadramento-da-camada.test.mjs` nunca tinha sido
+  invocado — 69 oráculos em disco, 69 invocados agora.
+
+**Só base web.** Nada em `java/`, `res/` ou no manifesto; `SHELL_VERSION` fica em
+61 e o `version.json` sai sem `shellTag`.
 
 ---
 

@@ -2633,10 +2633,19 @@ try {
     setAppMode('full');
     openHymnSearch();
     await new Promise((r) => setTimeout(r, 250));
-    // As oito seções do relato outra vez: sem elas a lista cabe inteira na tela
+    // As seis seções do relato outra vez: sem elas a lista cabe inteira na tela
     // e não há rolagem nenhuma a afirmar.
+    //
+    // OS NOMES SÃO NEUTROS DESDE A v1.5.16, e isso não é cosmético: três deles
+    // eram os nomes REAIS do banco ('Celebra SP', 'Diversas', 'Especiais'), e a
+    // regra do `coletanea.js` dissolve o primeiro dentro do segundo. Com os
+    // nomes reais este cenário passaria a montar CINCO seções onde o texto diz
+    // seis — MEDIDO, a asserção continuava VERDE, medindo outra coisa. Um
+    // oráculo que segue passando enquanto mede outro cenário é pior que um que
+    // reprova. Quem exercita a regra com os nomes verdadeiros é o
+    // `coletanea.test.mjs`, que é onde eles pertencem.
     albumCatalog.categories = ['CDs oficiais/ano', 'Adoradores', 'Cantores',
-      'Celebra SP', 'Diversas', 'Especiais'].map((nome, i) => ({
+      'Coletânea D', 'Coletânea E', 'Coletânea F'].map((nome, i) => ({
       name: nome,
       albums: [{ id_album: 700 + i, name: 'Álbum ' + nome }],
     }));
@@ -2653,9 +2662,26 @@ try {
     const altFavAntes = secao('Favoritos').getBoundingClientRect().height;
     // A ÚLTIMA seção da lista: é a que mais precisa da rolagem, porque abrir
     // uma coleção lá embaixo cresce para fora da tela.
-    const alvo = 'Especiais';
-    const barra = secao(alvo).querySelector('.coll-group-bar');
-    const desvioAntes = secao(alvo).getBoundingClientRect().top
+    //
+    // DESCOBERTA, NUNCA DIGITADA — a regra que o caso do RODÍZIO já aplica lá
+    // em cima (`doisGrupos`). Este caso fala do ALINHAMENTO, não de quais
+    // seções existem, e um nome literal aqui envelhece com o fixture: um alvo
+    // que não casa devolve `undefined`, e o `TypeError` dentro do `evaluate`
+    // não sai como "a rolagem não alinhou" — sai como o PERCURSO INTEIRO
+    // reprovando com uma frase que não menciona esta tela. Daí a ausência
+    // VIAJAR DE VOLTA num campo, em vez de estourar aqui.
+    const secoes = [...hymnResultsEl.querySelectorAll('[data-grupo]')];
+    const alvo = secoes.length ? secoes[secoes.length - 1].dataset.grupo : '';
+    const elAlvo = secao(alvo);
+    if (!elAlvo) {
+      albumCatalog.categories = []; albumCatalog.albums = [];
+      grupoAberto = ''; favAberto = false;
+      closeHymnSearch();
+      setAppMode(modoAntes);
+      return { semAlvo: true, secoes: secoes.length };
+    }
+    const barra = elAlvo.querySelector('.coll-group-bar');
+    const desvioAntes = elAlvo.getBoundingClientRect().top
       - (hymnResultsEl.getBoundingClientRect().top
         + parseFloat(getComputedStyle(hymnResultsEl).paddingTop || 0));
     barra.click();
@@ -2686,6 +2712,10 @@ try {
   // quando a seção aberta é a última e o que ela abre é curto, não existe
   // conteúdo abaixo que a leve mais para cima. O que não pode acontecer é a
   // lista ficar parada, que era o estado anterior a este lote.
+  checar(!alinhado.semAlvo,
+    'há uma última seção com que medir o alinhamento (o alvo é DESCOBERTO na '
+    + 'lista, não digitado — um nome literal aqui envelhece com o fixture)',
+    JSON.stringify(alinhado));
   checar(alinhado.rolou > 0 && alinhado.desvio < alinhado.desvioAntes
     && (Math.abs(alinhado.desvio) <= 2 || alinhado.rolou >= alinhado.maximo - 1),
     'ABRIR UMA COLEÇÃO rola a lista até o topo dela — ela abre para baixo e a '
@@ -2696,6 +2726,213 @@ try {
     'e a seção dos Favoritos não muda de tamanho por causa disso — era o '
     + 'encolhimento dela que fazia a coleção parecer crescer para cima',
     Math.round(alinhado.altFavAntes) + 'px → ' + Math.round(alinhado.altFavDepois) + 'px');
+
+  // ── A COLETÂNEA DISSOLVIDA, DA TABELA ATÉ A TELA (v1.5.16) ─────────────
+  //
+  // O `coletanea.test.mjs` prende a REGRA, que é pura: dado o catálogo cru, o
+  // que ela devolve. Este caso prende a LIGAÇÃO, e ela falha de outro jeito —
+  // **a regra continua certa e o recurso não faz nada, ou faz no lugar
+  // errado.** É o par `hinario.test.mjs`/`hinario-tela.test.mjs` outra vez, e
+  // pelo mesmo motivo: `renderCollectionsListMiolo` tem DOIS consumidores do
+  // resultado (o laço que desenha as seções e o `claimed` que decide o que é
+  // órfão), e ligar só um deles é um desfecho que nenhum oráculo da regra
+  // alcança.
+  //
+  // AS CINCO METADES, e a segunda é a que carrega o caso:
+  //
+  //  1. a coletânea dissolvida NÃO É DESENHADA;
+  //  2. e **não nasce "Outros álbuns"**. MEDIDO: DROPAR a coletânea em vez de
+  //     FUNDI-LA devolve o bloco pela porta dos fundos — sem categoria que os
+  //     reivindique os álbuns viram órfãos, e o bloco reaparece com os mesmos
+  //     cards, outro nome e a MESMA contagem de blocos. Uma asserção que só
+  //     olhe o nome dissolvido passa nas duas versões, e o pedido do operador
+  //     (que as coleções caibam na tela) continua não atendido;
+  //  3. os cards dela são FILHOS DO CORPO DO DESTINO — a régua é a posição no
+  //     DOM, nunca a contagem: "há quatro cards em Diversas" é verdade também
+  //     se dois deles forem os errados;
+  //  4. a CONSERVAÇÃO, em CONJUNTOS: percorrendo a Biblioteca seção por seção,
+  //     cada álbum do catálogo tem card exatamente UMA vez. Contar aprova uma
+  //     troca, e os dois modos de errar da fusão são simétricos e mudos —
+  //     perder um álbum devolve uma lista plausível com um a menos, duplicá-lo
+  //     devolve o mesmo card duas vezes numa lista igualmente plausível;
+  //  5. a REVERSÃO: com um catálogo em que o DESTINO não existe, a coletânea de
+  //     origem CONTINUA desenhada. Sem esta metade, "dissolver" passa a
+  //     significar "apagar" no dia em que o banco renomear o destino — os
+  //     álbuns sairiam da seção que os hospedava, não haveria seção nenhuma
+  //     para recebê-los, e eles sumiriam da Biblioteca inteira sem erro em
+  //     lugar nenhum.
+  //
+  // OS NOMES SÃO OS REAIS DO BANCO, e é o único fixture deste arquivo que pode
+  // usá-los: aqui eles SÃO o assunto. Nos outros a regra dissolveria um dentro
+  // do outro e o cenário medido deixaria de ser o descrito (ver o caso do
+  // alinhamento, logo acima).
+  //
+  // AS CINCO PROVADAS POR REVERSÃO, e o quadro é o que as mantém: cada linha é
+  // um defeito escrito à mão no `coletanea.js` (ou o desligamento da regra no
+  // `controle.js`), rodado, e desfeito.
+  //
+  //   defeito introduzido          | reprova  | PASSA (e é o achado)
+  //   -----------------------------|----------|---------------------
+  //   dropar em vez de fundir      | 2, 3     | **1 e 4**
+  //   a regra não ligada ao laço   | 1, 3     | 2, 4
+  //   fail-safe removido           | 5        | 1, 2, 3, 4
+  //   a fusão perde um álbum       | 2, 3     | **4**
+  //   a fusão duplica (sem `jaLa`) | 3, 4     | 1, 2
+  //
+  // A coluna da direita é a razão de nenhuma metade poder sair: dropar em vez
+  // de fundir passa por 1 E por 4 — a coletânea de fato não é desenhada, e
+  // nenhum álbum se perde (eles reaparecem como órfãos). Quem o pega é só a 2.
+  //
+  // ELE NÃO AFIRMA QUE A LISTA CABE NA TELA. O empate é apertado e a régua
+  // viraria a altura de linha da fonte instalada no runner — o oráculo mediria
+  // a MÁQUINA. O que se afirma é a ESTRUTURA; caber é a consequência dela.
+  //
+  // NUM `<ul>` SOLTO, como o caso do índice lá em cima: todas as asserções aqui
+  // são estruturais (posição no DOM e conjuntos de nomes), e a janela da
+  // Biblioteca só acrescentaria uma subida animada a esperar. E o cenário é
+  // montado pela VARIÁVEL que o toque escreve (`grupoAberto`), nunca por
+  // cliques encadeados — é a regra que o caso do reset já aplica: montar por
+  // toque faria isto depender da animação de três acordeões.
+  const dissolve = await pg.evaluate(async () => {
+    const modoAntes = appMode;
+    setAppMode('full');
+    const catAntes = albumCatalog.categories;
+    const albAntes = albumCatalog.albums;
+    // OS CINCO NOMES na ordem lida na captura de aparelho, os MESMOS do
+    // fixture do `coletanea.test.mjs`. O nome do álbum carrega o `id_album`
+    // porque o card não tem `dataset` nenhum: quem o identifica na tela é o
+    // texto do `.coll-bar-name`, e é por ele que a CONSERVAÇÃO é medida.
+    const CATALOGO = [
+      { name: 'CDs oficiais/ano', ids: [10, 11] },
+      { name: 'Adoradores', ids: [20] },
+      { name: 'Cantores', ids: [30] },
+      // O 50 ESTÁ NAS DUAS, e não é enfeite de fixture: a relação
+      // categoria↔álbum é N:N no banco (ver `FONTE-DE-DADOS-LOUVORJA.md` §5.5)
+      // e `categoryCards` não deduplica. Sem essa sobreposição a CONSERVAÇÃO
+      // fica INFALSIFICÁVEL aqui — com ids disjuntos a fusão não tem como
+      // duplicar, e a asserção passaria por construção. MEDIDO: é com ela que
+      // tirar o `jaLa` do `coletanea.js` reprova.
+      { name: 'Celebra SP', ids: [40, 41, 50] },
+      { name: 'Diversas', ids: [50, 51] },
+    ];
+    const montar = (linhas) => {
+      albumCatalog.categories = linhas.map((c, i) => ({
+        id_category: i + 1, name: c.name, order: i + 1,
+        albums: c.ids.map((id, j) => ({ id_album: id, subtitle: '', order: j + 1 })),
+      }));
+      // O catálogo de álbuns é a UNIÃO, sem repetir: é dele que `allCollections`
+      // deriva os `album-<id>`, e sem a entrada aqui o card nem chega a existir
+      // — a conservação passaria a medir um catálogo vazio.
+      const vistos = new Set();
+      albumCatalog.albums = [];
+      for (const c of linhas) for (const id of c.ids) {
+        if (vistos.has(id)) continue;
+        vistos.add(id);
+        albumCatalog.albums.push({ id_album: id, name: 'Álbum ' + id, color: null });
+      }
+    };
+    const lista = document.createElement('ul');
+    lista.className = 'hymnal-list';
+    lista.style.width = '390px';
+    document.body.appendChild(lista);
+    const desenhar = () => {
+      lista.innerHTML = '';
+      renderCollectionsList(lista, desenhar, { semTotal: true });
+    };
+    const nomesDeSecao = () => [...lista.querySelectorAll('[data-grupo]')]
+      .map((n) => n.dataset.grupo);
+    const secao = (nome) => [...lista.querySelectorAll('[data-grupo]')]
+      .find((n) => n.dataset.grupo === nome);
+    // Os `id_album` com card DENTRO do corpo desta seção, na ordem do DOM.
+    const idsDoCorpo = (nome) => {
+      const el = secao(nome);
+      const corpo = el && el.querySelector('.coll-group-corpo');
+      if (!corpo) return [];
+      return [...corpo.querySelectorAll('.hymnal-card .coll-bar-name')]
+        .map((n) => Number(String(n.textContent).replace(/\D+/g, '')))
+        .filter((n) => n > 0);
+    };
+
+    // ===== O CENÁRIO NORMAL =====
+    montar(CATALOGO);
+    grupoAberto = ''; favAberto = false;
+    desenhar();
+    const secoes = nomesDeSecao();
+    // A CONSERVAÇÃO percorre a Biblioteca como o operador a percorre: UMA seção
+    // aberta por vez (é o rodízio, e ele é o desenho do app desde a v5.273),
+    // acumulando o que cada uma mostra. Um álbum que não aparecesse em seção
+    // NENHUMA some da lista sem erro; um que aparecesse em duas seria o card
+    // repetido que a fusão existe para impedir.
+    const desenhados = [];
+    for (const nome of secoes) {
+      grupoAberto = nome;
+      desenhar();
+      desenhados.push(...idsDoCorpo(nome));
+    }
+    grupoAberto = 'Diversas';
+    desenhar();
+    const noDestino = idsDoCorpo('Diversas');
+
+    // ===== A REVERSÃO: o DESTINO não existe neste banco =====
+    montar(CATALOGO.filter((c) => c.name !== 'Diversas'));
+    grupoAberto = ''; favAberto = false;
+    desenhar();
+    const semDestino = nomesDeSecao();
+
+    lista.remove();
+    albumCatalog.categories = catAntes; albumCatalog.albums = albAntes;
+    grupoAberto = ''; favAberto = false;
+    setAppMode(modoAntes);
+    return {
+      secoes,
+      desenhados,
+      noDestino,
+      semDestino,
+      // ÚNICOS: um álbum em duas coletâneas continua sendo UM álbum, e é
+      // exatamente isso que a conservação afirma.
+      doCatalogo: [...new Set(CATALOGO.flatMap((c) => c.ids))],
+    };
+  });
+  // A guarda do cenário: sem ela, tudo abaixo passa por vacuidade num catálogo
+  // que não foi semeado.
+  checar(dissolve.secoes.includes('Diversas')
+    && dissolve.doCatalogo.length === 8,
+    'o cenário das coletâneas está de pé: as seções do banco e os oito álbuns',
+    JSON.stringify(dissolve.secoes));
+  checar(!dissolve.secoes.includes('Celebra SP'),
+    'A COLETÂNEA DISSOLVIDA NÃO É DESENHADA — a regra do `coletanea.js` chega '
+    + 'à tela, e não só ao oráculo dela',
+    JSON.stringify(dissolve.secoes));
+  // A METADE QUE CARREGA O CASO. Sem ela, DROPAR a categoria em vez de FUNDIR
+  // passa: os álbuns viram órfãos e voltam como "Outros álbuns", com os mesmos
+  // cards, o mesmo número de blocos e o pedido do operador não atendido.
+  checar(!dissolve.secoes.includes('Outros álbuns')
+    && !dissolve.secoes.includes('Álbuns'),
+    'e NÃO nasce um bloco de órfãos no lugar dela: dissolver é FUNDIR, e um '
+    + '"Outros álbuns" com os mesmos álbuns devolveria o bloco pela porta dos '
+    + 'fundos', JSON.stringify(dissolve.secoes));
+  // A POSIÇÃO NO DOM, e não a contagem: os dois álbuns da coletânea dissolvida
+  // estão DENTRO do corpo do destino, no fim, na ordem que tinham.
+  checar(dissolve.noDestino.join(',') === '50,51,40,41',
+    'e OS CARDS DELA SÃO FILHOS DO CORPO DO DESTINO, no fim e na ordem que '
+    + 'tinham — a régua é onde eles estão na árvore, nunca quantos são',
+    JSON.stringify(dissolve.noDestino));
+  // CONJUNTOS, não contagem: contar aprova uma troca.
+  {
+    const vistos = dissolve.desenhados.slice().sort((a, b) => a - b);
+    const esperados = dissolve.doCatalogo.slice().sort((a, b) => a - b);
+    checar(JSON.stringify(vistos) === JSON.stringify(esperados),
+      'A CONSERVAÇÃO: percorrendo a Biblioteca seção por seção, cada álbum do '
+      + 'catálogo tem card exatamente UMA vez — nenhum se perde e nenhum se '
+      + 'duplica', JSON.stringify({ vistos, esperados }));
+  }
+  // A REVERSÃO / FAIL-SAFE. Ela é a razão de a regra ter um `sem-destino`, e é
+  // o que impede "dissolver" de virar "apagar" no dia em que o banco renomear
+  // a coletânea de destino.
+  checar(dissolve.semDestino.includes('Celebra SP'),
+    'e SEM O DESTINO NO BANCO a coletânea de origem CONTINUA desenhada — os '
+    + 'álbuns dela não têm para onde ir, e sumiriam da Biblioteca inteira sem '
+    + 'erro nenhum', JSON.stringify(dissolve.semDestino));
 
   // ── A MIGRAÇÃO DOS ATALHOS DE PASTA (v5.254) ───────────────────────────
   //

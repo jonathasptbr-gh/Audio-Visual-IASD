@@ -102,6 +102,13 @@
     // aborta nada visível — o app sobe inteiro e o `.pptx` deixa de abrir, com
     // um "não deu para abrir" que acusa o ARQUIVO do operador.
     if (!global.AVDeck) return false;
+    // `AVColetanea` (v1.5.16) fecha a lista pela MESMA razão dos irmãos, e o
+    // caso dele é o mais silencioso de todos: a regra é lida DENTRO do
+    // `renderCollectionsListMiolo`, então um erro de topo em `coletanea.js`
+    // não aborta nada — a Biblioteca desenharia o catálogo CRU, com a coletânea
+    // que o operador mandou dissolver de volta na tela, e o bundle seria
+    // carimbado como bom para sempre.
+    if (!global.AVColetanea) return false;
     if (typeof global.__avBack !== 'function') return false;
     return !!document.querySelector('#playlist > li');
   }

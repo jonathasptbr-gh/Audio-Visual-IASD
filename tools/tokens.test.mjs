@@ -185,9 +185,38 @@ checar(orfaos.length === 0,
 // A v1.5.14 troca a ESCADA (que acumula e acaba) pela ALTERNÂNCIA papel → poço
 // → papel: duas superfícies, profundidade ilimitada, 1,35:1 e 1,43:1 em cada
 // degrau. Sem escassez de degrau não há o que a borda resolva, e o pedido de
-// hoje — *"poucas bordas, sem traços finos, ou designs visualmente poluídos"* —
-// a dispensa. Restam as TRÊS exceções nomeadas, que são DESENHOS e não
+// então — *"poucas bordas, sem traços finos, ou designs visualmente poluídos"* —
+// a dispensa. Restam as TRÊS exceções nomeadas acima, que são DESENHOS e não
 // separadores.
+//
+// ## E A DIVISÓRIA ENTRE FAIXAS IRMÃS (v1.5.16) — a QUARTA, e ela é um TRAÇO
+//
+// Pedido do operador: *"Verifique a criação de um elemento de linha divisória
+// (não borda inteira), na listagem do itens propriamente dos álbuns, para
+// melhor distinção entre os itens."*
+//
+// **A moldura não voltou.** A distinção é de OBJETO, não de espessura: a
+// moldura era um retângulo por nível, quatro arestas, em três níveis ao mesmo
+// tempo, e carregava a HIERARQUIA — trabalho que a alternância faz hoje com
+// degrau real. Esta é UMA aresta, num nível só, entre IRMÃS, e faz o que a
+// alternância por construção não faz: separar vizinhas do MESMO nível. As três
+// palavras do pedido que decidem são *"não borda inteira"* — ele já sabe que o
+// app aboliu contorno e está distinguindo uma DIVISÓRIA de uma MOLDURA.
+//
+// E ela é ARITMÉTICA de novo: desde a v1.5.14 a faixa é transparente e a placa
+// atrás dela é `--panel`, então o vão de 4px que separa duas faixas mede
+// **1,00:1** contra os dois lados. Não é pouca separação — é separação nenhuma.
+//
+// **POR QUE ELA NÃO É UMA `border`, e por que isso NÃO é escapar pela letra.**
+// `border-bottom` cobre a caixa inteira e não tem como ser RECUADA, que é
+// literalmente o *"não borda inteira"* do pedido: a divisória começa na coluna
+// do NOME, não sob a miniatura. A forma vem do pedido. Mas um traço pintado
+// passaria por esta varredura sem que ninguém decidisse nada, e o precedente
+// que entraria no repositório seria *"filete pode, desde que não se chame
+// border"* — a heurística exata contra a qual este arquivo avisa. Daí as duas
+// asserções logo abaixo: uma POSITIVA, que exige que `--divisoria` tenha um
+// consumidor só e que ele seja este seletor, e uma NEGATIVA, que varre a fonte
+// por QUALQUER traço pintado e reprova todos os outros.
 //
 // Largura zero e cor transparente também passam: os dois não desenham nada.
 {
@@ -219,6 +248,62 @@ checar(orfaos.length === 0,
   checar(contornos.length === 0,
     'nenhuma regra desenha contorno: no app tudo se separa por PREENCHIMENTO',
     contornos.join('\n        '));
+}
+
+// ---------- E NENHUM TRAÇO PINTADO ALÉM DA DIVISÓRIA (v1.5.16) ----------
+// O par da asserção acima, e é ele que impede que a exceção da v1.5.16 vire
+// brecha. A varredura de contorno casa a palavra `border`; um filete desenhado
+// como bloco de 1px com fundo passa por ela sem que ninguém decida nada, e o
+// próximo separador entra como `height: 1px; background: var(--surface)`.
+//
+// A régua é a FORMA, não o nome: um bloco cuja regra declare `height: 1px` (ou
+// `width: 1px`) E um `background` que não seja transparente É um traço, chame-se
+// como se chamar. A única passagem é o seletor NOMEADO — a mesma mecânica dos
+// quatro desenhos de cima.
+//
+// PROVADO POR REVERSÃO: trocar o seletor da exceção por outro qualquer, ou
+// acrescentar um segundo bloco de 1px pintado em qualquer lugar da base, reprova.
+{
+  const EXCECAO = '.acervo .coll-songs > .hymn-result + .hymn-result::before';
+  const tracos = [];
+  let consumidores = 0;
+  for (const f of arquivos) {
+    const cru = fonte.get(f) || '';
+    const s = semComentarios(cru);
+    // Bloco a bloco, como a varredura do R1 — entre um `}` e o seletor seguinte
+    // cabe um comentário de trinta linhas, e um teto de caracteres faria o
+    // oráculo pular justamente as regras mais documentadas.
+    let pos = 0;
+    for (const bruto of s.split('}')) {
+      const chave = bruto.indexOf('{');
+      const inicio = pos;
+      pos += bruto.length + 1;
+      if (chave < 0) continue;
+      const sel = bruto.slice(0, chave).trim();
+      const corpo = bruto.slice(chave + 1);
+      if (!sel || sel.startsWith('@')) continue;
+      if (/background\s*:\s*var\(--divisoria\)/.test(corpo)) consumidores++;
+      const fino = /(?:^|[;{\s])(?:height|width)\s*:\s*1px\s*(?:;|$)/.test(corpo);
+      if (!fino) continue;
+      const m = corpo.match(/(?:^|[;{\s])background(?:-color)?\s*:\s*([^;}]+)/);
+      if (!m) continue;
+      const valor = m[1].trim();
+      if (/^(none|transparent)$/.test(valor)) continue;
+      if (sel === EXCECAO) continue;
+      tracos.push(path.relative(RAIZ, f) + ':' + (s.slice(0, inicio).split('\n').length)
+        + ' → ' + sel.replace(/\s+/g, ' ') + ' { ' + valor + ' }');
+    }
+  }
+  checar(tracos.length === 0,
+    'nenhum TRAÇO pintado além da divisória nomeada: um filete não deixa de ser '
+    + 'um filete por não se chamar `border`',
+    tracos.join('\n        '));
+  // E A METADE POSITIVA: `--divisoria` tem UM consumidor, e é o seletor da
+  // exceção. Sem ela, o token viraria a porta larga — qualquer regra nova
+  // poderia consumi-lo e a asserção acima a deixaria passar pelo nome do token.
+  checar(consumidores === 1,
+    '`--divisoria` é consumido por exatamente UMA regra (a exceção nomeada)',
+    consumidores + ' consumidor(es)');
 }
 
 // ---------- A SUPERFÍCIE DE UM CONTROLE É OPACA (v1.3.14) ----------
