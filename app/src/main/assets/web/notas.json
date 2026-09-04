@@ -1,5 +1,14 @@
 [
   {
+    "versao": "1.6.1",
+    "itens": [
+      "Transpor o tom ou trocar a velocidade deixou de encolher a letra da cifra.",
+      "O botão de tela cheia passou para o fim da barra da cifra, junto dos outros.",
+      "A rolagem avisa por escrito que espera a introdução antes de começar.",
+      "E a velocidade dela agora se lê como 0,5×, 1×, 1,5× e 2×, no lugar de “Auto”."
+    ]
+  },
+  {
     "versao": "1.6.0",
     "itens": [
       "A cifra agora abre em tela cheia, deitada, com os controles numa coluna à direita.",

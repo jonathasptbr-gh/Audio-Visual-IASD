@@ -119,9 +119,13 @@ const lvBadgeEl = document.getElementById('lvBadge');
 // O A+/A− DESTA FOLHA (o do Modo Fácil é outro nó, e fica): ele some na aba
 // da apresentação, onde não há texto para dimensionar — ver `renderLyricsView`.
 const lyricsFonteCtlEl = document.getElementById('lyricsPopup').querySelector('.lv-fonte-ctl');
-// O ⛶ da CIFRA EM TELA CHEIA (v1.6.0). No cabeçalho, que é ESTÁTICO — a barra
-// da cifra é refeita a cada `renderLyricsView`, e um botão de estado guardado
-// de lá vira um nó desligado da árvore. Ver `cifraCheiaAlternar`.
+// O ⛶ da CIFRA EM TELA CHEIA. Ele NASCE no cabeçalho e MORA na barra da cifra
+// (v1.6.1, pedido do operador: *"coloque ele no fim da lista à direita"*), que
+// `renderLyricsView` refaz a cada render — o nó é o MESMO, movido, e é esta
+// referência de módulo que o mantém vivo entre um redesenho e o próximo, com o
+// desenho e o ouvinte intactos. Um `querySelector` de dentro do `lvBuildCifra`
+// devolveria `null` justamente nos dois estados em que a saída mais importa
+// (a cifra "buscando" e a que falhou). Ver `lvBuildCifra` e `cifraCheiaAlternar`.
 const cifraCheiaBtnEl = document.getElementById('cifraCheiaBtn');
 const lyricsPopupEl = document.getElementById('lyricsPopup');
 const lyricsPopupTitleEl = document.getElementById('lyricsPopupTitle');
@@ -199,11 +203,34 @@ async function passoTamanhoDaLetra(passo) {
   try { await AVDB.setState('lyricsFont', lvTamanho); } catch (_) { /* sem banco: vale a sessão */ }
 }
 
-// O PAR VIVE EM DUAS CASAS, e o ouvinte é UM: delegado no documento, pela mesma
-// classe que o CSS pinta. Registrar dois pares de ouvintes por id daria duas
-// listas para manter em dia — e a do Modo Fácil já nasceu depois da outra.
+// O PAR VIVE EM DUAS CASAS, e o ouvinte é UM: delegado no documento, pelas
+// classes DO PAR — nunca por `.lv-fonte-btn`, que é APARÊNCIA. Registrar dois
+// pares de ouvintes por id daria duas listas para manter em dia, e a do Modo
+// Fácil já nasceu depois da outra.
+//
+// ===== O CONJUNTO É FECHADO, E ISSO É A CORREÇÃO (v1.6.1) =====
+//
+// `.lv-fonte-btn` veste também os quatro botões da barra da cifra (rolagem,
+// velocidade, −½ e +½): eles são o mesmo GESTO, e a classe é a pintura dele. O
+// `-1` era um `else` sobre esse conjunto ABERTO, então os quatro liam como
+// DIMINUIR. MEDIDO: transpor meio tom levava `--lv-fonte` de 1,4 para 1,2rem
+// nas DUAS casas, e em tela cheia levava a escada de lá de 2 para 1,7rem — e
+// GRAVAVA (`cifraFonteCheia`), no modo cujo objetivo declarado é ler de longe.
+//
+// O botão de ROLAR escapava POR ACIDENTE, e o acidente era parcial:
+// `cifraPintarRolar` troca o `innerHTML` dele dentro do próprio handler, então
+// o `e.target` é um `span.msym` já desligado da árvore — que não casa o seletor
+// nem tem ancestral (`closest` começa por SI MESMO, e é isso que fazia os
+// outros três casarem desligados). MEDIDO no hit-test de 1px sobre a caixa de
+// 34×34: ~60% da área cai no glifo e escapa, ~37% cai no botão e ENCOLHE (a
+// proporção anda com a fonte de ícones instalada; o que não anda é a parte que
+// encolhe ser grande) — e por TECLADO (Enter no botão focado) o alvo é o botão,
+// então o acidente não cobre nada.
+//
+// O conjunto agora é o MESMO que `aplicarTamanhoDaLetra` desabilita: o pintor e
+// o ouvinte deixaram de falar de conjuntos diferentes, e era essa divergência.
 document.addEventListener('click', (e) => {
-  const btn = e.target.closest && e.target.closest('.lv-fonte-btn');
+  const btn = e.target.closest && e.target.closest('.lv-fonte-menos, .lv-fonte-mais');
   if (!btn || btn.disabled) return;
   passoTamanhoDaLetra(btn.classList.contains('lv-fonte-mais') ? 1 : -1);
 });
@@ -295,7 +322,7 @@ const appVersionEl = document.getElementById('appVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.6.0';
+const WEB_VERSION = '1.6.1';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -11348,12 +11375,20 @@ function renderLyricsView() {
   // regra do microfone sem TV: explicar é melhor que mentir, e não oferecer é
   // melhor que explicar. Só ESTA instância; a do Modo Fácil é outro nó.
   lyricsFonteCtlEl.hidden = src === 'deck';
-  // O ⛶ SÓ EXISTE NA CIFRA (v1.6.0), pela mesma regra do microfone sem TV: não
-  // oferecer é melhor que explicar. E a tela cheia SAI SOZINHA quando a cifra
-  // deixa de ser a fonte — trocar de aba, ou a cena virar para uma música sem
-  // cifra. Sem esta guarda o layout desenhado para a cifra passaria a mostrar a
-  // letra com o seletor de abas escondido e sem o botão que devolve o retrato.
-  cifraCheiaBtnEl.hidden = src !== 'cifra';
+  // O ⛶ SÓ EXISTE NA CIFRA, pela mesma regra do microfone sem TV: não oferecer
+  // é melhor que explicar. Desde a v1.6.1 isso é ESTRUTURAL e não uma guarda: o
+  // único ponto que anexa o botão é `lvBuildCifra`, e a barra é esvaziada logo
+  // abaixo em todo render — fora da aba de cifra o nó não está na árvore.
+  //
+  // Escrever `hidden` aqui voltou a ser ARMADILHA e por isso saiu: esta linha
+  // roda ANTES do `innerHTML = ''` da barra, então ela carimbaria um nó que a
+  // linha seguinte desliga — e o `lvBuildCifra` o reanexaria ESCONDIDO, um
+  // botão presente, medindo 0×0, sem erro nenhum.
+  //
+  // A tela cheia SAI SOZINHA quando a cifra deixa de ser a fonte — trocar de
+  // aba, ou a cena virar para uma música sem cifra. Sem esta guarda o layout
+  // desenhado para a cifra passaria a mostrar a letra com o seletor de abas
+  // escondido e sem o botão que devolve o retrato.
   if (cifraCheia && src !== 'cifra') cifraCheiaSair();
   lyricsViewSegEl.hidden = avail.length < 2;
   lyricsViewSegEl.querySelectorAll('.fit-opt').forEach((btn) => {
@@ -12800,11 +12835,13 @@ if (typeof ResizeObserver === 'function') {
 // ## O modo LIVRE: px/s constante, para quando não há duração
 //
 // Ensaio sem tocar a gravação, um item sem linha do tempo (imagem, mensagem),
-// um vídeo cuja duração ainda não chegou. Ali `auto` não tem de onde tirar o
-// ritmo e cai no fixo — o botão continua dizendo `Auto`, que é a ESCOLHA, e o
-// `title` diz o que está de fato acontecendo. Os degraus numéricos são a escolha
-// explícita do mesmo ritmo fixo. **Os dois modos passaram a ser UM LAÇO**: a
-// única diferença é de onde sai o px/s.
+// um vídeo cuja duração ainda não chegou. Ali o sentinela `'auto'` não tem de
+// onde tirar o ritmo e cai no fixo — o botão continua dizendo `1×` (v1.6.1),
+// que é a ESCOLHA, e o `title` diz o que está de fato acontecendo. Ele é a
+// única superfície que ainda distingue os dois regimes, porque o rótulo passou
+// a dizer só a posição na escala. Os degraus numéricos são a escolha explícita
+// do mesmo ritmo fixo. **Os dois modos passaram a ser UM LAÇO**: a única
+// diferença é de onde sai o px/s.
 //
 // ## Por que `requestAnimationFrame`, e por que a posição é FRACIONÁRIA
 //
@@ -12829,9 +12866,37 @@ if (typeof ResizeObserver === 'function') {
 // frente, *"vale tanto para volta como para avanços"* — e a rolagem continua
 // dali. É a mesma linha que já cobria o modo livre: `cifraPos` reassume o
 // `scrollTop` sempre que alguém que não fomos nós o escreveu.
-const CIFRA_VELOCIDADES = ['auto', 0.5, 0.75, 1, 1.5, 2, 3];
-const CIFRA_VEL_PADRAO = 0; // 'auto'
-/** Pixels por segundo no 1× do modo livre. Ritmo de leitura, não de lista. */
+// ===== O SENTINELA `'auto'` SE CHAMA "1×", E É ELE A BASE (v1.6.1) =====
+//
+// Pedido do operador: *"ao invés de usar o botão com nome 'auto', use apenas
+// 0,5x, 1x, 1,5x… no caso o 'auto' seria o 1x, pois ele usa o tempo base como
+// padrão de comparação"* — e a correção dele, por extenso: *"não mude o
+// comportamento da escala, o comportamento estava correto, o nome auto que não
+// representava uma comparação de velocidade… as variações 1,5x ou 0,5x
+// representam mais rápido ou mais devagar em comparação com o 1x"*.
+//
+// **SÓ O RÓTULO E A ESCADA MUDAM.** O valor interno continua sendo o sentinela
+// `'auto'`, e `cifraRolarQuadro` não é tocado — ver a tensão declarada no
+// `cifraVelTitulo`.
+//
+// O `1` NUMÉRICO SAIU porque o rótulo o duplicava: dois botões escritos "1×" no
+// mesmo ciclo. E os dois eram o MESMO px/s no único regime em que um degrau
+// numérico existe para valer — sem duração, `ritmoDaRolagem` devolve 0 e os
+// dois ramos de `cifraRolarQuadro` terminam na mesma multiplicação
+// (`CIFRA_PX_POR_S * 1`). Não é "quase igual": é o mesmo `Number`.
+//
+// O `3` saiu a pedido: *"pode remover o 3x, não vamos precisar mais que isso"*.
+//
+// A ORDEM É A QUE O DEDO PERCORRE (o botão CICLA), e por isso é MONÓTONA, com o
+// `1×` no meio: a descontinuidade fica entre o maior e o menor, que é onde ela
+// não parte a vizinhança da base.
+const CIFRA_VELOCIDADES = [0.5, 0.75, 'auto', 1.5, 2];
+const CIFRA_VEL_PADRAO = 2; // o sentinela 'auto' — o degrau rotulado "1×"
+/**
+ * Pixels por segundo no degrau BASE **quando não há duração** (o modo livre).
+ * Ritmo de leitura, não de lista. Com duração o `1×` não vale 22 px/s — ele
+ * vale `rolável ÷ janela`; ver `cifraVelTitulo`.
+ */
 const CIFRA_PX_POR_S = 22;
 /** Teto do delta de um quadro: acima disso houve pausa, e pausa não é avanço. */
 const CIFRA_DT_MAX = 250;
@@ -12843,6 +12908,8 @@ let cifraRaf = 0;
 let cifraQuadroT = 0;
 let cifraRolarBtnEl = null;
 let cifraVelBtnEl = null;
+/** A NOTA da barra — a legenda do botão de rolar. Ver `cifraPintarRolar`. */
+let cifraNotaEl = null;
 /** De QUAL música é a rolagem em curso — ver a guarda no `lvBuildCifra`. */
 let cifraRolandoChave = '';
 /**
@@ -12859,9 +12926,10 @@ let cifraEsperaFimMs = -1;
  * quando `cifraSegurando` é verdadeiro, e ali não há indicador nenhum, porque
  * quem está com o dedo nela já sabe que ela não é a que está travada.
  *
- * Vive FORA do DOM, no padrão de `linhasCarregando`: `cifraPintarRolar` REFAZ
- * o botão inteiro a cada chamada (troca de velocidade, redesenho da folha), e
- * uma marca escrita só no nó sumiria no primeiro repintar durante a espera.
+ * Vive FORA do DOM, no padrão de `linhasCarregando`: `renderLyricsView` refaz a
+ * barra inteira (transpor, A+/A−, girar o aparelho), e uma marca escrita só num
+ * nó sumiria no primeiro redesenho no meio da espera. Hoje quem ela governa é a
+ * NOTA da barra, e não mais um anel dentro do botão.
  */
 let cifraEsperando = false;
 /**
@@ -12944,26 +13012,81 @@ function cifraDuracaoNoAr() {
   return parseFloat(seekEl.max) || 0;
 }
 
-/** O rótulo do degrau atual. Vírgula decimal — é o que o operador lê. */
+/**
+ * O rótulo do degrau atual. Vírgula decimal — é o que o operador lê.
+ *
+ * O sentinela `'auto'` se chama **"1×"**: ele é o estado NORMAL, a base contra
+ * a qual os outros dizem "mais rápido" ou "mais devagar". O valor interno não
+ * mudou, e por isso quem já tinha o degrau gravado não migra nada.
+ *
+ * O `replace(/0$/, '')` tira UM zero final e só alcança valores de uma casa
+ * decimal (os de duas não terminam em zero; os inteiros nem chegam lá). Ele
+ * cobre a escada que existe — um degrau abaixo de `0.005` sairia como `0,0×`,
+ * e é para isso que esta linha está escrita.
+ */
 function cifraVelRotulo() {
   const v = CIFRA_VELOCIDADES[cifraVelIdx];
-  if (v === 'auto') return 'Auto';
+  if (v === 'auto') return '1×';
   return (v % 1 === 0 ? String(v) : v.toFixed(2).replace(/0$/, '')).replace('.', ',') + '×';
 }
 
 /**
  * O que o botão de velocidade PROMETE, dito por extenso.
  *
- * `Auto` sem relógio não é erro — é o caso normal de um ensaio sem tocar a
- * gravação —, mas também não pode ficar mudo: o rótulo mostra a ESCOLHA e esta
- * frase mostra o que está de fato acontecendo. Sem ela, "por que a folha não
- * acompanha a música?" não tem resposta em lugar nenhum.
+ * ===== ELA É A ÚNICA COISA NA TELA QUE DIZ DE ONDE SAI O RITMO (v1.6.1) =====
+ *
+ * Enquanto o degrau base se chamou `Auto`, o rótulo já respondia metade da
+ * pergunta. Com ele chamado `1×`, o rótulo passou a dizer só a POSIÇÃO na
+ * escala, e *"a folha está seguindo a música?"* não tem outra resposta em lugar
+ * nenhum — nem na nota da barra, que descreve a SEQUÊNCIA (espera, depois
+ * rola) e de propósito não nomeia a fonte do compasso: duas escritas do mesmo
+ * fato divergem no primeiro ajuste.
+ *
+ * TRÊS estados, três frases, porque cada um pede uma leitura diferente. E o
+ * caso numérico mudou de sentido: antes era "você escolheu um número", agora é
+ * "você saiu da base" — e uma comparação sem o outro termo não é informação.
+ *
+ * ===== A TENSÃO, DECLARADA E NÃO CONSERTADA =====
+ *
+ * Mantida a conta, COM duração o `1×` NÃO é 22 px/s: ele é `rolável ÷ janela`
+ * (MEDIDO na fixture de 220 pares: 59,79 px/s numa música de 300 s, 131,03 numa
+ * de 150 s), enquanto os outros degraus multiplicam o FIXO. Logo o `1,5×` (33
+ * px/s) chega a ser MAIS LENTO que o `1×` numa música de 200 s. O operador
+ * decidiu que o rótulo é um INDICADOR RELATIVO (mais rápido / mais devagar), e
+ * não um contrato numérico — *"o comportamento estava correto"*. É esta frase
+ * que impede a leitura errada de virar surpresa; NÃO mexer na conta para
+ * "consertar" o rótulo.
  */
 function cifraVelTitulo() {
-  if (CIFRA_VELOCIDADES[cifraVelIdx] !== 'auto') return 'Velocidade da rolagem';
+  if (CIFRA_VELOCIDADES[cifraVelIdx] !== 'auto') {
+    return 'Ritmo fixo, mais rápido ou mais devagar que o 1× (toque para trocar)';
+  }
   return cifraDuracaoNoAr() > 0
-    ? 'Rolagem no ritmo da música (toque para escolher uma velocidade fixa)'
-    : 'Sem duração da música: rolagem em ritmo fixo (toque para escolher a velocidade)';
+    ? '1×: rolagem no ritmo da música (toque para escolher uma velocidade fixa)'
+    : '1×: sem duração da música, rolagem em ritmo fixo (toque para trocar)';
+}
+
+/**
+ * O TEXTO DA NOTA — e ele só promete o ritmo da música QUANDO É VERDADE.
+ *
+ * O operador pediu a frase inteira: *"ao dar play, ele vai ficar imóvel por
+ * alguns segundos para tocar a introdução e depois irá seguir a rolagem no
+ * ritmo da música"*. Mas o compasso só sai do relógio no degrau BASE e com
+ * duração no ar — fora daí ele é o ritmo fixo vezes o fator, e prometer a
+ * música ali é a frase mentindo na tela. É a regra que já fez o
+ * `MOTIVO_SEM_CIFRA` descrever o FATO em vez da conclusão (v1.2.21).
+ *
+ * A saída não é largar a metade que o operador pediu: é dizê-la só onde ela é
+ * verdadeira. A pergunta é a MESMA do `cifraVelTitulo` e sai da MESMA fonte
+ * (`cifraDuracaoNoAr`) — duas contas para "a folha segue a música?" divergiriam
+ * no primeiro ajuste, e o que sobraria seria a nota e o título discordando
+ * sobre o mesmo fato, a dois centímetros um do outro.
+ */
+function cifraNotaTexto() {
+  const segueAMusica = CIFRA_VELOCIDADES[cifraVelIdx] === 'auto' && cifraDuracaoNoAr() > 0;
+  return segueAMusica
+    ? 'Ao tocar, espera a introdução e depois rola no ritmo da música.'
+    : 'Ao tocar, espera a introdução e depois rola sozinha.';
 }
 
 // Os dois botões vivem no DOM, que `renderLyricsView` refaz inteiro — então o
@@ -12975,6 +13098,29 @@ function cifraPintarRolar() {
     cifraVelBtnEl.title = t;
     cifraVelBtnEl.setAttribute('aria-label', t);
   }
+  // ===== A NOTA NO LUGAR DO ANEL (v1.6.1) =====
+  //
+  // Pedido do operador: *"para o efeito de início da rolagem, que atualmente é
+  // um spiner, remova esse efeito. ao invés dele. coloque uma mensagem de
+  // confirmação, dizendo que ao dar play, ele vai ficar imóvel por alguns
+  // segundos para tocar a introdução… tente usar o sistema padrão do app de
+  // colocar essa mensagem na própria ui e não em pop up"*.
+  //
+  // ELA EXISTE ENQUANTO A FOLHA NÃO ESTÁ ANDANDO SOZINHA, e isso é UM predicado
+  // sobre o estado que já existe — não um estado novo. Antes do toque ela
+  // ANUNCIA (o pedido está escrito no FUTURO: *"ao dar play, ele VAI ficar
+  // imóvel"*, e uma frase que só nasce depois do play descreve como porvir uma
+  // coisa já em curso); durante a espera ela é a RAZÃO da imobilidade, que é o
+  // trabalho que o anel fazia — *"o botão sozinho pausado e imóvel é
+  // indistinguível de um botão quebrado"*.
+  //
+  // SOME no primeiro quadro de movimento (`cifraRolarQuadro`), no MESMO ponto
+  // em que o anel sumia: daí em diante a própria folha andando já diz "está
+  // funcionando". Fora dessa janela nenhuma das duas perguntas existe.
+  if (cifraNotaEl) {
+    cifraNotaEl.textContent = cifraNotaTexto();
+    cifraNotaEl.hidden = cifraRolando && !cifraEsperando;
+  }
   if (!cifraRolarBtnEl) return;
   cifraRolarBtnEl.classList.toggle('ativa', cifraRolando);
   cifraRolarBtnEl.innerHTML = '';
@@ -12984,13 +13130,11 @@ function cifraPintarRolar() {
   const ico = msym(cifraRolando ? ICON.pause : ICON.play);
   ico.setAttribute('aria-hidden', 'true');
   cifraRolarBtnEl.appendChild(ico);
-  // O ANEL DA ESPERA INICIAL (v1.5.20): a MESMA linguagem visual do download em
-  // curso (`aroDeEspera`), só que sem seta — não há bytes chegando, há um
-  // relógio correndo. Ele diz "em andamento", não "travado"; o botão sozinho
-  // pausado e imóvel é indistinguível de um botão quebrado.
-  if (cifraRolando && cifraEsperando) cifraRolarBtnEl.appendChild(aroDeEspera());
-  const rotulo = !cifraRolando ? 'Rolar sozinho'
-    : (cifraEsperando ? 'Lendo a introdução antes de rolar…' : 'Parar a rolagem');
+  // O NOME DO BOTÃO É A AÇÃO DELE, e mais nada. Ele já disse "Lendo a introdução
+  // antes de rolar…" durante a espera, o que era o estado e não a ação — e hoje
+  // seria uma segunda escrita do que a nota diz por extenso, em texto real que o
+  // leitor de tela alcança.
+  const rotulo = cifraRolando ? 'Parar a rolagem' : 'Rolar sozinho';
   cifraRolarBtnEl.title = rotulo;
   cifraRolarBtnEl.setAttribute('aria-label', rotulo);
 }
@@ -13079,9 +13223,10 @@ function cifraRolarQuadro(t) {
       return;
     }
   }
-  // O indicador SOME no exato instante em que o movimento de fato começa — daí
-  // em diante a própria folha andando já diz "está funcionando", e o anel
-  // deixaria de ser verdade (ele promete "ainda não", não "sempre").
+  // A NOTA SOME no exato instante em que o movimento de fato começa — daí em
+  // diante a própria folha andando já diz "está funcionando", e a frase deixaria
+  // de ser verdade (ela promete "ainda não", não "sempre"). É a ÚNICA saída
+  // dela: fora deste ponto o predicado do `cifraPintarRolar` a mantém à vista.
   if (cifraEsperando) { cifraEsperando = false; cifraPintarRolar(); }
 
   const antes = el.scrollTop;
@@ -13132,8 +13277,10 @@ function cifraRolarAlternar() {
   cifraEscrito = -1;
   // A ESPERA INICIAL nasce ARMADA-PARA-ARMAR: o sentinel `-1` diz "ainda não
   // sei quanto tempo esperar" (só o primeiro quadro conhece o `pxPorS`), e
-  // `cifraEsperando` liga o indicador JÁ NESTE TOQUE — não faz sentido o botão
-  // ficar mudo por um quadro só porque o cálculo ainda não rodou.
+  // `cifraEsperando` sobe no MESMO bloco síncrono de `cifraRolando` — a razão
+  // inverteu com a nota (v1.6.1): ela já estava na tela antes do toque, e é
+  // esta linha que impede a folha de PISCAR a legenda por um quadro enquanto o
+  // cálculo não rodou.
   cifraEsperaFimMs = -1;
   cifraEsperando = true;
   // Rolar sozinho e ACOMPANHAR a estrofe no ar são dois donos do mesmo scroll.
@@ -13225,13 +13372,54 @@ function cifraDesenharFolha(el, pagina, semitons) {
 // FORA do que rola, para o pausar continuar alcançável com a folha andando.
 function lvBuildCifra(el, barra) {
   const item = lvItem();
-  // OS BOTÕES MORREM COM O RENDER ANTERIOR. Sem soltá-los aqui, um render que
-  // caia em "procurando" ou em erro deixa `cifraPintarRolar` escrevendo num nó
-  // já desligado da árvore — sem erro, e sem efeito nenhum na tela.
+  // OS BOTÕES E A NOTA MORREM COM O RENDER ANTERIOR. Sem soltá-los aqui, um
+  // render que caia em "procurando" ou em erro deixa `cifraPintarRolar`
+  // escrevendo num nó já desligado da árvore — sem erro, e sem efeito nenhum na
+  // tela. (O ⛶ é a EXCEÇÃO deliberada: ele é um nó só, reanexado abaixo.)
   cifraRolarBtnEl = null;
   cifraVelBtnEl = null;
+  cifraNotaEl = null;
   const entrada = cifraGarantir(item);
   const nome = cifraNomeDoItem(item);
+
+  // ===== A BARRA NASCE COM A SAÍDA, ANTES DE QUALQUER RETORNO CEDO (v1.6.1) ==
+  //
+  // Pedido do operador: *"coloque o botão de tela, na mesma linha dos botões de
+  // rolagem automática e etc... coloque ele no fim da lista à direita"*.
+  //
+  // E ISTO É UMA INVARIANTE DE ESTRUTURA, NÃO DE ESTADO: *a barra da cifra
+  // sempre tem a saída*. Os dois `return` abaixo ("procurando" e o erro) são
+  // alcançáveis COM A TELA CHEIA NO AR — `cifraCabe` não olha o estado, então
+  // `lvActiveSource()` continua devolvendo `'cifra'` e a saída automática do
+  // `renderLyricsView` não dispara. Basta a cena virar de faixa para a entrada
+  // nova nascer em "buscando"; e num `falha` isso é PERMANENTE, porque
+  // `cifraGarantir` não reconsulta na sessão. Construída depois dos retornos, a
+  // barra some e o que sobra é uma paisagem deitada com uma frase de erro e
+  // NENHUMA saída à vista — o ✕ e o toque no fundo já saem em tela cheia por
+  // regra escrita, e Esc/F11 não existem num aparelho. Sobraria só o voltar do
+  // Android, que é a saída que ninguém vê.
+  //
+  // O `tom` é anexado NOS TRÊS ESTADOS, vazio quando não há página: o
+  // `space-between` com UM filho põe esse filho no INÍCIO, e o ⛶ sairia à
+  // esquerda.
+  const topo = barra || el;
+  topo.className = 'lyricsview-bar lv-cifra-topo';
+  if (barra) barra.hidden = false;
+  const tom = document.createElement('span');
+  tom.className = 'lv-cifra-tom';
+  const ctl = document.createElement('div');
+  ctl.className = 'lv-cifra-ctl';
+  topo.append(tom, ctl);
+  // O ⛶ É UM NÓ SÓ, MOVIDO — e `appendChild` MOVE (não copia). Ele mora no
+  // HTML e nasce `hidden` porque a barra não existe até a primeira folha de
+  // cifra; daqui em diante quem responde "ele está à vista?" é a ÁRVORE, e a
+  // árvore responde certo de graça: `renderLyricsView` esvazia a barra em todo
+  // render, então fora da aba de cifra ele simplesmente não está em lugar
+  // nenhum. O reanexo é INCONDICIONAL — MEDIDO, o nó sai da árvore a cada
+  // redesenho (um `resize`, o `fullscreenchange`) e sobrevive só pela
+  // referência de módulo, com o desenho e o ouvinte intactos.
+  cifraCheiaBtnEl.hidden = false;
+  ctl.appendChild(cifraCheiaBtnEl);
 
   if (!entrada || entrada.estado === 'buscando') {
     el.appendChild(cifraEspera('Procurando a cifra…'));
@@ -13272,18 +13460,11 @@ function lvBuildCifra(el, barra) {
   const p = entrada.pagina;
   const n = entrada.semitons;
 
-  // O CABEÇALHO: tom e transposição. O tom mostrado é o TRANSPOSTO — mostrar o
-  // original ao lado de uma folha já transposta é a folha e o rótulo dizendo
-  // coisas diferentes sobre a mesma tela.
-  const topo = barra || el;
-  topo.className = 'lyricsview-bar lv-cifra-topo';
-  if (barra) barra.hidden = false;
-  const tom = document.createElement('span');
-  tom.className = 'lv-cifra-tom';
+  // O tom mostrado é o TRANSPOSTO — mostrar o original ao lado de uma folha já
+  // transposta é a folha e o rótulo dizendo coisas diferentes sobre a mesma
+  // tela.
   const tomAtual = AVCifra.transporTom(p.tom, n);
   tom.textContent = tomAtual ? 'Tom: ' + tomAtual : '';
-  const ctl = document.createElement('div');
-  ctl.className = 'lv-cifra-ctl';
   const menos = document.createElement('button');
   menos.type = 'button';
   menos.className = 'lv-fonte-btn';
@@ -13317,8 +13498,22 @@ function lvBuildCifra(el, barra) {
   cifraVelBtnEl.title = 'Velocidade da rolagem';
   cifraVelBtnEl.setAttribute('aria-label', 'Velocidade da rolagem');
   cifraVelBtnEl.addEventListener('click', cifraVelPasso);
-  ctl.append(cifraRolarBtnEl, cifraVelBtnEl, menos, mais);
-  topo.append(tom, ctl);
+  // `prepend` E NÃO `append`: o ⛶ já está no `ctl` desde antes dos retornos
+  // cedo, e ele é o ÚLTIMO da fila (o pedido). Inserir os quatro na frente dele
+  // mantém UM ponto de anexo para a saída — dois `append` do mesmo nó em ramos
+  // diferentes é a divergência que este arquivo evita por construção.
+  ctl.prepend(cifraRolarBtnEl, cifraVelBtnEl, menos, mais);
+  // A NOTA, terceira filha da barra (a `#lyricsViewBar` É a `.lv-cifra-topo`:
+  // ela RECEBE a classe, não hospeda um wrapper). Ela ocupa a linha inteira, e
+  // é por isso que a barra passou a poder quebrar — um wrapper em volta de
+  // [tom][ctl] faria dos dois um único filho flex e mataria o `space-between`,
+  // que é o mesmo que a coluna deitada reusa para empurrar a transposição ao pé.
+  //
+  // A FRASE NASCE VAZIA: quem a escreve é `cifraPintarRolar`, porque ela DEPENDE
+  // DO ESTADO (ver `cifraNotaTexto`) e este ponto roda uma vez por folha.
+  cifraNotaEl = document.createElement('small');
+  cifraNotaEl.className = 'lv-cifra-nota';
+  topo.appendChild(cifraNotaEl);
   cifraPintarRolar();
 
   // A FOLHA. Um nó por linha, com a classe dizendo o que ela é — é o que deixa

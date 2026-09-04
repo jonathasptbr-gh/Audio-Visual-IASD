@@ -187,9 +187,10 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
      começaria a encostar na borda no primeiro ajuste.
 
      O PISO é o `.lv-cifra-vel`, o único botão que não é quadrado: ele pede
-     `--hit + .9rem` (48,4px) para o rótulo "Auto" não empurrar os vizinhos ao
-     ciclar. `--hit + 2rem` (66px) deixa 56,4px de conteúdo depois do recuo dos
-     dois lados, que é folga de ~4px de cada lado do maior deles.
+     `--hit + 1.2rem` (53,2px), a largura do rótulo mais largo da escada
+     (`0,75×`, MEDIDO em 49,2px de caixa) mais folga. `--hit + 2rem` (66px)
+     deixa 56,4px de conteúdo depois do recuo dos dois lados — 3,2px de sobra
+     sobre o maior deles.
 
      E ela é uma FAIXA DE GRID, não um overlay: a coluna da preview
      (`.pv-fsctl`) é absoluta e translúcida porque lá o que está por baixo é a
@@ -7519,12 +7520,17 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    cabeçalho a cada toque, e o par deixaria de ser um par. */
 .lv-fonte-btn:disabled { opacity: .38; cursor: default; }
 .lv-fonte-btn:not(:disabled):active { transform: var(--press); filter: var(--press-luz); }
-/* O ⛶ da cifra veste o MESMO fundo do par ao lado: os três são a família de
-   controles do cabeçalho da folha, e duas aparências para a mesma família seria
-   ruído. A caixa, o raio e a escala do ícone vêm do esqueleto só-de-ícone lá
-   em cima — aqui sobra o que difere. Ele NÃO é um `.lv-fonte-btn`: o ouvinte
-   delegado daquela classe lê "não é `.lv-fonte-mais`" como DIMINUIR, e um ⛶
-   com a classe do par abriria a tela cheia encolhendo a letra. */
+/* O ⛶ da cifra veste o MESMO fundo dos botões da barra em que ele mora
+   (v1.6.1): a fila inteira é uma família, e duas aparências para ela seria
+   ruído. A caixa, o raio e a escala do ícone vêm do esqueleto só-de-ícone lá em
+   cima — aqui sobra o que difere. Ele NÃO precisa ser um `.lv-fonte-btn`: essa
+   classe é a PINTURA de um passo numa escada, e o que ela daria a mais
+   (`font-size`, `font-weight`, `tabular-nums`, `:disabled`) não alcança um
+   botão de ícone que nunca é desabilitado — MEDIDO, o desenho é o mesmo com ou
+   sem ela.
+   O `[hidden]` é a regra que faz o estado de NASCENÇA valer: o botão vem do
+   HTML escondido, e `lvBuildCifra` o limpa no ato em que o move para a barra.
+   Depois disso quem responde "ele está à vista?" é a ÁRVORE. */
 .lv-cheia-btn { background: var(--surface); color: var(--text); }
 .lv-cheia-btn[hidden] { display: none; }
 
@@ -7740,9 +7746,14 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    que põe a estrofe acima do respiro entre pares, em vez de empatar com ele. */
 .lv-cifra-vazio { height: .9em; }
 
-/* Tom à esquerda, controles à direita — todos reusando `.lv-fonte-btn` porque é
-   o mesmo gesto (um passo por toque numa escada) e duas aparências para o mesmo
-   gesto seria ruído.
+/* Tom à esquerda, controles à direita. Os QUATRO da escada reusam
+   `.lv-fonte-btn` porque é o mesmo gesto (um passo por toque numa escada) e
+   duas aparências para o mesmo gesto seria ruído; o ⛶ do fim da fila continua
+   `.lv-cheia-btn` e SÓ ela — ele não é um passo numa escada, e a classe já
+   entra nas três listas compartilhadas (o esqueleto só-de-ícone, o `--press` e
+   a escala do SVG), que é tudo o que a outra daria. Desde a v1.6.1 o ouvinte do
+   par casa `.lv-fonte-menos, .lv-fonte-mais` e não a família, então a distinção
+   deixou de ser uma armadilha e virou só o que ela sempre foi: nomenclatura.
 
    FORA DA CAIXA QUE ROLA (v1.1.22). Ela morava dentro do corpo e rolava com o
    texto: com a rolagem automática ligada, o pausar saía de cena em segundos, e
@@ -7758,8 +7769,15 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    Agora: 10,4px acima (3,2 do seletor + 7,2 daqui) e 9,6px abaixo. */
 .lyricsview-bar { margin: .45rem .9rem .6rem; }
 .lyricsview-bar[hidden] { display: none; }
+/* A BARRA PODE QUEBRAR EM DUAS LINHAS (v1.6.1): a nota é uma LINHA INTEIRA. Um
+   `flex-wrap` e não um wrapper em volta de [tom][ctl] — o wrapper faria dos dois
+   um único filho flex e mataria o `space-between`, que é o mesmo que a coluna
+   deitada reusa para empurrar a transposição ao pé. `row-gap` PRÓPRIO
+   (`--sp-2`) e não o `--sp-5` herdado: 9,6px entre um controle e a legenda dele
+   é vão de BLOCO, e isto é uma legenda colada. */
 .lv-cifra-topo {
   display: flex; align-items: center; justify-content: space-between; gap: var(--sp-5);
+  flex-wrap: wrap; row-gap: var(--sp-2);
 }
 .lv-cifra-tom {
   font-size: var(--fs-lg); font-weight: var(--fw-forte); color: var(--muted);
@@ -7769,27 +7787,50 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
 /* A ROLAGEM AUTOMÁTICA (v1.1.20). Dois controles, e os dois com a aparência do
    A+/A− pelo mesmo motivo de sempre: é um passo por toque numa escada.
    O de velocidade CICLA (a escada volta ao começo), como o botão de girar a
-   mídia — com sete degraus, dar a volta custa menos que um segundo botão. */
+   mídia — com CINCO degraus, dar a volta custa menos que um segundo botão. */
 .lv-cifra-rolar.ativa { color: var(--accent); }
-/* O ANEL DA ESPERA INICIAL (v1.5.20) — a MESMA peça `.dl-ring` do download em
-   curso, só que ENCOLHIDA e SOBREPOSTA ao ícone de pause, e não ao lado dele:
-   o botão é `--hit` (34px) e um segundo elemento em fluxo normal o alargaria.
-   `position: absolute` tira o anel do fluxo — o ícone de pause continua
-   centrado pelo `flex` do botão como sempre — e `inset: 0; margin: auto`
-   centraliza o anel sobre ele, formando o mesmo desenho "ícone dentro do
-   anel" que a miniatura em download já usa. */
-.lv-cifra-rolar { position: relative; }
-.lv-cifra-rolar .dl-ring {
-  --dl-ring: 30px;
-  position: absolute; inset: 0; margin: auto;
-  pointer-events: none;
+/* A NOTA DA BARRA (v1.6.1) — o que o play vai fazer, e por que a folha fica
+   parada logo depois dele. Ela substituiu o anel `.dl-ring` que ficava sobre o
+   ícone de pause: o operador pediu a mensagem *"na própria ui e não em pop up"*,
+   e o molde é o da `.sorteio-nota` — `--muted`, `--fs-sm`, sem caixa e sem
+   ícone, porque é uma AFIRMAÇÃO e não um controle, e o olho tem de cair nos
+   botões primeiro. `width: 100%` é o que a põe na linha de baixo sozinha.
+   Contraste MEDIDO: `--muted` sobre o `--panel` da folha dá 6,66:1, e é o mesmo
+   par que o `.lv-cifra-tom` ao lado já pinta.
+
+   E ELA NÃO PRECISA DE UMA REGRA `[hidden]` PRÓPRIA, ao contrário das duas
+   vizinhas: `.lv-cheia-btn` e `.lyricsview-bar` têm uma porque um seletor de
+   AUTOR lhes escreve `display` (o esqueleto só-de-ícone numa, a
+   `.lv-cifra-topo` na outra — a barra RECEBE essa classe), e regra de autor
+   vence o `[hidden]` do agente do usuário em qualquer especificidade. Aqui
+   nenhuma escreve — MEDIDO, varrendo as folhas em busca de quem case a nota e
+   declare `display`: zero —, e o `hidden` do JS resolve sozinho. Quem der um
+   `display` a esta regra traz junto a necessidade de uma `[hidden]`. */
+.lv-cifra-nota {
+  width: 100%;
+  font-size: var(--fs-sm); line-height: 1.35; color: var(--muted);
 }
-/* O ÚNICO botão da família que não é quadrado: o rótulo é uma PALAVRA ("Auto"),
-   não um par de caracteres. `min-width` guarda a largura do maior rótulo para o
-   ciclo não empurrar os vizinhos a cada toque — um botão que se desloca sob o
-   dedo é um botão que erra o alvo na segunda batida. */
+/* O ⛶ É A SAÍDA, e ela não pode encostar no `+½`: o erro é ASSIMÉTRICO — errar
+   o `+½` e pegar a saída desfaz o modo inteiro e gira a Activity ida e volta na
+   frente de quem está tocando; errar a saída e pegar o `+½` custa um meio tom,
+   desfeito no vizinho. MEDIDO: antes de mudar de casa ela estava a 192px do
+   `+½`; com o `gap` de 4px da fila, ficaria a 4. O respiro é o mesmo nos dois
+   eixos, e vem em duas declarações porque a fila vira COLUNA em tela cheia. */
+.lv-cifra-ctl .lv-cheia-btn { margin-left: var(--sp-5); }
+/* O ÚNICO botão da família que não é quadrado: o rótulo tem até CINCO
+   caracteres (`0,75×`), não um par deles. `min-width` guarda a largura do MAIOR rótulo
+   para o ciclo não empurrar os vizinhos a cada toque — um botão que se desloca
+   sob o dedo é um botão que erra o alvo na segunda batida.
+
+   O VALOR SUBIU NA v1.6.1, e ele já estava curto ANTES do lote: MEDIDO, o
+   `0,75×` pede 49,17px de caixa contra os 48,39 do `--hit + .9rem`, então ele
+   crescia 0,78px e empurrava os vizinhos — a proteção que este `min-width`
+   existe para dar. `--hit + 1.2rem` (53,19px) leva os cinco rótulos à mesma
+   caixa, com 4,02px de folga sobre o maior; e cabe na coluna deitada, que tem
+   56,4px úteis (ver `--cifra-coluna`). A folga importa: a base pede
+   `system-ui`, e quem mede o texto é a fonte instalada no aparelho. */
 .lv-cifra-vel {
-  width: auto; min-width: calc(var(--hit) + .9rem); padding: 0 .5rem;
+  width: auto; min-width: calc(var(--hit) + 1.2rem); padding: 0 .5rem;
   font-variant-numeric: tabular-nums;
 }
 
@@ -7832,10 +7873,10 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    ## O que a coluna tem, e o que NÃO tem
 
    Entra o que a folha JÁ tem, reposicionado — zero botão reimplementado
-   (invariante 5): o ⛶ do cabeçalho, o A−/A+ do cabeçalho, e o tom, o rolar, a
-   velocidade e o −½/+½ da barra. A ordem 3→4→5 é a que a barra já decidiu (a
-   rolagem vale a música inteira, a transposição vale uma vez) e cai de graça do
-   grid.
+   (invariante 5): o A−/A+ do cabeçalho, e o tom, o rolar, a velocidade, o
+   −½/+½ e o ⛶ da barra. A ordem é a que a barra já decidiu (a rolagem vale a
+   música inteira, a transposição vale uma vez, e a SAÍDA é a última — o pé da
+   coluna é o outro extremo do alcance do polegar) e cai de graça do grid.
 
    Ficam de fora, cada um por um motivo: o TÍTULO (metadado que o operador
    acabou de escolher — o `Tom:` fica porque é o único texto que muda ao vivo),
@@ -7866,9 +7907,10 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
   grid-template-rows: auto 1fr;
 }
 /* A COLUNA, de cima para baixo: o cabeçalho na linha 1 (auto) e a barra na
-   linha 2 (`1fr`), com o `space-between` de dentro dela empurrando a
-   transposição para o pé — o alcance do polegar de quem segura o aparelho
-   deitado, a mesma distribuição por altura inteira da coluna da preview. */
+   linha 2 (`1fr`), com o `space-between` de dentro dela empurrando os controles
+   para o pé, e a SAÍDA como a última linha deles — o alcance do polegar de quem
+   segura o aparelho deitado, a mesma distribuição por altura inteira da coluna
+   da preview. */
 #lyricsPopup:fullscreen .popup-header,
 #lyricsPopup:-webkit-full-screen .popup-header {
   grid-area: 1 / 2;
@@ -7883,9 +7925,17 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
   margin: 0;
   padding: var(--sp-4) max(var(--sp-3), env(safe-area-inset-right)) max(var(--sp-4), env(safe-area-inset-bottom)) var(--sp-2);
 }
+/* `flex-wrap: nowrap` DESFAZ o wrap do retrato: numa COLUNA o wrap não quebra
+   linha, ele abre uma SEGUNDA COLUNA dentro de uma trilha de 66px, e faria isso
+   calado no dia em que um sexto controle não coubesse. */
 #lyricsPopup:fullscreen .lv-cifra-topo,
 #lyricsPopup:-webkit-full-screen .lv-cifra-topo {
-  height: 100%; flex-direction: column; gap: var(--sp-4);
+  height: 100%; flex-direction: column; gap: var(--sp-4); flex-wrap: nowrap;
+}
+/* O respiro da saída troca de eixo com a fila (ver `.lv-cifra-ctl .lv-cheia-btn`). */
+#lyricsPopup:fullscreen .lv-cifra-ctl .lv-cheia-btn,
+#lyricsPopup:-webkit-full-screen .lv-cifra-ctl .lv-cheia-btn {
+  margin-left: 0; margin-top: var(--sp-5);
 }
 #lyricsPopup:fullscreen .lv-cifra-tom,
 #lyricsPopup:-webkit-full-screen .lv-cifra-tom { text-align: center; }
@@ -7905,8 +7955,22 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
           max(var(--sp-4), env(safe-area-inset-bottom))
           max(.8rem, env(safe-area-inset-left));
 }
-#lyricsPopup:fullscreen :is(.popup-header-icon, .popup-title, .popup-close, .lyricsview-seg),
-#lyricsPopup:-webkit-full-screen :is(.popup-header-icon, .popup-title, .popup-close, .lyricsview-seg) {
+/* A NOTA SAI DA COLUNA (v1.6.1), pelo MESMO número que já tirou as abas: a
+   trilha tem 66px e 56,4px úteis; a `--fs-sm` mede ~6,3px por caractere, o que
+   dá OITO caracteres por linha — a frase viraria oito linhas e ~128px de uma
+   coluna de 270px, roubando o lugar dos controles que este modo existe para
+   oferecer. `display: none` e não `visibility: hidden`: a coluna é
+   `space-between`, e um terceiro filho invisível MAS PRESENTE seria distribuído
+   — o tom no topo, um vão no meio e os controles no pé.
+
+   O QUE SE PERDE, DITO: em tela cheia a espera de 2 a 8s fica sem legenda. O
+   que NÃO se perde é o reconhecimento do toque — `cifraPintarRolar` troca o
+   glifo para o pause e acende o `.ativa` no mesmo quadro. As duas saídas
+   recusadas: um segundo texto curto só para a coluna (duas escritas do mesmo
+   fato) e manter o anel só aqui (dois mecanismos para um fato, e o operador
+   mandou remover o anel). */
+#lyricsPopup:fullscreen :is(.popup-header-icon, .popup-title, .popup-close, .lyricsview-seg, .lv-cifra-nota),
+#lyricsPopup:-webkit-full-screen :is(.popup-header-icon, .popup-title, .popup-close, .lyricsview-seg, .lv-cifra-nota) {
   display: none;
 }
 
