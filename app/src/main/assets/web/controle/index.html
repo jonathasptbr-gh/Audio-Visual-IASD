@@ -1688,7 +1688,7 @@
                METADADO de diagnóstico e o lugar onde se procura diagnóstico é
                junto do estado do telão e do alvo de espelhamento, não numa faixa
                de navegação. Preenchido por `renderVersionLabel`. -->
-          <span id="appVersion" class="app-version">Controle v1.5.21</span>
+          <span id="appVersion" class="app-version">Controle v1.6.0</span>
           <!-- SALVAR EM ARQUIVO (v1.2.16). Com o acervo inteiro varrido o
                Registro passa de setenta linhas só na seção de cifras, e copiar e
                colar é o caminho que corta o texto no meio SEM AVISAR — foi o
@@ -1962,6 +1962,26 @@
           <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoTexto"/></svg>
         </span>
         <span class="popup-title" id="lyricsPopupTitle">Letra</span>
+        <!-- TELA CHEIA EM PAISAGEM da cifra (v1.6.0). Um botão SÓ, alternador,
+             e ele mora no CABEÇALHO — não na barra da cifra: o cabeçalho é
+             ESTÁTICO (a barra é recriada a cada `renderLyricsView`, e escrever
+             num nó já desligado da árvore é o defeito que `lvBuildCifra`
+             documenta), tela cheia é um controle da FOLHA como o ✕ e o A+/A−,
+             e na coluna deitada ele é a PRIMEIRA linha — a saída no topo, onde
+             o `#fsExit` da preview já mora.
+
+             A ORDEM DAQUI É A ORDEM DA COLUNA: em paisagem o cabeçalho vira
+             `flex-direction: column`, então [⛶][A−][A+] cai de graça e não há
+             uma segunda ordem em `order:` para manter em dia.
+
+             SVG inline com os MESMOS `path` do `#pvFullBtn`/`#fsExit`: a fonte
+             de ícones é um subset de 31 codepoints e não tem glifo de tela
+             cheia — um `.msym` fora dela não desenha NADA, sem erro (ver
+             `tools/glifos.test.mjs`). E os dois desenhos são trocados por
+             `innerHTML` (`cifraPintarCheia`), nunca por um `<symbol>` com os
+             dois dentro: a folha do documento não atravessa a árvore-sombra de
+             um `<use>`, e o que sai são os DOIS empilhados para sempre. -->
+        <button type="button" id="cifraCheiaBtn" class="lv-cheia-btn" hidden></button>
         <!-- A+ / A− : o tamanho da letra, ajustado ONDE ela é lida. Ver
              `passoTamanhoDaLetra` — a escada é discreta, o valor é salvo e as
              DUAS casas (esta folha e a zona de letra do Modo Fácil) mostram o

@@ -180,6 +180,23 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
      mesmo, ou a caixa da lista muda de tamanho ao entrar na seleção e a lista
      pula debaixo do dedo. */
   --hit: 34px;
+  /* ---------- A COLUNA DA CIFRA EM TELA CHEIA (v1.6.0) ----------
+     A largura da faixa de controles à direita da folha deitada. É TOKEN porque
+     ela é a segunda TRILHA do grid e o recuo interno de quem mora nela saem da
+     mesma medida — escritos em dois lugares, o botão mais largo da família
+     começaria a encostar na borda no primeiro ajuste.
+
+     O PISO é o `.lv-cifra-vel`, o único botão que não é quadrado: ele pede
+     `--hit + .9rem` (48,4px) para o rótulo "Auto" não empurrar os vizinhos ao
+     ciclar. `--hit + 2rem` (66px) deixa 56,4px de conteúdo depois do recuo dos
+     dois lados, que é folga de ~4px de cada lado do maior deles.
+
+     E ela é uma FAIXA DE GRID, não um overlay: a coluna da preview
+     (`.pv-fsctl`) é absoluta e translúcida porque lá o que está por baixo é a
+     PROJEÇÃO e ela precisa da tela inteira; aqui o que está por baixo é TEXTO
+     QUE ALGUÉM ESTÁ LENDO, e uma trilha própria garante que nada é coberto sem
+     depender de opacidade nenhuma. */
+  --cifra-coluna: calc(var(--hit) + 2rem);
   /* A ALTURA DA BARRA DE UMA SEÇÃO DA BIBLIOTECA (v1.5.14). Ela é token porque
      DUAS regras precisam do mesmo número: a barra da seção, que gruda em
      `top: 0`, e a do álbum, que gruda logo abaixo dela. Escrito duas vezes ele
@@ -682,6 +699,10 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
   .ctl-btn, .t-btn, .settings-btn,
   .import-btn, .tools-btn, .lib-foot-btn, .back-btn, .sel-btn,
   .row-btn, .popup-close,
+  /* O ⛶ da cifra (v1.6.0): ele nasce no MESMO lote em que entra aqui, que é a
+     regra desta lista — um controle novo fora dela fica mudo ao toque sem nada
+     na tela dizer por quê. Nenhum ancestral dele responde ao toque. */
+  .lv-cheia-btn,
   .coll-bar-dl, .coll-group-btn, .coll-more-btn,
   /* AS DUAS BARRAS QUE ABREM UM BLOCO (v1.3.14). A `.coll-bar` respondia por um
      overlay próprio (que saiu com a luz) e a `.coll-group-bar` não respondia a
@@ -737,7 +758,11 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
      `.import-row` é `align-items: stretch` e as três esticam para a mais alta.
      Num lote cuja palavra é "padronize", o único eixo em que as três divergiam
      por construção não podia ficar de pé. É NO-OP hoje, de propósito. */
-  .import-btn, .tools-btn, .lib-foot-btn, .song-menu-icon
+  .import-btn, .tools-btn, .lib-foot-btn, .song-menu-icon,
+  /* O ⛶ da cifra (v1.6.0): o desenho é reescrito por `innerHTML` a cada troca
+     de estado, então o `width`/`height` do atributo se perderia no primeiro
+     alternar — quem manda é esta regra. */
+  .lv-cheia-btn
 ) svg { display: block; width: var(--icon-sm); height: var(--icon-sm); }
 :is(.lib-toggle, .t-btn, .ctl-btn, .misc-tab, .settings-btn) svg {
   display: block; width: var(--icon-md); height: var(--icon-md);
@@ -2018,7 +2043,7 @@ main {
    o menor alvo do app inteiro, e é a única saída da gaveta de pasta e da
    navegação da Bíblia. */
 .back-btn, .sel-btn, .row-btn, .row-slot,
-.cue-save-btn, .popup-close, .log-copy {
+.cue-save-btn, .popup-close, .log-copy, .lv-cheia-btn {
   flex-shrink: 0; width: var(--hit); height: var(--hit); padding: 0;
   border: none; border-radius: var(--radius-btn);
   display: flex; align-items: center; justify-content: center; cursor: pointer;
@@ -6891,41 +6916,15 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    quebras são do autor; `overflow-wrap: anywhere` porque ela costuma trazer
    URLs, que não têm onde quebrar e esticariam o card. */
 .item-detalhe-desc { flex: 1 0 100%; min-width: 0; }
-/* O CLAMP É POR LINHA E MORA NO CSS: o texto INTEIRO está no DOM, e o "Ver
-   mais" só o revela. Um teto em caracteres seria uma segunda regra de
-   truncagem, e ela divergiria da primeira no dia em que o corpo da fonte
-   mudasse (o A+/A− existe). */
+/* ELA VEM INTEIRA (v1.6.0). Houve um clamp de 4 linhas com um "Ver mais" ao
+   lado; o operador o dispensou (*"já deixe tudo aberto de uma vez"*), e sem ele
+   não sobra regra de truncagem NENHUMA — nem aqui nem no JavaScript. O único
+   teto é o do Kotlin (`DESCRICAO_MAX`), que é de TRANSPORTE. */
 .item-detalhe-desc-txt {
   margin: 0;
   font-size: var(--fs-md); color: var(--muted); line-height: 1.45;
   white-space: pre-wrap; overflow-wrap: anywhere;
-  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 4;
-  overflow: hidden;
 }
-.item-detalhe-desc.aberta .item-detalhe-desc-txt {
-  display: block; overflow: visible; -webkit-line-clamp: unset;
-}
-/* UM LINK, e não um botão de corpo inteiro — a MESMA peça que o "Ver no Cifra
-   Club" (`.lv-cifra-link`), inclusive na resposta ao toque: ele é a ação MENOS
-   principal de uma caixa cuja única função é mostrar texto, e com peso de botão
-   cobraria a altura de mais uma linha. Sem fundo próprio, então nada aqui é
-   superfície de controle (a regra dos `--btn-*`).
-
-   E ELE FICA FORA DA LISTA DO `--press`, pela razão do `.lv-cifra-link`: aquele
-   recuo é a metáfora de uma TECLA que afunda, e não há tecla aqui — 2px sob uma
-   palavra solta se leem como a palavra pulando. A resposta é a opacidade, que é
-   o que aquele irmão já faz.
-
-   `min-height: var(--hit)` porque isto RECEBE O DEDO: o `.lv-cifra-link` mora
-   num rodapé com folga em volta, este mora colado no fim de um parágrafo. */
-.item-detalhe-mais {
-  margin-top: var(--sp-2); padding: .15rem 0; min-height: var(--hit);
-  background: none; color: var(--accent);
-  font-size: var(--fs-md); font-weight: var(--fw-medio);
-  text-decoration: underline; text-underline-offset: 2px;
-  cursor: pointer;
-}
-.item-detalhe-mais:active { opacity: .6; }
 
 /* ---------- A folha rápida de uma música (▶ e + da linha do acervo) ---------- */
 /* Linhas LARGAS e ROTULADAS, o oposto dos seis ícones mudos que substituíram:
@@ -7520,6 +7519,14 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    cabeçalho a cada toque, e o par deixaria de ser um par. */
 .lv-fonte-btn:disabled { opacity: .38; cursor: default; }
 .lv-fonte-btn:not(:disabled):active { transform: var(--press); filter: var(--press-luz); }
+/* O ⛶ da cifra veste o MESMO fundo do par ao lado: os três são a família de
+   controles do cabeçalho da folha, e duas aparências para a mesma família seria
+   ruído. A caixa, o raio e a escala do ícone vêm do esqueleto só-de-ícone lá
+   em cima — aqui sobra o que difere. Ele NÃO é um `.lv-fonte-btn`: o ouvinte
+   delegado daquela classe lê "não é `.lv-fonte-mais`" como DIMINUIR, e um ⛶
+   com a classe do par abriria a tela cheia encolhendo a letra. */
+.lv-cheia-btn { background: var(--surface); color: var(--text); }
+.lv-cheia-btn[hidden] { display: none; }
 
 /* A LINHA DO NOME do Modo Fácil hospeda o par sem deslocar o nome: ele é
    absoluto, e a folga vem reservada dos DOIS lados para o centro continuar
@@ -7784,6 +7791,123 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
 .lv-cifra-vel {
   width: auto; min-width: calc(var(--hit) + .9rem); padding: 0 .5rem;
   font-variant-numeric: tabular-nums;
+}
+
+/* ===== A CIFRA EM TELA CHEIA, DEITADA (v1.6.0) =====
+   Pedido do operador: *"gostaria que criasse um sistema para visualização das
+   cifras em tela cheia, no modo paisagem. deixe visível em uma coluna vertical
+   na direita, os botões de controle de tom, automático, tamanho da fonte e
+   etc... e é claro, ao abrir esse modo em tela cheia, pode já deixar
+   automaticamente a fonte já um pouco maior, já que uma visualização com a
+   fonte maior é o objetivo desse método em tela cheia"*.
+
+   Quem lê está com o instrumento na mão e o celular no suporte: a folha em
+   retrato dá ~37 colunas a 430px, e quase toda linha de acorde quebra ao meio.
+
+   ## O ELEMENTO EM TELA CHEIA É O `#lyricsPopup` INTEIRO, e nada é reparentado
+
+   Mover o corpo para um contêiner novo zeraria o `scrollTop`, invalidaria o
+   `cifraPos`/`cifraEscrito` (a posição fracionária que existe justamente para a
+   rolagem não tremer) e mataria as referências que `lvBuildCifra` guarda dos
+   botões. Com o backdrop inteiro em tela cheia, NADA se move na árvore — só o
+   layout muda, e é por isso que a folha continua rolando de onde estava.
+
+   A TRAVA DE PAISAGEM É NATIVA e vem de graça: quem gira o aparelho é o
+   `onShowCustomView` do `MainActivity`, que não olha QUAL elemento entrou (a
+   preview, que já usa este caminho todo culto, é um `<div>` comum).
+
+   ## GRID, e não overlay
+
+   A coluna é a segunda TRILHA — logo ela não pode cobrir o texto, sem depender
+   de opacidade nenhuma. É a diferença para a `.pv-fsctl`: lá o que está por
+   baixo é a projeção e ela precisa da tela toda, então a coluna é absoluta,
+   translúcida e se apaga em 4s. Aqui o que está por baixo é texto que alguém
+   está lendo enquanto toca — a coluna FICA, e os argumentos daquela não
+   transferem: ninguém além do operador vê esta superfície (a cifra nunca vai ao
+   telão), os controles são usados DURANTE a leitura, e este app já decidiu isso
+   uma vez, na v1.1.22, quando tirou a barra de dentro da caixa que rola porque
+   *"um controle que some é um controle que não existe no momento em que ele
+   importa"*.
+
+   ## O que a coluna tem, e o que NÃO tem
+
+   Entra o que a folha JÁ tem, reposicionado — zero botão reimplementado
+   (invariante 5): o ⛶ do cabeçalho, o A−/A+ do cabeçalho, e o tom, o rolar, a
+   velocidade e o −½/+½ da barra. A ordem 3→4→5 é a que a barra já decidiu (a
+   rolagem vale a música inteira, a transposição vale uma vez) e cai de graça do
+   grid.
+
+   Ficam de fora, cada um por um motivo: o TÍTULO (metadado que o operador
+   acabou de escolher — o `Tom:` fica porque é o único texto que muda ao vivo),
+   as ABAS (um segmentado de até quatro opções em 66px é ilegível, e o seletor
+   volta com um toque no ⛶) e o ✕ — uma superfície em tela cheia tem UMA saída,
+   e dois ✕ vizinhos com significados diferentes é o defeito.
+
+   ## Área segura
+
+   Em PAISAGEM o recorte da câmera vai para as LATERAIS (é a razão escrita da
+   folga de 10px da `.pv-fsctl`, v1.1.3): daí o `env(safe-area-inset-right)` na
+   coluna e o `-left` na folha. Num Chromium de mesa os dois valem zero.
+
+   Nada pinta superfície nova: a coluna é TRANSPARENTE sobre o `--panel` da
+   folha, e quem se separa é o corpo, que já é `--surface` com raio. */
+#lyricsPopup:fullscreen { align-items: stretch; }
+#lyricsPopup:-webkit-full-screen { align-items: stretch; }
+/* `height: 100%` e não `max-height: 80vh`: o toque no FUNDO do backdrop fecha a
+   folha (ver a tabela `POPUPS`), e qualquer faixa do backdrop à mostra em tela
+   cheia seria uma saída acidental no meio da música. O raio e o recuo de área
+   segura de baixo saem pela mesma razão — os três deixavam essa faixa. */
+#lyricsPopup:fullscreen .popup-sheet,
+#lyricsPopup:-webkit-full-screen .popup-sheet {
+  height: 100%; max-height: none;
+  border-radius: 0; padding-bottom: 0;
+  display: grid;
+  grid-template-columns: 1fr var(--cifra-coluna);
+  grid-template-rows: auto 1fr;
+}
+/* A COLUNA, de cima para baixo: o cabeçalho na linha 1 (auto) e a barra na
+   linha 2 (`1fr`), com o `space-between` de dentro dela empurrando a
+   transposição para o pé — o alcance do polegar de quem segura o aparelho
+   deitado, a mesma distribuição por altura inteira da coluna da preview. */
+#lyricsPopup:fullscreen .popup-header,
+#lyricsPopup:-webkit-full-screen .popup-header {
+  grid-area: 1 / 2;
+  flex-direction: column;
+  padding: max(var(--sp-4), env(safe-area-inset-top)) max(var(--sp-3), env(safe-area-inset-right)) 0 var(--sp-2);
+}
+#lyricsPopup:fullscreen .lv-fonte-ctl,
+#lyricsPopup:-webkit-full-screen .lv-fonte-ctl { flex-direction: column; }
+#lyricsPopup:fullscreen .lyricsview-bar,
+#lyricsPopup:-webkit-full-screen .lyricsview-bar {
+  grid-area: 2 / 2;
+  margin: 0;
+  padding: var(--sp-4) max(var(--sp-3), env(safe-area-inset-right)) max(var(--sp-4), env(safe-area-inset-bottom)) var(--sp-2);
+}
+#lyricsPopup:fullscreen .lv-cifra-topo,
+#lyricsPopup:-webkit-full-screen .lv-cifra-topo {
+  height: 100%; flex-direction: column; gap: var(--sp-4);
+}
+#lyricsPopup:fullscreen .lv-cifra-tom,
+#lyricsPopup:-webkit-full-screen .lv-cifra-tom { text-align: center; }
+/* `align-items: center` para o `.lv-cifra-vel` ficar no `min-width` dele em vez
+   de esticar para a trilha inteira: quatro botões, uma largura só. */
+#lyricsPopup:fullscreen .lv-cifra-ctl,
+#lyricsPopup:-webkit-full-screen .lv-cifra-ctl {
+  flex-direction: column; align-items: center;
+}
+/* A FOLHA ocupa as duas linhas da primeira trilha — é ela que ganha a largura
+   que a coluna não usa (~740px numa paisagem de 800, contra os ~375 do
+   retrato). */
+#lyricsPopup:fullscreen .lyricsview-body,
+#lyricsPopup:-webkit-full-screen .lyricsview-body {
+  grid-area: 1 / 1 / 3 / 2;
+  margin: max(var(--sp-4), env(safe-area-inset-top)) 0
+          max(var(--sp-4), env(safe-area-inset-bottom))
+          max(.8rem, env(safe-area-inset-left));
+}
+#lyricsPopup:fullscreen :is(.popup-header-icon, .popup-title, .popup-close, .lyricsview-seg),
+#lyricsPopup:-webkit-full-screen :is(.popup-header-icon, .popup-title, .popup-close, .lyricsview-seg) {
+  display: none;
 }
 
 .lv-cifra-estado {

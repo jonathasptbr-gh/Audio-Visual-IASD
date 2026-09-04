@@ -640,6 +640,17 @@ jobs:
           # asserção não é "a folha apareceu": é `cifraHtml` NÃO ter sido
           # chamado nenhuma vez, com a ponte respondendo "sem rede" a tudo.
           rodar tools/cifra-offline.test.mjs
+          # E A CIFRA EM TELA CHEIA, DEITADA (v1.6.0). O recurso é LAYOUT mais
+          # MEDIDA, e os dois modos de errar são mudos: uma coluna escrita como
+          # OVERLAY (a receita da coluna da preview, que é o precedente óbvio)
+          # come a última coluna de caracteres da folha, e uma fonte maior SEM
+          # remedição é uma REGRESSÃO vestida de recurso — a folha continua
+          # quebrada para os ~37 caracteres do retrato. Daí a asserção
+          # aritmética: em tela cheia ela não pode ter MENOS colunas que no
+          # retrato. Mede a rotação como ela chega no aparelho — a tela cheia
+          # por clique de verdade, e o `resize` da paisagem DEPOIS dela, porque
+          # quem deita o aparelho é a Activity e não há promise a esperar.
+          rodar tools/cifra-tela-cheia.test.mjs
           # E O LEITOR DA BIBLIOTECA — a folha de qualquer música SEM levar
           # nada ao telão. Três coisas falham calado ali: a folha mostrar a
           # música da CENA em vez da pedida; alguma coisa ir ao telão (o único
