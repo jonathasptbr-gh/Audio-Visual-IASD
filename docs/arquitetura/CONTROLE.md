@@ -20,6 +20,7 @@
 | [Buscar no YouTube](#pesquisar-texto-no-youtube-no-fim-da-busca) | busca, download, transmissão direta |
 | [Favoritos](#favoritos-uma-lista-só-marcados--pastas-do-aparelho) | lista única, pastas do aparelho |
 | [A saída de áudio](#a-saída-de-áudio-os-displays-ou-este-aparelho-v5215) | quando o som sai do celular |
+| [Leitura auxiliar](#leitura-auxiliar-letra-completa--capítulo-inteiro) · [a cifra em tela cheia](#a-cifra-em-tela-cheia-deitada-v160) | letra, Bíblia, cifra, páginas — e o modo deitado |
 | [Feedback](#feedback-sem-alerta-flutuante--e-a-exceção-do-salvamento) | a resposta nasce onde o toque nasceu |
 | [Compartilhamento](#compartilhamento) · [Diálogo padrão](#diálogo-padrão-do-app-confirmações--prompts) | entradas e confirmações |
 | [O histórico do culto](#o-histórico-do-culto-em-configurações-v120--v1430) | o que já foi ao telão, por sessão |
@@ -2245,6 +2246,203 @@ e ler *"Nada em exibição"*.
   disponibilidade das fontes) e só mover o destaque — e ela inclui a lista de
   fontes DISPONÍVEIS, não só a ativa: começar a leitura bíblica com um louvor
   tocando não muda o que está na frente, mas passa a haver o que alternar.
+
+#### A cifra em TELA CHEIA, deitada (v1.6.0)
+
+Pedido do operador: *"gostaria que criasse um sistema para visualização das
+cifras em tela cheia, no modo paisagem. deixe visível em uma coluna vertical na
+direita, os botões de controle de tom, automático, tamanho da fonte e etc... e é
+claro, ao abrir esse modo em tela cheia, pode já deixar automaticamente a fonte
+já um pouco maior, já que uma visualização com a fonte maior é o objetivo desse
+método em tela cheia"*.
+
+Quem lê está com o instrumento na mão e o celular no suporte. MEDIDO: no retrato
+de 430px a folha tem ~375px úteis a `1.4rem × .74` ≈ 16,6px monoespaçados —
+**~37 colunas**, e quase toda linha de acorde quebrando ao meio. Deitada, com o
+corpo dois degraus acima, ela passa dos **50**.
+
+```
+ ┌────────────────────────────────────────────────────────────┬──────┐
+ │  [C]        [G]                                            │  ⛶   │  sair
+ │  Ao Deus de Abraão louvai,                                 │  A−  │  corpo
+ │       [Am]         [F]                                     │  A+  │
+ │  que reina lá no céu,                                      │      │
+ │  …                                                         │ Tom: │  o tom
+ │                                                            │  C#  │
+ │                                                            │  ⏸   │  rolar
+ │                                                            │ Auto │  ritmo
+ │                                                            │  −½  │  transpor
+ │                                                            │  +½  │
+ └────────────────────────────────────────────────────────────┴──────┘
+   a caixa afundada de sempre, agora com a largura da paisagem      ~66px
+```
+
+**É UM LOTE SÓ DE BASE WEB.** A trava de paisagem já era element-agnóstica:
+`MainActivity.ControleChromeClient.onShowCustomView` é o callback que o Chromium
+invoca para QUALQUER elemento que peça `requestFullscreen` — não há teste de
+`<video>` lá dentro —, e ele escreve `SCREEN_ORIENTATION_LANDSCAPE` e esconde as
+barras. A prova está no próprio app desde a v1.0.7: a **preview** é um `<div>`, e
+esse caminho é exercitado todo culto.
+
+- **O ELEMENTO É O `#lyricsPopup` INTEIRO, e o ponto é o que NÃO acontece:
+  nada é reparentado.** Mover o corpo para um contêiner novo zeraria o
+  `scrollTop`, invalidaria a posição fracionária da rolagem
+  (`cifraPos`/`cifraEscrito`, que existe justamente para a folha não tremer) e
+  mataria as referências que `lvBuildCifra` guarda dos botões. Com o backdrop
+  inteiro na top layer, só o layout muda — e é por isso que a folha continua
+  rolando de onde estava.
+- **GRID, não overlay — e o argumento da preview NÃO transfere.** A `.pv-fsctl`
+  é absoluta, translúcida e se apaga em 4s porque o que está por baixo dela é a
+  PROJEÇÃO e a projeção precisa da tela inteira. Aqui o que está por baixo é
+  **texto que alguém está lendo enquanto toca**, e as três premissas se
+  invertem: ninguém além do operador vê esta superfície (a cifra nunca vai ao
+  telão, por contrato), os controles são usados DURANTE a leitura, e este app já
+  decidiu isso uma vez — a `#lyricsViewBar` saiu de dentro da caixa que rola na
+  v1.1.22 exatamente porque *"um controle que some é um controle que não existe
+  no momento em que ele importa"*. Fazê-la sumir por relógio é reintroduzir
+  aquele defeito por outra porta. Ela pode ficar porque **não custa texto**: uma
+  faixa do grid não cobre nada, sem depender de opacidade nenhuma.
+- **A LARGURA É TOKEN** (`--cifra-coluna`, `--hit + 2rem` = 66px), porque a
+  trilha e o recuo de quem mora nela saem da mesma medida. O piso é o
+  `.lv-cifra-vel`, o único botão que não é quadrado (`--hit + .9rem` = 48,4px,
+  para o rótulo "Auto" não empurrar os vizinhos ao ciclar).
+- **O QUE ENTRA NA COLUNA É O QUE A FOLHA JÁ TEM**, reposicionado — zero botão
+  reimplementado (invariante 5 aplicada ao layout). Ficam de fora o TÍTULO
+  (metadado que o operador acabou de escolher; o `Tom:` fica porque é o único
+  texto que muda ao vivo), as ABAS (um segmentado de até quatro opções em 66px é
+  ilegível, e o seletor volta com um toque no ⛶) e o ✕ — **uma superfície em
+  tela cheia tem UMA saída**, e dois ✕ vizinhos com significados diferentes é o
+  defeito. Transporte de mídia também não entra: quem lê a cifra não é quem
+  opera a cena.
+- **O BOTÃO MORA NO CABEÇALHO**, não na barra da cifra. O cabeçalho é ESTÁTICO —
+  a barra é refeita a cada `renderLyricsView`, e um botão de estado guardado de
+  lá vira um nó desligado da árvore (é o que `lvBuildCifra` documenta ao soltar
+  `cifraRolarBtnEl`) —, tela cheia é um controle da FOLHA como o ✕ e o A+/A−, e
+  na coluna ele é a PRIMEIRA linha: a saída no topo, onde o `#fsExit` da preview
+  já mora. A ordem do DOM É a ordem da coluna, então não há um `order:` para
+  manter em dia.
+- **O DESENHO É SVG INLINE, e alterna por `innerHTML`.** A fonte de ícones é um
+  subset de 31 codepoints e não tem glifo de tela cheia — um `.msym` fora dela
+  não desenha NADA, sem erro (`tools/glifos.test.mjs`). E um `<symbol>` com os
+  dois desenhos dentro carregaria, não erraria e desenharia **os dois
+  empilhados para sempre**: a folha do documento não atravessa a árvore-sombra
+  de um `<use>`.
+- **A CLASSE NÃO É `.lv-fonte-btn`, e isso não é gosto.** O ouvinte daquela
+  classe é DELEGADO no documento e lê "não é `.lv-fonte-mais`" como DIMINUIR: um
+  ⛶ com a classe do par abriria a tela cheia encolhendo a letra. `.lv-cheia-btn`
+  entra nas três listas compartilhadas (o esqueleto só-de-ícone, o `--press` e a
+  escala do SVG) e ganha só o que difere.
+
+##### A fonte maior é uma SEGUNDA ESCADA, não um deslocamento
+
+`--lv-fonte` é global (mora no `<html>`) e as DUAS casas do A+/A− o leem —
+engordá-lo ali levaria junto a zona de letra do Modo Fácil e obrigaria a desfazer
+na saída. Aqui ele é **escopado no `#lyricsPopup`** (custom property herda, e
+`.lv-cifra-folha` resolve `calc(var(--lv-fonte) * .74)` por ele): sair é
+`removeProperty`, e **o tamanho normal volta porque nunca foi embora**. Um offset
+somado ao índice global teria de ser subtraído na saída, e não sobreviveria a um
+ajuste feito DENTRO da tela cheia nem ao teto da escada.
+
+- **A escada é a mesma** (`LV_TAMANHOS`); o que é novo é um segundo índice
+  (`cifraCheiaIdx`), persistido em `cifraFonteCheia` e adotado por função
+  *hoisted* (`cifraAdotarFonteCheia`, irmã do `cifraAdotarVelocidade`, pela mesma
+  razão: o `load()` que hidrata roda muito antes na leitura).
+- **A SEMENTE é `+2 degraus`** a partir do corpo do retrato, na primeira entrada
+  de sempre. `Math.min` clampa, então entrar já no topo é no-op silencioso.
+- **O PREÇO, DITO:** mudar o corpo no retrato depois disso NÃO arrasta o da tela
+  cheia. Está certo — são duas perguntas, *"ler o celular na mão"* e *"ler de
+  longe com o instrumento"* — e está escrito para ninguém "consertar".
+- **O ESTADO DESABILITADO tem de trocar de escada junto**, e é o modo de falhar
+  mais mudo do par: `aplicarTamanhoDaLetra` desabilita o A+/A− por CLASSE, nas
+  duas casas de uma vez, a partir de UM índice. Lendo `lvTamanho` com a escada da
+  tela cheia no ar, quem batesse no teto sairia com o A+ desabilitado **no
+  retrato**, e ele simplesmente pararia de responder.
+- **`--lv-estrofe-gap` NÃO segue o escopado**: ele é `calc(var(--lv-fonte) * .86)`
+  declarado no `:root`, e a substituição acontece em quem DECLARA. É inócuo para
+  a cifra (que espaça em `em`); no dia em que a tela cheia valer para a aba de
+  LETRA, ele tem de ser redeclarado junto.
+
+##### A remedição: três camadas, e a largura chega DEPOIS do corpo
+
+`cifraColunas` mede a folha renderizada, e a entrada em tela cheia muda **a
+largura e o corpo em instantes diferentes**:
+
+| t | o quê |
+|---|---|
+| t1 | `requestFullscreen` resolve — o elemento vai para a top layer, ainda em RETRATO |
+| t2 | o `--lv-fonte` escopado é escrito (JS) |
+| t3 | o shell roda: `onShowCustomView` → `SCREEN_ORIENTATION_LANDSCAPE` |
+| t4 | a Activity gira e o WebView é redimensionado → `resize` |
+
+**Não há promise para esperar t4** — o `screen.orientation.lock` do
+`enterFullscreen` da preview é decorativo num WebView, e quem gira é a Activity.
+Daí as três camadas: o `fullscreenchange` (cobre t1+t2, determinístico na entrada
+E na saída), os `resize`/`orientationchange` que já existiam (cobrem t4) e um
+`ResizeObserver` no corpo — o único que pergunta exatamente o que `cifraColunas`
+mede, em vez de inferir da janela.
+
+- **A GUARDA É POR CONTAGEM DE COLUNAS, nunca por largura.** Ela pergunta *"a
+  folha que está aí foi quebrada para a largura que ela tem AGORA?"* —
+  `cifraColunasAtual` é escrito em `cifraDesenharFolha`, isto é, o que a folha em
+  cena de fato usou. Isso torna cada `resize` da rajada da rotação praticamente
+  grátis, **fecha o laço de realimentação do `ResizeObserver`** (reconstruir muda
+  o `scrollHeight`, a barra de rolagem aparece ou some, o `clientWidth` muda, o
+  observador dispara de novo) e continua deixando passar o A+/A−, onde a largura
+  é a MESMA e o avanço por caractere não é. Escrita por largura, aquele caminho
+  seria apagado em silêncio.
+- **A POSIÇÃO DE LEITURA SOBREVIVE, em fração do CONTEÚDO.** `renderLyricsView`
+  esvazia e reconstrói o corpo: o `scrollTop` volta a zero, e no quadro seguinte
+  `cifraRolarQuadro` conclui — com toda a razão, é a linha que atende o *"vale
+  tanto para volta como para avanços"* — que outro mexeu na folha, adotando o
+  topo. A folha voltava ao começo no meio da música (o defeito já existia no
+  caminho do A+/A−; a tela cheia o tornava certo e caro).
+  - **`scrollTop / scrollHeight`, e não `/ (scrollHeight − clientHeight)`.**
+    MEDIDO: a segunda muda sozinha quando só a ALTURA da caixa muda — que é o que
+    a rotação faz sem tocar no texto —, e o que saía era a folha andando **19% do
+    arquivo** ao deitar.
+  - **E ela é CAPTURADA PELO CHAMADOR na transição** (`cifraRemedir(fracao)`):
+    trocar a fonte muda o comprimento da folha na hora, e a remedição só roda no
+    quadro seguinte — lida lá, a fração já descreveria o estado novo.
+  - **A volta é por `cifraAplicarPos`**, nunca por escrita crua: é ela que
+    atualiza `cifraEscrito`, a régua que distingue a nossa escrita de um arrasto
+    do dedo.
+  - Por isso os ouvintes passam a chamar `() => cifraRemedir()`: um `Event` de
+    `resize`, ou o carimbo de tempo do `requestAnimationFrame`, chegaria no lugar
+    da fração. O `typeof` de dentro é a segunda guarda.
+
+##### As saídas, e por que o voltar é o degrau 1.5
+
+São três, e as três passam pelo mesmo lugar: o próprio ⛶, o **voltar do
+aparelho** e **fechar a folha por qualquer porta** (`closeLyricsPopup`, que é o
+ponto único do ✕, do toque no fundo, do degrau 2 do voltar e do
+`sairDasCamadas()` de um compartilhamento — este último só sai da tela cheia
+`if (displayActive())`, e sozinho deixaria a folha invisível com a Activity ainda
+deitada). Some-se a saída automática: **a tela cheia cai sozinha quando a cifra
+deixa de ser a fonte**, senão o layout desenhado para ela passaria a mostrar a
+letra com as abas escondidas e sem o ⛶, que só é desenhado na cifra.
+
+**O degrau é o 1.5, entre o diálogo modal e os bottom-sheets.** A ordem daquela
+fila é do mais efêmero ao mais permanente, e a tela cheia da cifra é um MODO da
+folha: foi aberta depois dela, e é desfeita antes. Deixá-la no degrau 3 é o
+defeito concreto — o degrau 2 fecharia a folha com ela AINDA em tela cheia, e
+tirar `.open` só muda opacidade e `pointer-events`: o elemento continua na top
+layer e a Activity continua deitada. E o degrau 3 fala de outra coisa: lá a tela
+cheia é a PREVIEW, que sem TV É a projeção. No mesmo lote ele deixou de ler
+`document.fullscreenElement` cru e passou a **nomear o `previewEl`** — com dois
+donos possíveis, um teste genérico é a armadilha esperando o terceiro.
+
+**QUEM MANDA É O EVENTO, nunca o toque:** F11, Esc e o `exitFullscreen` do voltar
+chegam todos pelo `fullscreenchange`, e é lá que a escada de fonte entra e sai.
+Pendurar isso no clique deixaria as outras saídas com a fonte grande de pé.
+
+**UMA TELA CHEIA POR VEZ:** o `onShowCustomView` do shell recusa a segunda
+(`if (customView != null)`), e o Chromium não sabe disso — o estado do navegador
+divergiria do da Activity. A guarda mora no `cifraCheiaAlternar`, onde é barata.
+
+**Oráculo: `tools/cifra-tela-cheia.test.mjs`.** Ele mede o RENDERIZADO (a coluna
+começando onde a folha acaba, o hit-test, o corpo da fonte, as colunas, o x de um
+caractere por `Range`) e monta o cenário como ele chega no aparelho: tela cheia
+por clique de verdade, e a rotação como um `setViewportSize` DEPOIS dela.
 
 #### A divisão das estrofes dentro de um slide (v5.142)
 

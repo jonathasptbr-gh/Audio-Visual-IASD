@@ -119,6 +119,10 @@ const lvBadgeEl = document.getElementById('lvBadge');
 // O A+/A− DESTA FOLHA (o do Modo Fácil é outro nó, e fica): ele some na aba
 // da apresentação, onde não há texto para dimensionar — ver `renderLyricsView`.
 const lyricsFonteCtlEl = document.getElementById('lyricsPopup').querySelector('.lv-fonte-ctl');
+// O ⛶ da CIFRA EM TELA CHEIA (v1.6.0). No cabeçalho, que é ESTÁTICO — a barra
+// da cifra é refeita a cada `renderLyricsView`, e um botão de estado guardado
+// de lá vira um nó desligado da árvore. Ver `cifraCheiaAlternar`.
+const cifraCheiaBtnEl = document.getElementById('cifraCheiaBtn');
 const lyricsPopupEl = document.getElementById('lyricsPopup');
 const lyricsPopupTitleEl = document.getElementById('lyricsPopupTitle');
 const lyricsPopupCloseEl = document.getElementById('lyricsPopupClose');
@@ -152,7 +156,13 @@ let lvTamanho = LV_PADRAO;
 
 function aplicarTamanhoDaLetra() {
   document.documentElement.style.setProperty('--lv-fonte', lvTamanho + 'rem');
-  const i = LV_TAMANHOS.indexOf(lvTamanho);
+  // O ÍNDICE SAI DA ESCADA QUE ESTÁ NO AR (v1.6.0). São DUAS — a de sempre e a
+  // da cifra em tela cheia (`cifraCheiaIdx`) —, e o estado desabilitado é
+  // pintado por CLASSE, nas duas casas de uma vez: lendo sempre `lvTamanho`, o
+  // par ficaria descrevendo a escada errada. O modo de falhar é MUDO — quem
+  // batesse no teto dentro da tela cheia sairia dela com o A+ desabilitado no
+  // retrato, e o botão simplesmente pararia de responder.
+  const i = cifraCheia ? cifraCheiaIdx : LV_TAMANHOS.indexOf(lvTamanho);
   // POR CLASSE, as duas casas de uma vez: uma terceira entra sem tocar aqui.
   document.querySelectorAll('.lv-fonte-menos').forEach((b) => { b.disabled = i <= 0; });
   document.querySelectorAll('.lv-fonte-mais')
@@ -162,10 +172,17 @@ function aplicarTamanhoDaLetra() {
 // GRAVA SÓ QUANDO MUDA. No fim da escada o toque não é um no-op silencioso: o
 // botão já está desabilitado, e esta guarda é a rede para o caminho por teclado.
 async function passoTamanhoDaLetra(passo) {
+  // A CIFRA EM TELA CHEIA TEM ESCADA PRÓPRIA (v1.6.0): o mesmo par de botões,
+  // outro índice e outra chave no banco. Ver `passoTamanhoDaCheia`.
+  if (cifraCheia) return passoTamanhoDaCheia(passo);
   const atual = LV_TAMANHOS.indexOf(lvTamanho);
   const base = atual < 0 ? LV_TAMANHOS.indexOf(LV_PADRAO) : atual;
   const alvo = Math.min(LV_TAMANHOS.length - 1, Math.max(0, base + passo));
   if (LV_TAMANHOS[alvo] === lvTamanho) return;
+  // Ver `cifraFracaoDeLeitura`: quem troca a fonte captura ANTES de mexer. Aqui
+  // a folha da cifra ainda pode estar aberta no retrato, e é o mesmo caminho —
+  // a linha abaixo já muda o comprimento dela.
+  const fracao = cifraFracaoDeLeitura();
   lvTamanho = LV_TAMANHOS[alvo];
   aplicarTamanhoDaLetra();
   // A LISTA ACOMPANHA O QUE ESTÁ NO AR: mudar o corpo da letra muda a altura de
@@ -178,7 +195,7 @@ async function passoTamanhoDaLetra(passo) {
   // A CIFRA quebra por CARACTERE, então mudar o corpo muda quantos cabem: sem
   // esta linha a folha ficaria quebrada para o tamanho anterior — estourando a
   // caixa ao aumentar, ou desperdiçando metade da largura ao diminuir.
-  cifraRemedir();
+  cifraRemedir(fracao);
   try { await AVDB.setState('lyricsFont', lvTamanho); } catch (_) { /* sem banco: vale a sessão */ }
 }
 
@@ -278,7 +295,7 @@ const appVersionEl = document.getElementById('appVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.5.21';
+const WEB_VERSION = '1.6.0';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -2869,6 +2886,7 @@ async function load(opts) {
   const storedRot = await AVDB.getState('rotate');
   const lvFonteV = await AVDB.getState('lyricsFont');
   const cifraVelV = await AVDB.getState('cifraVelocidade');
+  const cifraFonteCheiaV = await AVDB.getState('cifraFonteCheia');
   const lyricsBgV = (await AVDB.getState('lyricsBg')) === 'black' ? 'black' : 'image';
   const downloadOkV = !!(await AVDB.getState('downloadOk'));
   // A LISTA DA TELA É SEMPRE O CRONOGRAMA (v1.5.0). Ela era `listItems(activeTab)`
@@ -2910,6 +2928,9 @@ async function load(opts) {
   // encolher numa versão futura, e o que estava salvo continua sendo lido.
   lvTamanho = LV_TAMANHOS.includes(lvFonteV) ? lvFonteV : LV_PADRAO;
   cifraAdotarVelocidade(cifraVelV);
+  // A SEGUNDA ESCADA (v1.6.0): o corpo da cifra em tela cheia é uma escolha
+  // INDEPENDENTE da do retrato, e ausente ela é semeada na primeira entrada.
+  cifraAdotarFonteCheia(cifraFonteCheiaV);
   aplicarTamanhoDaLetra();
   lyricsBg = lyricsBgV;
   downloadConsent = downloadOkV;
@@ -11227,6 +11248,12 @@ function openLyricsPopup(item, fonte) {
 }
 
 function closeLyricsPopup() {
+  // UMA FOLHA FECHADA NUNCA DEIXA UMA TELA CHEIA DE PÉ (v1.6.0), e a invariante
+  // mora AQUI porque este é o ponto único por onde passam todas as portas: o ✕,
+  // o toque no fundo, o degrau 2 do voltar e o `sairDasCamadas()` de um
+  // compartilhamento — que só sai da tela cheia quando há telão, e por si só
+  // deixaria a folha invisível com a Activity ainda deitada.
+  cifraCheiaSair();
   lyricsPopupEl.classList.remove('open');
   // O ALVO MORRE COM A FOLHA. Ele é um desvio de UMA leitura: sobrevivendo ao
   // fechamento, a próxima abertura pelo transporte mostraria a música do ensaio
@@ -11272,6 +11299,13 @@ function renderLyricsView() {
   // regra do microfone sem TV: explicar é melhor que mentir, e não oferecer é
   // melhor que explicar. Só ESTA instância; a do Modo Fácil é outro nó.
   lyricsFonteCtlEl.hidden = src === 'deck';
+  // O ⛶ SÓ EXISTE NA CIFRA (v1.6.0), pela mesma regra do microfone sem TV: não
+  // oferecer é melhor que explicar. E a tela cheia SAI SOZINHA quando a cifra
+  // deixa de ser a fonte — trocar de aba, ou a cena virar para uma música sem
+  // cifra. Sem esta guarda o layout desenhado para a cifra passaria a mostrar a
+  // letra com o seletor de abas escondido e sem o botão que devolve o retrato.
+  cifraCheiaBtnEl.hidden = src !== 'cifra';
+  if (cifraCheia && src !== 'cifra') cifraCheiaSair();
   lyricsViewSegEl.hidden = avail.length < 2;
   lyricsViewSegEl.querySelectorAll('.fit-opt').forEach((btn) => {
     btn.hidden = !avail.includes(btn.dataset.lvsrc);
@@ -12380,6 +12414,205 @@ function cifraColunas(folha) {
   return Math.max(8, Math.floor(largura / porCaractere));
 }
 
+// ===== A CIFRA EM TELA CHEIA, DEITADA (v1.6.0) =====
+//
+// Pedido do operador: *"gostaria que criasse um sistema para visualização das
+// cifras em tela cheia, no modo paisagem. deixe visível em uma coluna vertical
+// na direita, os botões de controle de tom, automático, tamanho da fonte e
+// etc... e é claro, ao abrir esse modo em tela cheia, pode já deixar
+// automaticamente a fonte já um pouco maior, já que uma visualização com a
+// fonte maior é o objetivo desse método em tela cheia"*.
+//
+// O ELEMENTO É O `#lyricsPopup` INTEIRO, e a razão é o que NÃO acontece: nada
+// é reparentado. Mover o corpo para um contêiner novo zeraria o `scrollTop`,
+// invalidaria a posição fracionária da rolagem (`cifraPos`/`cifraEscrito`) e
+// mataria as referências de `cifraRolarBtnEl`/`cifraVelBtnEl`. Só o layout
+// muda — quem o vira é o CSS, sob `#lyricsPopup:fullscreen`.
+//
+// A TRAVA DE PAISAGEM NÃO CUSTA UMA LINHA DE KOTLIN: quem deita o aparelho e
+// esconde as barras é o `onShowCustomView` do `MainActivity`, que não testa
+// tipo de elemento nenhum — a preview, que já usa este caminho todo culto, é um
+// `<div>` comum.
+//
+// ## A FONTE MAIOR é uma SEGUNDA ESCADA, não um deslocamento
+//
+// `--lv-fonte` é global (mora no `<html>`) e as DUAS casas do A+/A− o leem —
+// engordá-lo ali levaria junto a zona de letra do Modo Fácil, e obrigaria a
+// desfazer na saída. Aqui ele é ESCOPADO no `#lyricsPopup` (custom property
+// herda, e `.lv-cifra-folha` resolve `calc(var(--lv-fonte) * .74)` por ele):
+// sair é `removeProperty`, e **o tamanho normal volta porque nunca foi
+// embora**. Um offset somado ao índice global teria de ser subtraído na saída,
+// e não sobreviveria a um ajuste feito DENTRO da tela cheia nem ao teto da
+// escada.
+//
+// O PREÇO, DITO: mudar o corpo no retrato não arrasta o da tela cheia. Está
+// certo — são duas perguntas ("ler o celular na mão" × "ler de longe com o
+// instrumento na mão") —, e está escrito para ninguém "consertar".
+//
+// (`--lv-estrofe-gap` é `calc(var(--lv-fonte) * .86)` declarado no `:root`, e a
+// substituição acontece em quem DECLARA: os descendentes herdam o valor já
+// resolvido. É inócuo para a cifra, que espaça em `em`; no dia em que a tela
+// cheia valer para a aba de LETRA, ele tem de ser redeclarado junto.)
+let cifraCheia = false;
+// -1 é "ainda não semeado", e não um degrau: é ele que faz a PRIMEIRA entrada
+// de sempre saltar dois degraus a partir do corpo do retrato. Daí em diante o
+// valor é do operador, e é persistido em `cifraFonteCheia`.
+let cifraCheiaIdx = -1;
+// DOIS DEGRAUS, e o número é MEDIDO em colunas, não em gosto. No retrato de
+// 430px a folha tem ~375px úteis a `1.4rem × .74` ≈ 16,6px monoespaçados, o que
+// dá ~37 colunas; na paisagem de 800px sobram ~734 depois da coluna, e a
+// `2rem × .74` ≈ 23,7px dá ~52. Isto é: +43% de corpo E +40% de linha. Um salto
+// maior inverteria o negócio — uma fonte maior que faz a folha quebrar MAIS é
+// uma regressão, e é isso que o oráculo cobra.
+const CIFRA_CHEIA_SALTO = 2;
+
+/**
+ * Adota o corpo guardado da tela cheia. Por FUNÇÃO (hoisted) e não por
+ * atribuição direta, pelo mesmo motivo do `cifraAdotarVelocidade`: o estado
+ * mora aqui e o `load()` que hidrata roda muito antes na leitura.
+ *
+ * Valor fora da escada (ou ausente) volta ao sentinela: a semente do primeiro
+ * uso é o que responde, e a escada pode encolher numa versão futura.
+ */
+function cifraAdotarFonteCheia(v) {
+  // COM A TELA CHEIA NO AR, QUEM MANDA É O CORPO QUE ESTÁ NA TELA. A semente da
+  // primeira entrada é DERIVADA (do corpo do retrato) e não é gravada — só o
+  // A+/A− grava —, então um `load()` que chegasse aqui com a folha deitada
+  // leria `undefined` e devolveria o índice ao sentinela **enquanto o corpo
+  // grande continua escrito no `#lyricsPopup`**. E `load()` chega: todo
+  // download que começa ou termina passa por ele (`libBusy`/`soltar`), tanto
+  // quanto o fim de uma sincronização de pasta. O toque seguinte no A+
+  // resolveria `-1 + 1` e SALTARIA PARA O MENOR corpo da escada — 1rem, o
+  // oposto do modo cujo objetivo declarado é ler de longe —, gravando-o; e o
+  // A− já nasceria desabilitado pela regra de `aplicarTamanhoDaLetra`.
+  if (cifraCheia) return;
+  const i = LV_TAMANHOS.indexOf(v);
+  cifraCheiaIdx = i >= 0 ? i : -1;
+}
+
+// Escreve o corpo ESCOPADO. Semeia na primeira vez a partir do corpo do
+// retrato: `Math.min` clampa, então entrar já no topo da escada é no-op — e
+// tem de ser no-op silencioso, com o A+ nascendo desabilitado pela regra de
+// `aplicarTamanhoDaLetra`.
+function cifraAplicarFonteCheia() {
+  if (cifraCheiaIdx < 0) {
+    const base = LV_TAMANHOS.indexOf(lvTamanho);
+    cifraCheiaIdx = Math.min(
+      LV_TAMANHOS.length - 1,
+      (base < 0 ? LV_TAMANHOS.indexOf(LV_PADRAO) : base) + CIFRA_CHEIA_SALTO,
+    );
+  }
+  lyricsPopupEl.style.setProperty('--lv-fonte', LV_TAMANHOS[cifraCheiaIdx] + 'rem');
+}
+
+// O A+/A− DENTRO da tela cheia mexe na escada DELA, e persiste nela. Não chama
+// `lvScroll`: a cifra não tem `.lv-row.current` (`lvCurrentIndex` devolve -1
+// para ela), então aquelas duas linhas seriam no-op.
+async function passoTamanhoDaCheia(passo) {
+  const alvo = Math.min(LV_TAMANHOS.length - 1, Math.max(0, cifraCheiaIdx + passo));
+  if (alvo === cifraCheiaIdx) return;
+  // A LEITURA É CAPTURADA ANTES DO CORPO MUDAR — a regra escrita em
+  // `cifraRemedir`, no lugar em que ela mais é exercitada. De 1,4 para 1,7rem
+  // são ~21% de folha a mais, e quem estava na metade reapareceria perto dos
+  // 41% se a fração fosse lida depois.
+  const fracao = cifraFracaoDeLeitura();
+  cifraCheiaIdx = alvo;
+  cifraAplicarFonteCheia();
+  aplicarTamanhoDaLetra();   // repinta o desabilitado, agora pela escada certa
+  cifraRemedir(fracao);      // o corpo mudou: a folha quebra por CARACTERE
+  try { await AVDB.setState('cifraFonteCheia', LV_TAMANHOS[cifraCheiaIdx]); }
+  catch (_) { /* sem banco: vale a sessão */ }
+}
+
+/** Os dois desenhos do ⛶, trocados por `innerHTML` — nunca por `<use>`. */
+const CIFRA_CHEIA_SVG = {
+  entrar: '<path d="M4 9V5.5A1.5 1.5 0 0 1 5.5 4H9"/><path d="M15 4h3.5A1.5 1.5 0 0 1 20 5.5V9"/>'
+    + '<path d="M20 15v3.5a1.5 1.5 0 0 1-1.5 1.5H15"/><path d="M9 20H5.5A1.5 1.5 0 0 1 4 18.5V15"/>',
+  sair: '<path d="M9 4v3.5A1.5 1.5 0 0 1 7.5 9H4"/><path d="M20 9h-3.5A1.5 1.5 0 0 1 15 7.5V4"/>'
+    + '<path d="M15 20v-3.5a1.5 1.5 0 0 1 1.5-1.5H20"/><path d="M4 15h3.5A1.5 1.5 0 0 1 9 16.5V20"/>',
+};
+
+// O botão é ESTÁTICO, mas o desenho dele é estado — e o estado mora fora do
+// DOM, como o do `cifraPintarRolar`.
+function cifraPintarCheia() {
+  if (!cifraCheiaBtnEl) return;
+  const rotulo = cifraCheia ? 'Sair da tela cheia' : 'Ler em tela cheia (deitado)';
+  cifraCheiaBtnEl.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" '
+    + 'stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
+    + (cifraCheia ? CIFRA_CHEIA_SVG.sair : CIFRA_CHEIA_SVG.entrar) + '</svg>';
+  cifraCheiaBtnEl.title = rotulo;
+  cifraCheiaBtnEl.setAttribute('aria-label', rotulo);
+}
+
+/**
+ * Sai da tela cheia da cifra — e SÓ dela.
+ *
+ * A guarda pelo elemento é o que separa esta saída da da PREVIEW, que sem TV É
+ * a projeção: um `document.exitFullscreen()` cru com dois donos possíveis
+ * derrubaria o telão para fechar uma folha de acordes.
+ */
+function cifraCheiaSair() {
+  if (document.fullscreenElement !== lyricsPopupEl) return;
+  try { document.exitFullscreen(); } catch (_) { /* já saiu */ }
+}
+
+// UMA TELA CHEIA POR VEZ: o `onShowCustomView` do shell recusa a segunda
+// (`if (customView != null)`), e o Chromium não sabe disso — o estado do
+// navegador divergiria do da Activity, com a janela deitada e sem o elemento
+// que a pediu. A guarda mora aqui, onde ela é barata.
+async function cifraCheiaAlternar() {
+  if (cifraCheia || document.fullscreenElement === lyricsPopupEl) { cifraCheiaSair(); return; }
+  if (document.fullscreenElement) return;
+  if (lvActiveSource() !== 'cifra') return;
+  try {
+    if (lyricsPopupEl.requestFullscreen) await lyricsPopupEl.requestFullscreen();
+    else if (lyricsPopupEl.webkitRequestFullscreen) lyricsPopupEl.webkitRequestFullscreen();
+  } catch (_) { /* o navegador recusou: a folha continua no retrato */ }
+}
+
+if (cifraCheiaBtnEl) cifraCheiaBtnEl.addEventListener('click', cifraCheiaAlternar);
+cifraPintarCheia();   // ele nasce com desenho; quem o revela é `renderLyricsView`
+
+// QUEM MANDA É O EVENTO, nunca o toque. F11, Esc e o `exitFullscreen` do voltar
+// do Android chegam todos por aqui, e é aqui que a escada de fonte entra e sai
+// — pendurar isso no clique deixaria as três saídas com a fonte grande de pé.
+document.addEventListener('fullscreenchange', () => {
+  const agora = document.fullscreenElement === lyricsPopupEl;
+  if (agora === cifraCheia) return;
+  // A POSIÇÃO DE LEITURA É CAPTURADA AQUI, antes de o corpo mudar: trocar a
+  // fonte muda o comprimento da folha na hora, e a remedição só roda no quadro
+  // seguinte — lida lá, a fração já descreveria o estado novo.
+  const fracao = cifraFracaoDeLeitura();
+  cifraCheia = agora;
+  if (agora) cifraAplicarFonteCheia();
+  else lyricsPopupEl.style.removeProperty('--lv-fonte');
+  aplicarTamanhoDaLetra();
+  cifraPintarCheia();
+  // A LARGURA E O CORPO MUDAM EM INSTANTES DIFERENTES, e este cobre o primeiro:
+  // o elemento já está na top layer (a caixa já é a tela inteira), o corpo
+  // acabou de ser escrito — e o aparelho ainda NÃO girou. Quem cobre a rotação
+  // é o `resize` de sempre, que chega depois: não há promise para esperá-la (o
+  // `screen.orientation.lock` é decorativo num WebView), quem gira é a
+  // Activity.
+  requestAnimationFrame(() => cifraRemedir(fracao));
+});
+
+/**
+ * A fração do CONTEÚDO que está no topo do corpo — a régua com que a posição de
+ * leitura atravessa uma remedição. Por que do CONTEÚDO e não do percurso está
+ * dito em `cifraRemedir`, que é quem a consome.
+ *
+ * Ela existe porque TRÊS chamadores precisam capturá-la **antes de mexer na
+ * fonte** (a entrada e a saída da tela cheia, e as duas escadas do A+/A−): o
+ * corpo novo muda o comprimento da folha na hora, e a remedição só roda depois
+ * — lida lá, a fração já descreveria o estado novo, e o que sai é uma leitura
+ * que recua na proporção do crescimento do corpo.
+ */
+function cifraFracaoDeLeitura() {
+  const el = lyricsViewBodyEl;
+  return el.scrollHeight > 0 ? el.scrollTop / el.scrollHeight : 0;
+}
+
 // Redesenha a folha quando a MEDIDA pode ter mudado — e só então.
 //
 // A assinatura de `lvSignature` fala do CONTEÚDO (música, estado, transposição)
@@ -12387,7 +12620,7 @@ function cifraColunas(folha) {
 // três casos em que a largura muda de verdade são eventos, e cada um chama
 // aqui: a folha ABRINDO (antes de `.open` ela não tem largura), o A+/A− e o
 // gerar do aparelho.
-function cifraRemedir() {
+function cifraRemedir(fracaoDada) {
   if (!lyricsPopupEl.classList.contains('open')) return;
   if (lvActiveSource() !== 'cifra') return;
   // (A guarda de TECLADO saiu na v1.3.3, com o campo que ela protegia: esta aba
@@ -12395,7 +12628,66 @@ function cifraRemedir() {
   // `resize`: o redesenho refazia a aba, o campo com foco deixava de existir, e
   // a perda do foco fechava o teclado — um teclado que piscava e sumia. Se um
   // campo voltar a esta aba, a guarda tem de voltar com ele.)
+  const el = lyricsViewBodyEl;
+  const folha = el.querySelector('.lv-cifra-folha');
+  // ===== A GUARDA É POR COLUNAS, NUNCA POR LARGURA (v1.6.0) =====
+  //
+  // A pergunta que ela faz é *"a folha que está aí foi quebrada para a largura
+  // que ela tem AGORA?"* — `cifraColunasAtual` guarda o que a folha em cena de
+  // fato usou (escrito em `cifraDesenharFolha`), e aqui se mede de novo.
+  //
+  // Ela paga por três coisas de uma vez. A rotação dispara `resize` em RAJADA,
+  // e cada um custava a folha inteira reconstruída. O `ResizeObserver` do corpo
+  // (abaixo) REALIMENTA — reconstruir muda o `scrollHeight`, a barra de rolagem
+  // aparece ou some, o `clientWidth` muda, o observador dispara de novo —, e o
+  // ciclo morre no segundo passo. E ela continua deixando passar o A+/A−, onde
+  // a largura é a MESMA e o avanço por caractere não é: por LARGURA, aquele
+  // caminho seria apagado em silêncio.
+  //
+  // Sem folha (estados `buscando`/`erro`) não há o que medir, e cai no
+  // comportamento de sempre: redesenhar.
+  if (folha && cifraColunas(folha) === cifraColunasAtual) return;
+  // ===== E A POSIÇÃO DE LEITURA SOBREVIVE À REMEDIÇÃO =====
+  //
+  // `renderLyricsView` esvazia e reconstrói o corpo: o `scrollTop` volta a zero
+  // e, no quadro seguinte, `cifraRolarQuadro` lê `scrollTop !== cifraEscrito`,
+  // conclui — com toda a razão, é a linha que atende o "vale tanto para volta
+  // como para avanços" — que outro mexeu na folha, e adota o topo. A folha
+  // voltava ao começo no meio da música.
+  //
+  // Em FRAÇÃO do percurso, e não em pixel: a remedição muda a QUEBRA, logo o
+  // número de linhas, logo o comprimento da folha — um `scrollTop` guardado não
+  // significa nada do outro lado. E a volta é por `cifraAplicarPos`, que é quem
+  // atualiza `cifraEscrito`: escrever cru faria o quadro seguinte concluir
+  // "outro mexeu" outra vez.
+  // A FRAÇÃO É DO CONTEÚDO (`scrollTop / scrollHeight`), não do PERCURSO
+  // (`/ (scrollHeight - clientHeight)`). MEDIDO: a segunda muda sozinha quando
+  // só a ALTURA da caixa muda — e é o que a rotação faz, sem tocar no texto —,
+  // e o que saía era a folha andando 19% do arquivo ao deitar. A do conteúdo
+  // responde "que pedaço do texto está no topo?", que é a pergunta.
+  //
+  // E ELA PODE VIR DE FORA: quem troca a fonte (a entrada e a saída da tela
+  // cheia) muda o comprimento da folha ANTES de a remedição rodar, então a
+  // leitura feita aqui já descreveria o estado novo. O chamador captura antes
+  // de mexer e passa adiante. `typeof` e não `||`: zero é fração legítima, e
+  // um `Event` de `resize` chegando por engano no lugar dela seria pior.
+  const fracao = typeof fracaoDada === 'number'
+    ? fracaoDada
+    : (el.scrollHeight > 0 ? el.scrollTop / el.scrollHeight : 0);
   renderLyricsView();
+  const rolavelDepois = el.scrollHeight - el.clientHeight;
+  if (fracao > 0 && rolavelDepois > 0) {
+    cifraPos = Math.min(rolavelDepois, fracao * el.scrollHeight);
+    cifraAplicarPos(el);
+  }
+}
+
+// A LARGURA DO CORPO É O QUE `cifraColunas` MEDE — perguntar à JANELA é inferir.
+// O `resize`/`orientationchange` continuam (eles cobrem a rotação, que chega
+// depois da tela cheia); este cobre tudo o mais que mexe na caixa sem mexer na
+// janela. A realimentação que ele poderia criar morre na guarda por colunas.
+if (typeof ResizeObserver === 'function') {
+  new ResizeObserver(() => cifraRemedir()).observe(lyricsViewBodyEl);
 }
 
 
@@ -12535,6 +12827,9 @@ let cifraEsperando = false;
  * Guardando a posição aqui em `Number` e escrevendo o valor fracionário, quem
  * suaviza é o compositor do navegador, que rola em subpixel.
  */
+// Quantas colunas a folha EM CENA foi quebrada para caber — a régua da guarda
+// de `cifraRemedir`. -1 é "não há folha medida".
+let cifraColunasAtual = -1;
 let cifraPos = 0;
 /** O que ESCREVEMOS por último — é a régua para saber se outro mexeu. */
 let cifraEscrito = -1;
@@ -12827,8 +13122,12 @@ async function cifraVelPasso() {
 // sistema subindo, a janela mudando de tamanho. A medida da folha é em
 // CARACTERES, então qualquer um deles deixa a quebra valendo para a largura
 // anterior. `cifraRemedir` já se recusa a trabalhar fora da aba de cifra.
-window.addEventListener('resize', cifraRemedir);
-window.addEventListener('orientationchange', () => { requestAnimationFrame(cifraRemedir); });
+// Em ARROW, e não a referência nua: `cifraRemedir` passou a receber a fração de
+// leitura no primeiro argumento (v1.6.0), e um `Event` de `resize` — ou o
+// carimbo de tempo que o `requestAnimationFrame` entrega — chegaria no lugar
+// dela. O `typeof` de lá é a segunda guarda; esta é a primeira.
+window.addEventListener('resize', () => cifraRemedir());
+window.addEventListener('orientationchange', () => { requestAnimationFrame(() => cifraRemedir()); });
 
 
 /** O aro de espera com uma frase — três chamadores, um desenho. */
@@ -12856,7 +13155,14 @@ function cifraDesenharFolha(el, pagina, semitons) {
   const folha = document.createElement('div');
   folha.className = 'lv-cifra-folha';
   el.appendChild(folha);
-  const linhas = AVCifra.quebrarPares(pagina.linhas, cifraColunas(folha));
+  // O QUE ESTA FOLHA USOU, guardado para a guarda de `cifraRemedir` (v1.6.0):
+  // ela pergunta se a folha em cena foi quebrada para a largura que ela TEM
+  // agora, e a única resposta honesta é a medida que a construiu. Guardar em
+  // vez disso o último valor medido faria a folha aberta com largura ZERO (o
+  // `renderLyricsView` de dentro do `openLyricsPopup`, antes do `.open`)
+  // coincidir com um número velho e nunca ser requebrada.
+  cifraColunasAtual = cifraColunas(folha);
+  const linhas = AVCifra.quebrarPares(pagina.linhas, cifraColunasAtual);
   linhas.forEach((linha) => {
     const div = document.createElement('div');
     div.className = 'lv-cifra-linha lv-cifra-' + linha.tipo;
@@ -26712,6 +27018,14 @@ window.__avBack = function () {
   // (O passo 1.5 — a hierarquia DE DENTRO da gaveta de Favoritos — saiu na
   //    v5.294 com a própria gaveta. O passo 5, genérico, continua cuidando da
   //    seleção múltipla feita na lista.)
+  // 1.5. A TELA CHEIA DA CIFRA (v1.6.0). Ela é um MODO DA FOLHA: foi aberta
+  //    depois dela, e a ordem desta fila é do mais efêmero ao mais permanente —
+  //    logo é desfeita antes. Deixá-la para o degrau 3 seria o defeito concreto:
+  //    o degrau 2 fecharia a folha com ela AINDA em tela cheia, e tirar `.open`
+  //    só muda opacidade e `pointer-events` — o elemento continua na top layer e
+  //    a Activity continua deitada. Sair aqui deixa a folha ABERTA, no retrato;
+  //    o toque seguinte a fecha.
+  if (document.fullscreenElement === lyricsPopupEl) { cifraCheiaSair(); return true; }
   // 2. Bottom-sheets. Fecha o ÚLTIMO da tabela que estiver aberto — normalmente
   //    há um só, mas se houver dois o de cima é o que o operador vê.
   for (let i = POPUPS.length - 1; i >= 0; i--) {
@@ -26735,7 +27049,11 @@ window.__avBack = function () {
   }
   // 3. Preview em tela cheia — que, sem telão conectado, É a projeção. Sair
   //    dela é exatamente o que o voltar significa aqui.
-  if (document.fullscreenElement) {
+  //    E ELA É NOMEADA (v1.6.0): desde que a cifra também pede tela cheia, um
+  //    `document.fullscreenElement` cru tem dois donos possíveis, e o terceiro
+  //    consumidor herdaria a ambiguidade — aqui o preço de errar é derrubar a
+  //    projeção no meio do culto.
+  if (document.fullscreenElement === previewEl) {
     try { document.exitFullscreen(); } catch (_) {}
     return true;
   }

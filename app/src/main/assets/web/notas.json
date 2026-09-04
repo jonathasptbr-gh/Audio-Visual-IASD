@@ -1,5 +1,13 @@
 [
   {
+    "versao": "1.6.0",
+    "itens": [
+      "A cifra agora abre em tela cheia, deitada, com os controles numa coluna à direita.",
+      "Nesse modo a fonte já entra maior, e o tamanho escolhido nele fica guardado.",
+      "A folha continua no ponto em que estava ao deitar, ao voltar e ao mudar o tamanho da letra."
+    ]
+  },
+  {
     "versao": "1.5.21",
     "itens": [
       "Os detalhes de um vídeo agora mostram o título completo, o canal e a duração.",
