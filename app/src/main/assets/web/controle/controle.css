@@ -6623,8 +6623,42 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    a classe dele sem esconder nada, porque quem a mantinha visível era a pasta.
 
    A GAVETA É DO ITEM QUE A POSSUI: toda regra dela é `>`. */
+/* ---------- E ELA DECLARA OS QUATRO RECUOS, EM UM DONO SÓ (v1.5.21) --------
+   Relato do operador: *"ele mostra uma seção extra que está com a margem da
+   parte inferior desregulada em sua caixa mãe"*. Era COLAPSO DE MARGEM — o
+   irmão exato do defeito do `.coll-open` da v1.5.17, agora na borda de BAIXO.
+   Em `display: block`, sem padding e sem borda, a `margin-bottom` do ÚLTIMO
+   filho em fluxo (o `.item-detalhe`, que só existe num vídeo) colapsava
+   ATRAVÉS da borda inferior do pai e era pintada FORA do poço: MEDIDO, 8px de
+   faixa entre o fim da gaveta e o fim da linha, com ZERO abaixo do card por
+   dentro.
+
+   E ele não erra alto, que é por que passou tanto tempo de pé: `--gaveta-btn` É
+   `var(--panel)` e o `.lib-item` do acervo é `--linha: transparent`, então a
+   faixa escapada mostra a PLACA — que tem a cor exata do card. O poço para
+   rente ao card e o card PARECE vazar 8px da caixa mãe. Contra o poço a faixa
+   mede 1,38:1 no escuro e 1,85:1 no claro, acima do piso de 1,28:1 desta casa:
+   não é sutil, é outra superfície.
+
+   FLEX, e não `flow-root`: um contêiner flex não tem colapso de margem NENHUM,
+   então a classe inteira do defeito some por construção em vez de ser tapada
+   num ponto. E os quatro recuos passam a sair DAQUI — 4px acima, 8px nos lados,
+   8px entre as duas metades, 8px abaixo —, que é a regra da casa que esta
+   mesma caixa já segue no `--camada` e no `--opcao-recuo-*`: quem declara a
+   medida dos filhos é o PAI. Antes eles vinham de dois lugares (o `padding` da
+   `<ul>` mais a `margin` do card) e os 8px concordarem era coincidência entre
+   um token e um literal escrito à mão.
+
+   `padding-bottom` solto seria a correção ERRADA e parece a óbvia: nas gavetas
+   SEM `.item-detalhe` (favoritos e pasta do aparelho) o último filho é a `<ul>`,
+   que já respirava por padding — o vão viraria 16px nas três listas.
+
+   Seguro porque a `.hymn-gaveta` é `display: none` fora daqui: quando a `<ul>`
+   é visível, o pai dela é SEMPRE esta regra. */
 .lib-item.expanded > .hymn-gaveta {
-  display: block;
+  display: flex; flex-direction: column;
+  gap: var(--sp-4);
+  padding: var(--sp-2) var(--sp-4) var(--sp-4);
   background: var(--gaveta-bg);
   --camada: var(--gaveta-btn);
   margin: 0;
@@ -6639,25 +6673,29 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    do navegador (quadrados, por ser um `<ul>` aninhado em terceiro nível). Eles
    não vinham de regra nenhuma do app, e é por isso que não havia o que
    procurar: era a AUSÊNCIA de uma. */
-/* ---------- E O `padding` DESTA REGRA ESTAVA MORTO (v1.5.17) ----------
-   O `padding`, e SÓ ele. `.hymn-opcoes` e `.song-menu-list` moram no MESMO
-   `<ul>` (o montador escreve `className = 'song-menu-list hymn-opcoes'`), têm a
-   MESMA especificidade, e a `.song-menu-list` vem DEPOIS na folha — mas ela
-   declara APENAS `padding`. As outras quatro declarações daqui
-   (`list-style`, `margin`, `display: flex`, `flex-direction`, `gap`) sempre
-   valeram e são a ÚNICA fonte do layout desta `<ul>`, que não é uma
-   `.popup-list` e não herda `display`/`gap` de lugar nenhum: MEDIDO por
+/* ---------- E O `>` DESTA REGRA É QUEM RESOLVE UM EMPATE (v1.5.17) ---------
+   `.hymn-opcoes` e `.song-menu-list` moram no MESMO `<ul>` (o montador escreve
+   `className = 'song-menu-list hymn-opcoes'`), têm a MESMA especificidade, e a
+   `.song-menu-list` vem DEPOIS na folha — mas ela declara APENAS `padding`.
+   Sem o `>`, era o recuo do BOTTOM-SHEET que a v5.285 substituiu que vencia
+   aqui dentro. Com ele (0,2,0 contra 0,1,0) quem manda é esta regra, e é por
+   isso que o `padding: 0` da v1.5.21 de fato ZERA o recuo em vez de devolver o
+   empate à folha antiga. O `>` é seguro porque os dois montadores anexam a
+   `<ul>` direto na `.hymn-gaveta`.
+
+   As outras quatro declarações daqui (`list-style`, `margin`, `display: flex`,
+   `flex-direction`, `gap`) são a ÚNICA fonte do layout desta `<ul>`, que não é
+   uma `.popup-list` e não herda `display`/`gap` de lugar nenhum: MEDIDO por
    reversão, apagar o `display: flex` OU o `gap` colapsa o vão entre as opções
    de 4px para ZERO e a `<ul>` de 197,59 para 185,59px, sem erro em lugar
-   nenhum.
-   O que estava morto era o recuo: a gaveta vestia o do BOTTOM-SHEET que a
-   v5.285 substituiu — apagando o `padding` da `.song-menu-list` na folha real,
-   o computado cai de 6,4/9,6/12,8px para os 7,2/8/8 desta.
-   O `>` é seguro e é o que resolve o empate: os dois montadores anexam a `<ul>`
-   direto na `.hymn-gaveta`. */
+   nenhum. */
 .hymn-gaveta > .hymn-opcoes {
   list-style: none; margin: 0;
-  padding: var(--sp-2) var(--sp-4) var(--sp-4);
+  /* O RECUO SUBIU PARA A GAVETA (v1.5.21) — ver a regra dela. Aqui ele era
+     METADE do respiro da caixa: a outra metade era a `margin` do `.item-detalhe`,
+     e era ela que colapsava para fora do poço. Zerado, e não removido: a
+     `.song-menu-list` do mesmo `<ul>` declara `padding` e vem DEPOIS na folha. */
+  padding: 0;
   display: flex; flex-direction: column; gap: var(--sp-2);
 }
 /* ---------- E É AQUI QUE A DENSIDADE DA GAVETA É DECLARADA (v1.5.17) --------
@@ -6678,7 +6716,11 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
 .hymn-opcoes .song-menu-btn:not(.song-menu-go) { background: var(--gaveta-btn); }
 .hymn-gaveta .item-detalhe {
   background: var(--gaveta-btn);
-  margin: 0 .5rem .5rem;
+  /* A MARGEM QUE ESCAPAVA (v1.5.21). Ela é do PAI agora (o `gap` mais o
+     `padding` da gaveta), e o literal `.5rem` que morava aqui some com ela —
+     ele valia 8px como o `--sp-4` da `<ul>` ao lado por coincidência, não por
+     contrato. */
+  margin: 0;
 }
 /* ---------- A FAIXA DE AÇÕES DA LINHA DE FAVORITO (v5.287) ----------
    O conteúdo do `⋮` de antes, agora DENTRO da gaveta. Ela fica embaixo porque as
@@ -6787,8 +6829,21 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
 /* A mesma caixa da letra, com o mesmo recuo e a mesma moldura: as duas
    respondem "é este mesmo?" e não há razão para parecerem coisas diferentes.
    O que muda é o conteúdo — miniatura + duração + estado no aparelho. */
+/* ---------- E A DESCRIÇÃO ENTRA NUMA SEGUNDA LINHA (v1.5.21) ----------
+   `flex-wrap: wrap` mais um filho de base 100% é o que dá ao texto a largura
+   INTEIRA do card sem restruturar nada: a miniatura e a coluna de dados
+   continuam sendo os dois primeiros filhos da mesma caixa, e o seletor
+   `.item-detalhe > .item-detalhe-txt` — que o `boot-nativo` lê — continua
+   valendo. Uma descrição na coluna estreita ao lado de uma miniatura de 7,5rem
+   sobra ~200px numa tela de celular, que é meia dúzia de palavras por linha.
+
+   E o `flex: 1 1 0` da coluna de texto NÃO é enfeite: com `wrap`, o tamanho
+   base de um filho `auto` é o CONTEÚDO, então um título longo (e este card
+   mostra justamente o título CRU) empurraria a coluna inteira para baixo da
+   miniatura. Com base ZERO ela nunca dispara quebra, e o resultado visual é o
+   mesmo de antes — o texto já ocupava a largura que sobra. */
 .item-detalhe {
-  display: flex; gap: var(--sp-5); align-items: flex-start;
+  display: flex; flex-wrap: wrap; gap: var(--sp-5); align-items: flex-start;
   margin: 0 .55rem .55rem; padding: .5rem .6rem;
   border-radius: var(--radius-btn);
   background: var(--bg);
@@ -6804,8 +6859,19 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
   object-fit: cover; border-radius: var(--radius-xs);
   background: var(--surface);
 }
-.item-detalhe-txt { display: flex; flex-direction: column; gap: var(--sp-2); min-width: 0; }
+.item-detalhe-txt { display: flex; flex-direction: column; gap: var(--sp-2); min-width: 0; flex: 1 1 0; }
 .item-detalhe-linha { font-size: var(--fs-md); color: var(--muted); }
+/* ---------- O TÍTULO É A IDENTIDADE, O RESTO É ATRIBUTO (v1.5.21) ----------
+   O card passou de duas linhas para quatro, e com as quatro em `--muted` ele
+   vira um parágrafo sem entrada: a pergunta que o operador faz aqui é *"é este
+   mesmo?"*, e quem a responde é o título completo — canal, duração e estado só
+   qualificam o que ele já reconheceu.
+   A distinção sai do par que o app já usa para isso (o `--text` do texto contra
+   o `--muted` do NÚMERO, a regra da v1.5.11), e não de tamanho: subir o corpo
+   faria a linha competir com o nome da própria faixa, dois centímetros acima.
+   Ele é a única linha do card que pode ter várias palavras — daí `--fw-medio`
+   e não negrito, que a `.item-detalhe-estado.done` já reserva para o resolvido. */
+.item-detalhe-titulo { color: var(--text); font-weight: var(--fw-medio); }
 /* ---------- O VERDE SAI DOS INDICADORES ----------
    Régua: a mesma coisa dita duas vezes. "24/24" já diz que o álbum está inteiro
    e "Já no aparelho" já diz que os bytes estão aqui — o verde ao lado não
@@ -6815,6 +6881,51 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    neutro sem pintar nada. E o verde continua onde é o único sinal: a linha de
    aviso (`.row-nota--ok`), o pulso de confirmação, a tela conectada. */
 .item-detalhe-estado.done { font-weight: var(--fw-medio); }
+/* ---------- A DESCRIÇÃO DO VÍDEO (v1.5.21) ----------
+   A linha inteira do card, abaixo da miniatura e dos dados — ver a nota do
+   `.item-detalhe`. Ela é a única coisa deste card que vem da REDE, e a única
+   que pode faltar num aparelho sem Wi-Fi: faltando, o bloco simplesmente não
+   existe (não há caixa vazia nem aviso).
+
+   `pre-wrap` porque a descrição de um episódio é escrita em parágrafos, e as
+   quebras são do autor; `overflow-wrap: anywhere` porque ela costuma trazer
+   URLs, que não têm onde quebrar e esticariam o card. */
+.item-detalhe-desc { flex: 1 0 100%; min-width: 0; }
+/* O CLAMP É POR LINHA E MORA NO CSS: o texto INTEIRO está no DOM, e o "Ver
+   mais" só o revela. Um teto em caracteres seria uma segunda regra de
+   truncagem, e ela divergiria da primeira no dia em que o corpo da fonte
+   mudasse (o A+/A− existe). */
+.item-detalhe-desc-txt {
+  margin: 0;
+  font-size: var(--fs-md); color: var(--muted); line-height: 1.45;
+  white-space: pre-wrap; overflow-wrap: anywhere;
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 4;
+  overflow: hidden;
+}
+.item-detalhe-desc.aberta .item-detalhe-desc-txt {
+  display: block; overflow: visible; -webkit-line-clamp: unset;
+}
+/* UM LINK, e não um botão de corpo inteiro — a MESMA peça que o "Ver no Cifra
+   Club" (`.lv-cifra-link`), inclusive na resposta ao toque: ele é a ação MENOS
+   principal de uma caixa cuja única função é mostrar texto, e com peso de botão
+   cobraria a altura de mais uma linha. Sem fundo próprio, então nada aqui é
+   superfície de controle (a regra dos `--btn-*`).
+
+   E ELE FICA FORA DA LISTA DO `--press`, pela razão do `.lv-cifra-link`: aquele
+   recuo é a metáfora de uma TECLA que afunda, e não há tecla aqui — 2px sob uma
+   palavra solta se leem como a palavra pulando. A resposta é a opacidade, que é
+   o que aquele irmão já faz.
+
+   `min-height: var(--hit)` porque isto RECEBE O DEDO: o `.lv-cifra-link` mora
+   num rodapé com folga em volta, este mora colado no fim de um parágrafo. */
+.item-detalhe-mais {
+  margin-top: var(--sp-2); padding: .15rem 0; min-height: var(--hit);
+  background: none; color: var(--accent);
+  font-size: var(--fs-md); font-weight: var(--fw-medio);
+  text-decoration: underline; text-underline-offset: 2px;
+  cursor: pointer;
+}
+.item-detalhe-mais:active { opacity: .6; }
 
 /* ---------- A folha rápida de uma música (▶ e + da linha do acervo) ---------- */
 /* Linhas LARGAS e ROTULADAS, o oposto dos seis ícones mudos que substituíram:

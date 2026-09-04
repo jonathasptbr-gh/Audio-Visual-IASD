@@ -38,10 +38,10 @@ Nenhum dos dois aparece num teste de comportamento. Por isso existe o
    NativeBridge.kt                     shared/native.js
    ───────────────                     ────────────────
    @JavascriptInterface  ──injetado──►  window.__AVBridge
-   (50 métodos)          addJavascript      │
+   (59 métodos)          addJavascript      │
                           Interface         │ remonta
                                             ▼
-                                       window.AVNative  (44 métodos)
+                                       window.AVNative  (51 métodos)
                                        + 4 globais lidas direto
 ```
 
@@ -161,7 +161,7 @@ portanto **compartilhados por todas as instâncias**. Todos daemon.
 |---|---|
 | **`io`** | só o que responde em MILISSEGUNDOS: `version.json`, estado do OTA, `listFolder` pelo `ContentResolver`. **Nada de rede** |
 | **`transferencia`** | as transferências de MINUTOS: download do YouTube, download do APK, `ytDiscard` |
-| **`extracao`** | metadados de rede (busca, playlists de canal, o manifesto do `ytStream`, `apkProcurar`) e a rasterização de PDF — coisas de SEGUNDOS |
+| **`extracao`** | metadados de rede (busca, playlists de canal, o manifesto do `ytStream`, os detalhes de um vídeo do `ytDetalhes`, `apkProcurar`) e a rasterização de PDF — coisas de SEGUNDOS |
 | **`cifra`** | só o `cifraHtml` — o GET da página do Cifra Club |
 
 - **Um executor por INSTÂNCIA vazava.** `newSingleThreadExecutor` cria uma
@@ -327,6 +327,45 @@ independentes desenhavam o diálogo pela metade.
 
 **NÃO existe campo `url`.** Quem guarda a URL é o `ShellUpdater`, do achado da
 última `apkProcurar` — é por isso que `apkInstalar()` não recebe URL nenhuma.
+
+### `ytDetalhes(url)` — e o `null` dele NÃO é achatado (shell 62)
+
+`{ titulo, canal, seconds, descricao }` ou **`null`**. Ele é a metade do card de
+detalhe de um vídeo que **não cabe no índice**: título, canal e duração já vêm
+na listagem de playlist e o `serie.js` os guarda (valem OFFLINE); a DESCRIÇÃO só
+existe extraindo o vídeo, uma requisição por vídeo.
+
+| desfecho | o que significa | o que o `controle.js` faz |
+|---|---|---|
+| `null` | **não houve resposta** — sem rede, prazo vencido, papel `display` | não guarda nada; a próxima abertura tenta de novo |
+| `{ …, descricao: '' }` | respondeu, e este vídeo **não tem** descrição | guarda; senão toda abertura gasta uma extração para chegar à mesma resposta |
+
+É a mesma distinção do `status 0` × `404` do `cifraHtml`, e é por isso que a
+remontagem do `native.js` **não** achata o `null` num objeto vazio como aquele
+faz: aqui as duas respostas pedem ações opostas, e um aparelho sem rede
+carimbaria "não tem descrição" no cache até o app fechar.
+
+**`descricao` é SEMPRE texto simples, e quem garante isso é o Kotlin.**
+`Description.getType()` pode ser HTML — é o que o YouTube devolve quando a
+descrição tem links —, e o Controle roda no origin PRIVILEGIADO, o que injeta
+`__AVBridge`. Entregar HTML de terceiro a esse lado é uma porta que só existe
+para ser fechada.
+
+**Isto não contradiz a divisão da CIFRA**, e a diferença é o que decide: lá a
+MARCAÇÃO carrega o significado (é o `<b>` que diz "esta linha é de acordes"),
+então o parser é a regra e tem de chegar por OTA no dia em que o site mudar.
+Aqui a marcação não carrega nada que se guarde, e um achatador de HTML não
+envelhece com o YouTube — `Html.fromHtml` é a plataforma fazendo isso.
+
+**E o TIPO original não viaja**, de propósito: o único uso possível de um campo
+`descricaoTipo` do outro lado seria ramificar por ele, e o único ramo que ele
+habilita é o que esta decisão existe para impedir.
+
+> **A fila é a `extracao`, e é isso que obriga o chamador a ser um TOQUE.** Ela
+> é de uma thread, e trabalho de MASSA ali empurra todo "Tocar agora" para além
+> dos 60 s do `call()`. Quem chama é o botão "Ver os detalhes" de UMA linha, com
+> cache em memória do outro lado — nunca a montagem de uma lista, nunca uma
+> varredura de álbum.
 
 ### `espelhoCertEstado()` — seis campos, e os dois últimos não são supérfluos
 

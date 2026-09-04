@@ -3507,12 +3507,17 @@ de 40 px, e duas linhas de texto somam ~35 px.
 
 | Item | Subtítulo |
 |---|---|
-| vídeo | `Vídeo · 1080p` |
+| vídeo | `Vídeo · 1080p · 4:32` |
 | áudio | `Áudio · 4:32` |
 | apresentação | `Apresentação · 12 páginas` |
-| item de player | `YouTube` — isto é, **depende da rede durante o culto** |
+| item de player | `YouTube · 4:32` — isto é, **depende da rede durante o culto** |
 | item de URL | `Link externo` |
 | cena de roteiro | o subtipo (`Versículo`, `Mensagem`, `Cronômetro`…) |
+
+- **A DURAÇÃO vale para os três, não só para o áudio** (v1.5.21). Ela foi do
+  `audio` enquanto só ele a tinha gravada; hoje o link e o vídeo do YouTube a
+  gravam também (ver abaixo), e a régua nunca foi o *kind* — é *"o registro
+  sabe?"*. Sem o dado, a linha sai exatamente como saía.
 
 - **Nada aqui MEDE coisa alguma a cada render**, e é essa a regra que decide o
   que entra: a resolução vem do shell ou do `<video>` que já monta a miniatura, a
@@ -6502,10 +6507,14 @@ empurrariam a lista e tirariam do lugar o que o operador estava mirando.
  └────────────────────────┘
 
  num VÍDEO, a metade de baixo continua:
- ├────────────────────────┤
- │  [miniatura] 20:00     │  o detalhe do episódio
- │  Toca sem baixar       │
- └────────────────────────┘
+ ├─────────────────────────────────────────┤
+ │  [miniatura] Match point | Provai e …   │  o TÍTULO COMPLETO (identidade)
+ │              Provai e Vede | Oficial…   │  o CANAL
+ │              Duração 5:19               │
+ │              Toca sem baixar            │  o estado no aparelho
+ │  Um testemunho sobre a fidelidade …     │  a DESCRIÇÃO (4 linhas + "Ver mais")
+ │  Ver mais                               │  — a única que vem da REDE
+ └─────────────────────────────────────────┘
 ```
 
 Um alvo só, e a lista inteira do outro lado. Com dois botões na linha (um ▶ e um
@@ -6523,14 +6532,68 @@ pergunta sobre a UI, não sobre o culto.
   primeira no primeiro ajuste. Sem fonte forçada — a folha abre na LETRA, com a
   Cifra ao lado; quem veio da gaveta veio de uma lista de músicas, não dos
   acordes.
-- **NUM VÍDEO A METADE DE BAIXO FICA:** ali ela é a miniatura, a duração e o
-  estado no aparelho — o que responde *"é este mesmo?"* num item sem letra —, e o
+- **NUM VÍDEO A METADE DE BAIXO FICA:** ali ela é a miniatura, o título
+  completo, o canal, a duração e o estado no aparelho — o que responde
+  *"é este mesmo?"* num item sem letra —, e o
   mesmo botão continua sendo o interruptor dela ("Ver / Ocultar os detalhes",
   duas frases empilhadas numa grade 1×1 para a largura não mudar sob o dedo).
   Quem decide é `temLetra(coll)`, nunca `ehSerie`. Quem some fechado é o
   ENVELOPE (`.hymn-gaveta`), nunca cada metade: a animação do acordeão mede
   `offsetHeight` de UM elemento, e com duas caixas irmãs aparecendo por conta
   própria a medida seria de meia gaveta.
+  - **A ORDEM DAS LINHAS É A DAS PERGUNTAS** (v1.5.21): *o que é isto?* (o
+    título) · *de quem?* (o canal) · *quanto dura?* · *preciso de rede agora?*
+    (o estado). A identidade vem primeiro porque é ela que decide se o operador
+    vai adiante — o resto qualifica o que ele já reconheceu; daí ela ser a única
+    em `--text`, contra o `--muted` das outras três.
+  - **O TÍTULO COMPLETO só aparece quando ACRESCENTA alguma coisa.** O rótulo da
+    lista é PODADO por construção (a data na frente, o pedaço à esquerda da
+    barra — e no `TITULO_SERIE` do Informativo o nome do episódio some inteiro),
+    então o cru quase sempre difere; comparar em vez de desenhar sempre é o que
+    impede a mesma frase duas vezes na tela.
+  - **NADA AQUI VAI À REDE, e é isso que faz o card valer no sábado de manhã.**
+    Os quatro dados saem do ÍNDICE (`serieFaixaDoItem` guarda `nomeOriginal`,
+    `canal`, `duration` e `thumb`) e do IndexedDB (o estado). A miniatura é a
+    única ilustração: ela sai de cena sozinha se não carregar.
+  - **CADA LINHA SÓ EXISTE SE O DADO EXISTIR**, e a guarda é POR CAMPO e nunca
+    por versão de bundle: entre o OTA chegar e a varredura refazer o índice há
+    uma janela em que o guardado não tem os campos novos. A linha ausente SOME —
+    a regra do Registro aplicada a um card.
+  - **`textContent`, NUNCA `innerHTML`.** Título, canal e descrição são texto de
+    TERCEIRO, e o Controle roda no origin privilegiado, o que injeta
+    `__AVBridge`. Na descrição a regra custa caro — é o campo que o YouTube
+    entrega em HTML quando há links —, e por isso ela tem uma SEGUNDA metade no
+    Kotlin: `YoutubeGrab.detalhes` já achata o HTML, então o que atravessa a
+    ponte é texto e a tela não mostra marcação literal.
+  - **E A DESCRIÇÃO É A QUINTA LINHA, a única que vem da REDE** (v1.5.21, shell
+    62 — `AVNative.ytDetalhes`). As outras quatro saem do índice e do IndexedDB
+    e valem offline; esta custa uma extração POR VÍDEO, e daí as três decisões
+    que a cercam:
+    - **O gatilho é a REVELAÇÃO, não a abertura da linha.** Quem pede é o toque
+      em "Ver os detalhes", uma vez por vídeo OLHADO. Pendurá-la no toque na
+      LINHA gastaria uma extração por gaveta aberta — inclusive nas que o
+      operador abre só para mandar o episódio ao Cronograma —, e na montagem da
+      LISTA gastaria uma por episódio do álbum, que é a varredura que a fila de
+      extração do shell proíbe por escrito.
+    - **NADA VAI PARA O DISCO, e o precedente é o da CIFRA, palavra por
+      palavra:** um `Map` que morre com o app (`ytDescricaoCache`), nada em
+      IndexedDB, nada no bundle do OTA, nada no repositório. Guardar mudaria o
+      recurso de NATUREZA — o app deixaria de LER conteúdo de terceiro no
+      aparelho do operador e passaria a DISTRIBUIR uma cópia dele.
+    - **`null` não é guardado; `''` é.** A ponte separa "não houve resposta" de
+      "respondeu e não há descrição" (ver `docs/shell/PONTE.md`), e é a mesma
+      disciplina do `sem-rede` da cifra: um Wi-Fi que oscilou não pode custar um
+      buraco que só some fechando o app.
+    - **O limite de exibição é de LINHAS (4) e mora no CSS**, com o texto
+      inteiro no DOM e um "Ver mais" que o revela — e o botão só existe quando
+      há o que revelar (`scrollHeight` contra `clientHeight`, medido no render).
+      Um teto em caracteres seria uma segunda regra de truncagem, e ela
+      divergiria da primeira no dia em que o corpo da fonte mudasse. O teto que
+      existe é o do Kotlin (`DESCRICAO_MAX`, 2 000 caracteres) e é de
+      TRANSPORTE, não do que a tela mostra.
+    - **Sem rede o card não parece quebrado:** o bloco simplesmente não existe,
+      e as outras quatro linhas continuam inteiras. É a degradação certa, e a
+      mesma do navegador, onde não há ponte.
 - **Nada de menu foi reimplementado.** `renderSongMenu` e `openYtMenu` ganharam
   PARA ONDE escrever (`songMenuFor.alvo`, que viaja no ESTADO porque cada
   remontagem — o seletor, cada marca de destino — precisa refazer a lista no

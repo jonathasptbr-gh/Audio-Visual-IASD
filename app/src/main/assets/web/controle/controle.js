@@ -278,7 +278,7 @@ const appVersionEl = document.getElementById('appVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.5.20';
+const WEB_VERSION = '1.5.21';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -4574,12 +4574,17 @@ function subtituloItem(item) {
   // O item de PLAYER: o link, sem bytes no aparelho. Dizer "YouTube" é dizer
   // que ele depende da rede durante o culto, que é a diferença que importa
   // entre ele e o arquivo baixado do mesmo vídeo.
-  if (item.kind === 'youtube') return com('YouTube');
-  if (item.kind === 'video') return com('Vídeo') + (item.height ? ' · ' + item.height + 'p' : '');
-  if (item.kind === 'audio') {
-    const d = fmtDur(item.seconds);
-    return com('Áudio') + (d ? ' · ' + d : '');
+  // A DURAÇÃO VALE PARA OS TRÊS, não só para o áudio (v1.5.21). Ela era do
+  // `audio` porque só ele a tinha gravada — hoje o link e o vídeo do YouTube a
+  // gravam também, e a régua nunca foi o kind: é *"o registro sabe?"*. Sem
+  // dado, a linha continua exatamente como era.
+  const dur = fmtDur(item.seconds);
+  const comDur = (base) => base + (dur ? ' · ' + dur : '');
+  if (item.kind === 'youtube') return comDur(com('YouTube'));
+  if (item.kind === 'video') {
+    return comDur(com('Vídeo') + (item.height ? ' · ' + item.height + 'p' : ''));
   }
+  if (item.kind === 'audio') return comDur(com('Áudio'));
   if (item.kind === 'image') return com('Imagem');
   if (!item.blob && item.url) return 'Link externo';
   return com('Arquivo');
@@ -14636,6 +14641,25 @@ function serieFaixaDoItem(s, it) {
   // `thumbEl`), então ela vale como ilustração e nunca como dado: sem internet
   // a imagem não carrega, e o detalhe do item continua inteiro sem ela.
   s.thumb = it.thumb || '';
+  // O TÍTULO CRU E O CANAL (v1.5.21) — os dois dados que a regra tinha na mão e
+  // jogava fora, e que a gaveta de detalhe existe para mostrar.
+  //
+  // `s.name` é o RÓTULO ("15/Ago · Quando o evangelho sussurra"): a data na
+  // frente porque é por ela que se procura, e o título já podado. No modo
+  // `TITULO_SERIE` (o Informativo) ele nem chega a conter o nome do episódio —
+  // o que fica é o rótulo da série mais a data. O CRU é a outra pergunta,
+  // *"é este mesmo?"*, e ela é a razão de o detalhe existir num vídeo.
+  //
+  // Guardados no ÍNDICE e não pedidos na hora de abrir a gaveta: quem os tem é
+  // a extração da playlist, que custa rede, e a gaveta abre no sábado de manhã
+  // no Wi-Fi da igreja. Persistir é o que faz o card valer OFFLINE.
+  s.nomeOriginal = String(it.nomeOriginal || '').trim();
+  s.canal = String(it.canal || '').trim();
+  // E os SEGUNDOS CRUS ao lado da string formatada. `s.duration` continua sendo
+  // o "M:SS" que toda conta de peso do álbum lê; este é o número, e ele existe
+  // por um consumidor só: `serieComoYoutube`, que o repassa ao registro quando
+  // o episódio é guardado como LINK (ali não há blob de onde medir nada).
+  s.seconds = it.seconds || 0;
   // Um vídeo não tem Playback. Sem isto, `songVariantsNeeded` pediria uma
   // segunda variante que nunca vai existir e o álbum nunca ficaria completo.
   s.has_instrumental_music = false;
@@ -17512,6 +17536,13 @@ async function ytAcaoInterno(r, destinos, btn, somenteAudio, altura) {
         name: r.name || ('YouTube: ' + r.id),
         thumb,
         youtubeId: r.id,
+        // O QUE O LINK LEVA CONSIGO (v1.5.21). Os dois já estavam na mão de quem
+        // cria — a busca do YouTube devolve `seconds`/`author`, e um episódio de
+        // série chega por `serieComoYoutube` com os mesmos — e eram descartados
+        // aqui. É a única chance de gravá-los: um link não tem bytes de onde
+        // medir, então o que não entrar agora não existe mais offline.
+        seconds: r.seconds || null,
+        canal: r.author || null,
         list: lista,
       });
     }
@@ -17856,6 +17887,53 @@ function searchIconSvg() {
   return '<svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoLupa"/></svg>';
 }
 
+// ===== A DESCRIÇÃO DE UM VÍDEO: EM MEMÓRIA, E SÓ EM MEMÓRIA (v1.5.21) =====
+//
+// Pedido do operador: *"coloque dados como duração, nome completo, canal e
+// descrição se for possível obter"*. Os três primeiros são do índice da série e
+// valem OFFLINE (ver `serieFaixaDoItem`); a descrição não vem em listagem
+// nenhuma — ela custa uma extração POR VÍDEO —, e por isso ela é a única dos
+// quatro que precisa de rede e a única que exigiu um método novo da ponte
+// (`AVNative.ytDetalhes`, shell 62).
+//
+// **NADA DISTO VAI PARA O DISCO, e o precedente é o da CIFRA, palavra por
+// palavra:** um `Map` que morre com o app, nada em IndexedDB, nada no bundle do
+// OTA, nada no repositório. Guardar mudaria o recurso de NATUREZA — o app
+// deixaria de LER conteúdo de terceiro no aparelho do operador e passaria a
+// DISTRIBUIR uma cópia dele. As duas coisas não são degraus da mesma escada.
+//
+// O CACHE É POR VÍDEO E NÃO POR LINHA: a mesma lista é remontada a cada tecla
+// da busca e a cada marca de destino, e sem ele reabrir a gaveta do mesmo
+// episódio gastaria uma extração nova — na fila que o "Tocar agora" divide.
+//
+// **`null` NÃO É GUARDADO.** A ponte separa "não houve resposta" (`null`) de
+// "respondeu e não há descrição" (`descricao: ''`), e é a mesma disciplina do
+// `sem-rede` da cifra: um Wi-Fi que oscilou não pode custar um buraco que só
+// some fechando o app. O vazio, esse, é resposta — e guardá-lo é o que impede a
+// gaveta de gastar uma extração por abertura num vídeo sem descrição.
+const ytDescricaoCache = new Map();   // id do vídeo → texto já achatado ('' = não tem)
+
+/**
+ * A descrição de UM vídeo, do cache ou da ponte. `''` quando não há o que
+ * mostrar — inclusive sem ponte (navegador) e sem rede.
+ *
+ * A guarda é `window.__NATIVE__`, e SÓ ela — nunca uma comparação de
+ * `__SHELL_VERSION__`. O bundle declara `minShell`, então o piso garante a
+ * ponte inteira e não há método a conferir; guarda de versão no lado web é
+ * proibida por escrito. O que separa navegador de app é esta linha, e nada mais.
+ */
+async function descricaoDoVideo(id, url) {
+  if (!window.__NATIVE__ || !url) return '';
+  const chave = id || url;
+  const guardada = ytDescricaoCache.get(chave);
+  if (guardada !== undefined) return guardada;
+  const d = await AVNative.ytDetalhes(url);
+  if (!d) return '';           // não houve resposta: nada guardado, tenta de novo
+  const texto = String(d.descricao || '');
+  ytDescricaoCache.set(chave, texto);
+  return texto;
+}
+
 // ===== UMA LINHA, UM TOQUE, UMA GAVETA =====
 //
 // A linha era `[▶] [nome / subtítulo] [+]` — dois botões, cada um abrindo uma
@@ -18027,7 +18105,24 @@ function hymnResultRow(coll, s, lyricHit, semColecao) {
       b.appendChild(cx2);
       b.addEventListener('click', (e) => {
         e.stopPropagation();
-        li.classList.toggle('vendo-letra');
+        // ===== O GATILHO DA DESCRIÇÃO É A REVELAÇÃO, e não a abertura da linha =====
+        //
+        // Ela custa uma extração de rede na fila que o "Tocar agora" divide, e
+        // é o único dos quatro dados do card que custa alguma coisa. Pendurá-la
+        // no toque na LINHA gastaria uma extração por gaveta aberta — inclusive
+        // nas que o operador abre só para mandar o episódio ao Cronograma —, e
+        // pendurá-la na montagem da LISTA gastaria uma por episódio do álbum,
+        // que é exatamente a varredura que a fila de extração proíbe.
+        //
+        // Aqui ela é uma por vídeo OLHADO, e só quando a metade de baixo entra
+        // em cena: é a mesma regra do `cifraCabe`, pelo mesmo motivo.
+        //
+        // E ela roda com o card JÁ VISÍVEL, o que resolve de graça duas coisas:
+        // a medida do "Ver mais" (num `display: none` toda medida é zero — a
+        // lição da v5.208) e o acordeão, que já mediu e terminou muito antes —
+        // esta revelação não é animada, e a altura da gaveta é `auto` quando o
+        // texto chega.
+        if (li.classList.toggle('vendo-letra')) pedirDescricao();
       });
       return b;
     };
@@ -18052,6 +18147,68 @@ function hymnResultRow(coll, s, lyricHit, semColecao) {
     renderSongMenu();
   }
 
+  // A DESCRIÇÃO, quando ela chega. Row-scoped porque o alvo é o `conteudo`
+  // desta linha; o CACHE é de módulo (`ytDescricaoCache`), e é ele que impede
+  // uma segunda extração quando a mesma gaveta é reaberta.
+  let descPedida = false;
+  async function pedirDescricao() {
+    if (descPedida || !ehLink(coll)) return;
+    descPedida = true;
+    let texto = '';
+    try {
+      texto = await descricaoDoVideo(s.id_music, s.ytUrl);
+    } catch (_) { texto = ''; }
+    // SEM RESPOSTA, SEM BLOCO. Um card sem a linha da descrição é o mesmo card
+    // de antes deste lote; um bloco vazio (ou com um "não foi possível obter")
+    // seria o app contando o próprio funcionamento a quem perguntou pelo vídeo.
+    if (!texto) { descPedida = false; return; }
+    pintarDescricao(texto);
+  }
+
+  // ===== A DESCRIÇÃO É TEXTO, E ELA É CLAMPADA EM LINHAS =====
+  //
+  // `textContent` e NUNCA `innerHTML`: isto é texto de TERCEIRO e o Controle
+  // roda no origin privilegiado, o que injeta `__AVBridge` em toda página que
+  // carrega. A outra metade da regra mora no Kotlin, e é ela que torna esta
+  // barata: `YoutubeGrab.detalhes` já achata o HTML que o YouTube manda quando
+  // a descrição tem links, então o que chega aqui é texto e a tela não mostra
+  // marcação literal.
+  //
+  // O LIMITE É DE LINHAS (4) E NÃO DE CARACTERES, e a razão é que só um deles
+  // se mede no que a caixa MOSTRA: um teto de caracteres corta no meio de uma
+  // palavra numa tela e sobra numa outra, e — pior — corta para sempre, sem
+  // como ler o resto. A `-webkit-line-clamp` esconde por CSS: o texto inteiro
+  // está no DOM, o "Ver mais" só o revela, e não existe uma segunda regra de
+  // truncagem para divergir da primeira. (O teto que existe é o do Kotlin,
+  // `DESCRICAO_MAX`, e ele é de TRANSPORTE — não é o que a tela mostra.)
+  function pintarDescricao(texto) {
+    if (!conteudo.isConnected || conteudo.querySelector('.item-detalhe-desc')) return;
+    const cx = document.createElement('div');
+    cx.className = 'item-detalhe-desc';
+    const p = document.createElement('p');
+    p.className = 'item-detalhe-desc-txt';
+    p.textContent = texto;
+    cx.appendChild(p);
+    conteudo.appendChild(cx);
+    // O "VER MAIS" SÓ EXISTE QUANDO HÁ O QUE VER. Um botão que não revela nada
+    // é pior que botão nenhum, e a maioria das descrições cabe nas quatro
+    // linhas — a pergunta é feita no RENDER de verdade (`scrollHeight` contra
+    // `clientHeight`), num `rAF`, porque o bloco acabou de entrar no documento.
+    requestAnimationFrame(() => {
+      if (!p.isConnected || p.scrollHeight <= p.clientHeight + 1) return;
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'item-detalhe-mais';
+      b.textContent = 'Ver mais';
+      b.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const aberta = cx.classList.toggle('aberta');
+        b.textContent = aberta ? 'Ver menos' : 'Ver mais';
+      });
+      cx.appendChild(b);
+    });
+  }
+
   async function montarDetalhe() {
     conteudo.innerHTML = '';
     if (s.thumb) {
@@ -18065,11 +18222,49 @@ function hymnResultRow(coll, s, lyricHit, semColecao) {
       conteudo.appendChild(im);
     }
     const txt = document.createElement('div'); txt.className = 'item-detalhe-txt';
-    if (s.duration) {
-      const d = document.createElement('span'); d.className = 'item-detalhe-linha';
-      d.textContent = 'Duração ' + s.duration;
-      txt.appendChild(d);
+    // ===== O QUE O CARD DIZ, E EM QUE ORDEM (v1.5.21) =====
+    //
+    // Pedido do operador: *"coloque dados como duração, nome completo, canal e
+    // descrição se for possível obter"*. Os três primeiros já chegavam do
+    // extrator e eram descartados no caminho (ver `serieFaixaDoItem`); a
+    // DESCRIÇÃO não existe em lugar nenhum deste lado e é a única que exige um
+    // método novo da ponte — ela entra como mais uma `linha()` aqui, sem mexer
+    // no resto, e é por isso que este montador não ganhou estrutura para ela.
+    //
+    // A ORDEM é a das perguntas: *o que é isto?* (título) · *de quem?* (canal) ·
+    // *quanto dura?* · *preciso de rede?* (o estado). A identidade vem primeiro
+    // porque é ela que decide se o operador vai adiante — o resto são atributos
+    // do que ele já reconheceu.
+    //
+    // CADA LINHA SÓ EXISTE SE O DADO EXISTIR, e a guarda é POR CAMPO e nunca
+    // por versão de bundle: entre este bundle chegar por OTA e a varredura
+    // refazer o índice há uma janela em que `canal` e `nomeOriginal` são
+    // `undefined` no que já está guardado. É a mesma regra do Registro — a
+    // linha ausente some, nunca escreve "undefined" num card que alguém lê.
+    const linha = (texto, classe) => {
+      const t = String(texto == null ? '' : texto).trim();
+      if (!t) return;
+      const el = document.createElement('span');
+      el.className = 'item-detalhe-linha' + (classe ? ' ' + classe : '');
+      // `textContent` e nunca `innerHTML`: isto é texto de TERCEIRO (o título e
+      // o nome do canal saem do YouTube) e o Controle roda no origin
+      // privilegiado, o que injeta `__AVBridge`. A mesma regra governa a
+      // DESCRIÇÃO (`pintarDescricao`), que é o campo em que ela custa caro — o
+      // YouTube o entrega em HTML quando há links, e por isso quem o achata é o
+      // Kotlin, antes de a string atravessar a ponte.
+      el.textContent = t;
+      txt.appendChild(el);
+    };
+    // O TÍTULO COMPLETO, e só quando ele acrescenta alguma coisa. O rótulo da
+    // lista é podado por construção (a data na frente, o pedaço à esquerda da
+    // barra — e no `TITULO_SERIE` o nome do episódio some inteiro), então o cru
+    // quase sempre difere; comparar em vez de desenhar sempre é o que impede a
+    // MESMA frase duas vezes na tela quando eles coincidem.
+    if (s.nomeOriginal && s.nomeOriginal !== String(s.name || '').trim()) {
+      linha(s.nomeOriginal, 'item-detalhe-titulo');
     }
+    linha(s.canal);
+    if (s.duration) linha('Duração ' + s.duration);
     // O ESTADO NO APARELHO, e ele é a informação que decide: "tocar agora" de um
     // vídeo TRANSMITE (não espera download nenhum), mas um episódio que já foi
     // guardado num destino entra do disco. São ~300 MB de diferença, e é a
@@ -18225,7 +18420,14 @@ function destUniao(chave) {
  * escolha que não muda nada é pior que escolha nenhuma.
  */
 function serieComoYoutube(coll, s) {
-  const r = { id: s.id_music, url: s.ytUrl, name: s.name, semSoAudio: true };
+  const r = { id: s.id_music, url: s.ytUrl, name: s.name, semSoAudio: true,
+    // OS DOIS QUE VIAJAM PARA O REGISTRO (v1.5.21). Um episódio guardado como
+    // LINK ("Online") ou baixado nasce com a duração e o canal que o índice já
+    // sabe — sem eles, o mesmo vídeo perdia os dois ao sair do álbum para o
+    // Cronograma. Os nomes são os do `r` da BUSCA (`seconds`/`author`), porque
+    // quem os consome é o mesmo caminho: `ytAcaoInterno` e `ytArquivo` não
+    // podem ter de perguntar de onde o item veio.
+    seconds: s.seconds || 0, author: s.canal || '' };
   // A LINHA DE ONDE ELE VEIO. Um episódio é um vídeo do YouTube, mas ele não é
   // desenhado por `ytResultRow` — a lista dele é a da COLEÇÃO (`hymnResultRow`,
   // com `data-song`), e o indicador de download de lá é o anel do quadrado à
@@ -21859,6 +22061,12 @@ async function ytBaixarNativo(link, nome, opts) {
           // que veio foi outra coisa. Descobrir isso depois exigiria decodificar
           // o arquivo.
           height: (r.height | 0) || null,
+          // A DURAÇÃO REAL, pelo mesmo argumento e do mesmo lugar (v1.5.21): o
+          // shell já a devolvia no `ytFetch` e ela era jogada fora aqui, então
+          // um vídeo baixado ficava sem o dado que o áudio ao lado já mostra no
+          // subtítulo. Custo zero — nem uma requisição a mais.
+          seconds: (r.seconds | 0) || null,
+          canal: (opts && opts.canal) || null,
           // O id do vídeo fica GRAVADO no registro: é ele que faz o próximo
           // toque no mesmo resultado reaproveitar este arquivo em vez de
           // baixar tudo de novo (ver `ytArquivo`).
@@ -22320,7 +22528,11 @@ async function ytArquivo(alvo, opts) {
   const soAudio = !!(opts && opts.somenteAudio);
   const ja = vid ? await AVDB.mediaByYoutube(vid, soAudio ? 'audio' : 'video') : null;
   if (ja && ja.blob) return ja;
-  return ytBaixarNativo(alvo.url, alvo.name, Object.assign({ youtubeId: vid }, opts || {}));
+  // O CANAL viaja por `opts` porque o `ytFetch` não o devolve (o shell manda
+  // `name`, `type`, `height` e `seconds`, e mais nada): quem o tem é o `alvo`,
+  // que já passou por aqui. Um ponto só, e todo chamador o herda sem saber.
+  return ytBaixarNativo(alvo.url, alvo.name,
+    Object.assign({ youtubeId: vid, canal: (alvo && alvo.author) || null }, opts || {}));
 }
 
 // A prateleira da mídia avulsa — a que está em cena sem pertencer a lista

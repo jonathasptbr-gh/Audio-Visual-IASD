@@ -217,7 +217,7 @@ class NativeBridge(
          *
          * O degrau a degrau está na tabela da seção "A ponte" do `CLAUDE.md`.
          */
-        const val SHELL_VERSION = 61
+        const val SHELL_VERSION = 62
 
         /**
          * O CONSUMIDOR DA LAN para o barramento (telão por comandos, E2 —
@@ -1252,6 +1252,39 @@ class NativeBridge(
         if (host == null) { resolve(callId, "null"); return }
         extracao.execute {
             val r = try { YoutubeGrab.playlist(url) } catch (_: Exception) { null }
+            resolve(callId, r?.toString() ?: "null")
+        }
+    }
+
+    /**
+     * OS DADOS DE UM VÍDEO, sob demanda — `{ titulo, canal, seconds, descricao }`
+     * ou `null` (shell 62).
+     *
+     * A metade do card de detalhe que NÃO cabe no índice da série: título,
+     * canal e duração a listagem de playlist já entrega e o `serie.js` os
+     * guarda (valem offline); a DESCRIÇÃO só existe extraindo o vídeo, uma
+     * requisição por vídeo. Ver [YoutubeGrab.detalhes] — inclusive por que o
+     * campo `descricao` é **sempre texto simples**, e por que o TIPO original
+     * não viaja.
+     *
+     * **UM TOQUE, e é isso que o autoriza a morar na [extracao].** Ela é de UMA
+     * thread, e trabalho de MASSA aqui empurra todo "Tocar agora" para além dos
+     * 60 s do `call()` — foi por isso que a cifra ganhou fila própria. Quem
+     * chama este método é o botão "Ver os detalhes" de UMA linha, com cache em
+     * memória do outro lado: nunca a montagem de uma lista, nunca uma varredura
+     * de álbum. As outras três filas estão fora por eliminação: [io] é a de
+     * MILISSEGUNDOS (rede ali é o defeito que faz o `listFolder` mentir lista
+     * vazia), [transferencia] é de MINUTOS e o download em curso seguraria o
+     * toque, e [cifra] é a fila da varredura.
+     *
+     * `null` no papel `display` (invariante 9): o telão não tem card de detalhe
+     * nem lista de acervo, e a superfície nativa é privilégio do Controle.
+     */
+    @JavascriptInterface
+    fun ytDetalhes(callId: String, url: String) {
+        if (host == null) { resolve(callId, "null"); return }
+        extracao.execute {
+            val r = try { YoutubeGrab.detalhes(url) } catch (_: Exception) { null }
             resolve(callId, r?.toString() ?: "null")
         }
     }
