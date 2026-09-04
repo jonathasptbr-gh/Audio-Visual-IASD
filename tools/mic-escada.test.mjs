@@ -33,16 +33,9 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { checar, falhas } from './checar.mjs';
 
 const RAIZ = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
-const falhas = [];
-function checar(cond, msg, obtido) {
-  if (cond) console.log('ok      ' + msg);
-  else {
-    console.log('FALHOU  ' + msg + (obtido !== undefined ? '\n        obtido: ' + obtido : ''));
-    falhas.push(msg);
-  }
-}
 
 const ler = (p) => fs.readFileSync(path.join(RAIZ, p), 'utf8');
 

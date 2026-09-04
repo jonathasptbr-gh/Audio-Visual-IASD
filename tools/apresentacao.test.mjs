@@ -32,26 +32,16 @@
 //
 //   node tools/apresentacao.test.mjs
 // ============================================================================
-import { chromium } from 'playwright';
 import fs from 'node:fs';
 import http from 'node:http';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { semRedeExterna } from './sem-rede.mjs';
+import { abrirNavegador, checar, falhas } from './arnes.mjs';
 
 const AQUI = path.dirname(fileURLToPath(import.meta.url));
 const WEB = path.join(AQUI, '..', 'app', 'src', 'main', 'assets', 'web');
 const DECK = fs.readFileSync(path.join(WEB, 'controle', 'deck.js'), 'utf8');
-
-const falhas = [];
-function checar(cond, msg, obtido) {
-  if (cond) console.log('ok      ' + msg);
-  else {
-    console.log('FALHOU  ' + msg
-      + (obtido !== undefined ? '\n        obtido: ' + JSON.stringify(obtido) : ''));
-    falhas.push(msg);
-  }
-}
 
 // ---------------------------------------------------------------------------
 // PARTE 1 — a tabela de símbolos, PURA (sem navegador)
@@ -121,9 +111,7 @@ const servidor = http.createServer((req, res) => {
 await new Promise((r) => servidor.listen(0, '127.0.0.1', r));
 const base = 'http://127.0.0.1:' + servidor.address().port;
 
-const navegador = await chromium.launch(
-  process.env.PW_CHROMIUM ? { executablePath: process.env.PW_CHROMIUM } : {},
-);
+const navegador = await abrirNavegador();
 const ctx = await navegador.newContext();
 await semRedeExterna(ctx);
 const pg = await ctx.newPage();

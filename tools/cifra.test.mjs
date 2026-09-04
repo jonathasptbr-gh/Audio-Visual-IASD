@@ -40,6 +40,7 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
+import { checar, falhas } from './checar.mjs';
 
 const raiz = join(dirname(fileURLToPath(import.meta.url)), '..');
 const SRC = join(raiz, 'app/src/main/assets/web/controle/cifra.js');
@@ -52,12 +53,6 @@ const janela = {};
 new Function(readFileSync(SRC, 'utf8')).call(janela);
 const C = janela.AVCifra;
 
-const falhas = [];
-function checar(cond, nome, extra) {
-  if (cond) { console.log('  ok   ' + nome); return; }
-  falhas.push(nome);
-  console.log('  FALHA ' + nome + (extra === undefined ? '' : '  → ' + JSON.stringify(extra)));
-}
 function secao(t) { console.log('\n' + t); }
 
 checar(!!C, 'o módulo publica AVCifra');

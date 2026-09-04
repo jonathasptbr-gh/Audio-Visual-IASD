@@ -33,12 +33,10 @@
 // prova que é o MESMO áudio, ainda correndo por baixo.
 //
 //   node tools/link-perde-a-vez.test.mjs
-import { chromium } from 'playwright';
-import http from 'node:http';
-import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { semRedeExterna } from './sem-rede.mjs';
+import { servirEstatico, abrirNavegador, checar, falhas, esperar, esperarDb, porque } from './arnes.mjs';
 
 // A ponte de mentira, com as DUAS esperas seguras: `ytStream` (a extração) e
 // `ytFetch` (o download). Sem elas as duas resolveriam no mesmo tique e não
@@ -90,11 +88,6 @@ const PONTE = `(() => {
 })();`;
 
 const RAIZ = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'app', 'src', 'main', 'assets', 'web');
-const TIPOS = {
-  '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8',
-  '.css': 'text/css; charset=utf-8', '.json': 'application/json',
-  '.woff2': 'font/woff2', '.png': 'image/png', '.jpg': 'image/jpeg', '.svg': 'image/svg+xml',
-};
 
 // O WAV que o "download" entrega. Ele é servido pelo mesmo servidor do bundle
 // porque o `ytBaixarNativo` BUSCA a URL que o shell devolve — um arquivo de
@@ -112,29 +105,12 @@ function wav(segundos) {
 }
 const BAIXADO = wav(20);
 
-const servidor = http.createServer((req, res) => {
-  let p = decodeURIComponent(new URL(req.url, 'http://x').pathname);
-  if (p === '/baixado.wav') {
-    res.writeHead(200, { 'Content-Type': 'audio/wav', 'Content-Length': BAIXADO.length });
-    res.end(BAIXADO); return;
-  }
-  if (p.endsWith('/')) p += 'index.html';
-  const arquivo = path.join(RAIZ, p);
-  if (!arquivo.startsWith(RAIZ) || !fs.existsSync(arquivo) || fs.statSync(arquivo).isDirectory()) {
-    res.writeHead(404); res.end('nao'); return;
-  }
-  res.writeHead(200, { 'Content-Type': TIPOS[path.extname(arquivo)] || 'application/octet-stream' });
-  fs.createReadStream(arquivo).pipe(res);
+const servidor = servirEstatico(RAIZ, (req, res) => {
+  if (new URL(req.url, 'http://x').pathname !== '/baixado.wav') return false;
+  res.writeHead(200, { 'Content-Type': 'audio/wav', 'Content-Length': BAIXADO.length });
+  res.end(BAIXADO);
+  return true;
 });
-
-const falhas = [];
-function checar(cond, msg, obtido) {
-  if (cond) console.log('ok      ' + msg);
-  else {
-    console.log('FALHOU  ' + msg + (obtido !== undefined ? '\n        obtido: ' + JSON.stringify(obtido) : ''));
-    falhas.push(msg);
-  }
-}
 
 // 30 s de propósito: as asserções comparam o `currentTime` em dois instantes, e
 // uma faixa que acabasse no meio responderia "parada" por ter TERMINADO.
@@ -163,10 +139,7 @@ const SEMEAR = `
 
 await new Promise((r) => servidor.listen(0, r));
 const base = 'http://localhost:' + servidor.address().port;
-const navegador = await chromium.launch({
-  ...(process.env.PW_CHROMIUM ? { executablePath: process.env.PW_CHROMIUM } : {}),
-  args: ['--autoplay-policy=no-user-gesture-required'],
-});
+const navegador = await abrirNavegador({ args: ['--autoplay-policy=no-user-gesture-required'] });
 const ctx = await navegador.newContext({ viewport: { width: 430, height: 900 } });
 await semRedeExterna(ctx);
 
@@ -220,6 +193,20 @@ try {
       seta: !!(aro && aro.querySelector('svg')),
     };
   }, id);
+
+  // ESPERAR PELO FATO, e não pelo tempo em que ele caberia. As duas perguntas
+  // que este arquivo faz ao relógio são sempre as mesmas: "a música já entrou?"
+  // e "ela ANDOU meio segundo?" — e a segunda tem um mínimo REAL de parede
+  // (é meio segundo de áudio tocando), que a espera pelo fato respeita por
+  // construção sem cobrar o resto.
+  const tocou = () => esperar(pg, () => {
+    const v = document.querySelector('#preview video') || document.querySelector('video');
+    return !!v && !v.paused && v.currentTime > 0;
+  }, null, 10000);
+  const andou = (de) => esperar(pg, (t) => {
+    const v = document.querySelector('#preview video') || document.querySelector('video');
+    return !!v && !v.paused && v.currentTime > t + 0.6;
+  }, de, 12000);
 
   const estado = () => pg.evaluate(() => {
     const v = document.querySelector('#preview video') || document.querySelector('video');
@@ -297,10 +284,17 @@ try {
     l1Redesenho);
 
   await pg.evaluate((id) => send(id), ids.audio);
-  await pg.waitForTimeout(1200);
+  // O FATO (a música tocando) NÃO BASTA AQUI, e a razão é do app: o cartão tem
+  // CARÊNCIA DE SAÍDA (`PV_BUSY_SAIDA_MS`, 700 ms), então ele ainda está na
+  // tela quando o áudio já anda. Esperar `cartao === null` seria esperar pelo
+  // que se vai afirmar — a tautologia. O que se espera é o fato mais a carência
+  // que o próprio app declara, e é por isso que este número fica.
+  const entrou1 = await tocou();
+  await pg.waitForTimeout(850); // PV_BUSY_SAIDA_MS + folga
   const comMusica = await estado();
   checar(comMusica.kind === 'audio' && comMusica.tocando && comMusica.tempo > 0,
-    'a MÚSICA NATIVA entra e toca, com o link ainda carregando', comMusica);
+    'a MÚSICA NATIVA entra e toca, com o link ainda carregando',
+    porque(entrou1) || comMusica);
 
   // O CARTÃO SAI NO MESMO TOQUE. Sem isto a tela diz "Preparando <link>" sobre
   // uma música que já está tocando — o app anunciando uma coisa e fazendo outra
@@ -310,14 +304,14 @@ try {
     + 'sobre a música que já está no ar', comMusica.cartao);
 
   await pg.evaluate(() => { window.__soltarStream = true; });
-  await pg.waitForTimeout(2500);
+  const andou1 = await andou(comMusica.tempo);
   const depois = await estado();
   checar(depois.currentId === comMusica.currentId && depois.kind === 'audio',
     '[relato] e quando o link TERMINA de carregar ele NÃO entra em cena',
     { antes: comMusica.nome, depois: depois.nome });
   checar(depois.tocando && depois.tempo > comMusica.tempo + 0.5,
     'a música ANDOU o tempo todo — "não pausou" é fraco, "andou" prova que é o mesmo áudio',
-    { de: comMusica.tempo, ate: depois.tempo });
+    porque(andou1) || { de: comMusica.tempo, ate: depois.tempo });
 
   // E ELE NÃO SE DECLARA NO AR. A cena é a metade que se ouve; esta é a que se
   // VÊ, e ela falha sozinha: `resolverLinkInterno` marcava a origem
@@ -378,15 +372,24 @@ try {
     'com o DOWNLOAD em curso, a música nativa entra e toca', comMusica2);
 
   await pg.evaluate(() => { window.__soltarFetch = true; });
-  await pg.waitForTimeout(3000);
+  const andou2 = await andou(comMusica2.tempo);
   const depois2 = await estado();
   checar(depois2.currentId === comMusica2.currentId,
     '[relato] e o DOWNLOAD que termina depois NÃO entra em cena',
     { antes: comMusica2.nome, depois: depois2.nome });
   checar(depois2.tocando && depois2.tempo > comMusica2.tempo + 0.5,
-    'e a música ANDOU durante todo o download', { de: comMusica2.tempo, ate: depois2.tempo });
+    'e a música ANDOU durante todo o download',
+    porque(andou2) || { de: comMusica2.tempo, ate: depois2.tempo });
 
   const contouFetch = await pg.evaluate(() => window.__fetchPedido);
+  // A GRAVAÇÃO É O FATO, e ela mora atrás de um `await` do IndexedDB: quem
+  // espera por ela é o laço do NODE (`esperarDb`), nunca um `waitForFunction`
+  // com predicado `async` — aquele devolve uma Promise, que é truthy, e aprova
+  // no primeiro quadro o que veio verificar.
+  const gravou = await esperarDb(pg, async (linkId) => {
+    const l = await AVDB.listIds('imports');
+    return !l.includes(linkId);
+  }, ids.l3);
   const naLista = await pg.evaluate(async (linkId) => {
     const ids2 = await AVDB.listIds('imports');
     const recs = await AVDB.listItems('imports');
@@ -394,7 +397,7 @@ try {
   }, ids.l3);
   checar(!naLista.temOLink && naLista.kinds.includes('audio'),
     'mas O ARQUIVO FICA: ele tomou o lugar do link na lista, e da próxima vez '
-    + 'aquela linha toca do disco', naLista);
+    + 'aquela linha toca do disco', porque(gravou) || naLista);
 
   // ======================================================================
   // METADE 5 — A OUTRA PORTA: O "TOCAR AGORA" DA BUSCA
@@ -412,17 +415,19 @@ try {
   }, base);
   await pg.waitForFunction((n) => window.__fetchPedido > n, contouFetch, { timeout: 15000 });
   await pg.evaluate((id) => send(id), ids.audio);
-  await pg.waitForTimeout(1200);
+  const entrou3 = await tocou();
   const comMusica3 = await estado();
   checar(comMusica3.kind === 'audio' && comMusica3.tocando,
-    'com o "Tocar agora" da BUSCA baixando, a música nativa entra e toca', comMusica3);
+    'com o "Tocar agora" da BUSCA baixando, a música nativa entra e toca',
+    porque(entrou3) || comMusica3);
   await pg.evaluate(() => { window.__soltarFetch = true; });
-  await pg.waitForTimeout(3000);
+  const andou3 = await andou(comMusica3.tempo);
   const depois3 = await estado();
   checar(depois3.currentId === comMusica3.currentId
     && depois3.tocando && depois3.tempo > comMusica3.tempo + 0.5,
     'e o download da BUSCA que termina depois também NÃO entra em cena',
-    { antes: comMusica3.nome, depois: depois3.nome, de: comMusica3.tempo, ate: depois3.tempo });
+    porque(andou3)
+    || { antes: comMusica3.nome, depois: depois3.nome, de: comMusica3.tempo, ate: depois3.tempo });
 
   checar(erros.length === 0,
     'nenhum erro de console no percurso' + (erros.length ? ':\n        ' + erros.join('\n        ') : ''));

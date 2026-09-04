@@ -25,12 +25,12 @@
 // segunda visita do mesmo dia.
 //
 //   node tools/registro-alcance.test.mjs
-import { chromium } from 'playwright';
 import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { semRedeExterna } from './sem-rede.mjs';
+import { abrirNavegador, checar, falhas } from './arnes.mjs';
 
 const RAIZ = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'site');
 const TIPOS = { '.html': 'text/html; charset=utf-8', '.svg': 'image/svg+xml' };
@@ -46,15 +46,6 @@ const servidor = http.createServer((rq, rs) => {
 });
 await new Promise((r) => servidor.listen(0, r));
 const BASE = 'http://127.0.0.1:' + servidor.address().port;
-
-const falhas = [];
-function checar(cond, msg, obtido) {
-  if (cond) console.log('ok      ' + msg);
-  else {
-    console.log('FALHOU  ' + msg + (obtido !== undefined ? '\n        obtido: ' + JSON.stringify(obtido) : ''));
-    falhas.push(msg);
-  }
-}
 
 // ---- uma série sintética: 3 dias, com o funil visitas > aparelhos ----
 // Os valores são escolhidos para a DIFERENÇA ser conferível à mão:
@@ -89,7 +80,7 @@ const SERIE = {
 };
 const TOTAL_APK = 12 + 2 + 1 + 1 + 3 + 2 + 3 + 4 + 5;   // 33
 
-const navegador = await chromium.launch();
+const navegador = await abrirNavegador();
 try {
   // =================================================================
   // A TRANCA

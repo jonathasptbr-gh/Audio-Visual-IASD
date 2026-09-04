@@ -30,61 +30,31 @@
 //     atrás.
 //
 //   node tools/ota.test.mjs
-import { chromium } from 'playwright';
-import http from 'node:http';
-import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { semRedeExterna } from './sem-rede.mjs';
+import { TIPOS, servirEstatico, abrirNavegador, checar, falhas } from './arnes.mjs';
 
 const RAIZ = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'app', 'src', 'main', 'assets', 'web');
-const TIPOS = {
-  '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8',
-  '.css': 'text/css; charset=utf-8', '.json': 'application/json',
-  '.woff2': 'font/woff2', '.png': 'image/png', '.jpg': 'image/jpeg', '.svg': 'image/svg+xml',
-};
 
-const servidor = http.createServer((req, res) => {
-  let p = decodeURIComponent(new URL(req.url, 'http://x').pathname);
-  // A PÁGINA DE SEMENTE: `shared/db.js` e MAIS NADA, no MESMO origin.
-  //
-  // Ela existe porque semear `ota-intencao` numa página do CONTROLE é uma
-  // corrida contra o próprio app, e uma que o app ganha com razão:
-  // `retomarAtualizacao()` roda na abertura e de dez em dez segundos, e a
-  // primeira coisa que ela faz com uma intenção JÁ CUMPRIDA (ou pronta para
-  // instalar) é consumi-la. Semeada ali, a intenção some ANTES da abertura que
-  // o teste queria medir — e o que reprova é a asserção seguinte, falando de
-  // uma regra que nunca chegou a ser exercida. MEDIDO: 5 reprovações em 8
-  // execuções com a máquina OCIOSA, dependendo apenas de o `evaluate` da
-  // semente chegar antes ou depois da leitura da abertura.
-  //
-  // Aqui não há app nenhum para consumir: só o banco, no mesmo origin. A
-  // navegação seguinte para `/controle/` mata este documento, que é exatamente
-  // o que a asserção afirma que a intenção sobrevive.
-  if (p === '/semente') {
-    res.writeHead(200, { 'Content-Type': TIPOS['.html'] });
-    res.end('<!doctype html><meta charset="utf-8"><script src="/shared/db.js"></script>');
-    return;
-  }
-  if (p.endsWith('/')) p += 'index.html';
-  const arquivo = path.join(RAIZ, p);
-  if (!arquivo.startsWith(RAIZ) || !fs.existsSync(arquivo) || fs.statSync(arquivo).isDirectory()) {
-    res.writeHead(404); res.end('nao'); return;
-  }
-  res.writeHead(200, { 'Content-Type': TIPOS[path.extname(arquivo)] || 'application/octet-stream' });
-  fs.createReadStream(arquivo).pipe(res);
+// A PÁGINA DE SEMENTE: `shared/db.js` e MAIS NADA, no MESMO origin.
+//
+// Ela existe porque semear `ota-intencao` numa página do CONTROLE é uma corrida
+// contra o próprio app, e uma que o app ganha com razão: `retomarAtualizacao()`
+// roda na abertura e de dez em dez segundos, e a primeira coisa que ela faz com
+// uma intenção JÁ CUMPRIDA é consumi-la. Semeada ali, a intenção some ANTES da
+// abertura que o teste queria medir. MEDIDO: 5 reprovações em 8 execuções com a
+// máquina OCIOSA.
+//
+// Aqui não há app nenhum para consumir: só o banco, no mesmo origin. A navegação
+// seguinte para `/controle/` mata este documento, que é exatamente o que a
+// asserção afirma que a intenção sobrevive.
+const servidor = servirEstatico(RAIZ, (req, res) => {
+  if (new URL(req.url, 'http://x').pathname !== '/semente') return false;
+  res.writeHead(200, { 'Content-Type': TIPOS['.html'] });
+  res.end('<!doctype html><meta charset="utf-8"><script src="/shared/db.js"></script>');
+  return true;
 });
-
-const falhas = [];
-function checar(cond, msg, obtido) {
-  if (cond) console.log('ok      ' + msg);
-  else {
-    console.log('FALHOU  ' + msg
-      + (obtido !== undefined ? '\n        obtido: '
-        + (typeof obtido === 'string' ? obtido : JSON.stringify(obtido)) : ''));
-    falhas.push(msg);
-  }
-}
 
 // ESPERAR PELO FATO, E DIZER QUANDO FOI PRAZO.
 //
@@ -272,9 +242,7 @@ const ponte = ({ web = '', shell = '', bytes = 0, espelho = false, shellName = '
 await new Promise((r) => servidor.listen(0, r));
 const porta = servidor.address().port;
 const base = `http://localhost:${porta}`;
-const navegador = await chromium.launch(
-  process.env.PW_CHROMIUM ? { executablePath: process.env.PW_CHROMIUM } : {},
-);
+const navegador = await abrirNavegador();
 
 // Sobe a base com a ponte dada e espera o app ficar DE PÉ — o mesmo critério do
 // watchdog do OTA. Sem essa espera, tudo o que vier depois mediria uma página

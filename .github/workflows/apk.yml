@@ -287,14 +287,21 @@ jobs:
           # sobe um servidor de MENTIRA e nunca lê o Kotlin.
           node tools/tipos-que-sobem.test.mjs
 
-          # AS DUAS ESCADAS DE CAPTURA DO MICROFONE. O app abre o microfone em
-          # dois lugares (o AO VIVO no telão, o RECADO no Controle) e os dois
-          # precisam da MESMA escada de três tentativas — é o segundo degrau que
-          # abre o microfone com o ESPELHAMENTO LIGADO, isto é, no modo normal
-          # de um culto com TV. O recado nasceu com UM degrau e o operador
-          # recebeu "O Android não liberou o microfone" no primeiro toque.
-          # Duas escadas sem oráculo divergem no primeiro esquecimento — mesma
-          # razão do `tipos-que-sobem`, e o mesmo remédio.
+          # A ESCADA DE CAPTURA DO MICROFONE. Com `echoCancellation` o Chromium
+          # abre o `AudioRecord` em `VOICE_COMMUNICATION`, e o Android RECUSA
+          # essa sessão quando a saída de áudio está em outro caminho — isto é,
+          # com o ESPELHAMENTO LIGADO, que é o modo normal de um culto com TV.
+          # É o SEGUNDO degrau (sem cancelamento de eco) que abre o microfone
+          # ali, e sem oráculo ninguém saberia que os três são necessários.
+          #
+          # Ele guardava um PAR — o ao vivo e o RECADO, o microfone estilo
+          # walkie-talkie do Controle — até a v1.2.17. O recado SAIU naquele
+          # lote (a razão de ele existir era um defeito nosso:
+          # `MODIFY_AUDIO_SETTINGS` fora do manifest), e com ele saíram as
+          # asserções de pareamento: uma igualdade entre duas escadas nunca
+          # provou que elas estavam certas, aprovaria duas igualmente erradas.
+          # O que ficou são as de PROPRIEDADE, mais a guarda de que o Controle
+          # não volta a abrir captura nenhuma sem o par voltar ao oráculo.
           node tools/mic-escada.test.mjs
           # A REGRA DA SÉRIE: quais playlists do canal formam o álbum "Provai e
           # Vede 2026" e quais vídeos entram nele. Os dois modos de errar são
@@ -493,8 +500,10 @@ jobs:
       # infraestrutura é exatamente o ruído que ensina a ignorar vermelho.
       # PRAZO AQUI TAMBÉM, e pela mesma razão: um oráculo que pendure o
       # navegador (uma Promise que nunca resolve, um `waitForFunction` sem
-      # timeout) trava o job inteiro e leva o canal OTA junto. 15 min é folga
-      # sobre os ~6 minutos que eles levam somados.
+      # timeout) trava o job inteiro e leva o canal OTA junto. O prazo é folga
+      # larga: MEDIDO, os 57 somam ~7,4 min em SÉRIE e ~2,5 min nos três
+      # processos em que rodam hoje — e o prazo cobre o pior caso, que é a
+      # paralelização não pegar por qualquer razão e a lista correr em fila.
       - name: Oráculos em Chromium
         if: steps.chromium.outcome == 'success'
         timeout-minutes: 15
@@ -502,21 +511,43 @@ jobs:
           IGNORAR: ${{ github.event.inputs.ignorar_oraculos }}
         run: |
           # SEM `-e`, e é o ponto do passo: um reprovado não pode calar os que
-          # vêm depois. Quem guarda o desfecho é o `rodar`.
+          # vêm depois. Quem guarda o desfecho é o laço do fim.
           set -uo pipefail
-          rodados=0
-          falhas=()
-          rodar() {
-            rodados=$((rodados + 1))
-            echo "::group::$1"
-            if PW_CHROMIUM="" node "$1"; then
-              echo "::endgroup::"
-            else
-              echo "::endgroup::"
-              falhas+=("$1")
-              echo "::error::$1 REPROVOU"
-            fi
-          }
+
+          # ---------- EM PARALELO, E O `rodar` SÓ ENFILEIRA ----------
+          #
+          # MEDIDO: os 57 oráculos somam ~8 min em série, e o custo NÃO é o que
+          # parece — lançar o Chromium são ~110 ms e subir o `/controle/`
+          # inteiro é ~1 s. O que sobra é espera: cada oráculo passa a maior
+          # parte do tempo parado esperando o app dele assentar, com os quatro
+          # núcleos do runner ociosos.
+          #
+          # Rodar em paralelo é seguro por CONSTRUÇÃO, e isso foi conferido
+          # antes de ligar: todos abrem o servidor com `listen(0)` (porta
+          # efêmera), nenhum escreve arquivo temporário compartilhado, e cada um
+          # lança o próprio navegador com o próprio perfil. Não há estado comum
+          # a disputar.
+          #
+          # TRÊS, e não `nproc`: o runner tem 4 vCPU, e a campanha de
+          # determinismo da v5.316 validou os oráculos com a máquina a 2× de
+          # carga (4 processos disputando 4 núcleos). Três de cada vez fica
+          # DENTRO desse envelope já medido e entrega ~3× — o grosso do ganho —
+          # sem apostar num regime que ninguém mediu. Subir este número é subir
+          # a carga, e a regra do projeto vale aqui: repetir a campanha antes.
+          #
+          # A CAMPANHA QUE AUTORIZOU ISTO: os 72 oráculos, SETE rodadas em
+          # paralelo, 72/72 em todas, ~152 s por rodada contra 442 s em série
+          # (2,9×). Ela achou UM defeito, e é o que a regra prevê — "uma
+          # reprovação a cada N execuções não é ruído, é o achado": o
+          # `sorteio-tela` montava o índice de letras na montagem do cenário, e
+          # o `finally` do `syncLyrics` (que sai da abertura SEM `await`) o
+          # anulava entre dois `evaluate`. Pool VAZIO com duas asserções verdes
+          # antes da vermelha. Corrigido no ponto de USO e provado por reversão;
+          # a classe está na tabela do CLAUDE.md.
+          PARALELO=3
+          saida="$(mktemp -d)"
+          lista=()
+          rodar() { lista+=("$1"); }
 
           rodar tools/smoke.mjs
           # E O BOOT COMO O APP O FAZ — com a ponte presente. O `smoke.mjs`
@@ -1075,8 +1106,36 @@ jobs:
           # originou este lote foi precisamente que o desfecho só existia lá
           # dentro. `rodados` é CONTADO, nunca digitado: um número fixo aqui
           # envelheceria no primeiro oráculo novo, e envelheceria mentindo.
+          # ---------- A EXECUÇÃO, E DEPOIS O LOG EM ORDEM ----------
+          #
+          # A saída de cada um vai para um arquivo e só então é impressa, na
+          # ORDEM da lista: em paralelo os `::group::` sairiam intercalados, e um
+          # log que não se lê não é rede de segurança — que é a lição do arranjo
+          # anterior a v5.213, em que o primeiro reprovado calava os outros onze.
+          printf '%s\n' "${lista[@]}" | nl -ba -w1 -s' ' |
+            xargs -P "$PARALELO" -L1 sh -c 'PW_CHROMIUM="" node "$2" > "$0/$1.log" 2>&1; echo $? > "$0/$1.rc"' "$saida"
+
+          rodados=0
+          falhas=()
+          for i in "${!lista[@]}"; do
+            n=$((i + 1)); f="${lista[$i]}"
+            rodados=$((rodados + 1))
+            echo "::group::$f"
+            cat "$saida/$n.log" 2>/dev/null || echo "(sem saída — o processo não chegou a escrever)"
+            echo "::endgroup::"
+            # RC AUSENTE CONTA COMO REPROVADO. Um oráculo cujo processo morreu
+            # sem escrever o código de saída (o prazo do passo, um OOM) não pode
+            # entrar no placar como quem passou — seria o silêncio da v5.302 de
+            # volta, agora por dentro do portão.
+            rc="$(cat "$saida/$n.rc" 2>/dev/null || echo 1)"
+            if [ "$rc" != "0" ]; then
+              falhas+=("$f")
+              echo "::error::$f REPROVOU"
+            fi
+          done
+
           passaram=$((rodados - ${#falhas[@]}))
-          echo "Oráculos em Chromium: $passaram/$rodados passaram." | tee -a "$GITHUB_STEP_SUMMARY"
+          echo "Oráculos em Chromium: $passaram/$rodados passaram (em $PARALELO processos)." | tee -a "$GITHUB_STEP_SUMMARY"
           if [ ${#falhas[@]} -eq 0 ]; then exit 0; fi
           printf 'REPROVOU: %s\n' "${falhas[@]}" | tee -a "$GITHUB_STEP_SUMMARY"
           # A VÁLVULA, e ela ASSINA. O placar e os `::error::` acima já saíram —

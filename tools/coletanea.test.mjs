@@ -59,6 +59,7 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
+import { checar, falhas } from './checar.mjs';
 
 const raiz = join(dirname(fileURLToPath(import.meta.url)), '..');
 const SRC = join(raiz, 'app/src/main/assets/web/controle/coletanea.js');
@@ -70,15 +71,6 @@ const SRC_SERIE = join(raiz, 'app/src/main/assets/web/controle/serie.js');
 const janela = {};
 new Function(readFileSync(SRC, 'utf8')).call(janela);
 const C = janela.AVColetanea;
-
-const falhas = [];
-function checar(cond, msg, obtido) {
-  if (cond) console.log('ok      ' + msg);
-  else {
-    console.log('FALHOU  ' + msg + (obtido !== undefined ? '\n        obtido: ' + JSON.stringify(obtido) : ''));
-    falhas.push(msg);
-  }
-}
 
 checar(!!C, 'o módulo publica AVColetanea');
 if (!C) { console.log('\n1 FALHA(S)'); process.exit(1); }

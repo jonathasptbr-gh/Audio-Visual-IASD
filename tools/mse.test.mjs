@@ -15,12 +15,12 @@
 // exercita streaming. Este teste vê.
 //
 //   node tools/mse.test.mjs
-import { chromium } from 'playwright';
 import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { semRedeExterna } from './sem-rede.mjs';
+import { abrirNavegador, checar, falhas } from './arnes.mjs';
 
 const AQUI = path.dirname(fileURLToPath(import.meta.url));
 const MSE = fs.readFileSync(path.join(AQUI, '..', 'app', 'src', 'main', 'assets', 'web', 'shared', 'mse.js'), 'utf8');
@@ -50,17 +50,9 @@ const servidor = http.createServer((req, res) => {
   res.end(Buffer.alloc(64, 7));
 });
 
-const falhas = [];
-function checar(cond, msg, obtido) {
-  if (cond) console.log('ok      ' + msg);
-  else { console.log('FALHOU  ' + msg + (obtido ? '\n        obtido: ' + obtido : '')); falhas.push(msg); }
-}
-
 await new Promise((r) => servidor.listen(0, r));
 const base = `http://localhost:${servidor.address().port}`;
-const navegador = await chromium.launch(
-  process.env.PW_CHROMIUM ? { executablePath: process.env.PW_CHROMIUM } : {},
-);
+const navegador = await abrirNavegador();
 const ctx = await navegador.newContext();
 await semRedeExterna(ctx);
 const pg = await ctx.newPage();

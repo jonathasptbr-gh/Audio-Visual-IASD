@@ -3840,6 +3840,75 @@ mesmo estado. Ver "OTA" para o que o nome versionado do zip fecha.
 Antes de publicar: `node --check` em todo `.js` de `assets/web`, validação do
 `version.json`, e a suíte abaixo.
 
+#### O ARNÊS: `tools/arnes.mjs` e `tools/checar.mjs`
+
+O preâmbulo (servidor estático, `TIPOS`, `checar`, o `chromium.launch` com o
+`PW_CHROMIUM`) era COPIADO em 45 arquivos — 3.225 linhas —, e uma cópia é uma
+chance de divergir. Divergiu em três lugares, nenhum deles com como acusar:
+`checar` em SETE variantes (uma com dois parâmetros recebendo três, descartando o
+`obtido` em silêncio), `TIPOS` em cinco (umas sem `.png`/`.woff2`, que caíam em
+`application/octet-stream` e mudavam o `type` de um `Blob`), e viewport/`args`
+herdados por cópia em vez de escolhidos.
+
+- **`servirEstatico(raiz, antes)`** — o `antes` é a rota PRÓPRIA do oráculo:
+  devolvendo `true` ela assumiu o pedido. É por ele que os quatro com fixture
+  própria (`/semente` do OTA, `/baixado.wav`, `/pagina.png`, o espião do
+  `display-smoke`) continuam donos do que servem. **Quem acrescentar um oráculo
+  com rota própria a escreve aqui** — uma rota apagada não tem sintoma até o
+  oráculo pedi-la.
+- **`checar` mora em `tools/checar.mjs`, SEM uma linha de `import`**, e a
+  separação NÃO é organização: o `arnes.mjs` importa o Playwright, e no workflow
+  os 15 oráculos de Node puro rodam no passo "Sanidade da base web", que vem
+  **antes** do `npm ci`. Um deles importando o arnês passaria na máquina de quem
+  escreve (onde `node_modules/` existe) e falharia só no runner, no passo sem
+  `continue-on-error` — "a atualização não chega", por um
+  `ERR_MODULE_NOT_FOUND` que nada no arquivo explica.
+- **`esperar(pg, fn)` e `esperarDb(pg, fn)`** — ver abaixo. `porque(r)` devolve a
+  frase do prazo para o terceiro argumento do `checar`.
+- **Viewport e `args` são PARÂMETRO**, com o padrão do projeto (430×900). Quem
+  quer outro o escreve, e aí está dito que foi escolha.
+
+#### PRAZO NÃO É ASSERÇÃO — e isso é MEDIDO, não estilo
+
+A suíte tinha **136 `waitForTimeout` somando 115 s**: um quarto do tempo dela era
+sono. O pior caso: `stage-fade.test.mjs` esperava **17 s** para conferir que o
+estilo do fade fora limpo — MEDIDO, ele é limpo em **3,1 s**.
+
+- **`esperar(pg, fn, arg, prazo)`** espera pelo FATO e devolve `true` ou a FRASE
+  `"(PRAZO, não veredito)"`. O estouro nunca vira veredito: uma reprovação por
+  carga do runner chega indistinguível de um defeito do app, que é a primeira das
+  cinco classes que a campanha da v5.316 teve de corrigir uma a uma.
+- **`esperarDb` é a irmã para o que mora atrás de um `await`** (o IndexedDB):
+  `waitForFunction` **não espera a Promise de um predicado `async`** — ela é
+  *truthy* e a espera passa no primeiro quadro, aprovando o que veio verificar.
+  O laço é do lado do Node.
+- **Nem toda espera fixa é defeito, e as que ficaram estão explicadas.** Três
+  casos legítimos: a asserção é uma AUSÊNCIA (esperar pelo que não deve
+  acontecer é impossível — espera-se pelo fato que FECHA a janela); a asserção
+  exige tempo de parede REAL (`tempo > t + 0,5` é meio segundo de áudio
+  tocando); ou o que se espera é uma CARÊNCIA declarada do app
+  (`PV_BUSY_SAIDA_MS`, 700 ms — esperar o cartão sair seria esperar pelo que se
+  vai afirmar, a tautologia).
+
+#### EM PARALELO, TRÊS DE CADA VEZ
+
+Os 57 de Chromium somavam **~8 min em série**, e o custo não é o que parece:
+lançar o navegador são **~110 ms** e subir o `/controle/` inteiro é **~1 s** —
+compartilhar um navegador entre oráculos, a otimização óbvia, economizaria 2% e
+custaria o isolamento. O que sobra é espera, com os quatro núcleos ociosos.
+
+É seguro por CONSTRUÇÃO, e foi conferido antes de ligar: todos abrem o servidor
+com `listen(0)`, nenhum escreve arquivo temporário compartilhado, cada um lança o
+próprio navegador com o próprio perfil. **TRÊS e não `nproc`**: o runner tem 4
+vCPU e a campanha da v5.316 validou a suíte a 2× de carga — três fica DENTRO do
+envelope já medido. **Subir este número é subir a carga, e a regra do projeto
+vale aqui: repetir a campanha antes.**
+
+O log é escrito em arquivo e impresso na ORDEM da lista — em paralelo os
+`::group::` sairiam intercalados, e um log que não se lê não é rede de segurança.
+**RC ausente conta como REPROVADO**: um oráculo cujo processo morreu sem escrever
+o código de saída não pode entrar no placar como quem passou.
+
 **Node puro, SEM `continue-on-error`** — reprovar aqui barra o build:
 
 | oráculo | o que trava |
@@ -3901,6 +3970,7 @@ a v5.316 leu e reproduziu; a lista é o que se sabe, não um inventário fechado
 | **medida que depende da MÁQUINA** | igualdade de altura em pixel: a base pede `system-ui, -apple-system, sans-serif`, então quem responde é a fonte instalada (MEDIDO: uma linha de duas linhas de texto vai de 53px a 55px sob WenQuanYi Zen Hei) | afirmar o que o DESENHO reserva (`--hit`, o `padding`), nunca a soma renderizada — ver `destinos.test.mjs` |
 | **estado que ainda não foi lido** | o app está certo e o oráculo perguntou cedo: `mirrorEstado` antes da primeira volta da enquete, o índice antes de a varredura da abertura assentar | esperar pela INGESTÃO (o dado entrando), nunca pela resposta DERIVADA — esperar pelo que se vai afirmar é escrever uma tautologia |
 | **o oráculo correndo contra o app** | a montagem do cenário compete com o que o app faz na abertura: semear `ota-intencao` no Controle e navegar perdia a semente para o `retomarAtualizacao()` da própria abertura, que a CONSOME com toda a razão | montar o cenário onde o app não alcança — uma página do mesmo origin que carrega só `shared/db.js` — e só então entrar na tela que se quer medir |
+| **uma ROTINA DE FUNDO invalidando o cenário** | o app abre rotinas SEM `await` (`syncLyrics`, `syncCifrasAcervo`), e o `finally` de uma delas chama `invalidateLyricIndex()`. Sob carga esse `finally` cai ENTRE dois `evaluate` do oráculo: o `sorteio-tela` conferia `letraCasa` (passava), o índice era anulado, e `montarPool` devolvia pool VAZIO — com duas asserções verdes antes da vermelha. MEDIDO: 1 reprovação em 4 rodadas da suíte em PARALELO, e ZERO em 8 execuções isoladas a 4× de carga — a janela é a do AGENDADOR, não a da CPU, e por isso estrangular a máquina não a reproduz | garantir o estado no ponto de USO, e não na montagem: quem chama `montarPool` direto pula o `abrirSorteio`, que é quem garante o índice na folha de verdade. Não é tautologia — a asserção é sobre o CONTEÚDO do pool, não sobre o índice existir |
 | **prazo menor que a CADÊNCIA do app** | há uma ENQUETE no meio do caminho: `retomarAtualizacao` roda de dez em dez segundos e desiste de propósito enquanto falta a resposta do manifesto | **o prazo tem de caber o pior caminho que o app pode legitimamente tomar.** Se não couber, o oráculo reprova o certo — e quem lê o log conclui que o app quebrou |
 
 Três regras que caem daí:
