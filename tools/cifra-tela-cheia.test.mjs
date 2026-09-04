@@ -38,6 +38,31 @@
 // Chromium publica a propriedade ANTES de despachar o evento, e a enquete cai
 // no vão — reprovando um app que está certo.
 //
+// ## O QUE A v1.6.1 ACRESCENTOU
+//
+// O ⛶ SAIU DO CABEÇALHO E FOI PARA A BARRA, no FIM da fila (*"coloque o botão
+// de tela, na mesma linha dos botões de rolagem automática e etc... coloque ele
+// no fim da lista à direita"*). Três coisas mudaram de natureza com isso:
+//
+//  - **"ele está à vista?" deixou de ser o `hidden` e passou a ser a ÁRVORE.**
+//    A barra é esvaziada em todo `renderLyricsView`, então fora da aba de cifra
+//    o nó não está em lugar nenhum do documento — e perguntar `.hidden` ali é
+//    ler propriedade de `null`, que derruba o `evaluate` inteiro. A pergunta que
+//    sobrou é a do pedido: a POSIÇÃO na fila.
+//  - **o fim da fila no retrato é o PÉ da coluna em paisagem**, e isso se mede
+//    por GEOMETRIA: a ordem do DOM provaria o `prepend` do `lvBuildCifra`, não
+//    onde o dedo vai encontrar o botão depois de o `flex-direction: column`
+//    agir.
+//  - **a barra passou a nascer ANTES dos dois `return` cedo** do `lvBuildCifra`
+//    (bloco 7-C): "procurando" e o erro são alcançáveis COM a tela cheia no ar,
+//    e construída depois deles a barra some — sobra uma paisagem deitada com
+//    uma frase de erro e nenhuma saída à vista.
+//
+// E A ESPERA INICIAL DEIXOU DE TER ANEL: o `.dl-ring` virou uma NOTA na barra,
+// que aqui é SUPRIMIDA (numa trilha de 66px a frase viraria oito linhas). O que
+// este arquivo afirma dela é a ausência DESENHADA, com o `flex-wrap: nowrap`
+// ao lado — numa coluna o wrap não quebra linha, ele abre uma segunda coluna.
+//
 //   node tools/cifra-tela-cheia.test.mjs
 // ============================================================================
 import { chromium } from 'playwright';
@@ -226,7 +251,12 @@ try {
       barra: lyricsViewBarEl.hidden ? null : r(lyricsViewBarEl),
       abas: getComputedStyle(lyricsViewSegEl).display,
       fechar: getComputedStyle(lyricsPopupEl.querySelector('.popup-close')).display,
-      cheiaBtn: !lyricsPopupEl.querySelector('#cifraCheiaBtn').hidden,
+      // O ⛶ MUDOU DE CASA (v1.6.1): ele NASCE no cabeçalho e MORA na
+      // `.lv-cifra-ctl`, no FIM dela. `!btn.hidden` deixou de medir o que quer
+      // que fosse — quem responde "ele está à vista?" passou a ser a ÁRVORE (a
+      // barra é esvaziada em todo render), e a pergunta do pedido é a POSIÇÃO
+      // na fila: *"coloque ele no fim da lista à direita"*.
+      cheiaBtn: !!lyricsPopupEl.querySelector('.lv-cifra-ctl > #cifraCheiaBtn:last-child'),
       tom: (folha.parentElement.querySelector('.lv-cifra-tom')
         || lyricsViewBarEl.querySelector('.lv-cifra-tom') || { textContent: '' }).textContent,
       varEscopada: lyricsPopupEl.style.getPropertyValue('--lv-fonte'),
@@ -235,8 +265,9 @@ try {
 
   const retrato = await medir();
   checar(!retrato.cheia && retrato.cheiaBtn,
-    'no retrato a folha é um bottom-sheet e o ⛶ está à vista (ele só existe na '
-    + 'aba de cifra)', { cheia: retrato.cheia, botao: retrato.cheiaBtn });
+    'no retrato a folha é um bottom-sheet e o ⛶ é o ÚLTIMO botão da barra da '
+    + 'cifra (v1.6.1) — *"no fim da lista à direita"*',
+    { cheia: retrato.cheia, ultimoDaFila: retrato.cheiaBtn });
   checar(retrato.colunas > 20 && retrato.colunas < 60,
     'e ela está quebrada para os ~37 caracteres do retrato', retrato.colunas);
 
@@ -355,7 +386,24 @@ try {
     // SVG sem dimensão (300×150), transbordando a coluna sem erro nenhum.
     const ico = lyricsPopupEl.querySelector('#cifraCheiaBtn svg');
     const icoW = ico ? ico.getBoundingClientRect().width : 0;
-    return { ausentes, fora, meiosTons, icoW };
+    // A ORDEM DA COLUNA é GEOMETRIA, e não a ordem do DOM: a ordem do DOM
+    // provaria o `prepend` do `lvBuildCifra`, não onde o dedo vai encontrar o
+    // botão depois de o `flex-direction: column` da tela cheia agir.
+    const cx = (sel) => {
+      const el = lyricsPopupEl.querySelector(sel);
+      return el ? el.getBoundingClientRect().top : -1;
+    };
+    const nota = lyricsPopupEl.querySelector('.lv-cifra-nota');
+    return {
+      ausentes, fora, meiosTons, icoW,
+      saidaY: cx('#cifraCheiaBtn'), maisY: cx('.lv-fonte-mais'),
+      transporY: [...lyricsPopupEl.querySelectorAll('.lv-cifra-ctl .lv-fonte-btn')]
+        .filter((b) => b.textContent.trim() === '+½')
+        .map((b) => b.getBoundingClientRect().top)[0],
+      notaDisplay: nota ? getComputedStyle(nota).display : '(ausente)',
+      notaAltura: nota ? nota.getBoundingClientRect().height : -1,
+      quebra: getComputedStyle(lyricsViewBarEl).flexWrap,
+    };
   });
   checar(controles.ausentes.length === 0,
     'a coluna tem tom, rolagem automática, velocidade, tamanho da fonte e a '
@@ -368,6 +416,30 @@ try {
   checar(controles.icoW > 10 && controles.icoW < 30,
     'e o ícone do ⛶ tem a escala dos irmãos só-de-ícone (o SVG é reescrito por '
     + '`innerHTML` e não carrega dimensão própria)', controles.icoW);
+  // O FIM DA FILA NO RETRATO É O PÉ DA COLUNA EM PAISAGEM (v1.6.1). O pedido é
+  // uma FILA, e deitado o fim dela é o ponto mais baixo — o outro extremo do
+  // alcance do polegar de quem segura o aparelho, que é o argumento escrito da
+  // `.pv-fsctl`. REVERSÃO: trocar o `ctl.prepend(...)` do `lvBuildCifra` por
+  // `ctl.append(...)` põe o ⛶ no TOPO da coluna e reprova aqui.
+  checar(controles.saidaY > controles.transporY && controles.saidaY > controles.maisY,
+    'e o ⛶ é o controle mais BAIXO da coluna — a saída no fim da fila, abaixo '
+    + 'da transposição e do A+/A−', controles);
+  // A NOTA NÃO É DESENHADA AQUI, pelo MESMO número que já tirou as abas: a
+  // trilha tem 66px e ~56 úteis, a `--fs-sm` mede ~6,3px por caractere, e a
+  // frase viraria oito linhas roubando o lugar dos controles que este modo
+  // existe para oferecer. `display: none` e não `visibility: hidden`: a coluna
+  // é `space-between`, e um filho invisível MAS PRESENTE seria distribuído.
+  // REVERSÃO: tirar `.lv-cifra-nota` da lista de supressão do bloco
+  // `:fullscreen` a devolve à coluna, com altura medível.
+  checar(controles.notaDisplay === 'none' && controles.notaAltura === 0,
+    'e a mensagem da barra NÃO é desenhada em tela cheia: numa trilha de 66px '
+    + 'ela viraria oito linhas de oito caracteres', controles);
+  // E O WRAP DO RETRATO É DESFEITO: numa COLUNA o `flex-wrap` não quebra linha,
+  // ele abre uma SEGUNDA COLUNA dentro da trilha — e faria isso calado no dia
+  // em que um sexto controle não coubesse.
+  checar(controles.quebra === 'nowrap',
+    'e a barra não pode QUEBRAR na coluna deitada — ali um wrap vira uma '
+    + 'segunda coluna dentro de 66px, não uma segunda linha', controles.quebra);
   checar(cheia.abas === 'none' && cheia.fechar === 'none',
     'as ABAS e o ✕ saem: um segmentado de quatro opções em 66px é ilegível, e '
     + 'uma superfície em tela cheia tem UMA saída', { abas: cheia.abas, fechar: cheia.fechar });
@@ -411,12 +483,25 @@ try {
   // no retrato, e ele simplesmente pararia de responder.
   const teto = await pg.evaluate(async () => {
     const mais = lyricsPopupEl.querySelector('.lv-fonte-mais');
+    const menos = lyricsPopupEl.querySelector('.lv-fonte-menos');
+    // ABRE UM DEGRAU DE FOLGA ANTES DE SUBIR (v1.6.1). A tela cheia semeia
+    // `cifraCheiaIdx` perto do topo — a fonte grande é o objetivo do modo — e o
+    // bloco `fonteMais` logo acima já gastou o degrau que sobrava: sem isto o
+    // laço nasce com o A+ JÁ desabilitado, `passos` sai ZERO e a asserção
+    // reprova um app CERTO.
+    //
+    // ATÉ A v1.6.0 A FOLGA VINHA DE GRAÇA — E VINHA DO DEFEITO: o `.click()` no
+    // `+½` do bloco de transposição acima também ENCOLHIA a letra, porque o
+    // ouvinte delegado do par casava `.lv-fonte-btn` e lia todo botão que não
+    // fosse `.lv-fonte-mais` como DIMINUIR. **Este oráculo dependia dele**, e
+    // por isso reprovou no lote que o corrigiu. Ver `fonte-so-do-par.test.mjs`.
+    let recuos = 0;
+    if (!menos.disabled) { menos.click(); recuos++; await new Promise((r) => setTimeout(r, 120)); }
     let passos = 0;
     for (let i = 0; i < 8 && !mais.disabled; i++) { mais.click(); passos++; await new Promise((r) => setTimeout(r, 120)); }
     const noTeto = mais.disabled;
-    const menos = lyricsPopupEl.querySelector('.lv-fonte-menos');
     for (let i = 0; i < passos; i++) { menos.click(); await new Promise((r) => setTimeout(r, 120)); }
-    return { noTeto, passos, voltouAoTopoDaEscada: !mais.disabled };
+    return { noTeto, passos, recuos, voltouAoTopoDaEscada: !mais.disabled };
   });
   checar(teto.noTeto && teto.passos > 0 && teto.voltouAoTopoDaEscada,
     'no fim da escada DA TELA CHEIA o A+ se apaga — o estado desabilitado segue '
@@ -434,7 +519,11 @@ try {
     renderLyricsView();
     await new Promise((r) => setTimeout(r, 300));
     const depois = !!document.fullscreenElement;
-    const botaoNaLetra = !lyricsPopupEl.querySelector('#cifraCheiaBtn').hidden;
+    // A ÁRVORE É A RESPOSTA (v1.6.1): fora da aba de cifra a barra é esvaziada
+    // e o nó do ⛶ não está em lugar nenhum do documento — ele sobrevive só
+    // pela referência de módulo. Perguntar `.hidden` aqui é ler propriedade de
+    // `null`, e o `evaluate` inteiro cai com um `TypeError`.
+    const botaoNaLetra = !!lyricsPopupEl.querySelector('#cifraCheiaBtn');
     lvSource = 'cifra';
     renderLyricsView();
     return { antes, depois, botaoNaLetra, fonte: lvActiveSource() };
@@ -455,6 +544,60 @@ try {
     (antes) => cifraColunasAtual > antes, retrato.colunas, { timeout: 10000 },
   ).catch(() => {});
 
+  // ── 7-C. A BARRA SEMPRE TEM A SAÍDA, INCLUSIVE SEM CIFRA (v1.6.1) ───────
+  //
+  // `lvBuildCifra` tem DOIS `return` cedo — "procurando" e o erro —, e os dois
+  // são alcançáveis COM A TELA CHEIA NO AR: `cifraCabe` não olha o estado,
+  // então `lvActiveSource()` continua devolvendo `'cifra'` e a saída automática
+  // do bloco 7-B acima não dispara. Basta a cena virar de faixa para a entrada
+  // nova nascer em `buscando`; e num `falha` isso é PERMANENTE na sessão,
+  // porque `cifraGarantir` volta cedo pelo `has` e nunca mais pergunta.
+  //
+  // Construída DEPOIS dos retornos — que é onde ela nasceu, na v1.6.0 —, a
+  // barra some e o que sobra é uma paisagem deitada com uma frase de erro e
+  // NENHUMA saída à vista: o ✕, as abas e o toque no fundo já saem em tela
+  // cheia por regra escrita, e Esc/F11 não existem num aparelho. Sobraria só o
+  // voltar do Android, que é a saída que ninguém vê.
+  //
+  // O ESTADO É MEXIDO NO CACHE, e o desenho é o do app: `renderLyricsView` é o
+  // mesmo caminho que o operador percorre quando a procura falha de verdade.
+  //
+  // REVERSÃO: devolver a construção da barra para depois dos dois `return`
+  // (a montagem `topo`/`tom`/`ctl` de volta ao ramo `ok`) reprova os dois
+  // estados abaixo.
+  for (const estado of ['buscando', 'falha']) {
+    const semCifra = await pg.evaluate((est) => {
+      const chave = cifraChave(lvItem());
+      const entrada = cifraCache.get(chave);
+      const antes = entrada.estado;
+      entrada.estado = est;
+      entrada.motivo = AVCifra.MOTIVO_NAO_TEM;
+      renderLyricsView();
+      const btn = lyricsPopupEl.querySelector('.lv-cifra-ctl > #cifraCheiaBtn:last-child');
+      const b = btn ? btn.getBoundingClientRect() : null;
+      const corpo = lyricsViewBodyEl.getBoundingClientRect();
+      const alvo = b
+        ? document.elementFromPoint(Math.round(b.left + b.width / 2),
+          Math.round(b.top + b.height / 2))
+        : null;
+      const r = {
+        cheia: document.fullscreenElement === lyricsPopupEl,
+        naFila: !!btn,
+        desenhado: !!(b && b.width > 0 && b.height > 0),
+        naColuna: !!(b && b.left >= corpo.right - 0.5),
+        recebeOToque: !!(alvo && alvo.closest('#cifraCheiaBtn')),
+      };
+      entrada.estado = antes;
+      renderLyricsView();
+      return r;
+    }, estado);
+    checar(semCifra.cheia && semCifra.naFila && semCifra.desenhado
+      && semCifra.naColuna && semCifra.recebeOToque,
+      'com a cifra em `' + estado + '` e a tela cheia no ar, a saída continua '
+      + 'na fila, desenhada, na coluna e TOCÁVEL — a barra nasce com o ⛶ antes '
+      + 'de qualquer retorno cedo', semCifra);
+  }
+
   // ── 7. A ROLAGEM ATRAVESSA A ENTRADA E A SAÍDA ───────────────────────────
   //
   // A remedição esvazia e reconstrói o corpo: o `scrollTop` volta a zero e o
@@ -466,7 +609,13 @@ try {
   // não do topo: com a leitura no zero, "voltou ao topo" e "sobreviveu" são o
   // MESMO resultado, e o oráculo aprovaria o defeito.
   const rolagem = await pg.evaluate(async () => {
-    cifraAdotarVelocidade(3);   // o degrau mais rápido, só para encurtar a espera
+    // O degrau mais rápido da escada, só para encurtar a espera — `2×` desde a
+    // v1.6.1 (o `3×` saiu a pedido do operador). E o número IMPORTA: um degrau
+    // FORA da escada cai no `CIFRA_VEL_PADRAO` pelo `indexOf`, que é o sentinela
+    // `'auto'`, e a linha abaixo calcularia `CIFRA_PX_POR_S * 'auto'` = `NaN`;
+    // `esperaInicialDaRolagem` devolve 0 diante disso e o oráculo mediria a
+    // folha antes de ela poder andar.
+    cifraAdotarVelocidade(2);
     midiaNoAr = false;
     const el = lyricsViewBodyEl;
     el.scrollTop = (el.scrollHeight - el.clientHeight) * 0.4;

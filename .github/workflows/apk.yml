@@ -651,6 +651,22 @@ jobs:
           # por clique de verdade, e o `resize` da paisagem DEPOIS dela, porque
           # quem deita o aparelho é a Activity e não há promise a esperar.
           rodar tools/cifra-tela-cheia.test.mjs
+          # E SÓ O PAR A+/A− MEXE NO TAMANHO DA LETRA (v1.6.1). O ouvinte do par
+          # é UM, delegado no documento, e casava `.lv-fonte-btn` — a classe de
+          # APARÊNCIA, que veste também os quatro botões da barra da cifra. O
+          # `-1` era um `else` sobre esse conjunto ABERTO: MEDIDO, transpor meio
+          # tom levava `--lv-fonte` de 1,4 para 1,2rem, e em tela cheia levava a
+          # escada DAQUELE modo de 2 para 1,7rem — GRAVANDO, no modo cujo
+          # objetivo declarado é ler de longe. O botão de rolar escapava por
+          # ACIDENTE (o `innerHTML` trocado no próprio handler), e o acidente
+          # cobria 62,7% da caixa e nada do teclado. Ele mede a PROPRIEDADE, não
+          # os quatro nomes: varre os `.lv-fonte-btn` VIVOS do documento e
+          # exercita um `.lv-fonte-btn` criado na hora. Cada ausência vem em par
+          # com a TESTEMUNHA do botão ter agido — senão um seletor errado no
+          # próprio teste aprovaria tudo —, e a reversão (o par continuar
+          # andando nas duas casas e nas duas escadas) impede que APAGAR o
+          # ouvinte passe.
+          rodar tools/fonte-so-do-par.test.mjs
           # E O LEITOR DA BIBLIOTECA — a folha de qualquer música SEM levar
           # nada ao telão. Três coisas falham calado ali: a folha mostrar a
           # música da CENA em vez da pedida; alguma coisa ir ao telão (o único

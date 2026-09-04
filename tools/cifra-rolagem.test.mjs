@@ -51,6 +51,30 @@
 // movimento (a ausência de comando no barramento) ficam como estavam — a
 // espera não muda o que eles afirmam.
 //
+// ## A ESCADA MUDOU DE NOME NA v1.6.1 — E SÓ DE NOME
+//
+// O degrau base deixou de se chamar `Auto` e passou a se chamar `1×`; o `1`
+// numérico saiu (o rótulo o duplicava) e o `3` saiu a pedido. A CONTA não foi
+// tocada, e o operador disse isso por extenso: *"não mude o comportamento da
+// escala, o comportamento estava correto, o nome auto que não representava uma
+// comparação de velocidade"*. Daí as duas metades novas:
+//
+//  - **METADE 0** lê os RÓTULOS do botão de verdade, percorrendo o ciclo com
+//    `click()`, e afirma que a palavra `Auto` sumiu da tela inteira — texto,
+//    `title` e `aria-label`;
+//  - **METADE 2-B** mede DESLOCAMENTO com um degrau NUMÉRICO e a duração no ar:
+//    ele anda no FIXO vezes o fator, nunca no ritmo do relógio. É ela que
+//    reprova quem "consertar" a conta transformando os degraus em
+//    multiplicadores do `1×` — a leitura que o rótulo convida e que o operador
+//    recusou.
+//
+// E A ESPERA INICIAL TROCOU DE INDICADOR: o anel `.dl-ring` saiu e no lugar
+// dele entrou uma NOTA na própria barra (*"coloque uma mensagem de confirmação…
+// na própria ui e não em pop up"*). Ela responde a DUAS perguntas em janelas
+// diferentes — antes do toque ANUNCIA o que o play vai fazer, durante a espera
+// é a RAZÃO da imobilidade —, e a asserção que carrega o lote é a terceira: ela
+// SOME quando o movimento começa, senão uma nota permanente passaria nas duas.
+//
 //   node tools/cifra-rolagem.test.mjs
 // ============================================================================
 import { chromium } from 'playwright';
@@ -171,6 +195,27 @@ try {
   checar(pronto === 'cifra', 'a aba de CIFRA é a fonte ativa (o cenário do app)', pronto);
   await pg.waitForSelector('.lv-cifra-acordes', { timeout: 15000 });
 
+  // A NOTA DA BARRA, medida no RENDERIZADO (v1.6.1). Ela substituiu o anel
+  // `.dl-ring` que ficava sobre o ícone de pause, e a régua não pode ser a
+  // PRESENÇA do nó: uma regra de CSS que não pinte passa num teste de presença
+  // e continua invisível na tela. Instalada como função da página porque cinco
+  // blocos a leem, cada um dentro do `evaluate` que também mexe no estado.
+  //
+  // Ela carrega junto a AUSÊNCIA do anel: as duas afirmações são do mesmo lote e
+  // separá-las deixaria passar a versão que desenha os DOIS.
+  await pg.evaluate(() => {
+    window.__nota = () => {
+      const n = lyricsViewBarEl.querySelector('.lv-cifra-nota');
+      const cx = n ? getComputedStyle(n) : null;
+      return {
+        visivel: !!(n && !n.hidden && cx.display !== 'none'
+          && n.getBoundingClientRect().height > 0),
+        texto: n ? n.textContent.trim() : '',
+        anel: !!lyricsViewBarEl.querySelector('.dl-ring'),
+      };
+    };
+  });
+
   const rolavel = await pg.evaluate(
     () => lyricsViewBodyEl.scrollHeight - lyricsViewBodyEl.clientHeight,
   );
@@ -178,8 +223,78 @@ try {
     'a folha é MAIOR que a caixa — sem isso as duas metades mediriam zero contra '
     + 'zero, e o oráculo aprovaria qualquer coisa', rolavel);
 
+  // ======================================================================
+  // METADE 0 — A ESCADA SE CHAMA 0,5× · 0,75× · 1× · 1,5× · 2× (v1.6.1)
+  // ======================================================================
+  //
+  // Pedido do operador: *"ao invés de usar o botão com nome 'auto', use apenas
+  // 0,5x, 1x, 1,5x... no caso o 'auto' seria o 1x, pois ele usa o tempo base
+  // como padrão de comparação"* — mais a correção que ele mandou por extenso:
+  // *"não mude o comportamento da escala, o comportamento estava correto, o
+  // nome auto que não representava uma comparação de velocidade"*.
+  //
+  // O rótulo sai do BOTÃO DE VERDADE e o ciclo é percorrido com `click()`: ler
+  // `CIFRA_VELOCIDADES` provaria que a constante concorda consigo mesma, e o
+  // que o operador lê é o `textContent` de quem está na tela.
+  //
+  // TRÊS asserções, e cada uma pega o que a anterior não pega:
+  //  - o SENTINELA se chama `1×` — o pedido inteiro é esse;
+  //  - o CICLO fecha, na ordem monótona, em cinco toques (um degrau inalcançável
+  //    não aparece em nenhum outro lugar);
+  //  - NÃO HÁ RÓTULO REPETIDO — é ela que reprova a volta do `1` numérico, que
+  //    daria DOIS botões escritos "1×" na mesma escada;
+  //  - a palavra `Auto` sumiu da TELA, e não só do botão: um `title` ou um
+  //    `aria-label` sobrevivente a devolve sem nada acusar.
+  //
+  // REVERSÃO: devolver `'auto'` ao `cifraVelRotulo` reprova a primeira e a
+  // última; devolver o `1` numérico à escada reprova a segunda e a terceira.
+  const escada = await pg.evaluate(() => {
+    cifraAdotarVelocidade('auto');
+    cifraPintarRolar();
+    const btn = cifraVelBtnEl;
+    const base = btn.textContent.trim();
+    // UMA VOLTA INTEIRA pelo botão: o último rótulo tem de ser o primeiro de
+    // novo. `cifraVelPasso` é `async`, mas pinta ANTES do `await` do banco —
+    // o rótulo já está na tela quando o `click()` volta.
+    const ciclo = [];
+    for (let i = 0; i < CIFRA_VELOCIDADES.length; i++) {
+      btn.click();
+      ciclo.push(btn.textContent.trim());
+    }
+    const textos = [lyricsPopupEl.innerText];
+    lyricsPopupEl.querySelectorAll('[title], [aria-label]').forEach((el) => {
+      textos.push(el.getAttribute('title') || '', el.getAttribute('aria-label') || '');
+    });
+    return {
+      base,
+      ciclo,
+      distintos: new Set(ciclo).size,
+      // `\b...\b` e não `/auto/` solto: "automática" é outra palavra e continua
+      // legítima em qualquer frase da folha.
+      comAuto: textos.filter((t) => /\bauto\b/i.test(t)),
+    };
+  });
+  checar(escada.base === '1×',
+    'o degrau BASE se chama `1×` — o sentinela `auto` continua sendo o valor '
+    + 'interno, e o que mudou é o RÓTULO', escada.base);
+  checar(escada.ciclo.join(' · ') === '1,5× · 2× · 0,5× · 0,75× · 1×',
+    'e o ciclo percorre 0,5× · 0,75× · 1× · 1,5× · 2× e FECHA em cinco toques '
+    + '(o 3× saiu a pedido, e o 1 numérico saiu porque o rótulo o duplicava)',
+    escada.ciclo);
+  // CONTRA O COMPRIMENTO DO CICLO, nunca contra o número 5: com o `1` numérico
+  // de volta o ciclo tem SEIS rótulos e cinco distintos, e um `=== 5` escrito à
+  // mão aprovaria exatamente a escada que esta asserção existe para recusar.
+  checar(escada.distintos === escada.ciclo.length,
+    'e nenhum rótulo se repete no ciclo: dois botões escritos "1×" seriam a '
+    + 'escolha do operador dizendo duas coisas', escada);
+  checar(escada.comAuto.length === 0,
+    'e a palavra `Auto` não está mais em lugar nenhum da folha — nem no texto, '
+    + 'nem num `title`, nem num `aria-label`', escada.comAuto);
+
   // A velocidade tem de ser `auto`: é dela que este caso fala. O degrau é
-  // persistido, então não se pode supor o que veio do banco.
+  // persistido, então não se pode supor o que veio do banco. (O ciclo acima
+  // deu a volta inteira e já voltou para ele; esta linha é a que NÃO depende
+  // disso.)
   await pg.evaluate(() => cifraAdotarVelocidade('auto'));
 
   // ======================================================================
@@ -206,8 +321,12 @@ try {
       ? ritmo
       : CIFRA_PX_POR_S * (ehAuto ? 1 : CIFRA_VELOCIDADES[cifraVelIdx]);
     const esperaMs = AVCifra.esperaInicialDaRolagem(el.clientHeight, pxPorS);
+    // A NOTA ANTES DO TOQUE — a promessa que o anel nunca teve: o pedido está
+    // escrito no FUTURO (*"ao dar play, ele VAI ficar imóvel"*), e uma frase que
+    // só nasce depois do play descreve como porvir uma coisa já em curso.
+    const antesDoToque = window.__nota();
     cifraRolarAlternar();
-    return { dur, esperaMs, t0: el.scrollTop };
+    return { dur, esperaMs, t0: el.scrollTop, antesDoToque };
   });
   checar(semArInicio.dur === 0,
     'sem mídia no ar não há duração a seguir — a barra habilitada não é "no ar"',
@@ -222,14 +341,40 @@ try {
   await dormir(Math.max(200, semArInicio.esperaMs / 2));
   const semArDurante = await pg.evaluate(() => ({
     scrollTop: lyricsViewBodyEl.scrollTop,
-    ring: !!(cifraRolarBtnEl && cifraRolarBtnEl.querySelector('.dl-ring')),
+    nota: window.__nota(),
   }));
   checar(semArDurante.scrollTop === semArInicio.t0,
     'no MEIO da espera inicial a folha ainda NÃO se moveu — é hora de ler, não '
     + 'de rolar', semArDurante);
-  checar(semArDurante.ring,
-    'e o indicador de "em andamento" (o anel) está no botão durante a espera — '
-    + 'para não parecer travado', semArDurante);
+  checar(semArInicio.antesDoToque.visivel
+    && /introdu/i.test(semArInicio.antesDoToque.texto),
+    'a MENSAGEM está na tela ANTES do toque, e ela diz o que o play vai fazer '
+    + '(v1.6.1) — o operador pediu a confirmação "na própria ui e não em pop up"',
+    semArInicio.antesDoToque);
+  checar(semArDurante.nota.visivel,
+    'e ela CONTINUA no meio da espera, agora como a RAZÃO da imobilidade — que '
+    + 'era o trabalho do anel: um botão pausado e imóvel é indistinguível de um '
+    + 'botão quebrado', semArDurante);
+  checar(!semArDurante.nota.anel,
+    'e NÃO há anel `.dl-ring` na barra: o operador mandou remover o spinner, e '
+    + 'dois mecanismos para o mesmo fato é o que a nota veio substituir',
+    semArDurante);
+  // A FRASE SÓ PROMETE A MÚSICA ONDE ISSO É VERDADE (v1.6.1).
+  //
+  // O operador pediu a frase inteira — *"depois irá seguir a rolagem no ritmo da
+  // música"* —, e ela é verdadeira só no degrau BASE com duração no ar: fora daí
+  // o compasso é o ritmo fixo vezes o fator, e prometer a música ali é a nota
+  // mentindo na tela. Este bloco é o lado SEM duração; o par dele, com duração,
+  // vem na metade seguinte. As duas juntas são a regra — sozinha, a primeira
+  // passaria com a frase curta escrita à mão para sempre, e a segunda passaria
+  // com a frase longa dita em toda situação.
+  //
+  // REVERSÃO: fazer `cifraNotaTexto` devolver sempre a frase longa reprova aqui;
+  // devolver sempre a curta reprova no par, mais abaixo.
+  checar(!/ritmo da música/i.test(semArDurante.nota.texto),
+    'SEM duração no ar a nota NÃO promete o ritmo da música — ali o compasso é '
+    + 'fixo, e a frase que o operador pediu seria falsa na tela',
+    semArDurante.nota.texto);
 
   // Supera o resto da espera e dá tempo de o movimento ficar mensurável — o
   // mesmo intervalo de 1500 ms que a versão anterior deste caso usava, só que
@@ -238,9 +383,9 @@ try {
   const semAr = await pg.evaluate(() => {
     const t1 = lyricsViewBodyEl.scrollTop;
     const titulo = cifraVelBtnEl ? cifraVelBtnEl.title : '';
-    const ring = !!(cifraRolarBtnEl && cifraRolarBtnEl.querySelector('.dl-ring'));
+    const nota = window.__nota();
     cifraRolarParar();
-    return { t1, titulo, ring };
+    return { t1, titulo, nota };
   });
   checar(semAr.t1 > semArInicio.t0 + 5,
     'e a folha ANDA depois da espera: o modo LIVRE assumiu, que é o que o '
@@ -248,9 +393,11 @@ try {
   checar(/ritmo fixo/.test(semAr.titulo),
     'e o botão DIZ isso — o rótulo mostra a escolha, a frase mostra o que está '
     + 'acontecendo', semAr.titulo);
-  checar(!semAr.ring,
-    'e o indicador de espera SOME assim que o movimento de fato começa — a '
-    + 'própria folha andando já basta para dizer "está funcionando"', semAr);
+  // ← A QUE CARREGA O ARQUIVO: sem ela, uma nota PERMANENTE passa nas duas de
+  // cima. A frase promete "ainda não", não "sempre".
+  checar(!semAr.nota.visivel,
+    'e a mensagem SOME assim que o movimento de fato começa — a própria folha '
+    + 'andando já basta para dizer "está funcionando"', semAr);
 
   // ======================================================================
   // METADE 2 — COM MÍDIA NO AR: o `auto` tira da música o RITMO, não a POSIÇÃO
@@ -285,14 +432,23 @@ try {
     const ritmo = cifraRitmoDoRelogio(rolavel);
     const esperaMs = AVCifra.esperaInicialDaRolagem(el.clientHeight, ritmo);
     cifraRolarAlternar();
-    const ring = !!(cifraRolarBtnEl && cifraRolarBtnEl.querySelector('.dl-ring'));
-    return { dur, t0: el.scrollTop, rolavel, ritmo, esperaMs, ring };
+    const nota = window.__nota();
+    return { dur, t0: el.scrollTop, rolavel, ritmo, esperaMs, nota };
   });
   checar(comArInicio.dur === 200,
     'com mídia no ar a duração da barra vale — é dela que o `auto` tira o ritmo',
     comArInicio);
-  checar(comArInicio.ring,
-    'e o indicador de espera também acende aqui, com música no ar', comArInicio);
+  // O PAR DA ASSERÇÃO DA FRASE: aqui HÁ duração e o degrau é o BASE, então esta é
+  // a única situação em que "no ritmo da música" é verdade — e é a metade que o
+  // operador pediu por extenso. REVERSÃO: fazer `cifraNotaTexto` devolver sempre
+  // a frase curta reprova aqui; devolver sempre a longa reprova na METADE 1.
+  checar(/ritmo da música/i.test(comArInicio.nota.texto),
+    'COM duração no ar e no degrau base a nota promete o ritmo da MÚSICA — é a '
+    + 'metade da frase que o operador pediu, dita onde ela é verdadeira',
+    comArInicio.nota.texto);
+  checar(comArInicio.nota.visivel && !comArInicio.nota.anel,
+    'e a mensagem também está na tela aqui, com música no ar — e sem anel '
+    + 'nenhum ao lado dela', comArInicio);
 
   // Supera a espera inicial e dá 1,5 s de movimento para medir — a MESMA
   // janela de medição do caso de cima, só que começando quando o movimento de
@@ -301,10 +457,10 @@ try {
   const comAr = await pg.evaluate(() => {
     const t1 = lyricsViewBodyEl.scrollTop;
     const titulo = cifraVelBtnEl ? cifraVelBtnEl.title : '';
-    const ring = !!(cifraRolarBtnEl && cifraRolarBtnEl.querySelector('.dl-ring'));
+    const nota = window.__nota();
     cifraRolarParar();
     midiaNoAr = false;
-    return { t1, titulo, ring };
+    return { t1, titulo, nota };
   });
   checar(comAr.t1 > comArInicio.t0,
     'e a folha ANDA com a música PARADA no segundo zero (v1.5.6): o `auto` '
@@ -318,9 +474,77 @@ try {
     + 'na janela da duração', { andou: comAr.t1 - comArInicio.t0, ritmo: comArInicio.ritmo });
   checar(/ritmo da música/.test(comAr.titulo),
     'e o botão diz que está seguindo a música', comAr.titulo);
-  checar(!comAr.ring,
-    'e o indicador some quando o movimento de fato começa, também com música '
+  checar(!comAr.nota.visivel,
+    'e a mensagem some quando o movimento de fato começa, também com música '
     + 'no ar', comAr);
+
+  // ======================================================================
+  // METADE 2-B — UM DEGRAU NUMÉRICO IGNORA O RELÓGIO (v1.6.1)
+  // ======================================================================
+  //
+  // ESTA É A ASSERÇÃO QUE GUARDA O PEDIDO, e o pedido aqui é uma AUSÊNCIA de
+  // mudança. O operador renomeou o `Auto` para `1×` e corrigiu, por extenso, o
+  // que isso NÃO era: *"não mude o comportamento da escala, o comportamento
+  // estava correto, o nome auto que não representava uma comparação de
+  // velocidade… as variações 1,5x ou 0,5x representam mais rápido ou mais
+  // devagar em comparação com o 1x"*.
+  //
+  // O rótulo `1,5×` CONVIDA a "consertar" a conta — a ler o degrau como um
+  // multiplicador do `1×`, isto é, do RELÓGIO. Não é isso que o app faz e não é
+  // isso que foi pedido: com duração no ar o degrau base segue o relógio (a
+  // metade acima) e um degrau numérico segue o FIXO vezes o fator, sempre
+  // (`cifraRolarQuadro`: `ritmo = ehAuto ? cifraRitmoDoRelogio(...) : 0`).
+  //
+  // A PROVA É DESLOCAMENTO MEDIDO, não leitura de variável: quem trocasse a
+  // conta por `relógio × fator` deixaria `CIFRA_VELOCIDADES` idêntica, e uma
+  // asserção sobre a constante aprovaria a troca.
+  //
+  // O `2×` é o degrau escolhido porque é o que mais AFASTA as duas hipóteses:
+  // com 200 s de música o relógio pede ~96 px/s e o fixo pede 44 — e a leitura
+  // errada (relógio × 2) daria ~192, longe dos dois. Num `0,5×` as duas
+  // hipóteses quase se encostam, e a medição não decidiria nada.
+  //
+  // REVERSÃO: fazer o ramo numérico multiplicar `cifraRitmoDoRelogio(rolavel)`
+  // reprova a segunda asserção (a folha andaria ~4× mais que o fixo).
+  const fixoInicio = await pg.evaluate(() => {
+    cifraAdotarVelocidade(2);
+    midiaNoAr = true;
+    seekEl.disabled = false;
+    seekEl.max = '200';
+    const el = lyricsViewBodyEl;
+    el.scrollTop = 0;
+    const rolavel = el.scrollHeight - el.clientHeight;
+    const doRelogio = cifraRitmoDoRelogio(rolavel);
+    const pxPorS = CIFRA_PX_POR_S * CIFRA_VELOCIDADES[cifraVelIdx];
+    const esperaMs = AVCifra.esperaInicialDaRolagem(el.clientHeight, pxPorS);
+    cifraRolarAlternar();
+    return {
+      rotulo: cifraVelBtnEl.textContent.trim(),
+      doRelogio, pxPorS, esperaMs, t0: el.scrollTop,
+    };
+  });
+  checar(fixoInicio.rotulo === '2×' && fixoInicio.doRelogio > fixoInicio.pxPorS * 1.5,
+    'o degrau `2×` está no ar e o relógio desta música pede um ritmo BEM outro '
+    + '— sem essa distância a medição abaixo não decidiria nada', fixoInicio);
+  await dormir(fixoInicio.esperaMs + 1500);
+  const fixo = await pg.evaluate(() => {
+    const t1 = lyricsViewBodyEl.scrollTop;
+    const titulo = cifraVelBtnEl.title;
+    cifraRolarParar();
+    midiaNoAr = false;
+    cifraAdotarVelocidade('auto');
+    cifraPintarRolar();
+    return { t1, titulo };
+  });
+  const andouFixo = (fixo.t1 - fixoInicio.t0) / 1.5;
+  checar(Math.abs(andouFixo - fixoInicio.pxPorS) < Math.max(2, fixoInicio.pxPorS * 0.6)
+    && andouFixo < fixoInicio.doRelogio * 0.75,
+    'e COM duração no ar ele anda no ritmo FIXO vezes o fator, nunca no do '
+    + 'relógio: o rótulo é um indicador RELATIVO, não um multiplicador do `1×`',
+    { andou: andouFixo, fixoEsperado: fixoInicio.pxPorS, doRelogio: fixoInicio.doRelogio });
+  checar(/ritmo fixo/i.test(fixo.titulo) && /1×/.test(fixo.titulo),
+    'e a frase do botão diz as duas coisas que o rótulo sozinho deixou de dizer: '
+    + 'que o ritmo é FIXO, e contra qual base ele se compara', fixo.titulo);
 
   // ======================================================================
   // METADE 4 — O DEDO MANDA, E A MÚSICA NÃO O DESFAZ
@@ -445,9 +669,16 @@ try {
 
   const ensaioInicio = await pg.evaluate(() => {
     // Ritmo FIXO: esta metade fala da chave, não do relógio. O degrau mais
-    // RÁPIDO da escada (3×) só para encurtar a espera do teste — a regra que
-    // este caso prova (a chave sobrevive ao redesenho) não depende dele.
-    cifraAdotarVelocidade(3);
+    // RÁPIDO da escada (2× desde a v1.6.1 — o 3× saiu a pedido do operador) só
+    // para encurtar a espera do teste; a regra que este caso prova (a chave
+    // sobrevive ao redesenho) não depende dele.
+    //
+    // E O NÚMERO IMPORTA: um degrau FORA da escada cai no `CIFRA_VEL_PADRAO`
+    // pelo `indexOf` de `cifraAdotarVelocidade`, que é o sentinela `'auto'` —
+    // e a linha abaixo calcularia `CIFRA_PX_POR_S * 'auto'`, isto é `NaN`.
+    // `esperaInicialDaRolagem` devolve 0 diante de `NaN`, o oráculo mediria a
+    // folha 8 s antes de ela poder andar, e reprovaria um app certo.
+    cifraAdotarVelocidade(2);
     midiaNoAr = false;
     const el = lyricsViewBodyEl;
     el.scrollTop = 0;
