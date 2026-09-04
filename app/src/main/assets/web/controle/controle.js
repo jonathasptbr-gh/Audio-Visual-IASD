@@ -2863,6 +2863,48 @@ async function load(opts) {
   const restaurar = !!(opts && opts.restaurarScroll);
   const topoAntes = restaurar ? 0 : libraryEl.scrollTop;
   const myseq = ++loadSeqCtl;
+  // ===== A HIDRATAÇÃO PERDE A VEZ PARA O TOQUE (v1.6.0) =====
+  //
+  // `loadSeqCtl` logo acima resolve load × load. O que faltava é load × SEND:
+  // esta função lê o banco por uma dezena de `await`s e só então escreve as
+  // variáveis do módulo, e ninguém a chama com `await` — todo `db-change`
+  // dispara uma. Um `send()` que rode nesse intervalo escreve `currentId` e
+  // `currentItem` de forma síncrona, e o RABO desta função os sobrescrevia com
+  // o que o banco dizia ANTES do toque: *lost update* clássico.
+  //
+  // MEDIDO em arnês (`load()` sem `await`, `send(id)` em seguida): sobrava
+  // `currentId: null` com `midiaNoAr: true` — o app PROJETANDO um vídeo e
+  // dizendo que não há item selecionado. O ▶ seguinte caía em `send(undefined)`
+  // → `getMedia(undefined)` → `DataError`, e o "repetir a faixa com o ▶" morria
+  // junto. Não é hipótese: foi o que derrubou o `cena.test.mjs` no runner, que
+  // é mais lento que a máquina de quem escreve.
+  //
+  // A senha é a MESMA de `projecaoSeq` — quem projeta qualquer coisa a
+  // incrementa —, e não uma contagem nova: duas réguas para "quem chegou por
+  // último" divergiriam (é o argumento do `palcoEmVoo`, aplicado aqui).
+  //
+  // ===== E ELA VALE SÓ PARA A SELEÇÃO, que é o que o TOQUE decide =====
+  //
+  // `currentId`/`currentItem` são escritos em DOIS lugares no arquivo inteiro:
+  // aqui (hidratação) e no `send` (o toque). Tudo o mais que a FASE 2 aplica é
+  // CONFIGURAÇÃO — tema, corpo da letra, velocidade da rolagem, consentimento
+  // de download, as duas escadas da cifra —, e configuração não compete com
+  // toque nenhum: ninguém a decide no intervalo, e não aplicá-la deixaria o app
+  // com o valor da sessão anterior.
+  //
+  // O mudo, o volume e a cortina ficam do lado da CONFIGURAÇÃO, e a régua já
+  // estava escrita neste arquivo: ver `persistCurrent`/`clearCurrentSelection`
+  // — *"o volume, o mudo e a cortina (`view`) FICAM: são o ajuste da mesa, não
+  // uma seleção"*. Outros pontos do arquivo escrevem `view` (todo caminho que
+  // revela o telão), mas o `send` NÃO — ele os LÊ para montar a carga —, e é só
+  // com ele que esta função corre. Não há o que o toque possa perder aqui.
+  //
+  // O PREÇO, dito: `soUmProvedorDeTexto` também sobe a senha, então projetar um
+  // versículo durante a PRIMEIRA hidratação de uma página nova deixa a seleção
+  // sem restaurar. É a direção segura (não sobrescrever nada) e o item continua
+  // a um toque na lista; a alternativa — uma segunda contagem só para o `send`
+  // — é a divergência que o parágrafo acima recusa.
+  const senhaDaCena = projecaoSeq;
 
   // ---- FASE 1: só leituras do IDB, em locais (nada de estado/DOM ainda) ----
   const cur = await AVDB.getState('current');
@@ -2903,7 +2945,11 @@ async function load(opts) {
   if (myseq !== loadSeqCtl) return;
 
   // ---- FASE 2: aplica ao estado do módulo + render (síncrono, atômico) ----
-  currentId = curMediaId;
+  // A SELEÇÃO só é hidratada se ninguém projetou enquanto líamos o banco —
+  // ver `senhaDaCena`. O resto desta fase é ajuste de mesa e configuração, e
+  // continua sendo aplicado sempre.
+  const cenaEhNossa = (projecaoSeq === senhaDaCena);
+  if (cenaEhNossa) currentId = curMediaId;
   view = (cur && cur.view) || 'visual';
   muted = !!(cur && cur.muted);
   volume = (cur && typeof cur.volume === 'number') ? cur.volume : 1;
@@ -2935,7 +2981,10 @@ async function load(opts) {
   lyricsBg = lyricsBgV;
   downloadConsent = downloadOkV;
   libItems = libItemsV;
-  currentItem = currentItemV;
+  // O PAR do `currentId` acima, e pela mesma senha: `currentItemV` foi lido com
+  // o id de ANTES do toque, então aplicá-lo deixaria a linha "no ar", o título
+  // do transporte e a notificação de mídia descrevendo a mídia anterior.
+  if (cenaEhNossa) currentItem = currentItemV;
 
   renderLyricsBgTile();
   renderControls();
