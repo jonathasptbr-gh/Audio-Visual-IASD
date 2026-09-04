@@ -55,7 +55,10 @@ ficaram por aplicar — consultar por `grep`) e
 `docs/AUDITORIA-ESTABILIDADE-AV.md` (**apêndice**: a varredura de 2026-08-29
 focada em ESTABILIDADE — o que pode interromper a transmissão ou a mídia no ar:
 dez achados, cada um com cenário, correção proposta e ressalva; um deles é
-MEDIÇÃO, não conserto).
+MEDIÇÃO, não conserto) e `docs/AUDITORIA-EFICIENCIA-2026-09.md` (o custo de
+MANTER o repositório, não a qualidade do que ele produz: nove achados medidos
+sobre contexto, retrabalho, rito de entrega e CI — o nº 1 é este arquivo, que
+cresceu 23% em sete dias e é lido inteiro em toda sessão).
 
 ---
 
