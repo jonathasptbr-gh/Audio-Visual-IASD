@@ -189,25 +189,117 @@ e ele já existe: `docs/HISTORICO.md`.
 
 ## Plano, por retorno
 
+> **Reordenado depois da refutação.** A ordem original tinha a poda do
+> `CLAUDE.md` em primeiro e o fatiamento do `controle.js` em sexto; a segunda
+> varredura mudou os dois — a poda encolheu de 79% para 17% e o fatiamento
+> perdeu a justificativa técnica.
+
 | # | ação | esforço |
 |---|---|---|
-| 1 | Podar o `CLAUDE.md` para 80 kB — devolve ~75 mil tokens em TODA sessão | 1 lote |
-| 2 | Comparar antes de publicar (página descartável de opções visuais) | por recurso |
-| 3 | Escalonar o rito pelo degrau da versão | regra |
-| 4 | `tools/versao.mjs` + asserção no `verificar` | ~20 linhas |
-| 5 | Aliviar o CI nas branches `claude/**` | 1 lote |
-| 6 | Fatiar o `controle.js` em cinco módulos, só movendo | 1 lote grande |
-| 7 | Fechar os 4 achados em aberto (corrigir ou decidir não corrigir) | 1 lote |
+| 1 | **Pôr o gate em `autoRefreshCollections`** (achado A) — é o único item de toda a auditoria que toca o culto | 2 linhas, só web |
+| 2 | **Corrigir a fixture do `registro.test.mjs`** (achado B) — um oráculo que descreve contrato vencido responde, e responde errado | só `tools/` |
+| 3 | **Corrigir as três afirmações falsas** (achado C) — o custo de não fazer é uma sessão futura reintroduzir de boa-fé o que foi removido | 3 frases |
+| 4 | Podar o `CLAUDE.md` — **~800 linhas pelo mapa de duplicação medido**, não os 79% da meta original. Bloco a bloco: paleta 480, Biblioteca 288, história da cifra 110 | 1 lote |
+| 5 | Fechar os 4 achados em aberto (corrigir ou decidir não corrigir) | 1 lote |
+| 6 | Decidir o `dados.yml` (achado D): adensar o cron e remedir em uma semana, ou tirar a promessa do documento | baixo |
+| 7 | Comparar antes de publicar (página descartável de opções visuais) | por recurso |
+| 8 | Escalonar o rito pelo degrau da versão | regra |
+| 9 | `tools/versao.mjs` — **conveniência**, já que o assert existe | ~20 linhas |
+| — | ~~Aliviar o CI nas branches~~ · ~~Fatiar o `controle.js`~~ | refutados: pagador inexistente · justificativa técnica inexistente |
+
+---
+
+## A segunda opinião — a refutação que faltava, e o que ela derrubou
+
+> A versão original deste arquivo terminava pedindo isto: *"antes de aplicar os
+> achados 4 e 6, que mexem em estrutura, vale uma segunda opinião."* Ela rodou
+> depois — **7 frentes, 14 agentes, 27 achados julgados, 17 sobreviveram** — e
+> derrubou dois dos nove. O que segue é o veredito, não uma auditoria nova.
+
+### Os que caíram
+
+**Nº 4 — fatiar o `controle.js`: a justificativa técnica não existe.**
+O pool de "regra pura extraível" é **1,6%** do arquivo, não os ~40% que a
+contagem ingênua sugere: a maioria das funções sem `document.` no corpo toca o
+DOM por helper. E o parse de 1,5 MB custa **1,0 ms** (mediana de 9,
+`produceCachedData` eager) — o custo de carga não existe.
+*Sobrevive só o argumento de NAVEGAÇÃO* (77 de 173 commits tocam o arquivo), e
+ele nunca foi medido contra uma alternativa. Fatiar continua defensável como
+conforto de quem edita; **não** como desempenho nem como extração de regra.
+
+**Nº 5 — "nenhum script a sincroniza" é meia verdade, e a metade que falta é a
+que importa.** `apk.yml:188` **já reprova** a divergência entre `version.json`,
+`WEB_VERSION` e `#appVersion` (`assert vjson == vjs == vhtml`). Falta o
+ESCRITOR, não a rede de segurança — o "erro silencioso" já é barulhento desde
+que aquele assert existe. O `tools/versao.mjs` vira conveniência, não classe de
+defeito eliminada.
+
+**Nº 6 — o pagador não existe.** O repositório é público: minutos e artefatos de
+Actions são **gratuitos**. O custo real é PAREDE até a frota (203 s) e o SINAL
+que se lê, não dinheiro. Pela mesma régua caíram "cachear o Chromium" (~15–20 s
+por run) e "a suíte roda duas vezes por lote" — esta última também com a
+medição errada (200 runs na janela, não 140).
+
+**Nº 1 — a meta de 80 kB não se sustenta.** Ela seria um corte de 79%. O que está
+PROVADO duplicado, medido por shingles de 8 palavras contra os capítulos que já
+existem, são **~800 de 4.568 linhas (17%)**: a saga da Biblioteca (310 L, 50,7%
+de sobreposição, com 408 L dedicadas em `CONTROLE.md`) e "A paleta" (740 L, 39%).
+**"A aba de cifra" NÃO é gordura** — 1,4% contra o `CONTROLE.md`: ela é um
+capítulo que nunca ganhou arquivo, e o `CONTROLE.md` aponta de volta para o hub.
+O resto do arquivo é regra viva, e é o que o próprio Contraponto acima defende.
+
+### O que a segunda varredura achou e esta auditoria não tinha
+
+| # | achado | quem paga |
+|---|---|---|
+| **A** | **`autoRefreshCollections` não tem o gate da v1.4.19.** Os cinco pontos de `rotinaDeAcervoPodeCorrer` estão todos em `syncLyrics`/`syncCifrasAcervo`; a fase 1 relê os dois hinários e o catálogo, e a fase 2 as séries — **com mídia no ar**. É a disputa que aquele lote fechou para as rotinas irmãs. Duas linhas, só web. | **o culto** |
+| **B** | **A fixture `DIAG` do `registro.test.mjs` divergiu do Kotlin em 7 de 18 linhas.** É a classe de defeito para a qual aquele arquivo foi escrito, acontecendo dentro dele. | quem lê o Registro a distância |
+| **C** | **Três afirmações que o código já não cumpre**, nenhuma coberta por oráculo: `CLAUDE.md:3493` diz que "nada no build detecta divergência" entre `colors.xml` e `tokens.css` (o `tokens.test.mjs` trava desde a v1.5.14); o bullet dos "dois caminhos de aplicação" do OTA descreve o `aplicarSozinho`, removido; `PRECEDENCIA_TELAO_MS = 3_000L` contra `DISPLAY_TIMEOUT = 2500`, com o hub afirmando que os dois lados fazem "a mesma conta". | a próxima sessão |
+| **D** | **O `dados.yml` entrega 23% do cron horário** — 40 runs em 164,6 h, **zero intervalos de 1 h**, maior buraco 8,09 h — enquanto `MEDICAO-DE-ALCANCE.md:291` promete "horas de uso por hora do dia". | o gráfico prometido |
+
+### O que a segunda varredura propôs e ela mesma matou
+
+Registrado porque **um achado refutado economiza a sessão de quem for reachá-lo**:
+
+- **Excluir `web/vendor/*` do zip do OTA** (412.851 B, 29,1% do bundle). O
+  mecanismo é verdade; caíram o ganho e o risco. **Custo inflado ~15×** —
+  contaram-se PUBLICAÇÕES como downloads, e o `check()` só baixa a mais nova:
+  real 0,4–1,2 MiB/semana, que é **16% de UM fragmento do MSE**. E o risco foi
+  LIDO, não medido: hoje bundle e APK têm a mesma lista de arquivos, então o
+  estado misto (`sessionRoot` não-nulo E arquivo ausente) **nunca executou em
+  aparelho nenhum**, e a cobertura de oráculo é zero.
+- **Guardá-lo com `shellTag`.** `shellTag` segura a PUBLICAÇÃO; não faz aparelho
+  recusar bundle. MEDIDO: a v1.5.14 saiu com `shellTag` e `minShell: 61`, o
+  mesmo piso da anterior. Quem faz recusar é `minShell`. *Fica como correção de
+  premissa, e vale independentemente do vendor.*
+- **CSS e HTML mortos:** 443 B num zip de 1.418.964 (**0,03%**). 514 das 515
+  classes vivas, 25/25 símbolos com `<use>`.
+- **Tirar comentário no empacotamento** (economizaria 241 kB, 17%): os oráculos
+  validam os arquivos do REPOSITÓRIO — o transform faria a suíte aprovar uma
+  coisa e a igreja rodar outra.
+
+### O que ficou de pé sem contestação
+
+Os achados **2, 3, 7, 8 e 9** não foram atacados por nenhuma frente da segunda
+varredura, e os números deles continuam valendo. O nº 7 ganhou reforço
+independente: a suíte foi reorganizada nesta mesma sessão (arnês compartilhado,
+espera pelo FATO, execução em paralelo — 442 s → 152 s), e o `apk.yml` perdeu
+567 linhas de justificativa duplicada. Os números da tabela acima já são os de
+DEPOIS disso.
 
 ---
 
 ## Limite declarado
 
-A rodada de refutação adversarial preparada para esta auditoria — seis analistas
-e um cético independente por dimensão — **bateu no limite da sessão e não
-rodou**. Tudo foi apurado diretamente.
+A medição desta auditoria é contagem direta de `git` e do sistema de arquivos; a
+única estimativa é a conversão bytes→tokens, marcada onde aparece.
 
-Consequência: o relatório é forte em **medição** e fraco em **contra-argumento**.
-Cada achado tem número verificável, mas só o nº 6 passou por refutação (a minha,
-medindo os 6 commits só-docs). **Antes de aplicar os achados 4 e 6, que mexem em
-estrutura, vale uma segunda opinião.**
+A rodada de refutação **rodou depois**, e está na seção acima: dos nove achados,
+**dois caíram** (4 e 5), **dois foram corrigidos na magnitude** (1 e 6) e cinco
+seguem sem contestação. Quatro achados novos entraram, e o **A é o único de toda
+a auditoria que toca o culto**.
+
+O que continua não medido: nada foi verificado **em aparelho** — os números de
+runtime saem de Chromium, e o encoder do Miracast, a térmica e a Wi-Fi da igreja
+ficam fora do alcance. E o achado nº 2 não tem número de custo, só de frequência:
+ninguém mediu quanto uma página de comparação economizaria de fato.

@@ -58,7 +58,10 @@ dez achados, cada um com cenário, correção proposta e ressalva; um deles é
 MEDIÇÃO, não conserto) e `docs/AUDITORIA-EFICIENCIA-2026-09.md` (o custo de
 MANTER o repositório, não a qualidade do que ele produz: nove achados medidos
 sobre contexto, retrabalho, rito de entrega e CI — o nº 1 é este arquivo, que
-cresceu 23% em sete dias e é lido inteiro em toda sessão).
+cresceu 23% em sete dias e é lido inteiro em toda sessão. **A refutação rodou
+depois**: dois achados caíram, dois encolheram de magnitude e quatro novos
+entraram — um deles o ÚNICO da auditoria que toca o culto. A lista dos MORTOS,
+com a razão de cada um, é o que economiza a sessão de quem for reachá-los).
 
 ---
 
