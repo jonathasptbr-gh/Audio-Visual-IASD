@@ -486,6 +486,7 @@ jobs:
           rodar tools/destinos.test.mjs
           rodar tools/cifra-offline.test.mjs
           rodar tools/cifra-tela-cheia.test.mjs
+          rodar tools/fonte-so-do-par.test.mjs
           rodar tools/leitor-biblioteca.test.mjs
           rodar tools/sorteio-tela.test.mjs
           rodar tools/cena.test.mjs

@@ -1688,7 +1688,7 @@
                METADADO de diagnóstico e o lugar onde se procura diagnóstico é
                junto do estado do telão e do alvo de espelhamento, não numa faixa
                de navegação. Preenchido por `renderVersionLabel`. -->
-          <span id="appVersion" class="app-version">Controle v1.6.0</span>
+          <span id="appVersion" class="app-version">Controle v1.6.1</span>
           <!-- SALVAR EM ARQUIVO (v1.2.16). Com o acervo inteiro varrido o
                Registro passa de setenta linhas só na seção de cifras, e copiar e
                colar é o caminho que corta o texto no meio SEM AVISAR — foi o
@@ -1962,17 +1962,30 @@
           <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoTexto"/></svg>
         </span>
         <span class="popup-title" id="lyricsPopupTitle">Letra</span>
-        <!-- TELA CHEIA EM PAISAGEM da cifra (v1.6.0). Um botão SÓ, alternador,
-             e ele mora no CABEÇALHO — não na barra da cifra: o cabeçalho é
-             ESTÁTICO (a barra é recriada a cada `renderLyricsView`, e escrever
-             num nó já desligado da árvore é o defeito que `lvBuildCifra`
-             documenta), tela cheia é um controle da FOLHA como o ✕ e o A+/A−,
-             e na coluna deitada ele é a PRIMEIRA linha — a saída no topo, onde
-             o `#fsExit` da preview já mora.
+        <!-- TELA CHEIA EM PAISAGEM da cifra (v1.6.0). Um botão SÓ, alternador.
+             ELE NASCE AQUI E MORA NA BARRA DA CIFRA (v1.6.1): `lvBuildCifra` o
+             MOVE para o fim da `.lv-cifra-ctl` (`appendChild` move, não copia),
+             a pedido do operador — *"coloque o botão de tela, na mesma linha dos
+             botões de rolagem automática e etc... coloque ele no fim da lista à
+             direita"*. Nasce `hidden` porque a barra só existe a partir da
+             primeira folha de cifra desenhada; o `lvBuildCifra` limpa o
+             atributo no mesmo ato em que o anexa, e daí em diante quem responde
+             "ele está à vista?" é a ÁRVORE — fora da aba de cifra a barra é
+             esvaziada e o nó não está em lugar nenhum.
 
-             A ORDEM DAQUI É A ORDEM DA COLUNA: em paisagem o cabeçalho vira
-             `flex-direction: column`, então [⛶][A−][A+] cai de graça e não há
-             uma segunda ordem em `order:` para manter em dia.
+             O QUE O MANTÉM VIVO entre um redesenho e o próximo é a referência de
+             módulo `cifraCheiaBtnEl`, não o pai: MEDIDO, ele sai da árvore a
+             cada `renderLyricsView` e volta com o desenho e o ouvinte intactos.
+             Um botão CRIADO dentro do `lvBuildCifra` some do documento no
+             primeiro redesenho da tela cheia, com a Activity deitada e sem
+             saída.
+
+             A ORDEM DAQUI NÃO É MAIS A ORDEM DA COLUNA: quem a decide é a
+             `.lv-cifra-ctl`, e nela o ⛶ é o ÚLTIMO — o fim da linha no retrato,
+             o pé da coluna em paisagem. Os dois extremos da coluna são o alcance
+             natural do polegar (é o argumento escrito da `.pv-fsctl`), e o preço
+             está dito no CSS: a saída ficou vizinha do `+½`, e por isso ganhou
+             respiro próprio.
 
              SVG inline com os MESMOS `path` do `#pvFullBtn`/`#fsExit`: a fonte
              de ícones é um subset de 31 codepoints e não tem glifo de tela
