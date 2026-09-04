@@ -421,6 +421,32 @@ crescimento: de `1,4` para `1,7rem` são ~21% de folha a mais, e quem estava em
 50% reaparece perto de 41%. Os quatro pontos passam a usar a mesma função
 (`cifraFracaoDeLeitura`), que é o que impede o quinto de nascer errado.
 
+### E três ajustes do card de detalhe, do mesmo operador, no mesmo lote
+
+Eles chegaram depois da v1.5.21 e entraram aqui porque a v1.6.0 ainda não tinha
+sido publicada — um número novo descreveria uma versão que nenhum aparelho viu.
+
+**"Toca sem baixar" saiu, e o critério é do operador:** *"essa informação é útil
+apenas quando estiver escolhendo a qualidade, no caso, não é um 'detalhe do
+arquivo', mas sim uma das características da opção de play"*. Ele está certo por
+construção — a opção "Tocar agora", duas linhas acima no MESMO card, já diz
+*"Toca direto da internet"*. A linha de estado passou a existir só quando diz
+algo que é fato DO ARQUIVO: "Já no aparelho". O oráculo cobra as duas metades,
+porque só a primeira aprovaria apagar a linha inteira.
+
+**O título completo de um LINK não aparecia, e a causa não era exibição:** um
+link salvo nunca teve título cru em lugar nenhum — o `nomeOriginal` que a
+v1.5.21 passou a persistir vem da listagem da playlist, que só existe para
+episódio de SÉRIE; o registro de um link guarda apenas o `name` já tratado.
+A correção não custou requisição: o `ytDetalhes`, que o card JÁ chamava pela
+descrição, devolve `titulo` no mesmo pedido — o cache passou a guardar o OBJETO
+em vez de só o texto. Ela conserta de quebra o episódio cujo índice ainda não
+foi revarrido.
+
+**O "Ver mais" saiu** e a descrição abre inteira. O clamp existia para o texto
+não empurrar as opções da gaveta; o pedido é explícito, e a gaveta cresce com o
+conteúdo como qualquer outra.
+
 ---
 
 ## v1.5.21 — a margem que escapava do poço, e os quatro dados do card de um vídeo

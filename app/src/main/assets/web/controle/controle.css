@@ -6916,41 +6916,15 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    quebras são do autor; `overflow-wrap: anywhere` porque ela costuma trazer
    URLs, que não têm onde quebrar e esticariam o card. */
 .item-detalhe-desc { flex: 1 0 100%; min-width: 0; }
-/* O CLAMP É POR LINHA E MORA NO CSS: o texto INTEIRO está no DOM, e o "Ver
-   mais" só o revela. Um teto em caracteres seria uma segunda regra de
-   truncagem, e ela divergiria da primeira no dia em que o corpo da fonte
-   mudasse (o A+/A− existe). */
+/* ELA VEM INTEIRA (v1.6.0). Houve um clamp de 4 linhas com um "Ver mais" ao
+   lado; o operador o dispensou (*"já deixe tudo aberto de uma vez"*), e sem ele
+   não sobra regra de truncagem NENHUMA — nem aqui nem no JavaScript. O único
+   teto é o do Kotlin (`DESCRICAO_MAX`), que é de TRANSPORTE. */
 .item-detalhe-desc-txt {
   margin: 0;
   font-size: var(--fs-md); color: var(--muted); line-height: 1.45;
   white-space: pre-wrap; overflow-wrap: anywhere;
-  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 4;
-  overflow: hidden;
 }
-.item-detalhe-desc.aberta .item-detalhe-desc-txt {
-  display: block; overflow: visible; -webkit-line-clamp: unset;
-}
-/* UM LINK, e não um botão de corpo inteiro — a MESMA peça que o "Ver no Cifra
-   Club" (`.lv-cifra-link`), inclusive na resposta ao toque: ele é a ação MENOS
-   principal de uma caixa cuja única função é mostrar texto, e com peso de botão
-   cobraria a altura de mais uma linha. Sem fundo próprio, então nada aqui é
-   superfície de controle (a regra dos `--btn-*`).
-
-   E ELE FICA FORA DA LISTA DO `--press`, pela razão do `.lv-cifra-link`: aquele
-   recuo é a metáfora de uma TECLA que afunda, e não há tecla aqui — 2px sob uma
-   palavra solta se leem como a palavra pulando. A resposta é a opacidade, que é
-   o que aquele irmão já faz.
-
-   `min-height: var(--hit)` porque isto RECEBE O DEDO: o `.lv-cifra-link` mora
-   num rodapé com folga em volta, este mora colado no fim de um parágrafo. */
-.item-detalhe-mais {
-  margin-top: var(--sp-2); padding: .15rem 0; min-height: var(--hit);
-  background: none; color: var(--accent);
-  font-size: var(--fs-md); font-weight: var(--fw-medio);
-  text-decoration: underline; text-underline-offset: 2px;
-  cursor: pointer;
-}
-.item-detalhe-mais:active { opacity: .6; }
 
 /* ---------- A folha rápida de uma música (▶ e + da linha do acervo) ---------- */
 /* Linhas LARGAS e ROTULADAS, o oposto dos seis ícones mudos que substituíram:

@@ -6709,9 +6709,9 @@ empurrariam a lista e tirariam do lugar o que o operador estava mirando.
  │  [miniatura] Match point | Provai e …   │  o TÍTULO COMPLETO (identidade)
  │              Provai e Vede | Oficial…   │  o CANAL
  │              Duração 5:19               │
- │              Toca sem baixar            │  o estado no aparelho
- │  Um testemunho sobre a fidelidade …     │  a DESCRIÇÃO (4 linhas + "Ver mais")
- │  Ver mais                               │  — a única que vem da REDE
+ │              Já no aparelho             │  o estado — SÓ quando há bytes
+ │  Um testemunho sobre a fidelidade …     │  a DESCRIÇÃO, INTEIRA
+ │  … que decidiu confiar mesmo depois …   │  — a única que vem da REDE
  └─────────────────────────────────────────┘
 ```
 
@@ -6740,19 +6740,39 @@ pergunta sobre a UI, não sobre o culto.
   `offsetHeight` de UM elemento, e com duas caixas irmãs aparecendo por conta
   própria a medida seria de meia gaveta.
   - **A ORDEM DAS LINHAS É A DAS PERGUNTAS** (v1.5.21): *o que é isto?* (o
-    título) · *de quem?* (o canal) · *quanto dura?* · *preciso de rede agora?*
-    (o estado). A identidade vem primeiro porque é ela que decide se o operador
+    título) · *de quem?* (o canal) · *quanto dura?* · *já está aqui?* (o
+    estado). A identidade vem primeiro porque é ela que decide se o operador
     vai adiante — o resto qualifica o que ele já reconheceu; daí ela ser a única
-    em `--text`, contra o `--muted` das outras três.
+    em `--text`, contra o `--muted` das outras.
+  - **O ESTADO SÓ EXISTE QUANDO ELE É FATO DO ARQUIVO** (v1.6.0). A linha nascia
+    sempre, com *"Toca sem baixar"*, e virava *"Já no aparelho"* com bytes no
+    disco. Pedido do operador: *"essa informação é útil apenas quando estiver
+    escolhendo a qualidade, no caso, não é um 'detalhe do arquivo', mas sim uma
+    das características da opção de play"* — e o "Tocar agora", duas linhas
+    acima no MESMO card, já diz *"Toca direto da internet…"*. Hoje a linha
+    existe só no segundo caso; no comum ela não é desenhada. As classes ficam as
+    mesmas (`item-detalhe-estado done`), que é por onde o `smoke.mjs` mede que
+    este indicador não é verde e continua em negrito.
   - **O TÍTULO COMPLETO só aparece quando ACRESCENTA alguma coisa.** O rótulo da
     lista é PODADO por construção (a data na frente, o pedaço à esquerda da
     barra — e no `TITULO_SERIE` do Informativo o nome do episódio some inteiro),
     então o cru quase sempre difere; comparar em vez de desenhar sempre é o que
     impede a mesma frase duas vezes na tela.
-  - **NADA AQUI VAI À REDE, e é isso que faz o card valer no sábado de manhã.**
-    Os quatro dados saem do ÍNDICE (`serieFaixaDoItem` guarda `nomeOriginal`,
-    `canal`, `duration` e `thumb`) e do IndexedDB (o estado). A miniatura é a
-    única ilustração: ela sai de cena sozinha se não carregar.
+  - **E NUM LINK ELE VEM DA REDE** (v1.6.0). Relato do operador: *"não estou
+    vendo o título completo e original do vídeo do link, ali na página dos
+    detalhes"*. A linha sai de `s.nomeOriginal`, que só existe para episódio de
+    SÉRIE (a listagem da playlist o grava no índice); um LINK salvo guarda só o
+    `name` já tratado, e a linha nunca tinha o que desenhar. O `ytDetalhes` já
+    devolvia o `titulo` junto da descrição e ele era descartado no caminho — o
+    card passou a guardar o OBJETO em vez do texto, e isso custa ZERO
+    requisição a mais. Ele entra por `insertBefore` no TOPO da coluna (chega
+    depois dos outros) e leva as MESMAS duas guardas: não desenha se o índice já
+    deu a linha, não desenha se for igual ao rótulo logo acima.
+  - **O ÍNDICE VALE OFFLINE, e é isso que faz o card valer no sábado de manhã.**
+    Canal, duração, miniatura e título de série saem do ÍNDICE
+    (`serieFaixaDoItem`) e o estado sai do IndexedDB. Só o que a REDE dá — a
+    descrição, e o título de um link — pode faltar. A miniatura é a única
+    ilustração: ela sai de cena sozinha se não carregar.
   - **CADA LINHA SÓ EXISTE SE O DADO EXISTIR**, e a guarda é POR CAMPO e nunca
     por versão de bundle: entre o OTA chegar e a varredura refazer o índice há
     uma janela em que o guardado não tem os campos novos. A linha ausente SOME —
@@ -6763,35 +6783,37 @@ pergunta sobre a UI, não sobre o culto.
     entrega em HTML quando há links —, e por isso ela tem uma SEGUNDA metade no
     Kotlin: `YoutubeGrab.detalhes` já achata o HTML, então o que atravessa a
     ponte é texto e a tela não mostra marcação literal.
-  - **E A DESCRIÇÃO É A QUINTA LINHA, a única que vem da REDE** (v1.5.21, shell
-    62 — `AVNative.ytDetalhes`). As outras quatro saem do índice e do IndexedDB
-    e valem offline; esta custa uma extração POR VÍDEO, e daí as três decisões
-    que a cercam:
+  - **E A DESCRIÇÃO É A ÚLTIMA LINHA, uma das duas que vêm da REDE** (v1.5.21,
+    shell 62 — `AVNative.ytDetalhes`). As do índice valem offline; esta custa
+    uma extração POR VÍDEO, e daí as decisões que a cercam:
     - **O gatilho é a REVELAÇÃO, não a abertura da linha.** Quem pede é o toque
       em "Ver os detalhes", uma vez por vídeo OLHADO. Pendurá-la no toque na
       LINHA gastaria uma extração por gaveta aberta — inclusive nas que o
       operador abre só para mandar o episódio ao Cronograma —, e na montagem da
       LISTA gastaria uma por episódio do álbum, que é a varredura que a fila de
-      extração do shell proíbe por escrito.
+      extração do shell proíbe por escrito. **O mesmo pedido traz o título**, e
+      é isso que faz a correção do link custar zero.
     - **NADA VAI PARA O DISCO, e o precedente é o da CIFRA, palavra por
-      palavra:** um `Map` que morre com o app (`ytDescricaoCache`), nada em
+      palavra:** um `Map` que morre com o app (`ytDetalhesCache`), nada em
       IndexedDB, nada no bundle do OTA, nada no repositório. Guardar mudaria o
       recurso de NATUREZA — o app deixaria de LER conteúdo de terceiro no
       aparelho do operador e passaria a DISTRIBUIR uma cópia dele.
-    - **`null` não é guardado; `''` é.** A ponte separa "não houve resposta" de
-      "respondeu e não há descrição" (ver `docs/shell/PONTE.md`), e é a mesma
-      disciplina do `sem-rede` da cifra: um Wi-Fi que oscilou não pode custar um
-      buraco que só some fechando o app.
-    - **O limite de exibição é de LINHAS (4) e mora no CSS**, com o texto
-      inteiro no DOM e um "Ver mais" que o revela — e o botão só existe quando
-      há o que revelar (`scrollHeight` contra `clientHeight`, medido no render).
-      Um teto em caracteres seria uma segunda regra de truncagem, e ela
-      divergiria da primeira no dia em que o corpo da fonte mudasse. O teto que
-      existe é o do Kotlin (`DESCRICAO_MAX`, 2 000 caracteres) e é de
+    - **`null` não é guardado; um campo vazio é.** A ponte separa "não houve
+      resposta" de "respondeu e não há descrição" (ver `docs/shell/PONTE.md`), e
+      é a mesma disciplina do `sem-rede` da cifra: um Wi-Fi que oscilou não pode
+      custar um buraco que só some fechando o app. Desde a v1.6.0 o que o cache
+      guarda é o OBJETO (`{ titulo, canal, descricao }`), e a distinção continua
+      sendo entre a RESPOSTA e o CAMPO.
+    - **ELA VEM INTEIRA, e não há mais regra de truncagem NENHUMA** (v1.6.0).
+      Houve um clamp de 4 linhas no CSS com um "Ver mais" ao lado; o operador o
+      dispensou (*"já deixe tudo aberto de uma vez"*), e o argumento é o da
+      gaveta: ela já é o acordeão que abre e fecha o card inteiro, e um segundo
+      grau de revelação lá dentro não respondia pergunta nenhuma. O único teto
+      que sobra é o do Kotlin (`DESCRICAO_MAX`, 2 000 caracteres) e é de
       TRANSPORTE, não do que a tela mostra.
     - **Sem rede o card não parece quebrado:** o bloco simplesmente não existe,
-      e as outras quatro linhas continuam inteiras. É a degradação certa, e a
-      mesma do navegador, onde não há ponte.
+      e as linhas do índice continuam inteiras. É a degradação certa, e a mesma
+      do navegador, onde não há ponte.
 - **Nada de menu foi reimplementado.** `renderSongMenu` e `openYtMenu` ganharam
   PARA ONDE escrever (`songMenuFor.alvo`, que viaja no ESTADO porque cada
   remontagem — o seletor, cada marca de destino — precisa refazer a lista no

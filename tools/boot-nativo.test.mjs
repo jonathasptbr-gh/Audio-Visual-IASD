@@ -262,12 +262,14 @@ const ponteCom = (espelho, telas) => `(() => {
         try { window.__avResolve(id, porUrl[url] || null); } catch (_) {}
       }, 0);
     },
-    // A DESCRIÇÃO DE UM VÍDEO (shell 62). O stub responde por URL como o
-    // \`ytPlaylist\` ao lado, e o texto traz DUAS armadilhas de propósito:
-    // várias linhas (é o que faz o clamp de 4 e o "Ver mais" existirem) e uma
-    // marca \`<b>\` LITERAL — o que chega da ponte é texto, e o card tem de
-    // pintá-lo com \`textContent\`. Se alguém trocar por \`innerHTML\`, o \`<b>\`
-    // some do texto e vira um elemento: as duas metades da asserção lá embaixo.
+    // OS DETALHES DE UM VÍDEO (shell 62). O stub responde por URL como o
+    // \`ytPlaylist\` ao lado, e traz TRÊS armadilhas de propósito: um TÍTULO
+    // (que é o que um LINK salvo não tem guardado, e por isso só a rede pode
+    // dar), várias linhas de descrição (é por elas que se mede que o texto vem
+    // INTEIRO, sem corte) e uma marca \`<b>\` LITERAL — o que chega da ponte é
+    // texto, e o card tem de pintá-lo com \`textContent\`. Se alguém trocar por
+    // \`innerHTML\`, o \`<b>\` some do texto e vira um elemento: as duas metades
+    // da asserção lá embaixo.
     ytDetalhes: (id, url) => {
       window.__nDetalhes = (window.__nDetalhes || 0) + 1;
       const r = String(url) === 'y/1' ? {
@@ -1264,15 +1266,27 @@ try {
     const li = hymnResultRow(c, s, null, true);
     lista.appendChild(li);
     li.querySelector('.hymn-row').click();
-    // A montagem é assíncrona (o estado no aparelho vem do IndexedDB): dois
-    // turnos bastam, e esperar pelo TEXTO em vez de por um prazo fixo é o que
-    // impede o caso de virar intermitente num runner lento.
+    // A montagem é assíncrona (o estado no aparelho vem do IndexedDB): esperar
+    // pelo FATO em vez de por um prazo fixo é o que impede o caso de virar
+    // intermitente num runner lento.
+    //
+    // A SENTINELA É A COLUNA DE TEXTO, e não a linha de estado (v1.6.0): desde
+    // que "Toca sem baixar" saiu, o card COMUM não tem linha de estado nenhuma
+    // — esperar por ela aqui nunca terminaria, e o caso inteiro reprovaria por
+    // prazo dizendo qualquer outra coisa. A coluna existe em todo card, e o
+    // `expanded` só é posto DEPOIS do `await montarDetalhe()`.
     for (let i = 0; i < 40
-      && !(li.querySelector('.item-detalhe-estado') && li.classList.contains('expanded')); i++) {
+      && !(li.querySelector('.item-detalhe-txt') && li.classList.contains('expanded')); i++) {
       await new Promise((r) => setTimeout(r, 25));
     }
     const det = li.querySelector('.item-detalhe');
     const r = {
+      // A SENTINELA ACIMA FOI DE FATO ALCANÇADA (v1.6.0), e isto não é
+      // tautologia: um laço de espera cujo sinal não existe mais não reprova
+      // nada — ele apenas gasta o orçamento inteiro e devolve o controle, e o
+      // que o caso passa a medir é o agendador. Ler o sinal aqui é o que
+      // transforma esse silêncio em veredito.
+      montou: !!li.querySelector('.item-detalhe-txt') && li.classList.contains('expanded'),
       temDetalhe: !!det,
       temCaixaDeLetra: !!li.querySelector('.hymn-lyrics'),
       texto: li.textContent,
@@ -1311,13 +1325,10 @@ try {
     //
     // O `ver.click()` acima é quem dispara (o gatilho é a REVELAÇÃO, não a
     // abertura da linha), e a espera é pelo FATO — o bloco existindo —, nunca
-    // por um prazo: o stub responde num `setTimeout(0)` e o "Ver mais" nasce
-    // num `rAF`, e um prazo fixo aqui mediria o agendador do runner.
+    // por um prazo: o stub responde num `setTimeout(0)`, e um prazo fixo aqui
+    // mediria o agendador do runner.
     for (let i = 0; i < 60 && !li.querySelector('.item-detalhe-desc'); i++) {
       await new Promise((res) => setTimeout(res, 25));
-    }
-    for (let i = 0; i < 30 && !li.querySelector('.item-detalhe-mais'); i++) {
-      await new Promise((res) => requestAnimationFrame(() => res()));
     }
     r.desc = (() => {
       const cx = li.querySelector('.item-detalhe-desc');
@@ -1326,7 +1337,6 @@ try {
       const txt = li.querySelector('.item-detalhe-txt');
       if (!cx || !p || !det2 || !txt) return null;
       const th = li.querySelector('.item-detalhe-thumb');
-      const b = li.querySelector('.item-detalhe-mais');
       const arred = (n) => Math.round(n * 100) / 100;
       const larg = (el) => arred(el.getBoundingClientRect().width);
       const cx2 = (el) => el.getBoundingClientRect();
@@ -1335,12 +1345,14 @@ try {
         // O `<b>` do stub tem de continuar TEXTO. Um `innerHTML` o transformaria
         // num elemento — e aí `querySelector('b')` acha e o texto perde a marca.
         virouElemento: !!p.querySelector('b'),
-        // O clamp mora no CSS e o texto INTEIRO está no DOM: é essa diferença
-        // que o "Ver mais" revela, e é ela que prova que não há uma segunda
-        // truncagem no JavaScript.
-        clampado: p.scrollHeight > p.clientHeight + 1,
-        temMais: !!b,
-        rotulo: b ? b.textContent : '',
+        // ELA VEM INTEIRA (v1.6.0). Duas réguas, e a segunda é a que sobrevive
+        // a uma folha reescrita: o parágrafo não corta nada (o `scrollHeight`
+        // cabe no `clientHeight`) e não há `-webkit-line-clamp` computado. Uma
+        // asserção só de "não existe botão" passaria com o clamp de pé — e o
+        // que sairia na tela é um texto cortado SEM como abrir.
+        cortado: p.scrollHeight > p.clientHeight + 1,
+        clampCss: getComputedStyle(p).webkitLineClamp,
+        temMais: !!li.querySelector('.item-detalhe-mais'),
         // ===== A SEGUNDA LINHA, medida como GEOMETRIA e não como largura =====
         //
         // Medir só a LARGURA aprova o desenho quebrado, e isto foi provado por
@@ -1362,16 +1374,6 @@ try {
         larguraCard: larg(det2),
       };
     })();
-    // E o "Ver mais" REVELA: o clamp sai, o rótulo troca.
-    if (li.querySelector('.item-detalhe-mais')) {
-      li.querySelector('.item-detalhe-mais').click();
-      const p2 = li.querySelector('.item-detalhe-desc-txt');
-      r.descAberta = {
-        clampado: p2.scrollHeight > p2.clientHeight + 1,
-        rotulo: li.querySelector('.item-detalhe-mais').textContent,
-      };
-      li.querySelector('.item-detalhe-mais').click();   // devolve o estado
-    }
     // UMA EXTRAÇÃO POR VÍDEO. Quem segura são DUAS peças, e as duas precisam
     // estar de pé: a marca da LINHA (fechar e reabrir a metade de baixo, que é
     // o que este trecho exercita) e o cache de MÓDULO (a mesma lista remontada
@@ -1485,7 +1487,7 @@ try {
     lista.appendChild(li2);
     li2.querySelector('.hymn-row').click();
     for (let i = 0; i < 40
-      && !(li2.querySelector('.item-detalhe-estado') && li2.classList.contains('expanded')); i++) {
+      && !(li2.querySelector('.item-detalhe-txt') && li2.classList.contains('expanded')); i++) {
       await new Promise((r2) => setTimeout(r2, 25));
     }
     r.antigo = {
@@ -1494,10 +1496,103 @@ try {
       texto: li2.textContent,
     };
 
+    // ===== E É ESSE MESMO CARD QUE GANHA O TÍTULO PELA REDE (v1.6.0) =====
+    //
+    // Relato do operador: *"não estou vendo o título completo e original do
+    // vídeo do link, ali na página dos detalhes"*. A causa é esta linha do
+    // fixture: um item SEM `nomeOriginal` — que é o LINK salvo, cujo registro
+    // guarda só o `name` já tratado — nunca teve o que desenhar na linha do
+    // título, e ela some. O `ytDetalhes` já devolvia o `titulo` ao lado da
+    // descrição e ele era jogado fora no caminho.
+    //
+    // O MESMO botão de sempre dispara (o gatilho é a REVELAÇÃO), e a espera é
+    // pelo FATO. Note que isto NÃO gasta extração nenhuma: o cache de módulo
+    // guarda o objeto inteiro, e a asserção do `pedidosDepois` acima já o
+    // provou para a descrição.
+    li2.querySelector('.song-menu-letra').click();
+    for (let i = 0; i < 60 && !li2.querySelector('.item-detalhe-titulo'); i++) {
+      await new Promise((res) => setTimeout(res, 25));
+    }
+    r.linkTitulo = {
+      linhas: linhasDe(li2),
+      guardado: velho.nomeOriginal || '',
+      rotulo: velho.name,
+      pedidos: window.__nDetalhes || 0,
+      // O TÍTULO CONTINUA SENDO O PRIMEIRO: ele chega DEPOIS de canal, duração
+      // e estado já estarem desenhados, e é o `insertBefore` que o põe no topo.
+      // Uma asserção que só perguntasse "o texto contém o título?" aprovaria a
+      // linha desenhada no fim do card.
+      primeira: (li2.querySelector('.item-detalhe-txt .item-detalhe-linha') || {}).textContent || '',
+      duplicada: li2.querySelectorAll('.item-detalhe-titulo').length,
+    };
+
+    // A REVERSÃO DA GUARDA: quando o título da rede é IGUAL ao rótulo da linha
+    // logo acima, a linha NÃO é desenhada — a mesma régua que o caminho do
+    // índice já aplica. Sem esta metade, "desenhar sempre" passaria na de cima
+    // e o card diria a mesma frase duas vezes.
+    const igual = Object.assign({}, velho, {
+      name: 'Match point | Provai e Vede 2026 (01/Ago)',
+    });
+    const li4 = hymnResultRow(c, igual, null, true);
+    lista.appendChild(li4);
+    li4.querySelector('.hymn-row').click();
+    for (let i = 0; i < 40
+      && !(li4.querySelector('.item-detalhe-txt') && li4.classList.contains('expanded')); i++) {
+      await new Promise((res) => setTimeout(res, 25));
+    }
+    li4.querySelector('.song-menu-letra').click();
+    // A espera é pela DESCRIÇÃO, que é o que prova que a resposta CHEGOU —
+    // esperar pelo título seria esperar pelo que não deve existir, e um laço
+    // que estoura aprovaria também um card em que nada chegou.
+    for (let i = 0; i < 60 && !li4.querySelector('.item-detalhe-desc'); i++) {
+      await new Promise((res) => setTimeout(res, 25));
+    }
+    r.tituloIgual = {
+      temTitulo: !!li4.querySelector('.item-detalhe-titulo'),
+      linhas: linhasDe(li4),
+    };
+
+    // ===== O ESTADO NO APARELHO: AS DUAS METADES (v1.6.0) =====
+    //
+    // Pedido do operador: *"remover a frase 'toca sem baixar' que tem na
+    // descrição do ver detalhes"* — ela descreve a OPÇÃO DE PLAY, não o
+    // arquivo. As duas metades são inseparáveis: sem a de baixo, apagar a linha
+    // INTEIRA passaria, e o card perderia a única coisa que responde "preciso
+    // de rede agora?" quando os bytes já estão aqui.
+    //
+    // O item é OUTRO (id e URL próprios) de propósito: semear bytes no
+    // `aaaaaaaaaa1` mudaria o que os casos acima mediram.
+    const sTem = Object.assign({}, s, {
+      id_music: 'aaaaaaaaaa9', name: 'Episódio guardado', ytUrl: 'y/9',
+    });
+    const rec = await AVDB.addMedia(new Blob(['v'], { type: 'video/mp4' }),
+      { name: 'ep', kind: 'video', type: 'video/mp4', youtubeId: sTem.id_music,
+        list: 'avulsos' });
+    const li3 = hymnResultRow(c, sTem, null, true);
+    lista.appendChild(li3);
+    li3.querySelector('.hymn-row').click();
+    for (let i = 0; i < 40
+      && !(li3.querySelector('.item-detalhe-txt') && li3.classList.contains('expanded')); i++) {
+      await new Promise((res) => setTimeout(res, 25));
+    }
+    r.noAparelho = {
+      linhas: linhasDe(li3),
+      temEstado: !!li3.querySelector('.item-detalhe-estado'),
+      classe: (li3.querySelector('.item-detalhe-estado') || {}).className || '',
+      texto: (li3.querySelector('.item-detalhe-estado') || {}).textContent || '',
+    };
+    // E O ACERVO VOLTA COMO ESTAVA: `listRemove` coleta na própria transação,
+    // então o registro de mentira não sobrevive a esta medição.
+    await AVDB.listRemove('avulsos', rec.id);
+
     lista.remove();
     setAppMode(modoAntes);   // o modo é global: deixá-lo trocado quebra os casos seguintes
     return r;
   });
+  checar(gaveta.montou,
+    'a espera pela montagem da gaveta terminou pelo FATO e não por prazo — a sentinela é a '
+    + 'COLUNA DE TEXTO desde que a linha de estado deixou de existir no caso comum',
+    JSON.stringify(gaveta.montou));
   checar(gaveta.temDetalhe,
     'o toque num EPISÓDIO abre a gaveta de detalhe do vídeo');
   checar(!gaveta.temCaixaDeLetra && !/[Ll]etra/.test(gaveta.texto),
@@ -1509,9 +1604,15 @@ try {
   checar(gaveta.duracaoGuardada && gaveta.texto.includes(gaveta.duracaoGuardada),
     'e a duração também — os dois campos que o extrator entregava e o índice '
     + 'descartava', JSON.stringify(gaveta.duracaoGuardada));
-  checar(/Toca sem baixar|Já no aparelho/.test(gaveta.texto),
-    'mais o estado no aparelho, que é o que decide: transmitir agora ou ~300 MB',
-    JSON.stringify(gaveta.texto.slice(0, 120)));
+  // ── A FRASE DE ESTADO SAIU DO CASO COMUM (v1.6.0) ─────────────────────
+  // Pedido do operador: *"remover a frase 'toca sem baixar' que tem na descrição
+  // do ver detalhes"* — *"não é um 'detalhe do arquivo', mas sim uma das
+  // características da opção de play"*. Ela descrevia o "Tocar agora", que fica
+  // duas linhas acima no MESMO card e já diz *"Toca direto da internet…"*.
+  checar(!/Toca sem baixar/.test(gaveta.texto),
+    'e o card NÃO diz mais "Toca sem baixar": isso descreve a OPÇÃO DE PLAY (que '
+    + 'já o diz, duas linhas acima), não o arquivo de que este card fala',
+    JSON.stringify(gaveta.texto.slice(0, 200)));
   // ── O QUE O CARD PASSOU A DIZER (v1.5.21) ─────────────────────────────
   // Três dados que o app já tinha na mão e jogava fora. Cada asserção nomeia o
   // que a linha responde, porque é a PERGUNTA que justifica a ordem delas.
@@ -1539,9 +1640,9 @@ try {
   checar(L[2] === 'Duração ' + gaveta.guardado.dur,
     'a DURAÇÃO desceu para depois da identidade: ela qualifica o que já foi reconhecido',
     JSON.stringify(L));
-  checar(/^(Toca sem baixar|Já no aparelho)$/.test(L[3] || '') && L.length === 4,
-    'e o ESTADO NO APARELHO continua sendo a ÚLTIMA linha — é ele que responde "preciso de rede '
-    + 'agora?", que é a última pergunta antes de tocar', JSON.stringify(L));
+  checar(L.length === 3,
+    'e o card PARA aí: sem bytes no aparelho não há quarta linha nenhuma — a de estado só existe '
+    + 'quando ela é FATO DO ARQUIVO', JSON.stringify(L));
 
   // A OUTRA METADE, e ela é inseparável: sem ela, desenhar as linhas SEMPRE
   // passaria em todas as de cima e o que sairia na tela seria "undefined".
@@ -1550,9 +1651,8 @@ try {
     'um ÍNDICE ANTIGO (o guardado antes deste bundle, na janela entre o OTA chegar e a varredura '
     + 'refazer a lista) não escreve "undefined" em lugar nenhum do card — a guarda é POR CAMPO, '
     + 'nunca por versão de bundle', JSON.stringify(gaveta.antigo && gaveta.antigo.texto));
-  checar(A.length === 2 && A[0] === 'Duração ' + gaveta.guardado.dur
-    && /^(Toca sem baixar|Já no aparelho)$/.test(A[1]),
-    'e ele fica com as DUAS linhas que sempre teve, sem rótulo vazio no lugar das que faltam: '
+  checar(A.length === 1 && A[0] === 'Duração ' + gaveta.guardado.dur,
+    'e ele fica com a linha que sempre teve, sem rótulo vazio no lugar das que faltam: '
     + 'a linha ausente SOME, que é a regra do Registro aplicada a um card', JSON.stringify(A));
   checar(gaveta.antigo && gaveta.antigo.temThumb,
     'o card continua INTEIRO — a miniatura, que é o outro campo que o índice já guardava, não foi '
@@ -1574,14 +1674,20 @@ try {
     + 'Isto é conteúdo de TERCEIRO no origin que injeta `__AVBridge` — a outra metade da regra '
     + 'mora no Kotlin, que já achata o HTML que o YouTube manda',
     JSON.stringify(D && { virouElemento: D.virouElemento }));
-  checar(!!D && D.clampado === true && D.temMais === true && D.rotulo === 'Ver mais',
-    'uma descrição longa é CLAMPADA em linhas e ganha o "Ver mais" — o limite é do CSS, com o '
-    + 'texto inteiro no DOM: um teto em caracteres cortaria para sempre',
-    JSON.stringify(D && { clampado: D.clampado, temMais: D.temMais, rotulo: D.rotulo }));
-  checar(!!gaveta.descAberta && gaveta.descAberta.clampado === false
-    && gaveta.descAberta.rotulo === 'Ver menos',
-    'e o toque nele REVELA o resto — sem essa metade o botão seria um rótulo que não faz nada',
-    JSON.stringify(gaveta.descAberta));
+  // ── ELA VEM INTEIRA, SEM "VER MAIS" (v1.6.0) ──────────────────────────
+  // Pedido do operador: *"ajuste para que não precise do 'ver mais' nos
+  // detalhes, já deixe tudo aberto de uma vez"*. As DUAS metades, e nenhuma
+  // basta: só a do botão passaria com o clamp de pé — e o que sairia na tela é
+  // um texto cortado SEM como abrir, que é o defeito pelo pior lado.
+  checar(!!D && D.cortado === false
+    && (D.clampCss === 'none' || D.clampCss === '' || D.clampCss === undefined),
+    'a descrição aparece INTEIRA: o parágrafo não corta nada no RENDERIZADO e não sobrou '
+    + '`-webkit-line-clamp` nenhum — não há mais regra de truncagem, nem no CSS nem no JS',
+    JSON.stringify(D && { cortado: D.cortado, clampCss: D.clampCss }));
+  checar(!!D && D.temMais === false,
+    'e não existe botão nenhum para revelá-la — a gaveta já é o acordeão que abre e fecha, e '
+    + 'um segundo grau de revelação dentro dele não respondia pergunta nenhuma',
+    JSON.stringify(D && { temMais: D.temMais }));
   // A SEGUNDA LINHA se mede contra os IRMÃOS do mesmo render — a miniatura e a
   // coluna de dados —, nunca contra um número: a miniatura tem largura fixa
   // hoje e um literal aqui envelheceria com ela.
@@ -1600,6 +1706,54 @@ try {
     'e esconder e revelar de novo NÃO gasta uma segunda extração — ela roda na fila que o '
     + '"Tocar agora" divide, e é de uma thread só',
     JSON.stringify([gaveta.pedidosAntes, gaveta.pedidosDepois]));
+
+  // ── O TÍTULO DE UM LINK VEM DA REDE (v1.6.0) ──────────────────────────
+  //
+  // Relato do operador: *"não estou vendo o título completo e original do vídeo
+  // do link, ali na página dos detalhes"*. A linha era guardada por
+  // `s.nomeOriginal`, que só existe para episódio de SÉRIE (a listagem da
+  // playlist o grava no índice): um LINK salvo nunca teve título cru, o registro
+  // guarda só o `name` já tratado, e a linha simplesmente não tinha o que
+  // desenhar. O `ytDetalhes` já trazia o `titulo` junto da descrição — o card
+  // passou a guardar o OBJETO em vez do texto, e isso custa ZERO requisição.
+  const T = gaveta.linkTitulo || {};
+  checar(T.guardado === '',
+    'o item medido é MESMO o caso do link: nada de `nomeOriginal` guardado — é essa ausência que '
+    + 'produzia o relato, e sem ela o caso mediria o caminho do índice', JSON.stringify(T.guardado));
+  checar((T.linhas || [])[0] === 'Match point | Provai e Vede 2026 (01/Ago)',
+    'e mesmo assim o card ABRE pelo TÍTULO COMPLETO, vindo do `ytDetalhes` — o mesmo pedido que '
+    + 'já buscava a descrição', JSON.stringify(T.linhas));
+  checar(T.primeira === 'Match point | Provai e Vede 2026 (01/Ago)',
+    'e ele entra NO TOPO da coluna, não no fim: ele chega DEPOIS de canal, duração e estado já '
+    + 'estarem desenhados, e é o `insertBefore` que preserva a ordem das perguntas',
+    JSON.stringify([T.primeira, T.linhas]));
+  checar(T.duplicada === 1,
+    'e UMA só — a guarda contra a linha que o índice já deu continua de pé', JSON.stringify(T));
+  checar(T.pedidos === 1,
+    'e nada disso gastou extração nova: o cache de módulo guarda o OBJETO inteiro, e não só o '
+    + 'texto da descrição', JSON.stringify(T.pedidos));
+  // A REVERSÃO DA GUARDA, e ela é inseparável: sem esta metade, desenhar sempre
+  // passaria em todas as de cima e o card diria a mesma frase duas vezes.
+  const TI = gaveta.tituloIgual || {};
+  checar(TI.temTitulo === false,
+    'e quando o título da rede é IGUAL ao rótulo da linha logo acima, a linha NÃO é desenhada — '
+    + 'a mesma régua do caminho do índice, contra a mesma frase duas vezes na tela',
+    JSON.stringify(TI));
+
+  // ── O ESTADO NO APARELHO: A OUTRA METADE (v1.6.0) ─────────────────────
+  // Sem ela, apagar a linha INTEIRA passaria na asserção do caso comum — e o
+  // card perderia a única coisa que responde "preciso de rede agora?" quando os
+  // bytes já estão aqui, que é a pergunta do domingo de manhã.
+  const N = gaveta.noAparelho || {};
+  checar(N.temEstado === true && N.texto === 'Já no aparelho',
+    'com os BYTES no aparelho a linha de estado EXISTE, e diz "Já no aparelho" — ela é fato do '
+    + 'ARQUIVO, que é do que este card fala', JSON.stringify(N));
+  checar(/\bitem-detalhe-estado\b/.test(N.classe) && /\bdone\b/.test(N.classe),
+    'com as MESMAS classes de sempre (`item-detalhe-estado done`) — é por elas que o `smoke.mjs` '
+    + 'mede que este indicador não é pintado de verde e continua em negrito', JSON.stringify(N.classe));
+  checar((N.linhas || [])[(N.linhas || []).length - 1] === 'Já no aparelho',
+    'e ela continua sendo a ÚLTIMA linha do card: é a última pergunta antes de tocar',
+    JSON.stringify(N.linhas));
 
   checar(!!gaveta.larguras && gaveta.larguras.antes > 0
     && gaveta.larguras.antes === gaveta.larguras.depois,

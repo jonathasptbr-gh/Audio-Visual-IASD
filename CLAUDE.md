@@ -4432,22 +4432,32 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.5.21 · APK v1.5.21** · `SHELL_VERSION` **62** ·
-bundle com `minShell: 62` e `shellTag: "v1.5.21"` — o shell 62 é o **PISO**: todo
+**Versão atual: base web v1.6.0 · APK v1.5.21** · `SHELL_VERSION` **62** ·
+bundle com `minShell: 62` e **SEM `shellTag`** — o shell 62 é o **PISO**: todo
 método da ponte existe, e não há guarda de versão no lado web. **`SHELL_VERSION`
-SOBE neste lote**, de 61 para 62: a ponte ganhou `ytDetalhes` (ver "A ponte").
+NÃO sobe neste lote**: a superfície da ponte não mudou.
 
-**E ESTE LOTE PEDE RELEASE `v1.5.21`.** Ele são as duas metades do relato do
-operador sobre a gaveta de detalhe de um vídeo — a margem que escapava do poço,
-e os DADOS que o card passou a mostrar —, e o quarto dado pedido (a DESCRIÇÃO)
-não existe em ponto nenhum do lado web: ela exige `StreamInfo.getInfo` por
-vídeo, e portanto método novo da ponte, `NativeBridge.kt` e `YoutubeGrab.kt`
-tocados, e `minShell` novo. Por isso o `shellTag` ESTÁ no `version.json`: ele
-segura o bundle até a Release existir, e sem ele a metade web chegaria sozinha à
-frota — o card chamaria um método que o APK instalado não tem, o `call()` cairia
-no `catch` e resolveria `null`, e a linha da descrição simplesmente não seria
-desenhada, sem nada na tela dizendo por quê. Depois do push em `main`: Actions →
-*Build APK* → Run workflow, com `release_tag` = `v1.5.21`.
+**E ESTE LOTE NÃO PEDE RELEASE.** Ele é só base web — a CIFRA EM TELA CHEIA
+(deitada, com a coluna de controles à direita e a fonte já maior) mais três
+ajustes do card de detalhe —, e nada em `java/`, `res/` ou no manifesto foi
+tocado. **A paisagem sai de graça e vale a pena saber por quê:** o
+`onShowCustomView` do `MainActivity` nunca testou o TIPO do elemento — ele
+escreve `SCREEN_ORIENTATION_LANDSCAPE` para qualquer um que peça tela cheia —, e
+a preview já prova isso em produção todo culto, porque ela é uma `<div>`. O
+`minShell` fica em 62: o piso não desce, e a Release `v1.5.21` já o entregou.
+
+> **A SÉRIE VIROU (1.5 → 1.6), e o `notas.json` foi PODADO no mesmo lote** — a
+> regra é guardar a série atual e a anterior, e nada mais. Saíram as 45 entradas
+> da 1.4.x: 68 → 23 entradas, 19,7 kB → 8,3 kB. Ele viaja em TODO bundle do OTA,
+> e o que foi podado descreve versões que não rodam em aparelho nenhum.
+
+> A v1.5.21 PEDIU Release, e o motivo é o degrau da ponte: o quarto dado do card
+> de detalhe (a DESCRIÇÃO) não existia em ponto nenhum do lado web — ela exige
+> uma extração por vídeo, e portanto `ytDetalhes`, `SHELL_VERSION` 62 e
+> `minShell` novo. O `shellTag` segurou o bundle até a Release existir; sem ele a
+> metade web teria chegado sozinha à frota, o card chamaria um método que o APK
+> instalado não tem, o `call()` resolveria `null`, e a linha da descrição
+> simplesmente não seria desenhada — sem nada na tela dizendo por quê.
 
 > **Os OUTROS TRÊS dados não encostaram na ponte**, e isso é a invariante 5
 > pagando: duração, título completo e canal já chegavam nas listas CRUAS que o
