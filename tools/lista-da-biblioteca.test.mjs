@@ -269,6 +269,44 @@ try {
   if (!montado.album || !montado.hinario) throw new Error('cenário incompleto');
 
   // ======================================================================
+  // A0 · O RESPIRO ANTES DO PRIMEIRO CARD, NO `#hymnResults` DE VERDADE (v1.5.20)
+  // ======================================================================
+  //
+  // Relato do operador: *"a margem do card da coleção favoritos, na
+  // biblioteca e a barra de buscas no topo, está desproporcional aos
+  // espaçamentos que já temos entre as coleções. Fazendo a coleção colar no
+  // topo, e errando o design correto"*.
+  //
+  // O `smoke.mjs` já cobre a REGRA (o respiro bate com `--sp-5`) numa
+  // `<ul class="popup-list">` avulsa, sem o id — este caso é o PAR na lista
+  // REAL, onde o `gap` entre coleções de raiz é o `#hymnResults { gap:
+  // var(--sp-5) }`, e é justamente essa comparação que o relato pede: o
+  // respiro antes do primeiro card tem de valer o MESMO que o respiro entre
+  // duas coleções, não um número à parte.
+  const a0 = await pg.evaluate(() => {
+    const bar = document.getElementById('libBar');
+    const lista = document.getElementById('hymnResults');
+    const blocos = [...lista.children].filter((n) => n.nodeType === 1);
+    return {
+      buscaAoPrimeiro: +(blocos[0].getBoundingClientRect().top
+        - bar.getBoundingClientRect().bottom).toFixed(2),
+      entreDoisDeRaiz: blocos[1] ? +(blocos[1].getBoundingClientRect().top
+        - blocos[0].getBoundingClientRect().bottom).toFixed(2) : null,
+      paddingTopoScroller: parseFloat(getComputedStyle(lista).paddingTop) || 0,
+    };
+  });
+  checar(a0.paddingTopoScroller === 0,
+    'A0a · o SCROLLER (`#hymnResults`) continua sem `padding-top` — o respiro '
+    + 'não voltou pelo caminho que causava o vazamento acima de uma tampa '
+    + 'colada (v1.5.15)', a0);
+  checar(a0.buscaAoPrimeiro > 0.6 && a0.entreDoisDeRaiz !== null
+    && Math.abs(a0.buscaAoPrimeiro - a0.entreDoisDeRaiz) <= 0.6,
+    'A0b · o primeiro card (Favoritos) respira da barra de busca o MESMO que '
+    + 'duas coleções de raiz respiram entre si — nem colado (o defeito '
+    + 'relatado), nem um respiro à parte',
+    a0.buscaAoPrimeiro + 'px contra ' + a0.entreDoisDeRaiz + 'px entre coleções');
+
+  // ======================================================================
   // A · A DIVISÓRIA ENTRE FAIXAS IRMÃS
   // ======================================================================
   //

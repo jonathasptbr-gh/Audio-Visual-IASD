@@ -1584,17 +1584,43 @@ for (const tema of ['escuro', 'claro']) {
             faixa: efetiva(q('> .coll-open > .coll-songs > .hymn-result')),
           };
         })(),
-        // ===== O RESPIRO DE CIMA DO SCROLLER (v1.5.15) =====
-        // O que sobra ENTRE o topo do scrollport e o primeiro bloco. Ele é
-        // scrollport: a lista rola por ali à vista, e uma tampa grudada em
-        // `top: 0` não o alcança (ela para no topo do CONTEÚDO). A régua é a
-        // GEOMETRIA, e não `paddingTop` lido de volta — o vão pode voltar por
-        // qualquer caminho, e o que importa é que ele não exista aqui dentro.
+        // ===== O RESPIRO DE CIMA DO SCROLLER (v1.5.15 → v1.5.20) =====
+        // O que sobra ENTRE o topo do scrollport e o primeiro bloco. Até a
+        // v1.5.19 tinha de ser ZERO: a régua era a GEOMETRIA, porque o vão de
+        // então era `padding-top` do SCROLLER, que é scrollport — a lista rola
+        // por ali À VISTA, e uma tampa grudada em `top: 0` não o alcança (ela
+        // para no topo do CONTEÚDO).
+        //
+        // A v1.5.20 devolveu o respiro, mas como MARGEM do primeiro FILHO
+        // (`.coll-group--drop:first-child`), não como padding do scroller — e
+        // margem não é scrollport: ela não desloca onde um `top: 0` sticky
+        // docka (isso continua sendo o padding-box do CONTÊINER, que segue em
+        // 0), só empurra o PRIMEIRO bloco para baixo, uma vez, antes de
+        // qualquer rolagem. Por isso a régua agora é DUPLA — o padding do
+        // scroller continua tendo de ser zero (é ele que causava o vazamento
+        // de 2026-08), e o respiro RENDERIZADO passa a ser o `--sp-5` que a
+        // regra declara (o relato do operador: *"a margem ... está
+        // desproporcional aos espaçamentos que já temos entre as coleções ...
+        // colar no topo"*). A RÉGUA É O TOKEN, não o `gap` DESTA lista: esta
+        // é uma `<ul class="popup-list">` avulsa (ver a nota do host, acima) e
+        // o `gap` genérico dela (`--sp-3`) não é o do `#hymnResults` de
+        // verdade (`--sp-5`) — comparar contra ele reprovaria um desenho
+        // certo por um detalhe de host que já está dito.
+        paddingTopoScroller: parseFloat(getComputedStyle(lista).paddingTop) || 0,
         respiroDoTopo: (() => {
           const p1 = lista.firstElementChild;
           if (!p1) return null;
           return Math.round((p1.getBoundingClientRect().top
             - lista.getBoundingClientRect().top) * 10) / 10;
+        })(),
+        // O `--sp-5` RESOLVIDO em px, lido de onde ele é DEFINIDO em produção
+        // (`#hymnResults { gap: var(--sp-5) }`) — não da string do token
+        // (`getPropertyValue` devolveria "0.6rem", e `parseFloat` leria 0.6,
+        // não o pixel): o elemento existe sempre no documento, populado ou
+        // não, então a folha resolve o `gap` dele de qualquer jeito.
+        sp5Px: (() => {
+          const h = document.getElementById('hymnResults');
+          return h ? parseFloat(getComputedStyle(h).rowGap) || 0 : 0;
         })(),
         // A COR da moldura — desde a v1.5.10 é ela que separa a caixa da base,
         // e não mais o degrau de tom (ver a asserção da escada, mais abaixo).
@@ -1792,11 +1818,29 @@ for (const tema of ['escuro', 'claro']) {
     // A metade FINA do mesmo relato: o `padding` de um scroller fica DENTRO do
     // scrollport, então as faixas apareciam por .5rem acima da barra que as
     // encabeça — em qualquer nível, inclusive na seção. Como MARGEM o vão é o
-    // mesmo e fica FORA, e nada rola por ali.
-    checar(t.respiroDoTopo !== null && Math.abs(t.respiroDoTopo) <= 0.6,
-      '[' + tema + '] e o primeiro bloco começa NO TOPO do scrollport: o respiro '
-      + 'de cima é margem, não padding — padding é scrollport, e a lista rola '
-      + 'por ele à vista', t.respiroDoTopo + 'px dentro do scrollport');
+    // mesmo e fica FORA, e nada rola por ali — a régua correta é o `padding`
+    // do SCROLLER, não a posição renderizada do primeiro filho (ver abaixo).
+    checar(t.paddingTopoScroller === 0,
+      '[' + tema + '] e o SCROLLER continua sem padding-top: é ele que é '
+      + 'scrollport, e a lista rolaria por ele à vista', t.paddingTopoScroller + 'px');
+    // ===== E O PRIMEIRO CARD VOLTOU A RESPIRAR DA BARRA DE BUSCA (v1.5.20) =====
+    // Relato do operador: *"a margem do card da coleção favoritos, na
+    // biblioteca e a barra de buscas no topo, está desproporcional aos
+    // espaçamentos que já temos entre as coleções. Fazendo a coleção colar no
+    // topo, e errando o design correto"*.
+    //
+    // Até a v1.5.19 este caso exigia ZERO aqui — era a mesma régua do padding
+    // acima, porque na época o único jeito de haver respiro ERA padding do
+    // scroller. A v1.5.20 separa as duas perguntas: o padding do scroller
+    // segue proibido (caso de cima), mas o respiro do PRIMEIRO FILHO
+    // (`margin-top`, que não é scrollport) voltou a existir — do MESMO
+    // tamanho do `--sp-5` que separa duas coleções no `#hymnResults` de
+    // verdade (ver `lista-da-biblioteca.test.mjs`, que mede a comparação
+    // completa nessa lista real; aqui, sem o id, a régua é o TOKEN).
+    checar(t.respiroDoTopo !== null && Math.abs(t.respiroDoTopo - t.sp5Px) <= 0.6,
+      '[' + tema + '] e o primeiro card respira da barra de busca — nem '
+      + 'colado (o defeito relatado), nem um valor à parte do `--sp-5`',
+      t.respiroDoTopo + 'px contra --sp-5 de ' + t.sp5Px + 'px');
     // ===== E A FAIXA DE UMA COLEÇÃO DA RAIZ POUSA EM PAPEL (v1.5.15) =====
     // Relato do operador sobre a v1.5.14: *"isso era pra ser assim? fundo azul
     // nos itens do provai e vede? e etc...?"*.
