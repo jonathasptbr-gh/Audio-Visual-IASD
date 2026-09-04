@@ -303,3 +303,84 @@ O que continua não medido: nada foi verificado **em aparelho** — os números 
 runtime saem de Chromium, e o encoder do Miracast, a térmica e a Wi-Fi da igreja
 ficam fora do alcance. E o achado nº 2 não tem número de custo, só de frequência:
 ninguém mediu quanto uma página de comparação economizaria de fato.
+
+---
+
+## Próximos passos — a receita, para não redescobrir nada
+
+Nada abaixo foi aplicado. Cada item traz a âncora GREPÁVEL — símbolo ou texto
+literal —, e a linha só como dica: número de linha envelhece a cada lote, e este
+arquivo mesmo já viu os dele deslocarem enquanto era escrito.
+
+### 1 · O gate em `autoRefreshCollections` — o único que toca o culto
+
+- **Onde:** `controle.js`, `async function autoRefreshCollections` (~L15655),
+  logo depois do `collectionsRefreshing = true`.
+- **O quê:** duas linhas espelhando o que `syncLyrics` já faz — a guarda de
+  PORTA no topo (`if (!rotinaDeAcervoPodeCorrer()) return;`) e a de LAÇO dentro
+  da fase que varre.
+- **O gate:** `function rotinaDeAcervoPodeCorrer` (~L12173). Os cinco usos de
+  hoje saem de `grep -n 'if (!rotinaDeAcervoPodeCorrer())' controle.js` — três
+  em `syncLyrics`, dois em `syncCifrasAcervo`, **nenhum** em
+  `autoRefreshCollections`. É essa ausência que é o achado.
+- **Ressalva a escrever no comentário:** com mídia no ar o índice dos hinários,
+  o catálogo e a lista das séries deixam de se atualizar até a cena sair. É a
+  mesma troca já aceita por escrito para as rotinas irmãs, e é retomável — o
+  `autoRefreshCollections` roda na abertura e em todo `visibilitychange`.
+- **Oráculo:** `tools/rotina-cede-a-vez.test.mjs` já mede o gate nas outras duas;
+  a asserção nova é a mesma forma, com a terceira rotina.
+- **Entrega:** só web, sem Release.
+
+### 2 · A fixture do `registro.test.mjs`
+
+- **Onde:** `tools/registro.test.mjs`, a constante `const DIAG` (~L63).
+- **O quê:** acrescentar os campos que o Kotlin já publica e o oráculo não
+  conhece — `via: 'PONTO_DE_ACESSO'`, `iface`, o objeto `interfaces` (montado em
+  `MainActivity.kt`, `grep -n 'o.put("interfaces"'`), mais `midia`, `recusadas`,
+  `ultimo`. São 7 das 18 linhas do bloco.
+- **A régua:** o que o Kotlin de fato publica sai de `EspelhoDiag`/`relatoJson`;
+  a fixture tem de ser o espelho dele, não uma segunda opinião.
+- **Por que importa:** o Registro é o único artefato cujo consumidor é um humano
+  A DISTÂNCIA. Ele não falha calado — falha continuando a responder, com frase
+  errada.
+- **Entrega:** só `tools/`, não entra no bundle nem no APK.
+
+### 3 · As três afirmações que o código já não cumpre
+
+| âncora (`grep`) | trocar por |
+|---|---|
+| `CLAUDE.md`, `"Nada no build detecta divergência"` (~L3499) | o `tokens.test.mjs` trava a igualdade `colors.xml` × `tokens.css` desde a v1.5.14, sem `continue-on-error` |
+| `CLAUDE.md`, `"Dois caminhos de aplicação"` (~L1653) | há UM caminho de aplicação do OTA (o web pergunta e chama `otaApply`); o `aplicarSozinho` saiu — `grep -rn aplicarSozinho app/src/main/java/` devolve só as duas linhas que dizem isso |
+| `PRECEDENCIA_TELAO_MS` (`NativeBridge.kt`) × `DISPLAY_TIMEOUT` (`controle.js`) | decidir o número: **3.000 ms** contra **2.500 ms**, com o hub afirmando que os dois lados fazem "a mesma conta de precedência" |
+
+As duas primeiras são edição de texto. A terceira é uma decisão: ou os dois
+números viram um só, ou o hub para de afirmar que eles são iguais.
+
+### 4 · A poda do `CLAUDE.md` — bloco a bloco, nunca uniforme
+
+- **A paleta** (seção `## A paleta`, ~L2800, 740 L, 39% duplicada): cortar o preâmbulo de
+  contorno, a tabela do `scale(.96)` já removido, e a cronologia de lote. Fica o
+  ponteiro para `DESIGN-SYSTEM.md` e as regras que não estão lá.
+- **A saga da Biblioteca** (dentro de "A paleta", da subseção da hierarquia até
+  o fim dela — ~310 L, 50,7%): ler par a par contra o capítulo correspondente em
+  `docs/arquitetura/CONTROLE.md` e apagar do hub o que ele já diz. Fica o
+  diagrama papel → poço → papel e a regra "por PROFUNDIDADE, nunca por tipo".
+- **A aba de cifra:** cortar SÓ a narrativa do recurso removido (a busca à mão,
+  v1.1.24–v1.3.2, ~110 L). O resto **fica** — é capítulo sem arquivo.
+- **A defesa contra cortar demais:** os parágrafos com 0–15% de duplicação são
+  exatamente os que têm de ficar. A meta não é um número de kB.
+
+### 5 · Decidir o `dados.yml`
+
+Adensar o cron para `*/15` e **remedir a estatística de intervalos daqui a uma
+semana**: se a entrega chegar perto de 1/h, o gráfico prometido em
+`docs/MEDICAO-DE-ALCANCE.md` (`grep -n "por hora do dia"`) passa a ser
+sustentável. Se não chegar, tirar a
+promessa do documento. Medir antes de decidir.
+
+### O que NÃO fazer, e por quê
+
+Está na seção "O que a segunda varredura propôs e ela mesma matou", acima —
+mais os dois achados desta auditoria que a refutação derrubou (nº 4 e nº 5).
+Reachá-los custa uma sessão; ler aquela lista custa um minuto.
+
