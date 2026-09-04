@@ -27,24 +27,16 @@
 // confere o JSON que chegaria ao Kotlin.
 //
 //   node tools/ponte.test.mjs
-import { chromium } from 'playwright';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { semRedeExterna } from './sem-rede.mjs';
+import { abrirNavegador, checar, falhas } from './arnes.mjs';
 
 const RAIZ = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'app', 'src', 'main', 'assets', 'web');
 const NATIVE = fs.readFileSync(path.join(RAIZ, 'shared', 'native.js'), 'utf8');
 
-const falhas = [];
-function checar(cond, msg, obtido) {
-  if (cond) console.log('ok      ' + msg);
-  else { console.log('FALHOU  ' + msg + (obtido !== undefined ? '\n        obtido: ' + obtido : '')); falhas.push(msg); }
-}
-
-const navegador = await chromium.launch(
-  process.env.PW_CHROMIUM ? { executablePath: process.env.PW_CHROMIUM } : {},
-);
+const navegador = await abrirNavegador();
 
 // CONTEXTO PRÓPRIO, e não `navegador.newPage()`: a regra do projeto é
 // `semRedeExterna(ctx)` logo depois de CADA `newContext()`, e uma página criada
@@ -155,6 +147,75 @@ try {
   checar(chamadas[2] && chamadas[2][0] === 'espelhoLigarEm' && chamadas[2][1] === '192.168.43.1',
     'com ip, ele vai para o `espelhoLigarEm` E O IP VIAJA — a escolha do operador',
     JSON.stringify(chamadas[2]));
+
+  // ---- ytDetalhes: o objeto que VOLTA do shell (shell 62) -----------------
+  //
+  // Ele é remontado campo a campo como o `cifraHtml`, e por isso o modo de
+  // falhar da remontagem vale aqui no sentido de VOLTA: um campo esquecido não
+  // some em silêncio do lado Kotlin — some da TELA, e o que aparece no card é a
+  // linha faltando ou a palavra "undefined".
+  //
+  // `descricao` é o único deles que exige o método novo (título, canal e
+  // duração já vivem no índice da série e valem offline), e é o campo que o
+  // YouTube entrega em HTML quando há links: quem o achata é o Kotlin
+  // (`YoutubeGrab.detalhes`), e o contrato deste lado é uma frase só — o que
+  // chega é TEXTO.
+  const det = await pg.evaluate(async () => {
+    window.__detalhes = [];
+    window.__AVBridge.ytDetalhes = (id, url) => {
+      window.__detalhes.push(url);
+      window.__avResolve(id, {
+        titulo: 'Match point | Provai e Vede 2026 (01/Ago)',
+        canal: 'Provai e Vede | Oficial e Adventist Mission',
+        seconds: 319,
+        descricao: 'Primeira linha.\nSegunda linha, com <b> literal.',
+      });
+    };
+    const r = await AVNative.ytDetalhes('https://youtu.be/aaaaaaaaaa1');
+    return { r, urls: window.__detalhes };
+  });
+  checar(det.urls.length === 1 && det.urls[0] === 'https://youtu.be/aaaaaaaaaa1',
+    'ytDetalhes leva a URL ao shell, em string', JSON.stringify(det.urls));
+  checar(det.r && det.r.descricao === 'Primeira linha.\nSegunda linha, com <b> literal.',
+    'e a DESCRIÇÃO volta inteira, com as quebras de linha do autor',
+    JSON.stringify(det.r && det.r.descricao));
+  checar(det.r && det.r.titulo === 'Match point | Provai e Vede 2026 (01/Ago)'
+    && det.r.canal === 'Provai e Vede | Oficial e Adventist Mission',
+    'e o título CRU e o canal — os dois que completam um índice ainda não refeito',
+    JSON.stringify(det.r));
+  checar(det.r && det.r.seconds === 319,
+    'e a duração em segundos', det.r && det.r.seconds);
+
+  // O CAMPO AUSENTE vira VAZIO, nunca `undefined`: é ele que o card imprimiria.
+  const detVazio = await pg.evaluate(async () => {
+    window.__AVBridge.ytDetalhes = (id) => { window.__avResolve(id, { titulo: 'Só o título' }); };
+    return AVNative.ytDetalhes('u');
+  });
+  checar(detVazio && detVazio.descricao === '' && detVazio.canal === ''
+    && detVazio.seconds === 0,
+    'um campo que o shell não mandou chega VAZIO, nunca `undefined` no card',
+    JSON.stringify(detVazio));
+
+  // ---- e o `null` SOBREVIVE, que é a metade que decide o comportamento ----
+  //
+  // As duas respostas pedem ações OPOSTAS de quem chama — é a mesma distinção
+  // do `status 0` × `404` do `cifraHtml`, um nível acima. `null` é "não houve
+  // resposta" (sem rede, prazo vencido, papel `display`) e o `controle.js` NÃO
+  // guarda nada: tentar de novo é o certo. Um objeto com `descricao: ''` é
+  // "respondeu, e este vídeo não tem descrição", e esse ele guarda — senão toda
+  // abertura da gaveta gasta uma extração para chegar à mesma resposta.
+  //
+  // Achatar o `null` num objeto vazio (o reflexo do `cifraHtml`, que faz
+  // exatamente isso) apagaria a distinção: um aparelho sem rede carimbaria
+  // "este vídeo não tem descrição" no cache, e a descrição só voltaria fechando
+  // o app.
+  const detNulo = await pg.evaluate(async () => {
+    window.__AVBridge.ytDetalhes = (id) => { window.__avResolve(id, null); };
+    return AVNative.ytDetalhes('u');
+  });
+  checar(detNulo === null,
+    'e o `null` do shell continua `null` — "não houve resposta" não é "não há descrição"',
+    JSON.stringify(detNulo));
 
   // ---- nowPlaying: o outro objeto remontado campo a campo -----------------
   const n = await pg.evaluate(() => {

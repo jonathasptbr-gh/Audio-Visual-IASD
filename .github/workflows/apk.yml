@@ -234,124 +234,40 @@ jobs:
               'a entrada mais nova tem de ser a deste lote')
           print(f'notas.json OK: {len(notas)} versão(ões), a mais nova v{versao}')
           PY
-          # O parser do índice DASH (`sidx`) da transmissão direta. Ele entra
-          # aqui, e não num framework de teste, porque é a ÚNICA peça daquele
-          # caminho que se verifica sem aparelho — e porque um erro de
-          # deslocamento nele não dá erro: dá vídeo que não toca, no telão, no
-          # meio de um culto. O passo já existe para impedir que o canal OTA
-          # publique um bundle que não carrega; isto é da mesma natureza.
+          # ---------- OS ORÁCULOS DE NODE PURO ----------
+          #
+          # Determinísticos, sem rede e SEM NAVEGADOR — e por isso rodam AQUI,
+          # antes do `npm ci`. Nenhum deles pode importar `tools/arnes.mjs`
+          # (que importa o Playwright): passaria na máquina de quem escreve e
+          # falharia só no runner, num passo sem `continue-on-error`. A asserção
+          # compartilhada mora em `tools/checar.mjs`, que não tem `import`
+          # nenhum, justamente para isto.
+          #
+          # Eles entram neste passo, e não num framework de teste, pela mesma
+          # natureza do `node --check` acima: o passo existe para impedir que o
+          # canal OTA publique um bundle quebrado, e cada um destes trava um
+          # defeito que NÃO dá erro em lugar nenhum.
+          #
+          # A razão de cada um está no TOPO do próprio arquivo — não repetida
+          # aqui, pelo motivo escrito na lista do passo dos oráculos de
+          # Chromium: a segunda cópia é a que ninguém relê, e foi ela que passou
+          # versões descrevendo o RECADO (removido na v1.2.17) como recurso
+          # vivo.
           node tools/sidx.test.mjs
-          # E A ESCOLHA DO DEGRAU da transmissão. O `mse.js` não faz ABR, então
-          # a escolha e feita UMA vez e vale o louvor inteiro — e enquanto ela
-          # foi cega (sempre o teto), uma rede que não a sustenta produzia
-          # TRAVAMENTO, nunca imagem menor. A regra é pura: banda medida +
-          # escada + duração → índice. Ele cobra o topo com rede sobrando, o
-          # degrau QUE CABE com rede apertada (recuar demais é o mesmo defeito
-          # do outro lado), o piso em vez de uma recusa, a margem, o áudio na
-          # conta, e a MONOTONIA — que nenhum caso isolado pega.
           node tools/degrau-de-banda.test.mjs
-          # E AS DUAS REGRAS PURAS QUE A v1.4.19 acrescentou ao mesmo arquivo:
-          # QUAL degrau pode ser escolhido (o `suportado` validava so o TOPO da
-          # escada, e mp4 hoje carrega AV1) e QUANTO TEMPO se espera por um
-          # pedaco. A segunda tem uma propriedade RELATIVA: no vencimento a taxa
-          # implicita ja e no maximo um terco da que aquele fragmento exige — o
-          # prazo nunca alcanca uma transferencia que ainda podia dar certo.
           node tools/degrau-e-prazo.test.mjs
-          # O CONTRATO do `shouldInterceptRequest`: o `InputStream` devolvido é
-          # o recurso INTEIRO a partir do byte 0, e quem aplica o `Range` é o
-          # WebView. Violar isso custou três rodadas de APK (v1.52 → v1.54) com
-          # o CI verde o tempo todo — porque a camada que falha não existe fora
-          # do aparelho. O oráculo transcreve a regra do Chromium e prova, em
-          # Node puro, que a fatia crua NÃO atende e a faixa na URL atende.
-          # Determinístico, sem rede e sem navegador: entra aqui, e sem
-          # `continue-on-error`.
           node tools/webview-range.test.mjs
           node tools/contexto-seguro.test.mjs
-          # A SOMBRA: nenhuma função redeclara um nome de módulo da base web.
-          # `node --check` aprova `const ms = …` dentro de uma função que LÊ a
-          # `ms` do módulo na primeira linha — e o resultado é
-          # `ReferenceError: Cannot access 'ms' before initialization` (zona
-          # morta temporal), a cada 500 ms, só nas telas do espelho que tinham
-          # ligado o som. Foi assim que a v5.152 matou o laço de borda do
-          # cliente (sem poda, sem perseguição, sem relato) e o sintoma chegou
-          # como "travando e dessincronizando", nunca como uma exceção.
-          # Determinístico, sem navegador: entra aqui, sem `continue-on-error`.
           node tools/sombra.test.mjs
 
-          # AS DUAS METADES DO DRENO DA TELA DA REDE. A lista de permissão do
-          # que uma tela pode injetar no barramento existe no `tela.js` (evita o
-          # tráfego) e no `EspelhoServidor.kt` (é a que VALE) — e duas listas
-          # sem oráculo divergem no primeiro esquecimento, mudas nos dois
-          # sentidos. O KDoc do `TIPOS_QUE_SOBEM` afirmava que o
-          # `tela-rede.test.mjs` cobrava o par; ele não cobrava — aquele oráculo
-          # sobe um servidor de MENTIRA e nunca lê o Kotlin.
           node tools/tipos-que-sobem.test.mjs
 
-          # AS DUAS ESCADAS DE CAPTURA DO MICROFONE. O app abre o microfone em
-          # dois lugares (o AO VIVO no telão, o RECADO no Controle) e os dois
-          # precisam da MESMA escada de três tentativas — é o segundo degrau que
-          # abre o microfone com o ESPELHAMENTO LIGADO, isto é, no modo normal
-          # de um culto com TV. O recado nasceu com UM degrau e o operador
-          # recebeu "O Android não liberou o microfone" no primeiro toque.
-          # Duas escadas sem oráculo divergem no primeiro esquecimento — mesma
-          # razão do `tipos-que-sobem`, e o mesmo remédio.
           node tools/mic-escada.test.mjs
-          # A REGRA DA SÉRIE: quais playlists do canal formam o álbum "Provai e
-          # Vede 2026" e quais vídeos entram nele. Os dois modos de errar são
-          # silenciosos e caros — aceitar demais põe a versão em LIBRAS em par
-          # com a de português (o álbum dobra, com o intérprete na projeção sem
-          # ninguém ter pedido), e aceitar de menos apaga um MÊS inteiro da
-          # Biblioteca sem erro no console. As entradas do teste são VERBATIM do
-          # canal, incluindo a playlist que não tem o hífen que todas as outras
-          # têm. Node puro, sem rede: sem `continue-on-error`.
           node tools/serie.test.mjs
-          # A REGRA DO SORTEIO TEMÁTICO: quais faixas do acervo a "Playlist
-          # automática" pode mandar ao telão. O operador toca UM botão e a faixa
-          # entra em cena — não há tela intermediária e ninguém confere a lista
-          # antes. Os quatro modos de errar são silenciosos: um episódio de
-          # série (~300 MB) no lugar do louvor, uma faixa que casa a letra e não
-          # aparece, o PLAYBACK projetado onde se esperava a voz (o
-          # `resolveSongMediaId` manda para o instrumental tudo que não seja
-          # `'full'`), e a fila cheia do que ainda precisa ser baixado — o culto
-          # esperando a rede da igreja. Node puro, sem rede: sem
-          # `continue-on-error`.
           node tools/sorteio.test.mjs
-          # AS SEÇÕES TEMÁTICAS DO HINÁRIO 2022 — a tabela que traduz o NÚMERO
-          # de um hino na seção dele. Não há campo no banco que diga isso
-          # (`pt_hymnal` traz número, nome, duração e playback, e mais nada), e
-          # o modo de errar é MUDO: um limite digitado errado não quebra coisa
-          # alguma — a lista continua completa, na ordem certa, e um cabeçalho
-          # passa a mentir sobre os hinos abaixo dele. Sem erro de console, sem
-          # requisição falhando, sem teste de comportamento que note. Quem
-          # descobre é o operador, no sábado, com a congregação na frente. O
-          # oráculo trava a única propriedade que pega isso: a cobertura é
-          # CONTÍGUA de 1 a 600, sem lacuna e sem sobreposição — e confere a
-          # faixa infantil contra o `sorteio.js`, que tem os mesmos dois
-          # números escritos nele. Node puro: sem `continue-on-error`.
           node tools/hinario.test.mjs
-          # TODO ÍCONE DE FONTE TEM DE EXISTIR NA FONTE. O woff2 é um SUBSET de
-          # 31 codepoints, e um `.msym` fora dele não desenha nada: sem erro no
-          # console, sem requisição falhando, só um vão do tamanho de um ícone.
-          # O botão existe, é tocável, faz o que promete — e é invisível. Foi
-          # assim que a playlist automática saiu ao ar com `casino` (e30c), e
-          # antes dela o `edit`, o `folder_open` e o `create_new_folder`. Ele lê
-          # o `cmap` do próprio arquivo (Node puro, `zlib.brotliDecompressSync`,
-          # zero dependência) e barra o build, porque um ícone invisível chega à
-          # frota pelo OTA e só é descoberto por quem opera.
+          node tools/coletanea.test.mjs
           node tools/glifos.test.mjs
-          # A REGRA DA CIFRA: o que o app entende de uma página de cifra. É a
-          # peça mais frágil do projeto por construção — ela lê a marcação de um
-          # servidor que não é nosso e não nos deve compatibilidade —, e todos os
-          # modos de errar dela são silenciosos: slug errado faz a coleção
-          # INTEIRA dizer "não achei"; uma gramática de acorde larga demais
-          # classifica a letra como acordes e a apaga da aba; transpor sem
-          # preservar COLUNA desliza o acorde para outra sílaba e a folha sai
-          # parecendo certa. As fixtures são SINTÉTICAS de propósito (nenhum
-          # conteúdo de terceiro entra neste repositório — o app lê sob demanda,
-          # no aparelho, e não guarda nada), então elas provam a gramática do
-          # parser, não que ela case com o HTML de hoje do site: essa segunda
-          # metade se conserta por OTA, e o Registro diz quando ela quebrou.
-          # Node puro, sem rede: sem `continue-on-error`.
           node tools/cifra.test.mjs
 
       - name: Tokens de CSS que não existem (Node puro)
@@ -482,8 +398,10 @@ jobs:
       # infraestrutura é exatamente o ruído que ensina a ignorar vermelho.
       # PRAZO AQUI TAMBÉM, e pela mesma razão: um oráculo que pendure o
       # navegador (uma Promise que nunca resolve, um `waitForFunction` sem
-      # timeout) trava o job inteiro e leva o canal OTA junto. 15 min é folga
-      # sobre os ~6 minutos que eles levam somados.
+      # timeout) trava o job inteiro e leva o canal OTA junto. O prazo é folga
+      # larga: MEDIDO, os 57 somam ~7,4 min em SÉRIE e ~2,5 min nos três
+      # processos em que rodam hoje — e o prazo cobre o pior caso, que é a
+      # paralelização não pegar por qualquer razão e a lista correr em fila.
       - name: Oráculos em Chromium
         if: steps.chromium.outcome == 'success'
         timeout-minutes: 15
@@ -491,498 +409,166 @@ jobs:
           IGNORAR: ${{ github.event.inputs.ignorar_oraculos }}
         run: |
           # SEM `-e`, e é o ponto do passo: um reprovado não pode calar os que
-          # vêm depois. Quem guarda o desfecho é o `rodar`.
+          # vêm depois. Quem guarda o desfecho é o laço do fim.
           set -uo pipefail
-          rodados=0
-          falhas=()
-          rodar() {
-            rodados=$((rodados + 1))
-            echo "::group::$1"
-            if PW_CHROMIUM="" node "$1"; then
-              echo "::endgroup::"
-            else
-              echo "::endgroup::"
-              falhas+=("$1")
-              echo "::error::$1 REPROVOU"
-            fi
-          }
 
+          # ---------- EM PARALELO, E O `rodar` SÓ ENFILEIRA ----------
+          #
+          # MEDIDO: os 57 oráculos somam ~8 min em série, e o custo NÃO é o que
+          # parece — lançar o Chromium são ~110 ms e subir o `/controle/`
+          # inteiro é ~1 s. O que sobra é espera: cada oráculo passa a maior
+          # parte do tempo parado esperando o app dele assentar, com os quatro
+          # núcleos do runner ociosos.
+          #
+          # Rodar em paralelo é seguro por CONSTRUÇÃO, e isso foi conferido
+          # antes de ligar: todos abrem o servidor com `listen(0)` (porta
+          # efêmera), nenhum escreve arquivo temporário compartilhado, e cada um
+          # lança o próprio navegador com o próprio perfil. Não há estado comum
+          # a disputar.
+          #
+          # TRÊS, e não `nproc`: o runner tem 4 vCPU, e a campanha de
+          # determinismo da v5.316 validou os oráculos com a máquina a 2× de
+          # carga (4 processos disputando 4 núcleos). Três de cada vez fica
+          # DENTRO desse envelope já medido e entrega ~3× — o grosso do ganho —
+          # sem apostar num regime que ninguém mediu. Subir este número é subir
+          # a carga, e a regra do projeto vale aqui: repetir a campanha antes.
+          #
+          # A CAMPANHA QUE AUTORIZOU ISTO: os 72 oráculos, SETE rodadas em
+          # paralelo, 72/72 em todas, ~152 s por rodada contra 442 s em série
+          # (2,9×). Ela achou UM defeito, e é o que a regra prevê — "uma
+          # reprovação a cada N execuções não é ruído, é o achado": o
+          # `sorteio-tela` montava o índice de letras na montagem do cenário, e
+          # o `finally` do `syncLyrics` (que sai da abertura SEM `await`) o
+          # anulava entre dois `evaluate`. Pool VAZIO com duas asserções verdes
+          # antes da vermelha. Corrigido no ponto de USO e provado por reversão;
+          # a classe está na tabela do CLAUDE.md.
+          PARALELO=3
+          saida="$(mktemp -d)"
+          lista=()
+          rodar() { lista+=("$1"); }
+
+          # ---------- A LISTA, E POR QUE ELA NÃO SE EXPLICA AQUI ----------
+          #
+          # Cada oráculo carrega a razão de existir no TOPO do próprio arquivo —
+          # o defeito que ele trava, como aquele defeito falha calado, e o que
+          # foi medido. Este passo teve, por muito tempo, um resumo dessa razão
+          # ao lado de cada linha: 485 linhas de comentário para 57 comandos,
+          # cada justificativa escrita DUAS vezes.
+          #
+          # A segunda cópia é a que ninguém relê, e ela não envelheceu calada:
+          # o bloco do `mic-escada` descrevia o RECADO — o microfone estilo
+          # walkie-talkie do Controle — como recurso vivo. Ele saiu na v1.2.17,
+          # o próprio oráculo diz isso na terceira linha dele, e o workflow
+          # seguiu afirmando o contrário. É a regra do projeto cobrada aqui:
+          # *"um comentário errado é pior que um comentário longo: ele não custa
+          # só leitura, produz a decisão errada."*
+          #
+          # Então a lista é só a lista. Para saber o que um oráculo trava, abra
+          # o arquivo — é uma linha de `head`, e lá a resposta está inteira e não
+          # tem como divergir do que descreve. O mapa por assunto está no
+          # CLAUDE.md, em "Os oráculos".
           rodar tools/smoke.mjs
-          # E O BOOT COMO O APP O FAZ — com a ponte presente. O `smoke.mjs`
-          # acima sobe a base SEM `__AVBridge`, e por isso todo caminho guardado
-          # por `window.__NATIVE__` nunca era executado por teste nenhum: são
-          # justamente os que só rodam no aparelho, onde não há console para
-          # olhar. A v5.195 saiu com um `const` em zona morta temporal dentro de
-          # um `if (espelhoDisponivel())` — verde aqui, tela PRETA no celular, e
-          # o watchdog do OTA descartando o bundle no lançamento seguinte.
           rodar tools/boot-nativo.test.mjs
-          # E as MENSAGENS DE FALHA da transmissão direta. Nelas a mensagem é o
-          # produto: a transmissão roda no aparelho do operador, contra URLs que
-          # expiram, e a única coisa que atravessa essa distância é a linha do
-          # Registro. "Não deu" já custou duas rodadas de APK aqui.
           rodar tools/mse.test.mjs
-          # E a TRANSIÇÃO DE ENTRADA do palco. Ela ficou anos pela metade (a
-          # mídia velha esmaecia, a nova entrava no talo) e ninguém viu, porque
-          # um arquivo local vira quadro em milissegundos e o corte colava no
-          # fim do esmaecimento. Só a transmissão direta — com a rede inteira
-          # entre o preto e o primeiro quadro — tornou a falta visível. É um
-          # defeito que nenhum `--check` pega e que a congregação inteira vê.
           rodar tools/stage-fade.test.mjs
-          # E O ESTALO AO NAVEGAR ENTRE AS ABAS. `setMute` declara estado e o
-          # `load()` a reaplica a cada troca de aba; a rampa de desmutar partia
-          # de ZERO, e cada reafirmação escrevia `volume 1 -> 0 -> 1` num
-          # <video> tocando. Nao tem sintoma de tela, o estado final e o mesmo
-          # nas duas versoes, e o que se ouve depende de o retorno de chamada do
-          # audio cair entre as duas escritas — ele mede as ESCRITAS.
           rodar tools/aba-sem-estalo.test.mjs
-          # E A RESOLUCAO DE LINK QUE PERDE A VEZ. Resolver um link e a espera
-          # mais longa do app (extracao de segundos, download de minutos), e o
-          # desfecho chegava sem perguntar se ainda era esperado: `send` no fim,
-          # cena trocada, louvor cortado. Nada quebra e nada aparece no console —
-          # e a JANELA so existe com a ponte de mentira segurando as duas esperas.
           rodar tools/link-perde-a-vez.test.mjs
-          # E O TRAVAMENTO NO MEIO DA TRANSMISSÃO. O giro só existia na CARGA,
-          # então uma parada por falta de buffer congelava o quadro sem nada na
-          # tela — e um app quebrado produz exatamente a mesma imagem. Relato do
-          # operador: *"veio som, porém ficou travando"*, com a única leitura
-          # possível sendo um palpite sobre a internet. Ele mede as quatro
-          # metades (aparece · não pisca · só no stream · é CONTADO) mais a que
-          # foi medida escrevendo o arquivo: um `MediaSource` nasce vazio e
-          # dispara `waiting` em TODA transmissão, então contar a carga faria o
-          # número do Registro dizer "≥1 sempre".
           rodar tools/espera-do-stream.test.mjs
-          # E A TRANSMISSAO FAMINTA QUE DESISTE (v1.4.19). O `AVStream.fome` era
-          # o unico lugar do app que SABIA que a projecao estava parada, e so
-          # escrevia no Registro: nada agia. Um CDN que goteja congelava a cena
-          # para sempre — sem erro, sem queda para o download, com o cartao
-          # "Preparando" aceso. O RELOGIO E MOCKADO (`page.clock`): o teto sao
-          # 25 s, e espera-los de verdade daria um oraculo de dois minutos cuja
-          # reprovacao sob carga nao distinguiria defeito de agendador.
           rodar tools/fome-que-desiste.test.mjs
-          # E O STREAM QUE NAO TEM IMAGEM. Um `kind:'audio'` sem letra — o que o
-          # "Tocar agora · So audio" produz — nao entrava em nenhum dos dois
-          # ramos que acendem o aviso e disparam a rampa: os dois pedem
-          # `!semVisual()`. A tela ficava muda por segundos e o som entrava no
-          # talo. A prova da rampa e a ESCRITA de um volume intermediario: um
-          # teste do valor final passa nas duas versoes.
           rodar tools/stream-so-audio.test.mjs
-          # E A ROTINA DE ACERVO QUE CEDE A VEZ. `syncLyrics` e
-          # `syncCifrasAcervo` saiam da abertura sem `await`, 6 workers cada,
-          # sobre o acervo inteiro, sem olhar a cena — e a medida de banda que
-          # escolhe o degrau do louvor e feita durante essa disputa.
           rodar tools/rotina-cede-a-vez.test.mjs
-          # E o COLETOR DE LIXO do banco, que é o único código do app que apaga
-          # mídia do operador. Um erro ali não dá tela branca: some com o vídeo
-          # do domingo, em silêncio e sem desfazer.
           rodar tools/db-gc.test.mjs
-          # E A ATOMICIDADE DE UMA CHAVE DE `state` (`AVDB.updateState`). O
-          # defeito que ele trava — `getState` + calcular + `setState`, duas
-          # transações com um vão entre elas — não erra alto em lugar nenhum: o
-          # que se perde é a metade que o outro escritor acabou de gravar, e o
-          # sintoma aparece longe dali (um bloco do Registro que some, um
-          # download que não é reclamado). Ele tem as DUAS metades: escreve o
-          # hazard à mão e prova que ele PERDE, e só então prova que a função
-          # não perde. Sem a primeira, a segunda provaria que uma função
-          # concorda consigo mesma.
           rodar tools/db-estado.test.mjs
-          # E as CONTAS DA BIBLIOTECA — "esta coleção está completa?" e "quanto
-          # ela ocupa?". As duas eram respondidas por fórmulas diferentes em
-          # lugares diferentes da mesma tela, e o resultado era um card com o
-          # botão de baixar ao lado de um chip dizendo "Completo offline". Conta
-          # errada não estoura em lugar nenhum: ela só mostra o número errado.
           rodar tools/acervo.test.mjs
-          # E O QUE A PONTE DE FATO ENTREGA. `native.js` REMONTA campo a campo
-          # os objetos que manda ao Kotlin, e um campo esquecido some em
-          # silêncio: do outro lado, `optBoolean`/`optLong` leem ausente como
-          # `false`/`0`, que são valores legítimos. Já custou duas vezes —
-          # `slideLabel` (v5.97→v5.102) e `bytes`, que nunca chegou a viajar
-          # desde a versão que o criou.
           rodar tools/ponte.test.mjs
-          # E A RECUSA DA TRANSMISSÃO — o veredito do shell mais a INSTRUÇÃO.
-          # Ele cobra o PAR, que é onde o ensino falha calado nos dois sentidos:
-          # de menos, e o operador lê "sem rede para transmitir" sem saber que
-          # ligar o ponto de acesso do próprio celular resolve; de mais, e a
-          # recusa de PORTA OCUPADA — a única deste caminho cujo conserto não é
-          # mexer na rede — passa a mandar mexer na rede. A segunda metade lê as
-          # frases do PRÓPRIO Kotlin, técnica do `tipos-que-sobem`: a decisão é
-          # por PALAVRA sobre uma string que o Kotlin escolhe, e sem oráculo
-          # alguém reescreve a `Recusa` e o ensino some sem nada acusar.
           rodar tools/recusa-transmissao.test.mjs
-          # E O TELÃO, que até agora NENHUM teste tinha carregado. A fumaça
-          # acima abre o Controle; o `stage-fade` monta o palco à mão. A metade
-          # que roda na frente da congregação era a metade que a CI nunca
-          # executou — e é a que menos rede de segurança tem, porque o watchdog
-          # do OTA também não a valida (quem confirma o bundle é o Controle).
-          # Ele trava, de quebra, o endereçamento do reenvio de cena: sem ele,
-          # uma segunda instância do Display faz a TV recarregar a mídia.
           rodar tools/display-smoke.mjs
-          # E OS DESTINOS das folhas de escolha. O que está marcado precisa
-          # ATRAVESSAR o fechamento da folha: a ação roda depois de
-          # `closeSongMenu()`, que zera o conjunto, e uma leitura tarde demais
-          # devolveria só a linha tocada — o item iria para um destino em vez de
-          # dois, sem erro nenhum. Mesma classe de falha muda do `slideLabel`.
           rodar tools/destinos.test.mjs
-          # E A CIFRA GUARDADA NO APARELHO. A promessa é operacional — no sábado,
-          # com o Wi-Fi da igreja oscilando, a folha do hinário abre — e ela
-          # falha CALADA: sem a leitura do disco o app cai no caminho de rede e,
-          # COM rede, a folha aparece igual, pela porta errada. Por isso a
-          # asserção não é "a folha apareceu": é `cifraHtml` NÃO ter sido
-          # chamado nenhuma vez, com a ponte respondendo "sem rede" a tudo.
           rodar tools/cifra-offline.test.mjs
-          # E O LEITOR DA BIBLIOTECA — a folha de qualquer música SEM levar
-          # nada ao telão. Três coisas falham calado ali: a folha mostrar a
-          # música da CENA em vez da pedida; alguma coisa ir ao telão (o único
-          # defeito que não deixa rastro na tela de quem abriu a folha); e o
-          # relógio da cena governar a rolagem de OUTRA música — que não erra
-          # alto, a folha anda no compasso errado. As três por reversão.
+          rodar tools/cifra-tela-cheia.test.mjs
           rodar tools/leitor-biblioteca.test.mjs
-          # E A PLAYLIST AUTOMÁTICA, DA FOLHA ATÉ A FILA. O `sorteio.test.mjs`
-          # (Node puro, acima) trava a REGRA; este trava a LIGAÇÃO, que falha de
-          # outro jeito — a regra continua certa e o recurso não faz nada. As
-          # quatro capacidades injetadas (`sorteioCap`) são ponteiros para
-          # funções do `controle.js`, e um errado devolve um pool plausível e
-          # ERRADO; e o contador é a única coisa que o operador lê antes de um
-          # botão que dispara sem mais nenhuma tela.
           rodar tools/sorteio-tela.test.mjs
-          # E A CENA: o que o telão mostra ao RECONECTAR, o que o operador
-          # ajusta nela (girar, preencher) e o que ele lê sobre ela. A reconexão
-          # do dongle é o caminho menos testável à mão — exige TV, dongle e o
-          # timing de derrubá-lo — e roda sozinho na frente da congregação.
           rodar tools/cena.test.mjs
-          # E A TELA CONECTADA COM O TELÃO NO CHÃO. "Há tela" nunca foi "há
-          # telão": a lista responde pelo `DisplayManager` e quem projeta é a
-          # `Presentation`, que numa negociação de Miracast pode não subir (o
-          # `show()` que lança) ou cair sozinha com a tela ainda listada. Nesse
-          # estado o web calava a preview por haver "para onde mandar o som" e
-          # não havia ninguém tocando do outro lado — SILÊNCIO NOS DOIS LADOS,
-          # sem erro no console e com o Registro dizendo "conectado". É o relato
-          # de "conectei na smart TV e o som ia e voltava", e nada nele erra
-          # alto.
+          rodar tools/hidratacao-perde-a-vez.test.mjs
           rodar tools/telao-no-chao.test.mjs
-          # E A IMAGEM SOBRE O ÁUDIO: a regra é uma AUSÊNCIA — nenhum `load`
-          # sai daquele caminho, e é só por isso que o louvor de fundo
-          # sobrevive ao aviso projetado por cima. Ausência não tem sintoma de
-          # tela nem erro de console: quem a prova é o `currentTime` do
-          # `<video>` medido em dois instantes, nas duas metades (o Controle
-          # que decide sobrepor, e o telão que pinta na frente da congregação).
           rodar tools/imagem-sobre-audio.test.mjs
-          # E A APRESENTAÇÃO ENTROU NA MESMA CAMADA (v1.4.28): *"adicione a
-          # possibilidade de música atrás dos slides. Atualmente são
-          # concorrentes, mas os slides devem ser tratados como camada, assim
-          # como as imagens ou os textos e mensagens"*. É o irmão do de cima e
-          # a regra é a MESMA ausência — nenhum `load` sai deste caminho —, mas
-          # um deck tem o que uma imagem não tem: PÁGINAS. Daí ele medir o que
-          # o irmão não mede: o eixo do ⏮/⏭ que volta (onde a imagem devolve
-          # `null`), a página andando por um caminho DIFERENTE (na camada ela
-          # reenvia o `text`; um `page` não acharia deck nenhum no motor e não
-          # faria NADA, sem erro, com o operador apertando o botão), e as TRÊS
-          # metades que pintam — telão, PREVIEW e a coluna do auxiliar —, cada
-          # uma escolhendo o blob por sua conta: sem a da preview ela ficaria na
-          # página 1 para sempre enquanto o telão passa slides, e sem TV a
-          # preview É a projeção. A prova da página é a COR do pixel: com
-          # páginas idênticas, "pintou a 4" e "continuou na 1" são o mesmo
-          # resultado. A reversão que fecha o lote é "sem áudio no ar a
-          # apresentação continua entrando como MÍDIA" — sem ela, sobrepor
-          # sempre passaria em tudo o mais.
           rodar tools/slides-sobre-audio.test.mjs
-          # E O MODO FÁCIL OPERA UMA APRESENTAÇÃO (v1.4.30): *"verifique o modo
-          # simples e seu auxiliar de leitura. Ele deve adquirir as funções para
-          # controle de slides também"*. MEDIDO antes de mexer: com uma
-          # apresentação em cena aquele modo não a operava de jeito nenhum — a
-          # zona de leitura dizia "A letra da música aparece aqui" (a projeção
-          # no ar negada pela única superfície que deveria descrevê-la) e não
-          # havia tecla que virasse página. O eixo já existia
-          # (`slideTarget()` respondia 'deck'); faltava alguém ali ligado a ele,
-          # e uma apresentação compartilhada ficava presa na página 1 até o
-          # operador ir ao modo avançado — o modo que este existe para não
-          # exigir. As metades que falham CALADAS: o limite das teclas (elas
-          # ESPELHAM o `disabled` das âncoras, e uma segunda conta divergiria
-          # sem sintoma), as miniaturas revogadas pela OUTRA coluna (uma `<img>`
-          # com `src` revogado não pinta e não reclama) e a página entrando na
-          # assinatura, que remontaria dezenas de miniaturas a cada ⏭.
           rodar tools/modo-facil-slides.test.mjs
-          # E NO MODO FÁCIL SÓ HÁ UM ELEMENTO NO AR (v1.4.32): *"coloque a
-          # limitação de apenas um elemento ativo na mídia, assim no modo
-          # simples não há sobreposição e nem necessidade de multicontroles"*. A
-          # sobreposição é uma CENA COMPOSTA, e operá-la exige saber qual das
-          # duas coisas cada controle governa — o ▶ é do áudio de baixo, o ⏭ é
-          # da apresentação de cima. Esse é o vocabulário do modo AVANÇADO, e é
-          # o que o Modo Fácil existe para não pedir. A metade que fecha o lote
-          # é a REVERSÃO: o avançado CONTINUA sobrepondo — sem ela, apagar a
-          # sobreposição do app inteiro passaria em tudo o mais e o recurso da
-          # v1.4.28 morreria em silêncio, num modo que o pedido nem nomeia.
-          # Cobre as DUAS portas do cartão (imagem e apresentação), o Modo Fácil
-          # destravado por "Tocar neste celular" (a guarda é do MODO, não da
-          # conexão) e o COMPARTILHAMENTO, que é por onde uma apresentação de
-          # fato entra ali e o que uma guarda escrita nas telas deixaria de fora.
           rodar tools/modo-facil-um-elemento.test.mjs
-          # E A TELA DA REDE do telão por comandos (E3 — ver
-          # docs/TELAO-POR-COMANDOS.md): o /display/ servido pelo celular
-          # rodando num navegador comum, com a entrada pelo código, o dreno de
-          # subida (só display-ready e tela-status sobem), a correção de
-          # relógio anulando 90 s de desvio, a reconexão que se reapresenta e
-          # o adeus que não martela. Teste fora do workflow é documentação —
-          # a lição da v5.145 (três testes escritos e ligados em lugar nenhum).
+          rodar tools/modo-facil-fonte.test.mjs
           rodar tools/tela-rede.test.mjs
-          # E O REGISTRO — o único artefato do app cujo consumidor é um HUMANO A
-          # DISTÂNCIA. Todo o resto falha na frente de quem pode ver; ele falha
-          # CONTINUANDO A RESPONDER, com uma frase errada, e quem a lê vai
-          # investigar o que ela diz. Nenhum teste o carregava até a v5.206, e
-          # foi por aí que passaram três defeitos ao mesmo tempo: o `ritmo`
-          # zerado imprimindo "ALARME: ISTO É UM RETÂNGULO PRETO" em todo culto,
-          # toda tela conectada sendo acusada de rodar "bundle antigo", e um
-          # "modo: imagem (JPEG)" de um modo removido dez versões antes. Os três
-          # têm a mesma forma — um consumidor que sobreviveu ao produtor lê o
-          # valor ausente como se fosse resposta.
           rodar tools/registro.test.mjs
-          # E O FLUXO DE ATUALIZAÇÃO, que é o único caminho do app cujo defeito
-          # NÃO TEM SINTOMA: quando a atualização não chega, nada quebra e nada
-          # erra alto — o operador só continua na versão de anteontem sem saber.
-          # Foi assim por dezenas de versões, e a v5.151 chegou a REMOVER a
-          # pergunta por concluir que ela "nunca aparecia" (era o espelho ligado
-          # suprimindo o diálogo, e isso levou meses para ser identificado).
-          # Nenhum teste tocava neste código: o `smoke.mjs` sobe sem ponte e
-          # todo o bloco é `window.__NATIVE__`; o `boot-nativo` prova o boot,
-          # não o fluxo. Ele entra no workflow no MESMO commit em que nasce —
-          # a lição da v5.145.
           rodar tools/ota.test.mjs
-          # E A GAVETA DA LINHA CONTRA O REDESENHO DO PROGRESSO. Ela é o único
-          # lugar do app em que o operador DECIDE (destinos marcados, letra
-          # lida, "Tocar agora"), e o redesenho do download remontava a lista
-          # por baixo dela a cada 400 ms. O defeito é mudo nos dois tempos: com
-          # a gaveta aberta ela some sem erro nenhum, e no meio da abertura —
-          # entre o toque e o `expanded` há um `await` do IndexedDB — o `li`
-          # vira órfão e o toque simplesmente não faz nada. Ele entra no
-          # workflow no MESMO commit em que nasce (a lição da v5.145).
           rodar tools/gaveta-no-download.test.mjs
-          # E AS SEÇÕES DO HINÁRIO, DA TABELA ATÉ A TELA. O `hinario.test.mjs`
-          # trava a REGRA; este trava a LIGAÇÃO, que falha de outro jeito — a
-          # tabela continua perfeita e o recurso não aparece, ou aparece no
-          # lugar errado. Dois dos cinco casos não gritam em lugar nenhum: os
-          # cabeçalhos moram na MESMA `<ul>` das faixas, e uma retomada de
-          # paginação que contasse os FILHOS da lista pularia um hino por
-          # cabeçalho já desenhado (hinos sumindo do meio da lista, sem erro);
-          # e o hinário de 1996 tem outra numeração, então um "Infantis" sobre
-          # o 508 DELE é um rótulo mentindo que ninguém nota olhando o hinário
-          # certo. Ele entra no workflow no MESMO commit em que nasce — a lição
-          # da v5.145.
           rodar tools/hinario-tela.test.mjs
-          # E O PARAR, QUE FALA DE UMA CAMADA SÓ. A regra é CONDICIONAL — com
-          # mídia E Camada de Texto no ar sai só a mídia; com uma das duas, sai
-          # a cena inteira —, e uma condicional errada não emite erro em lugar
-          # nenhum nos DOIS sentidos: ou a Camada de Texto fica presa no telão
-          # sem saída no transporte, ou o louvor de fundo volta a levar o
-          # versículo junto. Ele entra no workflow no MESMO commit em que nasce
-          # (a lição da v5.145).
           rodar tools/parar-por-camada.test.mjs
-          # E O HISTÓRICO DO CULTO — uma lista que se preenche sozinha no ponto
-          # mais quente do app (`send`), com três modos de errar todos mudos:
-          # não registrar (a folha abre vazia depois de um culto inteiro),
-          # registrar demais (`repeat: 'one'` enterrando o culto em cópias do
-          # mesmo nome) e oferecer ao Cronograma um id que o coletor já
-          # recolheu — este último só aparece no sábado seguinte. Idem: entra
-          # no workflow no MESMO commit em que nasce.
           rodar tools/historico.test.mjs
-          # E A ROLAGEM `AUTO` DA CIFRA, que precisa de um relógio ANDANDO. A
-          # barra de progresso responde "este ITEM tem linha do tempo?", e
-          # `currentItem` sobrevive ao Parar, ao fim da faixa e a uma letra
-          # avulsa — então ela ficava habilitada sobre um telão vazio e o `auto`
-          # ancorava a folha em `fracaoDaRolagem(0, dur)`. O desfecho não é um
-          # erro, é uma folha parada: nada no console, nada na tela. As DUAS
-          # metades, porque "cair sempre no livre" apagaria o recurso — e a
-          # segunda é a que prova que ele continua seguindo a música.
           rodar tools/cifra-rolagem.test.mjs
-          # E O BOTÃO DO TRANSPORTE QUE ABRE ESSA MESMA FOLHA. `openLyricsPopup`
-          # ganhou `(item, fonte)` na v1.2.14 e o ouvinte continuou registrado
-          # POR REFERÊNCIA — `addEventListener` chama com o EVENTO, e o
-          # `PointerEvent` virou o ALVO da folha: as três fontes (letra, cifra e
-          # a reserva da Bíblia) sumiam de uma vez e o auxiliar de leitura abria
-          # dizendo "Nada em exibição" para TODA música. Os três oráculos que já
-          # abriam esta folha chamam `openLyricsPopup()` direto — o único
-          # caminho que continuava funcionando —, e por isso este CLICA. Idem:
-          # entra no workflow no MESMO commit em que nasce.
           rodar tools/leitor-do-transporte.test.mjs
-          # E O DECK DOS CONTROLES: os dois botões de slide que voltaram a
-          # flanquear a preview, a coluna de operação que subiu para cima dela,
-          # e o ⏮/⏭ do transporte que perdeu o eixo de estrofe. As quatro
-          # mudanças da v1.3.5 falham CALADAS, e a mais cara é a última: se a
-          # troca não pegar, o botão de "próxima mídia" continua passando
-          # ESTROFE com uma letra no ar — o operador toca e a música não troca,
-          # no meio de um louvor, sem nada no console.
-          # Ele trava também a ARMADILHA DO `<use>`: a folha do documento NÃO
-          # atravessa a árvore-sombra de um `<use>`, então um `<symbol>` único
-          # com os dois desenhos dentro carrega, não erra e desenha os DOIS
-          # empilhados para sempre. As duas asserções mais óbvias (contar nós
-          # visíveis, fotografar o botão) APROVAM essa armadilha — está medido
-          # no cabeçalho do oráculo, e é por isso que ele pergunta qual
-          # SÍMBOLO está no ar. Idem: entra no workflow no MESMO commit em que
-          # nasce (a lição da v5.145).
           rodar tools/controles-layout.test.mjs
 
-          # O FUNDO DA LETRA NA PREVIEW. A imagem de fundo da estrofe é FILHA da
-          # camada da letra, e o desmonte dela é ADIADO — quando a letra volta
-          # antes do prazo (todo `load` de música faz isso), alguém precisa
-          # CANCELAR o desmonte. A guarda de sequência não cancela: ela não anda
-          # quando a estrofe que volta usa a MESMA imagem, que é o caso NORMAL
-          # (o fallback grudento do sync dá uma imagem por hino, e hinos do
-          # mesmo hinário compartilham a arte do álbum). O telão tinha a guarda;
-          # a preview não tinha — e sem TV a preview É a projeção.
           rodar tools/fundo-da-letra.test.mjs
 
-          # AS FERRAMENTAS COMO FOLHA DO CRONOGRAMA. O que falha calado aqui é
-          # geométrico: uma folha de corpo inteiro continua funcionando e
-          # continua bonita, e cobra do operador um fechar-e-abrir por ajuste —
-          # quem projeta um cronômetro precisa do TRANSPORTE e da PREVIEW na
-          # frente enquanto o acerta. Daí a asserção medir a CAIXA da folha
-          # contra o cabeçalho e a caixa de controles. Ele trava também que
-          # `activeTab` continua em 'imports' com a folha aberta: se a folha
-          # trocasse a aba, o rodapé do Cronograma — onde mora a porta dela —
-          # deixaria de ser desenhado, e nada disso dá erro.
           rodar tools/ferramentas-folha.test.mjs
 
-          # O AVISO DE QUE UM ARQUIVO ESTÁ ENTRANDO. A ausência dele NÃO É UM
-          # ERRO: nada quebra, nada aparece no console, e o item chega ao fim —
-          # só chega em silêncio, e do lado de quem opera "importei e não
-          # aconteceu nada" é indistinguível de o app ter travado. Um teste que
-          # medisse só o desfecho passa nas duas versões, então o que ele mede é
-          # o MEIO: com o arquivo servido AOS PEDAÇOS, existe uma linha com o
-          # nome dele na lista enquanto ele é lido. Trava também o `soltar()` no
-          # `finally` — os `continue` do laço são a razão dele, e sem ele um
-          # arquivo ilegível deixa um aro girando na lista para sempre.
+          rodar tools/barra-em-qualquer-tela.test.mjs
+
+          rodar tools/biblioteca-camadas.test.mjs
+
           rodar tools/aviso-de-importacao.test.mjs
-          # E A APRESENTAÇÃO QUE VIRA IMAGEM. A rasterização do `.pptx` é
-          # `<foreignObject>`, e um SVG é um DOCUMENTO À PARTE: tudo que ele não
-          # alcança some SEM ERRO NENHUM — sem exceção no console, sem
-          # requisição falhando, sem página faltando. O que sai é uma
-          # apresentação completa, com o número de páginas certo, e branca. Foi
-          # o que chegou ao telão do operador: 27 slides de fundo fotográfico
-          # com o texto solto sobre papel branco, porque o arquivo dele não tem
-          # UM `<img>` (todo fundo é `background-image: url(blob:)`) e a versão
-          # anterior só convertia `<img>`. Um teste do DESFECHO aprova as duas
-          # versões, então ele mede PIXEL — e cada asserção de conteúdo tem a
-          # REVERSÃO ao lado, rasterizando o mesmo fixture pelo caminho ingênuo.
-          # Cobre também o FORMATO por página (sem ele o conserto das imagens
-          # multiplicava por dez o que uma apresentação ocupa: MEDIDO, 100,4 MB
-          # em PNG contra 12,3 MB) e o PALCO não mexer no layout do documento,
-          # que é o relato do operador — o app encolhendo no meio da importação.
           rodar tools/apresentacao.test.mjs
-          # E A NOTIFICAÇÃO DESSA IMPORTAÇÃO TEM DE ANDAR. `pptxImportar` e
-          # `deckImportar` abriam a tarefa com `bgTaskStart(…, 1)` e NUNCA
-          # chamavam `bgTaskStep`: o `onProgresso` alimentava só o cartão da
-          # tela, e a notificação ficava em "0 de 1" do começo ao fim, com a
-          # estimativa em zero (`bgTaskEta` precisa de um passo para ter
-          # média). É o mesmo defeito que o download de vídeo teve até a
-          # v5.117, sobrevivendo neste caminho — e mudo: nada lança, nada
-          # aparece no console, e a apresentação fica correta no fim. O que
-          # falha é a ÚNICA janela que existe com o app minimizado, no caso
-          # longo, que é quando ninguém está olhando a tela. Um teste do
-          # desfecho passa nas duas versões, então ele mede o que a PONTE
-          # recebeu (a string do `bgProgress`, a mesma que o `SyncService` lê)
-          # e traz a REVERSÃO ao lado. Ele entra no workflow no MESMO commit em
-          # que nasce — a lição da v5.145.
           rodar tools/notificacao-apresentacao.test.mjs
-          # E O AUXILIAR DE LEITURA DE UMA APRESENTAÇÃO. Duas metades, e a
-          # segunda falha CALADA: a folha abre, mostra as páginas, e um botão
-          # "Letra" sobrando ao lado abre a leitura de OUTRA mídia — nada
-          # quebra, nada aparece no console, e o operador lê o hino de antes
-          # durante o sermão. Ele mede a EXCLUSIVIDADE na transição que o
-          # operador faz de verdade (música em cena → apresentação), a ALTURA
-          # RESERVADA da miniatura no RENDERIZADO (as imagens são `lazy`, e uma
-          # imagem sem altura faz o `lvScroll` mirar o lugar errado — um teste
-          # de classe passaria), e que virar a página NÃO remonta a lista (a
-          # mesma URL de objeto na primeira miniatura: com a página na
-          # assinatura, cada toque no ⏭ revogaria e recriaria dezenas de URLs, e
-          # o sintoma seria só "a folha pisca"). As duas metades de VOLTA — a
-          # letra e o A+/A− retornando — impedem que "esconder tudo" passe.
           rodar tools/leitor-apresentacao.test.mjs
-          # E O AUXILIAR OFERECE TUDO O QUE ESTÁ EM EXIBIÇÃO (v1.4.26). O pedido
-          # do operador REVOGA duas exclusividades que este app tinha escrito e
-          # defendido — a da Bíblia (v1.1.11) e a da apresentação (v1.4.24):
-          # elas acertavam a PRECEDÊNCIA e erravam em tirar as outras da mesa (a
-          # música de fundo continua tocando sob o versículo). As duas metades
-          # falham CALADAS e em direções opostas: de MENOS, a aba não está lá e
-          # o operador conclui que o recurso não existe; de MAIS — o caro —, a
-          # lista certa com a ABERTURA errada mostra a letra do louvor de fundo
-          # com o versículo no telão, e parece certo. A terceira é a ESCOLHA
-          # GUARDADA, que com a pilha passa a poder contradizer o pedido: quem
-          # tocou "Cifra" com o louvor sozinho no ar não pediu cifra para o
-          # instante em que o versículo subir por cima. A regra é *mudou a
-          # frente, mudou a pergunta*, e ela só está certa com as DUAS metades
-          # medidas — zerar sempre passa numa, apagar o recurso passa na outra.
           rodar tools/leitor-camadas.test.mjs
-          # E O TOQUE QUE RESPONDE NA HORA. "Tocar agora" num vídeo comeca por uma
-          # EXTRACAO DE REDE de segundos, e ate a v1.4.6 nada mudava na tela
-          # nesse intervalo — nem o aro de carregamento. O caminho do DOWNLOAD ja
-          # tinha o cartao de espera; o da TRANSMISSAO nunca teve. Ele mede o
-          # MEIO (a ponte de mentira SEGURA o `ytStream`), porque um teste do
-          # desfecho passa nas duas versoes: o video entra em cena quando os
-          # bytes chegam, com ou sem a correcao.
           rodar tools/toque-instantaneo.test.mjs
 
-          # EXCLUIR DE UMA LISTA NÃO PODE DERRUBAR A CENA, e eram DOIS defeitos.
-          # O primeiro tem sintoma (o louvor parava); o SEGUNDO não tem nenhum:
-          # o coletor só conhecia LISTAS, então sair da última apagava os bytes
-          # por baixo de uma projeção que seguia tocando — só uma queda de
-          # dongle revelaria, no meio do culto, sem nada ligando uma coisa à
-          # outra. Daí ele medir que a cena continua ANDANDO (não só "não
-          # pausou") E que o registro sobrevive. A terceira metade é a que
-          # impede a correção de virar outro defeito: um item que JÁ TOCOU e não
-          # está mais em cena tem de morrer de verdade — sem ela, parar de
-          # coletar passaria nas duas primeiras.
           rodar tools/excluir-em-cena.test.mjs
 
-          # A RESTAURAÇÃO DA LETRA ADIADA POR UM LOAD EM VOO — os DOIS lados, e
-          # são dois arquivos porque *ler cada lado isolado aprova os dois* (a
-          # armadilha que o `fundo-da-letra` já pagou). `restoreSceneAfterText` /
-          # `restorePvSceneAfterText` leem `getCurrent()`, e o `current` só troca
-          # depois do fade (os 600 ms de toda troca de cena) e do `getMedia`: um
-          # `text-hide` nessa janela remonta a letra do hino ANTERIOR sobre a
-          # música nova, e PARA SEMPRE — nada reavalia depois, as estrofes
-          # erradas passam a rolar pelo relógio da música certa. Cada um mede
-          # TRÊS cenas: o defeito, a restauração que continua IMEDIATA sem load
-          # em voo, e a saída de cena CANCELANDO o adiamento — esta última é a
-          # regressão que o adiamento introduz, e ela não tem sintoma nenhum (a
-          # cortina cobre): some da tela, fica no estado.
           rodar tools/restaurar-letra-adiada.test.mjs
           rodar tools/restaurar-letra-adiada-preview.test.mjs
 
-          # O CARTÃO DE FALHA DA PREVIEW segura o `pvBusyCount` pelo prazo de
-          # leitura — e quem toma a legenda ENCERRA esse prazo, senão o cartão do
-          # trabalho SEGUINTE fica preso na tela depois de ele terminar. As duas
-          # metades: o cartão sai com o fim do novo, e uma falha SOZINHA continua
-          # no ar para ser lida. Regressão de um lote desta campanha, pega pelo
-          # revisor e provada por reversão.
           rodar tools/gaveta-e-cartao.test.mjs
 
-          # A MEDIÇÃO DE ALCANCE — um dos DOIS oráculos desta suíte que rodam
-          # sobre o `site/` (o outro é o `plataforma`, logo abaixo). Duas coisas
-          # que falham CALADAS moram ali: um gráfico que desenha
-          # todos os valores iguais (`<span>` é inline, e `width` não faz nada
-          # num elemento inline — as barras saíam idênticas, sem erro em lugar
-          # nenhum), e o ROTEAMENTO do farol de visita, que é o requisito
-          # inteiro: se ele parar, os números continuam subindo e passam a
-          # incluir quem mede. Contador não se corrige depois.
           rodar tools/registro-alcance.test.mjs
 
-          # O FILTRO DE PLATAFORMA DA PÁGINA, e ele falha calado nos DOIS
-          # sentidos. De MENOS: a classificação para de reconhecer um aparelho
-          # que não é Android, o download volta a aparecer ali, e ninguém
-          # relata "baixei e não abriu" — a pessoa conclui que o app está
-          # quebrado e vai embora. De
-          # MAIS, que é o caro: a classificação passa a recusar um Android de
-          # verdade, e o que sai é uma página que abre, rola e não oferece
-          # nada. É por isso que o desenho FALHA ABERTO — sem classe no
-          # `<html>` nada é escondido —, e essa propriedade tem asserção
-          # própria: um desenho fail-CLOSED deixa toda a suíte verde e reprova
-          # só ali.
           rodar tools/plataforma.test.mjs
+          rodar tools/lista-da-biblioteca.test.mjs
+          rodar tools/enquadramento-da-camada.test.mjs
 
           # O PLACAR VAI PARA O RESUMO DO RUN, não só para o log — a queixa que
           # originou este lote foi precisamente que o desfecho só existia lá
           # dentro. `rodados` é CONTADO, nunca digitado: um número fixo aqui
           # envelheceria no primeiro oráculo novo, e envelheceria mentindo.
+          # ---------- A EXECUÇÃO, E DEPOIS O LOG EM ORDEM ----------
+          #
+          # A saída de cada um vai para um arquivo e só então é impressa, na
+          # ORDEM da lista: em paralelo os `::group::` sairiam intercalados, e um
+          # log que não se lê não é rede de segurança — que é a lição do arranjo
+          # anterior a v5.213, em que o primeiro reprovado calava os outros onze.
+          printf '%s\n' "${lista[@]}" | nl -ba -w1 -s' ' |
+            xargs -P "$PARALELO" -L1 sh -c 'PW_CHROMIUM="" node "$2" > "$0/$1.log" 2>&1; echo $? > "$0/$1.rc"' "$saida"
+
+          rodados=0
+          falhas=()
+          for i in "${!lista[@]}"; do
+            n=$((i + 1)); f="${lista[$i]}"
+            rodados=$((rodados + 1))
+            echo "::group::$f"
+            cat "$saida/$n.log" 2>/dev/null || echo "(sem saída — o processo não chegou a escrever)"
+            echo "::endgroup::"
+            # RC AUSENTE CONTA COMO REPROVADO. Um oráculo cujo processo morreu
+            # sem escrever o código de saída (o prazo do passo, um OOM) não pode
+            # entrar no placar como quem passou — seria o silêncio da v5.302 de
+            # volta, agora por dentro do portão.
+            rc="$(cat "$saida/$n.rc" 2>/dev/null || echo 1)"
+            if [ "$rc" != "0" ]; then
+              falhas+=("$f")
+              echo "::error::$f REPROVOU"
+            fi
+          done
+
           passaram=$((rodados - ${#falhas[@]}))
-          echo "Oráculos em Chromium: $passaram/$rodados passaram." | tee -a "$GITHUB_STEP_SUMMARY"
+          echo "Oráculos em Chromium: $passaram/$rodados passaram (em $PARALELO processos)." | tee -a "$GITHUB_STEP_SUMMARY"
           if [ ${#falhas[@]} -eq 0 ]; then exit 0; fi
           printf 'REPROVOU: %s\n' "${falhas[@]}" | tee -a "$GITHUB_STEP_SUMMARY"
           # A VÁLVULA, e ela ASSINA. O placar e os `::error::` acima já saíram —

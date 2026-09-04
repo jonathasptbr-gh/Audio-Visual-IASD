@@ -40,6 +40,7 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
+import { checar, falhas } from './checar.mjs';
 
 const raiz = join(dirname(fileURLToPath(import.meta.url)), '..');
 const SRC = join(raiz, 'app/src/main/assets/web/controle/cifra.js');
@@ -52,12 +53,6 @@ const janela = {};
 new Function(readFileSync(SRC, 'utf8')).call(janela);
 const C = janela.AVCifra;
 
-const falhas = [];
-function checar(cond, nome, extra) {
-  if (cond) { console.log('  ok   ' + nome); return; }
-  falhas.push(nome);
-  console.log('  FALHA ' + nome + (extra === undefined ? '' : '  → ' + JSON.stringify(extra)));
-}
 function secao(t) { console.log('\n' + t); }
 
 checar(!!C, 'o módulo publica AVCifra');
@@ -418,7 +413,7 @@ secao('9. quebrarPares');
 // sentidos: uma abertura curta demais faz a folha fugir do começo antes de
 // alguém lê-lo, e um fecho curto demais entrega o último acorde depois de ele
 // ter passado — nos dois casos a rolagem continua funcionando, bonita e inútil.
-secao('10. janelaDeRolagem / fracaoDaRolagem');
+secao('10. janelaDeRolagem / fracaoDaRolagem / ritmoDaRolagem');
 {
   // O CASO NORMAL: um hino de 4 min. Abertura e fecho batem nos TETOS, porque é
   // aí que a fração pura passaria do razoável.
@@ -468,6 +463,98 @@ secao('10. janelaDeRolagem / fracaoDaRolagem');
     const f = C.fracaoDaRolagem(t, d);
     checar(f === esperado, 'fracaoDaRolagem(' + t + ', ' + d + ') = ' + esperado, f);
   }
+
+  // ===== O RITMO (v1.5.6): a MESMA janela, lida como velocidade =====
+  //
+  // O `auto` deixou de ser a POSIÇÃO da música e virou um px/s tirado da duração
+  // dela — a folha integra o relógio de parede a partir de onde está. Pedido do
+  // operador: *"que ele não siga o tempo da música atual em exibição … siga o
+  // progresso levando em conta: o tempo total da música e a posição atual do
+  // scroll"*.
+  //
+  // A PROPRIEDADE QUE AMARRA AS DUAS REGRAS, e é ela que prova que o FECHO
+  // sobreviveu à troca: partindo do topo com a música no zero, o ritmo leva a
+  // folha ao fim no MESMO instante em que a função posicional a levava — `t1`.
+  // O que mudou é de onde ela parte e o que a interrompe, não quanto ela demora.
+  for (const d of [40, 120, 240, 360]) {
+    const w = C.janelaDeRolagem(d);
+    const px = 1234;
+    const r = C.ritmoDaRolagem(px, d);
+    const chegaEm = w.t0 + px / r;   // o instante em que a última linha entra
+    checar(Math.abs(chegaEm - w.t1) < 1e-6,
+      'em ' + d + ' s a folha chega ao fim no MESMO instante da regra antiga (o '
+      + 'FECHO sobreviveu)', { chegaEm, t1: w.t1 });
+  }
+
+  // ZERO É RESPOSTA, NÃO FALHA: quem chama cai no ritmo fixo do modo livre, e é
+  // o desfecho certo dos três casos em que não há de onde tirar um ritmo.
+  for (const [px, d, nome] of [
+    [0, 240, 'folha que cabe inteira na tela'],
+    [1000, 0, 'item sem duração'],
+    [1000, NaN, 'duração que não é número'],
+  ]) {
+    checar(C.ritmoDaRolagem(px, d) === 0, 'ritmo 0 para ' + nome, C.ritmoDaRolagem(px, d));
+  }
+
+  // E ELE É PROPORCIONAL AO PERCURSO: a mesma música, uma folha duas vezes mais
+  // longa, o dobro do px/s — o tempo de leitura é o da música, não o da folha.
+  checar(Math.abs(C.ritmoDaRolagem(2000, 240) - 2 * C.ritmoDaRolagem(1000, 240)) < 1e-9,
+    'o ritmo é proporcional ao percurso: a folha longa desce mais rápido, e as '
+    + 'duas terminam no mesmo instante');
+}
+
+// ── 10.5. esperaInicialDaRolagem: LER ANTES DE ROLAR ─────────────────────────
+//
+// Pedido do operador: *"o sistema de rolagem automática de cifra não está
+// sendo parado no início para permitir ler e executar a introdução da música
+// durante um instrumental… o objetivo não é ter a linha a ser lida no topo,
+// mas no centro. Desse modo, o sistema deve esperar o usuário 'ler até chegar
+// no ponto médio' antes de se preocupar em mover automaticamente."*
+secao('10.5. esperaInicialDaRolagem');
+{
+  // ZERO É RESPOSTA, NÃO FALHA — os mesmos três desfechos do `ritmoDaRolagem`:
+  // sem pxPorS ou sem altura não há "quanto tempo até o meio?" para responder.
+  for (const [altura, pxPorS, nome] of [
+    [0, 22, 'caixa sem altura'],
+    [500, 0, 'pxPorS zero (nada rolável, o caso mais comum)'],
+    [500, -5, 'pxPorS negativo'],
+    [500, NaN, 'pxPorS que não é número'],
+    [NaN, 22, 'altura que não é número'],
+    [-100, 22, 'altura negativa'],
+  ]) {
+    checar(C.esperaInicialDaRolagem(altura, pxPorS) === 0,
+      'espera 0 para ' + nome, C.esperaInicialDaRolagem(altura, pxPorS));
+  }
+
+  // O CASO NORMAL: a fórmula é `(altura / 2) / pxPorS`, em MILISSEGUNDOS.
+  // 600px de caixa a 40 px/s: 300/40 = 7,5 s — dentro do piso e do teto.
+  const msNormal = C.esperaInicialDaRolagem(600, 40);
+  checar(Math.abs(msNormal - 7500) < 1, 'bate com (altura/2)/pxPorS em segundos, '
+    + 'convertido para ms', msNormal);
+
+  // O PISO: uma caixa baixa ou um ritmo rápido dariam uma espera imperceptível
+  // sem ele — 100px a 200 px/s seriam só 0,25 s.
+  const msPiso = C.esperaInicialDaRolagem(100, 200);
+  checar(msPiso === 2000, 'o piso segura em 2 s mesmo quando a conta dá menos',
+    msPiso);
+
+  // O TETO: uma caixa alta ou um ritmo lento prenderiam a folha por tempo
+  // demais — 2000px a 10 px/s dariam 100 s sem ele.
+  const msTeto = C.esperaInicialDaRolagem(2000, 10);
+  checar(msTeto === 8000, 'o teto segura em 8 s mesmo quando a conta dá mais',
+    msTeto);
+
+  // MONOTONIA: mais altura pede mais espera (mais para ler); mais ritmo pede
+  // menos (o mesmo trecho se lê mais rápido no compasso que a folha vai usar)
+  // — dentro da faixa em que nem piso nem teto travam a conta.
+  checar(C.esperaInicialDaRolagem(800, 40) > C.esperaInicialDaRolagem(400, 40),
+    'mais altura de caixa pede mais espera, para a mesma velocidade');
+  checar(C.esperaInicialDaRolagem(600, 20) > C.esperaInicialDaRolagem(600, 60),
+    'mais pxPorS pede menos espera — o mesmo trecho lido mais rápido');
+
+  // Exportada no mesmo objeto das irmãs — é assim que `controle.js` a alcança.
+  checar(typeof C.esperaInicialDaRolagem === 'function',
+    'esperaInicialDaRolagem está exportada ao lado de janelaDeRolagem/ritmoDaRolagem');
 }
 
 // ── 11. A BUSCA ESCOLHE POR PARENTESCO, NÃO POR POSIÇÃO ─────────────────────

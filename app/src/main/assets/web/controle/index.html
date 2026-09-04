@@ -319,19 +319,10 @@
       <path d="M16 6.25h3.4a1.6 1.6 0 0 1 1.6 1.6v2.9a1.6 1.6 0 0 1-1.6 1.6H12"/>
       <rect x="10" y="12.35" width="4" height="8.15" rx="1.4"/>
     </symbol>
-    <!-- MEDIÇÃO DE ALCANCE: as BARRAS de um gráfico, e a versão RISCADA. O
-         assunto é uma CONTAGEM — quantos aparelhos usaram o app —, e barras
-         dizem contagem sem dizer nem rede nem transmissão, que são o que as
-         ondas do `icoCast` já significam nesta mesma base. -->
-    <symbol id="icoMedicao" viewBox="0 0 24 24">
-      <path d="M5 20V13.5"/><path d="M12 20V6.5"/><path d="M19 20v-9.5"/>
-      <path d="M3 20h18"/>
-    </symbol>
-    <symbol id="icoMedicaoOff" viewBox="0 0 24 24">
-      <path d="M5 20V13.5"/><path d="M12 20v-6"/><path d="M19 20v-4"/>
-      <path d="M3 20h18"/>
-      <path d="M3.5 4 20.5 15"/>
-    </symbol>
+    <!-- (`icoMedicao`/`icoMedicaoOff` saíram na v1.4.42 com o sistema de
+         exclusão da contagem de uso. Um `<symbol>` sem consumidor não erra
+         alto — ele viaja no bundle do OTA em todo aparelho e não desenha nada
+         em lugar nenhum —, e este arquivo apaga o desenho junto com o recurso.) -->
     <!-- OS DOIS MODOS DO APP, no seletor em destaque. A diferença entre eles é
          a DENSIDADE de controles, e é isso que os dois desenhos mostram: o
          Fácil é uma tecla grande sozinha, o Avançado é a mesa de som (três
@@ -479,7 +470,7 @@
              mídia do telão obrigava a ir ao modo avançado — e é justamente o
              que se faz no fim de cada louvor. O glifo é estático porque ele não
              tem estado: aciona o `#stop` de sempre por `.click()`. -->
-        <button type="button" id="simpleStop" class="simple-key simple-key--big" title="Parar e limpar"><span class="msym" aria-hidden="true">&#xe047;</span></button>
+        <button type="button" id="simpleStop" class="simple-key simple-key--big" title="Parar e limpar"><span class="msym" aria-hidden="true">&#xe047;</span><span class="simple-key-label simple-key-label--parar">Parar</span></button>
         <button type="button" id="simpleMute" class="simple-key simple-key--big" title="Mutar"><span class="msym" aria-hidden="true">&#xe050;</span></button>
       </div>
       <!-- AS PÁGINAS DA APRESENTAÇÃO (v1.4.30), a pedido do operador. Só
@@ -492,6 +483,19 @@
            no meio. Este modo é "teclas grandes, nada de arrastar", e a linha de
            volume é a forma já provada disso — o número no meio responde "onde
            estou?" sem exigir mira, que é o que a página precisa responder.
+
+           E POR ISSO AS DUAS NUNCA COEXISTEM (v1.5.14). Relato do operador:
+           *"no modo de slides fica bem estranha"*. MEDIDO: com um deck no ar a
+           tela empilhava TRÊS fileiras de 76px — play/parar/mudo, páginas e
+           volume —, e as duas de baixo eram a MESMA peça (mesmo grid, mesma
+           altura, a mesma classe `.simple-key--vol` e o mesmo nó de mostrador),
+           distinguidas só por um rótulo de .6rem em `--muted`, o elemento
+           tipográfico mais fraco de uma tela feita para quem está de pé.
+           Pior que a repetição: SEIS das nove teclas não agiam sobre nada. Com
+           um deck no ar não há áudio (é a regra do "um elemento no ar", da
+           v1.4.32), então play, mudo e a linha inteira de volume governavam o
+           silêncio. Agora a área de controle mostra o transporte DA CENA: com
+           uma apresentação sobram o "Parar" e as páginas, e mais nada.
 
            O toque numa MINIATURA da zona de leitura pula direto para ela (o
            mesmo `deckIr`); estas teclas são o passo a passo, que é o gesto do
@@ -667,6 +671,42 @@
            administra a altura aqui é o painel ativo, não a rolagem da lista. -->
       <div id="toolsBody" class="tools-body lib-misc"></div>
     </div>
+    <!-- ===== A BÍBLIA É UMA FOLHA DO CRONOGRAMA (v1.5.0) =====
+         Pedido do operador: *"agora o cronograma vai ser a tela padrão e única
+         … a bíblia vai ser uma janela igual o que é hoje a seção de
+         ferramentas, no mesmo molde"*.
+
+         Ela era uma ABA — a segunda e última tela da lista —, e com a faixa de
+         abas dando lugar à barra de busca da Biblioteca não sobrou onde pôr a
+         porta dela. O molde é o do `#toolsSheet` ao lado, verbatim: mesma
+         geometria, mesma entrada, mesma saída. O que ela tem a mais é o VOLTAR,
+         porque a Bíblia tem navegação DENTRO dela (livros → capítulos →
+         leitura) — e é aqui que ele mora agora, não mais no cabeçalho da tela:
+         o cabeçalho voltou a dizer só "Cronograma", que é o único lugar que
+         existe.
+
+         `activeTab` CONTINUA sendo o estado, com os mesmos dois valores de
+         sempre — o que mudou é ONDE o valor `'bible'` é pintado. Trocá-lo por
+         um booleano novo faria as ~15 guardas `activeTab === 'bible'`
+         espalhadas pelo arquivo (o download da versão, o realce do versículo no
+         ar, o redesenho quando a leitura chega) apontarem para um estado que
+         ninguém mais escreve. -->
+    <div id="bibleSheet" class="tools-sheet" hidden>
+      <div class="tools-head">
+        <!-- O VOLTAR DA BÍBLIA. Ele morava no cabeçalho da tela (`#backBtn`) e
+             veio junto com ela: um voltar na faixa do app apontando para dentro
+             de uma folha é o botão do app dizendo que a folha É o app. -->
+        <button id="bibleBack" class="back-btn" type="button" title="Voltar" aria-label="Voltar" hidden><span class="msym" aria-hidden="true">&#xe5c4;</span></button>
+        <span class="tools-title" id="bibleTitle">Bíblia</span>
+        <button id="bibleClose" class="popup-close" type="button" title="Fechar" aria-label="Fechar"><span class="msym" aria-hidden="true">&#xe14c;</span></button>
+      </div>
+      <!-- O HOST da Bíblia. Ela desenhava dentro do `#library` — o mesmo `<ul>`
+           do Cronograma —, e é por isso que `renderLibrary` tinha um desvio por
+           aba no topo. Com host próprio, as duas listas deixam de disputar um
+           nó: o Cronograma continua desenhado por baixo, e é isso que faz a
+           folha ser uma folha. -->
+      <div id="bibleBody" class="tools-body"></div>
+    </div>
     </div>
     <!-- Seletor de arquivos: mora aqui, solto, e é MOVIDO para dentro da
          linha "Importar arquivos" do rodapé a cada render (ver
@@ -679,68 +719,16 @@
 
   <!-- controles multimídia fixados na base -->
   <footer class="bottombar">
-    <!-- A FAIXA DE ABAS mora aqui dentro, no alto da caixa de controles (v5.54).
-       Ela era o último elemento do `<main>` e flutuava sobre o fundo do app,
-       encostada na caixa de controles mas separada dela por dois espaços
-       (o padding de baixo do main + o de cima da barra) e por um degrau de
-       cor — duas superfícies distintas para duas coisas que o polegar usa no
-       mesmo movimento. Dentro da barra elas viram UM bloco: mesma cor de
-       fundo, mesma borda de cima, mesma sombra, e o trilho do segmentado
-       ganha a mesma superfície dos botões de transporte logo abaixo.
-       SEM aba de Álbuns desde a v5.44: o acervo (categorias, pílulas e
-       cards) é o estado padrão da busca, e a aba virou um segundo caminho
-       para a mesma tela. Duas portas para o mesmo lugar, numa barra de
-       quatro botões, é espaço gasto sem informação nova. -->
-  <div class="tabs">
-    <!-- O VAZADO da aba ativa é este elemento, não o fundo do botão: como ele é
-         um só, ele pode DESLIZAR de uma aba para a outra em vez de piscar de
-         lugar (ver `moveTabIndicator` em controle.js, que mede a célula ativa e
-         escreve `--tab-x`/`--tab-w`). Os botões ficam por cima, todos
-         transparentes; o que muda no ativo é a cor do ícone. -->
-    <span class="tab-ind" aria-hidden="true"></span>
-    <!-- A aba é um RELÓGIO (v5.200), e antes disso foi uma agenda (`event_note`,
-         v5.110) e uma pilha de fotos (`photo_library`). A família do TEMPO é o
-         que separa esta lista da PLAYLIST em todo o app — mas quem dizia isso
-         era só o `more_time` dos botões "Adicionar ao Cronograma" (um relógio
-         com "+", ver ICON.cronoAdd em controle.js). A aba respondia com uma
-         agenda: mesma ideia, outro desenho, e o operador tinha de ligar os dois
-         sozinho. Agora é o MESMO mostrador; o "+" fica de fora porque aqui não
-         há ação nenhuma — a aba é um lugar, não um acréscimo.
+    <!-- ===== O LUGAR DA BARRA DA BIBLIOTECA (v1.5.2) =====
+         Ela MORA na janela (`#hymnSearchPopup`) — é a cabeça dela, e é por isso
+         que sobe junto —, mas o LUGAR de repouso dela é aqui, no topo desta
+         caixa, onde a faixa de abas ficava. Quem o reserva é o `padding-top` da
+         `.bottombar` (`--lib-bar-h`, medido em runtime), e é a borda de cima
+         desta caixa que o JS lê para saber até onde descer a janela.
 
-         SVG INLINE, e não um glifo: `schedule` (U+E8B5) não está no subset de
-         `shared/fonts/material-symbols.woff2` (31 codepoints), e um codepoint
-         ausente é um retângulo vazio na barra de navegação. É a mesma razão e a
-         mesma solução da aba da Bíblia, logo abaixo. Traço 2 e 22px, como ela. -->
-    <button class="tab active" data-tab="imports" title="Cronograma">
-      <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-        <circle cx="12" cy="12" r="9"/>
-        <path d="M12 7v5.2l3.4 2"/>
-      </svg>
-    </button>
-    <button class="tab" data-tab="bible" title="Bíblia">
-      <!-- Ícone de Bíblia (SVG inline, fora do subset da fonte): livro aberto
-           com uma cruz — distingue a aba de textos bíblicos das demais. -->
-      <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-        <path d="M4 4.5A1.5 1.5 0 0 1 5.5 3H19v15H5.5A1.5 1.5 0 0 0 4 19.5z"/>
-        <path d="M4 19.5A1.5 1.5 0 0 0 5.5 21H19"/>
-        <line x1="11.5" y1="6.4" x2="11.5" y2="11.6"/>
-        <line x1="9.2" y1="8.4" x2="13.8" y2="8.4"/>
-      </svg>
-    </button>
-    <!-- (A ABA DE FERRAMENTAS SAIU DAQUI na v1.3.10, a pedido do operador:
-         "deixe na barra de abas apenas o cronograma, a bíblia e a busca na
-         biblioteca". Ela virou uma FOLHA do Cronograma — ver `#toolsSheet` —,
-         aberta pelo botão ao lado de "Importar arquivos". A faixa voltou a ter
-         só os dois LUGARES do culto mais a porta da Biblioteca.) -->
-    <!-- A ÚNICA porta do acervo desde a v5.44 (a aba de Álbuns saiu): abre
-         no navegador de coleções e vira busca ao digitar. -->
-    <button class="tab-add" id="hymnSearchBtn" title="Biblioteca: hinários, álbuns, séries e busca">
-      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-        <circle cx="11" cy="11" r="7"/>
-        <line x1="21" y1="21" x2="16.65" y2="16.65"/>
-      </svg>
-    </button>
-  </div>
+         SEM ELEMENTO FANTASMA de propósito: um `<div>` vazio só para marcar o
+         lugar seria um segundo dono da mesma medida, e ele divergiria da barra
+         no primeiro ajuste de padding. O padding reserva e a borda mede. -->
 
   <!-- selbar substitui as abas durante a seleção múltipla -->
   <div id="selbar" class="selbar" hidden>
@@ -917,19 +905,39 @@
                permanente: enquanto ele está lá, há duas camadas; sumindo, há
                uma só, e o Parar volta a ser a resposta certa.
 
-               ELE MORA NO TOPO, AO CENTRO (v1.3.5). Ele ocupava o canto
-               superior esquerdo, e aquela lateral passou a ser a COLUNA DE
-               OPERAÇÃO (letra, cortina, mudo) — um selo vermelho no topo
-               daquela pilha leria como mais um controle dela, que é
-               exatamente o que ele não é. No centro ele não faz coluna com
-               ninguém: é a única coisa que aparece ali, e aparecer já é
-               metade da mensagem.
+               ELE MORA NA BASE, AO CENTRO (v1.3.10 — era o topo desde a
+               v1.3.5, e o canto superior esquerdo antes disso). Ele ocupava
+               aquela lateral, que passou a ser a COLUNA DE OPERAÇÃO (letra,
+               cortina, mudo) — um selo vermelho no topo daquela pilha leria
+               como mais um controle dela, que é exatamente o que ele não é. No
+               centro ele não faz coluna com ninguém, e aparecer já é metade da
+               mensagem.
 
                O ÍCONE MOSTRA O ESTADO; O RÓTULO, A AÇÃO — a mesma regra dos
                botões da notificação de mídia. O desenho é a pilha de camadas
                (o que está acontecendo) e o `title` diz o que o toque faz.
                Vermelho `--live` porque é o vermelho de "está no ar agora"
                deste app, e a camada de cima é justamente isso. -->
+          <!-- ===== A BASE DA PREVIEW É A REGIÃO DO QUE ESTÁ FORA DO PADRÃO =====
+               Pedido do operador (v1.4.43): *"atualize o local onde hoje
+               sobrepomos o icone de remover camada na preview. essa região
+               inferior no centro da preview vai ser uma região flexível que vai
+               conter elementos passageiros"*.
+
+               O QUE ENTRA AQUI TEM UMA FORMA SÓ: alguma coisa saiu do padrão
+               AGORA, e o toque a desfaz. Não é uma barra de ferramentas — é o
+               contrário dela: as três lateriais OPERAM a cena e estão sempre
+               lá; estas aparecem porque há o que desfazer e somem quando não
+               há. É por isso que a faixa é `justify-content: center` e não uma
+               coluna: ela é uma FILA de zero, um ou dois itens, e o centro é o
+               único alinhamento que não promete um lugar fixo a ninguém.
+
+               DOIS HOJE, e a ordem é a do peso: a camada de cima (que está no
+               ar, e é vermelha) antes do giro (que é uma preferência de
+               enquadramento, e é denim). Item novo entra aqui e em
+               `renderCamadaBtn`/`renderRotBtn` — quem os mostra é o render do
+               ESTADO que eles desfazem, nunca um render próprio, senão o botão
+               sobrevive ao fato que ele nomeia. -->
           <div class="pv-fabs pv-fabs--base">
             <button id="pvCamadaBtn" class="pv-fab pv-fab--camada" type="button"
                     title="Encerrar a camada de cima" aria-label="Encerrar a camada de cima" hidden>
@@ -950,6 +958,60 @@
                 <path d="m16.4 16.4 5.1 5.1"/>
                 <path d="m21.5 16.4-5.1 5.1"/>
               </svg>
+            </button>
+            <!-- ===== O GIRO DO TELÃO, DESFEITO DE ONDE ELE APARECE (v1.4.43) =====
+                 Pedido do operador: *"agora quando o giro do telão estiver
+                 diferente de 0, adicione um botão ali nessa região para cancelar
+                 essa modificação, permitindo voltar a posição padrão"*.
+
+                 O giro é a única preferência do app que muda a projeção e NÃO
+                 tem porta de volta onde se vê o efeito: aplicá-lo é um toque no
+                 tile de Configurações, e desfazê-lo eram TRÊS — o mesmo tile
+                 cicla 90° por vez, então voltar de 90° custa abrir a folha e
+                 tocar três vezes, olhando para a folha e não para a projeção.
+                 Aqui ele volta ao padrão num toque, com a preview à vista.
+
+                 ELE FALA A LÍNGUA DO VIZINHO (v1.4.45), a pedido: *"ele deve ser
+                 vermelho e ter em seu design o 'x' indicando que o toque destroi
+                 tal configuração atual"*.
+
+                 A v1.4.43 o pintou de DENIM, com o argumento de que vermelho
+                 neste app quer dizer "está no ar agora" e a camada de cima já
+                 ocupava esse papel na mesma faixa. **O argumento lia o token
+                 estreito demais.** O que o `--stage-alert` do selo de camadas
+                 diz não é "no ar": é *"o toque daqui TIRA alguma coisa"* — e a
+                 faixa inteira é, por definição, a região do que está fora do
+                 padrão e o toque desfaz. Dois moradores com a mesma promessa
+                 pintados de cores diferentes ensinavam que a cor ali significa
+                 outra coisa, e não significa.
+
+                 ENTÃO O QUE OS SEPARA É O DESENHO, que é a regra de sempre: o
+                 ÍCONE mostra o ESTADO (uma pilha de folhas · uma seta de giro) e
+                 o ✕ diz o que o toque FAZ. O ✕ é o MESMO — os dois `<path>`
+                 verbatim do vizinho, e não um parecido: é a mesma marca de
+                 destruição, e um ✕ redesenhado dois pixels adiante é uma segunda
+                 opinião sobre a mesma coisa.
+
+                 A SETA ENCOLHEU para o ✕ caber. Ela era o `#icoGirar` do tile de
+                 Configurações (arco de raio 8 no centro da caixa, ocupando 4→20);
+                 aqui ela é o mesmo desenho a 0,75 em torno de (10,10), ocupando
+                 4→16 — o canto inferior direito, de 16,4 a 21,5, é do ✕. Por
+                 isso ela é INLINE e não um `<use>`: o símbolo do sprite é o do
+                 tile, e o dia em que um deles mudar de forma o outro não pode ir
+                 junto. O vizinho é inline pela mesma razão.
+
+                 E O NÚMERO FICA. Ele é o ESTADO (*está a 90°*), o ✕ é a AÇÃO, e
+                 sem ele a faixa teria duas marcas vermelhas de destruição sem
+                 dizer o que cada uma destrói. -->
+            <button id="pvGiroBtn" class="pv-fab pv-fab--giro" type="button"
+                    title="Desfazer o giro do telão" aria-label="Desfazer o giro do telão" hidden>
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M4 10a6 6 0 1 1 1.7 4.2"/>
+                <polyline points="4 6.3 4 10 7.8 10"/>
+                <path d="m16.4 16.4 5.1 5.1"/>
+                <path d="m21.5 16.4-5.1 5.1"/>
+              </svg>
+              <span class="pv-fab-num" id="pvGiroNum">0°</span>
             </button>
           </div>
           <!-- ===== A COLUNA DE OPERAÇÃO (v1.3.5) =====
@@ -1116,8 +1178,14 @@
              slide — a coluna da tela cheia e a notificação. -->
         <button id="prev" class="t-btn" title="Mídia anterior"><span class="msym" aria-hidden="true">&#xe045;</span></button>
         <button id="playpause" class="t-btn" title="Play/Pause"><span class="msym" aria-hidden="true">&#xe037;</span></button>
-        <button id="stop" class="t-btn" title="Parar e limpar"><span class="msym" aria-hidden="true">&#xe047;</span></button>
         <button id="next" class="t-btn" title="Próxima mídia"><span class="msym" aria-hidden="true">&#xe044;</span></button>
+        <!-- O PARAR VEM DEPOIS DO ⏭ (v1.5.6, pedido do operador: *"coloque o
+             stop após o 'próxima música'"*). Ele estava ENTRE o ▶ e o ⏭, isto é,
+             no meio do trio de navegação — o dedo que vai do play para a próxima
+             passa por cima do único botão da fileira que ENCERRA a cena. Fora do
+             trio, ⏮ ▶ ⏭ ficam contíguos e o parar é o fim da linha, que é onde
+             uma ação de encerramento se lê. -->
+        <button id="stop" class="t-btn" title="Parar e limpar"><span class="msym" aria-hidden="true">&#xe047;</span></button>
       </div>
 
       <!-- ===== A COLUNA DA DIREITA, EM DUAS PEÇAS SOLTAS (v1.3.8) =====
@@ -1377,24 +1445,35 @@
              valiam só para a sessão. É a primeira linha da folha porque é a
              decisão mais larga que ela contém: ela troca a tela inteira.
 
-             ELE CONTINUA SENDO UM SEGMENTADO (v1.4.38), e é o único da folha.
-             O pedido foi manter o modo "em destaque" e atualizar o desenho
-             dele para o do painel rápido — não transformá-lo num tile. A
-             diferença é real e é a razão de o resto ter virado grade: os
-             outros seis alternam entre dois estados EQUIVALENTES e voltam com
-             um toque; este troca a tela inteira e fecha a folha, e um toque
-             por engano num tile de 106px custa a viagem de volta no meio do
-             culto. Duas opções à vista, cada uma com o próprio ícone, dizem
-             qual está em vigor sem depender de memória.
+             ELE VIROU UM INTERRUPTOR QUE DESLIZA (v1.4.43), a pedido do
+             operador: *"simplifique o design do agrupamento e botões de fácil e
+             avançado, eles estão com muitas camadas e tons de grupos. faça eles
+             do tipo toggle onde ele desliza de um lado para o outro, assim
+             deixando mais claro que está alternando de um para o outro"*.
 
-             O DESENHO É O DO PAINEL: cada opção é ícone em cima, palavra
-             embaixo — a mesma anatomia dos tiles logo abaixo —, e a escolhida
-             veste `--accent-fill` (ESCOLHA ENTRE ALTERNATIVAS, e não o
-             `--btn-accent` de interruptor: aqui uma das duas está sempre em
-             vigor, e nenhuma delas é "o padrão mexido"). -->
-        <div class="fade-row fade-row--fit fade-row--destaque">
+             ERAM QUATRO TONS EMPILHADOS para uma escolha de duas posições: a
+             folha (`--panel`), o cartão em destaque (`--camada`, isto é
+             `--panel-2`), a superfície afundada de cada botão (`--surface`) e o
+             `--accent-fill` do escolhido. Hoje são DOIS — o trilho e o polegar:
+             o cartão saiu (o rótulo "Modo do app" ficou como a legenda solta
+             que ele sempre foi) e os botões perderam o fundo próprio.
+
+             O POLEGAR É UM `::before` DO TRILHO, e não uma terceira caixa no
+             HTML: ele desliza por `transform`, que é o que o compositor anima
+             sem tocar no layout — e é o deslize que diz *"isto ALTERNA"*, que
+             era o pedido. Ele mede exatamente metade do trilho menos o respiro,
+             então `translateX(100%)` o encaixa na outra metade sem nenhuma
+             conta em runtime (ver `.qs-modo` no CSS).
+
+             O ESTADO VIVE NO `data-modo` do trilho, escrito por
+             `renderAppModeSeg` — a mesma disciplina do `data-estado` dos tiles:
+             a classe é aparência, o atributo é o valor em vigor, e é por ele
+             que o CSS e os oráculos perguntam. Os dois botões continuam sendo
+             `.fit-opt[data-mode]` porque é assim que o resto do app e os
+             oráculos os alcançam; o que eles perderam foi o fundo próprio. -->
+        <div class="fade-row fade-row--fit fade-row--modo">
           <span>Modo do app</span>
-          <div class="fit-seg fit-seg--grande" id="appModeSeg">
+          <div class="fit-seg qs-modo" id="appModeSeg" data-modo="full">
             <button type="button" class="fit-opt" data-mode="simple">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoModoFacil"/></svg>
               <span>Fácil</span>
@@ -1571,64 +1650,55 @@
         <button id="openDisplayBtn" class="display-status" hidden>
           <span class="msym" aria-hidden="true">&#xe251;</span> <span id="displayStatusText">Telão</span>
         </button>
-        <!-- Versão da base web (e do shell, no app). Morava no cabeçalho da
-             lista, ao lado do título do Cronograma; veio para cá porque é
-             METADADO de diagnóstico e o lugar onde se procura diagnóstico é
-             junto do estado do telão e do alvo de espelhamento, não numa faixa
-             de navegação. Preenchido por `renderVersionLabel`. -->
-        <!-- ===== A VERSÃO E O REGISTRO DIVIDEM A LINHA =====
-             O Registro tinha uma `.fade-row` inteira para um rótulo e um botão
-             de 16px, com o meio vazio — e a versão tinha outra linha só para
-             si, centrada. As duas dizem a MESMA coisa ("o que eu preciso para
-             pedir ajuda"), e agora ocupam a mesma faixa: a versão à esquerda, o
-             Registro à direita, no espaço que já estava sobrando. -->
+        <!-- ===== O RODAPÉ É UMA BARRA SÓ (v1.4.44) =====
+             Pedido do operador: *"no rodapé de versão e etc… ficou duas seções,
+             a versão e o registro em grupos separados. pode deixar tudo em uma
+             barra horizontal única"*.
+
+             A v1.4.43 já tinha unificado o DESENHO (mesma altura, mesmo raio,
+             mesma superfície, mesma fonte) e parou no meio: duas pastilhas com
+             um vão entre elas ainda se leem como dois assuntos, e o assunto é
+             UM — *"que versão eu tenho, e o que eu mando para quem vai me
+             ajudar?"*. Agora a superfície é a FAIXA, e o que mora dentro dela é
+             texto e um alvo: a versão à esquerda (o fato), o Registro à direita
+             (o rótulo e a ação).
+
+             O COPIAR SAIU (v1.4.44), a pedido: *"pode remover o sistema de
+             copiar registro. o registro está cada vez maior e mais completo e
+             acaba por ele ficar longo de mais para compartilhar via chat de
+             texto"*. A área de transferência era o caminho que CORTA o texto no
+             meio sem avisar — foi o relato que criou o salvar em arquivo na
+             v1.2.16 —, e o Registro só cresceu desde então. Fica a porta que não
+             corta.
+
+             CONSEQUÊNCIA DECLARADA: num NAVEGADOR o rodapé não tem mais como
+             exportar o Registro (o salvar depende da ponte, e é `hidden` fora do
+             app — quem o revela é `renderVersionLabel`). É o certo: o Registro
+             descreve um culto num aparelho, e no navegador metade dos blocos
+             dele nem existe. O rótulo acompanha o botão pelo mesmo motivo — uma
+             palavra sozinha, sem alvo ao lado, é um controle que não existe.
+
+             O `copiarTexto`, o `.log-copy` e o `#icoCopiar` FICAM: quem os usa
+             agora é o `#castUrlCopy`, o endereço da transmissão — que é curto,
+             é para digitar noutro aparelho, e é o caso em que a área de
+             transferência é exatamente a ferramenta certa. -->
         <div class="footer-diag">
-          <span id="appVersion" class="app-version">Controle v1.4.41</span>
-          <span class="footer-diag-rot">Registro</span>
+          <!-- Versão da base web (e do shell, no app). Morava no cabeçalho da
+               lista, ao lado do título do Cronograma; veio para cá porque é
+               METADADO de diagnóstico e o lugar onde se procura diagnóstico é
+               junto do estado do telão e do alvo de espelhamento, não numa faixa
+               de navegação. Preenchido por `renderVersionLabel`. -->
+          <span id="appVersion" class="app-version">Controle v1.6.0</span>
           <!-- SALVAR EM ARQUIVO (v1.2.16). Com o acervo inteiro varrido o
-               Registro passa de setenta linhas só na seção de cifras, e copiar
-               e colar é o caminho que corta o texto no meio SEM AVISAR — foi o
-               relato que abriu este lote. Um arquivo não corta. Fica ao lado do
-               copiar porque os dois respondem à mesma intenção ("levar isto
-               para fora"); `hidden` fora do app, onde não há ponte para gravar
-               (quem o revela é `renderVersionLabel`). -->
+               Registro passa de setenta linhas só na seção de cifras, e copiar e
+               colar é o caminho que corta o texto no meio SEM AVISAR — foi o
+               relato que abriu aquele lote. Um arquivo não corta. Desde a
+               v1.4.44 ele é a ÚNICA porta, e o rótulo viaja com ele. -->
+          <span class="footer-diag-rot" id="diagRot" hidden>Registro</span>
           <button id="diagSave" class="log-copy" title="Salvar o registro num arquivo" aria-label="Salvar o registro num arquivo" hidden>
             <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoSalvar"/></svg>
           </button>
-          <button id="diagCopy" class="log-copy" title="Copiar o registro" aria-label="Copiar o registro">
-            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoCopiar"/></svg>
-          </button>
         </div>
-        <!-- ===== ESTE APARELHO NA CONTAGEM DE USO (v1.4.1; aqui desde a v1.4.41) =====
-             O app conta, uma vez por dia, quantos APARELHOS o usaram — um
-             contador agregado, sem id, sem corpo e sem nada que distinga um
-             aparelho de outro (ver `Farol.kt`). O que esta linha resolve é o
-             único caso que o agregado não resolve sozinho: o aparelho de quem
-             DESENVOLVE o app roda o mesmo APK de Release que todos os outros, e
-             portanto não tem marca nenhuma. Só uma pessoa sabe, então é ela
-             quem marca.
-
-             "Fica de fora" NÃO É "não manda nada": o aparelho passa a contar
-             num contador SEPARADO. Isso é o desenho e não uma economia —
-             subtrair depois uma estimativa do próprio uso é como se produz um
-             painel confiável e falso.
-
-             ELA SAIU DA GRADE e veio para cá a pedido do operador, junto com a
-             ideia de a chave morar na página de alcance do site. **A página não
-             alcança o app**, e isso é por construção: são origens diferentes no
-             mesmo aparelho (o app serve de `appassets.androidplatform.net`, a
-             página de `github.io`), o armazenamento de uma não é lido pela
-             outra, e o app não tem intent-filter de URL — só MAIN e SEND. O
-             único caminho seria abrir uma porta de entrada EXPORTADA que troca
-             uma chave de privacidade, que é pior que a linha. O que a página
-             ganhou foi o interruptor do NAVEGADOR, que ela de fato controla.
-
-             O LUGAR É O RODAPÉ DO REGISTRO porque é a mesma natureza: metadado
-             de manutenção, lido e mexido por quem diagnostica, nunca durante um
-             culto. `hidden` fora do app (quem a revela é `renderFarolLinha`,
-             pelo MESMO caminho por que a pinta): num navegador não há farol
-             nenhum, e uma chave que não liga nada é pior que chave nenhuma. -->
-        <button id="farolRow" class="farol-row" hidden></button>
         <!-- A ATUALIZAÇÃO (v5.245). Ele mora ao lado do rótulo de versão
              porque é a MESMA conversa ("que versão eu tenho?" / "tem uma mais
              nova?"), e porque é ali que o operador já procura isso.
@@ -1892,6 +1962,26 @@
           <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoTexto"/></svg>
         </span>
         <span class="popup-title" id="lyricsPopupTitle">Letra</span>
+        <!-- TELA CHEIA EM PAISAGEM da cifra (v1.6.0). Um botão SÓ, alternador,
+             e ele mora no CABEÇALHO — não na barra da cifra: o cabeçalho é
+             ESTÁTICO (a barra é recriada a cada `renderLyricsView`, e escrever
+             num nó já desligado da árvore é o defeito que `lvBuildCifra`
+             documenta), tela cheia é um controle da FOLHA como o ✕ e o A+/A−,
+             e na coluna deitada ele é a PRIMEIRA linha — a saída no topo, onde
+             o `#fsExit` da preview já mora.
+
+             A ORDEM DAQUI É A ORDEM DA COLUNA: em paisagem o cabeçalho vira
+             `flex-direction: column`, então [⛶][A−][A+] cai de graça e não há
+             uma segunda ordem em `order:` para manter em dia.
+
+             SVG inline com os MESMOS `path` do `#pvFullBtn`/`#fsExit`: a fonte
+             de ícones é um subset de 31 codepoints e não tem glifo de tela
+             cheia — um `.msym` fora dela não desenha NADA, sem erro (ver
+             `tools/glifos.test.mjs`). E os dois desenhos são trocados por
+             `innerHTML` (`cifraPintarCheia`), nunca por um `<symbol>` com os
+             dois dentro: a folha do documento não atravessa a árvore-sombra de
+             um `<use>`, e o que sai são os DOIS empilhados para sempre. -->
+        <button type="button" id="cifraCheiaBtn" class="lv-cheia-btn" hidden></button>
         <!-- A+ / A− : o tamanho da letra, ajustado ONDE ela é lida. Ver
              `passoTamanhoDaLetra` — a escada é discreta, o valor é salvo e as
              DUAS casas (esta folha e a zona de letra do Modo Fácil) mostram o
@@ -1948,74 +2038,73 @@
 
   <!-- O ACERVO: hinários e álbuns por categoria, com as músicas de cada um
        dentro do próprio acordeão, e a busca por nome/número/trecho no mesmo
-       campo. Ocupa a TELA TODA (.popup-sheet--full): é a tela em que o
-       operador passa mais tempo antes do culto, e uma folha de 80% deixava
-       uma faixa morta no topo. -->
-  <div id="hymnSearchPopup" class="popup-backdrop popup-backdrop--full">
-    <div class="popup-sheet popup-sheet--full">
-      <!-- SEM CABEÇALHO (v5.280, decisão do operador: *"remova o título
-           'biblioteca'"*). Ele foi encolhendo por partes e chegou aqui vazio de
-           função: o "Baixar toda a biblioteca" e o peso total saíram na v5.258,
-           o ✕ desceu para a barra junto da busca no mesmo lote, e o ícone saiu
-           na v5.278. O que sobrava era uma faixa inteira para repetir o nome do
-           botão que abriu a tela — e a barra logo abaixo já diz o que ela é,
-           pela lupa e pelo placeholder.
+       campo. É a tela em que o operador passa mais tempo antes do culto. -->
+  <!-- ===== A BIBLIOTECA É UMA JANELA DE TELA CHEIA QUE SOBE DA BASE (v1.5.1) =====
+       Pedido do operador: *"ela não é restrita a zona do cronograma, ela é um
+       popup de tela inteira, ela surge da base da tela e vai levantando a barra
+       de buscas, de modo que a barra de buscas acabe no topo da biblioteca"*.
 
-           Com ele fora, a BARRA é o topo da folha, que é o que o pedido desta
-           versão quer dizer por "manter a barra de pesquisa no topo": ela não
-           precisa de mecanismo nenhum para isso, precisa de não ter nada em
-           cima dela e de a rolagem ser só da lista. -->
-      <!-- A BARRA VOLTOU AO TOPO (v5.275), decisão do operador: *"vamos fazer
-           um ajuste e colocar a barra de buscas da biblioteca no topo
-           novamente, ela na base está dando muitos problemas de design"*.
+       ELA NÃO É A FOLHA DAS FERRAMENTAS, e a diferença é o pedido da v1.5.0:
+       *"a janela da biblioteca não é igual as ferramentas, ela ocupa a tela
+       inteira e não apenas o corpo do cronograma"*. O `#toolsSheet` e o
+       `#bibleSheet` são filhos do `.list-body` e cobrem só a lista; esta é
+       `position: fixed` e cobre o app inteiro.
 
-           Ela desceu na v5.258 por um argumento de ALCANCE ("eles estão muito
-           longe do teclado e do toque de acesso") e passou quatro lotes
-           seguidos consertando o entorno: a folha que não via o teclado
-           (v5.261), o teclado que subia durante o fade (v5.264), o tom e a
-           sombra que faltavam (v5.266) e o degrau no tema claro (v5.270).
-           Quatro lotes em volta de uma posição são a posição dizendo que não
-           se paga — o mesmo veredito que a v5.263 deu à animação de slide.
+       ELA SOBE, e o movimento é `transform` e não `height`: altura anima no
+       layout (reflui a lista inteira a cada quadro) e `transform` anima no
+       compositor. O ponto de partida é `100% - a barra` — a janela fechada
+       deixa só a barra à vista, encostada na base — e o de chegada é
+       `translateY(0)`, com a barra parada no topo. Ver `.popup-sheet--lib`.
 
-           **No topo ela não tem entorno**: nada a empurra, nada a cobre, e ela
-           é o primeiro elemento sob o cabeçalho — que é onde o rótulo da tela
-           está e onde a lupa faz sentido. O que ela PERDE está dito: com o
-           teclado aberto o polegar percorre a tela inteira para corrigir a
-           busca. É a troca que o operador escolheu, sabendo dos dois lados.
+       (A v1.5.0 tentou o inverso: a barra parada na caixa de controles e a
+       janela subindo de trás dela até uma folga do topo. A folga anunciava
+       "isto é uma janela" e custava o campo de texto atrás do teclado, que é o
+       defeito que este lote existe para fechar.) -->
+  <div id="hymnSearchPopup" class="popup-backdrop popup-backdrop--lib">
+    <div class="popup-sheet popup-sheet--lib">
+      <!-- ===== A BARRA É A CABEÇA DA JANELA (v1.5.1) =====
+           Pedido do operador: *"ela surge da base da tela e vai levantando a
+           barra de buscas, de modo que a barra de buscas acabe no topo da
+           biblioteca. (isso resolve o problema que temos atualmente da caixa de
+           texto ficar escondida pelo teclado)"*.
 
-           O ✕ continua DEPOIS do campo: ele é o fim da linha em toda folha
-           deste app, e o cabeçalho ao lado não tem mais nenhum. -->
-      <div class="hymn-search-bar">
-        <!-- A LUPA DENTRO DO CAMPO (v5.264, pedido do operador: *"isso vai
-             indicar melhor o objetivo da barra"*). Ela é DECORAÇÃO — o toque
-             nela cai no campo (`pointer-events: none` no CSS), porque um ícone
-             que engole o toque no meio de um campo de texto é um ponto morto
-             exatamente onde o dedo mira. Referencia o mesmo `#icoLupa` do botão
-             de pesquisar no YouTube. -->
+           ELA VIVE AQUI DENTRO, e é isso que faz a animação existir sem nenhum
+           mecanismo: a janela é uma coluna `[barra][lista]` que ocupa a tela
+           inteira, e o que a fecha é uma translação para baixo que deixa
+           APENAS a barra à vista, encostada na base. Abrir é `translateY(0)` —
+           a barra sobe junto e para no topo, porque é onde ela sempre esteve
+           dentro desta caixa.
+
+           Duas cópias da barra (uma na caixa de controles e outra aqui) seriam
+           duas verdades sobre o mesmo campo, e a animação viraria um transporte
+           de nó entre dois pais no meio de um `transform`.
+
+           E É ISSO QUE RESOLVE O TECLADO: com o campo no TOPO da tela, o
+           teclado — que sobe da base — não tem como cobri-lo. Era o defeito que
+           quatro lotes da era da barra-na-base tentaram consertar por fora
+           (v5.261, v5.264, v5.266, v5.270). -->
+      <div class="lib-bar" id="libBar">
         <!-- PLAYLIST AUTOMÁTICA (v5.303; à ESQUERDA desde a v5.305, pedido do
-             operador). Ela mora NA BARRA e não numa linha da lista porque o
-             recurso existe para quem NÃO sabe o que quer: uma entrada dentro do
-             `#hymnResults` desapareceria no primeiro caractere digitado, que é
-             exatamente quando o operador acabou de desistir de procurar e ia
-             usá-la.
-
-             ELA ABRE A LINHA, e o ✕ continua fechando-a. A barra passa a ser
-             lida como uma frase: *sortear* · *procurar* · *sair*. Entre o campo
-             e o ✕ ela era um terceiro elemento no canto em que o app inteiro
-             põe a SAÍDA, e a vizinhança dizia "mais um jeito de fechar isto".
-
-             O ÍCONE É UM DADO DESENHADO (`#icoSorteio`), e NÃO as setas
-             cruzadas: aquelas já são o "Aleatório" do botão de repetição, e dois
-             desenhos iguais prometendo coisas diferentes é o defeito que nenhuma
-             legenda conserta. Ele foi um GLIFO (`casino`) até a v5.304, quando
-             se descobriu que o codepoint não está no subset da fonte — ver
-             `tools/glifos.test.mjs`. -->
+             operador). Ela ABRE A LINHA, e o botão de fechar continua encerrando-a:
+             a barra se lê como uma frase — *sortear* · *procurar* · *sair*. -->
         <button id="sorteioBtn" class="popup-close" title="Playlist automática — sortear por tema" aria-label="Playlist automática"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoSorteio"/></svg></button>
         <div class="lib-search-campo">
+          <!-- A LUPA DENTRO DO CAMPO (v5.264, pedido do operador: *"isso vai
+               indicar melhor o objetivo da barra"*). Ela é DECORAÇÃO — o toque nela
+               cai no campo (`pointer-events: none` no CSS), porque um ícone que
+               engole o toque no meio de um campo de texto é um ponto morto
+               exatamente onde o dedo mira. -->
           <svg class="lib-search-lupa" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoLupa"/></svg>
           <input id="hymnSearchInput" class="lib-search" type="search" placeholder="Buscar por nome ou número…">
         </div>
-        <button id="hymnSearchClose" class="popup-close" title="Fechar a Biblioteca" aria-label="Fechar a Biblioteca"><span class="msym" aria-hidden="true">&#xe14c;</span></button>
+        <button id="hymnSearchToggle" class="popup-close lib-toggle" type="button" title="Abrir a Biblioteca" aria-label="Abrir a Biblioteca">
+          <svg class="ico-base" viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M12 19V5"/><path d="m5 12 7-7 7 7"/>
+          </svg>
+          <svg class="ico-alt" viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M6 6l12 12"/><path d="M18 6 6 18"/>
+          </svg>
+        </button>
       </div>
       <ul id="hymnResults" class="popup-list"></ul>
     </div>
@@ -2137,6 +2226,11 @@
        faixas, com oráculo em `tools/hinario.test.mjs`). ANTES do controle.js —
        a lista do álbum a consulta uma vez por linha desenhada. -->
   <script src="hinario.js"></script>
+  <!-- A QUARTA regra pura: a leitura EDITORIAL das coletâneas do banco — qual
+       delas não tem independência suficiente e entra em outra (a tabela
+       `DISSOLVER`, com oráculo em `tools/coletanea.test.mjs`). ANTES do
+       controle.js, que a aplica a cada desenho da Biblioteca. -->
+  <script src="coletanea.js"></script>
   <!-- A TRADUÇÃO DA APRESENTAÇÃO: `.pptx` → uma imagem por página. ANTES do
        controle.js pela regra dos irmãos acima, e num arquivo próprio porque os
        três modos de falhar dela são CALADOS (a mídia que não atravessa o

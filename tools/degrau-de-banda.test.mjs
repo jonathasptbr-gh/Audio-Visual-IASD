@@ -41,6 +41,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { checar, falhas } from './checar.mjs';
 
 const AQUI = path.dirname(fileURLToPath(import.meta.url));
 const MSE = path.join(AQUI, '..', 'app', 'src', 'main', 'assets', 'web', 'shared', 'mse.js');
@@ -50,15 +51,6 @@ const MSE = path.join(AQUI, '..', 'app', 'src', 'main', 'assets', 'web', 'shared
 const janela = { MediaSource: undefined };
 new Function('window', fs.readFileSync(MSE, 'utf8'))(janela);
 const { escolherDegrau } = janela.AVStream;
-
-const falhas = [];
-function checar(cond, msg, obtido) {
-  if (cond) console.log('ok      ' + msg);
-  else {
-    console.log('FALHOU  ' + msg + (obtido !== undefined ? '\n        obtido: ' + JSON.stringify(obtido) : ''));
-    falhas.push(msg);
-  }
-}
 
 // Um louvor de 4 minutos, com a escada que o YouTube costuma publicar. Os
 // tamanhos são os de um vídeo real dessa duração: ~4,3 Mbps em 1080p, ~2,1 em

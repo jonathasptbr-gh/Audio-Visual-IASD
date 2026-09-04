@@ -31,47 +31,14 @@
 // um culto quando falha.
 //
 //   node tools/boot-nativo.test.mjs
-import { chromium } from 'playwright';
-import http from 'node:http';
-import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { semRedeExterna } from './sem-rede.mjs';
+import { servirEstatico, abrirNavegador, checar, falhas } from './arnes.mjs';
 
 const RAIZ = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'app', 'src', 'main', 'assets', 'web');
-const TIPOS = {
-  '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8',
-  '.css': 'text/css; charset=utf-8', '.json': 'application/json',
-  '.woff2': 'font/woff2', '.png': 'image/png', '.jpg': 'image/jpeg', '.svg': 'image/svg+xml',
-};
 
-const servidor = http.createServer((req, res) => {
-  let p = decodeURIComponent(new URL(req.url, 'http://x').pathname);
-  if (p.endsWith('/')) p += 'index.html';
-  const arquivo = path.join(RAIZ, p);
-  if (!arquivo.startsWith(RAIZ) || !fs.existsSync(arquivo) || fs.statSync(arquivo).isDirectory()) {
-    res.writeHead(404); res.end('nao'); return;
-  }
-  res.writeHead(200, { 'Content-Type': TIPOS[path.extname(arquivo)] || 'application/octet-stream' });
-  fs.createReadStream(arquivo).pipe(res);
-});
-
-const falhas = [];
-// O TERCEIRO PARÂMETRO É O VALOR OBTIDO, como no `smoke.mjs`, no
-// `sorteio-tela.test.mjs` e no `acervo.test.mjs`. Os sítios de chamada aqui já
-// o passavam e a assinatura de dois parâmetros o jogava fora — no CI, onde
-// ninguém pode abrir o navegador, a reprovação chegava como uma frase e nada
-// mais, e diagnosticá-la exigia adivinhar ou publicar um lote só para
-// instrumentar.
-function checar(cond, msg, obtido) {
-  if (cond) console.log('ok      ' + msg);
-  else {
-    console.log('FALHOU  ' + msg
-      + (obtido !== undefined ? '\n        obtido: '
-        + (typeof obtido === 'string' ? obtido : JSON.stringify(obtido)) : ''));
-    falhas.push(msg);
-  }
-}
+const servidor = servirEstatico(RAIZ);
 
 // A VARREDURA DA ABERTURA, ESPERADA — e não um prazo de parede.
 //
@@ -112,8 +79,20 @@ const SERIES = ['serie-provai-vede-2026', 'serie-informativo-missoes-2026'];
 // anterior, e reabri-la passaria pelo `closeHymnSearch` de quem fechou — que
 // agora zera o estado.
 const instalarCenarioFav = (pagina) => pagina.evaluate(() => {
-  window.__bibliotecaComFavoritos = () => {
-    if (!hymnSearchPopupEl.classList.contains('open')) openHymnSearch();
+  // ELA ESPERA A JANELA ASSENTAR (v1.5.0). A Biblioteca SOBE — da base da tela
+  // até o topo, levantando a barra de busca junto —, e o vão dos favoritos é
+  // uma consequência da ALTURA da lista: medido no meio da subida, o piso sai
+  // zero e a asserção fala do desenho quando o que estourou foi o relógio.
+  // `getAnimations()` + `finished` é o sinal do navegador, não um prazo nosso.
+  window.__bibliotecaComFavoritos = async () => {
+    if (!hymnSearchPopupEl.classList.contains('open')) openHymnSearch(false);
+    const folha = hymnSearchPopupEl.querySelector('.popup-sheet');
+    for (let volta = 0; volta < 8 && folha; volta++) {
+      const anims = folha.getAnimations ? folha.getAnimations() : [];
+      if (!anims.length) break;
+      await Promise.all(anims.map((a) => a.finished.catch(() => {})));
+      await new Promise((r) => requestAnimationFrame(() => r()));
+    }
     favAberto = true;
     renderSearchResults('');
   };
@@ -138,11 +117,10 @@ const ponteCom = (espelho, telas) => `(() => {
   const vazio = { displays: ${JSON.stringify(telas || [])}, listFolder: [], pickDoc: [], ytSearch: [],
     espelhoEstado: ${JSON.stringify(espelho)}, espelhoDiag: {},
     espelhoCertEstado: { temCert: false }, castTarget: { label: 'Tela de teste' },
-    // O FAROL (v1.4.41). Ele entra aqui porque a chave dele saiu do painel
-    // rápido e virou uma linha do rodapé do Registro — e a linha só existe COM
-    // ponte, então este é o único arquivo que pode vê-la. Sem a entrada, o
-    // genérico devolve \`null\`, o \`renderFarolLinha\` esconde a linha com toda
-    // a razão, e o teste mediria a ponte de mentira em vez do app.
+    // O FAROL. Ele é SÓ LEITURA desde o shell 61 (a chave saiu na v1.4.42), e
+    // quem o consome é a linha "Alcance:" do Registro — que é o único bloco que
+    // responde *"o farol chegou a acender?"*. Sem a entrada aqui, o genérico
+    // devolve \`null\` e o Registro perderia a linha em silêncio.
     farolEstado: { conta: true, ultimo: 0, diag: 'de teste' } };
   const comCallId = new Set(['displays','listFolder','pickDoc','pickFolder','ytSearch','ytFetch',
     'ytFetchAte','ytFetchAudio','ytStream','deckPages','deckExportUrl','requestMic','castTarget',
@@ -206,7 +184,18 @@ const ponteCom = (espelho, telas) => `(() => {
           // dá certo e o caso passa a depender de um serviço de fora. O que se
           // afirma aqui é que a gaveta DESENHA a miniatura que o índice
           // guardou, e para isso a origem dos pixels é indiferente.
+          // O \`author\` POR ITEM (v1.5.21), e ele é a COLABORAÇÃO de dois canais
+          // — verbatim do canal de verdade, e de propósito: é exatamente a
+          // string que a ARMADILHA 5 proíbe de virar filtro ("filtrar por ele
+          // derrubaria tudo"). Aqui ela é o DADO que a gaveta desenha, e ter as
+          // duas coisas na mesma fixture é o que impede alguém de "consertar" o
+          // canal transformando-o em critério.
+          //
+          // O item ao lado (\`aaaaaaaaaa3\`) FICA SEM ele, de propósito: o
+          // \`author\` por item pode simplesmente não vir, e a metade AUSENTE
+          // precisa de um item de verdade para ser medida.
           { id: 'aaaaaaaaaa1', url: 'y/1', name: 'Match point | Provai e Vede 2026 (01/Ago)', seconds: 319,
+            author: 'Provai e Vede | Oficial e Adventist Mission',
             thumb: 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7' },
           { id: 'aaaaaaaaaa2', url: 'y/2', name: 'Cada centavo conta | Provai e Vede 2026 (08/Ago) - Libras', seconds: 307 },
           { id: 'aaaaaaaaaa3', url: 'y/3', name: 'Cada centavo conta | Provai e Vede 2026 (08/Ago)', seconds: 307 },
@@ -240,6 +229,30 @@ const ponteCom = (espelho, telas) => `(() => {
         try { window.__avResolve(id, porUrl[url] || null); } catch (_) {}
       }, 0);
     },
+    // OS DETALHES DE UM VÍDEO (shell 62). O stub responde por URL como o
+    // \`ytPlaylist\` ao lado, e traz TRÊS armadilhas de propósito: um TÍTULO
+    // (que é o que um LINK salvo não tem guardado, e por isso só a rede pode
+    // dar), várias linhas de descrição (é por elas que se mede que o texto vem
+    // INTEIRO, sem corte) e uma marca \`<b>\` LITERAL — o que chega da ponte é
+    // texto, e o card tem de pintá-lo com \`textContent\`. Se alguém trocar por
+    // \`innerHTML\`, o \`<b>\` some do texto e vira um elemento: as duas metades
+    // da asserção lá embaixo.
+    ytDetalhes: (id, url) => {
+      window.__nDetalhes = (window.__nDetalhes || 0) + 1;
+      const r = String(url) === 'y/1' ? {
+        titulo: 'Match point | Provai e Vede 2026 (01/Ago)',
+        canal: 'Provai e Vede | Oficial e Adventist Mission',
+        seconds: 319,
+        descricao: 'Um testemunho sobre a fidelidade no dizimo.\\n\\n'
+          + 'Nesta semana o <b>Provai e Vede</b> visita uma familia do interior '
+          + 'que decidiu confiar mesmo depois de perder a colheita inteira, e '
+          + 'conta o que aconteceu nos doze meses seguintes.\\n\\n'
+          + 'Inscreva-se no canal e ative as notificacoes para acompanhar o '
+          + 'episodio de cada sabado. Compartilhe com a sua igreja.\\n\\n'
+          + '#ProvaiEVede #Fidelidade #IASD',
+      } : null;
+      setTimeout(() => { try { window.__avResolve(id, r); } catch (_) {} }, 0);
+    },
   };
   // A ÁREA DE TRANSFERÊNCIA (shell 48). O stub reproduz o GATE, que é o recurso:
   // ele só devolve conteúdo com carimbo MAIOR que o \`desde\` recebido — é assim
@@ -266,9 +279,6 @@ const ponteCom = (espelho, telas) => `(() => {
     'otaCheck','otaDiag','otaPending','pickDoc','pickFolder','requestMic','systemVolume',
     'temaClaro','ytCancel','ytCanalPlaylists','ytDiag','ytDiscard','ytFetch','ytFetchAte',
     'ytFetchAudio','ytPlaylist','ytSearch','ytStream','farolEstado'];
-  // O \`farolContar\` é SÍNCRONO e sem resposta (como o \`espelhoDesligar\`), então
-  // ele não passa pelo genérico: o que interessa é o que foi PEDIDO ao shell.
-  B.farolContar = (v) => { window.__farolPedidos = (window.__farolPedidos || []).concat(!!v); };
   for (const n of nomes) {
     if (B[n]) continue;
     B[n] = (...args) => {
@@ -293,9 +303,7 @@ const PONTE = ponteCom({ ligado: false, telas: [] }, []);
 
 await new Promise((r) => servidor.listen(0, r));
 const porta = servidor.address().port;
-const navegador = await chromium.launch(
-  process.env.PW_CHROMIUM ? { executablePath: process.env.PW_CHROMIUM } : {},
-);
+const navegador = await abrirNavegador();
 const ctx = await navegador.newContext({ viewport: { width: 430, height: 900 }, hasTouch: true });
 await semRedeExterna(ctx);
 const pg = await ctx.newPage();
@@ -1223,15 +1231,27 @@ try {
     const li = hymnResultRow(c, s, null, true);
     lista.appendChild(li);
     li.querySelector('.hymn-row').click();
-    // A montagem é assíncrona (o estado no aparelho vem do IndexedDB): dois
-    // turnos bastam, e esperar pelo TEXTO em vez de por um prazo fixo é o que
-    // impede o caso de virar intermitente num runner lento.
+    // A montagem é assíncrona (o estado no aparelho vem do IndexedDB): esperar
+    // pelo FATO em vez de por um prazo fixo é o que impede o caso de virar
+    // intermitente num runner lento.
+    //
+    // A SENTINELA É A COLUNA DE TEXTO, e não a linha de estado (v1.6.0): desde
+    // que "Toca sem baixar" saiu, o card COMUM não tem linha de estado nenhuma
+    // — esperar por ela aqui nunca terminaria, e o caso inteiro reprovaria por
+    // prazo dizendo qualquer outra coisa. A coluna existe em todo card, e o
+    // `expanded` só é posto DEPOIS do `await montarDetalhe()`.
     for (let i = 0; i < 40
-      && !(li.querySelector('.item-detalhe-estado') && li.classList.contains('expanded')); i++) {
+      && !(li.querySelector('.item-detalhe-txt') && li.classList.contains('expanded')); i++) {
       await new Promise((r) => setTimeout(r, 25));
     }
     const det = li.querySelector('.item-detalhe');
     const r = {
+      // A SENTINELA ACIMA FOI DE FATO ALCANÇADA (v1.6.0), e isto não é
+      // tautologia: um laço de espera cujo sinal não existe mais não reprova
+      // nada — ele apenas gasta o orçamento inteiro e devolve o controle, e o
+      // que o caso passa a medir é o agendador. Ler o sinal aqui é o que
+      // transforma esse silêncio em veredito.
+      montou: !!li.querySelector('.item-detalhe-txt') && li.classList.contains('expanded'),
       temDetalhe: !!det,
       temCaixaDeLetra: !!li.querySelector('.hymn-lyrics'),
       texto: li.textContent,
@@ -1258,10 +1278,286 @@ try {
         return { antes, depois, rotulo: ver.textContent };
       })(),
     };
+    // ===== A DESCRIÇÃO, DO TOQUE ATÉ A TELA (v1.5.21) =====
+    //
+    // Pedido do operador: *"coloque dados como duração, nome completo, canal e
+    // descrição se for possível obter"*. Os três primeiros são do ÍNDICE e o
+    // `serie.test.mjs` prende a regra deles; a descrição é a única que vem da
+    // PONTE (`AVNative.ytDetalhes`, shell 62), e o que este oráculo prende é o
+    // FIO — o botão "Ver os detalhes" pedindo, o texto voltando e o card
+    // pintando. Ele falha de um jeito que nenhum dos outros pega: o método da
+    // ponte certo, o Kotlin certo, e nada na tela.
+    //
+    // O `ver.click()` acima é quem dispara (o gatilho é a REVELAÇÃO, não a
+    // abertura da linha), e a espera é pelo FATO — o bloco existindo —, nunca
+    // por um prazo: o stub responde num `setTimeout(0)`, e um prazo fixo aqui
+    // mediria o agendador do runner.
+    for (let i = 0; i < 60 && !li.querySelector('.item-detalhe-desc'); i++) {
+      await new Promise((res) => setTimeout(res, 25));
+    }
+    r.desc = (() => {
+      const cx = li.querySelector('.item-detalhe-desc');
+      const p = li.querySelector('.item-detalhe-desc-txt');
+      const det2 = li.querySelector('.item-detalhe');
+      const txt = li.querySelector('.item-detalhe-txt');
+      if (!cx || !p || !det2 || !txt) return null;
+      const th = li.querySelector('.item-detalhe-thumb');
+      const arred = (n) => Math.round(n * 100) / 100;
+      const larg = (el) => arred(el.getBoundingClientRect().width);
+      const cx2 = (el) => el.getBoundingClientRect();
+      return {
+        texto: p.textContent,
+        // O `<b>` do stub tem de continuar TEXTO. Um `innerHTML` o transformaria
+        // num elemento — e aí `querySelector('b')` acha e o texto perde a marca.
+        virouElemento: !!p.querySelector('b'),
+        // ELA VEM INTEIRA (v1.6.0). Duas réguas, e a segunda é a que sobrevive
+        // a uma folha reescrita: o parágrafo não corta nada (o `scrollHeight`
+        // cabe no `clientHeight`) e não há `-webkit-line-clamp` computado. Uma
+        // asserção só de "não existe botão" passaria com o clamp de pé — e o
+        // que sairia na tela é um texto cortado SEM como abrir.
+        cortado: p.scrollHeight > p.clientHeight + 1,
+        clampCss: getComputedStyle(p).webkitLineClamp,
+        temMais: !!li.querySelector('.item-detalhe-mais'),
+        // ===== A SEGUNDA LINHA, medida como GEOMETRIA e não como largura =====
+        //
+        // Medir só a LARGURA aprova o desenho quebrado, e isto foi provado por
+        // reversão: sem `flex-wrap`, um filho de base 100% e `flex-shrink: 0`
+        // continua com 100% da caixa — ele apenas TRANSBORDA para o lado, com a
+        // miniatura e a coluna espremidas. A pergunta certa é onde ele COMEÇA:
+        // abaixo da miniatura, numa linha própria.
+        descAbaixoDaThumb: th ? cx2(cx).top >= cx2(th).bottom - 1 : null,
+        // E O PAR DELA: a coluna de dados continua NA MESMA LINHA da miniatura.
+        // Quem garante isso é o `flex: 1 1 0` do `.item-detalhe-txt` — com base
+        // `auto`, o tamanho base de um filho é o CONTEÚDO, e este card mostra
+        // justamente o título CRU: um título longo empurraria a coluna inteira
+        // para debaixo da miniatura assim que o `wrap` foi ligado.
+        txtAoLadoDaThumb: th ? cx2(txt).top < cx2(th).bottom - 1 : null,
+        // E o card não passa a rolar de lado.
+        transborda: det2.scrollWidth > det2.clientWidth + 1,
+        larguraDesc: larg(cx),
+        larguraTxt: larg(txt),
+        larguraCard: larg(det2),
+      };
+    })();
+    // UMA EXTRAÇÃO POR VÍDEO. Quem segura são DUAS peças, e as duas precisam
+    // estar de pé: a marca da LINHA (fechar e reabrir a metade de baixo, que é
+    // o que este trecho exercita) e o cache de MÓDULO (a mesma lista remontada
+    // a cada tecla da busca). Sem elas, olhar um episódio duas vezes gasta duas
+    // requisições na fila que o "Tocar agora" divide.
+    r.pedidosAntes = window.__nDetalhes || 0;
+    li.querySelector('.song-menu-letra').click();   // esconde
+    li.querySelector('.song-menu-letra').click();   // revela de novo
+    await new Promise((res) => setTimeout(res, 60));
+    r.pedidosDepois = window.__nDetalhes || 0;
+
+    // ===== A GAVETA DE DETALHE NÃO VAZA PARA FORA DO POÇO (v1.5.21) =====
+    //
+    // Relato do operador: *"ele mostra uma seção extra que está com a margem da
+    // parte inferior desregulada em sua caixa mãe"*. COLAPSO DE MARGEM, o irmão
+    // exato do defeito do `.coll-open` da v1.5.17 — agora na borda de BAIXO: a
+    // `.hymn-gaveta` era `display: block`, sem padding e sem borda, então a
+    // `margin-bottom` do ÚLTIMO filho em fluxo (o `.item-detalhe`, que só existe
+    // num vídeo) colapsava ATRAVÉS da borda inferior do pai e era pintada FORA
+    // do poço.
+    //
+    // Não erra alto, e é por isso que precisa de oráculo: `--gaveta-btn` É
+    // `var(--panel)` e o `.lib-item` do acervo é `--linha: transparent`, então a
+    // faixa escapada mostra a PLACA — que tem exatamente a cor do card. O poço
+    // escuro para rente ao card e o card PARECE vazar 8px da caixa mãe.
+    //
+    // ELA É MEDIDA COM O ACORDEÃO ASSENTADO, e isto não é higiene: a primeira
+    // versão media logo depois do clique e pegava a gaveta NO MEIO da abertura
+    // (`expandAccordion` anima `height` de 0 até o alvo, com `overflow: hidden`)
+    // — saíam `alturaDoLi: 104,92` e um card 321px ABAIXO do fim do poço, isto
+    // é, a asserção falando do desenho quando o que ela mediu foi o relógio. O
+    // sinal é `getAnimations()` + `finished`, o do navegador, nunca um prazo
+    // nosso.
+    for (let volta = 0; volta < 8; volta++) {
+      const anims = li.getAnimations ? li.getAnimations({ subtree: true }) : [];
+      if (!anims.length) break;
+      await Promise.all(anims.map((a) => a.finished.catch(() => {})));
+      await new Promise((res) => requestAnimationFrame(() => res()));
+    }
+    // AS DUAS MEDIDAS SÃO RELATIVAS, tiradas do MESMO render, e nenhuma é um
+    // número escrito aqui: o vão de baixo é comparado com o vão de CIMA (o irmão
+    // que o operador vê ao lado dele) e a faixa é comparada com ZERO, que é o
+    // fim do poço. Um número à mão envelheceria no dia em que o `--sp-4`
+    // mudasse, e reprovaria um desenho correto.
+    r.geometria = (() => {
+      const gav = li.querySelector('.hymn-gaveta');
+      const det = li.querySelector('.item-detalhe');
+      const ul = li.querySelector('.hymn-opcoes');
+      if (!gav || !det || !ul || !ul.lastElementChild) return null;
+      const cx = (el) => el.getBoundingClientRect();
+      const arred = (n) => Math.round(n * 100) / 100;
+      return {
+        vendoDetalhe: li.classList.contains('vendo-letra'),
+        // o vão ACIMA do card — o irmão contra o qual o de baixo é medido
+        acimaDoCard: arred(cx(det).top - cx(ul.lastElementChild).bottom),
+        // o vão ABAIXO do card, DENTRO do poço
+        abaixoDoCard: arred(cx(gav).bottom - cx(det).bottom),
+        // a faixa que escapava: do fim do poço ao fim da linha
+        faixaForaDoPoco: arred(cx(li).bottom - cx(gav).bottom),
+        laterais: [arred(cx(det).left - cx(gav).left),
+          arred(cx(gav).right - cx(det).right)],
+        alturaDoLi: arred(cx(li).height),
+        alturaDaGaveta: arred(cx(gav).height),
+      };
+    })();
+    // ===== O QUE O CARD DIZ (v1.5.21) =====
+    //
+    // Pedido do operador: *"coloque dados como duração, nome completo, canal e
+    // descrição"*. Os três primeiros já chegavam do extrator e eram descartados
+    // no caminho — `itensDaPlaylist` não copiava o `author` e `serieFaixaDoItem`
+    // não guardava nem ele nem o título cru. O `serie.test.mjs` prende a REGRA
+    // (os campos sobrevivem a ela); este prende a LIGAÇÃO até a tela, que falha
+    // de outro jeito: a regra continua certa e o card não mostra nada.
+    //
+    // As LINHAS são lidas na ORDEM do DOM, e é ela que a asserção afirma: a
+    // identidade primeiro, os atributos depois. Uma asserção que só perguntasse
+    // "o texto contém o canal?" aprovaria o canal desenhado no fim, embaixo do
+    // estado no aparelho.
+    const linhasDe = (raiz) => Array.from(
+      raiz.querySelectorAll('.item-detalhe > .item-detalhe-txt > .item-detalhe-linha'))
+      .map((el) => el.textContent);
+    r.linhas = linhasDe(li);
+    r.guardado = { canal: s.canal, cru: s.nomeOriginal, rotulo: s.name, dur: s.duration };
+    // E A COR, no RENDERIZADO. O título é a IDENTIDADE e as outras três são
+    // ATRIBUTO — com as quatro no mesmo tom o card vira um parágrafo sem
+    // entrada. Uma classe SEM a regra de CSS passa num teste de classe e
+    // continua igual na tela; a régua é o IRMÃO medido no mesmo render (a linha
+    // do canal, logo abaixo), nunca um literal — `--text` e `--muted` mudam com
+    // o tema, e um valor escrito aqui reprovaria o desenho certo.
+    r.cores = (() => {
+      const el = li.querySelector('.item-detalhe-titulo');
+      const irmao = el && el.nextElementSibling;
+      if (!el || !irmao) return null;
+      return { titulo: getComputedStyle(el).color, atributo: getComputedStyle(irmao).color };
+    })();
+
+    // ===== A OUTRA METADE: UM ÍNDICE ANTIGO NÃO TEM OS CAMPOS NOVOS =====
+    //
+    // Ela não é hipótese: entre este bundle chegar por OTA e a varredura refazer
+    // o índice (a assinatura muda sozinha, mas a varredura é a da PRÓXIMA
+    // abertura) existe uma janela em que o que está guardado no IndexedDB não
+    // tem `canal` nem `nomeOriginal`. É a razão de a guarda do card ser POR
+    // CAMPO e nunca por versão de bundle.
+    //
+    // Sem esta metade, desenhar as linhas SEMPRE passaria na de cima — e o que
+    // sairia na tela do operador é "undefined" e um rótulo vazio, que é o
+    // defeito pelo outro lado e o que a regra do Registro proíbe por escrito.
+    const velho = Object.assign({}, s);
+    delete velho.canal; delete velho.nomeOriginal; delete velho.seconds;
+    const li2 = hymnResultRow(c, velho, null, true);
+    lista.appendChild(li2);
+    li2.querySelector('.hymn-row').click();
+    for (let i = 0; i < 40
+      && !(li2.querySelector('.item-detalhe-txt') && li2.classList.contains('expanded')); i++) {
+      await new Promise((r2) => setTimeout(r2, 25));
+    }
+    r.antigo = {
+      linhas: linhasDe(li2),
+      temThumb: !!li2.querySelector('.item-detalhe-thumb'),
+      texto: li2.textContent,
+    };
+
+    // ===== E É ESSE MESMO CARD QUE GANHA O TÍTULO PELA REDE (v1.6.0) =====
+    //
+    // Relato do operador: *"não estou vendo o título completo e original do
+    // vídeo do link, ali na página dos detalhes"*. A causa é esta linha do
+    // fixture: um item SEM `nomeOriginal` — que é o LINK salvo, cujo registro
+    // guarda só o `name` já tratado — nunca teve o que desenhar na linha do
+    // título, e ela some. O `ytDetalhes` já devolvia o `titulo` ao lado da
+    // descrição e ele era jogado fora no caminho.
+    //
+    // O MESMO botão de sempre dispara (o gatilho é a REVELAÇÃO), e a espera é
+    // pelo FATO. Note que isto NÃO gasta extração nenhuma: o cache de módulo
+    // guarda o objeto inteiro, e a asserção do `pedidosDepois` acima já o
+    // provou para a descrição.
+    li2.querySelector('.song-menu-letra').click();
+    for (let i = 0; i < 60 && !li2.querySelector('.item-detalhe-titulo'); i++) {
+      await new Promise((res) => setTimeout(res, 25));
+    }
+    r.linkTitulo = {
+      linhas: linhasDe(li2),
+      guardado: velho.nomeOriginal || '',
+      rotulo: velho.name,
+      pedidos: window.__nDetalhes || 0,
+      // O TÍTULO CONTINUA SENDO O PRIMEIRO: ele chega DEPOIS de canal, duração
+      // e estado já estarem desenhados, e é o `insertBefore` que o põe no topo.
+      // Uma asserção que só perguntasse "o texto contém o título?" aprovaria a
+      // linha desenhada no fim do card.
+      primeira: (li2.querySelector('.item-detalhe-txt .item-detalhe-linha') || {}).textContent || '',
+      duplicada: li2.querySelectorAll('.item-detalhe-titulo').length,
+    };
+
+    // A REVERSÃO DA GUARDA: quando o título da rede é IGUAL ao rótulo da linha
+    // logo acima, a linha NÃO é desenhada — a mesma régua que o caminho do
+    // índice já aplica. Sem esta metade, "desenhar sempre" passaria na de cima
+    // e o card diria a mesma frase duas vezes.
+    const igual = Object.assign({}, velho, {
+      name: 'Match point | Provai e Vede 2026 (01/Ago)',
+    });
+    const li4 = hymnResultRow(c, igual, null, true);
+    lista.appendChild(li4);
+    li4.querySelector('.hymn-row').click();
+    for (let i = 0; i < 40
+      && !(li4.querySelector('.item-detalhe-txt') && li4.classList.contains('expanded')); i++) {
+      await new Promise((res) => setTimeout(res, 25));
+    }
+    li4.querySelector('.song-menu-letra').click();
+    // A espera é pela DESCRIÇÃO, que é o que prova que a resposta CHEGOU —
+    // esperar pelo título seria esperar pelo que não deve existir, e um laço
+    // que estoura aprovaria também um card em que nada chegou.
+    for (let i = 0; i < 60 && !li4.querySelector('.item-detalhe-desc'); i++) {
+      await new Promise((res) => setTimeout(res, 25));
+    }
+    r.tituloIgual = {
+      temTitulo: !!li4.querySelector('.item-detalhe-titulo'),
+      linhas: linhasDe(li4),
+    };
+
+    // ===== O ESTADO NO APARELHO: AS DUAS METADES (v1.6.0) =====
+    //
+    // Pedido do operador: *"remover a frase 'toca sem baixar' que tem na
+    // descrição do ver detalhes"* — ela descreve a OPÇÃO DE PLAY, não o
+    // arquivo. As duas metades são inseparáveis: sem a de baixo, apagar a linha
+    // INTEIRA passaria, e o card perderia a única coisa que responde "preciso
+    // de rede agora?" quando os bytes já estão aqui.
+    //
+    // O item é OUTRO (id e URL próprios) de propósito: semear bytes no
+    // `aaaaaaaaaa1` mudaria o que os casos acima mediram.
+    const sTem = Object.assign({}, s, {
+      id_music: 'aaaaaaaaaa9', name: 'Episódio guardado', ytUrl: 'y/9',
+    });
+    const rec = await AVDB.addMedia(new Blob(['v'], { type: 'video/mp4' }),
+      { name: 'ep', kind: 'video', type: 'video/mp4', youtubeId: sTem.id_music,
+        list: 'avulsos' });
+    const li3 = hymnResultRow(c, sTem, null, true);
+    lista.appendChild(li3);
+    li3.querySelector('.hymn-row').click();
+    for (let i = 0; i < 40
+      && !(li3.querySelector('.item-detalhe-txt') && li3.classList.contains('expanded')); i++) {
+      await new Promise((res) => setTimeout(res, 25));
+    }
+    r.noAparelho = {
+      linhas: linhasDe(li3),
+      temEstado: !!li3.querySelector('.item-detalhe-estado'),
+      classe: (li3.querySelector('.item-detalhe-estado') || {}).className || '',
+      texto: (li3.querySelector('.item-detalhe-estado') || {}).textContent || '',
+    };
+    // E O ACERVO VOLTA COMO ESTAVA: `listRemove` coleta na própria transação,
+    // então o registro de mentira não sobrevive a esta medição.
+    await AVDB.listRemove('avulsos', rec.id);
+
     lista.remove();
     setAppMode(modoAntes);   // o modo é global: deixá-lo trocado quebra os casos seguintes
     return r;
   });
+  checar(gaveta.montou,
+    'a espera pela montagem da gaveta terminou pelo FATO e não por prazo — a sentinela é a '
+    + 'COLUNA DE TEXTO desde que a linha de estado deixou de existir no caso comum',
+    JSON.stringify(gaveta.montou));
   checar(gaveta.temDetalhe,
     'o toque num EPISÓDIO abre a gaveta de detalhe do vídeo');
   checar(!gaveta.temCaixaDeLetra && !/[Ll]etra/.test(gaveta.texto),
@@ -1273,14 +1569,187 @@ try {
   checar(gaveta.duracaoGuardada && gaveta.texto.includes(gaveta.duracaoGuardada),
     'e a duração também — os dois campos que o extrator entregava e o índice '
     + 'descartava', JSON.stringify(gaveta.duracaoGuardada));
-  checar(/Toca sem baixar|Já no aparelho/.test(gaveta.texto),
-    'mais o estado no aparelho, que é o que decide: transmitir agora ou ~300 MB',
-    JSON.stringify(gaveta.texto.slice(0, 120)));
+  // ── A FRASE DE ESTADO SAIU DO CASO COMUM (v1.6.0) ─────────────────────
+  // Pedido do operador: *"remover a frase 'toca sem baixar' que tem na descrição
+  // do ver detalhes"* — *"não é um 'detalhe do arquivo', mas sim uma das
+  // características da opção de play"*. Ela descrevia o "Tocar agora", que fica
+  // duas linhas acima no MESMO card e já diz *"Toca direto da internet…"*.
+  checar(!/Toca sem baixar/.test(gaveta.texto),
+    'e o card NÃO diz mais "Toca sem baixar": isso descreve a OPÇÃO DE PLAY (que '
+    + 'já o diz, duas linhas acima), não o arquivo de que este card fala',
+    JSON.stringify(gaveta.texto.slice(0, 200)));
+  // ── O QUE O CARD PASSOU A DIZER (v1.5.21) ─────────────────────────────
+  // Três dados que o app já tinha na mão e jogava fora. Cada asserção nomeia o
+  // que a linha responde, porque é a PERGUNTA que justifica a ordem delas.
+  const L = gaveta.linhas || [];
+  checar(!!gaveta.guardado && gaveta.guardado.cru === 'Match point | Provai e Vede 2026 (01/Ago)'
+    && gaveta.guardado.canal === 'Provai e Vede | Oficial e Adventist Mission',
+    'o TÍTULO CRU e o CANAL chegaram ao ÍNDICE — é aqui que eles precisam estar, e não numa '
+    + 'consulta na hora de abrir: a gaveta abre no sábado de manhã, no Wi-Fi da igreja',
+    JSON.stringify(gaveta.guardado));
+  checar(L[0] === 'Match point | Provai e Vede 2026 (01/Ago)',
+    'e o card ABRE pelo TÍTULO COMPLETO — o rótulo da lista é podado por construção (a data na '
+    + 'frente, o pedaço à esquerda da barra), e a pergunta desta gaveta é "é este mesmo?"',
+    JSON.stringify(L));
+  checar(L[0] !== gaveta.guardado.rotulo,
+    'e ele DIZ algo que a linha logo acima não dizia: a mesma frase duas vezes seria ruído',
+    JSON.stringify([L[0], gaveta.guardado.rotulo]));
+  checar(!!gaveta.cores && gaveta.cores.titulo !== gaveta.cores.atributo,
+    'e ele se DISTINGUE no RENDERIZADO da linha logo abaixo — com as quatro no mesmo tom o card '
+    + 'vira um parágrafo sem entrada. Medido contra o IRMÃO no mesmo render, nunca contra um '
+    + 'literal: os dois tokens mudam com o tema', JSON.stringify(gaveta.cores));
+  checar(L[1] === 'Provai e Vede | Oficial e Adventist Mission',
+    'o CANAL vem em seguida, VERBATIM — inclusive a colaboração de dois nomes. Ele é o dado que '
+    + 'a ARMADILHA 5 proíbe de virar filtro e que ninguém proibiu de ser MOSTRADO',
+    JSON.stringify(L));
+  checar(L[2] === 'Duração ' + gaveta.guardado.dur,
+    'a DURAÇÃO desceu para depois da identidade: ela qualifica o que já foi reconhecido',
+    JSON.stringify(L));
+  checar(L.length === 3,
+    'e o card PARA aí: sem bytes no aparelho não há quarta linha nenhuma — a de estado só existe '
+    + 'quando ela é FATO DO ARQUIVO', JSON.stringify(L));
+
+  // A OUTRA METADE, e ela é inseparável: sem ela, desenhar as linhas SEMPRE
+  // passaria em todas as de cima e o que sairia na tela seria "undefined".
+  const A = (gaveta.antigo && gaveta.antigo.linhas) || [];
+  checar(gaveta.antigo && !/undefined|null/.test(gaveta.antigo.texto),
+    'um ÍNDICE ANTIGO (o guardado antes deste bundle, na janela entre o OTA chegar e a varredura '
+    + 'refazer a lista) não escreve "undefined" em lugar nenhum do card — a guarda é POR CAMPO, '
+    + 'nunca por versão de bundle', JSON.stringify(gaveta.antigo && gaveta.antigo.texto));
+  checar(A.length === 1 && A[0] === 'Duração ' + gaveta.guardado.dur,
+    'e ele fica com a linha que sempre teve, sem rótulo vazio no lugar das que faltam: '
+    + 'a linha ausente SOME, que é a regra do Registro aplicada a um card', JSON.stringify(A));
+  checar(gaveta.antigo && gaveta.antigo.temThumb,
+    'o card continua INTEIRO — a miniatura, que é o outro campo que o índice já guardava, não foi '
+    + 'levada junto pela ausência dos novos', JSON.stringify(gaveta.antigo));
+
+  // ── A DESCRIÇÃO (v1.5.21): o FIO da ponte até a tela ──────────────────
+  //
+  // O `ponte.test.mjs` prende o CONTRATO (o que `AVNative.ytDetalhes` entrega);
+  // este prende a LIGAÇÃO, que falha de outro jeito — o método certo dos dois
+  // lados e nada na tela. Ela é a única dos quatro dados do card que vem da
+  // REDE, e a única que exigiu shell novo.
+  const D = gaveta.desc;
+  checar(!!D && /fidelidade no dizimo/.test(D.texto),
+    'o toque em "Ver os detalhes" PEDE a descrição e ela chega à tela — o gatilho é a '
+    + 'REVELAÇÃO, e não a abertura da linha: uma extração por vídeo OLHADO',
+    JSON.stringify(D && D.texto && D.texto.slice(0, 60)));
+  checar(!!D && D.virouElemento === false && /<b>/.test(D.texto),
+    'e ela é pintada com `textContent`: o `<b>` do texto continua TEXTO e não virou elemento. '
+    + 'Isto é conteúdo de TERCEIRO no origin que injeta `__AVBridge` — a outra metade da regra '
+    + 'mora no Kotlin, que já achata o HTML que o YouTube manda',
+    JSON.stringify(D && { virouElemento: D.virouElemento }));
+  // ── ELA VEM INTEIRA, SEM "VER MAIS" (v1.6.0) ──────────────────────────
+  // Pedido do operador: *"ajuste para que não precise do 'ver mais' nos
+  // detalhes, já deixe tudo aberto de uma vez"*. As DUAS metades, e nenhuma
+  // basta: só a do botão passaria com o clamp de pé — e o que sairia na tela é
+  // um texto cortado SEM como abrir, que é o defeito pelo pior lado.
+  checar(!!D && D.cortado === false
+    && (D.clampCss === 'none' || D.clampCss === '' || D.clampCss === undefined),
+    'a descrição aparece INTEIRA: o parágrafo não corta nada no RENDERIZADO e não sobrou '
+    + '`-webkit-line-clamp` nenhum — não há mais regra de truncagem, nem no CSS nem no JS',
+    JSON.stringify(D && { cortado: D.cortado, clampCss: D.clampCss }));
+  checar(!!D && D.temMais === false,
+    'e não existe botão nenhum para revelá-la — a gaveta já é o acordeão que abre e fecha, e '
+    + 'um segundo grau de revelação dentro dele não respondia pergunta nenhuma',
+    JSON.stringify(D && { temMais: D.temMais }));
+  // A SEGUNDA LINHA se mede contra os IRMÃOS do mesmo render — a miniatura e a
+  // coluna de dados —, nunca contra um número: a miniatura tem largura fixa
+  // hoje e um literal aqui envelheceria com ela.
+  checar(!!D && D.descAbaixoDaThumb === true && D.transborda === false
+    && D.larguraDesc > D.larguraTxt,
+    'e ela ocupa uma LINHA PRÓPRIA abaixo da miniatura, com a largura inteira do card. A régua é '
+    + 'onde o bloco COMEÇA e não a largura dele: MEDIDO por reversão, um filho de base 100% sem '
+    + '`flex-wrap` continua com 100% e apenas TRANSBORDA — uma asserção de largura aprova isso',
+    JSON.stringify(D && { abaixo: D.descAbaixoDaThumb, transborda: D.transborda,
+      desc: D.larguraDesc, txt: D.larguraTxt, card: D.larguraCard }));
+  checar(!!D && D.txtAoLadoDaThumb === true,
+    'e a COLUNA DE DADOS continua AO LADO da miniatura: com `wrap` ligado o tamanho base de um '
+    + 'filho `auto` é o CONTEÚDO, e este card mostra o título CRU — é o `flex: 1 1 0` da coluna '
+    + 'que impede a segunda quebra', JSON.stringify(D && { txtAoLado: D.txtAoLadoDaThumb }));
+  checar(gaveta.pedidosAntes === 1 && gaveta.pedidosDepois === 1,
+    'e esconder e revelar de novo NÃO gasta uma segunda extração — ela roda na fila que o '
+    + '"Tocar agora" divide, e é de uma thread só',
+    JSON.stringify([gaveta.pedidosAntes, gaveta.pedidosDepois]));
+
+  // ── O TÍTULO DE UM LINK VEM DA REDE (v1.6.0) ──────────────────────────
+  //
+  // Relato do operador: *"não estou vendo o título completo e original do vídeo
+  // do link, ali na página dos detalhes"*. A linha era guardada por
+  // `s.nomeOriginal`, que só existe para episódio de SÉRIE (a listagem da
+  // playlist o grava no índice): um LINK salvo nunca teve título cru, o registro
+  // guarda só o `name` já tratado, e a linha simplesmente não tinha o que
+  // desenhar. O `ytDetalhes` já trazia o `titulo` junto da descrição — o card
+  // passou a guardar o OBJETO em vez do texto, e isso custa ZERO requisição.
+  const T = gaveta.linkTitulo || {};
+  checar(T.guardado === '',
+    'o item medido é MESMO o caso do link: nada de `nomeOriginal` guardado — é essa ausência que '
+    + 'produzia o relato, e sem ela o caso mediria o caminho do índice', JSON.stringify(T.guardado));
+  checar((T.linhas || [])[0] === 'Match point | Provai e Vede 2026 (01/Ago)',
+    'e mesmo assim o card ABRE pelo TÍTULO COMPLETO, vindo do `ytDetalhes` — o mesmo pedido que '
+    + 'já buscava a descrição', JSON.stringify(T.linhas));
+  checar(T.primeira === 'Match point | Provai e Vede 2026 (01/Ago)',
+    'e ele entra NO TOPO da coluna, não no fim: ele chega DEPOIS de canal, duração e estado já '
+    + 'estarem desenhados, e é o `insertBefore` que preserva a ordem das perguntas',
+    JSON.stringify([T.primeira, T.linhas]));
+  checar(T.duplicada === 1,
+    'e UMA só — a guarda contra a linha que o índice já deu continua de pé', JSON.stringify(T));
+  checar(T.pedidos === 1,
+    'e nada disso gastou extração nova: o cache de módulo guarda o OBJETO inteiro, e não só o '
+    + 'texto da descrição', JSON.stringify(T.pedidos));
+  // A REVERSÃO DA GUARDA, e ela é inseparável: sem esta metade, desenhar sempre
+  // passaria em todas as de cima e o card diria a mesma frase duas vezes.
+  const TI = gaveta.tituloIgual || {};
+  checar(TI.temTitulo === false,
+    'e quando o título da rede é IGUAL ao rótulo da linha logo acima, a linha NÃO é desenhada — '
+    + 'a mesma régua do caminho do índice, contra a mesma frase duas vezes na tela',
+    JSON.stringify(TI));
+
+  // ── O ESTADO NO APARELHO: A OUTRA METADE (v1.6.0) ─────────────────────
+  // Sem ela, apagar a linha INTEIRA passaria na asserção do caso comum — e o
+  // card perderia a única coisa que responde "preciso de rede agora?" quando os
+  // bytes já estão aqui, que é a pergunta do domingo de manhã.
+  const N = gaveta.noAparelho || {};
+  checar(N.temEstado === true && N.texto === 'Já no aparelho',
+    'com os BYTES no aparelho a linha de estado EXISTE, e diz "Já no aparelho" — ela é fato do '
+    + 'ARQUIVO, que é do que este card fala', JSON.stringify(N));
+  checar(/\bitem-detalhe-estado\b/.test(N.classe) && /\bdone\b/.test(N.classe),
+    'com as MESMAS classes de sempre (`item-detalhe-estado done`) — é por elas que o `smoke.mjs` '
+    + 'mede que este indicador não é pintado de verde e continua em negrito', JSON.stringify(N.classe));
+  checar((N.linhas || [])[(N.linhas || []).length - 1] === 'Já no aparelho',
+    'e ela continua sendo a ÚLTIMA linha do card: é a última pergunta antes de tocar',
+    JSON.stringify(N.linhas));
+
   checar(!!gaveta.larguras && gaveta.larguras.antes > 0
     && gaveta.larguras.antes === gaveta.larguras.depois,
     'e o botão que a revela tem a MESMA LARGURA nos dois estados: "Ocultar" é '
     + 'mais longo que "Ver", e ele crescia debaixo do dedo levando o confirmar '
     + 'ao lado junto', JSON.stringify(gaveta.larguras));
+
+  // ── A METADE DE BAIXO CABE NA CAIXA MÃE (v1.5.21) ──────────────────────
+  // As duas metades são inseparáveis, e cada uma sozinha aprova um desenho
+  // errado: só a primeira passaria com a gaveta inteira sem respiro nenhum
+  // (0 em cima e 0 embaixo), e só a segunda passaria com a margem simplesmente
+  // APAGADA — o card colado no fim do poço, que é o defeito pelo outro lado.
+  checar(!!gaveta.geometria && gaveta.geometria.vendoDetalhe,
+    'a gaveta foi medida com o DETALHE ABERTO — fechado, o último filho em '
+    + 'fluxo é a `<ul>`, que respira por PADDING, e o colapso não existe',
+    JSON.stringify(gaveta.geometria));
+  checar(!!gaveta.geometria && gaveta.geometria.faixaForaDoPoco === 0,
+    'a linha ACABA onde o poço acaba: a `margin-bottom` do `.item-detalhe` não '
+    + 'colapsa mais para fora da `.hymn-gaveta` — era ela a "seção extra com a '
+    + 'margem desregulada em sua caixa mãe", pintada na cor da PLACA logo '
+    + 'abaixo do poço', JSON.stringify(gaveta.geometria));
+  checar(!!gaveta.geometria && gaveta.geometria.abaixoDoCard > 0
+    && gaveta.geometria.abaixoDoCard === gaveta.geometria.acimaDoCard,
+    'e o vão que sobrou é o MESMO dos dois lados do card — medido contra o vão '
+    + 'IRMÃO no mesmo render, nunca contra um número escrito aqui: os dois '
+    + 'saem do `gap` da gaveta, e um número à mão reprovaria o desenho certo no '
+    + 'dia em que o token mudasse', JSON.stringify(gaveta.geometria));
+  checar(!!gaveta.geometria && gaveta.geometria.laterais[0] > 0
+    && gaveta.geometria.laterais[0] === gaveta.geometria.laterais[1],
+    'e os lados continuam simétricos — o defeito era VERTICAL, e a correção não '
+    + 'pode ter mexido no que estava certo', JSON.stringify(gaveta.geometria));
 
   // A OUTRA METADE: numa MÚSICA a gaveta é SÓ AS OPÇÕES (v1.2.25). A letra numa
   // caixa de texto aqui dentro era uma segunda leitura, pior que a que o app já
@@ -2011,7 +2480,7 @@ try {
     }
     await AVDB.setState('opfs-folders', [{ id: 'pasta-inline', name: 'Vídeos do culto', count: 2 }]);
     await load();
-    window.__bibliotecaComFavoritos();
+    await window.__bibliotecaComFavoritos();
     await new Promise((r) => setTimeout(r, 400));
     const corpo = document.querySelector('[data-fav-corpo]');
     const li = corpo && corpo.querySelector('.folder-opfs');
@@ -2188,8 +2657,15 @@ try {
     const fav = corpo.querySelector('.fav-itens > .lib-item');
     const cx = (e) => (e ? Math.round(e.getBoundingClientRect().left) : null);
     r.colunas = [cx(a), cx(fav)];
-    r.alinhado = !!fav && cx(a) === cx(fav)
-      && cx(a.querySelector('.thumb')) === cx(fav.querySelector('.thumb'));
+    // A TOLERÂNCIA É DE UM PIXEL, e ele tem nome (v1.5.9): a pasta ganhou
+    // MOLDURA, o favorito ao lado não tem, e a linha empurra o conteúdo dela 1px
+    // para dentro. O que este caso pega vale DEZENAS de pixels — o arquivo
+    // colado na borda do cartão, com a miniatura na coluna da pasta —, então um
+    // pixel de linha não é o defeito; exigir igualdade exata só faria o caso
+    // reprovar a moldura, que é o desenho.
+    const perto = (x, y) => x !== null && y !== null && Math.abs(x - y) <= 1;
+    r.alinhado = !!fav && perto(cx(a), cx(fav))
+      && perto(cx(a.querySelector('.thumb')), cx(fav.querySelector('.thumb')));
     // Limpeza: a tela volta como estava, para os casos do Modo Fácil que vêm
     // depois não reprovarem por um motivo que não é o deles.
     pastaAberta = null;
@@ -2249,7 +2725,7 @@ try {
       { name: 'Favorito solto', type: 'audio/mpeg', kind: 'audio', list: 'favs' });
     await AVDB.setState('opfs-folders', [{ id: 'pw1', name: 'Pasta W', count: 1 }]);
     await load();
-    window.__bibliotecaComFavoritos();
+    await window.__bibliotecaComFavoritos();
     await new Promise((r) => setTimeout(r, 450));
     const corpo = () => document.querySelector('[data-fav-corpo]');
     const nomes = () => [...corpo().querySelectorAll('.fav-itens > .lib-item .row-name')]
@@ -2343,7 +2819,7 @@ try {
     // tela no modo em que ela não vive.
     const modoAntes = appMode;
     setAppMode('full');
-    window.__bibliotecaComFavoritos();
+    await window.__bibliotecaComFavoritos();
     await new Promise((r) => setTimeout(r, 250));
     const secao = () => document.querySelector('#hymnResults [data-fav-corpo]');
     const antes = !!secao() && /Favorito ao vivo/.test(secao().textContent);
@@ -2393,15 +2869,35 @@ try {
   const vao = await pg.evaluate(async () => {
     const modoAntes = appMode;
     setAppMode('full');
-    window.__bibliotecaComFavoritos();
+    await window.__bibliotecaComFavoritos();
     await new Promise((r) => setTimeout(r, 250));
-    // A BIBLIOTECA DO OPERADOR, e a fidelidade aqui é o caso inteiro: são OITO
-    // seções nos prints dele, e é isso que torna o vão pequeno o bastante para
-    // uma lista de favoritos passar dele. Num fixture com duas seções sobra
-    // tela à vontade, a lista nunca alcança o piso, e a metade que importa
-    // deste caso seria verdadeira por vacuidade.
-    albumCatalog.categories = ['CDs oficiais/ano', 'Adoradores', 'Cantores',
-      'Celebra SP', 'Diversas', 'Especiais'].map((nome, i) => ({
+    // A BIBLIOTECA DO OPERADOR, e a fidelidade aqui é o caso inteiro: o vão tem
+    // de ser PEQUENO, senão a metade que importa deste caso (a lista passando
+    // do piso) fica verdadeira por vacuidade — num fixture com duas seções
+    // sobra tela à vontade e a lista nunca alcança o piso.
+    //
+    // QUANTAS CATEGORIAS depende de QUANTO A JANELA MEDE, e esse número já mudou
+    // três vezes — **o número nunca foi o assunto: a PROPRIEDADE é**, o vão
+    // pequeno o bastante para a lista de favoritos passar dele, e grande o
+    // bastante para existir. Seis categorias (oito blocos) valiam com a janela
+    // de TELA CHEIA da v1.5.1 (lista de 847px, 218px de vão MEDIDOS); com a
+    // janela da v1.5.4, que termina na LINHA DA BARRA para os controles ficarem
+    // à vista, a lista voltou a medir ~602px e os oito blocos não deixavam vão
+    // NENHUM (piso zero) — a primeira metade passava a falar de um desenho que a
+    // tela não tinha. São DUAS desde a v1.5.9, quando a Biblioteca ganhou
+    // MOLDURA: a linha de cada caixa acrescenta 2px por seção fechada ao
+    // empilhamento e 2px à altura da própria seção vazia, e os dois lados
+    // cruzaram (MEDIDO: seção de 138px para um vão de 135px).
+    //
+    // A RÉGUA NÃO É "vão > 0": é **vão maior que a seção VAZIA**, que tem altura
+    // própria (136px aqui — cabeçalho mais a linha de "Nenhum favorito ainda").
+    // Com quatro categorias o vão dá 96px e a seção mede os 136 dela: a primeira
+    // metade reprova dizendo "136px para um vão de 96px", e a leitura fácil
+    // (*"a seção não respeita o piso"*) é falsa — o piso é que ficou menor que o
+    // conteúdo mínimo. Quem mexer na altura da janela remede aqui; o sinal é
+    // esta linha reprovando com os dois números diferentes.
+    albumCatalog.categories = ['CDs oficiais/ano', 'Adoradores']
+      .map((nome, i) => ({
       name: nome,
       albums: [{ id_album: 500 + i, name: 'Álbum ' + nome }],
     }));
@@ -2469,11 +2965,22 @@ try {
       // para baixo, que é o que qualquer outra seção aberta já faz. Sem isto,
       // uma seção que crescesse para fora da tela sem a lista rolar passaria.
       rola: hymnResultsEl.scrollHeight > hymnResultsEl.clientHeight + 1,
-      // O corpo continua sem rolagem PRÓPRIA (o `overflow: hidden` de que a
-      // animação de abertura depende). O operador recusou o scroll interno na
-      // v5.280, e a régua é o `overflow-y` COMPUTADO: uma caixa `hidden`
-      // continua rolando por SCRIPT, então medir `scrollTop` aprovaria os dois
-      // estados — quem não rola aqui é o DEDO.
+      // O corpo continua sem rolagem PRÓPRIA. O operador recusou o scroll
+      // interno na v5.280, e a régua é o `overflow-y` COMPUTADO: uma caixa
+      // `hidden` continua rolando por SCRIPT, então medir `scrollTop`
+      // aprovaria os dois estados — quem não rola aqui é o DEDO.
+      //
+      // **A RÉGUA DEIXOU DE SER O VALOR `hidden` na v1.5.14**, e a distinção é
+      // o achado: `hidden` não é a única forma de não rolar, e era a única
+      // forma de QUEBRAR OUTRA COISA. Um ancestral com overflow recortado vira
+      // o SCROLLPORT de um `position: sticky` descendente — então a barra do
+      // álbum grudava no topo do CORPO em vez do topo da lista, e com o
+      // empilhamento da v1.5.14 ela era empurrada 52px para baixo do próprio
+      // slot, cobrindo a primeira faixa. O `hidden` da folha era redundante: a
+      // animação do acordeão o escreve inline nas duas pontas
+      // (`collapseAccordion`). O que este caso sempre quis afirmar é a
+      // PROPRIEDADE — o corpo não é um contêiner de rolagem —, e é ela que
+      // passa a ser medida.
       overflow: corpo() ? getComputedStyle(corpo()).overflowY : 'AUSENTE',
     };
     albumCatalog.categories = []; albumCatalog.albums = [];
@@ -2483,9 +2990,9 @@ try {
     setAppMode(modoAntes);
     return { vazio, muitos };
   });
-  checar(vao.vazio.blocos >= 8,
-    'a Biblioteca do caso tem os OITO blocos do relato — é o que torna o vão '
-    + 'pequeno e a lista de favoritos capaz de passar dele',
+  checar(vao.vazio.blocos >= 6,
+    'a Biblioteca do caso tem blocos bastante para o vão ser PEQUENO — é o que '
+    + 'torna a lista de favoritos capaz de passar dele',
     vao.vazio.blocos + ' bloco(s)');
   // A PRIMEIRA METADE: vazia, ela RESERVA o vão. É o desenho de abertura da
   // Biblioteca — coleções empilhadas na base, o que sobra em cima é dos
@@ -2509,7 +3016,8 @@ try {
   checar(!vao.vazio.temBotao && !vao.muitos.temBotao,
     'e não há mais "Ver todos" em estado nenhum: aberta, a seção mostra toda a '
     + 'listagem');
-  checar(vao.muitos.overflow === 'hidden',
+  checar(vao.muitos.overflow !== 'auto' && vao.muitos.overflow !== 'scroll'
+    && vao.muitos.overflow !== 'overlay' && vao.muitos.overflow !== 'AUSENTE',
     'o corpo continua sem rolagem própria — não há um segundo caminho para o '
     + 'fim da lista',
     'overflow-y ' + vao.muitos.overflow);
@@ -2586,10 +3094,19 @@ try {
     setAppMode('full');
     openHymnSearch();
     await new Promise((r) => setTimeout(r, 250));
-    // As oito seções do relato outra vez: sem elas a lista cabe inteira na tela
+    // As seis seções do relato outra vez: sem elas a lista cabe inteira na tela
     // e não há rolagem nenhuma a afirmar.
+    //
+    // OS NOMES SÃO NEUTROS DESDE A v1.5.16, e isso não é cosmético: três deles
+    // eram os nomes REAIS do banco ('Celebra SP', 'Diversas', 'Especiais'), e a
+    // regra do `coletanea.js` dissolve o primeiro dentro do segundo. Com os
+    // nomes reais este cenário passaria a montar CINCO seções onde o texto diz
+    // seis — MEDIDO, a asserção continuava VERDE, medindo outra coisa. Um
+    // oráculo que segue passando enquanto mede outro cenário é pior que um que
+    // reprova. Quem exercita a regra com os nomes verdadeiros é o
+    // `coletanea.test.mjs`, que é onde eles pertencem.
     albumCatalog.categories = ['CDs oficiais/ano', 'Adoradores', 'Cantores',
-      'Celebra SP', 'Diversas', 'Especiais'].map((nome, i) => ({
+      'Coletânea D', 'Coletânea E', 'Coletânea F'].map((nome, i) => ({
       name: nome,
       albums: [{ id_album: 700 + i, name: 'Álbum ' + nome }],
     }));
@@ -2606,9 +3123,26 @@ try {
     const altFavAntes = secao('Favoritos').getBoundingClientRect().height;
     // A ÚLTIMA seção da lista: é a que mais precisa da rolagem, porque abrir
     // uma coleção lá embaixo cresce para fora da tela.
-    const alvo = 'Especiais';
-    const barra = secao(alvo).querySelector('.coll-group-bar');
-    const desvioAntes = secao(alvo).getBoundingClientRect().top
+    //
+    // DESCOBERTA, NUNCA DIGITADA — a regra que o caso do RODÍZIO já aplica lá
+    // em cima (`doisGrupos`). Este caso fala do ALINHAMENTO, não de quais
+    // seções existem, e um nome literal aqui envelhece com o fixture: um alvo
+    // que não casa devolve `undefined`, e o `TypeError` dentro do `evaluate`
+    // não sai como "a rolagem não alinhou" — sai como o PERCURSO INTEIRO
+    // reprovando com uma frase que não menciona esta tela. Daí a ausência
+    // VIAJAR DE VOLTA num campo, em vez de estourar aqui.
+    const secoes = [...hymnResultsEl.querySelectorAll('[data-grupo]')];
+    const alvo = secoes.length ? secoes[secoes.length - 1].dataset.grupo : '';
+    const elAlvo = secao(alvo);
+    if (!elAlvo) {
+      albumCatalog.categories = []; albumCatalog.albums = [];
+      grupoAberto = ''; favAberto = false;
+      closeHymnSearch();
+      setAppMode(modoAntes);
+      return { semAlvo: true, secoes: secoes.length };
+    }
+    const barra = elAlvo.querySelector('.coll-group-bar');
+    const desvioAntes = elAlvo.getBoundingClientRect().top
       - (hymnResultsEl.getBoundingClientRect().top
         + parseFloat(getComputedStyle(hymnResultsEl).paddingTop || 0));
     barra.click();
@@ -2639,6 +3173,10 @@ try {
   // quando a seção aberta é a última e o que ela abre é curto, não existe
   // conteúdo abaixo que a leve mais para cima. O que não pode acontecer é a
   // lista ficar parada, que era o estado anterior a este lote.
+  checar(!alinhado.semAlvo,
+    'há uma última seção com que medir o alinhamento (o alvo é DESCOBERTO na '
+    + 'lista, não digitado — um nome literal aqui envelhece com o fixture)',
+    JSON.stringify(alinhado));
   checar(alinhado.rolou > 0 && alinhado.desvio < alinhado.desvioAntes
     && (Math.abs(alinhado.desvio) <= 2 || alinhado.rolou >= alinhado.maximo - 1),
     'ABRIR UMA COLEÇÃO rola a lista até o topo dela — ela abre para baixo e a '
@@ -2649,6 +3187,213 @@ try {
     'e a seção dos Favoritos não muda de tamanho por causa disso — era o '
     + 'encolhimento dela que fazia a coleção parecer crescer para cima',
     Math.round(alinhado.altFavAntes) + 'px → ' + Math.round(alinhado.altFavDepois) + 'px');
+
+  // ── A COLETÂNEA DISSOLVIDA, DA TABELA ATÉ A TELA (v1.5.16) ─────────────
+  //
+  // O `coletanea.test.mjs` prende a REGRA, que é pura: dado o catálogo cru, o
+  // que ela devolve. Este caso prende a LIGAÇÃO, e ela falha de outro jeito —
+  // **a regra continua certa e o recurso não faz nada, ou faz no lugar
+  // errado.** É o par `hinario.test.mjs`/`hinario-tela.test.mjs` outra vez, e
+  // pelo mesmo motivo: `renderCollectionsListMiolo` tem DOIS consumidores do
+  // resultado (o laço que desenha as seções e o `claimed` que decide o que é
+  // órfão), e ligar só um deles é um desfecho que nenhum oráculo da regra
+  // alcança.
+  //
+  // AS CINCO METADES, e a segunda é a que carrega o caso:
+  //
+  //  1. a coletânea dissolvida NÃO É DESENHADA;
+  //  2. e **não nasce "Outros álbuns"**. MEDIDO: DROPAR a coletânea em vez de
+  //     FUNDI-LA devolve o bloco pela porta dos fundos — sem categoria que os
+  //     reivindique os álbuns viram órfãos, e o bloco reaparece com os mesmos
+  //     cards, outro nome e a MESMA contagem de blocos. Uma asserção que só
+  //     olhe o nome dissolvido passa nas duas versões, e o pedido do operador
+  //     (que as coleções caibam na tela) continua não atendido;
+  //  3. os cards dela são FILHOS DO CORPO DO DESTINO — a régua é a posição no
+  //     DOM, nunca a contagem: "há quatro cards em Diversas" é verdade também
+  //     se dois deles forem os errados;
+  //  4. a CONSERVAÇÃO, em CONJUNTOS: percorrendo a Biblioteca seção por seção,
+  //     cada álbum do catálogo tem card exatamente UMA vez. Contar aprova uma
+  //     troca, e os dois modos de errar da fusão são simétricos e mudos —
+  //     perder um álbum devolve uma lista plausível com um a menos, duplicá-lo
+  //     devolve o mesmo card duas vezes numa lista igualmente plausível;
+  //  5. a REVERSÃO: com um catálogo em que o DESTINO não existe, a coletânea de
+  //     origem CONTINUA desenhada. Sem esta metade, "dissolver" passa a
+  //     significar "apagar" no dia em que o banco renomear o destino — os
+  //     álbuns sairiam da seção que os hospedava, não haveria seção nenhuma
+  //     para recebê-los, e eles sumiriam da Biblioteca inteira sem erro em
+  //     lugar nenhum.
+  //
+  // OS NOMES SÃO OS REAIS DO BANCO, e é o único fixture deste arquivo que pode
+  // usá-los: aqui eles SÃO o assunto. Nos outros a regra dissolveria um dentro
+  // do outro e o cenário medido deixaria de ser o descrito (ver o caso do
+  // alinhamento, logo acima).
+  //
+  // AS CINCO PROVADAS POR REVERSÃO, e o quadro é o que as mantém: cada linha é
+  // um defeito escrito à mão no `coletanea.js` (ou o desligamento da regra no
+  // `controle.js`), rodado, e desfeito.
+  //
+  //   defeito introduzido          | reprova  | PASSA (e é o achado)
+  //   -----------------------------|----------|---------------------
+  //   dropar em vez de fundir      | 2, 3     | **1 e 4**
+  //   a regra não ligada ao laço   | 1, 3     | 2, 4
+  //   fail-safe removido           | 5        | 1, 2, 3, 4
+  //   a fusão perde um álbum       | 2, 3     | **4**
+  //   a fusão duplica (sem `jaLa`) | 3, 4     | 1, 2
+  //
+  // A coluna da direita é a razão de nenhuma metade poder sair: dropar em vez
+  // de fundir passa por 1 E por 4 — a coletânea de fato não é desenhada, e
+  // nenhum álbum se perde (eles reaparecem como órfãos). Quem o pega é só a 2.
+  //
+  // ELE NÃO AFIRMA QUE A LISTA CABE NA TELA. O empate é apertado e a régua
+  // viraria a altura de linha da fonte instalada no runner — o oráculo mediria
+  // a MÁQUINA. O que se afirma é a ESTRUTURA; caber é a consequência dela.
+  //
+  // NUM `<ul>` SOLTO, como o caso do índice lá em cima: todas as asserções aqui
+  // são estruturais (posição no DOM e conjuntos de nomes), e a janela da
+  // Biblioteca só acrescentaria uma subida animada a esperar. E o cenário é
+  // montado pela VARIÁVEL que o toque escreve (`grupoAberto`), nunca por
+  // cliques encadeados — é a regra que o caso do reset já aplica: montar por
+  // toque faria isto depender da animação de três acordeões.
+  const dissolve = await pg.evaluate(async () => {
+    const modoAntes = appMode;
+    setAppMode('full');
+    const catAntes = albumCatalog.categories;
+    const albAntes = albumCatalog.albums;
+    // OS CINCO NOMES na ordem lida na captura de aparelho, os MESMOS do
+    // fixture do `coletanea.test.mjs`. O nome do álbum carrega o `id_album`
+    // porque o card não tem `dataset` nenhum: quem o identifica na tela é o
+    // texto do `.coll-bar-name`, e é por ele que a CONSERVAÇÃO é medida.
+    const CATALOGO = [
+      { name: 'CDs oficiais/ano', ids: [10, 11] },
+      { name: 'Adoradores', ids: [20] },
+      { name: 'Cantores', ids: [30] },
+      // O 50 ESTÁ NAS DUAS, e não é enfeite de fixture: a relação
+      // categoria↔álbum é N:N no banco (ver `FONTE-DE-DADOS-LOUVORJA.md` §5.5)
+      // e `categoryCards` não deduplica. Sem essa sobreposição a CONSERVAÇÃO
+      // fica INFALSIFICÁVEL aqui — com ids disjuntos a fusão não tem como
+      // duplicar, e a asserção passaria por construção. MEDIDO: é com ela que
+      // tirar o `jaLa` do `coletanea.js` reprova.
+      { name: 'Celebra SP', ids: [40, 41, 50] },
+      { name: 'Diversas', ids: [50, 51] },
+    ];
+    const montar = (linhas) => {
+      albumCatalog.categories = linhas.map((c, i) => ({
+        id_category: i + 1, name: c.name, order: i + 1,
+        albums: c.ids.map((id, j) => ({ id_album: id, subtitle: '', order: j + 1 })),
+      }));
+      // O catálogo de álbuns é a UNIÃO, sem repetir: é dele que `allCollections`
+      // deriva os `album-<id>`, e sem a entrada aqui o card nem chega a existir
+      // — a conservação passaria a medir um catálogo vazio.
+      const vistos = new Set();
+      albumCatalog.albums = [];
+      for (const c of linhas) for (const id of c.ids) {
+        if (vistos.has(id)) continue;
+        vistos.add(id);
+        albumCatalog.albums.push({ id_album: id, name: 'Álbum ' + id, color: null });
+      }
+    };
+    const lista = document.createElement('ul');
+    lista.className = 'hymnal-list';
+    lista.style.width = '390px';
+    document.body.appendChild(lista);
+    const desenhar = () => {
+      lista.innerHTML = '';
+      renderCollectionsList(lista, desenhar, { semTotal: true });
+    };
+    const nomesDeSecao = () => [...lista.querySelectorAll('[data-grupo]')]
+      .map((n) => n.dataset.grupo);
+    const secao = (nome) => [...lista.querySelectorAll('[data-grupo]')]
+      .find((n) => n.dataset.grupo === nome);
+    // Os `id_album` com card DENTRO do corpo desta seção, na ordem do DOM.
+    const idsDoCorpo = (nome) => {
+      const el = secao(nome);
+      const corpo = el && el.querySelector('.coll-group-corpo');
+      if (!corpo) return [];
+      return [...corpo.querySelectorAll('.hymnal-card .coll-bar-name')]
+        .map((n) => Number(String(n.textContent).replace(/\D+/g, '')))
+        .filter((n) => n > 0);
+    };
+
+    // ===== O CENÁRIO NORMAL =====
+    montar(CATALOGO);
+    grupoAberto = ''; favAberto = false;
+    desenhar();
+    const secoes = nomesDeSecao();
+    // A CONSERVAÇÃO percorre a Biblioteca como o operador a percorre: UMA seção
+    // aberta por vez (é o rodízio, e ele é o desenho do app desde a v5.273),
+    // acumulando o que cada uma mostra. Um álbum que não aparecesse em seção
+    // NENHUMA some da lista sem erro; um que aparecesse em duas seria o card
+    // repetido que a fusão existe para impedir.
+    const desenhados = [];
+    for (const nome of secoes) {
+      grupoAberto = nome;
+      desenhar();
+      desenhados.push(...idsDoCorpo(nome));
+    }
+    grupoAberto = 'Diversas';
+    desenhar();
+    const noDestino = idsDoCorpo('Diversas');
+
+    // ===== A REVERSÃO: o DESTINO não existe neste banco =====
+    montar(CATALOGO.filter((c) => c.name !== 'Diversas'));
+    grupoAberto = ''; favAberto = false;
+    desenhar();
+    const semDestino = nomesDeSecao();
+
+    lista.remove();
+    albumCatalog.categories = catAntes; albumCatalog.albums = albAntes;
+    grupoAberto = ''; favAberto = false;
+    setAppMode(modoAntes);
+    return {
+      secoes,
+      desenhados,
+      noDestino,
+      semDestino,
+      // ÚNICOS: um álbum em duas coletâneas continua sendo UM álbum, e é
+      // exatamente isso que a conservação afirma.
+      doCatalogo: [...new Set(CATALOGO.flatMap((c) => c.ids))],
+    };
+  });
+  // A guarda do cenário: sem ela, tudo abaixo passa por vacuidade num catálogo
+  // que não foi semeado.
+  checar(dissolve.secoes.includes('Diversas')
+    && dissolve.doCatalogo.length === 8,
+    'o cenário das coletâneas está de pé: as seções do banco e os oito álbuns',
+    JSON.stringify(dissolve.secoes));
+  checar(!dissolve.secoes.includes('Celebra SP'),
+    'A COLETÂNEA DISSOLVIDA NÃO É DESENHADA — a regra do `coletanea.js` chega '
+    + 'à tela, e não só ao oráculo dela',
+    JSON.stringify(dissolve.secoes));
+  // A METADE QUE CARREGA O CASO. Sem ela, DROPAR a categoria em vez de FUNDIR
+  // passa: os álbuns viram órfãos e voltam como "Outros álbuns", com os mesmos
+  // cards, o mesmo número de blocos e o pedido do operador não atendido.
+  checar(!dissolve.secoes.includes('Outros álbuns')
+    && !dissolve.secoes.includes('Álbuns'),
+    'e NÃO nasce um bloco de órfãos no lugar dela: dissolver é FUNDIR, e um '
+    + '"Outros álbuns" com os mesmos álbuns devolveria o bloco pela porta dos '
+    + 'fundos', JSON.stringify(dissolve.secoes));
+  // A POSIÇÃO NO DOM, e não a contagem: os dois álbuns da coletânea dissolvida
+  // estão DENTRO do corpo do destino, no fim, na ordem que tinham.
+  checar(dissolve.noDestino.join(',') === '50,51,40,41',
+    'e OS CARDS DELA SÃO FILHOS DO CORPO DO DESTINO, no fim e na ordem que '
+    + 'tinham — a régua é onde eles estão na árvore, nunca quantos são',
+    JSON.stringify(dissolve.noDestino));
+  // CONJUNTOS, não contagem: contar aprova uma troca.
+  {
+    const vistos = dissolve.desenhados.slice().sort((a, b) => a - b);
+    const esperados = dissolve.doCatalogo.slice().sort((a, b) => a - b);
+    checar(JSON.stringify(vistos) === JSON.stringify(esperados),
+      'A CONSERVAÇÃO: percorrendo a Biblioteca seção por seção, cada álbum do '
+      + 'catálogo tem card exatamente UMA vez — nenhum se perde e nenhum se '
+      + 'duplica', JSON.stringify({ vistos, esperados }));
+  }
+  // A REVERSÃO / FAIL-SAFE. Ela é a razão de a regra ter um `sem-destino`, e é
+  // o que impede "dissolver" de virar "apagar" no dia em que o banco renomear
+  // a coletânea de destino.
+  checar(dissolve.semDestino.includes('Celebra SP'),
+    'e SEM O DESTINO NO BANCO a coletânea de origem CONTINUA desenhada — os '
+    + 'álbuns dela não têm para onde ir, e sumiriam da Biblioteca inteira sem '
+    + 'erro nenhum', JSON.stringify(dissolve.semDestino));
 
   // ── A MIGRAÇÃO DOS ATALHOS DE PASTA (v5.254) ───────────────────────────
   //
@@ -3587,9 +4332,10 @@ try {
     'A BÍBLIA BAIXA SOZINHA NA ABERTURA — sem ninguém abrir a aba (' + veio + ' capítulo(s))');
   checar(pedidos.length > 0 && pedidos.every((p) => p.versao === ARA),
     'e ela é a versão que o app garante (Almeida Revista e Atualizada), não a primeira da lista');
-  // A aba nunca foi tocada: é isso que separa este caminho do `enterBibleTab`.
-  checar(await pg4.evaluate(() => activeTab !== 'bible'),
-    'e nada disso passou pela aba Bíblia — ela continua fechada');
+  // A FOLHA nunca foi aberta: é isso que separa este caminho do `enterBibleTab`.
+  // (Era a ABA até a v1.5.0, quando a Bíblia virou uma folha do Cronograma.)
+  checar(await pg4.evaluate(() => !bibliaAberta()),
+    'e nada disso passou pela folha da Bíblia — ela continua fechada');
 
   // A ESCOLHA DO OPERADOR NÃO É A BASE. Ele troca de versão; a base continua
   // sendo garantida, e a dele só desce quando ele abrir a aba.
@@ -3758,7 +4504,7 @@ try {
       ids.push(m.id);
     }
     await load();
-    window.__bibliotecaComFavoritos();
+    await window.__bibliotecaComFavoritos();
     await new Promise((r) => setTimeout(r, 400));
     const corpo = document.querySelector('[data-fav-corpo]');
     const li = corpo && corpo.querySelector('.lib-item[data-id="' + ids[0] + '"]');
@@ -4241,7 +4987,6 @@ try {
   // dela — para não a partir ao meio.
   const linkYt = await pg6.evaluate(async () => {
     setAppMode('full');
-    activeTab = 'imports';
     const ids = [];
     for (let i = 0; i < 2; i++) {
       const m = await AVDB.addMedia(new Blob([new Uint8Array(8)], { type: 'audio/mpeg' }),
@@ -4305,7 +5050,7 @@ try {
   // gestos (toque longo → seleção → botão do rodapé → diálogo), que é a mesma
   // correção que o excluir recebeu na v5.272.
   //
-  // Medido no CRONOGRAMA (`activeTab = 'imports'`), que é a lista do pedido, e
+  // Medido no CRONOGRAMA, que é a lista do pedido (e desde a v1.5.0 a única), e
   // pelo caminho de verdade: abrir a gaveta, tocar no lápis, escrever e
   // confirmar. As duas metades — o nome muda no BANCO e a linha o mostra —,
   // porque um rename que só reescrevesse o registro deixaria a tela mentindo
@@ -4313,7 +5058,6 @@ try {
   const ren = await pg6.evaluate(async () => {
     const m = await AVDB.addMedia(new Blob([new Uint8Array(8)], { type: 'audio/mpeg' }),
       { name: 'Nome antigo', type: 'audio/mpeg', kind: 'audio', list: 'imports' });
-    activeTab = 'imports';
     await load();
     const li = document.querySelector('#library .lib-item[data-id="' + m.id + '"]');
     if (!li) return { erro: 'a linha não foi desenhada no Cronograma' };
@@ -4363,7 +5107,7 @@ try {
     // nada, que é o pior artefato que este repositório sabe produzir. Daí o
     // fixture.
     //
-    // PELO CAMINHO DE VERDADE (v5.294). Até aqui ele escrevia `activeTab =
+    // PELO CAMINHO DE VERDADE (v5.294). Até aqui ele escrevia o estado da aba
     // 'folders'` e um `currentFolder` à mão — um estado que o app não alcança
     // desde a v5.290 e que deixou de existir na v5.294. Um oráculo que monta um
     // estado impossível prova o comportamento de um app que não existe: agora
@@ -4378,7 +5122,7 @@ try {
     await AVDB.setState('opfs-folders',
       [{ id: 'pasta-renomear', name: 'Vídeos do culto', count: 2 }]);
     await load();
-    window.__bibliotecaComFavoritos();
+    await window.__bibliotecaComFavoritos();
     await new Promise((res) => setTimeout(res, 400));
     const corpoFav = document.querySelector('[data-fav-corpo]');
     const liPasta = corpoFav && corpoFav.querySelector('.folder-opfs');
@@ -4735,8 +5479,7 @@ try {
     return {
       temMic: !!document.getElementById('micBtn'),
       irmaos: row ? row.children.length : 0,
-      abaAtiva: !!document.querySelector('[data-tab="mic"].active')
-        || !!document.getElementById('miscProjectBtn'),
+      naFolha: !!document.getElementById('miscProjectBtn'),
     };
   });
   checar(comTv.temMic === true,
@@ -4760,76 +5503,6 @@ try {
   await pgM.close();
 } catch (e) {
   checar(false, 'o percurso do microfone sem telão terminou sem exceção (' + (e && e.message) + ')');
-}
-
-// ============================================================================
-// A CONTAGEM DE USO SAIU DO PAINEL E VIROU LINHA DO RODAPÉ (v1.4.41)
-//
-// Pedido do operador: *"pode remover o 'medição de fora' que tem no app. faça
-// esse botão ficar dentro da página de alcance do site se possível"*. A metade
-// da PÁGINA foi feita (o interruptor do navegador, em `registro-alcance`); a do
-// APP não pode ser: são origens diferentes no mesmo aparelho, o armazenamento
-// de uma não é lido pela outra, e o app não tem intent-filter de URL. A chave
-// do APARELHO ficou, fora do painel, no rodapé do Registro.
-//
-// ESTE É O ÚNICO ARQUIVO QUE PODE VÊ-LA: `renderFarolLinha` devolve cedo sem
-// `window.__NATIVE__`, e no `smoke.mjs` não há ponte. Três metades:
-//
-//  1. a linha EXISTE, à vista, e diz o estado — mover uma chave para um rodapé
-//     é a forma mais fácil de perdê-la em silêncio;
-//  2. ela NÃO está mais na grade — sem esta, "mover" viraria "duplicar", e duas
-//     chaves para o mesmo `SharedPreferences` divergem na tela;
-//  3. o toque PEDE AO SHELL o valor oposto. O que se mede é o pedido, e não a
-//     pintura: quem responde "este aparelho conta?" é o Kotlin (um build
-//     debuggável fica fora por mais que a chave diga "entra"), e pintar o
-//     pedido faria a tela mentir exatamente no aparelho em que a pergunta
-//     importa.
-// ============================================================================
-try {
-  const pgF = await ctx.newPage();
-  await pgF.addInitScript(PONTE);
-  await pgF.goto(`http://127.0.0.1:${porta}/controle/`, { waitUntil: 'load' });
-  await pgF.waitForFunction(() => window.AVDB && typeof window.__avBack === 'function'
-    && !!document.querySelector('#playlist li'), null, { timeout: 25000 });
-
-  const linha = await pgF.evaluate(async () => {
-    document.getElementById('settingsBtn').click();
-    const el = document.getElementById('farolRow');
-    // ESPERA PELO FATO (a linha aparecendo), e não por um prazo: o
-    // `renderFarolLinha` é assíncrono — ele pergunta à ponte — e um
-    // `setTimeout` fixo aqui seria uma aposta na carga da máquina.
-    for (let i = 0; i < 80; i++) {
-      if (el && !el.hidden) break;
-      await new Promise((r) => setTimeout(r, 50));
-    }
-    return {
-      aVista: !!el && !el.hidden && !!el.offsetParent,
-      texto: el ? el.textContent : '',
-      estado: el ? el.dataset.estado : null,
-      naGrade: !!document.querySelector('.qs-grade #farolRow, .qs-grade #farolTile'),
-      noRodape: !!(el && el.closest('.popup-footer')),
-    };
-  });
-  checar(linha.aVista && /contagem de uso/i.test(linha.texto) && linha.estado === 'sim',
-    'a contagem de uso é uma LINHA à vista no rodapé de Configurações, e ela diz '
-    + 'o estado por extenso', linha);
-  checar(linha.noRodape && !linha.naGrade,
-    '  ↳ e ela saiu da GRADE — mover uma chave sem tirar a antiga é duplicá-la, '
-    + 'e duas chaves para o mesmo `SharedPreferences` divergem na tela', linha);
-
-  const pedido = await pgF.evaluate(async () => {
-    window.__farolPedidos = [];
-    document.getElementById('farolRow').click();
-    await new Promise((r) => setTimeout(r, 250));
-    return { pedidos: window.__farolPedidos };
-  });
-  checar(JSON.stringify(pedido.pedidos) === JSON.stringify([false]),
-    '  ↳ e o toque PEDE AO SHELL o valor oposto (uma vez, e só ele) — quem '
-    + 'responde "este aparelho conta?" é o Kotlin, não a tela', pedido);
-
-  await pgF.close();
-} catch (e) {
-  checar(false, 'o percurso da contagem de uso terminou sem exceção (' + (e && e.message) + ')');
 }
 
 checar(erros.length === 0, 'nenhum erro de console' + (erros.length ? ':\n        ' + erros.join('\n        ') : ''));

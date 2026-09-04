@@ -167,11 +167,15 @@
      retângulo mais luminoso da tela. Ele é pequeno, existe só com a Biblioteca
      aberta, e é uma escolha explícita de quem opera.
 
-     O texto e o esmaecido são os valores do TEMA CLARO — `night` oficial e o
-     cinza dele —, que é onde eles foram calibrados contra branco: 8,86:1 e
-     6,08:1 medidos sobre `--panel` branco, isto é, exatamente esta base. */
+     O texto e o esmaecido são os valores do TEMA CLARO, que é onde eles foram
+     calibrados contra branco. **E o texto acompanhou o `--text` no PRETO da
+     v1.5.12**: sem isso o campo da barra da Biblioteca ficaria com o cinza que
+     o operador acabou de recusar, a dois centímetros dos nomes que deixaram de
+     usá-lo — e este campo é BRANCO nos dois temas, então a pergunta "qual
+     tema?" não se aplica a ele. 21:1 e 6,08:1 sobre `--panel` branco, isto é,
+     exatamente esta base. */
   --field-bg: #ffffff;
-  --field-text: #4a4a4a;
+  --field-text: #000000;
   --field-muted: #5c636c;
   /* E O ACENTO DELA TAMBÉM (v5.305). A regra acima tinha dois consumidores e
      ganhou o terceiro quando um botão de AÇÃO passou a morar sobre o campo (a
@@ -190,21 +194,19 @@
      Ele existe com NOME PRÓPRIO em vez de a folha citar `--accent-fill`: o
      nome diz a que superfície ele pertence, e é isso que impede o próximo
      controle sobre o campo de repetir a conta errada. */
-  --field-accent: #2f557f;
-  /* A BARRA QUE HOSPEDA O CAMPO (v5.270, pedido do operador: *"faça com que o
-     fundo atrás da caixa de texto fique mais escuro no tema claro"*).
-
-     Ela era `--camada`, isto é, o nível 1 da escada — e no tema CLARO esse
-     nível É o branco, exatamente a cor do campo que ela contém. A v5.268
-     contornou isso com elevação (uma sombra), e o operador está pedindo o
-     conserto de verdade: **o degrau de tom**. A barra é o único bloco de nível 1
-     do app que hospeda uma superfície SEM TEMA, então ela é o único que não pode
-     ler o tom do nível — é a exceção declarada à escada, e por isso o token vive
-     nesta família e não naquela.
-
-     No ESCURO ela mantém o valor de hoje (o `--panel` do nível 1): ali o campo
-     branco já contrasta 12,6:1 e não havia nada a consertar. */
-  --field-bar: #2c343c;
+  /* (`--field-borda` SAIU na v1.5.8. A borda do campo de busca CONTINUA sendo a
+     única exceção declarada à regra do "sem contorno" — o que mudou é de onde
+     sai a cor dela: `var(--surface)`, o MESMO token que os botões ao lado
+     pintam, composto sobre a MESMA base por um `background-clip: padding-box`.
+     Pedido do operador: *"ele deve ser o mesmo cinza dos botões a sua volta"*.
+     Este token era um valor calculado — o `--line` do tema claro escurecido até
+     passar o piso de 3:1 — e existia porque a borda não tinha como ler o tom dos
+     botões; hoje ela lê, e um valor à parte só teria como divergir dele.) */
+  /* (`--field-bar` SAIU na v1.5.2, nos dois temas. Era a faixa que hospedava o
+     campo de busca, e ela existia por causa de uma peça que também saiu: o campo
+     BRANCO. Pedido do operador: *"vamos remover esse zoneamento de tom
+     cinza/azul que tem atrás da barra de buscas"*. Sem campo branco não há
+     branco-sobre-branco a resolver, e a barra deixou de pintar.) */
 }
 
 /* ======================================================================
@@ -233,10 +235,37 @@
      "isto é navegação" sem inventar uma segunda matiz. Chamavam-se `--gold*`
      até a v5.192 — um token "gold" guardando um azul é a divergência que este
      arquivo existe para impedir. */
-  --bg: #0e1215;
-  --bar: #252b33;
-  --panel: #2c343c;
-  --panel-2: #3c4753;
+  /* ---------- DENIM PROFUNDO (v1.5.14) ----------
+     O escuro era um quase-preto NEUTRO (matiz 206°, saturação 20%): a
+     identidade vivia só no tema claro, porque os dezoito valores oficiais foram
+     desenhados para papel BRANCO e nenhum passa AA sobre um preto. A matiz
+     estava certa e a SATURAÇÃO é que faltava — subida para ~30% (o `denim`
+     oficial tem 46%), com a mesma luminância de antes, o app inteiro passa a
+     ler como IASD sem que um único par de contraste piore.
+     MEDIDO com a família de texto sobre as superfícies novas: `--text` 10,32:1
+     sobre o painel, `--muted` 7,22:1, `--accent` 6,64:1 — os três com folga
+     sobre AA, e todos MELHORES que os de antes, porque a base escureceu de
+     leve. Os degraus da escada ficam onde estavam (ver "Escada de elevação").
+     A matiz é 211°, a do `denim` (#2F557F), e não uma escolhida: é a mesma
+     âncora que `--accent` e `--btn-accent` já usavam. */
+  --bg: #0b1219;
+  --bar: #1b2632;
+  --panel: #212f3d;
+  --panel-2: #304254;
+  /* ---------- O POÇO — a segunda e ÚLTIMA superfície (v1.5.14) ----------
+     A Biblioteca tem QUATRO níveis (janela → seção → álbum → faixa) e a escada
+     de tom tem três degraus. Isso não é falta de ajuste fino: partindo do
+     branco do tema claro, quatro degraus no piso de 1,28:1 põem o nível mais
+     interno em #b3b3b3 — um cinza médio, exatamente a *"predominância cinza
+     escura"* que o operador recusou na v1.5.10. **Não existe escada de TOM que
+     resolva quatro níveis sobre base branca**, e é por isso que nove versões
+     seguidas (v1.5.5→v1.5.13) não fecharam a questão.
+     A saída é parar de EMPILHAR e passar a ALTERNAR: um agrupamento de nível 1
+     veste o POÇO, o de nível 2 volta ao PAPEL (o tom da janela), e a
+     profundidade é dita por cabeçalho grudento, recuo e tipografia — mecanismos
+     que não têm teto. Duas superfícies, profundidade ilimitada, ZERO traços.
+     MEDIDO no renderizado: 1,43:1 em cada degrau no escuro, 1,35:1 no claro. */
+  --poco: #34475b;
   /* (`--fav-bg`, o tom próprio da seção dos Favoritos, viveu da v5.273 à
      v5.281 e SAIU na v5.282: *"ajuste as cores dela para que ela fique igual
      as outras coleções"*. O argumento dele era que a seção não é uma coleção e
@@ -244,14 +273,15 @@
      como COR: o nome no cabeçalho diz a primeira e o vão reservado diz a
      segunda, sozinho. O que a cor acrescentava era um quarto tom numa escada
      de três, e a v5.267 já tinha medido o preço de um quarto degrau.) */
-  /* `--line` PERDEU O PAPEL QUE LHE DEU O NOME (v5.267): não há mais separador
-     nem contorno em lugar nenhum do app. Ele sobrevive como TINTA de um
-     desenho — a estrela vazada de favorito, que precisa ser discreta o
-     bastante para o olho passar batido pela lista e forte o bastante para ser
-     encontrada quando se procura por ela — e como cor da barra de rolagem das
-     grades da Bíblia. Renomeá-lo custaria mais do que o nome vale; o que ele
-     NÃO pode voltar a ser é um filete. */
-  --line: #4f5966;                       /* 2,65:1 contra o fundo */
+  /* (`--line` SAIU na v1.5.14, e a saída é o fecho de uma contradição.) A v5.267
+     tirou o contorno do app inteiro e o comentário deste token passou a dizer
+     que ele *"NÃO pode voltar a ser um filete"* — enquanto a v1.5.9 o punha de
+     volta como o único filete que existia, a moldura da Biblioteca. Removida a
+     moldura (a hierarquia virou POÇO + cabeçalho grudento), ele ficou com ZERO
+     consumidores: as duas outras tintas que o comentário reivindicava já não
+     eram dele (a estrela vazada foi para `--text` na v5.302; a barra de rolagem
+     das grades da Bíblia usa `--accent`/`--panel`). Um token que só existia
+     para o uso que ele mesmo proibia. */
   /* O par FLUTUANTE, com nome próprio (v5.267). `--surface` continua sendo "o
      valor que vale AQUI" — quem o troca por `--surface-sunk` é a regra do
      cartão, em controle.css. Estes dois existem para o caminho de VOLTA: a
@@ -322,6 +352,33 @@
      Medido: claro rgb(246,248,249) sobre card #d4dae2 — 1,32:1 de separação
      (piso 1,28) e 8,32:1 com o texto. Escuro rgb(46,54,63) e 9,23:1. */
   --item-fill: var(--surface-sunk);
+  /* ---------- A DIVISÓRIA ENTRE FAIXAS IRMÃS (v1.5.16) ----------
+     Pedido do operador: *"Verifique a criação de um elemento de linha
+     divisória (não borda inteira), na listagem do itens propriamente dos
+     álbuns, para melhor distinção entre os itens."*
+
+     Ele está certo por MEDIÇÃO, não por gosto: desde a v1.5.14 a faixa é
+     transparente e a placa atrás dela é `--panel`, então o vão de 4px que as
+     separa tem **1,00:1** contra os dois lados. Não é pouca separação — é
+     separação nenhuma, e o argumento estava escrito no próprio
+     `controle.css` desde a v5.272 (*"um espaço só separa quando os dois lados
+     dele têm cor"*), numa declaração que perdia por especificidade.
+
+     A RÉGUA NÃO É O PISO DE 1,28:1, que é de SUPERFÍCIE. Um traço de 1px sobre
+     uma faixa de 45px é ~2% dela, numa frequência espacial em que o limiar é
+     outro. A régua defensável aqui é o vizinho MEDIDO que já funcionou: a
+     moldura de 1px que a v1.5.14 removeu, **1,78:1 no escuro e 2,51:1 no
+     claro** — nas palavras daquele lote, *"a única coisa daquela tela com
+     contraste de verdade"*. Estes valores dão **1,88:1** e **1,99:1** sobre a
+     placa de papel.
+
+     E ELA NÃO É A MOLDURA DE VOLTA. A distinção é de OBJETO, não de espessura:
+     a moldura era um retângulo por nível, quatro arestas, em três níveis ao
+     mesmo tempo, e existia para carregar a HIERARQUIA — trabalho que a
+     alternância papel → poço → papel faz hoje com degrau real. Esta é UMA
+     aresta, num nível só, entre IRMÃS, e faz o que a alternância por construção
+     não faz: separar vizinhas do MESMO nível. */
+  --divisoria: rgba(255, 255, 255, .20);
 
   /* O VERMELHO QUE SE LÊ COMO VERMELHO (v5.76, matiz reancorada na v5.192).
      DERIVADO do `scarlett` (matiz 358°), clareado até passar como texto.
@@ -489,11 +546,9 @@
      nenhum uso na folha, e isso é intencional, não esquecimento: pela regra
      acima, ação destrutiva é sempre CONTORNADA, e contorno/texto usam
      `--danger-strong`/`--danger-text`. */
-  --danger: #d0021b;
   --danger-text: #e98d83;                /* 5,17:1 sobre painel · 6,89:1 sobre o soft
                                             (o soft sobre a PÁGINA; dentro de um
                                             cartão, 5,03:1 — ver "como ler") */
-  --danger-soft: rgba(208, 2, 27, .22);
 
   /* ---------- LARANJA: aviso ----------
      DERIVADOS do `campfire` OFICIAL (#CD4900, matiz 21°), clareados — o oficial
@@ -503,7 +558,6 @@
      do app. */
   --warn: #ef853f;                       /* borda/ícone — 6,34:1 sobre --warn-soft */
   --warn-text: #e5a86c;                  /* texto — 7,95:1 sobre --warn-soft */
-  --warn-soft: rgba(205, 73, 0, .18);
 
   /* ---------- VERDE: concluído / conectado ----------
      E SÓ isso. Até a v5.47 o verde também dizia "está no ar" em dois lugares
@@ -513,7 +567,6 @@
      dessaturado — o oficial dá 4,02:1 sobre o fundo, e no talo ele vira um
      limão que grita mais que o accent. */
   --ok: #80bd64;                         /* 5,64:1 sobre painel · 8,41:1 sobre o fundo */
-  --ok-soft: rgba(43, 133, 0, .20);
 
   /* Cortina do bloqueio do modo simplificado. É o --bg com alfa; os dois têm de
      andar JUNTOS, senão o véu vira um retângulo mais escuro (ou mais claro) que
@@ -522,8 +575,8 @@
      (Eles saíram na v5.199, com o bloqueio, e VOLTARAM na v5.203 — o operador
      pediu a cortina de volta: sem tela este modo não projeta nada, e é ela que
      diz isso sem depender de ninguém ler um cartão.) */
-  --veil: rgba(14, 18, 21, .55);
-  --veil-solid: rgba(14, 18, 21, .92);
+  --veil: rgba(11, 18, 25, .55);
+  --veil-solid: rgba(11, 18, 25, .92);
 
   /* ---------- OS DOIS FUNDOS DE ESTADO, e eles são OPACOS (v5.267) ----------
      Uma linha tem dois estados lidos de relance: ESCOLHIDA (atual/marcada) e NO
@@ -567,6 +620,17 @@
   --b-gerais:#283e1f;
   --b-apocalipse:#3f391f;
 
+  /* (A PALETA DAS COLEÇÕES — `--col-1`…`--col-8` e as famílias `-corpo`/`-card`
+     — SAIU na v1.5.9, com a v1.5.7 e a v1.5.8 inteiras. Ela dava a cada coleção
+     uma matiz própria, e o operador reprovou o resultado: *"está errado,
+     reformule o sistema de coloração e organização de grupos e subgrupos …
+     vamos usar o padrão branco e azul padrão do sistema"*. **O que ela tentava
+     resolver era hierarquia, e cor sólida não resolve hierarquia** — nas três
+     capturas que vieram com o pedido, oito matizes pastel não diziam qual bloco
+     estava dentro de qual. O que a substitui é MOLDURA, e isso é dito no
+     `controle.css`.) */
+
+
   /* Células de número da Bíblia (capítulo × versículo). Tons DISTINTOS por tela
      — capítulo em tom frio (a matiz do denim), versículo em tom quente — porque
      as duas grades são iguais em forma e conteúdo (só números) e ficam uma
@@ -597,25 +661,23 @@
      é acidente nem problema — os dois nunca se encostam, porque um nível 2 está
      sempre DENTRO de um nível 1, que é branco. */
   --panel-2: #d4dae2;
-  /* (`--fav-bg` saiu na v5.282, nos dois temas — ver o bloco do escuro.) */
-  --line: #97a5b4;                       /* 1,95:1 contra o fundo · 2,51:1 contra o painel */
-  /* A BARRA DA BUSCA, mais escura que o nível 1 (v5.270) — ver o bloco
-     compartilhado. Medido: o campo BRANCO dá **2,51:1** contra ela (era 1,00:1,
-     isto é, a mesma cor), e ela dá 1,95:1 contra a página, então a faixa se lê
-     como uma peça própria e não como um pedaço do corpo. É o mesmo valor de
-     `--line`, e isso é reuso e não coincidência: é o cinza estrutural que esta
-     paleta já calibrou para separar coisas no tema claro.
-     Ela é escura o bastante para EXIGIR que o que pousa nela seja claro — o
-     campo já era, e o ✕ passou a ser (`--field-bg`), que é a outra metade do
-     mesmo pedido. Um ícone em `--muted` ali daria 2,09:1 e reprovaria. */
-  --field-bar: #97a5b4;
+  /* (`--fav-bg` saiu na v5.282, nos dois temas — ver o bloco do escuro.)
+     (`--line` saiu na v1.5.14, nos dois temas — ver o bloco do escuro.) */
+  /* O POÇO do tema claro. É o MESMO "azul fraco" que o operador pediu na
+     v1.5.10 (*"porque não usou o azul fraco como cor principal dos cards?"*),
+     aprofundado até o degrau existir de verdade: `--btn-accent` (#dcebfe) mede
+     1,21:1 contra a janela branca — abaixo do piso —, e este mede **1,36:1**.
+     hsl(211, 70%, 88%), a matiz do `denim`.
+     MEDIDO sobre ele: preto 14,69:1 · `--muted` 4,66:1 · `--accent` 5,39:1 ·
+     `--live-strong` 4,79:1 — os quatro passam AA. */
+  --poco: #cbe0f6;
   /* O SINAL é o mesmo do tema escuro: o controle FLUTUA sobre a página e
      AFUNDA dentro do cartão. O que muda é o lado do branco em que cada um
      está — sobre a página cinza o overlay é branco (o botão sobe até quase o
      branco do cartão), e dentro do cartão branco ele é preto (o campo recua).
      Medido: 1,23:1 do botão contra a página e 1,14:1 / 1,25:1 dos afundados
-     contra o painel. São degraus pequenos, e é a linha em `--line` que anuncia
-     o controle aqui — ver a nota sobre o piso de 1,30:1, acima. */
+     contra o painel. São degraus pequenos, e o que anuncia o controle aqui é o
+     próprio degrau — desde a v1.5.14 não há linha nenhuma no app. */
   --surface-alta: rgba(255, 255, 255, .70);
   --surface-2-alta: rgba(255, 255, 255, .92);
   --surface: var(--surface-alta);
@@ -665,6 +727,11 @@
      números ao mesmo tempo: 1,32:1 de separação contra o card (piso 1,28) e
      8,32:1 com o `--text`. */
   --item-fill: rgba(255, 255, 255, .8);
+  /* A DIVISÓRIA no claro (ver o bloco do tema escuro). Preto a .28 sobre a
+     placa branca compõe #b7b7b7 — 1,99:1, o degrau da moldura que saiu. Ela é
+     mais forte que a do escuro de propósito: sobre branco o mesmo alfa rende
+     menos contraste, e .20 mediria 1,61:1. */
+  --divisoria: rgba(0, 0, 0, .28);
 
   /* Os dois fundos de ESTADO, espelhando o escuro (ver lá o porquê de serem
      opacos). `--sel-fill` dá 1,31:1 contra o painel branco, 6,76:1 com o texto e
@@ -685,13 +752,34 @@
   --btn-warn:   #f8e7de;
   --btn-ok:     #d5f5c6;
 
-  /* texto: `night` e um derivado dele. O `winter` OFICIAL (#717171) seria o
-     secundário natural e dá 4,88:1 sobre BRANCO — mas sobre o cinza da página
-     cai para 3,81:1 e reprova AA, e `--muted` aparece nos dois lugares. O
-     derivado é o mesmo cinza com a matiz do denim e um degrau a menos de
-     luminância. Ele ESCURECEU mais um degrau na v5.267 (#5c636c → #565d66):
-     com o painel-2 mais fundo, o valor antigo dava 4,32:1 ali e reprovava. */
-  --text: #4a4a4a;                       /* night OFICIAL — 8,86:1 painel · 6,87:1 fundo */
+  /* ---------- O TEXTO DESTE TEMA É PRETO, E NÃO O `night` (v1.5.12) ----------
+     Pedido do operador, depois de duas rodadas sobre a legibilidade da
+     Biblioteca: *"então use a cor preta pra os textos e não cinza como me
+     parece ser hoje"*.
+
+     **ISTO É UM DESVIO DECLARADO DA PALETA OFICIAL**, e é o único do arquivo:
+     `#4a4a4a` é o `night`, um dos dezoito valores da identidade IASD e o texto
+     que ela prescreve. Ele não era um cinza escolhido — era A cor. O operador
+     o leu como cinza duas vezes ("me parece ser cinza hoje"), e a leitura está
+     certa: `night` É um cinza escuro, e num app operado sob a luz de um salão
+     ele se lê como texto apagado.
+
+     O preço está dito e é pequeno: o `night` continua na identidade e volta com
+     uma linha. O ganho é medido — 6,87:1 → 16,28:1 sobre a página, 8,86:1 →
+     21:1 sobre o painel branco, e sobre a tampa azul da Biblioteca (`#bdcada`,
+     a superfície onde a queixa nasceu) 5,33:1 → 12,62:1.
+
+     **`--muted` NÃO acompanha**, e essa é a metade que mantém a regra que a
+     v1.5.11 escreveu: NOME é `--text`, NÚMERO é `--muted`. O par abriu de
+     1,33:1 para 3,15:1, isto é, a hierarquia ficou MAIS legível, não menos.
+
+     Sobre o `--muted`: o `winter` OFICIAL (#717171) seria o secundário natural
+     e dá 4,88:1 sobre BRANCO — mas sobre o cinza da página cai para 3,81:1 e
+     reprova AA, e `--muted` aparece nos dois lugares. O derivado é o mesmo
+     cinza com a matiz do denim e um degrau a menos de luminância. Ele ESCURECEU
+     mais um degrau na v5.267 (#5c636c → #565d66): com o painel-2 mais fundo, o
+     valor antigo dava 4,32:1 ali e reprovava. */
+  --text: #000000;                       /* PRETO (v1.5.12) — 21:1 painel · 16,28:1 fundo */
   --muted: #565d66;                      /* 6,66:1 painel · 5,16:1 fundo · 4,73:1 painel-2 */
 
   /* denim OFICIAL nos três papéis do accent: como texto/borda ele dá 7,70:1
@@ -725,30 +813,30 @@
   --live-soft: rgba(208, 2, 27, .14);
   --live-strong: #b80419;
   --danger-strong: #b80419;
-  --danger: #d0021b;
   --danger-text: #93382e;                /* 5,73:1 sobre o soft · 7,38:1 sobre o painel */
-  --danger-soft: rgba(208, 2, 27, .14);
 
   /* campfire e treefrog escurecidos pelo mesmo motivo: o oficial passa sobre
      BRANCO (4,62:1 e 4,71:1) e reprova sobre a página cinza. Matizes 21° e 101°
      preservadas. `--warn` é ícone/borda e responde ao piso de 3:1. */
   --warn: #bd520a;                       /* 3,38:1 sobre --warn-soft · 3,72:1 sobre o fundo */
   --warn-text: #934410;                  /* 4,81:1 sobre --warn-soft */
-  --warn-soft: rgba(205, 73, 0, .08);
   --ok: #216900;                         /* 4,76:1 sobre --ok-soft · 6,81:1 sobre o painel */
-  --ok-soft: rgba(33, 105, 0, .08);
 
   /* o véu segue o --bg deste tema, pela mesma regra do escuro */
   --veil: rgba(223, 227, 231, .55);
   --veil-solid: rgba(223, 227, 231, .92);
 
   /* Bíblia: as MESMAS dez matizes, com a tinta invertida — ladrilho claro e
-     rótulo em `--text`. O alvo do rótulo aqui é 6,5:1 e não os 8,7:1 do escuro,
-     e a razão é aritmética: o texto deste tema é o `night` (#4A4A4A), não um
-     off-white, então um ladrilho com 8,7:1 contra ele seria branco puro e a
-     matiz do grupo sumiria — que é o oposto do que a tela existe para fazer.
-     Pior rótulo 6,46:1; a separação de matiz é a mesma do escuro (≥19°), que é
-     o que dispensou a segunda banda (ver o bloco de lá). */
+     rótulo em `--text`. **Os ladrilhos NÃO foram retocados na v1.5.12**, e não
+     precisavam: o texto ESCURECEU, então todo rótulo se afastou do ladrilho
+     dele — o pior caso foi de 6,46:1 para 15,31:1. Escurecer o texto só pode
+     melhorar este par.
+
+     O alvo com que eles foram escolhidos era 6,5:1 (e não os 8,7:1 do escuro),
+     e a razão continua sendo a mesma: um ladrilho claro demais devolve a matiz
+     do grupo ao branco, que é o oposto do que a tela existe para fazer. A
+     separação de matiz é a mesma do escuro (≥19°), que é o que dispensou a
+     segunda banda (ver o bloco de lá). */
   --b-lei:#d2ddf4;
   --b-historicos:#f2d7c9;
   --b-poeticos:#a9eadd;
@@ -759,6 +847,8 @@
   --b-paulinas:#adeac3;
   --b-gerais:#bdeaa9;
   --b-apocalipse:#eadda9;
+
+
 
   --cell-chapter: #cedff3;      --cell-chapter-text: #183d67;   /* 8,13:1 */
   --cell-verse: #f4e5c7;        --cell-verse-text: #654310;     /* 7,14:1 */

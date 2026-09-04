@@ -55,19 +55,12 @@
 // sem aparelho nenhum.
 //
 //   node tools/display-smoke.mjs
-import { chromium } from 'playwright';
-import http from 'node:http';
-import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { semRedeExterna } from './sem-rede.mjs';
+import { TIPOS, servirEstatico, abrirNavegador, checar, falhas } from './arnes.mjs';
 
 const RAIZ = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'app', 'src', 'main', 'assets', 'web');
-const TIPOS = {
-  '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8',
-  '.css': 'text/css; charset=utf-8', '.json': 'application/json',
-  '.woff2': 'font/woff2', '.png': 'image/png', '.jpg': 'image/jpeg', '.svg': 'image/svg+xml',
-};
 
 // O ESPIÃO é uma página vazia servida pelo próprio teste, no MESMO origin do
 // bundle — é o que dá a ele um BroadcastChannel que o telão enxerga. Ele faz o
@@ -90,37 +83,19 @@ const VP_TELAO = { width: 960, height: 540 };   // 1920 px a 320 dpi (a TV real)
 // salão, que é o único consumidor deste número.
 const PISO_FONTE_PX = 28;
 
-const servidor = http.createServer((req, res) => {
-  let p = decodeURIComponent(new URL(req.url, 'http://x').pathname);
-  if (p === ESPIAO) {
-    res.writeHead(200, { 'Content-Type': TIPOS['.html'] });
-    res.end('<!doctype html><meta charset="utf-8"><title>espião</title>');
-    return;
-  }
-  if (p.endsWith('/')) p += 'index.html';
-  const arquivo = path.join(RAIZ, p);
-  // Não servir nada fora da base web, mesmo num teste local.
-  if (!arquivo.startsWith(RAIZ) || !fs.existsSync(arquivo) || fs.statSync(arquivo).isDirectory()) {
-    res.writeHead(404); res.end('nao'); return;
-  }
-  res.writeHead(200, { 'Content-Type': TIPOS[path.extname(arquivo)] || 'application/octet-stream' });
-  fs.createReadStream(arquivo).pipe(res);
+const servidor = servirEstatico(RAIZ, (req, res) => {
+  if (new URL(req.url, 'http://x').pathname !== ESPIAO) return false;
+  res.writeHead(200, { 'Content-Type': TIPOS['.html'] });
+  res.end('<!doctype html><meta charset="utf-8"><title>espião</title>');
+  return true;
 });
-
-const falhas = [];
-function checar(cond, msg, obtido) {
-  if (cond) console.log('ok      ' + msg);
-  else { console.log('FALHOU  ' + msg + (obtido ? '\n        obtido: ' + obtido : '')); falhas.push(msg); }
-}
 
 await new Promise((r) => servidor.listen(0, r));
 const base = 'http://127.0.0.1:' + servidor.address().port;
 
 // `PW_CHROMIUM` aponta o binário quando ele não está onde o Playwright o
 // procura (é o caso do ambiente de desenvolvimento deste projeto).
-const navegador = await chromium.launch(
-  process.env.PW_CHROMIUM ? { executablePath: process.env.PW_CHROMIUM } : {},
-);
+const navegador = await abrirNavegador();
 // UM contexto para as duas páginas: BroadcastChannel só atravessa páginas do
 // mesmo origin no mesmo perfil — que é exatamente a premissa da arquitetura de
 // dois WebViews, e por isso a montagem do teste espelha a do app.

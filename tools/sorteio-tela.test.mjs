@@ -26,45 +26,18 @@
 // `__AVBridge` — o caminho de navegador.
 //
 //   node tools/sorteio-tela.test.mjs
-import { chromium } from 'playwright';
-import http from 'node:http';
-import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { semRedeExterna } from './sem-rede.mjs';
+import { servirEstatico, abrirNavegador, checar, falhas } from './arnes.mjs';
 
 const RAIZ = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'app', 'src', 'main', 'assets', 'web');
-const TIPOS = {
-  '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8',
-  '.css': 'text/css; charset=utf-8', '.json': 'application/json',
-  '.woff2': 'font/woff2', '.png': 'image/png', '.jpg': 'image/jpeg', '.svg': 'image/svg+xml',
-};
 
-const servidor = http.createServer((req, res) => {
-  let p = decodeURIComponent(new URL(req.url, 'http://x').pathname);
-  if (p.endsWith('/')) p += 'index.html';
-  const arquivo = path.join(RAIZ, p);
-  if (!arquivo.startsWith(RAIZ) || !fs.existsSync(arquivo) || fs.statSync(arquivo).isDirectory()) {
-    res.writeHead(404); res.end('nao'); return;
-  }
-  res.writeHead(200, { 'Content-Type': TIPOS[path.extname(arquivo)] || 'application/octet-stream' });
-  fs.createReadStream(arquivo).pipe(res);
-});
-
-const falhas = [];
-function checar(cond, msg, obtido) {
-  if (cond) console.log('ok      ' + msg);
-  else {
-    console.log('FALHOU  ' + msg + (obtido !== undefined ? '\n        obtido: ' + JSON.stringify(obtido) : ''));
-    falhas.push(msg);
-  }
-}
+const servidor = servirEstatico(RAIZ);
 
 await new Promise((r) => servidor.listen(0, r));
 const porta = servidor.address().port;
-const navegador = await chromium.launch(
-  process.env.PW_CHROMIUM ? { executablePath: process.env.PW_CHROMIUM } : {},
-);
+const navegador = await abrirNavegador();
 const ctx = await navegador.newContext({ viewport: { width: 430, height: 900 } });
 await semRedeExterna(ctx);
 const pg = await ctx.newPage();
@@ -143,7 +116,8 @@ try {
   // SETE ponteiros, e um errado devolve um pool plausível e errado. Este é o
   // único lugar em que eles podem ser conferidos: a regra pura recebe os de
   // mentira do outro oráculo.
-  const cap = await pg.evaluate(() => {
+  const cap = await pg.evaluate(async () => {
+    await ensureLyricIndex();   // ver o comentário do `soLetra`, logo abaixo
     const c = sorteioCap();
     const hin = allCollections().find((x) => x.id === 'hymnal-2022');
     const alb = allCollections().find((x) => x.id === 'album-9');
@@ -189,7 +163,19 @@ try {
   // o que a folha e o Registro mostram ao operador ("casou na letra"). Sem ela,
   // um `letraCasa` certo e um `ondeCasa` que nunca o consultasse passariam
   // iguais.
-  const soLetra = await pg.evaluate(() => {
+  //
+  // E O ÍNDICE É GARANTIDO AQUI DENTRO, não lá em cima. `syncLyrics` sai da
+  // abertura SEM `await` e o `finally` dela chama `invalidateLyricIndex()` — sob
+  // carga esse `finally` cai ENTRE o `evaluate` das capacidades e este, e o que
+  // sai é um pool VAZIO com `letraCasa` tendo passado dois `checar` antes. Não é
+  // defeito do app (invalidar depois de mexer no acervo é o certo) nem prazo a
+  // somar: é que quem chama `montarPool` DIRETO pula o `abrirSorteio`, que é o
+  // ponto onde a folha de verdade garante o índice. Então este oráculo o
+  // garante. MEDIDO: 1 reprovação em 4 rodadas da suíte em paralelo, e nenhuma
+  // em 8 execuções isoladas a 4× de carga — a janela é a do agendador, não a da
+  // CPU.
+  const soLetra = await pg.evaluate(async () => {
+    await ensureLyricIndex();
     const pool = AVSorteio.montarPool(allCollections(), { tema: 'peregrino' }, sorteioCap());
     return {
       nomes: pool.itens.map((i) => i.s.name),
@@ -221,8 +207,11 @@ try {
   // de flex acrescentado por engano divorciaria as duas sem que nada reclamasse.
   const barra = await pg.evaluate(() => {
     const b = document.getElementById('sorteioBtn');
-    const campo = document.querySelector('.hymn-search-bar .lib-search');
-    const x = document.getElementById('hymnSearchClose');
+    // A BARRA MUDOU DE CASA na v1.5.0 (a `.lib-bar` da caixa de controles), e o
+    // ✕ virou um ALTERNADOR — seta quando a Biblioteca está fechada. A ORDEM
+    // que este caso mede é a mesma: *sortear* · *procurar* · *sair*.
+    const campo = document.querySelector('.lib-bar .lib-search');
+    const x = document.getElementById('hymnSearchToggle');
     if (!b || !campo || !x) return { erro: 'a barra não tem as três peças' };
     const esq = (el) => Math.round(el.getBoundingClientRect().left);
     return { sorteio: esq(b), campo: esq(campo), fechar: esq(x) };
@@ -261,21 +250,40 @@ try {
     'e o símbolo tem geometria e é pintado com tamanho de ícone', desenho);
 
   // ---- E ELE TEM CONTRASTE, NOS DOIS TEMAS ---------------------------------
-  // O botão vive sobre o CAMPO, que é branco literal e SEM TEMA. Pintá-lo com
-  // um token redeclarado por tema (`--accent`) dava 2,06:1 no escuro — abaixo
-  // do piso de 3:1 de componente, e o relato do operador foi exatamente esse.
-  // A conta é feita sobre a cor COMPUTADA, não sobre o nome do token: comparar
-  // nomes deixaria o defeito passar por baixo (a lição do `smoke.mjs`).
+  // O relato que abriu o caso (v5.303) foi um ícone ilegível: o botão vivia
+  // sobre o CAMPO, branco literal e SEM TEMA, e `--accent` — que é redeclarado
+  // por tema — dava 2,06:1 no escuro, abaixo do piso de 3:1 de componente.
+  //
+  // A v1.5.2 desfez a premissa e manteve a propriedade: o botão deixou de viver
+  // sobre um campo branco e passou a vestir `--surface`, o tom dos botões do
+  // transporte (*"vamos usar apenas os botões e a caixa de texto do mesmo tom
+  // que os botões do controle"*). A superfície voltou a ter tema, e `--accent`
+  // voltou a ser o token certo — o que NÃO muda é que o glifo precisa ser
+  // legível nos dois.
+  //
+  // A CONTA COMPÕE O ALFA (v1.5.2), e essa metade é nova: `--surface` é branco
+  // (ou preto) COM ALFA, e medir a luminância da cor crua trata rgba(255,255,
+  // 255,.12) como branco — o número sai errado nos dois sentidos. A composição é
+  // sobre a caixa de controles, que é onde a barra de fato pousa. É a mesma
+  // conta do `smoke.mjs`, e continua sendo sobre a cor COMPUTADA: comparar
+  // nomes de token deixaria o defeito passar por baixo.
   const contraste = await pg.evaluate(async () => {
+    const rgb = (v) => (Array.isArray(v) ? v : (v.match(/[\d.]+/g) || []).map(Number));
+    const sobre = (frente, base) => {
+      const f = rgb(frente); const b = rgb(base);
+      const a = f.length > 3 ? f[3] : 1;
+      return [0, 1, 2].map((i) => f[i] * a + b[i] * (1 - a));
+    };
     const lum = (cor) => {
-      const [r, g, b] = cor.match(/[\d.]+/g).slice(0, 3).map(Number).map((c) => c / 255);
+      const [r, g, b] = rgb(cor).slice(0, 3).map((c) => c / 255);
       const f = (c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
       return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b);
     };
     const medir = () => {
-      const b = document.getElementById('sorteioBtn');
-      const cs = getComputedStyle(b);
-      const a = lum(cs.color); const f = lum(cs.backgroundColor);
+      const cs = getComputedStyle(document.getElementById('sorteioBtn'));
+      const caixa = getComputedStyle(document.querySelector('.bottombar')).backgroundColor;
+      const fundo = sobre(cs.backgroundColor, caixa);
+      const a = lum(sobre(cs.color, fundo)); const f = lum(fundo);
       return Math.round(((Math.max(a, f) + 0.05) / (Math.min(a, f) + 0.05)) * 100) / 100;
     };
     const fora = {};
@@ -287,9 +295,9 @@ try {
     return fora;
   });
   checar(contraste.escuro >= 3 && contraste.claro >= 3,
-    'o ícone tem contraste de COMPONENTE (≥3:1) sobre o campo NOS DOIS TEMAS — '
-    + 'o campo é branco literal e não segue o tema, então um token que siga o '
-    + 'tema erra num deles', contraste);
+    'o ícone tem contraste de COMPONENTE (≥3:1) sobre o fundo dele NOS DOIS '
+    + 'TEMAS — a conta compõe o alfa da superfície sobre a caixa de controles, '
+    + 'senão ela mede um branco que não existe', contraste);
 
   await pg.click('#sorteioBtn');
   await assentada('#sorteioPopup');

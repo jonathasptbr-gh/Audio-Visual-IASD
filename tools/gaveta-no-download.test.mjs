@@ -57,41 +57,14 @@
 // fora do app — ali sem ponte o botão abre o YouTube por fora.
 //
 //   node tools/gaveta-no-download.test.mjs
-import { chromium } from 'playwright';
-import http from 'node:http';
-import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { semRedeExterna } from './sem-rede.mjs';
+import { servirEstatico, abrirNavegador, checar, falhas } from './arnes.mjs';
 
 const RAIZ = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'app', 'src', 'main', 'assets', 'web');
-const TIPOS = {
-  '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8',
-  '.css': 'text/css; charset=utf-8', '.json': 'application/json',
-  '.woff2': 'font/woff2', '.png': 'image/png', '.jpg': 'image/jpeg', '.svg': 'image/svg+xml',
-};
 
-const servidor = http.createServer((req, res) => {
-  let p = decodeURIComponent(new URL(req.url, 'http://x').pathname);
-  if (p.endsWith('/')) p += 'index.html';
-  const arquivo = path.join(RAIZ, p);
-  if (!arquivo.startsWith(RAIZ) || !fs.existsSync(arquivo) || fs.statSync(arquivo).isDirectory()) {
-    res.writeHead(404); res.end('nao'); return;
-  }
-  res.writeHead(200, { 'Content-Type': TIPOS[path.extname(arquivo)] || 'application/octet-stream' });
-  fs.createReadStream(arquivo).pipe(res);
-});
-
-const falhas = [];
-function checar(cond, msg, obtido) {
-  if (cond) console.log('ok      ' + msg);
-  else {
-    console.log('FALHOU  ' + msg
-      + (obtido !== undefined ? '\n        obtido: '
-        + (typeof obtido === 'string' ? obtido : JSON.stringify(obtido)) : ''));
-    falhas.push(msg);
-  }
-}
+const servidor = servirEstatico(RAIZ);
 
 // Espera pelo FATO, e o estouro devolve a FRASE — um prazo vencido não é um
 // veredito sobre o app (ver "Um oráculo não pode medir o runner").
@@ -102,9 +75,7 @@ async function esperar(pg, fn, msg, arg, ms = 15000) {
 
 await new Promise((r) => servidor.listen(0, r));
 const porta = servidor.address().port;
-const navegador = await chromium.launch(
-  process.env.PW_CHROMIUM ? { executablePath: process.env.PW_CHROMIUM } : {},
-);
+const navegador = await abrirNavegador();
 const ctx = await navegador.newContext({ viewport: { width: 430, height: 900 } });
 await semRedeExterna(ctx);
 // O MODO AVANÇADO É SEMEADO ANTES DA PRIMEIRA LINHA DO APP, e isto não é
@@ -148,8 +119,12 @@ try {
       && window.Louvorja && window.Bible && window.AVSerie && window.AVSorteio
       && typeof window.__avBack === 'function'
       && !!document.querySelector('#playlist li')
-      && !!document.querySelector('.tabs')
-      && document.querySelector('.tabs').style.getPropertyValue('--tab-w') !== ''
+      // A FAIXA DE ABAS SAIU (v1.5.0). O sinal de "a interface assentou" passou
+      // a ser a barra da Biblioteca — a cabeça da janela dela, à vista na base
+      // do app —, mais as portas do rodapé. É o irmão do `--tab-w` que estava
+      // aqui: uma peça que só existe depois de a caixa de controles existir.
+      && !!document.querySelector('.lib-bar')
+      && !!document.querySelector('.import-row #toolsBtn')
   ), null, { timeout: 30000 });
 
   // ---- O acervo plantado -------------------------------------------------

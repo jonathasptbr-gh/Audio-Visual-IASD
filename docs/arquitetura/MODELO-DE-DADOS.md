@@ -7,9 +7,27 @@
 
 | Object Store | Chave | Conteúdo |
 |---|---|---|
-| `media` | `id` (UUID), índice `youtubeId` | `{ id, blob, url, thumb, type, kind, name, youtubeId, pages, cue, data, createdAt }` |
+| `media` | `id` (UUID), índice `youtubeId` | `{ id, blob, url, thumb, type, kind, name, youtubeId, pages, cue, data, createdAt }` mais os DESCRITORES: `height`, `seconds`, `canal`, `stream` |
 | `files` | `id` (UUID), índice `folder` | catálogo OPFS: `{ id, folder, opfsPath, srcName, name, type, kind, size, mtime, thumb, addedAt }` |
 | `state` | chave string | valor arbitrário (listas, estado atual, pastas dos Favoritos, transições…) |
+
+**OS DESCRITORES SÃO O QUE NÃO SE REDESCOBRE** (`height`, `seconds`, `canal`).
+A régua deles é a mesma e vale para os três: *quem sabe é quem gravou*. A
+resolução e a duração de um blob só se leem decodificando-o (um `<video>` por
+linha a cada render, que a lista não pode pagar), e o CANAL de um item do
+YouTube não se lê de lugar nenhum sem rede. `null` quando não se sabe — e aí
+quem os consome (`subtituloItem`, a gaveta de detalhe) simplesmente não desenha
+a linha, nunca escreve "undefined".
+
+**E o LINK é quem mais depende deles** (v1.5.21): um arquivo baixado ainda pode
+ser medido; um `kind: 'youtube'` não tem bytes, então o que o app sabe sobre ele
+offline é exatamente o que foi gravado no registro. `addUrlMedia` os repassa
+desde a v1.5.21 — antes só `addMedia` o fazia, e um link nascia sem duração e
+sem canal com os dois na mão de quem o criava.
+
+**Campo novo aqui NÃO exige `DB_VERSION` nova**: o store não tem esquema por
+registro e ninguém indexa por eles (o único índice é `youtubeId`). Um registro
+antigo simplesmente não tem o campo, que é o caso normal deles e não a exceção.
 
 Um registro de mídia tem **`blob`, `url`, `opfsPath` OU `pages`** (nunca mais
 de um): blobs locais importados, itens de URL externa (link direto, YouTube),

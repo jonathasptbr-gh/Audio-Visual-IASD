@@ -37,6 +37,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { checar, falhas } from './checar.mjs';
 
 const AQUI = path.dirname(fileURLToPath(import.meta.url));
 const MSE = path.join(AQUI, '..', 'app', 'src', 'main', 'assets', 'web', 'shared', 'mse.js');
@@ -44,16 +45,6 @@ const MSE = path.join(AQUI, '..', 'app', 'src', 'main', 'assets', 'web', 'shared
 const janela = { MediaSource: undefined };
 new Function('window', fs.readFileSync(MSE, 'utf8'))(janela);
 const { degrausUsaveis, prazoDoPedido } = janela.AVStream;
-
-const falhas = [];
-function checar(cond, msg, obtido) {
-  if (cond) console.log('ok      ' + msg);
-  else {
-    console.log('FALHOU  ' + msg
-      + (obtido !== undefined ? '\n        obtido: ' + JSON.stringify(obtido) : ''));
-    falhas.push(msg);
-  }
-}
 
 const AVC = 'video/mp4; codecs="avc1.640028"';
 const AV1 = 'video/mp4; codecs="av01.0.08M.08"';

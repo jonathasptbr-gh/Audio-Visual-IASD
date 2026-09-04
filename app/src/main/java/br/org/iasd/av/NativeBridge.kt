@@ -217,7 +217,7 @@ class NativeBridge(
          *
          * O degrau a degrau está na tabela da seção "A ponte" do `CLAUDE.md`.
          */
-        const val SHELL_VERSION = 60
+        const val SHELL_VERSION = 62
 
         /**
          * O CONSUMIDOR DA LAN para o barramento (telão por comandos, E2 —
@@ -581,9 +581,14 @@ class NativeBridge(
      * sem rede. O farol EM SI nunca roda aqui: ele tem fila própria, e é a
      * ronda do OTA que o aciona.
      *
-     * Sem `host` devolve `{}` (invariante 9): a chave de exclusão é do
-     * Controle, e um script de terceiro no documento do telão não tem por que
-     * poder tirar aquele aparelho da contagem — nem descobrir que ele existe.
+     * ELE É SÓ LEITURA desde o shell 61, e o consumidor é o REGISTRO: a linha
+     * "Alcance:" responde *"o farol chegou a acender?"*, que é a pergunta que
+     * faz aquele texto ser copiado. A chave que ele acompanhava (`farolContar`)
+     * saiu — ver o bloco logo abaixo.
+     *
+     * Sem `host` devolve `{}` (invariante 9): é diagnóstico do Controle, e um
+     * script de terceiro no documento do telão não tem por que saber quando
+     * aquele aparelho acendeu — nem que o farol existe.
      */
     @JavascriptInterface
     fun farolEstado(callId: String) {
@@ -599,24 +604,19 @@ class NativeBridge(
         }
     }
 
-    /**
-     * A chave "este aparelho entra na contagem".
+    /*
+     * (`farolContar` saiu no shell 61. Era a chave "este aparelho entra na
+     *  contagem", e ela foi descartada a pedido do operador — *"descarte a
+     *  opção de contagem de uso como opcional, deixe sempre ativo, não preciso
+     *  do sistema de exclusividade"*. Ver o KDoc de [Farol]: o que sobra é a
+     *  exclusão do build debuggável, que nunca foi opção de ninguém.
      *
-     * Síncrona e sem resposta, como o [espelhoDesligar]: não há o que esperar —
-     * a gravação é local e o efeito é da PRÓXIMA vez que o farol acender. Um
-     * `callId` aqui prometeria um desfecho que não existe.
-     *
-     * **Ela não reacende nada, e isso é deliberado.** Marcar um aparelho como
-     * de teste no meio do dia não deve mandá-lo acender de novo no outro
-     * contador — o dia dele já foi contado, e um aparelho que aparecesse nos
-     * dois no mesmo dia é exatamente o duplo registro que este desenho existe
-     * para não ter.
+     *  ENCOLHER A PONTE É UM LOTE APK + WEB PUBLICADO JUNTO, e é por isso que
+     *  este lote leva `shellTag` no `version.json`: um bundle que já não desenha
+     *  a chave é inofensivo num shell 60, mas o `Farol.contar` que deixa de ler
+     *  a preferência só chega instalando o APK — e é ELE que devolve à contagem
+     *  um aparelho marcado "fica de fora" que ficaria sem tela para desmarcar.)
      */
-    @JavascriptInterface
-    fun farolContar(conta: Boolean) {
-        if (host == null) return
-        runCatching { Farol.definirContar(ctx, conta) }
-    }
 
     /**
      * OS DOIS CANAIS DE ATUALIZAÇÃO, numa fotografia só (shell 43).
@@ -1252,6 +1252,39 @@ class NativeBridge(
         if (host == null) { resolve(callId, "null"); return }
         extracao.execute {
             val r = try { YoutubeGrab.playlist(url) } catch (_: Exception) { null }
+            resolve(callId, r?.toString() ?: "null")
+        }
+    }
+
+    /**
+     * OS DADOS DE UM VÍDEO, sob demanda — `{ titulo, canal, seconds, descricao }`
+     * ou `null` (shell 62).
+     *
+     * A metade do card de detalhe que NÃO cabe no índice da série: título,
+     * canal e duração a listagem de playlist já entrega e o `serie.js` os
+     * guarda (valem offline); a DESCRIÇÃO só existe extraindo o vídeo, uma
+     * requisição por vídeo. Ver [YoutubeGrab.detalhes] — inclusive por que o
+     * campo `descricao` é **sempre texto simples**, e por que o TIPO original
+     * não viaja.
+     *
+     * **UM TOQUE, e é isso que o autoriza a morar na [extracao].** Ela é de UMA
+     * thread, e trabalho de MASSA aqui empurra todo "Tocar agora" para além dos
+     * 60 s do `call()` — foi por isso que a cifra ganhou fila própria. Quem
+     * chama este método é o botão "Ver os detalhes" de UMA linha, com cache em
+     * memória do outro lado: nunca a montagem de uma lista, nunca uma varredura
+     * de álbum. As outras três filas estão fora por eliminação: [io] é a de
+     * MILISSEGUNDOS (rede ali é o defeito que faz o `listFolder` mentir lista
+     * vazia), [transferencia] é de MINUTOS e o download em curso seguraria o
+     * toque, e [cifra] é a fila da varredura.
+     *
+     * `null` no papel `display` (invariante 9): o telão não tem card de detalhe
+     * nem lista de acervo, e a superfície nativa é privilégio do Controle.
+     */
+    @JavascriptInterface
+    fun ytDetalhes(callId: String, url: String) {
+        if (host == null) { resolve(callId, "null"); return }
+        extracao.execute {
+            val r = try { YoutubeGrab.detalhes(url) } catch (_: Exception) { null }
             resolve(callId, r?.toString() ?: "null")
         }
     }

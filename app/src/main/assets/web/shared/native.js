@@ -102,6 +102,13 @@
     // aborta nada visível — o app sobe inteiro e o `.pptx` deixa de abrir, com
     // um "não deu para abrir" que acusa o ARQUIVO do operador.
     if (!global.AVDeck) return false;
+    // `AVColetanea` (v1.5.16) fecha a lista pela MESMA razão dos irmãos, e o
+    // caso dele é o mais silencioso de todos: a regra é lida DENTRO do
+    // `renderCollectionsListMiolo`, então um erro de topo em `coletanea.js`
+    // não aborta nada — a Biblioteca desenharia o catálogo CRU, com a coletânea
+    // que o operador mandou dissolver de volta na tela, e o bundle seria
+    // carimbado como bom para sempre.
+    if (!global.AVColetanea) return false;
     if (typeof global.__avBack !== 'function') return false;
     return !!document.querySelector('#playlist > li');
   }
@@ -401,6 +408,52 @@
     // inteiro): é dele que o `serie.js` tira data e marca de Libras.
     ytPlaylist: (url) => call((id) => B.ytPlaylist(id, String(url)), CALL_TIMEOUT_MS),
 
+    // OS DADOS DE UM VÍDEO para o card de detalhe (shell 62):
+    // `{ titulo, canal, seconds, descricao }` ou `null`.
+    //
+    // A metade que NÃO cabe no índice da série. Título, canal e duração já
+    // chegam pela listagem de playlist e ficam guardados (o card vale offline);
+    // a DESCRIÇÃO só existe extraindo o vídeo — uma requisição por vídeo —, e
+    // por isso este método é SOB DEMANDA: quem o chama é o toque em "Ver os
+    // detalhes", com cache em memória do lado do `controle.js`.
+    //
+    // `descricao` é SEMPRE TEXTO SIMPLES, e é o Kotlin quem garante isso
+    // (`YoutubeGrab.detalhes`). O YouTube entrega HTML quando a descrição tem
+    // links, e este lado roda no origin privilegiado — o que injeta
+    // `__AVBridge`. O tipo original NÃO viaja de propósito: o único uso dele
+    // aqui seria ramificar, e o único ramo que ele habilita é o que a decisão
+    // existe para impedir.
+    //
+    // REMONTADO CAMPO A CAMPO, como o `cifraHtml` e ao contrário do
+    // `atualizacaoEstado`: os quatro campos vão direto para a tela, e um
+    // `undefined` que escapasse é uma linha escrita "undefined" num card que
+    // alguém lê. A coerção acontece aqui, num lugar só, em vez de em cada
+    // consumidor.
+    //
+    // E O `null` SOBREVIVE À REMONTAGEM — ele não é achatado num objeto vazio,
+    // que seria o reflexo do `cifraHtml`. Aqui as duas respostas pedem AÇÕES
+    // OPOSTAS do chamador, e é a mesma distinção do `status 0` × `404` daquele:
+    // `null` é "não houve resposta" (sem rede, prazo vencido, papel `display`)
+    // e o chamador NÃO guarda nada — tentar de novo é o certo; um objeto com
+    // `descricao: ''` é "respondeu, e este vídeo não tem descrição", e esse ele
+    // guarda, senão toda abertura da gaveta gasta uma extração para chegar à
+    // mesma resposta.
+    //
+    // COM prazo, como o `ytPlaylist`: há uma extração de rede no meio
+    // (segundos). Vencido, o card fica com o que o índice já guardou — que é a
+    // degradação certa, e a mesma de um aparelho sem rede.
+    ytDetalhes: (url) => call((id) => B.ytDetalhes(id, String(url)), CALL_TIMEOUT_MS)
+      .then((r) => (r ? {
+        titulo: String(r.titulo || ''),
+        canal: String(r.canal || ''),
+        // `Number(...)` e não `| 0`: o `| 0` é Int32 COM SINAL, e é o defeito
+        // que este arquivo já pagou duas vezes. Aqui ele não morderia (um vídeo
+        // de 68 anos não existe), e é justamente por isso que o padrão importa
+        // — quem copiar esta linha para um campo de bytes leva o defeito junto.
+        seconds: Math.max(0, Number(r.seconds) || 0),
+        descricao: String(r.descricao || ''),
+      } : null)),
+
     // O "Salvar como" do sistema (SAF `CREATE_DOCUMENT`), com o shell
     // ESCREVENDO o texto: resolve o NOME gravado, ou `''` quando o operador
     // desistiu ou a gravação falhou. Existe porque o WebView do app não tem
@@ -546,8 +599,9 @@
     // ausente como `false`/`0`, que são valores legítimos. `tools/ponte.test.mjs`
     // prende isso.
     //
-    // `conta` é o VEREDITO e não a chave: ele já embute o build debuggável, e é
-    // por isso que a tela nunca calcula essa resposta por conta própria.
+    // `conta` é o VEREDITO, e desde o shell 61 o único motivo dele é o build
+    // debuggável — a tela continua sem calcular essa resposta por conta
+    // própria, para o dia em que aparecer um segundo motivo.
     // `ultimo` é epoch em ms, com `0` significando "nunca acendeu" — quem
     // escreve a frase é o `controle.js`.
     farolEstado: () => call((id) => B.farolEstado(id), CALL_TIMEOUT_MS)
@@ -557,10 +611,11 @@
         diag: r.diag || '',
       } : null)),
 
-    // A CHAVE "este aparelho entra na contagem". Síncrona e sem resposta, como
-    // o `espelhoDesligar`: a gravação é local e o efeito é do próximo
-    // acendimento. Ela NÃO reacende nada — ver o KDoc do `farolContar`.
-    farolContar(conta) { try { B.farolContar(!!conta); } catch (_) { /* ponte indisponível */ } },
+    // (`farolContar` saiu no shell 61 com o sistema de exclusão. Era a chave
+    //  "este aparelho entra na contagem", e o operador a descartou: a contagem
+    //  passou a ser SEMPRE ativa, e a única exclusão que sobrou é a do build
+    //  debuggável, que não tem chave nenhuma. O `farolEstado` acima FICA — ele
+    //  virou só leitura, e quem o consome é a linha "Alcance:" do Registro.)
 
     // DIAGNÓSTICO da última extração do YouTube: uma linha dizendo quantas
     // faixas de cada tipo o extrator recebeu e qual venceu. Vazio num shell

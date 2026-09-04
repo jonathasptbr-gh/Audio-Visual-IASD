@@ -36,47 +36,19 @@
 //
 //   node tools/modo-facil-slides.test.mjs
 // ============================================================================
-import { chromium } from 'playwright';
-import fs from 'node:fs';
-import http from 'node:http';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { semRedeExterna } from './sem-rede.mjs';
+import { servirEstatico, abrirNavegador, checar, falhas } from './arnes.mjs';
 
 const RAIZ = path.join(path.dirname(fileURLToPath(import.meta.url)),
   '..', 'app', 'src', 'main', 'assets', 'web');
-const TIPOS = {
-  '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8',
-  '.css': 'text/css; charset=utf-8', '.json': 'application/json',
-  '.woff2': 'font/woff2', '.png': 'image/png', '.jpg': 'image/jpeg', '.svg': 'image/svg+xml',
-};
 const PAGINAS = 6;
 
-const servidor = http.createServer((req, res) => {
-  let p = decodeURIComponent(new URL(req.url, 'http://x').pathname);
-  if (p.endsWith('/')) p += 'index.html';
-  const arquivo = path.join(RAIZ, p);
-  if (!arquivo.startsWith(RAIZ) || !fs.existsSync(arquivo) || fs.statSync(arquivo).isDirectory()) {
-    res.writeHead(404); res.end('nao'); return;
-  }
-  res.writeHead(200, { 'Content-Type': TIPOS[path.extname(arquivo)] || 'application/octet-stream' });
-  fs.createReadStream(arquivo).pipe(res);
-});
-
-const falhas = [];
-function checar(cond, msg, obtido) {
-  if (cond) console.log('ok      ' + msg);
-  else {
-    console.log('FALHOU  ' + msg
-      + (obtido !== undefined ? '\n        obtido: ' + JSON.stringify(obtido) : ''));
-    falhas.push(msg);
-  }
-}
+const servidor = servirEstatico(RAIZ);
 
 await new Promise((r) => servidor.listen(0, r));
-const navegador = await chromium.launch(
-  process.env.PW_CHROMIUM ? { executablePath: process.env.PW_CHROMIUM } : {},
-);
+const navegador = await abrirNavegador();
 const ctx = await navegador.newContext({ viewport: { width: 430, height: 900 } });
 await semRedeExterna(ctx);
 const pg = await ctx.newPage();
@@ -128,6 +100,22 @@ try {
     };
   });
 
+  const verControles = () => pg.evaluate(() => {
+    const vis = (sel) => {
+      const el = document.querySelector(sel);
+      if (!el) return null;
+      const cs = getComputedStyle(el);
+      return cs.display !== 'none' && cs.visibility !== 'hidden' && el.offsetParent !== null;
+    };
+    return {
+      play: vis('#simplePlay'), mudo: vis('#simpleMute'), parar: vis('#simpleStop'),
+      volume: vis('.simple-volrow'), paginas: vis('.simple-slidesrow'),
+      rotuloParar: vis('.simple-key-label--parar'),
+      fileiras: [...document.querySelectorAll('.simple-remote > *')]
+        .filter((el) => getComputedStyle(el).display !== 'none').length,
+    };
+  });
+
   // ── 1. UMA MÚSICA: o modo continua sendo o que era ────────────────────────
   const musica = await pg.evaluate(async (id) => {
     await send(id);
@@ -147,6 +135,17 @@ try {
     'ponto de partida: com uma MÚSICA a zona é a letra e a linha de páginas não '
     + 'existe — neste modo a estrofe anda sozinha pelo relógio, e um par de '
     + 'teclas que ninguém precisa exercer é o que este app não faz', m0);
+  // ===== A METADE DE MÍDIA DO "NADA INERTE NA TELA" (v1.5.14) =====
+  // A reversão do caso que vem no bloco 2c, e ela mora AQUI porque é aqui que o
+  // arquivo já tem uma cena de mídia no ar — medi-la no fim exigiria desfazer a
+  // apresentação, e `currentItem` sobrevive de propósito ao Parar (é o que o ▶
+  // repete), então a cena que desfaz um deck é outra cena, não o Parar.
+  // Sem esta metade, "esconder o que atrapalha" passaria no caso do deck.
+  const cMidia = await verControles();
+  checar(cMidia.play && cMidia.mudo && cMidia.parar && cMidia.volume
+    && !cMidia.paginas && cMidia.fileiras === 2,
+    '  ↳ e a área de controle é a da MÍDIA: play, parar, mudo e volume, sem a '
+    + 'linha de páginas', cMidia);
 
   // ── 2. A APRESENTAÇÃO ENTRA ───────────────────────────────────────────────
   await pg.evaluate((id) => send(id), ids.deck);
@@ -164,6 +163,35 @@ try {
   checar(d0.prevOff && !d0.nextOff,
     '  ↳ e o LIMITE vem das âncoras do modo avançado (`applySlideLimits`), não '
     + 'de uma segunda conta: na página 1 o ⏮ está apagado', d0);
+
+  // ===== NADA INERTE NA TELA (v1.5.14) =====
+  // Relato do operador: *"no modo de slides fica bem estranha"*. MEDIDO antes:
+  // com um deck no ar a tela empilhava TRÊS fileiras de 76px, e as duas de
+  // baixo eram a MESMA peça — `.simple-slidesrow` e `.simple-volrow` têm o
+  // mesmo grid (`1fr 1.1fr 1fr`), a mesma altura, a mesma classe de botão
+  // (`.simple-key--vol`, nomeada por volume e usada por páginas) e o mesmo nó
+  // de mostrador. O que as separava era um rótulo de `--fs-2xs` em `--muted`:
+  // o elemento tipográfico mais fraco de uma tela feita para quem está de pé.
+  //
+  // A metade que carrega o lote é a das TECLAS QUE NÃO AGIAM SOBRE NADA: com
+  // uma apresentação no ar não há áudio (a regra do "um elemento no ar", da
+  // v1.4.32), então play, mudo e a linha inteira de volume governavam o
+  // silêncio — seis das nove teclas grandes.
+  //
+  // As duas metades falham CALADAS, e por isso as duas são medidas: a homonímia
+  // não dá erro nenhum (só faz o dedo errar de fileira) e um controle inerte
+  // responde ao toque como qualquer outro — ele só não muda nada.
+  const cDeck = await verControles();
+  checar(cDeck.paginas && cDeck.parar && !cDeck.play && !cDeck.mudo && !cDeck.volume,
+    'COM UM DECK NO AR a área de controle mostra o transporte DA CENA: páginas e '
+    + '"Parar", e mais nada — play, mudo e volume governariam o silêncio', cDeck);
+  checar(cDeck.fileiras === 2,
+    '  ↳ e sobram DUAS fileiras, não três: some a que era gêmea da linha de '
+    + 'volume (mesmo grid, mesma altura, o mesmo nó de mostrador)', cDeck.fileiras);
+  checar(cDeck.rotuloParar,
+    '  ↳ e o "Parar" ganha RÓTULO quando fica sozinho: um quadrado com um ícone '
+    + 'no meio da tela não diz o que ele para — nas outras cenas as três teclas '
+    + 'se explicam em conjunto', cDeck.rotuloParar);
 
   // ── 2b. DUAS COLUNAS, E É AQUI QUE ELAS EXISTEM (v1.4.35) ─────────────────
   //
@@ -370,6 +398,7 @@ try {
     'e VOLTAR ao modo redesenha a coluna — a assinatura foi zerada com a '
     + 'limpeza; sem isso a volta acharia o `sig` igual e a zona ficaria vazia '
     + 'para sempre', voltou);
+
 } finally {
   await ctx.close();
   await navegador.close();

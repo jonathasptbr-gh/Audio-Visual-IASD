@@ -53,38 +53,13 @@
 // uma das quatro trocas e no `load()` avulso.
 //
 //   node tools/aba-sem-estalo.test.mjs
-import { chromium } from 'playwright';
-import http from 'node:http';
-import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { semRedeExterna } from './sem-rede.mjs';
+import { servirEstatico, abrirNavegador, checar, falhas } from './arnes.mjs';
 
 const RAIZ = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'app', 'src', 'main', 'assets', 'web');
-const TIPOS = {
-  '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8',
-  '.css': 'text/css; charset=utf-8', '.json': 'application/json',
-  '.woff2': 'font/woff2', '.png': 'image/png', '.jpg': 'image/jpeg', '.svg': 'image/svg+xml',
-};
-const servidor = http.createServer((req, res) => {
-  let p = decodeURIComponent(new URL(req.url, 'http://x').pathname);
-  if (p.endsWith('/')) p += 'index.html';
-  const arquivo = path.join(RAIZ, p);
-  if (!arquivo.startsWith(RAIZ) || !fs.existsSync(arquivo) || fs.statSync(arquivo).isDirectory()) {
-    res.writeHead(404); res.end('nao'); return;
-  }
-  res.writeHead(200, { 'Content-Type': TIPOS[path.extname(arquivo)] || 'application/octet-stream' });
-  fs.createReadStream(arquivo).pipe(res);
-});
-
-const falhas = [];
-function checar(cond, msg, obtido) {
-  if (cond) console.log('ok      ' + msg);
-  else {
-    console.log('FALHOU  ' + msg + (obtido !== undefined ? '\n        obtido: ' + JSON.stringify(obtido) : ''));
-    falhas.push(msg);
-  }
-}
+const servidor = servirEstatico(RAIZ);
 
 // A ESPIÃ. Ela envolve os setters do `HTMLMediaElement` ANTES de o app carregar
 // e registra TODA escrita, inclusive as que não mudam nada — é a diferença
@@ -128,10 +103,7 @@ const base = 'http://localhost:' + servidor.address().port;
 // `--autoplay-policy` porque o app roda num WebView com
 // `mediaPlaybackRequiresUserGesture = false`: sem a bandeira o que se mediria
 // seria a política do navegador de teste.
-const navegador = await chromium.launch({
-  ...(process.env.PW_CHROMIUM ? { executablePath: process.env.PW_CHROMIUM } : {}),
-  args: ['--autoplay-policy=no-user-gesture-required'],
-});
+const navegador = await abrirNavegador({ args: ['--autoplay-policy=no-user-gesture-required'] });
 const ctx = await navegador.newContext({ viewport: { width: 430, height: 900 } });
 await semRedeExterna(ctx);
 
@@ -174,12 +146,16 @@ try {
   //
   // A ida E a volta, porque são dois `load()` diferentes (listas diferentes) e
   // o defeito estava no caminho comum: um só mediria metade da navegação.
+  // (A NAVEGAÇÃO ENTRE ABAS SAIU na v1.5.0: o Cronograma é a tela única e a
+  //  Bíblia virou uma FOLHA. O caminho que este caso mede continua o mesmo — o
+  //  `load()` que reaplica o mudo —, e quem o dispara agora é abrir e fechar a
+  //  folha, que é a navegação que sobrou.)
   const passos = [];
-  for (const aba of ['bible', 'imports', 'bible', 'imports']) {
+  for (const onde of ['bible', 'imports', 'bible', 'imports']) {
     await zerar();
-    await pg.evaluate((t) => switchTab(t), aba);
+    await pg.evaluate((t) => { if (t === 'bible') abrirBiblia(); else fecharBiblia(); }, onde);
     await pg.waitForTimeout(700);
-    passos.push({ aba, ev: await colher(), estado: await estado() });
+    passos.push({ aba: onde, ev: await colher(), estado: await estado() });
   }
 
   // O DEGRAU é uma escrita de `volume` para um valor DIFERENTE do alvo com a
@@ -214,7 +190,6 @@ try {
   checar(evLoad.length === 0,
     'e um `load()` avulso — o redesenho da lista — também não mexe no áudio',
     evLoad);
-
 
   // ======================================================================
   // METADE 2 — DE ONDE A RAMPA PARTE

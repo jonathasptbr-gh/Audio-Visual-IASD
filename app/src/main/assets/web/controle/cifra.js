@@ -889,6 +889,11 @@
    * Sempre dentro de `[0, 1]`: `t` chega de um relógio que pode passar da
    * duração por um quadro (ou vir negativo num seek em curso), e uma fração
    * fora da faixa viraria um `scrollTop` fora da folha.
+   *
+   * **SEM CONSUMIDOR NO APP desde a v1.5.6**, e continua aqui de propósito: ela
+   * é a metade POSICIONAL da janela, e é o `ritmoDaRolagem` que hoje usa a
+   * outra. Quem quiser reintroduzir o `auto` posicional tem a função e o
+   * oráculo dela de pé — e tem, junto, a razão de ele ter saído (ver abaixo).
    */
   function fracaoDaRolagem(t, dur) {
     const { t0, t1 } = janelaDeRolagem(dur);
@@ -897,6 +902,88 @@
     return Math.min(1, Math.max(0, (x - t0) / (t1 - t0)));
   }
 
+  // ===== O `auto` VIROU UM RITMO, E NÃO UMA POSIÇÃO (v1.5.6) =====
+  //
+  // Pedido do operador: *"ajuste o sistema de rolagem automática de cifra para
+  // que ele não siga o tempo da música atual em exibição, pois se a música não
+  // está tocando, ele não anda. Ou se eu quiser tocar de um ponto específico em
+  // diante, ele fica voltando para onde a mídia estaria… Eu quero que siga o
+  // progresso levando em conta: o tempo total da música e a posição atual do
+  // scroll"*.
+  //
+  // **Isto REVOGA a v1.1.20**, que fazia da folha uma FUNÇÃO da posição da
+  // música (`fracaoDaRolagem`). Aquela escolha resolvia três coisas de graça —
+  // pausar a música parava a folha, um seek a levava ao ponto certo, e um quadro
+  // perdido não acumulava erro — e cada uma delas é um dos defeitos do relato,
+  // vista do outro lado:
+  //
+  //   · *pausar PARA a folha* → quem lê sem tocar a gravação não tem rolagem;
+  //   · *o seek MANDA na folha* → rolar à mão é desfeito no status seguinte, a
+  //     ~4 Hz. O `cifraDesvio` (v1.1.20) existia para dar ao dedo um lugar nessa
+  //     briga, e ele era um remendo sobre a premissa errada: **a folha era da
+  //     MÚSICA, e quem lê é a pessoa.**
+  //
+  // O que fica da janela é o FECHO — a folha termina antes do fim da música —, e
+  // ele sobrevive por construção: percorrer `rolavel` em `t1 - t0` segundos põe
+  // a última linha na tela no instante `t1`, que é o que o fecho sempre quis
+  // dizer. **A ABERTURA sai**, e sai porque perdeu o referente: ela era "a
+  // música ACABOU de começar", e não há mais começo nenhum — a origem é onde o
+  // scroll está.
+  //
+  // A PROPRIEDADE que o oráculo prende: com a folha no topo e a música do
+  // começo, esta regra e a antiga levam a folha ao fim no MESMO instante. O que
+  // muda é de onde ela parte e o que a interrompe, não quanto ela demora.
+  /**
+   * Quantos pixels por segundo a folha desce, para um percurso de `rolavel`
+   * pixels numa música de `dur` segundos.
+   *
+   * Zero quando não há o que percorrer ou não há duração — e zero é a resposta
+   * certa, não uma falha: quem chama cai no ritmo fixo do modo livre.
+   */
+  function ritmoDaRolagem(rolavel, dur) {
+    const px = Number(rolavel) || 0;
+    if (!(px > 0)) return 0;
+    const { t0, t1 } = janelaDeRolagem(dur);
+    const util = t1 - t0;
+    if (!(util > 0)) return 0;
+    return px / util;
+  }
+
+  // ===== A ESPERA INICIAL: ler antes de rolar (v1.5.20) =====
+  //
+  // Pedido do operador: *"o sistema de rolagem automática de cifra não está
+  // sendo parado no início para permitir ler e executar a introdução da
+  // música durante um instrumental… o objetivo não é ter a linha a ser lida
+  // no topo, mas no centro. Desse modo, o sistema deve esperar o usuário 'ler
+  // até chegar no ponto médio' antes de se preocupar em mover
+  // automaticamente."*
+  //
+  // A folha abre com a primeira linha no TOPO da caixa visível, e quem lê
+  // olha até o MEIO dela antes de precisar que algo desça. `altura / 2`
+  // dividido pelo ritmo (`pxPorS`) já escolhido é quanto tempo esse trecho
+  // leva para ser lido no compasso que a folha vai seguir — não é um número
+  // à parte, é o MESMO ritmo aplicado ao pedaço que ainda não rolou. Piso e
+  // teto em SEGUNDOS pelo mesmo motivo de `ABERTURA`/`FECHO`: sem piso uma
+  // caixa baixa ou um ritmo rápido dariam uma espera imperceptível; sem teto
+  // uma caixa alta ou um ritmo lento prenderiam a folha por tempo demais
+  // antes de o operador entender que ela vai se mexer.
+  const ESPERA_INICIAL = { min: 2, max: 8 };
+
+  /**
+   * Quantos MILISSEGUNDOS esperar, parado, antes de começar a mover a folha.
+   *
+   * Zero quando não há o que rolar (`rolavel <= 0`, a rolagem nem vai
+   * acontecer) ou quando `pxPorS` é inválido — nos dois casos não há
+   * pergunta "quanto tempo até o meio?" para responder.
+   */
+  function esperaInicialDaRolagem(altura, pxPorS) {
+    const h = Number(altura) || 0;
+    const ritmo = Number(pxPorS) || 0;
+    if (!(h > 0) || !(ritmo > 0)) return 0;
+    const segundos = (h / 2) / ritmo;
+    const trava = Math.min(ESPERA_INICIAL.max, Math.max(ESPERA_INICIAL.min, segundos));
+    return Math.round(trava * 1000);
+  }
 
   // ===== A RADIOGRAFIA: o que a PÁGINA parecia (v1.1.24) =====
   //
@@ -966,6 +1053,6 @@
     lerFolha, lerPagina, lerBusca, somenteLetra, varianteSemCifra,
     ordenarBusca, parentesco, ehCaminhoDeMusica, radiografia,
     quebrarPares, pontoDeQuebra,
-    janelaDeRolagem, fracaoDaRolagem,
+    janelaDeRolagem, fracaoDaRolagem, ritmoDaRolagem, esperaInicialDaRolagem,
   };
 })(this);

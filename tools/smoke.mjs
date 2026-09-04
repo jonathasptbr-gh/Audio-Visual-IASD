@@ -21,50 +21,14 @@
 // um erro derruba o app inteiro antes de qualquer recurso nativo entrar.
 //
 //   node tools/smoke.mjs
-import { chromium } from 'playwright';
-import http from 'node:http';
-import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { semRedeExterna } from './sem-rede.mjs';
+import { servirEstatico, abrirNavegador, checar, falhas } from './arnes.mjs';
 
 const RAIZ = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'app', 'src', 'main', 'assets', 'web');
-const TIPOS = {
-  '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8',
-  '.css': 'text/css; charset=utf-8', '.json': 'application/json',
-  '.woff2': 'font/woff2', '.png': 'image/png', '.jpg': 'image/jpeg', '.svg': 'image/svg+xml',
-};
 
-const servidor = http.createServer((req, res) => {
-  let p = decodeURIComponent(new URL(req.url, 'http://x').pathname);
-  if (p.endsWith('/')) p += 'index.html';
-  const arquivo = path.join(RAIZ, p);
-  // Não servir nada fora da base web, mesmo num teste local.
-  if (!arquivo.startsWith(RAIZ) || !fs.existsSync(arquivo) || fs.statSync(arquivo).isDirectory()) {
-    res.writeHead(404); res.end('nao'); return;
-  }
-  res.writeHead(200, { 'Content-Type': TIPOS[path.extname(arquivo)] || 'application/octet-stream' });
-  fs.createReadStream(arquivo).pipe(res);
-});
-
-const falhas = [];
-// O TERCEIRO ARGUMENTO É IMPRESSO, como nos outros treze oráculos.
-//
-// Ele era DESCARTADO aqui: as chamadas já passavam o que viram (qual ponto do
-// hit-test caiu fora, quantos botões sobraram na linha), a medição custava a
-// mesma corrida, e a assinatura de dois parâmetros jogava tudo fora. O efeito
-// aparece no lugar onde mais dói: no CI, onde ninguém pode abrir o navegador —
-// a reprovação chegava como uma frase e nada mais, e diagnosticá-la exigia
-// adivinhar ou publicar um lote só para instrumentar.
-function checar(cond, msg, obtido) {
-  if (cond) console.log('ok      ' + msg);
-  else {
-    console.log('FALHOU  ' + msg
-      + (obtido !== undefined ? '\n        obtido: '
-        + (typeof obtido === 'string' ? obtido : JSON.stringify(obtido)) : ''));
-    falhas.push(msg);
-  }
-}
+const servidor = servirEstatico(RAIZ);
 
 await new Promise((r) => servidor.listen(0, r));
 const porta = servidor.address().port;
@@ -72,9 +36,7 @@ const porta = servidor.address().port;
 // procura (é o caso do ambiente de desenvolvimento deste projeto). Vazio ou
 // ausente, vale o download que o próprio Playwright gerencia — que é o caso do
 // runner do CI.
-const navegador = await chromium.launch(
-  process.env.PW_CHROMIUM ? { executablePath: process.env.PW_CHROMIUM } : {},
-);
+const navegador = await abrirNavegador();
 // `hasTouch`: sem ele o contexto do Playwright não emula toque, e um
 // `Input.dispatchTouchEvent` do CDP é entregue sem disparar
 // `touchstart`/`touchmove` — o carrossel de abas (o único gesto de toque que
@@ -367,13 +329,226 @@ try {
     'os tiles SEM "desligado" vêm primeiro e os que ligam e desligam depois',
     JSON.stringify(ordem));
 
+  // ---- O MODO DO APP É UM INTERRUPTOR QUE DESLIZA (v1.4.43) ----
+  //
+  // Pedido do operador: *"simplifique o design do agrupamento e botões de fácil
+  // e avançado, eles estão com muitas camadas e tons de grupos. faça eles do
+  // tipo toggle onde ele desliza de um lado para o outro, assim deixando mais
+  // claro que está alternando de um para o outro"*.
+  //
+  // TRÊS METADES, e nenhuma basta sozinha:
+  //
+  // 1. O POLEGAR ANDA, medido no RENDERIZADO. É a metade que carrega o pedido —
+  //    "desliza de um lado para o outro" — e é a que uma troca de classe passa
+  //    sem cumprir: um `.active` novo aprova num teste de classe e continua
+  //    imóvel na tela. Quem responde é a `transform` do `::before` do trilho,
+  //    porque é ela que o compositor anima; ler a posição do BOTÃO não serviria,
+  //    o botão nunca se mexe.
+  // 2. OS BOTÕES NÃO TÊM FUNDO PRÓPRIO. Era essa a queixa das "camadas e tons":
+  //    quatro tons empilhados (folha, cartão em destaque, superfície do botão,
+  //    polegar) para uma escolha de duas posições. Sem esta asserção, acrescentar
+  //    o polegar por cima do desenho antigo passaria na primeira e deixaria a
+  //    pilha inteira de pé — com uma camada A MAIS.
+  // 3. O `data-modo` SEGUE O MODO. É o estado que o CSS lê para decidir o lado;
+  //    escrito só na abertura, o polegar ficaria parado no modo de ontem enquanto
+  //    o `.active` (que o app já escrevia) diria o certo — as duas metades
+  //    discordando, e só a errada visível.
+  //
+  // A caixa e a `transform` são lidas DEPOIS de assentar: a transição é de
+  // 0,22 s, e um prazo fixo mediria o meio dela — prazo lido como veredito.
+  const toggle = await pg.evaluate(async () => {
+    const quadro = () => new Promise((r) => requestAnimationFrame(() => r()));
+    const trilho = document.getElementById('appModeSeg');
+    if (!trilho) return null;
+    const polegar = () => getComputedStyle(trilho, '::before').transform;
+    // Mesma disciplina do bloco da troca de modo: quem diz que a transição
+    // acabou é `getAnimations()`, não um prazo nem duas amostras iguais — o
+    // polegar fica PARADO no ponto de partida entre o clique e o primeiro
+    // quadro da animação, e ali duas amostras iguais aprovam o lado de antes.
+    const assentar = async () => {
+      for (let volta = 0; volta < 8; volta++) {
+        const anims = trilho.getAnimations ? trilho.getAnimations({ subtree: true }) : [];
+        if (!anims.length) break;
+        await Promise.all(anims.map((a) => a.finished.catch(() => {})));
+        await quadro();
+      }
+      let ant = '', at = polegar();
+      for (let i = 0; i < 30 && ant !== at; i++) { ant = at; await quadro(); at = polegar(); }
+      return at;
+    };
+    const sonda = async (modo) => {
+      trilho.querySelector('.fit-opt[data-mode="' + modo + '"]').click();
+      const t = await assentar();
+      const btns = [...trilho.querySelectorAll('.fit-opt')].map((b) => ({
+        modo: b.dataset.mode,
+        ativo: b.classList.contains('active'),
+        // `backgroundColor` RENDERIZADO, e o teste é pelo ALFA: `none` computa
+        // para `rgba(0, 0, 0, 0)`, e é a ausência de tinta que se quer provar —
+        // um nome de token não diria se ele resolve para transparente.
+        pintado: !/,\s*0\)$/.test(getComputedStyle(b).backgroundColor),
+      }));
+      return { modo: trilho.dataset.modo, polegar: t, btns };
+    };
+    const facil = await sonda('simple');
+    const avancado = await sonda('full');
+    return { facil, avancado };
+  });
+  if (!toggle) {
+    checar(false, 'o seletor de modo do app existe na folha de Configurações');
+  } else {
+    checar(toggle.facil.polegar !== toggle.avancado.polegar,
+      'o POLEGAR do seletor de modo ANDA de um lado para o outro — medido no '
+      + '`transform` renderizado, que é o que uma troca de classe não cumpre',
+      JSON.stringify([toggle.facil.polegar, toggle.avancado.polegar]));
+    checar(!toggle.facil.btns.some((b) => b.pintado)
+      && !toggle.avancado.btns.some((b) => b.pintado),
+      'e os dois botões NÃO têm fundo próprio: o polegar é a única tinta do '
+      + 'interruptor — eram quatro tons empilhados para uma escolha de duas posições');
+    checar(toggle.facil.modo === 'simple' && toggle.avancado.modo === 'full',
+      'e o `data-modo` do trilho SEGUE o modo em vigor — é por ele que o CSS '
+      + 'decide o lado, e escrevê-lo só na abertura deixaria o polegar no modo de ontem',
+      JSON.stringify([toggle.facil.modo, toggle.avancado.modo]));
+    checar(toggle.facil.btns.find((b) => b.modo === 'simple').ativo
+      && toggle.avancado.btns.find((b) => b.modo === 'full').ativo,
+      'e a classe `.active` continua marcando o escolhido — ela carrega a COR do '
+      + 'rótulo sobre o polegar, e três oráculos a leem');
+  }
+
+  // ---- O TRILHO MEDE A GRADE, E O RÓTULO É CENTRADO (v1.4.44) ----
+  //
+  // Relato do operador: *"verifique a largura total do seletor do modo, parece
+  // não estar alinhado com os outros botões abaixo"* e *"centralize o título
+  // 'modo do app'"*.
+  //
+  // A causa era um CARTÃO INVISÍVEL: a `.fade-row` pinta `--panel`, o mesmo tom
+  // da folha, então ela não se via — o que se via era o `padding` dela recuando
+  // o trilho 12,8px de cada lado (MEDIDO: 375,6px contra os 401,2px da grade,
+  // numa viewport de 430). É a forma mais silenciosa deste defeito: nada está
+  // errado na tela, só desalinhado, e o culpado não desenha nada.
+  //
+  // A CENTRALIZAÇÃO é medida no TEXTO PINTADO, por um `Range` sobre o nó de
+  // texto — não na caixa do `<span>`, que é `stretch` e ocupa a linha inteira
+  // nas duas versões: um teste da caixa passa com o rótulo colado à esquerda.
+  // E não em `text-align`, que é ler de volta a regra que se acabou de escrever.
+  const alinhamento = await pg.evaluate(() => {
+    const linha = document.querySelector('.fade-row--modo');
+    const trilho = document.getElementById('appModeSeg');
+    const grade = document.querySelector('.qs-grade');
+    if (!linha || !trilho || !grade) return null;
+    const cx = (el) => { const r = el.getBoundingClientRect();
+      return { l: Math.round(r.left), r: Math.round(r.right), w: Math.round(r.width) }; };
+    const rot = linha.querySelector('span');
+    const faixa = document.createRange();
+    faixa.selectNodeContents(rot);
+    const t = faixa.getBoundingClientRect();
+    const c = rot.getBoundingClientRect();
+    return {
+      trilho: cx(trilho), grade: cx(grade),
+      desvio: Math.round(((t.left + t.right) / 2 - (c.left + c.right) / 2) * 10) / 10,
+      largoParaCentrar: t.width < c.width - 8,
+    };
+  });
+  if (!alinhamento) {
+    checar(false, 'a linha do modo do app e a grade existem na folha');
+  } else {
+    checar(alinhamento.trilho.l === alinhamento.grade.l
+      && alinhamento.trilho.r === alinhamento.grade.r,
+      'o trilho do modo mede EXATAMENTE a grade de tiles — um cartão invisível o '
+      + 'recuava 12,8px de cada lado, e o que se via era só o desalinhamento',
+      JSON.stringify([alinhamento.trilho, alinhamento.grade]));
+    checar(alinhamento.largoParaCentrar,
+      'e o rótulo é mais estreito que a linha (senão centrar não teria efeito e a '
+      + 'asserção abaixo passaria sozinha)');
+    checar(Math.abs(alinhamento.desvio) <= 1,
+      'o TÍTULO "Modo do app" é centrado — medido no texto PINTADO (um `Range`), '
+      + 'porque a caixa do `<span>` é `stretch` e ocupa a linha inteira nas duas '
+      + 'versões', 'desvio: ' + alinhamento.desvio + 'px');
+  }
+
+  // ---- O RODAPÉ É UMA BARRA SÓ, E O COPIAR SAIU (v1.4.44) ----
+  //
+  // Pedido do operador: *"ficou duas seções, a versão e o registro em grupos
+  // separados. pode deixar tudo em uma barra horizontal única"* e *"pode
+  // remover o sistema de copiar registro… fica longo demais para compartilhar
+  // via chat de texto"*.
+  //
+  // A asserção da BARRA é o número de SUPERFÍCIES pintadas dentro do rodapé, e
+  // não a contagem de filhos: a v1.4.43 já tinha dois blocos com o mesmo
+  // desenho — mesma altura, mesmo raio, mesma superfície — e o que o operador
+  // via eram duas caixas. Um teste de "mesmo tom" aprova as duas versões; o que
+  // as separa é haver UM fundo ou DOIS. Medida na cor RENDERIZADA, porque uma
+  // regra de fundo que não pegasse passaria num teste de classe.
+  const rodape = await pg.evaluate(() => {
+    const faixa = document.querySelector('.footer-diag');
+    if (!faixa) return null;
+    const opaco = (el) => !/,\s*0\)$/.test(getComputedStyle(el).backgroundColor);
+    const cx = (el) => { const r = el.getBoundingClientRect(); return { l: Math.round(r.left), r: Math.round(r.right) }; };
+    const grade = document.querySelector('.qs-grade');
+    return {
+      faixaPinta: opaco(faixa),
+      filhosQuePintam: [...faixa.querySelectorAll('*')].filter(opaco).map((e) => e.id || e.className),
+      copiar: !!document.getElementById('diagCopy'),
+      // O `copiarTexto` FICA, e o consumidor dele também: o endereço da
+      // transmissão é curto e existe para ser digitado noutro aparelho.
+      copiarSobrevive: !!document.getElementById('castUrlCopy') && typeof copiarTexto === 'function',
+      versaoDentro: faixa.contains(document.getElementById('appVersion')),
+      salvarDentro: faixa.contains(document.getElementById('diagSave')),
+      // A faixa mede a mesma coisa que a grade — ela é a última linha da folha.
+      faixa: cx(faixa), grade: grade ? cx(grade) : null,
+    };
+  });
+  checar(rodape && rodape.faixaPinta && rodape.filhosQuePintam.length === 0,
+    'o rodapé é UMA barra: a superfície é a faixa, e nada dentro dela pinta um '
+    + 'segundo fundo — duas caixas com a mesma cor ainda se leem como dois assuntos',
+    rodape && JSON.stringify(rodape.filhosQuePintam));
+  checar(rodape && rodape.versaoDentro && rodape.salvarDentro,
+    'e a versão e o salvar do Registro moram os dois nela');
+  checar(rodape && rodape.faixa.l === rodape.grade.l && rodape.faixa.r === rodape.grade.r,
+    'e ela mede a mesma coisa que a grade — o rodapé é a última linha da folha, '
+    + 'não um bloco com recuo próprio',
+    rodape && JSON.stringify([rodape.faixa, rodape.grade]));
+  checar(rodape && !rodape.copiar,
+    'o botão de COPIAR o Registro não existe mais — a área de transferência é o '
+    + 'caminho que corta o texto no meio sem avisar, e o Registro só cresce');
+  checar(rodape && rodape.copiarSobrevive,
+    'mas o `copiarTexto` e o `.log-copy` FICAM, com o consumidor que os justifica: '
+    + 'o endereço da transmissão, que é curto e existe para ser digitado noutro '
+    + 'aparelho. Sem esta metade, apagar a função inteira passaria na de cima');
+
   // O QUE A v5.121 QUEBROU: o clique chamava uma função apagada. Um handler que
   // estoura não muda nada na tela — daí conferir o efeito (o pulso de
-  // confirmação), e não só a ausência de erro.
-  await pg.evaluate(() => document.getElementById('diagCopy').click());
+  // confirmação), e não só a ausência de erro. O alvo era o `#diagCopy` até a
+  // v1.4.44; com ele fora, quem exerce o mesmo caminho é o outro `.log-copy`.
+  //
+  // O ENDEREÇO É SEMEADO no nó: quem o escreve no app é a enquete do
+  // `mirrorEstado`, e sem transmissão no ar ele nasce vazio — o ouvinte volta
+  // cedo, nada pulsa, e o oráculo culparia o botão pelo que é a ausência de um
+  // cenário.
+  //
+  // E A FOLHA DELE É ABERTA: `pulsar` volta cedo em botão fora da tela
+  // (`visivelNaTela`, que recusa o que está dentro de um `.popup-backdrop` sem
+  // `.open`), e o bloco da transmissão mora no `#castPopup`. Sem isto o oráculo
+  // mediria a AUSÊNCIA do cenário e culparia o botão. Ela é fechada logo depois
+  // — as medições seguintes contam com a tela limpa.
+  await pg.evaluate(() => {
+    const folha = document.getElementById('castPopup');
+    folha.classList.add('open');
+    for (let el = document.getElementById('castUrlCopy'); el && el !== folha; el = el.parentElement) {
+      el.hidden = false;
+      if (getComputedStyle(el).display === 'none') el.style.removeProperty('display');
+    }
+    document.getElementById('castUrl').textContent = 'http://192.168.0.9:8080';
+    document.getElementById('castUrlCopy').click();
+  });
   await pg.waitForTimeout(300);
-  const pulsou = await pg.$eval('#diagCopy', (el) => el.classList.contains('btn-pulso'));
-  checar(pulsou, 'o botão de copiar o Registro responde ao toque');
+  const pulsou = await pg.$eval('#castUrlCopy', (el) => el.classList.contains('btn-pulso'));
+  checar(pulsou, 'o botão de copiar do app responde ao toque (o endereço da transmissão)');
+  const copiado = await pg.evaluate(() => navigator.clipboard.readText().catch(() => ''));
+  checar(copiado.includes('192.168.0.9'),
+    'e o texto foi de fato para a área de transferência — o pulso é a resposta na '
+    + 'tela, e sozinho ele passaria com o `copiarTexto` sem efeito nenhum');
+  await pg.evaluate(() => document.getElementById('castPopup').classList.remove('open'));
+  await pg.waitForTimeout(250);
 
   // ==========================================================================
   // NÃO EXISTE ALERTA FLUTUANTE (v5.207) — e este é o oráculo da regra.
@@ -458,11 +633,25 @@ try {
 // borda do app são pseudo-elementos (`.dl-ring::before`, o ✓ do seletor), e
 // `querySelectorAll` não os alcança — eles ficam de fora sem precisar de
 // exceção.
+//
+// A ÚNICA EXCEÇÃO NOMEADA é o campo de busca (v1.5.5), pedido do operador:
+// *"abra uma única exceção ao conceito de sem bordas do app, para poder fazer a
+// caixa de texto da busca … branca com a borda em cinza"*. Ela é nomeada aqui e
+// no `tokens.test.mjs`, pelo ID, e é o NOME que a mantém única — não há regra
+// que a próxima borda possa alegar cumprir. O que a borda faz e por que ela é
+// necessária tem asserção PRÓPRIA no bloco do tom desta folha; aqui ela só sai
+// da varredura.
 try {
   const contornos = await pg.evaluate(async () => {
     const achados = new Set();
     const varrer = () => {
       for (const el of document.querySelectorAll('*')) {
+        if (el.id === 'hymnSearchInput') continue;
+        // A MOLDURA DA BIBLIOTECA (v1.5.9): a autoridade que o operador deu é
+        // um ESCOPO, e é ele que sai da varredura — a lista do acervo e o que
+        // vive dentro dela. Uma borda em qualquer outro lugar continua
+        // reprovando. (O `tokens.test.mjs` cobra o mesmo escopo na FONTE.)
+        if (el.closest('.acervo')) continue;
         const c = getComputedStyle(el);
         const w = ['Top', 'Right', 'Bottom', 'Left'].map((s) => parseFloat(c['border' + s + 'Width']) || 0);
         if (!w.some((x) => x > 0)) continue;
@@ -476,12 +665,18 @@ try {
     // o operador viu (transporte, mixer) e os que só existem numa aba
     // (segmentados, chips, campos das Ferramentas) nunca estão na mesma tela.
     setAppMode('full'); varrer();
-    for (const aba of ['bible', 'misc', 'playlist']) {
-      try { switchTab(aba); } catch (e) { /* aba que não existe neste bundle */ }
+    // AS TELAS VIRARAM FOLHAS (v1.5.0): o app tem um lugar — o Cronograma — e
+    // duas janelas sobre ele. A varredura abre as duas, porque os controles que
+    // só existem numa delas (a grade da Bíblia, os segmentados e campos das
+    // Ferramentas) continuam sendo a cobertura que este caso existe para ter.
+    for (const abrir of [abrirBiblia, abrirFerramentas]) {
+      try { abrir(); } catch (e) { /* porta que não existe neste bundle */ }
       await new Promise((r) => setTimeout(r, 60));
       varrer();
+      try { fecharBiblia(); fecharFerramentas(); } catch (e) { /* idem */ }
+      await new Promise((r) => setTimeout(r, 260));
     }
-    openHymnSearch(); await new Promise((r) => setTimeout(r, 200)); varrer();
+    openHymnSearch(false); await new Promise((r) => setTimeout(r, 400)); varrer();
     closeHymnSearch(); await new Promise((r) => setTimeout(r, 100));
     openFadePopup(); await new Promise((r) => setTimeout(r, 150)); varrer();
     setAppMode('simple'); await new Promise((r) => setTimeout(r, 100)); varrer();
@@ -510,9 +705,6 @@ try {
   }));
   checar(canais.linha && canais.botao && canais.pasta && canais.ota,
     'e os canais que responderam no lugar dela estão de pé (linha, botão, pasta, botão de atualização)');
-
-  const copiado = await pg.evaluate(() => navigator.clipboard.readText().catch(() => ''));
-  checar(copiado.includes('Linha do tempo'), 'e o texto do Registro foi para a área de transferência');
 
   // ---- O EMPILHAMENTO DOS POPUPS ANINHADOS -------------------------------
   //
@@ -729,19 +921,19 @@ try {
   checar(!!eco.anel && eco.anel !== 'none', 'o anel do eco é de fato desenhado', eco.anel);
   checar(eco.sumiu, 'e ele sai sozinho, sem deixar o botão marcado');
 
-  // ---- O CARROSSEL VALE DENTRO DA NAVEGAÇÃO INTERNA (v5.193) ------------
+  // ---- O CARROSSEL DE ABAS SAIU, E A AUSÊNCIA É A ASSERÇÃO (v1.5.0) ------
   //
-  // Quarta correção do mesmo mecanismo, e as três anteriores mantinham à mão a
-  // lista do que o eixo horizontal não podia atravessar. A guarda mais larga
-  // era "qualquer sub-tela" (botão voltar visível): com um capítulo da Bíblia
-  // aberto — o estado normal de quem usa a Bíblia num culto — o gesto morria
-  // calado, e NADA ali disputa o eixo horizontal (`.bible-half` rola só na
-  // vertical, e a própria folha declara `touch-action: pan-y`).
+  // Ele existiu da v5.193 até aqui, e custou QUATRO correções do mesmo
+  // mecanismo — a última reescreveu o ciclo de toque inteiro porque o
+  // navegador cancelava o fluxo de `pointer*` no primeiro scroller do caminho.
+  // Com o Cronograma virando a tela única não há para onde deslizar: a Bíblia
+  // é uma FOLHA, e abrir uma janela não é um passo lateral.
   //
-  // O teste é o COMPORTAMENTO, com toque de verdade (CDP): um deslize sobre o
-  // conteúdo de uma sub-tela tem de trocar de aba, e um deslize sobre um
-  // trilho que ROLA de verdade na horizontal não pode. As duas metades
-  // importam — sem a segunda, "libera tudo" passaria no teste.
+  // A asserção é uma AUSÊNCIA, e ausência não tem sintoma de tela: o que ela
+  // pega é o mecanismo voltando por engano — um ouvinte de `touchmove` que
+  // sobrevivesse a esta limpeza roubaria o eixo horizontal da lista inteira,
+  // e o que se veria é a rolagem vertical falhando de vez em quando. Daí medir
+  // o COMPORTAMENTO com um toque de verdade (CDP), e não a ausência do símbolo.
   const cdp = await ctx.newCDPSession(pg);
   const deslizar = async (x0, y0, dx) => {
     const p = (x, y) => [{ x, y, radiusX: 6, radiusY: 6, force: 1, id: 1 }];
@@ -753,60 +945,30 @@ try {
     await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
     await pg.waitForTimeout(120);
   };
-
-  // O CENÁRIO É MONTADO À MÃO, e de propósito: o runner do CI não tem rede,
-  // então não há livro da Bíblia para abrir nem sorteio com histórico. O que
-  // mudou na v5.193 é a REGRA — "quem é dono do eixo horizontal?" —, e ela se
-  // exercita com um botão voltar visível (o que caracteriza uma sub-tela) e um
-  // trilho que de fato rola. Testar a regra é testar o que quebrou.
-  const cenario = await pg.evaluate(() => {
-    // O MODO AVANÇADO PRIMEIRO: o app abre no Modo Fácil, e ali o `<main>` está
-    // atrás da tela simplificada — sem esta linha o gesto cai no vazio e o
-    // teste "passa" por não medir nada.
+  const semCarrossel = await pg.evaluate(() => {
     setAppMode('full');
-    // E A FOLHA DE CONFIGURAÇÕES SAI DA FRENTE: ela foi aberta lá em cima e
-    // ninguém a fechou. Com ela no ar o toque pousa no popup, o `<main>` nem
-    // vê o gesto, e o caso falha por um motivo que não é o que ele mede.
     closeFadePopup();
-    switchTab('imports');
-    // Sub-tela: era ESTA condição, sozinha, que matava o gesto no conteúdo.
-    document.getElementById('backBtn').hidden = false;
+    fecharBiblia(); fecharFerramentas();
     const m = document.querySelector('main');
     const r = m.getBoundingClientRect();
-    return { aba: activeTab, x: r.x + r.width / 2, y: r.y + Math.min(r.height / 2, 160) };
-  });
-  await deslizar(cenario.x + 90, cenario.y, -160);
-  const depoisDoDeslize = await pg.evaluate(() => activeTab);
-  checar(depoisDoDeslize !== cenario.aba,
-    'com uma sub-tela aberta (voltar visível), deslizar no conteúdo TROCA de aba'
-    + ' (' + cenario.aba + ' → ' + depoisDoDeslize + ')');
-
-  // E o outro lado, que é o que impede a correção de virar "libera tudo": um
-  // elemento que ROLA de verdade na horizontal fica com o gesto.
-  const trilho = await pg.evaluate(() => {
-    const m = document.querySelector('main');
-    const t = document.createElement('div');
-    t.id = 'trilhoDeTeste';
-    t.style.cssText = 'overflow-x:auto;display:flex;white-space:nowrap;height:80px';
-    t.innerHTML = '<div style="min-width:3000px;height:60px"></div>';
-    m.insertBefore(t, m.firstChild);
-    const r = t.getBoundingClientRect();
     return {
-      rola: t.scrollWidth > t.clientWidth + 1,
-      x: r.x + r.width / 2, y: r.y + r.height / 2, aba: activeTab,
+      // A máquina de abas não existe mais em lugar nenhum do módulo.
+      sobrouSwitch: typeof switchTab !== 'undefined',
+      sobrouFaixa: !!document.querySelector('.tabs'),
+      x: r.x + r.width / 2, y: r.y + Math.min(r.height / 2, 160),
     };
   });
-  checar(trilho.rola, 'o trilho do contra-teste de fato rola na horizontal');
-  await deslizar(trilho.x + 60, trilho.y, -160);
-  const depoisDoTrilho = await pg.evaluate(() => {
-    const t = document.getElementById('trilhoDeTeste');
-    const a = activeTab;
-    if (t) t.remove();
-    document.getElementById('backBtn').hidden = true;
-    return a;
-  });
-  checar(depoisDoTrilho === trilho.aba,
-    'e um elemento que ROLA na horizontal fica com o gesto (' + depoisDoTrilho + ')');
+  checar(!semCarrossel.sobrouSwitch && !semCarrossel.sobrouFaixa,
+    'a faixa de abas e o `switchTab` que ela movia não existem mais — o app tem '
+    + 'UM lugar e duas folhas', JSON.stringify(semCarrossel));
+  await deslizar(semCarrossel.x + 90, semCarrossel.y, -160);
+  const depoisDoDeslize = await pg.evaluate(() => ({
+    biblia: bibliaAberta(), ferramentas: ferramentasAbertas(),
+    biblioteca: document.getElementById('hymnSearchPopup').classList.contains('open'),
+  }));
+  checar(!depoisDoDeslize.biblia && !depoisDoDeslize.ferramentas && !depoisDoDeslize.biblioteca,
+    'e deslizar sobre a lista não abre NADA: o eixo horizontal voltou a ser da '
+    + 'lista, que é de quem ele sempre foi', JSON.stringify(depoisDoDeslize));
 
   // ---- OS DOIS TEMAS, E O PALCO QUE NÃO SEGUE NENHUM (v5.192) ------------
   //
@@ -1204,7 +1366,17 @@ for (const tema of ['escuro', 'claro']) {
       // A LISTA PRECISA MORAR NA FOLHA DE VERDADE (v5.267): o tom de cada nível
       // é herdado do contêiner (`--camada`), então medir a árvore num `<ul>`
       // solto no `<body>` mediria uma árvore que não existe no app.
-      const folha = document.querySelector('#hymnSearchPopup .popup-sheet--full');
+      //
+      // E A FOLHA PRECISA ESTAR ABERTA (v1.5.2): o CHÃO da escada — o `--bg`
+      // dela — só é pintado com a janela no ar. Fechada ela não pinta nada, e
+      // isso não é economia: o que sobra à vista fechada é só a barra, que é uma
+      // linha da caixa de controles, e um retângulo `--bg` atrás dela seria o
+      // "zoneamento" que o operador mandou tirar. Medir a escada fechada é medir
+      // uma tela que ninguém vê.
+      const camada = document.getElementById('hymnSearchPopup');
+      const estavaAberta = camada.classList.contains('open');
+      camada.classList.add('open');
+      const folha = document.querySelector('#hymnSearchPopup .popup-sheet--lib');
       const lista = document.createElement('ul');
       lista.className = 'popup-list';
       lista.style.width = '390px';
@@ -1272,16 +1444,31 @@ for (const tema of ['escuro', 'claro']) {
           }
           return 'rgb(' + c.map(Math.round).join(', ') + ')';
         })(),
-        // A METADE NEGATIVA: o RÓTULO da seção continua sendo um RÓTULO — cor
-        // `--muted`, caixa alta, espaçamento. Sem ela, apagar a regra do rótulo
-        // (em vez de tirá-la do bloco) passaria, e a Biblioteca perderia a
-        // distinção entre um cabeçalho e uma linha.
+        // A METADE NEGATIVA: a barra da seção continua tendo cor de RÓTULO em
+        // ALGUMA peça (desde a v1.5.11, no CONTADOR — o nome subiu para
+        // `--text`). Sem ela, apagar a regra do rótulo em vez de tirá-la do
+        // bloco passaria, e a Biblioteca perderia a distinção entre um
+        // cabeçalho e uma linha.
         rotulo: (() => {
           const el = lista.querySelector('.coll-group--drop.aberto:not(.coll-group--fav) '
             + '> .coll-group-bar .coll-group-name');
           if (!el) return null;
           const c = getComputedStyle(el);
           return { cor: c.color, tt: c.textTransform, ls: c.letterSpacing };
+        })(),
+        // O CONTADOR da mesma barra — o METADADO que continua em `--muted`
+        // depois de o NOME subir para `--text` (v1.5.11). Sem ele, nivelar a
+        // barra inteira passaria.
+        rotuloNumero: (() => {
+          const el = lista.querySelector('.coll-group--drop.aberto:not(.coll-group--fav) '
+            + '> .coll-group-bar .coll-group-count');
+          return el ? getComputedStyle(el).color : null;
+        })(),
+        // E o TÍTULO de um card, que é o vizinho contra o qual o nome da seção
+        // se padroniza — a régua é ele, nunca um valor escrito aqui.
+        tituloCor: (() => {
+          const el = lista.querySelector('.hymnal-card .coll-bar-name');
+          return el ? getComputedStyle(el).color : null;
         })(),
         // E A TIPOGRAFIA do que a seção CONTÉM (v5.297): o vazamento não era só
         // de cor. `text-transform` e `letter-spacing` também herdam, e ninguém
@@ -1301,6 +1488,169 @@ for (const tema of ['escuro', 'claro']) {
         // A cor do TEXTO da folha, para a regra de direção abaixo. Ela é a
         // pergunta inteira: "de que lado a linha tem de ficar?".
         textoCor: getComputedStyle(folha).color,
+        // ===== AS MOLDURAS (v1.5.9) =====
+        // A largura da borda de cada nível — é ela que carrega a hierarquia
+        // desde que a paleta saiu. Zero no nível 3 é asserção, não ausência.
+        molduraSecao: (() => {
+          const el = lista.querySelector('.coll-group--drop');
+          return el ? getComputedStyle(el).borderTopWidth : 'AUSENTE';
+        })(),
+        // ===== O EMPILHAMENTO GRUDENTO (v1.5.14) =====
+        // As duas barras e o `top` de cada uma. É o mecanismo que substituiu a
+        // moldura como resposta a *"dentro de quê eu estou?"* — e o único que
+        // continua respondendo DEPOIS de a lista rolar, que é quando a pergunta
+        // é feita. Medido no RENDERIZADO: `position` declarado prova a intenção,
+        // o `top` resolvido prova que a conta fecha.
+        grudento: (() => {
+          const sec = lista.querySelector(
+            '.coll-group--drop.aberto:not(.coll-group--fav) > .coll-group-bar');
+          const card = lista.querySelector(
+            '.coll-group--drop.aberto:not(.coll-group--fav) .hymnal-card.expanded > .coll-bar');
+          const ler = (el) => (el ? {
+            pos: getComputedStyle(el).position,
+            top: parseFloat(getComputedStyle(el).top),
+            alt: Math.round(el.getBoundingClientRect().height * 10) / 10,
+          } : null);
+          // E O DA RAIZ (v1.5.15): um hinário ou uma série é NÍVEL 1, irmão das
+          // seções, e não tem barra nenhuma acima — o `top` dele é zero.
+          const raiz = lista.querySelector(':scope > .hymnal-card.expanded > .coll-bar');
+          return { secao: ler(sec), card: ler(card), raiz: ler(raiz) };
+        })(),
+        // ===== A PLACA DE PAPEL DE UMA COLEÇÃO DA RAIZ (v1.5.15) =====
+        // A cor EFETIVA (composta) de: o bloco de uma coleção da raiz, a placa
+        // dentro dele, e a faixa que pousa na placa. Ver a asserção.
+        raizPlaca: (() => {
+          const efetiva = (el) => {
+            if (!el) return 'AUSENTE';
+            const pilha = [];
+            for (let n = el; n; n = n.parentElement) {
+              const m = (getComputedStyle(n).backgroundColor.match(/[\d.]+/g) || []).map(Number);
+              if (m.length < 3) continue;
+              const a = m.length > 3 ? m[3] : 1;
+              if (a === 0) continue;
+              pilha.push([m[0], m[1], m[2], a]);
+              if (a === 1) break;
+            }
+            let c = [255, 255, 255];
+            for (let k = pilha.length - 1; k >= 0; k--) {
+              const [vr, vg, vb, va] = pilha[k];
+              c = [vr * va + c[0] * (1 - va), vg * va + c[1] * (1 - va), vb * va + c[2] * (1 - va)];
+            }
+            return 'rgb(' + c.map(Math.round).join(', ') + ')';
+          };
+          const q = (sel) => lista.querySelector(':scope > .hymnal-card.expanded ' + sel);
+          return {
+            bloco: efetiva(lista.querySelector(':scope > .hymnal-card.expanded')),
+            placa: efetiva(q('> .coll-open')),
+            faixa: efetiva(q('> .coll-open > .coll-songs > .hymn-result')),
+          };
+        })(),
+        // ===== O RESPIRO DE CIMA DO SCROLLER (v1.5.15 → v1.5.20) =====
+        // O que sobra ENTRE o topo do scrollport e o primeiro bloco. Até a
+        // v1.5.19 tinha de ser ZERO: a régua era a GEOMETRIA, porque o vão de
+        // então era `padding-top` do SCROLLER, que é scrollport — a lista rola
+        // por ali À VISTA, e uma tampa grudada em `top: 0` não o alcança (ela
+        // para no topo do CONTEÚDO).
+        //
+        // A v1.5.20 devolveu o respiro, mas como MARGEM do primeiro FILHO
+        // (`.coll-group--drop:first-child`), não como padding do scroller — e
+        // margem não é scrollport: ela não desloca onde um `top: 0` sticky
+        // docka (isso continua sendo o padding-box do CONTÊINER, que segue em
+        // 0), só empurra o PRIMEIRO bloco para baixo, uma vez, antes de
+        // qualquer rolagem. Por isso a régua agora é DUPLA — o padding do
+        // scroller continua tendo de ser zero (é ele que causava o vazamento
+        // de 2026-08), e o respiro RENDERIZADO passa a ser o `--sp-5` que a
+        // regra declara (o relato do operador: *"a margem ... está
+        // desproporcional aos espaçamentos que já temos entre as coleções ...
+        // colar no topo"*). A RÉGUA É O TOKEN, não o `gap` DESTA lista: esta
+        // é uma `<ul class="popup-list">` avulsa (ver a nota do host, acima) e
+        // o `gap` genérico dela (`--sp-3`) não é o do `#hymnResults` de
+        // verdade (`--sp-5`) — comparar contra ele reprovaria um desenho
+        // certo por um detalhe de host que já está dito.
+        paddingTopoScroller: parseFloat(getComputedStyle(lista).paddingTop) || 0,
+        respiroDoTopo: (() => {
+          const p1 = lista.firstElementChild;
+          if (!p1) return null;
+          return Math.round((p1.getBoundingClientRect().top
+            - lista.getBoundingClientRect().top) * 10) / 10;
+        })(),
+        // O `--sp-5` RESOLVIDO em px, lido de onde ele é DEFINIDO em produção
+        // (`#hymnResults { gap: var(--sp-5) }`) — não da string do token
+        // (`getPropertyValue` devolveria "0.6rem", e `parseFloat` leria 0.6,
+        // não o pixel): o elemento existe sempre no documento, populado ou
+        // não, então a folha resolve o `gap` dele de qualquer jeito.
+        sp5Px: (() => {
+          const h = document.getElementById('hymnResults');
+          return h ? parseFloat(getComputedStyle(h).rowGap) || 0 : 0;
+        })(),
+        // A COR da moldura — desde a v1.5.10 é ela que separa a caixa da base,
+        // e não mais o degrau de tom (ver a asserção da escada, mais abaixo).
+        molduraCor: (() => {
+          const el = lista.querySelector('.coll-group--drop');
+          return el ? getComputedStyle(el).borderTopColor : 'AUSENTE';
+        })(),
+        // A SUPERFÍCIE DE UM BOTÃO DE AÇÃO da própria barra — a régua do tom das
+        // caixas desde a v1.5.10. Ela é um VIZINHO RENDERIZADO e não o token
+        // escrito aqui: `--btn-accent` lido de volta provaria que a folha
+        // declara o que declara.
+        botaoAcao: (() => {
+          const el = lista.querySelector('.coll-group-acao, .coll-bar-dl');
+          return el ? getComputedStyle(el).backgroundColor : 'AUSENTE';
+        })(),
+        // ===== E O QUE A MOLDURA FEZ COM O ESPAÇO (v1.5.10) =====
+        // Os dois relatos de espaçamento deste lote, medidos em pixel. O
+        // primeiro é a FAIXA acima da barra da caixa: com a moldura, tudo o que
+        // sobra entre o topo do bloco e o topo da barra aparece DENTRO da caixa
+        // — e `.coll-group:first-child` deixava 3,2px ali.
+        faixaAcimaDaBarra: (() => {
+          const el = lista.querySelector('.coll-group--drop');
+          const barra = el && el.querySelector(':scope > .coll-group-bar');
+          if (!el || !barra) return null;
+          return Math.round((barra.getBoundingClientRect().top
+            - el.getBoundingClientRect().top) * 10) / 10;
+        })(),
+        molduraSecaoPx: (() => {
+          const el = lista.querySelector('.coll-group--drop');
+          return el ? Math.round(parseFloat(getComputedStyle(el).borderTopWidth) * 10) / 10 : null;
+        })(),
+        // O segundo é o vão entre a TAMPA de uma seção aberta e o primeiro card
+        // dela, contra o `gap` que separa dois cards — a régua do relato é a
+        // comparação, não um número.
+        ...(() => {
+          const sec = lista.querySelector('.coll-group--drop.aberto:not(.coll-group--fav)');
+          const barra = sec && sec.querySelector(':scope > .coll-group-bar');
+          const corpo = sec && sec.querySelector(':scope > .coll-group-corpo');
+          const cards = corpo ? [...corpo.querySelectorAll(':scope > .hymnal-card')] : [];
+          if (!barra || !cards.length) return { vaoTampaPrimeiro: null, gapEntreCards: null };
+          return {
+            vaoTampaPrimeiro: Math.round((cards[0].getBoundingClientRect().top
+              - barra.getBoundingClientRect().bottom) * 10) / 10,
+            gapEntreCards: Math.round((parseFloat(getComputedStyle(corpo).rowGap) || 0) * 10) / 10,
+          };
+        })(),
+        molduraCard: (() => {
+          const el = lista.querySelector('.hymnal-card');
+          return el ? getComputedStyle(el).borderTopWidth : 'AUSENTE';
+        })(),
+        molduraFaixa: (() => {
+          const el = lista.querySelector('.coll-songs > .hymn-result');
+          return el ? getComputedStyle(el).borderTopWidth : 'AUSENTE';
+        })(),
+        // A TAMPA DE UM CARD nos DOIS estados — a régua do "abrir não troca a
+        // cor de nada". A leitura é do MESMO card, alternando a classe: dois
+        // cards diferentes poderiam divergir por outro motivo.
+        ...(() => {
+          const card = lista.querySelector('.hymnal-card');
+          const tampa = card && card.querySelector(':scope > .coll-bar');
+          if (!tampa) return { tampaFechada: 'AUSENTE', tampaAberta: 'AUSENTE' };
+          const estava = card.classList.contains('expanded');
+          card.classList.remove('expanded');
+          const fechada = getComputedStyle(tampa).backgroundColor;
+          card.classList.add('expanded');
+          const aberta = getComputedStyle(tampa).backgroundColor;
+          card.classList.toggle('expanded', estava);
+          return { tampaFechada: fechada, tampaAberta: aberta };
+        })(),
         // O espaço entre duas faixas — é ele que substitui o filete.
         faixaGap: (() => {
           const ul = lista.querySelector('.coll-songs');
@@ -1308,10 +1658,24 @@ for (const tema of ['escuro', 'claro']) {
         })(),
       };
       lista.remove(); delete collState[c.id]; grupoAberto = ''; favAberto = true;
+      if (!estavaAberta) camada.classList.remove('open');
       document.documentElement.setAttribute('data-tema', 'escuro');
       return r;
     }, tema);
     const transparente = (v) => /rgba\(0, 0, 0, 0\)/.test(v) || v === 'transparent';
+    // A MATIZ de uma cor, em graus — ou -1 para um cinza (que não tem nenhuma).
+    // Ela é a régua das duas afirmações de COR desta seção: a ordem de espectro
+    // dos oito tons e o corpo carregando a matiz da mãe. Nenhuma das duas é
+    // dizível em luminância, que é o que todo o resto deste bloco mede.
+    const matiz = (v) => {
+      const [r, g, b] = (v.match(/\d+/g) || []).map(Number);
+      const mx = Math.max(r, g, b); const mn = Math.min(r, g, b);
+      if (mx === mn) return -1;
+      const d = mx - mn;
+      const h = mx === r ? ((g - b) / d + (g < b ? 6 : 0))
+        : mx === g ? ((b - r) / d + 2) : ((r - g) / d + 4);
+      return h * 60;
+    };
     // Luminância relativa, para afirmar a DIREÇÃO da escada sem escrever cor
     // nenhuma aqui: um literal copiado para o teste envelhece na primeira troca
     // de paleta, e envelhece parecendo correto.
@@ -1330,22 +1694,294 @@ for (const tema of ['escuro', 'claro']) {
     checar(t.secaoFechada === null || t.secaoFechada === t.secao,
       '[' + tema + '] a seção tem UM fundo só, aberta ou fechada — a peça não '
       + 'troca de cor com o estado (' + t.secao + ')');
-    checar(transparente(t.barra) && transparente(t.corpo),
-      '[' + tema + '] e a barra e o corpo dela não têm fundo próprio: a seção é '
-      + 'UM bloco, não três peças costuradas (' + t.barra + ' / ' + t.corpo + ')');
-    // O piso é o mesmo do projeto para duas superfícies grandes encostadas.
+    // ===== A HIERARQUIA DA BIBLIOTECA É DESENHADA COM MOLDURA (v1.5.9) =====
     //
-    // A GUARDA DE OPACIDADE NÃO É ZELO: `lum()` lê "rgba(0, 0, 0, 0)" como
-    // PRETO, então um nível que não pinta nada entra na conta como o fundo mais
-    // escuro possível e produz um degrau enorme. Verificado — sem ela, este caso
-    // APROVAVA a folha anterior à v5.267, em que a seção não tinha fundo próprio
-    // e o card tinha a cor da barra dela. Um teste que aprova o defeito que ele
-    // existe para pegar é pior que teste nenhum.
-    const opaco = (v) => !transparente(v) && v !== 'AUSENTE';
-    const d1 = razao(t.folha, t.secao), d2 = razao(t.secao, t.card);
-    checar(opaco(t.folha) && opaco(t.secao) && opaco(t.card) && d1 >= 1.28 && d2 >= 1.28,
-      '[' + tema + '] os três níveis PINTAM, e a escada tem degrau de verdade nos '
-      + 'dois: folha → seção → card', d1.toFixed(2) + ':1 e ' + d2.toFixed(2) + ':1');
+    // **Isto REVOGA a paleta da v1.5.7/v1.5.8 inteira** — a tampa tingida, os
+    // oito tons em ordem de espectro, as três famílias por coleção. Pedido do
+    // operador, com três capturas do defeito: *"está errado, reformule o sistema
+    // de coloração e organização de grupos e subgrupos … vou lhe dar autoridade
+    // para usar sistemas visuais de design e organização usando bordas, mas
+    // apenas para a biblioteca. pois temos 3 niveis de listagens na biblioteca e
+    // o sistema de separação apenas por cor sólida de cards está limitando
+    // nossas opções"*.
+    //
+    // O que se afirma agora são as TRÊS metades do desenho novo, e nenhuma basta
+    // sozinha: cada nível de agrupamento tem MOLDURA (era o relato — *"a
+    // primeira camada de lista de coleções não está criando uma caixa ou moldura
+    // ao redor do seu agrupamento"*), a seção é uma ÁREA e o card uma FICHA
+    // dentro dela (sem esse degrau a moldura sozinha não fecha o grupo: foi o
+    // corte anterior deste lote, medido), e o nível 3 NÃO ganha moldura — senão
+    // a lista inteira vira uma grade de caixinhas.
+    // `opaco` mora mais abaixo neste bloco (junto da escada); aqui a pergunta é a
+    // mesma e precisa vir antes.
+    const ehOpaco = (v) => !transparente(v) && v !== 'AUSENTE';
+    const molduraDe = (v) => (v && v !== 'AUSENTE' && parseFloat(v) > 0);
+    // ===== NENHUM NÍVEL TEM MOLDURA (v1.5.14) =====
+    // Este caso EXIGIA a moldura nos dois níveis (v1.5.9) e agora exige a
+    // AUSÊNCIA dela nos três. A inversão é o pedido do operador — *"poucas
+    // bordas, sem traços finos"* —, e o que a torna possível é o degrau ter
+    // voltado a existir: a moldura de 1px era a única coisa da Biblioteca com
+    // contraste de verdade (2,51:1 no claro) porque TODOS os pares de
+    // superfície estavam abaixo do piso. Com papel → poço → papel eles medem
+    // 1,35:1 e 1,43:1, e o traço deixa de ter trabalho.
+    checar(!molduraDe(t.molduraSecao) && !molduraDe(t.molduraCard),
+      '[' + tema + '] NENHUM nível de agrupamento tem moldura: o que fecha a '
+      + 'caixa é o degrau de superfície, não um traço de 1px',
+      'seção ' + t.molduraSecao + ' · card ' + t.molduraCard);
+    checar(!molduraDe(t.molduraFaixa),
+      '[' + tema + '] e o NÍVEL 3 não tem: uma faixa é conteúdo, não agrupamento '
+      + '— emoldurá-la faria a lista virar uma grade de caixinhas',
+      t.molduraFaixa);
+    // ===== E OS DOIS CABEÇALHOS GRUDAM, EMPILHADOS (v1.5.14) =====
+    // O que substituiu a moldura. A barra do álbum já era `sticky` desde a
+    // v5.242, com a razão escrita lá (*"a outra metade da pergunta 'onde eu
+    // estou?'"*); a da seção não era — e o nível 1 é justamente o que o
+    // operador relatava não distinguir (*"dificultando discernir se estou em
+    // uma camada ou subcamada"*, v5.267).
+    //
+    // A METADE QUE IMPORTA É O `top` DO ÁLBUM. Empatados em zero, o cabeçalho
+    // de dentro cobre o de fora e a pergunta fica sem resposta exatamente
+    // quando ela é feita — e isso não dá erro nenhum, só um cabeçalho a menos.
+    // A régua é a ALTURA RENDERIZADA da barra da seção, nunca o token: um
+    // número lido de volta provaria só que a folha declara o que declara.
+    const g = t.grudento || {};
+    checar(g.secao && g.secao.pos === 'sticky' && g.card && g.card.pos === 'sticky',
+      '[' + tema + '] os DOIS cabeçalhos grudam: é o mecanismo que responde '
+      + '"dentro de quê eu estou?" depois de a lista rolar, e nenhuma cor faz isso',
+      'seção ' + (g.secao && g.secao.pos) + ' · álbum ' + (g.card && g.card.pos));
+    checar(g.secao && g.card && g.secao.top === 0
+      && Math.abs(g.card.top - g.secao.alt) <= 1,
+      '[' + tema + '] e o do álbum gruda ABAIXO do da seção, não por cima dele — '
+      + 'a folga é a altura RENDERIZADA da barra de fora',
+      'seção top ' + (g.secao && g.secao.top) + ' alt ' + (g.secao && g.secao.alt)
+      + ' · álbum top ' + (g.card && g.card.top));
+    // ===== E O `top` É A PROFUNDIDADE, NUNCA O TIPO DO BLOCO (v1.5.15) =====
+    // A v1.5.14 deu a TODO `.hymnal-card.expanded` o `top` do segundo degrau —
+    // inclusive aos hinários e às séries, que moram na RAIZ e não têm barra
+    // nenhuma acima. O vão que sobrava não é neutro: ele É o scrollport, então
+    // a lista rolava por ali À VISTA. Os DOIS relatos do operador saem dele —
+    // *"a lista está vazando acima"* (as faixas do próprio card aparecendo por
+    // cima da barra que as encabeça) e *"essa sobreposição também permanece,
+    // mesmo após terminar a lista de um álbum… parecendo que um álbum está
+    // pertencendo a outro"* (a barra DESGRUDANDO: ela sobe do slot dela até
+    // sumir, e nesse trecho continua inteira no topo, pintada por cima das
+    // coleções seguintes, que já estão à vista).
+    //
+    // A régua é a COMPARAÇÃO com o álbum aninhado, medida na mesma passada: as
+    // duas são a mesma classe e o que as separa é onde elas moram. Um `top`
+    // escrito por TIPO passa numa das duas e reprova na outra.
+    checar(g.raiz && g.raiz.pos === 'sticky' && g.raiz.top === 0,
+      '[' + tema + '] e a coleção da RAIZ gruda no topo do scrollport: ela é '
+      + 'nível 1 como a seção, e não há barra nenhuma acima dela',
+      'raiz top ' + (g.raiz && g.raiz.top) + ' · álbum aninhado top '
+      + (g.card && g.card.top));
+    // ===== E NADA DA LISTA ROLA ACIMA DE UMA TAMPA COLADA (v1.5.15) =====
+    // A metade FINA do mesmo relato: o `padding` de um scroller fica DENTRO do
+    // scrollport, então as faixas apareciam por .5rem acima da barra que as
+    // encabeça — em qualquer nível, inclusive na seção. Como MARGEM o vão é o
+    // mesmo e fica FORA, e nada rola por ali — a régua correta é o `padding`
+    // do SCROLLER, não a posição renderizada do primeiro filho (ver abaixo).
+    checar(t.paddingTopoScroller === 0,
+      '[' + tema + '] e o SCROLLER continua sem padding-top: é ele que é '
+      + 'scrollport, e a lista rolaria por ele à vista', t.paddingTopoScroller + 'px');
+    // ===== E O PRIMEIRO CARD VOLTOU A RESPIRAR DA BARRA DE BUSCA (v1.5.20) =====
+    // Relato do operador: *"a margem do card da coleção favoritos, na
+    // biblioteca e a barra de buscas no topo, está desproporcional aos
+    // espaçamentos que já temos entre as coleções. Fazendo a coleção colar no
+    // topo, e errando o design correto"*.
+    //
+    // Até a v1.5.19 este caso exigia ZERO aqui — era a mesma régua do padding
+    // acima, porque na época o único jeito de haver respiro ERA padding do
+    // scroller. A v1.5.20 separa as duas perguntas: o padding do scroller
+    // segue proibido (caso de cima), mas o respiro do PRIMEIRO FILHO
+    // (`margin-top`, que não é scrollport) voltou a existir — do MESMO
+    // tamanho do `--sp-5` que separa duas coleções no `#hymnResults` de
+    // verdade (ver `lista-da-biblioteca.test.mjs`, que mede a comparação
+    // completa nessa lista real; aqui, sem o id, a régua é o TOKEN).
+    checar(t.respiroDoTopo !== null && Math.abs(t.respiroDoTopo - t.sp5Px) <= 0.6,
+      '[' + tema + '] e o primeiro card respira da barra de busca — nem '
+      + 'colado (o defeito relatado), nem um valor à parte do `--sp-5`',
+      t.respiroDoTopo + 'px contra --sp-5 de ' + t.sp5Px + 'px');
+    // ===== E A FAIXA DE UMA COLEÇÃO DA RAIZ POUSA EM PAPEL (v1.5.15) =====
+    // Relato do operador sobre a v1.5.14: *"isso era pra ser assim? fundo azul
+    // nos itens do provai e vede? e etc...?"*.
+    //
+    // A árvore da Biblioteca não tem profundidade uniforme: uma seção contém
+    // CARDS, uma coleção da raiz contém FAIXAS. Sem fundo próprio, a MESMA
+    // `.hymn-result` pousava em duas bases — papel dentro de uma seção, POÇO
+    // num hinário ou numa série da raiz, que é nível 1. A regra completa é que
+    // o poço é a MOLDURA de um agrupamento e o papel é onde o conteúdo pousa,
+    // e a placa é o degrau de baixo que faltava.
+    //
+    // AS DUAS METADES: a placa tem degrau de VERDADE contra o poço em volta
+    // (senão ela não existe), e ela vale o MESMO que o card de álbum de dentro
+    // de uma seção (senão a faixa continua pousando em duas cores conforme onde
+    // a coleção calha de morar, que é o relato).
+    const rp = t.raizPlaca || {};
+    const dPoçoPlaca = razao(rp.bloco, rp.placa);
+    checar(ehOpaco(rp.bloco) && ehOpaco(rp.placa) && dPoçoPlaca >= 1.28,
+      '[' + tema + '] a lista de uma coleção da RAIZ pousa numa placa com degrau '
+      + 'de verdade contra o poço em volta', dPoçoPlaca.toFixed(2) + ':1');
+    checar(ehOpaco(t.card) && razao(rp.placa, t.card) < 1.05,
+      '[' + tema + '] e essa placa vale o MESMO que o card de álbum: a faixa '
+      + 'pousa na mesma cor em qualquer lugar do acervo, que é o relato',
+      'placa ' + rp.placa + ' · card de álbum ' + t.card);
+    checar(razao(rp.faixa, rp.placa) < 1.05,
+      '[' + tema + '] e a faixa continua sem fundo próprio dentro dela — a placa '
+      + 'é do agrupamento, não da linha', 'faixa ' + rp.faixa + ' · placa ' + rp.placa);
+    // ===== E A MOLDURA NÃO PODE TER NADA DENTRO DELA ANTES DA BARRA (v1.5.10) =====
+    // Relato do operador: *"verifique o tamanho e espaçamento dos favoritos,
+    // pois está deslocado o seu card de topo em relação a caixa dele"*.
+    // `.coll-group:first-child` dá `padding-top: .2rem` (0,2,0, vencendo o
+    // `padding: 0` da regra do `--drop`, que é 0,1,0) para a lista não começar
+    // colada no topo. Enquanto a seção não tinha caixa aquilo era o respiro da
+    // LISTA; com a moldura da v1.5.9 ele virou uma faixa de 3,2px DENTRO da
+    // caixa — MEDIDO: caixa em 59,2 e barra em 63,4.
+    //
+    // A régua é a MOLDURA, e não zero: 1px de borda é exatamente o que tem de
+    // sobrar entre o topo do bloco e o topo da barra, e escrever "0" aqui
+    // reprovaria o desenho certo.
+    //
+    // E O HOST DESTE CASO NÃO É O DO APP (v1.5.17). A lista medida aqui é uma
+    // `<ul class="popup-list">` PRÓPRIA, criada e anexada à folha (ver o
+    // `montarLista` lá em cima), e o que este caso guarda é o que ela nomeia:
+    // que nenhum RECUO DA LISTA vaze para dentro do bloco. No `#hymnResults` de
+    // verdade sobram ~4,8px acima da barra desde a v1.5.17 — mas eles não são
+    // recuo da lista: são o BLOCO crescendo para preencher a tela, e o alvo e o
+    // `--press` crescem com ele (o `lista-da-biblioteca.test.mjs`, bloco D6, é
+    // quem prova isso). Dois hosts, duas perguntas; medir aqui o `#hymnResults`
+    // faria este caso reprovar um desenho deliberado.
+    checar(t.faixaAcimaDaBarra !== null
+      && Math.abs(t.faixaAcimaDaBarra - t.molduraSecaoPx) <= 0.6,
+      '[' + tema + '] entre o topo da caixa e a barra só há a MOLDURA: nenhum '
+      + 'recuo da lista vaza para dentro do bloco',
+      t.faixaAcimaDaBarra + 'px acima da barra, moldura de ' + t.molduraSecaoPx + 'px');
+    // ===== E O PRIMEIRO CARD NÃO NASCE COLADO NA TAMPA (v1.5.10) =====
+    // Relato: *"verifique o espaçamento entre o card de titulo da coleção e o
+    // primeiro item desta coleção, parece estar sem espaçamento correto"*. O
+    // corpo aberto era `padding: 0 .4rem .45rem` — sem recuo em cima —, então o
+    // primeiro card começava EXATAMENTE onde a barra acaba (MEDIDO: vão de 0px)
+    // enquanto os seguintes eram separados por .35rem. A régua é a COMPARAÇÃO
+    // com esse `gap`: o número em si é decisão de desenho, o que não pode é a
+    // primeira vizinha da coluna valer menos que as outras.
+    checar(t.vaoTampaPrimeiro !== null && t.gapEntreCards > 0
+      && Math.abs(t.vaoTampaPrimeiro - t.gapEntreCards) <= 0.6,
+      '[' + tema + '] e o primeiro card respira da tampa o MESMO que os cards '
+      + 'respiram entre si',
+      t.vaoTampaPrimeiro + 'px contra um gap de ' + t.gapEntreCards + 'px');
+    // ===== E OS DOIS DIVIDEM O TOM: quem os separa é a LINHA =====
+    // É a troca inteira dita como asserção — antes o degrau de tom era o único
+    // separador e não havia degrau para três níveis; agora os dois níveis de
+    // agrupamento pintam o MESMO e a moldura faz o trabalho. Um degrau entre
+    // eles não seria erro, mas seria a escada de volta competindo com a linha.
+    //
+    // **A metade que importa é a de BAIXO**: a faixa (nível 3) tem de se ver
+    // dentro do card, e é ela que decide o tom das caixas. `--item-fill` é
+    // branco a 80% no tema claro — desenhado para pousar num card acinzentado.
+    // MEDIDO com as caixas em `--panel`: a faixa a **1,00:1** do card, isto é,
+    // sumida.
+    // ===== A ALTERNÂNCIA: PAPEL → POÇO → PAPEL (v1.5.14) =====
+    // Este caso EXIGIA que seção e card dividissem o tom (1,00:1), porque a
+    // moldura fazia o trabalho e a escada não tinha degrau para os dois. Hoje
+    // ele exige o oposto, e é a troca de premissa inteira dita como asserção:
+    // a escada ACUMULA e acaba (quatro níveis sobre branco põem o nível 3 em
+    // #b3b3b3, o cinza que o operador recusou); a alternância não acumula, e
+    // por isso não tem teto. O card volta ao tom da JANELA — é isso que
+    // dispensa um quarto tom — e o poço se destaca dos dois.
+    const dJanelaSecao = razao(t.folha, t.secao);
+    const dSecaoCard = razao(t.secao, t.card);
+    checar(ehOpaco(t.secao) && ehOpaco(t.card) && dSecaoCard >= 1.28,
+      '[' + tema + '] o card se destaca do poço da seção com degrau de VERDADE '
+      + '— é ele que substitui a moldura', dSecaoCard.toFixed(2) + ':1');
+    checar(ehOpaco(t.folha) && dJanelaSecao >= 1.28,
+      '[' + tema + '] e o poço se destaca da janela pelo mesmo degrau',
+      dJanelaSecao.toFixed(2) + ':1');
+    // E O CARD VOLTA AO TOM DA JANELA — a metade que prova que isto é
+    // ALTERNÂNCIA e não uma escada com um degrau a mais. Sem ela, um terceiro
+    // tom passaria aqui e o problema de 2026 voltaria pela porta dos fundos:
+    // uma escada de quatro é o que não cabe.
+    checar(ehOpaco(t.card) && razao(t.folha, t.card) < 1.05,
+      '[' + tema + '] e o card veste o MESMO tom da janela: a profundidade '
+      + 'alterna entre DUAS superfícies, nunca empilha uma terceira',
+      'janela ' + t.folha + ' · card ' + t.card);
+    // O NÍVEL 3 NÃO TEM PREENCHIMENTO. Ele é conteúdo do card, não um
+    // agrupamento: o que o separa da vizinha é o espaço (a regra R0), e o
+    // preenchimento fica reservado ao ESTADO — é isso que faz "no ar" saltar
+    // numa lista em que nada mais é pintado.
+    checar(transparente(t.faixa),
+      '[' + tema + '] e a FAIXA não tem fundo próprio: preenchimento na '
+      + 'Biblioteca passou a significar ESTADO, e nada mais', t.faixa);
+    // ===== E ABRIR NÃO TROCA A COR DE NADA (v1.5.9) =====
+    // Relato do operador: *"verifique também a mudança para tons cinzas ao
+    // selecionar o item, pois está sendo inconsistente com sua cor real"*. A
+    // tampa de um card ABERTO lia `--camada`, que o `.expanded` redeclarava —
+    // então abrir trocava o tom dela, e sobre um card tingido isso saía CINZA.
+    //
+    // **ISTO É UMA GUARDA, e não a prova da correção — dito porque a diferença
+    // importa.** O defeito morreu com a paleta: sem matiz, o `--panel-2` que o
+    // `.expanded` reservava deixou de contradizer o que o card pinta, e hoje a
+    // tampa tem tom PRÓPRIO nos dois estados (a regra `> .coll-bar` do
+    // `.acervo`), o que a torna imune por construção. Nenhuma reversão pequena
+    // reprova aqui — verificado. O que este caso faz é impedir que a
+    // dependência volte: quem reintroduzir uma tampa que lê `--camada` num
+    // estado e não no outro encontra esta linha.
+    // A régua é a IGUALDADE entre os dois estados, porque quem diz que a caixa
+    // abriu é o corpo à vista e a seta girada (*"ABERTO = não é cor"*).
+    checar(t.tampaFechada !== 'AUSENTE' && t.tampaFechada === t.tampaAberta,
+      '[' + tema + '] e a tampa de um card tem o MESMO tom fechada e aberta: '
+      + 'abrir não troca a cor de nada',
+      'fechada ' + t.tampaFechada + ' · aberta ' + t.tampaAberta);
+    // ===== O TOM DA CAIXA É O AZUL FRACO, NUNCA O CINZA ESCURO (v1.5.10) =====
+    // Pedido do operador, com as duas capturas: *"essa predominância cinza
+    // escura está muito ruim em especial no tema claro. porque não usou o azul
+    // fraco como cor principal dos cards?"*.
+    //
+    // **A PRESSÃO PARA DESFAZER ISTO É REAL, e é por ela que o caso existe.** O
+    // nível 3 (`--item-fill`, branco a 80% no claro) se lê MELHOR sobre o cinza
+    // escuro — 1,32:1 contra 1,17:1 —, então quem for apertar aquele número
+    // encontra `--panel-2` como a resposta óbvia e desfaz o pedido sem saber que
+    // desfez. A régua é um VIZINHO RENDERIZADO: o botão de ação que mora na
+    // barra da própria seção veste `--btn-accent`, e a caixa tem de vestir a
+    // mesma superfície. Comparar com o token lido de volta provaria só que a
+    // folha declara o que declara.
+    // O POÇO É PARENTE DO AZUL FRACO, NÃO IGUAL A ELE (v1.5.14). Este caso
+    // exigia igualdade com `--btn-accent` (a superfície do botão de ação da
+    // própria barra), e a igualdade era o defeito: `--btn-accent` mede 1,21:1
+    // contra a janela branca, abaixo do piso, e foi por isso que a caixa
+    // precisava de uma moldura para existir. O poço é o MESMO azul aprofundado
+    // até o degrau ser real — então ele tem de diferir do botão, e o botão
+    // continua se vendo DENTRO dele.
+    checar(t.botaoAcao !== 'AUSENTE' && ehOpaco(t.secao)
+      && razao(t.secao, t.botaoAcao) > 1.03,
+      '[' + tema + '] o poço difere do botão de ação que mora na barra dele — '
+      + 'o azul fraco não tinha degrau contra a janela, e é essa a razão de o '
+      + 'poço existir', 'poço ' + t.secao + ' · botão ' + t.botaoAcao);
+    // ===== A CAIXA SE VÊ SOBRE A JANELA — E QUEM A FECHA É A LINHA (v1.5.10) =====
+    //
+    // Este caso EXIGIA 1,28:1 entre a janela e a seção, isto é, o degrau da
+    // escada fazendo sozinho o trabalho. **Isso deixou de ser verdade quando o
+    // operador escolheu o tom:** *"essa predominância cinza escura está muito
+    // ruim em especial no tema claro. porque não usou o azul fraco como cor
+    // principal dos cards?"*. `--btn-accent` é uma superfície CLARA nos dois
+    // temas — MEDIDO, 1,21:1 contra a janela branca e 1,14:1 no escuro —, e
+    // exigir o degrau antigo aqui reprovaria o desenho que o operador pediu.
+    //
+    // A régua nova é a do desenho da v1.5.9, escrita por extenso: a caixa não
+    // pode COINCIDIR com a base (o 1,00:1 é o defeito da v5.241, e é o único
+    // desfecho inaceitável), e quem a FECHA é a moldura — que precisa de
+    // contraste de verdade contra a janela, senão a linha existe no CSS e não
+    // na tela. As duas metades são inseparáveis: sem a primeira, um tom igual
+    // ao da base passa "porque tem borda"; sem a segunda, uma borda da cor do
+    // fundo passa "porque o tom difere".
+    const d2 = razao(t.folha, t.secao);
+    const dMoldura = razao(t.molduraCor, t.folha);
+    checar(ehOpaco(t.folha) && ehOpaco(t.secao) && d2 >= 1.10,
+      '[' + tema + '] a caixa da seção não coincide com a base da janela',
+      d2.toFixed(2) + ':1');
+    checar(t.molduraCor !== 'AUSENTE' && ehOpaco(t.molduraCor) && dMoldura >= 1.5,
+      '[' + tema + '] e quem FECHA a caixa é a moldura, com contraste de verdade '
+      + 'contra a janela — sem isso a linha existe no CSS e não na tela',
+      dMoldura.toFixed(2) + ':1');
     // ...e NENHUM par de níveis pode coincidir, adjacente ou não — o "avô com a
     // cor do neto" é o defeito que a alternância de dois tons produzia por
     // construção, e ele reapareceria numa refatoração que voltasse a ela.
@@ -1359,10 +1995,13 @@ for (const tema of ['escuro', 'claro']) {
     // NUNCA se encostam: entre eles há sempre a moldura branca da seção. Exigir
     // monotonia aqui reprovaria um desenho correto (verificado: foi o que a
     // primeira versão deste caso fez).
-    const dPula = razao(t.folha, t.card);
-    checar(opaco(t.card) && dPula >= 1.05,
-      '[' + tema + '] e nenhum par de níveis coincide — nem os que se pulam',
-      'folha × card ' + dPula.toFixed(2) + ':1');
+    // E NENHUM PAR COINCIDE — agora o par que se pula é a TAMPA contra o CARD, os
+    // dois blocos que de fato aparecem juntos numa seção aberta. (Era folha ×
+    // card, que com a seção fora da conta virou o par medido logo acima.)
+    const dPula = razao(t.barra, t.card);
+    checar(ehOpaco(t.card) && dPula >= 1.05,
+      '[' + tema + '] e a tampa da seção não coincide com o card que ela abre',
+      'tampa × card ' + dPula.toFixed(2) + ':1');
     // v5.271: a faixa GANHOU preenchimento. A v5.267 tirou o filete e pôs o
     // espaço no lugar, mas deixou a faixa sem fundo — e um vão da mesma cor dos
     // dois lados não separa nada, que foi o relato do operador ("os itens ficam
@@ -1370,10 +2009,14 @@ for (const tema of ['escuro', 'claro']) {
     // toque"). O que este caso trava agora são as três metades: ela PINTA, ela
     // não desenha filete, e o espaço entre duas continua existindo — sem o
     // último, um bloco colado no outro volta a não ter área de toque legível.
-    checar(!transparente(t.faixa) && parseFloat(t.faixaFilete) === 0 && t.faixaGap > 0,
-      '[' + tema + '] a faixa dentro do álbum tem PREENCHIMENTO próprio e nenhum '
-      + 'filete: o que a separa da vizinha é o espaço entre dois blocos que se '
-      + 'veem (' + t.faixa + ', gap ' + t.faixaGap + 'px)');
+    // INVERTIDO na v1.5.14: a faixa NÃO tem preenchimento. Ela é conteúdo do
+    // card, não um agrupamento, e o que a separa da vizinha é o ESPAÇO — a
+    // regra R0 do projeto (*"o quarto degrau é o espaço"*), que subiu um nível
+    // porque saiu uma camada de caixas. O filete continua tendo de ser zero: o
+    // que mudou é que agora ele é zero em TODA a Biblioteca.
+    checar(transparente(t.faixa) && parseFloat(t.faixaFilete) === 0 && t.faixaGap > 0,
+      '[' + tema + '] a faixa não tem preenchimento NEM filete: o que a separa '
+      + 'da vizinha é o espaço (' + t.faixa + ', gap ' + t.faixaGap + 'px)');
     // ===== E O TEXTO DELA É LEGÍVEL SOBRE ESSE PREENCHIMENTO (v5.296) =====
     //
     // Relato do operador: *"a cor do texto dos itens dentro do álbum na
@@ -1397,12 +2040,19 @@ for (const tema of ['escuro', 'claro']) {
       + dTexto.toFixed(2) + ':1 a ' + t.nomeTam + 'px (era 3,45:1 no claro — a '
       + 'linha herdava a cor do RÓTULO da seção)');
     // O outro lado, e ele é o que impede a correção de virar "tudo virou
-    // `--text`": o cabeçalho da seção CONTINUA em `--muted`. Cor de rótulo e
-    // cor de conteúdo são duas coisas, e o defeito era exatamente uma valendo
-    // pela outra.
-    checar(!!t.rotulo && t.rotulo.cor !== t.nomeCor,
-      '[' + tema + '] mas o RÓTULO da seção continua sendo um rótulo, com cor '
-      + 'própria (' + (t.rotulo ? t.rotulo.cor : '?') + ' contra ' + t.nomeCor
+    // `--text`": a cor de RÓTULO da barra continua existindo e continua sem
+    // alcançar as linhas. Cor de rótulo e cor de conteúdo são duas coisas, e o
+    // defeito da v5.296 era exatamente uma valendo pela outra.
+    //
+    // **A PEÇA MEDIDA MUDOU na v1.5.11, e a regra não.** Era o NOME da seção,
+    // que subiu para `--text` junto com o título do card (*"padronize em caixa
+    // alta, ou em formatação normal"*, mais o pedido de afastar o texto do
+    // azul). Quem carrega o `--muted` da barra hoje é o CONTADOR, e é contra
+    // ele que a não-contaminação se afirma — nivelar a barra inteira continua
+    // reprovando aqui.
+    checar(!!t.rotuloNumero && t.rotuloNumero !== t.nomeCor,
+      '[' + tema + '] mas a cor de RÓTULO da barra continua existindo e não '
+      + 'alcança as linhas (' + (t.rotuloNumero || '?') + ' contra ' + t.nomeCor
       + ' da linha)');
     // ===== A LINHA DE CONTEÚDO SE AFASTA DO TEXTO (v5.297) =====
     //
@@ -1419,11 +2069,17 @@ for (const tema of ['escuro', 'claro']) {
     // continua passando no escuro, que é exatamente a assimetria do defeito.
     const dLinha = t.textoCor && t.faixaEfetiva !== 'AUSENTE'
       ? razao(t.textoCor, t.faixaEfetiva) : 0;
-    const dCartao = t.textoCor && opaco(t.card) ? razao(t.textoCor, t.card) : 0;
-    checar(dLinha > dCartao,
-      '[' + tema + '] e ela se AFASTA do texto, não do fundo: a linha contrasta '
-      + 'mais que o card que a contém (' + dLinha.toFixed(2) + ':1 contra '
-      + dCartao.toFixed(2) + ':1)');
+    const dCartao = t.textoCor && ehOpaco(t.card) ? razao(t.textoCor, t.card) : 0;
+    // O PISO PASSOU DE `>` PARA `>=` na v1.5.14, e a razão é que o defeito
+    // deixou de ser alcançável por este caminho: sem preenchimento na faixa, a
+    // superfície que carrega o texto É a do card, e as duas razões são iguais
+    // por construção. A guarda continua valendo e continua sendo a mesma regra
+    // — quem reintroduzir um recesso na faixa derruba `dLinha` abaixo de
+    // `dCartao` no tema claro (o meio-tom da v5.297) e reprova aqui.
+    checar(dLinha >= dCartao && dLinha >= 4.5,
+      '[' + tema + '] e a superfície que carrega o texto NUNCA o aproxima do '
+      + 'fundo: a faixa contrasta pelo menos tanto quanto o card que a contém ('
+      + dLinha.toFixed(2) + ':1 contra ' + dCartao.toFixed(2) + ':1)');
     // ===== E O CONTEÚDO NÃO É DESENHADO COMO UM RÓTULO (v5.297) =====
     //
     // A outra metade do mesmo vazamento, e a que o operador de fato via: a
@@ -1436,12 +2092,66 @@ for (const tema of ['escuro', 'claro']) {
       '[' + tema + '] e nem o nome da faixa nem o título do álbum são desenhados '
       + 'como RÓTULO — sem caixa alta e sem espaçamento de cabeçalho ('
       + (t.nomeTipo ? t.nomeTipo.tt + '/' + t.nomeTipo.ls : '?') + ')');
-    // A metade negativa dela: a barra CONTINUA em caixa alta. Sem esta linha,
-    // apagar a regra do rótulo passaria nas duas de cima.
-    checar(!!t.rotulo && t.rotulo.tt === 'uppercase' && t.rotulo.ls !== 'normal',
-      '[' + tema + '] mas a BARRA da seção continua em caixa alta e espaçada — é '
-      + 'ela que o rótulo sempre descreveu (' + (t.rotulo ? t.rotulo.tt + '/'
-      + t.rotulo.ls : '?') + ')');
+    // ===== E A BARRA DA SEÇÃO ENTROU NA MESMA REGRA (v1.5.11) =====
+    // Este caso era a metade NEGATIVA do de cima — *"mas a BARRA da seção
+    // continua em caixa alta e espaçada"* —, e o pedido do operador o revoga:
+    // *"Nessas coleções, padronize em caixa alta, ou em formatação normal"*. Na
+    // raiz da Biblioteca uma seção e um card fixo são LINHAS IRMÃS, e saíam em
+    // caixas diferentes ("CDS OFICIAIS" ao lado de "Hinário Adventista 2022").
+    //
+    // A escolha é a normal pela medição que o caso acima já cita: caixa alta a
+    // 14px é mais lenta de ler e mais LARGA, e os nomes desta lista são longos.
+    // O que ela carregava — o ranqueamento da seção sobre o card (v1.3.14) —
+    // passou para a MOLDURA na v1.5.9, que é o que torna a remoção segura.
+    //
+    // A metade que impede o nivelamento largo demais vem logo abaixo: o NÚMERO
+    // continua sendo metadado.
+    checar(!!t.rotulo && t.rotulo.tt === 'none' && t.rotulo.ls === 'normal',
+      '[' + tema + '] e a BARRA da seção entrou na MESMA formatação: uma seção e '
+      + 'um card fixo são linhas irmãs na raiz, e agora se escrevem igual',
+      (t.rotulo ? t.rotulo.tt + '/' + t.rotulo.ls : '?'));
+    // ===== O NOME DA SEÇÃO VESTE A COR DE NOME, E O NÚMERO NÃO (v1.5.11) =====
+    // Pedido: *"aproveite para pôr o texto em branco no tema claro para os
+    // textos sobre o azul"*. **Branco não é possível** — MEDIDO, sobre a tampa
+    // (`#bdcada` no claro) ele dá 1,66:1, e AA pede 4,5:1. O que o pedido
+    // alcança é o outro lado: o texto tem de se AFASTAR do azul, e no tema
+    // claro isso só se faz escurecendo. O nome herdava `--muted` (4,00:1,
+    // abaixo de AA) e passou a `--text` (5,33:1).
+    //
+    // A régua é o TÍTULO DO CARD ao lado — o vizinho renderizado com que ele se
+    // padroniza —, e a segunda metade é o que impede a correção de virar um
+    // nivelamento da barra inteira: o CONTADOR continua em metadado. Sem ela,
+    // pintar tudo de `--text` passaria.
+    checar(!!t.rotulo && !!t.tituloCor && t.rotulo.cor === t.tituloCor,
+      '[' + tema + '] e o NOME dela veste a cor do título do card ao lado — o '
+      + 'branco que o pedido nomeia mede 1,66:1 sobre a tampa, e o caminho '
+      + 'legível é o oposto dele',
+      'seção ' + (t.rotulo ? t.rotulo.cor : '?') + ' · card ' + t.tituloCor);
+    checar(!!t.rotuloNumero && !!t.tituloCor && t.rotuloNumero !== t.tituloCor,
+      '[' + tema + '] mas o CONTADOR continua sendo metadado: a regra é NOME em '
+      + '`--text` e NÚMERO em `--muted`, não a barra inteira nivelada',
+      t.rotuloNumero);
+    // ===== E NO TEMA CLARO ESSE TEXTO É PRETO, NÃO O `night` (v1.5.12) =====
+    // Terceira e última rodada do operador sobre a legibilidade desta tela:
+    // *"então use a cor preta pra os textos e não cinza como me parece ser
+    // hoje"*.
+    //
+    // **É UM DESVIO DECLARADO DA PALETA OFICIAL, e é por isso que ele precisa
+    // de caso.** `#4a4a4a` é o `night` — um dos dezoito valores da identidade
+    // IASD e o texto que ela prescreve —, então quem for conferir a paleta
+    // contra a marca encontra o preto, conclui que é um deslize e o "corrige"
+    // de volta, em silêncio e de boa-fé. A régua aqui é um LITERAL de
+    // propósito: a decisão É um valor escolhido contra a paleta, e não há
+    // vizinho renderizado que a carregue.
+    //
+    // Só no tema CLARO: no escuro o texto é o off-white de sempre, e preto ali
+    // seria invisível.
+    if (tema === 'claro') {
+      checar(t.tituloCor === 'rgb(0, 0, 0)',
+        '[claro] e o texto deste tema é PRETO, não o `night` oficial (#4a4a4a) — '
+        + 'desvio pedido pelo operador, com a identidade dizendo o contrário',
+        t.tituloCor);
+    }
   } catch (e) {
     checar(false, 'a medição da escada de camadas (' + tema + ') terminou sem exceção ('
       + (e && e.message) + ')');
@@ -1471,7 +2181,11 @@ for (const tema of ['escuro', 'claro']) {
     const v = await pg.evaluate(async (tema) => {
       document.documentElement.setAttribute('data-tema', tema);
       setAppMode('full');
-      openHymnSearch();
+      openHymnSearch(false);
+      // A JANELA ASSENTA ANTES DE SER MEDIDA (v1.5.0): ela SOBE agora, e este
+      // caso mede caixas — a barra abaixo dela, a base da lista. Medida no meio
+      // da subida, a folha responde o ponto de partida.
+      await new Promise((r) => setTimeout(r, 500));
       grupoAberto = ''; favAberto = true;
       // TUDO FECHADO É A PRECONDIÇÃO, e desde a v1.0.1 `grupoAberto = ''` não
       // basta para dizê-la: as coleções fixas moram na RAIZ, então um card que
@@ -1501,6 +2215,10 @@ for (const tema of ['escuro', 'claro']) {
         // que os dois são IGUAIS.
         corFav: fav ? cx(fav).backgroundColor : 'AUSENTE',
         corOutra: outras.length ? cx(outras[0]).backgroundColor : 'AUSENTE',
+        // A base da janela — é contra ela que o DEGRAU de uma seção é medido
+        // (v1.5.8): com cada coleção na própria matiz, "mesma cor" deixou de ser
+        // dizível e o que se afirma é "mesmo degrau".
+        baseJanela: cx(document.querySelector('.popup-sheet--lib')).backgroundColor,
         // (O par "linha dos favoritos × linha de uma coleção" foi medido aqui
         // na v5.282 e saiu na v5.283: a linha de favorito DEIXOU de vestir o
         // tom de card, que era o defeito seguinte. Quem afirma o degrau de
@@ -1649,13 +2367,48 @@ for (const tema of ['escuro', 'claro']) {
         // dia em que a placa e o corpo voltassem a ter o mesmo tom.
         itemNaPlaca: !!(favCorpo && favCorpo.querySelector('.fav-itens > .lib-item')),
         pastaSolta: !!(favCorpo && favCorpo.querySelector(':scope > .folder-opfs')),
+        // ===== AS MÃES (v1.5.8) =====
+        // Com cada coleção vestindo a própria matiz, comparar cores ABSOLUTAS
+        // entre duas seções deixou de significar alguma coisa: o que se quer
+        // afirmar nunca foi "estas duas peças são da mesma cor", era "estas duas
+        // peças ocupam o mesmo DEGRAU". Com as mães na mão, o degrau é uma razão
+        // — e ela sobrevive à cor.
+        // A MÃE DA LINHA É A PLACA (`.fav-itens`), não a seção: é ela que pinta
+        // e é sobre ela que a linha compõe. Medir contra a seção dá 1,03:1 e faz
+        // o caso reprovar um app que está certo — foi o primeiro corte.
+        maeFav: efetiva(favCorpo && favCorpo.querySelector('.fav-itens')),
+        // A da PASTA é a seção: ela é IRMÃ da placa, não filha dela.
+        maePasta: efetiva(favCorpo && favCorpo.closest('.coll-group--drop')),
+        maeFaixa: efetiva(hymnResultsEl.querySelector(
+          '.coll-group--drop.aberto:not(.coll-group--fav) .hymnal-card')),
+        maeCard: efetiva(hymnResultsEl.querySelector(
+          '.coll-group--drop.aberto:not(.coll-group--fav)')),
+        // AS MOLDURAS do par pasta × item (v1.5.9): é a linha que os separa
+        // desde que os dois passaram a pousar na mesma área.
+        molduraPasta: (() => {
+          const el = favCorpo && favCorpo.querySelector('.folder-opfs');
+          return el ? getComputedStyle(el).borderTopWidth : 'AUSENTE';
+        })(),
+        molduraFavLinha: (() => {
+          const el = favCorpo && favCorpo.querySelector('.fav-itens > .lib-item');
+          return el ? getComputedStyle(el).borderTopWidth : 'AUSENTE';
+        })(),
       };
       opfsFolders.length = 0;
       await AVDB.listRemove('favs', favRec.id);
       await recarregarFavoritos();
       // `album-77` fica ABERTO: é o estado declarado do fixture da seção (ver
       // `SECAO`, no topo), e os casos seguintes contam com ele.
-    // ===== A BARRA É O TOPO DA FOLHA (v5.280/v5.281) =====
+    // ===== A BARRA SAIU DA FOLHA (v1.5.0) =====
+    // Ela era o topo da Biblioteca (v5.280/v5.281) e virou a `.lib-bar` da caixa
+    // de controles — o pedido do operador foi *"vamos trazer toda a barra de
+    // buscas da biblioteca, ela vai ficar agora ali fora da biblioteca"*. O que
+    // se mede aqui muda de lugar mas não de natureza: a lista continua sendo a
+    // única coisa que rola, e a barra continua parada enquanto ela rola. A
+    // diferença é que agora a barra está FORA — e é isso que a asserção da
+    // ausência (`semBarraDentro`) prende: duas barras seriam duas verdades sobre
+    // o mesmo campo, e a de dentro sumiria atrás da de fora.
+    //
     // MEDIDA DEPOIS do bloco acima, e de propósito: a rolagem só existe com
     // uma COLEÇÃO ABERTA — com tudo colapsado o vão dos favoritos é
     // justamente o que sobra, a lista cabe inteira e não haveria rolagem a
@@ -1663,8 +2416,8 @@ for (const tema of ['escuro', 'claro']) {
     // Biblioteca já tinha encontrado).
     r.barra = (() => {
         const folha = document.querySelector('#hymnSearchPopup .popup-sheet');
-        const bar = document.querySelector('#hymnSearchPopup .hymn-search-bar');
-        const fechar = document.getElementById('hymnSearchClose');
+        const bar = document.querySelector('.lib-bar');
+        const fechar = document.getElementById('hymnSearchToggle');
         const campo = document.getElementById('hymnSearchInput');
         const cx2 = (el) => el.getBoundingClientRect();
         // Uma rolagem de VERDADE na lista, com o conteúdo que este caso já
@@ -1678,7 +2431,14 @@ for (const tema of ['escuro', 'claro']) {
         return {
           semCabecalho: !document.querySelector('#hymnSearchPopup .popup-header'),
           semTitulo: !document.getElementById('hymnSearchTitle'),
-          primeira: folha.firstElementChild === bar,
+          // A BARRA É A CABEÇA DA JANELA (v1.5.1): ela vive DENTRO dela, e é o
+          // primeiro filho — é isso que a faz subir junto e parar no topo.
+          barraDentro: folha.firstElementChild === bar,
+          listaDepois: folha.lastElementChild === document.getElementById('hymnResults'),
+          // E ELA É O TOPO da janela quando aberta: com o campo ali, o teclado
+          // — que sobe da base — não tem como cobri-lo.
+          barraNoTopo: Math.abs(cx2(bar).top - cx2(folha).top) <= 1,
+          listaAbaixo: Math.round(cx2(hymnResultsEl).top) >= Math.round(cx2(bar).bottom) - 1,
           fecharL: cx2(fechar).width, fecharA: cx2(fechar).height,
           campoA: cx2(campo).height,
           barraAntes, barraDepois, rolou,
@@ -1714,47 +2474,84 @@ for (const tema of ['escuro', 'claro']) {
       '[' + tema + '] e as fechadas ficam EMPILHADAS NA BASE — a última termina '
       + 'onde a lista termina (' + Math.round(v.fundoUltima) + ' contra '
       + Math.round(v.fundoLista) + ')');
-    // ===== ELA VESTE O TOM DAS OUTRAS (v5.282) =====
-    // A afirmação INVERTEU: da v5.273 à v5.281 este par era "distinto", com um
-    // piso de 1,15:1. A comparação é de STRING e não de razão de luminância —
-    // "igual" é igual, e uma razão com piso baixo aprovaria dois tons
-    // ligeiramente diferentes, que é exatamente a queixa ("não ficou bom").
-    checar(v.corFav !== 'AUSENTE' && v.corFav === v.corOutra,
+    // ===== ELA VESTE O TOM DAS OUTRAS (v5.282 → v1.5.8) =====
+    // A afirmação INVERTEU duas vezes. Da v5.273 à v5.281 este par era
+    // "distinto", com piso de 1,15:1; a v5.282 o fez IGUAL, por string, a pedido
+    // (*"ajuste as cores dela para que ela fique igual as outras coleções"*).
+    // A v1.5.8 deu a cada coleção a própria matiz — logo "igual" deixou de ser
+    // dizível, e o que sobrevive do pedido é o que ele queria: **a dos Favoritos
+    // não tem tom PRÓPRIO, ela é mais uma da fileira.** A régua passou a ser a
+    // ESCADA: ela está no mesmo degrau que as outras (mesma razão contra a base
+    // da janela), e não uma peça com regra só dela.
+    const degrauFav = v.corFav !== 'AUSENTE' ? razao(v.corFav, v.baseJanela) : 0;
+    const degrauOutra = v.corOutra !== 'AUSENTE' ? razao(v.corOutra, v.baseJanela) : 0;
+    checar(degrauFav > 0 && Math.abs(degrauFav - degrauOutra) < 0.06,
       '[' + tema + '] ela veste o MESMO tom das outras seções, sem cor própria ('
       + v.corFav + ' contra ' + v.corOutra + ')');
-    // ===== E A LINHA DE FAVORITO É UM ITEM, NÃO UM ÁLBUM (v5.283) =====
-    // A primeira metade é o pedido escrito como IGUALDADE de cor efetiva — de
-    // string, e não de razão de luminância, porque "igual" é igual. A segunda é
-    // o PROPÓSITO dele ("para diferenciar entre álbum e item"), e ela é o que
-    // impede a correção de passar sem resolver nada: era exatamente 1,00:1
-    // antes, e só a igualdade acima não teria como distinguir "virou faixa" de
-    // "continua card" no dia em que a faixa mudar de receita.
+    // ===== E A LINHA DE FAVORITO É UM ITEM, NÃO UM ÁLBUM (v5.283 → v1.5.8) =====
+    //
+    // **A RÉGUA DEIXOU DE SER A COR E PASSOU A SER O DEGRAU.** Os dois pares
+    // deste bloco comparavam cores ABSOLUTAS entre DUAS seções — a dos Favoritos
+    // e a de um álbum —, e isso funcionava enquanto todas as coleções eram
+    // cinzas. Com cada uma vestindo a própria matiz (v1.5.8), "estas duas peças
+    // são da mesma cor" deixou de ser dizível; o que os pedidos queriam dizer,
+    // e continua verdade, é **"estas duas peças ocupam o mesmo DEGRAU"** — a
+    // mesma razão contra o que as hospeda.
+    //
+    // A metade do PROPÓSITO fica, e migra para dentro de UMA seção: o item e a
+    // pasta moram nos Favoritos, e é ali que "um desce e o outro não" se vê.
     const it = v.item || {};
-    checar(!!it.favLinha && it.favLinha === it.faixa,
-      '[' + tema + '] a linha de favorito pinta a MESMA cor da faixa dentro de '
-      + 'um álbum (' + it.favLinha + ' contra ' + it.faixa + ')');
-    const dCard = it.favLinha && it.cardAlbum
-      ? razao('rgb(' + it.favLinha + ')', 'rgb(' + it.cardAlbum + ')') : 0;
-    checar(dCard >= 1.28,
-      '[' + tema + '] e ela se separa do CARD de álbum, que era a queixa: '
-      + dCard.toFixed(2) + ':1 (era 1,00:1 — a mesma cor)');
+    const grau = (a, b) => (a && b ? razao('rgb(' + a + ')', 'rgb(' + b + ')') : 0);
+    const gFav = grau(it.favLinha, it.maeFav);
+    const gFaixa = grau(it.faixa, it.maeFaixa);
+    // A RÉGUA MUDOU DE NOVO na v1.5.14, e o PROPÓSITO é o mesmo desde a v5.283:
+    // um item é um item nos dois lugares. Era "o mesmo degrau"; hoje o nível 3
+    // não tem degrau nenhum — nem aqui nem no álbum —, então a igualdade se
+    // afirma sobre a AUSÊNCIA. Separá-los devolveria duas receitas para o mesmo
+    // papel, que é o defeito que a v5.297 fechou.
+    checar(Math.abs(gFav - gFaixa) < 0.08,
+      '[' + tema + '] a linha de favorito e a faixa de um álbum têm o MESMO '
+      + 'tratamento — nenhuma das duas tem preenchimento próprio ('
+      + gFav.toFixed(2) + ':1 contra ' + gFaixa.toFixed(2) + ':1)',
+      it.favLinha + ' sobre ' + it.maeFav + ' · ' + it.faixa + ' sobre ' + it.maeFaixa);
     // ===== MAS A PASTA SINCRONIZADA CONTINUA SENDO UM ÁLBUM (v5.284) =====
     // Pedido do operador: *"mantenha apenas as pastas sincronizadas dos
     // favoritos como cores de álbum"*. Uma pasta guarda muitos arquivos — ela é
     // um contêiner —, e é o "apenas" que faz deste par uma REGRA em vez de duas
     // cores: o item desce, a pasta não.
-    checar(!!it.pasta && it.pasta === it.cardAlbum,
-      '[' + tema + '] mas a PASTA sincronizada continua com a cor de álbum ('
-      + it.pasta + ' contra ' + it.cardAlbum + ')');
-    const dPasta = it.pasta && it.favLinha
-      ? razao('rgb(' + it.pasta + ')', 'rgb(' + it.favLinha + ')') : 0;
-    checar(dPasta >= 1.28 && it.pastaSolta && it.itemNaPlaca,
-      '[' + tema + '] e ela se separa do ITEM ao lado — a pasta é IRMÃ da placa '
-      + 'e o item mora DENTRO dela (' + dPasta.toFixed(2) + ':1'
+    const gPasta = grau(it.pasta, it.maePasta);
+    const gCard = grau(it.cardAlbum, it.maeCard);
+    checar(gPasta > 0 && Math.abs(gPasta - gCard) < 0.10,
+      '[' + tema + '] mas a PASTA sincronizada ocupa o degrau de um ÁLBUM ('
+      + gPasta.toFixed(2) + ':1 contra ' + gCard.toFixed(2) + ':1)',
+      it.pasta + ' sobre ' + it.maeFav + ' · ' + it.cardAlbum + ' sobre ' + it.maeCard);
+    // ===== E O QUE A SEPARA DO ITEM VOLTOU A SER O DEGRAU (v1.5.14) =====
+    // Este par já foi afirmado por TOM (v5.284), depois por MOLDURA (v1.5.9) e
+    // agora por tom de novo — e a ida e volta não é indecisão: a moldura só
+    // entrou porque a escada tinha ficado sem degrau para gastar, e com o poço
+    // ela voltou a ter. A pasta é um CONTÊINER (nível 2, papel) e o item ao
+    // lado é conteúdo (nível 3, sem preenchimento), então o degrau existe de
+    // novo e não custa um traço.
+    // A ESTRUTURA continua sendo afirmada junto (a pasta solta, o item na
+    // placa): sem ela, uma pasta empurrada para dentro da placa passaria na
+    // medida de cor.
+    const temMoldura = (x) => (x && x !== 'AUSENTE' && parseFloat(x) > 0);
+    checar(!temMoldura(it.molduraPasta) && !temMoldura(it.molduraFavLinha)
+      && gPasta >= 1.28 && gFav < 1.05
+      && it.pastaSolta && it.itemNaPlaca,
+      '[' + tema + '] e ela se separa do ITEM ao lado por DEGRAU, sem traço — a '
+      + 'pasta é IRMÃ da placa e o item mora DENTRO dela (pasta '
+      + gPasta.toFixed(2) + ':1, item ' + gFav.toFixed(2) + ':1, molduras '
+      + it.molduraPasta + '/' + it.molduraFavLinha
       + (it.pastaSolta ? '' : ', mas a pasta está dentro da placa')
       + (it.itemNaPlaca ? '' : ', mas o item está fora dela') + ')');
     const L = v.larguras;
-    checar(!!L && Math.abs(L.barra - L.secao) <= 1 && Math.abs(L.corpo - L.secao) <= 1,
+    // A TOLERÂNCIA É A MOLDURA (v1.5.9): a caixa da seção ganhou 1px de linha de
+    // cada lado, e a barra e o corpo preenchem a caixa de CONTEÚDO — que é 2px
+    // mais estreita que a de borda, e é a de borda que `offsetWidth` devolve.
+    // Isso é a linha existindo, não uma peça encolhida ao próprio texto (que é o
+    // defeito que este caso pega, e que vale dezenas de pixels).
+    checar(!!L && Math.abs(L.barra - L.secao) <= 3 && Math.abs(L.corpo - L.secao) <= 3,
       '[' + tema + '] a barra e o corpo PREENCHEM a seção aberta — nada é centrado '
       + 'nem encolhido ao próprio texto (' + (L ? Math.round(L.barra) + '/'
       + Math.round(L.corpo) + ' de ' + Math.round(L.secao) : '?') + 'px)');
@@ -1782,11 +2579,18 @@ for (const tema of ['escuro', 'claro']) {
     checar(v.outra.sobraColecao >= 0 && v.outra.sobraColecao < v.altOutra,
       '[' + tema + '] e a COLEÇÃO aberta mede o conteúdo dela, sem inchar ('
       + Math.round(v.outra.sobraColecao) + 'px de vazio dentro dela)');
-    // O CABEÇALHO SAIU (v5.280): a barra é o primeiro elemento da folha, e é
-    // isso — e não um mecanismo de posicionamento — que a mantém no topo.
-    checar(v.barra.semCabecalho && v.barra.semTitulo && v.barra.primeira,
-      '[' + tema + '] a barra de busca é o TOPO da folha: sem cabeçalho, sem '
-      + 'título, nada acima dela');
+    // A JANELA É UMA COLUNA `[barra][lista]` (v1.5.1): sem cabeçalho e sem
+    // título, com a barra como CABEÇA dela. O cabeçalho saiu na v5.258 (era uma
+    // faixa repetindo o nome do botão que abre a tela), e o que ocupa o topo
+    // desde então é a barra de busca — que é o que faz o teclado, que sobe da
+    // base, não ter como cobrir o campo.
+    checar(v.barra.semCabecalho && v.barra.semTitulo
+      && v.barra.barraDentro && v.barra.listaDepois,
+      '[' + tema + '] a janela é uma coluna `[barra][lista]`: sem cabeçalho e sem '
+      + 'título — a barra É a cabeça dela');
+    checar(v.barra.barraNoTopo && v.barra.listaAbaixo,
+      '[' + tema + '] e ela é o TOPO da janela aberta: com o campo ali, o teclado '
+      + '— que sobe da base — não tem como cobri-lo');
     // ===== E A LISTA ROLA SEM LEVAR A BARRA JUNTO (v5.281) =====
     // O relato do operador era que a barra não fica fixa durante a rolagem. A
     // estrutura sempre esteve certa — e é isso que a primeira metade mede, com
@@ -1803,12 +2607,13 @@ for (const tema of ['escuro', 'claro']) {
       '[' + tema + '] e a rolagem PARA na lista: sem o encadeamento, o stretch '
       + 'do Android não desloca a camada inteira',
       'lista ' + v.barra.overscroll + ' · raiz ' + v.barra.overscrollRaiz);
-    // QUADRADO. `aspect-ratio` não resolve isto dentro de um flex (a largura é
-    // resolvida antes de o `stretch` dar altura), e a primeira versão colapsou
-    // o botão na largura do glifo — 20px, medidos.
-    checar(v.barra.fecharL > 0 && Math.abs(v.barra.fecharL - v.barra.fecharA) <= 1
-      && Math.abs(v.barra.fecharA - v.barra.campoA) <= 1,
-      '[' + tema + '] o ✕ é QUADRADO e do tamanho do campo ('
+    // A ALTURA é a do CAMPO — quem manda na linha é ele. **A LARGURA saiu daqui
+    // na v1.5.5**: ela virou a da coluna do transporte (pedido do operador), o
+    // que revogou o QUADRADO da v5.277, e é o `barra-em-qualquer-tela.test.mjs`
+    // que a mede — em QUATRO larguras de tela, porque uma medida fixa alinha com
+    // uma grade proporcional numa largura e erra em todas as outras.
+    checar(v.barra.fecharL > 0 && Math.abs(v.barra.fecharA - v.barra.campoA) <= 1,
+      '[' + tema + '] o ✕ tem a ALTURA do campo ('
       + Math.round(v.barra.fecharL) + '×' + Math.round(v.barra.fecharA)
       + ', campo ' + Math.round(v.barra.campoA) + 'px de altura)');
     checar(v.gapSecoes > v.gapLista,
@@ -1831,6 +2636,21 @@ for (const tema of ['escuro', 'claro']) {
 // afirmação ficou mais forte: TODO ponto da linha — os quatro cantos, as
 // bordas e o meio — leva ao mesmo lugar. Um botão que voltasse a aparecer ali
 // reprova aqui, que é exatamente o que este caso existe para impedir.
+//
+// ELE ESPERA A JANELA DA BIBLIOTECA POUSAR (v1.5.1), e isto é sobre o que o
+// dedo encontra, não zelo de oráculo. A janela é de tela cheia e recebe toque
+// SEMPRE — fechada inclusive, porque a barra vive nela —, então enquanto ela
+// desce ela cobre o que está por baixo. Medido aqui: o bloco anterior a fechou,
+// nenhum quadro foi desenhado desde então, e a transição continuava no primeiro
+// instante dela (`currentTime: 0`, transform IDENTIDADE) — todo ponto da linha
+// respondia `LI.coll-group`, o conteúdo da janela em queda. Esperar pelo FIM da
+// animação é a técnica do `gaveta()` lá em cima, e pelo mesmo motivo: esperar
+// pelo FATO, nunca pelo valor que se vai afirmar.
+await pg.evaluate(() => closeHymnSearch());
+await pg.waitForFunction(() => {
+  const el = document.querySelector('#hymnSearchPopup .popup-sheet');
+  return !!el && el.getAnimations().every((a) => a.playState !== 'running');
+}, null, { timeout: 5000 });
 try {
   const alvo = await pg.evaluate(() => {
     setAppMode('full');
@@ -1953,6 +2773,17 @@ try {
     ui(c.id).expanded = true; ui(c.id).shown = 100;
     const lista = document.createElement('ul');
     lista.className = 'hymnal-list'; lista.style.width = '390px';
+    // ELA SAI DO FLUXO (v1.5.2), e a razão é o que este bloco faz depois: ele
+    // PRESSIONA de verdade, com o mouse, em coordenadas da tela. Solta no
+    // `<body>`, a fixture cai onde o layout a puser — e uma delas é a faixa em
+    // que a barra da Biblioteca repousa, que é um overlay e recebe o toque. No
+    // app essa faixa é o `padding-top` da caixa de controles e não hospeda nada;
+    // aqui ela engolia a pressão, e o que reprovava era o `:active` que nunca
+    // aconteceu. Fixada no topo e acima da camada da janela, a fixture é sempre
+    // quem o dedo encontra. Os tons medidos não mudam: o pai continua sendo o
+    // `<body>`, isto é, o nível da página.
+    lista.style.position = 'fixed'; lista.style.top = '0'; lista.style.left = '0';
+    lista.style.zIndex = '250';
     document.body.appendChild(lista);
     window.__semearSecao();   // o `setAppMode` acima passou pelo reset (v1.1.4)
     grupoAberto = 'Álbuns de exemplo';
@@ -2741,32 +3572,89 @@ try {
   // O CAMINHO DE SAÍDA, exercitado: no Modo Fácil, a engrenagem abre a folha e
   // a folha troca o modo. Sem esta metade, apagar o botão passaria nas de cima
   // e trancaria o operador — que é exatamente o risco desta sequência.
+  //
+  // E A FOLHA FICA (v1.4.43). Ela fechava ao trocar de modo, e o pedido foi o
+  // contrário: *"verifique para que a aba de configurações permaneça na tela
+  // imóvel ao alternar entre fácil e avançado, para não se perder a localização
+  // atual na visão do usuário"*. São DUAS asserções e não uma, porque elas
+  // falham por caminhos diferentes: a folha ABERTA responde ao `closeFadePopup`
+  // que saiu do ouvinte, e a folha IMÓVEL responde ao `<main>` — a caixa dela é
+  // `position: fixed` e mora FORA dele, e é isso que a faz sobreviver ao
+  // `body.mode-simple main { display: none }`. Mover o `#fadePopup` para dentro
+  // do `<main>` mantém a primeira e apaga a segunda, sem erro em lugar nenhum:
+  // o operador toca "Fácil" e a folha some com o modo antigo.
+  //
+  // A caixa é lida DEPOIS de assentar (duas amostras iguais em quadros
+  // seguidos), nunca por prazo fixo: a folha entra por transição, e um
+  // `setTimeout` curto mediria o meio dela — prazo lido como veredito.
   const saida = await pg.evaluate(async () => {
+    const quadro = () => new Promise((r) => requestAnimationFrame(() => r()));
+    const caixa = (el) => { const r = el.getBoundingClientRect();
+      return [r.left, r.top, r.width, r.height].map((n) => Math.round(n)).join(','); };
+    // ASSENTAR É ESPERAR TODAS AS TRANSIÇÕES TERMINAREM, e as duas formas mais
+    // óbvias de fazer isso reprovam um app que está certo:
+    //   · duas amostras iguais em quadros seguidos aprovam o PONTO DE PARTIDA —
+    //     entre a classe `open` e o primeiro quadro da animação a caixa fica
+    //     parada (MEDIDO: `top: -449`, a folha ainda no teto);
+    //   · o primeiro `transitionend` é o da propriedade que acabar primeiro, e
+    //     não o da que interessa (MEDIDO: `top: -7`, a `transform` a sete pixels
+    //     do fim quando a opacidade já tinha chegado).
+    // `getAnimations()` responde pelas transições EM CURSO — todas, sem que o
+    // oráculo precise saber quais são —, e `finished` é o sinal do navegador, não
+    // um prazo nosso. O laço externo cobre a transição que uma outra dispara.
+    const assentar = async (el) => {
+      for (let volta = 0; volta < 8; volta++) {
+        const anims = el.getAnimations ? el.getAnimations() : [];
+        if (!anims.length) break;
+        await Promise.all(anims.map((a) => a.finished.catch(() => {})));
+        await quadro();
+      }
+      let ant = '', at = caixa(el);
+      for (let i = 0; i < 30 && ant !== at; i++) { ant = at; await quadro(); at = caixa(el); }
+      return at;
+    };
     setAppMode('simple');
     const eng = document.getElementById('simpleSettingsBtn');
     const folha = document.getElementById('fadePopup');
+    const caixaDaFolha = folha.querySelector('.popup-sheet');
     // Null-safe pela disciplina do `ota.test.mjs`: num bundle sem a engrenagem
     // isto é um RESULTADO, não um acidente — e um `evaluate` que lança aqui
     // levaria junto as asserções seguintes, escondendo o que elas mediriam.
-    if (!eng) { setAppMode('full'); return { visivel: false, abriu: false, saiu: false }; }
+    if (!eng) { setAppMode('full'); return { visivel: false, abriu: false, saiu: false, ficou: false, imovel: false }; }
     // O toque é o do operador: a engrenagem tem de estar VISÍVEL e por cima da
     // tela do Modo Fácil (a folha é z-index 200; o modo, 90).
     const cs = getComputedStyle(eng);
     const visivel = cs.display !== 'none' && cs.visibility !== 'hidden' && eng.offsetParent !== null;
     eng.click();
-    await new Promise((r) => setTimeout(r, 60));
+    const antes = await assentar(caixaDaFolha);
     const abriu = folha.classList.contains('open');
     document.querySelector('#appModeSeg .fit-opt[data-mode="full"]').click();
-    await new Promise((r) => setTimeout(r, 60));
-    const saiu = !document.body.classList.contains('mode-simple')
-      && !folha.classList.contains('open');
+    const depois = await assentar(caixaDaFolha);
+    const saiu = !document.body.classList.contains('mode-simple');
+    const ficou = folha.classList.contains('open')
+      && getComputedStyle(caixaDaFolha).display !== 'none'
+      && caixaDaFolha.getBoundingClientRect().height > 0;
     setAppMode('full');
-    return { visivel, abriu, saiu };
+    // HIGIENE DO ORÁCULO, e ela virou obrigatória com a folha que FICA: até a
+    // v1.4.42 quem a fechava era o próprio ouvinte da troca de modo, e as
+    // dezenas de medições seguintes herdavam a tela limpa por acidente. Com a
+    // folha aberta por cima, um `elementFromPoint` de qualquer toque adiante
+    // acha a cortina — e o que reprova é uma asserção do Cronograma, a três mil
+    // linhas daqui, sem nada apontando para cá.
+    closeFadePopup();
+    await new Promise((r) => setTimeout(r, 300));
+    return { visivel, abriu, saiu, ficou, imovel: antes === depois, antes, depois };
   });
   checar(saida.visivel, 'e ela está à vista no Modo Fácil, não escondida atrás dele');
   checar(saida.abriu, 'o toque nela ABRE Configurações');
   checar(saida.saiu,
     'e de lá o operador SAI do Modo Fácil — o caminho que a engrenagem precisava existir para dar');
+  checar(saida.ficou,
+    'e a folha CONTINUA ABERTA depois da troca — ela fechava, e reabri-la é achar de novo '
+    + 'uma engrenagem que no outro modo mora em outro canto');
+  checar(saida.imovel,
+    'e ela não se mexe: a caixa é a mesma antes e depois ('
+    + saida.antes + ' → ' + saida.depois + ')');
 } catch (e) {
   checar(false, 'a medição da troca de modo terminou sem exceção (' + (e && e.message) + ')');
 }
@@ -2896,10 +3784,14 @@ try {
     await load();                       // um redesenho no LUGAR
     await new Promise((f) => setTimeout(f, 150));
     const r = { antes, depoisDoRedesenho: libraryEl.scrollTop };
-    // …e a NAVEGAÇÃO continua restaurando a posição daquela aba.
-    await switchTab('bible');
+    // …E A FOLHA DA BÍBLIA NÃO A MEXE (v1.5.0). Era a navegação ENTRE ABAS que
+    // restaurava a posição guardada; com uma tela só, a pergunta mudou: abrir e
+    // fechar uma janela por cima da lista não pode mover a lista de baixo. É
+    // uma propriedade mais forte que a antiga — ali a posição era restaurada
+    // DEPOIS de perdida, aqui ela nunca se perde.
+    abrirBiblia();
     await new Promise((f) => setTimeout(f, 400));
-    await switchTab('imports');
+    fecharBiblia();
     await new Promise((f) => setTimeout(f, 400));
     r.depoisDaVolta = libraryEl.scrollTop;
     return r;
@@ -2960,12 +3852,15 @@ try {
         faixaH: Math.round(h.height), listaY: Math.round(l.y),
       };
     };
-    await switchTab('imports');
+    fecharBiblia();
     if (!await ate(() => document.getElementById('listTitle').textContent === 'Cronograma')) {
-      return { erro: 'a aba Cronograma não foi desenhada' };
+      return { erro: 'o Cronograma não foi desenhado' };
     }
     const crono = onde();
-    await switchTab('bible');
+    // A BÍBLIA VIROU FOLHA (v1.5.0), e com ela o VOLTAR mudou de casa: o do
+    // cabeçalho só servia a ela e hoje nasce sempre oculto; quem sobe
+    // leitura→capítulos→livros é o `#bibleBack`, dentro da barra da folha.
+    abrirBiblia();
     if (!await ate(() => !!document.querySelector('.bible-grid--books .bible-cell'))) {
       return { erro: 'a grade de livros não foi desenhada' };
     }
@@ -2975,18 +3870,27 @@ try {
       return { erro: 'a tela de capítulo+versículo não foi desenhada' };
     }
     const capitulos = onde();
-    const voltarAparece = !document.getElementById('backBtn').hidden;
-    await switchTab('imports');
+    const voltarDaFolha = !document.getElementById('bibleBack').hidden;
+    const voltarDoApp = document.getElementById('backBtn').hidden;
+    const tituloDaFolha = document.getElementById('bibleTitle').textContent;
+    fecharBiblia();
     await ate(() => document.getElementById('listTitle').textContent === 'Cronograma');
-    return { crono, livros, capitulos, voltarAparece };
+    return { crono, livros, capitulos, voltarDaFolha, voltarDoApp, tituloDaFolha };
   });
   const emX = (a) => a.map((t) => t.x);
   const emY = (a) => a.map((t) => t.y);
   const telas = eixo.erro ? [] : [eixo.crono, eixo.livros, eixo.capitulos];
   const igual = (v) => v.every((n) => n === v[0]);
-  checar(!eixo.erro && eixo.voltarAparece === true && igual(emX(telas)),
-    'o nome da tela não anda PARA O LADO quando o voltar aparece — a coluna '
-    + 'dele é reservada mesmo `hidden` (x: ' + emX(telas).join(' · ') + ')',
+  checar(!eixo.erro && eixo.voltarDaFolha === true && eixo.voltarDoApp === true,
+    'o VOLTAR da Bíblia mora na barra da FOLHA, e o do cabeçalho fica oculto: '
+    + 'um voltar na faixa do app apontando para dentro de uma janela é o app '
+    + 'dizendo que a janela é ele', JSON.stringify(eixo));
+  checar(!eixo.erro && eixo.tituloDaFolha === 'Bíblia',
+    'e é a FOLHA que diz o nome dela — o cabeçalho do app diz "Cronograma" '
+    + 'sempre, porque é a tela única', eixo.tituloDaFolha);
+  checar(!eixo.erro && igual(emX(telas)),
+    'o nome da tela não anda PARA O LADO com a folha aberta — a coluna do '
+    + 'voltar é reservada mesmo `hidden` (x: ' + emX(telas).join(' · ') + ')',
     JSON.stringify(eixo));
   checar(!eixo.erro && igual(emY(telas)) && igual(telas.map((t) => t.faixaH))
     && igual(telas.map((t) => t.listaY)),
@@ -3884,14 +4788,46 @@ try {
     const li = document.querySelector('#library .lib-item[data-id="' + ids[1] + '"]');
     if (!li) return { erro: 'a linha não foi desenhada' };
     li.querySelector('.row-mais').click();
-    await new Promise((f) => setTimeout(f, 260));
-    const caixa = li.querySelector('.row-acoes');
+    // ESPERA PELO FATO, não por 260 ms de relógio. REPRODUZIDO sob carga 2×
+    // (uma reprovação em doze): o `evaluate` media a faixa ANTES de a gaveta
+    // abrir e devolvia `caixa: 0` e `menorAlvo: 0` — a asserção então falava do
+    // PISO DE TOQUE quando o que estourou foi o relógio.
+    //
+    // São DOIS fatos em sequência, e é pular o primeiro que fazia o prazo
+    // parecer suficiente: a gaveta ABRE por um ouvinte ASSÍNCRONO (há um
+    // `await` do IndexedDB entre o toque e a classe `acoes-abertas`), e só
+    // então a faixa REVELA os botões por `transform` — logo depois do clique não
+    // há sequer o que animar. O sinal do primeiro é a CLASSE; o do segundo é
+    // `getAnimations()`, o mesmo do helper `gaveta()` lá em cima.
+    //
+    // A enquete é por `setTimeout` e NÃO por `requestAnimationFrame`: MEDIDO,
+    // um laço de rAF aqui gira as voltas todas sem que a gaveta chegue a abrir —
+    // ele não cede a vez às tarefas do ouvinte, e o oráculo passa a reprovar um
+    // app que está certo nas DUAS cargas. `setTimeout` é macrotarefa e deixa a
+    // fila do documento andar.
+    // E A LINHA É REPROCURADA A CADA VOLTA. MEDIDO: uma espera longa aqui
+    // atravessa um redesenho da lista, o `li` da mão vira órfão e tudo que se
+    // meça nele devolve zero — o mesmo zero de "a gaveta não abriu", com a
+    // asserção culpando o piso de toque nos dois casos. Foi o que o prazo de
+    // 260 ms nunca alcançou: ele era curto demais para o redesenho e longo
+    // demais para a máquina carregada.
+    const respirar = () => new Promise((f) => setTimeout(f, 16));
+    const linha = () => document.querySelector('#library .lib-item[data-id="' + ids[1] + '"]');
+    const faixaDe = (el) => (el ? el.querySelector('.row-acoes') : null);
+    const assentada = () => {
+      const cx = faixaDe(linha());
+      return !!cx && cx.getBoundingClientRect().width > 0
+        && cx.getAnimations({ subtree: true }).every((a) => a.playState !== 'running');
+    };
+    for (let i = 0; i < 200 && !assentada(); i++) await respirar();
+    const li2 = linha() || li;
+    const caixa = faixaDe(li2);
     const botoes = [...caixa.querySelectorAll('.row-btn')];
     const gap = parseFloat(getComputedStyle(caixa).gap) || 0;
     const soma = botoes.reduce((t, b) => t + b.getBoundingClientRect().width, 0)
       + Math.max(0, botoes.length - 1) * gap;
     const cb = caixa.getBoundingClientRect();
-    const mais = li.querySelector('.row-mais').getBoundingClientRect();
+    const mais = li2.querySelector('.row-mais').getBoundingClientRect();
     const r = {
       n: botoes.length,
       classes: botoes.map((b) => b.className.replace('row-btn ', '')),
@@ -4162,77 +5098,349 @@ try {
 try {
   const bib = await pg.evaluate(() => {
     const sheet = document.querySelector('#hymnSearchPopup .popup-sheet');
-    const barra = sheet.querySelector('.hymn-search-bar');
+    const barra = document.querySelector('.lib-bar');
     const lista = sheet.querySelector('#hymnResults');
     return {
       semTotal: !document.getElementById('hymnSearchTotal'),
       semBotaoNoCabecalho: !sheet.querySelector('.popup-header .coll-group-btn'),
-      // A ORDEM da folha (v5.275): cabeçalho, barra, lista. A lista é o último
-      // filho e é ela que rola; a barra é a faixa fixa acima dela.
-      listaPorUltimo: sheet.lastElementChild === lista,
-      acimaDaLista: !!barra && !!lista
-        && [...sheet.children].indexOf(barra) < [...sheet.children].indexOf(lista),
-      fecharNaBarra: !!barra && !!barra.querySelector('#hymnSearchClose'),
+      // A JANELA É UMA COLUNA `[barra][lista]` (v1.5.1), e nada mais: a barra é
+      // a CABEÇA dela — é isso que a faz subir junto e parar no topo.
+      colunaDeDois: sheet.children.length === 2
+        && sheet.firstElementChild === barra && sheet.lastElementChild === lista,
+      // UMA barra só no app inteiro: duas seriam duas verdades sobre o mesmo
+      // campo, e a de fora sumiria atrás da de dentro no instante em que a
+      // Biblioteca abrisse.
+      quantasBarras: document.querySelectorAll('.lib-bar, .hymn-search-bar').length,
       campoNaBarra: !!barra && !!barra.querySelector('#hymnSearchInput'),
+      alternadorNaBarra: !!barra && !!barra.querySelector('#hymnSearchToggle'),
+      sorteioNaBarra: !!barra && !!barra.querySelector('#sorteioBtn'),
+      ordem: barra ? [...barra.children].map((e) => e.id || e.className) : [],
+      // ELA É UMA FAIXA, NÃO UM CARTÃO (v1.5.1). Pedido do operador: *"deve ser
+      // uma barra de lado a lado da tela, sem estar dentro de um card de bordas
+      // arredondadas … toda essa faixa azul/cinza deve ser sólida de lado a
+      // lado"*. Medido no RENDERIZADO e nas duas metades que fazem um cartão:
+      // as bordas encostam nas da tela, e não há raio nenhum.
+      faixa: (() => {
+        const r = barra.getBoundingClientRect();
+        const cs = getComputedStyle(barra);
+        const caixa = document.querySelector('.bottombar');
+        const rc = caixa.getBoundingClientRect();
+        const cc = getComputedStyle(caixa);
+        return { esq: Math.round(r.left), dir: Math.round(window.innerWidth - r.right),
+          raio: cs.borderTopLeftRadius + ' ' + cs.borderTopRightRadius,
+          margem: cs.marginLeft + ' ' + cs.marginRight,
+          // O RECUO DO CONTEÚDO bate com o da caixa de controles: ela é um
+          // overlay de largura inteira, e o que precisa alinhar com os botões
+          // de baixo é o que ela põe DENTRO.
+          recuo: cs.paddingLeft, recuoDaCaixa: cc.paddingLeft,
+          // O LUGAR: a borda de cima da caixa de controles, que é o que o
+          // `padding-top` dela reserva.
+          topoDaBarra: Math.round(r.top), topoDaCaixa: Math.round(rc.top),
+          reserva: cc.paddingTop, altura: Math.round(r.height) };
+      })(),
     };
   });
   checar(bib.semTotal && bib.semBotaoNoCabecalho,
     'o "Baixar toda a biblioteca" e o peso total SAÍRAM do cabeçalho', JSON.stringify(bib));
-  checar(bib.listaPorUltimo && bib.acimaDaLista,
-    'e a barra de busca voltou ao TOPO (v5.275): quem termina a folha é a lista, '
-    + 'que rola por baixo dela');
-  checar(bib.campoNaBarra && bib.fecharNaBarra,
-    'com o campo E o fechar juntos nela, que é o pedido inteiro');
+  checar(bib.colunaDeDois,
+    'a janela da Biblioteca é uma coluna `[barra][lista]` e nada mais (v1.5.1) — '
+    + 'a barra é a CABEÇA dela, e é por isso que ela sobe junto');
+  checar(bib.quantasBarras === 1 && bib.campoNaBarra
+    && bib.alternadorNaBarra && bib.sorteioNaBarra,
+    'e ela é UMA só no app inteiro, com as três peças na ordem de sempre — duas '
+    + 'barras seriam duas verdades sobre o mesmo campo', JSON.stringify(bib.ordem));
+  checar(bib.faixa.esq === 0 && bib.faixa.dir === 0
+    && /^0px 0px$/.test(bib.faixa.raio) && /^0px 0px$/.test(bib.faixa.margem),
+    'e ela é uma FAIXA de lado a lado, não um cartão: sem raio e sem margem '
+    + '(v1.5.1)', JSON.stringify(bib.faixa));
+  // ===== E ELA REPOUSA NO TOPO DA CAIXA DE CONTROLES (v1.5.2) =====
+  // Pedido do operador: *"vamos mover essa barra de volta para o topo da seção
+  // de controles, onde estava, acima do nome da mídia em exibição"*.
+  //
+  // DUAS metades, e a segunda é a queixa das margens: *"tome cuidado com os
+  // espaçamentos de margens verticais dessa barra, estavam errados nesse último
+  // update"*. A barra é um OVERLAY (ela vive na janela, para subir com ela), e
+  // o lugar dela na caixa é um `padding-top` — dois números que precisam
+  // concordar, e que não concordam sozinhos: reservar de menos deixa a barra por
+  // cima da primeira linha de controles, reservar de mais abre uma faixa de
+  // caixa vazia por baixo dela.
+  checar(bib.faixa.topoDaBarra === bib.faixa.topoDaCaixa,
+    'e ela REPOUSA no topo da caixa de controles, acima do nome da mídia em '
+    + 'exibição (v1.5.2)',
+    bib.faixa.topoDaBarra + ' contra ' + bib.faixa.topoDaCaixa);
+  checar(parseFloat(bib.faixa.reserva) >= bib.faixa.altura
+    && parseFloat(bib.faixa.reserva) <= bib.faixa.altura + 8,
+    'e a caixa RESERVA exatamente a altura dela, com o respiro até a primeira '
+    + 'linha de controles e nada mais',
+    'reserva ' + bib.faixa.reserva + ' para uma barra de ' + bib.faixa.altura + 'px');
+  checar(bib.faixa.recuo === bib.faixa.recuoDaCaixa,
+    'e o conteúdo dela alinha com o da caixa: o mesmo recuo lateral dos botões '
+    + 'que ficam embaixo', bib.faixa.recuo + ' contra ' + bib.faixa.recuoDaCaixa);
+  // ===== E ELA SEGUE A CAIXA QUANDO A CAIXA MUDA DE ALTURA (v1.5.2) =====
+  // O lugar da barra é o TOPO da caixa de controles, e a barra é um OVERLAY: as
+  // duas coisas só continuam juntas porque alguém remede. A caixa muda de altura
+  // por caminhos que não passam pela medida — a proporção da preview, o nome da
+  // mídia em duas linhas, a seleção múltipla, o modo do app —, e enumerá-los
+  // seria uma lista para envelhecer; quem responde é um `ResizeObserver`.
+  //
+  // O MODO DE FALHAR É MUDO: a barra fica flutuando fora do lugar, com uma faixa
+  // de caixa aparecendo por baixo dela ou por cima da primeira linha de
+  // controles, sem erro em lugar nenhum. Aqui a caixa é empurrada pela PREVIEW,
+  // que é o caminho real (`applyPreviewAspect`).
+  try {
+    const seguiu = await pg.evaluate(async () => {
+      const bar = () => document.querySelector('.lib-bar').getBoundingClientRect().top;
+      const caixa = () => document.querySelector('.bottombar');
+      const deck = document.querySelector('.deck') || caixa().firstElementChild;
+      const antes = { barra: Math.round(bar()), caixa: Math.round(caixa().getBoundingClientRect().top) };
+      const aspecto = deck.style.aspectRatio;
+      // ESPERA PELO FATO, nunca por um prazo: o que se afirma é que a barra
+      // ACOMPANHA a caixa, e um `setTimeout` aqui mediria o agendador do runner.
+      // O laço desiste depois de 60 quadros e devolve o que viu — a asserção
+      // reprova com os números à vista, em vez de falar do desenho quando o que
+      // estourou foi o relógio.
+      const assentar = async (alvo) => {
+        for (let i = 0; i < 60; i++) {
+          if (Math.round(caixa().getBoundingClientRect().top) !== alvo
+            && Math.round(bar()) === Math.round(caixa().getBoundingClientRect().top)) break;
+          await new Promise((r) => requestAnimationFrame(r));
+        }
+      };
+      deck.style.aspectRatio = '1 / 1';
+      await assentar(antes.caixa);
+      const depois = { barra: Math.round(bar()), caixa: Math.round(caixa().getBoundingClientRect().top) };
+      deck.style.aspectRatio = aspecto;
+      await assentar(depois.caixa);
+      return { antes, depois };
+    });
+    checar(seguiu.depois.caixa !== seguiu.antes.caixa
+      && seguiu.depois.barra === seguiu.depois.caixa,
+      'e ela SEGUE a caixa quando a caixa muda de altura — a barra é um overlay, '
+      + 'e sem o `ResizeObserver` ela ficaria flutuando fora do lugar sem erro '
+      + 'em lugar nenhum (v1.5.2)', JSON.stringify(seguiu));
+  } catch (e) {
+    checar(false, 'a medição do lugar da barra terminou sem exceção ('
+      + (e && e.message) + ')');
+  }
 } catch (e) {
   checar(false, 'a medição da Biblioteca terminou sem exceção (' + (e && e.message) + ')');
 }
 
-// ---------- A BIBLIOTECA É UMA TELA, E ELA SÓ ESMAECE (v5.263) ----------
-// Pedido do operador: *"troque a animação de slide vertical, há muitos
-// problemas com ela por causa do teclado, então faça apenas um fade in e out
-// para a biblioteca, e faça dela uma tela inteira e não um tipo de pop up."*
+// ---------- A BIBLIOTECA SOBE DA BASE, LEVANTANDO A BARRA (v1.5.1) ---------
 //
-// São TRÊS metades, e nenhuma basta: não há deslocamento em nenhum dos dois
-// estados (tirar só o `translateY(100%)` do fechado deixaria a folha entrar com
-// um salto), o que muda entre eles é a OPACIDADE, e a camada não tem scrim —
-// que é o último tique de popup que sobrava.
+// **Isto REVOGA a v5.263** (*"faça apenas um fade in e out … e faça dela uma
+// tela inteira e não um tipo de pop up"*) e AJUSTA a v1.5.0, que a fez subir até
+// uma folga do topo com a barra parada na caixa de controles.
 //
-// (Ele REVOGA a v5.262, que tinha invertido o sentido do slide. O diagnóstico
-// de lá continua correto e é a razão desta: três lotes seguidos corrigindo o
-// entorno de uma animação são a animação dizendo que não vale o preço.)
+// *"ela é um popup de tela inteira, ela surge da base da tela e vai levantando a
+// barra de buscas, de modo que a barra de buscas acabe no topo da biblioteca.
+// (isso resolve o problema que temos atualmente da caixa de texto ficar
+// escondida pelo teclado)"*
+//
+// QUATRO metades, e a última é a razão de ser do desenho:
+//
+//  1. FECHADA, só a barra aparece — no LUGAR dela, o topo da caixa de controles
+//     (v1.5.2; era a base da tela na v1.5.1). E nada da janela existe abaixo
+//     disso: quem apaga é o recorte da camada.
+//  2. ABERTA, a janela vai do topo à LINHA DA BARRA, e não mais até a base
+//     (v1.5.4, pedido do operador: *"ajuste para que ela use a área … até o
+//     topo … mantendo sempre os controles visíveis"*). O que ela deixa de fora
+//     é a caixa de controles, que continua VISÍVEL e alcançável — pausar o
+//     louvor enquanto se procura o próximo deixou de exigir fechar a janela.
+//  3. E A BARRA SUBIU COM ELA, parando no TOPO — é o mesmo nó, não uma segunda
+//     barra: um transporte entre dois pais no meio de um `transform` é o que
+//     este desenho existe para não precisar.
+//  4. **O CAMPO FICA ACIMA DA METADE DE CIMA DA TELA.** É a asserção que carrega
+//     o pedido: o teclado sobe da base, e quatro lotes da era da barra-na-base
+//     (v5.261, v5.264, v5.266, v5.270) tentaram consertar por fora o campo que
+//     ele cobria. Medir "está no topo da janela" não bastaria — a janela poderia
+//     estar em qualquer lugar; o que importa é onde o campo está NA TELA.
 try {
   const tela = await pg.evaluate(async () => {
     const camada = document.getElementById('hymnSearchPopup');
     const folha = camada && camada.querySelector('.popup-sheet');
-    if (!folha) return null;
-    // `matrix(a,b,c,d,tx,ty)`: qualquer deslocamento aparece em tx/ty.
-    const desloc = (el) => {
-      const m = /matrix\(([^)]+)\)/.exec(getComputedStyle(el).transform);
-      if (!m) return 0;   // 'none'
-      const n = m[1].split(',');
-      return Math.abs(parseFloat(n[4])) + Math.abs(parseFloat(n[5]));
-    };
-    closeHymnSearch();
-    await new Promise((r) => setTimeout(r, 350));
-    const fechada = { desloc: desloc(folha), opacidade: parseFloat(getComputedStyle(camada).opacity) };
+    const barra = document.querySelector('.lib-bar');
+    const campo = document.getElementById('hymnSearchInput');
+    if (!folha || !barra) return null;
+    const cx = (el) => { const r = el.getBoundingClientRect();
+      return { t: Math.round(r.top), b: Math.round(r.bottom) }; };
+    // ELE ESPERA A JANELA POUSAR, e espera pelo FATO: a translação leva
+    // `--pop-anim` (0,28 s) e medida no meio ela responde o ponto de partida.
+    // `getAnimations()` + `finished` é o sinal do navegador — um prazo nosso
+    // aqui mediria o agendador do runner, não o desenho.
+    const pousar = () => Promise.all(folha.getAnimations().map((a) => a.finished))
+      .catch(() => {});
     setAppMode('full');
-    openHymnSearch();
-    await new Promise((r) => setTimeout(r, 350));
-    const aberta = { desloc: desloc(folha), opacidade: parseFloat(getComputedStyle(camada).opacity) };
-    const scrim = getComputedStyle(camada).backgroundColor;
     closeHymnSearch();
-    return { fechada, aberta, scrim };
+    await pousar();
+    const caixa = document.querySelector('.bottombar');
+    const fechada = { barra: cx(barra), folha: cx(folha), caixa: cx(caixa),
+      // O QUE O DEDO ENCONTRA logo abaixo da barra: tem de ser o app, e não a
+      // janela. A folha é de tela cheia e recebe toque também fechada; sem o
+      // recorte da camada, o transporte inteiro ficava atrás dela — sem nada na
+      // tela dizendo por quê, porque fechada ela também não pinta.
+      dedoAbaixo: (() => {
+        const e = document.elementFromPoint(window.innerWidth / 2,
+          barra.getBoundingClientRect().bottom + 12);
+        return e && folha.contains(e) ? 'a janela' : 'o app';
+      })() };
+    openHymnSearch(false);
+    await pousar();
+    const aberta = { barra: cx(barra), folha: cx(folha), campo: cx(campo),
+      camada: cx(camada),
+      // O QUE O DEDO ENCONTRA no meio da caixa de controles, com a janela
+      // ABERTA: tem de ser o app. É a metade que prova que a janela não cobre
+      // mais os controles — e ela é sobre o TOQUE, não sobre o pixel.
+      controles: (() => {
+        const r = caixa.getBoundingClientRect();
+        const e = document.elementFromPoint(window.innerWidth / 2, r.top + r.height / 2);
+        return e && camada.contains(e) ? 'a janela' : 'o app';
+      })() };
+    closeHymnSearch();
+    return { fechada, aberta, altura: Math.round(window.innerHeight) };
   });
-  checar(!!tela && tela.fechada.desloc === 0 && tela.aberta.desloc === 0,
-    'a Biblioteca não DESLIZA em estado nenhum — fechada e aberta ela está no '
-    + 'mesmo lugar', tela ? tela.fechada.desloc + ' / ' + tela.aberta.desloc : 'sem folha');
-  checar(!!tela && tela.fechada.opacidade === 0 && tela.aberta.opacidade === 1,
-    'o que a abre e a fecha é a OPACIDADE, e só ela');
-  checar(!!tela && /rgba\(0, 0, 0, 0\)|transparent/.test(tela.scrim),
-    'e ela não tem SCRIM: é uma tela, não um popup desenhado por cima de outra '
-    + 'escurecida', tela ? tela.scrim : '?');
+  checar(!!tela && tela.fechada.barra.t === tela.fechada.caixa.t,
+    'FECHADA, a barra repousa no topo da caixa de controles (v1.5.2)',
+    tela ? JSON.stringify(tela.fechada) : 'sem folha');
+  checar(!!tela && tela.fechada.dedoAbaixo === 'o app',
+    'e nada da janela existe abaixo dela: o recorte da camada apaga o pixel E o '
+    + 'toque, senão a folha de tela cheia ficaria por cima do transporte',
+    tela ? tela.fechada.dedoAbaixo : '?');
+  checar(!!tela && tela.aberta.camada.t <= 1
+    && Math.abs(tela.aberta.camada.b - (tela.fechada.barra.b)) <= 2,
+    'ABERTA, ela vai do topo até a LINHA DA BARRA — e não mais até a base '
+    + '(v1.5.4)', tela ? JSON.stringify(tela.aberta) : '?');
+  checar(!!tela && tela.aberta.controles === 'o app',
+    'e os CONTROLES continuam visíveis E alcançáveis por baixo dela: fora do '
+    + 'recorte não há camada nenhuma — nem pixel, nem scrim, nem toque',
+    tela ? tela.aberta.controles : '?');
+  checar(!!tela && tela.aberta.barra.t <= 1,
+    'e a BARRA subiu com ela, parando no topo — é o mesmo nó, não uma segunda '
+    + 'barra', tela ? JSON.stringify([tela.fechada.barra, tela.aberta.barra]) : '?');
+  checar(!!tela && tela.aberta.campo.b < tela.altura / 2,
+    'com o CAMPO na metade de cima da tela: o teclado sobe da base, e é isso que '
+    + 'resolve o que quatro lotes tentaram consertar por fora',
+    tela ? tela.aberta.campo.b + 'px de ' + tela.altura : '?');
 } catch (e) {
   checar(false, 'a medição da abertura da Biblioteca terminou sem exceção (' + (e && e.message) + ')');
+}
+
+// ---- NO MODO FÁCIL A BARRA NÃO FICA À VISTA (v1.5.1) ----
+//
+// Aquele modo esconde a caixa de controles inteira (`body.mode-simple
+// .bottombar`) porque ele não tem cromo de operação na base — a porta da
+// Biblioteca lá é a LUPA da zona de leitura. Enquanto a barra morava DENTRO da
+// caixa (v1.5.0) ela sumia de carona; com ela dentro da janela, sumir virou uma
+// regra que alguém precisa escrever — e a falha é visível mas MUDA: uma faixa de
+// busca na base do modo que existe para não ter faixa nenhuma, sem erro em lugar
+// nenhum.
+//
+// TRÊS metades: ela sai INTEIRA (a janela recebe toque também fechada, e uma
+// faixa transparente engolindo o dedo na base é pior que a faixa à vista), a
+// LUPA continua abrindo a janela de tela cheia com a barra no topo — sem esta,
+// esconder a janela no modo fácil apagaria a Biblioteca de lá —, e ela abre SEM
+// FOCO, porque é um BOTÃO (a regra das duas portas da v1.5.0; o ouvinte
+// registrado por REFERÊNCIA passava o `PointerEvent` como `comFoco`, e um evento
+// é truthy).
+try {
+  const facil = await pg.evaluate(async () => {
+    const camada = document.getElementById('hymnSearchPopup');
+    const folha = camada.querySelector('.popup-sheet');
+    const barra = document.querySelector('.lib-bar');
+    const campo = document.getElementById('hymnSearchInput');
+    const pousar = () => Promise.all(folha.getAnimations().map((a) => a.finished))
+      .catch(() => {});
+    const modoAntes = appMode;
+    closeHymnSearch();
+    setAppMode('simple');
+    await pousar();
+    const fechada = Math.round(barra.getBoundingClientRect().top);
+    campo.blur();
+    document.getElementById('simpleSearchBtn').click();
+    await pousar();
+    const aberta = {
+      barra: Math.round(barra.getBoundingClientRect().top),
+      folha: Math.round(folha.getBoundingClientRect().top),
+      // NO MESMO TURNO da espera: o foco da porta com teclado é adiado
+      // (`ABRIR_TECLADO_MS`), então a leitura depois do pouso já o pegaria.
+      focado: document.activeElement === campo,
+    };
+    closeHymnSearch();
+    setAppMode(modoAntes);
+    await pousar();
+    return { fechada, aberta, altura: window.innerHeight };
+  });
+  checar(facil.fechada >= facil.altura - 1,
+    'no MODO FÁCIL a barra de busca sai INTEIRA da tela com a Biblioteca '
+    + 'fechada: aquele modo não tem cromo de operação na base',
+    facil.fechada + 'px de ' + facil.altura);
+  checar(facil.aberta.folha <= 1 && facil.aberta.barra <= 1,
+    'e a LUPA de lá continua abrindo a janela inteira, com a barra no topo — '
+    + 'esconder a barra não pode apagar a Biblioteca do Modo Fácil',
+    JSON.stringify(facil.aberta));
+  checar(facil.aberta.focado === false,
+    'e ela abre SEM foco: é um BOTÃO, e botão abre sem teclado ("ver o que eu '
+    + 'tenho")');
+} catch (e) {
+  checar(false, 'a medição da Biblioteca no Modo Fácil terminou sem exceção ('
+    + (e && e.message) + ')');
+}
+
+// ---- A JANELA NÃO SE MEXE NA ABERTURA DO APP (v1.5.1) ----
+//
+// A translação que fecha a Biblioteca TRANSICIONA, e a altura da barra é MEDIDA
+// em runtime. Enquanto o que se media era o deslocamento INTEIRO (60px de
+// palpite no CSS contra 847px medidos), a primeira escrita do JS disparava essa
+// transição: **a Biblioteca varria a tela de cima a baixo na abertura do app**,
+// por 0,28 s, com tudo por baixo dela intocável no caminho — ela é de tela cheia
+// e recebe toque também fechada, porque a barra é dela.
+//
+// *Uma medida que anima é uma medida que precisa nascer quase certa.* Escrita
+// como `100% - var(--lib-bar-h)`, a porcentagem é da própria caixa e o palpite
+// erra por pixels.
+//
+// ELE MEDE A AUSÊNCIA, e por isso precisa de uma PÁGINA NOVA e de um ouvinte
+// instalado ANTES dela: o defeito acontece nos primeiros quadros e não deixa
+// rastro nenhum depois — medir o estado final aprova as duas versões. O sinal é
+// o `transitionrun` do próprio navegador (ele dispara mesmo com atraso, e mesmo
+// que ninguém desenhe quadro), capturado no `document` porque o nó ainda não
+// existe quando o ouvinte é posto.
+try {
+  const pg2 = await ctx.newPage();
+  await pg2.addInitScript(() => {
+    window.__libTransicoes = 0;
+    document.addEventListener('transitionrun', (e) => {
+      if (e.propertyName === 'transform' && e.target instanceof Element
+        && e.target.classList.contains('popup-sheet--lib')) window.__libTransicoes++;
+    }, true);
+  });
+  await pg2.goto(base + '/controle/', { waitUntil: 'domcontentloaded' });
+  await pg2.waitForFunction(
+    () => window.AVDB && typeof window.__avBack === 'function'
+      && !!document.querySelector('#playlist li'),
+    null, { timeout: 30000 },
+  );
+  const arranque = await pg2.evaluate(() => {
+    const barra = document.querySelector('.lib-bar');
+    const caixa = document.querySelector('.bottombar');
+    return { transicoes: window.__libTransicoes,
+      // E ela nasce NO LUGAR: no topo da caixa de controles, sem ter andado até
+      // lá. O `--lib-desce` é MEDIDO, e uma medida que chega depois do primeiro
+      // layout é uma medida que anima se ninguém a segurar.
+      barra: Math.round(barra.getBoundingClientRect().top),
+      caixa: Math.round(caixa.getBoundingClientRect().top) };
+  });
+  await pg2.close();
+  checar(arranque.transicoes === 0,
+    'a janela da Biblioteca NÃO SE MEXE na abertura do app: a medida da barra '
+    + 'entra sem disparar a transição — uma medida que anima precisa nascer '
+    + 'quase certa (v1.5.1)', arranque.transicoes + ' transição(ões)');
+  checar(arranque.barra === arranque.caixa,
+    'e ela nasce NO LUGAR: no primeiro quadro a barra já está no topo da caixa '
+    + 'de controles', JSON.stringify(arranque));
+} catch (e) {
+  checar(false, 'a medição do arranque da Biblioteca terminou sem exceção ('
+    + (e && e.message) + ')');
 }
 
 // ---------- A TELA VEM NUM TEMPO, O TECLADO NO SEGUINTE (v5.264) ----------
@@ -4256,7 +5464,7 @@ try {
     // sem `tabindex`, então aquilo era um no-op e o `activeElement` continuava
     // sendo o campo de um caso anterior — a medição aprovaria os dois desenhos.
     campo.blur();
-    openHymnSearch();
+    openHymnSearch(true);
     // MESMO TURNO: se o `focus()` tivesse ficado síncrono, ele já teria
     // acontecido aqui — é esta leitura que distingue os dois desenhos.
     const naHora = document.activeElement === campo;
@@ -4265,11 +5473,34 @@ try {
     closeHymnSearch();
     // E o cancelamento: abrir e fechar dentro da janela não pode focar nada.
     campo.blur();
-    openHymnSearch();
+    openHymnSearch(true);
     closeHymnSearch();
     await new Promise((r) => setTimeout(r, 500));
     const orfao = document.activeElement === campo;
-    return { naHora, depois, orfao };
+    // ===== A OUTRA PORTA NÃO FOCA (v1.5.0) =====
+    // *"no caso de abrir pelo foco, já abre o teclado junto, se abrir pelo botão
+    // de abrir, ela abre sem o foco de digitação."* São duas intenções — "procurar
+    // o hino 37" e "ver o que eu tenho" —, e a segunda não quer metade da tela
+    // ocupada por um teclado que ninguém pediu.
+    await new Promise((r) => setTimeout(r, 400));
+    campo.blur();
+    openHymnSearch(false);
+    await new Promise((r) => setTimeout(r, 500));
+    const pelaSeta = document.activeElement === campo;
+    closeHymnSearch();
+    await new Promise((r) => setTimeout(r, 400));
+    // E O TOQUE NO CAMPO ABRE, que é a porta do teclado: `focus`, e não `click`
+    // — o campo é alcançável por teclado físico e pelo `Tab`, e ali a intenção
+    // é a mesma.
+    campo.focus();
+    await new Promise((r) => setTimeout(r, 100));
+    const focoAbre = document.getElementById('hymnSearchPopup').classList.contains('open');
+    closeHymnSearch();
+    // E FECHAR TIRA O FOCO: sem isto o teclado fica de pé sobre o app com a
+    // janela já fora de cena — a mesma classe do foco órfão, pelo outro caminho.
+    await new Promise((r) => setTimeout(r, 200));
+    const focoDepoisDeFechar = document.activeElement === campo;
+    return { naHora, depois, orfao, pelaSeta, focoAbre, focoDepoisDeFechar };
   });
   checar(!foco.naHora,
     'a Biblioteca abre SEM tomar o campo no mesmo tempo — a tela vem primeiro');
@@ -4279,6 +5510,14 @@ try {
   checar(!foco.orfao,
     'fechar dentro da janela CANCELA o foco adiado — senão o teclado subiria '
     + 'sobre o app com a Biblioteca já fora de cena');
+  checar(foco.focoAbre,
+    'o FOCO no campo ABRE a Biblioteca — é a porta de quem já sabe o que procura');
+  checar(!foco.pelaSeta,
+    'e a porta da SETA abre SEM foco: são duas intenções diferentes, e a segunda '
+    + 'não quer metade da tela ocupada por um teclado que ninguém pediu');
+  checar(!foco.focoDepoisDeFechar,
+    'e fechar TIRA o foco do campo — senão o teclado fica de pé sobre o app com a '
+    + 'janela já fora de cena');
 } catch (e) {
   checar(false, 'a medição do foco adiado terminou sem exceção (' + (e && e.message) + ')');
 }
@@ -4294,10 +5533,10 @@ try {
 try {
   const lupa = await pg.evaluate(async () => {
     setAppMode('full');
-    openHymnSearch();
-    await new Promise((r) => setTimeout(r, 400));
+    openHymnSearch(false);
+    await new Promise((r) => setTimeout(r, 500));
     const campo = document.getElementById('hymnSearchInput');
-    const ico = document.querySelector('#hymnSearchPopup .lib-search-lupa');
+    const ico = document.querySelector('.lib-bar .lib-search-lupa');
     if (!ico) { closeHymnSearch(); return null; }
     const ri = ico.getBoundingClientRect();
     const rc = campo.getBoundingClientRect();
@@ -4328,127 +5567,193 @@ try {
   checar(false, 'a medição da lupa terminou sem exceção (' + (e && e.message) + ')');
 }
 
-// ---------- A BARRA DE BUSCA SE DESTACA DO CORPO (v5.266) ----------
-// Pedido do operador: *"crie um contraste melhor entre a barra de buscas e o
-// corpo da tela de biblioteca, pois agora que ela é 'flutuante' ela precisa se
-// destacar."* Até aqui ela não tinha fundo nenhum — herdava a cor da folha.
+// ---------- A BARRA NÃO PINTA; AS PEÇAS DELA VESTEM O TOM DO CONTROLE (v1.5.2) ----------
+// Pedido do operador: *"vamos remover esse zoneamento de tom cinza/azul que tem
+// atrás da barra de buscas. vamos usar apenas os botões e a caixa de texto do
+// mesmo tom que os botões do controle"*.
 //
-// A régua NÃO é um número escrito aqui: é a `.bottombar` da tela principal, que
-// é a resposta que este app já deu para "separar duas caixas empilhadas" e cujo
-// comentário declara o degrau como o único separador (sem borda, sem sombra).
-// Ancorar nela mantém o caso verdadeiro se os tokens mudarem — e é o que
-// reprova o caminho errado óbvio, usar `--bar` aqui: no tema CLARO aquele token
-// é branco puro, a mesma cor da folha.
+// **Isto REVOGA a v5.266 e a v5.270**, que pediam o contrário — *"crie um
+// contraste melhor entre a barra de buscas e o corpo"* e *"faça com que o fundo
+// atrás da caixa de texto fique mais escuro no tema claro"*. As duas valiam
+// enquanto a barra flutuava DENTRO da Biblioteca, sobre uma lista que rolava por
+// baixo, com um campo BRANCO em cima. Na caixa de controles ela é uma linha
+// entre outras, e o campo deixou de ser branco: sem branco não há
+// branco-sobre-branco a resolver, e o que sobrava da faixa era uma caixa em
+// volta de peças que já se separam sozinhas.
 //
-// NOS DOIS TEMAS, porque é justamente no claro que o atalho falharia.
+// A RÉGUA É O `.t-btn`, não um número: o pedido nomeia uma peça do app (*"os
+// botões do controle"*), e é a superfície COMPUTADA dela que este caso compara.
+// Um literal aqui envelheceria na primeira troca de paleta — e envelheceria
+// parecendo certo.
+//
+// NOS DOIS TEMAS, porque é no claro que o atalho falha: lá `--bar` é branco
+// puro, e foi por isso que a faixa existiu.
 for (const tema of ['escuro', 'claro']) {
   try {
     const c = await pg.evaluate(async (tema) => {
       document.documentElement.setAttribute('data-tema', tema);
       setAppMode('full');
-      openHymnSearch();
-      await new Promise((r) => setTimeout(r, 400));
-      const fundo = (s) => {
-        const e = document.querySelector(s);
-        return e ? getComputedStyle(e).backgroundColor : '';
-      };
-      const barra = document.querySelector('#hymnSearchPopup .hymn-search-bar');
-      const r = {
-        folha: fundo('#hymnSearchPopup .popup-sheet'),
-        barra: fundo('#hymnSearchPopup .hymn-search-bar'),
-        campo: getComputedStyle(document.getElementById('hymnSearchInput')).backgroundColor,
-        sombra: getComputedStyle(barra).boxShadow,
-        // A RÉGUA do próprio app: o degrau da barra de baixo contra o fundo.
-        corpoPrincipal: fundo('body'),
-        barraPrincipal: fundo('.bottombar'),
-        // O que mora DENTRO do campo (v5.267).
-        texto: getComputedStyle(document.getElementById('hymnSearchInput')).color,
-        ph: getComputedStyle(document.getElementById('hymnSearchInput'), '::placeholder').color,
-        lupa: getComputedStyle(document.querySelector('#hymnSearchPopup .lib-search-lupa')).color,
-        sombraCampo: getComputedStyle(document.getElementById('hymnSearchInput')).boxShadow,
-        // O ✕ da barra (v5.270): altura, fundo e glifo.
-        hCampo: document.getElementById('hymnSearchInput').getBoundingClientRect().height,
-        hBtn: document.getElementById('hymnSearchClose').getBoundingClientRect().height,
-        btn: getComputedStyle(document.getElementById('hymnSearchClose')).backgroundColor,
-        glifo: getComputedStyle(document.getElementById('hymnSearchClose')).color,
-      };
       closeHymnSearch();
-      return r;
+      await new Promise((r) => setTimeout(r, 400));
+      const cs = (s2) => getComputedStyle(document.querySelector(s2));
+      const campo = document.getElementById('hymnSearchInput');
+      return {
+        // FECHADA, que é o estado em que ela vive na caixa de controles — o
+        // estado do relato. (Aberta ela é a cabeça da janela e o fundo é o
+        // `--bg` da folha, que outro caso mede.)
+        barra: cs('.lib-bar').backgroundColor,
+        sombraBarra: cs('.lib-bar').boxShadow,
+        folha: cs('.popup-sheet--lib').backgroundColor,
+        caixa: cs('.bottombar').backgroundColor,
+        // A RÉGUA: o botão de transporte, a peça que o pedido nomeia.
+        transporte: cs('.t-btn').backgroundColor,
+        campo: getComputedStyle(campo).backgroundColor,
+        sombraCampo: getComputedStyle(campo).boxShadow,
+        sorteio: cs('#sorteioBtn').backgroundColor,
+        texto: getComputedStyle(campo).color,
+        ph: getComputedStyle(campo, '::placeholder').color,
+        lupa: cs('.lib-bar .lib-search-lupa').color,
+        hCampo: campo.getBoundingClientRect().height,
+        hBtn: document.getElementById('hymnSearchToggle').getBoundingClientRect().height,
+        glifo: cs('#hymnSearchToggle').color,
+        fundoAlternador: cs('#hymnSearchToggle').backgroundColor,
+        // O TRAÇO dos três, que é a metade do relato que o fundo não cobre.
+        corTransporte: cs('.t-btn').color,
+        corSorteio: cs('#sorteioBtn').color,
+        // A BORDA do campo — a exceção pedida, medida onde ela é a única
+        // separação que existe (o tema claro).
+        borda: getComputedStyle(campo).borderTopColor,
+        clipe: getComputedStyle(campo).backgroundClip,
+        bordaLargura: getComputedStyle(campo).borderTopWidth,
+        bordaEstilo: getComputedStyle(campo).borderTopStyle,
+      };
     }, tema);
-    // Compõe alfa sobre a base (o campo é um overlay) e devolve a razão de
-    // contraste — a mesma conta do `display-smoke.mjs`.
-    const rgb = (s) => (s.match(/[\d.]+/g) || []).map(Number);
+    // Aceita string do `getComputedStyle` OU uma cor já composta (as
+    // composições encadeiam: um glifo sobre um botão sobre a caixa).
+    const rgb = (v) => (Array.isArray(v) ? v : (v.match(/[\d.]+/g) || []).map(Number));
     const sobre = (frente, base) => {
       const f = rgb(frente); const b = rgb(base);
       const a = f.length > 3 ? f[3] : 1;
       return [0, 1, 2].map((i) => f[i] * a + b[i] * (1 - a));
     };
     const lum = (v) => {
-      const l = v.map((x) => { const c = x / 255; return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4; });
+      const l = v.map((x) => { const y = x / 255; return y <= 0.04045 ? y / 12.92 : ((y + 0.055) / 1.055) ** 2.4; });
       return 0.2126 * l[0] + 0.7152 * l[1] + 0.0722 * l[2];
     };
     const razao = (a, b) => {
       const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p);
       return (x + 0.05) / (y + 0.05);
     };
-    const folha = rgb(c.folha);
-    const barra = sobre(c.barra, c.folha);
-    const campo = sobre(c.campo, c.barra.includes('rgba(0, 0, 0, 0)') ? c.folha : c.barra);
-    const regua = razao(sobre(c.barraPrincipal, c.corpoPrincipal), rgb(c.corpoPrincipal));
-    const passo = razao(barra, folha);
-    checar(c.barra !== c.folha && c.barra !== 'rgba(0, 0, 0, 0)',
-      '[' + tema + '] a barra de busca tem fundo PRÓPRIO — ela herdava a cor da folha',
-      c.barra + ' contra ' + c.folha);
-    checar(passo >= regua - 0.05,
-      '[' + tema + '] e o degrau é o do próprio app para separar duas caixas: '
-      + passo.toFixed(2) + ':1, contra os ' + regua.toFixed(2) + ':1 da barra de baixo');
-    // A SOMBRA APONTA PARA BAIXO desde a v5.275, e a direção é a afirmação: ela
-    // diz de que lado o conteúdo passa, e com a barra de volta ao topo a lista
-    // rola por baixo dela em vez de por cima. Uma sombra que ficasse apontando
-    // para cima é a marca de quem moveu a barra e esqueceu o que ela dizia.
-    checar(/(^|\s)0px 6px/.test(c.sombra) && c.sombra !== 'none',
-      '[' + tema + '] com a sombra para BAIXO, que é o que o tom não diz: a lista '
-      + 'passa por baixo dela', c.sombra);
-    // E o CAMPO se separa da barra POR TOM (v5.270). Até aqui, no tema claro,
-    // ele não se separava de jeito nenhum — barra e campo eram os dois brancos
-    // (1,00:1), e a v5.268 sustentou a distinção só pela elevação. O operador
-    // pediu o conserto de verdade: a barra escureceu, e o degrau passou a ser a
-    // primeira linha de defesa nos DOIS temas.
-    checar(razao(campo, barra) > 1.5,
-      '[' + tema + '] o campo se separa da barra POR TOM ('
-      + razao(campo, barra).toFixed(2) + ':1)');
-    // ── O CAMPO É BRANCO NOS DOIS TEMAS (v5.268) ─────────────────────────
-    // Pedido do operador. A primeira metade é o fundo; a SEGUNDA é a que não se
-    // percebe pedindo "o campo branco" e que reprovaria calada: as três coisas
-    // que moram dentro dele (o texto, o placeholder e a lupa) precisam parar de
-    // seguir o tema junto com ele — no escuro, `--text` sobre branco dá 1,17:1.
-    checar(campo.every((v) => Math.round(v) === 255),
-      '[' + tema + '] o CAMPO é branco — o mesmo nos dois temas, como o palco',
-      c.campo);
-    checar(!!c.sombraCampo && c.sombraCampo !== 'none',
-      '[' + tema + '] e a elevação FICA, agora como reforço: ele é uma folha de '
-      + 'papel pousada na faixa, não um recorte dela', c.sombraCampo);
-    // ── O ✕ TEM A ALTURA DO CAMPO, E É CLARO COMO ELE (v5.270) ───────────
-    // As duas metades do pedido. A altura vinha do esqueleto de botão de ícone
-    // (`--hit`, 34px) contra os 40 do campo — dois vizinhos na mesma linha com
-    // sete pixels de diferença que ninguém decidiu. E a cor: com a barra
-    // escurecida, um botão em `--surface-2`/`--muted` daria 2,09:1 no glifo.
-    checar(Math.abs(c.hBtn - c.hCampo) <= 1,
-      '[' + tema + '] o ✕ tem a MESMA altura do campo (' + Math.round(c.hBtn)
-      + 'px contra ' + Math.round(c.hCampo) + 'px)');
-    checar(c.btn === c.campo,
-      '[' + tema + '] e o mesmo fundo CLARO dele — as duas peças claras sobre a '
-      + 'faixa, não um chip translúcido ao lado de uma folha de papel', c.btn);
-    checar(razao(sobre(c.glifo, c.btn), sobre(c.btn, c.barra)) >= 4.5,
-      '[' + tema + '] com o glifo legível sobre ele ('
-      + razao(sobre(c.glifo, c.btn), sobre(c.btn, c.barra)).toFixed(2) + ':1)');
+    const transparente = (v) => /rgba\(0, 0, 0, 0\)/.test(v) || v === 'transparent';
+    // ── 1 · A BARRA NÃO PINTA, E A FOLHA TAMBÉM NÃO ──────────────────────
+    // As duas metades, porque o "zoneamento" volta por qualquer uma delas: um
+    // fundo na barra é a faixa de novo, e um fundo na FOLHA é o mesmo retângulo
+    // por trás dela — a folha é de tela cheia e o recorte deixa à vista
+    // exatamente a faixa da barra.
+    checar(transparente(c.barra) && transparente(c.folha),
+      '[' + tema + '] FECHADA, a barra não pinta NADA — nem ela, nem a folha '
+      + 'atrás dela: o "zoneamento" de tom saiu (v1.5.2)',
+      'barra ' + c.barra + ' · folha ' + c.folha);
+    checar(!c.sombraBarra || c.sombraBarra === 'none',
+      '[' + tema + '] e sem sombra: ela dizia de que lado o conteúdo passava, e '
+      + 'não passa nada atrás dela', c.sombraBarra);
+    // ── 2 · OS DOIS QUADRADOS SÃO BOTÕES DO CONTROLE (v1.5.5) ────────────
+    // Relato do operador: *"o botão de playlist automática está com botão cinza
+    // e ícone azulado, mas os botões dessa seção de controles são cinzas com
+    // preto … o mesmo para o botão de abrir biblioteca, que está um botão
+    // azul"*. A régua é o `.t-btn` COMPUTADO, e são as DUAS metades — fundo e
+    // GLIFO —, porque o relato nomeia as duas e um acerto só some calado: o
+    // fundo certo com o traço azul é exatamente o estado de que ele reclamou.
+    checar(c.sorteio === c.transporte && c.fundoAlternador === c.transporte,
+      '[' + tema + '] os dois quadrados vestem o MESMO fundo dos botões do '
+      + 'transporte — a régua é o `.t-btn` computado, não um número escrito aqui',
+      'dado ' + c.sorteio + ' · alternador ' + c.fundoAlternador
+      + ' · t-btn ' + c.transporte);
+    checar(c.corSorteio === c.corTransporte && c.glifo === c.corTransporte,
+      '[' + tema + '] e o MESMO traço: nenhum dos dois fica azul numa fileira em '
+      + 'que aceso quer dizer LIGADO',
+      'dado ' + c.corSorteio + ' · alternador ' + c.glifo
+      + ' · t-btn ' + c.corTransporte);
+    // ── 3 · O CAMPO É BRANCO, E QUEM O SEPARA É A BORDA (v1.5.5) ─────────
+    // Pedido do operador: *"a caixa de texto da busca … branca com a borda em
+    // cinza"*. **A borda não é enfeite, é a única coisa que separa a caixa de
+    // texto da barra no tema CLARO** — lá `--bar` é branco puro e o campo é
+    // branco, isto é 1,00:1. Daí a asserção ser a razão da BORDA contra as duas
+    // superfícies que ela divide, nos dois temas, e com o piso de 3:1 de
+    // componente: é ele que o `--line` cru não passa (2,51:1 sobre branco), e é
+    // por isso que a exceção tem token próprio em vez de citar a cor de linha.
+    const campo = sobre(c.campo, c.caixa);
+    checar(razao(rgb(c.campo), [255, 255, 255]) < 1.05,
+      '[' + tema + '] o campo é BRANCO nos dois temas — superfície SEM tema, '
+      + 'como o palco', c.campo);
+    // ===== E A BORDA É O CINZA DOS BOTÕES, MEDIDO COMPOSTO (v1.5.8) =====
+    //
+    // **Isto REVOGA o piso de 3:1 da v1.5.5**, e a revogação é do operador:
+    // *"ajuste a cor da borda da caixa de texto de buscas, ele deve ser o mesmo
+    // cinza dos botões a sua volta"*. Aquele piso vinha de um valor CALCULADO
+    // (`--field-borda`, o `--line` do tema claro escurecido até passar 3:1), que
+    // existia porque a borda não tinha como ler o tom dos botões. Hoje ela lê:
+    // `var(--surface)`, o MESMO token, composto sobre a MESMA base por um
+    // `background-clip: padding-box`.
+    //
+    // **O que se afirma passou a ser uma IGUALDADE, e ela é mais forte que o
+    // piso:** um número aqui envelheceria na primeira troca de paleta; a
+    // igualdade não tem como envelhecer, porque os dois lados saem do mesmo
+    // token resolvido no mesmo lugar. Ela também pega o defeito que este caso
+    // existiria para pegar — sem o `padding-box` a borda compõe sobre o BRANCO
+    // do campo e, no tema escuro (onde `--surface` é branco a 12%), some.
+    //
+    // **O PREÇO ESTÁ DITO:** no tema claro esse cinza dá ~1,38:1 contra o campo
+    // branco, abaixo dos 3:1 que a v1.5.5 pedia. É o MESMO degrau em que os
+    // botões ao lado vivem contra a mesma barra — a borda não ficou menos
+    // visível que eles, ficou igual a eles, que é o pedido.
+    const bordaComposta = sobre(c.borda, rgb(c.caixa));
+    const botaoComposto = sobre(c.fundoAlternador, rgb(c.caixa));
+    const igual = (a, b) => a.every((x, i) => Math.abs(x - b[i]) <= 1);
+    checar(igual(bordaComposta, botaoComposto),
+      '[' + tema + '] a BORDA é o mesmo cinza dos botões ao lado — o mesmo token, '
+      + 'composto sobre a mesma base, e não um valor copiado',
+      bordaComposta.map(Math.round).join(',') + ' contra '
+      + botaoComposto.map(Math.round).join(','));
+    // O MECANISMO TEM ASSERÇÃO PRÓPRIA, e ele não é dedutível da igualdade
+    // acima: aquela COMPÕE a tinta contra a caixa por conta própria, então ela
+    // diz o que a borda DEVERIA ser e continuaria dizendo com o `background-clip`
+    // apagado — provado por reversão. Quem decide sobre o que a tinta compõe de
+    // verdade é esta linha, e é ela que faz a borda existir no tema escuro.
+    checar(c.clipe === 'padding-box',
+      '[' + tema + '] e o fundo do campo PARA na borda: é o `padding-box` que faz '
+      + 'a tinta compor sobre a barra (como o botão) em vez de sobre o próprio '
+      + 'campo branco, onde ela sumiria no tema escuro', c.clipe);
+    checar(c.bordaEstilo === 'solid' && parseFloat(c.bordaLargura) > 0,
+      '[' + tema + '] e ela é DESENHADA: a exceção pedida é uma borda de verdade, '
+      + 'nomeada no `tokens.test.mjs`',
+      c.bordaLargura + ' ' + c.bordaEstilo);
+    // ── 4 · O QUE MORA DENTRO DO CAMPO CONTINUA LEGÍVEL ──────────────────
+    // A metade que reprovaria calada: **uma superfície sem tema arrasta o que
+    // vive DENTRO dela**, e o meio-conserto é trocar só o fundo. No escuro
+    // `--text` sobre branco dá 1,17:1 e `--muted`, 1,74:1 — o campo ficaria
+    // branco e o que se digita, apagado. As três voltam para os `--field-*`
+    // junto com o fundo, que é a regra do palco num lugar pequeno.
     for (const [nome, cor] of [['texto', c.texto], ['placeholder', c.ph], ['lupa', c.lupa]]) {
-      const r = razao(sobre(cor, c.campo), campo);
+      const r = razao(sobre(cor, campo), campo);
       checar(r >= 4.5,
         '[' + tema + '] e o ' + nome + ' é legível sobre ele (' + r.toFixed(2) + ':1)');
     }
+    // ── 5 · E O GLIFO DELES CONTINUA LEGÍVEL ─────────────────────────────
+    // A conta que o bloco 2 não faz: ele compara com o `.t-btn` e passaria com
+    // os três igualmente ilegíveis. (O alternador foi a AÇÃO da linha da v1.5.2
+    // à v1.5.4 — `--btn-accent` sob `--accent`. Saiu a pedido: ele mora colado
+    // numa fileira em que aceso quer dizer LIGADO.)
+    const alternador = sobre(c.fundoAlternador, c.caixa);
+    const rGlifo = razao(sobre(c.glifo, alternador), alternador);
+    checar(rGlifo >= 4.5,
+      '[' + tema + '] e o glifo do alternador é legível sobre ele ('
+      + rGlifo.toFixed(2) + ':1)');
+    checar(Math.abs(c.hBtn - c.hCampo) <= 1,
+      '[' + tema + '] os quadrados têm a MESMA altura do campo ('
+      + Math.round(c.hBtn) + 'px contra ' + Math.round(c.hCampo) + 'px)');
   } catch (e) {
-    checar(false, '[' + tema + '] a medição do contraste da barra terminou sem exceção ('
+    checar(false, '[' + tema + '] a medição do tom da barra terminou sem exceção ('
       + (e && e.message) + ')');
   }
 }
@@ -4511,12 +5816,12 @@ try {
     const caixa = (s) => { const e = document.querySelector(s); return e ? e.getBoundingClientRect() : null; };
     const ler = () => ({
       folha: caixa('#hymnSearchPopup .popup-sheet'),
-      barra: caixa('#hymnSearchPopup .hymn-search-bar'),
+      barra: caixa('.lib-bar'),
       lista: caixa('#hymnResults'),
     });
     setAppMode('full');
-    openHymnSearch();
-    await new Promise((r) => setTimeout(r, 350));
+    openHymnSearch(false);
+    await new Promise((r) => setTimeout(r, 600));
     const sem = ler();
     // O teclado do aparelho, com a viewport de layout INALTERADA — e rolada,
     // que é o mecanismo pelo qual o que é fixo sai pelo topo da tela.
@@ -4532,15 +5837,16 @@ try {
     return { sem, com, visivelTopo, visivelBase };
   });
   const perto = (a, b) => Math.abs(a - b) <= 1;
-  // A BARRA VOLTOU AO TOPO (v5.275) e, desde a v5.280, ela É o topo: o
-  // cabeçalho saiu. As duas primeiras asserções são a ORDEM da folha — barra,
-  // lista —; sem elas, uma barra que voltasse para a base passaria pelo resto
-  // do caso sem reprovar nada.
+  // A BARRA DESCEU PARA A CAIXA DE CONTROLES (v1.5.0), e a ORDEM inverteu: a
+  // janela termina onde a barra começa, e é de lá que ela sobe. Sem estas duas,
+  // uma barra que voltasse para dentro da folha passaria pelo resto do caso sem
+  // reprovar nada.
   checar(!!geo.sem.barra && !!geo.sem.folha && perto(geo.sem.barra.top, geo.sem.folha.top),
-    'sem teclado, a barra de busca É o topo da folha');
+    'sem teclado, a BARRA é o topo da janela — ela subiu com ela');
   checar(!!geo.sem.lista && perto(geo.sem.lista.top, geo.sem.barra.bottom)
-    && geo.sem.lista.bottom > geo.sem.barra.bottom,
-    'e a lista começa onde ela termina — a rolagem passa por BAIXO dela');
+    && perto(geo.sem.lista.bottom, geo.sem.folha.bottom),
+    'e a lista começa onde a barra termina e vai até a base — a rolagem passa por '
+    + 'BAIXO dela');
   // O TECLADO SOBREPÕE E A CAMADA NÃO PERSEGUE NADA (v5.280). A v5.278 fazia a
   // folha descer junto com a viewport visual para a barra não sair pelo topo; o
   // operador recusou o mecanismo e nomeou o certo — quem rola é a LISTA, e a
@@ -4554,7 +5860,7 @@ try {
   checar(!!geo.com.barra && !!geo.com.lista
     && perto(geo.com.barra.top, geo.com.folha.top)
     && perto(geo.com.lista.top, geo.com.barra.bottom),
-    'e a ordem de cima continua colada: folha → barra → lista');
+    'e a ordem de cima continua colada: janela → barra → lista');
 } catch (e) {
   checar(false, 'a medição da busca com teclado terminou sem exceção (' + (e && e.message) + ')');
 }

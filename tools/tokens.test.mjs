@@ -30,6 +30,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { checar, falhas } from './checar.mjs';
 
 const RAIZ = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'app', 'src', 'main', 'assets', 'web');
 
@@ -56,11 +57,6 @@ function folhas(dir) {
 const semComentarios = (s) => s.replace(/\/\*[\s\S]*?\*\//g, (m) => m.replace(/[^\n]/g, ' '));
 
 const arquivos = folhas(RAIZ);
-const falhas = [];
-function checar(cond, msg, detalhe) {
-  if (cond) console.log('ok      ' + msg);
-  else { console.log('FALHOU  ' + msg + (detalhe ? '\n        ' + detalhe : '')); falhas.push(msg); }
-}
 
 checar(arquivos.length > 0, 'a base web tem folhas de estilo para varrer', String(arquivos.length));
 
@@ -151,6 +147,73 @@ checar(orfaos.length === 0,
 //   · o ✓ do `.song-menu-check` (duas bordas em L, giradas 45°) — é o glifo que
 //     falta no subset da fonte de ícones.
 //
+// ## E A ÚNICA BORDA QUE É BORDA (v1.5.5)
+//
+// O campo de busca da Biblioteca, e ele é EXCEÇÃO PEDIDA, não desenho: *"abra
+// uma única exceção ao conceito de sem bordas do app, para poder fazer a caixa
+// de texto da busca para que seja branca com a borda em cinza"*.
+//
+// Ela entra pelo mesmo mecanismo dos dois de cima — um nome, escrito à mão — e
+// **é o nome que a mantém única**: a lista não tem regra que a próxima borda
+// possa alegar cumprir. O argumento é aritmético e não estético: no tema claro
+// `--bar` é BRANCO e o campo é branco, isto é 1,00:1, e sem contorno a caixa de
+// texto não existe na tela. Foi essa mesma conta que criou a faixa `--field-bar`
+// na v5.270; a borda resolve sem trazer a faixa de volta, que é o que o operador
+// recusou na v1.5.2.
+//
+// ## E A MOLDURA DA BIBLIOTECA (v1.5.9), que é uma AUTORIDADE, não uma brecha
+//
+// A EXCEÇÃO DA BIBLIOTECA SAIU NA v1.5.14, e o app voltou a ter ZERO contornos.
+//
+// Ela foi dada na v1.5.9 e era explícita e escopada: *"vou lhe dar autoridade
+// para usar sistemas visuais de design e organização usando bordas, mas apenas
+// para a biblioteca. pois temos 3 niveis de listagens na biblioteca e o sistema
+// de separação apenas por cor sólida de cards está limitando nossas opções"*.
+//
+// **A autorização era para o PROBLEMA, não para a solução**, e o problema tinha
+// causa aritmética: quatro níveis (janela → seção → álbum → faixa) sobre uma
+// escada de três degraus, com a janela tendo gastado o de cima na v1.5.7.
+// MEDIDO no renderizado, o desenho que a moldura sustentava não cumpria o piso
+// de 1,28:1 em NENHUM par de superfícies — sete de sete reprovavam no tema
+// escuro —, e três pares valiam 1,00:1. O traço de 1px era a única coisa da
+// tela com contraste de verdade, e por isso parecia funcionar.
+//
+// A v1.5.14 troca a ESCADA (que acumula e acaba) pela ALTERNÂNCIA papel → poço
+// → papel: duas superfícies, profundidade ilimitada, 1,35:1 e 1,43:1 em cada
+// degrau. Sem escassez de degrau não há o que a borda resolva, e o pedido de
+// então — *"poucas bordas, sem traços finos, ou designs visualmente poluídos"* —
+// a dispensa. Restam as TRÊS exceções nomeadas acima, que são DESENHOS e não
+// separadores.
+//
+// ## E A DIVISÓRIA ENTRE FAIXAS IRMÃS (v1.5.16) — a QUARTA, e ela é um TRAÇO
+//
+// Pedido do operador: *"Verifique a criação de um elemento de linha divisória
+// (não borda inteira), na listagem do itens propriamente dos álbuns, para
+// melhor distinção entre os itens."*
+//
+// **A moldura não voltou.** A distinção é de OBJETO, não de espessura: a
+// moldura era um retângulo por nível, quatro arestas, em três níveis ao mesmo
+// tempo, e carregava a HIERARQUIA — trabalho que a alternância faz hoje com
+// degrau real. Esta é UMA aresta, num nível só, entre IRMÃS, e faz o que a
+// alternância por construção não faz: separar vizinhas do MESMO nível. As três
+// palavras do pedido que decidem são *"não borda inteira"* — ele já sabe que o
+// app aboliu contorno e está distinguindo uma DIVISÓRIA de uma MOLDURA.
+//
+// E ela é ARITMÉTICA de novo: desde a v1.5.14 a faixa é transparente e a placa
+// atrás dela é `--panel`, então o vão de 4px que separa duas faixas mede
+// **1,00:1** contra os dois lados. Não é pouca separação — é separação nenhuma.
+//
+// **POR QUE ELA NÃO É UMA `border`, e por que isso NÃO é escapar pela letra.**
+// `border-bottom` cobre a caixa inteira e não tem como ser RECUADA, que é
+// literalmente o *"não borda inteira"* do pedido: a divisória começa na coluna
+// do NOME, não sob a miniatura. A forma vem do pedido. Mas um traço pintado
+// passaria por esta varredura sem que ninguém decidisse nada, e o precedente
+// que entraria no repositório seria *"filete pode, desde que não se chame
+// border"* — a heurística exata contra a qual este arquivo avisa. Daí as duas
+// asserções logo abaixo: uma POSITIVA, que exige que `--divisoria` tenha um
+// consumidor só e que ele seja este seletor, e uma NEGATIVA, que varre a fonte
+// por QUALQUER traço pintado e reprova todos os outros.
+//
 // Largura zero e cor transparente também passam: os dois não desenham nada.
 {
   // As regras dos DESENHOS, recortadas da fonte antes da varredura. Nomeadas
@@ -159,6 +222,11 @@ checar(orfaos.length === 0,
   const recortar = (s) => s
     .replace(/\.dl-ring::before\s*\{[^}]*\}/g, '')
     .replace(/\.song-menu-check\.on::after\s*\{[^}]*\}/g, '')
+    .replace(/#hymnSearchInput\s*\{[^}]*\}/g, '')
+    // (O RECORTE POR ESCOPO `.acervo` saiu na v1.5.14, com a moldura. Ele era a
+    // única exceção deste oráculo que não nomeava uma peça — e uma exceção por
+    // escopo é a que mais barato se alarga: bastava um seletor novo começar com
+    // `.acervo` para uma borda entrar sem ninguém decidir nada.)
     .replace(/@media[^{]*\{\s*\.dl-ring::before[^}]*\}/g, '');
   const contornos = [];
   for (const f of arquivos) {
@@ -176,6 +244,71 @@ checar(orfaos.length === 0,
   checar(contornos.length === 0,
     'nenhuma regra desenha contorno: no app tudo se separa por PREENCHIMENTO',
     contornos.join('\n        '));
+}
+
+// ---------- E NENHUM TRAÇO PINTADO ALÉM DA DIVISÓRIA (v1.5.16) ----------
+// O par da asserção acima, e é ele que impede que a exceção da v1.5.16 vire
+// brecha. A varredura de contorno casa a palavra `border`; um filete desenhado
+// como bloco de 1px com fundo passa por ela sem que ninguém decida nada, e o
+// próximo separador entra como `height: 1px; background: var(--surface)`.
+//
+// A régua é a FORMA, não o nome: um bloco cuja regra declare `height: 1px` (ou
+// `width: 1px`) E um `background` que não seja transparente É um traço, chame-se
+// como se chamar. A única passagem é o seletor NOMEADO — a mesma mecânica dos
+// quatro desenhos de cima.
+//
+// PROVADO POR REVERSÃO: trocar o seletor da exceção por outro qualquer, ou
+// acrescentar um segundo bloco de 1px pintado em qualquer lugar da base, reprova.
+{
+  // A EXCEÇÃO É UMA REGRA SÓ, com DUAS listas na frente (v1.5.18): a faixa de um
+  // álbum e a linha de um favorito. O operador pediu a segunda ao ver que ela
+  // faltava, e ela entrou no MESMO bloco de declaração de propósito — é isso
+  // que mantém `--divisoria` com um consumidor único, que é a metade positiva
+  // logo abaixo. Uma segunda regra com o mesmo `background` passaria por esta
+  // varredura e reprovaria naquela, que é o desenho certo do par.
+  const EXCECAO = '.acervo .coll-songs > .hymn-result + .hymn-result::before,'
+    + ' #hymnResults > .coll-group--fav.aberto .fav-itens > .lib-item + .lib-item::before';
+  const tracos = [];
+  let consumidores = 0;
+  for (const f of arquivos) {
+    const cru = fonte.get(f) || '';
+    const s = semComentarios(cru);
+    // Bloco a bloco, como a varredura do R1 — entre um `}` e o seletor seguinte
+    // cabe um comentário de trinta linhas, e um teto de caracteres faria o
+    // oráculo pular justamente as regras mais documentadas.
+    let pos = 0;
+    for (const bruto of s.split('}')) {
+      const chave = bruto.indexOf('{');
+      const inicio = pos;
+      pos += bruto.length + 1;
+      if (chave < 0) continue;
+      const sel = bruto.slice(0, chave).trim();
+      const corpo = bruto.slice(chave + 1);
+      if (!sel || sel.startsWith('@')) continue;
+      if (/background\s*:\s*var\(--divisoria\)/.test(corpo)) consumidores++;
+      const fino = /(?:^|[;{\s])(?:height|width)\s*:\s*1px\s*(?:;|$)/.test(corpo);
+      if (!fino) continue;
+      const m = corpo.match(/(?:^|[;{\s])background(?:-color)?\s*:\s*([^;}]+)/);
+      if (!m) continue;
+      const valor = m[1].trim();
+      if (/^(none|transparent)$/.test(valor)) continue;
+      // O seletor vem da FONTE, com a quebra de linha entre as duas listas — a
+      // comparação normaliza o espaço, senão a exceção nomeada nunca casaria.
+      if (sel.replace(/\s+/g, ' ').trim() === EXCECAO) continue;
+      tracos.push(path.relative(RAIZ, f) + ':' + (s.slice(0, inicio).split('\n').length)
+        + ' → ' + sel.replace(/\s+/g, ' ') + ' { ' + valor + ' }');
+    }
+  }
+  checar(tracos.length === 0,
+    'nenhum TRAÇO pintado além da divisória nomeada: um filete não deixa de ser '
+    + 'um filete por não se chamar `border`',
+    tracos.join('\n        '));
+  // E A METADE POSITIVA: `--divisoria` tem UM consumidor, e é o seletor da
+  // exceção. Sem ela, o token viraria a porta larga — qualquer regra nova
+  // poderia consumi-lo e a asserção acima a deixaria passar pelo nome do token.
+  checar(consumidores === 1,
+    '`--divisoria` é consumido por exatamente UMA regra (a exceção nomeada)',
+    consumidores + ' consumidor(es)');
 }
 
 // ---------- A SUPERFÍCIE DE UM CONTROLE É OPACA (v1.3.14) ----------
@@ -296,6 +429,21 @@ checar(orfaos.length === 0,
     if (!sel || sel.startsWith('@') || excecoes.some((r) => r.test(sel))) continue;
     // Um seletor composto entra se QUALQUER uma das partes dele estiver na lista.
     if (sel.split(',').map((x) => x.trim()).some((x) => naLista.has(x))) continue;
+    // ===== O SUJEITO DE UM DESCENDENTE É O ÚLTIMO SIMPLES (v1.5.7) =====
+    // `.popup-backdrop--lib.open .popup-sheet--lib` PINTA a folha, e é a folha
+    // que os filhos leem — o recesso dela mora numa regra da classe crua, como
+    // manda a doutrina (o estado troca a tinta, não a escada). Comparar a string
+    // INTEIRA fazia o oráculo reprovar uma regra correta, e a próxima regra de
+    // estado que pintasse um cartão cairia no mesmo lugar.
+    //
+    // Isto NÃO afrouxa a asserção: o sujeito é quem hospeda os filhos, e é a
+    // superfície DELE que a R1 governa. O que continua reprovando é pintar
+    // `--panel` num bloco que, ele mesmo, não afunda em lugar nenhum.
+    const sujeito = (x) => x.trim().split(/\s+/).pop();
+    if (sel.split(',').map(sujeito).some((x) => naLista.has(x))) continue;
+    if (sel.split(',').map(sujeito).some((x) => new RegExp(
+      x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+      + '\\s*\\{[^{}]*--surface:\\s*var\\(--surface-sunk\\)').test(css))) continue;
     // OU o bloco afunda a superfície POR CONTA PRÓPRIA, numa regra dele — é o
     // caso da `.simple-conn`. O que a asserção cobra é o EFEITO (o controle
     // dentro dele afunda), não a filiação a uma lista.
@@ -309,6 +457,58 @@ checar(orfaos.length === 0,
     'todo bloco que pinta `--panel` está na lista de R1: sem isso os controles '
     + 'dentro dele usam a superfície FLUTUANTE e somem no tema claro',
     fora.join('\n        '));
+}
+
+// ===== O ESPELHO NATIVO: `colors.xml` × `tokens.css` (v1.5.14) =====
+//
+// `--bg` é a ÚNICA cor deste projeto que existe em dois lugares por
+// necessidade: um recurso de Android não enxerga custom property, e o
+// `windowBackground` (o que aparece ANTES de o WebView carregar) e os ícones
+// das barras de sistema só podem sair do XML. Os dois valores TÊM de ser
+// iguais — divergir é o "flash" de outro preto no primeiro quadro, e a faixa
+// de outra cor nas safe-areas com o edge-to-edge do Android 15+.
+//
+// **O comentário do próprio `colors.xml` admitia que nada verificava isso**
+// (*"nada no build detecta a divergência, e o OTA pode trocar a base web sem
+// trocar o APK"*) — e é justamente o OTA que torna a divergência provável: a
+// base web chega em minutos, o `res/` só chega instalando um APK. Este caso
+// existe para que a próxima troca de `--bg` não possa esquecer o outro lado.
+{
+  const xml = fs.readFileSync(path.join(RAIZ, '..', '..', 'res', 'values', 'colors.xml'), 'utf8');
+  const cor = (nome) => {
+    const m = new RegExp('<color name="' + nome + '">\\s*(#[0-9a-fA-F]{3,8})\\s*</color>').exec(xml);
+    return m ? m[1].toLowerCase() : null;
+  };
+  // `--bg` de cada tema, lido da FONTE (os dois blocos `:root` de tokens.css).
+  const tk = fonte.get(arquivos.find((f) => f.endsWith('tokens.css'))) || '';
+  const blocos = [...semComentarios(tk).matchAll(/:root([^{]*)\{([^}]*)\}/g)];
+  const bgDe = (claro) => {
+    for (const b of blocos) {
+      const ehClaro = b[1].includes('data-tema');
+      if (ehClaro !== claro) continue;
+      const m = /(?:^|;)\s*--bg:\s*([^;]+)/.exec(b[2]);
+      if (m) return m[1].trim().toLowerCase();
+    }
+    return null;
+  };
+  const escuro = bgDe(false);
+  const claro = bgDe(true);
+  checar(!!escuro && !!claro, 'o `--bg` dos dois temas foi encontrado em tokens.css',
+    'escuro ' + escuro + ' · claro ' + claro);
+  checar(cor('app_bg') === escuro,
+    '`app_bg` do colors.xml espelha o `--bg` do tema ESCURO: é o windowBackground '
+    + 'do primeiro quadro, e divergir devolve o flash de outro preto',
+    'xml ' + cor('app_bg') + ' · token ' + escuro);
+  checar(cor('app_bg_claro') === claro,
+    'e `app_bg_claro` espelha o do tema CLARO',
+    'xml ' + cor('app_bg_claro') + ' · token ' + claro);
+  // O ícone segue o tema ESCURO e não a escolha do operador: ele é desenhado
+  // pela gaveta do sistema com o app fechado, e abrir o app tem de expandir o
+  // fundo do próprio ícone.
+  checar(cor('ic_launcher_background') === escuro,
+    'e o fundo do ícone adaptativo é o mesmo do tema escuro: abrir o app expande '
+    + 'o fundo do próprio ícone',
+    'xml ' + cor('ic_launcher_background') + ' · token ' + escuro);
 }
 
 console.log(falhas.length ? '\n' + falhas.length + ' FALHA(S)' : '\nTodos passaram.');

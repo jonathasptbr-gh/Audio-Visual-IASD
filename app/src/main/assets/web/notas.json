@@ -1,448 +1,205 @@
 [
   {
-    "versao": "1.4.41",
+    "versao": "1.6.0",
     "itens": [
-      "Preenchimento e giro passaram a valer também para a imagem ou os slides sobre uma música.",
-      "O botão agora se chama \u201cGirar no telão\u201d: ele gira a projeção, nunca o app.",
-      "A contagem de uso saiu do painel e virou uma linha no rodapé do registro.",
-      "A página de alcance ganhou um interruptor para as visitas deste navegador."
+      "A cifra agora abre em tela cheia, deitada, com os controles numa coluna à direita.",
+      "Nesse modo a fonte já entra maior, e o tamanho escolhido nele fica guardado.",
+      "A folha continua no ponto em que estava ao deitar, ao voltar e ao mudar o tamanho da letra.",
+      "Os detalhes de um vídeo não repetem mais que ele toca sem baixar.",
+      "O título completo do vídeo agora aparece também para um link salvo.",
+      "E a descrição abre inteira, sem precisar tocar em “Ver mais”.",
+      "A faixa que entra no ar volta a ficar selecionada, e o ▶ a repete.",
+      "E um telão que reconecta no meio da projeção não volta mais vazio."
     ]
   },
   {
-    "versao": "1.4.40",
+    "versao": "1.5.21",
     "itens": [
-      "Em Configurações, os botões que não ligam nem desligam ficam sempre azuis.",
-      "Eles subiram para o topo da grade; os que ligam e desligam ficam abaixo.",
-      "O fundo da letra e a medição passaram a acender quando estão ligados."
+      "Os detalhes de um vídeo agora mostram o título completo, o canal e a duração.",
+      "E também a descrição do vídeo, quando ela existe.",
+      "A seção de detalhes deixou de vazar para fora da caixa do item.",
+      "Um link do YouTube guardado passa a lembrar a duração e o canal, mesmo sem internet."
     ]
   },
   {
-    "versao": "1.4.39",
+    "versao": "1.5.20",
     "itens": [
-      "As abas do auxiliar de leitura voltaram a ocupar a largura toda.",
-      "Entrando ou saindo uma aba, o espaço se divide igualmente entre elas."
+      "O link do YouTube adicionado a uma lista agora guarda a miniatura, e ela persiste sem internet.",
+      "A rolagem automática da cifra agora espera um instante antes de começar a mover a folha.",
+      "O card de Favoritos voltou a respirar da barra de busca, no mesmo espaço das outras coleções.",
+      "O espaço entre a busca e o título da mídia em execução ficou do tamanho certo."
     ]
   },
   {
-    "versao": "1.4.38",
+    "versao": "1.5.19",
     "itens": [
-      "Configurações virou um painel rápido: botões com ícone, em grade, sem rolar.",
-      "Cada botão mostra o estado e troca com um toque.",
-      "O seletor de Fácil e Avançado ganhou ícones e continua em destaque."
+      "Os botões de tamanho da letra do modo simples deixaram de encostar no que vem abaixo.",
+      "Os botões de Bíblia, Importar e Ferramentas ficaram mais baixos e discretos.",
+      "E o cartão de uma coleção parou de mudar de tamanho ao abrir a lista dela."
     ]
   },
   {
-    "versao": "1.4.37",
+    "versao": "1.5.18",
     "itens": [
-      "A lista do auxiliar de leitura no modo fácil voltou a mostrar a barra de rolagem."
+      "O cartão dono das opções agora ganha a cor da caixa de opções.",
+      "A lista de favoritos ganhou as mesmas linhas divisórias das outras listas.",
+      "E as coleções deixaram de sobrar espaço no pé da lista."
     ]
   },
   {
-    "versao": "1.4.36",
+    "versao": "1.5.17",
     "itens": [
-      "A onda azul do toque saiu dos botões de mudo e da cortina.",
-      "Neles o próprio ícone já vira o oposto, que é o aviso de que o comando saiu."
+      "As coleções da Biblioteca agora preenchem a altura da tela, em vez de sobrar espaço no pé.",
+      "O primeiro cartão de uma coleção aberta ganhou o respiro que faltava sob o título.",
+      "O item aberto voltou a ter a mesma cor do corpo dele.",
+      "As linhas divisórias ficaram centradas entre as faixas.",
+      "E as opções de uma faixa ficaram mais compactas, no ritmo da lista."
     ]
   },
   {
-    "versao": "1.4.35",
+    "versao": "1.5.16",
     "itens": [
-      "O número da página passou a ficar sobre o slide, que agora fica centralizado.",
-      "A página que está no telão ganhou o mesmo aviso de no ar do resto do app.",
-      "No modo fácil os slides ficaram em duas colunas: cabem oito no lugar de dois."
+      "As faixas de um álbum ganharam uma linha divisória, para distinguir uma da outra.",
+      "As bordas da lista da Biblioteca borram o que passa por baixo, indicando que há mais itens.",
+      "Os álbuns do Celebra SP passaram a ficar dentro da coletânea Diversas.",
+      "As coleções ficaram mais compactas, para caberem todas na tela sem rolar.",
+      "E o favorito que está no telão voltou a ficar destacado na lista."
     ]
   },
   {
-    "versao": "1.4.34",
+    "versao": "1.5.15",
     "itens": [
-      "O realce azulado do toque saiu dos botões sobre a preview.",
-      "O anel de foco voltou a ser só de quem navega por teclado."
+      "As faixas de um hinário ou de uma série voltaram a pousar em fundo claro, e não no azul do grupo.",
+      "O bloco do episódio deste sábado voltou a se destacar da caixa em volta.",
+      "A lista deixou de aparecer acima do nome da coleção preso no topo.",
+      "E esse nome deixou de ficar no topo depois que a lista dele acabou.",
+      "O cartão do título e do tempo ficou no cinza claro dos botões de slide apagados."
     ]
   },
   {
-    "versao": "1.4.33",
+    "versao": "1.5.14",
     "itens": [
-      "Os botões sobre a preview pararam de escorregar ao toque.",
-      "Agora o traço deles acende, que é o que se vê sobre um slide claro ou escuro."
+      "A Biblioteca não usa mais linhas finas: o que separa os grupos passou a ser o tom das caixas.",
+      "E o nome de uma coleção fica preso no topo enquanto se rola a lista dela.",
+      "O tema escuro ficou azul-denim, a cor oficial da igreja, no lugar de um cinza quase preto.",
+      "A seta que abre e fecha as coleções voltou a responder ao toque, e ficou maior.",
+      "Os tamanhos de texto, os espaços e as animações ficaram uniformes no app inteiro.",
+      "No Modo Fácil, com uma apresentação no ar sobram só os controles que fazem alguma coisa."
     ]
   },
   {
-    "versao": "1.4.32",
+    "versao": "1.5.13",
     "itens": [
-      "No modo fácil só fica uma coisa no ar: o que entra substitui o que estava.",
-      "Nada de imagem ou slides por cima da música ali — isso segue no avançado."
+      "O título e a barra de progresso ganharam um cartão, como o resto dos controles."
     ]
   },
   {
-    "versao": "1.4.31",
+    "versao": "1.5.12",
     "itens": [
-      "O histórico do culto mudou para Configurações.",
-      "O histórico passou a ficar guardado, separado por sessão.",
-      "Numa sessão antiga, músicas, textos e links continuam podendo ser reaproveitados.",
-      "Dá para limpar o histórico inteiro ou só uma sessão.",
-      "O auxiliar de leitura virou o último botão da barra de transporte.",
-      "Um ponto no botão avisa quando há letra, cifra ou texto para ler.",
-      "A cortina do telão subiu para o canto de cima da preview."
+      "No tema claro os textos do app ficaram pretos, em vez de cinza escuro."
     ]
   },
   {
-    "versao": "1.4.30",
+    "versao": "1.5.11",
     "itens": [
-      "O modo fácil passou a mostrar os slides da apresentação que está no ar.",
-      "E ganhou as teclas de passar página, do tamanho das de volume.",
-      "Tocar num slide da lista pula direto para ele, como no modo avançado."
+      "Os nomes das coleções deixaram de sair em maiúsculas na Biblioteca.",
+      "E o nome de uma seção ficou tão escuro quanto o título de um álbum."
     ]
   },
   {
-    "versao": "1.4.29",
+    "versao": "1.5.10",
     "itens": [
-      "Os botões de confirmar exclusão e a caixa de renomear voltaram a alinhar com a linha.",
-      "O teclado passou a cobrir a tela ao renomear, em vez de espremer os controles.",
-      "A gaveta dos favoritos parou de encolher ao abrir o campo de renomear."
+      "Os cards da Biblioteca trocaram o cinza escuro pelo azul claro do app.",
+      "A caixa dos Favoritos deixou de nascer com o cabeçalho deslocado.",
+      "E o primeiro item de uma coleção ganhou o mesmo respiro dos outros."
     ]
   },
   {
-    "versao": "1.4.28",
+    "versao": "1.5.9",
     "itens": [
-      "Uma música agora pode tocar por trás dos slides, sem ser interrompida.",
-      "Com os slides no ar, os botões de passar continuam virando página.",
-      "A aba da bíblia foi para a esquerda, e letra e cifra ficaram juntas."
+      "As cores das coleções saíram: a Biblioteca voltou ao branco e azul do app.",
+      "Cada grupo passou a ter uma moldura, e dá para ver onde ele começa e acaba.",
+      "Abrir uma coleção não muda mais a cor dela."
     ]
   },
   {
-    "versao": "1.4.27",
+    "versao": "1.5.8",
     "itens": [
-      "A capa e o botão de opções saem de cena ao renomear ou excluir um item.",
-      "Com eles fora, o campo de nome e o par cancelar/excluir ocupam a linha toda.",
-      "E a coluna do botão de opções passa a mostrar de qual processo se trata."
+      "A borda da caixa de busca ficou do mesmo cinza dos botões ao lado.",
+      "As cores da Biblioteca ficaram em ordem, como um arco-íris.",
+      "E ao abrir uma coleção o corpo dela mantém a cor, em vez de virar cinza."
     ]
   },
   {
-    "versao": "1.4.26",
+    "versao": "1.5.7",
     "itens": [
-      "A folha de leitura passou a oferecer a letra, a cifra e a bíblia ao mesmo tempo.",
-      "Ela abre no que está na frente: com o versículo sobre um louvor, abre na bíblia.",
-      "Tocar num slide da lista pula direto para ele."
+      "A Biblioteca ganhou cantos curvos e fundo claro, como as janelas de Bíblia e Ferramentas.",
+      "E deixou de encostar nos controles: dá para ver onde a lista acaba.",
+      "As coleções ganharam cores em ordem, como os livros da Bíblia.",
+      "A borda da caixa de busca ficou mais encorpada."
     ]
   },
   {
-    "versao": "1.4.25",
+    "versao": "1.5.6",
     "itens": [
-      "O card da lista parou de balançar ao tocar nas opções do item.",
-      "Renomear passou a acontecer dentro do próprio item, sem abrir outra tela.",
-      "Favoritar e adicionar à playlist voltaram a parecer botões disponíveis.",
-      "O ícone deles é que mostra agora se o item já está na lista.",
-      "A playlist ganhou os botões de favoritar e de mandar ao Cronograma."
+      "A barra de busca deixou de aparecer por cima das configurações e da playlist.",
+      "Com a Biblioteca aberta, o que se abre dos controles agora fica por cima dela.",
+      "A caixa de busca limpa o texto ao fechar.",
+      "Com o teclado aberto, a Biblioteca usa a tela toda — e no modo simples também.",
+      "O botão de parar passou para depois do de próxima mídia.",
+      "A rolagem da cifra anda com a música parada e não desfaz mais o que você rolou."
     ]
   },
   {
-    "versao": "1.4.24",
+    "versao": "1.5.5",
     "itens": [
-      "O auxiliar de leitura passou a mostrar todos os slides da apresentação.",
-      "A página que está no telão fica marcada, e a lista acompanha o avanço.",
-      "Durante uma apresentação a folha não oferece mais letra nem cifra."
+      "Os botões de playlist automática e de abrir a Biblioteca ficaram iguais aos do controle.",
+      "E do mesmo tamanho dos botões logo abaixo deles.",
+      "A caixa de busca voltou a ser branca, agora com borda."
     ]
   },
   {
-    "versao": "1.4.23",
+    "versao": "1.5.4",
     "itens": [
-      "A notificação de preparar apresentação voltou a mostrar o progresso.",
-      "E ela passou a dizer o nome da apresentação e quantas páginas faltam.",
-      "A cópia das páginas deixou de parecer travada no fim da importação."
+      "A Biblioteca deixou de cobrir os controles: ela abre até a linha da barra de busca.",
+      "O louvor pode ser pausado sem fechar a Biblioteca.",
+      "Sumiu a faixa que aparecia acima da barra ao fechar a Biblioteca."
     ]
   },
   {
-    "versao": "1.4.22",
+    "versao": "1.5.3",
     "itens": [
-      "Os fundos e as fotos de um PowerPoint deixaram de sumir na importação.",
-      "Gráficos do PowerPoint deixaram de sair em branco.",
-      "Os marcadores de tópico deixaram de virar letras soltas no telão.",
-      "Uma apresentação com fotos passou a ocupar dez vezes menos espaço.",
-      "A tela deixou de piscar e encolher ao importar uma apresentação.",
-      "O leitor de PDF passou a gravar as páginas fotográficas em formato menor."
+      "A barra de busca deixou de aparecer cortada em telas com entalhe.",
+      "E deixou de ficar fora do lugar depois que o teclado some."
     ]
   },
   {
-    "versao": "1.4.21",
+    "versao": "1.5.2",
     "itens": [
-      "A linha do item agora mostra quando ele está carregando."
+      "A faixa cinza atrás da barra de busca saiu.",
+      "O campo e os botões dela ficaram do mesmo tom dos botões do controle.",
+      "A barra voltou para o topo dos controles, acima do nome da mídia.",
+      "A Biblioteca continua subindo dali e levando a barra até o topo da tela."
     ]
   },
   {
-    "versao": "1.4.20",
+    "versao": "1.5.1",
     "itens": [
-      "O aviso de preparação deixou de mostrar o ícone de download."
+      "A barra de busca virou uma faixa de lado a lado, na base do app.",
+      "A Biblioteca agora é uma janela de tela cheia, que sobe da base.",
+      "Ela leva a barra de busca junto: o campo termina no topo da tela.",
+      "Com isso o teclado deixou de cobrir o campo de busca."
     ]
   },
   {
-    "versao": "1.4.19",
+    "versao": "1.5.0",
     "itens": [
-      "A transmissão do YouTube deixou de congelar sem avisar quando a rede para.",
-      "Um vídeo online que já falhou uma vez volta a se recuperar sozinho depois.",
-      "Tocar só o áudio de um link agora mostra o aviso de carregamento.",
-      "E o som dele entra suave, em vez de começar no volume cheio.",
-      "A varredura de letras e cifras espera a mídia sair do ar.",
-      "Mudar ajustes do sistema não derruba mais a projeção no meio do culto."
-    ]
-  },
-  {
-    "versao": "1.4.18",
-    "itens": [
-      "Tocar outra coisa agora interrompe o link que estava carregando."
-    ]
-  },
-  {
-    "versao": "1.4.17",
-    "itens": [
-      "O ruído no som ao navegar entre as abas com uma música tocando."
-    ]
-  },
-  {
-    "versao": "1.4.16",
-    "itens": [
-      "A lista das séries vai até o sábado da semana, e a próxima entra no domingo.",
-      "O Registro passou a dizer a data de corte, em vez de um número de dias."
-    ]
-  },
-  {
-    "versao": "1.4.15",
-    "itens": [
-      "O Provai e Vede deixou de listar episódios que o canal ainda não liberou.",
-      "A lista agora vai até o sábado desta semana, como no Informativo."
-    ]
-  },
-  {
-    "versao": "1.4.14",
-    "itens": [
-      "Um vídeo que não toca deixou de falhar em silêncio.",
-      "E o app diz quando o vídeo não está disponível no YouTube."
-    ]
-  },
-  {
-    "versao": "1.4.13",
-    "itens": [
-      "O Registro conta, por sessão, quantas vezes o vídeo caiu no download.",
-      "E quantas vezes a projeção saiu em qualidade limitada."
-    ]
-  },
-  {
-    "versao": "1.4.12",
-    "itens": [
-      "Esta lista de novidades virou tópicos curtos, em vez de textos."
-    ]
-  },
-  {
-    "versao": "1.4.11",
-    "itens": [
-      "Aviso quando o vídeo do YouTube só tem qualidade baixa disponível."
-    ]
-  },
-  {
-    "versao": "1.4.10",
-    "itens": [
-      "O nome que você deu ao item deixou de ser trocado pelo título do YouTube."
-    ]
-  },
-  {
-    "versao": "1.4.9",
-    "itens": [
-      "Aviso de \"Preparando\" centralizado na preview, sem passar por baixo dos botões."
-    ]
-  },
-  {
-    "versao": "1.4.8",
-    "itens": [
-      "Um único aviso de carregamento, no celular — o telão não mostra mais preparo."
-    ]
-  },
-  {
-    "versao": "1.4.7",
-    "itens": [
-      "Todo o carregamento no celular; o telão só mostra o vídeo já tocando.",
-      "Reação instantânea ao toque também nos itens de link das listas.",
-      "Botão de confirmar sempre à direita, em toda a Biblioteca."
-    ]
-  },
-  {
-    "versao": "1.4.6",
-    "itens": [
-      "\"Tocar agora\" de vídeo responde no instante do toque.",
-      "A opção \"Online\" avisa que a qualidade varia conforme a conexão."
-    ]
-  },
-  {
-    "versao": "1.4.5",
-    "itens": [
-      "O app mede a internet e escolhe a resolução do vídeo online.",
-      "A qualidade escolhida no menu passou a valer como teto.",
-      "Registro mostra a velocidade medida e as paradas da transmissão."
-    ]
-  },
-  {
-    "versao": "1.4.4",
-    "itens": [
-      "O som deixou de sumir ao conectar numa smart TV.",
-      "A projeção é retomada sozinha quando não sobe na TV.",
-      "Travamento de vídeo online passou a aparecer na tela.",
-      "Precisa do app novo (v1.4.4)."
-    ]
-  },
-  {
-    "versao": "1.4.3",
-    "itens": [
-      "Lista de novidades encurtada para as duas últimas séries."
-    ]
-  },
-  {
-    "versao": "1.4.2",
-    "itens": [
-      "Contagem de quantos aparelhos usam o app, sem identificar ninguém.",
-      "Chave em Configurações para tirar este aparelho da conta.",
-      "Precisa do app novo (v1.4.2)."
-    ]
-  },
-  {
-    "versao": "1.4.1",
-    "itens": [
-      "O celular pode ser o ponto de acesso para conectar um computador.",
-      "Com duas redes de pé, o app pergunta em qual servir.",
-      "A recusa da transmissão passou a dizer o que fazer.",
-      "Precisa do app novo (v1.4.1)."
-    ]
-  },
-  {
-    "versao": "1.3.16",
-    "itens": [
-      "Nome da tela (Cronograma, Bíblia) maior, sem crescer a barra do topo."
-    ]
-  },
-  {
-    "versao": "1.3.15",
-    "itens": [
-      "Uma cor por livro na Bíblia, em vez de duas faixas.",
-      "A aba em que você está ficou marcada de forma mais discreta.",
-      "O ✕ das Ferramentas virou o mesmo botão quadrado dos outros."
-    ]
-  },
-  {
-    "versao": "1.3.14",
-    "itens": [
-      "Revisão de tema do app inteiro: um botão, uma cor, em qualquer tela.",
-      "O botão de repetição acende quando está ligado.",
-      "Confirmar uma exclusão ficou vermelho.",
-      "O toque responde igual em todo botão, grande ou pequeno.",
-      "Na Bíblia, cada pílula veste a cor da grade que ela abre.",
-      "Microfone invisível no tema claro, corrigido."
-    ]
-  },
-  {
-    "versao": "1.3.13",
-    "itens": [
-      "Apagar um item do Cronograma não interrompe mais o que está tocando.",
-      "O item no ar passou a segurar os próprios arquivos.",
-      "A folha de Ferramentas desce por onde subiu."
-    ]
-  },
-  {
-    "versao": "1.3.12",
-    "itens": [
-      "Importar um arquivo mostra que está importando.",
-      "O louvor não cala mais ao minimizar sem tela conectada.",
-      "Precisa do app novo (v1.3.12)."
-    ]
-  },
-  {
-    "versao": "1.3.11",
-    "itens": [
-      "Ao deslizar entre as abas, a tela passava por cima do cabeçalho."
-    ]
-  },
-  {
-    "versao": "1.3.10",
-    "itens": [
-      "O fundo da letra parou de sumir ao trocar de música.",
-      "Na tela cheia os controles aparecem ao entrar, e o toque virou interruptor.",
-      "As Ferramentas viraram uma folha do Cronograma.",
-      "\"Transmitir para navegador\" virou \"Conectar um computador\".",
-      "O selo da camada de cima desceu para a base da preview."
-    ]
-  },
-  {
-    "versao": "1.3.9",
-    "itens": [
-      "O slide de volume voltou, acionado pelas teclas físicas.",
-      "O botão de voltar slide não some mais junto com ele.",
-      "Botão de histórico com a mesma caixa dos vizinhos.",
-      "Linha de baixo reordenada."
-    ]
-  },
-  {
-    "versao": "1.3.8",
-    "itens": [
-      "O ajuste manual de volume saiu do painel: vale o do próprio aparelho.",
-      "Barra de progresso na largura inteira, com o título centralizado.",
-      "Botão de histórico na última célula da linha de baixo."
-    ]
-  },
-  {
-    "versao": "1.3.7",
-    "itens": [
-      "Espaçamentos do painel de controles iguais em todo lugar.",
-      "Os sete botões da linha de baixo ficaram idênticos.",
-      "A preview passou a preencher a coluna inteira."
-    ]
-  },
-  {
-    "versao": "1.3.6",
-    "itens": [
-      "Botões de slide com a altura exata da preview.",
-      "Os três ícones sobre a preview espalhados em topo, meio e base."
-    ]
-  },
-  {
-    "versao": "1.3.5",
-    "itens": [
-      "Passar e voltar slide passaram a ladear a preview, em altura inteira.",
-      "Ver a letra, cobrir o telão e mudo subiram para uma coluna à esquerda.",
-      "⏮/⏭ da barra de transporte passam mídia e mais nada.",
-      "O selo da camada de cima foi para o topo, ao centro."
-    ]
-  },
-  {
-    "versao": "1.3.4",
-    "itens": [
-      "Mais respiro entre os pares de acorde e letra da cifra.",
-      "A quebra de estrofe ficou distinguível da quebra de par."
-    ]
-  },
-  {
-    "versao": "1.3.3",
-    "itens": [
-      "A busca manual de cifra saiu: a aba é só automática.",
-      "Não achando, a aba mostra o motivo e nada mais."
-    ]
-  },
-  {
-    "versao": "1.3.2",
-    "itens": [
-      "O botão \"Trocar\" saiu do rodapé da cifra."
-    ]
-  },
-  {
-    "versao": "1.3.1",
-    "itens": [
-      "\"Trocar\" e \"Ver no Cifra Club\" deixaram de ficar colados.",
-      "A linha do tom e da rolagem da cifra ganhou respiro.",
-      "Versão e Registro seguem a margem do resto da tela."
-    ]
-  },
-  {
-    "versao": "1.3.0",
-    "itens": [
-      "A rolagem automática da cifra parava numa música aberta pela Biblioteca.",
-      "\"Salvar Registro\" não respondia ao toque.",
-      "A conta de cifras do Registro dizia \"0 por varrer\" indevidamente.",
-      "Contraste corrigido no tema claro."
+      "O Cronograma virou a tela única: a barra de abas saiu.",
+      "Na base dele: Bíblia à esquerda, Importar no centro e Ferramentas à direita, com nome.",
+      "A Bíblia virou uma janela do Cronograma, como as Ferramentas.",
+      "A barra de busca da Biblioteca saiu de dentro dela e ficou sempre à mão.",
+      "Tocar no campo abre a Biblioteca com o teclado; a seta ao lado abre sem ele.",
+      "A Biblioteca agora sobe da barra e para um pouco abaixo do topo, como uma janela."
     ]
   }
 ]

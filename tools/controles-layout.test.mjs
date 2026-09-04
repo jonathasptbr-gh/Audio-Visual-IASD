@@ -38,12 +38,10 @@
 //
 //   node tools/controles-layout.test.mjs
 // ============================================================================
-import { chromium } from 'playwright';
-import http from 'node:http';
-import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { semRedeExterna } from './sem-rede.mjs';
+import { servirEstatico, abrirNavegador, checar, falhas } from './arnes.mjs';
 
 // A ponte de mentira: o modo avançado é o território deste oráculo, e sem
 // `__NATIVE__` metade das guardas do deck nem roda.
@@ -76,35 +74,10 @@ const PONTE = `(() => {
 })();`;
 
 const RAIZ = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'app', 'src', 'main', 'assets', 'web');
-const TIPOS = {
-  '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8',
-  '.css': 'text/css; charset=utf-8', '.json': 'application/json',
-  '.woff2': 'font/woff2', '.png': 'image/png', '.jpg': 'image/jpeg', '.svg': 'image/svg+xml',
-};
-const servidor = http.createServer((req, res) => {
-  let p = decodeURIComponent(new URL(req.url, 'http://x').pathname);
-  if (p.endsWith('/')) p += 'index.html';
-  const arquivo = path.join(RAIZ, p);
-  if (!arquivo.startsWith(RAIZ) || !fs.existsSync(arquivo) || fs.statSync(arquivo).isDirectory()) {
-    res.writeHead(404); res.end('nao'); return;
-  }
-  res.writeHead(200, { 'Content-Type': TIPOS[path.extname(arquivo)] || 'application/octet-stream' });
-  fs.createReadStream(arquivo).pipe(res);
-});
-
-const falhas = [];
-function checar(cond, msg, obtido) {
-  if (cond) console.log('ok      ' + msg);
-  else {
-    console.log('FALHOU  ' + msg + (obtido !== undefined ? '\n        obtido: ' + JSON.stringify(obtido) : ''));
-    falhas.push(msg);
-  }
-}
+const servidor = servirEstatico(RAIZ);
 
 await new Promise((r) => servidor.listen(0, r));
-const navegador = await chromium.launch(
-  process.env.PW_CHROMIUM ? { executablePath: process.env.PW_CHROMIUM } : {},
-);
+const navegador = await abrirNavegador();
 const ctx = await navegador.newContext({ viewport: { width: 430, height: 900 } });
 await semRedeExterna(ctx);
 const pg = await ctx.newPage();
@@ -163,6 +136,65 @@ try {
       // mudou: a sétima é uma de sete células idênticas, e é ela que fecha a
       // direita do deck junto com o botão de passar slide.
       hist: cx('#lyricsViewBtn'), seis,
+      // ===== O CARTÃO DA LINHA DO TEMPO (v1.5.13) =====
+      // O fundo EFETIVO dela e o de um botão do transporte, para o par abaixo.
+      // Os dois são `--surface`, que é tinta com ALFA: `backgroundColor`
+      // devolve o alfa, então quem responde "que cor o navegador pintou?" é a
+      // pilha composta até o primeiro fundo opaco.
+      ...(() => {
+        // ===== O PARSE É POR CANVAS, E NÃO POR REGEX (v1.5.15) =====
+        // `color-mix` COMPUTA como `color(srgb 1 1 1 / 0.042)`, cujos canais vão
+        // de 0 a 1 — uma regex de números sobre essa string devolve (1, 1, 1) e
+        // o oráculo passa a medir preto quase puro. Não erra alto: ele reprova
+        // com um número plausível, e quem lê o log conclui que o app quebrou.
+        // O canvas resolve QUALQUER sintaxe de cor que o navegador aceite, que
+        // é exatamente a pergunta ("o que o navegador pintou?").
+        const cv = document.createElement('canvas'); cv.width = cv.height = 1;
+        const g2 = cv.getContext('2d', { willReadFrequently: true });
+        const rgba = (c) => { g2.globalCompositeOperation = 'copy';
+          g2.fillStyle = c; g2.fillRect(0, 0, 1, 1);
+          const d = g2.getImageData(0, 0, 1, 1).data;
+          return [d[0], d[1], d[2], d[3] / 255]; };
+        // O VÉU DO PRÓPRIO ELEMENTO entra na conta (v1.5.15): um `:disabled`
+        // deste app é `opacity: var(--op-inativo)`, e o que ele PINTA é a
+        // superfície dele composta contra o pai. Sem isto o oráculo leria a
+        // superfície CHEIA de um botão apagado — a cor que ele não tem na tela.
+        const empilhar = (el, comVeu) => { const pil = []; let e = el; let veu = 1;
+          while (e) { const cs = getComputedStyle(e);
+            if (comVeu && e === el) veu = parseFloat(cs.opacity) || 1;
+            const v = rgba(cs.backgroundColor);
+            if (v[3] > 0) pil.push(v); if (v[3] === 1) break; e = e.parentElement; }
+          let o = pil.pop() || [255, 255, 255, 1];
+          while (pil.length) { const t = pil.pop();
+            o = [0, 1, 2].map((i) => t[3] * t[i] + (1 - t[3]) * o[i]).concat([1]); }
+          return [o, veu]; };
+        const efetivo = (el) => {
+          if (!el) return null;
+          const [o, veu] = empilhar(el, true);
+          let cor = o;
+          if (veu < 1 && el.parentElement) {
+            const pai = empilhar(el.parentElement, false)[0];
+            cor = [0, 1, 2].map((i) => o[i] * veu + pai[i] * (1 - veu));
+          }
+          return 'rgb(' + cor.slice(0, 3).map(Math.round).join(', ') + ')'; };
+        const np = document.querySelector('.nowplaying');
+        const btn = document.querySelector('.transport .t-btn');
+        const slide = document.getElementById('slidePrevBtn');
+        return {
+          npFundo: efetivo(np),
+          npFundoCru: getComputedStyle(np).backgroundColor,
+          npRaio: getComputedStyle(np).borderRadius,
+          npPadX: [getComputedStyle(np).paddingLeft, getComputedStyle(np).paddingRight],
+          btnFundo: btn ? efetivo(btn) : null,
+          // O botão de slide APAGADO — a régua que o operador nomeou — e o mesmo
+          // botão sem o véu, que é o tom que o cartão tinha até a v1.5.14.
+          slideOff: slide && slide.disabled ? efetivo(slide) : null,
+          slideCheio: slide ? (() => {
+            const antes = slide.disabled; slide.disabled = false;
+            const c = efetivo(slide); slide.disabled = antes; return c; })() : null,
+          barFundo: efetivo(document.querySelector('.bottombar')),
+        };
+      })(),
     };
   });
   const perto = (a, b) => Math.abs(a - b) < 0.6;
@@ -241,6 +273,54 @@ try {
     checar(perto((g.titulo.esq + g.titulo.dir) / 2, (g.deck.esq + g.deck.dir) / 2),
       `e o TÍTULO está centrado na largura inteira do deck (${nome})`,
       { titulo: (g.titulo.esq + g.titulo.dir) / 2, deck: (g.deck.esq + g.deck.dir) / 2 });
+
+    // ===== E ELA É UM CARTÃO (v1.5.13) =====
+    // Pedido do operador: *"coloque a seção da barra de progresso da mídia …
+    // dentro de um card, pois é o único elemento visual do controle que não
+    // está dentro de um elemento visual. por causa da barra de buscas, ali se
+    // tornou um buraco no design"*.
+    //
+    // TRÊS metades, e nenhuma basta sozinha:
+    //
+    // 1. ELA PINTA. Uma regra que só trocasse classe passaria num teste de
+    //    classe e continuaria sendo um buraco na tela, então a régua é o fundo
+    //    EFETIVO contra o da caixa que a hospeda.
+    checar(g.npFundo !== g.barFundo,
+      `a linha do tempo PINTA: ela não é mais a única peça da caixa pousada `
+      + `direto no fundo (${nome})`, { cartao: g.npFundo, caixa: g.barFundo });
+    // 2. E ELA PINTA O TOM DE UM CONTROLE INATIVO (v1.5.15), não um tom novo.
+    //    A v1.5.13 cobrava o tom de um botão ATIVO e o operador apontou a
+    //    diferença: *"ajuste o cinza dela para o mesmo cinza claro dos botões
+    //    inativos de próximo e anterior slide"*. A régua continua sendo um
+    //    botão RENDERIZADO — `--surface` lido de volta provaria só que a folha
+    //    declara o que declara —, e é ela que impede a correção de inaugurar um
+    //    degrau: no tema CLARO `--bar` é branco e `--panel` também, então um
+    //    cartão em `--panel` mediria 1,00:1 contra a caixa e não existiria (a
+    //    mesma aritmética da borda do campo, na v1.5.5).
+    //
+    //    A RÉGUA É O BOTÃO APAGADO, com o véu de `--op-inativo` composto: os
+    //    dois lados do `===` saem do MESMO caminho de medição, então um véu que
+    //    mude num lugar só reprova aqui em vez de sair na tela.
+    checar(g.slideOff !== null && g.npFundo === g.slideOff,
+      `e ela veste o tom de um controle INATIVO — o cinza dos botões de slide `
+      + `apagados, e não o do botão aceso (${nome})`,
+      { cartao: g.npFundo, slideApagado: g.slideOff, slideAceso: g.slideCheio });
+    // 2-bis. E A REVERSÃO: o tom do botão ACESO é outro. Sem esta metade, um
+    //    `--op-inativo` que fosse a 1 (ou o véu apagado por engano) devolveria
+    //    a v1.5.13 e a asserção acima continuaria passando — os dois lados
+    //    voltariam a ser a mesma superfície cheia, concordando em silêncio.
+    checar(g.slideCheio !== null && g.slideOff !== g.slideCheio
+      && g.npFundo !== g.slideCheio,
+      `e o INATIVO é de fato outro tom que o ATIVO — o véu existe (${nome})`,
+      { cartao: g.npFundo, slideApagado: g.slideOff, slideAceso: g.slideCheio });
+    // 3. E O RECUO É SÓ VERTICAL. Um `padding` horizontal aqui comprime a grade
+    //    do `.np-seek`, e as três asserções logo acima deixam de bater — mas
+    //    elas reprovam DEPOIS do estrago, com três mensagens que falam de
+    //    colunas e não da causa. Esta diz a causa.
+    checar(parseFloat(g.npPadX[0]) === 0 && parseFloat(g.npPadX[1]) === 0,
+      `e o recuo do cartão é só VERTICAL: na horizontal ele comprimiria as `
+      + `colunas do deck e a barra sairia de cima da preview (${nome})`,
+      g.npPadX);
 
     // E A PROPORÇÃO DO TELÃO SOBREVIVE A TUDO ISSO. É a única coisa que a
     // miniatura não pode falsear — ela existe para o operador conferir o que
@@ -410,6 +490,75 @@ try {
   checar(/matrix\(1,\s*0,\s*0,\s*1,\s*0,\s*2\)/.test(naBarra),
     'e o botão DA BARRA continua afundando os 2px: o que mudou é o desenho SEM '
     + 'pastilha, não a regra do app', naBarra);
+
+  // ── 2b-bis. A SETA DO ACORDEÃO DA BIBLIOTECA (v1.5.14) ──────────────────
+  //
+  // Ela estava nomeada nas GUARDAS do `--press` — as que zeram o recuo da barra
+  // quando o dedo pousa num botão dela — e NÃO estava na lista `:is()`, nem
+  // tinha `:active` próprio. Tocá-la CANCELAVA o feedback do vizinho sem dar
+  // nenhum no lugar, enquanto o comentário logo acima da guarda afirmava o
+  // contrário: *"o dedo pousa num deles e é ELE que responde, não a linha
+  // inteira por baixo"*. O efeito na mão é o pior tipo de inconsistência — o
+  // MESMO gesto responde ou não conforme onde o dedo cai: a barra afunda, a
+  // seta a dois milímetros dali não.
+  //
+  // DUAS COISAS FORAM MEDIDAS ESCREVENDO ESTE CASO, e nenhuma é óbvia:
+  // 1. O recuo tem de COMPOR com o giro. `transform` é uma propriedade só, e a
+  //    seta de uma seção FECHADA já gira 180° — a lista do `--press` a apagaria
+  //    (a seta daria um pulo de meia-volta ao ser tocada). E a ORDEM importa:
+  //    `rotate(180deg) translateY(2px)` translada no sistema JÁ GIRADO e a seta
+  //    SOBE — medido, `matrix(…, 0, -2)` contra o `(…, 0, 2)` que se quer.
+  // 2. A medição espera a TRANSIÇÃO. `.coll-group-icon` tem
+  //    `transition: transform`, então amostrar no instante do `mouse.down`
+  //    devolve o valor de PARTIDA e aprova uma regra que não existe — foi
+  //    exatamente o que a primeira escrita deste caso fez.
+  const seta = await (async () => {
+    const alvo = '#hymnResults > .coll-group--drop:not(.aberto) .coll-group-icon';
+    const p0 = await pg.evaluate(async (sel) => {
+      if (!hymnSearchPopupEl.classList.contains('open')) openHymnSearch();
+      await new Promise((r) => setTimeout(r, 250));
+      const el = document.querySelector(sel);
+      if (!el) return null;
+      const r = el.getBoundingClientRect();
+      return { x: Math.round(r.x + r.width / 2), y: Math.round(r.y + r.height / 2),
+        w: Math.round(r.width), h: Math.round(r.height),
+        t: getComputedStyle(el).transform };
+    }, alvo);
+    if (!p0) return null;
+    await pg.mouse.move(p0.x, p0.y);
+    await pg.mouse.down();
+    await pg.waitForTimeout(350);
+    const d = await pg.evaluate((sel) => {
+      const el = document.querySelector(sel);
+      return { t: getComputedStyle(el).transform, f: getComputedStyle(el).filter };
+    }, alvo);
+    await pg.mouse.move(1, 1);
+    await pg.mouse.up();
+    await pg.evaluate(() => { closeHymnSearch(); });
+    await pg.waitForTimeout(200);
+    return { antes: p0, durante: d };
+  })();
+  checar(!!seta, 'a seta de uma seção FECHADA da Biblioteca foi encontrada', seta);
+  if (seta) {
+    const m = /matrix\(([^)]+)\)/.exec(seta.durante.t);
+    const ty = m ? parseFloat(m[1].split(',')[5]) : 0;
+    const giradaAntes = seta.antes.t.startsWith('matrix(-1');
+    const giradaDurante = seta.durante.t.startsWith('matrix(-1');
+    checar(ty === 2 && seta.durante.f !== 'none',
+      'A SETA DO ACORDEÃO RESPONDE AO TOQUE: afunda os 2px e acende. Ela estava '
+      + 'nas guardas que zeram o recuo da barra e fora da lista do `--press` — '
+      + 'tocá-la apagava o feedback do vizinho sem dar nenhum',
+      'antes ' + seta.antes.t + ' · durante ' + seta.durante.t + ' · ' + seta.durante.f);
+    checar(giradaAntes === giradaDurante,
+      '  ↳ e o GIRO sobrevive ao recuo: `transform` é uma propriedade só, e a '
+      + 'seta de uma seção fechada aponta para baixo — o `--press` sozinho a '
+      + 'endireitaria no meio do toque',
+      'girada antes: ' + giradaAntes + ' · durante: ' + giradaDurante);
+    checar(seta.antes.w >= 34 && seta.antes.h >= 34,
+      '  ↳ e ela alcança o `--hit`: era 32×32, o único alvo da Biblioteca abaixo '
+      + 'do piso de toque do próprio app, no controle mais tocado daquela tela',
+      seta.antes.w + '×' + seta.antes.h);
+  }
 
   // ── 2c. O ANEL DE FOCO É DO TECLADO, E SÓ DELE (v1.4.34) ────────────────
   //
@@ -616,6 +765,139 @@ try {
   checar(selo.naBase < selo.alturaPv * 0.25, 'e na BASE da preview', selo);
   checar(selo.colideComOperacao === false,
     'e ele não encosta na coluna de operação — é por não fazer coluna com ninguém que ele continua se lendo como estado, e não como controle', selo);
+
+  // ── 3-B. A BASE DA PREVIEW É A REGIÃO DO QUE ESTÁ FORA DO PADRÃO (v1.4.43) ──
+  //
+  // Pedido do operador: *"essa região inferior no centro da preview vai ser uma
+  // região flexível que vai conter elementos passageiros. no caso, agora quando
+  // o giro do telão estiver diferente de 0, adicione um botão ali nessa região
+  // para cancelar essa modificação, permitindo voltar a posição padrão"*.
+  //
+  // CINCO METADES, e cada uma falha CALADA por um caminho próprio:
+  //
+  //  1. ELE APARECE PELO CAMINHO REAL. Quem o mostra é `renderRotBtn`, o render
+  //     do ESTADO que ele desfaz — um render próprio, chamado de um lugar só,
+  //     deixaria o botão de pé depois de o giro voltar a zero, oferecendo
+  //     desfazer o que já não existe. O oráculo aplica o giro por `applyRotate`,
+  //     que é a porta única, e não escrevendo `hidden` à mão.
+  //  2. O TOQUE VOLTA AO PADRÃO, medido no COMANDO que sai no barramento: é o
+  //     telão que tem de girar de volta, e um `applyRotate` que só repintasse o
+  //     tile deixaria a projeção girada com a preview dizendo que não está.
+  //  3. E ELE SOME DEPOIS. Sem esta, um botão que só acende passaria na 1 e na 2.
+  //  4. A COR É A DO VIZINHO — e NÃO a dos botões de player —, medida no
+  //     RENDERIZADO (v1.4.45). Os dois moradores da faixa fazem a mesma promessa
+  //     (*"o toque daqui TIRA alguma coisa"*), então vestem o mesmo
+  //     `--stage-alert`; o que os separa é o DESENHO, e é a asserção 4-B. A
+  //     comparação com o branco fica: é a armadilha que o `.pv-fab--camada` já
+  //     pagou uma vez — escrita ANTES da `.pv-fab` na folha, a regra perde para o
+  //     `color: var(--stage-text)` e o botão sai BRANCO, igual aos de player ao
+  //     lado, isto é, sem dizer nada. Um teste de classe aprova as duas versões.
+  //  4-B. O ✕ É O MESMO, VERBATIM, e o resto do desenho NÃO É. O ✕ é a marca de
+  //     destruição da faixa e tem de ser uma só — um redesenhado dois pixels
+  //     adiante é uma segunda opinião sobre a mesma coisa; e o que sobra depois
+  //     dele tem de diferir, senão os dois botões são o mesmo botão em vermelho.
+  //  5. O NÚMERO CABE. Ele é o ESTADO (uma seta circular sozinha sobre a
+  //     projeção leria "girar mais 90°", o oposto do que o toque faz), e é o
+  //     único `.pv-fab` mais largo que `--hit`: mantido o `width` fixo dos
+  //     irmãos, "180°" sai cortado sem erro em lugar nenhum.
+  const giro = await pg.evaluate(async () => {
+    const btn = document.getElementById('pvGiroBtn');
+    if (!btn) return null;
+    // A RÉGUA DO BRANCO É UM VIZINHO RENDERIZADO, nunca o valor do token: o
+    // `--stage-text` sai de `getPropertyValue` como `#fff` e a cor computada
+    // sai como `rgb(255, 255, 255)` — duas escritas da mesma cor que nunca são
+    // iguais como string, e a comparação passa SEMPRE. MEDIDO por reversão: com
+    // o `.pv-fab--giro` pintado de `--stage-text` de propósito, a asserção
+    // continuava verde. Quem responde é o botão de tela cheia, que é um
+    // `.pv-fab` sem cor própria e mora na mesma miniatura.
+    const brancoDoPalco = getComputedStyle(document.getElementById('pvFullBtn')).color;
+    const cor = (el) => getComputedStyle(el).color;
+    const antes = { escondido: btn.hidden };
+    await applyRotate(90);
+    // Os traços de cada botão, na ordem do documento. `<polyline>` entra junto —
+    // o desenho é o conjunto de traços, não só o que é `<path>`.
+    const tracos = (el) => [...el.querySelectorAll('path, polyline')]
+      .map((n) => (n.getAttribute('d') || n.getAttribute('points') || '').trim());
+    const doSelo = tracos(document.getElementById('pvCamadaBtn'));
+    const doGiro = tracos(btn);
+    const aceso = {
+      escondido: btn.hidden,
+      num: (document.getElementById('pvGiroNum') || {}).textContent,
+      cor: cor(btn),
+      corDoSelo: cor(document.getElementById('pvCamadaBtn')),
+      // A marca partilhada (o ✕) e o que é próprio de cada um (o assunto).
+      comuns: doGiro.filter((d) => doSelo.includes(d)),
+      soDoGiro: doGiro.filter((d) => !doSelo.includes(d)),
+      soDoSelo: doSelo.filter((d) => !doGiro.includes(d)),
+      titulo: btn.title,
+      cabe: btn.scrollWidth <= btn.clientWidth + 1,
+      largura: Math.round(btn.getBoundingClientRect().width),
+      alvo: Math.round(btn.getBoundingClientRect().height),
+    };
+    // O espião entra no ponto por onde TODO comando passa.
+    const vistos = [];
+    const original = window.cmd;
+    window.cmd = (c) => { vistos.push(c); };
+    btn.click();
+    // ESPERA PELO FATO, não por um prazo: `applyRotate` grava no banco ANTES de
+    // mandar o comando, então o `cmd` sai depois de uma volta ao IndexedDB —
+    // um `setTimeout(0)` restaura o espião antes de ele ver alguma coisa, e o
+    // que sobra é uma lista vazia lida como "o app não mandou nada".
+    for (let i = 0; i < 200 && !vistos.length; i++) {
+      await new Promise((r) => requestAnimationFrame(() => r()));
+    }
+    window.cmd = original;
+    return {
+      antes, aceso, brancoDoPalco,
+      comandos: vistos.map((c) => c.type + ':' + c.rotate),
+      depois: { escondido: btn.hidden, rot: mediaRot },
+      naBase: (() => {
+        const faixa = btn.closest('.pv-fabs--base');
+        return !!faixa && faixa.contains(document.getElementById('pvCamadaBtn'));
+      })(),
+    };
+  });
+  if (!giro) {
+    checar(false, 'a base da preview tem o botão de desfazer o giro do telão');
+  } else {
+    checar(giro.antes.escondido && !giro.aceso.escondido,
+      'o DESFAZER DO GIRO nasce escondido e aparece quando o giro sai de 0 — pelo '
+      + 'render do estado que ele desfaz, não por um `hidden` escrito à mão', giro.antes);
+    checar(giro.aceso.num === '90°',
+      'e ele diz o ÂNGULO: o número é o estado, sem o qual a seta circular sobre a '
+      + 'projeção se leria como "girar mais 90°"', giro.aceso.num);
+    checar(/volta à posição padrão/.test(giro.aceso.titulo || ''),
+      'e o `title` diz a AÇÃO — a divisão de sempre: o desenho mostra o estado, a frase diz o toque',
+      giro.aceso.titulo);
+    checar(giro.comandos.includes('rotate:0'),
+      'o toque manda o TELÃO de volta ao padrão (um `rotate: 0` no barramento) — '
+      + 'repintar só o tile deixaria a projeção girada', giro.comandos);
+    checar(giro.depois.rot === 0 && giro.depois.escondido,
+      'e o botão SOME depois: um que só acende passaria nas duas de cima e ficaria '
+      + 'oferecendo desfazer o que já não existe', giro.depois);
+    checar(giro.aceso.cor === giro.aceso.corDoSelo && giro.aceso.cor !== giro.brancoDoPalco,
+      'a COR dele é a MESMA do selo de camadas, e não o branco dos botões de '
+      + 'player: os dois moradores da faixa fazem a mesma promessa — o toque daqui '
+      + 'TIRA alguma coisa. Medida no RENDERIZADO, porque uma regra escrita ANTES '
+      + 'da `.pv-fab` perde para o `--stage-text` e o botão sai branco, sem dizer '
+      + 'nada', giro.aceso);
+    checar(giro.aceso.comuns.length === 2,
+      'e ele carrega o ✕ DO VIZINHO, verbatim (os dois traços) — a marca de '
+      + 'destruição da faixa é uma só, e um ✕ redesenhado dois pixels adiante é '
+      + 'uma segunda opinião sobre a mesma coisa',
+      JSON.stringify(giro.aceso.comuns));
+    checar(giro.aceso.soDoGiro.length > 0 && giro.aceso.soDoSelo.length > 0,
+      'e o resto do desenho é PRÓPRIO de cada um: com a cor igual, é o ícone que '
+      + 'diz o que o ✕ destrói — sem esta metade, dois botões idênticos em '
+      + 'vermelho passariam nas duas de cima',
+      JSON.stringify([giro.aceso.soDoGiro, giro.aceso.soDoSelo]));
+    checar(giro.aceso.cabe && giro.aceso.largura > giro.aceso.alvo,
+      'e o número CABE: ele é o único `.pv-fab` mais largo que `--hit`, e com a '
+      + 'largura fixa dos irmãos "180°" sairia cortado sem erro nenhum', giro.aceso);
+    checar(giro.naBase,
+      'e ele mora na MESMA faixa do selo de camadas — a base ao centro é a região '
+      + 'do que está fora do padrão, não uma barra de ferramentas nova');
+  }
 
   // ── 4. A ARMADILHA DO `<use>`: o desenho tem de TROCAR ─────────────────
   //
@@ -825,8 +1107,14 @@ try {
     };
     return { ids, hist: caixa('#lyricsViewBtn'), vizinho: caixa('#next') };
   });
-  checar(linha.ids.join(',') === 'repeat,plBtn,prev,playpause,stop,next,lyricsViewBtn',
-    'a ordem é repetir → playlist → anterior → play → parar → próximo → auxiliar de leitura',
+  // A ORDEM MUDOU NA v1.5.6, a pedido do operador: *"ajuste a ordem dos controles
+  // da mídia na linha abaixo do preview. Está: …, música anterior, play/pause,
+  // stop, próxima música. Coloque o stop após o 'próxima música'"*. O parar
+  // estava ENTRE o ▶ e o ⏭, isto é, no meio do trio de navegação — o dedo que vai
+  // do play para a próxima passa por cima do único botão da fileira que ENCERRA a
+  // cena. Fora do trio, ⏮ ▶ ⏭ ficam contíguos e o parar é o fim da linha.
+  checar(linha.ids.join(',') === 'repeat,plBtn,prev,playpause,next,stop,lyricsViewBtn',
+    'a ordem é repetir → playlist → anterior → play → próximo → parar → auxiliar de leitura',
     linha.ids);
   checar(linha.hist.fundo === linha.vizinho.fundo && linha.hist.raio === linha.vizinho.raio,
     'e a sétima veste a MESMA caixa dos vizinhos — um chapado sozinho numa fileira de seis com fundo lê como um que ficou de fora',

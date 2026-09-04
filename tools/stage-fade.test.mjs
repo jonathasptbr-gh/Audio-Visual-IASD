@@ -19,25 +19,17 @@
 // congregação inteira.
 //
 //   node tools/stage-fade.test.mjs
-import { chromium } from 'playwright';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { semRedeExterna } from './sem-rede.mjs';
+import { abrirNavegador, checar, falhas, esperar, porque } from './arnes.mjs';
 
 const AQUI = path.dirname(fileURLToPath(import.meta.url));
 const WEB = path.join(AQUI, '..', 'app', 'src', 'main', 'assets', 'web');
 const STAGE = fs.readFileSync(path.join(WEB, 'shared', 'stage.js'), 'utf8');
 
-const falhas = [];
-function checar(cond, msg, obtido) {
-  if (cond) console.log('ok      ' + msg);
-  else { console.log('FALHOU  ' + msg + (obtido ? '\n        obtido: ' + obtido : '')); falhas.push(msg); }
-}
-
-const navegador = await chromium.launch(
-  process.env.PW_CHROMIUM ? { executablePath: process.env.PW_CHROMIUM } : {},
-);
+const navegador = await abrirNavegador();
 const ctx = await navegador.newContext();
 await semRedeExterna(ctx);
 const pg = await ctx.newPage();
@@ -115,43 +107,65 @@ function entrouComFade(amostras) {
 // abrir o app e projetar um vídeo.
 await zerar();
 await pg.evaluate(() => window.__stage.handle({ type: 'load', mediaId: 'a', view: 'visual' }));
-await pg.waitForTimeout(1200);
+// O FATO, não o relógio: as amostras já contêm um `0` e, DEPOIS dele, um `1`.
+// É a mesma pergunta do `entrouComFade` — feita de dentro da página, para a
+// espera acabar no instante em que a resposta muda.
+const viuAbertura = await esperar(pg, () => {
+  const a = window.__amostras.v; const z = a.lastIndexOf('0');
+  return z >= 0 && a.slice(z).includes('1');
+});
 const abertura = await colher();
 checar(entrouComFade(abertura.v),
   'vídeo entrando sobre o wallpaper: sobe de 0 até 1 (e não entra no talo)',
-  'amostras: ' + JSON.stringify([...new Set(abertura.v)]));
+  porque(viuAbertura) || 'amostras: ' + JSON.stringify([...new Set(abertura.v)]));
 
 // E ele SOBE: o fade não pode ser um zero que fica.
-await pg.waitForTimeout(17000);
+//
+// MEDIDO: o estilo é limpo em ~3,1 s (o `mediaReady` de um blob VAZIO cai no
+// prazo de socorro do `stage.js`, e só então o `runFadeIn` roda e o
+// `clearFadeStyle` devolve string vazia). Aqui havia uma espera FIXA de 17 s —
+// 14 s de sono em TODA rodada verde, para afirmar o mesmo. O prazo generoso
+// fica como TETO: quem estoura devolve a frase, não o veredito.
+const limpou = await esperar(pg, () => window.__v.style.opacity === ''
+  && window.__v.style.transition === '' && window.__v.hidden === false, null, 20000);
 const depois = await pg.evaluate(() => ({
   op: window.__v.style.opacity, tr: window.__v.style.transition, escondido: window.__v.hidden,
 }));
 checar(depois.op === '' && depois.tr === '',
   'e termina com o estilo LIMPO — uma opacidade presa em 0 apagaria a projeção',
-  JSON.stringify(depois));
+  porque(limpou) || JSON.stringify(depois));
 checar(depois.escondido === false, 'com o <video> visível no fim', JSON.stringify(depois));
 
 // TROCA DE ITEM com conteúdo já em cena: mesma regra.
 await zerar();
 await pg.evaluate(() => window.__stage.handle({ type: 'load', mediaId: 'b', view: 'visual' }));
-await pg.waitForTimeout(2000);
+const viuTroca = await esperar(pg, () => {
+  const a = window.__amostras.v; const z = a.lastIndexOf('0');
+  return z >= 0 && a.slice(z).includes('1');
+});
 const troca = await colher();
 checar(entrouComFade(troca.v),
   'troca de vídeo para vídeo: o que entra também sobe de 0 até 1',
-  'amostras: ' + JSON.stringify([...new Set(troca.v)]));
+  porque(viuTroca) || 'amostras: ' + JSON.stringify([...new Set(troca.v)]));
 
 // A CORTINA continua sendo a transição de quem NÃO toca. Uma imagem carregada
 // com o wallpaper cobrindo é revelada pelo `coverOut()`, e a camada não pode
 // ganhar um segundo fade por baixo dele — seriam duas transições encaixadas.
 await pg.evaluate(() => window.__stage.handle({ type: 'clear' }));
-await pg.waitForTimeout(300);
+await esperar(pg, () => window.__v.hidden === true, null, 5000);
 await zerar();
 await pg.evaluate(() => window.__stage.handle({ type: 'load', mediaId: 'img1', view: 'visual' }));
-await pg.waitForTimeout(2000);
+// AQUI A ASSERÇÃO É UMA AUSÊNCIA (`!includes('0')`), e não se espera por um
+// fato que não deve acontecer: espera-se pelo fato que FECHA a janela em que
+// ele poderia. Com a imagem à vista e o estilo já limpo, o `load` inteiro
+// passou — MEDIDO em ~630 ms, contra os 2 s que estavam escritos aqui.
+const revelou = await esperar(pg, () => window.__i.hidden === false
+  && window.__i.style.opacity === '' && window.__i.style.transition === '', null, 10000);
 const comCortina = await colher();
 checar(!comCortina.i.includes('0'),
   'imagem revelada pela cortina: sem um segundo fade por baixo dela',
-  comCortina.i.filter((x) => x === '0').length + ' quadros em opacidade 0');
+  porque(revelou)
+  || comCortina.i.filter((x) => x === '0').length + ' quadros em opacidade 0');
 
 // ===== PARAR UM ÁUDIO SEM LETRA ESMAECE O SOM =====
 //
@@ -172,14 +186,19 @@ await pg.evaluate(async () => {
 await pg.waitForTimeout(300);
 await zerar();
 await pg.evaluate(() => window.__stage.handle({ type: 'clear' }));
-await pg.waitForTimeout(1400);
+// A rampa É o fato: espera-se por ela ter deixado rastro (três amostras entre
+// 0 e 1), e não pelos 1,4 s em que ela caberia. Estourado o prazo, `colher`
+// devolve o que houver e a asserção reprova com a frase do prazo ao lado.
+const rampou = await esperar(pg, () => window.__amostras.vol
+  .filter((x) => typeof x === 'number' && x > 0.02 && x < 0.98).length >= 3, null, 8000);
 const som = await colher();
 const valores = som.vol.filter((x) => typeof x === 'number');
 const intermediarios = valores.filter((x) => x > 0.02 && x < 0.98).length;
 checar(intermediarios >= 3,
   'parar um ÁUDIO SEM LETRA esmaece o som em vez de cortá-lo no talo (a rampa '
   + 'não pode viver dentro da animação de uma cortina que já está fechada)',
-  intermediarios + ' amostra(s) intermediária(s) em ' + valores.length
+  porque(rampou)
+  || intermediarios + ' amostra(s) intermediária(s) em ' + valores.length
   + ' — distintos: ' + JSON.stringify([...new Set(valores.map((x) => Math.round(x * 20) / 20))]));
 
 await navegador.close();

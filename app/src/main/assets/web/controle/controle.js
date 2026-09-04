@@ -19,11 +19,6 @@ const muteToggleEl = document.getElementById('muteToggle');
 // Modo de uso (ver "Modos de uso" mais abaixo)
 const appModeSegEl = document.getElementById('appModeSeg');
 const temaTileEl = document.getElementById('temaTile');
-// A chave "este aparelho na contagem de uso" (v1.4.1) — ver `renderFarolLinha`.
-// Aqui em cima, com os irmãos, e não junto da função que a usa: o estado deste
-// arquivo mora no fim e as funções são alcançadas de cima, então um `const`
-// declarado lá embaixo é uma zona morta esperando a ordem de chamada mudar.
-const farolRowEl = document.getElementById('farolRow');
 const simpleModeEl = document.getElementById('simpleMode');
 const simpleSettingsBtnEl = document.getElementById('simpleSettingsBtn');
 const simpleSearchBtnEl = document.getElementById('simpleSearchBtn');
@@ -53,6 +48,7 @@ const simpleTimeFillEl = document.getElementById('simpleTimeFill');
 const simpleTimeHitEl = document.getElementById('simpleTimeHit');
 const simpleVolWrapEl = document.getElementById('simpleVolWrap');
 const simpleSlidesRowEl = document.getElementById('simpleSlidesRow');
+const simpleRemoteEl = document.querySelector('.simple-remote');
 const simpleSlidePrevEl = document.getElementById('simpleSlidePrev');
 const simpleSlideNextEl = document.getElementById('simpleSlideNext');
 const simpleSlideNumEl = document.getElementById('simpleSlideNum');
@@ -123,6 +119,10 @@ const lvBadgeEl = document.getElementById('lvBadge');
 // O A+/A− DESTA FOLHA (o do Modo Fácil é outro nó, e fica): ele some na aba
 // da apresentação, onde não há texto para dimensionar — ver `renderLyricsView`.
 const lyricsFonteCtlEl = document.getElementById('lyricsPopup').querySelector('.lv-fonte-ctl');
+// O ⛶ da CIFRA EM TELA CHEIA (v1.6.0). No cabeçalho, que é ESTÁTICO — a barra
+// da cifra é refeita a cada `renderLyricsView`, e um botão de estado guardado
+// de lá vira um nó desligado da árvore. Ver `cifraCheiaAlternar`.
+const cifraCheiaBtnEl = document.getElementById('cifraCheiaBtn');
 const lyricsPopupEl = document.getElementById('lyricsPopup');
 const lyricsPopupTitleEl = document.getElementById('lyricsPopupTitle');
 const lyricsPopupCloseEl = document.getElementById('lyricsPopupClose');
@@ -156,7 +156,13 @@ let lvTamanho = LV_PADRAO;
 
 function aplicarTamanhoDaLetra() {
   document.documentElement.style.setProperty('--lv-fonte', lvTamanho + 'rem');
-  const i = LV_TAMANHOS.indexOf(lvTamanho);
+  // O ÍNDICE SAI DA ESCADA QUE ESTÁ NO AR (v1.6.0). São DUAS — a de sempre e a
+  // da cifra em tela cheia (`cifraCheiaIdx`) —, e o estado desabilitado é
+  // pintado por CLASSE, nas duas casas de uma vez: lendo sempre `lvTamanho`, o
+  // par ficaria descrevendo a escada errada. O modo de falhar é MUDO — quem
+  // batesse no teto dentro da tela cheia sairia dela com o A+ desabilitado no
+  // retrato, e o botão simplesmente pararia de responder.
+  const i = cifraCheia ? cifraCheiaIdx : LV_TAMANHOS.indexOf(lvTamanho);
   // POR CLASSE, as duas casas de uma vez: uma terceira entra sem tocar aqui.
   document.querySelectorAll('.lv-fonte-menos').forEach((b) => { b.disabled = i <= 0; });
   document.querySelectorAll('.lv-fonte-mais')
@@ -166,10 +172,17 @@ function aplicarTamanhoDaLetra() {
 // GRAVA SÓ QUANDO MUDA. No fim da escada o toque não é um no-op silencioso: o
 // botão já está desabilitado, e esta guarda é a rede para o caminho por teclado.
 async function passoTamanhoDaLetra(passo) {
+  // A CIFRA EM TELA CHEIA TEM ESCADA PRÓPRIA (v1.6.0): o mesmo par de botões,
+  // outro índice e outra chave no banco. Ver `passoTamanhoDaCheia`.
+  if (cifraCheia) return passoTamanhoDaCheia(passo);
   const atual = LV_TAMANHOS.indexOf(lvTamanho);
   const base = atual < 0 ? LV_TAMANHOS.indexOf(LV_PADRAO) : atual;
   const alvo = Math.min(LV_TAMANHOS.length - 1, Math.max(0, base + passo));
   if (LV_TAMANHOS[alvo] === lvTamanho) return;
+  // Ver `cifraFracaoDeLeitura`: quem troca a fonte captura ANTES de mexer. Aqui
+  // a folha da cifra ainda pode estar aberta no retrato, e é o mesmo caminho —
+  // a linha abaixo já muda o comprimento dela.
+  const fracao = cifraFracaoDeLeitura();
   lvTamanho = LV_TAMANHOS[alvo];
   aplicarTamanhoDaLetra();
   // A LISTA ACOMPANHA O QUE ESTÁ NO AR: mudar o corpo da letra muda a altura de
@@ -182,7 +195,7 @@ async function passoTamanhoDaLetra(passo) {
   // A CIFRA quebra por CARACTERE, então mudar o corpo muda quantos cabem: sem
   // esta linha a folha ficaria quebrada para o tamanho anterior — estourando a
   // caixa ao aumentar, ou desperdiçando metade da largura ao diminuir.
-  cifraRemedir();
+  cifraRemedir(fracao);
   try { await AVDB.setState('lyricsFont', lvTamanho); } catch (_) { /* sem banco: vale a sessão */ }
 }
 
@@ -213,6 +226,8 @@ const pvLyricsAuxEl = document.getElementById('pvLyricsAux');
 const pvLyricsNumEl = document.getElementById('pvLyricsNum');
 const pvTextEl = document.getElementById('pvText');
 const pvCamadaBtnEl = document.getElementById('pvCamadaBtn');
+const pvGiroBtnEl = document.getElementById('pvGiroBtn');
+const pvGiroNumEl = document.getElementById('pvGiroNum');
 const pvTextContentEl = document.getElementById('pvTextContent');
 const pvTextMainEl = document.getElementById('pvTextMain');
 const pvTextSubEl = document.getElementById('pvTextSub');
@@ -243,7 +258,17 @@ const histClearFaixaEl = document.getElementById('histClearFaixa');
 
 const fileEl = document.getElementById('file');
 const mainEl = document.querySelector('main');
-const tabsEl = document.querySelector('.tabs');
+// (`tabsEl` saiu na v1.5.0 com a faixa de abas — ver `.lib-bar` no `index.html`.)
+const libBarEl = document.getElementById('libBar');
+// A CAIXA DE CONTROLES: é o `padding-top` dela que reserva o lugar da barra da
+// Biblioteca, e é a borda de cima dela que diz onde esse lugar está na tela
+// (ver `medirBarraDaBiblioteca`).
+const bottombarEl = document.querySelector('.bottombar');
+const hymnSearchToggleEl = document.getElementById('hymnSearchToggle');
+const bibleSheetEl = document.getElementById('bibleSheet');
+const bibleBodyEl = document.getElementById('bibleBody');
+const bibleBackEl = document.getElementById('bibleBack');
+const bibleCloseEl = document.getElementById('bibleClose');
 const libraryEl = document.getElementById('library');
 // O rodapé FIXO da caixa da lista: fora do `<ul>` rolável, e por isso sempre à
 // vista. Hospeda "Importar arquivos" e, durante a seleção múltipla, a `#selbar`
@@ -270,7 +295,7 @@ const appVersionEl = document.getElementById('appVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.4.41';
+const WEB_VERSION = '1.6.0';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -454,7 +479,7 @@ const rotBtnEl = document.getElementById('rotBtn');
 const lyricsBgTileEl = document.getElementById('lyricsBgTile');
 const wallFileEl = document.getElementById('wallFile');
 const wallTileEl = document.getElementById('wallTile');
-const diagCopyEl = document.getElementById('diagCopy');
+const diagRotEl = document.getElementById('diagRot');
 const diagSaveEl = document.getElementById('diagSave');
 // "Conectar uma tela": a linha em Configurações e a folha que ela abre.
 const castPopupEl = document.getElementById('castPopup');
@@ -484,9 +509,11 @@ const songMenuTitleEl = document.getElementById('songMenuTitle');
 const songMenuListEl = document.getElementById('songMenuList');
 const songMenuCloseEl = document.getElementById('songMenuClose');
 
-const hymnSearchBtnEl = document.getElementById('hymnSearchBtn');
+// (`#hymnSearchBtn` e `#hymnSearchClose` saíram na v1.5.0: a lupa da faixa de
+//  abas e o ✕ de dentro da folha viraram UM botão só, o `#hymnSearchToggle` da
+//  `.lib-bar`, que troca de desenho conforme a Biblioteca esteja aberta ou
+//  fechada. Ver `renderLibToggle`.)
 const hymnSearchPopupEl = document.getElementById('hymnSearchPopup');
-const hymnSearchCloseEl = document.getElementById('hymnSearchClose');
 const hymnSearchInputEl = document.getElementById('hymnSearchInput');
 const hymnResultsEl = document.getElementById('hymnResults');
 const bibleVerPopupEl = document.getElementById('bibleVerPopup');
@@ -546,7 +573,22 @@ let playing = false;
 // `pushNowPlaying` retorna antes de chegar nele).
 let seeking = false;      // operador arrastando a barra de progresso
 let repeat = 'all';
-let activeTab = 'imports';
+// ===== A BÍBLIA ESTÁ NO AR? (v1.5.0) =====
+// Era `activeTab`, com dois valores ('imports' e 'bible'), porque havia DUAS
+// telas de lista e uma faixa de abas para escolher entre elas. Com o Cronograma
+// virando a tela única, "qual aba" deixou de ser uma pergunta: o que sobra é se
+// a FOLHA da Bíblia está aberta por cima dele.
+//
+// O nome mudou porque o conceito mudou. Um `activeTab` que só pode valer
+// 'imports' é uma variável que responde uma pergunta que ninguém faz mais — e
+// as duas dúzias de `activeTab === 'imports'` que ela sustentava eram, todas,
+// "o Cronograma está à vista?", que hoje é sempre verdade (a folha cobre a
+// lista, não a substitui).
+//
+// É um BOOLEANO e não `!bibleSheetEl.hidden`: o `hidden` só cai no FIM da
+// animação de saída (ver `fecharBiblia`), e durante esses 220 ms os redesenhos
+// da Bíblia continuariam sendo pedidos para uma folha que já saiu de cena.
+let bibliaNoAr = false;
 let selectionMode = false;
 const selected = new Set();
 // Miniaturas blob→object URL, POR HOST de lista: com um balde único, redesenhar
@@ -2717,6 +2759,30 @@ async function makeThumb(file, kind, medidas) {
   return kind === 'image' ? thumbFromImage(file) : thumbFromVideo(file, medidas);
 }
 
+// A MINIATURA de um item de YouTube SEM bytes (link guardado, não baixado).
+//
+// Baixa o `hqdefault.jpg` como Blob, para o registro guardar mídia de verdade
+// em vez de uma URL externa — a mesma miniatura que hoje some assim que a
+// conexão cai. `null` cobre TODO desfecho ruim (sem rede, CORS recusado,
+// prazo vencido, HTTP != 2xx, blob vazio ou grande demais): quem chama cai de
+// volta na URL string, o comportamento de sempre.
+/** Teto de tamanho do Blob: `hqdefault.jpg` mede 15-30 kB de costume — bem
+ *  abaixo disto —, e o teto é só uma cerca contra o CDN um dia redirecionar
+ *  para outro asset. */
+const THUMB_YOUTUBE_MAX_BYTES = 300000;
+const THUMB_YOUTUBE_PRAZO_MS = 5000;
+function thumbYoutube(id) {
+  if (!id) return Promise.resolve(null);
+  const url = 'https://img.youtube.com/vi/' + id + '/hqdefault.jpg';
+  const busca = fetch(url).then((res) => {
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    return res.blob();
+  }).then((b) => (b && b.size && b.size < THUMB_YOUTUBE_MAX_BYTES ? b : null))
+    .catch(() => null);
+  const prazo = new Promise((resolve) => setTimeout(() => resolve(null), THUMB_YOUTUBE_PRAZO_MS));
+  return Promise.race([busca, prazo]);
+}
+
 // A DURAÇÃO de um áudio, para o subtítulo da lista (v5.118).
 //
 // Vídeo não precisa disto: o `<video>` que monta a miniatura já sabe a altura e
@@ -2797,6 +2863,48 @@ async function load(opts) {
   const restaurar = !!(opts && opts.restaurarScroll);
   const topoAntes = restaurar ? 0 : libraryEl.scrollTop;
   const myseq = ++loadSeqCtl;
+  // ===== A HIDRATAÇÃO PERDE A VEZ PARA O TOQUE (v1.6.0) =====
+  //
+  // `loadSeqCtl` logo acima resolve load × load. O que faltava é load × SEND:
+  // esta função lê o banco por uma dezena de `await`s e só então escreve as
+  // variáveis do módulo, e ninguém a chama com `await` — todo `db-change`
+  // dispara uma. Um `send()` que rode nesse intervalo escreve `currentId` e
+  // `currentItem` de forma síncrona, e o RABO desta função os sobrescrevia com
+  // o que o banco dizia ANTES do toque: *lost update* clássico.
+  //
+  // MEDIDO em arnês (`load()` sem `await`, `send(id)` em seguida): sobrava
+  // `currentId: null` com `midiaNoAr: true` — o app PROJETANDO um vídeo e
+  // dizendo que não há item selecionado. O ▶ seguinte caía em `send(undefined)`
+  // → `getMedia(undefined)` → `DataError`, e o "repetir a faixa com o ▶" morria
+  // junto. Não é hipótese: foi o que derrubou o `cena.test.mjs` no runner, que
+  // é mais lento que a máquina de quem escreve.
+  //
+  // A senha é a MESMA de `projecaoSeq` — quem projeta qualquer coisa a
+  // incrementa —, e não uma contagem nova: duas réguas para "quem chegou por
+  // último" divergiriam (é o argumento do `palcoEmVoo`, aplicado aqui).
+  //
+  // ===== E ELA VALE SÓ PARA A SELEÇÃO, que é o que o TOQUE decide =====
+  //
+  // `currentId`/`currentItem` são escritos em DOIS lugares no arquivo inteiro:
+  // aqui (hidratação) e no `send` (o toque). Tudo o mais que a FASE 2 aplica é
+  // CONFIGURAÇÃO — tema, corpo da letra, velocidade da rolagem, consentimento
+  // de download, as duas escadas da cifra —, e configuração não compete com
+  // toque nenhum: ninguém a decide no intervalo, e não aplicá-la deixaria o app
+  // com o valor da sessão anterior.
+  //
+  // O mudo, o volume e a cortina ficam do lado da CONFIGURAÇÃO, e a régua já
+  // estava escrita neste arquivo: ver `persistCurrent`/`clearCurrentSelection`
+  // — *"o volume, o mudo e a cortina (`view`) FICAM: são o ajuste da mesa, não
+  // uma seleção"*. Outros pontos do arquivo escrevem `view` (todo caminho que
+  // revela o telão), mas o `send` NÃO — ele os LÊ para montar a carga —, e é só
+  // com ele que esta função corre. Não há o que o toque possa perder aqui.
+  //
+  // O PREÇO, dito: `soUmProvedorDeTexto` também sobe a senha, então projetar um
+  // versículo durante a PRIMEIRA hidratação de uma página nova deixa a seleção
+  // sem restaurar. É a direção segura (não sobrescrever nada) e o item continua
+  // a um toque na lista; a alternativa — uma segunda contagem só para o `send`
+  // — é a divergência que o parágrafo acima recusa.
+  const senhaDaCena = projecaoSeq;
 
   // ---- FASE 1: só leituras do IDB, em locais (nada de estado/DOM ainda) ----
   const cur = await AVDB.getState('current');
@@ -2820,20 +2928,16 @@ async function load(opts) {
   const storedRot = await AVDB.getState('rotate');
   const lvFonteV = await AVDB.getState('lyricsFont');
   const cifraVelV = await AVDB.getState('cifraVelocidade');
+  const cifraFonteCheiaV = await AVDB.getState('cifraFonteCheia');
   const lyricsBgV = (await AVDB.getState('lyricsBg')) === 'black' ? 'black' : 'image';
   const downloadOkV = !!(await AVDB.getState('downloadOk'));
-  let libItemsV;
-  if (activeTab === 'imports') {
-    // Só a aba que é de fato lista de IDs de mídia. 'bible' e 'messages'
-    // NÃO são listas de mídia — e 'messages' guarda
-    // objetos {id,text} no mesmo state key, então passar isso por listItems
-    // (getMedia por id) lançaria DataError e quebraria o load() inteiro.
-    // ('playlist' saiu da comparação: nenhum caminho produz esse activeTab —
-    // a playlist é popup desde que virou `#plPopup`.)
-    libItemsV = await AVDB.listItems(activeTab);
-  } else {
-    libItemsV = [];
-  }
+  // A LISTA DA TELA É SEMPRE O CRONOGRAMA (v1.5.0). Ela era `listItems(activeTab)`
+  // dentro de uma guarda, porque a aba podia ser a Bíblia — e ali a leitura
+  // tinha de ser pulada: `'bible'` não é lista de mídia, e passá-la por
+  // `listItems` (um `getMedia` por id) lançaria `DataError` e derrubaria o
+  // `load()` inteiro. Com a Bíblia virando FOLHA, a lista de baixo não muda
+  // nunca, e a guarda deixou de ter o que guardar.
+  const libItemsV = await AVDB.listItems('imports');
   const curMediaId = cur && cur.mediaId ? cur.mediaId : null;
   const currentItemV = curMediaId ? (await AVDB.getMedia(curMediaId)) || null : null;
 
@@ -2841,7 +2945,11 @@ async function load(opts) {
   if (myseq !== loadSeqCtl) return;
 
   // ---- FASE 2: aplica ao estado do módulo + render (síncrono, atômico) ----
-  currentId = curMediaId;
+  // A SELEÇÃO só é hidratada se ninguém projetou enquanto líamos o banco —
+  // ver `senhaDaCena`. O resto desta fase é ajuste de mesa e configuração, e
+  // continua sendo aplicado sempre.
+  const cenaEhNossa = (projecaoSeq === senhaDaCena);
+  if (cenaEhNossa) currentId = curMediaId;
   view = (cur && cur.view) || 'visual';
   muted = !!(cur && cur.muted);
   volume = (cur && typeof cur.volume === 'number') ? cur.volume : 1;
@@ -2866,17 +2974,23 @@ async function load(opts) {
   // encolher numa versão futura, e o que estava salvo continua sendo lido.
   lvTamanho = LV_TAMANHOS.includes(lvFonteV) ? lvFonteV : LV_PADRAO;
   cifraAdotarVelocidade(cifraVelV);
+  // A SEGUNDA ESCADA (v1.6.0): o corpo da cifra em tela cheia é uma escolha
+  // INDEPENDENTE da do retrato, e ausente ela é semeada na primeira entrada.
+  cifraAdotarFonteCheia(cifraFonteCheiaV);
   aplicarTamanhoDaLetra();
   lyricsBg = lyricsBgV;
   downloadConsent = downloadOkV;
   libItems = libItemsV;
-  currentItem = currentItemV;
+  // O PAR do `currentId` acima, e pela mesma senha: `currentItemV` foi lido com
+  // o id de ANTES do toque, então aplicá-lo deixaria a linha "no ar", o título
+  // do transporte e a notificação de mídia descrevendo a mídia anterior.
+  if (cenaEhNossa) currentItem = currentItemV;
 
   renderLyricsBgTile();
   renderControls();
   renderNowPlaying();
   renderRepeat();
-  renderTabs();
+  renderLibToggle();
   renderListTitle();
   renderPlaylist();
   renderLibrary();
@@ -2916,9 +3030,12 @@ async function load(opts) {
   libraryEl.scrollTop = restaurar ? (scrollPos[scrollKey()] || 0) : topoAntes;
 }
 
-// chave de posição de scroll: aba (+ pasta aberta, se houver)
+// Chave de posição de scroll. Ela era a ABA; com o Cronograma virando a tela
+// única sobrou uma chave só — o mapa fica porque `rememberScroll`/`load` o
+// consultam em pontos espalhados, e um nome constante custa menos que
+// desmontá-los.
 function scrollKey() {
-  return activeTab;
+  return 'imports';
 }
 function rememberScroll() {
   scrollPos[scrollKey()] = libraryEl.scrollTop;
@@ -3327,41 +3444,19 @@ function resyncScene() {
   pushNowPlaying();
 }
 
-function renderTabs() {
-  tabsEl.querySelectorAll('.tab').forEach((t) => t.classList.toggle('active', t.dataset.tab === activeTab));
-  moveTabIndicator();
-}
-
-// Põe o vazado (`.tab-ind`) sobre a aba ativa. Ele é UM elemento para os três
-// alvos justamente para poder DESLIZAR entre eles — a transição está no CSS;
-// aqui só se escreve para onde ir.
-//
-// Medido, não calculado por fração: `offsetLeft`/`offsetWidth` da célula ativa
-// valem para qualquer arranjo da faixa, enquanto um "25% por aba" seria uma
-// suposição sobre a contagem de alvos que quebraria calada no dia em que um
-// deles mudasse de tamanho ou sumisse.
-//
-// `animar = false` para POUSAR em vez de viajar: na primeira medição e num
-// `resize`, uma transição faria o vazado atravessar a tela vindo da borda
-// esquerda (onde ele nasce, com largura 0).
-function moveTabIndicator(animar) {
-  const alvo = tabsEl.querySelector('.tab.active');
-  // Sem largura = faixa oculta (modo simplificado esconde a caixa de
-  // controles). Medir ali daria 0 e apagaria a posição boa que já está lá.
-  if (!alvo || !alvo.offsetWidth) return;
-  if (animar === false) {
-    tabsEl.classList.add('no-anim');
-    // Força o reflow ANTES de escrever a posição nova: sem isto o navegador
-    // agrupa a classe e o valor na mesma passada e a transição roda mesmo
-    // assim.
-    void tabsEl.offsetWidth;
-  }
-  tabsEl.style.setProperty('--tab-x', alvo.offsetLeft + 'px');
-  tabsEl.style.setProperty('--tab-w', alvo.offsetWidth + 'px');
-  if (animar === false) {
-    void tabsEl.offsetWidth;
-    tabsEl.classList.remove('no-anim');
-  }
+// (`renderTabs` era o realce da aba ativa mais o vazado deslizante. Com a faixa
+//  fora, o que ocupa o lugar dela é o desenho do botão da Biblioteca — SETA
+//  quando ela está fechada, ✕ quando aberta.)
+function renderLibToggle() {
+  if (!hymnSearchToggleEl) return;
+  const aberta = !!hymnSearchPopupEl && hymnSearchPopupEl.classList.contains('open');
+  // `ico-alt` é a mesma gramática dos tiles do painel rápido: os dois desenhos
+  // vivem na árvore CLARA e a classe escolhe qual aparece. Um `<symbol>` com os
+  // dois dentro carregaria os dois para sempre — a folha do documento não
+  // atravessa a árvore-sombra de um `<use>`.
+  hymnSearchToggleEl.classList.toggle('alt', aberta);
+  hymnSearchToggleEl.title = aberta ? 'Fechar a Biblioteca' : 'Abrir a Biblioteca';
+  hymnSearchToggleEl.setAttribute('aria-label', hymnSearchToggleEl.title);
 }
 
 // O cabeçalho da LISTA (a faixa de cima da tela avançada). Desde a v5.247 ele
@@ -3377,15 +3472,9 @@ function renderListTitle() {
   //  continua dizendo "Cronograma", que é onde o operador de fato está.
   //  As funções seguem `renderDiversos`/`refreshDiversos` e o `miscTool` segue
   //  com os ids de sempre — renomeá-las não mudaria nada visível.)
-  if (activeTab === 'bible') {
-    backBtnEl.hidden = bibleScreen === 'books';
-    // A aba Bíblia era a ÚNICA sem título: ele saíra para liberar espaço numa
-    // faixa que também carregava o indicador de versão. A versão desceu para
-    // Configurações (v5.49) e a faixa passou a sobrar — e uma tela sem nome é
-    // a única do app em que "onde eu estou" depende de reconhecer a grade.
-    listTitleEl.hidden = false; listTitleEl.textContent = 'Bíblia';
-    return;
-  }
+  // (O ramo da BÍBLIA saiu na v1.5.0, com a aba. O cabeçalho do app diz sempre
+  //  "Cronograma" porque é a tela única; o nome da Bíblia e o voltar DELA moram
+  //  na barra da folha, que é o lugar de quem está dentro de uma janela.)
   backBtnEl.hidden = true;
   listTitleEl.hidden = false;
   listTitleEl.textContent = 'Cronograma';
@@ -3584,7 +3673,7 @@ async function ensureBibleMeta(force) {
     .map(async (v) => {
       if (await AVDB.getState('bibleComplete:' + v.id)) bibleCompleteVersions.add(v.id);
     }));
-  if (activeTab === 'bible') renderLibrary();
+  if (bibliaAberta()) renderBible();
 }
 
 // Versão padrão: Almeida Revista e Atualizada (RA/ARA) quando existir no banco,
@@ -3802,10 +3891,13 @@ const BIBLE_SCREENS = ['books', 'chapters', 'reading'];
 function gotoBibleScreen(screen) {
   const dir = BIBLE_SCREENS.indexOf(screen) >= BIBLE_SCREENS.indexOf(bibleScreen) ? 1 : -1;
   bibleScreen = screen;
-  renderLibrary();
-  renderListTitle();
-  libraryEl.scrollTop = 0;
-  animateTabSwitch(dir); // mesma animação de deslize das abas (genérica em #library)
+  renderBible();
+  bibleBodyEl.scrollTop = 0;
+  // O DESLIZE FICOU, e agora ele é da FOLHA (v1.5.0). Ele nasceu como a
+  // animação genérica da troca de ABA e a Bíblia pegou carona nela; com a faixa
+  // de abas fora, o único movimento lateral que sobrou no app é este — a
+  // navegação DENTRO da Bíblia, que é para onde ele sempre apontou.
+  deslizarNaFolha(bibleBodyEl, dir);
 }
 
 function renderBible() {
@@ -3818,7 +3910,15 @@ function renderBible() {
   if (bibleScreen === 'chapters') renderBibleChapters(wrap);
   else if (bibleScreen === 'reading') renderBibleReading(wrap);
   else renderBibleBooks(wrap);
-  libraryEl.appendChild(wrap);
+  // O HOST É O DA FOLHA desde a v1.5.0 — era o `#library`, o mesmo `<ul>` do
+  // Cronograma, e por isso `renderLibrary` tinha um desvio por aba no topo. Com
+  // host próprio, as duas listas deixam de disputar um nó.
+  bibleBodyEl.innerHTML = '';
+  bibleBodyEl.appendChild(wrap);
+  // O voltar é da NAVEGAÇÃO INTERNA (livros → capítulos → leitura), e por isso
+  // ele mora na barra da folha e não no cabeçalho do app: na raiz não há para
+  // onde voltar que não seja fechar, e fechar é o ✕ ao lado.
+  if (bibleBackEl) bibleBackEl.hidden = bibleScreen === 'books';
 }
 
 function bibleCell(sym, opts) {
@@ -3941,14 +4041,14 @@ function bibleVersesPane() {
 async function loadBibleChapter() {
   const seq = ++bibleLoadSeq;
   bibleChapterData = null; bibleChapterError = ''; bibleChapterLoading = true;
-  if (activeTab === 'bible') renderLibrary();
+  if (bibliaAberta()) renderBible();
   await ensureBibleMeta(false);
   if (seq !== bibleLoadSeq) return;
   const vId = bibleVersionId;
   if (vId == null) {
     bibleChapterLoading = false;
     bibleChapterError = 'Nenhuma versão da Bíblia disponível. Conecte-se à internet uma vez para baixá-la.';
-    if (activeTab === 'bible') renderLibrary();
+    if (bibliaAberta()) renderBible();
     return;
   }
   const bId = bibleBookId(bibleSel.bookIdx);
@@ -3966,14 +4066,14 @@ async function loadBibleChapter() {
       bibleChapterError = (navigator.onLine === false)
         ? 'Sem internet — não foi possível baixar este capítulo.'
         : 'Não foi possível baixar este capítulo. Tente novamente.';
-      if (activeTab === 'bible') renderLibrary();
+      if (bibliaAberta()) renderBible();
       return;
     }
   }
   if (seq !== bibleLoadSeq) return;
   bibleChapterData = cached;
   bibleChapterLoading = false;
-  if (activeTab === 'bible' && bibleScreen === 'chapters') renderLibrary();
+  if (bibliaAberta() && bibleScreen === 'chapters') renderBible();
 }
 
 // Inicia a leitura a partir do versículo `i` (índice na lista do capítulo):
@@ -3997,7 +4097,7 @@ function startBibleReading(i) {
   bibleScreen = 'reading';
   renderListTitle();
   bibleRenderReading();
-  animateTabSwitch(1); // desliza pra frente (verses → reading)
+  deslizarNaFolha(bibleBodyEl, 1); // desliza pra frente (verses → reading)
 }
 
 // Define o versículo central da leitura. Se a visualização já estiver ativa,
@@ -4074,10 +4174,10 @@ function projectBibleVerse(idx) {
 // Re-render só da tela de leitura (destaque do versículo central), preservando
 // o scroll — usado tanto ao projetar quanto ao só mover o central.
 function bibleRenderReading() {
-  if (activeTab === 'bible' && (bibleScreen === 'reading' || bibleScreen === 'chapters')) {
-    const sp = libraryEl.scrollTop;
-    renderLibrary();
-    libraryEl.scrollTop = sp;
+  if (bibliaAberta() && (bibleScreen === 'reading' || bibleScreen === 'chapters')) {
+    const sp = bibleBodyEl.scrollTop;
+    renderBible();
+    bibleBodyEl.scrollTop = sp;
   }
 }
 
@@ -4294,7 +4394,7 @@ async function ensureAdjLoaded(ref) {
       // mesmo tick não veria nem o voo nem o cache e pediria de novo.
       bibleAdjEmVoo.delete(key);
     }
-    if (seq === bibleAdjSeq && bibleSession && activeTab === 'bible' && bibleScreen === 'reading') {
+    if (seq === bibleAdjSeq && bibleSession && bibliaAberta() && bibleScreen === 'reading') {
       bibleRenderReading();
     }
   })();
@@ -4453,7 +4553,7 @@ function clearBibleSession() {
   if (bibleScreen === 'reading') bibleScreen = 'chapters';
   renderSlideNav();
   renderNowPlaying();
-  if (activeTab === 'bible') { renderLibrary(); renderListTitle(); }
+  if (bibliaAberta()) renderBible();
 }
 
 // ===== Mensagens: lista, projeção e navegação =====
@@ -4544,12 +4644,17 @@ function subtituloItem(item) {
   // O item de PLAYER: o link, sem bytes no aparelho. Dizer "YouTube" é dizer
   // que ele depende da rede durante o culto, que é a diferença que importa
   // entre ele e o arquivo baixado do mesmo vídeo.
-  if (item.kind === 'youtube') return com('YouTube');
-  if (item.kind === 'video') return com('Vídeo') + (item.height ? ' · ' + item.height + 'p' : '');
-  if (item.kind === 'audio') {
-    const d = fmtDur(item.seconds);
-    return com('Áudio') + (d ? ' · ' + d : '');
+  // A DURAÇÃO VALE PARA OS TRÊS, não só para o áudio (v1.5.21). Ela era do
+  // `audio` porque só ele a tinha gravada — hoje o link e o vídeo do YouTube a
+  // gravam também, e a régua nunca foi o kind: é *"o registro sabe?"*. Sem
+  // dado, a linha continua exatamente como era.
+  const dur = fmtDur(item.seconds);
+  const comDur = (base) => base + (dur ? ' · ' + dur : '');
+  if (item.kind === 'youtube') return comDur(com('YouTube'));
+  if (item.kind === 'video') {
+    return comDur(com('Vídeo') + (item.height ? ' · ' + item.height + 'p' : ''));
   }
+  if (item.kind === 'audio') return comDur(com('Áudio'));
   if (item.kind === 'image') return com('Imagem');
   if (!item.blob && item.url) return 'Link externo';
   return com('Arquivo');
@@ -4673,7 +4778,7 @@ async function adicionarNasListas(listas, id, nome, btn) {
     // não roda.
     cronoSet.add(id);
     marcarNoCronograma();
-    if (activeTab === 'imports') await load();
+    await load();
   }
   return novas.length;
 }
@@ -4764,7 +4869,7 @@ async function criarCue(cue, data, nome, destino, btn) {
   // Redesenha só quando a tela em cena é justamente a que acabou de receber o
   // item — guardar um versículo estando na aba da Bíblia não precisa remontar
   // o Cronograma, que ainda vai ser carregado ao voltar para ele.
-  if (lista === 'imports' && activeTab === 'imports') await load();
+  if (lista === 'imports') await load();
   return rec;
 }
 
@@ -6588,15 +6693,10 @@ function refreshDiversos() {
 // culto). Ser uma extensão do Cronograma é o que essa relação já era; a aba só a
 // escondia atrás de um passo lateral.
 //
-// A FAIXA VOLTOU A TER SÓ OS DOIS LUGARES DO CULTO — o roteiro e a Bíblia —
-// mais a porta da Biblioteca. Um quarto alvo ali competia com eles sem ser um
-// lugar: ninguém "está nas Ferramentas", ninguém volta para elas.
-//
-// `activeTab` CONTINUA 'imports' com a folha aberta, e isso é o recurso, não um
-// detalhe: o Cronograma segue sendo a tela em que se está, o rodapé dele
-// continua desenhado, o carrossel continua sabendo para onde ir e o voltar
-// continua tendo para onde voltar. O estado 'mic' de `activeTab` SAIU — ele
-// existia porque as ferramentas ocupavam a lista, e não ocupam mais.
+// (A faixa de abas que hospedava a porta delas saiu na v1.5.0, e com ela a
+//  última razão de haver "aba" alguma. O argumento que valia aqui — *a folha
+//  cobre a lista, não a substitui, então o Cronograma continua sendo a tela em
+//  que se está* — virou a regra do app inteiro: ele tem uma tela e duas folhas.)
 function ferramentasAbertas() { return !!toolsSheetEl && !toolsSheetEl.hidden; }
 
 // A DURAÇÃO DA ENTRADA E DA SAÍDA, e ela é UMA — lida do `--tools-anim` do CSS,
@@ -6657,6 +6757,52 @@ function fecharFerramentas() {
   }, TOOLS_ANIM_MS);
 }
 
+// ===== A FOLHA DA BÍBLIA (v1.5.0) =====
+//
+// Irmã da de Ferramentas, no mesmo molde e com a mesma mecânica de entrada e
+// saída — o que ela tem a mais é o ESTADO. As ~9 guardas espalhadas pelo
+// arquivo (o download da versão, o realce do versículo no ar, o redesenho
+// quando a leitura chega) continuam valendo: o que era `activeTab === 'bible'`
+// é hoje `bibliaAberta()`, e o que era `activeTab === 'imports'` deixou de ser
+// uma pergunta — a folha COBRE a lista, não a substitui, então o Cronograma
+// está sempre à vista por baixo.
+let bibleSaindoTimer = null;
+
+function bibliaAberta() { return !!bibleSheetEl && !bibleSheetEl.hidden; }
+
+function abrirBiblia() {
+  if (!bibleSheetEl || bibliaAberta()) return;
+  clearTimeout(bibleSaindoTimer);
+  bibleSaindoTimer = null;
+  bibleSheetEl.classList.remove('saindo');
+  // AS DUAS FOLHAS NÃO SE EMPILHAM. Elas são as duas portas do mesmo rodapé, e
+  // uma sobre a outra teria duas barras de título na mesma caixa — e dois ✕
+  // dizendo coisas diferentes.
+  fecharFerramentas();
+  bibleSheetEl.hidden = false;
+  bibliaNoAr = true;
+  // A tela de LIVROS é a raiz: entrar pela porta é começar do começo. Sem isto
+  // a Bíblia reabriria no capítulo de uma consulta de meia hora atrás — a mesma
+  // razão do `resetarBiblioteca` do acervo.
+  bibleScreen = 'books';
+  renderBible();
+  // Versões/livros e o download da versão INTEIRA na 1ª vez (em segundo plano).
+  enterBibleTab();
+}
+
+function fecharBiblia() {
+  if (!bibliaAberta()) return;
+  bibliaNoAr = false;
+  clearTimeout(bibleSaindoTimer);
+  bibleSheetEl.classList.add('saindo');
+  bibleSaindoTimer = setTimeout(() => {
+    bibleSaindoTimer = null;
+    bibleSheetEl.classList.remove('saindo');
+    bibleSheetEl.hidden = true;
+    bibleBodyEl.innerHTML = '';
+  }, TOOLS_ANIM_MS);
+}
+
 // A mensagem está NO AR? Pela PROJEÇÃO, nunca pela existência da sessão — a
 // mesma pergunta dos outros cinco provedores de Camada de Texto.
 function msgProjecting() { return !!(msgSession && msgSession.projecting); }
@@ -6678,20 +6824,17 @@ function renderLibrary() {
   // embaixo da grade de livros da Bíblia.
   renderListFoot();
 
-  if (activeTab === 'bible') {
-    renderBible();
-    return;
-  }
-
+  // (O DESVIO POR ABA saiu na v1.5.0: a Bíblia deixou de disputar este `<ul>` e
+  //  passou a desenhar no `#bibleBody` da folha dela. `renderLibrary` voltou a
+  //  ser o que o nome diz — o Cronograma, e só ele.)
   const items = libItems;
 
   // Lista vazia MAS com download em curso: a linha provisória é a única coisa
   // que existe, e ela precisa aparecer — é justamente o primeiro item chegando.
   // Sem isto o operador via "Cronograma vazio" durante todo o download do
   // primeiro vídeo, que é o pior momento possível para essa frase.
-  const provisorias = activeTab === 'imports'
-    ? [...libBaixando.entries()].filter(([chave]) => !libItems.some((m) => m.id === chave))
-    : [];
+  const provisorias = [...libBaixando.entries()]
+    .filter(([chave]) => !libItems.some((m) => m.id === chave));
 
   if (items.length === 0 && !provisorias.length) {
     host.innerHTML = '<li class="empty">Cronograma vazio.</li>';
@@ -6734,7 +6877,7 @@ function renderLibrary() {
     let ytDl = null;
     if (item.kind === 'youtube') {
       const podeBaixar = !!window.__NATIVE__;
-      if (podeBaixar && item.url && activeTab === 'imports') {
+      if (podeBaixar && item.url) {
         ytDl = document.createElement('button');
         ytDl.className = 'row-btn';
         ytDl.title = 'Baixar o vídeo e usar o arquivo no lugar do player';
@@ -6868,7 +7011,7 @@ function renderLibrary() {
         // (favoritar, playlist) e o que mexe na POSIÇÃO dele (↑↓). Antes o
         // renomear caía entre a playlist e o par de ordem, separando os dois
         // pares que se parecem.
-        botaoExcluirDaLinha(item, activeTab, () => load()),
+        botaoExcluirDaLinha(item, 'imports', () => load()),
         // RENOMEAR (v5.288), com a mesma guarda do excluir: na pasta do aparelho
         // o nome vem do arquivo, e um nome só no registro seria desfeito na
         // varredura seguinte.
@@ -6881,14 +7024,14 @@ function renderLibrary() {
         (ytDl && !dl) ? ytDl : null,
         // O PAR ↑↓ (v5.285), no lugar da alça de arrastar. Só onde há ordem a
         // mexer: a pasta do aparelho não é uma lista reordenável.
-        ...botoesDeOrdem(activeTab, item.id, i, items.length),
+        ...botoesDeOrdem('imports', item.id, i, items.length),
         // (O EXCLUIR subiu para o começo desta lista na v5.288 — ver a nota lá.
         // NA PASTA DO APARELHO ELE NÃO ENTRA, desde a v5.271: ali "excluir"
         // apaga o ARQUIVO físico, e essa limpeza tem donos próprios
         // (`deleteSelected`, com o `opfsDeleteFile` e o `purgeCatalogRecords`).
         // Um mesmo ícone com dois alcances conforme a tela é a pior forma de
         // oferecer um destrutivo.)
-      ], activeTab + ':' + item.id));
+      ], 'imports:' + item.id));
     }
     row.append(...parts);
     li.appendChild(row);
@@ -6912,6 +7055,25 @@ function renderLibrary() {
 // A função reconstrói só o que é DELA: o rodapé é dividido com a barra de
 // seleção (ver `hostSelbar`), e um `innerHTML = ''` aqui tiraria a `#selbar` do
 // documento — o nó é um só, movido, e perdê-lo significa perder os listeners.
+// O MOLDE DAS DUAS PORTAS LATERAIS do rodapé (v1.5.0): ícone em cima da caixa,
+// rótulo ao lado, `title` igual ao `aria-label`. Uma função e não duas cópias —
+// elas nasceram iguais e a terceira porta que aparecer nasce igual também.
+function botaoDoRodape(id, cls, titulo, rotulo, desenho) {
+  const b = document.createElement('button');
+  b.type = 'button';
+  b.id = id;
+  b.className = cls;
+  b.title = titulo;
+  b.setAttribute('aria-label', titulo);
+  b.innerHTML = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor"'
+    + ' stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
+    + desenho + '</svg>';
+  const t = document.createElement('span');
+  t.textContent = rotulo;
+  b.appendChild(t);
+  return b;
+}
+
 function renderListFoot() {
   const antiga = listFootEl.querySelector('.import-row');
   // O seletor de arquivos mora DENTRO da linha antiga; tirá-lo antes de
@@ -6924,7 +7086,7 @@ function renderListFoot() {
   // pelo `hidden`), então o rodapé nunca fica de fato vazio — e um filho de
   // altura zero ainda consome o `gap` do `<main>`, que viraria uma faixa de ar
   // acima da caixa de controles em toda aba sem rodapé.
-  const temImport = activeTab === 'imports' && !selectionMode;
+  const temImport = !selectionMode;
   const temSelbar = selectionMode && selbarEl.parentElement === listFootEl;
   listFootEl.hidden = !temImport && !temSelbar;
   if (!temImport) return;
@@ -6957,7 +7119,12 @@ function renderListFoot() {
     + '<line x1="12" y1="12" x2="12" y2="17.6"/>'
     + '<line x1="9.2" y1="14.8" x2="14.8" y2="14.8"/></svg>';
   const txt = document.createElement('span');
-  txt.textContent = 'Importar arquivos';
+  // "Importar", e não "Importar arquivos" (v1.5.0): a faixa passou a ter TRÊS
+  // portas em partes iguais, e MEDIDO em 430px o nome inteiro saía com
+  // reticências — que é pior que a palavra curta, porque as reticências não
+  // dizem qual palavra foi cortada. O `title` guarda a frase completa (e o que
+  // ela inclui: mídia, PDF ou PowerPoint).
+  txt.textContent = 'Importar';
   label.appendChild(txt);
   if (usaSeletorNativo) label.addEventListener('click', importarPeloSistema);
   else label.appendChild(fileEl); // o MESMO input de sempre, só reposicionado
@@ -6969,28 +7136,43 @@ function renderListFoot() {
   // Agora ela mora no cabeçalho FIXO, com rótulo, alcançável de qualquer aba.
   li.appendChild(label);
 
-  // AS FERRAMENTAS, À DIREITA DA IMPORTAÇÃO (v1.3.10). Elas eram uma aba; o
-  // lugar delas é aqui porque o que produzem — mensagem, cronômetro, sorteio —
-  // é CENA que entra no roteiro. Este rodapé é o único ponto do Cronograma que
-  // fica sempre à vista (fora do `<ul>` rolável), então é o único onde uma
-  // porta com trinta itens na lista continua sendo acesso rápido.
+  // ===== AS TRÊS PORTAS DO CRONOGRAMA (v1.5.0) =====
   //
-  // SÓ ÍCONE: "Importar arquivos" fica com o rótulo e com a linha, que é o que
-  // ele sempre quis (o nome cabe sem reticências em qualquer tela). Dois nomes
-  // lado a lado numa faixa de celular empurrariam o primeiro para reticências
-  // justamente na tela mais estreita.
-  const ferr = document.createElement('button');
-  ferr.type = 'button';
-  ferr.id = 'toolsBtn';
-  ferr.className = 'tools-btn';
-  ferr.title = 'Ferramentas: mensagens, tempo, sorteio e microfone';
-  ferr.setAttribute('aria-label', ferr.title);
-  ferr.innerHTML = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor"'
-    + ' stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
-    + '<rect x="3.5" y="3.5" width="7" height="7" rx="1.6"/>'
+  // Pedido do operador: *"na base dela se mantém o botão de importar arquivos
+  // no centro, a esquerda o botão de bíblia e a direita o botão de
+  // ferramentas"*.
+  //
+  // Com o Cronograma virando a tela ÚNICA, este rodapé passou a ser a
+  // navegação inteira do app: é o único ponto que fica sempre à vista (fora do
+  // `<ul>` rolável), e é dele que saem os dois lugares que não são a lista. A
+  // Biblioteca não entra aqui — ela tem a barra própria na caixa de controles.
+  //
+  // OS TRÊS TÊM RÓTULO desde a v1.5.0, a pedido (*"coloque um texto no botão de
+  // ferramentas"*). O argumento anterior contra o texto — *"dois nomes lado a
+  // lado numa faixa de celular empurrariam o primeiro para reticências"* —
+  // valia para uma linha em que "Importar arquivos" era `flex: 1` e os irmãos
+  // eram quadrados; com TRÊS portas de mesmo peso, deixar duas mudas faria a
+  // faixa dizer que a do meio é a única que importa, e ela não é. Quem paga a
+  // conta da largura é o `.import-row`, que reparte as três em partes iguais e
+  // deixa cada rótulo encolher com reticências por conta própria.
+  //
+  // A ORDEM É A DO PEDIDO, e ela é a da leitura: o que se CONSULTA à esquerda,
+  // o que ENTRA no roteiro no centro, o que se PRODUZ à direita.
+  const bib = botaoDoRodape('bibleBtn', 'lib-foot-btn',
+    'Bíblia: livros, capítulos e versículos', 'Bíblia',
+    '<path d="M4 4.5A1.5 1.5 0 0 1 5.5 3H19v15H5.5A1.5 1.5 0 0 0 4 19.5z"/>'
+    + '<path d="M4 19.5A1.5 1.5 0 0 0 5.5 21H19"/>'
+    + '<line x1="11.5" y1="6.4" x2="11.5" y2="11.6"/>'
+    + '<line x1="9.2" y1="8.4" x2="13.8" y2="8.4"/>');
+  bib.addEventListener('click', abrirBiblia);
+  li.insertBefore(bib, label);
+
+  const ferr = botaoDoRodape('toolsBtn', 'tools-btn',
+    'Ferramentas: mensagens, tempo, sorteio e microfone', 'Ferramentas',
+    '<rect x="3.5" y="3.5" width="7" height="7" rx="1.6"/>'
     + '<rect x="13.5" y="3.5" width="7" height="7" rx="1.6"/>'
     + '<rect x="3.5" y="13.5" width="7" height="7" rx="1.6"/>'
-    + '<rect x="13.5" y="13.5" width="7" height="7" rx="1.6"/></svg>';
+    + '<rect x="13.5" y="13.5" width="7" height="7" rx="1.6"/>');
   ferr.addEventListener('click', abrirFerramentas);
   li.appendChild(ferr);
 
@@ -7931,7 +8113,20 @@ function montarResumoGrupo(host, key, text, colls, gOpts, aposClique) {
 // da busca (ver renderSearchResults). É uma função só de propósito — duas
 // cópias divergiriam no primeiro ajuste de categoria, e o operador veria dois
 // acervos diferentes conforme por onde entrou.
+// (A PALETA DAS COLEÇÕES saiu na v1.5.9, com o `tomDaVez`/`colTom` que a
+// carimbava. Ela dava a cada linha de topo uma matiz própria, e o operador
+// reprovou: *"está errado, reformule o sistema de coloração e organização de
+// grupos e subgrupos"*. O que a substitui é MOLDURA, e é tudo CSS — ver "A
+// HIERARQUIA DA BIBLIOTECA É DESENHADA COM MOLDURA" em controle.css.)
 function renderCollectionsList(alvo, redesenhar, opts) {
+  // ===== A LISTA DO ACERVO SE NOMEIA (v1.5.9) =====
+  // A hierarquia por MOLDURA é escopada a esta lista e a mais nada — foi a
+  // condição do operador ao autorizá-la (*"mas apenas para a biblioteca"*), e é
+  // um ESCOPO que o `tokens.test.mjs` cobra. A marca vai no contêiner e não num
+  // id porque ela diz O QUE é, não ONDE calha de estar: a lista do acervo é a
+  // Biblioteca em qualquer lugar em que alguém a desenhe — inclusive num
+  // oráculo, que monta a própria `<ul>` para poder medir com largura de celular.
+  if (alvo) alvo.classList.add('acervo');
   // A passada é síncrona: liga a memoização de `levantarColecao`/taxa global
   // (ver "Memoização por PASSADA de render"), zerada aqui a cada redesenho.
   // O `finally` desliga mesmo se um card lançar — cache ligado fora de uma
@@ -7941,6 +8136,13 @@ function renderCollectionsList(alvo, redesenhar, opts) {
   try {
     renderCollectionsListMiolo(alvo, redesenhar, opts);
   } finally {
+    // O véu das bordas: este redesenho roda a cada 400 ms durante um download e
+    // muda a altura da lista sem rolagem nenhuma.
+    acertarVeuDaLista();
+    // A TAMPA (v1.5.19), e é aqui porque é aqui que a lista está COMPLETA: a
+    // conta divide a altura útil pelo número de blocos, e medi-la no meio da
+    // montagem leria uma tela com metade deles.
+    acertarTampa(alvo);
     cacheColecoesAtivo = false;
   }
 }
@@ -7950,6 +8152,20 @@ function renderCollectionsListMiolo(alvo, redesenhar, opts) {
   redesenharAcervo = redesenhar;
   const byId = new Map(allCollections().map((c) => [c.id, c]));
   let any = false;
+  // ===== AS COLETÂNEAS DISSOLVIDAS (v1.5.16) =====
+  //
+  // A leitura EDITORIAL do catálogo, aplicada AQUI e não no `fetchAlbumCatalog`:
+  // o `state['albumCatalog']` continua cru, e a regra é reaplicada a cada
+  // desenho. É isso que faz um ajuste da tabela chegar por OTA e valer na
+  // abertura seguinte mesmo offline — gravada, a decisão viraria dado no
+  // aparelho e só sairia de lá com rede.
+  //
+  // UMA chamada, e os DOIS consumidores leem dela: o laço que desenha as seções
+  // e o `claimed` que decide o que é órfão. Chamar só num deles é o defeito
+  // MEDIDO desta mudança — a coletânea sai da tela e os álbuns dela voltam
+  // como "Outros álbuns", com a mesma contagem de blocos e o pedido não
+  // atendido.
+  const coletaneas = AVColetanea.aplicar(albumCatalog.categories);
 
   // ===== UM GRUPO COLAPSÁVEL =====
   //
@@ -8113,7 +8329,35 @@ function renderCollectionsListMiolo(alvo, redesenhar, opts) {
       // ainda não tinha crescido.
       if (!ehFav) setTimeout(() => alinharGrupoNoTopo(alvo, text), ACC_MS + 30);
     };
-    bar.addEventListener('click', alternar);
+    // ===== O ALVO É O BLOCO, E NÃO A BARRA (v1.5.17) =====
+    //
+    // O card já fazia isto ("O ALVO É O CARD, E NÃO A BARRA", mais abaixo); a
+    // seção não, e desde que o bloco de raiz passou a CRESCER para preencher a
+    // tela isso virou margem morta: MEDIDO, 4,75px acima e 4,77px abaixo da
+    // barra, 9,5px por seção, em que o toque não fazia nada. É exatamente o que
+    // o recuo da barra existe para impedir (v5.288: *"a faixa em volta dela ser
+    // ALVO em vez de margem morta"*).
+    //
+    // A GUARDA é o CORPO aberto, pelo mesmo motivo do card: sem ela um toque
+    // num álbum lá dentro borbulharia até aqui e fecharia a seção debaixo do
+    // dedo. Os três controles da barra já param a propagação por conta própria
+    // (a seta, o `.coll-group-acao` e o botão do `montarResumoGrupo`), então
+    // nenhum deles alterna duas vezes.
+    //
+    // O `keydown` FICA NA BARRA: ela é quem recebe foco (é ela que tem
+    // `role`/`tabindex`), e um `<li>` não entra na ordem de tabulação.
+    li.addEventListener('click', (e) => {
+      // A GUARDA É POSITIVA: alterna o toque na PRÓPRIA caixa do bloco (a faixa
+      // que sobra em volta da barra) ou dentro da BARRA. Escrita ao contrário —
+      // "tudo menos o corpo aberto" —, ela depende de o corpo ter sempre a
+      // mesma classe, e a seção dos FAVORITOS monta o dela por outro caminho:
+      // um toque numa linha de favorito borbulhava até aqui e FECHAVA a seção
+      // debaixo do dedo (o `boot-nativo` pegou, com o nó removido no meio do
+      // percurso).
+      const t = e.target;
+      if (t !== li && !(t && t.closest && t.closest('.coll-group-bar'))) return;
+      alternar();
+    });
     bar.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); alternar(); }
     });
@@ -8225,7 +8469,7 @@ function renderCollectionsListMiolo(alvo, redesenhar, opts) {
     fixasNaRaiz.forEach((coll) => alvo.appendChild(renderCollectionCard(coll)));
   }
 
-  for (const cat of albumCatalog.categories) {
+  for (const cat of coletaneas.categorias) {
     const cards = categoryCards(cat);
     if (!cards.length) continue;
     const corpo = grupo(cat.name, cards.map((x) => x.coll));
@@ -8235,12 +8479,12 @@ function renderCollectionsListMiolo(alvo, redesenhar, opts) {
   // Álbuns conhecidos que nenhuma categoria reivindicou (catálogo antigo,
   // migrado de uma versão sem categorias, ou álbum removido de todas elas).
   const claimed = new Set();
-  for (const cat of albumCatalog.categories) for (const a of cat.albums) claimed.add('album-' + a.id_album);
+  for (const cat of coletaneas.categorias) for (const a of cat.albums) claimed.add('album-' + a.id_album);
   const orphans = albumCatalog.albums
     .map((a) => byId.get('album-' + a.id_album))
     .filter((c) => c && !claimed.has(c.id) && !isHymnalAlbum(c));
   if (orphans.length) {
-    const corpo = grupo(albumCatalog.categories.length ? 'Outros álbuns' : 'Álbuns', orphans);
+    const corpo = grupo(coletaneas.categorias.length ? 'Outros álbuns' : 'Álbuns', orphans);
     if (corpo) orphans.forEach((coll) => corpo.appendChild(renderCollectionCard(coll)));
   }
 
@@ -8282,8 +8526,9 @@ function renderCollectionCard(coll, ctx) {
   li.className = 'hymnal-card';
   // (A `coll.color` do banco desenhava uma faixa lateral de 3px no cartão. Ela
   // saiu na v5.71 com as molduras: era mais uma linha vertical repetida em toda
-  // a lista. O campo continua no catálogo, de graça, se um dia a cor voltar
-  // como tinta do ícone.)
+  // a lista. Ela NÃO volta com a tinta da v1.5.7: na Bíblia a faixa carrega a
+  // informação porque o ladrilho é pequeno e a tinta é sutil; aqui o card é uma
+  // barra larga e a tinta cobre tudo.)
 
   // Uma linha só: ícone + nome/subtítulo + resumo + a coluna de ações. O card
   // deixou de ser um acordeão de manutenção — TOCAR NELE ABRE A LISTA, que é o
@@ -9936,18 +10181,122 @@ function medirVaoDosFavoritos(lista) {
   if (!fav) return;
   const cs = getComputedStyle(lista);
   const gap = parseFloat(cs.rowGap) || 0;
+  // O RESPIRO DO PRIMEIRO FILHO (v1.5.20, `.coll-group--drop:first-child`) é
+  // MARGEM, e margem não entra em `clientHeight`/padding/gap — mas consome
+  // espaço de verdade na coluna, do mesmo jeito que os outros três termos.
+  // Lido do COMPUTADO (não um `--sp-5` copiado): o dia em que a regra mudar de
+  // valor, ou deixar de existir, esta conta acompanha sozinha.
+  const margemTopo = parseFloat(getComputedStyle(vizinhos[0]).marginTop) || 0;
   const util = lista.clientHeight - (parseFloat(cs.paddingTop) || 0)
-    - (parseFloat(cs.paddingBottom) || 0) - gap * Math.max(0, vizinhos.length - 1);
+    - (parseFloat(cs.paddingBottom) || 0) - gap * Math.max(0, vizinhos.length - 1)
+    - margemTopo;
   let fechadas = 0;
   for (const s of vizinhos) {
     if (s === fav) continue;
-    const barra = s.querySelector('.coll-group-bar, .coll-bar');
-    fechadas += (barra || s).getBoundingClientRect().height;
+    // FECHADA, A CAIXA É A BARRA. (Medir o `<li>` direto não serve: a seção
+    // ABERTA tem corpo, e é a altura FECHADA que esta soma quer.)
+    // A v1.5.9 somava aqui as duas linhas de 1px da moldura da Biblioteca; ela
+    // saiu na v1.5.14 e a parcela ia junto — um termo que hoje é sempre zero,
+    // com cinco linhas de comentário explicando um desenho que não existe.
+    // `.row` NA LISTA desde a v1.5.17: com o `flex-grow` dos blocos de raiz, um
+    // bloco que caísse no ramo de baixo (o `<li>` inteiro) entraria nesta soma
+    // já CRESCIDO, e o vão dos Favoritos encolheria em silêncio. Hoje nenhum
+    // bloco da raiz é uma pasta — mas a fórmula não pode depender disso.
+    // `querySelector` devolve o primeiro em ordem de DOCUMENTO, não de seletor:
+    // numa seção a barra vem antes de qualquer `.row`.
+    const barra = s.querySelector('.coll-group-bar, .coll-bar, .row');
+    fechadas += (barra ? barra.getBoundingClientRect().height
+      : s.getBoundingClientRect().height);
   }
   const vao = Math.max(0, Math.round(util - fechadas));
   // Escrito na LISTA e não no `li`: o `li` é refeito a cada redesenho, e a
   // propriedade herda daqui sem que ninguém precise reaplicá-la.
   lista.style.setProperty('--fav-vao', vao + 'px');
+}
+
+// ===== A TAMPA DE UM BLOCO DE RAIZ NÃO MUDA DE ALTURA AO ABRIR (v1.5.19) =====
+//
+// Relato do operador: *"Ajuste o cartão das coleções, o card do titulo, pois ele
+// está encolhendo ou modificando seu tamanho ao abrir sua listagem."*
+//
+// A CAUSA é o crescimento da v1.5.17 visto pelo outro lado. Colapsado, o bloco
+// ganha `flex-grow` e cresce até a altura de encaixe (MEDIDO na captura dele,
+// 411×856 com 9 blocos: 51,00px) com a barra CENTRADA dentro; ao abrir, ele
+// deixa de casar `:not(.expanded)`, perde o crescimento, e a tampa cai para a
+// barra nua (45,01). SALTO MEDIDO NA PRÓPRIA CAPTURA: 20,0 device px = 5,71 CSS
+// = −11,2%. E ele é um SALTO, não um deslize: quadro a quadro, a tampa muda e o
+// bloco sobe 5,64px em DOIS quadros, enquanto o corpo desliza por 220 ms.
+//
+// O TEOREMA QUE FECHA AS SAÍDAS EM CSS PURO: a tampa só pode ser CONSTANTE no
+// valor MÍNIMO dela. Qualquer altura maior tem de caber em toda tela e em todo
+// número de blocos — e MEDIDO, a lista já transborda com 45,19 a 360×740/9 e com
+// 20 blocos em qualquer tela. A "altura de encaixe" é função da TELA e do NÚMERO
+// de blocos: ela não existe como valor em CSS. Logo, ou a pílula emagrece para
+// 45,19 sempre (e a sobra vai para os vãos, que sobem de 10 para 16–21px), ou o
+// número é MEDIDO uma vez. **O operador escolheu manter a pílula gorda**, e é
+// isso que esta função faz.
+//
+// ELA É A IRMÃ EXATA DO `--fav-vao`: mesma caixa, mesma régua (a BARRA de cada
+// vizinha é a altura fechada dela), mesmo lugar de chamada. Não é uma COORDENADA
+// guardada — é uma ALTURA recomposta a cada render —, e por isso a classe de
+// defeito da v1.5.3 (o valor que envelhece por um caminho que ninguém observa)
+// não se aplica.
+//
+// A CLÁUSULA DOS FAVORITOS É OBRIGATÓRIA, e sem ela o lote não sai: a seção dos
+// Favoritos ABERTA nunca veste `--tampa-h` — ela tem `min-height: var(--fav-vao)`
+// e come a folga por conta própria (v5.273). Contá-la na divisão dá a cada irmã
+// uma fatia da folga que ela JÁ gastou, e a lista COLAPSADA passa a ROLAR:
+// MEDIDO, 81,5px de transbordo a 430×900 com 9 blocos, e o `smoke.mjs` reprova
+// em *"as fechadas ficam EMPILHADAS NA BASE"*. Como o `verificar` é `needs` do
+// `web-ota`, isso seria o bundle não chegando à frota.
+//
+// E É SÓ A DOS FAVORITOS. Descontar TODO bloco aberto é a variante óbvia e está
+// ERRADA (MEDIDO): ela leva `--tampa-h` ao piso assim que alguém abre um hinário,
+// devolvendo o defeito original. Um bloco que o operador abriu continua contando
+// como FECHADO — é justamente a hipótese "tudo fechado" que dá a altura que a
+// tampa dele tem de manter.
+function medirTampa(lista) {
+  if (!lista || !lista.isConnected) return;
+  // Fora do acervo (a lista de BUSCA) não há bloco de raiz que cresça, e um
+  // valor de ontem herdado ali pintaria altura em linha de resultado.
+  if (!lista.classList.contains('acervo')) {
+    lista.style.removeProperty('--tampa-h');
+    return;
+  }
+  const blocos = [...lista.children].filter((n) => n.nodeType === 1);
+  if (!blocos.length) { lista.style.removeProperty('--tampa-h'); return; }
+  const cs = getComputedStyle(lista);
+  const gap = parseFloat(cs.rowGap) || 0;
+  // A MESMA CORREÇÃO do `--fav-vao` (v1.5.20): o respiro do primeiro filho
+  // (`.coll-group--drop:first-child`) é margem, e ela consome espaço da coluna
+  // sem entrar em `clientHeight`/padding/gap.
+  const margemTopo = parseFloat(getComputedStyle(blocos[0]).marginTop) || 0;
+  const util = lista.clientHeight - (parseFloat(cs.paddingTop) || 0)
+    - (parseFloat(cs.paddingBottom) || 0) - gap * Math.max(0, blocos.length - 1)
+    - margemTopo;
+  let base = 0;
+  let n = 0;
+  let sobra = util;
+  for (const b of blocos) {
+    if (b.classList.contains('coll-group--fav')
+        && (b.classList.contains('aberto') || b.classList.contains('expanded'))) {
+      sobra -= b.getBoundingClientRect().height;
+      continue;
+    }
+    n++;
+    // A MESMA RÉGUA do `--fav-vao`, e pelo mesmo motivo: fechada, a caixa é a
+    // BARRA. Medir o `<li>` leria um bloco ABERTO com o corpo dele dentro.
+    const barra = b.querySelector('.coll-group-bar, .coll-bar, .row');
+    base += (barra ? barra.getBoundingClientRect().height
+      : b.getBoundingClientRect().height);
+  }
+  if (!n) { lista.style.removeProperty('--tampa-h'); return; }
+  // SÓ CRESCE, e nunca acima do teto de hoje: o `--bar-raiz-max` existe porque
+  // a lista pode ter POUCOS blocos (três coleções dariam 183px cada).
+  const teto = parseFloat(getComputedStyle(document.documentElement)
+    .getPropertyValue('--bar-raiz-max')) || 66;
+  const h = Math.max(base / n, Math.min(sobra / n, teto));
+  lista.style.setProperty('--tampa-h', h.toFixed(2) + 'px');
 }
 
 // A MEDIÇÃO É ADIADA UM QUADRO, e não é cerimônia: quem chama isto durante a
@@ -9965,6 +10314,26 @@ function acertarVaoDosFavoritos(corpoDado) {
     if (!li.isConnected) return;
     medirVaoDosFavoritos(li.parentElement);
   });
+}
+
+// A tampa é agendada NO FIM DA PASSADA (ver o `finally` de
+// `renderCollectionsList`), e não aqui dentro: esta função só é chamada com a
+// seção dos Favoritos ABERTA — o `grupo()` só devolve o corpo nesse caso, e é o
+// que o comentário do `favCorpo` diz por extenso. Pendurar a tampa aqui a
+// deixava sem medida nenhuma no estado padrão (Favoritos FECHADOS), que é
+// exatamente o cenário do oráculo: MEDIDO, os blocos caíam para a barra nua
+// (45,19) e o D5/D5b reprovavam.
+//
+// A ORDEM ENTRE AS DUAS É OBRIGATÓRIA, e é o preço declarado da cláusula dos
+// Favoritos: `--tampa-h` lê a ALTURA RENDERIZADA daquela seção, que é governada
+// por `--fav-vao`. Não há realimentação — o `--fav-vao` soma BARRAS, que
+// `--tampa-h` nunca muda (MEDIDO, 1769px antes e depois) —, mas há ORDEM. Ela
+// sai de graça do agendamento: `acertarVaoDosFavoritos` registra o `rAF` DENTRO
+// da passada síncrona e este registra no `finally` dela, e os callbacks de
+// `requestAnimationFrame` rodam na ordem em que foram registrados.
+function acertarTampa(lista) {
+  if (!lista) return;
+  requestAnimationFrame(() => { if (lista.isConnected) medirTampa(lista); });
 }
 
 // O botão de estrela de uma linha. `.on` = favoritado (a cor faz o estado, como
@@ -10147,7 +10516,7 @@ async function toggleCronograma(item, btn) {
   responder(btn, 'ok');
   vestirCronoBtn(btn, agora);
   marcarNoCronograma();
-  if (activeTab === 'imports') { libItems = await AVDB.listItems('imports'); renderLibrary(); }
+  libItems = await AVDB.listItems('imports'); renderLibrary();
 }
 
 /**
@@ -10572,6 +10941,13 @@ function renderSlideNav() {
 function renderSimpleSlides(who) {
   const d = who === 'deck' ? deckNoAr() : null;
   simpleSlidesRowEl.hidden = !d;
+  // A ÁREA DE CONTROLE INTEIRA SEGUE A CENA (v1.5.14). A marca vai no
+  // `.simple-remote` e não em cada peça: quem decide o que existe é a CENA, e
+  // uma classe no contêiner deixa isso escrito num lugar só — as três regras
+  // que dependem dela (o play e o mudo somem, a linha de volume some, o parar
+  // fica sozinho e ganha rótulo) moram juntas na folha, onde se leem como um
+  // desenho e não como três exceções.
+  simpleRemoteEl.classList.toggle('deck', !!d);
   if (!d) return;
   simpleSlidePrevEl.disabled = slidePrevBtnEl.disabled;
   simpleSlideNextEl.disabled = slideNextBtnEl.disabled;
@@ -10921,6 +11297,12 @@ function openLyricsPopup(item, fonte) {
 }
 
 function closeLyricsPopup() {
+  // UMA FOLHA FECHADA NUNCA DEIXA UMA TELA CHEIA DE PÉ (v1.6.0), e a invariante
+  // mora AQUI porque este é o ponto único por onde passam todas as portas: o ✕,
+  // o toque no fundo, o degrau 2 do voltar e o `sairDasCamadas()` de um
+  // compartilhamento — que só sai da tela cheia quando há telão, e por si só
+  // deixaria a folha invisível com a Activity ainda deitada.
+  cifraCheiaSair();
   lyricsPopupEl.classList.remove('open');
   // O ALVO MORRE COM A FOLHA. Ele é um desvio de UMA leitura: sobrevivendo ao
   // fechamento, a próxima abertura pelo transporte mostraria a música do ensaio
@@ -10966,6 +11348,13 @@ function renderLyricsView() {
   // regra do microfone sem TV: explicar é melhor que mentir, e não oferecer é
   // melhor que explicar. Só ESTA instância; a do Modo Fácil é outro nó.
   lyricsFonteCtlEl.hidden = src === 'deck';
+  // O ⛶ SÓ EXISTE NA CIFRA (v1.6.0), pela mesma regra do microfone sem TV: não
+  // oferecer é melhor que explicar. E a tela cheia SAI SOZINHA quando a cifra
+  // deixa de ser a fonte — trocar de aba, ou a cena virar para uma música sem
+  // cifra. Sem esta guarda o layout desenhado para a cifra passaria a mostrar a
+  // letra com o seletor de abas escondido e sem o botão que devolve o retrato.
+  cifraCheiaBtnEl.hidden = src !== 'cifra';
+  if (cifraCheia && src !== 'cifra') cifraCheiaSair();
   lyricsViewSegEl.hidden = avail.length < 2;
   lyricsViewSegEl.querySelectorAll('.fit-opt').forEach((btn) => {
     btn.hidden = !avail.includes(btn.dataset.lvsrc);
@@ -12074,6 +12463,205 @@ function cifraColunas(folha) {
   return Math.max(8, Math.floor(largura / porCaractere));
 }
 
+// ===== A CIFRA EM TELA CHEIA, DEITADA (v1.6.0) =====
+//
+// Pedido do operador: *"gostaria que criasse um sistema para visualização das
+// cifras em tela cheia, no modo paisagem. deixe visível em uma coluna vertical
+// na direita, os botões de controle de tom, automático, tamanho da fonte e
+// etc... e é claro, ao abrir esse modo em tela cheia, pode já deixar
+// automaticamente a fonte já um pouco maior, já que uma visualização com a
+// fonte maior é o objetivo desse método em tela cheia"*.
+//
+// O ELEMENTO É O `#lyricsPopup` INTEIRO, e a razão é o que NÃO acontece: nada
+// é reparentado. Mover o corpo para um contêiner novo zeraria o `scrollTop`,
+// invalidaria a posição fracionária da rolagem (`cifraPos`/`cifraEscrito`) e
+// mataria as referências de `cifraRolarBtnEl`/`cifraVelBtnEl`. Só o layout
+// muda — quem o vira é o CSS, sob `#lyricsPopup:fullscreen`.
+//
+// A TRAVA DE PAISAGEM NÃO CUSTA UMA LINHA DE KOTLIN: quem deita o aparelho e
+// esconde as barras é o `onShowCustomView` do `MainActivity`, que não testa
+// tipo de elemento nenhum — a preview, que já usa este caminho todo culto, é um
+// `<div>` comum.
+//
+// ## A FONTE MAIOR é uma SEGUNDA ESCADA, não um deslocamento
+//
+// `--lv-fonte` é global (mora no `<html>`) e as DUAS casas do A+/A− o leem —
+// engordá-lo ali levaria junto a zona de letra do Modo Fácil, e obrigaria a
+// desfazer na saída. Aqui ele é ESCOPADO no `#lyricsPopup` (custom property
+// herda, e `.lv-cifra-folha` resolve `calc(var(--lv-fonte) * .74)` por ele):
+// sair é `removeProperty`, e **o tamanho normal volta porque nunca foi
+// embora**. Um offset somado ao índice global teria de ser subtraído na saída,
+// e não sobreviveria a um ajuste feito DENTRO da tela cheia nem ao teto da
+// escada.
+//
+// O PREÇO, DITO: mudar o corpo no retrato não arrasta o da tela cheia. Está
+// certo — são duas perguntas ("ler o celular na mão" × "ler de longe com o
+// instrumento na mão") —, e está escrito para ninguém "consertar".
+//
+// (`--lv-estrofe-gap` é `calc(var(--lv-fonte) * .86)` declarado no `:root`, e a
+// substituição acontece em quem DECLARA: os descendentes herdam o valor já
+// resolvido. É inócuo para a cifra, que espaça em `em`; no dia em que a tela
+// cheia valer para a aba de LETRA, ele tem de ser redeclarado junto.)
+let cifraCheia = false;
+// -1 é "ainda não semeado", e não um degrau: é ele que faz a PRIMEIRA entrada
+// de sempre saltar dois degraus a partir do corpo do retrato. Daí em diante o
+// valor é do operador, e é persistido em `cifraFonteCheia`.
+let cifraCheiaIdx = -1;
+// DOIS DEGRAUS, e o número é MEDIDO em colunas, não em gosto. No retrato de
+// 430px a folha tem ~375px úteis a `1.4rem × .74` ≈ 16,6px monoespaçados, o que
+// dá ~37 colunas; na paisagem de 800px sobram ~734 depois da coluna, e a
+// `2rem × .74` ≈ 23,7px dá ~52. Isto é: +43% de corpo E +40% de linha. Um salto
+// maior inverteria o negócio — uma fonte maior que faz a folha quebrar MAIS é
+// uma regressão, e é isso que o oráculo cobra.
+const CIFRA_CHEIA_SALTO = 2;
+
+/**
+ * Adota o corpo guardado da tela cheia. Por FUNÇÃO (hoisted) e não por
+ * atribuição direta, pelo mesmo motivo do `cifraAdotarVelocidade`: o estado
+ * mora aqui e o `load()` que hidrata roda muito antes na leitura.
+ *
+ * Valor fora da escada (ou ausente) volta ao sentinela: a semente do primeiro
+ * uso é o que responde, e a escada pode encolher numa versão futura.
+ */
+function cifraAdotarFonteCheia(v) {
+  // COM A TELA CHEIA NO AR, QUEM MANDA É O CORPO QUE ESTÁ NA TELA. A semente da
+  // primeira entrada é DERIVADA (do corpo do retrato) e não é gravada — só o
+  // A+/A− grava —, então um `load()` que chegasse aqui com a folha deitada
+  // leria `undefined` e devolveria o índice ao sentinela **enquanto o corpo
+  // grande continua escrito no `#lyricsPopup`**. E `load()` chega: todo
+  // download que começa ou termina passa por ele (`libBusy`/`soltar`), tanto
+  // quanto o fim de uma sincronização de pasta. O toque seguinte no A+
+  // resolveria `-1 + 1` e SALTARIA PARA O MENOR corpo da escada — 1rem, o
+  // oposto do modo cujo objetivo declarado é ler de longe —, gravando-o; e o
+  // A− já nasceria desabilitado pela regra de `aplicarTamanhoDaLetra`.
+  if (cifraCheia) return;
+  const i = LV_TAMANHOS.indexOf(v);
+  cifraCheiaIdx = i >= 0 ? i : -1;
+}
+
+// Escreve o corpo ESCOPADO. Semeia na primeira vez a partir do corpo do
+// retrato: `Math.min` clampa, então entrar já no topo da escada é no-op — e
+// tem de ser no-op silencioso, com o A+ nascendo desabilitado pela regra de
+// `aplicarTamanhoDaLetra`.
+function cifraAplicarFonteCheia() {
+  if (cifraCheiaIdx < 0) {
+    const base = LV_TAMANHOS.indexOf(lvTamanho);
+    cifraCheiaIdx = Math.min(
+      LV_TAMANHOS.length - 1,
+      (base < 0 ? LV_TAMANHOS.indexOf(LV_PADRAO) : base) + CIFRA_CHEIA_SALTO,
+    );
+  }
+  lyricsPopupEl.style.setProperty('--lv-fonte', LV_TAMANHOS[cifraCheiaIdx] + 'rem');
+}
+
+// O A+/A− DENTRO da tela cheia mexe na escada DELA, e persiste nela. Não chama
+// `lvScroll`: a cifra não tem `.lv-row.current` (`lvCurrentIndex` devolve -1
+// para ela), então aquelas duas linhas seriam no-op.
+async function passoTamanhoDaCheia(passo) {
+  const alvo = Math.min(LV_TAMANHOS.length - 1, Math.max(0, cifraCheiaIdx + passo));
+  if (alvo === cifraCheiaIdx) return;
+  // A LEITURA É CAPTURADA ANTES DO CORPO MUDAR — a regra escrita em
+  // `cifraRemedir`, no lugar em que ela mais é exercitada. De 1,4 para 1,7rem
+  // são ~21% de folha a mais, e quem estava na metade reapareceria perto dos
+  // 41% se a fração fosse lida depois.
+  const fracao = cifraFracaoDeLeitura();
+  cifraCheiaIdx = alvo;
+  cifraAplicarFonteCheia();
+  aplicarTamanhoDaLetra();   // repinta o desabilitado, agora pela escada certa
+  cifraRemedir(fracao);      // o corpo mudou: a folha quebra por CARACTERE
+  try { await AVDB.setState('cifraFonteCheia', LV_TAMANHOS[cifraCheiaIdx]); }
+  catch (_) { /* sem banco: vale a sessão */ }
+}
+
+/** Os dois desenhos do ⛶, trocados por `innerHTML` — nunca por `<use>`. */
+const CIFRA_CHEIA_SVG = {
+  entrar: '<path d="M4 9V5.5A1.5 1.5 0 0 1 5.5 4H9"/><path d="M15 4h3.5A1.5 1.5 0 0 1 20 5.5V9"/>'
+    + '<path d="M20 15v3.5a1.5 1.5 0 0 1-1.5 1.5H15"/><path d="M9 20H5.5A1.5 1.5 0 0 1 4 18.5V15"/>',
+  sair: '<path d="M9 4v3.5A1.5 1.5 0 0 1 7.5 9H4"/><path d="M20 9h-3.5A1.5 1.5 0 0 1 15 7.5V4"/>'
+    + '<path d="M15 20v-3.5a1.5 1.5 0 0 1 1.5-1.5H20"/><path d="M4 15h3.5A1.5 1.5 0 0 1 9 16.5V20"/>',
+};
+
+// O botão é ESTÁTICO, mas o desenho dele é estado — e o estado mora fora do
+// DOM, como o do `cifraPintarRolar`.
+function cifraPintarCheia() {
+  if (!cifraCheiaBtnEl) return;
+  const rotulo = cifraCheia ? 'Sair da tela cheia' : 'Ler em tela cheia (deitado)';
+  cifraCheiaBtnEl.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" '
+    + 'stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
+    + (cifraCheia ? CIFRA_CHEIA_SVG.sair : CIFRA_CHEIA_SVG.entrar) + '</svg>';
+  cifraCheiaBtnEl.title = rotulo;
+  cifraCheiaBtnEl.setAttribute('aria-label', rotulo);
+}
+
+/**
+ * Sai da tela cheia da cifra — e SÓ dela.
+ *
+ * A guarda pelo elemento é o que separa esta saída da da PREVIEW, que sem TV É
+ * a projeção: um `document.exitFullscreen()` cru com dois donos possíveis
+ * derrubaria o telão para fechar uma folha de acordes.
+ */
+function cifraCheiaSair() {
+  if (document.fullscreenElement !== lyricsPopupEl) return;
+  try { document.exitFullscreen(); } catch (_) { /* já saiu */ }
+}
+
+// UMA TELA CHEIA POR VEZ: o `onShowCustomView` do shell recusa a segunda
+// (`if (customView != null)`), e o Chromium não sabe disso — o estado do
+// navegador divergiria do da Activity, com a janela deitada e sem o elemento
+// que a pediu. A guarda mora aqui, onde ela é barata.
+async function cifraCheiaAlternar() {
+  if (cifraCheia || document.fullscreenElement === lyricsPopupEl) { cifraCheiaSair(); return; }
+  if (document.fullscreenElement) return;
+  if (lvActiveSource() !== 'cifra') return;
+  try {
+    if (lyricsPopupEl.requestFullscreen) await lyricsPopupEl.requestFullscreen();
+    else if (lyricsPopupEl.webkitRequestFullscreen) lyricsPopupEl.webkitRequestFullscreen();
+  } catch (_) { /* o navegador recusou: a folha continua no retrato */ }
+}
+
+if (cifraCheiaBtnEl) cifraCheiaBtnEl.addEventListener('click', cifraCheiaAlternar);
+cifraPintarCheia();   // ele nasce com desenho; quem o revela é `renderLyricsView`
+
+// QUEM MANDA É O EVENTO, nunca o toque. F11, Esc e o `exitFullscreen` do voltar
+// do Android chegam todos por aqui, e é aqui que a escada de fonte entra e sai
+// — pendurar isso no clique deixaria as três saídas com a fonte grande de pé.
+document.addEventListener('fullscreenchange', () => {
+  const agora = document.fullscreenElement === lyricsPopupEl;
+  if (agora === cifraCheia) return;
+  // A POSIÇÃO DE LEITURA É CAPTURADA AQUI, antes de o corpo mudar: trocar a
+  // fonte muda o comprimento da folha na hora, e a remedição só roda no quadro
+  // seguinte — lida lá, a fração já descreveria o estado novo.
+  const fracao = cifraFracaoDeLeitura();
+  cifraCheia = agora;
+  if (agora) cifraAplicarFonteCheia();
+  else lyricsPopupEl.style.removeProperty('--lv-fonte');
+  aplicarTamanhoDaLetra();
+  cifraPintarCheia();
+  // A LARGURA E O CORPO MUDAM EM INSTANTES DIFERENTES, e este cobre o primeiro:
+  // o elemento já está na top layer (a caixa já é a tela inteira), o corpo
+  // acabou de ser escrito — e o aparelho ainda NÃO girou. Quem cobre a rotação
+  // é o `resize` de sempre, que chega depois: não há promise para esperá-la (o
+  // `screen.orientation.lock` é decorativo num WebView), quem gira é a
+  // Activity.
+  requestAnimationFrame(() => cifraRemedir(fracao));
+});
+
+/**
+ * A fração do CONTEÚDO que está no topo do corpo — a régua com que a posição de
+ * leitura atravessa uma remedição. Por que do CONTEÚDO e não do percurso está
+ * dito em `cifraRemedir`, que é quem a consome.
+ *
+ * Ela existe porque TRÊS chamadores precisam capturá-la **antes de mexer na
+ * fonte** (a entrada e a saída da tela cheia, e as duas escadas do A+/A−): o
+ * corpo novo muda o comprimento da folha na hora, e a remedição só roda depois
+ * — lida lá, a fração já descreveria o estado novo, e o que sai é uma leitura
+ * que recua na proporção do crescimento do corpo.
+ */
+function cifraFracaoDeLeitura() {
+  const el = lyricsViewBodyEl;
+  return el.scrollHeight > 0 ? el.scrollTop / el.scrollHeight : 0;
+}
+
 // Redesenha a folha quando a MEDIDA pode ter mudado — e só então.
 //
 // A assinatura de `lvSignature` fala do CONTEÚDO (música, estado, transposição)
@@ -12081,7 +12669,7 @@ function cifraColunas(folha) {
 // três casos em que a largura muda de verdade são eventos, e cada um chama
 // aqui: a folha ABRINDO (antes de `.open` ela não tem largura), o A+/A− e o
 // gerar do aparelho.
-function cifraRemedir() {
+function cifraRemedir(fracaoDada) {
   if (!lyricsPopupEl.classList.contains('open')) return;
   if (lvActiveSource() !== 'cifra') return;
   // (A guarda de TECLADO saiu na v1.3.3, com o campo que ela protegia: esta aba
@@ -12089,53 +12677,134 @@ function cifraRemedir() {
   // `resize`: o redesenho refazia a aba, o campo com foco deixava de existir, e
   // a perda do foco fechava o teclado — um teclado que piscava e sumia. Se um
   // campo voltar a esta aba, a guarda tem de voltar com ele.)
+  const el = lyricsViewBodyEl;
+  const folha = el.querySelector('.lv-cifra-folha');
+  // ===== A GUARDA É POR COLUNAS, NUNCA POR LARGURA (v1.6.0) =====
+  //
+  // A pergunta que ela faz é *"a folha que está aí foi quebrada para a largura
+  // que ela tem AGORA?"* — `cifraColunasAtual` guarda o que a folha em cena de
+  // fato usou (escrito em `cifraDesenharFolha`), e aqui se mede de novo.
+  //
+  // Ela paga por três coisas de uma vez. A rotação dispara `resize` em RAJADA,
+  // e cada um custava a folha inteira reconstruída. O `ResizeObserver` do corpo
+  // (abaixo) REALIMENTA — reconstruir muda o `scrollHeight`, a barra de rolagem
+  // aparece ou some, o `clientWidth` muda, o observador dispara de novo —, e o
+  // ciclo morre no segundo passo. E ela continua deixando passar o A+/A−, onde
+  // a largura é a MESMA e o avanço por caractere não é: por LARGURA, aquele
+  // caminho seria apagado em silêncio.
+  //
+  // Sem folha (estados `buscando`/`erro`) não há o que medir, e cai no
+  // comportamento de sempre: redesenhar.
+  if (folha && cifraColunas(folha) === cifraColunasAtual) return;
+  // ===== E A POSIÇÃO DE LEITURA SOBREVIVE À REMEDIÇÃO =====
+  //
+  // `renderLyricsView` esvazia e reconstrói o corpo: o `scrollTop` volta a zero
+  // e, no quadro seguinte, `cifraRolarQuadro` lê `scrollTop !== cifraEscrito`,
+  // conclui — com toda a razão, é a linha que atende o "vale tanto para volta
+  // como para avanços" — que outro mexeu na folha, e adota o topo. A folha
+  // voltava ao começo no meio da música.
+  //
+  // Em FRAÇÃO do percurso, e não em pixel: a remedição muda a QUEBRA, logo o
+  // número de linhas, logo o comprimento da folha — um `scrollTop` guardado não
+  // significa nada do outro lado. E a volta é por `cifraAplicarPos`, que é quem
+  // atualiza `cifraEscrito`: escrever cru faria o quadro seguinte concluir
+  // "outro mexeu" outra vez.
+  // A FRAÇÃO É DO CONTEÚDO (`scrollTop / scrollHeight`), não do PERCURSO
+  // (`/ (scrollHeight - clientHeight)`). MEDIDO: a segunda muda sozinha quando
+  // só a ALTURA da caixa muda — e é o que a rotação faz, sem tocar no texto —,
+  // e o que saía era a folha andando 19% do arquivo ao deitar. A do conteúdo
+  // responde "que pedaço do texto está no topo?", que é a pergunta.
+  //
+  // E ELA PODE VIR DE FORA: quem troca a fonte (a entrada e a saída da tela
+  // cheia) muda o comprimento da folha ANTES de a remedição rodar, então a
+  // leitura feita aqui já descreveria o estado novo. O chamador captura antes
+  // de mexer e passa adiante. `typeof` e não `||`: zero é fração legítima, e
+  // um `Event` de `resize` chegando por engano no lugar dela seria pior.
+  const fracao = typeof fracaoDada === 'number'
+    ? fracaoDada
+    : (el.scrollHeight > 0 ? el.scrollTop / el.scrollHeight : 0);
   renderLyricsView();
+  const rolavelDepois = el.scrollHeight - el.clientHeight;
+  if (fracao > 0 && rolavelDepois > 0) {
+    cifraPos = Math.min(rolavelDepois, fracao * el.scrollHeight);
+    cifraAplicarPos(el);
+  }
+}
+
+// A LARGURA DO CORPO É O QUE `cifraColunas` MEDE — perguntar à JANELA é inferir.
+// O `resize`/`orientationchange` continuam (eles cobrem a rotação, que chega
+// depois da tela cheia); este cobre tudo o mais que mexe na caixa sem mexer na
+// janela. A realimentação que ele poderia criar morre na guarda por colunas.
+if (typeof ResizeObserver === 'function') {
+  new ResizeObserver(() => cifraRemedir()).observe(lyricsViewBodyEl);
 }
 
 
-// ===== A ROLAGEM AUTOMÁTICA DA FOLHA (v1.1.20) =====
+// ===== A ROLAGEM AUTOMÁTICA DA FOLHA (v1.1.20 → v1.5.6) =====
 //
 // Quem lê uma cifra está com as duas mãos no instrumento — e é justamente aí
 // que a folha precisa andar sozinha.
 //
-// ## O modo AUTO: quem manda é o RELÓGIO DA MÚSICA, não um cronômetro nosso
+// ## O modo AUTO é um RITMO tirado da música, não a POSIÇÃO dela
 //
-// Uma velocidade fixa em px/s não tem como estar certa: a mesma folha serve a
-// um hino de 2 min e a um de 6, e o que decide o ritmo da leitura é a MÚSICA.
-// No modo `auto` a posição da folha é uma FUNÇÃO da posição da música — não uma
-// velocidade integrada —, e isso resolve de graça três coisas que a integração
-// exigiria tratar uma a uma: pausar a música PARA a folha, um seek a leva ao
-// ponto certo, e um quadro perdido não acumula erro nenhum.
+// Uma velocidade fixa em px/s não tem como estar certa: a mesma folha serve a um
+// hino de 2 min e a um de 6, e o que decide o ritmo da leitura é a MÚSICA. Daí o
+// `auto` — mas o que ele toma da música é só a DURAÇÃO TOTAL, e o que ele
+// integra é o relógio de parede a partir de onde a folha está agora.
 //
-// A função não é a reta ingênua `f = t / duração`. Ela tem uma ABERTURA e um
-// FECHO, e mora no módulo PURO (`AVCifra.fracaoDaRolagem`, com oráculo em
-// `tools/cifra.test.mjs`) — daqui sai só o que é do DOM: a duração da barra e a
-// posição no ar. Os dois extremos são o pedido do operador:
+//   ritmo = percurso rolável ÷ (t1 − t0)          `AVCifra.ritmoDaRolagem`
+//
+// **Isto REVOGA o desenho da v1.1.20**, em que a posição da folha era uma FUNÇÃO
+// da posição da música. Pedido do operador: *"ajuste o sistema de rolagem
+// automática de cifra para que ele não siga o tempo da música atual em exibição,
+// pois se a música não está tocando, ele não anda. Ou se eu quiser tocar de um
+// ponto específico em diante, ele fica voltando para onde a mídia estaria… Eu
+// quero que siga o progresso levando em conta: o tempo total da música e a
+// posição atual do scroll"*.
+//
+// **As três vantagens daquele desenho eram os três defeitos do relato**, vistas
+// do outro lado — e é por isso que a correção é uma troca de premissa e não um
+// remendo:
+//
+// | a v1.1.20 dizia | o operador viu |
+// |---|---|
+// | pausar a música PARA a folha | *"se a música não está tocando, ele não anda"* |
+// | um seek LEVA a folha ao ponto | *"ele fica voltando para onde a mídia estaria"* |
+// | um quadro perdido não acumula erro | (só isto sobrevive — e o teto de delta cobre) |
+//
+// O `cifraDesvio` da v1.1.20 era o remendo sobre a premissa errada: um
+// deslocamento somado ao alvo para dar ao dedo um lugar na briga com a música.
+// Ele SAIU, e com ele o alvo teórico e a perseguição suave — não há mais briga.
+// **A folha era da MÚSICA; ela passou a ser de quem lê.**
 //
 //   ┌ topo                                                    fim da folha ┐
-//   │▔▔▔▔▔▔▔▔▔╲                                                            │
-//   │ abertura  ╲___ a folha desce ___                                     │
-//   │           t0                    ╲__________________▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁ │
-//   │                                 t1                       fecho       │
-//   └ 0 ────────────────── posição da música ─────────────────────── D ────┘
+//   │╲                                                                     │
+//   │  ╲___ ritmo constante, integrado do ponto em que a folha ESTÁ ___    │
+//   │                                                              ╲______ │
+//   └ o dedo pode mover a origem a qualquer momento, para frente ou para trás ┘
 //
-//  - **A ABERTURA** segura o começo parado por alguns segundos. Quem chega numa
-//    música quer VER o início — a introdução, o tom, a primeira estrofe — antes
-//    de a folha começar a fugir dele.
-//  - **O FECHO** faz a folha chegar ao fim BEM ANTES de a música acabar. O fim é
-//    a parte que mais se erra e a que mais precisa ser lida com antecedência:
-//    uma folha que só mostra o último acorde quando ele já passou não serve para
-//    nada. `t1` é o instante em que a folha está no fim, e dali até `D` ela
-//    fica parada com o final inteiro à vista.
+// **O que sobrevive da janela é o FECHO**, e sobrevive por construção: percorrer
+// o rolável em `t1 − t0` segundos põe a última linha na tela no instante `t1`,
+// que é o que o fecho sempre quis dizer — o fim da cifra lido bem antes do fim
+// da música, que é a parte que mais se erra. **A ABERTURA saiu**, e saiu porque
+// perdeu o referente: ela era *"a música acabou de começar"*, e não há mais
+// começo nenhum — a origem é onde o scroll está.
 //
+// **A FOLHA NUNCA MEXE NO TEMPO DA MÍDIA**, e o operador pediu isso por extenso:
+// *"esse scroll das cifras não altera o tempo, seja parado ou tocando, da mídia
+// em exibição"*. Sempre foi verdade e nunca teve oráculo; hoje tem
+// (`cifra-rolagem.test.mjs`), porque uma ausência não tem sintoma — o dia em que
+// alguém ligar os dois eixos "para sincronizar", a folha passa a comandar a
+// projeção no meio do culto.
 //
-// ## O modo LIVRE: px/s constante, para quando não há relógio
+// ## O modo LIVRE: px/s constante, para quando não há duração
 //
 // Ensaio sem tocar a gravação, um item sem linha do tempo (imagem, mensagem),
-// um vídeo cuja duração ainda não chegou. Ali `auto` não tem o que seguir e cai
-// no ritmo fixo — o botão continua dizendo `Auto`, que é a ESCOLHA, e o `title`
-// diz o que está de fato acontecendo. Os degraus numéricos são a escolha
-// explícita do mesmo ritmo fixo.
+// um vídeo cuja duração ainda não chegou. Ali `auto` não tem de onde tirar o
+// ritmo e cai no fixo — o botão continua dizendo `Auto`, que é a ESCOLHA, e o
+// `title` diz o que está de fato acontecendo. Os degraus numéricos são a escolha
+// explícita do mesmo ritmo fixo. **Os dois modos passaram a ser UM LAÇO**: a
+// única diferença é de onde sai o px/s.
 //
 // ## Por que `requestAnimationFrame`, e por que a posição é FRACIONÁRIA
 //
@@ -12148,26 +12817,24 @@ function cifraRemedir() {
 // defeito por outro caminho.
 //
 // O delta tem TETO ([CIFRA_DT_MAX]) porque a página estrangulada em segundo
-// plano voltaria dando um salto — no modo `auto` isso não é problema (a posição
-// é função do tempo da música), mas no livre é a diferença entre continuar e
-// pular meia folha.
+// plano voltaria dando um salto. **Com o `auto` integrando, isso passou a valer
+// para os DOIS modos** — no desenho antigo o `auto` era imune por ser função do
+// tempo da música, e essa imunidade foi embora junto com o resto dela.
 //
 // ## O dedo NÃO briga com a rolagem, e não a desliga
 //
 // Voltar uma linha para reler é a coisa mais comum aqui, e um sistema que se
-// desligasse a cada toque obrigaria a religá-lo o tempo todo. No modo livre o
-// avanço é relativo, então um arrasto só muda a origem. No modo `auto` o alvo é
-// ABSOLUTO e puxaria a folha de volta — por isso o arrasto vira um DESVIO
-// (`cifraDesvio`), somado ao alvo dali em diante: o operador desloca a folha e
-// ela continua seguindo a música a partir de onde ele a deixou.
+// desligasse a cada toque obrigaria a religá-lo o tempo todo. Como o avanço é
+// RELATIVO nos dois modos, um arrasto só muda a origem — para trás ou para
+// frente, *"vale tanto para volta como para avanços"* — e a rolagem continua
+// dali. É a mesma linha que já cobria o modo livre: `cifraPos` reassume o
+// `scrollTop` sempre que alguém que não fomos nós o escreveu.
 const CIFRA_VELOCIDADES = ['auto', 0.5, 0.75, 1, 1.5, 2, 3];
 const CIFRA_VEL_PADRAO = 0; // 'auto'
 /** Pixels por segundo no 1× do modo livre. Ritmo de leitura, não de lista. */
 const CIFRA_PX_POR_S = 22;
 /** Teto do delta de um quadro: acima disso houve pausa, e pausa não é avanço. */
 const CIFRA_DT_MAX = 250;
-/** Constante de tempo com que a folha persegue o alvo do modo `auto`. */
-const CIFRA_TAU_MS = 400;
 
 let cifraVelIdx = CIFRA_VEL_PADRAO;
 let cifraRolando = false;
@@ -12178,10 +12845,25 @@ let cifraRolarBtnEl = null;
 let cifraVelBtnEl = null;
 /** De QUAL música é a rolagem em curso — ver a guarda no `lvBuildCifra`. */
 let cifraRolandoChave = '';
-/** O quanto o operador deslocou a folha à mão, no modo `auto`. */
-let cifraDesvio = 0;
-/** O último alvo TEÓRICO (sem o desvio) — é dele que sai um desvio novo. */
-let cifraAlvoTeorico = 0;
+/**
+ * O RELÓGIO da espera inicial, em `t` de `requestAnimationFrame` — ver
+ * "A ESPERA INICIAL", perto de `cifraRolarQuadro`. `-1` é o sentinel "ainda
+ * não armado neste ciclo"; `cifraRolarAlternar` o zera para -1 de propósito,
+ * e é o PRIMEIRO quadro que o arma de verdade, porque só ali o `pxPorS` já
+ * está calculado.
+ */
+let cifraEsperaFimMs = -1;
+/**
+ * `true` enquanto a folha está PARADA de propósito, esperando o operador ler
+ * antes de rolar. Não é o mesmo que "não anda" — a folha também não anda
+ * quando `cifraSegurando` é verdadeiro, e ali não há indicador nenhum, porque
+ * quem está com o dedo nela já sabe que ela não é a que está travada.
+ *
+ * Vive FORA do DOM, no padrão de `linhasCarregando`: `cifraPintarRolar` REFAZ
+ * o botão inteiro a cada chamada (troca de velocidade, redesenho da folha), e
+ * uma marca escrita só no nó sumiria no primeiro repintar durante a espera.
+ */
+let cifraEsperando = false;
 /**
  * A POSIÇÃO DA FOLHA EM FRAÇÃO DE PIXEL — a nossa, não a do elemento.
  *
@@ -12194,25 +12876,29 @@ let cifraAlvoTeorico = 0;
  * Guardando a posição aqui em `Number` e escrevendo o valor fracionário, quem
  * suaviza é o compositor do navegador, que rola em subpixel.
  */
+// Quantas colunas a folha EM CENA foi quebrada para caber — a régua da guarda
+// de `cifraRemedir`. -1 é "não há folha medida".
+let cifraColunasAtual = -1;
 let cifraPos = 0;
 /** O que ESCREVEMOS por último — é a régua para saber se outro mexeu. */
 let cifraEscrito = -1;
 
 /**
- * A posição que a folha DEVERIA ter agora, em pixels — ou `null` quando não há
- * relógio para seguir (e aí quem responde é o modo livre).
+ * O RITMO do modo `auto`, em pixels por segundo — ou 0 quando não há duração de
+ * onde tirá-lo (e aí quem responde é o ritmo fixo do modo livre).
  *
- * A duração e o "tem linha do tempo?" saem da BARRA DE PROGRESSO, não de um
- * cálculo paralelo: ela é a única fonte que cobre todos os tipos de mídia (o
- * `<video>` do stage não sabe nada de um vídeo do YouTube), e é a mesma escolha
- * que o `pushNowPlaying` já faz.
+ * **A POSIÇÃO DA MÍDIA NÃO ENTRA AQUI** (v1.5.6), e é essa ausência que é o
+ * recurso: a folha anda com a música parada, e um seek não a puxa de volta. O
+ * que se toma da música é a DURAÇÃO TOTAL, e mais nada.
+ *
+ * Ela sai da BARRA DE PROGRESSO, não de um cálculo paralelo: é a única fonte que
+ * cobre todos os tipos de mídia (o `<video>` do stage não sabe nada de um vídeo
+ * do YouTube), e é a mesma escolha que o `pushNowPlaying` já faz.
  */
-function cifraAlvoDoRelogio(rolavel) {
-  const dur = cifraDuracaoNoAr();
-  if (!(dur > 0)) return null;
-  // A REGRA é do módulo puro (abertura, fecho, os pisos e tetos): aqui só entra
-  // o que só existe no DOM — a duração da barra e a posição no ar.
-  return AVCifra.fracaoDaRolagem(authoritativeTime(), dur) * rolavel;
+function cifraRitmoDoRelogio(rolavel) {
+  // A REGRA é do módulo puro (o fecho, os pisos e tetos da janela): daqui sai só
+  // o que existe no DOM — a duração da barra e o percurso da folha.
+  return AVCifra.ritmoDaRolagem(rolavel, cifraDuracaoNoAr());
 }
 
 /**
@@ -12241,8 +12927,11 @@ function cifraAlvoDoRelogio(rolavel) {
  * modo LIVRE, que deveria ter assumido, nunca é alcançado.
  *
  * `midiaNoAr` é a pergunta certa, e é a mesma que o reenvio de cena e o Parar
- * por camada já fazem. Ela continua VERDADEIRA com a mídia pausada, que é o que
- * o `auto` quer: pausar a música PARA a folha, e isso é o recurso funcionando.
+ * por camada já fazem. Ela continua VERDADEIRA com a mídia PAUSADA, e desde a
+ * v1.5.6 é isso que faz a folha andar com a música parada: o que se lê daqui é a
+ * DURAÇÃO, não a posição. (Até a v1.5.5 pausar a música parava a folha, e o
+ * operador chamou isso de defeito: *"se a música não está tocando, ele não
+ * anda"*.)
  */
 function cifraDuracaoNoAr() {
   // E COM UM ALVO DA BIBLIOTECA NÃO HÁ RELÓGIO NENHUM (v1.2.14). A folha aberta
@@ -12273,7 +12962,7 @@ function cifraVelRotulo() {
 function cifraVelTitulo() {
   if (CIFRA_VELOCIDADES[cifraVelIdx] !== 'auto') return 'Velocidade da rolagem';
   return cifraDuracaoNoAr() > 0
-    ? 'Rolagem no tempo da música (toque para escolher uma velocidade fixa)'
+    ? 'Rolagem no ritmo da música (toque para escolher uma velocidade fixa)'
     : 'Sem duração da música: rolagem em ritmo fixo (toque para escolher a velocidade)';
 }
 
@@ -12295,16 +12984,23 @@ function cifraPintarRolar() {
   const ico = msym(cifraRolando ? ICON.pause : ICON.play);
   ico.setAttribute('aria-hidden', 'true');
   cifraRolarBtnEl.appendChild(ico);
-  const rotulo = cifraRolando ? 'Parar a rolagem' : 'Rolar sozinho';
+  // O ANEL DA ESPERA INICIAL (v1.5.20): a MESMA linguagem visual do download em
+  // curso (`aroDeEspera`), só que sem seta — não há bytes chegando, há um
+  // relógio correndo. Ele diz "em andamento", não "travado"; o botão sozinho
+  // pausado e imóvel é indistinguível de um botão quebrado.
+  if (cifraRolando && cifraEsperando) cifraRolarBtnEl.appendChild(aroDeEspera());
+  const rotulo = !cifraRolando ? 'Rolar sozinho'
+    : (cifraEsperando ? 'Lendo a introdução antes de rolar…' : 'Parar a rolagem');
   cifraRolarBtnEl.title = rotulo;
   cifraRolarBtnEl.setAttribute('aria-label', rotulo);
 }
 
 function cifraRolarParar() {
   cifraRolando = false;
+  cifraEsperaFimMs = -1;
+  cifraEsperando = false;
   if (cifraRaf) cancelAnimationFrame(cifraRaf);
   cifraRaf = 0;
-  cifraDesvio = 0;
   cifraEscrito = -1;
   cifraPintarRolar();
 }
@@ -12322,53 +13018,84 @@ function cifraRolarQuadro(t) {
 
   const el = lyricsViewBodyEl;
   const rolavel = el.scrollHeight - el.clientHeight;
-  const alvo = CIFRA_VELOCIDADES[cifraVelIdx] === 'auto' && rolavel > 0
-    ? cifraAlvoDoRelogio(rolavel) : null;
 
   // OUTRO MEXEU NA FOLHA? Um arrasto, um `scrollIntoView`, o teclado do sistema
   // — qualquer coisa que não tenha sido a linha de escrita lá embaixo. O
   // `scrollTop` de volta vem arredondado, então a régua tem folga de um pixel:
   // sem ela, a nossa própria escrita fracionária se leria como intervenção
   // alheia a cada quadro, e a posição nunca sairia do lugar.
+  //
+  // **É ESTA LINHA que atende o "vale tanto para volta como para avanços"**: o
+  // avanço é relativo nos dois modos, então adotar o que o dedo deixou é adotar
+  // a origem nova — para trás ou para frente, sem nada a compensar.
   if (cifraEscrito < 0 || Math.abs(el.scrollTop - cifraEscrito) > 1) cifraPos = el.scrollTop;
 
   if (cifraSegurando || dt <= 0) {
-    // O DESVIO é medido ENQUANTO o dedo está na tela, não no `pointerup`: ali o
-    // alvo já andou, e a diferença sairia com o deslocamento de um quadro
-    // dentro. Aqui ela é sempre contra o alvo do MESMO instante.
-    if (cifraSegurando && alvo !== null) cifraDesvio = el.scrollTop - cifraAlvoTeorico;
     cifraEscrito = -1; // a folha é de quem está com o dedo nela
     cifraRaf = requestAnimationFrame(cifraRolarQuadro);
     return;
   }
 
-  if (alvo !== null) {
-    cifraAlvoTeorico = alvo;
-    const destino = Math.min(rolavel, Math.max(0, alvo + cifraDesvio));
-    const d = destino - cifraPos;
-    // UM SALTO GRANDE É UM SEEK, e um seek se obedece na hora: o operador
-    // arrastou a barra, e a folha chegar lá deslizando por segundos seria a
-    // folha discordando da música. Abaixo disso, perseguição suave — ela absorve
-    // o jitter do `display-status`, que chega a ~4 Hz.
-    cifraPos = Math.abs(d) > el.clientHeight
-      ? destino
-      : cifraPos + d * (1 - Math.exp(-dt / CIFRA_TAU_MS));
-    cifraAplicarPos(el);
-    cifraRaf = requestAnimationFrame(cifraRolarQuadro);
-    return;
-  }
+  // ---- UM LAÇO SÓ: o que muda entre os modos é DE ONDE SAI O px/s ----
+  // `auto` tira o ritmo da duração da música (e cai no fixo quando não há
+  // duração); os degraus numéricos multiplicam o fixo. Eram dois ramos — um por
+  // POSIÇÃO e outro por velocidade —, e virar um só é a mudança da v1.5.6 dita
+  // como código.
+  const ehAuto = CIFRA_VELOCIDADES[cifraVelIdx] === 'auto';
+  const ritmo = ehAuto ? cifraRitmoDoRelogio(rolavel) : 0;
+  const pxPorS = ritmo > 0
+    ? ritmo
+    : CIFRA_PX_POR_S * (ehAuto ? 1 : CIFRA_VELOCIDADES[cifraVelIdx]);
 
-  // ---- MODO LIVRE: px/s constante, avanço RELATIVO ----
-  const mult = CIFRA_VELOCIDADES[cifraVelIdx] === 'auto' ? 1 : CIFRA_VELOCIDADES[cifraVelIdx];
+  // ===== A ESPERA INICIAL: ler antes de rolar (v1.5.20) =====
+  //
+  // Pedido do operador: *"o sistema de rolagem automática de cifra não está
+  // sendo parado no início para permitir ler e executar a introdução da
+  // música durante um instrumental… o objetivo não é ter a linha a ser lida
+  // no topo, mas no centro. Desse modo, o sistema deve esperar o usuário 'ler
+  // até chegar no ponto médio' antes de se preocupar em mover
+  // automaticamente."*
+  //
+  // A REGRA é do módulo puro (`AVCifra.esperaInicialDaRolagem`, com o piso e o
+  // teto). Daqui sai só o que existe no DOM — a altura da caixa e o `pxPorS`
+  // JÁ CALCULADO acima, o MESMO que o movimento vai usar: a espera não é um
+  // número à parte, é o tempo de ler o pedaço que ainda não rolou, NO
+  // COMPASSO em que a folha vai de fato seguir.
+  //
+  // **Armada UMA VEZ por ciclo de rolagem** (`cifraEsperaFimMs < 0`): o
+  // sentinel nasce -1 em `cifraRolarAlternar`, porque ali o `pxPorS` ainda não
+  // existe — só o PRIMEIRO quadro sabe o ritmo de verdade. Rearmar a cada
+  // quadro empurraria o fim da espera para sempre um pouco mais à frente.
+  //
+  // **`rolavel <= 0` pula a espera inteira** — não há o que ler antes de uma
+  // rolagem que não vai acontecer, e é o mesmo caso em que o laço já parava
+  // no quadro seguinte (ver o `if` de fim de rolagem, abaixo).
+  if (rolavel > 0) {
+    if (cifraEsperaFimMs < 0) {
+      cifraEsperaFimMs = t + AVCifra.esperaInicialDaRolagem(el.clientHeight, pxPorS);
+    }
+    if (t < cifraEsperaFimMs) {
+      cifraRaf = requestAnimationFrame(cifraRolarQuadro);
+      return;
+    }
+  }
+  // O indicador SOME no exato instante em que o movimento de fato começa — daí
+  // em diante a própria folha andando já diz "está funcionando", e o anel
+  // deixaria de ser verdade (ele promete "ainda não", não "sempre").
+  if (cifraEsperando) { cifraEsperando = false; cifraPintarRolar(); }
+
   const antes = el.scrollTop;
-  cifraPos = Math.min(rolavel, cifraPos + (CIFRA_PX_POR_S * mult * dt) / 1000);
+  cifraPos = Math.min(rolavel, cifraPos + (pxPorS * dt) / 1000);
   cifraAplicarPos(el);
   // Chegou ao fim? Continuar é pedir ao aparelho um quadro por segundo para não
   // fazer coisa nenhuma. A pergunta é pelo TETO (`rolavel`) e não por "o
   // scrollTop não andou": com fração de pixel, um quadro sem avanço visível é
-  // normal, e mediria "está lento", não "acabou". Esta parada é SÓ do modo
-  // livre: no `auto` a folha descansa no fim com a música ainda tocando, que é
-  // exatamente o que o FECHO existe para produzir.
+  // normal, e mediria "está lento", não "acabou".
+  //
+  // **Vale para os DOIS modos desde a v1.5.6.** No desenho antigo o `auto`
+  // seguia até o fim da música e "descansava" no fim da folha — o que ele
+  // descansava esperando era o relógio, e não há mais relógio a esperar: com a
+  // folha no fim, a rolagem cumpriu o que prometeu.
   if (cifraPos >= rolavel && antes >= rolavel - 1) { cifraRolarParar(); return; }
   cifraRaf = requestAnimationFrame(cifraRolarQuadro);
 }
@@ -12398,12 +13125,17 @@ function cifraRolarAlternar() {
   // coisa; quem responde "de que música é esta folha?" é `lvItem()`.
   cifraRolandoChave = cifraChave(lvItem());
   cifraQuadroT = 0;
-  // Começar do zero: ligar a rolagem é pedir para seguir a MÚSICA, não para
-  // manter o deslocamento com que a folha estava parada até agora.
-  cifraDesvio = 0;
+  // A ORIGEM É ONDE A FOLHA ESTÁ (v1.5.6): ligar a rolagem é pedir para andar
+  // DAQUI, e não para saltar ao ponto em que a música estaria — que era o que a
+  // v1.1.20 fazia, e é metade do relato que a trocou.
   cifraPos = lyricsViewBodyEl.scrollTop;
   cifraEscrito = -1;
-  cifraAlvoTeorico = cifraPos;
+  // A ESPERA INICIAL nasce ARMADA-PARA-ARMAR: o sentinel `-1` diz "ainda não
+  // sei quanto tempo esperar" (só o primeiro quadro conhece o `pxPorS`), e
+  // `cifraEsperando` liga o indicador JÁ NESTE TOQUE — não faz sentido o botão
+  // ficar mudo por um quadro só porque o cálculo ainda não rodou.
+  cifraEsperaFimMs = -1;
+  cifraEsperando = true;
   // Rolar sozinho e ACOMPANHAR a estrofe no ar são dois donos do mesmo scroll.
   // Quem tocou no botão escolheu este.
   lvFollow = false;
@@ -12427,9 +13159,9 @@ function cifraAdotarVelocidade(v) {
 
 async function cifraVelPasso() {
   cifraVelIdx = (cifraVelIdx + 1) % CIFRA_VELOCIDADES.length;
-  // Trocar de modo zera o desvio: ele foi medido contra um alvo que o modo novo
-  // não calcula do mesmo jeito.
-  cifraDesvio = 0;
+  // Nada a zerar: os dois modos integram a partir da posição atual, e o degrau
+  // só troca o px/s do próximo quadro. (A v1.1.20 zerava aqui o `cifraDesvio`,
+  // que era medido contra um alvo absoluto — ele saiu com o alvo.)
   cifraPintarRolar();
   try { await AVDB.setState('cifraVelocidade', CIFRA_VELOCIDADES[cifraVelIdx]); }
   catch (_) { /* sem banco: vale a sessão */ }
@@ -12439,8 +13171,12 @@ async function cifraVelPasso() {
 // sistema subindo, a janela mudando de tamanho. A medida da folha é em
 // CARACTERES, então qualquer um deles deixa a quebra valendo para a largura
 // anterior. `cifraRemedir` já se recusa a trabalhar fora da aba de cifra.
-window.addEventListener('resize', cifraRemedir);
-window.addEventListener('orientationchange', () => { requestAnimationFrame(cifraRemedir); });
+// Em ARROW, e não a referência nua: `cifraRemedir` passou a receber a fração de
+// leitura no primeiro argumento (v1.6.0), e um `Event` de `resize` — ou o
+// carimbo de tempo que o `requestAnimationFrame` entrega — chegaria no lugar
+// dela. O `typeof` de lá é a segunda guarda; esta é a primeira.
+window.addEventListener('resize', () => cifraRemedir());
+window.addEventListener('orientationchange', () => { requestAnimationFrame(() => cifraRemedir()); });
 
 
 /** O aro de espera com uma frase — três chamadores, um desenho. */
@@ -12468,7 +13204,14 @@ function cifraDesenharFolha(el, pagina, semitons) {
   const folha = document.createElement('div');
   folha.className = 'lv-cifra-folha';
   el.appendChild(folha);
-  const linhas = AVCifra.quebrarPares(pagina.linhas, cifraColunas(folha));
+  // O QUE ESTA FOLHA USOU, guardado para a guarda de `cifraRemedir` (v1.6.0):
+  // ela pergunta se a folha em cena foi quebrada para a largura que ela TEM
+  // agora, e a única resposta honesta é a medida que a construiu. Guardar em
+  // vez disso o último valor medido faria a folha aberta com largura ZERO (o
+  // `renderLyricsView` de dentro do `openLyricsPopup`, antes do `.open`)
+  // coincidir com um número velho e nunca ser requebrada.
+  cifraColunasAtual = cifraColunas(folha);
+  const linhas = AVCifra.quebrarPares(pagina.linhas, cifraColunasAtual);
   linhas.forEach((linha) => {
     const div = document.createElement('div');
     div.className = 'lv-cifra-linha lv-cifra-' + linha.tipo;
@@ -13007,9 +13750,36 @@ async function toggleMute() {
     //  de mudo, que veste `.blocked` — ver `renderControls`.)
     return;
   }
-  muted = !muted; await persistCurrent();
+  // ===== O COMANDO VAI NA FRENTE DA GRAVAÇÃO (v1.5.6) =====
+  // Relato do operador: *"ativar o mudo durante a exibição de um vídeo online do
+  // YouTube está travando momentaneamente, engasgando a visualização"*.
+  //
+  // Este era o ÚNICO controle do app que punha uma transação de banco na frente
+  // do comando: `await persistCurrent()` é uma escrita no IndexedDB, e o `mute`
+  // só saía depois do commit dela. O irmão que mexe no mesmo áudio
+  // (`applyVolume`) sempre mandou primeiro — a assimetria não tinha razão.
+  //
+  // **Por que isto pesa numa TRANSMISSÃO e não num arquivo:** os dois WebViews
+  // dividem UM processo, e a transmissão direta é a única mídia do app que
+  // precisa de JavaScript rodando enquanto toca (o `shared/mse.js` repõe o
+  // buffer). Tudo que segura a thread principal entre o toque e o comando segura
+  // o abastecimento junto — um arquivo local não sente, porque o `<video>` lê do
+  // disco sem passar por JS nenhum.
+  //
+  // A gravação continua acontecendo, agora SEM prender o comando: o que ela
+  // guarda é o ajuste da mesa para a próxima sessão, e ninguém a espera.
+  // (`persistCurrent` já é usado assim em quatro outros pontos.)
+  //
+  // **O QUE ISTO NÃO PROVA, dito:** o engasgo do relato não foi reproduzido fora
+  // do aparelho — aqui a escrita mede ~2 ms num banco vazio. O que se corrige é
+  // uma latência REAL e mensurável no caminho exato do relato, não um defeito
+  // observado. Se o engasgo persistir, o próximo suspeito não é este arquivo: é
+  // o que o Chromium faz com um `<video>` de MediaSource ao trocar de estado de
+  // áudio.
+  muted = !muted;
   cmd({ type: 'mute', muted });
   renderControls();
+  persistCurrent();
 }
 
 /**
@@ -13669,7 +14439,7 @@ async function deleteSelected() {
   // arquivos de uma pasta hoje é o "Excluir pasta e arquivos sincronizados" da
   // linha da própria pasta.)
   {
-    for (const id of selected) { await AVDB.listRemove(activeTab, id); await soltarAvulso(id); }
+    for (const id of selected) { await AVDB.listRemove('imports', id); await soltarAvulso(id); }
   }
   exitSelection(); load();
 }
@@ -13734,7 +14504,7 @@ function hostSelbar() {
 }
 
 function navigateBack() {
-  if (activeTab === 'bible') {
+  if (bibliaAberta()) {
     if (bibleScreen === 'reading') gotoBibleScreen('chapters');
     else if (bibleScreen === 'chapters') gotoBibleScreen('books');
     return;
@@ -14226,6 +14996,25 @@ function serieFaixaDoItem(s, it) {
   // `thumbEl`), então ela vale como ilustração e nunca como dado: sem internet
   // a imagem não carrega, e o detalhe do item continua inteiro sem ela.
   s.thumb = it.thumb || '';
+  // O TÍTULO CRU E O CANAL (v1.5.21) — os dois dados que a regra tinha na mão e
+  // jogava fora, e que a gaveta de detalhe existe para mostrar.
+  //
+  // `s.name` é o RÓTULO ("15/Ago · Quando o evangelho sussurra"): a data na
+  // frente porque é por ela que se procura, e o título já podado. No modo
+  // `TITULO_SERIE` (o Informativo) ele nem chega a conter o nome do episódio —
+  // o que fica é o rótulo da série mais a data. O CRU é a outra pergunta,
+  // *"é este mesmo?"*, e ela é a razão de o detalhe existir num vídeo.
+  //
+  // Guardados no ÍNDICE e não pedidos na hora de abrir a gaveta: quem os tem é
+  // a extração da playlist, que custa rede, e a gaveta abre no sábado de manhã
+  // no Wi-Fi da igreja. Persistir é o que faz o card valer OFFLINE.
+  s.nomeOriginal = String(it.nomeOriginal || '').trim();
+  s.canal = String(it.canal || '').trim();
+  // E os SEGUNDOS CRUS ao lado da string formatada. `s.duration` continua sendo
+  // o "M:SS" que toda conta de peso do álbum lê; este é o número, e ele existe
+  // por um consumidor só: `serieComoYoutube`, que o repassa ao registro quando
+  // o episódio é guardado como LINK (ali não há blob de onde medir nada).
+  s.seconds = it.seconds || 0;
   // Um vídeo não tem Playback. Sem isto, `songVariantsNeeded` pediria uma
   // segunda variante que nunca vai existir e o álbum nunca ficaria completo.
   s.has_instrumental_music = false;
@@ -15620,11 +16409,80 @@ async function syncLyrics() {
 }
 
 // Busca GLOBAL (botão de lupa): escopo null = varre todas as coleções.
-function openHymnSearch() {
+/**
+ * ===== AS DUAS PORTAS DA BIBLIOTECA (v1.5.0) =====
+ *
+ * Pedido do operador: *"sua forma de abertura da biblioteca agora vai ser
+ * através do foco na barra de texto, ou no toque do que seria o botão de fechar
+ * a biblioteca (que quando fechado seria uma seta) … no caso de abrir pelo
+ * foco, já abre o teclado junto, se abrir pelo botão de abrir, ela abre sem o
+ * foco de digitação"*.
+ *
+ * São duas INTENÇÕES diferentes, e é por isso que elas abrem diferente:
+ * *"procurar o hino 37"* chega pelo campo e quer o teclado; *"ver o que eu
+ * tenho"* chega pela seta e quer a lista inteira à vista, sem metade da tela
+ * ocupada por um teclado que ninguém pediu.
+ *
+ * `comFoco` é explícito e não derivado de `document.activeElement`: quando o
+ * ouvinte de `focus` chama esta função o campo JÁ está focado, e quando o botão
+ * a chama ele pode estar focado por um toque anterior — as duas leituras dariam
+ * a mesma resposta e ela seria a errada em um dos dois casos.
+ */
+// ===== O VÉU DAS BORDAS DA LISTA (v1.5.16) =====
+//
+// Pedido do operador: *"um efeito de blur na borda interna superior ou
+// inferior, quando algum elemento da tela ir para debaixo dessa borda. Para
+// melhor perceber que há mais itens no scroll da lista."*
+//
+// O véu inteiro é CSS (ver "O VÉU DAS BORDAS DA LISTA" em `controle.css`); o
+// que o JS responde é a única coisa que a folha não sabe: **há conteúdo escondido
+// deste lado?** Nos extremos não há, e um borrão sobre a primeira linha com a
+// lista no topo é o app dizendo que há mais quando não há.
+//
+// ESCREVE SÓ QUANDO O BOOLEANO VIRA. `scroll` dispara dezenas de vezes por
+// gesto; `classList.toggle` com o mesmo valor é barato, mas a comparação
+// explícita é o que garante ZERO trabalho de estilo no caso comum (rolar no
+// meio da lista, onde os dois já estão ligados).
+//
+// A FOLGA DE 2px não é superstição: `scrollTop` é fracionário em telas de alta
+// densidade, e o fim da lista costuma dar `scrollHeight - scrollTop -
+// clientHeight` de 0,5px. Com zero, o véu de baixo piscava no último pixel.
+function acertarVeuDaLista() {
+  const el = hymnResultsEl;
+  if (!el) return;
+  const acima = el.scrollTop > 2;
+  const abaixo = el.scrollHeight - el.scrollTop - el.clientHeight > 2;
+  if (el.classList.contains('tem-acima') !== acima) el.classList.toggle('tem-acima', acima);
+  if (el.classList.contains('tem-abaixo') !== abaixo) el.classList.toggle('tem-abaixo', abaixo);
+}
+// Coalescido por quadro: o `scroll` de um gesto chega mais de uma vez por
+// quadro e a conta acima lê `scrollHeight`, que força layout.
+let veuPedido = false;
+function pedirVeuDaLista() {
+  if (veuPedido) return;
+  veuPedido = true;
+  requestAnimationFrame(() => { veuPedido = false; acertarVeuDaLista(); });
+}
+// UM ouvinte, no boot: `#hymnResults` é o MESMO nó entre uma abertura e a
+// seguinte (é a razão de o `openHymnSearch` precisar zerar o `scrollTop` à
+// mão), então registrar por abertura empilharia ouvintes para sempre.
+// `passive` porque ele não cancela nada — sem isso o Chromium não pode
+// adiantar a rolagem.
+if (hymnResultsEl) hymnResultsEl.addEventListener('scroll', pedirVeuDaLista, { passive: true });
+
+function openHymnSearch(comFoco) {
   hymnSearchInputEl.placeholder = 'Nome, número ou trecho da letra…';
-  hymnSearchInputEl.value = '';
+  // (O CAMPO É LIMPO AO FECHAR, não aqui — ver `closeHymnSearch`. Continua
+  //  havendo um `renderSearchResults('')` nesta abertura porque o desenho do
+  //  acervo é o que a Biblioteca mostra, e ele depende de estado que o
+  //  `resetarBiblioteca` acabou de zerar.)
   renderSearchResults('');
   hymnSearchPopupEl.classList.add('open');
+  // NO `body`, e não só na camada: quem sai de cena com o teclado é a CAIXA DE
+  // CONTROLES, que não é descendente dela.
+  document.body.classList.add('lib-aberta');
+  renderLibToggle();
+  medirBarraDaBiblioteca();
   // ===== A LISTA ABRE NO TOPO (v5.280) =====
   //
   // Decisão do operador: *"ao invés de ter um scroll de tela inteira, deixar
@@ -15638,6 +16496,9 @@ function openHymnSearch() {
   // v5.278 (a camada fixa seguindo a viewport visual): com a barra no topo da
   // folha e nada rolando além da lista, não há o que acompanhar.
   hymnResultsEl.scrollTop = 0;
+  // O véu conferido AQUI e não só no `scroll`: um render muda o `scrollHeight`
+  // sem que nenhuma rolagem aconteça, e a Biblioteca abre com a lista parada.
+  acertarVeuDaLista();
   // O TECLADO SOBE NOS DOIS MODOS, um tempo DEPOIS da tela (260 ms: o fade de
   // .25s mais um quadro). Simultâneos, o teclado ENCOLHE a faixa visível
   // (`--kb`/`--vv-top`) enquanto a folha ainda aparece — dois movimentos sobre
@@ -15650,10 +16511,137 @@ function openHymnSearch() {
   // de segundos. Se o teclado parar de subir no aparelho, a causa é esta linha
   // e a volta é uma só: `hymnSearchInputEl.focus()` aqui, síncrono.
   clearTimeout(hymnFocoTimer);
+  hymnFocoTimer = null;
+  // SEM FOCO NA PORTA DA SETA. O adiamento continua valendo para a outra porta
+  // — e só para ela, porque ali o campo já está focado e o que o `focus()`
+  // atrasado faz é reafirmar o foco depois de a janela ter subido, que é o que
+  // impede o teclado de encolher a tela no meio da animação.
+  if (!comFoco) return;
   hymnFocoTimer = setTimeout(() => {
     hymnFocoTimer = null;
     hymnSearchInputEl.focus();
   }, ABRIR_TECLADO_MS);
+}
+
+/**
+ * AS DUAS MEDIDAS DA JANELA (v1.5.2), e as duas saem de uma leitura só.
+ *
+ * A Biblioteca é uma coluna `[barra][lista]` de tela cheia. Aberta, ela é
+ * `translateY(0)` — a barra no topo da tela. Fechada, ela desce até a barra
+ * pousar no LUGAR dela: o topo da caixa de controles, acima do nome da mídia em
+ * exibição (pedido do operador na v1.5.2 — na v1.5.1 o lugar era a base da
+ * tela, e ali a conta era `100% - a barra`, sem medida nenhuma de posição).
+ *
+ *  · **`--lib-bar-h`** — a altura da barra. É o que a `.bottombar` RESERVA no
+ *    `padding-top`, isto é, o lugar em que a barra pousa.
+ *  · **`--lib-caixa-h`** — a altura da CAIXA DE CONTROLES, de onde o CSS deduz o
+ *    topo dela sem perguntar onde ele está (ver `.popup-sheet--lib`).
+ *
+ * (O RECORTE da folha fechada — o que impede a lista e o fundo dela de caírem
+ * por cima do transporte, em pixel e em toque — NÃO entra aqui: ele é medido no
+ * espaço da própria folha, `100% - a barra`, e o único número que ele pede é a
+ * altura dela. Uma versão anterior o media na tela, e a transição com atraso que
+ * ele precisa ter prendia toda REMEDIÇÃO por 0,28 s — num oráculo sem quadros
+ * desenhados, para sempre. Ver `.popup-sheet--lib`.)
+ *
+ * SÃO AS DUAS ALTURAS, e nenhuma POSIÇÃO — é a correção da v1.5.3, e ela veio de
+ * um relato: *"o alinhamento da barra está completamente errado, está sendo
+ * cortado e deslocado em suas animações … você pode estar usando números fixos
+ * considerando a sua tela de testes, mas a tela do smartphone tem variação de
+ * tamanho, pixels e espaços variáveis"*. O que se media era o TOPO da caixa, uma
+ * coordenada de tela — e uma coordenada envelhece por caminhos que ninguém
+ * observa: o teclado encolhendo o corpo do app, a área segura entrando depois do
+ * primeiro layout, a viewport mudando de altura sem a caixa mudar de tamanho.
+ * **O `ResizeObserver` vigia TAMANHO, e nada disso muda o tamanho da caixa: muda
+ * o lugar dela.** Medindo só alturas, o instrumento e a grandeza passam a ser a
+ * mesma coisa, e quem sabe onde a caixa está é o CSS, que refaz a conta a cada
+ * quadro.
+ *
+ * MEDIDAS e não escritas no CSS: a barra muda de altura com o corpo de fonte do
+ * sistema, e a caixa muda de altura com a proporção da preview, com o título em
+ * duas linhas e com o modo do app.
+ *
+ * PELO `offsetHeight`, nunca pelo `getBoundingClientRect`: a janela está
+ * TRANSLADADA quando fechada e a caixa do cliente vem transformada junto — a
+ * conta se alimentaria do próprio resultado. Os `offset*` são do layout, que é o
+ * que a translação não move.
+ *
+ * ELAS ANIMAM, ENTÃO SÓ SE ESCREVE O QUE MUDOU. A translação transiciona (e o
+ * recorte, com atraso), e um `ResizeObserver` que reescreve o mesmo valor
+ * dispara outra passada — o laço que o navegador denuncia como
+ * "ResizeObserver loop". Escrever só a mudança fecha isso na origem.
+ *
+ * NA RAIZ e não no popup: quem lê `--lib-bar-h` é a `.bottombar`, que não é
+ * descendente dele.
+ */
+function medirBarraDaBiblioteca() {
+  if (!libBarEl || !bottombarEl) return;
+  const alturaDaBarra = libBarEl.offsetHeight;
+  // Barra sem altura = folha ainda não montada, ou o app escondido. Escrever 0
+  // encostaria a janela inteira na tela e tiraria a reserva da caixa de
+  // controles; a medida boa que já está lá é a resposta certa.
+  if (!alturaDaBarra) return;
+  const raiz = document.documentElement;
+  let mudou = false;
+  const escrever = (nome, px) => {
+    const valor = Math.round(px) + 'px';
+    // SÓ O QUE MUDOU: ver o bloco acima — reescrever o mesmo valor num
+    // `ResizeObserver` é o laço que o navegador denuncia.
+    if (raiz.style.getPropertyValue(nome) === valor) return;
+    raiz.style.setProperty(nome, valor);
+    mudou = true;
+  };
+  escrever('--lib-bar-h', alturaDaBarra);
+  // A RESERVA ENTRA ANTES DA ALTURA SER LIDA: o `padding-top` da caixa sai desta
+  // altura, então medi-la antes de escrevê-la mediria uma caixa que ainda não
+  // reservou o lugar da barra.
+  const alturaDaCaixa = bottombarEl.offsetHeight;
+  // Caixa sem altura é ELA FORA DA TELA — o Modo Fácil a esconde, e desde a
+  // v1.5.6 o teclado com a Biblioteca aberta também. Zero não é uma medida, é a
+  // AUSÊNCIA de uma: escrevê-lo levaria a barra à base da tela, e a medida boa
+  // que já está no lugar é a resposta certa para quando a caixa voltar. Quem
+  // responde por esses dois estados é o CSS, que manda a janela até a base sem
+  // consultar este número.
+  if (alturaDaCaixa) escrever('--lib-caixa-h', alturaDaCaixa);
+  // FORA do `if`: uma mudança só na altura da BARRA também precisa desarmar a
+  // transição, e ficar presa atrás da caixa oculta era o mesmo defeito por outra
+  // porta.
+  if (mudou) semAnimarAJanela();
+}
+
+/**
+ * UMA REMEDIÇÃO NÃO É UMA ANIMAÇÃO (v1.5.2).
+ *
+ * A janela ANIMA entre dois lugares — o topo da tela e o lugar da barra —, e o
+ * segundo é uma MEDIDA. Uma transição não distingue as duas razões de o valor
+ * mudar: com o tempo ligado, remedir vira a barra DESLIZANDO até o lugar novo
+ * enquanto a caixa de controles já saltou para lá, e o que se vê é a barra
+ * correndo atrás da caixa.
+ *
+ * FOI MEDIDO ANTES DE CHEGAR AO APARELHO, e num lugar que não desenha quadros:
+ * no `controles-layout.test.mjs` a transição atrasada ficou PARADA no valor de
+ * partida, e a janela FECHADA cobria a preview inteira — o toque na cortina
+ * caindo na lista da Biblioteca, com a Biblioteca fechada.
+ *
+ * A resposta é desligar o tempo no quadro em que a medida entra: a classe sai
+ * (e com ela `--lib-anim`), o valor novo é aplicado no mesmo recálculo — uma
+ * transição usa a duração do estilo DEPOIS da mudança —, e a classe volta no
+ * quadro seguinte, quando já não há nada a animar.
+ *
+ * É O MESMO MECANISMO DA CARGA, e por isso não há dois: a primeira medida
+ * também é uma mudança de valor, e é ela que arma a animação pela primeira vez.
+ * MEDIDO: a barra mede 28,6px no primeiro quadro (antes de a folha assentar) e
+ * 51px depois — sem isto, a correção seria a janela varrendo a tela na abertura
+ * do app.
+ */
+let libRearmar = 0;
+function semAnimarAJanela() {
+  document.body.classList.remove('lib-pronta');
+  cancelAnimationFrame(libRearmar);
+  libRearmar = requestAnimationFrame(() => {
+    libRearmar = requestAnimationFrame(
+      () => document.body.classList.add('lib-pronta'));
+  });
 }
 
 /**
@@ -15704,6 +16692,27 @@ function closeHymnSearch() {
   clearTimeout(hymnFocoTimer);
   hymnFocoTimer = null;
   hymnSearchPopupEl.classList.remove('open');
+  document.body.classList.remove('lib-aberta');
+  renderLibToggle();
+  // O CAMPO PERDE O FOCO ao fechar: sem isto o teclado fica de pé sobre o app
+  // com a janela já fora de cena — a mesma classe de defeito do foco pendente
+  // logo acima, pelo outro caminho.
+  try { hymnSearchInputEl.blur(); } catch (_) {}
+  // ===== E O CAMPO SE LIMPA AQUI, NÃO NA ABERTURA (v1.5.6) =====
+  // Relato do operador: *"ajuste a caixa de buscas para que ela resete seu texto
+  // quando for fechada, pois agora ela está mantendo a palavra de filtro após
+  // ser fechada e limpando apenas quando aberta"*.
+  //
+  // A limpeza na abertura era certa enquanto o campo VIVIA DENTRO da Biblioteca
+  // (até a v1.5.0): fechada, ninguém o via, e o texto velho morria antes de
+  // aparecer. **Hoje a barra fica à vista o culto inteiro**, na caixa de
+  // controles — o filtro da busca anterior é a primeira coisa que o operador lê
+  // quando volta ao transporte, e ele descreve uma tela que não está mais lá.
+  //
+  // É a mesma razão que já trouxe o `resetarBiblioteca` para cá, e agora vale
+  // para o texto pelo motivo oposto: aquele se faz no fechamento para não ser
+  // VISTO acontecendo, este para não ficar VISÍVEL depois.
+  hymnSearchInputEl.value = '';
   // FECHAR é o momento certo, e não abrir: aqui a tela já saiu de cena, então
   // nada do que se colapsa é visto colapsando. No `openHymnSearch` o mesmo
   // trabalho apareceria como a Biblioteca se desmontando na frente do operador.
@@ -15719,7 +16728,16 @@ function closeHymnSearch() {
 // visível em volta — o operador não perde onde estava para ver o que tem dentro.
 function searchIsBrowsing(q) { return !q; }
 
+// A casca do `renderSearchResults`, na forma que o `renderCollectionsList` já
+// usa: o miolo tem saídas antecipadas (índice vazio, zero resultados) e o véu
+// das bordas precisa ser reconferido depois de TODAS elas — um render muda o
+// `scrollHeight` sem que nenhuma rolagem aconteça. `finally` porque uma exceção
+// no miolo não pode deixar o véu descrevendo a lista anterior.
 function renderSearchResults(query) {
+  try { renderSearchResultsMiolo(query); } finally { acertarVeuDaLista(); }
+}
+
+function renderSearchResultsMiolo(query) {
   const q = normalizeForSearch(query).trim();
   // Digitou outra coisa: os resultados do YouTube da busca anterior saem de
   // cena. Deixá-los ali embaixo de um termo novo é oferecer a resposta errada.
@@ -16866,12 +17884,20 @@ async function ytAcaoInterno(r, destinos, btn, somenteAudio, altura) {
     // acrescenta nada (não há bytes que os distingam).
     let rec = r && r.id ? await AVDB.mediaByYoutube(r.id, 'youtube') : null;
     if (!rec) {
+      const thumb = (await thumbYoutube(r.id)) || ('https://img.youtube.com/vi/' + r.id + '/hqdefault.jpg');
       rec = await AVDB.addUrlMedia(r.url || ('https://www.youtube.com/watch?v=' + r.id), {
         kind: 'youtube',
         type: 'video/youtube',
         name: r.name || ('YouTube: ' + r.id),
-        thumb: 'https://img.youtube.com/vi/' + r.id + '/hqdefault.jpg',
+        thumb,
         youtubeId: r.id,
+        // O QUE O LINK LEVA CONSIGO (v1.5.21). Os dois já estavam na mão de quem
+        // cria — a busca do YouTube devolve `seconds`/`author`, e um episódio de
+        // série chega por `serieComoYoutube` com os mesmos — e eram descartados
+        // aqui. É a única chance de gravá-los: um link não tem bytes de onde
+        // medir, então o que não entrar agora não existe mais offline.
+        seconds: r.seconds || null,
+        canal: r.author || null,
         list: lista,
       });
     }
@@ -17216,6 +18242,71 @@ function searchIconSvg() {
   return '<svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoLupa"/></svg>';
 }
 
+// ===== OS DETALHES DE UM VÍDEO: EM MEMÓRIA, E SÓ EM MEMÓRIA (v1.5.21) =====
+//
+// Pedido do operador: *"coloque dados como duração, nome completo, canal e
+// descrição se for possível obter"*. Duração e canal são do índice da série e
+// valem OFFLINE (ver `serieFaixaDoItem`); a DESCRIÇÃO não vem em listagem
+// nenhuma — ela custa uma extração POR VÍDEO —, e por isso ela é a única dos
+// quatro que precisa de rede e a única que exigiu um método novo da ponte
+// (`AVNative.ytDetalhes`, shell 62).
+//
+// E O TÍTULO CRU ENTROU NA MESMA CARONA (v1.6.0). O índice de uma SÉRIE o
+// guarda (`serieFaixaDoItem`), mas um LINK salvo nunca teve título cru: o
+// registro guarda só o `name` já tratado, então a linha do título simplesmente
+// não existia ali — que foi o relato (*"não estou vendo o título completo e
+// original do vídeo do link"*). O `ytDetalhes` já devolvia o `titulo` ao lado
+// da descrição e ele era descartado no caminho; guardar o OBJETO em vez do
+// texto custa zero requisição a mais.
+//
+// **NADA DISTO VAI PARA O DISCO, e o precedente é o da CIFRA, palavra por
+// palavra:** um `Map` que morre com o app, nada em IndexedDB, nada no bundle do
+// OTA, nada no repositório. Guardar mudaria o recurso de NATUREZA — o app
+// deixaria de LER conteúdo de terceiro no aparelho do operador e passaria a
+// DISTRIBUIR uma cópia dele. As duas coisas não são degraus da mesma escada.
+//
+// O CACHE É POR VÍDEO E NÃO POR LINHA: a mesma lista é remontada a cada tecla
+// da busca e a cada marca de destino, e sem ele reabrir a gaveta do mesmo
+// episódio gastaria uma extração nova — na fila que o "Tocar agora" divide.
+//
+// **`null` NÃO É GUARDADO.** A ponte separa "não houve resposta" (`null`) de
+// "respondeu e não há descrição" (`descricao: ''`), e é a mesma disciplina do
+// `sem-rede` da cifra: um Wi-Fi que oscilou não pode custar um buraco que só
+// some fechando o app. O vazio, esse, é resposta — e guardá-lo é o que impede a
+// gaveta de gastar uma extração por abertura num vídeo sem descrição.
+const ytDetalhesCache = new Map();   // id do vídeo → { titulo, canal, descricao } saneados
+
+/**
+ * Os detalhes de UM vídeo, do cache ou da ponte — `{ titulo, canal, descricao }`,
+ * cada campo já saneado para string (`''` = não veio). `null` quando não houve
+ * RESPOSTA: sem ponte (navegador), sem URL e sem rede.
+ *
+ * A distinção entre `null` e campo vazio é o recurso, não um detalhe: o
+ * primeiro não é guardado e é retentado, o segundo é resposta e fica no cache —
+ * é o que impede a gaveta de gastar uma extração por abertura num vídeo sem
+ * descrição.
+ *
+ * A guarda é `window.__NATIVE__`, e SÓ ela — nunca uma comparação de
+ * `__SHELL_VERSION__`. O bundle declara `minShell`, então o piso garante a
+ * ponte inteira e não há método a conferir; guarda de versão no lado web é
+ * proibida por escrito. O que separa navegador de app é esta linha, e nada mais.
+ */
+async function detalhesDoVideo(id, url) {
+  if (!window.__NATIVE__ || !url) return null;
+  const chave = id || url;
+  const guardado = ytDetalhesCache.get(chave);
+  if (guardado !== undefined) return guardado;
+  const d = await AVNative.ytDetalhes(url);
+  if (!d) return null;         // não houve resposta: nada guardado, tenta de novo
+  const det = {
+    titulo: String(d.titulo || ''),
+    canal: String(d.canal || ''),
+    descricao: String(d.descricao || ''),
+  };
+  ytDetalhesCache.set(chave, det);
+  return det;
+}
+
 // ===== UMA LINHA, UM TOQUE, UMA GAVETA =====
 //
 // A linha era `[▶] [nome / subtítulo] [+]` — dois botões, cada um abrindo uma
@@ -17387,7 +18478,22 @@ function hymnResultRow(coll, s, lyricHit, semColecao) {
       b.appendChild(cx2);
       b.addEventListener('click', (e) => {
         e.stopPropagation();
-        li.classList.toggle('vendo-letra');
+        // ===== O GATILHO DOS DETALHES É A REVELAÇÃO, e não a abertura da linha =====
+        //
+        // Eles custam uma extração de rede na fila que o "Tocar agora" divide, e
+        // são a única parte do card que custa alguma coisa. Pendurá-la no toque
+        // na LINHA gastaria uma extração por gaveta aberta — inclusive nas que o
+        // operador abre só para mandar o episódio ao Cronograma —, e pendurá-la
+        // na montagem da LISTA gastaria uma por episódio do álbum, que é
+        // exatamente a varredura que a fila de extração proíbe.
+        //
+        // Aqui é uma por vídeo OLHADO, e só quando a metade de baixo entra em
+        // cena: é a mesma regra do `cifraCabe`, pelo mesmo motivo.
+        //
+        // E roda com o card JÁ VISÍVEL, o que resolve de graça o acordeão: ele
+        // já mediu e terminou muito antes, esta revelação não é animada, e a
+        // altura da gaveta é `auto` quando o texto chega.
+        if (li.classList.toggle('vendo-letra')) pedirDetalhes();
       });
       return b;
     };
@@ -17412,6 +18518,82 @@ function hymnResultRow(coll, s, lyricHit, semColecao) {
     renderSongMenu();
   }
 
+  // OS DETALHES DA REDE, quando eles chegam — o título cru e a descrição.
+  // Row-scoped porque o alvo é o `conteudo` desta linha; o CACHE é de módulo
+  // (`ytDetalhesCache`), e é ele que impede uma segunda extração quando a mesma
+  // gaveta é reaberta.
+  let detPedidos = false;
+  async function pedirDetalhes() {
+    if (detPedidos || !ehLink(coll)) return;
+    detPedidos = true;
+    let det = null;
+    try {
+      det = await detalhesDoVideo(s.id_music, s.ytUrl);
+    } catch (_) { det = null; }
+    // SEM RESPOSTA, SEM BLOCO — e a tentativa volta a valer. Um card sem a
+    // linha da descrição é o mesmo card de antes deste lote; um bloco vazio (ou
+    // com um "não foi possível obter") seria o app contando o próprio
+    // funcionamento a quem perguntou pelo vídeo.
+    if (!det) { detPedidos = false; return; }
+    // AS DUAS COISAS, e cada uma com a guarda dela: um vídeo pode ter título e
+    // não ter descrição (e vice-versa), e a resposta certa a um campo vazio é a
+    // ausência da linha, nunca uma linha vazia.
+    if (det.titulo) pintarTitulo(det.titulo);
+    if (det.descricao) pintarDescricao(det.descricao);
+  }
+
+  // ===== O TÍTULO CRU QUE VEIO DA REDE (v1.6.0) =====
+  //
+  // Ele entra NO TOPO da coluna de texto, e não no fim: a ordem do card é
+  // título → canal → duração → estado, e este chega depois de todos os outros
+  // já estarem desenhados. `insertBefore` no primeiro filho é o que preserva a
+  // ordem das PERGUNTAS (*o que é isto?* antes de *de quem?*).
+  //
+  // DUAS GUARDAS, e nenhuma é redundante. A primeira: num EPISÓDIO de série o
+  // índice já deu o título cru (`s.nomeOriginal`) e a linha já está lá —
+  // desenhar de novo seria a mesma frase duas vezes. A segunda é a régua que o
+  // `montarDetalhe` já usa: um título IGUAL ao rótulo da linha logo acima não
+  // acrescenta nada.
+  function pintarTitulo(titulo) {
+    const txt = conteudo.querySelector('.item-detalhe-txt');
+    if (!txt || conteudo.querySelector('.item-detalhe-titulo')) return;
+    const t = String(titulo).trim();
+    if (!t || t === String(s.name || '').trim()) return;
+    const el = document.createElement('span');
+    el.className = 'item-detalhe-linha item-detalhe-titulo';
+    // `textContent` e nunca `innerHTML`: é texto de TERCEIRO, e o Controle roda
+    // no origin que injeta `__AVBridge` em toda página que carrega.
+    el.textContent = t;
+    txt.insertBefore(el, txt.firstChild);
+  }
+
+  // ===== A DESCRIÇÃO É TEXTO, E ELA VEM INTEIRA (v1.6.0) =====
+  //
+  // `textContent` e NUNCA `innerHTML`: isto é texto de TERCEIRO e o Controle
+  // roda no origin privilegiado, o que injeta `__AVBridge` em toda página que
+  // carrega. A outra metade da regra mora no Kotlin, e é ela que torna esta
+  // barata: `YoutubeGrab.detalhes` já achata o HTML que o YouTube manda quando
+  // a descrição tem links, então o que chega aqui é texto e a tela não mostra
+  // marcação literal.
+  //
+  // SEM CLAMP E SEM "VER MAIS". Pedido do operador: *"ajuste para que não
+  // precise do 'ver mais' nos detalhes, já deixe tudo aberto de uma vez"*. O
+  // recorte em quatro linhas custava um toque a mais para ler o que o card foi
+  // buscar, e a gaveta já é um acordeão que se abre e se fecha inteiro — o
+  // segundo grau de revelação dentro dele não respondia a pergunta nenhuma.
+  // (O único teto que sobra é o do Kotlin, `DESCRICAO_MAX`, e ele é de
+  // TRANSPORTE — não é o que a tela mostra.)
+  function pintarDescricao(texto) {
+    if (!conteudo.isConnected || conteudo.querySelector('.item-detalhe-desc')) return;
+    const cx = document.createElement('div');
+    cx.className = 'item-detalhe-desc';
+    const p = document.createElement('p');
+    p.className = 'item-detalhe-desc-txt';
+    p.textContent = texto;
+    cx.appendChild(p);
+    conteudo.appendChild(cx);
+  }
+
   async function montarDetalhe() {
     conteudo.innerHTML = '';
     if (s.thumb) {
@@ -17425,23 +18607,72 @@ function hymnResultRow(coll, s, lyricHit, semColecao) {
       conteudo.appendChild(im);
     }
     const txt = document.createElement('div'); txt.className = 'item-detalhe-txt';
-    if (s.duration) {
-      const d = document.createElement('span'); d.className = 'item-detalhe-linha';
-      d.textContent = 'Duração ' + s.duration;
-      txt.appendChild(d);
+    // ===== O QUE O CARD DIZ, E EM QUE ORDEM (v1.5.21) =====
+    //
+    // Pedido do operador: *"coloque dados como duração, nome completo, canal e
+    // descrição se for possível obter"*. Os três primeiros já chegavam do
+    // extrator e eram descartados no caminho (ver `serieFaixaDoItem`); a
+    // DESCRIÇÃO não existe em lugar nenhum deste lado e é a única que exige um
+    // método novo da ponte — ela entra como mais uma `linha()` aqui, sem mexer
+    // no resto, e é por isso que este montador não ganhou estrutura para ela.
+    //
+    // A ORDEM é a das perguntas: *o que é isto?* (título) · *de quem?* (canal) ·
+    // *quanto dura?* · *já está aqui?* (o estado, e só quando está). A
+    // identidade vem primeiro porque é ela que decide se o operador vai
+    // adiante — o resto são atributos do que ele já reconheceu.
+    //
+    // CADA LINHA SÓ EXISTE SE O DADO EXISTIR, e a guarda é POR CAMPO e nunca
+    // por versão de bundle: entre este bundle chegar por OTA e a varredura
+    // refazer o índice há uma janela em que `canal` e `nomeOriginal` são
+    // `undefined` no que já está guardado. É a mesma regra do Registro — a
+    // linha ausente some, nunca escreve "undefined" num card que alguém lê.
+    const linha = (texto, classe) => {
+      const t = String(texto == null ? '' : texto).trim();
+      if (!t) return;
+      const el = document.createElement('span');
+      el.className = 'item-detalhe-linha' + (classe ? ' ' + classe : '');
+      // `textContent` e nunca `innerHTML`: isto é texto de TERCEIRO (o título e
+      // o nome do canal saem do YouTube) e o Controle roda no origin
+      // privilegiado, o que injeta `__AVBridge`. A mesma regra governa a
+      // DESCRIÇÃO (`pintarDescricao`), que é o campo em que ela custa caro — o
+      // YouTube o entrega em HTML quando há links, e por isso quem o achata é o
+      // Kotlin, antes de a string atravessar a ponte.
+      el.textContent = t;
+      txt.appendChild(el);
+    };
+    // O TÍTULO COMPLETO, e só quando ele acrescenta alguma coisa. O rótulo da
+    // lista é podado por construção (a data na frente, o pedaço à esquerda da
+    // barra — e no `TITULO_SERIE` o nome do episódio some inteiro), então o cru
+    // quase sempre difere; comparar em vez de desenhar sempre é o que impede a
+    // MESMA frase duas vezes na tela quando eles coincidem.
+    //
+    // Aqui ele vem do ÍNDICE, que é o caminho OFFLINE e vale para um episódio
+    // de série. Um LINK salvo não tem título cru guardado — quem o traz é a
+    // rede, no `pintarTitulo`, com as mesmas duas guardas.
+    if (s.nomeOriginal && s.nomeOriginal !== String(s.name || '').trim()) {
+      linha(s.nomeOriginal, 'item-detalhe-titulo');
     }
-    // O ESTADO NO APARELHO, e ele é a informação que decide: "tocar agora" de um
-    // vídeo TRANSMITE (não espera download nenhum), mas um episódio que já foi
-    // guardado num destino entra do disco. São ~300 MB de diferença, e é a
-    // pergunta que o operador faz antes de escolher no domingo de manhã.
-    const est = document.createElement('span');
-    est.className = 'item-detalhe-linha item-detalhe-estado';
-    est.textContent = 'Toca sem baixar';
-    txt.appendChild(est);
+    linha(s.canal);
+    if (s.duration) linha('Duração ' + s.duration);
     conteudo.appendChild(txt);
-    // Assíncrono e DEPOIS de a gaveta já estar montada: a abertura mede a
-    // altura do que está em cena, e esperar o IndexedDB para desenhar deixaria
-    // a animação partir de uma caixa vazia.
+    // ===== O ESTADO SÓ APARECE QUANDO ELE É FATO DO ARQUIVO (v1.6.0) =====
+    //
+    // A linha nascia sempre, com "Toca sem baixar", e virava "Já no aparelho"
+    // quando havia bytes. Pedido do operador: *"remover a frase 'toca sem
+    // baixar' que tem na descrição do ver detalhes"* — *"essa informação é útil
+    // apenas quando estiver escolhendo a qualidade, no caso, não é um 'detalhe
+    // do arquivo', mas sim uma das características da opção de play"*.
+    //
+    // Ele separa duas coisas que estavam na mesma linha: "toca sem baixar"
+    // descreve a OPÇÃO DE PLAY — e o "Tocar agora", duas linhas acima no mesmo
+    // card, já diz *"Toca direto da internet…"* —, enquanto "já no aparelho" é
+    // FATO DO ARQUIVO, que é do que este card fala. Logo a linha existe só no
+    // segundo caso; no comum ela simplesmente não é desenhada, e o card fica
+    // com o que ele de fato sabe.
+    //
+    // Assíncrono e DEPOIS de a coluna já estar montada — e é seguro porque este
+    // montador é AWAITADO antes do `expandAccordion` (ver o ouvinte da `.row`):
+    // o acordeão mede a altura com a linha já no lugar.
     try {
       // `mediaByYoutube` devolve UM registro (ou `null`), nunca um array — e a
       // pergunta é pelo BLOB, como em `marcarYtProntos` e `ytArquivo`. Um item
@@ -17449,11 +18680,8 @@ function hymnResultRow(coll, s, lyricHit, semColecao) {
       // registro e NÃO tem bytes: anunciá-lo como "Já no aparelho" trocaria um
       // defeito por outro.
       const rec = await AVDB.mediaByYoutube(s.id_music);
-      if (rec && rec.blob) {
-        est.textContent = 'Já no aparelho';
-        est.classList.add('done');
-      }
-    } catch (_) { /* fica o texto de sempre: o padrão é o caso comum */ }
+      if (rec && rec.blob) linha('Já no aparelho', 'item-detalhe-estado done');
+    } catch (_) { /* sem resposta do banco, sem linha: é o caso comum */ }
   }
 
 
@@ -17585,7 +18813,14 @@ function destUniao(chave) {
  * escolha que não muda nada é pior que escolha nenhuma.
  */
 function serieComoYoutube(coll, s) {
-  const r = { id: s.id_music, url: s.ytUrl, name: s.name, semSoAudio: true };
+  const r = { id: s.id_music, url: s.ytUrl, name: s.name, semSoAudio: true,
+    // OS DOIS QUE VIAJAM PARA O REGISTRO (v1.5.21). Um episódio guardado como
+    // LINK ("Online") ou baixado nasce com a duração e o canal que o índice já
+    // sabe — sem eles, o mesmo vídeo perdia os dois ao sair do álbum para o
+    // Cronograma. Os nomes são os do `r` da BUSCA (`seconds`/`author`), porque
+    // quem os consome é o mesmo caminho: `ytAcaoInterno` e `ytArquivo` não
+    // podem ter de perguntar de onde o item veio.
+    seconds: s.seconds || 0, author: s.canal || '' };
   // A LINHA DE ONDE ELE VEIO. Um episódio é um vídeo do YouTube, mas ele não é
   // desenhado por `ytResultRow` — a lista dele é a da COLEÇÃO (`hymnResultRow`,
   // com `data-song`), e o indicador de download de lá é o anel do quadrado à
@@ -18240,7 +19475,7 @@ const libBaixando = new Map();
 function libBusy(nome, chaveExistente, aoCancelar) {
   const chave = chaveExistente || ('dl:' + Math.random().toString(36).slice(2, 9));
   libBaixando.set(chave, { nome: nome || 'Baixando…', pct: -1, cancelar: aoCancelar || null });
-  if (activeTab === 'imports') load();
+  load();
   let solto = false;
   return {
     visivel: true,
@@ -18261,7 +19496,7 @@ function libBusy(nome, chaveExistente, aoCancelar) {
       if (solto) return;
       solto = true;
       libBaixando.delete(chave);
-      if (activeTab === 'imports') load();
+      load();
     },
   };
 }
@@ -18539,7 +19774,7 @@ async function addSongToDestinos(coll, s, variant, destinos, btn) {
   // estrela de cada linha do acervo, e o Cronograma só precisa ser remontado se
   // ele for a lista em cena.
   if (alvos.includes('favoritos')) renderLibrary();
-  if (alvos.includes('cronograma') && activeTab === 'imports') load();
+  if (alvos.includes('cronograma')) load();
 }
 
 // (`addSongToFavorites` e `addSongToPlaylist` saíram na v5.141: eram três
@@ -19411,10 +20646,6 @@ function openFadePopup() {
   renderRotBtn();
   renderLyricsBgTile();
   renderWallTile();
-  // O FAROL é RELIDO ao abrir, e não pintado de uma cópia guardada: a chave
-  // vive em `SharedPreferences` do shell, e o app pode ter sido reinstalado ou
-  // restaurado de um backup desde a última vez que esta folha esteve aberta.
-  renderFarolLinha();
   // O estado do espelho é relido ao ABRIR (e depois só enquanto a folha dele
   // estiver aberta): a linha precisa dizer a verdade no instante em que o
   // operador olha para ela, e o espelho pode ter saído do ar sozinho por uma
@@ -19538,15 +20769,18 @@ function cabecalhoDiag() {
   // primeira pergunta é se o WebView deste aparelho aceita os codecs — e a
   // resposta não se descobre de fora.
   l.push('Transmissão: ' + diagMse());
-  // O ALCANCE (v1.4.1). Ele responde DUAS perguntas que a tela não separa, e a
-  // segunda é a que faz este Registro ser copiado: "este aparelho está sendo
-  // contado?" e "o farol chegou a acender?". Um aparelho marcado como de teste
-  // não deixa de acender — ele acende noutro contador —, e sem esta linha
-  // "marquei e continua contando" seria indistinguível de "marquei e o farol
-  // nunca saiu daqui".
+  // O ALCANCE (v1.4.1). Com a chave fora (v1.4.42) ele responde UMA pergunta, e
+  // é a que faz este Registro ser copiado: **o farol chegou a acender?** Sem
+  // esta linha, "o número não sobe" é indistinguível de "o farol nunca saiu
+  // daqui" — e as duas pedem consertos opostos.
+  //
+  // O `conta` FICA, e não é sobra: ele é o VEREDITO do shell, e num build
+  // debuggável ainda é `false` (o aceso vai para o contador de teste). Sem ele,
+  // um Registro tirado de um build de trabalho diria "acendeu" sobre um número
+  // que nunca vai aparecer no painel.
   if (farolDiag) {
     l.push('Alcance: este aparelho '
-      + (farolDiag.conta ? 'ENTRA na contagem' : 'fica de fora (conta à parte)')
+      + (farolDiag.conta ? 'ENTRA na contagem' : 'conta à parte (build de teste)')
       + ' · último aceso: '
       + (farolDiag.ultimo ? new Date(farolDiag.ultimo).toLocaleString() : 'nunca')
       + (farolDiag.diag ? ' · ' + farolDiag.diag : ''));
@@ -20075,6 +21309,81 @@ function blocoSorteio() {
       + ' · ' + (e.noAparelho ? 'no aparelho' : 'baixou') + ']'));
   }
   return linhas.join('\n');
+}
+
+// ===== AS COLETÂNEAS: o que a regra dissolveu (v1.5.16) =====
+//
+// A regra do `coletanea.js` decide, a partir de NOMES que o banco renomeia sem
+// avisar, qual coletânea sai da tela e para onde vão os álbuns dela. Os dois
+// modos de errar são silenciosos: a origem que não casa mais fica na Biblioteca
+// como se nada tivesse sido pedido, e o destino que não casa mais faz a regra
+// desistir — o desfecho certo, e igualmente invisível. Este bloco é o que
+// distingue os dois a distância.
+//
+// MONTADO NA HORA, chamando a MESMA função que desenha. Ao contrário do diário
+// das séries — que registra um evento de REDE e por isso precisa sobreviver à
+// sessão —, aqui a regra é síncrona e pura: uma segunda leitura não pode
+// discordar da primeira, e persistir o veredito só criaria uma cópia para
+// divergir.
+//
+// E ELE IMPRIME AS CATEGORIAS VISTAS. É essa lista que permite consertar uma
+// grafia por OTA sem pedir captura ao operador — sem ela, "não dissolveu" e
+// "dissolveu e você não viu" chegam com a mesma cara.
+function blocoColetaneas() {
+  if (!window.AVColetanea) return '';
+  const cats = (albumCatalog && albumCatalog.categories) || [];
+  // SEM CATÁLOGO NÃO HÁ VEREDITO. O diário tem sempre uma entrada por linha da
+  // tabela, então sem esta guarda o bloco afirmaria *"a coletânea não existe
+  // neste banco"* num aparelho que simplesmente ainda não fez o
+  // `fetchAlbumCatalog` — instalação nova sem rede, ou o navegador. São duas
+  // causas com consertos opostos ("o banco renomeou, ajuste a tabela e publique"
+  // contra "não houve busca ainda") e uma frase só, e é justamente o aparelho
+  // que não conectou que produz o Registro que alguém copia.
+  if (!cats.length) return '';
+  const { diario } = AVColetanea.aplicar(cats);
+  if (!diario.length) return '';
+  const nomeDoAlbum = (id) => {
+    const a = (albumCatalog.albums || []).find((x) => x.id_album === id);
+    return a && a.name ? a.name : ('álbum ' + id);
+  };
+  const linhas = [];
+  for (const d of diario) {
+    if (d.motivo === AVColetanea.MOTIVO_MOVIDA) {
+      // O DADO CRU, e não só a contagem: é lendo o nome de um álbum que se
+      // descobre que a regra mexeu no grupo errado.
+      linhas.push('· "' + d.de + '" → "' + d.para + '": ' + d.movidos.length
+        + ' álbum(ns) movido(s) para o fim'
+        + (d.movidos.length ? ' — ' + d.movidos.map(nomeDoAlbum).join(' · ') : ''));
+      if (d.jaEstavam.length) {
+        // N:N — não é erro, é o banco. Dito porque a conta não fecha sem ele.
+        linhas.push('    ' + d.jaEstavam.length + ' já estava(m) no destino (a mesma '
+          + 'coletânea em duas): ' + d.jaEstavam.map(nomeDoAlbum).join(' · '));
+      }
+      if ((d.repetidosNaOrigem || []).length) {
+        // OUTRA COISA, e com outro conserto: o banco listou o mesmo álbum duas
+        // vezes DENTRO da coletânea de origem. Dizer "já estava no destino"
+        // mandaria procurá-lo onde ele não está.
+        linhas.push('    ' + d.repetidosNaOrigem.length + ' repetido(s) dentro da '
+          + 'própria "' + d.de + '": ' + d.repetidosNaOrigem.map(nomeDoAlbum).join(' · '));
+      }
+    } else if (d.motivo === AVColetanea.MOTIVO_SEM_DESTINO && d.de === d.para) {
+      // A LINHA DEGENERADA. A regra devolve `sem-destino` porque o desfecho é o
+      // mesmo (nada é feito), mas a FRASE de lá seria falsa aqui: o destino
+      // existe — ele é a própria origem. Quem escolhe a palavra é esta função,
+      // e é aqui que a linha da tabela aparece nomeada, que é a única coisa
+      // capaz de levar alguém ao erro de digitação que a produziu.
+      linhas.push('· "' + d.de + '" tem uma linha em que a ORIGEM e o DESTINO são '
+        + 'a mesma coletânea — nada foi feito (confira a tabela DISSOLVER)');
+    } else if (d.motivo === AVColetanea.MOTIVO_SEM_DESTINO) {
+      linhas.push('· "' + d.de + '" NÃO foi dissolvida: o destino "' + d.para
+        + '" não existe neste banco — a coletânea continua na tela, inteira');
+    } else {
+      linhas.push('· "' + d.de + '" não existe neste banco (nada a dissolver)');
+    }
+  }
+  linhas.push('  coletâneas do banco: '
+    + (cats.length ? cats.map((c) => c.name).join(' · ') : 'nenhuma'));
+  return 'Coletâneas (o que a regra dissolveu)\n' + linhas.join('\n');
 }
 
 async function blocoSeries() {
@@ -20683,6 +21992,13 @@ async function renderDiag() {
   // que abre o Registro depois de um sorteio estranho procura os dois juntos.
   const bso = blocoSorteio();
   if (bso) blocos.push(bso);
+  // AS COLETÂNEAS, ao lado das duas acima e pela mesma razão: as três respondem
+  // "o que a regra achou, e por que recusou o resto?". Esta é a única que
+  // decide o que a Biblioteca MOSTRA, então ela vai por último das três — quem
+  // abre o Registro por causa de uma coletânea que sumiu a encontra no fim de
+  // um bloco curto, e não no meio de oitenta linhas de playlist.
+  const bcol = blocoColetaneas();
+  if (bcol) blocos.push(bcol);
   if (meu !== diagSeq) return;   // outro render assumiu durante a espera
   // O TEXTO MORA NA VARIÁVEL, e não num nó do DOM (v5.207). O visor `<pre>`
   // saiu de Configurações — ver o comentário do bloco no `index.html`: ele
@@ -20769,18 +22085,19 @@ async function copiarTexto(texto, btn) {
   return ok;
 }
 
-// O botão de copiar do registro. O `diagCopyEl` já existia lá em cima como
-// referência PENDURADA — apontava para um `#diagCopy` que o HTML não tinha e
-// não escutava nada. Agora o elemento existe e ele tem função.
+// (O BOTÃO DE COPIAR O REGISTRO SAIU na v1.4.44, a pedido do operador: *"pode
+//  remover o sistema de copiar registro. o registro está cada vez maior e mais
+//  completo e acaba por ele ficar longo de mais para compartilhar via chat de
+//  texto"*. A área de transferência era o caminho que CORTA o texto no meio sem
+//  avisar — foi esse relato que criou o salvar em arquivo na v1.2.16 —, e o
+//  Registro só cresceu desde então. Ficou a porta que não corta.)
 //
-// Copia o registro MONTADO. Até a v5.206 havia um `|| diagBoxEl.textContent`
-// atrás desta leitura, e ele existia porque a caixa ROLAVA: copiar o que estava
-// à vista entregaria um pedaço do meio. Sem o visor, a variável é a única fonte
-// — e é a completa.
-// O ENDEREÇO DA TRANSMISSÃO se copia pelo mesmo caminho do Registro. Ele é
-// lido do NÓ e não de uma variável à parte: quem o escreve é `mirrorEstado`, a
-// cada volta da enquete, e uma segunda cópia guardada aqui ficaria para trás
-// no dia em que o IP mudasse (o Wi-Fi caindo e voltando é o caso normal).
+// O ENDEREÇO DA TRANSMISSÃO continua se copiando, e agora é o ÚNICO consumidor
+// do `copiarTexto`. Ele é o caso em que a área de transferência é a ferramenta
+// certa: é curto e existe para ser digitado noutro aparelho. Lido do NÓ e não
+// de uma variável à parte: quem o escreve é `mirrorEstado`, a cada volta da
+// enquete, e uma segunda cópia guardada aqui ficaria para trás no dia em que o
+// IP mudasse (o Wi-Fi caindo e voltando é o caso normal).
 if (castUrlCopyEl) {
   castUrlCopyEl.addEventListener('click', () => {
     const url = (castUrlEl && castUrlEl.textContent || '').trim();
@@ -20788,9 +22105,6 @@ if (castUrlCopyEl) {
   });
 }
 
-if (diagCopyEl) {
-  diagCopyEl.addEventListener('click', () => copiarTexto(diagTexto, diagCopyEl));
-}
 
 /**
  * O REGISTRO EM ARQUIVO (v1.2.16).
@@ -20817,6 +22131,10 @@ if (diagSaveEl) {
   // `controle.js` inteiro, e o watchdog do OTA rejeita o bundle sem que nada
   // na tela diga por quê. Medido: o app não subiu.
   diagSaveEl.hidden = !window.__NATIVE__;
+  // O RÓTULO VIAJA COM O BOTÃO (v1.4.44). Com o copiar fora, ele é o único
+  // alvo da faixa: uma palavra sozinha, sem nada ao lado, é um controle que
+  // não existe — e num navegador o Registro não tem como sair do rodapé.
+  if (diagRotEl) diagRotEl.hidden = !window.__NATIVE__;
   diagSaveEl.addEventListener('click', async () => {
     if (!window.__NATIVE__) return;
     const d = new Date();
@@ -20905,6 +22223,21 @@ function renderRotBtn() {
     rotBtnEl.title = mediaRot
       ? 'A mídia está girada ' + mediaRot + '° no telão — tocar gira mais 90°'
       : 'Girar a mídia no telão — não gira o app nem a tela do celular';
+  }
+  // ---- E O DESFAZER APARECE NA PREVIEW (v1.4.43) ----
+  // Quem o mostra é o render do ESTADO que ele desfaz, e não um render próprio:
+  // é a única disciplina que impede o botão de sobreviver ao fato que ele
+  // nomeia — `applyRotate` passa por aqui SEMPRE, inclusive na carga (`load`) e
+  // na volta ao padrão que o próprio botão dispara.
+  if (pvGiroBtnEl) {
+    pvGiroBtnEl.hidden = !mediaRot;
+    if (pvGiroNumEl) pvGiroNumEl.textContent = mediaRot + '°';
+    // O ÂNGULO é o estado (está no número, à vista); o `title` é a AÇÃO — a
+    // mesma divisão dos botões da notificação de mídia. Sem ele o ícone de
+    // girar sobre a projeção se leria como "girar mais 90°".
+    pvGiroBtnEl.title = 'A mídia está girada ' + mediaRot
+      + '° no telão — tocar volta à posição padrão';
+    pvGiroBtnEl.setAttribute('aria-label', pvGiroBtnEl.title);
   }
 }
 async function applyRotate(graus) {
@@ -21121,6 +22454,12 @@ async function ytBaixarNativo(link, nome, opts) {
           // que veio foi outra coisa. Descobrir isso depois exigiria decodificar
           // o arquivo.
           height: (r.height | 0) || null,
+          // A DURAÇÃO REAL, pelo mesmo argumento e do mesmo lugar (v1.5.21): o
+          // shell já a devolvia no `ytFetch` e ela era jogada fora aqui, então
+          // um vídeo baixado ficava sem o dado que o áudio ao lado já mostra no
+          // subtítulo. Custo zero — nem uma requisição a mais.
+          seconds: (r.seconds | 0) || null,
+          canal: (opts && opts.canal) || null,
           // O id do vídeo fica GRAVADO no registro: é ele que faz o próximo
           // toque no mesmo resultado reaproveitar este arquivo em vez de
           // baixar tudo de novo (ver `ytArquivo`).
@@ -21582,7 +22921,11 @@ async function ytArquivo(alvo, opts) {
   const soAudio = !!(opts && opts.somenteAudio);
   const ja = vid ? await AVDB.mediaByYoutube(vid, soAudio ? 'audio' : 'video') : null;
   if (ja && ja.blob) return ja;
-  return ytBaixarNativo(alvo.url, alvo.name, Object.assign({ youtubeId: vid }, opts || {}));
+  // O CANAL viaja por `opts` porque o `ytFetch` não o devolve (o shell manda
+  // `name`, `type`, `height` e `seconds`, e mais nada): quem o tem é o `alvo`,
+  // que já passou por aqui. Um ponto só, e todo chamador o herda sem saber.
+  return ytBaixarNativo(alvo.url, alvo.name,
+    Object.assign({ youtubeId: vid, canal: (alvo && alvo.author) || null }, opts || {}));
 }
 
 // A prateleira da mídia avulsa — a que está em cena sem pertencer a lista
@@ -21694,11 +23037,12 @@ async function handleSharedUrl(url, title) {
       { lista: destinoDoShare(), naPreview: simplificado() },
     );
     if (nativo) return guardarShare(nativo);
+    const thumb = (await thumbYoutube(ytId)) || ('https://img.youtube.com/vi/' + ytId + '/hqdefault.jpg');
     return guardarShare(await AVDB.addUrlMedia(url, {
       kind: 'youtube',
       type: 'video/youtube',
       name: title || ('YouTube: ' + ytId),
-      thumb: 'https://img.youtube.com/vi/' + ytId + '/hqdefault.jpg',
+      thumb,
       youtubeId: ytId,
       list: destinoDoShare(),
     }));
@@ -22017,7 +23361,7 @@ async function sairDasCamadas() {
 
   // 3. Fora do Cronograma, volta para ele. No simplificado não há abas: basta
   //    redesenhar.
-  if (appMode !== 'simple' && activeTab !== 'imports') await switchTab('imports');
+  if (appMode !== 'simple') fecharBiblia();
   else await load();
 }
 
@@ -23226,9 +24570,12 @@ async function histResolver(h, destino) {
     // caminho "Online" da busca.
     const pronto = r.y ? await AVDB.mediaByYoutube(r.y, 'youtube') : null;
     if (pronto) return { rec: pronto, criado: false };
+    const thumb = r.y
+      ? (await thumbYoutube(r.y)) || ('https://img.youtube.com/vi/' + r.y + '/hqdefault.jpg')
+      : null;
     return { rec: await AVDB.addUrlMedia(r.u, {
       kind: 'youtube', type: 'video/youtube', name: h.nome,
-      thumb: r.y ? 'https://img.youtube.com/vi/' + r.y + '/hqdefault.jpg' : null,
+      thumb,
       youtubeId: r.y || null, list: destino,
     }), criado: true };
   }
@@ -23391,7 +24738,7 @@ function histLinha(h, atual) {
     if (!alvo) { histMarcarSumido(li, add, true); return; }
     if (alvo.criado) {
       responder(add, 'ok', rotuloItem(h.nome) + 'adicionado ao Cronograma');
-      if (activeTab === 'imports') await load();
+      await load();
       return;
     }
     await adicionarNasListas(['imports'], alvo.rec.id, h.nome, add);
@@ -23566,9 +24913,9 @@ fileEl.addEventListener('change', async () => {
     });
   }
   fileEl.value = '';
-  // Importar sempre cai no Cronograma (lista `imports`, via addMedia) — a aba
-  // acompanha para o operador ver o que acabou de entrar.
-  if (activeTab !== 'imports') activeTab = 'imports';
+  // Importar sempre cai no Cronograma (lista `imports`, via addMedia), e a
+  // folha da Bíblia sai da frente para o operador ver o que acabou de entrar.
+  fecharBiblia();
   load();
   if (naoAbriu) await avisarNaoAbriu(naoAbriu);
 });
@@ -23787,7 +25134,6 @@ volSliderEl.addEventListener('change', () => { volArrastando = false; persistCur
 // não é uma troca de aba: é a mesma aba num tamanho novo.
 let titleResizeTimer = null;
 window.addEventListener('resize', () => {
-  moveTabIndicator(false);
   clearTimeout(titleResizeTimer);
   titleResizeTimer = setTimeout(applyTitleMarquee, 150);
 });
@@ -23871,6 +25217,24 @@ window.addEventListener('resize', () => {
       : 0;
     document.documentElement.style.setProperty('--kb', kb + 'px');
     document.documentElement.style.setProperty('--vv-top', Math.max(0, Math.round(vv.offsetTop)) + 'px');
+    // ===== E O TECLADO GANHA NOME (v1.5.6) =====
+    // `--kb` é uma MEDIDA, e o CSS não sabe perguntar se uma medida é maior que
+    // zero. Quem precisa da pergunta é a caixa de controles, que sai de cena
+    // quando a Biblioteca está aberta E o teclado está no ar (ver `.bottombar`
+    // em controle.css). A classe é escrita AQUI, no mesmo ponto e no mesmo
+    // quadro que a medida: um segundo dono seria um segundo instante, e os dois
+    // discordariam durante a subida do teclado, que é justamente quando a regra
+    // vale.
+    document.body.classList.toggle('teclado', kb > 0);
+    // E O VÉU DAS BORDAS DA LISTA (v1.5.16). O teclado é a porta NORMAL da
+    // Biblioteca (`openHymnSearch(true)` põe o foco no campo) e ele muda a
+    // ALTURA da lista sem rolagem e sem render — `body.lib-aberta.teclado` tira
+    // a caixa de controles de cena e a camada passa a terminar em `var(--kb)`.
+    // Os outros três donos do véu (os dois renders e o `scroll`) não cobrem
+    // isso, e o erro é nos DOIS sentidos: o véu de baixo fica aceso sobre uma
+    // lista que passou a caber, ou apagado sobre uma que passou a não caber.
+    // Aqui, no mesmo ponto e no mesmo quadro em que a medida é escrita.
+    pedirVeuDaLista();
   };
   const schedule = () => { if (!raf) raf = requestAnimationFrame(apply); };
   vv.addEventListener('resize', schedule);
@@ -23956,10 +25320,15 @@ function setAppMode(mode) {
   // A caixa de controles fica oculta no simplificado, e medir um elemento
   // escondido dá 0 — o vazado da faixa só pode ser posicionado quando ela
   // aparece. Sem animação: aqui ele POUSA, não viaja.
-  if (appMode === 'full') moveTabIndicator(false);
 }
 
 function renderAppModeSeg() {
+  // O `data-modo` É O ESTADO (v1.4.43), e a classe é aparência — a mesma
+  // disciplina do `data-estado` dos tiles. É por ele que o CSS desliza o
+  // polegar do interruptor e por ele que os oráculos perguntam qual modo está
+  // em vigor; a classe `.active` de cada botão continua carregando só a COR do
+  // rótulo sobre o polegar.
+  appModeSegEl.dataset.modo = appMode;
   appModeSegEl.querySelectorAll('.fit-opt').forEach((btn) => {
     btn.classList.toggle('active', btn.dataset.mode === appMode);
   });
@@ -23986,67 +25355,14 @@ function renderTemaTile() {
     true, tema === 'claro');
 }
 
-// ===== ESTE APARELHO NA MEDIÇÃO DE ALCANCE (v1.4.1) =====
+// (A CHAVE "este aparelho entra na contagem" saiu na v1.4.42, a pedido do
+//  operador: *"descarte a opção de contagem de uso como opcional, deixe sempre
+//  ativo, não preciso do sistema de exclusividade"*. Ela foi um tile do painel
+//  rápido (v1.4.1–v1.4.40) e uma linha do rodapé do Registro (v1.4.41).
 //
-// A linha só existe no app: no navegador não há farol nenhum, e uma chave que
-// não liga nada é pior que chave nenhuma. Ela nasce `hidden` no HTML e é esta
-// função que a revela — sempre pelo mesmo caminho por que a pinta, senão os
-// dois estados podem discordar.
-//
-// O ESTADO VEM DO SHELL, e nunca de uma cópia local: `conta` é o VEREDITO (ele
-// já embute o build debuggável, que a tela não tem como saber). Guardar a
-// escolha aqui faria a tela afirmar "entra" num aparelho em que o shell decidiu
-// o contrário — a divergência exata que este projeto trata como o pior
-// artefato possível, porque ela é lida a distância e não tem como ser
-// conferida.
-// ELA SAIU DA GRADE na v1.4.41 e virou uma LINHA no rodapé do Registro. O
-// pedido do operador foi levá-la para a página de alcance do site, e a resposta
-// honesta é que **a página não alcança o app**: são origens diferentes no mesmo
-// aparelho, o armazenamento de uma não é lido pela outra, e o app não tem
-// intent-filter de URL. O que a página ganhou foi o interruptor do NAVEGADOR,
-// que ela de fato controla; a chave do APARELHO ficou aqui, no rodapé, que é a
-// vizinhança certa — metadado de manutenção, ao lado do Registro, longe do
-// painel que se opera durante o culto.
-//
-// O RÓTULO É A FRASE INTEIRA, e não um par rótulo/valor: a linha existe uma vez
-// por sessão, é lida por quem já sabe o que ela faz, e uma frase responde
-// "como está?" e "o que o toque faz?" sem custar uma segunda coluna no rodapé.
-async function renderFarolLinha() {
-  if (!farolRowEl) return;
-  if (!window.__NATIVE__) { farolRowEl.hidden = true; return; }
-  let est = null;
-  try { est = await AVNative.farolEstado(); } catch (_) { est = null; }
-  // Sem resposta a linha não aparece: uma chave desenhada sobre um estado
-  // desconhecido convida a tocá-la, e o toque gravaria por cima do que o shell
-  // de fato tem.
-  if (!est) { farolRowEl.hidden = true; return; }
-  farolRowEl.hidden = false;
-  farolRowEl.dataset.estado = est.conta ? 'sim' : 'nao';
-  farolRowEl.textContent = est.conta
-    ? 'Contagem de uso: este aparelho entra'
-    : 'Contagem de uso: este aparelho fica de fora';
-  farolRowEl.title = est.conta
-    ? 'Tocar tira este aparelho da contagem pública (ele passa a contar num contador separado)'
-    : 'Tocar devolve este aparelho à contagem pública';
-}
-
-if (farolRowEl) {
-  farolRowEl.addEventListener('click', () => {
-    // O ALVO SAI DO `data-estado`, que é a última resposta DO SHELL — não uma
-    // cópia local do valor. Sem estado conhecido (a linha ainda nem foi
-    // pintada) não há o que alternar: reler é a resposta, e o toque seguinte
-    // decide.
-    const atual = farolRowEl.dataset.estado;
-    if (atual !== 'sim' && atual !== 'nao') { renderFarolLinha(); return; }
-    AVNative.farolContar(atual !== 'sim');
-    // RELER, e não pintar o que se acabou de pedir: o shell é quem responde, e
-    // um build debuggável continua fora da contagem por mais que a chave diga
-    // "entra". Pintar o pedido faria a tela mentir exatamente no aparelho em
-    // que a pergunta importa.
-    renderFarolLinha();
-  });
-}
-
+//  O QUE SOBRA É LEITURA: `farolDiag` alimenta a linha "Alcance:" do Registro,
+//  que responde *"o farol chegou a acender?"* — e essa pergunta não tem nada a
+//  ver com haver ou não uma chave.)
 // A tela simplificada é um ESPELHO dos controles reais: copia o glifo e o
 // estado dos botões do mixer/transporte em vez de recalcular play/pause e
 // mudo por conta própria. Se a regra mudar lá, muda aqui junto.
@@ -24530,16 +25846,28 @@ function openWebDisplay() {
 // A engrenagem do Modo Fácil (v5.250) — o MESMO destino do gearbox do
 // avançado, e desde a v5.247 o único caminho para a troca de modo nos dois.
 simpleSettingsBtnEl.addEventListener('click', openFadePopup);
+// A FOLHA FICA ABERTA E PARADA (v1.4.43), a pedido do operador: *"verifique
+// para que a aba de configurações permaneça na tela imóvel ao alternar entre
+// fácil e avançado, para não se perder a localização atual na visão do
+// usuário"*. Ela fechava — a justificativa era "a escolha já mudou a tela
+// inteira atrás do popup", e é justamente esse o problema: quem trocou de modo
+// perdia a folha, o lugar dela e o caminho de volta, e reabri-la é achar de
+// novo a engrenagem, que no outro modo mora em outro canto. Com o interruptor
+// que desliza, o que responde ao toque está DENTRO da folha, à vista.
 appModeSegEl.addEventListener('click', (e) => {
   const btn = e.target.closest('.fit-opt');
   if (!btn) return;
   setAppMode(btn.dataset.mode);
-  closeFadePopup();   // a escolha já mudou a tela inteira atrás do popup
 });
 // O TEMA ALTERNA (v1.4.38): o par escuro/claro virou um tile, e um tile de dois
 // estados não escolhe — ele vai para o outro.
 temaTileEl.addEventListener('click', () => { setTema(tema === 'claro' ? 'escuro' : 'claro'); });
-simpleSearchBtnEl.addEventListener('click', openHymnSearch);
+// SEM FOCO, e o `() =>` é o ponto: registrado por REFERÊNCIA, o ouvinte chama
+// `openHymnSearch(evento)` — e um `PointerEvent` é truthy, então a lupa do Modo
+// Fácil abria com o teclado por cima da lista. É um BOTÃO, e a regra das duas
+// portas (v1.5.0) diz que botão abre sem foco: *"ver o que eu tenho"*. Mesma
+// armadilha que a v1.4.31 pagou no `openLyricsPopup`.
+simpleSearchBtnEl.addEventListener('click', () => openHymnSearch(false));
 // Os controles do simplificado são os do modo completo, acionados por click():
 // um botão `disabled` continua sendo um no-op natural, e as bordas ficam num
 // lugar só.
@@ -24637,297 +25965,31 @@ plBtnEl.addEventListener('click', openPlPopup);
 // de troca de aba (ir pra uma aba à direita desliza a lista entrando pela
 // direita, e vice-versa).
 //
-// (Havia um `'folders'` entre `imports` e `bible`, a posição reservada para a
-// gaveta de Favoritos. Ela saiu na v5.294 com a gaveta: uma posição fantasma
-// numa lista que só serve para comparar índices não muda a direção de nada,
-// mas manda quem lê procurar uma aba que não existe.)
-const TAB_ORDER = ['imports', 'bible'];
 const prefersReducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-// Duração e curva da troca de aba. Vivem em DOIS lugares por necessidade — o
-// vazado da faixa é uma transição CSS (`--tab-move`) e a lista é Web Animations
-// —, mas são o mesmo movimento e precisam bater. Quem mexer num mexe no outro.
-const TAB_MOVE_MS = 260;
-const TAB_MOVE_EASE = 'cubic-bezier(.22,.61,.36,1)';
-
-// Anima a entrada da lista ao trocar de aba: leve deslize direcional + fade.
-// Usa a Web Animations API na PRÓPRIA `#library` — como o `load()` reconstrói o
-// conteúdo em poucos ms (leituras IDB em memória), animar já a partir de
-// opacity:0 esconde a troca e revela o conteúdo novo entrando. Sai cedo se o
-// usuário prefere menos movimento.
-// ===== A troca de aba é um DESLIZE INTEIRO =====
-// Até a v5.58 só o conteúdo NOVO se mexia: entrava de 44px com um fade, e o
-// antigo simplesmente sumia. Isso é um sinal de direção, não um deslize — a
-// tela nunca saía do lugar, e o gesto (arrastar a lista para o lado) prometia
-// exatamente que ela sairia.
+// ===== O DESLIZE LATERAL, o que sobrou do carrossel de abas (v1.5.0) =====
 //
-// Agora as duas telas se movem juntas, larguras inteiras, como um carrossel de
-// verdade: a que sai vai para `-100%`, a que entra vem de `+100%`, e em nenhum
-// instante elas se sobrepõem — são vizinhas, coladas, empurrando-se.
+// A FAIXA DE ABAS SAIU e levou junto o mecanismo inteiro: o carrossel
+// horizontal (`setupTabCarousel`, com o ciclo próprio de `touch*` que três
+// tentativas custaram), o fantasma que segurava os nós da tela que saía
+// (`makeTabGhost`) e o `switchTab` que os orquestrava. Nada disso tem para onde
+// apontar: o Cronograma é a tela única, e a Bíblia virou uma FOLHA — deslizar
+// para uma folha não é navegação, é abrir uma janela.
 //
-// O truque está em ter as DUAS ao mesmo tempo com uma lista só no DOM: os nós
-// antigos são MOVIDOS para um fantasma posicionado exatamente sobre a área da
-// lista (`makeTabGhost`), e a `#library` de verdade fica livre para receber o
-// conteúdo novo. Mover, e não CLONAR: um clone reinicia o download de cada
-// miniatura por um `blob:` que o render seguinte revoga — as fotos sumiriam no
-// meio do deslize. Movidos, os mesmos elementos seguem pintados.
-let tabGhost = null;
+// O QUE FICA é o deslize DENTRO da Bíblia (livros → capítulos → leitura), que é
+// o único movimento lateral que sobrou no app. Ele nunca precisou do fantasma:
+// ali as duas telas são o mesmo host redesenhado, e o que se anima é a ENTRADA
+// da nova — a antiga já não existe quando a animação começa.
+//
+// `dir` = +1 quando a tela nova está à DIREITA (avançar), -1 ao voltar.
+const TAB_MOVE_MS = 220;
+const TAB_MOVE_EASE = 'cubic-bezier(.2,.7,.3,1)';
 
-function makeTabGhost() {
-  // Um deslize ainda em curso perdeu a vez: tira o fantasma velho na hora, ou
-  // dois deslizes rápidos deixariam dois retângulos empilhados sobre a lista.
-  if (tabGhost) { tabGhost.remove(); tabGhost = null; }
-  const g = document.createElement('ul');
-  g.className = 'lib-list lib-ghost' + (libraryEl.classList.contains('lib-misc') ? ' lib-misc' : '');
-  g.style.top = libraryEl.offsetTop + 'px';
-  g.style.left = libraryEl.offsetLeft + 'px';
-  g.style.width = libraryEl.offsetWidth + 'px';
-  g.style.height = libraryEl.offsetHeight + 'px';
-  const topo = libraryEl.scrollTop;
-  // Desde a v5.107 o seletor de arquivos mora no RODAPÉ (`#listFoot`), que fica
-  // fora do `<ul>` e portanto fora do fantasma — mas a guarda continua: se um
-  // dia algo voltar a pendurá-lo dentro da lista, ele iria junto para o
-  // fantasma, sairia do documento quando este fosse descartado, e o `change`
-  // que importa arquivos deixaria de acontecer sem erro nenhum no console.
-  if (fileEl.parentElement && fileEl.parentElement.closest('#library')) mainEl.appendChild(fileEl);
-  while (libraryEl.firstChild) g.appendChild(libraryEl.firstChild);
-  // NO `.list-body`, e não no `<main>` (v1.3.10). As medidas acima são
-  // `offsetTop`/`offsetLeft`, isto é, coordenadas do OFFSETPARENT da lista — e
-  // desde que o `.list-body` nasceu (posicionado, para a folha de Ferramentas
-  // ancorar nele) esse pai é ele, não o `<main>`. Pendurar o fantasma no
-  // `<main>` com as coordenadas do filho o subia a altura inteira do cabeçalho:
-  // o deslize passaria por cima do nome da tela e da engrenagem, por 220 ms, sem
-  // erro em lugar nenhum. Quem RECORTA continua sendo o `overflow: hidden` do
-  // `<main>`, que é ancestral dos dois.
-  listBodyEl.appendChild(g);
-  g.scrollTop = topo;   // o fantasma tem de começar onde o olho estava
-  tabGhost = g;
-  return g;
+function deslizarNaFolha(host, dir) {
+  if (!host || prefersReducedMotion || !host.animate) return;
+  host.animate(
+    [{ transform: 'translateX(' + (dir * 100) + '%)' }, { transform: 'none' }],
+    { duration: TAB_MOVE_MS, easing: TAB_MOVE_EASE, fill: 'both' });
 }
-
-// `dir` = +1 quando a tela nova está à DIREITA (o dedo foi para a esquerda):
-// a nova vem de +100% e a velha sai por -100%.
-function animateTabSwitch(dir, ghost) {
-  const opts = { duration: TAB_MOVE_MS, easing: TAB_MOVE_EASE, fill: 'both' };
-  if (ghost) {
-    const saida = ghost.animate(
-      [{ transform: 'none' }, { transform: 'translateX(' + (-dir * 100) + '%)' }], opts);
-    const limpar = () => { ghost.remove(); if (tabGhost === ghost) tabGhost = null; };
-    saida.onfinish = limpar;
-    saida.oncancel = limpar;
-  }
-  libraryEl.animate(
-    [{ transform: 'translateX(' + (dir * 100) + '%)' }, { transform: 'none' }], opts);
-}
-
-// Troca de tela da lista. `semAnim` para as trocas que NÃO são um passo lateral
-// entre abas — ali o carrossel contaria uma história que o operador não fez.
-async function switchTab(tab, semAnim) {
-  if (tab === activeTab) return;
-  // Direção do deslize: +1 se a tela nova está à direita da atual, -1 se à esquerda.
-  const dir = TAB_ORDER.indexOf(tab) > TAB_ORDER.indexOf(activeTab) ? 1 : -1;
-  // Mantém a posição: guarda o scroll da aba atual e NÃO reseta a pasta
-  // aberta — voltar para os Favoritos retorna exatamente onde estava.
-  rememberScroll();
-  // Trocar de aba fecha a folha de Ferramentas: ela é uma extensão do
-  // CRONOGRAMA, e deixá-la de pé sobre a Bíblia seria a folha de uma tela
-  // flutuando sobre outra. É ela que desliga o microfone e os laços dos painéis
-  // (ver `fecharFerramentas`).
-  fecharFerramentas();
-  const anima = !semAnim && !prefersReducedMotion && !!libraryEl.animate;
-  // O fantasma é feito ANTES do render: ele leva embora os nós que ainda estão
-  // na tela, e é ele que o operador continua vendo enquanto o `load()` monta a
-  // lista nova (leituras de IndexedDB — poucos ms, mas não zero).
-  const fantasma = anima ? makeTabGhost() : null;
-  activeTab = tab;
-  if (selectionMode) exitSelection();
-  try {
-    // NAVEGAÇÃO: aqui a posição guardada daquela aba é a resposta certa.
-    await load({ restaurarScroll: true });
-  } finally {
-    // No `finally` porque um `load()` que falhe não pode deixar o fantasma
-    // congelado sobre a lista para sempre.
-    if (anima) animateTabSwitch(dir, fantasma);
-  }
-  // Ao entrar na Bíblia: garante versões/livros e baixa a versão INTEIRA na
-  // 1ª vez (em segundo plano — ver ensureBibleVersionDownloaded).
-  if (activeTab === 'bible') enterBibleTab();
-}
-
-tabsEl.addEventListener('click', (e) => {
-  const tab = e.target.closest('.tab');
-  if (tab) switchTab(tab.dataset.tab);
-});
-
-// ===== Carrossel: deslizar horizontalmente troca de aba =====
-// A ordem é a da FAIXA (`SWIPE_TABS`), não a do `TAB_ORDER`: este inclui os
-// Favoritos, que não têm botão na faixa — deslizar até uma tela que não aparece
-// na navegação deixaria o operador sem indicação de onde está.
-//
-// Vale SOBRE A LISTA, inclusive sobre as linhas (o Cronograma inteiro é feito
-// de linhas — excluí-las mata o gesto na aba em que ele mais é tentado).
-//
-// A GUARDA PERGUNTA AO DOM, nunca a uma lista de classes. Quatro consertos
-// deste carrossel erraram mantendo à mão a lista do que o eixo horizontal não
-// pode atravessar — e a última chegou a proibir `.bible-half`, que declara
-// `touch-action: pan-y` e libera o gesto. A pergunta certa é MEDIDA: existe,
-// entre o alvo e a superfície que escuta, alguém que de fato ROLE na
-// horizontal? Um trilho de pílulas cheio responde sim; o mesmo trilho com três
-// pílulas responde não. Campos de texto ficam fora por outro motivo (ali o eixo
-// é do cursor), e são nomeáveis por serem conceito do HTML, não classe do app.
-const SWIPE_TABS = ['imports', 'bible'];
-const TAB_SWIPE_MIN = 60;     // px — para TROCAR de aba
-const TAB_CLAIM_MIN = 12;     // px — para REIVINDICAR o gesto do navegador
-const TAB_SWIPE_RATIO = 1.5;  // quanto o eixo X precisa dominar o Y
-
-(function setupTabCarousel() {
-  // DUAS superfícies escutam: a área de conteúdo e a própria faixa de abas —
-  // que desde a v5.54 mora na caixa de controles, fora do `<main>`. Deslizar
-  // sobre a fileira de abas é o gesto mais óbvio de todos, e ele deixaria de
-  // existir se o carrossel continuasse ouvindo só o `<main>`. O estado é
-  // compartilhado de propósito: é UM gesto, não dois.
-  const superficies = [mainEl, tabsEl];
-  const ouvir = (ev, fn, opts) => superficies.forEach((el) => el.addEventListener(ev, fn, opts));
-
-  // ===== O gesto de TOQUE não depende dos eventos de ponteiro =====
-  // Esta é a terceira tentativa de destravar o carrossel na aba Ferramentas, e
-  // as duas primeiras erraram pelo mesmo motivo: confiaram no fluxo de
-  // `pointer*`. O navegador CANCELA esse fluxo (`pointercancel`) assim que
-  // decide que o gesto é dele — e basta um scroller no caminho para ele
-  // decidir. Quando isso acontece o `pid` some, e o `touchmove` que deveria
-  // reivindicar o gesto volta cedo porque não havia gesto armado: o carrossel
-  // morre antes de nascer.
-  //
-  // Agora o toque tem o ciclo INTEIRO próprio — `touchstart` arma,
-  // `touchmove` decide o eixo, reivindica (`preventDefault`) e troca a aba,
-  // `touchend`/`touchcancel` encerram. Um `pointercancel` não tem mais o que
-  // matar. Os `pointer*` ficam só para o MOUSE (é assim que se desenvolve no
-  // navegador de mesa), filtrados por `pointerType` para os dois caminhos não
-  // tratarem o mesmo dedo duas vezes.
-  let x0 = 0, y0 = 0;
-  let ativo = false;         // gesto armado e ainda elegível
-  let reivindicado = false;  // eixo já decidido como horizontal
-  let done = false;          // aba já trocada neste gesto
-  let engolirClique = false;
-
-  // ROLA MESMO NA HORIZONTAL? Três condições, e as três são necessárias: o
-  // elemento precisa TER conteúdo excedente (`scrollWidth`), precisa estar
-  // configurado para rolar nesse eixo (`overflow-x`) e precisa ter para onde
-  // ir. A última é o que impede um trilho já no fim de engolir o gesto de
-  // volta — mas ela é medida com folga de 1px, porque uma largura fracionária
-  // deixa `scrollLeft` a meio pixel do fim e nenhum trilho real precisa desse
-  // último meio pixel.
-  function rolaNoEixoX(el) {
-    if (!el || el.nodeType !== 1) return false;
-    if (el.scrollWidth <= el.clientWidth + 1) return false;
-    const ov = getComputedStyle(el).overflowX;
-    return ov === 'auto' || ov === 'scroll';
-  }
-
-  function elegivel(target) {
-    if (selectionMode) return false;
-    if (SWIPE_TABS.indexOf(activeTab) < 0) return false;
-    if (!target || !target.closest) return false;
-    // A FAIXA DE ABAS é sempre território do carrossel (v5.188): deslizar sobre
-    // a própria fileira de abas é o gesto mais óbvio de todos, e ela não tem
-    // conteúdo que dispute o eixo.
-    if (tabsEl.contains(target)) return true;
-    // O CURSOR manda dentro de um campo de texto.
-    if (target.closest('input, textarea')) return false;
-    // E o resto é medido: sobe do alvo até a superfície que escuta procurando
-    // alguém que role de verdade na horizontal. Parar em `mainEl` importa —
-    // acima dele estão o `<body>` e o `<html>`, que num app de tela cheia
-    // podem responder qualquer coisa e não são de ninguém.
-    for (let el = target; el && el !== mainEl && el !== tabsEl; el = el.parentElement) {
-      if (rolaNoEixoX(el)) return false;
-    }
-    return true;
-  }
-
-  function comecar(target, x, y) {
-    // Todo toque legítimo começa aqui, então é aqui que a trava do clique é
-    // desarmada — ver `engolirClique`.
-    engolirClique = false;
-    ativo = elegivel(target);
-    reivindicado = false;
-    done = false;
-    x0 = x; y0 = y;
-  }
-
-  // Devolve `true` quando o gesto é NOSSO (o chamador do toque usa isso para
-  // decidir o `preventDefault`). Duas decisões, com limiares diferentes:
-  //   • EIXO, aos 12px (`TAB_CLAIM_MIN`) — precisa ser cedo, antes de o
-  //     navegador tomar a decisão dele;
-  //   • TROCAR de aba, aos 60px (`TAB_SWIPE_MIN`) — precisa de intenção.
-  // Uma vez reivindicado, o gesto continua nosso até o dedo levantar: soltar o
-  // controle no meio deixaria a página rolar de lado no fim do movimento.
-  function mover(x, y) {
-    if (!ativo) return reivindicado;
-    const dx = x - x0, dy = y - y0;
-    if (!reivindicado) {
-      if (Math.abs(dx) < TAB_CLAIM_MIN || Math.abs(dx) < Math.abs(dy) * TAB_SWIPE_RATIO) return false;
-      reivindicado = true;
-    }
-    if (!done && Math.abs(dx) >= TAB_SWIPE_MIN) {
-      // Age no meio do gesto (não ao soltar): a aba entra deslizando enquanto o
-      // dedo ainda se move, que é o que faz o gesto parecer arrastar a tela.
-      done = true;
-      // O clique é engolido SEMPRE que o gesto se completa, inclusive na ponta
-      // do carrossel (deslizar para além da última aba). Ali não há troca de
-      // aba, mas o dedo percorreu 60px sobre a tela e o `click` sairia mesmo
-      // assim: deslizar sobre "+ Nova mensagem" na última aba abria o diálogo
-      // de mensagem nova — um gesto de navegação virando uma ação de conteúdo,
-      // que é o pior defeito possível num controle de culto.
-      engolirClique = true;
-      const i = SWIPE_TABS.indexOf(activeTab) + (dx < 0 ? 1 : -1);
-      if (i >= 0 && i < SWIPE_TABS.length) switchTab(SWIPE_TABS[i]);
-    }
-    return true;
-  }
-
-  function terminar() { ativo = false; }
-
-  // ---- toque (o caminho do aparelho) ----
-  ouvir('touchstart', (e) => {
-    // Dois dedos não é deslize de aba (é zoom, ou o operador segurando a tela).
-    if (e.touches.length !== 1) { terminar(); return; }
-    comecar(e.target, e.touches[0].clientX, e.touches[0].clientY);
-  }, { passive: true });
-  ouvir('touchmove', (e) => {
-    const t = e.touches && e.touches[0];
-    if (!t) return;
-    // NÃO passivo: enquanto este listener existe o navegador espera a decisão
-    // dele antes de rolar, e é essa espera que dá ao app a chance de dizer "o
-    // eixo horizontal é meu". Um movimento vertical nunca é tocado.
-    if (mover(t.clientX, t.clientY) && e.cancelable) e.preventDefault();
-  }, { passive: false });
-  ['touchend', 'touchcancel'].forEach((ev) => ouvir(ev, terminar, { passive: true }));
-
-  // ---- mouse (só para desenvolver no navegador de mesa) ----
-  ouvir('pointerdown', (e) => { if (e.pointerType === 'mouse') comecar(e.target, e.clientX, e.clientY); });
-  ouvir('pointermove', (e) => { if (e.pointerType === 'mouse') mover(e.clientX, e.clientY); });
-  ['pointerup', 'pointercancel'].forEach((ev) => ouvir(ev, (e) => { if (e.pointerType === 'mouse') terminar(); }));
-
-  // Todo deslize termina num `click` sobre o que estava sob o dedo. Sem engolir
-  // esse clique, deslizar sobre a grade de livros trocava de aba **e** abria um
-  // livro; sobre a faixa de abas, trocava de aba e voltava para a do ícone que
-  // o dedo cruzou; e na ponta do carrossel, um deslize sobre "+ Nova mensagem"
-  // abria o diálogo de mensagem. Um listener de CAPTURA, que roda antes de
-  // qualquer handler do alvo.
-  //
-  // A trava é uma FLAG desarmada no toque seguinte, e não um listener com
-  // prazo. O prazo (350 ms) parecia bastar — num aparelho o clique vem um
-  // quadro depois do dedo levantar —, mas ele mede o tempo errado: numa página
-  // em segundo plano (com a janela do Display aberta ao lado, no navegador) o
-  // resto do gesto levava mais que isso e a trava expirava antes do clique
-  // chegar, que é exatamente o defeito que ela existe para impedir. A flag não
-  // depende de tempo nenhum: só um toque novo a limpa, e um toque novo é
-  // justamente quando ela deixa de valer.
-  ouvir('click', (e) => {
-    if (!engolirClique) return;
-    engolirClique = false;
-    e.stopPropagation(); e.preventDefault();
-  }, true);
-})();
 
 selCancelEl.addEventListener('click', exitSelection);
 selPlaylistEl.addEventListener('click', addSelectedToPlaylist);
@@ -24947,9 +26009,51 @@ plClearEl.addEventListener('click', (e) => {
 selDeleteEl.addEventListener('click', deleteSelected);
 selRenameEl.addEventListener('click', renameSelected);
 
-backBtnEl.addEventListener('click', navigateBack);
+// (O `#backBtn` do cabeçalho perdeu o dono na v1.5.0: ele só servia à Bíblia,
+//  que virou folha e levou o voltar dela junto. O nó fica no HTML, sempre
+//  oculto, porque `renderListTitle` ainda o esconde explicitamente — e é essa
+//  linha que impede um bundle futuro de o revelar por acidente.)
+if (bibleBackEl) bibleBackEl.addEventListener('click', navigateBack);
+if (bibleCloseEl) bibleCloseEl.addEventListener('click', fecharBiblia);
 
-hymnSearchBtnEl.addEventListener('click', openHymnSearch);
+// ===== AS DUAS PORTAS, ligadas (v1.5.0) =====
+// O FOCO abre com teclado. `focus` e não `click`: o campo é alcançável também
+// por teclado físico e pelo `Tab`, e nos dois a intenção é a mesma.
+hymnSearchInputEl.addEventListener('focus', () => {
+  if (!hymnSearchPopupEl.classList.contains('open')) openHymnSearch(true);
+});
+// A SETA abre sem foco; o ✕ (o mesmo botão, outro desenho) fecha.
+if (hymnSearchToggleEl) {
+  hymnSearchToggleEl.addEventListener('click', () => {
+    if (hymnSearchPopupEl.classList.contains('open')) closeHymnSearch();
+    else openHymnSearch(false);
+  });
+}
+// A base da janela muda com o teclado e com a rotação. Por EVENTO e não por
+// enquete — é a régua de uma caixa que só se mexe quando algo a empurra.
+window.addEventListener('resize', medirBarraDaBiblioteca);
+window.addEventListener('orientationchange', medirBarraDaBiblioteca);
+// NA CARGA, e não só na abertura (v1.5.1): a barra fica à vista com a Biblioteca
+// FECHADA, e a caixa de controles reserva a altura dela desde o primeiro quadro.
+// Sem esta linha o app abria com a última fileira de botões coberta pela barra
+// até alguém abrir a Biblioteca uma vez.
+medirBarraDaBiblioteca();
+// A SEGUNDA PASSADA é o que pega a barra já assentada (MEDIDO: 28,6px no
+// primeiro quadro, 51px depois). Quem arma a animação é a própria medida — ver
+// `semAnimarAJanela`, que é o mesmo mecanismo da carga e da remedição.
+requestAnimationFrame(medirBarraDaBiblioteca);
+// ---- E A CAIXA DE CONTROLES É VIGIADA (v1.5.2) ----
+// O lugar da barra é o TOPO dessa caixa, e ela muda de altura por caminhos que
+// não passam por aqui: a proporção da preview, o nome da mídia em duas linhas, a
+// barra de seleção múltipla, o modo do app. Enumerá-los seria uma lista para
+// envelhecer — e o modo de falhar é a barra pousando fora do lugar dela, com uma
+// faixa de caixa aparecendo por baixo ou o transporte coberto.
+// `ResizeObserver` responde à MUDANÇA, seja qual for a causa. O laço que ele
+// poderia criar (a medida muda o `padding-top`, que muda a caixa) é fechado do
+// outro lado: `medirBarraDaBiblioteca` só escreve o que mudou.
+if (window.ResizeObserver && bottombarEl) {
+  new ResizeObserver(medirBarraDaBiblioteca).observe(bottombarEl);
+}
 sorteioBtnEl.addEventListener('click', abrirSorteio);
 hymnSearchInputEl.addEventListener('input', debounce(() => renderSearchResults(hymnSearchInputEl.value), SEARCH_DEBOUNCE_MS));
 
@@ -25017,6 +26121,15 @@ hymnSearchInputEl.addEventListener('input', debounce(() => renderSearchResults(h
     pvCamadaBtnEl.addEventListener('click', (e) => {
       e.stopPropagation();
       encerrarCamadaDeCima();
+    });
+  }
+  // O DESFAZER DO GIRO (v1.4.43) — mesma faixa, mesmo `stopPropagation`: a
+  // preview inteira é o reconhecedor de gestos (dentro da tela cheia ele é o
+  // transporte), e um toque que subisse daqui viraria comando de cena.
+  if (pvGiroBtnEl) {
+    pvGiroBtnEl.addEventListener('click', (e) => {
+      e.stopPropagation();
+      applyRotate(0);
     });
   }
 
@@ -25913,8 +27026,22 @@ if (castMirrorBtnEl) {
 // DENTRO do card do álbum, e um painel não é uma camada — quem o fecha é o
 // mesmo toque na engrenagem que o abriu, ou o toque na barra que fecha o card.)
 const POPUPS = [
+  // A BIBLIOTECA É A PRIMEIRA LINHA desde a v1.5.6, e a razão é a mesma do
+  // `z-index: 190` dela: **ela não é um modal sobre o app, é mobília do app** —
+  // a camada existe SEMPRE (a barra vive nela) e fica ABAIXO de toda folha.
+  // Como o voltar percorre esta tabela de trás para a frente, estar em primeiro
+  // é estar embaixo: com a Biblioteca aberta, abrir a playlist e tocar em voltar
+  // fecha a playlist, não a Biblioteca. As duas coisas dizem a mesma ordem, e
+  // mudar uma sem a outra é o acaso que já cobriu um popup por inteiro aqui.
+  //
+  // O BOTÃO DA BIBLIOTECA ENTRA COMO `null`, e isso é o recurso: ele é um
+  // ALTERNADOR (seta abre, ✕ fecha) e tem ouvinte próprio. Registrado aqui
+  // também, o toque com a janela fechada abriria pelo ouvinte dele e fecharia
+  // pelo desta tabela, no mesmo clique — a janela pisca e nada acontece. O que
+  // a linha continua entregando é o resto do contrato: o toque no fundo e o
+  // degrau do voltar.
+  [hymnSearchPopupEl, null, closeHymnSearch],
   [plPopupEl, plPopupCloseEl, closePlPopup],
-  [hymnSearchPopupEl, hymnSearchCloseEl, closeHymnSearch],
   [bibleVerPopupEl, bibleVerCloseEl, closeBibleVerPopup],
   [fadePopupEl, fadePopupCloseEl, closeFadePopup],
   // O HISTÓRICO abre DE DENTRO de Configurações (v1.4.31 — era vizinho da
@@ -25950,7 +27077,7 @@ const POPUPS = [
 if (toolsCloseEl) toolsCloseEl.addEventListener('click', fecharFerramentas);
 
 POPUPS.forEach(([backdrop, closeBtn, close]) => {
-  closeBtn.addEventListener('click', close);
+  if (closeBtn) closeBtn.addEventListener('click', close);
   // Só o próprio backdrop: um clique dentro da folha não fecha.
   backdrop.addEventListener('click', (e) => { if (e.target === backdrop) close(); });
 });
@@ -25978,6 +27105,14 @@ window.__avBack = function () {
   // (O passo 1.5 — a hierarquia DE DENTRO da gaveta de Favoritos — saiu na
   //    v5.294 com a própria gaveta. O passo 5, genérico, continua cuidando da
   //    seleção múltipla feita na lista.)
+  // 1.5. A TELA CHEIA DA CIFRA (v1.6.0). Ela é um MODO DA FOLHA: foi aberta
+  //    depois dela, e a ordem desta fila é do mais efêmero ao mais permanente —
+  //    logo é desfeita antes. Deixá-la para o degrau 3 seria o defeito concreto:
+  //    o degrau 2 fecharia a folha com ela AINDA em tela cheia, e tirar `.open`
+  //    só muda opacidade e `pointer-events` — o elemento continua na top layer e
+  //    a Activity continua deitada. Sair aqui deixa a folha ABERTA, no retrato;
+  //    o toque seguinte a fecha.
+  if (document.fullscreenElement === lyricsPopupEl) { cifraCheiaSair(); return true; }
   // 2. Bottom-sheets. Fecha o ÚLTIMO da tabela que estiver aberto — normalmente
   //    há um só, mas se houver dois o de cima é o que o operador vê.
   for (let i = POPUPS.length - 1; i >= 0; i--) {
@@ -25988,9 +27123,24 @@ window.__avBack = function () {
   //    abrir DE DENTRO dela (a folha da música, pelo sorteio), e antes da tela
   //    cheia porque ela é mais efêmera: é uma camada da lista, não a projeção.
   if (ferramentasAbertas()) { fecharFerramentas(); return true; }
+  // 2.6. A folha da BÍBLIA, irmã da de Ferramentas — e com um degrau a mais: ela
+  //    tem navegação DENTRO (livros → capítulos → leitura), e o voltar sobe por
+  //    ela antes de fechar a folha. É a hierarquia que o `#backBtn` do cabeçalho
+  //    carregava enquanto a Bíblia era uma aba; o botão mudou de casa, a regra
+  //    não. `navigateBack` continua sendo a dona dela — reimplementá-la aqui
+  //    seria uma segunda opinião sobre a mesma subida.
+  if (bibliaAberta()) {
+    if (bibleBackEl && !bibleBackEl.hidden) navigateBack();
+    else fecharBiblia();
+    return true;
+  }
   // 3. Preview em tela cheia — que, sem telão conectado, É a projeção. Sair
   //    dela é exatamente o que o voltar significa aqui.
-  if (document.fullscreenElement) {
+  //    E ELA É NOMEADA (v1.6.0): desde que a cifra também pede tela cheia, um
+  //    `document.fullscreenElement` cru tem dois donos possíveis, e o terceiro
+  //    consumidor herdaria a ambiguidade — aqui o preço de errar é derrubar a
+  //    projeção no meio do culto.
+  if (document.fullscreenElement === previewEl) {
     try { document.exitFullscreen(); } catch (_) {}
     return true;
   }
@@ -25998,15 +27148,10 @@ window.__avBack = function () {
   //  v1.3.8 com o fader; a numeração dos degraus abaixo é a original.)
   // 5. Seleção múltipla: o voltar cancela a seleção, não o app.
   if (selectionMode) { exitSelection(); return true; }
-  // 6. Sub-tela com voltar próprio (pasta aberta, Favoritos, telas da Bíblia).
-  //    Reusa `navigateBack` em vez de reimplementar a hierarquia: ela já sabe
-  //    que a Bíblia sobe leitura→capítulos→livros e que a raiz dos Favoritos
-  //    volta ao Cronograma.
-  if (!backBtnEl.hidden) { navigateBack(); return true; }
-  // 7. Fora do Cronograma: volta para ele. É a tela inicial da biblioteca, e
-  //    sem este degrau o voltar pularia de "estou na Bíblia" direto para
-  //    minimizar o app.
-  if (activeTab !== 'imports') { switchTab('imports'); return true; }
+  // (Os degraus 6 e 7 subiram para o 2.6 na v1.5.0. O 6 era o `#backBtn` do
+  //  cabeçalho, que só servia à Bíblia e hoje nasce sempre oculto; o 7 era
+  //  "fora do Cronograma, volta para ele", e não há mais fora — há uma tela e
+  //  duas folhas, e cada folha se fecha no degrau dela.)
   // Nada aberto: a Activity minimiza (a projeção segue viva).
   return false;
 };

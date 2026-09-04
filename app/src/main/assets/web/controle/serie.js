@@ -772,6 +772,18 @@
         titulo: tituloDoEpisodio(v.name, serie),
         nomeOriginal: v.name,
         seconds: v.seconds || 0,
+        // O CANAL (v1.5.21). Ele já chegava do shell em TODO item de playlist
+        // (`anexarVideo` põe `author` por item) e era descartado aqui — a regra
+        // lia o `name` e nada mais. Ele é o que responde *"quem publicou este
+        // testemunho?"* na gaveta de detalhe, e não tem substituto: o `canal`
+        // do catálogo é a URL da aba (`@provaievedeoficial`), não um nome
+        // legível, e o `uploaderName` da PLAYLIST não vale por item (armadilha
+        // 5 — os vídeos vêm como colaboração, "Provai e Vede | Oficial e
+        // Adventist…").
+        //
+        // TRANSPORTE, nunca critério: nada aqui decide pertencimento por ele —
+        // a playlist é que prova (a regra de ouro), e a armadilha 5 diz por quê.
+        canal: v.author || '',
         thumb: v.thumb || '',
         dia: d ? d.dia : 0,
         mes: d ? d.mes : mesDaLista,

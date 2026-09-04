@@ -14,12 +14,19 @@
          valores continua obrigatória por isso (ver themes.xml). É também o
          windowBackground, isto é, o que aparece ANTES de o WebView carregar:
          divergir aqui é reintroduzir justamente o "flash" que o themes.xml diz
-         evitar. Se o token mudar de novo, este valor muda junto — nada no
-         build detecta a divergência, e o OTA pode trocar a base web sem trocar
-         o APK.
+         evitar. Se o token mudar de novo, este valor muda junto — e o OTA pode
+         trocar a base web sem trocar o APK, que é o que torna a divergência
+         possível em primeiro lugar.
          Desde a v5.192 o valor é o quase-preto com a matiz do denim oficial da
-         IASD, e não mais o quase-preto quente da paleta âmbar. -->
-    <color name="app_bg">#0e1215</color>
+         IASD, e não mais o quase-preto quente da paleta âmbar. Na v1.5.14 ele
+         ganhou a SATURAÇÃO que faltava (o DENIM PROFUNDO): a matiz já era a
+         certa, mas a 20% de saturação o resultado se lia como cinza, e a
+         identidade acabava vivendo só no tema claro.
+         E DESDE A v1.5.14 O BUILD DETECTA A DIVERGÊNCIA: `tools/tokens.test.mjs`
+         compara este valor com o `bg` de tokens.css nos dois temas. A frase
+         acima — "nada no build detecta a divergência" — foi verdade por vinte e
+         duas versões e deixou de ser. -->
+    <color name="app_bg">#0b1219</color>
     <!-- O MESMO papel, no TEMA CLARO (v5.192): espelha o `bg` do bloco
          :root[data-tema="claro"] de tokens.css. Quem escolhe entre os dois é a
          MainActivity, em tempo de execução, a partir da cópia da escolha que o
@@ -40,5 +47,5 @@
          que o ícone mostra: o mesmo fundo que o sistema desenha ANTES do
          WebView carregar, de modo que abrir o app expande o fundo do próprio
          ícone. -->
-    <color name="ic_launcher_background">#0e1215</color>
+    <color name="ic_launcher_background">#0b1219</color>
 </resources>

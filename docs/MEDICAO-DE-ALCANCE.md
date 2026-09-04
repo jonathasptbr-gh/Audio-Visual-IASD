@@ -20,11 +20,11 @@ sai por construção, e a medição de que o farol ainda depende (§10).
 | peça | arquivo | o quê |
 |---|---|---|
 | o farol do app | `app/src/main/java/br/org/iasd/av/Farol.kt` | uma busca por dia, na carona da ronda do OTA |
-| a chave de exclusão | `NativeBridge.farolEstado`/`farolContar` (shell 58), a linha em Configurações | marca este aparelho como de teste |
+| a leitura do farol | `NativeBridge.farolEstado` (shell 58; SÓ LEITURA desde o 61) | alimenta a linha *"Alcance:"* do Registro — *"o farol chegou a acender?"* |
 | a série no tempo | `.github/workflows/dados.yml` | fotografa os contadores de hora em hora na branch órfã `dados` |
 | o painel | `site/registro/index.html` | caminho não listado, exige `#alcance` |
 | o farol de visita | o rodapé de `site/index.html` | uma por navegador por dia |
-| o oráculo | `tools/registro-alcance.test.mjs` | a tranca, a aritmética, o desenho e o ROTEAMENTO |
+| o oráculo | `tools/registro-alcance.test.mjs` | a tranca, a aritmética, o desenho, e a AUSÊNCIA da exclusão |
 
 ## §1 O QUE JÁ EXISTE E JÁ ESTÁ CONTANDO
 
@@ -139,23 +139,37 @@ estimativa, e um erro aqui aparece como um número óbvio no contador errado —
 vez de sumir dentro do certo. *Subtrair uma estimativa do próprio uso é como se
 produz um painel confiável e falso.*
 
-São **três** fontes de contaminação própria, e cada uma tem resposta própria:
+> **O SISTEMA DE EXCLUSÃO SAIU NA v1.4.42**, a pedido do operador: *"descarte a
+> opção de contagem de uso como opcional, deixe sempre ativo, não preciso do
+> sistema de exclusividade"*. A contagem é SEMPRE ativa. O parágrafo acima
+> continua valendo como PRINCÍPIO — e é justamente ele que obriga o painel a
+> avisar, agora que o uso próprio entra.
 
-| fonte | resposta |
+Eram **três** fontes de contaminação própria. Hoje duas entram na conta e uma
+continua fora, e a diferença entre elas é o que sobrou de regra:
+
+| fonte | hoje |
 |---|---|
-| **o CI** — os workflows buscam o `version.json` a cada publicação (§5) | o farol é um asset que **nenhum workflow toca**. E o `dados.yml` lê os contadores pela **API**, que não os incrementa |
-| **o aparelho do operador** — ele roda o APK de Release, como todo mundo, e portanto não tem marca nenhuma que o distinga. Só uma pessoa sabe | a linha *"Contagem de uso"* (`#farolRow`) do rodapé do Registro, em Configurações (ela saiu do painel rápido na v1.4.41 — e **a página de alcance do site não pode substituí-la**: origens diferentes no mesmo aparelho, e o app sem intent-filter de URL; ver `docs/arquitetura/CONTROLE.md`) → `Farol.definirContar`, em `SharedPreferences` **próprias** (as do OTA estão fora do backup, e esta escolha deve sobreviver à troca de aparelho). Ela ROTEIA o farol para `b-dev.txt` |
-| **o build de debug** — emulador, `assembleDebug`, cada sessão de trabalho | `ApplicationInfo.FLAG_DEBUGGABLE`, lido em runtime — e **não** `BuildConfig.DEBUG`, que custaria ligar `buildFeatures { buildConfig = true }` no Gradle para um booleano que a plataforma já entrega |
+| **o CI** — os workflows buscam o `version.json` a cada publicação (§5) | **FORA, e nunca dependeu de chave**: o farol é um asset que nenhum workflow toca, e o `dados.yml` lê os contadores pela **API**, que não os incrementa |
+| **o build de debug** — emulador, `assembleDebug`, cada sessão de trabalho | **FORA, por construção**: `ApplicationInfo.FLAG_DEBUGGABLE`, lido em runtime — e **não** `BuildConfig.DEBUG`, que custaria ligar `buildFeatures { buildConfig = true }` no Gradle para um booleano que a plataforma já entrega. É a única exclusão que sobrou, e ela nunca foi opção de ninguém |
+| **o aparelho do operador** — ele roda o APK de Release como todo mundo | **DENTRO**. A chave que o marcava (`Farol.definirContar` + `farolContar` da ponte + a linha de Configurações) saiu inteira; `Farol.contar` deixou de ler a preferência, e a que já está gravada em quem a usou não é mais consultada — sem isso, um aparelho marcado "fica de fora" ficaria fora **para sempre**, sem tela para desmarcar |
 
-**E a mesma regra vale para as VISITAS AO SITE:** abrir `site/registro/` com a
-chave grava `avRegistroOperador` no `localStorage` daquele navegador, e dali em
-diante ele acende `v-dev.txt`. Quem audita a própria página é a maior fonte de
-visita falsa que ela vai ter.
+**E o mesmo vale para as VISITAS AO SITE:** abrir `site/registro/` não marca
+mais nada (`avRegistroOperador` deixou de ser escrito e de ser lido), e toda
+visita acende `v.txt`.
 
-**O ROTEAMENTO É A METADE QUE FALHA CALADA**, e é por isso que ele tem oráculo
-(`tools/registro-alcance.test.mjs`): se ele parar de funcionar, nada quebra — a
-página abre, o gráfico desenha, os números sobem. Só que passam a incluir quem
-mede, e **contador não se corrige depois**.
+**O QUE SUBSTITUI O ROTEAMENTO É O AVISO**, e ele é a metade que falha calada
+agora: sem exclusão E sem aviso, "aparelhos por dia" passa a incluir quem mede
+sem que a leitura mude — o painel confiável e falso, pelo outro lado. A página
+de alcance diz, logo abaixo dos números, que eles incluem o uso próprio, e o
+oráculo cobra a FRASE RENDERIZADA (uma nota vazia passaria num teste de
+seletor). **Contador não se corrige depois; a leitura, sim — e só se ela estiver
+escrita ao lado do número.**
+
+> **Os contadores `b-dev.txt` e `v-dev.txt` continuam existindo.** O `b-dev`
+> segue recebendo os builds debuggáveis; o `v-dev` congela onde parou. O
+> `dados.yml` continua fotografando os quatro, e isso é de propósito: a série é
+> histórica, e tirar um campo dela reescreveria o passado.
 
 **A VISITA É UMA POR NAVEGADOR POR DIA**, e não uma por carregamento. Não é
 economia: no painel esta série é desenhada NO MESMO EIXO que "aparelhos por

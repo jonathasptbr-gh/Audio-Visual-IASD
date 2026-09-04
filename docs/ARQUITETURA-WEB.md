@@ -202,6 +202,10 @@ app/src/main/assets/web/
 │   │                           # capacidades INJETADAS (normalizar, casar letra,
 │   │                           # "está no aparelho?") e oráculo em Node: decide
 │   │                           # o que pode ser sorteado para o telão
+│   ├── coletanea.js            # A LEITURA EDITORIAL das coletâneas — PURA, com
+│   │                           # oráculo em Node: qual coletânea não tem
+│   │                           # independência e se DISSOLVE em outra. Aplicada
+│   │                           # no DESENHO: o catálogo do banco continua cru
 │   └── bible.js                # Cliente da parte bíblica do banco LouvorJA (livros/versões/capítulos — ver seção "Bíblia")
 ├── espelho/                    # o papel `tela` (telão nas telas da rede)
 │   ├── tela.js                 # a casca: SSE, dreno de subida, entrada, relógio

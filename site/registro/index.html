@@ -85,59 +85,12 @@
   }
   #tranca { padding:4rem 1.15rem; text-align:center; color:var(--muted); }
 
-  /* ===== ESTE APARELHO (v1.4.41) =====
-     A seção mora FORA do `#pag` de propósito: `#pag` é reescrito por inteiro
-     pelo desenho da série (e pelo `erro()`, no 404 do primeiro dia), e esta
-     chave não tem nada a ver com a série — ela vale mesmo quando não há amostra
-     nenhuma para desenhar. Presa ali dentro, ela sumiria justamente no estado
-     em que a página mais é aberta: logo depois de publicar, para conferir. */
-  #esteAparelho { max-width:56rem; margin:0 auto; padding:0 1.15rem 3rem; }
-  .chave {
-    background:var(--panel); border-radius:12px; padding:.9rem 1rem;
-    display:flex; align-items:flex-start; gap:.7rem;
-  }
-  .chave input { margin:.25rem 0 0; width:1.1rem; height:1.1rem; accent-color:var(--accent); flex:0 0 auto; }
-  .chave label { cursor:pointer; }
-  .chave-t { font-weight:600; color:var(--text); }
-  .chave-d { font-size:.83rem; color:var(--muted); margin-top:.15rem; }
 </style>
 </head>
 <body>
 
 <div id="tranca">Não encontrado.</div>
 <div class="env" id="pag" hidden></div>
-
-<!-- ===== ESTE APARELHO NA CONTAGEM (v1.4.41) =====
-     Abrir esta página com a chave sempre marcou este navegador para contar
-     NOUTRO contador (`v-dev.txt`) — quem audita a própria página é a maior
-     fonte de visita falsa que ela vai ter. O que faltava era isso ser VISÍVEL e
-     ter volta: a marca era escrita em silêncio, valia para sempre, e nada na
-     tela dizia que ela existia. Um navegador que a ganhou por engano (um
-     computador emprestado, uma aba aberta para mostrar o painel a alguém)
-     saía da contagem pública sem que ninguém soubesse.
-
-     ELA COBRE O NAVEGADOR, E SÓ ELE, e a nota diz isso por extenso: o app tem a
-     chave dele, no rodapé do Registro em Configurações. Os dois são o MESMO
-     aparelho e mesmo assim não se alcançam — origens diferentes, armazenamento
-     isolado, e o app sem porta de entrada por URL. Prometer aqui o que só o app
-     resolve seria a pior coisa que este painel pode fazer: ele é lido A
-     DISTÂNCIA por quem não tem como conferir. -->
-<section id="esteAparelho" hidden>
-  <h2 style="margin-top:0">Este aparelho</h2>
-  <div class="chave">
-    <input type="checkbox" id="opContar">
-    <label for="opContar">
-      <span class="chave-t">Contar as visitas deste navegador no número público</span>
-      <span class="chave-d" id="opContarDesc"></span>
-    </label>
-  </div>
-  <div class="nota">Vale para <b>este navegador</b>, e a marca é dele — não do
-    aparelho. O <b>app</b> tem a chave própria, em Configurações, na linha
-    “Contagem de uso” do rodapé do Registro: as duas páginas não se alcançam
-    (origens diferentes), então cada uma responde pelo que de fato controla.
-    Desmarcado, nada deixa de ser enviado: a visita passa a contar num contador
-    <b>separado</b> — exclusão por construção, nunca por subtração.</div>
-</section>
 
 <div id="dica" role="status" aria-live="polite"></div>
 
@@ -188,55 +141,20 @@
   if (!chaveOk()) return;              // fica o "Não encontrado."
   window.addEventListener('hashchange', function () { location.reload(); });
 
-  // ESTE NAVEGADOR É O DO OPERADOR, e a partir daqui as visitas dele contam
-  // NOUTRO contador (ver `site/index.html`). É a mesma regra da chave do app:
-  // exclusão POR CONSTRUÇÃO, nunca por subtração de uma estimativa — quem
-  // audita a própria página é a maior fonte de visita falsa que ela vai ter.
+  // NÃO HÁ MAIS MARCA DE OPERADOR (v1.4.42). Da v1.4.1 até aqui, abrir esta
+  // página com a chave marcava este navegador (`avRegistroOperador`) e as
+  // visitas dele passavam a acender um contador de teste; a v1.4.41 tornou a
+  // marca visível e reversível, e o operador então descartou o mecanismo
+  // inteiro: *"descarte a opção de contagem de uso como opcional, deixe sempre
+  // ativo, não preciso do sistema de exclusividade"*.
   //
-  // TRÊS ESTADOS, E NÃO DOIS (v1.4.41): `'1'` é operador, `'0'` é *decidiu que
-  // NÃO*, e AUSENTE é *nunca decidiu*. Com dois, a marca era reescrita em toda
-  // abertura e o interruptor abaixo não teria efeito nenhum — desmarcar e
-  // recarregar devolveria a marca, o que é pior que não ter interruptor: um
-  // controle que se desfaz sozinho ensina a não confiar na tela.
+  // A CHAVE GRAVADA EM QUEM JÁ A TEM DEIXA DE SER LIDA — ninguém a consulta, no
+  // `site/index.html` inclusive. Apagá-la exigiria uma migração para devolver
+  // bytes que não fazem falta, a mesma decisão do `cifraEscolhas` do app.
   //
-  // O PADRÃO CONTINUA SENDO "operador": quem abre esta página com a chave é
-  // quem publica o app, e a marca automática é o que mantém a exclusão por
-  // construção para quem nunca vai pensar nisso.
-  var LS_OP = 'avRegistroOperador';
-  function lerOp() {
-    try { return localStorage.getItem(LS_OP); } catch (e) { return null; }
-  }
-  function gravarOp(v) {
-    try { localStorage.setItem(LS_OP, v); } catch (e) { /* storage bloqueado */ }
-  }
-  if (lerOp() === null) gravarOp('1');
-
-  // O INTERRUPTOR. A caixa marcada é "CONTAR no número público", que é o
-  // oposto da marca guardada — o rótulo fala a língua de quem lê o painel
-  // ("este navegador entra na conta?"), e não a da variável.
-  (function () {
-    var sec = document.getElementById('esteAparelho');
-    var cx = document.getElementById('opContar');
-    var desc = document.getElementById('opContarDesc');
-    if (!sec || !cx) return;
-    function pintar() {
-      var op = lerOp() === '1';
-      cx.checked = !op;
-      desc.textContent = op
-        ? 'Agora não: as visitas deste navegador contam no contador separado, de teste.'
-        : 'Agora sim: as visitas deste navegador contam junto com as de todo mundo.';
-    }
-    cx.addEventListener('change', function () {
-      // A GRAVAÇÃO VALE DA PRÓXIMA VISITA, como a chave do app: o farol de
-      // visita já acendeu (uma por dia, ver `site/index.html`), e reacender
-      // agora poria este navegador nos DOIS contadores no mesmo dia — o duplo
-      // registro que o desenho existe para não ter.
-      gravarOp(cx.checked ? '0' : '1');
-      pintar();
-    });
-    pintar();
-    sec.hidden = false;
-  })();
+  // O PREÇO ENTROU NO PAINEL, e é onde ele tem de estar: a nota abaixo dos
+  // números diz que eles incluem o uso próprio. Um painel que não avisa é o
+  // "confiável e falso" que `docs/MEDICAO-DE-ALCANCE.md` nomeia.
 
   trancaEl.hidden = true;
   pagEl.hidden = false;
@@ -377,6 +295,28 @@
     h.push(kpi(num((ultima.web || {})[baseAtual] || 0),
       'adotaram a base v' + (baseAtual || '—')));
     h.push('</div>');
+
+    // ---- O QUE ESTES NÚMEROS INCLUEM (v1.4.42) ----
+    // Ela entra LOGO ABAIXO da fileira, e não no rodapé: o desenho inteiro
+    // desta página existe para ser lido de relance, e uma ressalva que só
+    // aparece depois de três gráficos chega tarde demais para a leitura que ela
+    // corrige.
+    //
+    // O SISTEMA DE EXCLUSÃO SAIU (a chave do app e a marca deste navegador), e
+    // a partir daí o uso próprio ENTRA nos dois números. Isso não é um defeito
+    // — foi uma escolha —, mas um painel que não diz o que conta é exatamente o
+    // "confiável e falso" que `docs/MEDICAO-DE-ALCANCE.md` nomeia. Com uma
+    // frota pequena, um aparelho a mais por dia é uma fração que muda a
+    // leitura.
+    //
+    // O BUILD DEBUGGÁVEL continua fora, e a frase o diz: é a única exclusão que
+    // sobrou, e ela nunca foi opção de ninguém — é higiene de construção.
+    h.push('<div class="nota"><b>Estes números incluem o uso próprio.</b> '
+      + 'O aparelho de quem publica conta como qualquer outro, e as visitas de '
+      + 'quem abre esta página também — não há mais chave de exclusão, nem no '
+      + 'app nem aqui. Fica de fora só o app rodando em build de teste '
+      + '(emulador, <code>assembleDebug</code>), que acende num contador '
+      + 'separado por construção.</div>');
 
     // ---- a linha do tempo ----
     // DUAS SÉRIES NO MESMO EIXO, e isso é uma escolha e não um descuido: as

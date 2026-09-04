@@ -24,6 +24,34 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
+- **v1.6.0** — A CIFRA EM TELA CHEIA, DEITADA. Pedido do operador: *"gostaria que criasse um sistema para visualização das cifras em tela cheia, no modo paisagem. deixe visível em uma coluna vertical na direita, os botões de controle de tom, automático, tamanho da fonte e etc... e é claro, ao abrir esse modo em tela cheia, pode já deixar automaticamente a fonte já um pouco maior, já que uma visualização com a fonte maior é o objetivo desse método em tela cheia"*. Quem lê está com o instrumento na mão e o celular no suporte, e o número que justifica o recurso é de COLUNAS: MEDIDO, no retrato de 430px a folha tem ~375px úteis a `1.4rem × .74` ≈ 16,6px monoespaçados — **~37 colunas**, com quase toda linha de acorde quebrando ao meio; deitada e com o corpo dois degraus acima ela passa de **50**. **O ELEMENTO É O `#lyricsPopup` INTEIRO, e o ponto é o que NÃO acontece: nada é reparentado** — mover o corpo para um contêiner novo zeraria o `scrollTop`, invalidaria a posição fracionária da rolagem (`cifraPos`/`cifraEscrito`, que existe para a folha não tremer) e mataria as referências de botão que o `lvBuildCifra` guarda; com o backdrop na top layer só o layout muda, sob `#lyricsPopup:fullscreen`. **A trava de paisagem não custou uma linha de Kotlin:** o `onShowCustomView` do `MainActivity` é chamado para QUALQUER elemento que peça `requestFullscreen` — não há teste de `<video>` lá dentro —, e a prova está no app desde a v1.0.7, em que a preview é um `<div>` e usa esse caminho todo culto. **A COLUNA É GRID, NÃO OVERLAY, e o argumento da preview não transfere:** a `.pv-fsctl` é absoluta e se apaga em 4s porque o que está por baixo dela é a PROJEÇÃO, e aqui é texto que alguém lê enquanto toca — este app já decidiu isso uma vez, quando a `#lyricsViewBar` saiu de dentro da caixa que rola na v1.1.22, porque *"um controle que some é um controle que não existe no momento em que ele importa"*. Uma faixa do grid pode ficar porque **não custa texto**. Nela entra o que a folha JÁ tem, reposicionado (invariante 5 aplicada ao layout); ficam de fora o título, as abas (um segmentado de quatro opções em 66px é ilegível) e o ✕, porque **uma superfície em tela cheia tem UMA saída**. **A FONTE MAIOR É UMA SEGUNDA ESCADA, e não um deslocamento:** `--lv-fonte` é global e as duas casas do A+/A− o leem, então engordá-lo no `<html>` levaria junto a zona de letra do Modo Fácil e obrigaria a desfazer na saída — aqui ele é ESCOPADO no `#lyricsPopup`, e sair é `removeProperty`: *o tamanho normal volta porque nunca foi embora*. A semente é `+2 degraus` a partir do corpo do retrato, `Math.min` clampa, e o índice novo (`cifraCheiaIdx`) é persistido em `cifraFonteCheia` e adotado por função *hoisted*, irmã do `cifraAdotarVelocidade`. **A REMEDIÇÃO É O QUE FAZ A FONTE MAIOR NÃO SER UMA REGRESSÃO:** a folha quebra por CARACTERE, então corpo maior sem requebrar é a mesma linha partida com letra grande, e é essa a asserção aritmética do oráculo — em tela cheia a folha não pode ter MENOS colunas que no retrato. A largura e o corpo chegam em instantes DIFERENTES (o `requestFullscreen` resolve ainda em retrato; quem deita é a Activity, depois e **sem promise** — o `screen.orientation.lock` é decorativo num WebView), daí as três camadas: o `fullscreenchange`, os `resize`/`orientationchange` que já existiam e um `ResizeObserver` no corpo, o único que pergunta exatamente o que `cifraColunas` mede em vez de inferir da janela. **A guarda é por CONTAGEM DE COLUNAS, nunca por largura** (`cifraColunasAtual`, escrito por `cifraDesenharFolha`): ela torna a rajada de `resize` da rotação quase grátis, **fecha o laço de realimentação do `ResizeObserver`** e continua deixando passar o A+/A−, onde a largura é a MESMA e o avanço por caractere não é. **E A POSIÇÃO DE LEITURA SOBREVIVE**, em fração do CONTEÚDO e não do percurso — MEDIDO, a do percurso muda sozinha quando só a ALTURA da caixa muda, que é o que a rotação faz sem tocar no texto, e o que saía era a folha andando 19% do arquivo ao deitar. Ela é CAPTURADA PELO CHAMADOR nos quatro pontos que trocam a fonte (a entrada e a saída da tela cheia, e as duas escadas do A+/A−, por `cifraFracaoDeLeitura`), porque o corpo novo muda o comprimento da folha na hora e a remedição só roda depois; e a volta é por `cifraAplicarPos`, nunca por escrita crua, que é quem atualiza `cifraEscrito`. Isso conserta de passagem um defeito que já existia no A+/A− do retrato, onde a folha voltava ao TOPO. **AS SAÍDAS SÃO TRÊS e passam pelo mesmo lugar** (o ⛶, o voltar do aparelho e `closeLyricsPopup`, ponto único do ✕, do toque no fundo e do `sairDasCamadas()`), mais a automática: a tela cheia cai sozinha quando a cifra deixa de ser a fonte. **No voltar ela é o degrau 1.5**, entre o diálogo e os bottom-sheets — é um MODO da folha, aberta depois dela e desfeita antes; deixá-la no degrau 3 é o defeito concreto, porque o degrau 2 fecharia a folha com ela ainda em tela cheia e tirar `.open` só muda opacidade e `pointer-events`: o elemento continua na top layer e a Activity continua deitada. No mesmo lote o degrau 3 deixou de ler `document.fullscreenElement` cru e passou a **nomear o `previewEl`** — com dois donos possíveis, um teste genérico é a armadilha esperando o terceiro, e ali o preço de errar é derrubar a projeção no meio do culto. **E QUEM MANDA É O EVENTO, nunca o toque:** F11, Esc e o `exitFullscreen` do voltar chegam todos pelo `fullscreenchange`, e é lá que a escada de fonte entra e sai. **O que a revisão do próprio lote achou:** `load()` chamava `cifraAdotarFonteCheia` incondicionalmente, e como a semente da primeira entrada é DERIVADA e não é gravada (só o A+/A− grava), um `load()` com a folha deitada — e ele chega a cada download que começa ou termina — devolvia o índice ao sentinela `-1` **com o corpo grande ainda escrito no popup**; o toque seguinte no A+ resolvia `-1 + 1` e saltava para 1rem, o MENOR corpo da escada, gravando-o, num modo cujo objetivo declarado é ler de longe. A guarda é uma linha em `cifraAdotarFonteCheia` (com a tela cheia no ar, quem manda é o corpo que está na tela). Lote **só de base web** — nada em `java/`, `res/` ou no manifesto —, logo `version.json` **sem `shellTag`**: declará-lo seguraria o bundle para sempre esperando uma Release que não tem o que carregar. Oráculo novo: `tools/cifra-tela-cheia.test.mjs`, que mede o RENDERIZADO (a coluna começando onde a folha acaba, o hit-test, o corpo, as colunas e o x de um caractere por `Range`) e monta o cenário como ele chega no aparelho — tela cheia por clique de verdade, e a rotação como um `setViewportSize` DEPOIS dela. **E A HIDRATAÇÃO QUE PERDIA A VEZ PARA O TOQUE**, que reteve o lote: o CI reprovou em `cena.test.mjs` (55/56) e o `web-ota` foi pulado. O defeito é ANTERIOR a este lote — `load()` lê o banco por uma dezena de `await`s e só então escreve `currentId`/`currentItem`, e ninguém a chama com `await` —, e o que a v1.6.0 fez foi ALARGAR a janela com mais um `getState`. Um `send()` no meio tinha o toque SOBRESCRITO pelo rabo dela (*lost update*, a quarta vez desta classe na base), e o que sobrava é impossível: `currentId: null` com `midiaNoAr: true`, de onde saem o item que deixa de ficar selecionado, o ▶ que lança `DataError` em `getMedia(undefined)` e o telão que reconecta VAZIO. A senha é a MESMA de `projecaoSeq` e vale só para a SELEÇÃO — o resto da FASE 2 é CONFIGURAÇÃO e continua sendo aplicado sempre, senão o app fica com o tema e a rolagem da sessão anterior. Oráculo novo: `tools/hidratacao-perde-a-vez.test.mjs`, que monta o hazard À MÃO (irmão do `db-estado.test.mjs`), porque a corrida real depende de a máquina ser lenta — ela passava 7/7 fora do runner — e **um oráculo que mede o runner não guarda portão.**
+- **v1.5.21** — AS DUAS METADES DE UM RELATO SÓ, sobre a gaveta de detalhe de um vídeo (um episódio de série, o "Ver os detalhes" da linha da Biblioteca). **(1)** *"ele mostra uma seção extra que está com a margem da parte inferior desregulada em sua caixa mãe"* — COLAPSO DE MARGEM, o irmão exato do defeito do `.coll-open` da v1.5.17, agora na borda de BAIXO: a `.hymn-gaveta` era `display: block`, sem padding e sem borda, então a `margin-bottom` do ÚLTIMO filho em fluxo (o `.item-detalhe`, que só existe num vídeo) colapsava ATRAVÉS da borda inferior do pai e era pintada FORA do poço. MEDIDO: 8px de faixa entre o fim da gaveta e o fim da linha, com ZERO abaixo do card por dentro. Não erra alto, e é por isso que ficou de pé tanto tempo: `--gaveta-btn` É `var(--panel)` e o `.lib-item` do acervo é `--linha: transparent`, então a faixa escapada mostra a PLACA, que tem a cor exata do card — o poço para rente ao card e o card PARECE vazar da caixa mãe. `display: flex` e não `flow-root`: um contêiner flex não tem colapso de margem NENHUM, então a classe inteira do defeito some por construção em vez de ser tapada num ponto, e os quatro recuos passam a sair do PAI, que é a regra que esta mesma caixa já segue no `--camada`. `padding-bottom` solto seria a correção errada e parece a óbvia — nas gavetas SEM `.item-detalhe` (favoritos, pasta do aparelho) o último filho é a `<ul>`, que já respirava por padding, e o vão viraria 16px em três listas. **(2)** *"coloque dados como duração, nome completo, canal e descrição se for possível obter"* — e o achado é que TRÊS dos quatro já chegavam ao lado web e eram DESCARTADOS no caminho, sem que nada na ponte precisasse mudar: `anexarVideo` põe `author` em TODO item de playlist e `itensDaPlaylist` não o copiava; `nomeOriginal` (o título CRU do YouTube) já viajava na regra e `serieFaixaDoItem` o ignorava. O rótulo da lista é PODADO por construção — a data na frente, o pedaço à esquerda da barra, e no `TITULO_SERIE` (o Informativo) o nome do episódio some inteiro —, então o cru é a única coisa que responde *"é este mesmo?"*. O card passa a abrir pela IDENTIDADE (título completo), seguido do CANAL, da DURAÇÃO e do estado no aparelho que já existia: a ordem é a das perguntas, e a identidade vem primeiro porque é ela que decide se o operador vai adiante. Cada linha só existe se o dado existir, e a guarda é POR CAMPO e nunca por versão de bundle — entre o OTA chegar e a varredura refazer o índice há uma janela em que o guardado no IndexedDB não tem os campos novos, e ali a linha ausente SOME em vez de escrever "undefined". A INVALIDAÇÃO do índice é automática e foi MEDIDA, não suposta: `AVSerie.impressao` é um FNV-1a sobre o CÓDIGO das funções da regra mais o `extra`, e as duas mudanças entram nele por caminhos diferentes (`String(itensDaPlaylist)` e `String(serieFaixaDoItem)`) — a assinatura vai de `rik0iwz` para `r63f05o`, o índice é refeito UMA vez por aparelho e nasce com os campos novos. **E o CANAL é exatamente a string que a ARMADILHA 5 proíbe de virar critério** (os vídeos vêm como colaboração, "Provai e Vede | Oficial e Adventist Mission"): filtrar por ele derrubaria o álbum inteiro, MOSTRÁ-LO é dizer a verdade sobre quem publicou — e as duas coisas convivem na mesma fixture do oráculo, de propósito, para ninguém "consertar" o canal transformando-o em filtro. De quebra, a PERSISTÊNCIA fecha três buracos que a mesma investigação achou já pagos: `addUrlMedia` descartava `seconds`/`height` (que `addMedia` já repassava) e ninguém gravava o canal, então um link "Online" nascia sem duração e sem canal com os dois na mão de quem o criou; `ytBaixarNativo` descartava o `r.seconds` que o shell já devolve; e `subtituloItem` mostrava duração só em `kind === 'audio'` — a régua nunca foi o kind, é *"o registro sabe?"*. **A DESCRIÇÃO é a QUINTA linha, e é a única das quatro que custou uma Release:** ela não existe em ponto nenhum do lado web — exige `StreamInfo.getInfo` por vídeo —, e por isso trouxe método novo da ponte (`ytDetalhes`, na fila `extracao`, que é a fila de um TOQUE), `SHELL_VERSION` 61 → **62**, `minShell: 62` e `shellTag: "v1.5.21"` segurando o bundle até a Release existir. Publicar a metade web sozinha faria o card chamar um método que o APK instalado não tem, com o `call()` caindo no `catch` e resolvendo `null` — a linha nunca desenhada, sem nada na tela dizendo por quê. Ela é SOB DEMANDA (o gatilho é a REVELAÇÃO da gaveta, não a abertura da linha nem a montagem da lista) e NÃO VAI PARA O DISCO, pelo precedente exato da CIFRA: um `Map` que morre com o app — guardar mudaria o recurso de LER conteúdo de terceiro para DISTRIBUIR uma cópia dele. `null` (não houve resposta) não é guardado e `descricao: ''` (respondeu, e não há) é, que é a disciplina do `sem-rede` daquele arquivo. E `textContent` e NUNCA `innerHTML`, porque é texto de terceiro num origin que injeta `__AVBridge` — o achatamento do HTML que o YouTube manda quando há links é feito no Kotlin, antes de a string atravessar a ponte. **EXIGE RELEASE v1.5.21.**
+- **v1.5.20** — QUATRO RELATOS, em três áreas do app. **(1)** *"sem internet, um link adicionado ao cronograma ou outra lista perde sua thumbnail em diferentes seções"* — e a causa é que ela nunca foi um DADO: os três pontos que criam um item `kind:'youtube'` sem bytes (qualidade "Online", o fallback do share, a recriação a partir do Histórico) gravavam `thumb` como a URL viva do CDN, e `thumbEl()` a desenhava com um `<img src>` que depende de rede A CADA RENDER — daí a inconsistência "entre seções": o que variava era o cache HTTP do WebView, não o registro. Os três convergem em `AVDB.addUrlMedia`, e o catálogo é ÚNICO (`STORE_MEDIA`; cada lista é só um array de ids em `STORE_STATE`), então corrigir a gravação UMA vez corrige todas as listas de uma vez: `thumbYoutube(id)` baixa o `hqdefault.jpg` como Blob (`fetch` + `Promise.race` com um prazo de 5s, no mesmo estilo de `thumbFromVideo`/`medirAudio`), e qualquer falha — sem rede, CORS, prazo vencido, blob vazio ou grande demais — cai de volta na URL string de sempre: zero regressão possível. **(2)** *"o sistema de rolagem automática de cifra não está sendo parado no início para permitir ler e executar a introdução … o objetivo não é ter a linha a ser lida no topo, mas no centro … esperar o usuário 'ler até chegar no ponto médio' antes de mover"* — ligar "Rolar sozinho" movia a folha NA HORA. Isto não é a ABERTURA que a v1.5.6 revogou (aquela era fração da POSIÇÃO da música); é um atraso de RELÓGIO DE PAREDE a partir do TOQUE, no MESMO ritmo que a folha vai seguir — `AVCifra.esperaInicialDaRolagem(altura, pxPorS)`, pura, com piso 2s/teto 8s pelo motivo de sempre (ABERTURA/FECHO). Durante a espera o `.dl-ring` — o mesmo anel do download em curso, nunca um `border` novo — fica sobreposto ao ícone de pause: um botão pausado e imóvel, sozinho, é indistinguível de quebrado. **(3)** *"a margem do card da coleção favoritos, na biblioteca e a barra de buscas no topo, está desproporcional … fazendo a coleção colar no topo"* — a v1.5.15 zerou o `padding-top` do SCROLLER (`#hymnResults`) para fechar um vazamento de conteúdo (scrollport é conteúdo à vista), e isso também apagou, de propósito mas sem querer, o único respiro que sobrava antes do primeiro card. MEDIDO: 0px contra os 9,59px (`--sp-5`) entre duas coleções. A resposta não é padding — voltaria o vazamento — é MARGEM no primeiro `.coll-group--drop`, que não é scrollport; o preço fica pago em `medirVaoDosFavoritos`/`medirTampa`, que passam a descontar essa margem computada do "vão útil". **(4)** *"a margem entre a base da zona de buscas e o título da mídia em execução parece o dobro"* — e era, aritmeticamente: `--lib-bar-h` (a altura MEDIDA da `.lib-bar`) já embute o `.35rem` do padding de baixo dela própria, e a `.bottombar` somava outro `.35rem` por cima, contando o mesmo respiro duas vezes. MEDIDO: 11,1px contra os 5,6px de `--deck-gap`. Tirar o `+ .35rem` extra da fórmula deixa `--lib-bar-h` sozinho como o respiro certo, sem tocar no padding da própria barra (usada também na janela aberta da Biblioteca). As quatro correções são só base web — nada em `java/`, `res/` ou no manifesto —, com oráculos novos ou reescritos ao lado de cada uma (`tools/cifra.test.mjs`, `tools/cifra-rolagem.test.mjs` com os tempos calculados pela própria função pura em vez de um número fixo, `tools/lista-da-biblioteca.test.mjs`, `tools/smoke.mjs`).
+- **v1.5.19** — TRÊS RELATOS, E OS TRÊS SÃO A GEOMETRIA MENTINDO PARA O OLHO. **(1)** *"ajuste a margem dos botões de aumentar e diminuir a fonte no modo simples, eles estão colados nos elementos abaixo dele"* — e não era margem: o par A+/A− é `position: absolute` dentro da linha do nome, e caixa absoluta NÃO conta para a altura do pai. A linha media 18,00px (o `--fs-xl` do nome) e continha um botão de 34,00 (`--hit`): transbordo de 8,00px de CADA lado, e o `gap` de 5,60 do `.simple-song` virava **−2,40**. O sintoma não era aperto, era SOBREPOSIÇÃO — a placa da letra é `position: relative` e vem depois no documento, então pintava POR CIMA de 2,41px do botão, que ali deixava de responder ao dedo. E com mídia no ar o vizinho é um CONTROLE: o A− encostava com ZERO pixel no `#simpleTimeHit`, sobrepondo 35,44 × 2,41px e comendo 27% da margem de toque do scrubber do louvor no ar — o "elementos" do plural são três. `min-height: var(--hit)` na linha: os dois lados voltam ao `gap` que a folha já declara (+5,60 e +9,59), sem inventar número, e com o valor saindo do MESMO token de que a altura do botão sai. Custo 16,00px da zona de leitura (−3,0% a 430×900). O `#lyricsPopup` não se mexe — lá o par é `static`. **(2)** *"padronize os botões de biblia, importar e ferramentas … cor mais proxima a cor de fundo … mais baixos … discretas, mescladas ao fundo"* — e a do meio saltava por CROMA, não por claridade: MEDIDO no tema claro ela mede 1,07:1 contra o fundo, MENOS que as laterais (1,20), com ΔC* +8,5. Uma correção de luminância não resolveria o relato. As três passam a `color-mix(in srgb, var(--surface) 70%, transparent)` — 1,23 (escuro) e 1,14 (claro) nas TRÊS, com a soma de ΔE00 da faixa caindo 44% e 39% —, e o argumento que pintava a do meio de azul (*"a única AÇÃO da faixa"*) caiu sozinho: desde a v1.5.0 as três têm rótulo e a do meio é a única cuja palavra é um VERBO. A altura vai de 51,77 a 42,00px, e isso corrige um defeito LATENTE: o `--hit-foot` estava INERTE (varrê-lo de 48 a 36px não mudava um pixel) e o rodapé PULAVA 7,77px ao entrar na seleção múltipla, contra a promessa escrita do próprio token. A `.selbar` NÃO entra na cor — os `.sel-btn` em cima dela cairiam a ΔE 2,11 no claro, abaixo do limiar de percepção, e o app perderia a distinção entre disponível e INDISPONÍVEL na barra que hospeda o excluir. E "padronize" cobrou dois eixos que ninguém tinha olhado: o ÍCONE das três saía de governanças diferentes (coincidiam por acidente, e a altura não denunciava) e a porta do meio não herdava a fonte do app — e SÓ NO APP, onde ela é `<button>` e não `<label>`. **(3)** *"o card do titulo … está encolhendo ou modificando seu tamanho ao abrir sua listagem"* — é o crescimento da v1.5.17 visto pelo outro lado, e o TEOREMA fecha as saídas em CSS puro: a tampa só pode ser constante no valor MÍNIMO dela, porque a altura de encaixe é função da TELA e do NÚMERO de blocos e não existe como valor. Ou a pílula emagrece para 45,19 sempre (e a sobra vai para os vãos), ou o número é MEDIDO — **o operador escolheu manter a pílula gorda**. Daí o `--tampa-h`, a irmã exata do `--fav-vao`: Δ ≤ 0,02px em 24 cenários. A cláusula que desconta a seção dos FAVORITOS aberta é obrigatória (sem ela, +81,5px de transbordo e o `smoke.mjs` reprovando — e o `verificar` é `needs` do `web-ota`), e descontar TODO bloco aberto é a variante óbvia e ERRADA. Sai junto a lista "respirar" ao abrir uma seção, e fica declarado o resíduo: onde a lista já transborda, abrir uma SEÇÃO ainda aumenta a tampa em 5,59px. **E a revisão dos oráculos cobrou quatro emendas, duas delas da mesma classe: uma asserção que não pode reprovar no defeito que ela nomeia** — a das reticências era uma tautologia (na pilha o `<span>` nunca é clampado, e ela passava com o rótulo a 403px dentro de um botão de 93) e a do pulo do rodapé não tinha teto (com o `padding` de volta E o token em 51,77px o bloco inteiro ficava verde). 19 reversões nomeadas, todas reexecutadas, e campanha de 32 execuções sem uma reprovação.
+- **v1.5.18** — OS TRÊS RELATOS QUE O CRESCIMENTO DEIXOU À MOSTRA, e um deles REVOGA uma escolha da v1.5.17 — a pedido de quem opera. **(1)** *"o sistema de espaçamento das coleções ainda está ficando desregulado … há uma margem maior na parte de baixo … o ajuste ainda não ficou correto"* — e ele está certo com o recurso funcionando: decodificados os pixels da captura, os blocos crescem, e o que sobra embaixo do último é o `padding-bottom` do scroller, `.8rem` MAIS `env(safe-area-inset-bottom)`. A ÁREA SEGURA só vale onde a janela ENCOSTA na base, e desde a v1.5.4 ela para na linha dos controles — o recuo reservava lugar para uma barra de gestos que não é vizinha dela; volta a valer nos dois casos em que a janela vai até o fim (Modo Fácil e teclado). E o valor passa a ser `--sp-5`, o MESMO `gap` que separa dois blocos de raiz: com o crescimento preenchendo o resto, qualquer outro número põe o último bloco a uma distância da borda que nenhum par de vizinhos tem, que é literalmente o relato (MEDIDO: recuo 9,6px, `gap` 9,6px, sobra 0,04). **(2)** *"as opções de play não estão colorindo o card dono daquelas opções … o card titular do item não ganhou a cor de seleção/cor do corpo da caixa de opções"* — **isto REVOGA a metade 3 da v1.5.17**. O achado daquele lote continua de pé (na lista de BUSCA a tampa já media 1,00:1 contra os BOTÕES da gaveta, e o app tinha duas leituras do mesmo objeto), mas a ESCOLHA entre elas nunca tinha sido feita por ninguém: para quem opera, o corpo de um item aberto é o POÇO — a superfície grande que o toque abriu —, e não o papel dos blocos que descansam nela. A tampa passa a vestir `--gaveta-bg`, e tampa e corpo viram uma superfície só, com os botões flutuando dentro. `background` na `.row` e não `--linha`, porque as quatro listas resolvem esse token de jeitos diferentes e uma é escopada com id — o que apagou de quebra a regra da PASTA que a v1.5.17 tinha escrito, hoje um valor sem efeito explicando um desenho que não existe. **(3)** *"nessa lista de favoritos também não há a linha divisória que temos nas outras listas"* — a v1.5.16 desenhou o traço para uma `<ul>` só. Ele entra pela MESMA declaração, com os dois seletores: continua sendo UM consumidor do `--divisoria`, que é o que mantém de pé a asserção positiva do `tokens.test.mjs`. Os dois números que mudam entram por TOKEN e não copiados — a coluna do nome (aqui a miniatura é `--thumb`, 40px, contra 38) e a metade do vão (`gap` `--sp-3` contra `--sp-2`) —, porque copiar o do álbum descentraria o traço, o defeito que a v1.5.17 acabara de corrigir do outro lado. Sete reversões nomeadas, uma por asserção.
+- **v1.5.17** — OS QUATRO RELATOS DA BIBLIOTECA, E OS QUATRO SÃO REGRESSÕES DE PREMISSA. Todos do operador, todos no mesmo minuto, todos com o mesmo formato de falha: nada quebra, nada aparece no console. **(1)** *"o aproveitamento da altura não está correto, está sobrando … o tamanho deve ser ajustável para se encaixar a altura da tela"* — `#hymnResults` é uma `.popup-list` e os blocos de raiz caíam em `flex-shrink: 0` SEM `flex-grow`: o excedente inteiro se acumulava no pé (MEDIDO, 85,58px a 430×900, que a v1.5.16 tinha AUMENTADO de 27,92 ao apertar as barras). `flex-grow` nos blocos COLAPSADOS reparte a sobra quando o conteúdo cabe e é INERTE quando ele transborda — ajustável por construção, sem uma linha de JS (430×900: 54,70px e sobra zero; 360×740: idêntico a antes). A BARRA não cresce junto, e isso é invariante: `medirVaoDosFavoritos` soma as barras das vizinhas, e uma barra que cresce realimenta a conta até o vão deixar de ser dos Favoritos — o `smoke.mjs` reprova essa variante. **(2)** *"os cards que ficam no topo das listas … sem margem no topo"* — COLAPSO DE MARGEM: o `.coll-open` não tem `padding-top` nem borda, então a `margin-top` do primeiro filho saía para fora dele. Invisível enquanto a placa era transparente; a v1.5.15 lhe deu fundo e raio e o recuo passou a cair FORA (MEDIDO, 0,00px contra os 6,39px da placa irmã dos Favoritos). `display: flow-root` — que o `expandAccordion` já escrevia por 220ms como `overflow: hidden` —, e de quebra o acordeão passa a medir a altura de verdade (levava a 321px uma caixa que dentro do BFC pede 327). Mais `scroll-margin-top` no cabeçalho de seção do hinário, porque o `scrollIntoView` mirava o topo do scrollport e o cabeçalho pousava DEBAIXO da tampa grudada. **(3)** *"a zona do título e thumbnail está ficando diferente da cor do corpo desse item"* — o overlay `.lib-item.expanded` foi escrito na v5.271 sobre a faixa fechada JÁ recuada; a v1.5.14 tirou o preenchimento do nível 3 e ele virou o ÚNICO tom da faixa aberta, um 4º tom que a alternância não tem (1,15:1 no escuro, 1,39:1 no claro). O achado que decidiu o desenho: a MESMA gaveta já media 1,00:1 na lista de BUSCA, onde `--linha` é opaco e a `.row` esconde o overlay — **o app tinha duas leituras do mesmo objeto**. Removido, 1,00:1 nas três listas e o poço separa MAIS. **(4)** *"as linhas de divisão … estão ligeiramente descentralizadas para baixo"* — com o vão inteiro fora da caixa o traço pousava no limite INFERIOR (6,42px de branco acima, 1,37 abaixo). Não se move o traço, move-se a CAIXA: metade do `gap` entra como `padding-top` e um `margin-top` negativo devolve o conteúdo ao lugar, e a lista não muda de altura. **(5)** *"essa seção de opções manteve a altura dos elementos muito grande, pois ainda fazia referência a padrões antigos"* — e ele acertou a data: o commit das QUATRO ESCALAS converteu `gap`, `font-size` e `font-weight` da gaveta e nunca tocou em `padding`. Mais um achado de cascata: `.hymn-opcoes` e `.song-menu-list` moram no MESMO `<ul>` com a mesma especificidade, e a segunda vencia — a gaveta vestia o recuo do bottom-sheet que a v5.285 substituiu. A linha de destino vai de 53,19px para 42, a densidade da faixa ao lado, sem tocar no piso `--hit` — e o recuo vira TOKEN sobrescrito pela gaveta, porque o mesmo botão é a linha de três folhas modais que não estão no relato. **E a REVISÃO do próprio lote achou mais quatro coisas antes de ele sair**, nenhuma delas pixel quebrado: a faixa que sobra em volta da barra crescida era MARGEM MORTA (9,5px por seção onde o toque não fazia nada, e num card o toque abria sem resposta nenhuma) — o oposto do que o recuo da `.coll-bar` existe para produzir, corrigido pondo o ALVO e o `--press` no bloco; três comentários que passaram a mentir no presente, um deles ensinando o número que reintroduziria os +11,19px de pulo sob o dedo; e um conflito de doutrina — *"aberto nunca foi um tom"* ao lado de uma regra que dá tom ao aberto da pasta do aparelho —, resolvido escrevendo a exceção ao lado da regra em vez de apagar qualquer uma das duas.
+- **v1.5.16** — A DIVISÓRIA, O VÉU E A COLETÂNEA DISSOLVIDA. Três pedidos do operador sobre a Biblioteca. **(1)** *"linha divisória (não borda inteira), na listagem do itens propriamente dos álbuns"* — desde a v1.5.14 a faixa é transparente sobre `--panel`, e o vão de 4px entre duas faixas mede **1,00:1** contra os dois lados: separação nenhuma. Nasce `--divisoria` (1,88:1 no escuro, 1,99:1 no claro), um `::before` de 1px RECUADO até a coluna do nome — não uma `border`, que cobre a caixa e não tem como ser recuada. É a QUARTA exceção nomeada da regra de contorno, e ela não é a moldura da v1.5.9 voltando: aquela eram quatro arestas por nível em três níveis carregando a HIERARQUIA, esta é uma aresta num nível só entre IRMÃS — o que a alternância por construção não separa. O `tokens.test.mjs` ganha o PAR que impede a brecha *"filete pode, desde que não se chame border"*: uma varredura NEGATIVA por qualquer bloco de 1px pintado e uma POSITIVA exigindo consumidor único. **(2)** *"um efeito de blur na borda interna superior ou inferior, quando algum elemento da tela ir para debaixo dessa borda"* — dois `sticky` DENTRO do scroller com `backdrop-filter`, e blur em vez de gradiente porque a alternância põe DUAS superfícies sob a mesma borda e um gradiente teria de escolher uma (MEDIDO: −60% de nitidez nos dois temas). A `z-index: 2` ele some sozinho sob uma tampa grudada (131/131 amostras). A especificidade mordeu uma vez: `#hymnResults:not(.tem-acima)` (1,1,0) perdia para `.popup-backdrop--lib.open #hymnResults` (1,2,0) e o véu ficava aceso no topo, onde ele mente. **(3)** *"os albuns do celebra SP, serão individualmente colocados na coleção de 'diversos' … fara com que todas as coleções caibam na tela"* — nasce `controle/coletanea.js`, regra PURA com oráculo Node, que DISSOLVE em vez de remover (MEDIDO: descartar a categoria deixa os álbuns órfãos e o app os recolhe em "Outros álbuns" — dez blocos de novo, com um nome pior). Roda no DESENHO e não no `fetchAlbumCatalog`, senão uma correção por OTA esperaria a próxima sincronização com rede. Destino ausente é IDENTIDADE e a origem FICA. A tabela aceita *"Diversas"* E *"Diversos"*: o operador escreveu o segundo e a seção chama-se o primeiro. O orçamento: a 430×900 a caixa da lista tem 582px, 10 blocos davam 615,1px e passam a dar 551,1px depois de apertar as duas barras — APERTAR e não ESTICAR, porque esticar levaria o vão dos Favoritos de 131px a 55px e desfaria a v5.273/v5.277. O segundo preço está dito: com os 9 blocos do acervo dissolvido sobram ~86px em vez de ~28, isto é, o aperto AFASTA do enchimento exato que a leitura literal do pedido cobra; e a promessa de caber sem rolar vale de 430px para cima (a 393×786 o aperto não compra bloco nenhum). **E um achado registrado, não corrigido**: a faixa de um álbum NUNCA é marcada como no ar (`hymnResultRow` escreve `dataset.song`, `marcarNoAr` lê `dataset.id`), e mesmo forçada a classe perderia para `.coll-songs > .hymn-result` por ordem de fonte — `docs/ACHADOS-EM-ABERTO.md` §4. O irmão dos FAVORITOS era alcançável e foi corrigido.
+- **v1.5.15** — A PERNA DA RAIZ DA BIBLIOTECA, E O CINZA DO CARTÃO DA LINHA DO TEMPO. Três relatos do operador sobre a v1.5.14 e um pedido. **(1)** *"isso era pra ser assim? fundo azul nos itens do provai e vede?"* — a árvore da Biblioteca não tem profundidade uniforme: uma seção contém CARDS e uma coleção da RAIZ contém FAIXAS, então a MESMA `.hymn-result` pousava em duas cores conforme onde a coleção mora. A alternância não estava errada; faltava o degrau de baixo dela — o `.coll-open` de uma coleção da raiz vira PLACA de papel, irmã exata da `.fav-itens`, e a faixa volta a pousar na mesma base em qualquer lugar do acervo (MEDIDO: 1,43:1 e 1,35:1 contra o poço, e 1,00:1 contra o card de álbum). A placa é o corpo aberto INTEIRO e não só a lista: o DESTAQUE do sábado pinta `--sel-fill`, que dá 1,31:1 sobre o papel (o par para que ele foi desenhado) e 1,03:1 sobre o poço — deixá-lo de fora consertaria a lista e deixaria o "ESTE SÁBADO" invisível, que é o mesmo defeito um bloco acima e está numa das capturas. **(2 e 3)** *"a lista está vazando acima"* e *"essa sobreposição também permanece… parecendo que um álbum está pertencendo a outro"* são o MESMO defeito pelas duas faces: a v1.5.14 deu a todo card aberto o `top` do segundo degrau, os da raiz inclusive — que não têm barra acima —, e **o vão que sobrava É o scrollport** (MEDIDO: 51,6px de lista à mostra acima da tampa colada, e a tampa inteira ainda no topo enquanto desgruda, pintada por cima das coleções seguintes). O `top` de uma tampa passa a ser a PROFUNDIDADE dela, e pela mesma aritmética o `padding-top` do scroller foi a zero — padding de um scroller é scrollport. **(4)** *"ajuste o cinza dela para o mesmo cinza claro dos botões inativos de próximo e anterior slide"*: o cartão vestia `--surface` cheio, que é o tom do botão ATIVO; passa a ser a mesma superfície sob o véu de `--op-inativo`, por `color-mix` sobre o valor JÁ RESOLVIDO ali (um token novo teria de repetir a bifurcação do R1). Os dois oráculos aprendem a ler `color-mix` — que computa como `color(srgb 1 1 1 / .04)`, e uma regex de números lê (1,1,1).
+
+- **v1.5.14** — A HIERARQUIA DA BIBLIOTECA DEIXOU DE SER UMA ESCADA, O TEMA ESCURO VIROU DENIM E O APP GANHOU QUATRO ESCALAS. Pedido do operador: *"chegamos a um pico de eficiência, que pequenas variações não mudam muito o resultado, e para achar um resultado melhor, devemos ir um pouco mais longe"* · *"poucas bordas, sem traços finos, ou designs visualmente poluídos"* · *"busque consistência maior dentro do app"*. **O pico era local, e a prova é aritmética:** quatro níveis sobre uma escada de três degraus, e quatro degraus no piso de 1,28:1 partindo do branco põem o nível mais interno em #b3b3b3 — o cinza que ele recusou na v1.5.10. MEDIDO no renderizado, o desenho anterior não cumpria o piso em NENHUM par (7/7 reprovando no escuro) e três pares valiam 1,00:1: no escuro a tampa de um álbum e as faixas dentro dele eram pixel-idênticas. A saída é ALTERNAR em vez de empilhar (papel → poço → papel: duas superfícies, profundidade ilimitada, zero traços — 1,43:1 e 1,35:1 em cada degrau), com a profundidade dita por cabeçalho GRUDENTO nos dois níveis, recuo e rank tipográfico. Mais: o tema escuro ganha a saturação do `denim` (a identidade vivia só no claro), quatro escalas novas (31 corpos de fonte → 9+2, 16 gaps → 6, 10 durações → 3, 5 pesos → 4), o chevron da Biblioteca volta a responder ao toque, e o Modo Fácil passa a mostrar o transporte DA CENA. Os oráculos APROVAVAM o defeito (o `smoke` exigia que seção e card fossem iguais e nunca comparava tampa × faixa): oito asserções invertidas e três casos novos, mais o oráculo que fecha a lacuna de vinte e duas versões entre `colors.xml` e `tokens.css`.
+- **v1.5.13** — A LINHA DO TEMPO VIROU UM CARTÃO. Pedido do operador: *"coloque a seção da barra de progresso da mídia, que tem o título, barra de progresso e tempo atual e total… coloque isso tudo dentro de um card, pois é o único elemento visual do controle que não está dentro de um elemento visual. por causa da barra de buscas, ali se tornou um buraco no design"*. **O "por causa da barra de buscas" é a parte que explica por que isto virou defeito AGORA**, e é ela que faz deste lote uma correção e não um enfeite: até a v1.5.2 o topo da caixa de controles era a faixa de abas, e o título nascia logo abaixo de uma peça pintada. Com a barra da Biblioteca repousando ali — e ela não pinta NADA fechada, que foi decisão da própria v1.5.2 —, o que ficou acima do título passou a ser o `--bar` cru, e a `.nowplaying` virou a única peça daquela caixa pousada direto no fundo: preview, botões de slide e os sete do transporte todos têm superfície. **Um recurso não regrediu; o vizinho dele saiu.** **O TOM É `--surface`, o MESMO dos botões ao lado, e não `--panel`.** No tema CLARO `--bar` é branco e `--panel` também: um cartão em `--panel` mediria **1,00:1** contra a caixa e simplesmente não existiria — é a mesma aritmética que obrigou a borda do campo de busca na v1.5.5, chegando pelo outro lado. Com o tom dos vizinhos o cartão entra no sistema da caixa em vez de inaugurar um degrau que a escada não tem. **E O RECUO É SÓ VERTICAL, que é a parte que se erra sem perceber.** `.np-seek` repete as TRÊS colunas do `.deck` desde a v1.3.8 — decorrido sobre o botão de voltar slide, barra sobre a preview, total sobre o de passar —, e um `padding` horizontal no cartão comprime essa grade: a barra deixa de bater com a miniatura logo abaixo, que é o defeito EXATO que a v1.3.8 corrigiu. O respiro lateral já existe por construção (os tempos são centrados em colunas de ~56px, então o texto nasce a meia coluna da borda), e quem PODE recuar é o TÍTULO, o único que ignora as colunas — e ele precisa, senão a reticência de um nome longo encosta na borda. **O `controles-layout.test.mjs` ganhou TRÊS metades, e nenhuma basta sozinha:** ela PINTA (uma regra que só trocasse classe passaria num teste de classe e continuaria sendo um buraco na tela, então a régua é o fundo EFETIVO contra o da caixa), ela pinta o TOM DOS VIZINHOS (a régua é um botão do transporte RENDERIZADO — `--surface` lido de volta provaria só que a folha declara o que declara) e o recuo é só vertical. A terceira existe para dar a CAUSA: sem ela um recuo horizontal reprova nas três asserções de coluna que já existiam, que falam de alinhamento e não do que o produziu. Três reversões provadas, e a terceira confirmou o mecanismo — com `padding: .4rem .6rem` a barra de fato sai de cima da preview.
+- **v1.5.12** — O TEXTO DO TEMA CLARO FICOU PRETO — O ÚNICO DESVIO DECLARADO DA PALETA OFICIAL. Terceira rodada do operador sobre a legibilidade da Biblioteca: *"então use a cor preta pra os textos e não cinza como me parece ser hoje"*. **`--text` era `#4a4a4a`, o `night` OFICIAL** — não um cinza escolhido em algum lote, mas A cor de texto da identidade IASD, um dos dezoito valores da paleta. O operador o leu como cinza duas vezes, e a leitura está certa: `night` É um cinza escuro, e num app operado sob a luz de um salão ele se lê como texto apagado. O preço está dito e é pequeno — o `night` continua na identidade e volta com uma linha. **O GANHO É MEDIDO:** 6,87:1 → **16,28:1** sobre a página, 8,86:1 → **21:1** sobre o painel branco, e 5,33:1 → **12,62:1** sobre a tampa azul da Biblioteca, que é a superfície onde a queixa nasceu (a v1.5.11 já tinha subido esse par de 4,00 para 5,33 tirando o texto de `--muted`; esta rodada é a resposta ao "ainda parece cinza"). **`--muted` NÃO ACOMPANHA, e é essa a metade que mantém a regra da v1.5.11:** NOME é `--text`, NÚMERO é `--muted`. O par abriu de 1,33:1 para 3,15:1 — a hierarquia ficou MAIS legível, não menos. **O `--field-text` acompanhou**, e por um motivo próprio: aquela superfície não tem tema (o campo é BRANCO nos dois), então a pergunta "qual tema?" não se aplica a ela — e sem a troca o campo da barra da Biblioteca ficaria com o cinza recusado a dois centímetros dos nomes que deixaram de usá-lo. **OS LADRILHOS DA BÍBLIA NÃO FORAM RETOCADOS, e não podiam precisar:** eles foram escolhidos com um alvo de 6,5:1 para o rótulo contra o `night`, e escurecer o texto só AFASTA o rótulo do ladrilho — MEDIDO, o pior caso foi de 6,46:1 para 15,31:1. Duas justificativas que dependiam do `night` viraram lápides e foram reescritas no mesmo lote: a do alvo dos ladrilhos e a da opacidade .9 do rótulo (*"a .72 ele cai a 3,42:1"* — a razão morreu, o valor fica porque nada pede que mude). **O `smoke` guarda o desvio com um LITERAL, de propósito.** É a exceção à regra deste projeto de medir contra vizinhos renderizados: a decisão É um valor escolhido CONTRA a paleta, e não há vizinho que a carregue. Sem o caso, quem conferir a paleta contra a marca encontra o preto, conclui que é um deslize e o desfaz de boa-fé, em silêncio. Só no tema claro — no escuro o texto é o off-white de sempre, e preto ali seria invisível. Uma reversão provada.
+- **v1.5.11** — OS NOMES DA BIBLIOTECA SE ESCREVEM TODOS IGUAL. Dois pedidos do operador: *"Nessas coleções, padronize em caixa alta, ou em formatação normal"* · *"também aproveite para pôr o texto em branco no tema claro para os textos sobre o azul"*. **A BARRA DA SEÇÃO PERDEU A CAIXA ALTA E O TRACKING.** Na raiz da Biblioteca uma seção e um card fixo são LINHAS IRMÃS — a v1.3.14 já as tinha alinhado em tom e em colunas — e saíam em caixas diferentes: "CDS OFICIAIS" ao lado de "Hinário Adventista 2022". **A escolha é a formatação normal, e ela é medida:** caixa alta a 14px é mais lenta de ler e mais LARGA — a mesma medição que a v5.297 usou para tirá-la das LINHAS, onde ela truncava "001. SANTO, SANTO, SANTO! (CANTAD…" numa linha que cabia —, e os nomes desta lista são longos ("Informativo Mundial das Missões 2026"). É também a regra que o `notas.json` segue desde a v1.4.12: caixa alta numa lista é a tela gritando. **O que a caixa alta carregava, a MOLDURA carrega desde a v1.5.9:** ela era o RANQUEAMENTO da seção sobre o card, num tempo em que a seção era um rótulo solto sobre uma lista chapada; hoje o grupo tem caixa e tampa, e quem diz "isto contém aquilo" é o desenho. O `letter-spacing` sai junto — tracking sem caixa alta é um rótulo pela metade. **E O BRANCO PEDIDO É IMPOSSÍVEL, com a medição na mão:** a tampa compõe `#bdcada` no tema claro, e branco sobre ela dá **1,66:1** contra os 4,5:1 que AA pede para texto pequeno — é a mesma conta que a v5.296 já tinha escrito na regra da `.coll-group` ("o remédio óbvio seria pior"), agora sobre a tampa azul. O que o pedido alcança é o outro lado: o texto sobre o azul tem de se AFASTAR do fundo, e no tema claro isso só se faz ESCURECENDO. O nome da seção herdava `--muted` da barra (a cor de METADADO) e media **4,00:1**, abaixo de AA; em `--text` ele mede **5,33:1**, exatamente o do título do card ao lado — que é a outra metade do "padronize". **`--muted` fica no que é NÚMERO** (o contador da seção, o peso do card), e a regra que sai daí é mais simples que a que ela substitui: NOME é `--text`, NÚMERO é `--muted`. **DOIS CASOS DO `smoke` FORAM REESCRITOS, e um deles era a metade negativa de si mesmo.** O *"mas a BARRA da seção continua em caixa alta e espaçada"* (v5.297) é literalmente o que o pedido revoga, e virou a afirmação oposta. E o *"mas o RÓTULO da seção continua sendo um rótulo, com cor própria"* (v5.296) mudou de PEÇA sem mudar de REGRA: quem carrega o `--muted` da barra hoje é o contador, e é contra ele que a não-contaminação das linhas se afirma — nivelar a barra inteira continua reprovando. As duas réguas novas são VIZINHOS RENDERIZADOS (o título do card ao lado, o contador da própria barra), nunca um valor escrito no oráculo. Três reversões provadas.
+- **v1.5.10** — O CINZA ESCURO SAIU DA BIBLIOTECA, E DOIS ESPAÇAMENTOS FORAM CORRIGIDOS. Pedido do operador, com duas capturas: *"essa predominância cinza escura está muito ruim em especial no tema claro. porque não usou o azul fraco como cor principal dos cards?"* · *"verifique o tamanho e espaçamento dos favoritos, pois está deslocado o seu card de topo em relação a caixa dele"* · *"verifique o espaçamento entre o card de titulo da coleção e o primeiro item desta coleção, parece estar sem espaçamento correto"* — mais o adendo que fecha a escolha do tom: *"no caso dos cards das coleções em azul, também pode ser interessante usar apenas o cinza que se usa nos botões, não sei porque foi usado um cinza bem mais escuro"*. **AS CAIXAS PASSARAM A VESTIR `--btn-accent`**, o azul fraco — a superfície de ação deste app —, e as duas frases do operador são a MESMA troca vista dos dois lados: com a caixa em azul, o único cinza que sobra na lista é o `--surface` das tampas, que É o cinza dos botões. **`--panel-2` sai da Biblioteca inteira**, inclusive da placa dos favoritos, que o lia por `--camada` e sairia como um retângulo cinza dentro de uma seção azul — o único lugar em que a caixa não se pinta sozinha. **A MEDIÇÃO QUE OBRIGAVA O CINZA NA v1.5.9 CONTINUA VALENDO, e é ela que escolhe entre os dois candidatos que o operador ofereceu:** o nível 3 usa `--item-fill`, branco a 80% no tema claro, e sobre uma caixa BRANCA ele mede **1,00:1** e some. Sobre `--btn-accent` mede **1,17:1** no claro e **1,35:1** no escuro — menos que os 1,32:1 do cinza, e é essa a pressão que o oráculo novo guarda: quem for apertar aquele número encontra `--panel-2` como resposta óbvia e desfaz o pedido sem saber que desfez. A régua do caso é um VIZINHO RENDERIZADO — o botão de ação que mora na barra da própria seção veste `--btn-accent` —, nunca o token lido de volta, que provaria só que a folha declara o que declara. **E O CASO DA ESCADA MUDOU DE RÉGUA, porque a antiga reprovaria o desenho pedido:** ele exigia 1,28:1 entre a janela e a caixa, isto é, o degrau fazendo sozinho o trabalho que a v1.5.9 passou à moldura. `--btn-accent` é superfície CLARA nos dois temas (1,21:1 contra a janela branca, 1,14:1 no escuro). No lugar entraram DUAS metades inseparáveis: a caixa não pode COINCIDIR com a base (o 1,00:1 da v5.241 é o único desfecho inaceitável) e a MOLDURA precisa de contraste de verdade contra a janela — sem a primeira, um tom igual ao do fundo passa "porque tem borda"; sem a segunda, uma borda da cor do fundo passa "porque o tom difere". **O PRIMEIRO ESPAÇAMENTO ERA UM CUSTO DA MOLDURA, e é o irmão do que a v1.5.9 já pagou no vão dos favoritos.** `.coll-group:first-child` dá `padding-top: .2rem` (0,2,0, vencendo o `padding: 0` da regra do `--drop`, que é 0,1,0) para a lista não começar colada no topo; enquanto a seção não tinha caixa aquilo era o respiro da LISTA, e com a moldura ele virou uma faixa de 3,2px DENTRO da caixa, acima da barra — MEDIDO, caixa em 59,2 e barra em 63,4. **E ele sai sem virar margem, de propósito:** uma `margin-top` fica FORA do retângulo, e `medirVaoDosFavoritos` fecha a conta do vão em `clientHeight − padding − gaps − barras`, onde margem nenhuma entra — a lista passaria a somar 3,2px a mais que a tela e a última seção fechada terminaria abaixo do fim dela, que é exatamente o defeito que a moldura já produziu uma vez por outro caminho. **O SEGUNDO era um recuo que nunca existiu:** o corpo aberto de uma seção é `padding: 0 .4rem .45rem` — sem nada em cima —, então o primeiro card começava EXATAMENTE onde a barra da seção acaba (MEDIDO: vão de 0px) enquanto os seguintes eram separados por .35rem. A primeira vizinha da coluna valia menos que as outras, e o card parecia grudado na tampa. O recuo novo é o MESMO valor do `gap`, e a régua do oráculo é a COMPARAÇÃO com ele: o número é decisão de desenho, o que não pode é a desigualdade. **Os três casos novos do `smoke` são geométricos ou de vizinho, nunca literais** — a faixa acima da barra é comparada com a LARGURA DA MOLDURA (escrever "0" ali reprovaria o desenho certo, porque 1px de borda tem de sobrar). Três reversões provadas.
+- **v1.5.9** — A COR SAIU DA BIBLIOTECA E A HIERARQUIA VIROU MOLDURA. Pedido do operador, com três capturas do defeito: *"está errado, reformule o sistema de coloração e organização de grupos e subgrupos. vamos usar o padrão branco e azul padrão do sistema, e vou lhe dar autoridade para usar sistemas visuais de design e organização usando bordas, mas apenas para a biblioteca. pois temos 3 niveis de listagens na biblioteca e o sistema de separação apenas por cor sólida de cards está limitando nossas opções"*. **ISTO REVOGA A v1.5.7 E A v1.5.8 INTEIRAS** — a tampa tingida, os oito tons em ordem de espectro, as três famílias de tom por coleção, o `tomDaVez` que as carimbava. **O diagnóstico do operador é exato: cor sólida não diz o que está dentro do quê.** Nas capturas, oito matizes pastel produziam uma lista bonita e ilegível — a seção "ADORADORES" em lilás com cinco álbuns lilás soltos dentro dela, sem nada dizendo onde o grupo começava e acabava. **A AUTORIDADE PARA A BORDA É EXPLÍCITA E ESCOPADA**, e o "apenas" é o que a torna verificável: a exceção não é "bordas agora podem", é a lista do acervo (`.acervo`, marca posta pelo `renderCollectionsList` — uma CLASSE e não um id, porque ela diz O QUE é e não onde calha de estar). Uma borda em qualquer outro seletor continua reprovando, na FONTE (`tokens.test.mjs`) e no RENDERIZADO (`smoke.mjs`). O que a autoriza é aritmético como as outras exceções: são TRÊS níveis de lista aninhados, e a escada tem três degraus dos quais a janela gastou o de cima na v1.5.7. **A CAIXA QUE FALTAVA ERA A DO NÍVEL 1**: *"a primeira camada de lista de coleções não está criando uma caixa ou moldura ao redor do seu agrupamento, diferente de como ocorre corretamente com o card dos albuns"*. Hoje os dois níveis de agrupamento têm moldura e dividem o TOM (`--panel-2` sobre a janela `--panel`): um degrau de verdade contra a base e nenhum entre si, porque entre eles há sempre a linha e o recuo. **Quem decide o tom das caixas é o NÍVEL 3, e isso é medição:** `--item-fill` é branco a 80% no tema claro, desenhado para pousar num card acinzentado — MEDIDO com as caixas em `--panel`, a faixa ficava a **1,00:1** do card, isto é, sumia. Foi o segundo corte deste lote, e o oráculo o pegou. **E o nível 3 NÃO ganha moldura**: uma faixa é conteúdo, não agrupamento. **ABRIR DEIXOU DE TROCAR A COR DE NADA**: *"verifique também a mudança para tons cinzas ao selecionar o item, pois está sendo inconsistente com sua cor real"* — a tampa de um card aberto lia `--camada`, que o `.expanded` redeclarava, e sobre um card tingido ela saía cinza. **A MOLDURA TEM CUSTO DE LAYOUT, e o oráculo o cobrou:** o vão dos favoritos soma a altura das seções fechadas medindo a BARRA de cada uma, e uma caixa fechada passou a ser a barra mais 2px de linha — MEDIDO com seis seções, a última terminava 7px abaixo do fim da lista. **O `smoke` foi remodelado** onde ele descrevia a paleta revogada, e o que entrou no lugar mede o desenho novo em três metades que falham em direções opostas: os dois níveis TÊM moldura, o nível 3 NÃO tem, e a faixa se vê dentro do card. Uma asserção ficou declarada como GUARDA e não como prova — a da tampa que não troca de tom: o defeito morreu com a paleta, e nenhuma reversão pequena a reprova; ela existe para impedir que a dependência volte. Três reversões provadas.
+- **v1.5.8** — A BORDA DO CAMPO PASSOU A LER O TOM DOS BOTÕES, E CADA COLEÇÃO GANHOU UMA FAMÍLIA DE COR. Três pedidos do operador: *"ajuste a cor da borda da caixa de texto de buscas, ele deve ser o mesmo cinza dos botões a sua volta"* · *"coloque as cores em ordem de graduação, os verdes perto dos verdes, como as cores do arco íris que tem ordem"* · *"ajuste para que a cor da caixa não se altere para cinza como é hoje, ela mantenha o corpo com a cor da mãe"*. **A BORDA LÊ `var(--surface)`**, o MESMO token que os dois quadrados ao lado pintam, resolvido no mesmo lugar — não há valor copiado, e o tom dos dois muda junto. **O `background-clip: padding-box` é o que torna isso possível, e sem ele a ideia se inverte:** `--surface` é tinta com ALFA, e alfa compõe sobre o que está ATRÁS; por padrão o fundo do elemento se estende sob a borda, então ela comporia sobre o BRANCO do campo — MEDIDO no tema escuro, onde a tinta é branco a 12%, o resultado é quase branco e a borda some. Com `padding-box` o que fica atrás dela é a mesma barra sobre a qual os botões compõem, e MEDIDO o traço sai idêntico ao botão nos dois temas (#454c53 e #dbdbdb). **Isto REVOGA o piso de 3:1 da v1.5.5** e apaga o `--field-borda`, que era um valor CALCULADO e existia porque a borda não tinha como ler o tom dos botões; **o preço está dito**: no claro esse cinza dá 1,38:1 contra o campo branco, que é o MESMO degrau em que os botões vivem contra a mesma barra — a borda não ficou menos visível que eles, ficou igual a eles, que é o pedido. **AS MATIZES ENTRARAM EM ORDEM DE ESPECTRO** — laranja → amarelo → verde → ciano → azul → violeta → rosa —, e a troca **não custa separação nenhuma**: oito matizes distribuídas em 360° ficam a 45° uma da outra ordenadas ou espalhadas, e o que muda é só qual vizinha cada uma tem. Ela ganhou ORÁCULO PRÓPRIO porque some sem sintoma: as oito continuam sendo as mesmas oito, então nenhum caso de contraste, separação ou legibilidade nota que alguém as embaralhou. **E CADA COLEÇÃO PASSOU A TER TRÊS TONS, que são as TRÊS ALTURAS DA ESCADA**: `--col-N` é a tampa (o recesso), `--col-N-corpo` é o bloco (na altura da base da janela) e `--col-N-card` é um card (na altura do `--panel-2`). **É a altura que faz a cor caber sem mexer em nada** — MEDIDO, cada `--col-N-card` fica a 1,00–1,01:1 do `--panel-2` que substitui, então tudo o que foi medido DENTRO do card continua valendo. A classe entra no `<li>` da linha de topo e a HERANÇA leva os três tons à subárvore inteira; a `.coll-group-corpo` troca `--col` e `--camada` pelo tom de card, e a segunda metade veio de uma medição: sem ela o conteúdo de uma seção colorida saía CINZA sobre a mãe, com a linha de um favorito a 1,03:1 do corpo contra os 1,29:1 da faixa dentro de um álbum. **O CORPO É UM SUSSURRO, e está dito:** ele fica a 1,00–1,02:1 da base da janela porque a altura dele É a da base — o que o distingue é a MATIZ, não o tom, e no tema claro a base é branco puro. **O `smoke` foi remodelado onde o sistema de cor tornou a régua antiga indizível.** Três casos comparavam cores ABSOLUTAS entre DUAS coleções (a seção dos Favoritos contra outra; a linha de um favorito contra a faixa de um álbum; a pasta sincronizada contra um card), e isso funcionava enquanto todas eram cinzas. O que aqueles pedidos queriam dizer, e continua verdade, é **"estas duas peças ocupam o mesmo DEGRAU"** — a mesma razão contra o que as hospeda —, e é isso que se mede agora. Um deles reprovava por um erro do CASO e não do app: a mãe da linha de favorito é a PLACA, não a seção. **E duas asserções nasceram porque uma reversão as pediu**: a primeira escrita da borda compunha a tinta por conta própria e continuava passando com o `background-clip` apagado, e nada afirmava que o bloco de uma seção carrega a matiz da tampa. Quatro reversões provadas.
+- **v1.5.7** — A JANELA DA BIBLIOTECA VIROU UMA JANELA DE VERDADE, E AS COLEÇÕES GANHARAM COR. Três pedidos do operador: *"engrosse a borda da caixa de texto da busca, para ficar mais encorpado (não aumente as dimensões da caixa, só a área da borda internamente)"* · *"ajuste o design da janela da biblioteca para que ela se assemelhe ao design das janelas de bíblia e ferramentas. bordas curvas e tom branco como base… ajustando também para que haja uma pequena margem em relação aos controles quando no modo aberta, pois hoje ela fica com a base 'fundida' dificultando a percepção de até onde vai a lista da biblioteca"* · *"pode usar tons de cores em ordem para colorir os cards das coleções, considerando que estarão em fundo branco… semelhante ao que já é feito na janela da bíblia"*. **A BORDA CRESCE PARA DENTRO** (2px + `box-sizing: border-box`), que é o pedido ao pé da letra: a caixa continua medindo `--campo-alt` cravado e o traço come do recuo do texto. **A JANELA veste `--panel` e `--radius-card`** — os mesmos valores da `.tools-sheet`, que é o molde que o pedido nomeia —, mais uma FRESTA de 8px acima dos controles. O raio SÓ VALE ABERTA: fechada, o que fica à vista é a barra, e um cartão em volta dela é o "zoneamento" que a v1.5.2 veio tirar. Ela nasceu sem raio porque se apresentava como tela cheia, e cantos curvos anunciam "há algo atrás" — **desde a v1.5.4 há**, e o raio deixou de mentir. **E AÍ A ESCADA DE CAMADAS FICOU SEM DEGRAU.** A janela pintava `--bg` e passou a pintar `--panel`: sobraram DOIS degraus para TRÊS coisas — janela, seção e card —, e qualquer arranjo deixava duas com o mesmo tom. MEDIDO no primeiro corte deste lote: seção e card a **1,00:1**, que é o defeito da v5.241 de volta, e quem o pegou foi o `smoke`. A saída foi tirar a SEÇÃO da escada: o corpo dela é a base da janela, e quem a identifica é a TAMPA TINGIDA. **A TINTA É SEMPRE A TAMPA, NUNCA O BLOCO**, e isso custou duas tentativas antes de ficar certo: tudo que vive DENTRO de um bloco da Biblioteca — o card aninhado numa seção, a faixa e a gaveta dentro de um card — foi medido contra `--panel-2`, e uma tinta que desça até lá apaga essas medições (MEDIDO com o card inteiro tingido: a gaveta caiu a 1,05:1 da faixa no escuro, a queixa da v5.287 de volta). **A PALETA NÃO FOI ESCOLHIDA, FOI CALCULADA** — busca binária na luminância, contra as quatro coisas que a tinta precisa fazer ao mesmo tempo: um degrau de verdade da base (≥1,28), não coincidir com o card que a seção abre (≥1,05), e `--text` e `--muted` acima de AA. **A quarta é a que fecha a janela de luminância pelo outro lado**, e foi ela que reprovou a primeira paleta: tons na altura do `--panel-2` davam 1,00:1 contra o card, e tons escuros o bastante para separar derrubavam o `--muted` do resumo da seção a 3,48:1. MEDIDO no que ficou: escuro 1,32–1,34 · 1,76–1,79 · 12,56–12,78 · 8,79–8,94; claro 1,30–1,31 · 1,07–1,08 · 6,74–6,81 · 5,07–5,12. **A tinta é um RECESSO nos dois temas**, que é a mesma inversão que a R1 já aplica a um controle dentro de um cartão. **QUEM RECEBE COR É A LINHA DE TOPO**, e não "os cards": a lista tem duas formas ali — a seção, que abre e contém cards, e a coleção fixa, que é folha —, e as duas se leem como um cartão quando fechadas, que é o estado normal. Tingir só os cards deixava dois coloridos entre cinco cinzas, que lê como acidente. **ISTO REVOGA "a seção é UM bloco, não três peças costuradas"** (v5.267) — uma tampa colorida É uma peça própria, e a regra antiga proibia exatamente o que o pedido pede. O que ela protegia continua protegido por medição MAIOR: o oráculo afirma a separação diretamente, **nos oito tons** e contra as DUAS coisas que eles precisam separar. **E o `tokens.test.mjs` ganhou o sujeito do descendente**: `.popup-backdrop--lib.open .popup-sheet--lib` pinta a FOLHA, e comparar a string inteira reprovava uma regra correta — o sujeito de um composto é o último simples, e é ele que hospeda os filhos. Cinco reversões provadas, e uma delas achou um oráculo fraco: a primeira medida da fresta era contra a caixa de controles, que RESERVA a altura da barra no `padding-top` — sobrava sempre um vão positivo, e o caso aprovava a versão sem fresta.
+- **v1.5.6** — A CAMADA DA BIBLIOTECA VIROU O CHÃO DA PILHA, E A ROLAGEM DA CIFRA DEIXOU DE PERSEGUIR A MÚSICA. Sete relatos do operador num lote só. **AS SOBREPOSIÇÕES (dois deles) TÊM UMA CAUSA SÓ, e ela é a camada EXISTIR SEMPRE**: *"a barra de buscas está se sobrepondo a diversos elementos, como as configurações, aba da playlist e etc… Muito inconsistente"* e *"em aberto a aba da biblioteca, quando toco em abrir a aba da playlist a playlist tocando fica por baixo"*. Todo `.popup-backdrop` deste app está em `z-index: 200` e é criado e destruído com o uso, então quem se sobrepõe a quem é a ORDEM DO DOCUMENTO — o acaso que já cobriu um popup por inteiro aqui. A camada da Biblioteca é a ÚNICA que nunca sai de cena (a barra vive nela) e está declarada DEPOIS do `#plPopup`, do `#fadePopup` e do `#castPopup`: ganhava dos três. A correção não é um degrau a mais, é o degrau CERTO — **ela não é um modal sobre o app, é MOBÍLIA do app**, e passou a `z-index: 190`, abaixo de toda folha. Nos dois estados de uma vez: fechada, a barra não pinta sobre nada; ABERTA, a Biblioteca é coberta pelo que se abrir dos controles — que só estão alcançáveis desde a v1.5.4, e **foi isso que tornou a colisão possível**. A tabela `POPUPS` diz o MESMO (a Biblioteca virou a PRIMEIRA linha: o voltar percorre de trás para a frente, então estar em primeiro é estar embaixo). **SEM CAIXA DE CONTROLES NA TELA, A JANELA VAI ATÉ A BASE** — uma regra, mais dois relatos: *"que a zona dos controles seja ocultada quando a biblioteca estiver aberta e o teclado também estiver visível"* e *"no modo simples, a aba de buscas pode usar a tela inteira, pois agora ela está cortando aleatoriamente em algum pedaço da tela"*. O recorte da v1.5.4 protege os CONTROLES; sem controles na tela ele só corta — e no Modo Fácil cortava numa altura medida no modo AVANÇADO, porque a `.bottombar` é `display: none` lá e `--lib-caixa-h` guarda a última medida boa. **O número não era aleatório: era de outro modo.** **A ROLAGEM DA CIFRA TROCOU DE PREMISSA, e isto REVOGA a v1.1.20**: *"que ele não siga o tempo da música atual em exibição, pois se a música não está tocando, ele não anda. Ou se eu quiser tocar de um ponto específico em diante, ele fica voltando para onde a mídia estaria… Eu quero que siga o progresso levando em conta: o tempo total da música e a posição atual do scroll"*. **As três vantagens do desenho antigo eram os três defeitos do relato**, vistas do outro lado — *pausar a música PARA a folha* virou *"não anda"*, e *o seek MANDA na folha* virou *"fica voltando"* —, e é por isso que a correção é uma troca de premissa e não um remendo: o `cifraDesvio` era o remendo sobre a premissa errada, um deslocamento somado ao alvo para dar ao dedo um lugar na briga com a música. Hoje o `auto` é um RITMO (`AVCifra.ritmoDaRolagem`, PURA: `rolável ÷ (t1 − t0)`) integrado do ponto em que a folha ESTÁ. **A folha era da MÚSICA; ela passou a ser de quem lê.** O FECHO sobrevive por construção (o oráculo prende a propriedade: partindo do topo, a folha chega ao fim no MESMO instante da regra antiga) e a ABERTURA saiu, porque perdeu o referente — ela era *"a música acabou de começar"*, e não há mais começo. **E A FOLHA NUNCA MEXE NO TEMPO DA MÍDIA**, pedido por extenso: sempre foi verdade e nunca teve oráculo, e uma ausência não tem sintoma enquanto vale — no dia em que alguém ligar os dois eixos, um arrasto para reler uma estrofe volta o louvor na frente da congregação. **O CAMPO DE BUSCA LIMPA AO FECHAR**: limpar na abertura era certo enquanto o campo vivia DENTRO da Biblioteca, e hoje a barra fica à vista o culto inteiro — o filtro de uma busca encerrada descreve uma tela que não está mais lá. **O PARAR SAIU DE DENTRO DO TRIO** (⏮ ▶ ⏭ ⏹, em vez de ⏮ ▶ ⏹ ⏭): o dedo que ia do play para a próxima passava por cima do único botão da fileira que ENCERRA a cena. **E O MUDO DEIXOU DE ESPERAR O BANCO**: *"ativar o mudo durante a exibição de um vídeo online do YouTube está travando momentaneamente, engasgando a visualização"*. O `toggleMute` era o único controle do app com uma transação de IndexedDB NA FRENTE do comando (`await persistCurrent()`), e o irmão que mexe no mesmo áudio — o `applyVolume` — sempre mandou primeiro. Pesa numa TRANSMISSÃO e não num arquivo porque os dois WebViews dividem UM processo e a transmissão direta é a única mídia que precisa de JS rodando enquanto toca. **O que isto NÃO prova está dito na fonte e foi dito ao operador**: o engasgo não foi reproduzido fora do aparelho — aqui a escrita mede ~2 ms num banco vazio —, e o que se corrigiu é uma latência real e mensurável no caminho exato do relato, não um defeito observado. **Oráculo novo:** `biblioteca-camadas.test.mjs`, a pergunta de PILHA — que só existe com DUAS camadas abertas ao mesmo tempo, um cenário que nenhum outro oráculo monta —, medida por HIT-TEST e nunca por `z-index` computado: um número lido de volta prova que a folha declara o que declara, e o defeito era o EMPATE. Cinco reversões provadas.
+- **v1.5.5** — OS DOIS BOTÕES DA BARRA VIRARAM BOTÕES DO CONTROLE, E O CAMPO VOLTOU A SER BRANCO — COM A ÚNICA BORDA DO APP. Quatro ajustes do operador, e os três primeiros são a mesma correção de rumo sobre a v1.5.2: *"o botão de playlist automática está com botão cinza e ícone azulado, mas os botões dessa seção de controles são cinzas com preto … o mesmo para o botão de abrir biblioteca, que está um botão azul, ele deve ser o mesmo botão cinza dos controles"* · *"abra uma única exceção ao conceito de sem bordas do app, para poder fazer a caixa de texto da busca para que seja branca com a borda em cinza"* · *"verifique os botões de abrir biblioteca e playlist automática, para que tenham suas larguras alinhadas a grade dos botões do próprio controle logo abaixo"*. **A v1.5.2 levou a barra INTEIRA para o tom dos botões; este lote separa as peças.** Os dois quadrados PERDERAM a regra própria — o `#sorteioBtn` tinha `--accent` desde a v5.303 (*"numa barra de quadrados iguais o que os distingue é a cor"*) e o `#hymnSearchToggle` tinha `--btn-accent` desde a v1.5.2 (*"ele é a AÇÃO da linha"*) —, e o argumento dos dois era sobre a barra olhada SOZINHA: **ela não está sozinha**, mora colada numa caixa em que seis botões iguais ensinam que aceso quer dizer LIGADO (o `#repeat.active`), e dois acesos em permanência a dois centímetros deles ensinam a não confiar no sinal. O que os distingue passa a ser o DESENHO. **A LARGURA REVOGA O QUADRADO da v5.277**, e revoga porque as duas coisas não podem valer juntas: o lado do quadrado era `--campo-alt`, FIXO, e a coluna do transporte é PROPORCIONAL — MEDIDO, 53,4px a 430px e 43,4px a 360px contra os 40 fixos. **Uma medida fixa alinha com uma grade proporcional numa largura de tela, por acidente, e erra em todas as outras**; `--deck-col` subiu para o `:root` porque a barra não é descendente do `.deck`, e repetir a fórmula seria a sincronização manual que este projeto recusa. **E A BORDA É O QUE TORNA O BRANCO POSSÍVEL OUTRA VEZ** — as duas metades daquele pedido são uma só. No tema CLARO `--bar` é branco: campo branco sobre ele é **1,00:1**, e sem contorno a caixa de texto não existe na tela. Foi essa mesma aritmética que criou a faixa `--field-bar` na v5.270, e é por isso que a v1.5.2 teve de tirar o branco quando tirou a faixa; a borda resolve sem trazer a faixa de volta, que é o que o operador recusou. O valor é `--field-borda`, o `--line` do tema claro escurecido até passar o piso de 3:1 de componente — **o `--line` cru dá 2,51:1 sobre branco e falha justamente no caso que criou a exceção**; este dá 3,13:1 sobre o campo e 4,55:1 sobre a barra escura. **A EXCEÇÃO É NOMEADA NOS DOIS ORÁCULOS DE CONTORNO** (a varredura da FONTE e a do RENDERIZADO), pelo ID, e é o nome que a mantém única: a lista não tem regra que a próxima borda possa alegar cumprir. **E o campo arrasta o que vive dentro dele** — texto, placeholder e lupa voltam aos `--field-*`, porque o meio-conserto (trocar só o fundo) apaga o que se digita: no escuro `--text` sobre branco dá 1,17:1. **Os oráculos:** o do TOM no `smoke.mjs` foi reescrito em três metades que falham em direções opostas (fundo E traço iguais ao `.t-btn`; a BORDA separando das duas superfícies que ela divide, com o piso de 3:1; o que vive dentro do campo continuando legível), e a asserção da LARGURA foi para o `barra-em-qualquer-tela.test.mjs`, que roda QUATRO telas — é o único lugar em que a diferença entre uma propriedade e uma coincidência aparece. Três reversões: a largura fixa reprova em quatro telas, as cores antigas reprovam nos dois temas, e a borda removida reprova pela asserção de que ela é DESENHADA — esta última é a que importa, porque com `border: none` o `borderTopColor` computa para o `currentColor` e a razão de cor passa por vacuidade.
+- **v1.5.4** — A BIBLIOTECA PARA NA LINHA DA BARRA, E OS CONTROLES CONTINUAM À VISTA. Pedido do operador sobre a v1.5.3: *"atualmente a janela da biblioteca abre desde a base do app, até o topo da tela … ajuste para que ela use a área abaixo da barra de buscas, até o topo. seu deslizamento surge e se corta ali. mantendo sempre os controles visíveis"*, mais *"verifique a barra superior acima da barra de buscas, que no design da tela completa vai parar na barra de notificação, mas quando é animada para fechamento, se torna uma margem saliente durante o movimento de fechamento"*. **A CAMADA DEIXOU DE SER A TELA INTEIRA.** Ela vai do topo até a linha em que a barra repousa: `bottom` é a caixa de controles MENOS a barra (a caixa já reserva a altura dela no `padding-top`, e é essa faixa que a janela ocupa quando a barra sobe), mais `overflow: hidden` — sem ele o `bottom` só encolhe a caixa da camada e um filho `absolute` transborda dela. Duas alturas medidas, nenhuma coordenada: a mesma conta que põe a barra no lugar. **E ISSO APAGOU O RECORTE, que era a peça que já tinha falhado duas vezes.** A v1.5.1 recortou a CAMADA na posição do lugar da barra, e o atraso que aquele recorte precisava ter atrasava TODA mudança do valor — MEDIDO num oráculo que não desenha quadros, ele ficou preso em `inset(0px)` e a janela FECHADA cobria a preview inteira; a v1.5.2 mudou-o para o espaço da própria folha, o que resolveu o atraso e trouxe metade do defeito do aparelho (o recorte revelava `[0, altura da barra]` de uma folha em que a barra começava DEPOIS do recuo da área segura). **Sem recorte nenhum as duas classes somem**: a janela acaba onde a camada acaba, e a camada não tem estado — não anima, não atrasa, não pode ficar presa num valor de partida. Abrir é a COLUNA subindo dentro de uma janela que não se mexe. **E OS CONTROLES CONTINUAM VIVOS:** fora do recorte não há camada — nem pixel, nem scrim, nem toque —, então com a Biblioteca ABERTA o operador vê e ALCANÇA o transporte, e pausar o louvor enquanto procura o próximo deixou de exigir fechar a janela. **A ÁREA SEGURA VIROU O DESTINO, NÃO UM RECUO.** A margem saliente que o operador viu era o `padding-top` da folha: como RECUO ele existe nos DOIS estados — aberta é a faixa da barra de status, que é o certo; fechada e em movimento é uma faixa a mais VIAJANDO ACIMA da barra, que nada explica. Hoje a barra é o primeiro pixel da folha e abrir leva a coluna até `--sa-topo` em vez de zero: não há estado a trocar, logo não há o que aparecer no meio do caminho — e a `height` da folha desconta o mesmo tanto, senão a última linha da lista terminaria fora do recorte. **O ORÁCULO DA TELA GANHOU AS DUAS PERGUNTAS NOVAS**, nas quatro configurações: no MEIO do movimento nada viaja acima da barra, e ABERTA a janela não cobre os controles. A primeira pergunta pela COLUNA, nunca pela camada — **a camada ocupa legitimamente toda a região acima daquela linha, então perguntar por ela responde "sim" em todo ponto do percurso e APROVA a margem saliente**; foi o que a primeira escrita fez, reprovando nas quatro telas com o app já correto. **E a lista voltou a ~602px** (de 847), o que remediu o fixture do vão dos favoritos no `boot-nativo`: seis categorias deixavam vão ZERO. São TRÊS agora, e a régua ficou escrita — o vão precisa ser maior que a seção VAZIA, que tem altura própria (136px), senão a primeira metade daquele caso reprova dizendo "136px para um vão de 96px" e a leitura fácil (*"a seção não respeita o piso"*) é falsa.
+- **v1.5.3** — A BARRA APARECIA CORTADA E FORA DO LUGAR NO APARELHO, E OS DOIS DEFEITOS PASSARAM PELA SUÍTE INTEIRA. Relato do operador, com a hipótese junto: *"o alinhamento da barra está completamente errado, está sendo cortado e deslocado em suas animações. a possível causa: você pode estar usando números fixos considerando a sua tela de testes, mas a tela do smartphone tem variação de tamanho, pixels e espaços variáveis"*. **Ele acertou a CLASSE do defeito.** A barra da Biblioteca é a única peça do app que é um OVERLAY alinhado a uma caixa do LAYOUT — logo a única cujo desenho depende de coisas que um Chromium de mesa a 430×900 não tem. **CORTADA:** o app é `viewport-fit=cover`, então a barra de status é área do app e `env(safe-area-inset-top)` vale de verdade no aparelho — e ZERO nos oráculos. O recorte da folha revelava a faixa `[0, altura da barra]`, mas a barra começa DEPOIS do recuo: saía uma faixa vazia em cima e a barra cortada embaixo. A área segura do topo virou TOKEN (`--sa-topo`), porque as duas fórmulas que dependem dela — o `padding` da folha e o recorte — podiam discordar sem nada reprovar, e porque um valor que só o aparelho conhece é um valor que nenhum oráculo alcança: com nome, um teste pode FINGIR um entalhe. **DESLOCADA:** o lugar de repouso era uma COORDENADA DE TELA medida uma vez (`--lib-desce`, o topo da caixa de controles), e uma coordenada envelhece por um caminho que ninguém observa — **o `ResizeObserver` vigia TAMANHO, e o que move a caixa não muda o tamanho dela**. MEDIDO: o teclado sobe (no modo em que o navegador não reflui o layout, quem compensa é `--kb`), o app remede com ele no ar, o teclado some, e a barra fica **290px acima do lugar, flutuando sobre a lista** — que é a primeira captura do operador. Hoje o CSS faz a CONTA (`100svh - var(--kb) - var(--lib-caixa-h) - var(--sa-topo)`, a mesma que o `body` usa para a própria altura, menos a caixa) e o JS mede só ALTURAS: o instrumento e a grandeza passam a ser a mesma coisa. **E O ORÁCULO NOVO É SOBRE A TELA, não sobre a regra** (`barra-em-qualquer-tela.test.mjs`): a mesma medição em QUATRO configurações — a tela dos outros oráculos (o CONTROLE do experimento, que nas duas reversões PASSA), duas com entalhe, e a sequência do teclado. Ele mede o recorte por HIT-TEST, nunca pela string do `clip-path`: uma string com `calc()` não resolvido aprova qualquer leitura que se queira fazer dela.
+- **v1.5.2** — A FAIXA ATRÁS DA BARRA DE BUSCA SAIU, E A BARRA VOLTOU PARA O TOPO DOS CONTROLES. Três ajustes do operador sobre a v1.5.1: *"vamos remover esse zoneamento de tom cinza/azul que tem atrás da barra de buscas. vamos usar apenas os botões e a caixa de texto do mesmo tom que os botões do controle"* · *"vamos mover essa barra de volta para o topo da seção de controles, onde estava, acima do nome da mídia em exibição"* · *"mantenha todo o sistema de abertura e posição relativa da aba da biblioteca, dessa vez a abertura está correta"*, mais *"tome cuidado com os espaçamentos de margens verticais dessa barra, estavam errados nesse último update"*. **A FAIXA EXISTIA POR CAUSA DE UMA PEÇA QUE TAMBÉM SAIU: o campo BRANCO.** O `--field-bar` nasceu na v5.270 porque o campo vestia os tokens SEM TEMA (`--field-*`) e campo branco sobre a caixa de controles branca do tema claro dá **1,00:1**; sem o branco não há branco-sobre-branco a resolver, e o que sobrava da faixa era uma caixa em volta de peças que já se separam sozinhas. Hoje o campo e o dado vestem **`--surface`, o tom exato do `.t-btn`** — e a régua do oráculo é a superfície COMPUTADA daquele botão, não um número escrito no teste, porque o pedido nomeia uma peça do app. **A escolha do tom é MEDIDA e não literal:** sobre `--surface-2` (a receita de campo da folha do sorteio) o placeholder dá 4,21:1 no escuro e 4,15:1 no claro — abaixo de AA nos dois —, e sobre `--surface` dá 5,15:1 e 4,82:1; *o tom que o pedido escolheu é também o que passa*. O `--field-bar` saiu do `tokens.css` com o último consumidor, que era uma regra órfã do cabeçalho removido na v5.258. **O ALTERNADOR FICA DE FORA DA REGRA DO TOM** — ele é a AÇÃO da linha, a mesma gramática do `#repeat.active`, e a fileira do transporte também tem um botão aceso entre seis do tom comum. Ele quase morreu calado neste lote: a regra que o pintava era uma CLASSE (`.lib-toggle`) e a receita compartilhada dos dois quadrados é um seletor de ID — enquanto os dois eram brancos ambos pintavam a mesma coisa, e no instante em que a receita comum passou a pintar `--surface` ela venceu por especificidade e a porta virou mais um quadrado igual. **O LUGAR DA BARRA VOLTOU, O MECANISMO NÃO:** ela repousa no topo da caixa de controles (o lugar da v1.5.0), mas continua sendo a CABEÇA da janela e sobe com ela até o topo da tela — o que muda é uma medida de posição (`--lib-desce`), e a abertura não mudou uma linha. **E É POR ISSO QUE A FOLHA PASSOU A RECORTAR:** com a barra a meia tela, a lista e o fundo dela cairiam por cima do transporte, e o `clip-path` apaga o pixel E o toque (ele recorta hit-test junto). Ele volta só DEPOIS do fechamento, senão a lista sumiria de uma vez em vez de descer junto com a barra — e o FUNDO da folha anda no mesmo relógio, porque fechada ela não pode pintar nada: um retângulo `--bg` atrás da faixa é o mesmo "zoneamento" por outro caminho. **E O RECORTE É MEDIDO NO ESPAÇO DA PRÓPRIA FOLHA** (`100% - a barra`): a primeira versão o media na TELA, e o atraso que ele precisa ter prendia toda REMEDIÇÃO — MEDIDO num oráculo que não desenha quadros, o recorte ficou preso em `inset(0px)` e a janela fechada cobria a preview inteira. **E UMA REMEDIÇÃO NÃO É UMA ANIMAÇÃO:** o `transform` tinha o mesmo defeito pelo outro lado (a barra deslizando atrás de uma caixa que já saltou), e a medida passou a desligar o tempo no quadro em que escreve — o MESMO mecanismo que a carga usa, porque a primeira medida também é uma mudança de valor. **AS MARGENS VIRARAM DOIS NÚMEROS QUE PRECISAM CONCORDAR:** a barra é um overlay, e o lugar dela na caixa é um `padding-top` — reservar de menos a põe por cima da primeira linha de controles, de mais abre uma faixa vazia por baixo. O oráculo mede os dois (`REPOUSA no topo` e `RESERVA exatamente a altura dela`), mais o recuo lateral batendo com o da caixa. A área segura de baixo voltou para a caixa, que é quem encosta na barra de gestos outra vez. **E A CAIXA DE CONTROLES É VIGIADA** (`ResizeObserver`): o lugar da barra é o topo dela, e ela muda de altura pela proporção da preview, pelo título em duas linhas, pela seleção múltipla e pelo modo do app — enumerar isso seria uma lista para envelhecer. O laço que o observador poderia criar é fechado do outro lado: a medida só escreve o que MUDOU.
+- **v1.5.1** — A BIBLIOTECA VIROU UMA JANELA DE TELA CHEIA QUE SOBE DA BASE LEVANTANDO A PRÓPRIA BARRA. Três ajustes do operador sobre a v1.5.0, e os três são a mesma decisão: *"a barra de buscas e playlist automática como um todo, deve ser uma barra de lado a lado da tela, sem estar dentro de um card de bordas arredondadas … vamos mover essa barra para a base do app, abaixo da linha dos botões dos controles … ela é um popup de tela inteira, ela surge da base da tela e vai levantando a barra de buscas, de modo que a barra de buscas acabe no topo da biblioteca (isso resolve o problema que temos atualmente da caixa de texto ficar escondida pelo teclado)"*. **A BARRA VOLTOU PARA DENTRO DA JANELA, e virou a CABEÇA dela.** A v1.5.0 tinha a barra parada na caixa de controles e a janela subindo de trás dela até uma folga do topo; agora a janela é uma coluna `[barra][lista]` de tela cheia, e **fechá-la é descê-la de `100% - a barra`** — só a barra fica à vista, encostada na base. Abrir é `translateY(0)`, e a barra para no topo porque é onde ela sempre esteve dentro daquela caixa: **nenhum nó é transportado entre dois pais, não há segunda barra e não há posição calculada em runtime além de UMA medida.** **E É ISSO QUE RESOLVE O TECLADO:** com o campo no topo da tela, o teclado — que sobe da base — não tem como cobri-lo; era o defeito que quatro lotes da era da barra-na-base tentaram consertar por fora (v5.261, v5.264, v5.266, v5.270), e isto REVOGA a v5.263 pelo outro lado — aquele lote tirou o slide porque a barra morava na folha e `transform` a torna o bloco-contêiner dos fixos; aqui a dívida é paga pela geometria, não pela remoção. **UMA MEDIDA QUE ANIMA PRECISA NASCER QUASE CERTA**, e foi o oráculo que encontrou o defeito: enquanto o que se media era o DESLOCAMENTO INTEIRO (`--lib-desce`, 60px de palpite contra 847px medidos), a primeira escrita do JS disparava a transição e a Biblioteca **varria a tela de cima a baixo na abertura do app**, com tudo por baixo dela intocável no caminho — o `smoke.mjs` reprovou com todo ponto de uma linha do acervo respondendo `LI.coll-group`, que é o conteúdo da janela em queda. Escrita como `100% - var(--lib-bar-h)`, a porcentagem é da própria caixa e o palpite erra por pixels. **A CAMADA SAIU DO MOLDE, e tinha de sair:** todo `.popup-backdrop` deste app é `opacity: 0` fechado, e este não pode ser — a barra vive nele e está à vista o tempo todo. A camada fica opaca e sem fundo, o scrim vira um `::before` que esmaece, e o toque é roteado à mão: a camada só o recebe ABERTA (para o toque no fundo fechar) e a janela o recebe SEMPRE (para a barra funcionar fechada). **A BARRA É UMA FAIXA, NÃO UM CARTÃO** — sem raio e sem margem, de lado a lado, como na Biblioteca antiga: cartão é o que ela nunca foi. A caixa de controles reserva a altura dela (`--lib-bar-h` no `padding-bottom` da `.bottombar`, porque a janela é `fixed` e a barra pousa por cima da base do app), a ÁREA SEGURA de baixo migrou para o padding da BARRA (somadas, as duas deixavam uma faixa morta do tamanho da barra de gestos) e a de baixo da LISTA passou a ser dela — aberta, quem termina a janela é a lista. **O QUE A LISTA GANHOU DE VOLTA:** ela caiu de ~880px para 576 na v1.5.0 e voltou a **847px** (a tela menos a barra, medido em 430×900) — e com isso o caso do vão dos favoritos no `boot-nativo` voltou às SEIS categorias dos prints do operador, que a v1.5.0 tivera de encolher para duas. **E CORRIGIR O PALPITE NÃO BASTOU:** MEDIDO, a barra mede **28,6px no primeiro quadro** e 53px quando a folha assenta, e essa correção também animava (a campanha de determinismo a pegou na primeira volta) — a translação passou a ter tempo ZERO até a classe `lib-pronta`, posta DOIS quadros depois da carga, porque uma transição usa a duração do estilo DEPOIS da mudança e ligar as duas no mesmo quadro produz a animação que a guarda existe para impedir. **E NO MODO FÁCIL A BARRA NÃO FICA À VISTA:** aquele modo esconde a caixa de controles inteira, e enquanto a barra morava lá dentro ela sumia DE CARONA — dentro da janela, sumir virou regra escrita, e fechada ela sai INTEIRA (uma faixa transparente engolindo o dedo na base é pior que a faixa à vista); a LUPA de lá passou a abrir SEM foco, porque o ouvinte estava registrado por REFERÊNCIA e passava o `PointerEvent` como `comFoco` (truthy), a mesma armadilha que a v1.4.31 pagou no `openLyricsPopup`. **E o oráculo do hit-test ganhou uma espera pelo FATO:** a janela de tela cheia recebe toque também fechada, então medir o que o dedo encontra antes de ela pousar responde sobre a janela em queda — `getAnimations()` + `finished`, a técnica do `gaveta()`.
+- **v1.5.0** — O CRONOGRAMA VIROU A TELA ÚNICA: A FAIXA DE ABAS SAIU, A BÍBLIA VIROU FOLHA E A BIBLIOTECA VIROU UMA JANELA QUE SOBE DA BARRA. A maior mudança de navegação desde que o app existe, e ela é UMA decisão em quatro pedidos. **A faixa de abas saiu inteira** — com ela, o vazado deslizante (`.tab-ind` e o `moveTabIndicator` que o media), o carrossel horizontal (quatro correções do mesmo mecanismo, a última reescrevendo o ciclo de toque porque o navegador cancelava o fluxo de `pointer*` no primeiro scroller do caminho), o fantasma da troca de tela e o `switchTab`. **A Bíblia virou uma folha do Cronograma**, no molde da de Ferramentas: com host PRÓPRIO (ela desenhava dentro do `#library`, o mesmo `<ul>` do Cronograma, e é por isso que `renderLibrary` tinha um desvio por aba no topo) e com o VOLTAR dela na barra da folha — o do cabeçalho só servia a ela. **O rodapé virou a navegação**: Bíblia · Importar · Ferramentas, três portas de mesmo peso e as três com rótulo (pedido: *"coloque um texto no botão de ferramentas"*), ícone em cima e nome embaixo porque MEDIDO em 360px três rótulos em linha não cabem. **A barra de busca da Biblioteca saiu de dentro dela** e ocupa o lugar da faixa, na caixa de controles; a Biblioteca ficou só com a LISTA, e por isso a folga do topo passou a ter o que dizer. **Duas portas, e a diferença é o teclado**: o FOCO no campo abre digitando, a SETA ao lado abre sem foco. E `activeTab` deixou de existir: um estado com dois valores para uma tela só é uma variável que responde uma pergunta que ninguém faz mais.
+- **v1.4.45** — O DESFAZER DO GIRO FALA A LÍNGUA DO VIZINHO: VERMELHO, E COM O MESMO ✕. Pedido do operador: *"ele deve ser vermelho e ter em seu design o 'x' indicando que o toque destroi tal configuração atual"*. A v1.4.43 o pintou de DENIM com o argumento de que vermelho neste app quer dizer "está no ar agora" e a camada de cima já ocupava esse papel na mesma faixa — **e o argumento lia o token estreito demais**. O que o `--stage-alert` do selo de camadas diz não é "no ar": é *"o toque daqui TIRA alguma coisa"*, que é a definição da faixa inteira (a região do que está fora do padrão e o toque desfaz). Dois moradores com a mesma promessa pintados de cores diferentes ensinavam que a cor ali significa outra coisa, e não significa. **O que os separa passa a ser o DESENHO**, que é a regra de sempre: o ícone mostra o ESTADO (uma pilha de folhas · uma seta de giro) e o ✕ diz o que o toque FAZ. O ✕ é o do vizinho VERBATIM — uma marca de destruição redesenhada dois pixels adiante é uma segunda opinião sobre a mesma coisa — e a seta encolheu para 0,75 em torno de (10,10) para o canto do ✕ caber, o que a tirou do `#icoGirar` do sprite: aquele símbolo é o do TILE, e o dia em que um dos dois mudar de forma o outro não pode ir junto.
+- **v1.4.44** — O CARTÃO INVISÍVEL DA LINHA DO MODO, O TÍTULO CENTRADO, E O RODAPÉ EM UMA BARRA SÓ (com o copiar do Registro fora). Três acertos e uma remoção, todos do operador. O seletor de modo saía mais estreito que a grade de tiles logo abaixo (MEDIDO: 375,6px contra 401,2px numa viewport de 430) e o culpado não desenhava nada: a `.fade-row` pinta `--panel`, o MESMO tom da folha, então o cartão era invisível e o que se via era só o `padding` dele recuando o trilho 12,8px de cada lado — *um cartão invisível que só desalinha não é um cartão: é padding*. O título "Modo do app" era o único texto solto da folha e apontava para a metade "Fácil"; hoje é uma legenda centrada. O rodapé, que a v1.4.43 tinha unificado no DESENHO e parado no meio, virou UMA barra: duas caixas com a mesma cor e um vão entre elas ainda se leem como dois assuntos, e o assunto é um. E o COPIAR do Registro saiu — a área de transferência é o caminho que corta o texto no meio sem avisar, foi esse relato que criou o salvar em arquivo na v1.2.16, e o Registro só cresceu desde então. O `copiarTexto` e o `.log-copy` ficam com o consumidor que os justifica: o endereço da transmissão, que é curto e existe para ser digitado noutro aparelho.
+- **v1.4.43** — O RODAPÉ DE CONFIGURAÇÕES VIROU UM DESENHO SÓ, O MODO DO APP VIROU UM INTERRUPTOR QUE DESLIZA, E A BASE DA PREVIEW VIROU A REGIÃO DO QUE ESTÁ FORA DO PADRÃO. Quatro pedidos do operador num lote. O rodapé tinha três desenhos e três tamanhos para o mesmo assunto (a versão, o rótulo "Registro" e os dois botões dele): hoje são DUAS pastilhas do mesmo tom, da mesma altura (`--hit`) e do mesmo corpo, uma em cada ponta. O seletor Fácil × Avançado empilhava QUATRO tons para uma escolha de duas posições e virou um trilho com um polegar que anda por `transform` — o deslize é o que diz *"isto alterna"*, e é ele que o oráculo mede no RENDERIZADO, porque uma troca de classe passa num teste de classe e continua imóvel na tela. A folha de Configurações **deixou de fechar** ao trocar de modo (ela fechava por decisão, e quem trocava perdia o lugar e o caminho de volta — a engrenagem mora em outro canto no outro modo). E a base da preview, que hospedava só o selo de camadas, passou a ser a faixa do **que está fora do padrão AGORA**: entrou ali o desfazer do giro do telão, com o ÂNGULO à vista, porque voltar de 90° custava abrir a folha e ciclar o tile três vezes olhando para a folha e não para a projeção.
+- **v1.4.42** — A CONTAGEM DE USO PASSOU A SER SEMPRE ATIVA: O SISTEMA DE EXCLUSÃO SAIU INTEIRO. Pedido do operador: *"descarte a opção de contagem de uso como opcional, deixe sempre ativo, não preciso do sistema de exclusividade"*. Saíram a linha do rodapé do Registro e o `renderFarolLinha`, o **`farolContar` da ponte** (shell 60 → **61**, o PRIMEIRO método que este projeto remove), o `Farol.definirContar`, a leitura da preferência em `Farol.contar`, os símbolos `icoMedicao`/`icoMedicaoOff` (um `<symbol>` sem consumidor viaja no bundle do OTA e não desenha nada em lugar nenhum), o interruptor `#opContar` da página de alcance e o roteamento `avRegistroOperador` → `v-dev.txt` do site. **O QUE FICA é a única exclusão que nunca foi opção: o BUILD DEBUGGÁVEL**, que acende num contador separado por `FLAG_DEBUGGABLE` — higiene de construção, sem UI, e sem ela toda sessão de trabalho entraria no número público como se fosse uma igreja. `farolEstado` também fica, virou SÓ LEITURA, e alimenta a linha "Alcance:" do Registro, que responde a pergunta que faz aquele texto ser copiado: *o farol chegou a acender?* **O APK ERA OBRIGATÓRIO, e essa é a parte que não dava para adiar:** a chave já gravada continuaria sendo lida por um shell antigo, e um aparelho marcado *"fica de fora"* ficaria fora da contagem PARA SEMPRE, sem tela para desmarcar — contador não se corrige depois. É o `Farol.contar` do APK novo que o devolve, daí o `shellTag` segurando o bundle até a Release existir; e é o primeiro lote a exercitar de verdade a regra escrita há dezenas de versões (*"MUDAR A FORMA de um método que já existe é PIOR que acrescentar um"*). **O PREÇO ENTROU NO PAINEL, e é onde ele tinha de estar:** sem exclusão, "aparelhos por dia" e "visitas" passam a incluir o uso próprio — e um painel que não avisa é o *confiável e falso* que `docs/MEDICAO-DE-ALCANCE.md` nomeia, só que pelo outro lado. A página de alcance diz isso logo abaixo dos números, e o oráculo cobra a FRASE RENDERIZADA (uma nota vazia passaria num teste de seletor). O caso do roteamento no `registro-alcance` **inverteu em vez de sair**: ele prova agora que nenhum resto do mecanismo desvia o navegador de quem audita — um `localStorage` esquecido o deixaria fora do número público em silêncio, o desfecho que aquele arquivo nasceu para não ter. **EXIGE RELEASE v1.4.42.**
 - **v1.4.41** — O ENQUADRAMENTO NÃO ERA "SÓ PARA FOTOS": ERA "SÓ QUANDO A MÍDIA É A CENA". Pergunta do operador: *"faça uma verificação sobre os itens de preenchimento e girar. eles atualmente só servem para fotos? veja se consegue aplicar eles a todos os tipos de mídias na tela"*, mais o pedido de o título dizer que o giro é do telão e o de tirar a medição do app. **MEDIDO no `/display/`** com `cover` e 90° escolhidos: `#img` (imagem e apresentação como CENA) e `#video` seguiam os dois; `#textImg` — a MESMA foto e a MESMA página projetadas como CAMADA por cima de um louvor de fundo (v5.312 e v1.4.28) — ficava presa no `contain` da folha, sem giro nenhum. **É o pior formato de defeito que aquele painel pode ter:** o mesmo controle, o mesmo conteúdo, e funciona ou não conforme haja uma música tocando por baixo, que é a última coisa que alguém relacionaria com preenchimento. A correção entra no MOTOR e não no dono do palco (`camadaImg` no `createStage`), porque "como a mídia ocupa o telão" é decisão de um lugar só. **O giro precisou de mais que isso:** `aplicarGiro` desiste quando não consegue medir a caixa, e um elemento `hidden` não tem caixa — girar com o telão no wallpaper e só então projetar entregava a mídia sem giro, que é o irmão exato do que o `applyMedia` já resolvia para o `img`/`video`. Daí `reporGiro()`, PEDIDO nos dois lados; e MEDIDO por reversão, sem ele só a PREVIEW reprova — no telão o `showText` mexe na cortina e o `applyMedia` repõe de carona, um acidente de ordem que quem apagar a chamada "redundante" descobre no telão. **O FUNDO DA ESTROFE fica de fora**, e é a metade que impede o conserto largo demais: ele não é a mídia, é o fundo ATRÁS da letra — `cover` ali não é escolha de enquadramento, e girá-lo deitaria a imagem sob um texto que continua de pé. O tile virou **"Girar no telão"** porque "Girar" sozinho, numa folha de Configurações, se lê como o giro da INTERFACE. **E a MEDIÇÃO saiu da grade**: o pedido era levá-la para a página de alcance do site, e a resposta honesta é que a página NÃO alcança o app — origens diferentes no mesmo aparelho, armazenamento isolado, e o app sem intent-filter de URL (só MAIN e SEND); a única ponte possível seria uma porta EXPORTADA que troca uma chave de privacidade, pior que o botão. Ela virou uma linha quieta no rodapé do Registro, e a PÁGINA ganhou o interruptor que ela de fato controla: o do NAVEGADOR, que era escrito em silêncio, valia para sempre e não tinha volta — agora com TRÊS estados, porque com dois a marca era reescrita em toda abertura e o interruptor se desfazia sozinho. Oráculo novo (`enquadramento-da-camada.test.mjs`, 10 asserções), mais três metades no `boot-nativo` e quatro no `registro-alcance`; três reversões. OTA PURO.
 - **v1.4.40** — O AZUL DO TILE PASSOU A DIZER *"ligado"*, E QUEM NÃO TEM DESLIGADO FICA SEMPRE AZUL. Pedido do operador: *"a maioria dos botões das configurações não tem estado de ativo e inativo, como o seletor de tema claro ou escuro, o preenchimento, o histórico e o wallpaper padrão… então pode deixar eles no estado azul de 'sempre ativo' o tempo todo. ajuste para que esses itens que não se ativam fiquem no topo da listagem e deixe os outros mais em baixo"*. **A v1.4.38 leu o aceso como *"o estado não é o padrão"*, e essa leitura não sobrevive ao contato com quem opera:** escolher "Ajustar" não desliga nada, e um tile apagado, no vocabulário deste app, diz INDISPONÍVEL — é a queixa da v1.4.25 palavra por palavra (*"foi simplesmente ofuscado o botão inteiro, o que dá a impressão de que não está disponível a opção"*), com o agravante de o app já ter uma linguagem para indisponível (`opacity: .3` + `disabled`). Hoje **aceso = a função está LIGADA**, e num tile que não tem desligado — tema, preenchimento, wallpaper, histórico — é SEMPRE. **A correção obrigou a PARTIR UMA CLASSE EM DUAS:** `qs-on` acendia o tile E trocava o desenho, então um tile sempre aceso ficaria preso no desenho alternativo para sempre (o tema mostrando o sol no escuro). São duas perguntas — *"qual desenho?"* e *"está ligado?"* — e a partir daqui `qs-alt` responde a primeira. **E DOIS ACESOS FORAM INVERTIDOS** no mesmo lote: fundo da letra e medição marcavam `Remover` e `De fora` (o que não é o padrão) e passaram a marcar `Mostrar` e `Entra` (a função ligada) — com isso o desenho e a luz dizem a mesma coisa, em vez de coisas opostas no mesmo botão. **A ordem virou POR NATUREZA**, numa grade só: os quatro sempre-acesos primeiro, os três que ligam e desligam depois. Duas grades com um respiro entre elas foram descartadas — o primeiro grupo tem QUATRO itens em três colunas, e a grade própria deixaria dois buracos no meio do painel, que se leem como defeito e não como separação; numa grade só quem desenha o grupo é a própria cor. **De quebra, um defeito de resposta ao toque:** `setLyricsBg` pintava o tile DEPOIS do `await` da gravação, então aquele botão só respondia ao dedo quando a transação do IndexedDB voltasse — os irmãos (`applyFit`, `applyRotate`) sempre pintaram antes. **O que se perde está dito:** a grade deixou de responder *"o que eu deixei mexido aqui?"* de relance, e quem responde isso agora é a palavra do estado, que sempre esteve lá. Cinco asserções novas no `smoke.mjs`, com a metade que impede o conserto preguiçoso (acender tudo sempre): o fundo da letra continua APAGANDO. OTA PURO.
 - **v1.4.39** — AS ABAS DO AUXILIAR DE LEITURA VOLTARAM A PREENCHER A FAIXA, e a causa era um REPARENTAMENTO. Relato do operador: elas *"estão com pouca largura, considerando que deveria ter a largura adaptável para preencher a largura total disponível… sendo reduzidos apenas nos casos em que haveria bíblia ou slides sendo exibidos juntos, que nesse caso o espaço disponível seria novamente distribuído igualmente"*. O `.fit-opt` já é `flex: 1` desde sempre, e o desenho que ele pede é exatamente o que o pedido descreve — o que faltava era o contêiner. A v1.4.28 passou a REORDENAR as abas pela pilha (`lyricsViewSources`) e anexava em `lyricsViewSegEl`, que é o `.lyricsview-seg`, o bloco com o respiro; os botões moram um nível abaixo, dentro da `.fit-seg`. `appendChild` num nó que NÃO é o pai não reordena: ele MOVE. Fora do contêiner flex o `flex: 1` fica inerte e cada aba volta a ser `inline-block` do tamanho do rótulo — MEDIDO a 430px, a faixa tem 401px e as duas abas saíam com 44,8 e 42,7, encostadas à esquerda. **A falha é CALADA por construção:** a ordem que o pedido da v1.4.28 queria continuou certa (o `appendChild` reordena do mesmo jeito, só que no lugar errado), nada lança e nada some — só a largura se perde, e o comentário que a acompanhava afirmava justamente o contrário (*"`appendChild` MOVE um nó que já está no pai"* — e ele não estava). Uma linha de conserto. MEDIDO depois: 2, 3 e 4 abas preenchem e ficam iguais a 430, 360 e 320px, numa linha só ("Páginas" não quebra nem estoura no pior caso). Quatro asserções por caso, duas reversões — o reparentamento de volta, e o `flex: 1` apagado com o pai certo: cada uma reprova o que a outra deixaria passar. OTA PURO.
@@ -312,6 +340,2205 @@ na nota que a revoga, não apagada da que a criou.
 - **v5.154** — é METADE OTA e METADE APK, e a divisão importa para quem for testar em aparelho.
 - **v5.155** — é OTA PURO
 - **v5.156** — é METADE OTA e METADE APK, de novo.
+
+---
+
+## v1.6.0 — a cifra em tela cheia, deitada
+
+Um pedido só, e ele é de LEITURA: quem opera está com o instrumento na mão e o
+celular no suporte, e a folha de acordes no retrato quebra quase toda linha ao
+meio. Ver o índice, acima, para o recurso em detalhe — aqui fica só o que não
+cabia lá.
+
+### O número que decide é COLUNAS, não corpo de fonte
+
+"Fonte maior" é o pedido; o que ele quer dizer é "ler de longe", e a folha da
+cifra não é texto que reflui — ela quebra por CARACTERE, com o corte no MESMO
+índice das duas linhas do par (`AVCifra.quebrarPares`), porque um acorde a duas
+linhas da sílaba que ele rege é o par desfeito e **parece certo**.
+
+Logo as duas metades do recurso são uma só conta. Corpo maior sem requebrar
+entrega a mesma linha partida com letra grande — uma regressão vestida de
+recurso —, e é por isso que a asserção do oráculo é aritmética em vez de visual:
+**em tela cheia a folha não pode ter MENOS colunas que no retrato**. MEDIDO:
+~37 colunas a 430px × `1.4rem`, mais de 50 a 800px × `2rem`. São +43% de corpo
+E +40% de linha, e o segundo número é o que faz o primeiro valer a pena.
+
+### As três camadas da remedição existem porque não há promise a esperar
+
+A entrada em tela cheia muda a largura e o corpo em instantes diferentes, e o
+que separa os dois é o SHELL:
+
+| t | o quê |
+|---|---|
+| t1 | `requestFullscreen` resolve — o elemento vai para a top layer, ainda em RETRATO |
+| t2 | o `--lv-fonte` escopado é escrito (JS) |
+| t3 | o shell roda: `onShowCustomView` → `SCREEN_ORIENTATION_LANDSCAPE` |
+| t4 | a Activity gira e o WebView é redimensionado → `resize` |
+
+Nada no lado web observa t4 acontecer. O `screen.orientation.lock` que o
+`enterFullscreen` da preview chama é decorativo num WebView — quem gira é a
+Activity —, então a resposta não é esperar: é ter três gatilhos que cobrem
+janelas diferentes (o `fullscreenchange` para t1+t2, os `resize` para t4, e um
+`ResizeObserver` no corpo para tudo o mais que mexe na caixa sem mexer na
+janela) e uma guarda barata que torna o excesso inofensivo.
+
+Essa guarda é a peça que faz o desenho fechar: ela pergunta *"a folha que está
+aí foi quebrada para a largura que ela tem AGORA?"* — comparando com o que a
+folha em cena de fato usou —, e não *"a largura mudou?"*. Por largura, o A+/A−
+seria apagado em silêncio: lá a largura é a MESMA e o que muda é o avanço por
+caractere.
+
+### O que a revisão do lote achou, e por que ele era mudo
+
+Dois achados, e os dois no ponto de contato entre o recurso novo e código que já
+existia.
+
+O primeiro é o caro. `load()` hidrata todo estado do banco e roda muito mais
+vezes do que o nome sugere — todo download que começa ou termina passa por ele
+(`libBusy`/`soltar`), tanto quanto o fim de uma sincronização de pasta. Ele
+chamava `cifraAdotarFonteCheia` incondicionalmente, e a semente da primeira
+entrada em tela cheia é DERIVADA do corpo do retrato e não é gravada (só o A+/A−
+grava). O resultado era um `load()` com a folha deitada lendo `undefined` e
+devolvendo o índice ao sentinela `-1` **com o corpo grande ainda escrito no
+`#lyricsPopup`**: nada muda na tela, e o defeito só aparece no toque seguinte no
+A+, que resolve `Math.max(0, -1 + 1)` e salta para `1rem` — o MENOR corpo da
+escada, persistido, num modo cujo objetivo declarado é ler de longe. O A− nasce
+desabilitado no mesmo instante, pela regra de `aplicarTamanhoDaLetra`.
+
+A correção é uma linha, e ela é a que descreve o modelo: **com a tela cheia no
+ar, quem manda é o corpo que está na tela.** Persistir a semente também fecharia
+o caso, e foi recusado — ela é derivada de propósito, para a primeira entrada de
+sempre acompanhar o corpo que o operador escolheu no retrato.
+
+O segundo é a regra do próprio lote não cumprida no lugar em que ela mais é
+exercitada. A fração de leitura tem de ser capturada ANTES de a fonte mudar,
+porque o corpo novo altera o comprimento da folha na hora e a remedição só roda
+depois — está escrito ao lado do parâmetro. O `fullscreenchange` fazia certo; os
+dois A+/A− chamavam `cifraRemedir()` sem fração, deixando-a ler `scrollTop` já
+contra o `scrollHeight` NOVO. O efeito é uma leitura que recua na proporção do
+crescimento: de `1,4` para `1,7rem` são ~21% de folha a mais, e quem estava em
+50% reaparece perto de 41%. Os quatro pontos passam a usar a mesma função
+(`cifraFracaoDeLeitura`), que é o que impede o quinto de nascer errado.
+
+### E três ajustes do card de detalhe, do mesmo operador, no mesmo lote
+
+Eles chegaram depois da v1.5.21 e entraram aqui porque a v1.6.0 ainda não tinha
+sido publicada — um número novo descreveria uma versão que nenhum aparelho viu.
+
+**"Toca sem baixar" saiu, e o critério é do operador:** *"essa informação é útil
+apenas quando estiver escolhendo a qualidade, no caso, não é um 'detalhe do
+arquivo', mas sim uma das características da opção de play"*. Ele está certo por
+construção — a opção "Tocar agora", duas linhas acima no MESMO card, já diz
+*"Toca direto da internet"*. A linha de estado passou a existir só quando diz
+algo que é fato DO ARQUIVO: "Já no aparelho". O oráculo cobra as duas metades,
+porque só a primeira aprovaria apagar a linha inteira.
+
+**O título completo de um LINK não aparecia, e a causa não era exibição:** um
+link salvo nunca teve título cru em lugar nenhum — o `nomeOriginal` que a
+v1.5.21 passou a persistir vem da listagem da playlist, que só existe para
+episódio de SÉRIE; o registro de um link guarda apenas o `name` já tratado.
+A correção não custou requisição: o `ytDetalhes`, que o card JÁ chamava pela
+descrição, devolve `titulo` no mesmo pedido — o cache passou a guardar o OBJETO
+em vez de só o texto. Ela conserta de quebra o episódio cujo índice ainda não
+foi revarrido.
+
+**O "Ver mais" saiu** e a descrição abre inteira. O clamp existia para o texto
+não empurrar as opções da gaveta; o pedido é explícito, e a gaveta cresce com o
+conteúdo como qualquer outra.
+
+### E a HIDRATAÇÃO que perdia a vez para o TOQUE
+
+Este lote ficou RETIDO: o CI reprovou em `tools/cena.test.mjs` (55/56) e o
+`web-ota` foi pulado, então nada chegou à frota. O oráculo estava certo — o
+defeito é ANTERIOR a este lote, e o que a v1.6.0 fez foi ALARGAR a janela dele,
+com mais um `await AVDB.getState('cifraFonteCheia')` dentro do `load()`.
+
+`load()` lê uma dezena de chaves do IndexedDB e SÓ DEPOIS escreve as variáveis
+do módulo, e ninguém a chama com `await` — todo `db-change` dispara uma. Um
+`send()` que rode nesse intervalo escreve `currentId`/`currentItem` de forma
+SÍNCRONA, na frente; o rabo da hidratação os sobrescrevia com o que o banco
+dizia ANTES do toque. *Lost update* clássico, e a QUARTA vez que esta base
+encontra a classe (`loadSeq`, `lyricLoadSeq`, `projecaoSeq`).
+
+MEDIDO em arnês (`load()` sem `await`, `send(id)` em seguida): sobrava
+`currentId: null` com `midiaNoAr: true` — o app PROJETANDO um vídeo e dizendo
+que não há item selecionado. Os três sintomas saem daí, e nenhum deles aponta
+para cá:
+
+| sintoma | por quê |
+|---|---|
+| o item deixa de ficar SELECIONADO, e o ▶ não repete a faixa | `currentId` foi zerado por baixo |
+| o ▶ lança `DataError` no meio do transporte | `send(undefined)` → `getMedia(undefined)` |
+| um telão que reconecta volta VAZIO, com a mídia tocando | `resendSceneToDisplay` pergunta `midiaNoAr && currentId` |
+
+**A senha é a MESMA de `projecaoSeq`**, e não uma contagem nova: duas réguas
+para "quem chegou por último" divergiriam — é o argumento do `palcoEmVoo`,
+aplicado aqui.
+
+**E ela vale só para a SELEÇÃO.** `currentId`/`currentItem` são o que o TOQUE
+decide; tema, corpo da letra, velocidade da rolagem e o resto que a FASE 2
+aplica são CONFIGURAÇÃO — ninguém compete por eles no intervalo, e não
+aplicá-los deixaria o app com o valor da sessão anterior. O mudo, o volume e a
+cortina ficam do lado da configuração pela régua que já estava escrita em
+`persistCurrent`: são o ajuste da mesa, não uma seleção. Um `return` no topo da
+FASE 2 é o conserto barato, e o oráculo o reprova.
+
+**O PREÇO, dito:** `soUmProvedorDeTexto` também sobe a senha, então projetar um
+versículo durante a PRIMEIRA hidratação de uma página nova deixa a seleção sem
+restaurar. É a direção segura — não sobrescrever nada — e o item continua a um
+toque na lista.
+
+**O oráculo monta o hazard À MÃO** (`tools/hidratacao-perde-a-vez.test.mjs`),
+irmão do `db-estado.test.mjs` e pelo mesmo motivo: a corrida real depende de a
+máquina ser lenta, e ela passava 7/7 aqui enquanto reprovava no runner. **Um
+oráculo que mede o runner não guarda portão.** Quatro metades, e a última é a
+que separa cena de configuração — sem ela, o `return` acima passa nas outras
+três.
+
+---
+
+## v1.5.21 — a margem que escapava do poço, e os quatro dados do card de um vídeo
+
+Um relato do operador, em duas metades, sobre a mesma caixa: a gaveta de detalhe
+de um vídeo. A primeira é geometria, a segunda é dado. Ver o índice, acima, para
+cada uma em detalhe — aqui fica só o que não cabia lá.
+
+### Por que só a QUARTA metade custou uma Release
+
+O pedido nomeia quatro dados. Três deles — duração, título completo, canal — já
+atravessavam a ponte e morriam no lado web: o shell entrega listas CRUAS de
+playlist (`anexarVideo` põe `author` e `seconds` por item, e o `name` é o título
+sem `tituloLimpo`, de propósito, porque é dele que a regra tira a data e a marca
+de Libras), e quem os descartava eram duas funções nossas. É a divisão de
+trabalho da invariante 5 pagando: o que o shell não decide, ele também não poda.
+
+A DESCRIÇÃO é a exceção, e ela não é um grau a mais da mesma escada — é a única
+que exige `StreamInfo.getInfo` por vídeo, e portanto método novo, fila
+(`extracao`, a fila de um TOQUE), `SHELL_VERSION` 62, `minShell` 62 e Release no
+mesmo lote. **É por isso que este lote é APK + web publicado JUNTO**, com
+`shellTag: "v1.5.21"` no `version.json`. As duas metades erradas da entrega têm
+desfecho conhecido e mudo, cada uma para um lado: sem `shellTag`, o bundle chega
+antes do APK, `B.ytDetalhes` não existe, o `call()` cai no `catch` e resolve
+`null` — a linha nunca é desenhada e o botão "Ver os detalhes" continua
+funcionando, com quatro linhas em vez de cinco; com `minShell: 62` sem a Release,
+todo aparelho recusa o bundle INTEIRO, para sempre, e a única pista é a linha
+"Procura:" do Registro. O `shellTag` é o que fecha as duas: ele SEGURA a
+publicação do bundle até a Release existir.
+
+> **E o CI não pega a primeira delas**, o que é a razão de isto estar escrito
+> aqui: a validação do `apk.yml` assere `1 <= minShell <= SHELL_VERSION`, isto é,
+> só o TETO — um `minShell` que ficou para trás passa, porque um bundle que pede
+> MENOS do que o shell oferece é sempre aceitável do ponto de vista da válvula.
+> O piso ("todo método da ponte existe sempre") é disciplina de entrega, e a
+> única defesa dele é a regra escrita no `CLAUDE.md`.
+
+### E ela não vai para o disco
+
+Pelo precedente exato da CIFRA, e a razão vale palavra por palavra: guardar
+mudaria o recurso de NATUREZA — o app deixaria de LER conteúdo de terceiro no
+aparelho do operador e passaria a DISTRIBUIR uma cópia dele. Um `Map` em memória
+que morre com o app; nada no IndexedDB, nada no bundle do OTA, nada no
+repositório. O corolário operacional é a degradação certa: sem rede, o card
+mostra o que a persistência deste lote já guardou (título cru, canal, duração,
+miniatura, estado no aparelho) e simplesmente não mostra descrição.
+
+### O que os oráculos passaram a cobrar
+
+Dois arquivos, e eles falham de jeitos diferentes — é por isso que são dois.
+`serie.test.mjs` prende a REGRA (os campos sobrevivem a ela, e o canal ausente
+vira string vazia e nunca `undefined`); `boot-nativo.test.mjs` prende a LIGAÇÃO
+até a tela, que falha com a regra certa e o card mudo. As linhas são lidas na
+ORDEM do DOM e é ela que a asserção afirma — uma pergunta do tipo *"o texto
+contém o canal?"* aprovaria o canal desenhado embaixo do estado no aparelho.
+
+São TRÊS com a descrição, e o terceiro é o `ponte.test.mjs`: ele prende o
+CONTRATO (campo ausente vira VAZIO e nunca `undefined`, e o **`null` SOBREVIVE à
+remontagem** — "não houve resposta" não é "não há descrição", e achatá-lo num
+objeto vazio faria um aparelho sem rede carimbar a ausência no cache), enquanto
+o `boot-nativo` prende o FIO até a tela: que ela é pedida na REVELAÇÃO e não na
+abertura da linha, que esconder e revelar de novo não gasta uma segunda
+extração, e que o que chega à tela é `textContent` — o `<b>` do texto continua
+TEXTO, e não vira elemento.
+
+A metade que carrega o lote é a do ÍNDICE ANTIGO: um registro sem os campos
+novos, montado à mão, tem de sair com as duas linhas de sempre e sem
+`undefined` em lugar nenhum. Provado por reversão — desenhando as linhas SEMPRE,
+o card sai com `Título: undefined` e `Canal: undefined`, que é o defeito pelo
+outro lado e o que a regra do Registro proíbe por escrito.
+
+---
+
+## v1.5.20 — a thumbnail que passa a ser bytes, a espera antes de ler, e duas margens que a geometria também mentia
+
+Quatro relatos do operador, em três áreas independentes do app: a miniatura de
+um link de YouTube, a rolagem automática da cifra, e duas margens (a Biblioteca
+e a caixa de controles). Ver o índice, acima, para o relato de cada um em
+detalhe — aqui fica só o que não cabia lá.
+
+### O modelo de dados da thumbnail
+
+O achado que abre o item 1 vale registrar à parte: não existe um único
+"confirmar destinos" que grave `thumb` para todo tipo de item — essa folha é
+genérica demais (cobre também mídia local, cena de letra) e não é onde o
+`thumb` do YouTube nasce. O bug era exclusivo dos TRÊS caminhos que criam um
+registro sem baixar bytes nenhum (`ytAcaoInterno` no ramo "Online",
+`handleSharedUrl` quando nem a transmissão nem o download nativo funcionam, e
+`histResolver` recriando a partir da receita do Histórico) — quando o vídeo É
+baixado de verdade (`ytBaixarNativo`), o `thumb` já sai como Blob via
+`makeThumb(blob,'video')`, caminho correto desde sempre.
+
+### A espera inicial da cifra não é a ABERTURA que saiu
+
+Vale a distinção, porque as duas soam parecidas e são o oposto uma da outra: a
+ABERTURA da v1.1.20 (revogada na v1.5.6) segurava a folha até um instante da
+MÚSICA ("ela acabou de começar"); a espera da v1.5.20 segura a folha até um
+instante do RELÓGIO DE PAREDE contado do TOQUE, e não sabe nada sobre a
+posição da mídia — a folha continua sendo "de quem lê", só que agora ela
+também espera o leitor chegar.
+
+### As duas margens eram o MESMO tipo de defeito, em lugares diferentes
+
+Em ambas, uma correção de outro lote (a v1.5.15 no caso da Biblioteca) tinha
+zerado um respiro por um motivo legítimo — fechar um vazamento de conteúdo
+para fora do scrollport, no caso da Biblioteca — e o efeito colateral só
+apareceu meses depois, num relato que parecia não ter relação com a causa. Nos
+dois casos a régua acabou sendo MEDIÇÃO (`getBoundingClientRect`/
+`getComputedStyle` num Chromium de verdade), não a leitura do CSS: a
+Biblioteca cobrava zero em vez de `--sp-5`, e a caixa de controles cobrava o
+dobro de `--deck-gap`.
+
+---
+
+## v1.5.19 — o A+/A− por baixo da placa, as três portas quietas, e a tampa que parou de encolher
+
+Três relatos do operador, e os três têm a mesma forma: **a geometria mentindo
+para o olho**. Nenhum é um erro de valor — em cada um há uma regra correta cujo
+efeito, medido, não é o que ela promete.
+
+### 1 · O A+/A− do Modo Fácil não estava "colado": estava POR BAIXO
+
+*"ajuste a margem dos botões de aumentar e diminuir a fonte no modo simples,
+eles estão colados nos elementos abaixo dele."*
+
+**A causa é a outra metade do `position: absolute`.** O comentário que
+justificava o par absoluto dizia *"a folga vem reservada dos DOIS lados para o
+centro continuar sendo o centro"* — verdade, e silencioso sobre o que produziu o
+defeito: uma caixa absoluta **não conta para a altura do pai**. Quem dava altura
+à `.simple-np-linha` era o `.simple-np` sozinho (`--fs-xl`, `line-height:
+normal`, MEDIDO 18,00px), e o botão mede `--hit` (34,00px). A linha continha 34
+dentro de 18, e o par transbordava **8,00px para cada lado**. Os `gap` que
+separam a linha dos vizinhos são medidos a partir da LINHA: o respiro real era
+**−2,40px** embaixo (`--sp-3`, 5,60 − 8,00) e +1,59 em cima (`--sp-5`, 9,60 −
+8,00).
+
+**E o sintoma não era aperto, era SOBREPOSIÇÃO.** `.lv-fonte-ctl` e
+`.simple-lyrics` são as duas posicionadas (a segunda é `relative`, o
+offsetParent do `lvScroll`), e a placa vem DEPOIS no documento: ela pintava por
+cima de **2,41px** do botão. MEDIDO, `elementFromPoint` devolvia `simple-lyrics`
+em `bottom−1`, `−2` e `−3` — não era só respiro que faltava, eram 2,41px de alvo
+que não respondiam. No tema CLARO isso é literalmente sumir: a superfície do
+botão é branco a .70 e a placa é branco PLENO.
+
+**E o "elementos" do plural é literal — um deles é um CONTROLE.** Com a linha do
+tempo à vista, o A− encostava com ZERO pixel no `#simpleTimeHit`, sobrepondo
+**35,44 × 2,41px** e comendo **27%** do `padding: .55rem` que aquele alvo tem de
+propósito (*"4px é metade do que um dedo acerta, e um controle de posição que
+exige mira não é um controle"*). Ali o `absolute` inverte quem ganha o hit-test:
+o botão de tamanho de fonte roubava alvo do scrubber que salta o louvor no ar.
+São três vizinhos abaixo do par — a placa, o `#simpleTimeHit` e o número da
+duração.
+
+`min-height: var(--hit)` na linha, uma declaração. Os dois lados voltam ao `gap`
+que a folha já declara (+5,60 e +9,59), **sem inventar número de espaço nenhum**,
+e o valor sai do MESMO token de que a altura do botão sai — os dois não têm como
+divergir num lote futuro. O `absolute` fica: desvio do nome 0,00px, inalterado.
+Custo MEDIDO: 16,00px da zona de leitura, o mesmo em toda tela (−3,0% a 430×900,
+−7,4% a 320×568). O `#lyricsPopup` não se mexe byte nenhum — lá o par é `static`
+e sempre contou.
+
+**Dois adjacentes ficam ditos, e não são deste lote:** no estado PADRÃO do modo
+(`sem-tela`, sem TV) o par é INTOCÁVEL, porque o `#simpleVeil` cobre a zona e só
+o `.simple-head` é içado; e na cena de APRESENTAÇÃO ele é INERTE (a `.lv-grade`
+não lê `--lv-fonte`), onde o leitor do avançado o esconde por regra — e o
+`min-height` passa a cobrar 16px por ele ali.
+
+### 2 · As três portas do rodapé: o azul saltava por CROMA
+
+*"padronize os botões de biblia, importar e ferramentas da aba de cronograma,
+para que tenham uma cor mais proxima a cor de fundo, para que não se destaquem …
+também veja se consegue alguma opção de deixar eles mais baixos. pois estão
+muito altos e volumosos. preciso que sejam opções discretas, mescladas ao
+fundo."*
+
+**O ACHADO QUE DECIDIU A CORREÇÃO:** a captura dele é do tema CLARO, e ali o azul
+do meio mede **1,07:1** contra o fundo — **MENOS** que as duas laterais (1,20:1).
+Em luminância ele já era a peça mais mesclada das três. O que o fazia saltar era
+o **CROMA** (ΔC* **+8,5** no claro, **+12,7** no escuro), que é literalmente o
+que a paleta assinou em *"o separador aqui NÃO é a claridade: é o CROMA"*. O
+`--btn-accent` estava funcionando como projetado — e é esse projeto que o pedido
+desliga nesta faixa. Corolário: **uma correção que só mexesse na luminância não
+resolveria o relato.**
+
+**E o argumento que o pintava de azul caiu sozinho.** Ele era *"quem ENTRA com
+conteúdo é a do meio, e ela é a única AÇÃO da faixa"*, escrito quando as laterais
+eram quadrados MUDOS de 44px. Desde a v1.5.0 as três têm RÓTULO, e a do meio é a
+única cuja palavra é um VERBO. Mais: dos treze consumidores de
+`background: var(--btn-accent)` na folha, este era o ÚNICO a pintar uma porta de
+NAVEGAÇÃO permanente sobre a página, num idioma em que aquele token quer dizer
+LIGADO.
+
+As três passam a `color-mix(in srgb, var(--surface) 70%, transparent)`, sobre o
+valor JÁ RESOLVIDO (a receita do `.nowplaying` da v1.5.15 — `--surface` não tem
+valor único, porque a regra R1 o troca dentro de um bloco que pinta `--panel`).
+MEDIDO: **1,23** (escuro) e **1,14** (claro) nas TRÊS, com a soma de ΔE00 da
+faixa caindo 44% e 39%. Falha ABERTA: sem `color-mix`, fica o desenho de ontem.
+A cor se partiu por **HABITAT** e não por botão — `.msg-add-btn` e `.pl-pack`
+vivem sobre `--panel`, onde o accent mede 1,21–1,23, e continuam nele.
+
+**A ALTURA CORRIGE UM DEFEITO LATENTE.** MEDIDO, o termo que mandava não era o
+`--hit-foot` (44px) e sim o `padding: .45rem`: varrer o token de 48 a 36px **não
+mudava um pixel**. As duas inquilinas da fatia do rodapé não mediam o mesmo, e o
+`#listFoot` PULAVA **7,77px** ao entrar na seleção múltipla — exatamente o que o
+comentário do token promete por escrito que não acontece. Com `padding: 0 .3rem`
+(a forma que a `.selbar` já tinha) o termo vertical passa a ser um só: 51,77 →
+**42,00px**, e o pulo a **zero**.
+
+**A `.selbar` NÃO entra na cor, e a razão é um nível abaixo.** Os `.sel-btn` que
+moram em cima dela são `--surface-2` e só são legíveis porque a barra debaixo é
+TINTA: sobre uma superfície quieta o par habilitado × desabilitado cai a ΔE
+**2,11** no tema claro — abaixo do limiar de percepção, e o app perderia a
+distinção entre disponível e INDISPONÍVEL na barra que hospeda o EXCLUIR.
+
+**E "padronize" cobrou dois eixos que ninguém tinha olhado:**
+
+- **o ÍCONE das três saía de governanças diferentes.** Só a do meio estava na
+  lista `:is()` do `svg`; as laterais viviam do atributo `width="20"` do
+  `botaoDoRodape`, e coincidiam por acidente. MEDIDO forçando `--icon-sm: 26px`:
+  a do meio ia a 26 e as laterais ficavam em 20, **e a altura não denunciava** —
+  a `.import-row` é `align-items: stretch`.
+- **a porta do meio não herdava a fonte do app, e SÓ NO APP.** No navegador ela é
+  um `<label>` e herda do `body`; no app é um `<button>`, e a folha do agente de
+  usuário entrega a família — que o `font-size` sobrescreve e a `font-family`
+  não. MEDIDO: `Arial` contra `system-ui`, **14%** de diferença na largura do
+  MESMO rótulo. **Nenhum oráculo enxergava isto**, porque eles rodam no
+  navegador: a armadilha do `__tela` num lugar novo.
+
+**Os preços, ditos.** No tema ESCURO o `--press-luz` fica INERTE nas três (Δ1
+nível contra os Δ30 da do meio), porque `brightness(1.35)` não move tinta branca
+— sobram os 2px de `translateY`, a metade que o `.pv-fab` da v1.4.33 não tinha
+quando saiu da lista. E o `--hit-foot` governa também o `.yt-search-btn`,
+alcançável de DENTRO do Modo Fácil (44 → 42px), num habitat SUNK. O piso, para
+quem for mexer no número: abaixo de **mix 50%** a caixa deixa de ser encontrável
+no tema claro (ΔE 2,40); o parâmetro é o MIX, nunca a altura.
+
+### 3 · A tampa da coleção: o crescimento da v1.5.17 visto pelo outro lado
+
+*"Ajuste o cartão das coleções, o card do titulo, pois ele está encolhendo ou
+modificando seu tamanho ao abrir sua listagem."*
+
+Colapsado, o bloco de raiz ganha `flex-grow` e cresce até a altura de encaixe com
+a barra CENTRADA dentro; ao abrir, ele sai de `:not(.expanded)`, perde a
+repartição, e a tampa cai para a barra nua. MEDIDO na própria captura dele
+(perfil de linha, DPR 3,5 fixado por dois invariantes que concordam): **51,00 →
+45,01 px CSS, −11,2%**. E é um SALTO, não um deslize: quadro a quadro, a tampa
+muda e o bloco sobe 5,64px em DOIS quadros, enquanto o corpo desliza por 220 ms.
+
+**O TEOREMA QUE FECHA AS SAÍDAS EM CSS PURO:** a tampa só pode ser CONSTANTE no
+valor MÍNIMO dela. Qualquer altura maior tem de caber em toda tela e em todo
+número de blocos — e MEDIDO, a lista já transborda com 45,19 a 360×740 com 9
+blocos, e com 20 blocos em qualquer tela. A "altura de encaixe" (55,05 a
+430×900; 50,94 a 411×856) é função da TELA **e** do NÚMERO de blocos: ela não
+existe como valor em CSS. Logo, ou a pílula emagrece para 45,19 sempre (e a sobra
+vai para os vãos, que sobem de 10 para 16–21px), ou o número é MEDIDO.
+
+**As duas saídas foram medidas e a escolha foi do operador**, porque as duas são
+visíveis e a diferença é de gosto, não de correção: *"congelar a pílula gorda"*.
+Daí o `--tampa-h` — a irmã exata do `--fav-vao`: mesma caixa, mesma régua (a
+BARRA de cada vizinha é a altura fechada dela), mesmo lugar de chamada. O CSS o
+lê nos DOIS estados: `height` no fechado, `padding-top` acima da barra no aberto.
+MEDIDO: **Δ ≤ 0,02px** em 24 cenários (4 telas × 2 temas × 3/9/20 blocos).
+
+- **A CLÁUSULA DOS FAVORITOS É OBRIGATÓRIA, e sem ela o lote não sai.** A seção
+  deles ABERTA nunca veste `--tampa-h`: ela tem `min-height: var(--fav-vao)` e
+  come a folga por conta própria (v5.273). Contá-la na divisão dá a cada irmã uma
+  fatia da folga que ela JÁ gastou, e a lista COLAPSADA passa a ROLAR — MEDIDO,
+  **81,5px** de transbordo a 430×900 com 9 blocos, e o `smoke.mjs` reprovando em
+  *"as fechadas ficam EMPILHADAS NA BASE"*. Como o `verificar` é `needs` do
+  `web-ota`, isso seria o bundle não chegando a aparelho nenhum.
+- **E É SÓ A DELES.** Descontar TODO bloco aberto é a variante óbvia e está
+  ERRADA (MEDIDO): ela leva `--tampa-h` ao piso assim que alguém abre um hinário,
+  devolvendo o defeito original. Um bloco que o operador abriu continua contando
+  como FECHADO — é a hipótese "tudo fechado" que dá a altura que a tampa dele tem
+  de manter.
+- **A ORDEM entre as duas medições é obrigatória**, e sai de graça do
+  agendamento: `--tampa-h` lê a altura RENDERIZADA dos Favoritos, governada por
+  `--fav-vao`. Não há realimentação (o `--fav-vao` soma BARRAS, que `--tampa-h`
+  nunca muda — MEDIDO, 1769px antes e depois), mas há ORDEM.
+- **O `max-height` FICA**, inerte no regime normal: é ele que segura o QUADRO
+  PRÉ-MEDIDA. Sem ele, MEDIDO, três coleções dão 184,34px por bloco antes de a
+  medida chegar — o defeito que `--bar-raiz-max` existe para impedir.
+- **E O GANCHO NÃO É O DO `--fav-vao`**, embora a ordem os junte: aquele só roda
+  com a seção dos Favoritos ABERTA (o `grupo()` só devolve o corpo nesse caso, e
+  o comentário do `favCorpo` diz isso por extenso). Pendurar a tampa ali a
+  deixava sem medida no estado padrão — MEDIDO, os blocos caíam para a barra nua
+  e o `D5`/`D5b` do oráculo reprovavam. Ela mora no `finally` de
+  `renderCollectionsList`, que é onde a lista está COMPLETA.
+
+**O que sai junto, dito:** a lista deixa de "RESPIRAR" ao abrir uma seção.
+Aquele respiro nasceu como argumento para não combatê-lo com `:has()`, nunca como
+pedido — e é a mesma repartição que produz o salto: em CSS puro os dois não são
+separáveis.
+
+**O RESÍDUO, nomeado:** onde a lista JÁ transborda (393×786 e 360×740 com 9
+blocos), abrir uma SEÇÃO ainda aumenta a tampa em **5,59px (+12,4%)**. Não é
+regressão — é o número da própria linha de base —, e a causa é assimétrica e está
+na folha: o `box-shadow` existe na `.coll-bar` de um card aberto e **não** na
+`.coll-group-bar`.
+
+### Os oráculos, e as quatro emendas que a revisão deles cobrou
+
+`tools/modo-facil-fonte.test.mjs` nasce neste lote (41 asserções); o
+`ferramentas-folha.test.mjs` ganha o bloco das três portas e o
+`lista-da-biblioteca.test.mjs` o bloco `F` da tampa. **19 reversões nomeadas,
+todas reexecutadas**, e campanha de determinismo de **32 execuções sem uma
+reprovação** (sem carga, a 2×, a 4× e a 8× numa máquina de 4 vCPU).
+
+Quatro emendas saíram da revisão, e **duas são a mesma classe — uma asserção que
+não pode reprovar no defeito que ela nomeia**, que é o formato mais caro de
+oráculo porque ele se lê como proteção:
+
+- **a das reticências era uma TAUTOLOGIA.** Na pilha (`column` +
+  `align-items: center`) o `<span>` nunca é clampado, então
+  `scrollWidth === clientWidth` **sempre**. MEDIDO: com o rótulo a **403,34px**
+  dentro de um botão de 92,8 e a faixa transbordando 156px, ela passava. Ficou —
+  ela guarda "o arranjo continua sendo pilha" — e ao lado dela entrou a pergunta
+  de verdade: a FAIXA não transborda a caixa dela. Margem MEDIDA a 320px:
+  294 × 294;
+- **a do pulo do rodapé não tinha teto.** Ela diz que as duas inquilinas da fatia
+  medem o mesmo — e MEDIDO, devolvendo o `padding` às portas **e** subindo o
+  `--hit-foot` para 51,77px, o bloco inteiro fica verde com a faixa de volta ao
+  tamanho que o lote existiu para derrubar. Entrou a asserção do TOKEN, na forma
+  que o bloco já usava para o `--icon-sm`: forçar `--hit-foot` e exigir que as
+  quatro peças o sigam;
+- **a irmã da tampa era a seção dos FAVORITOS**, e não o card que o comentário
+  nomeia — a única peça da lista com regra de altura própria, e justamente a que
+  a cláusula do `medirTampa` trata à parte. Uma linha: o par exato do bloco
+  medido;
+- **e um comentário afirmava um nome que a asserção nunca vê.** Ela mede o
+  PLACEHOLDER ("Nada em exibição"), não o item semeado, e a margem real é de
+  30,4% e não a folga de 3× que o texto sugeria. Corrigido com o número, mais o
+  risco de fonte quantificado (esta máquina resolve `system-ui` para DejaVu
+  Sans, a MAIS LARGA das nove instaladas — outra fonte dá mais folga, não menos).
+
+---
+
+## v1.5.18 — a margem de baixo, o card dono das opções e a divisória dos favoritos
+
+Três mensagens do operador, todas sobre a Biblioteca e todas **depois** de o
+crescimento da v1.5.17 estar no aparelho. É isso que as separa das anteriores:
+nenhuma delas é o recurso falhando — são o resto que ele deixou à mostra. E uma
+das três **revoga uma escolha do lote anterior**, que é o desfecho certo quando
+o que estava em jogo era uma preferência e não um número.
+
+### 1 · A margem de baixo — o que sobrou depois do crescimento
+
+*"o sistema de espaçamento das coleções ainda está ficando desregulados, pois se
+ver na imagem, há uma margem maior na parte de baixo. lembrando, a minha tela
+tem um tamanho de pixels, a sua tem outro e a dos usuários podem ter outro
+tamanho. mas o resultado ainda é oque está na foto, o ajuste ainda não ficou
+correto."*
+
+**A primeira coisa a estabelecer era se ele estava numa versão com o
+crescimento**, e a captura responde sozinha: decodificados os pixels (1440×2938),
+os blocos medem ~167 image px contra os ~136 que teriam sem `flex-grow`, e os
+vãos ~30. O recurso está no ar e funcionando. O que sobra embaixo do último
+bloco são ~100 image px — e não é espaço por repartir: **é o `padding-bottom` do
+scroller**, `.8rem` MAIS `env(safe-area-inset-bottom)`.
+
+**A ÁREA SEGURA SÓ VALE ONDE A JANELA ENCOSTA NA BASE.** Desde a v1.5.4 a
+janela da Biblioteca para na linha da caixa de controles, e a barra de gestos do
+Android fica abaixo **dela** — o recuo estava reservando lugar para uma vizinha
+que não é vizinha. Ela volta a valer nos dois casos em que a janela vai mesmo
+até o fim (`body.mode-simple` e `body.lib-aberta.teclado`), declarada no `body`
+para herdar até o scroller **e** até o véu de baixo, que anula o mesmo número.
+
+**E o valor é `--sp-5`, o MESMO `gap` que separa dois blocos de raiz.** Esta é a
+régua e não um número escolhido: com o crescimento preenchendo o resto, qualquer
+outro põe o último bloco a uma distância da borda que nenhum par de vizinhos tem
+— que é literalmente o que o relato descreve. O oráculo compara os dois
+COMPUTADOS, então ele continua valendo na tela dele, na minha e na de qualquer
+usuário, que é a preocupação que ele escreveu. MEDIDO a 430×900: recuo 9,6px,
+`gap` 9,6px, sobra **0,04px**.
+
+### 2 · O card dono das opções — a v1.5.17 revogada por quem opera
+
+*"também verifique aquele problema das opções de play, não estarem colorindo o
+card dono daquelas opções, pois ali nos favoritos você pode ver que o card
+titular do item não ganhou a cor de seleção/cor do corpo da caixa de opções."*
+
+A v1.5.17 tirou o overlay da tampa de um item aberto, e o argumento era um
+achado real: na lista de BUSCA, onde `--linha` é opaco e a `.row` esconde o
+overlay, a tampa já media **1,00:1** contra os botões da gaveta — **o app tinha
+duas leituras do mesmo objeto**. O que aquele lote fez foi escolher uma das
+duas; o que ele não viu é que a escolha não era técnica.
+
+**Para quem opera, o corpo de um item aberto é o POÇO** — a superfície grande
+que o toque abriu —, e não o papel dos blocos que descansam nela. Hoje a tampa
+veste `--gaveta-bg`: MEDIDO, tampa e poço a 1,00:1 nos dois temas, com os botões
+flutuando dentro deles (1,196:1 no escuro, 1,338:1 no claro). O item aberto é um
+bloco só.
+
+- **`background` na `.row`, e não `--linha`.** As quatro listas resolvem esse
+  token de jeitos diferentes — transparente no acervo e nos favoritos, `--camada`
+  na busca, `--surface` na pasta do aparelho — e uma delas é escopada com id;
+  pintar a superfície direto atravessa as quatro com um seletor só.
+- **E isso APAGOU a regra da PASTA que a v1.5.17 tinha escrito**, que mexia em
+  `--linha`: com esta por cima ela virou um valor sem efeito explicando um
+  desenho que já não existe, que é a definição de comentário-armadilha deste
+  repositório. Saiu no mesmo lote, com uma nota curta no lugar.
+- **Os três `:not()` são a precedência do estado**: uma linha NO AR que o
+  operador abra continua vermelha.
+- **A divisória acima dela some, de propósito.** O traço mora sob a `.row`
+  (`z-index: 1`), e ali quem separa passa a ser o preenchimento.
+
+### 3 · A divisória que faltava nos favoritos
+
+*"também veja que nessa lista de favoritos, também não há a linha divisória que
+temos nas outras listas na biblioteca, verifique isso."*
+
+A v1.5.16 desenhou o traço para a faixa de um ÁLBUM, e os favoritos são outra
+`<ul>`. Ele entra pela **mesma declaração**, com os dois seletores: continua
+sendo UM consumidor do `--divisoria`, e é isso que mantém de pé a asserção
+POSITIVA do `tokens.test.mjs` — uma segunda regra pintando o mesmo token seria a
+porta larga que ela existe para fechar.
+
+**Dois números mudam, e nenhum pode ser copiado do álbum:**
+
+- **a coluna do texto** — aqui a miniatura é o `--thumb` de 40px e lá é a
+  `.hymn-play-thumb` de 38 —, então `--faixa-coluna-texto` é SOBRESCRITO na
+  `.fav-itens`, por herança de custom property, em vez de duplicado numa segunda
+  regra. O traço continua começando onde o NOME começa, que é a forma do pedido
+  original (*"não borda inteira"*);
+- **a metade do vão** que a caixa reabsorve: o `gap` desta placa é `--sp-3` e o
+  do álbum é `--sp-2`. Copiar o número descentraria o traço — exatamente o
+  defeito que a v1.5.17 acabou de corrigir do outro lado. MEDIDO: desvio
+  **0,00px** do centro da banda, e o traço começando em 79,97px contra os
+  79,97px do nome.
+
+### O oráculo
+
+`tools/lista-da-biblioteca.test.mjs` ganhou o bloco **E**, com sete asserções e
+**sete reversões nomeadas**, cada uma provada: o recuo contra o `gap` (com
+`.8rem` de volta ele reprova), a divisória dos favoritos em quatro metades
+(existe · não antes da primeira · na coluna do nome DESTA lista · no meio do vão
+DESTA lista — cada uma com o patch que a derruba) e a tampa vestindo o poço
+**com a irmã fechada continuando sem tom**, que é a metade que impede o conserto
+largo: pintar toda `.row` passa na primeira e reprova nesta.
+
+Duas asserções do bloco D mudaram de RÉGUA no mesmo lote, e as duas por causa
+destas mudanças, não por conveniência: a D2b passou a medir o topo do CONTEÚDO
+da placa (o primeiro favorito agora sangra meia banda acima dela, de propósito)
+e a D3b passou a comparar a tampa com o BOTÃO da gaveta em vez de com a linha —
+a igualdade que ela guardava é hoje o desenho.
+
+O `tokens.test.mjs` ganhou o segundo seletor na constante da exceção, e a
+comparação passou a normalizar espaço em branco: a declaração agora ocupa duas
+linhas, e uma quebra de linha não pode ser o que decide se o traço é legítimo.
+
+---
+
+## v1.5.17 — os quatro relatos da Biblioteca
+
+Cinco mensagens do operador, quatro assuntos, todos sobre a mesma tela e todos
+no mesmo minuto. **Os quatro são REGRESSÕES DE PREMISSA**, e o padrão vale mais
+que qualquer um deles: uma regra escrita para um desenho continuou de pé depois
+de o desenho mudar, e passou a produzir o oposto do que ela existia para
+produzir. Nenhum deles quebra nada, nenhum aparece no console, e um teste de
+comportamento aprova as quatro versões defeituosas.
+
+### 1. A altura sobrando — e a resposta não era desfazer o aperto
+
+> *"Veja que o aproveitamento da altura não está correto, está sobrando. É claro
+> que pode haver telas menores, por isso o tamanho deve ser ajustável para se
+> encaixar a altura da tela."*
+
+`#hymnResults` é uma `.popup-list` — coluna flex — e os blocos de raiz caíam em
+`.popup-list > li { flex-shrink: 0 }` **sem `flex-grow`**: todo o excedente
+vertical se acumulava no fim da coluna. MEDIDO a 430×900 com os 9 blocos do
+acervo dissolvido: bloco em 45,19px e **85,58px** de faixa vazia no pé, 16,9% da
+janela. Não é uma medida errada — é espaço livre que ninguém reparte. E a
+v1.5.16 o AUMENTOU, de 27,92px com a barra a `.55rem` para 85,58 com `.35rem`,
+que era o preço declarado no comentário daquele lote.
+
+`flex-grow: 1` nos blocos de raiz **colapsados** é a resposta inteira, e é ela
+que torna a altura *ajustável por construção*: o navegador reparte a sobra
+quando o conteúdo cabe, e o crescimento é **inerte** quando ele transborda. Zero
+JS, nenhuma tela privilegiada. MEDIDO: 430×900 → bloco a **54,70px** e sobra
+**zero**; 393×786 e 360×740 com 9 blocos ficam idênticos a antes (45,19px,
+rolando 60 e 76).
+
+**Os dois mecanismos convivem, e cada um resolve uma ponta:** o aperto da
+v1.5.16 decide QUANTOS blocos cabem — vale na tela pequena, onde não há sobra a
+repartir —, e o crescimento decide o que fazer com a sobra, que é a tela grande.
+MEDIDO a 430×900 com 9 blocos, `.35` e `.55` EMPATAM em 54,70px, porque ali quem
+manda é o crescimento; com 10 blocos, `.35` cabe em 48,27 e `.55` rola 33px.
+
+As cinco decisões, cada uma provada por reversão:
+
+- **o seletor é o TRIO do nível 1, nunca `> li`** — `.acervo` está sempre no
+  `#hymnResults`, e as linhas da BUSCA são filhas diretas dele: MEDIDO, com
+  `> li` elas iam de 97,3 para 306,4px e de 44 para 253,1px;
+- **`:not(.aberto)`/`:not(.expanded)`** — uma seção ABERTA mede o conteúdo dela
+  (v5.276), e sem a guarda o vão volta a ser repartido com quem abriu;
+- **A BARRA NÃO CRESCE**, e isto é invariante e não estética.
+  `medirVaoDosFavoritos` soma as BARRAS das vizinhas para escrever `--fav-vao`,
+  e uma barra que cresce realimenta a conta até o vão deixar de ser dos
+  Favoritos — quem REPROVA essa variante é o `boot-nativo.test.mjs`, o único
+  oráculo que lê o token ("132px contra 136px" e "132 → 389"); com a barra
+  parada e o bloco centrado ele mede "405 contra 45" e "405 → 405". **O preço
+  disso é a faixa em volta da barra, e ela NÃO fica sem toque** — ver "o que a
+  revisão do próprio lote achou", abaixo: o ALVO e o `--press` passaram a ser do
+  bloco, que é o que o card já fazia;
+- **`--bar-raiz-max` e `min-height: min-content` andam juntos** — o teto existe
+  porque a lista pode ter POUCOS blocos (sem ele, três coleções dão 183,28px
+  cada), e sozinho ele RECORTA um card com subtítulo (MEDIDO, 45,19 → 40,00 com
+  um teto de 40);
+- **`align-items: stretch; gap: 0`** neutralizam o `align-items: center` e o
+  `gap` da `.coll-group` que o `display: flex` RESSUSCITA — a armadilha da
+  v5.273, em que trocar o `display` ativa o que já estava escrito.
+
+A lista passa a **respirar** ao abrir uma seção: uma irmã colapsada desce de
+54,28 para 48,64px em 13 valores, seguindo a curva do acordeão. É o recurso, não
+um defeito — evitá-lo com um `:has()` faria a lista PULAR num quadro.
+
+E `medirVaoDosFavoritos` ganhou `.row` no `querySelector` no mesmo lote: um bloco
+de raiz que caísse no ramo do `<li>` inteiro entraria na soma já CRESCIDO, e o
+vão encolheria em silêncio. Hoje nenhum bloco da raiz é uma pasta — mas a
+fórmula não pode depender disso.
+
+### 2. Os cards do topo — um colapso de margem que a v1.5.15 revelou
+
+> *"Verifique os cards que ficam no topo das listas, como o cards de este sábado
+> do informativo, ou das seções do hinário. Pois eles estão se sobrepondo de
+> forma errada ao espaço em que deveriam ficar, ficando para cima do correto,
+> sem margem no topo."*
+
+**COLAPSO DE MARGEM.** O `.coll-open` não tem `padding-top` nem borda de cima,
+então a `margin-top` de `.4rem` do primeiro filho — `.serie-destaque`,
+`.hino-indice` ou `.coll-songs` — é adjacente à dele e sai para FORA. Enquanto a
+placa era transparente ninguém via: os 6,4px caíam entre a tampa e uma caixa
+invisível. **A v1.5.15 deu a ela FUNDO e RAIO**, e o recuo passou a cair fora —
+MEDIDO, o primeiro filho começava a **0,00px** do topo da placa, contra os
+6,39px da placa IRMÃ (`.fav-itens`), cobrindo por inteiro os cantos arredondados
+que deveriam aparecer acima dele.
+
+`display: flow-root` **e não `padding-top`**: um recuo declarado ali impede o
+colapso e ainda SOMA à margem do filho (5,6 + 6,4 = 12px), e zerar a margem dos
+três filhos mudaria o vão ENTRE eles (MEDIDO, o destaque e a lista caem de 6,4
+para 1,6px). O BFC não inventa número nenhum — ele mantém dentro o `.4rem` que o
+filho já pede, e o resultado é 6,39px, o mesmo inset da placa irmã.
+
+**E ele já era o desenho certo por 220ms:** `expandAccordion` escreve
+`overflow: hidden`, que É um BFC — durante a animação o inset é 6,39 e vira 0 no
+quadro em que o `overflow` é devolvido. De quebra o acordeão passa a medir a
+altura de verdade: `offsetHeight` é lido ANTES do `overflow`, então a animação
+levava a 321px uma caixa que dentro do BFC pede 327 — 6px da lista recortados do
+começo ao fim do movimento.
+
+**E o salto do índice mirava o lugar errado.** `irParaSecao` usa
+`scrollIntoView({ block: 'start' })`, que mira o topo do SCROLLPORT — e o
+scrollport começa debaixo da tampa grudada do card: MEDIDO, o cabeçalho pousava
+em 0,39px com a tampa ocupando até 45,19, isto é, os 36px dele desapareciam por
+inteiro, e quem tocava num tema do índice caía na primeira faixa sem ver o nome
+do tema. `.hino-secao { scroll-margin-top: var(--bar-secao-h) }` resolve, e
+`scroll-margin-top` **não é `padding`**: ele só desloca o alvo de um scroll
+programático, e o `padding-top` do scroller continua ZERO (v1.5.15).
+
+### 3. O tom do item aberto — e o app tinha duas leituras do mesmo objeto
+
+> *"Verifique também o tom do item selecionado, pois a zona do título e
+> thumbnail está ficando diferente da cor do corpo desse item ao abrir as
+> opções."*
+
+`.lib-item.expanded` pintava `background-image: linear-gradient(--surface-sunk,
+--surface-sunk)` — alfa que EMPILHA. Ele foi escrito na v5.271 com a faixa
+FECHADA já recuada, e o comentário dizia isso com todas as letras: *"com a faixa
+fechada já recuada, o overlay da aberta empilha sobre ela"*. Era MAIS UM degrau
+sobre um degrau que existia.
+
+A **v1.5.14** tirou o preenchimento do nível 3 (`--linha: transparent`) e a
+premissa caiu: o overlay virou o ÚNICO tom da faixa aberta, num lugar que a
+alternância papel→poço→papel não tem. `--panel` rgb(33,47,61) + rgba(0,0,0,.24)
+= rgb(25,36,46), que é o pixel MEDIDO — não é hipótese, é a composição. Entre o
+título e o corpo do MESMO item: **1,15:1** no escuro e **1,39:1** no claro.
+
+**O achado que decidiu o desenho** é a última linha da tabela de medição: na
+lista de BUSCA, onde `--linha` é OPACO e a `.row` (`z-index: 1`) esconde o
+overlay, o mesmo par já media **1,00:1**. *O app tinha duas leituras da mesma
+gaveta, e o operador abriu a metade quebrada.* O overlay só era visível onde
+`--linha` é transparente ou translúcido — a faixa do acervo, o favorito e o
+arquivo de pasta.
+
+Sem ele: **1,00:1 nas três listas**, e o poço da gaveta ganha separação em vez
+de perder — 1,196 → 1,380 no escuro e 1,338 → 1,853 no claro.
+
+O arquivo de uma PASTA precisou da outra metade, porque lá a linha tem
+preenchimento PRÓPRIO (`--surface`, pintado duas vezes): aberta, ela media
+1,017:1 contra o POÇO no escuro — o título derretendo dentro da própria gaveta.
+Os três `:not()` são a PRECEDÊNCIA DO ESTADO, e a regra é escopada em
+`.folder-itens` de propósito: no acervo um `--linha` opaco esconderia o traço da
+`--divisoria`, que passa por baixo da faixa sem `z-index` (MEDIDO, Δ=39 → Δ=4).
+
+**Quem diz "esta é a que está aberta" é a GAVETA** — 250 a 345px de poço com os
+botões dentro. Neste app "aberto" nunca foi um tom: é a tampa que gruda no álbum
+e o nome em accent na pasta. Se um dia faltar sinal aqui, a resposta é o nome em
+accent, e não o overlay de volta.
+
+### 4. A divisória descentrada — não se move o traço, move-se a caixa
+
+> *"Verifique também o alinhamento vertical das linhas de divisão entre os itens
+> das listas, pois eles estão ligeiramente descentralizados para baixo em
+> relação aos itens e o vão entre eles."*
+
+O traço mora em `top: 0` da faixa DE BAIXO, e a razão continua de pé:
+`.lib-item` é `overflow: hidden` e um traço desenhado no `gap` é RECORTADO
+(MEDIDO por reversão — a força do pixel cai de 44 para ZERO). Com o vão INTEIRO
+fora da caixa, ele pousava no limite INFERIOR: **6,42px de branco acima e 1,37px
+abaixo**, isto é, 73% contra 16% de uma banda de 8,78px.
+
+Metade do `gap` entra como `padding-top` e um `margin-top` negativo da mesma
+medida devolve o conteúdo ao lugar — a caixa cresce para cima e o que está
+dentro dela não anda. A identidade não é do fixture: `N·(h+2) + (N−1)·4 − 2N` é
+`N·h + (N−1)·4` para qualquer N, então a altura da lista e o passo entre faixas
+ficam IDÊNTICOS. O que muda é só a caixa: 42,78 → 44,78px, ainda abaixo da barra
+do álbum que a contém (45,19px), que é o par que o `smoke.mjs` cobra.
+
+Vale para TODA faixa, e não só para a que tem irmã acima: fosse `+`, a primeira
+ficaria 2px mais curta que as outras e o preenchimento de ESTADO mudaria de
+altura conforme a posição dela na lista.
+
+### 5. A densidade da gaveta — e uma regra que nunca chegou a valer
+
+> *"Revise a altura dos elementos da seção de opções de play ao selecionar um
+> item dos álbuns e afins, pois essa seção de opções manteve a altura dos
+> elementos muito grande, pois ainda fazia referência a padrões antigos …
+> alinhando-se ao padrão e densidade das listas que temos na biblioteca."*
+
+São DOIS defeitos, e o operador acertou o diagnóstico e a data.
+
+- **A ALTURA.** `.song-menu-btn { padding: .6rem .7rem }` sobre um
+  `.song-menu-check` de `--hit` dava **53,19px**, contra os 42,78px de uma
+  `.hymn-result` da lista logo acima — razão **1,243**. Com `--sp-2` a linha vai
+  a **42px**, a mesma densidade. `--hit` (34px) é o CONTEÚDO e não foi tocado,
+  então o alvo continua 8px acima do piso; o horizontal desce de `.7rem`
+  (11,2px, fora de qualquer degrau) para `--sp-5` (9,6px, o degrau mais
+  próximo), para o relato ser sobre ALTURA e o lado quase não andar.
+- **E A REGRA DO RECUO DA GAVETA ESTAVA MORTA.** `.hymn-opcoes` e
+  `.song-menu-list` moram no MESMO `<ul>` (o montador escreve
+  `className = 'song-menu-list hymn-opcoes'`), têm a MESMA especificidade, e a
+  segunda vem DEPOIS na folha: o recuo da primeira nunca chegou a valer, e a
+  gaveta vestia o recuo do BOTTOM-SHEET que a v5.285 substituiu. MEDIDO por
+  reversão — apagando o `padding` da `.song-menu-list` na folha real, o
+  computado cai de 6,4/9,6/12,8px para os 7,2/8/8 da regra escondida.
+- **"Padrões antigos" TEM DATA:** o commit das QUATRO ESCALAS (v1.5.14)
+  converteu `gap`, `font-size` e `font-weight` dessas mesmas regras e NUNCA
+  tocou em `padding` — os literais de recuo da gaveta são todos do commit-raiz,
+  e quatro deles não existem em degrau nenhum da escala `--sp-*`.
+- **O par do confirmar acompanha, obrigatoriamente.** O `min-height:
+  calc(var(--hit) + 1.2rem)` da faixa de confirmação era o número do
+  `.song-menu-btn` COPIADO. Deixado como estava, a linha PULARIA +11,19px sob o
+  dedo ao perguntar *"excluir?"* — o defeito da v5.309 de volta, e MEDIDO. Hoje
+  a soma é escrita como a soma: `calc(var(--hit) + 2 * var(--sp-2))`.
+
+### O que a REVISÃO do próprio lote achou
+
+Quatro revisores adversariais mediram o lote antes de ele ir para `main`, e o
+que eles acharam **não foi pixel quebrado** — oito telas fora da Biblioteca
+medem diferença ZERO elemento a elemento. Foi ALCANCE e COMENTÁRIO, que é o que
+faz o próximo lote desfazer o conserto de boa-fé.
+
+**A MARGEM MORTA (a mais cara).** O bloco cresce e a barra não, então sobram
+~4,8px de cada lado dela — e a faixa falhava de DOIS jeitos diferentes: numa
+SEÇÃO o ouvinte morava na barra e o toque ali não fazia NADA (9,5px por bloco,
+17% da pílula que o dedo vê); num `.hymnal-card` o ouvinte já é do `li`, então o
+toque ABRIA e nada respondia, porque quem estava na lista do `--press` era a
+barra. **É o oposto do que o recuo da `.coll-bar` existe para produzir**
+(v5.288: *"a faixa em volta dela ser ALVO em vez de margem morta"*), e o
+comentário do lote afirmava um preço único e falso para os dois casos. A
+correção é a do card, generalizada: o ALVO é o bloco e a RESPOSTA também.
+- A guarda do ouvinte é **POSITIVA** (o `li` ou a barra). Escrita ao contrário
+  — *"tudo menos o corpo aberto"* —, ela supõe que o corpo tem sempre a mesma
+  classe, e a seção dos FAVORITOS monta o dela por outro caminho: um toque numa
+  linha de favorito FECHAVA a seção debaixo do dedo. O `boot-nativo` pegou.
+- O `--press` do bloco é **regra separada**, e não mais um nome na lista: `:is()`
+  toma a especificidade do argumento mais específico, e um seletor com id ali
+  levaria as ~40 classes para (1,x,0) de uma vez.
+
+**O ALCANCE DA DENSIDADE.** O `.song-menu-btn` é a linha de TRÊS folhas modais
+além da gaveta, e apertar o seletor cru levava as três junto — MEDIDO, a folha
+de destinos caía de 312,30 para 267,55px e a do YouTube de 469,91 para 411,91.
+O relato nomeia a Biblioteca; as folhas não estavam nele, não têm régua (não há
+`.hymn-result` "logo acima" de um modal) e não tinham oráculo. O recuo virou o
+par `--opcao-recuo-v`/`-h` no `:root` e a `.hymn-gaveta` o sobrescreve — e o
+token **fecha a duplicação que a própria folha reclamava**: o `min-height` da
+faixa de confirmação era o número do botão COPIADO, e o comentário de lá dizia
+com todas as letras que era *"a única duplicação aqui"*.
+
+**TRÊS COMENTÁRIOS QUE PASSARAM A MENTIR**, e o formato dos três é o que este
+projeto nomeia como pior que a ausência:
+- o do `.linha-confirma` continuava ensinando `.6rem`/`1.2rem`/`53px`/`19px`
+  **no presente**, e quem o seguisse devolveria o número copiado — de boa-fé, e
+  de acordo com a documentação da própria regra — reintroduzindo os +11,19px de
+  pulo sob o dedo;
+- o cabeçalho *"E ESTA REGRA ESTAVA MORTA"* falava da REGRA quando só o
+  `padding` estava: apagar o `display: flex` ou o `gap` colapsa o vão entre as
+  opções de 4px para ZERO (MEDIDO por reversão), e nada mais dá layout àquela
+  `<ul>`;
+- e três escritas mandavam conferir o `smoke.mjs` sobre `--fav-vao`, que ele não
+  menciona: quem lê o token é o `boot-nativo.test.mjs`. Quem seguisse abriria o
+  maior arquivo da suíte, não acharia a asserção e concluiria que a invariante
+  não tem oráculo.
+
+**E UM CONFLITO DE DOUTRINA DENTRO DO MESMO LOTE.** O comentário novo fecha com
+*"aberto nunca foi um tom"*, e duzentas linhas antes o mesmo lote dá tom ao
+aberto de UMA lista — a pasta do aparelho. O valor fica (ele resolve um piso de
+contraste real: sem ele a linha aberta ficaria a 1,08:1 do poço da própria
+gaveta), e a exceção passou a estar escrita ao lado da regra, com o par medido
+(1,273:1 no escuro, 1,879:1 no claro), para não ser apagada por coerência.
+
+**E o `smoke.mjs` afirmava, sobre uma `<ul>` PRÓPRIA, uma propriedade que a
+regra nova quebra no host de verdade** (`faixaAcimaDaBarra` = 0 na lista dele,
+4,75px no `#hymnResults`). O caso fica — ele guarda o que nomeia, um recuo da
+LISTA vazando —, com o host escrito no comentário e o par novo (`D6`) apontado.
+
+### Os oráculos
+
+O bloco `D` do `tools/lista-da-biblioteca.test.mjs`, com a reversão nomeada em
+cada asserção. O caso do crescimento abre **contextos próprios em DUAS telas**,
+e essa é a decisão que carrega o lote: numa tela só, *"preenche"* e *"tem uma
+altura fixa maior"* são indistinguíveis — e a segunda destruiria justamente o
+aparelho pequeno, onde não há sobra a repartir. As réguas são o desenho que já
+existe, nunca um número escrito no teste: a placa IRMÃ dos Favoritos para o
+inset, a faixa VIZINHA para a densidade da gaveta, o vão de CONTEÚDO para a
+divisória. E o `D6`, que a revisão do lote acrescentou: o toque na faixa em
+volta da barra ALTERNA o bloco (medido pelo ESTADO, porque este cenário monta a
+lista com um `redesenhar` de mentira e o nó não é refeito), o `--press` é do
+bloco, e a barra fica calada dentro dele — as duas metades provadas por
+reversão.
+
+**Só base web.** `SHELL_VERSION` fica em 61 e o `version.json` sai sem
+`shellTag`.
+
+---
+
+## v1.5.16 — a divisória, o véu e a coletânea dissolvida
+
+Três pedidos do operador, todos sobre a Biblioteca, todos no mesmo minuto:
+*"Ajuste para que o scroll da biblioteca tenha um efeito de blur na borda interna
+superior ou inferior, quando algum elemento da tela ir para debaixo dessa borda.
+Para melhor perceber que há mais itens no scroll da lista. / Verifique a criação
+de um elemento de linha divisória (não borda inteira), na listagem do itens
+propriamente dos álbuns, para melhor distinção entre os itens. / Ajuste as
+coletâneas, agora os albuns do celebra SP, serão individualmente colocados na
+coleção de "diversos". Não identifiquei independência suficiente para que ele
+tenha uma coleção só para ele. Remover esse grupo em específico das coleções,
+fara com que todas as coleções caibam na tela enquanto estiverem colapsadas, sem
+a necessidade de rolar. Inclusive, aproveite para reajustar o tamanho dos cards
+das coletâneas e espaços, para que eles aproveitem exatamente esse espaço … Talvez
+precise ajustar um pouco o tamanho dos subgrupos para manter uma certa
+proporcionalidade."*
+
+### A DIVISÓRIA — e por que ela não é a moldura da v1.5.9 voltando
+
+**O pedido tem causa aritmética, e ela nasceu na v1.5.14.** Enquanto a faixa teve
+fundo próprio (`--item-fill`), o que aparecia no vão de 4px entre duas faixas era
+o tom do álbum, e o vão ERA um degrau. Com a alternância a faixa ficou
+transparente sobre a placa de papel, e o vão passou a ser a MESMA superfície dos
+dois lados: **1,00:1**. Não é pouca separação — é separação nenhuma. O comentário
+da v5.272 que morava no `.coll-songs` (*"um espaço só separa quando os dois lados
+dele têm cor"*) descrevia exatamente a condição que a v1.5.14 removeu, e
+continuou de pé descrevendo uma declaração já inalcançável.
+
+`--divisoria` mede **1,88:1** no escuro e **1,99:1** no claro sobre a placa —
+contra os 1,78:1 e 2,51:1 da moldura removida. Mesma ordem de grandeza, um
+vigésimo da tinta. Alfa e não valor fixo, porque a placa muda de tom entre os
+temas e o traço tem de compor sobre o que estiver lá.
+
+**A distinção entre esta linha e a moldura é de OBJETO, não de espessura.** A
+moldura era um retângulo por nível — quatro arestas, em TRÊS níveis ao mesmo
+tempo — e carregava a HIERARQUIA, que é o trabalho que a alternância faz hoje com
+degrau de verdade. Esta é UMA aresta, num nível só, entre IRMÃS, e faz o que a
+alternância por construção não faz: separar vizinhas do MESMO nível. As três
+palavras que decidem estão no pedido — *"não borda inteira"*: o operador já sabe
+que o app aboliu contorno, e está nomeando a diferença.
+
+**E ela não é uma `border`, o que aqui é a parte perigosa.** `border-bottom`
+pinta a caixa inteira e não tem como ser RECUADA — e o recuo é literalmente o
+*"não borda inteira"*: a divisória começa na coluna do NOME
+(`--faixa-coluna-texto`), nunca sob a miniatura. A forma sai do pedido; o
+PRECEDENTE é que não podia sair de graça. Um traço pintado como bloco de 1px
+passaria pela varredura de contorno sem ninguém decidir nada, e o que entraria no
+repositório seria *"filete pode, desde que não se chame border"* — a heurística
+exata contra a qual o `tokens.test.mjs` avisa. Daí o oráculo ganhar o PAR, os
+dois provados por reversão:
+
+- **a NEGATIVA** varre a base por qualquer regra com `height: 1px` (ou `width`) e
+  um `background` não-transparente, e reprova todas menos o seletor nomeado;
+- **a POSITIVA** exige que `--divisoria` tenha exatamente UM consumidor e que ele
+  seja esse seletor — senão o token viraria a porta larga e a negativa o deixaria
+  passar pelo nome.
+
+Três detalhes de implementação que não são detalhe:
+
+- **`+` e não `:not(:last-child)`.** A divisória pertence ao PAR, e é o
+  combinador que faz três ausências saírem de graça: nada acima da primeira
+  faixa, nada abaixo da última, e nada entre um `.hino-secao` e a faixa que ele
+  encabeça (o cabeçalho é um `<li>` irmão na MESMA `<ul>`, e `+` não casa através
+  dele). A paginação de 100 em 100 também sai de graça: `+` é vivo e a sentinela
+  `.coll-more` é removida e recolocada no fim.
+- **`top: 0` e não o vão.** `.lib-item` é `overflow: hidden`, então um traço
+  desenhado no `gap` é RECORTADO — MEDIDO, o pixel volta como a placa crua.
+- **Sem `z-index`.** A `.row` é `z-index: 1` e pinta `--linha`, então o traço
+  some quando a faixa ganha preenchimento opaco de estado: ali quem separa é o
+  preenchimento, e duas linguagens sobre o mesmo par seriam ruído.
+
+### O VÉU — blur porque não existe cor certa para ele
+
+Dois pseudo-elementos `position: sticky` DENTRO do scroller, com
+`backdrop-filter: blur(5px)` e uma `mask-image` esmaecendo para transparente.
+
+**Blur e não gradiente, e a razão é a alternância.** Papel → poço → papel põe
+DUAS superfícies sob a mesma borda, e um gradiente teria de escolher uma delas —
+sobre a outra ele seria uma faixa de cor errada. Blur é agnóstico de cor: MEDIDO,
+−60% de nitidez nos dois temas, com o conteúdo por baixo de qualquer tom.
+
+**Dentro do scroller, a `z-index: 2`, é o que o faz sumir sozinho sob uma tampa
+grudada.** As tampas são opacas e moram acima (z 3 e 4), então o véu desaparece
+exatamente onde não tem o que dizer — não há regra a escrever para isso. MEDIDO
+em 131/131 amostras com uma coleção aberta, e em 250/250 de conteúdo cru na lista
+plana da busca.
+
+**Ele só existe quando MENTIRIA ao não existir.** `.tem-acima`/`.tem-abaixo` saem
+de um ouvinte de `scroll` com `requestAnimationFrame`, reafirmados em todo ponto
+que muda a lista (abrir a Biblioteca, redesenhar as coleções, redesenhar a busca,
+o teclado subindo). **A especificidade mordeu uma vez:**
+`#hymnResults:not(.tem-acima)::before` é (1,1,0) e perdia para
+`.popup-backdrop--lib.open #hymnResults::before`, que é (1,2,0) — o véu ficava
+aceso no topo da lista, que é o único lugar onde ele mente. As regras de desligar
+repetem o prefixo.
+
+**Sem `backdrop-filter` ele não aparece** (`@supports not`): meio véu — a máscara
+sem o borrão — seria uma sombra sem causa. E o véu de baixo ANULA o recuo da
+lista (`bottom: calc(-1 * var(--lib-lista-base))`), que é por isso que aquele
+recuo virou token: sem a anulação ele gruda acima do recuo e deixa uma faixa de
+conteúdo nítido embaixo de si — defeito que só aparece num aparelho com barra de
+gestos.
+
+### A COLETÂNEA DISSOLVIDA — uma regra, não uma linha apagada do catálogo
+
+Nasce `app/src/main/assets/web/controle/coletanea.js`: uma regra **PURA**, com
+oráculo em Node, sobre o catálogo cru do banco LouvorJA. É o mesmo desenho das
+SÉRIES e do HINÁRIO, e pelo mesmo motivo — o nome das seções é decisão de quem
+publica lá, e um ajuste tem de chegar por OTA em minutos.
+
+- **DISSOLVER, não remover.** MEDIDO: descartar a categoria deixa os álbuns
+  ÓRFÃOS, e `renderCollectionsListMiolo` os recolhe num bloco *"Outros álbuns"* —
+  o mesmo número de blocos, com um nome pior. `aplicar()` MOVE os álbuns para o
+  destino e só então a origem deixa de existir.
+- **Roda no DESENHO, nunca no `fetchAlbumCatalog`.** O catálogo fica semanas no
+  IndexedDB; aplicada na busca, uma correção por OTA só valeria depois da próxima
+  sincronização COM REDE. E precisa ser aplicada nos DOIS consumidores do mesmo
+  render — o laço das seções **e** o `claimed` dos órfãos: ligar só um devolve
+  "Outros álbuns" pela porta dos fundos. Essa metade é a que o
+  `boot-nativo.test.mjs` prende; nenhum oráculo da regra pura a alcança.
+- **Destino ausente é IDENTIDADE, e a origem FICA na tela.** É a única decisão do
+  arquivo que contraria o pedido, e é deliberada: um destino renomeado no banco
+  faria a origem sumir levando os álbuns dentro dela.
+- **A comparação é por IGUALDADE** sobre o `normalizar` do `serie.js` (copiado
+  verbatim), nunca `includes` — *"Diversas"* casaria com *"Diversas Antigas"*. E
+  a lista de aceitos tem as DUAS grafias: o operador escreveu *"diversos"*, a
+  seção no aparelho chama-se **"Diversas"** (conferido em
+  `site/telas/biblioteca.webp`), e nenhuma normalização une as duas.
+- **O Registro tem o bloco** (`blocoColetaneas`), com o motivo de cada
+  movimento: uma coletânea que some da tela sem explicação é indistinguível de um
+  catálogo que veio menor.
+
+### O ORÇAMENTO DA LISTA COLAPSADA — apertar, não esticar
+
+MEDIDO a 430×900, com **582px** de caixa de lista:
+
+| blocos | antes | depois |
+|---|---|---|
+| 9 | 553,9px (cabia) | — |
+| 10 | 615,1px (rolava) | **551,1px (cabe)** |
+| 11 | — | 605,9px (rola) |
+
+O que apertou foram as DUAS barras: `padding` de `.55rem` para `.35rem`, e
+`--bar-secao-h` de `calc(var(--hit) + 1.1rem)` para `+ .7rem`.
+
+- **APERTAR e não ESTICAR, e a razão é o vão dos FAVORITOS.** Esticar os cards
+  até o encaixe exato levaria aquele vão de 131px a 55px, e a seção passaria a
+  rolar quando aberta — desfazendo a v5.273/v5.277, que o operador pediu duas
+  vezes.
+- **E o segundo preço, que é a leitura literal do pedido:** apertar AFASTA do
+  enchimento exato em vez de aproximar. Com os 9 blocos do acervo dissolvido a
+  lista ocupa 496,3 dos 582px e sobram **~86** — contra os ~28 que sobrariam sem
+  o aperto. *"Aproveitem exatamente esse espaço"* virou *"caibam com folga"*, e
+  preencher exigiria esticar. (No aparelho a sobra é MENOR: os cards com
+  subtítulo — as duas séries, os hinários com peso — são mais altos que a barra
+  nua desta conta.)
+- **A promessa vale de 430px para cima.** MEDIDO: a 393×786 (entalhe de 39px,
+  caixa de 436px) cabem 7 blocos nos DOIS desenhos — ali o aperto não compra
+  bloco nenhum; a 360×740 (24px, 420px) ele vai de 6 para 7. Com 9 blocos, os
+  dois continuam rolando.
+- O aperto teve consequência medida: a linha de uma faixa passou a ser mais alta
+  que a barra do álbum que a contém (48px contra 45px), e o `smoke.mjs` pegou. O
+  `padding` da `.hymn-row` foi de `.3rem` para `.15rem` (48 → 42,8px); encolher a
+  miniatura moveria `--faixa-coluna-texto` e com ele a divisória.
+
+### O ACHADO QUE FICOU REGISTRADO, E NÃO CORRIGIDO
+
+Um `:not(.no-ar):not(.active):not(.selected)` chegou a ser escrito no nível 3 e
+saiu na mesma revisão: era código morto por dois motivos EMPILHADOS.
+`hymnResultRow` escreve `dataset.song` e `marcarNoAr` lê `dataset.id`, então a
+classe nunca chega; e mesmo forçada ela perderia para
+`.coll-songs > .hymn-result { --linha: var(--item-fill) }`, que empata em (0,2,0)
+com `.lib-item.no-ar` e vence por ordem de fonte — no tema claro isso compõe
+branco sobre branco, **1,000:1**. O conserto tem DUAS metades e nenhuma serve
+sozinha; ele está em `docs/ACHADOS-EM-ABERTO.md` §4, e o
+`lista-da-biblioteca.test.mjs` afirma a AUSÊNCIA — o que o app faz — em vez da
+promessa que ele não cumpre. **O irmão dos FAVORITOS era alcançável e foi
+corrigido no mesmo lote** (`.fav-itens > .lib-item:not(...)`), e é isso que
+explica o item *"o favorito que está no telão voltou a ficar destacado"* das
+notas.
+
+### Os oráculos
+
+- **`tools/coletanea.test.mjs`** (novo, Node puro): a regra, com entradas
+  VERBATIM da tela do aparelho, e as duas reversões que a provam — casar por
+  `includes` reprova, dissolver sem destino reprova.
+- **`tools/lista-da-biblioteca.test.mjs`** (novo, Chromium): a divisória e o véu,
+  medidos no PIXEL do PNG — uma regra `::before` sem a declaração de cor passa num
+  teste de classe e continua invisível na tela.
+- **`tools/boot-nativo.test.mjs`**: a LIGAÇÃO da regra até a tela. E os nomes das
+  seções do fixture de rolagem viraram neutros: três eram os nomes REAIS do
+  banco, e com a regra no ar aquele cenário montava CINCO seções onde o texto diz
+  seis — MEDIDO, com a asserção VERDE, medindo outra coisa.
+- **`tools/tokens.test.mjs`**: o par negativo/positivo da exceção.
+- **`.github/workflows/apk.yml`**: os dois novos entram na lista, e uma conferência
+  do lote achou que o `enquadramento-da-camada.test.mjs` nunca tinha sido
+  invocado — 69 oráculos em disco, 69 invocados agora.
+
+**Só base web.** Nada em `java/`, `res/` ou no manifesto; `SHELL_VERSION` fica em
+61 e o `version.json` sai sem `shellTag`.
+
+---
+
+## v1.5.15 — a perna da raiz da Biblioteca
+
+Três relatos sobre a v1.5.14 e um pedido, todos do operador, todos sobre a mesma
+tela: *"isso era pra ser assim? fundo azul nos itens do provai e vede? e etc...?
+/ e está tendo a sobreposição do topo/titulo do grupo, oque está ok, mas a lista
+está vazando acima, depois dessa sobreposição, oque está estranho. e essa
+sobreposição também permanece, mesmo após terminar a lista de um álbum e começar
+a ver os outros albuns, ficando com ela no topo, parecendo que um álbum está
+pertencendo a outro... / aliás, aproveite para ajustar a cor do cinza da seção de
+barra de progresso da midia em exibição… para o mesmo cinza claro dos botões
+inativos de próximo e anterior slide"*.
+
+### A PLACA — a alternância não estava errada, faltava o degrau de baixo dela
+
+**A árvore da Biblioteca não tem profundidade uniforme, e é isso que a v1.5.14
+não viu.** Uma seção contém CARDS; uma coleção da raiz (um hinário, uma série)
+contém FAIXAS. Como a v1.5.14 tirou o preenchimento do nível 3, a faixa pousa no
+que o bloco pinta — e o bloco veste POÇO ou PAPEL conforme a profundidade. Logo
+a MESMA `.hymn-result` saía em duas cores conforme onde a coleção calha de
+morar: cinza dentro de uma seção, AZUL num álbum da raiz.
+
+A correção não é uma exceção: é a regra dita por inteiro — **o poço é a MOLDURA
+de um agrupamento; o papel é onde o conteúdo pousa.** O `.coll-open` de uma
+coleção da raiz é o nível 2 daquela perna, a irmã exata da placa dos Favoritos
+(`.fav-itens`), que já fazia isto no mesmo lote e serviu de precedente. MEDIDO
+no renderizado, nos dois temas: a placa a **1,43:1** (escuro) e **1,35:1**
+(claro) do poço em volta, e a **1,00:1** do card de álbum de dentro de uma seção
+— que é a metade que importa, porque é ela que faz a faixa pousar na mesma cor
+em qualquer lugar do acervo.
+
+**A placa é o CORPO ABERTO INTEIRO, e não só a lista de faixas.** O primeiro
+corte a pôs na `.coll-songs`, deixando de fora o DESTAQUE do sábado e o ÍNDICE
+de temas — os dois únicos blocos do acervo que só existem na raiz. Os dois
+pintam contando com PAPEL embaixo: MEDIDO, `--sel-fill` (o bloco do destaque)
+dá **1,31:1** sobre o papel, o par para que ele foi desenhado, e **1,03:1**
+sobre o poço no tema claro. Aquele corte consertaria a lista e deixaria o
+"ESTE SÁBADO" invisível dentro da própria caixa — o mesmo defeito um bloco
+acima, e ele está numa das capturas que o operador mandou.
+
+**A geometria copia a da seção, número por número:** a `margin` da placa é o que
+o `.coll-group-corpo` reserva a um card (`.35rem .4rem .45rem`) e o que sobra do
+`.7rem` do `.coll-open` vira o `padding` dela, então a faixa continua a `.7rem`
+da borda do bloco, exatamente onde estava. A animação do acordeão não sofre:
+`expandAccordion` anima altura E opacidade juntas, então na altura zero a placa
+está transparente.
+
+### O `top` DE UMA TAMPA É A PROFUNDIDADE DELA, e os dois outros relatos são um
+
+A v1.5.14 escreveu `.acervo .hymnal-card.expanded > .coll-bar { top:
+var(--bar-secao-h) }` — **por tipo de bloco**, quando toda a regra em volta é por
+PROFUNDIDADE. Um hinário ou uma série mora na RAIZ e não tem barra nenhuma acima;
+o que sobrava era `--bar-secao-h` de vão entre o topo da lista e a tampa colada.
+
+**Esse vão não é neutro: ele É o scrollport.** A lista rola por ali À VISTA, e os
+dois relatos são as duas faces disso:
+
+- **por cima** — as faixas do PRÓPRIO card aparecendo acima da barra que as
+  encabeça (MEDIDO: tampa colada em 110,8px com o scrollport começando em
+  59,2 — 51,6px de lista à mostra);
+- **enquanto ela sai** — a tampa DESGRUDANDO sobe do slot dela até sumir, e nesse
+  trecho continua inteira no topo, pintada por cima (`z-index: 3`) das coleções
+  seguintes, que já estão à vista. É literalmente *"um álbum pertencendo a
+  outro"*.
+
+Na raiz o degrau é zero; dentro de uma seção é a altura da barra dela. O oráculo
+mede as DUAS na mesma passada, porque um `top` escrito por tipo passa numa e
+reprova na outra.
+
+**E O SCROLLER NÃO PODE TER `padding-top`, pela mesma aritmética.** Padding de um
+scroller fica DENTRO do scrollport, e uma tampa em `top: 0` para no topo do
+CONTEÚDO — que fica abaixo dele. Era a metade fina do mesmo relato: `.5rem` de
+faixas à mostra acima de QUALQUER tampa colada, seção inclusive. Ele foi a zero e
+**não virou margem**: a caixa da lista tem de começar exatamente onde a barra de
+busca acaba, que é o contrato geométrico da janela e já tinha oráculo (o
+`margin-top` foi a primeira tentativa e reprovou nele). O que se perde é `.5rem`
+de respiro no repouso; o que se ganha é a tampa docando RENTE à barra.
+
+### O cartão da linha do tempo veste o tom de um controle INATIVO
+
+`--surface` cheio é o tom do botão de slide **ATIVO** — MEDIDO, os dois pintavam
+exatamente a mesma cor desde a v1.5.13. O que o operador aponta é o inativo, que
+é a mesma superfície sob o véu de `opacity: .35`: **rgb(242,242,242) contra
+rgb(219,219,219)** no tema claro, que é a diferença que ele descreve como "o tom
+claro".
+
+**Ele é DERIVADO, e não um token de cor novo.** `--surface` não tem um valor só:
+a regra R1 troca a superfície flutuante pela afundada dentro de um bloco que
+pinta `--panel`, e a caixa de controles é um deles — MEDIDO, ela resolve
+`rgba(255,255,255,.12)` no escuro e `rgba(0,0,0,.14)` no claro. Um token teria de
+repetir essa bifurcação inteira (e o override do R1 junto); o `color-mix` lê o
+valor JÁ RESOLVIDO no ponto de uso, que é o único correto nos quatro casos. O
+piso é a declaração de cima: um WebView sem `color-mix` descarta a segunda e fica
+com o tom da v1.5.13.
+
+O número saiu para um token, `--op-inativo`: ele estava escrito em três
+`:disabled` e ganhou um quarto consumidor que não é um controle.
+
+### O que os oráculos aprenderam
+
+- **`smoke.mjs`** ganha a perna da RAIZ, que a v1.5.14 não media — e é por não
+  medi-la que ela deixou passar os dois defeitos: a placa com degrau de verdade
+  contra o poço **e valendo o mesmo que o card de álbum** (sem a segunda metade
+  a faixa continua em duas cores), o `top` zero da tampa da raiz medido ao lado
+  do da tampa aninhada, e o primeiro bloco começando NO TOPO do scrollport. A
+  régua desta última é a GEOMETRIA e nunca `paddingTop` lido de volta: o vão
+  pode voltar por qualquer caminho.
+- **`controles-layout.test.mjs`** troca a régua do cartão (do botão ATIVO para o
+  APAGADO, com o véu composto) e ganha a REVERSÃO ao lado — sem ela, um véu
+  apagado por engano devolveria a v1.5.13 e a asserção passaria, porque os dois
+  lados voltariam a ser a mesma superfície cheia. **E o parse de cor passou a ser
+  por CANVAS**: `color-mix` computa como `color(srgb 1 1 1 / 0.042)`, cujos
+  canais vão de 0 a 1 — uma regex de números devolve (1,1,1), e o oráculo reprova
+  com um número plausível que faz quem lê o log concluir que o app quebrou.
+
+### Limpeza
+
+`medirVaoDosFavoritos` somava a MOLDURA de cada seção fechada, com cinco linhas
+de comentário explicando por quê. A moldura saiu na v1.5.14: o termo era zero e o
+comentário descrevia um desenho que não existe.
+
+### Entrega
+
+**Só base web** — nada em `java/`, `res/` ou no manifesto. Por isso o `shellTag`
+sai do `version.json`: declará-lo faria o `web-ota` segurar o bundle esperando
+uma Release que não tem o que carregar, em silêncio e para sempre. O rodapé fica
+com `Web v1.5.15 · Shell v1.5.14`.
+
+---
+
+## v1.5.14 — a Biblioteca deixa de ser uma escada
+
+A HIERARQUIA DA BIBLIOTECA DEIXOU DE SER UMA ESCADA, O TEMA ESCURO VIROU DENIM E O APP GANHOU QUATRO ESCALAS. Pedido do operador, e ele nomeia o problema antes de pedir a solução: *"seguimos como base um padrão nosso, depois adaptamos para o padrão oficial da IASD, mas essa transformação foi mais com relação a cores, então muita coisa não se ajustou ao esquema de cores recomendado… lá temos o problema de ser uma lista de grupos, subgrupos, e subgrupos menores… por isso quero que você busque uma solução mais abrangente. pois a meu ver, assim como no desenvolvimento de ia, chegamos a um pico de eficiência, que pequenas variações não mudam muito o resultado, e para achar um resultado melhor, devemos ir um pouco mais longe antes de tentar pequenas modificações"*. Mais: *"tente seguir ao máximo o tema oficial da IASD"* · *"não se apegue tanto as regras de design da documentação, caso suas ideias sejam mais coerentes, facilmente abandonariamos uma regra pessoal minha"* · *"tente buscar um estilo moderno e minimalista, por exemplo, poucas bordas, sem traços finos, ou designs visualmente poluídos"* · *"busque consistência maior dentro do app"* · e a restrição que delimitou tudo: *"a posição e arranjo dos elementos eu considero muito boa atualmente… não proponha nenhuma mudança significativa em relação a posições (exceto pela tela do modo simples, nela eu dei menos atenção e julgo estar mais frágil, por exemplo no modo de slides que fica bem estranha a meu ver)"*.
+
+**O PICO ERA LOCAL, E A PROVA É ARITMÉTICA.** Onze dos quinze lotes anteriores eram design e NOVE eram a Biblioteca (v1.5.5→v1.5.13), alternando entre duas estratégias que já tinham falhado: escada de TOM (v5.241→v5.267, acabaram os degraus), COR SÓLIDA (v1.5.7/v1.5.8, reprovada com três capturas — *"cor sólida não diz o que está dentro do quê"*) e MOLDURA de 1px (v1.5.9→v1.5.13, que é feita exatamente do traço fino que este pedido recusa). **A razão de nenhuma fechar:** a Biblioteca tem QUATRO níveis (janela → seção → álbum → faixa) e a paleta tem TRÊS degraus, com a janela tendo gastado o de cima na v1.5.7. Quatro degraus no piso de 1,28:1 partindo do branco dão `#ffffff → #e3e3e3 → #cacaca → #b3b3b3`, e o nível 3 — onde mora TODO o texto da lista — cairia no cinza médio que o próprio operador recusou na v1.5.10. **Não existe escada de TOM que resolva quatro níveis sobre base branca**; cada rodada só podia escolher qual degrau sub-piso aceitar.
+
+**E O DESENHO QUE ESTAVA NO AR NÃO CUMPRIA O PISO EM NENHUM PAR.** MEDIDO no renderizado (Chromium, a fixture do `smoke.mjs`, os dois temas, alfas compostos contra a base real): janela × seção 1,14 / 1,21 · seção × card **1,00** / **1,00** · card × faixa 1,24 / 1,17 · janela × faixa 1,08 / 1,04 · tampa da seção × tampa do card **1,00** / **1,00** · tampa do card × faixa **1,00** / 1,60. Sete de sete reprovavam no escuro, quatro de sete no claro. E no escuro `--item-fill` **É** `var(--surface-sunk)`, o mesmo token da tampa sobre a mesma base: **a barra de título do álbum e as faixas dentro dele eram pixel-idênticas** — um contêiner cuja tampa tem a cor do conteúdo não contém nada visualmente. O que sobrava carregando a hierarquia era a moldura de 1px, 2,51:1 no claro e 1,78:1 no escuro: a única coisa daquela tela com contraste de verdade, e por isso ela parecia funcionar.
+
+**A SAÍDA É PARAR DE EMPILHAR E PASSAR A ALTERNAR.** Uma escada acumula e acaba; uma alternância não: `janela PAPEL → seção POÇO → álbum PAPEL → faixa sem fundo`. Duas superfícies, profundidade ilimitada, zero traços. MEDIDO no renderizado: **1,43:1 em cada degrau no escuro e 1,35:1 no claro**. O poço É a caixa que o operador pediu na v1.5.9 (*"a primeira camada de lista de coleções não está criando uma caixa ou moldura ao redor do seu agrupamento"*), desenhada por um degrau de verdade em vez de um filete — e o `--poco` do tema claro é o MESMO "azul fraco" da v1.5.10 (`--btn-accent`, que media só 1,21:1 contra a janela) aprofundado até o degrau existir. **A regra é por PROFUNDIDADE, nunca por tipo de bloco:** o mesmo `.hymnal-card` é nível 1 na raiz (poço) e nível 2 dentro de uma seção (papel). Escrevê-la por tipo foi o primeiro corte do lote e MEDIU 1,00:1 — os hinários da raiz sumiam sobre a janela branca, e foi o protótipo que pegou.
+
+**E A PROFUNDIDADE PASSOU A SER DITA POR TRÊS MECANISMOS NÃO-TONAIS**, que é o que os torna ilimitados. O primeiro é o que carrega o lote: **CABEÇALHO GRUDENTO NOS DOIS NÍVEIS**. Tom, cor e borda só falam enquanto o topo do grupo está à vista, e a queixa do operador (*"dificultando discernir se estou em uma camada ou subcamada"*, v5.267) é sobre estar no MEIO de uma lista longa — o sticky é o único mecanismo que continua respondendo depois de a lista rolar. **O app já sabia disso e aplicava pela metade:** o `.coll-bar` do álbum era `sticky` desde a v5.242, com o argumento escrito no próprio comentário (*"a outra metade da pergunta 'onde eu estou?'"*), e o nível 1 — justamente o que ele não distinguia — não era. A altura da barra da seção virou token (`--bar-secao-h`) porque duas regras precisam do mesmo número, e é determinística (nome `nowrap` + recuo fixo): nada de medição em JS, que a v1.5.3 ensinou a desconfiar. Os outros dois são o RECUO e o RANK tipográfico.
+
+**O TEMA ESCURO VIROU DENIM PROFUNDO.** Dos dezoito valores oficiais da IASD, apenas SEIS apareciam como valor na folha; os outros doze sobreviviam como âncora de matiz, porque foram desenhados para papel BRANCO e nenhum passa AA como texto sobre um quase-preto. O `--bg` já tinha a matiz certa (206°) e o que faltava era SATURAÇÃO — 20% lê como cinza. Subida para ~30% na matiz 211° do `denim`, com a mesma luminância: `--bg` `#0e1215`→`#0b1219`, `--bar` `#252b33`→`#1b2632`, `--panel` `#2c343c`→`#212f3d`, `--panel-2` `#3c4753`→`#304254`. **Nenhum par de contraste piora e todos melhoram de leve** (a base escureceu): `--text` 10,32:1 sobre o painel, `--muted` 7,22:1, `--accent` 6,64:1. `--veil`/`--veil-solid` acompanham, porque são o `--bg` com alfa.
+
+**AS QUATRO ESCALAS, e é o pedido de consistência respondido com números.** MEDIDO antes: **31 corpos de fonte** em 126 declarações, **16 valores de `gap`**, **10 durações de transição** e **5 pesos** — sem escala nenhuma, enquanto raio e ícone já eram tokens desde sempre. É o tipo de inconsistência que não se aponta para um lugar: ela faz duas telas que deveriam falar igual falarem quase igual. Os degraus NÃO saíram de fórmula, saíram da distribuição real de uso, e entre cinco escalas candidatas foram escolhidas as que movem MENOS pixel: na tipografia (9 degraus + 2 de display) sete declarações mudam mais de 0,65px e a maior mudança é 0,8px; no espaço (6 degraus) 71 das 110 caem exatas e o resto move no máximo 1,6px. **As ANIMAÇÕES ficam de fora da escala de movimento** — um pulso de 1,2s e uma marquise de 8s não são transições de interface, são a duração do que elas representam.
+
+**O CHEVRON DA BIBLIOTECA ERA MUDO AO TOQUE, E AINDA APAGAVA O FEEDBACK DO VIZINHO.** `.coll-group-icon`, `.coll-bar-icon` e `.coll-bar-fechar` estavam nomeados nas GUARDAS (que zeram o `--press` da barra quando o dedo pousa neles) e NÃO estavam na lista `:is()` do `--press`, nem tinham `:active` próprio — enquanto o comentário logo acima da guarda afirmava o contrário: *"o dedo pousa num deles e é ELE que responde, não a linha inteira por baixo"*. O efeito na mão: tocar a seta que abre e fecha uma seção não dava retorno nenhum, e tocar a barra dois milímetros ao lado afundava normalmente. Eles também mediam 32×32 contra o `--hit` de 34px do próprio app — os únicos alvos da Biblioteca abaixo do piso, no controle mais tocado da tela.
+
+**O MODO FÁCIL MOSTRA O TRANSPORTE DA CENA.** MEDIDO: com um deck no ar a tela empilhava TRÊS fileiras de 76px, e as duas de baixo eram a MESMA peça — `.simple-slidesrow` e `.simple-volrow` têm o mesmo grid (`1fr 1.1fr 1fr`), a mesma altura, a mesma classe de botão (`.simple-key--vol`, nomeada por volume e usada por páginas) e o mesmo nó de mostrador com a mesma barra de curso; o que as separava era um rótulo de .6rem em `--muted`, o elemento tipográfico mais fraco de uma tela feita para quem está de pé com uma mão só. **E seis das nove teclas não agiam sobre nada:** com uma apresentação no ar não há áudio (a regra do "um elemento no ar", v1.4.32), então play, mudo e a linha inteira de volume governavam o silêncio. A correção é a doutrina do próprio modo — UM elemento no ar, UM jogo de controles: com um deck sobram o "Parar" (a única ação que ainda faz sentido ali) e as páginas. O "Parar" ganha RÓTULO quando fica sozinho, porque um quadrado com um ícone no meio da tela não diz o que ele para.
+
+**OS ORÁCULOS APROVAVAM O DEFEITO, e isso é o achado de método deste lote.** O `smoke.mjs` foi escrito para proteger o desenho da v1.5.9: ele EXIGIA que seção e card dividissem o tom (`razao(secao, card) < 1.05`, isto é, exigia 1,00:1), exigia a moldura nos dois níveis, e **nunca comparava tampa × faixa** — o par que valia 1,00:1 no escuro. Um guarda-corpo escrito a partir do desenho vigente aprova o desenho vigente. Oito asserções foram invertidas ou reescritas, cada uma com a razão da virada ao lado, e três CASOS NOVOS entraram: o degrau real de cada agrupamento contra o pai, o card VOLTANDO ao tom da janela (sem essa metade um terceiro tom passaria e a escada de quatro voltaria pela porta dos fundos), e os dois cabeçalhos grudentos empilhados — com a folga do de dentro medida na altura RENDERIZADA do de fora, nunca no token.
+
+**E UM ORÁCULO NOVO FECHA UMA LACUNA DE VINTE E DUAS VERSÕES:** `colors.xml` × `tokens.css`. O `--bg` é a única cor deste projeto que existe em dois lugares por necessidade (um recurso de Android não enxerga custom property, e o `windowBackground` do primeiro quadro só pode sair do XML), e **nada verificava a igualdade** — o comentário do próprio arquivo o admitia (*"nada no build detecta a divergência"*). É justamente o OTA que torna a divergência provável: a base web chega em minutos, o `res/` só instalando um APK. Provado por reversão, como os outros dois.
+
+**A LIMPEZA, e ela é a metade que a documentação exige.** Saem: `--line` (zero consumidores depois da moldura, e o comentário DELE dizia que *"o que ele NÃO pode voltar a ser é um filete"* enquanto ele era o único filete do app); cinco tokens órfãos verificados sem consumidor em CSS, JS e HTML (`--danger`, `--danger-soft`, `--warn-soft`, `--ok-soft` e `--field-accent`, este último criado na v5.305 com dezoito linhas de justificativa para um relato que a v1.5.5 resolveu por outro caminho); o seletor `.hymn-search-bar` da lista R1 (a peça morreu na v1.5.0 e ele sobreviveu quatorze lotes sem casar com nada); o comentário de doze linhas que descrevia as `.col-1`…`.col-8`, revogadas ONZE LINHAS ABAIXO dele e afirmando que *"não são código morto"*; a regra `:active` duplicada de `.tools-btn`/`.lib-foot-btn`; e o recorte por ESCOPO `.acervo` do `tokens.test.mjs` — a única exceção daquele oráculo que não nomeava uma peça, e por isso a que mais barato se alargava. A tabela de tokens do `DESIGN-SYSTEM.md`, que a auditoria achou uma revisão inteira atrás, foi corrigida: seis valores errados, dois tokens FANTASMA (`--accent-glow` e `--brand-soft`, que nunca existiram) e as linhas dos removidos.
+
+**DOIS ACHADOS REAIS SAÍRAM DO PRÓPRIO LOTE, pegos pelos oráculos:** a migração para a escala tipográfica achatou o nome da seção (.9rem) e o do card (.88rem) no mesmo degrau — e com a moldura fora, o RANK é um dos três mecanismos que carregam a profundidade, logo tinha de ser um degrau de verdade (`--fs-xl`/`--fs-lg`/`--fs-md`); e a placa dos Favoritos lia `--camada`, pegava o POÇO que a seção reserva aos filhos e media 1,00:1, sumindo dentro da própria seção — ela é o NÍVEL 2 (a irmã do `.folder-opfs` ao lado), logo veste papel, e as linhas dela são nível 3, sem preenchimento, como as faixas de um álbum. A segunda foi pega DUAS vezes: pelo `smoke` e, quando corrigida, pela asserção R1 do `tokens.test.mjs`, que cobrou a filiação da placa no mesmo lote em que ela passou a pintar `--panel`.
+
+**PEDE RELEASE**, e é o `res/` que a obriga: `--bg` é espelhado à mão em `res/values/colors.xml` (`app_bg` e o fundo do ícone adaptativo), e `res/` só chega instalando um APK. Sem a Release, o `windowBackground` do primeiro quadro e o ícone da gaveta ficariam no preto antigo contra um app inteiro em azul. `shellTag: "v1.5.14"` segura o bundle até ela existir — a tag é `v` + a versão da BASE WEB, e o CI cobra a igualdade. **`SHELL_VERSION` NÃO sobe**: a superfície da ponte não mudou.
+
+## v1.5.13 — a linha do tempo vira um cartão
+
+A LINHA DO TEMPO VIROU UM CARTÃO. Pedido do operador: *"coloque a seção da barra de progresso da mídia, que tem o título, barra de progresso e tempo atual e total… coloque isso tudo dentro de um card, pois é o único elemento visual do controle que não está dentro de um elemento visual. por causa da barra de buscas, ali se tornou um buraco no design"*. **O "por causa da barra de buscas" é a parte que explica por que isto virou defeito AGORA**, e é ela que faz deste lote uma correção e não um enfeite: até a v1.5.2 o topo da caixa de controles era a faixa de abas, e o título nascia logo abaixo de uma peça pintada. Com a barra da Biblioteca repousando ali — e ela não pinta NADA fechada, que foi decisão da própria v1.5.2 —, o que ficou acima do título passou a ser o `--bar` cru, e a `.nowplaying` virou a única peça daquela caixa pousada direto no fundo: preview, botões de slide e os sete do transporte todos têm superfície. **Um recurso não regrediu; o vizinho dele saiu.** **O TOM É `--surface`, o MESMO dos botões ao lado, e não `--panel`.** No tema CLARO `--bar` é branco e `--panel` também: um cartão em `--panel` mediria **1,00:1** contra a caixa e simplesmente não existiria — é a mesma aritmética que obrigou a borda do campo de busca na v1.5.5, chegando pelo outro lado. Com o tom dos vizinhos o cartão entra no sistema da caixa em vez de inaugurar um degrau que a escada não tem. **E O RECUO É SÓ VERTICAL, que é a parte que se erra sem perceber.** `.np-seek` repete as TRÊS colunas do `.deck` desde a v1.3.8 — decorrido sobre o botão de voltar slide, barra sobre a preview, total sobre o de passar —, e um `padding` horizontal no cartão comprime essa grade: a barra deixa de bater com a miniatura logo abaixo, que é o defeito EXATO que a v1.3.8 corrigiu. O respiro lateral já existe por construção (os tempos são centrados em colunas de ~56px, então o texto nasce a meia coluna da borda), e quem PODE recuar é o TÍTULO, o único que ignora as colunas — e ele precisa, senão a reticência de um nome longo encosta na borda. **O `controles-layout.test.mjs` ganhou TRÊS metades, e nenhuma basta sozinha:** ela PINTA (uma regra que só trocasse classe passaria num teste de classe e continuaria sendo um buraco na tela, então a régua é o fundo EFETIVO contra o da caixa), ela pinta o TOM DOS VIZINHOS (a régua é um botão do transporte RENDERIZADO — `--surface` lido de volta provaria só que a folha declara o que declara) e o recuo é só vertical. A terceira existe para dar a CAUSA: sem ela um recuo horizontal reprova nas três asserções de coluna que já existiam, que falam de alinhamento e não do que o produziu. Três reversões provadas, e a terceira confirmou o mecanismo — com `padding: .4rem .6rem` a barra de fato sai de cima da preview.
+
+**Só web.** Nenhum `.kt`, nenhum `res/`, nenhum manifest — o bundle sai na hora.
+
+## v1.5.12 — o texto do tema claro fica preto
+
+O TEXTO DO TEMA CLARO FICOU PRETO — O ÚNICO DESVIO DECLARADO DA PALETA OFICIAL. Terceira rodada do operador sobre a legibilidade da Biblioteca: *"então use a cor preta pra os textos e não cinza como me parece ser hoje"*. **`--text` era `#4a4a4a`, o `night` OFICIAL** — não um cinza escolhido em algum lote, mas A cor de texto da identidade IASD, um dos dezoito valores da paleta. O operador o leu como cinza duas vezes, e a leitura está certa: `night` É um cinza escuro, e num app operado sob a luz de um salão ele se lê como texto apagado. O preço está dito e é pequeno — o `night` continua na identidade e volta com uma linha. **O GANHO É MEDIDO:** 6,87:1 → **16,28:1** sobre a página, 8,86:1 → **21:1** sobre o painel branco, e 5,33:1 → **12,62:1** sobre a tampa azul da Biblioteca, que é a superfície onde a queixa nasceu (a v1.5.11 já tinha subido esse par de 4,00 para 5,33 tirando o texto de `--muted`; esta rodada é a resposta ao "ainda parece cinza"). **`--muted` NÃO ACOMPANHA, e é essa a metade que mantém a regra da v1.5.11:** NOME é `--text`, NÚMERO é `--muted`. O par abriu de 1,33:1 para 3,15:1 — a hierarquia ficou MAIS legível, não menos. **O `--field-text` acompanhou**, e por um motivo próprio: aquela superfície não tem tema (o campo é BRANCO nos dois), então a pergunta "qual tema?" não se aplica a ela — e sem a troca o campo da barra da Biblioteca ficaria com o cinza recusado a dois centímetros dos nomes que deixaram de usá-lo. **OS LADRILHOS DA BÍBLIA NÃO FORAM RETOCADOS, e não podiam precisar:** eles foram escolhidos com um alvo de 6,5:1 para o rótulo contra o `night`, e escurecer o texto só AFASTA o rótulo do ladrilho — MEDIDO, o pior caso foi de 6,46:1 para 15,31:1. Duas justificativas que dependiam do `night` viraram lápides e foram reescritas no mesmo lote: a do alvo dos ladrilhos e a da opacidade .9 do rótulo (*"a .72 ele cai a 3,42:1"* — a razão morreu, o valor fica porque nada pede que mude). **O `smoke` guarda o desvio com um LITERAL, de propósito.** É a exceção à regra deste projeto de medir contra vizinhos renderizados: a decisão É um valor escolhido CONTRA a paleta, e não há vizinho que a carregue. Sem o caso, quem conferir a paleta contra a marca encontra o preto, conclui que é um deslize e o desfaz de boa-fé, em silêncio. Só no tema claro — no escuro o texto é o off-white de sempre, e preto ali seria invisível. Uma reversão provada.
+
+**Só web.** Nenhum `.kt`, nenhum `res/`, nenhum manifest — o bundle sai na hora.
+
+## v1.5.11 — os nomes da Biblioteca se escrevem todos igual
+
+OS NOMES DA BIBLIOTECA SE ESCREVEM TODOS IGUAL. Dois pedidos do operador: *"Nessas coleções, padronize em caixa alta, ou em formatação normal"* · *"também aproveite para pôr o texto em branco no tema claro para os textos sobre o azul"*. **A BARRA DA SEÇÃO PERDEU A CAIXA ALTA E O TRACKING.** Na raiz da Biblioteca uma seção e um card fixo são LINHAS IRMÃS — a v1.3.14 já as tinha alinhado em tom e em colunas — e saíam em caixas diferentes: "CDS OFICIAIS" ao lado de "Hinário Adventista 2022". **A escolha é a formatação normal, e ela é medida:** caixa alta a 14px é mais lenta de ler e mais LARGA — a mesma medição que a v5.297 usou para tirá-la das LINHAS, onde ela truncava "001. SANTO, SANTO, SANTO! (CANTAD…" numa linha que cabia —, e os nomes desta lista são longos ("Informativo Mundial das Missões 2026"). É também a regra que o `notas.json` segue desde a v1.4.12: caixa alta numa lista é a tela gritando. **O que a caixa alta carregava, a MOLDURA carrega desde a v1.5.9:** ela era o RANQUEAMENTO da seção sobre o card, num tempo em que a seção era um rótulo solto sobre uma lista chapada; hoje o grupo tem caixa e tampa, e quem diz "isto contém aquilo" é o desenho. O `letter-spacing` sai junto — tracking sem caixa alta é um rótulo pela metade. **E O BRANCO PEDIDO É IMPOSSÍVEL, com a medição na mão:** a tampa compõe `#bdcada` no tema claro, e branco sobre ela dá **1,66:1** contra os 4,5:1 que AA pede para texto pequeno — é a mesma conta que a v5.296 já tinha escrito na regra da `.coll-group` ("o remédio óbvio seria pior"), agora sobre a tampa azul. O que o pedido alcança é o outro lado: o texto sobre o azul tem de se AFASTAR do fundo, e no tema claro isso só se faz ESCURECENDO. O nome da seção herdava `--muted` da barra (a cor de METADADO) e media **4,00:1**, abaixo de AA; em `--text` ele mede **5,33:1**, exatamente o do título do card ao lado — que é a outra metade do "padronize". **`--muted` fica no que é NÚMERO** (o contador da seção, o peso do card), e a regra que sai daí é mais simples que a que ela substitui: NOME é `--text`, NÚMERO é `--muted`. **DOIS CASOS DO `smoke` FORAM REESCRITOS, e um deles era a metade negativa de si mesmo.** O *"mas a BARRA da seção continua em caixa alta e espaçada"* (v5.297) é literalmente o que o pedido revoga, e virou a afirmação oposta. E o *"mas o RÓTULO da seção continua sendo um rótulo, com cor própria"* (v5.296) mudou de PEÇA sem mudar de REGRA: quem carrega o `--muted` da barra hoje é o contador, e é contra ele que a não-contaminação das linhas se afirma — nivelar a barra inteira continua reprovando. As duas réguas novas são VIZINHOS RENDERIZADOS (o título do card ao lado, o contador da própria barra), nunca um valor escrito no oráculo. Três reversões provadas.
+
+**Só web.** Nenhum `.kt`, nenhum `res/`, nenhum manifest — o bundle sai na hora.
+
+## v1.5.10 — o cinza escuro sai da Biblioteca, e dois espaçamentos se acertam
+
+O CINZA ESCURO SAIU DA BIBLIOTECA, E DOIS ESPAÇAMENTOS FORAM CORRIGIDOS. Pedido do operador, com duas capturas: *"essa predominância cinza escura está muito ruim em especial no tema claro. porque não usou o azul fraco como cor principal dos cards?"* · *"verifique o tamanho e espaçamento dos favoritos, pois está deslocado o seu card de topo em relação a caixa dele"* · *"verifique o espaçamento entre o card de titulo da coleção e o primeiro item desta coleção, parece estar sem espaçamento correto"* — mais o adendo que fecha a escolha do tom: *"no caso dos cards das coleções em azul, também pode ser interessante usar apenas o cinza que se usa nos botões, não sei porque foi usado um cinza bem mais escuro"*. **AS CAIXAS PASSARAM A VESTIR `--btn-accent`**, o azul fraco — a superfície de ação deste app —, e as duas frases do operador são a MESMA troca vista dos dois lados: com a caixa em azul, o único cinza que sobra na lista é o `--surface` das tampas, que É o cinza dos botões. **`--panel-2` sai da Biblioteca inteira**, inclusive da placa dos favoritos, que o lia por `--camada` e sairia como um retângulo cinza dentro de uma seção azul — o único lugar em que a caixa não se pinta sozinha. **A MEDIÇÃO QUE OBRIGAVA O CINZA NA v1.5.9 CONTINUA VALENDO, e é ela que escolhe entre os dois candidatos que o operador ofereceu:** o nível 3 usa `--item-fill`, branco a 80% no tema claro, e sobre uma caixa BRANCA ele mede **1,00:1** e some. Sobre `--btn-accent` mede **1,17:1** no claro e **1,35:1** no escuro — menos que os 1,32:1 do cinza, e é essa a pressão que o oráculo novo guarda: quem for apertar aquele número encontra `--panel-2` como resposta óbvia e desfaz o pedido sem saber que desfez. A régua do caso é um VIZINHO RENDERIZADO — o botão de ação que mora na barra da própria seção veste `--btn-accent` —, nunca o token lido de volta, que provaria só que a folha declara o que declara. **E O CASO DA ESCADA MUDOU DE RÉGUA, porque a antiga reprovaria o desenho pedido:** ele exigia 1,28:1 entre a janela e a caixa, isto é, o degrau fazendo sozinho o trabalho que a v1.5.9 passou à moldura. `--btn-accent` é superfície CLARA nos dois temas (1,21:1 contra a janela branca, 1,14:1 no escuro). No lugar entraram DUAS metades inseparáveis: a caixa não pode COINCIDIR com a base (o 1,00:1 da v5.241 é o único desfecho inaceitável) e a MOLDURA precisa de contraste de verdade contra a janela — sem a primeira, um tom igual ao do fundo passa "porque tem borda"; sem a segunda, uma borda da cor do fundo passa "porque o tom difere". **O PRIMEIRO ESPAÇAMENTO ERA UM CUSTO DA MOLDURA, e é o irmão do que a v1.5.9 já pagou no vão dos favoritos.** `.coll-group:first-child` dá `padding-top: .2rem` (0,2,0, vencendo o `padding: 0` da regra do `--drop`, que é 0,1,0) para a lista não começar colada no topo; enquanto a seção não tinha caixa aquilo era o respiro da LISTA, e com a moldura ele virou uma faixa de 3,2px DENTRO da caixa, acima da barra — MEDIDO, caixa em 59,2 e barra em 63,4. **E ele sai sem virar margem, de propósito:** uma `margin-top` fica FORA do retângulo, e `medirVaoDosFavoritos` fecha a conta do vão em `clientHeight − padding − gaps − barras`, onde margem nenhuma entra — a lista passaria a somar 3,2px a mais que a tela e a última seção fechada terminaria abaixo do fim dela, que é exatamente o defeito que a moldura já produziu uma vez por outro caminho. **O SEGUNDO era um recuo que nunca existiu:** o corpo aberto de uma seção é `padding: 0 .4rem .45rem` — sem nada em cima —, então o primeiro card começava EXATAMENTE onde a barra da seção acaba (MEDIDO: vão de 0px) enquanto os seguintes eram separados por .35rem. A primeira vizinha da coluna valia menos que as outras, e o card parecia grudado na tampa. O recuo novo é o MESMO valor do `gap`, e a régua do oráculo é a COMPARAÇÃO com ele: o número é decisão de desenho, o que não pode é a desigualdade. **Os três casos novos do `smoke` são geométricos ou de vizinho, nunca literais** — a faixa acima da barra é comparada com a LARGURA DA MOLDURA (escrever "0" ali reprovaria o desenho certo, porque 1px de borda tem de sobrar). Três reversões provadas.
+
+**Só web.** Nenhum `.kt`, nenhum `res/`, nenhum manifest — o bundle sai na hora.
+
+## v1.5.9 — a cor sai da Biblioteca e a hierarquia vira moldura
+
+A COR SAIU DA BIBLIOTECA E A HIERARQUIA VIROU MOLDURA. Pedido do operador, com três capturas do defeito: *"está errado, reformule o sistema de coloração e organização de grupos e subgrupos. vamos usar o padrão branco e azul padrão do sistema, e vou lhe dar autoridade para usar sistemas visuais de design e organização usando bordas, mas apenas para a biblioteca. pois temos 3 niveis de listagens na biblioteca e o sistema de separação apenas por cor sólida de cards está limitando nossas opções"*. **ISTO REVOGA A v1.5.7 E A v1.5.8 INTEIRAS** — a tampa tingida, os oito tons em ordem de espectro, as três famílias de tom por coleção, o `tomDaVez` que as carimbava. **O diagnóstico do operador é exato: cor sólida não diz o que está dentro do quê.** Nas capturas, oito matizes pastel produziam uma lista bonita e ilegível — a seção "ADORADORES" em lilás com cinco álbuns lilás soltos dentro dela, sem nada dizendo onde o grupo começava e acabava. **A AUTORIDADE PARA A BORDA É EXPLÍCITA E ESCOPADA**, e o "apenas" é o que a torna verificável: a exceção não é "bordas agora podem", é a lista do acervo (`.acervo`, marca posta pelo `renderCollectionsList` — uma CLASSE e não um id, porque ela diz O QUE é e não onde calha de estar). Uma borda em qualquer outro seletor continua reprovando, na FONTE (`tokens.test.mjs`) e no RENDERIZADO (`smoke.mjs`). O que a autoriza é aritmético como as outras exceções: são TRÊS níveis de lista aninhados, e a escada tem três degraus dos quais a janela gastou o de cima na v1.5.7. **A CAIXA QUE FALTAVA ERA A DO NÍVEL 1**: *"a primeira camada de lista de coleções não está criando uma caixa ou moldura ao redor do seu agrupamento, diferente de como ocorre corretamente com o card dos albuns"*. Hoje os dois níveis de agrupamento têm moldura e dividem o TOM (`--panel-2` sobre a janela `--panel`): um degrau de verdade contra a base e nenhum entre si, porque entre eles há sempre a linha e o recuo. **Quem decide o tom das caixas é o NÍVEL 3, e isso é medição:** `--item-fill` é branco a 80% no tema claro, desenhado para pousar num card acinzentado — MEDIDO com as caixas em `--panel`, a faixa ficava a **1,00:1** do card, isto é, sumia. Foi o segundo corte deste lote, e o oráculo o pegou. **E o nível 3 NÃO ganha moldura**: uma faixa é conteúdo, não agrupamento. **ABRIR DEIXOU DE TROCAR A COR DE NADA**: *"verifique também a mudança para tons cinzas ao selecionar o item, pois está sendo inconsistente com sua cor real"* — a tampa de um card aberto lia `--camada`, que o `.expanded` redeclarava, e sobre um card tingido ela saía cinza. **A MOLDURA TEM CUSTO DE LAYOUT, e o oráculo o cobrou:** o vão dos favoritos soma a altura das seções fechadas medindo a BARRA de cada uma, e uma caixa fechada passou a ser a barra mais 2px de linha — MEDIDO com seis seções, a última terminava 7px abaixo do fim da lista. **O `smoke` foi remodelado** onde ele descrevia a paleta revogada, e o que entrou no lugar mede o desenho novo em três metades que falham em direções opostas: os dois níveis TÊM moldura, o nível 3 NÃO tem, e a faixa se vê dentro do card. Uma asserção ficou declarada como GUARDA e não como prova — a da tampa que não troca de tom: o defeito morreu com a paleta, e nenhuma reversão pequena a reprova; ela existe para impedir que a dependência volte. Três reversões provadas.
+
+**Só web.** Nenhum `.kt`, nenhum `res/`, nenhum manifest — o bundle sai na hora.
+
+## v1.5.8 — a borda lê o tom dos botões, e cada coleção ganha uma família de cor
+
+A BORDA DO CAMPO PASSOU A LER O TOM DOS BOTÕES, E CADA COLEÇÃO GANHOU UMA FAMÍLIA DE COR. Três pedidos do operador: *"ajuste a cor da borda da caixa de texto de buscas, ele deve ser o mesmo cinza dos botões a sua volta"* · *"coloque as cores em ordem de graduação, os verdes perto dos verdes, como as cores do arco íris que tem ordem"* · *"ajuste para que a cor da caixa não se altere para cinza como é hoje, ela mantenha o corpo com a cor da mãe"*. **A BORDA LÊ `var(--surface)`**, o MESMO token que os dois quadrados ao lado pintam, resolvido no mesmo lugar — não há valor copiado, e o tom dos dois muda junto. **O `background-clip: padding-box` é o que torna isso possível, e sem ele a ideia se inverte:** `--surface` é tinta com ALFA, e alfa compõe sobre o que está ATRÁS; por padrão o fundo do elemento se estende sob a borda, então ela comporia sobre o BRANCO do campo — MEDIDO no tema escuro, onde a tinta é branco a 12%, o resultado é quase branco e a borda some. Com `padding-box` o que fica atrás dela é a mesma barra sobre a qual os botões compõem, e MEDIDO o traço sai idêntico ao botão nos dois temas (#454c53 e #dbdbdb). **Isto REVOGA o piso de 3:1 da v1.5.5** e apaga o `--field-borda`, que era um valor CALCULADO e existia porque a borda não tinha como ler o tom dos botões; **o preço está dito**: no claro esse cinza dá 1,38:1 contra o campo branco, que é o MESMO degrau em que os botões vivem contra a mesma barra — a borda não ficou menos visível que eles, ficou igual a eles, que é o pedido. **AS MATIZES ENTRARAM EM ORDEM DE ESPECTRO** — laranja → amarelo → verde → ciano → azul → violeta → rosa —, e a troca **não custa separação nenhuma**: oito matizes distribuídas em 360° ficam a 45° uma da outra ordenadas ou espalhadas, e o que muda é só qual vizinha cada uma tem. Ela ganhou ORÁCULO PRÓPRIO porque some sem sintoma: as oito continuam sendo as mesmas oito, então nenhum caso de contraste, separação ou legibilidade nota que alguém as embaralhou. **E CADA COLEÇÃO PASSOU A TER TRÊS TONS, que são as TRÊS ALTURAS DA ESCADA**: `--col-N` é a tampa (o recesso), `--col-N-corpo` é o bloco (na altura da base da janela) e `--col-N-card` é um card (na altura do `--panel-2`). **É a altura que faz a cor caber sem mexer em nada** — MEDIDO, cada `--col-N-card` fica a 1,00–1,01:1 do `--panel-2` que substitui, então tudo o que foi medido DENTRO do card continua valendo. A classe entra no `<li>` da linha de topo e a HERANÇA leva os três tons à subárvore inteira; a `.coll-group-corpo` troca `--col` e `--camada` pelo tom de card, e a segunda metade veio de uma medição: sem ela o conteúdo de uma seção colorida saía CINZA sobre a mãe, com a linha de um favorito a 1,03:1 do corpo contra os 1,29:1 da faixa dentro de um álbum. **O CORPO É UM SUSSURRO, e está dito:** ele fica a 1,00–1,02:1 da base da janela porque a altura dele É a da base — o que o distingue é a MATIZ, não o tom, e no tema claro a base é branco puro. **O `smoke` foi remodelado onde o sistema de cor tornou a régua antiga indizível.** Três casos comparavam cores ABSOLUTAS entre DUAS coleções (a seção dos Favoritos contra outra; a linha de um favorito contra a faixa de um álbum; a pasta sincronizada contra um card), e isso funcionava enquanto todas eram cinzas. O que aqueles pedidos queriam dizer, e continua verdade, é **"estas duas peças ocupam o mesmo DEGRAU"** — a mesma razão contra o que as hospeda —, e é isso que se mede agora. Um deles reprovava por um erro do CASO e não do app: a mãe da linha de favorito é a PLACA, não a seção. **E duas asserções nasceram porque uma reversão as pediu**: a primeira escrita da borda compunha a tinta por conta própria e continuava passando com o `background-clip` apagado, e nada afirmava que o bloco de uma seção carrega a matiz da tampa. Quatro reversões provadas.
+
+**Só web.** Nenhum `.kt`, nenhum `res/`, nenhum manifest — o bundle sai na hora.
+
+## v1.5.7 — a Biblioteca vira uma janela, e as coleções ganham cor
+
+A JANELA DA BIBLIOTECA VIROU UMA JANELA DE VERDADE, E AS COLEÇÕES GANHARAM COR. Três pedidos do operador: *"engrosse a borda da caixa de texto da busca, para ficar mais encorpado (não aumente as dimensões da caixa, só a área da borda internamente)"* · *"ajuste o design da janela da biblioteca para que ela se assemelhe ao design das janelas de bíblia e ferramentas. bordas curvas e tom branco como base… ajustando também para que haja uma pequena margem em relação aos controles quando no modo aberta, pois hoje ela fica com a base 'fundida' dificultando a percepção de até onde vai a lista da biblioteca"* · *"pode usar tons de cores em ordem para colorir os cards das coleções, considerando que estarão em fundo branco… semelhante ao que já é feito na janela da bíblia"*. **A BORDA CRESCE PARA DENTRO** (2px + `box-sizing: border-box`), que é o pedido ao pé da letra: a caixa continua medindo `--campo-alt` cravado e o traço come do recuo do texto. **A JANELA veste `--panel` e `--radius-card`** — os mesmos valores da `.tools-sheet`, que é o molde que o pedido nomeia —, mais uma FRESTA de 8px acima dos controles. O raio SÓ VALE ABERTA: fechada, o que fica à vista é a barra, e um cartão em volta dela é o "zoneamento" que a v1.5.2 veio tirar. Ela nasceu sem raio porque se apresentava como tela cheia, e cantos curvos anunciam "há algo atrás" — **desde a v1.5.4 há**, e o raio deixou de mentir. **E AÍ A ESCADA DE CAMADAS FICOU SEM DEGRAU.** A janela pintava `--bg` e passou a pintar `--panel`: sobraram DOIS degraus para TRÊS coisas — janela, seção e card —, e qualquer arranjo deixava duas com o mesmo tom. MEDIDO no primeiro corte deste lote: seção e card a **1,00:1**, que é o defeito da v5.241 de volta, e quem o pegou foi o `smoke`. A saída foi tirar a SEÇÃO da escada: o corpo dela é a base da janela, e quem a identifica é a TAMPA TINGIDA. **A TINTA É SEMPRE A TAMPA, NUNCA O BLOCO**, e isso custou duas tentativas antes de ficar certo: tudo que vive DENTRO de um bloco da Biblioteca — o card aninhado numa seção, a faixa e a gaveta dentro de um card — foi medido contra `--panel-2`, e uma tinta que desça até lá apaga essas medições (MEDIDO com o card inteiro tingido: a gaveta caiu a 1,05:1 da faixa no escuro, a queixa da v5.287 de volta). **A PALETA NÃO FOI ESCOLHIDA, FOI CALCULADA** — busca binária na luminância, contra as quatro coisas que a tinta precisa fazer ao mesmo tempo: um degrau de verdade da base (≥1,28), não coincidir com o card que a seção abre (≥1,05), e `--text` e `--muted` acima de AA. **A quarta é a que fecha a janela de luminância pelo outro lado**, e foi ela que reprovou a primeira paleta: tons na altura do `--panel-2` davam 1,00:1 contra o card, e tons escuros o bastante para separar derrubavam o `--muted` do resumo da seção a 3,48:1. MEDIDO no que ficou: escuro 1,32–1,34 · 1,76–1,79 · 12,56–12,78 · 8,79–8,94; claro 1,30–1,31 · 1,07–1,08 · 6,74–6,81 · 5,07–5,12. **A tinta é um RECESSO nos dois temas**, que é a mesma inversão que a R1 já aplica a um controle dentro de um cartão. **QUEM RECEBE COR É A LINHA DE TOPO**, e não "os cards": a lista tem duas formas ali — a seção, que abre e contém cards, e a coleção fixa, que é folha —, e as duas se leem como um cartão quando fechadas, que é o estado normal. Tingir só os cards deixava dois coloridos entre cinco cinzas, que lê como acidente. **ISTO REVOGA "a seção é UM bloco, não três peças costuradas"** (v5.267) — uma tampa colorida É uma peça própria, e a regra antiga proibia exatamente o que o pedido pede. O que ela protegia continua protegido por medição MAIOR: o oráculo afirma a separação diretamente, **nos oito tons** e contra as DUAS coisas que eles precisam separar. **E o `tokens.test.mjs` ganhou o sujeito do descendente**: `.popup-backdrop--lib.open .popup-sheet--lib` pinta a FOLHA, e comparar a string inteira reprovava uma regra correta — o sujeito de um composto é o último simples, e é ele que hospeda os filhos. Cinco reversões provadas, e uma delas achou um oráculo fraco: a primeira medida da fresta era contra a caixa de controles, que RESERVA a altura da barra no `padding-top` — sobrava sempre um vão positivo, e o caso aprovava a versão sem fresta.
+
+**Só web.** Nenhum `.kt`, nenhum `res/`, nenhum manifest — o bundle sai na hora.
+
+## v1.5.6 — a camada da Biblioteca vira o chão da pilha, e a cifra deixa de perseguir a música
+
+A CAMADA DA BIBLIOTECA VIROU O CHÃO DA PILHA, E A ROLAGEM DA CIFRA DEIXOU DE PERSEGUIR A MÚSICA. Sete relatos do operador num lote só. **AS SOBREPOSIÇÕES (dois deles) TÊM UMA CAUSA SÓ, e ela é a camada EXISTIR SEMPRE**: *"a barra de buscas está se sobrepondo a diversos elementos, como as configurações, aba da playlist e etc… Muito inconsistente"* e *"em aberto a aba da biblioteca, quando toco em abrir a aba da playlist a playlist tocando fica por baixo"*. Todo `.popup-backdrop` deste app está em `z-index: 200` e é criado e destruído com o uso, então quem se sobrepõe a quem é a ORDEM DO DOCUMENTO — o acaso que já cobriu um popup por inteiro aqui. A camada da Biblioteca é a ÚNICA que nunca sai de cena (a barra vive nela) e está declarada DEPOIS do `#plPopup`, do `#fadePopup` e do `#castPopup`: ganhava dos três. A correção não é um degrau a mais, é o degrau CERTO — **ela não é um modal sobre o app, é MOBÍLIA do app**, e passou a `z-index: 190`, abaixo de toda folha. Nos dois estados de uma vez: fechada, a barra não pinta sobre nada; ABERTA, a Biblioteca é coberta pelo que se abrir dos controles — que só estão alcançáveis desde a v1.5.4, e **foi isso que tornou a colisão possível**. A tabela `POPUPS` diz o MESMO (a Biblioteca virou a PRIMEIRA linha: o voltar percorre de trás para a frente, então estar em primeiro é estar embaixo). **SEM CAIXA DE CONTROLES NA TELA, A JANELA VAI ATÉ A BASE** — uma regra, mais dois relatos: *"que a zona dos controles seja ocultada quando a biblioteca estiver aberta e o teclado também estiver visível"* e *"no modo simples, a aba de buscas pode usar a tela inteira, pois agora ela está cortando aleatoriamente em algum pedaço da tela"*. O recorte da v1.5.4 protege os CONTROLES; sem controles na tela ele só corta — e no Modo Fácil cortava numa altura medida no modo AVANÇADO, porque a `.bottombar` é `display: none` lá e `--lib-caixa-h` guarda a última medida boa. **O número não era aleatório: era de outro modo.** **A ROLAGEM DA CIFRA TROCOU DE PREMISSA, e isto REVOGA a v1.1.20**: *"que ele não siga o tempo da música atual em exibição, pois se a música não está tocando, ele não anda. Ou se eu quiser tocar de um ponto específico em diante, ele fica voltando para onde a mídia estaria… Eu quero que siga o progresso levando em conta: o tempo total da música e a posição atual do scroll"*. **As três vantagens do desenho antigo eram os três defeitos do relato**, vistas do outro lado — *pausar a música PARA a folha* virou *"não anda"*, e *o seek MANDA na folha* virou *"fica voltando"* —, e é por isso que a correção é uma troca de premissa e não um remendo: o `cifraDesvio` era o remendo sobre a premissa errada, um deslocamento somado ao alvo para dar ao dedo um lugar na briga com a música. Hoje o `auto` é um RITMO (`AVCifra.ritmoDaRolagem`, PURA: `rolável ÷ (t1 − t0)`) integrado do ponto em que a folha ESTÁ. **A folha era da MÚSICA; ela passou a ser de quem lê.** O FECHO sobrevive por construção (o oráculo prende a propriedade: partindo do topo, a folha chega ao fim no MESMO instante da regra antiga) e a ABERTURA saiu, porque perdeu o referente — ela era *"a música acabou de começar"*, e não há mais começo. **E A FOLHA NUNCA MEXE NO TEMPO DA MÍDIA**, pedido por extenso: sempre foi verdade e nunca teve oráculo, e uma ausência não tem sintoma enquanto vale — no dia em que alguém ligar os dois eixos, um arrasto para reler uma estrofe volta o louvor na frente da congregação. **O CAMPO DE BUSCA LIMPA AO FECHAR**: limpar na abertura era certo enquanto o campo vivia DENTRO da Biblioteca, e hoje a barra fica à vista o culto inteiro — o filtro de uma busca encerrada descreve uma tela que não está mais lá. **O PARAR SAIU DE DENTRO DO TRIO** (⏮ ▶ ⏭ ⏹, em vez de ⏮ ▶ ⏹ ⏭): o dedo que ia do play para a próxima passava por cima do único botão da fileira que ENCERRA a cena. **E O MUDO DEIXOU DE ESPERAR O BANCO**: *"ativar o mudo durante a exibição de um vídeo online do YouTube está travando momentaneamente, engasgando a visualização"*. O `toggleMute` era o único controle do app com uma transação de IndexedDB NA FRENTE do comando (`await persistCurrent()`), e o irmão que mexe no mesmo áudio — o `applyVolume` — sempre mandou primeiro. Pesa numa TRANSMISSÃO e não num arquivo porque os dois WebViews dividem UM processo e a transmissão direta é a única mídia que precisa de JS rodando enquanto toca. **O que isto NÃO prova está dito na fonte e foi dito ao operador**: o engasgo não foi reproduzido fora do aparelho — aqui a escrita mede ~2 ms num banco vazio —, e o que se corrigiu é uma latência real e mensurável no caminho exato do relato, não um defeito observado. **Oráculo novo:** `biblioteca-camadas.test.mjs`, a pergunta de PILHA — que só existe com DUAS camadas abertas ao mesmo tempo, um cenário que nenhum outro oráculo monta —, medida por HIT-TEST e nunca por `z-index` computado: um número lido de volta prova que a folha declara o que declara, e o defeito era o EMPATE. Cinco reversões provadas.
+
+**Só web.** Nenhum `.kt`, nenhum `res/`, nenhum manifest — o bundle sai na hora.
+
+## v1.5.5 — os botões da barra viraram botões do controle, e o campo voltou a ser branco
+
+OS DOIS BOTÕES DA BARRA VIRARAM BOTÕES DO CONTROLE, E O CAMPO VOLTOU A SER BRANCO — COM A ÚNICA BORDA DO APP. Quatro ajustes do operador, e os três primeiros são a mesma correção de rumo sobre a v1.5.2: *"o botão de playlist automática está com botão cinza e ícone azulado, mas os botões dessa seção de controles são cinzas com preto … o mesmo para o botão de abrir biblioteca, que está um botão azul, ele deve ser o mesmo botão cinza dos controles"* · *"abra uma única exceção ao conceito de sem bordas do app, para poder fazer a caixa de texto da busca para que seja branca com a borda em cinza"* · *"verifique os botões de abrir biblioteca e playlist automática, para que tenham suas larguras alinhadas a grade dos botões do próprio controle logo abaixo"*. **A v1.5.2 levou a barra INTEIRA para o tom dos botões; este lote separa as peças.** Os dois quadrados PERDERAM a regra própria — o `#sorteioBtn` tinha `--accent` desde a v5.303 (*"numa barra de quadrados iguais o que os distingue é a cor"*) e o `#hymnSearchToggle` tinha `--btn-accent` desde a v1.5.2 (*"ele é a AÇÃO da linha"*) —, e o argumento dos dois era sobre a barra olhada SOZINHA: **ela não está sozinha**, mora colada numa caixa em que seis botões iguais ensinam que aceso quer dizer LIGADO (o `#repeat.active`), e dois acesos em permanência a dois centímetros deles ensinam a não confiar no sinal. O que os distingue passa a ser o DESENHO. **A LARGURA REVOGA O QUADRADO da v5.277**, e revoga porque as duas coisas não podem valer juntas: o lado do quadrado era `--campo-alt`, FIXO, e a coluna do transporte é PROPORCIONAL — MEDIDO, 53,4px a 430px e 43,4px a 360px contra os 40 fixos. **Uma medida fixa alinha com uma grade proporcional numa largura de tela, por acidente, e erra em todas as outras**; `--deck-col` subiu para o `:root` porque a barra não é descendente do `.deck`, e repetir a fórmula seria a sincronização manual que este projeto recusa. **E A BORDA É O QUE TORNA O BRANCO POSSÍVEL OUTRA VEZ** — as duas metades daquele pedido são uma só. No tema CLARO `--bar` é branco: campo branco sobre ele é **1,00:1**, e sem contorno a caixa de texto não existe na tela. Foi essa mesma aritmética que criou a faixa `--field-bar` na v5.270, e é por isso que a v1.5.2 teve de tirar o branco quando tirou a faixa; a borda resolve sem trazer a faixa de volta, que é o que o operador recusou. O valor é `--field-borda`, o `--line` do tema claro escurecido até passar o piso de 3:1 de componente — **o `--line` cru dá 2,51:1 sobre branco e falha justamente no caso que criou a exceção**; este dá 3,13:1 sobre o campo e 4,55:1 sobre a barra escura. **A EXCEÇÃO É NOMEADA NOS DOIS ORÁCULOS DE CONTORNO** (a varredura da FONTE e a do RENDERIZADO), pelo ID, e é o nome que a mantém única: a lista não tem regra que a próxima borda possa alegar cumprir. **E o campo arrasta o que vive dentro dele** — texto, placeholder e lupa voltam aos `--field-*`, porque o meio-conserto (trocar só o fundo) apaga o que se digita: no escuro `--text` sobre branco dá 1,17:1. **Os oráculos:** o do TOM no `smoke.mjs` foi reescrito em três metades que falham em direções opostas (fundo E traço iguais ao `.t-btn`; a BORDA separando das duas superfícies que ela divide, com o piso de 3:1; o que vive dentro do campo continuando legível), e a asserção da LARGURA foi para o `barra-em-qualquer-tela.test.mjs`, que roda QUATRO telas — é o único lugar em que a diferença entre uma propriedade e uma coincidência aparece. Três reversões: a largura fixa reprova em quatro telas, as cores antigas reprovam nos dois temas, e a borda removida reprova pela asserção de que ela é DESENHADA — esta última é a que importa, porque com `border: none` o `borderTopColor` computa para o `currentColor` e a razão de cor passa por vacuidade.
+
+**Só web.** Nenhum `.kt`, nenhum `res/`, nenhum manifest — o bundle sai na hora.
+
+## v1.5.4 — a janela para na linha da barra, e os controles ficam à vista
+
+A BIBLIOTECA PARA NA LINHA DA BARRA, E OS CONTROLES CONTINUAM À VISTA. Pedido do operador sobre a v1.5.3: *"atualmente a janela da biblioteca abre desde a base do app, até o topo da tela … ajuste para que ela use a área abaixo da barra de buscas, até o topo. seu deslizamento surge e se corta ali. mantendo sempre os controles visíveis"*, mais *"verifique a barra superior acima da barra de buscas, que no design da tela completa vai parar na barra de notificação, mas quando é animada para fechamento, se torna uma margem saliente durante o movimento de fechamento"*. **A CAMADA DEIXOU DE SER A TELA INTEIRA.** Ela vai do topo até a linha em que a barra repousa: `bottom` é a caixa de controles MENOS a barra (a caixa já reserva a altura dela no `padding-top`, e é essa faixa que a janela ocupa quando a barra sobe), mais `overflow: hidden` — sem ele o `bottom` só encolhe a caixa da camada e um filho `absolute` transborda dela. Duas alturas medidas, nenhuma coordenada: a mesma conta que põe a barra no lugar. **E ISSO APAGOU O RECORTE, que era a peça que já tinha falhado duas vezes.** A v1.5.1 recortou a CAMADA na posição do lugar da barra, e o atraso que aquele recorte precisava ter atrasava TODA mudança do valor — MEDIDO num oráculo que não desenha quadros, ele ficou preso em `inset(0px)` e a janela FECHADA cobria a preview inteira; a v1.5.2 mudou-o para o espaço da própria folha, o que resolveu o atraso e trouxe metade do defeito do aparelho (o recorte revelava `[0, altura da barra]` de uma folha em que a barra começava DEPOIS do recuo da área segura). **Sem recorte nenhum as duas classes somem**: a janela acaba onde a camada acaba, e a camada não tem estado — não anima, não atrasa, não pode ficar presa num valor de partida. Abrir é a COLUNA subindo dentro de uma janela que não se mexe. **E OS CONTROLES CONTINUAM VIVOS:** fora do recorte não há camada — nem pixel, nem scrim, nem toque —, então com a Biblioteca ABERTA o operador vê e ALCANÇA o transporte, e pausar o louvor enquanto procura o próximo deixou de exigir fechar a janela. **A ÁREA SEGURA VIROU O DESTINO, NÃO UM RECUO.** A margem saliente que o operador viu era o `padding-top` da folha: como RECUO ele existe nos DOIS estados — aberta é a faixa da barra de status, que é o certo; fechada e em movimento é uma faixa a mais VIAJANDO ACIMA da barra, que nada explica. Hoje a barra é o primeiro pixel da folha e abrir leva a coluna até `--sa-topo` em vez de zero: não há estado a trocar, logo não há o que aparecer no meio do caminho — e a `height` da folha desconta o mesmo tanto, senão a última linha da lista terminaria fora do recorte. **O ORÁCULO DA TELA GANHOU AS DUAS PERGUNTAS NOVAS**, nas quatro configurações: no MEIO do movimento nada viaja acima da barra, e ABERTA a janela não cobre os controles. A primeira pergunta pela COLUNA, nunca pela camada — **a camada ocupa legitimamente toda a região acima daquela linha, então perguntar por ela responde "sim" em todo ponto do percurso e APROVA a margem saliente**; foi o que a primeira escrita fez, reprovando nas quatro telas com o app já correto. **E a lista voltou a ~602px** (de 847), o que remediu o fixture do vão dos favoritos no `boot-nativo`: seis categorias deixavam vão ZERO. São TRÊS agora, e a régua ficou escrita — o vão precisa ser maior que a seção VAZIA, que tem altura própria (136px), senão a primeira metade daquele caso reprova dizendo "136px para um vão de 96px" e a leitura fácil (*"a seção não respeita o piso"*) é falsa.
+
+**Reversões que provam as duas decisões.** Devolver a camada à tela inteira
+(`bottom: 0`, sem `overflow`) reprova em oito asserções — a janela volta a cobrir
+os controles nas quatro telas. Devolver a área segura a `padding-top` da folha
+reprova nas TRÊS telas com entalhe e passa na sem: é o CONTROLE do experimento
+fazendo o papel dele.
+
+**Só web.** Nenhum `.kt`, nenhum `res/`, nenhum manifest — o bundle sai na hora.
+
+## v1.5.3 — a barra cortada e fora do lugar, e a tela que os oráculos não têm
+
+*"o alinhamento da barra está completamente errado, está sendo cortado e
+deslocado em suas animações. a possível causa: você pode estar usando números
+fixos considerando a sua tela de testes, mas a tela do smartphone tem variação
+de tamanho, pixels e espaços variáveis."*
+
+**Lote só de web** (nenhum `.kt`, nenhum `res/`, nenhum workflow — sem Release e
+sem `shellTag`).
+
+O operador acertou a CLASSE do defeito. A barra da Biblioteca é a única peça do
+app que é um **overlay alinhado a uma caixa do layout** — logo a única cujo
+desenho depende de coisas que a tela dos oráculos não tem. Dois defeitos
+chegaram ao aparelho passando pela suíte inteira.
+
+### Cortada: a área segura que só existe no aparelho
+
+O app é `viewport-fit=cover`, então a barra de status É área do app e
+`env(safe-area-inset-top)` vale de verdade — e **zero** em todo navegador de
+mesa. O recorte da folha revelava a faixa `[0, altura da barra]`, mas a barra é
+o primeiro filho de uma folha **com `padding-top`**: no aparelho saía uma faixa
+vazia em cima e a barra cortada embaixo, na exata medida do entalhe.
+
+A área segura do topo virou **token** (`--sa-topo`), por duas razões que se
+somam: as duas fórmulas que dependem dela (o `padding` da folha e o recorte)
+podiam discordar sem nada reprovar; e **um valor que só o aparelho conhece é um
+valor que nenhum oráculo alcança** — com nome, um teste pode fingir um entalhe.
+
+### Deslocada: uma coordenada de tela envelhece
+
+O lugar de repouso era `--lib-desce`, o topo da caixa de controles, medido. Uma
+coordenada envelhece por um caminho que ninguém observa: **o `ResizeObserver`
+vigia TAMANHO, e o que move a caixa não muda o tamanho dela.**
+
+MEDIDO, e é a primeira captura do operador: o teclado sobe (no modo em que o
+navegador não reflui o layout — quem compensa é `--kb`), o app remede com ele no
+ar, o teclado some, e a barra fica **290px acima do lugar, flutuando sobre a
+lista do Cronograma**.
+
+Hoje não há coordenada nenhuma. O CSS faz a conta —
+`100svh - var(--kb) - var(--lib-caixa-h) - var(--sa-topo)`, que é a MESMA que o
+`body` usa para a própria altura, menos a altura da caixa — e o JS mede só
+**alturas**: `--lib-bar-h` e `--lib-caixa-h`. O instrumento (um observador de
+tamanho) e a grandeza (um tamanho) passam a ser a mesma coisa, e quem sabe onde
+a caixa está é o CSS, que refaz a conta a cada quadro.
+
+### E o oráculo novo é sobre a TELA, não sobre a regra
+
+`barra-em-qualquer-tela.test.mjs` roda a mesma medição em **quatro
+configurações**: a tela dos outros oráculos (430×900, sem entalhe), duas com
+entalhe (393×786 e 360×740) e a sequência do teclado. Em cada uma afirma três
+coisas — a barra pousa na borda de cima da caixa, ela aparece INTEIRA, e logo
+abaixo dela não existe nada da janela.
+
+- **A primeira tela é o CONTROLE do experimento**, e é o que dá sentido ao
+  arquivo: nas duas reversões ela **passa**. Um caso que só reprovasse nela não
+  teria dito nada sobre o aparelho.
+- **O recorte é medido por HIT-TEST**, nunca pela string do `clip-path`: um
+  `calc()` não resolvido aprova qualquer leitura que se queira fazer dele.
+
+---
+
+## v1.5.2 — a faixa sai, e a barra volta para o topo dos controles
+
+*"vamos remover esse zoneamento de tom cinza/azul que tem atrás da barra de
+buscas. vamos usar apenas os botões e a caixa de texto do mesmo tom que os
+botões do controle. … vamos mover essa barra de volta para o topo da seção de
+controles, onde estava, acima do nome da mídia em exibição. … mas mantenha todo
+o sistema de abertura e posição relativa da aba da biblioteca, dessa vez a
+abertura está correta. … tome cuidado com os espaçamentos de margens verticais
+dessa barra, estavam errados nesse último update."*
+
+**Lote só de web** (nenhum `.kt`, nenhum `res/`, nenhum workflow — sem Release e
+sem `shellTag`).
+
+### A faixa existia por causa de uma peça que também saiu
+
+O `--field-bar` nasceu na v5.270, e a razão era MEDIDA: o campo vestia os tokens
+SEM TEMA (`--field-*`, branco literal nos dois temas) e **campo branco sobre a
+caixa de controles branca do tema claro dá 1,00:1**. A faixa era o degrau que
+fazia o campo existir.
+
+Sem o branco não há branco-sobre-branco a resolver. O campo e o dado vestem
+`--surface` — o tom exato do `.t-btn` do transporte —, e duas peças da mesma
+caixa com a mesma receita não precisam de uma caixa em volta que as separe do
+resto. Com o último consumidor foi o token: `--field-bar` saiu do `tokens.css`
+nos dois temas, junto com uma regra órfã que ainda pintava o cabeçalho da
+Biblioteca removido na v5.258.
+
+- **A escolha do tom é MEDIDA, não literal.** Sobre `--surface-2` — a receita de
+  campo que a `.lib-search` declara para a folha do sorteio — o placeholder dá
+  **4,21:1** no escuro e **4,15:1** no claro, abaixo de AA nos dois; sobre
+  `--surface` dá **5,15:1** e **4,82:1**. *O tom que o pedido escolheu é também o
+  que passa*, e é por isso que os dois números estão escritos no CSS: quem
+  trocar de volta vai vê-los.
+- **A régua do oráculo é o `.t-btn` COMPUTADO**, não um número no teste: o pedido
+  nomeia uma peça do app, e um literal envelheceria na primeira troca de paleta —
+  envelhecendo parecendo certo.
+
+### O alternador quase morreu calado
+
+Ele fica FORA da regra do tom: é a AÇÃO da linha (`--btn-accent`/`--accent`), a
+mesma gramática do `#repeat.active` — a fileira do transporte também tem um botão
+aceso entre seis do tom comum, então isto não contradiz o pedido.
+
+Só que a regra que o pintava era uma CLASSE (`.lib-toggle`) e a receita
+compartilhada dos dois quadrados é um seletor de **ID**. Enquanto os dois eram
+brancos, ambos pintavam a mesma coisa e a derrota passava despercebida; no
+instante em que a receita comum passou a pintar `--surface`, ela venceu por
+especificidade e a porta virou mais um quadrado igual — **sem nada na tela
+dizendo que ela tinha sumido**. Hoje as duas são ID e a disputa se resolve pela
+ordem.
+
+### O lugar voltou; o mecanismo não
+
+A barra repousa no topo da caixa de controles — o lugar da v1.5.0 —, mas continua
+sendo a CABEÇA da janela e sobe com ela até o topo da tela. O que mudou é uma
+medida de posição (`--lib-desce`); a abertura, o movimento e o destino não
+mudaram uma linha, que era o pedido.
+
+**E é por isso que a folha passou a RECORTAR.** Com a barra a meia tela, tudo
+que vem abaixo dela na coluna — a lista e o fundo da própria folha — cairia por
+cima da caixa de controles: o transporte coberto por uma tela de `--bg` que
+ninguém abriu. O `clip-path` apaga essa parte, e apaga o TOQUE junto (ele recorta
+hit-test), que é o que mantém os botões alcançáveis com a Biblioteca fechada.
+
+- **Ele volta só DEPOIS do fechamento** (duração zero, atraso de uma animação):
+  um recorte que voltasse no instante do toque faria a lista sumir de uma vez em
+  vez de descer junto com a barra.
+- **O FUNDO da folha anda no mesmo relógio**, pelo motivo espelhado: fechada ela
+  não pode pintar nada, senão a faixa da barra fica com um retângulo `--bg` por
+  trás — o mesmo "zoneamento" por outro caminho.
+- **E ELE É MEDIDO NO ESPAÇO DA PRÓPRIA FOLHA** (`100% - a barra`), não na tela.
+  A primeira versão recortava a CAMADA na posição do lugar da barra, e isso é um
+  defeito de mecanismo: aquele valor depende de uma medida que muda em runtime, e
+  o atraso que o recorte precisa ter atrasa TODA mudança do valor — remedição
+  inclusive. MEDIDO no `controles-layout.test.mjs`, que não desenha quadros: o
+  recorte ficou preso no valor de partida (`inset(0px)`, isto é, nenhum) e a
+  janela FECHADA cobria a preview inteira — o toque na cortina caindo na lista da
+  Biblioteca. Um `clip-path` é aplicado antes do `transform`, então recortar
+  "tudo abaixo da barra" no espaço da folha vale onde quer que ela esteja.
+
+### E uma remedição não é uma animação
+
+O mesmo defeito pelo outro lado, e o `transform` o tinha também: a janela anima
+entre dois lugares — o topo da tela e o lugar da barra — e o segundo é uma
+MEDIDA. Uma transição não distingue as duas razões de o valor mudar. Com o tempo
+ligado, remedir vira a barra **deslizando** até o lugar novo enquanto a caixa de
+controles já saltou para lá: a barra correndo atrás da caixa.
+
+`semAnimarAJanela` desliga o tempo no quadro em que a medida escreve — a classe
+sai, o valor entra no mesmo recálculo (uma transição usa a duração do estilo
+DEPOIS da mudança), a classe volta no quadro seguinte. **É o mesmo mecanismo da
+carga, e por isso não há dois**: a primeira medida também é uma mudança de valor,
+e é ela que arma a animação pela primeira vez. MEDIDO: a barra mede 28,6px no
+primeiro quadro, antes de a folha assentar, e 51px depois.
+
+### As margens são dois números que precisam concordar
+
+A queixa era *"os espaçamentos de margens verticais dessa barra estavam
+errados"*. A barra é um OVERLAY (ela vive na janela, para subir com ela) e o
+lugar dela na caixa é um `padding-top`: reservar de menos a põe por cima da
+primeira linha de controles, reservar de mais abre uma faixa de caixa vazia por
+baixo dela. O oráculo mede os dois lados — a barra pousando exatamente na borda
+de cima da caixa, e a reserva sendo a altura dela mais o respiro e nada mais —,
+além do recuo lateral batendo com o da caixa, que é o que alinha o campo com os
+botões de baixo. A área segura de baixo voltou para a caixa, que é quem encosta
+na barra de gestos outra vez.
+
+### E a caixa de controles é vigiada
+
+O lugar da barra é o TOPO dela, e ela muda de altura por caminhos que não passam
+pela medida: a proporção da preview, o nome da mídia em duas linhas, a barra de
+seleção múltipla, o modo do app. Enumerá-los seria uma lista para envelhecer, e o
+modo de falhar é a barra pousando fora do lugar. `ResizeObserver` responde à
+MUDANÇA, seja qual for a causa; o laço que ele poderia criar (a medida muda o
+`padding-top`, que muda a caixa) é fechado do outro lado — a função só escreve o
+que mudou.
+
+---
+
+## v1.5.1 — a janela que sobe levantando a própria barra
+
+*"a barra de buscas e playlist automática como um todo, deve ser uma barra de
+lado a lado da tela, sem estar dentro de um card de bordas arredondadas … vamos
+mover essa barra para a base do app, abaixo da linha dos botões dos controles …
+ela é um popup de tela inteira, ela surge da base da tela e vai levantando a
+barra de buscas, de modo que a barra de buscas acabe no topo da biblioteca
+(isso resolve o problema que temos atualmente da caixa de texto ficar escondida
+pelo teclado)."*
+
+**Lote só de web** (nenhum `.kt`, nenhum `res/`, nenhum workflow — sem Release e
+sem `shellTag`). Três ajustes sobre a v1.5.0, e os três são a mesma decisão.
+
+### A barra é a CABEÇA da janela
+
+A v1.5.0 pôs a barra na caixa de controles, fora da Biblioteca, e fez a janela
+subir de trás dela até uma folga do topo. O pedido inverte quem sobe: a barra
+volta para dentro e sobe junto.
+
+A janela virou uma coluna `[barra][lista]` de tela cheia. **Fechada, ela está
+descida de `100% - a barra`** — o que deixa só a barra à vista, encostada na
+base; **aberta, `translateY(0)`**, e a barra para no topo porque é onde ela
+sempre esteve dentro daquela caixa. Não há nó transportado entre dois pais, não
+há segunda barra, e a porcentagem é da PRÓPRIA caixa: o único número que vem de
+fora é a altura da barra.
+
+**E é isso que resolve o teclado.** Com o campo no topo da tela, o teclado — que
+sobe da base — não tem como cobri-lo. Era o defeito que quatro lotes da era da
+barra-na-base tentaram consertar por fora (v5.261, v5.264, v5.266, v5.270). Isto
+**revoga a v5.263 pelo outro lado**: aquele lote tirou o slide inteiro porque a
+barra morava dentro da folha e `transform` torna a folha o bloco-contêiner dos
+descendentes fixos. Aqui a dívida é paga pela geometria, não pela remoção.
+
+### Uma medida que ANIMA precisa nascer quase certa
+
+O defeito deste lote foi encontrado pelo oráculo, e ele é o inverso do que o log
+dizia. Enquanto o que se media era o **deslocamento inteiro** (`--lib-desce`, com
+60px de palpite no CSS contra 847px medidos), a primeira escrita do JS disparava
+a transição de `transform`: a Biblioteca **varria a tela de cima a baixo na
+abertura do app**, por 0,28 s, com tudo por baixo dela intocável no caminho.
+
+O `smoke.mjs` reprovou com todo ponto de uma linha do acervo respondendo
+`LI.coll-group` — o conteúdo da janela em queda, não a linha. Escrita como
+`100% - var(--lib-bar-h)`, a porcentagem é da própria caixa e **o palpite erra
+por pixels**, então a correção da medida é invisível.
+
+O que sobrou de `medirBarraDaBiblioteca` é a altura da barra, e ela responde a
+duas perguntas de uma vez: onde a janela para fechada, e quanto a caixa de
+controles reserva embaixo.
+
+**E corrigir o palpite não bastou.** MEDIDO: a barra mede **28,6px no primeiro
+quadro** — antes de a folha assentar — e 53px depois, e essa correção também
+animava, agora sob carga (foi a campanha de determinismo que a pegou, na primeira
+volta). A translação passou a ter tempo ZERO até a classe `lib-pronta`, posta
+**dois quadros** depois da carga: uma transição usa a duração do estilo DEPOIS da
+mudança, então ligar o tempo no mesmo quadro em que a medida entra produz
+exatamente a animação que a guarda existe para impedir. A janela é a única peça
+do app cuja posição de REPOUSO depende de uma medida, e toda medida chega depois
+do primeiro layout.
+
+### E no Modo Fácil a barra não fica à vista
+
+Aquele modo esconde a caixa de controles inteira (`body.mode-simple .bottombar`),
+e enquanto a barra morava lá dentro ela sumia **de carona**. Dentro da janela,
+sumir virou uma regra que alguém precisa escrever — e a falha é visível mas MUDA:
+uma faixa de busca na base do modo que existe para não ter faixa nenhuma. Fechada
+ela sai INTEIRA (`translateY(100%)`), e não só invisível: a janela recebe toque
+também fechada, e uma faixa transparente engolindo o dedo na base da tela é pior
+que a faixa à vista.
+
+A porta de lá continua sendo a LUPA da zona de leitura, e ela passou a abrir **sem
+foco**: o ouvinte estava registrado por REFERÊNCIA
+(`addEventListener('click', openHymnSearch)`) e passava o `PointerEvent` como
+`comFoco`, que é truthy — a lupa abria com o teclado por cima da lista. É a mesma
+armadilha que a v1.4.31 pagou no `openLyricsPopup`.
+
+### A camada saiu do molde, e tinha de sair
+
+Todo `.popup-backdrop` deste app é `opacity: 0` fechado. Este não pode ser: a
+BARRA vive nele e está à vista o tempo todo. Então:
+
+- a camada fica **opaca e sem fundo**;
+- o SCRIM vira um `::before` que esmaece;
+- o toque é **roteado à mão** — a camada só o recebe ABERTA (para o toque no
+  fundo fechar), e a janela o recebe SEMPRE (para a barra funcionar fechada).
+
+### A barra é uma FAIXA, não um cartão
+
+Sem raio, sem margem, de lado a lado — *"assim como já era na versão antiga da
+biblioteca"*. A v1.5.0 a desenhou como cartão dentro da caixa de controles, e
+cartão é o que ela nunca foi.
+
+- A caixa de controles **reserva a altura dela** (`--lib-bar-h` no
+  `padding-bottom` da `.bottombar`): a janela é `fixed` e a barra pousa por cima
+  da base do app.
+- A **área segura de baixo** migrou da caixa para o padding da BARRA, que é quem
+  encosta na base agora — somadas, as duas deixavam uma faixa morta do tamanho da
+  barra de gestos.
+- A **área segura da LISTA** é dela e não da folha: aberta, quem termina a janela
+  é a lista, e sem a folga o último item do acervo fica sob a barra de gestos.
+
+### O que a lista ganhou de volta
+
+Ela caiu de ~880px para **576** na v1.5.0 (a folga do topo mais a barra na base)
+e voltou a **847px** — a tela menos a barra, medido em 430×900. O efeito no
+oráculo diz o tamanho da mudança: o caso do vão dos favoritos no
+`boot-nativo.test.mjs` voltou às **seis categorias** dos prints do operador, que
+a v1.5.0 tivera de encolher para duas porque com 576px oito blocos não deixavam
+vão nenhum.
+
+### E o hit-test passou a esperar pelo FATO
+
+A janela de tela cheia recebe toque também FECHADA (a barra é dela), então medir
+o que o dedo encontra antes de ela pousar responde sobre a janela em queda.
+`getAnimations()` + `finished`, a técnica do `gaveta()` — esperar pelo fato,
+nunca pelo valor que se vai afirmar.
+
+---
+
+## v1.5.0 — uma tela e duas folhas
+
+*"vamos fazer uma alteração grande de design: agora o cronograma vai ser a tela
+padrão e única."*
+
+**Lote só de web** (nenhum `.kt`, nenhum `res/`, nenhum workflow — sem Release e
+sem `shellTag`). É o primeiro degrau INCREMENTAL desde a v1.4: o app não ganhou
+um lugar novo, mas a navegação inteira mudou de conceito.
+
+### O que saiu
+
+A **faixa de abas** — e ela não saiu sozinha. Foram junto:
+
+| peça | o que ela fazia |
+|---|---|
+| `.tab` · `.tab-add` · `.tab-pl` | as células da faixa |
+| `.tab-ind` + `moveTabIndicator` | o vazado que DESLIZAVA entre as abas, com posição e largura medidas em JS |
+| `setupTabCarousel` | o deslize horizontal entre telas — **quatro correções do mesmo mecanismo**, a última reescrevendo o ciclo de toque inteiro porque o navegador cancela o fluxo de `pointer*` no primeiro scroller do caminho |
+| `makeTabGhost` + `animateTabSwitch` | o fantasma que segurava os nós da tela que saía, para as duas se moverem juntas |
+| `switchTab` · `TAB_ORDER` · `SWIPE_TABS` · `--tab-move` | a máquina que orquestrava tudo isso |
+
+**E `activeTab` foi junto.** Ela tinha dois valores (`'imports'` e `'bible'`)
+porque havia duas telas de lista; com uma só, "qual aba" deixou de ser uma
+pergunta. O que sobrou é `bibliaNoAr` — *a folha está aberta?* —, e as duas
+dúzias de `activeTab === 'imports'` que ela sustentava eram, todas, *"o
+Cronograma está à vista?"*, que hoje é sempre verdade: **a folha COBRE a lista,
+não a substitui.**
+
+`bibliaNoAr` é um BOOLEANO e não `!bibleSheetEl.hidden`: o `hidden` só cai no
+fim da animação de saída, e durante esses 220 ms os redesenhos da Bíblia
+continuariam sendo pedidos para uma folha que já saiu de cena.
+
+### A Bíblia virou uma folha
+
+*"a bíblia vai ser uma janela igual o que é hoje a seção de ferramentas, no
+mesmo molde."*
+
+Mesmo molde, medido: não invade o cabeçalho nem a caixa de controles, cobre a
+lista inteira, mesma entrada e mesma saída. O que ela tem A MAIS:
+
+- **HOST PRÓPRIO.** Ela desenhava dentro do `#library` — o mesmo `<ul>` do
+  Cronograma —, e era por isso que `renderLibrary` tinha um desvio por aba no
+  topo. Com `#bibleBody`, as duas listas deixam de disputar um nó, e o
+  Cronograma continua desenhado por baixo: é isso que faz a folha ser uma folha.
+- **O VOLTAR DELA.** A Bíblia tem navegação dentro (livros → capítulos →
+  leitura), e o `#backBtn` do cabeçalho só servia a ela. Ele mudou de casa: um
+  voltar na faixa do app apontando para dentro de uma janela é o app dizendo que
+  a janela é ele. O degrau do voltar do Android acompanhou — ele SOBE dentro da
+  folha antes de fechá-la.
+- **O DESLIZE ficou, e agora é dela.** Ele nasceu como a animação genérica da
+  troca de aba e a Bíblia pegava carona; com a faixa fora, o único movimento
+  lateral que sobrou no app é a navegação DENTRO dela — que é para onde ele
+  sempre apontou. Sem fantasma: ali as duas telas são o mesmo host redesenhado,
+  e o que se anima é a ENTRADA da nova.
+
+### O rodapé virou a navegação
+
+*"na base dela se mantém o botão de importar arquivos no centro, a esquerda o
+botão de bíblia e a direita o botão de ferramentas"* + *"coloque um texto no
+botão de ferramentas"*.
+
+Três portas de mesmo peso, `flex: 1 1 0` (base zero: com `auto` a do meio
+partiria maior e ficaria maior depois de repartida a sobra). A ordem é a da
+leitura: o que se CONSULTA à esquerda, o que ENTRA no roteiro no centro, o que
+se PRODUZ à direita.
+
+**Ícone em cima, rótulo embaixo** — a pilha do `.qs-tile` do painel rápido, e
+ela entra aqui pelo mesmo motivo: MEDIDO em 360px, três rótulos em LINHA não
+cabem ("Ferramentas" saía com reticências; em 320px, dois dos três). Empilhado,
+a palavra tem a largura inteira do terço e cabe até em 320.
+
+E **"Importar"**, não "Importar arquivos": o nome inteiro não paga um terço em
+nenhuma largura. O `title` guarda a frase completa.
+
+### A barra de busca saiu da Biblioteca
+
+*"onde hoje é a barra de abas com o botão de buscas, vamos trazer toda a barra
+de buscas da biblioteca, ela vai ficar agora ali fora da biblioteca."*
+
+Os mesmos três elementos, na ordem que a v5.305 fixou — *sortear* · *procurar* ·
+*sair* —, na caixa de controles, onde a faixa morava. Duas barras seriam duas
+verdades sobre o mesmo campo, e a de dentro sumiria atrás da de fora no instante
+em que a Biblioteca abrisse.
+
+**Ela mantém a superfície própria** (`--field-bar`), e a razão é a mesma medida
+da v5.270 no lugar novo: o campo é BRANCO nos dois temas (decisão declarada — é
+a única peça da tela em que se digita, e veste os tokens `--field-*`, sem tema,
+como o palco), e no tema CLARO a caixa de controles também é branca. Campo
+branco sobre caixa branca dá **1,00:1**. A elevação sozinha foi o meio-conserto
+que a v5.268 tentou e o operador recusou. **O que ela perdeu é a SOMBRA**: aquela
+dizia de que lado o conteúdo passava por baixo, e aqui não passa nada atrás dela.
+
+### Duas portas, e a diferença é o TECLADO
+
+*"sua forma de abertura da biblioteca agora vai ser através do foco na barra de
+texto, ou no toque do que seria o botão de fechar a biblioteca (que quando
+fechado seria uma seta) … no caso de abrir pelo foco, já abre o teclado junto,
+se abrir pelo botão de abrir, ela abre sem o foco de digitação."*
+
+São duas INTENÇÕES: *"procurar o hino 37"* chega pelo campo e quer o teclado;
+*"ver o que eu tenho"* chega pela seta e quer a lista inteira à vista.
+`openHymnSearch(comFoco)` — explícito, e não derivado de `document.activeElement`:
+quando o ouvinte de `focus` chama a função o campo JÁ está focado, e quando o
+botão a chama ele pode estar focado por um toque anterior; as duas leituras
+dariam a mesma resposta, e ela seria a errada num dos dois casos.
+
+**O botão é UM, com dois desenhos**: seta quando fechada, ✕ quando aberta. Os
+dois vivem na árvore CLARA e a classe escolhe — a folha do documento não
+atravessa a árvore-sombra de um `<use>`, então um `<symbol>` com os dois dentro
+desenharia os dois, empilhados, para sempre. É a armadilha que o
+`controles-layout.test.mjs` já pagou uma vez.
+
+**E o `POPUPS` registra o botão como `null`.** Ele é um ALTERNADOR e tem ouvinte
+próprio; registrado na tabela também, o toque com a janela fechada abriria pelo
+ouvinte dele e fecharia pelo da tabela, no mesmo clique — a janela pisca e nada
+acontece. O que a linha continua entregando é o resto do contrato: o toque no
+fundo e o degrau do voltar.
+
+### A Biblioteca virou uma janela que SOBE
+
+*"a biblioteca agora vai abrir abaixo dessa barra de buscas de forma animada,
+fazendo ela subir até o topo da tela … com uma ligeira folga do topo da tela
+quando aberta, para deixar claro que a biblioteca é apenas uma janela dentro do
+app."*
+
+**Isto REVOGA a v5.263**, que tinha tirado o slide inteiro (*"faça apenas um fade
+in e out … e faça dela uma tela inteira e não um tipo de pop up"*). A razão
+daquele lote era o TECLADO: a barra de busca morava dentro da folha, `transform`
+a torna o bloco-contêiner de tudo que for `position: fixed` lá dentro, e três
+lotes seguidos consertaram o entorno daquela animação. **Aqui a barra ficou
+FORA**: a janela não hospeda campo nenhum, e o que sobe é uma lista.
+
+- **A base é MEDIDA** (`--lib-base`, escrito por `medirBarraDaBiblioteca`): ela
+  encosta no TOPO da barra, que muda de altura com o teclado, com a barra de
+  seleção e com o corpo de fonte do sistema. É a mesma técnica do `--tab-x` que o
+  vazado das abas usava, e é o que sobrou dela.
+- **A CAMADA para no topo da barra** (`inset: 0 0 var(--lib-base) 0`), e isso não
+  é estética: com `inset: 0` o scrim cobriria a `.lib-bar`, e o primeiro toque a
+  ser engolido seria o do próprio botão que fecha a Biblioteca.
+- **A folha é `bottom: 0`, não `--lib-base` outra vez.** Quem já para no topo da
+  barra é a camada; descontar duas vezes deixava a janela terminando no meio da
+  tela — MEDIDO: base em 304 numa camada que ia até 602.
+- **`transform`, não `height`**: altura anima no layout e reflui a lista a cada
+  quadro.
+- **A janela NÃO é a folha das Ferramentas**, e a diferença está no pedido: *"a
+  janela da biblioteca não é igual as ferramentas, ela ocupa a tela inteira e não
+  apenas o corpo do cronograma"*. Aquelas são filhas do `.list-body`; esta é
+  `fixed` e cobre o app inteiro, do topo até a barra.
+
+**O PREÇO ESTÁ DITO:** a Biblioteca encolheu de ~880px para **576** (medido em
+430×900). Ela mostra menos itens de uma vez, e é a troca que o pedido escolheu —
+uma janela que ocupa tudo não tem como se anunciar como janela.
+
+### Os oráculos
+
+Quinze blocos reescritos, em seis arquivos. Os que mudaram de natureza:
+
+- **`ferramentas-folha.test.mjs` virou o oráculo da NAVEGAÇÃO** — as três coisas
+  se medem juntas porque são uma decisão só. Ganhou o alternador de dois
+  desenhos (medido no renderizado) e o voltar subindo dentro da Bíblia.
+- **O carrossel virou uma AUSÊNCIA no `smoke.mjs`**, medida com toque de verdade
+  (CDP): um ouvinte de `touchmove` que sobrevivesse à limpeza roubaria o eixo
+  horizontal da lista, e o que se veria é a rolagem vertical falhando de vez em
+  quando.
+- **O fixture do vão dos favoritos encolheu de seis categorias para duas.** Com a
+  janela mais baixa, oito blocos não deixam vão NENHUM (piso zero) e quatro
+  deixam um vão MENOR que a altura própria da seção (70px contra 136) — nos dois
+  a asserção falaria de um desenho que a tela não tem. O número nunca foi o
+  assunto; a propriedade é.
+- **`.popup-sheet--full` virou `--lib`** em toda parte, e a regra de R1 que
+  apontava para ela seguiu junto.
+
+Quatro reversões provam as decisões novas: sem `if (!comFoco) return` as duas
+portas viram uma; sem a folga e o `translateY` a janela volta a ser tela; sem o
+`.ico-alt` o alternador mostra os dois desenhos; sem o degrau 2.6 o voltar fecha
+a Bíblia com um capítulo aberto.
+
+---
+
+## v1.4.45 — o desfazer do giro fala a língua do vizinho
+
+*"também verifique o icone de rotação sobre o preview, ele deve ser vermelho e
+ter em seu design o 'x' indicando que o toque destroi tal configuração atual."*
+
+**Lote só de web** (nenhum `.kt`, nenhum `res/`, nenhum workflow — sem Release e
+sem `shellTag`).
+
+### O argumento da v1.4.43 estava errado, e está dito onde ele foi escrito
+
+Aquele lote pintou o `#pvGiroBtn` de **denim** (`--stage-accent`), com esta
+justificativa: *"vermelho neste app quer dizer 'está no ar agora', que a camada
+de cima já ocupa — um giro é uma preferência de enquadramento, não um alerta"*.
+
+**Ele lia o token estreito demais.** O que o `--stage-alert` do selo de camadas
+diz naquela faixa não é "no ar": é ***"o toque daqui TIRA alguma coisa"*** — e a
+faixa é, por definição escrita duas versões antes, *a região do que está fora do
+padrão e o toque desfaz*. Os dois moradores fazem exatamente a mesma promessa.
+
+Duas promessas iguais em cores diferentes não distinguem nada: **ensinam que a
+cor ali significa outra coisa**, e ela não significa. O operador leu o desenho
+antes de mim.
+
+### O que passa a separar os dois é o DESENHO
+
+Que é a regra de sempre neste app, a mesma dos botões da notificação de mídia: **o
+ícone mostra o ESTADO; o ✕ diz o que o toque FAZ.**
+
+| morador | ícone | o ✕ |
+|---|---|---|
+| `#pvCamadaBtn` | uma pilha de folhas | o mesmo |
+| `#pvGiroBtn` | uma seta de giro, mais o ÂNGULO ao lado | o mesmo |
+
+- **O ✕ é o do vizinho VERBATIM**, os dois `<path>` copiados, e não um parecido.
+  Uma marca de destruição redesenhada dois pixels adiante é uma segunda opinião
+  sobre a mesma coisa — e é o tipo de divergência que ninguém revisa, porque as
+  duas versões ficam certas na tela isoladamente. O oráculo cobra os traços
+  COMUNS (têm de ser exatamente 2) e os PRÓPRIOS (têm de existir dos dois lados):
+  sem a segunda metade, dois botões idênticos em vermelho passariam.
+- **A seta encolheu para o ✕ caber**: o mesmo desenho a 0,75 em torno de
+  (10,10), ocupando 4→16; o canto de 16,4 a 21,5 é do ✕.
+- **E com isso ela saiu do sprite.** O `#icoGirar` é o símbolo do TILE de
+  Configurações, e o dia em que um dos dois mudar de forma o outro não pode ir
+  junto. Aqui ela é INLINE, como o vizinho já era, e pela mesma razão.
+- **O NÚMERO fica, e agora ele carrega mais peso.** Com a cor igual, é ele que
+  diz o que ESTE ✕ destrói — sem ele a faixa teria duas marcas vermelhas de
+  destruição e nenhuma dizendo de quê.
+
+---
+
+## v1.4.44 — o cartão invisível, o título centrado, e o rodapé em uma barra só
+
+**Quatro pedidos do operador, num lote só de web** (nenhum `.kt`, nenhum
+`res/`, nenhum workflow — sem Release e sem `shellTag`).
+
+### 1. O seletor de modo não media a mesma coisa que a grade
+
+*"verifique a largura total do seletor do modo, parece não estar alinhado com os
+outros botões abaixo."*
+
+**MEDIDO** numa viewport de 430: o trilho ia de 27,2 a 402,8 (375,6px) e a grade
+de tiles, de 14,4 a 415,6 (401,2px). **12,8px de recuo de cada lado**, e o
+culpado não desenha nada: a `.fade-row` pinta `--panel`, que é o MESMO tom da
+folha — o cartão era invisível, e o que se via era só o efeito do `padding`
+dele.
+
+A v1.4.43 tinha tirado o `--camada` do destaque e deixado a `.fade-row` de pé por
+baixo. **Um cartão invisível que só desalinha não é um cartão: é padding.** A
+linha virou o que ela já parecia ser — uma legenda e um trilho —, e o trilho
+passou a medir exatamente a grade.
+
+`background: none` **e** o `padding` zerado, os dois: só o padding deixaria a
+regra de R1 (a `.fade-row` está na lista) descrevendo um bloco que não pinta mais
+nada. Ela **continua** na lista, e isso está certo — a lista é o que AFUNDA a
+superfície dos filhos, e quem afunda aqui é a folha; o que a linha não faz mais é
+pintar por cima dela.
+
+### 2. O título "Modo do app" é centrado
+
+*"centralize o título 'modo do app', que hoje está para a esquerda nas
+configurações."*
+
+Ele encabeça um controle de duas metades simétricas e é o único texto solto desta
+folha — à esquerda ele apontava para a metade "Fácil", que é uma das duas
+escolhas.
+
+**A asserção mede o TEXTO PINTADO**, por um `Range` sobre o nó de texto, e não a
+caixa do `<span>`: `.fade-row--fit` é `align-items: stretch`, então o span ocupa
+a linha inteira nas DUAS versões — medi-la aprova o rótulo colado à esquerda. E
+não `text-align`, que seria ler de volta a regra que se acabou de escrever.
+Provado por reversão: sem a regra, o desvio é de **158,1px**.
+
+### 3. O rodapé é UMA barra
+
+*"ficou duas seções, a versão e o registro em grupos separados. pode deixar tudo
+em uma barra horizontal única."*
+
+A v1.4.43 unificou o DESENHO (mesma altura, mesmo raio, mesma superfície, mesma
+fonte) e **parou no meio**: duas caixas com a mesma cor e um vão entre elas
+continuam se lendo como dois assuntos, e o assunto é UM — *"que versão eu tenho,
+e o que eu mando para quem vai me ajudar?"*. Hoje a **superfície é a faixa**, e o
+que mora nela é texto e um alvo.
+
+- **O respiro da esquerda é `padding`; o da direita é o ALVO.** A versão é texto
+  e precisa de folga; o `.log-copy` é um quadrado de `--hit` e a folga dele já
+  está dentro do alvo — um padding à direita empurraria o botão para dentro e
+  deixaria uma borda morta na faixa.
+- **A asserção é o número de SUPERFÍCIES pintadas dentro do rodapé**, e não a
+  contagem de filhos: um teste de "mesmo tom" aprovaria a v1.4.43, que é
+  justamente o que o operador viu como duas caixas. O que separa as duas versões
+  é haver UM fundo ou DOIS, medido na cor renderizada.
+
+### 4. O copiar do Registro saiu
+
+*"pode remover o sistema de copiar registro. o registro está cada vez maior e
+mais completo e acaba por ele ficar longo de mais para compartilhar via chat de
+texto."*
+
+A área de transferência é o caminho que **corta o texto no meio sem avisar** —
+foi esse relato que criou o salvar em arquivo na v1.2.16 —, e o Registro só
+cresceu desde então. Ficou a porta que não corta.
+
+- **O `copiarTexto`, o `.log-copy` e o `#icoCopiar` FICAM**, com o consumidor que
+  os justifica: o `#castUrlCopy`, o endereço da transmissão — curto, e feito para
+  ser digitado noutro aparelho. É o caso em que a área de transferência é
+  exatamente a ferramenta certa. O oráculo cobra as duas metades, e a segunda é a
+  que impede a remoção de virar "apagar a função inteira".
+- **A regra do `CLAUDE.md` mudou de forma, não de intenção:** todo campo de log
+  continua nascendo com uma porta de saída; **qual porta depende do TAMANHO**.
+- **CONSEQUÊNCIA DECLARADA:** num NAVEGADOR o rodapé não tem mais como exportar o
+  Registro (o salvar depende da ponte). É o certo — ali metade dos blocos dele
+  nem existe. O rótulo "Registro" acompanha o botão pelo mesmo motivo: uma palavra
+  sozinha, sem alvo ao lado, é um controle que não existe.
+
+### O oráculo do copiar mudou de alvo, e o cenário dele agora é montado
+
+A guarda da v5.121 (*o clique chamava uma função apagada; um handler que estoura
+não muda nada na tela*) apontava para o `#diagCopy`. Com ele fora, quem exerce o
+mesmo caminho é o outro `.log-copy` — e ele exigiu duas coisas que o antigo não
+exigia, as duas MEDIDAS ao escrever:
+
+- **o endereço tem de ser semeado no nó**: quem o escreve no app é a enquete do
+  `mirrorEstado`, e sem transmissão no ar o ouvinte volta cedo — nada pulsa, e o
+  oráculo culparia o botão pela ausência do cenário;
+- **a folha dele tem de estar aberta**: `pulsar` volta cedo em botão fora da tela
+  (`visivelNaTela` recusa o que está dentro de um `.popup-backdrop` sem `.open`),
+  e o bloco da transmissão mora no `#castPopup`. Ela é fechada logo depois — as
+  medições seguintes contam com a tela limpa, a mesma higiene que a folha de
+  Configurações passou a exigir na v1.4.43.
+
+E a asserção do CONTEÚDO ficou colada à do pulso: o pulso é a resposta na tela e,
+sozinho, passaria com o `copiarTexto` sem efeito nenhum.
+
+---
+
+## v1.4.43 — o rodapé unificado, o modo que desliza, e a base da preview
+
+**Quatro pedidos do operador, num lote só de web** (nenhum `.kt`, nenhum `res/`,
+nenhum workflow — não há Release nem `shellTag`).
+
+### 1. O rodapé de Configurações tem UM desenho
+
+*"faça uma unificação do design do rodapé das configurações, atualmente cada
+elemento tem um design e tamanho único, como a versão, o registro e seus
+botões… padronize e unifique, pois são basicamente o mesmo tema."*
+
+Eram três peças com três desenhos: a versão como texto solto, o rótulo
+"Registro" como legenda e os dois botões como pastilhas de outra altura. Hoje
+são **DUAS pastilhas**, e a regra é uma: mesmo tom (`--surface-2`), mesma altura
+(`--hit`, o piso de alvo do app) e mesmo corpo (`--fs-diag`, declarado uma vez
+na `.footer-diag` e herdado pelas duas). O rótulo e os botões viraram um bloco
+só (`.footer-log`) porque eles são **uma coisa**: o nome do que se copia e as
+duas formas de copiar.
+
+`margin-left: auto` na segunda e `flex: 0 0 auto` nas duas: as pastilhas
+encostam nas pontas e nenhuma estica. Um `flex: 1` daria duas caixas do tamanho
+da tela com o texto perdido no meio delas.
+
+O `.log-copy` dentro do rodapé perde o fundo próprio (a pastilha já é o fundo) e
+guarda o `--btn-ok` do estado **copiado** — que é o único momento em que ele
+precisa se destacar de dentro dela.
+
+### 2. O modo do app é um interruptor que DESLIZA
+
+*"simplifique o design do agrupamento e botões de fácil e avançado, eles estão
+com muitas camadas e tons de grupos. faça eles do tipo toggle onde ele desliza
+de um lado para o outro, assim deixando mais claro que está alternando de um
+para o outro."*
+
+**Eram QUATRO tons empilhados** para uma escolha de duas posições: a folha
+(`--panel`), o cartão em destaque (`--camada`, o nível do `--panel-2`), a
+superfície afundada de cada botão (`--surface`) e o `--accent-fill` do
+escolhido. Hoje são **DOIS**: o trilho afundado e o polegar aceso. O cartão de
+destaque (`.fade-row--destaque` + `.fit-seg--grande`) saiu inteiro — aquela
+linha tinha peso por TOM e por TAMANHO, e passou a ter peso por **movimento**,
+que nenhuma das irmãs tem e que não gasta degrau da escada de camadas.
+
+- **O polegar é um `::before` do trilho**, não uma terceira caixa no HTML. Ele
+  mede metade do trilho menos o respiro, então `translateX(100%)` o encaixa na
+  outra metade **sem conta nenhuma em runtime** — uma largura em porcentagem se
+  resolve contra o trilho (errado) e o `translateX` de um elemento posicionado
+  se resolve contra a largura DELE (certo). Animar `transform` e não `left`:
+  `left` devolve a animação ao layout, que é onde ela engasga.
+- **`grid` de duas colunas iguais, não `flex: 1`.** Com o polegar medindo metade
+  exata, as duas metades do conteúdo têm de medir a mesma coisa **por
+  construção**: `flex: 1` distribui a SOBRA, e "Avançado" é mais longo que
+  "Fácil".
+- **O estado vive no `data-modo` do trilho**, escrito por `renderAppModeSeg` — a
+  mesma disciplina do `data-estado` dos tiles: a classe é aparência, o atributo
+  é o valor em vigor. Escrito só na abertura, o polegar ficaria parado no modo
+  de ontem enquanto o `.active` (que o app já escrevia) diria o certo: as duas
+  metades discordando, e só a errada visível.
+- **`--text` e não `--muted` no rótulo apagado.** O trilho é `--surface` sobre a
+  folha, e `--muted` ali dá **3,47:1** no tema claro — reprova o piso de 4,5:1
+  para texto pequeno. É a mesma medição que o seletor em destaque carregava. O
+  que separa as duas metades é o POLEGAR; esmaecer o não escolhido diria
+  "indisponível", que nesta paleta é outra palavra.
+- Os botões perderam o fundo próprio: `background: none` nos dois estados. Sem
+  isso, acrescentar o polegar por cima do desenho antigo deixaria a pilha
+  inteira de pé — com uma camada A MAIS.
+
+### 3. Configurações não fecha mais ao trocar de modo
+
+*"verifique para que a aba de configurações permaneça na tela imóvel ao alternar
+entre fácil e avançado, para não se perder a localização atual na visão do
+usuário."*
+
+O ouvinte chamava `closeFadePopup()`, com a justificativa *"a escolha já mudou a
+tela inteira atrás do popup"* — e é justamente esse o problema: **quem trocava
+de modo perdia a folha, o lugar dela e o caminho de volta**, porque a engrenagem
+que a abre mora em outro canto em cada modo. Com o interruptor que desliza, o
+que responde ao toque está DENTRO da folha, à vista.
+
+**A folha fica IMÓVEL por onde ela mora, e isso não é acidente:** o `#fadePopup`
+é `position: fixed` e vive **fora do `<main>`**, que é o que o
+`body.mode-simple main { display: none }` esconde. Mover o `#fadePopup` para
+dentro do `<main>` mantém a folha "aberta" pela classe e a apaga da tela, sem
+erro em lugar nenhum — daí o oráculo medir a CAIXA dela antes e depois, e não só
+a classe.
+
+### 4. A base da preview é a região do que está FORA DO PADRÃO
+
+*"atualize o local onde hoje sobrepomos o icone de remover camada na preview.
+essa região inferior no centro da preview vai ser uma região flexível que vai
+conter elementos passageiros. no caso, agora quando o giro do telão estiver
+diferente de 0, adicione um botão ali nessa região para cancelar essa
+modificação, permitindo voltar a posição padrão."*
+
+A faixa hospedava um item só (o selo de camadas) e ganhou uma **regra de
+admissão**: entra aqui o que **saiu do padrão AGORA e o toque desfaz**. Não é
+uma barra de ferramentas — é o contrário dela: as três laterais OPERAM a cena e
+estão sempre lá; estas aparecem porque há o que desfazer e somem quando não há.
+`justify-content: center` porque a faixa é uma FILA de zero, um ou dois itens, e
+o centro é o único alinhamento que não promete lugar fixo a ninguém.
+
+**O primeiro morador novo é o desfazer do giro** (`#pvGiroBtn`). O giro era a
+única preferência que muda a projeção e não tinha porta de volta onde se vê o
+efeito: o tile de Configurações CICLA 90° por vez, então voltar de 90° custava
+abrir a folha e tocar três vezes — olhando para a folha, não para a projeção.
+
+- **O ângulo é o estado**, e é ele que separa este botão do tile. O desenho é o
+  mesmo `#icoGirar` (o assunto não mudou), e uma seta circular sozinha sobre a
+  projeção leria *"girar mais 90°"* — o oposto do que o toque faz. Com o número
+  ao lado a frase fecha: *está a 90°* (estado) + *toque volta ao padrão*
+  (`title`), a mesma divisão dos botões da notificação de mídia.
+- **Denim (`--stage-accent`), não o vermelho do vizinho.** O palco não tem tema,
+  então o token é o do PALCO; e vermelho neste app quer dizer "está no ar
+  agora", que a camada de cima já ocupa a dois centímetros dali. A regra vem
+  **depois** da `.pv-fab` na folha pela razão que o selo de camadas já mediu: as
+  duas medem 0,1,0 e quem vence é a última do arquivo — escrita antes, o
+  `color: var(--stage-text)` ganha e o botão sai BRANCO, isto é, sem dizer nada.
+- **É o único `.pv-fab` mais largo que `--hit`** (`width: auto` com
+  `min-width`), e a exceção é o número. A altura não muda, o alvo continua no
+  piso do app, e mantido o `width` fixo dos irmãos "180°" sairia cortado sem
+  erro nenhum.
+- **O `<span>` do número ganha o `text-shadow` irmão das três `drop-shadow`.**
+  A `drop-shadow` do `.pv-fab svg` acompanha o traço do SVG e não alcança um
+  `<span>`: sem o irmão, o ângulo sumiria sobre um slide claro exatamente onde o
+  ícone ao lado continua legível.
+- **Quem o mostra é `renderRotBtn`** — o render do ESTADO que ele desfaz, nunca
+  um render próprio. É a única disciplina que impede o botão de sobreviver ao
+  fato que ele nomeia.
+
+### Os oráculos, e as duas armadilhas que eles pagaram
+
+`smoke.mjs` ganhou o bloco do interruptor (o polegar ANDA, medido na
+`transform` renderizada; os botões sem fundo próprio; o `data-modo` seguindo o
+modo) e duas asserções na troca de modo (a folha FICA, e a caixa dela é a mesma
+antes e depois). `controles-layout.test.mjs` ganhou as sete metades do desfazer
+do giro. Todas provadas por **reversão**.
+
+Duas medições que ficam, porque as duas aprovavam um app quebrado:
+
+- **Assentar não é "duas amostras iguais em quadros seguidos".** Entre a classe
+  `open` e o primeiro quadro da animação a caixa fica PARADA no ponto de
+  partida: MEDIDO, a primeira leitura saía em `top: -449` — a folha ainda no
+  teto — e o oráculo a tomava por assentada. **Nem é o primeiro
+  `transitionend`**, que é o da propriedade que acabar primeiro: MEDIDO,
+  `top: -7`, a `transform` a sete pixels do fim com a opacidade já pronta. Quem
+  responde é `getAnimations()` + `finished` — todas as transições em curso, sem
+  o oráculo precisar saber quais são, e com o sinal vindo do navegador em vez de
+  um prazo nosso.
+- **A régua do branco tem de ser um vizinho RENDERIZADO.** `--stage-text` sai de
+  `getPropertyValue` como `#fff` e a cor computada sai como
+  `rgb(255, 255, 255)`: duas escritas da mesma cor que nunca são iguais como
+  string, e a comparação passa SEMPRE. Provado por reversão — com o
+  `.pv-fab--giro` pintado de `--stage-text` de propósito, a asserção continuava
+  verde.
+
+E uma higiene que virou obrigatória com a folha que fica: o bloco da troca de
+modo do `smoke` agora **fecha a folha ao terminar**. Até aqui quem a fechava era
+o próprio ouvinte, e as dezenas de medições seguintes herdavam a tela limpa por
+acidente; com a folha aberta por cima, o que reprovava era uma asserção do
+Cronograma a três mil linhas dali, sem nada apontando para a causa.
+
+---
+
+## v1.4.42 — a contagem de uso sem chave nenhuma
+
+> *"descarte a opção de contagem de uso como opcional, deixe sempre ativo, não
+> preciso do sistema de exclusividade."*
+
+### O que saiu
+
+| peça | onde |
+|---|---|
+| a linha *"Contagem de uso"* e o `renderFarolLinha` | `controle/index.html`, `controle.js`, `controle.css` |
+| **`farolContar`** — o primeiro método que este projeto REMOVE da ponte | `NativeBridge.kt`, `shared/native.js` (shell 60 → **61**) |
+| `Farol.definirContar` e a leitura de `KEY_CONTA` em `Farol.contar` | `Farol.kt` |
+| `icoMedicao` / `icoMedicaoOff` | `controle/index.html` |
+| o interruptor `#opContar` | `site/registro/` |
+| o roteamento `avRegistroOperador` → `v-dev.txt` | `site/index.html` |
+
+### O que fica, e por quê
+
+**A exclusão do BUILD DEBUGGÁVEL.** Ela nunca foi opção de ninguém: é
+`FLAG_DEBUGGABLE` lido em runtime, sem UI e sem custo, e sem ela toda sessão de
+trabalho entraria no número público como se fosse uma igreja. Emulador e
+`assembleDebug` continuam acendendo em `b-dev.txt`.
+
+**`farolEstado`, agora só LEITURA.** O consumidor é a linha *"Alcance:"* do
+Registro, que responde *"o farol chegou a acender?"* — e essa pergunta não tem
+nada a ver com haver ou não uma chave. Sem ela, "o número não sobe" seria
+indistinguível de "o farol nunca saiu daqui", e as duas pedem consertos opostos.
+O campo `conta` fica junto, e não é sobra: num build de trabalho ele ainda é
+`false`, e sem ele um Registro tirado dali diria "acendeu" sobre um número que
+nunca vai aparecer no painel.
+
+### Por que o APK era obrigatório
+
+Esta é a parte que não dava para adiar, e é o motivo de o lote levar `shellTag`.
+
+A chave já gravada em `SharedPreferences` **continuaria sendo lida por um shell
+antigo**. Um bundle sem a linha, servido a um aparelho marcado *"fica de fora"*,
+o deixaria fora da contagem **para sempre e sem tela para desmarcar** — e
+contador não se corrige depois. Quem o devolve é o `Farol.contar` do APK novo.
+
+É também o primeiro lote a exercitar de verdade a regra escrita há dezenas de
+versões: *"MUDAR A FORMA de um método que já existe é PIOR que acrescentar um"*.
+Encolher a ponte é um lote **APK + web publicado JUNTO**, com o `shellTag`
+segurando o bundle até a Release existir. `minShell` sobe para 61 junto com o
+`SHELL_VERSION`, como a convenção manda.
+
+### O preço, e onde ele foi escrito
+
+Sem exclusão, **"aparelhos por dia" e "visitas" passam a incluir o uso
+próprio**. Isso foi uma escolha, não um defeito — mas um painel que não diz o
+que conta é exatamente o *confiável e falso* que `docs/MEDICAO-DE-ALCANCE.md`
+nomeia, só que pelo outro lado. Com uma frota pequena, um aparelho a mais por
+dia é uma fração que muda a conclusão.
+
+A página de alcance passou a dizer isso **logo abaixo da fileira de números** —
+e não no rodapé: o desenho dela existe para ser lido de relance, e uma ressalva
+que só aparece depois de três gráficos chega tarde para a leitura que ela
+corrige. O oráculo cobra a **frase renderizada**; uma nota vazia passaria num
+teste de seletor.
+
+### O oráculo do roteamento INVERTEU em vez de sair
+
+`registro-alcance.test.mjs` provava que quem audita a própria página passa a
+contar em `v-dev.txt`. O caso continua ali, com o mesmo percurso (abrir o
+Registro, apagar o dia, revisitar) e a asserção virada: **`v.txt,v.txt`**.
+
+Ele fica porque o modo de falhar continua existindo pelo avesso — um resto do
+mecanismo (um `localStorage` esquecido, um ramo que ninguém apagou) deixaria o
+navegador do operador fora do número público **para sempre e em silêncio**, que
+é o desfecho que aquele arquivo nasceu para não ter.
+
+### Restos declarados
+
+`KEY_CONTA` e `avRegistroOperador` **continuam gravados** em quem já os usou, e
+ninguém mais os lê. Apagá-los exigiria uma migração para devolver bytes que não
+fazem falta — a mesma decisão do `cifraEscolhas` na v1.3.3.
+
+`b-dev.txt` e `v-dev.txt` continuam existindo e o `dados.yml` continua
+fotografando os quatro: o `b-dev` segue recebendo os builds de trabalho, o
+`v-dev` congela onde parou, e tirar um campo da série reescreveria o passado.
+
+**EXIGE RELEASE v1.4.42** — `shellTag` no `version.json`, e o `web-ota` segura o
+bundle até ela existir.
 
 ---
 

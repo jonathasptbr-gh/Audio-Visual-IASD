@@ -37,6 +37,7 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
+import { checar, falhas } from './checar.mjs';
 
 const raiz = join(dirname(fileURLToPath(import.meta.url)), '..');
 const SRC = join(raiz, 'app/src/main/assets/web/controle/serie.js');
@@ -49,15 +50,6 @@ const SRC = join(raiz, 'app/src/main/assets/web/controle/serie.js');
 const janela = {};
 new Function(readFileSync(SRC, 'utf8')).call(janela);
 const S = janela.AVSerie;
-
-const falhas = [];
-function checar(cond, msg, obtido) {
-  if (cond) console.log('ok      ' + msg);
-  else {
-    console.log('FALHOU  ' + msg + (obtido !== undefined ? '\n        obtido: ' + JSON.stringify(obtido) : ''));
-    falhas.push(msg);
-  }
-}
 
 checar(!!S, 'serie.js publica window.AVSerie');
 if (!S) { process.exit(1); }
@@ -148,6 +140,44 @@ checar(ordenados[0].titulo === 'Match point',
 checar(S.nomeDoItem(ordenados[2]) === '15/Ago · Quando o evangelho sussurra',
   'o nome da lista começa pela DATA, que é por onde se procura', S.nomeDoItem(ordenados[2]));
 
+// ── 3-B. O CANAL ATRAVESSA A REGRA (v1.5.21) ────────────────────────────────
+//
+// O `author` chega do shell em TODO item de playlist (`anexarVideo` o põe por
+// item) e era descartado aqui — a regra lia o `name` e nada mais. Ele é o
+// "canal" da gaveta de detalhe, e o que o torna interessante é que ele é
+// exatamente a string que a ARMADILHA 5 proíbe de usar como critério: os vídeos
+// desta série vêm como COLABORAÇÃO, com dois canais no nome. Filtrar por ele
+// derrubaria o álbum inteiro; MOSTRÁ-LO é dizer a verdade sobre quem publicou.
+//
+// As duas metades, e nenhuma basta sozinha: sem a primeira o campo pode nascer
+// sempre vazio e ninguém nota (a gaveta simplesmente não desenha a linha); sem
+// a segunda, um `canal: v.author` sem o `|| ''` deixa `undefined` viajar para
+// dentro do índice guardado e daí para a tela.
+const VERBATIM_AUTOR = 'Provai e Vede | Oficial e Adventist Mission';
+const comAutor = S.itensDaPlaylist(
+  [{ id: 'c1', url: 'y/c1', name: 'Match point | Provai e Vede 2026 (01/Ago)', seconds: 319,
+    author: VERBATIM_AUTOR }], 8, SERIE);
+checar(comAutor[0].canal === VERBATIM_AUTOR,
+  'o CANAL sobrevive à regra, VERBATIM — inclusive a colaboração de dois nomes que a ARMADILHA 5 '
+  + 'proíbe de virar filtro: aqui ele é TRANSPORTE, e o que decide pertencimento continua sendo a playlist',
+  comAutor[0].canal);
+checar(comAutor.length === 1,
+  'e ele não decide NADA: o mesmo item entra com o autor que for — a regra de ouro fica intacta',
+  comAutor.length);
+checar(videosAgosto.every((v) => v.author === undefined) && itens.every((i) => i.canal === ''),
+  'AUSENTE ele vira string VAZIA, nunca `undefined`: é a diferença entre a gaveta não desenhar a '
+  + 'linha e a gaveta escrever "undefined" num card que o operador lê',
+  itens.map((i) => JSON.stringify(i.canal)));
+
+// E o TÍTULO CRU continua ao lado do rótulo. Ele já viajava (`nomeOriginal`) e
+// nunca foi afirmado como DADO — só como negativa ("nenhum menciona Libras").
+// É ele o "nome completo" do pedido do operador, e a razão de existir é que o
+// rótulo da lista é PODADO por construção: a data na frente, o pedaço à
+// esquerda da barra — e no `TITULO_SERIE` o nome do episódio some inteiro.
+checar(ordenados[0].nomeOriginal === 'Match point | Provai e Vede 2026 (01/Ago)'
+  && ordenados[0].titulo === 'Match point',
+  'o TÍTULO CRU e o rótulo PODADO convivem no mesmo item — é a diferença entre eles que faz a '
+  + 'linha do card valer a pena', [ordenados[0].nomeOriginal, ordenados[0].titulo]);
 // ── 4. A REGRA DE OURO: a playlist prova o pertencimento, o título só rotula ──
 const semData = S.itensDaPlaylist(
   [{ id: 'x1', url: 'y/x1', name: 'Um episódio sem o padrão de sempre', seconds: 300 }], 8, SERIE);
@@ -309,6 +339,18 @@ const videosQ3 = [
 const FIM_DE_ANO = new Date(2026, 11, 31);
 const itensInfo = S.ordenarItens(S.itensDaPlaylist(videosQ3, 7, INFO, FIM_DE_ANO));
 checar(itensInfo.length === 3, 'os três episódios entram', itensInfo.length);
+// O TÍTULO CRU (v1.5.21) — e é AQUI que ele prova o seu valor, não no Provai e
+// Vede. No `TITULO_SERIE` o nome do episódio é descartado INTEIRO: o rótulo da
+// lista vira "15/Ago · Informativo Mundial das Missões", que é a mesma frase em
+// 52 linhas. O cru é a única coisa que distingue um episódio do outro fora da
+// data, e sem ele a gaveta de detalhe não teria o que dizer.
+checar(itensInfo[1].nomeOriginal === 'Informativo Mundial das Missões | 15 AGOSTO 2026',
+  'o TÍTULO CRU sobrevive inteiro à regra, com a barra e a data que o rótulo já consumiu',
+  itensInfo[1].nomeOriginal);
+checar(S.nomeDoItem(itensInfo[1]) !== itensInfo[1].nomeOriginal,
+  'e ele DIFERE do rótulo formatado — é essa diferença que a gaveta desenha, e é por isso que o '
+  + 'card compara os dois em vez de escrever o cru sempre',
+  [S.nomeDoItem(itensInfo[1]), itensInfo[1].nomeOriginal]);
 checar(itensInfo.map((i) => i.mes + '/' + i.dia).join(',') === '7/4,8/15,9/26',
   'a data do TÍTULO dá o mês de cada um — o trimestre da playlist é só o piso',
   itensInfo.map((i) => i.mes + '/' + i.dia));
