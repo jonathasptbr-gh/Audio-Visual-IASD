@@ -217,7 +217,18 @@ const ponteCom = (espelho, telas) => `(() => {
           // dá certo e o caso passa a depender de um serviço de fora. O que se
           // afirma aqui é que a gaveta DESENHA a miniatura que o índice
           // guardou, e para isso a origem dos pixels é indiferente.
+          // O \`author\` POR ITEM (v1.5.21), e ele é a COLABORAÇÃO de dois canais
+          // — verbatim do canal de verdade, e de propósito: é exatamente a
+          // string que a ARMADILHA 5 proíbe de virar filtro ("filtrar por ele
+          // derrubaria tudo"). Aqui ela é o DADO que a gaveta desenha, e ter as
+          // duas coisas na mesma fixture é o que impede alguém de "consertar" o
+          // canal transformando-o em critério.
+          //
+          // O item ao lado (\`aaaaaaaaaa3\`) FICA SEM ele, de propósito: o
+          // \`author\` por item pode simplesmente não vir, e a metade AUSENTE
+          // precisa de um item de verdade para ser medida.
           { id: 'aaaaaaaaaa1', url: 'y/1', name: 'Match point | Provai e Vede 2026 (01/Ago)', seconds: 319,
+            author: 'Provai e Vede | Oficial e Adventist Mission',
             thumb: 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7' },
           { id: 'aaaaaaaaaa2', url: 'y/2', name: 'Cada centavo conta | Provai e Vede 2026 (08/Ago) - Libras', seconds: 307 },
           { id: 'aaaaaaaaaa3', url: 'y/3', name: 'Cada centavo conta | Provai e Vede 2026 (08/Ago)', seconds: 307 },
@@ -250,6 +261,28 @@ const ponteCom = (espelho, telas) => `(() => {
       setTimeout(() => {
         try { window.__avResolve(id, porUrl[url] || null); } catch (_) {}
       }, 0);
+    },
+    // A DESCRIÇÃO DE UM VÍDEO (shell 62). O stub responde por URL como o
+    // \`ytPlaylist\` ao lado, e o texto traz DUAS armadilhas de propósito:
+    // várias linhas (é o que faz o clamp de 4 e o "Ver mais" existirem) e uma
+    // marca \`<b>\` LITERAL — o que chega da ponte é texto, e o card tem de
+    // pintá-lo com \`textContent\`. Se alguém trocar por \`innerHTML\`, o \`<b>\`
+    // some do texto e vira um elemento: as duas metades da asserção lá embaixo.
+    ytDetalhes: (id, url) => {
+      window.__nDetalhes = (window.__nDetalhes || 0) + 1;
+      const r = String(url) === 'y/1' ? {
+        titulo: 'Match point | Provai e Vede 2026 (01/Ago)',
+        canal: 'Provai e Vede | Oficial e Adventist Mission',
+        seconds: 319,
+        descricao: 'Um testemunho sobre a fidelidade no dizimo.\\n\\n'
+          + 'Nesta semana o <b>Provai e Vede</b> visita uma familia do interior '
+          + 'que decidiu confiar mesmo depois de perder a colheita inteira, e '
+          + 'conta o que aconteceu nos doze meses seguintes.\\n\\n'
+          + 'Inscreva-se no canal e ative as notificacoes para acompanhar o '
+          + 'episodio de cada sabado. Compartilhe com a sua igreja.\\n\\n'
+          + '#ProvaiEVede #Fidelidade #IASD',
+      } : null;
+      setTimeout(() => { try { window.__avResolve(id, r); } catch (_) {} }, 0);
     },
   };
   // A ÁREA DE TRANSFERÊNCIA (shell 48). O stub reproduz o GATE, que é o recurso:
@@ -1266,6 +1299,201 @@ try {
         return { antes, depois, rotulo: ver.textContent };
       })(),
     };
+    // ===== A DESCRIÇÃO, DO TOQUE ATÉ A TELA (v1.5.21) =====
+    //
+    // Pedido do operador: *"coloque dados como duração, nome completo, canal e
+    // descrição se for possível obter"*. Os três primeiros são do ÍNDICE e o
+    // `serie.test.mjs` prende a regra deles; a descrição é a única que vem da
+    // PONTE (`AVNative.ytDetalhes`, shell 62), e o que este oráculo prende é o
+    // FIO — o botão "Ver os detalhes" pedindo, o texto voltando e o card
+    // pintando. Ele falha de um jeito que nenhum dos outros pega: o método da
+    // ponte certo, o Kotlin certo, e nada na tela.
+    //
+    // O `ver.click()` acima é quem dispara (o gatilho é a REVELAÇÃO, não a
+    // abertura da linha), e a espera é pelo FATO — o bloco existindo —, nunca
+    // por um prazo: o stub responde num `setTimeout(0)` e o "Ver mais" nasce
+    // num `rAF`, e um prazo fixo aqui mediria o agendador do runner.
+    for (let i = 0; i < 60 && !li.querySelector('.item-detalhe-desc'); i++) {
+      await new Promise((res) => setTimeout(res, 25));
+    }
+    for (let i = 0; i < 30 && !li.querySelector('.item-detalhe-mais'); i++) {
+      await new Promise((res) => requestAnimationFrame(() => res()));
+    }
+    r.desc = (() => {
+      const cx = li.querySelector('.item-detalhe-desc');
+      const p = li.querySelector('.item-detalhe-desc-txt');
+      const det2 = li.querySelector('.item-detalhe');
+      const txt = li.querySelector('.item-detalhe-txt');
+      if (!cx || !p || !det2 || !txt) return null;
+      const th = li.querySelector('.item-detalhe-thumb');
+      const b = li.querySelector('.item-detalhe-mais');
+      const arred = (n) => Math.round(n * 100) / 100;
+      const larg = (el) => arred(el.getBoundingClientRect().width);
+      const cx2 = (el) => el.getBoundingClientRect();
+      return {
+        texto: p.textContent,
+        // O `<b>` do stub tem de continuar TEXTO. Um `innerHTML` o transformaria
+        // num elemento — e aí `querySelector('b')` acha e o texto perde a marca.
+        virouElemento: !!p.querySelector('b'),
+        // O clamp mora no CSS e o texto INTEIRO está no DOM: é essa diferença
+        // que o "Ver mais" revela, e é ela que prova que não há uma segunda
+        // truncagem no JavaScript.
+        clampado: p.scrollHeight > p.clientHeight + 1,
+        temMais: !!b,
+        rotulo: b ? b.textContent : '',
+        // ===== A SEGUNDA LINHA, medida como GEOMETRIA e não como largura =====
+        //
+        // Medir só a LARGURA aprova o desenho quebrado, e isto foi provado por
+        // reversão: sem `flex-wrap`, um filho de base 100% e `flex-shrink: 0`
+        // continua com 100% da caixa — ele apenas TRANSBORDA para o lado, com a
+        // miniatura e a coluna espremidas. A pergunta certa é onde ele COMEÇA:
+        // abaixo da miniatura, numa linha própria.
+        descAbaixoDaThumb: th ? cx2(cx).top >= cx2(th).bottom - 1 : null,
+        // E O PAR DELA: a coluna de dados continua NA MESMA LINHA da miniatura.
+        // Quem garante isso é o `flex: 1 1 0` do `.item-detalhe-txt` — com base
+        // `auto`, o tamanho base de um filho é o CONTEÚDO, e este card mostra
+        // justamente o título CRU: um título longo empurraria a coluna inteira
+        // para debaixo da miniatura assim que o `wrap` foi ligado.
+        txtAoLadoDaThumb: th ? cx2(txt).top < cx2(th).bottom - 1 : null,
+        // E o card não passa a rolar de lado.
+        transborda: det2.scrollWidth > det2.clientWidth + 1,
+        larguraDesc: larg(cx),
+        larguraTxt: larg(txt),
+        larguraCard: larg(det2),
+      };
+    })();
+    // E o "Ver mais" REVELA: o clamp sai, o rótulo troca.
+    if (li.querySelector('.item-detalhe-mais')) {
+      li.querySelector('.item-detalhe-mais').click();
+      const p2 = li.querySelector('.item-detalhe-desc-txt');
+      r.descAberta = {
+        clampado: p2.scrollHeight > p2.clientHeight + 1,
+        rotulo: li.querySelector('.item-detalhe-mais').textContent,
+      };
+      li.querySelector('.item-detalhe-mais').click();   // devolve o estado
+    }
+    // UMA EXTRAÇÃO POR VÍDEO. Quem segura são DUAS peças, e as duas precisam
+    // estar de pé: a marca da LINHA (fechar e reabrir a metade de baixo, que é
+    // o que este trecho exercita) e o cache de MÓDULO (a mesma lista remontada
+    // a cada tecla da busca). Sem elas, olhar um episódio duas vezes gasta duas
+    // requisições na fila que o "Tocar agora" divide.
+    r.pedidosAntes = window.__nDetalhes || 0;
+    li.querySelector('.song-menu-letra').click();   // esconde
+    li.querySelector('.song-menu-letra').click();   // revela de novo
+    await new Promise((res) => setTimeout(res, 60));
+    r.pedidosDepois = window.__nDetalhes || 0;
+
+    // ===== A GAVETA DE DETALHE NÃO VAZA PARA FORA DO POÇO (v1.5.21) =====
+    //
+    // Relato do operador: *"ele mostra uma seção extra que está com a margem da
+    // parte inferior desregulada em sua caixa mãe"*. COLAPSO DE MARGEM, o irmão
+    // exato do defeito do `.coll-open` da v1.5.17 — agora na borda de BAIXO: a
+    // `.hymn-gaveta` era `display: block`, sem padding e sem borda, então a
+    // `margin-bottom` do ÚLTIMO filho em fluxo (o `.item-detalhe`, que só existe
+    // num vídeo) colapsava ATRAVÉS da borda inferior do pai e era pintada FORA
+    // do poço.
+    //
+    // Não erra alto, e é por isso que precisa de oráculo: `--gaveta-btn` É
+    // `var(--panel)` e o `.lib-item` do acervo é `--linha: transparent`, então a
+    // faixa escapada mostra a PLACA — que tem exatamente a cor do card. O poço
+    // escuro para rente ao card e o card PARECE vazar 8px da caixa mãe.
+    //
+    // ELA É MEDIDA COM O ACORDEÃO ASSENTADO, e isto não é higiene: a primeira
+    // versão media logo depois do clique e pegava a gaveta NO MEIO da abertura
+    // (`expandAccordion` anima `height` de 0 até o alvo, com `overflow: hidden`)
+    // — saíam `alturaDoLi: 104,92` e um card 321px ABAIXO do fim do poço, isto
+    // é, a asserção falando do desenho quando o que ela mediu foi o relógio. O
+    // sinal é `getAnimations()` + `finished`, o do navegador, nunca um prazo
+    // nosso.
+    for (let volta = 0; volta < 8; volta++) {
+      const anims = li.getAnimations ? li.getAnimations({ subtree: true }) : [];
+      if (!anims.length) break;
+      await Promise.all(anims.map((a) => a.finished.catch(() => {})));
+      await new Promise((res) => requestAnimationFrame(() => res()));
+    }
+    // AS DUAS MEDIDAS SÃO RELATIVAS, tiradas do MESMO render, e nenhuma é um
+    // número escrito aqui: o vão de baixo é comparado com o vão de CIMA (o irmão
+    // que o operador vê ao lado dele) e a faixa é comparada com ZERO, que é o
+    // fim do poço. Um número à mão envelheceria no dia em que o `--sp-4`
+    // mudasse, e reprovaria um desenho correto.
+    r.geometria = (() => {
+      const gav = li.querySelector('.hymn-gaveta');
+      const det = li.querySelector('.item-detalhe');
+      const ul = li.querySelector('.hymn-opcoes');
+      if (!gav || !det || !ul || !ul.lastElementChild) return null;
+      const cx = (el) => el.getBoundingClientRect();
+      const arred = (n) => Math.round(n * 100) / 100;
+      return {
+        vendoDetalhe: li.classList.contains('vendo-letra'),
+        // o vão ACIMA do card — o irmão contra o qual o de baixo é medido
+        acimaDoCard: arred(cx(det).top - cx(ul.lastElementChild).bottom),
+        // o vão ABAIXO do card, DENTRO do poço
+        abaixoDoCard: arred(cx(gav).bottom - cx(det).bottom),
+        // a faixa que escapava: do fim do poço ao fim da linha
+        faixaForaDoPoco: arred(cx(li).bottom - cx(gav).bottom),
+        laterais: [arred(cx(det).left - cx(gav).left),
+          arred(cx(gav).right - cx(det).right)],
+        alturaDoLi: arred(cx(li).height),
+        alturaDaGaveta: arred(cx(gav).height),
+      };
+    })();
+    // ===== O QUE O CARD DIZ (v1.5.21) =====
+    //
+    // Pedido do operador: *"coloque dados como duração, nome completo, canal e
+    // descrição"*. Os três primeiros já chegavam do extrator e eram descartados
+    // no caminho — `itensDaPlaylist` não copiava o `author` e `serieFaixaDoItem`
+    // não guardava nem ele nem o título cru. O `serie.test.mjs` prende a REGRA
+    // (os campos sobrevivem a ela); este prende a LIGAÇÃO até a tela, que falha
+    // de outro jeito: a regra continua certa e o card não mostra nada.
+    //
+    // As LINHAS são lidas na ORDEM do DOM, e é ela que a asserção afirma: a
+    // identidade primeiro, os atributos depois. Uma asserção que só perguntasse
+    // "o texto contém o canal?" aprovaria o canal desenhado no fim, embaixo do
+    // estado no aparelho.
+    const linhasDe = (raiz) => Array.from(
+      raiz.querySelectorAll('.item-detalhe > .item-detalhe-txt > .item-detalhe-linha'))
+      .map((el) => el.textContent);
+    r.linhas = linhasDe(li);
+    r.guardado = { canal: s.canal, cru: s.nomeOriginal, rotulo: s.name, dur: s.duration };
+    // E A COR, no RENDERIZADO. O título é a IDENTIDADE e as outras três são
+    // ATRIBUTO — com as quatro no mesmo tom o card vira um parágrafo sem
+    // entrada. Uma classe SEM a regra de CSS passa num teste de classe e
+    // continua igual na tela; a régua é o IRMÃO medido no mesmo render (a linha
+    // do canal, logo abaixo), nunca um literal — `--text` e `--muted` mudam com
+    // o tema, e um valor escrito aqui reprovaria o desenho certo.
+    r.cores = (() => {
+      const el = li.querySelector('.item-detalhe-titulo');
+      const irmao = el && el.nextElementSibling;
+      if (!el || !irmao) return null;
+      return { titulo: getComputedStyle(el).color, atributo: getComputedStyle(irmao).color };
+    })();
+
+    // ===== A OUTRA METADE: UM ÍNDICE ANTIGO NÃO TEM OS CAMPOS NOVOS =====
+    //
+    // Ela não é hipótese: entre este bundle chegar por OTA e a varredura refazer
+    // o índice (a assinatura muda sozinha, mas a varredura é a da PRÓXIMA
+    // abertura) existe uma janela em que o que está guardado no IndexedDB não
+    // tem `canal` nem `nomeOriginal`. É a razão de a guarda do card ser POR
+    // CAMPO e nunca por versão de bundle.
+    //
+    // Sem esta metade, desenhar as linhas SEMPRE passaria na de cima — e o que
+    // sairia na tela do operador é "undefined" e um rótulo vazio, que é o
+    // defeito pelo outro lado e o que a regra do Registro proíbe por escrito.
+    const velho = Object.assign({}, s);
+    delete velho.canal; delete velho.nomeOriginal; delete velho.seconds;
+    const li2 = hymnResultRow(c, velho, null, true);
+    lista.appendChild(li2);
+    li2.querySelector('.hymn-row').click();
+    for (let i = 0; i < 40
+      && !(li2.querySelector('.item-detalhe-estado') && li2.classList.contains('expanded')); i++) {
+      await new Promise((r2) => setTimeout(r2, 25));
+    }
+    r.antigo = {
+      linhas: linhasDe(li2),
+      temThumb: !!li2.querySelector('.item-detalhe-thumb'),
+      texto: li2.textContent,
+    };
+
     lista.remove();
     setAppMode(modoAntes);   // o modo é global: deixá-lo trocado quebra os casos seguintes
     return r;
@@ -1284,11 +1512,125 @@ try {
   checar(/Toca sem baixar|Já no aparelho/.test(gaveta.texto),
     'mais o estado no aparelho, que é o que decide: transmitir agora ou ~300 MB',
     JSON.stringify(gaveta.texto.slice(0, 120)));
+  // ── O QUE O CARD PASSOU A DIZER (v1.5.21) ─────────────────────────────
+  // Três dados que o app já tinha na mão e jogava fora. Cada asserção nomeia o
+  // que a linha responde, porque é a PERGUNTA que justifica a ordem delas.
+  const L = gaveta.linhas || [];
+  checar(!!gaveta.guardado && gaveta.guardado.cru === 'Match point | Provai e Vede 2026 (01/Ago)'
+    && gaveta.guardado.canal === 'Provai e Vede | Oficial e Adventist Mission',
+    'o TÍTULO CRU e o CANAL chegaram ao ÍNDICE — é aqui que eles precisam estar, e não numa '
+    + 'consulta na hora de abrir: a gaveta abre no sábado de manhã, no Wi-Fi da igreja',
+    JSON.stringify(gaveta.guardado));
+  checar(L[0] === 'Match point | Provai e Vede 2026 (01/Ago)',
+    'e o card ABRE pelo TÍTULO COMPLETO — o rótulo da lista é podado por construção (a data na '
+    + 'frente, o pedaço à esquerda da barra), e a pergunta desta gaveta é "é este mesmo?"',
+    JSON.stringify(L));
+  checar(L[0] !== gaveta.guardado.rotulo,
+    'e ele DIZ algo que a linha logo acima não dizia: a mesma frase duas vezes seria ruído',
+    JSON.stringify([L[0], gaveta.guardado.rotulo]));
+  checar(!!gaveta.cores && gaveta.cores.titulo !== gaveta.cores.atributo,
+    'e ele se DISTINGUE no RENDERIZADO da linha logo abaixo — com as quatro no mesmo tom o card '
+    + 'vira um parágrafo sem entrada. Medido contra o IRMÃO no mesmo render, nunca contra um '
+    + 'literal: os dois tokens mudam com o tema', JSON.stringify(gaveta.cores));
+  checar(L[1] === 'Provai e Vede | Oficial e Adventist Mission',
+    'o CANAL vem em seguida, VERBATIM — inclusive a colaboração de dois nomes. Ele é o dado que '
+    + 'a ARMADILHA 5 proíbe de virar filtro e que ninguém proibiu de ser MOSTRADO',
+    JSON.stringify(L));
+  checar(L[2] === 'Duração ' + gaveta.guardado.dur,
+    'a DURAÇÃO desceu para depois da identidade: ela qualifica o que já foi reconhecido',
+    JSON.stringify(L));
+  checar(/^(Toca sem baixar|Já no aparelho)$/.test(L[3] || '') && L.length === 4,
+    'e o ESTADO NO APARELHO continua sendo a ÚLTIMA linha — é ele que responde "preciso de rede '
+    + 'agora?", que é a última pergunta antes de tocar', JSON.stringify(L));
+
+  // A OUTRA METADE, e ela é inseparável: sem ela, desenhar as linhas SEMPRE
+  // passaria em todas as de cima e o que sairia na tela seria "undefined".
+  const A = (gaveta.antigo && gaveta.antigo.linhas) || [];
+  checar(gaveta.antigo && !/undefined|null/.test(gaveta.antigo.texto),
+    'um ÍNDICE ANTIGO (o guardado antes deste bundle, na janela entre o OTA chegar e a varredura '
+    + 'refazer a lista) não escreve "undefined" em lugar nenhum do card — a guarda é POR CAMPO, '
+    + 'nunca por versão de bundle', JSON.stringify(gaveta.antigo && gaveta.antigo.texto));
+  checar(A.length === 2 && A[0] === 'Duração ' + gaveta.guardado.dur
+    && /^(Toca sem baixar|Já no aparelho)$/.test(A[1]),
+    'e ele fica com as DUAS linhas que sempre teve, sem rótulo vazio no lugar das que faltam: '
+    + 'a linha ausente SOME, que é a regra do Registro aplicada a um card', JSON.stringify(A));
+  checar(gaveta.antigo && gaveta.antigo.temThumb,
+    'o card continua INTEIRO — a miniatura, que é o outro campo que o índice já guardava, não foi '
+    + 'levada junto pela ausência dos novos', JSON.stringify(gaveta.antigo));
+
+  // ── A DESCRIÇÃO (v1.5.21): o FIO da ponte até a tela ──────────────────
+  //
+  // O `ponte.test.mjs` prende o CONTRATO (o que `AVNative.ytDetalhes` entrega);
+  // este prende a LIGAÇÃO, que falha de outro jeito — o método certo dos dois
+  // lados e nada na tela. Ela é a única dos quatro dados do card que vem da
+  // REDE, e a única que exigiu shell novo.
+  const D = gaveta.desc;
+  checar(!!D && /fidelidade no dizimo/.test(D.texto),
+    'o toque em "Ver os detalhes" PEDE a descrição e ela chega à tela — o gatilho é a '
+    + 'REVELAÇÃO, e não a abertura da linha: uma extração por vídeo OLHADO',
+    JSON.stringify(D && D.texto && D.texto.slice(0, 60)));
+  checar(!!D && D.virouElemento === false && /<b>/.test(D.texto),
+    'e ela é pintada com `textContent`: o `<b>` do texto continua TEXTO e não virou elemento. '
+    + 'Isto é conteúdo de TERCEIRO no origin que injeta `__AVBridge` — a outra metade da regra '
+    + 'mora no Kotlin, que já achata o HTML que o YouTube manda',
+    JSON.stringify(D && { virouElemento: D.virouElemento }));
+  checar(!!D && D.clampado === true && D.temMais === true && D.rotulo === 'Ver mais',
+    'uma descrição longa é CLAMPADA em linhas e ganha o "Ver mais" — o limite é do CSS, com o '
+    + 'texto inteiro no DOM: um teto em caracteres cortaria para sempre',
+    JSON.stringify(D && { clampado: D.clampado, temMais: D.temMais, rotulo: D.rotulo }));
+  checar(!!gaveta.descAberta && gaveta.descAberta.clampado === false
+    && gaveta.descAberta.rotulo === 'Ver menos',
+    'e o toque nele REVELA o resto — sem essa metade o botão seria um rótulo que não faz nada',
+    JSON.stringify(gaveta.descAberta));
+  // A SEGUNDA LINHA se mede contra os IRMÃOS do mesmo render — a miniatura e a
+  // coluna de dados —, nunca contra um número: a miniatura tem largura fixa
+  // hoje e um literal aqui envelheceria com ela.
+  checar(!!D && D.descAbaixoDaThumb === true && D.transborda === false
+    && D.larguraDesc > D.larguraTxt,
+    'e ela ocupa uma LINHA PRÓPRIA abaixo da miniatura, com a largura inteira do card. A régua é '
+    + 'onde o bloco COMEÇA e não a largura dele: MEDIDO por reversão, um filho de base 100% sem '
+    + '`flex-wrap` continua com 100% e apenas TRANSBORDA — uma asserção de largura aprova isso',
+    JSON.stringify(D && { abaixo: D.descAbaixoDaThumb, transborda: D.transborda,
+      desc: D.larguraDesc, txt: D.larguraTxt, card: D.larguraCard }));
+  checar(!!D && D.txtAoLadoDaThumb === true,
+    'e a COLUNA DE DADOS continua AO LADO da miniatura: com `wrap` ligado o tamanho base de um '
+    + 'filho `auto` é o CONTEÚDO, e este card mostra o título CRU — é o `flex: 1 1 0` da coluna '
+    + 'que impede a segunda quebra', JSON.stringify(D && { txtAoLado: D.txtAoLadoDaThumb }));
+  checar(gaveta.pedidosAntes === 1 && gaveta.pedidosDepois === 1,
+    'e esconder e revelar de novo NÃO gasta uma segunda extração — ela roda na fila que o '
+    + '"Tocar agora" divide, e é de uma thread só',
+    JSON.stringify([gaveta.pedidosAntes, gaveta.pedidosDepois]));
+
   checar(!!gaveta.larguras && gaveta.larguras.antes > 0
     && gaveta.larguras.antes === gaveta.larguras.depois,
     'e o botão que a revela tem a MESMA LARGURA nos dois estados: "Ocultar" é '
     + 'mais longo que "Ver", e ele crescia debaixo do dedo levando o confirmar '
     + 'ao lado junto', JSON.stringify(gaveta.larguras));
+
+  // ── A METADE DE BAIXO CABE NA CAIXA MÃE (v1.5.21) ──────────────────────
+  // As duas metades são inseparáveis, e cada uma sozinha aprova um desenho
+  // errado: só a primeira passaria com a gaveta inteira sem respiro nenhum
+  // (0 em cima e 0 embaixo), e só a segunda passaria com a margem simplesmente
+  // APAGADA — o card colado no fim do poço, que é o defeito pelo outro lado.
+  checar(!!gaveta.geometria && gaveta.geometria.vendoDetalhe,
+    'a gaveta foi medida com o DETALHE ABERTO — fechado, o último filho em '
+    + 'fluxo é a `<ul>`, que respira por PADDING, e o colapso não existe',
+    JSON.stringify(gaveta.geometria));
+  checar(!!gaveta.geometria && gaveta.geometria.faixaForaDoPoco === 0,
+    'a linha ACABA onde o poço acaba: a `margin-bottom` do `.item-detalhe` não '
+    + 'colapsa mais para fora da `.hymn-gaveta` — era ela a "seção extra com a '
+    + 'margem desregulada em sua caixa mãe", pintada na cor da PLACA logo '
+    + 'abaixo do poço', JSON.stringify(gaveta.geometria));
+  checar(!!gaveta.geometria && gaveta.geometria.abaixoDoCard > 0
+    && gaveta.geometria.abaixoDoCard === gaveta.geometria.acimaDoCard,
+    'e o vão que sobrou é o MESMO dos dois lados do card — medido contra o vão '
+    + 'IRMÃO no mesmo render, nunca contra um número escrito aqui: os dois '
+    + 'saem do `gap` da gaveta, e um número à mão reprovaria o desenho certo no '
+    + 'dia em que o token mudasse', JSON.stringify(gaveta.geometria));
+  checar(!!gaveta.geometria && gaveta.geometria.laterais[0] > 0
+    && gaveta.geometria.laterais[0] === gaveta.geometria.laterais[1],
+    'e os lados continuam simétricos — o defeito era VERTICAL, e a correção não '
+    + 'pode ter mexido no que estava certo', JSON.stringify(gaveta.geometria));
 
   // A OUTRA METADE: numa MÚSICA a gaveta é SÓ AS OPÇÕES (v1.2.25). A letra numa
   // caixa de texto aqui dentro era uma segunda leitura, pior que a que o app já

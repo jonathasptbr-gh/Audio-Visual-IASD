@@ -191,6 +191,15 @@
       // DURAÇÃO em segundos, pela mesma razão e com a mesma regra. Ela é o
       // detalhe do subtítulo de um ÁUDIO, que não tem resolução para mostrar.
       seconds: null,
+      // O CANAL que publicou (v1.5.21), quando o item veio do YouTube. Mesma
+      // regra dos dois acima: quem sabe é quem gravou, e não há como redescobrir
+      // isso de um blob — nem de um link, que sem rede é só uma URL.
+      //
+      // NÃO exige `DB_VERSION` nova: o store não tem esquema por registro (o
+      // mesmo argumento já escrito para `cue`), e ninguém indexa por ele. Um
+      // registro antigo simplesmente não tem o campo, e quem o lê já trata a
+      // ausência — que é o caso normal deste campo, não a exceção.
+      canal: null,
       // TRANSMISSÃO DIRETA (v5.120): o manifesto das duas faixas adaptativas —
       // URLs servíveis pelo próprio origin e os byte-ranges do DASH. Uma mídia
       // com este campo não tem `blob` nem `url`: quem a toca é o `MediaSource`
@@ -321,6 +330,7 @@
       youtubeId: (meta && meta.youtubeId) || null,
       height: (meta && meta.height) || null,
       seconds: (meta && meta.seconds) || null,
+      canal: (meta && meta.canal) || null,
       stream: (meta && meta.stream) || null,
     });
     return addMediaToList(record, (meta && meta.list) || 'imports');
@@ -435,6 +445,18 @@
       kind: (meta && meta.kind) || 'url',
       name: (meta && meta.name) || url,
       youtubeId: (meta && meta.youtubeId) || null,
+      // OS TRÊS QUE O LINK TAMBÉM SABE (v1.5.21). Os slots já existiam em
+      // `makeMediaRecord` e `addMedia` já os repassava; aqui eles eram DESCARTADOS
+      // — um item de PLAYER nascia sem duração e sem canal mesmo quando quem o
+      // criou tinha os dois na mão (a busca do YouTube devolve `seconds` e
+      // `author`, e o índice da série guarda os mesmos).
+      //
+      // E é o link que MAIS precisa deles: um arquivo baixado pode ser medido
+      // decodificando os bytes, um link não tem bytes — sem rede, o que o app
+      // sabe sobre ele é exatamente o que foi gravado aqui.
+      height: (meta && meta.height) || null,
+      seconds: (meta && meta.seconds) || null,
+      canal: (meta && meta.canal) || null,
     });
     return addMediaToList(record, (meta && meta.list) || 'imports');
   }

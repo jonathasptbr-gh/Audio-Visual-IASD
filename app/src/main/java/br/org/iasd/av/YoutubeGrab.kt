@@ -4,6 +4,7 @@ import android.content.Context
 import android.net.Uri
 import android.os.Build
 import android.os.SystemClock
+import android.text.Html
 import android.util.Log
 import org.json.JSONArray
 import org.json.JSONObject
@@ -27,6 +28,7 @@ import org.schabi.newpipe.extractor.search.SearchInfo
 import org.schabi.newpipe.extractor.services.youtube.ItagItem
 import org.schabi.newpipe.extractor.services.youtube.extractors.YoutubeStreamExtractor
 import org.schabi.newpipe.extractor.stream.AudioStream
+import org.schabi.newpipe.extractor.stream.Description
 import org.schabi.newpipe.extractor.stream.Stream
 import org.schabi.newpipe.extractor.stream.StreamInfo
 import org.schabi.newpipe.extractor.stream.StreamInfoItem
@@ -1658,6 +1660,142 @@ object YoutubeGrab {
                 .put("seconds", item.duration)
                 .put("thumb", "https://i.ytimg.com/vi/$id/mqdefault.jpg"),
         )
+    }
+
+
+    /**
+     * Teto do texto da descrição, em caracteres.
+     *
+     * A descrição de um vídeo do YouTube não tem teto do lado deles (5 000
+     * caracteres é o limite do formulário, e há canais que o usam inteiro com
+     * créditos, links e hashtags). O consumidor é um CARD dentro da gaveta de
+     * uma linha de lista — ele mostra as primeiras linhas e abre o resto sob
+     * demanda —, e nada nele fica melhor por receber cinco mil caracteres: o
+     * texto viaja INLINE no `evaluateJavascript` que resolve a promessa
+     * ([NativeBridge.resolve]), e o que passar do teto ninguém rola.
+     *
+     * O corte é no último espaço em branco antes do teto e leva reticências: um
+     * corte no meio da palavra se lê como texto corrompido, e sem a marca não
+     * há como distinguir "acabou" de "foi cortado".
+     */
+    private const val DESCRICAO_MAX = 2000
+
+    /**
+     * OS DADOS DE UM VÍDEO, para o card de detalhe da gaveta —
+     * `{ titulo, canal, seconds, descricao }`, ou `null` se a extração não deu.
+     *
+     * ## Por que ele existe ao lado do [playlist]
+     *
+     * Título, canal e duração a listagem de playlist já entrega, e o `serie.js`
+     * os guarda no índice: no card eles valem OFFLINE, que é o que importa no
+     * Wi-Fi da igreja no sábado de manhã. A DESCRIÇÃO não vem em listagem
+     * nenhuma — ela exige a extração do vídeo, uma por vídeo —, e por isso este
+     * método é SOB DEMANDA: quem o chama é o toque em "Ver os detalhes", uma
+     * vez por vídeo, com cache em memória do lado web.
+     *
+     * Os outros três campos viajam junto porque já estão na mão do mesmo
+     * `StreamInfo` e não custam requisição nenhuma — um card cujo índice ainda
+     * não foi refeito (a janela entre o OTA chegar e a próxima varredura)
+     * completa o que falta com eles.
+     *
+     * ## A DESCRIÇÃO SAI DAQUI EM TEXTO SIMPLES, SEMPRE
+     *
+     * `Description.getType()` pode ser HTML — é o que o YouTube devolve para
+     * uma descrição com links —, e o Controle roda no origin PRIVILEGIADO, o
+     * que injeta `__AVBridge`. Entregar HTML de terceiro a esse lado é uma
+     * porta que só existe para ser fechada: o web nunca teria motivo para
+     * PINTAR aquela marcação, então mandá-la só cria a chance de alguém a
+     * injetar por engano.
+     *
+     * **Isto NÃO contradiz a divisão da CIFRA**, e a diferença é o que decide:
+     * lá a MARCAÇÃO carrega o significado (é o `<b>` que diz "esta linha é de
+     * acordes"), então o parser é a regra e tem de chegar por OTA no dia em que
+     * o site mudar. Aqui a marcação não carrega nada que se guarde — o que se
+     * quer é o texto —, e um achatador de HTML não envelhece com o YouTube.
+     * `Html.fromHtml` é a plataforma fazendo isso, não uma regra nossa.
+     *
+     * **E o TIPO não viaja**, de propósito: o único uso possível de um campo
+     * `descricaoTipo` do outro lado seria ramificar por ele, e o único ramo que
+     * ele habilita é o que esta decisão existe para impedir. O contrato é uma
+     * frase — *o campo `descricao` é texto simples* — e não uma frase mais uma
+     * exceção.
+     *
+     * **BLOQUEANTE** — rede e parsing; roda na fila [NativeBridge] de extração.
+     */
+    fun detalhes(link: String): JSONObject? {
+        if (link.isBlank()) return null
+        return try {
+            garantirInit()
+            val ex = ServiceList.YouTube.getStreamExtractor(link)
+            // `aportuguesar` aqui pela MESMA razão dos outros extratores, e com
+            // uma consequência a mais: no padrão en-GB o YouTube entrega a
+            // descrição TRADUZIDA quando há legenda/tradução automática, e o
+            // card mostraria em inglês um episódio que o operador vai projetar
+            // em português.
+            aportuguesar(ex)
+            val info = StreamInfo.getInfo(ex)
+            // NENHUM DOS DOIS DIAGNÓSTICOS É TOCADO AQUI. `diagnostico` é do
+            // caminho do download e `diagnosticoStream` é do manifesto; escrever
+            // num deles faria o Registro descrever uma extração que não
+            // aconteceu — o defeito exato que a v5.176 corrigiu no `manifesto`,
+            // e que aqui seria pior, porque este caminho é o mais frequente dos
+            // três (um toque por episódio olhado).
+            JSONObject()
+                .put("titulo", info.name ?: "")
+                .put("canal", info.uploaderName ?: "")
+                .put("seconds", info.duration)
+                .put("descricao", textoDaDescricao(info.description))
+        } catch (_: Exception) {
+            // `null` como em [manifesto]: "não houve resposta". Do outro lado
+            // isso é DIFERENTE de um objeto com `descricao` vazia ("respondeu, e
+            // este vídeo não tem descrição") — a primeira o web tenta de novo,
+            // a segunda ele guarda.
+            null
+        }
+    }
+
+    /**
+     * A descrição de um vídeo, achatada em TEXTO — ver a nota de [detalhes].
+     *
+     * `Description.HTML` passa pelo achatador da plataforma (entidades
+     * decodificadas, `<br>` virando quebra de linha); `MARKDOWN` e
+     * `PLAIN_TEXT` já são legíveis e passam inteiros. Um tipo que a biblioteca
+     * venha a acrescentar cai no `else` e passa CRU: o pior caso é uma marca
+     * literal na tela, que é preferível a jogar fora um texto que o operador
+     * pediu.
+     */
+    private fun textoDaDescricao(d: Description?): String {
+        // `d == null` ANTES do `?.`, e não um `d?.content ?: return`: aquele
+        // deixa o `d.type` da linha de baixo dependendo de o compilador inferir
+        // não-nulidade a partir do elvis, que é justamente o tipo de detalhe que
+        // não se confere sem compilar.
+        if (d == null) return ""
+        val cru = d.content ?: return ""
+        if (cru.isBlank()) return ""
+        // `FROM_HTML_MODE_COMPACT` e não a sobrecarga de um argumento: aquela
+        // é `@Deprecated` desde a API 24 e o `minSdk` daqui é 26, então não há
+        // ramo antigo a escrever — um `if` de versão aqui seria código que
+        // nenhum aparelho alcança.
+        val plano = if (d.type == Description.HTML) {
+            Html.fromHtml(cru, Html.FROM_HTML_MODE_COMPACT).toString()
+        } else {
+            cru
+        }
+        // As linhas em branco do fim são do `<br>` final que o YouTube costuma
+        // deixar; as do meio ficam — elas são a separação de parágrafos, e a
+        // descrição de um episódio é escrita em parágrafos.
+        return cortar(plano.trim())
+    }
+
+    /** O corte do [DESCRICAO_MAX], no último espaço antes do teto. */
+    private fun cortar(t: String): String {
+        if (t.length <= DESCRICAO_MAX) return t
+        val bruto = t.substring(0, DESCRICAO_MAX)
+        val espaco = bruto.lastIndexOf(' ')
+        // Um texto sem espaço nenhum nos primeiros 2 000 caracteres (uma URL
+        // gigante) não tem onde ser cortado com elegância: corta-se no teto.
+        val corte = if (espaco > DESCRICAO_MAX / 2) bruto.substring(0, espaco) else bruto
+        return corte.trimEnd() + "…"
     }
 
     /**

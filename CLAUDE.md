@@ -487,6 +487,26 @@ window.AVNative = {
                        //   os dois são as SÉRIES da Biblioteca. TRANSPORTE puro:
                        //   o `name` do item é o título CRU (sem `tituloLimpo`),
                        //   e quem lê os nomes é `controle/serie.js`
+  ytDetalhes(url),     // → { titulo, canal, seconds, descricao } ou `null`: os
+                       //   dados de UM vídeo, para o card de detalhe (shell 62).
+                       //   Título, canal e duração a listagem de playlist já
+                       //   entrega e o índice da série os GUARDA (valem
+                       //   offline); a DESCRIÇÃO só existe extraindo o vídeo —
+                       //   uma requisição por vídeo —, e por isso o método é
+                       //   SOB DEMANDA: quem o chama é o toque em "Ver os
+                       //   detalhes", com cache em MEMÓRIA do outro lado (o
+                       //   precedente é o da CIFRA: nada vai ao disco).
+                       //   `descricao` é SEMPRE texto simples, achatado no
+                       //   Kotlin — o YouTube a entrega em HTML quando ela tem
+                       //   links, e este lado roda no origin que injeta
+                       //   `__AVBridge`. O `null` NÃO é achatado num objeto
+                       //   vazio: ele é "não houve resposta" (o chamador não
+                       //   guarda nada e tenta de novo) contra `descricao: ''`,
+                       //   que é "respondeu, e não há descrição" — a mesma
+                       //   distinção do `status 0` × `404` do `cifraHtml`.
+                       //   Mora na fila `extracao` porque é UM TOQUE: uma
+                       //   varredura aqui empurraria todo "Tocar agora" para
+                       //   além dos 60 s do `call()`
   deckPages(origem, nome, onProg), // → { name, pages:[url] } ou { erro }: PDF em imagens
   deckExportUrl(link), // → URL de exportação PDF de um link do Google Apresentações
   deckDiscard(url),    //   e apaga as páginas depois da cópia
@@ -583,7 +603,7 @@ window.AVNative = {
                        //   (`farolContar` SAIU no shell 61 — ver abaixo)
 }
 ```
-São **50 métodos**, e essa é a superfície inteira que o resto do lado web tem
+São **51 métodos**, e essa é a superfície inteira que o resto do lado web tem
 direito de usar — fora do `native.js`, tocar em `__AVBridge` direto é
 acoplamento indevido. O próprio `native.js` chama mais oito coisas lá, e nenhuma
 é API para o app: `ytFetchAudio` e `ytFetchAte` (não são métodos a mais, são os
@@ -650,7 +670,7 @@ prazo (um timeout ali resolveria null com o operador ainda escolhendo a pasta).
 
 ### `SHELL_VERSION` — subir SEMPRE que a superfície mudar
 
-Hoje vale **61**, e ele é o **PISO**: o bundle declara `minShell: 61`, então
+Hoje vale **62**, e ele é o **PISO**: o bundle declara `minShell: 62`, então
 todo método da ponte existe sempre e **não há guarda de versão no lado web**.
 "Superfície" inclui **forma de retorno** e **comportamento**, não só assinatura:
 um campo que some, um contrato de URL que muda ou um método que passa a fazer
@@ -663,7 +683,7 @@ escondia. Sem guardas, o web chama um método que o APK instalado não tem: o
 existe, é tocável e não faz nada. Por isso mudança de ponte é um lote
 **APK + web publicado JUNTO**, com `shellTag` no `version.json`.
 
-> A tabela dos 61 degraus está em `docs/HISTORICO.md` — ela é história do
+> A tabela dos 62 degraus está em `docs/HISTORICO.md` — ela é história do
 > contrato, e história mora lá.
 
 ### As QUATRO filas da ponte — escolher a errada é uma regressão muda
@@ -725,7 +745,7 @@ E duas regras que ficam de fora das filas:
   e volta; quem responde é o laço de cópia do `YoutubeGrab`, a cada bloco de
   64 kB.
 
-**O bundle declara `minShell: 61`, e é a VÁLVULA que resolve.** Um bundle que
+**O bundle declara `minShell: 62`, e é a VÁLVULA que resolve.** Um bundle que
 exija ponte mais nova que o `SHELL_VERSION` instalado é recusado inteiro
 (`WebUpdater.kt`), e o app segue no que tinha — a recusa acontece no shell, e
 não em runtime no meio de um culto. **Guarda de versão no lado web é proibida:**
@@ -1984,6 +2004,11 @@ Nenhuma é hipótese — todas foram lidas nas abas Playlists e Vídeos dos cana
 4. **A duração não separa nada:** 4:54 × 4:55 num par, 5:07 × 5:07 noutro.
 5. **`uploaderName` não é o canal:** os vídeos vêm como "Provai e Vede | Oficial
    **e Adventist…**" (colaboração). Filtrar por ele derrubaria tudo.
+   **MAS ELE É MOSTRADO** desde a v1.5.21 (`canal`, na gaveta de detalhe): a
+   armadilha é sobre CRITÉRIO, não sobre exibição — a colaboração é a verdade
+   sobre quem publicou, e é a playlist que continua provando o pertencimento. O
+   `serie.test.mjs` guarda as duas coisas na MESMA fixture, para ninguém
+   "consertar" o canal transformando-o em filtro.
 6. **A DATA tem DUAS formas, e o mesmo episódio usa as duas:** compacta entre
    parênteses ("… 2026 (03/Jan)") e por extenso ("… **sábado 3 janeiro**").
    `dataDoVideo` tenta as duas nessa ordem; a extensa aceita o "de" opcional e o
@@ -3822,7 +3847,7 @@ Antes de publicar: `node --check` em todo `.js` de `assets/web`, validação do
 | `webview-range.test.mjs` | a **invariante 8**: o `InputStream` de `shouldInterceptRequest` é o recurso INTEIRO |
 | `sombra.test.mjs` | nenhuma função da base pode redeclarar um nome de módulo — `node --check` APROVA um `const ms` que sombreia a `ms` do módulo, e o que sai é `ReferenceError` por zona morta temporal |
 | `tokens.test.mjs` | **`colors.xml` × `tokens.css`** (v1.5.14): `--bg` é a única cor que existe em dois lugares por necessidade (um recurso de Android não enxerga custom property), e nada verificava a igualdade — o comentário do próprio arquivo o admitia, e é o OTA que torna a divergência provável, porque a base web chega em minutos e o `res/` só por APK. Mais: nenhum `var(--x)` **sem fallback** aponta para token inexistente (um `var()` inválido computa para o valor INICIAL, sem aviso); nenhum token só no tema claro; **nenhuma regra desenha contorno** e — desde a v1.5.16 — **nenhum TRAÇO PINTADO** além da divisória nomeada: a varredura de contorno casa a palavra `border`, e um filete escrito como bloco de 1px com fundo passava por ela sem ninguém decidir nada, deixando no repositório o precedente *"filete pode, desde que não se chame border"*. O par da negativa é POSITIVO — `--divisoria` tem de ter UM consumidor, e ser o seletor da exceção —, senão o token viraria a porta larga. `var(--x, fallback)` é legítimo (valores que o JS entrega em runtime). **E nenhuma marca de conflito de merge** (v1.4.31): `:is()` é FORGIVING, descarta o inválido e aplica o resto — a v1.4.27 perdeu dois seletores do `--press` assim, com o CI verde por três lotes |
-| `serie.test.mjs` | quais playlists e vídeos entram no álbum. **Entradas VERBATIM do canal** — nomenclatura imaginada prova só que o código concorda com quem o escreveu |
+| `serie.test.mjs` | quais playlists e vídeos entram no álbum. **Entradas VERBATIM do canal** — nomenclatura imaginada prova só que o código concorda com quem o escreveu. **E o que a regra CARREGA além do rótulo** (v1.5.21): o `canal` e o TÍTULO CRU sobrevivem a ela, e o canal ausente vira string VAZIA e nunca `undefined` — a diferença entre a gaveta não desenhar a linha e a gaveta escrever "undefined". O caso do canal é a ARMADILHA 5 pelos dois lados na mesma fixture: a string que não pode virar filtro é a que o card mostra |
 | `hinario.test.mjs` | as **seções temáticas do Hinário 2022**: a cobertura é CONTÍGUA de 1 a 600, sem lacuna e sem sobreposição. É a única propriedade que pega um limite digitado errado — e esse erro é MUDO: a lista continua completa, na ordem certa, com um cabeçalho mentindo no meio. Confere também a faixa infantil contra o `sorteio.js` |
 | `coletanea.test.mjs` | **a leitura EDITORIAL das coletâneas**: qual coletânea se DISSOLVE em qual, e o que acontece quando a tabela deixa de bater com o banco. Os três modos de errar são silenciosos e apagam conteúdo da tela — dissolver sem destino (a origem some com os álbuns dentro), casar por `includes` ("Diversas" pegando "Diversas Antigas") e movidos DUPLICADOS quando o mesmo álbum já está no destino. Entradas VERBATIM da tela do aparelho (`site/telas/biblioteca.webp`): o operador escreveu *"diversos"* e a seção chama-se **"Diversas"**, e nenhuma normalização une as duas |
 | `cifra.test.mjs` | o que o app entende de uma página de cifra: slug, gramática do acorde, e a transposição PRESERVANDO A COLUNA. É a peça mais frágil do projeto — lê a marcação de um servidor que não é nosso. Fixtures **SINTÉTICAS** de propósito: nenhum conteúdo de terceiro entra neste repositório. Elas provam a GRAMÁTICA, não que ela case com o HTML de hoje — essa metade se conserta por OTA, e o Registro diz quando quebrou |
@@ -3919,7 +3944,7 @@ mundo anterior por outro caminho.
 | oráculo | o que cobre, e por que existe |
 |---|---|
 | `smoke.mjs` | sobe a base e usa a tela; mede o RENDERIZADO nos dois temas (palco sem tema, escada de camadas, contorno). **E A HIERARQUIA DA BIBLIOTECA** (v1.5.14): ele foi escrito para proteger o desenho da v1.5.9 e por isso APROVAVA o defeito — exigia que seção e card dividissem o tom (1,00:1), exigia a moldura nos dois níveis, e nunca comparava tampa × faixa, o par que valia 1,00:1 no escuro. Hoje afirma a ALTERNÂNCIA (degrau real contra o pai, e o card VOLTANDO ao tom da janela — sem essa segunda metade um terceiro tom passaria e a escada de quatro voltaria pela porta dos fundos), a AUSÊNCIA de moldura nos três níveis, e os DOIS cabeçalhos grudentos empilhados, com a folga do de dentro medida na altura RENDERIZADA do de fora. **E A PERNA DA RAIZ** (v1.5.15), que a v1.5.14 não media e por isso deixou passar dois defeitos: a PLACA de uma coleção da raiz tem degrau de verdade contra o poço em volta **e vale o MESMO que o card de álbum de dentro de uma seção** — sem essa segunda metade a faixa continua pousando em duas cores conforme onde a coleção mora, que é o relato; o `top` da tampa da raiz é ZERO, medido ao lado do da tampa aninhada na mesma passada (um `top` escrito por TIPO passa numa das duas e reprova na outra); e o primeiro bloco começa NO TOPO do scrollport, porque `padding` de um scroller é scrollport e a lista rola por ele à vista. A régua desta última é a GEOMETRIA, nunca `paddingTop` lido de volta: o vão pode voltar por qualquer caminho. **E o PAINEL RÁPIDO de Configurações** (v1.4.38): que o CORPO dela não rola — a asserção antiga media a FOLHA, e a folha nunca rolou (quem tem `overflow-y: auto` é o `.fade-opts`), então ela aprovava as duas versões —, que a grade tem três colunas, e que o tile ALTERNA e volta. **E o que o AZUL quer dizer** (v1.4.40): quem não tem "desligado" fica aceso o tempo todo (apagado, neste app, quer dizer INDISPONÍVEL) **e mesmo assim troca de desenho** — `qs-alt` responde "qual desenho?" e `qs-on` responde "está ligado?", e enquanto foram a mesma classe um tile sempre aceso ficava preso no desenho alternativo. A metade que impede o conserto preguiçoso (acender tudo, sempre) é o fundo da letra continuar APAGANDO, medido na cor RENDERIZADA: uma classe sem a regra de CSS passa num teste de classe e continua invisível na tela. **E o MODO DO APP como interruptor que desliza** (v1.4.43): o polegar ANDA, medido na `transform` RENDERIZADA do `::before` do trilho — uma troca de classe passa num teste de classe e continua imóvel na tela, e ler a posição do BOTÃO não serviria porque o botão nunca se mexe; os dois botões SEM fundo próprio (sem esta, acrescentar o polegar por cima do desenho antigo deixaria a pilha de quatro tons de pé, com uma camada A MAIS); e o `data-modo` seguindo o modo, que é por onde o CSS decide o lado. Mais a folha que **FICA ABERTA e IMÓVEL** ao trocar de modo — duas asserções e não uma, porque a primeira responde ao `closeFadePopup` que saiu do ouvinte e a segunda responde ao `<main>`: a caixa é `fixed` e mora FORA dele, e movê-la para dentro mantém a classe `open` e apaga a folha da tela. **Assentar é `getAnimations()` + `finished`**, nunca duas amostras iguais em quadros seguidos (MEDIDO: `top: -449`, a folha ainda no teto, aprovada como assentada) nem o primeiro `transitionend` (MEDIDO: `top: -7`, a `transform` a sete pixels do fim com a opacidade já pronta). **E o que a v1.4.44 corrigiu nele**: o trilho medindo EXATAMENTE a grade de tiles (um `.fade-row` pintando `--panel` sobre uma folha que já é `--panel` é um CARTÃO INVISÍVEL — não se via, mas o `padding` dele recuava o trilho 12,8px de cada lado, e o relato foi o desalinhamento), o TÍTULO centrado medido no texto PINTADO por um `Range` (a caixa do `<span>` é `stretch` e ocupa a linha inteira nas duas versões, então medi-la aprova o rótulo colado à esquerda), e o RODAPÉ como UMA barra — a asserção é o número de SUPERFÍCIES pintadas dentro dele, porque a v1.4.43 já tinha dois blocos com o mesmo tom e o que se via eram duas caixas |
-| `boot-nativo.test.mjs` | **o boot COM a ponte presente** — o `smoke` sobe SEM `__AVBridge`, então todo caminho `window.__NATIVE__` (justamente os que só rodam no aparelho) nunca era executado. Injeta uma ponte de mentira e pergunta o que o watchdog pergunta: o app ficou de pé? **E a LIGAÇÃO da regra das coletâneas** (v1.5.16): o `coletanea.test.mjs` prende a REGRA, este prende o fio até a tela, que falha de outro jeito — a regra continua certa e o recurso não faz nada. São DOIS consumidores do mesmo resultado (o laço que desenha as seções e o `claimed` dos órfãos), e ligar só um devolve *"Outros álbuns"*. **Os nomes das seções do fixture de rolagem viraram neutros no mesmo lote**: três eram os nomes REAIS do banco, e com a regra no ar aquele cenário montava CINCO seções onde o texto diz seis — MEDIDO, com a asserção VERDE, medindo outra coisa |
+| `boot-nativo.test.mjs` | **A GAVETA DE DETALHE DE UM VÍDEO** (v1.5.21), nas duas metades que só juntas dizem a regra: com o dado, o card ABRE pela identidade e as quatro linhas saem na ORDEM DO DOM (uma asserção do tipo *"o texto contém o canal?"* aprovaria o canal desenhado embaixo do estado no aparelho); sem ele — um ÍNDICE ANTIGO, a janela real entre o OTA chegar e a varredura refazer a lista —, a linha ausente SOME e não sobra "undefined" em lugar nenhum. Provado por reversão: desenhando SEMPRE, o card sai com `Título: undefined`. E o `serie.test.mjs` não cobre isto — ele prende a REGRA, este prende a LIGAÇÃO, que falha com a regra certa e o card mudo. Mais **o boot COM a ponte presente** — o `smoke` sobe SEM `__AVBridge`, então todo caminho `window.__NATIVE__` (justamente os que só rodam no aparelho) nunca era executado. Injeta uma ponte de mentira e pergunta o que o watchdog pergunta: o app ficou de pé? **E a LIGAÇÃO da regra das coletâneas** (v1.5.16): o `coletanea.test.mjs` prende a REGRA, este prende o fio até a tela, que falha de outro jeito — a regra continua certa e o recurso não faz nada. São DOIS consumidores do mesmo resultado (o laço que desenha as seções e o `claimed` dos órfãos), e ligar só um devolve *"Outros álbuns"*. **Os nomes das seções do fixture de rolagem viraram neutros no mesmo lote**: três eram os nomes REAIS do banco, e com a regra no ar aquele cenário montava CINCO seções onde o texto diz seis — MEDIDO, com a asserção VERDE, medindo outra coisa |
 | `display-smoke.mjs` | **o TELÃO** — a metade que roda na frente da congregação, e a que menos rede de segurança tem (o watchdog do OTA não a valida). Viewport fixo em 961×540, explicitamente. Trava o endereçamento do reenvio de cena |
 | `ota.test.mjs` | **o fluxo de atualização** — o único caminho cujo defeito NÃO TEM SINTOMA: nada quebra, o operador só continua na versão de anteontem. Afirma a pergunta com e sem Release, o "depois", e a INTENÇÃO atravessando a MORTE DO DOCUMENTO (semeada numa página que só tem o banco, porque semeá-la no Controle é uma corrida contra o `retomarAtualizacao` da abertura — e uma que o app ganha com razão) |
 | `registro.test.mjs` | **o Registro** — o único artefato cujo consumidor é um HUMANO A DISTÂNCIA: ele não falha calado, falha CONTINUANDO A RESPONDER com frase errada. Cobra as duas metades: nenhuma palavra de recurso aposentado **e** o que o operador foi buscar presente |
@@ -4407,21 +4432,32 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.5.20 · APK v1.5.14** · `SHELL_VERSION` **61** ·
-bundle com `minShell: 61` e **SEM `shellTag`** — o shell 61 é o **PISO**: todo
+**Versão atual: base web v1.5.21 · APK v1.5.21** · `SHELL_VERSION` **62** ·
+bundle com `minShell: 62` e `shellTag: "v1.5.21"` — o shell 62 é o **PISO**: todo
 método da ponte existe, e não há guarda de versão no lado web. **`SHELL_VERSION`
-NÃO sobe neste lote**: a superfície da ponte não mudou (nenhum método novo,
-nenhuma forma de retorno diferente).
+SOBE neste lote**, de 61 para 62: a ponte ganhou `ytDetalhes` (ver "A ponte").
 
-**E ESTE LOTE NÃO PEDE RELEASE.** Ele é só base web — quatro correções
-relatadas pelo operador (a thumbnail de um link de YouTube persistindo offline,
-a espera inicial da rolagem automática da cifra, e duas margens da Biblioteca e
-da caixa de controles), mais os oráculos que as acompanham —, e nada em
-`java/`, `res/` ou no manifesto foi tocado. Por isso o `shellTag` SAI do
-`version.json`: declará-lo faria o `web-ota` segurar o bundle esperando uma
-Release `v1.5.20` que não tem o que carregar, em silêncio e para sempre. O
-rodapé fica com `Web v1.5.20 · Shell v1.5.14`, que é a resposta exata a *"o OTA
-chegou e o APK ainda não?"*.
+**E ESTE LOTE PEDE RELEASE `v1.5.21`.** Ele são as duas metades do relato do
+operador sobre a gaveta de detalhe de um vídeo — a margem que escapava do poço,
+e os DADOS que o card passou a mostrar —, e o quarto dado pedido (a DESCRIÇÃO)
+não existe em ponto nenhum do lado web: ela exige `StreamInfo.getInfo` por
+vídeo, e portanto método novo da ponte, `NativeBridge.kt` e `YoutubeGrab.kt`
+tocados, e `minShell` novo. Por isso o `shellTag` ESTÁ no `version.json`: ele
+segura o bundle até a Release existir, e sem ele a metade web chegaria sozinha à
+frota — o card chamaria um método que o APK instalado não tem, o `call()` cairia
+no `catch` e resolveria `null`, e a linha da descrição simplesmente não seria
+desenhada, sem nada na tela dizendo por quê. Depois do push em `main`: Actions →
+*Build APK* → Run workflow, com `release_tag` = `v1.5.21`.
+
+> **Os OUTROS TRÊS dados não encostaram na ponte**, e isso é a invariante 5
+> pagando: duração, título completo e canal já chegavam nas listas CRUAS que o
+> shell entrega (`ytPlaylist`/`ytSearch`) e eram descartados por duas funções
+> nossas. Só a descrição pediu shell novo. E ela **NÃO VAI PARA O DISCO** — o
+> precedente é o da CIFRA, palavra por palavra: um `Map` que morre com o app,
+> nada em IndexedDB, nada no bundle do OTA. Guardar mudaria o recurso de
+> NATUREZA: de LER conteúdo de terceiro no aparelho do operador para DISTRIBUIR
+> uma cópia dele. A degradação certa, sem rede, é o card mostrando o que o
+> índice já guardou e simplesmente não mostrando descrição.
 
 > A v1.5.16 trouxe `coletanea.js`, MÓDULO NOVO do Controle, e por isso ele
 > entrou no watchdog de boot no MESMO lote (`AVColetanea`, em `otaAppIsUp`).
