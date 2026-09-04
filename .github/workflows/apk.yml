@@ -671,6 +671,18 @@ jobs:
           # do dongle é o caminho menos testável à mão — exige TV, dongle e o
           # timing de derrubá-lo — e roda sozinho na frente da congregação.
           rodar tools/cena.test.mjs
+          # E A HIDRATAÇÃO QUE PERDE A VEZ PARA O TOQUE. `load()` lê o banco por
+          # uma dezena de `await`s e só então escreve `currentId`/`currentItem`,
+          # e ninguém a chama com `await` — um `send()` no meio do caminho tinha
+          # o toque dele SOBRESCRITO pelo rabo dela (*lost update*). O estado
+          # que sobrava é impossível: `currentId: null` com `midiaNoAr: true` —
+          # o app projetando um vídeo e dizendo que não há item selecionado —, e
+          # dali saem o ▶ que lança `DataError` e o telão que reconecta VAZIO.
+          # Ele é o irmão do `db-estado.test.mjs` e escreve o hazard À MÃO de
+          # propósito: a corrida real depende de a máquina ser lenta, e foi
+          # assim que ela derrubou o `cena.test.mjs` acima no runner passando
+          # 7/7 fora dele. Um oráculo que mede o runner não guarda portão.
+          rodar tools/hidratacao-perde-a-vez.test.mjs
           # E A TELA CONECTADA COM O TELÃO NO CHÃO. "Há tela" nunca foi "há
           # telão": a lista responde pelo `DisplayManager` e quem projeta é a
           # `Presentation`, que numa negociação de Miracast pode não subir (o
