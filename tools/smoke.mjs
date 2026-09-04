@@ -21,50 +21,14 @@
 // um erro derruba o app inteiro antes de qualquer recurso nativo entrar.
 //
 //   node tools/smoke.mjs
-import { chromium } from 'playwright';
-import http from 'node:http';
-import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { semRedeExterna } from './sem-rede.mjs';
+import { servirEstatico, abrirNavegador, checar, falhas } from './arnes.mjs';
 
 const RAIZ = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'app', 'src', 'main', 'assets', 'web');
-const TIPOS = {
-  '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8',
-  '.css': 'text/css; charset=utf-8', '.json': 'application/json',
-  '.woff2': 'font/woff2', '.png': 'image/png', '.jpg': 'image/jpeg', '.svg': 'image/svg+xml',
-};
 
-const servidor = http.createServer((req, res) => {
-  let p = decodeURIComponent(new URL(req.url, 'http://x').pathname);
-  if (p.endsWith('/')) p += 'index.html';
-  const arquivo = path.join(RAIZ, p);
-  // Não servir nada fora da base web, mesmo num teste local.
-  if (!arquivo.startsWith(RAIZ) || !fs.existsSync(arquivo) || fs.statSync(arquivo).isDirectory()) {
-    res.writeHead(404); res.end('nao'); return;
-  }
-  res.writeHead(200, { 'Content-Type': TIPOS[path.extname(arquivo)] || 'application/octet-stream' });
-  fs.createReadStream(arquivo).pipe(res);
-});
-
-const falhas = [];
-// O TERCEIRO ARGUMENTO É IMPRESSO, como nos outros treze oráculos.
-//
-// Ele era DESCARTADO aqui: as chamadas já passavam o que viram (qual ponto do
-// hit-test caiu fora, quantos botões sobraram na linha), a medição custava a
-// mesma corrida, e a assinatura de dois parâmetros jogava tudo fora. O efeito
-// aparece no lugar onde mais dói: no CI, onde ninguém pode abrir o navegador —
-// a reprovação chegava como uma frase e nada mais, e diagnosticá-la exigia
-// adivinhar ou publicar um lote só para instrumentar.
-function checar(cond, msg, obtido) {
-  if (cond) console.log('ok      ' + msg);
-  else {
-    console.log('FALHOU  ' + msg
-      + (obtido !== undefined ? '\n        obtido: '
-        + (typeof obtido === 'string' ? obtido : JSON.stringify(obtido)) : ''));
-    falhas.push(msg);
-  }
-}
+const servidor = servirEstatico(RAIZ);
 
 await new Promise((r) => servidor.listen(0, r));
 const porta = servidor.address().port;
@@ -72,9 +36,7 @@ const porta = servidor.address().port;
 // procura (é o caso do ambiente de desenvolvimento deste projeto). Vazio ou
 // ausente, vale o download que o próprio Playwright gerencia — que é o caso do
 // runner do CI.
-const navegador = await chromium.launch(
-  process.env.PW_CHROMIUM ? { executablePath: process.env.PW_CHROMIUM } : {},
-);
+const navegador = await abrirNavegador();
 // `hasTouch`: sem ele o contexto do Playwright não emula toque, e um
 // `Input.dispatchTouchEvent` do CDP é entregue sem disparar
 // `touchstart`/`touchmove` — o carrossel de abas (o único gesto de toque que
@@ -743,7 +705,6 @@ try {
   }));
   checar(canais.linha && canais.botao && canais.pasta && canais.ota,
     'e os canais que responderam no lugar dela estão de pé (linha, botão, pasta, botão de atualização)');
-
 
   // ---- O EMPILHAMENTO DOS POPUPS ANINHADOS -------------------------------
   //

@@ -26,45 +26,18 @@
 // `__AVBridge` — o caminho de navegador.
 //
 //   node tools/sorteio-tela.test.mjs
-import { chromium } from 'playwright';
-import http from 'node:http';
-import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { semRedeExterna } from './sem-rede.mjs';
+import { servirEstatico, abrirNavegador, checar, falhas } from './arnes.mjs';
 
 const RAIZ = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'app', 'src', 'main', 'assets', 'web');
-const TIPOS = {
-  '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8',
-  '.css': 'text/css; charset=utf-8', '.json': 'application/json',
-  '.woff2': 'font/woff2', '.png': 'image/png', '.jpg': 'image/jpeg', '.svg': 'image/svg+xml',
-};
 
-const servidor = http.createServer((req, res) => {
-  let p = decodeURIComponent(new URL(req.url, 'http://x').pathname);
-  if (p.endsWith('/')) p += 'index.html';
-  const arquivo = path.join(RAIZ, p);
-  if (!arquivo.startsWith(RAIZ) || !fs.existsSync(arquivo) || fs.statSync(arquivo).isDirectory()) {
-    res.writeHead(404); res.end('nao'); return;
-  }
-  res.writeHead(200, { 'Content-Type': TIPOS[path.extname(arquivo)] || 'application/octet-stream' });
-  fs.createReadStream(arquivo).pipe(res);
-});
-
-const falhas = [];
-function checar(cond, msg, obtido) {
-  if (cond) console.log('ok      ' + msg);
-  else {
-    console.log('FALHOU  ' + msg + (obtido !== undefined ? '\n        obtido: ' + JSON.stringify(obtido) : ''));
-    falhas.push(msg);
-  }
-}
+const servidor = servirEstatico(RAIZ);
 
 await new Promise((r) => servidor.listen(0, r));
 const porta = servidor.address().port;
-const navegador = await chromium.launch(
-  process.env.PW_CHROMIUM ? { executablePath: process.env.PW_CHROMIUM } : {},
-);
+const navegador = await abrirNavegador();
 const ctx = await navegador.newContext({ viewport: { width: 430, height: 900 } });
 await semRedeExterna(ctx);
 const pg = await ctx.newPage();
@@ -143,7 +116,8 @@ try {
   // SETE ponteiros, e um errado devolve um pool plausível e errado. Este é o
   // único lugar em que eles podem ser conferidos: a regra pura recebe os de
   // mentira do outro oráculo.
-  const cap = await pg.evaluate(() => {
+  const cap = await pg.evaluate(async () => {
+    await ensureLyricIndex();   // ver o comentário do `soLetra`, logo abaixo
     const c = sorteioCap();
     const hin = allCollections().find((x) => x.id === 'hymnal-2022');
     const alb = allCollections().find((x) => x.id === 'album-9');
@@ -189,7 +163,19 @@ try {
   // o que a folha e o Registro mostram ao operador ("casou na letra"). Sem ela,
   // um `letraCasa` certo e um `ondeCasa` que nunca o consultasse passariam
   // iguais.
-  const soLetra = await pg.evaluate(() => {
+  //
+  // E O ÍNDICE É GARANTIDO AQUI DENTRO, não lá em cima. `syncLyrics` sai da
+  // abertura SEM `await` e o `finally` dela chama `invalidateLyricIndex()` — sob
+  // carga esse `finally` cai ENTRE o `evaluate` das capacidades e este, e o que
+  // sai é um pool VAZIO com `letraCasa` tendo passado dois `checar` antes. Não é
+  // defeito do app (invalidar depois de mexer no acervo é o certo) nem prazo a
+  // somar: é que quem chama `montarPool` DIRETO pula o `abrirSorteio`, que é o
+  // ponto onde a folha de verdade garante o índice. Então este oráculo o
+  // garante. MEDIDO: 1 reprovação em 4 rodadas da suíte em paralelo, e nenhuma
+  // em 8 execuções isoladas a 4× de carga — a janela é a do agendador, não a da
+  // CPU.
+  const soLetra = await pg.evaluate(async () => {
+    await ensureLyricIndex();
     const pool = AVSorteio.montarPool(allCollections(), { tema: 'peregrino' }, sorteioCap());
     return {
       nomes: pool.itens.map((i) => i.s.name),

@@ -39,6 +39,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { checar, falhas } from './checar.mjs';
 
 const AQUI = path.dirname(fileURLToPath(import.meta.url));
 // TRÊS alvos, e o terceiro é o que faltava. A tela da rede roda o PRÓPRIO
@@ -56,12 +57,6 @@ const ALVOS = [
   path.join(AQUI, '..', 'app', 'src', 'main', 'assets', 'web', 'shared'),
 ];
 const ALVO = ALVOS[0];
-
-const falhas = [];
-function checar(cond, msg, obtido) {
-  if (cond) console.log('ok      ' + msg);
-  else { console.log('FALHOU  ' + msg + (obtido ? '\n        obtido: ' + obtido : '')); falhas.push(msg); }
-}
 
 // ---------------------------------------------------------------------------
 // A PREMISSA, escrita como tabela: o que NÃO existe em `http://`, e com o que

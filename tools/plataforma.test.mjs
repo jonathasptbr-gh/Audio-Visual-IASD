@@ -27,12 +27,12 @@
 // procurasse o `href` aprovaria as duas versões.
 //
 //   node tools/plataforma.test.mjs
-import { chromium } from 'playwright';
 import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { semRedeExterna } from './sem-rede.mjs';
+import { abrirNavegador, checar, falhas } from './arnes.mjs';
 
 const RAIZ = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'site');
 const TIPOS = { '.html': 'text/html; charset=utf-8', '.svg': 'image/svg+xml', '.webp': 'image/webp' };
@@ -60,15 +60,6 @@ const servidor = http.createServer((rq, rs) => {
 await new Promise((r) => servidor.listen(0, r));
 const BASE = 'http://127.0.0.1:' + servidor.address().port;
 
-const falhas = [];
-function checar(cond, msg, obtido) {
-  if (cond) console.log('ok      ' + msg);
-  else {
-    console.log('FALHOU  ' + msg + (obtido !== undefined ? '\n        obtido: ' + JSON.stringify(obtido) : ''));
-    falhas.push(msg);
-  }
-}
-
 // AS QUATRO CADEIAS SÃO VERBATIM, e isso é a mesma regra do `serie.test.mjs`:
 // um `userAgent` imaginado prova só que a expressão concorda com quem a
 // escreveu. O do iPad é o de um iPadOS 13+, que se anuncia como Macintosh — o
@@ -82,7 +73,7 @@ const UA = {
   mac: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
 };
 
-const navegador = await chromium.launch();
+const navegador = await abrirNavegador();
 
 async function abrir(ua) {
   const ctx = await navegador.newContext({ userAgent: ua, viewport: { width: 900, height: 900 } });

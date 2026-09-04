@@ -16,26 +16,18 @@
 // alcançava.
 //
 //   node tools/db-gc.test.mjs
-import { chromium } from 'playwright';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { semRedeExterna } from './sem-rede.mjs';
+import { abrirNavegador, checar, falhas } from './arnes.mjs';
 
 const AQUI = path.dirname(fileURLToPath(import.meta.url));
 const DB = fs.readFileSync(
   path.join(AQUI, '..', 'app', 'src', 'main', 'assets', 'web', 'shared', 'db.js'), 'utf8',
 );
 
-const falhas = [];
-function checar(cond, msg, obtido) {
-  if (cond) console.log('ok      ' + msg);
-  else { console.log('FALHOU  ' + msg + (obtido ? '\n        obtido: ' + obtido : '')); falhas.push(msg); }
-}
-
-const navegador = await chromium.launch(
-  process.env.PW_CHROMIUM ? { executablePath: process.env.PW_CHROMIUM } : {},
-);
+const navegador = await abrirNavegador();
 // IndexedDB exige um origin de verdade: `about:blank` não serve. Um servidor
 // não é preciso — o `file:` do Playwright basta via `setContent` sobre uma
 // página http fictícia interceptada.
@@ -179,7 +171,6 @@ checar(!(await existe(pacote)), 'excluir o pacote do Cronograma o apaga');
 checar((await pg.evaluate(() => window.AVDB.gcOrfaos())) === 2,
   'e a faxina seguinte recolhe as mídias que só ele segurava');
 checar(!(await existe(pa)) && !(await existe(pb)), 'que somem do banco');
-
 
 await navegador.close();
 console.log(falhas.length ? '\n' + falhas.length + ' FALHA(S)' : '\nTodos passaram.');

@@ -43,19 +43,11 @@ import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { brotliDecompressSync } from 'node:zlib';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
+import { checar, falhas } from './checar.mjs';
 
 const raiz = join(dirname(fileURLToPath(import.meta.url)), '..');
 const WEB = join(raiz, 'app/src/main/assets/web');
 const FONTE = join(WEB, 'shared/fonts/material-symbols.woff2');
-
-const falhas = [];
-function checar(cond, msg, obtido) {
-  if (cond) console.log('ok      ' + msg);
-  else {
-    console.log('FALHOU  ' + msg + (obtido !== undefined ? '\n        obtido: ' + JSON.stringify(obtido) : ''));
-    falhas.push(msg);
-  }
-}
 
 // ---- O woff2 -------------------------------------------------------------
 // A ordem canônica dos 63 tags conhecidos: o diretório referencia um tag por

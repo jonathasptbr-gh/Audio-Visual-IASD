@@ -28,18 +28,13 @@
 //
 //   node tools/webview-range.test.mjs
 
-const falhas = [];
-function checar(cond, msg, obtido) {
-  if (cond) console.log('ok      ' + msg);
-  else { console.log('FALHOU  ' + msg + (obtido ? '\n        obtido: ' + obtido : '')); falhas.push(msg); }
-}
-
 // ---------------------------------------------------------------------------
 // O ORÁCULO — transcrição do Chromium, com a origem de cada regra.
 // ---------------------------------------------------------------------------
 
 // net/http/http_byte_range.cc — HttpByteRange::ComputeBounds.
 // Devolve os limites resolvidos, ou `null` quando a faixa é inatendível.
+import { checar, falhas } from './checar.mjs';
 function computeBounds(faixa, tamanho) {
   if (tamanho < 0) return null;
   // "Empty values": requisição SEM cabeçalho Range. É o caminho da correção —

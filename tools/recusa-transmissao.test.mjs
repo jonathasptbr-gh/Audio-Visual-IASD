@@ -33,23 +33,17 @@
 // palavra sai da frase, e o ensino simplesmente para de aparecer.
 //
 //   node tools/recusa-transmissao.test.mjs
-import { chromium } from 'playwright';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { semRedeExterna } from './sem-rede.mjs';
+import { abrirNavegador, checar, falhas } from './arnes.mjs';
 
 const RAIZ = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const WEB = path.join(RAIZ, 'app/src/main/assets/web');
 const JS = fs.readFileSync(path.join(WEB, 'controle/controle.js'), 'utf8');
 const KT_SRV = fs.readFileSync(path.join(RAIZ, 'app/src/main/java/br/org/iasd/av/EspelhoServidor.kt'), 'utf8');
 const KT_ACT = fs.readFileSync(path.join(RAIZ, 'app/src/main/java/br/org/iasd/av/MainActivity.kt'), 'utf8');
-
-const falhas = [];
-function checar(cond, msg, obtido) {
-  if (cond) console.log('ok      ' + msg);
-  else { console.log('FALHOU  ' + msg + (obtido !== undefined ? '\n        obtido: ' + obtido : '')); falhas.push(msg); }
-}
 
 // ---------------------------------------------------------------------------
 // METADE 1 — o PAR de listas: as recusas de REDE contêm a palavra, a de PORTA não
@@ -104,9 +98,7 @@ if (!mRegra) {
 // ---------------------------------------------------------------------------
 // METADE 2 — o COMPORTAMENTO: o veredito sai verbatim, o ensino só na rede
 // ---------------------------------------------------------------------------
-const navegador = await chromium.launch(
-  process.env.PW_CHROMIUM ? { executablePath: process.env.PW_CHROMIUM } : {},
-);
+const navegador = await abrirNavegador();
 const ctx = await navegador.newContext();
 await semRedeExterna(ctx);
 const pg = await ctx.newPage();

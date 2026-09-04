@@ -27,24 +27,16 @@
 // confere o JSON que chegaria ao Kotlin.
 //
 //   node tools/ponte.test.mjs
-import { chromium } from 'playwright';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { semRedeExterna } from './sem-rede.mjs';
+import { abrirNavegador, checar, falhas } from './arnes.mjs';
 
 const RAIZ = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'app', 'src', 'main', 'assets', 'web');
 const NATIVE = fs.readFileSync(path.join(RAIZ, 'shared', 'native.js'), 'utf8');
 
-const falhas = [];
-function checar(cond, msg, obtido) {
-  if (cond) console.log('ok      ' + msg);
-  else { console.log('FALHOU  ' + msg + (obtido !== undefined ? '\n        obtido: ' + obtido : '')); falhas.push(msg); }
-}
-
-const navegador = await chromium.launch(
-  process.env.PW_CHROMIUM ? { executablePath: process.env.PW_CHROMIUM } : {},
-);
+const navegador = await abrirNavegador();
 
 // CONTEXTO PRÓPRIO, e não `navegador.newPage()`: a regra do projeto é
 // `semRedeExterna(ctx)` logo depois de CADA `newContext()`, e uma página criada

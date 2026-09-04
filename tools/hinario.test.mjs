@@ -42,6 +42,7 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
+import { checar, falhas } from './checar.mjs';
 
 const raiz = join(dirname(fileURLToPath(import.meta.url)), '..');
 const SRC = join(raiz, 'app/src/main/assets/web/controle/hinario.js');
@@ -53,15 +54,6 @@ const SRC_SORTEIO = join(raiz, 'app/src/main/assets/web/controle/sorteio.js');
 const janela = {};
 new Function(readFileSync(SRC, 'utf8')).call(janela);
 const H = janela.AVHinario;
-
-const falhas = [];
-function checar(cond, msg, obtido) {
-  if (cond) console.log('ok      ' + msg);
-  else {
-    console.log('FALHOU  ' + msg + (obtido !== undefined ? '\n        obtido: ' + JSON.stringify(obtido) : ''));
-    falhas.push(msg);
-  }
-}
 
 checar(!!H, 'o módulo publica AVHinario');
 if (!H) { console.log('\n1 FALHA(S)'); process.exit(1); }

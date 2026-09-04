@@ -45,12 +45,10 @@
 //
 //   node tools/toque-instantaneo.test.mjs
 // ============================================================================
-import { chromium } from 'playwright';
-import http from 'node:http';
-import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { semRedeExterna } from './sem-rede.mjs';
+import { servirEstatico, abrirNavegador, checar, falhas } from './arnes.mjs';
 
 // A ponte de mentira, com o `ytStream` SEGURO: ele só resolve quando o oráculo
 // escreve `window.__soltarStream`. É o que cria a janela que este arquivo mede
@@ -104,21 +102,7 @@ const PONTE = `(() => {
 })();`;
 
 const RAIZ = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'app', 'src', 'main', 'assets', 'web');
-const TIPOS = {
-  '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8',
-  '.css': 'text/css; charset=utf-8', '.json': 'application/json',
-  '.woff2': 'font/woff2', '.png': 'image/png', '.jpg': 'image/jpeg', '.svg': 'image/svg+xml',
-};
-const servidor = http.createServer((req, res) => {
-  let p = decodeURIComponent(new URL(req.url, 'http://x').pathname);
-  if (p.endsWith('/')) p += 'index.html';
-  const arquivo = path.join(RAIZ, p);
-  if (!arquivo.startsWith(RAIZ) || !fs.existsSync(arquivo) || fs.statSync(arquivo).isDirectory()) {
-    res.writeHead(404); res.end('nao'); return;
-  }
-  res.writeHead(200, { 'Content-Type': TIPOS[path.extname(arquivo)] || 'application/octet-stream' });
-  fs.createReadStream(arquivo).pipe(res);
-});
+const servidor = servirEstatico(RAIZ);
 
 // WAV de 20 s: uma faixa que acabe no meio do teste responderia "parada" por ter
 // TERMINADO — indistinguível de interrompida, que é justamente o que se mede.
@@ -136,20 +120,8 @@ const SEMEAR = `
     { name: 'Louvor Em Cena', type: 'audio/wav', kind: 'audio', list: 'imports' });
 `;
 
-const falhas = [];
-function checar(cond, msg, obtido) {
-  if (cond) console.log('ok      ' + msg);
-  else {
-    console.log('FALHOU  ' + msg + (obtido !== undefined ? '\n        obtido: ' + JSON.stringify(obtido) : ''));
-    falhas.push(msg);
-  }
-}
-
 await new Promise((r) => servidor.listen(0, r));
-const navegador = await chromium.launch({
-  ...(process.env.PW_CHROMIUM ? { executablePath: process.env.PW_CHROMIUM } : {}),
-  args: ['--autoplay-policy=no-user-gesture-required'],
-});
+const navegador = await abrirNavegador({ args: ['--autoplay-policy=no-user-gesture-required'] });
 const ctx = await navegador.newContext({ viewport: { width: 412, height: 892 } });
 await semRedeExterna(ctx);
 const pg = await ctx.newPage();

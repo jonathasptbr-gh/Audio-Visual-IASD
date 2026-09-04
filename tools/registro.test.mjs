@@ -40,36 +40,14 @@
 // teste.
 //
 //   node tools/registro.test.mjs
-import { chromium } from 'playwright';
-import http from 'node:http';
-import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { semRedeExterna } from './sem-rede.mjs';
+import { servirEstatico, abrirNavegador, checar, falhas } from './arnes.mjs';
 
 const RAIZ = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'app', 'src', 'main', 'assets', 'web');
-const TIPOS = {
-  '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8',
-  '.css': 'text/css; charset=utf-8', '.json': 'application/json',
-  '.woff2': 'font/woff2', '.png': 'image/png', '.jpg': 'image/jpeg', '.svg': 'image/svg+xml',
-};
 
-const servidor = http.createServer((req, res) => {
-  let p = decodeURIComponent(new URL(req.url, 'http://x').pathname);
-  if (p.endsWith('/')) p += 'index.html';
-  const arquivo = path.join(RAIZ, p);
-  if (!arquivo.startsWith(RAIZ) || !fs.existsSync(arquivo) || fs.statSync(arquivo).isDirectory()) {
-    res.writeHead(404); res.end('nao'); return;
-  }
-  res.writeHead(200, { 'Content-Type': TIPOS[path.extname(arquivo)] || 'application/octet-stream' });
-  fs.createReadStream(arquivo).pipe(res);
-});
-
-const falhas = [];
-function checar(cond, msg) {
-  if (cond) console.log('ok      ' + msg);
-  else { console.log('FALHOU  ' + msg); falhas.push(msg); }
-}
+const servidor = servirEstatico(RAIZ);
 
 // ---------------------------------------------------------------------------
 // O QUE O SHELL DE VERDADE DEVOLVE HOJE.
@@ -150,9 +128,7 @@ const PONTE = `(() => {
 
 await new Promise((r) => servidor.listen(0, r));
 const porta = servidor.address().port;
-const navegador = await chromium.launch(
-  process.env.PW_CHROMIUM ? { executablePath: process.env.PW_CHROMIUM } : {},
-);
+const navegador = await abrirNavegador();
 const ctx = await navegador.newContext({ viewport: { width: 430, height: 900 }, hasTouch: true });
 await semRedeExterna(ctx);
 const pg = await ctx.newPage();
@@ -317,8 +293,6 @@ try {
     'o placar da retomada CHEGA ao Registro — a metade consumidora do `diag-dump`');
   checar(/retomado 3x/.test(comPlacar) && /desistido 1x/.test(comPlacar),
     'com as três contas, que respondem coisas diferentes (roubos · socorros · desistências)');
-
-
 
   // ---- O MICROFONE RECUSADO: o Registro precisa DIZER qual degrau ----------
   //
