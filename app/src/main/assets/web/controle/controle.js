@@ -278,7 +278,7 @@ const appVersionEl = document.getElementById('appVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.5.19';
+const WEB_VERSION = '1.5.20';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -2740,6 +2740,30 @@ function thumbFromVideo(file, medidas) {
 async function makeThumb(file, kind, medidas) {
   if (kind !== 'image' && kind !== 'video') return null;
   return kind === 'image' ? thumbFromImage(file) : thumbFromVideo(file, medidas);
+}
+
+// A MINIATURA de um item de YouTube SEM bytes (link guardado, não baixado).
+//
+// Baixa o `hqdefault.jpg` como Blob, para o registro guardar mídia de verdade
+// em vez de uma URL externa — a mesma miniatura que hoje some assim que a
+// conexão cai. `null` cobre TODO desfecho ruim (sem rede, CORS recusado,
+// prazo vencido, HTTP != 2xx, blob vazio ou grande demais): quem chama cai de
+// volta na URL string, o comportamento de sempre.
+/** Teto de tamanho do Blob: `hqdefault.jpg` mede 15-30 kB de costume — bem
+ *  abaixo disto —, e o teto é só uma cerca contra o CDN um dia redirecionar
+ *  para outro asset. */
+const THUMB_YOUTUBE_MAX_BYTES = 300000;
+const THUMB_YOUTUBE_PRAZO_MS = 5000;
+function thumbYoutube(id) {
+  if (!id) return Promise.resolve(null);
+  const url = 'https://img.youtube.com/vi/' + id + '/hqdefault.jpg';
+  const busca = fetch(url).then((res) => {
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    return res.blob();
+  }).then((b) => (b && b.size && b.size < THUMB_YOUTUBE_MAX_BYTES ? b : null))
+    .catch(() => null);
+  const prazo = new Promise((resolve) => setTimeout(() => resolve(null), THUMB_YOUTUBE_PRAZO_MS));
+  return Promise.race([busca, prazo]);
 }
 
 // A DURAÇÃO de um áudio, para o subtítulo da lista (v5.118).
@@ -10082,8 +10106,15 @@ function medirVaoDosFavoritos(lista) {
   if (!fav) return;
   const cs = getComputedStyle(lista);
   const gap = parseFloat(cs.rowGap) || 0;
+  // O RESPIRO DO PRIMEIRO FILHO (v1.5.20, `.coll-group--drop:first-child`) é
+  // MARGEM, e margem não entra em `clientHeight`/padding/gap — mas consome
+  // espaço de verdade na coluna, do mesmo jeito que os outros três termos.
+  // Lido do COMPUTADO (não um `--sp-5` copiado): o dia em que a regra mudar de
+  // valor, ou deixar de existir, esta conta acompanha sozinha.
+  const margemTopo = parseFloat(getComputedStyle(vizinhos[0]).marginTop) || 0;
   const util = lista.clientHeight - (parseFloat(cs.paddingTop) || 0)
-    - (parseFloat(cs.paddingBottom) || 0) - gap * Math.max(0, vizinhos.length - 1);
+    - (parseFloat(cs.paddingBottom) || 0) - gap * Math.max(0, vizinhos.length - 1)
+    - margemTopo;
   let fechadas = 0;
   for (const s of vizinhos) {
     if (s === fav) continue;
@@ -10161,8 +10192,13 @@ function medirTampa(lista) {
   if (!blocos.length) { lista.style.removeProperty('--tampa-h'); return; }
   const cs = getComputedStyle(lista);
   const gap = parseFloat(cs.rowGap) || 0;
+  // A MESMA CORREÇÃO do `--fav-vao` (v1.5.20): o respiro do primeiro filho
+  // (`.coll-group--drop:first-child`) é margem, e ela consome espaço da coluna
+  // sem entrar em `clientHeight`/padding/gap.
+  const margemTopo = parseFloat(getComputedStyle(blocos[0]).marginTop) || 0;
   const util = lista.clientHeight - (parseFloat(cs.paddingTop) || 0)
-    - (parseFloat(cs.paddingBottom) || 0) - gap * Math.max(0, blocos.length - 1);
+    - (parseFloat(cs.paddingBottom) || 0) - gap * Math.max(0, blocos.length - 1)
+    - margemTopo;
   let base = 0;
   let n = 0;
   let sobra = util;
@@ -12464,6 +12500,25 @@ let cifraVelBtnEl = null;
 /** De QUAL música é a rolagem em curso — ver a guarda no `lvBuildCifra`. */
 let cifraRolandoChave = '';
 /**
+ * O RELÓGIO da espera inicial, em `t` de `requestAnimationFrame` — ver
+ * "A ESPERA INICIAL", perto de `cifraRolarQuadro`. `-1` é o sentinel "ainda
+ * não armado neste ciclo"; `cifraRolarAlternar` o zera para -1 de propósito,
+ * e é o PRIMEIRO quadro que o arma de verdade, porque só ali o `pxPorS` já
+ * está calculado.
+ */
+let cifraEsperaFimMs = -1;
+/**
+ * `true` enquanto a folha está PARADA de propósito, esperando o operador ler
+ * antes de rolar. Não é o mesmo que "não anda" — a folha também não anda
+ * quando `cifraSegurando` é verdadeiro, e ali não há indicador nenhum, porque
+ * quem está com o dedo nela já sabe que ela não é a que está travada.
+ *
+ * Vive FORA do DOM, no padrão de `linhasCarregando`: `cifraPintarRolar` REFAZ
+ * o botão inteiro a cada chamada (troca de velocidade, redesenho da folha), e
+ * uma marca escrita só no nó sumiria no primeiro repintar durante a espera.
+ */
+let cifraEsperando = false;
+/**
  * A POSIÇÃO DA FOLHA EM FRAÇÃO DE PIXEL — a nossa, não a do elemento.
  *
  * O `scrollTop` de volta vem arredondado, e um acumulador que se relesse a cada
@@ -12580,13 +12635,21 @@ function cifraPintarRolar() {
   const ico = msym(cifraRolando ? ICON.pause : ICON.play);
   ico.setAttribute('aria-hidden', 'true');
   cifraRolarBtnEl.appendChild(ico);
-  const rotulo = cifraRolando ? 'Parar a rolagem' : 'Rolar sozinho';
+  // O ANEL DA ESPERA INICIAL (v1.5.20): a MESMA linguagem visual do download em
+  // curso (`aroDeEspera`), só que sem seta — não há bytes chegando, há um
+  // relógio correndo. Ele diz "em andamento", não "travado"; o botão sozinho
+  // pausado e imóvel é indistinguível de um botão quebrado.
+  if (cifraRolando && cifraEsperando) cifraRolarBtnEl.appendChild(aroDeEspera());
+  const rotulo = !cifraRolando ? 'Rolar sozinho'
+    : (cifraEsperando ? 'Lendo a introdução antes de rolar…' : 'Parar a rolagem');
   cifraRolarBtnEl.title = rotulo;
   cifraRolarBtnEl.setAttribute('aria-label', rotulo);
 }
 
 function cifraRolarParar() {
   cifraRolando = false;
+  cifraEsperaFimMs = -1;
+  cifraEsperando = false;
   if (cifraRaf) cancelAnimationFrame(cifraRaf);
   cifraRaf = 0;
   cifraEscrito = -1;
@@ -12635,6 +12698,43 @@ function cifraRolarQuadro(t) {
     ? ritmo
     : CIFRA_PX_POR_S * (ehAuto ? 1 : CIFRA_VELOCIDADES[cifraVelIdx]);
 
+  // ===== A ESPERA INICIAL: ler antes de rolar (v1.5.20) =====
+  //
+  // Pedido do operador: *"o sistema de rolagem automática de cifra não está
+  // sendo parado no início para permitir ler e executar a introdução da
+  // música durante um instrumental… o objetivo não é ter a linha a ser lida
+  // no topo, mas no centro. Desse modo, o sistema deve esperar o usuário 'ler
+  // até chegar no ponto médio' antes de se preocupar em mover
+  // automaticamente."*
+  //
+  // A REGRA é do módulo puro (`AVCifra.esperaInicialDaRolagem`, com o piso e o
+  // teto). Daqui sai só o que existe no DOM — a altura da caixa e o `pxPorS`
+  // JÁ CALCULADO acima, o MESMO que o movimento vai usar: a espera não é um
+  // número à parte, é o tempo de ler o pedaço que ainda não rolou, NO
+  // COMPASSO em que a folha vai de fato seguir.
+  //
+  // **Armada UMA VEZ por ciclo de rolagem** (`cifraEsperaFimMs < 0`): o
+  // sentinel nasce -1 em `cifraRolarAlternar`, porque ali o `pxPorS` ainda não
+  // existe — só o PRIMEIRO quadro sabe o ritmo de verdade. Rearmar a cada
+  // quadro empurraria o fim da espera para sempre um pouco mais à frente.
+  //
+  // **`rolavel <= 0` pula a espera inteira** — não há o que ler antes de uma
+  // rolagem que não vai acontecer, e é o mesmo caso em que o laço já parava
+  // no quadro seguinte (ver o `if` de fim de rolagem, abaixo).
+  if (rolavel > 0) {
+    if (cifraEsperaFimMs < 0) {
+      cifraEsperaFimMs = t + AVCifra.esperaInicialDaRolagem(el.clientHeight, pxPorS);
+    }
+    if (t < cifraEsperaFimMs) {
+      cifraRaf = requestAnimationFrame(cifraRolarQuadro);
+      return;
+    }
+  }
+  // O indicador SOME no exato instante em que o movimento de fato começa — daí
+  // em diante a própria folha andando já diz "está funcionando", e o anel
+  // deixaria de ser verdade (ele promete "ainda não", não "sempre").
+  if (cifraEsperando) { cifraEsperando = false; cifraPintarRolar(); }
+
   const antes = el.scrollTop;
   cifraPos = Math.min(rolavel, cifraPos + (pxPorS * dt) / 1000);
   cifraAplicarPos(el);
@@ -12681,6 +12781,12 @@ function cifraRolarAlternar() {
   // v1.1.20 fazia, e é metade do relato que a trocou.
   cifraPos = lyricsViewBodyEl.scrollTop;
   cifraEscrito = -1;
+  // A ESPERA INICIAL nasce ARMADA-PARA-ARMAR: o sentinel `-1` diz "ainda não
+  // sei quanto tempo esperar" (só o primeiro quadro conhece o `pxPorS`), e
+  // `cifraEsperando` liga o indicador JÁ NESTE TOQUE — não faz sentido o botão
+  // ficar mudo por um quadro só porque o cálculo ainda não rodou.
+  cifraEsperaFimMs = -1;
+  cifraEsperando = true;
   // Rolar sozinho e ACOMPANHAR a estrofe no ar são dois donos do mesmo scroll.
   // Quem tocou no botão escolheu este.
   lvFollow = false;
@@ -17399,11 +17505,12 @@ async function ytAcaoInterno(r, destinos, btn, somenteAudio, altura) {
     // acrescenta nada (não há bytes que os distingam).
     let rec = r && r.id ? await AVDB.mediaByYoutube(r.id, 'youtube') : null;
     if (!rec) {
+      const thumb = (await thumbYoutube(r.id)) || ('https://img.youtube.com/vi/' + r.id + '/hqdefault.jpg');
       rec = await AVDB.addUrlMedia(r.url || ('https://www.youtube.com/watch?v=' + r.id), {
         kind: 'youtube',
         type: 'video/youtube',
         name: r.name || ('YouTube: ' + r.id),
-        thumb: 'https://img.youtube.com/vi/' + r.id + '/hqdefault.jpg',
+        thumb,
         youtubeId: r.id,
         list: lista,
       });
@@ -22325,11 +22432,12 @@ async function handleSharedUrl(url, title) {
       { lista: destinoDoShare(), naPreview: simplificado() },
     );
     if (nativo) return guardarShare(nativo);
+    const thumb = (await thumbYoutube(ytId)) || ('https://img.youtube.com/vi/' + ytId + '/hqdefault.jpg');
     return guardarShare(await AVDB.addUrlMedia(url, {
       kind: 'youtube',
       type: 'video/youtube',
       name: title || ('YouTube: ' + ytId),
-      thumb: 'https://img.youtube.com/vi/' + ytId + '/hqdefault.jpg',
+      thumb,
       youtubeId: ytId,
       list: destinoDoShare(),
     }));
@@ -23857,9 +23965,12 @@ async function histResolver(h, destino) {
     // caminho "Online" da busca.
     const pronto = r.y ? await AVDB.mediaByYoutube(r.y, 'youtube') : null;
     if (pronto) return { rec: pronto, criado: false };
+    const thumb = r.y
+      ? (await thumbYoutube(r.y)) || ('https://img.youtube.com/vi/' + r.y + '/hqdefault.jpg')
+      : null;
     return { rec: await AVDB.addUrlMedia(r.u, {
       kind: 'youtube', type: 'video/youtube', name: h.nome,
-      thumb: r.y ? 'https://img.youtube.com/vi/' + r.y + '/hqdefault.jpg' : null,
+      thumb,
       youtubeId: r.y || null, list: destino,
     }), criado: true };
   }

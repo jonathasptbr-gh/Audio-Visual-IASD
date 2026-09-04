@@ -2660,6 +2660,21 @@ a congregação vê continua sendo a letra, pelo caminho de sempre.
   saída. A duração vem da **barra de progresso**, a única fonte que cobre todos
   os tipos de mídia, pela mesma razão que o `pushNowPlaying`.
 
+  **MAS UMA ESPERA INICIAL VOLTOU, por outro motivo (v1.5.20).** Pedido do
+  operador: ligar "Rolar sozinho" movia a folha NA HORA, sem dar tempo de ler a
+  introdução durante um instrumental — *"o objetivo não é ter a linha a ser
+  lida no topo, mas no centro… o sistema deve esperar o usuário 'ler até chegar
+  no ponto médio' antes de se preocupar em mover automaticamente"*. **Isto não
+  é a ABERTURA que saiu acima** — aquela era uma fração da POSIÇÃO da música (o
+  referente que sumiu com a v1.5.6); esta é um atraso de RELÓGIO DE PAREDE
+  contado a partir do TOQUE, no MESMO ritmo (px/s) que a folha vai seguir:
+  tempo de ler da primeira linha até o meio da caixa visível
+  (`AVCifra.esperaInicialDaRolagem(altura, pxPorS)`, PURA com oráculo, piso 2s
+  / teto 8s pelo mesmo motivo de ABERTURA/FECHO). Enquanto ela corre, o
+  `.dl-ring` — o mesmo anel do download em curso — fica sobreposto ao ícone de
+  pause: sem um sinal de "em andamento", um botão pausado e imóvel é
+  indistinguível de quebrado.
+
   **A FOLHA NUNCA MEXE NO TEMPO DA MÍDIA**, e o operador pediu isso por extenso.
   Sempre foi verdade e nunca teve oráculo; hoje tem, porque uma ausência não tem
   sintoma — o dia em que alguém ligar os dois eixos "para sincronizar", um
@@ -4392,18 +4407,21 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.5.19 · APK v1.5.14** · `SHELL_VERSION` **61** ·
+**Versão atual: base web v1.5.20 · APK v1.5.14** · `SHELL_VERSION` **61** ·
 bundle com `minShell: 61` e **SEM `shellTag`** — o shell 61 é o **PISO**: todo
 método da ponte existe, e não há guarda de versão no lado web. **`SHELL_VERSION`
 NÃO sobe neste lote**: a superfície da ponte não mudou (nenhum método novo,
 nenhuma forma de retorno diferente).
 
-**E ESTE LOTE NÃO PEDE RELEASE.** Ele é só base web — `controle.css`, as três
-casas da versão e os oráculos —, e nada em `java/`, `res/` ou no manifesto foi
-tocado. Por isso o `shellTag` SAI do `version.json`: declará-lo faria o `web-ota`
-segurar o bundle esperando uma Release `v1.5.19` que não tem o que carregar, em
-silêncio e para sempre. O rodapé fica com `Web v1.5.19 · Shell v1.5.14`, que é a
-resposta exata a *"o OTA chegou e o APK ainda não?"*.
+**E ESTE LOTE NÃO PEDE RELEASE.** Ele é só base web — quatro correções
+relatadas pelo operador (a thumbnail de um link de YouTube persistindo offline,
+a espera inicial da rolagem automática da cifra, e duas margens da Biblioteca e
+da caixa de controles), mais os oráculos que as acompanham —, e nada em
+`java/`, `res/` ou no manifesto foi tocado. Por isso o `shellTag` SAI do
+`version.json`: declará-lo faria o `web-ota` segurar o bundle esperando uma
+Release `v1.5.20` que não tem o que carregar, em silêncio e para sempre. O
+rodapé fica com `Web v1.5.20 · Shell v1.5.14`, que é a resposta exata a *"o OTA
+chegou e o APK ainda não?"*.
 
 > A v1.5.16 trouxe `coletanea.js`, MÓDULO NOVO do Controle, e por isso ele
 > entrou no watchdog de boot no MESMO lote (`AVColetanea`, em `otaAppIsUp`).

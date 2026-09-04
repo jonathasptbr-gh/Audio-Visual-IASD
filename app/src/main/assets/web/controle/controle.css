@@ -791,17 +791,29 @@ body {
 
      A barra MORA na janela (é a cabeça dela, e é por isso que sobe junto), mas
      repousa AQUI. O padding é o lugar dela: a caixa abre no topo exatamente a
-     altura da barra, mais o respiro até a primeira linha de controles.
+     altura da barra.
 
      `--lib-bar-h` é MEDIDA (`medirBarraDaBiblioteca`) — a barra muda de altura
      com o corpo de fonte do sistema —, e é a borda de cima DESTA caixa que a
      mesma função lê para saber até onde descer a janela. Um número escrito aqui
      e outro no JS seriam dois donos da mesma medida.
 
+     SEM RESPIRO SOMADO (v1.5.20): havia um `+ .35rem` aqui, e ele CONTAVA A
+     MESMA FOLGA DUAS VEZES. `--lib-bar-h` é o `offsetHeight` da `.lib-bar`, que
+     já EMBUTE o `.35rem` de baixo do próprio `padding` dela (a barra não pinta
+     fundo — ver `.lib-bar` — então esse respiro é invisível e se confunde com
+     o de fora). Relato do operador: *"o espaçamento entre a base da zona de
+     buscas e a seção do título da mídia em execução parece o dobro do
+     espaçamento entre botões e cards que já temos"*. MEDIDO: 11,1px do fim
+     visível da barra até o `.nowplaying`, contra 5,6px de `--deck-gap` (o vão
+     entre duas linhas do `.deck`, ~.35rem) — a soma dos dois `.35rem`. Sem o
+     extra, `--lib-bar-h` sozinho já é o respiro: a MESMA `.35rem` que seria
+     "a mais" é a que a barra reserva por dentro.
+
      E A ÁREA SEGURA DE BAIXO VOLTOU (v1.5.1 a tinha passado para a barra, que
      encostava na base da tela): quem encosta na barra de gestos do Android é de
      novo esta caixa. */
-  padding-top: calc(var(--lib-bar-h, 52px) + .35rem);
+  padding-top: var(--lib-bar-h, 52px);
   /* margem extra na base para não conflitar com navegação por gestos */
   padding-bottom: calc(.6rem + max(env(safe-area-inset-bottom), 12px));
   /* SEM `border-top` e SEM sombra. As duas existiam para marcar onde a caixa
@@ -2080,7 +2092,10 @@ main {
    caixa, como o transporte é outra.
 
    O RESPIRO É O DA CAIXA. Vertical `.35rem` (a altura dela é o que a
-   `.bottombar` reserva no `padding-top`), lateral `.7rem` — o MESMO recuo do
+   `.bottombar` reserva no `padding-top` — DESDE A v1.5.20, sem soma nenhuma
+   por cima: `--lib-bar-h` JÁ é essa altura inteira, com o `.35rem` de baixo
+   incluído, e somar outro `.35rem` na `.bottombar` contava o mesmo respiro
+   duas vezes — ver o comentário lá), lateral `.7rem` — o MESMO recuo do
    conteúdo da caixa, porque ela é um overlay de largura inteira e precisa
    alinhar com os botões que ficam embaixo dela. A área segura NÃO entra aqui:
    fechada, quem encosta na base da tela é a caixa; aberta, quem desconta o
@@ -3377,23 +3392,43 @@ main {
   background: var(--camada);
   border-radius: var(--radius-card);
 }
-/* ---------- E O RECUO DO PRIMEIRO NÃO ENTRA NA CAIXA (v1.5.10) ----------
-   Relato do operador: *"verifique o tamanho e espaçamento dos favoritos, pois
-   está deslocado o seu card de topo em relação a caixa dele"*.
+/* ---------- E O RECUO DO PRIMEIRO NÃO ENTRA NA CAIXA (v1.5.10 → v1.5.20) ----------
+   Relato do operador (v1.5.10): *"verifique o tamanho e espaçamento dos
+   favoritos, pois está deslocado o seu card de topo em relação a caixa dele"*.
 
    `.coll-group:first-child` acrescenta `padding-top: .2rem` para a lista não
-   começar colada no topo, e ele é 0,2,0 — vence o `padding: 0` desta regra, que
-   é 0,1,0. Enquanto a seção não tinha caixa isso era o respiro da LISTA; com a
-   moldura da v1.5.9 ele virou uma FAIXA DE 3,2px DENTRO da caixa, acima da
-   barra, e é ela que o relato descreve.
+   começar colada no topo, e ele é 0,2,0 — vence o `padding: 0` da regra do
+   `--drop`, que é 0,1,0. Enquanto a seção não tinha caixa isso era o respiro da
+   LISTA; com a moldura da v1.5.9 ele virou uma FAIXA DE 3,2px DENTRO da caixa,
+   acima da barra, e era ela que o relato descrevia — daí o `padding-top: 0`
+   abaixo.
 
-   **E ele sai sem virar margem, de propósito.** Uma `margin-top` aqui fica FORA
-   do retângulo da caixa, e `medirVaoDosFavoritos` fecha a conta do vão em cima
-   de `clientHeight − padding − gaps − barras`: margem nenhuma entra ali, então
-   a lista passaria a somar 3,2px a mais que a tela e a última seção fechada
-   terminaria ABAIXO do fim dela — o mesmo defeito que a moldura da v1.5.9 já
-   produziu uma vez, por outro caminho. O respiro que sobra é o do contêiner. */
-.coll-group--drop:first-child { padding-top: 0; }
+   ---------- E O RESPIRO ANTES DO PRIMEIRO CARD VOLTOU, COMO MARGEM (v1.5.20) ----------
+   Relato do operador: *"a margem do card da coleção favoritos, na biblioteca e
+   a barra de buscas no topo, está desproporcional aos espaçamentos que já
+   temos entre as coleções. Fazendo a coleção colar no topo, e errando o design
+   correto"*.
+
+   A v1.5.15 zerou o `padding-top` do SCROLLER (`.popup-sheet--lib .popup-list`,
+   ver a nota lá) para fechar o vazamento de conteúdo por cima de uma tampa
+   grudada — e isso, de propósito, também apagou o único respiro que sobrava
+   entre a barra de busca e o primeiro card (MEDIDO: 0px, contra os `--sp-5`
+   que separam duas coleções de raiz). São DUAS perguntas diferentes: "o
+   scroller tem padding?" (não pode, é scrollport — a v1.5.15 respondeu) e "o
+   primeiro card respira da barra?" (pode, e deve — é o mesmo respiro que todo
+   par de vizinhas já tem, e ninguém tinha voltado a respondê-la).
+
+   **Aqui SIM vira margem**, ao contrário do que esta regra dizia até a
+   v1.5.19: aquele veto era sobre a MOLDURA da v1.5.9 (revogada na v1.5.14 — a
+   Biblioteca não tem mais moldura, tem alternância de tom) e sobre o CONTEÚDO
+   da caixa, nunca sobre o scroller — `margin-top` continua FORA do retângulo
+   do bloco. O preço que o comentário antigo cobrava —
+   `medirVaoDosFavoritos`/`medirTampa` ignorando esse respiro na conta do vão —
+   está pago: as duas funções, em `controle.js`, leem o `margin-top` computado
+   do primeiro filho e o descontam de `util`, então a lista colapsada continua
+   enchendo a tela exatamente como antes (MEDIDO por reversão em
+   `lista-da-biblioteca.test.mjs`, casos D5/D5b/F2). */
+.coll-group--drop:first-child { padding-top: 0; margin-top: var(--sp-5); }
 /* ---------- QUEM OCUPA O VÃO É A SEÇÃO DOS FAVORITOS (v5.273/v5.276) --------
    Pedido do operador: *"a visão comum inicial vai ser as listas de coleções
    empilhadas na base, e quando elas acabam, toda a parte da tela que sobrou
@@ -7618,6 +7653,19 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    O de velocidade CICLA (a escada volta ao começo), como o botão de girar a
    mídia — com sete degraus, dar a volta custa menos que um segundo botão. */
 .lv-cifra-rolar.ativa { color: var(--accent); }
+/* O ANEL DA ESPERA INICIAL (v1.5.20) — a MESMA peça `.dl-ring` do download em
+   curso, só que ENCOLHIDA e SOBREPOSTA ao ícone de pause, e não ao lado dele:
+   o botão é `--hit` (34px) e um segundo elemento em fluxo normal o alargaria.
+   `position: absolute` tira o anel do fluxo — o ícone de pause continua
+   centrado pelo `flex` do botão como sempre — e `inset: 0; margin: auto`
+   centraliza o anel sobre ele, formando o mesmo desenho "ícone dentro do
+   anel" que a miniatura em download já usa. */
+.lv-cifra-rolar { position: relative; }
+.lv-cifra-rolar .dl-ring {
+  --dl-ring: 30px;
+  position: absolute; inset: 0; margin: auto;
+  pointer-events: none;
+}
 /* O ÚNICO botão da família que não é quadrado: o rótulo é uma PALAVRA ("Auto"),
    não um par de caracteres. `min-width` guarda a largura do maior rótulo para o
    ciclo não empurrar os vizinhos a cada toque — um botão que se desloca sob o

@@ -1,5 +1,14 @@
 [
   {
+    "versao": "1.5.20",
+    "itens": [
+      "O link do YouTube adicionado a uma lista agora guarda a miniatura, e ela persiste sem internet.",
+      "A rolagem automática da cifra agora espera um instante antes de começar a mover a folha.",
+      "O card de Favoritos voltou a respirar da barra de busca, no mesmo espaço das outras coleções.",
+      "O espaço entre a busca e o título da mídia em execução ficou do tamanho certo."
+    ]
+  },
+  {
     "versao": "1.5.19",
     "itens": [
       "Os botões de tamanho da letra do modo simples deixaram de encostar no que vem abaixo.",

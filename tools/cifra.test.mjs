@@ -508,6 +508,60 @@ secao('10. janelaDeRolagem / fracaoDaRolagem / ritmoDaRolagem');
     + 'duas terminam no mesmo instante');
 }
 
+// ── 10.5. esperaInicialDaRolagem: LER ANTES DE ROLAR ─────────────────────────
+//
+// Pedido do operador: *"o sistema de rolagem automática de cifra não está
+// sendo parado no início para permitir ler e executar a introdução da música
+// durante um instrumental… o objetivo não é ter a linha a ser lida no topo,
+// mas no centro. Desse modo, o sistema deve esperar o usuário 'ler até chegar
+// no ponto médio' antes de se preocupar em mover automaticamente."*
+secao('10.5. esperaInicialDaRolagem');
+{
+  // ZERO É RESPOSTA, NÃO FALHA — os mesmos três desfechos do `ritmoDaRolagem`:
+  // sem pxPorS ou sem altura não há "quanto tempo até o meio?" para responder.
+  for (const [altura, pxPorS, nome] of [
+    [0, 22, 'caixa sem altura'],
+    [500, 0, 'pxPorS zero (nada rolável, o caso mais comum)'],
+    [500, -5, 'pxPorS negativo'],
+    [500, NaN, 'pxPorS que não é número'],
+    [NaN, 22, 'altura que não é número'],
+    [-100, 22, 'altura negativa'],
+  ]) {
+    checar(C.esperaInicialDaRolagem(altura, pxPorS) === 0,
+      'espera 0 para ' + nome, C.esperaInicialDaRolagem(altura, pxPorS));
+  }
+
+  // O CASO NORMAL: a fórmula é `(altura / 2) / pxPorS`, em MILISSEGUNDOS.
+  // 600px de caixa a 40 px/s: 300/40 = 7,5 s — dentro do piso e do teto.
+  const msNormal = C.esperaInicialDaRolagem(600, 40);
+  checar(Math.abs(msNormal - 7500) < 1, 'bate com (altura/2)/pxPorS em segundos, '
+    + 'convertido para ms', msNormal);
+
+  // O PISO: uma caixa baixa ou um ritmo rápido dariam uma espera imperceptível
+  // sem ele — 100px a 200 px/s seriam só 0,25 s.
+  const msPiso = C.esperaInicialDaRolagem(100, 200);
+  checar(msPiso === 2000, 'o piso segura em 2 s mesmo quando a conta dá menos',
+    msPiso);
+
+  // O TETO: uma caixa alta ou um ritmo lento prenderiam a folha por tempo
+  // demais — 2000px a 10 px/s dariam 100 s sem ele.
+  const msTeto = C.esperaInicialDaRolagem(2000, 10);
+  checar(msTeto === 8000, 'o teto segura em 8 s mesmo quando a conta dá mais',
+    msTeto);
+
+  // MONOTONIA: mais altura pede mais espera (mais para ler); mais ritmo pede
+  // menos (o mesmo trecho se lê mais rápido no compasso que a folha vai usar)
+  // — dentro da faixa em que nem piso nem teto travam a conta.
+  checar(C.esperaInicialDaRolagem(800, 40) > C.esperaInicialDaRolagem(400, 40),
+    'mais altura de caixa pede mais espera, para a mesma velocidade');
+  checar(C.esperaInicialDaRolagem(600, 20) > C.esperaInicialDaRolagem(600, 60),
+    'mais pxPorS pede menos espera — o mesmo trecho lido mais rápido');
+
+  // Exportada no mesmo objeto das irmãs — é assim que `controle.js` a alcança.
+  checar(typeof C.esperaInicialDaRolagem === 'function',
+    'esperaInicialDaRolagem está exportada ao lado de janelaDeRolagem/ritmoDaRolagem');
+}
+
 // ── 11. A BUSCA ESCOLHE POR PARENTESCO, NÃO POR POSIÇÃO ─────────────────────
 // O CASO MEDIDO num aparelho (Registro de 22/08): uma busca por "Em Oração"
 // devolveu 27 resultados e o escolhido foi `/letra/A/` — o ÍNDICE ALFABÉTICO do

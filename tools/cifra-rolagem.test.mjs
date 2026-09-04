@@ -35,6 +35,22 @@
 // caminho que o operador percorre — a lição do `cifra-teclado.test.mjs`, que
 // passava com a guarda REMOVIDA enquanto montava a tela à mão.
 //
+// ## A ESPERA INICIAL (v1.5.20) muda O RELÓGIO, não a REGRA
+//
+// Pedido do operador: *"o sistema deve esperar o usuário 'ler até chegar no
+// ponto médio' antes de se preocupar em mover automaticamente"*. Ligar a
+// rolagem não move a folha mais NA HORA: primeiro há uma pausa (piso 2 s, teto
+// 8 s) do tamanho do que se leva para ler da primeira linha ao meio da caixa,
+// no MESMO ritmo que a folha vai seguir — `AVCifra.esperaInicialDaRolagem`.
+//
+// Cada bloco abaixo que MEDE MOVIMENTO logo após `cifraRolarAlternar()` chama
+// essa função pura, pela PONTE (`pg.evaluate`), para saber quanto esperar antes
+// de medir — a mesma regra do resto deste projeto: **quem responde "já pode?"
+// é a função do APP**, nunca um número escrito à mão no oráculo (ver "Um
+// oráculo não pode medir o runner" no CLAUDE.md). Os blocos que NÃO medem
+// movimento (a ausência de comando no barramento) ficam como estavam — a
+// espera não muda o que eles afirmam.
+//
 //   node tools/cifra-rolagem.test.mjs
 // ============================================================================
 import { chromium } from 'playwright';
@@ -111,6 +127,14 @@ function checar(cond, msg, obtido) {
   }
 }
 
+// Um `setTimeout` puro, não o `esperar()` de polling que outros oráculos usam
+// (`ota.test.mjs`, `historico.test.mjs`): ali a pergunta é "já aconteceu o
+// FATO?"; aqui a duração em si É o fato — a espera inicial da cifra é uma
+// pausa de relógio de parede, e o número que a define vem sempre da MESMA
+// função pura que o app usa (`AVCifra.esperaInicialDaRolagem`), nunca
+// adivinhado aqui.
+const dormir = (ms) => new Promise((r) => setTimeout(r, ms));
+
 await new Promise((r) => servidor.listen(0, r));
 const navegador = await chromium.launch(
   process.env.PW_CHROMIUM ? { executablePath: process.env.PW_CHROMIUM } : {},
@@ -166,29 +190,67 @@ try {
   // faixa (é o que `renderNowPlaying` deixa depois do Parar, do fim natural e
   // de uma letra avulsa) e NADA no telão. É exatamente aqui que o `auto` ancorava
   // a folha e ela parava para sempre.
-  const semAr = await pg.evaluate(async () => {
+  const semArInicio = await pg.evaluate(() => {
     midiaNoAr = false;
     seekEl.disabled = false;
     seekEl.max = '200';
     const dur = cifraDuracaoNoAr();
-    lyricsViewBodyEl.scrollTop = 0;
+    const el = lyricsViewBodyEl;
+    el.scrollTop = 0;
+    // O MESMO cálculo que `cifraRolarQuadro` vai fazer no primeiro quadro —
+    // é dele que sai o `pxPorS` que a espera pura recebe.
+    const rolavel = el.scrollHeight - el.clientHeight;
+    const ehAuto = CIFRA_VELOCIDADES[cifraVelIdx] === 'auto';
+    const ritmo = ehAuto ? cifraRitmoDoRelogio(rolavel) : 0;
+    const pxPorS = ritmo > 0
+      ? ritmo
+      : CIFRA_PX_POR_S * (ehAuto ? 1 : CIFRA_VELOCIDADES[cifraVelIdx]);
+    const esperaMs = AVCifra.esperaInicialDaRolagem(el.clientHeight, pxPorS);
     cifraRolarAlternar();
-    const t0 = lyricsViewBodyEl.scrollTop;
-    await new Promise((r) => setTimeout(r, 1500));
+    return { dur, esperaMs, t0: el.scrollTop };
+  });
+  checar(semArInicio.dur === 0,
+    'sem mídia no ar não há duração a seguir — a barra habilitada não é "no ar"',
+    semArInicio);
+
+  // ===== A ESPERA INICIAL, medida NO MEIO DO CAMINHO =====
+  //
+  // Ligar a rolagem não move a folha na hora: há uma pausa para ler antes.
+  // Medir exatamente na METADE da espera (não no fim, nem no dobro dela) é o
+  // que separa "ainda não andou porque está esperando" de "nunca vai andar" —
+  // esperar de mais aprovaria também um botão simplesmente quebrado.
+  await dormir(Math.max(200, semArInicio.esperaMs / 2));
+  const semArDurante = await pg.evaluate(() => ({
+    scrollTop: lyricsViewBodyEl.scrollTop,
+    ring: !!(cifraRolarBtnEl && cifraRolarBtnEl.querySelector('.dl-ring')),
+  }));
+  checar(semArDurante.scrollTop === semArInicio.t0,
+    'no MEIO da espera inicial a folha ainda NÃO se moveu — é hora de ler, não '
+    + 'de rolar', semArDurante);
+  checar(semArDurante.ring,
+    'e o indicador de "em andamento" (o anel) está no botão durante a espera — '
+    + 'para não parecer travado', semArDurante);
+
+  // Supera o resto da espera e dá tempo de o movimento ficar mensurável — o
+  // mesmo intervalo de 1500 ms que a versão anterior deste caso usava, só que
+  // contado a partir de quando o movimento de fato pode começar.
+  await dormir(semArInicio.esperaMs / 2 + 1500);
+  const semAr = await pg.evaluate(() => {
     const t1 = lyricsViewBodyEl.scrollTop;
     const titulo = cifraVelBtnEl ? cifraVelBtnEl.title : '';
+    const ring = !!(cifraRolarBtnEl && cifraRolarBtnEl.querySelector('.dl-ring'));
     cifraRolarParar();
-    return { dur, t0, t1, titulo };
+    return { t1, titulo, ring };
   });
-  checar(semAr.dur === 0,
-    'sem mídia no ar não há duração a seguir — a barra habilitada não é "no ar"',
-    semAr);
-  checar(semAr.t1 > semAr.t0 + 5,
-    'e a folha ANDA: o modo LIVRE assumiu, que é o que o `auto` sem relógio '
-    + 'promete', { t0: semAr.t0, t1: semAr.t1 });
+  checar(semAr.t1 > semArInicio.t0 + 5,
+    'e a folha ANDA depois da espera: o modo LIVRE assumiu, que é o que o '
+    + '`auto` sem relógio promete', { t0: semArInicio.t0, t1: semAr.t1 });
   checar(/ritmo fixo/.test(semAr.titulo),
     'e o botão DIZ isso — o rótulo mostra a escolha, a frase mostra o que está '
     + 'acontecendo', semAr.titulo);
+  checar(!semAr.ring,
+    'e o indicador de espera SOME assim que o movimento de fato começa — a '
+    + 'própria folha andando já basta para dizer "está funcionando"', semAr);
 
   // ======================================================================
   // METADE 2 — COM MÍDIA NO AR: o `auto` tira da música o RITMO, não a POSIÇÃO
@@ -211,38 +273,54 @@ try {
   // `t1 - t0` da janela (176 s aqui), o que dá um px/s cinco vezes menor que os
   // 22 do modo livre. Um caso que só perguntasse "andou?" aprovaria o livre
   // assumindo — que é exatamente a metade de cima deste arquivo.
-  const comAr = await pg.evaluate(async () => {
+  const comArInicio = await pg.evaluate(() => {
     midiaNoAr = true;
     seekEl.disabled = false;
     seekEl.max = '200';
     const dur = cifraDuracaoNoAr();
-    const rolavel = lyricsViewBodyEl.scrollHeight - lyricsViewBodyEl.clientHeight;
+    const el = lyricsViewBodyEl;
+    const rolavel = el.scrollHeight - el.clientHeight;
     // A MÚSICA FICA NO SEGUNDO ZERO E PARADA: é o cenário do relato.
-    lyricsViewBodyEl.scrollTop = 0;
+    el.scrollTop = 0;
+    const ritmo = cifraRitmoDoRelogio(rolavel);
+    const esperaMs = AVCifra.esperaInicialDaRolagem(el.clientHeight, ritmo);
     cifraRolarAlternar();
-    const t0 = lyricsViewBodyEl.scrollTop;
-    await new Promise((r) => setTimeout(r, 1500));
+    const ring = !!(cifraRolarBtnEl && cifraRolarBtnEl.querySelector('.dl-ring'));
+    return { dur, t0: el.scrollTop, rolavel, ritmo, esperaMs, ring };
+  });
+  checar(comArInicio.dur === 200,
+    'com mídia no ar a duração da barra vale — é dela que o `auto` tira o ritmo',
+    comArInicio);
+  checar(comArInicio.ring,
+    'e o indicador de espera também acende aqui, com música no ar', comArInicio);
+
+  // Supera a espera inicial e dá 1,5 s de movimento para medir — a MESMA
+  // janela de medição do caso de cima, só que começando quando o movimento de
+  // fato pode começar.
+  await dormir(comArInicio.esperaMs + 1500);
+  const comAr = await pg.evaluate(() => {
     const t1 = lyricsViewBodyEl.scrollTop;
     const titulo = cifraVelBtnEl ? cifraVelBtnEl.title : '';
+    const ring = !!(cifraRolarBtnEl && cifraRolarBtnEl.querySelector('.dl-ring'));
     cifraRolarParar();
     midiaNoAr = false;
-    return { dur, t0, t1, titulo, rolavel, ritmo: AVCifra.ritmoDaRolagem(rolavel, dur) };
+    return { t1, titulo, ring };
   });
-  checar(comAr.dur === 200,
-    'com mídia no ar a duração da barra vale — é dela que o `auto` tira o ritmo',
-    comAr);
-  checar(comAr.t1 > comAr.t0,
+  checar(comAr.t1 > comArInicio.t0,
     'e a folha ANDA com a música PARADA no segundo zero (v1.5.6): o `auto` '
     + 'integra o relógio de parede a partir de onde a folha está, e não persegue '
-    + 'a posição da mídia', { t0: comAr.t0, t1: comAr.t1 });
+    + 'a posição da mídia', { t0: comArInicio.t0, t1: comAr.t1 });
   // O RITMO, e não só o movimento. Tolerância larga de propósito: o que se
   // afirma é de QUAL fonte o px/s saiu, não a precisão do agendador de quadros.
-  checar(comAr.ritmo > 0 && Math.abs((comAr.t1 - comAr.t0) / 1.5 - comAr.ritmo)
-    < Math.max(2, comAr.ritmo * 0.6),
+  checar(comArInicio.ritmo > 0 && Math.abs((comAr.t1 - comArInicio.t0) / 1.5 - comArInicio.ritmo)
+    < Math.max(2, comArInicio.ritmo * 0.6),
     'e no RITMO da música, não no fixo do modo livre — o percurso inteiro cabe '
-    + 'na janela da duração', { andou: comAr.t1 - comAr.t0, ritmo: comAr.ritmo });
+    + 'na janela da duração', { andou: comAr.t1 - comArInicio.t0, ritmo: comArInicio.ritmo });
   checar(/ritmo da música/.test(comAr.titulo),
     'e o botão diz que está seguindo a música', comAr.titulo);
+  checar(!comAr.ring,
+    'e o indicador some quando o movimento de fato começa, também com música '
+    + 'no ar', comAr);
 
   // ======================================================================
   // METADE 4 — O DEDO MANDA, E A MÚSICA NÃO O DESFAZ
@@ -266,18 +344,24 @@ try {
       midiaNoAr = true;
       seekEl.disabled = false;
       seekEl.max = '200';
-      lyricsViewBodyEl.scrollTop = 0;
+      const el = lyricsViewBodyEl;
+      el.scrollTop = 0;
+      const rolavel = el.scrollHeight - el.clientHeight;
+      const ritmo = AVCifra.ritmoDaRolagem(rolavel, 200);
+      const esperaMs = AVCifra.esperaInicialDaRolagem(el.clientHeight, ritmo);
       cifraRolarAlternar();
-      await new Promise((r) => setTimeout(r, 300));
+      // Espera a folha estar DE FATO em movimento antes de arrastar — arrastar
+      // durante a leitura inicial não provaria nada sobre o dedo brigando com
+      // o autoscroll, que é o que este caso existe para verificar.
+      await new Promise((r) => setTimeout(r, esperaMs + 300));
       // O ARRASTO: o elemento é escrito por fora, como um dedo escreveria.
-      lyricsViewBodyEl.scrollTop = dest;
-      const largou = lyricsViewBodyEl.scrollTop;
+      el.scrollTop = dest;
+      const largou = el.scrollTop;
       await new Promise((r) => setTimeout(r, 900));
-      const depois = lyricsViewBodyEl.scrollTop;
-      const rolavel = lyricsViewBodyEl.scrollHeight - lyricsViewBodyEl.clientHeight;
+      const depois = el.scrollTop;
       cifraRolarParar();
       midiaNoAr = false;
-      return { largou, depois, ritmo: AVCifra.ritmoDaRolagem(rolavel, 200) };
+      return { largou, depois, ritmo };
     }, destino);
     // A TOLERÂNCIA É O RITMO, nunca um número de pixels: a folha do fixture não
     // tem tamanho fixo, e o px/s do `auto` sai dele. O que se afirma é *continuou
@@ -359,13 +443,24 @@ try {
     + 'do ensaio)', alvo);
   await pg.waitForSelector('.lv-cifra-acordes', { timeout: 15000 });
 
-  const ensaio = await pg.evaluate(async () => {
-    // Ritmo FIXO: esta metade fala da chave, não do relógio.
-    cifraAdotarVelocidade(1);
+  const ensaioInicio = await pg.evaluate(() => {
+    // Ritmo FIXO: esta metade fala da chave, não do relógio. O degrau mais
+    // RÁPIDO da escada (3×) só para encurtar a espera do teste — a regra que
+    // este caso prova (a chave sobrevive ao redesenho) não depende dele.
+    cifraAdotarVelocidade(3);
     midiaNoAr = false;
-    lyricsViewBodyEl.scrollTop = 0;
+    const el = lyricsViewBodyEl;
+    el.scrollTop = 0;
+    const pxPorS = CIFRA_PX_POR_S * CIFRA_VELOCIDADES[cifraVelIdx];
+    const esperaMs = AVCifra.esperaInicialDaRolagem(el.clientHeight, pxPorS);
     cifraRolarAlternar();
-    await new Promise((r) => setTimeout(r, 500));
+    return { esperaMs };
+  });
+  // Supera a espera: o `t0` daqui em diante precisa estar num trecho em que a
+  // folha JÁ anda, senão um redesenho no meio da leitura inicial não prova
+  // nada sobre sobreviver ao redesenho — só sobre sobreviver a não fazer nada.
+  await dormir(ensaioInicio.esperaMs + 500);
+  const ensaio = await pg.evaluate(async () => {
     const t0 = lyricsViewBodyEl.scrollTop;
     // O QUE O OPERADOR FAZ NO ENSAIO: sobe meio tom, aumenta a fonte, gira o
     // aparelho. Os três chegam aqui — `renderLyricsView` refaz a folha inteira.

@@ -949,6 +949,41 @@
     return px / util;
   }
 
+  // ===== A ESPERA INICIAL: ler antes de rolar (v1.5.20) =====
+  //
+  // Pedido do operador: *"o sistema de rolagem automática de cifra não está
+  // sendo parado no início para permitir ler e executar a introdução da
+  // música durante um instrumental… o objetivo não é ter a linha a ser lida
+  // no topo, mas no centro. Desse modo, o sistema deve esperar o usuário 'ler
+  // até chegar no ponto médio' antes de se preocupar em mover
+  // automaticamente."*
+  //
+  // A folha abre com a primeira linha no TOPO da caixa visível, e quem lê
+  // olha até o MEIO dela antes de precisar que algo desça. `altura / 2`
+  // dividido pelo ritmo (`pxPorS`) já escolhido é quanto tempo esse trecho
+  // leva para ser lido no compasso que a folha vai seguir — não é um número
+  // à parte, é o MESMO ritmo aplicado ao pedaço que ainda não rolou. Piso e
+  // teto em SEGUNDOS pelo mesmo motivo de `ABERTURA`/`FECHO`: sem piso uma
+  // caixa baixa ou um ritmo rápido dariam uma espera imperceptível; sem teto
+  // uma caixa alta ou um ritmo lento prenderiam a folha por tempo demais
+  // antes de o operador entender que ela vai se mexer.
+  const ESPERA_INICIAL = { min: 2, max: 8 };
+
+  /**
+   * Quantos MILISSEGUNDOS esperar, parado, antes de começar a mover a folha.
+   *
+   * Zero quando não há o que rolar (`rolavel <= 0`, a rolagem nem vai
+   * acontecer) ou quando `pxPorS` é inválido — nos dois casos não há
+   * pergunta "quanto tempo até o meio?" para responder.
+   */
+  function esperaInicialDaRolagem(altura, pxPorS) {
+    const h = Number(altura) || 0;
+    const ritmo = Number(pxPorS) || 0;
+    if (!(h > 0) || !(ritmo > 0)) return 0;
+    const segundos = (h / 2) / ritmo;
+    const trava = Math.min(ESPERA_INICIAL.max, Math.max(ESPERA_INICIAL.min, segundos));
+    return Math.round(trava * 1000);
+  }
 
   // ===== A RADIOGRAFIA: o que a PÁGINA parecia (v1.1.24) =====
   //
@@ -1018,6 +1053,6 @@
     lerFolha, lerPagina, lerBusca, somenteLetra, varianteSemCifra,
     ordenarBusca, parentesco, ehCaminhoDeMusica, radiografia,
     quebrarPares, pontoDeQuebra,
-    janelaDeRolagem, fracaoDaRolagem, ritmoDaRolagem,
+    janelaDeRolagem, fracaoDaRolagem, ritmoDaRolagem, esperaInicialDaRolagem,
   };
 })(this);
