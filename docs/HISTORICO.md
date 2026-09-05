@@ -24,6 +24,8 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
+- **v1.8.6** — O ORÁCULO DA CORTINA MEDIA O RUNNER, E ISSO CALOU O CANAL OTA. O merge da v1.8.4 ficou VERMELHO na `main`: o `verificar` reprovou em `abertura-e-transferencia.test.mjs` (70/71) e, como ele é `needs` do `web-ota`, **o job de publicação foi PULADO — o bundle da v1.8.4 não chegou a aparelho nenhum**. O oráculo passava 10/10 aqui sob 3× de carga, que é a assinatura da classe. A causa, MEDIDA: o relógio instalado do Playwright **também anda com o tempo real** (`fastForward(2000)` deixa o relógio da página 2012 ms à frente), e o PISO da cortina é contado do INÍCIO DA PÁGINA — `falta = 1800 − (Date.now() − nasceu)`. Num runner com três Chromiums em paralelo o boot come esses 1800 ms de tempo real, e o par de asserções deixava de medir o piso e passava a medir quanto o runner demorou para abrir o app. **Qual das duas pontas quebra depende de ONDE o tempo de boot cai**: simulando 2,2 s de boot, reprova a PRIMEIRA; no runner reprovou a SEGUNDA. O conserto é `pauseAt` ANTES do `goto` — o relógio da página congela de verdade (MEDIDO: 0 ms de avanço em 1,5 s reais), `nasceu` É o instante congelado e `falta` vale exatamente 1800 seja qual for a carga; e o app sobe com ele congelado (`__avBack` em 180 ms), porque o boot espera microtarefas e o IndexedDB, não temporizadores. `runFor` no lugar de `fastForward` pela razão que as fatias de 500 ms contornavam: ele processa o temporizador agendado DENTRO do avanço, que é o encadeamento piso → esmaecimento → remoção do nó. **E entrou uma guarda que faltava**: o oráculo AFIRMA que o relógio está parado antes de medir — sem ela, um Playwright que mude o `pauseAt` devolve as duas asserções ao regime antigo e o vermelho volta a chegar como veredito sobre o app. Provado LADO A LADO com o mesmo boot lento: antes reprova, depois passa. Lote **só de oráculo** — nada do app mudou.
+- **v1.8.5** — O REGISTRO SALVO POR CIMA DO ANTIGO, E A PORTA DE CEDER QUE NÃO ANOTAVA. Dois achados do Registro que o operador mandou dizendo *"persiste o mesmo problema"* — e o primeiro estava DENTRO do próprio arquivo. `salvarTexto` abria o documento com `openOutputStream(uri)`, modo `"w"`, que **não trunca**: salvando sobre o Registro da vez anterior, o texto novo cobria o começo e a CAUDA do antigo ficava, entrando no meio de uma linha. MEDIDO no arquivo de campo: o bloco das Coletâneas aparecia duas vezes, a segunda com um pedaço da lista das séries colado antes. **O defeito é pior do que parece**: o que sobra é conteúdo PLAUSÍVEL — blocos inteiros, bem formatados, descrevendo um estado que já não existe —, e o Registro existe para ser lido A DISTÂNCIA por quem não confere nada no aparelho. O caminho do PACOTE já usava `"wt"` desde a v1.7.0; este ficou para trás. E o `clone-diario` da v1.8.3 só era escrito depois de a lista existir, então o Registro de quem tentou ceder e não conseguiu era IDÊNTICO ao de quem nunca tocou no botão. Lote COM Release (`shellTag: v1.8.5`). *(Linha de índice escrita no lote seguinte — ver o corpo, que é o registro do lote.)*
 - **v1.8.4** — O DESLIZE DA BÍBLIA VAZAVA DA FOLHA. Relato do operador: *"um bugs visual de animação, os itens dentro das seções da bíblia estão aparecendo horizontalmente em sua animação de entrada e saída, saindo da caixa a qual pertecem."* A navegação DENTRO da Bíblia desliza (`deslizarNaFolha`): um `translateX(±100%)` no `#bibleBody`, 220ms. A `.tools-sheet` é um CARTÃO — fundo, raio e sombra — e **não recortava nada**, então durante o movimento a grade de livros, os ladrilhos e o cabeçalho pintavam FORA dela, por cima do Cronograma em volta. MEDIDO a 393×786: **47,7px** de vazamento e 25 nós fora da caixa numa das transições. Quem já recortava era o `<main>`, e só na LARGURA DA TELA — era o que segurava o deslize da faixa de abas de antes da v1.5.0, uma camada acima; entre a borda da folha e a da tela sobra justamente a moldura em que o vazamento aparecia. **DEFEITO PRÉ-EXISTENTE, e isso foi conferido antes de consertar**: a mesma sonda contra o `controle.css` da v1.8.0 devolve os mesmos 47,6px. `overflow: hidden` na folha, e ele não custa nada — os dois corpos (`#bibleBody` e `#toolsBody`) já têm `min-height: 0` e rolagem própria, e o que transbordasse viraria um corte, que o `geometria.test.mjs` reprova. **O ORÁCULO NOVO NÃO CABIA NO DE GEOMETRIA, por duas razões de método**: aquele ASSENTA as animações antes de medir (e tem de assentar — uma folha medida no meio do movimento devolve uma caixa que não existe), então um defeito que só existe DURANTE o movimento nasce fora do alcance dele; e **geometria não responde a esta pergunta** — `overflow: hidden` recorta a PINTURA, não o layout, e com a correção aplicada o `getBoundingClientRect` de cada ladrilho continua devolvendo a caixa inteira, 47,6px fora da folha. Medido por geometria, antes e depois são IDÊNTICOS, e foi assim que a primeira tentativa do arquivo "reprovou" a correção certa. A régua virou o PIXEL: quantas cores distintas aparecem na moldura entre a folha e o `<main>` — **9 em repouso e com a correção, 59 sem ela**. Lote **só de base web**.
 - **v1.8.3** — O ITEM INTEIRO NO HEAP, E UM DIÁRIO QUE SOBREVIVE AO PROCESSO. O "medindo" saiu com a v1.8.2 (*"agora ele achou e deu a medição correta"*) e a cópia continuou falhando, com o Registro do aparelho que RECEBE sem uma linha sobre ela — o bloco é montado do estado do SHELL, que nasce limpo num processo novo, e é justamente reabrindo o app que o operador vai copiar o Registro. **O ITEM INTEIRO NO HEAP:** `cloneBaixarItem` empilhava o `arrayBuffer()` de cada pedaço, então um episódio de ~300 MB eram 300 MB no renderer que hospeda os dois WebViews e a `Presentation` — e o desfecho é o renderer morrendo, a cópia parando e nada explicando por quê. **É o defeito que a v1.7.9 corrigiu no caminho do ARQUIVO, deixado de pé no da REDE**: hoje cada pedaço vira Blob na hora e o pico passa a ser UM pedaço. A asserção do oráculo é ESTRUTURAL de propósito — medir pico de memória num navegador é medir a máquina, e o que se afirma sem ambiguidade é a forma (blobs, nunca `ArrayBuffer` acumulado). **E O DIÁRIO DO CLONE MORA NO BANCO**, para sobreviver ao processo. Lote SÓ WEB. *(Linha de índice escrita no lote seguinte — ver o corpo, que é o registro do lote.)*
 - **v1.8.2** — O "MEDINDO" ETERNO, E UM DESMONTE QUE NÃO DIZIA POR QUÊ. Relato do operador, com o Registro junto: *"deu erro, diz que não deu para falar com o outro aparelho, 'a cópia parou'"* e *"na seleção do aparelho para conectar, ele fica eternamente 'medindo', mesmo aparecendo o aparelho para conectar"*. No SHELL: a cessão anunciava por mDNS com ZERO itens e o `acervoPublicar` reanunciava com os números de verdade — mas reanunciar é desanunciar e anunciar com o MESMO nome, e do outro lado um nome já achado nunca era resolvido de novo, então o TXT novo não chegava. Hoje quem põe o aparelho na rede é o `acervoPublicar`, já com contagem e peso, e um nome já achado volta à fila passada uma janela (`REVER_MS`). No WEB: "medindo" prometia um estado que aquele lado não tem como observar, e a linha passou a mostrar o ENDEREÇO. *(Linha de índice escrita no lote seguinte: a v1.8.2 entrou com a seção e sem ela — ver o corpo, que é o registro do lote.)*
@@ -364,6 +366,91 @@ na nota que a revoga, não apagada da que a criou.
 
 ---
 
+<<<<<<< Updated upstream
+## v1.8.6 — o oráculo da cortina media o runner, e isso calou o canal OTA
+
+O merge da v1.8.4 ficou **vermelho na `main`**. O `verificar` reprovou em
+`tools/abertura-e-transferencia.test.mjs` (70/71) e, como ele é `needs` do
+`web-ota`, **o job de publicação foi PULADO: o bundle da v1.8.4 não chegou a
+aparelho nenhum.** É o modo de falhar que este repositório já nomeou — *"o
+`verificar` é `needs` do `web-ota`, isso seria o bundle não chegando à frota"* —
+acontecendo.
+
+### O que reprovou
+
+`A3 · e ela sai depois dele — o piso ATRASA a saída, não a impede`.
+
+O oráculo passava **10/10 aqui, a 3× de carga**, que é a assinatura da classe
+"oráculo medindo o runner" — e a regra deste repositório diante de um vermelho
+que não reproduz é perguntar *"o que este teste pegou?"*, não *"quanto tempo a
+mais ele precisa?"*.
+
+### A causa, medida
+
+Duas coisas que só juntas explicam:
+
+- **O relógio instalado do Playwright também anda com o tempo REAL.** MEDIDO:
+  `fastForward(2000)` deixa o relógio da página **2012 ms** à frente. O próprio
+  arquivo já registrava isso num comentário — o que faltava era ver a
+  consequência.
+- **O PISO da cortina é contado do INÍCIO DA PÁGINA**, não do `pronto()`:
+  `falta = 1800 − (Date.now() − nasceu)`.
+
+Num runner com três Chromiums em paralelo, o boot come esses 1800 ms de tempo
+real. O par de asserções deixava de medir o PISO e passava a medir **quanto o
+runner demorou para abrir o app**.
+
+**Qual das duas pontas quebra depende de ONDE o tempo de boot cai** em relação
+ao piso, e por isso a reprodução não precisa casar com o log para valer:
+simulando 2,2 s de boot aqui, reprova a PRIMEIRA (o piso já venceu e a cortina
+sai no ato); no runner reprovou a SEGUNDA. É a mesma dependência.
+
+### O conserto
+
+`pauseAt` **antes** do `goto`: o relógio da página congela de verdade (MEDIDO:
+**0 ms** de avanço em 1,5 s reais), então `nasceu` É o instante congelado e
+`falta` vale exatamente 1800, seja qual for a carga. **E o app sobe com ele
+congelado** — MEDIDO, `__avBack` em 180 ms —, porque o que o boot espera são
+microtarefas e o IndexedDB, não temporizadores.
+
+`runFor` no lugar de `fastForward` pela mesma razão que as fatias de 500 ms
+contornavam: ele processa o temporizador agendado DENTRO do avanço, que é o
+encadeamento piso → esmaecimento → remoção do nó. As fatias deixam de ser
+necessárias.
+
+**E entrou uma guarda que faltava:** o oráculo agora AFIRMA que o relógio está
+parado antes de medir. Sem ela, um Playwright que mude o comportamento do
+`pauseAt` devolve as duas asserções ao regime antigo — medindo a máquina — e o
+vermelho voltaria a chegar como se fosse veredito sobre o app.
+
+Provado **lado a lado**, com o mesmo boot lento simulado: antes reprova, depois
+passa.
+
+**E UM SEGUNDO ORÁCULO DA MESMA CLASSE, achado na mesma passada.** O
+`clone-de-outro-celular.test.mjs` (bloco 6, da v1.8.0) reprovou UMA vez dentro
+da suíte em paralelo e passa **12/12 isolado a 3× de carga** — a janela é a do
+agendador sob paralelismo, não a da CPU. O laço dele já esperava pelo FATO (as
+três aberturas do canal), mas com orçamento de 10 s e, estourado o prazo, o que
+saía eram as duas asserções reprovando **sobre a ORDEM** — isto é, um prazo
+chegando como veredito sobre o app, que é a primeira das cinco classes que este
+repositório nomeia. O prazo subiu para 30 s e passou a se DECLARAR: estourado,
+a frase diz "PRAZO, não veredito" em vez de acusar a ordem. A asserção não
+enfraquece — uma ordem de fato errada continua produzindo três aberturas na
+sequência errada.
+
+**E o vão do ÍNDICE pela QUARTA vez:** a v1.8.5 também entrou com a seção no
+corpo e sem linha no índice (as v1.8.2 e v1.8.3 foram restauradas no lote
+anterior). A linha foi escrita a partir do corpo dela, e diz que foi escrita
+depois. Quatro ocorrências em cinco lotes: o índice deixou de ser algo que se
+lembra e virou parte do rito, ao lado da linha do `rodar` no workflow.
+
+Lote **só de oráculo** — nada do app mudou, e é por isso que a nota da linha do
+tempo diz que nada muda na tela. **A correção do deslize da v1.8.4 já chegou aos
+aparelhos**: o `web-ota` da v1.8.5 publicou com ela dentro, porque ela estava na
+`main` desde o merge. O que este lote entrega é o portão parando de reprovar por
+motivo errado.
+
+---
 ## v1.8.5 — o Registro salvo por cima do antigo, e a porta de ceder que não anotava
 
 Dois achados do Registro que o operador mandou dizendo *"persiste o mesmo

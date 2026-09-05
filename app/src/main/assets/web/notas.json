@@ -1,5 +1,11 @@
 [
   {
+    "versao": "1.8.6",
+    "itens": [
+      "Ajustes internos de verificação — nada muda na tela."
+    ]
+  },
+  {
     "versao": "1.8.5",
     "itens": [
       "Salvar o registro por cima de um antigo deixou de misturar os dois arquivos.",

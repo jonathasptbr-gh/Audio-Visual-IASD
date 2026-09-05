@@ -574,22 +574,35 @@ try {
       id: 'clone:teste:0', blob: bytes(3 * 1024 * 1024),
       name: 'item grande do clone', type: '', clonagem: true,
     });
-    for (let i = 0; i < 400 && window.__abertos.length < 3; i++) {
+    // O PRAZO É GENEROSO E ELE SE DECLARA (v1.8.6). Ele era de 10 s e, dentro da
+    // suíte em paralelo, MEDIDO uma vez: a sequência não fechou e o que voltou
+    // foi UMA abertura — e as duas asserções abaixo reprovaram descrevendo a
+    // ORDEM, que é um veredito sobre o app. Um prazo estourado não é um
+    // veredito: 30 s cobrem o pior caso de três Chromiums disputando os núcleos,
+    // e quando ele estoura a frase diz isso, em vez de acusar a ordem.
+    // (Isolado a 3× de carga o arquivo passa 12/12 — a janela é a do agendador
+    //  sob paralelismo, não a da CPU.)
+    for (let i = 0; i < 1200 && window.__abertos.length < 3; i++) {
       await new Promise((r) => setTimeout(r, 25));
     }
-    return window.__abertos.slice();
+    return { abertos: window.__abertos.slice(), estourou: window.__abertos.length < 3 };
   });
-  checar(ordemCanal.map((x) => x.id).join(',')
+  const prazoDoCanal = ordemCanal.estourou
+    ? 'as três aberturas não foram observadas em 30 s (PRAZO, não veredito) — '
+      + JSON.stringify(ordemCanal.abertos)
+    : JSON.stringify(ordemCanal.abertos);
+  checar(!ordemCanal.estourou && ordemCanal.abertos.map((x) => x.id).join(',')
       === 'clone:teste:0,musica-do-culto,clone:teste:0',
     '6 · a MÚSICA passa na frente de um item do clone JÁ EM VOO, e o clone volta '
     + 'depois — três aberturas, e a do meio é a do culto',
-    JSON.stringify(ordemCanal));
+    prazoDoCanal);
   // A OUTRA METADE, e ela é a que torna a cedência aceitável: ceder a vez não
   // pode ser RECOMEÇAR. Quem responde é o `recebido` do cache do shell, o mesmo
   // que já retoma um empurrão interrompido por morte de renderer.
-  checar(ordemCanal.length === 3 && ordemCanal[2].recebido > 0,
+  checar(!ordemCanal.estourou && ordemCanal.abertos.length === 3
+      && ordemCanal.abertos[2].recebido > 0,
     '6 · e ele RETOMA de onde parou — zero aqui seriam os megabytes já enviados '
-    + 'atravessando o canal de novo', JSON.stringify(ordemCanal));
+    + 'atravessando o canal de novo', prazoDoCanal);
 
   // =========================================================================
   // 5 · A FAIXA — nenhum pedido acima do pedaço combinado

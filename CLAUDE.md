@@ -5069,16 +5069,16 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.8.4 · APK v1.8.0** · `SHELL_VERSION` **65** ·
+**Versão atual: base web v1.8.6 · APK v1.8.5** · `SHELL_VERSION` **65** ·
 bundle com `minShell: 65` e **sem `shellTag`** — o shell 65 é o **PISO**:
 todo método da ponte existe, e não há guarda de versão no lado web.
 
-**E ESTE LOTE NÃO PEDE RELEASE.** Ele é só web: `java/`, `res/` e o manifesto
-não foram tocados, e nenhum método da ponte entrou ou mudou de forma. O
-`minShell: 65` FICA — é o piso que a v1.8.0 estabeleceu, e a Release dela já
-saiu —, e o `shellTag` sai: declarado, ele seguraria o bundle esperando uma
-Release que não vai existir, em silêncio, e a única pista seria a linha no
-resumo do run.
+**E ESTE LOTE NÃO PEDE RELEASE — ele não toca nem no app.** O que mudou é um
+ORÁCULO (`tools/`), que não entra no bundle: `assets/web/` só muda nos três
+lugares da versão e no `notas.json`. O `minShell: 65` FICA — é o piso que a
+v1.8.0 estabeleceu, e a Release dela já saiu —, e o `shellTag` sai: declarado,
+ele seguraria o bundle esperando uma Release que não vai existir, em silêncio, e
+a única pista seria a linha no resumo do run.
 
 > **O LOTE ANTERIOR (v1.8.0) PEDIU RELEASE**, e a razão fica registrada porque
 > ela é o caso normal: a ponte ganhou OITO métodos e o shell três arquivos
@@ -5088,7 +5088,31 @@ resumo do run.
 > resolveria `null`, e o que o operador teria seriam dois botões tocáveis que
 > não fazem nada.
 
-**O QUE O LOTE TRAZ — o deslize da Bíblia deixou de vazar da folha:**
+**O QUE O LOTE TRAZ — um oráculo que media o runner, e o canal OTA calado:**
+
+| peça | onde |
+|---|---|
+| o relógio da página CONGELADO antes de a página nascer | `tools/abertura-e-transferencia.test.mjs`, bloco A3 |
+
+> **O `verificar` REPROVOU E O `web-ota` FOI PULADO** (v1.8.6) — o bundle da
+> v1.8.4 não chegou a aparelho nenhum. É o modo de falhar que este arquivo já
+> nomeia (*"o `verificar` é `needs` do `web-ota`"*) acontecendo.
+>
+> O oráculo da CORTINA passava 10/10 aqui sob carga e reprovava lá, que é a
+> assinatura de "oráculo medindo o runner". A causa, MEDIDA: o relógio instalado
+> do Playwright **também anda com o tempo real** (`fastForward(2000)` deixa a
+> página 2012 ms à frente), e o PISO da cortina é contado do INÍCIO DA PÁGINA —
+> `falta = 1800 − (Date.now() − nasceu)`. Num runner com três Chromiums o boot
+> come os 1800 ms, e o par deixava de medir o piso para medir o boot.
+>
+> `pauseAt` ANTES do `goto` congela o relógio de verdade (0 ms em 1,5 s reais),
+> e o app sobe congelado (`__avBack` em 180 ms) porque o boot espera
+> microtarefas e o IndexedDB, não temporizadores. **E o oráculo passou a AFIRMAR
+> que o relógio está parado** antes de medir — sem essa guarda, um Playwright
+> que mude o `pauseAt` devolve tudo ao regime antigo e o vermelho volta a chegar
+> como veredito sobre o app.
+
+**O LOTE ANTERIOR (v1.8.4) — o deslize da Bíblia deixou de vazar da folha:**
 
 | peça | onde |
 |---|---|

@@ -191,33 +191,65 @@ try {
   // dele ela saiu —, porque só a segunda passa também numa cortina que nunca
   // levanta, e só a primeira passa também num piso de zero.
   //
-  // AS DUAS LEITURAS SÃO IMEDIATAS, e não uma `esperar()`: MEDIDO ao escrever
-  // este bloco, o relógio instalado do Playwright CONTINUA ANDANDO com o tempo
-  // real, então uma espera de 15 s cruza o TETO de 12 s — e a segunda asserção
-  // passava pelo motivo errado, aprovando até uma cortina que nunca levanta
-  // pelo `pronto()`. Lendo no ponto exato em que o relógio foi posto, o teto
-  // fica fora do alcance e o que se mede é só o piso.
+  // AS DUAS LEITURAS SÃO IMEDIATAS, e não uma `esperar()`: uma espera de 15 s
+  // cruzaria o TETO de 12 s, e a segunda asserção passaria pelo motivo errado —
+  // aprovando até uma cortina que nunca levanta pelo `pronto()`.
+  //
+  // ── E O RELÓGIO É CONGELADO ANTES DE A PÁGINA NASCER (v1.8.5) ──────────
+  //
+  // Este bloco REPROVOU no runner e passava 10/10 aqui, que é a assinatura de
+  // um oráculo medindo a máquina. A causa, MEDIDA: o relógio instalado do
+  // Playwright **também anda com o tempo real** (`fastForward(2000)` deixa o
+  // relógio da página 2012 ms à frente). E o PISO é contado do INÍCIO DA
+  // PÁGINA, não do `pronto()`:
+  //
+  //     falta = 1800 − (Date.now() − nasceu)
+  //
+  // Num runner com três Chromiums em paralelo o boot come esses 1800 ms de
+  // tempo REAL, e o que este par media deixava de ser o piso e passava a ser
+  // quanto o runner demorou para abrir o app. **QUAL das duas pontas quebra
+  // depende de ONDE o tempo de boot cai** em relação ao piso, e por isso a
+  // reprodução não precisa casar com o log para valer: simulando 2,2 s de boot
+  // aqui, reprova a PRIMEIRA (o piso já venceu e a cortina sai no ato); no
+  // runner reprovou a SEGUNDA. É a mesma dependência, e congelar o relógio a
+  // remove nos dois sentidos — MEDIDO lado a lado, antes e depois, com o mesmo
+  // boot lento.
+  //
+  // `pauseAt` ANTES do `goto` congela o relógio da página de verdade (MEDIDO:
+  // 0 ms de avanço em 1,5 s reais), então `nasceu` É o instante congelado e
+  // `falta` vale exatamente 1800, seja qual for a carga. **E o app sobe com ele
+  // congelado** — MEDIDO, `__avBack` em 180 ms —, porque o que o boot espera
+  // são microtarefas e o IndexedDB, não temporizadores.
+  //
+  // `runFor` no lugar de `fastForward` pela mesma razão que as fatias existiam:
+  // a saída são DOIS temporizadores em sequência (o piso agenda o esmaecimento,
+  // o esmaecimento agenda a remoção do nó), e `fastForward` NÃO reprocessa o que
+  // o callback agenda no meio do salto. `runFor` percorre o tempo e dispara
+  // cada um na sua vez — as fatias de 500 ms eram o contorno disso, e param de
+  // ser necessárias.
   {
     const { ctx, pg } = await abrirApp({});
     await pg.clock.install();
+    await pg.clock.pauseAt(Date.now() + 500);
     await pg.goto(base + '/controle/', { waitUntil: 'domcontentloaded' });
     // O APP DE PÉ é o gatilho do `pronto()`, e ele é o cenário: sem isso o que
     // se mediria era o TETO de 12 s, que é outra regra.
     await pg.waitForFunction(() => typeof window.__avBack === 'function', null, { timeout: 20000 });
+    // O RELÓGIO ESTÁ MESMO PARADO? Sem esta guarda, um Playwright que mude o
+    // comportamento do `pauseAt` devolve as duas asserções abaixo ao regime
+    // antigo — medindo a máquina — e o vermelho voltaria a chegar como se fosse
+    // veredito sobre o app.
+    const t0 = await pg.evaluate(() => Date.now());
+    await new Promise((r) => setTimeout(r, 250));
+    checar(await pg.evaluate(() => Date.now()) === t0,
+      'A3 · o relógio da página está CONGELADO — é ele que tira o tempo de boot '
+      + 'do runner da conta do piso');
     await pg.evaluate(() => window.__avSplash.pronto());
-    await pg.clock.fastForward(400);
+    await pg.clock.runFor(400);
     checar(await pg.evaluate(() => !!document.getElementById('splash')),
       'A3 · com o app JÁ de pé, a cortina continua na tela 400 ms depois — ela '
       + 'tem um PISO, e sem ele a abertura é um lampejo');
-    // EM FATIAS, e não num salto só: a saída são DOIS temporizadores em
-    // sequência — o piso agenda o esmaecimento, e o esmaecimento agenda a
-    // remoção do nó. `fastForward` NÃO reprocessa o temporizador que o callback
-    // agenda no meio do salto (é a mesma armadilha que o
-    // `fome-que-desiste.test.mjs` já mediu), então um `fastForward('00:03')`
-    // dispara o primeiro e deixa o segundo pendurado. Somando 3 s em fatias de
-    // 500 ms, cada um roda na sua vez — e o total continua bem abaixo dos 12 s
-    // do teto.
-    for (let i = 0; i < 6; i++) await pg.clock.fastForward(500);
+    await pg.clock.runFor(3000);
     checar(await pg.evaluate(() => !document.getElementById('splash')),
       'A3 · e ela sai depois dele — o piso ATRASA a saída, não a impede');
     await ctx.close();
