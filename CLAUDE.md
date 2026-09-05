@@ -4060,7 +4060,7 @@ estilo do fade fora limpo — MEDIDO, ele é limpo em **3,1 s**.
 
 #### EM PARALELO, TRÊS DE CADA VEZ
 
-Os 61 de Chromium somavam **~8 min em série**, e o custo não é o que parece:
+Os 62 de Chromium somavam **~8 min em série**, e o custo não é o que parece:
 lançar o navegador são **~110 ms** e subir o `/controle/` inteiro é **~1 s** —
 compartilhar um navegador entre oráculos, a otimização óbvia, economizaria 2% e
 custaria o isolamento. O que sobra é espera, com os quatro núcleos ociosos.
@@ -4185,6 +4185,7 @@ mundo anterior por outro caminho.
 |---|---|
 | `smoke.mjs` | sobe a base e usa a tela; mede o RENDERIZADO nos dois temas (palco sem tema, escada de camadas, contorno). **E A HIERARQUIA DA BIBLIOTECA** (v1.5.14): ele foi escrito para proteger o desenho da v1.5.9 e por isso APROVAVA o defeito — exigia que seção e card dividissem o tom (1,00:1), exigia a moldura nos dois níveis, e nunca comparava tampa × faixa, o par que valia 1,00:1 no escuro. Hoje afirma a ALTERNÂNCIA (degrau real contra o pai, e o card VOLTANDO ao tom da janela — sem essa segunda metade um terceiro tom passaria e a escada de quatro voltaria pela porta dos fundos), a AUSÊNCIA de moldura nos três níveis, e os DOIS cabeçalhos grudentos empilhados, com a folga do de dentro medida na altura RENDERIZADA do de fora. **E A PERNA DA RAIZ** (v1.5.15), que a v1.5.14 não media e por isso deixou passar dois defeitos: a PLACA de uma coleção da raiz tem degrau de verdade contra o poço em volta **e vale o MESMO que o card de álbum de dentro de uma seção** — sem essa segunda metade a faixa continua pousando em duas cores conforme onde a coleção mora, que é o relato; o `top` da tampa da raiz é ZERO, medido ao lado do da tampa aninhada na mesma passada (um `top` escrito por TIPO passa numa das duas e reprova na outra); e o primeiro bloco começa NO TOPO do scrollport, porque `padding` de um scroller é scrollport e a lista rola por ele à vista. A régua desta última é a GEOMETRIA, nunca `paddingTop` lido de volta: o vão pode voltar por qualquer caminho. **E o PAINEL RÁPIDO de Configurações** (v1.4.38): que o CORPO dela não rola — a asserção antiga media a FOLHA, e a folha nunca rolou (quem tem `overflow-y: auto` é o `.fade-opts`), então ela aprovava as duas versões —, que a grade tem três colunas, e que o tile ALTERNA e volta. **E o que o AZUL quer dizer** (v1.4.40): quem não tem "desligado" fica aceso o tempo todo (apagado, neste app, quer dizer INDISPONÍVEL) **e mesmo assim troca de desenho** — `qs-alt` responde "qual desenho?" e `qs-on` responde "está ligado?", e enquanto foram a mesma classe um tile sempre aceso ficava preso no desenho alternativo. A metade que impede o conserto preguiçoso (acender tudo, sempre) é o fundo da letra continuar APAGANDO, medido na cor RENDERIZADA: uma classe sem a regra de CSS passa num teste de classe e continua invisível na tela. **E o MODO DO APP como interruptor que desliza** (v1.4.43): o polegar ANDA, medido na `transform` RENDERIZADA do `::before` do trilho — uma troca de classe passa num teste de classe e continua imóvel na tela, e ler a posição do BOTÃO não serviria porque o botão nunca se mexe; os dois botões SEM fundo próprio (sem esta, acrescentar o polegar por cima do desenho antigo deixaria a pilha de quatro tons de pé, com uma camada A MAIS); e o `data-modo` seguindo o modo, que é por onde o CSS decide o lado. Mais a folha que **FICA ABERTA e IMÓVEL** ao trocar de modo — duas asserções e não uma, porque a primeira responde ao `closeFadePopup` que saiu do ouvinte e a segunda responde ao `<main>`: a caixa é `fixed` e mora FORA dele, e movê-la para dentro mantém a classe `open` e apaga a folha da tela. **Assentar é `getAnimations()` + `finished`**, nunca duas amostras iguais em quadros seguidos (MEDIDO: `top: -449`, a folha ainda no teto, aprovada como assentada) nem o primeiro `transitionend` (MEDIDO: `top: -7`, a `transform` a sete pixels do fim com a opacidade já pronta). **E o que a v1.4.44 corrigiu nele**: o trilho medindo EXATAMENTE a grade de tiles (um `.fade-row` pintando `--panel` sobre uma folha que já é `--panel` é um CARTÃO INVISÍVEL — não se via, mas o `padding` dele recuava o trilho 12,8px de cada lado, e o relato foi o desalinhamento), o TÍTULO centrado medido no texto PINTADO por um `Range` (a caixa do `<span>` é `stretch` e ocupa a linha inteira nas duas versões, então medi-la aprova o rótulo colado à esquerda), e o RODAPÉ como UMA barra — a asserção é o número de SUPERFÍCIES pintadas dentro dele, porque a v1.4.43 já tinha dois blocos com o mesmo tom e o que se via eram duas caixas |
 | `pacote-ida-e-volta.test.mjs` | **o pacote de um aparelho para o outro**, em DOIS contextos de navegador com armazenamentos separados — o `pacote.test.mjs` prende a regra, este prende a LIGAÇÃO, que falha com a regra certa e o acervo não chegando. Nada é comparado contra o que a exportação achou que escreveu: afirma-se o que o SEGUNDO aparelho tem depois. Cobre a imagem de fundo da estrofe (que NENHUM registro do catálogo nomeia — é ela que prova que a varredura é do DISCO), o `stream` que não atravessa, a pasta do aparelho que fica para trás, e a promessa inteira: importar DE NOVO, com o local já diferente, não apaga o renomeado nem a preferência de quem importou — e a lista de ids se SOMA |
+| `linha-da-preparacao.test.mjs` | **a linha de uma PREPARAÇÃO não é a de um download** (v1.7.1), e as duas metades falham CALADAS. A ilustração: a faixa de progresso ocupa a POSIÇÃO DO SUBTÍTULO — a pergunta é de ÁRVORE (dentro da coluna de texto e DEPOIS do nome), porque um `.dl-prog` solto na `.row` passa num teste de presença e aparece noutro lugar da linha —, o trilho só existe quando há proporção (uma barra parada em zero se lê como travada) e o PREENCHIMENTO é medido em PIXELS RENDERIZADOS: sem a regra de CSS o `style` inline fica de pé sobre um elemento sem caixa nenhuma, e um teste do `style` aprova isso. O ícone: preparar uma apresentação não baixa byte nenhum, e a seta prometia bytes — a regra de v1.4.19 (*o ícone segue a LEGENDA*) num lugar novo, com a REVERSÃO ao lado, porque a seta ACENDE num download de verdade e APAGA de volta quando a legenda deixa de prometê-los. A legenda vem de quem TEM os números (nem a linha nem o oráculo parseiam frase nenhuma), e o percentual solto saiu: a barra e a fração já o dizem. **A linha é endereçada pelo NOME** — MEDIDO, 1 reprovação em 8 rodadas a 3× de carga com `querySelector`: as duas metades montam uma linha cada, e sob carga a de baixo media a seta da de cima |
 | `abertura-e-transferencia.test.mjs` | **a CORTINA que não pode ficar no ar**, no cenário catastrófico: o `controle.js` abortado pela rota, o tema guardado já no `<html>` (quem o escreveu foi o script do `<head>`) e a cortina levantando pelo PRAZO — sem isso o app fica trancado, e não há erro em lugar nenhum. Mais a saída por REMOÇÃO DO NÓ, medida por hit-test (uma camada `opacity: 0` sobre a tela inteira continua recebendo o toque). E a BADGE: as TRÊS casas dizem o mesmo número, nenhuma escreve "Web"/"Shell" — **e o REGISTRO continua trazendo o índice do shell**, que é a metade que impede o conserto largo demais. Mais o bloco "Este aparelho", com a reversão (sem ponte ele não existe) |
 | `boot-nativo.test.mjs` | **A GAVETA DE DETALHE DE UM VÍDEO** (v1.5.21), nas duas metades que só juntas dizem a regra: com o dado, o card ABRE pela identidade e as quatro linhas saem na ORDEM DO DOM (uma asserção do tipo *"o texto contém o canal?"* aprovaria o canal desenhado embaixo do estado no aparelho); sem ele — um ÍNDICE ANTIGO, a janela real entre o OTA chegar e a varredura refazer a lista —, a linha ausente SOME e não sobra "undefined" em lugar nenhum. Provado por reversão: desenhando SEMPRE, o card sai com `Título: undefined`. E o `serie.test.mjs` não cobre isto — ele prende a REGRA, este prende a LIGAÇÃO, que falha com a regra certa e o card mudo. Mais **o boot COM a ponte presente** — o `smoke` sobe SEM `__AVBridge`, então todo caminho `window.__NATIVE__` (justamente os que só rodam no aparelho) nunca era executado. Injeta uma ponte de mentira e pergunta o que o watchdog pergunta: o app ficou de pé? **E a LIGAÇÃO da regra das coletâneas** (v1.5.16): o `coletanea.test.mjs` prende a REGRA, este prende o fio até a tela, que falha de outro jeito — a regra continua certa e o recurso não faz nada. São DOIS consumidores do mesmo resultado (o laço que desenha as seções e o `claimed` dos órfãos), e ligar só um devolve *"Outros álbuns"*. **Os nomes das seções do fixture de rolagem viraram neutros no mesmo lote**: três eram os nomes REAIS do banco, e com a regra no ar aquele cenário montava CINCO seções onde o texto diz seis — MEDIDO, com a asserção VERDE, medindo outra coisa |
 | `display-smoke.mjs` | **o TELÃO** — a metade que roda na frente da congregação, e a que menos rede de segurança tem (o watchdog do OTA não a valida). Viewport fixo em 961×540, explicitamente. Trava o endereçamento do reenvio de cena |
@@ -4678,20 +4679,54 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.7.0 · APK v1.7.0** · `SHELL_VERSION` **63** ·
-bundle com `minShell: 63` e **`shellTag: "v1.7.0"`** — o shell 63 é o **PISO**:
+**Versão atual: base web v1.7.1 · APK v1.7.0** · `SHELL_VERSION` **63** ·
+bundle com `minShell: 63` e **sem `shellTag`** — o shell 63 é o **PISO**:
 todo método da ponte existe, e não há guarda de versão no lado web.
 
-**E ESTE LOTE PEDE RELEASE**, porque a ponte ganhou QUATRO métodos:
+**E ESTE LOTE NÃO PEDE RELEASE.** Ele é só web: `java/`, `res/` e o manifesto
+não foram tocados, e nenhum método da ponte entrou ou mudou de forma. Daí o
+`shellTag` estar AUSENTE — declarado, ele seguraria o bundle esperando uma
+Release que não vai sair, em silêncio, e a única pista seria a linha no resumo
+do run.
+
+**O QUE O LOTE TRAZ — a linha de uma PREPARAÇÃO deixou de se parecer com a de um
+download**, nas duas metades que o operador nomeou:
+
+| peça | onde |
+|---|---|
+| a FAIXA DE PROGRESSO na posição do subtítulo, com a FRAÇÃO das páginas já preparadas | `faixaDeProgresso`/`pintarFaixaDeProgresso` (só web) |
+| a SETA seguindo a LEGENDA também na LINHA — preparar não baixa byte nenhum | `legendaEhDownload`, agora compartilhada com o cartão da preview |
+
+> **A REGRA JÁ EXISTIA; ELA SÓ NÃO TINHA CHEGADO AQUI** (v1.7.1). O cartão sobre
+> a preview aprendeu na v1.4.19 que o `.dl-ring` são DOIS desenhos — o aro diz
+> *"espere"*, a seta diz *"bytes chegando"* —, e a linha continuou com a seta
+> INCONDICIONAL: preparando uma apresentação, a miniatura prometia um download
+> que não estava acontecendo. `legendaEhDownload` passou a ser a fonte única dos
+> dois, então eles não têm como discordar.
+>
+> **E A FRAÇÃO NÃO CUSTOU PARÂMETRO NENHUM.** A linha já RECEBIA a legenda
+> (`Preparando página 4 de 8…`) — o mesmo texto que a notificação do sistema
+> mostra — e a descartava, desenhando só o percentual solto. Consumi-la entrega
+> a fração de graça, e sem ninguém parsear frase nenhuma: quem tem os números é
+> quem escreve a legenda. O `.dl-pct` saiu da linha do Cronograma e da
+> Biblioteca (fica na lista de resultados do YouTube, que não tem subtítulo):
+> com a barra e a legenda dizendo o número, um terceiro lugar dizendo o mesmo é
+> o que este app tira de cena em toda passada.
+>
+> **O trilho só existe quando há proporção** (`pct < 0` o esconde): uma barra
+> parada em zero durante a fase de preparo se lê como travada, que é o oposto do
+> que ela veio dizer.
+
+> **O LOTE ANTERIOR (v1.7.0)** pediu Release, porque a ponte ganhou QUATRO métodos:
 `compartilharTexto` e os três do PACOTE DE TRANSFERÊNCIA
 (`pacoteCriar`/`pacoteFechar`/`pacoteCancelar`), mais o canal de `ArrayBuffer`
-`__avPacote` (`PacoteCanal.kt`, o segundo do shell). O `shellTag` segura o
-bundle até a Release existir; sem ele a metade web chegaria sozinha à frota, os
-três tiles novos de Configurações chamariam métodos que o APK instalado não
-tem, o `call()` venceria os 60 s e resolveria `null` — três botões tocáveis que
-não fazem nada, sem nada na tela dizendo por quê.
+`__avPacote` (`PacoteCanal.kt`, o segundo do shell). O `shellTag` segurou o
+bundle até a Release existir; sem ele a metade web teria chegado sozinha à
+frota, os três tiles novos de Configurações chamariam métodos que o APK
+instalado não tem, o `call()` venceria os 60 s e resolveria `null` — três
+botões tocáveis que não fazem nada, sem nada na tela dizendo por quê.
 
-**O QUE O LOTE TRAZ, em quatro peças:**
+As quatro peças dele:
 
 | peça | onde |
 |---|---|

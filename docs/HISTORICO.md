@@ -24,6 +24,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
+- **v1.7.1** — A LINHA DE UMA PREPARAÇÃO DEIXOU DE SE PARECER COM A DE UM DOWNLOAD. Dois ajustes pedidos com a apresentação preparando na tela: *"na notificação temos barra de progresso e informações como quantas páginas já foram preparadas… ajuste a ilustração da representação do progresso no item do cronograma, atualmente ele só tem a porcentagem, mas gostaria que usasse a posição do texto secundário para uma barra de progresso, e a fração das páginas já preparadas"* e *"para essas preparações, não downloads, [troque] o ícone da thumbnail que ainda fica um ícone de seta de download… deixe sem ícone, só o spinner"*. (1) **A FAIXA** ocupa a posição do SUBTÍTULO (`.dl-prog` dentro da `.row-text`, depois do `.row-name` — a pergunta é de ÁRVORE, e é ela que mantém a altura da linha), com a legenda por extenso e um trilho que **só existe quando há proporção**: uma barra parada em zero durante o preparo se lê como travada. **E a fração não custou parâmetro nenhum** — a linha já RECEBIA a legenda (`Preparando página 4 de 8…`, a mesma que a notificação do sistema mostra, escrita por quem tem os números) e a descartava, desenhando só o percentual solto; consumi-la entrega a fração de graça, sem ninguém parsear frase nenhuma. O `.dl-pct` saiu da linha do Cronograma e da Biblioteca (fica na lista de resultados do YouTube, que não tem subtítulo a ceder): onde a barra e a legenda já dizem o número, um terceiro lugar dizendo o mesmo é o que este app tira de cena em toda passada. (2) **A SETA** virou condicional na LINHA, como já era no cartão — o operador reconheceu o próprio precedente (*"acho que já temos um desses que também não vai ícone"*): a v1.4.19 estabeleceu que o `.dl-ring` são DOIS desenhos (o aro diz *espere*, a seta diz *bytes chegando*) e a linha ficou com a seta incondicional por três lotes, prometendo um download que não estava acontecendo. `legendaEhDownload` passou a ser a fonte ÚNICA dos dois, então eles não têm como discordar, e o `atualizar` repinta o ícone junto com a faixa — senão o desenho ficaria preso na primeira legenda. **A cor do trilho é `--surface`** e não um `-soft`: alfa numa superfície de controle é o que o `tokens.test.mjs` reprova, e MEDIDO o `--btn-accent` ali dá 1,07:1 contra o fundo da linha (some), contra 1,20–1,38:1 do `--surface` nos quatro pares de base × tema. **E o oráculo novo cobrou a si mesmo na campanha:** 1 reprovação em 8 rodadas a 3× de carga, porque as duas metades montam uma linha cada e o `querySelector` da de baixo pegava a linha da de cima — três asserções vermelhas descrevendo um app correto. A linha passou a ser endereçada pelo NOME; 12/12 depois disso. Oráculo: `tools/linha-da-preparacao.test.mjs`, com REVERSÃO nas duas metades. Lote **só de base web**.
 - **v1.7.0** — A ABERTURA POR TRÁS DOS PANOS, A BADGE DE VERSÃO, O COMPARTILHAR E O PACOTE DE TRANSFERÊNCIA. Quatro pedidos do operador num lote, e o que os une é serem tudo o que o app tinha DE FORA do culto. (1) **A CORTINA**: *"é comum abrir o app e telas piscarem até que fique no lugar correto… o tema escuro aparece antes de se ajustar para o tema correto"*. O lado NATIVO já estava certo (o `windowBackground`, a raiz da Activity e o WebView nascem na cor guardada); quem piscava era o DOCUMENTO, entre o primeiro quadro e a última linha do `init()` — o `controle.js` é o ÚLTIMO dos catorze scripts do `<body>`, e até ele rodar quem pinta é o `:root` sem atributo. O tema ganhou conserto próprio (um script inline no `<head>`, que é agora a ÚNICA leitura de `av.tema`: o `storedTema()` passou a ler o ATRIBUTO que sai dali); o resto — o modo, a lista vazia, a preview sem wallpaper — ganhou a cortina. **O PRAZO É ARMADO NO `<head>`, e é a decisão do bloco**: uma cortina que não levanta é um app inutilizável, e o caminho provável disso é justamente o que o watchdog do OTA existe para pegar — um bundle cujo `controle.js` nem é parseado. Armado lá, o prazo roda mesmo aí, e o desfecho ruim volta a ser o app quebrado À VISTA. (2) **A BADGE**: *"coloque uma nova badge de versão na tela principal, após o título áudio visual iasd (no modo simples) e no canto superior esquerdo (no modo avançado)"* · *"remova da ui a informação nas configurações do shell… coloque apenas ela, e apenas um número, sem o 'web'"*. As três casas passam a ter um escritor só, e o índice do shell continua no REGISTRO — tirá-lo dos dois lugares seria o conserto largo demais, e o oráculo o afirma. A casa do avançado já estava vaga desde a v1.5.0 (o `#backBtn` perdeu o dono quando a Bíblia virou folha); as duas trilhas laterais da faixa passaram a repartir a sobra em partes iguais, e é isso que mantém o título no eixo. (3) **O COMPARTILHAR**: até aqui não havia, de dentro do app, NENHUMA forma de passar o link da página adiante — e é o operador quem conversa com as outras igrejas. `compartilharTexto` (`ACTION_SEND` + `createChooser`); `navigator.share` não existe no WebView do Android, e `openExternal` faz o oposto do pedido (abre a página no próprio aparelho). (4) **O PACOTE**: *"a biblioteca e o resto são pesados… permitir copiar e compartilhar o arquivo diretamente de um smartphone para o outro é extremamente útil"*. Formato `.avpkg` SEQUENCIAL e não zip (um zip pede o diretório central no fim, e o acervo passa de gigabytes); a regra é pura, no `controle/pacote.js`, e os bytes vão pelo `PacoteCanal.kt` — o SEGUNDO canal de `ArrayBuffer` do shell, irmão do `EspelhoMidiaCanal`. **A importação não precisou de método nenhum**: `pickDoc` já devolve uma `/saf/` servível, e o lado web a lê por `Blob.slice()`, como o `pptxzip.js` faz com um `.pptx` de 570 MB. A promessa é *"importar só ACRESCENTA"* (`add` e não `put`; união nas listas, mescla nos mapas, local vencendo em tudo o mais), e ela tem oráculo de IDA E VOLTA em dois contextos de navegador. A varredura do OPFS é do DISCO e não do catálogo — as imagens de fundo da letra não viram registro, e um pacote montado pelo catálogo chegaria com o hinário e as estrofes sobre preto. **E a integração com a `main` cobrou um achado:** o `pptx-video-na-pagina.test.mjs` (v1.6.6) esperava pelo `currentId` e afirmava sobre o que vem DEPOIS dele — `send()` escreve aquele campo no COMEÇO e só emite o `load` no fim. MEDIDO: 2 reprovações em 8 rodadas a 3x de carga com este lote, 0 em 8 sem ele — a janela já existia, e o lote a alargou. A espera passou a ser pelo `load` daquele id, e a correção só pode reprovar MAIS: 0 em 10 rodadas depois dela. Lote **com Release** (`SHELL_VERSION` 63, `shellTag: "v1.7.0"`).
 - **v1.6.6** — OS TRÊS DEFEITOS DA AUTOMAÇÃO DO VÍDEO DE SLIDE, MAIS O PISCAR DA CAPA E O AUTOPLAY DA PRIMEIRA PÁGINA. Dois deles deles são o MESMO visto de dois lugares. Relato do operador: *"a importação funcionou, mas há um erro na automação, eu não consigo pular o vídeo. primeiro que o botão de próximo slide não reconhece o vídeo como uma página, logo ele não fica ativo para toque. segundo que qualquer tipo de tocar seguinte, faz com que a apresentação volte para o início"*. **A raiz é uma só:** com o vídeo em cena `currentItem` é o VÍDEO, então `deckNoAr()` devolve null, `slideTarget()` não acha eixo e o par de botões nasce DESABILITADO — mas para quem opera a cena continua sendo *"a página N da apresentação"*, porque o vídeo é o conteúdo daquela página e não um item à parte. `deckDoSlide`/`paginaDoSlide` respondem isso ao `slideTarget` e ao `renderSlideNav`, e `deckNoAr` fica INTOCADO de propósito: ele responde outra pergunta (*"que deck está no slot do motor?"*) e tem meia dúzia de consumidores que dependem dela. **O segundo é o mesmo defeito no `step()`:** o vídeo não está em lista nenhuma (é isso que o mantém fora do Cronograma), então o `findIndex` devolvia −1 e o `idx === -1` caía no PRIMEIRO item da fila — que num culto é a própria apresentação, e o que se via era ela voltando ao começo a cada toque. A âncora passa a ser a apresentação a que o vídeo pertence. **O TERCEIRO NÃO FOI RELATADO e é pior que os dois:** com o vídeo na ÚLTIMA página, `deckIr(pagina + 1)` é limitado ao fim, a volta pousa na MESMA página e a chegada redispara o vídeo — um laço que só um Parar quebra. `deckVideoVoltar` calcula o pouso ANTES de sair e suprime o gatilho SÓ quando ele é a página de origem; numa volta que anda de verdade a página seguinte com vídeo toca, que é o encadeamento pedido. **E O ORÁCULO TINHA DOIS DEFEITOS PRÓPRIOS, os dois achados pela disciplina da reversão.** O primeiro: o bloco novo montava a cena com um ÁUDIO no ar, e ali o `send` de uma apresentação a SOBREPÕE em vez de substituir (v1.4.28) — a automação não arma, e as asserções passavam medindo o caso da CAMADA. O segundo, o mais instrutivo: o "vídeo" da fixture era um WAV de 3 s, que ACABAVA sozinho no meio das asserções e fazia a automação disparar por conta própria — a prova de que o BOTÃO pulava o vídeo passava por CORRIDA, e a reversão do pulo não reprovava. Trinta segundos, e o fim só acontece quando o teste o pede. Cinco reversões nomeadas, todas reexecutadas. Lote **só de base web**.
 - **v1.6.5** — OS TRÊS VÃOS QUE A BARRA DEIXOU, E O ESPAÇADOR QUE ERA O TÍTULO. Relatos do operador: o seletor Letra/Cifra *"está sem margem"* contra a caixa de texto, tem *"margem em excesso acima… me parece uma margem duplicada"*, e o A+/A− com o ✕ *"ficaram puxados para a esquerda, colados nos outros botões, se movendo de sua posição original correta"*. **Os três são de LAYOUT e falham calados** — nada lança, nada some, e um teste de comportamento passa por cima deles. (1) O vão ABAIXO era da BARRA: ela deixava 9,6px entre si e o corpo, e ao sair na v1.6.3 levou isso junto — MEDIDO, sobraram 3,2px e o seletor ficou encostado. O `.6rem` que volta é o MESMO número que a barra dava, não um novo. (2) O vão ACIMA era mesmo DUPLICADO, e é anterior a estes lotes: o `.popup-header` fecha com 11,2px e o seletor abria com mais 9,6 — 20,8px entre duas fileiras de controles, contra os ~10px do resto da folha. O recuo de cima vai a ZERO e quem separa passa a ser o do cabeçalho, que é de quem a decisão é (ele é o mesmo nas quatro fontes). (3) O terceiro é DEFEITO DA v1.6.3: `.popup-title` é `flex: 1` — ele era o ESPAÇADOR da linha —, e escondê-lo na aba de cifra colapsou os três blocos à esquerda. MEDIDO: o último terminava em x=331,6 numa caixa que vai até 414, com 82,4px de sobra. `margin-right: auto` na fila devolve a folga ao mesmo lugar, sem dar ao contêiner uma caixa que cresce. **A ASSERÇÃO DO TERCEIRO É UMA COMPARAÇÃO, e de propósito:** não há x absoluto certo, há o lugar que as quatro abas compartilham — o ✕ e o A+/A− têm de cair no MESMO x na cifra e na letra. Um número fixo no oráculo envelheceria no primeiro ajuste do cabeçalho. Lote **só de base web**.
@@ -349,6 +350,88 @@ na nota que a revoga, não apagada da que a criou.
 - **v5.156** — é METADE OTA e METADE APK, de novo.
 
 ---
+
+## v1.7.1 — a linha de uma preparação não é a de um download
+
+Dois ajustes, pedidos com a apresentação preparando na tela — e os dois são a
+mesma frase por dois lados: **a linha provisória do Cronograma estava contando
+uma história de download para um trabalho que não baixa byte nenhum.**
+
+### 1 · A ilustração do progresso
+
+> *"na notificação temos barra de progresso e informações como quantas páginas
+> já foram preparadas … ajuste a ilustração da representação do progresso no
+> item do cronograma, atualmente ele só tem a porcentagem, mas gostaria que
+> usasse a posição do texto secundário para uma barra de progresso, e a fração
+> das páginas já preparadas"*
+
+A faixa (`.dl-prog`) mora **dentro da `.row-text` e depois do `.row-name`** —
+exatamente onde vive o `.row-sub` de uma linha normal. A pergunta é de ÁRVORE, e
+é ela que mantém a altura da linha: um `.dl-prog` solto na `.row` passaria num
+teste de presença e apareceria noutro lugar dela.
+
+- **A FRAÇÃO NÃO CUSTOU PARÂMETRO NENHUM**, e este é o ponto do lote. A linha já
+  RECEBIA a legenda — `Preparando página 4 de 8…`, a MESMA string que a
+  notificação do sistema mostra, escrita por quem tem os números — e a
+  descartava, desenhando só o percentual. Consumi-la entrega a fração de graça e
+  sem ninguém parsear frase nenhuma; um segundo lugar contando páginas
+  divergiria no primeiro ajuste, que é o defeito que este repositório chama de
+  *segunda opinião*.
+- **O trilho só existe quando há proporção** (`pct < 0` o esconde). Durante o
+  preparo, antes do primeiro progresso, não há total — e uma barra parada em
+  zero se lê como TRAVADA, o oposto do que ela veio dizer.
+- **O `.dl-pct` solto saiu** da linha do Cronograma e da Biblioteca. Ele fica na
+  lista de resultados do YouTube, que não tem subtítulo a ceder. Onde a barra e
+  a legenda já dizem o número, um terceiro lugar dizendo o mesmo é o que este
+  app tira de cena em toda passada.
+- **A cor do trilho é `--surface`**, o mesmo token que a `.simple-time-bar` usa
+  para esta mesma peça — e não um `-soft`, que é tinta com ALFA e o
+  `tokens.test.mjs` reprova numa superfície de controle. MEDIDO: `--btn-accent`
+  ali dá **1,07:1** contra o fundo da linha (some); `--surface` dá **1,20–1,38:1**,
+  com o preenchimento a **4,01–7,15:1** contra ele, nos quatro pares de base ×
+  tema.
+
+### 2 · O ícone da miniatura
+
+> *"para essas preparações, não downloads, [troque] o ícone da thumbnail que
+> ainda fica um ícone de seta de download. use outra coisa, como engrenagem, ou
+> deixe sem ícone, só o spinner. o que achar melhor, pois acho que já temos um
+> desses que também não vai ícone pois também não é download"*
+
+**O operador reconheceu o próprio precedente, e ele existe:** a v1.4.19
+estabeleceu, no cartão sobre a preview, que o `.dl-ring` são DOIS desenhos — o
+aro diz *"espere"*, a seta diz *"bytes chegando"* — e que só uma delas é verdade
+numa PREPARAÇÃO. A linha ficou com a seta INCONDICIONAL. Daí a escolha entre as
+três opções oferecidas: **nenhum ícone**, porque a resposta certa já estava
+escrita no app e o que faltava era aplicá-la aqui.
+
+`legendaEhDownload` passou a ser a **fonte única** dos dois, então eles não têm
+como discordar. E o `atualizar` repinta o ÍCONE junto com a faixa: sem isso o
+desenho ficaria preso na primeira legenda, e um download de verdade — que nasce
+em *"Preparando vídeo"* e só depois passa a *"Baixando"* — nunca acenderia a
+seta.
+
+### O oráculo, e o que ele achou de si mesmo
+
+`tools/linha-da-preparacao.test.mjs`, com a REVERSÃO nas duas metades: a seta
+incondicional reprova a preparação (e as duas asserções de download), a legenda
+descartada reprova a fração. O preenchimento é medido em **pixels
+renderizados**, não no `style` — sem a regra de CSS o inline ficaria de pé sobre
+um elemento sem caixa nenhuma, e um teste do `style` aprovaria isso.
+
+**A campanha de determinismo cobrou o próprio oráculo:** 1 reprovação em 8
+rodadas a 3× de carga. As duas metades montam uma linha cada, a de cima só sai
+do DOM no redesenho seguinte, e sob carga o `querySelector` da de baixo pegava a
+de cima — medindo a seta da IMPORTAÇÃO e produzindo **três asserções vermelhas
+que descreviam um app correto**, que é a classe *"o oráculo correndo contra o
+app"* deste repositório. A linha passou a ser endereçada pelo NOME; **12/12** a
+3× depois disso.
+
+O `destinos.test.mjs` foi atualizado no mesmo lote: ele chama `libBusy` direto, e
+a assinatura passou a espelhar a do `previewBusy` (legenda primeiro, nome
+depois). Lote **só de base web** — nada em `java/`, `res/` ou no manifesto, e
+nenhum método da ponte entrou ou mudou de forma, então **sem `shellTag` e sem
+Release**.
 
 ## v1.7.0 — a abertura por trás dos panos, a badge, o compartilhar e o pacote
 
