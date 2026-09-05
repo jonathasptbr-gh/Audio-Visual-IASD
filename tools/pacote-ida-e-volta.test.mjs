@@ -160,6 +160,22 @@ async function responderDialogo(pg) {
   return texto;
 }
 
+// A FOLHA DE ESCOLHA (v1.7.2) abre ANTES do "Salvar como", e ela é uma
+// resposta: a Promise do `exportarPacote` fica esperando por ela. O oráculo
+// aperta o confirmar de VERDADE, que é o que quem opera faz — e assim o
+// caminho da folha entra na cobertura deste percurso de graça.
+async function confirmarGrupos(pg) {
+  const abriu = await esperar(pg, () => {
+    const d = document.getElementById('songMenuPopup');
+    return !!d && d.classList.contains('open') && !!d.querySelector('.song-menu-go');
+  }, null, 60000);
+  if (abriu !== true) return abriu;
+  const linhas = await pg.evaluate(() => [...document.querySelectorAll('#songMenuList li')]
+    .map((li) => (li.textContent || '').replace(/\s+/g, ' ').trim()));
+  await pg.click('#songMenuList .song-menu-go');
+  return linhas;
+}
+
 try {
   // =========================================================================
   // 1 · O APARELHO DE ORIGEM: semear e exportar
@@ -208,6 +224,16 @@ try {
   });
 
   await a.pg.evaluate(() => { window.__fim = exportarPacote(); });
+  const grupos = await confirmarGrupos(a.pg);
+  checar(Array.isArray(grupos) && grupos.length >= 2,
+    '1 · a folha de escolha abre com os grupos e o confirmar', JSON.stringify(grupos));
+  // O GRUPO FIXO ESTÁ NA LISTA E DIZ POR QUÊ. As listas do app moram em
+  // `state`, e mídia sem a lista que a referencia é órfã no destino — o
+  // coletor a apaga na abertura seguinte. É a única linha que não se desmarca,
+  // e sem a frase ela seria uma caixa que não responde ao toque.
+  checar(Array.isArray(grupos) && grupos.some((t) => /Ajustes e catálogos/.test(t)
+    && /sempre vai junto/.test(t)),
+    '1 · com "Ajustes e catálogos" fixo e dizendo que vai junto', JSON.stringify(grupos));
   const resumo = await responderDialogo(a.pg);
   checar(typeof resumo === 'string' && /acervo-de-teste\.avpkg/.test(resumo),
     '1 · a exportação termina dizendo o NOME e o tamanho do arquivo', resumo);

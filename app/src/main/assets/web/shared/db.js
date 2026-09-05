@@ -521,6 +521,41 @@
   }
 
   /**
+   * O RESUMO DO ACERVO — id e TAMANHO de cada registro, numa transação só.
+   *
+   * Ele existe porque a alternativa media o aparelho, não o acervo: a
+   * exportação precisava do peso de cada item para montar o plano e fazia
+   * `getMedia` por id — uma transação por registro, milhares delas em fila. O
+   * cursor percorre a store INTEIRA de uma vez e devolve só dois campos por
+   * item; o registro não é guardado, e é isso que separa isto de um `getAll`
+   * (que materializaria a letra e a miniatura de tudo num array só, num
+   * processo que hospeda dois WebViews e a `Presentation`).
+   *
+   * LER UM REGISTRO NÃO LÊ OS BYTES DO BLOB — o IndexedDB o guarda por
+   * referência e o que volta é uma alça —, então o custo aqui é o do metadado,
+   * e `blob.size` é exato sem tocar em disco.
+   */
+  async function mediaResumo() {
+    const s = await store(STORE_MEDIA, 'readonly');
+    return new Promise((resolve, reject) => {
+      const out = [];
+      const req = s.openCursor();
+      req.onerror = () => reject(req.error);
+      req.onsuccess = () => {
+        const c = req.result;
+        if (!c) { resolve(out); return; }
+        const r = c.value || {};
+        let bytes = 0;
+        if (r.blob) bytes += r.blob.size || 0;
+        if (r.thumb) bytes += r.thumb.size || 0;
+        if (Array.isArray(r.pages)) for (const pg of r.pages) if (pg) bytes += pg.size || 0;
+        out.push({ id: c.key, bytes });
+        c.continue();
+      };
+    });
+  }
+
+  /**
    * Grava um registro de "media" COMO ELE VEIO, preservando o `id`.
    *
    * É o oposto do `addMedia`, que CUNHA um id — e é por isso que ele existe: um
@@ -1084,7 +1119,8 @@
     listIds, listSet, listItems, listHas, listAdd, listRemove, gc, gcOrfaos, folderDrop,
     fileAdd, fileGet, fileDelete, filesByFolder, filesAll,
     opfsSupported, opfsGetFile, opfsWriteFile, opfsDeleteFile, opfsDeleteDir, opfsFolderSize,
-    mediaChaves, mediaAdd, opfsTodosOsArquivos,
+    mediaChaves,
+    mediaResumo, mediaAdd, opfsTodosOsArquivos,
     kindFromType, sendCommand, onCommand,
   };
 })(this);

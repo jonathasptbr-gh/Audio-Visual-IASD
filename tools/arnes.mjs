@@ -135,6 +135,29 @@ export async function esperar(pg, fn, arg = null, prazo = 15000) {
 export const porque = (r) => (r === true ? undefined : r);
 
 /**
+ * A CORTINA DE ABERTURA LEVANTOU? — e por que TODO oráculo que TOCA na tela
+ * precisa esperar por ela (v1.7.2).
+ *
+ * O `#splash` é opaco, cobre a tela inteira e é o topo da pilha. Até a v1.7.2
+ * ele levantava no instante em que o `init()` terminava, e por isso quase todo
+ * oráculo passava sem saber que ele existia: quando a montagem do cenário
+ * acabava, a cortina já tinha saído. Ela ganhou um PISO de 1,8 s — a pedido do
+ * operador, porque no aparelho ela era um lampejo — e o vão passou a ser real.
+ *
+ * O QUE FALHA NELE NÃO É ÓBVIO, e foi assim que ele apareceu: `pg.click()` do
+ * Playwright ESPERA a actionability e retenta sozinho, então um oráculo que
+ * clica não vê nada. Quem vê é quem mede — `elementFromPoint`, uma captura de
+ * pixel, uma leitura de `getBoundingClientRect` de algo que ainda não assentou.
+ * MEDIDO neste lote: 6 dos 63 oráculos reprovaram, e os 6 por hit-test.
+ *
+ * A ESPERA É PELO FATO (o nó fora do documento), nunca por um prazo: a cortina
+ * sai por remoção do nó, e é isso que os oráculos da abertura já afirmam.
+ */
+export async function esperarCortina(pg, prazo = 30000) {
+  return esperar(pg, () => !document.getElementById('splash'), null, prazo);
+}
+
+/**
  * A IRMÃ DO `esperar` PARA FATOS QUE MORAM ATRÁS DE UM `await` — o IndexedDB,
  * quase sempre.
  *

@@ -1601,7 +1601,14 @@ body {
   display: flex; align-items: center; justify-content: center;
   color: var(--accent);
 }
-.dl-ring::before {
+/* O ARO — UMA declaração, DOIS consumidores (v1.7.2). O segundo é o tile de
+   Configurações que está exportando ou importando: ele também precisa dizer
+   "estou trabalhando" e não pode dizer por palavra, porque a `.qs-estado` saiu.
+   Escrever o anel de novo lá seria uma SEGUNDA OPINIÃO sobre o mesmo desenho —
+   e a primeira a divergir seria a que ninguém relê. Cada consumidor põe só a
+   GEOMETRIA dele; a tinta é esta. */
+.dl-ring::before,
+.qs-tile.qs-trabalhando::after {
   content: ''; position: absolute; inset: 0;
   border-radius: 50%;
   border: 2px solid var(--accent-soft);
@@ -1617,7 +1624,8 @@ body {
    pulsos (microfone no ar, áudio bloqueado) param porque neles a COR já carrega
    o estado sozinha. */
 @media (prefers-reduced-motion: reduce) {
-  .dl-ring::before { animation: none; border-color: var(--accent); }
+  .dl-ring::before,
+  .qs-tile.qs-trabalhando::after { animation: none; border-color: var(--accent); }
   .mic-btn.live, .pv-fab--mute.blocked, .simple-key--big.blocked { animation: none; }
   /* A gaveta aparece no lugar: o que ela comunica está no conteúdo, não no
      movimento. */
@@ -7131,6 +7139,17 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
 .song-menu-btn.song-menu-sel:has(.song-menu-check.on) {
   background: var(--sel-fill);
 }
+/* A LINHA QUE NÃO SE DESMARCA (v1.7.2) — hoje só "Ajustes e catálogos", na
+   folha de escolha da exportação. Ela veste a mesma roupa das irmãs (é o mesmo
+   assunto: o que vai no arquivo) e a marca já acesa, e é uma `<div>` sem
+   ouvinte: as listas do app moram nas chaves de `state`, e mídia que chega sem
+   a lista que a referencia é órfã — o coletor do destino a apaga na abertura
+   seguinte.
+
+   `cursor: default` é o que separa isto de um ponto morto: uma linha com cara
+   de alvo que não responde ao toque é pior que uma linha que nunca prometeu
+   responder. O `sub` diz por extenso que ela vai junto. */
+.song-menu-fixo { cursor: default; }
 /* O quadrado é um `::before` para o ALVO (acima) e o DESENHO (aqui) serem
    independentes — a mesma separação do `.pv-fab`.
    DESMARCADO ELE É UM RECESSO, não um contorno: o buraco escuro diz "aqui cabe
@@ -7391,15 +7410,10 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
   background: none;
   padding: 0;
 }
-/* O RÓTULO É UMA LEGENDA CENTRADA (v1.4.44), a pedido: *"centralize o título
-   'modo do app', que hoje está para a esquerda nas configurações"*. Ele encabeça
-   um controle de duas metades simétricas e é o único texto solto desta folha —
-   à esquerda ele apontava para a metade "Fácil", que é uma das duas escolhas.
-   `.fade-row--fit` é `align-items: stretch`, então o `<span>` já ocupa a linha
-   inteira e quem posiciona é o `text-align`. */
-.fade-row--modo > span:first-child {
-  color: var(--muted); font-size: var(--fs-md); text-align: center;
-}
+/* (O RÓTULO SOLTO saiu na v1.7.2 — a palavra "Modo" desceu para dentro das duas
+   metades, a pedido do operador. A v1.4.44 gastou um lote centrando-o; o que o
+   fecha é que ele repetia o que os dois controles abaixo dele passaram a dizer,
+   e era o único texto solto desta folha.) */
 .qs-modo {
   --modo-folga: 3px;
   position: relative;
@@ -7464,7 +7478,7 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
 .qs-grade { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--sp-3); }
 .qs-tile {
   display: flex; flex-direction: column; align-items: center; justify-content: center;
-  gap: var(--sp-2); min-height: 4.4rem;
+  gap: var(--sp-2); min-height: 4rem;
   border: none; border-radius: var(--radius-card); padding: .55rem .3rem;
   background: var(--surface); color: var(--muted);
   font-family: inherit; text-align: center; cursor: pointer;
@@ -7478,19 +7492,65 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    contexto em que ele não liga nada. */
 .qs-tile[hidden] { display: none; }
 .qs-tile svg { display: block; width: var(--icon-md); height: var(--icon-md); }
-/* O TÍTULO em `--text` e o ESTADO em `--muted`: são duas perguntas diferentes
-   ("do que é este botão?" / "como ele está?") e a hierarquia entre elas é o que
-   faz a grade ser varrida de relance. MEDIDO no tema CLARO, que é o apertado:
-   sobre `--surface` afundada dentro da folha (219,219,219), `--text` dá
-   **6,40:1** e `--muted` **4,81:1** — os dois acima do piso de 4,5 para texto
-   pequeno, que é o tamanho de todo texto daqui. */
+/* O TÍTULO em `--text`. MEDIDO no tema CLARO, que é o apertado: sobre
+   `--surface` afundada dentro da folha (219,219,219) ele dá **6,40:1**, acima
+   do piso de 4,5 para texto pequeno, que é o tamanho de todo texto daqui.
+
+   (A `.qs-estado` — a segunda linha, com o estado por extenso — saiu na v1.7.2
+   a pedido do operador: *"remova o subtítulo dos botões das configurações, todo
+   tipo de informação além do nome deve ser representada pelo ícone"*. Ela existe
+   agora como `aria-label`, escrito pelo `pintarTile`: fora da tela, e ainda
+   assim verdade para quem lê a grade por leitor de tela.) */
 .qs-titulo { font-size: var(--fs-sm); font-weight: var(--fw-medio); color: var(--text); line-height: 1.15; }
-.qs-estado {
-  font-size: var(--fs-xs); color: var(--muted); line-height: 1.15;
-  /* O ângulo do giro troca de largura (0° → 180°): sem isto o tile inteiro
-     dança meio caractere a cada toque. */
-  font-variant-numeric: tabular-nums;
+
+/* ---------- O GIRO GIRA O PRÓPRIO ÍCONE (v1.7.2) ----------
+   O ângulo era a palavra do estado deste tile e saiu com as outras. O que o
+   substitui não é um par de desenhos — a v1.4.38 mediu que quatro desenhos que
+   só diferem pelo ângulo não se distinguem a 22px —, é o MESMO desenho na
+   posição que ele descreve: a seta aponta para cima, para a direita, para baixo
+   e para a esquerda, e as quatro se distinguem porque são a mesma forma em
+   quatro orientações, não quatro formas parecidas.
+
+   `transform` E NÃO um atributo no SVG: o giro precisa ser ANIMÁVEL. É vendo o
+   ícone virar sob o dedo que o operador lê o que o toque fez — o mesmo
+   argumento do polegar do interruptor de modo, e a mesma propriedade, que o
+   compositor anima sem tocar no layout.
+
+   O seletor é por `data-estado`, que é o valor em vigor escrito pelo
+   `pintarTile` — nunca por classe, que é aparência. */
+#rotBtn svg { transition: transform var(--dur-media) ease; }
+#rotBtn[data-estado="90"] svg { transform: rotate(90deg); }
+#rotBtn[data-estado="180"] svg { transform: rotate(180deg); }
+#rotBtn[data-estado="270"] svg { transform: rotate(270deg); }
+@media (prefers-reduced-motion: reduce) { #rotBtn svg { transition: none; } }
+
+/* ---------- O TRABALHO EM CURSO É O ARO (v1.7.2) ----------
+   Exportar e importar mostravam o andamento na palavra do estado ("42%"), e ela
+   saiu. O aro é o mesmo `.dl-ring` da linha da lista e do cartão da preview —
+   e SEM SETA, porque nenhum dos dois baixa byte nenhum (a regra da v1.4.19: o
+   desenho segue o que está acontecendo).
+
+   Ele é o `::before` do PRÓPRIO tile, e não um nó novo no HTML: o markup dos
+   dois botões é idêntico ao dos outros sete, e um `<span>` a mais que só existe
+   durante o trabalho é uma peça para montar e desmontar em dois caminhos de
+   erro. Escondendo o `svg` e desenhando o aro no lugar dele, a caixa não muda
+   de tamanho — que é o que impede a grade de pular quando o trabalho começa. */
+.qs-tile.qs-trabalhando svg { visibility: hidden; }
+.qs-tile.qs-trabalhando { position: relative; }
+/* SÓ A GEOMETRIA — a tinta do aro mora na declaração do `.dl-ring::before`, que
+   este seletor divide com ele. `inset: auto` desfaz o `inset: 0` de lá: aqui o
+   aro não é do tamanho da caixa, é do tamanho do ícone que ele substitui, e no
+   lugar dele — é isso que impede a grade de pular quando o trabalho começa. */
+.qs-tile.qs-trabalhando::after {
+  inset: auto;
+  top: .55rem; left: 50%; margin-left: calc(var(--icon-md) / -2);
+  width: var(--icon-md); height: var(--icon-md);
 }
+/* Um tile em curso é `disabled`, e a folha do agente esmaece um `<button>`
+   desabilitado em alguns motores. Aqui ele NÃO pode esmaecer: apagado, neste
+   app, quer dizer INDISPONÍVEL — e o que está acontecendo é o contrário, o
+   botão está trabalhando. */
+.qs-tile.qs-trabalhando:disabled { opacity: 1; }
 /* ACESO = A FUNÇÃO ESTÁ LIGADA (v1.4.40) — e num tile que não tem "desligado",
    SEMPRE. `--btn-accent` + `--accent` é a gramática de INTERRUPTOR LIGADO da
    paleta, e não o `--accent-fill` de ESCOLHA ENTRE ALTERNATIVAS: um tile é um
@@ -7507,15 +7567,16 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    O app já tem uma linguagem para indisponível (`opacity: .3` + `disabled`), e
    ela não pode ser a mesma de "você está no padrão".
 
-   O que se perde está dito: a grade deixou de responder *"o que eu deixei
-   mexido aqui?"* de relance. Quem responde isso agora é a palavra do estado,
-   que sempre esteve lá.
+   O que se perde está dito: a grade não responde *"o que eu deixei mexido
+   aqui?"* de relance. Quem respondia isso era a palavra do estado, e ela saiu
+   na v1.7.2 — hoje quem responde é o DESENHO de cada tile, um a um (a lua ou o
+   sol, o rolo vazio ou cheio, a seta na posição do giro).
 
-   Os dois textos vão junto: `color` no botão não alcança um filho que declara
-   a própria cor, e um título em `--text` sobre o denim claro do tema claro
+   O TÍTULO VAI JUNTO: `color` no botão não alcança um filho que declara a
+   própria cor, e um título em `--text` sobre o denim claro do tema claro
    perderia o contraste que a linha acima mediu. */
 .qs-tile.qs-on { background: var(--btn-accent); color: var(--accent); }
-.qs-tile.qs-on .qs-titulo, .qs-tile.qs-on .qs-estado { color: var(--accent); }
+.qs-tile.qs-on .qs-titulo { color: var(--accent); }
 /* O PAR DE DESENHOS, trocado por CSS de documento — a mesma mecânica da
    cortina (`.pv-fab`), e pelo mesmo motivo: o conteúdo de um `<use>` mora numa
    árvore-sombra que a folha do documento não alcança, então cada estado é um

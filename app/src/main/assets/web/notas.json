@@ -1,5 +1,17 @@
 [
   {
+    "versao": "1.7.2",
+    "itens": [
+      "As Configurações ficaram mais limpas: cada botão mostra só o nome, e o ícone diz o estado.",
+      "O nome do modo passou para dentro dos dois botões.",
+      "A tela de abertura ficou mais tempo à vista, em vez de piscar.",
+      "A exportação do acervo deixou de ficar parada em 0%.",
+      "E ficou bem mais rápida.",
+      "Agora dá para escolher o que levar no arquivo, coleção por coleção.",
+      "A exportação também pode ser cancelada no meio."
+    ]
+  },
+  {
     "versao": "1.7.1",
     "itens": [
       "A linha do Cronograma passou a mostrar uma barra de progresso durante a preparação.",

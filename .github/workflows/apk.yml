@@ -473,6 +473,8 @@ jobs:
           rodar tools/boot-nativo.test.mjs
           rodar tools/abertura-e-transferencia.test.mjs
           rodar tools/pacote-ida-e-volta.test.mjs
+          rodar tools/pacote-por-grupos.test.mjs
+          rodar tools/configuracoes-sem-subtitulo.test.mjs
           rodar tools/linha-da-preparacao.test.mjs
           rodar tools/mse.test.mjs
           rodar tools/stage-fade.test.mjs

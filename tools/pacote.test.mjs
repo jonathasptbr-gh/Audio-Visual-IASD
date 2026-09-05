@@ -238,5 +238,47 @@ checar(!!P, 'o módulo publica `AVPacote`');
   checar(P.nomeDoArquivo().endsWith('.avpkg'), 'e sem argumento ele usa o relógio de agora');
 }
 
+// ---------------------------------------------------------------------------
+// 8. O GRUPO DE UM CAMINHO (v1.7.2) — a folha de escolha da exportação
+// ---------------------------------------------------------------------------
+//
+// A relação entre o OPFS e as coleções é uma CONVENÇÃO DE CAMINHO
+// (`folders/<id>/…`), não um campo, e é por isso que a regra é pura e mora
+// aqui: ela é o que erra quando a convenção muda.
+//
+// O QUE ELA NÃO PODE FAZER é deixar um arquivo sem grupo. Um caminho que não
+// caia em lugar nenhum sai do pacote SEM APARECER em lista nenhuma — nem na
+// folha, nem no arquivo —, que é o silêncio que a varredura do DISCO (contra a
+// do catálogo) já teve de consertar uma vez neste recurso.
+{
+  const cols = new Set(['hymnal-2022', 'album-um']);
+  checar(P.grupoDoCaminho('folders/hymnal-2022/001.m4a', cols) === 'col:hymnal-2022',
+    'um arquivo sob a pasta de uma coleção CONHECIDA vai para o grupo dela');
+  checar(P.grupoDoCaminho('folders/album-um/a/b/c.jpg', cols) === 'col:album-um',
+    'e a profundidade não importa: quem decide é o SEGUNDO segmento');
+  // ESTE É O PAR QUE IMPEDE O SILÊNCIO. Uma coleção que saiu do catálogo (o
+  // operador removeu o álbum, o banco deixou de listá-lo) continua com bytes no
+  // disco, e eles TÊM de ter para onde ir.
+  checar(P.grupoDoCaminho('folders/album-que-sumiu/x.m4a', cols) === 'outros',
+    'uma coleção que saiu do catálogo cai em "outros" — nunca em lugar nenhum');
+  checar(P.grupoDoCaminho('avulsos/x.jpg', cols) === 'outros',
+    'e o que nem está sob `folders/` também');
+  checar(P.grupoDoCaminho('folders', cols) === 'outros'
+    && P.grupoDoCaminho('', cols) === 'outros'
+    && P.grupoDoCaminho(null, cols) === 'outros',
+    'caminho degenerado cai em "outros" em vez de inventar um grupo');
+  // SEM CATÁLOGO, TUDO É "OUTROS", e isso é escolha: um grupo com id cru na
+  // folha ("col:album-3f2a") não diz nada a quem escolhe o que levar.
+  checar(P.grupoDoCaminho('folders/hymnal-2022/001.m4a', new Set()) === 'outros'
+    && P.grupoDoCaminho('folders/hymnal-2022/001.m4a', null) === 'outros',
+    'sem conjunto de coleções nada ganha nome próprio — e nada se perde');
+
+  checar(P.colecaoDoGrupo('col:hymnal-2022') === 'hymnal-2022',
+    'a volta devolve o id da coleção');
+  checar(P.colecaoDoGrupo('outros') === '' && P.colecaoDoGrupo('ajustes') === ''
+    && P.colecaoDoGrupo('') === '',
+    'e vazio para os grupos que não são coleção');
+}
+
 falhas.length ? (console.log('\n' + falhas.length + ' falha(s).'), process.exit(1))
   : console.log('\nTodos passaram.');

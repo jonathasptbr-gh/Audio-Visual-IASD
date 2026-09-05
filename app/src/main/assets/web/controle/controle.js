@@ -336,7 +336,7 @@ const listVersionEl = document.getElementById('listVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.7.1';
+const WEB_VERSION = '1.7.2';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -393,15 +393,34 @@ const otaAdiadas = new Set();
 // REGISTRO, que é o artefato feito para ser copiado e lido por quem sabe o que
 // os dois números significam (ver o cabeçalho de `renderDiag`), e o `__SHELL_NAME__`
 // segue publicado pela ponte para quem precisar dele.
+// O NOME DO APP, escrito UMA vez. Ele aparece no rodapé de Configurações e no
+// texto que o `compartilharTexto` oferece — dois lugares, e é o mesmo nome, com
+// o mesmo acento e a mesma caixa. O `<title>` do documento e o `label` do APK
+// não leem daqui (um é HTML, o outro é recurso de Android), e isso está dito
+// para ninguém procurar uma fonte única que não existe.
+const AV_NOME = 'Áudio Visual IASD';
+
 function renderVersionLabel() {
   const rotulo = 'v' + WEB_VERSION;
   // O `title` NÃO repete o rótulo: ele nomeia o que o número é. Numa badge de
   // 40px o texto é o único contexto que existe, e "1.7.0" sozinho não diz de
   // que coisa é a versão.
-  for (const el of [appVersionEl, simpleVersionEl, listVersionEl]) {
+  //
+  // O RODAPÉ LEVA O NOME JUNTO (v1.7.2), a pedido do operador: *"ajuste a
+  // nomenclatura da versão, para que seja 'áudio visual IASD vx.x.x' com o nome
+  // do app, para ter um melhor preenchimento do rodapé"*. É a MESMA fonte das
+  // badges — um número só, escrito num lugar só —, e o que muda é o contexto:
+  // numa badge do cabeçalho o app está todo em volta e o número basta; naquela
+  // faixa ele era três caracteres perdidos numa barra larga, ao lado de uma
+  // palavra ("Registro") que responde por outra coisa.
+  for (const el of [simpleVersionEl, listVersionEl]) {
     if (!el) continue;
     el.textContent = rotulo;
     el.title = 'Versão do aplicativo';
+  }
+  if (appVersionEl) {
+    appVersionEl.textContent = AV_NOME + ' ' + rotulo;
+    appVersionEl.title = 'Versão do aplicativo';
   }
 }
 
@@ -19165,6 +19184,10 @@ function closeSongMenu() {
   // pelo botão voltar do aparelho entra todo aqui, então é aqui que a
   // desistência é dita.
   if (destPromptResolve) { fecharDestPrompt(null); return; }
+  // A folha de GRUPOS DA EXPORTAÇÃO (v1.7.2) é a mesma coisa pelo mesmo motivo:
+  // uma promessa pendente que ninguém resolve deixa o `exportarPacote` esperando
+  // para sempre — e com o plano inteiro na memória.
+  if (pacoteGruposResolve) { fecharPacoteGrupos(null); return; }
   destLimpar();
   songMenuFor = null;
   songMenuPopupEl.classList.remove('open');
@@ -22598,6 +22621,12 @@ const PACOTE_BLOCO = 512 * 1024;
 const PACOTE_PRAZO_MS = 30000;
 
 let pacoteEmCurso = false;
+// O PEDIDO DE PARADA. Um `@Volatile` do lado web: quem o escreve é o ✕ do cartão
+// sobre a preview, e quem o lê é o escritor, a cada bloco — a mesma anatomia do
+// `ytCancel`, e pelo mesmo motivo (o laço está ocupado justamente com o que se
+// quer parar). Uma exportação de gigabytes sem saída era um app travado por dez
+// minutos.
+let pacoteCancelar = false;
 let pacoteResposta = null;
 
 // Detecção por PRESENÇA, nunca por versão de shell — a mesma regra do
@@ -22653,30 +22682,102 @@ async function pacoteBloco(c, ab) {
   }
 }
 
-/** Empurra um `Uint8Array` (cabeçalho) — sempre pequeno, um bloco só. */
-function pacoteEnviarBytes(c, u8) {
-  // `slice()` e não o buffer cru: o `Uint8Array` de um cabeçalho pode ser uma
-  // VISTA sobre um buffer maior, e `postMessage` mandaria o buffer inteiro.
-  return pacoteBloco(c, u8.buffer.slice(u8.byteOffset, u8.byteOffset + u8.byteLength));
-}
-
-/** Empurra um Blob em fatias. Nada é materializado: `slice` é preguiçoso, e o
- *  que entra na memória por vez é UM bloco. */
-async function pacoteEnviarBlob(c, blob, aoAndar) {
-  let pos = 0;
-  while (pos < blob.size) {
-    const fim = Math.min(pos + PACOTE_BLOCO, blob.size);
-    const ab = await blob.slice(pos, fim).arrayBuffer();
+/**
+ * O ESCRITOR — ele JUNTA os registros pequenos num bloco só (v1.7.2).
+ *
+ * ===== O QUE ELE CONSERTA, e o número é o argumento =====
+ *
+ * Cada `pacoteBloco` é uma IDA E VOLTA pelo canal: `postMessage` → thread de
+ * escrita do Kotlin → disco → `postMessage` de volta. O ack existe e é
+ * necessário (`postMessage` não tem backpressure), mas ele custa o mesmo para
+ * 50 bytes e para 512 kB.
+ *
+ * A versão anterior mandava UM bloco por cabeçalho e UM por corpo, sem juntar
+ * nada — e o acervo tem milhares de registros MINÚSCULOS: a Bíblia mora em
+ * `state` com **uma chave por capítulo**, 1189 por versão (`bible:<v>_<livro>_
+ * <cap>`, ver `ensureBibleVersionDownloaded`). Com duas ou três versões
+ * baixadas são ~3.600 chaves × 2 idas e voltas = **~7.200 viagens** para
+ * escrever poucos megabytes. Era essa a "exportação absurdamente lenta" — e
+ * como nenhum registro de `state` reportava progresso, ela acontecia inteira
+ * com a notificação parada em **0%**.
+ *
+ * Juntando, os mesmos megabytes viram ~20 blocos. O FORMATO não muda em nada:
+ * o arquivo é uma sequência de bytes, e em quantos pedaços ela atravessa o
+ * canal é assunto deste lado.
+ *
+ * ===== O QUE NÃO ENTRA NO LOTE =====
+ *
+ * Um corpo GRANDE (≥ um bloco) vai direto, fatia por fatia, como sempre foi:
+ * passá-lo pelo buffer seria uma cópia de memória a mais por bloco, e é ele que
+ * responde por quase todo o peso do pacote. O buffer pendente é descarregado
+ * antes, para a ordem dos bytes no arquivo continuar sendo a ordem em que foram
+ * escritos.
+ *
+ * ===== O PROGRESSO CONTA CORPO, NUNCA CABEÇALHO =====
+ *
+ * `aoAndar` é chamado só com bytes de CORPO, que é o que o plano soma. Contar
+ * os cabeçalhos junto faria a barra passar de 100% num acervo com muitos
+ * registros pequenos — e o plano não tem como prevê-los sem montá-los.
+ */
+function pacoteEscritor(c, aoAndar, parou) {
+  const buf = new Uint8Array(PACOTE_BLOCO);
+  let n = 0;
+  const conferirParada = () => {
+    if (parou && parou()) throw new Error(PACOTE_CANCELADO);
+  };
+  async function descarregar() {
+    if (!n) return;
+    // `slice(0, n)` copia: o `buf` continua nosso e é reusado no bloco
+    // seguinte. `postMessage` de um `ArrayBuffer` o CLONA de qualquer forma, e
+    // mandar o buffer inteiro de 512 kB com 50 bytes úteis seria pior.
+    const ab = buf.buffer.slice(0, n);
+    n = 0;
     await pacoteBloco(c, ab);
-    if (aoAndar) aoAndar(fim - pos);
-    pos = fim;
   }
-}
-
-/** Um registro inteiro: cabeçalho + corpo (opcional). */
-async function pacoteRegistro(c, cab, corpo, aoAndar) {
-  await pacoteEnviarBytes(c, AVPacote.cabecalhoParaBytes(cab));
-  if (corpo && corpo.size) await pacoteEnviarBlob(c, corpo, aoAndar);
+  async function bytes(u8) {
+    let pos = 0;
+    while (pos < u8.length) {
+      conferirParada();
+      const cabe = Math.min(PACOTE_BLOCO - n, u8.length - pos);
+      buf.set(u8.subarray(pos, pos + cabe), n);
+      n += cabe;
+      pos += cabe;
+      if (n === PACOTE_BLOCO) await descarregar();
+    }
+  }
+  /** Um corpo: `Blob` ou `Uint8Array`. Só ele reporta progresso. */
+  async function corpo(x) {
+    if (!x) return;
+    if (x instanceof Uint8Array) {
+      if (!x.length) return;
+      await bytes(x);
+      if (aoAndar) aoAndar(x.length);
+      return;
+    }
+    if (!x.size) return;
+    if (x.size < PACOTE_BLOCO) {
+      await bytes(new Uint8Array(await x.arrayBuffer()));
+      if (aoAndar) aoAndar(x.size);
+      return;
+    }
+    await descarregar();
+    let pos = 0;
+    while (pos < x.size) {
+      conferirParada();
+      const fim = Math.min(pos + PACOTE_BLOCO, x.size);
+      // `slice` é preguiçoso: o que entra na memória por vez é UM bloco.
+      await pacoteBloco(c, await x.slice(pos, fim).arrayBuffer());
+      if (aoAndar) aoAndar(fim - pos);
+      pos = fim;
+    }
+  }
+  /** Um registro inteiro: cabeçalho + corpo (opcional). */
+  async function registro(cab, body) {
+    conferirParada();
+    await bytes(AVPacote.cabecalhoParaBytes(cab));
+    await corpo(body);
+  }
+  return { registro, bytes, descarregar };
 }
 
 // ---------------------------------------------------------------------------
@@ -22684,112 +22785,369 @@ async function pacoteRegistro(c, cab, corpo, aoAndar) {
 // ---------------------------------------------------------------------------
 
 /**
- * O PLANO, montado antes de o primeiro byte sair.
+ * O PLANO — e desde a v1.7.2 ele é montado ANTES da folha de escolha.
  *
- * Ele guarda IDs e TAMANHOS, nunca registros: um acervo tem milhares de
- * entradas, cada uma com a letra inteira e uma miniatura, e segurá-las todas
- * enquanto gigabytes atravessam o canal é a receita de um OOM num processo que
- * hospeda dois WebViews e a `Presentation`. O passo de escrita relê cada
- * registro na hora — ler um registro NÃO lê os bytes do Blob (o IndexedDB o
- * guarda por referência), então o custo é o do metadado.
+ * A ordem mudou porque a folha precisa dos TAMANHOS para o operador escolher, e
+ * medi-los duas vezes seria medir o aparelho duas vezes. Ele é montado uma vez,
+ * fica no `pacotePlanoAtual` enquanto a folha está aberta e enquanto o SAF
+ * pergunta onde salvar, e é solto no `finally` da exportação.
  *
- * O TOTAL EM BYTES existe para a notificação: com o app minimizado ela é a
- * única janela, e uma barra que não anda por dez minutos é indistinguível de
- * um travamento.
+ * ===== O QUE ELE GUARDA, E O QUE ELE NÃO GUARDA =====
+ *
+ *   · da MÍDIA, só `{ id, bytes }` — nunca os registros. Um acervo tem milhares
+ *     de entradas, cada uma com a letra inteira e uma miniatura, e segurá-las
+ *     todas enquanto gigabytes atravessam o canal é a receita de um OOM num
+ *     processo que hospeda dois WebViews e a `Presentation`. O passo de escrita
+ *     relê cada registro na hora — ler um registro NÃO lê os bytes do Blob (o
+ *     IndexedDB o guarda por referência), então o custo é o do metadado;
+ *   · do OPFS, o caminho e o tamanho — a varredura é do DISCO e não do catálogo
+ *     (as imagens de fundo da letra nunca viram registro);
+ *   · das CHAVES DE `state`, os BYTES JÁ CODIFICADOS. Esta é a exceção, e ela é
+ *     deliberada: elas são milhares e minúsculas (a Bíblia é uma chave por
+ *     capítulo, 1189 por versão), e o `JSON.stringify` delas é o único jeito de
+ *     saber quanto pesam. Codificar na medição e reusar na escrita troca uma
+ *     segunda leitura do IndexedDB e um segundo `stringify` por alguns
+ *     megabytes de heap — MEDIDO na ordem de 2 MB por versão da Bíblia mais os
+ *     catálogos. O `Blob` do wallpaper NÃO é codificado: ele já é bytes, e
+ *     `size` responde de graça.
+ *
+ * O TOTAL EM BYTES existe para a notificação e para o cartão: com o app
+ * minimizado eles são a única janela, e uma barra que não anda por dez minutos
+ * é indistinguível de um travamento.
  */
+let pacotePlanoAtual = null;
+
 async function pacotePlano() {
   const pastas = await AVDB.getState('opfs-folders');
   const caminhoViaja = AVPacote.pastasDoAparelho(pastas);
-  const chaves = (await AVDB.stateKeys('')).filter(AVPacote.chaveViaja);
-  const ids = await AVDB.mediaChaves();
-  const arquivos = (await AVDB.opfsTodosOsArquivos()).filter((a) => caminhoViaja(a.caminho));
-  let bytes = 0;
-  for (const a of arquivos) bytes += a.tamanho;
-  for (const id of ids) {
-    let rec = null;
-    try { rec = await AVDB.getMedia(id); } catch (_) { continue; }
-    if (!rec) continue;
-    if (rec.blob) bytes += rec.blob.size;
-    if (rec.thumb) bytes += rec.thumb.size;
-    if (Array.isArray(rec.pages)) for (const p of rec.pages) if (p) bytes += p.size;
+
+  // AS CHAVES DE `state`, lidas e codificadas de uma vez. Uma chave que não
+  // possa ser lida ou serializada é PULADA aqui — e some do plano inteiro, o
+  // que é o certo: ela não vai ser escrita depois.
+  const codificador = new TextEncoder();
+  const estado = [];
+  let bytesEstado = 0;
+  for (const chave of (await AVDB.stateKeys('')).filter(AVPacote.chaveViaja)) {
+    let valor;
+    try { valor = await AVDB.getState(chave); } catch (_) { continue; }
+    if (valor === undefined) continue;
+    if (valor instanceof Blob) {
+      estado.push({ chave, blob: valor });
+      bytesEstado += valor.size;
+      continue;
+    }
+    let bytes;
+    try { bytes = codificador.encode(JSON.stringify(valor)); } catch (_) { continue; }
+    estado.push({ chave, bytes });
+    bytesEstado += bytes.length;
   }
-  return { chaves, ids, arquivos, bytes, caminhoViaja };
+
+  const midia = await AVDB.mediaResumo();
+  let bytesMidia = 0;
+  for (const m of midia) bytesMidia += m.bytes;
+
+  // O CONJUNTO DE COLEÇÕES vem do catálogo em memória, e é ele que decide o que
+  // ganha nome próprio na folha e o que cai em "outros arquivos".
+  const cols = allCollections();
+  const nomes = new Map(cols.map((c) => [c.id, c.name || c.id]));
+  const ids = new Set(cols.map((c) => c.id));
+
+  const arquivos = (await AVDB.opfsTodosOsArquivos()).filter((a) => caminhoViaja(a.caminho));
+  const porGrupo = new Map();
+  for (const a of arquivos) {
+    const g = AVPacote.grupoDoCaminho(a.caminho, ids);
+    const atual = porGrupo.get(g) || { arquivos: [], bytes: 0 };
+    atual.arquivos.push(a);
+    atual.bytes += a.tamanho;
+    porGrupo.set(g, atual);
+  }
+
+  // A LISTA DA FOLHA. `ajustes` primeiro (é o que sempre vai), as coleções na
+  // ordem do catálogo (a mesma da Biblioteca — o operador as procura ali), a
+  // mídia, e "outros" por último, que é o grupo de escape.
+  const grupos = [{
+    chave: AVPacote.GRUPO_AJUSTES,
+    rotulo: 'Ajustes e catálogos',
+    sub: 'as listas, as preferências e a Bíblia',
+    bytes: bytesEstado,
+    fixo: true,
+  }];
+  for (const c of cols) {
+    const g = porGrupo.get(AVPacote.GRUPO_COL + c.id);
+    if (!g || !g.arquivos.length) continue;
+    grupos.push({
+      chave: AVPacote.GRUPO_COL + c.id,
+      rotulo: c.name || c.id,
+      sub: g.arquivos.length + (g.arquivos.length === 1 ? ' arquivo' : ' arquivos'),
+      bytes: g.bytes,
+      fixo: false,
+    });
+  }
+  if (bytesMidia || midia.length) {
+    grupos.push({
+      chave: 'midia',
+      rotulo: 'Itens importados e vídeos',
+      sub: midia.length + (midia.length === 1 ? ' item' : ' itens'),
+      bytes: bytesMidia,
+      fixo: false,
+    });
+  }
+  const soltos = porGrupo.get(AVPacote.GRUPO_OUTROS);
+  if (soltos && soltos.arquivos.length) {
+    grupos.push({
+      chave: AVPacote.GRUPO_OUTROS,
+      rotulo: 'Outros arquivos',
+      sub: soltos.arquivos.length + ' de coleções que saíram do catálogo',
+      bytes: soltos.bytes,
+      fixo: false,
+    });
+  }
+
+  return { estado, midia, porGrupo, nomes, ids, caminhoViaja, grupos };
 }
+
+/** Os bytes que os grupos escolhidos vão escrever — o total da barra. */
+function pacoteBytesDe(plano, sel) {
+  let t = 0;
+  for (const g of plano.grupos) if (sel.has(g.chave)) t += g.bytes;
+  return t;
+}
+
+// ===== A FOLHA DE ESCOLHA (v1.7.2) =====
+//
+// Pedido do operador: *"caso o usuário não queira levar toda a biblioteca …
+// permita um popup com um check list de grupos para a exportação"*.
+//
+// Ela é a MESMA folha do seletor de destinos (`escolherDestinos`): as mesmas
+// linhas selecionáveis de corpo inteiro, a mesma caixa como INDICADOR, o mesmo
+// confirmar sempre visível. Um segundo formato de folha de múltipla escolha
+// seria a divergência que a v5.252 gastou um lote para tirar do app.
+//
+// A LINHA FIXA NÃO É UM BOTÃO. "Ajustes e catálogos" viaja sempre (as listas do
+// app moram em `state`, e mídia sem a lista que a referencia é órfã — o
+// `gcOrfaos` do destino a apaga na abertura seguinte), e um botão que não
+// responde ao toque é um ponto morto no meio de uma lista de alvos. Ela é uma
+// `<div>` com a mesma roupa e a marca já acesa, e o `sub` diz por que ela está
+// ali sem ser escolha.
+let pacoteGruposResolve = null;
+
+function fecharPacoteGrupos(valor) {
+  const r = pacoteGruposResolve;
+  pacoteGruposResolve = null;
+  destLimpar();
+  songMenuFor = null;
+  songMenuPopupEl.classList.remove('open');
+  if (r) r(valor);
+}
+
+function escolherGruposDoPacote(plano) {
+  return new Promise((resolve) => {
+    pacoteGruposResolve = resolve;
+    destLimpar();
+    // TUDO MARCADO por padrão: o caso normal é levar o acervo inteiro, e a
+    // folha existe para PODER tirar, não para obrigar a montar.
+    for (const g of plano.grupos) if (!g.fixo) destMarcados.add(g.chave);
+    songMenuFor = { pacoteGrupos: true };
+    songMenuTitleEl.textContent = 'O que levar no arquivo';
+    renderPacoteGrupos(plano);
+    songMenuPopupEl.classList.add('open');
+  });
+}
+
+// O ÍCONE DE UM GRUPO sai do sprite, e não da fonte: o `ICON` é o subset de 31
+// codepoints do `.msym`, e nem engrenagem nem pasta estão nele — um glifo fora
+// do subset não desenha NADA, sem erro e sem requisição falhando (é o que o
+// `glifos.test.mjs` existe para pegar). O sprite tem os dois desenhos.
+function pacoteIconeSvg(id) {
+  return '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" '
+    + 'stroke="currentColor" stroke-width="2" stroke-linecap="round" '
+    + 'stroke-linejoin="round" aria-hidden="true"><use href="#' + id + '"/></svg>';
+}
+
+function renderPacoteGrupos(plano) {
+  songMenuListEl.innerHTML = '';
+  const remontar = () => renderPacoteGrupos(plano);
+  destRemontar = remontar;
+  for (const g of plano.grupos) {
+    const peso = fmtBytes(g.bytes);
+    const sub = g.sub ? g.sub + ' · ' + peso : peso;
+    if (g.fixo) {
+      const li = document.createElement('li');
+      const caixa = document.createElement('div');
+      caixa.className = 'song-menu-btn song-menu-sel song-menu-fixo';
+      const ic = document.createElement('span');
+      ic.className = 'song-menu-icon';
+      ic.innerHTML = pacoteIconeSvg('icoGear');
+      caixa.appendChild(ic);
+      const txt = document.createElement('span'); txt.className = 'song-menu-text';
+      const t = document.createElement('span'); t.className = 'song-menu-label';
+      t.textContent = g.rotulo;
+      const d = document.createElement('span'); d.className = 'song-menu-sub';
+      d.textContent = sub + ' · sempre vai junto';
+      txt.append(t, d);
+      caixa.appendChild(txt);
+      const marca = document.createElement('span');
+      marca.className = 'song-menu-check on';
+      marca.setAttribute('role', 'img');
+      marca.setAttribute('aria-label', 'sempre incluído');
+      caixa.appendChild(marca);
+      li.appendChild(caixa);
+      songMenuListEl.appendChild(li);
+      continue;
+    }
+    // A MÍDIA leva a pasta (ela é o que ENTROU no aparelho por fora); uma
+    // coleção e o grupo de escape levam a nota, que é o que eles guardam.
+    songMenuListEl.appendChild(songMenuItem(
+      g.chave === 'midia' ? msym(ICON.import) : msym(ICON.music),
+      g.rotulo, sub, () => {}, g.chave, remontar));
+  }
+  const li = document.createElement('li');
+  li.className = 'song-menu-go-row';
+  const go = document.createElement('button');
+  go.type = 'button'; go.className = 'song-menu-btn song-menu-go';
+  const txt = document.createElement('span'); txt.className = 'song-menu-text';
+  const t = document.createElement('span'); t.className = 'song-menu-label';
+  const sel = pacoteSelecao(plano);
+  // O PESO DO QUE FOI ESCOLHIDO, no próprio botão: é a única pergunta que o
+  // operador tem depois de marcar ("cabe no cartão?"), e ela muda a cada toque.
+  t.textContent = 'Salvar ' + fmtBytes(pacoteBytesDe(plano, sel));
+  txt.appendChild(t);
+  go.appendChild(txt);
+  go.addEventListener('click', () => fecharPacoteGrupos(pacoteSelecao(plano)));
+  li.appendChild(go);
+  songMenuListEl.appendChild(li);
+}
+
+/** O que está marcado, MAIS o que é fixo. */
+function pacoteSelecao(plano) {
+  const sel = new Set(destMarcados);
+  for (const g of plano.grupos) if (g.fixo) sel.add(g.chave);
+  return sel;
+}
+
+const PACOTE_CANCELADO = 'cancelado';
 
 async function exportarPacote() {
   const c = pacoteCanal();
   if (!c || pacoteEmCurso) return;
   pacoteOuvirCanal(c);
+
+  // ===== A MEDIÇÃO VEM ANTES DE TUDO, E ELA APARECE =====
+  // Ela varre o OPFS inteiro, percorre a store de mídia e lê as chaves de
+  // `state` — segundos num acervo grande. Até a v1.7.2 ela acontecia DEPOIS do
+  // "Salvar como", em silêncio absoluto: nem cartão, nem notificação, nem
+  // palavra no tile. Somada à escrita das milhares de chaves de `state` (que
+  // também não reportava nada), era isso que o operador via como "não sai de
+  // 0%".
+  let plano = null;
+  const medindo = previewBusy('Preparando a exportação', 'Medindo o acervo');
+  try {
+    plano = await pacotePlano();
+  } catch (e) {
+    plano = null;
+  } finally {
+    medindo.soltar();
+  }
+  if (!plano) {
+    await openAppDialog({
+      title: 'Não deu para exportar',
+      message: 'Não foi possível ler o acervo deste aparelho.',
+      okText: 'Entendi', cancelText: null,
+    });
+    return;
+  }
+  pacotePlanoAtual = plano;
+
+  const sel = await escolherGruposDoPacote(plano);
+  // Desistir na folha é desistir: nada foi aberto, nada foi escrito.
+  if (!sel) { pacotePlanoAtual = null; return; }
+
   const nome = await AVNative.pacoteCriar(AVPacote.nomeDoArquivo(new Date()));
   // VAZIO É "desistiu OU não deu", e a diferença não existe para quem opera:
   // nos dois casos não há arquivo, e o botão continua ali. Mesma regra do
   // `salvarTexto` do Registro.
-  if (!nome) return;
+  if (!nome) { pacotePlanoAtual = null; return; }
   pacoteEmCurso = true;
+  pacoteCancelar = false;
   pacoteRenderTiles();
   let erro = '';
   let gravados = -1;
+  const total = Math.max(pacoteBytesDe(plano, sel), 1);
+  // O CARTÃO SOBRE A PREVIEW é onde o número mora agora (a palavra do estado do
+  // tile saiu na v1.7.2), e ele traz o CANCELAR — que esta exportação não
+  // tinha: até aqui, começar era ficar preso até o fim ou até uma falha.
+  const cartao = previewBusy('Exportando o acervo', nome, () => { pacoteCancelar = true; });
   try {
     await withBgWork(async () => {
-      const plano = await pacotePlano();
       const tarefa = bgTaskStart('Exportando o acervo', 1);
       bgItemOnly(tarefa, nome);
       let feitos = 0;
+      let etapa = '';
+      // O NÚMERO VAI NO TEXTO, e não num terceiro parâmetro: o cartão da preview
+      // não tem casa para um percentual (o 3º argumento do `atualizar` existe só
+      // para a assinatura bater com a do `libBusy`), e quem o mostra é a própria
+      // legenda — a mesma forma do "Baixando vídeo · 34%".
       const andou = (n) => {
         feitos += n;
-        bgTaskBytes(tarefa, feitos, Math.max(plano.bytes, 1));
-        pacoteRenderTiles(plano.bytes ? feitos / plano.bytes : 0);
+        bgTaskBytes(tarefa, feitos, total);
+        const pct = Math.min(100, Math.round((feitos / total) * 100));
+        cartao.atualizar('Exportando o acervo', (etapa || nome) + ' · ' + pct + '%');
       };
+      const esc = pacoteEscritor(c, andou, () => pacoteCancelar);
       try {
-        await pacoteEnviarBytes(c, AVPacote.assinatura());
+        await esc.bytes(AVPacote.assinatura());
         // O CABEÇALHO HUMANO. Ele não é lido para decidir nada — quem decide é
         // a assinatura —, e existe para o pacote poder ser inspecionado por
-        // fora e para a tela de importação dizer de onde ele veio.
+        // fora e para a tela de importação dizer de onde ele veio. Desde a
+        // v1.7.2 ele diz também QUE GRUPOS este arquivo traz: um pacote
+        // parcial é o caso normal agora, e "o que tem aqui dentro?" passou a
+        // ser uma pergunta com resposta.
+        const escolhidos = plano.grupos.filter((g) => sel.has(g.chave));
         const info = new Blob([JSON.stringify({
           app: 'audio-visual-iasd',
           web: WEB_VERSION,
           criadoEm: Date.now(),
-          itens: { media: plano.ids.length, arquivos: plano.arquivos.length, chaves: plano.chaves.length },
-          bytes: plano.bytes,
+          grupos: escolhidos.map((g) => g.rotulo),
+          bytes: total,
         })], { type: 'application/json' });
-        await pacoteRegistro(c, { t: 'info', bytes: info.size }, info);
+        await esc.registro({ t: 'info', bytes: info.size }, info);
 
-        // AS PREFERÊNCIAS E OS CATÁLOGOS. Um Blob (o wallpaper) sai por um tipo
-        // PRÓPRIO em vez de virar um JSON impossível: `JSON.stringify` de um
-        // Blob devolve `{}`, e o destino gravaria um wallpaper vazio por cima
-        // do padrão — o modo de falhar mudo que este arquivo inteiro evita.
-        for (const chave of plano.chaves) {
-          let valor;
-          try { valor = await AVDB.getState(chave); } catch (_) { continue; }
-          if (valor === undefined) continue;
-          if (valor instanceof Blob) {
-            await pacoteRegistro(c, { t: 'state-blob', chave, tipo: valor.type || '', bytes: valor.size }, valor, andou);
+        // AS PREFERÊNCIAS E OS CATÁLOGOS, já lidos e codificados pelo plano. Um
+        // Blob (o wallpaper) sai por um tipo PRÓPRIO em vez de virar um JSON
+        // impossível: `JSON.stringify` de um Blob devolve `{}`, e o destino
+        // gravaria um wallpaper vazio por cima do padrão — o modo de falhar
+        // mudo que este arquivo inteiro evita.
+        etapa = 'Ajustes e catálogos';
+        for (const e of plano.estado) {
+          if (e.blob) {
+            await esc.registro({
+              t: 'state-blob', chave: e.chave, tipo: e.blob.type || '', bytes: e.blob.size,
+            }, e.blob);
             continue;
           }
-          let corpo;
-          try { corpo = new Blob([JSON.stringify(valor)], { type: 'application/json' }); } catch (_) { continue; }
-          await pacoteRegistro(c, { t: 'state', chave, bytes: corpo.size }, corpo);
+          await esc.registro({ t: 'state', chave: e.chave, bytes: e.bytes.length }, e.bytes);
         }
 
         // O ACERVO. A ordem — registro, miniatura, páginas — é CONTRATO com o
         // importador: ele monta o item enquanto lê, e por isso a miniatura e as
         // páginas de um item vêm coladas nele.
-        for (const id of plano.ids) {
-          let rec = null;
-          try { rec = await AVDB.getMedia(id); } catch (_) { continue; }
-          if (!rec) continue;
-          const corpo = rec.blob || null;
-          await pacoteRegistro(c, {
-            t: 'media', rec: AVPacote.sanearMedia(rec), bytes: corpo ? corpo.size : 0,
-          }, corpo, andou);
-          if (rec.thumb) {
-            await pacoteRegistro(c, { t: 'media-thumb', bytes: rec.thumb.size }, rec.thumb, andou);
-          }
-          if (Array.isArray(rec.pages)) {
-            for (let i = 0; i < rec.pages.length; i++) {
-              const p = rec.pages[i];
-              if (!p) continue;
-              await pacoteRegistro(c, { t: 'media-pagina', i, tipo: p.type || '', bytes: p.size }, p, andou);
+        if (sel.has('midia')) {
+          etapa = 'Itens importados e vídeos';
+          for (const m of plano.midia) {
+            let rec = null;
+            try { rec = await AVDB.getMedia(m.id); } catch (_) { continue; }
+            if (!rec) continue;
+            const corpo = rec.blob || null;
+            await esc.registro({
+              t: 'media', rec: AVPacote.sanearMedia(rec), bytes: corpo ? corpo.size : 0,
+            }, corpo);
+            if (rec.thumb) await esc.registro({ t: 'media-thumb', bytes: rec.thumb.size }, rec.thumb);
+            if (Array.isArray(rec.pages)) {
+              for (let i = 0; i < rec.pages.length; i++) {
+                const pg = rec.pages[i];
+                if (!pg) continue;
+                await esc.registro({ t: 'media-pagina', i, tipo: pg.type || '', bytes: pg.size }, pg);
+              }
             }
           }
         }
@@ -22799,30 +23157,41 @@ async function exportarPacote() {
         // catálogo sem arquivo — que o app já sabe tratar (a faixa não toca) —,
         // em vez de arquivo sem catálogo, que é espaço ocupado que nada aponta.
         // (Cortado, aliás, ele não importa: falta o registro `fim`.)
+        //
+        // O CORTE É O MESMO DOS BYTES, e ele passa pela MESMA função: um
+        // registro de catálogo cujo arquivo não viaja é uma faixa que não toca
+        // do outro lado.
+        etapa = 'Catálogo';
         for (const rec of await AVDB.filesAll()) {
           if (!rec || !rec.id) continue;
-          // O catálogo segue o MESMO corte dos bytes: um registro de uma pasta
-          // do aparelho viajaria como uma faixa que não toca do outro lado.
           if (rec.opfsPath && !plano.caminhoViaja(rec.opfsPath)) continue;
-          await pacoteRegistro(c, { t: 'arquivo', rec: AVPacote.sanearArquivo(rec), bytes: 0 });
-          if (rec.thumb) {
-            await pacoteRegistro(c, { t: 'arquivo-thumb', bytes: rec.thumb.size }, rec.thumb, andou);
+          if (rec.opfsPath && !sel.has(AVPacote.grupoDoCaminho(rec.opfsPath, plano.ids))) continue;
+          await esc.registro({ t: 'arquivo', rec: AVPacote.sanearArquivo(rec), bytes: 0 });
+          if (rec.thumb) await esc.registro({ t: 'arquivo-thumb', bytes: rec.thumb.size }, rec.thumb);
+        }
+
+        // OS BYTES DO OPFS — a maior parte do pacote, e a parte que a folha de
+        // escolha corta. GRUPO A GRUPO, e não numa varredura só: é o nome do
+        // grupo que a etapa mostra, e é isso que faz uma exportação de dez
+        // minutos dizer o que está acontecendo em vez de contar bytes.
+        for (const g of plano.grupos) {
+          if (g.fixo || g.chave === 'midia' || !sel.has(g.chave)) continue;
+          const pacote = plano.porGrupo.get(g.chave);
+          if (!pacote) continue;
+          etapa = g.rotulo;
+          for (const a of pacote.arquivos) {
+            let f = null;
+            try { f = await AVDB.opfsGetFile(a.caminho); } catch (_) { continue; }
+            await esc.registro({
+              t: 'opfs', caminho: a.caminho, tipo: f.type || '', bytes: f.size,
+            }, f);
           }
         }
 
-        // OS BYTES DO OPFS — a maior parte do pacote. A varredura é do DISCO e
-        // não do catálogo: as imagens de fundo da letra nunca viram registro, e
-        // um pacote montado pelo catálogo chegaria com o hinário inteiro e as
-        // estrofes sobre preto (ver `AVDB.opfsTodosOsArquivos`).
-        for (const a of plano.arquivos) {
-          let f = null;
-          try { f = await AVDB.opfsGetFile(a.caminho); } catch (_) { continue; }
-          await pacoteRegistro(c, {
-            t: 'opfs', caminho: a.caminho, tipo: f.type || '', bytes: f.size,
-          }, f, andou);
-        }
-
-        await pacoteRegistro(c, { t: 'fim', bytes: 0 });
+        await esc.registro({ t: 'fim', bytes: 0 });
+        // O QUE SOBROU NO LOTE tem de sair antes do `fim` do canal: o escritor
+        // junta registros pequenos, e o `fim` é o menor de todos.
+        await esc.descarregar();
         // O `fim` do CANAL descarrega o buffer do outro lado; o `pacoteFechar`
         // confirma o que chegou ao disco. São duas perguntas, e é a segunda que
         // descobre o cartão cheio.
@@ -22841,9 +23210,16 @@ async function exportarPacote() {
     // em que os bytes acabam. Inofensivo depois de um `pacoteFechar` bem
     // sucedido — ali já não há nada aberto.
     if (erro) { try { AVNative.pacoteCancelar(); } catch (_) { /* ponte */ } }
+    cartao.soltar();
     pacoteEmCurso = false;
+    pacoteCancelar = false;
+    pacotePlanoAtual = null;
     pacoteRenderTiles();
   }
+  // DESISTIR NÃO É FALHAR, e por isso não abre diálogo de erro: o operador
+  // acabou de tocar no ✕ e sabe o que aconteceu. O parcial já foi apagado pelo
+  // caminho acima.
+  if (erro === PACOTE_CANCELADO) return;
   if (erro) {
     await openAppDialog({ title: 'Não deu para exportar', message: erro, okText: 'Entendi', cancelText: null });
     return;
@@ -22995,6 +23371,13 @@ async function importarPacote() {
     await withBgWork(async () => {
       const tarefa = bgTaskStart('Importando o acervo', 1);
       bgItemOnly(tarefa, alvo.name || 'pacote');
+      // O CARTÃO SOBRE A PREVIEW carrega o número desde a v1.7.2, aqui como na
+      // exportação: era a palavra do estado do tile que o mostrava, e ela saiu.
+      // Sem CANCELAR, e a diferença é de natureza: parar uma importação no meio
+      // deixaria metade do acervo no aparelho e nada apagaria a outra metade —
+      // ela só ACRESCENTA, então o que já entrou está certo, e desfazê-lo seria
+      // apagar o que o operador foi buscar.
+      const cartao = previewBusy('Importando o acervo', alvo.name || 'pacote');
       try {
         const cursor = pacoteCursor(blob);
         // O ITEM EM MONTAGEM. A miniatura e as páginas de uma mídia chegam
@@ -23026,7 +23409,10 @@ async function importarPacote() {
           if (!r) throw new Error('O pacote está incompleto — ele acabou antes do fim.');
           const { cab, corpo } = r;
           bgTaskBytes(tarefa, cursor.pos, blob.size);
-          pacoteRenderTiles(blob.size ? cursor.pos / blob.size : 0);
+          if (blob.size) {
+            cartao.atualizar('Importando o acervo', (alvo.name || 'pacote')
+              + ' · ' + Math.min(100, Math.round((cursor.pos / blob.size) * 100)) + '%');
+          }
           if (cab.t === 'media-thumb' && pendente && pendente.tipo === 'media') {
             pendente.rec.thumb = corpo; continue;
           }
@@ -23091,6 +23477,7 @@ async function importarPacote() {
         }
       } finally {
         bgTaskEnd(tarefa);
+        cartao.soltar();
       }
     });
   } catch (e) {
@@ -23137,7 +23524,6 @@ async function importarPacote() {
  */
 const AV_PAGINA = 'https://jonathasptbr-gh.github.io/Audio-Visual-IASD/';
 
-const aparelhoRowEl = document.getElementById('aparelhoRow');
 const shareAppTileEl = document.getElementById('shareAppTile');
 const pacoteExportarTileEl = document.getElementById('pacoteExportarTile');
 const pacoteImportarTileEl = document.getElementById('pacoteImportarTile');
@@ -23145,32 +23531,37 @@ const pacoteImportarTileEl = document.getElementById('pacoteImportarTile');
 /**
  * Os três tiles, num escritor só (a regra do `pintarTile`).
  *
- * `fracao` é o andamento do trabalho em curso, quando há um — e é a PALAVRA DO
- * ESTADO que a mostra, nunca a luz: aceso, neste painel, responde *"a função
- * está ligada?"*, e apagar um tile em curso diria INDISPONÍVEL, que é o oposto.
+ * CADA UM É `hidden` FORA DO APP, e não um bloco inteiro (v1.7.2): o rótulo
+ * "Este aparelho" que os agrupava saiu a pedido do operador, e os três agora
+ * moram na grade única. Eles continuam dependendo da ponte — o chooser do
+ * Android, o "Salvar como" do SAF e o canal de bytes —, e um botão que só sabe
+ * não funcionar é pior que botão nenhum.
  *
- * O BLOCO INTEIRO É `hidden` FORA DO APP, e não os botões um a um: os três
- * dependem da ponte, e um rótulo "Este aparelho" sozinho sobre nada é a mesma
- * coisa que o rótulo do Registro sem o botão ao lado — um controle que não
- * existe.
+ * O TRABALHO EM CURSO É O ARO, e não uma palavra: a `.qs-estado` saiu no mesmo
+ * lote, e era ela que mostrava o "42%". `.qs-trabalhando` troca o ícone pelo
+ * `.dl-ring` — o mesmo aro da linha e do cartão, SEM SETA, porque exportar não
+ * baixa byte nenhum (a regra da v1.4.19). O NÚMERO continua existindo, nas duas
+ * superfícies que sobrevivem ao app minimizado: o cartão sobre a preview e a
+ * notificação do sistema.
+ *
+ * A LUZ NÃO MUDA com o trabalho: aceso, neste painel, responde *"a função está
+ * ligada?"*, e apagar um tile em curso diria INDISPONÍVEL, que é o oposto.
  */
-function pacoteRenderTiles(fracao) {
-  if (!aparelhoRowEl) return;
-  aparelhoRowEl.hidden = !window.__NATIVE__;
-  const pct = (typeof fracao === 'number' && fracao > 0)
-    ? Math.min(99, Math.round(fracao * 100)) + '%' : '';
-  const ocupado = pacoteEmCurso;
+function pacoteTrabalhando(el, ligado, rotulo) {
+  if (!el) return;
+  el.classList.toggle('qs-trabalhando', !!ligado);
+  el.disabled = !!ligado;
+  pintarTile(el, ligado ? 'ocupado' : 'pronto', rotulo, true, false);
+}
+
+function pacoteRenderTiles() {
+  const fora = !window.__NATIVE__;
+  for (const el of [shareAppTileEl, pacoteExportarTileEl, pacoteImportarTileEl]) {
+    if (el) el.hidden = fora;
+  }
   if (shareAppTileEl) pintarTile(shareAppTileEl, 'app', 'O app', true, false);
-  if (pacoteExportarTileEl) {
-    pintarTile(pacoteExportarTileEl, ocupado ? 'ocupado' : 'pronto',
-      ocupado ? (pct || 'Aguarde') : 'Acervo', true, false);
-    pacoteExportarTileEl.disabled = ocupado;
-  }
-  if (pacoteImportarTileEl) {
-    pintarTile(pacoteImportarTileEl, ocupado ? 'ocupado' : 'pronto',
-      ocupado ? (pct || 'Aguarde') : 'Acervo', true, false);
-    pacoteImportarTileEl.disabled = ocupado;
-  }
+  pacoteTrabalhando(pacoteExportarTileEl, pacoteEmCurso, pacoteEmCurso ? 'em curso' : 'o acervo');
+  pacoteTrabalhando(pacoteImportarTileEl, pacoteEmCurso, pacoteEmCurso ? 'em curso' : 'o acervo');
 }
 
 if (shareAppTileEl) {
@@ -23180,7 +23571,7 @@ if (shareAppTileEl) {
     // conversa não diz o que é, e o que faz alguém tocar nele é a frase ao
     // lado. Fica em UMA linha de propósito — quem recebe vai reencaminhá-la.
     AVNative.compartilharTexto(
-      'Áudio Visual IASD — o app de projeção para o culto. Baixe em: ' + AV_PAGINA,
+      AV_NOME + ' — o app de projeção para o culto. Baixe em: ' + AV_PAGINA,
     );
   });
 }
@@ -23207,8 +23598,15 @@ pacoteRenderTiles();
 function pintarTile(el, estado, rotulo, aceso, alt) {
   if (!el) return;
   el.dataset.estado = String(estado);
-  const alvo = el.querySelector('.qs-estado');
-  if (alvo) alvo.textContent = rotulo;
+  // A PALAVRA DO ESTADO SAIU DA TELA (v1.7.2) e NÃO saiu da função: ela vira o
+  // `aria-label`, que é onde ela continua sendo verdade sem ocupar linha.
+  // Quem lê a grade com os olhos tem o ícone; quem a lê por leitor de tela
+  // tinha o título sozinho ("Tema"), que não responde nada. É o mesmo par do
+  // botão da cortina na notificação — o desenho mostra o ESTADO, e o texto que
+  // acompanha diz o que ele é por extenso.
+  const titulo = el.querySelector('.qs-titulo');
+  const nome = (titulo && titulo.textContent) || '';
+  el.setAttribute('aria-label', rotulo ? nome + ': ' + rotulo : nome);
   el.classList.toggle('qs-on', !!aceso);
   el.classList.toggle('qs-alt', !!alt);
 }
@@ -23220,13 +23618,13 @@ function renderFitTile() {
   pintarTile(fitTileEl, mediaFit, mediaFit === 'cover' ? 'Preencher' : 'Ajustar',
     true, mediaFit === 'cover');
 }
-// O WALLPAPER TEM UM ÍCONE SÓ — o par de desenhos que distinguiria "padrão" de
-// "própria" viraria o `icoImagem` do tile vizinho (ver o comentário do símbolo
-// no `index.html`) — e é SEMPRE ACESO: há um wallpaper no telão nos dois
-// estados, e "Padrão" não é o recurso desligado. Quem diz qual é a palavra.
+// O WALLPAPER É SEMPRE ACESO — há um wallpaper no telão nos DOIS estados, e
+// "Padrão" não é o recurso desligado; apagá-lo diria INDISPONÍVEL, que é a
+// outra palavra desta paleta. Quem diz QUAL é o desenho: o rolo vazio contra o
+// rolo cheio (v1.7.2, quando a palavra do estado saiu — ver o `<symbol>`).
 function renderWallTile() {
   pintarTile(wallTileEl, customWallpaper ? 'propria' : 'padrao',
-    customWallpaper ? 'Própria' : 'Padrão', true, false);
+    customWallpaper ? 'Própria' : 'Padrão', true, !!customWallpaper);
 }
 async function applyFit(mode) {
   mediaFit = mode;
@@ -23253,10 +23651,13 @@ async function applyFit(mode) {
 const ROTACOES = [0, 90, 180, 270];
 let mediaRot = 0;
 function renderRotBtn() {
-  // O ÂNGULO É A PALAVRA DO ESTADO deste tile — não há par de ícones para um
-  // valor de quatro posições (quatro desenhos que só diferem pelo próprio
-  // ângulo não se distinguem a 22px), então quem responde "como está?" é o
-  // rótulo, e o aceso diz que o giro não está no padrão.
+  // O ÍCONE GIRA COM A MÍDIA (v1.7.2). O ângulo era a palavra do estado deste
+  // tile, e ela saiu com as outras; a resposta não é um par de desenhos — a
+  // v1.4.38 mediu que quatro desenhos parecidos não se distinguem a 22px —, é o
+  // MESMO desenho na posição que ele descreve. Quem o gira é o CSS, pelo
+  // `data-estado` que o `pintarTile` acabou de escrever: a seta aponta para
+  // cima, para a direita, para baixo e para a esquerda, e o operador vê o ícone
+  // VIRAR sob o dedo, que é o que o toque faz com o telão.
   pintarTile(rotBtnEl, mediaRot, mediaRot + '°', mediaRot !== 0, false);
   if (rotBtnEl) {
     // A FRASE DIZ ONDE, nas duas pontas: o rótulo do tile já diz "no telão", e
@@ -25240,12 +25641,21 @@ function bgTaskBytes(id, lidos, total) {
   if (!window.__NATIVE__) return;
   const t = bgTasks.get(id);
   if (!t || !(total > 0)) return;
+  // TROCAR A RÉGUA NÃO É ANDAR NELA (v1.7.2). A unidade (`bytes`) e o
+  // DENOMINADOR (`total`) são estado, não progresso — e o freio de 700 ms existe
+  // para o Android não descartar uma enxurrada de tiques, que é outra coisa.
+  // Enquanto a troca passava pelo freio, a notificação de uma exportação
+  // anunciava "0 de 1" por quase um segundo antes de dizer o que ela de fato
+  // era; num pacote de gigabytes é o primeiro número que o operador lê, e ele
+  // estava errado. É a mesma regra do primeiro nome e do estado final: o que
+  // precisa chegar na hora passa `force`.
+  const regua = !t.bytes || t.total !== total;
   t.bytes = true;
   t.total = total;
   if (!t.firstStepAt) t.firstStepAt = Date.now();
   t.done = Math.min(lidos, total);
   t.lastEventAt = Date.now();
-  bgTaskSend(false);
+  bgTaskSend(regua);
 }
 
 // Um item concreto entrou em download: entra na FILA de exibição. É isto que

@@ -24,7 +24,7 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { semRedeExterna } from './sem-rede.mjs';
-import { servirEstatico, abrirNavegador, checar, falhas } from './arnes.mjs';
+import { servirEstatico, abrirNavegador, esperarCortina, checar, falhas } from './arnes.mjs';
 
 const RAIZ = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'app', 'src', 'main', 'assets', 'web');
 
@@ -111,6 +111,9 @@ pg.on('pageerror', (e) => erros.push('pageerror: ' + e.message));
 
 try {
   await pg.goto(base + '/controle/', { waitUntil: 'domcontentloaded' });
+  // A CORTINA cobre a tela por 1,8 s (v1.7.2) e ela é o topo da pilha: sem esta
+  // espera, todo hit-test e toda captura deste arquivo medem o `#splash`.
+  await esperarCortina(pg);
 
   // O MESMO MARCADOR que o watchdog do OTA usa para dizer "o app está de pé"
   // (ver `otaAppIsUp` em shared/native.js): um `<li>` dentro de `#playlist` só
@@ -319,11 +322,14 @@ try {
   // pixels, que mediria a largura da tela junto.
   const ordem = await pg.$eval('.qs-grade',
     (g) => [...g.children].map((e) => e.id));
-  const fixos = ['temaTile', 'fitTile', 'wallTile', 'histOpenRow'];
-  // A CONTAGEM DE USO saiu da grade na v1.4.41 e virou uma linha do rodapé do
-  // Registro: ela é chave de MANUTENÇÃO, não preferência de projeção, e era a
-  // única do painel que quem opera o culto nunca toca. Com seis, a grade fecha
-  // em duas fileiras exatas.
+  // AS TRÊS AÇÕES DESTE APARELHO entraram na MESMA grade na v1.7.2, quando o
+  // rótulo "Este aparelho" que as agrupava saiu. Elas são sempre-acesas, então
+  // a ordem por natureza as põe entre o histórico e os dois que apagam — e a
+  // grade fecha em TRÊS fileiras exatas. Elas são `hidden` no navegador (a
+  // ponte não existe aqui) e por isso continuam na ORDEM DO DOCUMENTO, que é o
+  // que esta asserção lê: um `hidden` sai da tela, não da árvore.
+  const fixos = ['temaTile', 'fitTile', 'wallTile', 'histOpenRow',
+    'shareAppTile', 'pacoteExportarTile', 'pacoteImportarTile'];
   const alterna = ['lyricsBgTile', 'rotBtn'];
   checar(JSON.stringify(ordem) === JSON.stringify(fixos.concat(alterna)),
     'os tiles SEM "desligado" vêm primeiro e os que ligam e desligam depois',
@@ -430,6 +436,13 @@ try {
   // texto — não na caixa do `<span>`, que é `stretch` e ocupa a linha inteira
   // nas duas versões: um teste da caixa passa com o rótulo colado à esquerda.
   // E não em `text-align`, que é ler de volta a regra que se acabou de escrever.
+  //
+  // O RÓTULO SOLTO SAIU na v1.7.2 e a palavra desceu para dentro das duas
+  // metades. O que a v1.4.44 mediu do TRILHO fica (é a regra do cartão
+  // invisível, e ela não mudou); o que ela media do TEXTO CENTRADO virou outra
+  // asserção — a linha do modo não pode ter texto NENHUM fora do trilho, e as
+  // duas metades têm de dizer a palavra. As duas metades juntas são o que
+  // reprova quem apagar o rótulo sem pôr a palavra nos botões.
   const alinhamento = await pg.evaluate(() => {
     const linha = document.querySelector('.fade-row--modo');
     const trilho = document.getElementById('appModeSeg');
@@ -437,15 +450,17 @@ try {
     if (!linha || !trilho || !grade) return null;
     const cx = (el) => { const r = el.getBoundingClientRect();
       return { l: Math.round(r.left), r: Math.round(r.right), w: Math.round(r.width) }; };
-    const rot = linha.querySelector('span');
-    const faixa = document.createRange();
-    faixa.selectNodeContents(rot);
-    const t = faixa.getBoundingClientRect();
-    const c = rot.getBoundingClientRect();
+    // "Fora do trilho" é qualquer texto da LINHA que não esteja dentro dele —
+    // um `<span>` solto, e também um nó de texto cru, que um `querySelector`
+    // não veria.
+    let fora = '';
+    for (const n of linha.childNodes) {
+      if (n === trilho) continue;
+      fora += (n.textContent || '').trim();
+    }
     return {
-      trilho: cx(trilho), grade: cx(grade),
-      desvio: Math.round(((t.left + t.right) / 2 - (c.left + c.right) / 2) * 10) / 10,
-      largoParaCentrar: t.width < c.width - 8,
+      trilho: cx(trilho), grade: cx(grade), fora,
+      rotulos: [...trilho.querySelectorAll('.fit-opt span')].map((s) => s.textContent.trim()),
     };
   });
   if (!alinhamento) {
@@ -456,13 +471,14 @@ try {
       'o trilho do modo mede EXATAMENTE a grade de tiles — um cartão invisível o '
       + 'recuava 12,8px de cada lado, e o que se via era só o desalinhamento',
       JSON.stringify([alinhamento.trilho, alinhamento.grade]));
-    checar(alinhamento.largoParaCentrar,
-      'e o rótulo é mais estreito que a linha (senão centrar não teria efeito e a '
-      + 'asserção abaixo passaria sozinha)');
-    checar(Math.abs(alinhamento.desvio) <= 1,
-      'o TÍTULO "Modo do app" é centrado — medido no texto PINTADO (um `Range`), '
-      + 'porque a caixa do `<span>` é `stretch` e ocupa a linha inteira nas duas '
-      + 'versões', 'desvio: ' + alinhamento.desvio + 'px');
+    checar(alinhamento.fora === '',
+      'e a linha do modo não tem TEXTO SOLTO: o rótulo "Modo do app" saiu na '
+      + 'v1.7.2 e era o único texto sem controle desta folha',
+      alinhamento.fora);
+    checar(JSON.stringify(alinhamento.rotulos) === JSON.stringify(['Modo simples', 'Modo avançado']),
+      'a palavra desceu para DENTRO de cada metade — sem esta, apagar o rótulo '
+      + 'deixaria dois ícones sem nome',
+      JSON.stringify(alinhamento.rotulos));
   }
 
   // ---- O RODAPÉ É UMA BARRA SÓ, E O COPIAR SAIU (v1.4.44) ----
@@ -1072,6 +1088,10 @@ try {
 
   await pg.reload({ waitUntil: 'domcontentloaded' });
   await pg.waitForFunction(() => typeof window.__avBack === 'function', null, { timeout: 20000 });
+  // A CORTINA SOBE DE NOVO A CADA CARGA, e este `reload` é o meio do arquivo:
+  // sem esta espera, todo hit-test DAQUI PARA BAIXO mede o `#splash`. Foi assim
+  // que ela apareceu — o `esperarCortina` do topo cobria só até aqui.
+  await esperarCortina(pg);
   const depois = await pg.evaluate(() => ({
     atributo: document.documentElement.dataset.tema,
     bg: getComputedStyle(document.documentElement).getPropertyValue('--bg').trim(),
@@ -5415,6 +5435,9 @@ try {
     }, true);
   });
   await pg2.goto(base + '/controle/', { waitUntil: 'domcontentloaded' });
+  // A CORTINA cobre a tela por 1,8 s (v1.7.2) e ela é o topo da pilha: sem esta
+  // espera, todo hit-test e toda captura deste arquivo medem o `#splash`.
+  await esperarCortina(pg2);
   await pg2.waitForFunction(
     () => window.AVDB && typeof window.__avBack === 'function'
       && !!document.querySelector('#playlist li'),

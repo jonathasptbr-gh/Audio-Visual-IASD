@@ -1012,14 +1012,24 @@ a própria cor.
 |---|---|---|---|---|
 | Tema | `#temaTile` | `escuro` · `claro` | **sempre** | `#icoLua` / `#icoSol` |
 | Preenchimento | `#fitTile` | `contain` · `cover` (ver `stage.setFit()`) | **sempre** | `#icoAjustar` / `#icoPreencher` |
-| Wallpaper | `#wallTile` | `padrao` · `propria` | **sempre** | `#icoWallpaper` |
+| Wallpaper | `#wallTile` | `padrao` · `propria` | **sempre** | `#icoWallpaper` / `#icoWallpaperProprio` |
 | Histórico | `#histOpenRow` | — (abre a folha) | **sempre** (classe no HTML) | `#icoHistorico` |
+| Compartilhar | `#shareAppTile` | `app` | **sempre** | `#icoCompartilhar` |
+| Exportar | `#pacoteExportarTile` | `pronto` · `ocupado` | **sempre** | `#icoExportar` (o ARO no lugar dele em curso) |
+| Importar | `#pacoteImportarTile` | `pronto` · `ocupado` | **sempre** | `#icoImportar` (idem) |
 | Fundo da letra | `#lyricsBgTile` | `image` · `black` (ver "Fundo preto vs. imagens dos slides") | em `image` | `#icoImagem` / `#icoImagemOff` |
-| Girar no telão | `#rotBtn` | `0` `90` `180` `270` | ≠ `0` | `#icoGirar` |
+| Girar no telão | `#rotBtn` | `0` `90` `180` `270` | ≠ `0` | `#icoGirar`, GIRADO pelo `data-estado` |
 
-**SEIS TILES desde a v1.4.41** — a grade fecha em duas fileiras exatas. A
-**contagem de uso** saiu daqui (era o sétimo tile) e, uma versão depois, saiu do
-app inteiro: ver "A contagem de uso" abaixo.
+**NOVE TILES desde a v1.7.2** — a grade fecha em três fileiras exatas. As três
+AÇÕES DESTE APARELHO moravam num bloco à parte, sob o rótulo "Este aparelho", e
+ele saiu a pedido do operador: *"remova também o texto 'este aparelho' que divide
+as configurações. Todos os blocos ficam em uma grade só"*. A separação era de
+ASSUNTO e custava uma linha de texto e um vão para dizer o que a POSIÇÃO já diz —
+a grade é lida de cima para baixo, e o que não é preferência de projeção está no
+fim dela. **Elas são `hidden` uma a uma fora do app** (`pacoteRenderTiles`), e
+não mais por um bloco: as três dependem da ponte. A **contagem de uso** saiu
+daqui na v1.4.41 e, uma versão depois, saiu do app inteiro: ver "A contagem de
+uso" abaixo.
 
 **O TÍTULO DO GIRO DIZ ONDE** (v1.4.41): *"Girar no telão"*, e o `title`
 completa pela negativa (*"não gira o app nem a tela do celular"*). "Girar"
@@ -1032,14 +1042,45 @@ As três regras do tile, escritas por inteiro no `index.html`:
 1. **O ÍCONE DIZ O ESTADO; o TÍTULO diz o assunto.** Quem tem dois estados tem
    dois desenhos, trocados por `.ico-base`/`.ico-alt` — a mecânica da cortina
    (`.pv-fab`), e pelo mesmo motivo: a folha do documento não atravessa a
-   árvore-sombra de um `<use>`. Onde dois desenhos não se distinguiriam a 22px
-   (o giro, que é um NÚMERO; o wallpaper, cujo par viraria o `#icoImagem` do
-   vizinho) há um ícone só, e isso está dito no comentário de cada símbolo.
+   árvore-sombra de um `<use>`.
    **Quem troca o desenho é `.qs-alt`, e não `.qs-on`** (v1.4.40): são duas
    perguntas — *"qual desenho?"* e *"está ligado?"* — e enquanto foram a mesma
    classe um tile sempre aceso ficaria preso no desenho alternativo.
-2. **A PALAVRA DO ESTADO FICA** (`.qs-estado`). Um ícone sozinho responde por
-   CONVENÇÃO, e convenção é o que se erra num app aberto três vezes por semana.
+2. **NADA DE TEXTO ALÉM DO TÍTULO** (v1.7.2). A `.qs-estado` — a segunda linha,
+   com o estado por extenso — existiu da v1.4.38 até aqui, com a razão escrita:
+   *um ícone sozinho responde por CONVENÇÃO, e convenção é o que se erra num app
+   aberto três vezes por semana*. Ela saiu a pedido do operador: *"remova o
+   subtítulo dos botões das configurações, todo tipo de informação além do nome
+   deve ser representada pelo ícone"*.
+
+   **A informação não foi removida; ela mudou de canal**, tile a tile:
+
+   | tile | o que a palavra dizia | quem responde agora |
+   |---|---|---|
+   | tema, preenchimento, fundo da letra | `Escuro`, `Ajustar`, `Mostrar` | o par de desenhos, que eles JÁ tinham |
+   | wallpaper | `Padrão` · `Própria` | o par NOVO: o rolo vazio × o rolo cheio |
+   | girar | `0°` … `270°` | o próprio ícone, GIRADO pelo `data-estado` |
+   | histórico, compartilhar | `Abrir`, `O app` | nada — eles não tinham estado |
+   | exportar, importar | `42%` | o ARO no lugar do ícone; o NÚMERO foi para o cartão da preview e para a notificação |
+
+   O GIRO não ganhou quatro desenhos — a v1.4.38 mediu que quatro desenhos que
+   só diferem pelo ângulo não se distinguem a 22px, e isso continua verdade. O
+   que ele ganhou foi o MESMO desenho na posição que ele descreve, com
+   `transition`: é vendo o ícone VIRAR sob o dedo que se lê o que o toque fez.
+
+   O WALLPAPER ganhou o par porque era o único de dois estados sem nenhum. A
+   razão de não ter também continua válida, e é ela que decidiu a FORMA do par:
+   um desenho de "foto" viraria o `#icoImagem` de outro tile da mesma grade, e o
+   par não sai daí — sai do próprio rolo.
+
+   O ESTADO CONTINUA DITO fora da tela: `pintarTile` escreve o `aria-label` como
+   `Título: Estado`. Quem lê a grade por leitor de tela tinha só "Tema", que não
+   responde nada.
+
+   **A consequência para o PRÓXIMO tile é dura:** um tile cujo estado não caiba
+   num desenho não cabe nesta grade. Não há mais onde escrever a palavra, e
+   devolvê-la para um só devolve a segunda linha a todos — a grade tem altura
+   comum.
 3. **ACESO (`qs-on`) = A FUNÇÃO ESTÁ LIGADA — e num tile sem "desligado",
    SEMPRE** (v1.4.40). `--btn-accent` + `--accent`, a gramática de INTERRUPTOR
    LIGADO da paleta, nunca o `--accent-fill` de ESCOLHA ENTRE ALTERNATIVAS.
@@ -1050,8 +1091,17 @@ As três regras do tile, escritas por inteiro no `index.html`:
    todo"*. Escolher "Ajustar" não desliga nada, e apagado ali dizia
    INDISPONÍVEL — a queixa exata da v1.4.25, com o app já tendo uma linguagem
    para isso (`opacity: .3` + `disabled`). **O que se perde está dito:** a grade
-   deixou de responder *"o que eu deixei mexido aqui?"* de relance; quem
-   responde isso é a palavra do estado, que sempre esteve lá.
+   não responde *"o que eu deixei mexido aqui?"* de relance; quem respondia isso
+   era a palavra do estado, e desde a v1.7.2 quem responde é o DESENHO de cada
+   tile, um a um.
+
+   **Um tile EM CURSO não apaga** (v1.7.2, `.qs-trabalhando`): exportar e
+   importar ficam `disabled` enquanto trabalham, e a folha do agente esmaece um
+   botão desabilitado em alguns motores. Aqui isso seria dizer INDISPONÍVEL
+   sobre um botão que está justamente trabalhando — daí o `opacity: 1` explícito
+   e o ARO no lugar do ícone. O aro é a MESMA declaração do `.dl-ring` (um
+   desenho, dois consumidores), com o tile pondo só a geometria; escrevê-lo de
+   novo seria uma segunda opinião sobre o mesmo anel.
 
    No mesmo lote o aceso do **fundo da letra** e o da **medição** foram
    INVERTIDOS: eles marcavam o estado que não é o padrão (`Remover`,
@@ -1060,8 +1110,10 @@ As três regras do tile, escritas por inteiro no `index.html`:
    mesmo botão.
 
 **Quem pinta é `pintarTile(el, estado, rotulo, aceso, alt)`, e é um ponto só** —
-o `data-estado`, a palavra, o aceso e o desenho saem da mesma chamada, e é pelo
-`data-estado` que os oráculos perguntam (nunca pela classe, que é aparência).
+o `data-estado`, o `aria-label`, o aceso e o desenho saem da mesma chamada, e é
+pelo `data-estado` que os oráculos perguntam (nunca pela classe, que é
+aparência). O `rotulo` continua sendo o estado por extenso; o que mudou na
+v1.7.2 é o DESTINO dele, que era a `.qs-estado` e passou a ser o `aria-label`.
 O **histórico** é o único que recebe o `qs-on` no HTML, porque é o único que
 nenhuma função pinta: ele não tem estado — abre uma folha e pronto. Os tiles são
 pintados **no `load()`**, não só ao abrir a folha: um segmentado carregava o
@@ -1070,8 +1122,15 @@ olhar; um tile só diz o que a pintura escreveu. O da **Medição** fica de fora
 dessa regra — ele é uma ida à ponte, e `load()` roda dezenas de vezes por culto.
 
 **O MODO DO APP É UM INTERRUPTOR QUE DESLIZA** (`#appModeSeg`, `.qs-modo`
-dentro da `.fade-row--modo`, v1.4.43), com o rótulo CENTRADO por cima e o
-trilho medindo exatamente a grade de tiles (v1.4.44). Ele continua sendo um SELETOR e não um
+dentro da `.fade-row--modo`, v1.4.43), com o trilho medindo exatamente a grade
+de tiles (v1.4.44) e **a palavra DENTRO de cada metade** — "Modo simples" e
+"Modo avançado" (v1.7.2). O rótulo solto acima dele saiu a pedido: *"remova o
+título unificado de 'modo do app', ao invés disso, use texto individual dentro
+de cada botão"*. Ele era o único texto sem controle desta folha (a v1.4.44 tinha
+gasto um lote centrando-o), e o que ele dizia as duas metades passaram a dizer
+sozinhas. `data-mode="simple"` é o mesmo valor de sempre: o que mudou é o
+RÓTULO na tela, e o resto do app continua chamando o modo de Fácil
+(`.simple-*`, `mode-simple`). Ele continua sendo um SELETOR e não um
 tile — as duas opções ficam à vista, com ícone e palavra —, mas o desenho mudou
 a pedido do operador: *"simplifique o design do agrupamento e botões de fácil e
 avançado, eles estão com muitas camadas e tons de grupos. faça eles do tipo

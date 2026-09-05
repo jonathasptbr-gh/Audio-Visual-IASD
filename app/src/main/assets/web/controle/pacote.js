@@ -253,6 +253,61 @@
    * Devolve uma função `(caminho) => boolean`, para o chamador percorrer o OPFS
    * uma vez só perguntando a cada arquivo.
    */
+  // ===== OS GRUPOS DA EXPORTAÇÃO (v1.7.2) =====
+  //
+  // Pedido do operador: *"pode fazer ele de forma segmentada, por coleção? …
+  // caso o usuário não queira levar toda a biblioteca … permita um popup com um
+  // check list de grupos para a exportação"*.
+  //
+  // A regra é UMA pergunta — *"a que grupo pertence este caminho do OPFS?"* — e
+  // ela mora aqui porque é ela que erra: o OPFS é uma árvore de arquivos e a
+  // relação com as coleções é uma CONVENÇÃO DE CAMINHO (`folders/<id>/…`), não
+  // um campo. Se um dia ela mudar, o conserto chega por OTA em minutos.
+  //
+  // TRÊS CHAVES, e a terceira é a que impede o silêncio:
+  //
+  //   · `col:<id>` — o que mora sob `folders/<id>/`, com `<id>` de uma coleção
+  //     que este aparelho conhece;
+  //   · `outros`   — TODO o resto que ainda viaja: `folders/<id>/` de uma
+  //     coleção que saiu do catálogo, e arquivos fora de `folders/`. É a chave
+  //     de escape, e ela existe porque a alternativa é um arquivo sumir do
+  //     pacote sem aparecer em lista nenhuma — que é o defeito que a varredura
+  //     do DISCO (e não do catálogo) já existiu para consertar uma vez;
+  //   · `ajustes`  — as chaves de `state`. Não é um caminho, é o grupo que
+  //     recebe tudo o que não é arquivo, e ele NÃO É OPCIONAL (ver abaixo).
+  //
+  // O `ajustes` VIAJA SEMPRE, e a razão é o coletor de lixo do destino: as
+  // listas do app (`imports`, `playlist`, `favs`) moram em `state`, e um item de
+  // mídia que chega sem a lista que o referencia é ÓRFÃO — o `gcOrfaos` da
+  // abertura seguinte o apaga. Um pacote "só a mídia" importaria e sumiria
+  // sozinho, que é o pior desfecho que este recurso sabe produzir.
+  const GRUPO_AJUSTES = 'ajustes';
+  const GRUPO_OUTROS = 'outros';
+  const GRUPO_COL = 'col:';
+
+  /**
+   * O grupo de um caminho do OPFS. `colecoes` é o conjunto de ids que este
+   * aparelho conhece — injetado, porque o catálogo é do `controle.js` e este
+   * módulo é puro.
+   */
+  function grupoDoCaminho(caminho, colecoes) {
+    const partes = String(caminho || '').split('/').filter(Boolean);
+    if (partes.length >= 2 && partes[0] === 'folders') {
+      const id = partes[1];
+      // O `has` é sobre o CONJUNTO INJETADO, e por isso um `Set` vazio manda
+      // tudo para `outros` em vez de inventar grupos: sem catálogo não há como
+      // nomear uma coleção, e um grupo com id cru na tela não diz nada.
+      if (colecoes && colecoes.has && colecoes.has(id)) return GRUPO_COL + id;
+    }
+    return GRUPO_OUTROS;
+  }
+
+  /** O id da coleção de uma chave `col:<id>`, ou `''` para as outras. */
+  function colecaoDoGrupo(chave) {
+    const c = String(chave || '');
+    return c.indexOf(GRUPO_COL) === 0 ? c.slice(GRUPO_COL.length) : '';
+  }
+
   function pastasDoAparelho(lista) {
     const ids = new Set();
     for (const f of (Array.isArray(lista) ? lista : [])) {
@@ -295,6 +350,11 @@
     sanearMedia,
     sanearArquivo,
     chaveViaja,
+    GRUPO_AJUSTES,
+    GRUPO_OUTROS,
+    GRUPO_COL,
+    grupoDoCaminho,
+    colecaoDoGrupo,
     pastasDoAparelho,
     nomeDoArquivo,
   };

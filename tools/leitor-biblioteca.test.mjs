@@ -19,7 +19,7 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { semRedeExterna } from './sem-rede.mjs';
-import { servirEstatico, abrirNavegador, checar, falhas } from './arnes.mjs';
+import { servirEstatico, abrirNavegador, esperarCortina, checar, falhas } from './arnes.mjs';
 
 const RAIZ = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'app', 'src', 'main', 'assets', 'web');
 const servidor = servirEstatico(RAIZ);
@@ -96,6 +96,9 @@ const base = `http://localhost:${porta}`;
 try {
   await pg.addInitScript(PONTE);
   await pg.goto(base + '/controle/', { waitUntil: 'domcontentloaded' });
+  // A CORTINA cobre a tela por 1,8 s (v1.7.2) e ela é o topo da pilha: sem esta
+  // espera, todo hit-test e toda captura deste arquivo medem o `#splash`.
+  await esperarCortina(pg);
   // A MESMA espera do watchdog de boot: plantar cenário antes do fim do
   // `init()` é correr contra a inicialização, que o zera com razão.
   await pg.waitForFunction(

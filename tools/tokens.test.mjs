@@ -143,7 +143,10 @@ checar(orfaos.length === 0,
 //   · o aro do `.dl-ring` (o anel que gira enquanto um download corre) — ele É
 //     um círculo, não a moldura de um elemento. O irmão dele no palco
 //     (`.av-stage-busy`) saiu na v1.4.8, junto com a folha `shared/stage.css`:
-//     o telão não anuncia mais preparo nenhum;
+//     o telão não anuncia mais preparo nenhum. Desde a v1.7.2 a declaração dele
+//     tem DOIS consumidores (o tile de Configurações que está exportando usa o
+//     mesmo aro) — o que este recorte segue é a DECLARAÇÃO, e é por isso que ele
+//     continua sendo um nome escrito à mão e não uma segunda entrada na lista;
 //   · o ✓ do `.song-menu-check` (duas bordas em L, giradas 45°) — é o glifo que
 //     falta no subset da fonte de ícones.
 //
@@ -220,14 +223,17 @@ checar(orfaos.length === 0,
   // uma a uma de propósito: uma heurística ("anéis podem") deixaria a próxima
   // borda entrar chamando-se desenho.
   const recortar = (s) => s
-    .replace(/\.dl-ring::before\s*\{[^}]*\}/g, '')
+    // O aro tem DOIS consumidores desde a v1.7.2 (o `.dl-ring` e o tile de
+    // Configurações que está exportando), e UMA declaração — o recorte segue a
+    // declaração, não o consumidor.
+    .replace(/\.dl-ring::before,\s*\.qs-tile\.qs-trabalhando::after\s*\{[^}]*\}/g, '')
     .replace(/\.song-menu-check\.on::after\s*\{[^}]*\}/g, '')
     .replace(/#hymnSearchInput\s*\{[^}]*\}/g, '')
     // (O RECORTE POR ESCOPO `.acervo` saiu na v1.5.14, com a moldura. Ele era a
     // única exceção deste oráculo que não nomeava uma peça — e uma exceção por
     // escopo é a que mais barato se alarga: bastava um seletor novo começar com
     // `.acervo` para uma borda entrar sem ninguém decidir nada.)
-    .replace(/@media[^{]*\{\s*\.dl-ring::before[^}]*\}/g, '');
+    .replace(/@media[^{]*\{\s*\.dl-ring::before,\s*\.qs-tile\.qs-trabalhando::after[^}]*\}/g, '');
   const contornos = [];
   for (const f of arquivos) {
     const s = recortar(semComentarios(fonte.get(f) || ''));

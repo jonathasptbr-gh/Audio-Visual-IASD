@@ -41,7 +41,7 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { semRedeExterna } from './sem-rede.mjs';
-import { servirEstatico, abrirNavegador, checar, falhas } from './arnes.mjs';
+import { servirEstatico, abrirNavegador, esperarCortina, checar, falhas } from './arnes.mjs';
 
 // A ponte de mentira: o modo avançado é o território deste oráculo, e sem
 // `__NATIVE__` metade das guardas do deck nem roda.
@@ -86,6 +86,9 @@ const base = 'http://localhost:' + servidor.address().port;
 try {
   await pg.addInitScript(PONTE);
   await pg.goto(base + '/controle/', { waitUntil: 'domcontentloaded' });
+  // A CORTINA cobre a tela por 1,8 s (v1.7.2) e ela é o topo da pilha: sem esta
+  // espera, todo hit-test e toda captura deste arquivo medem o `#splash`.
+  await esperarCortina(pg);
   // O mesmo critério do watchdog do OTA: o `init()` é assíncrono e termina
   // DEPOIS do `load`. Plantar cena antes disso é correr contra a inicialização.
   await pg.waitForFunction(

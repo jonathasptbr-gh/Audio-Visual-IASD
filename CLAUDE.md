@@ -2915,13 +2915,91 @@ mesmo motivo — a regra é o que erra, e a regra se conserta por OTA em minutos
   enquanto gigabytes atravessam o canal é um OOM num processo que hospeda dois
   WebViews e a `Presentation`. Ler um registro NÃO lê os bytes do Blob (o IDB o
   guarda por referência), então reler cada um na hora de escrever custa o
-  metadado.
+  metadado. **A exceção são as chaves de `state`**, que o plano lê e CODIFICA
+  uma vez e a escrita reusa: elas são milhares e minúsculas, e o
+  `JSON.stringify` delas é o único jeito de saber quanto pesam — ver abaixo.
+- **O RESUMO DO ACERVO É UM CURSOR, não N leituras** (`AVDB.mediaResumo`). O
+  plano precisa do peso de cada item; pedi-lo com um `getMedia` por id é uma
+  transação por registro, milhares delas em fila. Um cursor percorre a store
+  inteira de uma vez e guarda dois campos por item — e não é um `getAll`, que
+  materializaria a letra e a miniatura de tudo num array só.
+
+### O 0%, e por que ele não era lentidão de disco (v1.7.2)
+
+Relato do operador: *"ou está absurdamente lento, ou não está funcionando, pois
+não sai de 0% de progresso da exportação"*. As duas leituras estavam certas, e a
+causa das duas é a mesma: **cada bloco que atravessa o canal é uma IDA E VOLTA**
+(`postMessage` → thread de escrita → ack), e ela custa o mesmo para 50 bytes e
+para 512 kB.
+
+- **A BÍBLIA MORA EM `state` COM UMA CHAVE POR CAPÍTULO** — 1189 por versão
+  (`bible:<v>_<livro>_<cap>`, ver `ensureBibleVersionDownloaded`). Com duas ou
+  três versões baixadas são ~3.600 chaves, e a versão anterior mandava um bloco
+  por CABEÇALHO e um por CORPO: **~7.200 viagens** para escrever poucos
+  megabytes.
+- **E NENHUM REGISTRO DE `state` REPORTAVA BYTES** — nem o plano os somava —,
+  então a parte mais demorada da exportação acontecia inteira com a notificação
+  parada em 0%. Indistinguível de travar.
+- **O ESCRITOR JUNTA OS PEQUENOS** (`pacoteEscritor`): os mesmos megabytes viram
+  ~20 blocos. Um corpo GRANDE (≥ um bloco) continua indo direto, fatia por
+  fatia — passá-lo pelo buffer seria uma cópia de memória a mais por bloco, e é
+  ele que responde por quase todo o peso do pacote. **O FORMATO não muda em
+  nada:** o arquivo é uma sequência de bytes, e em quantos pedaços ela atravessa
+  o canal é assunto deste lado.
+- **O progresso conta CORPO, nunca cabeçalho** — é o que o plano soma, e contar
+  os cabeçalhos junto faria a barra passar de 100%.
+- **E TROCAR A RÉGUA NÃO É ANDAR NELA** (`bgTaskBytes`): a unidade e o
+  denominador são ESTADO, e passavam pelo freio de 700 ms da notificação. A
+  barra anunciava "0 de 1" por quase um segundo antes de dizer o que ela era —
+  num pacote de gigabytes é o primeiro número que o operador lê.
+
+### O que levar: a folha de grupos (v1.7.2)
+
+Pedido do operador: *"pode fazer ele de forma segmentada, por coleção? … caso o
+usuário não queira levar toda a biblioteca … permita um popup com um check list
+de grupos para a exportação"*.
+
+- **A MEDIÇÃO VEM ANTES DE TUDO, E ELA APARECE.** O plano varre o OPFS inteiro,
+  percorre a store de mídia e lê as chaves de `state`; até aqui ele rodava
+  DEPOIS do "Salvar como", em silêncio absoluto. Hoje ele roda antes da folha —
+  que precisa dos tamanhos de qualquer jeito — com o cartão da preview dizendo
+  "Medindo o acervo", e a exportação começa com tudo já conhecido.
+- **A FOLHA É A MESMA do seletor de destinos** (`escolherDestinos`): as mesmas
+  linhas selecionáveis de corpo inteiro, a mesma caixa como indicador, o mesmo
+  confirmar sempre visível — que mostra o PESO do que foi marcado, porque é a
+  única pergunta que sobra depois de escolher. Um segundo formato de folha de
+  múltipla escolha seria a divergência que a v5.252 gastou um lote para tirar.
+- **TUDO NASCE MARCADO:** o caso normal é levar o acervo inteiro, e a folha
+  existe para PODER tirar.
+- **"Ajustes e catálogos" NÃO É OPCIONAL**, e a razão é o coletor de lixo do
+  destino: as listas do app (`imports`, `playlist`, `favs`) moram em `state`, e
+  um item de mídia que chega sem a lista que o referencia é ÓRFÃO — o
+  `gcOrfaos` da abertura seguinte o apaga. Um pacote "só a mídia" importaria e
+  sumiria sozinho. Ele é uma linha SEM ouvinte (`.song-menu-fixo`), com a marca
+  já acesa e o motivo no subtítulo: uma linha com cara de alvo que não responde
+  ao toque é pior que uma que nunca prometeu responder.
+- **O GRUPO DE UM CAMINHO É REGRA PURA** (`AVPacote.grupoDoCaminho`), porque a
+  relação entre o OPFS e as coleções é uma CONVENÇÃO DE CAMINHO
+  (`folders/<id>/…`), não um campo. Ela tem o grupo de escape `outros` — uma
+  coleção que saiu do catálogo continua com bytes no disco, e sem ele eles
+  sairiam do pacote sem aparecer em lista nenhuma.
+- **O CATÁLOGO SEGUE OS BYTES, pela MESMA função.** Um registro de `files` cujo
+  arquivo não viaja é uma faixa que aparece na Biblioteca do destino e não toca.
+- **O `info` DIZ QUE GRUPOS O ARQUIVO TRAZ.** Um pacote parcial é o caso normal
+  agora, e *"o que tem aqui dentro?"* passou a ser uma pergunta com resposta.
+- **E ELA PODE SER CANCELADA** — o ✕ do cartão sobre a preview, lido pelo
+  escritor a cada bloco (a anatomia do `ytCancel`: o laço está ocupado
+  justamente com o que se quer parar). Até aqui, começar era ficar preso até o
+  fim ou até uma falha; desistir apaga o parcial pelo caminho de saída que toda
+  falha já usava, e não abre diálogo de erro — o operador acabou de tocar no ✕.
 
 Oráculos: **`pacote.test.mjs`** (a REGRA — assinatura, cursor, recusas,
-saneamento) e **`pacote-ida-e-volta.test.mjs`** (a LIGAÇÃO — dois contextos de
-navegador, como dois celulares: semear, exportar, importar num armazenamento
-vazio, e importar DE NOVO sem apagar nada). São dois porque *ler cada lado
-isolado aprova os dois*.
+saneamento, e o grupo de um caminho), **`pacote-ida-e-volta.test.mjs`** (a
+LIGAÇÃO — dois contextos de navegador, como dois celulares) e
+**`pacote-por-grupos.test.mjs`** (o LOTE, o PROGRESSO e a ESCOLHA cortando
+bytes). Os dois primeiros são dois porque *ler cada lado isolado aprova os
+dois*; o terceiro existe porque o que ele mede não tem sintoma — uma exportação
+lenta e muda continua produzindo o arquivo certo.
 
 ---
 
@@ -2947,12 +3025,36 @@ a última linha do `init()`.
   `controle.js` nem chega a ser parseado. Armado no `<head>`, o prazo (12 s)
   roda mesmo aí, e o desfecho ruim volta a ser o app quebrado À VISTA, que é
   diagnosticável.
+- **E HÁ UM PISO, NÃO SÓ UM TETO** (1,8 s, v1.7.2). Pedido do operador: *"está
+  muito rápido, deixe por padrão um tempo mínimo se possível mais longo"*. Num
+  aparelho com o acervo em cache o `init()` termina em algumas centenas de
+  milissegundos, e o que se vê não é uma tela de abertura, é um LAMPEJO — a
+  mesma sensação de piscar que a cortina veio consertar, um degrau acima. Ele é
+  contado do INÍCIO da página e não do fim do `init()`, então um `init()` de 5 s
+  já o pagou e levanta a cortina na hora; encadeá-lo depois somaria os dois e
+  faria o aparelho lento esperar mais, que é o oposto do recurso. O teto chama a
+  saída DIRETO, sem passar pelo piso: ele é a rede de segurança de um app que
+  não subiu.
 - **Ela some por REMOÇÃO DO NÓ**, não por opacidade: uma camada `opacity: 0`
   sobre a tela inteira continua recebendo o toque, e o app abriria intocável.
 
+> **O PISO COBRA OS ORÁCULOS, e isso está dito porque não é óbvio.** A cortina é
+> opaca e é o topo da pilha, e com 1,8 s de piso existe um vão real em que a
+> tela não responde. `pg.click()` do Playwright espera a actionability e retenta
+> sozinho, então um oráculo que CLICA não vê nada; quem vê é quem MEDE —
+> `elementFromPoint`, captura de pixel, geometria. MEDIDO na entrada deste lote:
+> **6 dos 63 oráculos reprovaram, e os 6 por hit-test**. Daí o `esperarCortina`
+> do arnês, e a regra para o próximo: **todo oráculo que toca na tela espera a
+> cortina depois de CADA carga** — inclusive depois de um `reload` no meio do
+> arquivo, que foi como ela apareceu no `smoke.mjs`.
+
 Oráculo: `abertura-e-transferencia.test.mjs`, com o cenário catastrófico medido
 (o `controle.js` abortado pela rota, o tema já certo, a cortina levantando pelo
-prazo).
+prazo) e o piso medido nas DUAS pontas com o relógio mockado — **em fatias**,
+porque `fastForward` não reprocessa o temporizador que o callback agenda no meio
+do salto, e **por leitura imediata**, porque o relógio instalado continua
+andando com o tempo real e uma espera de 15 s cruzaria o teto de 12 s (foi assim
+que a segunda asserção chegou a passar pelo motivo errado).
 
 ---
 
@@ -4060,7 +4162,7 @@ estilo do fade fora limpo — MEDIDO, ele é limpo em **3,1 s**.
 
 #### EM PARALELO, TRÊS DE CADA VEZ
 
-Os 62 de Chromium somavam **~8 min em série**, e o custo não é o que parece:
+Os 64 de Chromium somavam **~8 min em série**, e o custo não é o que parece:
 lançar o navegador são **~110 ms** e subir o `/controle/` inteiro é **~1 s** —
 compartilhar um navegador entre oráculos, a otimização óbvia, economizaria 2% e
 custaria o isolamento. O que sobra é espera, com os quatro núcleos ociosos.
@@ -4186,6 +4288,8 @@ mundo anterior por outro caminho.
 | `smoke.mjs` | sobe a base e usa a tela; mede o RENDERIZADO nos dois temas (palco sem tema, escada de camadas, contorno). **E A HIERARQUIA DA BIBLIOTECA** (v1.5.14): ele foi escrito para proteger o desenho da v1.5.9 e por isso APROVAVA o defeito — exigia que seção e card dividissem o tom (1,00:1), exigia a moldura nos dois níveis, e nunca comparava tampa × faixa, o par que valia 1,00:1 no escuro. Hoje afirma a ALTERNÂNCIA (degrau real contra o pai, e o card VOLTANDO ao tom da janela — sem essa segunda metade um terceiro tom passaria e a escada de quatro voltaria pela porta dos fundos), a AUSÊNCIA de moldura nos três níveis, e os DOIS cabeçalhos grudentos empilhados, com a folga do de dentro medida na altura RENDERIZADA do de fora. **E A PERNA DA RAIZ** (v1.5.15), que a v1.5.14 não media e por isso deixou passar dois defeitos: a PLACA de uma coleção da raiz tem degrau de verdade contra o poço em volta **e vale o MESMO que o card de álbum de dentro de uma seção** — sem essa segunda metade a faixa continua pousando em duas cores conforme onde a coleção mora, que é o relato; o `top` da tampa da raiz é ZERO, medido ao lado do da tampa aninhada na mesma passada (um `top` escrito por TIPO passa numa das duas e reprova na outra); e o primeiro bloco começa NO TOPO do scrollport, porque `padding` de um scroller é scrollport e a lista rola por ele à vista. A régua desta última é a GEOMETRIA, nunca `paddingTop` lido de volta: o vão pode voltar por qualquer caminho. **E o PAINEL RÁPIDO de Configurações** (v1.4.38): que o CORPO dela não rola — a asserção antiga media a FOLHA, e a folha nunca rolou (quem tem `overflow-y: auto` é o `.fade-opts`), então ela aprovava as duas versões —, que a grade tem três colunas, e que o tile ALTERNA e volta. **E o que o AZUL quer dizer** (v1.4.40): quem não tem "desligado" fica aceso o tempo todo (apagado, neste app, quer dizer INDISPONÍVEL) **e mesmo assim troca de desenho** — `qs-alt` responde "qual desenho?" e `qs-on` responde "está ligado?", e enquanto foram a mesma classe um tile sempre aceso ficava preso no desenho alternativo. A metade que impede o conserto preguiçoso (acender tudo, sempre) é o fundo da letra continuar APAGANDO, medido na cor RENDERIZADA: uma classe sem a regra de CSS passa num teste de classe e continua invisível na tela. **E o MODO DO APP como interruptor que desliza** (v1.4.43): o polegar ANDA, medido na `transform` RENDERIZADA do `::before` do trilho — uma troca de classe passa num teste de classe e continua imóvel na tela, e ler a posição do BOTÃO não serviria porque o botão nunca se mexe; os dois botões SEM fundo próprio (sem esta, acrescentar o polegar por cima do desenho antigo deixaria a pilha de quatro tons de pé, com uma camada A MAIS); e o `data-modo` seguindo o modo, que é por onde o CSS decide o lado. Mais a folha que **FICA ABERTA e IMÓVEL** ao trocar de modo — duas asserções e não uma, porque a primeira responde ao `closeFadePopup` que saiu do ouvinte e a segunda responde ao `<main>`: a caixa é `fixed` e mora FORA dele, e movê-la para dentro mantém a classe `open` e apaga a folha da tela. **Assentar é `getAnimations()` + `finished`**, nunca duas amostras iguais em quadros seguidos (MEDIDO: `top: -449`, a folha ainda no teto, aprovada como assentada) nem o primeiro `transitionend` (MEDIDO: `top: -7`, a `transform` a sete pixels do fim com a opacidade já pronta). **E o que a v1.4.44 corrigiu nele**: o trilho medindo EXATAMENTE a grade de tiles (um `.fade-row` pintando `--panel` sobre uma folha que já é `--panel` é um CARTÃO INVISÍVEL — não se via, mas o `padding` dele recuava o trilho 12,8px de cada lado, e o relato foi o desalinhamento), o TÍTULO centrado medido no texto PINTADO por um `Range` (a caixa do `<span>` é `stretch` e ocupa a linha inteira nas duas versões, então medi-la aprova o rótulo colado à esquerda), e o RODAPÉ como UMA barra — a asserção é o número de SUPERFÍCIES pintadas dentro dele, porque a v1.4.43 já tinha dois blocos com o mesmo tom e o que se via eram duas caixas |
 | `pacote-ida-e-volta.test.mjs` | **o pacote de um aparelho para o outro**, em DOIS contextos de navegador com armazenamentos separados — o `pacote.test.mjs` prende a regra, este prende a LIGAÇÃO, que falha com a regra certa e o acervo não chegando. Nada é comparado contra o que a exportação achou que escreveu: afirma-se o que o SEGUNDO aparelho tem depois. Cobre a imagem de fundo da estrofe (que NENHUM registro do catálogo nomeia — é ela que prova que a varredura é do DISCO), o `stream` que não atravessa, a pasta do aparelho que fica para trás, e a promessa inteira: importar DE NOVO, com o local já diferente, não apaga o renomeado nem a preferência de quem importou — e a lista de ids se SOMA |
 | `linha-da-preparacao.test.mjs` | **a linha de uma PREPARAÇÃO não é a de um download** (v1.7.1), e as duas metades falham CALADAS. A ilustração: a faixa de progresso ocupa a POSIÇÃO DO SUBTÍTULO — a pergunta é de ÁRVORE (dentro da coluna de texto e DEPOIS do nome), porque um `.dl-prog` solto na `.row` passa num teste de presença e aparece noutro lugar da linha —, o trilho só existe quando há proporção (uma barra parada em zero se lê como travada) e o PREENCHIMENTO é medido em PIXELS RENDERIZADOS: sem a regra de CSS o `style` inline fica de pé sobre um elemento sem caixa nenhuma, e um teste do `style` aprova isso. O ícone: preparar uma apresentação não baixa byte nenhum, e a seta prometia bytes — a regra de v1.4.19 (*o ícone segue a LEGENDA*) num lugar novo, com a REVERSÃO ao lado, porque a seta ACENDE num download de verdade e APAGA de volta quando a legenda deixa de prometê-los. A legenda vem de quem TEM os números (nem a linha nem o oráculo parseiam frase nenhuma), e o percentual solto saiu: a barra e a fração já o dizem. **A linha é endereçada pelo NOME** — MEDIDO, 1 reprovação em 8 rodadas a 3× de carga com `querySelector`: as duas metades montam uma linha cada, e sob carga a de baixo media a seta da de cima |
+| `configuracoes-sem-subtitulo.test.mjs` | **as Configurações sem a palavra do estado** (v1.7.2). A segunda linha de cada tile saiu a pedido do operador, e a razão de ela existir era real — *um ícone sozinho responde por CONVENÇÃO, e convenção é o que se erra num app aberto três vezes por semana* —, então o que este oráculo prende não é a remoção: é a informação ter MUDADO DE CANAL. Um tile cujo estado não vira desenho fica idêntico nos dois estados, sem erro e sem sintoma. Mede o giro pela matriz COMPUTADA do ícone (uma regra de CSS ausente deixa o `data-estado` certo e o desenho parado), o wallpaper pelo `display` de cada `<use>` do par novo — **com o tile continuando ACESO nos dois estados**, senão o conserto barato é apagá-lo, e apagado neste app quer dizer INDISPONÍVEL —, e o rótulo do modo em DUAS larguras, pelo número de retângulos de cliente ("Modo avançado" quebrado em duas linhas tem dois, e `scrollWidth` de um inline que quebra não denuncia nada). **Assentar é `getAnimations()` + `finished`**: o ícone GIRA, e uma leitura por relógio mede a transição no meio (MEDIDO: `matrix(0.80, 0.59, …)` a 60 ms, que não é ângulo nenhum) |
+| `pacote-por-grupos.test.mjs` | **a exportação por grupos, e o 0%** (v1.7.2). Três coisas falham CALADAS. (1) O **LOTE**: cada bloco do canal é uma ida e volta, e ela custa o mesmo para 50 bytes e para 512 kB — a Bíblia mora em `state` com UMA CHAVE POR CAPÍTULO (1189 por versão), e a versão anterior mandava um bloco por cabeçalho e um por corpo. A semente imita isso (400 chaves e nada mais) e a asserção é o número de blocos. (2) O **PROGRESSO** naquela fase, que não era reportado nem somado no plano — a régua é o percentual do CARTÃO no fim, e não o `done` da notificação: `> 0` passa só com o cabeçalho humano (MEDIDO ao escrever o arquivo), e o `done` emitido mede o freio de 700 ms, não o app. (3) A **ESCOLHA** cortar bytes de verdade, com o catálogo seguindo os bytes — um registro de `files` sem o arquivo dele é uma faixa que aparece na Biblioteca do destino e não toca. Cinco reversões nomeadas |
 | `abertura-e-transferencia.test.mjs` | **a CORTINA que não pode ficar no ar**, no cenário catastrófico: o `controle.js` abortado pela rota, o tema guardado já no `<html>` (quem o escreveu foi o script do `<head>`) e a cortina levantando pelo PRAZO — sem isso o app fica trancado, e não há erro em lugar nenhum. Mais a saída por REMOÇÃO DO NÓ, medida por hit-test (uma camada `opacity: 0` sobre a tela inteira continua recebendo o toque). E a BADGE: as TRÊS casas dizem o mesmo número, nenhuma escreve "Web"/"Shell" — **e o REGISTRO continua trazendo o índice do shell**, que é a metade que impede o conserto largo demais. Mais o bloco "Este aparelho", com a reversão (sem ponte ele não existe) |
 | `boot-nativo.test.mjs` | **A GAVETA DE DETALHE DE UM VÍDEO** (v1.5.21), nas duas metades que só juntas dizem a regra: com o dado, o card ABRE pela identidade e as quatro linhas saem na ORDEM DO DOM (uma asserção do tipo *"o texto contém o canal?"* aprovaria o canal desenhado embaixo do estado no aparelho); sem ele — um ÍNDICE ANTIGO, a janela real entre o OTA chegar e a varredura refazer a lista —, a linha ausente SOME e não sobra "undefined" em lugar nenhum. Provado por reversão: desenhando SEMPRE, o card sai com `Título: undefined`. E o `serie.test.mjs` não cobre isto — ele prende a REGRA, este prende a LIGAÇÃO, que falha com a regra certa e o card mudo. Mais **o boot COM a ponte presente** — o `smoke` sobe SEM `__AVBridge`, então todo caminho `window.__NATIVE__` (justamente os que só rodam no aparelho) nunca era executado. Injeta uma ponte de mentira e pergunta o que o watchdog pergunta: o app ficou de pé? **E a LIGAÇÃO da regra das coletâneas** (v1.5.16): o `coletanea.test.mjs` prende a REGRA, este prende o fio até a tela, que falha de outro jeito — a regra continua certa e o recurso não faz nada. São DOIS consumidores do mesmo resultado (o laço que desenha as seções e o `claimed` dos órfãos), e ligar só um devolve *"Outros álbuns"*. **Os nomes das seções do fixture de rolagem viraram neutros no mesmo lote**: três eram os nomes REAIS do banco, e com a regra no ar aquele cenário montava CINCO seções onde o texto diz seis — MEDIDO, com a asserção VERDE, medindo outra coisa |
 | `display-smoke.mjs` | **o TELÃO** — a metade que roda na frente da congregação, e a que menos rede de segurança tem (o watchdog do OTA não a valida). Viewport fixo em 961×540, explicitamente. Trava o endereçamento do reenvio de cena |
@@ -4679,7 +4783,7 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.7.1 · APK v1.7.0** · `SHELL_VERSION` **63** ·
+**Versão atual: base web v1.7.2 · APK v1.7.0** · `SHELL_VERSION` **63** ·
 bundle com `minShell: 63` e **sem `shellTag`** — o shell 63 é o **PISO**:
 todo método da ponte existe, e não há guarda de versão no lado web.
 
@@ -4689,8 +4793,43 @@ não foram tocados, e nenhum método da ponte entrou ou mudou de forma. Daí o
 Release que não vai sair, em silêncio, e a única pista seria a linha no resumo
 do run.
 
-**O QUE O LOTE TRAZ — a linha de uma PREPARAÇÃO deixou de se parecer com a de um
-download**, nas duas metades que o operador nomeou:
+**O QUE O LOTE TRAZ — três pedidos, e o terceiro é um defeito com relato:**
+
+| peça | onde |
+|---|---|
+| CONFIGURAÇÕES sem a palavra do estado, numa grade só, com o modo dentro dos botões | `index.html` + `pintarTile`/`renderRotBtn`/`renderWallTile` |
+| a CORTINA com um PISO de 1,8 s — ela era um lampejo | o script inline do `<head>` |
+| a EXPORTAÇÃO que ficava em 0%: o LOTE de blocos, o progresso na fase das chaves, e a folha de GRUPOS | `pacoteEscritor`/`pacotePlano`/`escolherGruposDoPacote` + `AVPacote.grupoDoCaminho` |
+
+> **O 0% NÃO ERA LENTIDÃO DE DISCO** (v1.7.2). A Bíblia mora em `state` com uma
+> chave POR CAPÍTULO — 1189 por versão —, e cada registro custava DUAS idas e
+> voltas pelo canal (uma pelo cabeçalho, outra pelo corpo): ~7.200 viagens para
+> escrever poucos megabytes, e nenhuma delas reportava byte nenhum. O escritor
+> passou a juntar os pequenos num bloco só, e o plano passou a somá-los. Ver "O
+> pacote de transferência" para a conta inteira.
+>
+> **E A FOLHA DE GRUPOS É A SEGMENTAÇÃO PEDIDA**: o operador escolhe o que
+> levar, coleção por coleção, e "Ajustes e catálogos" é a única linha que não se
+> desmarca — as listas do app moram em `state`, e mídia sem a lista que a
+> referencia é órfã no destino.
+
+> **A PALAVRA DO ESTADO SAIU DOS TILES, e a informação MUDOU DE CANAL.** O
+> pedido foi *"todo tipo de informação além do nome deve ser representada pelo
+> ícone"*, e a razão de a palavra existir era real e está escrita desde a
+> v1.4.38. Tile a tile: tema, preenchimento e fundo da letra já tinham o par de
+> desenhos; o WALLPAPER ganhou o par agora (rolo vazio × rolo cheio); o GIRO
+> passou a girar o próprio ícone; histórico e compartilhar não tinham estado
+> nenhum; exportar e importar trocaram o "42%" pelo ARO, com o número indo para
+> o cartão da preview e a notificação — as duas superfícies que sobrevivem ao
+> app minimizado, que é quando uma exportação de gigabytes está correndo.
+>
+> **A consequência para o PRÓXIMO tile é dura e está no comentário da grade:**
+> um tile cujo estado não caiba num desenho não cabe nesta grade. Não há mais
+> onde escrever a palavra, e devolvê-la para um só devolve a segunda linha a
+> todos — a grade tem altura comum.
+
+> **O LOTE ANTERIOR (v1.7.1) — a linha de uma PREPARAÇÃO deixou de se parecer
+> com a de um download**, nas duas metades que o operador nomeou:
 
 | peça | onde |
 |---|---|

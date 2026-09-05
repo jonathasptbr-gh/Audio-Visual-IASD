@@ -56,7 +56,7 @@ import zlib from 'node:zlib';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { semRedeExterna } from './sem-rede.mjs';
-import { servirEstatico, abrirNavegador, checar, falhas } from './arnes.mjs';
+import { servirEstatico, abrirNavegador, esperarCortina, checar, falhas } from './arnes.mjs';
 
 const RAIZ = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'app', 'src', 'main', 'assets', 'web');
 const servidor = servirEstatico(RAIZ);
@@ -179,6 +179,9 @@ pg.on('pageerror', (e) => erros.push('pageerror: ' + e.message));
 
 try {
   await pg.goto(`http://localhost:${porta}/controle/`, { waitUntil: 'domcontentloaded' });
+  // A CORTINA cobre a tela por 1,8 s (v1.7.2) e ela é o topo da pilha: sem esta
+  // espera, todo hit-test e toda captura deste arquivo medem o `#splash`.
+  await esperarCortina(pg);
   await pg.waitForFunction(() => (
     window.AVDB && window.AVStream && window.createStage && window.AVHinario
       && typeof window.__avBack === 'function'
@@ -999,6 +1002,9 @@ try {
     });
     const p2 = await c2.newPage();
     await p2.goto(`http://localhost:${porta}/controle/`, { waitUntil: 'domcontentloaded' });
+    // A CORTINA cobre a tela por 1,8 s (v1.7.2) e ela é o topo da pilha: sem esta
+    // espera, todo hit-test e toda captura deste arquivo medem o `#splash`.
+    await esperarCortina(p2);
     await p2.waitForFunction(
       () => window.AVDB && typeof window.__avBack === 'function'
         && !!document.querySelector('#playlist li'), null, { timeout: 30000 },
@@ -1367,6 +1373,9 @@ try {
       () => new Promise((f) => requestAnimationFrame(() => requestAnimationFrame(f))),
     );
     await pF.goto(`http://localhost:${porta}/controle/`, { waitUntil: 'domcontentloaded' });
+    // A CORTINA cobre a tela por 1,8 s (v1.7.2) e ela é o topo da pilha: sem esta
+    // espera, todo hit-test e toda captura deste arquivo medem o `#splash`.
+    await esperarCortina(pF);
     await pF.waitForFunction(
       () => window.AVDB && typeof window.__avBack === 'function'
         && !!document.querySelector('#playlist li'), null, { timeout: 30000 },

@@ -24,6 +24,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
+- **v1.7.2** — AS CONFIGURAÇÕES MAIS QUIETAS, A CORTINA COM PISO, E O 0% DA EXPORTAÇÃO. Três pedidos, e o terceiro é um defeito com relato. (1) **AS CONFIGURAÇÕES**: o rótulo solto "Modo do app" saiu e a palavra desceu para dentro das duas metades ("Modo simples"/"Modo avançado"); o rótulo "Este aparelho" saiu e os três tiles dele entraram na grade única, que passou a ter NOVE em três fileiras exatas; e a `.qs-estado` — a segunda linha de cada tile — saiu de todos: *"todo tipo de informação além do nome deve ser representada pelo ícone"*. **A informação não foi removida, mudou de canal**: tema, preenchimento e fundo da letra já tinham o par de desenhos; o WALLPAPER ganhou o par agora (rolo vazio × rolo cheio — a razão de ele não ter é o que decidiu a FORMA: um desenho de "foto" viraria o `icoImagem` de outro tile da mesma grade); o GIRO passou a girar o próprio ícone (não quatro desenhos, que a v1.4.38 mediu não se distinguirem a 22px, mas o MESMO desenho na posição que ele descreve, com transição — é vendo o ícone virar que se lê o toque); histórico e compartilhar não tinham estado; exportar e importar trocaram o "42%" pelo ARO, com o número indo para o cartão da preview e para a notificação. O estado continua dito no `aria-label`. **A consequência para o próximo tile está escrita**: um tile cujo estado não caiba num desenho não cabe nesta grade. O rodapé passou a dizer *"Áudio Visual IASD vX.Y.Z"*; as badges do cabeçalho continuam secas. (2) **A CORTINA GANHOU UM PISO** de 1,8 s: *"está muito rápido, deixe por padrão um tempo mínimo se possível mais longo"*. Com o acervo em cache o `init()` terminava em centenas de milissegundos e o que se via era um LAMPEJO. O piso é contado do INÍCIO da página (um `init()` de 5 s já o pagou), e o teto de 12 s chama a saída DIRETO, sem passar por ele — ele é a rede de segurança de um app que não subiu. **Ele cobrou os oráculos**: 6 dos 63 reprovaram, e os 6 por hit-test (`pg.click` espera a actionability e retenta; quem vê a cortina é quem MEDE). Daí o `esperarCortina` do arnês, e a regra de esperar por ela depois de CADA carga — inclusive depois de um `reload` no meio do arquivo, que foi como ela apareceu no `smoke.mjs`. (3) **A EXPORTAÇÃO PARADA EM 0%**, relatada como *"ou está absurdamente lento, ou não está funcionando"*: as duas leituras estavam certas e a causa é a mesma. A Bíblia mora em `state` com UMA CHAVE POR CAPÍTULO (1189 por versão), e cada registro custava DUAS idas e voltas pelo canal — ~7.200 viagens para escrever poucos megabytes —, e nenhum registro de `state` reportava bytes nem entrava no total do plano. O escritor passou a JUNTAR os pequenos num bloco (os mesmos megabytes viram ~20 blocos; um corpo ≥ um bloco continua indo direto, e o FORMATO não muda), o plano passou a somá-los, e `bgTaskBytes` passou a forçar a troca de RÉGUA pelo freio de 700 ms (a barra anunciava "0 de 1" por quase um segundo). Mais a SEGMENTAÇÃO pedida: uma folha com os grupos — ajustes, cada coleção pelo nome, itens importados, outros —, com o peso de cada um e o do total no confirmar. *"Ajustes e catálogos"* é a única linha que não se desmarca: as listas do app moram em `state`, e mídia sem a lista que a referencia é ÓRFÃ no destino — o `gcOrfaos` da abertura seguinte a apaga. O catálogo segue os bytes pela MESMA função (um registro de `files` sem o arquivo é uma faixa que não toca), o `info` diz que grupos o arquivo traz, e a exportação passou a poder ser CANCELADA. Oráculos novos: `configuracoes-sem-subtitulo.test.mjs` e `pacote-por-grupos.test.mjs`, com reversão em todas as asserções. Lote **só de base web**.
 - **v1.7.1** — A LINHA DE UMA PREPARAÇÃO DEIXOU DE SE PARECER COM A DE UM DOWNLOAD. Dois ajustes pedidos com a apresentação preparando na tela: *"na notificação temos barra de progresso e informações como quantas páginas já foram preparadas… ajuste a ilustração da representação do progresso no item do cronograma, atualmente ele só tem a porcentagem, mas gostaria que usasse a posição do texto secundário para uma barra de progresso, e a fração das páginas já preparadas"* e *"para essas preparações, não downloads, [troque] o ícone da thumbnail que ainda fica um ícone de seta de download… deixe sem ícone, só o spinner"*. (1) **A FAIXA** ocupa a posição do SUBTÍTULO (`.dl-prog` dentro da `.row-text`, depois do `.row-name` — a pergunta é de ÁRVORE, e é ela que mantém a altura da linha), com a legenda por extenso e um trilho que **só existe quando há proporção**: uma barra parada em zero durante o preparo se lê como travada. **E a fração não custou parâmetro nenhum** — a linha já RECEBIA a legenda (`Preparando página 4 de 8…`, a mesma que a notificação do sistema mostra, escrita por quem tem os números) e a descartava, desenhando só o percentual solto; consumi-la entrega a fração de graça, sem ninguém parsear frase nenhuma. O `.dl-pct` saiu da linha do Cronograma e da Biblioteca (fica na lista de resultados do YouTube, que não tem subtítulo a ceder): onde a barra e a legenda já dizem o número, um terceiro lugar dizendo o mesmo é o que este app tira de cena em toda passada. (2) **A SETA** virou condicional na LINHA, como já era no cartão — o operador reconheceu o próprio precedente (*"acho que já temos um desses que também não vai ícone"*): a v1.4.19 estabeleceu que o `.dl-ring` são DOIS desenhos (o aro diz *espere*, a seta diz *bytes chegando*) e a linha ficou com a seta incondicional por três lotes, prometendo um download que não estava acontecendo. `legendaEhDownload` passou a ser a fonte ÚNICA dos dois, então eles não têm como discordar, e o `atualizar` repinta o ícone junto com a faixa — senão o desenho ficaria preso na primeira legenda. **A cor do trilho é `--surface`** e não um `-soft`: alfa numa superfície de controle é o que o `tokens.test.mjs` reprova, e MEDIDO o `--btn-accent` ali dá 1,07:1 contra o fundo da linha (some), contra 1,20–1,38:1 do `--surface` nos quatro pares de base × tema. **E o oráculo novo cobrou a si mesmo na campanha:** 1 reprovação em 8 rodadas a 3× de carga, porque as duas metades montam uma linha cada e o `querySelector` da de baixo pegava a linha da de cima — três asserções vermelhas descrevendo um app correto. A linha passou a ser endereçada pelo NOME; 12/12 depois disso. Oráculo: `tools/linha-da-preparacao.test.mjs`, com REVERSÃO nas duas metades. Lote **só de base web**.
 - **v1.7.0** — A ABERTURA POR TRÁS DOS PANOS, A BADGE DE VERSÃO, O COMPARTILHAR E O PACOTE DE TRANSFERÊNCIA. Quatro pedidos do operador num lote, e o que os une é serem tudo o que o app tinha DE FORA do culto. (1) **A CORTINA**: *"é comum abrir o app e telas piscarem até que fique no lugar correto… o tema escuro aparece antes de se ajustar para o tema correto"*. O lado NATIVO já estava certo (o `windowBackground`, a raiz da Activity e o WebView nascem na cor guardada); quem piscava era o DOCUMENTO, entre o primeiro quadro e a última linha do `init()` — o `controle.js` é o ÚLTIMO dos catorze scripts do `<body>`, e até ele rodar quem pinta é o `:root` sem atributo. O tema ganhou conserto próprio (um script inline no `<head>`, que é agora a ÚNICA leitura de `av.tema`: o `storedTema()` passou a ler o ATRIBUTO que sai dali); o resto — o modo, a lista vazia, a preview sem wallpaper — ganhou a cortina. **O PRAZO É ARMADO NO `<head>`, e é a decisão do bloco**: uma cortina que não levanta é um app inutilizável, e o caminho provável disso é justamente o que o watchdog do OTA existe para pegar — um bundle cujo `controle.js` nem é parseado. Armado lá, o prazo roda mesmo aí, e o desfecho ruim volta a ser o app quebrado À VISTA. (2) **A BADGE**: *"coloque uma nova badge de versão na tela principal, após o título áudio visual iasd (no modo simples) e no canto superior esquerdo (no modo avançado)"* · *"remova da ui a informação nas configurações do shell… coloque apenas ela, e apenas um número, sem o 'web'"*. As três casas passam a ter um escritor só, e o índice do shell continua no REGISTRO — tirá-lo dos dois lugares seria o conserto largo demais, e o oráculo o afirma. A casa do avançado já estava vaga desde a v1.5.0 (o `#backBtn` perdeu o dono quando a Bíblia virou folha); as duas trilhas laterais da faixa passaram a repartir a sobra em partes iguais, e é isso que mantém o título no eixo. (3) **O COMPARTILHAR**: até aqui não havia, de dentro do app, NENHUMA forma de passar o link da página adiante — e é o operador quem conversa com as outras igrejas. `compartilharTexto` (`ACTION_SEND` + `createChooser`); `navigator.share` não existe no WebView do Android, e `openExternal` faz o oposto do pedido (abre a página no próprio aparelho). (4) **O PACOTE**: *"a biblioteca e o resto são pesados… permitir copiar e compartilhar o arquivo diretamente de um smartphone para o outro é extremamente útil"*. Formato `.avpkg` SEQUENCIAL e não zip (um zip pede o diretório central no fim, e o acervo passa de gigabytes); a regra é pura, no `controle/pacote.js`, e os bytes vão pelo `PacoteCanal.kt` — o SEGUNDO canal de `ArrayBuffer` do shell, irmão do `EspelhoMidiaCanal`. **A importação não precisou de método nenhum**: `pickDoc` já devolve uma `/saf/` servível, e o lado web a lê por `Blob.slice()`, como o `pptxzip.js` faz com um `.pptx` de 570 MB. A promessa é *"importar só ACRESCENTA"* (`add` e não `put`; união nas listas, mescla nos mapas, local vencendo em tudo o mais), e ela tem oráculo de IDA E VOLTA em dois contextos de navegador. A varredura do OPFS é do DISCO e não do catálogo — as imagens de fundo da letra não viram registro, e um pacote montado pelo catálogo chegaria com o hinário e as estrofes sobre preto. **E a integração com a `main` cobrou um achado:** o `pptx-video-na-pagina.test.mjs` (v1.6.6) esperava pelo `currentId` e afirmava sobre o que vem DEPOIS dele — `send()` escreve aquele campo no COMEÇO e só emite o `load` no fim. MEDIDO: 2 reprovações em 8 rodadas a 3x de carga com este lote, 0 em 8 sem ele — a janela já existia, e o lote a alargou. A espera passou a ser pelo `load` daquele id, e a correção só pode reprovar MAIS: 0 em 10 rodadas depois dela. Lote **com Release** (`SHELL_VERSION` 63, `shellTag: "v1.7.0"`).
 - **v1.6.6** — OS TRÊS DEFEITOS DA AUTOMAÇÃO DO VÍDEO DE SLIDE, MAIS O PISCAR DA CAPA E O AUTOPLAY DA PRIMEIRA PÁGINA. Dois deles deles são o MESMO visto de dois lugares. Relato do operador: *"a importação funcionou, mas há um erro na automação, eu não consigo pular o vídeo. primeiro que o botão de próximo slide não reconhece o vídeo como uma página, logo ele não fica ativo para toque. segundo que qualquer tipo de tocar seguinte, faz com que a apresentação volte para o início"*. **A raiz é uma só:** com o vídeo em cena `currentItem` é o VÍDEO, então `deckNoAr()` devolve null, `slideTarget()` não acha eixo e o par de botões nasce DESABILITADO — mas para quem opera a cena continua sendo *"a página N da apresentação"*, porque o vídeo é o conteúdo daquela página e não um item à parte. `deckDoSlide`/`paginaDoSlide` respondem isso ao `slideTarget` e ao `renderSlideNav`, e `deckNoAr` fica INTOCADO de propósito: ele responde outra pergunta (*"que deck está no slot do motor?"*) e tem meia dúzia de consumidores que dependem dela. **O segundo é o mesmo defeito no `step()`:** o vídeo não está em lista nenhuma (é isso que o mantém fora do Cronograma), então o `findIndex` devolvia −1 e o `idx === -1` caía no PRIMEIRO item da fila — que num culto é a própria apresentação, e o que se via era ela voltando ao começo a cada toque. A âncora passa a ser a apresentação a que o vídeo pertence. **O TERCEIRO NÃO FOI RELATADO e é pior que os dois:** com o vídeo na ÚLTIMA página, `deckIr(pagina + 1)` é limitado ao fim, a volta pousa na MESMA página e a chegada redispara o vídeo — um laço que só um Parar quebra. `deckVideoVoltar` calcula o pouso ANTES de sair e suprime o gatilho SÓ quando ele é a página de origem; numa volta que anda de verdade a página seguinte com vídeo toca, que é o encadeamento pedido. **E O ORÁCULO TINHA DOIS DEFEITOS PRÓPRIOS, os dois achados pela disciplina da reversão.** O primeiro: o bloco novo montava a cena com um ÁUDIO no ar, e ali o `send` de uma apresentação a SOBREPÕE em vez de substituir (v1.4.28) — a automação não arma, e as asserções passavam medindo o caso da CAMADA. O segundo, o mais instrutivo: o "vídeo" da fixture era um WAV de 3 s, que ACABAVA sozinho no meio das asserções e fazia a automação disparar por conta própria — a prova de que o BOTÃO pulava o vídeo passava por CORRIDA, e a reversão do pulo não reprovava. Trinta segundos, e o fim só acontece quando o teste o pede. Cinco reversões nomeadas, todas reexecutadas. Lote **só de base web**.
@@ -350,6 +351,164 @@ na nota que a revoga, não apagada da que a criou.
 - **v5.156** — é METADE OTA e METADE APK, de novo.
 
 ---
+
+## v1.7.2 — as Configurações mais quietas, a cortina com piso, e o 0% da exportação
+
+Três pedidos num lote, e o terceiro não é um pedido de desenho: é um defeito com
+relato.
+
+### 1 · As Configurações
+
+> *"remova o título unificado de 'modo do app', ao invés disso, use texto
+> individual dentro de cada botão com os textos 'modo simples' e 'modo
+> avançado'"* · *"remova também o texto 'este aparelho' que divide as
+> configurações. Todos os blocos ficam em uma grade só, não precisa de
+> agrupamentos especiais"* · *"no rodapé das configurações, ajuste a
+> nomenclatura da versão, para que seja 'áudio visual IASD vx.x.x' com o nome do
+> app, para ter um melhor preenchimento do rodapé"* · *"por fim, remova o
+> subtítulo dos botões das configurações, todo tipo de informação além do nome
+> deve ser representada pelo ícone"*.
+
+Os três primeiros são diretos. O QUARTO revoga uma decisão com razão escrita, e
+é por isso que ele custou o lote:
+
+> **2. A PALAVRA DO ESTADO FICA.** Um ícone sozinho responde "o que está
+> ligado?" por CONVENÇÃO, e convenção é o que se erra quando o app é aberto três
+> vezes por semana. — o `index.html`, desde a v1.4.38
+
+A razão era real, e a resposta não foi tirar a informação: foi **mudá-la de
+canal**, tile a tile.
+
+| tile | o que a palavra dizia | quem responde agora |
+|---|---|---|
+| tema, preenchimento, fundo da letra | `Escuro`, `Ajustar`, `Mostrar` | o par de desenhos, que eles JÁ tinham — a palavra era a segunda cópia |
+| wallpaper | `Padrão` · `Própria` | o par NOVO: o rolo VAZIO × o rolo CHEIO |
+| girar | `0°` … `270°` | o próprio ícone, GIRADO pelo `data-estado` |
+| histórico, compartilhar | `Abrir`, `O app` | nada — eles nunca tiveram estado |
+| exportar, importar | `42%` | o ARO no lugar do ícone; o número foi para o cartão da preview e para a notificação |
+
+- **O GIRO não ganhou quatro desenhos**, e a v1.4.38 já tinha medido por quê:
+  quatro desenhos que só diferem pelo ângulo não se distinguem a 22px. O que ele
+  ganhou foi o MESMO desenho na posição que descreve, com transição — é vendo o
+  ícone VIRAR sob o dedo que se lê o que o toque fez, e é o mesmo giro que ele
+  faz no telão.
+- **O WALLPAPER era o único de dois estados sem par**, e a razão de não ter
+  continua válida — ela é que decidiu a FORMA: um desenho de "foto" viraria o
+  `icoImagem` de outro tile da mesma grade. O par não sai daí, sai do próprio
+  rolo. E o tile continua ACESO nos dois estados: há wallpaper no telão de
+  qualquer jeito, e apagá-lo diria INDISPONÍVEL.
+- **O estado continua dito fora da tela**: `pintarTile` escreve o `aria-label`
+  como `Título: Estado`. Quem lê a grade por leitor de tela tinha só "Tema".
+- **A consequência para o PRÓXIMO tile está escrita no `index.html`:** um tile
+  cujo estado não caiba num desenho não cabe nesta grade. Não há mais onde
+  escrever a palavra, e devolvê-la para um só devolve a segunda linha a todos.
+- **Um tile EM CURSO não apaga.** Exportar e importar ficam `disabled` enquanto
+  trabalham, e a folha do agente esmaece um botão desabilitado em alguns
+  motores — o que aqui diria INDISPONÍVEL sobre um botão que está justamente
+  trabalhando. Daí o `opacity: 1` explícito. O aro é a MESMA declaração do
+  `.dl-ring` (um desenho, dois consumidores), com o tile pondo só a geometria.
+
+### 2 · A cortina com piso
+
+> *"Aproveite para ajustar melhor o tempo da splash screen, está muito rápido.
+> Deixe por padrão um tempo mínimo se possível mais longo."*
+
+Com o acervo em cache o `init()` termina em centenas de milissegundos, e o que
+se via não era uma tela de abertura: era um LAMPEJO — a mesma sensação de piscar
+que a cortina veio consertar, um degrau acima. O piso é **1,8 s**, mais os
+260 ms do esmaecimento.
+
+- **Contado do INÍCIO da página**, não do fim do `init()`: um `init()` de 5 s já
+  pagou o piso e levanta a cortina na hora. Encadeá-lo depois somaria os dois e
+  faria o aparelho lento esperar mais, que é o oposto do recurso.
+- **O TETO de 12 s chama a saída DIRETO**, sem passar pelo piso: ele é a rede de
+  segurança de um app que não subiu, e fazê-lo respeitar uma regra de estética
+  seria pedir a coisa errada ao caminho de emergência.
+
+**E ELE COBROU OS ORÁCULOS, o que não era óbvio.** A cortina é opaca e é o topo
+da pilha, e o piso criou um vão real em que a tela não responde. `pg.click()` do
+Playwright espera a actionability e retenta sozinho, então um oráculo que CLICA
+não vê nada; quem vê é quem MEDE — `elementFromPoint`, captura de pixel,
+geometria. MEDIDO: **6 dos 63 oráculos reprovaram, e os 6 por hit-test**. Daí o
+`esperarCortina` do arnês e a regra escrita nele: **todo oráculo que toca na tela
+espera a cortina depois de CADA carga** — inclusive depois de um `reload` no meio
+do arquivo, que foi como ela apareceu no `smoke.mjs` (o `esperarCortina` do topo
+cobria só até ali).
+
+### 3 · O 0% da exportação
+
+> *"Verifique o método de exportar do app. Ou está absurdamente lento, ou não
+> está funcionando, pois não sai de 0% de progresso da exportação."*
+
+**As duas leituras estavam certas, e a causa das duas é a mesma.** Cada bloco
+que atravessa o canal do pacote é uma IDA E VOLTA (`postMessage` → thread de
+escrita → ack), e ela custa o mesmo para 50 bytes e para 512 kB.
+
+- **A BÍBLIA MORA EM `state` COM UMA CHAVE POR CAPÍTULO** — 1189 por versão
+  (`bible:<v>_<livro>_<cap>`). Com duas ou três versões baixadas são ~3.600
+  chaves, e a versão anterior mandava um bloco por CABEÇALHO e um por CORPO:
+  **~7.200 viagens** para escrever poucos megabytes.
+- **E NENHUM REGISTRO DE `state` REPORTAVA BYTES** — nem o plano os somava —,
+  então a fase mais demorada da exportação acontecia inteira com a notificação
+  parada em 0%. Indistinguível de travar.
+- **O ESCRITOR JUNTA OS PEQUENOS** (`pacoteEscritor`): os mesmos megabytes viram
+  ~20 blocos. Um corpo GRANDE (≥ um bloco) continua indo direto, fatia por
+  fatia — passá-lo pelo buffer seria uma cópia a mais por bloco, e é ele que
+  responde por quase todo o peso do pacote. **O FORMATO não muda em nada.**
+- **TROCAR A RÉGUA NÃO É ANDAR NELA** (`bgTaskBytes`): a unidade e o
+  denominador são ESTADO e passavam pelo freio de 700 ms, então a barra
+  anunciava "0 de 1" por quase um segundo antes de dizer o que ela era.
+- **O RESUMO DO ACERVO VIROU UM CURSOR** (`AVDB.mediaResumo`): o plano pedia o
+  peso de cada item com um `getMedia` por id — uma transação por registro,
+  milhares em fila.
+- **A MEDIÇÃO APARECE.** Ela roda antes da folha (que precisa dos tamanhos de
+  qualquer jeito), com o cartão da preview dizendo "Medindo o acervo"; até aqui
+  ela acontecia DEPOIS do "Salvar como", em silêncio absoluto.
+
+**E A SEGMENTAÇÃO PEDIDA** — *"pode fazer ele de forma segmentada, por coleção?
+… permita um popup com um check list de grupos"* — é uma folha com os grupos:
+ajustes, cada coleção pelo nome, os itens importados, e "outros". Ela é a MESMA
+folha do seletor de destinos, com o peso de cada grupo e o do total no
+confirmar.
+
+- **"Ajustes e catálogos" NÃO se desmarca**, e a razão é o coletor do destino:
+  as listas do app moram em `state`, e mídia que chega sem a lista que a
+  referencia é ÓRFÃ — o `gcOrfaos` da abertura seguinte a apaga. Um pacote "só
+  a mídia" importaria e sumiria sozinho. Ela é uma linha SEM ouvinte, com a
+  marca acesa e o motivo no subtítulo: uma linha com cara de alvo que não
+  responde é pior que uma que nunca prometeu responder.
+- **O GRUPO DE UM CAMINHO É REGRA PURA** (`AVPacote.grupoDoCaminho`), com o
+  grupo de escape `outros`: uma coleção que saiu do catálogo continua com bytes
+  no disco, e sem ele eles sairiam do pacote sem aparecer em lista nenhuma.
+- **O CATÁLOGO SEGUE OS BYTES pela MESMA função** — um registro de `files` sem o
+  arquivo dele é uma faixa que aparece na Biblioteca do destino e não toca.
+- **A exportação pode ser CANCELADA** (o ✕ do cartão, lido pelo escritor a cada
+  bloco — a anatomia do `ytCancel`). Até aqui, começar era ficar preso até o fim
+  ou até uma falha.
+
+### O que a escrita dos oráculos achou
+
+- **`> 0` não prova progresso.** O cabeçalho humano (`info`) é um corpo como
+  outro e sozinho já leva o contador acima de zero; a régua virou o percentual
+  do FIM.
+- **E o `done` da notificação mede o FREIO, não o app.** Numa exportação de
+  teste tudo cabe dentro dos 700 ms, então o que chega ao `bgProgress` é a
+  primeira leitura. O que passa com `force` é a RÉGUA (unidade e total), e é só
+  ela que vem de lá; o percentual vem do cartão, que não tem freio.
+- **O relógio instalado do Playwright continua andando com o tempo real.** A
+  segunda asserção do piso chegou a passar pelo motivo errado: a espera de 15 s
+  cruzava o teto de 12 s, e ela aprovava até uma cortina que nunca levanta pelo
+  `pronto()`. Hoje as duas leituras são imediatas, no ponto exato em que o
+  relógio foi posto.
+- **E o `fastForward` não reprocessa o temporizador que o callback agenda no
+  meio do salto** — a saída da cortina são dois em sequência. É a mesma
+  armadilha que o `fome-que-desiste.test.mjs` já tinha medido; o tempo anda em
+  fatias.
+
+Oráculos novos: `configuracoes-sem-subtitulo.test.mjs` e
+`pacote-por-grupos.test.mjs`, com reversão em todas as asserções. Lote **só de
+base web** — nada em `java/`, `res/` ou no manifesto, e nenhum método da ponte
+entrou ou mudou de forma; **sem `shellTag` e sem Release**.
 
 ## v1.7.1 — a linha de uma preparação não é a de um download
 

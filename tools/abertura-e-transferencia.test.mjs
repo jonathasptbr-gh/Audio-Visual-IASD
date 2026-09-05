@@ -168,6 +168,52 @@ try {
     await ctx.close();
   }
 
+  // ── A3. O PISO (v1.7.2): a cortina não pode ser um LAMPEJO ──────────────
+  //
+  // Pedido do operador: *"ajuste melhor o tempo da splash screen, está muito
+  // rápido. Deixe por padrão um tempo mínimo se possível mais longo"*. Num
+  // aparelho com o acervo em cache o `init()` termina em algumas centenas de
+  // milissegundos, e a marca aparecia e sumia antes de ser lida — a mesma
+  // sensação de piscar que a cortina veio consertar, um degrau acima.
+  //
+  // A MEDIDA É COM O RELÓGIO MOCKADO, e não esperando 1,8 s de verdade: o que
+  // se afirma é uma REGRA DE TEMPO, e um oráculo que dorme mede o agendador da
+  // máquina junto. A prova é em DUAS PONTAS — antes do piso ela está lá, depois
+  // dele ela saiu —, porque só a segunda passa também numa cortina que nunca
+  // levanta, e só a primeira passa também num piso de zero.
+  //
+  // AS DUAS LEITURAS SÃO IMEDIATAS, e não uma `esperar()`: MEDIDO ao escrever
+  // este bloco, o relógio instalado do Playwright CONTINUA ANDANDO com o tempo
+  // real, então uma espera de 15 s cruza o TETO de 12 s — e a segunda asserção
+  // passava pelo motivo errado, aprovando até uma cortina que nunca levanta
+  // pelo `pronto()`. Lendo no ponto exato em que o relógio foi posto, o teto
+  // fica fora do alcance e o que se mede é só o piso.
+  {
+    const { ctx, pg } = await abrirApp({});
+    await pg.clock.install();
+    await pg.goto(base + '/controle/', { waitUntil: 'domcontentloaded' });
+    // O APP DE PÉ é o gatilho do `pronto()`, e ele é o cenário: sem isso o que
+    // se mediria era o TETO de 12 s, que é outra regra.
+    await pg.waitForFunction(() => typeof window.__avBack === 'function', null, { timeout: 20000 });
+    await pg.evaluate(() => window.__avSplash.pronto());
+    await pg.clock.fastForward(400);
+    checar(await pg.evaluate(() => !!document.getElementById('splash')),
+      'A3 · com o app JÁ de pé, a cortina continua na tela 400 ms depois — ela '
+      + 'tem um PISO, e sem ele a abertura é um lampejo');
+    // EM FATIAS, e não num salto só: a saída são DOIS temporizadores em
+    // sequência — o piso agenda o esmaecimento, e o esmaecimento agenda a
+    // remoção do nó. `fastForward` NÃO reprocessa o temporizador que o callback
+    // agenda no meio do salto (é a mesma armadilha que o
+    // `fome-que-desiste.test.mjs` já mediu), então um `fastForward('00:03')`
+    // dispara o primeiro e deixa o segundo pendurado. Somando 3 s em fatias de
+    // 500 ms, cada um roda na sua vez — e o total continua bem abaixo dos 12 s
+    // do teto.
+    for (let i = 0; i < 6; i++) await pg.clock.fastForward(500);
+    checar(await pg.evaluate(() => !document.getElementById('splash')),
+      'A3 · e ela sai depois dele — o piso ATRASA a saída, não a impede');
+    await ctx.close();
+  }
+
   // =========================================================================
   // B · A BADGE, E O ÍNDICE DO SHELL
   // =========================================================================
@@ -182,7 +228,13 @@ try {
       rodape: (document.getElementById('appVersion') || {}).textContent,
     }));
     const esperado = 'v' + VERSAO;
-    checar(textos.simples === esperado && textos.avancado === esperado && textos.rodape === esperado,
+    // O RODAPÉ LEVA O NOME JUNTO desde a v1.7.2 (*"para que seja 'áudio visual
+    // IASD vx.x.x' com o nome do app, para ter um melhor preenchimento do
+    // rodapé"*), e o NÚMERO continua sendo o mesmo das duas badges: é ele que
+    // esta asserção guarda. As badges do cabeçalho seguem secas — levar o nome
+    // para uma pastilha de 40px seria a mesma frase em três tamanhos.
+    checar(textos.simples === esperado && textos.avancado === esperado
+      && textos.rodape === 'Áudio Visual IASD ' + esperado,
       'B · as TRÊS casas dizem o MESMO número, e ele é a versão do `version.json` (' + esperado + ') — '
       + 'um escritor só é o que impede duas telas de anunciarem versões diferentes', textos);
 
@@ -228,18 +280,29 @@ try {
       return !!f && f.classList.contains('open');
     }) === true, 'C · a engrenagem do Modo Fácil abre Configurações');
 
+    // O RÓTULO "ESTE APARELHO" SAIU na v1.7.2 e os três tiles entraram na grade
+    // única, a pedido do operador. O que este bloco guarda não mudou de
+    // natureza — eles existem no APP e não no navegador —, mudou de PORTA: a
+    // pergunta passou a ser sobre cada tile, porque não há mais um bloco para
+    // esconder de uma vez.
     const bloco = await pg.evaluate(() => {
-      const r = document.getElementById('aparelhoRow');
+      const ids = ['shareAppTile', 'pacoteExportarTile', 'pacoteImportarTile'];
+      const grade = document.querySelector('.qs-grade');
       return {
-        existe: !!r,
-        escondido: r ? r.hidden : null,
-        tiles: r ? Array.from(r.querySelectorAll('.qs-tile')).map((b) => b.id) : [],
+        escondidos: ids.filter((id) => (document.getElementById(id) || {}).hidden !== false),
+        // A ORDEM DENTRO DA GRADE, e não a existência: eles são sempre-acesos e
+        // por isso ficam ANTES dos dois que apagam (a ordem por natureza da
+        // v1.4.40). Ler a grade inteira é o que prova que eles não voltaram a
+        // morar num bloco à parte.
+        grade: grade ? [...grade.children].map((e) => e.id) : [],
       };
     });
-    checar(bloco.existe && bloco.escondido === false,
-      'C · no APP o bloco "Este aparelho" está à vista', bloco);
-    checar(bloco.tiles.join(',') === 'shareAppTile,pacoteExportarTile,pacoteImportarTile',
-      'C · com os três tiles, na ordem: compartilhar · exportar · importar', bloco.tiles);
+    checar(bloco.escondidos.length === 0,
+      'C · no APP os três tiles deste aparelho estão à vista', bloco);
+    checar(bloco.grade.join(',') === 'temaTile,fitTile,wallTile,histOpenRow,'
+      + 'shareAppTile,pacoteExportarTile,pacoteImportarTile,lyricsBgTile,rotBtn',
+      'C · na MESMA grade dos outros, entre o histórico e os dois que apagam',
+      bloco.grade);
 
     // O COMPARTILHAR CHEGA À PONTE COM O ENDEREÇO DENTRO. A asserção é sobre o
     // TEXTO e não sobre "a ponte foi chamada": um chooser aberto com uma frase
@@ -256,20 +319,17 @@ try {
 
   // ── C2. A REVERSÃO: sem ponte, o bloco INTEIRO não existe ───────────────
   //
-  // Sem ela, revelar o bloco sempre passaria em tudo o mais — e o que sairia
-  // no navegador seriam três botões que só sabem não funcionar, mais um rótulo
-  // "Este aparelho" sobre nada.
+  // Sem ela, revelar os tiles sempre passaria em tudo o mais — e o que sairia
+  // no navegador seriam três botões que só sabem não funcionar.
   {
     const { ctx, pg } = await abrirApp({ semPonte: true });
     await pg.goto(base + '/controle/', { waitUntil: 'domcontentloaded' });
     await esperar(pg, () => !document.getElementById('splash'), null, 30000);
-    const escondido = await pg.evaluate(() => {
-      const r = document.getElementById('aparelhoRow');
-      return r ? r.hidden : null;
-    });
-    checar(escondido === true,
-      'C2 · sem ponte o bloco inteiro é `hidden` — os três dependem do shell, '
-      + 'e um rótulo sozinho é um controle que não existe', escondido);
+    const visiveis = await pg.evaluate(() => ['shareAppTile', 'pacoteExportarTile', 'pacoteImportarTile']
+      .filter((id) => (document.getElementById(id) || {}).hidden === false));
+    checar(visiveis.length === 0,
+      'C2 · sem ponte os três são `hidden`, um a um — eles dependem do shell, e '
+      + 'um botão que só sabe não funcionar é pior que botão nenhum', visiveis);
     await ctx.close();
   }
 
