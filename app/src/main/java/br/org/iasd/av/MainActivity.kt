@@ -1764,8 +1764,16 @@ class MainActivity : ComponentActivity(), BridgeHost {
      * especificação proíbe degradar calado em todos os pontos deste caminho.
      */
     override fun startMirror(ip: String, onResult: (JSONObject) -> Unit) {
+        // O PEDIDO É DO OPERADOR, e é ele que o `stopMirror` desfaz. A CESSÃO
+        // sobe o mesmo servidor por outra porta de entrada (`subirServidor`) e
+        // **não** marca esta bandeira: se marcasse, desligar a cessão deixaria
+        // o servidor de pé para sempre, servindo um telão que ninguém pediu.
+        telaoPedido = true
+        subirServidor(ip, onResult)
+    }
+
+    private fun subirServidor(ip: String, onResult: (JSONObject) -> Unit) {
         runOnUiThread {
-            telaoPedido = true
             if (espelhoSrv?.ligado == true) { onResult(mirrorJson()); return@runOnUiThread }
 
             // 1. A REDE — a Wi-Fi de que este aparelho é CLIENTE, ou o PONTO DE
@@ -2093,7 +2101,7 @@ class MainActivity : ComponentActivity(), BridgeHost {
             // apontando para uma porta fechada, que é a falha muda deste
             // caminho — o outro celular acha o aparelho e não conecta.
             if (espelhoSrv?.ligado != true) {
-                startMirror("") { estado ->
+                subirServidor("") { estado ->
                     if (estado.optBoolean("ligado", false)) {
                         acervoPedido = true
                         ligarCessao(rotulo)

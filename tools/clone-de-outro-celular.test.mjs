@@ -115,6 +115,11 @@ async function atender(u, res) {
   if (b64 == null) { res.writeHead(409).end('{"estado":"indice-trocado"}'); return; }
   const corpo = Buffer.from(b64, 'base64');
   pedidos.push({ n, ini, fim });
+  // O ITEM VAZIO RESPONDE 416, como o de verdade: um item com zero bytes torna
+  // TODA faixa insatisfazível (RFC 7233), e é isso que o `EspelhoHttp.alcanceDe`
+  // devolve. Servir um corpo vazio com 200 aqui seria o servidor de mentira
+  // mais permissivo que o de verdade — a lição do `tela-rede.test.mjs`.
+  if (corpo.length === 0) { res.writeHead(416).end('vazio'); return; }
   res.writeHead(200, {
     'Content-Type': 'application/octet-stream',
     'Cache-Control': 'no-store',
@@ -398,6 +403,63 @@ try {
     + 'não existe', pedidos.length);
 
   // =========================================================================
+  // 4-B · O ITEM QUE SUMIU do outro aparelho no meio da cópia
+  // =========================================================================
+  //
+  // O índice é uma FOTOGRAFIA, e entre ele e o pedido o operador de lá pode ter
+  // apagado uma coleção. O item chega com zero bytes, e aí toda faixa é
+  // insatisfazível — 416 pela RFC, que é a resposta certa. **Ele não pode
+  // derrubar a cópia inteira**: um registro a menos vira um item pulado, e o
+  // resto continua chegando. Sem esta asserção, um acervo de milhares de itens
+  // pararia no primeiro que alguém removesse.
+  const e = await aparelho();
+  // O ARQUIVO SAI DO DISCO DE `a` DEPOIS de o índice ter sido montado — que é
+  // exatamente a janela real: o índice é uma FOTOGRAFIA, e o operador de lá
+  // pode apagar uma coleção enquanto a cópia anda.
+  await a.pg.evaluate(() => AVDB.opfsDeleteFile('folders/colecao/001-fundo.jpg'));
+  zerarDiario();
+  const r6 = await sincronizar(e.pg);
+  checar(r6.erro === '', '4-B · um item que sumiu no meio NÃO derruba a cópia',
+    JSON.stringify(r6));
+  const sobrou = await e.pg.evaluate(async () => {
+    const abre = async (c) => { try { return (await AVDB.opfsGetFile(c)).size; } catch (_) { return 0; } };
+    return {
+      sumido: await abre('folders/colecao/001-fundo.jpg'),
+      resto: await abre('folders/colecao/001.m4a'),
+      midia: !!(await AVDB.getMedia('item-de-teste')),
+    };
+  });
+  checar(sobrou.sumido === 0 && sobrou.resto === 1200 && sobrou.midia === true,
+    '4-B · e o que existe continua chegando — o item some, o resto não',
+    JSON.stringify(sobrou));
+
+  // =========================================================================
+  // 4-C · O TIPO QUE ESTE APP NÃO CONHECE
+  // =========================================================================
+  //
+  // Um aparelho mais atualizado pode oferecer uma natureza de item que este não
+  // sabe receber. As duas saídas fáceis são erradas: recusar o índice inteiro
+  // deixa o operador sem clone nenhum, e ignorar em silêncio faz a tela anunciar
+  // "tudo copiado" sobre uma cópia incompleta. Ele é PULADO, CONTADO, e vira
+  // uma frase — no diálogo de SUCESSO, porque a cópia de fato terminou.
+  const comFuturo = JSON.parse(indiceServido);
+  comFuturo.itens.push({ t: 'z', k: 'de-uma-versao-nova', b: 1 });
+  indiceServido = JSON.stringify(comFuturo);
+  const f = await aparelho();
+  zerarDiario();
+  const r7 = await sincronizar(f.pg);
+  checar(r7.erro === '',
+    '4-C · um tipo desconhecido não derruba a cópia — o resto entra', JSON.stringify(r7));
+  checar(r7.contagem.desconhecidos === 1,
+    '4-C · e ele é CONTADO, para a tela não anunciar "tudo copiado" sobre uma '
+    + 'cópia incompleta', JSON.stringify(r7.contagem));
+  const pediuOFuturo = pedidos.some((p) => p.n === comFuturo.itens.length - 1);
+  checar(pediuOFuturo === false,
+    '4-C · e nem chega a ser pedido: o app não saberia o que fazer com os bytes',
+    JSON.stringify(pedidos.map((p) => p.n)));
+  indiceServido = JSON.stringify(ind.i);
+
+  // =========================================================================
   // 5 · A FAIXA — nenhum pedido acima do pedaço combinado
   // =========================================================================
   const maior = pedidos.concat([{ ini: 0, fim: -1 }])
@@ -411,6 +473,8 @@ try {
   await b.ctx.close();
   await c.ctx.close();
   await d.ctx.close();
+  await e.ctx.close();
+  await f.ctx.close();
 } catch (e) {
   falhas.push('exceção: ' + (e && e.message));
   console.log('FALHOU  exceção: ' + (e && e.stack));

@@ -24357,6 +24357,12 @@ async function cloneLigarCessao() {
   }
   cloneCedendo = true;
   cloneRenderTiles();
+  // O CACHE DO ESPELHO PRECISA SER RELIDO AGORA, e isto não é zelo: o empurrão
+  // dos itens é o do telão, e o laço dele pergunta `telaAtiva()` — que lê o
+  // `mirrorEstado`. Ligar a cessão SOBE o servidor sem passar pelo
+  // `startMirror` do lado web, então o cache continuaria dizendo "desligado" e
+  // o primeiro bloco de cada item seria CANCELADO no meio, sem erro nenhum.
+  await lerEspelho();
   falarNoTile(cloneCederTileEl, 'Medindo…', 0);
   const erro = await clonePublicarIndice();
   if (erro) {
@@ -24397,6 +24403,9 @@ async function cloneRetomar() {
   if (!e || !e.cessao || !e.cessao.cedendo) return;
   cloneCedendo = true;
   cloneRenderTiles();
+  // Pelo mesmo motivo do `cloneLigarCessao`: sem o `mirrorEstado` fresco o
+  // empurrão de cada item se cancela sozinho.
+  await lerEspelho();
   await clonePublicarIndice();
   cloneAcertarRelogio();
 }
@@ -24552,7 +24561,7 @@ async function cloneComecar(a) {
   cloneCopiando = true;
   cloneRenderTiles();
   let erro = '';
-  const contagem = { media: 0, arquivos: 0, chaves: 0, opfs: 0, repetidos: 0 };
+  const contagem = { media: 0, arquivos: 0, chaves: 0, opfs: 0, repetidos: 0, desconhecidos: 0 };
   try {
     falarNoTile(cloneReceberTileEl, 'Pareando…', 0);
     erro = await clonePedirPar(a);
@@ -24582,7 +24591,12 @@ async function cloneComecar(a) {
   pulsar(cloneReceberTileEl, 'ok');
   await openAppDialog({
     title: 'Biblioteca copiada',
-    message: cloneResumo(contagem) + '\n\nO app vai reabrir para carregar o que chegou.',
+    message: cloneResumo(contagem)
+      + (contagem.desconhecidos
+        ? '\n\n' + contagem.desconhecidos + ' item(ns) são de uma versão mais nova do '
+          + 'app e ficaram para trás. Atualize este aparelho e clone de novo.'
+        : '')
+      + '\n\nO app vai reabrir para carregar o que chegou.',
     okText: 'Reabrir',
     cancelText: null,
   });
@@ -24661,10 +24675,11 @@ async function cloneSincronizar(contagem) {
       bgTaskEnd(tarefa);
     }
   });
-  if (desconhecidos) {
-    return desconhecidos + ' item(ns) do outro aparelho são de uma versão mais nova do app '
-      + 'e não puderam ser copiados. Atualize este aparelho e tente de novo.';
-  }
+  // O QUE ESTE APP NÃO SABE RECEBER NÃO É UMA FALHA DA CÓPIA — ela terminou. É
+  // um AVISO, e ele vai no diálogo de sucesso: chamar isto de "a cópia parou"
+  // sobre uma cópia que foi até o fim seria mentir na única tela que responde o
+  // que aconteceu.
+  contagem.desconhecidos = desconhecidos;
   return '';
 }
 
@@ -24688,6 +24703,12 @@ async function cloneBaixarItem(sessao, n) {
   for (;;) {
     const fim = total >= 0 ? Math.min(pos + CLONE_PEDACO, total) : pos + CLONE_PEDACO;
     const resp = await cloneBuscarPedaco(sessao, n, pos, fim - 1);
+    // O ITEM VAZIO. Um registro que sumiu do outro aparelho entre a montagem
+    // do índice e o pedido (o operador apagou uma coleção) chega ao cache com
+    // ZERO bytes, e aí toda faixa é insatisfazível — 416 pela RFC 7233, que é
+    // a resposta certa. Ele NÃO pode derrubar a cópia inteira: o item é
+    // pulado, e o que falta continua chegando.
+    if (resp === null) break;
     const t = Number(resp.headers.get('X-Av-Total'));
     if (Number.isFinite(t) && t > 0) total = t;
     const ab = await resp.arrayBuffer();
@@ -24715,6 +24736,8 @@ async function cloneBuscarPedaco(sessao, n, ini, fim) {
       resp = null;
     }
     if (resp && resp.ok) return resp;
+    // 416 NA PRIMEIRA FAIXA = o item não tem bytes. Ver `cloneBaixarItem`.
+    if (resp && resp.status === 416 && ini === 0) return null;
     if (resp) {
       // 409 = O ÍNDICE FOI REMONTADO do outro lado (a página de lá recarregou).
       // Ele NÃO é retentável: a lista mudou, e insistir pediria a posição de
@@ -24861,10 +24884,6 @@ if (pacoteImportarTileEl) pacoteImportarTileEl.addEventListener('click', () => {
 // bloco inteiro, e uma folha aberta antes dele mostraria um rótulo sozinho.
 pacoteRenderTiles();
 cloneRenderTiles();
-// A CESSÃO SOBREVIVE À PÁGINA e as receitas dela não — ver `cloneRetomar`.
-// Roda na carga e sem `await`: é uma leitura da ponte, e o resto do app não a
-// espera.
-cloneRetomar();
 
 // ===== PINTAR UM TILE DO PAINEL RÁPIDO (v1.4.38) =====
 //
@@ -30671,6 +30690,17 @@ document.addEventListener('visibilitychange', () => {
   // pergunta pode esperar o app terminar de abrir, e segurar a abertura por uma
   // ida à ponte seria pagar por um caso que quase sempre não existe.
   conferirLinkCopiado();
+  // E A CESSÃO DA BIBLIOTECA TAMBÉM PODE ESTAR NO AR, pela MESMA razão do
+  // bloco abaixo: o servidor vive no shell e sobrevive ao documento. O que não
+  // sobrevive são as RECEITAS do índice, que eram memória desta página — sem
+  // republicar, o outro celular pediria itens de uma sessão que ninguém sabe
+  // mais montar, e a cópia pararia em "sem resposta" a cada item.
+  //
+  // **AQUI E NÃO NO TOPO DO ARQUIVO**: `cloneMontarIndice` chama o
+  // `pacotePlano`, que lê o catálogo de álbuns e as coleções — estado de módulo
+  // que só existe depois do `loadCollections()`. No topo ele encontraria o
+  // catálogo VAZIO e publicaria um índice sem as coleções.
+  cloneRetomar();
   // A TRANSMISSÃO PODE JÁ ESTAR NO AR — o documento é que é novo.
   //
   // `EspelhoServidor` vive no SHELL: aplicar o OTA (`applyWebUpdate`) ou perder
