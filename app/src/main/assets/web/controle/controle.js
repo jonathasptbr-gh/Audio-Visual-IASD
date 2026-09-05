@@ -322,7 +322,7 @@ const appVersionEl = document.getElementById('appVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.6.5';
+const WEB_VERSION = '1.6.6';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -10883,7 +10883,14 @@ async function send(id, daFila, retomarEm) {
 // escolhe o cartão — ver a guarda de imagem sobre áudio em `send`.
 function step(delta) {
   if (plItems.length === 0) return;
-  const idx = plItems.findIndex((m) => m.id === currentId);
+  // A ÂNCORA NA FILA É A APRESENTAÇÃO, NUNCA O VÍDEO DE SLIDE. Ele não está em
+  // lista nenhuma de propósito, então `findIndex` devolvia −1 e o `idx === -1`
+  // caía no PRIMEIRO item da fila — que num culto é a própria apresentação, e o
+  // que o operador via era ela voltando ao começo a cada toque no ⏭. O item da
+  // fila que está no ar é a apresentação a que o vídeo pertence, e é a partir
+  // dela que "o próximo" faz sentido.
+  const ancora = deckVideoVolta ? deckVideoVolta.deckId : currentId;
+  const idx = plItems.findIndex((m) => m.id === ancora);
   const target = idx === -1 ? 0 : (idx + delta + plItems.length) % plItems.length;
   send(plItems[target].id, true);
 }
@@ -10914,6 +10921,10 @@ function slideTarget() {
   // TEM — cada toque passa uma página. Com o eixo devolvido, o ⏮/⏭ passa slide
   // enquanto o louvor de fundo continua andando por baixo, que é o pedido.
   if (deckSobreProjetando()) return 'deck';
+  // O VÍDEO DE UM SLIDE TAMBÉM TEM EIXO DE PÁGINA, e sem esta linha ele não
+  // tinha nenhum: `currentItem` é o vídeo, que não é deck e não tem letra, e o
+  // par de botões nascia desabilitado — o operador ficava sem como pular.
+  if (deckVideoVolta) return 'deck';
   if (chronoProjecting() || drawProjecting() || visualSobreProjetando()) return null;
   if (lyricProjecting()) return 'songlyrics';
   if (msgSession && msgSession.projecting) return 'message';
@@ -11019,9 +11030,13 @@ function applySlideLimits(who) {
     return;
   }
   if (who === 'deck') {
-    const d = deckNoAr();
-    slidePrevBtnEl.disabled = !d || deckPagina <= 0;
-    slideNextBtnEl.disabled = !d || deckPagina >= d.pages.length - 1;
+    // `deckDoSlide`/`paginaDoSlide` e não `deckNoAr`/`deckPagina`: com o vídeo
+    // de um slide em cena os segundos descrevem o slot do motor (que tem o
+    // vídeo), e os limites do par têm de descrever a APRESENTAÇÃO.
+    const d = deckDoSlide();
+    const pag = paginaDoSlide();
+    slidePrevBtnEl.disabled = !d || pag <= 0;
+    slideNextBtnEl.disabled = !d || pag >= d.pages.length - 1;
     return;
   }
   if (who !== 'lyrics') {
@@ -22978,6 +22993,11 @@ function deckIr(alvo) {
 }
 
 function deckStep(delta) {
+  // COM O VÍDEO DE UM SLIDE NO AR, o par de botões PULA o vídeo: ele é o
+  // conteúdo daquela página, e "próximo slide" quer dizer sair dele. É o pedido
+  // do operador — *"eu não consigo pular o vídeo"* —, e é o mesmo movimento que
+  // o fim do vídeo faz sozinho, só que com um passo escolhido por ele.
+  if (deckVideoVolta) { deckVideoVoltar(delta); return; }
   if (!deckNoAr()) return;
   deckIr(deckPagina + delta);
 }
@@ -22995,12 +23015,47 @@ function deckStep(delta) {
 // rede, barra de progresso e notificação vêm de graça, e nenhuma linha nova
 // roda no telão.
 //
-// `{ deckId, pagina, videoId }` enquanto um vídeo de slide está no ar.
+// `{ deckId, rec, pagina, videoId }` enquanto um vídeo de slide está no ar. O
+// `rec` viaja junto porque os limites do ⏮/⏭ precisam de `pages.length` no
+// mesmo quadro em que o botão é desenhado, e ir ao banco ali deixaria o par
+// desabilitado por uma volta do agendador — que é o tempo de um toque.
 let deckVideoVolta = null;
+
+// A VOLTA NÃO PODE REDISPARAR O VÍDEO DA PÁGINA EM QUE ELA POUSA. O caso é o
+// vídeo na ÚLTIMA página: `deckIr(pagina + 1)` é limitado ao fim, a volta pousa
+// na MESMA página, a chegada dispara o vídeo outra vez — e o culto fica preso
+// num laço que só um Parar quebra. A supressão é decidida por PÁGINA (ver
+// `deckVideoVoltar`), e não ligada sempre: numa volta que ANDA de verdade, a
+// página seguinte com vídeo deve tocar, que é o encadeamento pedido.
+let deckVideoSemGatilho = false;
 
 /** O vídeo daquela página, ou null. Registro sem o campo lê como "não há". */
 function deckVideoDaPagina(d, n) {
   return (d && d.videos && d.videos[n]) || null;
+}
+
+/**
+ * A APRESENTAÇÃO E A PÁGINA QUE O OPERADOR ESTÁ VENDO — inclusive quando o que
+ * está em cena é o vídeo de um slide.
+ *
+ * Os dois defeitos que isto conserta são o mesmo defeito: com o vídeo no ar,
+ * `currentItem` é o VÍDEO, então `deckNoAr()` devolve null, `slideTarget()` não
+ * acha eixo nenhum e o par de botões nasce DESABILITADO — o operador não
+ * consegue pular o vídeo. Para quem opera, porém, a cena continua sendo *"a
+ * página N da apresentação"*: o vídeo é o conteúdo daquela página, não um item
+ * à parte.
+ *
+ * `deckNoAr()` fica intocado de propósito — ele responde *"que deck está no slot
+ * do motor?"*, e tem meia dúzia de consumidores que dependem disso (o reenvio
+ * de cena, a coluna do auxiliar, o rótulo do transporte). Este par responde
+ * outra pergunta, e é só o ⏮/⏭ que a faz.
+ */
+function deckDoSlide() {
+  if (deckVideoVolta) return deckVideoVolta.rec || null;
+  return deckNoAr();
+}
+function paginaDoSlide() {
+  return deckVideoVolta ? deckVideoVolta.pagina : deckPagina;
 }
 
 /**
@@ -23021,14 +23076,20 @@ function deckVideoDaPagina(d, n) {
  * "chegou na página".
  */
 function deckVideoTalvezTocar(d, n) {
-  if (deckSobreProjetando()) return;
+  if (deckSobreProjetando() || deckVideoSemGatilho) return;
   const vid = deckVideoDaPagina(d, n);
   if (!vid) return;
-  const volta = { deckId: d.id, pagina: n, videoId: vid };
+  const volta = { deckId: d.id, rec: d, pagina: n, videoId: vid };
   // O `send` LIMPA a volta na entrada (um toque do operador em qualquer outra
   // coisa desarma a automação), então ela só pode ser armada DEPOIS dele.
-  send(vid, true).then(() => { deckVideoVolta = volta; })
-    .catch((e) => { console.warn('[pptx] vídeo do slide não entrou:', e && e.message); });
+  send(vid, true).then(() => {
+    deckVideoVolta = volta;
+    // E O PAR DE BOTÕES PRECISA SER REDESENHADO AQUI. O `send` já rodou — com a
+    // volta ainda nula —, então o ⏮/⏭ foi desenhado como o de um vídeo avulso:
+    // sem eixo e desabilitado. É a regra escrita no `slideTarget`: tudo o que
+    // muda a resposta dele chama `renderSlideNav()`.
+    renderSlideNav();
+  }).catch((e) => { console.warn('[pptx] vídeo do slide não entrou:', e && e.message); });
 }
 
 /**
@@ -23042,15 +23103,27 @@ function deckVideoTalvezTocar(d, n) {
  * fica no ar no último slide. Avançar dali seria passar para o item seguinte da
  * fila — o louvor de depois do sermão, sem ninguém pedir.
  */
-async function deckVideoVoltar() {
+async function deckVideoVoltar(passo) {
   const v = deckVideoVolta;
   deckVideoVolta = null;
   if (!v) return;
+  const delta = (passo === undefined) ? 1 : passo;
+  // ONDE A VOLTA VAI POUSAR, calculado ANTES de sair — é isto que decide a
+  // supressão do gatilho. `deckIr` limita ao fim da apresentação, então um
+  // vídeo na ÚLTIMA página faz `pagina + 1` pousar na MESMA página: sem a
+  // conta, a chegada redispara o vídeo e o culto trava num laço. Quando a volta
+  // ANDA de verdade, a supressão fica desligada e uma página seguinte com vídeo
+  // toca — que é o encadeamento pedido.
+  const total = (v.rec && Array.isArray(v.rec.pages)) ? v.rec.pages.length : 0;
+  const alvo = Math.min(Math.max(v.pagina + delta, 0), Math.max(0, total - 1));
   try {
+    deckVideoSemGatilho = (alvo === v.pagina);
     await send(v.deckId, true);
-    deckIr(v.pagina + 1);
+    deckIr(alvo);
   } catch (e) {
     console.warn('[pptx] não deu para voltar à apresentação:', e && e.message);
+  } finally {
+    deckVideoSemGatilho = false;
   }
 }
 

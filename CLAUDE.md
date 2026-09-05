@@ -4516,12 +4516,17 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.6.5 · APK v1.5.21** · `SHELL_VERSION` **62** ·
+**Versão atual: base web v1.6.6 · APK v1.5.21** · `SHELL_VERSION` **62** ·
 bundle com `minShell: 62` e **SEM `shellTag`** — o shell 62 é o **PISO**: todo
 método da ponte existe, e não há guarda de versão no lado web. **`SHELL_VERSION`
 NÃO sobe neste lote**: a superfície da ponte não mudou.
 
-**E ESTE LOTE NÃO PEDE RELEASE.** Ele é só base web — o VÍDEO EMBUTIDO num
+**E ESTE LOTE NÃO PEDE RELEASE.** Ele é só base web — os três defeitos da
+automação do vídeo de slide (o ⏮/⏭ que não o reconhecia como página, o ⏭ de
+mídia que mandava a apresentação ao início, e o laço do vídeo na última
+página). Nada em `java/`, `res/` ou no manifesto foi tocado.
+
+> **O LOTE ANTERIOR (v1.6.4)** trouxe o VÍDEO EMBUTIDO num
 `.pptx` (o `pptxzip.js` novo, a separação em `deck.js`, a automação no
 `controle.js` e a apresentação como DETENTORA dos vídeos dela no `db.js`), mais
 a frase do aviso de importação, que passou a seguir o MOTIVO. Nada em `java/`,
