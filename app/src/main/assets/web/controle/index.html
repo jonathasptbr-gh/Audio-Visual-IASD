@@ -1688,7 +1688,7 @@
                METADADO de diagnóstico e o lugar onde se procura diagnóstico é
                junto do estado do telão e do alvo de espelhamento, não numa faixa
                de navegação. Preenchido por `renderVersionLabel`. -->
-          <span id="appVersion" class="app-version">Controle v1.6.2</span>
+          <span id="appVersion" class="app-version">Controle v1.6.4</span>
           <!-- SALVAR EM ARQUIVO (v1.2.16). Com o acervo inteiro varrido o
                Registro passa de setenta linhas só na seção de cifras, e copiar e
                colar é o caminho que corta o texto no meio SEM AVISAR — foi o
@@ -1962,6 +1962,26 @@
           <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoTexto"/></svg>
         </span>
         <span class="popup-title" id="lyricsPopupTitle">Letra</span>
+        <!-- A FILA DE CONTROLES DA CIFRA, NO CABEÇALHO (v1.6.3). Pedido do
+             operador: *"pode mover a linha de botões da opção das cifras, lá
+             para o topo, onde fica atualmente o nome da música referente à
+             cifra"* — e ela pôde ir porque o nome saiu de lá: o título passou a
+             viver DENTRO da caixa que rola, junto do tom.
+
+             ESTÁTICA como o ⛶ e o par A+/A−, e pelo mesmo motivo: o
+             `renderLyricsView` refaz o corpo a cada troca de fonte, e um
+             contêiner criado ali dentro deixaria `cifraPintarRolar` escrevendo
+             num nó desligado da árvore. Quem a esvazia e a esconde é o
+             `renderLyricsView`, num ponto só — a mesma disciplina que a
+             `#lyricsViewBar` tinha antes de sair.
+
+             O CABEÇALHO É COMPARTILHADO pelas quatro fontes do leitor, então na
+             aba de cifra o ÍCONE e o TÍTULO se escondem para dar lugar a ela:
+             MEDIDO, a fila mede 195,6px e a caixa de conteúdo do cabeçalho tem
+             328px a 360px de tela — com o título no lugar seriam 343,6px, que
+             estoura por 15,6. O ícone acompanhava o título e não sobrevive
+             sozinho a ele. -->
+        <div id="lyricsCifraCtl" class="lv-cifra-ctl" hidden></div>
         <!-- TELA CHEIA EM PAISAGEM da cifra (v1.6.0). Um botão SÓ, alternador.
              ELE NASCE AQUI E MORA NA BARRA DA CIFRA (v1.6.1): `lvBuildCifra` o
              MOVE para o fim da `.lv-cifra-ctl` (`appendChild` move, não copia),
@@ -2023,14 +2043,6 @@
           <button type="button" class="fit-opt" data-lvsrc="deck">Páginas</button>
         </div>
       </div>
-      <!-- A BARRA DE CONTROLES DA CIFRA, FORA DA CAIXA QUE ROLA (v1.1.22).
-           Ela morava dentro do corpo e ROLAVA COM O TEXTO: com a rolagem
-           automática ligada, os botões de pausar e de velocidade saíam de cena
-           em segundos, e a única forma de alcançá-los era rolar de volta ao
-           topo — brigando com a rolagem que se queria parar. Um controle que
-           some é um controle que não existe no momento em que ele importa.
-           Fica vazia (e `hidden`) em toda fonte que não seja a cifra. -->
-      <div class="lyricsview-bar" id="lyricsViewBar" hidden></div>
       <div class="lyricsview-body" id="lyricsViewBody"></div>
     </div>
   </div>

@@ -141,7 +141,9 @@ const testemunha = () => pg.evaluate(() => {
     const el = lyricsPopupEl.querySelector(s);
     return el ? el.textContent.trim() : '(ausente)';
   };
-  return q('.lv-cifra-vel') + ' | ' + q('.lv-cifra-tom')
+  // O TOM DESCEU PARA DENTRO DA CAIXA na v1.6.3 (`.lv-cifra-cab-tom`), junto do
+  // título da obra: a barra que o hospedava saiu, e com ela o `.lv-cifra-tom`.
+  return q('.lv-cifra-vel') + ' | ' + q('.lv-cifra-cab-tom')
     + ' | ' + (cifraRolando ? 'rolando' : 'parada');
 });
 

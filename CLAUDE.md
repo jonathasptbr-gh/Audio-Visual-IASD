@@ -4516,7 +4516,7 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.6.2 · APK v1.5.21** · `SHELL_VERSION` **62** ·
+**Versão atual: base web v1.6.4 · APK v1.5.21** · `SHELL_VERSION` **62** ·
 bundle com `minShell: 62` e **SEM `shellTag`** — o shell 62 é o **PISO**: todo
 método da ponte existe, e não há guarda de versão no lado web. **`SHELL_VERSION`
 NÃO sobe neste lote**: a superfície da ponte não mudou.
@@ -4529,7 +4529,7 @@ a frase do aviso de importação, que passou a seguir o MOTIVO. Nada em `java/`,
 forma: o zip é lido em JavaScript, por `Blob.slice()`, sobre o mesmo blob que o
 `/saf/` já entregava. O `minShell` fica em 62.
 
-> **POR QUE O ZIP É LIDO NO WEB, e não no Kotlin** (v1.6.2). O shell tem
+> **POR QUE O ZIP É LIDO NO WEB, e não no Kotlin** (v1.6.4). O shell tem
 > `ZipInputStream` e leria o arquivo sem passar 570 MB pelo WebView — e é
 > justamente por isso que a pergunta precisa de resposta escrita. Três razões, e
 > a primeira decide: o `Blob.slice()` **já não materializa nada**, então o ganho
@@ -4538,6 +4538,32 @@ forma: o zip é lido em JavaScript, por `Blob.slice()`, sobre o mesmo blob que o
 > se conserta por OTA em minutos (invariante 5, o mesmo argumento das SÉRIES e
 > da CIFRA); e um método novo na ponte custaria um degrau de `SHELL_VERSION` e
 > uma Release para entregar o que o operador precisa neste sábado.
+
+> **A MARGEM É O CONSERTO; ROLAR DEVAGAR NÃO ERA** (v1.6.3). A rampa da v1.6.2
+> fez a folha andar POUCO, e isso não bastava: a primeira linha começa no pixel
+> ZERO, então QUALQUER deslocamento já corta a intro. MEDIDO com o cabeçalho da
+> obra no lugar — a cifra começa a 94px do topo, e aos 12s de rolagem a primeira
+> linha de acorde continua inteira na tela. Os espaços dele saem de
+> `--cifra-linha`, a altura de linha RENDERIZADA da folha: é o que faz "uma
+> linha" e "duas linhas" significarem o que dizem. E o bloco é IRMÃO da folha,
+> nunca filho — `cifraColunas` mede uma amostra dentro dela, e um filho de outra
+> fonte ali faz a folha quebrar errado PARECENDO certa.
+
+> **`node --check` APROVA UM `/**` ÓRFÃO** (v1.6.3), e o preço disso foi medido
+> neste lote: um corte no MEIO de um bloco de comentário deixou o comentário
+> engolindo a função seguinte, e o sintoma na tela foi *"Sem resposta da
+> internet"* — porque o `.catch` do caminho da cifra traduz QUALQUER exceção em
+> `MOTIVO_SEM_REDE`. Um erro de comentário chegando como falha de rede é o
+> argumento inteiro da regra de que **poda de comentário se PROVA**.
+
+> **IMOBILIDADE NÃO É ESPERA, É UM BOTÃO QUEBRADO** (v1.6.2). A espera parada da
+> v1.5.20 tinha o objetivo certo — deixar ler a introdução — e o meio errado: ela
+> ficava IMÓVEL, e foi por isso que a v1.6.1 precisou de uma NOTA para explicá-la.
+> O operador leu o conjunto como falta de resposta. Hoje a folha ANDA desde o
+> primeiro quadro (MEDIDO: o primeiro pixel em 253ms) e acelera até o compasso
+> cheio, e a introdução continua na tela (25% da caixa consumidos em 12s). **O
+> fecho da janela não foi sacrificado:** a duração da rampa é escolhida para todo
+> marco além dela cair no mesmo instante de relógio de antes.
 
 > **A ESCADA DA CIFRA FOI RENOMEADA, NÃO REDESENHADA** (v1.6.1), e a distinção é
 > do operador: *"não mude o comportamento da escala, o comportamento estava

@@ -503,17 +503,52 @@ secao('10. janelaDeRolagem / fracaoDaRolagem / ritmoDaRolagem');
     + 'duas terminam no mesmo instante');
 }
 
-// ── 10.5. esperaInicialDaRolagem: LER ANTES DE ROLAR ─────────────────────────
+// ── 10.5. A RAMPA DE ARRANQUE: começar devagar, nunca parado ─────────────────
 //
-// Pedido do operador: *"o sistema de rolagem automática de cifra não está
-// sendo parado no início para permitir ler e executar a introdução da música
-// durante um instrumental… o objetivo não é ter a linha a ser lida no topo,
-// mas no centro. Desse modo, o sistema deve esperar o usuário 'ler até chegar
-// no ponto médio' antes de se preocupar em mover automaticamente."*
-secao('10.5. esperaInicialDaRolagem');
+// Pedido do operador: *"ao invés de ficar parado esperando para se mover, faça
+// com que haja nesse início, uma velocidade extremamente lenta por um tempo,
+// mas ainda perceptível, para que o usuário entenda que começou, mas que no fim
+// das contas, o texto inicial onde fica a introdução da música, fique realmente
+// visível por um bom tempo."*
+//
+// **ISTO REVOGA a `esperaInicialDaRolagem` da v1.5.20**, que esta seção travava
+// até a v1.6.1: a folha ficava PARADA de 2 a 8 s e só então andava no ritmo
+// cheio. As duas exigências novas são opostas uma à outra, e é a terceira que as
+// concilia:
+//
+//   1. NADA DE PARADO — o movimento é que diz "começou";
+//   2. EXTREMAMENTE LENTO, MAS PERCEPTÍVEL;
+//   3. e a INTRODUÇÃO visível por um bom tempo, "no fim das contas".
+//
+// Os modos de errar são os dois lados da (2), e nenhum deles grita: rápido
+// demais e a introdução foge da tela antes de alguém tocá-la (o defeito que a
+// v1.5.20 existia para consertar, de volta); lento demais e a folha é
+// indistinguível de uma folha parada — que é o relato que criou este lote.
+//
+// AS DUAS FUNÇÕES SÃO PURAS, e é por isso que a álgebra delas pode ser afirmada
+// aqui e não no oráculo de Chromium: `rampaInicialDaRolagem` diz QUANTO a rampa
+// dura, `ritmoDaRampa` diz a que px/s a folha corre NESTE instante dela. O que
+// vive no DOM (a altura da caixa, o `pxPorS` já calculado) é o irmão
+// `cifra-rolagem.test.mjs`.
+secao('10.5. a rampa de arranque');
 {
-  // ZERO É RESPOSTA, NÃO FALHA — os mesmos três desfechos do `ritmoDaRolagem`:
-  // sem pxPorS ou sem altura não há "quanto tempo até o meio?" para responder.
+  // A CAIXA DA FOLHA a 430×900, MEDIDA no `cifra-rolagem.test.mjs`. Ela é a
+  // entrada da regra, não um número decorativo: o atraso e a fração percorrida
+  // saem dela.
+  const H = 533;
+  // O ARRANQUE, em px/s. Ele mora no módulo (`RAMPA.piso`) e aqui é repetido de
+  // propósito: uma asserção que lesse a constante do próprio módulo provaria só
+  // que ele concorda consigo mesmo, e é justamente este número que carrega a
+  // exigência (2) — ver a asserção do primeiro instante.
+  const PISO = 4;
+  // De um `auto` que rasteja ao degrau `2×` do modo livre: doze vezes de
+  // intervalo. A regra tem de valer no intervalo inteiro, e é isso que separa
+  // uma curva escolhida por medição de uma escolhida por gosto.
+  const VS = [5, 7, 11, 16.5, 22, 33, 44, 60, 133];
+
+  // ZERO É RESPOSTA, NÃO FALHA — os seis desfechos que a espera parada já
+  // cobria, herdados verbatim: sem altura ou sem `pxPorS` não há pergunta a
+  // responder, e quem chama cai no ritmo cheio desde o primeiro quadro.
   for (const [altura, pxPorS, nome] of [
     [0, 22, 'caixa sem altura'],
     [500, 0, 'pxPorS zero (nada rolável, o caso mais comum)'],
@@ -522,40 +557,149 @@ secao('10.5. esperaInicialDaRolagem');
     [NaN, 22, 'altura que não é número'],
     [-100, 22, 'altura negativa'],
   ]) {
-    checar(C.esperaInicialDaRolagem(altura, pxPorS) === 0,
-      'espera 0 para ' + nome, C.esperaInicialDaRolagem(altura, pxPorS));
+    checar(C.rampaInicialDaRolagem(altura, pxPorS) === 0,
+      'rampa 0 para ' + nome, C.rampaInicialDaRolagem(altura, pxPorS));
+  }
+  // E O SÉTIMO, QUE É PRÓPRIO DELA: com o ritmo cheio já no piso (ou abaixo)
+  // não há de onde acelerar. Uma rampa ali seria uma rampa para BAIXO, e a
+  // folha começa no compasso dela, que já é o "extremamente lento" do pedido.
+  checar(C.rampaInicialDaRolagem(H, PISO) === 0 && C.rampaInicialDaRolagem(H, 2) === 0,
+    'sem rampa quando o ritmo cheio JÁ é o arranque (ou menos)',
+    { noPiso: C.rampaInicialDaRolagem(H, PISO), abaixo: C.rampaInicialDaRolagem(H, 2) });
+
+  for (const V of VS) {
+    const T = C.rampaInicialDaRolagem(H, V);
+    checar(T > 0, 'há rampa a ' + V + ' px/s', T);
+
+    // ===== O ARRANQUE É ABSOLUTO, E É O MESMO EM TODO DEGRAU =====
+    //
+    // A exigência (2) inteira. REVERSÃO NOMEADA: escrever o piso como FRAÇÃO do
+    // ritmo cheio (`0.15 * V`, a saída óbvia) reprova aqui em oito dos nove
+    // valores — e o caso que ela produziria no aparelho é o pior deles: num
+    // `auto` de folha longa, 15% dão ~1,1 px/s, isto é, um pixel a cada 0,9 s,
+    // que ninguém vê. Só uma função que RECEBE `pxPorS` pode aplicar um piso em
+    // px/s de verdade, e é por isso que a rampa devolve px/s e não um fator.
+    checar(C.ritmoDaRampa(0, T, V) === PISO,
+      'o primeiro instante roda EXATAMENTE no piso de ' + PISO + ' px/s, a '
+      + V + ' px/s de ritmo cheio', C.ritmoDaRampa(0, T, V));
+
+    // A IDENTIDADE: a rampa é o COMEÇO, não um modo novo. Passada ela, o
+    // compasso é o `pxPorS` de sempre — exato, não "quase".
+    checar(C.ritmoDaRampa(T, T, V) === V && C.ritmoDaRampa(T + 1, T, V) === V
+      && C.ritmoDaRampa(T * 10, T, V) === V,
+      'e no FIM dela o ritmo é o CHEIO, exato, e continua sendo, a ' + V);
+    checar(C.ritmoDaRampa(-500, T, V) === PISO,
+      'um decorrido negativo cai no arranque, nunca abaixo dele, a ' + V,
+      C.ritmoDaRampa(-500, T, V));
+    checar(C.ritmoDaRampa(0, -1, V) === V && C.ritmoDaRampa(0, 0, V) === V,
+      'e a rampa NÃO ARMADA (o sentinel -1) ou de duração zero devolve o ritmo '
+      + 'cheio: quem não sabe quanto dura não segura a folha, a ' + V);
+
+    // MONOTONIA E FAIXA, amostradas em mil pontos: a folha só acelera, e nunca
+    // sai de [piso, cheio]. Uma rampa que desacelerasse num trecho seria lida
+    // como travamento; uma que passasse do cheio seria a única coisa que uma
+    // rampa não pode fazer.
+    let mono = true; let faixa = true; let ant = -1;
+    for (let i = 0; i <= 1000; i++) {
+      const v = C.ritmoDaRampa((T * i) / 1000, T, V);
+      if (v < ant - 1e-12) mono = false;
+      if (v < PISO - 1e-9 || v > V + 1e-9) faixa = false;
+      ant = v;
+    }
+    checar(mono && faixa,
+      'ela só ACELERA, e fica entre o piso e o cheio o tempo todo, a ' + V);
+
+    // ===== AS DUAS QUE CARREGAM O ARQUIVO =====
+    //
+    // `D` é o percurso da rampa, por integração numérica do ponto médio. O
+    // oráculo integra em vez de reescrever a primitiva de propósito: uma
+    // primitiva escrita aqui seria uma SEGUNDA opinião sobre a mesma conta, e
+    // as duas divergiriam no primeiro ajuste do expoente.
+    let D = 0;
+    const N = 200000;
+    for (let i = 0; i < N; i++) D += (C.ritmoDaRampa((T * (i + 0.5)) / N, T, V) * (T / N)) / 1000;
+    const leitura = Math.min(8, Math.max(2, (H / 2) / V));
+    const atraso = (V * (T / 1000) - D) / V;
+
+    // (1) O ATRASO É A ESPERA QUE ELA SUBSTITUI.
+    //
+    // É esta igualdade que entrega a exigência (3), e ela é mais forte do que
+    // parece: uma rampa de duração `T` deixa a folha PERMANENTEMENTE `T·k`
+    // segundos atrás de onde estaria a ritmo cheio, e uma parada de `E`
+    // segundos deixa `E`. Com `T·k = E`, TODO marco além da rampa é atingido no
+    // mesmo instante de relógio da v1.5.20 — a introdução fica visível
+    // exatamente o tanto que ficava, e o que muda é a folha estar ANDANDO
+    // enquanto isso.
+    //
+    // A tolerância de 0,01 s não é folga de medição: `T` é arredondado ao
+    // MILISSEGUNDO na saída da função pura, e é esse arredondamento que sobra.
+    //
+    // A DESIGUALDADE VEM PRIMEIRO porque é ela que vale SEMPRE: onde o teto de
+    // `T` age, o atraso ENCOLHE (MEDIDO: 3,75 s a 5 px/s, contra os 8 de
+    // ontem). Nenhum ponto da folha chega mais tarde do que chegava.
+    checar(atraso <= leitura + 0.01,
+      'a rampa NUNCA atrasa mais que a espera parada que ela substitui, a ' + V,
+      { atraso: +atraso.toFixed(3), leitura: +leitura.toFixed(3) });
+    // E FORA DA FAIXA EM QUE O TETO AGE, o atraso é o MESMO, não só menor. O
+    // teto (25 s) só alcança um `auto` abaixo de 7 px/s — uma folha que já
+    // rasteja, onde 4 e 7 px/s são a mesma coisa aos olhos.
+    checar(V < 7 || Math.abs(atraso - leitura) < 0.02,
+      'e onde o teto não age ela atrasa EXATAMENTE o mesmo, a ' + V,
+      { atraso: +atraso.toFixed(3), leitura: +leitura.toFixed(3) });
+
+    // (2) A RAMPA COBRE A INTRODUÇÃO, E NÃO MAIS QUE ELA.
+    //
+    // ESTA É A ASSERÇÃO QUE ESCOLHE O EXPOENTE, e a única que responde ao "fique
+    // realmente visível por um bom tempo" em vez de a "comece devagar". A régua
+    // é a fração da CAIXA percorrida enquanto a rampa dura — quantas linhas do
+    // começo já passaram quando o compasso cheio chega.
+    //
+    // A FAIXA É UMA PENEIRA DE DOIS LADOS, e ela é o que ESCOLHE o expoente —
+    // MEDIDO por reversão, sobre os nove valores de V, com o teto e o piso da
+    // rampa nos valores de hoje:
+    //
+    //   n=1 (linear)     0,21 … 0,63   → REPROVA em SETE degraus, pelo TETO
+    //   n=2 (quadrática) 0,20 … 0,35   → reprova em três, pelo teto
+    //   n=3 (CÚBICA)     0,18 … 0,26   → passa nos nove
+    //   n=4 (quártica)   0,14 … 0,21   → reprova a 133 px/s, pelo PISO
+    //
+    // Os dois lados dizem coisas diferentes, e é por isso que a asserção tem os
+    // dois. Estourar o teto é a exigência (3) invertida — a linear cobre 0,63 da
+    // caixa no `2×`, isto é, mais de meia tela embora ANTES de a rampa acabar.
+    // Furar o piso é a exigência (1) invertida: a rampa cobre tão pouco que ela
+    // deixa de ser um arranque e vira a espera parada com outro nome.
+    //
+    // A cúbica é a única que fica na mesma faixa estreita ao longo de um
+    // intervalo de doze vezes em V, e é isso que a torna uma escolha e não um
+    // gosto.
+    checar(D / H >= 0.15 && D / H <= 0.30,
+      'e ela percorre entre 0,15 e 0,30 da caixa — a introdução, e nada além '
+      + 'dela — a ' + V + ' px/s', { fracao: +(D / H).toFixed(3) });
   }
 
-  // O CASO NORMAL: a fórmula é `(altura / 2) / pxPorS`, em MILISSEGUNDOS.
-  // 600px de caixa a 40 px/s: 300/40 = 7,5 s — dentro do piso e do teto.
-  const msNormal = C.esperaInicialDaRolagem(600, 40);
-  checar(Math.abs(msNormal - 7500) < 1, 'bate com (altura/2)/pxPorS em segundos, '
-    + 'convertido para ms', msNormal);
+  // MAIS RITMO CHEIO PEDE MENOS RAMPA, dentro da faixa em que nem piso nem teto
+  // travam a conta: a mesma introdução se lê mais rápido no compasso maior. É a
+  // irmã da monotonia que a espera parada afirmava sobre `altura` e `pxPorS`.
+  checar(C.rampaInicialDaRolagem(H, 44) > C.rampaInicialDaRolagem(H, 133),
+    'mais ritmo cheio pede MENOS rampa — o mesmo trecho lido mais rápido',
+    { a44: C.rampaInicialDaRolagem(H, 44), a133: C.rampaInicialDaRolagem(H, 133) });
 
-  // O PISO: uma caixa baixa ou um ritmo rápido dariam uma espera imperceptível
-  // sem ele — 100px a 200 px/s seriam só 0,25 s.
-  const msPiso = C.esperaInicialDaRolagem(100, 200);
-  checar(msPiso === 2000, 'o piso segura em 2 s mesmo quando a conta dá menos',
-    msPiso);
+  // O TETO EXISTE PARA O DEGENERADO, e é a única coisa que segura `T` finito:
+  // com `V` encostando no piso, `k → 0` e a duração iria a minutos (a 4,5 px/s
+  // ela pede 96 s sem ele).
+  checar(C.rampaInicialDaRolagem(H, 4.5) === 25000,
+    'e o teto de 25 s segura a rampa quando o ritmo cheio encosta no piso',
+    C.rampaInicialDaRolagem(H, 4.5));
 
-  // O TETO: uma caixa alta ou um ritmo lento prenderiam a folha por tempo
-  // demais — 2000px a 10 px/s dariam 100 s sem ele.
-  const msTeto = C.esperaInicialDaRolagem(2000, 10);
-  checar(msTeto === 8000, 'o teto segura em 8 s mesmo quando a conta dá mais',
-    msTeto);
-
-  // MONOTONIA: mais altura pede mais espera (mais para ler); mais ritmo pede
-  // menos (o mesmo trecho se lê mais rápido no compasso que a folha vai usar)
-  // — dentro da faixa em que nem piso nem teto travam a conta.
-  checar(C.esperaInicialDaRolagem(800, 40) > C.esperaInicialDaRolagem(400, 40),
-    'mais altura de caixa pede mais espera, para a mesma velocidade');
-  checar(C.esperaInicialDaRolagem(600, 20) > C.esperaInicialDaRolagem(600, 60),
-    'mais pxPorS pede menos espera — o mesmo trecho lido mais rápido');
-
-  // Exportada no mesmo objeto das irmãs — é assim que `controle.js` a alcança.
-  checar(typeof C.esperaInicialDaRolagem === 'function',
-    'esperaInicialDaRolagem está exportada ao lado de janelaDeRolagem/ritmoDaRolagem');
+  // Exportadas no mesmo objeto das irmãs — é assim que `controle.js` as alcança.
+  checar(typeof C.rampaInicialDaRolagem === 'function' && typeof C.ritmoDaRampa === 'function',
+    'as duas estão exportadas ao lado de janelaDeRolagem/ritmoDaRolagem');
+  checar(C.esperaInicialDaRolagem === undefined,
+    'e a espera parada SAIU do módulo: um lote que a revoga e a deixa exportada '
+    + 'deixa um segundo mecanismo de arranque ao alcance do próximo leitor',
+    typeof C.esperaInicialDaRolagem);
 }
+
 
 // ── 11. A BUSCA ESCOLHE POR PARENTESCO, NÃO POR POSIÇÃO ─────────────────────
 // O CASO MEDIDO num aparelho (Registro de 22/08): uma busca por "Em Oração"

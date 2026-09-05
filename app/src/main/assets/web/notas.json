@@ -1,11 +1,28 @@
 [
   {
-    "versao": "1.6.2",
+    "versao": "1.6.4",
     "itens": [
       "Apresentações com vídeo embutido voltaram a abrir, mesmo as de centenas de MB.",
       "O vídeo de um slide agora toca sozinho ao chegar naquela página.",
       "E, ao acabar, a apresentação volta sozinha já no slide seguinte.",
       "O aviso de arquivo que não abre passou a dizer o motivo certo."
+    ]
+  },
+  {
+    "versao": "1.6.3",
+    "itens": [
+      "A cifra agora abre com o nome da música e o tom dentro da folha, antes dos acordes.",
+      "Isso dá um respiro no topo, e a introdução deixou de ser cortada assim que a rolagem começa.",
+      "Os botões da cifra subiram para o topo, na linha onde ficava o nome.",
+      "E saiu o aviso sobre a rolagem: a folha andando devagar já diz que ela começou."
+    ]
+  },
+  {
+    "versao": "1.6.2",
+    "itens": [
+      "A rolagem da cifra não fica mais parada no começo: ela arranca bem devagar.",
+      "Assim dá para ver que ela começou, e a introdução continua na tela por um bom tempo.",
+      "E o botão de velocidade ficou quadrado, do tamanho dos outros da barra."
     ]
   },
   {

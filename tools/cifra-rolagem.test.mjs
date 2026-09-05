@@ -35,21 +35,41 @@
 // caminho que o operador percorre — a lição do `cifra-teclado.test.mjs`, que
 // passava com a guarda REMOVIDA enquanto montava a tela à mão.
 //
-// ## A ESPERA INICIAL (v1.5.20) muda O RELÓGIO, não a REGRA
+// ## A RAMPA DE ARRANQUE (v1.6.2) muda O RELÓGIO, não a REGRA
 //
-// Pedido do operador: *"o sistema deve esperar o usuário 'ler até chegar no
-// ponto médio' antes de se preocupar em mover automaticamente"*. Ligar a
-// rolagem não move a folha mais NA HORA: primeiro há uma pausa (piso 2 s, teto
-// 8 s) do tamanho do que se leva para ler da primeira linha ao meio da caixa,
-// no MESMO ritmo que a folha vai seguir — `AVCifra.esperaInicialDaRolagem`.
+// **Ela REVOGA a espera parada da v1.5.20**, que este arquivo travava até a
+// v1.6.1. Pedido do operador: *"ao invés de ficar parado esperando para se
+// mover, faça com que haja nesse início, uma velocidade extremamente lenta por
+// um tempo, mas ainda perceptível, para que o usuário entenda que começou, mas
+// que no fim das contas, o texto inicial onde fica a introdução da música,
+// fique realmente visível por um bom tempo."*
 //
-// Cada bloco abaixo que MEDE MOVIMENTO logo após `cifraRolarAlternar()` chama
-// essa função pura, pela PONTE (`pg.evaluate`), para saber quanto esperar antes
-// de medir — a mesma regra do resto deste projeto: **quem responde "já pode?"
-// é a função do APP**, nunca um número escrito à mão no oráculo (ver "Um
-// oráculo não pode medir o runner" no CLAUDE.md). Os blocos que NÃO medem
-// movimento (a ausência de comando no barramento) ficam como estavam — a
-// espera não muda o que eles afirmam.
+// Ligar a rolagem move a folha DESDE O PRIMEIRO QUADRO, num arranque de 4 px/s
+// que acelera até o `pxPorS` de sempre. A ÁLGEBRA disso é do `cifra.test.mjs`
+// (`rampaInicialDaRolagem`, `ritmoDaRampa` — as duas puras); o que este arquivo
+// mede é a LIGAÇÃO, que falha de outro jeito: a regra continua certa e a folha
+// não anda, ou anda no compasso errado.
+//
+// ### E ELA MUDOU O QUE É "JÁ PODE MEDIR?"
+//
+// A espera parada era um INSTANTE (passados N ms, a folha começa), e por isso
+// cada bloco que media movimento dormia `esperaMs` e media. A rampa é um
+// TRECHO: durante ela a folha anda, e anda no compasso ERRADO de propósito.
+// Medir o RITMO ali reprova um app que está certo — MEDIDO na fixture, um
+// `(t1 − t0)/1,5` que atravesse a rampa sai ~67 px/s acima do ritmo, contra uma
+// tolerância de 56.
+//
+// Daí a divisão que este lote impôs, e ela é a regra da casa aplicada duas
+// vezes:
+//
+//  - **quem mede o COMEÇO** (a rampa em si) dorme uma fração da duração que a
+//    FUNÇÃO PURA devolve — o número nunca é escrito à mão aqui;
+//  - **quem mede o RITMO** espera pelo ESTADO DO APP (`cifraRampando === false`,
+//    o quadro em que o compasso cheio chega), com predicado SÍNCRONO, e só
+//    então tira o marco de onde a medição parte.
+//
+// Os blocos que NÃO medem movimento (a ausência de comando no barramento)
+// ficam como estavam — a rampa não muda o que eles afirmam.
 //
 // ## A ESCADA MUDOU DE NOME NA v1.6.1 — E SÓ DE NOME
 //
@@ -68,19 +88,35 @@
 //    multiplicadores do `1×` — a leitura que o rótulo convida e que o operador
 //    recusou.
 //
-// E A ESPERA INICIAL TROCOU DE INDICADOR: o anel `.dl-ring` saiu e no lugar
-// dele entrou uma NOTA na própria barra (*"coloque uma mensagem de confirmação…
-// na própria ui e não em pop up"*). Ela responde a DUAS perguntas em janelas
-// diferentes — antes do toque ANUNCIA o que o play vai fazer, durante a espera
-// é a RAZÃO da imobilidade —, e a asserção que carrega o lote é a terceira: ela
-// SOME quando o movimento começa, senão uma nota permanente passaria nas duas.
+// E A NOTA DA BARRA SOBREVIVEU À RAMPA, trocando de FATO. O anel `.dl-ring`
+// saiu na v1.6.1 e no lugar dele entrou uma NOTA (*"coloque uma mensagem de
+// confirmação… na própria ui e não em pop up"*), que então explicava uma
+// IMOBILIDADE. Não há mais imobilidade — e ela fica porque o trabalho não sumiu,
+// mudou: a pergunta era *"por que está parada?"* e passou a ser *"por que está
+// tão devagar?"*. Continua respondendo a DUAS perguntas em janelas diferentes —
+// antes do toque ANUNCIA o que o play vai fazer, durante a RAMPA é a razão da
+// lentidão —, e a asserção que carrega o lote é a terceira: ela SOME quando o
+// RITMO CHEIO chega, senão uma nota permanente passaria nas duas.
+//
+// O PREDICADO DELA MUDOU JUNTO, e o detalhe importa: antes ela sumia no
+// primeiro quadro de MOVIMENTO, o que com a rampa a apagaria em UM quadro — a
+// janela do meio, que é a única em que ela responde alguma coisa, deixaria de
+// existir.
+//
+// ## O BOTÃO DE VELOCIDADE FICOU QUADRADO (v1.6.2)
+//
+// Pedido do operador: *"diminua a fonte do botão de 1x para que ele seja um
+// botão exatamente do mesmo tamanho e quadrado como os seus vizinhos"*. A
+// METADE 0 já percorria a escada inteira com `click()` para ler os rótulos —
+// é o único lugar da suíte que faz isso —, então é ali que a caixa é medida a
+// cada degrau. Ver o bloco para as três metades e a reversão nomeada.
 //
 //   node tools/cifra-rolagem.test.mjs
 // ============================================================================
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { semRedeExterna } from './sem-rede.mjs';
-import { servirEstatico, abrirNavegador, checar, falhas } from './arnes.mjs';
+import { servirEstatico, abrirNavegador, checar, falhas, esperar, porque } from './arnes.mjs';
 
 // A PONTE DE MENTIRA. `cifraHtml` devolve uma folha LONGA de propósito: sem
 // conteúdo que estoure a caixa não há `scrollHeight - clientHeight`, e as duas
@@ -126,12 +162,19 @@ const PONTE = `(() => {
 const RAIZ = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'app', 'src', 'main', 'assets', 'web');
 const servidor = servirEstatico(RAIZ);
 
-// Um `setTimeout` puro, não o `esperar()` de polling que outros oráculos usam
-// (`ota.test.mjs`, `historico.test.mjs`): ali a pergunta é "já aconteceu o
-// FATO?"; aqui a duração em si É o fato — a espera inicial da cifra é uma
-// pausa de relógio de parede, e o número que a define vem sempre da MESMA
-// função pura que o app usa (`AVCifra.esperaInicialDaRolagem`), nunca
-// adivinhado aqui.
+// AS DUAS ESPERAS DESTE ARQUIVO, e elas respondem a perguntas diferentes.
+//
+// `dormir` é um `setTimeout` puro, e ele serve ao único caso em que a DURAÇÃO
+// EM SI é o fato: medir a folha DENTRO da rampa exige parar num ponto do
+// caminho, e esse ponto é uma fração da duração que a função pura devolve
+// (`AVCifra.rampaInicialDaRolagem`) — nunca um número escrito à mão aqui.
+//
+// `esperar` (do arnês) é para o resto: o FIM da rampa é um ESTADO do app
+// (`cifraRampando`), e é por ele que se espera antes de medir qualquer RITMO.
+// Dormir a duração inteira e medir seria a mesma aposta na máquina que a
+// campanha da v5.316 teve de desfazer cinco vezes — e aqui ela reprovaria um
+// app certo, porque a distância percorrida DURANTE a rampa não é o compasso
+// pedido.
 const dormir = (ms) => new Promise((r) => setTimeout(r, ms));
 
 await new Promise((r) => servidor.listen(0, r));
@@ -176,15 +219,48 @@ try {
   //
   // Ela carrega junto a AUSÊNCIA do anel: as duas afirmações são do mesmo lote e
   // separá-las deixaria passar a versão que desenha os DOIS.
+  // O CABEÇALHO DA OBRA, medido no RENDERIZADO (v1.6.3). Ele substituiu a nota
+  // da barra — e não é um rótulo a mais: ele é a MARGEM NATURAL que impede a
+  // rolagem de cortar a intro logo no começo. A régua não pode ser a PRESENÇA do
+  // nó: uma regra de CSS que não pinte passa num teste de presença e continua
+  // invisível na tela.
   await pg.evaluate(() => {
-    window.__nota = () => {
-      const n = lyricsViewBarEl.querySelector('.lv-cifra-nota');
-      const cx = n ? getComputedStyle(n) : null;
+    window.__cab = () => {
+      const c = lyricsViewBodyEl.querySelector('.lv-cifra-cab');
+      if (!c) return { existe: false };
+      const r = c.getBoundingClientRect();
+      const caixa = lyricsViewBodyEl.getBoundingClientRect();
+      const t = c.querySelector('.lv-cifra-cab-titulo');
+      const k = c.querySelector('.lv-cifra-cab-tom');
       return {
-        visivel: !!(n && !n.hidden && cx.display !== 'none'
-          && n.getBoundingClientRect().height > 0),
-        texto: n ? n.textContent.trim() : '',
-        anel: !!lyricsViewBarEl.querySelector('.dl-ring'),
+        existe: true,
+        titulo: t ? t.textContent.trim() : '',
+        tom: k ? k.textContent.trim() : '',
+        // "à vista" é geometria, não `hidden`: o bloco ROLA JUNTO, e some por
+        // sair da caixa — que é justamente o que se quer provar.
+        aVista: r.bottom > caixa.top && r.top < caixa.bottom,
+        // A MARGEM é o que separa o topo do conteúdo da PRIMEIRA LINHA DE
+        // ACORDE, e ela NÃO cabe no retângulo do bloco: `margin-bottom` fica
+        // fora do `getBoundingClientRect`. Medir o bloco mediria o rótulo;
+        // quem responde "a intro deixou de estar colada no topo?" é o
+        // `offsetTop` da folha.
+        margem: (() => {
+          const f = lyricsViewBodyEl.querySelector('.lv-cifra-folha');
+          return f ? f.offsetTop - c.offsetTop : -1;
+        })(),
+        // E a pergunta do operador, medida: a primeira linha de acorde ainda
+        // está INTEIRA dentro da caixa?
+        introInteira: (() => {
+          const l = lyricsViewBodyEl.querySelector('.lv-cifra-linha');
+          if (!l) return false;
+          return l.getBoundingClientRect().top >= caixa.top - 0.5;
+        })(),
+        // O bloco é IRMÃO da folha e vem ANTES dela.
+        antesDaFolha: !!(c.nextElementSibling
+          && c.nextElementSibling.classList.contains('lv-cifra-folha')),
+        // E não há mais nota nem anel em lugar nenhum da folha.
+        nota: !!lyricsPopupEl.querySelector('.lv-cifra-nota'),
+        anel: !!lyricsPopupEl.querySelector('.dl-ring'),
       };
     };
   });
@@ -238,10 +314,41 @@ try {
     lyricsPopupEl.querySelectorAll('[title], [aria-label]').forEach((el) => {
       textos.push(el.getAttribute('title') || '', el.getAttribute('aria-label') || '');
     });
+    // ===== A CAIXA, MEDIDA A CADA DEGRAU (v1.6.2) =====
+    //
+    // Uma SEGUNDA volta pelo botão, agora medindo. Ela é separada da primeira
+    // porque o que se afirma é outro: lá o RÓTULO, aqui a GEOMETRIA — e a
+    // geometria só se prova percorrendo o ciclo, porque era o ciclo que a movia.
+    //
+    // `scrollWidth` × `clientWidth` e não a largura do texto por `Range`: com
+    // `width` fixo, um rótulo que não coubesse NÃO mudaria a caixa (ele
+    // transbordaria por fora, calado), e é exatamente esse desfecho que a
+    // medição precisa alcançar.
+    const hit = parseFloat(
+      getComputedStyle(document.documentElement).getPropertyValue('--hit'));
+    const irmao = lyricsPopupEl.querySelector('.lv-fonte-mais').getBoundingClientRect();
+    const ctl = () => +lyricsPopupEl.querySelector('.lv-cifra-ctl')
+      .getBoundingClientRect().width.toFixed(2);
+    const ctlAntes = ctl();
+    const caixas = [];
+    for (let i = 0; i < CIFRA_VELOCIDADES.length; i++) {
+      const b = btn.getBoundingClientRect();
+      caixas.push({
+        rotulo: btn.textContent.trim(),
+        w: +b.width.toFixed(2), h: +b.height.toFixed(2),
+        sw: btn.scrollWidth, cw: btn.clientWidth,
+      });
+      btn.click();
+    }
     return {
       base,
       ciclo,
       distintos: new Set(ciclo).size,
+      hit,
+      irmao: { w: +irmao.width.toFixed(2), h: +irmao.height.toFixed(2) },
+      caixas,
+      ctlAntes,
+      ctlDepois: ctl(),
       // `\b...\b` e não `/auto/` solto: "automática" é outra palavra e continua
       // legítima em qualquer frase da folha.
       comAuto: textos.filter((t) => /\bauto\b/i.test(t)),
@@ -263,6 +370,65 @@ try {
   checar(escada.comAuto.length === 0,
     'e a palavra `Auto` não está mais em lugar nenhum da folha — nem no texto, '
     + 'nem num `title`, nem num `aria-label`', escada.comAuto);
+
+  // ======================================================================
+  // METADE 0-B — O BOTÃO DE VELOCIDADE É QUADRADO, EM TODO DEGRAU (v1.6.2)
+  // ======================================================================
+  //
+  // Pedido do operador: *"diminua a fonte do botão de 1x para que ele seja um
+  // botão exatamente do mesmo tamanho e quadrado como os seus vizinhos"*.
+  //
+  // Ele era o único da família com `width: auto` mais um `min-width` — um PISO,
+  // não uma largura: a caixa crescia quando o rótulo passava dele, e era por
+  // isso que o ciclo podia empurrar os vizinhos. Hoje a largura é `--hit` e o
+  // que faz o rótulo caber é o CORPO (`--fs-2xs`).
+  //
+  // QUATRO asserções, e nenhuma basta sozinha:
+  //
+  //  1. **a caixa é QUADRADA e do tamanho de `--hit`** — o pedido ao pé da
+  //     letra, e a única régua que não depende da máquina: é o que o DESENHO
+  //     reserva;
+  //  2. **ela é a mesma do IRMÃO** — sem isto, encolher os cinco botões juntos
+  //     passaria na primeira e o operador continuaria vendo uma fila desigual;
+  //  3. **a FILA não muda de largura** ao percorrer a escada inteira (a
+  //     `.lv-cifra-ctl` medida ANTES e DEPOIS da volta). Era o defeito que o
+  //     `min-width` existia para impedir — *"um botão que se desloca sob o dedo
+  //     é um botão que erra o alvo na segunda batida"* —, e este lote troca o
+  //     mecanismo que o impede, não a promessa;
+  //  4. **o rótulo CABE dentro dela** (`scrollWidth <= clientWidth`), em todo
+  //     degrau. É a única que lê a fonte instalada, e por isso é a que precisa
+  //     de margem: MEDIDO neste runner, `0,75×` (o pior caso, cinco caracteres)
+  //     pede 24,28px numa caixa de 34 — e 31,72px na família MAIS LARGA que a
+  //     base pode chegar a pedir (`system-ui` → DejaVu Sans), ainda com 2,28px
+  //     de folga. Uma volta ao corpo dos vizinhos (`--fs-md`) pede 43,34px e
+  //     reprova aqui.
+  //
+  // REVERSÃO NOMEADA, e ela mostra por que as quatro são separadas: devolver
+  // `width: auto; min-width: calc(var(--hit) + 1.2rem)` ao `.lv-cifra-vel`
+  // reprova a PRIMEIRA em todos os degraus (a caixa vai a 53,19px) e SÓ ela —
+  // o irmão não se mexeu, a fila não anda (naquele piso cabem os cinco rótulos
+  // nesta fonte) e o rótulo sobra numa caixa maior. As outras três existem para
+  // os outros três consertos errados: encolher os cinco juntos, deixar a caixa
+  // voltar a crescer com o rótulo, e encolhê-la até o rótulo transbordar.
+  const fora = escada.caixas.filter(
+    (c) => Math.abs(c.w - escada.hit) > 0.5 || Math.abs(c.h - escada.hit) > 0.5);
+  checar(escada.hit > 0 && fora.length === 0,
+    'o botão de velocidade é QUADRADO e mede `--hit` em TODO degrau da escada — '
+    + 'a largura deixou de depender do rótulo em cena', { hit: escada.hit, fora });
+  checar(Math.abs(escada.irmao.w - escada.hit) < 0.5
+    && Math.abs(escada.irmao.h - escada.hit) < 0.5,
+    'e é a MESMA caixa dos vizinhos: sem isto, encolher os cinco juntos passaria '
+    + 'na asserção de cima e a fila continuaria desigual',
+    { irmao: escada.irmao, hit: escada.hit });
+  checar(escada.ctlAntes > 0 && Math.abs(escada.ctlAntes - escada.ctlDepois) < 0.5,
+    'e a fila de controles não muda de largura ao percorrer a escada inteira: um '
+    + 'botão que se desloca sob o dedo erra o alvo na segunda batida',
+    { antes: escada.ctlAntes, depois: escada.ctlDepois });
+  const estourando = escada.caixas.filter((c) => c.sw > c.cw);
+  checar(estourando.length === 0,
+    'e o rótulo CABE na caixa em todo degrau — com largura fixa, um rótulo '
+    + 'grande demais não a empurraria: ele transbordaria por fora, calado',
+    estourando.length ? estourando : escada.caixas.map((c) => c.rotulo + ' ' + c.sw + '/' + c.cw).join(' · '));
 
   // A velocidade tem de ser `auto`: é dela que este caso fala. O degrau é
   // persistido, então não se pode supor o que veio do banco. (O ciclo acima
@@ -293,45 +459,101 @@ try {
     const pxPorS = ritmo > 0
       ? ritmo
       : CIFRA_PX_POR_S * (ehAuto ? 1 : CIFRA_VELOCIDADES[cifraVelIdx]);
-    const esperaMs = AVCifra.esperaInicialDaRolagem(el.clientHeight, pxPorS);
+    const rampaMs = AVCifra.rampaInicialDaRolagem(el.clientHeight, pxPorS);
     // A NOTA ANTES DO TOQUE — a promessa que o anel nunca teve: o pedido está
-    // escrito no FUTURO (*"ao dar play, ele VAI ficar imóvel"*), e uma frase que
-    // só nasce depois do play descreve como porvir uma coisa já em curso.
-    const antesDoToque = window.__nota();
+    // escrito no FUTURO (*"ao dar play, ele VAI ficar…"*), e uma frase que só
+    // nasce depois do play descreve como porvir uma coisa já em curso.
+    const antesDoToque = window.__cab();
     cifraRolarAlternar();
-    return { dur, esperaMs, t0: el.scrollTop, antesDoToque };
+    // O RELÓGIO DE PAREDE parte do TOQUE, e é contra ele que a medição de baixo
+    // compara: o quanto a folha JÁ andou só quer dizer alguma coisa ao lado do
+    // quanto ela ANDARIA no compasso cheio no mesmo tempo. Ele fica NA PÁGINA
+    // porque quem o lê é o `evaluate` seguinte — atravessar a ponte com o
+    // instante e subtraí-lo do lado do Node mediria o `evaluate`, não a folha.
+    window.__desde = performance.now();
+    return {
+      dur, rampaMs, pxPorS, caixa: el.clientHeight,
+      t0: el.scrollTop, antesDoToque,
+    };
   });
   checar(semArInicio.dur === 0,
     'sem mídia no ar não há duração a seguir — a barra habilitada não é "no ar"',
     semArInicio);
 
-  // ===== A ESPERA INICIAL, medida NO MEIO DO CAMINHO =====
+  // ======================================================================
+  // METADE 1-A — A RAMPA: LOGO NO COMEÇO A FOLHA JÁ ANDOU, E ANDOU POUCO
+  // ======================================================================
   //
-  // Ligar a rolagem não move a folha na hora: há uma pausa para ler antes.
-  // Medir exatamente na METADE da espera (não no fim, nem no dobro dela) é o
-  // que separa "ainda não andou porque está esperando" de "nunca vai andar" —
-  // esperar de mais aprovaria também um botão simplesmente quebrado.
-  await dormir(Math.max(200, semArInicio.esperaMs / 2));
+  // **É AQUI QUE O PEDIDO DA v1.6.2 VIVE**, e ele é uma CONJUNÇÃO — as duas
+  // metades se contradizem, e é por isso que só as duas juntas dizem alguma
+  // coisa. Verbatim: *"ao invés de ficar parado esperando para se mover, faça
+  // com que haja nesse início, uma velocidade extremamente lenta por um tempo,
+  // mas ainda perceptível, para que o usuário entenda que começou, mas que no
+  // fim das contas, o texto inicial onde fica a introdução da música, fique
+  // realmente visível por um bom tempo."*
+  //
+  // O ponto de medição é uma FRAÇÃO da duração que a função pura devolveu —
+  // nunca um número escrito aqui. Metade da rampa é o único lugar em que as
+  // duas metades do pedido são exigidas ao mesmo tempo: no primeiro quadro
+  // "andou pouco" é trivial, e no fim dela "andou" também é.
+  //
+  // A RÉGUA DO "POUCO" É O RITMO CHEIO NO MESMO TEMPO DE PAREDE, e não um número
+  // de pixels: o `pxPorS` sai da folha da fixture, que não tem tamanho fixo.
+  // Pela álgebra da rampa cúbica, na metade dela a folha percorreu 20,7% do que
+  // o compasso cheio teria percorrido — a margem até os 50% da asserção é o que
+  // sobra para um runner com quadros perdidos, e ela é SEGURA por construção:
+  // sob carga, `cifraRampaMs` acumula `dt` com o teto de `CIFRA_DT_MAX`, então a
+  // rampa fica mais LENTA em tempo de parede, nunca mais rápida. CONFERIDO: o
+  // arquivo inteiro passou quatro rodadas com a máquina a 4× de carga.
+  //
+  // E O PISO DO "ANDOU" É ABSOLUTO pelo mesmo motivo invertido: o arranque são
+  // 4 px/s fixos, independentes do degrau, então mesmo um décimo dos quadros do
+  // intervalo já move muito mais que os 2px pedidos aqui. Pela álgebra da rampa
+  // cúbica, com a caixa de 533px e o `1×` livre (22 px/s, T = 13,04 s): 29,7px
+  // na metade dela, e 5,2px se a página receber só 10% do tempo.
+  //
+  // REVERSÕES NOMEADAS, uma por metade: devolver a espera parada da v1.5.20
+  // (`return` enquanto `t < fim`) reprova a primeira; apagar a rampa (o quadro
+  // usando `pxPorS` direto, como antes da v1.5.20) reprova a segunda e a
+  // terceira.
+  await dormir(Math.max(200, semArInicio.rampaMs / 2));
   const semArDurante = await pg.evaluate(() => ({
     scrollTop: lyricsViewBodyEl.scrollTop,
-    nota: window.__nota(),
+    decorridoMs: performance.now() - window.__desde,
+    rampando: cifraRampando,
+    cab: window.__cab(),
   }));
-  checar(semArDurante.scrollTop === semArInicio.t0,
-    'no MEIO da espera inicial a folha ainda NÃO se moveu — é hora de ler, não '
-    + 'de rolar', semArDurante);
-  checar(semArInicio.antesDoToque.visivel
-    && /introdu/i.test(semArInicio.antesDoToque.texto),
-    'a MENSAGEM está na tela ANTES do toque, e ela diz o que o play vai fazer '
-    + '(v1.6.1) — o operador pediu a confirmação "na própria ui e não em pop up"',
+  const andouNaRampa = semArDurante.scrollTop - semArInicio.t0;
+  const cheioTeria = (semArInicio.pxPorS * semArDurante.decorridoMs) / 1000;
+  checar(andouNaRampa > 2,
+    'LOGO NO COMEÇO a folha JÁ ANDOU — o movimento é o que diz "começou", e é '
+    + 'ele que o operador não teve com a espera parada',
+    { andou: +andouNaRampa.toFixed(2), decorridoMs: Math.round(semArDurante.decorridoMs) });
+  checar(andouNaRampa < cheioTeria * 0.5,
+    'e ANDOU POUCO: menos da metade do que o compasso cheio teria andado no '
+    + 'mesmo tempo de parede — é a rampa, não o ritmo pedido',
+    { andou: +andouNaRampa.toFixed(2), cheioTeria: +cheioTeria.toFixed(2) });
+  checar(andouNaRampa < semArInicio.caixa / 4,
+    'e por isso o TEXTO INICIAL continua na tela: a folha não gastou nem um '
+    + 'quarto da caixa enquanto a rampa corria',
+    { andou: +andouNaRampa.toFixed(2), caixa: semArInicio.caixa });
+  checar(semArDurante.rampando === true,
+    'e o app SABE que está na rampa — é este estado que a nota lê, e é por ele '
+    + 'que as medições de RITMO abaixo esperam', semArDurante.rampando);
+  checar(semArInicio.antesDoToque.existe
+    && semArInicio.antesDoToque.antesDaFolha
+    && semArInicio.antesDoToque.margem > 40,
+    'o CABEÇALHO DA OBRA está na caixa ANTES do toque, e ANTES da folha (v1.6.3) '
+    + '— é ele a "margem natural" que o operador pediu, não um rótulo a mais',
     semArInicio.antesDoToque);
-  checar(semArDurante.nota.visivel,
-    'e ela CONTINUA no meio da espera, agora como a RAZÃO da imobilidade — que '
-    + 'era o trabalho do anel: um botão pausado e imóvel é indistinguível de um '
-    + 'botão quebrado', semArDurante);
-  checar(!semArDurante.nota.anel,
-    'e NÃO há anel `.dl-ring` na barra: o operador mandou remover o spinner, e '
-    + 'dois mecanismos para o mesmo fato é o que a nota veio substituir',
-    semArDurante);
+  checar(semArDurante.cab.introInteira,
+    'e no meio da rampa a PRIMEIRA LINHA DE ACORDE ainda está inteira na caixa: '
+    + 'é isso que a margem compra — *"pelo fato da intro estar colada no topo, '
+    + 'ele acaba sempre cortando ela no início"*',
+    { scrollTop: semArDurante.scrollTop, margem: semArDurante.cab.margem });
+  checar(!semArDurante.cab.nota && !semArDurante.cab.anel,
+    'e NÃO há nota nem anel em lugar nenhum da folha: os dois saíram, e a '
+    + 'resposta ao toque é a própria folha andando', semArDurante);
   // A FRASE SÓ PROMETE A MÚSICA ONDE ISSO É VERDADE (v1.6.1).
   //
   // O operador pediu a frase inteira — *"depois irá seguir a rolagem no ritmo da
@@ -342,35 +564,46 @@ try {
   // passaria com a frase curta escrita à mão para sempre, e a segunda passaria
   // com a frase longa dita em toda situação.
   //
-  // REVERSÃO: fazer `cifraNotaTexto` devolver sempre a frase longa reprova aqui;
-  // devolver sempre a curta reprova no par, mais abaixo.
-  checar(!/ritmo da música/i.test(semArDurante.nota.texto),
-    'SEM duração no ar a nota NÃO promete o ritmo da música — ali o compasso é '
-    + 'fixo, e a frase que o operador pediu seria falsa na tela',
-    semArDurante.nota.texto);
+  // O TÍTULO É O DA OBRA, e ele saiu do cabeçalho do popup para cá. O TOM desta
+  // fixture não existe (a página de mentira não traz tom), e o bloco responde a
+  // isso NÃO DESENHANDO a linha — um "Tom: " vazio seria uma linha em branco
+  // prometendo um dado que a página não trouxe. O par com tom está no
+  // `cifra-tela-cheia.test.mjs`, onde a fixture tem um.
+  // REVERSÃO: desenhar a linha do tom sempre faz `tom` deixar de ser vazio aqui.
+  checar(semArDurante.cab.titulo === 'Musica De Marcador' && semArDurante.cab.tom === '',
+    'e o cabeçalho traz o TÍTULO DA OBRA — e omite a linha do tom quando a '
+    + 'página não trouxe um, em vez de desenhar um rótulo vazio',
+    { titulo: semArDurante.cab.titulo, tom: semArDurante.cab.tom });
 
-  // Supera o resto da espera e dá tempo de o movimento ficar mensurável — o
-  // mesmo intervalo de 1500 ms que a versão anterior deste caso usava, só que
-  // contado a partir de quando o movimento de fato pode começar.
-  await dormir(semArInicio.esperaMs / 2 + 1500);
+  // O FIM DA RAMPA É UM ESTADO DO APP, e é por ele que se espera — nunca pelo
+  // resto do relógio. Predicado SÍNCRONO: `waitForFunction` não aguarda a
+  // Promise de um `async`, e um predicado assim passaria no primeiro quadro
+  // aprovando exatamente o que veio verificar.
+  const chegouAoCheio = await esperar(
+    pg, () => cifraRampando === false, null, 40000);
+  checar(chegouAoCheio === true,
+    'e a rampa TERMINA sozinha: passada ela, o compasso é o `pxPorS` de sempre '
+    + '— ela é o COMEÇO, não um modo novo', porque(chegouAoCheio));
+  await dormir(1500);
   const semAr = await pg.evaluate(() => {
     const t1 = lyricsViewBodyEl.scrollTop;
     const titulo = cifraVelBtnEl ? cifraVelBtnEl.title : '';
-    const nota = window.__nota();
+    const cab = window.__cab();
     cifraRolarParar();
-    return { t1, titulo, nota };
+    return { t1, titulo, cab };
   });
   checar(semAr.t1 > semArInicio.t0 + 5,
-    'e a folha ANDA depois da espera: o modo LIVRE assumiu, que é o que o '
+    'e a folha ANDA depois da rampa: o modo LIVRE assumiu, que é o que o '
     + '`auto` sem relógio promete', { t0: semArInicio.t0, t1: semAr.t1 });
   checar(/ritmo fixo/.test(semAr.titulo),
     'e o botão DIZ isso — o rótulo mostra a escolha, a frase mostra o que está '
     + 'acontecendo', semAr.titulo);
-  // ← A QUE CARREGA O ARQUIVO: sem ela, uma nota PERMANENTE passa nas duas de
-  // cima. A frase promete "ainda não", não "sempre".
-  checar(!semAr.nota.visivel,
-    'e a mensagem SOME assim que o movimento de fato começa — a própria folha '
-    + 'andando já basta para dizer "está funcionando"', semAr);
+  // ← A QUE CARREGA A MARGEM: o cabeçalho ROLA JUNTO, então passado o arranque
+  // ele sai de cena sozinho. Fixo, ele cobraria altura da folha para sempre e
+  // não teria empurrado a intro coisa nenhuma.
+  checar(!semAr.cab.aVista,
+    'e o cabeçalho SAI de cena quando a folha andou — ele rola junto, que é o '
+    + 'que faz dele uma margem e não um rótulo permanente', semAr);
 
   // ======================================================================
   // METADE 2 — COM MÍDIA NO AR: o `auto` tira da música o RITMO, não a POSIÇÃO
@@ -403,53 +636,67 @@ try {
     // A MÚSICA FICA NO SEGUNDO ZERO E PARADA: é o cenário do relato.
     el.scrollTop = 0;
     const ritmo = cifraRitmoDoRelogio(rolavel);
-    const esperaMs = AVCifra.esperaInicialDaRolagem(el.clientHeight, ritmo);
+    const rampaMs = AVCifra.rampaInicialDaRolagem(el.clientHeight, ritmo);
     cifraRolarAlternar();
-    const nota = window.__nota();
-    return { dur, t0: el.scrollTop, rolavel, ritmo, esperaMs, nota };
+    const cab = window.__cab();
+    return { dur, t0: el.scrollTop, rolavel, ritmo, rampaMs, cab };
   });
   checar(comArInicio.dur === 200,
     'com mídia no ar a duração da barra vale — é dela que o `auto` tira o ritmo',
     comArInicio);
-  // O PAR DA ASSERÇÃO DA FRASE: aqui HÁ duração e o degrau é o BASE, então esta é
-  // a única situação em que "no ritmo da música" é verdade — e é a metade que o
-  // operador pediu por extenso. REVERSÃO: fazer `cifraNotaTexto` devolver sempre
-  // a frase curta reprova aqui; devolver sempre a longa reprova na METADE 1.
-  checar(/ritmo da música/i.test(comArInicio.nota.texto),
-    'COM duração no ar e no degrau base a nota promete o ritmo da MÚSICA — é a '
-    + 'metade da frase que o operador pediu, dita onde ela é verdadeira',
-    comArInicio.nota.texto);
-  checar(comArInicio.nota.visivel && !comArInicio.nota.anel,
-    'e a mensagem também está na tela aqui, com música no ar — e sem anel '
-    + 'nenhum ao lado dela', comArInicio);
+  checar(comArInicio.cab.aVista && comArInicio.cab.antesDaFolha,
+    'o cabeçalho da obra também está na caixa aqui, com música no ar — a margem '
+    + 'não depende de haver relógio', comArInicio);
 
-  // Supera a espera inicial e dá 1,5 s de movimento para medir — a MESMA
-  // janela de medição do caso de cima, só que começando quando o movimento de
-  // fato pode começar.
-  await dormir(comArInicio.esperaMs + 1500);
+  // ===== O MARCO SAI DO ESTADO DO APP, NUNCA DO RELÓGIO (v1.6.2) =====
+  //
+  // Aqui está o defeito que a rampa introduziria num oráculo escrito como o de
+  // ontem, e ele reprovaria o APP CERTO: `t0` é lido antes do toque, e medir
+  // `(t1 − t0) / 1,5` faz a distância percorrida DURANTE a rampa entrar na
+  // conta do ritmo. MEDIDO na fixture: ~67 px/s acima do ritmo real, contra uma
+  // tolerância de 56 — vermelho, e quem lesse o log concluiria que o app
+  // quebrou.
+  //
+  // A resposta é a regra da casa: **quem responde "já pode?" é a função do
+  // APP**. `cifraRampando` cai no quadro em que o compasso cheio chega, e é
+  // desse instante que sai o `marco` de onde a medição parte.
+  const chegouComAr = await esperar(pg, () => cifraRampando === false, null, 40000);
+  checar(chegouComAr === true,
+    'com mídia no ar a rampa também TERMINA sozinha — daqui em diante o compasso '
+    + 'é o do relógio da música', porque(chegouComAr));
+  const marcoComAr = await pg.evaluate(() => ({
+    scrollTop: lyricsViewBodyEl.scrollTop, cab: window.__cab(),
+  }));
+  checar(!marcoComAr.cab.aVista,
+    'e o cabeçalho já saiu de cena quando o ritmo cheio chega — a margem é do '
+    + 'ARRANQUE, e o arranque acabou', marcoComAr);
+  await dormir(1500);
   const comAr = await pg.evaluate(() => {
     const t1 = lyricsViewBodyEl.scrollTop;
     const titulo = cifraVelBtnEl ? cifraVelBtnEl.title : '';
-    const nota = window.__nota();
+    const cab = window.__cab();
     cifraRolarParar();
     midiaNoAr = false;
-    return { t1, titulo, nota };
+    return { t1, titulo, cab };
   });
   checar(comAr.t1 > comArInicio.t0,
     'e a folha ANDA com a música PARADA no segundo zero (v1.5.6): o `auto` '
     + 'integra o relógio de parede a partir de onde a folha está, e não persegue '
     + 'a posição da mídia', { t0: comArInicio.t0, t1: comAr.t1 });
-  // O RITMO, e não só o movimento. Tolerância larga de propósito: o que se
-  // afirma é de QUAL fonte o px/s saiu, não a precisão do agendador de quadros.
-  checar(comArInicio.ritmo > 0 && Math.abs((comAr.t1 - comArInicio.t0) / 1.5 - comArInicio.ritmo)
-    < Math.max(2, comArInicio.ritmo * 0.6),
+  // O RITMO, e não só o movimento — medido A PARTIR DO MARCO, isto é, depois de
+  // a rampa acabar. Tolerância larga de propósito: o que se afirma é de QUAL
+  // fonte o px/s saiu, não a precisão do agendador de quadros.
+  checar(comArInicio.ritmo > 0
+    && Math.abs((comAr.t1 - marcoComAr.scrollTop) / 1.5 - comArInicio.ritmo)
+      < Math.max(2, comArInicio.ritmo * 0.6),
     'e no RITMO da música, não no fixo do modo livre — o percurso inteiro cabe '
-    + 'na janela da duração', { andou: comAr.t1 - comArInicio.t0, ritmo: comArInicio.ritmo });
+    + 'na janela da duração',
+    { andou: comAr.t1 - marcoComAr.scrollTop, ritmo: comArInicio.ritmo });
   checar(/ritmo da música/.test(comAr.titulo),
     'e o botão diz que está seguindo a música', comAr.titulo);
-  checar(!comAr.nota.visivel,
-    'e a mensagem some quando o movimento de fato começa, também com música '
-    + 'no ar', comAr);
+  checar(!comAr.cab.aVista,
+    'e o cabeçalho CONTINUA fora da tela com o compasso cheio no ar — sai uma '
+    + 'vez, e não volta', comAr);
 
   // ======================================================================
   // METADE 2-B — UM DEGRAU NUMÉRICO IGNORA O RELÓGIO (v1.6.1)
@@ -489,17 +736,24 @@ try {
     const rolavel = el.scrollHeight - el.clientHeight;
     const doRelogio = cifraRitmoDoRelogio(rolavel);
     const pxPorS = CIFRA_PX_POR_S * CIFRA_VELOCIDADES[cifraVelIdx];
-    const esperaMs = AVCifra.esperaInicialDaRolagem(el.clientHeight, pxPorS);
+    const rampaMs = AVCifra.rampaInicialDaRolagem(el.clientHeight, pxPorS);
     cifraRolarAlternar();
     return {
       rotulo: cifraVelBtnEl.textContent.trim(),
-      doRelogio, pxPorS, esperaMs, t0: el.scrollTop,
+      doRelogio, pxPorS, rampaMs, t0: el.scrollTop,
     };
   });
   checar(fixoInicio.rotulo === '2×' && fixoInicio.doRelogio > fixoInicio.pxPorS * 1.5,
     'o degrau `2×` está no ar e o relógio desta música pede um ritmo BEM outro '
     + '— sem essa distância a medição abaixo não decidiria nada', fixoInicio);
-  await dormir(fixoInicio.esperaMs + 1500);
+  // O MESMO MARCO da metade acima, e pelo mesmo motivo: a distância percorrida
+  // durante a rampa não é o compasso deste degrau, e sem descontá-la a asserção
+  // abaixo reprovaria o app certo.
+  const chegouFixo = await esperar(pg, () => cifraRampando === false, null, 40000);
+  checar(chegouFixo === true,
+    'num degrau NUMÉRICO a rampa também termina sozinha', porque(chegouFixo));
+  const marcoFixo = await pg.evaluate(() => lyricsViewBodyEl.scrollTop);
+  await dormir(1500);
   const fixo = await pg.evaluate(() => {
     const t1 = lyricsViewBodyEl.scrollTop;
     const titulo = cifraVelBtnEl.title;
@@ -509,7 +763,7 @@ try {
     cifraPintarRolar();
     return { t1, titulo };
   });
-  const andouFixo = (fixo.t1 - fixoInicio.t0) / 1.5;
+  const andouFixo = (fixo.t1 - marcoFixo) / 1.5;
   checar(Math.abs(andouFixo - fixoInicio.pxPorS) < Math.max(2, fixoInicio.pxPorS * 0.6)
     && andouFixo < fixoInicio.doRelogio * 0.75,
     'e COM duração no ar ele anda no ritmo FIXO vezes o fator, nunca no do '
@@ -545,12 +799,14 @@ try {
       el.scrollTop = 0;
       const rolavel = el.scrollHeight - el.clientHeight;
       const ritmo = AVCifra.ritmoDaRolagem(rolavel, 200);
-      const esperaMs = AVCifra.esperaInicialDaRolagem(el.clientHeight, ritmo);
+      const rampaMs = AVCifra.rampaInicialDaRolagem(el.clientHeight, ritmo);
       cifraRolarAlternar();
-      // Espera a folha estar DE FATO em movimento antes de arrastar — arrastar
-      // durante a leitura inicial não provaria nada sobre o dedo brigando com
-      // o autoscroll, que é o que este caso existe para verificar.
-      await new Promise((r) => setTimeout(r, esperaMs + 300));
+      // Espera a folha estar no COMPASSO CHEIO antes de arrastar — arrastar
+      // durante a rampa não provaria nada sobre o dedo brigando com o
+      // autoscroll, que é o que este caso existe para verificar: ali a folha
+      // anda devagar de propósito, e a tolerância de baixo (que é o `ritmo`)
+      // ficaria larga demais para decidir.
+      await new Promise((r) => setTimeout(r, rampaMs + 300));
       // O ARRASTO: o elemento é escrito por fora, como um dedo escreveria.
       el.scrollTop = dest;
       const largou = el.scrollTop;
@@ -649,42 +905,102 @@ try {
     // E O NÚMERO IMPORTA: um degrau FORA da escada cai no `CIFRA_VEL_PADRAO`
     // pelo `indexOf` de `cifraAdotarVelocidade`, que é o sentinela `'auto'` —
     // e a linha abaixo calcularia `CIFRA_PX_POR_S * 'auto'`, isto é `NaN`.
-    // `esperaInicialDaRolagem` devolve 0 diante de `NaN`, o oráculo mediria a
-    // folha 8 s antes de ela poder andar, e reprovaria um app certo.
+    // `rampaInicialDaRolagem` devolve 0 diante de `NaN` e o oráculo mediria a
+    // folha no arranque, reprovando um app certo.
     cifraAdotarVelocidade(2);
     midiaNoAr = false;
     const el = lyricsViewBodyEl;
     el.scrollTop = 0;
     const pxPorS = CIFRA_PX_POR_S * CIFRA_VELOCIDADES[cifraVelIdx];
-    const esperaMs = AVCifra.esperaInicialDaRolagem(el.clientHeight, pxPorS);
+    const rampaMs = AVCifra.rampaInicialDaRolagem(el.clientHeight, pxPorS);
     cifraRolarAlternar();
-    return { esperaMs };
+    return { rampaMs };
   });
-  // Supera a espera: o `t0` daqui em diante precisa estar num trecho em que a
-  // folha JÁ anda, senão um redesenho no meio da leitura inicial não prova
-  // nada sobre sobreviver ao redesenho — só sobre sobreviver a não fazer nada.
-  await dormir(ensaioInicio.esperaMs + 500);
+  // Supera a rampa pelo ESTADO DO APP, e não pelo relógio: o que vem abaixo
+  // precisa medir a folha no COMPASSO CHEIO, e num runner carregado a rampa
+  // dura mais tempo de PAREDE do que a duração que a função pura devolveu (o
+  // `dt` acumulado tem o teto de `CIFRA_DT_MAX`).
+  const chegouEnsaio = await esperar(pg, () => cifraRampando === false, null, 40000);
+  checar(chegouEnsaio === true,
+    'a rampa da folha da BIBLIOTECA também termina sozinha — daqui em diante a '
+    + 'folha anda no compasso do degrau escolhido', porque(chegouEnsaio));
   const ensaio = await pg.evaluate(async () => {
-    const t0 = lyricsViewBodyEl.scrollTop;
+    const el = lyricsViewBodyEl;
+    // ===== A POSIÇÃO DE PARTIDA É ESCRITA, NÃO ESPERADA =====
+    //
+    // Ela precisa ser LONGE do topo para o bloco abaixo decidir alguma coisa, e
+    // "longe" não pode depender de quantos quadros o runner deu — foi assim que
+    // a versão anterior deste caso passou sem medir o que dizia medir.
+    // Escrever o `scrollTop` é o gesto do DEDO, o mesmo da METADE 4: o quadro
+    // seguinte vê `scrollTop !== cifraEscrito`, conclui que outro mexeu na folha
+    // e adota o valor — que é a linha que atende o "vale tanto para volta como
+    // para avanços".
+    el.scrollTop = 400;
+    await new Promise((r) => setTimeout(r, 120));
+    const antes = el.scrollTop;
     // O QUE O OPERADOR FAZ NO ENSAIO: sobe meio tom, aumenta a fonte, gira o
     // aparelho. Os três chegam aqui — `renderLyricsView` refaz a folha inteira.
     renderLyricsView();
+    // ===== TRÊS PONTOS, E NÃO DOIS (v1.6.2) =====
+    //
+    // A versão anterior lia `t0` ANTES do redesenho e afirmava `t1 > t0 + 2`.
+    // Ela passava por ACIDENTE: com a espera parada da v1.5.20 a folha só tinha
+    // 500 ms de movimento quando o redesenho chegava (o resto era imobilidade),
+    // isto é ~22px no degrau `2×` deste caso, e o movimento dos 800 ms seguintes
+    // COBRIA o recuo — ninguém o via. Com a rampa a folha está em ~145px na mesma
+    // altura do arquivo (MEDIDO), e `t1` saía MENOR que `t0`: o oráculo vermelho
+    // apontando para um defeito que sempre esteve ali.
+    //
+    // O que a asserção sempre quis dizer é *"a folha continua ANDANDO depois do
+    // redesenho"*, e isso se mede de onde ela FICOU — daí o ponto do meio. Ver o
+    // ACHADO logo abaixo para o que o ponto de antes agora denuncia.
+    await new Promise((r) => setTimeout(r, 60));
+    const logoDepois = el.scrollTop;
     await new Promise((r) => setTimeout(r, 800));
-    const t1 = lyricsViewBodyEl.scrollTop;
+    const t1 = el.scrollTop;
     const rolando = cifraRolando;
     // E A GUARDA CONTINUA VALENDO: a cena vira a folha, e a rolagem é da outra.
     lvAlvo = null;
     renderLyricsView();
     const depoisDeTrocar = cifraRolando;
     cifraRolarParar();
-    return { t0, t1, rolando, depoisDeTrocar };
+    return { antes, logoDepois, t1, rolando, depoisDeTrocar };
   });
   checar(ensaio.rolando === true,
     'a rolagem SOBREVIVE ao redesenho da folha da Biblioteca — a chave gravada '
     + 'é a do ALVO, não a da cena', ensaio);
-  checar(ensaio.t1 > ensaio.t0 + 2,
+  checar(ensaio.t1 > ensaio.logoDepois + 2,
     'e a folha continua ANDANDO depois dele (estado de pé sem movimento seria '
-    + 'um botão mentindo)', { t0: ensaio.t0, t1: ensaio.t1 });
+    + 'um botão mentindo)', { logoDepois: ensaio.logoDepois, t1: ensaio.t1 });
+  // ===== ACHADO: O REDESENHO JOGA A FOLHA PARA O TOPO =====
+  //
+  // Esta asserção afirma o que o app FAZ, não o que ele deveria fazer — o mesmo
+  // partido do `no-ar` que nunca chega à faixa de um álbum
+  // (`lista-da-biblioteca.test.mjs`), e pelo mesmo motivo: um oráculo que
+  // afirmasse a promessa ficaria vermelho gatekeepando o canal OTA, e um que
+  // calasse deixaria o defeito sem sinal nenhum.
+  //
+  // MEDIDO pelo caminho REAL (o botão `+½` da barra, não este `renderLyricsView`
+  // solto): com a rolagem no ar e a folha em 260px, transpor meio tom a devolve
+  // a 3px — `scrollHeight` IDÊNTICO dos dois lados (16277), então não é
+  // remedição, é o corpo reconstruído. `cifraTranspor` chama `renderLyricsView()`
+  // DIRETO, e a preservação em fração do conteúdo mora dentro de `cifraRemedir`,
+  // que aquele caminho não atravessa. O A+/A− passa por lá e PRESERVA (MEDIDO:
+  // a fração do conteúdo sobrevive à mudança de comprimento da folha) — o mesmo
+  // gesto na mesma barra, dois desfechos.
+  //
+  // Para quem opera: sobe meio tom no meio do louvor e a cifra volta ao começo
+  // da música, com o instrumento na mão. **Isto é ANTERIOR a este lote** — a
+  // rampa só o tornou visível, porque antes a folha ainda não tinha saído do
+  // topo quando o redesenho chegava.
+  //
+  // QUANDO FOR CORRIGIDO esta linha reprova, e é para isso que ela existe: quem
+  // consertar troca o `<` por um `≈` e fecha o achado no mesmo lote.
+  checar(ensaio.logoDepois < ensaio.antes * 0.5,
+    'ACHADO EM ABERTO: o redesenho da folha PERDE a posição de leitura (o corpo '
+    + 'é reconstruído e `cifraRemedir`, que preserva a fração, não está neste '
+    + 'caminho) — pelo botão de transposição, a cifra volta ao começo da música',
+    { antes: ensaio.antes, logoDepois: ensaio.logoDepois });
   checar(ensaio.depoisDeTrocar === false,
     'e trocar a música DA FOLHA continua parando a rolagem — a guarda não foi '
     + 'apagada para o caso acima passar', ensaio);
