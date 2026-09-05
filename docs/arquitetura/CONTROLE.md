@@ -5659,19 +5659,36 @@ de referência de verdade), a **estrela em toda linha** e as **cenas de roteiro*
 > `comBaldeDeMiniaturas('fav-biblioteca', …)`. O `__avBack` perdeu o degrau da
 > gaveta junto.
 
-> **E A `object-URL` DE UMA MINIATURA É DO BLOB, NÃO DO RENDER** (v1.7.4).
-> Relato: *"Os itens da lista de favoritos, tem suas thumbnails piscando durante
-> processos de download na biblioteca"*. A Biblioteca é redesenhada a cada 400 ms
-> enquanto um download corre, e cada passada REVOGAVA as URLs da anterior para
-> criar outras dos MESMOS blobs — uma `<img>` com `src` inédito não tem
-> decodificação em cache: ela nasce vazia e pinta no quadro seguinte, três vezes
-> por segundo, em toda linha com capa.
+> **E A `object-URL` DE UMA MINIATURA É DO ITEM, NÃO DO RENDER** (v1.7.4, com a
+> chave corrigida na v1.7.8). Relato: *"Os itens da lista de favoritos, tem suas
+> thumbnails piscando durante processos de download na biblioteca"*. A Biblioteca
+> é redesenhada a cada 400 ms enquanto um download corre, e cada passada REVOGAVA
+> as URLs da anterior para criar outras da MESMA capa — uma `<img>` com `src`
+> inédito não tem decodificação em cache: ela nasce vazia e pinta no quadro
+> seguinte, três vezes por segundo, em toda linha com capa.
 >
-> `thumbUrlDoBlob` guarda uma URL por BLOB (mais `decoding="sync"`, que é a outra
+> `thumbUrlDaCapa` guarda uma URL por CAPA (mais `decoding="sync"`, que é a outra
 > metade: com a decodificação assíncrona o elemento novo ainda esperava um
-> quadro). O blob é o MESMO objeto entre um render e outro porque quem o segura
-> são as listas em memória, e quem as relê é o `load()` — que é exatamente o
-> momento em que a miniatura PODE mudar.
+> quadro).
+>
+> **A CHAVE É `id|tamanho|tipo`, e não o objeto Blob** (v1.7.8). A v1.7.4 keou
+> pelo BLOB, e aquilo cobria o relato original e só ele: o blob é o mesmo OBJETO
+> entre dois redesenhos porque quem o segura são as listas em MEMÓRIA. Mas um
+> `load()` as relê do IndexedDB, e **um blob relido é outro objeto** — toda capa
+> da tela ganhava URL nova de uma vez. E `load()` roda em TODA escrita no banco:
+> o relato seguinte foi *"as mesmas miniaturas piscando no cronograma ao excluir
+> outro item"*, que é exatamente isso.
+>
+> Cada pedaço da chave responde a uma coisa: o **`id`** é o que sobrevive à
+> releitura, e o par **`size`/`type`** é a impressão digital que impede uma capa
+> TROCADA de ser servida da memória — hoje nenhum caminho substitui a miniatura
+> de um registro existente, e o dia em que um existir ele mudará o tamanho. Sem
+> `id` a chave é o próprio blob, que é o comportamento da v1.7.4: pior caso, o
+> de antes.
+>
+> **De quebra, o MESMO item em duas listas passa a ter UMA url.**
+> `listItems('imports')` e `listItems('favs')` são duas leituras, então a mesma
+> capa vinha como dois blobs e ocupava a memória duas vezes.
 >
 > **E a varredura passou a ser pela UNIÃO dos baldes** (`varrerMiniaturas`), não
 > pela diferença: uma URL só morre quando nenhum host a desenha. Isso fecha POR
@@ -5687,7 +5704,9 @@ de referência de verdade), a **estrela em toda linha** e as **cenas de roteiro*
 > varredura seguinte as apaga da tela. UMA chave, e não uma por pasta: só há uma
 > aberta por vez, então abrir outra substitui o balde; uma chave por id deixaria
 > de pé, para sempre, os blobs de toda pasta já visitada. Oráculo:
-> `tools/miniaturas-estaveis.test.mjs`.
+> `tools/miniaturas-estaveis.test.mjs`, que mede a estabilidade nos DOIS hosts do
+> relato — a Biblioteca (bloco C) e o Cronograma (bloco E) — porque um tem balde
+> próprio e o outro não.
 
 O mecanismo por baixo continua usando as MESMAS chaves de state (renomear a
 leitura não pode custar a biblioteca de ninguém) — o que mudou é o

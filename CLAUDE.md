@@ -4278,7 +4278,7 @@ mundo anterior por outro caminho.
 | `smoke.mjs` | sobe a base e usa a tela; mede o RENDERIZADO nos dois temas (palco sem tema, escada de camadas, contorno). **E A HIERARQUIA DA BIBLIOTECA** (v1.5.14): ele foi escrito para proteger o desenho da v1.5.9 e por isso APROVAVA o defeito — exigia que seção e card dividissem o tom (1,00:1), exigia a moldura nos dois níveis, e nunca comparava tampa × faixa, o par que valia 1,00:1 no escuro. Hoje afirma a ALTERNÂNCIA (degrau real contra o pai, e o card VOLTANDO ao tom da janela — sem essa segunda metade um terceiro tom passaria e a escada de quatro voltaria pela porta dos fundos), a AUSÊNCIA de moldura nos três níveis, e os DOIS cabeçalhos grudentos empilhados, com a folga do de dentro medida na altura RENDERIZADA do de fora. **E A PERNA DA RAIZ** (v1.5.15), que a v1.5.14 não media e por isso deixou passar dois defeitos: a PLACA de uma coleção da raiz tem degrau de verdade contra o poço em volta **e vale o MESMO que o card de álbum de dentro de uma seção** — sem essa segunda metade a faixa continua pousando em duas cores conforme onde a coleção mora, que é o relato; o `top` da tampa da raiz é ZERO, medido ao lado do da tampa aninhada na mesma passada (um `top` escrito por TIPO passa numa das duas e reprova na outra); e o primeiro bloco começa NO TOPO do scrollport, porque `padding` de um scroller é scrollport e a lista rola por ele à vista. A régua desta última é a GEOMETRIA, nunca `paddingTop` lido de volta: o vão pode voltar por qualquer caminho. **E o PAINEL RÁPIDO de Configurações** (v1.4.38): que o CORPO dela não rola — a asserção antiga media a FOLHA, e a folha nunca rolou (quem tem `overflow-y: auto` é o `.fade-opts`), então ela aprovava as duas versões —, que a grade tem três colunas, e que o tile ALTERNA e volta. **E o que o AZUL quer dizer** (v1.4.40 → v1.7.6): a grade tem UMA COR SÓ e todo tile é aceso — apagado, neste app, quer dizer INDISPONÍVEL —, **e o estado mora no DESENHO**: `qs-alt` responde "qual desenho?" e `qs-on` responde "está ligado?", e enquanto foram a mesma classe um tile sempre aceso ficava preso no desenho alternativo. **A GUARDA MUDOU DE LUGAR, não de força**: ela era *"algum tile ainda apaga"* (a metade que impedia o conserto preguiçoso de acender tudo), e o pedido do operador revogou a política — hoje é o CANAL que ficou sozinho, medido no `display` computado de cada `<use>`: o fundo da letra fica aceso nos DOIS estados **e troca o desenho pintado**, o que reprova quem apagar a regra de CSS do par e ficar com a classe certa sobre dois desenhos empilhados. Mais o GIRO aceso a 0°, que é o tile que o pedido nomeia, e a ORDEM por ASSUNTO (compartilhar/exportar/importar são a fileira da base) fechando em fileiras EXATAS — um décimo tile põe a costura entre as duas naturezas no meio de uma linha. **E o MODO DO APP como interruptor que desliza** (v1.4.43): o polegar ANDA, medido na `transform` RENDERIZADA do `::before` do trilho — uma troca de classe passa num teste de classe e continua imóvel na tela, e ler a posição do BOTÃO não serviria porque o botão nunca se mexe; os dois botões SEM fundo próprio (sem esta, acrescentar o polegar por cima do desenho antigo deixaria a pilha de quatro tons de pé, com uma camada A MAIS); e o `data-modo` seguindo o modo, que é por onde o CSS decide o lado. Mais a folha que **FICA ABERTA e IMÓVEL** ao trocar de modo — duas asserções e não uma, porque a primeira responde ao `closeFadePopup` que saiu do ouvinte e a segunda responde ao `<main>`: a caixa é `fixed` e mora FORA dele, e movê-la para dentro mantém a classe `open` e apaga a folha da tela. **Assentar é `getAnimations()` + `finished`**, nunca duas amostras iguais em quadros seguidos (MEDIDO: `top: -449`, a folha ainda no teto, aprovada como assentada) nem o primeiro `transitionend` (MEDIDO: `top: -7`, a `transform` a sete pixels do fim com a opacidade já pronta). **E o que a v1.4.44 corrigiu nele**: o trilho medindo EXATAMENTE a grade de tiles (um `.fade-row` pintando `--panel` sobre uma folha que já é `--panel` é um CARTÃO INVISÍVEL — não se via, mas o `padding` dele recuava o trilho 12,8px de cada lado, e o relato foi o desalinhamento), o TÍTULO centrado medido no texto PINTADO por um `Range` (a caixa do `<span>` é `stretch` e ocupa a linha inteira nas duas versões, então medi-la aprova o rótulo colado à esquerda), e o RODAPÉ como UMA barra — a asserção é o número de SUPERFÍCIES pintadas dentro dele, porque a v1.4.43 já tinha dois blocos com o mesmo tom e o que se via eram duas caixas |
 | `pacote-ida-e-volta.test.mjs` | **o pacote de um aparelho para o outro**, em DOIS contextos de navegador com armazenamentos separados — o `pacote.test.mjs` prende a regra, este prende a LIGAÇÃO, que falha com a regra certa e o acervo não chegando. Nada é comparado contra o que a exportação achou que escreveu: afirma-se o que o SEGUNDO aparelho tem depois. Cobre a imagem de fundo da estrofe (que NENHUM registro do catálogo nomeia — é ela que prova que a varredura é do DISCO), o `stream` que não atravessa, a pasta do aparelho que fica para trás, e a promessa inteira: importar DE NOVO, com o local já diferente, não apaga o renomeado nem a preferência de quem importou — e a lista de ids se SOMA |
 | `linha-da-preparacao.test.mjs` | **a linha de uma PREPARAÇÃO não é a de um download** (v1.7.1), e as metades falham CALADAS. A LEGENDA ocupa a POSIÇÃO DO SUBTÍTULO — a pergunta é de ÁRVORE (dentro da coluna de texto e DEPOIS do nome), porque um `.dl-prog` solto na `.row` passa num teste de presença e aparece noutro lugar da linha — e ela ANDA, página a página, vinda de quem TEM os números (nem a linha nem o oráculo parseiam frase nenhuma). O ícone: preparar uma apresentação não baixa byte nenhum, e a seta prometia bytes — a regra de v1.4.19 (*o ícone segue a LEGENDA*) num lugar novo, com a REVERSÃO ao lado, porque a seta ACENDE num download de verdade e APAGA de volta quando a legenda deixa de prometê-los. **E o que a v1.7.4 acrescentou:** a asserção NEGATIVA do DESENHO DO NÚMERO — nem percentual solto (até a v1.7.1) nem trilho (só a v1.7.1) —, que é o par exato da que o lote anterior escreveu; e o `⋮` cedendo a COLUNA, em três metades que nenhuma basta sozinha (o cancelar está lá com a caixa EXATA do `⋮` de uma linha vizinha sem trabalho — nunca um número escrito no teste —, a fileira de opções NÃO está, e o toque CANCELA de verdade: a linha sai e nenhuma apresentação nasce). Mais a AUSÊNCIA em asserção própria: sem alça de cancelamento não há botão. **A linha é endereçada pelo NOME** — MEDIDO, 1 reprovação em 8 rodadas a 3× de carga com `querySelector`: as duas metades montam uma linha cada, e sob carga a de baixo media a seta da de cima |
-| `miniaturas-estaveis.test.mjs` | **a `object-URL` de uma capa é do BLOB, não do render** (v1.7.4). Relato: *"Os itens da lista de favoritos, tem suas thumbnails piscando durante processos de download"*. Um teste de "a capa aparece" passa nas DUAS versões — ela aparece, só que um quadro depois, três vezes por segundo —, então o que se afirma é a IDENTIDADE da URL entre dois `renderCollectionsNow` (o redesenho do relato, e não um `load()`: aquele RELÊ o acervo, e um `Blob` relido é outro objeto). Quatro metades: a URL sobrevive, ela continua VÁLIDA (uma igual e revogada seria o defeito piorado), o que SAI de cena é recolhido (sem isto "nunca revogar" passaria — e uma object-URL viva segura o blob inteiro), e a PASTA DO APARELHO, que é o que o desenho pode quebrar sem sintoma: o corpo dela é montado por uma função ASSÍNCRONA, isto é, DEPOIS de o balde do render ter sido devolvido, e sem um balde próprio a varredura seguinte apaga aquelas capas da tela. As duas reversões estão nomeadas e foram reexecutadas |
+| `miniaturas-estaveis.test.mjs` | **a `object-URL` de uma capa é do ITEM, não do render** (v1.7.4, com a chave corrigida na v1.7.8). Relato: *"Os itens da lista de favoritos, tem suas thumbnails piscando durante processos de download"*. Um teste de "a capa aparece" passa nas DUAS versões — ela aparece, só que um quadro depois, três vezes por segundo —, então o que se afirma é a IDENTIDADE da URL entre dois renders. Cinco metades: a URL sobrevive ao redesenho de 400 ms, ela continua VÁLIDA (uma igual e revogada seria o defeito piorado), o que SAI de cena é recolhido (sem isto "nunca revogar" passaria — e uma object-URL viva segura o blob inteiro), a PASTA DO APARELHO, que é o que o desenho pode quebrar sem sintoma (o corpo dela é montado por uma função ASSÍNCRONA, isto é, DEPOIS de o balde do render ter sido devolvido, e sem um balde próprio a varredura seguinte apaga aquelas capas da tela) e — **desde a v1.7.8** — a EXCLUSÃO, que é o caso que a chave por BLOB deixava passar: excluir escreve no banco, o `load()` relê, e um blob relido é outro objeto. Esta última é medida nos DOIS hosts do relato (a Biblioteca no bloco C, o Cronograma no E), porque um tem balde próprio e o outro não. Cada asserção nova tem a reversão nomeada e reexecutada |
 | `configuracoes-sem-subtitulo.test.mjs` | **as Configurações sem a palavra do estado** (v1.7.2). A segunda linha de cada tile saiu a pedido do operador, e a razão de ela existir era real — *um ícone sozinho responde por CONVENÇÃO, e convenção é o que se erra num app aberto três vezes por semana* —, então o que este oráculo prende não é a remoção: é a informação ter MUDADO DE CANAL. Um tile cujo estado não vira desenho fica idêntico nos dois estados, sem erro e sem sintoma. Mede o giro pela matriz COMPUTADA do ícone (uma regra de CSS ausente deixa o `data-estado` certo e o desenho parado), o wallpaper pelo `display` de cada `<use>` do par novo — **com o tile continuando ACESO nos dois estados**, senão o conserto barato é apagá-lo, e apagado neste app quer dizer INDISPONÍVEL —, e o rótulo do modo em DUAS larguras, pelo número de retângulos de cliente ("Modo avançado" quebrado em duas linhas tem dois, e `scrollWidth` de um inline que quebra não denuncia nada). **Assentar é `getAnimations()` + `finished`**: o ícone GIRA, e uma leitura por relógio mede a transição no meio (MEDIDO: `matrix(0.80, 0.59, …)` a 60 ms, que não é ângulo nenhum). **E o que a v1.7.7 acrescentou ao bloco do giro**: a COR igual nas três posições que ele já tinha na mão (a 0° ele era o único tile apagado da grade, e as outras duas provam que a igualdade não veio de ele ter apagado em todas), e o SÍMBOLO ser o `#icoPaisagem` — a asserção da matriz passa com qualquer desenho, inclusive a seta circular que saiu |
 | `pacote-por-grupos.test.mjs` | **a exportação por grupos, e o 0%** (v1.7.2; a folha AGRUPADA e o feedback no BOTÃO entraram na v1.7.3 — o percentual é lido do `.qs-titulo` por um `MutationObserver`, porque um estado final não distingue "andou de 0 a 100" de "pulou para o fim", e há asserção para o rótulo VOLTAR e para o cartão da preview NÃO entrar em cena). Três coisas falham CALADAS. (1) O **LOTE**: cada bloco do canal é uma ida e volta, e ela custa o mesmo para 50 bytes e para 512 kB — a Bíblia mora em `state` com UMA CHAVE POR CAPÍTULO (1189 por versão), e a versão anterior mandava um bloco por cabeçalho e um por corpo. A semente imita isso (400 chaves e nada mais) e a asserção é o número de blocos. (2) O **PROGRESSO** naquela fase, que não era reportado nem somado no plano — a régua é o percentual do CARTÃO no fim, e não o `done` da notificação: `> 0` passa só com o cabeçalho humano (MEDIDO ao escrever o arquivo), e o `done` emitido mede o freio de 700 ms, não o app. (3) A **ESCOLHA** cortar bytes de verdade, com o catálogo seguindo os bytes — um registro de `files` sem o arquivo dele é uma faixa que aparece na Biblioteca do destino e não toca. Cinco reversões nomeadas |
 | `abertura-e-transferencia.test.mjs` | **a CORTINA que não pode ficar no ar**, no cenário catastrófico: o `controle.js` abortado pela rota, o tema guardado já no `<html>` (quem o escreveu foi o script do `<head>`) e a cortina levantando pelo PRAZO — sem isso o app fica trancado, e não há erro em lugar nenhum. Mais a saída por REMOÇÃO DO NÓ, medida por hit-test (uma camada `opacity: 0` sobre a tela inteira continua recebendo o toque). E a BADGE: as TRÊS casas dizem o mesmo número, nenhuma escreve "Web"/"Shell" — **e o REGISTRO continua trazendo o índice do shell**, que é a metade que impede o conserto largo demais. Mais o bloco "Este aparelho", com a reversão (sem ponte ele não existe) |
@@ -4775,7 +4775,7 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.7.6 · APK v1.7.0** · `SHELL_VERSION` **63** ·
+**Versão atual: base web v1.7.8 · APK v1.7.0** · `SHELL_VERSION` **63** ·
 bundle com `minShell: 63` e **sem `shellTag`** — o shell 63 é o **PISO**:
 todo método da ponte existe, e não há guarda de versão no lado web.
 
@@ -4785,7 +4785,36 @@ não foram tocados, e nenhum método da ponte entrou ou mudou de forma. Daí o
 Release que não vai sair, em silêncio, e a única pista seria a linha no resumo
 do run.
 
-**O QUE O LOTE TRAZ — dois relatos do operador, e o segundo revoga um recurso:**
+**O QUE O LOTE TRAZ — um relato do operador:**
+
+| peça | onde |
+|---|---|
+| a chave da `object-URL` de uma capa é o ITEM, e não o objeto Blob | `thumbChaveDe`/`thumbUrlDaCapa` |
+
+> **UM `load()` RELÊ O BANCO, E UM BLOB RELIDO É OUTRO OBJETO** (v1.7.8).
+> Relato: *"Os mesmos problemas de miniaturas piscando da biblioteca, temos nas
+> miniaturas piscando no cronograma ao excluir outro item."*
+>
+> **É a porta que a v1.7.4 deixou aberta, e o oráculo dela a nomeava por
+> extenso.** Aquele lote keou a URL pelo BLOB, e isso resolve o redesenho de
+> 400 ms de um download — ali o blob é o mesmo OBJETO, porque quem o segura são
+> as listas em MEMÓRIA. Mas `load()` as relê do IndexedDB, e a releitura devolve
+> blobs novos para TODAS as capas de uma vez. E `load()` não é raro: ele roda em
+> toda escrita no banco, e excluir um item é uma.
+>
+> **A chave passou a ser `id|tamanho|tipo`.** O `id` é o que atravessa a
+> releitura; o par `size`/`type` é a impressão digital que impede uma capa
+> TROCADA de ser servida da memória — hoje nenhum caminho substitui a miniatura
+> de um registro existente, e o dia em que um existir ele mudará o tamanho. Sem
+> `id` a chave continua sendo o blob, que é o comportamento da v1.7.4: no pior
+> caso, o de antes.
+>
+> **De quebra, o MESMO item em duas listas passa a ter UMA url:**
+> `listItems('imports')` e `listItems('favs')` são duas leituras, então a mesma
+> capa vinha como dois blobs e ocupava a memória duas vezes.
+
+**O LOTE ANTERIOR (v1.7.7) — dois relatos do operador, e o segundo revoga um
+recurso:**
 
 | peça | onde |
 |---|---|
@@ -4808,9 +4837,7 @@ do run.
 > padrão para ele"* —, e o argumento contra vale menos do que parecia: quem
 > escolhe 480p uma vez o faz por uma razão que não muda de sábado para sábado.
 
-**O LOTE ANTERIOR (v1.7.5) — o histórico ganhou a anatomia da Biblioteca:**
-
-**O LOTE ANTERIOR (v1.7.6) — três pedidos sobre a GRADE de Configurações:**
+**E O ANTERIOR A ELE (v1.7.6) — três pedidos sobre a GRADE de Configurações:**
 
 | peça | onde |
 |---|---|
@@ -4875,7 +4902,7 @@ do run.
 > fecha em três fileiras exatas nos dois arranjos; o que muda é onde a costura
 > cai.
 
-**O LOTE ANTERIOR (v1.7.6) — o histórico ganhou a anatomia da Biblioteca:**
+**E A v1.7.5 — o histórico ganhou a anatomia da Biblioteca:**
 
 | peça | onde |
 |---|---|
@@ -4915,7 +4942,7 @@ do run.
 > por texto casaria o BLOCO (cujo `textContent` contém o de todas as linhas)
 > antes da linha procurada.
 
-**E O ANTERIOR A ELE (v1.7.4) — seis pedidos do operador, e três deles são a MESMA REGRA:**
+**E A v1.7.4 — seis pedidos do operador, e três deles são a MESMA REGRA:**
 
 | peça | onde |
 |---|---|
@@ -4924,7 +4951,7 @@ do run.
 | preparar apresentação e importar arquivo passaram a saber PARAR | `alcaDeCancelamento` + o predicado do `AVDeck.paginasDoPptx` |
 | a linha excluída SAI de cena em vez de voltar ao estado inicial | `aoSair` + `.saindo` |
 | a CAPA fica à vista na pergunta da exclusão (sai só no renomear) | a marca `renomeando` no `li` |
-| a `object-URL` de uma miniatura é do BLOB, não do render | `thumbUrlDoBlob`/`varrerMiniaturas` |
+| a `object-URL` de uma miniatura é do BLOB, não do render (a chave virou o ITEM na v1.7.8) | `thumbUrlDaCapa`/`varrerMiniaturas` |
 | um BLOCO responde ao toque por LUZ, e o bloco inteiro | "O BLOCO RESPONDE POR LUZ", no CSS |
 | a velocidade da cifra abre uma GAVETA em vez de ciclar | `cifraVelFila`/`cifraVelEscolher` |
 
