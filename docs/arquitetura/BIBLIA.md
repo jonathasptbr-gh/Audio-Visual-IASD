@@ -212,19 +212,67 @@ Tocar num **versículo** (`startBibleReading`) inicia uma **sessão de leitura**
 (`bibleSession = { versionId, bookIdx, bookId, bookName, chapter, verses, idx,
 projecting }`) e abre a tela `'reading'` — **mas NÃO projeta nada ainda**
 (`projecting:false`). A tela de leitura (`renderBibleReading`, `.bible-read`)
-mostra **quatro seções empilhadas** — versículo **anterior · atual · próximo ·
-seguinte** (`.bible-vsec`): um atrás e **dois à frente**, porque ler adiante é
-o que o operador faz (ele precisa saber o que vem para acompanhar a leitura,
-não o que já passou).
+mostra **até quatro seções empilhadas** — versículo **anterior · atual ·
+próximo · seguinte** (`.bible-vsec`): um atrás e **dois à frente**, porque ler
+adiante é o que o operador faz (ele precisa saber o que vem para acompanhar a
+leitura, não o que já passou). **Quantas cabem depende da altura da folha**
+desde a v1.7.10 — ver "O destaque tem de CABER", abaixo.
 
-**Cabe na tela sem scroll**: as quatro seções repartem entre si a altura que
+**Cabe na tela sem scroll**: as seções repartem entre si a altura que
 sobra depois do rodapé (`flex: 1 1 0` + `min-height: 0` — é o `min-height` que
 permite encolherem abaixo do próprio conteúdo; sem ele voltariam a empurrar a
 tela). O **central recebe metade a mais** (`flex: 1.5`), então é o último a
-apertar quando o versículo é longo. O texto que não couber é cortado com
-reticências (`-webkit-line-clamp`): a íntegra vai para o telão, aqui basta
-reconhecer o versículo. Rolar para achar o versículo central seria o oposto do
-que essa tela serve. Embaixo, um **rodapé** (`.bible-read-foot`) com um **controle segmentado
+apertar quando o versículo é longo. Rolar para achar o versículo central seria
+o oposto do que essa tela serve.
+
+### O destaque tem de CABER, e o corte tem de dizer que continua (v1.7.10)
+
+Relato do operador: *"verifique a disposição do tamanho da fonte no texto em
+destaque da bíblia, que será exibido, está cortando texto em certas telas"*.
+
+**A fonte era FIXA e a caixa é VARIÁVEL** — ela é o que sobra da seção, que por
+sua vez divide por `flex` a altura da folha. MEDIDO na seção central, com o
+versículo da captura:
+
+| tela | linhas que cabiam | depois |
+|---|---|---|
+| 360×640 | **0,79** | 2,75 |
+| 360×740 | 2,44 | 2,48 |
+| 393×786 | 2,87 | **3,42** |
+| 430×900 | 4,37 | 4,37 |
+| 393×786 · fonte do sistema 1,3× | **1,23** | 2,18 |
+| 360×640 · fonte 1,3× | **zero** | 2,24 |
+
+E o `-webkit-line-clamp: 6` **nunca engatava** — a caixa jamais chegou a seis
+linhas —, então quem cortava era o `overflow: hidden` da seção, no MEIO da
+linha: a altura da caixa sobrava de 7 a 26px sobre um múltiplo da altura de
+linha nos oito cenários medidos, isto é, **a última linha era sempre uma fileira
+de meias letras, sem reticências**.
+
+Três peças, e cada uma responde a uma parte:
+
+- **A FONTE SEGUE A ALTURA DA CAIXA.** `.bible-vsec` virou container de tamanho
+  e a fonte é `clamp(.88rem, 14.3cqh, var(--fs-2xl))`. O **teto é o tamanho de
+  sempre** — a 430×900 nada muda —, e o piso é em `rem` de propósito: quem
+  aumenta a fonte do sistema quer letra maior, mesmo vendo menos texto.
+- **O CORTE ESMAECE** (`mask-image`), em vez de ser serrado. Reticências
+  exigiriam que o clamp fosse sempre ≤ as linhas que cabem — um inteiro que o
+  CSS não tem como calcular a partir de uma altura, e um clamp maior que isso é
+  exatamente o defeito de origem. A máscara não precisa desse inteiro, e é o
+  vocabulário que a Biblioteca já usa (o véu do scroll, v1.5.16).
+- **QUANTAS SEÇÕES CABEM É UMA CONTA.** São quatro por decisão da v5.267, com a
+  razão escrita *"sobrava espaço na tela"* — verdade na tela em que aquilo foi
+  decidido, e falsa nas outras. Três faixas de `@container` na `.bible-read`
+  tiram primeiro o **segundo versículo à frente** (o mais distante do que está
+  no ar), depois o **anterior**, e no extremo deixam só o central. A ordem é a
+  do próprio argumento da v5.267: *ler adiante é o que o operador faz*. As
+  faixas (18em · 14em · 11em) foram CALIBRADAS medindo — cada uma é a altura em
+  que a menor seção deixa de mostrar uma linha inteira — e estão em `em` porque
+  a régua tem de acompanhar a escala de fonte do sistema.
+
+Oráculo: `tools/biblia-leitura-cabe.test.mjs`, em sete telas × escala de fonte.
+
+Embaixo, um **rodapé** (`.bible-read-foot`) com um **controle segmentado
 único** (`.bible-ref-nav`) trazendo as quatro coordenadas do que está sendo
 lido — **Livro · Capítulo · Versículo · Versão** —, cada uma levando ao seu
 próprio seletor. Emendados, continuam lendo como uma referência
@@ -240,6 +288,38 @@ leitura está — para as reticências antes de qualquer outro. O arredondamento
 das pontas sai de `:first-child`/`:last-child`, então ele acompanha a ordem
 nova sem uma segunda regra; e a Versão continua saindo da barra inteira quando
 não há lista de versões carregada.
+
+### E a barra CABE encolhendo, nunca pintando por cima (v1.7.10)
+
+Relato do operador, na mesma captura: *"na base, onde tem o livro capítulo e
+versículo selecionado, está sobrepondo os elementos na sua direita, por falta de
+espaço e ajuste de dimensão"*.
+
+MEDIDO, com as **quatro** pílulas: a referência pede **238px** com a fonte
+padrão e **308px** com a do sistema em 1,3×, contra **200–286px** de linha livre
+depois dos dois botões de guardar. Ela só cabia ao lado deles em 2 dos 10
+cenários — e três pílulas eram `flex-shrink: 0`, então, batido o `min-width` da
+do livro, o conteúdo saía da caixa: o que sai de uma caixa flex **pinta por cima
+do irmão**, e os dois botões continuam tocáveis por baixo.
+
+- **TODAS as pílulas encolhem agora**, e a ordem de ceder é explícita: a do
+  livro cede **três vezes** mais (é o único campo de largura imprevisível e o
+  único cujo valor vira reticências sem perder o sentido).
+- **QUEM SE DIMENSIONA PELO RÓTULO** são as três pílulas de número: "CAPÍTULO" e
+  "VERSÍCULO" em caixa alta são bem mais largos que os valores, então é no
+  rótulo que o aperto é pago (menos `letter-spacing`, menos respiro lateral).
+- **E QUANDO NÃO CABE NA LINHA, ELA QUEBRA** (`flex-wrap`). O algoritmo decide
+  as linhas pelo tamanho IDEAL antes de encolher qualquer item: onde a
+  referência cabe ao lado dos botões nada muda (o desenho da v5.109, e o das
+  telas largas); onde não cabe, ela toma a linha e os botões descem. Com a linha
+  inteira ela cabe em 8 dos 10 cenários. **A altura que isso custa sai da
+  leitura**, e era esse o argumento da v5.109 para juntar as duas faixas — ele
+  continua valendo e deixou de decidir, porque uma barra pintando sobre um botão
+  tocável é pior que uma linha a mais.
+- **O EXTREMO ESTÁ DITO**: a 360×640 com fonte 1,3× nem a linha sozinha basta
+  (308px pedidos contra 298px de folha), e ali o rótulo vira reticências — a
+  última barreira. Apertar o respiro das pílulas para ganhar os 10px foi MEDIDO
+  e não resolveu, e cobraria o aperto em todas as telas.
 
 A **versão entra pela sigla** (`bibleVersionAbbr`): "Almeida Revista e
 Atualizada" ocupava a linha inteira e empurrava a referência para baixo, e a
