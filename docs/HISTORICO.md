@@ -24,6 +24,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
+- **v1.8.0** — O ARQUIVO ÚNICO ERA TUDO-OU-NADA, E ISSO ERA O DEFEITO. Pedido do operador, depois de o `.avpkg` falhar em 15 GB e de novo em 3,5 GB: *"vamos planejar um método mais gradual, algo que possa ser interrompido e continuado a qualquer momento sem risco de perder todo o trabalho … um método direto de comunicação … que se comunique diretamente com o outro app que vai clonar a biblioteca"*, e em seguida *"tente fazer um sistema de comunicação entre eles, para que eu não tenha de digitar um endereço, quanto mais automatizado melhor"*. **O NÚCLEO JÁ EXISTIA, e foi ele quem o nomeou**: *"já temos um sistema que busca online para saber se tem algo faltando, a biblioteca é a mesma, só muda a fonte"* — é o `songVariantsNeeded`/`syncCollection`, cuja lista do que falta é DERIVADA do disco a cada passada e nunca guardada. Daí a propriedade que o arquivo único nunca teve: *nenhum progresso pode ser perdido, porque nenhum progresso é anotado*. O CLONE celular a celular: mDNS para os dois se acharem sem ninguém digitar endereço (`AcervoDescoberta.kt`), pareamento COM confirmação do operador — o acervo NÃO herda a porta aberta do telão (`AcervoCessao.kt`) —, as rotas `/acervo/` no servidor que já existia (agora com DUAS razões de viver, como o `SessionService`), e o `AcervoProxy` porque a página é `https` e o outro celular serve `http`. O FORMATO não mudou: cada item é um fluxo dos MESMOS registros do `.avpkg`, e o aplicador virou UM só para as duas fontes. Ponte: oito métodos, `SHELL_VERSION` 65. Lote COM Release.
 - **v1.7.10** — A FOLHA DE LEITURA DA BÍBLIA NÃO CABIA, E OS DOIS SINTOMAS ESTAVAM NA MESMA CAPTURA. (1) **O VERSÍCULO EM DESTAQUE**: *"verifique a disposição do tamanho da fonte no texto em destaque da bíblia, que será exibido, está cortando texto em certas telas"*. A fonte era FIXA (`--fs-2xl`) e a caixa é VARIÁVEL — ela é o que sobra da seção, que divide por `flex` a altura da folha. MEDIDO na seção central, com o versículo da própria captura: **0,79 linha** a 360×640, 2,44 a 360×740, 2,87 a 393×786, 4,37 a 430×900, **1,23** a 393×786 com a fonte do sistema em 1,3× e **ZERO** a 360×640 com a mesma escala. E o `-webkit-line-clamp: 6` **nunca engatava** — a caixa jamais chegou a seis linhas —, então quem cortava era o `overflow: hidden` da seção, no MEIO da linha: a altura sobrava de 7 a 26px sobre um múltiplo da altura de linha nos oito cenários, isto é, a última linha era sempre uma fileira de meias letras, **sem reticências**. A fonte passou a seguir a altura da caixa (`clamp(.88rem, 14.3cqh, var(--fs-2xl))`, com a seção virando container de tamanho), com o **teto no tamanho de sempre** — a 430×900 nada muda — e o piso em `rem`, porque quem aumenta a fonte do sistema quer letra maior mesmo vendo menos texto. O que ainda não couber **esmaece** (`mask-image`) em vez de ser serrado: reticências exigiriam que o clamp fosse sempre ≤ as linhas que cabem, um inteiro que o CSS não calcula a partir de uma altura, e um clamp maior que isso é exatamente o defeito de origem — a máscara não precisa dele, e é o vocabulário que a Biblioteca já usa (o véu do scroll, v1.5.16). **E quantas seções de contexto cabem virou uma CONTA**: são quatro por decisão da v5.267, com a razão escrita *"sobrava espaço na tela"* — verdade na tela em que aquilo foi decidido e falsa nas outras. Três faixas de `@container` tiram primeiro o segundo versículo à frente, depois o anterior, e no extremo deixam só o central; a ordem é a do próprio argumento de lá (*ler adiante é o que o operador faz*), e as faixas (18em · 14em · 11em) foram calibradas medindo — cada uma é a altura em que a MENOR seção deixa de mostrar uma linha inteira. Depois: 2,75 · 2,48 · 3,42 · 4,37 · 2,18 · 2,24 linhas, sem uma regressão. (2) **A BARRA DA REFERÊNCIA**: *"na base, onde tem o livro capítulo e versículo selecionado, está sobrepondo os elementos na sua direita, por falta de espaço e ajuste de dimensão"*. MEDIDO com as QUATRO pílulas: ela pede 238px com a fonte padrão e 308px com a do sistema em 1,3×, contra 200–286px de linha livre depois dos dois botões de guardar — só cabia ao lado deles em 2 dos 10 cenários. Três pílulas eram `flex-shrink: 0`, então, batido o `min-width` da do livro, o conteúdo saía da caixa; e **o que sai de uma caixa flex pinta por cima do irmão**, com os dois botões continuando tocáveis por baixo. Todas encolhem agora (a do livro três vezes mais, porque é o único valor que vira reticências sem perder o sentido), o aperto é pago no RÓTULO — que é quem dimensiona as três pílulas de número, já que "CAPÍTULO" e "VERSÍCULO" são muito mais largos que os valores —, **e quando não cabe a barra QUEBRA**: `flex-wrap` decide as linhas pelo tamanho ideal antes de encolher qualquer item, então onde a referência cabe ao lado dos botões nada muda e onde não cabe eles descem. A altura que isso custa sai da leitura, que era o argumento da v5.109 para juntar as duas faixas — ele continua valendo e deixou de decidir, porque uma barra pintando sobre um botão tocável é pior que uma linha a mais. **O extremo está dito**: a 360×640 com fonte 1,3× nem a linha sozinha basta (308 contra 298px) e ali o rótulo vira reticências; apertar o respiro das pílulas para ganhar os 10px foi medido e não resolveu. **A primeira calibração deste lote saiu 50px otimista** porque o oráculo media TRÊS pílulas: a da versão só existe com a lista de versões carregada, e sem rede ela vem vazia. Oráculo novo: `tools/biblia-leitura-cabe.test.mjs`, em sete telas × escala de fonte, com cinco reversões medidas. Lote **só de base web**.
 - **v1.7.9** — A IMPORTAÇÃO NÃO ERA LENTA: ELA NÃO CABIA. Relato do operador: *"Não estou conseguindo importar os dados, 'failed to fetch' era um arquivo de 15GB. Tentei em um arquivo de 3,52GB e ele deu erro como se o arquivo estivesse corrompido. Verifique se é problema no leitor, ou é algum problema tamanho do arquivo."* **São os dois, um em cada camada.** (1) **O LEITOR** fazia `resp.blob()` — o arquivo INTEIRO materializado antes do primeiro byte: quinze gigabytes não cabem nem na memória nem no armazenamento de blobs, que é uma SEGUNDA cópia ao lado da primeira num aparelho que já está cheio. (2) **O TAMANHO**, e este é estrutural: o caminho `/saf/` tem **teto de 2 GB**, porque o Chromium dimensiona toda resposta interceptada pelo `available()` do `InputStream` — um `int`. É a invariante 8 pelo lado que ninguém tinha olhado: acima de `Integer.MAX_VALUE` o web recebe o arquivo CORTADO, sem erro nenhum, e o cursor tropeça no meio de um registro. **A forma do conserto é a do `StreamProxy`, e não uma invenção**: `/saf/<token>?r=<ini>-<fim>`, com a faixa na QUERY e nunca num cabeçalho `Range` — com o cabeçalho, o `ParseRange` do WebView aplicaria o deslocamento uma SEGUNDA vez sobre o que já é uma fatia. Sem cabeçalho não há `ParseRange` nem `ComputeBounds`, e o `available()` passa a ser o da JANELA: o teto some porque nenhuma resposta chega perto dele. O `SafJanela` faz SEEK de verdade (`openFileDescriptor` + `FileChannel.position`; `skip` só como plano B para provedor sem descritor posicionável — pular quatorze gigabytes lendo-os seria quadrático) e usa `AutoCloseInputStream`, porque `FileInputStream(pfd.fileDescriptor)` não é dono do descritor e vazaria um por janela. Do lado web, `pacoteFonteDaUrl` entrega FATIAS: `bytes()` para cabeçalhos e `blob()` para corpos, montado de pedaços de 8 MB. **A leitura antecipada CRESCE E ENCOLHE, e foi o oráculo que pegou isso** — com 4 MB fixos a conferência de um acervo lia 4 MB para aproveitar duzentos bytes, uma vez por registro; a regra virou o próprio percurso (sequência dobra até 1 MB, salto volta a 8 kB). `pickDoc` passou a devolver `size` (`-1` = o provedor não disse, que NÃO é `0`). **E mais um pedido:** a linha de "tudo" saiu da folha de exportação (*"está inútil agora que temos o agrupamento"*). Lote **com Release** (`SHELL_VERSION` 64, `minShell: 64`, `shellTag: "v1.7.9"`).
 - **v1.7.8** — UM `load()` RELÊ O BANCO, E UM BLOB RELIDO É OUTRO OBJETO. Relato: *"Os mesmos problemas de miniaturas piscando da biblioteca, temos nas miniaturas piscando no cronograma ao excluir outro item."* **É a porta que a v1.7.4 deixou aberta, e o oráculo dela a nomeava por extenso**: aquele lote keou a `object-URL` de cada capa pelo BLOB, o que resolve o redesenho de 400 ms de um download — ali o blob é o mesmo OBJETO, porque quem o segura são as listas em MEMÓRIA (`libItems`, `favItems`). Mas `load()` as relê do IndexedDB, e a releitura devolve blobs novos para TODAS as capas de uma vez; e `load()` não é raro — ele roda em toda escrita no banco, e excluir um item é uma. A chave passou a ser **`id|tamanho|tipo`**, e cada pedaço responde a uma coisa: o `id` é o que atravessa a releitura, e o par `size`/`type` é a impressão digital que impede uma capa TROCADA de ser servida da memória (hoje nenhum caminho substitui a miniatura de um registro existente, e o dia em que um existir ele mudará o tamanho). Sem `id` a chave continua sendo o blob, que é o comportamento da v1.7.4: no pior caso, o de antes. **De quebra, o MESMO item em duas listas passa a ter UMA url** — `listItems('imports')` e `listItems('favs')` são duas leituras, então a mesma capa vinha como dois blobs e ocupava a memória duas vezes. O `miniaturas-estaveis.test.mjs` ganhou o bloco E (o Cronograma, excluindo outro item) e uma asserção nova no C (a mesma propriedade na Biblioteca, que é a outra metade da frase do relato): são dois hosts porque um tem balde próprio e o outro não. Duas reversões medidas — com a chave de volta no blob os dois reprovam, e com a varredura em no-op reprovam as duas que cobram a revogação. Lote **só de base web**.
@@ -359,6 +360,139 @@ na nota que a revoga, não apagada da que a criou.
 
 ---
 
+## v1.8.0 — o arquivo único era tudo-ou-nada, e isso era o defeito
+
+**Pedido do operador**, depois de a importação do `.avpkg` falhar em 15 GB e, já
+com o leitor por janelas da v1.7.9 instalado, de novo em 3,5 GB (*"O pacote está
+danificado, o app não reconhece o conteúdo dele"*):
+
+> *"estamos tendo problemas com esse método, me parece que lidar com arquivos
+> grandes é um problema. vamos planejar um método mais gradual, algo que possa
+> ser interrompido e continuado a qualquer momento sem risco de perder todo o
+> trabalho. planeje duas opções: prosseguir com um modelo de arquivo de
+> exportação (zip ou uma simples pasta com vários Arquivos menores), ou um
+> método direto de comunicação, como usar uma conexão tipo quick share ou algo
+> do gênero, mas que se comunique diretamente com o outro app que vai clonar a
+> biblioteca... há uma forma de fazer essa transmissão direta?"*
+
+E, escolhida a segunda: *"Verifique se já não temos algo que possa ser o núcleo
+de índice e retomada, pois já temos um sistema que busca online para saber se tem
+algo faltando, a biblioteca é a mesma, só muda a fonte, mas os arquivos a serem
+checados é o mesmo. Além disso, pode seguir já diretamente para o sistema de
+celular para celular. Mas tente fazer um sistema de comunicação entre eles, para
+que eu não tenha de digitar um endereço, quanto mais automatizado melhor."*
+
+### O núcleo já existia, e quem o nomeou foi ele
+
+`songVariantsNeeded`/`syncCollection`: a lista do que falta é **derivada do disco
+a cada passada, nunca guardada**. Daí a propriedade que o arquivo único não tinha
+— *nenhum progresso pode ser perdido, porque nenhum progresso é anotado*.
+Interromper é fechar o app; continuar é abrir e mandar sincronizar de novo, e a
+lista sai menor.
+
+**E o FORMATO não mudou:** cada item do clone é um fluxo dos MESMOS registros que
+o `.avpkg` escreve. O aplicador virou **um só para duas fontes**
+(`pacoteAplicarFluxo`) — duas escritas da mesma regra divergiriam no primeiro
+ajuste, e aqui a divergência seria silenciosa (um caminho gravando a miniatura e
+o outro não, com os dois "funcionando"). O arquivo FICA: ele é o caminho de quem
+não tem rede em comum.
+
+### As decisões
+
+- **O ACERVO NÃO HERDA A PORTA ABERTA DO TELÃO.** Aquele servidor nasce sem
+  código de entrada de propósito, e a decisão continua certa: o que vaza por ele
+  são os comandos e as mídias carregadas durante a transmissão — o que a
+  congregação já está vendo. O acervo é o aparelho inteiro. Daí o
+  `POST /acervo/par` ficar AGUARDANDO e quem cede ver na tela quem pediu: não há
+  código a digitar (o pedido é *"quanto mais automatizado melhor"*) e também não
+  há porta aberta.
+- **O SERVIDOR PASSOU A TER DUAS RAZÕES DE VIVER** (telão · cessão), e só cai
+  quando as duas caem — o padrão do `SessionService`.
+- **O SHELL NÃO LÊ O ACERVO** (IndexedDB e OPFS moram dentro do WebView), então
+  a rota que não acha um item no cache **injeta um pedido no barramento** e serve
+  o que o Controle empurrar, pelo canal `__avTelaMidia` que a rota `/m/` já usa
+  toda semana. **Mas ela espera o item ficar COMPLETO**, ao contrário do `/m/`:
+  ali o crescimento sai por chunked para o `<video>` começar a tocar; aqui o
+  destino pede FAIXAS, e `servirMidia` só honra `Range` num item completo. O
+  prazo é de PARADA e não de duração.
+- **A SESSÃO DO ÍNDICE impede a corrupção silenciosa.** O item é pedido por
+  POSIÇÃO (um caminho de OPFS numa rota é a armadilha do `SafRegistry`), e
+  posição só vale enquanto a lista for a mesma — a página do Controle pode
+  recarregar no meio. Sessão diferente ⇒ 409, e o destino busca o índice de novo.
+  A página que volta REPUBLICA (`cloneRetomar`), porque o servidor sobrevive ao
+  documento e as receitas não.
+- **`NsdManager`, e não um QR nem um código.** É da plataforma e não pede
+  permissão nova (`CHANGE_WIFI_MULTICAST_STATE` já está declarada). Um QR
+  precisaria da CÂMERA, que este app nega sempre; o Wi-Fi Direct é redundante com
+  o ponto de acesso; e o **Quick Share não é aberto a um app para dirigir** — o
+  máximo é entregar um arquivo ao seletor do sistema, que é exatamente o arquivo
+  único que este lote existe para abandonar. Três armadilhas do `NsdManager`
+  fechadas: o resolve SERIALIZADO (dois de uma vez dão `FAILURE_ALREADY_ACTIVE` e
+  o aparelho não aparece na lista, sem erro), o próprio anúncio FILTRADO (o
+  Android renomeia sozinho em colisão) e só IPv4 privado.
+- **CONTEÚDO MISTO obriga o proxy:** a página roda em `https://` e o outro
+  celular serve `http://`. Host, porta e token ficam no shell — se o alvo viesse
+  por parâmetro, qualquer script neste origin ganharia um proxy de saída para a
+  rede local. **A faixa vai na QUERY** e um cabeçalho `Range` é recusado com 400
+  em voz alta (invariante 8).
+- **O `l` (os registros leves em lote) é SEMPRE buscado**, porque importar
+  `state` MESCLA: *"já tenho a chave"* não responde *"já tenho o conteúdo dela"*.
+  O lote existe porque a Bíblia mora em `state` com uma chave por capítulo —
+  mandar 3.600 chaves como 3.600 pedidos HTTP trocaria megabytes por horas.
+- **O tipo que o app não conhece é PULADO e CONTADO:** recusar o índice inteiro
+  deixaria o operador sem clone nenhum, e não contá-lo faria a tela anunciar
+  "tudo copiado" sobre uma cópia incompleta.
+
+### A grade de Configurações
+
+Ela passou de 9 para 11 tiles, e a asserção geométrica dos três oráculos que a
+mediam passou a medir a PROPRIEDADE que ela protegia: **a costura entre as duas
+naturezas cai numa borda de fileira**. A v1.7.6 media a última fileira CHEIA — um
+atalho verdadeiro enquanto o grupo do aparelho tinha exatamente três tiles (com
+6 + 3 as duas perguntas dão a mesma resposta), e que se separou dela agora.
+
+### Oráculos
+
+`clone-de-outro-celular.test.mjs` (a LIGAÇÃO, em dois contextos de navegador como
+dois celulares: o que falta, a RETOMADA medida em número de PEDIDOS, o 409 e a
+faixa na query — cinco reversões nomeadas), as três regras PURAS no
+`pacote.test.mjs`, e `AcervoCessaoTest` em JUnit — a máquina de estados do
+pareamento decide quem pode copiar o acervo inteiro, e por isso o `AcervoCessao`
+ficou sem Android no caminho que ela percorre.
+
+### E O TERCEIRO PAR DA HIDRATAÇÃO, achado pela campanha
+
+A campanha de determinismo deste lote reprovou o `boot-nativo.test.mjs` sob
+carga, e o vermelho intermitente era o ACHADO que a regra deste repositório
+promete: o bloco dos Favoritos saía com `nosFavs: false` e `naLista: true` —
+o item fora do banco e ainda na tela oito segundos depois.
+
+**A causa é PRÉ-EXISTENTE e é a terceira ocorrência da mesma classe.** O
+`load()` lê o banco por uma dezena de `await`s e só então escreve as variáveis
+do módulo: `loadSeqCtl` resolve load × load (v5.x) e `senhaDaCena` resolve
+load × send (v1.6.0). Faltava **load × `recarregarFavoritos`** — a única função
+fora do `load()` que escreve `favSet` e `favItems`, e que os escrevia sem
+participar de sequência nenhuma. Um `load()` que leu os favoritos ANTES de um
+`listRemove('favs')` volta com `myseq === loadSeqCtl` (nada o invalidou) e
+aplica a lista velha: *lost update*.
+
+**O desfecho é visível e PERMANENTE**, e é o que faz dele um defeito e não uma
+instabilidade de oráculo: o favorito excluído VOLTA para a tela, e fica — só
+quem mexe nos favoritos chama `redesenharFavoritosNaBiblioteca`, então nada
+mais redesenha aquela seção até o operador fechar e reabrir a Biblioteca.
+
+A correção é a senha `favSeq`, no molde do `cenaEhNossa` duas linhas acima, mais
+o `recarregarFavoritos` lendo as DUAS listas antes de escrever qualquer uma —
+`favSet` era escrito ENTRE os dois `await`, o mesmo defeito em miniatura dentro
+de uma função só.
+
+**O oráculo é o `hidratacao-perde-a-vez.test.mjs`, e o hazard é FORÇADO À MÃO**
+pelo motivo escrito lá desde a v1.6.0: um oráculo que depende da carga da
+máquina não guarda portão. Sem os portões a ordem de conclusão cai quase sempre
+do lado bom (MEDIDO) e a reversão não reprova. Três metades, a do meio provada
+por reversão: `{"noSet":true,"naLista":true}` — o excluído de volta.
+
+**Lote COM Release:** `SHELL_VERSION` 65, `minShell: 65`, `shellTag: "v1.8.0"`.
 ## v1.7.10 — a folha de leitura da Bíblia não cabia
 
 Dois relatos do operador, **na mesma captura** — e os dois são a mesma classe de

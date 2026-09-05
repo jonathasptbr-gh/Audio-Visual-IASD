@@ -1029,8 +1029,10 @@ dizer o que a fileira já diz.
 | Compartilhar | `#shareAppTile` | `app` | **sempre** | `#icoCompartilhar` |
 | Exportar | `#pacoteExportarTile` | `pronto` · `ocupado` | **sempre** | `#icoExportar` (o ARO no lugar dele em curso) |
 | Importar | `#pacoteImportarTile` | `pronto` · `ocupado` | **sempre** | `#icoImportar` (idem) |
+| Ceder | `#cloneCederTile` | `parado` · `cedendo` | **quando ligado** | `#icoCeder` / `#icoCelular` |
+| Clonar | `#cloneReceberTile` | `pronto` | **sempre** (só apaga cedendo, que é INDISPONÍVEL de verdade) | `#icoClonar` (o ARO no lugar dele em curso) |
 
-**A COLUNA "ACESO" DIZ "SEMPRE" NAS NOVE LINHAS, e é assim que ela fica**
+**A COLUNA "ACESO" DIZ "SEMPRE" EM QUASE TODAS, e a exceção é NOMEADA**
 (v1.7.6). Pedido do operador: *"todos os botões devem ter o mesmo azul de ativo,
 não temos mais essa diferença, toda diferença de estado é pelo icone, não pela
 cor"*. A v1.4.40 acendeu os tiles sem "desligado" e deixou dois apagando (o
@@ -1043,7 +1045,23 @@ para outra coisa. **Apagado aqui quer dizer INDISPONÍVEL** (`opacity: .3` +
 palavra do estado saiu na v1.7.2, a cor saiu agora, e o desenho é o único canal
 que sobrou. *Um estado que não caiba num desenho não cabe nesta grade.*
 
-**NOVE TILES desde a v1.7.2** — a grade fecha em três fileiras exatas. As três
+**O "CEDER" É A ÚNICA EXCEÇÃO À LUZ, e ela é legítima** (v1.8.0): ele é um
+INTERRUPTOR DE VERDADE — ligado, este aparelho está se anunciando na rede e
+oferecendo a biblioteca; desligado, não. `qs-on` responde *"está ligado?"* e
+`qs-alt` responde *"qual desenho?"*, que é a distinção da v1.4.40, e aqui as
+duas têm resposta. O que a regra acima proíbe é apagar um tile que **não tem
+desligado** — ali apagado significaria INDISPONÍVEL, e mentiria.
+
+**ONZE TILES desde a v1.8.0** — seis preferências da PROJEÇÃO e cinco ações do
+APARELHO. A grade tem três colunas, então a costura entre as duas naturezas cai
+numa BORDA DE FILEIRA (6 é múltiplo de 3) e a última fileira tem um vão no fim,
+que é o que toda grade faz quando a lista não fecha. **A v1.7.6 media a última
+fileira CHEIA**, e aquilo era um atalho verdadeiro enquanto o grupo do aparelho
+tinha exatamente três tiles: com 6 + 3 as duas perguntas dão a mesma resposta.
+Elas se separaram quando o clone entrou com dois, e o oráculo passou a medir a
+propriedade em vez do atalho.
+
+As três
 AÇÕES DESTE APARELHO moravam num bloco à parte, sob o rótulo "Este aparelho", e
 ele saiu a pedido do operador: *"remova também o texto 'este aparelho' que divide
 as configurações. Todos os blocos ficam em uma grade só"*. A separação era de

@@ -266,6 +266,13 @@ object WebViewFactory {
                 // sem o `withSaf`, um script no documento do telão leria
                 // qualquer arquivo já concedido (invariante 9).
                 if (withSaf) SafJanela.tryHandle(ctx, request)?.let { return it }
+                // O PROXY DO CLONE (shell 65) — e **só onde o `/saf/` existe**,
+                // pela invariante 9: ele é uma saída para a rede local com a
+                // credencial do pareamento embutida, e no documento do telão
+                // qualquer script de terceiro a usaria. Aqui, ao contrário do
+                // [StreamProxy], não há razão nenhuma para o Display precisar
+                // dela: quem clona é o Controle.
+                if (withSaf) AcervoProxy.tryHandle(request)?.let { return it }
                 return loader.shouldInterceptRequest(request.url)
             }
 

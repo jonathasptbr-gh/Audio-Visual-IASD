@@ -359,18 +359,30 @@ try {
     (g) => [...g.children].map((e) => e.id));
   const projecao = ['temaTile', 'fitTile', 'wallTile', 'histOpenRow',
     'lyricsBgTile', 'rotBtn'];
-  const aparelho = ['shareAppTile', 'pacoteExportarTile', 'pacoteImportarTile'];
+  // OS DOIS DO CLONE entraram nesta metade na v1.8.0: eles são o que se faz com
+  // o APP fora da projeção, exatamente como os três acima — e são a MESMA
+  // pergunta que exportar/importar ("como a biblioteca vai daqui para lá?")
+  // com a outra resposta.
+  const aparelho = ['shareAppTile', 'pacoteExportarTile', 'pacoteImportarTile',
+    'cloneCederTile', 'cloneReceberTile'];
   checar(JSON.stringify(ordem) === JSON.stringify(projecao.concat(aparelho)),
-    'compartilhar, exportar e importar são os TRÊS ITENS DA BASE',
+    'as ações do APARELHO são as ÚLTIMAS da grade, e as da PROJEÇÃO as primeiras',
     JSON.stringify(ordem));
-  // E A BASE É UMA FILEIRA INTEIRA, e não três células que calham de terminar a
-  // lista: a grade tem três colunas e nove tiles, então os três últimos ocupam
-  // a última fileira sozinhos. É a metade GEOMÉTRICA do pedido — um décimo tile
-  // acrescentado no fim empurraria um deles para a fileira de cima e a costura
-  // entre as duas naturezas cairia no meio de uma linha.
-  checar(ordem.length % grade.cols === 0,
-    'e ela fecha em fileiras EXATAS — um tile a mais quebra a costura entre as '
-    + 'duas naturezas no meio de uma linha',
+  // A COSTURA ENTRE AS DUAS NATUREZAS CAI NUMA BORDA DE FILEIRA, e é ISSO que a
+  // metade geométrica do pedido protege. A v1.7.6 media `ordem.length %
+  // cols === 0` — a última fileira CHEIA —, que era um atalho verdadeiro
+  // enquanto o grupo do aparelho tinha exatamente três tiles: com 6 + 3 as duas
+  // perguntas dão a mesma resposta.
+  //
+  // Elas se separaram na v1.8.0, quando o clone entrou com dois tiles. O que
+  // não pode acontecer continua não acontecendo: nenhuma fileira mistura uma
+  // preferência da projeção com uma ação do aparelho. O que passou a ser
+  // possível é a ÚLTIMA fileira ter um vão no fim, que é o que toda grade faz
+  // quando a lista não fecha — e ela não pode ser a costura, porque a costura
+  // está duas fileiras acima.
+  checar(projecao.length % grade.cols === 0,
+    'e a costura entre as duas naturezas cai numa BORDA DE FILEIRA — um tile a '
+    + 'mais na metade de cima a jogaria para o meio de uma linha',
     'tiles: ' + ordem.length + ' · colunas: ' + grade.cols);
 
   // ---- O MODO DO APP É UM INTERRUPTOR QUE DESLIZA (v1.4.43) ----

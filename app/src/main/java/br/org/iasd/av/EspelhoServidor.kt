@@ -580,8 +580,166 @@ class EspelhoServidor(
             // `shared/mse.js`, que não sabe de sessão nenhuma.
             r.metodo == "GET" && rota.startsWith("/s/") ->
                 servirTransmissao(rota.substring(3), r, saida)
+            // ===== O CLONE DA BIBLIOTECA (shell 65) =====
+            //
+            // Três rotas com autorização PRÓPRIA — o acervo NÃO herda a porta
+            // aberta do telão. Aqui o que autoriza é uma pessoa tocando em
+            // Permitir no aparelho que cede; ver o KDoc do [AcervoCessao].
+            r.metodo == "POST" && rota == "/acervo/par" -> parAcervo(r, saida, cru)
+            r.metodo == "GET" && rota == "/acervo/indice" -> indiceAcervo(r, saida)
+            r.metodo == "GET" && rota.startsWith("/acervo/item/") ->
+                servirAcervo(rota.substring(13), r, saida)
             else -> responder(saida, naoAchei())
         }
+    }
+
+    /**
+     * `POST /acervo/par` — o pareamento do CLONE, e o único ponto do servidor
+     * em que um status que não seja 404 sai antes de haver credencial.
+     *
+     * Os quatro desfechos são distintos de propósito (`202` aguardando, `200`
+     * com token, `403` recusado, `409` ocupado): o destino desenha uma frase
+     * para cada um, e as três primeiras pedem ações opostas de quem está com o
+     * aparelho na mão. Cessão desligada continua respondendo o 404 idêntico —
+     * quem varre a rede não descobre que a rota existe.
+     *
+     * **`202` não vira linha do Registro**: o destino repete o pedido enquanto
+     * espera a resposta do operador, e o anel tem 60 linhas.
+     */
+    private fun parAcervo(r: EspelhoHttp.Req, saida: OutputStream, cru: Socket) {
+        val corpo = try {
+            JSONObject(String(r.corpo, Charsets.UTF_8))
+        } catch (e: Exception) {
+            JSONObject()
+        }
+        val origem = enderecoDe(cru)
+        val v = AcervoCessao.parear(origem, corpo.optString("rotulo"), SystemClock.elapsedRealtime())
+        if (v.status == 404) return responder(saida, naoAchei())
+        if (v.status != 202) registrar("clone: pedido de $origem respondido com ${v.status}")
+        // O VEREDITO VIRA JSON AQUI, como no `respostaDoVeredito` do pareamento
+        // das telas: o [AcervoCessao] devolve DADO, e é isso que o mantém
+        // rodável em JUnit.
+        val json = JSONObject().put("estado", v.estado)
+        if (v.com.isNotEmpty()) json.put("com", v.com)
+        if (v.token.isNotEmpty()) json.put("token", v.token)
+        responder(
+            saida,
+            EspelhoHttp.resposta(v.status, "application/json", json.toString().toByteArray(Charsets.UTF_8)),
+        )
+    }
+
+    /**
+     * `GET /acervo/indice` — a LISTA DE DECISÃO, publicada pelo Controle.
+     *
+     * O `503` é o caso REAL de o operador ter acabado de ligar a cessão: o
+     * anúncio na rede sobe junto com o servidor e o índice leva alguns
+     * segundos para ser montado (ele varre o OPFS inteiro). Responder 404 ali
+     * mandaria o destino concluir que não há nada a copiar.
+     */
+    private fun indiceAcervo(r: EspelhoHttp.Req, saida: OutputStream) {
+        if (!AcervoCessao.autorizado(bearerDe(r.autorizacao))) return responder(saida, naoAchei())
+        val bytes = AcervoCessao.indiceBytes()
+            ?: return responder(saida, jsonSimples(503, "montando"))
+        responder(saida, EspelhoHttp.resposta(200, "application/json", bytes))
+    }
+
+    /**
+     * `GET /acervo/item/<sessao>/<n>` — um item do índice.
+     *
+     * **O shell não lê o acervo** (ele mora no IndexedDB/OPFS, dentro do
+     * WebView), então a rota não serve nada por conta própria: o que ela faz é
+     * PEDIR ao Controle e servir o que chegar pelo canal `__avTelaMidia`, que
+     * é o mesmo caminho que a rota `/m/` usa toda semana — inclusive o item EM
+     * CRESCIMENTO, que já sai por chunked enquanto o empurrão anda.
+     *
+     * O pedido entra pelo [MessageBus.post] com `from = null`, que **não**
+     * passa pelo `busPost`: um pedido do clone não vai para o SSE das telas da
+     * rede, e nenhum eco volta.
+     *
+     * Três recusas, e cada uma diz outra coisa: `409` é o índice ter sido
+     * remontado (a página do Controle recarregou no meio — o destino busca o
+     * índice de novo e continua de onde estava), `503` é o Controle não ter
+     * respondido no prazo, e o `404` é a credencial.
+     */
+    private fun servirAcervo(resto: String, r: EspelhoHttp.Req, saida: OutputStream) {
+        if (!AcervoCessao.autorizado(bearerDe(r.autorizacao))) return responder(saida, naoAchei())
+        val corte = resto.indexOf('/')
+        if (corte <= 0) return responder(saida, naoAchei())
+        val n = resto.substring(corte + 1).toIntOrNull() ?: return responder(saida, naoAchei())
+        val token = AcervoCessao.tokenDoItem(resto.substring(0, corte), n)
+            ?: return responder(saida, jsonSimples(409, "indice-trocado"))
+        val cache = midia ?: return responder(saida, naoAchei())
+        // ESPERA O ITEM FICAR **COMPLETO**, e não só existir — esta é a
+        // diferença que separa esta rota do `/m/`.
+        //
+        // Lá o item EM CRESCIMENTO sai por chunked de propósito: o `<video>` da
+        // tela começa a tocar sem esperar o fim, e é isso que se quer. Aqui não
+        // há nada tocando: o destino pede FAIXAS de bytes, e `servirMidia` só
+        // honra `Range` num item completo — servir o crescimento ignoraria a
+        // faixa e entregaria o começo do arquivo rotulado como o pedaço do
+        // meio. O proxy do outro lado reprova isso (é a conferência de
+        // `Content-Range` dele), mas o certo é não produzir a resposta errada.
+        //
+        // O PRAZO É DE PARADA, não de duração: enquanto os bytes andam, a
+        // espera continua. Um item de 380 MB atravessa o canal em dezenas de
+        // segundos, e um teto absoluto o mataria justamente nos arquivos que
+        // mais custam a refazer.
+        var item = cache.servir(token)
+        if (item?.completo != true) {
+            if (item == null) {
+                MessageBus.post(
+                    null,
+                    JSONObject()
+                        .put("type", "acervo-pedido")
+                        .put("sessao", AcervoCessao.sessao)
+                        .put("n", n)
+                        .put("token", token)
+                        .toString(),
+                )
+            }
+            var recebido = item?.recebido ?: -1L
+            var paradoDesde = SystemClock.elapsedRealtime()
+            while (true) {
+                item = cache.servir(token)
+                if (item?.completo == true) break
+                if (item?.cancelado == true) break
+                if (desligando.get()) return
+                val agora = SystemClock.elapsedRealtime()
+                val atual = item?.recebido ?: -1L
+                if (atual != recebido) { recebido = atual; paradoDesde = agora }
+                if (agora - paradoDesde > AcervoCessao.PRAZO_ITEM_MS) break
+                try {
+                    Thread.sleep(120)
+                } catch (e: InterruptedException) {
+                    Thread.currentThread().interrupt()
+                    return
+                }
+            }
+            if (item?.completo != true) {
+                registrar("clone: o item $n nao ficou pronto (parado por ${AcervoCessao.PRAZO_ITEM_MS} ms)")
+                return responder(saida, jsonSimples(503, "sem-resposta"))
+            }
+        }
+        AcervoCessao.contarEntrega(n)
+        // DAQUI PARA A FRENTE É A ROTA `/m/` INTEIRA — Range de verdade para o
+        // item completo, chunked para o que ainda está chegando. Reusá-la é o
+        // ponto: um segundo servidor de bytes seria um segundo lugar para
+        // errar a aritmética de faixa.
+        servirMidia(token, r, saida)
+    }
+
+    private fun jsonSimples(status: Int, estado: String): ByteArray = EspelhoHttp.resposta(
+        status,
+        "application/json",
+        JSONObject().put("estado", estado).toString().toByteArray(Charsets.UTF_8),
+    )
+
+    /** O token nu de um `Authorization: Bearer <t>`. O [EspelhoPares] tem a
+     *  mesma leitura para as sessões DELE — são duas credenciais diferentes,
+     *  e juntá-las faria o token de uma tela da rede valer no acervo. */
+    private fun bearerDe(cru: String?): String? {
+        val v = cru?.trim() ?: return null
+        return if (v.regionMatches(0, "Bearer ", 0, 7, ignoreCase = true)) v.substring(7).trim() else v
     }
 
     /**

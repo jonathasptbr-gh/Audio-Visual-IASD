@@ -775,9 +775,23 @@ class MainActivity : ComponentActivity(), BridgeHost {
         // valer para o `SessionService`, logo acima.
         if (!isChangingConfigurations) {
             try {
+                telaoPedido = false
+                acervoPedido = false
                 desmontarEspelho()
             } catch (e: Exception) {
                 Log.w(TAG, "espelho não desligou", e)
+            }
+            // O CLONE MORRE COM A ACTIVITY pelo mesmo motivo da transmissão, e
+            // com uma razão a mais: o anúncio mDNS é a única coisa deste app
+            // que fica VISÍVEL na rede sem nenhuma tela dizendo que está — um
+            // aparelho continuar se oferecendo com o app fechado é a falha
+            // silenciosa que este recurso não pode ter.
+            try {
+                AcervoCessao.desligar()
+                AcervoDescoberta.tudoAbaixo()
+                AcervoProxy.soltar()
+            } catch (e: Exception) {
+                Log.w(TAG, "clone não desligou", e)
             }
         }
         // Os hooks saem SEMPRE, inclusive numa recriação: eles capturam ESTA
@@ -1750,6 +1764,15 @@ class MainActivity : ComponentActivity(), BridgeHost {
      * especificação proíbe degradar calado em todos os pontos deste caminho.
      */
     override fun startMirror(ip: String, onResult: (JSONObject) -> Unit) {
+        // O PEDIDO É DO OPERADOR, e é ele que o `stopMirror` desfaz. A CESSÃO
+        // sobe o mesmo servidor por outra porta de entrada (`subirServidor`) e
+        // **não** marca esta bandeira: se marcasse, desligar a cessão deixaria
+        // o servidor de pé para sempre, servindo um telão que ninguém pediu.
+        telaoPedido = true
+        subirServidor(ip, onResult)
+    }
+
+    private fun subirServidor(ip: String, onResult: (JSONObject) -> Unit) {
         runOnUiThread {
             if (espelhoSrv?.ligado == true) { onResult(mirrorJson()); return@runOnUiThread }
 
@@ -1861,6 +1884,11 @@ class MainActivity : ComponentActivity(), BridgeHost {
      * parar é o oposto de parar — a mesma lição do `ytCancel`.
      */
     override fun stopMirror() {
+        telaoPedido = false
+        // O SERVIDOR SÓ CAI SE NINGUÉM MAIS O QUISER — ver os dois booleanos
+        // no bloco do clone. Desligar o telão no meio de uma cópia de
+        // gigabytes derrubaria a cópia sem nada dizendo por quê.
+        if (acervoPedido) return
         desmontarEspelho()
     }
 
@@ -1874,6 +1902,12 @@ class MainActivity : ComponentActivity(), BridgeHost {
      * um no-op.
      */
     private fun desmontarEspelho() {
+        // O ANÚNCIO SAI COM O SERVIDOR, sempre. Um anúncio mDNS de pé sobre uma
+        // porta fechada é pior que anúncio nenhum: o outro celular acha o
+        // aparelho, toca nele e recebe uma falha de conexão sem causa.
+        try { AcervoDescoberta.pararAnuncio() } catch (e: Exception) {
+            Log.w(TAG, "anúncio do clone não parou", e)
+        }
         NativeBridge.tapLan = null
         espelhoSrv?.desligar()
         espelhoSrv = null
@@ -2042,6 +2076,176 @@ class MainActivity : ComponentActivity(), BridgeHost {
             runOnUiThread { onResult() }
         }
     }
+
+    // ---------- o CLONE da biblioteca (shell 65) ----------
+    //
+    // O SERVIDOR PASSOU A TER DUAS RAZÕES DE VIVER: a transmissão do telão e a
+    // cessão da biblioteca. É o padrão do [SessionService], que só para quando
+    // cena E transmissão caem — e ele existe pelo mesmo motivo: ligar uma das
+    // duas não pode desligar a outra, e num culto as duas podem estar no ar.
+    //
+    // Os dois booleanos abaixo são a memória de QUEM PEDIU. Sem eles, desligar
+    // a cessão derrubaria o telão no meio da projeção — e o desfecho seria
+    // indistinguível de uma queda de rede.
+
+    /** O operador ligou a TRANSMISSÃO (o telão nas telas da rede). */
+    private var telaoPedido = false
+
+    /** O operador ligou a CESSÃO da biblioteca. */
+    private var acervoPedido = false
+
+    override fun acervoCeder(rotulo: String, onResult: (JSONObject) -> Unit) {
+        runOnUiThread {
+            // O SERVIDOR PRIMEIRO, e o estado só liga se ele subiu: `ligar` a
+            // cessão sobre um servidor que não existe deixaria o anúncio no ar
+            // apontando para uma porta fechada, que é a falha muda deste
+            // caminho — o outro celular acha o aparelho e não conecta.
+            if (espelhoSrv?.ligado != true) {
+                subirServidor("") { estado ->
+                    if (estado.optBoolean("ligado", false)) {
+                        acervoPedido = true
+                        ligarCessao(rotulo)
+                    }
+                    onResult(acervoJson(estado.optString("erro", "")))
+                }
+                return@runOnUiThread
+            }
+            acervoPedido = true
+            ligarCessao(rotulo)
+            onResult(acervoJson())
+        }
+    }
+
+    private fun ligarCessao(rotuloPedido: String) {
+        // O NOME DESTE APARELHO É RESOLVIDO AQUI, num ponto só. O web não tem
+        // como saber o modelo (`Build` é do shell), e cada lugar que
+        // improvisasse um nome genérico faria dois celulares chegarem ao outro
+        // lado como "Celular" — justamente na tela em que uma pessoa decide se
+        // autoriza a cópia.
+        val rotulo = rotuloPedido.ifBlank { nomeDesteAparelho() }
+        AcervoCessao.ligar(rotulo)
+        val porta = espelhoSrv?.estado()?.optInt("porta", 0) ?: 0
+        // O ANÚNCIO SAI COM ZERO ITENS, e é assim que tem de ser: o índice
+        // varre o OPFS inteiro e leva segundos. O `acervoPublicar` o refaz com
+        // os números de verdade — ver [AcervoDescoberta.reanunciar].
+        AcervoDescoberta.anunciar(this, porta, rotulo, 0, 0L)
+        espelhoDiag.registrar("cessao da biblioteca ligada")
+    }
+
+    override fun acervoPararCessao() {
+        runOnUiThread {
+            acervoPedido = false
+            AcervoCessao.desligar()
+            AcervoDescoberta.pararAnuncio()
+            espelhoDiag.registrar("cessao da biblioteca desligada")
+            // O SERVIDOR SÓ CAI SE NINGUÉM MAIS O QUISER.
+            if (!telaoPedido) desmontarEspelho()
+        }
+    }
+
+    /**
+     * O `POST /acervo/par` do lado de quem CLONA — e ele sai do shell porque a
+     * página é `https` e o outro celular serve `http`: o navegador bloquearia a
+     * requisição antes de ela sair (ver [AcervoProxy]).
+     *
+     * Numa thread própria, e não numa das filas da ponte: é rede, e a fila de
+     * `io` é justamente onde uma requisição de rede não pode entrar (ver o
+     * KDoc das filas em [NativeBridge]).
+     */
+    override fun acervoParear(
+        endereco: String,
+        porta: Int,
+        rotulo: String,
+        onResult: (JSONObject) -> Unit,
+    ) {
+        thread(name = "av-acervo-par", isDaemon = true) {
+            val r = pedirPar(endereco, porta, rotulo)
+            if (r.optString("estado") == "pareado") {
+                AcervoProxy.apontar(endereco, porta, r.optString("token"))
+                espelhoDiag.registrar("clone: pareado com $endereco:$porta")
+            }
+            // O TOKEN NÃO VOLTA PARA O WEB. Ele é a credencial do outro
+            // aparelho e o proxy já o tem — mandá-lo à página seria pô-lo num
+            // lugar onde ele não precisa estar (a mesma regra do `/saf/`: a
+            // ponte entrega o que serve, não o segredo).
+            r.remove("token")
+            runOnUiThread { onResult(r) }
+        }
+    }
+
+    /** O nome deste aparelho, para o outro lado. Ponto ÚNICO — ver
+     *  [ligarCessao]. */
+    private fun nomeDesteAparelho(): String {
+        val marca = (android.os.Build.MANUFACTURER ?: "").trim()
+        val modelo = (android.os.Build.MODEL ?: "").trim()
+        return when {
+            modelo.isEmpty() -> marca.ifEmpty { "Celular" }
+            // "Samsung SM-A546E" e não "samsung samsung SM-A546E": vários
+            // fabricantes já põem a marca no modelo.
+            marca.isEmpty() || modelo.startsWith(marca, ignoreCase = true) -> modelo
+            else -> marca.replaceFirstChar { it.uppercase() } + " " + modelo
+        }
+    }
+
+    private fun pedirPar(endereco: String, porta: Int, rotulo: String): JSONObject {
+        if (endereco.isBlank() || porta <= 0) {
+            return JSONObject().put("estado", "erro").put("erro", "endereco invalido")
+        }
+        var conn: java.net.HttpURLConnection? = null
+        return try {
+            val corpo = JSONObject()
+                .put("rotulo", rotulo.ifBlank { nomeDesteAparelho() })
+                .toString().toByteArray(Charsets.UTF_8)
+            conn = (java.net.URL("http://$endereco:$porta/acervo/par").openConnection()
+                as java.net.HttpURLConnection).apply {
+                requestMethod = "POST"
+                connectTimeout = 8_000
+                readTimeout = 8_000
+                doOutput = true
+                instanceFollowRedirects = false
+                setRequestProperty("Content-Type", "application/json")
+                setFixedLengthStreamingMode(corpo.size)
+            }
+            conn.outputStream.use { it.write(corpo) }
+            val codigo = conn.responseCode
+            val texto = (if (codigo >= 400) conn.errorStream else conn.inputStream)
+                ?.use { String(it.readBytes(), Charsets.UTF_8) }.orEmpty()
+            val json = try { JSONObject(texto) } catch (e: Exception) { JSONObject() }
+            // O 404 É "ESTE APARELHO NAO ESTA CEDENDO", e ele merece frase
+            // própria: o anúncio mDNS sobrevive alguns segundos ao desligar,
+            // então tocar num aparelho que acabou de parar é o caso comum.
+            if (!json.has("estado")) {
+                json.put("estado", if (codigo == 404) "nao-cede" else "erro")
+                if (codigo != 404) json.put("erro", "HTTP $codigo")
+            }
+            json
+        } catch (e: Exception) {
+            JSONObject().put("estado", "erro")
+                .put("erro", e.javaClass.simpleName + ": " + (e.message ?: ""))
+        } finally {
+            conn?.disconnect()
+        }
+    }
+
+    override fun acervoEstado(onResult: (JSONObject) -> Unit) {
+        runOnUiThread {
+            val o = JSONObject()
+                .put("cessao", AcervoCessao.estadoJson())
+                .put("endereco", espelhoSrv?.estado()?.optString("url") ?: "")
+                .put("porta", espelhoSrv?.estado()?.optInt("porta", 0) ?: 0)
+                .put("pareado", AcervoProxy.apontado)
+                .put("proxy", AcervoProxy.diario)
+                .put("descoberta", AcervoDescoberta.estadoJson())
+                .put("achados", AcervoDescoberta.achados())
+            onResult(o)
+        }
+    }
+
+    private fun acervoJson(erro: String = ""): JSONObject = JSONObject()
+        .put("cedendo", AcervoCessao.cedendo)
+        .put("endereco", espelhoSrv?.estado()?.optString("url") ?: "")
+        .put("porta", espelhoSrv?.estado()?.optInt("porta", 0) ?: 0)
+        .put("erro", erro)
 
     // ---------- fullscreen HTML5 ----------
 

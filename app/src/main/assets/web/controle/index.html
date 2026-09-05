@@ -540,6 +540,25 @@
       <path d="M4.5 14.5v3.2a2.3 2.3 0 0 0 2.3 2.3h10.4a2.3 2.3 0 0 0 2.3-2.3v-3.2"/>
       <path d="M12 3.8v11.6"/><path d="m8.2 11.6 3.8 3.8 3.8-3.8"/>
     </symbol>
+    <!-- CEDER e CLONAR: o par do CELULAR, com a seta em sentidos opostos — a
+         mesma gramática do `icoExportar`/`icoImportar`, um nível acima. Aqui o
+         que muda de lado é o APARELHO: em "ceder" ele está à esquerda e a seta
+         SAI dele; em "clonar" ele está à direita e a seta ENTRA. As duas setas
+         apontam para o mesmo lado de propósito — quem carrega o sentido é onde
+         o celular está, e uma seta invertida se leria como "voltar".
+         O desenho LIGADO de "ceder" não é um terceiro símbolo: é o
+         `icoCelular`, o celular com as ondas, que é literalmente o que ele
+         passa a fazer (se anunciar na rede). -->
+    <symbol id="icoCeder" viewBox="0 0 24 24">
+      <rect x="2.5" y="3.5" width="11" height="17" rx="2.2"/>
+      <path d="M6.5 17.6h3"/>
+      <path d="M15.5 12h6"/><path d="m18.8 8.8 3.2 3.2-3.2 3.2"/>
+    </symbol>
+    <symbol id="icoClonar" viewBox="0 0 24 24">
+      <rect x="10.5" y="3.5" width="11" height="17" rx="2.2"/>
+      <path d="M14.5 17.6h3"/>
+      <path d="M2.5 12h6"/><path d="m5.8 8.8 3.2 3.2-3.2 3.2"/>
+    </symbol>
     <symbol id="icoModoAvancado" viewBox="0 0 24 24">
       <path d="M4 7h16"/><path d="M4 12h16"/><path d="M4 17h16"/>
       <path d="M9 7h.01" stroke-width="4.6"/>
@@ -1954,6 +1973,22 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoImportar"/></svg>
             <span class="qs-titulo">Importar</span>
           </button>
+          <!-- O CLONE CELULAR A CELULAR (v1.8.0). Os dois são um PAR e vivem
+               ao lado do par exportar/importar de propósito: são a mesma
+               pergunta ("como a biblioteca vai daqui para lá?") com a outra
+               resposta — sem arquivo, e retomável a qualquer momento.
+               CEDER é um interruptor de verdade (ele APAGA quando desligado, e
+               troca de desenho); CLONAR é uma ação, e ações ficam acesas. -->
+          <button type="button" class="qs-tile" id="cloneCederTile" title="Deixar outro celular copiar esta biblioteca">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <use class="ico-base" href="#icoCeder"/><use class="ico-alt" href="#icoCelular"/>
+            </svg>
+            <span class="qs-titulo">Ceder</span>
+          </button>
+          <button type="button" class="qs-tile qs-on" id="cloneReceberTile" title="Copiar a biblioteca de outro celular pela rede">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoClonar"/></svg>
+            <span class="qs-titulo">Clonar</span>
+          </button>
         </div>
         <!-- O REGISTRO, e é UM só (v5.121). Ele nasceu como a caixa-preta do
              telão: três versões seguidas tentaram consertar "o vídeo para
@@ -2041,7 +2076,7 @@
                distinção entre os dois canais de atualização responde alguma
                pergunta. Aqui ela só oferecia dois números para o operador
                escolher errado. -->
-          <span id="appVersion" class="app-version">Áudio Visual IASD v1.7.10</span>
+          <span id="appVersion" class="app-version">Áudio Visual IASD v1.8.0</span>
           <!-- SALVAR EM ARQUIVO (v1.2.16). Com o acervo inteiro varrido o
                Registro passa de setenta linhas só na seção de cifras, e copiar e
                colar é o caminho que corta o texto no meio SEM AVISAR — foi o

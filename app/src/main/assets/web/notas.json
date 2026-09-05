@@ -1,5 +1,16 @@
 [
   {
+    "versao": "1.8.0",
+    "itens": [
+      "Agora dá para copiar a biblioteca de um celular para outro pela rede, sem arquivo.",
+      "Os dois aparelhos se acham sozinhos: não é preciso digitar endereço nenhum.",
+      "A cópia pode ser interrompida e continuada a qualquer hora, do ponto em que parou.",
+      "Quem cede decide: aparece na tela quem está pedindo, e nada sai sem permissão.",
+      "Um pacote danificado passou a dizer em que ponto do arquivo ele quebrou.",
+      "O favorito excluído não volta mais sozinho para a lista."
+    ]
+  },
+  {
     "versao": "1.7.10",
     "itens": [
       "O versículo em destaque da Bíblia deixou de sair cortado no meio da linha.",
@@ -102,74 +113,6 @@
       "Um botão novo compartilha o link para baixar o app.",
       "A biblioteca inteira pode ser salva num arquivo e levada para outro aparelho.",
       "Importar só acrescenta: nada que já esteja no aparelho é apagado."
-    ]
-  },
-  {
-    "versao": "1.6.6",
-    "itens": [
-      "O botão de próximo slide passou a funcionar durante o vídeo de uma página.",
-      "Ele pula o vídeo e segue para o slide seguinte.",
-      "O botão de próxima mídia deixou de mandar a apresentação de volta ao início.",
-      "Ao voltar de um vídeo, o slide de capa não pisca mais antes do slide certo.",
-      "Uma apresentação que começa com vídeo já o projeta ao ser aberta.",
-      "E o vídeo do último slide não repete mais sozinho ao acabar."
-    ]
-  },
-  {
-    "versao": "1.6.5",
-    "itens": [
-      "Os botões de Letra e Cifra voltaram a respirar da caixa de texto logo abaixo.",
-      "E deixaram de ter espaço demais acima deles.",
-      "O tamanho da letra e o fechar voltaram para o canto direito na aba de cifra.",
-      "E a janela do auxiliar de leitura não encolhe mais quando a cifra não é encontrada."
-    ]
-  },
-  {
-    "versao": "1.6.4",
-    "itens": [
-      "Apresentações com vídeo embutido voltaram a abrir, mesmo as de centenas de MB.",
-      "O vídeo de um slide agora toca sozinho ao chegar naquela página.",
-      "E, ao acabar, a apresentação volta sozinha já no slide seguinte.",
-      "O aviso de arquivo que não abre passou a dizer o motivo certo."
-    ]
-  },
-  {
-    "versao": "1.6.3",
-    "itens": [
-      "A cifra agora abre com o nome da música e o tom dentro da folha, antes dos acordes.",
-      "Isso dá um respiro no topo, e a introdução deixou de ser cortada assim que a rolagem começa.",
-      "Os botões da cifra subiram para o topo, na linha onde ficava o nome.",
-      "E saiu o aviso sobre a rolagem: a folha andando devagar já diz que ela começou."
-    ]
-  },
-  {
-    "versao": "1.6.2",
-    "itens": [
-      "A rolagem da cifra não fica mais parada no começo: ela arranca bem devagar.",
-      "Assim dá para ver que ela começou, e a introdução continua na tela por um bom tempo.",
-      "E o botão de velocidade ficou quadrado, do tamanho dos outros da barra."
-    ]
-  },
-  {
-    "versao": "1.6.1",
-    "itens": [
-      "Transpor o tom ou trocar a velocidade deixou de encolher a letra da cifra.",
-      "O botão de tela cheia passou para o fim da barra da cifra, junto dos outros.",
-      "A rolagem avisa por escrito que espera a introdução antes de começar.",
-      "E a velocidade dela agora se lê como 0,5×, 1×, 1,5× e 2×, no lugar de “Auto”."
-    ]
-  },
-  {
-    "versao": "1.6.0",
-    "itens": [
-      "A cifra agora abre em tela cheia, deitada, com os controles numa coluna à direita.",
-      "Nesse modo a fonte já entra maior, e o tamanho escolhido nele fica guardado.",
-      "A folha continua no ponto em que estava ao deitar, ao voltar e ao mudar o tamanho da letra.",
-      "Os detalhes de um vídeo não repetem mais que ele toca sem baixar.",
-      "O título completo do vídeo agora aparece também para um link salvo.",
-      "E a descrição abre inteira, sem precisar tocar em “Ver mais”.",
-      "A faixa que entra no ar volta a ficar selecionada, e o ▶ a repete.",
-      "E um telão que reconecta no meio da projeção não volta mais vazio."
     ]
   }
 ]

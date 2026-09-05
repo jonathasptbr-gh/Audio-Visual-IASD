@@ -74,9 +74,14 @@ try {
       // O estado continua existindo — fora da tela.
       aria: t.getAttribute('aria-label') || '',
     })));
-  checar(tiles.length === 9,
-    'A · a grade tem os NOVE tiles: as três ações deste aparelho entraram nela '
-    + 'quando o rótulo "Este aparelho" saiu', tiles.length);
+  // ONZE desde a v1.8.0: as seis preferências da projeção, as três ações do
+  // aparelho que entraram quando o rótulo "Este aparelho" saiu, e os dois do
+  // CLONE celular a celular. O número é contado de propósito — o que este
+  // arquivo mede é que NENHUM tile tem segunda linha, e um tile novo entrando
+  // sem passar por aqui é justamente o que devolveria a palavra do estado à
+  // tela por uma porta que ninguém olhou.
+  checar(tiles.length === 11,
+    'A · a grade tem os ONZE tiles da folha', tiles.length);
   const comSobra = tiles.filter((t) => t.texto !== t.titulo.trim());
   checar(comSobra.length === 0,
     'A · e nenhum tem texto além do TÍTULO — a palavra do estado saiu de todos',

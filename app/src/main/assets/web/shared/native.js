@@ -815,6 +815,58 @@
     espelhoCertApagar: () => call((id) => B.espelhoCertApagar(id), CALL_TIMEOUT_MS)
       .then((r) => r === true),
 
+    // ===== O CLONE DA BIBLIOTECA, CELULAR A CELULAR (shell 65) =====
+    //
+    // OITO métodos, dois papéis. Quem CEDE usa os três primeiros; quem CLONA
+    // usa os três seguintes; `acervoEstado` responde aos dois e `acervoSoltar`
+    // encerra o pareamento deste lado.
+    //
+    // NENHUM DELES DEVOLVE OBJETO REMONTADO — como o `espelhoEstado`, o que
+    // volta é o JSON do shell tal e qual, e quem escreve as frases é o
+    // `controle.js` (invariante 5). O modo de falhar preferido deste arquivo
+    // (um campo esquecido na remontagem, lido como `false`/`0` do outro lado)
+    // não tem por onde acontecer aqui.
+
+    // LIGA A CESSÃO. Sobe o servidor — o MESMO do telão, que passou a ter duas
+    // razões de viver — e anuncia este aparelho na rede por mDNS, para o outro
+    // celular achá-lo sem ninguém digitar endereço.
+    acervoCeder: (rotulo) => call(
+      (id) => B.acervoCeder(id, String(rotulo || '')), CALL_TIMEOUT_MS,
+    ),
+    // Síncrono e sem resposta, no molde do `espelhoDesligar`. NÃO derruba o
+    // telão: o servidor só cai se ninguém mais o quiser.
+    acervoPararCessao() { try { B.acervoPararCessao(); } catch (_) { /* ponte indisponível */ } },
+    // PUBLICA O ÍNDICE — a lista de decisão, como STRING. É a única coisa deste
+    // recurso que atravessa a ponte como texto, e ela é uma lista de chaves e
+    // tamanhos: os BYTES do acervo vão pelo canal `__avTelaMidia`, o mesmo do
+    // telão. A `sessao` é cunhada aqui porque é aqui que a lista é montada —
+    // uma recarga da página monta outra, e é ela que faz o pedido de um item
+    // antigo ser recusado em vez de entregar o arquivo errado.
+    acervoPublicar: (sessao, indice) => call(
+      (id) => B.acervoPublicar(id, String(sessao || ''), String(indice || '')), CALL_TIMEOUT_MS,
+    ).then((r) => r === true),
+    // O OPERADOR RESPONDEU ao pedido de clone. Síncrono: é uma escrita de
+    // estado, e a folha relê no `acervoEstado` seguinte.
+    acervoResponder(sim) { try { B.acervoResponder(!!sim); } catch (_) { /* ponte indisponível */ } },
+    // PROCURA (ou para de procurar). Síncrono, e a lista chega pelo
+    // `acervoEstado`: o mDNS responde quando responde, e uma Promise aqui
+    // prometeria uma resposta que não existe.
+    acervoProcurar(ligado) { try { B.acervoProcurar(!!ligado); } catch (_) { /* ponte indisponível */ } },
+    // PEDE PAREAMENTO. O pedido sai do SHELL e não de um `fetch` daqui: o
+    // outro celular serve em `http://` e esta página roda em `https://`, então
+    // o navegador bloquearia a requisição antes de ela sair. Devolve
+    // `{ estado }` — `aguardando`, `pareado`, `recusado`, `ocupado`,
+    // `nao-cede` ou `erro` —, e quem insiste é o `controle.js`, que é quem tem
+    // tela para dizer o que está acontecendo. O TOKEN não volta: ele fica no
+    // proxy do shell, que é o único que precisa dele.
+    acervoParear: (endereco, porta, rotulo) => call(
+      (id) => B.acervoParear(id, String(endereco || ''), porta | 0, String(rotulo || '')),
+      CALL_TIMEOUT_MS,
+    ),
+    // SOLTA o pareamento deste lado.
+    acervoSoltar() { try { B.acervoSoltar(); } catch (_) { /* ponte indisponível */ } },
+    acervoEstado: () => call((id) => B.acervoEstado(id), CALL_TIMEOUT_MS),
+
     // Botões físicos de volume: pede que a Activity os intercepte e os entregue
     // em `window.__avVolumeKey(±1)` — sem isso eles mexem na saída do sistema
     // (e, com espelhamento ativo, no volume da TV) em vez do fader do app.

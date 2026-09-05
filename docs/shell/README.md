@@ -5,7 +5,7 @@ para a TV com `android.app.Presentation`.
 
 > **Este diretório é o irmão de [`../arquitetura/`](../arquitetura/).** Aquele
 > cobre a base web (`assets/web/`); este cobre o Kotlin
-> (`app/src/main/java/br/org/iasd/av/`, 31 arquivos). As regras que valem para
+> (`app/src/main/java/br/org/iasd/av/`, 34 arquivos). As regras que valem para
 > o app inteiro — invariantes, paleta, entrega, divergências web × nativo —
 > ficam em [`../../CLAUDE.md`](../../CLAUDE.md), que continua sendo a **leitura
 > obrigatória**; aqui está o detalhe que ela aponta.
@@ -23,18 +23,18 @@ para a TV com `android.app.Presentation`.
 > build/assinatura/backup) vive nas seções correspondentes do `CLAUDE.md` mais o
 > KDoc dos arquivos.
 
-## Os 31 arquivos, e onde cada um é explicado
+## Os 34 arquivos, e onde cada um é explicado
 
 | arquivo | linhas | onde |
 |---|---|---|
-| `NativeBridge.kt` | 1.953 | [`PONTE.md`](PONTE.md) |
+| `NativeBridge.kt` | 2.158 | [`PONTE.md`](PONTE.md) |
 | `WebViewFactory.kt` | 285 | [`PONTE.md`](PONTE.md) — invariantes 1-4 |
 | `SafPathHandler.kt` | 266 | [`PONTE.md`](PONTE.md) — o token `/saf/` e a JANELA `?r=` |
 | `WebUpdater.kt` | 1.160 | [`OTA.md`](OTA.md) |
 | `ShellUpdater.kt` | 340 | [`OTA.md`](OTA.md) |
 | `WebPathHandler.kt` | 88 | [`OTA.md`](OTA.md) |
 | `EspelhoHttp.kt` | 911 | [`../TELAO-POR-COMANDOS.md`](../TELAO-POR-COMANDOS.md) |
-| `EspelhoServidor.kt` | 2.417 | idem |
+| `EspelhoServidor.kt` | 2.575 | idem |
 | `EspelhoPares.kt` | 630 | idem |
 | `EspelhoMidiaCache.kt` | 248 | idem |
 | `EspelhoInterfaces.kt` | 193 | idem — **em que interface o socket abre** (é ele que acha o PONTO DE ACESSO) |
@@ -48,7 +48,7 @@ para a TV com `android.app.Presentation`.
 | `TrilhaAudio.kt` | 138 | `CLAUDE.md` — "Séries do YouTube" |
 | `SessionService.kt` | 916 | `CLAUDE.md` — "Notificação de controles" |
 | `SyncService.kt` | 550 | `CLAUDE.md` — "Trabalho em segundo plano" |
-| `MainActivity.kt` | 2.321 | `CLAUDE.md` — voltar, volume, cast, fullscreen |
+| `MainActivity.kt` | 2.517 | `CLAUDE.md` — voltar, volume, cast, fullscreen |
 | `StagePresentation.kt` | 188 | `CLAUDE.md` — "Reconexão e morte do renderer" |
 | `MicChromeClient.kt` | 81 | `CLAUDE.md` — "Microfone ao vivo" |
 | `MicDiag.kt` | 181 | `CLAUDE.md` — "Microfone ao vivo" (o `micDiag` da ponte: POR QUE ele não abre — leitura PURA, não pede nada) |
@@ -56,6 +56,10 @@ para a TV com `android.app.Presentation`.
 | `MessageBus.kt` | 54 | `CLAUDE.md` — "Barramento de comandos" |
 | `ShareIntake.kt` | 143 | `CLAUDE.md` — "Compartilhamento" |
 | `SlideDeck.kt` | 321 | [`../arquitetura/DOCUMENTO-EM-CENA.md`](../arquitetura/DOCUMENTO-EM-CENA.md) |
+| `AcervoDescoberta.kt` | 413 | `CLAUDE.md` — "O clone celular a celular" (mDNS: os dois aparelhos se acham sem ninguém digitar endereço) |
+| `AcervoCessao.kt` | 330 | idem — quem CEDE. **PURO**, com JUnit: relógio injetado, base64 à mão, parse do índice na ponte — ele decide quem pode copiar o acervo inteiro |
+| `AcervoProxy.kt` | 251 | idem — quem CLONA. A página é `https` e o outro celular serve `http`; a faixa vai na QUERY (invariante 8) |
+| `Farol.kt` | 244 | [`../MEDICAO-DE-ALCANCE.md`](../MEDICAO-DE-ALCANCE.md) — uma busca por dia, agregada, sem id nenhum |
 | `CifraFonte.kt` | 178 | `CLAUDE.md` — "A aba de cifra" (transporte só; quem lê o HTML é `controle/cifra.js`) |
 
 > **Números envelhecem a cada commit.** Meça antes de citá-los:
