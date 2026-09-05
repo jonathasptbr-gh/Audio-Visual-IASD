@@ -5206,7 +5206,39 @@ main {
    altura que sobra depois do rodapé. Nada de altura fixa nem de rolagem — o
    operador precisa ver as quatro de uma vez para acompanhar a leitura, e
    rolar para achar o versículo central seria o oposto disso. */
-.bible-read { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: var(--sp-3); }
+.bible-read {
+  flex: 1; min-height: 0; display: flex; flex-direction: column; gap: var(--sp-3);
+  /* CONTAINER DE ALTURA (v1.7.9): é por ele que a folha decide QUANTAS seções
+     de contexto cabem — ver as duas regras logo abaixo. */
+  container-type: size;
+}
+/* ---------- QUANTAS SEÇÕES CABEM É UMA CONTA, NÃO UM NÚMERO (v1.7.9) ----------
+   São quatro por decisão da v5.267 (um versículo atrás e DOIS à frente), e a
+   razão escrita era *"sobrava espaço na tela"* — o que é verdade na tela em que
+   aquilo foi decidido e falso nas outras. MEDIDO: a 360×640 as quatro seções
+   deixavam a CENTRAL com 0,79 linha de texto; a 360×640 com a fonte do sistema
+   em 1,3×, com ZERO.
+
+   Uma seção só é útil se couber o respiro, a referência e ao menos UMA linha.
+   As três faixas abaixo foram CALIBRADAS medindo, e não deduzidas — cada uma é
+   a altura de folha em que a MENOR seção deixa de mostrar uma linha inteira:
+   com quatro na tela isso acontece entre 17,3em (0,60 linha) e 19em (1,10);
+   com três, entre 13,8em (0,23) e 15,9em (1,26); com duas, em 10,1em (zero).
+   Elas estão em `em` de propósito — a régua tem de acompanhar a escala de fonte
+   do sistema, que é justamente o que empurra a folha para o aperto.
+
+   O QUE SAI PRIMEIRO É O SEGUNDO VERSÍCULO À FRENTE — o mais distante do que
+   está no ar. Depois dele sai o ANTERIOR, e é a ordem do próprio argumento da
+   v5.267: *"ler adiante é o que o operador faz — ele precisa saber o que vem
+   para acompanhar a leitura, não o que já passou"*. O que nunca sai é o
+   central, que é o que vai ao telão. */
+@container (max-height: 18em) { .bible-vsec:nth-child(4) { display: none; } }
+@container (max-height: 14em) { .bible-vsec:nth-child(1) { display: none; } }
+/* E no extremo sobra só o que vai ao telão: MEDIDO a 360×640 com fonte 1,3×, a
+   última seção de contexto ficava com 21,5px — uma fatia vazia, sem espaço nem
+   para a referência dela. Uma faixa que não mostra nada não é contexto, é
+   ruído ao lado do único versículo que a folha ainda consegue mostrar. */
+@container (max-height: 11em) { .bible-vsec:nth-child(3) { display: none; } }
 /* Rodapé: um controle segmentado só, com as QUATRO coordenadas do que está
    sendo lido — versão · livro · capítulo · versículo. Emendados, continuam
    lendo como uma referência ("ARA · João · 3 · 16") em vez de quatro ações
@@ -5218,7 +5250,28 @@ main {
    da referência e a empurravam para reticências. Sem rótulo o par mede ~74px e
    cabe: o que a segunda faixa custava era altura, e altura aqui sai da LEITURA,
    que é o conteúdo da tela. */
-.bible-read-foot { flex-shrink: 0; display: flex; align-items: stretch; justify-content: center; gap: var(--sp-4); padding-top: .1rem; }
+/* ---------- E QUANDO NÃO CABE NA LINHA, ELA QUEBRA (v1.7.9) ----------
+   MEDIDO, com as QUATRO pílulas: a referência pede 238px com a fonte padrão e
+   308px com a do sistema em 1,3×, contra 200–286px de linha livre depois dos
+   dois botões de guardar. Ela só cabia ao lado deles em 2 dos 10 cenários.
+
+   `flex-wrap` decide as LINHAS pelo tamanho IDEAL de cada item, antes de
+   encolher qualquer um: onde a referência cabe ao lado dos botões, nada muda
+   (era o caso do desenho da v5.109, e continua sendo o das telas largas); onde
+   não cabe, ela toma a linha e os dois botões descem. Com a linha inteira ela
+   cabe em 8 dos 10 — e nos dois extremos que sobram (tela ≤360px com fonte
+   1,3×) o que cede é o rótulo, com reticências.
+
+   A ALTURA QUE ISSO CUSTA sai da leitura, e era esse o argumento da v5.109 para
+   juntar as duas faixas. Ele continua valendo e deixou de decidir: uma barra
+   que pinta por cima de um botão TOCÁVEL é pior que uma linha a mais, e a
+   folha já sabe se ajustar à altura que sobrar (ver as faixas de `@container`
+   na `.bible-read`). */
+.bible-read-foot {
+  flex-shrink: 0; display: flex; flex-wrap: wrap;
+  align-items: stretch; justify-content: center;
+  gap: var(--sp-3); padding-top: .1rem;
+}
 /* `min-width: 0` porque agora ela divide a linha com os dois botões de guardar:
    sem isso o padrão `min-width: auto` a impediria de encolher, e o nome longo de
    um livro empurraria os botões para fora da tela em vez de virar reticências. */
@@ -5250,11 +5303,36 @@ main {
    valor 8,72:1 no escuro e 6,46:1 no claro; rótulo (a .9 de opacidade)
    6,16:1 e 5,05:1. O `--surface-2` que saiu daqui era o mesmo overlay que
    compõe uma cor diferente em cada camada — o defeito que `--btn-*` fechou. */
+/* ---------- A BARRA CABE ENCOLHENDO, NUNCA PINTANDO POR CIMA (v1.7.9) ----------
+   Relato do operador: *"na base, onde tem o livro capítulo e versículo
+   selecionado, está sobrepondo os elementos na sua direita, por falta de espaço
+   e ajuste de dimensão"*.
+
+   MEDIDO, com a escala de fonte do Android em 1,3× (o aparelho dele): o
+   conteúdo da `.bible-ref-nav` pede **270px** e a caixa dela recebe **221px** —
+   49px de transbordo sobre um vão de 10px, isto é, ~39px pintados por cima dos
+   dois botões de guardar. Três pílulas eram `flex-shrink: 0` e só a do LIVRO
+   cedia; batido o `min-width` dela, o conteúdo saía da caixa e a nav não tem
+   `overflow` — e o que sai de uma caixa flex pinta por cima do irmão.
+
+   QUEM SE DIMENSIONA PELO RÓTULO SÃO AS TRÊS PÍLULAS DE NÚMERO: "CAPÍTULO" e
+   "VERSÍCULO" em caixa alta são muito mais largos que os valores ("3"), então
+   é o rótulo que dita a largura — e é nele que o aperto é pago (menos
+   `letter-spacing`, menos respiro lateral). MEDIDO: os dois cortes levam o pior
+   caso de 270px para 222px.
+
+   E A ORDEM DE CEDER É EXPLÍCITA. O livro é o único campo de largura
+   imprevisível ("1 Tessalonicenses") e o único cujo VALOR pode virar
+   reticências sem perder o sentido — ele cede TRÊS vezes mais que os irmãos.
+   Só depois dele as outras encolhem, e aí quem vira reticências é o RÓTULO
+   (ver `.bible-ref-label`), que é a última barreira: feio, e ainda assim a
+   única coisa que NUNCA pode acontecer aqui é a barra pintar por cima de um
+   botão que continua tocável por baixo. */
 .bible-ref-part {
   display: flex; flex-direction: column; align-items: center; gap: 1px;
   color: var(--text);
-  padding: .3rem .55rem; cursor: pointer; appearance: none; -webkit-appearance: none;
-  min-width: 0; flex-shrink: 0;
+  padding: .3rem .38rem; cursor: pointer; appearance: none; -webkit-appearance: none;
+  min-width: 0; flex-shrink: 1;
 }
 /* O LIVRO não declara fundo: a tinta do grupo vem do `.bg-<grupo>` que o JS
    acrescenta. (A faixa de 3px que havia aqui saiu com a do ladrilho — ver
@@ -5265,8 +5343,10 @@ main {
    própria célula de número usa antes de saber de que grade ela é. */
 .bible-ref-part--edic { background-color: var(--panel-2); }
 /* O nome do livro é o único de largura imprevisível ("1 Tessalonicenses"): é
-   ele que encolhe quando a linha aperta, com reticências. */
-.bible-ref-part--book { flex-shrink: 1; min-width: 3.5rem; }
+   ele que encolhe PRIMEIRO quando a linha aperta, com reticências no valor.
+   `flex-shrink: 3` é a ORDEM escrita — as três pílulas de número cedem 1, ele
+   cede 3 —, e o `min-width` é o piso que impede "1 Tes…" de virar "1…". */
+.bible-ref-part--book { flex-shrink: 3; min-width: 3.5rem; }
 /* GUARDAR A REFERÊNCIA (v5.103): os dois destinos de uma cena de roteiro, nos
    mesmos botões de ícone do resto do app (`.cue-save-btn`).
    AQUI ELES SÃO MAIORES (v5.112): a caixa padrão (`--hit`, 34px) ficava 4px mais
@@ -5276,7 +5356,7 @@ main {
    dela, em vez de repetirem um número que teria de ser mantido à mão nos dois
    lugares. */
 .bible-read-acoes { display: flex; gap: var(--sp-3); flex-shrink: 0; }
-.bible-read-acoes .cue-save-btn { width: 46px; height: auto; }
+.bible-read-acoes .cue-save-btn { width: 42px; height: auto; }
 .bible-ref-part:first-child { border-radius: var(--radius-btn) 0 0 var(--radius-btn); }
 .bible-ref-part:last-child { border-radius: 0 var(--radius-btn) var(--radius-btn) 0; }
 /* Rótulo e valor herdam a cor da PÍLULA (`currentColor`), senão as quatro
@@ -5288,8 +5368,13 @@ main {
    já é um cinza médio (`night`), e esmaecê-lo mais derruba o rótulo abaixo do
    piso (MEDIDO: a .72 ele cai a 3,42:1). */
 .bible-ref-label {
-  font-size: var(--fs-2xs); font-weight: var(--fw-forte); letter-spacing: .06em; text-transform: uppercase;
+  font-size: var(--fs-2xs); font-weight: var(--fw-forte); letter-spacing: .02em; text-transform: uppercase;
   color: currentColor; opacity: .9;
+  /* A ÚLTIMA BARREIRA (v1.7.9), e ela existe para não ser alcançada: com o
+     respiro e o espaçamento já reduzidos, nenhuma das telas medidas chega aqui.
+     Um rótulo com reticências é feio; uma barra pintando por cima de um botão
+     que continua tocável por baixo é um toque que faz outra coisa. */
+  max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .bible-ref-value {
   font-size: var(--fs-md); font-weight: var(--fw-forte); color: currentColor;
@@ -5605,10 +5690,21 @@ main {
   flex: 1 1 0; min-height: 0; overflow: hidden;
   border-radius: var(--radius-card); background: var(--camada);
   padding: .5rem .65rem; cursor: pointer; display: flex; flex-direction: column; gap: var(--sp-1);
+  /* A SEÇÃO É O CONTAINER DE CONSULTA da fonte do versículo (v1.7.9) — ver
+     `.bible-vsec-text`. `size` e não `inline-size` porque o que a fonte segue é
+     a ALTURA, e ela é seguramente independente do conteúdo: vem do `flex`
+     acima, com `min-height: 0` e `overflow: hidden`. */
+  container-type: size;
 }
 /* O central é o que vai ao telão: recebe metade a mais de altura que os de
-   contexto, então é o último a apertar quando o versículo é longo. */
-.bible-vsec.cur { flex: 1.5 1 0; }
+   contexto, então é o último a apertar quando o versículo é longo.
+   E DESDE A v1.7.9 ELE TEM UM PISO (`min-height`), porque "metade a mais" de
+   pouco continua sendo pouco: MEDIDO a 360×640 com a fonte do sistema em 1,3×,
+   a caixa de texto da seção central ficava com **altura ZERO** — o versículo
+   que vai ao telão sumia da folha que existe para lê-lo. O piso é em `em`
+   (acompanha a escala do sistema) e é o único freio da divisão por `flex`:
+   quem cede são as três seções de CONTEXTO, que é a ordem certa. */
+.bible-vsec.cur { flex: 1.5 1 0; min-height: 4.6em; }
 .bible-vsec.adj { opacity: .6; }             /* anterior / próximo (contexto) */
 .bible-vsec.cur { background: var(--sel-fill); opacity: 1; }
 /* central EM EXIBIÇÃO ("no ar") — a MESMA cor de "no ar" do resto do app (ver
@@ -5621,13 +5717,64 @@ main {
 /* dica enquanto a exibição não foi ativada */
 /* Fonte maior: os versículos são o que se lê nesta tela, e havia espaço
    sobrando mesmo depois de acrescentar a quarta seção. */
-/* O texto ocupa o que sobra da seção e é cortado com reticências quando não
-   cabe — a íntegra vai para o telão, aqui basta reconhecer o versículo. */
+/* ---------- A FONTE SEGUE A ALTURA DA CAIXA (v1.7.9) ----------
+   Relato do operador: *"verifique a disposição do tamanho da fonte no texto em
+   destaque da bíblia, que será exibido, está cortando texto em certas telas"*.
+
+   A fonte era FIXA (`--fs-2xl`) e a caixa é VARIÁVEL: ela é o que sobra da
+   seção, que por sua vez divide por `flex` a altura da folha. MEDIDO, na seção
+   central e no versículo da captura dele:
+
+   | tela | caixa do texto | linhas que cabiam |
+   |---|---|---|
+   | 360×640 | 18,7px | **0,79** |
+   | 360×740 | 58,1px | 2,44 |
+   | 393×786 | 68,5px | 2,87 |
+   | 430×900 | 104,2px | 4,37 |
+   | 393×786 · fonte 1,3× | 38,0px | **1,23** |
+
+   Menos de UMA LINHA no pior caso, para o versículo que vai ao telão. E o
+   `-webkit-line-clamp: 6` NUNCA engatava — a caixa nunca chegou a seis linhas —,
+   então quem cortava era o `overflow: hidden` da seção, no MEIO da linha: MEDIDO,
+   a altura da caixa sobrava de 7 a 26px sobre um múltiplo da linha nos oito
+   cenários, isto é, **a última linha era sempre uma fileira de meias letras, sem
+   reticências**. Era isso na captura.
+
+   `cqh` é 1% da altura da SEÇÃO (ver `container-type` acima). O teto é o tamanho
+   de sempre — em tela alta nada muda — e o piso é o menor corpo que ainda se lê
+   de relance nesta folha.
+
+   O CLAMP DE LINHAS FICA, e agora ele é o que corta: com a fonte acompanhando a
+   caixa, `6` deixa de ser inalcançável e passa a valer nas telas altas, com
+   reticências. Onde ele ainda não engatar, quem cobre é o VÉU abaixo. */
 .bible-vsec-text {
-  flex: 1; min-height: 0; font-size: var(--fs-2xl); line-height: 1.42; color: var(--text);
+  flex: 1; min-height: 0; line-height: 1.42; color: var(--text);
+  font-size: clamp(.88rem, 14.3cqh, var(--fs-2xl));
   overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 6;
 }
-.bible-vsec.adj .bible-vsec-text { font-size: var(--fs-lg); -webkit-line-clamp: 4; }
+.bible-vsec.adj .bible-vsec-text {
+  font-size: clamp(.78rem, 13cqh, var(--fs-lg)); -webkit-line-clamp: 4;
+}
+/* ---------- E O QUE SOBRA ESMAECE, EM VEZ DE SER SERRADO (v1.7.9) ----------
+   A fonte proporcional faz o versículo caber na maioria das telas; onde ele
+   ainda não couber, o corte tem de DIZER que continua. Reticências exigiriam
+   que o clamp fosse sempre ≤ as linhas que cabem — um inteiro que o CSS não
+   tem como calcular a partir de uma altura —, e um clamp maior que isso é
+   exatamente o defeito de hoje: quem corta vira o `overflow`, no meio da linha.
+
+   A máscara não precisa desse inteiro. Ela esmaece a última faixa da caixa
+   SEJA QUAL FOR a altura dela, então uma linha partida vira um desvanecer — que
+   é o vocabulário que esta folha já usa na lista da Biblioteca (o véu do
+   scroll, v1.5.16). O texto integral vai ao telão; aqui basta reconhecer.
+
+   SÓ QUANDO HÁ O QUE ESCONDER seria o ideal, e não há como perguntar isso em
+   CSS. A faixa é curta (1,1em) e o degradê começa nos 100% de opacidade, então
+   num texto que cabe o efeito é de um respiro — o que a última linha tem
+   embaixo dela é o `padding` da seção. */
+.bible-vsec-text {
+  -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 1.1em), transparent);
+  mask-image: linear-gradient(to bottom, #000 calc(100% - 1.1em), transparent);
+}
 .bible-vsec-ref, .bible-vsec-cross { flex-shrink: 0; }
 
 /* ---------- Bíblia: camada de texto na preview (espelha o Display) ---------- */
