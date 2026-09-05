@@ -367,6 +367,38 @@ na nota que a revoga, não apagada da que a criou.
 
 ---
 
+## v1.8.8 — um símbolo sem import derrubou a main, e agora há um guarda
+
+**A v1.8.6 não chegou a existir.** O `MainActivity.kt` dela usou
+`SystemClock.elapsedRealtime()` sem `import android.os.SystemClock`, o Kotlin
+não compilou, e o build da Release falhou — levando junto o build do lote
+SEGUINTE, de outra sessão, que não tinha nada com aquilo. A `main` ficou sem
+publicar até esta correção.
+
+**O erro não é interessante; ONDE ele apareceu é.** Ninguém compila Kotlin fora
+do CI: o `./gradlew` exige o Android SDK, e a máquina de quem escreve o lote
+pode não ter. A suíte inteira é de JavaScript e não olha para `.kt`. Então o
+primeiro sinal de um símbolo sem import é o build da Release falhando DEPOIS do
+merge em `main` — no ponto mais caro possível.
+
+Daí o `kotlin-simbolo-importado.test.mjs`: o `node --check` do lado Kotlin, na
+única pergunta que dá para responder sem um compilador — **este nome tem de onde
+vir?** Um símbolo Maiúsculo seguido de ponto ou está importado, ou é do pacote,
+ou é membro do arquivo, ou vem qualificado, ou é do que a linguagem dá de graça.
+
+**E a primeira versão dele foi um placebo, o que vale registrar.** Ela tirava
+comentários com `replace(/\/\*[\s\S]*?\*\//g, ' ')` — e comentário de bloco em
+Kotlin ANINHA: um `/*` dentro de um KDoc desloca todos os pares seguintes e
+regiões inteiras de código saem da varredura. MEDIDO: com aquele regex, o
+PRÓPRIO defeito que o arquivo veio pegar passava batido, e a reversão dava
+verde. Hoje quem separa código de comentário é um varredor de estado. *Um
+oráculo que não vê o que veio ver é pior que oráculo nenhum: ele dá o verde e a
+pergunta deixa de ser feita.*
+
+E o `version.json` da `main` estava com `version: 1.8.7` e `shellTag: v1.8.6` —
+o CI exige que sejam a mesma versão, então havia um SEGUNDO motivo de falha
+esperando atrás do primeiro. Este lote fecha os dois em v1.8.8.
+
 ## v1.8.7 — o oráculo da cortina media o runner, e isso calou o canal OTA
 
 O merge da v1.8.4 ficou **vermelho na `main`**. O `verificar` reprovou em
