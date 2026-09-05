@@ -116,6 +116,21 @@ manda um `load` da apresentação na página SEGUINTE (`autoAdvance` →
 `media-ended` do telão e o `onEnded` da preview passam). Fade, cortina, telas da
 rede, barra e notificação vêm de graça, e nenhuma linha nova roda no telão.
 
+- **COM O VÍDEO NO AR, O ⏮/⏭ CONTINUA SENDO O DA APRESENTAÇÃO** (v1.6.5), e
+  ele PULA o vídeo. Para quem opera, a cena é *"a página N, com o vídeo dela"* —
+  o vídeo não é um item à parte. `deckDoSlide`/`paginaDoSlide` respondem isso ao
+  `slideTarget` e ao `renderSlideNav`; `deckNoAr` fica intocado, porque ele
+  responde outra pergunta (*"que deck está no slot do motor?"*) e tem meia dúzia
+  de consumidores que dependem disso.
+- **E A ÂNCORA DO ⏭ DE MÍDIA É A APRESENTAÇÃO**, nunca o vídeo. Ele não está em
+  lista nenhuma, então o `findIndex` do `step()` devolvia −1 e o `idx === -1`
+  caía no PRIMEIRO item da fila — que num culto é a própria apresentação: o
+  operador via ela voltar ao começo a cada toque.
+- **O VÍDEO DA ÚLTIMA PÁGINA NÃO REPETE EM LAÇO.** `deckIr(pagina + 1)` é
+  limitado ao fim, então a volta pousa na MESMA página e a chegada redispararia
+  o vídeo para sempre. `deckVideoVoltar` calcula o pouso ANTES de sair e só
+  suprime o gatilho quando ele é a página de origem — numa volta que ANDA de
+  verdade, a página seguinte com vídeo toca, que é o encadeamento pedido.
 - **Abrir a apresentação NÃO conta como chegar na página.** Ali o operador
   acabou de escolher projetar os SLIDES, e entregar-lhe um vídeo no mesmo toque
   tira dele a única ação deliberada antes de o telão mudar. Um vídeo na primeira

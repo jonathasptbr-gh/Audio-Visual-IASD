@@ -1,5 +1,14 @@
 [
   {
+    "versao": "1.6.5",
+    "itens": [
+      "O botão de próximo slide passou a funcionar durante o vídeo de uma página.",
+      "Ele pula o vídeo e segue para o slide seguinte.",
+      "O botão de próxima mídia deixou de mandar a apresentação de volta ao início.",
+      "E o vídeo do último slide não repete mais sozinho ao acabar."
+    ]
+  },
+  {
     "versao": "1.6.4",
     "itens": [
       "Apresentações com vídeo embutido voltaram a abrir, mesmo as de centenas de MB.",

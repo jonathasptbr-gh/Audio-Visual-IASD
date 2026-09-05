@@ -41,14 +41,21 @@ import { servirEstatico, abrirNavegador, checar, falhas, esperar, porque } from 
 const RAIZ = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'app', 'src', 'main', 'assets', 'web');
 const servidor = servirEstatico(RAIZ);
 
-const PAGINAS = 4;
+// CINCO páginas, com vídeo na 1 e na 4 (a última). A 3 fica LIVRE de propósito:
+// é nela que o bloco 4 prova que uma página sem vídeo não dispara nada, e com
+// quatro páginas ela seria a última — que tem vídeo.
+const PAGINAS = 5;
 
 // O acervo: uma apresentação de 4 páginas com um vídeo preso à PÁGINA 1 (a
 // segunda). O "vídeo" é um WAV com `kind: 'video'` — o que se mede aqui é o
 // COMANDO e o BANCO, nunca a decodificação, e um mp4 de verdade não entra num
 // repositório que recusa binário de terceiro.
 const SEMEAR = `
-  const sr = 8000, secs = 3, n = sr * secs;
+  // TRINTA SEGUNDOS, longo de propósito: com um "vídeo" curto ele ACABA sozinho
+  // no meio das asserções, a automação dispara por conta própria e o oráculo
+  // passa a medir uma CORRIDA — foi assim que a reversão do pulo pelo botão
+  // deixou de reprovar. Aqui o fim só acontece quando o teste o pede.
+  const sr = 8000, secs = 30, n = sr * secs;
   const buf = new ArrayBuffer(44 + n * 2), dv = new DataView(buf);
   const wr = (o, s) => { for (let i = 0; i < s.length; i++) dv.setUint8(o + i, s.charCodeAt(i)); };
   wr(0, 'RIFF'); dv.setUint32(4, 36 + n * 2, true); wr(8, 'WAVEfmt ');
@@ -70,15 +77,28 @@ const SEMEAR = `
     c.fillRect(0, 0, 32, 18);
     pages.push(await new Promise((r) => cv.toBlob(r, 'image/png')));
   }
+  // O SEGUNDO video mora na ULTIMA pagina: e o caso do LACO. A volta e limitada
+  // ao fim da apresentacao, pousa na MESMA pagina, e sem a supressao a chegada
+  // redispara o video para sempre.
+  const vidFim = await AVDB.addMedia(new Blob([buf], { type: 'audio/wav' }), {
+    name: 'Apresentacao · ultima pagina', type: 'audio/wav', kind: 'video', list: 'avulsos',
+  });
   const d = await AVDB.addDeck(pages, {
-    name: 'Sermao com video', list: 'imports', videos: { 1: vid.id },
+    name: 'Sermao com video', list: 'imports',
+    videos: { 1: vid.id, [${PAGINAS} - 1]: vidFim.id },
   });
   await AVDB.listRemove('avulsos', vid.id);
+  await AVDB.listRemove('avulsos', vidFim.id);
   // Um segundo item na fila: e ele que o autoAdvance projetaria se a volta da
   // apresentacao nao existisse — a metade 2 acima.
   const outro = await AVDB.addMedia(new Blob([buf], { type: 'audio/wav' }), {
     name: 'Louvor do pos-sermao', type: 'audio/wav', kind: 'audio', list: 'imports',
   });
+  // E A FILA DE VERDADE, com a apresentacao em PRIMEIRO: e essa a forma do
+  // relato. O plItems sai da lista 'playlist', e com ela vazia o step() retorna
+  // na primeira linha — um oraculo sobre o proximo de MIDIA mediria nada.
+  await AVDB.listAdd('playlist', d.id);
+  await AVDB.listAdd('playlist', outro.id);
 `;
 
 await new Promise((r) => servidor.listen(0, r));
@@ -106,7 +126,7 @@ try {
 
   const ids = await pg.evaluate(new Function('return (async () => {'
     + 'setAppMode("full");' + SEMEAR
-    + 'await load(); return { vid: vid.id, deck: d.id, outro: outro.id }; })()'));
+    + 'await load(); return { vid: vid.id, vidFim: vidFim.id, deck: d.id, outro: outro.id }; })()'));
 
   // O BARRAMENTO, gravado. É o que prova a automação: um teste da tela não
   // distingue "projetou o vídeo" de "ficou no slide e por acaso pintou preto".
@@ -190,6 +210,96 @@ try {
     'projetar outra coisa desarma a volta', (await estado()).armado);
 
   // ======================================================================
+  // 5-B. OS TRÊS DEFEITOS DO RELATO (v1.6.5)
+  //
+  //   *"o botão de próximo slide não reconhece o vídeo como uma página, logo
+  //   ele não fica ativo para toque. segundo que qualquer tipo de tocar
+  //   seguinte, faz com que a apresentação volte para o início"*
+  //
+  // Os dois são o MESMO defeito visto de dois lugares: com o vídeo em cena
+  // `currentItem` é o VÍDEO, então o app perdeu a noção de que a apresentação é
+  // que está no ar. O terceiro não foi relatado e é pior que os dois — o LAÇO
+  // da última página, que só um Parar quebraria.
+  // ======================================================================
+  // A CENA ENTRA LIMPA, e isto não é preparo: com um ÁUDIO no ar o `send` de uma
+  // apresentação a SOBREPÕE em vez de substituir (v1.4.28), a automação não arma
+  // (ela é só para o deck como MÍDIA) e o oráculo mediria o caso errado —
+  // aprovando por outro caminho. Foi o que a primeira escrita deste bloco fez.
+  await pg.evaluate(() => stopClear());
+  await pg.evaluate((id) => send(id), ids.deck);
+  r = await esperar(pg, (id) => currentId === id, ids.deck, 10000);
+  checar(r === true, 'a apresentação entra como MÍDIA, não como camada', porque(r));
+  checar((await pg.evaluate(() => deckSobreProjetando())) === false,
+    'e não está sobreposta — a automação só vale para o deck como mídia', true);
+  await pg.evaluate(() => deckIr(1));
+  r = await esperar(pg, (id) => currentId === id, ids.vid, 10000);
+  checar(r === true, 'e o vídeo da página 1 entra', porque(r));
+
+  // 5-B.1 — O PAR DE BOTÕES RECONHECE O VÍDEO COMO PÁGINA
+  const eixo = await pg.evaluate(() => ({
+    alvo: slideTarget(),
+    prev: document.getElementById('slidePrevBtn').disabled,
+    next: document.getElementById('slideNextBtn').disabled,
+  }));
+  checar(eixo.alvo === 'deck', 'com o vídeo no ar o eixo do ⏮/⏭ é a APRESENTAÇÃO', eixo.alvo);
+  checar(eixo.next === false, 'e o "próximo slide" fica TOCÁVEL', eixo.next);
+  checar(eixo.prev === false, 'e o "slide anterior" também', eixo.prev);
+
+  // 5-B.2 — O ⏭ DE SLIDE PULA O VÍDEO, e vai para a página seguinte
+  await zerar();
+  await pg.evaluate(() => stepSlide(1));
+  r = await esperar(pg, (id) => currentId === id, ids.deck, 10000);
+  checar(r === true, 'o ⏭ de slide devolve a apresentação', porque(r));
+  r = await esperar(pg, () => deckPagina === 2, null, 10000);
+  checar(r === true, 'e pula o vídeo, indo para a página SEGUINTE', porque(r));
+
+  // 5-B.3 — O ⏭ DE MÍDIA NÃO VOLTA A APRESENTAÇÃO PARA O INÍCIO
+  //
+  // A apresentação é o PRIMEIRO item da fila, que é o caso do relato: com a
+  // âncora errada o `idx === -1` caía no índice 0 — nela mesma, na página 0.
+  await pg.evaluate(() => deckIr(1));
+  r = await esperar(pg, (id) => currentId === id, ids.vid, 10000);
+  checar(r === true, 'o vídeo volta ao ar para a metade 3', porque(r));
+  await zerar();
+  await pg.evaluate(() => step(1));
+  r = await esperar(pg, (id) => currentId === id, ids.outro, 10000);
+  checar(r === true,
+    'o ⏭ de MÍDIA vai para o item SEGUINTE da fila, não para o começo dela', porque(r));
+
+  // 5-B.4 — O LAÇO DA ÚLTIMA PÁGINA
+  //
+  // Não foi relatado porque o operador não chegou lá: `deckIr(pagina + 1)` é
+  // limitado ao fim, a volta pousa na MESMA página e a chegada redispara o
+  // vídeo. A prova é o vídeo NÃO voltar ao ar depois de acabar.
+  await pg.evaluate(() => stopClear());
+  await pg.evaluate((id) => send(id), ids.deck);
+  r = await esperar(pg, (id) => currentId === id, ids.deck, 10000);
+  checar(r === true, 'a apresentação volta ao ar para a metade 4', porque(r));
+  await pg.evaluate((n) => deckIr(n), PAGINAS - 1);
+  r = await esperar(pg, (id) => currentId === id, ids.vidFim, 10000);
+  checar(r === true, 'o vídeo da ÚLTIMA página entra', porque(r));
+  await pg.evaluate(() => autoAdvance());
+  r = await esperar(pg, (id) => currentId === id, ids.deck, 10000);
+  checar(r === true, 'o fim dele devolve a apresentação', porque(r));
+  // A janela tem de ser maior que o caminho do redisparo (um `send` inteiro).
+  await pg.waitForTimeout(1200);
+  const depois = await estado();
+  checar(depois.atual === ids.deck,
+    'e ela FICA: o vídeo da última página não redispara em laço', depois.atual === ids.vidFim ? 'o vídeo voltou (LAÇO)' : depois.atual);
+  checar(depois.pagina === PAGINAS - 1,
+    'a apresentação para na última página, sem avançar para o nada', depois.pagina);
+  checar(depois.armado === false, 'e a volta fica desarmada', depois.armado);
+
+  // 5-B.5 — REVERSÃO: sem vídeo no ar o ⏭ de mídia continua o de sempre
+  await pg.evaluate(() => stopClear());
+  await pg.evaluate((id) => send(id), ids.deck);
+  r = await esperar(pg, (id) => currentId === id, ids.deck, 10000);
+  checar(r === true, 'a apresentação no ar, sem vídeo', porque(r));
+  await pg.evaluate(() => step(1));
+  r = await esperar(pg, (id) => currentId === id, ids.outro, 10000);
+  checar(r === true, 'REVERSÃO: o ⏭ de mídia sem vídeo de slide segue a fila', porque(r));
+
+  // ======================================================================
   // 6. O COLETOR — a metade 4, e a única que só aparece na abertura SEGUINTE
   //
   // A PRATELEIRA `avulsos` ENTRA NO MEIO, e é preciso dizer o que ela é para a
@@ -225,7 +335,10 @@ try {
   // mesmo mecanismo: `listRemove` coleta o id que saiu, e só ele. O vídeo fica
   // órfão até o `gcOrfaos` da abertura seguinte, e a asserção afirma esse
   // percurso, não um cascateamento que o `db.js` não faz.
-  await pg.evaluate((id) => AVDB.listRemove('imports', id), ids.deck);
+  await pg.evaluate(async (id) => {
+    await AVDB.listRemove('playlist', id);
+    await AVDB.listRemove('imports', id);
+  }, ids.deck);
   const deckMorto = await pg.evaluate((id) => AVDB.getMedia(id).then((r) => !!r), ids.deck);
   checar(deckMorto === false, 'tirar a apresentação da última lista a coleta', deckMorto);
 
