@@ -460,6 +460,37 @@ try {
   indiceServido = JSON.stringify(ind.i);
 
   // =========================================================================
+  // 4-D · A SAÍDA À MÃO, quando o multicast não passa
+  // =========================================================================
+  //
+  // O mDNS é o caminho normal e responde ao *"não quero digitar endereço"* —
+  // mas ele depende de MULTICAST, e há dois lugares em que isso pode não valer:
+  // uma Wi-Fi com AP isolation e o PONTO DE ACESSO do próprio celular. Sem
+  // esta saída, o cenário que MAIS precisa do recurso (a igreja sem Wi-Fi, com
+  // o hotspot de um dos aparelhos) seria o único em que ele não funciona.
+  //
+  // O que se mede é a REGRA que transforma o que foi digitado num alvo: ela
+  // vira um pedido a um aparelho da rede, e um endereço inventado é o pior
+  // desfecho dela.
+  const end = await b.pg.evaluate(() => ({
+    so: cloneEndereco('192.168.0.5'),
+    comPorta: cloneEndereco('10.0.0.9:9000'),
+    espaco: cloneEndereco('  192.168.0.5  '),
+    octeto: cloneEndereco('192.168.0.300'),
+    nome: cloneEndereco('celular-do-joao'),
+    vazio: cloneEndereco(''),
+    porta0: cloneEndereco('192.168.0.5:0'),
+  }));
+  checar(end.so && end.so.host === '192.168.0.5' && end.so.porta === 8787,
+    '4-D · um IP sem porta cai no padrão do servidor — a porta é o pedaço que '
+    + 'mais se erra, e ela quase nunca muda', JSON.stringify(end.so));
+  checar(end.comPorta && end.comPorta.porta === 9000 && end.espaco !== null,
+    '4-D · com porta ela vale, e o espaço em volta não atrapalha', JSON.stringify(end));
+  checar(!end.octeto && !end.nome && !end.vazio && !end.porta0,
+    '4-D · e o que não é um IPv4 devolve `null` em vez de virar um pedido a um '
+    + 'endereço inventado', JSON.stringify(end));
+
+  // =========================================================================
   // 5 · A FAIXA — nenhum pedido acima do pedaço combinado
   // =========================================================================
   const maior = pedidos.concat([{ ini: 0, fim: -1 }])

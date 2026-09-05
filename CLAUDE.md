@@ -3137,6 +3137,17 @@ comum (o cartão, o cabo).
     mesmo tempo em boa parte das versões do Android: o segundo volta em
     `FAILURE_ALREADY_ACTIVE` e o aparelho **simplesmente não aparece na lista**,
     sem erro em lugar nenhum.
+- **E HÁ UMA SAÍDA À MÃO, depois de a procura ter tido a vez dela.** O mDNS
+  depende de MULTICAST, e há dois lugares em que isso pode não valer: uma Wi-Fi
+  com AP isolation (a falha muda que o telão já conhece) e o PONTO DE ACESSO do
+  próprio celular, cujo downstream não é um `Network`. Sem a saída, o cenário
+  que MAIS precisa do recurso — a igreja sem Wi-Fi, com o hotspot de um dos
+  aparelhos — seria o único em que ele não funciona, e a tela não teria o que
+  dizer. Ela aparece **depois de 10 s** de lista vazia, e não ao lado da
+  procura: oferecer as duas de saída ensinaria a digitar o endereço sempre. A
+  porta é opcional (é o pedaço que mais se erra, e quase nunca muda), e o que
+  não for um IPv4 devolve `null` em vez de virar um pedido a um endereço
+  inventado.
 - **CONTEÚDO MISTO OBRIGA O PROXY.** A página roda em `https://` (invariante 1)
   e o outro celular serve `http://` — o `fetch` morre antes de sair, e não há
   cabeçalho que o autorize (subir o outro lado em TLS exigiria o `.p12` que ele

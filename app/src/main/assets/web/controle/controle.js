@@ -24469,6 +24469,30 @@ async function cloneEnquete() {
 
 let cloneProcurando = false;
 let cloneCopiando = false;
+let cloneProcurandoDesde = 0;
+
+/**
+ * Quanto tempo a lista procura antes de oferecer o endereço à mão.
+ *
+ * **A PORTA DE SAÍDA EXISTE PORQUE O MULTICAST PODE NÃO PASSAR.** O mDNS é a
+ * resposta ao *"não quero digitar endereço"*, e ele é o caminho normal — mas
+ * ele depende de multicast, e há dois lugares em que isso pode não valer: uma
+ * Wi-Fi com AP isolation (a falha muda que este projeto já conhece do telão) e
+ * o PONTO DE ACESSO do próprio celular, cujo downstream não é um `Network` e
+ * por isso não é território que o `NsdManager` prometa cobrir.
+ *
+ * Sem esta saída, o cenário que mais precisa do recurso — a igreja SEM Wi-Fi,
+ * com o hotspot de um dos celulares — seria o único em que ele não funciona, e
+ * a tela não teria o que dizer. Ela aparece DEPOIS da procura, e não ao lado
+ * dela: oferecer as duas de saída ensinaria a digitar o endereço sempre.
+ */
+const CLONE_MANUAL_MS = 10000;
+
+/** A porta do `EspelhoServidor.PORTA_PADRAO`. Ela é o PADRÃO do campo à mão, e
+ *  não uma segunda fonte de verdade: quem serve é o Kotlin, e o caminho normal
+ *  (o mDNS) traz a porta de verdade no anúncio. Ela só é usada quando o
+ *  operador digita um IP sem porta — o pedaço que mais se erra. */
+const ESPELHO_PORTA = 8787;
 
 /** A folha de escolha do aparelho é a MESMA `songMenu` do resto do app — um
  *  segundo formato de lista seria a divergência que a v5.252 gastou um lote
@@ -24476,6 +24500,7 @@ let cloneCopiando = false;
 function cloneAbrirLista() {
   if (!window.__NATIVE__ || cloneCopiando) return;
   cloneProcurando = true;
+  cloneProcurandoDesde = Date.now();
   try { AVNative.acervoProcurar(true); } catch (_) { /* ponte */ }
   songMenuFor = { clone: true };
   songMenuTitleEl.textContent = 'De qual celular?';
@@ -24517,6 +24542,7 @@ function cloneRenderAchados(lista) {
     caixa.append(ic, txt);
     li.appendChild(caixa);
     songMenuListEl.appendChild(li);
+    if (Date.now() - cloneProcurandoDesde > CLONE_MANUAL_MS) cloneLinhaManual();
     return;
   }
   for (const a of lista) {
@@ -24529,6 +24555,53 @@ function cloneRenderAchados(lista) {
       () => { closeSongMenu(); cloneComecar(a); },
     ));
   }
+}
+
+/**
+ * A SAÍDA À MÃO — e ela só aparece depois de a procura ter tido a vez dela.
+ *
+ * A frase diz ONDE ler o endereço no outro aparelho, porque essa é a metade que
+ * o operador não tem como adivinhar: quem cede vê "Aguardando…" no botão e mais
+ * nada, e o endereço mora na linha "Clone da biblioteca" do Registro.
+ */
+function cloneLinhaManual() {
+  songMenuListEl.appendChild(songMenuItem(
+    pacoteIconeSvg('icoNavegador'),
+    'Digitar o endereço',
+    'quando os dois aparelhos não se acham sozinhos',
+    async () => {
+      closeSongMenu();
+      // `appPrompt` e não um `openAppDialog` montado à mão: é o mesmo diálogo
+      // de entrada do resto do app, e um segundo formato divergiria no primeiro
+      // ajuste.
+      const r = await appPrompt({
+        title: 'Endereço do outro celular',
+        message: 'No outro aparelho, o endereço aparece em Configurações → '
+          + 'Registro, na linha "Clone da biblioteca".',
+        placeholder: '192.168.0.5',
+        okText: 'Conectar',
+      });
+      const alvo = cloneEndereco(r);
+      if (!alvo) return;
+      cloneComecar(alvo);
+    },
+  ));
+}
+
+/**
+ * `ip` ou `ip:porta` → `{ host, porta }`, ou `null`.
+ *
+ * A PORTA É OPCIONAL e o padrão é o do servidor, porque digitá-la é o pedaço
+ * que mais se erra — e ela quase nunca muda. Uma entrada que não seja um IPv4
+ * devolve `null` em vez de virar um pedido a um endereço inventado.
+ */
+function cloneEndereco(txt) {
+  const m = /^\s*(\d{1,3}(?:\.\d{1,3}){3})(?::(\d{1,5}))?\s*$/.exec(String(txt || ''));
+  if (!m) return null;
+  if (m[1].split('.').some((n) => Number(n) > 255)) return null;
+  const porta = m[2] ? Number(m[2]) : ESPELHO_PORTA;
+  if (!porta || porta > 65535) return null;
+  return { host: m[1], porta, rotulo: m[1] };
 }
 
 /**
