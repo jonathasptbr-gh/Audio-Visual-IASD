@@ -4511,16 +4511,33 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.6.2 · APK v1.5.21** · `SHELL_VERSION` **62** ·
+**Versão atual: base web v1.6.3 · APK v1.5.21** · `SHELL_VERSION` **62** ·
 bundle com `minShell: 62` e **SEM `shellTag`** — o shell 62 é o **PISO**: todo
 método da ponte existe, e não há guarda de versão no lado web. **`SHELL_VERSION`
 NÃO sobe neste lote**: a superfície da ponte não mudou.
 
-**E ESTE LOTE NÃO PEDE RELEASE.** Ele é só base web — a ESPERA PARADA da rolagem
-da cifra virando RAMPA (a folha arranca no primeiro quadro, muito devagar, em vez
-de ficar imóvel) e o botão de velocidade virando QUADRADO como os vizinhos —, e
-nada em `java/`, `res/` ou no manifesto foi tocado. O `minShell` fica em 62: o
-piso não desce, e a Release `v1.5.21` já o entregou.
+**E ESTE LOTE NÃO PEDE RELEASE.** Ele é só base web — o TÍTULO e o TOM descendo
+para dentro da caixa da cifra (a MARGEM que faz a intro não ser cortada), a fila
+de controles subindo para o cabeçalho, e a nota da rolagem saindo —, e nada em
+`java/`, `res/` ou no manifesto foi tocado. O `minShell` fica em 62: o piso não
+desce, e a Release `v1.5.21` já o entregou.
+
+> **A MARGEM É O CONSERTO; ROLAR DEVAGAR NÃO ERA** (v1.6.3). A rampa da v1.6.2
+> fez a folha andar POUCO, e isso não bastava: a primeira linha começa no pixel
+> ZERO, então QUALQUER deslocamento já corta a intro. MEDIDO com o cabeçalho da
+> obra no lugar — a cifra começa a 94px do topo, e aos 12s de rolagem a primeira
+> linha de acorde continua inteira na tela. Os espaços dele saem de
+> `--cifra-linha`, a altura de linha RENDERIZADA da folha: é o que faz "uma
+> linha" e "duas linhas" significarem o que dizem. E o bloco é IRMÃO da folha,
+> nunca filho — `cifraColunas` mede uma amostra dentro dela, e um filho de outra
+> fonte ali faz a folha quebrar errado PARECENDO certa.
+
+> **`node --check` APROVA UM `/**` ÓRFÃO** (v1.6.3), e o preço disso foi medido
+> neste lote: um corte no MEIO de um bloco de comentário deixou o comentário
+> engolindo a função seguinte, e o sintoma na tela foi *"Sem resposta da
+> internet"* — porque o `.catch` do caminho da cifra traduz QUALQUER exceção em
+> `MOTIVO_SEM_REDE`. Um erro de comentário chegando como falha de rede é o
+> argumento inteiro da regra de que **poda de comentário se PROVA**.
 
 > **IMOBILIDADE NÃO É ESPERA, É UM BOTÃO QUEBRADO** (v1.6.2). A espera parada da
 > v1.5.20 tinha o objetivo certo — deixar ler a introdução — e o meio errado: ela

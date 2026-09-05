@@ -219,15 +219,48 @@ try {
   //
   // Ela carrega junto a AUSÊNCIA do anel: as duas afirmações são do mesmo lote e
   // separá-las deixaria passar a versão que desenha os DOIS.
+  // O CABEÇALHO DA OBRA, medido no RENDERIZADO (v1.6.3). Ele substituiu a nota
+  // da barra — e não é um rótulo a mais: ele é a MARGEM NATURAL que impede a
+  // rolagem de cortar a intro logo no começo. A régua não pode ser a PRESENÇA do
+  // nó: uma regra de CSS que não pinte passa num teste de presença e continua
+  // invisível na tela.
   await pg.evaluate(() => {
-    window.__nota = () => {
-      const n = lyricsViewBarEl.querySelector('.lv-cifra-nota');
-      const cx = n ? getComputedStyle(n) : null;
+    window.__cab = () => {
+      const c = lyricsViewBodyEl.querySelector('.lv-cifra-cab');
+      if (!c) return { existe: false };
+      const r = c.getBoundingClientRect();
+      const caixa = lyricsViewBodyEl.getBoundingClientRect();
+      const t = c.querySelector('.lv-cifra-cab-titulo');
+      const k = c.querySelector('.lv-cifra-cab-tom');
       return {
-        visivel: !!(n && !n.hidden && cx.display !== 'none'
-          && n.getBoundingClientRect().height > 0),
-        texto: n ? n.textContent.trim() : '',
-        anel: !!lyricsViewBarEl.querySelector('.dl-ring'),
+        existe: true,
+        titulo: t ? t.textContent.trim() : '',
+        tom: k ? k.textContent.trim() : '',
+        // "à vista" é geometria, não `hidden`: o bloco ROLA JUNTO, e some por
+        // sair da caixa — que é justamente o que se quer provar.
+        aVista: r.bottom > caixa.top && r.top < caixa.bottom,
+        // A MARGEM é o que separa o topo do conteúdo da PRIMEIRA LINHA DE
+        // ACORDE, e ela NÃO cabe no retângulo do bloco: `margin-bottom` fica
+        // fora do `getBoundingClientRect`. Medir o bloco mediria o rótulo;
+        // quem responde "a intro deixou de estar colada no topo?" é o
+        // `offsetTop` da folha.
+        margem: (() => {
+          const f = lyricsViewBodyEl.querySelector('.lv-cifra-folha');
+          return f ? f.offsetTop - c.offsetTop : -1;
+        })(),
+        // E a pergunta do operador, medida: a primeira linha de acorde ainda
+        // está INTEIRA dentro da caixa?
+        introInteira: (() => {
+          const l = lyricsViewBodyEl.querySelector('.lv-cifra-linha');
+          if (!l) return false;
+          return l.getBoundingClientRect().top >= caixa.top - 0.5;
+        })(),
+        // O bloco é IRMÃO da folha e vem ANTES dela.
+        antesDaFolha: !!(c.nextElementSibling
+          && c.nextElementSibling.classList.contains('lv-cifra-folha')),
+        // E não há mais nota nem anel em lugar nenhum da folha.
+        nota: !!lyricsPopupEl.querySelector('.lv-cifra-nota'),
+        anel: !!lyricsPopupEl.querySelector('.dl-ring'),
       };
     };
   });
@@ -430,7 +463,7 @@ try {
     // A NOTA ANTES DO TOQUE — a promessa que o anel nunca teve: o pedido está
     // escrito no FUTURO (*"ao dar play, ele VAI ficar…"*), e uma frase que só
     // nasce depois do play descreve como porvir uma coisa já em curso.
-    const antesDoToque = window.__nota();
+    const antesDoToque = window.__cab();
     cifraRolarAlternar();
     // O RELÓGIO DE PAREDE parte do TOQUE, e é contra ele que a medição de baixo
     // compara: o quanto a folha JÁ andou só quer dizer alguma coisa ao lado do
@@ -488,7 +521,7 @@ try {
     scrollTop: lyricsViewBodyEl.scrollTop,
     decorridoMs: performance.now() - window.__desde,
     rampando: cifraRampando,
-    nota: window.__nota(),
+    cab: window.__cab(),
   }));
   const andouNaRampa = semArDurante.scrollTop - semArInicio.t0;
   const cheioTeria = (semArInicio.pxPorS * semArDurante.decorridoMs) / 1000;
@@ -507,19 +540,20 @@ try {
   checar(semArDurante.rampando === true,
     'e o app SABE que está na rampa — é este estado que a nota lê, e é por ele '
     + 'que as medições de RITMO abaixo esperam', semArDurante.rampando);
-  checar(semArInicio.antesDoToque.visivel
-    && /introdu/i.test(semArInicio.antesDoToque.texto),
-    'a MENSAGEM está na tela ANTES do toque, e ela diz o que o play vai fazer '
-    + '(v1.6.1) — o operador pediu a confirmação "na própria ui e não em pop up"',
+  checar(semArInicio.antesDoToque.existe
+    && semArInicio.antesDoToque.antesDaFolha
+    && semArInicio.antesDoToque.margem > 40,
+    'o CABEÇALHO DA OBRA está na caixa ANTES do toque, e ANTES da folha (v1.6.3) '
+    + '— é ele a "margem natural" que o operador pediu, não um rótulo a mais',
     semArInicio.antesDoToque);
-  checar(semArDurante.nota.visivel,
-    'e ela CONTINUA no meio da rampa, agora como a RAZÃO da lentidão (v1.6.2): '
-    + 'uma folha que arrasta a 4 px/s com o botão dizendo `2×` é, para quem '
-    + 'opera, o mesmo controle que não parece obedecer', semArDurante);
-  checar(!semArDurante.nota.anel,
-    'e NÃO há anel `.dl-ring` na barra: o operador mandou remover o spinner, e '
-    + 'dois mecanismos para o mesmo fato é o que a nota veio substituir',
-    semArDurante);
+  checar(semArDurante.cab.introInteira,
+    'e no meio da rampa a PRIMEIRA LINHA DE ACORDE ainda está inteira na caixa: '
+    + 'é isso que a margem compra — *"pelo fato da intro estar colada no topo, '
+    + 'ele acaba sempre cortando ela no início"*',
+    { scrollTop: semArDurante.scrollTop, margem: semArDurante.cab.margem });
+  checar(!semArDurante.cab.nota && !semArDurante.cab.anel,
+    'e NÃO há nota nem anel em lugar nenhum da folha: os dois saíram, e a '
+    + 'resposta ao toque é a própria folha andando', semArDurante);
   // A FRASE SÓ PROMETE A MÚSICA ONDE ISSO É VERDADE (v1.6.1).
   //
   // O operador pediu a frase inteira — *"depois irá seguir a rolagem no ritmo da
@@ -530,12 +564,16 @@ try {
   // passaria com a frase curta escrita à mão para sempre, e a segunda passaria
   // com a frase longa dita em toda situação.
   //
-  // REVERSÃO: fazer `cifraNotaTexto` devolver sempre a frase longa reprova aqui;
-  // devolver sempre a curta reprova no par, mais abaixo.
-  checar(!/ritmo da música/i.test(semArDurante.nota.texto),
-    'SEM duração no ar a nota NÃO promete o ritmo da música — ali o compasso é '
-    + 'fixo, e a frase que o operador pediu seria falsa na tela',
-    semArDurante.nota.texto);
+  // O TÍTULO É O DA OBRA, e ele saiu do cabeçalho do popup para cá. O TOM desta
+  // fixture não existe (a página de mentira não traz tom), e o bloco responde a
+  // isso NÃO DESENHANDO a linha — um "Tom: " vazio seria uma linha em branco
+  // prometendo um dado que a página não trouxe. O par com tom está no
+  // `cifra-tela-cheia.test.mjs`, onde a fixture tem um.
+  // REVERSÃO: desenhar a linha do tom sempre faz `tom` deixar de ser vazio aqui.
+  checar(semArDurante.cab.titulo === 'Musica De Marcador' && semArDurante.cab.tom === '',
+    'e o cabeçalho traz o TÍTULO DA OBRA — e omite a linha do tom quando a '
+    + 'página não trouxe um, em vez de desenhar um rótulo vazio',
+    { titulo: semArDurante.cab.titulo, tom: semArDurante.cab.tom });
 
   // O FIM DA RAMPA É UM ESTADO DO APP, e é por ele que se espera — nunca pelo
   // resto do relógio. Predicado SÍNCRONO: `waitForFunction` não aguarda a
@@ -550,9 +588,9 @@ try {
   const semAr = await pg.evaluate(() => {
     const t1 = lyricsViewBodyEl.scrollTop;
     const titulo = cifraVelBtnEl ? cifraVelBtnEl.title : '';
-    const nota = window.__nota();
+    const cab = window.__cab();
     cifraRolarParar();
-    return { t1, titulo, nota };
+    return { t1, titulo, cab };
   });
   checar(semAr.t1 > semArInicio.t0 + 5,
     'e a folha ANDA depois da rampa: o modo LIVRE assumiu, que é o que o '
@@ -560,12 +598,12 @@ try {
   checar(/ritmo fixo/.test(semAr.titulo),
     'e o botão DIZ isso — o rótulo mostra a escolha, a frase mostra o que está '
     + 'acontecendo', semAr.titulo);
-  // ← A QUE CARREGA O ARQUIVO: sem ela, uma nota PERMANENTE passa nas duas de
-  // cima. A frase promete "ainda não", não "sempre".
-  checar(!semAr.nota.visivel,
-    'e a mensagem SOME quando o RITMO CHEIO chega (v1.6.2) — daí em diante a '
-    + 'folha andando no compasso pedido já diz tudo, e a frase, que promete "no '
-    + 'começo", deixaria de ser verdade', semAr);
+  // ← A QUE CARREGA A MARGEM: o cabeçalho ROLA JUNTO, então passado o arranque
+  // ele sai de cena sozinho. Fixo, ele cobraria altura da folha para sempre e
+  // não teria empurrado a intro coisa nenhuma.
+  checar(!semAr.cab.aVista,
+    'e o cabeçalho SAI de cena quando a folha andou — ele rola junto, que é o '
+    + 'que faz dele uma margem e não um rótulo permanente', semAr);
 
   // ======================================================================
   // METADE 2 — COM MÍDIA NO AR: o `auto` tira da música o RITMO, não a POSIÇÃO
@@ -600,23 +638,15 @@ try {
     const ritmo = cifraRitmoDoRelogio(rolavel);
     const rampaMs = AVCifra.rampaInicialDaRolagem(el.clientHeight, ritmo);
     cifraRolarAlternar();
-    const nota = window.__nota();
-    return { dur, t0: el.scrollTop, rolavel, ritmo, rampaMs, nota };
+    const cab = window.__cab();
+    return { dur, t0: el.scrollTop, rolavel, ritmo, rampaMs, cab };
   });
   checar(comArInicio.dur === 200,
     'com mídia no ar a duração da barra vale — é dela que o `auto` tira o ritmo',
     comArInicio);
-  // O PAR DA ASSERÇÃO DA FRASE: aqui HÁ duração e o degrau é o BASE, então esta é
-  // a única situação em que "no ritmo da música" é verdade — e é a metade que o
-  // operador pediu por extenso. REVERSÃO: fazer `cifraNotaTexto` devolver sempre
-  // a frase curta reprova aqui; devolver sempre a longa reprova na METADE 1.
-  checar(/ritmo da música/i.test(comArInicio.nota.texto),
-    'COM duração no ar e no degrau base a nota promete o ritmo da MÚSICA — é a '
-    + 'metade da frase que o operador pediu, dita onde ela é verdadeira',
-    comArInicio.nota.texto);
-  checar(comArInicio.nota.visivel && !comArInicio.nota.anel,
-    'e a mensagem também está na tela aqui, com música no ar — e sem anel '
-    + 'nenhum ao lado dela', comArInicio);
+  checar(comArInicio.cab.aVista && comArInicio.cab.antesDaFolha,
+    'o cabeçalho da obra também está na caixa aqui, com música no ar — a margem '
+    + 'não depende de haver relógio', comArInicio);
 
   // ===== O MARCO SAI DO ESTADO DO APP, NUNCA DO RELÓGIO (v1.6.2) =====
   //
@@ -635,20 +665,19 @@ try {
     'com mídia no ar a rampa também TERMINA sozinha — daqui em diante o compasso '
     + 'é o do relógio da música', porque(chegouComAr));
   const marcoComAr = await pg.evaluate(() => ({
-    scrollTop: lyricsViewBodyEl.scrollTop, nota: window.__nota(),
+    scrollTop: lyricsViewBodyEl.scrollTop, cab: window.__cab(),
   }));
-  checar(!marcoComAr.nota.visivel,
-    'e a mensagem some no MESMO quadro em que o ritmo cheio chega — não antes '
-    + '(sumiria em um quadro) e não depois (prometeria "no começo" para sempre)',
-    marcoComAr);
+  checar(!marcoComAr.cab.aVista,
+    'e o cabeçalho já saiu de cena quando o ritmo cheio chega — a margem é do '
+    + 'ARRANQUE, e o arranque acabou', marcoComAr);
   await dormir(1500);
   const comAr = await pg.evaluate(() => {
     const t1 = lyricsViewBodyEl.scrollTop;
     const titulo = cifraVelBtnEl ? cifraVelBtnEl.title : '';
-    const nota = window.__nota();
+    const cab = window.__cab();
     cifraRolarParar();
     midiaNoAr = false;
-    return { t1, titulo, nota };
+    return { t1, titulo, cab };
   });
   checar(comAr.t1 > comArInicio.t0,
     'e a folha ANDA com a música PARADA no segundo zero (v1.5.6): o `auto` '
@@ -665,9 +694,9 @@ try {
     { andou: comAr.t1 - marcoComAr.scrollTop, ritmo: comArInicio.ritmo });
   checar(/ritmo da música/.test(comAr.titulo),
     'e o botão diz que está seguindo a música', comAr.titulo);
-  checar(!comAr.nota.visivel,
-    'e ela CONTINUA fora da tela com o compasso cheio no ar — some uma vez, e '
-    + 'não pisca de volta', comAr);
+  checar(!comAr.cab.aVista,
+    'e o cabeçalho CONTINUA fora da tela com o compasso cheio no ar — sai uma '
+    + 'vez, e não volta', comAr);
 
   // ======================================================================
   // METADE 2-B — UM DEGRAU NUMÉRICO IGNORA O RELÓGIO (v1.6.1)
